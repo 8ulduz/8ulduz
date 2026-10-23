@@ -1,7 +1,347 @@
 {
- "updatedAt": "2026-10-23T12:17:58.822858+00:00",
- "count": 237,
+ "updatedAt": "2026-10-23T13:09:11.238941+00:00",
+ "count": 250,
  "articles": [
+  {
+   "id": "91f493b4882b2235",
+   "title": "UAE and Azerbaijan entrepreneurs purchase Turkmen flour, cotton yarn",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/turkmenistan/4238484.html",
+   "publishedAt": "2026-10-23T17:03:29+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "de79222bea7fbcce",
+   "title": "Azerbaijan’s gas exports to Serbia fall to $45.1M in eight months",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238464.html",
+   "publishedAt": "2026-10-23T17:02:32+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "308861f507d9b432",
+   "title": "Fitch rates Mercedes-Benz auto lease ABS with 13.25% hard credit enhancement",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/world/4238482.html",
+   "publishedAt": "2026-10-23T17:00:45+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "bd4c2c22fb919444",
+   "title": "Azərbaycan-NATO əməkdaşlığının gələcək perspektivləri müzakirə olunub",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/foreign-policy/azerbaycan-nato-emekdasliginin-gelecek-perspektivleri-muzakire-olunub-1007768",
+   "publishedAt": "2026-10-23T16:59:25+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "23e9632a30760607",
+   "title": "Kazakhstan’s ferroalloy exports to Japan decline 26.4% in January-August 2026",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238481.html",
+   "publishedAt": "2026-10-23T16:57:13+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "513cb6574547aa29",
+   "title": "Azerbaijan, India discuss bilateral, regional issues (PHOTO)",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/politics/4238475.html",
+   "publishedAt": "2026-10-23T16:55:10+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ef3a5ea4fde653ee",
+   "title": "Fitch affirms Uzbek Gross Insurance at ‘B+’ as capitalization improves",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238478.html",
+   "publishedAt": "2026-10-23T16:46:34+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1df7c14490d69d54",
+   "title": "EU chief condemns Black Sea ship sinking, Azerbaijanis on board",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238457.html",
+   "publishedAt": "2026-10-23T16:45:48+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ee6f590e6c49e391",
+   "title": "İordan çayının qərb sahilində atışmada İsrailin 2 hərbçisi ölüb - YENİLƏNİB",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/asia/iordan-cayinin-qerb-sahilinde-atismada-israilin-2-herbcisi-olub-yenilenib-1007600",
+   "publishedAt": "2026-10-23T16:41:27+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "99388248fa1690b5",
+   "title": "Tajikistan, Georgia FMs discuss bilateral relations in Batumi",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/tajikistan/4238473.html",
+   "publishedAt": "2026-10-23T16:39:50+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c33289320d28d936",
+   "title": "INPEX-led Bonaparte CCS project enters FEED phase in Australia",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/world/other/4238470.html",
+   "publishedAt": "2026-10-23T16:37:34+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "0f3162fdf6471b60",
+   "title": "INPEX starts ammonia production at Japan demonstration project",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/world/other/4238469.html",
+   "publishedAt": "2026-10-23T16:33:52+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "eb0b155f0e0749d3",
+   "title": "Kazakhstan, EU Anti-Fraud Office discuss export probes, market access",
+   "summary": "",
+   "category": "iqtisadiyyat",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238463.html",
+   "publishedAt": "2026-10-23T16:32:55+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "995fddcd1cef3941",
+   "title": "Tajikistan, OSCE discuss prospects for expanding cooperation",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/tajikistan/4238467.html",
+   "publishedAt": "2026-10-23T16:32:24+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "de286e1e7faafdff",
+   "title": "Tatneft’s Turkmenistan branch opens tender to repair crane safety systems",
+   "summary": "",
+   "category": "iqtisadiyyat",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/turkmenistan/4238460.html",
+   "publishedAt": "2026-10-23T16:31:30+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "875cb16a68fd052f",
+   "title": "India's Rossari Biotech registers as MDEA supplier in Azerbaijan (Exclusive)",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238445.html",
+   "publishedAt": "2026-10-23T16:30:30+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "13b35dabb12ff7ff",
+   "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb - FOTO - YENİLƏNİB",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-foto-yenilenib-1007741",
+   "publishedAt": "2026-10-23T16:30:10+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "9e2cc86359c916f9",
+   "title": "İordaniyada kilsəyə silahlı hücum olub, 7 nəfər ölüb",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/asia/iordaniyada-kilseye-silahli-hucum-olub-7-nefer-olub-1007759",
+   "publishedAt": "2026-10-23T16:22:50+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "9c52f262ed3ab0ea",
+   "title": "Göyçayda 26 min manatlıq oğurluq edilib, kürəkən və qayınata tutulub",
+   "summary": "",
+   "category": "iqtisadiyyat",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/goycayda-26-min-manatliq-ogurluq-edilib-kureken-ve-qayinata-tutulub-1007760",
+   "publishedAt": "2026-10-23T16:21:58+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "087b59c80303794b",
+   "title": "Uzbekistan, Polish firms explore joint manufacturing, export projects",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238459.html",
+   "publishedAt": "2026-10-23T16:17:45+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "45f546718dbb40df",
+   "title": "Seven shot dead by gunmen at church funeral in Jordan, state media say",
+   "summary": "Another 10 people are injured in the southern Karak governorate, and a manhunt is now under way.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/ck87zlpzny15o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T12:55:19+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "fa0a5e9ef3a02285",
+   "title": "Greece joins push to ban social media for minors",
+   "summary": "A growing number of countries are tightening rules governing children&#039;s online activity amid fears of addiction.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/greece-joins-push-to-ban-social-media-for-minors?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:55:16+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2b28ceeac1c813cc",
+   "title": "Russia-Ukraine talks planned for November in UAE: Kremlin",
+   "summary": "The US-brokered talks are the first planned talks since negotiations stopped earlier this year.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/russia-ukraine-talks-planned-for-november-in-uae-kremlin?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:54:44+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "36d3d871db5a8f69",
+   "title": "As President Paul Biya returns to Cameroon, can he still rule?",
+   "summary": "Cameroonians are wondering who Biya will appoint as vice president and possible successor.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/as-president-paul-biya-returns-to-cameroon-can-he-still-rule?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:52:28+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "dd2f644cf489860f",
+   "title": "The fight to protect India’s 600-year-old mosque in Ujjain",
+   "summary": "The minaret of Shahi mosque collapsed during demolition work to widen a road for a Hindu pilgrimage.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/23/ujjain-shahi-imosque-demolition-original?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:43:09+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "440f299457b6fd49",
+   "title": "CAS clears Japan’s Olympic silver medallist Ikeda of doping, overturns ban",
+   "summary": "Race walker Koki Ikeda returns to competition immediately; Ethiopia’s marathon runner Ruti Aga given 6-year doping ban.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/cas-clears-japans-olympic-silver-medallist-ikeda-of-doping-overturns-ban?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:34:10+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "82b8dcf3065671b4",
+   "title": "Galatasaraylı Batrakov'u canlı izlediler! '50 milyon sterlin'",
+   "summary": "Galatasaray'ın son olarak oynadığı Lille maçında, Premier Lig'in 2 devi tribündeydi. Öte yandan İngiliz basını, Batrakov'un transfer sürecine ilişkin önemli bilgileri paylaştı.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/galatasarayli-batrakovu-canli-izlediler-50-milyon-sterlin-43352447",
+   "publishedAt": "2026-10-23T12:21:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b78a7fe6081116d4",
+   "title": "Are parents in France and Italy liable for damage caused by student protesters?",
+   "summary": "Parents could face financial penalties if their children participate in vandalism or looting during demonstrations.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/are-parents-in-france-and-italy-liable-for-damage-caused-by-student-protesters?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:18:01+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ee718a6b45b0f128",
+   "title": "Denmark to ban mink farming in government U-turn",
+   "summary": "Once the world's largest producer of mink pelts, the nation's industry has declined in recent years.",
+   "category": "dunya",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c59vzjm118j1o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T12:17:45+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "047727599cac15cc",
+   "title": "Typhoon Champi unleashes huge waves along Taiwan’s coast",
+   "summary": "Huge waves were seen crashing into Taiwan’s northeastern coast as Typhoon Champi approached with winds reaching 191 km/h",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/23/typhoon-champi-unleashes-huge-waves-along-taiwans-coast?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:17:20+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "f612068fbdde8349",
+   "title": "78 ilde uyuşturucu operasyonu: 1466 tutuklama",
+   "summary": "İçişleri Bakanlığı, 78 ilde uyuşturucu satıcılarına yönelik gerçekleştirilen operasyonlarda yakalanan 2 bin 733 şüpheliden 1466'sının tutuklandığını duyurdu.",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/78-ilde-uyusturucu-operasyonu-1466-tutuklama-43352436",
+   "publishedAt": "2026-10-23T12:17:12+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "cabb206d6003ef4f",
+   "title": "Ukraine plans independent satellite system as Starlink issues persist",
+   "summary": "Ukraine to team up with Finnish firms as Starshield problems, started amid Trump-Zelenskyy jibes, continue.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/ukraine-plans-independent-satellite-system-as-starlink-issues-persist?traffic_source=rss",
+   "publishedAt": "2026-10-23T12:16:50+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "68d034c25a82eda7",
+   "title": "Nişanlısı tarafından öldürülen Avukat Özge Penbegül'e acı veda",
+   "summary": "İzmir'in Menemen ilçesinde nişanlı olduğu polis memuru Aykut Erol tarafından öldürülen 26 yaşındaki Avukat Özge Penbegül'ün cenazesi gözyaşları içinde son yolculuğuna uğurlandı. Özge Penbegül'ün tabutuna meslektaşları tarafından cübbe örtüldü.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/nisanlisi-tarafindan-oldurulen-avukat-ozge-penbegule-aci-veda-43352418",
+   "publishedAt": "2026-10-23T12:07:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ad13ac8f146e517b",
+   "title": "Beşiktaş’tan Fabio Miretti için sakatlık açıklaması!",
+   "summary": "Beşiktaş, Fabio Miretti'nin sağ omuz-köprücük kemiği eklem bölgesinde yaralanma tespit edildiğini açıkladı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/besiktastan-fabio-miretti-icin-sakatlik-aciklamasi-43352387",
+   "publishedAt": "2026-10-23T11:48:53+00:00",
+   "imageUrl": null
+  },
   {
    "id": "2ef2c97f4986bc17",
    "title": "Azerbaijan approves crime-fighting cooperation agreement with Kyrgyzstan",
@@ -143,76 +483,6 @@
    "imageUrl": null
   },
   {
-   "id": "3792ea141c492528",
-   "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb - FOTO",
-   "summary": "",
-   "category": "cemiyyet",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-foto-1007741",
-   "publishedAt": "2026-10-23T15:46:23+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5d698b5d1f36ebfd",
-   "title": "Turkmenistan, IOGP Europe explore routes for gas supplies to Europe",
-   "summary": "",
-   "category": "dunya",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/casia/turkmenistan/4238426.html",
-   "publishedAt": "2026-10-23T15:31:00+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "daee4efc2ca5283c",
-   "title": "US-Iran war, then and now: How the landscape has changed since February",
-   "summary": "The positions of Washington and Tehran have changed dramatically since US-Israeli strikes began the war, analysts say.",
-   "category": "dunya",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/us-iran-war-then-and-now-how-the-landscape-has-changed-since-february?traffic_source=rss",
-   "publishedAt": "2026-10-23T11:43:53+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "7deaa904064250d5",
-   "title": "Saudi Arabia security puts Asian Cup in doubt: Japan football chief",
-   "summary": "Tsuneyasu Miyamoto says it will be difficult for Saudi Arabia to host next year&#039;s tournament as scheduled.",
-   "category": "gundem",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/saudi-arabia-security-puts-asian-cup-in-doubt-japan-football-chief?traffic_source=rss",
-   "publishedAt": "2026-10-23T11:34:59+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "172af20712405927",
-   "title": "Beline kuşağını sardı... Annesi de hazinenin anahtarını ona vermiş",
-   "summary": "Dünyanın en göz önünde insanlarından biri İspanya'nın gelecekteki kraliçesi, Asturias Prensesi Leonor…",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/beline-kusagini-sardi-annesi-de-taki-sandigini-acmis-43352098",
-   "publishedAt": "2026-10-23T11:34:05+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "a61d0a6e84334565",
-   "title": "Sevgilisinin kapısını çaldı, karşısına eşi çıktı: Film gibi kovalamaca adliyede bitti",
-   "summary": "Aydın’da sevgilisinin evinde eşiyle yüz yüze gelince ortalığı birbirine katan ve eşini silahla tehdit ettikten sonra kaçan koca, nefes kesen takiple yakalandı. Otoban kavşağında polise direnen, otomobil camı kırılarak gözaltına alınan şüpheli; eşi şikayetçi olmasa da polise mukavemet ve ruhsatsız silahtan hakim karşısına çıkarıldı.",
-   "category": "medeniyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/sevgilisinin-kapisini-caldi-karsisina-esi-cikti-film-gibi-kovalamaca-adliyede-bitti-43352342",
-   "publishedAt": "2026-10-23T11:33:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5b4ffbd10ebbf9ed",
-   "title": "‘Pink blooms from among the rubble’: Battling breast cancer in Gaza",
-   "summary": "Health workers in Gaza are participating in a breast cancer campaign called ‘pink blooms from among the rubble’.",
-   "category": "siyaset",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/23/pink-blooms-from-among-the-rubble-battling-breast-cancer-in-gaza?traffic_source=rss",
-   "publishedAt": "2026-10-23T11:27:35+00:00",
-   "imageUrl": null
-  },
-  {
    "id": "8d84c1e80d8f7229",
    "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb",
    "summary": "",
@@ -220,6 +490,16 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-1007741",
    "publishedAt": "2026-10-23T15:46:26+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "3792ea141c492528",
+   "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb - FOTO",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-foto-1007741",
+   "publishedAt": "2026-10-23T15:46:23+04:00",
    "imageUrl": null
   },
   {
@@ -280,6 +560,16 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238426.html",
    "publishedAt": "2026-10-23T15:31:26+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "5d698b5d1f36ebfd",
+   "title": "Turkmenistan, IOGP Europe explore routes for gas supplies to Europe",
+   "summary": "",
+   "category": "dunya",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/turkmenistan/4238426.html",
+   "publishedAt": "2026-10-23T15:31:00+04:00",
    "imageUrl": null
   },
   {
@@ -1223,6 +1513,16 @@
    "imageUrl": null
   },
   {
+   "id": "daee4efc2ca5283c",
+   "title": "US-Iran war, then and now: How the landscape has changed since February",
+   "summary": "The positions of Washington and Tehran have changed dramatically since US-Israeli strikes began the war, analysts say.",
+   "category": "dunya",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/us-iran-war-then-and-now-how-the-landscape-has-changed-since-february?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:43:53+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "e777c92000a15bbe",
    "title": "Avstriya  casusluqda şübhəli bilinən dörd Rusiya diplomatını \"arzuolunmaz şəxs\" elan edib",
    "summary": "",
@@ -1233,6 +1533,36 @@
    "imageUrl": null
   },
   {
+   "id": "7deaa904064250d5",
+   "title": "Saudi Arabia security puts Asian Cup in doubt: Japan football chief",
+   "summary": "Tsuneyasu Miyamoto says it will be difficult for Saudi Arabia to host next year&#039;s tournament as scheduled.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/saudi-arabia-security-puts-asian-cup-in-doubt-japan-football-chief?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:34:59+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "172af20712405927",
+   "title": "Beline kuşağını sardı... Annesi de hazinenin anahtarını ona vermiş",
+   "summary": "Dünyanın en göz önünde insanlarından biri İspanya'nın gelecekteki kraliçesi, Asturias Prensesi Leonor…",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/beline-kusagini-sardi-annesi-de-taki-sandigini-acmis-43352098",
+   "publishedAt": "2026-10-23T11:34:05+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a61d0a6e84334565",
+   "title": "Sevgilisinin kapısını çaldı, karşısına eşi çıktı: Film gibi kovalamaca adliyede bitti",
+   "summary": "Aydın’da sevgilisinin evinde eşiyle yüz yüze gelince ortalığı birbirine katan ve eşini silahla tehdit ettikten sonra kaçan koca, nefes kesen takiple yakalandı. Otoban kavşağında polise direnen, otomobil camı kırılarak gözaltına alınan şüpheli; eşi şikayetçi olmasa da polise mukavemet ve ruhsatsız silahtan hakim karşısına çıkarıldı.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/sevgilisinin-kapisini-caldi-karsisina-esi-cikti-film-gibi-kovalamaca-adliyede-bitti-43352342",
+   "publishedAt": "2026-10-23T11:33:00+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "6f254b93b6092354",
    "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
    "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system during their long siege and subsequent takeover of the city in Darfur a year ago. BBC Africa correspondent Barbara Plett Usher explains.",
@@ -1240,6 +1570,16 @@
    "source": "BBC News",
    "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
    "publishedAt": "2026-10-23T11:30:32+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "5b4ffbd10ebbf9ed",
+   "title": "‘Pink blooms from among the rubble’: Battling breast cancer in Gaza",
+   "summary": "Health workers in Gaza are participating in a breast cancer campaign called ‘pink blooms from among the rubble’.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/23/pink-blooms-from-among-the-rubble-battling-breast-cancer-in-gaza?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:27:35+00:00",
    "imageUrl": null
   },
   {
@@ -2160,216 +2500,6 @@
    "source": "Hürriyet",
    "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/ahmet-hakan/berat-albayraka-iftira-atmaya-doyamiyorlar-43351719",
    "publishedAt": "2026-10-23T02:47:51+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "be9481d2600e1cca",
-   "title": "Trump ordered to answer questions under oath in BBC lawsuit",
-   "summary": "Trump is suing the BBC over an episode of Panorama that edited together two different sections of a speech he gave in 2021.",
-   "category": "dunya",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cmy0ryjx7741o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T01:38:44+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "50021d91cff3c9b7",
-   "title": "Attack on actor Tiger Shroff is dark reminder of Bollywood's gangster past",
-   "summary": "The attack on Shroff has revived memories of the 1990s, when gangsters wielded influence over the industry.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6vgjk1lp7njo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T23:55:39+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ef3835611c59706c",
-   "title": "Surveillance and 'constant paranoia': Western diplomats tell BBC of life in war-time Moscow",
-   "summary": "Officials compare working in Russia since its full-scale invasion of Ukraine to the Cold War era.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cj75p1xr7p7vo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T23:16:20+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "84738a388b9c1d27",
-   "title": "L'Oreal says weight loss drugs are impacting beauty and skincare sales",
-   "summary": "The beauty giant's CEO says the use of GLP-1s is \"a very important phenomenon for us\".",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cvglwgwpgrlpo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T22:27:53+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "2ad5387f6f499728",
-   "title": "Watch: 'It's part of the culture' - New York bans horse-drawn carriages after more than 160 years",
-   "summary": "The BBC's Madeline Halpert spoke to city tourists, residents and horse carriage workers about the industry and their opinion on the ban.",
-   "category": "medeniyyet",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck5yn9dqnqj7o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T20:48:56+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ca69a5b65ecc9eb2",
-   "title": "Ukraine hit by strikes after Russia agrees to new peace talks",
-   "summary": "The three waves of Russian missiles were launched at hours after Russia said it was \"ready in principle\" to resume peace talks with the US and Ukraine.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/c9146p1vx888o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T17:49:13+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b853ddd115d8f57c",
-   "title": "Race to update services' computer systems after cyber-security flaw found",
-   "summary": "Websites were taken offline after the developers of programming language PHP said \"critical vulnerabilities\" had been discovered.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c9j34zgmkxx1o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T17:12:51+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "8af10dc0e103beae",
-   "title": "Crowd of 50 beats foreigner to death in South Africa",
-   "summary": "The attack on the unidentified victim follows a wave of anti-migrants protests in South Africa this year.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/ck5yn9z3vnego?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T16:15:25+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "8487bcceecf1c3a8",
-   "title": "Newborn twins fight for survival as conflict fuels Yemen's hunger crisis",
-   "summary": "Raghad and Raad's family had to flee their home on foot because of the fighting between pro-government forces and the Houthis.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cr5ynl63v0pyo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T15:56:36+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5fa1ad24517cfece",
-   "title": "Damaging hail pelts Phoenix in rare storm",
-   "summary": "Videos from the Arizona capital show people sheltering inside a car as hail smashes the windscreen, while intense downpours covered neighbourhoods in ice.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cm5ynpz5jj5do?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T15:11:49+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "fd300d7191747a81",
-   "title": "Kocasından 23 yaş büyük… Kötü sözlere aldırmadan yaşıyor: Aşk her şeyin üstesinden gelir",
-   "summary": "Onların aşkı ve evliliği sinema dünyasının en çok dedikodusu yapılan ilişkilerinden biri. Ünlü çiftin evliliği sadece aralarındaki büyük yaş farkından dolayı değil bu ilişkinin başladığı koşullar yüzünden de tartışılmaya devam ediyor.",
-   "category": "medeniyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/magazin/kocasindan-23-yas-buyuk-kotu-sozlere-aldirmadan-yasiyor-ask-her-seyin-ustesinden-gelir-43351046",
-   "publishedAt": "2026-10-22T13:11:35+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "960b52877ce9615f",
-   "title": "Hayatının aşkıyla anaokulunda tanışmıştı... O tatlı veda öpücüğünün üzerinden bir yıl geçti",
-   "summary": "Her anne ve baba için evladının evlenip yuvadan uçması hayatın en büyük ve karmaşık heyecanlarından biri kuşkusuz...",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/hayatinin-askiyla-anaokulunda-tanismisti-o-tatli-veda-opucugunun-uzerinden-bir-yil-gecti-43350674",
-   "publishedAt": "2026-10-22T12:23:24+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "3051f64fd4a33355",
-   "title": "AI discovered a massive cyber-security flaw - here's what happened",
-   "summary": "The BBC's technology correspondent Joe Tidy explains how it happened, and what it means for you.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cq0ld7e0jg2eo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T12:17:44+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "81f1bec28418b544",
-   "title": "Ünlü oyuncu 90 kilo verdi, bambaşka biri oldu… ‘İçkiyi bıraktım, yemeği alkolik gibi yedim’",
-   "summary": "Son zamanlarda giderek popülerleşen zayıflama iğneleriyle birlikte ünlüler dünyasında da büyük bir değişim yaşanıyor. Kilo problemi yaşayan ünlüler de aslında gayet zayıf görünenler de bu ilaçları kullanarak sürekli kilo veriyor.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/magazin/unlu-oyuncu-90-kilo-verdi-bambaska-biri-oldu-ickiyi-biraktim-yemegi-alkolik-gibi-yedim-43350929",
-   "publishedAt": "2026-10-22T11:38:09+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "9077dbb4907780cc",
-   "title": "Moment man rescued from sinking car by Australian TV reporter",
-   "summary": "Journalist Will Murray describes how he and a bystander saved an SUV driver from his vehicle.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cwdr8zm3r5gko?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T11:08:33+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "c71dec0cc1c14b6b",
-   "title": "How Arab parties could hold critical balance of power in Israeli election",
-   "summary": "Disaffection has often driven down turnout among Arab Israelis, but there is a strong push to get rid of the right-wing governing coalition.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cx8dzrp768j8o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T05:30:22+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "43769c764d043a0e",
-   "title": "Pişirme teknolojisinde yeni nesil: Mutfaktaki Plasma Steel farkını adım adım keşfedin!",
-   "summary": "Karaca’nın mutfak teknolojisinde yeni bir dönem başlatan Plasma Steel 3PLY 316+ Tencere Serisi, lansman döneminde gördüğü yoğun ilginin ardından yenilenen stoklarıyla yeniden mutfaklara dönüyor. Türkiye’de ilk kez plasma teknolojisiyle güçlendirilmiş seri, kaplama veya teflon içermeyen yapısını, yapışmaz pişirme performansı ve uzun ömürlü kullanım avantajlarıyla bir araya getiriyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/pisirme-teknolojisinde-yeni-nesil-mutfaktaki-plasma-steel-farkini-adim-adim-kesfedin-43299011",
-   "publishedAt": "2026-09-07T12:09:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "68a4d72d96bf6e7d",
-   "title": "Zarafetin Geometrisi: HUAWEI Watch Ultimate Design",
-   "summary": "Günün koşturmacası içinde zamanı sadece takip etmek mi, yoksa onu hayatın her anında bir sanat eseri gibi yaşamak mı? Akıllı saatler artık sadece adım sayan ya da telefon bildirimlerini ekrana yansıtan teknolojik aksesuarlar olmaktan çıktı.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/zarafetin-geometrisi-huawei-watch-ultimate-design-43230971",
-   "publishedAt": "2026-07-06T14:42:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ad5bd0a5170b92c3",
-   "title": "Çocuğunuzu Geleceğe Hazırlayan Eğitim Nasıl Olmalı?",
-   "summary": "Anne babalar bu sorunun cevabını arıyor: Çocuğumuz, henüz var olmayan mesleklerin ve hızla değişen teknolojilerin şekillendireceği gelecekte ne kadar güçlü durabilecek? İşte merak edilen cevaplar…",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/cocugunuzu-gelecege-hazirlayan-egitim-nasil-olmali-43210325",
-   "publishedAt": "2026-06-18T14:22:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d96356a51646e7d0",
-   "title": "Doğanın izinde tasarlanan sofraların gerçek sırrını keşfedin!",
-   "summary": "Sofra grubundan mutfak ürünlerine, küçük ev aletlerinden ev tekstiline kadar pek çok ihtiyacı kullanıcılarının beğenisine sunan Karaca; Türkiye’nin dünyaca tanınan şefi Fatih Tutak iş birliğiyle tasarlanan “Karaca Earth Collection Fatih Tutak Serisi”ni, ilhamını doğanın sadeliğinden alanlar için üretti.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/doganin-izinde-tasarlanan-sofralarin-gercek-sirrini-kesfedin-43135818",
-   "publishedAt": "2026-03-25T07:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "715bcfd3f6f4c983",
-   "title": "Türkiye 2-2 Karadağ (Maçın özeti ve golleri)",
-   "summary": "A Milli Takım, 2022 FIFA Dünya Kupası Elemeleri G Grubu dördüncü maçında Karadağ ile 2-2 berabere kaldı.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/turkiye-2-2-karadag-macin-ozeti-ve-golleri-41885564",
-   "publishedAt": "2021-09-01T21:07:00+00:00",
    "imageUrl": null
   }
  ]
