@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-23T10:47:38.654650+00:00",
+ "updatedAt": "2026-10-23T10:49:36.211321+00:00",
  "count": 179,
  "articles": [
   {
@@ -983,6 +983,16 @@
    "imageUrl": null
   },
   {
+   "id": "smp01",
+   "title": "Xəbər lenti qoşulur — real xəbərlər yaxın dəqiqələrdə əlavə olunacaq",
+   "summary": "Bu müvəqqəti xəbərdir. Avtomatik yeniləmə sistemi hər 15 dəqiqədə AZƏRTAC, APA, Report, Trend, BBC, Al Jazeera, Daily Sabah və Hürriyet mənbələrini yoxlayır.",
+   "category": "gundem",
+   "source": "8ulduz",
+   "sourceUrl": "https://github.com/8ulduz/8ulduz",
+   "publishedAt": "2026-10-23T09:05:36.667127+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "264cc0021fea36b5",
    "title": "İngiliz basını Beşiktaş-Crystal Palace maçını konuşuyor: 'Palace beraberlikle yetinmek zorunda kaldı!'",
    "summary": "Beşiktaş ile Crystal Palace, UEFA Avrupa Ligi'nin üçüncü haftasında 2-2 berabere kaldı. Mücadele İngiliz  basınında geniş yer buldu.",
@@ -1780,16 +1790,6 @@
    "source": "Hürriyet",
    "sourceUrl": "https://www.hurriyet.com.tr/sporarena/turkiye-2-2-karadag-macin-ozeti-ve-golleri-41885564",
    "publishedAt": "2021-09-01T21:07:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "smp01",
-   "title": "Xəbər lenti qoşulur — real xəbərlər yaxın dəqiqələrdə əlavə olunacaq",
-   "summary": "Bu müvəqqəti xəbərdir. Avtomatik yeniləmə sistemi hər 15 dəqiqədə AZƏRTAC, APA, Report, Trend, BBC, Al Jazeera, Daily Sabah və Hürriyet mənbələrini yoxlayır.",
-   "category": "gundem",
-   "source": "8ulduz",
-   "sourceUrl": "https://github.com/8ulduz/8ulduz",
-   "publishedAt": "2026-10-23T09:05:36.667127+00:00",
    "imageUrl": null
   }
  ]
