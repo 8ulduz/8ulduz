@@ -1,7 +1,217 @@
 {
- "updatedAt": "2026-10-23T11:47:00.136131+00:00",
- "count": 216,
+ "updatedAt": "2026-10-23T12:17:58.822858+00:00",
+ "count": 237,
  "articles": [
+  {
+   "id": "2ef2c97f4986bc17",
+   "title": "Azerbaijan approves crime-fighting cooperation agreement with Kyrgyzstan",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/politics/4238451.html",
+   "publishedAt": "2026-10-23T16:15:29+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "44f2400d8ae3b14d",
+   "title": "\"İri Şəhərlərin Su Təchizatı\"nın yeni icraçı direktoru kollektivə təqdim edilib",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/entrepreneurship/iri-seherlerin-su-techizatinin-yeni-icraci-direktoru-kollektive-teqdim-edilib-1007757",
+   "publishedAt": "2026-10-23T16:15:26+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "f7f1275a6104c9e7",
+   "title": "Moskvanın Şeremetyevo hava limanında hava hücumu xəbərdarlığı elan edilib",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/cis-countries/moskvanin-seremetyevo-hava-limaninda-hava-hucumu-xeberdarligi-elan-edilib-1007755",
+   "publishedAt": "2026-10-23T16:14:07+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7707a03630a0efca",
+   "title": "Central Asian, Georgian FMs discuss Middle Corridor development",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238453.html",
+   "publishedAt": "2026-10-23T16:10:45+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c41dd9690f8cccfd",
+   "title": "Azerbaijan signs agreement to participate in Expo 2030 Riyadh (PHOTO)",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/politics/4238441.html",
+   "publishedAt": "2026-10-23T16:10:13+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7765d5e1cb3ea59b",
+   "title": "Kapital Bank leads Azerbaijan Q3 bank incomes at $887M - ranking",
+   "summary": "",
+   "category": "iqtisadiyyat",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238413.html",
+   "publishedAt": "2026-10-23T16:09:50+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "e4243ab53705e2aa",
+   "title": "Ermənistanda Samvel Karapetyanın daha 10 tərəfdarı saxlanılıb",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/cis-countries/ermenistanda-samvel-karapetyanin-daha-10-terefdari-saxlanilib-1007753",
+   "publishedAt": "2026-10-23T16:07:08+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "bd5ba832bb00dcae",
+   "title": "Biləcəridə 2 otaqlı studiya mənzillər güzəştli kredit və ipoteka ilə satışda!",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/infrastructure/bileceride-2-otaqli-studiya-menziller-guzestli-kredit-ve-ipoteka-ile-satisda-1007749",
+   "publishedAt": "2026-10-23T15:59:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b07270e7245db695",
+   "title": "İranda ən böyük Günəş Elektrik Stansiyasının tikintisi başa çatıb",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/energy-and-industry/iranda-en-boyuk-gunes-elektrik-stansiyasinin-tikintisi-basa-catib-1007747",
+   "publishedAt": "2026-10-23T15:58:32+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "31a395cc5e87d353",
+   "title": "Azərbaycanla Qırğızıstan arasında cinayətkarlıqla mübarizə sahəsində saziş təsdiqlənib",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/official-news/azerbaycanla-qirgizistan-arasinda-cinayetkarliqla-mubarize-sahesinde-sazis-tesdiqlenib-1007750",
+   "publishedAt": "2026-10-23T15:58:05+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "537482a686348569",
+   "title": "Fitch affirms Uzbek Kafolat Insurance’s ‘BB-’ rating with positive outlook",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238439.html",
+   "publishedAt": "2026-10-23T15:57:23+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "99ed775ddb81bbb0",
+   "title": "Azərbaycan-Hindistan münasibətlərində yeni mərhələ: Bakı və Yeni Dehli arasında siyasi dialoq genişlənir – TƏHLİL",
+   "summary": "",
+   "category": "siyaset",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/political/azerbaycan-hindistan-munasibetlerinde-yeni-merhele-baki-ve-yeni-dehli-arasinda-siyasi-dialoq-genislenir-tehlil-1007733",
+   "publishedAt": "2026-10-23T15:54:37+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "916c447b70f5db8e",
+   "title": "Yağıntılı hava şəraiti davam edəcək, dolu düşəcək  - XƏBƏRDARLIQ",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/weather-forecast/yagintili-hava-seraiti-davam-edecek-dolu-dusecek-xeberdarliq-1007745",
+   "publishedAt": "2026-10-23T15:52:38+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "828fe6a83970f341",
+   "title": "Ucarda “Aqrar Biznes” və “I Çəltik” festivalı keçirilib - FOTO",
+   "summary": "",
+   "category": "medeniyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/agrarian-industry/ucarda-aqrar-biznes-ve-i-celtik-festivali-kecirilib-foto-1007743",
+   "publishedAt": "2026-10-23T15:50:36+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "3792ea141c492528",
+   "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb - FOTO",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-foto-1007741",
+   "publishedAt": "2026-10-23T15:46:23+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "5d698b5d1f36ebfd",
+   "title": "Turkmenistan, IOGP Europe explore routes for gas supplies to Europe",
+   "summary": "",
+   "category": "dunya",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/turkmenistan/4238426.html",
+   "publishedAt": "2026-10-23T15:31:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "daee4efc2ca5283c",
+   "title": "US-Iran war, then and now: How the landscape has changed since February",
+   "summary": "The positions of Washington and Tehran have changed dramatically since US-Israeli strikes began the war, analysts say.",
+   "category": "dunya",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/us-iran-war-then-and-now-how-the-landscape-has-changed-since-february?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:43:53+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7deaa904064250d5",
+   "title": "Saudi Arabia security puts Asian Cup in doubt: Japan football chief",
+   "summary": "Tsuneyasu Miyamoto says it will be difficult for Saudi Arabia to host next year&#039;s tournament as scheduled.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/saudi-arabia-security-puts-asian-cup-in-doubt-japan-football-chief?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:34:59+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "172af20712405927",
+   "title": "Beline kuşağını sardı... Annesi de hazinenin anahtarını ona vermiş",
+   "summary": "Dünyanın en göz önünde insanlarından biri İspanya'nın gelecekteki kraliçesi, Asturias Prensesi Leonor…",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/beline-kusagini-sardi-annesi-de-taki-sandigini-acmis-43352098",
+   "publishedAt": "2026-10-23T11:34:05+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a61d0a6e84334565",
+   "title": "Sevgilisinin kapısını çaldı, karşısına eşi çıktı: Film gibi kovalamaca adliyede bitti",
+   "summary": "Aydın’da sevgilisinin evinde eşiyle yüz yüze gelince ortalığı birbirine katan ve eşini silahla tehdit ettikten sonra kaçan koca, nefes kesen takiple yakalandı. Otoban kavşağında polise direnen, otomobil camı kırılarak gözaltına alınan şüpheli; eşi şikayetçi olmasa da polise mukavemet ve ruhsatsız silahtan hakim karşısına çıkarıldı.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/sevgilisinin-kapisini-caldi-karsisina-esi-cikti-film-gibi-kovalamaca-adliyede-bitti-43352342",
+   "publishedAt": "2026-10-23T11:33:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "5b4ffbd10ebbf9ed",
+   "title": "‘Pink blooms from among the rubble’: Battling breast cancer in Gaza",
+   "summary": "Health workers in Gaza are participating in a breast cancer campaign called ‘pink blooms from among the rubble’.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/23/pink-blooms-from-among-the-rubble-battling-breast-cancer-in-gaza?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:27:35+00:00",
+   "imageUrl": null
+  },
   {
    "id": "8d84c1e80d8f7229",
    "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb",
@@ -143,96 +353,6 @@
    "imageUrl": null
   },
   {
-   "id": "000a0f8bd238d6be",
-   "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/official-news/prezidentin-sosial-sebeke-hesablarinda-hindistanin-xin-rehberini-qebul-etmesi-ile-bagli-videocarx-paylasilib-video-1007726",
-   "publishedAt": "2026-10-23T15:09:07+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "81b2ec1f8f016c27",
-   "title": "Aİ lideri: Qara dənizdə Azərbaycan vətəndaşlarının da olduğu mülki gəmi vurulub, 3 nəfər hələ də itkindir",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/foreign-policy/ai-lideri-qara-denizde-azerbaycan-vetendaslarinin-da-oldugu-mulki-gemi-vurulub-3-nefer-hele-de-itkindir-1007718",
-   "publishedAt": "2026-10-23T15:01:22+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6f254b93b6092354",
-   "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
-   "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system during their long siege and subsequent takeover of the city in Darfur a year ago. BBC Africa correspondent Barbara Plett Usher explains.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T11:30:32+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "20edde206dd839e9",
-   "title": "France tightens security in anticipation of weekend protests",
-   "summary": "Gatherings banned and curfews extended as cities lock down in an effort to avert further unrest.",
-   "category": "gundem",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/france-tightens-security-in-anticipation-of-weekend-protests?traffic_source=rss",
-   "publishedAt": "2026-10-23T11:05:13+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "1911545be2c2941d",
-   "title": "Fransa'da silahlı saldırgan dehşeti: Katliam çıkarmak istiyordu",
-   "summary": "Fransa'da silahlı bir saldırgan dehşet saçtı. Başkent Paris'in batısındaki Trappes kasabası yakınlarında meydana gelen olayda 1 kişi öldü, 4 kişi yaralandı. Trappes Belediye Başkanı Ali Rabeh, saldırganın \"katliam çıkarmak\" istediğini söyledi.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/dunya/fransada-silahli-saldirgan-dehseti-katliam-cikarmak-istiyordu-43352309",
-   "publishedAt": "2026-10-23T10:58:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "19ddc4e1c1bc27e5",
-   "title": "Hayali staj çarkı deşifre edildi: Eski okul müdürlerinin de olduğu 12 şüpheli cezaevine gönderildi",
-   "summary": "Mersin polisinin koordinasyonunda yürütülen soruşturmada, staja gitmeyen öğrenciler üzerinden kurulan milyonluk rüşvet ve usulsüzlük ağı çökertildi. 36 milyon liralık kamu zararı ve 8,7 milyon liralık rüşvet suçlamasıyla mahkemeye çıkarılan şüphelilerden 12'si tutuklanırken, diğer zanlılar adli kontrol şartıyla serbest kaldı.",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/hayali-staj-carki-desifre-edildi-eski-okul-mudurlerinin-de-oldugu-12-supheli-cezaevine-gonderildi-43352310",
-   "publishedAt": "2026-10-23T10:53:45+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "fbabf92905c2f5af",
-   "title": "Manchester United, Emery'yi listesine aldı! Tazminat için dev rakam",
-   "summary": "Manchester United yönetimi, Michael Carrick ile yollarını ayırmaya hazırlanıyor. Listede Eddie Howe, Nagelsmann ve Emery var. Aston Villa, Emery için talep edilecek tazminat ücretini belirledi.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/manchester-united-emeryyi-listesine-aldi-tazminat-icin-dev-rakam-43352280",
-   "publishedAt": "2026-10-23T10:51:49+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "58ee29c94ba45f01",
-   "title": "Herkes onların büyük aşkını ve yeni doğan bebeğini konuşuyor... Bıkmadan uğraştı sonunda ailesiyle ilgili şoke eden gerçeği buldu",
-   "summary": "Bir çocuk yıldız olarak tanındıktan sonra kariyerini sürdüren oyuncu Dylan Sprouse, ailesinin kuşaklar boyu uzanan bir sırrını ortaya çıkardı!",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/unlu-oyuncunun-ailesinde-kimse-bu-gercegi-bilmiyordu-annesi-ve-babasi-akraba-cikti-43351074",
-   "publishedAt": "2026-10-23T08:53:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "09032effd3dd2dcd",
-   "title": "Blue Planet III: Moment octopus escapes death after hunt gone wrong",
-   "summary": "The sequence is part of the latest Blue Planet series from Sir David Attenborough.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck240lmvqjyjo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T05:05:03+00:00",
-   "imageUrl": null
-  },
-  {
    "id": "fa589dd77dc24f66",
    "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini rəsmi qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
    "summary": "",
@@ -250,6 +370,16 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/incident/elet-astara-yolunun-yaxinliginda-aciq-erazi-yanir-foto-yenilenib-1007711",
    "publishedAt": "2026-10-23T15:09:09+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "000a0f8bd238d6be",
+   "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
+   "summary": "",
+   "category": "siyaset",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/official-news/prezidentin-sosial-sebeke-hesablarinda-hindistanin-xin-rehberini-qebul-etmesi-ile-bagli-videocarx-paylasilib-video-1007726",
+   "publishedAt": "2026-10-23T15:09:07+04:00",
    "imageUrl": null
   },
   {
@@ -280,6 +410,16 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/entrepreneurship/azerbaycan-metrologiya-institutu-ve-polsanin-merkezi-olculer-idaresi-arasinda-yol-xeritesi-imzalanib-1007720",
    "publishedAt": "2026-10-23T15:03:53+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "81b2ec1f8f016c27",
+   "title": "Aİ lideri: Qara dənizdə Azərbaycan vətəndaşlarının da olduğu mülki gəmi vurulub, 3 nəfər hələ də itkindir",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/foreign-policy/ai-lideri-qara-denizde-azerbaycan-vetendaslarinin-da-oldugu-mulki-gemi-vurulub-3-nefer-hele-de-itkindir-1007718",
+   "publishedAt": "2026-10-23T15:01:22+04:00",
    "imageUrl": null
   },
   {
@@ -1093,6 +1233,16 @@
    "imageUrl": null
   },
   {
+   "id": "6f254b93b6092354",
+   "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
+   "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system during their long siege and subsequent takeover of the city in Darfur a year ago. BBC Africa correspondent Barbara Plett Usher explains.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T11:30:32+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "d7c780964626fca6",
    "title": "At least one dead and four injured in Paris suburb shooting",
    "summary": "The French prime minister says an individual is in police custody after a \"serious event\" in Trappes.",
@@ -1100,6 +1250,46 @@
    "source": "BBC News",
    "sourceUrl": "https://www.bbc.co.uk/news/articles/c6ev38dj1g8zo?at_medium=RSS&at_campaign=rss",
    "publishedAt": "2026-10-23T11:09:36+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "20edde206dd839e9",
+   "title": "France tightens security in anticipation of weekend protests",
+   "summary": "Gatherings banned and curfews extended as cities lock down in an effort to avert further unrest.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/france-tightens-security-in-anticipation-of-weekend-protests?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:05:13+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1911545be2c2941d",
+   "title": "Fransa'da silahlı saldırgan dehşeti: Katliam çıkarmak istiyordu",
+   "summary": "Fransa'da silahlı bir saldırgan dehşet saçtı. Başkent Paris'in batısındaki Trappes kasabası yakınlarında meydana gelen olayda 1 kişi öldü, 4 kişi yaralandı. Trappes Belediye Başkanı Ali Rabeh, saldırganın \"katliam çıkarmak\" istediğini söyledi.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/fransada-silahli-saldirgan-dehseti-katliam-cikarmak-istiyordu-43352309",
+   "publishedAt": "2026-10-23T10:58:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "19ddc4e1c1bc27e5",
+   "title": "Hayali staj çarkı deşifre edildi: Eski okul müdürlerinin de olduğu 12 şüpheli cezaevine gönderildi",
+   "summary": "Mersin polisinin koordinasyonunda yürütülen soruşturmada, staja gitmeyen öğrenciler üzerinden kurulan milyonluk rüşvet ve usulsüzlük ağı çökertildi. 36 milyon liralık kamu zararı ve 8,7 milyon liralık rüşvet suçlamasıyla mahkemeye çıkarılan şüphelilerden 12'si tutuklanırken, diğer zanlılar adli kontrol şartıyla serbest kaldı.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/hayali-staj-carki-desifre-edildi-eski-okul-mudurlerinin-de-oldugu-12-supheli-cezaevine-gonderildi-43352310",
+   "publishedAt": "2026-10-23T10:53:45+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "fbabf92905c2f5af",
+   "title": "Manchester United, Emery'yi listesine aldı! Tazminat için dev rakam",
+   "summary": "Manchester United yönetimi, Michael Carrick ile yollarını ayırmaya hazırlanıyor. Listede Eddie Howe, Nagelsmann ve Emery var. Aston Villa, Emery için talep edilecek tazminat ücretini belirledi.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/manchester-united-emeryyi-listesine-aldi-tazminat-icin-dev-rakam-43352280",
+   "publishedAt": "2026-10-23T10:51:49+00:00",
    "imageUrl": null
   },
   {
@@ -1400,6 +1590,16 @@
    "source": "Hürriyet",
    "sourceUrl": "https://www.hurriyet.com.tr/gundem/istanbuldaki-ozel-hastanede-korkunc-olay-yag-aldirma-operasyonu-geciren-kadin-ameliyathanede-hayatini-kaybetti-43352082",
    "publishedAt": "2026-10-23T09:00:54+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "58ee29c94ba45f01",
+   "title": "Herkes onların büyük aşkını ve yeni doğan bebeğini konuşuyor... Bıkmadan uğraştı sonunda ailesiyle ilgili şoke eden gerçeği buldu",
+   "summary": "Bir çocuk yıldız olarak tanındıktan sonra kariyerini sürdüren oyuncu Dylan Sprouse, ailesinin kuşaklar boyu uzanan bir sırrını ortaya çıkardı!",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/unlu-oyuncunun-ailesinde-kimse-bu-gercegi-bilmiyordu-annesi-ve-babasi-akraba-cikti-43351074",
+   "publishedAt": "2026-10-23T08:53:00+00:00",
    "imageUrl": null
   },
   {
@@ -1740,6 +1940,16 @@
    "source": "BBC News",
    "sourceUrl": "https://www.bbc.co.uk/news/articles/ck5ynd1z6e83o?at_medium=RSS&at_campaign=rss",
    "publishedAt": "2026-10-23T05:16:37+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "09032effd3dd2dcd",
+   "title": "Blue Planet III: Moment octopus escapes death after hunt gone wrong",
+   "summary": "The sequence is part of the latest Blue Planet series from Sir David Attenborough.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck240lmvqjyjo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T05:05:03+00:00",
    "imageUrl": null
   },
   {
