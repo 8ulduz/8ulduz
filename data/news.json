@@ -1,7 +1,147 @@
 {
- "updatedAt": "2026-10-23T10:49:36.211321+00:00",
- "count": 179,
+ "updatedAt": "2026-10-23T11:13:59.843573+00:00",
+ "count": 193,
  "articles": [
+  {
+   "id": "fa589dd77dc24f66",
+   "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini rəsmi qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
+   "summary": "",
+   "category": "siyaset",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/official-news/prezidentin-sosial-sebeke-hesablarinda-hindistanin-xin-rehberini-resmi-qebul-etmesi-ile-bagli-videocarx-paylasilib-video-1007726",
+   "publishedAt": "2026-10-23T15:09:40+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "fb619bc6d6175c7c",
+   "title": "Ələt-Astara yolunun yaxınlığında açıq ərazi yanır- FOTO - YENİLƏNİB",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/elet-astara-yolunun-yaxinliginda-aciq-erazi-yanir-foto-yenilenib-1007711",
+   "publishedAt": "2026-10-23T15:09:09+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "89a0ad518f0cb9e9",
+   "title": "Azerbaijan, Uzbekistan exchange experience in financial sector (PHOTO)",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/business/4238400.html",
+   "publishedAt": "2026-10-23T15:08:27+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "07424659c810336e",
+   "title": "OPEC Fund issues $250M for Middle Corridor's missing railway section in Türkiye",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/world/turkey/4238395.html",
+   "publishedAt": "2026-10-23T15:05:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "6df7f8c6b341a02b",
+   "title": "Azərbaycan Metrologiya İnstitutu və Polşanın Mərkəzi Ölçülər İdarəsi arasında Yol Xəritəsi imzalanıb",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/entrepreneurship/azerbaycan-metrologiya-institutu-ve-polsanin-merkezi-olculer-idaresi-arasinda-yol-xeritesi-imzalanib-1007720",
+   "publishedAt": "2026-10-23T15:03:53+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "bfcb86a59acd4aa8",
+   "title": "Aİ lideri: Qara dənizdə Azərbaycan vətəndaşlarının da olduğu mülki gəmi vurulub, 3 nəfər itkindir",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/foreign-policy/ai-lideri-qara-denizde-azerbaycan-vetendaslarinin-da-oldugu-mulki-gemi-vurulub-3-nefer-itkindir-1007718",
+   "publishedAt": "2026-10-23T15:01:08+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b27b077ebee92363",
+   "title": "MSK nümayəndə heyəti Serbiyada parlament seçkilərini müşahidə edəcək",
+   "summary": "",
+   "category": "siyaset",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/foreign-policy/msk-numayende-heyeti-serbiyada-parlament-seckilerini-musahide-edecek-1007715",
+   "publishedAt": "2026-10-23T14:55:32+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "9120c60a24e8e6d1",
+   "title": "Türkiyədə Orta Dəhlizi gücləndirəcək dəmir yolu xəttinin tikintisinə 250 mln. dollar ayrılıb",
+   "summary": "",
+   "category": "siyaset",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/infrastructure/turkiyede-orta-dehlizi-guclendirecek-demir-yolu-xettinin-tikintisine-250-mln-dollar-ayrilib-1007714",
+   "publishedAt": "2026-10-23T14:55:10+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "894c35cdd19a68d7",
+   "title": "Rusiya ilə Ukrayna arasında \"270-in 270-ə\" formulu üzrə əsir mübadiləsi aparılıb",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/cis-countries/rusiya-ile-ukrayna-arasinda-270-in-270-e-formulu-uzre-esir-mubadilesi-aparilib-1007713",
+   "publishedAt": "2026-10-23T14:52:55+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "91a69a8d48a0cfc8",
+   "title": "Wells Fargo names Kleber Santos Consumer Banking Chief",
+   "summary": "",
+   "category": "iqtisadiyyat",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/world/4238404.html",
+   "publishedAt": "2026-10-23T14:52:16+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "e5199c7a1bd6ede9",
+   "title": "Neftçalada 13 yaşlı uşaq traktorun qoşqusunun altında qalaraq ölüb - YENİLƏNİB",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/neftcalada-13-yasli-usaq-traktorun-qosqusunun-altinda-qalaraq-olub-yenilenib-1007516",
+   "publishedAt": "2026-10-23T14:50:37+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d7c780964626fca6",
+   "title": "At least one dead and four injured in Paris suburb shooting",
+   "summary": "The French prime minister says an individual is in police custody after a \"serious event\" in Trappes.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6ev38dj1g8zo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T11:09:36+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1b0ae19d70d45da1",
+   "title": "Aynı yöne gidiyorlardı kaza şarampolde bitti! Minibüsteki 11 yolcu yaralandı",
+   "summary": "Van’ın Gürpınar ilçesinde aynı yönde seyreden TIR ile yolcu minibüsünün çarpışması sonucu şarampole yuvarlanan minibüsteki 11 kişi yaralandı. Araç içinde sıkışan yolculardan birinin durumunun ağır olduğu öğrenildi.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/ayni-yone-gidiyorlardi-kaza-sarampolde-bitti-minibusteki-11-yolcu-yaralandi-43352274",
+   "publishedAt": "2026-10-23T10:31:46+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "f65c06dea7fdfcfd",
+   "title": "Gözlerini bir gün kaldırımda açtı… 13 yıldır her sabah 6’da toplantıda: Şükür ki artık hapse girmiyorum!",
+   "summary": "Sinema dünyasının ünlü ismi uzun yıllar önce tutuklanmasına bile yol açan ve neredeyse hem hayatının hem de kariyerinin ellerinden kayıp gitmesine ramak kala kurtulduğu korkunç bağımlılığıyla ilgili samimi açıklamalar yaptı.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/magazin/gozlerini-bir-gun-kaldirimda-acti-13-yildir-her-sabah-6da-toplantida-sukur-ki-artik-hapse-girmiyorum-43352202",
+   "publishedAt": "2026-10-23T10:29:16+00:00",
+   "imageUrl": null
+  },
   {
    "id": "5ccf24ab766f101c",
    "title": "Cəlilabadda açıq ərazidə yanğın başlayıb - FOTO",
