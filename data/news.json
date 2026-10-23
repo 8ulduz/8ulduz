@@ -1,0 +1,16 @@
+{
+ "updatedAt": "2026-10-23T09:05:36.667127+00:00",
+ "count": 1,
+ "articles": [
+  {
+   "id": "smp01",
+   "title": "Xəbər lenti qoşulur — real xəbərlər yaxın dəqiqələrdə əlavə olunacaq",
+   "summary": "Bu müvəqqəti xəbərdir. Avtomatik yeniləmə sistemi hər 15 dəqiqədə AZƏRTAC, APA, Report, Trend, BBC, Al Jazeera, Daily Sabah və Hürriyet mənbələrini yoxlayır.",
+   "category": "gundem",
+   "source": "8ulduz",
+   "sourceUrl": "https://github.com/8ulduz/8ulduz",
+   "publishedAt": "2026-10-23T09:05:36.667127+00:00",
+   "imageUrl": null
+  }
+ ]
+}
