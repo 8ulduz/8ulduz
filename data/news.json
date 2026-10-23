@@ -1,7 +1,237 @@
 {
- "updatedAt": "2026-10-23T11:13:59.843573+00:00",
- "count": 193,
+ "updatedAt": "2026-10-23T11:47:00.136131+00:00",
+ "count": 216,
  "articles": [
+  {
+   "id": "8d84c1e80d8f7229",
+   "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-1007741",
+   "publishedAt": "2026-10-23T15:46:26+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "33b2f69a8daee70d",
+   "title": "Kazatomprom to resubmit Uranium One supply deal for shareholder approval",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238432.html",
+   "publishedAt": "2026-10-23T15:46:21+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "6861b2ac06c2c02c",
+   "title": "Fransanın daxili işlər naziri: Sabah aksiyalarda zorakılığa qətiyyətli cavab veriləcək, 70 min polis səfərbər edilib",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/europe/fransanin-daxili-isler-naziri-sabah-aksiyalarda-zorakiliga-qetiyyetli-cavab-verilecek-70-min-polis-seferber-edilib-1007736",
+   "publishedAt": "2026-10-23T15:45:16+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "eccc507284264a73",
+   "title": "Gəncədə 3 avtomobil və təcili yardım maşını toqquşub, 4 nəfər xəsarət alıb - FOTO - YENİLƏNİB",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/gencede-3-avtomobil-ve-tecili-yardim-masini-toqqusub-4-nefer-xesaret-alib-foto-yenilenib-1007690",
+   "publishedAt": "2026-10-23T15:42:01+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7918280be6167dac",
+   "title": "Kapital Bank leads Azerbaijan Q3 bank expenses at $575M - ranking",
+   "summary": "",
+   "category": "iqtisadiyyat",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/business/4238420.html",
+   "publishedAt": "2026-10-23T15:40:08+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b956368e28a6bca0",
+   "title": "Xankəndidə “SOCGOV 2026” beynəlxalq forumu keçirilib - YENİLƏNİB",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/social/xankendide-socgov-2026-beynelxalq-forumu-kecirilib-yenilenib-1007740",
+   "publishedAt": "2026-10-23T15:33:10+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "fb511d24926c7424",
+   "title": "Turkmenistan, IOGP Europe explore routes for gas supplies to Europe",
+   "summary": "",
+   "category": "dunya",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238426.html",
+   "publishedAt": "2026-10-23T15:31:26+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "fcb3f65f4f278139",
+   "title": "BNMİ 82 kq narkotik və 6 mindən çox narkotik tərkibli həbi dövriyyədən çıxarıb - VİDEO",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/bnmi-82-kq-narkotik-ve-6-minden-cox-narkotik-terkibli-hebi-dovriyyeden-cixarib-video-1007737",
+   "publishedAt": "2026-10-23T15:30:35+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "0b4a77efa82ce5d5",
+   "title": "Footage of President Ilham Aliyev's meeting with Indian External Affairs Minister posted on his social media (VIDEO)",
+   "summary": "",
+   "category": "siyaset",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238427.html",
+   "publishedAt": "2026-10-23T15:29:43+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "3cee18ef57b23888",
+   "title": "Kəmaləddin Heydərov Qax şəhərində vətəndaşları qəbul edib",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/social/kemaleddin-heyderov-qax-seherinde-vetendaslari-qebul-edib-1007729",
+   "publishedAt": "2026-10-23T15:22:53+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "926e4c57aae58b6f",
+   "title": "Kazakhstan, Czechia set to expand agricultural cooperation",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238422.html",
+   "publishedAt": "2026-10-23T15:19:46+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "3c1e06267b73a3c2",
+   "title": "Rumıniya Prezidenti Qara dənizdə batan gəmiyə görə Rusiyanı ittiham edib",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/europe/ruminiya-prezidenti-qara-denizde-batan-gemiye-gore-rusiyani-ittiham-edib-1007723",
+   "publishedAt": "2026-10-23T15:19:29+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "265bb9156a3c515f",
+   "title": "Uzbekistan continues digitizing social services, AI - deputy director",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/society/4238409.html",
+   "publishedAt": "2026-10-23T15:16:52+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "5099a8da537ba76c",
+   "title": "Japanese firms eye modernization of Uzbekistan’s Fergana plants",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238417.html",
+   "publishedAt": "2026-10-23T15:14:30+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "000a0f8bd238d6be",
+   "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
+   "summary": "",
+   "category": "siyaset",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/official-news/prezidentin-sosial-sebeke-hesablarinda-hindistanin-xin-rehberini-qebul-etmesi-ile-bagli-videocarx-paylasilib-video-1007726",
+   "publishedAt": "2026-10-23T15:09:07+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "81b2ec1f8f016c27",
+   "title": "Aİ lideri: Qara dənizdə Azərbaycan vətəndaşlarının da olduğu mülki gəmi vurulub, 3 nəfər hələ də itkindir",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/foreign-policy/ai-lideri-qara-denizde-azerbaycan-vetendaslarinin-da-oldugu-mulki-gemi-vurulub-3-nefer-hele-de-itkindir-1007718",
+   "publishedAt": "2026-10-23T15:01:22+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "6f254b93b6092354",
+   "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
+   "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system during their long siege and subsequent takeover of the city in Darfur a year ago. BBC Africa correspondent Barbara Plett Usher explains.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T11:30:32+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "20edde206dd839e9",
+   "title": "France tightens security in anticipation of weekend protests",
+   "summary": "Gatherings banned and curfews extended as cities lock down in an effort to avert further unrest.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/france-tightens-security-in-anticipation-of-weekend-protests?traffic_source=rss",
+   "publishedAt": "2026-10-23T11:05:13+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1911545be2c2941d",
+   "title": "Fransa'da silahlı saldırgan dehşeti: Katliam çıkarmak istiyordu",
+   "summary": "Fransa'da silahlı bir saldırgan dehşet saçtı. Başkent Paris'in batısındaki Trappes kasabası yakınlarında meydana gelen olayda 1 kişi öldü, 4 kişi yaralandı. Trappes Belediye Başkanı Ali Rabeh, saldırganın \"katliam çıkarmak\" istediğini söyledi.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/fransada-silahli-saldirgan-dehseti-katliam-cikarmak-istiyordu-43352309",
+   "publishedAt": "2026-10-23T10:58:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "19ddc4e1c1bc27e5",
+   "title": "Hayali staj çarkı deşifre edildi: Eski okul müdürlerinin de olduğu 12 şüpheli cezaevine gönderildi",
+   "summary": "Mersin polisinin koordinasyonunda yürütülen soruşturmada, staja gitmeyen öğrenciler üzerinden kurulan milyonluk rüşvet ve usulsüzlük ağı çökertildi. 36 milyon liralık kamu zararı ve 8,7 milyon liralık rüşvet suçlamasıyla mahkemeye çıkarılan şüphelilerden 12'si tutuklanırken, diğer zanlılar adli kontrol şartıyla serbest kaldı.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/hayali-staj-carki-desifre-edildi-eski-okul-mudurlerinin-de-oldugu-12-supheli-cezaevine-gonderildi-43352310",
+   "publishedAt": "2026-10-23T10:53:45+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "fbabf92905c2f5af",
+   "title": "Manchester United, Emery'yi listesine aldı! Tazminat için dev rakam",
+   "summary": "Manchester United yönetimi, Michael Carrick ile yollarını ayırmaya hazırlanıyor. Listede Eddie Howe, Nagelsmann ve Emery var. Aston Villa, Emery için talep edilecek tazminat ücretini belirledi.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/manchester-united-emeryyi-listesine-aldi-tazminat-icin-dev-rakam-43352280",
+   "publishedAt": "2026-10-23T10:51:49+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "58ee29c94ba45f01",
+   "title": "Herkes onların büyük aşkını ve yeni doğan bebeğini konuşuyor... Bıkmadan uğraştı sonunda ailesiyle ilgili şoke eden gerçeği buldu",
+   "summary": "Bir çocuk yıldız olarak tanındıktan sonra kariyerini sürdüren oyuncu Dylan Sprouse, ailesinin kuşaklar boyu uzanan bir sırrını ortaya çıkardı!",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/unlu-oyuncunun-ailesinde-kimse-bu-gercegi-bilmiyordu-annesi-ve-babasi-akraba-cikti-43351074",
+   "publishedAt": "2026-10-23T08:53:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "09032effd3dd2dcd",
+   "title": "Blue Planet III: Moment octopus escapes death after hunt gone wrong",
+   "summary": "The sequence is part of the latest Blue Planet series from Sir David Attenborough.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck240lmvqjyjo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T05:05:03+00:00",
+   "imageUrl": null
+  },
   {
    "id": "fa589dd77dc24f66",
    "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini rəsmi qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
@@ -110,36 +340,6 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/incident/neftcalada-13-yasli-usaq-traktorun-qosqusunun-altinda-qalaraq-olub-yenilenib-1007516",
    "publishedAt": "2026-10-23T14:50:37+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d7c780964626fca6",
-   "title": "At least one dead and four injured in Paris suburb shooting",
-   "summary": "The French prime minister says an individual is in police custody after a \"serious event\" in Trappes.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6ev38dj1g8zo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T11:09:36+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "1b0ae19d70d45da1",
-   "title": "Aynı yöne gidiyorlardı kaza şarampolde bitti! Minibüsteki 11 yolcu yaralandı",
-   "summary": "Van’ın Gürpınar ilçesinde aynı yönde seyreden TIR ile yolcu minibüsünün çarpışması sonucu şarampole yuvarlanan minibüsteki 11 kişi yaralandı. Araç içinde sıkışan yolculardan birinin durumunun ağır olduğu öğrenildi.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/ayni-yone-gidiyorlardi-kaza-sarampolde-bitti-minibusteki-11-yolcu-yaralandi-43352274",
-   "publishedAt": "2026-10-23T10:31:46+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "f65c06dea7fdfcfd",
-   "title": "Gözlerini bir gün kaldırımda açtı… 13 yıldır her sabah 6’da toplantıda: Şükür ki artık hapse girmiyorum!",
-   "summary": "Sinema dünyasının ünlü ismi uzun yıllar önce tutuklanmasına bile yol açan ve neredeyse hem hayatının hem de kariyerinin ellerinden kayıp gitmesine ramak kala kurtulduğu korkunç bağımlılığıyla ilgili samimi açıklamalar yaptı.",
-   "category": "medeniyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/magazin/gozlerini-bir-gun-kaldirimda-acti-13-yildir-her-sabah-6da-toplantida-sukur-ki-artik-hapse-girmiyorum-43352202",
-   "publishedAt": "2026-10-23T10:29:16+00:00",
    "imageUrl": null
   },
   {
@@ -893,6 +1093,16 @@
    "imageUrl": null
   },
   {
+   "id": "d7c780964626fca6",
+   "title": "At least one dead and four injured in Paris suburb shooting",
+   "summary": "The French prime minister says an individual is in police custody after a \"serious event\" in Trappes.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6ev38dj1g8zo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T11:09:36+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "61c3223482b47cd9",
    "title": "Malawi opposition demands answers over president's prolonged stay abroad",
    "summary": "This is President Peter Mutharika's fifth visit to South Africa this year.",
@@ -900,6 +1110,26 @@
    "source": "BBC News",
    "sourceUrl": "https://www.bbc.co.uk/news/articles/cmx28en5wkypo?at_medium=RSS&at_campaign=rss",
    "publishedAt": "2026-10-23T10:36:01+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1b0ae19d70d45da1",
+   "title": "Aynı yöne gidiyorlardı kaza şarampolde bitti! Minibüsteki 11 yolcu yaralandı",
+   "summary": "Van’ın Gürpınar ilçesinde aynı yönde seyreden TIR ile yolcu minibüsünün çarpışması sonucu şarampole yuvarlanan minibüsteki 11 kişi yaralandı. Araç içinde sıkışan yolculardan birinin durumunun ağır olduğu öğrenildi.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/ayni-yone-gidiyorlardi-kaza-sarampolde-bitti-minibusteki-11-yolcu-yaralandi-43352274",
+   "publishedAt": "2026-10-23T10:31:46+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "f65c06dea7fdfcfd",
+   "title": "Gözlerini bir gün kaldırımda açtı… 13 yıldır her sabah 6’da toplantıda: Şükür ki artık hapse girmiyorum!",
+   "summary": "Sinema dünyasının ünlü ismi uzun yıllar önce tutuklanmasına bile yol açan ve neredeyse hem hayatının hem de kariyerinin ellerinden kayıp gitmesine ramak kala kurtulduğu korkunç bağımlılığıyla ilgili samimi açıklamalar yaptı.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/magazin/gozlerini-bir-gun-kaldirimda-acti-13-yildir-her-sabah-6da-toplantida-sukur-ki-artik-hapse-girmiyorum-43352202",
+   "publishedAt": "2026-10-23T10:29:16+00:00",
    "imageUrl": null
   },
   {
