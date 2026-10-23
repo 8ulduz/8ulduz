@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8ulduz — Xəbərlər və Analitika</title>
+<meta name="description" content="8ulduz: Azərbaycan və dünya xəbərləri — sürətli, rahat, mobil uyğun.">
+<style>
+:root{
+  --bg:#0b0f17; --bg2:#111827; --card:#151d2e; --card2:#1b2537;
+  --txt:#e8edf5; --mut:#8b96ab; --acc:#ffd23f; --acc2:#3f7bff;
+  --rad:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1150px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:0;z-index:50;background:rgba(11,15,23,.92);backdrop-filter:blur(10px);border-bottom:1px solid #1f2937}
+.hd{display:flex;align-items:center;gap:14px;height:62px}
+.logo{display:flex;align-items:center;gap:8px;font-size:24px;font-weight:800;letter-spacing:.5px}
+.logo b{color:var(--acc)}
+.logo .star{color:var(--acc)}
+.upd{margin-left:auto;font-size:12px;color:var(--mut);display:flex;align-items:center;gap:7px}
+.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 1.6s infinite}
+.dot.new{background:var(--acc)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* canlı zolaq */
+.ticker{background:var(--acc);color:#111;overflow:hidden;white-space:nowrap;font-weight:700;font-size:13px}
+.ticker-in{display:inline-block;padding:8px 0;animation:tick 45s linear infinite}
+@keyframes tick{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+/* kateqoriya düymələri */
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:8px 16px;border-radius:999px;background:var(--card);color:var(--mut);font-size:14px;font-weight:600;border:1px solid transparent;cursor:pointer;transition:.15s}
+.tab.on{background:var(--acc);color:#111}
+.tab:not(.on):hover{border-color:var(--acc);color:var(--txt)}
+/* şəbəkə */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;padding:18px 0 40px}
+.card{background:var(--card);border:1px solid #1f2937;border-radius:var(--rad);overflow:hidden;display:flex;flex-direction:column;transition:.2s;position:relative}
+.card:hover{transform:translateY(-3px);border-color:var(--acc2)}
+.badge{position:absolute;top:10px;left:10px;background:var(--acc);color:#111;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;z-index:2}
+.badge.vid{background:#e11d48;color:#fff}
+.cbody{padding:14px 14px 16px;display:flex;flex-direction:column;gap:9px;flex:1}
+.ct{font-size:16px;font-weight:700;line-height:1.35}
+.cd{font-size:13.5px;color:var(--mut);line-height:1.5;flex:1}
+.meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);flex-wrap:wrap}
+.src{font-weight:700;color:var(--acc2)}
+.vtag{display:inline-flex;align-items:center;gap:4px;background:rgba(225,29,72,.15);color:#fb7185;font-weight:700;padding:2px 9px;border-radius:999px;font-size:11px}
+.rd{display:inline-block;margin-top:2px;font-size:13px;font-weight:700;color:var(--acc)}
+.empty{padding:60px 0;text-align:center;color:var(--mut)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--acc);color:#111;font-weight:700;padding:10px 20px;border-radius:999px;transition:.35s;z-index:99;cursor:pointer}
+.toast.show{transform:translateX(-50%) translateY(0)}
+footer{border-top:1px solid #1f2937;padding:24px 0 40px;color:var(--mut);font-size:13px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hd">
+    <a class="logo" href="#"><span class="star">✦</span><span><b>8</b>ulduz</span></a>
+    <div class="upd"><span class="dot" id="dot"></span><span id="updTxt">canlı</span></div>
+  </div>
+  <div class="ticker"><div class="ticker-in" id="ticker">Yüklənir…</div></div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" id="tabs"></nav>
+  <main class="grid" id="grid"></main>
+  <div class="empty" id="empty" style="display:none">Bu bölmədə hələ xəbər yoxdur.</div>
+</div>
+
+<footer><div class="wrap">8ulduz — xəbərlər xülasəsi və mənbəyə keçidlərlə. © 2026</div></footer>
+<div class="toast" id="toast">Yeni xəbərlər var — göstər ⬆</div>
+
+<script>
+const REFRESH_SEC = 30;                 // yenilənmə aralığı (saniyə ilə)
+const CATS = ["Gündəm","Siyasət","Cəmiyyət","İqtisadiyyat","Dünya","İdman","Mədəniyyət","Video xəbərlər"];
+let news = [], active = "Hamısı", lastSig = "";
+
+const esc = s => (s||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDate = d => { try{ return new Date(d).toLocaleString("az-AZ",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){ return ""; } };
+
+function buildTabs(){
+  const t = document.getElementById("tabs");
+  t.innerHTML = ["Hamısı",...CATS].map(c =>
+    `<button class="tab ${c===active?'on':''}" onclick="setCat('${c}')">${c}</button>`).join("");
+}
+function setCat(c){ active = c; buildTabs(); render(); }
+
+function card(n){
+  const vid = n.isVideo || n.category==="Video xəbərlər";
+  return `<article class="card">
+    ${vid?'<span class="badge vid">▶ video</span>':`<span class="badge">${esc(n.category)}</span>`}
+    <div class="cbody">
+      <div class="ct">${esc(n.title)}</div>
+      ${n.description?`<div class="cd">${esc(n.description)}</div>`:""}
+      <div class="meta"><span class="src">${esc(n.source)}</span><span>·</span><span>${fmtDate(n.pubDate)}</span></div>
+      <a class="rd" href="${esc(n.link)}" target="_blank" rel="noopener">Mənbədə oxu →</a>
+    </div></article>`;
+}
+
+function render(){
+  const list = news.filter(n => active==="Hamısı" || n.category===active || (active==="Video xəbərlər" && n.isVideo));
+  document.getElementById("grid").innerHTML = list.map(card).join("");
+  document.getElementById("empty").style.display = list.length ? "none" : "block";
+  // canlı zolaq
+  const recent = news.slice(0,12);
+  document.getElementById("ticker").innerHTML = recent.map(n=>`✦ ${esc(n.title)}`).join("  ") || "Hazırda xəbər yoxdur";
+}
+
+async function load(manual){
+  try{
+    const r = await fetch("news.json?v="+Date.now(), {cache:"no-store"});
+    const data = await r.json();
+    const sig = data.length + "|" + (data[0]?data[0].link:"");
+    if(sig !== lastSig && lastSig && !manual){
+      // yeni xəbər — yumşaq bildiriş
+      const toast = document.getElementById("toast");
+      toast.classList.add("show");
+      toast.onclick = ()=>{ render(); toast.classList.remove("show"); };
+    }
+    news = data; lastSig = sig; buildTabs(); render();
+    document.getElementById("updTxt").textContent = "canlı · " + new Date().toLocaleTimeString("az-AZ");
+  }catch(e){
+    document.getElementById("updTxt").textContent = "bağlantı xətası";
+  }
+}
+buildTabs(); load(true);
+setInterval(()=>load(false), REFRESH_SEC*1000);
+</script>
+</body>
+</html>

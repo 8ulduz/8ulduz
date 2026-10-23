@@ -1,0 +1,65 @@
+[
+ {
+  "title": "İlham Əliyev Türkiyə Prezidenti ilə telefon danışığı aparıb",
+  "link": "https://example.az/1",
+  "description": "Dövlət başçıları regional məsələləri müzakirə ediblər.",
+  "pubDate": "Wed, 22 Oct 2026 12:00:00 +0400",
+  "category": "Siyasət",
+  "source": "AZƏRTAC",
+  "isVideo": false
+ },
+ {
+  "title": "Qarabağ FK Avropa Liqasında növbəti oyununa çıxır",
+  "link": "https://example.az/2",
+  "description": "Komanda evdə güclü rəqib qəbul edəcək.",
+  "pubDate": "Wed, 22 Oct 2026 10:30:00 +0400",
+  "category": "İdman",
+  "source": "Report",
+  "isVideo": false
+ },
+ {
+  "title": "Manatın məzənnəsi sabit qalır",
+  "link": "https://example.az/3",
+  "description": "Mərkəzi Bank rəsmi məzənnəni açıqlayıb.",
+  "pubDate": "Wed, 22 Oct 2026 09:15:00 +0400",
+  "category": "İqtisadiyyat",
+  "source": "Trend",
+  "isVideo": false
+ },
+ {
+  "title": "Bakıda beynəlxalq film festivalı başlayır",
+  "link": "https://example.az/4",
+  "description": "Festivalda 30-dan çox ölkədən film nümayiş etdiriləcək.",
+  "pubDate": "Tue, 21 Oct 2026 18:00:00 +0400",
+  "category": "Mədəniyyət",
+  "source": "APA",
+  "isVideo": false
+ },
+ {
+  "title": "Dünyada neft qiymətləri bahalaşıb",
+  "link": "https://example.az/5",
+  "description": "Brent markalı neft 3% ucuzlaşıb.",
+  "pubDate": "Tue, 21 Oct 2026 16:00:00 +0400",
+  "category": "Dünya",
+  "source": "BBC News",
+  "isVideo": false
+ },
+ {
+  "title": "Payız mövsümü üçün hava proqnozu açıqlanıb",
+  "link": "https://example.az/6",
+  "description": "Ekologiya və Təbii Sərvətlər Nazirliyindən məlumat.",
+  "pubDate": "Tue, 21 Oct 2026 14:00:00 +0400",
+  "category": "Cəmiyyət",
+  "source": "AZƏRTAC",
+  "isVideo": false
+ },
+ {
+  "title": "Günün əsas xəbərləri: 60 saniyəlik icmal",
+  "link": "https://example.az/7",
+  "description": "Bu günün ən mühüm hadisələrinin qısa icmalı.",
+  "pubDate": "Tue, 21 Oct 2026 12:00:00 +0400",
+  "category": "Gündəm",
+  "source": "8ulduz",
+  "isVideo": true
+ }
+]
