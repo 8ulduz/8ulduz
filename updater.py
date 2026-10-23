@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 8ulduz — avtomatik xəbər yeniləyici (süni intellektsiz, kvotasız)
-Mənbələrdən RSS xəbərlərini oxuyur, 8 bölməyə açar sözlərlə ayırır,
-news.json faylını yeniləyir. GitHub Actions hər 15 dəqiqədə işə salır.
 """
-import json, re, sys, datetime, pathlib
+import json, re, pathlib
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -19,37 +17,18 @@ FEEDS = {
     "Hürriyet":      "https://www.hurriyet.com.tr/rss/anasayfa",
 }
 
-CATEGORIES = {
-    "Siyasət":      ["prezident", "ilham əliyev", "mehriban əliyeva", "ərdoğan", "erdogan",
-                     "təyinat", "sərəncam", "səfir", "parlament", "milli məclis", "seçki",
-                     "nazir", "bəyanat", "zəngəzur", "qarabağ", "türkiyə", "diplomat",
-                     "tccb", "dışişleri", "seçim", "bakan", "cumhurbaşkanı", "politics",
-                     "election", "minister", "summit", "ukraine", "gaza", "israel"],
-    "İqtisadiyyat": ["neft", "oil", "qiymət", "manat", " dollar", "valyuta", "tərəvəz",
-                     "inflyasiya", "maliyyə", "bank", "vergi", "sahibkar", "ixrac", "idxal",
-                     "qaz", "enerji", "faiz", "maaş", "pensiya", "büdcə", "ifa", "borsa",
-                     "ekonomi", "merkez bankası", "enflasyon", "faiz", "economy", "market"],
-    "İdman":        ["futbol", " AFFA", "milli komanda", "qarabağ fk", "azərbaycan kuboku",
-                     "çempion", "oyun", "matç", "məşqçi", "qol", "turnir", "cüdo", "idman",
-                     "formula", "grand prix", "tennis", "basketbol", "voleybol", "transfer",
-                     "fenerbahçe", "galatasaray", "beşiktaş", "trabzonspor", "maç", "gol",
-                     "şampiyon", "süper lig", "la liga", "premier league", "champions"],
-    "Mədəniyyət":   ["film", "kino", "sərgi", "muzey", "teatr", "musiqi", "konsert", "kitab",
-                     "şair", "yazıçı", "əsər", "incəsənət", "sənətkar", "festival", "mükafat",
-                     "sinema", "kitap", "roman", "sanat", "sergi", "concert", "culture"],
-    "Cəmiyyət":     ["yol", "hadisə", "qəza", "yanğın", "hava", "təhsil", "məktəb", "universitet",
-                     "tələbə", "məhkum", "məhkəmə", "polis", "həkim", "xəstəxana", "təcili",
-                     "köçkün", "məişət", "insident", "kaza", "yangın", "eğitim", "sağlık"],
-    "Dünya":        ["bmt", "ab", "nato", "rusiya", "çin", "amerika", "fransa", "almanya",
-                     "iran", "israil", "dəməşq", "suriya", "lebnon", "ərəb", "bayden",
-                     "trump", "putin", "zelenski", "orusalem", "dünya", "beynəlxalq",
-                     "dunya", "dış politika", "world", "middle east", "europe", "asia"],
-}
-FALLBACK = "Gündəm"
+SKIP_URL_PARTS = ["/resmi-ilanlar/", "/lezizz/", "/emlak-ilanlari/"]
+STOPWORDS = ["neftçala", "neftchala", "ceyran", "xəzər"]
 
+CATEGORIES = {'Siyasət': ['prezident', 'ilham əliyev', 'mehriban əliyeva', 'ərdoğan', 'erdogan', 'sərəncam', 'səfir', 'parlament', 'milli məclis', 'seçki', 'səfirlik', 'nazir', 'bəyanat', 'zəngəzur', 'türkiyə', 'diplomat', 'media və yayım şurası', 'dışişleri', 'seçim', 'bakan', 'cumhurbaşkanı', 'politics', 'siyasi', 'election', 'minister', 'summit', 'ukraine', 'gaza', 'israel', 'məsləhətləşmə', 'qarabağda', 'qarabağın', 'qarabağ münaqişəsi', 'dəhliz', 'sülh müqaviləsi', 'məclis'], 'İqtisadiyyat': ['neft', 'oil', 'qiymət', 'manat', 'dollar', 'valyuta', 'büdcə', 'inflyasiya', 'maliyyə', 'bank', 'vergi', 'sahibkar', 'ixrac', 'idxal', 'qaz', 'enerji', 'faiz', 'maaş', 'pensiya', 'borsa', 'dotasiya', 'məzənnə', 'ekonomi', 'merkez bankası', 'enflasyon', 'economy', 'market', 'dövlət büdcəsi'], 'İdman': ['futbol', 'affa', 'milli komanda', 'qarabağ fk', 'kuboku', 'avropa liqası', 'çempion', 'oyun', 'matç', 'məşqçi', 'qol', 'turnir', 'cüdo', 'neftçi', 'formula', 'grand prix', 'basketbol', 'voleybol', 'transfer', 'konfrans liqası', 'fenerbahçe', 'galatasaray', 'beşiktaş', 'trabzonspor', 'maç', 'sabah fk', 'şampiyon', 'süper lig', 'premier league', 'champions', 'uefa', 'fifa', 'zirə', 'turan'], 'Mədəniyyət': ['film', 'kino', 'sərgi', 'muzey', 'teatr', 'musiqi', 'konsert', 'kitab', 'şair', 'yazıçı', 'əsər', 'incəsənət', 'festival', 'mükafat', 'şarkı', 'sinema', 'kitap', 'roman', 'sanat', 'sergi', 'concert', 'culture', 'albüm', 'oyuncu'], 'Cəmiyyət': ['yol qəzası', 'hadisə', 'qəza', 'yanğın', 'hava', 'təhsil', 'məktəb', 'universitet', 'tələbə', 'məhkəmə', 'polis', 'həkim', 'xəstəxana', 'yağış', 'sel', 'fəsad', 'köçkün', 'insident', 'kaza', 'yangın', 'eğitim', 'sağlık', 'təcili tibbi', 'bərk', 'duman'], 'Dünya': ['bmt', 'nato', 'rusiya', 'çin', 'fransa', 'almanya', 'iran', 'israil', 'ukrayna', 'dəməşq', 'suriya', 'lebnon', 'ərəb', 'abş', 'ingiltərə', 'pakistan', 'hindistan', 'trump', 'putin', 'zelenski', 'qüds', 'beynəlxalq', 'ermənistan', 'gürcüstan', 'dış politika', 'world', 'middle east', 'europe']}
+
+DOUBLE = ['abş', 'almanya', 'ermənistan', 'fransa', 'gürcüstan', 'ingiltərə', 'iran', 'israil', 'rusiya', 'türkiyə', 'ukrayna', 'çin']
+FALLBACK = "Gündəm"
 NEWS_FILE = pathlib.Path(__file__).parent / "news.json"
 MAX_ITEMS = 250
-VIDEO_SOURCES_HINT = ["youtube", "video", "youtu.be"]
+
+def norm_az(s):
+    return s.lower().replace("i\u0307", "i")
 
 def fetch(url):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (8ulduz bot)"})
@@ -77,7 +56,6 @@ def parse_feed(xml_bytes):
         if title and link:
             items.append({"title": title, "link": link,
                           "description": re.sub(r"<[^>]+>", "", desc)[:400], "pubDate": pub})
-    # Atom formatı üçün
     ns = {"a": "http://www.w3.org/2005/Atom"}
     for entry in root.findall(".//a:entry", ns):
         title = text_of(entry, ["a:title", "{http://www.w3.org/2005/Atom}title"])
@@ -93,39 +71,52 @@ def parse_feed(xml_bytes):
     return items
 
 def categorize(title, desc):
-    blob = (title + " " + desc).lower()
+    blob = norm_az(title + " " + desc)
     best, best_hits = FALLBACK, 0
+    scores = {}
     for cat, words in CATEGORIES.items():
-        hits = sum(1 for w in words if w.lower() in blob)
+        hits = 0
+        for w in words:
+            if norm_az(w) in blob:
+                hits += 2 if (" " in w or w in DOUBLE) else 1
+        scores[cat] = hits
         if hits > best_hits:
             best, best_hits = cat, hits
+    if any(norm_az(s) in blob for s in STOPWORDS) and best == "İqtisadiyyat":
+        scores.pop("İqtisadiyyat")
+        m = max(scores.values())
+        best = max(scores, key=scores.get) if m > 0 else FALLBACK
     return best
 
-def normalize_date(pub):
-    if not pub:
-        return ""
-    return pub  # RSS formatını olduğu kimi saxlayırıq; saytda qısa formaya salınır
+def is_junk(link):
+    l = norm_az(link)
+    return any(p in l for p in SKIP_URL_PARTS)
 
 def main():
     try:
         old = json.loads(NEWS_FILE.read_text(encoding="utf-8"))
     except Exception:
         old = []
+    old = [n for n in old if not is_junk(n.get("link", ""))]
     seen = {n["link"] for n in old}
     new_items, errors = [], []
     for source, url in FEEDS.items():
         try:
             for it in parse_feed(fetch(url)):
-                if it["link"] in seen:
+                if it["link"] in seen or is_junk(it["link"]):
                     continue
+                seen.add(it["link"])
                 it["category"] = categorize(it["title"], it["description"])
                 it["source"] = source
-                it["pubDate"] = normalize_date(it["pubDate"])
-                it["isVideo"] = any(h in (it["link"] + it["title"]).lower() for h in VIDEO_SOURCES_HINT)
+                it["isVideo"] = "video" in norm_az(it["link"] + it["title"])
                 new_items.append(it)
         except Exception as e:
             errors.append(f"{source}: {e}")
-    all_news = (new_items + old)[:MAX_ITEMS]
+    uniq, dseen = [], set()
+    for n in (new_items + old):
+        if n["link"] not in dseen:
+            dseen.add(n["link"]); uniq.append(n)
+    all_news = uniq[:MAX_ITEMS]
     NEWS_FILE.write_text(json.dumps(all_news, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"Yeni: {len(new_items)} | Ümumi: {len(all_news)} | Xətalı mənbə: {len(errors)}")
     for e in errors:

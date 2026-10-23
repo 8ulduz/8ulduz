@@ -3,110 +3,176 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>8ulduz — Xəbərlər və Analitika</title>
+<title>8ULDUZ — Xəbərlər</title>
 <meta name="description" content="8ulduz: Azərbaycan və dünya xəbərləri — sürətli, rahat, mobil uyğun.">
 <style>
 :root{
-  --bg:#0b0f17; --bg2:#111827; --card:#151d2e; --card2:#1b2537;
-  --txt:#e8edf5; --mut:#8b96ab; --acc:#ffd23f; --acc2:#3f7bff;
-  --rad:16px;
+  --bg:#0d1117; --bg2:#131a24; --card:#161e2a; --line:#232d3b;
+  --txt:#f0f4fa; --mut:#97a3b6; --yellow:#ffd21a; --red:#e63946; --blue:#4d8dff;
+  --rad:18px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
 a{color:inherit;text-decoration:none}
-.wrap{max-width:1150px;margin:0 auto;padding:0 16px}
-header{position:sticky;top:0;z-index:50;background:rgba(11,15,23,.92);backdrop-filter:blur(10px);border-bottom:1px solid #1f2937}
-.hd{display:flex;align-items:center;gap:14px;height:62px}
-.logo{display:flex;align-items:center;gap:8px;font-size:24px;font-weight:800;letter-spacing:.5px}
-.logo b{color:var(--acc)}
-.logo .star{color:var(--acc)}
-.upd{margin-left:auto;font-size:12px;color:var(--mut);display:flex;align-items:center;gap:7px}
-.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 1.6s infinite}
-.dot.new{background:var(--acc)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-/* canlı zolaq */
-.ticker{background:var(--acc);color:#111;overflow:hidden;white-space:nowrap;font-weight:700;font-size:13px}
-.ticker-in{display:inline-block;padding:8px 0;animation:tick 45s linear infinite}
-@keyframes tick{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
-/* kateqoriya düymələri */
-.tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tab{flex:0 0 auto;padding:8px 16px;border-radius:999px;background:var(--card);color:var(--mut);font-size:14px;font-weight:600;border:1px solid transparent;cursor:pointer;transition:.15s}
-.tab.on{background:var(--acc);color:#111}
-.tab:not(.on):hover{border-color:var(--acc);color:var(--txt)}
-/* şəbəkə */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;padding:18px 0 40px}
-.card{background:var(--card);border:1px solid #1f2937;border-radius:var(--rad);overflow:hidden;display:flex;flex-direction:column;transition:.2s;position:relative}
-.card:hover{transform:translateY(-3px);border-color:var(--acc2)}
-.badge{position:absolute;top:10px;left:10px;background:var(--acc);color:#111;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;z-index:2}
-.badge.vid{background:#e11d48;color:#fff}
-.cbody{padding:14px 14px 16px;display:flex;flex-direction:column;gap:9px;flex:1}
-.ct{font-size:16px;font-weight:700;line-height:1.35}
-.cd{font-size:13.5px;color:var(--mut);line-height:1.5;flex:1}
-.meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);flex-wrap:wrap}
-.src{font-weight:700;color:var(--acc2)}
-.vtag{display:inline-flex;align-items:center;gap:4px;background:rgba(225,29,72,.15);color:#fb7185;font-weight:700;padding:2px 9px;border-radius:999px;font-size:11px}
-.rd{display:inline-block;margin-top:2px;font-size:13px;font-weight:700;color:var(--acc)}
-.empty{padding:60px 0;text-align:center;color:var(--mut)}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--acc);color:#111;font-weight:700;padding:10px 20px;border-radius:999px;transition:.35s;z-index:99;cursor:pointer}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+
+/* üst zolaq */
+.topbar{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mut);padding:9px 0;border-bottom:1px solid var(--line)}
+.live{display:flex;align-items:center;gap:7px}
+.ldot{width:8px;height:8px;border-radius:50%;background:#2ee56b;animation:pl 1.6s infinite}
+@keyframes pl{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* başlıq */
+header{position:sticky;top:0;z-index:60;background:rgba(13,17,23,.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.hd{display:flex;align-items:center;gap:26px;height:74px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-size:27px;font-weight:900;letter-spacing:1px}
+.logo .mark{background:var(--yellow);color:#111;border-radius:12px;width:44px;height:44px;display:grid;place-items:center;font-size:26px;font-weight:900}
+.logo .mark span{transform:translateY(-1px)}
+nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
+nav::-webkit-scrollbar{display:none}
+nav a{flex:0 0 auto;padding:9px 15px;border-radius:999px;font-size:15px;font-weight:600;color:var(--mut)}
+nav a:hover{color:var(--txt);background:var(--card)}
+nav a.on{background:var(--yellow);color:#111}
+
+/* son dəqiqə zolağı */
+.ticker{display:flex;align-items:stretch;background:var(--bg2);border-bottom:1px solid var(--line);overflow:hidden}
+.ticker .lab{background:var(--red);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px;padding:10px 16px;white-space:nowrap;letter-spacing:.5px}
+.ticker .lab .zap{animation:pl 1.2s infinite}
+.ticker .marq{overflow:hidden;flex:1;display:flex;align-items:center}
+.ticker .tin{white-space:nowrap;display:inline-block;animation:tick 60s linear infinite;padding-left:100%}
+@keyframes tick{to{transform:translateX(-100%)}}
+.ticker .tin a{margin-right:46px;font-size:14px;color:var(--txt)}
+.ticker .tin a b{color:var(--yellow)}
+
+/* bölmə başlığı */
+.cathead{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;padding:30px 0 18px;flex-wrap:wrap}
+.cathead .l{display:flex;gap:14px;align-items:center}
+.cathead .bar{width:6px;height:52px;background:var(--yellow);border-radius:4px}
+.cathead h1{font-size:34px;font-weight:800;line-height:1.1}
+.cathead p{color:var(--mut);font-size:15px;margin-top:3px}
+.count{background:var(--card);border:1px solid var(--line);color:var(--mut);padding:8px 18px;border-radius:999px;font-size:13.5px;font-weight:600}
+.count b{color:var(--txt)}
+
+/* kartlar */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;padding-bottom:50px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);overflow:hidden;display:flex;flex-direction:column;transition:.18s}
+.card:hover{transform:translateY(-4px);border-color:#3a4a5f}
+.thumb{height:170px;position:relative;display:grid;place-items:center;
+  background:radial-gradient(ellipse at 30% 20%, #223047 0%, #141c28 70%)}
+.thumb .wm{width:56px;height:56px;border-radius:14px;background:var(--yellow);color:#111;display:grid;place-items:center;font-size:30px;font-weight:900;opacity:.92}
+.thumb .cat-emo{position:absolute;right:12px;bottom:10px;font-size:26px;opacity:.55;filter:grayscale(.3)}
+.play{position:absolute;left:12px;top:12px;background:var(--red);color:#fff;font-size:11.5px;font-weight:800;padding:4px 11px;border-radius:999px}
+.cbody{padding:15px 16px 16px;display:flex;flex-direction:column;gap:10px;flex:1}
+.tags{display:flex;gap:7px;flex-wrap:wrap}
+.pill{font-size:11px;font-weight:800;padding:3.5px 11px;border-radius:999px;letter-spacing:.4px}
+.pill.cat{background:#242f3f;color:#c6d2e2}
+.pill.son{background:var(--red);color:#fff}
+.ct{font-size:17px;font-weight:700;line-height:1.38}
+.ct a:hover{color:var(--yellow)}
+.cd{font-size:14px;color:var(--mut);line-height:1.55;flex:1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mut);border-top:1px solid var(--line);padding-top:11px}
+.src{color:var(--yellow);font-weight:800;letter-spacing:.3px}
+.empty{text-align:center;color:var(--mut);padding:70px 0;font-size:16px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--yellow);color:#111;font-weight:800;padding:11px 22px;border-radius:999px;transition:.35s;z-index:99;cursor:pointer;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .toast.show{transform:translateX(-50%) translateY(0)}
-footer{border-top:1px solid #1f2937;padding:24px 0 40px;color:var(--mut);font-size:13px}
-@media(max-width:560px){.grid{grid-template-columns:1fr}}
+footer{border-top:1px solid var(--line);padding:26px 0 44px;color:var(--mut);font-size:13.5px}
+@media(max-width:700px){
+  .hd{gap:12px;height:auto;padding:12px 0}
+  nav{order:3;width:100%}
+  .cathead h1{font-size:26px}
+  .grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
 
+<div class="wrap topbar">
+  <span id="dateTxt"></span>
+  <span class="live"><span class="ldot"></span>Hər 30 saniyədən bir avtomatik yenilənir</span>
+</div>
+
 <header>
   <div class="wrap hd">
-    <a class="logo" href="#"><span class="star">✦</span><span><b>8</b>ulduz</span></a>
-    <div class="upd"><span class="dot" id="dot"></span><span id="updTxt">canlı</span></div>
+    <a class="logo" href="#" onclick="setCat('Hamısı');return false;">
+      <span class="mark"><span>✦</span></span><span>ULDUZ</span>
+    </a>
+    <nav id="nav"></nav>
   </div>
-  <div class="ticker"><div class="ticker-in" id="ticker">Yüklənir…</div></div>
+  <div class="ticker">
+    <span class="lab"><span class="zap">⚡</span> SON DƏQİQƏ</span>
+    <div class="marq"><div class="tin" id="tin">Yüklənir…</div></div>
+  </div>
 </header>
 
 <div class="wrap">
-  <nav class="tabs" id="tabs"></nav>
+  <div class="cathead">
+    <div class="l">
+      <span class="bar"></span>
+      <div><h1 id="catTitle">Xəbərlər</h1><p id="catSub">Azərbaycan və dünyadan son xəbərlər</p></div>
+    </div>
+    <span class="count" id="count"></span>
+  </div>
   <main class="grid" id="grid"></main>
   <div class="empty" id="empty" style="display:none">Bu bölmədə hələ xəbər yoxdur.</div>
 </div>
 
-<footer><div class="wrap">8ulduz — xəbərlər xülasəsi və mənbəyə keçidlərlə. © 2026</div></footer>
+<footer><div class="wrap">8ulduz — xəbər xülasələri və mənbəyə keçidlərlə © 2026</div></footer>
 <div class="toast" id="toast">Yeni xəbərlər var — göstər ⬆</div>
 
 <script>
-const REFRESH_SEC = 30;                 // yenilənmə aralığı (saniyə ilə)
-const CATS = ["Gündəm","Siyasət","Cəmiyyət","İqtisadiyyat","Dünya","İdman","Mədəniyyət","Video xəbərlər"];
+const REFRESH_SEC = 30;
+const CATS = ["Gündəm","Siyasət","Cəmiyyət","İqtisadiyyat","Dünya","İdman","Mədəniyyət"];
+const SUBS = {"Hamısı":"Azərbaycan və dünyadan son xəbərlər","Gündəm":"Günün əsas hadisələri","Siyasət":"Daxili və xarici siyasət","Cəmiyyət":"Sosial həyatdan xəbərlər","İqtisadiyyat":"Bazar, maliyyə, enerji","Dünya":"Beynəlxalq mətbuat","İdman":"İdman aləmindən xəbərlər və nəticələr","Mədəniyyət":"Mədəniyyət və incəsənət","Video":"Video xəbərlər"};
+const EMO = {"Gündəm":"📰","Siyasət":"🏛️","Cəmiyyət":"🏙️","İqtisadiyyat":"📈","Dünya":"🌍","İdman":"⚽","Mədəniyyət":"🎭","Video":"▶️"};
 let news = [], active = "Hamısı", lastSig = "";
 
 const esc = s => (s||"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmtDate = d => { try{ return new Date(d).toLocaleString("az-AZ",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){ return ""; } };
+const rel = d => {
+  const t = new Date(d); if(isNaN(t)) return "";
+  const m = Math.floor((Date.now()-t.getTime())/60000);
+  if(m < 1) return "indi"; if(m < 60) return m+" dəqiqə əvvəl";
+  const h = Math.floor(m/60); if(h < 24) return h+" saat əvvəl";
+  const g = Math.floor(h/24); if(g === 1) return "dünən";
+  return g+" gün əvvəl";
+};
+const isFresh = d => { const t = new Date(d); return !isNaN(t) && (Date.now()-t.getTime()) < 60*60000; };
 
-function buildTabs(){
-  const t = document.getElementById("tabs");
-  t.innerHTML = ["Hamısı",...CATS].map(c =>
-    `<button class="tab ${c===active?'on':''}" onclick="setCat('${c}')">${c}</button>`).join("");
+function buildNav(){
+  const items = ["Hamısı",...CATS,"Video"];
+  document.getElementById("nav").innerHTML = items.map(c =>
+    `<a href="#" class="${c===active?'on':''}" onclick="setCat('${c}');return false;">${c==="Hamısı"?"Baş səhifə":c}</a>`).join("");
 }
-function setCat(c){ active = c; buildTabs(); render(); }
+function setCat(c){ active=c; buildNav(); render(); }
 
 function card(n){
-  const vid = n.isVideo || n.category==="Video xəbərlər";
+  const vid = n.isVideo || n.category === "Video";
+  const cat = vid ? "Video" : (n.category || "Gündəm");
   return `<article class="card">
-    ${vid?'<span class="badge vid">▶ video</span>':`<span class="badge">${esc(n.category)}</span>`}
+    <div class="thumb">
+      ${vid?'<span class="play">▶ VİDEO</span>':""}
+      <span class="wm">✦</span>
+      <span class="cat-emo">${EMO[cat]||"📰"}</span>
+    </div>
     <div class="cbody">
-      <div class="ct">${esc(n.title)}</div>
+      <div class="tags">
+        <span class="pill cat">${esc(cat).toUpperCase()}</span>
+        ${isFresh(n.pubDate)?'<span class="pill son">SON DƏQİQƏ</span>':""}
+      </div>
+      <div class="ct"><a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a></div>
       ${n.description?`<div class="cd">${esc(n.description)}</div>`:""}
-      <div class="meta"><span class="src">${esc(n.source)}</span><span>·</span><span>${fmtDate(n.pubDate)}</span></div>
-      <a class="rd" href="${esc(n.link)}" target="_blank" rel="noopener">Mənbədə oxu →</a>
+      <div class="meta"><span class="src">${esc(n.source)}</span><span>${rel(n.pubDate)}</span></div>
     </div></article>`;
 }
 
 function render(){
-  const list = news.filter(n => active==="Hamısı" || n.category===active || (active==="Video xəbərlər" && n.isVideo));
+  const list = news.filter(n => active==="Hamısı" || n.category===active || (active==="Video" && (n.isVideo||n.category==="Video")));
   document.getElementById("grid").innerHTML = list.map(card).join("");
   document.getElementById("empty").style.display = list.length ? "none" : "block";
-  // canlı zolaq
-  const recent = news.slice(0,12);
-  document.getElementById("ticker").innerHTML = recent.map(n=>`✦ ${esc(n.title)}`).join("  ") || "Hazırda xəbər yoxdur";
+  document.getElementById("catTitle").textContent = active==="Hamısı" ? "Xəbərlər" : active;
+  document.getElementById("catSub").textContent = SUBS[active] || "";
+  document.getElementById("count").innerHTML = "<b>"+list.length+"</b> xəbər";
+  const recent = news.filter(n=>!isNaN(new Date(n.pubDate))).sort((a,b)=>new Date(b.pubDate)-new Date(a.pubDate)).slice(0,15);
+  document.getElementById("tin").innerHTML = recent.map(n=>`<a href="${esc(n.link)}" target="_blank" rel="noopener"><b>✦</b> ${esc(n.title)}</a>`).join("") || "Hazırda xəbər yoxdur";
 }
 
 async function load(manual){
@@ -115,18 +181,16 @@ async function load(manual){
     const data = await r.json();
     const sig = data.length + "|" + (data[0]?data[0].link:"");
     if(sig !== lastSig && lastSig && !manual){
-      // yeni xəbər — yumşaq bildiriş
-      const toast = document.getElementById("toast");
-      toast.classList.add("show");
-      toast.onclick = ()=>{ render(); toast.classList.remove("show"); };
+      const t = document.getElementById("toast");
+      t.classList.add("show");
+      t.onclick = ()=>{ render(); t.classList.remove("show"); };
     }
-    news = data; lastSig = sig; buildTabs(); render();
-    document.getElementById("updTxt").textContent = "canlı · " + new Date().toLocaleTimeString("az-AZ");
-  }catch(e){
-    document.getElementById("updTxt").textContent = "bağlantı xətası";
-  }
+    news = data; lastSig = sig; render();
+  }catch(e){}
 }
-buildTabs(); load(true);
+document.getElementById("dateTxt").textContent =
+  new Date().toLocaleDateString("az-AZ",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+buildNav(); load(true);
 setInterval(()=>load(false), REFRESH_SEC*1000);
 </script>
 </body>
