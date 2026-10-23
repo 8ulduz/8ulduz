@@ -22,6 +22,6 @@ jobs:
         run: |
           git config user.name "8ulduz-bot"
           git config user.email "bot@8ulduz.az"
-          git add news.json
+          git add data/news.json
           git commit -m "Xəbərlər yeniləndi" || echo "Dəyişiklik yoxdur"
           git push
