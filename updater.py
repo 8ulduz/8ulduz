@@ -35,6 +35,7 @@ WORLD_FEEDS = [
     ("Daily Sabah",  "https://www.dailysabah.com/rss",              "en"),
     ("Hürriyet",     "https://www.hurriyet.com.tr/rss/anasayfa",    "tr"),
     ("TASS",         "https://tass.ru/rss/v2.xml",                  "ru"),
+    ("Yeni Şafak",   "https://www.yenisafak.com/rss",               "tr"),
 ]
 FEEDS = [(s, u, "az") for s, u in AZ_FEEDS] + WORLD_FEEDS
 
@@ -78,6 +79,8 @@ CATEGORIES = {
     "Cəmiyyət": ["yol qəzası", "hadisə", "qəza", "yanğın", "hava", "təhsil", "məktəb", "universitet",
                  "tələbə", "məhkəmə", "polis", "həkim", "xəstəxana", "yağış", "sel", "fəsad",
                  "köçkün", "insident", "kaza", "yangın", "eğitim", "sağlık", "təcili tibbi", "bərk", "duman"],
+    "Həyat": ["sağlıq","həkim","xəstəlik","tibbi","vitamin","pəhriz","psixologiya",
+              "sağlamlıq","sağlık","beslenme","diyet","həyat tərzi","məsləhət","profilaktika"],
     "Dünya": ["bmt", "nato", "rusiya", "çin", "fransa", "almanya", "iran", "israil", "ukrayna",
               "dəməşq", "suriya", "lebnon", "ərəb", "abş", "ingiltərə", "pakistan", "hindistan",
               "qüds", "beynəlxalq", "ermənistan", "gürcüstan",
@@ -128,9 +131,11 @@ def parse_feed(xml_bytes):
         link = text_of(item, ["link"])
         desc = text_of(item, ["description"])
         pub = text_of(item, ["pubDate", "date", "published", "updated"])
+        author = text_of(item, ["{http://purl.org/dc/elements/1.1/}creator", "author"])
         if title and link:
             items.append({"title": title, "link": link,
-                          "description": re.sub(r"<[^>]+>", "", desc)[:400], "pubDate": pub})
+                          "description": re.sub(r"<[^>]+>", "", desc)[:400], "pubDate": pub,
+                          "author": author})
     ns = {"a": "http://www.w3.org/2005/Atom"}
     for entry in root.findall(".//a:entry", ns):
         title = text_of(entry, ["a:title", "{http://www.w3.org/2005/Atom}title"])
@@ -200,6 +205,7 @@ def make_article(it, source, default_lang):
         "publishedAt": to_iso(it["pubDate"]),
         "imageUrl": None,
         "lang": detect_lang(it["title"], it["description"], default_lang),
+        "author": it.get("author", ""),
         "video": is_video(it),
     }
 
