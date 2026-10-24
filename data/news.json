@@ -1,7 +1,287 @@
 {
- "updatedAt": "2026-10-24T05:19:01.299815+00:00",
+ "updatedAt": "2026-10-24T05:55:42.289780+00:00",
  "count": 250,
  "articles": [
+  {
+   "id": "84a0501f283b4b5f",
+   "title": "Zelenski müharibəni mümkün qədər tez bitirməyə hazır olduğunu bildirib",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/cis-countries/zelenski-muharibeni-mumkun-qeder-tez-bitirmeye-hazir-oldugunu-bildirib-1007881",
+   "publishedAt": "2026-10-24T09:50:11+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "e5866e17961694df",
+   "title": "SOCAR's STAR refinery in Türkiye boosts diesel output by 19.4% in August",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238600.html",
+   "publishedAt": "2026-10-24T09:49:14+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "470da65535802d68",
+   "title": "Uzbekistan, Hong Kong CMA explore industrial investment ties",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238595.html",
+   "publishedAt": "2026-10-24T09:44:20+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a8375a9e59f49bbf",
+   "title": "ABŞ Yaxın Şərqin yeddi ölkəsində diplomatların ailə üzvlərinin çıxarılmasını tapşırıb",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/america/abs-yaxin-serqin-yeddi-olkesinde-diplomatlarin-aile-uzvlerinin-cixarilmasini-tapsirib-1007878",
+   "publishedAt": "2026-10-24T09:42:54+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "cce55e8e963b2998",
+   "title": "EDB holds seminar on Islamic finance development in Central Asia",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238594.html",
+   "publishedAt": "2026-10-24T09:39:42+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d69a64222fa26d10",
+   "title": "FIFA U-15 World Cup and Festival kicks off in Baku",
+   "summary": "",
+   "category": "idman",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238591.html",
+   "publishedAt": "2026-10-24T09:36:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b2613ea9cad333af",
+   "title": "Zaqatalada silsilə oğurluqlar edən şəxs saxlanılıb",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/incident/zaqatalada-silsile-ogurluqlar-eden-sexs-saxlanilib-1007877",
+   "publishedAt": "2026-10-24T09:33:46+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "0b6c0be0213b783c",
+   "title": "Iran releases currency exchange rates for October 24",
+   "summary": "",
+   "category": "dunya",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/iran/4238593.html",
+   "publishedAt": "2026-10-24T09:25:55+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "bfc59389757588db",
+   "title": "Kazakhstan's airline launches flights to Oman’s Salalah from Astana, Almaty",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238589.html",
+   "publishedAt": "2026-10-24T09:25:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d79ae76bde96fa1d",
+   "title": "EBRD to lend up to €100 million to Türkiye’s İş Leasing for green projects",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/world/turkey/4238588.html",
+   "publishedAt": "2026-10-24T09:22:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "68ed1f11ce8075d3",
+   "title": "How Benjamin Netanyahu reshaped Israel’s institutions",
+   "summary": "As Israel heads to the polls on October 27, its polarising and longest-serving prime minister is seeking re-election.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/24/how-benjamin-netanyahu-reshaped-israels-institutions?traffic_source=rss",
+   "publishedAt": "2026-10-24T05:29:07+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "70c665051147887f",
+   "title": "Sürpriz! Lille, Galatasaray'dan istiyor",
+   "summary": "Son olarak Şampiyonlar Ligi maçında temsilcimiz Galatasaray ile karşılaşan Lille, sürpriz bir hamleye imza atıyor.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/surpriz-lille-galatasaraydan-istiyor-43353035",
+   "publishedAt": "2026-10-24T05:21:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d5b807bd61ce640a",
+   "title": "Hospital in Yemen’s Taiz warns of collapse in days because of Houthi siege",
+   "summary": "Dialysis patients face shorter treatment sessions as severe shortages of fuel, medicines, and oxygen threaten hospitals.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/features/2026/10/24/hospital-yemen-taiz-warns-collapse-houthi-siege?traffic_source=rss",
+   "publishedAt": "2026-10-24T05:20:35+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "3eeae7ee8527c235",
+   "title": "Lebanese sceptical Israeli polls will bring change, end occupation of south",
+   "summary": "Residents and analysts doubt October 27 vote will bring any meaningful shift in Israeli policy towards their country.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/features/2026/10/24/lebanese-skeptical-israeli-polls-will-bring-change-end-occupation-of-south?traffic_source=rss",
+   "publishedAt": "2026-10-24T05:04:32+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2ff54f9836b84565",
+   "title": "Ceyhun Yılmaz: Perran Kutman ile sohbet etmek yıldızlara dokunmak gibi",
+   "summary": "OYUNCU, radyocu ve şair Ceyhun Yılmaz, Cemre Onaylı’nın hazırlayıp sunduğu ‘Cemre ile TBT’ programına konuk oldu.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/stil/ceyhun-yilmaz-perran-kutman-ile-sohbet-etmek-yildizlara-dokunmak-gibi-43353032",
+   "publishedAt": "2026-10-24T04:55:57+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "4c84e99317c14862",
+   "title": "Sahanın da gelirin de kralı Salah!",
+   "summary": "Forbes dergisinin açıkladığı 2026-27 dünyanın en çok kazanan futbolcuları listesine Salah yıllık 36.8 milyon Euro’luk geliriyle 10. sıradan girdi. Mısırlı yıldız, bordo mavili kulüpten yıllık 10 milyon Euro’su garanti ücret, 7 milyon Eurosu da imza parası olmak üzere 17 milyon Euro alıyor..",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/sahanin-da-gelirin-de-krali-salah-43352814",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7718246191f00e57",
+   "title": "Israeli forces begin demolishing Palestinian buildings in Hebron after two Israeli soldiers shot dead",
+   "summary": "The soldiers were killed in an attack by two Palestinian gunmen at a checkpoint outside the West Bank city on Friday morning.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cq4g1p974wxko?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T15:37:07+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1b53825f47c11103",
+   "title": "Oil spill washes up on UAE beaches after tanker strike",
+   "summary": "Satellite images show oil spreading for miles along the coastline, threatening local marine wildlife",
+   "category": "iqtisadiyyat",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6rey3n974g5o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T15:30:47+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d119173aeb2a98ea",
+   "title": "Beyinde sessiz tehlike! Her gün tüketilen bu gıdalara dikkat",
+   "summary": "Her gün tüketilen bazı gıdaların beyin sağlığı üzerindeki etkileri yeni bir araştırmayla yeniden gündemde. Yaklaşık 9 bin kişinin verilerini inceleyen bilim insanları, beslenme alışkanlıkları ile beyinde belirti vermeden gelişebilen damar hasarı arasında dikkat çekici bir bağlantı tespit etti. Üstelik bu ilişkinin yalnızca yaş, sigara kullanımı veya fazla kiloyla açıklanamadığı görüldü. Peki, araş",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/aile/galeri-beyinde-sessiz-tehlike-her-gun-tuketilen-bu-gidalara-dikkat-43350523",
+   "publishedAt": "2026-10-23T06:49:36+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "26c5d9e958584d9e",
+   "title": "Küresel sağlık sektöründe dev skandal! Kadınlara sayısız gereksiz işlem yapılmış... 4 bin 500 kanser hastasının dosyası yeniden açılıyor",
+   "summary": "Sağlık dünyasında patlak veren dev skandalda, yüzlerce kadının hatalı tedavilere maruz kaldığı ve en az 20 kadının memesinin tamamen gereksiz yere kesilerek alındığı doğrulandı. Finansal çıkar çatışmaları ve zincirleme ihmallerin gölgesinde büyüyen soruşturmada, inceleme ağının 10 yıl geriye uzatılarak 4 bin 500’den fazla vakayı kapsaması bekleniyor. İşte skandalın korkunç detayları...",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/kuresel-saglik-sektorunde-dev-skandal-kadinlara-sayisiz-gereksiz-islem-yapilmis-4-bin-500-kanser-hastasinin-dosyasi-yeniden-aciliyor-43330236",
+   "publishedAt": "2026-10-23T06:19:53+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "824c0cf8bc341e15",
+   "title": "Nev'den üzen haber: İkinci kez entübe edildi",
+   "summary": "Zor”, “Mühürlü Kaderim” ve “Sen Gibi” gibi şarkılarıyla geniş bir dinleyici kitlesine ulaşan Nev’den üzücü haber geldi. Yoğun bakımda tedavisi süren sanatçı, sağlık durumunun kötüleşmesi üzerine ikinci kez entübe edildi. Menajeri İlker Ercan, Nev’in durumunun kritik olduğunu belirterek kan bağışı ve dua çağrısında bulundu.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/nevden-uzen-haber-ikinci-kez-entube-edildi-43351785",
+   "publishedAt": "2026-10-23T05:41:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "09032effd3dd2dcd",
+   "title": "Blue Planet III: Moment octopus escapes death after hunt gone wrong",
+   "summary": "The sequence is part of the latest Blue Planet series from Sir David Attenborough.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck240lmvqjyjo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T05:05:03+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c3b2f264cfa58bdd",
+   "title": "İngiltere'de halka acil çağrı: 3 günlük stok yapın",
+   "summary": "İngiltere hükümeti, aşırı hava olayları, siber saldırılar ve devlet kaynaklı güvenlik tehditlerine karşı vatandaşlara en az 3 gün yetecek kadar gıda ve su stoku yapmaları tavsiyesinde bulundu.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/ingilterede-halka-acil-cagri-3-gunluk-stok-yapin-43351761",
+   "publishedAt": "2026-10-23T04:39:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a4d4707062482a06",
+   "title": "Eski vekil Aydın da gözaltına alındı... ‘Fon’da yeni operasyon",
+   "summary": "Fon soruşturmasında  eski AK Parti milletvekili Ertan Aydın’ın da aralarında bulunduğu 5 kişi gözaltına alındı. Gözaltı sayısı 31’e yükselirken adliyeye sevk edilen 15 kişiden 11’i tutuklandı. 16 kişinin emniyeteki işlemleri sürüyor.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/eski-vekil-aydin-da-gozaltina-alindi-fonda-yeni-operasyon-43351723",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "877fd7b81000f4ba",
+   "title": "Elif Mavi’ye çarpan sürücüye 15 yıl istendi",
+   "summary": "Otomobiliyle çarptığı Elif Mavi Avli’nin ölümüne, annesinin de yaralanmasına neden olan otomobil sürücüsü Fatoş Akıl Bilgesoy hakkındaki soruşturma tamamlandı. Savcılık, Bilgesoy için 2 yıldan 15 yıla kadar hapis cezası talep etti.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/elif-maviye-carpan-surucuye-15-yil-istendi-43351710",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "572c342362237e9d",
+   "title": "Aleyna 7 ay sonra dışarda... Baş başa yemek",
+   "summary": "210 gün cezaevinde kaldıktan sonra tahliye edilen Aleyna Kalaycıoğlu, müzisyen Bertin Yıldız’la çıktığı yemekte görüntülendi.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/aleyna-7-ay-sonra-disarda-bas-basa-yemek-43351629",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d933f6878f114ee1",
+   "title": "Netanyahu’nun planı tartışma yarattı: Seçime günler kala gelen hamle! ‘1991 Irak’ına benzer görüntüler göreceğiz!’",
+   "summary": "İsrail’de seçim yarışı kızışırken Netanyahu’nun gündeme gelen son hamlesi, yalnızca sandığın sonucunu değil, bölgenin geleceğini de etkileyebilir. Ancak bu kez asıl dikkat çeken, atılacak adım kadar perde arkasındaki hesaplar. Washington’ın tutumu, Tahran’ın olası yanıtı ve İsrail’in siyasi geleceği aynı denklemde buluşurken, kritik kararın ne zaman ve nasıl alınacağı merak konusu. Peki, yaklaşan ",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/netanyahunun-plani-tartisma-yaratti-secime-gunler-kala-gelen-hamle-1991-irakina-benzer-goruntuler-gorecegiz-43350896",
+   "publishedAt": "2026-10-23T03:51:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ba12ee22d53e4fd4",
+   "title": "Kadir İnanır’ın mirası ünlüleri de gerdi",
+   "summary": "Kadir İnanır’ın mal varlığını hayat arkadaşı Jülide Kural’a bıraktığı vasiyet nedeniyle İnanır Ailesi ikiye bölündü: Karara saygı duyanlar ve itirazcılar. Miras meselesi ünlüleri de karşı karşıya getirdi: Hülya Avşar itirazcılardan yana tavır alırken, Demet Akalın bu çıkışı “saçma” buldu.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/savas-ozbey/kadir-inanirin-mirasi-unluleri-de-gerdi-43351640",
+   "publishedAt": "2026-10-23T03:28:00+00:00",
+   "imageUrl": null
+  },
   {
    "id": "86b2db552d33c3d3",
    "title": "Dünya bazarında neft kəskin bahalaşıb",
@@ -20,216 +300,6 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/incident/qebelede-iki-opel-toqqusub-3-oglan-xesaret-alib-1007873",
    "publishedAt": "2026-10-24T09:11:43+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d7f3a9775fc16612",
-   "title": "How Brazil's changing working class is reshaping the presidential race",
-   "summary": "Calls for change present a challenge to President Lula in the second round of the election on Sunday.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cw80zx79nkvno?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-24T05:05:44+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6467e4644dc1f0d2",
-   "title": "The rise of AI election ads in US midterms campaign",
-   "summary": "BBC Verify has tracked dozens of AI ads to assess how they are being used by campaigns in the midterms.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cm62y59zw8zko?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-24T05:03:44+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "4c3ee0327ce4ded5",
-   "title": "Massive oil slick seen weeks after tanker struck off UAE’s coast",
-   "summary": "An oil spill off the UAE coast has prompted beach closures after a vessel reportedly hit a naval mine in early October.",
-   "category": "iqtisadiyyat",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/24/massive-oil-slick-seen-weeks-after-tanker-struck-off-uaes-coast?traffic_source=rss",
-   "publishedAt": "2026-10-24T04:48:40+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6dd0935bf8ebbd49",
-   "title": "Avrupa'da en çok parayı Fenerbahçe kazandı!",
-   "summary": "Fenerbahçe, UEFA'dan 31.6 milyon euro almayı garantiledi.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/avrupada-en-cok-parayi-fenerbahce-kazandi-43352834",
-   "publishedAt": "2026-10-24T04:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ccc561b6f6761833",
-   "title": "Aslantepe'nin büyüsü Fenerbahçe'yi etkilemiyor!",
-   "summary": "Galatasaray, 15 Ocak 2011’de hizmete giren RAMS Park’ta bugüne dek tam 9 kez Süper Lig şampiyonluğu kupası kaldırırken, Fenerbahçe sadece 2 kez mutlu sona ulaştı. Cimbom’un şampiyonluklarda bu denli fark attığı 16 sezonluk periyotta ezeli rakibine, sahasındaki maçlarda fazla üstünlük kuramaması, ‘derbilerin favorisi olmaz’ sözünün boşuna söylenmediğini ortaya koyuyor. Olağanüstü koşullar dışında d",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/aslantepenin-buyusu-fenerbahceyi-etkilemiyor-43352832",
-   "publishedAt": "2026-10-24T04:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "0ff8532abe0e6378",
-   "title": "Ruins of Limoges city hall a symbol of France divided by national protests",
-   "summary": "Younger Limoges residents see the destruction of their town hall as unfortunate collateral damage in a wider movement. For others, the fire was an unacceptable tragedy.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cxyvrged14d0o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T23:09:16+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "c4c48ac649825510",
-   "title": "Student movement takes Serbia's Vučić to the wire in neck-and-neck election",
-   "summary": "The Student List has emerged from almost two years of anti-corruption protests to form the biggest challenge to Vučić's rule.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cm1dwz311476o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T23:08:23+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5678b2c2c0f9b6d5",
-   "title": "Trump administration sues to block certification of upcoming Alaska election",
-   "summary": "The justice department has filed a lawsuit arguing that the inclusion of two candidates named Dan Sullivan could confuse voters.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c678pv4krx37o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T18:49:14+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5ef2b67e19150b56",
-   "title": "Adi Hütter'den dikkat çeken Can Uzun açıklaması: 'Yoluna taş koyabilir'",
-   "summary": "Eintracht Frankfurt Teknik Direktörü Adi Hütter, milli futbolcu Can Uzun hakkında çarpıcı açıklamalar yaptı.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/adi-hutterden-dikkat-ceken-can-uzun-aciklamasi-yoluna-tas-koyabilir-43352693",
-   "publishedAt": "2026-10-23T15:11:14+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "cac92165c4136eda",
-   "title": "2 yıla kadar hapsi isteniyor: İmamoğlu'nun 'makam aracı' davasında duruşma görülüyor",
-   "summary": "Ekrem İmamoğlu'nun Beylikdüzü Belediye Başkanlığı döneminde kendi şirketine ait aracı başkanlık makam aracı olarak kullandığı ve masraflarını belediyeye karşılattığı iddiasıyla yargılandığı davanın 2’nci duruşması görülüyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/2-yila-kadar-hapsi-isteniyor-imamoglunun-yargilandigi-makam-araci-davasinda-43352515",
-   "publishedAt": "2026-10-23T13:05:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6f254b93b6092354",
-   "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
-   "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T11:30:32+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b8cb9b5dcb7ef3fd",
-   "title": "4 ayda 18 bin ziyaretçi ağırlayan Makedonya Kule Müzesi Edirne’nin yeni gözdesi",
-   "summary": "Kültür ve Turizm Bakanı Mehmet Nuri Ersoy, Edirne’nin Roma döneminden günümüze ulaşan tek sur kulesinde ziyarete açılan Makedonya Kule Müzesi’nde incelemelerde bulundu. Dört ayda 18 bin ziyaretçiyi ağırlayan müze, yaklaşık 2 bin 200 yıllık Odysseus heykel başının da aralarında bulunduğu eserlerle kentin tarihini ziyaretçilerle buluşturuyor.",
-   "category": "siyaset",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/4-ayda-18-bin-ziyaretci-agirlayan-makedonya-kule-muzesi-edirnenin-yeni-gozdesi-43352159",
-   "publishedAt": "2026-10-23T09:27:30+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "c9543d950badde9a",
-   "title": "Hispanic voters helped bring Trump to power - in Texas, the tide may be turning",
-   "summary": "Recent polls suggest the president is facing challenging headwinds in the state ahead of the midterms.",
-   "category": "dunya",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cmwyqn6ejyd4o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T09:23:53+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ad5217fa4fea2c9d",
-   "title": "TÜİK istatistikleri açıkladı: Beyin göçü oranı belli oldu! En çok hangi ülke tercih ediliyor?",
-   "summary": "Türkiye'de geçen yıl yükseköğretim mezunlarının beyin göçü oranı yüzde 2,2 olurken, mezunlar en çok Almanya'ya gitmeyi tercih etti. Beyin  göçünün en yüksek olduğu il İstanbul oldu.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/tuik-istatistikleri-acikladi-beyin-gocu-orani-belli-oldu-en-cok-hangi-ulke-tercih-ediliyor-43351986",
-   "publishedAt": "2026-10-23T07:59:17+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "2ad5387f6f499728",
-   "title": "'It's part of the culture' - New York bans horse-drawn carriages after more than 160 years",
-   "summary": "The BBC's Madeline Halpert spoke to city tourists, residents and horse carriage workers about the industry and their opinion on the ban.",
-   "category": "medeniyyet",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck5yn9dqnqj7o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T20:48:56+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5fa1ad24517cfece",
-   "title": "Damaging hail pelts Phoenix in rare storm",
-   "summary": "Videos from the Arizona capital show people sheltering inside a car as hail smashes the windscreen, while intense downpours covered neighbourhoods in ice.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cm5ynpz5jj5do?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T15:11:49+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "43769c764d043a0e",
-   "title": "Pişirme teknolojisinde yeni nesil: Mutfaktaki Plasma Steel farkını adım adım keşfedin!",
-   "summary": "Karaca’nın mutfak teknolojisinde yeni bir dönem başlatan Plasma Steel 3PLY 316+ Tencere Serisi, lansman döneminde gördüğü yoğun ilginin ardından yenilenen stoklarıyla yeniden mutfaklara dönüyor. Türkiye’de ilk kez plasma teknolojisiyle güçlendirilmiş seri, kaplama veya teflon içermeyen yapısını, yapışmaz pişirme performansı ve uzun ömürlü kullanım avantajlarıyla bir araya getiriyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/pisirme-teknolojisinde-yeni-nesil-mutfaktaki-plasma-steel-farkini-adim-adim-kesfedin-43299011",
-   "publishedAt": "2026-09-07T12:09:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "68a4d72d96bf6e7d",
-   "title": "Zarafetin Geometrisi: HUAWEI Watch Ultimate Design",
-   "summary": "Günün koşturmacası içinde zamanı sadece takip etmek mi, yoksa onu hayatın her anında bir sanat eseri gibi yaşamak mı? Akıllı saatler artık sadece adım sayan ya da telefon bildirimlerini ekrana yansıtan teknolojik aksesuarlar olmaktan çıktı.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/zarafetin-geometrisi-huawei-watch-ultimate-design-43230971",
-   "publishedAt": "2026-07-06T14:42:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ad5bd0a5170b92c3",
-   "title": "Çocuğunuzu Geleceğe Hazırlayan Eğitim Nasıl Olmalı?",
-   "summary": "Anne babalar bu sorunun cevabını arıyor: Çocuğumuz, henüz var olmayan mesleklerin ve hızla değişen teknolojilerin şekillendireceği gelecekte ne kadar güçlü durabilecek? İşte merak edilen cevaplar…",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/cocugunuzu-gelecege-hazirlayan-egitim-nasil-olmali-43210325",
-   "publishedAt": "2026-06-18T14:22:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d96356a51646e7d0",
-   "title": "Doğanın izinde tasarlanan sofraların gerçek sırrını keşfedin!",
-   "summary": "Sofra grubundan mutfak ürünlerine, küçük ev aletlerinden ev tekstiline kadar pek çok ihtiyacı kullanıcılarının beğenisine sunan Karaca; Türkiye’nin dünyaca tanınan şefi Fatih Tutak iş birliğiyle tasarlanan “Karaca Earth Collection Fatih Tutak Serisi”ni, ilhamını doğanın sadeliğinden alanlar için üretti.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/doganin-izinde-tasarlanan-sofralarin-gercek-sirrini-kesfedin-43135818",
-   "publishedAt": "2026-03-25T07:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "715bcfd3f6f4c983",
-   "title": "Türkiye 2-2 Karadağ (Maçın özeti ve golleri)",
-   "summary": "A Milli Takım, 2022 FIFA Dünya Kupası Elemeleri G Grubu dördüncü maçında Karadağ ile 2-2 berabere kaldı.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/turkiye-2-2-karadag-macin-ozeti-ve-golleri-41885564",
-   "publishedAt": "2021-09-01T21:07:00+00:00",
    "imageUrl": null
   },
   {
@@ -323,6 +393,26 @@
    "imageUrl": null
   },
   {
+   "id": "d7f3a9775fc16612",
+   "title": "How Brazil's changing working class is reshaping the presidential race",
+   "summary": "Calls for change present a challenge to President Lula in the second round of the election on Sunday.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cw80zx79nkvno?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-24T05:05:44+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "6467e4644dc1f0d2",
+   "title": "The rise of AI election ads in US midterms campaign",
+   "summary": "BBC Verify has tracked dozens of AI ads to assess how they are being used by campaigns in the midterms.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/cm62y59zw8zko?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-24T05:03:44+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "85e9f350e65be4f9",
    "title": "Zelenski: Rusiya hər ay 140 ballistik raket istehsal edir",
    "summary": "",
@@ -330,6 +420,16 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/europe/zelenski-rusiya-her-ay-140-ballistik-raket-istehsal-edir-1007858",
    "publishedAt": "2026-10-24T04:54:07+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "4c3ee0327ce4ded5",
+   "title": "Massive oil slick seen weeks after tanker struck off UAE’s coast",
+   "summary": "An oil spill off the UAE coast has prompted beach closures after a vessel reportedly hit a naval mine in early October.",
+   "category": "iqtisadiyyat",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/24/massive-oil-slick-seen-weeks-after-tanker-struck-off-uaes-coast?traffic_source=rss",
+   "publishedAt": "2026-10-24T04:48:40+00:00",
    "imageUrl": null
   },
   {
@@ -390,6 +490,26 @@
    "source": "BBC News",
    "sourceUrl": "https://www.bbc.co.uk/news/articles/cj62yv5k0w4yo?at_medium=RSS&at_campaign=rss",
    "publishedAt": "2026-10-24T04:03:46+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "6dd0935bf8ebbd49",
+   "title": "Avrupa'da en çok parayı Fenerbahçe kazandı!",
+   "summary": "Fenerbahçe, UEFA'dan 31.6 milyon euro almayı garantiledi.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/avrupada-en-cok-parayi-fenerbahce-kazandi-43352834",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ccc561b6f6761833",
+   "title": "Aslantepe'nin büyüsü Fenerbahçe'yi etkilemiyor!",
+   "summary": "Galatasaray, 15 Ocak 2011’de hizmete giren RAMS Park’ta bugüne dek tam 9 kez Süper Lig şampiyonluğu kupası kaldırırken, Fenerbahçe sadece 2 kez mutlu sona ulaştı. Cimbom’un şampiyonluklarda bu denli fark attığı 16 sezonluk periyotta ezeli rakibine, sahasındaki maçlarda fazla üstünlük kuramaması, ‘derbilerin favorisi olmaz’ sözünün boşuna söylenmediğini ortaya koyuyor. Olağanüstü koşullar dışında d",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/aslantepenin-buyusu-fenerbahceyi-etkilemiyor-43352832",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
    "imageUrl": null
   },
   {
@@ -1063,6 +1183,26 @@
    "imageUrl": null
   },
   {
+   "id": "0ff8532abe0e6378",
+   "title": "Ruins of Limoges city hall a symbol of France divided by national protests",
+   "summary": "Younger Limoges residents see the destruction of their town hall as unfortunate collateral damage in a wider movement. For others, the fire was an unacceptable tragedy.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cxyvrged14d0o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T23:09:16+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c4c48ac649825510",
+   "title": "Student movement takes Serbia's Vučić to the wire in neck-and-neck election",
+   "summary": "The Student List has emerged from almost two years of anti-corruption protests to form the biggest challenge to Vučić's rule.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cm1dwz311476o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T23:08:23+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "173fde0883230ef4",
    "title": "Moldova Rusiya diplomatını ölkədən çıxarmaq qərarına gəlib",
    "summary": "",
@@ -1530,6 +1670,16 @@
    "source": "Al Jazeera",
    "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/aston-villa-vs-manchester-city-premier-league-teams-prediction-lineups?traffic_source=rss",
    "publishedAt": "2026-10-23T18:55:18+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "5678b2c2c0f9b6d5",
+   "title": "Trump administration sues to block certification of upcoming Alaska election",
+   "summary": "The justice department has filed a lawsuit arguing that the inclusion of two candidates named Dan Sullivan could confuse voters.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c678pv4krx37o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T18:49:14+00:00",
    "imageUrl": null
   },
   {
@@ -2350,156 +2500,6 @@
    "source": "Al Jazeera",
    "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/one-person-killed-in-suspected-islamophobic-shooting-near-paris?traffic_source=rss",
    "publishedAt": "2026-10-23T16:08:04+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "e4243ab53705e2aa",
-   "title": "Ermənistanda Samvel Karapetyanın daha 10 tərəfdarı saxlanılıb",
-   "summary": "",
-   "category": "dunya",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/cis-countries/ermenistanda-samvel-karapetyanin-daha-10-terefdari-saxlanilib-1007753",
-   "publishedAt": "2026-10-23T16:07:08+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "96c6c5856639707a",
-   "title": "Bayern Münih'in teknik direktörü Vincent Kompany hastaneye kaldırıldı!",
-   "summary": "Bayern Münih Teknik Direktörü Vincent Kompany, bugünkü antrenmanın ardından yere yığıldı. Belçikalı teknik adam, ambulansla hastaneye kaldırıldı.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/bayern-munihin-teknik-direktoru-vincent-kompany-hastaneye-kaldirildi-43352747",
-   "publishedAt": "2026-10-23T16:05:45+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "fbd583cac6c56536",
-   "title": "7 ilde 'müstehcenlik' ve 'fuhuş' operasyonu: 45 gözaltı",
-   "summary": "Ankara Cumhuriyet Başsavcılığı koordinesinde; Ankara merkezli 7 ilde müstehcenlik ve fuhuş suçlarına yönelik düzenlenen operasyonda, 45 şüpheli gözaltına alındı.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/7-ilde-mustehcenlik-ve-fuhus-operasyonu-45-gozalti-43352745",
-   "publishedAt": "2026-10-23T16:02:19+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "8bbed367df58c018",
-   "title": "Watch: CCTV footage appears to show gunmen near church in Jordan",
-   "summary": "Dozens of people had been inside the church for a funeral when the shooting began, local media report.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/c39wz712q0kzo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T15:59:36+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "bd5ba832bb00dcae",
-   "title": "Biləcəridə 2 otaqlı studiya mənzillər güzəştli kredit və ipoteka ilə satışda!",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/infrastructure/bileceride-2-otaqli-studiya-menziller-guzestli-kredit-ve-ipoteka-ile-satisda-1007749",
-   "publishedAt": "2026-10-23T15:59:00+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b07270e7245db695",
-   "title": "İranda ən böyük Günəş Elektrik Stansiyasının tikintisi başa çatıb",
-   "summary": "",
-   "category": "dunya",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/energy-and-industry/iranda-en-boyuk-gunes-elektrik-stansiyasinin-tikintisi-basa-catib-1007747",
-   "publishedAt": "2026-10-23T15:58:32+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "31a395cc5e87d353",
-   "title": "Azərbaycanla Qırğızıstan arasında cinayətkarlıqla mübarizə sahəsində saziş təsdiqlənib",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/official-news/azerbaycanla-qirgizistan-arasinda-cinayetkarliqla-mubarize-sahesinde-sazis-tesdiqlenib-1007750",
-   "publishedAt": "2026-10-23T15:58:05+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "537482a686348569",
-   "title": "Fitch affirms Uzbek Kafolat Insurance’s ‘BB-’ rating with positive outlook",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238439.html",
-   "publishedAt": "2026-10-23T15:57:23+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "99ed775ddb81bbb0",
-   "title": "Azərbaycan-Hindistan münasibətlərində yeni mərhələ: Bakı və Yeni Dehli arasında siyasi dialoq genişlənir – TƏHLİL",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/political/azerbaycan-hindistan-munasibetlerinde-yeni-merhele-baki-ve-yeni-dehli-arasinda-siyasi-dialoq-genislenir-tehlil-1007733",
-   "publishedAt": "2026-10-23T15:54:37+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "916c447b70f5db8e",
-   "title": "Yağıntılı hava şəraiti davam edəcək, dolu düşəcək  - XƏBƏRDARLIQ",
-   "summary": "",
-   "category": "cemiyyet",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/weather-forecast/yagintili-hava-seraiti-davam-edecek-dolu-dusecek-xeberdarliq-1007745",
-   "publishedAt": "2026-10-23T15:52:38+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "a4b03efae83c88dd",
-   "title": "‘Foreign policy is the economy’: How Iran war is shaping US midterm vote",
-   "summary": "Democrats are framing the conflict as an affordability issue to criticise Republican candidates backed by Trump.",
-   "category": "dunya",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/foreign-policy-is-the-economy-how-iran-war-is-shaping-us-midterm-vote?traffic_source=rss",
-   "publishedAt": "2026-10-23T15:51:29+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "828fe6a83970f341",
-   "title": "Ucarda “Aqrar Biznes” və “I Çəltik” festivalı keçirilib - FOTO",
-   "summary": "",
-   "category": "medeniyyet",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/agrarian-industry/ucarda-aqrar-biznes-ve-i-celtik-festivali-kecirilib-foto-1007743",
-   "publishedAt": "2026-10-23T15:50:36+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "8d84c1e80d8f7229",
-   "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb",
-   "summary": "",
-   "category": "cemiyyet",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-1007741",
-   "publishedAt": "2026-10-23T15:46:26+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "3792ea141c492528",
-   "title": "Salyanda yol qəzasında bir nəfər ölüb, 4 nəfər xəsarət alıb - FOTO",
-   "summary": "",
-   "category": "cemiyyet",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/incident/salyanda-yol-qezasinda-bir-nefer-olub-4-nefer-xesaret-alib-foto-1007741",
-   "publishedAt": "2026-10-23T15:46:23+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "33b2f69a8daee70d",
-   "title": "Kazatomprom to resubmit Uranium One supply deal for shareholder approval",
-   "summary": "",
-   "category": "cemiyyet",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238432.html",
-   "publishedAt": "2026-10-23T15:46:21+04:00",
    "imageUrl": null
   }
  ]
