@@ -1,7 +1,467 @@
 {
- "updatedAt": "2026-10-24T04:23:57.549868+00:00",
+ "updatedAt": "2026-10-24T04:55:58.152985+00:00",
  "count": 250,
  "articles": [
+  {
+   "id": "8468a12b1f4768e7",
+   "title": "ABŞ və Avropa fond bazarlarında eniş davam edib",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/finance/abs-ve-avropa-fond-bazarlarinda-enis-davam-edib-1007871",
+   "publishedAt": "2026-10-24T08:49:13+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7319916aca4b7974",
+   "title": "İstanbul'da bazı cadde ve yollar trafiğe kapatıldı",
+   "summary": "Cumhuriyet Bayramı tören provası nedeniyle İstanbul'da bazı cadde ve yollar trafiğe kapatıldı.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/istanbulda-bazi-cadde-ve-yollar-trafige-kapatildi-43353029",
+   "publishedAt": "2026-10-24T04:18:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7ef5328c98db0165",
+   "title": "France prepares for day of protest a week after nationwide riots",
+   "summary": "More than 70,000 police officers are to be deployed over fears protesters will defy restrictions on demonstrations.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cj62yv5k0w4yo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-24T04:03:46+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "983afc471166b486",
+   "title": "İstanbul Barosu başkanını seçecek",
+   "summary": "İstanbul Barosu’nun bu hafta sonu yapılacak 128. Olağan Genel Kurulu’nda başkanlık için dokuz aday yarışacak. Haliç Kongre Merkezi’ndeki seçimde  68 bini aşkın avukatın oy hakkı var. Hürriyet adayları ve projelerini sıraladı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/istanbul-barosu-baskanini-sececek-43352974",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "40bc9d2e976a67ff",
+   "title": "Yağ aldırma ameliyatında can verdi",
+   "summary": "Tuğba Onur, özel bir hastanede yağ aldırma ameliyatı sırasında hayatını kaybetti. Eşinin yanlış müdahale nedeniyle öldüğünü öne süren Murat Onur, hastane ve olayda sorumluluğu olanlardan şikâyetçi oldu.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/yag-aldirma-ameliyatinda-can-verdi-43352942",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "cb191f3b1235edf4",
+   "title": "AK Parti’den vekillere Genel Kurul uyarısı",
+   "summary": "AK Parti Grup Başkanlığı, milletvekillerine Genel Kurul uyarısında bulundu. Cumhurbaşkanı Tayyip Erdoğan’ın da milletvekillerine yönelik “Meclis çalışmalarına katılın” uyarılarının ardından Grup Başkanı Abdullah Güler, milletvekillerine gönderdiği yazıyla vekillerin 31 Aralık 2026’ya kadar Genel Merkez teşkilât görevleri de dahil olmak üzere yurtiçi ve yurtdışındaki tüm resmi ve özel programlarını",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/ak-partiden-vekillere-genel-kurul-uyarisi-43352972",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ea961ced608b21a0",
+   "title": "Saldırının 2. yılı... TUSAŞ şehitlerini andı",
+   "summary": "TÜRK Havacılık ve Uzay Sanayii A.Ş. (TUSAŞ), 23 Ekim 2024’te Kahramankazan Yerleşkesi’ne gerçekleştirilen terör saldırısının 2’nci yılında şehitleri andı.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/saldirinin-2-yili-tusas-sehitlerini-andi-43352967",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "af985df828c9accf",
+   "title": "Bakan Tekin çocuklarla halat çekti",
+   "summary": "İSTANBUL’DA Güneşlitepe İlkokulu’nda ‘Maarifin Kalbinde Oyun, Aile ve Çocuk Günü’ düzenlendi. Milli Eğitim Bakanı Yusuf Tekin’in katıldığı programda çocuklar, okul bahçesinde oyun oynadı.",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/bakan-tekin-cocuklarla-halat-cekti-43352992",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ccf569aa62bc5b69",
+   "title": "Sarıgül soruşturmasında 3 şüpheliye tutuklama talebi",
+   "summary": "İstanbul Cumhuriyet Başsavcılığı’nca Sarıgül Ailesi hakkında yürütülen ‘suçtan kaynaklanan malvarlığı değerlerini aklama’ soruşturması kapsamında gözaltına alınan 5 şüpheliden 3'ü tutuklama talebiyle sulh ceza hakimliğine sevk edildi.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/sarigul-sorusturmasinda-3-supheliye-tutuklama-talebi-43352943",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "92fd35f07ca8b5d5",
+   "title": "New York’ta faytona yasak",
+   "summary": "NEW York’un simgelerinden olan Central Park’la özdeşleşen faytonlar için yasak kararı çıktı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/new-yorkta-faytona-yasak-43353009",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "9b4da5e9572db7e2",
+   "title": "Maden ocağında grizu patlaması",
+   "summary": "Özel kömür madeni ocağında meydana gelen grizu patlamasında 3 işçi yaşamını yitirdi, 2’si ağır, 5 işçi yaralandı. Patlamaya ilişkin başlatılan soruşturmada işletme sahibi ile iş sağlığı ve güvenliği uzmanı hakkında gözaltı kararı verildi. Sosyal Güvenlik Kurumu tarafından da başmüfettiş görevlendirildi.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/maden-ocaginda-grizu-patlamasi-43352939",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "8250f3a368cb5eb2",
+   "title": "7 saniyelik vurgun",
+   "summary": "Spor müsabakalarındaki canlı bahisleri 7 saniye geciktirerek, skor belli olduktan sonra ortaklarına bahis oynattığı tespit edilen ‘Spordata’ isimli firmada veri analisti olarak çalışan O.B.’nin hesaplarında 192 milyon liralık para giriş çıkışı olduğu belirlendi. 8 şüpheli gözaltına alındı.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/7-saniyelik-vurgun-43352941",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c1750c3fddb6cd12",
+   "title": "Romantik kutlama",
+   "summary": "KANAL D’nin sevilen dizisi ‘Güller ve Günahlar’ın yıldızı Murat Yıldırım, eşi Iman Elbani’nin doğum gününü sosyal medya hesabından yaptığı romantik paylaşımla kutladı.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/stil/romantik-kutlama-43352853",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a99a9e226851c7ef",
+   "title": "Dubai yıldızı Hande",
+   "summary": "ROL aldığı yapımlarla ünü Türkiye sınırlarını aşan Hande Erçel bu kez Dubai’de hayranlarıyla buluştu.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/stil/dubai-yildizi-hande-43352855",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "e981cc6fd6e7000b",
+   "title": "Aura’ya Manifest desteği",
+   "summary": "Meri, Aslı, Esra ve Suzy’den oluşan Aura grubunun ilk albümü “Elemental”, önceki akşam Wu Bomonti’de gerçekleşen lansmanla tanıtıldı.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/stil/auraya-manifest-destegi-43352781",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2ce9d161325258a9",
+   "title": "Mehmet Şef’ten türküler",
+   "summary": "Kubat, YouTube programı “Kubat’la Studio14”ün yeni bölümünde Mehmet Yalçınkaya’yı ağırladı.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/stil/mehmet-seften-turkuler-43352772",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "19340cb5251a01c2",
+   "title": "‘Düğünlere davet geliyor ama gitmeye çekiniyorum’",
+   "summary": "Türkiye’deki düğünlerden ilginç görüntüleri sosyal medya hesabında yeniden canlandıran Ali Cesur’un videoları milyonlarca kez izleniyor. Hollywood’da oyunculuk hayalinin peşinden koşan Cesur’la konuştuk.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hurriyet-cumartesi/dugunlere-davet-geliyor-ama-gitmeye-cekiniyorum-43352926",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "e6e4f40244166446",
+   "title": "‘Farklı dünyalar yaratmak istiyoruz’",
+   "summary": "Türkiye’nin adını ‘saçlarından’ alan yeni bir rock grubu var: Perma. Idol House yarışmasında yolları kesişen üç genç müzisyen, izleyicilerin desteğiyle yarışmadan sonra bir araya geldi. İlk şarkıları ‘Bulamazsın’ı yayımlayan grup üyeleriyle konuştuk.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hurriyet-cumartesi/farkli-dunyalar-yaratmak-istiyoruz-43353007",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7c23ade004f9abcd",
+   "title": "Şimdi biraz da mora ve ötesine geçiyoruz",
+   "summary": "Bu sezon alışveriş yaparken gözüm sürekli mor parçalara takılıyor. Özellikle trikolarda, çantalarda ve elbiselerde uzun zamandır bu kadar çok mor görmemiştim. Patlıcan, mürdüm, leylak... Hangi tonu seçmeli, hangi renklerle bir araya getirmeli, günlük hayatta nasıl giymeli, bir bakalım...",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hurriyet-cumartesi/simdi-biraz-da-mora-ve-otesine-geciyoruz-43353011",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "55eedeb32424c0fc",
+   "title": "Kurgu dışı haftası",
+   "summary": "Haftanın seçkisinde psikolojinin popüler kavramlarından ‘güvenli bağlanma’yı merkezine alan bir çalışma da var, Türk edebiyatının büyük isimlerinin okudukları da...",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hurriyet-cumartesi/kurgu-disi-haftasi-43353004",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a646ba308ddcd942",
+   "title": "Dünyaca ünlü şefler, usta solistler ve genç yetenekler sahnede...",
+   "summary": "Borusan İstanbul Filarmoni Orkestrası’nın (BİFO) 10 Aralık’ta başlayacak yeni sezon konserlerinde soprano Nadine Sierra, çellist Edgar Moreau ve genç keman yıldızı Chloe Chua sahneye çıkacak isimler arasında. Borusan Contemporary’deyse fotoğraf sanatından yapay zekâya uzanan iki sergi devam ediyor.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hurriyet-cumartesi/dunyaca-unlu-sefler-usta-solistler-ve-genc-yetenekler-sahnede-43352931",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "37a4bc6fbce0bc03",
+   "title": "‘Paris bana bir resim ülkesinde olduğumu hatırlattı’",
+   "summary": "Ressam ve çizer Ramize Erer, kadınlık halleri  ve kadın deneyimlerini kendine has tarzıyla yorumladığı ‘Séparation’ sergisiyle Paris’te izleyicisiyle buluştu. Ayrılık, geçicilik, aidiyet, yas gibi kavramları işleyen Erer’le konuştuk: “Resimlerdeki kadınların hepsini çok iyi tanıyorum ama isim verebilecek kadar hiçbirini tanımıyorum.”",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hurriyet-cumartesi/paris-bana-bir-resim-ulkesinde-oldugumu-hatirlatti-43352897",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2358d282323a26d3",
+   "title": "Aleyna için ezber bozan mütalaa... İntihara sevk değil kasten öldürme",
+   "summary": "Ayrıldığı sevgilisinin tehditleri nedeniyle hayatına son veren üniversite öğrencisi Aleyna Kaya’nın ölümüne ilişkin ‘intihara yönlendirme’ suçundan dava açılmıştı. Ancak Cumhuriyet Savcısı, örnek bir mütalaa ile sanığın ‘kasten öldürme’den cezalandırılmasını talep etti.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/aleyna-icin-ezber-bozan-mutalaa-intihara-sevk-degil-kasten-oldurme-43352952",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b88275a7dd7661fe",
+   "title": "Çatışmaya karşı İstanbul çağrısı",
+   "summary": "Türkiye, Mısır, Pakistan, Suudi Arabistan, İngiltere, Almanya, Fransa ve İtalya dışişleri bakanlarını bir araya getiren İstanbul zirvesinden hem Körfez’de hem Ukrayna’da bir an önce ateşkes ve barış çağrısı çıktı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/catismaya-karsi-istanbul-cagrisi-43352946",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "652066ffc894ee70",
+   "title": "Fransa kıyamete hazırlanıyor",
+   "summary": "17 Ekim’deki şiddet ve yağma olaylarının ardından Fransa, bugün düzenlenecek yeni protestolar öncesinde alarma geçti. Ülke genelinde 70 bin kolluk kuvveti sahaya sürülürken, esnaf vitrinlerini panellerle kapattı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/fransa-kiyamete-hazirlaniyor-43352953",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "48e840b7409cf332",
+   "title": "ABD Rusya ve Ukrayna masaya oturuyor! Abu Dabi’de barış zirvesi",
+   "summary": "Rusya, ABD’nin yeni barış planını müzakere etmek üzere önümüzdeki ay BAE’nin başkenti Abu Dabi’de üçlü masaya oturmayı kabul etti. Ukrayna’nın doğusundaki Donbas’ın silahtan arındırılması ve Kiev’in NATO üyeliğinden vazgeçmesini içeren planın detayları basına sızdı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/abd-rusya-ve-ukrayna-masaya-oturuyor-abu-dabide-baris-zirvesi-43352955",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "15b7c569e2408a8c",
+   "title": "İzzet Yıldızhan: İtibarımı zedeleyenlere dava açtım",
+   "summary": "ÜMRANİYE’de 19 Mart’ta silahlı saldırıda öldürülen futbolcu Kubilay Kaan Kundakçı cinayeti davasının karar duruşması geçtiğimiz hafta yapıldı.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/izzet-yildizhan-itibarimi-zedeleyenlere-dava-actim-43352844",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ed839557c2b2aec1",
+   "title": "Fidan ve Abdülati bir arada",
+   "summary": "Mısır Dışişleri Bakanı Bedr Abdülati, dün İstanbul’da düzenlenen R4 toplantısı kapsamında Dışişleri Bakanı Hakan Fidan ile bir araya geldi.",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/fidan-ve-abdulati-bir-arada-43352961",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "124391c0d0d1a1e7",
+   "title": "Bahçeli’den kurultay tarihi... 15. kurultay 7 Şubat’ta",
+   "summary": "MHP Genel Başkanı Devlet Bahçeli, “Partimizin 15’inci Olağan Büyük Kurultayı’nın 7 Şubat 2027 Pazar günü gerçekleştirilmesi kararlaştırılmıştır” dedi.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/bahceliden-kurultay-tarihi-15-kurultay-7-subatta-43352948",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "341562184c74a52c",
+   "title": "Batı Şeria’da tansiyon yükseldi! Seçim öncesi ‘manidar’ saldırı",
+   "summary": "İsrail’de kritik seçimlere üç gün kala, Netanyahu’nun haftalardır öne sürdüğü ‘saldırı’ iddialarını ‘haklı çıkaracak’ olay Batı Şeria’da gerçekleşti. El Halil’de yaşanan ve şüphe uyandıran çatışmayı fırsat bilen İsrail hükümeti, bölge için büyük bir abluka ve operasyon talimatı verdi.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/bati-seriada-tansiyon-yukseldi-secim-oncesi-manidar-saldiri-43352954",
+   "publishedAt": "2026-10-24T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "cb553eee0794e335",
+   "title": "Uzayda yaşam arayışında yeni umut! Bilim insanlarından 'yaşam dedektörü'",
+   "summary": "Dünya dışında yaşam olup olmadığı, bilim dünyasının uzun yıllardır yanıt aradığı soruların başında geliyor. Gezegenlerde ve gök taşlarında yürütülen araştırmalarda en büyük zorluklardan biri, canlılığa işaret edebilecek kimyasal izleri tespit etmek. Japonya'daki bilim insanları ise bu arayışta yeni bir yöntem geliştirdi. Uzay araştırmalarında kullanılan büyük ve karmaşık cihazlara alternatif olabi",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/galeri-dunya-disinda-yasam-var-mi-bilim-insanlarindan-yeni-yasam-dedektoru-43343892",
+   "publishedAt": "2026-10-24T03:59:29+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "082093f59e2b2169",
+   "title": "Tarihteki en kötü yaz mevsimini yaşadık! Alev alev yanan şehirlerde aşırı sıcaklar 50 binden fazla can aldı",
+   "summary": "Alev alev yanan şehirlerde aşırı sıcaklar 50 binden fazla can aldı! Dev araştırmaya göre, tarihin en ölümcül yazında yaşanan ölümlerin üçte ikisine doğrudan iklim krizi neden oldu. Türkiye’de düzenlenecek BM İklim Zirvesi (COP31) öncesi açıklanan acı bilanço, \"sessiz katil\" olarak adlandırılan sıcak dalgalarının genç-yaşlı ayırt etmeksizin tüm toplumları tehdit ettiğini ortaya koydu.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/tarihteki-en-kotu-yaz-mevsimini-yasadik-alev-alev-yanan-sehirlerde-asiri-sicaklar-50-binden-fazla-can-aldi-43352238",
+   "publishedAt": "2026-10-24T03:57:07+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "3354b72b3de846f6",
+   "title": "Geçmişindeki detay dikkat çekiyor: Eski generalin Netanyahu planı! Perde arkasında neler oluyor?",
+   "summary": "İsrail siyasetinde yaklaşan seçimler, Başbakan Netanyahu’nun karşısına çıkan dikkat çekici bir isimle yeni bir boyut kazanmış durumda… Askerî geçmişi ve alışılmışın dışındaki tavrıyla gündeme gelen bu isim, seçim yarışında dengeleri değiştirebilecek bir figür olarak öne çıktı. Ancak onu rakiplerinden ayıran asıl özellik, siyasi kariyerinden çok daha fazlasına dayanıyor.",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/gecmisindeki-detay-dikkat-cekiyor-eski-generalin-netanyahu-plani-perde-arkasinda-neler-oluyor-43352503",
+   "publishedAt": "2026-10-24T03:56:18+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "99928135601c8ebc",
+   "title": "Australian MP's condition improves after alleged car attack",
+   "summary": "The Independent MP is now in a serious but stable condition, according to the Melbourne hospital.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c670pr1ryxyno?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-24T01:55:15+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "70dec74f838f1757",
+   "title": "Woman, 65, becomes second patient to die of Ebola in Kenya",
+   "summary": "She was a close family member of the first victim, a man who had travelled from the Democratic Republic of Congo.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6x2355448eyo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-24T00:05:43+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "cacaf0129d2f6adc",
+   "title": "Are California voters about to impose world's first 'tax on billionaires'?",
+   "summary": "Voters are about to decide if the mega-rich among them should hand over billions of dollars to pay for improvements to healthcare.",
+   "category": "iqtisadiyyat",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/ck4g1jg4n9dno?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T23:11:31+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d119173aeb2a98ea",
+   "title": "Beyinde sessiz tehlike! Her gün tüketilen bu gıdalara dikkat",
+   "summary": "Her gün tüketilen bazı gıdaların beyin sağlığı üzerindeki etkileri yeni bir araştırmayla yeniden gündemde. Yaklaşık 9 bin kişinin verilerini inceleyen bilim insanları, beslenme alışkanlıkları ile beyinde belirti vermeden gelişebilen damar hasarı arasında dikkat çekici bir bağlantı tespit etti. Üstelik bu ilişkinin yalnızca yaş, sigara kullanımı veya fazla kiloyla açıklanamadığı görüldü. Peki, araş",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/aile/galeri-beyinde-sessiz-tehlike-her-gun-tuketilen-bu-gidalara-dikkat-43350523",
+   "publishedAt": "2026-10-23T06:49:36+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "26c5d9e958584d9e",
+   "title": "Küresel sağlık sektöründe dev skandal! Kadınlara sayısız gereksiz işlem yapılmış... 4 bin 500 kanser hastasının dosyası yeniden açılıyor",
+   "summary": "Sağlık dünyasında patlak veren dev skandalda, yüzlerce kadının hatalı tedavilere maruz kaldığı ve en az 20 kadının memesinin tamamen gereksiz yere kesilerek alındığı doğrulandı. Finansal çıkar çatışmaları ve zincirleme ihmallerin gölgesinde büyüyen soruşturmada, inceleme ağının 10 yıl geriye uzatılarak 4 bin 500’den fazla vakayı kapsaması bekleniyor. İşte skandalın korkunç detayları...",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/kuresel-saglik-sektorunde-dev-skandal-kadinlara-sayisiz-gereksiz-islem-yapilmis-4-bin-500-kanser-hastasinin-dosyasi-yeniden-aciliyor-43330236",
+   "publishedAt": "2026-10-23T06:19:53+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "824c0cf8bc341e15",
+   "title": "Nev'den üzen haber: İkinci kez entübe edildi",
+   "summary": "Zor”, “Mühürlü Kaderim” ve “Sen Gibi” gibi şarkılarıyla geniş bir dinleyici kitlesine ulaşan Nev’den üzücü haber geldi. Yoğun bakımda tedavisi süren sanatçı, sağlık durumunun kötüleşmesi üzerine ikinci kez entübe edildi. Menajeri İlker Ercan, Nev’in durumunun kritik olduğunu belirterek kan bağışı ve dua çağrısında bulundu.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/nevden-uzen-haber-ikinci-kez-entube-edildi-43351785",
+   "publishedAt": "2026-10-23T05:41:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "09032effd3dd2dcd",
+   "title": "Blue Planet III: Moment octopus escapes death after hunt gone wrong",
+   "summary": "The sequence is part of the latest Blue Planet series from Sir David Attenborough.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck240lmvqjyjo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T05:05:03+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c3b2f264cfa58bdd",
+   "title": "İngiltere'de halka acil çağrı: 3 günlük stok yapın",
+   "summary": "İngiltere hükümeti, aşırı hava olayları, siber saldırılar ve devlet kaynaklı güvenlik tehditlerine karşı vatandaşlara en az 3 gün yetecek kadar gıda ve su stoku yapmaları tavsiyesinde bulundu.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/ingilterede-halka-acil-cagri-3-gunluk-stok-yapin-43351761",
+   "publishedAt": "2026-10-23T04:39:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a4d4707062482a06",
+   "title": "Eski vekil Aydın da gözaltına alındı... ‘Fon’da yeni operasyon",
+   "summary": "Fon soruşturmasında  eski AK Parti milletvekili Ertan Aydın’ın da aralarında bulunduğu 5 kişi gözaltına alındı. Gözaltı sayısı 31’e yükselirken adliyeye sevk edilen 15 kişiden 11’i tutuklandı. 16 kişinin emniyeteki işlemleri sürüyor.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/eski-vekil-aydin-da-gozaltina-alindi-fonda-yeni-operasyon-43351723",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "877fd7b81000f4ba",
+   "title": "Elif Mavi’ye çarpan sürücüye 15 yıl istendi",
+   "summary": "Otomobiliyle çarptığı Elif Mavi Avli’nin ölümüne, annesinin de yaralanmasına neden olan otomobil sürücüsü Fatoş Akıl Bilgesoy hakkındaki soruşturma tamamlandı. Savcılık, Bilgesoy için 2 yıldan 15 yıla kadar hapis cezası talep etti.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/elif-maviye-carpan-surucuye-15-yil-istendi-43351710",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "572c342362237e9d",
+   "title": "Aleyna 7 ay sonra dışarda... Baş başa yemek",
+   "summary": "210 gün cezaevinde kaldıktan sonra tahliye edilen Aleyna Kalaycıoğlu, müzisyen Bertin Yıldız’la çıktığı yemekte görüntülendi.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/aleyna-7-ay-sonra-disarda-bas-basa-yemek-43351629",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d933f6878f114ee1",
+   "title": "Netanyahu’nun planı tartışma yarattı: Seçime günler kala gelen hamle! ‘1991 Irak’ına benzer görüntüler göreceğiz!’",
+   "summary": "İsrail’de seçim yarışı kızışırken Netanyahu’nun gündeme gelen son hamlesi, yalnızca sandığın sonucunu değil, bölgenin geleceğini de etkileyebilir. Ancak bu kez asıl dikkat çeken, atılacak adım kadar perde arkasındaki hesaplar. Washington’ın tutumu, Tahran’ın olası yanıtı ve İsrail’in siyasi geleceği aynı denklemde buluşurken, kritik kararın ne zaman ve nasıl alınacağı merak konusu. Peki, yaklaşan ",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/netanyahunun-plani-tartisma-yaratti-secime-gunler-kala-gelen-hamle-1991-irakina-benzer-goruntuler-gorecegiz-43350896",
+   "publishedAt": "2026-10-23T03:51:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ba12ee22d53e4fd4",
+   "title": "Kadir İnanır’ın mirası ünlüleri de gerdi",
+   "summary": "Kadir İnanır’ın mal varlığını hayat arkadaşı Jülide Kural’a bıraktığı vasiyet nedeniyle İnanır Ailesi ikiye bölündü: Karara saygı duyanlar ve itirazcılar. Miras meselesi ünlüleri de karşı karşıya getirdi: Hülya Avşar itirazcılardan yana tavır alırken, Demet Akalın bu çıkışı “saçma” buldu.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/savas-ozbey/kadir-inanirin-mirasi-unluleri-de-gerdi-43351640",
+   "publishedAt": "2026-10-23T03:28:00+00:00",
+   "imageUrl": null
+  },
   {
    "id": "91f5d5a53b30a925",
    "title": "Sumitomo expects Uzbek solar projects to start up in 2027, 2028 (Exclusive)",
@@ -20,236 +480,6 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/europe/cexiya-prezidenti-rusiyanin-sulh-danisiqlarina-hazir-olmadigini-bildirib-1007868",
    "publishedAt": "2026-10-24T07:37:16+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "e3a4ef152a3c9d40",
-   "title": "Tramp neft qiymətlərinin tezliklə aşağı düşəcəyini bildirib",
-   "summary": "",
-   "category": "iqtisadiyyat",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/social/tramp-neft-qiymetlerinin-tezlikle-asagi-duseceyini-bildirib-1007869",
-   "publishedAt": "2026-10-24T06:10:08+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "f51fafeb1c4a4283",
-   "title": "Obezite riski anne karnında başlıyor",
-   "summary": "Çocuklarda obezite oranı her geçen gün artıyor. Prof. Dr. Özmert’e göre beslenme alışkanlığı anne karnında başlıyor. Anne ne yerse bebek de onu seviyor. O yüzden hamilelikte sağlıklı beslenme, yağlı ve şekerli gıdalardan sakınma büyük önem taşıyor...",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/nuran-cakmakci/obezite-riski-anne-karninda-basliyor-43352994",
-   "publishedAt": "2026-10-24T03:06:39+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "2be43b52f41cb6c2",
-   "title": "Bakan Ersoy’a çağrı ‘Likya Yolu Festivali’",
-   "summary": "Bu coğrafyanın 4 bin yıllık tarihinden Akdeniz’e uzanan...",
-   "category": "siyaset",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/fatih-cekirge/bakan-ersoya-cagri-likya-yolu-festivali-43352989",
-   "publishedAt": "2026-10-24T03:04:38+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "32c9991d4e98f360",
-   "title": "Kilit de anahtar da orta güçlerin ittifakında",
-   "summary": "Dünya sancılı bir değişimden geçerken Türkiye’nin merkezinde olduğu baş döndüren bir diplomasi trafiği yaşanıyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/gokce-aytulu/kilit-de-anahtar-da-orta-guclerin-ittifakinda-43353005",
-   "publishedAt": "2026-10-24T03:03:19+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "4d3c8367efb27336",
-   "title": "Murat Kurum dev zirveye hazır",
-   "summary": "BÜYÜK SUNUM: Çevre ve Şehircilik Bakanı Murat Kurum’un, COP31’i anlatmak için tüm gazetelerin ve televizyonların genel yayın yönetmenlerini davet ettiği toplantıya katıldım dün.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/ahmet-hakan/murat-kurum-dev-zirveye-hazir-43353003",
-   "publishedAt": "2026-10-24T03:02:14+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "cac92165c4136eda",
-   "title": "2 yıla kadar hapsi isteniyor: İmamoğlu'nun 'makam aracı' davasında duruşma görülüyor",
-   "summary": "Ekrem İmamoğlu'nun Beylikdüzü Belediye Başkanlığı döneminde kendi şirketine ait aracı başkanlık makam aracı olarak kullandığı ve masraflarını belediyeye karşılattığı iddiasıyla yargılandığı davanın 2’nci duruşması görülüyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/2-yila-kadar-hapsi-isteniyor-imamoglunun-yargilandigi-makam-araci-davasinda-43352515",
-   "publishedAt": "2026-10-23T13:05:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ee718a6b45b0f128",
-   "title": "Denmark to ban mink farming in government U-turn",
-   "summary": "Once the world's largest producer of mink pelts, the nation's industry has declined in recent years.",
-   "category": "dunya",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c59vzjm118j1o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T12:17:45+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "172af20712405927",
-   "title": "Beline kuşağını sardı... Annesi de hazinenin anahtarını ona vermiş",
-   "summary": "Dünyanın en göz önünde insanlarından biri İspanya'nın gelecekteki kraliçesi, Asturias Prensesi Leonor…",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/beline-kusagini-sardi-annesi-de-taki-sandigini-acmis-43352098",
-   "publishedAt": "2026-10-23T11:34:05+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6f254b93b6092354",
-   "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
-   "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T11:30:32+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b8cb9b5dcb7ef3fd",
-   "title": "4 ayda 18 bin ziyaretçi ağırlayan Makedonya Kule Müzesi Edirne’nin yeni gözdesi",
-   "summary": "Kültür ve Turizm Bakanı Mehmet Nuri Ersoy, Edirne’nin Roma döneminden günümüze ulaşan tek sur kulesinde ziyarete açılan Makedonya Kule Müzesi’nde incelemelerde bulundu. Dört ayda 18 bin ziyaretçiyi ağırlayan müze, yaklaşık 2 bin 200 yıllık Odysseus heykel başının da aralarında bulunduğu eserlerle kentin tarihini ziyaretçilerle buluşturuyor.",
-   "category": "siyaset",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/4-ayda-18-bin-ziyaretci-agirlayan-makedonya-kule-muzesi-edirnenin-yeni-gozdesi-43352159",
-   "publishedAt": "2026-10-23T09:27:30+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "c9543d950badde9a",
-   "title": "Hispanic voters helped bring Trump to power - in Texas, the tide may be turning",
-   "summary": "Recent polls suggest the president is facing challenging headwinds in the state ahead of the midterms.",
-   "category": "dunya",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cmwyqn6ejyd4o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T09:23:53+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "58ee29c94ba45f01",
-   "title": "Herkes onların büyük aşkını ve yeni doğan bebeğini konuşuyor... Bıkmadan uğraştı sonunda ailesiyle ilgili şoke eden gerçeği buldu",
-   "summary": "Bir çocuk yıldız olarak tanındıktan sonra kariyerini sürdüren oyuncu Dylan Sprouse, ailesinin kuşaklar boyu uzanan bir sırrını ortaya çıkardı!",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/unlu-oyuncunun-ailesinde-kimse-bu-gercegi-bilmiyordu-annesi-ve-babasi-akraba-cikti-43351074",
-   "publishedAt": "2026-10-23T08:53:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "e8af6b89b470cd98",
-   "title": "Rubio turns to small Indian town as US faces high oil prices",
-   "summary": "US Secretary of State Marco Rubio pushed a business and energy agenda over diplomacy on his second trip to India this year.",
-   "category": "iqtisadiyyat",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c3x2wnk8ejq5o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T08:39:42+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ad5217fa4fea2c9d",
-   "title": "TÜİK istatistikleri açıkladı: Beyin göçü oranı belli oldu! En çok hangi ülke tercih ediliyor?",
-   "summary": "Türkiye'de geçen yıl yükseköğretim mezunlarının beyin göçü oranı yüzde 2,2 olurken, mezunlar en çok Almanya'ya gitmeyi tercih etti. Beyin  göçünün en yüksek olduğu il İstanbul oldu.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/tuik-istatistikleri-acikladi-beyin-gocu-orani-belli-oldu-en-cok-hangi-ulke-tercih-ediliyor-43351986",
-   "publishedAt": "2026-10-23T07:59:17+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "50021d91cff3c9b7",
-   "title": "Attack on actor Tiger Shroff is dark reminder of Bollywood's gangster past",
-   "summary": "The attack on Shroff has revived memories of the 1990s, when gangsters wielded influence over the industry.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6vgjk1lp7njo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T23:55:39+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ef3835611c59706c",
-   "title": "Surveillance and 'constant paranoia': Western diplomats tell BBC of life in war-time Moscow",
-   "summary": "Officials compare working in Russia since its full-scale invasion of Ukraine to the Cold War era.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cj75p1xr7p7vo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T23:16:20+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "2ad5387f6f499728",
-   "title": "'It's part of the culture' - New York bans horse-drawn carriages after more than 160 years",
-   "summary": "The BBC's Madeline Halpert spoke to city tourists, residents and horse carriage workers about the industry and their opinion on the ban.",
-   "category": "medeniyyet",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck5yn9dqnqj7o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T20:48:56+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5fa1ad24517cfece",
-   "title": "Damaging hail pelts Phoenix in rare storm",
-   "summary": "Videos from the Arizona capital show people sheltering inside a car as hail smashes the windscreen, while intense downpours covered neighbourhoods in ice.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cm5ynpz5jj5do?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T15:11:49+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "43769c764d043a0e",
-   "title": "Pişirme teknolojisinde yeni nesil: Mutfaktaki Plasma Steel farkını adım adım keşfedin!",
-   "summary": "Karaca’nın mutfak teknolojisinde yeni bir dönem başlatan Plasma Steel 3PLY 316+ Tencere Serisi, lansman döneminde gördüğü yoğun ilginin ardından yenilenen stoklarıyla yeniden mutfaklara dönüyor. Türkiye’de ilk kez plasma teknolojisiyle güçlendirilmiş seri, kaplama veya teflon içermeyen yapısını, yapışmaz pişirme performansı ve uzun ömürlü kullanım avantajlarıyla bir araya getiriyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/pisirme-teknolojisinde-yeni-nesil-mutfaktaki-plasma-steel-farkini-adim-adim-kesfedin-43299011",
-   "publishedAt": "2026-09-07T12:09:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "68a4d72d96bf6e7d",
-   "title": "Zarafetin Geometrisi: HUAWEI Watch Ultimate Design",
-   "summary": "Günün koşturmacası içinde zamanı sadece takip etmek mi, yoksa onu hayatın her anında bir sanat eseri gibi yaşamak mı? Akıllı saatler artık sadece adım sayan ya da telefon bildirimlerini ekrana yansıtan teknolojik aksesuarlar olmaktan çıktı.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/zarafetin-geometrisi-huawei-watch-ultimate-design-43230971",
-   "publishedAt": "2026-07-06T14:42:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ad5bd0a5170b92c3",
-   "title": "Çocuğunuzu Geleceğe Hazırlayan Eğitim Nasıl Olmalı?",
-   "summary": "Anne babalar bu sorunun cevabını arıyor: Çocuğumuz, henüz var olmayan mesleklerin ve hızla değişen teknolojilerin şekillendireceği gelecekte ne kadar güçlü durabilecek? İşte merak edilen cevaplar…",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/cocugunuzu-gelecege-hazirlayan-egitim-nasil-olmali-43210325",
-   "publishedAt": "2026-06-18T14:22:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d96356a51646e7d0",
-   "title": "Doğanın izinde tasarlanan sofraların gerçek sırrını keşfedin!",
-   "summary": "Sofra grubundan mutfak ürünlerine, küçük ev aletlerinden ev tekstiline kadar pek çok ihtiyacı kullanıcılarının beğenisine sunan Karaca; Türkiye’nin dünyaca tanınan şefi Fatih Tutak iş birliğiyle tasarlanan “Karaca Earth Collection Fatih Tutak Serisi”ni, ilhamını doğanın sadeliğinden alanlar için üretti.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/doganin-izinde-tasarlanan-sofralarin-gercek-sirrini-kesfedin-43135818",
-   "publishedAt": "2026-03-25T07:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "715bcfd3f6f4c983",
-   "title": "Türkiye 2-2 Karadağ (Maçın özeti ve golleri)",
-   "summary": "A Milli Takım, 2022 FIFA Dünya Kupası Elemeleri G Grubu dördüncü maçında Karadağ ile 2-2 berabere kaldı.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/turkiye-2-2-karadag-macin-ozeti-ve-golleri-41885564",
-   "publishedAt": "2021-09-01T21:07:00+00:00",
    "imageUrl": null
   },
   {
@@ -280,6 +510,16 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238575.html",
    "publishedAt": "2026-10-24T06:38:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "e3a4ef152a3c9d40",
+   "title": "Tramp neft qiymətlərinin tezliklə aşağı düşəcəyini bildirib",
+   "summary": "",
+   "category": "iqtisadiyyat",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/social/tramp-neft-qiymetlerinin-tezlikle-asagi-duseceyini-bildirib-1007869",
+   "publishedAt": "2026-10-24T06:10:08+04:00",
    "imageUrl": null
   },
   {
@@ -440,6 +680,46 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/scaucasus/georgia/4238571.html",
    "publishedAt": "2026-10-24T03:21:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "f51fafeb1c4a4283",
+   "title": "Obezite riski anne karnında başlıyor",
+   "summary": "Çocuklarda obezite oranı her geçen gün artıyor. Prof. Dr. Özmert’e göre beslenme alışkanlığı anne karnında başlıyor. Anne ne yerse bebek de onu seviyor. O yüzden hamilelikte sağlıklı beslenme, yağlı ve şekerli gıdalardan sakınma büyük önem taşıyor...",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/nuran-cakmakci/obezite-riski-anne-karninda-basliyor-43352994",
+   "publishedAt": "2026-10-24T03:06:39+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2be43b52f41cb6c2",
+   "title": "Bakan Ersoy’a çağrı ‘Likya Yolu Festivali’",
+   "summary": "Bu coğrafyanın 4 bin yıllık tarihinden Akdeniz’e uzanan...",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/fatih-cekirge/bakan-ersoya-cagri-likya-yolu-festivali-43352989",
+   "publishedAt": "2026-10-24T03:04:38+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "32c9991d4e98f360",
+   "title": "Kilit de anahtar da orta güçlerin ittifakında",
+   "summary": "Dünya sancılı bir değişimden geçerken Türkiye’nin merkezinde olduğu baş döndüren bir diplomasi trafiği yaşanıyor.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/gokce-aytulu/kilit-de-anahtar-da-orta-guclerin-ittifakinda-43353005",
+   "publishedAt": "2026-10-24T03:03:19+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "4d3c8367efb27336",
+   "title": "Murat Kurum dev zirveye hazır",
+   "summary": "BÜYÜK SUNUM: Çevre ve Şehircilik Bakanı Murat Kurum’un, COP31’i anlatmak için tüm gazetelerin ve televizyonların genel yayın yönetmenlerini davet ettiği toplantıya katıldım dün.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/ahmet-hakan/murat-kurum-dev-zirveye-hazir-43353003",
+   "publishedAt": "2026-10-24T03:02:14+00:00",
    "imageUrl": null
   },
   {
@@ -2220,286 +2500,6 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/social/kemaleddin-heyderov-qax-seherinde-vetendaslari-qebul-edib-1007729",
    "publishedAt": "2026-10-23T15:22:53+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "926e4c57aae58b6f",
-   "title": "Kazakhstan, Czechia set to expand agricultural cooperation",
-   "summary": "",
-   "category": "cemiyyet",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/casia/kazakhstan/4238422.html",
-   "publishedAt": "2026-10-23T15:19:46+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "3c1e06267b73a3c2",
-   "title": "Rumıniya Prezidenti Qara dənizdə batan gəmiyə görə Rusiyanı ittiham edib",
-   "summary": "",
-   "category": "dunya",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/europe/ruminiya-prezidenti-qara-denizde-batan-gemiye-gore-rusiyani-ittiham-edib-1007723",
-   "publishedAt": "2026-10-23T15:19:29+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "265bb9156a3c515f",
-   "title": "Uzbekistan continues digitizing social services, AI - deputy director",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/azerbaijan/society/4238409.html",
-   "publishedAt": "2026-10-23T15:16:52+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5099a8da537ba76c",
-   "title": "Japanese firms eye modernization of Uzbekistan’s Fergana plants",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238417.html",
-   "publishedAt": "2026-10-23T15:14:30+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5ef2b67e19150b56",
-   "title": "Adi Hütter'den dikkat çeken Can Uzun açıklaması: 'Yoluna taş koyabilir'",
-   "summary": "Eintracht Frankfurt Teknik Direktörü Adi Hütter, milli futbolcu Can Uzun hakkında çarpıcı açıklamalar yaptı.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/adi-hutterden-dikkat-ceken-can-uzun-aciklamasi-yoluna-tas-koyabilir-43352693",
-   "publishedAt": "2026-10-23T15:11:14+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "fa589dd77dc24f66",
-   "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini rəsmi qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/official-news/prezidentin-sosial-sebeke-hesablarinda-hindistanin-xin-rehberini-resmi-qebul-etmesi-ile-bagli-videocarx-paylasilib-video-1007726",
-   "publishedAt": "2026-10-23T15:09:40+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "fb619bc6d6175c7c",
-   "title": "Ələt-Astara yolunun yaxınlığında açıq ərazi yanır- FOTO - YENİLƏNİB",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/incident/elet-astara-yolunun-yaxinliginda-aciq-erazi-yanir-foto-yenilenib-1007711",
-   "publishedAt": "2026-10-23T15:09:09+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "000a0f8bd238d6be",
-   "title": "Prezidentin sosial şəbəkə hesablarında Hindistanın XİN rəhbərini qəbul etməsi ilə bağlı videoçarx paylaşılıb - VİDEO",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/official-news/prezidentin-sosial-sebeke-hesablarinda-hindistanin-xin-rehberini-qebul-etmesi-ile-bagli-videocarx-paylasilib-video-1007726",
-   "publishedAt": "2026-10-23T15:09:07+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "89a0ad518f0cb9e9",
-   "title": "Azerbaijan, Uzbekistan exchange experience in financial sector (PHOTO)",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/business/4238400.html",
-   "publishedAt": "2026-10-23T15:08:27+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "07424659c810336e",
-   "title": "OPEC Fund issues $250M for Middle Corridor's missing railway section in Türkiye",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/world/turkey/4238395.html",
-   "publishedAt": "2026-10-23T15:05:00+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "06f48cab5bccfc55",
-   "title": "Carrick accepts blame for Man United slump, but ‘confident’ of a turnaround",
-   "summary": "Manchester United make worst start to a season in 40 years, but Michael Carrick &#039;confident&#039; ahead of Bournemouth game.",
-   "category": "gundem",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/carrick-accepts-blame-for-man-united-slump-confident-he-can-turn-things?traffic_source=rss",
-   "publishedAt": "2026-10-23T15:04:44+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6df7f8c6b341a02b",
-   "title": "Azərbaycan Metrologiya İnstitutu və Polşanın Mərkəzi Ölçülər İdarəsi arasında Yol Xəritəsi imzalanıb",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/entrepreneurship/azerbaycan-metrologiya-institutu-ve-polsanin-merkezi-olculer-idaresi-arasinda-yol-xeritesi-imzalanib-1007720",
-   "publishedAt": "2026-10-23T15:03:53+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "81b2ec1f8f016c27",
-   "title": "Aİ lideri: Qara dənizdə Azərbaycan vətəndaşlarının da olduğu mülki gəmi vurulub, 3 nəfər hələ də itkindir",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/foreign-policy/ai-lideri-qara-denizde-azerbaycan-vetendaslarinin-da-oldugu-mulki-gemi-vurulub-3-nefer-hele-de-itkindir-1007718",
-   "publishedAt": "2026-10-23T15:01:22+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "bfcb86a59acd4aa8",
-   "title": "Aİ lideri: Qara dənizdə Azərbaycan vətəndaşlarının da olduğu mülki gəmi vurulub, 3 nəfər itkindir",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/foreign-policy/ai-lideri-qara-denizde-azerbaycan-vetendaslarinin-da-oldugu-mulki-gemi-vurulub-3-nefer-itkindir-1007718",
-   "publishedAt": "2026-10-23T15:01:08+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ed8897de8288d79a",
-   "title": "US justice department investigating Corey Lewandowski over DHS role",
-   "summary": "Trump's former campaign manager is reportedly being investigated for allegedly using his role at the Department of Homeland for financial gain.",
-   "category": "dunya",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6ly0dg453v8o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T14:58:19+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b3f7f2106600d549",
-   "title": "What to know as Brazil prepares for tense presidential run-off",
-   "summary": "Polls show leftist incumbent Lula closing gap on right-wing rival Flavio Bolsonaro ahead of second round of voting.",
-   "category": "gundem",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/what-to-know-as-brazil-prepares-for-tense-presidential-run-off?traffic_source=rss",
-   "publishedAt": "2026-10-23T14:56:05+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b27b077ebee92363",
-   "title": "MSK nümayəndə heyəti Serbiyada parlament seçkilərini müşahidə edəcək",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/foreign-policy/msk-numayende-heyeti-serbiyada-parlament-seckilerini-musahide-edecek-1007715",
-   "publishedAt": "2026-10-23T14:55:32+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "9120c60a24e8e6d1",
-   "title": "Türkiyədə Orta Dəhlizi gücləndirəcək dəmir yolu xəttinin tikintisinə 250 mln. dollar ayrılıb",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/infrastructure/turkiyede-orta-dehlizi-guclendirecek-demir-yolu-xettinin-tikintisine-250-mln-dollar-ayrilib-1007714",
-   "publishedAt": "2026-10-23T14:55:10+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "e5a3b059e7056cf4",
-   "title": "Dışişleri Bakanı Hakan Fidan: İran'a yeni saldırı çatışmayı yayar",
-   "summary": "Dışişleri Bakanı Hakan Fidan, İstanbul'da düzenlenen R4+E3 ülkeleri toplantısının ardından açıklamalarda bulundu. Bakan Fidan, yaptığı açıklamada, İran'a yeni saldırıların çatışmaları yayacağını belirtti.",
-   "category": "siyaset",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/dunya/disisleri-bakani-hakan-fidan-irana-yeni-saldiri-catismayi-yayar-43352660",
-   "publishedAt": "2026-10-23T14:54:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "894c35cdd19a68d7",
-   "title": "Rusiya ilə Ukrayna arasında \"270-in 270-ə\" formulu üzrə əsir mübadiləsi aparılıb",
-   "summary": "",
-   "category": "dunya",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/cis-countries/rusiya-ile-ukrayna-arasinda-270-in-270-e-formulu-uzre-esir-mubadilesi-aparilib-1007713",
-   "publishedAt": "2026-10-23T14:52:55+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "91a69a8d48a0cfc8",
-   "title": "Wells Fargo names Kleber Santos Consumer Banking Chief",
-   "summary": "",
-   "category": "iqtisadiyyat",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/world/4238404.html",
-   "publishedAt": "2026-10-23T14:52:16+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "e5199c7a1bd6ede9",
-   "title": "Neftçalada 13 yaşlı uşaq traktorun qoşqusunun altında qalaraq ölüb - YENİLƏNİB",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/incident/neftcalada-13-yasli-usaq-traktorun-qosqusunun-altinda-qalaraq-olub-yenilenib-1007516",
-   "publishedAt": "2026-10-23T14:50:37+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5ccf24ab766f101c",
-   "title": "Cəlilabadda açıq ərazidə yanğın başlayıb - FOTO",
-   "summary": "",
-   "category": "cemiyyet",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/social/celilabadda-aciq-erazide-yangin-baslayib-foto-1007711",
-   "publishedAt": "2026-10-23T14:43:30+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5ce30565b7c48497",
-   "title": "15 milyar liralık yasa dışı bahis trafiği çöktü: 5 ilde eş zamanlı operasyon",
-   "summary": "Kütahya merkezli 5 ilde yürütülen soruşturmada, organize hareket eden iki ayrı yasa dışı bahis şebekesinin lider kadrosu ve finans ağı deşifre edildi. 84 şüphelinin hedef alındığı operasyonda 76 kişi yakalanırken, zanlılara ait 10 otomobil ve 2 gayrimenkule mahkeme kararıyla el koyma işlemi uygulandı.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/15-milyar-liralik-yasa-disi-bahis-trafigi-coktu-5-ilde-es-zamanli-operasyon-43352653",
-   "publishedAt": "2026-10-23T14:43:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "81915e39cba4c49f",
-   "title": "Bu mesajlara dikkat! DMM'den 'sosyal medyada yaş düzenlemesi' tuzağına karşı uyarı",
-   "summary": "İletişim Başkanlığı Dezenformasyonla Mücadele Merkezi (DMM), sosyal medyada yaş doğrulama düzenlemesini fırsat bilerek ‘Hesabınız kapatılacak’, ‘Yaş doğrulamasını hemen yapın’ gibi ifadeler içeren sahte mesajlara itibar edilmemesi konusunda uyarıda bulundu.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/bu-mesajlara-dikkat-dmmden-sosyal-medyada-yas-duzenlemesi-tuzagina-karsi-uyari-43352650",
-   "publishedAt": "2026-10-23T14:42:11+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "712e18a31810db40",
-   "title": "Xalq rəssamı Fərhad Xəlilov: \"İstiqlal\" ordeninin şəklini hazırlayanda heç fikirləşməzdim ki, bunu alacam",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/culture-policy/xalq-ressami-ferhad-xelilov-istiqlal-ordeninin-seklini-hazirlayanda-hec-fikirlesmezdim-ki-bunu-alacam-1007712",
-   "publishedAt": "2026-10-23T14:41:13+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "1c69375f6367caa9",
-   "title": "Prezident İlham Əliyev Fərhad Xəlilova “İstiqlal” ordenini təqdim edib - YENİLƏNİB",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/official-news/prezident-ilham-eliyev-ferhad-xelilova-istiqlal-ordenini-teqdim-edib-yenilenib-1007658",
-   "publishedAt": "2026-10-23T14:33:57+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6223e8fa891c0532",
-   "title": "Şanlıurfa'da feci kaza! Devrilen otomobilin sürücüsü hayatını kaybetti",
-   "summary": "Şanlıurfa’da otomobilin 15 metre yükseklikten yol çalışması yapılan alana devrildiği kazada 58 yaşındaki sürücü Mehmet Olcay, hayatını kaybetti.",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/sanliurfada-feci-kaza-devrilen-otomobilin-surucusu-hayatini-kaybetti-43352640",
-   "publishedAt": "2026-10-23T14:29:35+00:00",
    "imageUrl": null
   }
  ]
