@@ -194,7 +194,10 @@ def is_video(it):
     return "/video/" in l or "video" in norm_az(it["title"])
 
 def make_article(it, source, default_lang):
+    lang = detect_lang(it["title"], it["description"], default_lang)
     label = categorize(it["title"], it["description"])
+    if label == "Prezident" and lang not in ("az", "ru"):
+        label = "Siyasət"
     return {
         "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
         "title": it["title"],
@@ -204,7 +207,7 @@ def make_article(it, source, default_lang):
         "sourceUrl": it["link"],
         "publishedAt": to_iso(it["pubDate"]),
         "imageUrl": None,
-        "lang": detect_lang(it["title"], it["description"], default_lang),
+        "lang": lang,
         "author": it.get("author", ""),
         "video": is_video(it),
     }
@@ -215,6 +218,12 @@ def main():
     except Exception:
         old = []
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
+    # köhnə xəbərlərin dili yoxdursa — avtomatik təyin et (süzgəcin düzgün işləməsi üçün)
+    for a in old:
+        if not a.get("lang"):
+            a["lang"] = detect_lang(a.get("title", ""), a.get("summary", ""), "")
+        if a.get("category") == "prezident" and a["lang"] not in ("az", "ru"):
+            a["category"] = "siyaset"
     seen = {a["sourceUrl"] for a in old}
     new_items, errors = [], []
     for source, url, dlang in FEEDS:
