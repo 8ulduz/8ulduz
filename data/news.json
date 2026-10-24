@@ -1,7 +1,247 @@
 {
- "updatedAt": "2026-10-24T09:07:37.443883+00:00",
+ "updatedAt": "2026-10-24T09:37:42.318067+00:00",
  "count": 250,
  "articles": [
+  {
+   "id": "6e0c20875c8328ca",
+   "title": "Kyrgyzstan operates 2 small hydropower plants in Ak-Sy district",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/kyrgyzstan/4238712.html",
+   "publishedAt": "2026-10-24T13:34:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "746db9620893bc06",
+   "title": "Caspian-Black Sea-Europe Green Energy Corridor requires €14.3 billion in transmission investment",
+   "summary": "",
+   "category": "dunya",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238719.html",
+   "publishedAt": "2026-10-24T13:30:27+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "55af483bb1a66f29",
+   "title": "Second day of Olive Festival underway in Baku (PHOTO)",
+   "summary": "",
+   "category": "medeniyyet",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/society/4238713.html",
+   "publishedAt": "2026-10-24T13:26:37+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "03a7d8d5462805a5",
+   "title": "Səudiyyə Ərəbistanı husilərin atdığı iki ballistik raketi zərərsizləşdirib",
+   "summary": "",
+   "category": "dunya",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/asia/seudiyye-erebistani-husilerin-atdigi-iki-ballistik-raketi-zerersizlesdirib-1007918",
+   "publishedAt": "2026-10-24T13:25:35+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2a711392ed24c55c",
+   "title": "Saudi DataVolt advances $200M green data center project in Uzbekistan",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238703.html",
+   "publishedAt": "2026-10-24T13:21:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "49ec59149edefb2e",
+   "title": "Preliminary schedule of Caspian-Black Sea-Europe Green Energy Corridor made public",
+   "summary": "",
+   "category": "dunya",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/azerbaijan/4238711.html",
+   "publishedAt": "2026-10-24T13:19:27+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1638e900891c7952",
+   "title": "Turkmenistan approves measures to modernize Turkmengaz infrastructure",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/turkmenistan/4238699.html",
+   "publishedAt": "2026-10-24T13:12:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "f5ff9840ba1cdb63",
+   "title": "Just Eat apologises after AI-generated images blunder",
+   "summary": "Just Eat has apologised after its AI-generated food images went viral for grossly misrepresenting menu items.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/24/just-eat-apologises-after-ai-generated-images-blunder?traffic_source=rss",
+   "publishedAt": "2026-10-24T09:29:37+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b78d1231de6cf991",
+   "title": "Ilhan Omar votes as Trump renews attacks amid federal probe",
+   "summary": "US Congresswoman Ilhan Omar has cast her ballot ahead of the US midterms.",
+   "category": "dunya",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/24/ilhan-omar-votes-us-midterms-federal-investigation?traffic_source=rss",
+   "publishedAt": "2026-10-24T09:16:19+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "956716ace419d817",
+   "title": "Why is Israel launching a new military operation in the occupied West Bank?",
+   "summary": "Netanyahu says &#039;we will destroy this place&#039; as Israeli forces begin days-long operation with raids and demolitions.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/24/why-is-israel-launching-a-new-military-operation-in-the-occupied-west-bank?traffic_source=rss",
+   "publishedAt": "2026-10-24T09:14:40+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "b98382bb5afe7b36",
+   "title": "Bolivian teachers strike over wages and education reform",
+   "summary": "Bolivian teachers strike over wages and education reform",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/24/bolivian-teachers-strike-over-wages-and-education-reform?traffic_source=rss",
+   "publishedAt": "2026-10-24T08:56:54+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1abe880c3edce7ff",
+   "title": "8 ülkeden ortak 'diyalog' ve 'diplomasi' çağrısı",
+   "summary": "Türkiye, Mısır, Pakistan, Suudi Arabistan, Almanya, Birleşik Krallık, Fransa ve İtalya, bölgesel çatışmaların sona ermesi için çağrıda bulundu. Yapılan çağrıda, diyalog ve diplomasinin önemi vurgulandı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/8-ulkeden-ortak-diyalog-ve-diplomasi-cagrisi-43353297",
+   "publishedAt": "2026-10-24T08:55:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "91dedd659200a621",
+   "title": "Süper Loto heyecanı: Büyük ikramiye 740 milyon 252 bin 651 TL’ye ulaştı",
+   "summary": "Süper Loto’da büyük ikramiye 740 milyon 252 bin 651 TL’ye ulaştı. Adana’da Milli Piyango bayisi işleten Ali Bıldırcın,  yıllardır çok sayıda ikramiye dağıtmaları nedeniyle bölgede ‘uğurlu bayi’ olarak anıldıklarını belirterek “Vatandaşlarımızda müthiş bir heyecan var. Şu an en büyük ilgi Süper Loto’dan yana oluyor. 740 milyon gibi bir rakamın oluşması ilginin de ne kadar büyük olduğunun ispatıdır”",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/super-loto-heyecani-buyuk-ikramiye-740-milyon-252-bin-651-tlye-ulasti-43353284",
+   "publishedAt": "2026-10-24T08:48:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7062cdf8c82e21a0",
+   "title": "Fenerbahçe'nin borcu açıklandı!",
+   "summary": "Fenerbahçe, Ağustos 2026 itibarıyla net borcun 164 milyon euro olduğunu açıkladı.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/fenerbahcenin-borcu-aciklandi-43353271",
+   "publishedAt": "2026-10-24T08:34:38+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "cac92165c4136eda",
+   "title": "2 yıla kadar hapsi isteniyor: İmamoğlu'nun 'makam aracı' davasında duruşma görülüyor",
+   "summary": "Ekrem İmamoğlu'nun Beylikdüzü Belediye Başkanlığı döneminde kendi şirketine ait aracı başkanlık makam aracı olarak kullandığı ve masraflarını belediyeye karşılattığı iddiasıyla yargılandığı davanın 2’nci duruşması görülüyor.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/2-yila-kadar-hapsi-isteniyor-imamoglunun-yargilandigi-makam-araci-davasinda-43352515",
+   "publishedAt": "2026-10-23T13:05:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "6f254b93b6092354",
+   "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
+   "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T11:30:32+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c9543d950badde9a",
+   "title": "Hispanic voters helped bring Trump to power - in Texas, the tide may be turning",
+   "summary": "Recent polls suggest the president is facing challenging headwinds in the state ahead of the midterms.",
+   "category": "dunya",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cmwyqn6ejyd4o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T09:23:53+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2ad5387f6f499728",
+   "title": "'It's part of the culture' - New York bans horse-drawn carriages after more than 160 years",
+   "summary": "The BBC's Madeline Halpert spoke to city tourists, residents and horse carriage workers about the industry and their opinion on the ban.",
+   "category": "medeniyyet",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck5yn9dqnqj7o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-22T20:48:56+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "5fa1ad24517cfece",
+   "title": "Damaging hail pelts Phoenix in rare storm",
+   "summary": "Videos from the Arizona capital show people sheltering inside a car as hail smashes the windscreen, while intense downpours covered neighbourhoods in ice.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/cm5ynpz5jj5do?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-22T15:11:49+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "43769c764d043a0e",
+   "title": "Pişirme teknolojisinde yeni nesil: Mutfaktaki Plasma Steel farkını adım adım keşfedin!",
+   "summary": "Karaca’nın mutfak teknolojisinde yeni bir dönem başlatan Plasma Steel 3PLY 316+ Tencere Serisi, lansman döneminde gördüğü yoğun ilginin ardından yenilenen stoklarıyla yeniden mutfaklara dönüyor. Türkiye’de ilk kez plasma teknolojisiyle güçlendirilmiş seri, kaplama veya teflon içermeyen yapısını, yapışmaz pişirme performansı ve uzun ömürlü kullanım avantajlarıyla bir araya getiriyor.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/pisirme-teknolojisinde-yeni-nesil-mutfaktaki-plasma-steel-farkini-adim-adim-kesfedin-43299011",
+   "publishedAt": "2026-09-07T12:09:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "68a4d72d96bf6e7d",
+   "title": "Zarafetin Geometrisi: HUAWEI Watch Ultimate Design",
+   "summary": "Günün koşturmacası içinde zamanı sadece takip etmek mi, yoksa onu hayatın her anında bir sanat eseri gibi yaşamak mı? Akıllı saatler artık sadece adım sayan ya da telefon bildirimlerini ekrana yansıtan teknolojik aksesuarlar olmaktan çıktı.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/zarafetin-geometrisi-huawei-watch-ultimate-design-43230971",
+   "publishedAt": "2026-07-06T14:42:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ad5bd0a5170b92c3",
+   "title": "Çocuğunuzu Geleceğe Hazırlayan Eğitim Nasıl Olmalı?",
+   "summary": "Anne babalar bu sorunun cevabını arıyor: Çocuğumuz, henüz var olmayan mesleklerin ve hızla değişen teknolojilerin şekillendireceği gelecekte ne kadar güçlü durabilecek? İşte merak edilen cevaplar…",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/cocugunuzu-gelecege-hazirlayan-egitim-nasil-olmali-43210325",
+   "publishedAt": "2026-06-18T14:22:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d96356a51646e7d0",
+   "title": "Doğanın izinde tasarlanan sofraların gerçek sırrını keşfedin!",
+   "summary": "Sofra grubundan mutfak ürünlerine, küçük ev aletlerinden ev tekstiline kadar pek çok ihtiyacı kullanıcılarının beğenisine sunan Karaca; Türkiye’nin dünyaca tanınan şefi Fatih Tutak iş birliğiyle tasarlanan “Karaca Earth Collection Fatih Tutak Serisi”ni, ilhamını doğanın sadeliğinden alanlar için üretti.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/doganin-izinde-tasarlanan-sofralarin-gercek-sirrini-kesfedin-43135818",
+   "publishedAt": "2026-03-25T07:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "715bcfd3f6f4c983",
+   "title": "Türkiye 2-2 Karadağ (Maçın özeti ve golleri)",
+   "summary": "A Milli Takım, 2022 FIFA Dünya Kupası Elemeleri G Grubu dördüncü maçında Karadağ ile 2-2 berabere kaldı.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/turkiye-2-2-karadag-macin-ozeti-ve-golleri-41885564",
+   "publishedAt": "2021-09-01T21:07:00+00:00",
+   "imageUrl": null
+  },
   {
    "id": "b6e04d58b8198c13",
    "title": "Turkmenistan seeks to expand cooperation on international standards",
@@ -43,136 +283,6 @@
    "imageUrl": null
   },
   {
-   "id": "e57fcad27a0e38c3",
-   "title": "Sabah şimşək çaxacaq, dolu düşəcək, dağlıq ərazilərdə qar yağacaq",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/weather-forecast/sabah-simsek-caxacaq-dolu-dusecek-dagliq-erazilerde-qar-yagacaq-1007913",
-   "publishedAt": "2026-10-24T12:30:59+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ff6cb1dbfee75b6c",
-   "title": "The Muslims finding belonging in southern Spain",
-   "summary": "Centuries after the end of Islamic rule, some Muslims are choosing Andalusia, drawn by traces of its past.",
-   "category": "gundem",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/features/longform/2026/10/24/the-muslims-finding-belonging-in-southern-spain?traffic_source=rss",
-   "publishedAt": "2026-10-24T08:28:25+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "afb9db45d02a2d94",
-   "title": "Rubio calls on Cubans to partner with CIA ‘to create positive change’",
-   "summary": "Washington has raised pressure on Havana after the capture of former Venezuelan President Nicolas Maduro.",
-   "category": "cemiyyet",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/news/2026/10/24/rubio-calls-on-cubans-to-partner-with-cia-to-create-positive-change?traffic_source=rss",
-   "publishedAt": "2026-10-24T08:28:24+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "dcaf7327e46cf691",
-   "title": "Chicago Bulls storm back from early deficit to beat Milwaukee Bucks in NBA",
-   "summary": "Jayson Tatum puts up 36 as Boston Celtics send NY Knicks to second straight loss and Lakers surge past Clippers.",
-   "category": "gundem",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/24/chicago-bulls-storm-back-from-early-deficit-to-beat-milwaukee-bucks-in-nba?traffic_source=rss",
-   "publishedAt": "2026-10-24T08:24:59+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "7718246191f00e57",
-   "title": "Israeli forces begin demolishing Palestinian buildings in Hebron after two Israeli soldiers shot dead",
-   "summary": "The soldiers were killed in an attack by two Palestinian gunmen at a checkpoint outside the West Bank city on Friday morning.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cq4g1p974wxko?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T15:37:07+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "1b53825f47c11103",
-   "title": "Oil spill washes up on UAE beaches after tanker strike",
-   "summary": "Satellite images show oil spreading for miles along the coastline, threatening local marine wildlife",
-   "category": "iqtisadiyyat",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6rey3n974g5o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T15:30:47+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "19ddc4e1c1bc27e5",
-   "title": "Hayali staj çarkı deşifre edildi: Eski okul müdürlerinin de olduğu 12 şüpheli cezaevine gönderildi",
-   "summary": "Mersin polisinin koordinasyonunda yürütülen soruşturmada, staja gitmeyen öğrenciler üzerinden kurulan milyonluk rüşvet ve usulsüzlük ağı çökertildi. 36 milyon liralık kamu zararı ve 8,7 milyon liralık rüşvet suçlamasıyla mahkemeye çıkarılan şüphelilerden 12'si tutuklanırken, diğer zanlılar adli kontrol şartıyla serbest kaldı.",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/hayali-staj-carki-desifre-edildi-eski-okul-mudurlerinin-de-oldugu-12-supheli-cezaevine-gonderildi-43352310",
-   "publishedAt": "2026-10-23T10:53:45+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "26c5d9e958584d9e",
-   "title": "Küresel sağlık sektöründe dev skandal! Kadınlara sayısız gereksiz işlem yapılmış... 4 bin 500 kanser hastasının dosyası yeniden açılıyor",
-   "summary": "Sağlık dünyasında patlak veren dev skandalda, yüzlerce kadının hatalı tedavilere maruz kaldığı ve en az 20 kadının memesinin tamamen gereksiz yere kesilerek alındığı doğrulandı. Finansal çıkar çatışmaları ve zincirleme ihmallerin gölgesinde büyüyen soruşturmada, inceleme ağının 10 yıl geriye uzatılarak 4 bin 500’den fazla vakayı kapsaması bekleniyor. İşte skandalın korkunç detayları...",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/dunya/kuresel-saglik-sektorunde-dev-skandal-kadinlara-sayisiz-gereksiz-islem-yapilmis-4-bin-500-kanser-hastasinin-dosyasi-yeniden-aciliyor-43330236",
-   "publishedAt": "2026-10-23T06:19:53+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "824c0cf8bc341e15",
-   "title": "Nev'den üzen haber: İkinci kez entübe edildi",
-   "summary": "Zor”, “Mühürlü Kaderim” ve “Sen Gibi” gibi şarkılarıyla geniş bir dinleyici kitlesine ulaşan Nev’den üzücü haber geldi. Yoğun bakımda tedavisi süren sanatçı, sağlık durumunun kötüleşmesi üzerine ikinci kez entübe edildi. Menajeri İlker Ercan, Nev’in durumunun kritik olduğunu belirterek kan bağışı ve dua çağrısında bulundu.",
-   "category": "medeniyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/nevden-uzen-haber-ikinci-kez-entube-edildi-43351785",
-   "publishedAt": "2026-10-23T05:41:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "09032effd3dd2dcd",
-   "title": "Blue Planet III: Moment octopus escapes death after hunt gone wrong",
-   "summary": "The sequence is part of the latest Blue Planet series from Sir David Attenborough.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck240lmvqjyjo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T05:05:03+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "572c342362237e9d",
-   "title": "Aleyna 7 ay sonra dışarda... Baş başa yemek",
-   "summary": "210 gün cezaevinde kaldıktan sonra tahliye edilen Aleyna Kalaycıoğlu, müzisyen Bertin Yıldız’la çıktığı yemekte görüntülendi.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/aleyna-7-ay-sonra-disarda-bas-basa-yemek-43351629",
-   "publishedAt": "2026-10-23T04:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d933f6878f114ee1",
-   "title": "Netanyahu’nun planı tartışma yarattı: Seçime günler kala gelen hamle! ‘1991 Irak’ına benzer görüntüler göreceğiz!’",
-   "summary": "İsrail’de seçim yarışı kızışırken Netanyahu’nun gündeme gelen son hamlesi, yalnızca sandığın sonucunu değil, bölgenin geleceğini de etkileyebilir. Ancak bu kez asıl dikkat çeken, atılacak adım kadar perde arkasındaki hesaplar. Washington’ın tutumu, Tahran’ın olası yanıtı ve İsrail’in siyasi geleceği aynı denklemde buluşurken, kritik kararın ne zaman ve nasıl alınacağı merak konusu. Peki, yaklaşan ",
-   "category": "siyaset",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/dunya/netanyahunun-plani-tartisma-yaratti-secime-gunler-kala-gelen-hamle-1991-irakina-benzer-goruntuler-gorecegiz-43350896",
-   "publishedAt": "2026-10-23T03:51:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ba12ee22d53e4fd4",
-   "title": "Kadir İnanır’ın mirası ünlüleri de gerdi",
-   "summary": "Kadir İnanır’ın mal varlığını hayat arkadaşı Jülide Kural’a bıraktığı vasiyet nedeniyle İnanır Ailesi ikiye bölündü: Karara saygı duyanlar ve itirazcılar. Miras meselesi ünlüleri de karşı karşıya getirdi: Hülya Avşar itirazcılardan yana tavır alırken, Demet Akalın bu çıkışı “saçma” buldu.",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/savas-ozbey/kadir-inanirin-mirasi-unluleri-de-gerdi-43351640",
-   "publishedAt": "2026-10-23T03:28:00+00:00",
-   "imageUrl": null
-  },
-  {
    "id": "ea5c32ae7d7226de",
    "title": "Gəncədə avtomobilin vurduğu piyada 7 gün sonra ölüb",
    "summary": "",
@@ -190,6 +300,16 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/azerbaijan/4238663.html",
    "publishedAt": "2026-10-24T12:33:11+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "e57fcad27a0e38c3",
+   "title": "Sabah şimşək çaxacaq, dolu düşəcək, dağlıq ərazilərdə qar yağacaq",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/weather-forecast/sabah-simsek-caxacaq-dolu-dusecek-dagliq-erazilerde-qar-yagacaq-1007913",
+   "publishedAt": "2026-10-24T12:30:59+04:00",
    "imageUrl": null
   },
   {
@@ -700,6 +820,36 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/finance/abs-ve-avropa-fond-bazarlarinda-enis-davam-edib-1007871",
    "publishedAt": "2026-10-24T08:49:13+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ff6cb1dbfee75b6c",
+   "title": "The Muslims finding belonging in southern Spain",
+   "summary": "Centuries after the end of Islamic rule, some Muslims are choosing Andalusia, drawn by traces of its past.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/features/longform/2026/10/24/the-muslims-finding-belonging-in-southern-spain?traffic_source=rss",
+   "publishedAt": "2026-10-24T08:28:25+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "afb9db45d02a2d94",
+   "title": "Rubio calls on Cubans to partner with CIA ‘to create positive change’",
+   "summary": "Washington has raised pressure on Havana after the capture of former Venezuelan President Nicolas Maduro.",
+   "category": "cemiyyet",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/24/rubio-calls-on-cubans-to-partner-with-cia-to-create-positive-change?traffic_source=rss",
+   "publishedAt": "2026-10-24T08:28:24+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "dcaf7327e46cf691",
+   "title": "Chicago Bulls storm back from early deficit to beat Milwaukee Bucks in NBA",
+   "summary": "Jayson Tatum puts up 36 as Boston Celtics send NY Knicks to second straight loss and Lakers surge past Clippers.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/24/chicago-bulls-storm-back-from-early-deficit-to-beat-milwaukee-bucks-in-nba?traffic_source=rss",
+   "publishedAt": "2026-10-24T08:24:59+00:00",
    "imageUrl": null
   },
   {
@@ -2350,156 +2500,6 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/casia/turkmenistan/4238531.html",
    "publishedAt": "2026-10-23T19:35:07+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ee7584e1e380d822",
-   "title": "“SOCAR Petroleum” şimal rayonlarında yanacaq qıtlığı ilə bağlı yayılan məlumatlara aydınlıq gətirib",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/energy-and-industry/socar-petroleum-simal-rayonlarinda-yanacaq-qitligi-ile-bagli-yayilan-melumatlara-aydinliq-getirib-1007799",
-   "publishedAt": "2026-10-23T19:34:43+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "aebcb3a710ffc42e",
-   "title": "“SOCAR Petroleum” şimal rayonlarında yanacaq qıtlığı ilə bağlı yayılan məlumatlara aydınlıq gətirib",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/energy-and-industry/socar-petroleum-simal-rayonlarinda-yanacaq-qitligi-ile-bagli-yayilan-melumatlara-aydinliq-getirib-1007811",
-   "publishedAt": "2026-10-23T19:34:24+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "f8deac049ef3f2c7",
-   "title": "White House says Melania Trump brokered truce for Ukraine city 'on brink of disaster'",
-   "summary": "Ukraine and Russia confirm the truce in Russian-occupied Oleshky, where residents have had to eat garden weeds to survive.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6vgxkvl4w5eo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T19:30:19+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6f663fa5ccb0896f",
-   "title": "Tajikistan commissions 110 kV Yova substation in Sughd region",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/casia/tajikistan/4238530.html",
-   "publishedAt": "2026-10-23T19:22:32+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "3001953579311637",
-   "title": "Tramp: ABŞ İranla müharibəni tezliklə bitirə və ya iqtisadi təzyiqi davam etdirə bilər",
-   "summary": "",
-   "category": "dunya",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/america/tramp-abs-iranla-muharibeni-tezlikle-bitire-ve-ya-iqtisadi-tezyiqi-davam-etdire-biler-1007808",
-   "publishedAt": "2026-10-23T19:21:19+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "3545af5742ed9ff5",
-   "title": "Uzbekistan's Quartz swings to nine-month profit as revenue rises 35%",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238308.html",
-   "publishedAt": "2026-10-23T19:12:00+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "227139e3bfdfe78d",
-   "title": "Azerbaijani citizens rescued after drone attack on ship off Romania - MFA",
-   "summary": "",
-   "category": "medeniyyet",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/azerbaijan/4238528.html",
-   "publishedAt": "2026-10-23T19:05:19+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d62804394c790c0a",
-   "title": "Aston Villa vs Manchester City: Premier League – teams, prediction, lineups",
-   "summary": "Man City are the only team with a perfect Premier League record, but face a Villa side determined to climb the table.",
-   "category": "idman",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/aston-villa-vs-manchester-city-premier-league-teams-prediction-lineups?traffic_source=rss",
-   "publishedAt": "2026-10-23T18:55:18+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "9c464aa25357ec3d",
-   "title": "Ukraine says Starlink still restricted after Trump says limits lifted",
-   "summary": "The network is used by the Ukrainian military, sources say, and Trump says \"if there is a problem, I'll get it straightened out\".",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cq74pjpmx0e8o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T18:52:17+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5678b2c2c0f9b6d5",
-   "title": "Trump administration sues to block certification of upcoming Alaska election",
-   "summary": "The justice department has filed a lawsuit arguing that the inclusion of two candidates named Dan Sullivan could confuse voters.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c678pv4krx37o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T18:49:14+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "0be5be107a65df5a",
-   "title": "XİN: Rumıniya sahilləri yaxınlığında vurulan gəmidəki Azərbaycan vətəndaşlarının hamısı xilas edilib",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/foreign-policy/xin-ruminiya-sahilleri-yaxinliginda-vurulan-gemideki-azerbaycan-vetendaslarinin-hamisi-xilas-edilib-1007807",
-   "publishedAt": "2026-10-23T18:47:46+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "33ade68de14021ce",
-   "title": "Azerbaijan’s gas exports to Bulgaria decrease 44% in January–August",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/azerbaijan/business/4238525.html",
-   "publishedAt": "2026-10-23T18:46:07+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "1b5e7139ea019369",
-   "title": "Dünyanın ən böyük sərnişin təyyarəsi Moskvaya enə bilmir, Penza üzərində dövrə vurur",
-   "summary": "",
-   "category": "gundem",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/cis-countries/dunyanin-en-boyuk-sernisin-teyyaresi-moskvaya-ene-bilmir-penza-uzerinde-dovre-vurur-1007806",
-   "publishedAt": "2026-10-23T18:46:04+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "136d8f067fd9b838",
-   "title": "Suç gelirlerinin aklanmasına yönelik operasyonda 650 milyon liralık mal varlığı inceleniyor",
-   "summary": "ANKARA Cumhuriyet Başsavcılığı tarafından 2022 yılında suç gelirlerinin aklandığı şüphesiyle başlatılan soruşturma kapsamında değeri yaklaşık 650 milyon lira olduğu belirlenen 12 taşınmaz, 8 taşıt ve 3 alkollü eğlence işletmesiyle ilgili inceleme başlatılırken, düzenlenen operasyonda 7 şüpheli gözaltına alındı.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/ankarada-suc-gelirlerinin-aklanmasina-yonelik-operasyonda-650-milyon-liralik-mal-varligi-inceleniyor-43352870",
-   "publishedAt": "2026-10-23T18:39:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b7a5b65204a1256f",
-   "title": "Israel locks down occupied West Bank after Hebron shooting",
-   "summary": "Israel has imposed a lockdown across the occupied West Bank after a shooting near Hebron killed two Israeli soldiers.",
-   "category": "siyaset",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/23/israel-locks-down-occupied-west-bank-after-hebron-shooting?traffic_source=rss",
-   "publishedAt": "2026-10-23T18:38:26+00:00",
    "imageUrl": null
   }
  ]
