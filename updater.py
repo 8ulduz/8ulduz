@@ -101,11 +101,14 @@ def norm_az(s):
     return s.lower().replace("i̇", "i")
 
 def detect_lang(title, desc, default):
+    """Dil təyini: kiril→ru, 'ə'→az (türkdə yoxdur), ı/ğ/İ→tr, əks halda mənbə dili."""
     blob = title + " " + desc
     if re.search(r"[а-яА-Я]", blob):
         return "ru"
-    if any(c in blob for c in "əğıöüşçƏĞIİÖÜŞÇ"):
+    if "ə" in blob or "Ə" in blob:
         return "az"
+    if "ı" in blob or "ğ" in blob or "İ" in blob:
+        return "tr"
     return default if default else "en"
 
 def fetch(url):
@@ -196,8 +199,6 @@ def is_video(it):
 def make_article(it, source, default_lang):
     lang = detect_lang(it["title"], it["description"], default_lang)
     label = categorize(it["title"], it["description"])
-    if label == "Prezident" and lang not in ("az", "ru"):
-        label = "Siyasət"
     return {
         "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
         "title": it["title"],
@@ -222,8 +223,6 @@ def main():
     for a in old:
         if not a.get("lang"):
             a["lang"] = detect_lang(a.get("title", ""), a.get("summary", ""), "")
-        if a.get("category") == "prezident" and a["lang"] not in ("az", "ru"):
-            a["category"] = "siyaset"
     seen = {a["sourceUrl"] for a in old}
     new_items, errors = [], []
     for source, url, dlang in FEEDS:
