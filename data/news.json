@@ -1,7 +1,187 @@
 {
- "updatedAt": "2026-10-24T07:40:53.557703+00:00",
+ "updatedAt": "2026-10-24T08:07:19.792595+00:00",
  "count": 250,
  "articles": [
+  {
+   "id": "55d0018945360d9e",
+   "title": "Uzbekistan, Eldridge Industries discuss mining, metallurgy investments",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238667.html",
+   "publishedAt": "2026-10-24T12:04:50+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a348ab08b07bb784",
+   "title": "Azərbaycan XİN İordaniyada kilsəyə silahlı hücumu pisləyib",
+   "summary": "",
+   "category": "gundem",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/foreign-policy/azerbaycan-xin-iordaniyada-kilseye-silahli-hucumu-pisleyib-1007902",
+   "publishedAt": "2026-10-24T12:00:41+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a03a9fbd21423f52",
+   "title": "bp to pay Louisiana $350M to settle remaining Deepwater Horizon claims",
+   "summary": "",
+   "category": "gundem",
+   "source": "Trend",
+   "sourceUrl": "https://www.trend.az/world/us/4238659.html",
+   "publishedAt": "2026-10-24T11:44:15+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "2a559e8365f3b6b3",
+   "title": "Filippində hərbi təyyarələr havada toqquşub, 4 pilot ölüb - VİDEO",
+   "summary": "",
+   "category": "cemiyyet",
+   "source": "APA",
+   "sourceUrl": "https://apa.az/asia/filippinde-herbi-teyyareler-havada-toqqusub-4-pilot-olub-video-1007898",
+   "publishedAt": "2026-10-24T11:18:06+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "08a5783820807629",
+   "title": "Man arrested after fire breaks out at Hitler’s former Alpine retreat",
+   "summary": "A man has been arrested after a fire broke out at Hitler’s former Alpine retreat, the Kehlsteinhaus, on Friday night.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/24/man-arrested-after-fire-breaks-out-at-hitlers-former-alpine-retreat?traffic_source=rss",
+   "publishedAt": "2026-10-24T07:31:42+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1e601dfc65b39ca1",
+   "title": "Lionel Messi, Prenses Leonor'un eliyle tarih yazdı",
+   "summary": "Futbol sahalarının yıldızı olan Lionel Messi, bir de tarih yazdı... Arjantinli yıldız, Asturias Prensesi Ödülü'ne değer görülen ilk futbolcu olarak tarihe geçti.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/televizyon/lionel-messi-prenses-leonorun-eliyle-tarih-yazdi-43353099",
+   "publishedAt": "2026-10-24T07:13:14+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "7718246191f00e57",
+   "title": "Israeli forces begin demolishing Palestinian buildings in Hebron after two Israeli soldiers shot dead",
+   "summary": "The soldiers were killed in an attack by two Palestinian gunmen at a checkpoint outside the West Bank city on Friday morning.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cq4g1p974wxko?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T15:37:07+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "1b53825f47c11103",
+   "title": "Oil spill washes up on UAE beaches after tanker strike",
+   "summary": "Satellite images show oil spreading for miles along the coastline, threatening local marine wildlife",
+   "category": "iqtisadiyyat",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6rey3n974g5o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T15:30:47+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "19ddc4e1c1bc27e5",
+   "title": "Hayali staj çarkı deşifre edildi: Eski okul müdürlerinin de olduğu 12 şüpheli cezaevine gönderildi",
+   "summary": "Mersin polisinin koordinasyonunda yürütülen soruşturmada, staja gitmeyen öğrenciler üzerinden kurulan milyonluk rüşvet ve usulsüzlük ağı çökertildi. 36 milyon liralık kamu zararı ve 8,7 milyon liralık rüşvet suçlamasıyla mahkemeye çıkarılan şüphelilerden 12'si tutuklanırken, diğer zanlılar adli kontrol şartıyla serbest kaldı.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/hayali-staj-carki-desifre-edildi-eski-okul-mudurlerinin-de-oldugu-12-supheli-cezaevine-gonderildi-43352310",
+   "publishedAt": "2026-10-23T10:53:45+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "26c5d9e958584d9e",
+   "title": "Küresel sağlık sektöründe dev skandal! Kadınlara sayısız gereksiz işlem yapılmış... 4 bin 500 kanser hastasının dosyası yeniden açılıyor",
+   "summary": "Sağlık dünyasında patlak veren dev skandalda, yüzlerce kadının hatalı tedavilere maruz kaldığı ve en az 20 kadının memesinin tamamen gereksiz yere kesilerek alındığı doğrulandı. Finansal çıkar çatışmaları ve zincirleme ihmallerin gölgesinde büyüyen soruşturmada, inceleme ağının 10 yıl geriye uzatılarak 4 bin 500’den fazla vakayı kapsaması bekleniyor. İşte skandalın korkunç detayları...",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/kuresel-saglik-sektorunde-dev-skandal-kadinlara-sayisiz-gereksiz-islem-yapilmis-4-bin-500-kanser-hastasinin-dosyasi-yeniden-aciliyor-43330236",
+   "publishedAt": "2026-10-23T06:19:53+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "824c0cf8bc341e15",
+   "title": "Nev'den üzen haber: İkinci kez entübe edildi",
+   "summary": "Zor”, “Mühürlü Kaderim” ve “Sen Gibi” gibi şarkılarıyla geniş bir dinleyici kitlesine ulaşan Nev’den üzücü haber geldi. Yoğun bakımda tedavisi süren sanatçı, sağlık durumunun kötüleşmesi üzerine ikinci kez entübe edildi. Menajeri İlker Ercan, Nev’in durumunun kritik olduğunu belirterek kan bağışı ve dua çağrısında bulundu.",
+   "category": "medeniyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/nevden-uzen-haber-ikinci-kez-entube-edildi-43351785",
+   "publishedAt": "2026-10-23T05:41:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "09032effd3dd2dcd",
+   "title": "Blue Planet III: Moment octopus escapes death after hunt gone wrong",
+   "summary": "The sequence is part of the latest Blue Planet series from Sir David Attenborough.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck240lmvqjyjo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T05:05:03+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "c3b2f264cfa58bdd",
+   "title": "İngiltere'de halka acil çağrı: 3 günlük stok yapın",
+   "summary": "İngiltere hükümeti, aşırı hava olayları, siber saldırılar ve devlet kaynaklı güvenlik tehditlerine karşı vatandaşlara en az 3 gün yetecek kadar gıda ve su stoku yapmaları tavsiyesinde bulundu.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/ingilterede-halka-acil-cagri-3-gunluk-stok-yapin-43351761",
+   "publishedAt": "2026-10-23T04:39:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "a4d4707062482a06",
+   "title": "Eski vekil Aydın da gözaltına alındı... ‘Fon’da yeni operasyon",
+   "summary": "Fon soruşturmasında  eski AK Parti milletvekili Ertan Aydın’ın da aralarında bulunduğu 5 kişi gözaltına alındı. Gözaltı sayısı 31’e yükselirken adliyeye sevk edilen 15 kişiden 11’i tutuklandı. 16 kişinin emniyeteki işlemleri sürüyor.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/eski-vekil-aydin-da-gozaltina-alindi-fonda-yeni-operasyon-43351723",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "877fd7b81000f4ba",
+   "title": "Elif Mavi’ye çarpan sürücüye 15 yıl istendi",
+   "summary": "Otomobiliyle çarptığı Elif Mavi Avli’nin ölümüne, annesinin de yaralanmasına neden olan otomobil sürücüsü Fatoş Akıl Bilgesoy hakkındaki soruşturma tamamlandı. Savcılık, Bilgesoy için 2 yıldan 15 yıla kadar hapis cezası talep etti.",
+   "category": "dunya",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/elif-maviye-carpan-surucuye-15-yil-istendi-43351710",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "572c342362237e9d",
+   "title": "Aleyna 7 ay sonra dışarda... Baş başa yemek",
+   "summary": "210 gün cezaevinde kaldıktan sonra tahliye edilen Aleyna Kalaycıoğlu, müzisyen Bertin Yıldız’la çıktığı yemekte görüntülendi.",
+   "category": "gundem",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/kelebek/hayat/aleyna-7-ay-sonra-disarda-bas-basa-yemek-43351629",
+   "publishedAt": "2026-10-23T04:00:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d933f6878f114ee1",
+   "title": "Netanyahu’nun planı tartışma yarattı: Seçime günler kala gelen hamle! ‘1991 Irak’ına benzer görüntüler göreceğiz!’",
+   "summary": "İsrail’de seçim yarışı kızışırken Netanyahu’nun gündeme gelen son hamlesi, yalnızca sandığın sonucunu değil, bölgenin geleceğini de etkileyebilir. Ancak bu kez asıl dikkat çeken, atılacak adım kadar perde arkasındaki hesaplar. Washington’ın tutumu, Tahran’ın olası yanıtı ve İsrail’in siyasi geleceği aynı denklemde buluşurken, kritik kararın ne zaman ve nasıl alınacağı merak konusu. Peki, yaklaşan ",
+   "category": "siyaset",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/dunya/netanyahunun-plani-tartisma-yaratti-secime-gunler-kala-gelen-hamle-1991-irakina-benzer-goruntuler-gorecegiz-43350896",
+   "publishedAt": "2026-10-23T03:51:00+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ba12ee22d53e4fd4",
+   "title": "Kadir İnanır’ın mirası ünlüleri de gerdi",
+   "summary": "Kadir İnanır’ın mal varlığını hayat arkadaşı Jülide Kural’a bıraktığı vasiyet nedeniyle İnanır Ailesi ikiye bölündü: Karara saygı duyanlar ve itirazcılar. Miras meselesi ünlüleri de karşı karşıya getirdi: Hülya Avşar itirazcılardan yana tavır alırken, Demet Akalın bu çıkışı “saçma” buldu.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/yazarlar/savas-ozbey/kadir-inanirin-mirasi-unluleri-de-gerdi-43351640",
+   "publishedAt": "2026-10-23T03:28:00+00:00",
+   "imageUrl": null
+  },
   {
    "id": "3b1d1775a0a6c0c6",
    "title": "IT Park Uzbekistan explores AI and digital cooperation with South Korea",
@@ -60,256 +240,6 @@
    "source": "APA",
    "sourceUrl": "https://apa.az/asia/filippinde-telim-teyyareleri-qeza-toredib-4-nefer-olub-1007898",
    "publishedAt": "2026-10-24T11:18:15+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "55b0f464ca010cd9",
-   "title": "Displaced West Bank Palestinians face growing hunger after UN cuts food aid",
-   "summary": "Already struggling after losing homes to Israeli military operations, Palestinians face hardship as WFP halves aid.",
-   "category": "siyaset",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/features/2026/10/24/displaced-west-bank-palestinians-face-growing-hunger-after-un-cuts-food-aid?traffic_source=rss",
-   "publishedAt": "2026-10-24T07:09:55+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d152da5dced3685f",
-   "title": "North Korea’s Kim Jong Un arrives in China, South Korean media says",
-   "summary": "The visit comes about a week after a major new bridge linking the two countries was officially opened.",
-   "category": "gundem",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/news/2026/10/24/north-koreas-kim-jong-un-arrives-in-china-south-korean-media-says?traffic_source=rss",
-   "publishedAt": "2026-10-24T07:07:20+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6ac4afbc46061ece",
-   "title": "Galatasaray'da Fenerbahçe maçı öncesi müjde! Derbi ihtimali doğdu",
-   "summary": "Galatasaray'da Fenerbahçe derbisi öncesi sakatlardan iyi haber geldi.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/galatasarayda-fenerbahce-maci-oncesi-mujde-derbi-ihtimali-dogdu-43353071",
-   "publishedAt": "2026-10-24T07:01:15+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ee792bb39292a0bf",
-   "title": "Maltepe'deki yangında 12 yaşındaki Halil İbrahim hayatını kaybetti",
-   "summary": "İstanbul Maltepe'de gecekonduda çıkan yangında 12 yaşındaki Halil İbrahim Karaduman hayatını kaybetti. Anne, baba ve 6 yaşındaki çocukları ise ağır yaralı olarak hastaneye kaldırıldı.",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/maltepedeki-yanginda-12-yasindaki-halil-ibrahim-hayatini-kaybetti-43353114",
-   "publishedAt": "2026-10-24T07:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "a98545101debaa40",
-   "title": "Bağcılar'da zincirleme trafik kazası: Yaralılar var",
-   "summary": "İstanbul Bağcılar'da hafriyat kamyonu ve TIR'ın karıştığı zincirleme kaza meydana geldi. Kazada yaralılar olduğu öğrenildi.",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/bagcilarda-zincirleme-trafik-kazasi-yaralilar-var-43353096",
-   "publishedAt": "2026-10-24T06:47:47+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6224c94e48c6dc59",
-   "title": "Kuvvetli yağış tüm yurtta etkili olacak: Sağanak geliyor! İstanbul için kritik uyarı: Tarih belli oldu | İşte yağış beklenen iller",
-   "summary": "Yurt genelinde hafta sonu açık ve parçalı bulutlu havanın hakim olması beklenirken, yeni haftayla birlikte yağışlı hava dalgası etkisini gösterecek. Meteoroloji Genel Müdürlüğü ve AKOM'un uyarılarının ardından, megakent İstanbul başta olmak üzere sağanak yağış beklenen iller tek tek sıralandı.",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/kuvvetli-yagis-tum-yurtta-etkili-olacak-saganak-geliyor-istanbul-icin-kritik-uyari-tarih-belli-oldu-iste-yagis-beklenen-iller-43353079",
-   "publishedAt": "2026-10-24T06:43:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "62c5d98872471f10",
-   "title": "Fenerbahçe'de İsmail Kartal'dan derbi için Greenwood planı!",
-   "summary": "Fenerbahçe'de teknik direktör İsmail Kartal'ın Galatasaray derbisi öncesi Greenwood'u hangi bölgede değerlendireceği belli oldu.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/fenerbahcede-ismail-kartaldan-derbi-icin-greenwood-plani-43353068",
-   "publishedAt": "2026-10-24T06:37:42+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "a344deb0b7aeece1",
-   "title": "White House lifts tariffs on some Canadian goods as midterm elections loom",
-   "summary": "From 30 October, tariffs will be eased on some products, including certain machinery, and placed on others, such as carpets.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c60qk573yzz8o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-24T00:36:47+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "33a36b73982cf30e",
-   "title": "Father who killed Oregon school shooter describes anguish over children he couldn't save",
-   "summary": "Kaylub Giamanco, has been hailed as a hero for killing a teenager who fatally shot three children and a teacher.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/crgj9ndwvj9jo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T22:47:07+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "12660d8e1a47559d",
-   "title": "Who actually controls Ukraine's access to Starlink?",
-   "summary": "President Zelensky says limits to the technology continue to affect Ukrainian forces, while US officials and Elon Musk offer conflicting accounts of who controls it.",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cqy7lvv0lvzpo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T22:24:36+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "45f546718dbb40df",
-   "title": "Seven shot dead by gunmen at church funeral in Jordan, officials say",
-   "summary": "Thirty-four people are also injured in the attack in southern Karak governorate, and a manhunt is now under way.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/ck87zlpzny15o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T19:46:30+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d7c780964626fca6",
-   "title": "Deadly shooting near Paris is a 'racist terrorist attack', Macron says",
-   "summary": "One person is killed and five wounded in a series of attacks. The suspected gunman has been apprehended.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6ev38dj1g8zo?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T19:42:08+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "9c464aa25357ec3d",
-   "title": "Ukraine says Starlink still restricted after Trump says limits lifted",
-   "summary": "The network is used by the Ukrainian military, sources say, and Trump says \"if there is a problem, I'll get it straightened out\".",
-   "category": "siyaset",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cq74pjpmx0e8o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T18:52:17+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "cac92165c4136eda",
-   "title": "2 yıla kadar hapsi isteniyor: İmamoğlu'nun 'makam aracı' davasında duruşma görülüyor",
-   "summary": "Ekrem İmamoğlu'nun Beylikdüzü Belediye Başkanlığı döneminde kendi şirketine ait aracı başkanlık makam aracı olarak kullandığı ve masraflarını belediyeye karşılattığı iddiasıyla yargılandığı davanın 2’nci duruşması görülüyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/2-yila-kadar-hapsi-isteniyor-imamoglunun-yargilandigi-makam-araci-davasinda-43352515",
-   "publishedAt": "2026-10-23T13:05:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6f254b93b6092354",
-   "title": "Doctors tell the BBC about the targeting of Sudanese hospitals by paramilitary fighters",
-   "summary": "A BBC investigation has found evidence that Sudanese paramilitary fighters systematically destroyed el-Fasher's healthcare system.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/c8x23gegwz34o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T11:30:32+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "b8cb9b5dcb7ef3fd",
-   "title": "4 ayda 18 bin ziyaretçi ağırlayan Makedonya Kule Müzesi Edirne’nin yeni gözdesi",
-   "summary": "Kültür ve Turizm Bakanı Mehmet Nuri Ersoy, Edirne’nin Roma döneminden günümüze ulaşan tek sur kulesinde ziyarete açılan Makedonya Kule Müzesi’nde incelemelerde bulundu. Dört ayda 18 bin ziyaretçiyi ağırlayan müze, yaklaşık 2 bin 200 yıllık Odysseus heykel başının da aralarında bulunduğu eserlerle kentin tarihini ziyaretçilerle buluşturuyor.",
-   "category": "siyaset",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/4-ayda-18-bin-ziyaretci-agirlayan-makedonya-kule-muzesi-edirnenin-yeni-gozdesi-43352159",
-   "publishedAt": "2026-10-23T09:27:30+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "c9543d950badde9a",
-   "title": "Hispanic voters helped bring Trump to power - in Texas, the tide may be turning",
-   "summary": "Recent polls suggest the president is facing challenging headwinds in the state ahead of the midterms.",
-   "category": "dunya",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/articles/cmwyqn6ejyd4o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-23T09:23:53+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ad5217fa4fea2c9d",
-   "title": "TÜİK istatistikleri açıkladı: Beyin göçü oranı belli oldu! En çok hangi ülke tercih ediliyor?",
-   "summary": "Türkiye'de geçen yıl yükseköğretim mezunlarının beyin göçü oranı yüzde 2,2 olurken, mezunlar en çok Almanya'ya gitmeyi tercih etti. Beyin  göçünün en yüksek olduğu il İstanbul oldu.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/gundem/tuik-istatistikleri-acikladi-beyin-gocu-orani-belli-oldu-en-cok-hangi-ulke-tercih-ediliyor-43351986",
-   "publishedAt": "2026-10-23T07:59:17+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "2ad5387f6f499728",
-   "title": "'It's part of the culture' - New York bans horse-drawn carriages after more than 160 years",
-   "summary": "The BBC's Madeline Halpert spoke to city tourists, residents and horse carriage workers about the industry and their opinion on the ban.",
-   "category": "medeniyyet",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/ck5yn9dqnqj7o?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T20:48:56+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "5fa1ad24517cfece",
-   "title": "Damaging hail pelts Phoenix in rare storm",
-   "summary": "Videos from the Arizona capital show people sheltering inside a car as hail smashes the windscreen, while intense downpours covered neighbourhoods in ice.",
-   "category": "gundem",
-   "source": "BBC News",
-   "sourceUrl": "https://www.bbc.co.uk/news/videos/cm5ynpz5jj5do?at_medium=RSS&at_campaign=rss",
-   "publishedAt": "2026-10-22T15:11:49+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "43769c764d043a0e",
-   "title": "Pişirme teknolojisinde yeni nesil: Mutfaktaki Plasma Steel farkını adım adım keşfedin!",
-   "summary": "Karaca’nın mutfak teknolojisinde yeni bir dönem başlatan Plasma Steel 3PLY 316+ Tencere Serisi, lansman döneminde gördüğü yoğun ilginin ardından yenilenen stoklarıyla yeniden mutfaklara dönüyor. Türkiye’de ilk kez plasma teknolojisiyle güçlendirilmiş seri, kaplama veya teflon içermeyen yapısını, yapışmaz pişirme performansı ve uzun ömürlü kullanım avantajlarıyla bir araya getiriyor.",
-   "category": "gundem",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/pisirme-teknolojisinde-yeni-nesil-mutfaktaki-plasma-steel-farkini-adim-adim-kesfedin-43299011",
-   "publishedAt": "2026-09-07T12:09:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "68a4d72d96bf6e7d",
-   "title": "Zarafetin Geometrisi: HUAWEI Watch Ultimate Design",
-   "summary": "Günün koşturmacası içinde zamanı sadece takip etmek mi, yoksa onu hayatın her anında bir sanat eseri gibi yaşamak mı? Akıllı saatler artık sadece adım sayan ya da telefon bildirimlerini ekrana yansıtan teknolojik aksesuarlar olmaktan çıktı.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/zarafetin-geometrisi-huawei-watch-ultimate-design-43230971",
-   "publishedAt": "2026-07-06T14:42:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ad5bd0a5170b92c3",
-   "title": "Çocuğunuzu Geleceğe Hazırlayan Eğitim Nasıl Olmalı?",
-   "summary": "Anne babalar bu sorunun cevabını arıyor: Çocuğumuz, henüz var olmayan mesleklerin ve hızla değişen teknolojilerin şekillendireceği gelecekte ne kadar güçlü durabilecek? İşte merak edilen cevaplar…",
-   "category": "cemiyyet",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/cocugunuzu-gelecege-hazirlayan-egitim-nasil-olmali-43210325",
-   "publishedAt": "2026-06-18T14:22:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "d96356a51646e7d0",
-   "title": "Doğanın izinde tasarlanan sofraların gerçek sırrını keşfedin!",
-   "summary": "Sofra grubundan mutfak ürünlerine, küçük ev aletlerinden ev tekstiline kadar pek çok ihtiyacı kullanıcılarının beğenisine sunan Karaca; Türkiye’nin dünyaca tanınan şefi Fatih Tutak iş birliğiyle tasarlanan “Karaca Earth Collection Fatih Tutak Serisi”ni, ilhamını doğanın sadeliğinden alanlar için üretti.",
-   "category": "dunya",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/advertorial/doganin-izinde-tasarlanan-sofralarin-gercek-sirrini-kesfedin-43135818",
-   "publishedAt": "2026-03-25T07:00:00+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "715bcfd3f6f4c983",
-   "title": "Türkiye 2-2 Karadağ (Maçın özeti ve golleri)",
-   "summary": "A Milli Takım, 2022 FIFA Dünya Kupası Elemeleri G Grubu dördüncü maçında Karadağ ile 2-2 berabere kaldı.",
-   "category": "idman",
-   "source": "Hürriyet",
-   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/turkiye-2-2-karadag-macin-ozeti-ve-golleri-41885564",
-   "publishedAt": "2021-09-01T21:07:00+00:00",
    "imageUrl": null
   },
   {
@@ -663,6 +593,36 @@
    "imageUrl": null
   },
   {
+   "id": "55b0f464ca010cd9",
+   "title": "Displaced West Bank Palestinians face growing hunger after UN cuts food aid",
+   "summary": "Already struggling after losing homes to Israeli military operations, Palestinians face hardship as WFP halves aid.",
+   "category": "siyaset",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/features/2026/10/24/displaced-west-bank-palestinians-face-growing-hunger-after-un-cuts-food-aid?traffic_source=rss",
+   "publishedAt": "2026-10-24T07:09:55+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d152da5dced3685f",
+   "title": "North Korea’s Kim Jong Un arrives in China, South Korean media says",
+   "summary": "The visit comes about a week after a major new bridge linking the two countries was officially opened.",
+   "category": "gundem",
+   "source": "Al Jazeera",
+   "sourceUrl": "https://www.aljazeera.com/news/2026/10/24/north-koreas-kim-jong-un-arrives-in-china-south-korean-media-says?traffic_source=rss",
+   "publishedAt": "2026-10-24T07:07:20+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "6ac4afbc46061ece",
+   "title": "Galatasaray'da Fenerbahçe maçı öncesi müjde! Derbi ihtimali doğdu",
+   "summary": "Galatasaray'da Fenerbahçe derbisi öncesi sakatlardan iyi haber geldi.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/galatasarayda-fenerbahce-maci-oncesi-mujde-derbi-ihtimali-dogdu-43353071",
+   "publishedAt": "2026-10-24T07:01:15+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "557cc43e5ebe54a5",
    "title": "Chronicles of Victory: President Ilham Aliyev interviewed by Le Figaro newspaper on October 24, 2020 (PHOTO/VIDEO)",
    "summary": "",
@@ -670,6 +630,16 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/azerbaijan/4238314.html",
    "publishedAt": "2026-10-24T07:00:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "ee792bb39292a0bf",
+   "title": "Maltepe'deki yangında 12 yaşındaki Halil İbrahim hayatını kaybetti",
+   "summary": "İstanbul Maltepe'de gecekonduda çıkan yangında 12 yaşındaki Halil İbrahim Karaduman hayatını kaybetti. Anne, baba ve 6 yaşındaki çocukları ise ağır yaralı olarak hastaneye kaldırıldı.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/maltepedeki-yanginda-12-yasindaki-halil-ibrahim-hayatini-kaybetti-43353114",
+   "publishedAt": "2026-10-24T07:00:00+00:00",
    "imageUrl": null
   },
   {
@@ -693,6 +663,16 @@
    "imageUrl": null
   },
   {
+   "id": "a98545101debaa40",
+   "title": "Bağcılar'da zincirleme trafik kazası: Yaralılar var",
+   "summary": "İstanbul Bağcılar'da hafriyat kamyonu ve TIR'ın karıştığı zincirleme kaza meydana geldi. Kazada yaralılar olduğu öğrenildi.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/bagcilarda-zincirleme-trafik-kazasi-yaralilar-var-43353096",
+   "publishedAt": "2026-10-24T06:47:47+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "5a20ecc2d15e0cfa",
    "title": "Keeping the world safe when no one is in charge",
    "summary": "As AI creates new threats and power becomes fragmented, international cooperation is more vital than ever.",
@@ -713,6 +693,16 @@
    "imageUrl": null
   },
   {
+   "id": "6224c94e48c6dc59",
+   "title": "Kuvvetli yağış tüm yurtta etkili olacak: Sağanak geliyor! İstanbul için kritik uyarı: Tarih belli oldu | İşte yağış beklenen iller",
+   "summary": "Yurt genelinde hafta sonu açık ve parçalı bulutlu havanın hakim olması beklenirken, yeni haftayla birlikte yağışlı hava dalgası etkisini gösterecek. Meteoroloji Genel Müdürlüğü ve AKOM'un uyarılarının ardından, megakent İstanbul başta olmak üzere sağanak yağış beklenen iller tek tek sıralandı.",
+   "category": "cemiyyet",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/gundem/kuvvetli-yagis-tum-yurtta-etkili-olacak-saganak-geliyor-istanbul-icin-kritik-uyari-tarih-belli-oldu-iste-yagis-beklenen-iller-43353079",
+   "publishedAt": "2026-10-24T06:43:00+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "771e2fe6ade457a1",
    "title": "Uzbekistan’s Trastbank nine-month net profit up 24.3% to $63.7M",
    "summary": "",
@@ -720,6 +710,16 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/casia/uzbekistan/4238575.html",
    "publishedAt": "2026-10-24T06:38:00+04:00",
+   "imageUrl": null
+  },
+  {
+   "id": "62c5d98872471f10",
+   "title": "Fenerbahçe'de İsmail Kartal'dan derbi için Greenwood planı!",
+   "summary": "Fenerbahçe'de teknik direktör İsmail Kartal'ın Galatasaray derbisi öncesi Greenwood'u hangi bölgede değerlendireceği belli oldu.",
+   "category": "idman",
+   "source": "Hürriyet",
+   "sourceUrl": "https://www.hurriyet.com.tr/sporarena/fenerbahcede-ismail-kartaldan-derbi-icin-greenwood-plani-43353068",
+   "publishedAt": "2026-10-24T06:37:42+00:00",
    "imageUrl": null
   },
   {
@@ -1533,6 +1533,16 @@
    "imageUrl": null
   },
   {
+   "id": "a344deb0b7aeece1",
+   "title": "White House lifts tariffs on some Canadian goods as midterm elections loom",
+   "summary": "From 30 October, tariffs will be eased on some products, including certain machinery, and placed on others, such as carpets.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c60qk573yzz8o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-24T00:36:47+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "ce847dae23ba5a97",
    "title": "WHO announces start of Ebola vaccine clinical trial in DR Congo",
    "summary": "A clinical trial begins to test the safety, efficacy and immunogenicity of multiple vaccines.",
@@ -1683,6 +1693,16 @@
    "imageUrl": null
   },
   {
+   "id": "33a36b73982cf30e",
+   "title": "Father who killed Oregon school shooter describes anguish over children he couldn't save",
+   "summary": "Kaylub Giamanco, has been hailed as a hero for killing a teenager who fatally shot three children and a teacher.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/crgj9ndwvj9jo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T22:47:07+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "173fde0883230ef4",
    "title": "Moldova Rusiya diplomatını ölkədən çıxarmaq qərarına gəlib",
    "summary": "",
@@ -1700,6 +1720,16 @@
    "source": "Al Jazeera",
    "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/kenya-announces-second-ebola-death-says-no-evidence-of-community-spread?traffic_source=rss",
    "publishedAt": "2026-10-23T22:33:48+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "12660d8e1a47559d",
+   "title": "Who actually controls Ukraine's access to Starlink?",
+   "summary": "President Zelensky says limits to the technology continue to affect Ukrainian forces, while US officials and Elon Musk offer conflicting accounts of who controls it.",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/videos/cqy7lvv0lvzpo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T22:24:36+00:00",
    "imageUrl": null
   },
   {
@@ -2053,6 +2083,16 @@
    "imageUrl": null
   },
   {
+   "id": "45f546718dbb40df",
+   "title": "Seven shot dead by gunmen at church funeral in Jordan, officials say",
+   "summary": "Thirty-four people are also injured in the attack in southern Karak governorate, and a manhunt is now under way.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/ck87zlpzny15o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T19:46:30+00:00",
+   "imageUrl": null
+  },
+  {
    "id": "0e9cfe2fac9f54d1",
    "title": "Ecuador judge orders pre-trial detention of leftist presidential candidate",
    "summary": "Luisa Gonzalez, who lost to right-wing president Daniel Noboa in 2023, has called the arrest political persecution.",
@@ -2060,6 +2100,16 @@
    "source": "Al Jazeera",
    "sourceUrl": "https://www.aljazeera.com/news/2026/10/23/ecuador-judge-orders-pre-trial-detention-of-leftist-presidential-candidate?traffic_source=rss",
    "publishedAt": "2026-10-23T19:45:26+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "d7c780964626fca6",
+   "title": "Deadly shooting near Paris is a 'racist terrorist attack', Macron says",
+   "summary": "One person is killed and five wounded in a series of attacks. The suspected gunman has been apprehended.",
+   "category": "gundem",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/c6ev38dj1g8zo?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T19:42:08+00:00",
    "imageUrl": null
   },
   {
@@ -2150,6 +2200,16 @@
    "source": "Al Jazeera",
    "sourceUrl": "https://www.aljazeera.com/sports/2026/10/23/aston-villa-vs-manchester-city-premier-league-teams-prediction-lineups?traffic_source=rss",
    "publishedAt": "2026-10-23T18:55:18+00:00",
+   "imageUrl": null
+  },
+  {
+   "id": "9c464aa25357ec3d",
+   "title": "Ukraine says Starlink still restricted after Trump says limits lifted",
+   "summary": "The network is used by the Ukrainian military, sources say, and Trump says \"if there is a problem, I'll get it straightened out\".",
+   "category": "siyaset",
+   "source": "BBC News",
+   "sourceUrl": "https://www.bbc.co.uk/news/articles/cq74pjpmx0e8o?at_medium=RSS&at_campaign=rss",
+   "publishedAt": "2026-10-23T18:52:17+00:00",
    "imageUrl": null
   },
   {
@@ -2440,66 +2500,6 @@
    "source": "Trend",
    "sourceUrl": "https://www.trend.az/azerbaijan/4238499.html",
    "publishedAt": "2026-10-23T17:32:07+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "ae2e315612cee88a",
-   "title": "Georgia's gas Imports from Azerbaijan rise 5.3% to $178.4M in eight months",
-   "summary": "",
-   "category": "gundem",
-   "source": "Trend",
-   "sourceUrl": "https://www.trend.az/azerbaijan/4238461.html",
-   "publishedAt": "2026-10-23T17:31:47+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "718cb8f39bf3583e",
-   "title": "İxrac rəsmiləşdirilmə xərclərinə görə kompensasiya  şamil olunmadığı əməliyyatlar müəyyənləşib",
-   "summary": "",
-   "category": "iqtisadiyyat",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/finance/ixrac-resmilesdirilme-xerclerine-gore-kompensasiya-samil-olunmadigi-emeliyyatlar-mueyyenlesib-1007784",
-   "publishedAt": "2026-10-23T17:31:25+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "56f7f0de4ff5db8f",
-   "title": "Jerusalem Daily: Israel to ‘lock down’ occupied West Bank",
-   "summary": "Israeli Prime Minister Benjamin Netanyahu orders a “full lockdown” of the occupied West Bank following a shooting.",
-   "category": "siyaset",
-   "source": "Al Jazeera",
-   "sourceUrl": "https://www.aljazeera.com/video/newsfeed/2026/10/23/jerusalem-daily-netanyahu-orders-a-full-lockdown-of-the-occupied-west-ba?traffic_source=rss",
-   "publishedAt": "2026-10-23T17:30:51+00:00",
-   "imageUrl": null
-  },
-  {
-   "id": "6e3627ae7a37ec6c",
-   "title": "Qeyri-neft-qaz mallarının Azərbaycan mənşəli olmasının müəyyən edilməsi Qaydası təsdiqlənib",
-   "summary": "",
-   "category": "iqtisadiyyat",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/energy-and-industry/qeyri-neft-qaz-mallarinin-azerbaycan-menseli-olmasinin-mueyyen-edilmesi-qaydasi-tesdiqlenib-1007780",
-   "publishedAt": "2026-10-23T17:29:08+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "e882e2e6ccb344d0",
-   "title": "Qəzza üçün yığılan zəkatı birja fondlarına yatırıb, zərər edən Türkiyə Dəyanət Vəqfinin rəhbərliyi işdən qovulub",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/asia/qezza-ucun-yigilan-zekati-birja-fondlarina-yatirib-zerer-eden-turkiye-deyanet-veqfinin-rehberliyi-isden-qovulub-1007778",
-   "publishedAt": "2026-10-23T17:28:39+04:00",
-   "imageUrl": null
-  },
-  {
-   "id": "89e13ac9e50eb502",
-   "title": "Milli Məclisin növbəti iclasının tarixi və gündəliyi açıqlanıb - YENİLƏNİB",
-   "summary": "",
-   "category": "siyaset",
-   "source": "APA",
-   "sourceUrl": "https://apa.az/domestic-policy/milli-meclisin-novbeti-iclasinin-tarixi-ve-gundeliyi-aciqlanib-yenilenib-1007623",
-   "publishedAt": "2026-10-23T17:27:51+04:00",
    "imageUrl": null
   }
  ]
