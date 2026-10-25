@@ -73,8 +73,19 @@ WORLD_FEEDS = [
     ("Al Jazeera",   "https://www.aljazeera.com/xml/rss/all.xml",   "en"),
     ("Daily Sabah",  "https://www.dailysabah.com/rss",              "en"),
     ("Hürriyet",     "https://www.hurriyet.com.tr/rss/anasayfa",    "tr"),
-    ("TASS",         "https://tass.ru/rss/v2.xml",                  "ru"),
+    ("Sabah TR",     "https://www.sabah.com.tr/rss",                "tr"),
+    ("Habertürk",    "https://www.haberturk.com/rss",               "tr"),
+    ("Milliyet",     "https://www.milliyet.com.tr/rss",             "tr"),
+    ("CNN Türk",     "https://www.cnnturk.com/rss",                 "tr"),
+    ("TRT Haber",    "https://www.trthaber.com/rss",                "tr"),
     ("Yeni Şafak",   "https://www.yenisafak.com/rss",               "tr"),
+    ("TRT Spor",     "https://www.trtspor.com.tr/rss",              "tr"),
+    ("Fanatik",      "https://www.fanatik.com.tr/rss",              "tr"),
+    ("NTV Spor",     "https://www.ntvspor.net/rss",                 "tr"),
+    ("TASS",         "https://tass.ru/rss/v2.xml",                  "ru"),
+    ("Championat",   "https://www.championat.com/rss",              "ru"),
+    ("Sport.ru",     "https://www.sport.ru/rss",                    "ru"),
+    ("Match TV",     "https://matchtv.ru/rss",                      "ru"),
 ]
 FEEDS = [(s, u, "az") for s, u in AZ_FEEDS] + WORLD_FEEDS
 
@@ -82,10 +93,9 @@ SKIP_URL_PARTS = ["/resmi-ilanlar/", "/lezizz/", "/emlak-ilanlari/"]
 STOPWORDS = ["neftçala", "neftchala", "ceyran", "xəzər"]
 
 PRESIDENT_WORDS = [
-    "ilham əliyev", "prezident", "mehriban əliyeva", "birinci xanım",
-    "ərdoğan", "erdogan", "rəcəb tayyib", "sərəncam", "fərman", "təyinat",
-    "təltif", "təbrik", "tccb", "cumhurbaşkanı", "prezident aparatı",
-    "kremlin", "putin", "trump", "zelenski", "macron", "bayden", "white house",
+    "ilham əliyev", "mehriban əliyeva", "birinci xanım", "prezident aparatı",
+    "azərbaycan prezidenti", "prezident", "sərəncam", "fərman", "təltif",
+    "президент азербайджана", "ильхам алиев", "мехрибан алиева", "первой леди",
 ]
 IDMAN_WORDS = [
     "futbol", "affa", "milli komanda", "qarabağ fk", "kuboku", "avropa liqası",
@@ -106,7 +116,7 @@ CATEGORIES = {
                 "dışişleri", "seçim", "bakan", "politics", "siyasi",
                 "election", "minister", "summit", "ukraine", "gaza", "israel", "məsləhətləşmə",
                 "qarabağda", "qarabağın", "qarabağ münaqişəsi", "dəhliz", "sülh müqaviləsi", "məclis",
-                "hökumət", "nazirlik", "vəkillər", "konstitusiya"],
+                "hökumət", "nazirlik", "vəkillər", "konstitusiya", "ərdoğan", "erdoğan", "erdogan"],
     "İqtisadiyyat": ["neft", "oil", "qiymət", "manat", "dollar", "valyuta", "büdcə",
                      "inflyasiya", "maliyyə", "bank", "vergi", "sahibkar", "ixrac", "idxal",
                      "qaz", "enerji", "faiz", "maaş", "pensiya", "borsa", "dotasiya", "məzənnə",
@@ -123,7 +133,7 @@ CATEGORIES = {
     "Dünya": ["bmt", "nato", "rusiya", "çin", "fransa", "almanya", "iran", "israil", "ukrayna",
               "dəməşq", "suriya", "lebnon", "ərəb", "abş", "ingiltərə", "pakistan", "hindistan",
               "qüds", "beynəlxalq", "ermənistan", "gürcüstan",
-              "dış politika", "world", "middle east", "europe"],
+              "dış politika", "world", "middle east", "europe", "путин", "трамп", "зеленский", "байден", "макрон", "эрдоган"],
 }
 # İdman bölməsi gücləndirilib: xallar 2 qat sayılır
 BOOST = {"İdman": 2, "Prezident": 3}
@@ -231,6 +241,30 @@ def categorize(title, desc):
 def is_junk(link):
     return any(p in norm_az(link) for p in SKIP_URL_PARTS)
 
+# Rəhbərlik/ölkə haqqında NEGATİV xəbərlər göstərilmir (redaksiya qərarı)
+LEADERSHIP = [
+    "ilham əliyev", "mehriban əliyeva", "birinci xanım", "prezident",
+    "azərbaycan hökuməti", "azərbaycan rəhbərliyi", "rəhbərlik", "prezident aparatı",
+    "ильхам алиев", "алиев", "алиева", "мехрибан алиева",
+    "президент азербайджана", "президента азербайджана", "президентом азербайджана",
+    "первой леди", "ilham aliyev",
+]
+NEGATIVE = [
+    "tənqid", "etiraz", "protest", "korrupsiya", "rüşvət", "yolsuzluq",
+    "qalmaqal", "mübahisə", "həbs", "tutuklama", "gözaltı", "qanunsuz",
+    "insan haqları", "repressiya", "təzyiq", "itiraz", "boykot", "işgəncə",
+    "təqsirləndir", "məhkəmə hökmü", "cinayət", "satınalma qalmaqalı",
+    "критик", "протест", "коррупц", "арест", "задержан", "незаконн", "обвин",
+    "eleştiri", "protesto", "yolsuzluk", "rüşvet", "eleştirmek", "tutuklandı",
+]
+
+def is_negative_about_leadership(title, desc):
+    """Rəhbərlikdən bəhs edən və neqativ çağrışım daşıyan xəbərləri tutur."""
+    blob = norm_az(title + " " + desc)
+    if not any(norm_az(w) in blob for w in LEADERSHIP):
+        return False
+    return any(norm_az(w) in blob for w in NEGATIVE)
+
 def is_video(it):
     l = norm_az(it["link"])
     return "/video/" in l or "video" in norm_az(it["title"])
@@ -238,6 +272,8 @@ def is_video(it):
 def make_article(it, source, default_lang):
     lang = detect_lang(it["title"], it["description"], default_lang)
     label = categorize(it["title"], it["description"])
+    if label == "Prezident" and lang in ("tr", "en"):
+        label = "Siyasət"
     return {
         "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
         "title": it["title"],
@@ -258,10 +294,16 @@ def main():
     except Exception:
         old = []
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
+    old = [a for a in old if not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""))]
     # köhnə xəbərlərin dili yoxdursa — avtomatik təyin et (süzgəcin düzgün işləməsi üçün)
     for a in old:
         if not a.get("lang"):
             a["lang"] = detect_lang(a.get("title", ""), a.get("summary", ""), "")
+        # Zuğulba-ya səhv düşmüş köhnə xəbərləri yenidən kateqoriyalaşdır
+        if a.get("category") == "prezident":
+            lbl = categorize(a.get("title", ""), a.get("summary", ""))
+            if lbl != "Prezident":
+                a["category"] = SLUGS.get(lbl, "gundem")
     seen = {a["sourceUrl"] for a in old}
     new_items, errors = [], []
     for source, url, dlang in FEEDS:
@@ -270,6 +312,8 @@ def main():
                 if it["link"] in seen or is_junk(it["link"]):
                     continue
                 seen.add(it["link"])
+                if is_negative_about_leadership(it["title"], it["description"]):
+                    continue
                 new_items.append(make_article(it, source, dlang))
         except Exception as e:
             errors.append(f"{source}: {type(e).__name__}")
