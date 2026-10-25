@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 8ulduz — avtomatik xəbər yeniləyici v5
-- 15 Azərbaycan + 5 xarici mənbə
-- Dil ayrımı: az / ru / en
+- 54 Azərbaycan + 17 xarici mənbə
+- Dil ayrımı: az / ru / en / tr
 - "Prezident gündəliyi" əsas bölməsi
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 """
