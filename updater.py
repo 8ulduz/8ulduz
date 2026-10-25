@@ -86,6 +86,10 @@ PRESIDENT_STRONG = [
     "мехрибан алиев", "президент азербайджана", "президента азербайджана",
     "президентом азербайджана", "первой леди", "первая леди", "первый вице-президент",
     "ilham aliyev'", "azerbaycan cumhurbaşkanı",
+    # Birinci xanım: saytlar adı qısaldır və ya ə-siz yazır
+    "birinci xanim", "birinci xanımlar", "məhriban əliyeva", "məhriban aliyeva",
+    "xanım mehriban", "first vice-president", "first vice president", "lady mehriban",
+    "mehriban", "məhriban", "мехрибан",
 ]
 # Zəif göstəricilər: yalnız xarici kontekst olmadıqda sayılır
 # "X prezidenti" (məs. "Azercell prezidenti", "FIFA prezidenti") başqasının prezidentidir — sayılmır.
@@ -205,6 +209,13 @@ ROOT = pathlib.Path(__file__).parent
 OUT_DIR = ROOT / "data"
 OUT_FILE = OUT_DIR / "news.json"
 MARKETS_FILE = OUT_DIR / "markets.json"
+SOCIAL_FILE = OUT_DIR / "social.json"
+STATUS_FILE = OUT_DIR / "status.json"
+BAKU = datetime.timezone(datetime.timedelta(hours=4))
+AZ_MONTHS = {
+    "yanvar": 1, "fevral": 2, "mart": 3, "aprel": 4, "may": 5, "iyun": 6,
+    "iyul": 7, "avqust": 8, "sentyabr": 9, "oktyabr": 10, "noyabr": 11, "dekabr": 12,
+}
 MAX_ITEMS = 800
 MAX_PER_SOURCE = 50   # bir mənbə lenti doldurmasın
 TIMEOUT = 10
@@ -464,9 +475,13 @@ def label_for(title, summary, lang, hint=None, world=False):
         label = "Siyasət"
     return label
 
-def make_article(it, source, default_lang, hint=None):
+def make_article(it, source, default_lang, hint=None, force_label=None):
     lang = detect_lang(it["title"], it["description"], default_lang)
-    label = label_for(it["title"], it["description"], lang, hint, source in WORLD_SOURCES)
+    # Rəsmi xronika səhifələri birbaşa Prezident bölməsinə gedir (məs. FIFA xəbəri idmana düşməsin)
+    if force_label:
+        label = force_label
+    else:
+        label = label_for(it["title"], it["description"], lang, hint, source in WORLD_SOURCES)
     return {
         "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
         "title": it["title"],
@@ -621,6 +636,128 @@ def update_markets():
                                            separators=(",", ":")), encoding="utf-8")
     print(f"Bazar: {sum(1 for i in items if not i.get('stale'))}/{len(MARKET_DEFS)} təzə")
 
+def _clean_text(s):
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s or ""))).strip()
+
+def parse_az_date(s):
+    """'24.10.2026' və '24 oktyabr 2026, 19:15' — Bakı vaxtı."""
+    raw = _clean_text(s).lower()
+    hm = re.search(r"(\d{1,2}):(\d{2})", raw)
+    hour, minute = (int(hm.group(1)), int(hm.group(2))) if hm else (12, 0)
+    m = re.search(r"(\d{1,2})[.](\d{1,2})[.](\d{4})", raw)
+    if not m:
+        w = re.search(r"(\d{1,2})\s+([a-zəöüğışç]+)\s+(\d{4})", raw)
+        if w and w.group(2) in AZ_MONTHS:
+            m = (int(w.group(1)), AZ_MONTHS[w.group(2)], int(w.group(3)))
+        else:
+            return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    else:
+        m = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    return datetime.datetime(m[2], m[1], m[0], hour, minute, tzinfo=BAKU).isoformat()
+
+def fetch_text(url, tries=3, timeout=20):
+    last = None
+    for _ in range(tries):
+        try:
+            return fetch(url, timeout=timeout).decode("utf-8", "replace")
+        except Exception as e:
+            last = e
+    raise last
+
+def official_items():
+    """Prezident və birinci xanımın rəsmi səhifələri.
+
+    president.az/az/rss əsasən vətəndaş məktublarıdır; xəbərlər /az/news HTML-indədir.
+    mehriban-aliyeva.az-da RSS yoxdur, xronika /site/catalogNews-dədir.
+    AZƏRTAC (rss-official-chronicle) bir çox şəbəkədən 403 qaytarır, ona görə burada yoxdur.
+    """
+    items, errors = [], []
+    try:
+        page = fetch_text("https://president.az/az/news")
+        for block in re.findall(r'<article class="news-photo">(.*?)</article>', page, re.S):
+            href = re.search(r'href="([^"]+)"', block)
+            title = re.search(r'class="label-title">(.*?)</span>', block, re.S)
+            date = re.search(r'class="category_date">(.*?)</span>', block, re.S)
+            img = re.search(r'<img[^>]+src="([^"]+)"', block)
+            t = _clean_text(title.group(1)) if title else ""
+            if not (href and t):
+                continue
+            link = urllib.parse.urljoin("https://president.az", href.group(1))
+            items.append(("Prezident.az", "az", "Prezident", "Prezident", {
+                "title": t, "link": link,
+                "description": "Azərbaycan Prezidentinin rəsmi səhifəsindən.",
+                "pubDate": parse_az_date(date.group(1) if date else ""),
+                "image": _abs_img(img.group(1), link) if img else None, "author": "",
+            }))
+    except Exception as e:
+        errors.append(f"Prezident.az: {type(e).__name__}: {str(e)[:80]}")
+    try:
+        page = fetch_text("https://mehriban-aliyeva.az/site/catalogNews")
+        for td in re.findall(r'<td class="col-\d">(.*?)</td>', page, re.S):
+            href = re.search(r'class="view-title" href="([^"]+)"', td)
+            date = re.search(r'class="view-date">([^<]+)', td)
+            title = re.search(r'class="view-date">[^<]*</span>\s*<br>\s*(.*?)</a>', td, re.S)
+            img = re.search(r'<img[^>]+src="([^"]+)"', td)
+            t = _clean_text(title.group(1)) if title else ""
+            if not (href and t):
+                continue
+            link = urllib.parse.urljoin("https://mehriban-aliyeva.az", href.group(1))
+            items.append(("Mehriban Əliyeva", "az", "Prezident", "Prezident", {
+                "title": t, "link": link,
+                "description": "Birinci vitse-prezident Mehriban Əliyevanın rəsmi səhifəsindən.",
+                "pubDate": parse_az_date(date.group(1) if date else ""),
+                "image": _abs_img(img.group(1), link) if img else None, "author": "",
+            }))
+    except Exception as e:
+        errors.append(f"Mehriban Əliyeva: {type(e).__name__}: {str(e)[:80]}")
+    return items, errors
+
+# Rəsmi YouTube lentləri (Atom). X/Instagram/Facebook/Telegram-ın açıq lenti yoxdur.
+YT_ACCOUNTS = [
+    ("https://www.youtube.com/feeds/videos.xml?user=presidentaz", "prezident", "Prezident İlham Əliyev"),
+    ("https://www.youtube.com/feeds/videos.xml?channel_id=UCdT9CFMpO_o1Sy10Dz2b9DQ", "birinci-xanim", "Mehriban Əliyeva"),
+]
+
+def update_social():
+    posts, failed = [], set()
+    for url, who, name in YT_ACCOUNTS:
+        try:
+            got = parse_feed(fetch(url))[:4]
+            if not got:
+                raise ValueError("boş lent")
+            for it in got:
+                posts.append({
+                    "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
+                    "who": who, "name": name, "network": "YouTube",
+                    "text": it["title"], "url": it["link"],
+                    "publishedAt": to_iso(it.get("pubDate")),
+                    "imageUrl": it.get("image"),
+                })
+        except Exception as e:
+            failed.add(who)
+            print(f"  ! sosial {name}: {type(e).__name__}: {str(e)[:80]}")
+    old = []
+    try:
+        old = json.loads(SOCIAL_FILE.read_text(encoding="utf-8")).get("posts") or []
+    except Exception:
+        old = []
+    if failed:
+        posts.extend(p for p in old if p.get("who") in failed)
+    posts.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    OUT_DIR.mkdir(exist_ok=True)
+    SOCIAL_FILE.write_text(json.dumps({"updatedAt": now, "posts": posts[:8]}, ensure_ascii=False,
+                                       separators=(",", ":")), encoding="utf-8")
+    print(f"Sosial: {min(8, len(posts))} yazı")
+
+def write_status():
+    """Hər uğurlu yoxlamada yazılır — xəbər mətni dəyişməsə belə. UI bunu göstərir."""
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    OUT_DIR.mkdir(exist_ok=True)
+    STATUS_FILE.write_text(json.dumps({"checkedAt": now, "ok": True}, ensure_ascii=False,
+                                       separators=(",", ":")), encoding="utf-8")
+    print(f"Yoxlama: {now}")
+
 # --------------------------------------------------------------------- main ---
 def main():
     try:
@@ -659,6 +796,18 @@ def main():
                 new_items.append(make_article(it, source, dlang, hint))
             except Exception as e:
                 errors.append(f"{source} (element): {type(e).__name__}")
+    off_items, off_errors = official_items()
+    errors.extend(off_errors)
+    for source, dlang, hint, force, it in off_items:
+        try:
+            if it["link"] in seen or is_junk(it["link"]):
+                continue
+            seen.add(it["link"])
+            if is_negative_about_leadership(it["title"], it["description"]):
+                continue
+            new_items.append(make_article(it, source, dlang, hint, force_label=force))
+        except Exception as e:
+            errors.append(f"{source} (rəsmi): {type(e).__name__}")
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
@@ -696,10 +845,22 @@ def main():
         print("  ∅", e, "(boş lent)")
 
 if __name__ == "__main__":
+    news_ok = True
     if "--no-markets" not in sys.argv:
         try:
             update_markets()
         except Exception as e:
             print("  ! bazar:", type(e).__name__)
     if "--markets-only" not in sys.argv:
-        main()
+        try:
+            main()
+        except Exception as e:
+            news_ok = False
+            print("  ! xəbər:", type(e).__name__, e)
+        if "--no-social" not in sys.argv:
+            try:
+                update_social()
+            except Exception as e:
+                print("  ! sosial:", type(e).__name__)
+        if news_ok:
+            write_status()
