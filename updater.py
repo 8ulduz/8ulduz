@@ -27,6 +27,45 @@ AZ_FEEDS = [
     ("1news.az",     "https://1news.az/rss/"),
     ("Ayna.az",      "https://www.ayna.az/rss"),
     ("Crossmedia",   "https://crossmedia.az/rss"),
+    ("Azernews",     "https://www.azernews.az/rss/"),
+    ("News.az",      "https://www.news.az/rss/"),
+    ("Vesti.az",     "https://www.vesti.az/rss/"),
+    ("Medianews",    "https://www.medianews.az/rss/"),
+    ("İnterPress",   "https://www.interpress.az/rss/"),
+    ("Kulis.az",     "https://www.kulis.az/rss/"),
+    ("A24.az",       "https://a24.az/rss/"),
+    ("Azadlıq",      "https://www.azadliq.org/rss/"),
+    ("Meydan TV",    "https://www.meydan.tv/rss/"),
+    ("Virtual AZ",   "https://www.virtualaz.org/rss/"),
+    ("Sia.az",       "https://sia.az/rss/"),
+    ("Şərq",         "https://www.sherg.az/rss/"),
+    ("Baku TV",      "https://www.baku.tv/rss/"),
+    ("Xəzər TV",     "https://www.xezertv.az/rss/"),
+    ("İctimai TV",   "https://itv.az/rss/"),
+    ("ARB",          "https://arb24.az/rss/"),
+    ("CBC",          "https://cbc.az/rss/"),
+    ("AzTV",         "https://aztv.az/rss/"),
+    ("Haqqin.az",    "https://haqqin.az/rss/"),
+    ("Marja.az",     "https://www.marja.az/rss/"),
+    ("Metbuat",      "https://www.metbuat.az/rss/"),
+    ("ABC.az",       "https://www.abc.az/rss/"),
+    ("Kaspi",        "https://www.kaspi.az/rss/"),
+    ("Cebhe.info",   "https://cebhe.info/rss/"),
+    ("Pravda.az",    "https://pravda.az/rss/"),
+    ("Tia.az",       "https://www.tia.az/rss/"),
+    ("Xural",        "https://www.xural.az/rss/"),
+    ("Günün Səsi",   "https://gununsesi.info/rss/"),
+    ("Novator.az",   "https://www.novator.az/rss/"),
+    ("Bizim Yol",    "https://www.bizimyol.info/rss/"),
+    ("Yeni Müsavat", "https://www.yenimusavat.com/rss/"),
+    ("Müsavat",      "https://www.musavat.com/rss/"),
+    ("Aztag.az",     "https://www.aztag.az/rss/"),
+    ("Diaspor",      "https://www.diaspora.az/rss/"),
+    ("Xezerxeber",   "https://www.xezerxeber.az/rss/"),
+    ("İnfoqrafiya",  "https://www.infoqrafiya.az/rss/"),
+    ("Day.Az RU",    "https://ru.day.az/rss/"),
+    ("Trend RU",     "https://ru.trend.az/rss/"),
+    ("AzVision RU",  "https://ru.azvision.az/rss/"),
 ]
 # 5 xarici mənbə
 WORLD_FEEDS = [
@@ -95,7 +134,7 @@ FALLBACK = "Gündəm"
 ROOT = pathlib.Path(__file__).parent
 OUT_DIR = ROOT / "data"
 OUT_FILE = OUT_DIR / "news.json"
-MAX_ITEMS = 250
+MAX_ITEMS = 500
 
 def norm_az(s):
     return s.lower().replace("i̇", "i")
