@@ -21,9 +21,24 @@ const LANGS = [
 ];
 const LANG_BADGE = { az: "AZ", ru: "RUS", en: "ENG", tr: "TÜRK" };
 const PREZ_LINKS = [
-  { name: "president.az", url: "https://www.president.az" },
-  { name: "firstlady.az", url: "https://www.firstlady.az" },
+  { name: "president.az", url: "https://president.az/az" },
+  { name: "mehriban-aliyeva.az", url: "https://mehriban-aliyeva.az/" },
   { name: "X — @presidentaz", url: "https://x.com/presidentaz" },
+];
+// Rəsmi hesablar (president.az və mehriban-aliyeva.az səhifələrindəki keçidlər). Telegram kanalı yoxdur.
+const PROFILES = [
+  { who: "Prezident", links: [
+    ["X", "https://x.com/presidentaz"], ["X (AZ)", "https://x.com/azpresident"],
+    ["Instagram", "https://www.instagram.com/presidentaz/"],
+    ["Facebook", "https://www.facebook.com/PresidentIlhamAliyev"],
+    ["YouTube", "https://www.youtube.com/@presidentaz"],
+  ]},
+  { who: "Birinci xanım", links: [
+    ["X", "https://x.com/1VicePresident"],
+    ["Instagram", "https://www.instagram.com/firstvicepresidentazerbaijan/"],
+    ["Facebook", "https://www.facebook.com/FirstvicepresidentofAzerbaijanOfficial"],
+    ["YouTube", "https://www.youtube.com/@FirstvicepresidentofAzerbaijan"],
+  ]},
 ];
 const CLUBS = [
   ["Qarabağ", ["qarabağ", "qarabag"]], ["Sabah", ["sabah fk", "sabah"]], ["Neftçi", ["neftçi", "neftci"]],
@@ -45,7 +60,9 @@ const CITIES = [["Bakı",40.4093,49.8671],["Sumqayıt",40.5897,49.6686],["Gənc�
 const DAYS = ["bazar", "bazar ertəsi", "çərşənbə axşamı", "çərşənbə", "cümə axşamı", "cümə", "şənbə"];
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const HOUR = 3600e3, DAY = 24 * HOUR;
-const POLL_MS = 60e3;     // xəbər lentini yoxlama intervalı (ETag ilə — dəyişməyibsə 304)
+const POLL_MS = 60e3;     // xəbər lentini yoxlama intervalı
+// GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
+const freshUrl = (path) => `${path}?t=${Math.floor(Date.now() / 60000)}`;
 const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən xəbər
 
 /* ---------------------------------------------------------------- köməkçilər */
@@ -69,8 +86,31 @@ const isFresh = a => { const t = new Date(a.publishedAt).getTime(); return !Numb
 const DATELINE = /^\s*[\p{Lu}][\p{L}\s-]{1,30}[.,]\s*\d{1,2}\s+\p{L}+[.,]?\s*(?:\d{4}[.,]?\s*)?(?:AZƏRTAC|AZERTAC|APA|Report|Trend)?[.,:—-]*\s*/u;
 const clean = s => decode(s || "").replace(DATELINE, "").trim();
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
-const isFirstLady = a => { const s = (a.title + " " + a.summary).toLowerCase(); return s.includes("mehriban") || s.includes("birinci xanım") || s.includes("birinci xanim"); };
-const prezSort = list => [...list].sort((x, y) => Number(isFirstLady(x)) - Number(isFirstLady(y)));
+const flText = s => {
+  s = lc(s);
+  return s.includes("mehriban") || s.includes("məhriban") || s.includes("мехрибан")
+    || s.includes("birinci xanım") || s.includes("birinci xanim") || s.includes("first lady")
+    || s.includes("first vice-president") || s.includes("first vice president")
+    || s.includes("birinci vitse-prezident") || s.includes("первой леди") || s.includes("первая леди");
+};
+// Nişan başlığa görədir (rəsmi səhifənin ortaq tədbirləri ayrıca «Birinci xanım» nişanı almır).
+const isFirstLady = a => !!a && flText(a.title);
+// Əsas blok: birinci xanımın başlıqları öndə, sonra onun xronikası, sonra digər prezident xəbərləri
+function prezHome(list) {
+  const now = Date.now();
+  const age = a => now - new Date(a.publishedAt).getTime();
+  const prez = list.filter(a => a.category === "prezident");
+  const recent = byDate(prez.filter(a => age(a) < 21 * DAY));
+  const about = byDate(prez.filter(a => flText(a.title) && age(a) < 60 * DAY));
+  const chronicle = byDate(prez.filter(a => (a.source === "Mehriban Əliyeva" || flText(a.title)) && age(a) < 60 * DAY));
+  const picked = []; const seen = new Set();
+  const push = a => { if (!a || seen.has(a.id)) return false; seen.add(a.id); picked.push(a); return true; };
+  for (const a of about) { if (picked.length >= 2) break; push(a); }
+  for (const a of chronicle) { if (picked.length >= 4) break; push(a); }
+  for (const a of recent) { if (picked.length >= 8) break; push(a); }
+  for (const a of chronicle) { if (picked.length >= 8) break; push(a); }
+  return picked;
+}
 const byDate = list => [...list].sort((x, y) => y.publishedAt.localeCompare(x.publishedAt));
 const lc = s => (s || "").toLocaleLowerCase("az");
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
@@ -90,13 +130,13 @@ const card = a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-id="${
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
 
 /* ---------------------------------------------------------------- vəziyyət */
-const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, wx: null, wxAll: null, wxSel: null, wxOpen: false };
+const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, wx: null, wxAll: null, wxSel: null, wxOpen: false };
 const byId = new Map();
 
 /* ---------------------------------------------------------------- məlumat */
 async function loadNews() {
   try {
-    const r = await fetch("data/news.json", { cache: "no-cache" });
+    const r = await fetch(freshUrl("data/news.json"), { cache: "no-store" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const tag = r.headers.get("etag") || r.headers.get("last-modified");
     S.lastSync = new Date(); S.error = null;
@@ -112,7 +152,7 @@ async function loadNews() {
 async function loadMarkets() {
   // Əsas mənbə: updater.py-nin yaratdığı data/markets.json (AMB, Yahoo Finance, gold-api və s.)
   try {
-    const r = await fetch("data/markets.json", { cache: "no-cache" });
+    const r = await fetch(freshUrl("data/markets.json"), { cache: "no-store" });
     if (r.ok) { const d = await r.json(); if (d.items?.length) { S.markets = d.items; renderMarkets(); return; } }
   } catch {}
   // Ehtiyat: brauzerdən birbaşa (açarsız, CORS açıq API-lər)
@@ -192,7 +232,7 @@ function shell() {
 }
 
 function renderTopbar() {
-  const w = S.wx, upd = S.data?.updatedAt;
+  const w = S.wx, upd = S.status?.checkedAt || S.data?.updatedAt;
   let pop = "";
   if (S.wxOpen) {
     const sel = S.wxSel && (S.wxAll || []).find(x => x.city === S.wxSel);
@@ -245,13 +285,19 @@ function renderLangs() {
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 
+function socialBlock() {
+  const posts = (S.social?.posts || []).slice(0, 6);
+  const profiles = PROFILES.map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join("")}</span>`).join("");
+  const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-net">${esc(p.network)}</span><span class="t">${txt(p.text)}</span><span class="meta"><span class="src">${esc(p.name)}</span><time>${ago(p.publishedAt)}</time></span></a>`).join("");
+  return `<div class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b><div class="soc-links">${profiles}</div></div>${cards ? `<div class="soc-row">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</div>`;
+}
 function prezBlock(list) {
-  if (!list.length) return "";
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted" style="font-size:12px;font-weight:600">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    <div class="prez-grid">${prezSort(list).slice(0, 8).map(a => `<button class="pcard" data-id="${esc(a.id)}">${isFirstLady(a) ? `<span class="tag">Birinci xanım</span>` : ""}<span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("")}</div></section>`;
+    ${list.length ? `<div class="prez-grid">${list.map(a => `<button class="pcard" data-id="${esc(a.id)}">${isFirstLady(a) ? `<span class="tag">Birinci xanım</span>` : ""}<span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("")}</div>` : ""}
+    ${socialBlock()}</section>`;
 }
 
 function heroBlock(list) {
@@ -292,7 +338,7 @@ function skeleton() {
 
 function homeView() {
   const all = S.data.articles, m = filtered(all);
-  const prez = m.filter(a => a.category === "prezident" && Date.now() - new Date(a.publishedAt).getTime() < DAY).slice(0, 20);
+  const prez = prezHome(m);
   const vids = byDate(m.filter(a => a.video));
   const used = new Set();
   const hero = byDate(m).slice(0, 5); hero.forEach(a => used.add(a.id));
@@ -314,13 +360,13 @@ function sectionView(slug) {
   const d = S.data.articles;
   let list = slug === "video" ? d.filter(a => a.video) : slug === "sondeqiqe" ? d.filter(isFresh) : d.filter(a => a.category === slug);
   list = byDate(list);
-  if (slug === "prezident") list = prezSort(list);
+  if (slug === "prezident") list = byDate(list);
   let extra = "";
   if (slug === "idman") {
     if (S.club) { const keys = CLUBS.find(k => k[0] === S.club)?.[1] ?? []; list = list.filter(a => { const s = lc(a.title + " " + a.summary); return keys.some(k => s.includes(k)); }); }
     extra = `<div class="chips"><button class="pill ${S.club === null ? "on" : ""}" data-club="">Bütün idman</button>${CLUBS.map(([n]) => `<button class="pill ${S.club === n ? "on" : ""}" data-club="${esc(n)}">${esc(n)}</button>`).join("")}</div>`;
   }
-  if (slug === "prezident") extra = `<div class="chips">${PREZ_LINKS.map(l => `<a class="pill" href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name} ↗</a>`).join("")}</div>`;
+  if (slug === "prezident") extra = socialBlock();
   return listPage(c.label, c.description, filtered(list), extra);
 }
 
@@ -383,9 +429,24 @@ function onClick(e) {
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); }
 
 /* ---------------------------------------------------------------- start */
+async function loadSocial() {
+  try {
+    const r = await fetch(freshUrl("data/social.json"), { cache: "no-store" });
+    if (r.ok) { S.social = await r.json(); render(); }
+  } catch {}
+}
+async function loadStatus() {
+  try {
+    const r = await fetch(freshUrl("data/status.json"), { cache: "no-store" });
+    if (r.ok) S.status = await r.json();
+  } catch {}
+  renderTopbar();
+}
 shell(); render();
-loadNews(); loadMarkets(); loadWeather();
+loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadWeather();
 setInterval(loadNews, POLL_MS);
+setInterval(loadStatus, POLL_MS);
+setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
 setInterval(loadWeather, 30 * 60e3);
 setInterval(() => { if (S.data) renderTopbar(); }, 30e3);

@@ -8,7 +8,9 @@ Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərin
   Marşrutlar: `#/` (baş səhifə), `#/bolme/<slug>` (bölmə), `#/axtar?q=...` (axtarış).
 - `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON).
 - `data/markets.json` — valyuta (AMB, ehtiyat: ExchangeRate-API), Brent/WTI neft və bitcoin (Yahoo Finance, ehtiyat: CNBC/CoinGecko), qızıl/gümüş (gold-api.com).
-- `updater.py` — RSS + bazar məlumatı toplayıcı. Mənbə siyahısı: `AZ_FEEDS`, `WORLD_FEEDS`.
+- `data/social.json` — Prezidentin və birinci xanımın rəsmi YouTube yazıları.
+- `data/status.json` — son uğurlu yoxlamanın vaxtı (`checkedAt`). Saytdakı «Yeniləndi» bunu göstərir.
+- `updater.py` — RSS + rəsmi səhifələr + bazar + sosial toplayıcı. Mənbə siyahısı: `AZ_FEEDS`, `WORLD_FEEDS`.
 - `.github/workflows/update.yml` — avtomatik yeniləmə işi.
 
 Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir).
@@ -23,8 +25,10 @@ python -m http.server 8000   # sonra http://localhost:8000/
 
 ## Yenilənmə
 
-GitHub Actions hər 5 dəqiqədə bir `updater.py` faylını işə salır; məlumat dəyişibsə commit edir
-(eyni vaxtda yalnız bir iş işləyir, push-dan əvvəl `git pull --rebase`).
+GitHub planlaşdırılmış işləri çox vaxt 20–30 dəqiqədən bir buraxır. Buna görə hər iş təxminən 55 dəqiqə
+açıq qalır və `updater.py`-ni hər 4 dəqiqədən bir işlədib nəticəni push edir. Növbəti iş növbədə gözləyir
+və bu iş bitəndə davam edir. `data/status.json` hər uğurlu yoxlamada yenilənir (xəbər mətni dəyişməsə belə).
+Sayt JSON-u `?t=` ilə istəyir ki, GitHub Pages-in 10 dəqiqəlik keşi köhnə faylı saxlamasın.
 
 Manual işə salmaq üçün: **Actions → Xəbərləri yenilə → Run workflow**.
 
