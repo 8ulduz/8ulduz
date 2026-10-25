@@ -8,20 +8,35 @@ on:
 permissions:
   contents: write
 
+# Eyni anda yalnız bir yeniləmə işləsin (üst-üstə düşən push-ların qarşısını alır)
+concurrency:
+  group: news-update
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Xəbərləri yığ
+      - name: Xəbərləri və bazar məlumatlarını yığ
         run: python updater.py
       - name: Dəyişikliyi saxla
         run: |
           git config user.name "8ulduz-bot"
           git config user.email "bot@8ulduz.az"
-          git add data/news.json
-          git commit -m "Xəbərlər yeniləndi" || echo "Dəyişiklik yoxdur"
-          git push
+          git add data/news.json data/markets.json
+          if git diff --cached --quiet; then
+            echo "Dəyişiklik yoxdur"; exit 0
+          fi
+          git commit -m "Xəbərlər yeniləndi"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin "${GITHUB_REF_NAME}" && git push && exit 0
+            echo "Push alınmadı, yenidən cəhd ($i)..."; sleep 5
+          done
+          exit 1
