@@ -1,11 +1,30 @@
-# 8ulduz — sayt yenilənməsi
+# 8ulduz — son xəbərlər saytı
 
-Bu paketdəki faylları repo-nun kökünə yükləyin (köhnələri əvəz edir):
+Bu repo saytın hazır (build edilmiş) fayllarını və avtomatik xəbər yeniləmə sistemini saxlayır.
 
-- `index.html` + `assets/` — saytın özü (video və şəkillər çıxarılıb, dizayn əvvəlki kimidir)
+## Struktur
+
+- `index.html` + `assets/` — saytın hazır faylları
 - `data/news.json` — xəbər lenti (avtomatik yenilənir)
-- `updater.py` — xəbər toplayan skript (hər 15 dəqiqədə)
-- `.github/workflows/update.yml` — avtomatlaşdırma
+- `updater.py` — RSS mənbələrindən xəbər toplayan skript
+- `.github/workflows/update.yml` — avtomatik yeniləmə işi
 
-Quraşdırma: `github.com/8ulduz/8ulduz/upload/main` ünvanına bütün faylları sürüşdürün → Commit changes.
-Sonra Actions → "Xəbərləri yenilə" → Run workflow ilə dərhal doldura bilərsiniz.
+## Yenilənmə
+
+GitHub Actions hər 5 dəqiqədə bir `updater.py` faylını işə salır, `data/news.json` faylını yeniləyir və dəyişikliyi repoya yazır.
+
+Manual işə salmaq üçün:
+
+1. GitHub-da **Actions** bölməsini açın.
+2. **Xəbərləri yenilə** işini seçin.
+3. **Run workflow** düyməsini basın.
+
+## Saytı dərc etmək
+
+1. Repoda **Settings → Pages** yolunu açın.
+2. **Source** bölməsində `main` branch-ını seçin.
+3. **Save** düyməsini basın.
+
+Dərcdən sonra sayt bu ünvanda açılacaq:
+
+`https://8ulduz.github.io/8ulduz/`
