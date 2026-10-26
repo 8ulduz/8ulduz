@@ -12,6 +12,14 @@ Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərin
 - `data/status.json` — son uğurlu yoxlamanın vaxtı (`checkedAt`). Saytdakı «Yeniləndi» bunu göstərir.
 - `data/sources.json` — hər lentin son uğurlu vaxtı, xəbər sayı və son xətası. Saytda: `#/menbeler`.
 - `data/og.json` — şəkilli olmayan xəbərlər üçün məqalə səhifəsinin `og:image` / `twitter:image` ünvanı. Hər keçid bir dəfə sorğulanır (vaxt limiti, paralel). Boş nəticə də saxlanır ki, təkrar sorğu olmasın.
+- `data/ads.json` — reklam yerləri. `slots` boşdursa baş səhifədə «Reklam yeri» yazısı qalır. Doldurmaq üçün (şəkil ünvanı, keçid, alt mətn):
+
+  ```json
+  { "slots": [{ "image": "https://example.com/banner.jpg", "link": "https://example.com", "alt": "Reklam" }] }
+  ```
+
+  Bir neçə slot 30 saniyədən bir növbələnir. Şəkil zolağı 54px hündürlükdə kəsilir. Açar və ya ödənişli xidmət tələb olunmur.
+- `assets/og-default.png` — paylaşım üçün 1200×630 şəkil. Hər xəbərə ayrı şəkil statik saytda mümkün deyil; `og:image` və Twitter bu şəkli istifadə edir.
 - `feed.xml`, `sitemap.xml`, `robots.txt` — updater hər uğurlu yoxlamada yenidən yazır.
 - `manifest.webmanifest`, `sw.js`, `assets/icon-*.png` — quraşdırılan PWA. Xəbər JSON-u onlayn olanda heç vaxt köhnə keşdən verilmir.
 - `assets/config.js` — GoatCounter sayt kodu (standart: boş, statistika sönülü).
@@ -31,6 +39,19 @@ Hazır kod uydurulmayıb — sahib öz hesabını yaratmalıdır.
 Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir).
 
 «Ən çox oxunan» bloku hazırda gizlidir: məqalə üzrə oxunma statistikası yoxdur (GoatCounter kodu boşdur və oxunma siyahısı açarsız gəlmir). Əvəzinə baş səhifədə «Günün 5 əsas xəbəri» son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir.
+
+- `data/video.json` — İctimai TV, Xezer TV, ARB 24, Report.az və Trend TV YouTube RSS lentləri. Başlıqlar liderlik süzgəcindən keçir. Saytda video yalnız düyməyə basanda açılır.
+- `data/football.json` — TheSportsDB-nin açıq sınaq açarı (`123`, hesab deyil) Premyer Liqa cədvəlini yarımçıq qaytarır, ona görə cədvəl göstərilmir. Son oyun və mövcud futbol xəbərləri, üstəlik [pfl.az](https://pfl.az/) keçidi qalır.
+- Namaz vaxtı və hicri tarix brauzerdə [aladhan.com](https://api.aladhan.com) açarsız API-sindən, seçilmiş bölgənin koordinatı ilə alınır.
+- Yol/hava zolağı xəbər başlıqlarındakı açar sözlərdən və Open-Meteo-nun günlüq hava kodundan yığılır. Open-Meteo Azərbaycan üçün rəsmi xəbərdarlıq lenti vermir.
+
+## Oxucu
+
+- Seçilmişlər bu cihazda qalır (`localStorage` açarı `8ulduz-saved`). Ulduz kartın küncündədir, siyahı `#/secilmis`.
+- «Mənim bölmələrim» (`#/bolmeler`) bölmələrin sırasını və hansının baş səhifədə göründüyünü saxlayır (`8ulduz-sects`). Zuğulba, hero və video/foto blokları bu siyahıdan asılı deyil.
+- «Son dəqiqə» lentindəki **Bildiriş** düyməsi brauzer icazəsi istəyir. Səhifə açıq olanda `news.json` hər dəqiqə yoxlanır və yeni son-dəqiqə xəbəri üçün bildiriş çıxır. Push server yoxdur. Brauzer dəstəkləyəndə Periodic Background Sync (`breaking`, ən azı 5 dəqiqə) da qeydiyyatdan keçir; çox brauzer bunu seyrək və ya heç işlətmir.
+- Açıq xəbərdə **Dinlə** yalnız `az` səsi, yoxdursa `tr` səsi olanda görünür. Heç biri yoxdursa düymə gizlənir.
+- Telegram kanalı sahibin öz kanalını yaratmasını gözləyir. Düymə hələ `https://t.me/` ünvanına gedir.
 
 ## Lokal yoxlama
 

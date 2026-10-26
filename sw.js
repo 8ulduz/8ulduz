@@ -1,7 +1,7 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
    data/*.json: yalnız şəbəkə. Keş yalnız şəbəkə alınmayanda (oflayn).
    Statik fayllar: əvvəl keş. */
-const VERSION = "v5";
+const VERSION = "v7";
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -18,7 +18,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(STATIC);
     await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/config.js", "./manifest.webmanifest",
-      "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon-maskable-192.png", "./assets/icon-maskable-512.png"]);
+      "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon-maskable-192.png", "./assets/icon-maskable-512.png", "./assets/og-default.png"]);
     await self.skipWaiting();
   })());
 });
@@ -84,4 +84,66 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   event.respondWith(cacheFirst(event.request));
+});
+
+const SEEN_URL = new URL("./notify-seen.json", SCOPE_URL).toString();
+function decodeBasic(s) {
+  return String(s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+async function readSeen() {
+  const cache = await caches.open(DATA);
+  const hit = await cache.match(SEEN_URL);
+  if (!hit) return null;
+  try {
+    const v = await hit.json();
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+async function writeSeen(ids) {
+  const cache = await caches.open(DATA);
+  await cache.put(SEEN_URL, new Response(JSON.stringify(ids), { headers: { "Content-Type": "application/json" } }));
+}
+async function syncBreaking() {
+  const res = await fetch(new URL("data/news.json", SCOPE_URL), { cache: "no-store" });
+  if (!res.ok) return;
+  const data = await res.json();
+  const now = Date.now();
+  const fresh = (data.articles || []).filter((a) => {
+    const t = new Date(a.publishedAt).getTime();
+    return t && now - t < 3600000;
+  });
+  const seen = await readSeen();
+  if (!seen) {
+    await writeSeen(fresh.map((a) => a.id));
+    return;
+  }
+  const known = new Set(seen);
+  const novel = fresh.filter((a) => a.id && !known.has(a.id)).slice(0, 2);
+  for (const a of novel) {
+    await self.registration.showNotification("Son dəqiqə", {
+      body: decodeBasic(a.title),
+      icon: new URL("assets/icon-192.png", SCOPE_URL).toString(),
+      tag: "break-" + a.id,
+      data: { id: a.id },
+    });
+  }
+  await writeSeen(fresh.map((a) => a.id));
+}
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "breaking") event.waitUntil(syncBreaking());
+});
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const id = event.notification.data && event.notification.data.id;
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) {
+      if (c.url.includes(SCOPE_URL.pathname)) {
+        await c.focus();
+        if (id) c.postMessage({ type: "open", id });
+        return;
+      }
+    }
+    await self.clients.openWindow(SCOPE_URL.href);
+  })());
 });

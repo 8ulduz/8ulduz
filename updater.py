@@ -213,6 +213,16 @@ SOCIAL_FILE = OUT_DIR / "social.json"
 STATUS_FILE = OUT_DIR / "status.json"
 SOURCES_FILE = OUT_DIR / "sources.json"
 OG_FILE = OUT_DIR / "og.json"
+VIDEO_FILE = OUT_DIR / "video.json"
+FOOTBALL_FILE = OUT_DIR / "football.json"
+# YouTube RSS, açarsız. Kanal adları lentin öz başlığı ilə yoxlanıb.
+YT_NEWS = [
+    ("İctimai TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCDVpJfSc-RCGSCfGE2MFGAg"),
+    ("Xezer TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCUsYwCUHsMQcuEm8cOCAuFQ"),
+    ("ARB 24", "https://www.youtube.com/feeds/videos.xml?channel_id=UC44ToFclJwakpqw1Wh6iW-A"),
+    ("Report.az", "https://www.youtube.com/feeds/videos.xml?channel_id=UC4Cx3XB6y7oPYOE5yUhyXKg"),
+    ("Trend TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCcgI4-HdktIoAaRLOPgY9qQ"),
+]
 SITE = "https://8ulduz.github.io/8ulduz/"
 FEED_FILE = ROOT / "feed.xml"
 SITEMAP_FILE = ROOT / "sitemap.xml"
@@ -760,6 +770,75 @@ def update_social():
     merge_sources(yt_rows)
     print(f"Sosial: {min(8, len(posts))} yazı")
 
+def _yt_id(link):
+    try:
+        u = urllib.parse.urlparse(link or "")
+        q = urllib.parse.parse_qs(u.query).get("v")
+        if q:
+            return q[0]
+        parts = [p for p in u.path.split("/") if p]
+        if len(parts) >= 2 and parts[-2] in ("shorts", "embed", "live"):
+            return parts[-1]
+    except Exception:
+        return ""
+    return ""
+
+def update_video():
+    items, rows = [], []
+    for name, url in YT_NEWS:
+        try:
+            got = parse_feed(fetch(url))[:5]
+            if not got:
+                raise ValueError("boş lent")
+            rows.append({"name": f"YouTube · {name}", "url": url, "count": len(got), "error": None})
+            for it in got:
+                if is_negative_about_leadership(it.get("title", ""), it.get("description", "")):
+                    continue
+                vid = _yt_id(it.get("link"))
+                if not vid:
+                    continue
+                items.append({
+                    "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
+                    "title": it["title"], "channel": name, "videoId": vid,
+                    "url": it["link"], "publishedAt": to_iso(it.get("pubDate")),
+                    "imageUrl": it.get("image") or f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg",
+                })
+        except Exception as e:
+            rows.append({"name": f"YouTube · {name}", "url": url, "count": 0, "error": f"{type(e).__name__}: {str(e)[:80]}"})
+            print(f"  ! video {name}: {type(e).__name__}")
+    items.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    OUT_DIR.mkdir(exist_ok=True)
+    VIDEO_FILE.write_text(json.dumps({"updatedAt": now, "items": items[:24]}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if rows:
+        merge_sources(rows)
+    print(f"Video: {min(24, len(items))} yazı")
+
+def update_football():
+    """Premyer Liqa. Açıq sınaq açarı cədvəli yarımçıq qaytarır — cədvəli saxlamırıq."""
+    events, note = [], "Tam turnir cədvəli açıq sınaq mənbəyində yoxdur. Nəticələr və futbol xəbərləri göstərilir."
+    try:
+        d = fetch_json("https://www.thesportsdb.com/api/v1/json/123/eventspastleague.php?id=4693", timeout=12)
+        for e in (d.get("events") or [])[:6]:
+            events.append({
+                "home": e.get("strHomeTeam") or "",
+                "away": e.get("strAwayTeam") or "",
+                "hs": e.get("intHomeScore"),
+                "as": e.get("intAwayScore"),
+                "date": e.get("dateEvent") or "",
+            })
+    except Exception as e:
+        print("  ! futbol:", type(e).__name__)
+        note = "Oyun nəticəsi alınmadı. Futbol xəbərləri göstərilir."
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    OUT_DIR.mkdir(exist_ok=True)
+    FOOTBALL_FILE.write_text(json.dumps({
+        "updatedAt": now, "league": "Azərbaycan Premyer Liqası",
+        "table": [], "events": events, "note": note,
+        "link": "https://pfl.az/",
+    }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Futbol: {len(events)} oyun")
+
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
 GROUP_WINDOW = datetime.timedelta(hours=36)
 _GROUP_STOP = {
@@ -1209,6 +1288,14 @@ if __name__ == "__main__":
                 update_social()
             except Exception as e:
                 print("  ! sosial:", type(e).__name__)
+            try:
+                update_video()
+            except Exception as e:
+                print("  ! video:", type(e).__name__)
+            try:
+                update_football()
+            except Exception as e:
+                print("  ! futbol:", type(e).__name__)
         if news_ok:
             write_status()
             try:
