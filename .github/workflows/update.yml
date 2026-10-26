@@ -39,7 +39,7 @@ jobs:
             local i
             mkdir -p "$SNAP"
             mkdir -p "$SNAP/data"
-            cp -a data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json "$SNAP/data/" || return 1
+            cp -a data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json "$SNAP/data/" || return 1
             cp -a sitemap.xml robots.txt feed.xml "$SNAP/" || return 1
             for i in 1 2 3 4 5; do
               git fetch origin "$BRANCH"
@@ -47,7 +47,7 @@ jobs:
               mkdir -p data
               cp -a "$SNAP/data/." data/
               cp -a "$SNAP/sitemap.xml" "$SNAP/robots.txt" "$SNAP/feed.xml" ./
-              git add data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json sitemap.xml robots.txt feed.xml
+              git add data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json sitemap.xml robots.txt feed.xml
               if git diff --cached --quiet; then
                 echo "Dəyişiklik yoxdur"
                 return 0

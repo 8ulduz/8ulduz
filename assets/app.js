@@ -210,7 +210,10 @@ const card = a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-cat="$
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
 
 /* ---------------------------------------------------------------- vəziyyət */
-const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, wx: null, wxAll: null, wxSel: null, wxOpen: false };
+const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false };
+const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
+const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
+const WARN_RE = /tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
 const SAVE_KEY = "8ulduz-saved";
 function savedList() { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
 function isSaved(id) { return savedList().some(x => x.id === id); }
@@ -296,6 +299,7 @@ async function loadAllWeather() {
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
   if (h === "/menbeler" || h.startsWith("/menbeler?")) return { name: "sources" };
+  if (h === "/videolent" || h.startsWith("/videolent?")) return { name: "videos" };
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
   if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
   const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: m[1] };
@@ -315,7 +319,7 @@ function shell() {
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
   </div></header>
   <div id="ticker"></div>
-  <div class="markets" id="markets" hidden><div class="wrap"><div class="mk-grid" id="mk"></div></div></div>
+  <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view"></div></main>
   <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="https://t.me/" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
@@ -358,7 +362,8 @@ function renderTopbar() {
   }
   const fs = document.documentElement.dataset.fs || "0";
   const light = document.documentElement.dataset.theme === "light";
-  $("#topbar").innerHTML = `<span>${today()}</span>
+  $("#topbar").innerHTML = `    <span>${today()}</span>
+    ${prayBit()}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
     <span class="sp sync">${S.lastSync ? `<span class="dot"></span>Son yenilənmə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${upd ? `<span class="yenilendi"><span class="dot live" style="background:#34d399"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
@@ -379,7 +384,38 @@ function renderTicker() {
   $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ Son dəqiqə</div><div class="run"><div class="track">${items}</div></div></div>`;
 }
 
+function prayBit() {
+  const p = S.pray;
+  if (!p) return `<button class="pray" data-act="pray" type="button">Namaz</button>`;
+  const h = p.hijri || {};
+  const month = HIJRI_AZ[Number(h.month?.number)] || h.month?.en || "";
+  const next = nextPrayer(p.timings);
+  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog"><b>${esc(p.city)} · ${esc(String(h.day || ""))} ${esc(month)} ${esc(String(h.year || ""))}</b>${PRAY_ORDER.map(([k, lab]) => `<span><i>${lab}</i><b>${esc(p.timings[k] || "")}</b></span>`).join("")}</div>` : "";
+  return `<div class="pray-wrap ${S.prayOpen ? "open" : ""}"><button class="pray" data-act="pray" type="button">${esc(next[0])} ${esc(next[1])} · ${esc(String(h.day || ""))} ${esc(month)}</button>${pop}</div>`;
+}
+function nextPrayer(times) {
+  if (!times) return ["Namaz", ""];
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  for (const [k, lab] of PRAY_ORDER) {
+    const [hh, mm] = String(times[k] || "").split(":").map(Number);
+    if (Number.isFinite(hh) && hh * 60 + mm >= mins) return [lab, times[k]];
+  }
+  return ["Sübh", times.Fajr || ""];
+}
 function fmt(v, dec) { return Number(v).toLocaleString("en-US", { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec }); }
+function aznRate(item) {
+  if (!item || item.value == null) return null;
+  if (item.unit === "AZN") return String(item.id).endsWith("100") ? item.value / 100 : item.value;
+  const usd = (S.markets || []).find(m => m.id === "USD");
+  return usd?.value ? item.value * usd.value : null;
+}
+function convertAmt(amount, fromId, toId) {
+  const from = fromId === "AZN" ? 1 : aznRate((S.markets || []).find(m => m.id === fromId));
+  const to = toId === "AZN" ? 1 : aznRate((S.markets || []).find(m => m.id === toId));
+  if (!from || !to) return null;
+  return amount * from / to;
+}
 function renderMarkets() {
   const m = S.markets; if (!m?.length) return;
   $("#markets").hidden = false;
@@ -389,8 +425,29 @@ function renderMarkets() {
     const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, i.dec)}</span>`
       : `<span>${i.unit === "AZN" ? "məzənnə" : "qiymət"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const title = [i.src && `Mənbə: ${i.src}`, i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<div class="mk" title="${esc(title)}"><div class="n">${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></div>`;
+    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
+  const slot = $("#fx-slot"); if (slot) slot.innerHTML = fxPop();
+  const from = $("#fx-from"), to = $("#fx-to"), amt = $("#fx-amt");
+  if (from && to && amt) {
+    from.value = S.fxFrom; to.value = S.fxTo;
+    const sync = () => {
+      S.fxFrom = from.value; S.fxTo = to.value; S.fxAmt = Number(amt.value) || 0;
+      const out = convertAmt(S.fxAmt, S.fxFrom, S.fxTo);
+      const el = $(".fx-out"); if (el) el.textContent = out == null ? "—" : fmt(out, S.fxTo === "BTC" ? 6 : 2);
+    };
+    from.onchange = sync; to.onchange = sync; amt.oninput = sync;
+  }
+}
+function fxPop() {
+  if (!S.fxOpen) return "";
+  const opts = [`<option value="AZN">AZN</option>`].concat((S.markets || []).map(i => `<option value="${esc(i.id)}">${esc(i.label)}</option>`)).join("");
+  const out = convertAmt(Number(S.fxAmt) || 0, S.fxFrom, S.fxTo);
+  const dec = S.fxTo === "AZN" || S.fxTo === "BTC" ? 2 : 4;
+  return `<div class="fx-pop" role="dialog"><div class="fx-h"><b>Çevirici</b><button type="button" data-act="fx-close" aria-label="Bağla">✕</button></div>
+    <label>Məbləğ<input id="fx-amt" type="number" min="0" step="any" value="${esc(S.fxAmt)}"></label>
+    <div class="fx-row"><select id="fx-from">${opts}</select><span>→</span><select id="fx-to">${opts}</select></div>
+    <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
 }
 
 function renderLangs() {
@@ -458,9 +515,43 @@ function heroBlock(list) {
   </section>`;
 }
 
+function alertStrip(list) {
+  const cut = Date.now() - 36 * HOUR;
+  const hits = byDate(list.filter(a => (a.lang ?? "az") === "az" && new Date(a.publishedAt).getTime() > cut && WARN_RE.test(decode(a.title)))).slice(0, 3);
+  const wx = (S.warn || []).join(" · ");
+  if (!hits.length && !wx) return "";
+  return `<section class="alerts"><b>Yol və hava</b>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<button type="button" data-id="${esc(a.id)}">${txt(a.title)}</button>`).join("")}</section>`;
+}
+function ytBlock() {
+  const items = S.video?.items || [];
+  if (!items.length) return "";
+  const cards = items.slice(0, 8).map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("");
+  return `<section><div class="sec-h"><h2>Video xəbərlər</h2><span class="cnt">${items.length}</span><a class="more" href="#/videolent">Hamısı →</a></div><div class="ytrow">${cards}</div></section>`;
+}
+function photoStrip(list) {
+  const cut = Date.now() - 30 * HOUR;
+  const pics = byDate(list.filter(a => a.imageUrl && new Date(a.publishedAt).getTime() > cut)).slice(0, 14);
+  if (pics.length < 4) return "";
+  return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="phrow">${pics.map(a => `<button type="button" data-id="${esc(a.id)}">${img(a)}<span>${txt(a.title)}</span></button>`).join("")}</div></section>`;
+}
+function footballBlock(list) {
+  const fb = S.football;
+  const news = byDate(list.filter(a => a.category === "idman" && /futbol|premyer|liqa|qarabağ|neftçi|qarabag|sabah fk|mill[iı]/i.test(decode(a.title)))).slice(0, 4);
+  const ev = fb?.events || [];
+  if (!news.length && !ev.length) return "";
+  const games = ev.slice(0, 3).map(e => `<li><b>${esc(e.home)}</b><span>${esc(e.hs ?? "–")} : ${esc(e.as ?? "–")}</span><b>${esc(e.away)}</b><time>${esc(e.date || "")}</time></li>`).join("");
+  return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><a class="more" href="${esc(fb?.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
+    ${games ? `<ul class="games">${games}</ul>` : ""}
+    ${fb?.note ? `<p class="muted foot-note">${esc(fb.note)}</p>` : ""}
+    ${news.length ? `<div class="foot-news">${news.map(a => `<button type="button" data-id="${esc(a.id)}">${txt(a.title)}</button>`).join("")}</div>` : ""}</section>`;
+}
+function videosView() {
+  const items = S.video?.items || [];
+  return `<div class="page-h"><div><h1>Video xəbərlər</h1><p>Azərbaycan kanallarının YouTube lentləri. Video düyməyə basanda açılır.</p></div><span class="cnt">${items.length}</span></div><div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
+}
 function videoBlock(list) {
   if (!list.length) return "";
-  return `<section><div class="sec-h"><h2>Video xəbərlər</h2><span class="cnt">${list.length} video keçid</span><a class="more" href="#/bolme/video">Hamısı →</a></div>
+  return `<section><div class="sec-h"><h2>Sayt videoları</h2><span class="cnt">${list.length} keçid</span><a class="more" href="#/bolme/video">Hamısı →</a></div>
     <div class="vrow">${list.slice(0, 15).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${img(a)}<div class="b"><h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)} · mənbədə açır</time></div></div></a>`).join("")}</div></section>`;
 }
 
@@ -503,7 +594,7 @@ function homeView() {
   const hero = byDate(m).slice(0, 9); hero.forEach(a => used.add(a.id));
   const secs = CATS.filter(c => !["video", "prezident", "sondeqiqe"].includes(c.slug))
     .map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
-  return prezBlock(prez) + `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>` + heroBlock(byDate(m)) + dayFiveBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
+  return prezBlock(prez) + `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>` + heroBlock(byDate(m)) + dayFiveBlock(m) + alertStrip(m) + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -541,7 +632,7 @@ function renderView() {
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>` : "";
-  const body = r.name === "sources" ? sourcesView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "sources" ? sourcesView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = r.name !== "home" || !!S.q;
   const tab = r.name === "saved" ? "saved" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
@@ -609,12 +700,25 @@ function sectionsView() {
 }
 
 function onClick(e) {
-  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city]");
-  if (!t) { if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; renderTopbar(); } return; }
+  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt]");
+  if (!t) {
+    let dirty = false;
+    if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }
+    if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }
+    if (S.fxOpen && !e.target.closest(".fx-pop") && !e.target.closest("[data-fx]")) { S.fxOpen = false; dirty = true; }
+    if (dirty) { renderTopbar(); renderMarkets(); }
+    return;
+  }
+  if (t.dataset.yt) {
+    const box = t.querySelector(".thumb");
+    if (box && !box.querySelector("iframe")) box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.dataset.yt)}?autoplay=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Video"></iframe>`;
+    return;
+  }
+  if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
   if (t.dataset.id && t.tagName !== "A") { const a = byId.get(t.dataset.id) || savedList().find(x => x.id === t.dataset.id); if (a) openModal(a); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
-  if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
+  if (t.dataset.city) { S.wxSel = t.dataset.city; loadPrayer(t.dataset.city); renderTopbar(); return; }
   const act = t.dataset.act;
   if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
@@ -625,6 +729,8 @@ function onClick(e) {
   else if (act === "copy") { const a = $("#modal")._a; navigator.clipboard?.writeText(a.sourceUrl); t.textContent = "Kopyalandı ✓"; }
   else if (act === "save") { const a = $("#modal")._a; if (a) { toggleSave(a); openModal(a); } }
   else if (act === "find") { const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
+  else if (act === "pray") { S.prayOpen = !S.prayOpen; renderTopbar(); }
+  else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
 }
 
@@ -894,6 +1000,47 @@ addEventListener("resize", () => {
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); }
 
 /* ---------------------------------------------------------------- start */
+async function loadVideo() {
+  try {
+    const r = await fetch(freshUrl("data/video.json"), { cache: "no-store" });
+    if (r.ok) { S.video = await r.json(); if (route().name === "home" || route().name === "videos") renderView(); }
+  } catch {}
+}
+async function loadFootball() {
+  try {
+    const r = await fetch(freshUrl("data/football.json"), { cache: "no-store" });
+    if (r.ok) { S.football = await r.json(); if (route().name === "home") renderView(); }
+  } catch {}
+}
+async function loadPrayer(city) {
+  const c = CITIES.find(x => x[0] === city) || CITIES[0];
+  try {
+    const u = `https://api.aladhan.com/v1/timings?latitude=${c[1]}&longitude=${c[2]}&method=13`;
+    const d = await (await fetch(u)).json();
+    const hijri = d?.data?.date?.hijri;
+    if (!d?.data?.timings) return;
+    S.pray = { city: c[0], timings: d.data.timings, hijri };
+    renderTopbar();
+  } catch {}
+}
+async function loadWarnings() {
+  const c = CITIES[0];
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${c[1]}&longitude=${c[2]}&daily=weather_code,precipitation_sum,wind_speed_10m_max&timezone=Asia%2FBaku&forecast_days=1`;
+    const d = await (await fetch(u)).json();
+    const code = d?.daily?.weather_code?.[0];
+    const wind = d?.daily?.wind_speed_10m_max?.[0];
+    const rain = d?.daily?.precipitation_sum?.[0];
+    const bits = [];
+    if (code >= 95) bits.push("İldırım ehtimalı");
+    else if ([65, 66, 67, 82].includes(code)) bits.push("Güclü yağış");
+    else if ([71, 73, 75, 77, 85, 86].includes(code)) bits.push("Qar");
+    if (wind >= 50) bits.push(`Külək ${Math.round(wind)} km/s`);
+    if (rain >= 20) bits.push(`Yağıntı ${Math.round(rain)} mm`);
+    S.warn = bits;
+    if (route().name === "home") renderView();
+  } catch {}
+}
 async function loadSocial() {
   try {
     const r = await fetch(freshUrl("data/social.json"), { cache: "no-store" });
@@ -918,7 +1065,7 @@ applyPrefs();
 enableAnalytics();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 shell(); render();
-loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather();
+loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadPrayer("Bakı"); loadWarnings();
 setInterval(loadNews, POLL_MS);
 setInterval(loadStatus, POLL_MS);
 setInterval(loadSocial, 5 * 60e3);

@@ -32,6 +32,11 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 
 «Ən çox oxunan» bloku hazırda gizlidir: məqalə üzrə oxunma statistikası yoxdur (GoatCounter kodu boşdur və oxunma siyahısı açarsız gəlmir). Əvəzinə baş səhifədə «Günün 5 əsas xəbəri» son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir.
 
+- `data/video.json` — İctimai TV, Xezer TV, ARB 24, Report.az və Trend TV YouTube RSS lentləri. Başlıqlar liderlik süzgəcindən keçir. Saytda video yalnız düyməyə basanda açılır.
+- `data/football.json` — TheSportsDB-nin açıq sınaq açarı (`123`, hesab deyil) Premyer Liqa cədvəlini yarımçıq qaytarır, ona görə cədvəl göstərilmir. Son oyun və mövcud futbol xəbərləri, üstəlik [pfl.az](https://pfl.az/) keçidi qalır.
+- Namaz vaxtı və hicri tarix brauzerdə [aladhan.com](https://api.aladhan.com) açarsız API-sindən, seçilmiş bölgənin koordinatı ilə alınır.
+- Yol/hava zolağı xəbər başlıqlarındakı açar sözlərdən və Open-Meteo-nun günlüq hava kodundan yığılır. Open-Meteo Azərbaycan üçün rəsmi xəbərdarlıq lenti vermir.
+
 ## Lokal yoxlama
 
 ```bash
