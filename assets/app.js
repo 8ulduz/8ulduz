@@ -104,11 +104,14 @@ function prezHome(list) {
   const prez = list.filter(a => a.category === "prezident");
   const president = byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY));
   const lady = byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY));
-  const MAX = 4;
+  const MAX = 12;
+  const head = 4;
   const ladyKeep = lady.length ? Math.min(lady.length, 2) : 0;
-  const presTake = Math.min(president.length, MAX - ladyKeep);
-  const ladyTake = Math.min(lady.length, MAX - presTake);
-  return [...president.slice(0, presTake), ...lady.slice(0, ladyTake)];
+  const presHead = Math.min(president.length, head - ladyKeep);
+  const ladyHead = Math.min(lady.length, head - presHead);
+  const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
+  const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
+  return [...first, ...rest].slice(0, MAX);
 }
 const byDate = list => [...list].sort((x, y) => y.publishedAt.localeCompare(x.publishedAt));
 const lc = s => (s || "").toLocaleLowerCase("az");
@@ -390,10 +393,17 @@ function profileRows() {
   return [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
     .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer" title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
 }
+function socialForSide() {
+  const head = orderedSocialPosts(3);
+  const seen = new Set(head.map(p => p.url || p.text));
+  const more = orderedSocialPosts(40).filter(p => !seen.has(p.url || p.text));
+  return [...head, ...more].slice(0, 10);
+}
 function socialBlock(side = false) {
-  const posts = orderedSocialPosts(side ? 3 : 8);
+  const posts = side ? socialForSide() : orderedSocialPosts(8);
   const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span><time>${ago(p.publishedAt)}</time></a>`).join("");
-  return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `<div class="soc-list">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
+  const list = side ? `<div class="soc-list" data-marquee data-visible="3">` : `<div class="soc-list">`;
+  return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
   const cards = list.map(a => `<button class="pcard" data-id="${esc(a.id)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${altBadge(a)}${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("");
@@ -401,20 +411,20 @@ function prezBlock(list) {
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    <div class="prez-body">${list.length ? `<div class="prez-grid">${cards}</div>` : ""}
+    <div class="prez-body">${list.length ? `<div class="prez-grid" data-marquee data-visible="4" data-visible-narrow="3">${cards}</div>` : ""}
     ${socialBlock(true)}</div></section>`;
 }
 
 function heroBlock(list) {
   if (!list.length) return "";
   const main = list.find(a => a.imageUrl && (a.lang ?? "az") === "az") ?? list.find(a => a.imageUrl) ?? list[0];
-  const side = list.filter(a => a !== main).slice(0, 4);
+  const side = list.filter(a => a !== main).slice(0, 8);
   return `<section class="hero">
     <button class="hero-main" data-id="${esc(main.id)}">${img(main)}<div class="body">
       <div class="badges"><span class="bd gold">${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
       <h1>${txt(main.title)}</h1><p>${esc(clean(main.summary))}</p>
       <div class="meta"><span class="src">${esc(main.source)}</span><time>${ago(main.publishedAt)}</time></div></div></button>
-    <div class="hero-side">${side.map(a => `<button class="row-card" data-id="${esc(a.id)}">${img(a)}<div class="x"><span class="tag">${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></div></button>`).join("")}</div>
+    <div class="hero-slot"><div class="hero-side" data-marquee data-visible="4">${side.map(a => `<button class="row-card" data-id="${esc(a.id)}">${img(a)}<div class="x"><span class="tag">${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></div></button>`).join("")}</div></div>
   </section>`;
 }
 
@@ -446,7 +456,7 @@ function homeView() {
   const prez = prezHome(m);
   const vids = byDate(m.filter(a => a.video));
   const used = new Set();
-  const hero = byDate(m).slice(0, 5); hero.forEach(a => used.add(a.id));
+  const hero = byDate(m).slice(0, 9); hero.forEach(a => used.add(a.id));
   const secs = CATS.filter(c => !["video", "prezident", "sondeqiqe"].includes(c.slug))
     .map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
   return prezBlock(prez) + `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>` + heroBlock(byDate(m)) + videoBlock(vids) + secs;
@@ -490,6 +500,7 @@ function renderView() {
   const body = r.name === "sources" ? sourcesView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = r.name !== "home" || !!S.q;
+  setupMarquees();
 }
 
 function sourceLevel(s) {
@@ -572,6 +583,7 @@ function setPref(act) {
   }
   applyPrefs();
   renderTopbar();
+  setupMarquees();
 }
 function enableAnalytics() {
   const code = String(window.SITE_CONFIG?.goatcounter || "").trim();
@@ -582,6 +594,133 @@ function enableAnalytics() {
   s.dataset.goatcounter = `https://${code}.goatcounter.com/count`;
   document.head.appendChild(s);
 }
+
+/* Üzərinə gələndə yığcam siyahı yuxarı axır (~30px/s). Toxunuşda animasiya yoxdur. */
+const MARQUEE_SPEED = 30;
+let marqueeRaf = 0;
+function motionOK() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  // Yalnız toxunuş: avtomatik axın yoxdur. Siçan olan masüstündə (hover) işləyir.
+  if (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-hover: hover)").matches) return false;
+  return true;
+}
+function marqueeNarrow(el) {
+  return el.classList.contains("soc-list") && !!el.closest(".prez") && matchMedia("(max-width: 860px)").matches;
+}
+function marqueeVisible(el) {
+  if (el.classList.contains("prez-grid") && matchMedia("(max-width: 860px)").matches) return Number(el.dataset.visibleNarrow || 3);
+  return Number(el.dataset.visible || 4);
+}
+function marqueeLocks(el) {
+  if (marqueeNarrow(el)) return false;
+  if (el.classList.contains("hero-side") && !matchMedia("(max-width: 900px)").matches) return false;
+  return true;
+}
+function spanHeight(items, visible) {
+  const n = Math.min(visible, items.length);
+  if (n < 1) return 0;
+  const top = items[0].offsetTop;
+  let bottom = 0;
+  for (let i = 0; i < n; i++) bottom = Math.max(bottom, items[i].offsetTop + items[i].offsetHeight);
+  return bottom - top;
+}
+function setupMarquees() {
+  document.querySelectorAll("[data-marquee]").forEach(el => {
+    el.querySelectorAll("[data-clone]").forEach(n => n.remove());
+    el.style.height = "";
+    el.classList.remove("vmarquee");
+    delete el.dataset.loop;
+    delete el.dataset.play;
+    if (marqueeNarrow(el)) return;
+    const items = [...el.children];
+    if (items.length < 2) return;
+    const visible = marqueeVisible(el);
+    if (el.classList.contains("hero-side") && !matchMedia("(max-width: 900px)").matches) {
+      const gap = 8;
+      const cardH = (el.clientHeight - gap * (visible - 1)) / visible;
+      if (cardH > 48) for (const item of items) item.style.height = cardH + "px";
+    } else {
+      for (const item of items) item.style.height = "";
+    }
+    if (marqueeLocks(el) && items.length > visible) {
+      const h = spanHeight(items, visible);
+      if (h > 0) el.style.height = h + "px";
+    }
+    const overflows = el.scrollHeight > el.clientHeight + 2;
+    if (overflows) el.classList.add("vmarquee");
+    if (!overflows || !motionOK()) return;
+    const originals = [...el.children];
+    for (const node of originals) {
+      const c = node.cloneNode(true);
+      c.dataset.clone = "1";
+      c.setAttribute("aria-hidden", "true");
+      if ("tabIndex" in c) c.tabIndex = -1;
+      c.querySelectorAll("a,button").forEach(n => { n.tabIndex = -1; });
+      el.appendChild(c);
+    }
+    const firstClone = el.querySelector("[data-clone]");
+    const loop = firstClone.offsetTop - originals[0].offsetTop;
+    if (loop > 0) el.dataset.loop = String(loop);
+    if (el.matches(":hover")) el.dataset.play = "1";
+  });
+  if (document.querySelector("[data-marquee][data-play]")) startMarquee();
+}
+function startMarquee() {
+  if (marqueeRaf) return;
+  let last = 0;
+  const step = (t) => {
+    const dt = last ? Math.min(0.05, (t - last) / 1000) : 0;
+    last = t;
+    let any = false;
+    document.querySelectorAll("[data-marquee][data-play]").forEach(el => {
+      any = true;
+      if (el.dataset.manual) return;
+      const loop = Number(el.dataset.loop || 0);
+      if (loop <= 0) return;
+      el._sub = (el._sub || 0) + MARQUEE_SPEED * dt;
+      const px = Math.floor(el._sub);
+      if (px < 1) return;
+      el._sub -= px;
+      el.scrollTop += px;
+      if (el.scrollTop >= loop) el.scrollTop -= loop;
+    });
+    marqueeRaf = any ? requestAnimationFrame(step) : 0;
+  };
+  marqueeRaf = requestAnimationFrame(step);
+}
+function marqueeHost(node) {
+  const el = node?.closest?.("[data-marquee]");
+  return el && el.classList.contains("vmarquee") ? el : null;
+}
+document.addEventListener("mouseover", (e) => {
+  const el = marqueeHost(e.target);
+  if (!el || marqueeHost(e.relatedTarget) === el || !motionOK() || !el.dataset.loop) return;
+  el.dataset.play = "1";
+  startMarquee();
+});
+document.addEventListener("mouseout", (e) => {
+  const el = marqueeHost(e.target);
+  if (!el || marqueeHost(e.relatedTarget) === el) return;
+  delete el.dataset.play;
+});
+document.addEventListener("wheel", (e) => {
+  const el = e.target.closest?.("[data-marquee].vmarquee");
+  if (!el) return;
+  el.dataset.manual = "1";
+  clearTimeout(el._manualT);
+  el._manualT = setTimeout(() => { delete el.dataset.manual; }, 700);
+}, { passive: true, capture: true });
+document.addEventListener("scroll", (e) => {
+  const el = e.target;
+  if (!(el instanceof Element) || !el.matches?.("[data-marquee]")) return;
+  const loop = Number(el.dataset.loop || 0);
+  if (loop > 0 && el.scrollTop >= loop) el.scrollTop -= loop;
+}, true);
+let marqueeResizeT = 0;
+addEventListener("resize", () => {
+  clearTimeout(marqueeResizeT);
+  marqueeResizeT = setTimeout(setupMarquees, 150);
+});
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); }
 
