@@ -6,8 +6,7 @@
     <script>
       try {
         var t = localStorage.getItem("8ulduz-theme");
-        if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-        document.documentElement.dataset.theme = t;
+        document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
         var f = localStorage.getItem("8ulduz-fs");
         if (f === "0" || f === "1" || f === "2") document.documentElement.dataset.fs = f;
       } catch (e) {}

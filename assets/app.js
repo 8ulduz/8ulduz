@@ -554,8 +554,7 @@ function onClick(e) {
 
 const THEME_KEY = "8ulduz-theme", FS_KEY = "8ulduz-fs";
 function applyPrefs() {
-  let theme = localStorage.getItem(THEME_KEY);
-  if (theme !== "light" && theme !== "dark") theme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  const theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
   let fs = localStorage.getItem(FS_KEY);
   if (fs !== "0" && fs !== "1" && fs !== "2") fs = "0";
