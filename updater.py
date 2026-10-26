@@ -212,6 +212,7 @@ MARKETS_FILE = OUT_DIR / "markets.json"
 SOCIAL_FILE = OUT_DIR / "social.json"
 STATUS_FILE = OUT_DIR / "status.json"
 SOURCES_FILE = OUT_DIR / "sources.json"
+OG_FILE = OUT_DIR / "og.json"
 SITE = "https://8ulduz.github.io/8ulduz/"
 FEED_FILE = ROOT / "feed.xml"
 SITEMAP_FILE = ROOT / "sitemap.xml"
@@ -1020,6 +1021,71 @@ def write_public():
     write_sitemap()
     write_robots()
 
+_OG_META = re.compile(r"<meta\b[^>]*>", re.I)
+_OG_KEY = re.compile(r"""(?:property|name)\s*=\s*["']([^"']+)["']""", re.I)
+_OG_CONTENT = re.compile(r"""content\s*=\s*["']([^"']+)["']""", re.I)
+_OG_NAMES = {"og:image", "og:image:url", "twitter:image", "twitter:image:src"}
+
+def _og_from_html(raw, base):
+    text = raw.decode("utf-8", "replace")
+    for tag in _OG_META.findall(text):
+        km = _OG_KEY.search(tag)
+        if not km or km.group(1).lower() not in _OG_NAMES:
+            continue
+        cm = _OG_CONTENT.search(tag)
+        if not cm:
+            continue
+        img = _abs_img(html.unescape(cm.group(1)), base)
+        if img:
+            return img
+    return ""
+
+def _fetch_og(url):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            ctype = (r.headers.get("Content-Type") or "").lower()
+            if ctype and "html" not in ctype and "xml" not in ctype:
+                return ""
+            return _og_from_html(r.read(90000), url)
+    except Exception:
+        return ""
+
+def fill_og_images(articles, limit=30):
+    """Şəkilsiz xəbərlər üçün səhifənin og:image ünvanı. Hər URL bir dəfə sorğulanır."""
+    try:
+        cache = json.loads(OG_FILE.read_text(encoding="utf-8"))
+        if not isinstance(cache, dict):
+            cache = {}
+    except Exception:
+        cache = {}
+    todo = []
+    for a in articles:
+        url = a.get("sourceUrl") or ""
+        if not url or a.get("imageUrl"):
+            continue
+        if url in cache:
+            if cache[url]:
+                a["imageUrl"] = cache[url]
+            continue
+        todo.append(a)
+    batch = todo[:limit]
+    if batch:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
+        for a, img in zip(batch, found):
+            cache[a["sourceUrl"]] = img or ""
+            if img:
+                a["imageUrl"] = img
+    keep = {a.get("sourceUrl") for a in articles if a.get("sourceUrl")}
+    trimmed = {k: v for k, v in cache.items() if k in keep}
+    try:
+        OUT_DIR.mkdir(exist_ok=True)
+        OG_FILE.write_text(json.dumps(trimmed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print("  ! og keşi:", type(e).__name__)
+    return len(batch)
+
 def write_status():
     """Hər uğurlu yoxlamada yazılır — xəbər mətni dəyişməsə belə. UI bunu göstərir."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
@@ -1096,6 +1162,12 @@ def main():
     # Prezident bölməsi üçün xəbərlər limitdən kənarda da (son 60) saxlanılır
     articles = uniq[:MAX_ITEMS] + [a for a in uniq[MAX_ITEMS:] if a["category"] == "prezident"][:60]
     articles = group_duplicates(articles)
+    try:
+        n_og = fill_og_images(articles)
+        if n_og:
+            print(f"og:image sorğusu: {n_og}")
+    except Exception as e:
+        print("  ! og:image:", type(e).__name__)
     save_sources(source_rows)
     if not articles:
         print("Xəbər yoxdur — fayl dəyişdirilmədi"); return

@@ -201,16 +201,28 @@ function img(a, cls = "") {
   return `<div class="img ${cls}">${ph}${src}</div>`;
 }
 function badges(a, withCat = true) {
-  return `<div class="badges">${withCat ? `<span class="bd">${esc(catLabel(a.category))}</span>` : ""}${altBadge(a)}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>`;
+  return `<div class="badges">${withCat ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}${altBadge(a)}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>`;
 }
 const meta = a => `<div class="meta"><span class="src">${esc(a.source)}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</span><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
-const card = a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-id="${esc(a.id)}">${img(a)}<div class="b">${badges(a)}<h3>${txt(a.title)}</h3><p>${esc(clean(a.summary))}</p>${meta(a)}</div></button>`;
+const card = a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-cat="${esc(a.category)}" data-id="${esc(a.id)}">${img(a)}<div class="b">${badges(a)}<h3>${txt(a.title)}</h3><p>${esc(clean(a.summary))}</p>${meta(a)}</div></button>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
 
 /* ---------------------------------------------------------------- vəziyyət */
-const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, wx: null, wxAll: null, wxSel: null, wxOpen: false };
+const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, wx: null, wxAll: null, wxSel: null, wxOpen: false };
+const SAVE_KEY = "8ulduz-saved";
+function savedList() { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+function isSaved(id) { return savedList().some(x => x.id === id); }
+function toggleSave(a) {
+  const rest = savedList().filter(x => x.id !== a.id);
+  if (!isSaved(a.id)) rest.unshift({ id: a.id, title: a.title, source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt, category: a.category, imageUrl: a.imageUrl || "" });
+  localStorage.setItem(SAVE_KEY, JSON.stringify(rest.slice(0, 200)));
+}
+function readMins(a) {
+  const n = decode(`${a.title || ""} ${a.summary || ""}`).trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(n / 180));
+}
 const byId = new Map();
 
 /* ---------------------------------------------------------------- məlumat */
@@ -223,13 +235,23 @@ async function loadNews() {
     if (tag && tag === S.etag && S.data) { renderTopbar(); return; }
     S.etag = tag;
     const d = await r.json();
-    if (S.data && S.data.updatedAt === d.updatedAt) { renderTopbar(); return; }
+    if (S.data && S.data.updatedAt === d.updatedAt && S.og) { renderTopbar(); return; }
+    await loadOg();
+    for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
     d.articles = clusterArticles(d.articles);
     S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
     render();
   } catch (e) { S.error = String(e); if (!S.data) render(); else renderTopbar(); }
 }
 
+async function loadOg() {
+  if (S.og) return;
+  try {
+    const r = await fetch(freshUrl("data/og.json"), { cache: "no-store" });
+    const d = r.ok ? await r.json() : {};
+    S.og = d && typeof d === "object" && !Array.isArray(d) ? d : {};
+  } catch { S.og = {}; }
+}
 async function loadMarkets() {
   // Əsas mənbə: updater.py-nin yaratdığı data/markets.json (AMB, Yahoo Finance, gold-api və s.)
   try {
@@ -274,6 +296,8 @@ async function loadAllWeather() {
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
   if (h === "/menbeler" || h.startsWith("/menbeler?")) return { name: "sources" };
+  if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
+  if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
   const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: m[1] };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
   return { name: "home" };
@@ -297,7 +321,13 @@ function shell() {
   <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="https://t.me/" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <dialog class="modal" id="modal"></dialog>
-  <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>`;
+  <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
+  <nav class="tabbar" aria-label="Sürətli keçid">
+    <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
+    <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
+    <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
+    <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
+  </nav>`;
   const q = $("#q");
   q.addEventListener("input", () => {
     S.q = q.value.trim(); S.shown = PAGE;
@@ -406,7 +436,7 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  const cards = list.map(a => `<button class="pcard" data-id="${esc(a.id)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${altBadge(a)}${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("");
+  const cards = list.map(a => `<button class="pcard" data-cat="${esc(a.category)}" data-id="${esc(a.id)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${altBadge(a)}${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
@@ -420,11 +450,11 @@ function heroBlock(list) {
   const main = list.find(a => a.imageUrl && (a.lang ?? "az") === "az") ?? list.find(a => a.imageUrl) ?? list[0];
   const side = list.filter(a => a !== main).slice(0, 8);
   return `<section class="hero">
-    <button class="hero-main" data-id="${esc(main.id)}">${img(main)}<div class="body">
-      <div class="badges"><span class="bd gold">${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
+    <button class="hero-main" data-cat="${esc(main.category)}" data-id="${esc(main.id)}">${img(main)}<div class="body">
+      <div class="badges"><span class="bd gold" data-cat="${esc(main.category)}"><i class="cdot"></i>${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
       <h1>${txt(main.title)}</h1><p>${esc(clean(main.summary))}</p>
       <div class="meta"><span class="src">${esc(main.source)}</span><time>${ago(main.publishedAt)}</time></div></div></button>
-    <div class="hero-slot"><div class="hero-side" data-marquee data-visible="4">${side.map(a => `<button class="row-card" data-id="${esc(a.id)}">${img(a)}<div class="x"><span class="tag">${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></div></button>`).join("")}</div></div>
+    <div class="hero-slot"><div class="hero-side" data-marquee data-visible="4">${side.map(a => `<button class="row-card" data-cat="${esc(a.category)}" data-id="${esc(a.id)}">${img(a)}<div class="x"><span class="tag" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></div></button>`).join("")}</div></div>
   </section>`;
 }
 
@@ -447,8 +477,22 @@ function catSection(c, list) {
 }
 
 function skeleton() {
-  return `<section class="hero"><div class="skel" style="height:340px"></div><div class="hero-side">${"<div class='skel' style='height:78px'></div>".repeat(4)}</div></section>
-    <section><div class="grid">${"<div class='skel' style='height:250px'></div>".repeat(4)}</div></section>`;
+  return `<section class="prez"><div class="skel" style="height:180px"></div></section>
+    <section class="hero"><div class="skel" style="height:340px"></div><div class="hero-side">${"<div class='skel' style='height:78px'></div>".repeat(4)}</div></section>
+    <section><div class="grid">${"<div class='skel' style='height:220px'></div>".repeat(4)}</div></section>`;
+}
+function dayFive(list) {
+  const cut = Date.now() - 18 * HOUR;
+  return list.filter(a => new Date(a.publishedAt).getTime() >= cut)
+    .map(a => ({ a, n: 1 + (a.alts?.length || 0) }))
+    .sort((x, y) => y.n - x.n || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""))
+    .slice(0, 5).map(x => x.a);
+}
+function dayFiveBlock(list) {
+  const items = dayFive(list);
+  if (items.length < 2) return "";
+  return `<section class="day5"><div class="sec-h"><h2>Günün 5 əsas xəbəri</h2><span class="cnt">son 18 saat</span></div>
+    <ol>${items.map((a, i) => `<li><button data-id="${esc(a.id)}"><b>${i + 1}</b><span>${txt(a.title)}</span><em>${1 + (a.alts?.length || 0)} mənbə</em></button></li>`).join("")}</ol></section>`;
 }
 
 function homeView() {
@@ -459,7 +503,7 @@ function homeView() {
   const hero = byDate(m).slice(0, 9); hero.forEach(a => used.add(a.id));
   const secs = CATS.filter(c => !["video", "prezident", "sondeqiqe"].includes(c.slug))
     .map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
-  return prezBlock(prez) + `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>` + heroBlock(byDate(m)) + videoBlock(vids) + secs;
+  return prezBlock(prez) + `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>` + heroBlock(byDate(m)) + dayFiveBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -497,9 +541,11 @@ function renderView() {
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>` : "";
-  const body = r.name === "sources" ? sourcesView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "sources" ? sourcesView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = r.name !== "home" || !!S.q;
+  const tab = r.name === "saved" ? "saved" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
+  document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
   setupMarquees();
 }
 
@@ -530,25 +576,42 @@ function renderFooter() {
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/menbeler">Mənbə vəziyyəti</a></div>`;
 }
 
+function relatedOf(a) {
+  const pool = byDate((S.data?.articles || []).filter(x => x.id !== a.id && x.category === a.category));
+  return pool.slice(0, 4);
+}
 function openModal(a) {
   const d = $("#modal");
-  d.innerHTML = `<button class="x" data-act="close" aria-label="Bağla">✕</button>${a.imageUrl ? img(a) : ""}<div class="b">
-    <div class="badges"><span class="bd gold">${esc(catLabel(a.category))}</span>${altBadge(a)}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}${a.video ? `<span class="bd red">▶ Video</span>` : ""}</div>
+  const rel = relatedOf(a);
+  const saved = isSaved(a.id);
+  d.innerHTML = `<button class="x" data-act="close" aria-label="Bağla">✕</button>${img(a)}<div class="b">
+    <div class="badges"><span class="bd gold" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>${altBadge(a)}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}${a.video ? `<span class="bd red">▶ Video</span>` : ""}</div>
     <h2>${txt(a.title)}</h2>
-    <div class="m"><b>${esc(a.source)}</b>${a.author ? `<span>•</span><span>${txt(a.author)}</span>` : ""}<span>•</span><span>${ago(a.publishedAt)}</span><span>•</span><span>${fullDate(a.publishedAt)}</span></div>
+    <div class="m"><b>${esc(a.source)}</b>${a.author ? `<span>•</span><span>${txt(a.author)}</span>` : ""}<span>•</span><span>${ago(a.publishedAt)}</span><span>•</span><span>${fullDate(a.publishedAt)}</span><span>•</span><span>${readMins(a)} dəq oxunuş</span></div>
     <p>${esc(clean(a.summary))}</p>
     ${(a.alts?.length) ? `<div class="alts"><b>Mənbələr · +${a.alts.length}</b>${[{ source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt }, ...a.alts].map(r => `<a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener noreferrer"><span>${esc(r.source)}</span><time>${ago(r.publishedAt)}</time></a>`).join("")}</div>` : ""}
+    ${rel.length ? `<div class="rel"><b>Oxşar xəbərlər</b>${rel.map(x => `<button data-id="${esc(x.id)}"><span class="t">${txt(x.title)}</span><time>${ago(x.publishedAt)}</time></button>`).join("")}</div>` : ""}
     <div class="note">Bu xəbər avtomatik toplanmış qısa xülasədir. Mətnin tam versiyası mənbə saytına aiddir.</div>
     <div class="acts"><a class="btn" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">Mənbədə oxu ↗</a>
+    <button class="btn ghost" data-act="save">${saved ? "★ Seçildi" : "☆ Seçilmişlərə"}</button>
     ${navigator.share ? `<button class="btn ghost" data-act="share">Paylaş</button>` : `<button class="btn ghost" data-act="copy">Linki kopyala</button>`}</div></div>`;
   d._a = a;
   if (!d.open) d.showModal();
+}
+function savedView() {
+  const items = savedList();
+  const rows = items.map(a => `<button class="card noimg" data-id="${esc(a.id)}" data-cat="${esc(a.category || "")}"><div class="b">${a.category ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}<h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source || "")}</span><time>${ago(a.publishedAt)}</time></div></div></button>`).join("");
+  return `<div class="page-h"><div><h1>Seçilmişlər</h1><p>Ulduzla saxladığınız xəbərlər bu cihazda qalır.</p></div><span class="cnt">${items.length}</span></div>` +
+    (items.length ? `<div class="grid">${rows}</div>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Xəbəri açın və «Seçilmişlərə» düyməsinə basın.</p>`);
+}
+function sectionsView() {
+  return `<div class="page-h"><div><h1>Bölmələr</h1><p>Xəbər bölmələrinə keçid</p></div></div><div class="sec-pick">${CATS.map(c => `<a data-cat="${c.slug}" href="#/bolme/${c.slug}"><i class="cdot"></i><b>${esc(c.label)}</b><span>${esc(c.description)}</span></a>`).join("")}</div>`;
 }
 
 function onClick(e) {
   const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city]");
   if (!t) { if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; renderTopbar(); } return; }
-  if (t.dataset.id && t.tagName !== "A") { const a = byId.get(t.dataset.id); if (a) openModal(a); return; }
+  if (t.dataset.id && t.tagName !== "A") { const a = byId.get(t.dataset.id) || savedList().find(x => x.id === t.dataset.id); if (a) openModal(a); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
@@ -560,6 +623,8 @@ function onClick(e) {
   else if (act === "close") $("#modal").close();
   else if (act === "share") { const a = $("#modal")._a; navigator.share({ title: decode(a.title), url: a.sourceUrl }).catch(() => {}); }
   else if (act === "copy") { const a = $("#modal")._a; navigator.clipboard?.writeText(a.sourceUrl); t.textContent = "Kopyalandı ✓"; }
+  else if (act === "save") { const a = $("#modal")._a; if (a) { toggleSave(a); openModal(a); } }
+  else if (act === "find") { const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
 }
 
