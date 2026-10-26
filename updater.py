@@ -16,7 +16,8 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
 # (ad, url[, kateqoriya ipucu]) — Azərbaycan mənbələri, default dil "az"
-# Qeyd: AZƏRTAC Cloudflare arxasındadır, bəzi IP-lərdən 403 qaytarır; lent realdır, saxlanılıb.
+# AZƏRTAC, Report və News.az GitHub runner IP-lərindən 403 alır.
+# Birbaşa lent alınmayanda Google News RSS (və lazım olanda Telegram önizləməsi) ehtiyatdır.
 AZ_FEEDS = [
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
@@ -258,8 +259,11 @@ def detect_lang(title, desc, default):
         return "tr"
     return default if default else "en"
 
-def fetch(url, timeout=TIMEOUT):
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/rss+xml, application/xml, text/xml, */*"})
+def fetch(url, timeout=TIMEOUT, data=None, headers=None):
+    h = {"User-Agent": UA, "Accept": "application/rss+xml, application/xml, text/xml, text/html, */*"}
+    if headers:
+        h.update(headers)
+    req = urllib.request.Request(url, data=data, headers=h)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -540,12 +544,203 @@ def make_article(it, source, default_lang, hint=None, force_label=None):
         "video": is_video(it),
     }
 
-def fetch_feed(feed):
-    source, url = feed[0], feed[1]
+# Birbaşa RSS 403 olanda eyni redaksiyanın ehtiyat ünvanı. Təsadüfi proksi yoxdur.
+DIRECT_ALT = {
+    "AZƏRTAC": ["https://www.azertag.az/rss"],
+    "Report": ["https://www.report.az/rss"],
+    "News.az": ["https://www.news.az/rss.xml"],
+}
+# Google News `site:` axtarışı məqaləni öz saytına açır (decoder ilə).
+# News.az üçün az/AZ lokalı boş qayıdır; en-US/when:2d işlək olan sorğudur.
+GNEWS_FALLBACK = {
+    "AZƏRTAC": [("https://news.google.com/rss/search?q=site:azertag.az+when:2d&hl=az&gl=AZ&ceid=AZ:az", "azertag.az")],
+    "Report": [("https://news.google.com/rss/search?q=site:report.az+when:2d&hl=az&gl=AZ&ceid=AZ:az", "report.az")],
+    "News.az": [("https://news.google.com/rss/search?q=site:news.az/news+when:2d&hl=en-US&gl=US&ceid=US:en", "news.az")],
+}
+# Rəsmi Telegram veb önizləməsi. Yazıdakı keçid həmin saytadırsa qəbul edilir.
+TG_FALLBACK = {
+    "AZƏRTAC": ("azertacnews", "azertag.az"),
+    "Report": ("reportnewsaz", "report.az"),
+}
+GNEWS_LIMIT = 12
+
+def _host(url):
+    host = (urllib.parse.urlparse(url or "").hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+def _article_on(url, host):
+    if _host(url) != host:
+        return False
+    path = urllib.parse.urlparse(url).path.strip("/")
+    if not path or path in {"rss", "feed", "news", "az", "ru", "en", "xeber"}:
+        return False
+    if "/tag/" in f"/{path}/" or "/page/" in f"/{path}/":
+        return False
+    return "/" in path or path.rsplit("/", 1)[-1].split("?")[0].replace("-", "").isalnum()
+
+def _blocked(exc):
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code in (401, 403, 429, 503)
+    return isinstance(exc, (urllib.error.URLError, TimeoutError))
+
+def _err(exc):
+    return f"{type(exc).__name__}: {str(exc)[:80]}"
+
+def _load_direct(url):
+    return parse_feed(fetch(url))
+
+def _gnews_decode(art_id):
+    page = fetch(f"https://news.google.com/rss/articles/{art_id}", timeout=15).decode("utf-8", "replace")
+    sig = re.search(r'data-n-a-sg="([^"]+)"', page)
+    ts = re.search(r'data-n-a-ts="([^"]+)"', page)
+    if not sig or not ts:
+        return ""
+    sig_s = sig.group(1).replace("\\", "\\\\").replace('"', '\\"')
+    inner = (
+        '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],'
+        f'"X","X",1,[1,1,1],1,1,null,0,0,null,0],"{art_id}",{ts.group(1)},"{sig_s}"]'
+    )
+    body = urllib.parse.urlencode({"f.req": json.dumps([[["Fbv4je", inner]]])}).encode()
+    raw = fetch(
+        "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
+        timeout=15, data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
+    ).decode("utf-8", "replace")
+    found = re.findall(r"https?://[^\"\\\s]+", raw)
+    return found[0].rstrip("]).,;>") if found else ""
+
+def _fresh(pub, days=3):
+    if not pub:
+        return True
     try:
-        return source, parse_feed(fetch(url)), None
-    except Exception as e:
-        return source, [], f"{type(e).__name__}: {str(e)[:80]}"
+        dt = email.utils.parsedate_to_datetime(re.sub(r"\s+", " ", pub.strip()))
+        if dt is None:
+            return True
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        age = datetime.datetime.now(datetime.timezone.utc) - dt
+        return datetime.timedelta(days=-1) <= age <= datetime.timedelta(days=days)
+    except Exception:
+        return True
+
+def _strip_outlet(title):
+    title = re.sub(r"\s+[-–—|]\s+Latest news from Azerbaijan\s*$", "", title or "", flags=re.I)
+    return re.sub(r"\s+[-–—|]\s+(?:Report\.az|Azərtac|Azertag|AZERTAC|News\.az|News\.Az)\s*$", "", title, flags=re.I).strip()
+
+def gnews_items(rss_url, host, limit=GNEWS_LIMIT):
+    parsed = parse_feed(fetch(rss_url, timeout=15))
+    todo = []
+    for it in parsed:
+        link = it.get("link") or ""
+        m = re.search(r"/articles/([^?]+)", link)
+        if not m:
+            continue
+        todo.append((m.group(1), it))
+        if len(todo) >= limit * 2:
+            break
+    decoded = {}
+    if todo:
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            ids = [art_id for art_id, _ in todo]
+            for art_id, url in zip(ids, ex.map(_gnews_decode, ids)):
+                decoded[art_id] = url
+    out = []
+    seen = set()
+    for art_id, it in todo:
+        url = decoded.get(art_id) or ""
+        if not _article_on(url, host) or url in seen:
+            continue
+        seen.add(url)
+        title = _strip_outlet(it.get("title") or "")
+        if len(title) < 20 or not _fresh(it.get("pubDate") or ""):
+            continue
+        out.append({
+            "title": title, "link": url, "description": it.get("description") or "",
+            "pubDate": it.get("pubDate") or "", "author": it.get("author") or "",
+            "image": it.get("image"),
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+def telegram_items(channel, host, pages=3, limit=20):
+    """Rəsmi kanalın veb önizləməsi. Son səhifələr, eyni saytın məqalə keçidi olan yazılar."""
+    url = f"https://t.me/s/{channel}"
+    out, seen, visited = [], set(), set()
+    for _ in range(pages):
+        if url in visited:
+            break
+        visited.add(url)
+        page = fetch(url, timeout=15).decode("utf-8", "replace")
+        for part in re.split(r'class="tgme_widget_message_wrap', page)[1:]:
+            link = ""
+            for href in re.findall(r'href="(https?://[^"]+)"', part):
+                if _article_on(href, host):
+                    link = href.split("?")[0]
+                    break
+            if not link or link in seen:
+                continue
+            seen.add(link)
+            text_m = re.search(r'tgme_widget_message_text[^>]*>(.*?)</div>', part, re.S)
+            raw = re.sub(r"<[^>]+>", " ", text_m.group(1) if text_m else "")
+            title = re.sub(r"\s+", " ", html.unescape(raw)).strip()
+            title = re.sub(r"\s*Ətraflı\s*:.*$", "", title, flags=re.I).strip()
+            title = re.sub(r"^[^\wƏəİıÖöÜüĞğŞşÇç]+", "", title).strip()
+            if len(title) < 12:
+                continue
+            when = re.search(r'datetime="([^"]+)"', part)
+            out.append({
+                "title": title, "link": link, "description": "",
+                "pubDate": when.group(1) if when else "", "author": "", "image": None,
+            })
+            if len(out) >= limit:
+                return out
+        more = re.search(rf'href="(/s/{re.escape(channel)}\?before=\d+)"[^>]*tme_messages_more', page)
+        if not more:
+            more = re.search(rf'tme_messages_more[^>]*href="(/s/{re.escape(channel)}\?before=\d+)"', page)
+        if not more:
+            break
+        url = "https://t.me" + more.group(1)
+    return out
+
+def fetch_feed(feed):
+    """(mənbə, elementlər, xəta, istifadə olunan url). Xəta qalırsa mənbə uğursuz sayılır."""
+    source, url = feed[0], feed[1]
+    errors = []
+    for candidate in [url] + DIRECT_ALT.get(source, []):
+        try:
+            items = _load_direct(candidate)
+        except Exception as e:
+            errors.append(_err(e))
+            if not _blocked(e):
+                return source, [], errors[-1], url
+            continue
+        if items:
+            return source, items, None, candidate
+        errors.append("birbaşa lent boşdur")
+    # Google News bu saytları çox vaxt rus/ingilis versiya ilə verir.
+    # Rəsmi Telegram kanalı azərbaycan dilindəki məqalə keçidini saxlayır, ona görə əvvəl gəlir.
+    order = ("telegram", "google") if source in TG_FALLBACK else ("google",)
+    for step in order:
+        if step == "google":
+            for rss_url, host in GNEWS_FALLBACK.get(source) or []:
+                try:
+                    items = gnews_items(rss_url, host)
+                    if items:
+                        return source, items, None, rss_url
+                    errors.append("Google News boş qayıtdı")
+                except Exception as e:
+                    errors.append("Google News: " + _err(e))
+        else:
+            channel, host = TG_FALLBACK[source]
+            try:
+                items = telegram_items(channel, host)
+                if items:
+                    return source, items, None, f"https://t.me/s/{channel}"
+                errors.append("Telegram boş qayıtdı")
+            except Exception as e:
+                errors.append("Telegram: " + _err(e))
+    return source, [], "; ".join(errors)[:180], url
 
 # ---------------------------------------------------------------- bazarlar ---
 MARKET_DEFS = [
@@ -1232,8 +1427,8 @@ def main():
     source_rows = []
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
         results = list(ex.map(fetch_feed, FEEDS))  # sıra FEEDS ilə eynidir
-    for (source, url, dlang, hint), (_, items, err) in zip(FEEDS, results):
-        source_rows.append({"name": source, "url": url, "count": 0 if err else len(items), "error": err})
+    for (source, url, dlang, hint), (_, items, err, used_url) in zip(FEEDS, results):
+        source_rows.append({"name": source, "url": used_url or url, "count": 0 if err else len(items), "error": err})
         if err:
             errors.append(f"{source}: {err}")
             continue
