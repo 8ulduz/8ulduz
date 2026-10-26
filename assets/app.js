@@ -198,6 +198,7 @@ function altPop(a) {
   return `<details class="altpop"><summary class="bd gold">+${a.alts.length} mənbə</summary><div>${rows}</div></details>`;
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
+const TL = `<span class="tl" aria-hidden="true"><i></i><i></i><i></i></span>`;
 
 function img(a, cls = "") {
   const ph = `<svg class="ph" viewBox="0 0 32 32" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
@@ -440,7 +441,7 @@ function shell() {
   <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
-    <a class="tix-btn" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac">🚦</a>
+    <a class="tix-btn" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac">${TL}</a>
     <label class="search"><span class="sr" hidden>Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
@@ -454,7 +455,7 @@ function shell() {
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
     <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
-    <a href="#/tixac" data-tab="traffic"><b>🚦</b><span>Tıxac</span></a>
+    <a href="#/tixac" data-tab="traffic"><b>${TL}</b><span>Tıxac</span></a>
     <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
     <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
@@ -500,8 +501,34 @@ function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` +
     CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("") +
-    `<a href="#/tixac" class="${r.name === "traffic" ? "on" : ""}">🚦 Tıxac</a>`;
-  $("#nav .on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    `<a href="#/tixac" class="nav-tix${r.name === "traffic" ? " on" : ""}">${TL}Tıxac</a>`;
+  fitNav();
+}
+function fitNav() {
+  const nav = $("#nav");
+  if (!nav) return;
+  nav.querySelectorAll(".nav-more").forEach(el => el.remove());
+  const links = [...nav.querySelectorAll(":scope > a")];
+  links.forEach(a => { a.hidden = false; });
+  const desktop = matchMedia("(min-width: 721px)").matches;
+  if (!desktop) return;
+  const fits = () => nav.scrollWidth <= nav.clientWidth + 1;
+  if (fits()) return;
+  const tix = links.find(a => a.classList.contains("nav-tix"));
+  const rest = links.filter(a => a !== tix && a.getAttribute("href") !== "#/");
+  const more = document.createElement("details");
+  more.className = "nav-more";
+  more.innerHTML = `<summary>Daha çox</summary><div class="nav-more-pop"></div>`;
+  const pop = more.querySelector(".nav-more-pop");
+  if (tix) nav.insertBefore(more, tix); else nav.appendChild(more);
+  for (let i = rest.length - 1; i >= 0 && !fits(); i--) {
+    rest[i].hidden = true;
+    const clone = rest[i].cloneNode(true);
+    clone.hidden = false;
+    pop.prepend(clone);
+  }
+  if (!pop.children.length) { more.remove(); return; }
+  more.classList.toggle("has-on", [...pop.children].some(a => a.classList.contains("on")));
 }
 
 function renderTicker() {
@@ -684,7 +711,7 @@ function alertStrip() {
   const hits = roadItems(S.data?.articles || []).slice(0, 3);
   const wx = (S.warn || []).join(" · ");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">🚦 Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
+  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">${TL}Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
 }
 function ytBlock() {
   const items = S.video?.items || [];
@@ -869,6 +896,7 @@ function sectionsView() {
 function onClick(e) {
   const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
+  if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
   if (!t) {
     let dirty = false;
     if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }
@@ -961,6 +989,7 @@ function setPref(act) {
   applyPrefs();
   renderTopbar();
   setupMarquees();
+  fitNav();
 }
 function enableAnalytics() {
   const code = String(window.SITE_CONFIG?.goatcounter || "").trim();
@@ -1227,7 +1256,7 @@ document.addEventListener("visibilitychange", () => {
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);
-  marqueeResizeT = setTimeout(() => { setupMarquees(); syncLangStick(); }, 150);
+  marqueeResizeT = setTimeout(() => { setupMarquees(); syncLangStick(); fitNav(); }, 150);
 });
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
