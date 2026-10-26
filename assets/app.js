@@ -286,18 +286,19 @@ function renderLangs() {
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 
 function socialBlock() {
-  const posts = (S.social?.posts || []).slice(0, 6);
+  const posts = (S.social?.posts || []).slice(0, 8);
   const profiles = PROFILES.map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join("")}</span>`).join("");
   const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-net">${esc(p.network)}</span><span class="t">${txt(p.text)}</span><span class="meta"><span class="src">${esc(p.name)}</span><time>${ago(p.publishedAt)}</time></span></a>`).join("");
-  return `<div class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b><div class="soc-links">${profiles}</div></div>${cards ? `<div class="soc-row">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</div>`;
+  return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profiles}</div>${cards ? `<div class="soc-list">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
+  const cards = list.map(a => `<button class="pcard" data-id="${esc(a.id)}">${isFirstLady(a) ? `<span class="tag">Birinci xanım</span>` : ""}<span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted" style="font-size:12px;font-weight:600">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    ${list.length ? `<div class="prez-grid">${list.map(a => `<button class="pcard" data-id="${esc(a.id)}">${isFirstLady(a) ? `<span class="tag">Birinci xanım</span>` : ""}<span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("")}</div>` : ""}
-    ${socialBlock()}</section>`;
+    <div class="prez-body">${list.length ? `<div class="prez-grid">${cards}</div>` : ""}
+    ${socialBlock()}</div></section>`;
 }
 
 function heroBlock(list) {
