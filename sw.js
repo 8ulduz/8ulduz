@@ -1,7 +1,7 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
    data/*.json: yalnız şəbəkə. Keş yalnız şəbəkə alınmayanda (oflayn).
    Statik fayllar: əvvəl keş. */
-const VERSION = "v9";
+const VERSION = "v10";
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
