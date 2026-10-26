@@ -212,6 +212,17 @@ MARKETS_FILE = OUT_DIR / "markets.json"
 SOCIAL_FILE = OUT_DIR / "social.json"
 STATUS_FILE = OUT_DIR / "status.json"
 SOURCES_FILE = OUT_DIR / "sources.json"
+OG_FILE = OUT_DIR / "og.json"
+VIDEO_FILE = OUT_DIR / "video.json"
+FOOTBALL_FILE = OUT_DIR / "football.json"
+# YouTube RSS, açarsız. Kanal adları lentin öz başlığı ilə yoxlanıb.
+YT_NEWS = [
+    ("İctimai TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCDVpJfSc-RCGSCfGE2MFGAg"),
+    ("Xezer TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCUsYwCUHsMQcuEm8cOCAuFQ"),
+    ("ARB 24", "https://www.youtube.com/feeds/videos.xml?channel_id=UC44ToFclJwakpqw1Wh6iW-A"),
+    ("Report.az", "https://www.youtube.com/feeds/videos.xml?channel_id=UC4Cx3XB6y7oPYOE5yUhyXKg"),
+    ("Trend TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCcgI4-HdktIoAaRLOPgY9qQ"),
+]
 SITE = "https://8ulduz.github.io/8ulduz/"
 FEED_FILE = ROOT / "feed.xml"
 SITEMAP_FILE = ROOT / "sitemap.xml"
@@ -759,6 +770,75 @@ def update_social():
     merge_sources(yt_rows)
     print(f"Sosial: {min(8, len(posts))} yazı")
 
+def _yt_id(link):
+    try:
+        u = urllib.parse.urlparse(link or "")
+        q = urllib.parse.parse_qs(u.query).get("v")
+        if q:
+            return q[0]
+        parts = [p for p in u.path.split("/") if p]
+        if len(parts) >= 2 and parts[-2] in ("shorts", "embed", "live"):
+            return parts[-1]
+    except Exception:
+        return ""
+    return ""
+
+def update_video():
+    items, rows = [], []
+    for name, url in YT_NEWS:
+        try:
+            got = parse_feed(fetch(url))[:5]
+            if not got:
+                raise ValueError("boş lent")
+            rows.append({"name": f"YouTube · {name}", "url": url, "count": len(got), "error": None})
+            for it in got:
+                if is_negative_about_leadership(it.get("title", ""), it.get("description", "")):
+                    continue
+                vid = _yt_id(it.get("link"))
+                if not vid:
+                    continue
+                items.append({
+                    "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
+                    "title": it["title"], "channel": name, "videoId": vid,
+                    "url": it["link"], "publishedAt": to_iso(it.get("pubDate")),
+                    "imageUrl": it.get("image") or f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg",
+                })
+        except Exception as e:
+            rows.append({"name": f"YouTube · {name}", "url": url, "count": 0, "error": f"{type(e).__name__}: {str(e)[:80]}"})
+            print(f"  ! video {name}: {type(e).__name__}")
+    items.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    OUT_DIR.mkdir(exist_ok=True)
+    VIDEO_FILE.write_text(json.dumps({"updatedAt": now, "items": items[:24]}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if rows:
+        merge_sources(rows)
+    print(f"Video: {min(24, len(items))} yazı")
+
+def update_football():
+    """Premyer Liqa. Açıq sınaq açarı cədvəli yarımçıq qaytarır — cədvəli saxlamırıq."""
+    events, note = [], "Tam turnir cədvəli açıq sınaq mənbəyində yoxdur. Nəticələr və futbol xəbərləri göstərilir."
+    try:
+        d = fetch_json("https://www.thesportsdb.com/api/v1/json/123/eventspastleague.php?id=4693", timeout=12)
+        for e in (d.get("events") or [])[:6]:
+            events.append({
+                "home": e.get("strHomeTeam") or "",
+                "away": e.get("strAwayTeam") or "",
+                "hs": e.get("intHomeScore"),
+                "as": e.get("intAwayScore"),
+                "date": e.get("dateEvent") or "",
+            })
+    except Exception as e:
+        print("  ! futbol:", type(e).__name__)
+        note = "Oyun nəticəsi alınmadı. Futbol xəbərləri göstərilir."
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    OUT_DIR.mkdir(exist_ok=True)
+    FOOTBALL_FILE.write_text(json.dumps({
+        "updatedAt": now, "league": "Azərbaycan Premyer Liqası",
+        "table": [], "events": events, "note": note,
+        "link": "https://pfl.az/",
+    }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Futbol: {len(events)} oyun")
+
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
 GROUP_WINDOW = datetime.timedelta(hours=36)
 _GROUP_STOP = {
@@ -1020,6 +1100,71 @@ def write_public():
     write_sitemap()
     write_robots()
 
+_OG_META = re.compile(r"<meta\b[^>]*>", re.I)
+_OG_KEY = re.compile(r"""(?:property|name)\s*=\s*["']([^"']+)["']""", re.I)
+_OG_CONTENT = re.compile(r"""content\s*=\s*["']([^"']+)["']""", re.I)
+_OG_NAMES = {"og:image", "og:image:url", "twitter:image", "twitter:image:src"}
+
+def _og_from_html(raw, base):
+    text = raw.decode("utf-8", "replace")
+    for tag in _OG_META.findall(text):
+        km = _OG_KEY.search(tag)
+        if not km or km.group(1).lower() not in _OG_NAMES:
+            continue
+        cm = _OG_CONTENT.search(tag)
+        if not cm:
+            continue
+        img = _abs_img(html.unescape(cm.group(1)), base)
+        if img:
+            return img
+    return ""
+
+def _fetch_og(url):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            ctype = (r.headers.get("Content-Type") or "").lower()
+            if ctype and "html" not in ctype and "xml" not in ctype:
+                return ""
+            return _og_from_html(r.read(90000), url)
+    except Exception:
+        return ""
+
+def fill_og_images(articles, limit=30):
+    """Şəkilsiz xəbərlər üçün səhifənin og:image ünvanı. Hər URL bir dəfə sorğulanır."""
+    try:
+        cache = json.loads(OG_FILE.read_text(encoding="utf-8"))
+        if not isinstance(cache, dict):
+            cache = {}
+    except Exception:
+        cache = {}
+    todo = []
+    for a in articles:
+        url = a.get("sourceUrl") or ""
+        if not url or a.get("imageUrl"):
+            continue
+        if url in cache:
+            if cache[url]:
+                a["imageUrl"] = cache[url]
+            continue
+        todo.append(a)
+    batch = todo[:limit]
+    if batch:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
+        for a, img in zip(batch, found):
+            cache[a["sourceUrl"]] = img or ""
+            if img:
+                a["imageUrl"] = img
+    keep = {a.get("sourceUrl") for a in articles if a.get("sourceUrl")}
+    trimmed = {k: v for k, v in cache.items() if k in keep}
+    try:
+        OUT_DIR.mkdir(exist_ok=True)
+        OG_FILE.write_text(json.dumps(trimmed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print("  ! og keşi:", type(e).__name__)
+    return len(batch)
+
 def write_status():
     """Hər uğurlu yoxlamada yazılır — xəbər mətni dəyişməsə belə. UI bunu göstərir."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
@@ -1096,6 +1241,12 @@ def main():
     # Prezident bölməsi üçün xəbərlər limitdən kənarda da (son 60) saxlanılır
     articles = uniq[:MAX_ITEMS] + [a for a in uniq[MAX_ITEMS:] if a["category"] == "prezident"][:60]
     articles = group_duplicates(articles)
+    try:
+        n_og = fill_og_images(articles)
+        if n_og:
+            print(f"og:image sorğusu: {n_og}")
+    except Exception as e:
+        print("  ! og:image:", type(e).__name__)
     save_sources(source_rows)
     if not articles:
         print("Xəbər yoxdur — fayl dəyişdirilmədi"); return
@@ -1137,6 +1288,14 @@ if __name__ == "__main__":
                 update_social()
             except Exception as e:
                 print("  ! sosial:", type(e).__name__)
+            try:
+                update_video()
+            except Exception as e:
+                print("  ! video:", type(e).__name__)
+            try:
+                update_football()
+            except Exception as e:
+                print("  ! futbol:", type(e).__name__)
         if news_ok:
             write_status()
             try:
