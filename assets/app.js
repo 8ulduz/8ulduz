@@ -95,21 +95,20 @@ const flText = s => {
 };
 // Nişan başlığa görədir (rəsmi səhifənin ortaq tədbirləri ayrıca «Birinci xanım» nişanı almır).
 const isFirstLady = a => !!a && flText(a.title);
-// Əsas blok: birinci xanımın başlıqları öndə, sonra onun xronikası, sonra digər prezident xəbərləri
+// Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
+const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
+// Əsas blok: əvvəl Prezident (ən yeni), sonra Birinci xanım (ən yeni). Hər iki qrup görünsün.
 function prezHome(list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
   const prez = list.filter(a => a.category === "prezident");
-  const recent = byDate(prez.filter(a => age(a) < 21 * DAY));
-  const about = byDate(prez.filter(a => flText(a.title) && age(a) < 60 * DAY));
-  const chronicle = byDate(prez.filter(a => (a.source === "Mehriban Əliyeva" || flText(a.title)) && age(a) < 60 * DAY));
-  const picked = []; const seen = new Set();
-  const push = a => { if (!a || seen.has(a.id)) return false; seen.add(a.id); picked.push(a); return true; };
-  for (const a of about) { if (picked.length >= 2) break; push(a); }
-  for (const a of chronicle) { if (picked.length >= 4) break; push(a); }
-  for (const a of recent) { if (picked.length >= 8) break; push(a); }
-  for (const a of chronicle) { if (picked.length >= 8) break; push(a); }
-  return picked;
+  const president = byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY));
+  const lady = byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY));
+  const MAX = 8;
+  const ladyKeep = lady.length ? Math.min(lady.length, 2) : 0;
+  const presTake = Math.min(president.length, MAX - ladyKeep);
+  const ladyTake = Math.min(lady.length, MAX - presTake);
+  return [...president.slice(0, presTake), ...lady.slice(0, ladyTake)];
 }
 const byDate = list => [...list].sort((x, y) => y.publishedAt.localeCompare(x.publishedAt));
 const lc = s => (s || "").toLocaleLowerCase("az");
@@ -285,9 +284,22 @@ function renderLangs() {
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 
+function orderedSocialPosts(max = 8) {
+  const all = S.social?.posts || [];
+  const bucket = p => p.who === "prezident" ? 0 : p.who === "birinci-xanim" ? 1 : 2;
+  const groups = [[], [], []];
+  for (const p of all) groups[bucket(p)].push(p);
+  const [prez, lady, rest] = groups.map(g => byDate(g));
+  const ladyKeep = lady.length ? Math.min(lady.length, 3) : 0;
+  const prezTake = Math.min(prez.length, max - ladyKeep);
+  const ladyTake = Math.min(lady.length, max - prezTake);
+  return [...prez.slice(0, prezTake), ...lady.slice(0, ladyTake), ...rest.slice(0, max - prezTake - ladyTake)];
+}
 function socialBlock() {
-  const posts = (S.social?.posts || []).slice(0, 8);
-  const profiles = PROFILES.map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join("")}</span>`).join("");
+  const posts = orderedSocialPosts(8);
+  const whoOrder = { "Prezident": 0, "Birinci xanım": 1 };
+  const profiles = [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
+    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join("")}</span>`).join("");
   const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-net">${esc(p.network)}</span><span class="t">${txt(p.text)}</span><span class="meta"><span class="src">${esc(p.name)}</span><time>${ago(p.publishedAt)}</time></span></a>`).join("");
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profiles}</div>${cards ? `<div class="soc-list">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
