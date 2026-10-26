@@ -27,13 +27,13 @@ const PREZ_LINKS = [
 ];
 // Rəsmi hesablar (president.az və mehriban-aliyeva.az səhifələrindəki keçidlər). Telegram kanalı yoxdur.
 const PROFILES = [
-  { who: "Prezident", links: [
+  { who: "İlham Əliyev", links: [
     ["X", "https://x.com/presidentaz"], ["X (AZ)", "https://x.com/azpresident"],
     ["Instagram", "https://www.instagram.com/presidentaz/"],
     ["Facebook", "https://www.facebook.com/PresidentIlhamAliyev"],
     ["YouTube", "https://www.youtube.com/@presidentaz"],
   ]},
-  { who: "Birinci xanım", links: [
+  { who: "Mehriban Əliyeva", links: [
     ["X", "https://x.com/1VicePresident"],
     ["Instagram", "https://www.instagram.com/firstvicepresidentazerbaijan/"],
     ["Facebook", "https://www.facebook.com/FirstvicepresidentofAzerbaijanOfficial"],
@@ -545,7 +545,7 @@ const NET_ICON = {
 };
 const netIcon = name => name === "Instagram" ? NET_ICON.ig : name === "Facebook" ? NET_ICON.fb : name === "YouTube" ? NET_ICON.yt : NET_ICON.x;
 function profileRows() {
-  const whoOrder = { "Prezident": 0, "Birinci xanım": 1 };
+  const whoOrder = { "İlham Əliyev": 0, "Mehriban Əliyeva": 1 };
   return [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
     .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer" title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
 }
@@ -558,7 +558,7 @@ function socialForSide() {
 function socialBlock(side = false) {
   const posts = side ? socialForSide() : orderedSocialPosts(8);
   const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span><time>${ago(p.publishedAt)}</time></a>`).join("");
-  const list = side ? `<div class="soc-list" data-marquee data-visible="3">` : `<div class="soc-list">`;
+  const list = side ? `<div class="soc-list" data-marquee data-visible="4">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
