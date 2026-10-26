@@ -50,7 +50,7 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - Seçilmişlər bu cihazda qalır (`localStorage` açarı `8ulduz-saved`). Ulduz kartın küncündədir, siyahı `#/secilmis`.
 - «Mənim bölmələrim» (`#/bolmeler`) bölmələrin sırasını və hansının baş səhifədə göründüyünü saxlayır (`8ulduz-sects`). Zuğulba, hero və video/foto blokları bu siyahıdan asılı deyil.
 - «Son dəqiqə» lentindəki **Bildiriş** düyməsi brauzer icazəsi istəyir. Səhifə açıq olanda `news.json` hər dəqiqə yoxlanır və yeni son-dəqiqə xəbəri üçün bildiriş çıxır. Push server yoxdur. Brauzer dəstəkləyəndə Periodic Background Sync (`breaking`, ən azı 5 dəqiqə) da qeydiyyatdan keçir; çox brauzer bunu seyrək və ya heç işlətmir.
-- Açıq xəbərdə **Dinlə** yalnız `az` səsi, yoxdursa `tr` səsi olanda görünür. Heç biri yoxdursa düymə gizlənir.
+- Xəbər kartı, hero və siyahılar mənbə ünvanını yeni vərəqdə açır. «+N mənbə» düyməsi həmin xəbərin digər mənbələrini kiçik siyahıda göstərir. Axtarış başlıqla yanaşı xülasənin mətnində də axtarır, amma xülasə səhifədə göstərilmir.
 - Telegram kanalı sahibin öz kanalını yaratmasını gözləyir. Düymə hələ `https://t.me/` ünvanına gedir.
 
 ## Lokal yoxlama

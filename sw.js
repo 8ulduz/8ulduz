@@ -1,7 +1,7 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
    data/*.json: yalnız şəbəkə. Keş yalnız şəbəkə alınmayanda (oflayn).
    Statik fayllar: əvvəl keş. */
-const VERSION = "v8";
+const VERSION = "v9";
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -124,7 +124,7 @@ async function syncBreaking() {
       body: decodeBasic(a.title),
       icon: new URL("assets/icon-192.png", SCOPE_URL).toString(),
       tag: "break-" + a.id,
-      data: { id: a.id },
+      data: { id: a.id, url: a.sourceUrl || "" },
     });
   }
   await writeSeen(fresh.map((a) => a.id));
@@ -134,16 +134,6 @@ self.addEventListener("periodicsync", (event) => {
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const id = event.notification.data && event.notification.data.id;
-  event.waitUntil((async () => {
-    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    for (const c of all) {
-      if (c.url.includes(SCOPE_URL.pathname)) {
-        await c.focus();
-        if (id) c.postMessage({ type: "open", id });
-        return;
-      }
-    }
-    await self.clients.openWindow(SCOPE_URL.href);
-  })());
+  const url = (event.notification.data && event.notification.data.url) || SCOPE_URL.href;
+  event.waitUntil(self.clients.openWindow(url));
 });
