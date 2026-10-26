@@ -211,6 +211,11 @@ OUT_FILE = OUT_DIR / "news.json"
 MARKETS_FILE = OUT_DIR / "markets.json"
 SOCIAL_FILE = OUT_DIR / "social.json"
 STATUS_FILE = OUT_DIR / "status.json"
+SOURCES_FILE = OUT_DIR / "sources.json"
+SITE = "https://8ulduz.github.io/8ulduz/"
+FEED_FILE = ROOT / "feed.xml"
+SITEMAP_FILE = ROOT / "sitemap.xml"
+ROBOTS_FILE = ROOT / "robots.txt"
 BAKU = datetime.timezone(datetime.timedelta(hours=4))
 AZ_MONTHS = {
     "yanvar": 1, "fevral": 2, "mart": 3, "aprel": 4, "may": 5, "iyun": 6,
@@ -720,11 +725,13 @@ YT_ACCOUNTS = [
 
 def update_social():
     posts, failed = [], set()
+    yt_rows = []
     for url, who, name in YT_ACCOUNTS:
         try:
             got = parse_feed(fetch(url))[:4]
             if not got:
                 raise ValueError("boş lent")
+            yt_rows.append({"name": f"YouTube · {name}", "url": url, "count": len(got), "error": None})
             for it in got:
                 posts.append({
                     "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
@@ -735,6 +742,7 @@ def update_social():
                 })
         except Exception as e:
             failed.add(who)
+            yt_rows.append({"name": f"YouTube · {name}", "url": url, "count": 0, "error": f"{type(e).__name__}: {str(e)[:80]}"})
             print(f"  ! sosial {name}: {type(e).__name__}: {str(e)[:80]}")
     old = []
     try:
@@ -748,7 +756,269 @@ def update_social():
     OUT_DIR.mkdir(exist_ok=True)
     SOCIAL_FILE.write_text(json.dumps({"updatedAt": now, "posts": posts[:8]}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
+    merge_sources(yt_rows)
     print(f"Sosial: {min(8, len(posts))} yazı")
+
+# Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
+GROUP_WINDOW = datetime.timedelta(hours=36)
+_GROUP_STOP = {
+    "ve", "ile", "the", "and", "for", "from", "or", "bir", "bu", "da", "de", "ki", "veya",
+    "icin", "olan", "və", "ilə", "də", "o", "üçün", "ya", "news", "xəbər", "xeber",
+}
+
+def _norm_title(s):
+    s = (s or "").lower().replace("i̇", "i")
+    s = s.translate(str.maketrans({"ə": "e", "ı": "i", "ö": "o", "ü": "u", "ş": "s", "ç": "c",
+                                   "ğ": "g", "â": "a", "î": "i", "û": "u"}))
+    s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", s).strip()
+
+def _title_tokens(s):
+    return [t for t in _norm_title(s).split() if len(t) > 2 and t not in _GROUP_STOP and not t.isdigit()]
+
+def _shingles(toks):
+    if len(toks) < 3:
+        return {" ".join(toks)} if toks else set()
+    return {" ".join(toks[i:i + 3]) for i in range(len(toks) - 2)}
+
+def _jaccard(a, b):
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+def _titles_similar(toks, sh, other_toks, other_sh):
+    a, b = set(toks), set(other_toks)
+    if len(a) < 3 or len(b) < 3:
+        return False
+    inter = len(a & b)
+    tj, sj = _jaccard(a, b), _jaccard(sh, other_sh)
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    cont = len(shorter & longer) / len(shorter)
+    ratio = min(len(a), len(b)) / max(len(a), len(b))
+    if inter >= 4 and tj >= 0.55:
+        return True
+    if inter >= 3 and (tj >= 0.75 or sj >= 0.45) and ratio >= 0.5:
+        return True
+    if cont >= 0.86 and inter >= 4 and ratio >= 0.62:
+        return True
+    return False
+
+def _parse_dt(iso):
+    if not iso:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+def _compact_alt(a):
+    url = a.get("sourceUrl") or ""
+    if not url:
+        return None
+    return {"source": a.get("source") or "", "sourceUrl": url, "publishedAt": a.get("publishedAt") or ""}
+
+def _prefer_primary(a, b):
+    """Şəkli və daha dolu xülasəsi olan kart əsas olsun; eyni olanda daha yenisi."""
+    if bool(a.get("imageUrl")) != bool(b.get("imageUrl")):
+        return a if a.get("imageUrl") else b
+    if len(a.get("summary") or "") != len(b.get("summary") or ""):
+        return a if len(a.get("summary") or "") > len(b.get("summary") or "") else b
+    return a if (a.get("publishedAt") or "") >= (b.get("publishedAt") or "") else b
+
+def group_duplicates(articles):
+    """Yaxın başlıqlı, fərqli mənbəli xəbərləri bir elementdə birləşdirir.
+
+    Əsas xəbər tam qalır; digərləri yığcam `alts` siyahısındadır (mənbə + keçid + vaxt).
+    """
+    remembered = {}
+    for a in articles:
+        for alt in a.get("alts") or []:
+            if alt.get("sourceUrl"):
+                remembered.setdefault(a.get("sourceUrl"), []).append(dict(alt))
+        a.pop("alts", None)
+    prepared = []
+    for a in articles:
+        dt = _parse_dt(a.get("publishedAt"))
+        if dt is None:
+            prepared.append((None, [], set(), a))
+            continue
+        toks = _title_tokens(a.get("title") or "")
+        prepared.append((dt, toks, _shingles(toks), a))
+    prepared.sort(key=lambda x: x[0] or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc), reverse=True)
+    clusters = []
+    for dt, toks, sh, a in prepared:
+        placed = False
+        if dt is not None and len(toks) >= 3:
+            for members in clusters:
+                head = members[0][0]
+                if head is None or abs(dt - head) > GROUP_WINDOW:
+                    continue
+                if a.get("source") in {m[3].get("source") for m in members}:
+                    continue
+                if any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _titles_similar(toks, sh, mtks, msh)
+                       for mt, mtks, msh, _ma in members):
+                    members.append((dt, toks, sh, a))
+                    placed = True
+                    break
+        if not placed:
+            clusters.append([(dt, toks, sh, a)])
+    out = []
+    for members in clusters:
+        urls = {m[3].get("sourceUrl") for m in members}
+        extra = []
+        for _dt, _toks, _sh, member in members:
+            for alt in remembered.get(member.get("sourceUrl"), []):
+                u = alt.get("sourceUrl")
+                if u and u not in urls:
+                    urls.add(u)
+                    extra.append(alt)
+        primary = members[0][3]
+        for _dt, _toks, _sh, member in members[1:]:
+            primary = _prefer_primary(primary, member)
+        alts = []
+        for _dt, _toks, _sh, member in members:
+            if member is primary:
+                continue
+            alt = _compact_alt(member)
+            if alt:
+                alts.append(alt)
+        alts.extend(extra)
+        alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
+        if alts:
+            primary["alts"] = alts
+        else:
+            primary.pop("alts", None)
+        out.append(primary)
+    out.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+    return out
+
+OFFICIAL_FEEDS = (
+    ("Prezident.az", "https://president.az/az/news"),
+    ("Mehriban Əliyeva", "https://mehriban-aliyeva.az/site/catalogNews"),
+)
+
+def official_source_rows(off_items, off_errors):
+    counts = {}
+    for row in off_items:
+        counts[row[0]] = counts.get(row[0], 0) + 1
+    err_by = {}
+    for e in off_errors:
+        err_by[e.split(":", 1)[0].strip()] = e
+    return [{"name": name, "url": url, "count": counts.get(name, 0), "error": err_by.get(name)}
+            for name, url in OFFICIAL_FEEDS]
+
+def save_sources(rows):
+    """Hər mənbə üçün son uğurlu vaxt, say və son xəta. Əvvəlki uğur xəta olanda qalır."""
+    prev_list = []
+    try:
+        prev_list = json.loads(SOURCES_FILE.read_text(encoding="utf-8")).get("sources") or []
+    except Exception:
+        prev_list = []
+    prev = {s.get("name"): s for s in prev_list}
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    out = []
+    for r in rows:
+        old = prev.get(r["name"]) or {}
+        err = r.get("error") or None
+        if err:
+            out.append({"name": r["name"], "url": r["url"], "okAt": old.get("okAt"),
+                        "count": old.get("count", 0), "error": err})
+        else:
+            out.append({"name": r["name"], "url": r["url"], "okAt": now,
+                        "count": int(r.get("count") or 0), "error": None})
+    names = {r["name"] for r in rows}
+    out.extend(s for s in prev_list if s.get("name") not in names)
+    OUT_DIR.mkdir(exist_ok=True)
+    SOURCES_FILE.write_text(json.dumps({"updatedAt": now, "sources": out}, ensure_ascii=False,
+                                        separators=(",", ":")), encoding="utf-8")
+    print(f"Mənbə statusu: {len(out)}")
+
+def merge_sources(rows):
+    """Mövcud sources.json-a əlavə mənbələr (məs. YouTube) yazır."""
+    if not rows:
+        return
+    try:
+        data = json.loads(SOURCES_FILE.read_text(encoding="utf-8"))
+        current = data.get("sources") or []
+    except Exception:
+        current = []
+    fake_prev = current
+    prev = {s.get("name"): s for s in fake_prev}
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    updated = {s.get("name"): s for s in current}
+    for r in rows:
+        old = prev.get(r["name"]) or {}
+        err = r.get("error") or None
+        if err:
+            updated[r["name"]] = {"name": r["name"], "url": r["url"], "okAt": old.get("okAt"),
+                                  "count": old.get("count", 0), "error": err}
+        else:
+            updated[r["name"]] = {"name": r["name"], "url": r["url"], "okAt": now,
+                                  "count": int(r.get("count") or 0), "error": None}
+    order = [s.get("name") for s in current if s.get("name") in updated]
+    for r in rows:
+        if r["name"] not in order:
+            order.append(r["name"])
+    OUT_DIR.mkdir(exist_ok=True)
+    SOURCES_FILE.write_text(json.dumps({
+        "updatedAt": now,
+        "sources": [updated[n] for n in order if n in updated],
+    }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+def _xml(s):
+    return html.escape(s or "", quote=True)
+
+def write_feed(articles):
+    items = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)[:50]
+    now = datetime.datetime.now(datetime.timezone.utc)
+    parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<rss version="2.0"><channel>',
+        f"<title>{_xml('8ulduz — son xəbərlər')}</title>",
+        f"<link>{SITE}</link>",
+        "<description>Azərbaycan və dünyadan son xəbərlər. Qısa xülasə və mənbə keçidi.</description>",
+        "<language>az</language>",
+        f"<lastBuildDate>{email.utils.format_datetime(now)}</lastBuildDate>",
+    ]
+    for a in items:
+        dt = _parse_dt(a.get("publishedAt")) or now
+        desc = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", a.get("summary") or "")).strip()[:500]
+        parts.append("<item>")
+        parts.append(f"<title>{_xml(a.get('title'))}</title>")
+        parts.append(f"<link>{_xml(a.get('sourceUrl'))}</link>")
+        parts.append(f"<guid isPermaLink=\"false\">{_xml(a.get('id'))}</guid>")
+        parts.append(f"<pubDate>{email.utils.format_datetime(dt)}</pubDate>")
+        parts.append(f"<description>{_xml(desc)}</description>")
+        parts.append(f"<source url=\"{_xml(a.get('sourceUrl'))}\">{_xml(a.get('source'))}</source>")
+        parts.append(f"<category>{_xml(a.get('category'))}</category>")
+        parts.append("</item>")
+    parts.append("</channel></rss>\n")
+    FEED_FILE.write_text("".join(parts), encoding="utf-8")
+    print(f"RSS: {len(items)} xəbər")
+
+def write_sitemap():
+    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    locs = [SITE, SITE + "feed.xml"]
+    body = ['<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for loc in locs:
+        body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{today}</lastmod><changefreq>hourly</changefreq></url>")
+    body.append("</urlset>\n")
+    SITEMAP_FILE.write_text("".join(body), encoding="utf-8")
+
+def write_robots():
+    ROBOTS_FILE.write_text(
+        "User-agent: *\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n",
+        encoding="utf-8")
+
+def write_public():
+    try:
+        articles = json.loads(OUT_FILE.read_text(encoding="utf-8")).get("articles") or []
+    except Exception:
+        articles = []
+    write_feed(articles)
+    write_sitemap()
+    write_robots()
 
 def write_status():
     """Hər uğurlu yoxlamada yazılır — xəbər mətni dəyişməsə belə. UI bunu göstərir."""
@@ -778,9 +1048,11 @@ def main():
         a["category"] = SLUGS.get(lbl, "gundem")
     seen = {a["sourceUrl"] for a in old}
     new_items, errors, empty = [], [], []
+    source_rows = []
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
         results = list(ex.map(fetch_feed, FEEDS))  # sıra FEEDS ilə eynidir
     for (source, url, dlang, hint), (_, items, err) in zip(FEEDS, results):
+        source_rows.append({"name": source, "url": url, "count": 0 if err else len(items), "error": err})
         if err:
             errors.append(f"{source}: {err}")
             continue
@@ -798,6 +1070,7 @@ def main():
                 errors.append(f"{source} (element): {type(e).__name__}")
     off_items, off_errors = official_items()
     errors.extend(off_errors)
+    source_rows.extend(official_source_rows(off_items, off_errors))
     for source, dlang, hint, force, it in off_items:
         try:
             if it["link"] in seen or is_junk(it["link"]):
@@ -822,6 +1095,8 @@ def main():
         dseen.add(a["sourceUrl"]); uniq.append(a)
     # Prezident bölməsi üçün xəbərlər limitdən kənarda da (son 60) saxlanılır
     articles = uniq[:MAX_ITEMS] + [a for a in uniq[MAX_ITEMS:] if a["category"] == "prezident"][:60]
+    articles = group_duplicates(articles)
+    save_sources(source_rows)
     if not articles:
         print("Xəbər yoxdur — fayl dəyişdirilmədi"); return
     if articles == prev_articles:
@@ -864,3 +1139,7 @@ if __name__ == "__main__":
                 print("  ! sosial:", type(e).__name__)
         if news_ok:
             write_status()
+            try:
+                write_public()
+            except Exception as e:
+                print("  ! seo:", type(e).__name__, e)

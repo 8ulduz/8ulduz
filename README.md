@@ -10,8 +10,22 @@ Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərin
 - `data/markets.json` — valyuta (AMB, ehtiyat: ExchangeRate-API), Brent/WTI neft və bitcoin (Yahoo Finance, ehtiyat: CNBC/CoinGecko), qızıl/gümüş (gold-api.com).
 - `data/social.json` — Prezidentin və birinci xanımın rəsmi YouTube yazıları.
 - `data/status.json` — son uğurlu yoxlamanın vaxtı (`checkedAt`). Saytdakı «Yeniləndi» bunu göstərir.
-- `updater.py` — RSS + rəsmi səhifələr + bazar + sosial toplayıcı. Mənbə siyahısı: `AZ_FEEDS`, `WORLD_FEEDS`.
+- `data/sources.json` — hər lentin son uğurlu vaxtı, xəbər sayı və son xətası. Saytda: `#/menbeler`.
+- `feed.xml`, `sitemap.xml`, `robots.txt` — updater hər uğurlu yoxlamada yenidən yazır.
+- `manifest.webmanifest`, `sw.js`, `assets/icon-*.png` — quraşdırılan PWA. Xəbər JSON-u onlayn olanda heç vaxt köhnə keşdən verilmir.
+- `assets/config.js` — GoatCounter sayt kodu (standart: boş, statistika sönülü).
+- `updater.py` — RSS + rəsmi səhifələr + bazar + sosial toplayıcı. Mənbə siyahısı: `AZ_FEEDS`, `WORLD_FEEDS`. Yaxın başlıqlı xəbərlər bir kartda birləşir (`alts`).
 - `.github/workflows/update.yml` — avtomatik yeniləmə işi.
+
+## Ziyarət statistikası (GoatCounter)
+
+Saytda kuksuz sayğac var, amma **hesab kodu boşdur və heç nə göndərilmir**. Öz hesabınızı yaradın:
+
+1. [goatcounter.com](https://www.goatcounter.com)-da pulsuz hesab açın və sayt kodunu götürün (ünvan `https://KOD.goatcounter.com` formasındadır).
+2. `assets/config.js` içində boş sətri öz kodunuzla əvəz edin: `goatcounter: "KOD"`.
+3. Dəyişikliyi `main` budağına göndərin. Kodu silsəniz (yenidən `""`), sayğac dayanır.
+
+Hazır kod uydurulmayıb — sahib öz hesabını yaratmalıdır.
 
 Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir).
 
@@ -31,6 +45,8 @@ və bu iş bitəndə davam edir. `data/status.json` hər uğurlu yoxlamada yenil
 Sayt JSON-u `?t=` ilə istəyir ki, GitHub Pages-in 10 dəqiqəlik keşi köhnə faylı saxlamasın.
 
 Manual işə salmaq üçün: **Actions → Xəbərləri yenilə → Run workflow**.
+
+Hər dövrədə `data/sources.json`, `feed.xml`, `sitemap.xml` və `robots.txt` də push olunur.
 
 ## Saytı dərc etmək
 

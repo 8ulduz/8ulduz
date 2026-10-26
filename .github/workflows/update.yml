@@ -38,13 +38,16 @@ jobs:
           publish() {
             local i
             mkdir -p "$SNAP"
-            cp -a data/news.json data/markets.json data/social.json data/status.json "$SNAP"/ || return 1
+            mkdir -p "$SNAP/data"
+            cp -a data/news.json data/markets.json data/social.json data/status.json data/sources.json "$SNAP/data/" || return 1
+            cp -a sitemap.xml robots.txt feed.xml "$SNAP/" || return 1
             for i in 1 2 3 4 5; do
               git fetch origin "$BRANCH"
               git reset --hard "origin/$BRANCH"
               mkdir -p data
-              cp -a "$SNAP"/. data/
-              git add data/news.json data/markets.json data/social.json data/status.json
+              cp -a "$SNAP/data/." data/
+              cp -a "$SNAP/sitemap.xml" "$SNAP/robots.txt" "$SNAP/feed.xml" ./
+              git add data/news.json data/markets.json data/social.json data/status.json data/sources.json sitemap.xml robots.txt feed.xml
               if git diff --cached --quiet; then
                 echo "Dəyişiklik yoxdur"
                 return 0
