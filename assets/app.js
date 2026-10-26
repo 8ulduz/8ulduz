@@ -204,13 +204,14 @@ function badges(a, withCat = true) {
   return `<div class="badges">${withCat ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}${altBadge(a)}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>`;
 }
 const meta = a => `<div class="meta"><span class="src">${esc(a.source)}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</span><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
-const card = a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-cat="${esc(a.category)}" data-id="${esc(a.id)}">${img(a)}<div class="b">${badges(a)}<h3>${txt(a.title)}</h3><p>${esc(clean(a.summary))}</p>${meta(a)}</div></button>`;
+const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" aria-label="${isSaved(a.id) ? "Seçimdən çıxar" : "Seçilmişlərə saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
+const card = a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-cat="${esc(a.category)}" data-id="${esc(a.id)}">${starBtn(a)}${img(a)}<div class="b">${badges(a)}<h3>${txt(a.title)}</h3><p>${esc(clean(a.summary))}</p>${meta(a)}</div></button>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
 
 /* ---------------------------------------------------------------- vəziyyət */
-const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false };
+const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 const WARN_RE = /tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
@@ -225,6 +226,71 @@ function toggleSave(a) {
 function readMins(a) {
   const n = decode(`${a.title || ""} ${a.summary || ""}`).trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.round(n / 180));
+}
+const HOME_FIXED = new Set(["video", "prezident", "sondeqiqe"]);
+const SECT_KEY = "8ulduz-sects";
+const NOTIFY_KEY = "8ulduz-notify";
+const SEEN_KEY = "8ulduz-seen";
+function sectionPool() { return CATS.filter(c => !HOME_FIXED.has(c.slug)); }
+function sectionPref() {
+  const slugs = sectionPool().map(c => c.slug);
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(SECT_KEY) || "null"); } catch {}
+  let order = Array.isArray(raw?.order) ? raw.order.filter(s => slugs.includes(s)) : slugs.slice();
+  for (const s of slugs) if (!order.includes(s)) order.push(s);
+  const off = (Array.isArray(raw?.off) ? raw.off : []).filter(s => slugs.includes(s));
+  return { order, off };
+}
+function writeSects(order, off) { localStorage.setItem(SECT_KEY, JSON.stringify({ order, off })); }
+function homeCats() {
+  const { order, off } = sectionPref();
+  const hide = new Set(off);
+  return order.filter(s => !hide.has(s)).map(s => CATS.find(c => c.slug === s)).filter(Boolean);
+}
+function notifyOn() { return localStorage.getItem(NOTIFY_KEY) === "1" && "Notification" in window && Notification.permission === "granted"; }
+function checkBreaking(articles) {
+  if (!notifyOn()) return;
+  const fresh = (articles || []).filter(isFresh);
+  let seen = null;
+  try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "null"); } catch {}
+  if (!Array.isArray(seen)) {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
+    return;
+  }
+  const known = new Set(seen);
+  const novel = fresh.filter(a => a.id && !known.has(a.id)).slice(0, 3);
+  for (const a of novel) {
+    try {
+      const n = new Notification("Son dəqiqə", { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id });
+      n.onclick = () => { window.focus(); const art = byId.get(a.id); if (art) openModal(art); };
+    } catch {}
+  }
+  localStorage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
+}
+async function armNotify() {
+  if (!("Notification" in window)) return;
+  let perm = Notification.permission;
+  if (perm === "default") { try { perm = await Notification.requestPermission(); } catch { perm = "denied"; } }
+  if (perm !== "granted") { localStorage.removeItem(NOTIFY_KEY); renderTicker(); return; }
+  localStorage.setItem(NOTIFY_KEY, "1");
+  localStorage.setItem(SEEN_KEY, JSON.stringify((S.data?.articles || []).filter(isFresh).map(a => a.id)));
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg.periodicSync) await reg.periodicSync.register("breaking", { minInterval: 5 * 60 * 1000 });
+  } catch {}
+  renderTicker();
+}
+function speechVoice() {
+  if (!window.speechSynthesis) return null;
+  const voices = speechSynthesis.getVoices();
+  return voices.find(v => /^az\b/i.test(v.lang)) || voices.find(v => /^tr\b/i.test(v.lang)) || null;
+}
+function adSlots() { return (S.ads?.slots || []).filter(s => s && s.image && s.link); }
+function adHtml() {
+  const slots = adSlots();
+  if (!slots.length) return `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>`;
+  const s = slots[Math.floor(Date.now() / 30000) % slots.length];
+  return `<section class="ad ad-live" aria-label="Reklam"><a href="${esc(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}"></a></section>`;
 }
 const byId = new Map();
 
@@ -243,6 +309,7 @@ async function loadNews() {
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
     d.articles = clusterArticles(d.articles);
     S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
+    checkBreaking(d.articles);
     render();
   } catch (e) { S.error = String(e); if (!S.data) render(); else renderTopbar(); }
 }
@@ -344,6 +411,7 @@ function shell() {
   window.addEventListener("scroll", () => $("#totop").classList.toggle("show", scrollY > 600), { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   $("#modal").addEventListener("click", e => { if (e.target.id === "modal") e.target.close(); });
+  $("#modal").addEventListener("close", () => { try { speechSynthesis?.cancel(); } catch {} });
   const r = route(); if (r.name === "search") { S.q = r.q; q.value = r.q; }
 }
 
@@ -381,7 +449,8 @@ function renderTicker() {
   const list = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === "az")).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
   const items = [...list, ...list].map(a => `<button data-id="${esc(a.id)}">${txt(a.title)}</button>`).join("");
-  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ Son dəqiqə</div><div class="run"><div class="track">${items}</div></div></div>`;
+  const bell = !("Notification" in window) ? "" : `<button type="button" class="bell${notifyOn() ? " on" : ""}" data-act="notify" title="Son dəqiqə bildirişi. Səhifə açıq olanda yoxlanır.">${notifyOn() ? "Açıq" : "Bildiriş"}</button>`;
+  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ Son dəqiqə${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
 }
 
 function prayBit() {
@@ -592,9 +661,8 @@ function homeView() {
   const vids = byDate(m.filter(a => a.video));
   const used = new Set();
   const hero = byDate(m).slice(0, 9); hero.forEach(a => used.add(a.id));
-  const secs = CATS.filter(c => !["video", "prezident", "sondeqiqe"].includes(c.slug))
-    .map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
-  return prezBlock(prez) + `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>` + heroBlock(byDate(m)) + dayFiveBlock(m) + alertStrip(m) + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
+  const secs = homeCats().map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
+  return prezBlock(prez) + adHtml() + heroBlock(byDate(m)) + dayFiveBlock(m) + alertStrip(m) + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -685,18 +753,27 @@ function openModal(a) {
     <div class="note">Bu xəbər avtomatik toplanmış qısa xülasədir. Mətnin tam versiyası mənbə saytına aiddir.</div>
     <div class="acts"><a class="btn" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">Mənbədə oxu ↗</a>
     <button class="btn ghost" data-act="save">${saved ? "★ Seçildi" : "☆ Seçilmişlərə"}</button>
+    ${speechVoice() ? `<button class="btn ghost" data-act="listen">${speechSynthesis.speaking ? "Dayan" : "Dinlə"}</button>` : ""}
     ${navigator.share ? `<button class="btn ghost" data-act="share">Paylaş</button>` : `<button class="btn ghost" data-act="copy">Linki kopyala</button>`}</div></div>`;
   d._a = a;
   if (!d.open) d.showModal();
 }
 function savedView() {
   const items = savedList();
-  const rows = items.map(a => `<button class="card noimg" data-id="${esc(a.id)}" data-cat="${esc(a.category || "")}"><div class="b">${a.category ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}<h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source || "")}</span><time>${ago(a.publishedAt)}</time></div></div></button>`).join("");
+  const rows = items.map(a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-id="${esc(a.id)}" data-cat="${esc(a.category || "")}">${starBtn(a)}${img(a)}<div class="b">${a.category ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}<h3>${txt(a.title)}</h3>${meta(a)}</div></button>`).join("");
   return `<div class="page-h"><div><h1>Seçilmişlər</h1><p>Ulduzla saxladığınız xəbərlər bu cihazda qalır.</p></div><span class="cnt">${items.length}</span></div>` +
-    (items.length ? `<div class="grid">${rows}</div>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Xəbəri açın və «Seçilmişlərə» düyməsinə basın.</p>`);
+    (items.length ? `<div class="grid">${rows}</div>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Kartdakı ulduza və ya açıq xəbərdə «Seçilmişlərə» düyməsinə basın.</p>`);
 }
 function sectionsView() {
-  return `<div class="page-h"><div><h1>Bölmələr</h1><p>Xəbər bölmələrinə keçid</p></div></div><div class="sec-pick">${CATS.map(c => `<a data-cat="${c.slug}" href="#/bolme/${c.slug}"><i class="cdot"></i><b>${esc(c.label)}</b><span>${esc(c.description)}</span></a>`).join("")}</div>`;
+  const { order, off } = sectionPref();
+  const hide = new Set(off);
+  const rows = order.map((slug, i) => {
+    const c = CATS.find(x => x.slug === slug);
+    if (!c) return "";
+    const on = !hide.has(slug);
+    return `<li data-cat="${esc(slug)}"><button type="button" data-act="sec-up" data-slug="${esc(slug)}" ${i === 0 ? "disabled" : ""} aria-label="Yuxarı">↑</button><button type="button" data-act="sec-down" data-slug="${esc(slug)}" ${i === order.length - 1 ? "disabled" : ""} aria-label="Aşağı">↓</button><button type="button" class="chk${on ? " on" : ""}" data-act="sec-toggle" data-slug="${esc(slug)}" aria-pressed="${on ? "true" : "false"}">${on ? "✓" : ""}</button><a href="#/bolme/${esc(slug)}"><i class="cdot"></i>${esc(c.label)}</a><span>${esc(c.description)}</span></li>`;
+  }).join("");
+  return `<div class="page-h"><div><h1>Mənim bölmələrim</h1><p>İşarəni götürün və ya sıranı dəyişin. Baş səhifə bunu yadda saxlayır.</p></div></div><ul class="mine">${rows}</ul>`;
 }
 
 function onClick(e) {
@@ -707,6 +784,24 @@ function onClick(e) {
     if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }
     if (S.fxOpen && !e.target.closest(".fx-pop") && !e.target.closest("[data-fx]")) { S.fxOpen = false; dirty = true; }
     if (dirty) { renderTopbar(); renderMarkets(); }
+    return;
+  }
+  if (t.dataset.act === "star") {
+    const id = t.dataset.save;
+    const a = byId.get(id) || savedList().find(x => x.id === id);
+    if (a) {
+      toggleSave(a);
+      const on = isSaved(id);
+      document.querySelectorAll(`[data-save="${CSS.escape(id)}"]`).forEach(el => {
+        el.classList.toggle("on", on);
+        el.textContent = on ? "★" : "☆";
+        el.setAttribute("aria-pressed", on ? "true" : "false");
+        el.setAttribute("aria-label", on ? "Seçimdən çıxar" : "Seçilmişlərə saxla");
+      });
+      const d = $("#modal");
+      if (d?.open && d._a?.id === id) openModal(a);
+      if (route().name === "saved") renderView();
+    }
     return;
   }
   if (t.dataset.yt) {
@@ -732,6 +827,34 @@ function onClick(e) {
   else if (act === "pray") { S.prayOpen = !S.prayOpen; renderTopbar(); }
   else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
+  else if (act === "notify") armNotify();
+  else if (act === "listen") {
+    const a = $("#modal")._a, v = speechVoice();
+    if (!a || !v) return;
+    if (speechSynthesis.speaking) { speechSynthesis.cancel(); t.textContent = "Dinlə"; return; }
+    const u = new SpeechSynthesisUtterance(decode(`${a.title}. ${clean(a.summary || "")}`));
+    u.voice = v; u.lang = v.lang;
+    u.onend = () => { if (t.isConnected) t.textContent = "Dinlə"; };
+    t.textContent = "Dayan";
+    speechSynthesis.speak(u);
+  }
+  else if (act === "sec-toggle" || act === "sec-up" || act === "sec-down") {
+    const slug = t.dataset.slug;
+    const pref = sectionPref();
+    if (act === "sec-toggle") {
+      const off = new Set(pref.off);
+      if (off.has(slug)) off.delete(slug); else off.add(slug);
+      writeSects(pref.order, [...off]);
+    } else {
+      const i = pref.order.indexOf(slug);
+      const j = act === "sec-up" ? i - 1 : i + 1;
+      if (i < 0 || j < 0 || j >= pref.order.length) return;
+      const order = pref.order.slice();
+      [order[i], order[j]] = [order[j], order[i]];
+      writeSects(order, pref.off);
+    }
+    renderView();
+  }
 }
 
 const THEME_KEY = "8ulduz-theme", FS_KEY = "8ulduz-fs";
@@ -1000,6 +1123,14 @@ addEventListener("resize", () => {
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); }
 
 /* ---------------------------------------------------------------- start */
+async function loadAds() {
+  try {
+    const r = await fetch(freshUrl("data/ads.json"), { cache: "no-store" });
+    if (r.ok) S.ads = await r.json();
+  } catch {}
+  const el = document.querySelector("main .ad");
+  if (el && route().name === "home") el.outerHTML = adHtml();
+}
 async function loadVideo() {
   try {
     const r = await fetch(freshUrl("data/video.json"), { cache: "no-store" });
@@ -1063,12 +1194,39 @@ async function loadStatus() {
 }
 applyPrefs();
 enableAnalytics();
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    const id = e.data?.type === "open" ? e.data.id : "";
+    const a = id && byId.get(id);
+    if (a) openModal(a);
+  });
+}
+if (window.speechSynthesis) {
+  let voiceSnap = "";
+  speechSynthesis.addEventListener("voiceschanged", () => {
+    const v = speechVoice();
+    const key = v ? v.lang : "";
+    if (key === voiceSnap) return;
+    voiceSnap = key;
+    const d = $("#modal");
+    if (d?.open && d._a) openModal(d._a);
+  });
+}
 shell(); render();
-loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadPrayer("Bakı"); loadWarnings();
+loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadPrayer("Bakı"); loadWarnings(); loadAds();
 setInterval(loadNews, POLL_MS);
 setInterval(loadStatus, POLL_MS);
 setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
+setInterval(() => { if (adSlots().length > 1 && route().name === "home") { const el = document.querySelector("main .ad"); if (el) el.outerHTML = adHtml(); } }, 30e3);
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const star = e.target.closest?.("[data-act=star]");
+  if (!star) return;
+  e.preventDefault();
+  e.stopPropagation();
+  star.click();
+});
 setInterval(loadWeather, 30 * 60e3);
 setInterval(() => { if (S.data) renderTopbar(); }, 30e3);
