@@ -216,7 +216,7 @@ const card = a => `<article class="card${a.imageUrl ? "" : " noimg"}" data-cat="
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
 
 /* ---------------------------------------------------------------- vəziyyət */
-const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null };
+const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 const PRAY_SVG = {
@@ -227,7 +227,61 @@ const PRAY_SVG = {
   Maghrib: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.2h17M12 6.6v2.4M8.5 9.2l1.5 1.5M15.5 9.2 14 10.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M7.2 18.2a4.8 4.8 0 0 1 9.6 0" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`,
   Isha: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14.8 3.6a7.1 7.1 0 1 0 5.6 11.2A6.2 6.2 0 0 1 14.8 3.6z"/></svg>`,
 };
+// WARN_RE dar saxlanır. Tıxac səhifəsi aşağıdakı ROAD_RULES ilə süzülür.
 const WARN_RE = /tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
+const TRAFFIC_AREAS = [
+  { id: "merkez", label: "Bakı mərkəz", lat: 40.4093, lon: 49.8671, zoom: 12 },
+  { id: "sumqayit", label: "Sumqayıt yolu", lat: 40.482, lon: 49.835, zoom: 13 },
+  { id: "hava", label: "Hava limanı yolu", lat: 40.45, lon: 50.0, zoom: 13 },
+  { id: "abseron", label: "Abşeron", lat: 40.45, lon: 49.95, zoom: 11 },
+];
+const ROAD_RULES = [
+  { icon: "💥", kind: "qeza", re: /qəza(?!lı)/iu },
+  { icon: "🚧", kind: "bagli", re: /(?:yol|küçə|prospekt|körpü|tunel|şose)\w{0,6}\s*bağlan|bağlan\w{0,8}\s+(?:yol|küçə|prospekt)|yol bağlı|hərəkət\w{0,4}\s+məhdudlaş|(?:yol|küçə|prospekt|körpü|tunel|şose)\w{0,8}.{0,40}təmir|təmir.{0,32}(?:yol|küçə|prospekt|körpü|tunel|şose)/iu },
+  { icon: "🚦", kind: "tixac", re: /tıxac/iu },
+  { icon: "🚇", kind: "metro", re: /metro|avtobus/iu },
+  { icon: "🌧", kind: "hava", re: /hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu },
+];
+const ROAD_FALLBACK = /(?:^|[^\p{L}])(?:BNA|DYP)(?:[^\p{L}]|$)|yol polisi|nəqliyyatın hərəkət|avtomobil yol/iu;
+function roadKind(title) {
+  const t = decode(title || "");
+  for (const r of ROAD_RULES) if (r.re.test(t)) return r;
+  if (ROAD_FALLBACK.test(t)) return { icon: "🚦", kind: "yol" };
+  return null;
+}
+function roadItems(list) {
+  return (list || []).filter(a => (a.lang ?? "az") === "az").flatMap(a => {
+    const k = roadKind(a.title);
+    return k ? [{ ...a, icon: k.icon, kind: k.kind }] : [];
+  }).sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+}
+function tixArea() { return TRAFFIC_AREAS.find(a => a.id === S.tixArea) || TRAFFIC_AREAS[0]; }
+function wazeSrc(a) { return `https://embed.waze.com/iframe?zoom=${a.zoom}&lat=${a.lat}&lon=${a.lon}`; }
+function wazeLive(a) { return `https://www.waze.com/live-map?ll=${a.lat},${a.lon}&zoom=${a.zoom}`; }
+function bakuClock(date = new Date()) {
+  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Baku", hourCycle: "h23", weekday: "short", hour: "numeric" });
+  const parts = Object.fromEntries(fmt.formatToParts(date).map(p => [p.type, p.value]));
+  return { wd: parts.weekday, hour: Number(parts.hour) };
+}
+function bakuRush(date = new Date()) {
+  const { wd, hour } = bakuClock(date);
+  return ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(wd) && ((hour >= 8 && hour < 10) || (hour >= 17 && hour < 20));
+}
+function roadFresh(a) {
+  if (a.kind !== "qeza" && a.kind !== "bagli") return false;
+  const t = new Date(a.publishedAt).getTime();
+  if (Number.isNaN(t)) return false;
+  const age = Date.now() - t;
+  return age >= -5 * 60e3 && age < HOUR;
+}
+function roadHot(list) { return bakuRush() || roadItems(list).some(roadFresh); }
+function syncTixDot() {
+  const hot = roadHot(S.data?.articles || []);
+  document.querySelectorAll(".tix-btn").forEach(el => {
+    el.classList.toggle("hot", hot);
+    el.setAttribute("aria-label", hot ? "Tıxac — diqqət" : "Tıxac");
+  });
+}
 const SAVE_KEY = "8ulduz-saved";
 function savedList() { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
 function isSaved(id) { return savedList().some(x => x.id === id); }
@@ -374,6 +428,7 @@ function route() {
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
   if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
   const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: m[1] };
+  if (h === "/tixac" || h.startsWith("/tixac?")) return { name: "traffic" };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
   return { name: "home" };
 }
@@ -385,6 +440,7 @@ function shell() {
   <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
+    <a class="tix-btn" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac">🚦</a>
     <label class="search"><span class="sr" hidden>Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
@@ -398,6 +454,7 @@ function shell() {
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
     <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
+    <a href="#/tixac" data-tab="traffic"><b>🚦</b><span>Tıxac</span></a>
     <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
     <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
@@ -442,7 +499,8 @@ function renderTopbar() {
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` +
-    CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("");
+    CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("") +
+    `<a href="#/tixac" class="${r.name === "traffic" ? "on" : ""}">🚦 Tıxac</a>`;
   $("#nav .on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
@@ -622,12 +680,11 @@ function heroBlock(list) {
   </section>`;
 }
 
-function alertStrip(list) {
-  const cut = Date.now() - 36 * HOUR;
-  const hits = byDate(list.filter(a => (a.lang ?? "az") === "az" && new Date(a.publishedAt).getTime() > cut && WARN_RE.test(decode(a.title)))).slice(0, 3);
+function alertStrip() {
+  const hits = roadItems(S.data?.articles || []).slice(0, 3);
   const wx = (S.warn || []).join(" · ");
-  if (!hits.length && !wx) return "";
-  return `<section class="alerts"><b>Yol və hava</b>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("")}</section>`;
+  const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
+  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">🚦 Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
 }
 function ytBlock() {
   const items = S.video?.items || [];
@@ -700,7 +757,7 @@ function homeView() {
   const used = new Set();
   const hero = byDate(m).slice(0, 9); hero.forEach(a => used.add(a.id));
   const secs = homeCats().map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
-  return prezBlock(prez) + adHtml() + heroBlock(byDate(m)) + dayFiveBlock(m) + alertStrip(m) + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
+  return prezBlock(prez) + adHtml() + heroBlock(byDate(m)) + dayFiveBlock(m) + alertStrip() + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -732,16 +789,35 @@ function searchView() {
   return listPage(`Axtarış: “${S.q}”`, "Başlıq, xülasə və mənbə adına görə", list);
 }
 
+function trafficView() {
+  const area = tixArea();
+  const items = roadItems(S.data?.articles || []).slice(0, 40);
+  const jumps = TRAFFIC_AREAS.map(a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`).join("");
+  const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
+  const map = S.tixOn
+    ? `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
+    : `<div class="tix-open"><p>Xəritə yalnız açanda yüklənir.</p><button type="button" class="btn" data-act="tix-open">Xəritəni aç</button></div>`;
+  const rows = items.length
+    ? `<ul class="tix-list">${items.map(a => `<li><a href="${esc(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${esc(a.source)} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
+    : `<p class="empty">Hazırda yol xəbəri görünmür. Xəritə canlıdır.</p>`;
+  return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
+    <p class="tix-note">Xəritə Waze-dən açılır, açar tələb etmir. Yol xəbərləri saytdakı mövcud lentlərdən süzülür.</p>
+    ${rush}
+    <div class="tix-jumps">${jumps}</div>
+    <div class="tix-map" id="tix-map">${map}<div class="tix-bar"><a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a></div></div>
+    ${rows}`;
+}
+
 function renderView() {
   const v = $("#view");
   if (S.error && !S.data) { v.innerHTML = `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>`; return; }
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>` : "";
-  const body = r.name === "sources" ? sourcesView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "sources" ? sourcesView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = r.name !== "home" || !!S.q;
-  const tab = r.name === "saved" ? "saved" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
+  const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
   document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
   setupMarquees();
 }
@@ -834,6 +910,13 @@ function onClick(e) {
   else if (act === "wx-back") { S.wxSel = null; renderTopbar(); }
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "find") { const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
+  else if (act === "tix-open") { S.tixOn = true; renderView(); }
+  else if (act === "tix-area") {
+    const id = t.dataset.area || "merkez";
+    if (id === S.tixArea && S.tixOn) return;
+    S.tixArea = id;
+    renderView();
+  }
   else if (act === "pray") { S.prayOpen = !S.prayOpen; renderTopbar(); }
   else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
@@ -1147,7 +1230,7 @@ addEventListener("resize", () => {
   marqueeResizeT = setTimeout(() => { setupMarquees(); syncLangStick(); }, 150);
 });
 
-function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); }
+function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
 
 /* ---------------------------------------------------------------- start */
 async function loadAds() {
@@ -1244,3 +1327,12 @@ document.addEventListener("keydown", (e) => {
 });
 setInterval(loadWeather, 30 * 60e3);
 setInterval(() => { if (S.data) renderTopbar(); }, 30e3);
+let rushWas = bakuRush();
+setInterval(() => {
+  syncTixDot();
+  const rush = bakuRush();
+  if (rush === rushWas) return;
+  rushWas = rush;
+  const n = route().name;
+  if ((n === "home" || n === "traffic") && S.data) renderView();
+}, 60e3);
