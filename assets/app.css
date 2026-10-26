@@ -81,6 +81,8 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 /* --- son dəqiqə lenti --- */
 .ticker{display:flex;border-bottom:1px solid var(--border);background:var(--ticker-bg);overflow:hidden}
 .ticker .lbl{flex:none;display:flex;align-items:center;gap:6px;background:var(--red);color:#fff;font-weight:800;font-size:0.7857rem;text-transform:uppercase;letter-spacing:.06em;padding:0 12px}
+.ticker .lbl .bell{letter-spacing:0;text-transform:none;background:#ffffff22;color:#fff;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:800}
+.ticker .lbl .bell.on{background:#fff;color:var(--red)}
 .ticker .run{flex:1;overflow:hidden;padding:7px 0}
 .ticker .track{display:flex;gap:36px;width:max-content;animation:marquee 90s linear infinite;padding-left:20px}
 .ticker:hover .track{animation-play-state:paused}
@@ -185,6 +187,8 @@ main>.wrap>section{margin-bottom:18px}
 
 /* --- reklam yeri (yığcam) --- */
 .ad{display:grid;place-items:center;height:54px;border:1px dashed var(--ad-border);border-radius:10px;background:var(--ad);font-size:0.75rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--muted2)}
+.ad.ad-live{padding:0;letter-spacing:0;text-transform:none;overflow:hidden;border-style:solid}
+.ad.ad-live a,.ad.ad-live img{display:block;width:100%;height:54px;object-fit:cover}
 
 /* --- əsas blok --- */
 .hero{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:var(--gap);align-items:stretch}
@@ -224,7 +228,9 @@ main>.wrap>section{margin-bottom:18px}
 @media (max-width:1100px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:820px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:520px){.grid{grid-template-columns:1fr;gap:8px}}
-.card{display:flex;flex-direction:column;text-align:left;border:1px solid var(--border);background:var(--card);border-radius:var(--radius);overflow:hidden;transition:border-color .15s,transform .15s;min-width:0}
+.card{position:relative;display:flex;flex-direction:column;text-align:left;border:1px solid var(--border);background:var(--card);border-radius:var(--radius);overflow:hidden;transition:border-color .15s,transform .15s;min-width:0}
+.star{position:absolute;z-index:2;top:6px;right:6px;width:24px;height:24px;border-radius:99px;display:grid;place-items:center;background:#000a;color:#fff;font-size:13px;line-height:1;cursor:pointer}
+.star.on{color:var(--primary)}
 .card:hover{border-color:hsl(43 96% 56%/.5);transform:translateY(-1px)}
 .card .img{aspect-ratio:16/9}
 .card .b{display:flex;flex-direction:column;gap:5px;padding:9px 11px 10px;flex:1;min-width:0}
@@ -338,6 +344,13 @@ dialog.modal::backdrop{background:#000b}
   .totop{bottom:70px}
 }
 @media (max-width:560px){.sec-pick{grid-template-columns:1fr}}
+.mine{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.mine li{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--card);border-radius:8px;padding:4px 8px;min-width:0}
+.mine button{width:22px;height:22px;border-radius:6px;border:1px solid var(--border);color:var(--muted);flex:none}
+.mine .chk.on{background:var(--primary);border-color:var(--primary);color:var(--primary-fg);font-weight:800}
+.mine a{display:flex;align-items:center;gap:6px;font-weight:800;min-width:0;flex:none}
+.mine span{flex:1;min-width:0;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+@media (max-width:640px){.mine span{display:none}}
 .mk-wrap{position:relative}
 .fx-pop{position:absolute;left:50%;transform:translateX(-50%);top:100%;z-index:40;width:min(320px,92vw);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:0 12px 32px #0008;display:flex;flex-direction:column;gap:8px}
 .fx-h{display:flex;align-items:center;justify-content:space-between}
