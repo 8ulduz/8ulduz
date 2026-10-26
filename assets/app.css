@@ -112,6 +112,10 @@ nav.main a.nav-tix,.nav.main a.nav-tix:hover,.nav.main a.nav-tix.on{display:inli
 .search{flex:none;position:relative;margin-left:auto}
 .search input{width:148px;height:32px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);padding:0 12px 0 30px;font:inherit;font-size:0.9286rem;outline:none}
 .search input:focus{border-color:var(--primary)}
+.search input:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.skip{position:absolute;left:8px;top:-48px;z-index:90;background:var(--primary);color:var(--primary-fg);font-weight:800;padding:6px 12px;border-radius:8px}
+.skip:focus{top:8px}
 .search svg{position:absolute;left:10px;top:9px;opacity:.6}
 @media (min-width:721px){
   .topbar .wrap{flex-wrap:nowrap;height:31px;min-height:31px;overflow:visible}

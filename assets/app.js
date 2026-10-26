@@ -69,9 +69,22 @@ const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən 
 const $ = (s, r = document) => r.querySelector(s);
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const _dec = document.createElement("textarea");
-function decode(s) { if (!s || s.indexOf("&") < 0) return s || ""; _dec.innerHTML = s; return _dec.value; }
+function decode(s) {
+  if (!s) return "";
+  let cur = String(s);
+  for (let i = 0; i < 3 && cur.indexOf("&") >= 0; i++) {
+    _dec.innerHTML = cur;
+    const next = _dec.value;
+    if (next === cur) break;
+    cur = next;
+  }
+  return cur;
+}
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ESC[c]); }
-const txt = s => esc(decode(s));
+function tidy(s) {
+  return decode(s).replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/(?:\s*[-–—|])+\s*$/u, "").trim();
+}
+const txt = s => esc(tidy(s));
 const catLabel = slug => CATS.find(c => c.slug === slug)?.label ?? slug;
 function ago(iso) {
   const t = new Date(iso).getTime(); if (Number.isNaN(t)) return "";
@@ -191,6 +204,37 @@ function clusterArticles(list) {
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
 }
+// Eyni başlıq (eyni mənbə adı da olsa) 36 saat içində bir kart olsun.
+function collapseExact(list) {
+  const groups = [];
+  for (const a of list || []) {
+    const key = normTitle(decode(a.title));
+    const dt = new Date(a.publishedAt).getTime();
+    let g = null;
+    if (key.length >= 12 && !Number.isNaN(dt)) g = groups.find(x => x.key === key && Math.abs(x.dt - dt) <= GROUP_MS);
+    if (!g) groups.push({ key, dt: Number.isNaN(dt) ? 0 : dt, items: [a] });
+    else g.items.push(a);
+  }
+  const out = [];
+  for (const g of groups) {
+    let primary = g.items[0];
+    for (const a of g.items.slice(1)) primary = preferPrimary(primary, a);
+    const alts = [];
+    const urls = new Set([primary.sourceUrl]);
+    const push = (src, url, publishedAt) => {
+      if (!url || urls.has(url)) return;
+      urls.add(url);
+      alts.push({ source: src, sourceUrl: url, publishedAt });
+    };
+    for (const a of g.items) {
+      if (a !== primary) push(a.source, a.sourceUrl, a.publishedAt);
+      for (const alt of a.alts || []) push(alt.source, alt.sourceUrl, alt.publishedAt);
+    }
+    if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+    out.push(primary);
+  }
+  return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+}
 const altBadge = a => a.alts?.length ? `<span class="bd gold">+${a.alts.length} mənbə</span>` : "";
 function altPop(a) {
   if (!a.alts?.length) return "";
@@ -199,18 +243,31 @@ function altPop(a) {
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
 
-function img(a, cls = "") {
+function imgUrl(a) {
+  const u = a?.imageUrl || "";
+  if (!u || /\/(?:resize\/?)?$/.test(u)) return "";
+  return u;
+}
+function img(a, cls = "", eager = false) {
   const ph = `<svg class="ph" viewBox="0 0 32 32" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
-  const src = a.imageUrl ? `<img src="${esc(a.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
+  const url = imgUrl(a);
+  const src = url ? `<img src="${esc(url)}" alt="" ${eager ? `fetchpriority="high"` : `loading="lazy"`} decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
   return `<div class="img ${cls}">${ph}${src}</div>`;
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
   return `<div class="badges">${withCat ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}${more}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>`;
 }
-const meta = a => `<div class="meta"><span class="src">${esc(a.source)}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</span><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
+function shownSource(a) {
+  try {
+    const host = new URL(a.sourceUrl || "").hostname.replace(/^www\./, "");
+    if (host === "sesqazeti.az") return "Sesqazeti.az";
+  } catch {}
+  return a.source || "";
+}
+const meta = a => `<div class="meta"><span class="src">${esc(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</span><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" aria-label="${isSaved(a.id) ? "Seçimdən çıxar" : "Seçilmişlərə saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${a.imageUrl ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, true, "pop")}<a class="card-hit" href="${esc(a.sourceUrl || "#")}" ${OUT}><h3>${txt(a.title)}</h3>${meta(a)}</a></div></article>`;
+const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, true, "pop")}<a class="card-hit" href="${esc(a.sourceUrl || "#")}" ${OUT}><h3>${txt(a.title)}</h3>${meta(a)}</a></div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
@@ -348,7 +405,7 @@ function adHtml() {
   const slots = adSlots();
   if (!slots.length) return `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>`;
   const s = slots[Math.floor(Date.now() / 30000) % slots.length];
-  return `<section class="ad ad-live" aria-label="Reklam"><a href="${esc(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}"></a></section>`;
+  return `<section class="ad ad-live" aria-label="Reklam"><a href="${esc(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}" loading="lazy" decoding="async"></a></section>`;
 }
 const byId = new Map();
 
@@ -365,7 +422,7 @@ async function loadNews() {
     if (S.data && S.data.updatedAt === d.updatedAt && S.og) { renderTopbar(); return; }
     await loadOg();
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
-    d.articles = clusterArticles(d.articles);
+    d.articles = collapseExact(clusterArticles(d.articles));
     S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
     checkBreaking(d.articles);
     render();
@@ -436,6 +493,7 @@ function route() {
 /* ---------------------------------------------------------------- render */
 function shell() {
   $("#app").innerHTML = `
+  <a class="skip" href="#view">Məzmuna keç</a>
   <div class="topbar"><div class="wrap" id="topbar"></div></div>
   <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
@@ -448,7 +506,7 @@ function shell() {
   <div id="ticker"></div>
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
-  <main><div class="wrap" id="view"></div></main>
+  <main><div class="wrap" id="view" tabindex="-1"></div></main>
   <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="https://t.me/" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
@@ -467,10 +525,47 @@ function shell() {
     renderView();
   });
   document.addEventListener("click", onClick);
-  window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; const r = route(); if (r.name === "search") { S.q = r.q; q.value = r.q; } render(); window.scrollTo(0, 0); });
+  window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; syncQuery(); render(); window.scrollTo(0, 0); });
   window.addEventListener("scroll", () => { $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
-  const r = route(); if (r.name === "search") { S.q = r.q; q.value = r.q; }
+  syncQuery();
+}
+function syncQuery() {
+  const r = route();
+  const q = $("#q");
+  if (r.name === "search") {
+    S.q = r.q || "";
+    if (q && document.activeElement !== q) q.value = S.q;
+  } else {
+    S.q = "";
+    if (q) q.value = "";
+  }
+}
+const HOME_DESC = document.querySelector('meta[name="description"]')?.getAttribute("content") || "";
+function pageMeta() {
+  const r = route();
+  const md = document.querySelector('meta[name="description"]');
+  if (r.name === "home") {
+    document.title = "8ulduz — Son xəbərlər";
+    if (md && HOME_DESC) md.setAttribute("content", HOME_DESC);
+    return;
+  }
+  let name = "8ulduz";
+  let desc = HOME_DESC;
+  if (r.name === "section") {
+    const c = CATS.find(x => x.slug === r.slug);
+    if (c) { name = c.label; desc = c.description; }
+    else name = "Bölmə tapılmadı";
+  } else if (r.name === "search") {
+    name = S.q ? `Axtarış: ${S.q}` : "Axtarış";
+    desc = "Başlıq, xülasə və mənbə adına görə axtarış.";
+  } else if (r.name === "traffic") { name = "Tıxac və yollar"; desc = "Bakı və Abşeronun canlı yol vəziyyəti."; }
+  else if (r.name === "saved") { name = "Seçilmişlər"; desc = "Bu cihazda saxlanan xəbərlər."; }
+  else if (r.name === "sources") { name = "Mənbə vəziyyəti"; desc = "RSS lentlərinin son yoxlanması."; }
+  else if (r.name === "sections") { name = "Mənim bölmələrim"; desc = "Baş səhifə bölmələrinin sırası."; }
+  else if (r.name === "videos") { name = "Video xəbərlər"; desc = "Azərbaycan kanallarının video lentləri."; }
+  document.title = `${name} — 8ulduz`;
+  if (md && desc) md.setAttribute("content", desc);
 }
 
 function renderTopbar() {
@@ -698,7 +793,7 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  const cards = list.map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${altBadge(a)}${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
+  const cards = list.map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${altBadge(a)}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
@@ -712,7 +807,7 @@ function heroBlock(list) {
   const main = list.find(a => a.imageUrl && (a.lang ?? "az") === "az") ?? list.find(a => a.imageUrl) ?? list[0];
   const side = list.filter(a => a !== main).slice(0, 8);
   return `<section class="hero">
-    <a class="hero-main" data-cat="${esc(main.category)}" href="${esc(main.sourceUrl)}" ${OUT}>${img(main)}<div class="body">
+    <a class="hero-main" data-cat="${esc(main.category)}" href="${esc(main.sourceUrl)}" ${OUT}>${img(main, "", true)}<div class="body">
       <div class="badges"><span class="bd gold" data-cat="${esc(main.category)}"><i class="cdot"></i>${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
       <h1>${txt(main.title)}</h1>
       <div class="meta"><span class="src">${esc(main.source)}</span><time>${ago(main.publishedAt)}</time></div></div></a>
@@ -751,7 +846,9 @@ function footballBlock(list) {
 }
 function videosView() {
   const items = S.video?.items || [];
-  return `<div class="page-h"><div><h1>Video xəbərlər</h1><p>Azərbaycan kanallarının YouTube lentləri. Video düyməyə basanda açılır.</p></div><span class="cnt">${items.length}</span></div><div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
+  const head = `<div class="page-h"><div><h1>Video xəbərlər</h1><p>Azərbaycan kanallarının YouTube lentləri. Video düyməyə basanda açılır.</p></div><span class="cnt">${items.length}</span></div>`;
+  if (!items.length) return `${head}<p class="empty">Video lent hazırda açılmır. Bir az sonra yenidən baxın.</p>`;
+  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
 }
 function videoBlock(list) {
   if (!list.length) return "";
@@ -838,7 +935,7 @@ function trafficView() {
     ? `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
     : `<div class="tix-open"><p>Xəritə yalnız açanda yüklənir.</p><button type="button" class="btn" data-act="tix-open">Xəritəni aç</button></div>`;
   const rows = items.length
-    ? `<ul class="tix-list">${items.map(a => `<li><a href="${esc(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${esc(a.source)} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
+    ? `<ul class="tix-list">${items.map(a => `<li><a href="${esc(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${esc(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Hazırda yol xəbəri görünmür. Xəritə canlıdır.</p>`;
   return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
     <p class="tix-note">Xəritə Waze-dən açılır, açar tələb etmir. Yol xəbərləri saytdakı mövcud lentlərdən süzülür.</p>
@@ -849,6 +946,8 @@ function trafficView() {
 }
 
 function renderView() {
+  syncQuery();
+  pageMeta();
   const v = $("#view");
   if (S.error && !S.data) { v.innerHTML = `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>`; return; }
   if (!S.data) { v.innerHTML = skeleton(); return; }
@@ -881,7 +980,7 @@ function sourcesView() {
 }
 
 function renderFooter() {
-  const srcs = [...new Set((S.data?.articles ?? []).map(a => a.source))].sort((a, b) => a.localeCompare(b, "az"));
+  const srcs = [...new Set((S.data?.articles ?? []).map(shownSource))].sort((a, b) => a.localeCompare(b, "az"));
   $("#footer").innerHTML = `<div class="wrap fgrid">
     <div><div class="logo"><i>${STAR}</i><b>8<span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Başlıq mənbənin öz səhifəsinə açılır.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
@@ -1347,7 +1446,18 @@ async function loadStatus() {
 }
 applyPrefs();
 enableAnalytics();
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").then((reg) => {
+    if (!navigator.serviceWorker.controller) return;
+    reg.addEventListener("updatefound", () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener("statechange", () => {
+        if (nw.state === "activated") location.reload();
+      });
+    });
+  }).catch(() => {});
+}
 document.addEventListener("toggle", (e) => {
   const d = e.target;
   if (!d.classList?.contains("altpop") || !d.open) return;
