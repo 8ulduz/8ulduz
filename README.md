@@ -42,7 +42,7 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 
 - `data/video.json` — İctimai TV, Xezer TV, ARB 24, Report.az və Trend TV YouTube RSS lentləri. Başlıqlar liderlik süzgəcindən keçir. Saytda video yalnız düyməyə basanda açılır.
 - `data/football.json` — TheSportsDB-nin açıq sınaq açarı (`123`, hesab deyil) Premyer Liqa cədvəlini yarımçıq qaytarır, ona görə cədvəl göstərilmir. Son oyun və mövcud futbol xəbərləri, üstəlik [pfl.az](https://pfl.az/) keçidi qalır.
-- Namaz vaxtı və hicri tarix brauzerdə [aladhan.com](https://api.aladhan.com) açarsız API-sindən, seçilmiş bölgənin koordinatı ilə alınır.
+- Namaz vaxtı və hicri tarix brauzerdə [aladhan.com](https://api.aladhan.com) açarsız API-sindən alınır (`method=13`, şəhərin eni və uzunluğu). Şəhər siyahısı hava bölgələri ilə eynidir. Seçim bu cihazda qalır (`8ulduz-pray-city`).
 - Yol/hava zolağı xəbər başlıqlarındakı açar sözlərdən və Open-Meteo-nun günlüq hava kodundan yığılır. Open-Meteo Azərbaycan üçün rəsmi xəbərdarlıq lenti vermir.
 - `#/tixac` Bakının canlı tıxac xəritəsini Waze-in açarsız iframe ünvanından göstərir (`https://embed.waze.com/iframe?zoom=&lat=&lon=`). Xəritə yalnız «Xəritəni aç» düyməsindən sonra yüklənir. Tam ekran keçidi `waze.com/live-map`. Yol xəbərləri yeni lent əlavə etmədən mövcud xəbərlərdən süzülür: `bna.az` / `bna.gov.az` açılmır (səhifə tikinti vəziyyətindədir), DYP-nin (`dyp.gov.az`) və AYNA-nın (`ayna.gov.az/az/news`) işlək RSS-i yoxdur. İş günü Bakı vaxtı ilə 08:00–10:00 və 17:00–20:00 «Pik saat» nişanı çıxır.
 

@@ -198,7 +198,6 @@ function altPop(a) {
   return `<details class="altpop"><summary class="bd gold">+${a.alts.length} mənbə</summary><div>${rows}</div></details>`;
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
-const TL = `<span class="tl" aria-hidden="true"><i></i><i></i><i></i></span>`;
 
 function img(a, cls = "") {
   const ph = `<svg class="ph" viewBox="0 0 32 32" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
@@ -441,7 +440,7 @@ function shell() {
   <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
-    <a class="tix-btn" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac">${TL}</a>
+    <a class="tix-stick tix-btn tix-band" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac">Tıxac</a>
     <label class="search"><span class="sr" hidden>Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
@@ -455,7 +454,7 @@ function shell() {
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
     <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
-    <a href="#/tixac" data-tab="traffic"><b>${TL}</b><span>Tıxac</span></a>
+    <a href="#/tixac" data-tab="traffic" class="tix-band"><span>Tıxac</span></a>
     <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
     <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
@@ -492,16 +491,18 @@ function renderTopbar() {
   $("#topbar").innerHTML = `    <span>${today()}</span>
     ${prayBit()}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
+    <a class="tix-pill tix-btn tix-band" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac"><span class="tix-lab">Tıxac</span></a>
     <span class="sp sync">${S.lastSync ? `<span class="dot"></span>Son yenilənmə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${upd ? `<span class="yenilendi"><span class="dot live" style="background:#34d399"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
     <span class="prefs"><button data-act="theme" title="${light ? "Qaranlıq mövzu" : "İşıqlı mövzu"}" aria-label="Mövzu">${light ? "☾" : "☀"}</button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
+  syncTixDot();
 }
 
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` +
     CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("") +
-    `<a href="#/tixac" class="nav-tix${r.name === "traffic" ? " on" : ""}">${TL}Tıxac</a>`;
+    `<a href="#/tixac" class="nav-tix tix-band${r.name === "traffic" ? " on" : ""}">Tıxac</a>`;
   fitNav();
 }
 function fitNav() {
@@ -549,9 +550,21 @@ function prayLeft(mins) {
   if (!h) return `${m} dəq`;
   return m ? `${h} saat ${m} dəq` : `${h} saat`;
 }
+const PRAY_CITY_KEY = "8ulduz-pray-city";
+function savedPrayCity() {
+  try {
+    const v = localStorage.getItem(PRAY_CITY_KEY);
+    if (CITIES.some(c => c[0] === v)) return v;
+  } catch {}
+  return "Bakı";
+}
+function prayCityOptions(current) {
+  return [...CITIES].sort((a, b) => a[0].localeCompare(b[0], "az")).map(([name]) => `<option value="${esc(name)}"${name === current ? " selected" : ""}>${esc(name)}</option>`).join("");
+}
 function prayBit() {
   const p = S.pray;
-  if (!p) return `<button class="pray" data-act="pray" type="button">Namaz</button>`;
+  const city = p?.city || savedPrayCity();
+  if (!p) return `<button class="pray" data-act="pray" type="button">Namaz · ${esc(city)}</button>`;
   const h = p.hijri || {};
   const month = HIJRI_AZ[Number(h.month?.number)] || h.month?.en || "";
   const next = nextPrayer(p.timings);
@@ -562,8 +575,8 @@ function prayBit() {
     const mark = on ? `<span class="pray-when"><em>növbəti</em><small>${esc(prayLeft(next.mins))}</small></span>` : `<span></span>`;
     return `<div class="pray-row${on ? " next" : ""}">${prayIcon(k)}<span class="pn">${esc(lab)}</span>${mark}<b class="pt">${time}</b></div>`;
   }).join("");
-  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>${esc(p.city)}</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div>${rows}</div>` : "";
-  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
+  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>Namaz</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div><label class="pray-pick"><span>Şəhər</span><select class="pray-city" aria-label="Namaz şəhəri">${prayCityOptions(city)}</select></label>${rows}</div>` : "";
+  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity">Namaz · ${esc(city)}</span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
 }
 function nextPrayer(times) {
   if (!times) return { key: "", lab: "Namaz", time: "", mins: null };
@@ -711,7 +724,7 @@ function alertStrip() {
   const hits = roadItems(S.data?.articles || []).slice(0, 3);
   const wx = (S.warn || []).join(" · ");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">${TL}Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
+  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go tix-band" href="#/tixac">Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
 }
 function ytBlock() {
   const items = S.video?.items || [];
@@ -931,7 +944,7 @@ function onClick(e) {
   if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
-  if (t.dataset.city) { S.wxSel = t.dataset.city; loadPrayer(t.dataset.city); renderTopbar(); return; }
+  if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
   const act = t.dataset.act;
   if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
@@ -1283,13 +1296,14 @@ async function loadFootball() {
   } catch {}
 }
 async function loadPrayer(city) {
-  const c = CITIES.find(x => x[0] === city) || CITIES[0];
+  const name = CITIES.some(c => c[0] === city) ? city : savedPrayCity();
+  const c = CITIES.find(x => x[0] === name) || CITIES[0];
+  const token = (S.prayToken = (S.prayToken || 0) + 1);
   try {
     const u = `https://api.aladhan.com/v1/timings?latitude=${c[1]}&longitude=${c[2]}&method=13`;
     const d = await (await fetch(u)).json();
-    const hijri = d?.data?.date?.hijri;
-    if (!d?.data?.timings) return;
-    S.pray = { city: c[0], timings: d.data.timings, hijri };
+    if (token !== S.prayToken || !d?.data?.timings) return;
+    S.pray = { city: c[0], timings: d.data.timings, hijri: d.data.date?.hijri };
     renderTopbar();
   } catch {}
 }
@@ -1340,12 +1354,21 @@ document.addEventListener("toggle", (e) => {
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);
 shell(); render();
-loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadPrayer("Bakı"); loadWarnings(); loadAds();
+loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
 setInterval(loadNews, POLL_MS);
 setInterval(loadStatus, POLL_MS);
 setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
 setInterval(() => { if (adSlots().length > 1 && route().name === "home") { const el = document.querySelector("main .ad"); if (el) el.outerHTML = adHtml(); } }, 30e3);
+document.addEventListener("change", (e) => {
+  const sel = e.target.closest?.("select.pray-city");
+  if (!sel) return;
+  const city = sel.value;
+  if (!CITIES.some(c => c[0] === city)) return;
+  try { localStorage.setItem(PRAY_CITY_KEY, city); } catch {}
+  S.prayOpen = true;
+  loadPrayer(city);
+});
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" && e.key !== " ") return;
   const star = e.target.closest?.("[data-act=star]");
