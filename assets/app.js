@@ -382,13 +382,13 @@ function route() {
 function shell() {
   $("#app").innerHTML = `
   <div class="topbar"><div class="wrap" id="topbar"></div></div>
-  <header class="site"><div class="wrap hrow">
+  <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
     <label class="search"><span class="sr" hidden>Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
-  </div></header>
+  </div><div class="langstick" id="langstick"></div></header>
   <div id="ticker"></div>
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
@@ -411,7 +411,7 @@ function shell() {
   });
   document.addEventListener("click", onClick);
   window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; const r = route(); if (r.name === "search") { S.q = r.q; q.value = r.q; } render(); window.scrollTo(0, 0); });
-  window.addEventListener("scroll", () => $("#totop").classList.toggle("show", scrollY > 600), { passive: true });
+  window.addEventListener("scroll", () => { $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   const r = route(); if (r.name === "search") { S.q = r.q; q.value = r.q; }
 }
@@ -541,9 +541,25 @@ function fxPop() {
     <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
 }
 
+function langButtons(compact) {
+  const btn = (code, label, short) => {
+    const on = code ? S.lang === code : S.lang === null;
+    return `<button type="button" class="pill${on ? " on" : ""}" data-lang="${code}" aria-label="${esc(label)}"${compact ? ` title="${esc(label)}"` : ""}>${esc(compact ? short : label)}</button>`;
+  };
+  return btn("", "Hamısı", "Hamısı") + LANGS.map(l => btn(l.code, l.label, LANG_BADGE[l.code] || l.code.toUpperCase())).join("");
+}
 function renderLangs() {
-  $("#langs").innerHTML = `<button class="pill ${S.lang === null ? "on" : ""}" data-lang="">Hamısı</button>` +
-    LANGS.map(l => `<button class="pill ${S.lang === l.code ? "on" : ""}" data-lang="${l.code}">${l.label}</button>`).join("");
+  const row = $("#langs");
+  if (row) row.innerHTML = langButtons(false);
+  const stick = $("#langstick");
+  if (stick) stick.innerHTML = `<div class="wrap">${langButtons(true)}</div>`;
+  syncLangStick();
+}
+function syncLangStick() {
+  const head = document.querySelector("header.site");
+  const filters = document.querySelector(".filters");
+  if (!head || !filters) return;
+  head.classList.toggle("stuck", filters.getBoundingClientRect().bottom <= head.getBoundingClientRect().bottom + 1);
 }
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
@@ -902,6 +918,12 @@ function spanHeight(items, visible) {
   for (let i = 0; i < n; i++) bottom = Math.max(bottom, items[i].offsetTop + items[i].offsetHeight);
   return bottom - top;
 }
+function marqueeUniform(el) {
+  return el.classList.contains("prez-grid") || (el.classList.contains("soc-list") && !!el.closest(".prez"));
+}
+function contentTop(el, item) {
+  return item.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+}
 function marqueeOf(node) {
   const wrap = node?.closest?.(".step-wrap");
   if (wrap) {
@@ -928,14 +950,22 @@ function rowStops(el) {
   if (!items.length) return [0];
   const cols = stepCols(el);
   const max = Math.max(0, el.scrollHeight - el.clientHeight);
-  const stops = [];
-  for (let i = 0; i < items.length; i += cols) {
-    const y = items[i].offsetTop - items[0].offsetTop;
-    if (y <= max + 0.5) stops.push(Math.min(y, max));
+  const stops = [0];
+  for (let i = cols; i < items.length; i += cols) {
+    const y = Math.round(contentTop(el, items[i]));
+    if (y > max + 1) break;
+    if (y - stops[stops.length - 1] > 2) stops.push(y);
   }
-  const out = [];
-  for (const y of stops) if (!out.length || y - out[out.length - 1] > 2) out.push(y);
-  return out.length ? out : [0];
+  return stops;
+}
+function nearestStop(el) {
+  const pos = rowStops(el);
+  let best = pos[0], bestD = Infinity;
+  for (const p of pos) {
+    const d = Math.abs(el.scrollTop - p);
+    if (d < bestD) { best = p; bestD = d; }
+  }
+  return { best, bestD, pos };
 }
 function pointerHeld(el) {
   if (el._mouse || el._key) return true;
@@ -952,11 +982,17 @@ function scheduleStep(el, delay) {
   if (document.hidden || pointerHeld(el)) return;
   let wait = delay;
   if (el._holdUntil) wait = Math.max(wait, el._holdUntil - Date.now());
-  el._stepT = setTimeout(() => advanceStep(el), Math.max(0, wait));
+  el._stepT = setTimeout(() => {
+    if (!el.classList.contains("vmarquee") || document.hidden || pointerHeld(el)) return;
+    const { best, bestD } = nearestStop(el);
+    if (bestD > 1) { animateTo(el, best); return; }
+    advanceStep(el);
+  }, Math.max(0, wait));
 }
 function cancelMotion(el) {
   el._animToken = (el._animToken || 0) + 1;
   clearTimeout(el._stepT);
+  el.classList.remove("stepping");
 }
 function animateTo(el, to) {
   cancelMotion(el);
@@ -964,10 +1000,11 @@ function animateTo(el, to) {
   const dist = to - from;
   const token = el._animToken;
   if (Math.abs(dist) < 1 || reducedMotion()) {
-    el.scrollTop = to;
+    el.scrollTop = Math.round(to);
     scheduleStep(el, STEP_MS);
     return;
   }
+  el.classList.add("stepping");
   const ms = Math.min(700, Math.max(380, Math.abs(dist) * 6));
   const t0 = performance.now();
   const ease = t => 1 - Math.pow(1 - t, 3);
@@ -976,7 +1013,7 @@ function animateTo(el, to) {
     const p = Math.min(1, (now - t0) / ms);
     el.scrollTop = Math.round(from + dist * ease(p));
     if (p < 1) requestAnimationFrame(frame);
-    else { el.scrollTop = to; scheduleStep(el, STEP_MS); }
+    else { el.scrollTop = Math.round(to); el.classList.remove("stepping"); scheduleStep(el, STEP_MS); }
   };
   requestAnimationFrame(frame);
 }
@@ -996,12 +1033,7 @@ function nudgeStep(el, dir) {
 function stopStep(el, snap) {
   cancelMotion(el);
   if (!snap) return;
-  const pos = rowStops(el);
-  let best = pos[0], bestD = Infinity;
-  for (const p of pos) {
-    const d = Math.abs(el.scrollTop - p);
-    if (d < bestD) { best = p; bestD = d; }
-  }
+  const { best, bestD } = nearestStop(el);
   if (bestD > 1) el.scrollTop = best;
 }
 function setupMarquees() {
@@ -1015,7 +1047,13 @@ function setupMarquees() {
     const items = [...el.children];
     if (items.length < 2) { unwrapMarquee(el); return; }
     const visible = marqueeVisible(el);
-    if (el.classList.contains("hero-side") && !matchMedia("(max-width: 900px)").matches) {
+    if (marqueeUniform(el)) {
+      for (const item of items) item.style.height = "";
+      let maxH = 0;
+      for (const item of items) maxH = Math.max(maxH, item.getBoundingClientRect().height);
+      const rowH = Math.ceil(maxH);
+      if (rowH > 0) for (const item of items) item.style.height = rowH + "px";
+    } else if (el.classList.contains("hero-side") && !matchMedia("(max-width: 900px)").matches) {
       const gap = 8;
       const cardH = (el.clientHeight - gap * (visible - 1)) / visible;
       if (cardH > 48) for (const item of items) item.style.height = cardH + "px";
@@ -1024,11 +1062,16 @@ function setupMarquees() {
     }
     if (marqueeLocks(el) && items.length > visible) {
       const h = spanHeight(items, visible);
-      if (h > 0) el.style.height = h + "px";
+      if (h > 0) el.style.height = Math.round(h) + "px";
     }
     const overflows = el.scrollHeight > el.clientHeight + 2;
     if (!overflows) { unwrapMarquee(el); return; }
     el.classList.add("vmarquee");
+    const kept = el.scrollTop;
+    const aligned = rowStops(el);
+    let best = aligned[0], bestD = Infinity;
+    for (const p of aligned) { const d = Math.abs(kept - p); if (d < bestD) { best = p; bestD = d; } }
+    el.scrollTop = best;
     const wrap = ensureWrap(el);
     let nav = wrap.querySelector(".step-nav");
     if (!nav) {
@@ -1101,7 +1144,7 @@ document.addEventListener("visibilitychange", () => {
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);
-  marqueeResizeT = setTimeout(setupMarquees, 150);
+  marqueeResizeT = setTimeout(() => { setupMarquees(); syncLangStick(); }, 150);
 });
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); }
