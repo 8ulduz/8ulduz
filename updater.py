@@ -491,24 +491,52 @@ def label_for(title, summary, lang, hint=None, world=False):
         label = "Siyasət"
     return label
 
+def _plain(s, title=False):
+    """HTML entity və etiketləri təmizlə. Başlığın sonundakı boş tire mənbədən gəlir."""
+    cur = s or ""
+    for _ in range(3):
+        nxt = html.unescape(cur)
+        if nxt == cur:
+            break
+        cur = nxt
+    cur = re.sub(r"<[^>]+>", " ", cur).replace("\xa0", " ")
+    cur = re.sub(r"\s+", " ", cur).strip()
+    if title:
+        cur = re.sub(r"(?:\s*[-–—|])+\s*$", "", cur).strip()
+    return cur
+
+def display_source(source, link):
+    host = (urllib.parse.urlparse(link or "").hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    # Sia.az lentinə sesqazeti.az ünvanlı xəbərlər də düşür; keçidin saytı göstərilsin.
+    if host == "sesqazeti.az":
+        return "Sesqazeti.az"
+    return source
+
 def make_article(it, source, default_lang, hint=None, force_label=None):
-    lang = detect_lang(it["title"], it["description"], default_lang)
+    title = _plain(it["title"], title=True)
+    desc = _plain(it["description"])
+    lang = detect_lang(title, desc, default_lang)
     # Rəsmi xronika səhifələri birbaşa Prezident bölməsinə gedir (məs. FIFA xəbəri idmana düşməsin)
     if force_label:
         label = force_label
     else:
-        label = label_for(it["title"], it["description"], lang, hint, source in WORLD_SOURCES)
+        label = label_for(title, desc, lang, hint, source in WORLD_SOURCES)
+    image = it.get("image") or ""
+    if image.endswith("/") or image.rstrip("/").endswith("/resize"):
+        image = ""
     return {
         "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
-        "title": it["title"],
-        "summary": it["description"],
+        "title": title,
+        "summary": desc,
         "category": SLUGS.get(label, "gundem"),
-        "source": source,
+        "source": display_source(source, it["link"]),
         "sourceUrl": it["link"],
         "publishedAt": to_iso(it["pubDate"]),
-        "imageUrl": it.get("image"),
+        "imageUrl": image or None,
         "lang": lang,
-        "author": it.get("author", ""),
+        "author": _plain(it.get("author", "")),
         "video": is_video(it),
     }
 
@@ -933,9 +961,11 @@ def group_duplicates(articles):
                 head = members[0][0]
                 if head is None or abs(dt - head) > GROUP_WINDOW:
                     continue
-                if a.get("source") in {m[3].get("source") for m in members}:
+                key = _norm_title(a.get("title") or "")
+                exact = len(key) >= 12 and any(_norm_title(m[3].get("title") or "") == key for m in members)
+                if not exact and a.get("source") in {m[3].get("source") for m in members}:
                     continue
-                if any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _titles_similar(toks, sh, mtks, msh)
+                if exact or any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _titles_similar(toks, sh, mtks, msh)
                        for mt, mtks, msh, _ma in members):
                     members.append((dt, toks, sh, a))
                     placed = True
@@ -1046,7 +1076,13 @@ def merge_sources(rows):
     }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 def _xml(s):
-    return html.escape(s or "", quote=True)
+    cur = s or ""
+    for _ in range(3):
+        nxt = html.unescape(cur)
+        if nxt == cur:
+            break
+        cur = nxt
+    return html.escape(cur, quote=True)
 
 def write_feed(articles):
     items = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)[:50]
