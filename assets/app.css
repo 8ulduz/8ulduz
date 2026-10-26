@@ -92,23 +92,47 @@ header.site{position:sticky;top:0;z-index:50;background:var(--header);backdrop-f
 .logo{display:flex;align-items:center;gap:8px;font-weight:900;font-size:1.5714rem;letter-spacing:-.5px;flex:none}
 .logo i{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--primary);color:var(--primary-fg);box-shadow:0 0 20px hsl(43 96% 56%/.3)}
 .logo span{color:var(--primary)}
-/* Bölmə adları kəsilməsin: sığmayanlar növbəti sətrə keçir, sürüşdürmə və kölgə yoxdur */
+/* Masaüstündə bir sətir: sığmayan bölmələr «Daha çox»a keçir, Tıxac görünür qalır */
 nav.main{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;flex:1 1 220px;min-width:0;overflow:visible}
-nav.main a{white-space:nowrap;padding:5px 8px;border-radius:999px;font-weight:600;font-size:0.8929rem;line-height:1.25;color:var(--muted)}
+nav.main a{white-space:nowrap;padding:5px 8px;border-radius:999px;font-weight:600;font-size:0.8929rem;line-height:1.25;color:var(--muted);flex:none}
 nav.main a:hover{background:var(--card2);color:var(--fg)}
 nav.main a.on{background:var(--primary);color:var(--primary-fg)}
-.tix-btn{position:relative;display:grid;place-items:center;width:32px;height:32px;flex:none;margin-left:auto;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:16px;line-height:1}
-.tix-btn:hover{border-color:var(--primary)}
-.tix-btn.hot::after{content:"";position:absolute;top:1px;right:1px;width:7px;height:7px;border-radius:99px;background:var(--red);box-shadow:0 0 0 2px var(--header)}
+.tl{display:inline-flex;flex-direction:column;justify-content:space-between;align-items:center;width:12px;height:20px;padding:2px 0;border-radius:4px;flex:none;background:#0b1220;border:1px solid hsl(210 16% 28%);box-sizing:border-box}
+.tl i{width:6px;height:6px;border-radius:99px;display:block}
+.tl i:nth-child(1){background:#ef4444;box-shadow:0 0 4px #ef4444cc}
+.tl i:nth-child(2){background:#facc15;box-shadow:0 0 4px #facc15cc}
+.tl i:nth-child(3){background:#22c55e;box-shadow:0 0 4px #22c55ecc}
+nav.main a.nav-tix{display:inline-flex;align-items:center;gap:5px;color:var(--fg);background:linear-gradient(#121826,#121826) padding-box,linear-gradient(90deg,#ef4444,#eab308,#22c55e) border-box;border:1px solid transparent}
+nav.main a.nav-tix.on{color:#fff;background:linear-gradient(90deg,#b91c1c,#ca8a04,#15803d)}
+.nav-more{position:relative;flex:none}
+.nav-more summary{list-style:none;cursor:pointer;white-space:nowrap;padding:4px 8px;border-radius:999px;font-weight:700;font-size:0.82rem;line-height:1.25;color:var(--muted)}
+.nav-more summary::-webkit-details-marker{display:none}
+.nav-more.has-on summary,.nav-more[open] summary{background:var(--card2);color:var(--fg)}
+.nav-more-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:80;min-width:168px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;display:flex;flex-direction:column;box-shadow:0 12px 28px #000a}
+.nav-more-pop a{display:flex;border-radius:8px;padding:6px 10px}
+.tix-btn{position:relative;display:grid;place-items:center;width:28px;height:36px;flex:none;margin-left:auto;border-radius:8px;border:1px solid transparent;background:linear-gradient(#121826,#0c121c) padding-box,linear-gradient(180deg,#ef4444,#eab308,#22c55e) border-box}
+.tix-btn:hover{filter:brightness(1.08)}
+.tix-btn .tl{border:0;background:transparent;height:22px}
+.tix-btn.hot::after{content:"";position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:99px;background:var(--red);box-shadow:0 0 0 2px var(--header)}
 .search{flex:none;position:relative}
 .search input{width:148px;height:32px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);padding:0 12px 0 30px;font:inherit;font-size:0.9286rem;outline:none}
 .search input:focus{border-color:var(--primary)}
 .search svg{position:absolute;left:10px;top:9px;opacity:.6}
+@media (min-width:721px){
+  .hrow{flex-wrap:nowrap}
+  nav.main{flex-wrap:nowrap;gap:2px;overflow:hidden}
+  nav.main:has(.nav-more[open]){overflow:visible}
+  nav.main a{padding:4px 7px;font-size:0.82rem}
+}
 @media (max-width:720px){
   nav.main{flex-basis:100%;order:3}
   .search input{width:126px}
   .logo{font-size:1.4286rem}
 }
+:root[data-theme="light"] .tl{background:#111827;border-color:#1f2937}
+:root[data-theme="light"] nav.main a.nav-tix{color:#111827;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(90deg,#dc2626,#ca8a04,#16a34a) border-box}
+:root[data-theme="light"] nav.main a.nav-tix.on{color:#fff}
+:root[data-theme="light"] .tix-btn{background:linear-gradient(#1f2937,#111827) padding-box,linear-gradient(180deg,#dc2626,#ca8a04,#16a34a) border-box}
 
 /* --- son dəqiqə lenti --- */
 .ticker{display:flex;border-bottom:1px solid var(--border);background:var(--ticker-bg);overflow:hidden}
@@ -420,7 +444,10 @@ footer .logo i{width:26px;height:26px}
 .alerts{display:flex;gap:8px;align-items:center;overflow:auto;border:1px solid hsl(0 70% 50%/.35);background:var(--ticker-bg);border-radius:8px;padding:4px 8px;margin:0 0 12px}
 .alerts b{flex:none;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--red)}
 .alerts a,.alerts .wxn{flex:none;font-size:12px;font-weight:650;white-space:nowrap}
-.alerts .tix-go{font-weight:800;color:var(--primary)}
+.alerts .tix-go{display:inline-flex;align-items:center;gap:6px;font-weight:800;color:var(--fg);border-radius:999px;padding:1px 8px 1px 3px;background:linear-gradient(var(--ticker-bg),var(--ticker-bg)) padding-box,linear-gradient(90deg,#ef4444,#eab308,#22c55e) border-box;border:1px solid transparent}
+:root[data-theme="light"] .alerts .tix-go{color:#111827}
+.tabbar [data-tab=traffic] b{display:grid;place-items:center;height:20px}
+.tabbar [data-tab=traffic] span{white-space:nowrap}
 .rush{display:inline-flex;align-items:center;flex:none;background:linear-gradient(90deg,#d97706,#b91c1c);color:#fff;font-weight:800;font-size:12px;line-height:1.3;border-radius:999px;padding:3px 8px;white-space:nowrap}
 .tix-note{margin:0 0 8px;color:var(--muted);font-size:13px}
 .tix-jumps{display:flex;gap:6px;overflow:auto;margin:0 0 8px;padding-bottom:2px}
