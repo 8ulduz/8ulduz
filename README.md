@@ -5,7 +5,7 @@ Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərin
 ## Struktur
 
 - `index.html`, `assets/app.js`, `assets/app.css` — saytın **mənbə kodu** (build addımı yoxdur, birbaşa redaktə olunur).
-  Marşrutlar: `#/` (baş səhifə), `#/bolme/<slug>` (bölmə), `#/axtar?q=...` (axtarış).
+  Marşrutlar: `#/` (baş səhifə), `#/bolme/<slug>` (bölmə), `#/axtar?q=...` (axtarış), `#/tixac` (tıxac xəritəsi).
 - `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON).
 - `data/markets.json` — valyuta (AMB, ehtiyat: ExchangeRate-API), Brent/WTI neft və bitcoin (Yahoo Finance, ehtiyat: CNBC/CoinGecko), qızıl/gümüş (gold-api.com).
 - `data/social.json` — Prezidentin və birinci xanımın rəsmi YouTube yazıları.
@@ -44,6 +44,7 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - `data/football.json` — TheSportsDB-nin açıq sınaq açarı (`123`, hesab deyil) Premyer Liqa cədvəlini yarımçıq qaytarır, ona görə cədvəl göstərilmir. Son oyun və mövcud futbol xəbərləri, üstəlik [pfl.az](https://pfl.az/) keçidi qalır.
 - Namaz vaxtı və hicri tarix brauzerdə [aladhan.com](https://api.aladhan.com) açarsız API-sindən, seçilmiş bölgənin koordinatı ilə alınır.
 - Yol/hava zolağı xəbər başlıqlarındakı açar sözlərdən və Open-Meteo-nun günlüq hava kodundan yığılır. Open-Meteo Azərbaycan üçün rəsmi xəbərdarlıq lenti vermir.
+- `#/tixac` Bakının canlı tıxac xəritəsini Waze-in açarsız iframe ünvanından göstərir (`https://embed.waze.com/iframe?zoom=&lat=&lon=`). Xəritə yalnız «Xəritəni aç» düyməsindən sonra yüklənir. Tam ekran keçidi `waze.com/live-map`. Yol xəbərləri yeni lent əlavə etmədən mövcud xəbərlərdən süzülür: `bna.az` / `bna.gov.az` açılmır (səhifə tikinti vəziyyətindədir), DYP-nin (`dyp.gov.az`) və AYNA-nın (`ayna.gov.az/az/news`) işlək RSS-i yoxdur. İş günü Bakı vaxtı ilə 08:00–10:00 və 17:00–20:00 «Pik saat» nişanı çıxır.
 
 ## Oxucu
 
