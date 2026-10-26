@@ -112,6 +112,84 @@ function prezHome(list) {
 }
 const byDate = list => [...list].sort((x, y) => y.publishedAt.localeCompare(x.publishedAt));
 const lc = s => (s || "").toLocaleLowerCase("az");
+const GROUP_MS = 36 * HOUR;
+const GROUP_STOP = new Set("ve ile the and for from or bir bu da de ki veya icin olan və ilə də o üçün ya news xəbər xeber".split(/\s+/));
+function normTitle(s) {
+  return (s || "").toLowerCase().replace(/i̇/g, "i")
+    .replace(/ə/g, "e").replace(/â/g, "a").replace(/ı/g, "i").replace(/î/g, "i").replace(/ö/g, "o").replace(/ü/g, "u").replace(/û/g, "u")
+    .replace(/ş/g, "s").replace(/ç/g, "c").replace(/ğ/g, "g")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+}
+function titleTokens(s) {
+  return normTitle(s).split(" ").filter(t => t.length > 2 && !GROUP_STOP.has(t) && !/^\d+$/.test(t));
+}
+function shingles(toks) {
+  if (toks.length < 3) return new Set(toks.length ? [toks.join(" ")] : []);
+  const out = new Set();
+  for (let i = 0; i <= toks.length - 3; i++) out.add(toks.slice(i, i + 3).join(" "));
+  return out;
+}
+function jaccard(a, b) {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+function titlesSimilar(toks, sh, other, otherSh) {
+  const A = new Set(toks), B = new Set(other);
+  if (A.size < 3 || B.size < 3) return false;
+  let inter = 0;
+  for (const x of A) if (B.has(x)) inter++;
+  const tj = jaccard(A, B), sj = jaccard(sh, otherSh);
+  const shorter = A.size <= B.size ? A : B, longer = A.size <= B.size ? B : A;
+  let contN = 0;
+  for (const x of shorter) if (longer.has(x)) contN++;
+  const cont = contN / shorter.size;
+  const ratio = Math.min(A.size, B.size) / Math.max(A.size, B.size);
+  if (inter >= 4 && tj >= 0.55) return true;
+  if (inter >= 3 && (tj >= 0.75 || sj >= 0.45) && ratio >= 0.5) return true;
+  if (cont >= 0.86 && inter >= 4 && ratio >= 0.62) return true;
+  return false;
+}
+function preferPrimary(a, b) {
+  if (!!a.imageUrl !== !!b.imageUrl) return a.imageUrl ? a : b;
+  if ((a.summary || "").length !== (b.summary || "").length) return (a.summary || "").length > (b.summary || "").length ? a : b;
+  return (a.publishedAt || "") >= (b.publishedAt || "") ? a : b;
+}
+// updater.py qruplamayıbsa, eyni qayda ilə brauzerdə birləşdir (news.json yığcam qalır, alts gələndə ona etibar edir)
+function clusterArticles(list) {
+  if (!list?.length || list.some(a => a.alts?.length)) return list;
+  const prepared = list.map(a => {
+    const dt = new Date(a.publishedAt).getTime();
+    const toks = titleTokens(a.title);
+    return { dt: Number.isNaN(dt) ? null : dt, toks, sh: shingles(toks), a };
+  }).sort((x, y) => (y.dt ?? 0) - (x.dt ?? 0));
+  const clusters = [];
+  for (const item of prepared) {
+    let placed = false;
+    if (item.dt != null && item.toks.length >= 3) {
+      for (const members of clusters) {
+        const head = members[0].dt;
+        if (head == null || Math.abs(item.dt - head) > GROUP_MS) continue;
+        if (members.some(m => m.a.source === item.a.source)) continue;
+        if (members.some(m => m.dt != null && Math.abs(item.dt - m.dt) <= GROUP_MS && titlesSimilar(item.toks, item.sh, m.toks, m.sh))) {
+          members.push(item); placed = true; break;
+        }
+      }
+    }
+    if (!placed) clusters.push([item]);
+  }
+  const out = [];
+  for (const members of clusters) {
+    let primary = members[0].a;
+    for (const m of members.slice(1)) primary = preferPrimary(primary, m.a);
+    const alts = members.filter(m => m.a !== primary).map(m => ({ source: m.a.source, sourceUrl: m.a.sourceUrl, publishedAt: m.a.publishedAt }));
+    if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+    out.push(primary);
+  }
+  return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+}
+const altBadge = a => a.alts?.length ? `<span class="bd gold">+${a.alts.length} mənbə</span>` : "";
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
 
 function img(a, cls = "") {
@@ -120,7 +198,7 @@ function img(a, cls = "") {
   return `<div class="img ${cls}">${ph}${src}</div>`;
 }
 function badges(a, withCat = true) {
-  return `<div class="badges">${withCat ? `<span class="bd">${esc(catLabel(a.category))}</span>` : ""}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>`;
+  return `<div class="badges">${withCat ? `<span class="bd">${esc(catLabel(a.category))}</span>` : ""}${altBadge(a)}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>`;
 }
 const meta = a => `<div class="meta"><span class="src">${esc(a.source)}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</span><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
 const card = a => `<button class="card${a.imageUrl ? "" : " noimg"}" data-id="${esc(a.id)}">${img(a)}<div class="b">${badges(a)}<h3>${txt(a.title)}</h3><p>${esc(clean(a.summary))}</p>${meta(a)}</div></button>`;
@@ -143,6 +221,7 @@ async function loadNews() {
     S.etag = tag;
     const d = await r.json();
     if (S.data && S.data.updatedAt === d.updatedAt) { renderTopbar(); return; }
+    d.articles = clusterArticles(d.articles);
     S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
     render();
   } catch (e) { S.error = String(e); if (!S.data) render(); else renderTopbar(); }
@@ -191,6 +270,7 @@ async function loadAllWeather() {
 /* ---------------------------------------------------------------- marşrut */
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
+  if (h === "/menbeler" || h.startsWith("/menbeler?")) return { name: "sources" };
   const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: m[1] };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
   return { name: "home" };
@@ -243,10 +323,13 @@ function renderTopbar() {
         (!S.wxAll ? `<div class="empty" style="padding:24px 0">Yüklənir…</div>` :
           `<div class="wx-grid">${S.wxAll.map(c => `<button class="wx-city" data-city="${esc(c.city)}"><span>${c.icon} ${esc(c.city)}</span><b>${c.temp}°</b></button>`).join("")}</div>`)) + `</div>`;
   }
+  const fs = document.documentElement.dataset.fs || "0";
+  const light = document.documentElement.dataset.theme === "light";
   $("#topbar").innerHTML = `<span>${today()}</span>
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
     <span class="sp sync">${S.lastSync ? `<span class="dot"></span>Son yenilənmə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
-    ${upd ? `<span><span class="dot live" style="background:#34d399"></span>Yeniləndi: ${ago(upd)}</span>` : ""}`;
+    ${upd ? `<span class="yenilendi"><span class="dot live" style="background:#34d399"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
+    <span class="prefs"><button data-act="theme" title="${light ? "Qaranlıq mövzu" : "İşıqlı mövzu"}" aria-label="Mövzu">${light ? "☾" : "☀"}</button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
 }
 
 function renderNav() {
@@ -313,7 +396,7 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `<div class="soc-list">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  const cards = list.map(a => `<button class="pcard" data-id="${esc(a.id)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em> ` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("");
+  const cards = list.map(a => `<button class="pcard" data-id="${esc(a.id)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${altBadge(a)}${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
@@ -328,7 +411,7 @@ function heroBlock(list) {
   const side = list.filter(a => a !== main).slice(0, 4);
   return `<section class="hero">
     <button class="hero-main" data-id="${esc(main.id)}">${img(main)}<div class="body">
-      <div class="badges"><span class="bd gold">${esc(catLabel(main.category))}</span>${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
+      <div class="badges"><span class="bd gold">${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
       <h1>${txt(main.title)}</h1><p>${esc(clean(main.summary))}</p>
       <div class="meta"><span class="src">${esc(main.source)}</span><time>${ago(main.publishedAt)}</time></div></div></button>
     <div class="hero-side">${side.map(a => `<button class="row-card" data-id="${esc(a.id)}">${img(a)}<div class="x"><span class="tag">${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></div></button>`).join("")}</div>
@@ -404,8 +487,27 @@ function renderView() {
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>` : "";
-  v.innerHTML = err + (S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView());
+  const body = r.name === "sources" ? sourcesView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  v.innerHTML = err + body;
   $("#cta").hidden = r.name !== "home" || !!S.q;
+}
+
+function sourceLevel(s) {
+  const t = new Date(s.okAt || 0).getTime();
+  const age = Number.isNaN(t) ? Infinity : Date.now() - t;
+  if (!s.error && s.count > 0 && age < 6 * HOUR) return "ok";
+  if (s.okAt && age < 36 * HOUR) return "warn";
+  return "bad";
+}
+function sourcesView() {
+  const rows = S.sources?.sources;
+  if (!rows) return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Lentlərin son yoxlanması</p></div></div><p class="empty">Yüklənir…</p>`;
+  const label = { ok: "İşləyir", warn: "Zəif", bad: "Xəta" };
+  const body = rows.map(s => {
+    const lv = sourceLevel(s);
+    return `<li class="src-row ${lv}"><span class="src-dot" aria-hidden="true"></span><div><b>${esc(s.name)}</b><div class="muted">${esc(s.url || "")}</div>${s.error ? `<div class="src-err">${esc(s.error)}</div>` : ""}</div><div class="src-meta"><span>${label[lv]}</span><span>${s.count ?? 0} xəbər</span><time>${s.okAt ? ago(s.okAt) : "uğur yoxdur"}</time></div></li>`;
+  }).join("");
+  return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Yaşıl — son saatlarda xəbər gəlib. Sarı — boş və ya köhnəlmiş uğur. Qırmızı — xəta.</p></div><span class="cnt">${rows.length}</span></div><ul class="src-list">${body}</ul>`;
 }
 
 function renderFooter() {
@@ -414,16 +516,17 @@ function renderFooter() {
     <div><div class="logo"><i>${STAR}</i><b>8<span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərlər qısa xülasə və mənbə keçidi ilə təqdim olunur.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.map(s => `<span>${esc(s)}</span>`).join("")}</div></div>
-  </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir.</div>`;
+  </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/menbeler">Mənbə vəziyyəti</a></div>`;
 }
 
 function openModal(a) {
   const d = $("#modal");
   d.innerHTML = `<button class="x" data-act="close" aria-label="Bağla">✕</button>${a.imageUrl ? img(a) : ""}<div class="b">
-    <div class="badges"><span class="bd gold">${esc(catLabel(a.category))}</span>${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}${a.video ? `<span class="bd red">▶ Video</span>` : ""}</div>
+    <div class="badges"><span class="bd gold">${esc(catLabel(a.category))}</span>${altBadge(a)}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}${a.video ? `<span class="bd red">▶ Video</span>` : ""}</div>
     <h2>${txt(a.title)}</h2>
     <div class="m"><b>${esc(a.source)}</b>${a.author ? `<span>•</span><span>${txt(a.author)}</span>` : ""}<span>•</span><span>${ago(a.publishedAt)}</span><span>•</span><span>${fullDate(a.publishedAt)}</span></div>
     <p>${esc(clean(a.summary))}</p>
+    ${(a.alts?.length) ? `<div class="alts"><b>Mənbələr · +${a.alts.length}</b>${[{ source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt }, ...a.alts].map(r => `<a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener noreferrer"><span>${esc(r.source)}</span><time>${ago(r.publishedAt)}</time></a>`).join("")}</div>` : ""}
     <div class="note">Bu xəbər avtomatik toplanmış qısa xülasədir. Mətnin tam versiyası mənbə saytına aiddir.</div>
     <div class="acts"><a class="btn" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">Mənbədə oxu ↗</a>
     ${navigator.share ? `<button class="btn ghost" data-act="share">Paylaş</button>` : `<button class="btn ghost" data-act="copy">Linki kopyala</button>`}</div></div>`;
@@ -446,6 +549,38 @@ function onClick(e) {
   else if (act === "close") $("#modal").close();
   else if (act === "share") { const a = $("#modal")._a; navigator.share({ title: decode(a.title), url: a.sourceUrl }).catch(() => {}); }
   else if (act === "copy") { const a = $("#modal")._a; navigator.clipboard?.writeText(a.sourceUrl); t.textContent = "Kopyalandı ✓"; }
+  else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
+}
+
+const THEME_KEY = "8ulduz-theme", FS_KEY = "8ulduz-fs";
+function applyPrefs() {
+  const theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = theme;
+  let fs = localStorage.getItem(FS_KEY);
+  if (fs !== "0" && fs !== "1" && fs !== "2") fs = "0";
+  document.documentElement.dataset.fs = fs;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = theme === "light" ? "#f3f6fb" : "#0a1120";
+}
+function setPref(act) {
+  if (act === "theme") {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    localStorage.setItem(THEME_KEY, next);
+  } else {
+    const n = Math.max(0, Math.min(2, Number(document.documentElement.dataset.fs || "0") + (act === "fs-up" ? 1 : -1)));
+    localStorage.setItem(FS_KEY, String(n));
+  }
+  applyPrefs();
+  renderTopbar();
+}
+function enableAnalytics() {
+  const code = String(window.SITE_CONFIG?.goatcounter || "").trim();
+  if (!code) return;
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = "https://gc.zgo.at/count.js";
+  s.dataset.goatcounter = `https://${code}.goatcounter.com/count`;
+  document.head.appendChild(s);
 }
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); }
@@ -457,6 +592,13 @@ async function loadSocial() {
     if (r.ok) { S.social = await r.json(); render(); }
   } catch {}
 }
+async function loadSources() {
+  try {
+    const r = await fetch(freshUrl("data/sources.json"), { cache: "no-store" });
+    if (r.ok) S.sources = await r.json();
+  } catch {}
+  if (route().name === "sources") renderView();
+}
 async function loadStatus() {
   try {
     const r = await fetch(freshUrl("data/status.json"), { cache: "no-store" });
@@ -464,8 +606,11 @@ async function loadStatus() {
   } catch {}
   renderTopbar();
 }
+applyPrefs();
+enableAnalytics();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 shell(); render();
-loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadWeather();
+loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather();
 setInterval(loadNews, POLL_MS);
 setInterval(loadStatus, POLL_MS);
 setInterval(loadSocial, 5 * 60e3);
