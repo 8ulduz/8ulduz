@@ -595,15 +595,12 @@ function enableAnalytics() {
   document.head.appendChild(s);
 }
 
-/* Üzərinə gələndə yığcam siyahı yuxarı axır (~30px/s). Toxunuşda animasiya yoxdur. */
-const MARQUEE_SPEED = 30;
-let marqueeRaf = 0;
-function motionOK() {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
-  // Yalnız toxunuş: avtomatik axın yoxdur. Siçan olan masüstündə (hover) işləyir.
-  if (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-hover: hover)").matches) return false;
-  return true;
-}
+/* Sakit olanda bir sətir/kart yuxarı keçir (~4s). Kursor, fokus və gizli vərəqədə dayanır. */
+const STEP_MS = 4000;
+const LEAVE_MS = 2000;
+const WHEEL_MS = 3000;
+const TOUCH_MS = 5000;
+function reducedMotion() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
 function marqueeNarrow(el) {
   return el.classList.contains("soc-list") && !!el.closest(".prez") && matchMedia("(max-width: 860px)").matches;
 }
@@ -616,6 +613,9 @@ function marqueeLocks(el) {
   if (el.classList.contains("hero-side") && !matchMedia("(max-width: 900px)").matches) return false;
   return true;
 }
+function stepCols(el) {
+  return el.classList.contains("prez-grid") && !matchMedia("(max-width: 860px)").matches ? 2 : 1;
+}
 function spanHeight(items, visible) {
   const n = Math.min(visible, items.length);
   if (n < 1) return 0;
@@ -624,16 +624,118 @@ function spanHeight(items, visible) {
   for (let i = 0; i < n; i++) bottom = Math.max(bottom, items[i].offsetTop + items[i].offsetHeight);
   return bottom - top;
 }
+function marqueeOf(node) {
+  const wrap = node?.closest?.(".step-wrap");
+  if (wrap) {
+    const el = wrap.querySelector("[data-marquee]");
+    if (el?.classList.contains("vmarquee")) return el;
+  }
+  const el = node?.closest?.("[data-marquee]");
+  return el?.classList.contains("vmarquee") ? el : null;
+}
+function unwrapMarquee(el) {
+  const wrap = el.parentElement;
+  if (wrap?.classList.contains("step-wrap")) wrap.replaceWith(el);
+}
+function ensureWrap(el) {
+  if (el.parentElement?.classList.contains("step-wrap")) return el.parentElement;
+  const wrap = document.createElement("div");
+  wrap.className = "step-wrap";
+  el.parentNode.insertBefore(wrap, el);
+  wrap.appendChild(el);
+  return wrap;
+}
+function rowStops(el) {
+  const items = [...el.children];
+  if (!items.length) return [0];
+  const cols = stepCols(el);
+  const max = Math.max(0, el.scrollHeight - el.clientHeight);
+  const stops = [];
+  for (let i = 0; i < items.length; i += cols) {
+    const y = items[i].offsetTop - items[0].offsetTop;
+    if (y <= max + 0.5) stops.push(Math.min(y, max));
+  }
+  const out = [];
+  for (const y of stops) if (!out.length || y - out[out.length - 1] > 2) out.push(y);
+  return out.length ? out : [0];
+}
+function pointerHeld(el) {
+  if (el._mouse || el._key) return true;
+  return false;
+}
+function autoOn(el) {
+  if (!el.classList.contains("vmarquee")) return false;
+  if (reducedMotion() || document.hidden || pointerHeld(el)) return false;
+  return rowStops(el).length > 1;
+}
+function scheduleStep(el, delay) {
+  clearTimeout(el._stepT);
+  if (reducedMotion() || !el.classList.contains("vmarquee")) return;
+  if (document.hidden || pointerHeld(el)) return;
+  let wait = delay;
+  if (el._holdUntil) wait = Math.max(wait, el._holdUntil - Date.now());
+  el._stepT = setTimeout(() => advanceStep(el), Math.max(0, wait));
+}
+function cancelMotion(el) {
+  el._animToken = (el._animToken || 0) + 1;
+  clearTimeout(el._stepT);
+}
+function animateTo(el, to) {
+  cancelMotion(el);
+  const from = el.scrollTop;
+  const dist = to - from;
+  const token = el._animToken;
+  if (Math.abs(dist) < 1 || reducedMotion()) {
+    el.scrollTop = to;
+    scheduleStep(el, STEP_MS);
+    return;
+  }
+  const ms = Math.min(700, Math.max(380, Math.abs(dist) * 6));
+  const t0 = performance.now();
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const frame = (now) => {
+    if (el._animToken !== token) return;
+    const p = Math.min(1, (now - t0) / ms);
+    el.scrollTop = Math.round(from + dist * ease(p));
+    if (p < 1) requestAnimationFrame(frame);
+    else { el.scrollTop = to; scheduleStep(el, STEP_MS); }
+  };
+  requestAnimationFrame(frame);
+}
+function advanceStep(el) {
+  if (!autoOn(el)) return;
+  const pos = rowStops(el);
+  const next = pos.find(p => p > el.scrollTop + 4);
+  animateTo(el, next == null ? pos[0] : next);
+}
+function nudgeStep(el, dir) {
+  const pos = rowStops(el);
+  const y = el.scrollTop;
+  const target = dir > 0 ? (pos.find(p => p > y + 4) ?? pos[0]) : ([...pos].reverse().find(p => p < y - 4) ?? pos[0]);
+  el._holdUntil = Date.now() + LEAVE_MS;
+  animateTo(el, target);
+}
+function stopStep(el, snap) {
+  cancelMotion(el);
+  if (!snap) return;
+  const pos = rowStops(el);
+  let best = pos[0], bestD = Infinity;
+  for (const p of pos) {
+    const d = Math.abs(el.scrollTop - p);
+    if (d < bestD) { best = p; bestD = d; }
+  }
+  if (bestD > 1) el.scrollTop = best;
+}
 function setupMarquees() {
   document.querySelectorAll("[data-marquee]").forEach(el => {
-    el.querySelectorAll("[data-clone]").forEach(n => n.remove());
+    cancelMotion(el);
+    el._mouse = false;
+    el._key = false;
     el.style.height = "";
     el.classList.remove("vmarquee");
-    delete el.dataset.loop;
-    delete el.dataset.play;
-    if (marqueeNarrow(el)) return;
+    if (marqueeNarrow(el)) { unwrapMarquee(el); return; }
     const items = [...el.children];
-    if (items.length < 2) return;
+    if (items.length < 2) { unwrapMarquee(el); return; }
     const visible = marqueeVisible(el);
     if (el.classList.contains("hero-side") && !matchMedia("(max-width: 900px)").matches) {
       const gap = 8;
@@ -647,75 +749,77 @@ function setupMarquees() {
       if (h > 0) el.style.height = h + "px";
     }
     const overflows = el.scrollHeight > el.clientHeight + 2;
-    if (overflows) el.classList.add("vmarquee");
-    if (!overflows || !motionOK()) return;
-    const originals = [...el.children];
-    for (const node of originals) {
-      const c = node.cloneNode(true);
-      c.dataset.clone = "1";
-      c.setAttribute("aria-hidden", "true");
-      if ("tabIndex" in c) c.tabIndex = -1;
-      c.querySelectorAll("a,button").forEach(n => { n.tabIndex = -1; });
-      el.appendChild(c);
+    if (!overflows) { unwrapMarquee(el); return; }
+    el.classList.add("vmarquee");
+    const wrap = ensureWrap(el);
+    let nav = wrap.querySelector(".step-nav");
+    if (!nav) {
+      nav = document.createElement("div");
+      nav.className = "step-nav";
+      nav.innerHTML = `<button type="button" data-step="-1" aria-label="Əvvəlki sətir">⌃</button><button type="button" data-step="1" aria-label="Növbəti sətir">⌄</button>`;
+      wrap.appendChild(nav);
     }
-    const firstClone = el.querySelector("[data-clone]");
-    const loop = firstClone.offsetTop - originals[0].offsetTop;
-    if (loop > 0) el.dataset.loop = String(loop);
-    if (el.matches(":hover")) el.dataset.play = "1";
+    scheduleStep(el, STEP_MS);
   });
-  if (document.querySelector("[data-marquee][data-play]")) startMarquee();
-}
-function startMarquee() {
-  if (marqueeRaf) return;
-  let last = 0;
-  const step = (t) => {
-    const dt = last ? Math.min(0.05, (t - last) / 1000) : 0;
-    last = t;
-    let any = false;
-    document.querySelectorAll("[data-marquee][data-play]").forEach(el => {
-      any = true;
-      if (el.dataset.manual) return;
-      const loop = Number(el.dataset.loop || 0);
-      if (loop <= 0) return;
-      el._sub = (el._sub || 0) + MARQUEE_SPEED * dt;
-      const px = Math.floor(el._sub);
-      if (px < 1) return;
-      el._sub -= px;
-      el.scrollTop += px;
-      if (el.scrollTop >= loop) el.scrollTop -= loop;
-    });
-    marqueeRaf = any ? requestAnimationFrame(step) : 0;
-  };
-  marqueeRaf = requestAnimationFrame(step);
-}
-function marqueeHost(node) {
-  const el = node?.closest?.("[data-marquee]");
-  return el && el.classList.contains("vmarquee") ? el : null;
 }
 document.addEventListener("mouseover", (e) => {
-  const el = marqueeHost(e.target);
-  if (!el || marqueeHost(e.relatedTarget) === el || !motionOK() || !el.dataset.loop) return;
-  el.dataset.play = "1";
-  startMarquee();
+  const el = marqueeOf(e.target);
+  if (!el || marqueeOf(e.relatedTarget) === el) return;
+  el._mouse = true;
+  stopStep(el, true);
 });
 document.addEventListener("mouseout", (e) => {
-  const el = marqueeHost(e.target);
-  if (!el || marqueeHost(e.relatedTarget) === el) return;
-  delete el.dataset.play;
+  const el = marqueeOf(e.target);
+  if (!el || marqueeOf(e.relatedTarget) === el) return;
+  el._mouse = false;
+  scheduleStep(el, LEAVE_MS);
 });
-document.addEventListener("wheel", (e) => {
-  const el = e.target.closest?.("[data-marquee].vmarquee");
+document.addEventListener("focusin", (e) => {
+  const el = marqueeOf(e.target);
   if (!el) return;
-  el.dataset.manual = "1";
-  clearTimeout(el._manualT);
-  el._manualT = setTimeout(() => { delete el.dataset.manual; }, 700);
-}, { passive: true, capture: true });
-document.addEventListener("scroll", (e) => {
-  const el = e.target;
-  if (!(el instanceof Element) || !el.matches?.("[data-marquee]")) return;
-  const loop = Number(el.dataset.loop || 0);
-  if (loop > 0 && el.scrollTop >= loop) el.scrollTop -= loop;
+  el._key = true;
+  stopStep(el, true);
+});
+document.addEventListener("focusout", (e) => {
+  const el = marqueeOf(e.target);
+  if (!el) return;
+  setTimeout(() => {
+    const wrap = el.closest(".step-wrap");
+    if (el.contains(document.activeElement) || wrap?.contains(document.activeElement)) return;
+    el._key = false;
+    scheduleStep(el, LEAVE_MS);
+  }, 0);
+});
+document.addEventListener("pointerdown", (e) => {
+  if (e.pointerType !== "touch") return;
+  const el = marqueeOf(e.target);
+  if (!el) return;
+  stopStep(el, false);
+  el._holdUntil = Date.now() + TOUCH_MS;
+  scheduleStep(el, TOUCH_MS);
 }, true);
+document.addEventListener("wheel", (e) => {
+  const el = marqueeOf(e.target);
+  if (!el) return;
+  stopStep(el, false);
+  el._holdUntil = Date.now() + WHEEL_MS;
+  scheduleStep(el, WHEEL_MS);
+}, { passive: true, capture: true });
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest?.("[data-step]");
+  if (!btn) return;
+  const el = marqueeOf(btn);
+  if (!el) return;
+  e.preventDefault();
+  e.stopPropagation();
+  nudgeStep(el, Number(btn.dataset.step));
+}, true);
+document.addEventListener("visibilitychange", () => {
+  document.querySelectorAll("[data-marquee].vmarquee").forEach(el => {
+    cancelMotion(el);
+    if (!document.hidden) scheduleStep(el, LEAVE_MS);
+  });
+});
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);

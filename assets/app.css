@@ -304,6 +304,14 @@ dialog.modal::backdrop{background:#000b}
 .skel{background:var(--card2);border-radius:10px;animation:pulse 1.4s infinite}
 .vmarquee{overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;touch-action:pan-y}
 .vmarquee::-webkit-scrollbar{display:none}
+.step-wrap{position:relative;min-width:0;min-height:0}
+.hero-slot>.step-wrap{position:absolute;inset:0}
+.step-nav{position:absolute;right:3px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;z-index:2;opacity:0;pointer-events:none}
+.step-wrap:hover>.step-nav,.step-wrap:focus-within>.step-nav{opacity:1;pointer-events:auto}
+.step-nav button{width:16px;height:16px;border-radius:4px;border:1px solid var(--border);background:color-mix(in hsl, var(--card) 82%, transparent);color:var(--muted);font-size:10px;line-height:1;font-weight:800}
+.step-nav button:hover{color:var(--primary);border-color:var(--primary)}
+@media (hover: none){.step-nav{opacity:.72;pointer-events:auto}}
+@media (max-width:900px){.hero-slot>.step-wrap{position:static;inset:auto}}
 @media (prefers-reduced-motion: reduce){.vmarquee{scroll-behavior:auto}}
 
 /* şəkilsiz kart: boş yer tutmasın, xülasə daha çox görünsün */
