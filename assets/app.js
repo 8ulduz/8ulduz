@@ -219,6 +219,14 @@ window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("
 const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
+const PRAY_SVG = {
+  Fajr: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M12 8.2v2.1M8.3 11l1.4 1.4M15.7 11l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8.4 18a3.6 3.6 0 0 1 7.2 0" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`,
+  Sunrise: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18.5h16M12 5.2v2.5M8 8l1.6 1.6M16 8l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="14.6" r="3.15" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`,
+  Dhuhr: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.6v2.2M12 18.2v2.2M3.6 12h2.2M18.2 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`,
+  Asr: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="14" cy="14.2" r="3.15" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 6.2v2.2M9 9.2l1.5 1.5M19 10l-1.4 1.3M6.4 14.4H8.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`,
+  Maghrib: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.2h17M12 6.6v2.4M8.5 9.2l1.5 1.5M15.5 9.2 14 10.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M7.2 18.2a4.8 4.8 0 0 1 9.6 0" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`,
+  Isha: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14.8 3.6a7.1 7.1 0 1 0 5.6 11.2A6.2 6.2 0 0 1 14.8 3.6z"/></svg>`,
+};
 const WARN_RE = /tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
 const SAVE_KEY = "8ulduz-saved";
 function savedList() { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
@@ -414,8 +422,8 @@ function renderTopbar() {
   if (S.wxOpen) {
     const sel = S.wxSel && (S.wxAll || []).find(x => x.city === S.wxSel);
     pop = `<div class="wx-pop" role="dialog" aria-label="Bölgələr üzrə hava">` + (sel
-      ? `<button class="muted" data-act="wx-back" style="font-size:12px;font-weight:700;color:var(--primary)">← Bölgələrə qayıt</button>
-         <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="font-size:34px">${sel.icon}</span><div><b style="font-size:17px">${esc(sel.city)}</b><div class="muted">${sel.label}</div></div><b style="margin-left:auto;font-size:28px">${sel.temp}°</b></div>
+      ? `<button class="wx-back" data-act="wx-back">← Bölgələrə qayıt</button>
+         <div class="wx-now"><span class="wx-emo">${sel.icon}</span><div><b>${esc(sel.city)}</b><div class="muted">${esc(sel.label)}</div></div><b class="wx-temp">${sel.temp}°</b></div>
          <div class="wx-det">${[["Hiss olunur", `${sel.feels}°`], ["Rütubət", `%${sel.humidity}`], ["Külək", `${sel.wind} km/s`], ["Təzyiq", `${sel.pressure} hPa`], ["Yağıntı", `${sel.precip} mm`]].map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("")}</div>`
       : `<div class="wx-head"><span>Bölgələr üzrə hava</span><button data-act="wx-close" aria-label="Bağla">✕</button></div>` +
         (!S.wxAll ? `<div class="empty" style="padding:24px 0">Yüklənir…</div>` :
@@ -446,24 +454,45 @@ function renderTicker() {
   $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ Son dəqiqə${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
 }
 
+function prayIcon(key) {
+  return `<span class="pi">${PRAY_SVG[key] || ""}</span>`;
+}
+function prayLeft(mins) {
+  if (mins == null || !Number.isFinite(mins)) return "";
+  if (mins < 1) return "indi";
+  const h = Math.floor(mins / 60), m = mins % 60;
+  if (!h) return `${m} dəq`;
+  return m ? `${h} saat ${m} dəq` : `${h} saat`;
+}
 function prayBit() {
   const p = S.pray;
   if (!p) return `<button class="pray" data-act="pray" type="button">Namaz</button>`;
   const h = p.hijri || {};
   const month = HIJRI_AZ[Number(h.month?.number)] || h.month?.en || "";
   const next = nextPrayer(p.timings);
-  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog"><b>${esc(p.city)} · ${esc(String(h.day || ""))} ${esc(month)} ${esc(String(h.year || ""))}</b>${PRAY_ORDER.map(([k, lab]) => `<span><i>${lab}</i><b>${esc(p.timings[k] || "")}</b></span>`).join("")}</div>` : "";
-  return `<div class="pray-wrap ${S.prayOpen ? "open" : ""}"><button class="pray" data-act="pray" type="button">${esc(next[0])} ${esc(next[1])} · ${esc(String(h.day || ""))} ${esc(month)}</button>${pop}</div>`;
+  const hijri = `${h.day || ""} ${month}`.trim();
+  const rows = PRAY_ORDER.map(([k, lab]) => {
+    const on = k === next.key;
+    const time = esc(String(p.timings[k] || "").slice(0, 5));
+    const mark = on ? `<span class="pray-when"><em>növbəti</em><small>${esc(prayLeft(next.mins))}</small></span>` : `<span></span>`;
+    return `<div class="pray-row${on ? " next" : ""}">${prayIcon(k)}<span class="pn">${esc(lab)}</span>${mark}<b class="pt">${time}</b></div>`;
+  }).join("");
+  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>${esc(p.city)}</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div>${rows}</div>` : "";
+  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
 }
 function nextPrayer(times) {
-  if (!times) return ["Namaz", ""];
+  if (!times) return { key: "", lab: "Namaz", time: "", mins: null };
   const now = new Date();
   const mins = now.getHours() * 60 + now.getMinutes();
   for (const [k, lab] of PRAY_ORDER) {
     const [hh, mm] = String(times[k] || "").split(":").map(Number);
-    if (Number.isFinite(hh) && hh * 60 + mm >= mins) return [lab, times[k]];
+    if (!Number.isFinite(hh)) continue;
+    const t = hh * 60 + (Number.isFinite(mm) ? mm : 0);
+    if (t >= mins) return { key: k, lab, time: String(times[k]).slice(0, 5), mins: t - mins };
   }
-  return ["Sübh", times.Fajr || ""];
+  const [hh, mm] = String(times.Fajr || "").split(":").map(Number);
+  const left = Number.isFinite(hh) ? (24 * 60 - mins) + hh * 60 + (Number.isFinite(mm) ? mm : 0) : null;
+  return { key: "Fajr", lab: "Sübh", time: String(times.Fajr || "").slice(0, 5), mins: left };
 }
 function fmt(v, dec) { return Number(v).toLocaleString("en-US", { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec }); }
 function aznRate(item) {
