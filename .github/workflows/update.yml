@@ -2,20 +2,26 @@ name: Xəbərləri yenilə
 
 on:
   schedule:
-    # GitHub bu cədvəli tez-tez 20–30 dəqiqə gecikdirir. Öz intervalımızı aşağıdakı dövr saxlayır.
+    # Cron ehtiyatdır. GitHub onu 20–40 dəqiqə gecikdirə və ya atıya bilər.
+    # Əsas davamlılıq işin sonundakı öz-özünə zəncirdir.
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
-# Növbəti iş növbəyə durur və bu iş bitəndə başlayır — kəsilmir, boşluq qalmır.
+# Bir dövrə işləyir, biri növbədə gözləyir. İşləyəni kəsmirik.
+# Gözləyən ikinci iş yarananda əvvəlki gözləyən əvəz olunur, ona görə
+# zəncir yalnız növbə boş olanda dispatch edir.
 concurrency:
   group: news-update
   cancel-in-progress: false
 
 jobs:
   update:
+    # Yalnız main. Başqa budaqda işə salınsa xəbər commit-i o budağa getməsin.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 70
     steps:
@@ -32,12 +38,13 @@ jobs:
           git config user.email "bot@8ulduz.az"
           BRANCH="${GITHUB_REF_NAME}"
           SNAP="$(mktemp -d)"
-          DURATION=$((55 * 60))
-          INTERVAL=240
+          # Dövrənin özü ~50 dəq. Son yeniləmədən növbəti runner-in ilk yeniləməsinə
+          # qədər boşluq runner-in açılış müddəti qədər olsun, 40 dəqiqə yox.
+          DURATION=$((50 * 60))
+          CYCLE=240
           START=$SECONDS
           publish() {
             local i
-            mkdir -p "$SNAP"
             mkdir -p "$SNAP/data"
             cp -a data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json "$SNAP/data/" || return 1
             cp -a sitemap.xml robots.txt feed.xml "$SNAP/" || return 1
@@ -63,16 +70,49 @@ jobs:
             return 1
           }
           while true; do
-            if python updater.py; then
+            begin=$SECONDS
+            # Asılı fetch bütün 70 dəqiqəni yeməsin — əks halda iş ləğv olunur və zəncir düşmür.
+            if timeout 240 python updater.py; then
               publish || echo "Bu dövrənin push-u alınmadı"
             else
               echo "updater.py xətası — status yenilənmir"
             fi
-            LEFT=$((DURATION - (SECONDS - START)))
-            if [ "$LEFT" -lt "$INTERVAL" ]; then
-              echo "Dövr bitdi (${SECONDS}s). Növbəti növbədəki iş davam etdirir."
+            now=$SECONDS
+            left=$((DURATION - (now - START)))
+            # Növbəti tam dövrə bu işin vaxtına sığmırsa, zəncirə burax.
+            if [ "$left" -lt "$CYCLE" ]; then
+              echo "Dövr bitdi (${now}s). Növbəti iş öz-özünə başlayacaq."
               exit 0
             fi
-            echo "Növbəti yoxlama ${INTERVAL}s sonra (qalıq ${LEFT}s)"
-            sleep "$INTERVAL"
+            sleep_for=$((CYCLE - (now - begin)))
+            if [ "$sleep_for" -lt 1 ]; then
+              sleep_for=1
+            fi
+            echo "Növbəti yoxlama ${sleep_for}s sonra (qalıq ${left}s)"
+            sleep "$sleep_for"
           done
+      - name: Növbəti dövrü başlat
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          # Gözləyən iş varsa onu əvəz etmirik (concurrency köhnə pending-i silir).
+          waiting="$(gh run list --workflow update.yml --limit 20 --json status \
+            --jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="waiting" or .status=="requested")] | length' || echo "")"
+          if [ -n "${waiting}" ] && [ "${waiting}" != "0" ]; then
+            echo "Növbəti dövr artıq növbədədir (${waiting}). Yeni dispatch yoxdur."
+            exit 0
+          fi
+          i=1
+          while [ "$i" -le 5 ]; do
+            if gh workflow run update.yml --ref main; then
+              echo "Növbəti dövr növbəyə yazıldı"
+              exit 0
+            fi
+            echo "Dispatch alınmadı ($i)"
+            i=$((i + 1))
+            sleep 3
+          done
+          echo "Zəncir alınmadı. Cron ehtiyat qalır."
+          exit 0
