@@ -95,21 +95,20 @@ const flText = s => {
 };
 // Nişan başlığa görədir (rəsmi səhifənin ortaq tədbirləri ayrıca «Birinci xanım» nişanı almır).
 const isFirstLady = a => !!a && flText(a.title);
-// Əsas blok: birinci xanımın başlıqları öndə, sonra onun xronikası, sonra digər prezident xəbərləri
+// Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
+const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
+// Əsas blok: əvvəl Prezident (ən yeni), sonra Birinci xanım (ən yeni). Hər iki qrup görünsün.
 function prezHome(list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
   const prez = list.filter(a => a.category === "prezident");
-  const recent = byDate(prez.filter(a => age(a) < 21 * DAY));
-  const about = byDate(prez.filter(a => flText(a.title) && age(a) < 60 * DAY));
-  const chronicle = byDate(prez.filter(a => (a.source === "Mehriban Əliyeva" || flText(a.title)) && age(a) < 60 * DAY));
-  const picked = []; const seen = new Set();
-  const push = a => { if (!a || seen.has(a.id)) return false; seen.add(a.id); picked.push(a); return true; };
-  for (const a of about) { if (picked.length >= 2) break; push(a); }
-  for (const a of chronicle) { if (picked.length >= 4) break; push(a); }
-  for (const a of recent) { if (picked.length >= 8) break; push(a); }
-  for (const a of chronicle) { if (picked.length >= 8) break; push(a); }
-  return picked;
+  const president = byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY));
+  const lady = byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY));
+  const MAX = 4;
+  const ladyKeep = lady.length ? Math.min(lady.length, 2) : 0;
+  const presTake = Math.min(president.length, MAX - ladyKeep);
+  const ladyTake = Math.min(lady.length, MAX - presTake);
+  return [...president.slice(0, presTake), ...lady.slice(0, ladyTake)];
 }
 const byDate = list => [...list].sort((x, y) => y.publishedAt.localeCompare(x.publishedAt));
 const lc = s => (s || "").toLocaleLowerCase("az");
@@ -285,19 +284,42 @@ function renderLangs() {
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 
-function socialBlock() {
-  const posts = (S.social?.posts || []).slice(0, 6);
-  const profiles = PROFILES.map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join("")}</span>`).join("");
-  const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-net">${esc(p.network)}</span><span class="t">${txt(p.text)}</span><span class="meta"><span class="src">${esc(p.name)}</span><time>${ago(p.publishedAt)}</time></span></a>`).join("");
-  return `<div class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b><div class="soc-links">${profiles}</div></div>${cards ? `<div class="soc-row">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</div>`;
+function orderedSocialPosts(max = 8) {
+  const all = S.social?.posts || [];
+  const bucket = p => p.who === "prezident" ? 0 : p.who === "birinci-xanim" ? 1 : 2;
+  const groups = [[], [], []];
+  for (const p of all) groups[bucket(p)].push(p);
+  const [prez, lady, rest] = groups.map(g => byDate(g));
+  const ladyKeep = lady.length ? Math.min(lady.length, max <= 4 ? 1 : 3) : 0;
+  const prezTake = Math.min(prez.length, max - ladyKeep);
+  const ladyTake = Math.min(lady.length, max - prezTake);
+  return [...prez.slice(0, prezTake), ...lady.slice(0, ladyTake), ...rest.slice(0, max - prezTake - ladyTake)];
+}
+const NET_ICON = {
+  x: `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M14.6 3h3.1l-6.8 7.8L19 21h-2.7l-5.3-6.9L6.3 21H3.1l7.3-8.4L3.4 3h2.8l4.8 6.3L14.6 3Zm-1.1 16.2h1.5L6.6 4.7H5L13.5 19.2Z"/></svg>`,
+  ig: `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg>`,
+  fb: `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M14 8.5h3V5.5h-3c-2.5 0-4 1.6-4 4.1V12H8v3h2v7h3v-7h2.4l.6-3H13v-2.2c0-.7.3-1.3 1-1.3Z"/></svg>`,
+  yt: `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M22.5 12.2s0-3-.4-4.3c-.2-.9-.9-1.6-1.8-1.8C18.8 5.7 12 5.7 12 5.7s-6.8 0-8.3.4c-.9.2-1.6.9-1.8 1.8C1.5 9.2 1.5 12.2 1.5 12.2s0 3 .4 4.3c.2.9.9 1.6 1.8 1.8 1.5.4 8.3.4 8.3.4s6.8 0 8.3-.4c.9-.2 1.6-.9 1.8-1.8.4-1.3.4-4.3.4-4.3ZM9.8 15.4V9l6 3.2-6 3.2Z"/></svg>`,
+};
+const netIcon = name => name === "Instagram" ? NET_ICON.ig : name === "Facebook" ? NET_ICON.fb : name === "YouTube" ? NET_ICON.yt : NET_ICON.x;
+function profileRows() {
+  const whoOrder = { "Prezident": 0, "Birinci xanım": 1 };
+  return [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
+    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer" title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
+}
+function socialBlock(side = false) {
+  const posts = orderedSocialPosts(side ? 3 : 8);
+  const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span><time>${ago(p.publishedAt)}</time></a>`).join("");
+  return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `<div class="soc-list">${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
+  const cards = list.map(a => `<button class="pcard" data-id="${esc(a.id)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em> ` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
-    <span class="cnt muted" style="font-size:12px;font-weight:600">${list.length} xəbər</span>
+    <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    ${list.length ? `<div class="prez-grid">${list.map(a => `<button class="pcard" data-id="${esc(a.id)}">${isFirstLady(a) ? `<span class="tag">Birinci xanım</span>` : ""}<span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></button>`).join("")}</div>` : ""}
-    ${socialBlock()}</section>`;
+    <div class="prez-body">${list.length ? `<div class="prez-grid">${cards}</div>` : ""}
+    ${socialBlock(true)}</div></section>`;
 }
 
 function heroBlock(list) {
