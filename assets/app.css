@@ -506,10 +506,15 @@ footer .logo i{width:26px;height:26px}
 }
 .strip::after{content:"";position:absolute;top:0;bottom:4px;right:0;width:32px;background:linear-gradient(90deg,transparent,var(--bg));pointer-events:none;transition:opacity .2s}
 .strip.at-end::after{opacity:0}
-.st-btn{display:none;position:absolute;top:50%;z-index:2;width:44px;height:44px;margin-top:-32px;border-radius:50%;border:2px solid var(--bg);background:var(--primary);color:var(--primary-fg);font-size:26px;font-weight:800;line-height:1;box-shadow:0 6px 18px #0008;cursor:pointer}
-.st-btn:hover{filter:brightness(1.1);transform:scale(1.06)}
+/* Oxlar (Yeni Şafak qaydası): adi halda gizli, siçan zolağın üstünə gələndə yumşaq keçidlə çıxır;
+   açıq yarım-şəffaf dairə, tünd işarə, kənarlarda kartların üstündə, şəkil hissəsinin ortasında */
+.st-btn{display:none;position:absolute;top:36%;z-index:2;width:40px;height:40px;margin-top:-20px;border-radius:50%;border:0;background:rgba(255,255,255,.88);color:#111;font-size:26px;font-weight:700;line-height:1;box-shadow:0 2px 10px #0006;cursor:pointer;opacity:0;transition:opacity .25s,transform .15s,background .15s}
+.strip:hover .st-btn,.st-btn:focus-visible{opacity:1}
+.st-btn:hover{background:#fff;transform:scale(1.06)}
 .st-btn:active{transform:scale(.96)}
-.st-prev{left:-18px}.st-next{right:-18px}
+.st-prev{left:8px}.st-next{right:8px}
+:root[data-theme="light"] .st-btn{background:rgba(20,24,36,.78);color:#fff}
+:root[data-theme="light"] .st-btn:hover{background:rgba(20,24,36,.95)}
 .st-dots{display:flex;justify-content:center;gap:5px;padding:6px 0 0}
 .st-dots button{width:6px;height:6px;padding:0;border:0;border-radius:99px;background:var(--muted2);opacity:.55;transition:width .2s,opacity .2s}
 .st-dots button.on{width:18px;background:var(--primary);opacity:1}
