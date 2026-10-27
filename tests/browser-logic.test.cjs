@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy};`, context);
   return context;
 }
 
@@ -66,12 +66,25 @@ test('future articles are not breaking news', () => {
 });
 
 test('basketball national team does not appear in football block', () => {
-  const html = app().api.footballBlock([
+  const ctx = app();
+  ctx.api.S.football = { table: [{ team: 'Qarabağ', pts: 30 }], events: [] };
+  const html = ctx.api.footballBlock([
     {title: "A Milli Kadın Basketbol Takımı", category: 'idman', publishedAt: '2026-10-26T12:00:00Z'},
     {title: 'Futbol: Qarabağ qalib gəldi', category: 'idman', publishedAt: '2026-10-26T12:00:00Z'},
   ]);
   assert.ok(html.includes('Qarabağ'));
   assert.ok(!html.includes('Basketbol'));
+});
+
+test('football block is hidden while the league table is unavailable', () => {
+  const ctx = app();
+  ctx.api.S.football = { table: [], events: [{ home: 'Sabah Baku', away: 'Qarabag', hs: '0', as: '0', date: '2026-10-25' }], note: 'yoxdur' };
+  assert.equal(ctx.api.footballBlock([{ title: 'Futbol: Qarabağ qalib gəldi', category: 'idman', publishedAt: '2026-10-26T12:00:00Z' }]), '');
+});
+
+test('raw links are stripped from headlines', () => {
+  const ctx = app();
+  assert.equal(ctx.api.tidy('Harri Keyn mükafat qazanıb https://report.az/futbol/abc'), 'Harri Keyn mükafat qazanıb');
 });
 
 function worker(cacheNames = []) {

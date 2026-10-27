@@ -11,6 +11,38 @@ import updater
 
 
 class CategoriesTest(unittest.TestCase):
+    def test_turkish_company_revenue_is_economy(self):
+        self.assertEqual(updater.label_for("Çimsa'dan 9 ayda 41,8 milyar TL gelir", "", "tr"), "İqtisadiyyat")
+
+    def test_ai_news_is_technology(self):
+        self.assertEqual(updater.label_for("Azərbaycanda süni intellekt üzrə milli dil modelləri hazırlanır", "", "az"), "Texnologiya")
+        self.assertEqual(updater.SLUGS["Texnologiya"], "texnologiya")
+
+    def test_raw_link_is_stripped_from_title(self):
+        self.assertEqual(updater._plain("Harri Keyn mükafat qazanıb https://report.az/futbol/abc", title=True), "Harri Keyn mükafat qazanıb")
+
+
+class SectionPagesTest(unittest.TestCase):
+    def test_section_pages_and_sitemap_are_written(self):
+        articles = [
+            {"id": "1", "title": "Qarabağ <b>qalib</b> gəldi", "category": "idman", "lang": "az", "source": "APA", "sourceUrl": "https://apa.az/1", "publishedAt": "2026-10-27T10:00:00+00:00"},
+            {"id": "2", "title": "Galatasaray kazandı", "category": "idman", "lang": "tr", "source": "NTV", "sourceUrl": "https://ntv.com.tr/2", "publishedAt": "2026-10-27T11:00:00+00:00"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            with patch.object(updater, "SECTIONS_DIR", root / "bolme"), patch.object(updater, "SITEMAP_FILE", root / "sitemap.xml"):
+                updater.write_sections(articles)
+                updater.write_sitemap()
+                page = (root / "bolme" / "idman" / "index.html").read_text(encoding="utf-8")
+                sitemap = (root / "sitemap.xml").read_text(encoding="utf-8")
+                pages = [d for d in (root / "bolme").iterdir() if (d / "index.html").exists()]
+        self.assertIn("Qarabağ &lt;b&gt;qalib&lt;/b&gt; gəldi", page)
+        self.assertNotIn("Galatasaray", page)  # yalnız Azərbaycan dilində başlıqlar
+        self.assertIn('src="../../assets/app.js"', page)
+        self.assertIn('"../../#/bolme/idman"', page)
+        self.assertIn(updater.SITE + "bolme/idman/", sitemap)
+        self.assertEqual(len(pages), len(updater.SECTIONS))
+
     def test_background_reference_is_not_chronicle(self):
         for title in ("2027-ci il nə ilidir?", "Keçmiş köçkünlər Laçında qəbul edildi"):
             with self.subTest(title=title):

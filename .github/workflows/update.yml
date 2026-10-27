@@ -49,12 +49,14 @@ jobs:
             mkdir -p "$SNAP/data"
             cp -a data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json "$SNAP/data/" || return 1
             cp -a sitemap.xml robots.txt feed.xml "$SNAP/" || return 1
+            rm -rf "$SNAP/bolme"; [ -d bolme ] && cp -a bolme "$SNAP/bolme"
             for i in 1 2 3 4 5; do
               git fetch origin "$BRANCH"
               git reset --hard "origin/$BRANCH"
               mkdir -p data
               cp -a "$SNAP/data/." data/
               cp -a "$SNAP/sitemap.xml" "$SNAP/robots.txt" "$SNAP/feed.xml" ./
+              if [ -d "$SNAP/bolme" ]; then rm -rf bolme; cp -a "$SNAP/bolme" bolme; git add bolme; fi
               git add data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json sitemap.xml robots.txt feed.xml
               if git diff --cached --quiet; then
                 echo "Dəyişiklik yoxdur"
