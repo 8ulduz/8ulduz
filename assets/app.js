@@ -112,7 +112,9 @@ function ago(iso) {
 }
 function fullDate(iso) { const d = new Date(iso); return Number.isNaN(d.getTime()) ? "" : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; }
 function today() { const a = new Date(), r = `${DAYS[a.getDay()]}, ${a.getDate()} ${MONTHS[a.getMonth()]} ${a.getFullYear()}`; return r.charAt(0).toLocaleUpperCase("az") + r.slice(1); }
-const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
+const FRESH_MS = 15 * 60e3; // «Son dəqiqə» nişanı və bildiriş: son 15 dəqiqə (əvvəl 1 saat idi, hər kart nişan alırdı)
+const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < FRESH_MS; };
+const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
 const OUT = `target="_blank" rel="noopener noreferrer"`;
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
@@ -273,7 +275,7 @@ function img(a, cls = "", eager = false) {
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
-  return `<div class="badges">${withCat ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}${more}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}${isFresh(a) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>`;
+  return `<div class="badges">${withCat ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}${more}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}</div>`;
 }
 function shownSource(a) {
   try {
@@ -290,7 +292,9 @@ const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="$
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
 
 /* ---------------------------------------------------------------- vəziyyət */
-const S = { data: null, error: null, offline: false, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
+const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
+function savedLang() { const v = storage.getItem(LANG_KEY); if (v === "") return null; return LANGS.some(l => l.code === v) ? v : "az"; }
+const S = { data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 const PRAY_SVG = {
@@ -353,7 +357,8 @@ function syncTixDot() {
   const hot = roadHot(S.data?.articles || []);
   document.querySelectorAll(".tix-btn").forEach(el => {
     el.classList.toggle("hot", hot);
-    el.setAttribute("aria-label", hot ? "Tıxac — diqqət" : "Tıxac");
+    el.setAttribute("aria-label", hot ? "Tıxac — pik saat və ya yol hadisəsi" : "Tıxac və yollar");
+    el.title = hot ? "Pik saat və ya təzə yol hadisəsi — xəritəyə baxın" : "Tıxac və yollar";
   });
 }
 const SAVE_KEY = "8ulduz-saved";
@@ -525,7 +530,6 @@ function shell() {
   <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
-    <a class="tix-stick tix-btn tix-band" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac">Tıxac</a>
     <label class="search"><span class="sr" hidden>Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
@@ -539,7 +543,7 @@ function shell() {
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
     <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
-    <a href="#/tixac" data-tab="traffic" class="tix-band"><span>Tıxac</span></a>
+    <a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>
     <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
     <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
@@ -617,7 +621,6 @@ function renderTopbar() {
   $("#topbar").innerHTML = `    <span>${today()}</span>
     ${prayBit()}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
-    <a class="tix-pill tix-btn tix-band" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac"><span class="tix-lab">Tıxac</span></a>
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
@@ -629,8 +632,9 @@ function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` +
     CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("") +
-    `<a href="#/tixac" class="nav-tix tix-band${r.name === "traffic" ? " on" : ""}">Tıxac</a>`;
+    `<a href="#/tixac" class="nav-tix tix-btn${r.name === "traffic" ? " on" : ""}">Tıxac</a>`;
   fitNav();
+  if (!matchMedia("(min-width: 721px)").matches) { const on = $("#nav a.on"); try { on?.scrollIntoView({ block: "nearest", inline: "center" }); } catch {} }
 }
 function fitNav() {
   const nav = $("#nav");
@@ -838,14 +842,14 @@ function prezBlock(list) {
 
 function heroBlock(list) {
   if (!list.length) return "";
-  const main = list.find(a => a.imageUrl && (a.lang ?? "az") === "az") ?? list.find(a => a.imageUrl) ?? list[0];
+  const main = list.slice(0, 3).find(a => a.imageUrl) ?? list[0];
   const side = list.filter(a => a !== main).slice(0, 8);
   return `<section class="hero">
     <a class="hero-main" data-cat="${esc(main.category)}" href="${esc(main.sourceUrl)}" ${OUT}>${img(main, "", true)}<div class="body">
       <div class="badges"><span class="bd gold" data-cat="${esc(main.category)}"><i class="cdot"></i>${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
       <h1>${txt(main.title)}</h1>
       <div class="meta"><span class="src">${esc(main.source)}</span><time>${ago(main.publishedAt)}</time></div></div></a>
-    <div class="hero-slot"><div class="hero-side" data-marquee data-visible="4">${side.map(a => `<a class="row-card" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="x"><span class="tag" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)}</time></span></div></a>`).join("")}</div></div>
+    <div class="hero-slot"><div class="hero-side" data-marquee data-visible="4">${side.map(a => `<a class="row-card" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="x"><span class="tag" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span>${a.alts?.length ? `<span class="nsrc">${1 + a.alts.length} mənbə</span>` : ""}<time>${ago(a.publishedAt)}</time></span></div></a>`).join("")}</div></div>
   </section>`;
 }
 
@@ -853,7 +857,7 @@ function alertStrip() {
   const hits = roadItems(S.data?.articles || []).slice(0, 3);
   const wx = (S.warn || []).join(" · ");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go tix-band" href="#/tixac">Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
+  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
 }
 function ytBlock() {
   const items = S.video?.items || [];
@@ -911,18 +915,34 @@ function skeleton() {
     <section class="hero"><div class="skel" style="height:340px"></div><div class="hero-side">${"<div class='skel' style='height:78px'></div>".repeat(4)}</div></section>
     <section><div class="grid">${"<div class='skel' style='height:220px'></div>".repeat(4)}</div></section>`;
 }
-function dayFive(list) {
-  const cut = Date.now() - 18 * HOUR;
-  return list.filter(a => new Date(a.publishedAt).getTime() >= cut)
-    .map(a => ({ a, n: 1 + (a.alts?.length || 0) }))
+// Əhəmiyyət: neçə mənbə yazıb (alts), bərabərdirsə daha yeni.
+function rankBySources(list) {
+  return list.map(a => ({ a, n: 1 + (a.alts?.length || 0) }))
     .sort((x, y) => y.n - x.n || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""))
-    .slice(0, 5).map(x => x.a);
+    .map(x => x.a);
 }
-function dayFiveBlock(list) {
-  const items = dayFive(list);
-  if (items.length < 2) return "";
-  return `<section class="day5"><div class="sec-h"><h2>Günün 5 əsas xəbəri</h2><span class="cnt">son 18 saat</span></div>
-    <ol>${items.map((a, i) => `<li><a href="${esc(a.sourceUrl)}" ${OUT}><b>${i + 1}</b><span>${txt(a.title)}</span><em>${1 + (a.alts?.length || 0)} mənbə</em></a></li>`).join("")}</ol></section>`;
+// Hero: son 18 saatın ən çox mənbədə çıxan xəbərləri; kifayət etməsə pəncərə 48 saata, sonra bütün lentə genişlənir.
+// Eyni hadisənin updater-də birləşməmiş variantları (başlıqda 2+ ortaq uzun söz) hero-da təkrarlanmasın.
+const heroWords = a => new Set(lc(a.title || "").split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 5));
+function diverse(ranked, need) {
+  const out = [], seen = [];
+  for (const a of ranked) {
+    const w = heroWords(a);
+    if (seen.some(s => [...w].filter(x => s.has(x)).length >= 2)) continue;
+    out.push(a); seen.push(w);
+    if (out.length >= need) break;
+  }
+  for (const a of ranked) { if (out.length >= need) break; if (!out.includes(a)) out.push(a); }
+  return out;
+}
+function heroPick(list, need = 9) {
+  const now = Date.now();
+  for (const hours of [18, 48]) {
+    const cut = now - hours * HOUR;
+    const pool = list.filter(a => { const t = new Date(a.publishedAt).getTime(); return t >= cut && t <= now + 5 * 60e3; });
+    if (pool.length >= need) return diverse(rankBySources(pool), need);
+  }
+  return diverse(rankBySources(list), need);
 }
 
 function homeView() {
@@ -930,9 +950,9 @@ function homeView() {
   const prez = prezHome(m);
   const vids = byDate(m.filter(a => a.video));
   const used = new Set();
-  const hero = byDate(m).slice(0, 9); hero.forEach(a => used.add(a.id));
+  const hero = heroPick(m.filter(a => a.category !== "prezident")); hero.forEach(a => used.add(a.id));
   const secs = homeCats().map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
-  return prezBlock(prez) + adHtml() + heroBlock(byDate(m)) + dayFiveBlock(m) + alertStrip() + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
+  return prezBlock(prez) + adHtml() + heroBlock(hero) + alertStrip() + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -946,7 +966,7 @@ function sectionView(slug) {
   const c = CATS.find(x => x.slug === slug);
   if (!c) return `<div class="empty"><h1 style="color:var(--fg)">Bölmə tapılmadı</h1><p>Axtardığınız bölmə mövcud deyil.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>`;
   const d = S.data.articles;
-  let list = slug === "video" ? d.filter(a => a.video) : slug === "sondeqiqe" ? d.filter(isFresh) : d.filter(a => a.category === slug);
+  let list = slug === "video" ? d.filter(a => a.video) : slug === "sondeqiqe" ? d.filter(withinHour) : d.filter(a => a.category === slug);
   list = byDate(list);
   if (slug === "prezident") list = byDate(list);
   let extra = "";
@@ -1079,7 +1099,7 @@ function onClick(e) {
     return;
   }
   if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
-  if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; S.shown = PAGE; renderLangs(); renderView(); return; }
+  if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
   const act = t.dataset.act;

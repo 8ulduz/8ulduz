@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, footballBlock, S};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY};`, context);
   return context;
 }
 
@@ -125,4 +125,37 @@ test('full cache does not discard fresh network news', async () => {
   const res = await vm.runInContext("networkFirstData(new Request('https://example.com/8ulduz/data/news.json'))", context);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('X-8ulduz-data'), 'network');
+});
+
+test('"Son dəqiqə" badge covers 15 minutes, the section covers an hour', () => {
+  const ctx = app();
+  const at = min => ({publishedAt: new Date(Date.now() - min * 60000).toISOString()});
+  assert.equal(ctx.api.isFresh(at(5)), true);
+  assert.equal(ctx.api.isFresh(at(30)), false);
+  assert.equal(ctx.api.withinHour(at(30)), true);
+  assert.equal(ctx.api.withinHour(at(90)), false);
+});
+
+test('default language filter is Azerbaijani; "all" and a chosen language persist', () => {
+  const ctx = app();
+  assert.equal(ctx.api.S.lang, 'az');
+  ctx.api.storage.setItem(ctx.api.LANG_KEY, '');
+  assert.equal(ctx.api.savedLang(), null);
+  ctx.api.storage.setItem(ctx.api.LANG_KEY, 'ru');
+  assert.equal(ctx.api.savedLang(), 'ru');
+  ctx.api.storage.setItem(ctx.api.LANG_KEY, 'xx');
+  assert.equal(ctx.api.savedLang(), 'az');
+});
+
+test('hero picks the most-covered recent stories, not merely the newest', () => {
+  const ctx = app();
+  const h = n => new Date(Date.now() - n * 3600000).toISOString();
+  const list = [
+    {id: 'new', publishedAt: h(0.1), alts: []},
+    {id: 'big', publishedAt: h(6), alts: [1, 2, 3, 4]},
+    {id: 'mid', publishedAt: h(2), alts: [1]},
+    {id: 'old', publishedAt: h(40), alts: [1, 2, 3, 4, 5, 6]},
+  ];
+  assert.equal(ctx.api.heroPick(list, 3).map(a => a.id).join(), 'big,mid,new');
+  assert.equal(ctx.api.heroPick(list, 4).map(a => a.id).join(), 'old,big,mid,new');
 });
