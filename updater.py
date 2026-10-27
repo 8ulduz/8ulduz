@@ -765,9 +765,23 @@ MARKET_DEFS = [
 def fetch_json(url, timeout=TIMEOUT):
     return json.loads(fetch(url, timeout).decode("utf-8"))
 
+# AMB GitHub Actions-dan alınmayanda səbəb markets.json-a yazılır (cbarError) — loglara girişsiz görmək üçün.
+CBAR_HOSTS = ("https://www.cbar.az", "https://cbar.az")
+_cbar_errors = []
+
 def cbar_rates(day):
-    """AMB (CBAR) rəsmi məzənnələri: {kod: AZN qiyməti bir vahid üçün}."""
-    xml = fetch(f"https://www.cbar.az/currencies/{day:%d.%m.%Y}.xml")
+    """AMB (CBAR) rəsmi məzənnələri: {kod: AZN qiyməti bir vahid üçün}. İki host sınanır."""
+    xml, last = None, None
+    for host in CBAR_HOSTS:
+        try:
+            xml = fetch(f"{host}/currencies/{day:%d.%m.%Y}.xml", timeout=15,
+                        headers={"Accept": "application/xml,text/xml;q=0.9,*/*;q=0.8", "Accept-Language": "az,en;q=0.8"})
+            break
+        except Exception as e:
+            last = e
+            _cbar_errors.append(f"{day:%d.%m} {host.split('//')[1]}: {type(e).__name__}: {str(e)[:120]}")
+    if xml is None:
+        raise last or RuntimeError("cbar: cavab yoxdur")
     root = ET.fromstring(xml)
     out = {}
     for v in root.iter("Valute"):
@@ -782,17 +796,19 @@ def cbar_rates(day):
 def get_currencies():
     baku = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=4))).date()
     cur, prev = None, None
+    failed = 0  # ardıcıl alınmayan günlər; şəbəkə bağlıdırsa 6 günü gözləməyək
     for back in range(0, 6):
         d = baku - datetime.timedelta(days=back)
-        r = None
-        for _attempt in range(2):
-            try:
-                r = cbar_rates(d)
-                break
-            except Exception:
-                r = None
+        try:
+            r = cbar_rates(d)
+        except Exception:
+            r = None
         if not r or not r.get("USD"):
+            failed += 1
+            if failed >= 2 and cur is None:
+                break
             continue  # bülleten hələ yoxdur və ya şəbəkə xətası: növbəti günə bax
+        failed = 0
         if cur is None:
             cur = (d, r)
         elif r != cur[1]:
@@ -882,11 +898,21 @@ def update_markets():
             continue
         items.append(it)
     strip = lambda its: [{k: v for k, v in i.items() if k not in ("at", "stale")} for i in its]
-    if items and strip(items) == strip(old.values()) and len(items) == len(old):
+    amb_missing = any(i.get("unit") == "AZN" and i.get("src") != "AMB" for i in items)
+    cbar_error = "; ".join(_cbar_errors[-4:]) if amb_missing and _cbar_errors else ""
+    if cbar_error:
+        print("  ! AMB:", cbar_error)
+    try:
+        old_err = json.loads(MARKETS_FILE.read_text(encoding="utf-8")).get("cbarError", "")
+    except Exception:
+        old_err = ""
+    if items and strip(items) == strip(old.values()) and len(items) == len(old) and old_err == cbar_error:
         print("Bazar: dəyişiklik yoxdur"); return
     if items:
-        MARKETS_FILE.write_text(json.dumps({"updatedAt": now, "items": items}, ensure_ascii=False,
-                                           separators=(",", ":")), encoding="utf-8")
+        out = {"updatedAt": now, "items": items}
+        if cbar_error:
+            out["cbarError"] = cbar_error
+        MARKETS_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Bazar: {sum(1 for i in items if not i.get('stale'))}/{len(MARKET_DEFS)} təzə")
 
 def _clean_text(s):
