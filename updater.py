@@ -1866,7 +1866,10 @@ def main():
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
     per_src = {}
-    for a in (new_items + old):
+    # Tarixə görə birgə sıralama. Əvvəl «yeni» (bu dövrədə ilk dəfə görülən) xəbərlər köhnələrdən qabaq gəlirdi;
+    # limitdən kənarda qalan köhnə xəbərlər növbəti dövrədə yenidən «yeni» sayılıb siyahını hər dəfə dəyişirdi
+    # (813-dən yalnız ~50 xəbər dövrədən dövrəyə qalırdı; og keşi və qruplar daim sıfırlanırdı).
+    for a in sorted(new_items + old, key=lambda x: x.get("publishedAt") or "", reverse=True):
         if a["sourceUrl"] in dseen:
             continue
         n = per_src.get(a.get("source"), 0)
