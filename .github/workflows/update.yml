@@ -43,6 +43,7 @@ jobs:
           DURATION=$((50 * 60))
           CYCLE=240
           START=$SECONDS
+          last_result=1
           publish() {
             local i
             mkdir -p "$SNAP/data"
@@ -73,16 +74,19 @@ jobs:
             begin=$SECONDS
             # Asılı fetch bütün 70 dəqiqəni yeməsin — əks halda iş ləğv olunur və zəncir düşmür.
             if timeout 240 python updater.py; then
-              publish || echo "Bu dövrənin push-u alınmadı"
+              if publish; then last_result=0; else last_result=1; echo "Bu dövrənin push-u alınmadı"; fi
             else
-              echo "updater.py xətası — status yenilənmir"
+              last_result=1
+              # Toplayıcı köhnə lenti saxlayır, uğursuz cəhdin statusunu isə dərc edir.
+              echo "updater.py xətası — diaqnostika dərc olunur"
+              publish || echo "Xəta statusunun push-u alınmadı"
             fi
             now=$SECONDS
             left=$((DURATION - (now - START)))
             # Növbəti tam dövrə bu işin vaxtına sığmırsa, zəncirə burax.
             if [ "$left" -lt "$CYCLE" ]; then
               echo "Dövr bitdi (${now}s). Növbəti iş öz-özünə başlayacaq."
-              exit 0
+              exit "$last_result"
             fi
             sleep_for=$((CYCLE - (now - begin)))
             if [ "$sleep_for" -lt 1 ]; then

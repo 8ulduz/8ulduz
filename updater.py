@@ -90,11 +90,10 @@ PRESIDENT_STRONG = [
     # Birinci xanım: saytlar adı qısaldır və ya ə-siz yazır
     "birinci xanim", "birinci xanımlar", "məhriban əliyeva", "məhriban aliyeva",
     "xanım mehriban", "first vice-president", "first vice president", "lady mehriban",
-    "mehriban", "məhriban", "мехрибан",
 ]
 # Zəif göstəricilər: yalnız xarici kontekst olmadıqda sayılır
 # "X prezidenti" (məs. "Azercell prezidenti", "FIFA prezidenti") başqasının prezidentidir — sayılmır.
-PRESIDENT_WEAK_RX = re.compile(r"(?<!\w)(?:prezident(?!i(?!\w)|inin|liy)|dövlət başçısı)")
+PRESIDENT_WEAK_RX = re.compile(r"(?<!\w)(?:prezident(?!i(?!\w)|inin|liy)|dövlət başçısı|ölkə başçısı)")
 PRESIDENT_WEAK_EXTRA = ["sərəncam", "fərman", "təltif"]
 # Xarici kontekst: "Braziliyada prezident seçkiləri" kimi xəbərlər Prezident bölməsinə düşməsin
 FOREIGN_MARKERS = [
@@ -167,7 +166,7 @@ CATEGORIES = {
                    "фильм", "кино", "сериал", "театр", "музе", "выставк", "концерт", "певиц", "певец",
                    "актер", "актрис", "режиссер", "книг", "писател", "фестивал", "музык",
                    "movie", "music", "museum", "actor", "singer", "album", "səhnə", "şeir", "rəssam", "ekranlara", "ədəbiyyat", "opera", "mütəfəkkir", "poeziya"],
-    "Cəmiyyət": ["yol qəzası", "hadisə", "qəza", "yanğın", "hava", "təhsil", "məktəb", "universitet",
+    "Cəmiyyət": ["hökm", "yandır", "dava", "драка", "драки", "инцидент", "yol qəzası", "hadisə", "qəza", "yanğın", "hava", "təhsil", "məktəb", "universitet",
                  "tələbə", "məhkəmə", "polis", "xəstəxana", "yağış", "sel", "fəsad",
                  "köçkün", "insident", "kaza", "yangın", "eğitim", "təcili tibbi", "bərk", "duman",
                  "saxlanıl", "öldürü", "yaralan", "həlak", "ölüb", "cinayət", "oğurl", "narkotik",
@@ -417,7 +416,9 @@ def _rx(w):
     """Söz başlanğıcına bağlı axtarış (sonu sərbəst: şəkilçilər üçün)."""
     r = _RX.get(w)
     if r is None:
-        r = _RX[w] = re.compile(r"(?<!\w)" + re.escape(norm_az(w)))
+        # ABŞ sözünü Abşeron kimi yer adları ilə qarışdırma.
+        suffix = r"(?=$|[^\w]|[-’'])" if w in ("abş", "abd") else r"(?!et|ет)" if w in ("bank", "банк") else ""
+        r = _RX[w] = re.compile(r"(?<!\w)" + re.escape(norm_az(w)) + suffix)
     return r
 
 def has_any(blob, words):
@@ -437,7 +438,9 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     scores = {}
     for cat, words in CATEGORIES.items():
         if cat == "Prezident":
-            hits = president_score(blob, lang)
+            # Xronikada xəbər özü rəhbərlik haqqında olmalıdır; xülasədəki
+            # tarixi arayış və əlaqəli xəbərlərin mətni bunun üçün kifayət deyil.
+            hits = president_score(norm_az(title), lang)
         else:
             hits = 0
             for w in words:
@@ -1396,11 +1399,18 @@ def fill_og_images(articles, limit=30):
         print("  ! og keşi:", type(e).__name__)
     return len(batch)
 
-def write_status():
-    """Hər uğurlu yoxlamada yazılır — xəbər mətni dəyişməsə belə. UI bunu göstərir."""
+def write_status(ok=True, successful=0, total=0):
+    """Son cəhd və son uğur ayrıdır; uğursuz cəhd köhnə xəbəri təzə göstərmir."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    try:
+        previous = json.loads(STATUS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        previous = {}
     OUT_DIR.mkdir(exist_ok=True)
-    STATUS_FILE.write_text(json.dumps({"checkedAt": now, "ok": True}, ensure_ascii=False,
+    STATUS_FILE.write_text(json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
+                                       "attemptedAt": now, "ok": ok,
+                                       "successfulSources": successful, "totalSources": total,
+                                       "degraded": ok and successful < total}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
@@ -1421,6 +1431,8 @@ def main():
         # köhnə xəbərləri də yenilənmiş qaydalarla yenidən kateqoriyalaşdır
         lbl = label_for(a.get("title", ""), a.get("summary", ""), a["lang"],
                         hints.get(a.get("source")), a.get("source") in WORLD_SOURCES)
+        if a.get("source") in ("Prezident.az", "Mehriban Əliyeva"):
+            lbl = "Prezident"
         a["category"] = SLUGS.get(lbl, "gundem")
     seen = {a["sourceUrl"] for a in old}
     new_items, errors, empty = [], [], []
@@ -1479,13 +1491,18 @@ def main():
     except Exception as e:
         print("  ! og:image:", type(e).__name__)
     save_sources(source_rows)
+    successful = sum(1 for row in source_rows if not row.get("error") and row.get("count", 0) > 0)
+    result = {"ok": successful > 0 and bool(articles), "successful": successful, "total": len(source_rows)}
+    if not successful:
+        print("Heç bir xəbər mənbəyi işləmədi — əvvəlki xəbər lenti saxlanıldı")
+        return result
     if not articles:
-        print("Xəbər yoxdur — fayl dəyişdirilmədi"); return
+        print("Xəbər yoxdur — fayl dəyişdirilmədi"); return result
     if articles == prev_articles:
         print(f"Dəyişiklik yoxdur ({len(FEEDS) - len(errors)}/{len(FEEDS)} mənbə)")
         for e in errors:
             print("  !", e)
-        return
+        return result
     data = {
         "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "count": len(articles),
@@ -1500,9 +1517,11 @@ def main():
         print("  !", e)
     for e in empty:
         print("  ∅", e, "(boş lent)")
+    return result
 
-if __name__ == "__main__":
+def run():
     news_ok = True
+    result = {"successful": 0, "total": 0}
     if "--no-markets" not in sys.argv:
         try:
             update_markets()
@@ -1510,7 +1529,8 @@ if __name__ == "__main__":
             print("  ! bazar:", type(e).__name__)
     if "--markets-only" not in sys.argv:
         try:
-            main()
+            result = main()
+            news_ok = result["ok"]
         except Exception as e:
             news_ok = False
             print("  ! xəbər:", type(e).__name__, e)
@@ -1527,9 +1547,13 @@ if __name__ == "__main__":
                 update_football()
             except Exception as e:
                 print("  ! futbol:", type(e).__name__)
+        write_status(news_ok, result["successful"], result["total"])
         if news_ok:
-            write_status()
             try:
                 write_public()
             except Exception as e:
                 print("  ! seo:", type(e).__name__, e)
+    return 0 if news_ok else 1
+
+if __name__ == "__main__":
+    sys.exit(run())
