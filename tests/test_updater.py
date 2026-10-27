@@ -76,6 +76,14 @@ class DateAndFilterTest(unittest.TestCase):
         self.assertEqual(updater._to_iso("2026-10-27T09:50:00Z"), "2026-10-27T09:50:00+00:00")
         self.assertIsNotNone(updater._parse_dt("2026-10-27T13:50:00").tzinfo)
 
+    def test_foreign_sources_do_not_cover_the_azerbaijani_state(self):
+        world = next(iter(updater.WORLD_SOURCES))
+        self.assertTrue(updater.foreign_about_azerbaijan(world, "siyaset", "Bahçeli'den Azerbaycan-Türkiye mesajı"))
+        self.assertTrue(updater.foreign_about_azerbaijan(world, "dunya", "Президент Азербайджана принял делегацию"))
+        self.assertFalse(updater.foreign_about_azerbaijan(world, "idman", "Qarabağ Avropa Liqasında qalib gəldi"))
+        self.assertFalse(updater.foreign_about_azerbaijan("APA", "siyaset", "Azərbaycan Prezidenti qəbul edib"))
+        self.assertFalse(updater.foreign_about_azerbaijan(world, "dunya", "Bakırköy'de kaza"))
+
     def test_negative_filter_needs_an_explicit_name_and_skips_official_sources(self):
         self.assertTrue(updater.is_negative_about_leadership("İlham Əliyev tənqid olundu", "", "Trend"))
         self.assertFalse(updater.is_negative_about_leadership("Fransa prezidenti etiraz aksiyası ilə üzləşdi", "", "Trend"))

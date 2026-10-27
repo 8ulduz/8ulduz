@@ -551,6 +551,17 @@ NEGATIVE = [
     "eleştiri", "protesto", "yolsuzluk", "rüşvet", "eleştirmek", "tutuklandı",
 ]
 
+# Xarici mənbələrin Azərbaycan dövləti və rəhbərliyi haqqında xəbərləri dərc edilmir (redaksiya qərarı);
+# bu mövzuda yalnız Azərbaycan mənbələri qalır. İdman xəbərləri (Qarabağ FK, idmançılar) istisnadır.
+AZ_STATE_RX = re.compile(
+    r"azerbaijan|azerbaycan|азербайджан|aliyev|алиев|əliyev|\bbaku\b|bakü|баку|\bbakı|nakhchivan|нахичеван|naxçıvan|"
+    r"karabakh|karabağ|карабах|qarabağ|\bazeri\b|milli məclis|milli mejlis", re.I)
+
+def foreign_about_azerbaijan(source, category, title, desc=""):
+    if source not in WORLD_SOURCES or category == "idman":
+        return False
+    return bool(AZ_STATE_RX.search(f"{title} {desc or ''}"))
+
 def is_negative_about_leadership(title, desc, source=None):
     """Rəhbərlikdən bəhs edən və neqativ çağrışım daşıyan xəbərləri tutur (redaksiya qərarı).
     Rəsmi mənbələr süzülmür; sözlər söz başlanğıcında axtarılır («qan təzyiqi» tutulmur)."""
@@ -1899,6 +1910,7 @@ def main():
         if a.get("source") in ("Prezident.az", "Mehriban Əliyeva"):
             lbl = "Prezident"
         a["category"] = SLUGS.get(lbl, "gundem")
+    old = [a for a in old if not foreign_about_azerbaijan(a.get("source"), a.get("category"), a.get("title", ""), a.get("summary", ""))]
     for a in old:
         dt = _parse_dt(a.get("publishedAt"))
         if dt is not None:
@@ -1929,7 +1941,10 @@ def main():
                 seen.add(it["link"])
                 if is_negative_about_leadership(it["title"], it["description"], source):
                     continue
-                new_items.append(make_article(it, source, dlang, hint))
+                art = make_article(it, source, dlang, hint)
+                if foreign_about_azerbaijan(source, art["category"], art["title"], art["summary"]):
+                    continue
+                new_items.append(art)
             except Exception as e:
                 errors.append(f"{source} (element): {type(e).__name__}")
     off_items, off_errors = official_items()
