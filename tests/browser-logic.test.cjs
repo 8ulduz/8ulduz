@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur};`, context);
   return context;
 }
 
@@ -67,13 +67,36 @@ test('future articles are not breaking news', () => {
 
 test('basketball national team does not appear in football block', () => {
   const ctx = app();
-  ctx.api.S.football = { table: [{ team: 'Qarabağ', pts: 30 }], events: [] };
+  ctx.api.S.football = { table: [{ pos: 1, team: 'Qarabağ', pts: 30, p: 10, w: 9, d: 3, l: 0, gf: 20, ga: 5, gd: 15 }], results: [] };
   const html = ctx.api.footballBlock([
     {title: "A Milli Kadın Basketbol Takımı", category: 'idman', publishedAt: '2026-10-26T12:00:00Z'},
     {title: 'Futbol: Qarabağ qalib gəldi', category: 'idman', publishedAt: '2026-10-26T12:00:00Z'},
   ]);
   assert.ok(html.includes('Qarabağ'));
   assert.ok(!html.includes('Basketbol'));
+});
+
+test('football block renders results, fixtures and the ordinal round suffix', () => {
+  const ctx = app();
+  ctx.api.S.football = {
+    league: 'Misli Premyer Liqası', season: '2026-2027', roundPlayed: '9', roundNext: '10',
+    table: [{ pos: 1, team: 'Qarabağ', pts: 22, p: 9, w: 7, d: 1, l: 1, gf: 18, ga: 6, gd: 12 }],
+    results: [{ home: 'Sabah', away: 'Qarabağ', hs: 0, as: 0, date: '2026-10-25T18:00+04:00', played: true }],
+    fixtures: [{ home: 'Qəbələ', away: 'Qarabağ', hs: 0, as: 0, date: '2026-10-31T17:30+04:00', played: false }],
+    scorers: [{ name: 'Rikardo Apolinario', club: 'Şamaxı', goals: 3 }],
+  };
+  let html = ctx.api.footballBlock([]);
+  assert.ok(html.includes('9-cu'));
+  assert.ok(html.includes('10-cu'));
+  assert.ok(html.includes('0 : 0'));
+  ctx.api.S.fbTab = 'fixtures';
+  html = ctx.api.footballBlock([]);
+  assert.ok(html.includes('Qəbələ') && html.includes('31 okt'));
+  ctx.api.S.fbTab = 'scorers';
+  assert.ok(ctx.api.footballBlock([]).includes('3 qol'));
+  assert.equal(ctx.api.ordTur(3), '3-cü');
+  assert.equal(ctx.api.ordTur(6), '6-cı');
+  assert.equal(ctx.api.ordTur(20), '20-ci');
 });
 
 test('football block is hidden while the league table is unavailable', () => {
