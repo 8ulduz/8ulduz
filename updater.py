@@ -1781,8 +1781,8 @@ def fill_og_images(articles, limit=30):
         print("  ! og keşi:", type(e).__name__)
     return len(batch)
 
-def write_status(ok=True, successful=0, total=0):
-    """Son cəhd və son uğur ayrıdır; uğursuz cəhd köhnə xəbəri təzə göstərmir."""
+def write_status(ok=True, successful=0, total=0, stats=None):
+    """Son cəhd və son uğur ayrıdır; uğursuz cəhd köhnə xəbəri təzə göstərmir. stats: seçim sayları (diaqnostika)."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     try:
         previous = json.loads(STATUS_FILE.read_text(encoding="utf-8"))
@@ -1792,7 +1792,7 @@ def write_status(ok=True, successful=0, total=0):
     STATUS_FILE.write_text(json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
                                        "attemptedAt": now, "ok": ok,
                                        "successfulSources": successful, "totalSources": total,
-                                       "degraded": ok and successful < total}, ensure_ascii=False,
+                                       "degraded": ok and successful < total, "stats": stats or previous.get("stats")}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
@@ -1877,8 +1877,11 @@ def main():
             continue
         per_src[a.get("source")] = n + 1
         dseen.add(a["sourceUrl"]); uniq.append(a)
-    # Prezident bölməsi üçün xəbərlər limitdən kənarda da (son 60) saxlanılır
-    articles = uniq[:MAX_ITEMS] + [a for a in uniq[MAX_ITEMS:] if a["category"] == "prezident"][:60]
+    # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
+    # Əvvəl yalnız 800-dən kənarda qalanlar əlavə olunurdu; siyahı 800-dən qısa olanda heç nə əlavə olunmurdu.
+    prez_items = [a for a in uniq if a["category"] == "prezident"][:120]
+    articles = [a for a in uniq if a["category"] != "prezident"][:MAX_ITEMS] + prez_items
+    stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles)}
     articles = group_duplicates(articles)
     try:
         n_og = fill_og_images(articles)
@@ -1888,7 +1891,7 @@ def main():
         print("  ! og:image:", type(e).__name__)
     save_sources(source_rows)
     successful = sum(1 for row in source_rows if not row.get("error") and row.get("count", 0) > 0)
-    result = {"ok": successful > 0 and bool(articles), "successful": successful, "total": len(source_rows)}
+    result = {"ok": successful > 0 and bool(articles), "successful": successful, "total": len(source_rows), "stats": stats}
     if not successful:
         print("Heç bir xəbər mənbəyi işləmədi — əvvəlki xəbər lenti saxlanıldı")
         return result
@@ -1947,7 +1950,7 @@ def run():
                 update_sports()
             except Exception as e:
                 print("  ! dünya liqaları:", type(e).__name__)
-        write_status(news_ok, result["successful"], result["total"])
+        write_status(news_ok, result["successful"], result["total"], result.get("stats"))
         if news_ok:
             try:
                 write_public()
