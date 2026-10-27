@@ -222,6 +222,7 @@ SOURCES_FILE = OUT_DIR / "sources.json"
 OG_FILE = OUT_DIR / "og.json"
 VIDEO_FILE = OUT_DIR / "video.json"
 FOOTBALL_FILE = OUT_DIR / "football.json"
+SPORTS_FILE = OUT_DIR / "sports.json"
 # YouTube RSS, açarsız. Kanal adları lentin öz başlığı ilə yoxlanıb.
 YT_NEWS = [
     ("İctimai TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCDVpJfSc-RCGSCfGE2MFGAg"),
@@ -1161,6 +1162,110 @@ def fetch_pfl_league(project_id):
     d["project"] = project_id
     return d
 
+# Dünya liqaları: ESPN-in açıq (sənədsiz) cədvəl API-si, açar tələb etmir. Avroliqa orada boş gəlir, ona görə yoxdur.
+ESPN_STANDINGS = "https://site.api.espn.com/apis/v2/sports/{sport}/{slug}/standings"
+ESPN_LEAGUES = [
+    ("eng.1", "soccer", "Premyer Liqa (İngiltərə)", "İngiltərə"),
+    ("esp.1", "soccer", "La Liga", "İspaniya"),
+    ("ita.1", "soccer", "Seriya A", "İtaliya"),
+    ("ger.1", "soccer", "Bundesliqa", "Almaniya"),
+    ("fra.1", "soccer", "Liqa 1", "Fransa"),
+    ("tur.1", "soccer", "Süper Liq", "Türkiyə"),
+    ("uefa.champions", "soccer", "Çempionlar Liqası", "ÇL"),
+    ("nba", "basketball", "NBA", "NBA"),
+]
+SPORTS_EVERY = datetime.timedelta(minutes=30)
+
+def _espn_stat(stats, name):
+    for s in stats or []:
+        if s.get("name") == name:
+            v = s.get("value")
+            if v is None:
+                v = s.get("displayValue")
+            return v
+    return None
+
+def _num(v, default=0):
+    try:
+        return int(float(v))
+    except Exception:
+        return default
+
+def parse_espn(doc, sport):
+    """ESPN cədvəl cavabı -> qruplar və sətirlər. Futbol: O/Q/H/M/qol/xal; basketbol: Q/M/faiz/geridə."""
+    groups = doc.get("children") or [doc]
+    out = []
+    for g in groups:
+        entries = ((g.get("standings") or {}).get("entries")) or []
+        rows = []
+        for e in entries:
+            t = e.get("team") or {}
+            st = e.get("stats") or []
+            logos = t.get("logos") or []
+            row = {"team": t.get("shortDisplayName") or t.get("displayName") or "", "full": t.get("displayName") or "",
+                   "logo": (logos[0].get("href") if logos else "") or ""}
+            if sport == "soccer":
+                row.update({"pos": _num(_espn_stat(st, "rank")), "p": _num(_espn_stat(st, "gamesPlayed")), "w": _num(_espn_stat(st, "wins")),
+                            "d": _num(_espn_stat(st, "ties")), "l": _num(_espn_stat(st, "losses")), "gf": _num(_espn_stat(st, "pointsFor")),
+                            "ga": _num(_espn_stat(st, "pointsAgainst")), "gd": _num(_espn_stat(st, "pointDifferential")), "pts": _num(_espn_stat(st, "points"))})
+                note = e.get("note") or {}
+                if note.get("description"):
+                    row["note"] = note.get("description")
+                    row["color"] = note.get("color") or ""
+            else:
+                w, l = _num(_espn_stat(st, "wins")), _num(_espn_stat(st, "losses"))
+                pct = _espn_stat(st, "winPercent")
+                try:
+                    pct = float(pct)
+                except Exception:
+                    pct = (w / (w + l)) if (w + l) else 0.0
+                row.update({"pos": _num(_espn_stat(st, "playoffSeed")), "w": w, "l": l, "p": w + l, "pct": round(pct, 3),
+                            "gb": _espn_stat(st, "gamesBehind")})
+            rows.append(row)
+        if sport == "soccer":
+            rows.sort(key=lambda r: (r["pos"] or 99, -r["pts"], -r["gd"]))
+        else:
+            rows.sort(key=lambda r: (-r["pct"], -r["w"]))
+        for i, r in enumerate(rows, 1):
+            if not r.get("pos"):
+                r["pos"] = i
+        if rows:
+            out.append({"name": g.get("name") or "", "rows": rows})
+    return out
+
+def update_sports():
+    """Dünya futbol liqaları və NBA cədvəlləri (ESPN). 30 dəqiqədən bir; alınmayan liqa üçün köhnə məlumat qalır."""
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    OUT_DIR.mkdir(exist_ok=True)
+    try:
+        old = json.loads(SPORTS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        old = {}
+    try:
+        if old.get("leagues") and now_dt - datetime.datetime.fromisoformat(old.get("updatedAt", "")) < SPORTS_EVERY:
+            print("Dünya liqaları: təzədir"); return
+    except Exception:
+        pass
+    old_by = {l.get("id"): l for l in old.get("leagues") or []}
+    leagues, fresh = [], 0
+    for slug, sport, name, short in ESPN_LEAGUES:
+        try:
+            doc = json.loads(fetch(ESPN_STANDINGS.format(sport=sport, slug=slug), timeout=20,
+                                   headers={"Accept": "application/json"}).decode("utf-8"))
+            groups = parse_espn(doc, sport)
+            if not groups:
+                raise ValueError("cədvəl boşdur")
+            leagues.append({"id": slug, "sport": "football" if sport == "soccer" else "basketball", "name": name, "short": short,
+                            "season": str((doc.get("season") or {}).get("year") or ""), "groups": groups})
+            fresh += 1
+        except Exception as e:
+            print(f"  ! {name}:", type(e).__name__)
+            if slug in old_by:
+                leagues.append(dict(old_by[slug], stale=True))
+    SPORTS_FILE.write_text(json.dumps({"updatedAt": now_dt.isoformat(timespec="seconds"), "source": "ESPN", "leagues": leagues},
+                                      ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Dünya liqaları: {fresh}/{len(ESPN_LEAGUES)} təzə")
+
 def update_football():
     """Bütün liqalar (Premyer, I, II, Kubok, Əvəzedicilər) pfl.az-dan. Üst səviyyədəki sahələr Premyer Liqadır
     (köhnə quruluş), «leagues» siyahısında hamısı var. Alınmayan liqa üçün köhnə məlumat «stale» ilə qalır."""
@@ -1757,6 +1862,10 @@ def run():
                 update_football()
             except Exception as e:
                 print("  ! futbol:", type(e).__name__)
+            try:
+                update_sports()
+            except Exception as e:
+                print("  ! dünya liqaları:", type(e).__name__)
         write_status(news_ok, result["successful"], result["total"])
         if news_ok:
             try:

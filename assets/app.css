@@ -561,6 +561,10 @@ footer .logo i{width:26px;height:26px}
 /* Futbol: komanda kartları (karusel) + sağda keçid paneli, altda seçilən məlumat */
 .fb-leagues{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px}
 .fb-leagues::-webkit-scrollbar{display:none}
+.fb-leagues .sep{flex:none;width:1px;align-self:stretch;margin:3px 4px;background:var(--border)}
+.fb-leagues .pill.bb{border-style:dashed}
+.fb-groups{display:flex;gap:6px;margin:8px 0 0}
+.fb-table td.nm img{width:18px;height:18px;object-fit:contain;vertical-align:-4px;margin-right:6px}
 .fb-top{display:grid;grid-template-columns:minmax(0,1fr) 200px;gap:var(--gap);align-items:start}
 .fb-top.noteams{grid-template-columns:minmax(0,1fr)}
 .fb-top>.strip{min-width:0}
