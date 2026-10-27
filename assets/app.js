@@ -130,11 +130,13 @@ const flText = s => {
 const isFirstLady = a => !!a && flText(a.title);
 // Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
+const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Əsas blok: əvvəl Prezident (ən yeni), sonra Birinci xanım (ən yeni). Hər iki qrup görünsün.
 function prezHome(list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
-  const prez = list.filter(a => a.category === "prezident");
+  // Yalnız rəsmi mənbələr: president.az, mehriban-aliyeva.az (agentliklərin xəbərləri «Hamısı» səhifəsində qalır)
+  const prez = list.filter(a => a.category === "prezident" && OFFICIAL_SRC.has(a.source));
   const president = byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY));
   const lady = byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY));
   const MAX = 12;
@@ -219,7 +221,7 @@ function clusterArticles(list) {
   for (const members of clusters) {
     let primary = members[0].a;
     for (const m of members.slice(1)) primary = preferPrimary(primary, m.a);
-    const alts = members.filter(m => m.a !== primary).map(m => ({ source: m.a.source, sourceUrl: m.a.sourceUrl, publishedAt: m.a.publishedAt }));
+    const alts = members.filter(m => m.a !== primary).map(m => ({ source: m.a.source, sourceUrl: m.a.sourceUrl, publishedAt: m.a.publishedAt, imageUrl: m.a.imageUrl || "" }));
     if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
     out.push(primary);
   }
@@ -242,14 +244,14 @@ function collapseExact(list) {
     for (const a of g.items.slice(1)) primary = preferPrimary(primary, a);
     const alts = [];
     const urls = new Set([primary.sourceUrl]);
-    const push = (src, url, publishedAt) => {
+    const push = (src, url, publishedAt, imageUrl) => {
       if (!url || urls.has(url)) return;
       urls.add(url);
-      alts.push({ source: src, sourceUrl: url, publishedAt });
+      alts.push({ source: src, sourceUrl: url, publishedAt, imageUrl: imageUrl || "" });
     };
     for (const a of g.items) {
-      if (a !== primary) push(a.source, a.sourceUrl, a.publishedAt);
-      for (const alt of a.alts || []) push(alt.source, alt.sourceUrl, alt.publishedAt);
+      if (a !== primary) push(a.source, a.sourceUrl, a.publishedAt, a.imageUrl);
+      for (const alt of a.alts || []) push(alt.source, alt.sourceUrl, alt.publishedAt, alt.imageUrl);
     }
     if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
     out.push(primary);
@@ -455,6 +457,12 @@ async function loadNews() {
     await loadOg();
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
     d.articles = collapseExact(clusterArticles(d.articles));
+    // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
+    for (const a of d.articles) {
+      if (a.imageUrl || !a.alts?.length) continue;
+      const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og[x.sourceUrl]);
+      if (alt) a.imageUrl = alt.imageUrl || S.og[alt.sourceUrl];
+    }
     S.data = d; S.newsStamp = S.status?.checkedAt || null; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
     checkBreaking(d.articles);
     render();
@@ -625,6 +633,7 @@ function renderTopbar() {
   $("#topbar").innerHTML = `    <span>${today()}</span>
     ${prayBit()}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
+    <a class="tix-top tix-btn" href="#/tixac" title="Tıxac və yollar">Tıxac</a>
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
@@ -635,8 +644,7 @@ function renderTopbar() {
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` +
-    CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("") +
-    `<a href="#/tixac" class="nav-tix tix-btn${r.name === "traffic" ? " on" : ""}">Tıxac</a>`;
+    CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("");
   fitNav();
   if (!matchMedia("(min-width: 721px)").matches) { const on = $("#nav a.on"); try { on?.scrollIntoView({ block: "nearest", inline: "center" }); } catch {} }
 }
@@ -673,8 +681,7 @@ function renderTicker() {
   const list = (breaking.length ? breaking : latest).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
   const items = [...list, ...list].map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("");
-  const bell = !("Notification" in window) ? "" : `<button type="button" class="bell${notifyOn() ? " on" : ""}" data-act="notify" title="Son dəqiqə bildirişi. Səhifə açıq olanda yoxlanır.">${notifyOn() ? "Açıq" : "Bildiriş"}</button>`;
-  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">${breaking.length ? "⚡ Son dəqiqə" : "Son xəbərlər"}${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
+  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ Son dəqiqə</div><div class="run"><div class="track">${items}</div></div></div>`;
 }
 
 function prayIcon(key) {
@@ -843,20 +850,20 @@ function prezBlock(list) {
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    <div class="prez-body">${list.length ? `<div class="prez-grid" data-marquee data-visible="4" data-visible-narrow="3">${cards}</div>` : ""}
+    <div class="prez-body">${list.length ? `<div class="prez-grid" data-marquee data-visible="5" data-visible-narrow="4">${cards}</div>` : ""}
     ${socialBlock(true)}</div></section>`;
 }
 
 function heroBlock(list) {
   if (!list.length) return "";
   const main = list.slice(0, 3).find(a => a.imageUrl) ?? list[0];
-  const side = list.filter(a => a !== main).slice(0, 8);
+  const side = list.filter(a => a !== main).slice(0, 4);
   return `<section class="hero">
     <a class="hero-main" data-cat="${esc(main.category)}" href="${esc(main.sourceUrl)}" ${OUT}>${img(main, "", true)}<div class="body">
       <div class="badges"><span class="bd gold" data-cat="${esc(main.category)}"><i class="cdot"></i>${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
       <h1>${txt(main.title)}</h1>
       <div class="meta"><span class="src">${esc(main.source)}</span><time>${ago(main.publishedAt)}</time></div></div></a>
-    <div class="hero-slot"><div class="hero-side" data-marquee data-visible="4">${side.map(a => `<a class="row-card" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="x"><span class="tag" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span>${a.alts?.length ? `<span class="nsrc">${1 + a.alts.length} mənbə</span>` : ""}<time>${ago(a.publishedAt)}</time></span></div></a>`).join("")}</div></div>
+    <div class="hero-slot"><div class="hero-side">${side.map(a => `<a class="row-card" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="x"><span class="tag" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span>${a.alts?.length ? `<span class="nsrc">${1 + a.alts.length} mənbə</span>` : ""}<time>${ago(a.publishedAt)}</time></span></div></a>`).join("")}</div></div>
   </section>`;
 }
 
@@ -993,7 +1000,7 @@ function homeView() {
   const used = new Set();
   const hero = heroPick(m.filter(a => a.category !== "prezident")); hero.forEach(a => used.add(a.id));
   const secs = homeCats().map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
-  return prezBlock(prez) + adHtml() + heroBlock(hero) + alertStrip() + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
+  return `<div class="top2">${heroBlock(hero)}${prezBlock(prez)}</div>` + adHtml() + alertStrip() + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -1437,6 +1444,9 @@ function setupMarquees() {
     el.style.height = "";
     el.classList.remove("vmarquee");
     for (const item of el.children) item.style.height = "";
+    // Toxunma ekranında və dar ekranda daxili sürüşmə yoxdur: overscroll səhifəni tuturdu; ilk 4–5 sətir sabit görünür
+    el.classList.toggle("static-list", matchMedia("(hover: none)").matches || matchMedia("(max-width: 900px)").matches);
+    if (el.classList.contains("static-list")) { unwrapMarquee(el); return; }
     if (marqueeNarrow(el)) { unwrapMarquee(el); return; }
     const items = [...el.children];
     if (items.length < 2) { unwrapMarquee(el); return; }

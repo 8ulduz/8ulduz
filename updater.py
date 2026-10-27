@@ -1256,7 +1256,10 @@ def _compact_alt(a):
     url = a.get("sourceUrl") or ""
     if not url:
         return None
-    return {"source": a.get("source") or "", "sourceUrl": url, "publishedAt": a.get("publishedAt") or ""}
+    alt = {"source": a.get("source") or "", "sourceUrl": url, "publishedAt": a.get("publishedAt") or ""}
+    if a.get("imageUrl"):
+        alt["imageUrl"] = a["imageUrl"]  # əsas kartın şəkli yoxdursa brauzer buradan götürür
+    return alt
 
 def _prefer_primary(a, b):
     """Şəkli və daha dolu xülasəsi olan kart əsas olsun; eyni olanda daha yenisi."""
