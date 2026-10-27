@@ -48,6 +48,12 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 
 ## Oxucu
 
+- Dil süzgəci standart olaraq «Azərbaycan dilində»dir; «Hamısı» və ya başqa dil seçimi bu cihazda qalır (`8ulduz-lang`).
+- Baş səhifədəki hero (böyük kart + 8 yan kart) ən yeni xəbərləri yox, son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir (`heroPick`; az olanda pəncərə 48 saata genişlənir). Prezident xəbərləri Zuğulba blokunda olduğu üçün hero-ya düşmür. Ayrıca «Günün 5 əsas xəbəri» bloku buna görə çıxarılıb.
+- «Son dəqiqə» nişanı və bildiriş yalnız son 15 dəqiqənin xəbərləri üçündür və yalnız lentdə və hero-da görünür; «Son dəqiqə» bölməsi isə son bir saatı əhatə edir.
+- Tıxac keçidi bir yerdədir: masaüstündə naviqasiyada, dar ekranda alt paneldə. Qırmızı nöqtə yalnız pik saatda və ya təzə yol hadisəsində çıxır.
+- Dar ekranda başlıq iki sətirdir: loqo + axtarış, altında üfüqi sürüşən bölmələr (aktiv bölmə görünən yerə gətirilir).
+
 - Seçilmişlər bu cihazda qalır (`localStorage` açarı `8ulduz-saved`). Ulduz kartın küncündədir, siyahı `#/secilmis`.
 - «Mənim bölmələrim» (`#/bolmeler`) bölmələrin sırasını və hansının baş səhifədə göründüyünü saxlayır (`8ulduz-sects`). Zuğulba, hero və video/foto blokları bu siyahıdan asılı deyil.
 - «Son dəqiqə» lentindəki **Bildiriş** düyməsi brauzer icazəsi istəyir. Səhifə açıq olanda `news.json` hər dəqiqə yoxlanır və yeni son-dəqiqə xəbəri üçün bildiriş çıxır. Push server yoxdur. Brauzer dəstəkləyəndə Periodic Background Sync (`breaking`, ən azı 5 dəqiqə) da qeydiyyatdan keçir; çox brauzer bunu seyrək və ya heç işlətmir.
