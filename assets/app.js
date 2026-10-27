@@ -298,7 +298,7 @@ window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("
 /* ---------------------------------------------------------------- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
 function savedLang() { const v = storage.getItem(LANG_KEY); if (v === "") return null; return LANGS.some(l => l.code === v) ? v : "az"; }
-const S = { data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
+const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 const PRAY_SVG = {
@@ -893,9 +893,20 @@ const clubAz = n => CLUB_AZ[String(n || "").trim()] || n || "";
 // football.json: «leagues» siyahısı (Premyer, I, II, Kubok, Əvəzedicilər); köhnə faylda yalnız üst səviyyə var
 function fbLeagues() {
   const fb = S.football;
-  if (!fb) return [];
-  const ls = Array.isArray(fb.leagues) && fb.leagues.length ? fb.leagues : [fb];
-  return ls.filter(l => l && (l.table?.length || l.results?.length || l.fixtures?.length));
+  const ls = fb ? (Array.isArray(fb.leagues) && fb.leagues.length ? fb.leagues : [fb]) : [];
+  const az = ls.filter(l => l && (l.table?.length || l.results?.length || l.fixtures?.length));
+  // Dünya liqaları (sports.json): cədvəl qrupları (NBA: Şərq/Qərb); ilk qrup komanda kartları üçün cədvəl kimi götürülür
+  const world = (S.sports?.leagues || []).filter(l => l?.groups?.length).map(l => ({
+    world: true, sport: l.sport, id: l.id, short: l.short, league: l.name, season: l.season || "", stale: !!l.stale,
+    groups: l.groups, table: l.groups[0].rows, results: [], fixtures: [], scorers: [], link: "https://www.espn.com/", source: "ESPN",
+  }));
+  return [...az, ...world];
+}
+const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
+function worldTable(l, g) {
+  const rows = g.rows || [];
+  if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${t.pos}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${t.w}</td><td>${t.l}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${t.pos}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? "+" : ""}${t.gd}</td><td><b>${t.pts}</b></td></tr>`).join("")}</tbody></table>`;
 }
 function footballBlock(list) {
   const all = fbLeagues();
@@ -908,7 +919,18 @@ function footballBlock(list) {
   // Heç bir liqanın məlumatı olmayanda blok göstərilmir; futbol xəbərləri İdman bölməsindədir.
   if (!fb) return "";
   const tab = (S.fbTab === "table" && !fb.table?.length) ? "results" : (S.fbTab || "results");
-  const picker = all.length > 1 ? `<div class="fb-leagues" role="tablist" aria-label="Liqalar">${all.map((l, i) => `<button type="button" class="pill${l === fb ? " on" : ""}" data-fbleague="${i}" role="tab" aria-selected="${l === fb}">${esc(l.short || l.league || "")}</button>`).join("")}</div>` : "";
+  const picker = all.length > 1 ? `<div class="fb-leagues" role="tablist" aria-label="Liqalar">${all.map((l, i) => `${i > 0 && (l.world !== all[i - 1].world || l.sport !== all[i - 1].sport) ? `<i class="sep" aria-hidden="true"></i>` : ""}<button type="button" class="pill${l === fb ? " on" : ""}${l.sport === "basketball" ? " bb" : ""}" data-fbleague="${i}" role="tab" aria-selected="${l === fb}">${esc(l.short || l.league || "")}</button>`).join("")}</div>` : "";
+  if (fb.world) {
+    const groups = fb.groups || [];
+    const gi = Math.min(Number(S.fbTab) || 0, groups.length - 1);
+    const gtabs = groups.length > 1 ? `<div class="fb-groups">${groups.map((g, i) => `<button type="button" class="pill${i === gi ? " on" : ""}" data-fbtab="${i}">${esc(GROUP_AZ[g.name] || g.name)}</button>`).join("")}</div>` : "";
+    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<div class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${t.pos}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${t.w}-${t.l}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></div>`).join("");
+    return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><span class="more muted">ESPN</span></div>
+      ${picker}
+      <div class="strip"><div class="fb-teams">${wteams}</div></div>
+      ${gtabs}
+      <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div></section>`;
+  }
   const teams = fb.table.map(t => `<div class="fb-team" title="${esc(t.team)}: ${t.p} oyun, ${t.w} Q · ${t.d} H · ${t.l} M, qol ${t.gf}:${t.ga}"><b class="pos">${t.pos}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${t.pts}</b> xal</span></div>`).join("");
   const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
     .filter(([k]) => k !== "table" || fb.table?.length)
@@ -1175,7 +1197,7 @@ function onClick(e) {
   }
   if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
   if (t.dataset.fbtab) { S.fbTab = t.dataset.fbtab; renderView(); return; }
-  if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; if (S.fbTab === "table" && !fbLeagues()[S.fbLeague]?.table?.length) S.fbTab = "results"; renderView(); return; }
+  if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; const L = fbLeagues()[S.fbLeague]; S.fbTab = L?.world ? 0 : (S.fbTab === "table" && !L?.table?.length) || typeof S.fbTab === "number" ? "results" : S.fbTab; renderView(); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
@@ -1568,6 +1590,12 @@ async function loadVideo() {
     if (r.ok) { S.video = await r.json(); if (route().name === "home" || route().name === "videos") renderView(); }
   } catch {}
 }
+async function loadSports() {
+  try {
+    const r = await fetch(freshUrl("data/sports.json"), { cache: "no-store" });
+    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; if (route().name === "home" && S.data) renderView(); } }
+  } catch {}
+}
 async function loadFootball() {
   try {
     const r = await fetch(freshUrl("data/football.json"), { cache: "no-store" });
@@ -1651,11 +1679,12 @@ document.addEventListener("toggle", (e) => {
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);
 shell(); render();
-loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
+loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadSports(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
 setInterval(pollNews, POLL_MS);
 setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
 setInterval(() => { loadSources(); loadVideo(); loadFootball(); }, 5 * 60e3);
+setInterval(loadSports, 30 * 60e3);
 setInterval(() => { if (adSlots().length > 1 && route().name === "home") { const el = document.querySelector("main .ad"); if (el) el.outerHTML = adHtml(); } }, 30e3);
 document.addEventListener("change", (e) => {
   const sel = e.target.closest?.("select.pray-city");

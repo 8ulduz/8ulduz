@@ -48,6 +48,36 @@ class FootballTest(unittest.TestCase):
         self.assertEqual(d["league"], "Misli Premyer Liqası")
 
 
+class EspnTest(unittest.TestCase):
+    def test_parse_espn_soccer_and_basketball(self):
+        soccer = {"children": [{"name": "Premier League", "standings": {"entries": [
+            {"team": {"displayName": "Manchester City", "shortDisplayName": "Man City", "logos": [{"href": "mc.png"}]},
+             "note": {"description": "Champions League", "color": "#81D6AC"},
+             "stats": [{"name": "rank", "value": 1}, {"name": "gamesPlayed", "value": 8}, {"name": "wins", "value": 7}, {"name": "ties", "value": 0},
+                       {"name": "losses", "value": 1}, {"name": "pointsFor", "value": 20}, {"name": "pointsAgainst", "value": 9},
+                       {"name": "pointDifferential", "value": 11}, {"name": "points", "value": 21}]},
+            {"team": {"displayName": "Arsenal", "shortDisplayName": "Arsenal", "logos": []},
+             "stats": [{"name": "rank", "value": 2}, {"name": "gamesPlayed", "value": 8}, {"name": "wins", "value": 6}, {"name": "ties", "value": 1},
+                       {"name": "losses", "value": 1}, {"name": "pointsFor", "value": 15}, {"name": "pointsAgainst", "value": 5},
+                       {"name": "pointDifferential", "value": 10}, {"name": "points", "value": 19}]},
+        ]}}]}
+        g = updater.parse_espn(soccer, "soccer")
+        self.assertEqual(len(g), 1)
+        self.assertEqual([r["team"] for r in g[0]["rows"]], ["Man City", "Arsenal"])
+        self.assertEqual(g[0]["rows"][0]["pts"], 21)
+        self.assertEqual(g[0]["rows"][0]["note"], "Champions League")
+        nba = {"children": [{"name": "Eastern Conference", "standings": {"entries": [
+            {"team": {"displayName": "Miami Heat", "shortDisplayName": "Heat", "logos": []},
+             "stats": [{"name": "wins", "value": 0}, {"name": "losses", "value": 4}, {"name": "winPercent", "value": 0.0}, {"name": "gamesBehind", "displayValue": "3.5"}, {"name": "playoffSeed", "value": 15}]},
+            {"team": {"displayName": "Boston Celtics", "shortDisplayName": "Celtics", "logos": []},
+             "stats": [{"name": "wins", "value": 4}, {"name": "losses", "value": 0}, {"name": "winPercent", "value": 1.0}, {"name": "gamesBehind", "displayValue": "-"}, {"name": "playoffSeed", "value": 1}]},
+        ]}}, {"name": "Western Conference", "standings": {"entries": []}}]}
+        b = updater.parse_espn(nba, "basketball")
+        self.assertEqual(len(b), 1)  # boş konfrans atılır
+        self.assertEqual(b[0]["rows"][0]["team"], "Celtics")
+        self.assertEqual(b[0]["rows"][1]["gb"], "3.5")
+
+
 class SectionPagesTest(unittest.TestCase):
     def test_section_pages_and_sitemap_are_written(self):
         articles = [

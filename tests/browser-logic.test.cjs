@@ -99,6 +99,23 @@ test('football block renders results, fixtures and the ordinal round suffix', ()
   assert.equal(ctx.api.ordTur(20), '20-ci');
 });
 
+test('world leagues from ESPN appear after the Azerbaijani ones with their own tables', () => {
+  const ctx = app();
+  ctx.api.S.football = { leagues: [{ project: 1, short: 'Premyer Liqa', league: 'Misli Premyer Liqası', table: [{ pos: 1, team: 'Sabah', pts: 20, p: 9, w: 6, d: 2, l: 1, gf: 15, ga: 7, gd: 8 }], results: [], fixtures: [] }] };
+  ctx.api.S.sports = { leagues: [
+    { id: 'eng.1', sport: 'football', name: 'Premyer Liqa (İngiltərə)', short: 'İngiltərə', season: '2026-27', groups: [{ name: 'Premier League', rows: [{ pos: 1, team: 'Man City', full: 'Manchester City', logo: '', p: 8, w: 7, d: 0, l: 1, gf: 20, ga: 9, gd: 11, pts: 21, note: 'Champions League', color: '#81D6AC' }] }] },
+    { id: 'nba', sport: 'basketball', name: 'NBA', short: 'NBA', season: '2026-27', groups: [{ name: 'Eastern Conference', rows: [{ pos: 1, team: 'Celtics', w: 4, l: 0, p: 4, pct: 1, gb: '-' }] }, { name: 'Western Conference', rows: [{ pos: 1, team: 'Lakers', w: 3, l: 1, p: 4, pct: 0.75, gb: '-' }] }] },
+  ] };
+  let html = ctx.api.footballBlock([]);
+  assert.ok(html.includes('data-fbleague="2"') && html.includes('İngiltərə') && html.includes('NBA'));
+  ctx.api.S.fbLeague = 1; ctx.api.S.fbTab = 0;
+  html = ctx.api.footballBlock([]);
+  assert.ok(html.includes('Man City') && html.includes('ESPN') && html.includes('<h2>Futbol</h2>'));
+  ctx.api.S.fbLeague = 2; ctx.api.S.fbTab = 1;
+  html = ctx.api.footballBlock([]);
+  assert.ok(html.includes('<h2>Basketbol</h2>') && html.includes('Qərb') && html.includes('Lakers') && !html.includes('Celtics'));
+});
+
 test('football block offers every league and keeps the cup without a table', () => {
   const ctx = app();
   ctx.api.S.football = { leagues: [
