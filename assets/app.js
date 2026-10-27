@@ -13,6 +13,7 @@ const CATS = [
   { slug: "idman", label: "İdman", description: "İdman aləmindən xəbərlər və nəticələr" },
   { slug: "medeniyyet", label: "Mədəniyyət", description: "Kino, musiqi, sənət və mədəni həyat" },
   { slug: "heyat", label: "Həyat", description: "Sağlamlıq və həyat tərzi" },
+  { slug: "texnologiya", label: "Texnologiya", description: "Elm, texnologiya və süni intellekt" },
   { slug: "video", label: "Video", description: "Saytlardakı video xəbərlərə keçidlər" },
 ];
 const LANGS = [
@@ -99,7 +100,7 @@ function decode(s) {
 }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ESC[c]); }
 function tidy(s) {
-  return decode(s).replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/(?:\s*[-–—|])+\s*$/u, "").trim();
+  return decode(s).replace(/\s*https?:\/\/\S+/gi, "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/(?:\s*[-–—|])+\s*$/u, "").trim();
 }
 const txt = s => esc(tidy(s));
 const catLabel = slug => CATS.find(c => c.slug === slug)?.label ?? slug;
@@ -116,6 +117,7 @@ const FRESH_MS = 15 * 60e3; // «Son dəqiqə» nişanı və bildiriş: son 15 d
 const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < FRESH_MS; };
 const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
 const OUT = `target="_blank" rel="noopener noreferrer"`;
+const TELEGRAM = String(window.SITE_CONFIG?.telegram || "").trim(); // boş: «kanala qoşulun» bloku göstərilmir
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
   s = lc(s);
@@ -286,7 +288,7 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><span class="src">${esc(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</span><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" aria-label="${isSaved(a.id) ? "Seçimdən çıxar" : "Seçilmişlərə saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, true, "pop")}<a class="card-hit" href="${esc(a.sourceUrl || "#")}" ${OUT}><h3>${txt(a.title)}</h3>${meta(a)}</a></div></article>`;
+const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, true, "pop")}<a class="card-hit" href="${esc(a.sourceUrl || "#")}" ${OUT}><h3>${txt(a.title)}</h3>${a.summary && tidy(a.summary) !== tidy(a.title) ? `<p>${txt(a.summary)}</p>` : ""}${meta(a)}</a></div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
@@ -425,7 +427,7 @@ async function armNotify() {
 function adSlots() { return (S.ads?.slots || []).filter(s => s && s.image && s.link); }
 function adHtml() {
   const slots = adSlots();
-  if (!slots.length) return `<section class="ad" aria-label="Reklam yeri">Reklam yeri</section>`;
+  if (!slots.length) return "";
   const s = slots[Math.floor(Date.now() / 30000) % slots.length];
   return `<section class="ad ad-live" aria-label="Reklam"><a href="${esc(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}" loading="lazy" decoding="async"></a></section>`;
 }
@@ -453,7 +455,7 @@ async function loadNews() {
     await loadOg();
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
     d.articles = collapseExact(clusterArticles(d.articles));
-    S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
+    S.data = d; S.newsStamp = S.status?.checkedAt || null; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
     checkBreaking(d.articles);
     render();
   } catch (e) { S.error = String(e); S.offline = !navigator.onLine; if (!S.data) render(); else renderTopbar(); }
@@ -516,6 +518,7 @@ function route() {
   if (h === "/videolent" || h.startsWith("/videolent?")) return { name: "videos" };
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
   if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
+  if (h === "/haqqinda" || h.startsWith("/haqqinda?")) return { name: "about" };
   const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: m[1] };
   if (h === "/tixac" || h.startsWith("/tixac?")) return { name: "traffic" };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
@@ -535,10 +538,10 @@ function shell() {
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
   </div><div class="langstick" id="langstick"></div></header>
   <div id="ticker"></div>
-  <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><div id="fx-slot"></div></div></div>
+  <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
-  <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="https://t.me/" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
+  <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${esc(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
@@ -596,6 +599,7 @@ function pageMeta() {
   else if (r.name === "sources") { name = "Mənbə vəziyyəti"; desc = "RSS lentlərinin son yoxlanması."; }
   else if (r.name === "sections") { name = "Mənim bölmələrim"; desc = "Baş səhifə bölmələrinin sırası."; }
   else if (r.name === "videos") { name = "Video xəbərlər"; desc = "Azərbaycan kanallarının video lentləri."; }
+  else if (r.name === "about") { name = "Haqqımızda"; desc = "8ulduz nədir, mənbələr, redaksiya prinsipləri, məxfilik və əlaqə."; }
   document.title = `${name} — 8ulduz`;
   if (md && desc) md.setAttribute("content", desc);
 }
@@ -624,7 +628,7 @@ function renderTopbar() {
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
-    <span class="prefs"><button data-act="theme" title="${light ? "Qaranlıq mövzu" : "İşıqlı mövzu"}" aria-label="Mövzu">${light ? "☾" : "☀"}</button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
+    <span class="prefs"><button data-act="theme" title="${light ? "Qaranlıq tema" : "İşıqlı tema"}" aria-label="Tema">${light ? "☾" : "☀"}</button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
   syncTixDot();
 }
 
@@ -650,7 +654,7 @@ function fitNav() {
   const rest = links.filter(a => a !== tix && a.getAttribute("href") !== "#/");
   const more = document.createElement("details");
   more.className = "nav-more";
-  more.innerHTML = `<summary>Daha çox</summary><div class="nav-more-pop"></div>`;
+  more.innerHTML = `<summary>Daha çox ▾</summary><div class="nav-more-pop"></div>`;
   const pop = more.querySelector(".nav-more-pop");
   if (tix) nav.insertBefore(more, tix); else nav.appendChild(more);
   for (let i = rest.length - 1; i >= 0 && !fits(); i--) {
@@ -746,9 +750,12 @@ function renderMarkets() {
     const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
     const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, i.dec)}</span>`
       : `<span>${i.unit === "AZN" ? "məzənnə" : "qiymət"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
-    const title = [i.src && `Mənbə: ${i.src}`, i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
+    const unofficial = i.unit === "AZN" && i.src && i.src !== "AMB";
+    const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
+    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${esc(i.label)}${unofficial ? `<em class="unoff" title="AMB rəsmi məzənnəsi alınmadı">bazar</em>` : ""}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
+  const note = $("#mk-note");
+  if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
   const slot = $("#fx-slot"); if (slot) slot.innerHTML = fxPop();
   const from = $("#fx-from"), to = $("#fx-to"), amt = $("#fx-amt");
   if (from && to && amt) {
@@ -871,6 +878,11 @@ function photoStrip(list) {
   if (pics.length < 4) return "";
   return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="phrow">${pics.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<span>${txt(a.title)}</span></a>`).join("")}</div></section>`;
 }
+// TheSportsDB ingilis adlarını azərbaycanca yazır
+const CLUB_AZ = { "Sabah Baku": "Sabah", "Sabah FK": "Sabah", "Qarabag": "Qarabağ", "Qarabag FK": "Qarabağ", "Neftci Baku": "Neftçi", "Neftchi Baku": "Neftçi", "Neftchi": "Neftçi",
+  "Zira": "Zirə", "Zira FK": "Zirə", "Sumqayit": "Sumqayıt", "Sumgayit": "Sumqayıt", "Kapaz": "Kəpəz", "Shamakhi": "Şamaxı", "Araz-Naxcivan": "Araz-Naxçıvan", "Araz Nakhchivan": "Araz-Naxçıvan",
+  "Imisli": "İmişli", "Gabala": "Qəbələ", "Sabail": "Səbail", "Karvan": "Karvan-Yevlax", "Turan Tovuz": "Turan Tovuz", "Sheki": "Şəki", "Mingachevir": "Mingəçevir" };
+const clubAz = n => CLUB_AZ[String(n || "").trim()] || n || "";
 function footballBlock(list) {
   const fb = S.football;
   const news = byDate(list.filter(a => {
@@ -879,8 +891,10 @@ function footballBlock(list) {
     return a.category === "idman" && /futbol|premyer|liqa|qarabağ|neftçi|qarabag|sabah fk|mill[iı]/iu.test(title);
   })).slice(0, 4);
   const ev = fb?.events || [];
+  // Turnir cədvəli olmayanda blok göstərilmir (yarımçıq məlumat və üzrxahlıq mətni əvəzinə); futbol xəbərləri İdman bölməsindədir.
+  if (!fb?.table?.length) return "";
   if (!news.length && !ev.length) return "";
-  const games = ev.slice(0, 3).map(e => `<li><b>${esc(e.home)}</b><span>${esc(e.hs ?? "–")} : ${esc(e.as ?? "–")}</span><b>${esc(e.away)}</b><time>${esc(e.date || "")}</time></li>`).join("");
+  const games = ev.slice(0, 3).map(e => `<li><b>${esc(clubAz(e.home))}</b><span>${esc(e.hs ?? "–")} : ${esc(e.as ?? "–")}</span><b>${esc(clubAz(e.away))}</b><time datetime="${esc(e.date || "")}">${esc(fullDate(e.date) || e.date || "")}</time></li>`).join("");
   return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><a class="more" href="${esc(fb?.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
     ${games ? `<ul class="games">${games}</ul>` : ""}
     ${fb?.note ? `<p class="muted foot-note">${esc(fb.note)}</p>` : ""}
@@ -1011,9 +1025,9 @@ function renderView() {
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
-  const body = r.name === "sources" ? sourcesView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
-  $("#cta").hidden = r.name !== "home" || !!S.q;
+  $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
   const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
   document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
   setupMarquees();
@@ -1043,7 +1057,33 @@ function renderFooter() {
     <div><div class="logo"><i>${STAR}</i><b>8<span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Başlıq mənbənin öz səhifəsinə açılır.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.map(s => `<span>${esc(s)}</span>`).join("")}</div></div>
-  </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/menbeler">Mənbə vəziyyəti</a></div>`;
+  </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a></div>`;
+}
+
+function aboutView() {
+  const srcs = [...new Set((S.data?.articles ?? []).map(shownSource))].sort((a, b) => a.localeCompare(b, "az"));
+  const contact = String(window.SITE_CONFIG?.contact || "").trim();
+  const gc = String(window.SITE_CONFIG?.goatcounter || "").trim();
+  return `<div class="page-h"><div><h1>Haqqımızda</h1><p>8ulduz nədir, necə işləyir və nəyi göstərmir</p></div></div>
+  <div class="about">
+    <section><h2>Sayt nədir</h2><p>8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, başlığa klikləyəndə xəbər mənbənin öz saytında açılır. Lent təxminən hər 5 dəqiqədən bir yenilənir.</p></section>
+    <section><h2>Mənbələr</h2><p>Hazırda ${srcs.length} mənbə izlənilir. Hər lentin vəziyyətini <a href="#/menbeler">Mənbə vəziyyəti</a> səhifəsində görmək olar.</p><div class="srcs">${srcs.map(s => `<span>${esc(s)}</span>`).join("")}</div></section>
+    <section><h2>Redaksiya prinsipləri</h2><ul>
+      <li>Eyni hadisə haqqında yaxın başlıqlı xəbərlər bir kartda birləşir; «+N mənbə» düyməsi digər mənbələri göstərir.</li>
+      <li>Baş səhifədəki böyük kart və yanındakı siyahı ən yeni xəbəri yox, son saatlarda ən çox mənbədə çıxan xəbərləri göstərir.</li>
+      <li>Bölmələr başlıq və xülasədəki açar sözlərə görə avtomatik təyin olunur; səhv ola bilər.</li>
+      <li>Dil süzgəci standart olaraq Azərbaycan dilindədir; rus, ingilis və türk dilində xəbərlər «Hamısı» və ya müvafiq dil seçiləndə görünür.</li>
+      <li>Ölkə rəhbərliyi haqqında neqativ çağırışlı xəbərlər göstərilmir; bu, sayt sahibinin redaksiya qərarıdır.</li>
+      <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
+    </ul></section>
+    <section><h2>Məxfilik</h2><ul>
+      <li>Sayt kuki qoymur və hesab tələb etmir. Seçilmişlər, bölmə sırası, dil, tema və şəhər seçimi yalnız sizin cihazınızda (brauzerin yaddaşında) saxlanır.</li>
+      <li>«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.</li>
+      <li>Hava (Open-Meteo), namaz vaxtı (aladhan.com), tıxac xəritəsi (Waze) və video (YouTube) brauzerinizdən birbaşa həmin xidmətlərə sorğu göndərir; onların öz məxfilik qaydaları tətbiq olunur. Xəritə və video yalnız düyməyə basanda yüklənir.</li>
+      <li>${gc ? "Ziyarət statistikası GoatCounter ilə, kukisiz və şəxsi məlumat toplamadan aparılır." : "Ziyarət statistikası hazırda toplanmır."}</li>
+    </ul></section>
+    <section><h2>Əlaqə</h2><p>${contact ? `Yazın: <a href="mailto:${esc(contact)}">${esc(contact)}</a>. ` : ""}Səhv, təklif və mənbə əlavəsi üçün <a href="https://github.com/8ulduz/8ulduz/issues" target="_blank" rel="noopener noreferrer">GitHub-da müraciət</a> yaza bilərsiniz. Xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir; mənbə öz xəbərinin göstərilməsini istəmirsə, bildirin, lent siyahıdan çıxarılar.</p></section>
+  </div>`;
 }
 
 function savedView() {
@@ -1504,6 +1544,13 @@ async function loadStatus() {
   } catch {}
   renderTopbar();
 }
+// Dəqiqəlik yoxlama 151 baytlıq status.json ilə gedir; news.json (~150 KB gzip) yalnız yeni yoxlama olanda və ya
+// əvvəlki yükləmə alınmayanda çəkilir.
+async function pollNews() {
+  await loadStatus();
+  const now = S.status?.checkedAt || null;
+  if (!S.data || S.error || !now || now !== S.newsStamp) await loadNews();
+}
 applyPrefs();
 enableAnalytics();
 if ("serviceWorker" in navigator) {
@@ -1525,8 +1572,7 @@ document.addEventListener("toggle", (e) => {
 }, true);
 shell(); render();
 loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
-setInterval(loadNews, POLL_MS);
-setInterval(loadStatus, POLL_MS);
+setInterval(pollNews, POLL_MS);
 setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
 setInterval(() => { loadSources(); loadVideo(); loadFootball(); }, 5 * 60e3);

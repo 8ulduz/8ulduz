@@ -154,6 +154,7 @@ CATEGORIES = {
                      "mühasibat", "gömrük", "investisiya", "kredit", "ticarət", "socar", "bp ",
                      "kənd təsərrüfatı", "aqrar", "turizm", "biznes", "şirkət", "istehsal", "dolar",
                      "altın", "akaryakıt", "benzin", "asgari ücret", "kripto", "bitcoin", "ihracat",
+                     "milyar tl", "milyon tl", "gelir", "kâr", "ciro", "ihale", "zam ", "emekli", "tcmb", "borsa istanbul", "bist", "hisse", "sanayi", "şirket", "ekonomik",
                      "нефт", "газ ", "газа", "рубл", "доллар", "курс", "банк", "инфляц", "экономик",
                      "бюджет", "налог", "экспорт", "импорт", "инвестиц", "бирж", "цен", "тариф", "ввп",
                      "компани", "бизнес", "торгов",
@@ -182,11 +183,17 @@ CATEGORIES = {
               "qidalanma", "yuxu", "orqanizm", "immunitet", "ürək", "qan təzyiqi", "şəkərli diabet",
               "xərçəng", "arıqla", "gözəllik", "dəri",
               "resept", "yemək", "qəhvə", "çay ", "faydası", "zərəri", "tədqiqat",
-              "kəşf", "kosmos", "texnologiya", "smartfon", "süni intellekt",
               "doktor", "kanser", "kalp", "hastalık", "yemek tarifi", "burç",
+              "sağlığı", "sağlıklı", "egzersiz", "uyku", "kilo", "stres", "beyin", "yaşlanma", "ömrü",
               "врач", "здоров", "болезн", "диет", "витамин", "сон ", "ученые", "учёные",
-              "исследован", "астроном", "космос", "смартфон", "искусственн", "рецепт",
-              "health", "doctor", "diet", "study finds", "scientists", "space", "smartphone", "fiziki məşq", "əhval-ruhiyyə", "tənhalıq", "windows", "ixtira"],
+              "исследован", "рецепт",
+              "health", "doctor", "diet", "study finds", "scientists", "fiziki məşq", "əhval-ruhiyyə", "tənhalıq"],
+    "Texnologiya": ["texnologiya", "texnoloji", "smartfon", "süni intellekt", "kosmos", "kəşf", "ixtira", "startap",
+                    "proqram təminatı", "kibertəhlükəsizlik", "haker", "rəqəmsal", "internet",
+                    "robot", "peyk", "chatgpt", "openai", "google", "apple", "iphone", "android", "windows", "microsoft",
+                    "yapay zeka", "teknoloji", "akıllı telefon", "uygulama", "siber", "uzay", "yazılım",
+                    "искусственн", "смартфон", "астроном", "космос", "технолог", "приложени", "хакер", "нейросет", "гаджет",
+                    "artificial intelligence", " ai ", "space", "smartphone", "tech", "software", "app ", "cyber", "chip", "nasa", "spacex", "rocket"],
     "Dünya": ["bmt", "nato", "rusiya", "çin", "fransa", "almaniya", "iran", "israil", "ukrayna",
               "dəməşq", "suriya", "livan", "ərəb", "abş", "ingiltərə", "pakistan", "hindistan",
               "qüds", "beynəlxalq", "ermənistan", "gürcüstan", "avropa ittifaqı",
@@ -201,7 +208,7 @@ CATEGORIES = {
 BOOST = {"İdman": 2, "Prezident": 3}
 SLUGS = {"Prezident": "prezident", "Gündəm": "gundem", "Siyasət": "siyaset", "Cəmiyyət": "cemiyyet",
          "İqtisadiyyat": "iqtisadiyyat", "Dünya": "dunya", "İdman": "idman", "Mədəniyyət": "medeniyyet",
-         "Həyat": "heyat"}
+         "Həyat": "heyat", "Texnologiya": "texnologiya"}
 DOUBLE = {"iran", "rusiya", "çin", "fransa", "israil", "ukrayna", "abş", "ingiltərə", "almaniya",
           "türkiyə", "ermənistan", "gürcüstan"}
 FALLBACK = "Gündəm"
@@ -509,6 +516,8 @@ def _plain(s, title=False):
     cur = re.sub(r"<[^>]+>", " ", cur).replace("\xa0", " ")
     cur = re.sub(r"\s+", " ", cur).strip()
     if title:
+        # Telegram lentlərində başlığın sonuna mənbə ünvanı yapışır
+        cur = re.sub(r"\s*https?://\S+", "", cur)
         cur = re.sub(r"(?:\s*[-–—|])+\s*$", "", cur).strip()
     return cur
 
@@ -775,17 +784,19 @@ def get_currencies():
     cur, prev = None, None
     for back in range(0, 6):
         d = baku - datetime.timedelta(days=back)
-        try:
-            r = cbar_rates(d)
-            if r.get("USD"):
-                if cur is None:
-                    cur = (d, r)
-                elif r != cur[1]:
-                    prev = (d, r); break
-        except Exception:
-            if back == 0:
-                continue
-            break
+        r = None
+        for _attempt in range(2):
+            try:
+                r = cbar_rates(d)
+                break
+            except Exception:
+                r = None
+        if not r or not r.get("USD"):
+            continue  # bülleten hələ yoxdur və ya şəbəkə xətası: növbəti günə bax
+        if cur is None:
+            cur = (d, r)
+        elif r != cur[1]:
+            prev = (d, r); break
     res = {}
     if cur:
         r, p = cur[1], (prev[1] if prev else {})
@@ -1310,9 +1321,80 @@ def write_feed(articles):
     FEED_FILE.write_text("".join(parts), encoding="utf-8")
     print(f"RSS: {len(items)} xəbər")
 
+# app.js-dəki CATS ilə eyni: statik bölmə səhifələri (axtarış sistemləri üçün həqiqi ünvanlar) və sitemap
+SECTIONS = [
+    ("prezident", "Zuğulba Xronikası", "Prezident İlham Əliyev və Birinci xanım Mehriban Əliyevanın gündəliyi"),
+    ("gundem", "Gündəm", "Günün əsas hadisələri"),
+    ("siyaset", "Siyasət", "Daxili və xarici siyasət"),
+    ("cemiyyet", "Cəmiyyət", "Sosial həyatdan xəbərlər"),
+    ("iqtisadiyyat", "İqtisadiyyat", "Bazar, maliyyə, enerji"),
+    ("dunya", "Dünya", "Beynəlxalq mətbuat"),
+    ("idman", "İdman", "İdman aləmindən xəbərlər və nəticələr"),
+    ("medeniyyet", "Mədəniyyət", "Kino, musiqi, sənət və mədəni həyat"),
+    ("heyat", "Həyat", "Sağlamlıq və həyat tərzi"),
+    ("texnologiya", "Texnologiya", "Elm, texnologiya və süni intellekt"),
+]
+SECTIONS_DIR = ROOT / "bolme"
+
+_SECTION_HTML = """<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");if(f==="0"||f==="1"||f==="2")document.documentElement.dataset.fs=f;}catch(e){}</script>
+    <title>__LABEL__ — 8ulduz</title>
+    <meta name="description" content="__DESC__ — 8ulduz, Azərbaycan və dünyadan son xəbərlər." />
+    <link rel="canonical" href="__URL__" />
+    <meta name="theme-color" content="#0a1120" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="8ulduz" />
+    <meta property="og:title" content="__LABEL__ — 8ulduz" />
+    <meta property="og:description" content="__DESC__" />
+    <meta property="og:url" content="__URL__" />
+    <meta property="og:locale" content="az_AZ" />
+    <meta property="og:image" content="__SITE__assets/og-default.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
+    <link rel="manifest" href="__SITE__manifest.webmanifest" />
+    <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/app.css" />
+    <script src="../../assets/config.js"></script>
+    <script type="module" src="../../assets/app.js"></script>
+    <!-- Resurslar yuxarıda nisbi yolla yükləndi; tətbiq kök ünvanda işləyir, ona görə ünvan kökə keçirilir -->
+    <script>history.replaceState(null, "", new URL("../../#/bolme/__SLUG__", location.href));</script>
+  </head>
+  <body>
+    <div id="app">
+      <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p><ul>__ITEMS__</ul>
+      <p><a href="../../">8ulduz — baş səhifə</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+    </div>
+  </body>
+</html>
+"""
+
+def section_page(slug, label, desc, articles, limit=30):
+    items = [a for a in articles if a.get("category") == slug and (a.get("lang") or "az") == "az"]
+    items.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+    lis = "".join(
+        f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
+        for a in items[:limit])
+    url = f"{SITE}bolme/{slug}/"
+    return (_SECTION_HTML.replace("__ITEMS__", lis).replace("__LABEL__", _xml(label)).replace("__DESC__", _xml(desc))
+            .replace("__URL__", url).replace("__SITE__", SITE).replace("__SLUG__", slug))
+
+def write_sections(articles):
+    for slug, label, desc in SECTIONS:
+        d = SECTIONS_DIR / slug
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "index.html").write_text(section_page(slug, label, desc, articles), encoding="utf-8")
+    print(f"Bölmə səhifələri: {len(SECTIONS)}")
+
 def write_sitemap():
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-    locs = [SITE, SITE + "feed.xml"]
+    locs = [SITE, SITE + "feed.xml"] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in SECTIONS]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc in locs:
@@ -1331,6 +1413,7 @@ def write_public():
     except Exception:
         articles = []
     write_feed(articles)
+    write_sections(articles)
     write_sitemap()
     write_robots()
 
