@@ -22,6 +22,66 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(updater._plain("Harri Keyn mükafat qazanıb https://report.az/futbol/abc", title=True), "Harri Keyn mükafat qazanıb")
 
 
+class PresidentPageTest(unittest.TestCase):
+    PAGE = """
+    <article class="news-photo"><div class="news-photo_category"><span class="category_date">27 oktyabr 2026<br>13:50</span></div>
+      <a class="news-photo_body" href="/az/articles/view/74332"><div class="news-photo_photo"><img src="https://static.president.az/a.jpg" alt=""></div>
+      <div class="news-photo_label"><span class="label-title">İlham Əliyev ICESCO-nun Baş direktorunu qəbul edib</span></div></a></article>
+    <article class="news-video news-photo"><div class="news-video_category"><span class="category_date">27 oktyabr 2026<br>10:00</span></div>
+      <div class="news-video_body"><div class="news-video_video"><iframe src="https://www.youtube.com/embed/WO5xn-6-IQI?rel=0"></iframe></div>
+      <a class="news-video_label" href="/az/articles/view/74324"> İlham Əliyev Forumun açılışında çıxış edib <span class="news-video_duration"></span></a></div></article>
+    <article class="news-text"><div class="news-text_category"><span class="category_date">21 oktyabr 2026<br>19:35</span></div>
+      <a class="news-text_body" href="/az/articles/view/74257"><span>Ərdoğan İlham Əliyevə zəng edib</span><p>Oktyabrın 21-də zəng edib.</p></a></article>
+    """
+
+    def test_all_three_block_types_are_parsed(self):
+        items = updater.parse_president_page(self.PAGE)
+        self.assertEqual([i["link"].rsplit("/", 1)[1] for i in items], ["74332", "74324", "74257"])
+        self.assertEqual(items[0]["pubDate"], "2026-10-27T09:50:00+00:00")  # Bakı 13:50 → UTC
+        self.assertEqual(items[1]["title"], "İlham Əliyev Forumun açılışında çıxış edib")
+        self.assertEqual(items[1]["image"], "https://i.ytimg.com/vi/WO5xn-6-IQI/hqdefault.jpg")
+        self.assertTrue(items[1]["video"])
+        self.assertEqual(items[2]["description"], "Oktyabrın 21-də zəng edib.")
+        self.assertEqual(items[2]["pubDate"], "2026-10-21T15:35:00+00:00")
+
+
+class DateAndFilterTest(unittest.TestCase):
+    def test_dates_are_normalised_to_utc_and_naive_means_baku(self):
+        self.assertEqual(updater._to_iso("Mon, 27 Oct 2026 13:50:00 +0400"), "2026-10-27T09:50:00+00:00")
+        self.assertEqual(updater._to_iso("2026-10-27T13:50:00"), "2026-10-27T09:50:00+00:00")
+        self.assertEqual(updater._to_iso("2026-10-27T09:50:00Z"), "2026-10-27T09:50:00+00:00")
+        self.assertIsNotNone(updater._parse_dt("2026-10-27T13:50:00").tzinfo)
+
+    def test_negative_filter_needs_an_explicit_name_and_skips_official_sources(self):
+        self.assertTrue(updater.is_negative_about_leadership("İlham Əliyev tənqid olundu", "", "Trend"))
+        self.assertFalse(updater.is_negative_about_leadership("Fransa prezidenti etiraz aksiyası ilə üzləşdi", "", "Trend"))
+        self.assertFalse(updater.is_negative_about_leadership("Prezident tənqid olundu", "", "Trend"))  # ümumi «prezident» sözü kifayət deyil
+        self.assertFalse(updater.is_negative_about_leadership("İlham Əliyev korrupsiyaya qarşı fərman imzalayıb", "", "Prezident.az"))
+
+    def test_official_template_titles_do_not_merge_and_alts_never_repeat_a_primary(self):
+        base = {"summary": "", "imageUrl": None, "category": "prezident", "lang": "az"}
+        a = dict(base, source="Prezident.az", title="İlham Əliyev Niderlandın xarici işlər nazirini qəbul edib",
+                 sourceUrl="https://president.az/az/articles/view/1", publishedAt="2026-10-26T08:05:00+00:00")
+        b = dict(base, source="Prezident.az", title="İlham Əliyev Hindistanın xarici işlər nazirini qəbul edib",
+                 sourceUrl="https://president.az/az/articles/view/2", publishedAt="2026-10-26T07:05:00+00:00")
+        c = dict(base, source="APA", title="İlham Əliyev Niderlandın xarici işlər nazirini qəbul edib",
+                 sourceUrl="https://apa.az/1", publishedAt="2026-10-26T08:30:00+00:00", imageUrl="x.jpg",
+                 alts=[{"source": "Trend", "sourceUrl": "https://president.az/az/articles/view/2", "publishedAt": ""}])
+        out = updater.group_duplicates([a, b, c])
+        self.assertEqual(len(out), 2)  # Niderland və Hindistan ayrı qalır
+        nid = next(x for x in out if "Niderland" in x["title"])
+        self.assertEqual(nid["source"], "Prezident.az")  # rəsmi mənbə əsasdır
+        self.assertEqual([x["sourceUrl"] for x in nid.get("alts", [])], ["https://apa.az/1"])  # əsas kartın ünvanı alt-da təkrarlanmır
+
+
+class OfficialPrimaryTest(unittest.TestCase):
+    def test_official_source_stays_primary_over_agency_copy(self):
+        official = {"source": "Prezident.az", "imageUrl": None, "summary": "", "publishedAt": "2026-10-27T13:50:00+04:00"}
+        agency = {"source": "Modern.az", "imageUrl": "x.jpg", "summary": "uzun xülasə " * 10, "publishedAt": "2026-10-27T14:00:00+04:00"}
+        self.assertIs(updater._prefer_primary(agency, official), official)
+        self.assertIs(updater._prefer_primary(official, agency), official)
+
+
 class FootballTest(unittest.TestCase):
     def test_parse_pfl_builds_table_rounds_and_scorers(self):
         seasons = {"data": [{"id": 76, "title": "2026-2027", "leagues": [{"id": 52, "title": "Misli Premyer Liqası"}]}]}

@@ -21,6 +21,8 @@ from concurrent.futures import ThreadPoolExecutor
 AZ_FEEDS = [
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
+    ("APA Sport",    "https://apasport.az/rss", "İdman"),
+    ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman"),
     ("Report",       "https://report.az/rss"),
     ("Trend",        "https://www.trend.az/rss/"),
     ("Milli.az",     "https://www.milli.az/rss/"),
@@ -136,7 +138,8 @@ IDMAN_WORDS = [
 CATEGORIES = {
     "Prezident": [],  # xüsusi qayda ilə hesablanır (categorize-ə baxın)
     "İdman": IDMAN_WORDS,
-    "Siyasət": ["səfir", "parlament", "milli məclis", "seçki", "səfirlik",
+    "Siyasət": ["leyla əliyeva", "heydər əliyev fondu", "лейла алиева", "фонд гейдара алиева",
+                "səfir", "parlament", "milli məclis", "seçki", "səfirlik",
                 "nazir", "bəyanat", "zəngəzur", "diplomat", "media və yayım şurası",
                 "dışişleri", "seçim", "bakan", "politics", "siyasi", "siyasət",
                 "election", "minister", "summit", "məsləhətləşmə",
@@ -393,31 +396,37 @@ def to_iso(pub):
     now = datetime.datetime.now(datetime.timezone.utc)
     try:  # gələcək tarixləri (səhv saat qurşağı) indiki vaxta endir
         if datetime.datetime.fromisoformat(iso) > now + datetime.timedelta(minutes=5):
-            return now.isoformat()
+            return _norm_iso(now)
     except Exception:
         pass
     return iso
 
+def _norm_iso(dt):
+    """Bütün publishedAt dəyərləri eyni formada (UTC, saniyə) olsun — sətir kimi sıralama düzgün işləsin.
+    Əvvəl +04:00 və +00:00 qarışıq idi, UTC-li xəbərlər 4 saat aşağı düşürdü."""
+    return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
+
 def _to_iso(pub):
+    now = datetime.datetime.now(datetime.timezone.utc)
     if not pub:
-        return datetime.datetime.now(datetime.timezone.utc).isoformat()
+        return _norm_iso(now)
     pub = re.sub(r"\s+", " ", pub.strip())
     try:
         dt = email.utils.parsedate_to_datetime(pub)
         if dt is None:
             raise ValueError
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=datetime.timezone.utc)
-        return dt.isoformat()
+            dt = dt.replace(tzinfo=BAKU)  # zonasız tarix: Azərbaycan lentləri Bakı vaxtı yazır
+        return _norm_iso(dt)
     except Exception:
         pass
     try:
         dt = datetime.datetime.fromisoformat(pub.replace("Z", "+00:00"))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=datetime.timezone.utc)
-        return dt.isoformat()
+            dt = dt.replace(tzinfo=BAKU)
+        return _norm_iso(dt)
     except Exception:
-        return datetime.datetime.now(datetime.timezone.utc).isoformat()
+        return _norm_iso(now)
 
 _RX = {}
 def _rx(w):
@@ -473,12 +482,13 @@ def is_junk(link):
     return any(p in norm_az(link) for p in SKIP_URL_PARTS)
 
 # Rəhbərlik/ölkə haqqında NEGATİV xəbərlər göstərilmir (redaksiya qərarı)
+# Yalnız açıq adlar: «prezident», «rəhbərlik», «алиев» kimi ümumi sözlər xarici dövlət başçıları
+# haqqında xəbərləri və rəsmi xronikanı da süzürdü.
 LEADERSHIP = [
-    "ilham əliyev", "mehriban əliyeva", "birinci xanım", "prezident",
-    "azərbaycan hökuməti", "azərbaycan rəhbərliyi", "rəhbərlik", "prezident aparatı",
-    "ильхам алиев", "алиев", "алиева", "мехрибан алиева",
-    "президент азербайджана", "президента азербайджана", "президентом азербайджана",
-    "первой леди", "ilham aliyev",
+    "ilham əliyev", "ilham əliyevin", "mehriban əliyeva", "birinci xanım", "azərbaycan prezidenti",
+    "azərbaycan hökuməti", "azərbaycan rəhbərliyi", "prezident aparatı",
+    "ильхам алиев", "мехрибан алиева", "президент азербайджана", "президента азербайджана",
+    "президентом азербайджана", "первой леди", "ilham aliyev", "mehriban aliyeva",
 ]
 NEGATIVE = [
     "tənqid", "etiraz", "protest", "korrupsiya", "rüşvət", "yolsuzluq",
@@ -489,14 +499,19 @@ NEGATIVE = [
     "eleştiri", "protesto", "yolsuzluk", "rüşvet", "eleştirmek", "tutuklandı",
 ]
 
-def is_negative_about_leadership(title, desc):
-    """Rəhbərlikdən bəhs edən və neqativ çağrışım daşıyan xəbərləri tutur."""
-    blob = norm_az(title + " " + desc)
-    if not any(norm_az(w) in blob for w in LEADERSHIP):
+def is_negative_about_leadership(title, desc, source=None):
+    """Rəhbərlikdən bəhs edən və neqativ çağrışım daşıyan xəbərləri tutur (redaksiya qərarı).
+    Rəsmi mənbələr süzülmür; sözlər söz başlanğıcında axtarılır («qan təzyiqi» tutulmur)."""
+    if source in ("Prezident.az", "Mehriban Əliyeva"):
         return False
-    return any(norm_az(w) in blob for w in NEGATIVE)
+    blob = norm_az(title + " " + desc)
+    if not any(_rx(w).search(blob) for w in LEADERSHIP):
+        return False
+    return any(_rx(w).search(blob) for w in NEGATIVE)
 
 def is_video(it):
+    if it.get("video"):  # rəsmi səhifədə video bloku
+        return True
     l = norm_az(it["link"])
     return "/video/" in l or "video" in norm_az(it["title"])
 
@@ -923,6 +938,7 @@ def parse_az_date(s):
     """'24.10.2026' və '24 oktyabr 2026, 19:15' — Bakı vaxtı."""
     raw = _clean_text(s).lower()
     hm = re.search(r"(\d{1,2}):(\d{2})", raw)
+    now_baku = datetime.datetime.now(BAKU)
     hour, minute = (int(hm.group(1)), int(hm.group(2))) if hm else (12, 0)
     m = re.search(r"(\d{1,2})[.](\d{1,2})[.](\d{4})", raw)
     if not m:
@@ -930,10 +946,12 @@ def parse_az_date(s):
         if w and w.group(2) in AZ_MONTHS:
             m = (int(w.group(1)), AZ_MONTHS[w.group(2)], int(w.group(3)))
         else:
-            return datetime.datetime.now(datetime.timezone.utc).isoformat()
+            return _norm_iso(now_baku)
     else:
         m = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-    return datetime.datetime(m[2], m[1], m[0], hour, minute, tzinfo=BAKU).isoformat()
+    if not hm and (m[2], m[1], m[0]) == (now_baku.year, now_baku.month, now_baku.day):
+        hour, minute = now_baku.hour, now_baku.minute  # bu günün saatsız yazısı gələcəyə düşməsin
+    return _norm_iso(datetime.datetime(m[2], m[1], m[0], hour, minute, tzinfo=BAKU))
 
 def fetch_text(url, tries=3, timeout=20):
     last = None
@@ -943,6 +961,39 @@ def fetch_text(url, tries=3, timeout=20):
         except Exception as e:
             last = e
     raise last
+
+def parse_president_page(page):
+    """president.az/az/news siyahısı. Üç blok növü var:
+    news-photo (label-title), news-video (news-video_label, YouTube iframe), news-text (news-text_body > span + p).
+    Əvvəl yalnız news-photo oxunurdu; çıxışlar (video) və mətbuat xidməti məlumatları (mətn) itirdi."""
+    out = []
+    for m in re.finditer(r'<article class="([^"]*)">(.*?)</article>', page, re.S):
+        cls, block = m.group(1), m.group(2)
+        href = re.search(r'<a[^>]+class="news-(?:photo|video|text)_(?:body|label)"[^>]*href="([^"]+)"', block) \
+            or re.search(r'href="([^"]+)"', block)
+        title = re.search(r'class="label-title">(.*?)</span>', block, re.S)
+        if not title:
+            title = re.search(r'class="news-video_label"[^>]*>(.*?)<span', block, re.S)
+        if not title:
+            title = re.search(r'class="news-text_body"[^>]*>\s*<span>(.*?)</span>', block, re.S)
+        date = re.search(r'class="category_date">(.*?)</span>', block, re.S)
+        t = _clean_text(title.group(1)) if title else ""
+        if not (href and t):
+            continue
+        link = urllib.parse.urljoin("https://president.az", href.group(1))
+        img = re.search(r'<img[^>]+src="([^"]+)"', block)
+        image = _abs_img(img.group(1), link) if img else None
+        yt = re.search(r'youtube\.com/embed/([A-Za-z0-9_-]{6,})', block)
+        if not image and yt:
+            image = f"https://i.ytimg.com/vi/{yt.group(1)}/hqdefault.jpg"
+        desc = re.search(r'<p>(.*?)</p>', block, re.S)
+        description = _clean_text(desc.group(1)) if desc else "Azərbaycan Prezidentinin rəsmi səhifəsindən."
+        out.append({
+            "title": t, "link": link, "description": description,
+            "pubDate": parse_az_date(date.group(1) if date else ""),
+            "image": image, "author": "", "video": "news-video" in cls,
+        })
+    return out
 
 def official_items():
     """Prezident və birinci xanımın rəsmi səhifələri.
@@ -954,21 +1005,8 @@ def official_items():
     items, errors = [], []
     try:
         page = fetch_text("https://president.az/az/news")
-        for block in re.findall(r'<article class="news-photo">(.*?)</article>', page, re.S):
-            href = re.search(r'href="([^"]+)"', block)
-            title = re.search(r'class="label-title">(.*?)</span>', block, re.S)
-            date = re.search(r'class="category_date">(.*?)</span>', block, re.S)
-            img = re.search(r'<img[^>]+src="([^"]+)"', block)
-            t = _clean_text(title.group(1)) if title else ""
-            if not (href and t):
-                continue
-            link = urllib.parse.urljoin("https://president.az", href.group(1))
-            items.append(("Prezident.az", "az", "Prezident", "Prezident", {
-                "title": t, "link": link,
-                "description": "Azərbaycan Prezidentinin rəsmi səhifəsindən.",
-                "pubDate": parse_az_date(date.group(1) if date else ""),
-                "image": _abs_img(img.group(1), link) if img else None, "author": "",
-            }))
+        for it in parse_president_page(page):
+            items.append(("Prezident.az", "az", "Prezident", "Prezident", it))
     except Exception as e:
         errors.append(f"Prezident.az: {type(e).__name__}: {str(e)[:80]}")
     try:
@@ -1353,7 +1391,8 @@ def _parse_dt(iso):
     if not iso:
         return None
     try:
-        return datetime.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        dt = datetime.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=BAKU)  # zonasız qalıb — müqayisədə TypeError olmasın
     except Exception:
         return None
 
@@ -1366,8 +1405,16 @@ def _compact_alt(a):
         alt["imageUrl"] = a["imageUrl"]  # əsas kartın şəkli yoxdursa brauzer buradan götürür
     return alt
 
+OFFICIAL_SOURCES = ("Prezident.az", "Mehriban Əliyeva")
+
 def _prefer_primary(a, b):
-    """Şəkli və daha dolu xülasəsi olan kart əsas olsun; eyni olanda daha yenisi."""
+    """Rəsmi mənbə (president.az, mehriban-aliyeva.az) həmişə əsas olsun — agentliyin surəti onu gizlətməsin.
+    Sonra şəkli və daha dolu xülasəsi olan; eyni olanda daha yenisi."""
+    ao, bo = a.get("source") in OFFICIAL_SOURCES, b.get("source") in OFFICIAL_SOURCES
+    if ao != bo:
+        return a if ao else b
+    if ao and bo and (a.get("source") == "Prezident.az") != (b.get("source") == "Prezident.az"):
+        return a if a.get("source") == "Prezident.az" else b
     if bool(a.get("imageUrl")) != bool(b.get("imageUrl")):
         return a if a.get("imageUrl") else b
     if len(a.get("summary") or "") != len(b.get("summary") or ""):
@@ -1406,6 +1453,12 @@ def group_duplicates(articles):
                 exact = len(key) >= 12 and any(_norm_title(m[3].get("title") or "") == key for m in members)
                 if not exact and a.get("source") in {m[3].get("source") for m in members}:
                     continue
+                official = a.get("source") in OFFICIAL_SOURCES or any(m[3].get("source") in OFFICIAL_SOURCES for m in members)
+                if official and not exact:
+                    # rəsmi şablon başlıqlar («X-in nazirini qəbul edib») fərqli hadisələrdə oxşar görünür — çox yaxın olmalıdır
+                    if not any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _jaccard(set(toks), set(mtks)) >= 0.85
+                               for mt, mtks, msh, _ma in members):
+                        continue
                 if exact or any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _titles_similar(toks, sh, mtks, msh)
                        for mt, mtks, msh, _ma in members):
                     members.append((dt, toks, sh, a))
@@ -1440,6 +1493,12 @@ def group_duplicates(articles):
         else:
             primary.pop("alts", None)
         out.append(primary)
+    prim_urls = {a.get("sourceUrl") for a in out}
+    for a in out:
+        if a.get("alts"):
+            a["alts"] = [x for x in a["alts"] if x.get("sourceUrl") not in prim_urls]
+            if not a["alts"]:
+                a.pop("alts", None)
     out.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
     return out
 
@@ -1687,6 +1746,7 @@ def fill_og_images(articles, limit=30):
             cache = {}
     except Exception:
         cache = {}
+    cache.pop("_meta", None)
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
@@ -1697,16 +1757,23 @@ def fill_og_images(articles, limit=30):
                 a["imageUrl"] = cache[url]
             continue
         todo.append(a)
-    batch = todo[:limit]
-    if batch:
-        with ThreadPoolExecutor(max_workers=8) as ex:
-            found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
-        for a, img in zip(batch, found):
-            cache[a["sourceUrl"]] = img or ""
-            if img:
-                a["imageUrl"] = img
+    batch, found, err = todo[:limit], [], ""
+    try:
+        if batch:
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
+            for a, img in zip(batch, found):
+                cache[a["sourceUrl"]] = img or ""
+                if img:
+                    a["imageUrl"] = img
+    except Exception as e:
+        err = f"{type(e).__name__}: {str(e)[:80]}"
+        print("  ! og:image:", err)
     keep = {a.get("sourceUrl") for a in articles if a.get("sourceUrl")}
     trimmed = {k: v for k, v in cache.items() if k in keep}
+    # Diaqnostika (loglara girişsiz): neçə xəbər şəkilsizdir, bu dövrədə neçəsi sorğulandı və tapıldı
+    trimmed["_meta"] = {"at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+                        "todo": len(todo), "batch": len(batch), "found": sum(1 for i in found if i), "error": err}
     try:
         OUT_DIR.mkdir(exist_ok=True)
         OG_FILE.write_text(json.dumps(trimmed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -1737,7 +1804,7 @@ def main():
         old = []
     prev_articles = [dict(a) for a in old]
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
-    old = [a for a in old if not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""))]
+    old = [a for a in old if not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
     hints = {f[0]: f[3] for f in FEEDS}
     for a in old:
         # köhnə xəbərlərin dili yoxdursa — avtomatik təyin et (süzgəcin düzgün işləməsi üçün)
@@ -1749,6 +1816,17 @@ def main():
         if a.get("source") in ("Prezident.az", "Mehriban Əliyeva"):
             lbl = "Prezident"
         a["category"] = SLUGS.get(lbl, "gundem")
+    for a in old:
+        dt = _parse_dt(a.get("publishedAt"))
+        if dt is not None:
+            a["publishedAt"] = _norm_iso(dt)
+        for alt in a.get("alts") or []:
+            adt = _parse_dt(alt.get("publishedAt"))
+            if adt is not None:
+                alt["publishedAt"] = _norm_iso(adt)
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)
+    old = [a for a in old if (_parse_dt(a.get("publishedAt")) or now_utc) >= (cutoff_prez if a.get("category") == "prezident" else cutoff)]
     seen = {a["sourceUrl"] for a in old}
     new_items, errors, empty = [], [], []
     source_rows = []
@@ -1766,7 +1844,7 @@ def main():
                 if it["link"] in seen or is_junk(it["link"]):
                     continue
                 seen.add(it["link"])
-                if is_negative_about_leadership(it["title"], it["description"]):
+                if is_negative_about_leadership(it["title"], it["description"], source):
                     continue
                 new_items.append(make_article(it, source, dlang, hint))
             except Exception as e:
@@ -1779,7 +1857,7 @@ def main():
             if it["link"] in seen or is_junk(it["link"]):
                 continue
             seen.add(it["link"])
-            if is_negative_about_leadership(it["title"], it["description"]):
+            if is_negative_about_leadership(it["title"], it["description"], source):
                 continue
             new_items.append(make_article(it, source, dlang, hint, force_label=force))
         except Exception as e:

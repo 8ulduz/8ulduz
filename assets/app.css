@@ -532,6 +532,8 @@ footer .logo i{width:26px;height:26px}
 .strip:hover .st-btn,.st-btn:focus-visible{opacity:1}
 .st-btn:hover{background:#fff;transform:scale(1.06)}
 .st-btn:active{transform:scale(.96)}
+.st-btn.off{opacity:.35!important;cursor:default;transform:none}
+.st-btn.off:hover{background:rgba(255,255,255,.88)}
 .st-prev{left:8px}.st-next{right:8px}
 :root[data-theme="light"] .st-btn{background:rgba(20,24,36,.78);color:#fff}
 :root[data-theme="light"] .st-btn:hover{background:rgba(20,24,36,.95)}
