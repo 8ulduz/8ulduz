@@ -1137,6 +1137,7 @@ function aboutView() {
       <li>Bölmələr başlıq və xülasədəki açar sözlərə görə avtomatik təyin olunur; səhv ola bilər.</li>
       <li>Dil süzgəci standart olaraq Azərbaycan dilindədir; rus, ingilis və türk dilində xəbərlər «Hamısı» və ya müvafiq dil seçiləndə görünür.</li>
       <li>Ölkə rəhbərliyi haqqında neqativ çağırışlı xəbərlər göstərilmir; bu, sayt sahibinin redaksiya qərarıdır.</li>
+      <li>Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir.</li>
       <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
     </ul></section>
     <section><h2>Məxfilik</h2><ul>

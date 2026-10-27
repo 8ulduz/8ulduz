@@ -66,6 +66,7 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - «Haqqımızda» (`#/haqqinda`): sayt nədir, mənbələr, redaksiya prinsipləri, məxfilik, əlaqə. Altlıqdan keçid var.
 - Valyuta kartlarında AMB rəsmi məzənnəsi alınmayanda «bazar» nişanı və qeyd çıxır (ehtiyat: ExchangeRate-API). Updater AMB bülletenini hər gün üçün iki dəfə yoxlayır, alınmayan günü keçir.
 - «Texnologiya» bölməsi: elm, texnologiya və süni intellekt xəbərləri (əvvəl «Həyat»a düşürdü).
+- Xarici mənbələrin (WORLD_FEEDS) Azərbaycan dövləti, rəhbərliyi, Bakı, Qarabağ, Naxçıvan haqqında xəbərləri dərc edilmir (`foreign_about_azerbaijan`, idman istisna); bu mövzu yalnız Azərbaycan mənbələrindən gəlir.
 - «Bölgələr» bölməsi: rayon və şəhər adları ilə təyin olunur (Bakı istisna), mənbə kimi AZƏRTAC-ın «Regionlar» lenti də var. GəncəXəbər və Patriotnews lent vermir (biri bot-qoruma arxasındadır, digəri açılmır).
 - Mənbə sayı 54-dən 78-ə çıxdı (Oxu, Publika, Lent, Axar, Ölkə, Yeniçağ, AzVision, Moderator, Bizim.Media, Reyting, News24, Anews, Aznews, Zim, Konkret, 525, İki Sahil, Femida, Ordu, Azpolitika, Marja, Banco, Media.az, AZƏRTAC Regionlar); Baku.ws və Hafta.az GitHub-dan 403 qaytardığı üçün yoxdur. Limitlər: mənbə başına 40, cəmi 1200.
 - «Təhsil» və «Səhiyyə» bölmələri açar sözlərlə təyin olunur (`CATEGORIES`, 1.5 çəki); «Həyat» həyat tərzi, qidalanma və psixologiya üçün qalır.
