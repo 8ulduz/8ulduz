@@ -883,19 +883,29 @@ const CLUB_AZ = { "Sabah Baku": "Sabah", "Sabah FK": "Sabah", "Qarabag": "Qaraba
   "Zira": "Zirə", "Zira FK": "Zirə", "Sumqayit": "Sumqayıt", "Sumgayit": "Sumqayıt", "Kapaz": "Kəpəz", "Shamakhi": "Şamaxı", "Araz-Naxcivan": "Araz-Naxçıvan", "Araz Nakhchivan": "Araz-Naxçıvan",
   "Imisli": "İmişli", "Gabala": "Qəbələ", "Sabail": "Səbail", "Karvan": "Karvan-Yevlax", "Turan Tovuz": "Turan Tovuz", "Sheki": "Şəki", "Mingachevir": "Mingəçevir" };
 const clubAz = n => CLUB_AZ[String(n || "").trim()] || n || "";
-function footballBlock(list) {
+// football.json: «leagues» siyahısı (Premyer, I, II, Kubok, Əvəzedicilər); köhnə faylda yalnız üst səviyyə var
+function fbLeagues() {
   const fb = S.football;
+  if (!fb) return [];
+  const ls = Array.isArray(fb.leagues) && fb.leagues.length ? fb.leagues : [fb];
+  return ls.filter(l => l && (l.table?.length || l.results?.length || l.fixtures?.length));
+}
+function footballBlock(list) {
+  const all = fbLeagues();
+  const fb = all[Math.min(S.fbLeague || 0, Math.max(0, all.length - 1))];
   const news = byDate(list.filter(a => {
     const title = lc(decode(a.title));
     if (/(?:basketbol|voleybol|həndbol|tennis|cüdo|güləş|boks|futzal)/u.test(title)) return false;
     return a.category === "idman" && /futbol|premyer|liqa|qarabağ|neftçi|qarabag|sabah fk|mill[iı]/iu.test(title);
   })).slice(0, 4);
-  // Turnir cədvəli olmayanda blok göstərilmir; futbol xəbərləri İdman bölməsindədir.
-  if (!fb?.table?.length) return "";
-  const tab = S.fbTab || "results";
+  // Heç bir liqanın məlumatı olmayanda blok göstərilmir; futbol xəbərləri İdman bölməsindədir.
+  if (!fb) return "";
+  const tab = (S.fbTab === "table" && !fb.table?.length) ? "results" : (S.fbTab || "results");
+  const picker = all.length > 1 ? `<div class="fb-leagues" role="tablist" aria-label="Liqalar">${all.map((l, i) => `<button type="button" class="pill${l === fb ? " on" : ""}" data-fbleague="${i}" role="tab" aria-selected="${l === fb}">${esc(l.short || l.league || "")}</button>`).join("")}</div>` : "";
   const teams = fb.table.map(t => `<div class="fb-team" title="${esc(t.team)}: ${t.p} oyun, ${t.w} Q · ${t.d} H · ${t.l} M, qol ${t.gf}:${t.ga}"><b class="pos">${t.pos}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${t.pts}</b> xal</span></div>`).join("");
   const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
-    .map(([k, l, r]) => `<button type="button" class="fb-tab${tab === k ? " on" : ""}" data-fbtab="${k}"><span>${l}${r ? `<small>${esc(ordTur(r))} tur</small>` : ""}</span><i>→</i></button>`).join("");
+    .filter(([k]) => k !== "table" || fb.table?.length)
+    .map(([k, l, r]) => `<button type="button" class="fb-tab${tab === k ? " on" : ""}" data-fbtab="${k}"><span>${l}${r ? `<small>${esc(/^\d+$/.test(String(r)) ? ordTur(r) + " tur" : String(r))}</small>` : ""}</span><i>→</i></button>`).join("");
   const game = g => `<li><b>${esc(clubAz(g.home))}</b><span>${g.played ? `${esc(g.hs ?? "–")} : ${esc(g.as ?? "–")}` : "–"}</span><b>${esc(clubAz(g.away))}</b><time datetime="${esc(g.date || "")}" title="${esc(g.stadium || "")}">${esc(shortDT(g.date))}</time></li>`;
   let pane = "";
   if (tab === "results") pane = fb.results?.length ? `<ul class="games">${fb.results.map(game).join("")}</ul>` : `<p class="muted foot-note">Nəticə hələ yoxdur.</p>`;
@@ -903,7 +913,8 @@ function footballBlock(list) {
   else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${t.pos}</td><td class="nm">${esc(clubAz(t.team))}</td><td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? "+" : ""}${t.gd}</td><td><b>${t.pts}</b></td></tr>`).join("")}</tbody></table>`;
   else if (tab === "scorers") pane = fb.scorers?.length ? `<ol class="fb-scorers">${fb.scorers.map(s => `<li><b>${esc(s.name)}</b> <span class="muted">${esc(clubAz(s.club))}</span><em>${s.goals} qol</em></li>`).join("")}</ol>` : `<p class="muted foot-note">Bombardir siyahısı alınmadı.</p>`;
   return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${esc(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
-    <div class="fb-top"><div class="strip"><div class="fb-teams">${teams}</div></div><nav class="fb-links" aria-label="Futbol bölmələri">${tabs}</nav></div>
+    ${picker}
+    <div class="fb-top${teams ? "" : " noteams"}">${teams ? `<div class="strip"><div class="fb-teams">${teams}</div></div>` : ""}<nav class="fb-links" aria-label="Futbol bölmələri">${tabs}</nav></div>
     <div class="fb-pane">${pane}</div>
     ${news.length ? `<div class="foot-news">${news.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("")}</div>` : ""}</section>`;
 }
@@ -1126,7 +1137,7 @@ function sectionsView() {
 }
 
 function onClick(e) {
-  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab]");
+  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
   if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
   if (!t) {
@@ -1162,6 +1173,7 @@ function onClick(e) {
   }
   if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
   if (t.dataset.fbtab) { S.fbTab = t.dataset.fbtab; renderView(); return; }
+  if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; if (S.fbTab === "table" && !fbLeagues()[S.fbLeague]?.table?.length) S.fbTab = "results"; renderView(); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
@@ -1408,12 +1420,13 @@ function setupStrips() {
     const sync = () => {
       const cur = Math.min(pages - 1, Math.round(row.scrollLeft / step));
       const end = row.scrollLeft + row.clientWidth >= row.scrollWidth - 2;
-      prev.disabled = row.scrollLeft <= 2; next.disabled = end;
       strip.classList.toggle("at-end", end);
       [...dots.children].forEach((d, i) => d.classList.toggle("on", i === cur));
     };
-    prev.onclick = () => go(Math.round(row.scrollLeft / step) - 1);
-    next.onclick = () => go(Math.round(row.scrollLeft / step) + 1);
+    // Oxlar həmişə görünür; sonda növbəti ox əvvələ, əvvəldə əvvəlki ox sona qayıdır
+    const page = () => Math.round(row.scrollLeft / step);
+    prev.onclick = () => go(page() <= 0 ? pages - 1 : page() - 1);
+    next.onclick = () => go(page() >= pages - 1 ? 0 : page() + 1);
     dots.onclick = e => { const b = e.target.closest("button[data-page]"); if (b) go(Number(b.dataset.page)); };
     row.addEventListener("scroll", sync, { passive: true });
     strip.append(prev, next, dots);

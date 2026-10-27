@@ -99,6 +99,23 @@ test('football block renders results, fixtures and the ordinal round suffix', ()
   assert.equal(ctx.api.ordTur(20), '20-ci');
 });
 
+test('football block offers every league and keeps the cup without a table', () => {
+  const ctx = app();
+  ctx.api.S.football = { leagues: [
+    { project: 1, short: 'Premyer Liqa', league: 'Misli Premyer Liqası', table: [{ pos: 1, team: 'Sabah', pts: 20, p: 9, w: 6, d: 2, l: 1, gf: 15, ga: 7, gd: 8 }], results: [], fixtures: [] },
+    { project: 5, short: 'Kubok', league: 'Azərbaycan Kuboku', elimination: true, table: [], results: [], fixtures: [{ home: 'Şəki', away: 'Qarabağ', hs: 0, as: 0, date: '2026-11-05T15:00+04:00', played: false }] },
+  ] };
+  let html = ctx.api.footballBlock([]);
+  assert.ok(html.includes('data-fbleague="1"') && html.includes('Kubok'));
+  ctx.api.S.fbLeague = 1; ctx.api.S.fbTab = 'table';
+  html = ctx.api.footballBlock([]);
+  assert.ok(html.includes('Azərbaycan Kuboku'));
+  assert.ok(!html.includes('fb-table'));        // kubokda cədvəl tabı yoxdur
+  assert.ok(html.includes('noteams'));           // komanda kartları yoxdur
+  ctx.api.S.fbTab = 'fixtures';
+  assert.ok(ctx.api.footballBlock([]).includes('Şəki'));
+});
+
 test('football block is hidden while the league table is unavailable', () => {
   const ctx = app();
   ctx.api.S.football = { table: [], events: [{ home: 'Sabah Baku', away: 'Qarabag', hs: '0', as: '0', date: '2026-10-25' }], note: 'yoxdur' };
