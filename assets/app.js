@@ -1031,6 +1031,7 @@ function renderView() {
   const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
   document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
   setupMarquees();
+  setupStrips();
 }
 
 function sourceLevel(s) {
@@ -1359,6 +1360,44 @@ function stopStep(el, snap) {
   const { best, bestD } = nearestStop(el);
   if (bestD > 1) el.scrollTop = best;
 }
+// Karusel: .strip içindəki zolağa ← → oxları və nöqtələr əlavə edir; bir basış bir səhifə (görünən en) sürüşdürür.
+// Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
+function setupStrips() {
+  document.querySelectorAll(".strip").forEach(strip => {
+    const row = strip.querySelector(".ytrow,.phrow,.vrow");
+    if (!row) return;
+    strip.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove());
+    // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın
+    const kids = [...row.children];
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+    const cw = kids[0] ? kids[0].getBoundingClientRect().width : 0;
+    const per = Math.max(1, Math.floor((row.clientWidth + gap + 1) / ((cw || row.clientWidth) + gap)));
+    const pages = Math.max(1, Math.ceil(kids.length / per));
+    strip.dataset.pages = String(pages);
+    if (pages === 1) { strip.classList.add("at-end"); return; }
+    const prev = document.createElement("button"), next = document.createElement("button"), dots = document.createElement("div");
+    prev.type = next.type = "button";
+    prev.className = "st-btn st-prev"; prev.textContent = "‹"; prev.setAttribute("aria-label", "Əvvəlki");
+    next.className = "st-btn st-next"; next.textContent = "›"; next.setAttribute("aria-label", "Növbəti");
+    dots.className = "st-dots";
+    for (let i = 0; i < pages; i++) { const d = document.createElement("button"); d.type = "button"; d.setAttribute("aria-label", `Səhifə ${i + 1}`); d.dataset.page = String(i); dots.appendChild(d); }
+    const step = per * (cw + gap) || row.clientWidth;
+    const go = i => row.scrollTo({ left: Math.max(0, Math.min(i, pages - 1)) * step, behavior: "smooth" });
+    const sync = () => {
+      const cur = Math.min(pages - 1, Math.round(row.scrollLeft / step));
+      const end = row.scrollLeft + row.clientWidth >= row.scrollWidth - 2;
+      prev.disabled = row.scrollLeft <= 2; next.disabled = end;
+      strip.classList.toggle("at-end", end);
+      [...dots.children].forEach((d, i) => d.classList.toggle("on", i === cur));
+    };
+    prev.onclick = () => go(Math.round(row.scrollLeft / step) - 1);
+    next.onclick = () => go(Math.round(row.scrollLeft / step) + 1);
+    dots.onclick = e => { const b = e.target.closest("button[data-page]"); if (b) go(Number(b.dataset.page)); };
+    row.addEventListener("scroll", sync, { passive: true });
+    strip.append(prev, next, dots);
+    sync();
+  });
+}
 function setupMarquees() {
   document.querySelectorAll("[data-marquee]").forEach(el => {
     cancelMotion(el);
@@ -1468,7 +1507,7 @@ document.addEventListener("visibilitychange", () => {
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);
-  marqueeResizeT = setTimeout(() => { setupMarquees(); syncLangStick(); fitNav(); }, 150);
+  marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(); syncLangStick(); fitNav(); }, 150);
 });
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
