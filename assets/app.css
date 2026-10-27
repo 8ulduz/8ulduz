@@ -152,7 +152,9 @@ nav.main a.nav-tix{position:relative}
 .ticker .lbl .bell.on{background:#fff;color:var(--red)}
 .ticker .run{flex:1;overflow:hidden;padding:7px 0}
 .ticker .track{display:flex;gap:36px;width:max-content;animation:marquee 90s linear infinite;padding-left:20px}
-.ticker:hover .track{animation-play-state:paused}
+/* Yalnız siçanla dayandır: toxunma ekranında «hover» toxunuşdan sonra ilişib qalır və lent tamam dayanırdı */
+@media (hover:hover){.ticker:hover .track{animation-play-state:paused}}
+.ticker .run{-webkit-overflow-scrolling:touch}
 .ticker .track a{white-space:nowrap;font-size:0.9286rem;color:var(--ticker-fg)}
 .ticker .track a:hover{color:var(--primary)}
 .ticker .track a::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--primary);margin-right:8px;vertical-align:3px}
