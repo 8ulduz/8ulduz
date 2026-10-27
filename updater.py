@@ -19,18 +19,17 @@ from concurrent.futures import ThreadPoolExecutor
 # AZƏRTAC, Report və News.az GitHub runner IP-lərindən 403 alır.
 # Birbaşa lent alınmayanda Google News RSS (və lazım olanda Telegram önizləməsi) ehtiyatdır.
 AZ_FEEDS = [
+    ("AZƏRTAC Regionlar", "https://azertag.az/rss?cat=regionlar", "Bölgələr"),  # əsas lentdən əvvəl: eyni keçid Bölgələr sayılsın
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
     ("APA Sport",    "https://apasport.az/rss", "İdman"),
     ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman"),
-    ("AZƏRTAC Regionlar", "https://azertag.az/rss?cat=regionlar", "Bölgələr"),
     ("Oxu.az",       "https://oxu.az/feed"),
     ("Publika.az",   "https://publika.az/rss/"),
     ("Lent.az",      "https://lent.az/rss"),
     ("Axar.az",      "https://axar.az/rss/"),
     ("Olke.az",      "https://olke.az/rss"),
     ("Yenicag.az",   "https://yenicag.az/feed"),
-    ("Baku.ws",      "https://baku.ws/rss"),
     ("AzVision.az",  "https://azvision.az/rss.xml"),
     ("Moderator.az", "https://moderator.az/rss"),
     ("Bizim.Media",  "https://bizim.media/rss"),
@@ -40,7 +39,6 @@ AZ_FEEDS = [
     ("Aznews.az",    "https://aznews.az/rss/"),
     ("Zim.az",       "https://zim.az/rss.xml"),
     ("Konkret.az",   "https://konkret.az/rss"),
-    ("Hafta.az",     "https://hafta.az/rss.php"),
     ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət"),
     ("İki Sahil",    "https://ikisahil.az/rss"),
     ("Femida.az",    "https://femida.az/rss.xml"),
@@ -1815,6 +1813,8 @@ def fill_og_images(articles, limit=120):
     except Exception:
         cache = {}
     cache.pop("_meta", None)
+    for k in [k for k, v in cache.items() if v and _is_generic_img(v)]:
+        cache[k] = ""  # əvvəlki dövrələrdən qalan ümumi (loqo) şəkillər: yenidən sorğulanmasın, amma istifadə də olunmasın
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
