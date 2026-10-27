@@ -554,7 +554,7 @@ NEGATIVE = [
 # Xarici mənbələrin Azərbaycan dövləti və rəhbərliyi haqqında xəbərləri dərc edilmir (redaksiya qərarı);
 # bu mövzuda yalnız Azərbaycan mənbələri qalır. İdman xəbərləri (Qarabağ FK, idmançılar) istisnadır.
 AZ_STATE_RX = re.compile(
-    r"azerbaijan|azerbaycan|азербайджан|aliyev|алиев|əliyev|\bbaku\b|bakü|баку|\bbakı|nakhchivan|нахичеван|naxçıvan|"
+    r"azerbaijan|azerbaycan|азербайджан|aliyev|алиев|əliyev|\bbaku\b|bakü|баку|\bbakı(?:da|dan|nın|ya|nı|\b)|nakhchivan|нахичеван|naxçıvan|"
     r"karabakh|karabağ|карабах|qarabağ|\bazeri\b|milli məclis|milli mejlis", re.I)
 
 def foreign_about_azerbaijan(source, category, title, desc=""):
