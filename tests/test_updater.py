@@ -22,6 +22,32 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(updater._plain("Harri Keyn mükafat qazanıb https://report.az/futbol/abc", title=True), "Harri Keyn mükafat qazanıb")
 
 
+class FootballTest(unittest.TestCase):
+    def test_parse_pfl_builds_table_rounds_and_scorers(self):
+        seasons = {"data": [{"id": 76, "title": "2026-2027", "leagues": [{"id": 52, "title": "Misli Premyer Liqası"}]}]}
+        grid = {"data": [
+            {"title": "Sabah", "logo": "s.png", "rate": {"o": 9, "q": 5, "h": 2, "m": 2, "vq": 12, "bq": 8, "tf": 4, "x": 17, "ordering": 2}},
+            {"title": "Qarabağ", "logo": "q.png", "rate": {"o": 9, "q": 7, "h": 1, "m": 1, "vq": 18, "bq": 6, "tf": 12, "x": 22, "ordering": 1}},
+        ]}
+        tours = {"data": [
+            {"title": "9", "is_current": 0, "games": [{"club_1": {"title": "Sabah"}, "club_2": {"title": "Qarabağ"}, "club_score_1": 0, "club_score_2": 0, "status": 3, "start_date": "25/10/2026 18:00", "stadion": {"title": "Bank Respublika Arena"}}]},
+            {"title": "10", "is_current": 1, "games": [{"club_1": {"title": "Qəbələ"}, "club_2": {"title": "Qarabağ"}, "club_score_1": 0, "club_score_2": 0, "status": 0, "start_date": "31/10/2026 17:30", "stadion": None}]},
+        ]}
+        scorers = {"data": {"data": [{"club": {"title": "Şamaxı"}, "player": {"name": "Rikardo", "surname": "Apolinario"}, "value": "3"}]}}
+        d = updater.parse_pfl(seasons, grid, tours, scorers)
+        self.assertEqual([t["team"] for t in d["table"]], ["Qarabağ", "Sabah"])
+        self.assertEqual(d["table"][0]["pos"], 1)
+        self.assertEqual(d["table"][0]["pts"], 22)
+        self.assertEqual(d["roundPlayed"], "9")
+        self.assertEqual(d["roundNext"], "10")
+        self.assertTrue(d["results"][0]["played"])
+        self.assertEqual(d["results"][0]["date"], "2026-10-25T18:00+04:00")
+        self.assertFalse(d["fixtures"][0]["played"])
+        self.assertEqual(d["fixtures"][0]["home"], "Qəbələ")
+        self.assertEqual(d["scorers"], [{"name": "Rikardo Apolinario", "club": "Şamaxı", "goals": 3}])
+        self.assertEqual(d["league"], "Misli Premyer Liqası")
+
+
 class SectionPagesTest(unittest.TestCase):
     def test_section_pages_and_sitemap_are_written(self):
         articles = [

@@ -890,15 +890,36 @@ function footballBlock(list) {
     if (/(?:basketbol|voleybol|həndbol|tennis|cüdo|güləş|boks|futzal)/u.test(title)) return false;
     return a.category === "idman" && /futbol|premyer|liqa|qarabağ|neftçi|qarabag|sabah fk|mill[iı]/iu.test(title);
   })).slice(0, 4);
-  const ev = fb?.events || [];
-  // Turnir cədvəli olmayanda blok göstərilmir (yarımçıq məlumat və üzrxahlıq mətni əvəzinə); futbol xəbərləri İdman bölməsindədir.
+  // Turnir cədvəli olmayanda blok göstərilmir; futbol xəbərləri İdman bölməsindədir.
   if (!fb?.table?.length) return "";
-  if (!news.length && !ev.length) return "";
-  const games = ev.slice(0, 3).map(e => `<li><b>${esc(clubAz(e.home))}</b><span>${esc(e.hs ?? "–")} : ${esc(e.as ?? "–")}</span><b>${esc(clubAz(e.away))}</b><time datetime="${esc(e.date || "")}">${esc(fullDate(e.date) || e.date || "")}</time></li>`).join("");
-  return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><a class="more" href="${esc(fb?.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
-    ${games ? `<ul class="games">${games}</ul>` : ""}
-    ${fb?.note ? `<p class="muted foot-note">${esc(fb.note)}</p>` : ""}
+  const tab = S.fbTab || "results";
+  const teams = fb.table.map(t => `<div class="fb-team" title="${esc(t.team)}: ${t.p} oyun, ${t.w} Q · ${t.d} H · ${t.l} M, qol ${t.gf}:${t.ga}"><b class="pos">${t.pos}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${t.pts}</b> xal</span></div>`).join("");
+  const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
+    .map(([k, l, r]) => `<button type="button" class="fb-tab${tab === k ? " on" : ""}" data-fbtab="${k}"><span>${l}${r ? `<small>${esc(ordTur(r))} tur</small>` : ""}</span><i>→</i></button>`).join("");
+  const game = g => `<li><b>${esc(clubAz(g.home))}</b><span>${g.played ? `${esc(g.hs ?? "–")} : ${esc(g.as ?? "–")}` : "–"}</span><b>${esc(clubAz(g.away))}</b><time datetime="${esc(g.date || "")}" title="${esc(g.stadium || "")}">${esc(shortDT(g.date))}</time></li>`;
+  let pane = "";
+  if (tab === "results") pane = fb.results?.length ? `<ul class="games">${fb.results.map(game).join("")}</ul>` : `<p class="muted foot-note">Nəticə hələ yoxdur.</p>`;
+  else if (tab === "fixtures") pane = fb.fixtures?.length ? `<ul class="games">${fb.fixtures.map(game).join("")}</ul>` : `<p class="muted foot-note">Növbəti tur hələ elan olunmayıb.</p>`;
+  else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${t.pos}</td><td class="nm">${esc(clubAz(t.team))}</td><td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? "+" : ""}${t.gd}</td><td><b>${t.pts}</b></td></tr>`).join("")}</tbody></table>`;
+  else if (tab === "scorers") pane = fb.scorers?.length ? `<ol class="fb-scorers">${fb.scorers.map(s => `<li><b>${esc(s.name)}</b> <span class="muted">${esc(clubAz(s.club))}</span><em>${s.goals} qol</em></li>`).join("")}</ol>` : `<p class="muted foot-note">Bombardir siyahısı alınmadı.</p>`;
+  return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${esc(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
+    <div class="fb-top"><div class="strip"><div class="fb-teams">${teams}</div></div><nav class="fb-links" aria-label="Futbol bölmələri">${tabs}</nav></div>
+    <div class="fb-pane">${pane}</div>
     ${news.length ? `<div class="foot-news">${news.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("")}</div>` : ""}</section>`;
+}
+// 9-cu, 10-cu, 1-ci, 3-cü, 6-cı tur: sıra sayı şəkilçisi
+function ordTur(n) {
+  const v = Number(n); if (!Number.isFinite(v)) return String(n || "");
+  const tens = { 10: "cu", 20: "ci", 30: "cu", 40: "cı", 50: "ci", 60: "cı", 70: "ci", 80: "ci", 90: "cı" };
+  const ones = { 1: "ci", 2: "ci", 3: "cü", 4: "cü", 5: "ci", 6: "cı", 7: "ci", 8: "ci", 9: "cu" };
+  const suf = v % 10 === 0 ? (tens[v % 100] || "cu") : ones[v % 10];
+  return `${v}-${suf}`;
+}
+// "31 okt, 17:30"
+function shortDT(iso) {
+  const d = new Date(iso); if (!iso || Number.isNaN(d.getTime())) return "";
+  const hm = /T\d\d:\d\d/.test(iso) && !/T00:00/.test(iso) ? `, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : "";
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}${hm}`;
 }
 function videosView() {
   const items = S.video?.items || [];
@@ -1105,7 +1126,7 @@ function sectionsView() {
 }
 
 function onClick(e) {
-  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt]");
+  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
   if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
   if (!t) {
@@ -1140,6 +1161,7 @@ function onClick(e) {
     return;
   }
   if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
+  if (t.dataset.fbtab) { S.fbTab = t.dataset.fbtab; renderView(); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
@@ -1364,7 +1386,7 @@ function stopStep(el, snap) {
 // Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
 function setupStrips() {
   document.querySelectorAll(".strip").forEach(strip => {
-    const row = strip.querySelector(".ytrow,.phrow,.vrow");
+    const row = strip.querySelector(".ytrow,.phrow,.vrow,.fb-teams");
     if (!row) return;
     strip.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove());
     // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın

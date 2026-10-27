@@ -1051,30 +1051,100 @@ def update_video():
         merge_sources(rows)
     print(f"Video: {min(24, len(items))} yazı")
 
-def update_football():
-    """Premyer Liqa. Açıq sınaq açarı cədvəli yarımçıq qaytarır — cədvəli saxlamırıq."""
-    events, note = [], "Tam turnir cədvəli açıq sınaq mənbəyində yoxdur. Nəticələr və futbol xəbərləri göstərilir."
+# Misli Premyer Liqası: pfl.az saytının öz tətbiqinin istifadə etdiyi açıq JSON API (açar tələb etmir).
+PFL_API = "https://pfl.az/api/v1"
+
+def _pfl_json(path, timeout=15):
+    return json.loads(fetch(PFL_API + path, timeout=timeout, headers={"Accept": "application/json"}).decode("utf-8"))
+
+def _pfl_date(s):
+    """'14/08/2026 19:30' (Bakı vaxtı) -> ISO."""
     try:
-        d = fetch_json("https://www.thesportsdb.com/api/v1/json/123/eventspastleague.php?id=4693", timeout=12)
-        for e in (d.get("events") or [])[:6]:
-            events.append({
-                "home": e.get("strHomeTeam") or "",
-                "away": e.get("strAwayTeam") or "",
-                "hs": e.get("intHomeScore"),
-                "as": e.get("intAwayScore"),
-                "date": e.get("dateEvent") or "",
-            })
-    except Exception as e:
-        print("  ! futbol:", type(e).__name__)
-        note = "Oyun nəticəsi alınmadı. Futbol xəbərləri göstərilir."
+        return datetime.datetime.strptime(s, "%d/%m/%Y %H:%M").replace(tzinfo=BAKU).isoformat(timespec="minutes")
+    except Exception:
+        return ""
+
+def _pfl_game(g):
+    c1, c2 = g.get("club_1") or {}, g.get("club_2") or {}
+    return {
+        "home": c1.get("title") or "", "away": c2.get("title") or "",
+        "hs": g.get("club_score_1"), "as": g.get("club_score_2"),
+        "date": _pfl_date(g.get("start_date") or ""),
+        "played": g.get("status") == 3,
+        "stadium": (g.get("stadion") or {}).get("title") or "",
+    }
+
+def parse_pfl(seasons, grid, tours, scorers):
+    """pfl.az cavablarından football.json məzmunu. Şəbəkəsiz test üçün ayrıca funksiyadır.
+    grid: hər klub üçün rate {o: oyun, q: qalibiyyət, h: heç-heçə, m: məğlubiyyət, vq/bq: qollar, tf: fərq, x: xal, ordering: yer}.
+    tours: turlar; game.status 3 = oynanıb, is_current = növbəti tur."""
+    season = (seasons.get("data") or [{}])[0]
+    league = (season.get("leagues") or [{}])[0]
+    table = []
+    for t in grid.get("data") or []:
+        r = t.get("rate") or {}
+        table.append({"pos": r.get("ordering") or 0, "team": t.get("title") or "", "logo": t.get("logo") or "",
+                      "p": r.get("o") or 0, "w": r.get("q") or 0, "d": r.get("h") or 0, "l": r.get("m") or 0,
+                      "gf": r.get("vq") or 0, "ga": r.get("bq") or 0, "gd": r.get("tf") or 0, "pts": r.get("x") or 0})
+    table.sort(key=lambda x: (x["pos"] or 99, -x["pts"], -x["gd"]))
+    for i, row in enumerate(table, 1):
+        row["pos"] = i
+    tour_list = tours.get("data") or []
+    played = [x for x in tour_list if any(g.get("status") == 3 for g in x.get("games") or [])]
+    results, fixtures, round_played, round_next = [], [], "", ""
+    if played:
+        last = played[-1]
+        round_played = str(last.get("title") or "")
+        results = [_pfl_game(g) for g in last.get("games") or []]
+    nxt = next((x for x in tour_list if x.get("is_current")), None)
+    if nxt is None:
+        nxt = next((x for x in tour_list if x not in played), None)
+    if nxt is not None:
+        round_next = str(nxt.get("title") or "")
+        fixtures = [_pfl_game(g) for g in nxt.get("games") or []]
+    sc = []
+    for s in ((scorers.get("data") or {}).get("data") or [])[:5]:
+        p = s.get("player") or {}
+        sc.append({"name": (f"{p.get('name') or ''} {p.get('surname') or ''}").strip(),
+                   "club": (s.get("club") or {}).get("title") or "", "goals": int(s.get("value") or 0)})
+    return {"league": league.get("title") or "Misli Premyer Liqası", "season": season.get("title") or "",
+            "table": table, "results": results, "fixtures": fixtures,
+            "roundPlayed": round_played, "roundNext": round_next, "scorers": sc,
+            "link": "https://pfl.az/", "source": "pfl.az"}
+
+def update_football():
+    """Misli Premyer Liqası: cədvəl, son tur, növbəti tur və bombardirlər pfl.az-dan. Alınmayanda köhnə fayl «stale» nişanı ilə qalır."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
-    FOOTBALL_FILE.write_text(json.dumps({
-        "updatedAt": now, "league": "Azərbaycan Premyer Liqası",
-        "table": [], "events": events, "note": note,
-        "link": "https://pfl.az/",
-    }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Futbol: {len(events)} oyun")
+    try:
+        seasons = _pfl_json("/seasons?project_id=1")
+        season = (seasons.get("data") or [{}])[0]
+        league = (season.get("leagues") or [{}])[0]
+        grid = _pfl_json(f"/leagues/grid?season_id={season.get('id')}&project_id=1")
+        tours = _pfl_json(f"/tours/get-games?league_id={league.get('id')}&withGames=true")
+        try:
+            scorers = _pfl_json(f"/bombarders/list?league_id={league.get('id')}")
+        except Exception:
+            scorers = {}
+        data = parse_pfl(seasons, grid, tours, scorers)
+        if not data["table"]:
+            raise ValueError("cədvəl boşdur")
+    except Exception as e:
+        print("  ! futbol:", type(e).__name__)
+        try:
+            old = json.loads(FOOTBALL_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            old = {}
+        if old.get("table"):
+            old["stale"] = True
+            FOOTBALL_FILE.write_text(json.dumps(old, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            print("Futbol: köhnə məlumat saxlanıldı")
+            return
+        data = {"league": "Misli Premyer Liqası", "season": "", "table": [], "results": [], "fixtures": [],
+                "scorers": [], "note": "Futbol məlumatı alınmadı.", "link": "https://pfl.az/", "source": "pfl.az"}
+    data["updatedAt"] = now
+    FOOTBALL_FILE.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Futbol: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}, növbəti {data.get('roundNext') or '-'}")
 
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
 GROUP_WINDOW = datetime.timedelta(hours=36)
