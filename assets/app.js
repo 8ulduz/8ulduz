@@ -870,13 +870,13 @@ function ytBlock() {
   const items = S.video?.items || [];
   if (!items.length) return "";
   const cards = items.slice(0, 8).map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("");
-  return `<section><div class="sec-h"><h2>Video xəbərlər</h2><span class="cnt">${items.length}</span><a class="more" href="#/videolent">Hamısı →</a></div><div class="ytrow">${cards}</div></section>`;
+  return `<section><div class="sec-h"><h2>Video xəbərlər</h2><span class="cnt">${items.length}</span><a class="more" href="#/videolent">Hamısı →</a></div><div class="strip"><div class="ytrow">${cards}</div></div></section>`;
 }
 function photoStrip(list) {
   const cut = Date.now() - 30 * HOUR;
   const pics = byDate(list.filter(a => a.imageUrl && new Date(a.publishedAt).getTime() > cut)).slice(0, 14);
   if (pics.length < 4) return "";
-  return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="phrow">${pics.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<span>${txt(a.title)}</span></a>`).join("")}</div></section>`;
+  return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="strip"><div class="phrow">${pics.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<span>${txt(a.title)}</span></a>`).join("")}</div></div></section>`;
 }
 // TheSportsDB ingilis adlarını azərbaycanca yazır
 const CLUB_AZ = { "Sabah Baku": "Sabah", "Sabah FK": "Sabah", "Qarabag": "Qarabağ", "Qarabag FK": "Qarabağ", "Neftci Baku": "Neftçi", "Neftchi Baku": "Neftçi", "Neftchi": "Neftçi",
@@ -909,7 +909,7 @@ function videosView() {
 function videoBlock(list) {
   if (!list.length) return "";
   return `<section><div class="sec-h"><h2>Sayt videoları</h2><span class="cnt">${list.length} keçid</span><a class="more" href="#/bolme/video">Hamısı →</a></div>
-    <div class="vrow">${list.slice(0, 15).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${img(a)}<div class="b"><h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)} · mənbədə açır</time></div></div></a>`).join("")}</div></section>`;
+    <div class="strip"><div class="vrow">${list.slice(0, 15).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${img(a)}<div class="b"><h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)} · mənbədə açır</time></div></div></a>`).join("")}</div></div></section>`;
 }
 
 // Ən yeni 8 xəbərdən şəkillilərə üstünlük ver (sıra yenə də tarixə görə qalır)
