@@ -65,6 +65,23 @@ const POLL_MS = 60e3;     // xəbər lentini yoxlama intervalı
 const freshUrl = (path) => `${path}?t=${Math.floor(Date.now() / 60000)}`;
 const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən xəbər
 
+// Məxfi rejimdə və yaddaş dolanda seçimlər heç olmasa açıq vərəqdə işləsin.
+const sessionPrefs = new Map();
+const storage = {
+  getItem(key) {
+    if (sessionPrefs.has(key)) return sessionPrefs.get(key);
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  setItem(key, value) {
+    sessionPrefs.set(key, String(value));
+    try { localStorage.setItem(key, value); } catch {}
+  },
+  removeItem(key) {
+    sessionPrefs.set(key, null);
+    try { localStorage.removeItem(key); } catch {}
+  },
+};
+
 /* ---------------------------------------------------------------- köməkçilər */
 const $ = (s, r = document) => r.querySelector(s);
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -95,7 +112,7 @@ function ago(iso) {
 }
 function fullDate(iso) { const d = new Date(iso); return Number.isNaN(d.getTime()) ? "" : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; }
 function today() { const a = new Date(), r = `${DAYS[a.getDay()]}, ${a.getDate()} ${MONTHS[a.getMonth()]} ${a.getFullYear()}`; return r.charAt(0).toLocaleUpperCase("az") + r.slice(1); }
-const isFresh = a => { const t = new Date(a.publishedAt).getTime(); return !Number.isNaN(t) && Date.now() - t < HOUR; };
+const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
 const OUT = `target="_blank" rel="noopener noreferrer"`;
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
@@ -125,7 +142,7 @@ function prezHome(list) {
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
   return [...first, ...rest].slice(0, MAX);
 }
-const byDate = list => [...list].sort((x, y) => y.publishedAt.localeCompare(x.publishedAt));
+const byDate = list => [...list].sort((x, y) => new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime());
 const lc = s => (s || "").toLocaleLowerCase("az");
 const GROUP_MS = 36 * HOUR;
 const GROUP_STOP = new Set("ve ile the and for from or bir bu da de ki veya icin olan və ilə də o üçün ya news xəbər xeber".split(/\s+/));
@@ -273,7 +290,7 @@ const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="$
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
 
 /* ---------------------------------------------------------------- vəziyyət */
-const S = { data: null, error: null, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
+const S = { data: null, error: null, offline: false, lastSync: null, lang: null, club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 const PRAY_SVG = {
@@ -340,12 +357,12 @@ function syncTixDot() {
   });
 }
 const SAVE_KEY = "8ulduz-saved";
-function savedList() { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+function savedList() { try { const v = JSON.parse(storage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
 function isSaved(id) { return savedList().some(x => x.id === id); }
 function toggleSave(a) {
   const rest = savedList().filter(x => x.id !== a.id);
   if (!isSaved(a.id)) rest.unshift({ id: a.id, title: a.title, source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt, category: a.category, imageUrl: a.imageUrl || "" });
-  localStorage.setItem(SAVE_KEY, JSON.stringify(rest.slice(0, 200)));
+  storage.setItem(SAVE_KEY, JSON.stringify(rest.slice(0, 200)));
 }
 const HOME_FIXED = new Set(["video", "prezident", "sondeqiqe"]);
 const SECT_KEY = "8ulduz-sects";
@@ -355,26 +372,26 @@ function sectionPool() { return CATS.filter(c => !HOME_FIXED.has(c.slug)); }
 function sectionPref() {
   const slugs = sectionPool().map(c => c.slug);
   let raw = null;
-  try { raw = JSON.parse(localStorage.getItem(SECT_KEY) || "null"); } catch {}
+  try { raw = JSON.parse(storage.getItem(SECT_KEY) || "null"); } catch {}
   let order = Array.isArray(raw?.order) ? raw.order.filter(s => slugs.includes(s)) : slugs.slice();
   for (const s of slugs) if (!order.includes(s)) order.push(s);
   const off = (Array.isArray(raw?.off) ? raw.off : []).filter(s => slugs.includes(s));
   return { order, off };
 }
-function writeSects(order, off) { localStorage.setItem(SECT_KEY, JSON.stringify({ order, off })); }
+function writeSects(order, off) { storage.setItem(SECT_KEY, JSON.stringify({ order, off })); }
 function homeCats() {
   const { order, off } = sectionPref();
   const hide = new Set(off);
   return order.filter(s => !hide.has(s)).map(s => CATS.find(c => c.slug === s)).filter(Boolean);
 }
-function notifyOn() { return localStorage.getItem(NOTIFY_KEY) === "1" && "Notification" in window && Notification.permission === "granted"; }
+function notifyOn() { return storage.getItem(NOTIFY_KEY) === "1" && "Notification" in window && Notification.permission === "granted"; }
 function checkBreaking(articles) {
   if (!notifyOn()) return;
   const fresh = (articles || []).filter(isFresh);
   let seen = null;
-  try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "null"); } catch {}
+  try { seen = JSON.parse(storage.getItem(SEEN_KEY) || "null"); } catch {}
   if (!Array.isArray(seen)) {
-    localStorage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
+    storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
     return;
   }
   const known = new Set(seen);
@@ -385,15 +402,15 @@ function checkBreaking(articles) {
       n.onclick = () => { window.focus(); if (a.sourceUrl) window.open(a.sourceUrl, "_blank", "noopener,noreferrer"); };
     } catch {}
   }
-  localStorage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
+  storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
 }
 async function armNotify() {
   if (!("Notification" in window)) return;
   let perm = Notification.permission;
   if (perm === "default") { try { perm = await Notification.requestPermission(); } catch { perm = "denied"; } }
-  if (perm !== "granted") { localStorage.removeItem(NOTIFY_KEY); renderTicker(); return; }
-  localStorage.setItem(NOTIFY_KEY, "1");
-  localStorage.setItem(SEEN_KEY, JSON.stringify((S.data?.articles || []).filter(isFresh).map(a => a.id)));
+  if (perm !== "granted") { storage.removeItem(NOTIFY_KEY); renderTicker(); return; }
+  storage.setItem(NOTIFY_KEY, "1");
+  storage.setItem(SEEN_KEY, JSON.stringify((S.data?.articles || []).filter(isFresh).map(a => a.id)));
   try {
     const reg = await navigator.serviceWorker.ready;
     if (reg.periodicSync) await reg.periodicSync.register("breaking", { minInterval: 5 * 60 * 1000 });
@@ -411,14 +428,22 @@ const byId = new Map();
 
 /* ---------------------------------------------------------------- məlumat */
 async function loadNews() {
+  if (S.newsLoading) return;
+  S.newsLoading = true;
   try {
     const r = await fetch(freshUrl("data/news.json"), { cache: "no-store" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const tag = r.headers.get("etag") || r.headers.get("last-modified");
-    S.lastSync = new Date(); S.error = null;
-    if (tag && tag === S.etag && S.data) { renderTopbar(); return; }
-    S.etag = tag;
+    S.offline = r.headers.get("X-8ulduz-data") === "cache";
+    if (tag && tag === S.etag && S.data) {
+      if (!S.offline) S.lastSync = new Date();
+      S.error = null; renderTopbar(); return;
+    }
     const d = await r.json();
+    if (!Array.isArray(d.articles)) throw new Error("Xəbər məlumatının quruluşu yanlışdır");
+    S.etag = tag;
+    if (!S.offline) S.lastSync = new Date();
+    S.error = null;
     if (S.data && S.data.updatedAt === d.updatedAt && S.og) { renderTopbar(); return; }
     await loadOg();
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
@@ -426,7 +451,8 @@ async function loadNews() {
     S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
     checkBreaking(d.articles);
     render();
-  } catch (e) { S.error = String(e); if (!S.data) render(); else renderTopbar(); }
+  } catch (e) { S.error = String(e); S.offline = !navigator.onLine; if (!S.data) render(); else renderTopbar(); }
+  finally { S.newsLoading = false; }
 }
 
 async function loadOg() {
@@ -479,7 +505,8 @@ async function loadAllWeather() {
 
 /* ---------------------------------------------------------------- marşrut */
 function route() {
-  const h = decodeURIComponent(location.hash.replace(/^#/, "")) || "/";
+  let h = location.hash.replace(/^#/, "") || "/";
+  try { h = decodeURIComponent(h); } catch {} // natamam %-kod səhifəni dayandırmasın
   if (h === "/menbeler" || h.startsWith("/menbeler?")) return { name: "sources" };
   if (h === "/videolent" || h.startsWith("/videolent?")) return { name: "videos" };
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
@@ -522,6 +549,7 @@ function shell() {
     S.q = q.value.trim(); S.shown = PAGE;
     const want = S.q ? `#/axtar?q=${encodeURIComponent(S.q)}` : "#/";
     if (location.hash !== want) history.replaceState(null, "", want);
+    renderNav();
     renderView();
   });
   document.addEventListener("click", onClick);
@@ -570,6 +598,9 @@ function pageMeta() {
 
 function renderTopbar() {
   const w = S.wx, upd = S.status?.checkedAt || S.data?.updatedAt;
+  const stale = upd && Date.now() - new Date(upd).getTime() > 15 * 60e3;
+  const syncBad = S.error || S.offline || S.status?.ok === false || stale;
+  const syncText = S.offline ? "Oflayn — saxlanmış xəbərlər" : S.error ? "Xəbərlər yenilənmədi" : S.status?.ok === false ? "Mənbələr yoxlanmadı" : stale ? "Xəbər lenti köhnəlib" : S.status?.degraded ? "Bəzi mənbələr açılmır" : "";
   let pop = "";
   if (S.wxOpen) {
     const sel = S.wxSel && (S.wxAll || []).find(x => x.city === S.wxSel);
@@ -587,8 +618,9 @@ function renderTopbar() {
     ${prayBit()}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
     <a class="tix-pill tix-btn tix-band" href="#/tixac" title="Tıxac və yollar" aria-label="Tıxac"><span class="tix-lab">Tıxac</span></a>
-    <span class="sp sync">${S.lastSync ? `<span class="dot"></span>Son yenilənmə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
-    ${upd ? `<span class="yenilendi"><span class="dot live" style="background:#34d399"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
+    <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
+    ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
+    ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
     <span class="prefs"><button data-act="theme" title="${light ? "Qaranlıq mövzu" : "İşıqlı mövzu"}" aria-label="Mövzu">${light ? "☾" : "☀"}</button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
   syncTixDot();
 }
@@ -628,11 +660,13 @@ function fitNav() {
 }
 
 function renderTicker() {
-  const list = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === "az")).slice(0, 12);
+  const latest = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === "az"));
+  const breaking = latest.filter(isFresh);
+  const list = (breaking.length ? breaking : latest).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
   const items = [...list, ...list].map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("");
   const bell = !("Notification" in window) ? "" : `<button type="button" class="bell${notifyOn() ? " on" : ""}" data-act="notify" title="Son dəqiqə bildirişi. Səhifə açıq olanda yoxlanır.">${notifyOn() ? "Açıq" : "Bildiriş"}</button>`;
-  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ Son dəqiqə${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
+  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">${breaking.length ? "⚡ Son dəqiqə" : "Son xəbərlər"}${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
 }
 
 function prayIcon(key) {
@@ -648,7 +682,7 @@ function prayLeft(mins) {
 const PRAY_CITY_KEY = "8ulduz-pray-city";
 function savedPrayCity() {
   try {
-    const v = localStorage.getItem(PRAY_CITY_KEY);
+    const v = storage.getItem(PRAY_CITY_KEY);
     if (CITIES.some(c => c[0] === v)) return v;
   } catch {}
   return "Bakı";
@@ -835,7 +869,11 @@ function photoStrip(list) {
 }
 function footballBlock(list) {
   const fb = S.football;
-  const news = byDate(list.filter(a => a.category === "idman" && /futbol|premyer|liqa|qarabağ|neftçi|qarabag|sabah fk|mill[iı]/i.test(decode(a.title)))).slice(0, 4);
+  const news = byDate(list.filter(a => {
+    const title = lc(decode(a.title));
+    if (/(?:basketbol|voleybol|həndbol|tennis|cüdo|güləş|boks|futzal)/u.test(title)) return false;
+    return a.category === "idman" && /futbol|premyer|liqa|qarabağ|neftçi|qarabag|sabah fk|mill[iı]/iu.test(title);
+  })).slice(0, 4);
   const ev = fb?.events || [];
   if (!news.length && !ev.length) return "";
   const games = ev.slice(0, 3).map(e => `<li><b>${esc(e.home)}</b><span>${esc(e.hs ?? "–")} : ${esc(e.as ?? "–")}</span><b>${esc(e.away)}</b><time>${esc(e.date || "")}</time></li>`).join("");
@@ -901,7 +939,7 @@ function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
   return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
     (list.length ? `<div class="grid">${shown.map(card).join("")}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
-      : `<p class="empty">Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq.</p>`);
+      : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
 
 function sectionView(slug) {
@@ -949,10 +987,10 @@ function renderView() {
   syncQuery();
   pageMeta();
   const v = $("#view");
-  if (S.error && !S.data) { v.innerHTML = `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>`; return; }
+  if (S.error && !S.data) { v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
-  const err = S.error ? `<div class="err">Xəbər lenti yüklənə bilmədi: ${esc(S.error)}</div>` : "";
+  const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
   const body = r.name === "sources" ? sourcesView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = r.name !== "home" || !!S.q;
@@ -1061,6 +1099,7 @@ function onClick(e) {
   else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
   else if (act === "notify") armNotify();
+  else if (act === "retry") { loadNews(); loadStatus(); }
   else if (act === "sec-toggle" || act === "sec-up" || act === "sec-down") {
     const slug = t.dataset.slug;
     const pref = sectionPref();
@@ -1082,9 +1121,9 @@ function onClick(e) {
 
 const THEME_KEY = "8ulduz-theme", FS_KEY = "8ulduz-fs";
 function applyPrefs() {
-  const theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  const theme = storage.getItem(THEME_KEY) === "light" ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
-  let fs = localStorage.getItem(FS_KEY);
+  let fs = storage.getItem(FS_KEY);
   if (fs !== "0" && fs !== "1" && fs !== "2") fs = "0";
   document.documentElement.dataset.fs = fs;
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -1093,10 +1132,10 @@ function applyPrefs() {
 function setPref(act) {
   if (act === "theme") {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    localStorage.setItem(THEME_KEY, next);
+    storage.setItem(THEME_KEY, next);
   } else {
     const n = Math.max(0, Math.min(2, Number(document.documentElement.dataset.fs || "0") + (act === "fs-up" ? 1 : -1)));
-    localStorage.setItem(FS_KEY, String(n));
+    storage.setItem(FS_KEY, String(n));
   }
   applyPrefs();
   renderTopbar();
@@ -1120,7 +1159,7 @@ const WHEEL_MS = 3000;
 const TOUCH_MS = 5000;
 function reducedMotion() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
 function marqueeNarrow(el) {
-  return el.classList.contains("soc-list") && !!el.closest(".prez") && matchMedia("(max-width: 860px)").matches;
+  return !!el.closest(".prez") && matchMedia("(max-width: 860px)").matches;
 }
 function marqueeVisible(el) {
   if (el.classList.contains("prez-grid") && matchMedia("(max-width: 860px)").matches) return Number(el.dataset.visibleNarrow || 3);
@@ -1267,6 +1306,7 @@ function setupMarquees() {
     el._key = false;
     el.style.height = "";
     el.classList.remove("vmarquee");
+    for (const item of el.children) item.style.height = "";
     if (marqueeNarrow(el)) { unwrapMarquee(el); return; }
     const items = [...el.children];
     if (items.length < 2) { unwrapMarquee(el); return; }
@@ -1469,13 +1509,14 @@ setInterval(loadNews, POLL_MS);
 setInterval(loadStatus, POLL_MS);
 setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
+setInterval(() => { loadSources(); loadVideo(); loadFootball(); }, 5 * 60e3);
 setInterval(() => { if (adSlots().length > 1 && route().name === "home") { const el = document.querySelector("main .ad"); if (el) el.outerHTML = adHtml(); } }, 30e3);
 document.addEventListener("change", (e) => {
   const sel = e.target.closest?.("select.pray-city");
   if (!sel) return;
   const city = sel.value;
   if (!CITIES.some(c => c[0] === city)) return;
-  try { localStorage.setItem(PRAY_CITY_KEY, city); } catch {}
+  try { storage.setItem(PRAY_CITY_KEY, city); } catch {}
   S.prayOpen = true;
   loadPrayer(city);
 });

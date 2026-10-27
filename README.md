@@ -56,6 +56,18 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 
 ## Lokal yoxlama
 
+Şəbəkəyə müraciət etmədən xəta ssenarilərini yoxlamaq üçün Python 3.12 və Node.js 22 ilə:
+
+```bash
+python -m unittest discover -s tests -v
+node --test tests/browser-logic.test.cjs
+```
+
+Bu yoxlamalar pull request-lərdə də avtomatik işləyir. Mənbələr tam dayananda əvvəlki xəbər
+lenti və son uğurlu `checkedAt` saxlanılır; `attemptedAt` son cəhdi, `ok` isə nəticəni göstərir.
+Sayt oflayn və ya 15 dəqiqədən çox köhnəlmiş xəbər lentini ayrıca işarələyir.
+Dar ekranda xronikanın ilk dörd xəbəri sabit görünür; tam siyahı «Hamısı» keçidindədir.
+
 ```bash
 python updater.py            # xəbər + bazar
 python updater.py --no-markets

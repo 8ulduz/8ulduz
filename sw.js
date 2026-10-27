@@ -1,7 +1,7 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
    data/*.json: yalnız şəbəkə. Keş yalnız şəbəkə alınmayanda (oflayn).
-   Statik fayllar: əvvəl keş. */
-const VERSION = "v15";
+   HTML/JS/CSS: əvvəl şəbəkə, oflayn olanda keş. Şəkillər: əvvəl keş. */
+const VERSION = "v17";
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -26,7 +26,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== STATIC && k !== DATA).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => /^8ulduz-(static|data)-/.test(k) && k !== STATIC && k !== DATA).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -41,7 +41,7 @@ async function networkFirstData(req) {
       const headers = new Headers(fresh.headers);
       headers.set("X-8ulduz-data", "network");
       const marked = new Response(fresh.clone().body, { status: fresh.status, statusText: fresh.statusText, headers });
-      await cache.put(bare.toString(), marked.clone());
+      try { await cache.put(bare.toString(), marked.clone()); } catch {}
       return marked;
     }
     return fresh;
@@ -52,8 +52,8 @@ async function networkFirstData(req) {
       headers.set("X-8ulduz-data", "cache");
       return new Response(hit.body, { status: hit.status, statusText: hit.statusText, headers });
     }
-    return new Response('{"articles":[],"offline":true}', {
-      status: 200,
+    return new Response('{"offline":true}', {
+      status: 503,
       headers: { "Content-Type": "application/json; charset=utf-8" },
     });
   }
@@ -76,6 +76,21 @@ async function cacheFirst(req) {
   }
 }
 
+async function networkFirstShell(req) {
+  try {
+    const fresh = await fetch(new Request(req, { cache: "no-cache" }));
+    if (fresh.ok) {
+      try {
+        const cache = await caches.open(STATIC);
+        await cache.put(req, fresh.clone());
+      } catch {}
+    }
+    return fresh;
+  } catch {
+    return cacheFirst(req);
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || !inScope(url)) return;
@@ -83,7 +98,8 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(networkFirstData(event.request));
     return;
   }
-  event.respondWith(cacheFirst(event.request));
+  const shell = event.request.mode === "navigate" || /\.(?:html|js|css|webmanifest)$/.test(url.pathname);
+  event.respondWith(shell ? networkFirstShell(event.request) : cacheFirst(event.request));
 });
 
 const SEEN_URL = new URL("./notify-seen.json", SCOPE_URL).toString();
@@ -110,7 +126,7 @@ async function syncBreaking() {
   const now = Date.now();
   const fresh = (data.articles || []).filter((a) => {
     const t = new Date(a.publishedAt).getTime();
-    return t && now - t < 3600000;
+    return t && now - t >= 0 && now - t < 3600000;
   });
   const seen = await readSeen();
   if (!seen) {

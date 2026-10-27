@@ -1,0 +1,128 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const root = path.join(__dirname, '..');
+
+function app() {
+  const context = vm.createContext({
+    console, Map, Set, URL, Date, setTimeout, clearTimeout, addEventListener() {},
+    localStorage: { getItem() { throw Error('blocked'); }, setItem() { throw Error('quota'); }, removeItem() { throw Error('blocked'); } },
+    location: { hash: '#/' }, navigator: { onLine: true },
+    window: { addEventListener() {} },
+    document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, createElement() { return {}; } },
+    matchMedia: () => ({ matches: false }),
+  });
+  const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
+  vm.runInContext(source, context);
+  vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, footballBlock, S};`, context);
+  return context;
+}
+
+test('blocked browser storage still allows preferences and saving', () => {
+  const ctx = app();
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.theme, 'dark');
+  ctx.api.storage.setItem('8ulduz-theme', 'light');
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.theme, 'light');
+  ctx.api.storage.removeItem('8ulduz-theme');
+  assert.equal(ctx.api.storage.getItem('8ulduz-theme'), null);
+});
+
+test('broken percent-encoded route does not break the page', () => {
+  const ctx = app();
+  ctx.location.hash = '#/axtar?q=100%';
+  assert.equal(ctx.api.route().q, '100%');
+  ctx.location.hash = '#/axtar?q=%C4%B0lham';
+  assert.equal(ctx.api.route().q, 'İlham');
+});
+
+test('invalid JSON response does not poison ETag; same response can recover', async () => {
+  const ctx = app();
+  let valid = false;
+  ctx.fetch = async () => ({ ok: true, headers: new Headers({etag: 'one'}), json: async () => valid ? {updatedAt: 'now', articles: []} : {} });
+  await ctx.api.loadNews();
+  assert.equal(ctx.api.S.etag, null);
+  assert.ok(ctx.api.S.error);
+  valid = true;
+  await ctx.api.loadNews();
+  assert.equal(ctx.api.S.etag, 'one');
+  assert.equal(ctx.api.S.error, null);
+});
+
+test('cached news do not claim a new network sync', async () => {
+  const ctx = app();
+  ctx.fetch = async () => ({ok: true, headers: new Headers({'X-8ulduz-data': 'cache'}), json: async () => ({articles: []})});
+  await ctx.api.loadNews();
+  assert.equal(ctx.api.S.offline, true);
+  assert.equal(ctx.api.S.lastSync, null);
+});
+
+test('future articles are not breaking news', () => {
+  assert.equal(app().api.isFresh({publishedAt: new Date(Date.now() + 3600000).toISOString()}), false);
+});
+
+test('basketball national team does not appear in football block', () => {
+  const html = app().api.footballBlock([
+    {title: "A Milli Kadın Basketbol Takımı", category: 'idman', publishedAt: '2026-10-26T12:00:00Z'},
+    {title: 'Futbol: Qarabağ qalib gəldi', category: 'idman', publishedAt: '2026-10-26T12:00:00Z'},
+  ]);
+  assert.ok(html.includes('Qarabağ'));
+  assert.ok(!html.includes('Basketbol'));
+});
+
+function worker(cacheNames = []) {
+  const listeners = {}, deleted = [];
+  const context = vm.createContext({URL, Request, Response, Headers, console,
+    self: {location: new URL('https://example.com/8ulduz/sw.js'), addEventListener: (name, fn) => listeners[name] = fn,
+      clients: {claim: async () => {}}, registration: {}},
+    caches: {keys: async () => cacheNames, delete: async key => deleted.push(key),
+      open: async () => ({match: async () => null})},
+    fetch: async () => { throw Error('offline'); },
+  });
+  vm.runInContext(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), context);
+  return {context, listeners, deleted};
+}
+
+test('service worker retains caches belonging to other sites', async () => {
+  const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-static-v17']);
+  let done;
+  listeners.activate({waitUntil(p) { done = p; }});
+  await done;
+  assert.deepEqual(deleted.sort(), ['8ulduz-data-v15', '8ulduz-static-v15']);
+});
+
+test('offline without cached data is a failure, not an empty successful feed', async () => {
+  const {context} = worker();
+  const res = await vm.runInContext("networkFirstData(new Request('https://example.com/8ulduz/data/news.json'))", context);
+  assert.equal(res.status, 503);
+});
+
+test('new application code replaces a cached version while online', async () => {
+  const {context} = worker();
+  let stored;
+  context.fetch = async () => new Response('new code');
+  context.caches.open = async () => ({put: async (_key, response) => { stored = await response.text(); }});
+  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'new code');
+  assert.equal(stored, 'new code');
+});
+
+test('application code is still available offline', async () => {
+  const {context} = worker();
+  context.caches.open = async () => ({match: async () => new Response('cached code')});
+  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'cached code');
+});
+
+test('full cache does not discard fresh network news', async () => {
+  const {context} = worker();
+  context.fetch = async () => new Response('{"articles":[]}');
+  context.caches.open = async () => ({put: async () => { throw Error('quota'); }});
+  const res = await vm.runInContext("networkFirstData(new Request('https://example.com/8ulduz/data/news.json'))", context);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('X-8ulduz-data'), 'network');
+});

@@ -237,6 +237,7 @@ main>.wrap>section{margin-bottom:18px}
 @media (max-width:860px){
   .prez-body{grid-template-columns:1fr;gap:6px}
   .prez-grid{grid-template-columns:1fr;gap:4px}
+  .prez-grid>.pcard:nth-child(n+5){display:none}
   .prez .soc{border-left:0;padding-left:0;margin-top:2px;padding-top:6px;border-top:1px solid hsl(43 96% 56%/.28)}
   .prez .soc-list{order:2;flex-direction:row;overflow-x:auto;gap:6px;scrollbar-width:none;margin-top:2px}
   .prez .soc-list::-webkit-scrollbar{display:none}
@@ -496,10 +497,13 @@ footer .logo i{width:26px;height:26px}
 .vmarquee::-webkit-scrollbar{display:none}
 .step-wrap{position:relative;min-width:0;min-height:0}
 .hero-slot>.step-wrap{position:absolute;inset:0}
-.step-nav{position:absolute;right:3px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;z-index:2;opacity:0;pointer-events:none}
+.prez .step-nav{position:static;transform:none;flex-direction:row;justify-content:flex-end;padding-top:4px;opacity:1;pointer-events:auto}
+.step-nav{position:absolute;right:2px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:2;opacity:0;pointer-events:none}
 .step-wrap:hover>.step-nav,.step-wrap:focus-within>.step-nav{opacity:1;pointer-events:auto}
-.step-nav button{width:16px;height:16px;border-radius:4px;border:1px solid var(--border);background:color-mix(in hsl, var(--card) 82%, transparent);color:var(--muted);font-size:10px;line-height:1;font-weight:800}
+.step-nav button{width:32px;height:32px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:16px;line-height:1;font-weight:800}
 .step-nav button:hover{color:var(--primary);border-color:var(--primary)}
+.sync-state{font-size:11px;color:var(--primary)}
+.sync-state.bad{color:var(--red)}
 @media (hover: none){.step-nav{opacity:.72;pointer-events:auto}}
 @media (max-width:900px){.hero-slot>.step-wrap{position:static;inset:auto}}
 @media (prefers-reduced-motion: reduce){.vmarquee{scroll-behavior:auto}}
