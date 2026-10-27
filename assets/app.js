@@ -12,7 +12,10 @@ const CATS = [
   { slug: "dunya", label: "Dünya", description: "Beynəlxalq mətbuat" },
   { slug: "idman", label: "İdman", description: "İdman aləmindən xəbərlər və nəticələr" },
   { slug: "medeniyyet", label: "Mədəniyyət", description: "Kino, musiqi, sənət və mədəni həyat" },
-  { slug: "heyat", label: "Həyat", description: "Sağlamlıq və həyat tərzi" },
+  { slug: "heyat", label: "Həyat", description: "Həyat tərzi, qidalanma, psixologiya" },
+  { slug: "bolgeler", label: "Bölgələr", description: "Rayonlardan və şəhərlərdən xəbərlər" },
+  { slug: "tehsil", label: "Təhsil", description: "Məktəb, universitet, imtahanlar" },
+  { slug: "sehiyye", label: "Səhiyyə", description: "Tibb, xəstəxanalar, sağlamlıq" },
   { slug: "texnologiya", label: "Texnologiya", description: "Elm, texnologiya və süni intellekt" },
   { slug: "video", label: "Video", description: "Saytlardakı video xəbərlərə keçidlər" },
 ];
