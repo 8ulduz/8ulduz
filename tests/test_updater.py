@@ -14,6 +14,18 @@ class CategoriesTest(unittest.TestCase):
     def test_turkish_company_revenue_is_economy(self):
         self.assertEqual(updater.label_for("Çimsa'dan 9 ayda 41,8 milyar TL gelir", "", "tr"), "İqtisadiyyat")
 
+    def test_regions_section(self):
+        self.assertEqual(updater.label_for("Gəncədə yeni park istifadəyə verilib", "", "az"), "Bölgələr")
+        self.assertEqual(updater.label_for("Lənkəran rayonunda yol təmir olunur", "", "az"), "Bölgələr")
+        self.assertEqual(updater.label_for("Qarabağ Sabahla heç-heçə etdi", "futbol", "az"), "İdman")
+        self.assertEqual(updater.SLUGS["Bölgələr"], "bolgeler")
+
+    def test_education_and_health_sections(self):
+        self.assertEqual(updater.label_for("Məktəblərdə buraxılış imtahanının tarixi açıqlandı", "", "az"), "Təhsil")
+        self.assertEqual(updater.label_for("Xəstəxanada yeni cərrahiyyə şöbəsi açılıb", "Həkimlər pasiyentləri qəbul edir.", "az"), "Səhiyyə")
+        self.assertEqual(updater.SLUGS["Təhsil"], "tehsil")
+        self.assertEqual(updater.SLUGS["Səhiyyə"], "sehiyye")
+
     def test_ai_news_is_technology(self):
         self.assertEqual(updater.label_for("Azərbaycanda süni intellekt üzrə milli dil modelləri hazırlanır", "", "az"), "Texnologiya")
         self.assertEqual(updater.SLUGS["Texnologiya"], "texnologiya")
@@ -43,6 +55,18 @@ class PresidentPageTest(unittest.TestCase):
         self.assertTrue(items[1]["video"])
         self.assertEqual(items[2]["description"], "Oktyabrın 21-də zəng edib.")
         self.assertEqual(items[2]["pubDate"], "2026-10-21T15:35:00+00:00")
+
+
+class ImageTest(unittest.TestCase):
+    def test_generic_share_images_are_rejected_and_real_ones_kept(self):
+        self.assertTrue(updater._is_generic_img("https://azertag.az/resources/images/social.jpg"))
+        self.assertTrue(updater._is_generic_img("https://img.piri.net/resim/imagecrop/2026/04/01/09/50/tr_son_dakika_530x530.jpg"))
+        self.assertFalse(updater._is_generic_img("https://static.president.az/upload/960x572/2026/10/27/a.jpg"))
+        page = b'<html><head><meta property="og:image" content="https://azertag.az/resources/images/social.jpg"/>' \
+               b'<link rel="image_src" href="/files/2026/real.jpg"></head></html>'
+        self.assertEqual(updater._og_from_html(page, "https://azertag.az/xeber/1"), "https://azertag.az/files/2026/real.jpg")
+        ld = b'<script type="application/ld+json">{"@type":"NewsArticle","image":{"@type":"ImageObject","url":"https://x.az/p.jpg"}}</script>'
+        self.assertEqual(updater._og_from_html(ld, "https://x.az/a"), "https://x.az/p.jpg")
 
 
 class DateAndFilterTest(unittest.TestCase):

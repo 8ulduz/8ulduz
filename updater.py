@@ -23,6 +23,32 @@ AZ_FEEDS = [
     ("APA",          "https://apa.az/rss"),
     ("APA Sport",    "https://apasport.az/rss", "İdman"),
     ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman"),
+    ("AZƏRTAC Regionlar", "https://azertag.az/rss?cat=regionlar", "Bölgələr"),
+    ("Oxu.az",       "https://oxu.az/feed"),
+    ("Publika.az",   "https://publika.az/rss/"),
+    ("Lent.az",      "https://lent.az/rss"),
+    ("Axar.az",      "https://axar.az/rss/"),
+    ("Olke.az",      "https://olke.az/rss"),
+    ("Yenicag.az",   "https://yenicag.az/feed"),
+    ("Baku.ws",      "https://baku.ws/rss"),
+    ("AzVision.az",  "https://azvision.az/rss.xml"),
+    ("Moderator.az", "https://moderator.az/rss"),
+    ("Bizim.Media",  "https://bizim.media/rss"),
+    ("Reyting.az",   "https://reyting.az/rss.xml"),
+    ("News24.az",    "https://news24.az/feed/rss"),
+    ("Anews.az",     "https://anews.az/rss"),
+    ("Aznews.az",    "https://aznews.az/rss/"),
+    ("Zim.az",       "https://zim.az/rss.xml"),
+    ("Konkret.az",   "https://konkret.az/rss"),
+    ("Hafta.az",     "https://hafta.az/rss.php"),
+    ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət"),
+    ("İki Sahil",    "https://ikisahil.az/rss"),
+    ("Femida.az",    "https://femida.az/rss.xml"),
+    ("Ordu.az",      "https://ordu.az/rss.xml", "Siyasət"),
+    ("Azpolitika.info", "https://azpolitika.info/rss", "Siyasət"),
+    ("Marja.az",     "https://marja.az/rss.php", "İqtisadiyyat"),
+    ("Banco.az",     "https://banco.az/rss.xml", "İqtisadiyyat"),
+    ("Media.az",     "https://media.az/rss"),
     ("Report",       "https://report.az/rss"),
     ("Trend",        "https://www.trend.az/rss/"),
     ("Milli.az",     "https://www.milli.az/rss/"),
@@ -138,6 +164,28 @@ IDMAN_WORDS = [
 CATEGORIES = {
     "Prezident": [],  # xüsusi qayda ilə hesablanır (categorize-ə baxın)
     "İdman": IDMAN_WORDS,
+    "Bölgələr": ["gəncə", "sumqayıt", "mingəçevir", "lənkəran", "şəki", "naxçıvan", "şirvan", "yevlax", "xankəndi", "şuşa",
+                 "quba", "qusar", "xaçmaz", "şabran", "siyəzən", "xızı", "abşeron rayonu", "ismayıllı", "ağsu", "şamaxı", "qobustan",
+                 "göyçay", "ucar", "zərdab", "kürdəmir", "ağdaş", "hacıqabul", "salyan", "neftçala", "biləsuvar", "saatlı",
+                 "sabirabad", "imişli", "beyləqan", "ağcabədi", "bərdə", "tərtər", "ağdam", "füzuli", "cəbrayıl", "zəngilan",
+                 "qubadlı", "laçın", "kəlbəcər", "xocalı", "xocavənd", "ağdərə", "goranboy", "göygöl", "naftalan", "samux",
+                 "daşkəsən", "gədəbəy", "şəmkir", "tovuz", "qazax", "ağstafa", "balakən", "zaqatala", "qax", "oğuz", "qəbələ",
+                 "masallı", "yardımlı", "lerik", "astara", "cəlilabad", "ordubad", "culfa", "şərur", "babək", "sədərək",
+                 "kəngərli", "şahbuz", "rayon icra hakimiyyəti", "rayonunda", "rayonunun", "kəndində", "kəndinin", "bölgələr", "regionlar"],
+    "Təhsil": ["təhsil", "məktəb", "məktəbli", "şagird", "müəllim", "universitet", "tələbə", "abituriyent", "imtahan",
+               "dövlət imtahan mərkəzi", "dim ", "magistr", "bakalavr", "doktorant", "kollec", "lisey", "gimnaziya",
+               "dərs ili", "bakı dövlət universiteti", "elm və təhsil nazirliyi", "qəbul imtahan", "buraxılış imtahan",
+               "məzun", "diplom", "təhsil proqramı", "dərslik", "olimpiada", "təqaüd proqramı",
+               "eğitim", "okul", "öğrenci", "öğretmen", "üniversite", "sınav", "yks", "lgs", "meb ", "ösym",
+               "школ", "студент", "учител", "университет", "экзамен", "образован", "егэ", "вуз",
+               "school", "student", "university", "teacher", "exam", "education"],
+    "Səhiyyə": ["səhiyyə", "xəstəxana", "həkim", "xəstəlik", "tibb ", "tibbi", "klinika", "dərman", "əczaçı", "aptek",
+                "virus", "qrip", "epidemiya", "pandemiya", "peyvənd", "vaksin", "cərrah", "cərrahiyyə", "diaqnoz",
+                "sağlamlıq", "təbib", "icbari tibbi sığorta", "diabet", "xərçəng", "infarkt", "insult", "ürək-damar",
+                "koronavirus", "allergiya", "ambulator", "təcili yardım", "reanimasiya", "pasiyent",
+                "sağlık", "hastane", "doktor", "hastalık", "aşı", "ilaç", "kanser", "kalp", "salgın", "ameliyat", "hekim",
+                "врач", "здоров", "болезн", "больниц", "лекарств", "вакцин", "эпидем", "онколог", "медицин", "пациент",
+                "health", "hospital", "doctor", "vaccine", "disease", "cancer", "clinic", "patient", "medical"],
     "Siyasət": ["leyla əliyeva", "heydər əliyev fondu", "лейла алиева", "фонд гейдара алиева",
                 "səfir", "parlament", "milli məclis", "seçki", "səfirlik",
                 "nazir", "bəyanat", "zəngəzur", "diplomat", "media və yayım şurası",
@@ -208,10 +256,10 @@ CATEGORIES = {
               "ukraine", "gaza", "israel", "russia", "china", "iran", "trump", "nato", "un ", "husi", "moskva", "paşinyan", "uqanda", "ebola", "türkiyədə", "kyrgyzstan", "freedom house"],
 }
 # İdman bölməsi gücləndirilib: xallar 2 qat sayılır
-BOOST = {"İdman": 2, "Prezident": 3}
+BOOST = {"İdman": 2, "Prezident": 3, "Təhsil": 1.5, "Səhiyyə": 1.5, "Bölgələr": 1.5}
 SLUGS = {"Prezident": "prezident", "Gündəm": "gundem", "Siyasət": "siyaset", "Cəmiyyət": "cemiyyet",
          "İqtisadiyyat": "iqtisadiyyat", "Dünya": "dunya", "İdman": "idman", "Mədəniyyət": "medeniyyet",
-         "Həyat": "heyat", "Texnologiya": "texnologiya"}
+         "Həyat": "heyat", "Texnologiya": "texnologiya", "Təhsil": "tehsil", "Səhiyyə": "sehiyye", "Bölgələr": "bolgeler"}
 DOUBLE = {"iran", "rusiya", "çin", "fransa", "israil", "ukrayna", "abş", "ingiltərə", "almaniya",
           "türkiyə", "ermənistan", "gürcüstan"}
 FALLBACK = "Gündəm"
@@ -243,8 +291,8 @@ AZ_MONTHS = {
     "yanvar": 1, "fevral": 2, "mart": 3, "aprel": 4, "may": 5, "iyun": 6,
     "iyul": 7, "avqust": 8, "sentyabr": 9, "oktyabr": 10, "noyabr": 11, "dekabr": 12,
 }
-MAX_ITEMS = 800
-MAX_PER_SOURCE = 50   # bir mənbə lenti doldurmasın
+MAX_ITEMS = 1200
+MAX_PER_SOURCE = 40   # bir mənbə lenti doldurmasın
 TIMEOUT = 10
 WORKERS = 16
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
@@ -288,6 +336,12 @@ MEDIA = "{http://search.yahoo.com/mrss/}"
 IMG_RE = re.compile(r"""<img[^>]+src\s*=\s*["']([^"']+)["']""", re.I)
 IMG_EXT = re.compile(r"\.(jpe?g|png|webp|gif|avif)(\?|$)", re.I)
 
+# Saytın ümumi paylaşım şəkli (loqo) xəbərin şəkli deyil: azertag social.jpg, «son dakika» lövhəsi və s.
+GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$", re.I)
+
+def _is_generic_img(u):
+    return bool(u) and bool(GENERIC_IMG.search(u))
+
 def _abs_img(u, base):
     if not u:
         return None
@@ -301,21 +355,21 @@ def image_of(item, link, raw_desc):
     """Elementdən şəkil URL-i: enclosure, media:content, media:thumbnail, ilk <img>."""
     for enc in item.findall("enclosure"):
         t, u = (enc.get("type") or ""), enc.get("url")
-        if u and (t.startswith("image") or (not t and IMG_EXT.search(u))):
+        if u and (t.startswith("image") or (not t and IMG_EXT.search(u))) and not _is_generic_img(u):
             return _abs_img(u, link)
     for tag in ("content", "thumbnail"):
         for m in item.iter(MEDIA + tag):
             u, t, med = m.get("url"), (m.get("type") or ""), (m.get("medium") or "")
-            if u and (tag == "thumbnail" or med == "image" or t.startswith("image") or IMG_EXT.search(u)):
+            if u and (tag == "thumbnail" or med == "image" or t.startswith("image") or IMG_EXT.search(u)) and not _is_generic_img(u):
                 return _abs_img(u, link)
     for le in item.findall("{http://www.w3.org/2005/Atom}link"):
         if le.get("rel") == "enclosure" and (le.get("type") or "").startswith("image"):
             return _abs_img(le.get("href"), link)
     blobs = [raw_desc, text_of(item, ["{http://purl.org/rss/1.0/modules/content/}encoded"])]
     for b in blobs:
-        m = IMG_RE.search(b or "")
-        if m:
-            return _abs_img(m.group(1), link)
+        for m in IMG_RE.finditer(b or ""):
+            if not _is_generic_img(m.group(1)) and not re.search(r"\.(?:gif|svg)(?:\?|$)|1x1|pixel|counter", m.group(1), re.I):
+                return _abs_img(m.group(1), link)
     return None
 
 def _local(tag):
@@ -1622,7 +1676,10 @@ SECTIONS = [
     ("dunya", "Dünya", "Beynəlxalq mətbuat"),
     ("idman", "İdman", "İdman aləmindən xəbərlər və nəticələr"),
     ("medeniyyet", "Mədəniyyət", "Kino, musiqi, sənət və mədəni həyat"),
-    ("heyat", "Həyat", "Sağlamlıq və həyat tərzi"),
+    ("heyat", "Həyat", "Həyat tərzi, qidalanma, psixologiya"),
+    ("bolgeler", "Bölgələr", "Rayonlardan və şəhərlərdən xəbərlər"),
+    ("tehsil", "Təhsil", "Məktəb, universitet, imtahanlar"),
+    ("sehiyye", "Səhiyyə", "Tibb, xəstəxanalar, sağlamlıq"),
     ("texnologiya", "Texnologiya", "Elm, texnologiya və süni intellekt"),
 ]
 SECTIONS_DIR = ROOT / "bolme"
@@ -1713,24 +1770,35 @@ _OG_KEY = re.compile(r"""(?:property|name)\s*=\s*["']([^"']+)["']""", re.I)
 _OG_CONTENT = re.compile(r"""content\s*=\s*["']([^"']+)["']""", re.I)
 _OG_NAMES = {"og:image", "og:image:url", "twitter:image", "twitter:image:src"}
 
+_LD_IMG = re.compile(r'"image"\s*:\s*(?:\{[^}]*?"url"\s*:\s*)?"(https?://[^"]+)"', re.I)
+_IMG_SRC = re.compile(r'<link[^>]+rel=["\']image_src["\'][^>]+href=["\']([^"\']+)', re.I)
+
 def _og_from_html(raw, base):
     text = raw.decode("utf-8", "replace")
+    cands = []
     for tag in _OG_META.findall(text):
         km = _OG_KEY.search(tag)
         if not km or km.group(1).lower() not in _OG_NAMES:
             continue
         cm = _OG_CONTENT.search(tag)
-        if not cm:
-            continue
-        img = _abs_img(html.unescape(cm.group(1)), base)
-        if img:
+        if cm:
+            cands.append(html.unescape(cm.group(1)))
+    m = _IMG_SRC.search(text)
+    if m:
+        cands.append(html.unescape(m.group(1)))
+    m = _LD_IMG.search(text)
+    if m:
+        cands.append(html.unescape(m.group(1)))
+    for c in cands:
+        img = _abs_img(c, base)
+        if img and not _is_generic_img(img):
             return img
     return ""
 
 def _fetch_og(url):
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
-        with urllib.request.urlopen(req, timeout=8) as r:
+        with urllib.request.urlopen(req, timeout=6) as r:
             ctype = (r.headers.get("Content-Type") or "").lower()
             if ctype and "html" not in ctype and "xml" not in ctype:
                 return ""
@@ -1738,7 +1806,7 @@ def _fetch_og(url):
     except Exception:
         return ""
 
-def fill_og_images(articles, limit=30):
+def fill_og_images(articles, limit=120):
     """Şəkilsiz xəbərlər üçün səhifənin og:image ünvanı. Hər URL bir dəfə sorğulanır."""
     try:
         cache = json.loads(OG_FILE.read_text(encoding="utf-8"))
@@ -1760,7 +1828,7 @@ def fill_og_images(articles, limit=30):
     batch, found, err = todo[:limit], [], ""
     try:
         if batch:
-            with ThreadPoolExecutor(max_workers=8) as ex:
+            with ThreadPoolExecutor(max_workers=12) as ex:
                 found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
             for a, img in zip(batch, found):
                 cache[a["sourceUrl"]] = img or ""
@@ -1883,6 +1951,20 @@ def main():
     articles = [a for a in uniq if a["category"] != "prezident"][:MAX_ITEMS] + prez_items
     stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles)}
     articles = group_duplicates(articles)
+    # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır
+    img_count = {}
+    for a in articles:
+        if a.get("imageUrl"):
+            img_count[a["imageUrl"]] = img_count.get(a["imageUrl"], 0) + 1
+    for a in articles:
+        u = a.get("imageUrl")
+        if u and (img_count.get(u, 0) >= 3 or _is_generic_img(u)):
+            a["imageUrl"] = None
+        if not a.get("imageUrl"):
+            for alt in a.get("alts") or []:
+                if alt.get("imageUrl") and img_count.get(alt["imageUrl"], 0) < 3 and not _is_generic_img(alt["imageUrl"]):
+                    a["imageUrl"] = alt["imageUrl"]
+                    break
     try:
         n_og = fill_og_images(articles)
         if n_og:
