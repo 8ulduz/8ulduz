@@ -190,6 +190,9 @@ function titlesSimilar(toks, sh, other, otherSh) {
   return false;
 }
 function preferPrimary(a, b) {
+  // Rəsmi mənbə həmişə əsas kart olur (Zuğulba xronikası yalnız rəsmi mənbələri göstərir)
+  const ao = OFFICIAL_SRC.has(a.source), bo = OFFICIAL_SRC.has(b.source);
+  if (ao !== bo) return ao ? a : b;
   if (!!a.imageUrl !== !!b.imageUrl) return a.imageUrl ? a : b;
   if ((a.summary || "").length !== (b.summary || "").length) return (a.summary || "").length > (b.summary || "").length ? a : b;
   return (a.publishedAt || "") >= (b.publishedAt || "") ? a : b;
@@ -1446,12 +1449,13 @@ function setupStrips() {
       const cur = Math.min(pages - 1, Math.round(row.scrollLeft / step));
       const end = row.scrollLeft + row.clientWidth >= row.scrollWidth - 2;
       strip.classList.toggle("at-end", end);
+      prev.classList.toggle("off", row.scrollLeft <= 2); next.classList.toggle("off", end);
       [...dots.children].forEach((d, i) => d.classList.toggle("on", i === cur));
     };
-    // Oxlar həmişə görünür; sonda növbəti ox əvvələ, əvvəldə əvvəlki ox sona qayıdır
+    // Oxlar yerində qalır; sonda növbəti ox, əvvəldə əvvəlki ox heç nə etmir (dövrə vurmur)
     const page = () => Math.round(row.scrollLeft / step);
-    prev.onclick = () => go(page() <= 0 ? pages - 1 : page() - 1);
-    next.onclick = () => go(page() >= pages - 1 ? 0 : page() + 1);
+    prev.onclick = () => { if (page() > 0) go(page() - 1); };
+    next.onclick = () => { if (page() < pages - 1) go(page() + 1); };
     dots.onclick = e => { const b = e.target.closest("button[data-page]"); if (b) go(Number(b.dataset.page)); };
     row.addEventListener("scroll", sync, { passive: true });
     strip.append(prev, next, dots);
