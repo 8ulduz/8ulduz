@@ -345,7 +345,16 @@ main>.wrap>section{margin-bottom:18px}
 .vrow::-webkit-scrollbar{display:none}
 .vcard .img::after{content:"▶";position:absolute;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--red);color:#fff;font-size:0.9286rem;box-shadow:0 6px 20px #0008}
 .vcard h3{-webkit-line-clamp:2}
-@media (max-width:1100px){.vrow{grid-auto-columns:calc((100% - 2*var(--gap))/3)}}
+/* Masaüstündə sabit sətir: 5 (geniş) / 4 kart, qalanı «Hamısı» keçidindədir; dar ekranda zolaq */
+@media (min-width:861px){
+  .vrow{grid-auto-flow:row;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-columns:auto;overflow:visible;padding-bottom:0}
+  .vrow>.vcard:nth-child(n+6){display:none}
+}
+@media (min-width:861px) and (max-width:1100px){
+  .vrow{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .vrow>.vcard:nth-child(n+5){display:none}
+}
+@media (max-width:860px){.vrow{grid-auto-columns:calc((100% - 2*var(--gap))/3)}}
 @media (max-width:520px){.vrow{grid-auto-columns:70%}}
 
 /* --- bölmə səhifəsi --- */
@@ -480,7 +489,20 @@ footer .logo i{width:26px;height:26px}
 .tix-list .tt{flex:1 1 180px;font-weight:750;font-size:14px}
 .tix-list .meta{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
 @media (max-width:700px){.tix-map iframe{height:300px}}
-.ytrow,.phrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
+/* Video və foto: dar ekranda barmaqla çəkilən zolaq (çubuq gizli, sağ kənarda solma), masaüstündə sabit tor */
+.strip{position:relative}
+.ytrow,.phrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.ytrow::-webkit-scrollbar,.phrow::-webkit-scrollbar{display:none}
+.strip::after{content:"";position:absolute;top:0;bottom:4px;right:0;width:32px;background:linear-gradient(90deg,transparent,var(--bg));pointer-events:none}
+@media (min-width:861px){
+  .strip::after{display:none}
+  .ytrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible;padding-bottom:0}
+  .ytrow .yt{flex:none}
+  .ytrow .yt:nth-child(n+5){display:none}
+  .phrow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));overflow:visible;padding-bottom:0}
+  .phrow a{flex:none;width:auto}
+  .phrow a:nth-child(n+7){display:none}
+}
 .yt{flex:0 0 200px;text-align:left;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card)}
 .yt .thumb{position:relative;display:block;aspect-ratio:16/9;background:#000}
 .yt .thumb img,.yt .thumb iframe{width:100%;height:100%;object-fit:cover;border:0}
