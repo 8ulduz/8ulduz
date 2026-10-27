@@ -1815,6 +1815,17 @@ def fill_og_images(articles, limit=120):
     cache.pop("_meta", None)
     for k in [k for k, v in cache.items() if v and _is_generic_img(v)]:
         cache[k] = ""  # əvvəlki dövrələrdən qalan ümumi (loqo) şəkillər: yenidən sorğulanmasın, amma istifadə də olunmasın
+    # Eyni şəkil 3+ fərqli səhifədə og:image kimi gəlirsə, bu, saytın loqosudur (marja.az, lent.az) — xəbərin şəkli deyil
+    freq = {}
+    for v in cache.values():
+        if v:
+            freq[v] = freq.get(v, 0) + 1
+    for a in articles:
+        if a.get("imageUrl"):
+            freq[a["imageUrl"]] = freq.get(a["imageUrl"], 0) + 1
+    for k, v in list(cache.items()):
+        if v and freq.get(v, 0) >= 3:
+            cache[k] = ""
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
@@ -1830,7 +1841,12 @@ def fill_og_images(articles, limit=120):
         if batch:
             with ThreadPoolExecutor(max_workers=12) as ex:
                 found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
+            for img in found:
+                if img:
+                    freq[img] = freq.get(img, 0) + 1
             for a, img in zip(batch, found):
+                if img and freq.get(img, 0) >= 3:
+                    img = ""  # bu dövrədə də eyni şəkil təkrarlanır: loqo
                 cache[a["sourceUrl"]] = img or ""
                 if img:
                     a["imageUrl"] = img
