@@ -944,16 +944,11 @@ function videoBlock(list) {
     <div class="strip"><div class="vrow">${list.slice(0, 15).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${img(a)}<div class="b"><h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)} · mənbədə açır</time></div></div></a>`).join("")}</div></div></section>`;
 }
 
-// Ən yeni 8 xəbərdən şəkillilərə üstünlük ver (sıra yenə də tarixə görə qalır)
-function pick4(list) {
-  const top = list.slice(0, 8), withImg = top.filter(a => a.imageUrl);
-  const chosen = new Set((withImg.length >= 4 ? withImg : [...withImg, ...top.filter(a => !a.imageUrl)]).slice(0, 4));
-  return top.filter(a => chosen.has(a));
-}
 function catSection(c, list) {
   if (!list.length) return "";
+  // Bölmə bloku da karuseldir: 12 kart, masaüstündə səhifədə 4 (oxlar və nöqtələr setupStrips-dən), qalanı «Hamısı»
   return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length}</span><a class="more" href="#/bolme/${c.slug}">Hamısı →</a></div>
-    <div class="grid">${pick4(list).map(card).join("")}</div></section>`;
+    <div class="strip"><div class="secrow">${list.slice(0, 12).map(card).join("")}</div></div></section>`;
 }
 
 function skeleton() {
@@ -1398,10 +1393,11 @@ function stopStep(el, snap) {
 // Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
 function setupStrips() {
   document.querySelectorAll(".strip").forEach(strip => {
-    const row = strip.querySelector(".ytrow,.phrow,.vrow,.fb-teams");
+    const row = strip.querySelector(".ytrow,.phrow,.vrow,.fb-teams,.secrow");
     if (!row) return;
     strip.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove());
     // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın
+    if (getComputedStyle(row).flexDirection === "column") { strip.dataset.pages = "1"; strip.classList.add("at-end"); return; } // telefonda şaquli siyahı
     const kids = [...row.children];
     const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
     const cw = kids[0] ? kids[0].getBoundingClientRect().width : 0;
