@@ -1588,8 +1588,7 @@ def save_sources(rows):
         else:
             out.append({"name": r["name"], "url": r["url"], "okAt": now,
                         "count": int(r.get("count") or 0), "error": None})
-    names = {r["name"] for r in rows}
-    out.extend(s for s in prev_list if s.get("name") not in names)
+    # Siyahıdan çıxarılan mənbələr vəziyyət səhifəsində qalmasın (əvvəl köhnə sətirlər həmişə saxlanırdı)
     OUT_DIR.mkdir(exist_ok=True)
     SOURCES_FILE.write_text(json.dumps({"updatedAt": now, "sources": out}, ensure_ascii=False,
                                         separators=(",", ":")), encoding="utf-8")
