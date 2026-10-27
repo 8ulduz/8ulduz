@@ -1138,39 +1138,67 @@ def parse_pfl(seasons, grid, tours, scorers):
             "roundPlayed": round_played, "roundNext": round_next, "scorers": sc,
             "link": "https://pfl.az/", "source": "pfl.az"}
 
+# pfl.az «layihələri»: hər biri bir liqa. Sıra saytdakı seçicinin sırasıdır.
+PFL_PROJECTS = [(1, "Premyer Liqa"), (2, "I Liqa"), (3, "II Liqa"), (5, "Kubok"), (4, "Əvəzedicilər")]
+FOOTBALL_EVERY = datetime.timedelta(minutes=10)  # 5 liqa × 4 sorğu — hər dövrədə yox
+
+def fetch_pfl_league(project_id):
+    """Bir liqanın cədvəli, turları və bombardirləri. Kubokda (is_elimination) cədvəl olmur."""
+    seasons = _pfl_json(f"/seasons?project_id={project_id}")
+    season = (seasons.get("data") or [{}])[0]
+    league = (season.get("leagues") or [{}])[0]
+    if not league.get("id"):
+        raise ValueError("liqa yoxdur")
+    elimination = bool(league.get("is_elimination"))
+    grid = {} if elimination else _pfl_json(f"/leagues/grid?season_id={season.get('id')}&project_id={project_id}")
+    tours = _pfl_json(f"/tours/get-games?league_id={league.get('id')}&withGames=true")
+    try:
+        scorers = _pfl_json(f"/bombarders/list?league_id={league.get('id')}")
+    except Exception:
+        scorers = {}
+    d = parse_pfl(seasons, grid, tours, scorers)
+    d["elimination"] = elimination
+    d["project"] = project_id
+    return d
+
 def update_football():
-    """Misli Premyer Liqası: cədvəl, son tur, növbəti tur və bombardirlər pfl.az-dan. Alınmayanda köhnə fayl «stale» nişanı ilə qalır."""
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    """Bütün liqalar (Premyer, I, II, Kubok, Əvəzedicilər) pfl.az-dan. Üst səviyyədəki sahələr Premyer Liqadır
+    (köhnə quruluş), «leagues» siyahısında hamısı var. Alınmayan liqa üçün köhnə məlumat «stale» ilə qalır."""
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    now = now_dt.isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
     try:
-        seasons = _pfl_json("/seasons?project_id=1")
-        season = (seasons.get("data") or [{}])[0]
-        league = (season.get("leagues") or [{}])[0]
-        grid = _pfl_json(f"/leagues/grid?season_id={season.get('id')}&project_id=1")
-        tours = _pfl_json(f"/tours/get-games?league_id={league.get('id')}&withGames=true")
+        old = json.loads(FOOTBALL_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        old = {}
+    try:
+        last = datetime.datetime.fromisoformat(old.get("updatedAt", ""))
+        if old.get("leagues") and now_dt - last < FOOTBALL_EVERY:
+            print("Futbol: təzədir"); return
+    except Exception:
+        pass
+    old_leagues = {l.get("project"): l for l in old.get("leagues") or []}
+    leagues, fresh = [], 0
+    for project_id, short in PFL_PROJECTS:
         try:
-            scorers = _pfl_json(f"/bombarders/list?league_id={league.get('id')}")
-        except Exception:
-            scorers = {}
-        data = parse_pfl(seasons, grid, tours, scorers)
-        if not data["table"]:
-            raise ValueError("cədvəl boşdur")
-    except Exception as e:
-        print("  ! futbol:", type(e).__name__)
-        try:
-            old = json.loads(FOOTBALL_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            old = {}
-        if old.get("table"):
-            old["stale"] = True
-            FOOTBALL_FILE.write_text(json.dumps(old, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-            print("Futbol: köhnə məlumat saxlanıldı")
-            return
+            d = fetch_pfl_league(project_id)
+            if not d["table"] and not d["results"] and not d["fixtures"]:
+                raise ValueError("məlumat boşdur")
+            d["short"] = short
+            leagues.append(d); fresh += 1
+        except Exception as e:
+            print(f"  ! futbol {short}:", type(e).__name__)
+            if project_id in old_leagues:
+                leagues.append(dict(old_leagues[project_id], stale=True))
+    if not leagues:
         data = {"league": "Misli Premyer Liqası", "season": "", "table": [], "results": [], "fixtures": [],
-                "scorers": [], "note": "Futbol məlumatı alınmadı.", "link": "https://pfl.az/", "source": "pfl.az"}
+                "scorers": [], "leagues": [], "note": "Futbol məlumatı alınmadı.", "link": "https://pfl.az/", "source": "pfl.az"}
+    else:
+        data = dict(leagues[0])
+        data["leagues"] = leagues
     data["updatedAt"] = now
     FOOTBALL_FILE.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Futbol: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}, növbəti {data.get('roundNext') or '-'}")
+    print(f"Futbol: {fresh}/{len(PFL_PROJECTS)} liqa təzə, Premyer: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}")
 
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
 GROUP_WINDOW = datetime.timedelta(hours=36)
