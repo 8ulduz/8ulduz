@@ -8,7 +8,7 @@ Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərin
   Marşrutlar: `#/` (baş səhifə), `#/bolme/<slug>` (bölmə), `#/axtar?q=...` (axtarış), `#/tixac` (tıxac xəritəsi).
 - `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON).
 - `data/markets.json` — valyuta (AMB, ehtiyat: ExchangeRate-API), Brent/WTI neft və bitcoin (Yahoo Finance, ehtiyat: CNBC/CoinGecko), qızıl/gümüş (gold-api.com).
-- `data/social.json` — Prezidentin və birinci xanımın rəsmi YouTube yazıları.
+- `data/social.json` — Prezidentin və birinci xanımın rəsmi YouTube videoları və X/Instagram/Facebook paylaşımları (X-in açıq lenti bağlı olduğundan paylaşımlar onları xəbər verən rəsmi/agentlik xəbərlərindən götürülür, `via` sahəsi mənbəni göstərir). Yalnız vaxta görə sıralanır.
 - `data/status.json` — son uğurlu yoxlamanın vaxtı (`checkedAt`). Saytdakı «Yeniləndi» bunu göstərir.
 - `data/sources.json` — hər lentin son uğurlu vaxtı, xəbər sayı və son xətası. Saytda: `#/menbeler`.
 - `data/og.json` — şəkilli olmayan xəbərlər üçün məqalə səhifəsinin `og:image` / `twitter:image` ünvanı. Hər keçid bir dəfə sorğulanır (vaxt limiti, paralel). Boş nəticə də saxlanır ki, təkrar sorğu olmasın.

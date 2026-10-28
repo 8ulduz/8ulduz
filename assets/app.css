@@ -236,6 +236,7 @@ main>.wrap>section{margin-bottom:18px}
 .soc-ic{flex:none;display:flex;color:var(--primary)}
 .soc-p .t{flex:1;min-width:0;font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .soc-p time{flex:none;font-size:10px;color:var(--muted);white-space:nowrap}
+.soc-p .via{flex:none;font-size:10px;color:var(--muted);white-space:nowrap;max-width:72px;overflow:hidden;text-overflow:ellipsis}
 .soc-empty{margin:0;font-size:12px}
 .prez .soc-p{border:0;background:transparent;padding:1px 0;border-radius:0}
 .prez .soc-p:hover{border-color:transparent}
@@ -625,7 +626,7 @@ footer .logo i{width:26px;height:26px}
 .skel{border-radius:10px;background:linear-gradient(100deg,var(--card2) 30%,hsl(222 28% 18%) 48%,var(--card2) 62%);background-size:220% 100%;animation:shimmer 1.15s linear infinite}
 :root[data-theme="light"] .skel{background:linear-gradient(100deg,var(--card2) 30%,#fff 48%,var(--card2) 62%);background-size:220% 100%}
 @keyframes shimmer{to{background-position:-220% 0}}
-.vmarquee{overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;touch-action:pan-y}
+.vmarquee{overflow-y:auto;scrollbar-width:none;touch-action:pan-y} /* siyahı dibə/başa çatanda təkər səhifəni sürüşdürür (əvvəl overscroll-behavior:contain tuturdu) */
 .vmarquee::-webkit-scrollbar{display:none}
 .step-wrap{position:relative;min-width:0;min-height:0}
 .hero-slot>.step-wrap{position:absolute;inset:0}

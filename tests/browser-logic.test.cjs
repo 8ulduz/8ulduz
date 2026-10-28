@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock};`, context);
   return context;
 }
 
@@ -146,6 +146,20 @@ test('search folds Azerbaijani letters and ignores punctuation', () => {
   const rx = ctx.api.hlRegex(ctx.api.searchWords('qarabag'));
   assert.ok(rx.test('Qarabağ qalib gəldi'));
   assert.equal(ctx.api.route.call(null) && (ctx.location.hash = '#/yoxdur', ctx.api.route().name), 'notfound');
+});
+
+test('social posts are ordered by time only and show the reporting source', () => {
+  const ctx = app();
+  ctx.api.S.social = { posts: [
+    { who: 'prezident', name: 'Prezident', network: 'YouTube', text: 'köhnə', url: 'u1', publishedAt: '2026-10-26T10:00:00+00:00' },
+    { who: 'birinci-xanim', name: 'Mehriban Əliyeva', network: 'X', text: 'yeni', url: 'u2', publishedAt: '2026-10-28T10:00:00+00:00', via: 'Report.az' },
+    { who: 'prezident', name: 'Prezident', network: 'X', text: 'orta', url: 'u3', publishedAt: '2026-10-27T10:00:00+00:00' },
+  ] };
+  assert.deepEqual([...ctx.api.orderedSocialPosts(8).map(p => p.text)], ['yeni', 'orta', 'köhnə']);
+  assert.deepEqual([...ctx.api.orderedSocialPosts(2).map(p => p.text)], ['yeni', 'orta']);
+  const html = ctx.api.socialBlock(true);
+  assert.ok(html.includes('<span class="via">Report.az</span>'));
+  assert.ok(html.indexOf('yeni') < html.indexOf('orta'));
 });
 
 test('raw links are stripped from headlines', () => {

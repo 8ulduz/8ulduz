@@ -77,6 +77,30 @@ class YouTubeTest(unittest.TestCase):
         self.assertTrue(items[0]["image"].endswith("/nckqYOoK5lw/hqdefault.jpg"))
 
 
+class SocialFromNewsTest(unittest.TestCase):
+    def test_leadership_posts_are_taken_from_news_and_deduplicated(self):
+        arts = [
+            {"id": "1", "title": "Prezidentin sosial şəbəkə hesablarında forumun açılışına dair video paylaşılıb",
+             "source": "Modern.az", "sourceUrl": "https://m/1", "publishedAt": "2026-10-27T11:57:00+00:00", "alts": []},
+            {"id": "2", "title": "Mehriban Əliyeva bugünkü sərgidən paylaşım etdi - Video",
+             "source": "Azpolitika.info", "sourceUrl": "https://a/2", "publishedAt": "2026-10-27T15:35:00+00:00", "alts": []},
+            {"id": "3", "title": "Mehriban Əliyevanın Instagram hesabında sərgidən videoçarx paylaşıldı",
+             "source": "Teleqraf", "sourceUrl": "https://t/3", "publishedAt": "2026-10-27T15:50:00+00:00", "alts": [{}, {}]},
+            {"id": "4", "title": "Zəfər xronikası. 28 oktyabr 2020: Mehriban Əliyeva paylaşım edib",
+             "source": "Ordu.az", "sourceUrl": "https://o/4", "publishedAt": "2026-10-28T03:05:00+00:00", "alts": []},
+            {"id": "5", "title": "Nazir paylaşım edib", "source": "X", "sourceUrl": "https://x/5", "publishedAt": "2026-10-28T03:05:00+00:00"},
+        ]
+        posts = updater.social_from_news(arts)
+        self.assertEqual([p["who"] for p in posts], ["prezident", "birinci-xanim"])
+        self.assertEqual(posts[0]["network"], "X")
+        self.assertEqual(posts[0]["via"], "Modern.az")
+        # eyni paylaşım: 3 mənbəli başlıq qalır, vaxt ilk xəbərinki, şəbəkə Instagram
+        self.assertEqual(posts[1]["id"], "3")
+        self.assertEqual(posts[1]["publishedAt"], "2026-10-27T15:35:00+00:00")
+        self.assertEqual(posts[1]["network"], "Instagram")
+        self.assertNotIn("_t", posts[1])
+
+
 class ImageTest(unittest.TestCase):
     def test_generic_share_images_are_rejected_and_real_ones_kept(self):
         self.assertTrue(updater._is_generic_img("https://azertag.az/resources/images/social.jpg"))

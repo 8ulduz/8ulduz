@@ -1101,6 +1101,52 @@ def official_items():
         errors.append(f"Mehriban Əliyeva: {type(e).__name__}: {str(e)[:80]}")
     return items, errors
 
+# X paylaşımları: X-in açıq lenti/embed-i 2026-da çıxışsız istifadəçiyə bağlıdır (syndication 429, embed boş iframe).
+# Ona görə rəhbərliyin X/Instagram/Facebook paylaşımları onları xəbər verən rəsmi və agentlik xəbərlərindən götürülür
+# («Prezidentin sosial şəbəkə hesablarında ... paylaşılıb», «Mehriban Əliyeva ... paylaşım edib»).
+_SOC_SHARE_RX = re.compile(r"paylaş", re.I)
+_SOC_WHO = [
+    ("prezident", "Prezident İlham Əliyev", re.compile(r"prezident|ilham əliyev", re.I)),
+    ("birinci-xanim", "Mehriban Əliyeva", re.compile(r"mehriban əliyeva|birinci xanım|birinci vitse-prezident", re.I)),
+]
+_SOC_SKIP_RX = re.compile(r"xronika|bu gün tarixdə|il əvvəl", re.I)
+_SOC_NET = [("Instagram", re.compile(r"instagram|instaqram", re.I)), ("Facebook", re.compile(r"facebook|feysbuk", re.I)),
+            ("X", re.compile(r"\bX\b|tvit|twitter|sosial (?:şəbəkə|media)|paylaş", re.I))]
+
+def social_from_news(articles, now=None, window_h=3.0):
+    """Xəbər lentindən rəhbərliyin sosial paylaşımlarını çıxarır. Eyni hesabın 3 saat içindəki xəbərləri bir paylaşım sayılır."""
+    found = []
+    for a in articles:
+        title = a.get("title") or ""
+        if not _SOC_SHARE_RX.search(title) or _SOC_SKIP_RX.search(title):
+            continue
+        who = next(((w, n) for w, n, rx in _SOC_WHO if rx.search(title)), None)
+        if not who:
+            continue
+        net = next((n for n, rx in _SOC_NET if rx.search(title)), "X")
+        found.append({"id": a["id"], "who": who[0], "name": who[1], "network": net, "text": title,
+                      "url": a.get("sourceUrl"), "publishedAt": a.get("publishedAt"), "imageUrl": a.get("imageUrl"),
+                      "via": a.get("source"), "_n": 1 + len(a.get("alts") or [])})
+    found.sort(key=lambda p: p.get("publishedAt") or "")
+    kept = []
+    for p in found:
+        t = _parse_dt(p["publishedAt"])
+        dup = None
+        for q in kept:
+            if q["who"] == p["who"] and t and q["_t"] and abs((t - q["_t"]).total_seconds()) <= window_h * 3600:
+                dup = q
+                break
+        if dup:
+            if p["_n"] > dup["_n"]:  # daha çox mənbənin yazdığı başlıq qalır, vaxt ilk xəbərinki
+                dup.update({k: p[k] for k in ("id", "text", "url", "imageUrl", "via", "_n", "network")})
+            continue
+        p["_t"] = t
+        kept.append(p)
+    for p in kept:
+        p.pop("_t", None)
+        p.pop("_n", None)
+    return kept
+
 # Rəsmi YouTube lentləri (Atom). X/Instagram/Facebook/Telegram-ın açıq lenti yoxdur.
 YT_ACCOUNTS = [
     ("https://www.youtube.com/feeds/videos.xml?user=presidentaz", "prezident", "Prezident İlham Əliyev"),
@@ -1134,14 +1180,19 @@ def update_social():
     except Exception:
         old = []
     if failed:
-        posts.extend(p for p in old if p.get("who") in failed)
+        posts.extend(p for p in old if p.get("who") in failed and p.get("network") == "YouTube")
+    try:
+        arts = json.loads(OUT_FILE.read_text(encoding="utf-8")).get("articles") or []
+        posts.extend(social_from_news(arts))
+    except Exception as e:
+        print(f"  ! sosial (xəbərdən): {type(e).__name__}: {str(e)[:80]}")
     posts.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
-    SOCIAL_FILE.write_text(json.dumps({"updatedAt": now, "posts": posts[:8]}, ensure_ascii=False,
+    SOCIAL_FILE.write_text(json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     merge_sources(yt_rows)
-    print(f"Sosial: {min(8, len(posts))} yazı")
+    print(f"Sosial: {min(16, len(posts))} yazı ({sum(1 for p in posts[:16] if p.get('via'))} xəbərdən)")
 
 def _yt_id(link):
     try:

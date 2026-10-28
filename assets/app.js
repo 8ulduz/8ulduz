@@ -818,16 +818,9 @@ function syncLangStick() {
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 
+// Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
 function orderedSocialPosts(max = 8) {
-  const all = S.social?.posts || [];
-  const bucket = p => p.who === "prezident" ? 0 : p.who === "birinci-xanim" ? 1 : 2;
-  const groups = [[], [], []];
-  for (const p of all) groups[bucket(p)].push(p);
-  const [prez, lady, rest] = groups.map(g => byDate(g));
-  const ladyKeep = lady.length ? Math.min(lady.length, max <= 4 ? 1 : 3) : 0;
-  const prezTake = Math.min(prez.length, max - ladyKeep);
-  const ladyTake = Math.min(lady.length, max - prezTake);
-  return [...prez.slice(0, prezTake), ...lady.slice(0, ladyTake), ...rest.slice(0, max - prezTake - ladyTake)];
+  return byDate(S.social?.posts || []).slice(0, max);
 }
 const NET_ICON = {
   x: `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M14.6 3h3.1l-6.8 7.8L19 21h-2.7l-5.3-6.9L6.3 21H3.1l7.3-8.4L3.4 3h2.8l4.8 6.3L14.6 3Zm-1.1 16.2h1.5L6.6 4.7H5L13.5 19.2Z"/></svg>`,
@@ -841,15 +834,10 @@ function profileRows() {
   return [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
     .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer" title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
 }
-function socialForSide() {
-  const head = orderedSocialPosts(3);
-  const seen = new Set(head.map(p => p.url || p.text));
-  const more = orderedSocialPosts(40).filter(p => !seen.has(p.url || p.text));
-  return [...head, ...more].slice(0, 10);
-}
+function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
   const posts = side ? socialForSide() : orderedSocialPosts(8);
-  const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span><time>${ago(p.publishedAt)}</time></a>`).join("");
+  const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>`).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="4">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
@@ -1391,6 +1379,7 @@ function rowStops(el) {
     if (y > max + 1) break;
     if (y - stops[stops.length - 1] > 2) stops.push(y);
   }
+  if (Math.round(max) - stops[stops.length - 1] > 2) stops.push(Math.round(max)); // dib də dayanacaqdır: istifadəçi dibə çəkəndə siyahı geri qaçmır
   return stops;
 }
 function nearestStop(el) {
@@ -1599,13 +1588,22 @@ document.addEventListener("pointerdown", (e) => {
   el._holdUntil = Date.now() + TOUCH_MS;
   scheduleStep(el, TOUCH_MS);
 }, true);
+// Təkər: siyahı öz içində sürüşür; dibə (və ya başa) çatıbsa, təkər səhifəni sürüşdürür.
+// Brauzerin öz keçidi (scroll chaining) burada etibarsızdır: addımlama siyahını geri çəkir və Chrome ilk hədəfə «yapışır».
 document.addEventListener("wheel", (e) => {
   const el = marqueeOf(e.target);
   if (!el) return;
   stopStep(el, false);
   el._holdUntil = Date.now() + WHEEL_MS;
   scheduleStep(el, WHEEL_MS);
-}, { passive: true, capture: true });
+  if (!el.classList.contains("vmarquee") || !e.deltaY || e.ctrlKey) return;
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+  const max = el.scrollHeight - el.clientHeight;
+  const atEnd = dy > 0 ? el.scrollTop >= max - 1 : el.scrollTop <= 1;
+  if (!atEnd) return;
+  e.preventDefault();
+  window.scrollBy({ top: dy, left: 0, behavior: "auto" });
+}, { passive: false, capture: true });
 document.addEventListener("click", (e) => {
   const btn = e.target.closest?.("[data-step]");
   if (!btn) return;
