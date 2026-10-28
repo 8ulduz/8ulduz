@@ -1676,13 +1676,13 @@ def _titles_similar(toks, sh, other_toks, other_sh):
 #   4) başlıq+xülasənin söz kökləri (şəkilçilər atılmış) müqayisə olunur.
 #   Keçidli birləşmə: A~B və B~C olanda hər üçü bir kartdadır. Rəsmi mənbələrə tətbiq edilmir (şablon başlıqlar).
 _CONCEPT_RX = [(re.compile(p), " " + c + " ") for p, c in (
-    (r"həyatını itir\w*|dünyasını dəyiş\w*|vəfat\w*|həlak\w*|öl(?:üb|dü|üm|ən|məsi|dürül)\w*|intihar\w*|cəsəd\w*|meyit\w*", "ölüm"),
+    (r"həyatını itir\w*|dünyasını dəyiş\w*|vəfat\w*|həlak\w*|öl(?:üb|dü|üm|ən|məsi|dürül|ü\b)\w*|intihar\w*|cəsəd\w*|meyit\w*", "ölüm"),
     (r"jurnalist\w*|media nümayəndə\w*|mətbuat nümayəndə\w*|mətbuat əməkdaş\w*|reportyor\w*|müxbir\w*|çəkiliş qrup\w*|operator\w*", "media"),
     (r"döy(?:üb|dü|ül|məsi|ərək)\w*|hücum\w*|zorakılıq\w*|\bdava(?:sı|lar|da|sında)?\b|qətl\w*|bıçaqla\w*|güllələ\w*|vur(?:ub|du|ulub|ulan|ublar)\w*|təpik\w*|yumruq\w*", "zorakılıq"),
     (r"işdən (?:çıxar|azad|ayrıl|uzaqlaş|kənarlaş)\w*|vəzifə\w* (?:azad|çıxar|ayrıl|uzaqlaş|kənarlaş)\w*|azad (?:edil|olun)\w*|istefa\w*", "istefa"),
     (r"təyin (?:edil|olun)\w*|vəzifəyə təyin\w*", "təyinat"),
     (r"həbs\w*|saxlanıl\w*|saxlanan\w*|tutul(?:ub|du|an|ması)\w*|cinayət işi|ittiham\w*", "həbs"),
-    (r"yol qəzası|qəza(?:sı|da|ya|dan|lar)?\b|toqquş\w*|aşırıb\b", "qəza"),
+    (r"yol qəzası|qəza\w*|toqquş\w*|aşırıb\b", "qəza"),
     (r"yanğın\w*|alov\w*|yan(?:ıb|dı|ır)\b", "yanğın"),
     (r"partlayış\w*|partla(?:yıb|dı|yan|ma)\w*", "partlayış"),
     (r"şagird\w*|məktəbli\w*|tələbə\w*", "şagird"),
@@ -1690,6 +1690,7 @@ _CONCEPT_RX = [(re.compile(p), " " + c + " ") for p, c in (
     (r"uşaq\w*|azyaşlı\w*|yeniyetmə\w*", "uşaq"),
     (r"sürücü\w*|avtomobil\w*|maşın\w*|avtobus\w*|minik\w*", "nəqliyyat"),
     (r"xəstəxana\w*|klinika\w*|tibb (?:müəssisə|mərkəz)\w*", "xəstəxana"),
+    (r"başsağlığı\w*|təbrik\w*|bəyanat\w*|açıqlama\w*|münasibət bildir\w*|şərh ed\w*|reaksiya\w*|xəbərdarlıq\w*", "reaksiya"),
 )]
 _EVENT_WORDS = ("istefa", "teyinat", "olum", "hebs", "zorakiliq", "qeza", "yangin", "partlayis")
 _EVENT_KEYS = {w[:6] for w in _EVENT_WORDS}
@@ -1754,6 +1755,18 @@ def _anchors(text):
                 out.add(st)
     return out
 
+def _places(text):
+    """Yerlik halında böyük hərfli sözlər (Bakıda, Göygöldə, İspaniyada) — cümlə başında da sayılır; anlayış sözləri (Məktəbdə) yox."""
+    out = set()
+    for w in re.findall(r"[^\W\d_]+", text or ""):
+        if len(w) < 5 or not w[0].isupper() or (w.isupper() and len(w) > 3):
+            continue
+        low = w.lower()
+        if not re.search(r"(?:da|də|dan|dən)$", low) or _concepts(low).strip() != low:
+            continue
+        out.add(_stem(_norm_title(w)))
+    return out
+
 def _entities(text):
     """Böyük hərflə başlayan ardıcıl 2 söz (şəxs və ya qurum adı), sadələşdirilmiş. Tam böyük hərfli uzun sözlər (İŞDƏN) sayılmır."""
     words = re.findall(r"[^\W\d_]+", text or "")
@@ -1803,70 +1816,46 @@ def _event_sig(a):
         persons, orgs = _entities(text)
         stems = _event_stems(text)
         classes = {w for w in _EVENT_KEYS if w in stems}
-        sig = _SIG_CACHE[key] = (classes, persons, orgs, stems, _anchors(text))
+        sig = _SIG_CACHE[key] = (classes, persons, orgs, stems, _anchors(text), _places(text))
     return sig
 
 def _same_event(a, b):
-    ca, pa, oa, sa, na = _event_sig(a)
-    cb, pb, ob, sb, nb = _event_sig(b)
+    """0 — fərqli; 1 — zəif uyğunluq (yalnız klaster başı ilə və ya 2 üzvlə təsdiqlənəndə sayılır);
+    2 — güclü uyğunluq (eyni şəxs, eyni qurum + məzmun, 2+ lövbər + məzmun, kökləri güclü üst-üstə düşür)."""
+    ca, pa, oa, sa, na, la = _event_sig(a)
+    cb, pb, ob, sb, nb, lb = _event_sig(b)
     if not sa or not sb:
-        return False
+        return 0
     common = sa & sb
     inter = len(common)
     cont = inter / min(len(sa), len(sb))
     anchors = len(na & nb)
-    if anchors >= 2 and inter >= 3:                  # iki ortaq lövbər (Yasamal + 225): eyni hadisə zənciri
-        return True
+    if inter >= 6 and _jaccard(sa, sb) >= 0.5:        # kökləri güclü üst-üstə düşür
+        return 2
+    if inter >= 8 and cont >= 0.6:
+        return 2
+    if anchors >= 2 and inter >= 5 and cont >= 0.4:    # iki ortaq lövbər (Yasamal + 225) və ortaq məzmun
+        return 2
     shared = ca & cb
-    if shared:  # eyni hadisə növü
-        if _ent_match(pa, pb):                       # + eyni şəxs
-            return True
-        if _ent_match(oa, ob) and inter >= 3:        # + eyni qurum və ortaq məzmun
-            return True
-        loose = bool(shared - _STRICT_CLASSES)       # nadir hadisə növü (istefa, təyinat, zorakılıq, partlayış)
-        # gündəlik növlərdə (ölüm, qəza, həbs, yanğın) ümumi sözlər kifayət deyil: lövbər və ya 2+ xüsusi anlayış
-        # (şagird + məktəb) lazımdır — «Bakıda qəza: 2 nəfər ölüb» / «Bakıda avtobus qəzası» birləşmir
-        specific = sum(1 for w in common if w not in _EVENT_KEYS and w not in _GENERIC_ANCHOR)
-        if inter >= 3 and cont >= 0.3 and (loose or anchors or specific >= 2):
-            return True
-        if inter >= 5 and cont >= 0.5:
-            return True
-    if inter >= 6 and _jaccard(sa, sb) >= 0.5:       # kökləri güclü üst-üstə düşür (hadisə növü olmasa da)
-        return True
-    return inter >= 8 and cont >= 0.6
-
-def _merge_event_clusters(clusters):
-    """Keçidli birləşmə: fərqli klasterlərin üzvləri eyni hadisədirsə klasterlər birləşir (rəsmi mənbəlilər istisna)."""
-    def official(members):
-        return any(m[3].get("source") in OFFICIAL_SOURCES for m in members)
-    for _round in range(3):
-        merged = False
-        i = 0
-        while i < len(clusters):
-            ci = clusters[i]
-            hi = ci[0][0]
-            if hi is None or official(ci):
-                i += 1
-                continue
-            j = i + 1
-            while j < len(clusters):
-                cj = clusters[j]
-                hj = cj[0][0]
-                if hj is None:
-                    j += 1
-                    continue
-                if hi - hj > GROUP_WINDOW:  # klasterlər tarixə görə sıralıdır: daha köhnələr pəncərədən kənardadır
-                    break
-                if not official(cj) and any(abs(x[0] - y[0]) <= GROUP_WINDOW and _same_event(x[3], y[3]) for x in ci for y in cj):
-                    ci.extend(cj)
-                    del clusters[j]
-                    merged = True
-                else:
-                    j += 1
-            i += 1
-        if not merged:
-            break
-    return clusters
+    if not shared:
+        return 0
+    if la and lb and not (la & lb):                   # fərqli yerlər (Bakıda / Göygöldə): fərqli hadisə
+        return 0
+    if _ent_match(pa, pb):                             # eyni şəxs + eyni hadisə növü
+        return 2
+    if _ent_match(oa, ob) and inter >= 4:              # eyni qurum + hadisə + ortaq məzmun
+        return 2
+    # Rəsmi reaksiya (başsağlığı, bəyanat, xəbərdarlıq) hadisənin özü ilə eyni xəbər deyil
+    if ("reaksi" in sa) != ("reaksi" in sb):
+        return 0
+    loose = bool(shared - _STRICT_CLASSES)             # nadir hadisə növü (istefa, təyinat, zorakılıq, partlayış)
+    specific = sum(1 for w in common if w not in _EVENT_KEYS and w not in _GENERIC_ANCHOR)
+    # gündəlik növlərdə (ölüm, qəza, həbs, yanğın) ümumi sözlər kifayət deyil: lövbər və ya 2+ xüsusi anlayış
+    if inter >= 3 and cont >= 0.4 and (loose or anchors or specific >= 2):
+        return 1
+    if inter >= 5 and cont >= 0.5:
+        return 1
+    return 0
 
 def _parse_dt(iso):
     if not iso:
@@ -1925,35 +1914,44 @@ def group_duplicates(articles):
     prepared.sort(key=lambda x: x[0] or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc), reverse=True)
     clusters = []
     for dt, toks, sh, a in prepared:
-        placed = False
+        best, best_score = None, 0
         if dt is not None and len(toks) >= 3:
+            key = _norm_title(a.get("title") or "")
+            src = a.get("source")
             for members in clusters:
                 head = members[0][0]
                 if head is None or abs(dt - head) > GROUP_WINDOW:
                     continue
-                key = _norm_title(a.get("title") or "")
-                exact = len(key) >= 12 and any(_norm_title(m[3].get("title") or "") == key for m in members)
-                official = a.get("source") in OFFICIAL_SOURCES or any(m[3].get("source") in OFFICIAL_SOURCES for m in members)
-                if not exact and a.get("source") in {m[3].get("source") for m in members}:
-                    # eyni mənbənin eyni hadisə haqqında ikinci yazısı («yeni detallar») da bir karta düşür
-                    if official or not any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _same_event(a, _ma)
-                                           for mt, mtks, msh, _ma in members):
-                        continue
-                if official and not exact:
+                near = [(mt, mtks, msh, ma) for mt, mtks, msh, ma in members if mt is not None and abs(dt - mt) <= GROUP_WINDOW]
+                if not near:
+                    continue
+                exact = len(key) >= 12 and any(_norm_title(ma.get("title") or "") == key for _mt, _k, _s, ma in near)
+                official = src in OFFICIAL_SOURCES or any(ma.get("source") in OFFICIAL_SOURCES for _mt, _k, _s, ma in members)
+                same_src = src in {ma.get("source") for _mt, _k, _s, ma in members}
+                score = 0
+                if exact:
+                    score = 4
+                elif official:
                     # rəsmi şablon başlıqlar («X-in nazirini qəbul edib») fərqli hadisələrdə oxşar görünür — çox yaxın olmalıdır
-                    if not any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _jaccard(set(toks), set(mtks)) >= 0.85
-                               for mt, mtks, msh, _ma in members):
-                        continue
-                if exact or any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _titles_similar(toks, sh, mtks, msh)
-                       for mt, mtks, msh, _ma in members) \
-                        or (not official and any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _same_event(a, _ma)
-                                                 for mt, mtks, msh, _ma in members)):
-                    members.append((dt, toks, sh, a))
-                    placed = True
-                    break
-        if not placed:
+                    if not same_src and any(_jaccard(set(toks), set(mtks)) >= 0.85 and _titles_similar(toks, sh, mtks, msh)
+                                            for _mt, mtks, msh, _ma in near):
+                        score = 3
+                elif not same_src and any(_titles_similar(toks, sh, mtks, msh) for _mt, mtks, msh, _ma in near):
+                    score = 3
+                else:
+                    # hadisə əsaslı: güclü uyğunluq hər hansı üzvlə; zəif uyğunluq yalnız klaster başı ilə və ya 2 üzvlə
+                    # (zəncirvari «qar topu» böyüməsinin qarşısını alır); eyni mənbənin ikinci yazısı da bu yolla düşür
+                    strengths = [_same_event(a, ma) for _mt, _k, _s, ma in near]
+                    if max(strengths) >= 2:
+                        score = 2
+                    elif len(members) < 10 and (strengths[0] == 1 or sum(1 for x in strengths if x) >= 2):
+                        score = 1
+                if score > best_score:
+                    best, best_score = members, score
+        if best is not None:
+            best.append((dt, toks, sh, a))
+        else:
             clusters.append([(dt, toks, sh, a)])
-    clusters = _merge_event_clusters(clusters)
     out = []
     for members in clusters:
         urls = {m[3].get("sourceUrl") for m in members}
