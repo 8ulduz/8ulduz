@@ -831,10 +831,10 @@ function orderedSocialPosts(max = 8) {
   return byDate(S.social?.posts || []).slice(0, max);
 }
 const NET_ICON = {
-  x: `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M14.6 3h3.1l-6.8 7.8L19 21h-2.7l-5.3-6.9L6.3 21H3.1l7.3-8.4L3.4 3h2.8l4.8 6.3L14.6 3Zm-1.1 16.2h1.5L6.6 4.7H5L13.5 19.2Z"/></svg>`,
-  ig: `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg>`,
-  fb: `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M14 8.5h3V5.5h-3c-2.5 0-4 1.6-4 4.1V12H8v3h2v7h3v-7h2.4l.6-3H13v-2.2c0-.7.3-1.3 1-1.3Z"/></svg>`,
-  yt: `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M22.5 12.2s0-3-.4-4.3c-.2-.9-.9-1.6-1.8-1.8C18.8 5.7 12 5.7 12 5.7s-6.8 0-8.3.4c-.9.2-1.6.9-1.8 1.8C1.5 9.2 1.5 12.2 1.5 12.2s0 3 .4 4.3c.2.9.9 1.6 1.8 1.8 1.5.4 8.3.4 8.3.4s6.8 0 8.3-.4c.9-.2 1.6-.9 1.8-1.8.4-1.3.4-4.3.4-4.3ZM9.8 15.4V9l6 3.2-6 3.2Z"/></svg>`,
+  x: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M14.6 3h3.1l-6.8 7.8L19 21h-2.7l-5.3-6.9L6.3 21H3.1l7.3-8.4L3.4 3h2.8l4.8 6.3L14.6 3Zm-1.1 16.2h1.5L6.6 4.7H5L13.5 19.2Z"/></svg>`,
+  ig: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg>`,
+  fb: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M14 8.5h3V5.5h-3c-2.5 0-4 1.6-4 4.1V12H8v3h2v7h3v-7h2.4l.6-3H13v-2.2c0-.7.3-1.3 1-1.3Z"/></svg>`,
+  yt: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M22.5 12.2s0-3-.4-4.3c-.2-.9-.9-1.6-1.8-1.8C18.8 5.7 12 5.7 12 5.7s-6.8 0-8.3.4c-.9.2-1.6.9-1.8 1.8C1.5 9.2 1.5 12.2 1.5 12.2s0 3 .4 4.3c.2.9.9 1.6 1.8 1.8 1.5.4 8.3.4 8.3.4s6.8 0 8.3-.4c.9-.2 1.6-.9 1.8-1.8.4-1.3.4-4.3.4-4.3ZM9.8 15.4V9l6 3.2-6 3.2Z"/></svg>`,
 };
 const netIcon = name => name === "Instagram" ? NET_ICON.ig : name === "Facebook" ? NET_ICON.fb : name === "YouTube" ? NET_ICON.yt : NET_ICON.x;
 function profileRows() {
@@ -846,7 +846,7 @@ function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
   const posts = side ? socialForSide() : orderedSocialPosts(8);
   const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>`).join("");
-  const list = side ? `<div class="soc-list" data-marquee data-visible="4">` : `<div class="soc-list">`;
+  const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
@@ -1455,13 +1455,6 @@ function advanceStep(el) {
   const next = pos.find(p => p > el.scrollTop + 4);
   animateTo(el, next == null ? pos[0] : next);
 }
-function nudgeStep(el, dir) {
-  const pos = rowStops(el);
-  const y = el.scrollTop;
-  const target = dir > 0 ? (pos.find(p => p > y + 4) ?? pos[0]) : ([...pos].reverse().find(p => p < y - 4) ?? pos[0]);
-  el._holdUntil = Date.now() + LEAVE_MS;
-  animateTo(el, target);
-}
 function stopStep(el, snap) {
   cancelMotion(el);
   if (!snap) return;
@@ -1549,14 +1542,7 @@ function setupMarquees() {
     let best = aligned[0], bestD = Infinity;
     for (const p of aligned) { const d = Math.abs(kept - p); if (d < bestD) { best = p; bestD = d; } }
     el.scrollTop = best;
-    const wrap = ensureWrap(el);
-    let nav = wrap.querySelector(".step-nav");
-    if (!nav) {
-      nav = document.createElement("div");
-      nav.className = "step-nav";
-      nav.innerHTML = `<button type="button" data-step="-1" aria-label="Əvvəlki sətir">⌃</button><button type="button" data-step="1" aria-label="Növbəti sətir">⌄</button>`;
-      wrap.appendChild(nav);
-    }
+    ensureWrap(el); // hero üçün mövqe konteyneri; ⌃⌄ ox düymələri çıxarılıb — siyahı özü addımlayır, təkər və barmaqla sürüşür
     scheduleStep(el, STEP_MS);
   });
 }
@@ -1612,15 +1598,6 @@ document.addEventListener("wheel", (e) => {
   e.preventDefault();
   window.scrollBy({ top: dy, left: 0, behavior: "auto" });
 }, { passive: false, capture: true });
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest?.("[data-step]");
-  if (!btn) return;
-  const el = marqueeOf(btn);
-  if (!el) return;
-  e.preventDefault();
-  e.stopPropagation();
-  nudgeStep(el, Number(btn.dataset.step));
-}, true);
 document.addEventListener("visibilitychange", () => {
   document.querySelectorAll("[data-marquee].vmarquee").forEach(el => {
     cancelMotion(el);
