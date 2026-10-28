@@ -78,6 +78,14 @@ class YouTubeTest(unittest.TestCase):
 
 
 class SocialFromNewsTest(unittest.TestCase):
+    def test_first_seen_time_is_kept_for_known_videos(self):
+        old = [{"url": "https://y/1", "publishedAt": "2026-10-27T10:00:00+00:00"}]
+        items = [{"url": "https://y/1", "publishedAt": "2026-10-28T05:33:00+00:00"},
+                 {"url": "https://y/2", "publishedAt": "2026-10-28T05:33:00+00:00"}]
+        updater._keep_first_seen(items, old)
+        self.assertEqual(items[0]["publishedAt"], "2026-10-27T10:00:00+00:00")
+        self.assertEqual(items[1]["publishedAt"], "2026-10-28T05:33:00+00:00")
+
     def test_leadership_posts_are_taken_from_news_and_deduplicated(self):
         arts = [
             {"id": "1", "title": "Prezidentin sosial şəbəkə hesablarında forumun açılışına dair video paylaşılıb",

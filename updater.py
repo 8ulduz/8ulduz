@@ -1179,6 +1179,7 @@ def update_social():
         old = json.loads(SOCIAL_FILE.read_text(encoding="utf-8")).get("posts") or []
     except Exception:
         old = []
+    _keep_first_seen(posts, old)
     if failed:
         posts.extend(p for p in old if p.get("who") in failed and p.get("network") == "YouTube")
     try:
@@ -1263,6 +1264,19 @@ def yt_items(url, limit):
         pass
     return yt_channel_videos(url, limit)
 
+def _keep_first_seen(items, old):
+    """YouTube kanal səhifəsi dəqiq vaxt vermir («1 day ago» → indi − 1 gün); eyni video əvvəl görülübsə, ilk qeyd olunan
+    (daha erkən) vaxt saxlanır ki, sıra dövrdən-dövrə sürüşməsin."""
+    seen = {}
+    for p in old or []:
+        if p.get("url") and p.get("publishedAt"):
+            seen[p["url"]] = p["publishedAt"]
+    for p in items:
+        prev = seen.get(p.get("url"))
+        if prev and (not p.get("publishedAt") or prev < p["publishedAt"]):
+            p["publishedAt"] = prev
+    return items
+
 def update_video():
     items, rows = [], []
     for name, url in YT_NEWS:
@@ -1286,6 +1300,10 @@ def update_video():
         except Exception as e:
             rows.append({"name": f"YouTube · {name}", "url": url, "count": 0, "error": f"{type(e).__name__}: {str(e)[:80]}"})
             print(f"  ! video {name}: {type(e).__name__}")
+    try:
+        _keep_first_seen(items, json.loads(VIDEO_FILE.read_text(encoding="utf-8")).get("items"))
+    except Exception:
+        pass
     items.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
