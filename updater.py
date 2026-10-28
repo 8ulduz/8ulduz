@@ -58,7 +58,6 @@ AZ_FEEDS = [
     ("Vesti.az",     "https://vesti.az/rss"),
     ("İnterPress",   "https://interpress.az/feed"),
     ("Kulis.az",     "https://kulis.az/rss"),
-    ("Azadlıq",      "https://www.azadliq.org/rss/"),
     ("Meydan TV",    "https://www.meydan.tv/feed/"),
     ("Sia.az",       "https://sia.az/az/rss/"),
     ("Haqqin.az",    "https://haqqin.az/rss.xml"),
@@ -2194,12 +2193,28 @@ def write_status(ok=True, successful=0, total=0, stats=None):
     print(f"Yoxlama: {now}")
 
 # --------------------------------------------------------------------- main ---
+def removed_source(item):
+    if str(item.get('source') or item.get('name') or '').casefold() in ('azadlıq', 'azadliq', 'azadliq.org'):
+        return True
+    try:
+        host = (urllib.parse.urlparse(item.get('sourceUrl') or item.get('url') or '').hostname or '').lower()
+        return host == 'azadliq.org' or host.endswith('.azadliq.org')
+    except ValueError:
+        return False
+
+
+def prune_removed_sources(articles):
+    return [{**a, 'alts': [alt for alt in a.get('alts', []) if not removed_source(alt)]} if 'alts' in a else a
+            for a in articles if not removed_source(a)]
+
+
 def main():
     try:
         old = json.loads(OUT_FILE.read_text(encoding="utf-8"))["articles"]
     except Exception:
         old = []
     prev_articles = [dict(a) for a in old]
+    old = prune_removed_sources(old)
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
     old = [a for a in old if not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
     hints = {f[0]: f[3] for f in FEEDS}

@@ -447,6 +447,10 @@ function adHtml() {
   const s = slots[Math.floor(Date.now() / 30000) % slots.length];
   return `<section class="ad ad-live" aria-label="Reklam"><a href="${esc(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}" loading="lazy" decoding="async"></a></section>`;
 }
+function removedSource(a) {
+  if (["azadlıq", "azadliq", "azadliq.org"].includes(String(a.source || a.name || "").toLocaleLowerCase("az"))) return true;
+  try { const host = new URL(a.sourceUrl || a.url || "").hostname.toLowerCase(); return host === "azadliq.org" || host.endsWith(".azadliq.org"); } catch { return false; }
+}
 const byId = new Map();
 
 /* ---------------------------------------------------------------- məlumat */
@@ -470,6 +474,7 @@ async function loadNews() {
     if (S.data && S.data.updatedAt === d.updatedAt && S.og) { renderTopbar(); return; }
     await loadOg();
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
+    d.articles = d.articles.filter(a => !removedSource(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !removedSource(alt))}));
     d.articles = collapseExact(clusterArticles(d.articles));
     // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
     for (const a of d.articles) {
@@ -1130,7 +1135,7 @@ function sourceLevel(s) {
   return "bad";
 }
 function sourcesView() {
-  const rows = S.sources?.sources || [...new Set((S.data?.articles || []).map(shownSource))].map(name => ({name}));
+  const rows = (S.sources?.sources || [...new Set((S.data?.articles || []).map(shownSource))].map(name => ({name}))).filter(s => !removedSource(s));
   if (!rows) return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Lentlərin son yoxlanması</p></div></div><p class="empty">Yüklənir…</p>`;
   const label = { ok: "İşləyir", warn: "Zəif", bad: "Xəta" };
   const body = rows.map(s => {

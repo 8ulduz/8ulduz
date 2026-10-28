@@ -10,6 +10,18 @@ from unittest.mock import patch
 import updater
 
 
+class RemovedSourceTest(unittest.TestCase):
+    def test_removed_feed_and_retained_alternatives(self):
+        self.assertFalse(any('azadliq.org' in feed[1] for feed in updater.FEEDS))
+        articles = [{'source': 'Azadlıq', 'sourceUrl': 'https://www.azadliq.org/a/1'},
+                    {'source': 'Other', 'sourceUrl': 'https://other.az/1', 'alts': [{'source': 'Azadlıq', 'sourceUrl': 'https://www.azadliq.org/a/1'}, {'source': 'Keep', 'sourceUrl': 'https://keep.az/1'}]}]
+        clean = updater.prune_removed_sources(articles)
+        self.assertEqual(len(clean), 1)
+        self.assertEqual([a['source'] for a in clean[0]['alts']], ['Keep'])
+        self.assertTrue(updater.removed_source({'sourceUrl': 'https://www.azadliq.org/a/2'}))
+        self.assertFalse(updater.removed_source({'sourceUrl': 'https://azadliq.org.example.com/a/2'}))
+
+
 class CategoriesTest(unittest.TestCase):
     def test_spectator_word_does_not_force_culture(self):
         self.assertEqual(updater.categorize('Qarabağ matçına 30 min tamaşaçı gəlib', 'futbol oyunu', 'az'), 'İdman')
