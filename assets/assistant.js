@@ -102,30 +102,160 @@ export function createProviders(wxCode) {
     }
   };
 }
+export function selectReadingVoice(voices, selected = 'auto') {
+  if (selected === 'off') return null;
+  return (selected !== 'auto' && voices.find(v => v.voiceURI === selected)) ||
+    voices.find(v => /^az(?:-|$)/i.test(v.lang)) ||
+    voices.find(v => /^tr(?:-|$)/i.test(v.lang)) ||
+    voices.find(v => v.default) || voices[0] || null;
+}
+
+// A single spoken request is submitted only after recognition has released the microphone.
+export function createVoiceSession({Recognition, onStart = () => {}, onTranscript = () => {}, onComplete = () => {}, onError = () => {}, onEnd = () => {}}) {
+  let epoch = 0, current = null, active = false, timer = null;
+  function cancel() {
+    epoch++; clearTimeout(timer);
+    const old = current; current = null; active = false;
+    try { old?.abort(); } catch {}
+    onEnd();
+  }
+  function stop() { try { current?.stop(); } catch { cancel(); onError('audio-capture'); } }
+  function start() {
+    if (active) { stop(); return; }
+    if (!Recognition) { onError('unsupported'); return; }
+    cancel(); const token = epoch;
+    let transcript = '', failed = false, finished = false;
+    let rec; try { rec = new Recognition(); } catch { onError('audio-capture'); return; }
+    current = rec; active = true;
+    rec.lang = 'az-AZ'; rec.continuous = false; rec.interimResults = true;
+    rec.onstart = () => { if (token === epoch) onStart(); };
+    rec.onresult = event => {
+      if (token !== epoch || finished || failed) return;
+      const segments = Array.from(event.results || []);
+      transcript = segments.map(r => r[0]?.transcript || '').join(' ').trim();
+      onTranscript(transcript);
+      if (segments.length && segments.every(r => r.isFinal !== false)) stop();
+    };
+    rec.onspeechend = () => { if (token === epoch && !finished) stop(); };
+    rec.onerror = event => { if (token !== epoch || finished) return; failed = true; onError(event.error); cancel(); };
+    rec.onend = () => {
+      if (token !== epoch || finished) return;
+      finished = true; clearTimeout(timer); current = null; active = false; onEnd();
+      if (!failed && transcript) onComplete(transcript);
+      else if (!failed) onError('no-speech');
+    };
+    try { rec.start(); if (!finished && token === epoch) timer = setTimeout(() => { if (token === epoch && !finished) stop(); }, 15000); }
+    catch { active = false; current = null; onEnd(); onError('audio-capture'); }
+  }
+  return {start, stop, cancel, get active() { return active; }};
+}
+
 export function mountAssistant({getSnapshot,wxCode}) {
   if(document.querySelector('#voice-assistant'))return;
   const root=document.createElement('div');root.id='voice-assistant';
-  root.innerHTML=`<button class="assistant-launch" type="button" aria-expanded="false" aria-controls="assistant-panel">🎙 Köməkçi</button><section id="assistant-panel" class="assistant-panel" role="dialog" aria-label="8ULDUZ səsli köməkçisi" hidden><div class="assistant-head"><b>8ULDUZ köməkçi · ilkin versiya</b><button type="button" data-assistant="close" aria-label="Köməkçini bağla">✕</button></div><p class="assistant-intro">Xəbər, hava, namaz və idman barədə soruşun. Dəstəklənən əmrlər üzrə işləyir.</p><form class="assistant-form"><label for="assistant-query">Nə bilmək istəyirsiniz?</label><div><input id="assistant-query" maxlength="240" autocomplete="off" placeholder="Təhsil xəbərlərini oxu"><button type="submit">Göndər</button></div></form><div class="assistant-examples"><button type="button" data-example="Son xəbərləri oxu">Son xəbərlər</button><button type="button" data-example="AZƏRTAC xəbərlərini oxu">AZƏRTAC</button><button type="button" data-example="Bakıda hava necədir?">Hava</button><button type="button" data-example="Namaz vaxtlarını de">Namaz</button><button type="button" data-example="Tıxac barədə de">Tıxac</button><button type="button" data-example="Fənərbaxçanın neçə xalı var?">İdman</button></div><div class="assistant-tools"><button type="button" data-assistant="mic">🎤 Danış</button><button type="button" data-assistant="stop">Dayandır</button><button type="button" data-assistant="resume">Davam et</button><button type="button" data-assistant="next">Növbəti</button></div><label class="assistant-voice">Oxuma səsi <select aria-label="Oxuma səsi"><option value="auto">Azərbaycan dili (cihazda varsa)</option><option value="off">Səssiz — yalnız mətn</option></select></label><p class="assistant-status" role="status"></p><div class="assistant-answer" aria-live="polite"></div><p class="assistant-privacy">Mikrofon yalnız “Danış” düyməsinə toxunanda açılır. Səs tanıma brauzerin xidmətinə göndərilə bilər. Söhbət saytda saxlanmır.</p></section>`;
+  root.innerHTML=`<button class="assistant-launch" type="button" aria-expanded="false" aria-controls="assistant-panel">🎙 Köməkçi</button><section id="assistant-panel" class="assistant-panel" role="dialog" aria-label="8ULDUZ səsli köməkçisi" hidden><div class="assistant-head"><b>8ULDUZ köməkçi · ilkin versiya</b><button type="button" data-assistant="close" aria-label="Köməkçini bağla">✕</button></div><p class="assistant-intro">Düyməyə toxunun və danışın. Bitirəndə cavab avtomatik oxunacaq.</p><form class="assistant-form"><label for="assistant-query">Nə bilmək istəyirsiniz?</label><div><input id="assistant-query" maxlength="240" autocomplete="off" placeholder="Təhsil xəbərlərini oxu"><button type="submit">Göndər</button></div></form><div class="assistant-examples"><button type="button" data-example="Son xəbərləri oxu">Son xəbərlər</button><button type="button" data-example="AZƏRTAC xəbərlərini oxu">AZƏRTAC</button><button type="button" data-example="Bakıda hava necədir?">Hava</button><button type="button" data-example="Namaz vaxtlarını de">Namaz</button><button type="button" data-example="Tıxac barədə de">Tıxac</button><button type="button" data-example="Fənərbaxçanın neçə xalı var?">İdman</button></div><div class="assistant-tools"><button type="button" data-assistant="mic">🎤 Danış</button><button type="button" data-assistant="stop">Dayandır</button><button type="button" data-assistant="resume">Davam et</button><button type="button" data-assistant="next">Növbəti</button></div><label class="assistant-voice">Oxuma səsi <select aria-label="Oxuma səsi"><option value="auto">Avtomatik səs (AZ → TR → cihaz səsi)</option><option value="off">Səssiz — yalnız mətn</option></select></label><p class="assistant-status" role="status"></p><div class="assistant-answer" aria-live="polite"></div><p class="assistant-privacy">Mikrofon yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açılır. Səs tanıma brauzerin xidmətinə göndərilə bilər. Söhbət saytda saxlanmır.</p></section>`;
   document.body.append(root);
   const panel=root.querySelector('.assistant-panel'),input=root.querySelector('input'),output=root.querySelector('.assistant-answer'),status=root.querySelector('.assistant-status'),voiceSelect=root.querySelector('select'),launcher=root.querySelector('.assistant-launch');
-  const context={};let result=null,index=0,request=0,recognition=null,listening=false,utterance=null,readToken=0;
-  const synth=window.speechSynthesis,Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const providers=createProviders(wxCode);
-  function voices(){return synth?.getVoices()||[];}
-  function populateVoices(){const previous=voiceSelect.value;voiceSelect.innerHTML='<option value="auto">Azərbaycan dili (cihazda varsa)</option><option value="off">Səssiz — yalnız mətn</option>'+voices().map(v=>`<option value="${escape(v.voiceURI)}">${escape(v.name)} (${escape(v.lang)})</option>`).join('');voiceSelect.value=[...voiceSelect.options].some(o=>o.value===previous)?previous:'auto';}
-  populateVoices();synth?.addEventListener?.('voiceschanged',populateVoices);
-  function stop(){readToken++;synth?.cancel();utterance=null;}
-  function speak(sentences,newsStart=-1,base=0){stop();if(!synth||voiceSelect.value==='off'){status.textContent='Cavab ekranda göstərilir.';return;}const voice=voiceSelect.value==='auto'?voices().find(v=>/^az(?:-|$)/i.test(v.lang)):voices().find(v=>v.voiceURI===voiceSelect.value);if(!voice){status.textContent='Bu cihazda Azərbaycan səsi tapılmadı. Başqa səs seçə və ya cavabı oxuya bilərsiniz.';return;}const token=readToken;let n=0;const next=()=>{if(token!==readToken||n>=sentences.length){if(token===readToken)status.textContent='Oxuma tamamlandı.';return;}const position=n++;if(newsStart>=0&&position>=newsStart){index=base+position-newsStart;output.querySelectorAll("li").forEach((li,i)=>li.classList.toggle("current",i===index));}utterance=new SpeechSynthesisUtterance(sentences[position]);utterance.lang=voice.lang;utterance.voice=voice;utterance.rate=.95;utterance.onend=next;utterance.onerror=()=>{if(token===readToken)status.textContent='Səsləndirmə mümkün olmadı. Cavab ekrandadır.';};synth.speak(utterance);};status.textContent='Oxuyuram…';next();}
-  function display(answer){result=answer;index=0;output.innerHTML=`<p>${escape(answer.text)}</p>${answer.items?.length?'<ol>'+answer.items.map(a=>`<li><a href="${escape(safeLink(a.sourceUrl))}" target="_blank" rel="noopener noreferrer">${escape(a.title)}</a><small>${escape(a.source)} · ${escape(dateLabel(a.publishedAt))}</small></li>`).join('')+'</ol>':''}${(answer.links||[]).map(l=>`<a class="assistant-source" href="${escape(safeLink(l.url))}" ${String(l.url).startsWith('#/')?'':'target="_blank" rel="noopener noreferrer"'}>${escape(l.title)} ↗</a>`).join('')}`;}
-  function control(action){if(action==='stop'){stop();recognition?.abort();status.textContent='Dayandırıldı.';return;}if(action==='resume'){if(synth?.paused){synth.resume();status.textContent='Oxuyuram…';}else if(result)speak([result.text,...(result.items||[]).slice(index).map(a=>a.title)],1,index);else status.textContent='Əvvəl xəbər və ya məlumat soruşun.';return;}if(!result?.items?.length){status.textContent='Əvvəl xəbər başlıqlarını soruşun.';return;}if(action==='next'){if(index+1>=result.items.length){status.textContent='Siyahı tamamlandı.';return;}index++;speak([result.items[index].title],0,index);output.querySelectorAll('li').forEach((li,i)=>li.classList.toggle('current',i===index));return;}const item=result.items[index];if(action==='open'){stop();status.textContent='Mənbəni açmaq üçün aşağıdakı keçidə toxunun.';output.innerHTML=`<a class="assistant-source" href="${escape(safeLink(item.sourceUrl))}" target="_blank" rel="noopener noreferrer">${escape(item.title)} ↗</a>`;return;}if(action==='alternatives'){display({text:'Bu xəbərin mənbələri:',items:[item,...(item.alts||[]).map(a=>({...a,title:item.title}))]});}}
-  async function run(text){const id=++request;stop();input.value=text;status.textContent='Məlumatı yoxlayıram…';try{const answer=await answerCommand(text,getSnapshot(),context,providers);if(id!==request)return;if(answer.control){control(answer.control);return;}display(answer);speak([answer.text,...(answer.readNews?answer.items||[]:[]).map((a,i)=>`${i+1}. ${a.title}`)],answer.readNews?1:-1);}catch{if(id===request)status.textContent='Sorğunu yerinə yetirmək olmadı. Yenidən sınayın.';}}
-  function close(){panel.hidden=true;launcher.setAttribute('aria-expanded','false');request++;stop();recognition?.abort();launcher.focus();}
-  launcher.onclick=()=>{panel.hidden=!panel.hidden;launcher.setAttribute('aria-expanded',String(!panel.hidden));if(panel.hidden){request++;stop();recognition?.abort();}else input.focus();};
-  root.querySelector('form').onsubmit=e=>{e.preventDefault();if(input.value.trim())run(input.value.trim());};
-  root.addEventListener('click',e=>{const example=e.target.closest('[data-example]');if(example){run(example.dataset.example);return;}const button=e.target.closest('[data-assistant]');if(!button)return;const action=button.dataset.assistant;if(action==='close'){close();return;}if(action!=='mic'){control(action);return;}if(listening){recognition?.stop();return;}if(!Recognition){status.textContent='Bu brauzer səs tanımanı dəstəkləmir. Əmri yaza bilərsiniz.';return;}stop();try{recognition=new Recognition();recognition.lang='az-AZ';recognition.continuous=false;recognition.interimResults=false;recognition.onstart=()=>{listening=true;button.textContent='■ Dinləməni bitir';status.textContent='Dinləyirəm…';};recognition.onend=()=>{listening=false;button.textContent='🎤 Danış';};recognition.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript;if(text){recognition.stop();run(text);}};recognition.onerror=e=>{const messages={'not-allowed':'Mikrofon icazəsi verilmədi. Əmri yaza bilərsiniz.','language-not-supported':'Brauzer Azərbaycan dilində səs tanımanı dəstəkləmir. Əmri yaza bilərsiniz.','no-speech':'Səs eşidilmədi. Yenidən sınayın.','network':'Səs tanıma xidməti ilə bağlantı alınmadı.'};status.textContent=messages[e.error]||'Səs tanınmadı. Əmri yazaraq sınayın.';};recognition.start();}catch{status.textContent='Mikrofonu açmaq mümkün olmadı. Əmri yaza bilərsiniz.';}});
-  root.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden)close();});
-  if(!Recognition)status.textContent='Səs tanıma bu brauzerdə yoxdur; yazılı əmrlər işləyir.';
-  voiceSelect.onchange=()=>{stop();status.textContent='Səs seçimi dəyişdirildi. “Davam et” düyməsi ilə oxudun.';};
-  document.addEventListener('visibilitychange',()=>{if(document.hidden){stop();recognition?.abort();}});
-  return {run,close};
+  const context = {};
+  let result = null, index = 0, request = 0, utterance = null, readToken = 0;
+  const synth = window.speechSynthesis;
+  const providers = createProviders(wxCode);
+  const micButton = root.querySelector('[data-assistant="mic"]');
+  const voices = () => synth?.getVoices() || [];
+  function populateVoices() {
+    const previous = voiceSelect.value;
+    voiceSelect.innerHTML = '<option value="auto">Avtomatik səs (AZ → TR → cihaz səsi)</option><option value="off">Səssiz — yalnız mətn</option>' + voices().map(v => `<option value="${escape(v.voiceURI)}">${escape(v.name)} (${escape(v.lang)})</option>`).join('');
+    voiceSelect.value = [...voiceSelect.options].some(o => o.value === previous) ? previous : 'auto';
+  }
+  populateVoices(); synth?.addEventListener?.('voiceschanged', populateVoices);
+  function stop() { readToken++; synth?.cancel(); utterance = null; }
+  function unlockAudio() {
+    if (!synth || voiceSelect.value === 'off') return;
+    try { synth.resume?.(); const warmup = new SpeechSynthesisUtterance(' '); warmup.volume = 0; synth.speak(warmup); } catch {}
+  }
+  async function speak(sentences, newsStart = -1, base = 0) {
+    stop(); const token = readToken;
+    if (!synth || voiceSelect.value === 'off') { status.textContent = 'Cavab ekranda göstərilir.'; return; }
+    if (!voices().length) await new Promise(resolve => {
+      const done = () => { clearTimeout(timeout); synth.removeEventListener?.('voiceschanged', done); resolve(); };
+      const timeout = setTimeout(done, 1200); synth.addEventListener?.('voiceschanged', done, {once:true});
+    });
+    if (token !== readToken) return;
+    const voice = selectReadingVoice(voices(), voiceSelect.value);
+    const language = voice?.lang || 'az-AZ';
+    const voiceNote = /^az(?:-|$)/i.test(language) ? '' : /^tr(?:-|$)/i.test(language) ? ' Azərbaycan səsi yoxdur; türkcə səs istifadə olunur.' : ' Cihazın standart səsi istifadə olunur.';
+    let n = 0;
+    const next = () => {
+      if (token !== readToken || n >= sentences.length) { if (token === readToken) status.textContent = 'Oxuma tamamlandı.' + voiceNote; return; }
+      const position = n++;
+      if (newsStart >= 0 && position >= newsStart) { index = base + position - newsStart; output.querySelectorAll('li').forEach((li,i) => li.classList.toggle('current', i === index)); }
+      utterance = new SpeechSynthesisUtterance(sentences[position]);
+      utterance.lang = language; if (voice) utterance.voice = voice; utterance.rate = .95;
+      utterance.onend = next;
+      utterance.onerror = event => { if (token === readToken && event.error !== 'canceled' && event.error !== 'interrupted') status.textContent = 'Brauzer səsləndirməni başlada bilmədi. Cavab ekrandadır; “Davam et” ilə yenidən sınayın.'; };
+      try { synth.resume?.(); synth.speak(utterance); } catch { status.textContent = 'Bu brauzerdə səsləndirmə mümkün olmadı. Cavab ekrandadır.'; }
+    };
+    status.textContent = 'Oxuyuram…' + voiceNote; next();
+  }
+  function display(answer) {
+    result = answer; index = 0;
+    output.innerHTML = `<p>${escape(answer.text)}</p>${answer.items?.length ? '<ol>' + answer.items.map(a => `<li><a href="${escape(safeLink(a.sourceUrl))}" target="_blank" rel="noopener noreferrer">${escape(a.title)}</a><small>${escape(a.source)} · ${escape(dateLabel(a.publishedAt))}</small></li>`).join('') + '</ol>' : ''}${(answer.links || []).map(l => `<a class="assistant-source" href="${escape(safeLink(l.url))}" ${String(l.url).startsWith('#/') ? '' : 'target="_blank" rel="noopener noreferrer"'}>${escape(l.title)} ↗</a>`).join('')}`;
+  }
+  const session = createVoiceSession({
+    Recognition: window.SpeechRecognition || window.webkitSpeechRecognition,
+    onStart() { micButton.textContent = '■ Dinləməni bitir'; launcher.classList.add('listening'); launcher.setAttribute('aria-pressed','true'); micButton.setAttribute('aria-pressed','true'); status.textContent = 'Dinləyirəm… Danışıb bitirəndə cavab avtomatik oxunacaq.'; },
+    onTranscript(text) { input.value = text; status.textContent = 'Eşitdim: ' + text; },
+    onComplete(text) { run(text); },
+    onEnd() { micButton.textContent = '🎤 Danış'; launcher.classList.remove('listening'); launcher.setAttribute('aria-pressed','false'); micButton.setAttribute('aria-pressed','false'); },
+    onError(error) {
+      const messages = {
+        unsupported: 'Bu brauzerdə səs tanıma yoxdur. Saytı Chrome və ya Safari-də açın, yaxud əmri yazın.',
+        'not-allowed': 'Mikrofon icazəsi verilmədi. Brauzerin sayt icazələrində mikrofonu aktiv edin və yenidən toxunun.',
+        'service-not-allowed': 'Brauzerin səs tanıma xidməti əlçatan deyil. Saytı adi Chrome və ya Safari pəncərəsində açın.',
+        'language-not-supported': 'Brauzer Azərbaycan dilində səs tanımanı dəstəkləmir. Bu cihazda əmri yazmaq mümkündür.',
+        'audio-capture': 'Mikrofon açılmadı. Onu istifadə edən başqa tətbiqi bağlayıb yenidən sınayın.',
+        'no-speech': 'Səs eşidilmədi. Mikrofona toxunub yenidən danışın.',
+        network: 'Səs tanıma xidməti ilə bağlantı alınmadı. İnterneti yoxlayın və yenidən toxunun.',
+      };
+      status.textContent = messages[error] || 'Səs tanınmadı. Mikrofona toxunub yenidən sınayın.';
+    },
+  });
+  function control(action) {
+    if (action === 'stop') { stop(); session.cancel(); status.textContent = 'Dayandırıldı.'; return; }
+    if (action === 'resume') { unlockAudio(); if (result) speak([result.text, ...(result.items || []).slice(index).map(a => a.title)], 1, index); else status.textContent = 'Əvvəl xəbər və ya məlumat soruşun.'; return; }
+    if (!result?.items?.length) { status.textContent = 'Əvvəl xəbər başlıqlarını soruşun.'; return; }
+    if (action === 'next') { if (index + 1 >= result.items.length) { status.textContent = 'Siyahı tamamlandı.'; return; } index++; speak([result.items[index].title], 0, index); return; }
+    const item = result.items[index];
+    if (action === 'open') { stop(); status.textContent = 'Mənbəni açmaq üçün aşağıdakı keçidə toxunun.'; output.innerHTML = `<a class="assistant-source" href="${escape(safeLink(item.sourceUrl))}" target="_blank" rel="noopener noreferrer">${escape(item.title)} ↗</a>`; return; }
+    if (action === 'alternatives') display({text:'Bu xəbərin mənbələri:', items:[item, ...(item.alts || []).map(a => ({...a, title:item.title}))]});
+  }
+  async function run(text) {
+    const id = ++request; session.cancel(); stop(); input.value = text; status.textContent = 'Məlumatı yoxlayıram…';
+    try { const answer = await answerCommand(text, getSnapshot(), context, providers); if (id !== request) return; if (answer.control) { control(answer.control); return; } display(answer); speak([answer.text, ...(answer.readNews ? answer.items || [] : []).map((a,i) => `${i+1}. ${a.title}`)], answer.readNews ? 1 : -1); }
+    catch { if (id === request) status.textContent = 'Sorğunu yerinə yetirmək olmadı. Yenidən sınayın.'; }
+  }
+  function close() { panel.hidden = true; launcher.setAttribute('aria-expanded','false'); request++; stop(); session.cancel(); launcher.focus(); }
+  function startListening() {
+    panel.hidden = false; launcher.setAttribute('aria-expanded','true');
+    if (session.active) { session.stop(); return; }
+    request++; stop();
+    // A deliberate microphone tap opts back into spoken replies, even after text-only mode.
+    if (voiceSelect.value === 'off') voiceSelect.value = 'auto';
+    unlockAudio();
+    status.textContent = 'Mikrofon açılır…'; session.start();
+  }
+  launcher.onclick = startListening;
+  root.querySelector('form').onsubmit = event => { event.preventDefault(); unlockAudio(); if (input.value.trim()) run(input.value.trim()); };
+  root.addEventListener('click', event => {
+    const example = event.target.closest('[data-example]');
+    if (example) { unlockAudio(); run(example.dataset.example); return; }
+    const button = event.target.closest('[data-assistant]'); if (!button) return;
+    if (button.dataset.assistant === 'close') close();
+    else if (button.dataset.assistant === 'mic') startListening();
+    else { unlockAudio(); control(button.dataset.assistant); }
+  });
+  root.addEventListener('keydown', event => { if (event.key === 'Escape' && !panel.hidden) close(); });
+  voiceSelect.onchange = () => { stop(); status.textContent = 'Səs seçimi dəyişdirildi.'; };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { request++; stop(); session.cancel(); } });
+  return {run, close};
 }

@@ -847,3 +847,5 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 .assistant-answer a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
 .assistant-source{display:block;margin:10px 0;overflow-wrap:anywhere}
 @media(max-width:600px){#voice-assistant{left:12px;bottom:76px}.assistant-panel{left:12px;right:12px;bottom:134px;width:auto;max-width:calc(100vw - 24px);max-height:calc(100dvh - 150px);padding:12px}.assistant-tools button,.assistant-examples button{min-height:44px}.assistant-panel input{font-size:16px}}
+.assistant-launch.listening{background:var(--red);color:#fff;box-shadow:0 0 0 4px hsl(0 84% 60%/.2)}
+.assistant-tools button[aria-pressed="true"]{background:var(--red);color:#fff;border-color:var(--red)}

@@ -1171,7 +1171,7 @@ function aboutView() {
       <li>Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir.</li>
       <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
     </ul></section>
-    <section><h2>Məxfilik</h2><ul><li>Səsli köməkçi mikrofonu yalnız “Danış” düyməsi ilə açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>
+    <section><h2>Məxfilik</h2><ul><li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>
       <li>Sayt kuki qoymur və hesab tələb etmir. Seçilmişlər, bölmə sırası, dil, tema və şəhər seçimi yalnız sizin cihazınızda (brauzerin yaddaşında) saxlanır.</li>
       <li>«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.</li>
       <li>Hava (Open-Meteo), namaz vaxtı (aladhan.com), tıxac xəritəsi (Waze) və video (YouTube) brauzerinizdən birbaşa həmin xidmətlərə sorğu göndərir; onların öz məxfilik qaydaları tətbiq olunur. Xəritə və video yalnız düyməyə basanda yüklənir.</li>
