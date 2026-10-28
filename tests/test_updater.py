@@ -219,6 +219,31 @@ class DateAndFilterTest(unittest.TestCase):
         self.assertFalse(neg("Milli Məclis yeni qanun qəbul etdi", "", "APA"))
         self.assertNotIn("Meydan TV", [f[0] for f in updater.FEEDS])
 
+    def test_same_event_with_different_headlines_becomes_one_card(self):
+        # 28.10.2026: eyni istefa 7 mənbədə 7 fərqli başlıqla (ad da fərqli yazılıb) — bir kart olmalıdır
+        base = {"category": "gundem", "lang": "az", "imageUrl": None}
+        rows = [
+            ("Olke.az", "16:52", "Pərviz Abubəkirov İŞDƏN ÇIXARILDI", "Səhiyyə Nazirliyinin mətbuat xidmətinin rəhbəri Pərviz Abubəkirov vəzifəsindən ayrılıb."),
+            ("Metbuat", "16:47", "Pərviz Abubəkirov işdən ayrıldı", "Səhiyyə Nazirliyinin mətbuat xidmətinin rəhbəri Pərviz Abubəkirov vəzifəsindən ayrılıb."),
+            ("Reyting.az", "16:26", "Səhiyyə Nazirliyinin mətbuat katibi vəzifədən çıxarılıb", ""),
+            ("Axar.az", "15:12", "Bu nazirliyin mətbuat xidmətinin rəhbəri işdən çıxarıldı", "Pərviz Abubəkirov"),
+            ("Aznews.az", "15:03", "Pərviz Əbubəkirov vəzifəsindən çıxarıldı", ""),
+            ("Anews.az", "14:49", "Səhiyyə Nazirliyinin mətbuat xidmətinin rəhbəri vəzifəsindən azad edilib", "Səhiyyə Nazirliyinin mətbuat xidmətinin rəhbəri Pərviz Abubəkirov vəzifəsindən azad edilib."),
+            ("Bizim.Media", "14:32", "Pərviz Abubəkirov 8 ildən sonra vəzifəsindən AYRILDI", "Səhiyyə Nazirliyinin mətbuat xidmətinin rəhbəri Pərviz Abubəkirov vəzifəsindən ayrılıb."),
+        ]
+        arts = [dict(base, source=s, title=t, summary=d, sourceUrl=f"https://{s}/{i}", publishedAt=f"2026-10-28T{hm}:00+00:00")
+                for i, (s, hm, t, d) in enumerate(rows)]
+        out = updater.group_duplicates(arts)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(len(out[0]["alts"]), 6)
+        # fərqli hadisələr birləşmir: başqa şəxsin təyinatı, eyni nazirlikdə başqa xəbər
+        other = [dict(base, source="APA", title="Elçin Məmmədov Səhiyyə Nazirliyinə müavin təyin edilib", summary="",
+                      sourceUrl="https://apa/1", publishedAt="2026-10-28T15:30:00+00:00"),
+                 dict(base, source="Report", title="Səhiyyə Nazirliyi qrip mövsümü ilə bağlı xəbərdarlıq edib", summary="",
+                      sourceUrl="https://report/1", publishedAt="2026-10-28T15:40:00+00:00")]
+        self.assertEqual(len(updater.group_duplicates(arts + other)), 3)
+        self.assertTrue(updater._edits1("abubekirov", "ebubekirov") and not updater._edits1("abubekirov", "memmedov"))
+
     def test_official_template_titles_do_not_merge_and_alts_never_repeat_a_primary(self):
         base = {"summary": "", "imageUrl": None, "category": "prezident", "lang": "az"}
         a = dict(base, source="Prezident.az", title="İlham Əliyev Niderlandın xarici işlər nazirini qəbul edib",

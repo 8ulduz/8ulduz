@@ -1663,6 +1663,93 @@ def _titles_similar(toks, sh, other_toks, other_sh):
         return True
     return False
 
+# ---- Hadisə əsaslı birləşdirmə ------------------------------------------------------------------------
+# Eyni hadisə fərqli başlıqlarla gəlir: «Pərviz Abubəkirov İŞDƏN ÇIXARILDI», «Səhiyyə Nazirliyinin mətbuat katibi
+# vəzifədən çıxarılıb», «Pərviz Əbubəkirov vəzifəsindən azad edilib» — başlıq sözlərinin oxşarlığı bunu tutmur.
+# Burada şəxs/qurum adı (yazılış fərqinə dözümlü), hadisə növü və xülasənin söz kökləri müqayisə olunur.
+# Rəsmi mənbələrə tətbiq edilmir (şablon başlıqlar), rəhbərlik adları hesaba alınmır.
+_EVENT_CLASSES = (
+    ("isden", re.compile(r"isden (?:cixar|ayril|azad|kenarlas|uzaqlas)|vezife(?:sin|y)?den (?:azad|cixar|ayril|kenarlas|uzaqlas)"
+                         r"|azad (?:edil|olun)|istefa|vezifesini terk|uvolen|osvobozhd|otstavk|dismiss|resign")),
+    ("teyin", re.compile(r"teyin (?:edil|olun)|vezifeye teyin|naznach|appointed")),
+    ("vefat", re.compile(r"vefat|dunyasini deyis|helak ol|intihar|skonchal|pogib|passed away|died")),
+    ("hebs", re.compile(r"\bhebs|saxlanil|tutulub|tutuldu|cinayet isi|ittiham|zaderzhan|arest|arrested|detained")),
+)
+_ENTITY_SKIP = {"ilham eliyev", "mehriban eliyeva", "heyder eliyev", "prezident ilham", "azerbaycan respublikasi",
+                "azerbaycan respublikasinin", "milli meclis", "milli meclisin", "nazirler kabineti"}
+_ORG_WORDS = re.compile(r"(?:nazirli|idare|sehe|rayon|respublika|komite|agentli|xidmet|universitet|merkez|sura|partiya|cemiyyet|"
+                        r"fond|bank|klub|akademiya|institut|dovlet|prokurorlu|mehkeme|polis|birli|qurum|sirket|holdinq|qrup|"
+                        r"prezident|cumhurbas|hokumet|hakimiyyet|sefir|deputat|rektor|general|polkovnik|sedr|direktor|baskan)")
+_SIG_CACHE = {}
+
+def _event_key(text):
+    t = _norm_title(text)
+    for name, rx in _EVENT_CLASSES:
+        if rx.search(t):
+            return name
+    return None
+
+def _entities(text):
+    """Böyük hərflə başlayan ardıcıl 2 söz (şəxs və ya qurum adı), sadələşdirilmiş. Tam böyük hərfli sözlər (İŞDƏN) sayılmır."""
+    words = re.findall(r"[^\W\d_]+", text or "")
+    persons, orgs = set(), set()
+    for w1, w2 in zip(words, words[1:]):
+        if len(w1) < 3 or len(w2) < 3 or not (w1[0].isupper() and w2[0].isupper()):
+            continue
+        if (w1.isupper() and len(w1) > 3) or (w2.isupper() and len(w2) > 3):
+            continue
+        key = _norm_title(w1 + " " + w2)
+        if key in _ENTITY_SKIP:
+            continue
+        (orgs if _ORG_WORDS.search(key) else persons).add(key)
+    return persons, orgs
+
+def _edits1(a, b):
+    """Levenşteyn məsafəsi ≤ 1 (Abubəkirov / Əbubəkirov)."""
+    if a == b:
+        return True
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    i = 0
+    while i < min(la, lb) and a[i] == b[i]:
+        i += 1
+    if la == lb:
+        return a[i + 1:] == b[i + 1:]
+    if la > lb:
+        return a[i + 1:] == b[i:]
+    return a[i:] == b[i + 1:]
+
+def _ent_match(e1, e2):
+    for x in e1:
+        xs = x.split()
+        for y in e2:
+            ys = y.split()
+            if len(xs) == len(ys) and all((_edits1(p, q) if len(p) >= 6 else p == q) for p, q in zip(xs, ys)):
+                return True
+    return False
+
+def _event_sig(a):
+    key = (a.get("sourceUrl") or "", a.get("title") or "")
+    sig = _SIG_CACHE.get(key)
+    if sig is None:
+        title, summ = a.get("title") or "", (a.get("summary") or "")[:240]
+        persons, orgs = _entities(title + ". " + summ)
+        stems = {t[:6] for t in _title_tokens(title + " " + summ)}
+        sig = _SIG_CACHE[key] = (_event_key(title) or _event_key(summ), persons, orgs, stems)
+    return sig
+
+def _same_event(a, b):
+    ka, pa, oa, sa = _event_sig(a)
+    kb, pb, ob, sb = _event_sig(b)
+    inter = len(sa & sb)
+    if ka and ka == kb:
+        if _ent_match(pa, pb):                      # eyni şəxs + eyni hadisə növü
+            return True
+        if _ent_match(oa, ob) and inter >= 4 and _jaccard(sa, sb) >= 0.3:  # eyni qurum + hadisə + ortaq məzmun
+            return True
+    return inter >= 6 and _jaccard(sa, sb) >= 0.5  # başlıq+xülasə kökləri güclü üst-üstə düşür
+
 def _parse_dt(iso):
     if not iso:
         return None
@@ -1703,6 +1790,7 @@ def group_duplicates(articles):
     Əsas xəbər tam qalır; digərləri yığcam `alts` siyahısındadır (mənbə + keçid + vaxt).
     """
     remembered = {}
+    _SIG_CACHE.clear()
     for a in articles:
         for alt in a.get("alts") or []:
             if alt.get("sourceUrl"):
@@ -1736,7 +1824,9 @@ def group_duplicates(articles):
                                for mt, mtks, msh, _ma in members):
                         continue
                 if exact or any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _titles_similar(toks, sh, mtks, msh)
-                       for mt, mtks, msh, _ma in members):
+                       for mt, mtks, msh, _ma in members) \
+                        or (not official and any(mt is not None and abs(dt - mt) <= GROUP_WINDOW and _same_event(a, _ma)
+                                                 for mt, mtks, msh, _ma in members)):
                     members.append((dt, toks, sh, a))
                     placed = True
                     break
