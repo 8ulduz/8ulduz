@@ -244,6 +244,37 @@ class DateAndFilterTest(unittest.TestCase):
         self.assertEqual(len(updater.group_duplicates(arts + other)), 3)
         self.assertTrue(updater._edits1("abubekirov", "ebubekirov") and not updater._edits1("abubekirov", "memmedov"))
 
+    def test_paraphrased_school_stories_merge_but_generic_daily_events_do_not(self):
+        # 28.10.2026, Təhsil: eyni hücum 6 mənbədə 6 başlıqla (sinonimlər: jurnalist/media, döydü/hücum/zorakılıq)
+        base = {"category": "tehsil", "lang": "az", "imageUrl": None}
+        summ = "Bakının Yasamal rayonunda yerləşən 225 saylı orta məktəbdə REAL TV-nin əməkdaşlarına hücum olub."
+        rows = [
+            ("Lent.az", "18:08", "Bakıda intihar edən məktəblinin yaxınları jurnalistləri döydü, saxlanılanlar var", ""),
+            ("Bizim.Media", "18:00", "Bakıda məktəbdə jurnalistlərə hücum oldu - ANBAAN VİDEO", summ),
+            ("News24.az", "17:58", "“Real TV”nin əməkdaşlarını həmin məktəbin önündə döydülər - Video", summ),
+            ("Teleqraf", "17:55", "Bakıda məktəbdə media nümayəndələrinə qarşı zorakılıq edildi", ""),
+            ("Qafqazinfo", "17:48", "“Real TV”nin əməkdaşlarını həmin məktəbin öndündə döydülər", ""),
+            ("Modern.az", "17:38", "225 nömrəli məktəbdə REAL TV-nin əməkdaşlarına hücum oldu - VİDEO", summ),
+        ]
+        arts = [dict(base, source=s, title=ti, summary=d, sourceUrl=f"https://{s}/{i}", publishedAt=f"2026-10-28T{hm}:00+00:00")
+                for i, (s, hm, ti, d) in enumerate(rows)]
+        out = updater.group_duplicates(arts)
+        self.assertEqual([len(o.get("alts") or []) for o in out], [5])
+        # şagirdin ölümü: ortaq lövbər/anlayışlar olanlar birləşir
+        death = [dict(base, source="Olke.az", title="Məktəbdə yıxılaraq həyatını itirən şagirdin anası da faciəli şəkildə ölübmüş",
+                      summary="Bakının Yasamal rayonunda yerləşən 225 nömrəli tam orta məktəbdə həyatını itirən 7-ci sinif şagirdi.",
+                      sourceUrl="https://olke/1", publishedAt="2026-10-28T17:42:00+00:00"),
+                 dict(base, source="Xezerxeber", title="Faciəvi şəkildə həyatını itirən 7-ci sinif şagirdinin məktəb yoldaşları DANIŞDILAR - VİDEO",
+                      summary="", sourceUrl="https://xezer/1", publishedAt="2026-10-28T16:45:00+00:00")]
+        self.assertEqual(len(updater.group_duplicates(death)), 1)
+        # gündəlik ümumi hadisələr (qəza, həbs) lövbərsiz birləşmir
+        generic = [dict(base, source="APA", title="Bakıda qəza: 2 nəfər ölüb", summary="", sourceUrl="https://apa/q1", publishedAt="2026-10-28T10:00:00+00:00"),
+                   dict(base, source="Report", title="Bakıda avtobus qəzası: sürücü həlak olub", summary="", sourceUrl="https://report/q2", publishedAt="2026-10-28T11:00:00+00:00"),
+                   dict(base, source="APA", title="Bakıda narkotik satan şəxs saxlanılıb", summary="", sourceUrl="https://apa/h1", publishedAt="2026-10-28T12:00:00+00:00"),
+                   dict(base, source="Report", title="Bakıda oğurluq edən şəxs saxlanılıb", summary="", sourceUrl="https://report/h2", publishedAt="2026-10-28T12:30:00+00:00")]
+        self.assertEqual(len(updater.group_duplicates(generic)), 4)
+        self.assertEqual(" ".join(updater._concepts("Jurnalistlər döyüldü, şagird öldü").split()), "media zorakılıq , şagird ölüm")
+
     def test_official_template_titles_do_not_merge_and_alts_never_repeat_a_primary(self):
         base = {"summary": "", "imageUrl": None, "category": "prezident", "lang": "az"}
         a = dict(base, source="Prezident.az", title="İlham Əliyev Niderlandın xarici işlər nazirini qəbul edib",
