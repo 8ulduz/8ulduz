@@ -267,6 +267,14 @@ class DateAndFilterTest(unittest.TestCase):
                  dict(base, source="Xezerxeber", title="Faciəvi şəkildə həyatını itirən 7-ci sinif şagirdinin məktəb yoldaşları DANIŞDILAR - VİDEO",
                       summary="", sourceUrl="https://xezer/1", publishedAt="2026-10-28T16:45:00+00:00")]
         self.assertEqual(len(updater.group_duplicates(death)), 1)
+        # eyni şagird haqqında lövbərsiz rakurslar (2+ xüsusi anlayış: şagird + məktəb / yıxılma) və hücum xəbərləri
+        # (ortaq lövbərlər: Yasamal + 225) hamısı bir hadisə zənciridir — bir kart
+        angles = [dict(base, source="Axar.az", title="Məktəbdə həyatını itirən şagirdlə bağlı yeni detallar", summary="Dadaşova",
+                       sourceUrl="https://axar/1", publishedAt="2026-10-28T17:47:00+00:00"),
+                  dict(base, source="Axar.az", title="Şagird pəncərədən yıxılıb öldü, psixoloqlar cəlb olundu", summary="Təhsil İdarəsi",
+                       sourceUrl="https://axar/2", publishedAt="2026-10-28T17:05:00+00:00")]
+        self.assertEqual(len(updater.group_duplicates(death + angles)), 1)
+        self.assertEqual(len(updater.group_duplicates(arts + death + angles)), 1)
         # gündəlik ümumi hadisələr (qəza, həbs) lövbərsiz birləşmir
         generic = [dict(base, source="APA", title="Bakıda qəza: 2 nəfər ölüb", summary="", sourceUrl="https://apa/q1", publishedAt="2026-10-28T10:00:00+00:00"),
                    dict(base, source="Report", title="Bakıda avtobus qəzası: sürücü həlak olub", summary="", sourceUrl="https://report/q2", publishedAt="2026-10-28T11:00:00+00:00"),

@@ -1811,17 +1811,25 @@ def _same_event(a, b):
     cb, pb, ob, sb, nb = _event_sig(b)
     if not sa or not sb:
         return False
-    inter = len(sa & sb)
+    common = sa & sb
+    inter = len(common)
     cont = inter / min(len(sa), len(sb))
+    anchors = len(na & nb)
+    if anchors >= 2 and inter >= 3:                  # iki ortaq lövbər (Yasamal + 225): eyni hadisə zənciri
+        return True
     shared = ca & cb
     if shared:  # eyni hadisə növü
         if _ent_match(pa, pb):                       # + eyni şəxs
             return True
         if _ent_match(oa, ob) and inter >= 3:        # + eyni qurum və ortaq məzmun
             return True
-        loose = bool(shared - _STRICT_CLASSES)       # nadir hadisə növü: ortaq anlayışlar kifayətdir
-        anchored = bool(na & nb)                     # ortaq lövbər (ədəd, xüsusi ad)
-        if inter >= 3 and ((loose or anchored) and cont >= 0.3 or inter >= 5 and cont >= 0.5):
+        loose = bool(shared - _STRICT_CLASSES)       # nadir hadisə növü (istefa, təyinat, zorakılıq, partlayış)
+        # gündəlik növlərdə (ölüm, qəza, həbs, yanğın) ümumi sözlər kifayət deyil: lövbər və ya 2+ xüsusi anlayış
+        # (şagird + məktəb) lazımdır — «Bakıda qəza: 2 nəfər ölüb» / «Bakıda avtobus qəzası» birləşmir
+        specific = sum(1 for w in common if w not in _EVENT_KEYS and w not in _GENERIC_ANCHOR)
+        if inter >= 3 and cont >= 0.3 and (loose or anchors or specific >= 2):
+            return True
+        if inter >= 5 and cont >= 0.5:
             return True
     if inter >= 6 and _jaccard(sa, sb) >= 0.5:       # kökləri güclü üst-üstə düşür (hadisə növü olmasa da)
         return True
