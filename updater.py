@@ -1694,7 +1694,7 @@ _CONCEPT_RX = [(re.compile(p), " " + c + " ") for p, c in (
 _EVENT_WORDS = ("istefa", "teyinat", "olum", "hebs", "zorakiliq", "qeza", "yangin", "partlayis")
 _EVENT_KEYS = {w[:6] for w in _EVENT_WORDS}
 _STRICT_CLASSES = {"olum", "qeza", "hebs", "yangin"}  # gündəlik tez-tez olan hadisələr: lövbər tələb olunur
-_SUFFIX_RX = re.compile(r"(?:lar|ler|dan|den|nin|nun|in|un|da|de|ya|ye|la|le|si|su|ni|nu|ib|ub|di|du|araq|erek|a|e|i|u)+$")
+_SUFFIX_RX = re.compile(r"(?:lar|ler|dan|den|nin|nun|araq|erek|in|un|da|de|ya|ye|la|le|si|su|ni|nu|ib|ub|di|du|a|e|i|u)$")
 _GENERIC_ANCHOR = {"baki", "bakin", "bakid", "azerba", "azerb", "respub", "prezid", "nazirl", "dovlet", "milli", "qarab",
                    "video", "foto", "anbaan", "xeber", "real"}
 _ENTITY_SKIP = {"ilham eliyev", "mehriban eliyeva", "heyder eliyev", "prezident ilham", "azerbaycan respublikasi",
@@ -1711,8 +1711,14 @@ def _concepts(text):
     return t
 
 def _stem(tok):
-    if tok not in _EVENT_WORDS and len(tok) > 4:
-        tok = _SUFFIX_RX.sub("", tok) or tok
+    """Ən çox 2 şəkilçi atılır, kök 4 hərfdən qısa olmur (yaxınları → yaxın, bakının → bakı, media → medi)."""
+    if tok in _EVENT_WORDS:
+        return tok[:6]
+    for _ in range(2):
+        m = _SUFFIX_RX.search(tok)
+        if not m or m.start() < 4:
+            break
+        tok = tok[:m.start()]
     return tok[:6]
 
 def _event_stems(text):
