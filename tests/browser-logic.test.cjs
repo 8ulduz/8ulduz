@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex};`, context);
   return context;
 }
 
@@ -137,6 +137,15 @@ test('football block is hidden while the league table is unavailable', () => {
   const ctx = app();
   ctx.api.S.football = { table: [], events: [{ home: 'Sabah Baku', away: 'Qarabag', hs: '0', as: '0', date: '2026-10-25' }], note: 'yoxdur' };
   assert.equal(ctx.api.footballBlock([{ title: 'Futbol: Qarabağ qalib gəldi', category: 'idman', publishedAt: '2026-10-26T12:00:00Z' }]), '');
+});
+
+test('search folds Azerbaijani letters and ignores punctuation', () => {
+  const ctx = app();
+  assert.equal(ctx.api.fold('İlham Əliyev Qarabağ Şəki Naxçıvan'), 'ilham eliyev qarabag seki naxcivan');
+  assert.deepEqual([...ctx.api.searchWords('"Neft", (qaz)! #2026 a')], ['neft', 'qaz', '2026']);
+  const rx = ctx.api.hlRegex(ctx.api.searchWords('qarabag'));
+  assert.ok(rx.test('Qarabağ qalib gəldi'));
+  assert.equal(ctx.api.route.call(null) && (ctx.location.hash = '#/yoxdur', ctx.api.route().name), 'notfound');
 });
 
 test('raw links are stripped from headlines', () => {

@@ -132,6 +132,9 @@ nav.main a.nav-tix{position:relative}
   .topbar .yenilendi{margin-left:auto}
 }
 @media (max-width:720px){
+  .prefs button{height:30px;min-width:34px;font-size:0.9rem}
+  .pray,.wx-btn,.tix-top{height:30px;font-size:0.8571rem}
+  .topbar .wrap{gap:6px 8px;padding-top:4px;padding-bottom:4px}
   /* Başlıq: 1 sətir loqo+axtarış, 1 sətir sürüşən bölmələr (əvvəl 3 sətir bükülürdü) */
   .hrow{min-height:44px;padding:6px 0;gap:6px 8px}
   nav.main{flex-basis:100%;order:3;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:2px}
@@ -338,6 +341,7 @@ main>.wrap>section{margin-bottom:18px}
 .card .b{display:flex;flex-direction:column;gap:5px;padding:9px 11px 10px;flex:1;min-width:0}
 .card-hit{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;color:inherit}
 .card-hit::after{content:"";position:absolute;inset:0;z-index:1}
+.card h3 mark{background:hsl(43 96% 56%/.35);color:inherit;border-radius:2px;padding:0 1px}
 .card h3{margin:0;font-size:1.0357rem;line-height:1.33;font-weight:700;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .card:hover h3{color:var(--primary)}
 .card .meta{margin-top:auto}
@@ -430,6 +434,7 @@ footer .logo i{width:26px;height:26px}
 .about p,.about li{margin:0;line-height:1.55;color:var(--fg)}
 .about ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
 .about .srcs{margin-top:8px}
+@media (max-width:860px){.chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}.chips::-webkit-scrollbar{display:none}.chips .pill{flex:none}}
 .tabbar{display:none}
 @media (max-width:860px){
   .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:70;display:flex;height:54px;padding-bottom:env(safe-area-inset-bottom);background:var(--header);border-top:1px solid var(--border)}

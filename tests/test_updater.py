@@ -30,6 +30,11 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(updater.label_for("Azərbaycanda süni intellekt üzrə milli dil modelləri hazırlanır", "", "az"), "Texnologiya")
         self.assertEqual(updater.SLUGS["Texnologiya"], "texnologiya")
 
+    def test_summary_is_shortened_at_a_word_boundary(self):
+        s = updater._short("söz " * 100)
+        self.assertTrue(s.endswith("…") and len(s) <= updater.SUMMARY_MAX + 1)
+        self.assertEqual(updater._short("qısa"), "qısa")
+
     def test_raw_link_is_stripped_from_title(self):
         self.assertEqual(updater._plain("Harri Keyn mükafat qazanıb https://report.az/futbol/abc", title=True), "Harri Keyn mükafat qazanıb")
 
@@ -55,6 +60,21 @@ class PresidentPageTest(unittest.TestCase):
         self.assertTrue(items[1]["video"])
         self.assertEqual(items[2]["description"], "Oktyabrın 21-də zəng edib.")
         self.assertEqual(items[2]["pubDate"], "2026-10-21T15:35:00+00:00")
+
+
+class YouTubeTest(unittest.TestCase):
+    def test_channel_page_parser(self):
+        page = ('x{"contentId":"nckqYOoK5lw","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","a":1,"metadata":{"lockupMetadataViewModel":'
+                '{"title":{"content":"Kiyev problemi \\u2014 test"},"metadata":{"metadataParts":[{"text":{"content":"64"},"accessibilityLabel":"64 views"},'
+                '{"text":{"content":"21 min ago"},"accessibilityLabel":"21 minutes ago"}]}}}'
+                '{"contentId":"trDnnGEAkRk","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","metadata":{"lockupMetadataViewModel":{"title":{"content":"İkinci"}}}}')
+        now = datetime.datetime(2026, 10, 28, 12, 0, tzinfo=datetime.timezone.utc)
+        items = updater.parse_yt_channel_page(page, now=now)
+        self.assertEqual([i["link"][-11:] for i in items], ["nckqYOoK5lw", "trDnnGEAkRk"])
+        self.assertEqual(items[0]["title"], "Kiyev problemi — test")
+        self.assertEqual(items[0]["pubDate"], "2026-10-28T11:39:00+00:00")
+        self.assertEqual(items[1]["pubDate"], "2026-10-28T12:00:00+00:00")
+        self.assertTrue(items[0]["image"].endswith("/nckqYOoK5lw/hqdefault.jpg"))
 
 
 class ImageTest(unittest.TestCase):
