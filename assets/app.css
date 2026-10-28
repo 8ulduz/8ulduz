@@ -790,3 +790,18 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 @media(max-width:820px){.news-row>.card{flex-basis:calc((100% - 12px)/2)}}
 @media(max-width:600px){.news-row>.card{flex-basis:86%}.news-row{gap:10px}.hero-row .hero-main .body{padding:16px 42px}.hero-row .hero-main h1{font-size:1.25rem}.news-row .card .img{width:100%;height:auto}.prez-lent{height:300px}.news-row .image-fallback small{font-size:.75rem}.latest-grid .card.noimg>.img{width:104px}.hero-side .row-card .img{width:100px}.ytrow>.vcard{flex-basis:200px}}
 @media(prefers-reduced-motion:reduce){.hero-row,.news-row,.prez-lent{scroll-behavior:auto}}
+
+/* Keep the mobile More trigger and its menu inside the viewport. */
+@media(max-width:900px){
+  nav.main{display:flex;flex-wrap:wrap;flex-basis:100%;width:100%;min-width:0;overflow:visible}
+  nav.main .nav-more{position:static}
+  nav.main .nav-more-pop{position:absolute;top:100%;left:14px;right:14px;min-width:0;width:auto;max-width:calc(100% - 28px);max-height:60dvh;overflow-y:auto}
+  nav.main .nav-more-pop a{white-space:normal;overflow-wrap:anywhere}
+}
+@media(max-width:600px){
+  nav.main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;width:100%}
+  nav.main>a,nav.main .nav-more>summary{display:flex;align-items:center;justify-content:center;min-height:40px;padding:6px 4px;font-size:.8rem;white-space:normal;text-align:center}
+  nav.main .nav-more{min-width:0}
+  .search{flex:1 1 120px;min-width:0}
+  .search input{max-width:100%;width:100%}
+}

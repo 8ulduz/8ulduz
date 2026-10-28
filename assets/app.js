@@ -278,11 +278,12 @@ function imageCandidates(a) {
   return [...new Set(values.filter(u => typeof u === "string" && /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))];
 }
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
-function img(a, cls = "", eager = false) {
+function img(a, cls = "", eager = false, linked = false) {
   const [url, ...rest] = imageCandidates(a);
   const fallback = `<span class="image-fallback"><b>8ULDUZ</b><span>${esc(catLabel(a.category || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
   const src = url ? `<img src="${esc(url)}" data-image-alternatives="${esc(JSON.stringify(rest))}" alt="" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
-  return `<div class="img ${cls}${url ? "" : " image-unavailable"}">${fallback}${src}</div>`;
+  const tag = linked ? "a" : "div";
+  return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${esc(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
@@ -297,7 +298,7 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><a class="src" href="${esc(a.sourceUrl)}" ${OUT}>${esc(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${detailUrl(a)}"><h3>${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
+const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${esc(a.sourceUrl)}" ${OUT}><h3>${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => {
@@ -829,7 +830,7 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  const cards = list.map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${detailUrl(a)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
+  const cards = list.map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
@@ -840,7 +841,7 @@ function prezBlock(list) {
 
 function heroBlock(list) {
   if (!list.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${detailUrl(a)}"><h1>${txt(a.title)}</h1></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div><div class="hero-side">${list.slice(1, 5).map(a => `<article class="row-card">${img(a)}<div class="x"><a class="t" href="${detailUrl(a)}">${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${esc(a.sourceUrl)}" ${OUT}><h1>${txt(a.title)}</h1></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div><div class="hero-side">${list.slice(1, 5).map(a => `<article class="row-card">${img(a, "", false, true)}<div class="x"><a class="t" href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
 }
 
 function alertStrip() {

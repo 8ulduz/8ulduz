@@ -267,7 +267,8 @@ test('article routes and source controls are independent', () => {
   assert.equal(ctx.api.route().id, 'item-1');
   const article = {id:'item-1',title:'Test',source:'One',sourceUrl:'https://one.example',publishedAt:new Date().toISOString(),category:'gundem',lang:'az',alts:[{source:'Two',sourceUrl:'https://two.example'}]};
   const html = ctx.api.card(article);
-  assert.ok(html.includes('href="#/xeber/item-1"'));
+  assert.ok(html.includes('class="card-hit" href="https://one.example" target="_blank"'));
+  assert.ok(!html.includes('href="#/xeber/item-1"'));
   assert.ok(html.includes('2 mənbə'));
   assert.ok(html.includes('https://two.example'));
   assert.ok(html.includes('https://one.example'));
