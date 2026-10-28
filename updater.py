@@ -19,7 +19,6 @@ from concurrent.futures import ThreadPoolExecutor
 # AZƏRTAC, Report və News.az GitHub runner IP-lərindən 403 alır.
 # Birbaşa lent alınmayanda Google News RSS (və lazım olanda Telegram önizləməsi) ehtiyatdır.
 AZ_FEEDS = [
-    ("AZƏRTAC Regionlar", "https://azertag.az/rss?cat=regionlar", "Bölgələr"),  # əsas lentdən əvvəl: eyni keçid Bölgələr sayılsın
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
     ("APA Sport",    "https://apasport.az/rss", "İdman"),
@@ -483,9 +482,16 @@ def _to_iso(pub):
         return _norm_iso(now)
 
 _RX = {}
+# Bölgələr siyahısındakı yer adları: söz sonu və ya Azərbaycan hal/mənsubiyyət şəkilçisi ilə bitməlidir
+# («qazax» Qazaxıstanı, «şəki» şəkili, «şirvan» Şirvanşahları tutmasın).
+PLACE_WORDS = {w for w in CATEGORIES["Bölgələr"] if " " not in w and w not in ("rayonunda", "rayonunun", "kəndində", "kəndinin", "bölgələr", "regionlar")}
+_PLACE_SUF = r"(?:n?[ıiuü]n|n?[ıiuü]|[dt][aə]n?|y?[aə]|l[ıiuü](?:lar|lər)?)?(?=$|[^\w])"
+
 def _rx(w):
     """Söz başlanğıcına bağlı axtarış (sonu sərbəst: şəkilçilər üçün)."""
     r = _RX.get(w)
+    if r is None and w in PLACE_WORDS:
+        r = _RX[w] = re.compile(r"(?<!\w)" + re.escape(norm_az(w)) + _PLACE_SUF)
     if r is None:
         # ABŞ sözünü Abşeron kimi yer adları ilə qarışdırma.
         suffix = r"(?=$|[^\w]|[-’'])" if w in ("abş", "abd") else r"(?!et|ет)" if w in ("bank", "банк") else ""
@@ -524,6 +530,8 @@ def categorize(title, desc, lang="az", hint=None, world=False):
         scores[cat] = hits
     if any(norm_az(s) in blob for s in STOPWORDS):
         scores["İqtisadiyyat"] = 0
+    if world:
+        scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
     if hint and scores.get("Prezident", 0) < 6:
         return hint
     best = max(scores, key=scores.get)
@@ -1067,6 +1075,38 @@ def parse_president_page(page):
             "image": image, "author": "", "video": "news-video" in cls,
         })
     return out
+
+AZERTAG_REGIONS = "https://azertag.az/bolme/regionlar"
+_AZR_ITEM = re.compile(r'sa-post mid-post(.*?)</h2>', re.S)
+
+def parse_azertag_regions(html):
+    """azertag.az/bolme/regionlar: «REGİONLAR» blokundakı kartlar (keçid, başlıq, tarix «28.10.2026 [14:19]», şəkil)."""
+    start = html.find("REGİONLAR")
+    body = html[start:] if start >= 0 else html
+    items = []
+    for chunk in _AZR_ITEM.findall(body):
+        href = re.search(r'href="(/xeber/[^"]+)"', chunk)
+        title = re.search(r"alt='([^']+)'", chunk) or re.search(r'alt="([^"]+)"', chunk)
+        if not title:
+            title = re.search(r'class="entry-title">\s*<a[^>]*>(.*?)</a>', chunk, re.S)
+        date = re.search(r"(\d{2})\.(\d{2})\.(\d{4}) \[(\d{2}):(\d{2})\]", chunk)
+        img = re.search(r"data-src='([^']+)'", chunk) or re.search(r'data-src="([^"]+)"', chunk)
+        if not (href and title and date):
+            continue
+        d, m, y, hh, mm = (int(x) for x in date.groups())
+        link = "https://azertag.az" + href.group(1)
+        items.append({"title": _clean_text(title.group(1)), "link": link, "description": "",
+                      "pubDate": datetime.datetime(y, m, d, hh, mm, tzinfo=BAKU).isoformat(timespec="seconds"),
+                      "image": _abs_img(img.group(1), link) if img else None, "author": ""})
+    return items
+
+def azertag_regions():
+    """(keçidlər dəsti, maddələr, xəta). Lentdəki eyni keçidlər Bölgələr sayılır; lentdə olmayanlar ayrıca əlavə olunur."""
+    try:
+        items = parse_azertag_regions(fetch_text(AZERTAG_REGIONS))
+        return {it["link"] for it in items}, items, None
+    except Exception as e:
+        return set(), [], f"{type(e).__name__}: {str(e)[:80]}"
 
 def official_items():
     """Prezident və birinci xanımın rəsmi səhifələri.
@@ -2147,13 +2187,17 @@ def main():
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
     old = [a for a in old if not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
     hints = {f[0]: f[3] for f in FEEDS}
+    region_links, region_items, region_err = azertag_regions()
     for a in old:
+        if a.get("source") == "AZƏRTAC Regionlar":  # köhnə saxta mənbə adı (lent ümumi lentin eynisi idi)
+            a["source"] = "AZƏRTAC"
         # köhnə xəbərlərin dili yoxdursa — avtomatik təyin et (süzgəcin düzgün işləməsi üçün)
         if not a.get("lang"):
             a["lang"] = detect_lang(a.get("title", ""), a.get("summary", ""), "")
         # köhnə xəbərləri də yenilənmiş qaydalarla yenidən kateqoriyalaşdır
         lbl = label_for(a.get("title", ""), a.get("summary", ""), a["lang"],
-                        hints.get(a.get("source")), a.get("source") in WORLD_SOURCES)
+                        "Bölgələr" if a.get("sourceUrl") in region_links else hints.get(a.get("source")),
+                        a.get("source") in WORLD_SOURCES)
         if a.get("source") in ("Prezident.az", "Mehriban Əliyeva"):
             lbl = "Prezident"
         a["category"] = SLUGS.get(lbl, "gundem")
@@ -2205,13 +2249,19 @@ def main():
                     undated += 1
                 if is_negative_about_leadership(it["title"], it["description"], source):
                     continue
-                art = make_article(it, source, dlang, hint)
+                art = make_article(it, source, dlang, "Bölgələr" if it["link"] in region_links else hint)
                 if foreign_about_azerbaijan(source, art["category"], art["title"], art["summary"]):
                     continue
                 new_items.append(art)
             except Exception as e:
                 errors.append(f"{source} (element): {type(e).__name__}")
     off_items, off_errors = official_items()
+    # AZƏRTAC Regionlar səhifəsi: lentdə olmayan bölgə xəbərləri (səhifənin öz tarixi ilə)
+    source_rows.append({"name": "AZƏRTAC Regionlar", "url": AZERTAG_REGIONS, "count": len(region_items), "error": region_err})
+    if region_err:
+        errors.append(f"AZƏRTAC Regionlar: {region_err}")
+    for it in region_items:
+        off_items.append(("AZƏRTAC", "az", "Bölgələr", None, it))
     errors.extend(off_errors)
     source_rows.extend(official_source_rows(off_items, off_errors))
     for source, dlang, hint, force, it in off_items:

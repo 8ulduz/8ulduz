@@ -20,6 +20,28 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(updater.label_for("Qarabağ Sabahla heç-heçə etdi", "futbol", "az"), "İdman")
         self.assertEqual(updater.SLUGS["Bölgələr"], "bolgeler")
 
+    def test_regions_are_only_azerbaijani_places(self):
+        # Yer adı ölkə/başqa söz kimi davam edirsə uyğun deyil; hal şəkilçiləri ilə uyğundur
+        self.assertNotEqual(updater.label_for("Tokayev Qazaxıstanı belə dəyişir", "", "az"), "Bölgələr")
+        self.assertNotEqual(updater.label_for("Şəkildə görünən şəxs tapılıb", "", "az"), "Bölgələr")
+        self.assertEqual(updater.label_for("Şəkidə yeni park istifadəyə verilib", "", "az"), "Bölgələr")
+        self.assertEqual(updater.label_for("Qazaxın mərkəzində yeni park istifadəyə verilib", "", "az"), "Bölgələr")
+        self.assertEqual(updater.label_for("Şuşaya gedən yolda yeni park istifadəyə verilib", "", "az"), "Bölgələr")
+        # xarici mənbədə Bölgələr yoxdur
+        self.assertNotEqual(updater.label_for("Naxçıvanda sərgi açılıb", "", "az", world=True), "Bölgələr")
+
+    def test_azertag_regions_page_parser(self):
+        html = ('<h1> REGİONLAR </h1><div class="latest-news"><div class="sa-post mid-post"><a href="/xeber/berdede_terror-4484583">'
+                "<img data-src='/files/2026/3/1200x630/a.jpg?v=1' alt='Bərdədə terror qurbanlarının xatirəsi anılıb' class='lazyload'></a>"
+                '<ul class="global-list"><li>28.10.2026 [14:19]</li></ul><h2 class="entry-title"><a href="/xeber/berdede_terror-4484583">x</a></h2>'
+                '<div class="sa-post mid-post"><a href="/xeber/no_date-1"><img alt="Tarixsiz"></a><h2 class="entry-title"></h2>')
+        items = updater.parse_azertag_regions(html)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["title"], "Bərdədə terror qurbanlarının xatirəsi anılıb")
+        self.assertEqual(items[0]["link"], "https://azertag.az/xeber/berdede_terror-4484583")
+        self.assertEqual(items[0]["pubDate"], "2026-10-28T14:19:00+04:00")
+        self.assertTrue(items[0]["image"].startswith("https://azertag.az/files/"))
+
     def test_education_and_health_sections(self):
         self.assertEqual(updater.label_for("Məktəblərdə buraxılış imtahanının tarixi açıqlandı", "", "az"), "Təhsil")
         self.assertEqual(updater.label_for("Xəstəxanada yeni cərrahiyyə şöbəsi açılıb", "Həkimlər pasiyentləri qəbul edir.", "az"), "Səhiyyə")
