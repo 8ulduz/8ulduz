@@ -567,7 +567,7 @@ function shell() {
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search"></label>
   </div><div class="langstick" id="langstick"></div></header>
   <div id="ticker"></div>
-  <details class="markets" id="markets" hidden><summary class="wrap service-title">Valyuta və bazarlar ▾</summary><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></details>
+  <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
   <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${esc(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
@@ -687,6 +687,37 @@ function renderTicker() {
     ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
     : "";
   $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ ${tickerLabel(breaking.length)}${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
+  startTicker();
+}
+// Lentin hərəkəti Web Animations API ilədir: CSS animasiyası telefonlarda «hərəkəti azalt» rejimində (CSS-də
+// animation:none) və toxunuşdan sonra ilişən :hover üzündən dayanırdı; JS animasiyası bu qaydalardan asılı deyil və
+// CSS kimi kompozitorda hamar işləyir. Siçan üstündə ikən dayanır; barmaq/siçanla çəkmək olur, buraxandan 1.5 s sonra davam edir.
+const TICK_SPEED = 55; // px/s
+let tickAnim = null, tickT = 0, tickMoved = false;
+function startTicker() {
+  const run = $("#ticker .run"), track = $("#ticker .track");
+  if (!run || !track || typeof track.animate !== "function") return;
+  track.style.animation = "none";
+  if (tickAnim) { try { tickAnim.cancel(); } catch {} tickAnim = null; }
+  clearTimeout(tickT);
+  const half = track.scrollWidth / 2;
+  if (!(half > 0)) return;
+  const dur = half / TICK_SPEED * 1000;
+  const anim = tickAnim = track.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-half}px)` }], { duration: dur, iterations: Infinity });
+  let drag = null;
+  const resume = ms => { clearTimeout(tickT); tickT = setTimeout(() => { if (!drag && tickAnim === anim) anim.play(); }, ms); };
+  run.onpointerdown = e => { if (e.button) return; drag = { x: e.clientX, t: Number(anim.currentTime) || 0 }; tickMoved = false; clearTimeout(tickT); anim.pause(); };
+  run.onpointermove = e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 6) tickMoved = true;
+    anim.currentTime = (((drag.t - dx / half * dur) % dur) + dur) % dur; // sağa çəkmək = geriyə
+  };
+  const end = () => { if (!drag) return; drag = null; resume(1500); };
+  run.onpointerup = end; run.onpointercancel = end;
+  run.onpointerleave = e => { end(); if (e.pointerType === "mouse") resume(0); };
+  run.onpointerenter = e => { if (e.pointerType === "mouse" && matchMedia("(hover:hover)").matches) { clearTimeout(tickT); anim.pause(); } };
+  run.onclick = e => { if (tickMoved) { e.preventDefault(); e.stopPropagation(); tickMoved = false; } };
 }
 // Son 15 dəqiqədə xəbər yoxdursa lent «Son dəqiqə» yox, «Son xəbərlər» adlanır (köhnə xəbər təzə kimi təqdim olunmasın)
 const tickerLabel = fresh => fresh > 0 ? "Son dəqiqə" : "Son xəbərlər";

@@ -52,6 +52,8 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 ## Oxucu
 
 - Dil süzgəci standart olaraq «Azərbaycan dilində»dir; «Hamısı» və ya başqa dil seçimi bu cihazda qalır (`8ulduz-lang`).
+- Redaksiya süzgəci (`is_negative_about_leadership`): rəhbərlik və dövlət qurumları (`LEADERSHIP`, az/ru/en/tr) neqativ sözlərlə (`NEGATIVE`) birlikdə gələndə, həmçinin müxalif çərçivə ifadələri və müxalif partiya/media adları (`OPPOSITION`) olanda xəbər dərc edilmir; rəsmi səhifələr istisnadır. Müxalif mənbələr lentdə yoxdur. Xarici mənbələrin Azərbaycan dövləti haqqında xəbərləri də dərc edilmir (idman istisna).
+- Son dəqiqə lenti Web Animations API ilə hərəkət edir (telefonda «hərəkəti azalt» rejimində də axır), barmaqla/siçanla çəkilir, siçan üstündə dayanır. Valyuta zolağı həmişə görünən 26px çiplərdir. Toxunma ekranında karusel oxları gizlidir (sürüşdürmə ilə).
 - Baş səhifədəki hero (böyük kart + 8 yan kart) ən yeni xəbərləri yox, son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir (`heroPick`; az olanda pəncərə 48 saata genişlənir). Prezident xəbərləri Zuğulba blokunda olduğu üçün hero-ya düşmür. Ayrıca «Günün 5 əsas xəbəri» bloku buna görə çıxarılıb.
 - «Son dəqiqə» nişanı və bildiriş yalnız son 15 dəqiqənin xəbərləri üçündür və yalnız lentdə və hero-da görünür; «Son dəqiqə» bölməsi isə son bir saatı əhatə edir.
 - Tıxac keçidi bir yerdədir: masaüstündə naviqasiyada, dar ekranda alt paneldə. Qırmızı nöqtə yalnız pik saatda və ya təzə yol hadisəsində çıxır.

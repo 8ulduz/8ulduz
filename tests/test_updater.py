@@ -205,6 +205,20 @@ class DateAndFilterTest(unittest.TestCase):
         self.assertFalse(updater.is_negative_about_leadership("Prezident tənqid olundu", "", "Trend"))  # ümumi «prezident» sözü kifayət deyil
         self.assertFalse(updater.is_negative_about_leadership("İlham Əliyev korrupsiyaya qarşı fərman imzalayıb", "", "Prezident.az"))
 
+    def test_strong_filter_covers_state_institutions_and_opposition_framing(self):
+        neg = updater.is_negative_about_leadership
+        self.assertTrue(neg("Hakimiyyət jurnalistlərə təzyiq göstərir", "", "Trend"))
+        self.assertTrue(neg("Milli Məclisin qərarı tənqid olundu", "", "APA"))
+        self.assertTrue(neg("Birinci vitse-prezidentin fondu ittiham edildi", "", "Oxu.az"))
+        self.assertTrue(neg("Hüquq müdafiəçiləri siyasi məhbusların azadlığını tələb edir", "", "Trend"))  # rəhbərlik adı olmadan da
+        self.assertTrue(neg("Милли Шура провела митинг", "Оппозиция", "Vesti.az"))
+        self.assertTrue(neg("Baku authorities accused of crackdown", "", "Azernews"))
+        self.assertTrue(neg("Aliyev yönetimi eleştirildi", "", "Hürriyet"))
+        self.assertFalse(neg("Hakimiyyət yeni sosial paketi təsdiqlədi", "", "Trend"))
+        self.assertFalse(neg("Fransa hökuməti istefaya çağırılıb", "", "Trend"))
+        self.assertFalse(neg("Milli Məclis yeni qanun qəbul etdi", "", "APA"))
+        self.assertNotIn("Meydan TV", [f[0] for f in updater.FEEDS])
+
     def test_official_template_titles_do_not_merge_and_alts_never_repeat_a_primary(self):
         base = {"summary": "", "imageUrl": None, "category": "prezident", "lang": "az"}
         a = dict(base, source="Prezident.az", title="İlham Əliyev Niderlandın xarici işlər nazirini qəbul edib",

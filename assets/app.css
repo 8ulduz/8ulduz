@@ -155,8 +155,9 @@ nav.main a.nav-tix{position:relative}
 .ticker .lbl{flex:none;display:flex;align-items:center;gap:6px;background:var(--red);color:#fff;font-weight:800;font-size:0.7857rem;text-transform:uppercase;letter-spacing:.06em;padding:0 12px}
 .ticker .lbl .bell{letter-spacing:0;text-transform:none;background:#ffffff22;color:#fff;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:800}
 .ticker .lbl .bell.on{background:#fff;color:var(--red)}
-.ticker .run{flex:1;overflow:hidden;padding:7px 0}
-.ticker .track{display:flex;gap:36px;width:max-content;animation:marquee 90s linear infinite;padding-left:20px}
+.ticker .run{flex:1;overflow:hidden;padding:7px 0;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
+.ticker .run:active{cursor:grabbing}
+.ticker .track{display:flex;gap:36px;width:max-content;animation:marquee 90s linear infinite;padding-left:20px;will-change:transform}
 /* Yalnız siçanla dayandır: toxunma ekranında «hover» toxunuşdan sonra ilişib qalır və lent tamam dayanırdı */
 @media (hover:hover){.ticker:hover .track{animation-play-state:paused}}
 .ticker .run{-webkit-overflow-scrolling:touch}
@@ -168,21 +169,17 @@ nav.main a.nav-tix{position:relative}
 
 /* --- bazar kartları: ortada, kənarlarda boşluq, xəbər kartından ayrı rəng --- */
 .markets{border-bottom:1px solid var(--border);background:transparent}
-.mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:8px 0}
+.mk-grid{display:flex;flex-wrap:nowrap;align-items:center;justify-content:safe center;gap:6px;overflow-x:auto;scrollbar-width:none;padding:5px 0;margin:0}
+.mk-grid::-webkit-scrollbar{display:none}
 button.mk{font:inherit;color:inherit;padding:0;text-align:left;cursor:pointer}
-.mk{flex:0 0 92px;width:92px;display:flex;flex-direction:column;border:1px solid var(--mk-border);border-radius:8px;overflow:hidden;min-width:0;
+.mk{flex:0 0 auto;display:flex;flex-direction:row;align-items:center;gap:5px;height:26px;padding:0 3px 0 8px;border:1px solid var(--mk-border);border-radius:999px;min-width:0;
   background:linear-gradient(180deg,var(--mk-a),var(--mk-b));box-shadow:inset 0 1px 0 hsl(43 80% 70%/.14)}
-.mk .n{padding:4px 6px 0;font-size:0.7143rem;font-weight:700;color:var(--mk-label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mk .v{padding:0 6px 3px;font-size:0.9286rem;font-weight:800;white-space:nowrap;color:var(--fg)}
-.mk .v small{font-size:0.6429rem;font-weight:700;color:var(--mk-unit);margin-left:2px}
-.mk .c{margin-top:auto;display:flex;justify-content:space-between;gap:4px;padding:2px 5px;font-size:0.6786rem;font-weight:700;color:#fff;background:var(--mk-chg)}
+.mk .n{font-size:0.7143rem;font-weight:700;color:var(--mk-label);white-space:nowrap}
+.mk .v{font-size:0.8571rem;font-weight:800;white-space:nowrap;color:var(--fg)}
+.mk .v small{font-size:0.6429rem;font-weight:700;color:var(--mk-unit);margin-left:1px}
+.mk .c{display:flex;align-items:center;gap:4px;height:18px;padding:0 6px;border-radius:999px;font-size:0.6429rem;font-weight:700;white-space:nowrap;color:#fff;background:var(--mk-chg)}
 .mk .c.up{background:#047857}.mk .c.down{background:#b91c1c}.mk .c.flat{color:var(--mk-flat-fg);background:var(--mk-flat)}
-@media (max-width:720px){
-  .mk-grid{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;max-width:none;margin:0;padding:6px 0}
-  .mk-grid::-webkit-scrollbar{display:none}
-  .mk{flex:0 0 86px;width:86px}
-  .mk .v{font-size:0.8929rem}
-}
+@media (max-width:720px){.mk-grid{justify-content:flex-start;padding:4px 0}}
 
 /* --- filtr zolağı --- */
 .filters{border-bottom:1px solid hsl(222 24% 16%/.6)}
@@ -545,6 +542,7 @@ footer .logo i{width:26px;height:26px}
 .st-btn:active{transform:scale(.96)}
 .st-btn.off{opacity:.35!important;cursor:default;transform:none}
 .st-btn.off:hover{background:rgba(255,255,255,.88)}
+@media (hover:none){.st-btn{display:none!important}}
 .st-prev{left:8px}.st-next{right:8px}
 :root[data-theme="light"] .st-btn{background:rgba(20,24,36,.78);color:#fff}
 :root[data-theme="light"] .st-btn:hover{background:rgba(20,24,36,.95)}

@@ -58,7 +58,6 @@ AZ_FEEDS = [
     ("Vesti.az",     "https://vesti.az/rss"),
     ("İnterPress",   "https://interpress.az/feed"),
     ("Kulis.az",     "https://kulis.az/rss"),
-    ("Meydan TV",    "https://www.meydan.tv/feed/"),
     ("Sia.az",       "https://sia.az/az/rss/"),
     ("Haqqin.az",    "https://haqqin.az/rss.xml"),
     ("Metbuat",      "https://metbuat.az/rss.xml"),
@@ -552,19 +551,52 @@ def is_junk(link):
 # Rəhbərlik/ölkə haqqında NEGATİV xəbərlər göstərilmir (redaksiya qərarı)
 # Yalnız açıq adlar: «prezident», «rəhbərlik», «алиев» kimi ümumi sözlər xarici dövlət başçıları
 # haqqında xəbərləri və rəsmi xronikanı da süzürdü.
+# Rəhbərlik və dövlət: açıq adlar, vəzifələr və qurumlar (az/ru/en/tr). Ümumi «prezident» sözü xarici dövlət
+# başçılarını da tutduğu üçün tək başına kifayət deyil; «hakimiyyət»/«iqtidar» Azərbaycan mənbələrində demək olar
+# həmişə Azərbaycan hakimiyyətidir. Xarici mənbələrdə Azərbaycan dövləti haqqında xəbərlər onsuz da dərc edilmir.
 LEADERSHIP = [
-    "ilham əliyev", "ilham əliyevin", "mehriban əliyeva", "birinci xanım", "azərbaycan prezidenti",
-    "azərbaycan hökuməti", "azərbaycan rəhbərliyi", "prezident aparatı",
-    "ильхам алиев", "мехрибан алиева", "президент азербайджана", "президента азербайджана",
-    "президентом азербайджана", "первой леди", "ilham aliyev", "mehriban aliyeva",
+    "ilham əliyev", "ilham əliyevin", "ilham əliyevə", "mehriban əliyeva", "birinci xanım", "birinci vitse-prezident",
+    "azərbaycan prezidenti", "prezident ilham", "cənab prezident", "dövlət başçısı", "əliyevlər", "əliyev ailəsi", "heydər əliyev",
+    "azərbaycan hökuməti", "azərbaycan rəhbərliyi", "azərbaycan hakimiyyəti", "azərbaycan dövləti", "hakimiyyət", "iqtidar",
+    "prezident aparatı", "prezident administrasiyası", "milli məclis", "nazirlər kabineti", "yeni azərbaycan partiyası", "yap-",
+    "ильхам алиев", "ильхама алиева", "мехрибан алиева", "первой леди", "первый вице-президент", "президент азербайджана",
+    "президента азербайджана", "президентом азербайджана", "власти азербайджана", "правительство азербайджана",
+    "правительства азербайджана", "алиев", "алиева",
+    "ilham aliyev", "mehriban aliyeva", "aliyev", "azerbaijani government", "azerbaijani authorities", "azerbaijan's government",
+    "baku authorities", "azerbaycan cumhurbaşkanı", "aliyev yönetimi", "azerbaycan hükümeti", "azerbaycan yönetimi",
 ]
+# Neqativ çağrışım (rəhbərlik/dövlət adı ilə birlikdə). Söz başlanğıcına görə axtarılır.
 NEGATIVE = [
     "tənqid", "etiraz", "protest", "korrupsiya", "rüşvət", "yolsuzluq",
     "qalmaqal", "mübahisə", "həbs", "tutuklama", "gözaltı", "qanunsuz",
     "insan haqları", "repressiya", "təzyiq", "itiraz", "boykot", "işgəncə",
     "təqsirləndir", "məhkəmə hökmü", "cinayət", "satınalma qalmaqalı",
-    "критик", "протест", "коррупц", "арест", "задержан", "незаконн", "обвин",
-    "eleştiri", "protesto", "yolsuzluk", "rüşvet", "eleştirmek", "tutuklandı",
+    "ittiham", "istefaya çağır", "istefa tələb", "sanksiya", "qınad", "qınam", "pisləd", "pisləy", "skandal", "rüsvay",
+    "yalan", "aldad", "dələduz", "oğurl", "talan", "fırıldaq", "saxtakar", "saxta", "özbaşınalıq", "zorakılıq",
+    "təhqir", "ələ sal", "karikatura", "nifrət", "qəzəb", "narazılıq", "uğursuz", "iflas", "günahkar", "məsuliyyət daşıyır",
+    "diktator", "diktatura", "avtoritar", "monarx", "nepotizm", "oliqarx", "klan", "müxalif", "hakim rejim",
+    "критик", "протест", "коррупц", "арест", "задержан", "незаконн", "обвин", "отставк", "санкци", "осудил", "осужда",
+    "скандал", "ложь", "лжив", "мошенн", "фальсифик", "диктат", "авторитар", "олигарх", "клан", "непотизм",
+    "политзаключ", "репресс", "преследован", "правозащит", "цензур",
+    "accus", "resign", "sanction", "condemn", "scandal", "fraud", "rigged", "regime", "dictator", "authoritarian",
+    "oligarch", "nepotism", "political prisoner", "repression", "crackdown", "persecut", "human rights", "censorship",
+    "jailed", "imprison", "dynasty", "corrupt", "abuse",
+    "eleştiri", "protesto", "yolsuzluk", "rüşvet", "eleştirmek", "tutuklandı", "suçla", "yaptırım", "kınad", "dolandır",
+    "hile", "diktatör", "otoriter", "oligark", "siyasi tutuklu", "baskı", "zulüm", "sansür",
+]
+# Müxalif/tənqidi çərçivə: rəhbərlik adı çəkilməsə də dərc edilmir (Azərbaycan siyasi kontekstinin ifadələri,
+# müxalif partiya/media adları). Rəsmi mənbələr istisnadır.
+OPPOSITION = [
+    "əliyev rejimi", "əliyevlər rejimi", "aliyev rejimi", "aliyev regime", "aliyev's regime", "режим алиев", "диктатура алиев",
+    "diktator əliyev", "hakim rejim", "avtoritar rejim", "siyasi məhbus", "vicdan məhbusu", "məhbus jurnalist", "jurnalist həbs",
+    "repressiya", "saxta seçki", "seçki saxtakarlığı", "seçkilərin saxtalaşdırılması", "siyasi təqib", "siyasi həbs",
+    "insan haqları pozuntu", "insan hüquqları pozuntu", "mətbuat azadlığı sıralama", "söz azadlığı pozul",
+    "политзаключенн", "политический заключенн", "репрессии в азербайджане", "азербайджанский режим",
+    "political prisoner", "crackdown in azerbaijan", "azerbaijan crackdown", "azerbaijani regime", "authoritarian azerbaijan",
+    "azerbaijan's authoritarian", "jailed journalist", "human rights in azerbaijan", "azerbaijan human rights",
+    "press freedom in azerbaijan", "siyasi tutuklu", "azerbaycan rejimi", "aliyev diktatörlüğü",
+    "milli şura", "axcp", "müsavat partiyası", "əli kərimli", "cəmil həsənli", "meydan tv", "abzas media", "toplum tv",
+    "azadlıq radiosu", "mikroskop media", "turan informasiya agentliyi", "милли шура", "али керимли", "джамиль гасанли",
 ]
 
 # Xarici mənbələrin Azərbaycan dövləti və rəhbərliyi haqqında xəbərləri dərc edilmir (redaksiya qərarı);
@@ -584,6 +616,8 @@ def is_negative_about_leadership(title, desc, source=None):
     if source in ("Prezident.az", "Mehriban Əliyeva"):
         return False
     blob = norm_az(title + " " + desc)
+    if any(_rx(w).search(blob) for w in OPPOSITION):
+        return True
     if not any(_rx(w).search(blob) for w in LEADERSHIP):
         return False
     return any(_rx(w).search(blob) for w in NEGATIVE)
