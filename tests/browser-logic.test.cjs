@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, frontAppointments, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock};`, context);
   return context;
 }
 
@@ -160,6 +160,29 @@ test('social posts are ordered by time only and show the reporting source', () =
   const html = ctx.api.socialBlock(true);
   assert.ok(html.includes('<span class="via">Report.az</span>'));
   assert.ok(html.indexOf('yeni') < html.indexOf('orta'));
+});
+
+test('appointment and dismissal news come first; Zuğulba includes AZƏRTAC', () => {
+  const ctx = app();
+  const now = Date.now();
+  const at = h => new Date(now - h * 3600e3).toISOString();
+  assert.ok(ctx.api.isAppointment({ title: 'Yeni icra başçısı təyin edilib' }));
+  assert.ok(ctx.api.isAppointment({ title: 'Nazir vəzifəsindən azad olunub' }));
+  assert.ok(!ctx.api.isAppointment({ title: 'Girov azad edilib' }));
+  const list = [
+    { id: 1, title: 'Hava proqnozu', publishedAt: at(1) },
+    { id: 2, title: 'Rektor vəzifəsindən azad edilib', publishedAt: at(5) },
+    { id: 3, title: 'Səfir təyin olunub', publishedAt: at(50) }, // 36 saatdan köhnə: adi sırada
+  ];
+  assert.deepEqual([...ctx.api.frontAppointments(list).map(a => a.id)], [2, 1, 3]);
+  const prez = [
+    { id: 'a', category: 'prezident', source: 'AZƏRTAC', title: 'Prezident İlham Əliyev təbrik edib', publishedAt: at(2) },
+    { id: 'b', category: 'prezident', source: 'APA', title: 'Prezident qəbul edib', publishedAt: at(1) },
+    { id: 'c', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev sərəncam imzalayıb: yeni rəis təyin edilib', publishedAt: at(3) },
+  ];
+  const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
+  assert.ok(ids.includes('a') && !ids.includes('b'));
+  assert.equal(ids[0], 'c'); // təyinat önə
 });
 
 test('raw links are stripped from headlines', () => {

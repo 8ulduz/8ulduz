@@ -134,13 +134,24 @@ const isFirstLady = a => !!a && flText(a.title);
 // Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
+// Zuğulba xronikasında rəsmi səhifələrlə yanaşı əsas dövlət saytlarının (AZƏRTAC) prezident xəbərləri də görünür.
+const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)"]);
+// Vəzifəyə təyinat / vəzifədən azad etmə xəbərləri ön sıralarda: son 36 saat ərzində siyahının başına keçir, hero-da əlavə çəki.
+const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed/iu;
+const isAppointment = a => APPT_RX.test(a?.title || "");
+function frontAppointments(list) {
+  const cut = Date.now() - 36 * HOUR;
+  const hot = [], rest = [];
+  for (const a of list) (isAppointment(a) && new Date(a.publishedAt).getTime() >= cut ? hot : rest).push(a);
+  return hot.length ? [...hot, ...rest] : list;
+}
 // Əsas blok: əvvəl Prezident (ən yeni), sonra Birinci xanım (ən yeni). Hər iki qrup görünsün.
 function prezHome(list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
-  // Yalnız rəsmi mənbələr: president.az, mehriban-aliyeva.az (agentliklərin xəbərləri «Hamısı» səhifəsində qalır)
-  const prez = list.filter(a => a.category === "prezident" && OFFICIAL_SRC.has(a.source));
-  const president = byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY));
+  // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və əsas dövlət saytları (AZƏRTAC); digər agentliklər «Hamısı» səhifəsində qalır
+  const prez = list.filter(a => a.category === "prezident" && (OFFICIAL_SRC.has(a.source) || STATE_SRC.has(a.source)));
+  const president = frontAppointments(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
   const lady = byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY));
   const MAX = 12;
   const head = 4;
@@ -871,7 +882,7 @@ function prezBlock(list) {
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    <div class="prez-body">${list.length ? `<div class="prez-lent" data-prez-lent tabindex="0" aria-label="Zuğulba xəbərləri">${cards}</div><div class="prez-controls"><button type="button" data-prez-step="-1" aria-label="Əvvəlki Zuğulba xəbəri">↑</button><span>Avtomatik xəbər lenti</span><button type="button" data-prez-step="1" aria-label="Növbəti Zuğulba xəbəri">↓</button><button type="button" data-prez-pause aria-pressed="false" aria-label="Zuğulba lentini dayandır">Ⅱ</button></div>` : ""}
+    <div class="prez-body">${list.length ? `<div class="prez-lent" data-prez-lent tabindex="0" aria-label="Zuğulba xəbərləri">${cards}</div>` : ""}
     <details class="social-details"><summary>Rəsmi sosial hesablar ▾</summary>${socialBlock(false)}</details></div></section>`;
 }
 
@@ -998,7 +1009,7 @@ function skeleton() {
 }
 // Əhəmiyyət: neçə mənbə yazıb (alts), bərabərdirsə daha yeni.
 function rankBySources(list) {
-  return list.map(a => ({ a, n: 1 + (a.alts?.length || 0) }))
+  return list.map(a => ({ a, n: 1 + (a.alts?.length || 0) + (isAppointment(a) ? 2 : 0) }))
     .sort((x, y) => y.n - x.n || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""))
     .map(x => x.a);
 }
@@ -1027,7 +1038,7 @@ function heroPick(list, need = 9) {
 }
 
 function latestBlock(list) {
-  const ranked = S.latestOrder === "sources" ? rankBySources(list) : byDate(list);
+  const ranked = frontAppointments(S.latestOrder === "sources" ? rankBySources(list) : byDate(list));
   const count = S.latestCount || 8;
   return `<section><div class="sec-h"><h2>Son xəbərlər</h2><div class="feed-tabs"><button data-feed="latest" class="pill${S.latestOrder !== "sources" ? " on" : ""}" aria-pressed="${S.latestOrder !== "sources"}">Ən yeni</button><button data-feed="sources" class="pill${S.latestOrder === "sources" ? " on" : ""}" aria-pressed="${S.latestOrder === "sources"}">Ən çox mənbədə</button></div></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
@@ -1040,7 +1051,7 @@ function homeView() {
   const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), 6);
   const used = new Set(hero.map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
-  const secs = homeCats().map(c => catSection(c, byDate(remaining.filter(a => a.category === c.slug)))).join("");
+  const secs = homeCats().map(c => catSection(c, frontAppointments(byDate(remaining.filter(a => a.category === c.slug))))).join("");
   return `<div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
 }
 function articleView(id) {
