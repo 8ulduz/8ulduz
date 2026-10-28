@@ -17,7 +17,7 @@ function isData(url) {
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(STATIC);
-    await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/config.js", "./manifest.webmanifest",
+    await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/assistant.js", "./assets/config.js", "./manifest.webmanifest",
       "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon-maskable-192.png", "./assets/icon-maskable-512.png", "./assets/og-default.png"]);
     await self.skipWaiting();
   })());

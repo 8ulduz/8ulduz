@@ -25,5 +25,5 @@ jobs:
             grep -nE '^(FAIL|ERROR):|Error:|^AssertionError|^  File "' /tmp/ut.txt | head -40 | sed 's/^/::error::/'
             exit 1
           }
-      - run: node --check assets/app.js && node --check sw.js
-      - run: node --test tests/browser-logic.test.cjs
+      - run: node --check assets/app.js && node --check assets/assistant.js && node --check sw.js
+      - run: node --test tests/*.test.cjs
