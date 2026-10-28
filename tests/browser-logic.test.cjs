@@ -290,7 +290,7 @@ test('saved article remains readable after it leaves the live feed', () => {
   ctx.api.storage.setItem('8ulduz-saved',JSON.stringify([saved]));
   const html=ctx.api.articleView('archived');
   assert.ok(html.includes('Saved story'));
-  assert.ok(html.includes('Saved summary'));
+  assert.ok(!html.includes('Saved summary'));
   assert.ok(html.includes('https://example.com/story'));
   assert.ok(!html.includes('artıq lentdə yoxdur'));
   ctx.api.S.data.articles=[{...saved,title:'Updated live title'}];
