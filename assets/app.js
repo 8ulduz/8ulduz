@@ -119,7 +119,10 @@ function today() { const a = new Date(), r = `${DAYS[a.getDay()]}, ${a.getDate()
 const FRESH_MS = 15 * 60e3; // «Son dəqiqə» nişanı və bildiriş: son 15 dəqiqə (əvvəl 1 saat idi, hər kart nişan alırdı)
 const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < FRESH_MS; };
 const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
-const OUT = `target="_blank" rel="noopener noreferrer"`;
+// Mənbəyə keçid: toxunma ekranında eyni vərəqdə açılır (yeni vərəq açılması telefonda gec görünürdü; «Geri» saytı qaytarır),
+// masaüstündə yeni vərəqdə.
+const TOUCH_UI = typeof matchMedia === "function" && matchMedia("(hover:none)").matches;
+const OUT = TOUCH_UI ? `rel="noopener noreferrer"` : `target="_blank" rel="noopener noreferrer"`;
 const TELEGRAM = String(window.SITE_CONFIG?.telegram || "").trim(); // boş: «kanala qoşulun» bloku göstərilmir
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
@@ -1631,6 +1634,18 @@ document.addEventListener("focusout", (e) => {
     scheduleStep(el, LEAVE_MS);
   }, 0);
 });
+// Barmaq/siçan kart üzərinə gələn kimi mənbə saytına əvvəlcədən qoşulur (DNS+TLS); keçid 100–300 ms tez açılır
+const preconnected = new Set();
+document.addEventListener("pointerdown", (e) => {
+  const a = e.target.closest?.("a[href^=http]");
+  if (!a) return;
+  try {
+    const o = new URL(a.href).origin;
+    if (o === location.origin || preconnected.has(o)) return;
+    preconnected.add(o);
+    const l = document.createElement("link"); l.rel = "preconnect"; l.href = o; l.crossOrigin = ""; document.head.appendChild(l);
+  } catch {}
+}, { capture: true, passive: true });
 document.addEventListener("pointerdown", (e) => {
   if (e.pointerType !== "touch") return;
   const el = marqueeOf(e.target);
