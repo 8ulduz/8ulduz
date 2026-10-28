@@ -264,11 +264,12 @@ function collapseExact(list) {
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
 }
-const altBadge = a => a.alts?.length ? `<span class="bd gold">+${a.alts.length} mənbə</span>` : "";
+const detailUrl = a => `#/xeber/${encodeURIComponent(a.id)}`;
+const altBadge = a => a.alts?.length ? `<a class="bd out" href="${detailUrl(a)}#sources">${1 + a.alts.length} mənbə</a>` : "";
 function altPop(a) {
   if (!a.alts?.length) return "";
-  const rows = a.alts.map(r => `<a href="${esc(r.sourceUrl)}" ${OUT}>${esc(r.source)}</a>`).join("");
-  return `<details class="altpop"><summary class="bd gold">+${a.alts.length} mənbə</summary><div>${rows}</div></details>`;
+  const rows = [a, ...a.alts].map(r => `<a href="${esc(r.sourceUrl)}" ${OUT}>${esc(r.source)}</a>`).join("");
+  return `<details class="altpop"><summary class="bd gold">${1 + a.alts.length} mənbə</summary><div>${rows}</div></details>`;
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
 
@@ -285,7 +286,7 @@ function img(a, cls = "", eager = false) {
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
-  return `<div class="badges">${withCat ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}${more}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}</div>`;
+  return `<div class="badges">${withCat ? `<span class="bd" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span>` : ""}${more}${a.video ? `<span class="bd red">▶ Video</span>` : ""}${a.lang && !S.lang ? `<span class="bd out">${esc(LANG_BADGE[a.lang] ?? a.lang.toUpperCase())}</span>` : ""}</div>`;
 }
 function shownSource(a) {
   try {
@@ -294,9 +295,9 @@ function shownSource(a) {
   } catch {}
   return a.source || "";
 }
-const meta = a => `<div class="meta"><span class="src">${esc(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</span><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
-const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" aria-label="${isSaved(a.id) ? "Seçimdən çıxar" : "Seçilmişlərə saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, true, "pop")}<a class="card-hit" href="${esc(a.sourceUrl || "#")}" ${OUT}><h3>${txt(a.title)}</h3>${a.summary && tidy(a.summary) !== tidy(a.title) ? `<p>${txt(a.summary)}</p>` : ""}${meta(a)}</a></div></article>`;
+const meta = a => `<div class="meta"><a class="src" href="${esc(a.sourceUrl)}" ${OUT}>${esc(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
+const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
+const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${detailUrl(a)}"><h3>${txt(a.title)}</h3></a>${a.summary && tidy(a.summary) !== tidy(a.title) ? `<p>${txt(a.summary)}</p>` : ""}${meta(a)}</div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
@@ -528,6 +529,7 @@ async function loadAllWeather() {
 function route() {
   let h = location.hash.replace(/^#/, "") || "/";
   try { h = decodeURIComponent(h); } catch {} // natamam %-kod səhifəni dayandırmasın
+  const article = h.match(/^\/xeber\/([^#?]+)/); if (article) return { name: "article", id: article[1] };
   if (h === "/menbeler" || h.startsWith("/menbeler?")) return { name: "sources" };
   if (h === "/videolent" || h.startsWith("/videolent?")) return { name: "videos" };
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
@@ -548,12 +550,12 @@ function shell() {
   <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
-    <label class="search"><span class="sr" hidden>Axtar</span>
+    <label class="search"><span class="sr">Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search"></label>
   </div><div class="langstick" id="langstick"></div></header>
   <div id="ticker"></div>
-  <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
+  <details class="markets" id="markets" hidden><summary class="wrap service-title">Valyuta və bazarlar ▾</summary><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></details>
   <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
   <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${esc(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
@@ -576,6 +578,8 @@ function shell() {
     renderView();
   });
   document.addEventListener("click", onClick);
+  document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { S.lang = e.target.value || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); } });
+  document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
   window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; syncQuery(); render(); window.scrollTo(0, 0); });
   window.addEventListener("scroll", () => { $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
@@ -652,37 +656,12 @@ function renderTopbar() {
 
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
-  $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` +
-    CATS.map(c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`).join("");
-  fitNav();
-  if (!matchMedia("(min-width: 721px)").matches) { const on = $("#nav a.on"); try { on?.scrollIntoView({ block: "nearest", inline: "center" }); } catch {} }
+  const link = c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`;
+  const primary = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat"];
+  $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") +
+    `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
 }
-function fitNav() {
-  const nav = $("#nav");
-  if (!nav) return;
-  nav.querySelectorAll(".nav-more").forEach(el => el.remove());
-  const links = [...nav.querySelectorAll(":scope > a")];
-  links.forEach(a => { a.hidden = false; });
-  const desktop = matchMedia("(min-width: 721px)").matches;
-  if (!desktop) return;
-  const fits = () => nav.scrollWidth <= nav.clientWidth + 1;
-  if (fits()) return;
-  const tix = links.find(a => a.classList.contains("nav-tix"));
-  const rest = links.filter(a => a !== tix && a.getAttribute("href") !== "#/");
-  const more = document.createElement("details");
-  more.className = "nav-more";
-  more.innerHTML = `<summary>Daha çox ▾</summary><div class="nav-more-pop"></div>`;
-  const pop = more.querySelector(".nav-more-pop");
-  if (tix) nav.insertBefore(more, tix); else nav.appendChild(more);
-  for (let i = rest.length - 1; i >= 0 && !fits(); i--) {
-    rest[i].hidden = true;
-    const clone = rest[i].cloneNode(true);
-    clone.hidden = false;
-    pop.prepend(clone);
-  }
-  if (!pop.children.length) { more.remove(); return; }
-  more.classList.toggle("has-on", [...pop.children].some(a => a.classList.contains("on")));
-}
+function fitNav() {}
 
 function renderTicker() {
   const latest = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === "az"));
@@ -810,19 +789,13 @@ function langButtons(compact) {
   };
   return btn("", "Hamısı", "Hamısı") + LANGS.map(l => btn(l.code, l.label, LANG_BADGE[l.code] || l.code.toUpperCase())).join("");
 }
+function languagePicker() {
+  return `<label class="language-picker">Xəbərlərin dili: <select data-language aria-label="Xəbərlərin dili"><option value=""${!S.lang ? " selected" : ""}>Bütün dillər</option>${LANGS.map(l => `<option value="${l.code}"${S.lang === l.code ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select></label>`;
+}
 function renderLangs() {
-  const row = $("#langs");
-  if (row) row.innerHTML = langButtons(false);
-  const stick = $("#langstick");
-  if (stick) stick.innerHTML = `<div class="wrap">${langButtons(true)}</div>`;
-  syncLangStick();
+  const row = $("#langs"); if (row) row.innerHTML = languagePicker() + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
 }
-function syncLangStick() {
-  const head = document.querySelector("header.site");
-  const filters = document.querySelector(".filters");
-  if (!head || !filters) return;
-  head.classList.toggle("stuck", filters.getBoundingClientRect().bottom <= head.getBoundingClientRect().bottom + 1);
-}
+function syncLangStick() {}
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 
@@ -850,26 +823,20 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  const cards = list.map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${altBadge(a)}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
+  const cards = list.slice(0, 4).map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${detailUrl(a)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    <div class="prez-body">${list.length ? `<div class="prez-grid" data-marquee data-visible="5" data-visible-narrow="4">${cards}</div>` : ""}
-    ${socialBlock(true)}</div></section>`;
+    <div class="prez-body">${list.length ? `<div class="prez-grid">${cards}</div>` : ""}
+    <details class="social-details"><summary>Rəsmi sosial hesablar ▾</summary>${socialBlock(false)}</details></div></section>`;
 }
 
 function heroBlock(list) {
   if (!list.length) return "";
   const main = list.slice(0, 3).find(a => a.imageUrl) ?? list[0];
   const side = list.filter(a => a !== main).slice(0, 4);
-  return `<section class="hero">
-    <a class="hero-main" data-cat="${esc(main.category)}" href="${esc(main.sourceUrl)}" ${OUT}>${img(main, "", true)}<div class="body">
-      <div class="badges"><span class="bd gold" data-cat="${esc(main.category)}"><i class="cdot"></i>${esc(catLabel(main.category))}</span>${altBadge(main)}${isFresh(main) ? `<span class="bd red">Son dəqiqə</span>` : ""}</div>
-      <h1>${txt(main.title)}</h1>
-      <div class="meta"><span class="src">${esc(main.source)}</span><time>${ago(main.publishedAt)}</time></div></div></a>
-    <div class="hero-slot"><div class="hero-side">${side.map(a => `<a class="row-card" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="x"><span class="tag" data-cat="${esc(a.category)}"><i class="cdot"></i>${esc(catLabel(a.category))}</span><span class="t">${txt(a.title)}</span><span class="meta"><span class="src">${esc(a.source)}</span>${a.alts?.length ? `<span class="nsrc">${1 + a.alts.length} mənbə</span>` : ""}<time>${ago(a.publishedAt)}</time></span></div></a>`).join("")}</div></div>
-  </section>`;
+  return `<section class="hero"><article class="hero-main" data-cat="${esc(main.category)}">${img(main, "", true)}<div class="body"><div class="badges">${altBadge(main)}${isFresh(main) && !/son dəqiqə/iu.test(main.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${detailUrl(main)}"><h1>${txt(main.title)}</h1></a>${meta(main)}</div></article><div class="hero-side">${side.map(a => `<article class="row-card">${img(a)}<div class="x"><a class="t" href="${detailUrl(a)}">${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
 }
 
 function alertStrip() {
@@ -980,9 +947,7 @@ function videoBlock(list) {
 
 function catSection(c, list) {
   if (!list.length) return "";
-  // Bölmə bloku da karuseldir: 12 kart, masaüstündə səhifədə 4 (oxlar və nöqtələr setupStrips-dən), qalanı «Hamısı»
-  return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length}</span><a class="more" href="#/bolme/${c.slug}">Hamısı →</a></div>
-    <div class="strip"><div class="secrow">${list.slice(0, 12).map(card).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length} xəbər</span><a class="more" href="#/bolme/${c.slug}">Bütün xəbərlər →</a></div><div class="category-grid${list.length < 4 ? " compact-category" : ""}">${list.slice(0, 4).map(card).join("")}</div></section>`;
 }
 
 function skeleton() {
@@ -1020,14 +985,28 @@ function heroPick(list, need = 9) {
   return diverse(rankBySources(list), need);
 }
 
+function latestBlock(list) {
+  const ranked = S.latestOrder === "sources" ? rankBySources(list) : byDate(list);
+  const count = S.latestCount || 8;
+  return `<section><div class="sec-h"><h2>Son xəbərlər</h2><div class="feed-tabs"><button data-feed="latest" class="pill${S.latestOrder !== "sources" ? " on" : ""}" aria-pressed="${S.latestOrder !== "sources"}">Ən yeni</button><button data-feed="sources" class="pill${S.latestOrder === "sources" ? " on" : ""}" aria-pressed="${S.latestOrder === "sources"}">Ən çox mənbədə</button></div></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
+}
+function unifiedVideo(list) {
+  const hosted = (S.video?.items || []).slice(0, 4);
+  if (!hosted.length && !list.length) return "";
+  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb"><img src="${esc(v.imageUrl || "")}" alt="" loading="lazy"><i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
+}
 function homeView() {
-  const all = S.data.articles, m = filtered(all);
-  const prez = prezHome(m);
-  const vids = byDate(m.filter(a => a.video));
-  const used = new Set();
-  const hero = heroPick(m.filter(a => a.category !== "prezident")); hero.forEach(a => used.add(a.id));
-  const secs = homeCats().map(c => catSection(c, byDate(m.filter(a => a.category === c.slug && !used.has(a.id))))).join("");
-  return `<div class="top2">${heroBlock(hero)}${prezBlock(prez)}</div>` + adHtml() + alertStrip() + ytBlock() + photoStrip(m) + footballBlock(m) + `<section class="topread" hidden aria-hidden="true"></section>` + videoBlock(vids) + secs;
+  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), 5);
+  const used = new Set(hero.map(a => a.id));
+  const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
+  const secs = homeCats().map(c => catSection(c, byDate(remaining.filter(a => a.category === c.slug)))).join("");
+  return `<div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
+}
+function articleView(id) {
+  const a = S.data.articles.find(a => String(a.id) === id);
+  if (!a) return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
+  document.title = tidy(a.title) + " — 8ulduz";
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a) : ""}<p>${txt(a.summary || "")}</p><a class="btn" href="${esc(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${esc(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -1127,7 +1106,7 @@ function renderView() {
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
-  const body = r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
   const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
@@ -1145,22 +1124,22 @@ function sourceLevel(s) {
   return "bad";
 }
 function sourcesView() {
-  const rows = S.sources?.sources;
+  const rows = S.sources?.sources || [...new Set((S.data?.articles || []).map(shownSource))].map(name => ({name}));
   if (!rows) return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Lentlərin son yoxlanması</p></div></div><p class="empty">Yüklənir…</p>`;
   const label = { ok: "İşləyir", warn: "Zəif", bad: "Xəta" };
   const body = rows.map(s => {
-    const lv = sourceLevel(s);
-    return `<li class="src-row ${lv}"><span class="src-dot" aria-hidden="true"></span><div><b>${esc(s.name)}</b><div class="muted">${esc(s.url || "")}</div>${s.error ? `<div class="src-err">${esc(s.error)}</div>` : ""}</div><div class="src-meta"><span>${label[lv]}</span><span>${s.count ?? 0} xəbər</span><time>${s.okAt ? ago(s.okAt) : "uğur yoxdur"}</time></div></li>`;
+    const lv = s.count === undefined ? "unknown" : sourceLevel(s);
+    return `<li class="src-row ${lv}"><span class="src-dot" aria-hidden="true"></span><div><b>${esc(s.name)}</b><div class="muted">${esc(s.url || "")}</div>${s.error ? `<div class="src-err">${esc(s.error)}</div>` : ""}</div><div class="src-meta"><span>${label[lv] || "Yoxlama məlumatı yoxdur"}</span><span>${s.count === undefined ? "—" : s.count + " xəbər"}</span><time>${s.okAt ? ago(s.okAt) : "uğur yoxdur"}</time></div></li>`;
   }).join("");
-  return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Yaşıl — son saatlarda xəbər gəlib. Sarı — boş və ya köhnəlmiş uğur. Qırmızı — xəta.</p></div><span class="cnt">${rows.length}</span></div><ul class="src-list">${body}</ul>`;
+  return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Yaşıl — son saatlarda xəbər gəlib. Sarı — boş və ya köhnəlmiş uğur. Qırmızı — xəta.</p></div><span class="cnt">${rows.length}</span></div><label class="source-search">Mənbə axtar <input type="search" data-source-search placeholder="Mənbənin adı…"></label><ul class="src-list">${body}</ul>`;
 }
 
 function renderFooter() {
   const srcs = [...new Set((S.data?.articles ?? []).map(shownSource))].sort((a, b) => a.localeCompare(b, "az"));
   $("#footer").innerHTML = `<div class="wrap fgrid">
-    <div><div class="logo"><i>${STAR}</i><b>8<span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Başlıq mənbənin öz səhifəsinə açılır.</p></div>
+    <div><div class="logo"><i>${STAR}</i><b>8<span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
-    <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.map(s => `<span>${esc(s)}</span>`).join("")}</div></div>
+    <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${esc(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a></div>`;
 }
 
@@ -1170,10 +1149,10 @@ function aboutView() {
   const gc = String(window.SITE_CONFIG?.goatcounter || "").trim();
   return `<div class="page-h"><div><h1>Haqqımızda</h1><p>8ulduz nədir, necə işləyir və nəyi göstərmir</p></div></div>
   <div class="about">
-    <section><h2>Sayt nədir</h2><p>8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, başlığa klikləyəndə xəbər mənbənin öz saytında açılır. Lent təxminən hər 5 dəqiqədən bir yenilənir.</p></section>
+    <section><h2>Sayt nədir</h2><p>8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, başlığa klikləyəndə xəbər icmalı və mənbələr göstərilir, tam mətn mənbənin saytında açılır. Lent təxminən hər 5 dəqiqədən bir yenilənir.</p></section>
     <section><h2>Mənbələr</h2><p>Hazırda ${srcs.length} mənbə izlənilir. Hər lentin vəziyyətini <a href="#/menbeler">Mənbə vəziyyəti</a> səhifəsində görmək olar.</p><div class="srcs">${srcs.map(s => `<span>${esc(s)}</span>`).join("")}</div></section>
     <section><h2>Redaksiya prinsipləri</h2><ul>
-      <li>Eyni hadisə haqqında yaxın başlıqlı xəbərlər bir kartda birləşir; «+N mənbə» düyməsi digər mənbələri göstərir.</li>
+      <li>Eyni hadisə haqqında yaxın başlıqlı xəbərlər bir kartda birləşir; «N mənbə» düyməsi digər mənbələri göstərir.</li>
       <li>Baş səhifədəki böyük kart və yanındakı siyahı ən yeni xəbəri yox, son saatlarda ən çox mənbədə çıxan xəbərləri göstərir.</li>
       <li>Bölmələr başlıq və xülasədəki açar sözlərə görə avtomatik təyin olunur; səhv ola bilər.</li>
       <li>Dil süzgəci standart olaraq Azərbaycan dilindədir; rus, ingilis və türk dilində xəbərlər «Hamısı» və ya müvafiq dil seçiləndə görünür.</li>
@@ -1209,7 +1188,7 @@ function sectionsView() {
 }
 
 function onClick(e) {
-  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
+  const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
   if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
   if (!t) {
@@ -1238,6 +1217,7 @@ function onClick(e) {
     }
     return;
   }
+  if (t.dataset.feed) { S.latestOrder = t.dataset.feed; S.latestCount = 8; renderView(); return; }
   if (t.dataset.yt) {
     const box = t.querySelector(".thumb");
     if (box && !box.querySelector("iframe")) box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.dataset.yt)}?autoplay=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Video"></iframe>`;
@@ -1250,7 +1230,8 @@ function onClick(e) {
   if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
   const act = t.dataset.act;
-  if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
+  if (act === "latest-more") { S.latestCount = (S.latestCount || 8) + 8; renderView(); }
+  else if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
   else if (act === "wx-back") { S.wxSel = null; renderTopbar(); }
   else if (act === "more") { S.shown += PAGE; renderView(); }
@@ -1465,7 +1446,7 @@ function stopStep(el, snap) {
 // Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
 function setupStrips() {
   document.querySelectorAll(".strip").forEach(strip => {
-    const row = strip.querySelector(".ytrow,.phrow,.vrow,.fb-teams,.secrow");
+    const row = strip.querySelector(".ytrow,.phrow,.vrow,.fb-teams");
     if (!row) return;
     strip.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove());
     // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın

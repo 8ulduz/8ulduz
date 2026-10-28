@@ -11,6 +11,10 @@ import updater
 
 
 class CategoriesTest(unittest.TestCase):
+    def test_title_topic_beats_incidental_region_and_digital_words(self):
+        self.assertEqual(updater.categorize('Naxçıvan Dövlət Kukla Teatrının tamaşasının Bakı premyerası olacaq', '', 'az'), 'Mədəniyyət')
+        self.assertEqual(updater.categorize('Media savadlılığı dini dözümsüzlüklə mübarizədə əsas vasitədir', 'Rəqəmsal mühit imkanlar yaradır', 'az'), 'Cəmiyyət')
+
     def test_turkish_company_revenue_is_economy(self):
         self.assertEqual(updater.label_for("Çimsa'dan 9 ayda 41,8 milyar TL gelir", "", "tr"), "İqtisadiyyat")
 
