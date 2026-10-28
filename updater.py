@@ -1100,22 +1100,20 @@ def parse_azertag_regions(html):
                       "image": _abs_img(img.group(1), link) if img else None, "author": ""})
     return items
 
-def azertag_regions():
-    """(keçidlər dəsti, maddələr, xəta). Lentdəki eyni keçidlər Bölgələr sayılır; lentdə olmayanlar ayrıca əlavə olunur."""
-    try:
-        items = parse_azertag_regions(fetch_text(AZERTAG_REGIONS))
-        return {it["link"] for it in items}, items, None
-    except Exception as e:
-        return set(), [], f"{type(e).__name__}: {str(e)[:80]}"
-
 def official_items():
     """Prezident və birinci xanımın rəsmi səhifələri.
 
     president.az/az/rss əsasən vətəndaş məktublarıdır; xəbərlər /az/news HTML-indədir.
     mehriban-aliyeva.az-da RSS yoxdur, xronika /site/catalogNews-dədir.
     AZƏRTAC (rss-official-chronicle) bir çox şəbəkədən 403 qaytarır, ona görə burada yoxdur.
+    AZƏRTAC-ın Regionlar bölməsinin RSS-i yoxdur (rss?cat=regionlar ümumi lentdir); HTML səhifəsi oxunur.
     """
     items, errors = [], []
+    try:
+        for it in parse_azertag_regions(fetch_text(AZERTAG_REGIONS)):
+            items.append(("AZƏRTAC (Regionlar)", "az", "Bölgələr", None, it))
+    except Exception as e:
+        errors.append(f"AZƏRTAC (Regionlar): {type(e).__name__}: {str(e)[:80]}")
     try:
         page = fetch_text("https://president.az/az/news")
         for it in parse_president_page(page):
@@ -1743,6 +1741,7 @@ def group_duplicates(articles):
 OFFICIAL_FEEDS = (
     ("Prezident.az", "https://president.az/az/news"),
     ("Mehriban Əliyeva", "https://mehriban-aliyeva.az/site/catalogNews"),
+    ("AZƏRTAC (Regionlar)", AZERTAG_REGIONS),
 )
 
 def official_source_rows(off_items, off_errors):
@@ -2187,7 +2186,12 @@ def main():
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
     old = [a for a in old if not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
     hints = {f[0]: f[3] for f in FEEDS}
-    region_links, region_items, region_err = azertag_regions()
+    hints["AZƏRTAC (Regionlar)"] = "Bölgələr"
+    # Rəsmi səhifələr (prezident, birinci xanım, AZƏRTAC Regionlar) əvvəlcədən: Regionlar səhifəsindəki keçidlər
+    # lentdə də gəlsə Bölgələr sayılır
+    off_items, off_errors = official_items()
+    region_links = {t[4]["link"] for t in off_items if t[2] == "Bölgələr"}
+    region_desc = {}
     for a in old:
         if a.get("source") == "AZƏRTAC Regionlar":  # köhnə saxta mənbə adı (lent ümumi lentin eynisi idi)
             a["source"] = "AZƏRTAC"
@@ -2240,6 +2244,9 @@ def main():
             try:
                 if it["link"] in seen or is_junk(it["link"]):
                     continue
+                if it["link"] in region_links:  # Regionlar səhifəsindən gələcək; lentin xülasəsi ona verilir
+                    region_desc[it["link"]] = it.get("description") or ""
+                    continue
                 seen.add(it["link"])
                 if not it.get("pubDate"):
                     iso, lookups = undated_date(it, dates, lookups)
@@ -2249,19 +2256,12 @@ def main():
                     undated += 1
                 if is_negative_about_leadership(it["title"], it["description"], source):
                     continue
-                art = make_article(it, source, dlang, "Bölgələr" if it["link"] in region_links else hint)
+                art = make_article(it, source, dlang, hint)
                 if foreign_about_azerbaijan(source, art["category"], art["title"], art["summary"]):
                     continue
                 new_items.append(art)
             except Exception as e:
                 errors.append(f"{source} (element): {type(e).__name__}")
-    off_items, off_errors = official_items()
-    # AZƏRTAC Regionlar səhifəsi: lentdə olmayan bölgə xəbərləri (səhifənin öz tarixi ilə)
-    source_rows.append({"name": "AZƏRTAC Regionlar", "url": AZERTAG_REGIONS, "count": len(region_items), "error": region_err})
-    if region_err:
-        errors.append(f"AZƏRTAC Regionlar: {region_err}")
-    for it in region_items:
-        off_items.append(("AZƏRTAC", "az", "Bölgələr", None, it))
     errors.extend(off_errors)
     source_rows.extend(official_source_rows(off_items, off_errors))
     for source, dlang, hint, force, it in off_items:
@@ -2271,6 +2271,8 @@ def main():
             seen.add(it["link"])
             if is_negative_about_leadership(it["title"], it["description"], source):
                 continue
+            if hint == "Bölgələr" and not it.get("description"):
+                it = dict(it, description=region_desc.get(it["link"], ""))
             new_items.append(make_article(it, source, dlang, hint, force_label=force))
         except Exception as e:
             errors.append(f"{source} (rəsmi): {type(e).__name__}")

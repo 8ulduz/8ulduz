@@ -18,6 +18,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: python -m unittest discover -s tests -v
+      - name: Python testləri (uğursuzluqlar annotasiya kimi, girişsiz görünür)
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -v 2>&1 | tee /tmp/ut.txt || {
+            grep -nE '^(FAIL|ERROR):|Error:|^AssertionError|^  File "' /tmp/ut.txt | head -40 | sed 's/^/::error::/'
+            exit 1
+          }
       - run: node --check assets/app.js && node --check sw.js
       - run: node --test tests/browser-logic.test.cjs
