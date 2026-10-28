@@ -172,18 +172,18 @@ nav.main a.nav-tix{position:relative}
 /* Valyuta kartları: əvvəlki görünüş (ad / qiymət / dəyişmə sətri), hündürlük bir az azaldılıb (~73px → ~58px); həmişə görünür */
 .mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}
 button.mk{font:inherit;color:inherit;padding:0;text-align:left;cursor:pointer}
-.mk{flex:0 0 92px;width:92px;display:flex;flex-direction:column;border:1px solid var(--mk-border);border-radius:8px;overflow:hidden;min-width:0;line-height:1.2;
+.mk{flex:0 0 auto;width:auto;min-width:92px;display:flex;flex-direction:column;border:1px solid var(--mk-border);border-radius:8px;overflow:hidden;line-height:1.2;
   background:linear-gradient(180deg,var(--mk-a),var(--mk-b));box-shadow:inset 0 1px 0 hsl(43 80% 70%/.14)}
 .mk .n{padding:3px 6px 0;font-size:0.7143rem;font-weight:700;color:var(--mk-label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mk .v{padding:0 6px 2px;font-size:0.8929rem;font-weight:800;white-space:nowrap;color:var(--fg)}
 .mk .v small{font-size:0.6429rem;font-weight:700;color:var(--mk-unit);margin-left:2px}
 .mk .c{margin-top:auto;display:flex;justify-content:space-between;gap:4px;padding:1px 5px;font-size:0.6786rem;font-weight:700;color:#fff;background:var(--mk-chg);white-space:nowrap;overflow:hidden}
-.mk .c span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.mk .c span{flex:none}
 .mk .c.up{background:#047857}.mk .c.down{background:#b91c1c}.mk .c.flat{color:var(--mk-flat-fg);background:var(--mk-flat)}
 @media (max-width:720px){
   .mk-grid{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;max-width:none;margin:0;padding:5px 0}
   .mk-grid::-webkit-scrollbar{display:none}
-  .mk{flex:0 0 86px;width:86px}
+  .mk{flex:0 0 auto;width:auto;min-width:96px}  /* kart məzmununa görə enlənir: artma/azalma sətri kəsilmir */
   .mk .v{font-size:0.8571rem}
 }
 
