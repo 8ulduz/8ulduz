@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, tickerLabel, card, altPop, catSection, articleView, languagePicker};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock};`, context);
   return context;
 }
 
@@ -274,12 +274,12 @@ test('article routes and source controls are independent', () => {
   assert.ok(!html.includes('>AZ</span>'));
 });
 
-test('category previews show at most four stories without a carousel', () => {
+test('category carousels keep twelve stories accessible with arrows', () => {
   const ctx=app();
   const list=Array.from({length:7},(_,i)=>({id:String(i),title:'Test',source:'One',sourceUrl:'https://one.example',category:'gundem',publishedAt:new Date().toISOString()}));
   const html=ctx.api.catSection({slug:'gundem',label:'Gündəm'},list);
-  assert.equal((html.match(/<article /g)||[]).length,4);
-  assert.ok(!html.includes('class="strip"'));
+  assert.equal((html.match(/<article /g)||[]).length,7);
+  assert.ok(html.includes('class="strip category-strip"'));
 });
 
 
@@ -296,4 +296,20 @@ test('saved article remains readable after it leaves the live feed', () => {
   ctx.api.S.data.articles=[{...saved,title:'Updated live title'}];
   assert.ok(ctx.api.articleView('archived').includes('Updated live title'));
   assert.ok(ctx.api.articleView('missing').includes('artıq lentdə yoxdur'));
+});
+
+
+test('photo fallback tries OG and alternate source photos in order', () => {
+  const ctx=app(); ctx.api.S.og={'https://one.example':'https://img.example/og.jpg','https://two.example':'https://img.example/alt-og.jpg'};
+  const images=ctx.api.imageCandidates({imageUrl:'https://img.example/rss.jpg',sourceUrl:'https://one.example',alts:[{imageUrl:'https://img.example/alt.jpg',sourceUrl:'https://two.example'}]});
+  assert.deepEqual(Array.from(images),['https://img.example/rss.jpg','https://img.example/og.jpg','https://img.example/alt.jpg','https://img.example/alt-og.jpg']);
+});
+
+test('hero and Zugulba retain multiple articles for their moving feeds', () => {
+  const ctx=app(); const stories=Array.from({length:8},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,publishedAt:new Date().toISOString()}));
+  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories);
+  assert.ok(hero.includes('class="hero-row"'));
+  assert.equal((hero.match(/class="hero-main"/g)||[]).length,6);
+  assert.ok(prez.includes('data-prez-lent'));
+  assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
 });

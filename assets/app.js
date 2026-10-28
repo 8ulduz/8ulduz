@@ -273,16 +273,16 @@ function altPop(a) {
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
 
-function imgUrl(a) {
-  const u = a?.imageUrl || "";
-  if (!u || /\/(?:resize\/?)?$/.test(u)) return "";
-  return u;
+function imageCandidates(a) {
+  const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
+  return [...new Set(values.filter(u => typeof u === "string" && /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))];
 }
+function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 function img(a, cls = "", eager = false) {
-  const ph = `<svg class="ph" viewBox="0 0 32 32" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
-  const url = imgUrl(a);
-  const src = url ? `<img src="${esc(url)}" alt="" ${eager ? `fetchpriority="high"` : `loading="lazy"`} decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
-  return `<div class="img ${cls}">${ph}${src}</div>`;
+  const [url, ...rest] = imageCandidates(a);
+  const fallback = `<span class="image-fallback"><b>8ULDUZ</b><span>${esc(catLabel(a.category || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
+  const src = url ? `<img src="${esc(url)}" data-image-alternatives="${esc(JSON.stringify(rest))}" alt="" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
+  return `<div class="img ${cls}${url ? "" : " image-unavailable"}">${fallback}${src}</div>`;
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
@@ -300,7 +300,13 @@ const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="
 const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${detailUrl(a)}"><h3>${txt(a.title)}</h3></a>${a.summary && tidy(a.summary) !== tidy(a.title) ? `<p>${txt(a.summary)}</p>` : ""}${meta(a)}</div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
-window.imgFail = el => { const c = el.closest(".card"); if (c) c.classList.add("noimg"); el.remove(); };
+window.imgFail = el => {
+  let rest = []; try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
+  if (rest.length) { el.dataset.imageAlternatives = JSON.stringify(rest.slice(1)); el.src = rest[0]; return; }
+  el.parentElement?.classList.add("image-unavailable");
+  const c = el.closest(".card"); if (c) c.classList.add("noimg");
+  el.remove();
+};
 
 /* ---------------------------------------------------------------- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
@@ -478,11 +484,11 @@ async function loadNews() {
 }
 
 async function loadOg() {
-  if (S.og) return;
+  if (S.og && Date.now() - (S.ogLoadedAt || 0) < 60000) return;
   try {
     const r = await fetch(freshUrl("data/og.json"), { cache: "no-store" });
     const d = r.ok ? await r.json() : {};
-    S.og = d && typeof d === "object" && !Array.isArray(d) ? d : {};
+    S.og = d && typeof d === "object" && !Array.isArray(d) ? d : {}; S.ogLoadedAt = Date.now();
   } catch { S.og = {}; }
 }
 async function loadMarkets() {
@@ -823,20 +829,18 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  const cards = list.slice(0, 4).map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${detailUrl(a)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
+  const cards = list.map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${detailUrl(a)}"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
-    <div class="prez-body">${list.length ? `<div class="prez-grid">${cards}</div>` : ""}
+    <div class="prez-body">${list.length ? `<div class="prez-lent" data-prez-lent tabindex="0" aria-label="Zuğulba xəbərləri">${cards}</div><div class="prez-controls"><button type="button" data-prez-step="-1" aria-label="Əvvəlki Zuğulba xəbəri">↑</button><span>Avtomatik xəbər lenti</span><button type="button" data-prez-step="1" aria-label="Növbəti Zuğulba xəbəri">↓</button><button type="button" data-prez-pause aria-pressed="false" aria-label="Zuğulba lentini dayandır">Ⅱ</button></div>` : ""}
     <details class="social-details"><summary>Rəsmi sosial hesablar ▾</summary>${socialBlock(false)}</details></div></section>`;
 }
 
 function heroBlock(list) {
   if (!list.length) return "";
-  const main = list.slice(0, 3).find(a => a.imageUrl) ?? list[0];
-  const side = list.filter(a => a !== main).slice(0, 4);
-  return `<section class="hero"><article class="hero-main" data-cat="${esc(main.category)}">${img(main, "", true)}<div class="body"><div class="badges">${altBadge(main)}${isFresh(main) && !/son dəqiqə/iu.test(main.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${detailUrl(main)}"><h1>${txt(main.title)}</h1></a>${meta(main)}</div></article><div class="hero-side">${side.map(a => `<article class="row-card">${img(a)}<div class="x"><a class="t" href="${detailUrl(a)}">${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${detailUrl(a)}"><h1>${txt(a.title)}</h1></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div><div class="hero-side">${list.slice(1, 5).map(a => `<article class="row-card">${img(a)}<div class="x"><a class="t" href="${detailUrl(a)}">${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
 }
 
 function alertStrip() {
@@ -947,7 +951,7 @@ function videoBlock(list) {
 
 function catSection(c, list) {
   if (!list.length) return "";
-  return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length} xəbər</span><a class="more" href="#/bolme/${c.slug}">Bütün xəbərlər →</a></div><div class="category-grid${list.length < 4 ? " compact-category" : ""}">${list.slice(0, 4).map(card).join("")}</div></section>`;
+  return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length} xəbər</span><a class="more" href="#/bolme/${c.slug}">Bütün xəbərlər →</a></div><div class="strip category-strip"><div class="news-row">${list.slice(0, 12).map(card).join("")}</div></div></section>`;
 }
 
 function skeleton() {
@@ -996,7 +1000,7 @@ function unifiedVideo(list) {
   return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb"><img src="${esc(v.imageUrl || "")}" alt="" loading="lazy"><i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
 }
 function homeView() {
-  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), 5);
+  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), 6);
   const used = new Set(hero.map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const secs = homeCats().map(c => catSection(c, byDate(remaining.filter(a => a.category === c.slug)))).join("");
@@ -1113,6 +1117,7 @@ function renderView() {
   document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
   setupMarquees();
   setupStrips();
+  setupFeatureLents();
   highlightSearch();
 }
 
@@ -1446,7 +1451,7 @@ function stopStep(el, snap) {
 // Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
 function setupStrips() {
   document.querySelectorAll(".strip").forEach(strip => {
-    const row = strip.querySelector(".ytrow,.phrow,.vrow,.fb-teams");
+    const row = strip.querySelector(".hero-row,.news-row,.ytrow,.phrow,.vrow,.fb-teams");
     if (!row) return;
     strip.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove());
     // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın
@@ -1483,6 +1488,29 @@ function setupStrips() {
     sync();
   });
 }
+let featureTimers = [];
+function setupFeatureLents() {
+  featureTimers.forEach(clearInterval); featureTimers = [];
+  const paused = node => document.hidden || reducedMotion() || node.matches(":hover") || node.contains(document.activeElement) || Date.now() < (node._holdUntil || 0);
+  const hero = document.querySelector(".hero-strip");
+  if (hero) {
+    const row = hero.querySelector(".hero-row"), button = hero.querySelector(".hero-pause");
+    button.onclick = () => { hero._paused = !hero._paused; button.setAttribute("aria-pressed", String(hero._paused)); button.textContent = hero._paused ? "▶" : "Ⅱ"; button.setAttribute("aria-label", hero._paused ? "Əsas xəbər lentini davam etdir" : "Əsas xəbər lentini dayandır"); };
+    hero.onpointerdown = () => { hero._holdUntil = Date.now() + 10000; };
+    if (row.children.length > 1) featureTimers.push(setInterval(() => { if (hero._paused || paused(hero)) return; const next = Math.round(row.scrollLeft / row.clientWidth) + 1; row.scrollTo({left: next >= row.children.length ? 0 : next * row.clientWidth, behavior:"smooth"}); }, 6000));
+  }
+  const lent = document.querySelector("[data-prez-lent]");
+  if (lent) {
+    const box = lent.closest(".prez");
+    const step = direction => { const rows=[...lent.children]; const current=rows.findIndex(row => row.offsetTop - rows[0].offsetTop > lent.scrollTop + 3); const next=direction > 0 ? (current < 0 ? 0 : current) : Math.max(0, rows.filter(row=>row.offsetTop-rows[0].offsetTop < lent.scrollTop-3).length-1); lent.scrollTo({top: rows[next] ? rows[next].offsetTop-rows[0].offsetTop : 0, behavior:"smooth"}); };
+    box.querySelectorAll("[data-prez-step]").forEach(button => button.onclick = () => { lent._holdUntil=Date.now()+10000; step(Number(button.dataset.prezStep)); });
+    const button=box.querySelector("[data-prez-pause]");
+    if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
+    lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
+    featureTimers.push(setInterval(()=>{if(lent._paused || paused(lent))return; if(lent.scrollTop+lent.clientHeight>=lent.scrollHeight-2)lent.scrollTo({top:0,behavior:"smooth"});else step(1);},4500));
+  }
+}
+
 function setupMarquees() {
   document.querySelectorAll("[data-marquee]").forEach(el => {
     cancelMotion(el);
@@ -1588,7 +1616,7 @@ document.addEventListener("visibilitychange", () => {
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);
-  marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(); syncLangStick(); fitNav(); }, 150);
+  marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
 });
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }

@@ -141,6 +141,26 @@ class SocialFromNewsTest(unittest.TestCase):
 
 
 class ImageTest(unittest.TestCase):
+    def test_failed_photo_lookup_is_retried_then_backed_off(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            cache = folder / 'og.json'
+            url = 'https://example.com/article'
+            cache.write_text(json.dumps({url: ''}), encoding='utf-8')
+            with patch.object(updater, 'OG_FILE', cache), patch.object(updater, 'OUT_DIR', folder), patch.object(updater, '_fetch_og', return_value='') as fetch:
+                updater.fill_og_images([{'sourceUrl': url}])
+                self.assertEqual(fetch.call_count, 1)
+                updater.fill_og_images([{'sourceUrl': url}])
+                self.assertEqual(fetch.call_count, 1)
+                stored = json.loads(cache.read_text(encoding='utf-8'))
+                stored['_meta']['retryAfter'][url] = 0
+                cache.write_text(json.dumps(stored), encoding='utf-8')
+                fetch.return_value = 'https://example.com/photo.jpg'
+                article = {'sourceUrl': url}
+                updater.fill_og_images([article])
+                self.assertEqual(fetch.call_count, 2)
+                self.assertEqual(article['imageUrl'], 'https://example.com/photo.jpg')
+
     def test_generic_share_images_are_rejected_and_real_ones_kept(self):
         self.assertTrue(updater._is_generic_img("https://azertag.az/resources/images/social.jpg"))
         self.assertTrue(updater._is_generic_img("https://img.piri.net/resim/imagecrop/2026/04/01/09/50/tr_son_dakika_530x530.jpg"))

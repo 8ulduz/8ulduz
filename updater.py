@@ -2115,7 +2115,9 @@ def fill_og_images(articles, limit=120):
             cache = {}
     except Exception:
         cache = {}
-    cache.pop("_meta", None)
+    previous_meta = cache.pop("_meta", {})
+    retry_after = previous_meta.get("retryAfter", {}) if isinstance(previous_meta, dict) else {}
+    now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
     for k in [k for k, v in cache.items() if v and _is_generic_img(v)]:
         cache[k] = ""  # əvvəlki dövrələrdən qalan ümumi (loqo) şəkillər: yenidən sorğulanmasın, amma istifadə də olunmasın
     # Eyni şəkil 3+ fərqli səhifədə og:image kimi gəlirsə, bu, saytın loqosudur (marja.az, lent.az) — xəbərin şəkli deyil
@@ -2137,7 +2139,10 @@ def fill_og_images(articles, limit=120):
         if url in cache:
             if cache[url]:
                 a["imageUrl"] = cache[url]
-            continue
+                continue
+            # Temporary network failures must not hide photos forever.
+            if retry_after.get(url, 0) > now_ts:
+                continue
         todo.append(a)
     batch, found, err = todo[:limit], [], ""
     try:
@@ -2152,6 +2157,10 @@ def fill_og_images(articles, limit=120):
                     img = ""  # bu dövrədə də eyni şəkil təkrarlanır: loqo
                 cache[a["sourceUrl"]] = img or ""
                 if img:
+                    retry_after.pop(a["sourceUrl"], None)
+                else:
+                    retry_after[a["sourceUrl"]] = now_ts + 6 * 3600
+                if img:
                     a["imageUrl"] = img
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:80]}"
@@ -2160,7 +2169,8 @@ def fill_og_images(articles, limit=120):
     trimmed = {k: v for k, v in cache.items() if k in keep}
     # Diaqnostika (loglara girişsiz): neçə xəbər şəkilsizdir, bu dövrədə neçəsi sorğulandı və tapıldı
     trimmed["_meta"] = {"at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-                        "todo": len(todo), "batch": len(batch), "found": sum(1 for i in found if i), "error": err}
+                        "todo": len(todo), "batch": len(batch), "found": sum(1 for i in found if i), "error": err,
+                        "retryAfter": {k: v for k, v in retry_after.items() if k in keep and v > now_ts}}
     try:
         OUT_DIR.mkdir(exist_ok=True)
         OG_FILE.write_text(json.dumps(trimmed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
