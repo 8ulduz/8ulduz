@@ -105,9 +105,7 @@ export function createProviders(wxCode) {
 export function selectReadingVoice(voices, selected = 'auto') {
   if (selected === 'off') return null;
   return (selected !== 'auto' && voices.find(v => v.voiceURI === selected)) ||
-    voices.find(v => /^az(?:-|$)/i.test(v.lang)) ||
-    voices.find(v => /^tr(?:-|$)/i.test(v.lang)) ||
-    voices.find(v => v.default) || voices[0] || null;
+    voices.find(v => /^az(?:-|$)/i.test(v.lang)) || null;
 }
 
 // A single spoken request is submitted only after recognition has released the microphone.
@@ -153,7 +151,7 @@ export function createVoiceSession({Recognition, onStart = () => {}, onTranscrip
 export function mountAssistant({getSnapshot,wxCode}) {
   if(document.querySelector('#voice-assistant'))return;
   const root=document.createElement('div');root.id='voice-assistant';
-  root.innerHTML=`<button class="assistant-launch" type="button" aria-expanded="false" aria-controls="assistant-panel">🎙 Köməkçi</button><section id="assistant-panel" class="assistant-panel" role="dialog" aria-label="8ULDUZ səsli köməkçisi" hidden><div class="assistant-head"><b>8ULDUZ köməkçi · ilkin versiya</b><button type="button" data-assistant="close" aria-label="Köməkçini bağla">✕</button></div><p class="assistant-intro">Düyməyə toxunun və danışın. Bitirəndə cavab avtomatik oxunacaq.</p><form class="assistant-form"><label for="assistant-query">Nə bilmək istəyirsiniz?</label><div><input id="assistant-query" maxlength="240" autocomplete="off" placeholder="Təhsil xəbərlərini oxu"><button type="submit">Göndər</button></div></form><div class="assistant-examples"><button type="button" data-example="Son xəbərləri oxu">Son xəbərlər</button><button type="button" data-example="AZƏRTAC xəbərlərini oxu">AZƏRTAC</button><button type="button" data-example="Bakıda hava necədir?">Hava</button><button type="button" data-example="Namaz vaxtlarını de">Namaz</button><button type="button" data-example="Tıxac barədə de">Tıxac</button><button type="button" data-example="Fənərbaxçanın neçə xalı var?">İdman</button></div><div class="assistant-tools"><button type="button" data-assistant="mic">🎤 Danış</button><button type="button" data-assistant="stop">Dayandır</button><button type="button" data-assistant="resume">Davam et</button><button type="button" data-assistant="next">Növbəti</button></div><label class="assistant-voice">Oxuma səsi <select aria-label="Oxuma səsi"><option value="auto">Avtomatik səs (AZ → TR → cihaz səsi)</option><option value="off">Səssiz — yalnız mətn</option></select></label><p class="assistant-status" role="status"></p><div class="assistant-answer" aria-live="polite"></div><p class="assistant-privacy">Mikrofon yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açılır. Səs tanıma brauzerin xidmətinə göndərilə bilər. Söhbət saytda saxlanmır.</p></section>`;
+  root.innerHTML=`<button class="assistant-launch" type="button" aria-expanded="false" aria-controls="assistant-panel">🎙 Köməkçi</button><section id="assistant-panel" class="assistant-panel" role="dialog" aria-label="8ULDUZ səsli köməkçisi" hidden><div class="assistant-head"><b>8ULDUZ köməkçi · pulsuz</b><button type="button" data-assistant="close" aria-label="Köməkçini bağla">✕</button></div><p class="assistant-intro">Danışın və ya yazın. Cavab pulsuz göstərilir; cihazda Azərbaycan səsi varsa oxunur.</p><form class="assistant-form"><label for="assistant-query">Nə bilmək istəyirsiniz?</label><div><input id="assistant-query" maxlength="240" autocomplete="off" placeholder="Təhsil xəbərlərini oxu"><button type="submit">Göndər</button></div></form><div class="assistant-examples"><button type="button" data-example="Son xəbərləri oxu">Son xəbərlər</button><button type="button" data-example="AZƏRTAC xəbərlərini oxu">AZƏRTAC</button><button type="button" data-example="Bakıda hava necədir?">Hava</button><button type="button" data-example="Namaz vaxtlarını de">Namaz</button><button type="button" data-example="Tıxac barədə de">Tıxac</button><button type="button" data-example="Fənərbaxçanın neçə xalı var?">İdman</button></div><div class="assistant-tools"><button type="button" data-assistant="mic">🎤 Danış</button><button type="button" data-assistant="stop">Dayandır</button><button type="button" data-assistant="resume">Davam et</button><button type="button" data-assistant="next">Növbəti</button></div><label class="assistant-voice">Oxuma səsi <select aria-label="Oxuma səsi"><option value="auto">Azərbaycan dili — cihazda varsa</option><option value="off">Səssiz — yalnız mətn</option></select></label><p class="assistant-status" role="status"></p><div class="assistant-answer" aria-live="polite"></div><p class="assistant-privacy">Mikrofon yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açılır. Səs tanıma brauzerin xidmətinə göndərilə bilər. Söhbət saytda saxlanmır.</p></section>`;
   document.body.append(root);
   const panel=root.querySelector('.assistant-panel'),input=root.querySelector('input'),output=root.querySelector('.assistant-answer'),status=root.querySelector('.assistant-status'),voiceSelect=root.querySelector('select'),launcher=root.querySelector('.assistant-launch');
   const context = {};
@@ -164,7 +162,7 @@ export function mountAssistant({getSnapshot,wxCode}) {
   const voices = () => synth?.getVoices() || [];
   function populateVoices() {
     const previous = voiceSelect.value;
-    voiceSelect.innerHTML = '<option value="auto">Avtomatik səs (AZ → TR → cihaz səsi)</option><option value="off">Səssiz — yalnız mətn</option>' + voices().map(v => `<option value="${escape(v.voiceURI)}">${escape(v.name)} (${escape(v.lang)})</option>`).join('');
+    voiceSelect.innerHTML = '<option value="auto">Azərbaycan dili — cihazda varsa</option><option value="off">Səssiz — yalnız mətn</option>' + voices().map(v => `<option value="${escape(v.voiceURI)}">${escape(v.name)} (${escape(v.lang)})</option>`).join('');
     voiceSelect.value = [...voiceSelect.options].some(o => o.value === previous) ? previous : 'auto';
   }
   populateVoices(); synth?.addEventListener?.('voiceschanged', populateVoices);
@@ -182,7 +180,8 @@ export function mountAssistant({getSnapshot,wxCode}) {
     });
     if (token !== readToken) return;
     const voice = selectReadingVoice(voices(), voiceSelect.value);
-    const language = voice?.lang || 'az-AZ';
+    if (!voice) { status.textContent = 'Bu cihazda Azərbaycan dili səsi yoxdur. Cavab aşağıda mətnlə göstərilir. İstəsəniz, səs siyahısından başqa dili özünüz seçə bilərsiniz.'; return; }
+    const language = voice.lang;
     const voiceNote = /^az(?:-|$)/i.test(language) ? '' : /^tr(?:-|$)/i.test(language) ? ' Azərbaycan səsi yoxdur; türkcə səs istifadə olunur.' : ' Cihazın standart səsi istifadə olunur.';
     let n = 0;
     const next = () => {
@@ -203,7 +202,7 @@ export function mountAssistant({getSnapshot,wxCode}) {
   }
   const session = createVoiceSession({
     Recognition: window.SpeechRecognition || window.webkitSpeechRecognition,
-    onStart() { micButton.textContent = '■ Dinləməni bitir'; launcher.classList.add('listening'); launcher.setAttribute('aria-pressed','true'); micButton.setAttribute('aria-pressed','true'); status.textContent = 'Dinləyirəm… Danışıb bitirəndə cavab avtomatik oxunacaq.'; },
+    onStart() { micButton.textContent = '■ Dinləməni bitir'; launcher.classList.add('listening'); launcher.setAttribute('aria-pressed','true'); micButton.setAttribute('aria-pressed','true'); status.textContent = 'Dinləyirəm… Bitirəndə cavab avtomatik hazırlanacaq.'; },
     onTranscript(text) { input.value = text; status.textContent = 'Eşitdim: ' + text; },
     onComplete(text) { run(text); },
     onEnd() { micButton.textContent = '🎤 Danış'; launcher.classList.remove('listening'); launcher.setAttribute('aria-pressed','false'); micButton.setAttribute('aria-pressed','false'); },
