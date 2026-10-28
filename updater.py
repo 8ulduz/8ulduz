@@ -2176,6 +2176,15 @@ def main():
     source_rows = []
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
         results = list(ex.map(fetch_feed, FEEDS))  # sıra FEEDS ilə eynidir
+    # Əvvəlcə siyahıda olan, lakin «ilk görülmə» vaxtı ilə qalmış tarixsiz xəbərlər (tarix keşi yaranana qədər
+    # yığılanlar): büdcəni onlar alır, yoxsa 2000 elementlik lentdə növbə onlara heç çatmır və saatlarla
+    # «N saat əvvəl» kimi bölmələrin başında qalırlar. Səhifə tarixi tapılanda köhnə qeydin vaxtı düzəldilir.
+    for _, items, err, _ in results:
+        for it in items if not err else []:
+            if not it.get("pubDate") and it.get("link") in old_by_url:
+                iso, lookups = undated_date(it, dates, lookups)
+                if iso:
+                    old_by_url[it["link"]]["publishedAt"] = iso
     for (source, url, dlang, hint), (_, items, err, used_url) in zip(FEEDS, results):
         source_rows.append({"name": source, "url": used_url or url, "count": 0 if err else len(items), "error": err})
         if err:
@@ -2185,13 +2194,6 @@ def main():
             empty.append(source)
         for it in items:
             try:
-                if not it.get("pubDate") and it["link"] in old_by_url:
-                    # Siyahıda olan, lakin «ilk görülmə» vaxtı ilə qalmış tarixsiz xəbər (tarix keşi yaranana qədər
-                    # yığılanlar): səhifə tarixi tapılanda köhnə qeydin vaxtı düzəldilir, xəbər təzə kimi qalmır
-                    iso, lookups = undated_date(it, dates, lookups)
-                    if iso:
-                        old_by_url[it["link"]]["publishedAt"] = iso
-                    continue
                 if it["link"] in seen or is_junk(it["link"]):
                     continue
                 seen.add(it["link"])
