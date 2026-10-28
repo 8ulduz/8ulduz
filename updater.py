@@ -609,6 +609,14 @@ def display_source(source, link):
         return "Sesqazeti.az"
     return source
 
+SUMMARY_MAX = 220  # kartda 2 sətir görünür; uzun xülasə news.json-u ağırlaşdırırdı (26% həcm)
+
+def _short(desc, n=SUMMARY_MAX):
+    if len(desc) <= n:
+        return desc
+    cut = desc[:n].rsplit(" ", 1)[0]
+    return cut + "…"
+
 def make_article(it, source, default_lang, hint=None, force_label=None):
     title = _plain(it["title"], title=True)
     desc = _plain(it["description"])
@@ -624,7 +632,7 @@ def make_article(it, source, default_lang, hint=None, force_label=None):
     return {
         "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
         "title": title,
-        "summary": desc,
+        "summary": _short(desc),
         "category": SLUGS.get(label, "gundem"),
         "source": display_source(source, it["link"]),
         "sourceUrl": it["link"],
@@ -1104,7 +1112,7 @@ def update_social():
     yt_rows = []
     for url, who, name in YT_ACCOUNTS:
         try:
-            got = parse_feed(fetch(url))[:4]
+            got = yt_items(url, 4)
             if not got:
                 raise ValueError("boş lent")
             yt_rows.append({"name": f"YouTube · {name}", "url": url, "count": len(got), "error": None})
@@ -1148,11 +1156,67 @@ def _yt_id(link):
         return ""
     return ""
 
+# YouTube-un RSS lenti (feeds/videos.xml) 2026-cı ilin oktyabrından 404 qaytarır. Ehtiyat: kanalın «videos»
+# səhifəsindəki ytInitialData JSON-u — hər video üçün contentId, başlıq və nisbi vaxt («21 min ago»).
+_YT_MARK = re.compile(r'"contentId":"([A-Za-z0-9_-]{11})","contentType":"LOCKUP_CONTENT_TYPE_VIDEO"')
+_YT_TITLE = re.compile(r'"lockupMetadataViewModel":\{"title":\{"content":"((?:[^"\\]|\\.)*)"')
+_YT_REL = re.compile(r'"accessibilityLabel":"(\d+) (minute|hour|day|week|month|year)s? ago"')
+_YT_UNIT = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000, "year": 31536000}
+
+def parse_yt_channel_page(text, limit=10, now=None):
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    marks = list(_YT_MARK.finditer(text))
+    items = []
+    for i, mk in enumerate(marks):
+        end = marks[i + 1].start() if i + 1 < len(marks) else mk.end() + 8000
+        chunk = text[mk.end():end]
+        t = _YT_TITLE.search(chunk)
+        if not t:
+            continue
+        try:
+            title = json.loads('"' + t.group(1) + '"')
+        except Exception:
+            title = t.group(1)
+        rel = _YT_REL.search(chunk)
+        pub = now - datetime.timedelta(seconds=int(rel.group(1)) * _YT_UNIT[rel.group(2)]) if rel else now
+        vid = mk.group(1)
+        items.append({"title": title, "link": f"https://www.youtube.com/watch?v={vid}", "description": "",
+                      "pubDate": pub.isoformat(timespec="seconds"),
+                      "image": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg", "author": ""})
+        if len(items) >= limit:
+            break
+    return items
+
+def yt_channel_videos(feed_url, limit=10):
+    m = re.search(r"channel_id=([A-Za-z0-9_-]+)", feed_url)
+    if m:
+        page = f"https://www.youtube.com/channel/{m.group(1)}/videos"
+    else:
+        u = re.search(r"user=([A-Za-z0-9_-]+)", feed_url)
+        if not u:
+            raise ValueError("kanal tapılmadı")
+        page = f"https://www.youtube.com/user/{u.group(1)}/videos"
+    text = fetch(page, timeout=20, headers={"Accept-Language": "en-US,en;q=0.9", "Cookie": "CONSENT=YES+cb; SOCS=CAI"}).decode("utf-8", "replace")
+    items = parse_yt_channel_page(text, limit)
+    if not items:
+        raise ValueError("video siyahısı boş")
+    return items
+
+def yt_items(url, limit):
+    """Əvvəl RSS, alınmayanda kanal səhifəsi."""
+    try:
+        got = parse_feed(fetch(url))[:limit]
+        if got:
+            return got
+    except Exception:
+        pass
+    return yt_channel_videos(url, limit)
+
 def update_video():
     items, rows = [], []
     for name, url in YT_NEWS:
         try:
-            got = parse_feed(fetch(url))[:5]
+            got = yt_items(url, 5)
             if not got:
                 raise ValueError("boş lent")
             rows.append({"name": f"YouTube · {name}", "url": url, "count": len(got), "error": None})

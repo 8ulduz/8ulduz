@@ -536,7 +536,8 @@ function route() {
   const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: m[1] };
   if (h === "/tixac" || h.startsWith("/tixac?")) return { name: "traffic" };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
-  return { name: "home" };
+  if (h === "/" || h === "") return { name: "home" };
+  return { name: "notfound" };
 }
 
 /* ---------------------------------------------------------------- render */
@@ -549,7 +550,7 @@ function shell() {
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
     <label class="search"><span class="sr" hidden>Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar"></label>
+      <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search"></label>
   </div><div class="langstick" id="langstick"></div></header>
   <div id="ticker"></div>
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
@@ -566,6 +567,7 @@ function shell() {
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
   </nav>`;
   const q = $("#q");
+  q.addEventListener("keydown", e => { if (e.key === "Enter") q.blur(); }); // telefonda klaviatura bağlansın
   q.addEventListener("input", () => {
     S.q = q.value.trim(); S.shown = PAGE;
     const want = S.q ? `#/axtar?q=${encodeURIComponent(S.q)}` : "#/";
@@ -614,6 +616,7 @@ function pageMeta() {
   else if (r.name === "sections") { name = "Mənim bölmələrim"; desc = "Baş səhifə bölmələrinin sırası."; }
   else if (r.name === "videos") { name = "Video xəbərlər"; desc = "Azərbaycan kanallarının video lentləri."; }
   else if (r.name === "about") { name = "Haqqımızda"; desc = "8ulduz nədir, mənbələr, redaksiya prinsipləri, məxfilik və əlaqə."; }
+  else if (r.name === "notfound") { name = "Səhifə tapılmadı"; }
   document.title = `${name} — 8ulduz`;
   if (md && desc) md.setAttribute("content", desc);
 }
@@ -774,7 +777,7 @@ function renderMarkets() {
   if (from && to && amt) {
     from.value = S.fxFrom; to.value = S.fxTo;
     const sync = () => {
-      S.fxFrom = from.value; S.fxTo = to.value; S.fxAmt = Number(amt.value) || 0;
+      S.fxFrom = from.value; S.fxTo = to.value; S.fxAmt = Math.max(0, Number(amt.value) || 0);
       const out = convertAmt(S.fxAmt, S.fxFrom, S.fxTo);
       const el = $(".fx-out"); if (el) el.textContent = out == null ? "—" : fmt(out, S.fxTo === "BTC" ? 6 : 2);
     };
@@ -1054,10 +1057,51 @@ function sectionView(slug) {
   return listPage(c.label, c.description, filtered(list), extra);
 }
 
+// Axtarış üçün sadələşdirmə: kiçik hərf, Azərbaycan hərfləri latın əsasına (ə→e, ı→i, ş→s ...), durğu işarələri boşluğa.
+// «ilham eliyev», «qarabag», «naxcivan», «AZERTAC» kimi yazılışlar da tapılır.
+const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c" };
+function fold(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[əıöüğşç]/g, ch => FOLD[ch]);
+}
+const searchWords = q => fold(q).replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter(w => w.length >= 2 || /\p{N}/u.test(w));
+// İşarələmə üçün: sadələşmiş sözün orijinal mətndə bütün yazılış formalarını tutan regex
+const HL_CLASS = { e: "[eəE]", i: "[iıİI]", o: "[oöOÖ]", u: "[uüUÜ]", g: "[gğGĞ]", s: "[sşSŞ]", c: "[cçCÇ]" };
+function hlRegex(words) {
+  const alts = words.map(w => [...w].map(ch => HL_CLASS[ch] || ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(""));
+  return alts.length ? new RegExp("(" + alts.join("|") + ")", "giu") : null;
+}
 function searchView() {
-  const words = lc(S.q).split(/\s+/).filter(Boolean);
-  const list = byDate(filtered(S.data.articles.filter(a => { const s = lc(decode(a.title + " " + a.summary + " " + a.source)); return words.every(w => s.includes(w)); })));
-  return listPage(`Axtarış: “${S.q}”`, "Başlıq, xülasə və mənbə adına görə", list);
+  const words = searchWords(S.q);
+  if (!words.length) return listPage(`Axtarış: “${S.q}”`, "Ən azı iki hərf yazın", []);
+  const scored = [];
+  for (const a of filtered(S.data.articles)) {
+    const t = fold(decode(a.title)), rest = fold(decode((a.summary || "") + " " + a.source + " " + (a.alts || []).map(x => x.source).join(" ")));
+    let score = 0, hits = 0;
+    for (const w of words) {
+      if (t.includes(w)) { score += 3; hits++; }
+      else if (rest.includes(w)) { score += 1; hits++; }
+    }
+    if (!hits) continue;
+    if (hits === words.length) score += 5; // bütün sözlər var
+    scored.push({ a, score });
+  }
+  scored.sort((x, y) => y.score - x.score || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""));
+  const list = scored.map(x => x.a);
+  const all = scored.filter(x => x.score >= 5).length;
+  const desc = words.length > 1 ? `${all} xəbərdə bütün sözlər, ${list.length - all} xəbərdə bəziləri var. Uyğunluğa görə sıralanıb.` : "Başlıq, xülasə və mənbə adına görə. Uyğunluğa görə sıralanıb.";
+  S.hl = hlRegex(words);
+  return listPage(`Axtarış: “${S.q}”`, desc, list);
+}
+// Axtarış nəticəsində başlıqdakı uyğun sözlər işarələnir (DOM-da, mətnlər dəyişmir)
+function highlightSearch() {
+  const rx = route().name === "search" ? S.hl : null;
+  if (!rx) return;
+  document.querySelectorAll("#view .card h3").forEach(h => {
+    const text = h.textContent;
+    if (!rx.test(text)) return;
+    rx.lastIndex = 0;
+    h.innerHTML = esc(text).replace(rx, "<mark>$1</mark>");
+  });
 }
 
 function trafficView() {
@@ -1087,13 +1131,14 @@ function renderView() {
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
-  const body = r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
   const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
   document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
   setupMarquees();
   setupStrips();
+  highlightSearch();
 }
 
 function sourceLevel(s) {
@@ -1153,7 +1198,7 @@ function aboutView() {
 function savedView() {
   const items = savedList();
   return `<div class="page-h"><div><h1>Seçilmişlər</h1><p>Ulduzla saxladığınız xəbərlər bu cihazda qalır.</p></div><span class="cnt">${items.length}</span></div>` +
-    (items.length ? `<div class="grid">${items.map(card).join("")}</div>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Kartdakı ulduza basın.</p>`);
+    (items.length ? `<div class="grid">${items.map(card).join("")}</div><p style="margin:14px 0 0"><button type="button" class="loadmore" data-act="clear-saved">Hamısını sil (${items.length})</button></p>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Kartdakı ulduza basın.</p>`);
 }
 function sectionsView() {
   const { order, off } = sectionPref();
@@ -1213,6 +1258,7 @@ function onClick(e) {
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
   else if (act === "wx-back") { S.wxSel = null; renderTopbar(); }
   else if (act === "more") { S.shown += PAGE; renderView(); }
+  else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
   else if (act === "tix-open") { S.tixOn = true; renderView(); }
   else if (act === "tix-area") {
