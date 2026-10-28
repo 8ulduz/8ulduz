@@ -269,6 +269,7 @@ SOCIAL_FILE = OUT_DIR / "social.json"
 STATUS_FILE = OUT_DIR / "status.json"
 SOURCES_FILE = OUT_DIR / "sources.json"
 OG_FILE = OUT_DIR / "og.json"
+DATES_FILE = OUT_DIR / "dates.json"   # tarixsiz lent elementləri üçün səhifədən oxunan dərc vaxtı
 VIDEO_FILE = OUT_DIR / "video.json"
 FOOTBALL_FILE = OUT_DIR / "football.json"
 SPORTS_FILE = OUT_DIR / "sports.json"
@@ -291,6 +292,7 @@ AZ_MONTHS = {
 }
 MAX_ITEMS = 1200
 MAX_PER_SOURCE = 40   # bir mənbə lenti doldurmasın
+DATE_LOOKUPS = 30     # tarixsiz lent elementləri üçün bir dövrədə ən çox səhifə sorğusu
 TIMEOUT = 10
 WORKERS = 16
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
@@ -1947,6 +1949,118 @@ def _fetch_og(url):
     except Exception:
         return ""
 
+# ---------------------------------------------------------------- tarixsiz lentlər ---
+# Bəzi lentlər (İki Sahil) pubDate vermir. Əvvəl belə elementlər hər dövrədə «indi» tarixi alırdı:
+# limitdən kənarda qalan yazılar növbəti dövrədə yenidən «yeni» sayılır, 40 köhnə yazı hər 4 dəqiqədən bir
+# «N dəqiqə əvvəl» ilə hər bölmənin başına və «Son dəqiqə»yə düşürdü. İndi dərc vaxtı məqalə səhifəsindən
+# (JSON-LD datePublished, article:published_time, <time datetime>) oxunur, ünvandakı /2026/10/28/ ipucu köhnə
+# yazıları sorğusuz atır, nəticə data/dates.json-da saxlanır ki, hər keçid bir dəfə sorğulansın.
+_URL_DATE = re.compile(r"/(20\d\d)[/-](\d\d)[/-](\d\d)(?=[/-]|$)")
+_LD_DATE = re.compile(r'"datePublished"\s*:\s*"([^"]+)"')
+_DATE_META = {"article:published_time", "og:published_time", "pubdate", "publishdate", "publish-date", "publish_date",
+              "date", "dc.date", "dc.date.issued", "sailthru.date", "parsely-pub-date"}
+_TIME_TAG = re.compile(r"""<time\b[^>]*\bdatetime\s*=\s*["']([^"']+)["']""", re.I)
+
+def url_date_hint(*urls):
+    """Ünvandakı /2026/10/28/ hissəsi (keçid və ya şəkil) — köhnə yazını sorğusuz atmaq və ehtiyat tarix üçün."""
+    for u in urls:
+        m = _URL_DATE.search(u or "")
+        if m:
+            try:
+                return datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                continue
+    return None
+
+def _page_dt(s, now=None):
+    s = html.unescape(str(s or "")).strip()
+    if not s:
+        return ""
+    try:
+        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            dt = email.utils.parsedate_to_datetime(s)
+        except Exception:
+            dt = None
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=BAKU)  # zonasız yazı: Bakı vaxtı
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    if dt.year < 2000 or dt > now + datetime.timedelta(minutes=5):
+        return ""
+    return _norm_iso(dt)
+
+def parse_page_date(raw, now=None):
+    """Məqalə səhifəsindən dərc vaxtı (UTC ISO) və ya boş sətir."""
+    text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw or "")
+    cands = [m.group(1) for m in _LD_DATE.finditer(text)]
+    for tag in _OG_META.findall(text):
+        km = _OG_KEY.search(tag)
+        if not km or km.group(1).lower() not in _DATE_META:
+            continue
+        cm = _OG_CONTENT.search(tag)
+        if cm:
+            cands.append(cm.group(1))
+    cands.extend(m.group(1) for m in _TIME_TAG.finditer(text))
+    for c in cands:
+        iso = _page_dt(c, now)
+        if iso:
+            return iso
+    return ""
+
+def _fetch_page_date(url):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            ctype = (r.headers.get("Content-Type") or "").lower()
+            if ctype and "html" not in ctype and "xml" not in ctype:
+                return ""
+            return parse_page_date(r.read(150000))
+    except Exception:
+        return ""
+
+def load_dates():
+    try:
+        d = json.loads(DATES_FILE.read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+def save_dates(cache, now=None, keep_days=10, limit=1500):
+    """Keş böyüməsin: 10 gündən köhnə və artıq qeydlər atılır (köhnə yazılar onsuz da ünvan ipucu ilə atılır)."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    cut = _norm_iso(now - datetime.timedelta(days=keep_days))
+    rows = sorted(((k, v) for k, v in cache.items() if isinstance(v, str) and v >= cut),
+                  key=lambda kv: kv[1], reverse=True)[:limit]
+    try:
+        OUT_DIR.mkdir(exist_ok=True)
+        DATES_FILE.write_text(json.dumps(dict(rows), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print("  ! tarix keşi:", type(e).__name__)
+
+def undated_date(it, cache, budget, now=None, max_age_days=5):
+    """Lentdə tarixi olmayan element üçün (ISO, qalan büdcə). Boş ISO — element bu dövrədə buraxılır.
+    Sıra: ünvan tarixi köhnədirsə atılır; keş; səhifə sorğusu (büdcə daxilində); ünvan tarixi; ilk görülmə vaxtı."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    link = it.get("link") or ""
+    hint = url_date_hint(link, it.get("image") or "")
+    if hint and hint < (now - datetime.timedelta(days=max_age_days)).date():
+        return "", budget
+    if link in cache:
+        return cache[link], budget
+    if budget <= 0:
+        return "", budget  # büdcə bitdi: növbəti dövrədə
+    iso = _fetch_page_date(link)
+    if not iso and hint:
+        hinted = datetime.datetime(hint.year, hint.month, hint.day, 12, 0, tzinfo=BAKU)
+        iso = _norm_iso(min(hinted, now))
+    if not iso:
+        iso = _norm_iso(now)  # ilk görülmə vaxtı — bir dəfə, sonra keşdən
+    cache[link] = iso
+    return iso, budget - 1
+
 def fill_og_images(articles, limit=120):
     """Şəkilsiz xəbərlər üçün səhifənin og:image ünvanı. Hər URL bir dəfə sorğulanır."""
     try:
@@ -2057,6 +2171,7 @@ def main():
     old = [a for a in old if (_parse_dt(a.get("publishedAt")) or now_utc) >= (cutoff_prez if a.get("category") == "prezident" else cutoff)]
     seen = {a["sourceUrl"] for a in old}
     new_items, errors, empty = [], [], []
+    dates, lookups, undated = load_dates(), DATE_LOOKUPS, 0
     source_rows = []
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
         results = list(ex.map(fetch_feed, FEEDS))  # sıra FEEDS ilə eynidir
@@ -2072,6 +2187,12 @@ def main():
                 if it["link"] in seen or is_junk(it["link"]):
                     continue
                 seen.add(it["link"])
+                if not it.get("pubDate"):
+                    iso, lookups = undated_date(it, dates, lookups)
+                    if not iso:
+                        continue
+                    it = dict(it, pubDate=iso)
+                    undated += 1
                 if is_negative_about_leadership(it["title"], it["description"], source):
                     continue
                 art = make_article(it, source, dlang, hint)
@@ -2093,6 +2214,7 @@ def main():
             new_items.append(make_article(it, source, dlang, hint, force_label=force))
         except Exception as e:
             errors.append(f"{source} (rəsmi): {type(e).__name__}")
+    save_dates(dates)
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
@@ -2112,7 +2234,8 @@ def main():
     # Əvvəl yalnız 800-dən kənarda qalanlar əlavə olunurdu; siyahı 800-dən qısa olanda heç nə əlavə olunmurdu.
     prez_items = [a for a in uniq if a["category"] == "prezident"][:120]
     articles = [a for a in uniq if a["category"] != "prezident"][:MAX_ITEMS] + prez_items
-    stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles)}
+    stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles),
+             "undated": undated, "dateLookups": DATE_LOOKUPS - lookups}
     articles = group_duplicates(articles)
     # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır
     img_count = {}

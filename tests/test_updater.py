@@ -271,6 +271,50 @@ class SectionPagesTest(unittest.TestCase):
         self.assertNotEqual(updater.label_for("Mehribanlıq nədir?", "", "az"), "Prezident")
 
 
+class UndatedFeedTest(unittest.TestCase):
+    NOW = datetime.datetime(2026, 10, 28, 9, 0, tzinfo=datetime.timezone.utc)
+
+    def test_page_date_is_read_from_json_ld_meta_or_time(self):
+        now = self.NOW
+        self.assertEqual(updater.parse_page_date(b'<script type="application/ld+json">{"datePublished": "2026-10-28 11:32"}</script>', now),
+                         "2026-10-28T07:32:00+00:00")  # zonasız: Bakı vaxtı
+        self.assertEqual(updater.parse_page_date('<meta content="2026-10-27T13:50:00+04:00" property="article:published_time">', now),
+                         "2026-10-27T09:50:00+00:00")
+        self.assertEqual(updater.parse_page_date('<time datetime="2026-10-26T08:00:00Z">dünən</time>', now), "2026-10-26T08:00:00+00:00")
+        self.assertEqual(updater.parse_page_date('<meta property="article:published_time" content="2030-01-01T00:00:00Z">', now), "")  # gələcək
+        self.assertEqual(updater.parse_page_date("<html><body>tarix yoxdur</body></html>", now), "")
+
+    def test_url_date_hint(self):
+        self.assertEqual(updater.url_date_hint("https://ikisahil.az/post/x", "https://ikisahil.az/photo/600x0_2/upload/2026/10/28/a.jpg"),
+                         datetime.date(2026, 10, 28))
+        self.assertEqual(updater.url_date_hint("https://x.az/news/2026-09-16/abc"), datetime.date(2026, 9, 16))
+        self.assertIsNone(updater.url_date_hint("https://x.az/news/123456", ""))
+
+    def test_undated_items_use_page_date_once_and_old_ones_are_dropped(self):
+        now, cache = self.NOW, {}
+        fresh = {"link": "https://ikisahil.az/post/a", "image": "https://ikisahil.az/photo/upload/2026/10/28/x.jpg"}
+        old = {"link": "https://ikisahil.az/post/b", "image": "https://ikisahil.az/photo/upload/2026/09/16/y.jpg"}
+        with patch.object(updater, "_fetch_page_date", return_value="2026-10-28T07:32:00+00:00") as fetched:
+            iso, budget = updater.undated_date(fresh, cache, 30, now=now)
+            self.assertEqual((iso, budget), ("2026-10-28T07:32:00+00:00", 29))
+            self.assertEqual(updater.undated_date(fresh, cache, budget, now=now), (iso, 29))  # keşdən, sorğusuz
+            self.assertEqual(updater.undated_date(old, cache, budget, now=now), ("", 29))  # köhnə yazı: sorğusuz atılır
+            self.assertEqual(fetched.call_count, 1)
+        with patch.object(updater, "_fetch_page_date", return_value=""):
+            self.assertEqual(updater.undated_date({"link": "https://x.az/n"}, cache, 0, now=now), ("", 0))  # büdcə bitib
+            self.assertEqual(updater.undated_date({"link": "https://x.az/n"}, cache, 1, now=now), ("2026-10-28T09:00:00+00:00", 0))  # ilk görülmə
+            self.assertEqual(updater.undated_date({"link": "https://x.az/d", "image": "https://x.az/i/2026/10/27/p.jpg"}, cache, 1, now=now),
+                             ("2026-10-27T08:00:00+00:00", 0))  # ünvan tarixi, Bakı 12:00
+        self.assertEqual(set(cache), {"https://ikisahil.az/post/a", "https://x.az/n", "https://x.az/d"})
+
+    def test_date_cache_is_pruned_and_saved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            with patch.object(updater, "OUT_DIR", root), patch.object(updater, "DATES_FILE", root / "dates.json"):
+                updater.save_dates({"https://a": "2026-10-28T07:00:00+00:00", "https://b": "2026-10-01T07:00:00+00:00", "bad": None}, now=self.NOW)
+                self.assertEqual(updater.load_dates(), {"https://a": "2026-10-28T07:00:00+00:00"})
+
+
 class UpdateHealthTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir=pathlib.Path(__file__).parent)
@@ -278,6 +322,7 @@ class UpdateHealthTest(unittest.TestCase):
         self.patches = []
         for name, value in {"OUT_DIR": self.root, "OUT_FILE": self.root / "news.json",
                             "STATUS_FILE": self.root / "status.json", "SOURCES_FILE": self.root / "sources.json",
+                            "DATES_FILE": self.root / "dates.json",
                             "FEEDS": [("Test", "https://example.com/rss", "az", None)]}.items():
             p = patch.object(updater, name, value)
             p.start()
@@ -317,6 +362,19 @@ class UpdateHealthTest(unittest.TestCase):
         result = self.cycle(("Test", [item], None, "https://example.com/rss"))
         self.assertTrue(result["ok"])
         self.assertEqual(result["successful"], 1)
+
+    def test_undated_feed_item_gets_page_date_and_is_cached(self):
+        item = {"link": "https://example.com/new", "title": "Yeni məktəb açıldı", "description": "", "image": None}
+        when = updater._norm_iso(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=3))  # keş 10 gün saxlayır
+        with patch.object(updater, "_fetch_page_date", return_value=when) as fetched:
+            result = self.cycle(("Test", [item], None, "https://example.com/rss"))
+        self.assertTrue(result["ok"])
+        self.assertEqual(fetched.call_count, 1)
+        data = json.loads(updater.OUT_FILE.read_text(encoding="utf-8"))
+        new = next(a for a in data["articles"] if a["sourceUrl"] == item["link"])
+        self.assertEqual(new["publishedAt"], when)
+        self.assertEqual(json.loads(updater.DATES_FILE.read_text(encoding="utf-8")), {item["link"]: when})
+        self.assertEqual(result["stats"]["undated"], 1)
 
     def test_cli_failure_has_nonzero_exit_and_no_public_rewrite(self):
         with patch.object(updater, "main", return_value={"ok": False, "successful": 0, "total": 1}), \

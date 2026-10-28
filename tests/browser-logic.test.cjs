@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, tickerLabel};`, context);
   return context;
 }
 
@@ -251,4 +251,10 @@ test('hero picks the most-covered recent stories, not merely the newest', () => 
   ];
   assert.equal(ctx.api.heroPick(list, 3).map(a => a.id).join(), 'big,mid,new');
   assert.equal(ctx.api.heroPick(list, 4).map(a => a.id).join(), 'old,big,mid,new');
+});
+
+test('ticker is called "Son xəbərlər" when nothing is fresh', () => {
+  const ctx = app();
+  assert.equal(ctx.api.tickerLabel(0), 'Son xəbərlər');
+  assert.equal(ctx.api.tickerLabel(3), 'Son dəqiqə');
 });

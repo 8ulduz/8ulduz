@@ -690,8 +690,15 @@ function renderTicker() {
   const list = (breaking.length ? breaking : latest).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
   const items = [...list, ...list].map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("");
-  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ Son dəqiqə</div><div class="run"><div class="track">${items}</div></div></div>`;
+  // «Bildiriş»: yeni son-dəqiqə xəbəri üçün brauzer bildirişi (README və «Haqqımızda» bunu vəd edir; düymə itmişdi)
+  const on = notifyOn();
+  const bell = "Notification" in window
+    ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
+    : "";
+  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ ${tickerLabel(breaking.length)}${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
 }
+// Son 15 dəqiqədə xəbər yoxdursa lent «Son dəqiqə» yox, «Son xəbərlər» adlanır (köhnə xəbər təzə kimi təqdim olunmasın)
+const tickerLabel = fresh => fresh > 0 ? "Son dəqiqə" : "Son xəbərlər";
 
 function prayIcon(key) {
   return `<span class="pi">${PRAY_SVG[key] || ""}</span>`;
@@ -762,13 +769,14 @@ function renderMarkets() {
   const m = S.markets; if (!m?.length) return;
   $("#markets").hidden = false;
   $("#mk").innerHTML = m.map(i => {
-    const has = i.changePct != null && i.change != null;
-    const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
-    const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, i.dec)}</span>`
-      : `<span>${i.unit === "AZN" ? "məzənnə" : "qiymət"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const unofficial = i.unit === "AZN" && i.src && i.src !== "AMB";
+    const has = !unofficial && i.changePct != null && i.change != null;
+    const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
+    // «bazar» nişanı alt sətirdədir: başlığın yanında 92px kartda «100 Rubl BA…» kimi kəsilirdi
+    const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, i.dec)}</span>`
+      : `<span${unofficial ? ` class="unoff"` : ""}>${i.unit !== "AZN" ? "qiymət" : unofficial ? "bazar" : "məzənnə"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${esc(i.label)}${unofficial ? `<em class="unoff" title="AMB rəsmi məzənnəsi alınmadı">bazar</em>` : ""}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
+    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
   const note = $("#mk-note");
   if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
@@ -1258,7 +1266,7 @@ function onClick(e) {
   else if (act === "pray") { S.prayOpen = !S.prayOpen; renderTopbar(); }
   else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
-  else if (act === "notify") armNotify();
+  else if (act === "notify") { if (notifyOn()) { storage.removeItem(NOTIFY_KEY); renderTicker(); } else armNotify(); }
   else if (act === "retry") { loadNews(); loadStatus(); }
   else if (act === "sec-toggle" || act === "sec-up" || act === "sec-down") {
     const slug = t.dataset.slug;

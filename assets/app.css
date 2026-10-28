@@ -1,4 +1,6 @@
 /* 8ulduz — sadə, yığcam dizayn. Mənbə kodu: assets/app.js + assets/app.css (build tələb olunmur) */
+/* hidden atributu display:flex kimi qaydalardan güclü olsun (Telegram bloku kanal boş olanda da görünürdü) */
+[hidden]{display:none!important}
 :root{
   --bg:hsl(222 47% 5%);--fg:hsl(210 40% 96%);--card:hsl(222 40% 8%);--card2:hsl(222 34% 11%);
   --primary:hsl(43 96% 56%);--primary-fg:hsl(222 47% 8%);--muted:hsl(215 20% 62%);--muted2:hsl(215 16% 46%);
@@ -272,7 +274,7 @@ main>.wrap>section{margin-bottom:18px}
 @media (max-width:560px){.prez-h .links{display:none}}
 
 /* --- reklam yeri (yığcam) --- */
-.mk .n .unoff{margin-left:5px;font-style:normal;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--red);border:1px solid currentColor;border-radius:4px;padding:0 3px}
+.mk .c .unoff{color:var(--red);font-weight:800;text-transform:uppercase;letter-spacing:.04em}
 .mk-note{margin:0;padding:0 0 6px;font-size:0.7857rem;color:var(--muted)}
 .ad{display:grid;place-items:center;height:54px;border:1px dashed var(--ad-border);border-radius:10px;background:var(--ad);font-size:0.75rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--muted2)}
 .ad.ad-live{padding:0;letter-spacing:0;text-transform:none;overflow:hidden;border-style:solid}

@@ -12,6 +12,7 @@ Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərin
 - `data/status.json` — son uğurlu yoxlamanın vaxtı (`checkedAt`). Saytdakı «Yeniləndi» bunu göstərir.
 - `data/sources.json` — hər lentin son uğurlu vaxtı, xəbər sayı və son xətası. Saytda: `#/menbeler`.
 - `data/og.json` — şəkilli olmayan xəbərlər üçün məqalə səhifəsinin `og:image` / `twitter:image` ünvanı. Hər keçid bir dəfə sorğulanır (vaxt limiti, paralel). Boş nəticə də saxlanır ki, təkrar sorğu olmasın.
+- `data/dates.json` — lentində tarix olmayan mənbələr (İki Sahil-in RSS-ində `pubDate` yoxdur) üçün məqalə səhifəsindən oxunan dərc vaxtı (`datePublished`, `article:published_time`, `<time>`). Əvvəl belə xəbərlər hər dövrədə «indi» tarixi alır, hər bölmənin başında «N dəqiqə əvvəl» kimi qalırdı. Bir dövrədə ən çox 30 səhifə sorğulanır (`DATE_LOOKUPS`), ünvanındakı tarix 5 gündən köhnə olan yazılar sorğusuz atılır; tarixi tapılmayan yazı ilk görüldüyü vaxtı alır və bir daha dəyişmir.
 - `data/ads.json` — reklam yerləri. `slots` boşdursa baş səhifədə heç nə göstərilmir. Doldurmaq üçün (şəkil ünvanı, keçid, alt mətn):
 
   ```json
