@@ -511,6 +511,13 @@ def president_score(blob, lang):
     return weak + sum(1 for w in PRESIDENT_WEAK_EXTRA if _rx(w).search(blob)) if weak else 0
 
 def categorize(title, desc, lang="az", hint=None, world=False):
+    # A clear title topic takes precedence over incidental location words.
+    title_text = norm_az(title)
+    if president_score(title_text, lang) < 6:
+        if re.search(r"\b(?:teatr\w*|tamaşa(?:sı(?:nın|na|nı|nda|ndan)?|lar(?:ı|ın|a|da|dan)?)?|premyera\w*|romanı|muzey\w*|mədəniyyətlərarası dialoq)\b", title_text):
+            return "Mədəniyyət"
+        if re.search(r"dini dözümsüzlük|dini tolerantlıq|media savadlılığı", title_text) and not re.search(r"süni intellekt|kibertəhlükəsizlik|proqram təminatı", title_text):
+            return "Cəmiyyət"
     blob = norm_az(title + " " + desc)
     scores = {}
     for cat, words in CATEGORIES.items():

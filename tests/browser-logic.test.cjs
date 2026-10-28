@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, tickerLabel};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, tickerLabel, card, altPop, catSection, articleView, languagePicker};`, context);
   return context;
 }
 
@@ -181,7 +181,7 @@ function worker(cacheNames = []) {
 }
 
 test('service worker retains caches belonging to other sites', async () => {
-  const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-static-v17']);
+  const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-static-v18']);
   let done;
   listeners.activate({waitUntil(p) { done = p; }});
   await done;
@@ -257,4 +257,43 @@ test('ticker is called "Son xəbərlər" when nothing is fresh', () => {
   const ctx = app();
   assert.equal(ctx.api.tickerLabel(0), 'Son xəbərlər');
   assert.equal(ctx.api.tickerLabel(3), 'Son dəqiqə');
+});
+
+
+test('article routes and source controls are independent', () => {
+  const ctx = app();
+  ctx.location.hash = '#/xeber/item-1#sources';
+  assert.equal(ctx.api.route().name, 'article');
+  assert.equal(ctx.api.route().id, 'item-1');
+  const article = {id:'item-1',title:'Test',source:'One',sourceUrl:'https://one.example',publishedAt:new Date().toISOString(),category:'gundem',lang:'az',alts:[{source:'Two',sourceUrl:'https://two.example'}]};
+  const html = ctx.api.card(article);
+  assert.ok(html.includes('href="#/xeber/item-1"'));
+  assert.ok(html.includes('2 mənbə'));
+  assert.ok(html.includes('https://two.example'));
+  assert.ok(html.includes('https://one.example'));
+  assert.ok(!html.includes('>AZ</span>'));
+});
+
+test('category previews show at most four stories without a carousel', () => {
+  const ctx=app();
+  const list=Array.from({length:7},(_,i)=>({id:String(i),title:'Test',source:'One',sourceUrl:'https://one.example',category:'gundem',publishedAt:new Date().toISOString()}));
+  const html=ctx.api.catSection({slug:'gundem',label:'Gündəm'},list);
+  assert.equal((html.match(/<article /g)||[]).length,4);
+  assert.ok(!html.includes('class="strip"'));
+});
+
+
+test('saved article remains readable after it leaves the live feed', () => {
+  const ctx=app();
+  ctx.api.S.data={articles:[]};
+  const saved={id:'archived',title:'Saved story',summary:'Saved summary',source:'Archive source',sourceUrl:'https://example.com/story',publishedAt:'2026-10-01T10:00:00Z'};
+  ctx.api.storage.setItem('8ulduz-saved',JSON.stringify([saved]));
+  const html=ctx.api.articleView('archived');
+  assert.ok(html.includes('Saved story'));
+  assert.ok(html.includes('Saved summary'));
+  assert.ok(html.includes('https://example.com/story'));
+  assert.ok(!html.includes('artıq lentdə yoxdur'));
+  ctx.api.S.data.articles=[{...saved,title:'Updated live title'}];
+  assert.ok(ctx.api.articleView('archived').includes('Updated live title'));
+  assert.ok(ctx.api.articleView('missing').includes('artıq lentdə yoxdur'));
 });
