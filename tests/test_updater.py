@@ -363,6 +363,22 @@ class UpdateHealthTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["successful"], 1)
 
+    def test_known_undated_article_gets_its_real_date_fixed(self):
+        # Köhnə xəbər «indi» damğası ilə siyahıdadır; lent onu tarixsiz verir — səhifə tarixi tapılanda qeyd düzəlir
+        item = {"link": self.article["sourceUrl"], "title": self.article["title"], "description": "", "image": None}
+        when = updater._norm_iso(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=5))
+        with patch.object(updater, "_fetch_page_date", return_value=when) as fetched:
+            result = self.cycle(("Test", [item], None, "https://example.com/rss"))
+        self.assertTrue(result["ok"])
+        self.assertEqual(fetched.call_count, 1)
+        data = json.loads(updater.OUT_FILE.read_text(encoding="utf-8"))
+        self.assertEqual([a["sourceUrl"] for a in data["articles"]], [item["link"]])  # təkrar yaranmır
+        self.assertEqual(data["articles"][0]["publishedAt"], when)
+        self.assertEqual(result["stats"]["undated"], 0)
+        with patch.object(updater, "_fetch_page_date", return_value="") as fetched:  # ikinci dövrə: keşdən, sorğusuz
+            self.cycle(("Test", [item], None, "https://example.com/rss"))
+        self.assertEqual(fetched.call_count, 0)
+
     def test_undated_feed_item_gets_page_date_and_is_cached(self):
         item = {"link": "https://example.com/new", "title": "Yeni məktəb açıldı", "description": "", "image": None}
         when = updater._norm_iso(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=3))  # keş 10 gün saxlayır

@@ -2170,6 +2170,7 @@ def main():
     cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)
     old = [a for a in old if (_parse_dt(a.get("publishedAt")) or now_utc) >= (cutoff_prez if a.get("category") == "prezident" else cutoff)]
     seen = {a["sourceUrl"] for a in old}
+    old_by_url = {a["sourceUrl"]: a for a in old}
     new_items, errors, empty = [], [], []
     dates, lookups, undated = load_dates(), DATE_LOOKUPS, 0
     source_rows = []
@@ -2184,6 +2185,13 @@ def main():
             empty.append(source)
         for it in items:
             try:
+                if not it.get("pubDate") and it["link"] in old_by_url:
+                    # Siyahıda olan, lakin «ilk görülmə» vaxtı ilə qalmış tarixsiz xəbər (tarix keşi yaranana qədər
+                    # yığılanlar): səhifə tarixi tapılanda köhnə qeydin vaxtı düzəldilir, xəbər təzə kimi qalmır
+                    iso, lookups = undated_date(it, dates, lookups)
+                    if iso:
+                        old_by_url[it["link"]]["publishedAt"] = iso
+                    continue
                 if it["link"] in seen or is_junk(it["link"]):
                     continue
                 seen.add(it["link"])
