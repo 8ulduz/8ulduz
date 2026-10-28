@@ -281,3 +281,19 @@ test('category previews show at most four stories without a carousel', () => {
   assert.equal((html.match(/<article /g)||[]).length,4);
   assert.ok(!html.includes('class="strip"'));
 });
+
+
+test('saved article remains readable after it leaves the live feed', () => {
+  const ctx=app();
+  ctx.api.S.data={articles:[]};
+  const saved={id:'archived',title:'Saved story',summary:'Saved summary',source:'Archive source',sourceUrl:'https://example.com/story',publishedAt:'2026-10-01T10:00:00Z'};
+  ctx.api.storage.setItem('8ulduz-saved',JSON.stringify([saved]));
+  const html=ctx.api.articleView('archived');
+  assert.ok(html.includes('Saved story'));
+  assert.ok(html.includes('Saved summary'));
+  assert.ok(html.includes('https://example.com/story'));
+  assert.ok(!html.includes('artıq lentdə yoxdur'));
+  ctx.api.S.data.articles=[{...saved,title:'Updated live title'}];
+  assert.ok(ctx.api.articleView('archived').includes('Updated live title'));
+  assert.ok(ctx.api.articleView('missing').includes('artıq lentdə yoxdur'));
+});

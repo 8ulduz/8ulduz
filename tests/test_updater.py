@@ -11,6 +11,11 @@ import updater
 
 
 class CategoriesTest(unittest.TestCase):
+    def test_spectator_word_does_not_force_culture(self):
+        self.assertEqual(updater.categorize('Qarabağ matçına 30 min tamaşaçı gəlib', 'futbol oyunu', 'az'), 'İdman')
+        self.assertEqual(updater.categorize('Futbol tamaşaçıları oyunu izləyib', '', 'az'), 'İdman')
+        self.assertEqual(updater.categorize('Yeni tamaşanın premyerası olacaq', '', 'az'), 'Mədəniyyət')
+
     def test_title_topic_beats_incidental_region_and_digital_words(self):
         self.assertEqual(updater.categorize('Naxçıvan Dövlət Kukla Teatrının tamaşasının Bakı premyerası olacaq', '', 'az'), 'Mədəniyyət')
         self.assertEqual(updater.categorize('Media savadlılığı dini dözümsüzlüklə mübarizədə əsas vasitədir', 'Rəqəmsal mühit imkanlar yaradır', 'az'), 'Cəmiyyət')

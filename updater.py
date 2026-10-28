@@ -514,7 +514,7 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     # A clear title topic takes precedence over incidental location words.
     title_text = norm_az(title)
     if president_score(title_text, lang) < 6:
-        if re.search(r"teatr|tamaşa|premyera|romanı|muzey|mədəniyyətlərarası dialoq", title_text):
+        if re.search(r"\b(?:teatr\w*|tamaşa(?:sı(?:nın|na|nı|nda|ndan)?|lar(?:ı|ın|a|da|dan)?)?|premyera\w*|romanı|muzey\w*|mədəniyyətlərarası dialoq)\b", title_text):
             return "Mədəniyyət"
         if re.search(r"dini dözümsüzlük|dini tolerantlıq|media savadlılığı", title_text) and not re.search(r"süni intellekt|kibertəhlükəsizlik|proqram təminatı", title_text):
             return "Cəmiyyət"
