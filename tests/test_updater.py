@@ -116,8 +116,7 @@ class StateSitesTest(unittest.TestCase):
 
     def test_yeniazerbaycan_home_parser_takes_time_from_image_stamp(self):
         page = ('<li><div class="news-post image-post"><img src="https://yeniazerbaycan.com/thumb/575/2026/20261029103456-1793251414390132569_1200x630.jpg" alt="">'
-                '<div class="hover-box"><h2 style="font-size: 20px"><a
-       href="https://yeniazerbaycan.com/az/Gundem/mehriban-eliyeva-tebrik-edib-156131">'
+                '<div class="hover-box"><h2 style="font-size: 20px"><a\n       href="https://yeniazerbaycan.com/az/Gundem/mehriban-eliyeva-tebrik-edib-156131">'
                 'Birinci vitse-prezident Mehriban Əliyeva Türkiyə xalqının Cümhuriyyət Bayramını təbrik edib</a></h2>'
                 '<ul class="post-tags"><li>29-oktyabr-2026</li></ul></div></div></li>'
                 '<li><div class="news-post image-post"><img src="https://yeniazerbaycan.com/thumb/575/2026/no-stamp.jpg"><h2><a href="https://yeniazerbaycan.com/az/gundem/mehriban-eliyeva-tebrik-edib-156131">Eyni yazı, kiçik hərflə</a></h2></div></li>'
