@@ -735,6 +735,8 @@ GNEWS_FALLBACK = {
     "AZƏRTAC": [("https://news.google.com/rss/search?q=site:azertag.az+when:2d&hl=az&gl=AZ&ceid=AZ:az", "azertag.az")],
     "Report": [("https://news.google.com/rss/search?q=site:report.az+when:2d&hl=az&gl=AZ&ceid=AZ:az", "report.az")],
     "News.az": [("https://news.google.com/rss/search?q=site:news.az/news+when:2d&hl=en-US&gl=US&ceid=US:en", "news.az")],
+    # xalqqazeti.az GitHub-dan 403 qaytarır (bot qoruması); Telegram kanalında sayt keçidi yoxdur
+    "Xalq qəzeti": [("https://news.google.com/rss/search?q=site:xalqqazeti.az+when:2d&hl=az&gl=AZ&ceid=AZ:az", "xalqqazeti.az")],
 }
 # Rəsmi Telegram veb önizləməsi. Yazıdakı keçid həmin saytadırsa qəbul edilir.
 TG_FALLBACK = {
