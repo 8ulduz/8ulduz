@@ -266,7 +266,7 @@ main>.wrap>section{margin-bottom:18px}
   .prez .soc-list::-webkit-scrollbar{display:none}
   .prez .soc-p .t{display:block;white-space:nowrap;text-overflow:ellipsis;font-size:12.5px}
   .prez .soc-p{flex:0 0 auto;max-width:240px;border:1px solid var(--border);border-radius:999px;padding:3px 8px;background:var(--soc-chip)}
-  .prez .soc-links{order:3;flex-direction:row;flex-wrap:wrap;row-gap:3px;column-gap:0;margin:5px 0 0}
+  .prez .soc-links{order:1;flex-direction:row;flex-wrap:wrap;row-gap:3px;column-gap:0;margin:2px 0 5px} /* hesab keçidləri (loqolar) bölmənin ən üstündə, yazılar altında */
 }
 .pcard{display:flex;flex-direction:row;align-items:center;gap:8px;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 8px;min-height:0;min-width:0}
 .pcard .x{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
