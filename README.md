@@ -121,4 +121,4 @@ Hər dövrədə `data/sources.json`, `feed.xml`, `sitemap.xml` və `robots.txt` 
 
 ## Saytı dərc etmək
 
-**Settings → Pages → Source: `main` branch** → Save. Ünvan: `https://8ulduz.github.io/8ulduz/`
+**Settings → Pages → Source: `main` branch** → Save. Ünvan: `https://8ulduz.az/`
