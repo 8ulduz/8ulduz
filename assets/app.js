@@ -157,8 +157,11 @@ function prezHome(list) {
   const age = a => now - new Date(a.publishedAt).getTime();
   // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və dövlət/iqtidar saytları (STATE_SRC); digər saytlar «Hamısı» səhifəsində qalır
   const prez = list.filter(a => a.category === "prezident" && (OFFICIAL_SRC.has(a.source) || STATE_SRC.has(a.source)));
-  const president = frontAppointments(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
-  const lady = byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY));
+  // Bir sayt bloku tutmasın (məs. Report-un çıxışdan sitat lenti): rəsmi səhifələr limitsiz, digər mənbələr ən çox 3 kart (ən yeniləri)
+  const perSrc = {};
+  const capped = l => l.filter(a => OFFICIAL_SRC.has(a.source) || (perSrc[a.source] = (perSrc[a.source] || 0) + 1) <= 3);
+  const president = frontAppointments(capped(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY))));
+  const lady = capped(byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY)));
   const MAX = 12;
   const head = 4;
   const ladyKeep = lady.length ? Math.min(lady.length, 2) : 0;

@@ -189,6 +189,17 @@ test('appointment and dismissal news come first; Zuğulba includes state sites w
   assert.ok(html.includes('<a class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
 });
 
+test('one state site cannot fill the Zuğulba block: at most 3 cards per non-official source', () => {
+  const ctx = app();
+  const at = h => new Date(Date.now() - h * 3600e3).toISOString();
+  const prez = [1, 2, 3, 4, 5].map(i => ({ id: 'r' + i, category: 'prezident', source: 'Report', title: 'İlham Əliyev: sitat ' + i, publishedAt: at(i) }));
+  prez.push({ id: 'o', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev səfiri qəbul edib', publishedAt: at(9) });
+  prez.push({ id: 'x', category: 'prezident', source: 'Cross Media', title: 'Prezident İlham Əliyev fərman imzalayıb', publishedAt: at(10) });
+  const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
+  assert.deepEqual(ids.filter(i => i.startsWith('r')), ['r1', 'r2', 'r3']); // ən yeni 3 Report
+  assert.ok(ids.includes('o') && ids.includes('x'));
+});
+
 test('raw links are stripped from headlines', () => {
   const ctx = app();
   assert.equal(ctx.api.tidy('Harri Keyn mükafat qazanıb https://report.az/futbol/abc'), 'Harri Keyn mükafat qazanıb');
