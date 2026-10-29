@@ -732,13 +732,12 @@ function startTicker() {
   track.style.animation = "none";
   if (tickAnim) { try { tickAnim.cancel(); } catch {} tickAnim = null; }
   clearTimeout(tickT);
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    track.style.transform = "none";
-    return;
-  }
+  // «Hərəkəti azalt» ayarı olan telefonlarda lent dayanmasın (son dəqiqə xəbəri məzmundur, bəzək deyil): yalnız 2 dəfə yavaş axsın.
+  // (Əvvəl bu halda lent tamam dayanırdı — «son dəqiqə axımı dayandı» şikayətinin səbəbi.)
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const half = track.scrollWidth / 2;
   if (!(half > 0)) return;
-  const dur = half / TICK_SPEED * 1000;
+  const dur = half / (reduced ? TICK_SPEED / 2 : TICK_SPEED) * 1000;
   const anim = tickAnim = track.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-half}px)` }], { duration: dur, iterations: Infinity });
   let drag = null;
   const resume = ms => { clearTimeout(tickT); tickT = setTimeout(() => { if (!drag && tickAnim === anim) anim.play(); }, ms); };
