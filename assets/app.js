@@ -1572,7 +1572,7 @@ function setupFeatureLents() {
     const button=box.querySelector("[data-prez-pause]");
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
-    featureTimers.push(setInterval(()=>{if(lent._paused || paused(lent))return; if(lent.scrollTop+lent.clientHeight>=lent.scrollHeight-2)lent.scrollTo({top:0,behavior:"smooth"});else step(1);},4500));
+    featureTimers.push(setInterval(()=>{if(lent._paused || paused(lent) || lent.scrollHeight<=lent.clientHeight+2)return; /* statik siyahıda (toxunma ekranı) addımlama yoxdur */ if(lent.scrollTop+lent.clientHeight>=lent.scrollHeight-2)lent.scrollTo({top:0,behavior:"smooth"});else step(1);},4500));
   }
 }
 
