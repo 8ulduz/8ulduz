@@ -219,7 +219,7 @@ function worker(cacheNames = []) {
 }
 
 test('service worker retains caches belonging to other sites', async () => {
-  const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-static-v18']);
+  const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-static-v19']);
   let done;
   listeners.activate({waitUntil(p) { done = p; }});
   await done;

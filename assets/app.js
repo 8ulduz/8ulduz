@@ -67,6 +67,9 @@ const HOUR = 3600e3, DAY = 24 * HOUR;
 const POLL_MS = 60e3;     // xəbər lentini yoxlama intervalı
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
 const freshUrl = (path) => `${path}?t=${Math.floor(Date.now() / 60000)}`;
+// Aktivlərin yolu app.js-in öz ünvanından (bölmə səhifələri /bolme/x/ altından açılır; testlərdə script yoxdur → ./assets/)
+const ASSET = (document.querySelector('script[src*="assets/app.js"]')?.src || "./assets/app.js").replace(/app\.js.*$/, "");
+const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" decoding="async">`;
 const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən xəbər
 
 // Məxfi rejimdə və yaddaş dolanda seçimlər heç olmasa açıq vərəqdə işləsin.
@@ -300,7 +303,7 @@ function imageCandidates(a) {
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 function img(a, cls = "", eager = false, linked = false) {
   const [url, ...rest] = imageCandidates(a);
-  const fallback = `<span class="image-fallback"><b>8ULDUZ</b><span>${esc(catLabel(a.category || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
+  const fallback = `<span class="image-fallback">${LOGO}<span>${esc(catLabel(a.category || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
   const src = url ? `<img src="${esc(url)}" data-image-alternatives="${esc(JSON.stringify(rest))}" alt="" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
   const tag = linked ? "a" : "div";
   return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${esc(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
@@ -580,7 +583,7 @@ function shell() {
   <a class="skip" href="#view">Məzmuna keç</a>
   <div class="topbar"><div class="wrap" id="topbar"></div></div>
   <header class="site" id="sitehead"><div class="wrap hrow">
-    <a class="logo" href="#/" aria-label="8ulduz — baş səhifə"><b><em>8</em><span>ULDUZ</span></b></a>
+    <a class="logo" href="#/" aria-label="8ulduz — baş səhifə">${LOGO}</a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
     <label class="search"><span class="sr">Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -1204,7 +1207,7 @@ function sourcesView() {
 function renderFooter() {
   const srcs = [...new Set((S.data?.articles ?? []).map(shownSource))].sort((a, b) => a.localeCompare(b, "az"));
   $("#footer").innerHTML = `<div class="wrap fgrid">
-    <div><div class="logo"><b><em>8</em><span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
+    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${esc(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a></div>`;
