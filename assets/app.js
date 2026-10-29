@@ -1617,9 +1617,8 @@ function setupFeatureLents() {
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
     if (TOUCH_UI) {
       // Toxunma ekranı. Lent daxildə brauzerin öz sürüşməsi ilə sürüşür; brauzer zənciri söndürülüb (CSS overscroll-behavior:none).
-      // Brauzer jestin əvvəlində hədəfi seçir: lent həmin istiqamətdə sürüşə bilirsə lentə, yoxsa (lent kənardadırsa) səhifəyə
-      // «kilidlənir». Səhifəyə kilidlənibsə brauzer özü sürüşdürür — JS qarışmamalıdır (qarışanda sürət 2 qat olurdu).
-      // Lentə kilidlənibsə brauzer kənarda dayanır — ötürməni JS edir: qalan məsafə səhifəyə, barmaq qalxanda ətalət.
+      // Ötürmə JS-dədir: lentin sonunda/başında barmaq məsafəsi səhifəyə, barmaq qalxanda ətalət. Brauzer özü səhifəni
+      // sürüşdürərsə (bəzi brauzerlər none-a baxmayaraq zəncir edir) JS həmin jestdə dayanır — heç vaxt ikiqat olmur.
       let lastY = null, samples = [], inertia = 0, mode = null, expectedY = 0;
       const atEnd = () => lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1;
       const atTop = () => lent.scrollTop <= 0;
@@ -1632,12 +1631,11 @@ function setupFeatureLents() {
         if (lastY == null) return;
         const y = e.touches[0].clientY, dy = lastY - y; lastY = y;
         samples.push([performance.now(), y]); if (samples.length > 6) samples.shift();
-        if (mode === null) {
-          if (Math.abs(dy) < 1) return;
-          mode = ((dy > 0 && atEnd()) || (dy < 0 && atTop())) ? "page" : "lent";
-        }
+        // overscroll-behavior:none ilə brauzer jest lentdə başlayanda səhifəni HEÇ sürüşdürmür (kənarda olsa belə) — ona görə
+        // kənar ötürməsini həmişə JS edir. Yalnız səhifə kənardan (brauzer tərəfindən) tərpənsə, bu jestdə JS dayanır (ikiqat olmasın).
         if (mode === "page") return;
-        if (Math.abs(window.scrollY - expectedY) > 1) { mode = "page"; return; }  // səhifə onsuz da brauzer tərəfindən sürüşür
+        if (mode === null) mode = "lent";
+        if (Math.abs(window.scrollY - expectedY) > 1) { mode = "page"; return; }
         if ((dy > 0 && atEnd()) || (dy < 0 && atTop())) { window.scrollBy(0, dy); expectedY = window.scrollY; }
       }, { passive: true });
       const release = () => {
