@@ -389,6 +389,17 @@ class DateAndFilterTest(unittest.TestCase):
         self.assertTrue(any("başsağlığı" in o["title"] for o in out))
         self.assertEqual(updater._places("Göygöldə evdən meyit tapıldı. Məktəbdə hadisə"), {"goygol"})
 
+    def test_unrelated_remembered_headlines_are_removed_but_verified_ones_survive(self):
+        stamp = "2026-10-29T18:00:00+00:00"
+        title = "Ceyhun Bayramov jesti ilə diqqət mərkəzinə düşdü"
+        article = {"source": "Moderator.az", "sourceUrl": "https://moderator.az/a", "title": title,
+                   "publishedAt": stamp, "alts": [
+                       {"source": "Yenicag", "sourceUrl": "https://yenicag.az/b", "title": "Trampla Ərdoğan arasında telefon danışığı oldu", "publishedAt": stamp},
+                       {"source": "Olke.az", "sourceUrl": "https://olke.az/c", "title": title, "publishedAt": stamp}]}
+        result = updater.group_duplicates([article])[0]
+        self.assertEqual([a["source"] for a in result["alts"]], ["Olke.az"])
+        self.assertEqual(updater.detect_lang("Why President Ilham Aliyev skips the OTS Summit in Türkiye", "Azərbaycan Prezidenti haqqında xəbər", "az"), "en")
+
     def test_remembered_alternatives_are_bounded(self):
         # Əvvəlki dövrdən gələn 300 alternativ (köhnə qar topu) yenidən qoşulmur; pəncərə daxilindəkilər 20-yə qədər qalır
         base = {"category": "gundem", "lang": "az", "imageUrl": None, "summary": ""}
@@ -397,6 +408,7 @@ class DateAndFilterTest(unittest.TestCase):
                  publishedAt="2026-10-28T12:00:00+00:00", alts=old_alts)
         out = updater.group_duplicates([a])
         self.assertLessEqual(len(out[0].get("alts") or []), 20)
+        self.assertNotIn("alts", out[0], "Opaque legacy alternatives cannot prove they report the same event")
         stale = [{"source": "T", "sourceUrl": "https://t/x", "publishedAt": "2026-10-20T10:00:00+00:00"}]
         b = dict(base, source="Report", title="Bakıda yeni metro stansiyası açıldı", sourceUrl="https://r/1",
                  publishedAt="2026-10-28T12:00:00+00:00", alts=stale)

@@ -374,6 +374,14 @@ function roadItems(list) {
     return k ? [{ ...a, icon: k.icon, kind: k.kind }] : [];
   }).sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 }
+function localRoadItems(list) {
+  const local = /bakı|bakinin|bakının|abşeron|abseron|sumqayıt|sumqayit|hey[dər]+ əliyev prospekt|hava limanı yolu/iu;
+  const unrelated = /qatar|dəmir yolu|helikopter|təyyarə|başsağlığı|təbrik/iu;
+  return roadItems(list).filter(a => {
+    const age = Date.now() - new Date(a.publishedAt).getTime();
+    return age >= 0 && age < 2 * HOUR && local.test(a.title) && !unrelated.test(a.title);
+  });
+}
 function tixArea() { return TRAFFIC_AREAS.find(a => a.id === S.tixArea) || TRAFFIC_AREAS[0]; }
 function wazeSrc(a) { return `https://embed.waze.com/iframe?zoom=${a.zoom}&lat=${a.lat}&lon=${a.lon}`; }
 function wazeLive(a) { return `https://www.waze.com/live-map?ll=${a.lat},${a.lon}&zoom=${a.zoom}`; }
@@ -593,7 +601,7 @@ function shell() {
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
-  <div class="wrap"><section class="cta" id="cta"><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${esc(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
+  <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${esc(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
@@ -723,6 +731,10 @@ function startTicker() {
   track.style.animation = "none";
   if (tickAnim) { try { tickAnim.cancel(); } catch {} tickAnim = null; }
   clearTimeout(tickT);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    track.style.transform = "none";
+    return;
+  }
   const half = track.scrollWidth / 2;
   if (!(half > 0)) return;
   const dur = half / TICK_SPEED * 1000;
@@ -1150,7 +1162,7 @@ function highlightSearch() {
 
 function trafficView() {
   const area = tixArea();
-  const items = roadItems(S.data?.articles || []).slice(0, 40);
+  const items = localRoadItems(S.data?.articles || []).slice(0, 40);
   const jumps = TRAFFIC_AREAS.map(a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`).join("");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
   const map = S.tixOn
@@ -1158,9 +1170,9 @@ function trafficView() {
     : `<div class="tix-open"><p>Xəritə yalnız açanda yüklənir.</p><button type="button" class="btn" data-act="tix-open">Xəritəni aç</button></div>`;
   const rows = items.length
     ? `<ul class="tix-list">${items.map(a => `<li><a href="${esc(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${esc(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
-    : `<p class="empty">Hazırda yol xəbəri görünmür. Xəritə canlıdır.</p>`;
+    : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
   return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
-    <p class="tix-note">Xəritə Waze-dən açılır, açar tələb etmir. Yol xəbərləri saytdakı mövcud lentlərdən süzülür.</p>
+    <p class="tix-note">Xəritə Waze-dən açılır. Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
     ${rush}
     <div class="tix-jumps">${jumps}</div>
     <div class="tix-map" id="tix-map">${map}<div class="tix-bar"><a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a></div></div>
@@ -1204,8 +1216,13 @@ function sourcesView() {
   return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Yaşıl — son saatlarda xəbər gəlib. Sarı — boş və ya köhnəlmiş uğur. Qırmızı — xəta.</p></div><span class="cnt">${rows.length}</span></div><label class="source-search">Mənbə axtar <input type="search" data-source-search placeholder="Mənbənin adı…"></label><ul class="src-list">${body}</ul>`;
 }
 
+function trackedSources() {
+  const rows = S.sources?.sources;
+  const names = rows ? rows.filter(s => !removedSource(s)).map(s => s.name) : (S.data?.articles ?? []).flatMap(a => [shownSource(a), ...(a.alts || []).map(x => x.source)]);
+  return [...new Set(names.filter(Boolean))].sort((a, b) => a.localeCompare(b, "az"));
+}
 function renderFooter() {
-  const srcs = [...new Set((S.data?.articles ?? []).map(shownSource))].sort((a, b) => a.localeCompare(b, "az"));
+  const srcs = trackedSources();
   $("#footer").innerHTML = `<div class="wrap fgrid">
     <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
@@ -1214,7 +1231,7 @@ function renderFooter() {
 }
 
 function aboutView() {
-  const srcs = [...new Set((S.data?.articles ?? []).map(shownSource))].sort((a, b) => a.localeCompare(b, "az"));
+  const srcs = trackedSources();
   const contact = String(window.SITE_CONFIG?.contact || "").trim();
   const gc = String(window.SITE_CONFIG?.goatcounter || "").trim();
   return `<div class="page-h"><div><h1>Haqqımızda</h1><p>8ulduz nədir, necə işləyir və nəyi göstərmir</p></div></div>
@@ -1804,6 +1821,7 @@ async function loadSources() {
     if (r.ok) S.sources = await r.json();
   } catch {}
   if (route().name === "sources") renderView();
+  renderFooter();
 }
 async function loadStatus() {
   try {
@@ -1882,6 +1900,6 @@ setInterval(() => {
 
 // Optional voice UI is independent of feed re-renders.
 import("./assistant.js").then(({ mountAssistant }) => mountAssistant({
-  getSnapshot: () => ({ articles: S.data?.articles || [], newsAt: S.data?.updatedAt, categories: CATS, cities: CITIES, road: roadItems(S.data?.articles || []), sportsAt: S.sports?.updatedAt, leagues: fbLeagues().map(l => ({...l, updatedAt: l.world ? S.sports?.updatedAt : S.football?.updatedAt})) }),
+  getSnapshot: () => ({ articles: S.data?.articles || [], newsAt: S.data?.updatedAt, categories: CATS, cities: CITIES, road: localRoadItems(S.data?.articles || []), sportsAt: S.sports?.updatedAt, leagues: fbLeagues().map(l => ({...l, updatedAt: l.world ? S.sports?.updatedAt : S.football?.updatedAt})) }),
   wxCode,
 })).catch(() => {});

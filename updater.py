@@ -319,6 +319,10 @@ def norm_az(s):
 def detect_lang(title, desc, default):
     """Dil təyini: kiril→ru, 'ə'→az (türkdə yoxdur), ı/ğ/İ→tr, əks halda mənbə dili.
     Azərbaycan mənbələrində ə-siz qısa başlıqlar türkcə sayılmasın deyə default "az" üstündür."""
+    # A translated summary must not label an English headline as Azerbaijani.
+    english = set(re.findall(r"[a-z]+", title.lower())) & {"the", "why", "with", "from", "for", "and", "says", "after", "before", "in", "of", "to"}
+    if "ə" not in title.lower() and len(english) >= 2:
+        return "en"
     blob = title + " " + desc
     if re.search(r"[а-яА-Я]", blob):
         return "ru"
@@ -1963,6 +1967,12 @@ def _event_sig(a):
 def _same_event(a, b):
     """0 — fərqli; 1 — zəif uyğunluq (yalnız klaster başı ilə və ya 2 üzvlə təsdiqlənəndə sayılır);
     2 — güclü uyğunluq (eyni şəxs, eyni qurum + məzmun, 2+ lövbər + məzmun, kökləri güclü üst-üstə düşür)."""
+    # Shared boilerplate in summaries must not join unrelated headlines.
+    ta, tb = a.get("title") or "", b.get("title") or ""
+    title_common = (_event_stems(ta) & _event_stems(tb)) - _GENERIC_ANCHOR
+    people_a, people_b = _entities(ta)[0], _entities(tb)[0]
+    if people_a and people_b and len(title_common) < 2 and not _ent_match(people_a, people_b):
+        return 0
     ca, pa, oa, sa, na, la = _event_sig(a)
     cb, pb, ob, sb, nb, lb = _event_sig(b)
     if not sa or not sb:
@@ -2011,7 +2021,8 @@ def _compact_alt(a):
     url = a.get("sourceUrl") or ""
     if not url:
         return None
-    alt = {"source": a.get("source") or "", "sourceUrl": url, "publishedAt": a.get("publishedAt") or ""}
+    alt = {"source": a.get("source") or "", "sourceUrl": url, "publishedAt": a.get("publishedAt") or "",
+           "title": a.get("title") or "", "lang": a.get("lang") or "az"}
     if a.get("imageUrl"):
         alt["imageUrl"] = a["imageUrl"]  # əsas kartın şəkli yoxdursa brauzer buradan götürür
     return alt
@@ -2122,7 +2133,13 @@ def group_duplicates(articles):
             kept = []
             for alt in extra:
                 adt = _parse_dt(alt.get("publishedAt"))
-                if pdt is None or adt is None or abs(adt - pdt) <= GROUP_WINDOW:
+                title = alt.get("title") or ""
+                toks, ptoks = _title_tokens(title), _title_tokens(primary.get("title") or "")
+                same = (_norm_title(title) == _norm_title(primary.get("title") or "")
+                        or _titles_similar(toks, _shingles(toks), ptoks, _shingles(ptoks))
+                        or _same_event(alt, primary) >= 2)
+                # Legacy alternatives have no headline: they cannot be verified.
+                if title and same and pdt is not None and adt is not None and abs(adt - pdt) <= GROUP_WINDOW:
                     kept.append(alt)
             alts.extend(kept[:max(0, 20 - len(alts))])
         alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
@@ -2624,8 +2641,8 @@ def main():
         if a.get("source") == "AZƏRTAC Regionlar":  # köhnə saxta mənbə adı (lent ümumi lentin eynisi idi)
             a["source"] = "AZƏRTAC"
         # köhnə xəbərlərin dili yoxdursa — avtomatik təyin et (süzgəcin düzgün işləməsi üçün)
-        if not a.get("lang"):
-            a["lang"] = detect_lang(a.get("title", ""), a.get("summary", ""), "")
+        if not a.get("lang") or a.get("lang") == "az":
+            a["lang"] = detect_lang(a.get("title", ""), a.get("summary", ""), a.get("lang") or "")
         # köhnə xəbərləri də yenilənmiş qaydalarla yenidən kateqoriyalaşdır
         lbl = label_for(a.get("title", ""), a.get("summary", ""), a["lang"],
                         "Bölgələr" if a.get("sourceUrl") in region_links else hints.get(a.get("source")),

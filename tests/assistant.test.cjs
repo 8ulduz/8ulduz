@@ -8,6 +8,17 @@ const snapshot={cities:[['Bakı',40.4,49.8],['Gəncə',40.6,46.3]],newsAt:now,ca
 test('category and source commands tolerate Azerbaijani suffixes',async()=>{const {answerCommand}=await ready;for(const q of ['Təhsil xəbərlərini oxu','Təhsilin xəbərlərini oxu']){const a=await answerCommand(q,snapshot);assert.equal(a.items.length,1);assert.equal(a.items[0].id,'a');}for(const q of ['AZƏRTAC xəbərlərini oxu','AZƏRTACın xəbərlərini oxu']){const a=await answerCommand(q,snapshot);assert.equal(a.items.length,2);assert.ok(a.items.every(x=>x.source==='AZƏRTAC'));assert.ok(a.items.some(x=>x.sourceUrl==='https://azertag.az/c'));}});
 test('person search uses folded title words and unknown searches stay empty',async()=>{const {answerCommand}=await ready;assert.equal((await answerCommand('Arda Gülər haqqında xəbərləri oxu',snapshot)).items[0].id,'b');assert.equal((await answerCommand('Mövcud olmayan şəxs haqqında xəbərləri oxu',snapshot)).items.length,0);});
 test('new headlines are capped at five',async()=>{const {answerCommand}=await ready;const a=await answerCommand('Yeni xəbərləri oxu',{...snapshot,articles:Array.from({length:10},(_,i)=>({...snapshot.articles[0],id:String(i)}))});assert.equal(a.items.length,5);});
+test('read command is not mistaken for Oxu.az and dates use Azerbaijani month names',async()=>{
+  const {parseCommand,answerCommand}=await ready;
+  const data={...snapshot,articles:[...snapshot.articles,{id:'oxu',source:'Oxu.az',title:'Oxu başlığı',publishedAt:now,lang:'az'}]};
+  assert.equal(parseCommand('Son xəbərləri oxu',data).source,undefined);
+  assert.equal(parseCommand('Təhsil xəbərlərini oxu',data).source,undefined);
+  assert.equal(parseCommand('Oxu.az xəbərlərini oxu',data).source,'Oxu.az');
+  const answer=await answerCommand('Son xəbərləri oxu',data);
+  assert.ok(answer.items.some(a=>a.source==='AZƏRTAC'));
+  assert.doesNotMatch(answer.text,/M\d{1,2}/);
+  assert.match(answer.text,/yanvar|fevral|mart|aprel|may|iyun|iyul|avqust|sentyabr|oktyabr|noyabr|dekabr/);
+});
 test('sport team aliases and follow-up context work without inventing scores',async()=>{const {answerCommand}=await ready;const context={};const a=await answerCommand('Fənərbaxçanın neçə xalı var?',snapshot,context);assert.match(a.text,/22 xal/);assert.match((await answerCommand('Neçənci yerdədir?',snapshot,context)).text,/2-ci yer/);assert.match((await answerCommand('Son oyunu necə bitib?',snapshot,context)).text,/hesabı hazırkı məlumatda yoxdur/);});
 test('unknown team cannot silently inherit another named team',async()=>{const {answerCommand}=await ready;const a=await answerCommand('Beşiktaşın neçə xalı var?',snapshot,{team:'Fenerbahce'});assert.ok(!a.text.includes('22 xal'));assert.match(a.text,/Hansı komandanı/);});
 test('traffic reports carry freshness and do not claim roads are clear',async()=>{const {answerCommand}=await ready;const a=await answerCommand('Tıxac barədə de',{...snapshot,road:[{title:'Old accident',publishedAt:'2020-01-01'}]});assert.equal(a.items.length,0);assert.match(a.text,/tıxac olmadığı demək deyil/);assert.equal(a.links[0].url,'#/tixac');});

@@ -17,9 +17,23 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, frontAppointments, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, frontAppointments, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources};`, context);
   return context;
 }
+
+test('Baku traffic excludes foreign disasters, condolences and stale reports',()=>{
+  const {localRoadItems}=app().api;
+  const stamp=new Date().toISOString();
+  const rows=['Bakıda bu yolda tıxac var','İspaniyada qatar qəzası baş verdi','Bakıda helikopter qəzaya uğradı','Prezident qatar qəzasına görə başsağlığı verdi','Gəncədə yolda qəza baş verdi'].map((title,id)=>({id,title,publishedAt:stamp,lang:'az'}));
+  rows.push({title:'Bakıda tıxac var',publishedAt:'2020-01-01',lang:'az'});
+  assert.deepEqual(Array.from(localRoadItems(rows),a=>a.id),[0]);
+});
+test('source count uses the monitored feed registry, including temporarily empty sources',()=>{
+  const {S,trackedSources}=app().api;
+  S.data={articles:[{source:'APA',title:'Xəbər'}]};
+  S.sources={sources:[{name:'APA'},{name:'Oxu.az'},{name:'AZƏRTAC'}]};
+  assert.deepEqual(Array.from(trackedSources()).sort(),['APA','AZƏRTAC','Oxu.az'].sort());
+});
 
 test('blocked browser storage still allows preferences and saving', () => {
   const ctx = app();
