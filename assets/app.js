@@ -137,8 +137,11 @@ const isFirstLady = a => !!a && flText(a.title);
 // Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
-// Zuğulba xronikasında rəsmi səhifələrlə yanaşı əsas dövlət saytlarının (AZƏRTAC) prezident xəbərləri də görünür.
-const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)"]);
+// Zuğulba xronikasında rəsmi səhifələrlə yanaşı dövlət və iqtidar saytlarının prezident xəbərləri də görünür:
+// AZƏRTAC, Cross Media, Xalq qəzeti, «Azərbaycan» qəzeti, Yeni Azərbaycan, Baku TV, APA, Report, Trend, Azernews, Day.Az, News.az, Xəzər.
+// Eyni xəbər bir neçə mənbədə çıxanda updater onları bir karta birləşdirir (rəsmi mənbə əsas olur), ona görə blok təkrarlanmır.
+const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
+  "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
 // Vəzifəyə təyinat / vəzifədən azad etmə xəbərləri ön sıralarda: son 36 saat ərzində siyahının başına keçir, hero-da əlavə çəki.
 const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed/iu;
 const isAppointment = a => APPT_RX.test(a?.title || "");
@@ -152,7 +155,7 @@ function frontAppointments(list) {
 function prezHome(list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
-  // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və əsas dövlət saytları (AZƏRTAC); digər agentliklər «Hamısı» səhifəsində qalır
+  // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və dövlət/iqtidar saytları (STATE_SRC); digər saytlar «Hamısı» səhifəsində qalır
   const prez = list.filter(a => a.category === "prezident" && (OFFICIAL_SRC.has(a.source) || STATE_SRC.has(a.source)));
   const president = frontAppointments(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
   const lady = byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY));
@@ -880,7 +883,12 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  const cards = list.map(a => `<a class="pcard" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></a>`).join("");
+  // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır (imgFail)
+  const cards = list.map(a => {
+    const [pic, ...rest] = imageCandidates(a);
+    const thumb = pic ? `<span class="img"><img src="${esc(pic)}" data-image-alternatives="${esc(JSON.stringify(rest))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)"></span>` : "";
+    return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${esc(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
+  }).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>

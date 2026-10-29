@@ -162,7 +162,7 @@ test('social posts are ordered by time only and show the reporting source', () =
   assert.ok(html.indexOf('yeni') < html.indexOf('orta'));
 });
 
-test('appointment and dismissal news come first; Zuğulba includes AZƏRTAC', () => {
+test('appointment and dismissal news come first; Zuğulba includes state sites with thumbnails', () => {
   const ctx = app();
   const now = Date.now();
   const at = h => new Date(now - h * 3600e3).toISOString();
@@ -177,12 +177,16 @@ test('appointment and dismissal news come first; Zuğulba includes AZƏRTAC', ()
   assert.deepEqual([...ctx.api.frontAppointments(list).map(a => a.id)], [2, 1, 3]);
   const prez = [
     { id: 'a', category: 'prezident', source: 'AZƏRTAC', title: 'Prezident İlham Əliyev təbrik edib', publishedAt: at(2) },
-    { id: 'b', category: 'prezident', source: 'APA', title: 'Prezident qəbul edib', publishedAt: at(1) },
+    { id: 'b', category: 'prezident', source: 'Oxu.az', title: 'Prezident qəbul edib', publishedAt: at(1) },
+    { id: 'd', category: 'prezident', source: 'Cross Media', title: 'Prezident İlham Əliyev fərman imzalayıb', publishedAt: at(4), imageUrl: 'https://crossmedia.az/storage/news/a.jpeg' },
     { id: 'c', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev sərəncam imzalayıb: yeni rəis təyin edilib', publishedAt: at(3) },
   ];
   const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
-  assert.ok(ids.includes('a') && !ids.includes('b'));
+  assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // AZƏRTAC və Cross Media var, Oxu.az yalnız «Hamısı»nda
   assert.equal(ids[0], 'c'); // təyinat önə
+  const html = ctx.api.prezBlock(ctx.api.prezHome(prez));
+  assert.ok(html.includes('<a class="pcard has-img"') && html.includes('src="https://crossmedia.az/storage/news/a.jpeg"'));
+  assert.ok(html.includes('<a class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
 });
 
 test('raw links are stripped from headlines', () => {

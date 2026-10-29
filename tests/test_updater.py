@@ -82,6 +82,81 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(updater._plain("Harri Keyn mükafat qazanıb https://report.az/futbol/abc", title=True), "Harri Keyn mükafat qazanıb")
 
 
+class StateSitesTest(unittest.TestCase):
+    """RSS-siz iqtidar/dövlət saytları: Cross Media, Xalq qəzeti, Yeni Azərbaycan (HTML) və Baku TV (Google News sitemap)."""
+
+    def test_crossmedia_listing_parser(self):
+        page = ('<div class="category-card"><div class="img"><a href="https://crossmedia.az/az/article/114262">'
+                '<img src="https://crossmedia.az/storage/news/2026_10_29/a.jpeg" alt="x"></a></div>'
+                '<a href="https://crossmedia.az/az/article/114262"><div class="description"><p class="review">Cəmiyyət</p>'
+                '<h3><strong>Bakıda Atatürkün heykəli ziyarət olunub</strong></h3><p class="date"><i></i><span>10:35 29.10.2026</span></p></div></a></div>'
+                '<div class="category-card"><a href="https://crossmedia.az/az/article/114262"><h3>Təkrar</h3></a></div>'
+                '<div class="category-card"><a href="https://crossmedia.az/az/article/114261"><h3>Şəkilsiz və saatsız</h3></a></div>')
+        items = updater.parse_crossmedia(page)
+        self.assertEqual([i["link"].rsplit("/", 1)[1] for i in items], ["114262", "114261"])
+        self.assertEqual(items[0]["title"], "Bakıda Atatürkün heykəli ziyarət olunub")
+        self.assertEqual(items[0]["pubDate"], "2026-10-29T10:35:00+04:00")
+        self.assertEqual(items[0]["image"], "https://crossmedia.az/storage/news/2026_10_29/a.jpeg")
+        self.assertEqual(items[1]["pubDate"], "")
+        self.assertIsNone(items[1]["image"])
+
+    def test_xalqqazeti_home_parser(self):
+        page = ('<div class="rt-post-grid grid-meta"><div class="post-img"><a href="/az/resmi-xronika/286683-prezident-ilham-eliyev-icesco-nun">'
+                '<img src="https://xalqqazeti.az/uploads/news/272156/1.jpg" alt="Prezident İlham Əliyev ICESCO-nun Baş direktorunu qəbul edib"></a></div>'
+                '<div class="post-content"><h3 class="post-title"><a href="/az/resmi-xronika/286683-prezident-ilham-eliyev-icesco-nun">'
+                'Prezident İlham Əliyev ICESCO-nun Baş direktorunu qəbul edib</a></h3><div class="post-meta"><ul><li><span class="rt-meta">'
+                '<i class="far fa-calendar-alt icon"></i> 14:13 27.10.2026 </span></li></ul></div></div></div>'
+                '<div class="rt-post-grid"><a href="/az/siyaset/">bölmə keçidi, xəbər deyil</a></div>')
+        items = updater.parse_xalqqazeti(page)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["link"], "https://xalqqazeti.az/az/resmi-xronika/286683-prezident-ilham-eliyev-icesco-nun")
+        self.assertEqual(items[0]["title"], "Prezident İlham Əliyev ICESCO-nun Baş direktorunu qəbul edib")
+        self.assertEqual(items[0]["pubDate"], "2026-10-27T14:13:00+04:00")
+        self.assertEqual(items[0]["image"], "https://xalqqazeti.az/uploads/news/272156/1.jpg")
+
+    def test_yeniazerbaycan_home_parser_takes_time_from_image_stamp(self):
+        page = ('<li><div class="news-post image-post"><img src="https://yeniazerbaycan.com/thumb/575/2026/20261029103456-1793251414390132569_1200x630.jpg" alt="">'
+                '<div class="hover-box"><h2 style="font-size: 20px"><a
+       href="https://yeniazerbaycan.com/az/Gundem/mehriban-eliyeva-tebrik-edib-156131">'
+                'Birinci vitse-prezident Mehriban Əliyeva Türkiyə xalqının Cümhuriyyət Bayramını təbrik edib</a></h2>'
+                '<ul class="post-tags"><li>29-oktyabr-2026</li></ul></div></div></li>'
+                '<li><div class="news-post image-post"><img src="https://yeniazerbaycan.com/thumb/575/2026/no-stamp.jpg"><h2><a href="https://yeniazerbaycan.com/az/gundem/mehriban-eliyeva-tebrik-edib-156131">Eyni yazı, kiçik hərflə</a></h2></div></li>'
+                '<li><div class="news-post image-post"><h2><a href="https://yeniazerbaycan.com/az/elm/sagirdler-156058">Şagirdlərin elektron yerdəyişməsinə başlanılır</a></h2></div></li>')
+        items = updater.parse_yeniazerbaycan(page)
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[0]["link"], "https://yeniazerbaycan.com/az/gundem/mehriban-eliyeva-tebrik-edib-156131")
+        self.assertEqual(items[0]["pubDate"], "2026-10-29T10:34:56+04:00")
+        self.assertTrue(items[0]["image"].endswith("_1200x630.jpg"))
+        self.assertEqual(items[1]["pubDate"], "")  # vaxt yoxdur: updater səhifə/ilk görülmə qaydası ilə doldurur
+        self.assertIsNone(items[1]["image"])
+
+    def test_google_news_sitemap_is_read_as_a_feed(self):
+        xml = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+               'xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'
+               '<url><loc>https://baku.tv/siyaset/prezident-qebul-etdi</loc><news:news><news:publication><news:name>Baku.tv</news:name>'
+               '<news:language>az</news:language></news:publication><news:publication_date>2026-10-29T09:28:27+04:00</news:publication_date>'
+               '<news:title>Prezident İlham Əliyev nazirləri qəbul etdi - Baku TV</news:title></news:news>'
+               '<image:image><image:loc>https://baku.tv/storage/posts/list/1.webp</image:loc></image:image></url>'
+               '<url><loc>https://baku.tv/sehife</loc><lastmod>2026-10-29T00:00:00+04:00</lastmod></url></urlset>').encode("utf-8")
+        items = updater.parse_feed(xml)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["title"], "Prezident İlham Əliyev nazirləri qəbul etdi - Baku TV")
+        self.assertEqual(items[0]["image"], "https://baku.tv/storage/posts/list/1.webp")
+        self.assertEqual(updater.to_iso(items[0]["pubDate"]), "2026-10-29T05:28:27+00:00")
+
+    def test_html_sources_go_through_the_page_parser_and_are_in_the_feed_list(self):
+        names = {f[0]: f[1] for f in updater.AZ_FEEDS}
+        for name in ("Cross Media", "Xalq qəzeti", "Yeni Azərbaycan", "Baku TV", "Azərbaycan qəzeti"):
+            self.assertIn(name, names)
+        self.assertIn(names["Cross Media"], updater.PAGE_PARSERS)
+        page = ('<div class="category-card"><a href="https://crossmedia.az/az/article/1"><h3>Prezident İlham Əliyev fərman imzalayıb</h3>'
+                '<p class="date"><span>10:00 29.10.2026</span></p></a></div>')
+        with patch.object(updater, "fetch", return_value=page.encode("utf-8")):
+            source, items, err, used = updater.fetch_feed(("Cross Media", names["Cross Media"], "az", None))
+        self.assertIsNone(err)
+        self.assertEqual([i["title"] for i in items], ["Prezident İlham Əliyev fərman imzalayıb"])
+
+
 class PresidentPageTest(unittest.TestCase):
     PAGE = """
     <article class="news-photo"><div class="news-photo_category"><span class="category_date">27 oktyabr 2026<br>13:50</span></div>

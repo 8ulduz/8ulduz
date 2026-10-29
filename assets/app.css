@@ -266,7 +266,11 @@ main>.wrap>section{margin-bottom:18px}
   .prez .soc-p{flex:0 0 auto;max-width:240px;border:1px solid var(--border);border-radius:999px;padding:3px 8px;background:var(--soc-chip)}
   .prez .soc-links{order:3;flex-direction:row;flex-wrap:wrap;row-gap:3px;column-gap:0;margin:5px 0 0}
 }
-.pcard{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 8px;min-height:0;min-width:0}
+.pcard{display:flex;flex-direction:row;align-items:center;gap:8px;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 8px;min-height:0;min-width:0}
+.pcard .x{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+/* Zuğulba kartının şəkli (rəsmi səhifə, Cross Media, Xalq qəzeti…); yüklənməsə gizlənir və mətn tam enə yayılır */
+.pcard .img{flex:none;width:84px;height:60px;border-radius:6px;background:var(--fallback)}
+.pcard .img.image-unavailable{display:none}
 .pcard:hover{border-color:hsl(43 96% 56%/.5)}
 .pcard .t{font-size:0.9286rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pcard .bd{display:inline-flex;width:fit-content;vertical-align:1px;margin:0 4px 0 0;flex:none}

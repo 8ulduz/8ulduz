@@ -68,6 +68,13 @@ AZ_FEEDS = [
     ("Minval",       "https://minval.az/feed"),
     ("Bakupost",     "https://www.bakupost.az/rss"),
     ("Banker.az",    "https://banker.az/feed/", "İqtisadiyyat"),
+    # Dövlət və iqtidar saytları (Zuğulba xronikası üçün də): RSS-i olmayanlar HTML səhifə ilə oxunur (PAGE_PARSERS),
+    # Baku TV Google News sitemap-ı ilə. Caliber.az (yalnız rus/ingilis, Yandex Turbo lenti) və Baku.ws (GitHub-dan 403) yoxdur.
+    ("Cross Media",  "https://crossmedia.az/az/all-news"),
+    ("Xalq qəzeti",  "https://xalqqazeti.az/az"),
+    ("Yeni Azərbaycan", "https://yeniazerbaycan.com/"),
+    ("Azərbaycan qəzeti", "https://azerbaijan-news.az/az/feed"),
+    ("Baku TV",      "https://baku.tv/sitemap-news-az.xml"),
 ]
 # Xarici mənbələr: (ad, url, dil[, kateqoriya ipucu])
 WORLD_FEEDS = [
@@ -372,6 +379,27 @@ def image_of(item, link, raw_desc):
 def _local(tag):
     return tag.rsplit("}", 1)[-1]
 
+_SM_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
+_NEWS_NS = "{http://www.google.com/schemas/sitemap-news/0.9}"
+_IMG_NS = "{http://www.google.com/schemas/sitemap-image/1.1}"
+
+def parse_news_sitemap(root, limit=80):
+    """Google News sitemap-ı (baku.tv/sitemap-news-az.xml): <url><loc/><news:news><news:title/><news:publication_date/></news:news>
+    <image:image><image:loc/></image:image></url>. Başlıqsız <url> (adi sitemap) buraxılır."""
+    items = []
+    for url in root.iter(_SM_NS + "url"):
+        link = (url.findtext(_SM_NS + "loc") or "").strip()
+        title = (url.findtext(f"{_NEWS_NS}news/{_NEWS_NS}title") or "").strip()
+        pub = (url.findtext(f"{_NEWS_NS}news/{_NEWS_NS}publication_date") or url.findtext(_SM_NS + "lastmod") or "").strip()
+        img = (url.findtext(f"{_IMG_NS}image/{_IMG_NS}loc") or "").strip()
+        if not (link and title):
+            continue
+        items.append({"title": html.unescape(title), "link": link, "description": "", "pubDate": pub,
+                      "author": "", "image": _abs_img(img, link) if img else None})
+        if len(items) >= limit:
+            break
+    return items
+
 def parse_feed(xml_bytes):
     items = []
     xml_bytes = xml_bytes.lstrip(b"\xef\xbb\xbf \t\r\n")
@@ -379,6 +407,8 @@ def parse_feed(xml_bytes):
         root = ET.fromstring(xml_bytes)
     except ET.ParseError:
         return parse_feed_lenient(xml_bytes)
+    if _local(root.tag) == "urlset":  # Google News sitemap-ı (Baku TV) — RSS-siz saytın lenti
+        return parse_news_sitemap(root)
     # RSS 2.0 və RSS 1.0 (RDF) elementləri
     rss_items = list(root.iter("item")) or [e for e in root.iter() if _local(e.tag) == "item"]
     for item in rss_items:
@@ -736,6 +766,9 @@ def _err(exc):
     return f"{type(exc).__name__}: {str(exc)[:80]}"
 
 def _load_direct(url):
+    parser = PAGE_PARSERS.get(url)  # RSS-siz saytlar: HTML siyahı səhifəsi oxunur (Cross Media, Xalq qəzeti, Yeni Azərbaycan)
+    if parser:
+        return parser(fetch(url).decode("utf-8", "replace"))
     return parse_feed(fetch(url))
 
 def _gnews_decode(art_id):
@@ -1139,6 +1172,93 @@ def parse_azertag_regions(html):
                       "pubDate": datetime.datetime(y, m, d, hh, mm, tzinfo=BAKU).isoformat(timespec="seconds"),
                       "image": _abs_img(img.group(1), link) if img else None, "author": ""})
     return items
+
+# ---- Dövlət və iqtidar saytları (RSS-siz): ana səhifə / siyahı səhifəsi oxunur, Zuğulba xronikası üçün şəkilli ----
+def _hm_dmy(s):
+    """«10:38 29.10.2026» (Bakı vaxtı) → ISO; tapılmasa ""."""
+    m = re.search(r"(\d{1,2}):(\d{2})\s+(\d{2})\.(\d{2})\.(\d{4})", s or "")
+    if not m:
+        return ""
+    hh, mm, d, mo, y = (int(x) for x in m.groups())
+    try:
+        return datetime.datetime(y, mo, d, hh, mm, tzinfo=BAKU).isoformat(timespec="seconds")
+    except ValueError:
+        return ""
+
+CROSSMEDIA_URL = "https://crossmedia.az/az/all-news"
+XALQQAZETI_URL = "https://xalqqazeti.az/az"
+YENIAZERBAYCAN_URL = "https://yeniazerbaycan.com/"
+
+def parse_crossmedia(page):
+    """crossmedia.az/az/all-news: <div class="category-card"> kartları — şəkil, keçid /az/article/N, <h3> başlıq, «10:38 29.10.2026».
+    Saytın RSS-i yoxdur (/rss, /feed HTML qaytarır); sitemap-news.xml 5000 yazılıqdır və saatsızdır."""
+    items, seen = [], set()
+    for chunk in page.split('class="category-card"')[1:]:
+        href = re.search(r'href="(https?://crossmedia\.az/az/article/\d+)"', chunk)
+        title = re.search(r"<h3>(.*?)</h3>", chunk, re.S)
+        date = re.search(r'class="date">.*?<span>([^<]+)</span>', chunk, re.S)
+        img = re.search(r'<img[^>]+src="([^"]+)"', chunk)
+        if not (href and title):
+            continue
+        link, t = href.group(1), _clean_text(title.group(1))
+        if not t or link in seen:
+            continue
+        seen.add(link)
+        items.append({"title": t, "link": link, "description": "", "pubDate": _hm_dmy(date.group(1) if date else ""),
+                      "image": _abs_img(img.group(1), link) if img else None, "author": ""})
+    return items
+
+def parse_xalqqazeti(page):
+    """xalqqazeti.az ana səhifəsi: «rt-post-grid» kartları — şəkil, keçid /az/bölmə/ID-slug, post-title, «14:13 27.10.2026».
+    /rss və /az/feed ana səhifəyə yönləndirir."""
+    items, seen = [], set()
+    for chunk in page.split("rt-post-grid")[1:]:
+        href = re.search(r'href="(/az/[\w-]+/\d+-[^"]*)"', chunk)
+        title = re.search(r'class="post-title">\s*<a[^>]*>(.*?)</a>', chunk, re.S) or re.search(r'<img[^>]+alt="([^"]+)"', chunk)
+        img = re.search(r'<img[^>]+src="([^"]+)"', chunk)
+        if not (href and title):
+            continue
+        link, t = "https://xalqqazeti.az" + href.group(1), _clean_text(title.group(1))
+        if not t or link in seen:
+            continue
+        seen.add(link)
+        items.append({"title": t, "link": link, "description": "", "pubDate": _hm_dmy(chunk),
+                      "image": _abs_img(img.group(1), link) if img else None, "author": ""})
+    return items
+
+def parse_yeniazerbaycan(page):
+    """yeniazerbaycan.com ana səhifəsi: «news-post image-post» blokları — şəkil, <h2><a> başlıq-keçid.
+    Siyahıda saat yoxdur; vaxt şəkil adındakı möhürdən götürülür (…/20261029103456-…jpg = 29.10.2026 10:34:56 Bakı).
+    Möhür yoxdursa tarix boş qalır və updater səhifə/ilk görülmə qaydası ilə doldurur."""
+    items, seen = [], set()
+    for chunk in page.split("news-post image-post")[1:]:
+        href = re.search(r'<h2[^>]*>\s*<a\s[^>]*?href="(https?://yeniazerbaycan\.com/az/[^"]+)"[^>]*>(.*?)</a>', chunk, re.S)  # <a ... href> arasında sətir keçidi var
+        img = re.search(r'<img[^>]+src="([^"]+)"', chunk)
+        if not href:
+            continue
+        link, t = href.group(1), _clean_text(href.group(2))
+        link = re.sub(r"^(https?://yeniazerbaycan\.com/az/)([^/]+)/", lambda m: m.group(1) + m.group(2).lower() + "/", link)  # /az/Gundem/ = /az/gundem/
+        if not t or link in seen:
+            continue
+        seen.add(link)
+        pub = ""
+        stamp = re.search(r"/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})-", img.group(1) if img else "")
+        if stamp:
+            y, mo, d, hh, mm, ss = (int(x) for x in stamp.groups())
+            try:
+                pub = datetime.datetime(y, mo, d, hh, mm, ss, tzinfo=BAKU).isoformat(timespec="seconds")
+            except ValueError:
+                pub = ""
+        items.append({"title": t, "link": link, "description": "", "pubDate": pub,
+                      "image": _abs_img(img.group(1), link) if img else None, "author": ""})
+    return items
+
+# Lent ünvanı RSS yox, HTML səhifədirsə, _load_direct bu oxuyucunu işlədir (mənbə sağlamlığı, ehtiyatlar və limitlər eynidir).
+PAGE_PARSERS = {
+    CROSSMEDIA_URL: parse_crossmedia,
+    XALQQAZETI_URL: parse_xalqqazeti,
+    YENIAZERBAYCAN_URL: parse_yeniazerbaycan,
+}
 
 def official_items():
     """Prezident və birinci xanımın rəsmi səhifələri.
