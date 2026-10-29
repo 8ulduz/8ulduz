@@ -285,7 +285,19 @@ YT_NEWS = [
     ("Report.az", "https://www.youtube.com/feeds/videos.xml?channel_id=UCPSpgPJwGhr5uB0Uui8Lj8g"),
     ("Trend TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCcgI4-HdktIoAaRLOPgY9qQ"),
 ]
-SITE = "https://8ulduz.github.io/8ulduz/"
+def site_url(root=None):
+    """Saytın əsas ünvanı. Kökdə CNAME faylı varsa (GitHub Pages xüsusi domeni, məs. 8ulduz.az) ona görə,
+    yoxsa github.io alt yolu. Bölmə səhifələri, sitemap, robots və feed buna görə yazılır; index.html-dəki
+    canonical/og ünvanları əl ilə dəyişdirilir (README: «Domen»)."""
+    try:
+        name = ((root or ROOT) / "CNAME").read_text(encoding="utf-8").strip().split()[0].strip("/")
+        if name:
+            return f"https://{name}/"
+    except Exception:
+        pass
+    return "https://8ulduz.github.io/8ulduz/"
+
+SITE = site_url()
 FEED_FILE = ROOT / "feed.xml"
 SITEMAP_FILE = ROOT / "sitemap.xml"
 ROBOTS_FILE = ROOT / "robots.txt"

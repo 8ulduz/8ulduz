@@ -503,6 +503,13 @@ class SectionPagesTest(unittest.TestCase):
         self.assertIn(updater.SITE + "bolme/idman/", sitemap)
         self.assertEqual(len(pages), len(updater.SECTIONS))
 
+    def test_site_url_follows_the_cname_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self.assertEqual(updater.site_url(root), "https://8ulduz.github.io/8ulduz/")
+            (root / "CNAME").write_text("8ulduz.az\n", encoding="utf-8")
+            self.assertEqual(updater.site_url(root), "https://8ulduz.az/")
+
     def test_background_reference_is_not_chronicle(self):
         for title in ("2027-ci il nə ilidir?", "Keçmiş köçkünlər Laçında qəbul edildi"):
             with self.subTest(title=title):

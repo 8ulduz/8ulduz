@@ -91,10 +91,16 @@ img{display:block}
 
 /* --- başlıq --- */
 header.site{position:sticky;top:0;z-index:50;background:var(--header);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
-.hrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;min-height:52px;height:auto;padding:8px 0}
-.logo{display:flex;align-items:center;gap:8px;font-weight:900;font-size:1.5714rem;letter-spacing:-.5px;flex:none}
-.logo i{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--primary);color:var(--primary-fg);box-shadow:0 0 20px hsl(43 96% 56%/.3)}
-.logo span{color:var(--primary)}
+.hrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;min-height:52px;height:auto;padding:8px 14px} /* yan boşluq .wrap ilə eyni: loqo kənara yapışmasın */
+/* Söz nişanı: sarı kvadrat ikon çıxarılıb. «8» ağ (açıq temada tünd), «ULDUZ» sarı→qızılı keçidli,
+   «Z»-nin sağ üstündə kiçik 8 guşəli ulduz (bayraqdakı kimi) — yeganə bəzək. */
+.logo{display:flex;align-items:center;flex:none;font-weight:900;font-size:1.6429rem;letter-spacing:-.04em;line-height:1}
+.logo b{display:inline-flex;align-items:baseline;font-weight:900}
+.logo em{font-style:normal;color:var(--fg)}
+.logo span{position:relative;margin-left:.06em;padding-right:.1em;background:linear-gradient(90deg,var(--primary),#ffd866 75%,#ffe9a3);-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo span::after{content:"";position:absolute;top:-.22em;right:-.3em;width:.4em;height:.4em;background:var(--primary);clip-path:polygon(50% 0%,58% 30.6%,85.4% 14.6%,69.4% 42%,100% 50%,69.4% 58%,85.4% 85.4%,58% 69.4%,50% 100%,42% 69.4%,14.6% 85.4%,30.6% 58%,0% 50%,30.6% 42%,14.6% 14.6%,42% 30.6%);filter:drop-shadow(0 0 5px hsl(43 96% 56%/.7))}
+:root[data-theme="light"] .logo span{background-image:linear-gradient(90deg,#b07a00,var(--primary))} /* background qısayazısı clip-i sıfırlayır */
+:root[data-theme="light"] .logo span::after{filter:none}
 /* Masaüstündə bir sətir: sığmayan bölmələr «Daha çox»a keçir, Tıxac görünür qalır */
 nav.main{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;flex:1 1 220px;min-width:0;overflow:visible}
 nav.main a{white-space:nowrap;padding:5px 8px;border-radius:999px;font-weight:600;font-size:0.8929rem;line-height:1.25;color:var(--muted);flex:none}
@@ -138,13 +144,12 @@ nav.main a.nav-tix{position:relative}
   .pray,.wx-btn,.tix-top{height:30px;font-size:0.8571rem}
   .topbar .wrap{gap:6px 8px;padding-top:4px;padding-bottom:4px}
   /* Başlıq: 1 sətir loqo+axtarış, 1 sətir sürüşən bölmələr (əvvəl 3 sətir bükülürdü) */
-  .hrow{min-height:44px;padding:6px 0;gap:6px 8px}
+  .hrow{min-height:44px;padding:6px 14px;gap:6px 8px}
   nav.main{flex-basis:100%;order:3;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:2px}
   nav.main::-webkit-scrollbar{display:none}
   nav.main a{padding:4px 8px;font-size:0.8571rem}
   .search input{width:126px;height:30px}
   .logo{font-size:1.4286rem}
-  .logo i{width:30px;height:30px}
   .topbar .wrap>span:first-child{display:none}
   .pray .phij{display:none} /* hicri tarix açılan pəncərədə qalır; zolaq bir sətirə sığsın */
   .topbar .yenilendi{display:none}
@@ -410,7 +415,6 @@ footer{margin-top:16px;border-top:1px solid var(--border);background:var(--foote
 .fgrid{display:grid;grid-template-columns:1.2fr 1fr 1.6fr;gap:20px;padding:18px 0}
 footer h4{margin:0 0 8px;font-size:0.7857rem;text-transform:uppercase;letter-spacing:.1em}
 footer .logo{font-size:1.2857rem;margin-bottom:6px}
-footer .logo i{width:26px;height:26px}
 .fcats{display:grid;grid-template-columns:repeat(2,1fr);gap:3px 14px}
 .fcats a:hover{color:var(--primary)}
 .srcs{display:flex;flex-wrap:wrap;gap:4px}

@@ -71,10 +71,22 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - «Texnologiya» bölməsi: elm, texnologiya və süni intellekt xəbərləri (əvvəl «Həyat»a düşürdü).
 - Xarici mənbələrin (WORLD_FEEDS) Azərbaycan dövləti, rəhbərliyi, Bakı, Qarabağ, Naxçıvan haqqında xəbərləri dərc edilmir (`foreign_about_azerbaijan`, idman istisna); bu mövzu yalnız Azərbaycan mənbələrindən gəlir.
 - «Bölgələr» bölməsi: rayon və şəhər adları ilə təyin olunur (Bakı istisna), mənbə kimi AZƏRTAC-ın «Regionlar» lenti də var. GəncəXəbər və Patriotnews lent vermir (biri bot-qoruma arxasındadır, digəri açılmır).
+- Loqo: sarı kvadrat ikon çıxarılıb; söz nişanı «8» (ağ) + «ULDUZ» (sarı→qızılı), «Z»-nin üstündə kiçik 8 guşəli ulduz (yalnız CSS, şəkil yoxdur). Telefonda səhifəyə qayıdanda lent dərhal yoxlanır (`visibilitychange`/`pageshow`/`online`).
 - Mənbə sayı 54-dən 78-ə çıxdı (Oxu, Publika, Lent, Axar, Ölkə, Yeniçağ, AzVision, Moderator, Bizim.Media, Reyting, News24, Anews, Aznews, Zim, Konkret, 525, İki Sahil, Femida, Ordu, Azpolitika, Marja, Banco, Media.az, AZƏRTAC Regionlar); Baku.ws və Hafta.az GitHub-dan 403 qaytardığı üçün yoxdur. Limitlər: mənbə başına 40, cəmi 1200.
 - Zuğulba xronikasında rəsmi səhifələrlə yanaşı dövlət və iqtidar saytlarının prezident xəbərləri də var (`STATE_SRC`: AZƏRTAC, Cross Media, Xalq qəzeti, «Azərbaycan» qəzeti, Yeni Azərbaycan, Baku TV, APA, Report, Trend…) və kartlar şəkillidir (xəbərin öz şəkli, yoxdursa digər mənbənin şəkli). Cross Media, Xalq qəzeti və Yeni Azərbaycanın RSS-i yoxdur — siyahı/ana səhifələri oxunur (`PAGE_PARSERS`), Baku TV Google News sitemap-ı ilə gəlir; Caliber.az yalnız rus/ingilis dilində (Yandex Turbo lenti) olduğu üçün yoxdur.
 - «Təhsil» və «Səhiyyə» bölmələri açar sözlərlə təyin olunur (`CATEGORIES`, 1.5 çəki); «Həyat» həyat tərzi, qidalanma və psixologiya üçün qalır.
 - Şəkil: saytın ümumi paylaşım şəkli (azertag social.jpg və s.) və 3+ xəbərdə təkrarlanan şəkil xəbərin şəkli sayılmır; şəkilsiz xəbər üçün səhifədən og:image → twitter:image → image_src → JSON-LD oxunur (hər dövrədə 120 səhifə), yoxdursa eyni xəbərin digər mənbəsinin şəkli götürülür.
+
+## Domen (8ulduz.az)
+
+Sayt GitHub Pages-dədir; xüsusi domen üçün:
+
+1. Domenin DNS-ində (nic.az / qeydiyyatçı paneli): kök `8ulduz.az` üçün 4 A yazısı — `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` (istəyə görə AAAA: `2606:50c0:8000::153`, `…8001::153`, `…8002::153`, `…8003::153`); `www` üçün CNAME → `8ulduz.github.io`.
+2. DNS yayılandan sonra (`nslookup 8ulduz.az` GitHub ünvanlarını göstərəndə) repo kökünə bir sətirlik `CNAME` faylı (`8ulduz.az`) əlavə edilir və GitHub → Settings → Pages → Custom domain-də `8ulduz.az` yazılıb «Enforce HTTPS» seçilir (sertifikat bir neçə dəqiqəyə verilir).
+3. `updater.py` CNAME faylını görən kimi bölmə səhifələrini, sitemap, robots və feed-i yeni ünvanla yazır (`site_url`). `index.html`-dəki canonical/og ünvanları (9 yer) və README-dəki keçidlər əl ilə dəyişdirilir. Manifest və service worker nisbi yollarla işlədiyi üçün dəyişmir.
+4. Köhnə `8ulduz.github.io/8ulduz/` ünvanı avtomatik yeni domenə yönlənir.
+
+DNS qoşulmamış CNAME faylı əlavə edilməməlidir — Pages saytı mövcud olmayan domenə yönləndirər və sayt açılmaz.
 
 ## Lokal yoxlama
 

@@ -580,7 +580,7 @@ function shell() {
   <a class="skip" href="#view">Məzmuna keç</a>
   <div class="topbar"><div class="wrap" id="topbar"></div></div>
   <header class="site" id="sitehead"><div class="wrap hrow">
-    <a class="logo" href="#/"><i>${STAR}</i><b>8<span>ULDUZ</span></b></a>
+    <a class="logo" href="#/" aria-label="8ulduz — baş səhifə"><b><em>8</em><span>ULDUZ</span></b></a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
     <label class="search"><span class="sr">Axtar</span>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -1204,7 +1204,7 @@ function sourcesView() {
 function renderFooter() {
   const srcs = [...new Set((S.data?.articles ?? []).map(shownSource))].sort((a, b) => a.localeCompare(b, "az"));
   $("#footer").innerHTML = `<div class="wrap fgrid">
-    <div><div class="logo"><i>${STAR}</i><b>8<span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
+    <div><div class="logo"><b><em>8</em><span>ULDUZ</span></b></div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${esc(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a></div>`;
@@ -1801,6 +1801,11 @@ document.addEventListener("toggle", (e) => {
 shell(); render();
 loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadSports(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
 setInterval(pollNews, POLL_MS);
+// Telefonda arxa plandakı vərəqin taymerləri dayanır: səhifəyə qayıdanda (və geri-irəli keşindən açılanda) dərhal yoxla.
+// Əks halda saatlarla köhnə lent görünürdü — «sayt yenilənmir» təəssüratı.
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pollNews(); });
+addEventListener("pageshow", e => { if (e.persisted) pollNews(); });
+addEventListener("online", () => pollNews());
 setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
 setInterval(() => { loadSources(); loadVideo(); loadFootball(); }, 5 * 60e3);
