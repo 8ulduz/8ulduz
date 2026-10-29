@@ -13,6 +13,7 @@
 import json, re, pathlib, hashlib, datetime, email.utils, html, sys
 import urllib.request, urllib.parse
 import xml.etree.ElementTree as ET
+from reader_content import update_reader
 from concurrent.futures import ThreadPoolExecutor
 
 # (ad, url[, kateqoriya ipucu]) — Azərbaycan mənbələri, default dil "az"
@@ -2785,6 +2786,10 @@ def main():
     OUT_DIR.mkdir(exist_ok=True)
     # yığcam JSON: repo ölçüsünün böyüməsini azaldır
     OUT_FILE.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    try:
+        update_reader(articles, OUT_DIR / 'reader.json', lambda url: fetch(url, timeout=6))
+    except Exception as e:
+        print('  ! audio mətn:', type(e).__name__)
     ok = len(FEEDS) - len(errors) - len(empty)
     print(f"Mənbə işlədi: {ok}/{len(FEEDS)} | Yeni: {len(new_items)} | Ümumi: {len(articles)}")
     for e in errors:

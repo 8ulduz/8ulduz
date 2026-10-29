@@ -1,5 +1,13 @@
 # 8ulduz — son xəbərlər saytı
 
+## Mənbə keçid sayları və sürücü rejimi
+
+Mənbə adının yanında `gün/həftə/ay/il` ümumi keçid sayları göstərilir. `assets/config.js`-dəki GoatCounter hesabında Settings → **Allow adding visitor counts on your website** aktiv olmalıdır; hesabın saat qurşağını **Asia/Baku** seçin. Sayım `source-click-MƏNBƏ` hadisələri ilə yalnız istehsal domenində aparılır, fərdi istifadəçi identifikatoru yaradılmır. Hər klik ayrıca sayılır. Başlanğıcdan əvvəlki statistika bərpa edilmir; xidmət rəqəmləri 4 saata qədər keşləyə bilər. `—` rəqəmin əlçatan olmadığını göstərir.
+
+**Sürücü rejimi** aktiv olanda Azərbaycan dilində xəbər keçidi mənbəni yeni vərəqdə açır, bu səhifə isə mənbədən ayrıca alınmış mətni səsləndirir. Məqalə mətni səhifədə göstərilmir. `reader_content.py` updater tərəfindən çağırılıb `data/reader.json` audio mətn keşini yaradır; bir dövrədə ən çox 24 yeni məqalə işlənir. İlk yayımda keş boş ola bilər. Bloklanmış və ya tanınmayan mənbələr üçün səsləndirmə edilmir. Azərbaycan Web Speech səsi olmayan cihazda ayrıca Azərbaycan TTS provayderi lazımdır; API açarları brauzerə yazılmamalıdır. Mobil brauzerlər başqa vərəqə keçəndə səsi dayandıra bilər.
+
+Yoxlama hesabatı: [29 oktyabr 2026 oxucu auditi](docs/reader-audit-2026-10-29.md).
+
 Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərini toplayır, sayt isə JSON faylları oxuyur.
 
 ## Struktur

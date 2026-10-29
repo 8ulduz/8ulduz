@@ -22,7 +22,18 @@ Canlı sayt brauzerdə, dəyişikliklər yerli serverdə 320, 390 və 430 CSS pi
 - Mənbə vəziyyəti, valyuta çeviricisinin açılması və 100 USD → 170 AZN göstərməsi, namaz və bölgələr üzrə hava panellərinin açılması.
 - Köməkçinin “Son xəbərlər” cavabı, səs mövcud olmayanda mətnlə cavab; video siyahısı və alternativ mənbələrin açılması.
 - Yerli telefona uyğun görünüşdə 320/390/430 px başlıq, əlavə menyunun açılması, alt naviqasiya və köməkçi aralığı.
-- Python unittest: 51 test. Node test runner: 46 test. JavaScript sintaksisi və git diff whitespace yoxlaması.
+- Python unittest: 54 test. Node test runner: 50 test. JavaScript sintaksisi və git diff whitespace yoxlaması.
+
+## Sonradan əlavə edilmiş oxucu funksiyaları
+
+- İdman bölməsi və baş səhifənin İdman bloku dil seçimindən asılı deyil. Klub seçimi Azərbaycan, türk, ingilis və rus yazılışlarını uyğunlaşdırır. Saytda olmayan və cari lentdən çıxmış tarixi xəbərlər bu dəyişikliklə bərpa edilmir.
+- Telefonun xəbər zolağında yazı və sabit etiket daraldılıb, bildiriş idarəetməsi əlçatan adı olan ikon kimi saxlanıb.
+- Mənbə yanında `gün/həftə/ay/il` ümumi keçid sayları GoatCounter-in ayrıca `source-click-MƏNBƏ` hadisələrindən oxunur. Kliklər sessiya üzrə birləşdirilmir (`no_session:true`). Yerli sınaqlar sayılmır. Təqvim həftəsi bazar ertəsindən başlayır. GoatCounter hesabının saat qurşağı da Asia/Baku seçilməlidir. Xidmətin ictimai sayğac keşi 4 saata qədər gecikə bilər; keçmişdə qeydə alınmamış kliklər təxmin edilmir.
+- Sahib ictimai sayğac icazəsini aktiv etdikdən sonra `TOTAL.json?start=2026-10-29` real JSON qaytardı; ayrıca yeni mənbə hadisələrinin rəqəmləri yalnız funksiya yayımlandıqdan və klik toplandıqdan sonra yaranır.
+- Sürücü rejimi seçimlə açılır. Azərbaycan dilində mənbə keçidi yeni vərəq açır; bu sayt ayrıca aldığı açıq məqalə mətnini yalnız səs üçün istifadə edir. Ekranda məqalə mətni göstərilmir. Başlıq, mənbə keçidi və böyük oxu/fasilə/dayandır/növbəti idarəetmələri var.
+- `reader_content.py` açıq JSON-LD `articleBody` və tanınmış məqalə bloklarını ayırır; menyu, reklam, şərh və bağlı məzmun çıxarılmır. Updater hər dövrədə ən çox 24 məqalə götürür, cari lentdəki ilk 400 Azərbaycan dilində xəbər üçün mətn keşi saxlayır; uğursuz mənbə altı saatdan sonra yenidən sınanır. `data/reader.json` ilkin olaraq boşdur və növbəti uğurlu updater işləməsində dolur.
+- Real şəbəkə sınağında 8 mənbədən 7-də məqalə mətni alındı; Konkret.az 403 qaytardı. Ödəniş divarı və ya mənbə bloklaması keçilmir. Tam mətn alınmayanda başlıq məqalə əvəzinə oxunmur.
+- Telefon görünüşündə sürücü rejimi aktivləşdirildi, xəbər keçidindən mənbənin ayrıca vərəqi açıldı və oxuma paneli yerli səhifədə qaldı. Bu kompüterin brauzerində Azərbaycan səsi olmadığı üçün faktiki Azərbaycan dilində səs çıxışı təsdiqlənmədi. Bütün cihazlarda işləməsi üçün ayrıca Azərbaycan TTS xidməti inteqrasiyası lazımdır; bu versiya cihazın Web Speech səsinə əsaslanır. Mobil fon oxumasını brauzer məhdudlaşdıra bilər.
 
 ## Qalan məhdudiyyətlər
 

@@ -50,6 +50,7 @@ jobs:
             cp -a data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json "$SNAP/data/" || return 1
             [ -f data/sports.json ] && cp -a data/sports.json "$SNAP/data/"
             [ -f data/dates.json ] && cp -a data/dates.json "$SNAP/data/"
+            [ -f data/reader.json ] && cp -a data/reader.json "$SNAP/data/"
             cp -a sitemap.xml robots.txt feed.xml "$SNAP/" || return 1
             rm -rf "$SNAP/bolme"; [ -d bolme ] && cp -a bolme "$SNAP/bolme"
             for i in 1 2 3 4 5; do
@@ -61,6 +62,7 @@ jobs:
               if [ -d "$SNAP/bolme" ]; then rm -rf bolme; cp -a "$SNAP/bolme" bolme; git add bolme; fi
               [ -f data/sports.json ] && git add data/sports.json
               [ -f data/dates.json ] && git add data/dates.json
+              [ -f data/reader.json ] && git add data/reader.json
               git add data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json sitemap.xml robots.txt feed.xml
               if git diff --cached --quiet; then
                 echo "Dəyişiklik yoxdur"
