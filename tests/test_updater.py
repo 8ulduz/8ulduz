@@ -315,6 +315,19 @@ class DateAndFilterTest(unittest.TestCase):
         self.assertTrue(any("başsağlığı" in o["title"] for o in out))
         self.assertEqual(updater._places("Göygöldə evdən meyit tapıldı. Məktəbdə hadisə"), {"goygol"})
 
+    def test_remembered_alternatives_are_bounded(self):
+        # Əvvəlki dövrdən gələn 300 alternativ (köhnə qar topu) yenidən qoşulmur; pəncərə daxilindəkilər 20-yə qədər qalır
+        base = {"category": "gundem", "lang": "az", "imageUrl": None, "summary": ""}
+        old_alts = [{"source": f"S{i}", "sourceUrl": f"https://s{i}/x", "publishedAt": "2026-10-28T10:00:00+00:00"} for i in range(300)]
+        a = dict(base, source="Azernews", title="President Ilham Aliyev visited the exhibition with family", sourceUrl="https://az/1",
+                 publishedAt="2026-10-28T12:00:00+00:00", alts=old_alts)
+        out = updater.group_duplicates([a])
+        self.assertLessEqual(len(out[0].get("alts") or []), 20)
+        stale = [{"source": "T", "sourceUrl": "https://t/x", "publishedAt": "2026-10-20T10:00:00+00:00"}]
+        b = dict(base, source="Report", title="Bakıda yeni metro stansiyası açıldı", sourceUrl="https://r/1",
+                 publishedAt="2026-10-28T12:00:00+00:00", alts=stale)
+        self.assertNotIn("alts", updater.group_duplicates([b])[0])
+
     def test_official_template_titles_do_not_merge_and_alts_never_repeat_a_primary(self):
         base = {"summary": "", "imageUrl": None, "category": "prezident", "lang": "az"}
         a = dict(base, source="Prezident.az", title="İlham Əliyev Niderlandın xarici işlər nazirini qəbul edib",

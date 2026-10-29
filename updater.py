@@ -1981,7 +1981,16 @@ def group_duplicates(articles):
             alt = _compact_alt(member)
             if alt:
                 alts.append(alt)
-        alts.extend(extra)
+        # Yadda saxlanmış (əvvəlki dövrlərin) alternativləri: yalnız 36 saat pəncərəsində, klaster böyük deyilsə, cəmi 20-yə qədər.
+        # Əvvəl hamısı qeyd-şərtsiz qaytarılırdı — bir dəfə yaranan «qar topu» (330 alternativ) alqoritm düzəlsə də dağılmırdı.
+        pdt = _parse_dt(primary.get("publishedAt"))
+        if len(members) < 12:
+            kept = []
+            for alt in extra:
+                adt = _parse_dt(alt.get("publishedAt"))
+                if pdt is None or adt is None or abs(adt - pdt) <= GROUP_WINDOW:
+                    kept.append(alt)
+            alts.extend(kept[:max(0, 20 - len(alts))])
         alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
         if alts:
             primary["alts"] = alts
