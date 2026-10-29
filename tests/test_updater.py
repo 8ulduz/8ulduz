@@ -302,6 +302,10 @@ class DateAndFilterTest(unittest.TestCase):
         ]
         arts = [dict(base, source=s, title=ti, summary=d, sourceUrl=f"https://{s}/{i}", publishedAt=f"2026-10-28T{hm}:00+00:00")
                 for i, (s, hm, ti, d) in enumerate(rows)]
+        sig = lambda a: tuple(sorted(updater._event_sig(a)[3])) + (tuple(sorted(updater._event_sig(a)[0])),)
+        pairs = [(3, 1), (2, 1), (2, 0), (1, 0)]
+        self.assertEqual([updater._same_event(arts[i], arts[j]) for i, j in pairs], [0, 0, 0, 1],
+                         [sig(arts[k]) for k in (3, 2, 1, 0)])
         out = updater.group_duplicates(arts)
         dump = [(o["title"][:28], [x.get("title", "")[:28] for x in o.get("alts") or []]) for o in out]
         self.assertGreaterEqual(len(out), 7, dump)  # İspaniya qəzası, başsağlığı, Türkiyə, Şəmkir, Göygöl, Bakı, məktəb
