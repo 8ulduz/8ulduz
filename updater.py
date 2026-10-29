@@ -1694,6 +1694,8 @@ _CONCEPT_RX = [(re.compile(p), " " + c + " ") for p, c in (
 )]
 _EVENT_WORDS = ("istefa", "teyinat", "olum", "hebs", "zorakiliq", "qeza", "yangin", "partlayis")
 _EVENT_KEYS = {w[:6] for w in _EVENT_WORDS}
+# Anlayış sözləri şəkilçi təmizləməsindən keçmir (reaksiya → «reaks» olub tanınmırdı)
+_PROTECTED = set(_EVENT_WORDS) | {"reaksiya", "media", "sagird", "mekteb", "usaq", "neqliyyat", "xestexana"}
 _STRICT_CLASSES = {"olum", "qeza", "hebs", "yangin"}  # gündəlik tez-tez olan hadisələr: lövbər tələb olunur
 _SUFFIX_RX = re.compile(r"(?:lar|ler|dan|den|nin|nun|araq|erek|in|un|da|de|ya|ye|la|le|si|su|ni|nu|ib|ub|di|du|a|e|i|u)$")
 _GENERIC_ANCHOR = {"baki", "bakin", "bakid", "azerba", "azerb", "respub", "prezid", "nazirl", "dovlet", "milli", "qarab",
@@ -1718,7 +1720,7 @@ def _concepts(text):
 
 def _stem(tok):
     """Ən çox 2 şəkilçi atılır, kök 4 hərfdən qısa olmur (yaxınları → yaxın, bakının → bakı, media → medi)."""
-    if tok in _EVENT_WORDS:
+    if tok in _PROTECTED:
         return tok[:6]
     for _ in range(2):
         m = _SUFFIX_RX.search(tok)
