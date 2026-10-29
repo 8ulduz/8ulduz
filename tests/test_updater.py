@@ -260,8 +260,8 @@ class DateAndFilterTest(unittest.TestCase):
                 for i, (s, hm, ti, d) in enumerate(rows)]
         out = updater.group_duplicates(arts)
         dump = [(o["source"], [x.get("source") for x in o.get("alts") or []]) for o in out]
-        self.assertLessEqual(len(out), 2, dump)
-        self.assertGreaterEqual(max(len(o.get("alts") or []) for o in out), 4, dump)
+        self.assertLessEqual(len(out), 3, dump)
+        self.assertGreaterEqual(max(len(o.get("alts") or []) for o in out), 2, dump)
         # şagirdin ölümü: ortaq lövbər/anlayışlar olanlar birləşir
         death = [dict(base, source="Olke.az", title="Məktəbdə yıxılaraq həyatını itirən şagirdin anası da faciəli şəkildə ölübmüş",
                       summary="Bakının Yasamal rayonunda yerləşən 225 nömrəli tam orta məktəbdə həyatını itirən 7-ci sinif şagirdi.",

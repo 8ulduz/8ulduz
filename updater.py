@@ -1945,14 +1945,16 @@ def group_duplicates(articles):
                         score = 3
                 elif not same_src and any(_titles_similar(toks, sh, mtks, msh) for _mt, mtks, msh, _ma in near):
                     score = 3
-                else:
-                    # hadisə əsaslı: güclü uyğunluq hər hansı üzvlə; zəif uyğunluq yalnız klaster başı ilə və ya 2 üzvlə
-                    # (zəncirvari «qar topu» böyüməsinin qarşısını alır); eyni mənbənin ikinci yazısı da bu yolla düşür
-                    strengths = [_same_event(a, ma) for _mt, _k, _s, ma in near]
-                    if max(strengths) >= 2:
-                        score = 2
-                    elif len(members) < 10 and (strengths[0] == 1 or sum(1 for x in strengths if x) >= 2):
-                        score = 1
+                elif len(members) < 12:
+                    # Hadisə əsaslı uyğunluq yalnız klasterin toxumu (ilk, ən yeni üzv) ilə yoxlanır — ulduz topologiyası.
+                    # Hər hansı üzvlə müqayisə zəncirvari «qar topu» yaradırdı (canlıda 330 alternativli kart).
+                    seed = members[0]
+                    if seed[0] is not None and abs(dt - seed[0]) <= GROUP_WINDOW:
+                        strength = _same_event(a, seed[3])
+                        if strength >= 2:
+                            score = 2
+                        elif strength == 1:
+                            score = 1
                 if score > best_score:
                     best, best_score = members, score
         if best is not None:
