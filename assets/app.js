@@ -1573,38 +1573,47 @@ function setupFeatureLents() {
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
     if (TOUCH_UI) {
-      // Toxunma ekranı. Lent daxildə brauzerin öz sürüşməsi ilə sürüşür; brauzerin «zənciri» söndürülüb (CSS overscroll-behavior:none),
-      // çünki bəzi brauzerlər zənciri heç etmir, bəziləri edir və JS ilə birlikdə ikiqat sürüşdürürdü. Ötürmə burada, bir qayda ilə:
-      // lentin sonunda barmaq yuxarı (və ya başında aşağı) gedirsə, həmin məsafə səhifəyə verilir; barmaq qalxanda sürət səhifədə davam edir.
-      let lastY = null, samples = [], inertia = 0;
+      // Toxunma ekranı. Lent daxildə brauzerin öz sürüşməsi ilə sürüşür; brauzer zənciri söndürülüb (CSS overscroll-behavior:none).
+      // Brauzer jestin əvvəlində hədəfi seçir: lent həmin istiqamətdə sürüşə bilirsə lentə, yoxsa (lent kənardadırsa) səhifəyə
+      // «kilidlənir». Səhifəyə kilidlənibsə brauzer özü sürüşdürür — JS qarışmamalıdır (qarışanda sürət 2 qat olurdu).
+      // Lentə kilidlənibsə brauzer kənarda dayanır — ötürməni JS edir: qalan məsafə səhifəyə, barmaq qalxanda ətalət.
+      let lastY = null, samples = [], inertia = 0, mode = null, expectedY = 0;
       const atEnd = () => lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1;
       const atTop = () => lent.scrollTop <= 0;
       const stopInertia = () => { if (inertia) { clearTimeout(inertia); inertia = 0; } };
       lent.addEventListener("touchstart", e => {
         stopInertia();
-        lastY = e.touches[0].clientY; samples = [[performance.now(), lastY]];
+        lastY = e.touches[0].clientY; samples = [[performance.now(), lastY]]; mode = null; expectedY = window.scrollY;
       }, { passive: true });
       lent.addEventListener("touchmove", e => {
         if (lastY == null) return;
         const y = e.touches[0].clientY, dy = lastY - y; lastY = y;
         samples.push([performance.now(), y]); if (samples.length > 6) samples.shift();
-        if ((dy > 0 && atEnd()) || (dy < 0 && atTop())) window.scrollBy(0, dy);
+        if (mode === null) {
+          if (Math.abs(dy) < 1) return;
+          mode = ((dy > 0 && atEnd()) || (dy < 0 && atTop())) ? "page" : "lent";
+        }
+        if (mode === "page") return;
+        if (Math.abs(window.scrollY - expectedY) > 1) { mode = "page"; return; }  // səhifə onsuz da brauzer tərəfindən sürüşür
+        if ((dy > 0 && atEnd()) || (dy < 0 && atTop())) { window.scrollBy(0, dy); expectedY = window.scrollY; }
       }, { passive: true });
       const release = () => {
         if (lastY == null) return;
         lastY = null;
-        // sürət: son ~100 ms-in orta sürəti (px/ms), istiqamət: müsbət = səhifə aşağı
-        const now = performance.now(), recent = samples.filter(s => now - s[0] <= 120);
-        if (recent.length >= 2) {
-          const [t0, y0] = recent[0], [t1, y1] = recent[recent.length - 1];
-          let v = (y0 - y1) / Math.max(1, t1 - t0);
-          if (Math.abs(v) > 0.25 && ((v > 0 && atEnd()) || (v < 0 && atTop()))) {
-            let last = now;  // setTimeout: rAF arxa planda dayanır, bu isə hər yerdə eyni işləyir
-            const tick = () => { const t = performance.now(), dt = Math.min(48, t - last); last = t; window.scrollBy(0, v * dt); v *= Math.pow(0.94, dt / 16); inertia = Math.abs(v) > 0.03 ? setTimeout(tick, 16) : 0; };
-            inertia = setTimeout(tick, 16);
+        if (mode === "lent") {
+          // sürət: son ~120 ms-in orta sürəti (px/ms); müsbət = səhifə aşağı. Yalnız lent kənardadırsa səhifədə davam edir.
+          const now = performance.now(), recent = samples.filter(s => now - s[0] <= 120);
+          if (recent.length >= 2) {
+            const [t0, y0] = recent[0], [t1, y1] = recent[recent.length - 1];
+            let v = (y0 - y1) / Math.max(1, t1 - t0);
+            if (Math.abs(v) > 0.25 && ((v > 0 && atEnd()) || (v < 0 && atTop()))) {
+              let last = now;  // setTimeout: rAF arxa planda dayanır, bu isə hər yerdə eyni işləyir
+              const tick = () => { const t = performance.now(), dt = Math.min(48, t - last); last = t; window.scrollBy(0, v * dt); v *= Math.pow(0.94, dt / 16); inertia = Math.abs(v) > 0.03 ? setTimeout(tick, 16) : 0; };
+              inertia = setTimeout(tick, 16);
+            }
           }
         }
-        samples = [];
+        samples = []; mode = null;
       };
       lent.addEventListener("touchend", release, { passive: true });
       lent.addEventListener("touchcancel", release, { passive: true });
