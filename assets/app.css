@@ -859,6 +859,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 /* Toxunma ekranında (və dar ekranda) Zuğulba lenti daxili sürüşən qutu deyil: məcburi snap + öz-özünə addımlama lentin sonunda
    səhifənin sürüşməsini tuturdu («yuxarı sürüşdürüb bitəndə səhifə getmir»). İlk 6 kart statik, qalanı «Hamısı →» ilə. */
 @media (hover:none),(max-width:900px){
-  .prez-lent{height:auto!important;max-height:none;overflow:visible;scroll-snap-type:none;scroll-behavior:auto}
-  .prez-lent>.pcard:nth-child(n+7){display:none}
+  /* Daxili sürüşmə qalır (istifadəçi istəyi), amma məcburi snap və avtomatik addımlama yoxdur; lentin sonunda
+     barmaq hərəkəti JS ilə səhifəyə ötürülür (app.js: touchmove → window.scrollBy). */
+  .prez-lent{height:320px!important;overflow-y:auto;scroll-snap-type:none;scroll-behavior:auto;overscroll-behavior-y:auto;-webkit-overflow-scrolling:touch}
 }

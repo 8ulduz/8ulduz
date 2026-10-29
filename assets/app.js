@@ -1572,7 +1572,20 @@ function setupFeatureLents() {
     const button=box.querySelector("[data-prez-pause]");
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
-    featureTimers.push(setInterval(()=>{if(lent._paused || paused(lent) || lent.scrollHeight<=lent.clientHeight+2)return; /* statik siyahıda (toxunma ekranı) addımlama yoxdur */ if(lent.scrollTop+lent.clientHeight>=lent.scrollHeight-2)lent.scrollTo({top:0,behavior:"smooth"});else step(1);},4500));
+    if (TOUCH_UI) {
+      // Toxunma ekranı: lentin sonunda (və ya başında) barmaq hərəkəti səhifəyə ötürülür — brauzer eyni jestdə daxili
+      // sürüşməyə «kilidlənir» və səhifəni sürüşdürmür («bitəndə sayt yuxarı getmir»). Avtomatik addımlama yoxdur.
+      let lastY = null;
+      lent.addEventListener("touchstart", e => { lastY = e.touches[0].clientY; }, { passive: true });
+      lent.addEventListener("touchmove", e => {
+        if (lastY == null) return;
+        const y = e.touches[0].clientY, dy = lastY - y; lastY = y;
+        const atEnd = lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1, atTop = lent.scrollTop <= 0;
+        if ((dy > 0 && atEnd) || (dy < 0 && atTop)) window.scrollBy(0, dy);
+      }, { passive: true });
+      lent.addEventListener("touchend", () => { lastY = null; }, { passive: true });
+    }
+    if (!TOUCH_UI) featureTimers.push(setInterval(()=>{if(lent._paused || paused(lent) || lent.scrollHeight<=lent.clientHeight+2)return; /* statik siyahıda (toxunma ekranı) addımlama yoxdur */ if(lent.scrollTop+lent.clientHeight>=lent.scrollHeight-2)lent.scrollTo({top:0,behavior:"smooth"});else step(1);},4500));
   }
 }
 
