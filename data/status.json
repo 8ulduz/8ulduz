@@ -1,1 +1,1 @@
-{"checkedAt":"2026-10-29T13:37:01+00:00","attemptedAt":"2026-10-29T13:37:01+00:00","ok":true,"successfulSources":75,"totalSources":76,"degraded":true,"stats":{"old":948,"new":3539,"uniq":2374,"prez":113,"articles":1313,"undated":5,"dateLookups":0}}
+{"checkedAt":"2026-10-29T13:40:25+00:00","attemptedAt":"2026-10-29T13:40:25+00:00","ok":true,"successfulSources":76,"totalSources":76,"degraded":false,"stats":{"old":933,"new":3909,"uniq":2327,"prez":115,"articles":1315,"undated":508,"dateLookups":3}}
