@@ -1,10 +1,10 @@
 name: Kodu yoxla
 on:
   pull_request:
-    paths: ['assets/**', 'updater.py', 'sw.js', 'tests/**', '.github/workflows/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**']
   push:
     branches: [main]
-    paths: ['assets/**', 'updater.py', 'sw.js', 'tests/**', '.github/workflows/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**']
 permissions:
   contents: read
 jobs:
@@ -25,5 +25,5 @@ jobs:
             grep -nE '^(FAIL|ERROR):|Error:|^AssertionError|^  File "' /tmp/ut.txt | head -40 | sed 's/^/::error::/'
             exit 1
           }
-      - run: node --check assets/app.js && node --check assets/assistant.js && node --check sw.js
+      - run: node --check assets/app.js && node --check assets/assistant.js && node --check assets/reader.js && node --check assets/source-stats.js && node --check sw.js
       - run: node --test tests/*.test.cjs

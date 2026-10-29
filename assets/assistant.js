@@ -4,7 +4,12 @@ const escape = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'
 const safeLink = u => /^(https?:\/\/|#\/)/i.test(String(u || '')) ? String(u) : '#/';
 const newest = list => [...list].sort((a,b)=>new Date(b.publishedAt)-new Date(a.publishedAt));
 const within = (stamp,hours) => {const age=Date.now()-new Date(stamp).getTime();return Number.isFinite(age)&&age>=-300000&&age<hours*3600000;};
-const dateLabel = stamp => {const d=new Date(stamp);return Number.isNaN(d.getTime())?'tarix verilməyib':d.toLocaleString('az-AZ',{timeZone:'Asia/Baku',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});};
+const dateLabel = stamp => {
+  const d=new Date(stamp); if(Number.isNaN(d.getTime()))return 'tarix verilməyib';
+  const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Baku',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d).map(x=>[x.type,x.value]));
+  const months=['yanvar','fevral','mart','aprel','may','iyun','iyul','avqust','sentyabr','oktyabr','noyabr','dekabr'];
+  return `${p.day} ${months[Number(p.month)-1]} ${p.hour}:${p.minute}`;
+};
 const teamAliases = name => {
   const n=fold(name); const aliases={fenerbahce:['fenerbaxca','fenerbahce'],qarabag:['qarabag','qarabagh'],galatasaray:['qalatasaray','galatasaray'],besiktas:['besiktas','besiktash'],neftci:['neftci','neftchi']};
   return [...new Set([n,...Object.entries(aliases).filter(([key])=>n.includes(key)).flatMap(([,v])=>v)])];
@@ -30,7 +35,12 @@ export function parseCommand(text, snapshot = {}, context = {}) {
   if(wantsStats) return {type:'sport',name:found?.team.team||(/^(nece|necenci|son oyun|son matc|hesab|netice)/.test(q)?context.team:null)||null,query:q};
   const category=(snapshot.categories||[]).find(c=>q.includes(fold(c.label))||q.includes(fold(c.slug)));
   const sources=[...new Set((snapshot.articles||[]).flatMap(a=>[a.source,...(a.alts||[]).map(x=>x.source)]).filter(Boolean))];
-  const source=sources.sort((a,b)=>b.length-a.length).find(s=>{const n=fold(s).replace(/\baz\b/g,'').trim();return n.length>2&&q.includes(n);});
+  const source=sources.sort((a,b)=>b.length-a.length).find(s=>{
+    const n=fold(s).replace(/\baz\b/g,'').trim();
+    // “oxu” is also a command verb; “Oxu.az” must be named explicitly.
+    if(n==='oxu')return /\boxu\s+az\b/.test(q);
+    return n.length>2&&q.split(' ').some((_,i,words)=>words.slice(i).join(' ').match(new RegExp('^'+n+'(?:in|nin|un|nun|dan|den)?(?: |$)')));
+  });
   let topic=q;
   for(const label of [category?.label,category?.slug,source].filter(Boolean))topic=topic.replace(new RegExp('\\b'+fold(label)+'(?:in|nin|un|nun|dan|den)?\\b','g'),' ');
   topic=topic.replace(/\b(?:haqqinda|barede|uzre|oxu|de|goster|xeberleri|xeberlerini|xeberler|xeber|basliqlari|basliqlarini|son|yeni|en|mene|zehmet|olmasa|bugun|butun)\b/g,' ').replace(/\s+/g,' ').trim();
