@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- İkonu basılı saxlayanda çıxan qısa yollar. Ünvanlar saytın hash marşrutlarıdır (assets/app.js → route()). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_gundem"
+        android:shortcutId="gundem"
+        android:shortcutLongLabel="@string/shortcut_gundem"
+        android:shortcutShortLabel="@string/shortcut_gundem">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:data="https://8ulduz.az/?utm_source=android#/bolme/gundem"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:targetPackage="az.ulduz8.app" />
+        <categories android:name="android.intent.category.LAUNCHER" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_idman"
+        android:shortcutId="idman"
+        android:shortcutLongLabel="@string/shortcut_idman"
+        android:shortcutShortLabel="@string/shortcut_idman">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:data="https://8ulduz.az/?utm_source=android#/bolme/idman"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:targetPackage="az.ulduz8.app" />
+        <categories android:name="android.intent.category.LAUNCHER" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_secilmis"
+        android:shortcutId="secilmis"
+        android:shortcutLongLabel="@string/shortcut_secilmis"
+        android:shortcutShortLabel="@string/shortcut_secilmis">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:data="https://8ulduz.az/?utm_source=android#/secilmis"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:targetPackage="az.ulduz8.app" />
+        <categories android:name="android.intent.category.LAUNCHER" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_axtar"
+        android:shortcutId="axtar"
+        android:shortcutLongLabel="@string/shortcut_axtar_long"
+        android:shortcutShortLabel="@string/shortcut_axtar">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:data="https://8ulduz.az/?utm_source=android#/axtar"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:targetPackage="az.ulduz8.app" />
+        <categories android:name="android.intent.category.LAUNCHER" />
+    </shortcut>
+</shortcuts>

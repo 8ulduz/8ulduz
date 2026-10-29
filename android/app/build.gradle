@@ -1,0 +1,71 @@
+plugins {
+    id "com.android.application"
+}
+
+// İmza: CI-də mühit dəyişənlərindən (GitHub secrets), lokalda android/keystore.properties-dən.
+// Heç biri yoxdursa release yığımı imzasız qalır (yalnız yoxlama üçün).
+def signing = [:]
+def propsFile = rootProject.file("keystore.properties")
+if (propsFile.exists()) {
+    def p = new Properties()
+    propsFile.withInputStream { p.load(it) }
+    signing = [store: rootProject.file(p.storeFile).path, password: p.storePassword, alias: p.keyAlias ?: "upload"]
+} else if (System.getenv("ANDROID_KEYSTORE_PATH")) {
+    signing = [store: System.getenv("ANDROID_KEYSTORE_PATH"), password: System.getenv("ANDROID_KEYSTORE_PASSWORD"),
+               alias: System.getenv("ANDROID_KEY_ALIAS") ?: "upload"]
+}
+
+android {
+    namespace "az.ulduz8.app"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "az.ulduz8.app"
+        minSdk 24
+        targetSdk 36
+        versionCode((project.findProperty("versionCode") ?: "1") as int)
+        versionName project.findProperty("appVersionName") ?: "1.0.0"
+    }
+
+    signingConfigs {
+        if (signing) {
+            release {
+                storeFile file(signing.store)
+                storeType "pkcs12"
+                storePassword signing.password
+                keyAlias signing.alias
+                keyPassword signing.password
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            if (signing) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    bundle {
+        // Sətirlər yalnız Azərbaycan dilindədir; dilə görə bölgü lazım deyil.
+        language { enableSplit = false }
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+        // Kitabxananın öz resursları üçün xəbərdarlıqlar yığımı dayandırmasın.
+        disable "MissingTranslation", "GradleDependency", "NewerVersionAvailable", "OldTargetApi"
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.7.4"
+}

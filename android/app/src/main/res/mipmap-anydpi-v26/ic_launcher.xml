@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptiv ikon (Android 8+). 8.5dp kənar maskable ikonun «təhlükəsiz zonasını» görünən 72dp-yə uyğunlaşdırır.
+     monochrome: Android 13+ tematik ikonlar. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/iconBackground" />
+    <foreground>
+        <inset
+            android:drawable="@mipmap/ic_maskable"
+            android:inset="8.5dp" />
+    </foreground>
+    <monochrome>
+        <inset
+            android:drawable="@mipmap/ic_monochrome"
+            android:inset="8.5dp" />
+    </monochrome>
+</adaptive-icon>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">8ulduz — Son xəbərlər</string>
+    <string name="launcherName">8ulduz</string>
+    <string name="hostName" translatable="false">8ulduz.az</string>
+    <!-- utm_source: GoatCounter-də tətbiqdən gələn ziyarətlər ayrıca görünür. -->
+    <string name="launchUrl" translatable="false">https://8ulduz.az/?utm_source=android</string>
+    <string name="webManifestUrl" translatable="false">https://8ulduz.az/manifest.webmanifest</string>
+    <string name="providerAuthority" translatable="false">az.ulduz8.app.fileprovider</string>
+
+    <string name="shortcut_gundem">Gündəm</string>
+    <string name="shortcut_idman">İdman</string>
+    <string name="shortcut_secilmis">Seçilmişlər</string>
+    <string name="shortcut_axtar">Axtar</string>
+    <string name="shortcut_axtar_long">Xəbər axtar</string>
+
+    <!-- Digital Asset Links: tətbiq bu saytı öz saytı kimi tanıyır; qarşı tərəf .well-known/assetlinks.json-dadır. -->
+    <string name="assetStatements" translatable="false">
+        [{
+            \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+            \"target\": {\"namespace\": \"web\", \"site\": \"https://8ulduz.az\"}
+        }]
+    </string>
+</resources>

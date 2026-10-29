@@ -1,0 +1,109 @@
+name: Android tətbiqi
+# android/ qovluğundan Google Play üçün imzalı AAB (və birbaşa quraşdırmaq üçün APK) yığır.
+# İmza açarı secrets-dədir: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD. Yoxdursa yalnız test APK-sı yığılır.
+# Əl ilə işə salanda (Actions → Android tətbiqi → Run workflow) Play-ə də göndərmək olar (PLAY_SERVICE_ACCOUNT_JSON).
+on:
+  pull_request:
+    paths: ['android/**', '.well-known/**', '.github/workflows/android.yml']
+  push:
+    branches: [main]
+    paths: ['android/**', '.well-known/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+    inputs:
+      play_track:
+        description: 'Google Play-ə göndər'
+        type: choice
+        default: 'yox'
+        options: ['yox', 'internal', 'alpha', 'production']
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # Gradle wrapper-in yoxlama cəmini də yoxlayır.
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: İmza açarı
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret-i yoxdur — imzasız yığılır, yalnız test APK-sı çıxacaq (android/README.md, «İmza açarı»)."
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.p12"
+          keytool -list -storetype pkcs12 -keystore "$RUNNER_TEMP/upload.p12" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias upload > /dev/null \
+            || { echo "::error::Açar oxunmadı: parol və ya fayl səhvdir."; exit 1; }
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.p12" >> "$GITHUB_ENV"
+          echo "SIGNED=1" >> "$GITHUB_ENV"
+
+      - name: Yoxla və yığ
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          # versionCode hər yığımda artır (Play eyni kodu ikinci dəfə qəbul etmir).
+          CODE=$((1000 + GITHUB_RUN_NUMBER))
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+          if [ "$SIGNED" = 1 ]; then TASKS="bundleRelease assembleRelease"; else TASKS="assembleDebug assembleRelease"; fi
+          ./gradlew --no-daemon --stacktrace lintRelease $TASKS -PversionCode=$CODE
+
+      - name: İmza barmaq izi assetlinks.json-da varmı
+        if: env.SIGNED == '1'
+        run: |
+          FP=$(keytool -printcert -jarfile app/build/outputs/apk/release/app-release.apk | sed -n 's/^.*SHA256: *//p' | head -1)
+          echo "İmza SHA-256: $FP"
+          echo "### İmza SHA-256" >> "$GITHUB_STEP_SUMMARY"; echo "\`$FP\`" >> "$GITHUB_STEP_SUMMARY"
+          grep -q "$FP" ../.well-known/assetlinks.json \
+            || { echo "::error::$FP .well-known/assetlinks.json-da yoxdur — tətbiq ünvan sətri ilə açılacaq."; exit 1; }
+
+      - name: Faylları adlandır
+        run: |
+          NAME=$(sed -n 's/^appVersionName=//p' gradle.properties)
+          mkdir -p ../dist
+          if [ "$SIGNED" = 1 ]; then
+            cp app/build/outputs/bundle/release/app-release.aab "../dist/8ulduz-$NAME-$VERSION_CODE.aab"
+            cp app/build/outputs/apk/release/app-release.apk "../dist/8ulduz-$NAME-$VERSION_CODE.apk"
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk "../dist/8ulduz-$NAME-$VERSION_CODE-test.apk"
+          fi
+          ls -la ../dist
+          echo "### Fayllar" >> "$GITHUB_STEP_SUMMARY"; ls ../dist | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 8ulduz-android-${{ env.VERSION_CODE }}
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Google Play-ə göndər
+        if: github.event_name == 'workflow_dispatch' && inputs.play_track != 'yox'
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          [ "$SIGNED" = 1 ] || { echo "::error::İmzasız yığım Play-ə göndərilə bilməz."; exit 1; }
+          [ -n "$PLAY_JSON" ] || { echo "::error::PLAY_SERVICE_ACCOUNT_JSON secret-i yoxdur (android/README.md, «Avtomatik yükləmə»)."; exit 1; }
+          echo "PLAY_OK=1" >> "$GITHUB_ENV"
+      - if: env.PLAY_OK == '1'
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: az.ulduz8.app
+          releaseFiles: dist/*.aab
+          track: ${{ inputs.play_track }}
+          # İstehsal buraxılışı qaralama kimi gedir: Play Console-da «Yayımla» düyməsini siz basırsınız.
+          status: ${{ inputs.play_track == 'production' && 'draft' || 'completed' }}
