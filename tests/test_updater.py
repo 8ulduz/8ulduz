@@ -259,8 +259,9 @@ class DateAndFilterTest(unittest.TestCase):
         arts = [dict(base, source=s, title=ti, summary=d, sourceUrl=f"https://{s}/{i}", publishedAt=f"2026-10-28T{hm}:00+00:00")
                 for i, (s, hm, ti, d) in enumerate(rows)]
         out = updater.group_duplicates(arts)
-        self.assertLessEqual(len(out), 2)
-        self.assertGreaterEqual(max(len(o.get("alts") or []) for o in out), 4)
+        dump = [(o["source"], [x.get("source") for x in o.get("alts") or []]) for o in out]
+        self.assertLessEqual(len(out), 2, dump)
+        self.assertGreaterEqual(max(len(o.get("alts") or []) for o in out), 4, dump)
         # şagirdin ölümü: ortaq lövbər/anlayışlar olanlar birləşir
         death = [dict(base, source="Olke.az", title="Məktəbdə yıxılaraq həyatını itirən şagirdin anası da faciəli şəkildə ölübmüş",
                       summary="Bakının Yasamal rayonunda yerləşən 225 nömrəli tam orta məktəbdə həyatını itirən 7-ci sinif şagirdi.",
@@ -302,8 +303,9 @@ class DateAndFilterTest(unittest.TestCase):
         arts = [dict(base, source=s, title=ti, summary=d, sourceUrl=f"https://{s}/{i}", publishedAt=f"2026-10-28T{hm}:00+00:00")
                 for i, (s, hm, ti, d) in enumerate(rows)]
         out = updater.group_duplicates(arts)
-        self.assertGreaterEqual(len(out), 7)  # İspaniya qəzası, başsağlığı, Türkiyə, Şəmkir, Göygöl, Bakı, məktəb
-        self.assertLessEqual(max(len(o.get("alts") or []) for o in out), 1)
+        dump = [(o["title"][:28], [x.get("title", "")[:28] for x in o.get("alts") or []]) for o in out]
+        self.assertGreaterEqual(len(out), 7, dump)  # İspaniya qəzası, başsağlığı, Türkiyə, Şəmkir, Göygöl, Bakı, məktəb
+        self.assertLessEqual(max(len(o.get("alts") or []) for o in out), 1, dump)
         crash = next(o for o in out if "68" in o["title"])
         self.assertFalse(any("başsağlığı" in (x.get("title") or "") for x in crash.get("alts") or []))
         self.assertTrue(any("başsağlığı" in o["title"] for o in out))

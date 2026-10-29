@@ -1703,6 +1703,11 @@ _ENTITY_SKIP = {"ilham eliyev", "mehriban eliyeva", "heyder eliyev", "prezident 
 _ORG_WORDS = re.compile(r"(?:nazirli|idare|sehe|rayon|respublika|komite|agentli|xidmet|universitet|merkez|sura|partiya|cemiyyet|"
                         r"fond|bank|klub|akademiya|institut|dovlet|prokurorlu|mehkeme|polis|birli|qurum|sirket|holdinq|qrup|"
                         r"prezident|cumhurbas|hokumet|hakimiyyet|sefir|deputat|rektor|general|polkovnik|sedr|direktor|baskan)")
+# Hadisə müqayisəsində məzmun daşımayan sözlər (feil köməkçiləri, bağlayıcılar, format nişanları)
+_EVENT_STOP = {"eden", "edib", "edir", "etdi", "edildi", "olub", "oldu", "olur", "olan", "olunub", "olundu", "var", "yoxdur",
+               "ile", "ucun", "gore", "bagli", "dair", "sonra", "evvel", "hemin", "yeni", "daha", "cox", "nefer", "sayi",
+               "video", "foto", "anbaan", "yenilenib", "detal", "detallar", "hadise", "netice", "neticesinde", "barede",
+               "melumat", "bildirib", "bildirilib", "deyilir", "deyir", "dedi", "bas", "verib", "verdi", "veren", "qeyd"}
 _SIG_CACHE = {}
 
 def _concepts(text):
@@ -1730,7 +1735,7 @@ def _event_stems(text):
             if len(tok) >= 3:
                 out.add(tok)
             continue
-        if len(tok) <= 2 or tok in _GROUP_STOP:
+        if len(tok) <= 2 or tok in _GROUP_STOP or tok in _EVENT_STOP:
             continue
         st = _stem(tok)
         if len(st) >= 3:
