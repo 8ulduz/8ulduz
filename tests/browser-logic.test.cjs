@@ -605,6 +605,7 @@ test('hero and Zugulba retain multiple articles for their moving feeds', () => {
   const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories);
   assert.ok(hero.includes('class="hero-row"'));
   assert.equal((hero.match(/class="hero-main"/g)||[]).length,6);
+  assert.ok(!hero.includes('row-card'),'slayderin xəbərləri altında təkrarlanmır');
   assert.ok(prez.includes('data-prez-lent'));
   assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
 });
