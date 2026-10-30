@@ -1,7 +1,7 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
-   data/*.json: yalnız şəbəkə. Keş yalnız şəbəkə alınmayanda (oflayn).
+   data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw), keş yalnız ikisi də alınmayanda (oflayn).
    HTML/JS/CSS: əvvəl şəbəkə, oflayn olanda keş. Şəkillər: əvvəl keş. */
-const VERSION = "v21"; // bounded refresh and mobile resume recovery
+const VERSION = "v22"; // data failover when the domain is unreachable or stale
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -31,32 +31,65 @@ self.addEventListener("activate", (event) => {
   })());
 });
 
+// Bot hər 4 dəqiqədən bir main-ə yazır. Ziyarətçinin şəbəkəsinin DNS-i domeni tapmayanda, bağlantı kəsiləndə və ya
+// Pages yayımı ilişəndə sayt açılan telefonda lent donmasın: eyni fayl birbaşa repodan gəlir (CORS açıqdır).
+const MIRROR = "https://raw.githubusercontent.com/8ulduz/8ulduz/main/";
+const ORIGIN_WAIT_MS = 4000; // başlıq gəlməsə ehtiyat kanala keç; gövdə axarkən kəsilmir
+const MIRROR_WAIT_MS = 6000;
+const STALE_MS = 15 * 60e3; // Pages bu qədər yayımlamayıbsa ilişib sayılır
+const LIVE_DATA = /data\/(?:status|news)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur
+
+async function attempt(input, init, waitMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), waitMs);
+  try {
+    const r = await fetch(input, { ...init, signal: controller.signal });
+    if (!r.ok || /html/i.test(r.headers.get("content-type") || "")) throw Error("bad response " + r.status);
+    return r;
+  } finally { clearTimeout(timer); }
+}
+
+function marked(response, source) {
+  const headers = new Headers(response.headers);
+  headers.set("X-8ulduz-data", source);
+  if (source === "mirror") headers.set("Content-Type", "application/json; charset=utf-8");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+function pagesStuck(response, url) {
+  if (!LIVE_DATA.test(url.pathname)) return false;
+  const modified = Date.parse(response.headers.get("last-modified") || "");
+  return modified > 0 && Date.now() - modified > STALE_MS;
+}
+
+// Təzə məlumat: əvvəl sayt, sonra ehtiyat kanal. Heç biri alınmasa null.
+async function freshData(req) {
+  const url = new URL(req.url);
+  let origin = null;
+  try { origin = await attempt(new Request(req, { cache: "no-store" }), {}, ORIGIN_WAIT_MS); } catch {}
+  if (origin && !pagesStuck(origin, url)) return marked(origin, "network");
+  try {
+    const rel = url.pathname.slice(SCOPE_URL.pathname.length) + url.search;
+    return marked(await attempt(MIRROR + rel, { cache: "no-store", mode: "cors", credentials: "omit" }, MIRROR_WAIT_MS), "mirror");
+  } catch {}
+  return origin ? marked(origin, "network") : null;
+}
+
 async function networkFirstData(req) {
   const cache = await caches.open(DATA);
   const bare = new URL(req.url);
   bare.search = "";
-  try {
-    const fresh = await fetch(new Request(req, { cache: "no-store" }));
-    if (fresh && fresh.ok) {
-      const headers = new Headers(fresh.headers);
-      headers.set("X-8ulduz-data", "network");
-      const marked = new Response(fresh.clone().body, { status: fresh.status, statusText: fresh.statusText, headers });
-      try { await cache.put(bare.toString(), marked.clone()); } catch {}
-      return marked;
-    }
+  const fresh = await freshData(req);
+  if (fresh) {
+    try { await cache.put(bare.toString(), fresh.clone()); } catch {}
     return fresh;
-  } catch {
-    const hit = await cache.match(bare.toString());
-    if (hit) {
-      const headers = new Headers(hit.headers);
-      headers.set("X-8ulduz-data", "cache");
-      return new Response(hit.body, { status: hit.status, statusText: hit.statusText, headers });
-    }
-    return new Response('{"offline":true}', {
-      status: 503,
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-    });
   }
+  const hit = await cache.match(bare.toString());
+  if (hit) return marked(hit, "cache");
+  return new Response('{"offline":true}', {
+    status: 503,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
 }
 
 async function cacheFirst(req) {
@@ -120,8 +153,8 @@ async function writeSeen(ids) {
   await cache.put(SEEN_URL, new Response(JSON.stringify(ids), { headers: { "Content-Type": "application/json" } }));
 }
 async function syncBreaking() {
-  const res = await fetch(new URL("data/news.json", SCOPE_URL), { cache: "no-store" });
-  if (!res.ok) return;
+  const res = await freshData(new Request(new URL("data/news.json", SCOPE_URL)));
+  if (!res) return;
   const data = await res.json();
   const now = Date.now();
   const fresh = (data.articles || []).filter((a) => {

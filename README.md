@@ -123,6 +123,8 @@ açıq qalır və `updater.py`-ni hər 4 dəqiqədən bir işlədib nəticəni p
 və bu iş bitəndə davam edir. `data/status.json` hər uğurlu yoxlamada yenilənir (xəbər mətni dəyişməsə belə).
 Sayt JSON-u `?t=` ilə istəyir ki, GitHub Pages-in 10 dəqiqəlik keşi köhnə faylı saxlamasın.
 
+**Ehtiyat kanal.** Bəzi şəbəkələrin DNS-i `8ulduz.az` üçün «domen yoxdur» cavabı verə bilir, domenin özü sağlam olsa da. Buna görə saytı bir dəfə açmış ziyarətçidə `sw.js` məlumatı əvvəl saytdan, alınmasa `raw.githubusercontent.com`-dan götürür. Pages 15 dəqiqədən çox yayımlamayıbsa `status.json` və `news.json` də oradan gəlir. Keş yalnız ikisi də alınmayanda göstərilir («Oflayn — saxlanmış xəbərlər»). Repo adı dəyişsə `sw.js`-dəki `MIRROR` da dəyişməlidir.
+
 Manual işə salmaq üçün: **Actions → Xəbərləri yenilə → Run workflow**.
 
 Hər dövrədə `data/sources.json`, `feed.xml`, `sitemap.xml` və `robots.txt` də push olunur.
