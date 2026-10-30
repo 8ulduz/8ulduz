@@ -7,7 +7,7 @@ const root = path.join(__dirname, '..');
 
 function app() {
   const context = vm.createContext({
-    console, Map, Set, URL, Date, setTimeout, clearTimeout, addEventListener() {},
+    console, Map, Set, URL, Date, AbortController, setTimeout, clearTimeout, addEventListener() {},
     localStorage: { getItem() { throw Error('blocked'); }, setItem() { throw Error('quota'); }, removeItem() { throw Error('blocked'); } },
     location: { hash: '#/' }, navigator: { onLine: true },
     window: { addEventListener() {} },
@@ -17,7 +17,7 @@ function app() {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, frontAppointments, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
+    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, frontAppointments, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
   return context;
 }
 
@@ -77,6 +77,42 @@ test('cached news do not claim a new network sync', async () => {
 
 test('future articles are not breaking news', () => {
   assert.equal(app().api.isFresh({publishedAt: new Date(Date.now() + 3600000).toISOString()}), false);
+});
+
+test('a suspended mobile fetch and a stalled JSON body both time out',async()=>{
+  const ctx=app();
+  ctx.fetch=()=>new Promise(()=>{});
+  await assert.rejects(ctx.api.requestJSON('news',{},5),/vaxtı bitdi/);
+  ctx.fetch=async()=>({ok:true,json:()=>new Promise(()=>{})});
+  await assert.rejects(ctx.api.requestJSON('news',{},5),/vaxtı bitdi/);
+});
+test('forced refresh cancels a stuck request and an older request cannot overwrite recovery',async()=>{
+  const ctx=app(); let calls=0;
+  ctx.fetch=async()=>{
+    if(++calls===1)return new Promise(()=>{});
+    return {ok:true,headers:new Headers({etag:'recovered'}),json:async()=>({updatedAt:'new',articles:[]})};
+  };
+  const stuck=ctx.api.loadNews();
+  await ctx.api.loadNews(true);
+  await stuck;
+  assert.equal(ctx.api.S.data.updatedAt,'new');
+  assert.equal(ctx.api.S.newsLoading,false);
+  assert.equal(ctx.api.S.etag,'recovered');
+});
+test('returning from background refetches news even if a CDN repeats the same status stamp',async()=>{
+  const ctx=app(),{S}=ctx.api,urls=[];
+  S.data={updatedAt:'old',articles:[]};S.status={checkedAt:'same'};S.newsStamp='same';S.newsCheckedAt=Date.now();
+  ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{updatedAt:'fresh',articles:[]}};};
+  await ctx.api.pollNews(true);
+  assert.equal(S.data.updatedAt,'fresh');
+  assert.ok(urls.every(u=>u.includes('&r=')));
+});
+test('unchanged news still acknowledges a new successful check',async()=>{
+  const ctx=app(),{S}=ctx.api;
+  S.data={updatedAt:'same',articles:[]};S.status={checkedAt:'new-check'};S.etag='unchanged';
+  ctx.fetch=async()=>({ok:true,headers:new Headers({etag:'unchanged'}),json:async()=>({updatedAt:'same',articles:[]})});
+  await ctx.api.loadNews();
+  assert.equal(S.newsStamp,'new-check');
 });
 
 test('basketball national team does not appear in football block', () => {
