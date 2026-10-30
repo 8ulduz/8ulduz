@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, frontAppointments, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
+    checkBreaking = () => {}; globalThis.api = {latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
   return context;
 }
 
@@ -273,19 +273,13 @@ test('social posts are ordered by time only and show the reporting source', () =
   assert.ok(html.indexOf('yeni') < html.indexOf('orta'));
 });
 
-test('appointment and dismissal news come first; Zuğulba includes state sites with thumbnails', () => {
+test('appointment and dismissal news are recognised; Zuğulba includes state sites with thumbnails', () => {
   const ctx = app();
   const now = Date.now();
   const at = h => new Date(now - h * 3600e3).toISOString();
   assert.ok(ctx.api.isAppointment({ title: 'Yeni icra başçısı təyin edilib' }));
   assert.ok(ctx.api.isAppointment({ title: 'Nazir vəzifəsindən azad olunub' }));
   assert.ok(!ctx.api.isAppointment({ title: 'Girov azad edilib' }));
-  const list = [
-    { id: 1, title: 'Hava proqnozu', publishedAt: at(1) },
-    { id: 2, title: 'Rektor vəzifəsindən azad edilib', publishedAt: at(5) },
-    { id: 3, title: 'Səfir təyin olunub', publishedAt: at(50) }, // 36 saatdan köhnə: adi sırada
-  ];
-  assert.deepEqual([...ctx.api.frontAppointments(list).map(a => a.id)], [2, 1, 3]);
   const prez = [
     { id: 'a', category: 'prezident', source: 'AZƏRTAC', title: 'Prezident İlham Əliyev təbrik edib', publishedAt: at(2) },
     { id: 'b', category: 'prezident', source: 'Oxu.az', title: 'Prezident qəbul edib', publishedAt: at(1) },
@@ -294,12 +288,46 @@ test('appointment and dismissal news come first; Zuğulba includes state sites w
   ];
   const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
   assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // AZƏRTAC və Cross Media var, Oxu.az yalnız «Hamısı»nda
-  assert.equal(ids[0], 'c'); // təyinat önə
+  assert.deepEqual(ids, ['a', 'c', 'd']); // ən yenidən köhnəyə
   const html = ctx.api.prezBlock(ctx.api.prezHome(prez));
   assert.ok(html.includes('<a class="pcard has-img"') && html.includes('src="https://crossmedia.az/storage/news/a.jpeg"'));
   assert.ok(html.includes('<a class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
 });
 
+test('every news list is newest first: an old appointment story is not pinned above fresh news', () => {
+  const ctx = app(), {S} = ctx.api;
+  const at = h => new Date(Date.now() - h * 3600e3).toISOString();
+  const row = (id, h, title, category = 'gundem') => ({ id, title, category, lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at(h) });
+  const old = row('old', 4, 'Rektor vəzifəsindən azad edilib');
+  const fresh = row('fresh', 0.1, 'Bakıda yeni park açılıb'), mid = row('mid', 1, 'Sumqayıtda yeni məktəb tikilir');
+  const order = html => ['fresh', 'mid', 'old'].map(id => html.indexOf('apa.az/' + id)).filter(i => i >= 0);
+  const sorted = xs => [...xs].every((v, i, l) => !i || l[i - 1] < v);
+  const latest = ctx.api.latestBlock([old, mid, fresh]);
+  assert.equal(order(latest).length, 3);
+  assert.ok(sorted(order(latest)), 'Son xəbərlər');
+  S.data = {articles: [old, mid, fresh]};
+  for (const slug of ['gundem']) assert.ok(sorted(order(ctx.api.sectionView(slug))), 'bölmə');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(!src.includes('frontAppointments'), 'siyahını qabağa çəkən qayda geri qayıtmasın');
+});
+test('Zuğulba stays newest first even though both groups keep their place', () => {
+  const ctx = app();
+  const at = h => new Date(Date.now() - h * 3600e3).toISOString();
+  const prez = [
+    { id: 'lady', category: 'prezident', source: 'Mehriban Əliyeva', title: 'Birinci xanım tədbirdə iştirak edib', publishedAt: at(30) },
+    { id: 'p1', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev qəbul edib', publishedAt: at(2) },
+    { id: 'p2', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev təbrik edib', publishedAt: at(1) },
+  ];
+  assert.deepEqual([...ctx.api.prezHome(prez).map(a => a.id)], ['p2', 'p1', 'lady']);
+});
+test('the "most sources" tab keeps its own order on purpose', () => {
+  const ctx = app(), {S} = ctx.api;
+  const at = h => new Date(Date.now() - h * 3600e3).toISOString();
+  const row = (id, h, alts) => ({ id, title: 'Başlıq ' + id, category: 'gundem', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at(h), alts });
+  S.latestOrder = 'sources';
+  const html = ctx.api.latestBlock([row('fresh', 0.1, []), row('wide', 3, [{source: 'Report', sourceUrl: 'https://report.az/1'}, {source: 'Trend', sourceUrl: 'https://trend.az/1'}])]);
+  assert.ok(html.indexOf('apa.az/wide') < html.indexOf('apa.az/fresh'));
+});
 test('one state site cannot fill the Zuğulba block: at most 3 cards per non-official source', () => {
   const ctx = app();
   const at = h => new Date(Date.now() - h * 3600e3).toISOString();
