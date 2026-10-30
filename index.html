@@ -10,6 +10,17 @@
         var f = localStorage.getItem("8ulduz-fs");
         if (f === "0" || f === "1" || f === "2") document.documentElement.dataset.fs = f;
       } catch (e) {}
+      // Xəbər və şəkil keşini app.js yüklənməsini gözləmədən soruş (telefonda ilk göstərilmə tezləşir).
+      // app.js eyni ünvanı (freshUrl) birinci dəfə bu cavabdan götürür.
+      try {
+        var m = Math.floor(Date.now() / 60000);
+        window.__early = {};
+        ["data/news.json", "data/og.json"].forEach(function (p) {
+          var u = p + "?t=" + m;
+          window.__early[u] = fetch(u, { cache: "no-store" });
+          window.__early[u].catch(function () {});
+        });
+      } catch (e) {}
     </script>
     <title>8ulduz — Son xəbərlər</title>
     <meta name="description" content="8ulduz — Azərbaycan və dünyadan son xəbərlər: gündəm, siyasət, iqtisadiyyat, idman və Zuğulba xronikası. Valyuta, neft və qızıl qiymətləri ilə birlikdə, təxminən hər 5 dəqiqədən bir yenilənir." />
@@ -62,7 +73,9 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Şrift səhifənin göstərilməsini bloklamır: əvvəl sistem şrifti, Inter gələndə dəyişir -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" /></noscript>
     <link rel="stylesheet" href="./assets/app.css" />
     <script src="./assets/config.js"></script>
     <script type="module" src="./assets/app.js"></script>

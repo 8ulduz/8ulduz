@@ -7,19 +7,26 @@ export function periodStarts(now = new Date()) {
   week.setUTCDate(week.getUTCDate() - (week.getUTCDay() + 6) % 7);
   return [day, week.toISOString().slice(0,10), `${p.year}-${p.month}-01`, `${p.year}-01-01`];
 }
+// GoatCounter 404 = bu yolda hələ keçid yoxdur (0). İl 0-dırsa gün/həftə/ay da 0-dır: 4 sorğu əvəzinə 1.
 export async function fetchCounts(code, name, fetcher = fetch, now = new Date()) {
   if (!/^[a-z0-9-]+$/i.test(code || '')) throw Error('not configured');
-  const values = await Promise.all(periodStarts(now).map(async start => {
+  const one = async start => {
     const url = `https://${code}.goatcounter.com/counter/${encodeURIComponent(eventPath(name))}.json?start=${start}`;
     const r = await fetcher(url, {signal:AbortSignal.timeout(8000)});
     if(r.status===403)throw Error('public-counter-disabled');
+    if(r.status===404)return 0;
     if (!r.ok) return null;
     const data = await r.json();
     const count = String(data.count ?? '').replace(/[\s,\.\u00a0]/g, '');
     return /^\d+$/.test(count) ? Number(count) : null;
-  }));
-  return values;
+  };
+  const [day, week, month, year] = periodStarts(now);
+  const yearCount = await one(year);
+  if (yearCount === 0) return [0, 0, 0, 0];
+  return [...await Promise.all([day, week, month].map(one)), yearCount];
 }
+// Heç bir keçid yoxdursa və ya məlumat alınmayıbsa sayğac göstərilmir (kartlarda «—/—/—/—» səs-küyü idi).
+export const shownCount = counts => (counts || []).some(n => Number.isSafeInteger(n) && n > 0) ? countText(counts) : '';
 export const countText = counts => (counts || [null,null,null,null]).map(n => Number.isSafeInteger(n) && n >= 0 ? n : '—').join('/');
 
 export function mountSourceStats({code, getArticles}) {
@@ -29,7 +36,7 @@ export function mountSourceStats({code, getArticles}) {
   function paint(name, values) {
     document.querySelectorAll('[data-source-count]').forEach(el => {
       if (el.dataset.sourceCount !== name) return;
-      el.textContent = countText(values); el.title = tooltip;
+      el.textContent = shownCount(values); el.title = tooltip;
       el.setAttribute('aria-label', `${name}: ${countText(values)}, gün / həftə / ay / il`);
     });
   }

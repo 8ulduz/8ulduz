@@ -79,8 +79,12 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
   signal?.addEventListener("abort", cancel, {once:true});
   try {
     if(signal?.aborted)cancel();
+    // index.html-in erkən başlatdığı sorğu (yalnız bir dəfə); alınmasa adi sorğu
+    const early = globalThis.__early?.[url];
+    if(early)delete globalThis.__early[url];
     const response = (async () => {
-      const r = await fetch(url, {cache:"no-store", signal:controller.signal});
+      const get = () => fetch(url, {cache:"no-store", signal:controller.signal});
+      const r = await (early ? early.catch(get) : get());
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       return {r, d:await r.json()};
     })();
@@ -308,7 +312,7 @@ function collapseExact(list) {
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
 }
 const detailUrl = a => `#/xeber/${encodeURIComponent(a.id)}`;
-const sourceName = name => `${esc(name)} — <small class="source-count" data-source-count="${esc(name)}" title="Gün / həftə / ay / il · ümumi keçid sayı">—/—/—/—</small>`;
+const sourceName = name => `${esc(name)}<small class="source-count" data-source-count="${esc(name)}" title="Gün / həftə / ay / il · ümumi keçid sayı"></small>`;
 const altBadge = a => a.alts?.length ? `<a class="bd out" href="${detailUrl(a)}#sources">${1 + a.alts.length} mənbə</a>` : "";
 function altPop(a) {
   if (!a.alts?.length) return "";
@@ -514,6 +518,8 @@ async function loadNews(force = false) {
   const statusStamp = S.status?.checkedAt || null;
   S.newsLoading = true;
   renderTopbar();
+  // İlk yükləmədə og.json xəbərlərlə paralel gəlir (əvvəl news.json bitəndən sonra başlayırdı — telefonda bir gediş-gəliş artıq)
+  const ogReady = S.data ? null : loadOg(controller.signal);
   try {
     const {r,d} = await requestJSON(freshUrl("data/news.json", force), {signal:controller.signal});
     if(token !== S.newsToken)return;
@@ -528,7 +534,7 @@ async function loadNews(force = false) {
     if (!S.offline) S.lastSync = new Date();
     S.error = null;
     if (S.data && S.data.updatedAt === d.updatedAt && S.og) { S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); renderTopbar(); return; }
-    await loadOg(controller.signal);
+    await (ogReady || loadOg(controller.signal));
     if(token !== S.newsToken || controller.signal.aborted)return;
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
     d.articles = d.articles.filter(a => !removedSource(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !removedSource(alt))}));
@@ -726,10 +732,19 @@ function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   const link = c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`;
   const primary = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat"];
-  $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") +
+  // nav-x: telefonda «Daha çox» əvəzinə zolaqda birbaşa görünən qalan bölmələr (masaüstündə gizli)
+  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x${cur === c.slug ? " on" : ""}">${esc(c.label)}</a>`).join("");
+  $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
+  fitNav();
 }
-function fitNav() {}
+// Telefonda menyu sürüşən zolaqdır: seçilmiş bölmə görünən yerdə qalsın.
+function fitNav() {
+  const nav = $("#nav"), on = nav?.querySelector("a.on");
+  if (!on || nav.scrollWidth <= nav.clientWidth) return;
+  const n = nav.getBoundingClientRect(), r = on.getBoundingClientRect();
+  if (r.left < n.left || r.right > n.right) nav.scrollLeft += r.left - n.left - 16;
+}
 
 function renderTicker() {
   const latest = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === "az"));
@@ -964,7 +979,7 @@ function prezBlock(list) {
 
 function heroBlock(list) {
   if (!list.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${esc(a.sourceUrl)}" ${OUT}><h1>${txt(a.title)}</h1></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div><div class="hero-side">${list.slice(1, 5).map(a => `<article class="row-card">${img(a, "", false, true)}<div class="x"><a class="t" href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${esc(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div><div class="hero-side">${list.slice(1, 5).map(a => `<article class="row-card">${img(a, "", false, true)}<div class="x"><a class="t" href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
 }
 
 function alertStrip() {
@@ -1128,7 +1143,7 @@ function homeView() {
   const used = new Set(hero.map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const secs = homeCats().map(c => catSection(c, frontAppointments(byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug))))).join("");
-  return `<div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
+  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
 }
 function articleView(id) {
   const a = S.data.articles.find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
