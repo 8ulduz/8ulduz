@@ -118,16 +118,9 @@ python -m http.server 8000   # sonra http://localhost:8000/
 
 ## Yenilənmə
 
-GitHub planlaşdırılmış işləri çox vaxt 20–30 dəqiqədən bir buraxır. Buna görə hər iş təxminən 55 dəqiqə
-açıq qalır və `updater.py`-ni hər 4 dəqiqədən bir işlədib nəticəni push edir. Növbəti iş növbədə gözləyir
-və bu iş bitəndə davam edir. `data/status.json` hər uğurlu yoxlamada yenilənir (xəbər mətni dəyişməsə belə).
-Sayt JSON-u `?t=` ilə istəyir ki, GitHub Pages-in 10 dəqiqəlik keşi köhnə faylı saxlamasın.
-
-**Ehtiyat kanal.** Bəzi şəbəkələrin DNS-i `8ulduz.az` üçün «domen yoxdur» cavabı verə bilir, domenin özü sağlam olsa da. Buna görə saytı bir dəfə açmış ziyarətçidə `sw.js` məlumatı əvvəl saytdan, alınmasa `raw.githubusercontent.com`-dan götürür. Pages 15 dəqiqədən çox yayımlamayıbsa `status.json` və `news.json` də oradan gəlir. Keş yalnız ikisi də alınmayanda göstərilir («Oflayn — saxlanmış xəbərlər»). Repo adı dəyişsə `sw.js`-dəki `MIRROR` da dəyişməlidir.
+Qırmızı xətlər və bütün qoruyucular: [docs/qirmizi-xetler.md](docs/qirmizi-xetler.md). Qısaca: `.github/scripts/pipeline.sh` hər 60 saniyədə `updater.py --fast` işlədir və `status.json`, `latest.json`, `markets.json`-u tarixçəsiz `live` budağına yazır; yavaş işlər (`--slow`) arxa plandadır; tam lent və SEO səhifələri hər 10 dəqiqə `main`-ə düşür. Sayt 30 saniyədən bir yoxlayır, `sw.js` məlumatı əvvəl canlı kanaldan, sonra saytdan, sonra ehtiyat kanaldan, ən sonda keşdən götürür. Repo adı dəyişsə `sw.js`-dəki `LIVE` və `MIRROR` da dəyişməlidir.
 
 Manual işə salmaq üçün: **Actions → Xəbərləri yenilə → Run workflow**.
-
-Hər dövrədə `data/sources.json`, `feed.xml`, `sitemap.xml` və `robots.txt` də push olunur.
 
 ## Saytı dərc etmək
 

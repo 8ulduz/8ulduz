@@ -13,7 +13,7 @@ Play Console → **Böyüt → Mağaza mövcudluğu → Əsas mağaza səhifəsi
 **Qısa təsvir** (80 simvola qədər):
 
 ```
-Azərbaycan və dünyadan son xəbərlər, valyuta və hava — hər 5 dəqiqədən bir.
+Azərbaycan və dünyadan son xəbərlər, valyuta və hava — hər dəqiqə.
 ```
 
 **Tam təsvir** (4000 simvola qədər):

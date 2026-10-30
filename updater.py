@@ -10,11 +10,20 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import json, re, pathlib, hashlib, datetime, email.utils, html, sys
-import urllib.request, urllib.parse
+import json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip
+import urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
+import content_policy
 from reader_content import update_reader
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
+
+
+def _write_atomic(path, text, encoding="utf-8"):
+    """Fayl ya tam yazılır, ya heç: sürətli və yavaş proses eyni qovluqda işləyir, timeout da yazını yarıda kəsə bilər."""
+    path = pathlib.Path(path)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding=encoding)
+    os.replace(tmp, path)
 
 # (ad, url[, kateqoriya ipucu]) — Azərbaycan mənbələri, default dil "az"
 # AZƏRTAC, Report və News.az GitHub runner IP-lərindən 403 alır.
@@ -101,6 +110,7 @@ WORLD_FEEDS = [
 ]
 FEEDS = [(f[0], f[1], "az", f[2] if len(f) > 2 else None) for f in AZ_FEEDS] + \
         [(f[0], f[1], f[2], f[3] if len(f) > 3 else None) for f in WORLD_FEEDS]
+FEEDS = [f for f in FEEDS if content_policy.source_registered(f[0]) and not content_policy.is_blocked(f[1])]
 WORLD_SOURCES = {f[0] for f in WORLD_FEEDS}
 
 SKIP_URL_PARTS = ["/resmi-ilanlar/", "/lezizz/", "/emlak-ilanlari/"]
@@ -266,8 +276,17 @@ SLUGS = {"Prezident": "prezident", "Gündəm": "gundem", "Siyasət": "siyaset", 
 DOUBLE = {"iran", "rusiya", "çin", "fransa", "israil", "ukrayna", "abş", "ingiltərə", "almaniya",
           "türkiyə", "ermənistan", "gürcüstan"}
 FALLBACK = "Gündəm"
-ROOT = pathlib.Path(__file__).parent
+# UPDATER_ROOT: məlumat qovluğu koddan ayrı ola bilər (pipeline.sh son işlək kodu eyni məlumatla işlədir).
+ROOT = pathlib.Path(os.environ.get("UPDATER_ROOT") or pathlib.Path(__file__).parent)
 OUT_DIR = ROOT / "data"
+LATEST_FILE = OUT_DIR / "latest.json"
+CACHE_DIR = ROOT / ".cache"  # yalnız runner-də, repoya düşmür
+FEED_CACHE = CACHE_DIR / "feeds.json"
+SLOW_FEED_CACHE = CACHE_DIR / "feeds-slow.json"
+OFFICIAL_CACHE = CACHE_DIR / "official.json"
+UNDATED_FILE = CACHE_DIR / "undated.json"
+RECENT_FILE = CACHE_DIR / "recent.json"
+GNEWS_CACHE = CACHE_DIR / "gnews.json"
 OUT_FILE = OUT_DIR / "news.json"
 MARKETS_FILE = OUT_DIR / "markets.json"
 SOCIAL_FILE = OUT_DIR / "social.json"
@@ -664,16 +683,8 @@ OPPOSITION = [
     "azadlıq radiosu", "mikroskop media", "turan informasiya agentliyi", "милли шура", "али керимли", "джамиль гасанли",
 ]
 
-# Xarici mənbələrin Azərbaycan dövləti və rəhbərliyi haqqında xəbərləri dərc edilmir (redaksiya qərarı);
-# bu mövzuda yalnız Azərbaycan mənbələri qalır. İdman xəbərləri (Qarabağ FK, idmançılar) istisnadır.
-AZ_STATE_RX = re.compile(
-    r"azerbaijan|azerbaycan|азербайджан|aliyev|алиев|əliyev|\bbaku\b|bakü|баку|\bbakı(?:da|dan|nın|ya|nı|\b)|nakhchivan|нахичеван|naxçıvan|"
-    r"karabakh|karabağ|карабах|qarabağ|\bazeri\b|milli məclis|milli mejlis", re.I)
-
-def foreign_about_azerbaijan(source, category, title, desc=""):
-    if source not in WORLD_SOURCES or category == "idman":
-        return False
-    return bool(AZ_STATE_RX.search(f"{title} {desc or ''}"))
+# Xarici mənbələrin Azərbaycan dövləti və rəhbərliyi haqqında xəbərləri dərc edilmir (redaksiya qərarı): content_policy.py.
+foreign_about_azerbaijan = content_policy.foreign_about_azerbaijan
 
 def is_negative_about_leadership(title, desc, source=None):
     """Rəhbərlikdən bəhs edən və neqativ çağrışım daşıyan xəbərləri tutur (redaksiya qərarı).
@@ -846,6 +857,8 @@ def _strip_outlet(title):
     title = re.sub(r"\s+[-–—|]\s+Latest news from Azerbaijan\s*$", "", title or "", flags=re.I)
     return re.sub(r"\s+[-–—|]\s+(?:Report\.az|Azərtac|Azertag|AZERTAC|News\.az|News\.Az)\s*$", "", title, flags=re.I).strip()
 
+_GNEWS_DECODED = {}  # keçid dekodu 2 sorğudur; eyni xəbər hər dövrədə yenidən açılmasın
+
 def gnews_items(rss_url, host, limit=GNEWS_LIMIT):
     parsed = parse_feed(fetch(rss_url, timeout=15))
     todo = []
@@ -857,12 +870,14 @@ def gnews_items(rss_url, host, limit=GNEWS_LIMIT):
         todo.append((m.group(1), it))
         if len(todo) >= limit * 2:
             break
-    decoded = {}
-    if todo:
+    decoded = {art_id: _GNEWS_DECODED[art_id] for art_id, _ in todo if art_id in _GNEWS_DECODED}
+    ids = [art_id for art_id, _ in todo if art_id not in decoded]
+    if ids:
         with ThreadPoolExecutor(max_workers=4) as ex:
-            ids = [art_id for art_id, _ in todo]
             for art_id, url in zip(ids, ex.map(_gnews_decode, ids)):
                 decoded[art_id] = url
+                if url:
+                    _GNEWS_DECODED[art_id] = url
     out = []
     seen = set()
     for art_id, it in todo:
@@ -960,6 +975,179 @@ def fetch_feed(feed):
             except Exception as e:
                 errors.append("Telegram: " + _err(e))
     return source, [], "; ".join(errors)[:180], url
+
+# ------------------------------------------------------------ sürətli dövrə ---
+# QIRMIZI XƏTT 1 (docs/qirmizi-xetler.md): dövrə 60 saniyəyə sığmalıdır. Vaxtında cavab verməyən lent dövrəni
+# gözlətmir: sonuncu nəticəsi işlədilir, yavaş proses (--slow) onu ayrıca təzələyir.
+FAST_BUDGET_S = 25       # bütün lentlər üçün ümumi vaxt
+FAST_WORKERS = 40
+FAST_FETCH_TIMEOUT = 8
+FEED_KEEP = 120          # lentdən yalnız ən yeni elementlər (İki Sahil 2000 element verir)
+FALLBACK_EVERY_S = 180   # Google News və Telegram ehtiyatını dəqiqədə bir yormayaq
+STALE_FEED_S = 900       # bundan köhnə nəticə «mənbə işləmir» sayılır
+LATEST_WINDOW_S = 1800   # latest.json main-dəki news.json-un gecikməsini örtməlidir
+LATEST_TOP = 40
+LATEST_MAX = 200
+
+
+def _read_json(path, default):
+    try:
+        return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def _save_cache(path, value):
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _write_atomic(path, json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+
+
+def _fetch_conditional(url, entry):
+    """Lent dəyişməyibsa (304) None. entry-yə ETag və Last-Modified yazılır: sayt da, dövrə də az yüklənir."""
+    headers = {"User-Agent": UA, "Accept": "application/rss+xml, application/xml, text/xml, text/html, */*", "Accept-Encoding": "gzip"}
+    if entry.get("etag"):
+        headers["If-None-Match"] = entry["etag"]
+    if entry.get("modified"):
+        headers["If-Modified-Since"] = entry["modified"]
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=FAST_FETCH_TIMEOUT) as r:
+            raw = r.read()
+            if (r.headers.get("Content-Encoding") or "").lower() == "gzip":
+                raw = gzip.decompress(raw)
+            entry["etag"], entry["modified"] = r.headers.get("ETag") or "", r.headers.get("Last-Modified") or ""
+    except urllib.error.HTTPError as e:
+        if e.code == 304:
+            return None
+        raise
+    parser = PAGE_PARSERS.get(url)
+    return parser(raw.decode("utf-8", "replace")) if parser else parse_feed(raw)
+
+
+def fetch_feed_fast(feed, old=None):
+    """Bir lentin təzə nəticəsi: {items, url, at, err, etag, modified}."""
+    source, url = feed[0], feed[1]
+    old, started = old or {}, time.time()
+    used = old.get("url") or url
+    if used not in [url] + DIRECT_ALT.get(source, []):  # bu mənbə Google News və ya Telegram ilə gəlir
+        if old.get("items") and started - old.get("at", 0) < FALLBACK_EVERY_S:
+            return {**old, "err": None}
+    else:
+        entry = {"etag": old.get("etag"), "modified": old.get("modified")}
+        try:
+            items = _fetch_conditional(used, entry)
+            if items is None and old.get("items"):
+                return {**old, "at": started, "err": None}
+            if items:
+                return {**entry, "items": items[:FEED_KEEP], "url": used, "at": started, "err": None}
+        except Exception:
+            pass
+    _, items, err, final = fetch_feed(feed)
+    if err and old.get("items"):
+        return {**old, "err": err}
+    return {"items": items[:FEED_KEEP], "url": final or url, "at": started, "err": err}
+
+
+def collect_fast():
+    """(results, official items, official errors). Heç bir lent dövrəni FAST_BUDGET_S-dən çox saxlamır."""
+    cache = _read_json(FEED_CACHE, {})
+    for name, entry in _read_json(SLOW_FEED_CACHE, {}).items():
+        if entry.get("at", 0) > (cache.get(name) or {}).get("at", 0):
+            cache[name] = entry
+    _GNEWS_DECODED.update(_read_json(GNEWS_CACHE, {}))
+    pool = ThreadPoolExecutor(max_workers=FAST_WORKERS)
+    futures = [(feed, pool.submit(fetch_feed_fast, feed, cache.get(feed[0]))) for feed in FEEDS]
+    official = pool.submit(official_items)
+    wait([future for _, future in futures] + [official], timeout=FAST_BUDGET_S)
+    pool.shutdown(wait=False, cancel_futures=True)
+    now, results = time.time(), []
+    for feed, future in futures:
+        old = cache.get(feed[0]) or {}
+        if future.done() and not future.cancelled() and future.exception() is None:
+            entry = future.result()
+        else:
+            usable = old.get("items") and now - old.get("at", 0) < STALE_FEED_S
+            entry = {**old, "err": None if usable else "vaxt bitdi"}
+        cache[feed[0]] = entry
+        results.append((feed[0], entry.get("items") or [], entry.get("err"), entry.get("url") or feed[1]))
+    saved = _read_json(OFFICIAL_CACHE, [])
+    if official.done() and not official.cancelled() and official.exception() is None:
+        off_items, off_errors = official.result()
+        if off_items and not off_errors:
+            _save_cache(OFFICIAL_CACHE, off_items)
+    else:
+        off_items, off_errors = saved, []
+    _save_cache(FEED_CACHE, cache)
+    _save_cache(GNEWS_CACHE, dict(list(_GNEWS_DECODED.items())[-2000:]))
+    return results, off_items, off_errors
+
+
+def apply_og_cache(articles):
+    """Sürətli dövrə şəkil sorğusu göndərmir; yavaş prosesin tapdığı şəkillər işlədilir."""
+    cache = _read_json(OG_FILE, {})
+    for a in articles:
+        image = cache.get(a.get("sourceUrl") or "") if isinstance(cache, dict) else None
+        if not a.get("imageUrl") and isinstance(image, str) and image and not _is_generic_img(image):
+            a["imageUrl"] = image
+
+
+def write_latest(articles, previous):
+    """latest.json: son yarım saatda lentə düşənlər və ən yeni xəbərlər. Sayt onu tam lentin üstünə qoyur."""
+    now, known = time.time(), {a.get("sourceUrl") for a in previous}
+    recent = {u: t for u, t in _read_json(RECENT_FILE, {}).items() if now - t < LATEST_WINDOW_S}
+    for a in articles:
+        if a.get("sourceUrl") not in known:
+            recent.setdefault(a.get("sourceUrl"), now)
+    ordered = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)
+    top = {a.get("sourceUrl") for a in ordered[:LATEST_TOP]}
+    rows = [a for a in ordered if a.get("sourceUrl") in top or a.get("sourceUrl") in recent][:LATEST_MAX]
+    stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    OUT_DIR.mkdir(exist_ok=True)
+    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows}, ensure_ascii=False, separators=(",", ":")))
+    _save_cache(RECENT_FILE, recent)
+
+
+def refresh_slow_feeds(limit_s=150):
+    """Sürətli dövrəyə sığmayan lentlər burada, daha çox vaxtla oxunur."""
+    cache, now = _read_json(FEED_CACHE, {}), time.time()
+    todo = [feed for feed in FEEDS if now - (cache.get(feed[0]) or {}).get("at", 0) > 120]
+    if not todo:
+        return
+    pool = ThreadPoolExecutor(max_workers=16)
+    futures = [(feed, pool.submit(fetch_feed, feed)) for feed in todo]
+    wait([future for _, future in futures], timeout=limit_s)
+    pool.shutdown(wait=False, cancel_futures=True)
+    fresh = {}
+    for feed, future in futures:
+        if future.done() and not future.cancelled() and future.exception() is None:
+            _, items, err, used = future.result()
+            if items and not err:
+                fresh[feed[0]] = {"items": items[:FEED_KEEP], "url": used or feed[1], "at": now, "err": None}
+    _save_cache(SLOW_FEED_CACHE, fresh)
+
+
+def resolve_undated():
+    """Tarixsiz lent elementləri: səhifə tarixi yavaş prosesdə tapılır, sürətli dövrə dates.json-dan oxuyur."""
+    dates, lookups = load_dates(), DATE_LOOKUPS
+    for it in _read_json(UNDATED_FILE, []):
+        if lookups <= 0:
+            break
+        _, lookups = undated_date(it, dates, lookups)
+    save_dates(dates)
+
+
+def slow_cycle():
+    """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
+    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    steps = [update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
+             lambda: fill_og_images(articles),
+             lambda: update_reader(articles, OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6)),
+             refresh_slow_feeds, write_public]
+    for step in steps:
+        try:
+            step()
+        except Exception as e:
+            print("  ! yavaş addım:", getattr(step, "__name__", "?"), type(e).__name__, e)
+    return 0
 
 # ---------------------------------------------------------------- bazarlar ---
 MARKET_DEFS = [
@@ -1119,7 +1307,7 @@ def update_markets():
         out = {"updatedAt": now, "items": items}
         if cbar_error:
             out["cbarError"] = cbar_error
-        MARKETS_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        _write_atomic(MARKETS_FILE, json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Bazar: {sum(1 for i in items if not i.get('stale'))}/{len(MARKET_DEFS)} təzə")
 
 def _clean_text(s):
@@ -1427,7 +1615,7 @@ def update_social():
     posts.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
-    SOCIAL_FILE.write_text(json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
+    _write_atomic(SOCIAL_FILE, json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     merge_sources(yt_rows)
     print(f"Sosial: {min(16, len(posts))} yazı ({sum(1 for p in posts[:16] if p.get('via'))} xəbərdən)")
@@ -1544,7 +1732,7 @@ def update_video():
     items.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
-    VIDEO_FILE.write_text(json.dumps({"updatedAt": now, "items": items[:24]}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    _write_atomic(VIDEO_FILE, json.dumps({"updatedAt": now, "items": items[:24]}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     if rows:
         merge_sources(rows)
     print(f"Video: {min(24, len(items))} yazı")
@@ -1733,7 +1921,7 @@ def update_sports():
             print(f"  ! {name}:", type(e).__name__)
             if slug in old_by:
                 leagues.append(dict(old_by[slug], stale=True))
-    SPORTS_FILE.write_text(json.dumps({"updatedAt": now_dt.isoformat(timespec="seconds"), "source": "ESPN", "leagues": leagues},
+    _write_atomic(SPORTS_FILE, json.dumps({"updatedAt": now_dt.isoformat(timespec="seconds"), "source": "ESPN", "leagues": leagues},
                                       ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Dünya liqaları: {fresh}/{len(ESPN_LEAGUES)} təzə")
 
@@ -1773,7 +1961,7 @@ def update_football():
         data = dict(leagues[0])
         data["leagues"] = leagues
     data["updatedAt"] = now
-    FOOTBALL_FILE.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    _write_atomic(FOOTBALL_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Futbol: {fresh}/{len(PFL_PROJECTS)} liqa təzə, Premyer: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}")
 
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
@@ -2213,7 +2401,7 @@ def save_sources(rows):
                         "count": int(r.get("count") or 0), "error": None})
     # Siyahıdan çıxarılan mənbələr vəziyyət səhifəsində qalmasın (əvvəl köhnə sətirlər həmişə saxlanırdı)
     OUT_DIR.mkdir(exist_ok=True)
-    SOURCES_FILE.write_text(json.dumps({"updatedAt": now, "sources": out}, ensure_ascii=False,
+    _write_atomic(SOURCES_FILE, json.dumps({"updatedAt": now, "sources": out}, ensure_ascii=False,
                                         separators=(",", ":")), encoding="utf-8")
     print(f"Mənbə statusu: {len(out)}")
 
@@ -2244,7 +2432,7 @@ def merge_sources(rows):
         if r["name"] not in order:
             order.append(r["name"])
     OUT_DIR.mkdir(exist_ok=True)
-    SOURCES_FILE.write_text(json.dumps({
+    _write_atomic(SOURCES_FILE, json.dumps({
         "updatedAt": now,
         "sources": [updated[n] for n in order if n in updated],
     }, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -2283,7 +2471,7 @@ def write_feed(articles):
         parts.append(f"<category>{_xml(a.get('category'))}</category>")
         parts.append("</item>")
     parts.append("</channel></rss>\n")
-    FEED_FILE.write_text("".join(parts), encoding="utf-8")
+    _write_atomic(FEED_FILE, "".join(parts), encoding="utf-8")
     print(f"RSS: {len(items)} xəbər")
 
 # app.js-dəki CATS ilə eyni: statik bölmə səhifələri (axtarış sistemləri üçün həqiqi ünvanlar) və sitemap
@@ -2330,6 +2518,7 @@ _SECTION_HTML = """<!doctype html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../assets/app.css" />
     <script src="../../assets/config.js"></script>
+    <script src="../../assets/content-policy.js"></script>
     <script type="module" src="../../assets/app.js"></script>
     <!-- Resurslar yuxarıda nisbi yolla yükləndi; tətbiq kök ünvanda işləyir, ona görə ünvan kökə keçirilir -->
     <script>history.replaceState(null, "", new URL("../../#/bolme/__SLUG__", location.href));</script>
@@ -2357,7 +2546,7 @@ def write_sections(articles):
     for slug, label, desc in SECTIONS:
         d = SECTIONS_DIR / slug
         d.mkdir(parents=True, exist_ok=True)
-        (d / "index.html").write_text(section_page(slug, label, desc, articles), encoding="utf-8")
+        _write_atomic(d / "index.html", section_page(slug, label, desc, articles), encoding="utf-8")
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
 def write_sitemap():
@@ -2368,10 +2557,10 @@ def write_sitemap():
     for loc in locs:
         body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{today}</lastmod><changefreq>hourly</changefreq></url>")
     body.append("</urlset>\n")
-    SITEMAP_FILE.write_text("".join(body), encoding="utf-8")
+    _write_atomic(SITEMAP_FILE, "".join(body), encoding="utf-8")
 
 def write_robots():
-    ROBOTS_FILE.write_text(
+    _write_atomic(ROBOTS_FILE, 
         "User-agent: *\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n",
         encoding="utf-8")
 
@@ -2513,7 +2702,7 @@ def save_dates(cache, now=None, keep_days=10, limit=1500):
                   key=lambda kv: kv[1], reverse=True)[:limit]
     try:
         OUT_DIR.mkdir(exist_ok=True)
-        DATES_FILE.write_text(json.dumps(dict(rows), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        _write_atomic(DATES_FILE, json.dumps(dict(rows), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     except Exception as e:
         print("  ! tarix keşi:", type(e).__name__)
 
@@ -2604,7 +2793,7 @@ def fill_og_images(articles, limit=120):
                         "retryAfter": {k: v for k, v in retry_after.items() if k in keep and v > now_ts}}
     try:
         OUT_DIR.mkdir(exist_ok=True)
-        OG_FILE.write_text(json.dumps(trimmed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        _write_atomic(OG_FILE, json.dumps(trimmed, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     except Exception as e:
         print("  ! og keşi:", type(e).__name__)
     return len(batch)
@@ -2617,7 +2806,7 @@ def write_status(ok=True, successful=0, total=0, stats=None):
     except (OSError, ValueError):
         previous = {}
     OUT_DIR.mkdir(exist_ok=True)
-    STATUS_FILE.write_text(json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
+    _write_atomic(STATUS_FILE, json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
                                        "attemptedAt": now, "ok": ok,
                                        "successfulSources": successful, "totalSources": total,
                                        "degraded": ok and successful < total, "stats": stats or previous.get("stats")}, ensure_ascii=False,
@@ -2640,7 +2829,12 @@ def prune_removed_sources(articles):
             for a in articles if not removed_source(a)]
 
 
-def main():
+def main(fast=False):
+    marks, tick = {}, time.time()
+    def mark(name):
+        nonlocal tick
+        marks[name] = round(time.time() - tick, 1)
+        tick = time.time()
     try:
         old = json.loads(OUT_FILE.read_text(encoding="utf-8"))["articles"]
     except Exception:
@@ -2653,7 +2847,11 @@ def main():
     hints["AZƏRTAC (Regionlar)"] = "Bölgələr"
     # Rəsmi səhifələr (prezident, birinci xanım, AZƏRTAC Regionlar) əvvəlcədən: Regionlar səhifəsindəki keçidlər
     # lentdə də gəlsə Bölgələr sayılır
-    off_items, off_errors = official_items()
+    if fast:
+        results, off_items, off_errors = collect_fast()
+        mark("collect")
+    else:
+        off_items, off_errors = official_items()
     region_links = {t[4]["link"] for t in off_items if t[2] == "Bölgələr"}
     region_desc = {}
     for a in old:
@@ -2690,10 +2888,13 @@ def main():
     seen = {a["sourceUrl"] for a in old}
     old_by_url = {a["sourceUrl"]: a for a in old}
     new_items, errors, empty = [], [], []
-    dates, lookups, undated = load_dates(), DATE_LOOKUPS, 0
+    # Sürətli dövrədə səhifə sorğusu yoxdur: tarixi tapılmamış elementlər yavaş prosesə ötürülür.
+    budget = 0 if fast else DATE_LOOKUPS
+    dates, lookups, undated, unresolved = load_dates(), budget, 0, []
     source_rows = []
-    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-        results = list(ex.map(fetch_feed, FEEDS))  # sıra FEEDS ilə eynidir
+    if not fast:
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            results = list(ex.map(fetch_feed, FEEDS))  # sıra FEEDS ilə eynidir
     # Əvvəlcə siyahıda olan, lakin «ilk görülmə» vaxtı ilə qalmış tarixsiz xəbərlər (tarix keşi yaranana qədər
     # yığılanlar): büdcəni onlar alır, yoxsa 2000 elementlik lentdə növbə onlara heç çatmır və saatlarla
     # «N saat əvvəl» kimi bölmələrin başında qalırlar. Səhifə tarixi tapılanda köhnə qeydin vaxtı düzəldilir.
@@ -2721,6 +2922,7 @@ def main():
                 if not it.get("pubDate"):
                     iso, lookups = undated_date(it, dates, lookups)
                     if not iso:
+                        unresolved.append({"link": it.get("link"), "image": it.get("image")})
                         continue
                     it = dict(it, pubDate=iso)
                     undated += 1
@@ -2746,7 +2948,11 @@ def main():
             new_items.append(make_article(it, source, dlang, hint, force_label=force))
         except Exception as e:
             errors.append(f"{source} (rəsmi): {type(e).__name__}")
-    save_dates(dates)
+    if fast:
+        _save_cache(UNDATED_FILE, unresolved[:300])
+    else:
+        save_dates(dates)
+    mark("items")
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
@@ -2767,8 +2973,9 @@ def main():
     prez_items = [a for a in uniq if a["category"] == "prezident"][:120]
     articles = [a for a in uniq if a["category"] != "prezident"][:MAX_ITEMS] + prez_items
     stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles),
-             "undated": undated, "dateLookups": DATE_LOOKUPS - lookups}
+             "undated": undated, "dateLookups": budget - lookups}
     articles = group_duplicates(articles)
+    mark("group")
     # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır
     img_count = {}
     for a in articles:
@@ -2783,12 +2990,18 @@ def main():
                 if alt.get("imageUrl") and img_count.get(alt["imageUrl"], 0) < 3 and not _is_generic_img(alt["imageUrl"]):
                     a["imageUrl"] = alt["imageUrl"]
                     break
-    try:
-        n_og = fill_og_images(articles)
-        if n_og:
-            print(f"og:image sorğusu: {n_og}")
-    except Exception as e:
-        print("  ! og:image:", type(e).__name__)
+    if fast:
+        apply_og_cache(articles)
+    else:
+        try:
+            n_og = fill_og_images(articles)
+            if n_og:
+                print(f"og:image sorğusu: {n_og}")
+        except Exception as e:
+            print("  ! og:image:", type(e).__name__)
+    # QIRMIZI XƏTT 2: yazılan hər şey bu qapıdan keçir.
+    articles, dropped = content_policy.enforce(articles)
+    stats["articles"], stats["policyDropped"] = len(articles), dropped
     save_sources(source_rows)
     successful = sum(1 for row in source_rows if not row.get("error") and row.get("count", 0) > 0)
     result = {"ok": successful > 0 and bool(articles), "successful": successful, "total": len(source_rows), "stats": stats}
@@ -2797,6 +3010,9 @@ def main():
         return result
     if not articles:
         print("Xəbər yoxdur — fayl dəyişdirilmədi"); return result
+    write_latest(articles, prev_articles)
+    mark("final")
+    stats["timings"] = marks
     if articles == prev_articles:
         print(f"Dəyişiklik yoxdur ({len(FEEDS) - len(errors)}/{len(FEEDS)} mənbə)")
         for e in errors:
@@ -2809,11 +3025,12 @@ def main():
     }
     OUT_DIR.mkdir(exist_ok=True)
     # yığcam JSON: repo ölçüsünün böyüməsini azaldır
-    OUT_FILE.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    try:
-        update_reader(articles, OUT_DIR / 'reader.json', lambda url: fetch(url, timeout=6))
-    except Exception as e:
-        print('  ! audio mətn:', type(e).__name__)
+    _write_atomic(OUT_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if not fast:
+        try:
+            update_reader(articles, OUT_DIR / 'reader.json', lambda url: fetch(url, timeout=6))
+        except Exception as e:
+            print('  ! audio mətn:', type(e).__name__)
     ok = len(FEEDS) - len(errors) - len(empty)
     print(f"Mənbə işlədi: {ok}/{len(FEEDS)} | Yeni: {len(new_items)} | Ümumi: {len(articles)}")
     for e in errors:
@@ -2822,7 +3039,24 @@ def main():
         print("  ∅", e, "(boş lent)")
     return result
 
+def run_fast():
+    """Bir sürətli dövrə: lentlər, xəbər seçimi, status. Xəta olsa da status yazılır ki, lentin dayandığı görünsün."""
+    started, result = time.time(), {"ok": False, "successful": 0, "total": 0, "stats": {}}
+    try:
+        result = main(fast=True)
+    except Exception as e:
+        print("  ! xəbər:", type(e).__name__, e)
+    stats = dict(result.get("stats") or {}, cycleSeconds=round(time.time() - started, 1))
+    write_status(result["ok"], result["successful"], result["total"], stats)
+    print(f"Sürətli dövrə: {stats['cycleSeconds']} san {stats.get('timings')}")
+    return 0 if result["ok"] else 1
+
+
 def run():
+    if "--fast" in sys.argv:
+        return run_fast()
+    if "--slow" in sys.argv:
+        return slow_cycle()
     news_ok = True
     result = {"successful": 0, "total": 0}
     if "--no-markets" not in sys.argv:
@@ -2863,4 +3097,6 @@ def run():
     return 0 if news_ok else 1
 
 if __name__ == "__main__":
-    sys.exit(run())
+    code = run()
+    sys.stdout.flush()
+    os._exit(code)  # vaxtı bitmiş lent axınları prosesi saxlamasın

@@ -1,16 +1,24 @@
-"""Dərcdən əvvəl updater.py-ın yazdığı faylları yoxlayır; zədəli olanların adını çap edir.
+"""Dərcdən əvvəl updater.py-ın yazdığı faylları yoxlayır.
 
-Yarımçıq yazılmış (timeout 240 ortada kəsəndə) və ya boş news.json dərc olunsa, sayt açılmır,
-növbəti dövrə də köhnə lenti oxuya bilmir və tarixçəni sıfırdan başlayır. update.yml belə
-faylları son dərc olunmuş versiya ilə əvəz edir. Bu skriptin özü xəta versə heç nə çap etmir
-və dərc əvvəlki kimi davam edir.
+- Zədəli faylların adını çap edir: pipeline.sh onları son sağlam nüsxə ilə əvəz edir.
+- QIRMIZI XƏTT 2: qaydanı pozan xəbərləri fayldan çıxarır. updater.py-ın köhnə (son işlək) versiyası
+  işləsə də, yazılan lent bu qapıdan keçir.
+
+Yarımçıq yazılmış və ya boş news.json dərc olunsa sayt açılmır, növbəti dövrə də tarixçəni itirir.
+Bu skriptin özü xəta versə heç nə çap etmir və dərc davam edir: yeniləmə buna görə dayanmamalıdır.
 """
 import json
+import os
 import pathlib
+import sys
 import xml.etree.ElementTree as ET
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+import content_policy  # noqa: E402
 
 
 def bad_outputs(root=pathlib.Path(".")):
+    root = pathlib.Path(root)
     bad = []
     for path in sorted((root / "data").glob("*.json")):
         try:
@@ -31,6 +39,31 @@ def bad_outputs(root=pathlib.Path(".")):
     return [p.relative_to(root).as_posix() for p in bad]
 
 
+def enforce_policy(root=pathlib.Path(".")):
+    """Lent fayllarından qaydanı pozan xəbərləri çıxarır. {fayl: {səbəb: say}} qaytarır."""
+    root = pathlib.Path(root)
+    removed = {}
+    for name in ("news.json", "latest.json"):
+        path = root / "data" / name
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            articles = data["articles"]
+        except Exception:
+            continue
+        clean, dropped = content_policy.enforce(articles)
+        if clean == articles:
+            continue
+        data["articles"], data["count"] = clean, len(clean)
+        tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        os.replace(tmp, path)
+        removed[name] = dropped
+    return removed
+
+
 if __name__ == "__main__":
-    for name in bad_outputs():
+    root = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else pathlib.Path(".")
+    for name, dropped in enforce_policy(root).items():
+        print(f"::warning::{name}: qaydanı pozan xəbərlər çıxarıldı: {dropped}", file=sys.stderr)
+    for name in bad_outputs(root):
         print(name)

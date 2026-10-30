@@ -2,6 +2,7 @@
 import datetime
 import html
 import json
+import os
 import re
 from html.parser import HTMLParser
 from concurrent.futures import ThreadPoolExecutor
@@ -116,4 +117,6 @@ def update_reader(articles, path, fetcher, limit=24):
         output.update(pool.map(load, pending))
     # Follow current feed order, cap storage; only audio data, no article-text HTML page.
     kept = {a['sourceUrl']: output[a['sourceUrl']] for a in relevant[:400] if a['sourceUrl'] in output}
-    path.write_text(json.dumps({'updatedAt': now.isoformat(), 'articles': kept}, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    tmp = path.with_name(f'.{path.name}.{os.getpid()}.tmp')
+    tmp.write_text(json.dumps({'updatedAt': now.isoformat(), 'articles': kept}, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    os.replace(tmp, path)

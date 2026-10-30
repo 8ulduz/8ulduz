@@ -8,7 +8,7 @@ on:
     workflows: ["Xəbərləri yenilə"]
     types: [completed]
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    - cron: "2-59/5 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -41,6 +41,16 @@ jobs:
           active="$(gh run list --workflow update.yml --branch main --limit 20 --json status \
             --jq '[.[] | select(.status != "completed")] | length' || echo "")"
           echo "İşləyən/gözləyən yeniləmə: ${active:-bilinmir}"
+          # QIRMIZI XƏTT 1: iş "işləyir" görünür, amma live budağı 6 dəqiqədir yazılmır: iş ilişib, dayandırılır.
+          status="$(curl -fsS --max-time 20 --retry 2 "https://raw.githubusercontent.com/$GH_REPO/live/data/status.json?t=$(date +%s)" || echo "")"
+          attempted="$(printf '%s' "$status" | jq -r '.attemptedAt // empty' 2>/dev/null)"
+          if [ -n "$attempted" ] && [ $(( $(date +%s) - $(date -d "$attempted" +%s) )) -ge 360 ] && [ "$active" != "0" ] && [ -n "$active" ]; then
+            for id in $(gh run list --workflow update.yml --status in_progress --limit 5 --json databaseId --jq '.[].databaseId'); do
+              echo "::warning::İş $id ilişib, dayandırılır"
+              gh run cancel "$id" || true
+            done
+            active=0
+          fi
           if [ "$active" = "0" ]; then
             for i in 1 2 3 4 5; do
               if gh workflow run update.yml --ref main; then
@@ -67,17 +77,21 @@ jobs:
             t="$(printf '%s' "$1" | jq -r ".$2 // empty" 2>/dev/null)"
             [ -n "$t" ] && echo $(( ($(date +%s) - $(date -d "$t" +%s)) / 60 )) || echo 9999
           }
-          live_try=$(age "$live" attemptedAt); live_ok=$(age "$live" checkedAt); repo_try=$(age "$repo" attemptedAt)
-          echo "Canlı sayt: son cəhd ${live_try} dəq, son uğur ${live_ok} dəq əvvəl. Repo: son cəhd ${repo_try} dəq əvvəl."
+          channel="$(curl -fsS --max-time 20 --retry 2 "https://raw.githubusercontent.com/$GH_REPO/live/data/status.json?t=$(date +%s)" || echo "")"
+          live_try=$(age "$live" attemptedAt); repo_try=$(age "$repo" attemptedAt)
+          channel_try=$(age "$channel" attemptedAt); channel_ok=$(age "$channel" checkedAt)
+          echo "Canlı kanal: son cəhd ${channel_try} dəq, son uğur ${channel_ok} dəq əvvəl. Sayt: ${live_try} dəq. main: ${repo_try} dəq."
           problem=""
-          if [ "$live_try" -ge 30 ] && [ "$repo_try" -lt 30 ]; then
+          if [ "$channel_try" -ge 10 ]; then
+            problem="Xəbər axını ${channel_try} dəqiqədir yazılmır (live budağı)."
+          elif [ "$channel_ok" -ge 10 ]; then
+            problem="Axın işləyir, amma ${channel_ok} dəqiqədir uğurlu yoxlama yoxdur (bütün mənbələr və ya updater.py xəta verir)."
+          elif [ "$live_try" -ge 30 ] && [ "$repo_try" -lt 30 ]; then
             problem="Repo təzədir (${repo_try} dəq), amma canlı sayt ${live_try} dəqiqədir dəyişmir — GitHub Pages yayımı ilişib."
             echo "::warning::$problem Yenidən yığım istənir."
             gh api -X POST "repos/$GH_REPO/pages/builds" || true
-          elif [ "$live_try" -ge 30 ]; then
-            problem="Yeniləmə ${live_try} dəqiqədir işləmir (canlı status.json son cəhd)."
-          elif [ "$live_ok" -ge 60 ]; then
-            problem="Yeniləmə işləyir, amma ${live_ok} dəqiqədir uğurlu yoxlama yoxdur (bütün mənbələr və ya updater.py xəta verir)."
+          elif [ "$repo_try" -ge 30 ]; then
+            problem="main ${repo_try} dəqiqədir yazılmır (tam lent və SEO səhifələri köhnəlir)."
           fi
           open="$(gh issue list --state open --search "in:title \"$TITLE\"" --json number,title \
             --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty" || echo "")"
@@ -91,5 +105,5 @@ jobs:
           Yeniləmə işləri: $runs" || true
             fi
           elif [ -n "$open" ]; then
-            gh issue close "$open" --comment "Bərpa olundu: canlı saytda son yoxlama ${live_try} dəqiqə əvvəl." || true
+            gh issue close "$open" --comment "Bərpa olundu: canlı kanalda son yoxlama ${channel_try} dəqiqə əvvəl." || true
           fi

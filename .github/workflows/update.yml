@@ -1,22 +1,17 @@
 name: Xəbərləri yenilə
+# QIRMIZI XƏTT 1 (docs/qirmizi-xetler.md). İş .github/scripts/pipeline.sh-dadır.
+# concurrency qəsdən yoxdur: iş bitməzdən əvvəl növbətisi başlayır, növbə dəyişəndə boşluq olmur.
+# Artıq iş işləyirsə, yeni başlayan iş özü dərhal çıxır.
 
 on:
   schedule:
     # Cron ehtiyatdır. GitHub onu 20–40 dəqiqə gecikdirə və ya atıya bilər.
-    # Əsas davamlılıq işin sonundakı öz-özünə zəncirdir.
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
   actions: write
-
-# Bir dövrə işləyir, biri növbədə gözləyir. İşləyəni kəsmirik.
-# Gözləyən ikinci iş yarananda əvvəlki gözləyən əvəz olunur, ona görə
-# zəncir yalnız növbə boş olanda dispatch edir.
-concurrency:
-  group: news-update
-  cancel-in-progress: false
 
 jobs:
   update:
@@ -28,153 +23,45 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      # Python yüklənməsə runner-in öz python3-ü ilə davam edirik — yeniləmə buna görə dayanmasın.
+      # Python yüklənməsə runner-in öz python3-ü ilə davam edirik.
       - uses: actions/setup-python@v5
         continue-on-error: true
         with:
           python-version: "3.12"
-      # Son uğurla işləmiş updater.py (+ reader_content.py). main-ə səhv kod düşsə, lent onunla yenilənməyə davam edir.
-      - name: Son işlək updater-i bərpa et
+      # Son uğurla işləmiş kod. main-ə səhv kod düşsə, lent onunla yenilənməyə davam edir.
+      - name: Son işlək kodu bərpa et
         uses: actions/cache/restore@v4
         continue-on-error: true
         with:
           path: .lkg
-          key: updater-lkg-${{ hashFiles('updater.py', 'reader_content.py') }}
-          restore-keys: updater-lkg-
-      - name: Hər 4 dəqiqədən bir yenilə
-        run: |
-          set -uo pipefail
-          git config user.name "8ulduz-bot"
-          git config user.email "bot@8ulduz.az"
-          BRANCH="${GITHUB_REF_NAME}"
-          SNAP="$(mktemp -d)"
-          SAVED="$(mktemp -d)"
-          PY="$(command -v python || command -v python3)"
-          rm -f .lkg/.yeni
-          # Zədəli/boş çıxış faylını son dərc olunmuş versiya ilə əvəz et (yarımçıq JSON saytı və növbəti dövrəni sındırır).
-          guard_outputs() {
-            local f
-            for f in $("$PY" .github/scripts/check_outputs.py 2>/dev/null); do
-              echo "::warning::$f zədəlidir və ya boşdur — son dərc olunmuş versiya saxlanılır"
-              git checkout HEAD -- "$f" 2>/dev/null || rm -f "$f"
-            done
-          }
-          # Cari kod işləməsə, son işlək versiya ilə bir dəfə də cəhd et. Uğurlu cari kod yeni "işlək" olur.
-          run_updater() {
-            local rc
-            if timeout 240 "$PY" updater.py; then
-              if ! cmp -s updater.py .lkg/updater.py || ! cmp -s reader_content.py .lkg/reader_content.py; then
-                mkdir -p .lkg && cp updater.py reader_content.py .lkg/ && touch .lkg/.yeni
-              fi
-              return 0
-            fi
-            if [ ! -f .lkg/updater.py ] || { cmp -s updater.py .lkg/updater.py && cmp -s reader_content.py .lkg/reader_content.py; }; then
-              return 1
-            fi
-            echo "::warning::updater.py xəta verdi — son işlək versiya ilə yenidən cəhd edilir"
-            cp updater.py reader_content.py "$SAVED/"
-            cp .lkg/updater.py .lkg/reader_content.py ./
-            guard_outputs
-            timeout 240 "$PY" updater.py; rc=$?
-            cp "$SAVED/updater.py" "$SAVED/reader_content.py" ./
-            return "$rc"
-          }
-          # Dövrənin özü ~50 dəq. Son yeniləmədən növbəti runner-in ilk yeniləməsinə
-          # qədər boşluq runner-in açılış müddəti qədər olsun, 40 dəqiqə yox.
-          DURATION=$((50 * 60))
-          CYCLE=240
-          START=$SECONDS
-          last_result=1
-          publish() {
-            local i
-            guard_outputs
-            mkdir -p "$SNAP/data"
-            cp -a data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json "$SNAP/data/" || return 1
-            [ -f data/sports.json ] && cp -a data/sports.json "$SNAP/data/"
-            [ -f data/dates.json ] && cp -a data/dates.json "$SNAP/data/"
-            [ -f data/reader.json ] && cp -a data/reader.json "$SNAP/data/"
-            cp -a sitemap.xml robots.txt feed.xml "$SNAP/" || return 1
-            rm -rf "$SNAP/bolme"; [ -d bolme ] && cp -a bolme "$SNAP/bolme"
-            for i in 1 2 3 4 5; do
-              # Asılı şəbəkə əməliyyatı işin bütün vaxtını yeməsin.
-              timeout 90 git fetch origin "$BRANCH" || { sleep 4; continue; }
-              git reset --hard "origin/$BRANCH"
-              mkdir -p data
-              cp -a "$SNAP/data/." data/
-              cp -a "$SNAP/sitemap.xml" "$SNAP/robots.txt" "$SNAP/feed.xml" ./
-              if [ -d "$SNAP/bolme" ]; then rm -rf bolme; cp -a "$SNAP/bolme" bolme; git add bolme; fi
-              [ -f data/sports.json ] && git add data/sports.json
-              [ -f data/dates.json ] && git add data/dates.json
-              [ -f data/reader.json ] && git add data/reader.json
-              git add data/news.json data/markets.json data/social.json data/status.json data/sources.json data/og.json data/video.json data/football.json sitemap.xml robots.txt feed.xml
-              if git diff --cached --quiet; then
-                echo "Dəyişiklik yoxdur"
-                return 0
-              fi
-              git commit -m "Xəbərlər yeniləndi"
-              if timeout 90 git push origin "HEAD:${BRANCH}"; then
-                return 0
-              fi
-              echo "Push alınmadı, yenidən cəhd ($i)..."
-              sleep 4
-            done
-            echo "Push alınmadı"
-            return 1
-          }
-          while true; do
-            begin=$SECONDS
-            # Asılı fetch bütün 70 dəqiqəni yeməsin — əks halda iş ləğv olunur və zəncir düşmür.
-            if run_updater; then
-              if publish; then last_result=0; else last_result=1; echo "Bu dövrənin push-u alınmadı"; fi
-            else
-              last_result=1
-              # Toplayıcı köhnə lenti saxlayır, uğursuz cəhdin statusunu isə dərc edir.
-              echo "updater.py xətası — diaqnostika dərc olunur"
-              publish || echo "Xəta statusunun push-u alınmadı"
-            fi
-            now=$SECONDS
-            left=$((DURATION - (now - START)))
-            # Növbəti tam dövrə bu işin vaxtına sığmırsa, zəncirə burax.
-            if [ "$left" -lt "$CYCLE" ]; then
-              echo "Dövr bitdi (${now}s). Növbəti iş öz-özünə başlayacaq."
-              exit "$last_result"
-            fi
-            sleep_for=$((CYCLE - (now - begin)))
-            if [ "$sleep_for" -lt 1 ]; then
-              sleep_for=1
-            fi
-            echo "Növbəti yoxlama ${sleep_for}s sonra (qalıq ${left}s)"
-            sleep "$sleep_for"
-          done
-      - name: İşlək updater-i yadda saxla
+          key: updater-lkg2-${{ hashFiles('updater.py', 'reader_content.py', 'content_policy.py', 'assets/content-policy.js') }}
+          restore-keys: updater-lkg2-
+      - name: Hər 60 saniyədən bir yenilə
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/pipeline.sh
+      - name: İşlək kodu yadda saxla
         if: ${{ always() && hashFiles('.lkg/.yeni') != '' }}
         uses: actions/cache/save@v4
         continue-on-error: true
         with:
           path: .lkg
-          key: updater-lkg-${{ hashFiles('.lkg/updater.py', '.lkg/reader_content.py') }}
-      - name: Növbəti dövrü başlat
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+          key: updater-lkg2-${{ hashFiles('.lkg/updater.py', '.lkg/reader_content.py', '.lkg/content_policy.py', '.lkg/assets/content-policy.js') }}
+      # Skript gözlənilmədən bitsə də zəncir qırılmasın.
+      - name: Növbəti işi başlat
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          # Gözləyən iş varsa onu əvəz etmirik (concurrency köhnə pending-i silir).
-          waiting="$(gh run list --workflow update.yml --limit 20 --json status \
-            --jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="waiting" or .status=="requested")] | length' || echo "")"
-          if [ -n "${waiting}" ] && [ "${waiting}" != "0" ]; then
-            echo "Növbəti dövr artıq növbədədir (${waiting}). Yeni dispatch yoxdur."
+          others="$(gh run list --workflow update.yml --limit 20 --json databaseId,status \
+            --jq "[.[] | select(.databaseId != ${GITHUB_RUN_ID} and .status != \"completed\")] | length" || echo "")"
+          if [ -n "$others" ] && [ "$others" != "0" ]; then
+            echo "Başqa iş var ($others)."
             exit 0
           fi
-          i=1
-          while [ "$i" -le 5 ]; do
-            if gh workflow run update.yml --ref main; then
-              echo "Növbəti dövr növbəyə yazıldı"
-              exit 0
-            fi
-            echo "Dispatch alınmadı ($i)"
-            i=$((i + 1))
+          for i in 1 2 3 4 5; do
+            gh workflow run update.yml --ref main && exit 0
             sleep 3
           done
-          echo "Zəncir alınmadı. Cron ehtiyat qalır."
-          exit 0
+          echo "Dispatch alınmadı. Cron və nəzarətçi ehtiyat qalır."
