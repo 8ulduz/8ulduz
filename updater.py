@@ -2835,6 +2835,8 @@ def main(fast=False):
         nonlocal tick
         marks[name] = round(time.time() - tick, 1)
         tick = time.time()
+        if fast:
+            print("  ·", name, marks[name], flush=True)
     try:
         old = json.loads(OUT_FILE.read_text(encoding="utf-8"))["articles"]
     except Exception:
@@ -2847,6 +2849,7 @@ def main(fast=False):
     hints["AZƏRTAC (Regionlar)"] = "Bölgələr"
     # Rəsmi səhifələr (prezident, birinci xanım, AZƏRTAC Regionlar) əvvəlcədən: Regionlar səhifəsindəki keçidlər
     # lentdə də gəlsə Bölgələr sayılır
+    mark("oldClean")
     if fast:
         results, off_items, off_errors = collect_fast()
         mark("collect")
@@ -2974,6 +2977,7 @@ def main(fast=False):
     articles = [a for a in uniq if a["category"] != "prezident"][:MAX_ITEMS] + prez_items
     stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles),
              "undated": undated, "dateLookups": budget - lookups}
+    mark("select")
     articles = group_duplicates(articles)
     mark("group")
     # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır

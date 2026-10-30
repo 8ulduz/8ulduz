@@ -52,7 +52,7 @@ jobs:
           worst=0
           for i in 1 2 3; do
             began=$SECONDS
-            timeout 58 python updater.py --fast
+            timeout 58 python -u updater.py --fast || echo "Dövrə kəsildi: $?"
             took=$((SECONDS - began))
             echo "Dövrə $i: ${took}s"
             echo "- Dövrə $i: ${took} saniyə" >> "$GITHUB_STEP_SUMMARY"
