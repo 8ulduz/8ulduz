@@ -24,7 +24,7 @@ window.CONTENT_POLICY = {
     "Euronews": ["euronews.com"], "Hürriyet": ["hurriyet.com.tr"], "Sabah TR": ["sabah.com.tr"], "Habertürk": ["haberturk.com"],
     "Milliyet": ["milliyet.com.tr"], "CNN Türk": ["cnnturk.com"], "TRT Haber": ["trthaber.com"], "Yeni Şafak": ["yenisafak.com"],
     "AA": ["aa.com.tr"], "TRT Spor": ["trthaber.com", "trtspor.com.tr"], "NTV Spor": ["ntvspor.net"], "TASS": ["tass.ru", "tass.com"],
-    "Interfax": ["interfax.ru"], "Championat": ["championat.com"], "Sport.ru": ["sport.ru"], "Match TV": ["matchtv.ru"]
+    "Interfax": ["interfax.ru", "sport-interfax.ru"], "Championat": ["championat.com"], "Sport.ru": ["sport.ru"], "Match TV": ["matchtv.ru"]
   },
   "blockedHosts": ["azadliq.org", "azadliq.info", "meydan.tv", "abzas.org", "abzas.net", "toplum.tv", "mikroskopmedia.com", "turan.az", "musavat.com"],
   "azTerms": "azerbaijan|azerbaycan|azərbaycan|azerbaidjan|aserbaidschan|азербайдж|aliyev|алиев|əliyev|(?<![a-zçəğıöşü])baku(?![a-zçəğıöşü])|bakü|(?<![а-я])баку(?![а-я])|(?<![a-zçəğıöşü])bakı(?:da|dan|nın|ya|nı)?(?![a-zçəğıöşü])|nakhchivan|нахичеван|naxçıvan|nahçıvan|karabakh|karabağ|карабах|qarabağ|stepanakert|степанакерт|khankendi|xankəndi|ханкенди|zangezur|zengezur|зангезур|shusha|şuşa|шуша|gəncə|гянджа|sumgait|sumqayıt|сумгаит|(?<![a-zçəğıöşü])azeri(?![a-zçəğıöşü])|азери|milli məclis|milli mejlis|hajiyev|hacıyev|bayramov|байрамов|socar|сокар",

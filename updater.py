@@ -985,6 +985,7 @@ FAST_BUDGET_S = 25       # bütün lentlər üçün ümumi vaxt
 FAST_WORKERS = 40
 FAST_FETCH_TIMEOUT = 8
 FEED_KEEP = 120          # lentdən yalnız ən yeni elementlər (İki Sahil 2000 element verir)
+FAST_MAX_ITEMS = 1000    # qruplaşdırma açdığı yer köhnə xəbərlə dolmasın, news.json böyüməsin
 FALLBACK_EVERY_S = 180   # Google News və Telegram ehtiyatını dəqiqədə bir yormayaq
 STALE_FEED_S = 900       # bundan köhnə nəticə «mənbə işləmir» sayılır
 LATEST_WINDOW_S = 1800   # latest.json main-dəki news.json-un gecikməsini örtməlidir
@@ -1110,6 +1111,15 @@ def apply_groups(articles):
             a = {**a, "alts": alts}
         out.append(a)
     return out
+
+
+def _older_than(pub, floor):
+    """Lent elementi lentdəki ən köhnə xəbərdən də köhnədirsə True. Tarix oxunmursa False."""
+    try:
+        dt = email.utils.parsedate_to_datetime(re.sub(r"s+", " ", (pub or "").strip()))
+        return (dt if dt.tzinfo else dt.replace(tzinfo=datetime.timezone.utc)) < floor
+    except Exception:
+        return False
 
 
 def apply_og_cache(articles):
@@ -2929,6 +2939,9 @@ def main(fast=False):
         seen |= {alt.get("sourceUrl") for a in old for alt in a.get("alts") or []}
     old_by_url = {a["sourceUrl"]: a for a in old}
     new_items, errors, empty = [], [], []
+    # Sürətli dövrə köhnə xəbərlə lenti geri doldurmur: lentdəki ən köhnədən köhnə element emal olunmur.
+    regular = [_parse_dt(a.get("publishedAt")) for a in old if a.get("category") != "prezident"]
+    floor = min([d for d in regular if d], default=None) if fast and len(regular) >= 300 else None
     # Sürətli dövrədə səhifə sorğusu yoxdur: tarixi tapılmamış elementlər yavaş prosesə ötürülür.
     budget = 0 if fast else DATE_LOOKUPS
     dates, lookups, undated, unresolved = load_dates(), budget, 0, []
@@ -2955,6 +2968,8 @@ def main(fast=False):
         for it in items:
             try:
                 if it["link"] in seen or is_junk(it["link"]):
+                    continue
+                if floor and it.get("pubDate") and _older_than(it["pubDate"], floor):
                     continue
                 if it["link"] in region_links:  # Regionlar səhifəsindən gələcək; lentin xülasəsi ona verilir
                     region_desc[it["link"]] = it.get("description") or ""
@@ -3012,7 +3027,7 @@ def main(fast=False):
     # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
     # Əvvəl yalnız 800-dən kənarda qalanlar əlavə olunurdu; siyahı 800-dən qısa olanda heç nə əlavə olunmurdu.
     prez_items = [a for a in uniq if a["category"] == "prezident"][:120]
-    articles = [a for a in uniq if a["category"] != "prezident"][:MAX_ITEMS] + prez_items
+    articles = [a for a in uniq if a["category"] != "prezident"][:FAST_MAX_ITEMS if fast else MAX_ITEMS] + prez_items
     stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles),
              "undated": undated, "dateLookups": budget - lookups}
     mark("select")

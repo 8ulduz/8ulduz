@@ -18,7 +18,7 @@ Sayt sahibinin qərarı (2026-10-30). Bu iki qayda dəyişməzdir. Hər kod dəy
 
 Yoxlama: `tests/test_red_lines.py`, `tests/browser-logic.test.cjs` və hər PR-da real lentlərlə işləyən `bir-deqiqe` işi (`check.yml`). Təkrar dövrə 50 saniyəni keçsə PR qırmızı olur.
 
-Niyə ayrı yol: `raw.githubusercontent.com` budaq adı ilə verilən faylı sorğu parametrindən asılı olmayaraq 5 dəqiqə keşləyir (2026-10-30 ölçülüb), yeni yolu isə dərhal verir. Yaranmamış yola sorğu 404-ü 55 saniyə keşə salır, ona görə `sw.js` dəqiqəni yalnız 55 saniyə keçəndən sonra istəyir. Bu rəqəmləri dəyişməyin.
+Niyə ayrı yol: `raw.githubusercontent.com` budaq adı ilə verilən faylı sorğu parametrindən asılı olmayaraq 5 dəqiqə keşləyir (2026-10-30 ölçülüb), yeni yolu isə dərhal verir. Yaranmamış yola sorğu 404-ü 55 saniyə keşə salır, ona görə dövrə dəqiqənin 5-ci saniyəsində başlayır, `sw.js` dəqiqəni yalnız 45 saniyə keçəndən sonra istəyir. Bu rəqəmləri dəyişməyin.
 
 Məlum hədd: hamısı GitHub üzərindədir. GitHub Actions və ya `raw.githubusercontent.com` tam dayansa axın da dayanır, sayt son xəbərləri göstərir. Bunu yalnız GitHub-dan kənar ehtiyat server aradan qaldırar.
 

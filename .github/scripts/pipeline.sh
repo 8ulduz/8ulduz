@@ -11,7 +11,7 @@
 # raw.githubusercontent.com budaq adı ilə verilən faylı sorğu parametrindən asılı olmayaraq 5 dəqiqə keşləyir, yeni yolu
 # isə dərhal verir (2026-10-30 ölçülüb). Ona görə hər dəqiqənin ayrı yolu var: m/<dəqiqə>/status.json. Yaranmamış yola
 # sorğu 404-ü 55 saniyə keşə salır, ona görə dövrə dəqiqənin 5-ci saniyəsində başlayır və yazı dəqiqə içində bitir,
-# sw.js isə dəqiqəni yalnız 55 saniyə keçəndən sonra istəyir.
+# sw.js isə dəqiqəni yalnız 45 saniyə keçəndən sonra istəyir (dövrə ölçüsü 10-37 saniyə).
 set -uo pipefail
 
 CYCLE="${CYCLE:-60}"

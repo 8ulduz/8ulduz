@@ -187,6 +187,12 @@ class FastCycleTest(unittest.TestCase):
         self.cycle(fetcher)
         self.assertEqual(len(self.news()), 1)
 
+    def test_fast_cycle_does_not_backfill_with_older_items(self):
+        floor = updater.datetime.datetime(2026, 10, 30, 6, 0, tzinfo=updater.datetime.timezone.utc)
+        self.assertTrue(updater._older_than("Fri, 30 Oct 2026 05:00:00 GMT", floor))
+        self.assertFalse(updater._older_than("Fri, 30 Oct 2026 07:00:00 GMT", floor))
+        self.assertFalse(updater._older_than("tarix deyil", floor))
+
     def test_unchanged_feed_answers_304_without_parsing(self):
         with patch("urllib.request.urlopen", side_effect=updater.urllib.error.HTTPError("u", 304, "x", {}, None)):
             result = updater.fetch_feed_fast(("APA", "https://apa.az/rss", "az", None),
@@ -224,7 +230,7 @@ class PipelineContractTest(unittest.TestCase):
     def test_each_minute_has_its_own_address_because_raw_caches_branch_paths(self):
         sw = (ROOT / "sw.js").read_text(encoding="utf-8")
         self.assertIn("live/m/", sw)
-        self.assertIn("LIVE_GRACE_S = 55", sw)
+        self.assertIn("LIVE_GRACE_S = 45", sw)
         self.assertIn("65 - $(date +%s) % 60", self.pipeline)
         self.assertIn('m="$(printf', self.pipeline)
         self.assertIn('"$SLOTS/$slot"', self.pipeline)

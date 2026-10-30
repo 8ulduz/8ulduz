@@ -411,7 +411,7 @@ test('red line 1: status, latest and markets come from the one-minute live chann
 });
 test('red line 1: the page asks only for a minute that is already written, and falls back to earlier minutes', async () => {
   const realNow = Date.now;
-  Date.now = () => Date.UTC(2026, 9, 30, 7, 10, 54); // 07:10:54: 07:10 dəqiqəsi hələ yazılmış sayılmır
+  Date.now = () => Date.UTC(2026, 9, 30, 7, 10, 44); // 07:10:44: 07:10 dəqiqəsi hələ yazılmış sayılmır
   try {
     const slot = Math.floor(Date.UTC(2026, 9, 30, 7, 9) / 60000);
     const {get, calls} = dataWorker(async url => url.includes('/' + (slot - 1) + '/') ? json({from: 'live'}) : new Response('', {status: 404}));
