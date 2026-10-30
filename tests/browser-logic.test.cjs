@@ -399,15 +399,32 @@ test('stuck Pages deployment: live files come from the mirror, static ones stay 
   const noMirror = async url => { if (url.startsWith(RAW)) throw new TypeError('down'); return json({from: 'site'}, {'last-modified': old}); };
   assert.deepEqual(await (await dataWorker(noMirror).get('news.json')).json(), {from: 'site'});
 });
-const LIVE = 'https://raw.githubusercontent.com/8ulduz/8ulduz/live/data/';
+const LIVE = 'https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/';
 test('red line 1: status, latest and markets come from the one-minute live channel first', async () => {
   for (const file of ['status.json', 'latest.json', 'markets.json']) {
     const {get, calls} = dataWorker(async url => { assert.ok(url.startsWith(LIVE)); return json({from: 'live'}); });
     const r = await get(file + '?t=1');
     assert.equal(r.headers.get('X-8ulduz-data'), 'live');
     assert.equal(calls.length, 1);
-    assert.match(calls[0], new RegExp('^' + LIVE + file.replace('.', '\\.') + '\\?k=\\d+$'));
+    assert.match(calls[0], new RegExp('^' + LIVE + '\\d+/' + file.replace('.', '\\.') + '$'));
   }
+});
+test('red line 1: the page asks only for a minute that is already written, and falls back to earlier minutes', async () => {
+  const realNow = Date.now;
+  Date.now = () => Date.UTC(2026, 9, 30, 7, 10, 54); // 07:10:54: 07:10 dəqiqəsi hələ yazılmış sayılmır
+  try {
+    const slot = Math.floor(Date.UTC(2026, 9, 30, 7, 9) / 60000);
+    const {get, calls} = dataWorker(async url => url.includes('/' + (slot - 1) + '/') ? json({from: 'live'}) : new Response('', {status: 404}));
+    const r = await get('status.json');
+    assert.equal(r.headers.get('X-8ulduz-data'), 'live');
+    assert.deepEqual(calls, [LIVE + slot + '/status.json', LIVE + (slot - 1) + '/status.json']);
+  } finally { Date.now = realNow; }
+});
+test('red line 1: when the stream is not writing, the site channel answers and the live channel rests a minute', async () => {
+  const {get, calls} = dataWorker(async url => url.startsWith(LIVE) ? new Response('', {status: 404}) : json({from: 'site'}, {'last-modified': new Date().toUTCString()}));
+  assert.equal((await get('status.json')).headers.get('X-8ulduz-data'), 'network');
+  await get('status.json');
+  assert.equal(calls.filter(u => u.startsWith(LIVE)).length, 3);
 });
 test('red line 1: a broken live channel falls back to the site at once, and a rate limit pauses it', async () => {
   const down = dataWorker(async url => { if (url.startsWith(LIVE)) throw new TypeError('down'); return json({from: 'site'}, {'last-modified': new Date().toUTCString()}); });

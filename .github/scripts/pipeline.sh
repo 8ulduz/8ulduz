@@ -7,6 +7,11 @@
 #   main     hər MAIN_EVERY saniyə: tam lent və SEO -> GitHub Pages
 #
 # Bir iş bitməzdən əvvəl növbətisini başladır və onu görəndən sonra çıxır, ona görə növbə dəyişəndə boşluq olmur.
+#
+# raw.githubusercontent.com budaq adı ilə verilən faylı sorğu parametrindən asılı olmayaraq 5 dəqiqə keşləyir, yeni yolu
+# isə dərhal verir (2026-10-30 ölçülüb). Ona görə hər dəqiqənin ayrı yolu var: m/<dəqiqə>/status.json. Yaranmamış yola
+# sorğu 404-ü 55 saniyə keşə salır, ona görə dövrə dəqiqənin 5-ci saniyəsində başlayır və yazı dəqiqə içində bitir,
+# sw.js isə dəqiqəni yalnız 55 saniyə keçəndən sonra istəyir.
 set -uo pipefail
 
 CYCLE="${CYCLE:-60}"
@@ -28,6 +33,8 @@ CUR="$(mktemp -d)"       # cari kod
 LKG="$REPO_DIR/.lkg"     # son uğurla işləmiş kod (actions/cache)
 GOOD="$(mktemp -d)"      # son sağlam məlumat nüsxəsi
 STATE="$(mktemp -d)"
+SLOTS="$STATE/m"         # son dəqiqələrin faylları
+KEEP_SLOTS=5
 CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
 SLOW_PID=""
 PUBLISH_PID=""
@@ -97,18 +104,57 @@ guard_outputs() {
 }
 
 # live: bir commit, valideynsiz. Tarixçə saxlanmır, ona görə dəqiqəlik yazı repo-nu şişirtmir.
-push_live() {
-  local rows="" name blob tree root commit
-  for name in status latest markets; do
-    [ -f "$WORK/data/$name.json" ] || continue
-    blob="$(git -C "$REPO_DIR" hash-object -w "$WORK/data/$name.json")" || return 1
-    rows+="100644 blob $blob	$name.json"$'\n'
+file_tree() { # $1 qovluq: içindəki *.json-dan git ağacı
+  local rows="" file blob
+  for file in "$1"/*.json; do
+    [ -f "$file" ] || continue
+    blob="$(git -C "$REPO_DIR" hash-object -w "$file")" || return 1
+    rows+="100644 blob $blob	$(basename "$file")"$'\n'
   done
   [ -n "$rows" ] || return 1
-  tree="$(printf '%s' "$rows" | git -C "$REPO_DIR" mktree)" || return 1
-  root="$(printf '040000 tree %s\tdata\n' "$tree" | git -C "$REPO_DIR" mktree)" || return 1
+  printf '%s' "$rows" | git -C "$REPO_DIR" mktree
+}
+
+push_live() {
+  local slot name dir data tree rows="" m root commit
+  slot=$(( $(date +%s) / 60 ))
+  dir="$SLOTS/$slot"
+  mkdir -p "$dir"
+  for name in status latest markets; do
+    [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
+  done
+  for old in $(ls "$SLOTS" | sort -n | head -n -"$KEEP_SLOTS"); do
+    rm -rf "${SLOTS:?}/$old"
+  done
+  data="$(file_tree "$dir")" || return 1
+  for name in $(ls "$SLOTS" | sort -n); do
+    tree="$(file_tree "$SLOTS/$name")" || return 1
+    rows+="040000 tree $tree	$name"$'\n'
+  done
+  m="$(printf '%s' "$rows" | git -C "$REPO_DIR" mktree)" || return 1
+  root="$(printf '040000 tree %s\tdata\n040000 tree %s\tm\n' "$data" "$m" | git -C "$REPO_DIR" mktree)" || return 1
   commit="$(git -C "$REPO_DIR" commit-tree "$root" -m "Canlı lent")" || return 1
   timeout 25 git -C "$REPO_DIR" push -q --force origin "$commit:refs/heads/$LIVE_BRANCH"
+}
+
+# Əvvəlki işin son dəqiqələri qalsın: növbə dəyişəndə sayt 404 görməsin.
+seed_slots() {
+  mkdir -p "$SLOTS"
+  timeout 30 git -C "$REPO_DIR" fetch -q --depth=1 origin "$LIVE_BRANCH" 2>/dev/null || return 0
+  git -C "$REPO_DIR" archive FETCH_HEAD m 2>/dev/null | tar -x -C "$STATE" 2>/dev/null
+  return 0
+}
+
+# Növbəti dövrə növbəti dəqiqənin 5-ci saniyəsində. CYCLE dəyişdirilibsə (sınaq) sadə gözləmə.
+wait_next_cycle() {
+  local left
+  if [ "$CYCLE" = 60 ]; then
+    left=$(( (65 - $(date +%s) % 60) % 60 ))
+  else
+    left=$(( CYCLE - (SECONDS - began) ))
+  fi
+  [ "$left" -gt 0 ] && sleep "$left"
+  return 0
 }
 
 publish_main() {
@@ -168,6 +214,7 @@ for name in sitemap.xml feed.xml robots.txt; do
 done
 [ -d "$REPO_DIR/bolme" ] && cp -a "$REPO_DIR/bolme" "$WORK/bolme"
 guard_outputs
+seed_slots
 rm -f "$LKG/.yeni"
 
 slow_loop &
@@ -207,6 +254,5 @@ while :; do
       exit 1
     fi
   fi
-  left=$((CYCLE - (SECONDS - began)))
-  [ "$left" -gt 0 ] && sleep "$left"
+  wait_next_cycle
 done

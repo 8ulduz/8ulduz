@@ -42,7 +42,8 @@ jobs:
             --jq '[.[] | select(.status != "completed")] | length' || echo "")"
           echo "İşləyən/gözləyən yeniləmə: ${active:-bilinmir}"
           # QIRMIZI XƏTT 1: iş "işləyir" görünür, amma live budağı 6 dəqiqədir yazılmır: iş ilişib, dayandırılır.
-          status="$(curl -fsS --max-time 20 --retry 2 "https://raw.githubusercontent.com/$GH_REPO/live/data/status.json?t=$(date +%s)" || echo "")"
+          # API istifadə olunur: raw budaq adı ilə 5 dəqiqə köhnə fayl verə bilər.
+          status="$(gh api "repos/$GH_REPO/contents/data/status.json?ref=live" --jq .content 2>/dev/null | base64 -d 2>/dev/null || echo "")"
           attempted="$(printf '%s' "$status" | jq -r '.attemptedAt // empty' 2>/dev/null)"
           if [ -n "$attempted" ] && [ $(( $(date +%s) - $(date -d "$attempted" +%s) )) -ge 360 ] && [ "$active" != "0" ] && [ -n "$active" ]; then
             for id in $(gh run list --workflow update.yml --status in_progress --limit 5 --json databaseId --jq '.[].databaseId'); do
@@ -77,7 +78,7 @@ jobs:
             t="$(printf '%s' "$1" | jq -r ".$2 // empty" 2>/dev/null)"
             [ -n "$t" ] && echo $(( ($(date +%s) - $(date -d "$t" +%s)) / 60 )) || echo 9999
           }
-          channel="$(curl -fsS --max-time 20 --retry 2 "https://raw.githubusercontent.com/$GH_REPO/live/data/status.json?t=$(date +%s)" || echo "")"
+          channel="$(gh api "repos/$GH_REPO/contents/data/status.json?ref=live" --jq .content 2>/dev/null | base64 -d 2>/dev/null || echo "")"
           live_try=$(age "$live" attemptedAt); repo_try=$(age "$repo" attemptedAt)
           channel_try=$(age "$channel" attemptedAt); channel_ok=$(age "$channel" checkedAt)
           echo "Canlı kanal: son cəhd ${channel_try} dəq, son uğur ${channel_ok} dəq əvvəl. Sayt: ${live_try} dəq. main: ${repo_try} dəq."

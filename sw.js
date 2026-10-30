@@ -35,10 +35,12 @@ self.addEventListener("activate", (event) => {
 // Bot hər 4 dəqiqədən bir main-ə yazır. Ziyarətçinin şəbəkəsinin DNS-i domeni tapmayanda, bağlantı kəsiləndə və ya
 // Pages yayımı ilişəndə sayt açılan telefonda lent donmasın: eyni fayl birbaşa repodan gəlir (CORS açıqdır).
 const MIRROR = "https://raw.githubusercontent.com/8ulduz/8ulduz/main/";
-const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/"; // QIRMIZI XƏTT 1: pipeline.sh hər dəqiqə yazır
+// QIRMIZI XƏTT 1: pipeline.sh hər dəqiqənin faylını ayrı yola yazır (m/<dəqiqə>/status.json), çünki budaq adı ilə
+// verilən fayl 5 dəqiqə keşdə qalır. Yaranmamış yola sorğu 404-ü 55 saniyə keşə salır: dəqiqə yalnız yazılandan sonra istənir.
+const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_FILES = /data\/(?:status|latest|markets)\.json$/;
-const LIVE_WAIT_MS = 3000;
-const LIVE_KEY_MS = 15000; // CDN keşini açan açar: ziyarətçilər bir açarı bölüşür, GitHub yorulmur
+const LIVE_WAIT_MS = 2500;
+const LIVE_GRACE_S = 55;
 const LIVE_PAUSE_MS = 5 * 60e3; // 429/403 olsa bu qədər sayt kanalı işlənir
 let liveSkipUntil = 0;
 const ORIGIN_WAIT_MS = 4000; // başlıq gəlməsə ehtiyat kanala keç; gövdə axarkən kəsilmir
@@ -72,14 +74,18 @@ function pagesStuck(response, url) {
 // Təzə məlumat: əvvəl sayt, sonra ehtiyat kanal. Heç biri alınmasa null.
 async function liveData(url) {
   if (!LIVE_FILES.test(url.pathname) || Date.now() < liveSkipUntil) return null;
-  const rel = url.pathname.slice(SCOPE_URL.pathname.length);
-  try {
-    const key = Math.floor(Date.now() / LIVE_KEY_MS);
-    return marked(await attempt(LIVE + rel + "?k=" + key, { cache: "no-store", mode: "cors", credentials: "omit" }, LIVE_WAIT_MS), "live");
-  } catch (e) {
-    if (/ (?:403|429)$/.test(e.message)) liveSkipUntil = Date.now() + LIVE_PAUSE_MS;
-    return null;
+  const file = url.pathname.split("/").pop();
+  const slot = Math.floor((Date.now() / 1000 - LIVE_GRACE_S) / 60);
+  for (const minute of [slot, slot - 1, slot - 2]) {
+    try {
+      return marked(await attempt(LIVE + minute + "/" + file, { cache: "no-store", mode: "cors", credentials: "omit" }, LIVE_WAIT_MS), "live");
+    } catch (e) {
+      if (/ (?:403|429)$/.test(e.message)) liveSkipUntil = Date.now() + LIVE_PAUSE_MS;
+      if (!/ 404$/.test(e.message)) return null; // şəbəkə xətası: digər dəqiqələri gözləmədən sayta keç
+    }
   }
+  liveSkipUntil = Date.now() + 60e3; // axın yazmır: dəqiqəlik bir daha yoxla, indi sayt kanalı
+  return null;
 }
 
 async function freshData(req) {

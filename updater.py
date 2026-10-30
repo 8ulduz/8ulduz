@@ -3016,7 +3016,9 @@ def main(fast=False):
     stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles),
              "undated": undated, "dateLookups": budget - lookups}
     mark("select")
+    before_groups = len(articles)
     articles = apply_groups(articles) if fast else group_duplicates(articles)
+    stats["grouped"] = before_groups - len(articles)
     mark("group")
     # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır
     img_count = {}
@@ -3042,6 +3044,11 @@ def main(fast=False):
         except Exception as e:
             print("  ! og:image:", type(e).__name__)
     # QIRMIZI XƏTT 2: yazılan hər şey bu qapıdan keçir.
+    if fast:  # kəsilən xəbərlər görünsün: səhvən kəsilən mənbə loglardan dərhal tapılır
+        for a in articles:
+            reason = content_policy.violation(a)
+            if reason:
+                print(f"  ⊘ {reason}: {a.get('source')} {a.get('sourceUrl')}", flush=True)
     articles, dropped = content_policy.enforce(articles)
     stats["articles"], stats["policyDropped"] = len(articles), dropped
     save_sources(source_rows)

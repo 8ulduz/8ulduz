@@ -221,6 +221,14 @@ class PipelineContractTest(unittest.TestCase):
         self.assertIn("guard_outputs\n  push_live", self.pipeline)
         self.assertIn("check_outputs.py", self.pipeline)
 
+    def test_each_minute_has_its_own_address_because_raw_caches_branch_paths(self):
+        sw = (ROOT / "sw.js").read_text(encoding="utf-8")
+        self.assertIn("live/m/", sw)
+        self.assertIn("LIVE_GRACE_S = 55", sw)
+        self.assertIn("65 - $(date +%s) % 60", self.pipeline)
+        self.assertIn('m="$(printf', self.pipeline)
+        self.assertIn('"$SLOTS/$slot"', self.pipeline)
+
     def test_live_branch_keeps_no_history(self):
         self.assertIn("commit-tree", self.pipeline)
         self.assertIn("--force", self.pipeline)
