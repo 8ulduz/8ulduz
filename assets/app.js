@@ -66,7 +66,27 @@ const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avq
 const HOUR = 3600e3, DAY = 24 * HOUR;
 const POLL_MS = 60e3;     // xəbər lentini yoxlama intervalı
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
-const freshUrl = (path) => `${path}?t=${Math.floor(Date.now() / 60000)}`;
+let freshSequence = 0;
+const freshUrl = (path, force = false) => `${path}?t=${Math.floor(Date.now() / 60000)}${force ? `&r=${Date.now()}-${++freshSequence}` : ""}`;
+// Bound both the request and JSON body: suspended mobile requests must not lock the feed.
+async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  let timer, cancel;
+  const interrupted = new Promise((_, reject) => {
+    cancel = () => { controller.abort(); reject(new Error("Sorğu dayandırıldı")); };
+    timer = setTimeout(() => { controller.abort(); reject(new Error("Yenilənmə vaxtı bitdi. Yenidən yoxlayın.")); }, timeoutMs);
+  });
+  signal?.addEventListener("abort", cancel, {once:true});
+  try {
+    if(signal?.aborted)cancel();
+    const response = (async () => {
+      const r = await fetch(url, {cache:"no-store", signal:controller.signal});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      return {r, d:await r.json()};
+    })();
+    return await Promise.race([response, interrupted]);
+  } finally { clearTimeout(timer); signal?.removeEventListener("abort", cancel); }
+}
 // Aktivlərin yolu app.js-in öz ünvanından (bölmə səhifələri /bolme/x/ altından açılır; testlərdə script yoxdur → ./assets/)
 const ASSET = (document.querySelector('script[src*="assets/app.js"]')?.src || "./assets/app.js").replace(/app\.js.*$/, "");
 const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" decoding="async">`;
@@ -486,25 +506,30 @@ function removedSource(a) {
 const byId = new Map();
 
 /* ---------------------------------------------------------------- məlumat */
-async function loadNews() {
-  if (S.newsLoading) return;
+async function loadNews(force = false) {
+  if (S.newsLoading && !force) return;
+  S.newsAbort?.abort();
+  const controller = S.newsAbort = new AbortController();
+  const token = S.newsToken = (S.newsToken || 0) + 1;
+  const statusStamp = S.status?.checkedAt || null;
   S.newsLoading = true;
+  renderTopbar();
   try {
-    const r = await fetch(freshUrl("data/news.json"), { cache: "no-store" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const {r,d} = await requestJSON(freshUrl("data/news.json", force), {signal:controller.signal});
+    if(token !== S.newsToken)return;
+    if (!Array.isArray(d.articles)) throw new Error("Xəbər məlumatının quruluşu yanlışdır");
     const tag = r.headers.get("etag") || r.headers.get("last-modified");
     S.offline = r.headers.get("X-8ulduz-data") === "cache";
     if (tag && tag === S.etag && S.data) {
       if (!S.offline) S.lastSync = new Date();
+      S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
       S.error = null; renderTopbar(); return;
     }
-    const d = await r.json();
-    if (!Array.isArray(d.articles)) throw new Error("Xəbər məlumatının quruluşu yanlışdır");
-    S.etag = tag;
     if (!S.offline) S.lastSync = new Date();
     S.error = null;
-    if (S.data && S.data.updatedAt === d.updatedAt && S.og) { renderTopbar(); return; }
-    await loadOg();
+    if (S.data && S.data.updatedAt === d.updatedAt && S.og) { S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); renderTopbar(); return; }
+    await loadOg(controller.signal);
+    if(token !== S.newsToken || controller.signal.aborted)return;
     for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
     d.articles = d.articles.filter(a => !removedSource(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !removedSource(alt))}));
     d.articles = collapseExact(clusterArticles(d.articles));
@@ -514,20 +539,19 @@ async function loadNews() {
       const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og[x.sourceUrl]);
       if (alt) a.imageUrl = alt.imageUrl || S.og[alt.sourceUrl];
     }
-    S.data = d; S.newsStamp = S.status?.checkedAt || null; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
+    S.data = d; S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); byId.clear(); for (const a of d.articles) byId.set(a.id, a);
     checkBreaking(d.articles);
     render();
-  } catch (e) { S.error = String(e); S.offline = !navigator.onLine; if (!S.data) render(); else renderTopbar(); }
-  finally { S.newsLoading = false; }
+  } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data) render(); else renderTopbar(); } }
+  finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
 }
 
-async function loadOg() {
+async function loadOg(signal) {
   if (S.og && Date.now() - (S.ogLoadedAt || 0) < 60000) return;
   try {
-    const r = await fetch(freshUrl("data/og.json"), { cache: "no-store" });
-    const d = r.ok ? await r.json() : {};
+    const {d} = await requestJSON(freshUrl("data/og.json"), {signal}, 3000);
     S.og = d && typeof d === "object" && !Array.isArray(d) ? d : {}; S.ogLoadedAt = Date.now();
-  } catch { S.og = {}; }
+  } catch { if(!signal?.aborted)S.og = {}; }
 }
 async function loadMarkets() {
   // Əsas mənbə: updater.py-nin yaratdığı data/markets.json (AMB, Yahoo Finance, gold-api və s.)
@@ -694,7 +718,7 @@ function renderTopbar() {
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
-    <span class="prefs"><button data-act="theme" title="${light ? "Qaranlıq tema" : "İşıqlı tema"}" aria-label="Tema">${light ? "☾" : "☀"}</button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
+    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}>↻</button><button data-act="theme" title="${light ? "Qaranlıq tema" : "İşıqlı tema"}" aria-label="Tema">${light ? "☾" : "☀"}</button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
   syncTixDot();
 }
 
@@ -1360,7 +1384,7 @@ function onClick(e) {
   else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
   else if (act === "notify") { if (notifyOn()) { storage.removeItem(NOTIFY_KEY); renderTicker(); } else armNotify(); }
-  else if (act === "retry") { loadNews(); loadStatus(); }
+  else if (act === "retry" || act === "refresh") { pollNews(true); }
   else if (act === "sec-toggle" || act === "sec-up" || act === "sec-down") {
     const slug = t.dataset.slug;
     const pref = sectionPref();
@@ -1855,24 +1879,31 @@ async function loadSources() {
   if (route().name === "sources") renderView();
   renderFooter();
 }
-async function loadStatus() {
+async function loadStatus(force = false) {
+  S.statusAbort?.abort();
+  const controller = S.statusAbort = new AbortController();
   try {
-    const r = await fetch(freshUrl("data/status.json"), { cache: "no-store" });
-    if (r.ok) S.status = await r.json();
+    const {d} = await requestJSON(freshUrl("data/status.json", force), {signal:controller.signal}, 8000);
+    if(!controller.signal.aborted && S.statusAbort === controller && d && typeof d === "object")S.status = d;
   } catch {}
-  renderTopbar();
+  if(S.statusAbort === controller){S.statusAbort = null; renderTopbar();}
 }
 // Dəqiqəlik yoxlama 151 baytlıq status.json ilə gedir; news.json (~150 KB gzip) yalnız yeni yoxlama olanda və ya
 // əvvəlki yükləmə alınmayanda çəkilir.
-async function pollNews() {
-  await loadStatus();
+async function pollNews(force = false) {
+  await loadStatus(force);
   const now = S.status?.checkedAt || null;
-  if (!S.data || S.error || !now || now !== S.newsStamp) await loadNews();
+  if (force || !S.data || S.error || !now || now !== S.newsStamp || Date.now() - (S.newsCheckedAt || 0) >= 5 * 60e3) await loadNews(force);
+}
+function resumeNews() {
+  if(document.hidden || Date.now() - (S.lastResumeAt || 0) < 2500)return;
+  S.lastResumeAt = Date.now();
+  pollNews(true);
 }
 applyPrefs();
 enableAnalytics();
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").then((reg) => {
+  navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then((reg) => {
     if (!navigator.serviceWorker.controller) return;
     reg.addEventListener("updatefound", () => {
       const nw = reg.installing;
@@ -1893,9 +1924,10 @@ loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeathe
 setInterval(pollNews, POLL_MS);
 // Telefonda arxa plandakı vərəqin taymerləri dayanır: səhifəyə qayıdanda (və geri-irəli keşindən açılanda) dərhal yoxla.
 // Əks halda saatlarla köhnə lent görünürdü — «sayt yenilənmir» təəssüratı.
-document.addEventListener("visibilitychange", () => { if (!document.hidden) pollNews(); });
-addEventListener("pageshow", e => { if (e.persisted) pollNews(); });
-addEventListener("online", () => pollNews());
+document.addEventListener("visibilitychange", resumeNews);
+addEventListener("pageshow", e => { if (e.persisted) resumeNews(); });
+addEventListener("focus", resumeNews);
+addEventListener("online", resumeNews);
 setInterval(loadSocial, 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
 setInterval(() => { loadSources(); loadVideo(); loadFootball(); }, 5 * 60e3);

@@ -504,6 +504,24 @@ def _norm_iso(dt):
     Əvvəl +04:00 və +00:00 qarışıq idi, UTC-li xəbərlər 4 saat aşağı düşürdü."""
     return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
 
+def fixed_source_date(link, now=None):
+    """This publisher's RSS stamps every item with request time (+0000 for local time).
+    Its own article URL contains a stable creation timestamp; use that fallback instead
+    of promoting yesterday's story on every fetch. Do not infer epochs on other sites.
+    """
+    parsed = urllib.parse.urlparse(link or "")
+    if (parsed.hostname or "").lower().removeprefix("www.") != "azerbaijan-news.az":
+        return ""
+    match = re.search(r"-(\d{10})/\d+/?$", parsed.path)
+    if not match:
+        return ""
+    try:
+        dt = datetime.datetime.fromtimestamp(int(match.group(1)), datetime.timezone.utc)
+        current = now or datetime.datetime.now(datetime.timezone.utc)
+        return _norm_iso(dt) if 2000 <= dt.year and dt <= current + datetime.timedelta(minutes=5) else ""
+    except (ValueError, OverflowError, OSError):
+        return ""
+
 def _to_iso(pub):
     now = datetime.datetime.now(datetime.timezone.utc)
     if not pub:
@@ -733,7 +751,7 @@ def make_article(it, source, default_lang, hint=None, force_label=None):
         "category": SLUGS.get(label, "gundem"),
         "source": display_source(source, it["link"]),
         "sourceUrl": it["link"],
-        "publishedAt": to_iso(it["pubDate"]),
+        "publishedAt": fixed_source_date(it["link"]) or to_iso(it["pubDate"]),
         "imageUrl": image or None,
         "lang": lang,
         "author": _plain(it.get("author", "")),
@@ -2653,10 +2671,16 @@ def main():
         a["category"] = SLUGS.get(lbl, "gundem")
     old = [a for a in old if not foreign_about_azerbaijan(a.get("source"), a.get("category"), a.get("title", ""), a.get("summary", ""))]
     for a in old:
+        stable = fixed_source_date(a.get("sourceUrl"))
+        if stable:
+            a["publishedAt"] = stable
         dt = _parse_dt(a.get("publishedAt"))
         if dt is not None:
             a["publishedAt"] = _norm_iso(dt)
         for alt in a.get("alts") or []:
+            stable = fixed_source_date(alt.get("sourceUrl"))
+            if stable:
+                alt["publishedAt"] = stable
             adt = _parse_dt(alt.get("publishedAt"))
             if adt is not None:
                 alt["publishedAt"] = _norm_iso(adt)
