@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "az.ulduz8.app",
+      "sha256_cert_fingerprints": [
+        "5A:2D:D4:48:EF:A8:04:40:00:51:E2:84:FD:C5:18:19:C0:C1:EB:C5:82:7E:45:48:93:BF:69:A0:7C:67:00:5E"
+      ]
+    }
+  }
+]

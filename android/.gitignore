@@ -1,0 +1,14 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+
+# İmza açarı və parolu heç vaxt repoya düşməməlidir (repo açıqdır və sayt kimi dərc olunur).
+*.jks
+*.keystore
+*.p12
+keystore.properties

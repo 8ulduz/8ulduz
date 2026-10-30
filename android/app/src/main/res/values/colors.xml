@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- manifest.webmanifest-dəki theme_color / background_color ilə eyni. -->
+    <color name="colorPrimary">#0A1120</color>
+    <color name="backgroundColor">#0A1120</color>
+    <color name="navigationDivider">#00000000</color>
+    <!-- İkonun öz fonu (assets/icon-maskable-512.png). -->
+    <color name="iconBackground">#0E0D0B</color>
+    <color name="shortcutForeground">#FFFFFF</color>
+</resources>

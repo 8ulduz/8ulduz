@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/colorPrimary" />
+    <foreground>
+        <inset
+            android:drawable="@drawable/ic_glyph_axtar"
+            android:inset="33dp" />
+    </foreground>
+</adaptive-icon>

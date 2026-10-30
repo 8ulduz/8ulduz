@@ -1,17 +1,30 @@
 {
+  "id": "./",
   "name": "8ulduz",
   "short_name": "8ulduz",
   "description": "Azərbaycan və dünyadan son xəbərlər",
   "lang": "az",
+  "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0a1120",
   "theme_color": "#0a1120",
+  "categories": ["news"],
   "icons": [
     { "src": "./assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "./assets/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "./assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+  ],
+  "shortcuts": [
+    { "name": "Gündəm", "url": "./#/bolme/gundem" },
+    { "name": "İdman", "url": "./#/bolme/idman" },
+    { "name": "Seçilmişlər", "url": "./#/secilmis" },
+    { "name": "Xəbər axtar", "short_name": "Axtar", "url": "./#/axtar" }
+  ],
+  "related_applications": [
+    { "platform": "play", "id": "az.ulduz8.app", "url": "https://play.google.com/store/apps/details?id=az.ulduz8.app" }
+  ],
+  "prefer_related_applications": false
 }

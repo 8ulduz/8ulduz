@@ -1,0 +1,5 @@
+// Tətbiq Trusted Web Activity-dir: https://8ulduz.az Chrome mühərriki ilə, ünvan sətri olmadan açılır.
+// Saytın özü dəyişəndə tətbiqi yeniləmək lazım deyil; yalnız bu qovluq dəyişəndə yeni versiya yığılır.
+plugins {
+    id "com.android.application" version "8.9.1" apply false
+}

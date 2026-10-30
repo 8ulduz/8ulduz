@@ -1,10 +1,10 @@
 name: Kodu yoxla
 on:
   pull_request:
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
   push:
     branches: [main]
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
 permissions:
   contents: read
 jobs:
