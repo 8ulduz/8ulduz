@@ -50,6 +50,12 @@ jobs:
               echo "::warning::İş $id ilişib, dayandırılır"
               gh run cancel "$id" || true
             done
+            # Dayandırılan iş hələ "işləyir" görünsə, yeni iş onu görüb özü çıxar.
+            for i in $(seq 1 18); do
+              left="$(gh run list --workflow update.yml --branch main --status in_progress --limit 5 --json databaseId --jq 'length' || echo 0)"
+              [ "$left" = "0" ] && break
+              sleep 5
+            done
             active=0
           fi
           if [ "$active" = "0" ]; then
