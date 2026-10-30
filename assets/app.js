@@ -909,9 +909,11 @@ function langButtons(compact) {
 function languagePicker() {
   return `<label class="language-picker">Xəbərlərin dili: <select data-language aria-label="Xəbərlərin dili"><option value=""${!S.lang ? " selected" : ""}>Bütün dillər</option>${LANGS.map(l => `<option value="${l.code}"${S.lang === l.code ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select></label>`;
 }
+const ASSISTANT_ON = window.SITE_CONFIG?.assistant === true;
+const DRIVER_ON = window.SITE_CONFIG?.driver === true;
 function renderLangs() {
   const driver = storage.getItem('8ulduz-driver') === 'on';
-  const row = $("#langs"); if (row) row.innerHTML = languagePicker() + `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
+  const row = $("#langs"); if (row) row.innerHTML = languagePicker() + (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
 }
 function syncLangStick() {}
 
@@ -1309,12 +1311,12 @@ function aboutView() {
       <li>Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir.</li>
       <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
     </ul></section>
-    <section><h2>Məxfilik</h2><p>Tam mətn (sayt və Android tətbiqi üçün): <a href="./mexfilik/">Məxfilik siyasəti</a>.</p><ul><li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>
+    <section><h2>Məxfilik</h2><p>Tam mətn (sayt və Android tətbiqi üçün): <a href="./mexfilik/">Məxfilik siyasəti</a>.</p><ul>${ASSISTANT_ON ? `<li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>` : ""}
       <li>Sayt kuki qoymur və hesab tələb etmir. Seçilmişlər, bölmə sırası, dil, tema və şəhər seçimi yalnız sizin cihazınızda (brauzerin yaddaşında) saxlanır.</li>
       <li>«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.</li>
       <li>Hava (Open-Meteo), namaz vaxtı (aladhan.com), tıxac xəritəsi (Waze) və video (YouTube) brauzerinizdən birbaşa həmin xidmətlərə sorğu göndərir; onların öz məxfilik qaydaları tətbiq olunur. Xəritə və video yalnız düyməyə basanda yüklənir.</li>
       <li>Mənbə adının yanındakı rəqəmlər bu gün / bu həftə / bu ay / bu il üzrə bütün ziyarətçilərin həmin mənbəyə keçidləridir; fərdi ziyarətçi sayı deyil. Sayım funksiyanın işə düşməsindən başlayır, 4 saata qədər gecikə bilər. Rəqəm əvəzinə tire məlumatın əlçatan olmadığını göstərir.</li>
-      <li>Sürücü rejimi sizin seçiminizlə aktivləşir. Mənbə ayrıca vərəqdə açılır; açıq məqalədən alınmış mətn bu saytda göstərilmədən cihazın Azərbaycan səsi ilə oxunur. Səs, mətn və ya fon oxuması əlçatan olmaya bilər. Ayrı mənbənin vərəqi bu sayt tərəfindən idarə olunmur.</li>
+      ${DRIVER_ON ? `<li>Sürücü rejimi sizin seçiminizlə aktivləşir. Mənbə ayrıca vərəqdə açılır; açıq məqalədən alınmış mətn bu saytda göstərilmədən cihazın Azərbaycan səsi ilə oxunur. Səs, mətn və ya fon oxuması əlçatan olmaya bilər. Ayrı mənbənin vərəqi bu sayt tərəfindən idarə olunmur.</li>` : ""}
       <li>${gc ? "Ziyarət statistikası GoatCounter ilə, kukisiz və şəxsi məlumat toplamadan aparılır." : "Ziyarət statistikası hazırda toplanmır."}</li>
     </ul></section>
     <section><h2>Əlaqə</h2><p>${contact ? `Yazın: <a href="mailto:${esc(contact)}">${esc(contact)}</a>. ` : ""}Səhv, təklif və mənbə əlavəsi üçün <a href="https://github.com/8ulduz/8ulduz/issues" target="_blank" rel="noopener noreferrer">GitHub-da müraciət</a> yaza bilərsiniz. Xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir; mənbə öz xəbərinin göstərilməsini istəmirsə, bildirin, lent siyahıdan çıxarılar.</p></section>
@@ -1987,12 +1989,12 @@ setInterval(() => {
 }, 60e3);
 
 // Optional voice UI is independent of feed re-renders.
-import("./assistant.js").then(({ mountAssistant }) => mountAssistant({
+if (ASSISTANT_ON) import("./assistant.js").then(({ mountAssistant }) => mountAssistant({
   getSnapshot: () => ({ articles: S.data?.articles || [], newsAt: S.data?.updatedAt, categories: CATS, cities: CITIES, road: localRoadItems(S.data?.articles || []), sportsAt: S.sports?.updatedAt, leagues: fbLeagues().map(l => ({...l, updatedAt: l.world ? S.sports?.updatedAt : S.football?.updatedAt})) }),
   wxCode,
 })).catch(() => {});
 import('./source-stats.js').then(({mountSourceStats}) => mountSourceStats({code:window.SITE_CONFIG?.goatcounter, getArticles:()=>[...(S.data?.articles || []),...savedList()]})).catch(()=>{});
-import('./reader.js').then(({mountReader}) => mountReader({
+if (DRIVER_ON) import('./reader.js').then(({mountReader}) => mountReader({
   getArticles:()=>[...(S.data?.articles || []),...savedList()],
   driverEnabled:()=>storage.getItem('8ulduz-driver')==='on',
   setDriver:on=>{storage.setItem('8ulduz-driver',on?'on':'off');renderLangs();},

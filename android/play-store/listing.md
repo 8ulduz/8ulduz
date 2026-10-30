@@ -41,7 +41,6 @@ Futbol nəticələri, turnir cədvəlləri və idman xəbərləri.
 • Xəbəri ulduzla seçilmişlərə əlavə edin, sonra oxuyun
 • Axtarış, dil süzgəci (Azərbaycan, rus, ingilis, türk)
 • İnternet zəif olanda son yüklənən xəbərlər oflayn da açılır
-• Sürücü rejimi və səsli köməkçi
 
 ■ Məxfilik
 Hesab yoxdur, kuki yoxdur, şəxsi məlumat toplanmır. Seçimləriniz yalnız telefonunuzda saxlanır.
