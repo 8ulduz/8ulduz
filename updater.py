@@ -287,6 +287,8 @@ OFFICIAL_CACHE = CACHE_DIR / "official.json"
 UNDATED_FILE = CACHE_DIR / "undated.json"
 RECENT_FILE = CACHE_DIR / "recent.json"
 GNEWS_CACHE = CACHE_DIR / "gnews.json"
+GROUPS_FILE = CACHE_DIR / "groups.json"
+RELABEL_MARK = CACHE_DIR / "relabeled"
 OUT_FILE = OUT_DIR / "news.json"
 MARKETS_FILE = OUT_DIR / "markets.json"
 SOCIAL_FILE = OUT_DIR / "social.json"
@@ -1081,6 +1083,35 @@ def collect_fast():
     return results, off_items, off_errors
 
 
+def compute_groups():
+    """Eyni hadisənin qruplaşdırılması ağırdır (bütün cütlər): yavaş prosesdə hesablanır, sürətli dövrə nəticəni tətbiq edir."""
+    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    if articles:
+        grouped = group_duplicates([dict(a, alts=list(a.get("alts") or [])) for a in articles])
+        _save_cache(GROUPS_FILE, {a["sourceUrl"]: a["alts"] for a in grouped if a.get("alts")})
+
+
+def apply_groups(articles):
+    """Yavaş prosesin qruplarını lentə tətbiq edir. Yeni xəbərlər növbəti hesablamaya qədər ayrı qalır, brauzer onları da birləşdirir."""
+    groups = _read_json(GROUPS_FILE, {})
+    present = {a.get("sourceUrl") for a in articles}
+    absorbed = {alt.get("sourceUrl") for url, alts in groups.items() if url in present for alt in alts}
+    out = []
+    for a in articles:
+        url = a.get("sourceUrl")
+        if url in absorbed and url not in groups:
+            continue
+        if url in groups:
+            known, alts = {url}, []
+            for alt in [*(a.get("alts") or []), *groups[url]]:
+                if alt.get("sourceUrl") not in known:
+                    known.add(alt.get("sourceUrl"))
+                    alts.append(alt)
+            a = {**a, "alts": alts}
+        out.append(a)
+    return out
+
+
 def apply_og_cache(articles):
     """Sürətli dövrə şəkil sorğusu göndərmir; yavaş prosesin tapdığı şəkillər işlədilir."""
     cache = _read_json(OG_FILE, {})
@@ -1138,7 +1169,7 @@ def resolve_undated():
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = _read_json(OUT_FILE, {}).get("articles") or []
-    steps = [update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
+    steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
              lambda: fill_og_images(articles),
              lambda: update_reader(articles, OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6)),
              refresh_slow_feeds, write_public]
@@ -2857,7 +2888,12 @@ def main(fast=False):
         off_items, off_errors = official_items()
     region_links = {t[4]["link"] for t in off_items if t[2] == "Bölgələr"}
     region_desc = {}
-    for a in old:
+    # Təsnifat qaydaları iş ərzində dəyişmir: sürətli dövrədə köhnə xəbərlər yalnız işin ilk dövrəsində yenidən oxunur.
+    relabel = not fast or not RELABEL_MARK.exists()
+    if fast:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        RELABEL_MARK.touch()
+    for a in old if relabel else []:
         if a.get("source") == "AZƏRTAC Regionlar":  # köhnə saxta mənbə adı (lent ümumi lentin eynisi idi)
             a["source"] = "AZƏRTAC"
         # köhnə xəbərlərin dili yoxdursa — avtomatik təyin et (süzgəcin düzgün işləməsi üçün)
@@ -2889,6 +2925,8 @@ def main(fast=False):
     cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)
     old = [a for a in old if (_parse_dt(a.get("publishedAt")) or now_utc) >= (cutoff_prez if a.get("category") == "prezident" else cutoff)]
     seen = {a["sourceUrl"] for a in old}
+    if fast:  # başqa xəbərin mənbəsi kimi birləşmiş keçid yenidən «yeni» sayılmasın
+        seen |= {alt.get("sourceUrl") for a in old for alt in a.get("alts") or []}
     old_by_url = {a["sourceUrl"]: a for a in old}
     new_items, errors, empty = [], [], []
     # Sürətli dövrədə səhifə sorğusu yoxdur: tarixi tapılmamış elementlər yavaş prosesə ötürülür.
@@ -2978,7 +3016,7 @@ def main(fast=False):
     stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles),
              "undated": undated, "dateLookups": budget - lookups}
     mark("select")
-    articles = group_duplicates(articles)
+    articles = apply_groups(articles) if fast else group_duplicates(articles)
     mark("group")
     # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır
     img_count = {}

@@ -114,7 +114,8 @@ class FastCycleTest(unittest.TestCase):
                  "SOURCES_FILE": root / "data" / "sources.json", "OG_FILE": root / "data" / "og.json", "DATES_FILE": root / "data" / "dates.json",
                  "LATEST_FILE": root / "data" / "latest.json", "CACHE_DIR": root / ".cache", "FEED_CACHE": root / ".cache" / "feeds.json",
                  "SLOW_FEED_CACHE": root / ".cache" / "slow.json", "OFFICIAL_CACHE": root / ".cache" / "official.json",
-                 "UNDATED_FILE": root / ".cache" / "undated.json", "RECENT_FILE": root / ".cache" / "recent.json", "GNEWS_CACHE": root / ".cache" / "gnews.json"}
+                 "UNDATED_FILE": root / ".cache" / "undated.json", "RECENT_FILE": root / ".cache" / "recent.json", "GNEWS_CACHE": root / ".cache" / "gnews.json",
+                 "GROUPS_FILE": root / ".cache" / "groups.json", "RELABEL_MARK": root / ".cache" / "relabeled"}
         self.patches = [patch.object(updater, key, value) for key, value in names.items()]
         for item in self.patches:
             item.start()
@@ -168,6 +169,23 @@ class FastCycleTest(unittest.TestCase):
         status = json.loads((self.root / "data" / "status.json").read_text(encoding="utf-8"))
         self.assertFalse(status["ok"])
         self.assertTrue(status["attemptedAt"])
+
+    def test_slow_groups_reach_the_feed_and_merged_links_do_not_return(self):
+        url = "https://apa.az/haqqinda-1"
+        twin = "https://report.az/haqqinda-1"
+        rows = [article("APA", url, "Avropada güclü fırtına başladı", publishedAt="2026-10-30T06:00:00+00:00"),
+                article("Report", twin, "Avropada güclü fırtına başladı", publishedAt="2026-10-30T05:59:00+00:00")]
+        updater.OUT_FILE.write_text(json.dumps({"articles": rows}), encoding="utf-8")
+        updater.compute_groups()
+        def fetcher(feed, old=None):
+            return {"items": [self.item(url, rows[0]["title"]), self.item(twin, rows[1]["title"])] if feed[0] == "APA" else [],
+                    "url": feed[1], "at": time.time(), "err": None}
+        self.cycle(fetcher)
+        shown = self.news()
+        self.assertEqual(len(shown), 1)
+        self.assertEqual(len(shown[0]["alts"]), 1)
+        self.cycle(fetcher)
+        self.assertEqual(len(self.news()), 1)
 
     def test_unchanged_feed_answers_304_without_parsing(self):
         with patch("urllib.request.urlopen", side_effect=updater.urllib.error.HTTPError("u", 304, "x", {}, None)):
