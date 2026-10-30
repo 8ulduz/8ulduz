@@ -1021,7 +1021,7 @@ function prezBlock(list) {
 
 function heroBlock(list) {
   if (!list.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${esc(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div><div class="hero-side">${list.slice(1, 5).map(a => `<article class="row-card">${img(a, "", false, true)}<div class="x"><a class="t" href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>${altPop(a)}${meta(a)}</div></article>`).join("")}</div></section>`;
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${esc(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
 
 function alertStrip() {
@@ -1137,7 +1137,7 @@ function catSection(c, list) {
 
 function skeleton() {
   return `<section class="prez"><div class="skel" style="height:180px"></div></section>
-    <section class="hero"><div class="skel" style="height:340px"></div><div class="hero-side">${"<div class='skel' style='height:78px'></div>".repeat(4)}</div></section>
+    <section class="hero"><div class="skel" style="height:340px"></div></section>
     <section><div class="grid">${"<div class='skel' style='height:220px'></div>".repeat(4)}</div></section>`;
 }
 // Əhəmiyyət: neçə mənbə yazıb (alts), bərabərdirsə daha yeni.
