@@ -107,6 +107,17 @@ test('returning from background refetches news even if a CDN repeats the same st
   assert.equal(S.data.updatedAt,'fresh');
   assert.ok(urls.every(u=>u.includes('&r=')));
 });
+test('app left in background for over an hour reloads on return, short absence only refetches',()=>{
+  const ctx=app(),{S}=ctx.api;let reloads=0,polls=0;
+  ctx.location.reload=()=>{reloads++;};
+  ctx.pollNews=()=>{polls++;};
+  ctx.document.hidden=true;ctx.api.resumeNews();
+  S.hiddenAt=Date.now()-61*60e3;ctx.document.hidden=false;ctx.api.resumeNews();
+  assert.equal(reloads,1);assert.equal(polls,0);
+  ctx.document.hidden=true;ctx.api.resumeNews();
+  ctx.document.hidden=false;ctx.api.resumeNews();
+  assert.equal(reloads,1);assert.equal(polls,1);
+});
 test('unchanged news still acknowledges a new successful check',async()=>{
   const ctx=app(),{S}=ctx.api;
   S.data={updatedAt:'same',articles:[]};S.status={checkedAt:'new-check'};S.etag='unchanged';

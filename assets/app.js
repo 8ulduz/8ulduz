@@ -1895,15 +1895,24 @@ async function pollNews(force = false) {
   const now = S.status?.checkedAt || null;
   if (force || !S.data || S.error || !now || now !== S.newsStamp || Date.now() - (S.newsCheckedAt || 0) >= 5 * 60e3) await loadNews(force);
 }
+const RELOAD_AFTER_HIDDEN_MS = 60 * 60e3;
 function resumeNews() {
-  if(document.hidden || Date.now() - (S.lastResumeAt || 0) < 2500)return;
+  if(document.hidden){ S.hiddenAt ||= Date.now(); return; }
+  // Telefonda (və Play tətbiqində) səhifə günlərlə açıq qalır, köhnə kod və ilişmiş vəziyyət də qalır.
+  // Bir saatdan çox arxa planda qalıbsa, qayıdanda təzədən açılır; səsli oxu gedirsə kəsilmir.
+  const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
+  S.hiddenAt = 0;
+  if(away >= RELOAD_AFTER_HIDDEN_MS && !globalThis.speechSynthesis?.speaking){ location.reload(); return; }
+  if(Date.now() - (S.lastResumeAt || 0) < 2500)return;
   S.lastResumeAt = Date.now();
+  if(S.swReg && Date.now() - (S.swCheckedAt || 0) >= 30 * 60e3){ S.swCheckedAt = Date.now(); S.swReg.update().catch(() => {}); }
   pollNews(true);
 }
 applyPrefs();
 enableAnalytics();
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then((reg) => {
+    S.swReg = reg;
     if (!navigator.serviceWorker.controller) return;
     reg.addEventListener("updatefound", () => {
       const nw = reg.installing;

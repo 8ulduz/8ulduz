@@ -1,10 +1,10 @@
 name: Kodu yoxla
 on:
   pull_request:
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
   push:
     branches: [main]
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/workflows/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
 permissions:
   contents: read
 jobs:
@@ -27,3 +27,8 @@ jobs:
           }
       - run: node --check assets/app.js && node --check assets/assistant.js && node --check assets/reader.js && node --check assets/source-stats.js && node --check sw.js
       - run: node --test tests/*.test.cjs
+      # Sınıq workflow faylı main-ə düşsə yeniləmə tamamilə dayanır — PR-da tutulsun.
+      - name: Workflow fayllarını yoxla (actionlint)
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color -shellcheck= -pyflakes=

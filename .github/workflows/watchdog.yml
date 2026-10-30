@@ -1,0 +1,95 @@
+name: Yeniləmə nəzarətçisi
+# «Xəbərləri yenilə» zənciri qırılsa (iş vaxt limitinə düşüb ləğv olunsa, dispatch alınmasa, cron atılsa)
+# onu yenidən başladır; canlı saytda status.json 30 dəqiqədən köhnədirsə issue açır (sahibinə e-poçt gedir),
+# bərpa olunanda bağlayır. Pages yayımı ilişibsə yenidən yığım istəyir.
+
+on:
+  workflow_run:
+    workflows: ["Xəbərləri yenilə"]
+    types: [completed]
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+  pages: write
+
+concurrency:
+  group: news-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Yeniləmə zəncirini yoxla
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          # 60 gün fəaliyyət olmayanda GitHub planlı workflow-u söndürür.
+          state="$(gh api "repos/$GH_REPO/actions/workflows/update.yml" --jq .state || echo "")"
+          if [ -n "$state" ] && [ "$state" != "active" ]; then
+            echo "::warning::update.yml vəziyyəti: $state — yenidən aktiv edilir"
+            gh api -X PUT "repos/$GH_REPO/actions/workflows/update.yml/enable" || true
+          fi
+          active="$(gh run list --workflow update.yml --branch main --limit 20 --json status \
+            --jq '[.[] | select(.status != "completed")] | length' || echo "")"
+          echo "İşləyən/gözləyən yeniləmə: ${active:-bilinmir}"
+          if [ "$active" = "0" ]; then
+            for i in 1 2 3 4 5; do
+              if gh workflow run update.yml --ref main; then
+                echo "::notice::Yeniləmə zənciri qırılmışdı — yenidən başladıldı"
+                break
+              fi
+              echo "Dispatch alınmadı ($i)"
+              sleep 5
+            done
+          fi
+
+      - name: Canlı saytın təzəliyini yoxla
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          TITLE="Sayt yenilənmir"
+          site="https://$(gh api "repos/$GH_REPO/pages" --jq .cname 2>/dev/null || echo 8ulduz.az)"
+          live="$(curl -fsS --max-time 30 --retry 3 --retry-all-errors "$site/data/status.json?t=$(date +%s)" || echo "")"
+          repo="$(gh api "repos/$GH_REPO/contents/data/status.json?ref=main" --jq .content 2>/dev/null | base64 -d 2>/dev/null || echo "")"
+          age() {  # status.json-dakı sahənin yaşı (dəqiqə); oxunmasa 9999
+            local t
+            t="$(printf '%s' "$1" | jq -r ".$2 // empty" 2>/dev/null)"
+            [ -n "$t" ] && echo $(( ($(date +%s) - $(date -d "$t" +%s)) / 60 )) || echo 9999
+          }
+          live_try=$(age "$live" attemptedAt); live_ok=$(age "$live" checkedAt); repo_try=$(age "$repo" attemptedAt)
+          echo "Canlı sayt: son cəhd ${live_try} dəq, son uğur ${live_ok} dəq əvvəl. Repo: son cəhd ${repo_try} dəq əvvəl."
+          problem=""
+          if [ "$live_try" -ge 30 ] && [ "$repo_try" -lt 30 ]; then
+            problem="Repo təzədir (${repo_try} dəq), amma canlı sayt ${live_try} dəqiqədir dəyişmir — GitHub Pages yayımı ilişib."
+            echo "::warning::$problem Yenidən yığım istənir."
+            gh api -X POST "repos/$GH_REPO/pages/builds" || true
+          elif [ "$live_try" -ge 30 ]; then
+            problem="Yeniləmə ${live_try} dəqiqədir işləmir (canlı status.json son cəhd)."
+          elif [ "$live_ok" -ge 60 ]; then
+            problem="Yeniləmə işləyir, amma ${live_ok} dəqiqədir uğurlu yoxlama yoxdur (bütün mənbələr və ya updater.py xəta verir)."
+          fi
+          open="$(gh issue list --state open --search "in:title \"$TITLE\"" --json number,title \
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty" || echo "")"
+          runs="$GITHUB_SERVER_URL/$GH_REPO/actions/workflows/update.yml"
+          if [ -n "$problem" ]; then
+            echo "::error::$problem"
+            if [ -z "$open" ]; then
+              gh issue create --title "$TITLE" --body "$problem
+
+          Nəzarətçi zənciri avtomatik yenidən başladır; bərpa olunanda bu issue özü bağlanacaq.
+          Yeniləmə işləri: $runs" || true
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Bərpa olundu: canlı saytda son yoxlama ${live_try} dəqiqə əvvəl." || true
+          fi
