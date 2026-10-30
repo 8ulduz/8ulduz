@@ -55,7 +55,7 @@ same_code() { # $1, $2: eyni koddur?
 another_run_in_charge() {
   local now youngest
   now="$(date +%s)"
-  youngest="$("$GH" run list --workflow update.yml --status in_progress --limit 20 --json databaseId,createdAt \
+  youngest="$("$GH" run list --workflow update.yml --branch "$BRANCH" --status in_progress --limit 20 --json databaseId,createdAt \
     --jq "[.[] | select(.databaseId != ${RUN_ID}) | .createdAt | fromdateiso8601] | max // 0" 2>/dev/null || echo 0)"
   [ -n "$youngest" ] && [ "$youngest" != "0" ] && [ $((now - youngest)) -lt $((HANDOFF_AFTER - 180)) ]
 }
@@ -63,7 +63,7 @@ another_run_in_charge() {
 newer_run_started() {
   local me count
   me="$("$GH" run view "$RUN_ID" --json createdAt --jq '.createdAt | fromdateiso8601' 2>/dev/null || echo 0)"
-  count="$("$GH" run list --workflow update.yml --status in_progress --limit 20 --json databaseId,createdAt \
+  count="$("$GH" run list --workflow update.yml --branch "$BRANCH" --status in_progress --limit 20 --json databaseId,createdAt \
     --jq "[.[] | select(.databaseId != ${RUN_ID} and (.createdAt | fromdateiso8601) > ${me:-0})] | length" 2>/dev/null || echo 0)"
   [ "${count:-0}" != "0" ]
 }
