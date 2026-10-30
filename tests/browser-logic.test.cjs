@@ -278,7 +278,7 @@ test('raw links are stripped from headlines', () => {
 
 function worker(cacheNames = []) {
   const listeners = {}, deleted = [];
-  const context = vm.createContext({URL, Request, Response, Headers, console,
+  const context = vm.createContext({URL, Request, Response, Headers, console, AbortController, setTimeout, clearTimeout,
     self: {location: new URL('https://example.com/8ulduz/sw.js'), addEventListener: (name, fn) => listeners[name] = fn,
       clients: {claim: async () => {}}, registration: {}},
     caches: {keys: async () => cacheNames, delete: async key => deleted.push(key),
@@ -296,6 +296,76 @@ test('service worker retains caches belonging to other sites', async () => {
   listeners.activate({waitUntil(p) { done = p; }});
   await done;
   assert.deepEqual(deleted.sort(), ['8ulduz-data-v15', '8ulduz-static-v15']);
+});
+
+// Xidmət işçisinin məlumat axını: ziyarətçinin DNS-i domeni tapmasa da lent donmamalıdır.
+function dataWorker(fetchImpl, seed = {}) {
+  const listeners = {}, store = new Map(Object.entries(seed)), calls = [];
+  const context = vm.createContext({URL, Request, Response, Headers, console, AbortController, Date,
+    setTimeout: fn => setTimeout(fn, 1), clearTimeout,
+    self: {location: new URL('https://example.com/sw.js'), addEventListener: (name, fn) => listeners[name] = fn,
+      clients: {claim: async () => {}}, registration: {}},
+    caches: {keys: async () => [], delete: async () => {},
+      open: async () => ({match: async key => store.get(String(key))?.clone(), put: async (key, r) => { store.set(String(key), r); }})},
+    fetch: (input, init) => { const url = input.url || String(input); calls.push(url); return fetchImpl(url, init || {}); },
+  });
+  vm.runInContext(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), context);
+  const get = async file => {
+    let answer;
+    listeners.fetch({request: new Request('https://example.com/data/' + file), respondWith: p => { answer = p; }});
+    return answer;
+  };
+  return {get, calls, store};
+}
+const json = (body, headers = {}) => new Response(JSON.stringify(body), {status: 200, headers: {'content-type': 'application/json; charset=utf-8', ...headers}});
+const RAW = 'https://raw.githubusercontent.com/8ulduz/8ulduz/main/data/';
+
+test('when the domain does not resolve, data comes from the mirror and the page is not told it is offline', async () => {
+  const {get, calls, store} = dataWorker(async url => {
+    if (url.startsWith('https://example.com/')) throw new TypeError('ERR_NAME_NOT_RESOLVED');
+    return new Response('{"from":"mirror"}', {status: 200, headers: {'content-type': 'text/plain; charset=utf-8'}});
+  });
+  const r = await get('news.json?t=5');
+  assert.equal(r.headers.get('X-8ulduz-data'), 'mirror');
+  assert.equal(r.headers.get('content-type'), 'application/json; charset=utf-8');
+  assert.deepEqual(await r.json(), {from: 'mirror'});
+  assert.equal(calls[1], RAW + 'news.json?t=5');
+  assert.ok(store.has('https://example.com/data/news.json'));
+});
+test('a healthy site never touches the mirror', async () => {
+  const {get, calls} = dataWorker(async () => json({from: 'site'}, {'last-modified': new Date().toUTCString()}));
+  const r = await get('news.json');
+  assert.equal(r.headers.get('X-8ulduz-data'), 'network');
+  assert.equal(calls.length, 1);
+});
+test('a hanging site falls over to the mirror instead of waiting forever', async () => {
+  const {get} = dataWorker((url, init) => url.startsWith(RAW) ? Promise.resolve(json({from: 'mirror'}))
+    : new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted')))));
+  assert.equal((await get('status.json')).headers.get('X-8ulduz-data'), 'mirror');
+});
+test('a site error page or html is not stored as news', async () => {
+  for (const bad of [new Response('<html>', {status: 200, headers: {'content-type': 'text/html'}}), new Response('no', {status: 503})]) {
+    const {get} = dataWorker(async url => url.startsWith(RAW) ? json({from: 'mirror'}) : bad.clone());
+    assert.equal((await get('news.json')).headers.get('X-8ulduz-data'), 'mirror');
+  }
+});
+test('stuck Pages deployment: live files come from the mirror, static ones stay on the site', async () => {
+  const old = new Date(Date.now() - 40 * 60e3).toUTCString();
+  const stuck = async url => url.startsWith(RAW) ? json({from: 'mirror'}) : json({from: 'site'}, {'last-modified': old});
+  assert.equal((await dataWorker(stuck).get('status.json')).headers.get('X-8ulduz-data'), 'mirror');
+  const ads = dataWorker(stuck);
+  assert.equal((await ads.get('ads.json')).headers.get('X-8ulduz-data'), 'network');
+  assert.equal(ads.calls.length, 1);
+  const noMirror = async url => { if (url.startsWith(RAW)) throw new TypeError('down'); return json({from: 'site'}, {'last-modified': old}); };
+  assert.deepEqual(await (await dataWorker(noMirror).get('news.json')).json(), {from: 'site'});
+});
+test('only when site and mirror both fail does the page get saved news, marked as such', async () => {
+  const down = async () => { throw new TypeError('offline'); };
+  const saved = dataWorker(down, {'https://example.com/data/news.json': json({from: 'saved'})});
+  const r = await saved.get('news.json?t=9');
+  assert.equal(r.headers.get('X-8ulduz-data'), 'cache');
+  assert.deepEqual(await r.json(), {from: 'saved'});
+  assert.equal((await dataWorker(down).get('news.json')).status, 503);
 });
 
 test('sport ignores the global language choice and club aliases cover Russian and Latin headlines',()=>{
