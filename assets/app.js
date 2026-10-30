@@ -170,16 +170,10 @@ const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Eyni xəbər bir neçə mənbədə çıxanda updater onları bir karta birləşdirir (rəsmi mənbə əsas olur), ona görə blok təkrarlanmır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
-// Vəzifəyə təyinat / vəzifədən azad etmə xəbərləri ön sıralarda: son 36 saat ərzində siyahının başına keçir, hero-da əlavə çəki.
+// Vəzifəyə təyinat / vəzifədən azad etmə xəbərləri: yalnız hero və «Ən çox mənbədə» sırasında əlavə çəki. Siyahılar həmişə tarixlədir.
 const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed/iu;
 const isAppointment = a => APPT_RX.test(a?.title || "");
-function frontAppointments(list) {
-  const cut = Date.now() - 36 * HOUR;
-  const hot = [], rest = [];
-  for (const a of list) (isAppointment(a) && new Date(a.publishedAt).getTime() >= cut ? hot : rest).push(a);
-  return hot.length ? [...hot, ...rest] : list;
-}
-// Əsas blok: əvvəl Prezident (ən yeni), sonra Birinci xanım (ən yeni). Hər iki qrup görünsün.
+// Əsas blok: hər iki qrup (Prezident, Birinci xanım) görünür, sıra isə ən yenidən köhnəyə.
 function prezHome(list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
@@ -188,7 +182,7 @@ function prezHome(list) {
   // Bir sayt bloku tutmasın (məs. Report-un çıxışdan sitat lenti): rəsmi səhifələr limitsiz, digər mənbələr ən çox 3 kart (ən yeniləri)
   const perSrc = {};
   const capped = l => l.filter(a => OFFICIAL_SRC.has(a.source) || (perSrc[a.source] = (perSrc[a.source] || 0) + 1) <= 3);
-  const president = frontAppointments(capped(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY))));
+  const president = capped(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
   const lady = capped(byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY)));
   const MAX = 12;
   const head = 4;
@@ -197,7 +191,7 @@ function prezHome(list) {
   const ladyHead = Math.min(lady.length, head - presHead);
   const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
-  return [...first, ...rest].slice(0, MAX);
+  return byDate([...first, ...rest].slice(0, MAX));
 }
 const byDate = list => [...list].sort((x, y) => new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime());
 const lc = s => (s || "").toLocaleLowerCase("az");
@@ -1177,7 +1171,7 @@ function heroPick(list, need = 9) {
 }
 
 function latestBlock(list) {
-  const ranked = frontAppointments(S.latestOrder === "sources" ? rankBySources(list) : byDate(list));
+  const ranked = S.latestOrder === "sources" ? rankBySources(list) : byDate(list);
   const count = S.latestCount || 8;
   return `<section><div class="sec-h"><h2>Son xəbərlər</h2><div class="feed-tabs"><button data-feed="latest" class="pill${S.latestOrder !== "sources" ? " on" : ""}" aria-pressed="${S.latestOrder !== "sources"}">Ən yeni</button><button data-feed="sources" class="pill${S.latestOrder === "sources" ? " on" : ""}" aria-pressed="${S.latestOrder === "sources"}">Ən çox mənbədə</button></div></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
@@ -1190,7 +1184,7 @@ function homeView() {
   const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), 6);
   const used = new Set(hero.map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
-  const secs = homeCats().map(c => catSection(c, frontAppointments(byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug))))).join("");
+  const secs = homeCats().map(c => catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug)))).join("");
   return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
 }
 function articleView(id) {
