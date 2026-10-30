@@ -58,6 +58,23 @@ def enforce_policy(root=pathlib.Path(".")):
         tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         os.replace(tmp, path)
         removed[name] = dropped
+    # Video və sosial bloklar da: kanal icazəli olmalıdır, xəbərdən çıxarılan paylaşımın mənbəsi siyahıda olmalıdır.
+    for name, key, allowed in (("video.json", "items", lambda v: v.get("channel") in content_policy.VIDEO_CHANNELS),
+                               ("social.json", "posts", lambda p: not p.get("via") or content_policy.source_registered(p["via"]))):
+        path = root / "data" / name
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            rows = data[key]
+        except Exception:
+            continue
+        clean = [row for row in rows if allowed(row)]
+        if len(clean) == len(rows):
+            continue
+        data[key] = clean
+        tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        os.replace(tmp, path)
+        removed[name] = {"icazəli siyahıda deyil": len(rows) - len(clean)}
     return removed
 
 

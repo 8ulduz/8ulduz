@@ -5,4 +5,4 @@
 // Əlaqə e-poçtu: "Haqqımızda" səhifəsində görünür; boş olanda yalnız GitHub keçidi qalır.
 // assistant: mikrofonlu «Köməkçi» düyməsi; driver: «Sürücü rejimi». Hələlik söndürülüb, true yazanda geri qayıdır
 // (onda mexfilik/index.html-ə mikrofon və sürücü rejimi mətnini də qaytarın).
-window.SITE_CONFIG = { goatcounter: "vm6666", telegram: "", contact: "", assistant: false, driver: false };
+window.SITE_CONFIG = { goatcounter: "vm6666", telegram: "", contact: "8ulduz.az@gmail.com", assistant: false, driver: false };

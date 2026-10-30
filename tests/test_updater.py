@@ -269,7 +269,7 @@ class DateAndFilterTest(unittest.TestCase):
         world = next(iter(updater.WORLD_SOURCES))
         self.assertTrue(updater.foreign_about_azerbaijan(world, "siyaset", "Bahçeli'den Azerbaycan-Türkiye mesajı"))
         self.assertTrue(updater.foreign_about_azerbaijan(world, "dunya", "Президент Азербайджана принял делегацию"))
-        self.assertFalse(updater.foreign_about_azerbaijan(world, "idman", "Qarabağ Avropa Liqasında qalib gəldi"))
+        self.assertFalse(updater.foreign_about_azerbaijan("Match TV", "idman", "Qarabağ Avropa Liqasında qalib gəldi"))
         self.assertFalse(updater.foreign_about_azerbaijan("APA", "siyaset", "Azərbaycan Prezidenti qəbul edib"))
         self.assertFalse(updater.foreign_about_azerbaijan(world, "dunya", "Bakırköy'de kaza"))
 

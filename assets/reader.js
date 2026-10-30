@@ -78,7 +78,7 @@ export function mountReader({getArticles,driverEnabled=()=>false,setDriver=()=>{
     if(!item)return;
     event.preventDefault();event.sourceNavigation=true;
     // A real user click opens the publisher; this tab owns the audio controls.
-    window.open(item.sourceUrl,'_blank','noopener,noreferrer');
+    if(/^https?:\/\//i.test(item.sourceUrl||''))window.open(item.sourceUrl,'_blank','noopener,noreferrer');
     select(item);
   });
   root.addEventListener('click',event=>{
