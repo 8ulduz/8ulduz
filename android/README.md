@@ -39,7 +39,11 @@ Play-ə yüklənən hər fayl eyni **yükləmə açarı** ilə imzalanmalıdır.
 | `ANDROID_KEYSTORE_BASE64` | `upload-keystore.p12` faylının base64 forması |
 | `ANDROID_KEYSTORE_PASSWORD` | açarın parolu |
 
-Repo → Settings → Secrets and variables → Actions və ya `gh secret set` ilə yazılır. Secret yoxdursa, workflow yalnız test APK-sı yığır.
+Repo → Settings → Secrets and variables → Actions və ya `gh secret set` ilə yazılır. Secret yoxdursa, workflow test APK-sı və imzasız AAB yığır. Bu AAB-ı açarı GitHub-a vermədən kompüterdə imzalamaq olar (JDK 17 lazımdır):
+
+```bash
+jarsigner -keystore upload-keystore.p12 -storetype pkcs12 -storepass:file parol.txt -sigalg SHA256withRSA -digestalg SHA-256 -signedjar 8ulduz.aab 8ulduz-imzasiz.aab upload
+```
 
 > Açarı və parolu itirsəniz, Play Console-dan yeni yükləmə açarı istəmək mümkündür (Play App Signing sayəsində), amma bu bir neçə gün çəkir. Ehtiyat nüsxəsini saxlayın.
 
