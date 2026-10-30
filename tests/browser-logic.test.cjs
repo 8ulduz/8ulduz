@@ -118,6 +118,16 @@ test('app left in background for over an hour reloads on return, short absence o
   ctx.document.hidden=false;ctx.api.resumeNews();
   assert.equal(reloads,1);assert.equal(polls,1);
 });
+test('the request index.html started early is used once, later polls fetch again',async()=>{
+  const ctx=app();let fetches=0;
+  ctx.fetch=async()=>{fetches++;return {ok:true,headers:new Headers(),json:async()=>({n:'net'})};};
+  ctx.__early={'data/news.json?t=1':Promise.resolve({ok:true,headers:new Headers(),json:async()=>({n:'early'})})};
+  assert.equal((await ctx.api.requestJSON('data/news.json?t=1')).d.n,'early');
+  assert.equal(fetches,0);
+  assert.equal((await ctx.api.requestJSON('data/news.json?t=1')).d.n,'net');
+  ctx.__early={'data/og.json?t=1':Promise.reject(new Error('offline'))};
+  assert.equal((await ctx.api.requestJSON('data/og.json?t=1')).d.n,'net');
+});
 test('unchanged news still acknowledges a new successful check',async()=>{
   const ctx=app(),{S}=ctx.api;
   S.data={updatedAt:'same',articles:[]};S.status={checkedAt:'new-check'};S.etag='unchanged';
