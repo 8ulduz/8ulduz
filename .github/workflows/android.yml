@@ -28,13 +28,13 @@ jobs:
       run:
         working-directory: android
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
       # Gradle wrapper-in yoxlama cəmini də yoxlayır.
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: İmza açarı
         env:
@@ -83,7 +83,7 @@ jobs:
           ls -la ../dist
           echo "### Fayllar" >> "$GITHUB_STEP_SUMMARY"; ls ../dist | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: 8ulduz-android-${{ env.VERSION_CODE }}
           path: dist/

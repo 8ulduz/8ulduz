@@ -4,7 +4,7 @@ Bu qovluq 8ulduz.az-ın Google Play tətbiqidir. Tətbiq **Trusted Web Activity 
 
 **Nəticədə:**
 - Saytda edilən hər dəyişiklik tətbiqdə dərhal görünür; yeni xəbər və ya dizayn üçün tətbiqi yeniləməyə ehtiyac yoxdur.
-- Tətbiq çox yüngüldür (~1 MB), Chrome-un sürətini, girişlərini və təhlükəsizlik yeniləmələrini istifadə edir.
+- Tətbiq çox yüngüldür (bir neçə MB), Chrome-un sürətini, girişlərini və təhlükəsizlik yeniləmələrini istifadə edir.
 - Saytın «Son dəqiqə» bildirişləri tətbiqin adı və ikonu ilə gəlir (Android 13+ üçün icazə istənilir).
 - 8ulduz.az keçidləri (məs. WhatsApp-dan) tətbiqdə açılır, xəbər mənbələrinin keçidləri isə tətbiqin içində açılan brauzer pəncərəsində.
 - İkonu basılı saxlayanda qısa yollar: Gündəm, İdman, Seçilmişlər, Axtar.
