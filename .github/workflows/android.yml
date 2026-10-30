@@ -1,6 +1,7 @@
 name: Android tətbiqi
 # android/ qovluğundan Google Play üçün imzalı AAB (və birbaşa quraşdırmaq üçün APK) yığır.
-# İmza açarı secrets-dədir: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD. Yoxdursa yalnız test APK-sı yığılır.
+# İmza açarı secrets-dədirsə (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD) fayllar imzalı çıxır.
+# Yoxdursa test APK-sı və kompüterdə imzalamaq üçün imzasız AAB yığılır.
 # Əl ilə işə salanda (Actions → Android tətbiqi → Run workflow) Play-ə də göndərmək olar (PLAY_SERVICE_ACCOUNT_JSON).
 on:
   pull_request:
@@ -42,7 +43,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "::warning::ANDROID_KEYSTORE_BASE64 secret-i yoxdur — imzasız yığılır, yalnız test APK-sı çıxacaq (android/README.md, «İmza açarı»)."
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret-i yoxdur — test APK-sı və imzasız AAB çıxacaq (android/README.md, «İmza açarı»)."
             exit 0
           fi
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.p12"
@@ -58,7 +59,7 @@ jobs:
           # versionCode hər yığımda artır (Play eyni kodu ikinci dəfə qəbul etmir).
           CODE=$((1000 + GITHUB_RUN_NUMBER))
           echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
-          if [ "$SIGNED" = 1 ]; then TASKS="bundleRelease assembleRelease"; else TASKS="assembleDebug assembleRelease"; fi
+          if [ "$SIGNED" = 1 ]; then TASKS="bundleRelease assembleRelease"; else TASKS="assembleDebug bundleRelease"; fi
           ./gradlew --no-daemon --stacktrace lintRelease $TASKS -PversionCode=$CODE
 
       - name: İmza barmaq izi assetlinks.json-da varmı
@@ -79,6 +80,8 @@ jobs:
             cp app/build/outputs/apk/release/app-release.apk "../dist/8ulduz-$NAME-$VERSION_CODE.apk"
           else
             cp app/build/outputs/apk/debug/app-debug.apk "../dist/8ulduz-$NAME-$VERSION_CODE-test.apk"
+            # İmzasız AAB: açar GitHub-a verilmədən kompüterdə jarsigner ilə imzalanır (android/README.md).
+            cp app/build/outputs/bundle/release/app-release.aab "../dist/8ulduz-$NAME-$VERSION_CODE-imzasiz.aab"
           fi
           ls -la ../dist
           echo "### Fayllar" >> "$GITHUB_STEP_SUMMARY"; ls ../dist | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
