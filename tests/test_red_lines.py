@@ -67,6 +67,38 @@ class ArticleRuleTest(unittest.TestCase):
         self.assertFalse(content_policy.foreign_about_azerbaijan("Match TV", "idman", "Карабах вышел в плей-офф"))
         self.assertTrue(content_policy.foreign_about_azerbaijan("Match TV", "idman", "Алиев поздравил футболистов"))
 
+    def test_sport_exception_belongs_to_sport_sites_not_to_the_section(self):
+        for source, title in [("BBC News", "Azerbaijan to transfer four detainees"), ("TASS", "В Краснодаре задержали гражданина Азербайджана"),
+                              ("Interfax", "В Баку заявили о борьбе с незаконной миграцией"), ("Habertürk", "Karabağ maçı öncesi açıklama")]:
+            self.assertTrue(content_policy.foreign_about_azerbaijan(source, "idman", title), title)
+        for source in content_policy.SPORT_SOURCES:
+            self.assertFalse(content_policy.foreign_about_azerbaijan(source, "idman", "Карабах вышел в плей-офф"), source)
+            self.assertIn(source, content_policy.WORLD_SOURCES)
+
+    def test_wider_spellings_are_caught(self):
+        for title in ["Karabagh talks", "Nakhichevan visit", "Sumgayit factory", "Ganja was hit", "Azeris protest", "в Гяндже прошли", "Гянджи", "в Шуше открыли",
+                      "Бакинский суд", "Ильхам заявил", "Mehriban visited", "Хикмет Гаджиев заявил", "Лачин", "Khojaly", "Hocalı anıldı", "Арцах", "Zakir Hasanov",
+                      "ALİYEV açıklama yaptı", "BAKÜ'de toplantı"]:
+            self.assertTrue(content_policy.foreign_about_azerbaijan("BBC News", "dunya", title), title)
+        for title in ["Bakırköy'de kaza", "Bakan açıklama yaptı", "Azerice kurs açıldı", "Гаджиев забил гол", "Шушукаться не надо", "Organization meets"]:
+            self.assertFalse(content_policy.foreign_about_azerbaijan("BBC News", "dunya", title), title)
+
+    def test_only_web_links_pass(self):
+        self.assertFalse(content_policy.source_allowed("AZƏRTAC", "javascript://azertag.az/%0aalert(1)"))
+        self.assertFalse(content_policy.source_allowed("AZƏRTAC", "data://azertag.az/x"))
+        self.assertTrue(content_policy.source_allowed("AZƏRTAC", "https://azertag.az/x"))
+
+    def test_foreign_alternative_is_checked_by_its_own_title(self):
+        row = article("APA", "https://apa.az/1", "Avropada güclü fırtına başladı", alts=[
+            {"source": "TASS", "sourceUrl": "https://tass.ru/1", "title": "Буря в Европе и заявление Баку"},
+            {"source": "Interfax", "sourceUrl": "https://interfax.ru/1", "title": "Буря в Европе"},
+        ])
+        clean, _ = content_policy.enforce([row])
+        self.assertEqual([alt["source"] for alt in clean[0]["alts"]], ["Interfax"])
+
+    def test_every_video_channel_is_on_the_list(self):
+        self.assertEqual({name for name, _ in updater.YT_NEWS} - content_policy.VIDEO_CHANNELS, set())
+
     def test_azerbaijani_sources_are_not_touched_by_the_foreign_rule(self):
         self.assertFalse(content_policy.foreign_about_azerbaijan("APA", "siyaset", "Azərbaycan Prezidenti qəbul edib"))
 
@@ -86,6 +118,32 @@ class ArticleRuleTest(unittest.TestCase):
         self.assertIn('window.CONTENT_POLICY', (ROOT / "assets" / "content-policy.js").read_text(encoding="utf-8"))
         self.assertIn('content-policy.js', (ROOT / "index.html").read_text(encoding="utf-8"))
         self.assertIn('content-policy.js', (ROOT / "sw.js").read_text(encoding="utf-8"))
+
+
+class ChronicleTest(unittest.TestCase):
+    """Zuğulba xronikası: başqa ölkənin prezidenti və ya birinci xanımı ora düşmür, adına söz yazılmır."""
+
+    def label(self, title, lang="az", world=False):
+        return updater.categorize(title, "", lang, None, world)
+
+    def test_foreign_leaders_stay_out(self):
+        for title in ["Bolsonaru özünü \"prezident\" elan etdi", "Keçmiş prezident dar ağacına gedir",
+                      "Ceyhun Bayramovdan diqqətçəkən jest: Özbəkistanın birinci xanımına kömək etdi"]:
+            self.assertNotEqual(self.label(title), "Prezident", title)
+        self.assertNotEqual(self.label("Первая леди Франции посетила выставку", "ru"), "Prezident")
+        self.assertNotEqual(self.label("Azerbaijan's first vice president", "en", True), "Prezident")
+
+    def test_azerbaijani_leadership_stays_in(self):
+        for title in ["Prezident İlham Əliyev fərman imzalayıb", "Birinci vitse-prezident Mehriban Əliyeva tədbirdə iştirak edib",
+                      "Birinci xanım Bakıda sərgi ilə tanış olub"]:
+            self.assertEqual(self.label(title), "Prezident", title)
+
+    def test_social_post_is_not_attributed_to_the_wrong_person(self):
+        self.assertIsNone(updater.social_author("ABŞ prezidenti Tramp Truth Social-da paylaşım edib"))
+        self.assertIsNone(updater.social_author("Azercell prezidenti sosial şəbəkədə paylaşıb"))
+        self.assertIsNone(updater.social_author("Özbəkistanın birinci xanımı paylaşım edib"))
+        self.assertEqual(updater.social_author("Prezident İlham Əliyev paylaşım edib")[0], "prezident")
+        self.assertEqual(updater.social_author("Birinci vitse-prezident Mehriban Əliyeva paylaşım edib")[0], "birinci-xanim")
 
 
 class PublishGateTest(unittest.TestCase):
@@ -244,6 +302,12 @@ class PipelineContractTest(unittest.TestCase):
         self.assertIn("workflow_run", self.watchdog)
         self.assertIn("gh run cancel", self.watchdog)
         self.assertIn("gh issue create", self.watchdog)
+
+
+class DateFloorTest(unittest.TestCase):
+    def test_spaces_in_feed_dates_are_collapsed(self):
+        floor = updater.datetime.datetime(2026, 10, 30, 6, 0, tzinfo=updater.datetime.timezone.utc)
+        self.assertTrue(updater._older_than("Fri,  30   Oct 2026 05:00:00 GMT", floor))
 
 
 if __name__ == "__main__":

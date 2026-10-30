@@ -146,6 +146,7 @@ FOREIGN_MARKERS = [
     "ispaniya", "portuqaliya", "macarıstan", "çexiya", "slovakiya", "avstriya", "finlandiya",
     "litva", "latviya", "estoniya", "əfqanıstan", "iraq", "liviya", "tunis", "əlcəzair",
     "nigeriya", "keniya", "cənubi afrika", "kanada", "avstraliya", "filippin", "indoneziya",
+    "bolsonaro", "bolsonaru", "keçmiş prezident", "sabiq prezident", "eks-prezident", "eks prezident", "prezident təqaüd",
     "tramp", "trump", "putin", "ərdoğan", "makron", "zelenski", "paşinyan", "tokayev",
     "mirziyoyev", "lukaşenko", "pezeşkiyan", "si szinpin", "lula", "milei", "bayden",
     "fifa prezidenti", "uefa prezidenti", "federasiyasının prezidenti", "klubun prezidenti",
@@ -585,10 +586,19 @@ def _rx(w):
 def has_any(blob, words):
     return any(_rx(w).search(blob) for w in words)
 
+# Vəzifə adı təkbaşına Azərbaycan demək deyil: «Özbəkistanın birinci xanımı», «Первая леди Франции».
+PRESIDENT_ROLES = {"birinci xanım", "birinci xanim", "birinci xanımlar", "birinci vitse-prezident", "первой леди", "первая леди",
+                   "первый вице-президент", "first vice-president", "first vice president"}
+_ROLE_FOREIGN = re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, FOREIGN_MARKERS)) + r")\w*\s+(?:prezidentinin\s+)?(?:birinci xan[ıi]m|birinci vitse-prezident)")
+_AZ_CONTEXT = re.compile(r"əliyev|aliyev|алиев|azərbaycan|azerbaycan|azerbaijan|азербайдж")
+
 def president_score(blob, lang):
-    strong = sum(1 for w in PRESIDENT_STRONG if _rx(w).search(blob))
-    if strong:
-        return 4 + 2 * strong
+    hits = [w for w in PRESIDENT_STRONG if _rx(w).search(blob)]
+    if hits and all(w in PRESIDENT_ROLES for w in hits):
+        if _ROLE_FOREIGN.search(blob) if lang == "az" else not _AZ_CONTEXT.search(blob):
+            hits = []
+    if hits:
+        return 4 + 2 * len(hits)
     if lang != "az" or has_any(blob, FOREIGN_MARKERS):
         return 0
     weak = len(PRESIDENT_WEAK_RX.findall(blob))
@@ -623,6 +633,7 @@ def categorize(title, desc, lang="az", hint=None, world=False):
         scores["İqtisadiyyat"] = 0
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
+        scores["Prezident"] = 0  # Zuğulba yalnız Azərbaycan mənbələrindəndir
     if hint and scores.get("Prezident", 0) < 6:
         return hint
     best = max(scores, key=scores.get)
@@ -1116,7 +1127,7 @@ def apply_groups(articles):
 def _older_than(pub, floor):
     """Lent elementi lentdəki ən köhnə xəbərdən də köhnədirsə True. Tarix oxunmursa False."""
     try:
-        dt = email.utils.parsedate_to_datetime(re.sub(r"s+", " ", (pub or "").strip()))
+        dt = email.utils.parsedate_to_datetime(re.sub(r"\s+", " ", (pub or "").strip()))
         return (dt if dt.tzinfo else dt.replace(tzinfo=datetime.timezone.utc)) < floor
     except Exception:
         return False
@@ -1571,10 +1582,22 @@ def official_items():
 # Ona görə rəhbərliyin X/Instagram/Facebook paylaşımları onları xəbər verən rəsmi və agentlik xəbərlərindən götürülür
 # («Prezidentin sosial şəbəkə hesablarında ... paylaşılıb», «Mehriban Əliyeva ... paylaşım edib»).
 _SOC_SHARE_RX = re.compile(r"paylaş", re.I)
-_SOC_WHO = [
-    ("prezident", "Prezident İlham Əliyev", re.compile(r"prezident|ilham əliyev", re.I)),
-    ("birinci-xanim", "Mehriban Əliyeva", re.compile(r"mehriban əliyeva|birinci xanım|birinci vitse-prezident", re.I)),
-]
+_SOC_LEADER = ("prezident", "Prezident İlham Əliyev")
+_SOC_LADY = ("birinci-xanim", "Mehriban Əliyeva")
+
+def social_author(title):
+    """Paylaşımın müəllifi. Dövlət başçısının adına başqasının sözü yazılmasın: «ABŞ prezidenti», «Azercell prezidenti» sayılmır."""
+    t = norm_az(title)
+    if re.search(r"ilham əliyev|azərbaycan prezident", t):
+        return _SOC_LEADER
+    if re.search(r"mehriban əliyeva", t):
+        return _SOC_LADY
+    if re.search(r"birinci xanım|birinci vitse-prezident", t) and not _ROLE_FOREIGN.search(t):
+        return _SOC_LADY
+    if PRESIDENT_WEAK_RX.search(t) and not has_any(t, FOREIGN_MARKERS):
+        return _SOC_LEADER
+    return None
+
 _SOC_SKIP_RX = re.compile(r"xronika|bu gün tarixdə|il əvvəl", re.I)
 _SOC_NET = [("Instagram", re.compile(r"instagram|instaqram", re.I)), ("Facebook", re.compile(r"facebook|feysbuk", re.I)),
             ("X", re.compile(r"\bX\b|tvit|twitter|sosial (?:şəbəkə|media)|paylaş", re.I))]
@@ -1586,7 +1609,7 @@ def social_from_news(articles, now=None, window_h=3.0):
         title = a.get("title") or ""
         if not _SOC_SHARE_RX.search(title) or _SOC_SKIP_RX.search(title):
             continue
-        who = next(((w, n) for w, n, rx in _SOC_WHO if rx.search(title)), None)
+        who = social_author(title)
         if not who:
             continue
         net = next((n for n, rx in _SOC_NET if rx.search(title)), "X")
@@ -2610,6 +2633,7 @@ def write_public():
         articles = json.loads(OUT_FILE.read_text(encoding="utf-8")).get("articles") or []
     except Exception:
         articles = []
+    articles, _ = content_policy.enforce(articles)  # feed.xml və bölmə səhifələri də qapıdan keçir
     write_feed(articles)
     write_sections(articles)
     write_sitemap()
@@ -2985,7 +3009,8 @@ def main(fast=False):
                 if is_negative_about_leadership(it["title"], it["description"], source):
                     continue
                 art = make_article(it, source, dlang, hint)
-                if foreign_about_azerbaijan(source, art["category"], art["title"], art["summary"]):
+                # xülasə kartda 220 simvola qısalır; qayda tam təsviri oxuyur
+                if foreign_about_azerbaijan(source, art["category"], art["title"], it.get("description") or art["summary"]):
                     continue
                 new_items.append(art)
             except Exception as e:

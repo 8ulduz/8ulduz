@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
+    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
   return context;
 }
 
@@ -146,6 +146,41 @@ test('red line 2: foreign stories about Azerbaijan, unknown sites and blocked ho
   ctx.fetch = async () => ({ok: true, headers: new Headers(), json: async () => ({updatedAt: 'u', articles})});
   await ctx.api.loadNews();
   assert.deepEqual([...S.data.articles.map(a => a.id)].sort(), ['ok', 'sport', 'world']);
+});
+test('red line 2: the sport exception is for sport sites, capital letters and links cannot slip through', () => {
+  const {api} = policyApp();
+  const row = (source, sourceUrl, title, category = 'dunya') => ({source, sourceUrl, title, category, summary: ''});
+  assert.equal(api.policyViolation(row('BBC News', 'https://bbc.co.uk/1', 'Azerbaijan to transfer detainees', 'idman')), true);
+  assert.equal(api.policyViolation(row('Match TV', 'https://matchtv.ru/1', 'Карабах вышел в плей-офф', 'idman')), false);
+  assert.equal(api.policyViolation(row('Match TV', 'https://matchtv.ru/1', 'Алиев поздравил футболистов', 'idman')), true);
+  assert.equal(api.policyViolation(row('Hürriyet', 'https://hurriyet.com.tr/1', 'ALİYEV açıklama yaptı')), true);
+  assert.equal(api.policyViolation(row('Hürriyet', 'https://hurriyet.com.tr/1', 'Bakırköy\'de kaza')), false);
+  assert.equal(api.policyViolation(row('AZƏRTAC', 'javascript://azertag.az/%0aalert(1)', 'Başlıq')), true);
+  const story = row('APA', 'https://apa.az/1', 'Azərbaycan Prezidenti qəbul edib', 'siyaset');
+  assert.equal(api.altForbidden(story, {source: 'Report', sourceUrl: 'https://report.az/1', title: 'Qəbul'}), false);
+  assert.equal(api.altForbidden(story, {source: 'TASS', sourceUrl: 'https://tass.ru/1', title: 'Прием'}), true);
+});
+test('red line 2: a saved story from a forbidden source is not shown', () => {
+  const ctx = policyApp();
+  ctx.api.storage.setItem('8ulduz-saved', JSON.stringify([
+    {id: 'a', title: 'Yaxşı xəbər başlığı', source: 'APA', sourceUrl: 'https://apa.az/1', category: 'gundem', publishedAt: new Date().toISOString()},
+    {id: 'b', title: 'Qadağan saytdan', source: 'Azadlıq', sourceUrl: 'https://www.azadliq.org/1', category: 'gundem', publishedAt: new Date().toISOString()},
+  ]));
+  const html = ctx.api.savedView();
+  assert.ok(html.includes('apa.az/1') && !html.includes('azadliq.org'));
+});
+test('a bad regular expression in the policy cannot take the whole site down', () => {
+  const ctx = app({CONTENT_POLICY: {azSources: {}, worldSources: {}, blockedHosts: [], azTerms: '(', leaderTerms: '('}});
+  assert.equal(typeof ctx.api.policyViolation, 'function');
+});
+test('feed links can only be web addresses', () => {
+  const {api} = app();
+  assert.equal(api.safeHref('javascript://azertag.az/%0aalert(1)'), '#');
+  assert.equal(api.safeHref(' JaVaScRiPt:alert(1)'), '#');
+  assert.equal(api.safeHref('data:text/html,x'), '#');
+  assert.equal(api.safeHref('https://apa.az/1?a=1&b=2'), 'https://apa.az/1?a=1&amp;b=2');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(!/href="\$\{esc\((?:a|r|s|p|fb)\.[\w.]+/.test(src), 'lent keçidi esc ilə birbaşa yazılmasın');
 });
 test('app left in background for over an hour reloads on return, short absence only refetches',()=>{
   const ctx=app(),{S}=ctx.api;let reloads=0,polls=0;

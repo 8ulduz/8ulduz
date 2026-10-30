@@ -130,6 +130,8 @@ function decode(s) {
   return cur;
 }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ESC[c]); }
+// Lent etibarsız mənbədir: keçid yalnız http(s) ola bilər (javascript: işləməsin).
+const safeHref = u => { const s = String(u ?? "").trim(); return /^https?:\/\//i.test(s) ? esc(s) : "#"; };
 function tidy(s) {
   return decode(s).replace(/\s*https?:\/\/\S+/gi, "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/(?:\s*[-–—|])+\s*$/u, "").trim();
 }
@@ -311,7 +313,7 @@ const sourceName = name => `${esc(name)}<small class="source-count" data-source-
 const altBadge = a => a.alts?.length ? `<a class="bd out" href="${detailUrl(a)}#sources">${1 + a.alts.length} mənbə</a>` : "";
 function altPop(a) {
   if (!a.alts?.length) return "";
-  const rows = [a, ...a.alts].map(r => `<a href="${esc(r.sourceUrl)}" ${OUT}>${sourceName(r.source)}</a>`).join("");
+  const rows = [a, ...a.alts].map(r => `<a href="${safeHref(r.sourceUrl)}" ${OUT}>${sourceName(r.source)}</a>`).join("");
   return `<details class="altpop"><summary class="bd gold">${1 + a.alts.length} mənbə</summary><div>${rows}</div></details>`;
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
@@ -326,7 +328,7 @@ function img(a, cls = "", eager = false, linked = false) {
   const fallback = `<span class="image-fallback">${LOGO}<span>${esc(catLabel(a.category || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
   const src = url ? `<img src="${esc(url)}" data-image-alternatives="${esc(JSON.stringify(rest))}" alt="" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
   const tag = linked ? "a" : "div";
-  return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${esc(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
+  return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
@@ -339,9 +341,9 @@ function shownSource(a) {
   } catch {}
   return a.source || "";
 }
-const meta = a => `<div class="meta"><a class="src" href="${esc(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
+const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${esc(a.sourceUrl)}" ${OUT}><h3>${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
+const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3>${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => {
@@ -473,7 +475,7 @@ function checkBreaking(articles) {
   for (const a of novel) {
     try {
       const n = new Notification("Son dəqiqə", { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id });
-      n.onclick = () => { window.focus(); if (a.sourceUrl) window.open(a.sourceUrl, "_blank", "noopener,noreferrer"); };
+      n.onclick = () => { window.focus(); if (/^https?:\/\//i.test(a.sourceUrl || "")) window.open(a.sourceUrl, "_blank", "noopener,noreferrer"); };
     } catch {}
   }
   storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
@@ -496,23 +498,36 @@ function adHtml() {
   const slots = adSlots();
   if (!slots.length) return "";
   const s = slots[Math.floor(Date.now() / 30000) % slots.length];
-  return `<section class="ad ad-live" aria-label="Reklam"><a href="${esc(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}" loading="lazy" decoding="async"></a></section>`;
+  return `<section class="ad ad-live" aria-label="Reklam"><a href="${safeHref(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}" loading="lazy" decoding="async"></a></section>`;
 }
 // QIRMIZI XƏTT 2: server qapısından sonra ikinci yoxlama. Telefondakı köhnə keş də bu qaydadan keçir.
 const POLICY = globalThis.CONTENT_POLICY;
-const POLICY_AZ = POLICY && new RegExp(POLICY.azTerms, "i"), POLICY_LEADER = POLICY && new RegExp(POLICY.leaderTerms, "i");
+// Köhnə brauzer lookbehind-i dəstəkləmirsə sayt açılmamazlıq etməsin: bu halda server qapısı qalır.
+const policyRx = src => { try { return src ? new RegExp(src, "i") : null; } catch { return null; } };
+const POLICY_AZ = policyRx(POLICY?.azTerms), POLICY_LEADER = policyRx(POLICY?.leaderTerms);
+// JS i bayrağı İ və ı hərflərini qatlamır («ALİYEV», «BAKI»): kiçik hərfli mətn də yoxlanır.
+const policyTest = (rx, text) => !!rx && (rx.test(text) || rx.test(text.toLocaleLowerCase("az")));
 const hostOf = url => { try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; } };
 const onHost = (host, list) => list.some(d => host === d || host.endsWith("." + d));
 function sourceForbidden(a) {
   if (!POLICY) return false;
   const host = hostOf(a.sourceUrl), domains = POLICY.azSources[a.source] || POLICY.worldSources[a.source];
-  return onHost(host, POLICY.blockedHosts) || !domains || !onHost(host, domains);
+  return !/^https?:\/\//i.test(String(a.sourceUrl ?? "")) || onHost(host, POLICY.blockedHosts) || !domains || !onHost(host, domains);
 }
 function policyViolation(a) {
   if (sourceForbidden(a)) return true;
   if (!POLICY?.worldSources[a.source]) return false;
   const text = `${a.title || ""} ${a.summary || ""}`;
-  return (a.category === "idman" ? POLICY_LEADER : POLICY_AZ).test(text);
+  const sport = a.category === "idman" && (POLICY.sportSources || []).includes(a.source);
+  return policyTest(sport ? POLICY_LEADER : POLICY_AZ, text);
+}
+// Birləşmiş xəbərin əlavə mənbəsi: öz başlığı da, əsas xəbərin mövzusu da yoxlanır (content_policy.clean_alts ilə eyni).
+function altForbidden(a, alt) {
+  if (removedSource(alt) || sourceForbidden(alt)) return true;
+  if (!POLICY?.worldSources[alt.source]) return false;
+  if (policyViolation({ ...alt, category: a.category, summary: "" })) return true;
+  if (a.category === "idman" && (POLICY.sportSources || []).includes(alt.source)) return false;
+  return policyTest(POLICY_AZ, `${a.title || ""} ${a.summary || ""}`);
 }
 function removedSource(a) {
   if (["azadlıq", "azadliq", "azadliq.org"].includes(String(a.source || a.name || "").toLocaleLowerCase("az"))) return true;
@@ -559,7 +574,7 @@ async function loadNews(force = false) {
 function publishNews() {
   const d = {...S.rawMeta};
   let articles = S.rawNews.map(a => ({...a, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
-  articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !removedSource(alt) && !sourceForbidden(alt))}));
+  articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))}));
   d.articles = collapseExact(clusterArticles(articles));
   // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
   for (const a of d.articles) {
@@ -672,7 +687,7 @@ function shell() {
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
-  <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${esc(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
+  <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${safeHref(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
@@ -791,7 +806,7 @@ function renderTicker() {
   const breaking = latest.filter(isFresh);
   const list = (breaking.length ? breaking : latest).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
-  const items = [...list, ...list].map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("");
+  const items = [...list, ...list].map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("");
   // «Bildiriş»: yeni son-dəqiqə xəbəri üçün brauzer bildirişi (README və «Haqqımızda» bunu vəd edir; düymə itmişdi)
   const on = notifyOn();
   const bell = "Notification" in window
@@ -1000,7 +1015,7 @@ function profileRows() {
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
   const posts = side ? socialForSide() : orderedSocialPosts(8);
-  const cards = posts.map(p => `<a class="soc-p" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>`).join("");
+  const cards = posts.map(p => `<a class="soc-p" href="${safeHref(p.url)}" target="_blank" rel="noopener noreferrer" title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>`).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
@@ -1009,7 +1024,7 @@ function prezBlock(list) {
   const cards = list.map(a => {
     const [pic, ...rest] = imageCandidates(a);
     const thumb = pic ? `<span class="img"><img src="${esc(pic)}" data-image-alternatives="${esc(JSON.stringify(rest))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)"></span>` : "";
-    return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${esc(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
+    return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
   }).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
     <span class="cnt muted">${list.length} xəbər</span>
@@ -1021,14 +1036,14 @@ function prezBlock(list) {
 
 function heroBlock(list) {
   if (!list.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${esc(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, 6).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
 
 function alertStrip() {
   const hits = roadItems(S.data?.articles || []).slice(0, 3);
   const wx = (S.warn || []).join(" · ");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${esc(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
+  return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${safeHref(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
 }
 function ytBlock() {
   const items = S.video?.items || [];
@@ -1040,7 +1055,7 @@ function photoStrip(list) {
   const cut = Date.now() - 30 * HOUR;
   const pics = byDate(list.filter(a => a.imageUrl && new Date(a.publishedAt).getTime() > cut)).slice(0, 14);
   if (pics.length < 4) return "";
-  return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="strip"><div class="phrow">${pics.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<span>${txt(a.title)}</span></a>`).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="strip"><div class="phrow">${pics.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<span>${txt(a.title)}</span></a>`).join("")}</div></div></section>`;
 }
 // TheSportsDB ingilis adlarını azərbaycanca yazır
 const CLUB_AZ = { "Sabah Baku": "Sabah", "Sabah FK": "Sabah", "Qarabag": "Qarabağ", "Qarabag FK": "Qarabağ", "Neftci Baku": "Neftçi", "Neftchi Baku": "Neftçi", "Neftchi": "Neftçi",
@@ -1062,8 +1077,8 @@ function fbLeagues() {
 const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
 function worldTable(l, g) {
   const rows = g.rows || [];
-  if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${t.pos}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${t.w}</td><td>${t.l}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
-  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${t.pos}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? "+" : ""}${t.gd}</td><td><b>${t.pts}</b></td></tr>`).join("")}</tbody></table>`;
+  if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${esc(t.w)}</td><td>${esc(t.l)}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
 }
 function footballBlock(list) {
   const all = fbLeagues();
@@ -1081,14 +1096,14 @@ function footballBlock(list) {
     const groups = fb.groups || [];
     const gi = Math.min(Number(S.fbTab) || 0, groups.length - 1);
     const gtabs = groups.length > 1 ? `<div class="fb-groups">${groups.map((g, i) => `<button type="button" class="pill${i === gi ? " on" : ""}" data-fbtab="${i}">${esc(GROUP_AZ[g.name] || g.name)}</button>`).join("")}</div>` : "";
-    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<div class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${t.pos}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${t.w}-${t.l}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></div>`).join("");
+    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<div class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></div>`).join("");
     return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><span class="more muted">ESPN</span></div>
       ${picker}
       <div class="strip"><div class="fb-teams">${wteams}</div></div>
       ${gtabs}
       <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div></section>`;
   }
-  const teams = fb.table.map(t => `<div class="fb-team" title="${esc(t.team)}: ${t.p} oyun, ${t.w} Q · ${t.d} H · ${t.l} M, qol ${t.gf}:${t.ga}"><b class="pos">${t.pos}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${t.pts}</b> xal</span></div>`).join("");
+  const teams = fb.table.map(t => `<div class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></div>`).join("");
   const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
     .filter(([k]) => k !== "table" || fb.table?.length)
     .map(([k, l, r]) => `<button type="button" class="fb-tab${tab === k ? " on" : ""}" data-fbtab="${k}"><span>${l}${r ? `<small>${esc(/^\d+$/.test(String(r)) ? ordTur(r) + " tur" : String(r))}</small>` : ""}</span><i>→</i></button>`).join("");
@@ -1096,13 +1111,13 @@ function footballBlock(list) {
   let pane = "";
   if (tab === "results") pane = fb.results?.length ? `<ul class="games">${fb.results.map(game).join("")}</ul>` : `<p class="muted foot-note">Nəticə hələ yoxdur.</p>`;
   else if (tab === "fixtures") pane = fb.fixtures?.length ? `<ul class="games">${fb.fixtures.map(game).join("")}</ul>` : `<p class="muted foot-note">Növbəti tur hələ elan olunmayıb.</p>`;
-  else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${t.pos}</td><td class="nm">${esc(clubAz(t.team))}</td><td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? "+" : ""}${t.gd}</td><td><b>${t.pts}</b></td></tr>`).join("")}</tbody></table>`;
-  else if (tab === "scorers") pane = fb.scorers?.length ? `<ol class="fb-scorers">${fb.scorers.map(s => `<li><b>${esc(s.name)}</b> <span class="muted">${esc(clubAz(s.club))}</span><em>${s.goals} qol</em></li>`).join("")}</ol>` : `<p class="muted foot-note">Bombardir siyahısı alınmadı.</p>`;
-  return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${esc(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
+  else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${esc(clubAz(t.team))}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  else if (tab === "scorers") pane = fb.scorers?.length ? `<ol class="fb-scorers">${fb.scorers.map(s => `<li><b>${esc(s.name)}</b> <span class="muted">${esc(clubAz(s.club))}</span><em>${esc(s.goals)} qol</em></li>`).join("")}</ol>` : `<p class="muted foot-note">Bombardir siyahısı alınmadı.</p>`;
+  return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
     ${picker}
     <div class="fb-top${teams ? "" : " noteams"}">${teams ? `<div class="strip"><div class="fb-teams">${teams}</div></div>` : ""}<nav class="fb-links" aria-label="Futbol bölmələri">${tabs}</nav></div>
     <div class="fb-pane">${pane}</div>
-    ${news.length ? `<div class="foot-news">${news.map(a => `<a href="${esc(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("")}</div>` : ""}</section>`;
+    ${news.length ? `<div class="foot-news">${news.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("")}</div>` : ""}</section>`;
 }
 // 9-cu, 10-cu, 1-ci, 3-cü, 6-cı tur: sıra sayı şəkilçisi
 function ordTur(n) {
@@ -1127,7 +1142,7 @@ function videosView() {
 function videoBlock(list) {
   if (!list.length) return "";
   return `<section><div class="sec-h"><h2>Sayt videoları</h2><span class="cnt">${list.length} keçid</span><a class="more" href="#/bolme/video">Hamısı →</a></div>
-    <div class="strip"><div class="vrow">${list.slice(0, 15).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${img(a)}<div class="b"><h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)} · mənbədə açır</time></div></div></a>`).join("")}</div></div></section>`;
+    <div class="strip"><div class="vrow">${list.slice(0, 15).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${img(a)}<div class="b"><h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)} · mənbədə açır</time></div></div></a>`).join("")}</div></div></section>`;
 }
 
 function catSection(c, list) {
@@ -1178,20 +1193,20 @@ function latestBlock(list) {
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
   if (!hosted.length && !list.length) return "";
-  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb"><img src="${esc(v.imageUrl || "")}" alt="" loading="lazy"><i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${esc(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb"><img src="${esc(v.imageUrl || "")}" alt="" loading="lazy"><i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
 }
 function homeView() {
   const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), 6);
   const used = new Set(hero.map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const secs = homeCats().map(c => catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug)))).join("");
-  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
+  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
 }
 function articleView(id) {
   const a = S.data.articles.find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
   if (!a) return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   document.title = tidy(a.title) + " — 8ulduz";
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a) : ""}<a class="btn" href="${esc(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${esc(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -1273,7 +1288,7 @@ function trafficView() {
     ? `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
     : `<div class="tix-open"><p>Xəritə yalnız açanda yüklənir.</p><button type="button" class="btn" data-act="tix-open">Xəritəni aç</button></div>`;
   const rows = items.length
-    ? `<ul class="tix-list">${items.map(a => `<li><a href="${esc(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
+    ? `<ul class="tix-list">${items.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
   return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
     <p class="tix-note">Xəritə Waze-dən açılır. Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
@@ -1365,7 +1380,7 @@ function aboutView() {
 }
 
 function savedView() {
-  const items = savedList();
+  const items = savedList().filter(a => !policyViolation(a));
   return `<div class="page-h"><div><h1>Seçilmişlər</h1><p>Ulduzla saxladığınız xəbərlər bu cihazda qalır.</p></div><span class="cnt">${items.length}</span></div>` +
     (items.length ? `<div class="grid">${items.map(card).join("")}</div><p style="margin:14px 0 0"><button type="button" class="loadmore" data-act="clear-saved">Hamısını sil (${items.length})</button></p>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Kartdakı ulduza basın.</p>`);
 }
@@ -1441,7 +1456,7 @@ function onClick(e) {
   else if (act === "pray") { S.prayOpen = !S.prayOpen; renderTopbar(); }
   else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
-  else if (act === "notify") { if (notifyOn()) { storage.removeItem(NOTIFY_KEY); renderTicker(); } else armNotify(); }
+  else if (act === "notify") { if (notifyOn()) { storage.removeItem(NOTIFY_KEY); S.swReg?.periodicSync?.unregister("breaking").catch(() => {}); renderTicker(); } else armNotify(); }
   else if (act === "retry" || act === "refresh") { pollNews(true); }
   else if (act === "sec-toggle" || act === "sec-up" || act === "sec-down") {
     const slug = t.dataset.slug;
@@ -1987,8 +2002,15 @@ if ("serviceWorker" in navigator) {
     });
   }).catch(() => {});
 }
+// «Məzmuna keç»: ünvan dəyişməsin, yoxsa marşrut onu «tapılmadı» sayır.
+document.addEventListener("click", (e) => {
+  if (!e.target.closest?.(".skip")) return;
+  e.preventDefault();
+  $("#view")?.focus();
+});
 document.addEventListener("toggle", (e) => {
   const d = e.target;
+  if (d.classList?.contains("service-panel")) S.svcOpen = d.open; // nəticə/cədvəl düyməsi paneli bağlamasın
   if (!d.classList?.contains("altpop") || !d.open) return;
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);

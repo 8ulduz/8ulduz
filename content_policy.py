@@ -3,7 +3,7 @@
 Qaydalar assets/content-policy.js faylındadır (brauzer də onu oxuyur). Üç yoxlama:
 - icazəli siyahı: mənbə siyahıda deyilsə və ya keçid onun saytına aparmırsa xəbər düşmür;
 - qadağan olunmuş saytlar heç vaxt düşmür;
-- xarici mənbələrin Azərbaycan və rəhbərliyi haqqında xəbərləri düşmür. İdman istisnadır, rəhbərlik adı keçmirsə.
+- xarici mənbələrin Azərbaycan və rəhbərliyi haqqında xəbərləri düşmür. İstisna yalnız idman saytlarıdır (sportSources), rəhbərlik adı keçmirsə.
 """
 import json
 import pathlib
@@ -21,6 +21,8 @@ def _load():
 POLICY = _load()
 AZ_SOURCES = POLICY["azSources"]
 WORLD_SOURCES = POLICY["worldSources"]
+SPORT_SOURCES = frozenset(POLICY["sportSources"])
+VIDEO_CHANNELS = frozenset(POLICY["videoChannels"])
 BLOCKED_HOSTS = tuple(POLICY["blockedHosts"])
 AZ_TERMS = re.compile(POLICY["azTerms"], re.I)
 LEADER_TERMS = re.compile(POLICY["leaderTerms"], re.I)
@@ -50,14 +52,17 @@ def source_allowed(name, url):
     """Mənbə icazəli siyahıdadır və keçid onun öz saytına aparır."""
     domains = AZ_SOURCES.get(name) or WORLD_SOURCES.get(name)
     host = host_of(url)
-    return bool(domains) and bool(host) and _on(host, domains) and not is_blocked(url)
+    # javascript://sayt.az/... ünvanının da «host»u olur: yalnız http(s) keçidi qəbul edilir.
+    secure = str(url or "").lower().startswith(("http://", "https://"))
+    return secure and bool(domains) and bool(host) and _on(host, domains) and not is_blocked(url)
 
 
 def foreign_about_azerbaijan(source, category, title, desc=""):
     if source not in WORLD_SOURCES:
         return False
     text = f"{title} {desc or ''}"
-    if category == "idman":
+    # Bölmə avtomatik təyin olunur, səhv ola bilər: istisna bölməyə yox, idman saytının özünə verilir.
+    if category == "idman" and source in SPORT_SOURCES:
         return bool(LEADER_TERMS.search(text))
     return bool(AZ_TERMS.search(text))
 
@@ -79,9 +84,15 @@ def clean_alts(article):
     if not article.get("alts"):
         return article
     about_az = bool(AZ_TERMS.search(f"{article.get('title', '')} {article.get('summary', '')}"))
-    alts = [alt for alt in article["alts"]
-            if source_allowed(alt.get("source"), alt.get("sourceUrl"))
-            and not (about_az and alt.get("source") in WORLD_SOURCES and article.get("category") != "idman")]
+    category = article.get("category")
+    def keep(alt):
+        source = alt.get("source")
+        if not source_allowed(source, alt.get("sourceUrl")):
+            return False
+        if foreign_about_azerbaijan(source, category, alt.get("title", "")):
+            return False
+        return not (about_az and source in WORLD_SOURCES and not (category == "idman" and source in SPORT_SOURCES))
+    alts = [alt for alt in article["alts"] if keep(alt)]
     return article if len(alts) == len(article["alts"]) else {**article, "alts": alts}
 
 
