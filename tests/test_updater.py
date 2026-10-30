@@ -601,11 +601,16 @@ class UpdateHealthTest(unittest.TestCase):
         self.patches = []
         for name, value in {"OUT_DIR": self.root, "OUT_FILE": self.root / "news.json",
                             "STATUS_FILE": self.root / "status.json", "SOURCES_FILE": self.root / "sources.json",
-                            "DATES_FILE": self.root / "dates.json",
+                            "DATES_FILE": self.root / "dates.json", "LATEST_FILE": self.root / "latest.json",
+                            "RECENT_FILE": self.root / "recent.json", "CACHE_DIR": self.root,
                             "FEEDS": [("Test", "https://example.com/rss", "az", None)]}.items():
             p = patch.object(updater, name, value)
             p.start()
             self.patches.append(p)
+        # Bu testlər tarix və status məntiqi üçündür; məzmun qaydası test_red_lines.py-dadır.
+        p = patch.object(updater.content_policy, "enforce", lambda articles: (articles, {}))
+        p.start()
+        self.patches.append(p)
         self.article = {"id": "old", "sourceUrl": "https://example.com/old", "source": "Test",
                         "title": "Məktəb açıldı", "summary": "", "lang": "az", "category": "cemiyyet",
                         "publishedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()}

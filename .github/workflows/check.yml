@@ -1,10 +1,10 @@
 name: Kodu yoxla
 on:
   pull_request:
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'content_policy.py', 'docs/qirmizi-xetler.md', 'index.html', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
   push:
     branches: [main]
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
+    paths: ['assets/**', 'updater.py', 'reader_content.py', 'content_policy.py', 'docs/qirmizi-xetler.md', 'index.html', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
 permissions:
   contents: read
 jobs:
@@ -25,10 +25,49 @@ jobs:
             grep -nE '^(FAIL|ERROR):|Error:|^AssertionError|^  File "' /tmp/ut.txt | head -40 | sed 's/^/::error::/'
             exit 1
           }
-      - run: node --check assets/app.js && node --check assets/assistant.js && node --check assets/reader.js && node --check assets/source-stats.js && node --check sw.js
+      - run: node --check assets/content-policy.js && node --check assets/app.js && node --check assets/assistant.js && node --check assets/reader.js && node --check assets/source-stats.js && node --check sw.js
       - run: node --test tests/*.test.cjs
       # Sınıq workflow faylı main-ə düşsə yeniləmə tamamilə dayanır — PR-da tutulsun.
       - name: Workflow fayllarını yoxla (actionlint)
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
           ./actionlint -color -shellcheck= -pyflakes=
+
+  # QIRMIZI XƏTT 1: dövrə real lentlərlə, GitHub runner-də 60 saniyəyə sığmalıdır. Heç nə yazmır.
+  bir-deqiqe:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Üç sürətli dövrə
+        env:
+          UPDATER_ROOT: ${{ runner.temp }}/site
+        run: |
+          mkdir -p "$UPDATER_ROOT"
+          cp -a data "$UPDATER_ROOT/data"
+          worst=0
+          for i in 1 2 3; do
+            began=$SECONDS
+            timeout 58 python -u updater.py --fast || echo "Dövrə kəsildi: $?"
+            took=$((SECONDS - began))
+            echo "Dövrə $i: ${took}s"
+            echo "- Dövrə $i: ${took} saniyə" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$i" -gt 1 ] && [ "$took" -gt "$worst" ]; then worst=$took; fi
+          done
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          root = os.environ["UPDATER_ROOT"] + "/data/"
+          status = json.load(open(root + "status.json", encoding="utf-8"))
+          latest = json.load(open(root + "latest.json", encoding="utf-8"))
+          print("\n- Mənbə:", status["successfulSources"], "/", status["totalSources"], "· stats:", status["stats"])
+          print("- latest.json:", latest["count"], "xəbər,", os.path.getsize(root + "latest.json") // 1024, "KB")
+          PY
+          echo "Ən uzun təkrar dövrə: ${worst}s"
+          if [ "$worst" -gt 50 ]; then
+            echo "::error::Sürətli dövrə ${worst}s çəkdi. Qırmızı xətt: 60 saniyə (docs/qirmizi-xetler.md)."
+            exit 1
+          fi

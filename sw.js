@@ -1,7 +1,8 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
-   data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw), keş yalnız ikisi də alınmayanda (oflayn).
+   Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
+   Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: əvvəl şəbəkə, oflayn olanda keş. Şəkillər: əvvəl keş. */
-const VERSION = "v22"; // data failover when the domain is unreachable or stale
+const VERSION = "v23"; // one-minute live channel and content policy
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -17,7 +18,7 @@ function isData(url) {
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(STATIC);
-    await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/assistant.js", "./assets/reader.js", "./assets/source-stats.js", "./assets/config.js", "./manifest.webmanifest",
+    await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/assistant.js", "./assets/reader.js", "./assets/source-stats.js", "./assets/config.js", "./assets/content-policy.js", "./manifest.webmanifest",
       "./assets/logo-80.png", "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon-maskable-192.png", "./assets/icon-maskable-512.png", "./assets/og-default.png"]);
     await self.skipWaiting();
   })());
@@ -34,10 +35,18 @@ self.addEventListener("activate", (event) => {
 // Bot hər 4 dəqiqədən bir main-ə yazır. Ziyarətçinin şəbəkəsinin DNS-i domeni tapmayanda, bağlantı kəsiləndə və ya
 // Pages yayımı ilişəndə sayt açılan telefonda lent donmasın: eyni fayl birbaşa repodan gəlir (CORS açıqdır).
 const MIRROR = "https://raw.githubusercontent.com/8ulduz/8ulduz/main/";
+// QIRMIZI XƏTT 1: pipeline.sh hər dəqiqənin faylını ayrı yola yazır (m/<dəqiqə>/status.json), çünki budaq adı ilə
+// verilən fayl 5 dəqiqə keşdə qalır. Yaranmamış yola sorğu 404-ü 55 saniyə keşə salır: dəqiqə yalnız yazılandan sonra istənir.
+const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
+const LIVE_FILES = /data\/(?:status|latest|markets)\.json$/;
+const LIVE_WAIT_MS = 2500;
+const LIVE_GRACE_S = 45;
+const LIVE_PAUSE_MS = 5 * 60e3; // 429/403 olsa bu qədər sayt kanalı işlənir
+let liveSkipUntil = 0;
 const ORIGIN_WAIT_MS = 4000; // başlıq gəlməsə ehtiyat kanala keç; gövdə axarkən kəsilmir
 const MIRROR_WAIT_MS = 6000;
 const STALE_MS = 15 * 60e3; // Pages bu qədər yayımlamayıbsa ilişib sayılır
-const LIVE_DATA = /data\/(?:status|news)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur
+const LIVE_DATA = /data\/(?:status|latest|news)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur
 
 async function attempt(input, init, waitMs) {
   const controller = new AbortController();
@@ -52,7 +61,7 @@ async function attempt(input, init, waitMs) {
 function marked(response, source) {
   const headers = new Headers(response.headers);
   headers.set("X-8ulduz-data", source);
-  if (source === "mirror") headers.set("Content-Type", "application/json; charset=utf-8");
+  if (source === "mirror" || source === "live") headers.set("Content-Type", "application/json; charset=utf-8");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -63,8 +72,26 @@ function pagesStuck(response, url) {
 }
 
 // Təzə məlumat: əvvəl sayt, sonra ehtiyat kanal. Heç biri alınmasa null.
+async function liveData(url) {
+  if (!LIVE_FILES.test(url.pathname) || Date.now() < liveSkipUntil) return null;
+  const file = url.pathname.split("/").pop();
+  const slot = Math.floor((Date.now() / 1000 - LIVE_GRACE_S) / 60);
+  for (const minute of [slot, slot - 1, slot - 2]) {
+    try {
+      return marked(await attempt(LIVE + minute + "/" + file, { cache: "no-store", mode: "cors", credentials: "omit" }, LIVE_WAIT_MS), "live");
+    } catch (e) {
+      if (/ (?:403|429)$/.test(e.message)) liveSkipUntil = Date.now() + LIVE_PAUSE_MS;
+      if (!/ 404$/.test(e.message)) return null; // şəbəkə xətası: digər dəqiqələri gözləmədən sayta keç
+    }
+  }
+  liveSkipUntil = Date.now() + 60e3; // axın yazmır: dəqiqəlik bir daha yoxla, indi sayt kanalı
+  return null;
+}
+
 async function freshData(req) {
   const url = new URL(req.url);
+  const live = await liveData(url);
+  if (live) return live;
   let origin = null;
   try { origin = await attempt(new Request(req, { cache: "no-store" }), {}, ORIGIN_WAIT_MS); } catch {}
   if (origin && !pagesStuck(origin, url)) return marked(origin, "network");
@@ -153,7 +180,7 @@ async function writeSeen(ids) {
   await cache.put(SEEN_URL, new Response(JSON.stringify(ids), { headers: { "Content-Type": "application/json" } }));
 }
 async function syncBreaking() {
-  const res = await freshData(new Request(new URL("data/news.json", SCOPE_URL)));
+  const res = await freshData(new Request(new URL("data/latest.json", SCOPE_URL)));
   if (!res) return;
   const data = await res.json();
   const now = Date.now();

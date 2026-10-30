@@ -5,14 +5,14 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 
-function app() {
+function app(extra = {}) {
   const context = vm.createContext({
     console, Map, Set, URL, Date, AbortController, setTimeout, clearTimeout, addEventListener() {},
     localStorage: { getItem() { throw Error('blocked'); }, setItem() { throw Error('quota'); }, removeItem() { throw Error('blocked'); } },
     location: { hash: '#/' }, navigator: { onLine: true },
     window: { addEventListener() {} },
     document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, createElement() { return {}; } },
-    matchMedia: () => ({ matches: false }),
+    matchMedia: () => ({ matches: false }), ...extra,
   });
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
@@ -106,6 +106,46 @@ test('returning from background refetches news even if a CDN repeats the same st
   await ctx.api.pollNews(true);
   assert.equal(S.data.updatedAt,'fresh');
   assert.ok(urls.every(u=>u.includes('&r=')));
+});
+function policyApp() {
+  const src = fs.readFileSync(path.join(root, 'assets/content-policy.js'), 'utf8');
+  return app({CONTENT_POLICY: JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1))});
+}
+test('red line 1: polling needs only the small latest file between full refreshes, and new stories appear', async () => {
+  const ctx = app(), {S} = ctx.api, urls = [];
+  S.data = {articles: []}; S.rawNews = [{id: 'a', title: 'Köhnə xəbər başlığı', sourceUrl: 'https://x.az/a', publishedAt: '2026-10-30T05:00:00Z', lang: 'az'}]; S.rawMeta = {updatedAt: 'x'};
+  S.status = {checkedAt: 'old'}; S.newsStamp = 'old'; S.newsCheckedAt = Date.now(); S.og = {};
+  ctx.fetch = async url => { urls.push(url); return {ok: true, headers: new Headers(), json: async () => url.includes('status') ? {checkedAt: 'new'}
+    : {updatedAt: 'y', articles: [{id: 'b', title: 'Tamamilə yeni başqa xəbər', sourceUrl: 'https://x.az/b', publishedAt: '2026-10-30T06:00:00Z', lang: 'az'}]}}; };
+  await ctx.api.pollNews();
+  assert.ok(urls.every(u => !u.includes('news.json')));
+  assert.equal(S.data.articles.length, 2);
+  assert.equal(S.newsStamp, 'new');
+  await ctx.api.pollNews();
+  assert.equal(urls.filter(u => u.includes('latest.json')).length, 1); // status dəyişməyib
+});
+test('red line 1: the page checks at least twice a minute', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(Number(src.match(/const POLL_MS = (\d+)e3/)[1]) <= 30);
+});
+test('red line 2: foreign stories about Azerbaijan, unknown sites and blocked hosts never reach the screen, even from old cache', async () => {
+  const ctx = policyApp(), {S} = ctx.api;
+  const stamp = new Date().toISOString(), row = (id, source, sourceUrl, title, extra = {}) => ({id, source, sourceUrl, title, lang: 'az', category: 'dunya', publishedAt: stamp, ...extra});
+  const articles = [
+    row('ok', 'APA', 'https://apa.az/1', 'Bakıda yeni park açıldı'),
+    row('world', 'BBC News', 'https://www.bbc.co.uk/1', 'Storm hits northern Europe coast'),
+    row('f1', 'BBC News', 'https://www.bbc.co.uk/2', 'Azerbaijan signs a new agreement'),
+    row('f2', 'TASS', 'https://tass.ru/2', 'Алиев принял делегацию'),
+    row('f3', 'Hürriyet', 'https://hurriyet.com.tr/3', 'Azərbaycan açıklaması geldi'),
+    row('f4', 'TASS', 'https://tass.ru/4', 'Алиев поздравил футболистов', {category: 'idman'}),
+    row('sport', 'Match TV', 'https://matchtv.ru/5', 'Карабах вышел в плей-офф', {category: 'idman'}),
+    row('unknown', 'Yeni Sayt', 'https://yenisayt.az/6', 'Naməlum saytdan başlıq'),
+    row('blocked', 'Azadlıq', 'https://www.azadliq.org/7', 'Bloklanmış saytdan başlıq'),
+    row('spoof', 'APA', 'https://meydan.tv/8', 'Saxta mənbə adı ilə başlıq'),
+  ];
+  ctx.fetch = async () => ({ok: true, headers: new Headers(), json: async () => ({updatedAt: 'u', articles})});
+  await ctx.api.loadNews();
+  assert.deepEqual([...S.data.articles.map(a => a.id)].sort(), ['ok', 'sport', 'world']);
 });
 test('app left in background for over an hour reloads on return, short absence only refetches',()=>{
   const ctx=app(),{S}=ctx.api;let reloads=0,polls=0;
@@ -352,12 +392,47 @@ test('a site error page or html is not stored as news', async () => {
 test('stuck Pages deployment: live files come from the mirror, static ones stay on the site', async () => {
   const old = new Date(Date.now() - 40 * 60e3).toUTCString();
   const stuck = async url => url.startsWith(RAW) ? json({from: 'mirror'}) : json({from: 'site'}, {'last-modified': old});
-  assert.equal((await dataWorker(stuck).get('status.json')).headers.get('X-8ulduz-data'), 'mirror');
+  assert.equal((await dataWorker(stuck).get('news.json')).headers.get('X-8ulduz-data'), 'mirror');
   const ads = dataWorker(stuck);
   assert.equal((await ads.get('ads.json')).headers.get('X-8ulduz-data'), 'network');
   assert.equal(ads.calls.length, 1);
   const noMirror = async url => { if (url.startsWith(RAW)) throw new TypeError('down'); return json({from: 'site'}, {'last-modified': old}); };
   assert.deepEqual(await (await dataWorker(noMirror).get('news.json')).json(), {from: 'site'});
+});
+const LIVE = 'https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/';
+test('red line 1: status, latest and markets come from the one-minute live channel first', async () => {
+  for (const file of ['status.json', 'latest.json', 'markets.json']) {
+    const {get, calls} = dataWorker(async url => { assert.ok(url.startsWith(LIVE)); return json({from: 'live'}); });
+    const r = await get(file + '?t=1');
+    assert.equal(r.headers.get('X-8ulduz-data'), 'live');
+    assert.equal(calls.length, 1);
+    assert.match(calls[0], new RegExp('^' + LIVE + '\\d+/' + file.replace('.', '\\.') + '$'));
+  }
+});
+test('red line 1: the page asks only for a minute that is already written, and falls back to earlier minutes', async () => {
+  const realNow = Date.now;
+  Date.now = () => Date.UTC(2026, 9, 30, 7, 10, 44); // 07:10:44: 07:10 dəqiqəsi hələ yazılmış sayılmır
+  try {
+    const slot = Math.floor(Date.UTC(2026, 9, 30, 7, 9) / 60000);
+    const {get, calls} = dataWorker(async url => url.includes('/' + (slot - 1) + '/') ? json({from: 'live'}) : new Response('', {status: 404}));
+    const r = await get('status.json');
+    assert.equal(r.headers.get('X-8ulduz-data'), 'live');
+    assert.deepEqual(calls, [LIVE + slot + '/status.json', LIVE + (slot - 1) + '/status.json']);
+  } finally { Date.now = realNow; }
+});
+test('red line 1: when the stream is not writing, the site channel answers and the live channel rests a minute', async () => {
+  const {get, calls} = dataWorker(async url => url.startsWith(LIVE) ? new Response('', {status: 404}) : json({from: 'site'}, {'last-modified': new Date().toUTCString()}));
+  assert.equal((await get('status.json')).headers.get('X-8ulduz-data'), 'network');
+  await get('status.json');
+  assert.equal(calls.filter(u => u.startsWith(LIVE)).length, 3);
+});
+test('red line 1: a broken live channel falls back to the site at once, and a rate limit pauses it', async () => {
+  const down = dataWorker(async url => { if (url.startsWith(LIVE)) throw new TypeError('down'); return json({from: 'site'}, {'last-modified': new Date().toUTCString()}); });
+  assert.equal((await down.get('status.json')).headers.get('X-8ulduz-data'), 'network');
+  const limited = dataWorker(async url => url.startsWith(LIVE) ? new Response('slow', {status: 429}) : json({from: 'site'}, {'last-modified': new Date().toUTCString()}));
+  await limited.get('status.json');
+  await limited.get('status.json');
+  assert.equal(limited.calls.filter(u => u.startsWith(LIVE)).length, 1);
 });
 test('only when site and mirror both fail does the page get saved news, marked as such', async () => {
   const down = async () => { throw new TypeError('offline'); };

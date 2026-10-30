@@ -64,7 +64,8 @@ const CITIES = [["Bakı",40.4093,49.8671],["Sumqayıt",40.5897,49.6686],["Gənc�
 const DAYS = ["bazar", "bazar ertəsi", "çərşənbə axşamı", "çərşənbə", "cümə axşamı", "cümə", "şənbə"];
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const HOUR = 3600e3, DAY = 24 * HOUR;
-const POLL_MS = 60e3;     // xəbər lentini yoxlama intervalı
+const POLL_MS = 30e3;     // QIRMIZI XƏTT 1: lent dəqiqədə bir yazılır, sayt 30 saniyədən bir yoxlayır
+const NEWS_FULL_MS = 10 * 60e3; // tam lent (~200 KB) bu qədərdən bir; arada yalnız latest.json (~15 KB)
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
 let freshSequence = 0;
 const freshUrl = (path, force = false) => `${path}?t=${Math.floor(Date.now() / 60000)}${force ? `&r=${Date.now()}-${++freshSequence}` : ""}`;
@@ -503,6 +504,22 @@ function adHtml() {
   const s = slots[Math.floor(Date.now() / 30000) % slots.length];
   return `<section class="ad ad-live" aria-label="Reklam"><a href="${esc(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}" loading="lazy" decoding="async"></a></section>`;
 }
+// QIRMIZI XƏTT 2: server qapısından sonra ikinci yoxlama. Telefondakı köhnə keş də bu qaydadan keçir.
+const POLICY = globalThis.CONTENT_POLICY;
+const POLICY_AZ = POLICY && new RegExp(POLICY.azTerms, "i"), POLICY_LEADER = POLICY && new RegExp(POLICY.leaderTerms, "i");
+const hostOf = url => { try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; } };
+const onHost = (host, list) => list.some(d => host === d || host.endsWith("." + d));
+function sourceForbidden(a) {
+  if (!POLICY) return false;
+  const host = hostOf(a.sourceUrl), domains = POLICY.azSources[a.source] || POLICY.worldSources[a.source];
+  return onHost(host, POLICY.blockedHosts) || !domains || !onHost(host, domains);
+}
+function policyViolation(a) {
+  if (sourceForbidden(a)) return true;
+  if (!POLICY?.worldSources[a.source]) return false;
+  const text = `${a.title || ""} ${a.summary || ""}`;
+  return (a.category === "idman" ? POLICY_LEADER : POLICY_AZ).test(text);
+}
 function removedSource(a) {
   if (["azadlıq", "azadliq", "azadliq.org"].includes(String(a.source || a.name || "").toLocaleLowerCase("az"))) return true;
   try { const host = new URL(a.sourceUrl || a.url || "").hostname.toLowerCase(); return host === "azadliq.org" || host.endsWith(".azadliq.org"); } catch { return false; }
@@ -536,20 +553,49 @@ async function loadNews(force = false) {
     if (S.data && S.data.updatedAt === d.updatedAt && S.og) { S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); renderTopbar(); return; }
     await (ogReady || loadOg(controller.signal));
     if(token !== S.newsToken || controller.signal.aborted)return;
-    for (const a of d.articles || []) if (!a.imageUrl && S.og[a.sourceUrl]) a.imageUrl = S.og[a.sourceUrl];
-    d.articles = d.articles.filter(a => !removedSource(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !removedSource(alt))}));
-    d.articles = collapseExact(clusterArticles(d.articles));
-    // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
-    for (const a of d.articles) {
-      if (a.imageUrl || !a.alts?.length) continue;
-      const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og[x.sourceUrl]);
-      if (alt) a.imageUrl = alt.imageUrl || S.og[alt.sourceUrl];
-    }
-    S.data = d; S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); byId.clear(); for (const a of d.articles) byId.set(a.id, a);
-    checkBreaking(d.articles);
+    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
+    publishNews();
     render();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
+}
+
+// Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər. Xam siyahı dəyişmir, latest.json üstünə qoyula bilsin.
+function publishNews() {
+  const d = {...S.rawMeta};
+  let articles = S.rawNews.map(a => ({...a, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
+  articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !removedSource(alt) && !sourceForbidden(alt))}));
+  d.articles = collapseExact(clusterArticles(articles));
+  // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
+  for (const a of d.articles) {
+    if (a.imageUrl || !a.alts?.length) continue;
+    const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og?.[x.sourceUrl]);
+    if (alt) a.imageUrl = alt.imageUrl || S.og?.[alt.sourceUrl];
+  }
+  S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
+  checkBreaking(d.articles);
+}
+
+// Dəqiqəlik axın: yalnız yeni xəbərlər gəlir. Oxucu aşağıdadırsa ekran dəyişmir, yuxarı qayıdanda yenilənir.
+async function loadLatest(force = false) {
+  if (S.latestLoading || !S.rawNews) return;
+  S.latestLoading = true;
+  const statusStamp = S.status?.checkedAt || null;
+  try {
+    const {r, d} = await requestJSON(freshUrl("data/latest.json", force), {}, 8000);
+    if (!Array.isArray(d?.articles)) return;
+    S.offline = r.headers?.get?.("X-8ulduz-data") === "cache";
+    if (!S.offline) { S.lastSync = new Date(); S.error = null; }
+    S.newsStamp = statusStamp;
+    const known = new Set(S.rawNews.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
+    const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
+    if (!fresh.length) { renderTopbar(); return; }
+    S.rawNews = [...fresh, ...S.rawNews];
+    publishNews();
+    if ((globalThis.scrollY || 0) > 400) { S.renderPending = true; renderTopbar(); renderTicker(); }
+    else render();
+  } catch {} finally { S.latestLoading = false; }
 }
 
 async function loadOg(signal) {
@@ -701,7 +747,7 @@ function pageMeta() {
 
 function renderTopbar() {
   const w = S.wx, upd = S.status?.checkedAt || S.data?.updatedAt;
-  const stale = upd && Date.now() - new Date(upd).getTime() > 15 * 60e3;
+  const stale = upd && Date.now() - new Date(upd).getTime() > 5 * 60e3;
   const syncBad = S.error || S.offline || S.status?.ok === false || stale;
   const syncText = S.offline ? "Oflayn — saxlanmış xəbərlər" : S.error ? "Xəbərlər yenilənmədi" : S.status?.ok === false ? "Mənbələr yoxlanmadı" : stale ? "Xəbər lenti köhnəlib" : S.status?.degraded ? "Bəzi mənbələr açılmır" : "";
   let pop = "";
@@ -1288,7 +1334,7 @@ function trackedSources() {
 function renderFooter() {
   const srcs = trackedSources();
   $("#footer").innerHTML = `<div class="wrap fgrid">
-    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər 5 dəqiqədən bir avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
+    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
@@ -1300,7 +1346,7 @@ function aboutView() {
   const gc = String(window.SITE_CONFIG?.goatcounter || "").trim();
   return `<div class="page-h"><div><h1>Haqqımızda</h1><p>8ulduz nədir, necə işləyir və nəyi göstərmir</p></div></div>
   <div class="about">
-    <section><h2>Sayt nədir</h2><p>8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, başlığa klikləyəndə xəbər birbaşa mənbənin saytında açılır. Lent təxminən hər 5 dəqiqədən bir yenilənir.</p></section>
+    <section><h2>Sayt nədir</h2><p>8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, başlığa klikləyəndə xəbər birbaşa mənbənin saytında açılır. Lent hər dəqiqə yenilənir.</p></section>
     <section><h2>Mənbələr</h2><p>Hazırda ${srcs.length} mənbə izlənilir. Hər lentin vəziyyətini <a href="#/menbeler">Mənbə vəziyyəti</a> səhifəsində görmək olar.</p><div class="srcs">${srcs.map(s => `<span>${sourceName(s)}</span>`).join("")}</div></section>
     <section><h2>Redaksiya prinsipləri</h2><ul>
       <li>Eyni hadisə haqqında yaxın başlıqlı xəbərlər bir kartda birləşir; «N mənbə» düyməsi digər mənbələri göstərir.</li>
@@ -1309,6 +1355,7 @@ function aboutView() {
       <li>Dil süzgəci standart olaraq Azərbaycan dilindədir; rus, ingilis və türk dilində xəbərlər «Hamısı» və ya müvafiq dil seçiləndə görünür.</li>
       <li>Ölkə rəhbərliyi haqqında neqativ çağırışlı xəbərlər göstərilmir; bu, sayt sahibinin redaksiya qərarıdır.</li>
       <li>Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir.</li>
+      <li>Müxalifət mənbələri lentə daxil edilmir; lentdə yalnız «Mənbələr» siyahısındakı saytlar görünür. Bu da sayt sahibinin redaksiya qərarıdır.</li>
       <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
     </ul></section>
     <section><h2>Məxfilik</h2><p>Tam mətn (sayt və Android tətbiqi üçün): <a href="./mexfilik/">Məxfilik siyasəti</a>.</p><ul>${ASSISTANT_ON ? `<li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>` : ""}
@@ -1908,9 +1955,15 @@ async function loadStatus(force = false) {
 // Dəqiqəlik yoxlama 151 baytlıq status.json ilə gedir; news.json (~150 KB gzip) yalnız yeni yoxlama olanda və ya
 // əvvəlki yükləmə alınmayanda çəkilir.
 async function pollNews(force = false) {
+  if (!force && document.hidden) return; // arxa planda məlumat xərcləmirik; qayıdanda resumeNews dərhal yoxlayır
   await loadStatus(force);
   const now = S.status?.checkedAt || null;
-  if (force || !S.data || S.error || !now || now !== S.newsStamp || Date.now() - (S.newsCheckedAt || 0) >= 5 * 60e3) await loadNews(force);
+  if (force || !S.data || S.error || !now || Date.now() - (S.newsCheckedAt || 0) >= NEWS_FULL_MS) {
+    await loadNews(force);
+    await loadLatest(force);
+  } else if (now !== S.newsStamp) {
+    await loadLatest();
+  }
 }
 const RELOAD_AFTER_HIDDEN_MS = 60 * 60e3;
 function resumeNews() {
@@ -1946,8 +1999,11 @@ document.addEventListener("toggle", (e) => {
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);
 shell(); render();
-loadNews(); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadSports(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
-setInterval(pollNews, POLL_MS);
+loadNews().then(() => loadLatest()); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadSports(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
+setInterval(() => pollNews(), POLL_MS);
+addEventListener("scroll", () => {
+  if (S.renderPending && (globalThis.scrollY || 0) < 200) { S.renderPending = false; render(); }
+}, {passive: true});
 // Telefonda arxa plandakı vərəqin taymerləri dayanır: səhifəyə qayıdanda (və geri-irəli keşindən açılanda) dərhal yoxla.
 // Əks halda saatlarla köhnə lent görünürdü — «sayt yenilənmir» təəssüratı.
 document.addEventListener("visibilitychange", resumeNews);
