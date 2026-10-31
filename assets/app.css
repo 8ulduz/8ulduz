@@ -991,6 +991,10 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
   .sport-chips .chips{flex-wrap:wrap;overflow:visible}
 }
 
+/* Rejim düyməsi: işarənin yanında növbəti rejimin adı */
+.prefs .theme-btn{display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-weight:700;white-space:nowrap}
+.prefs .theme-btn span{font-size:.72rem}
+
 /* Alt başlıqlar menyunun düz altında */
 .nav-sub{padding-top:8px}
 .nav-sub[hidden]{display:none}
