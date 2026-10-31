@@ -785,6 +785,7 @@ function shell() {
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search">
       <button type="button" id="mic" class="mic" aria-label="Səslə axtar" title="Səslə axtar" aria-pressed="false" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></label>
   </div><div class="langstick" id="langstick"></div></header>
+  <div class="wrap nav-sub" id="navsub" hidden></div>
   <div id="ticker"></div>
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
@@ -904,6 +905,14 @@ function renderNav() {
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
   fitNav();
+}
+// Alt başlıqlı bölmə açılan kimi alt başlıqlar menyunun düz altında görünür: zolaq və bazarlardan aşağıda axtarılmır.
+const subNav = slug => SUB_TABS[slug] ? sportChips(SUB_TABS[slug]) : "";
+function renderSubNav() {
+  const el = $("#navsub"), r = route();
+  if (!el) return;
+  el.innerHTML = r.name === "section" ? subNav(r.slug) : "";
+  el.hidden = !el.innerHTML;
 }
 // Telefonda menyu sürüşən zolaqdır: seçilmiş bölmə görünən yerdə qalsın.
 function fitNav() {
@@ -1384,7 +1393,6 @@ function sectionView(slug) {
   let extra = "";
   if (slug === "idman") {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
-    extra = sportChips();
   }
   if (slug === "bolgeler") {
     if (S.club) {
@@ -1393,7 +1401,6 @@ function sectionView(slug) {
       // «Qəbələ» və «Sabah» həm də futbol klubudur: rayon düyməsində oyun xəbəri olmasın.
       list = byDate(CATS.reduce((rows, x) => withArchive(x.slug, rows), d).filter(a => a.category !== "idman" && clubMatches(a, S.club)));
     }
-    extra = sportChips(REGION_TABS);
   }
   if (slug === "prezident") extra = optional(socialBlock);
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
@@ -1706,7 +1713,10 @@ function onClick(e) {
   if (t.dataset.club !== undefined) {
     S.club = t.dataset.club || null;
     if (!S.club) S.sportTab = null; else if ([...SPORT_TABS, ...REGION_TABS].some(x => x.name === S.club)) S.sportTab = S.club;
-    S.shown = PAGE; renderView(); return;
+    S.shown = PAGE; renderSubNav(); renderView();
+    // Son düymə seçildi: xəbərlər zolaq və bazarların altındadır, ora keçilir. Alt siyahı açan düymədə yerində qalır.
+    if (S.club && !SUB_TABS[route().slug]?.find(x => x.name === S.club)?.groups) $("#view")?.scrollIntoView({ block: "start" });
+    return;
   }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
   const act = t.dataset.act;
@@ -2153,7 +2163,7 @@ addEventListener("resize", () => {
   marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
 });
 
-function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
+function render() { renderTopbar(); renderNav(); renderSubNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
 
 /* ---------------------------------------------------------------- start */
 async function loadAds() {

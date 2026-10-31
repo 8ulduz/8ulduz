@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {subNav, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -215,17 +215,19 @@ test('sport shows every language whatever language is chosen, also inside a team
   assert.ok(sectionView('idman').includes('Bu mövzuda son 5 gündə xəbər tapılmadı'));
 });
 test('sport sub-sections open their own teams and close when you leave',()=>{
-  const ctx=app(),{S,sectionView}=ctx.api;
+  const ctx=app(),{S,sectionView,subNav}=ctx.api;
   S.data={articles:[]};S.club=null;S.sportTab=null;
-  const top=sectionView('idman');
+  assert.ok(!sectionView('idman').includes('data-club='),'alt başlıqlar səhifədə yox, menyunun altındadır');
+  assert.equal(subNav('siyaset'),'');
+  const top=subNav('idman');
   for(const name of ['Hamısı','Futbol','Basketbol','Formula 1','Tennis','Şahmat'])assert.ok(top.includes('>'+name+'<'),name);
   assert.ok(!top.includes('data-club="Qarabağ"'),'komandalar bağlıdır');
   S.club='Futbol';S.sportTab='Futbol';
-  const foot=sectionView('idman');
+  const foot=subNav('idman');
   for(const name of ['Qarabağ','Galatasaray','Real Madrid'])assert.ok(foot.includes('data-club="'+name+'"'),name);
   assert.ok(!foot.includes('data-club="NBA"'));
   S.club='NBA';S.sportTab='Basketbol';
-  const bb=sectionView('idman');
+  const bb=subNav('idman');
   assert.ok(bb.includes('data-club="Avroliqa"'));
   assert.ok(!bb.includes('data-club="Qarabağ"'));
 });
@@ -898,16 +900,15 @@ test('counting a click never breaks the page', () => {
   trackEvent('share-copy');
 });
 test('every city and district has its button and finds its stories', () => {
-  const ctx=app(),{S,sectionView,clubMatches}=ctx.api,at=new Date().toISOString();
+  const ctx=app(),{S,sectionView,subNav,clubMatches}=ctx.api,at=new Date().toISOString();
   const row=(id,title,category='gundem')=>({id,title,lang:'az',category,source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at});
   S.lang=null;S.og={};S.shown=50;S.sportTab=null;S.club=null;
   S.data={articles:[row('a','Şəkidə yeni park açılıb'),row('b','Şəkildə görünən şəxs tapılıb'),row('c','Qazaxıstanda seçki keçirilib'),row('d','Qazaxın mərkəzində körpü tikilib','bolgeler'),row('e','Məhəmməd Füzuli haqqında kitab çıxıb'),row('f','Füzulidə məktəb açılıb')]};
   let html=sectionView('bolgeler');
-  for(const name of ['Bakı','Şəki-Zaqatala','Şərqi Zəngəzur','Naxçıvan MR','Abşeron-Xızı'])assert.ok(html.includes('data-club="'+name+'"'),name);
+  for(const name of ['Bakı','Şəki-Zaqatala','Şərqi Zəngəzur','Naxçıvan MR','Abşeron-Xızı'])assert.ok(subNav('bolgeler').includes('data-club="'+name+'"'),name);
   assert.ok(html.includes('apa.az/d'),'bölgə səhifəsi öz xəbərlərini göstərir');
   S.sportTab='Şəki-Zaqatala';
-  html=sectionView('bolgeler');
-  assert.ok(html.includes('data-club="Zaqatala"'),'rayonlar açılır');
+  assert.ok(subNav('bolgeler').includes('data-club="Zaqatala"'),'rayonlar açılır');
   S.club='Şəki';
   html=sectionView('bolgeler');
   assert.ok(html.includes('apa.az/a'),'başqa bölmədəki xəbər də tapılır');
