@@ -120,6 +120,8 @@ nav.main a.nav-tix{position:relative}
 .search input:focus{border-color:var(--primary)}
 .search input:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.newpill{position:fixed;left:50%;transform:translateX(-50%);top:12px;z-index:80;padding:8px 16px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.newpill[hidden]{display:none}
 .skip{position:absolute;left:8px;top:-48px;z-index:90;background:var(--primary);color:var(--primary-fg);font-weight:800;padding:6px 12px;border-radius:8px}
 .skip:focus{top:8px}
 .search svg{position:absolute;left:10px;top:9px;opacity:.6}

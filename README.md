@@ -10,7 +10,7 @@ Mənbə adının yanında `gün/həftə/ay/il` ümumi keçid sayları göstəril
 
 Yoxlama hesabatı: [29 oktyabr 2026 oxucu auditi](docs/reader-audit-2026-10-29.md).
 
-Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərini toplayır, sayt isə JSON faylları oxuyur.
+Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərini toplayır, sayt isə JSON faylları oxuyur. Qaydalar: [docs/qirmizi-xetler.md](docs/qirmizi-xetler.md).
 
 ## Struktur
 

@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: əvvəl şəbəkə, oflayn olanda keş. Şəkillər: əvvəl keş. */
-const VERSION = "v23"; // one-minute live channel and content policy
+const VERSION = "v24"; // shell timeout
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -32,7 +32,7 @@ self.addEventListener("activate", (event) => {
   })());
 });
 
-// Bot hər 4 dəqiqədən bir main-ə yazır. Ziyarətçinin şəbəkəsinin DNS-i domeni tapmayanda, bağlantı kəsiləndə və ya
+// Bot hər 10 dəqiqədən bir main-ə yazır. Ziyarətçinin şəbəkəsinin DNS-i domeni tapmayanda, bağlantı kəsiləndə və ya
 // Pages yayımı ilişəndə sayt açılan telefonda lent donmasın: eyni fayl birbaşa repodan gəlir (CORS açıqdır).
 const MIRROR = "https://raw.githubusercontent.com/8ulduz/8ulduz/main/";
 // QIRMIZI XƏTT 1: pipeline.sh hər dəqiqənin faylını ayrı yola yazır (m/<dəqiqə>/status.json), çünki budaq adı ilə
@@ -136,19 +136,25 @@ async function cacheFirst(req) {
   }
 }
 
+const SHELL_WAIT_MS = 4000; // zəif şəbəkədə ağ ekran qalmasın: keşdəki nüsxə göstərilir, təzəsi arxada yazılır
 async function networkFirstShell(req) {
-  try {
-    const fresh = await fetch(new Request(req, { cache: "no-cache" }));
+  const cache = await caches.open(STATIC);
+  const network = fetch(new Request(req, { cache: "no-cache" })).then(async (fresh) => {
     if (fresh.ok) {
-      try {
-        const cache = await caches.open(STATIC);
-        await cache.put(req, fresh.clone());
-      } catch {}
+      try { await cache.put(req, fresh.clone()); } catch {}
     }
     return fresh;
+  });
+  const saved = (await cache.match(req, { ignoreSearch: true })) || (req.mode === "navigate" ? await cache.match("./index.html") : null);
+  if (!saved) return network.catch(() => cacheFirst(req));
+  network.catch(() => {});
+  let timer;
+  const late = new Promise((resolve) => { timer = setTimeout(() => resolve(saved), SHELL_WAIT_MS); });
+  try {
+    return await Promise.race([network, late]);
   } catch {
-    return cacheFirst(req);
-  }
+    return saved;
+  } finally { clearTimeout(timer); }
 }
 
 self.addEventListener("fetch", (event) => {

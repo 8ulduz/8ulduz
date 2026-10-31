@@ -19,7 +19,7 @@ Azərbaycan və dünyadan son xəbərlər, valyuta və hava — hər dəqiqə.
 **Tam təsvir** (4000 simvola qədər):
 
 ```
-8ulduz — Azərbaycan və dünya xəbərlərini onlarla etibarlı mənbədən bir lentə toplayan sürətli xəbər tətbiqidir. Lent təxminən hər 5 dəqiqədən bir avtomatik yenilənir, ona görə ən son hadisələri ilk siz görürsünüz.
+8ulduz — Azərbaycan və dünya xəbərlərini onlarla etibarlı mənbədən bir lentə toplayan sürətli xəbər tətbiqidir. Lent hər dəqiqə avtomatik yenilənir, ona görə ən son hadisələri ilk siz görürsünüz.
 
 ■ Bir hadisə — bütün mənbələr
 Eyni hadisə haqqında müxtəlif saytların xəbərləri bir kartda birləşir. «N mənbə» düyməsi ilə hadisəni kimin necə yazdığını müqayisə edin. Baş səhifə ən çox mənbədə çıxan, yəni günün həqiqətən vacib xəbərlərini önə çıxarır.

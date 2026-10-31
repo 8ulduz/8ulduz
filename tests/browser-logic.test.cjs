@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
+    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -99,13 +99,106 @@ test('forced refresh cancels a stuck request and an older request cannot overwri
   assert.equal(ctx.api.S.newsLoading,false);
   assert.equal(ctx.api.S.etag,'recovered');
 });
-test('returning from background refetches news even if a CDN repeats the same status stamp',async()=>{
+test('a forced refresh refetches news even if a CDN repeats the same status stamp',async()=>{
   const ctx=app(),{S}=ctx.api,urls=[];
   S.data={updatedAt:'old',articles:[]};S.status={checkedAt:'same'};S.newsStamp='same';S.newsCheckedAt=Date.now();
   ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{updatedAt:'fresh',articles:[]}};};
   await ctx.api.pollNews(true);
   assert.equal(S.data.updatedAt,'fresh');
-  assert.ok(urls.every(u=>u.includes('&r=')));
+  assert.ok(urls.filter(u=>!u.includes('/live/m/')).every(u=>u.includes('&r=')));
+});
+test('returning to the tab checks the small file at once and does not download the whole feed',async()=>{
+  const ctx=app(),{S}=ctx.api,urls=[];
+  S.data={updatedAt:'old',articles:[]};S.rawNews=[];S.rawMeta={};S.status={checkedAt:'same'};S.newsStamp='same';S.newsCheckedAt=Date.now();S.latestAt=Date.now();
+  ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{articles:[]}};};
+  await ctx.api.pollNews(false,true);
+  assert.ok(urls.some(u=>u.includes('latest.json')));
+  assert.ok(!urls.some(u=>u.includes('news.json')));
+});
+test('red line 1: an unchanged status stamp cannot hold back the feed for more than 90 seconds',async()=>{
+  const ctx=app(),{S}=ctx.api,urls=[];
+  S.data={articles:[]};S.rawNews=[];S.rawMeta={};S.status={checkedAt:'same'};S.newsStamp='same';S.newsCheckedAt=Date.now();S.latestAt=Date.now()-91e3;
+  ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{articles:[]}};};
+  await ctx.api.pollNews();
+  assert.ok(urls.some(u=>u.includes('latest.json')));
+});
+test('red line 1: a visitor without a service worker reads the one-minute channel, and falls back to the site',async()=>{
+  const ctx=app(),{requestJSON}=ctx.api,urls=[];
+  ctx.fetch=async url=>{urls.push(url);return url.includes('/live/m/')?{ok:false,status:404}:{ok:true,headers:new Headers(),json:async()=>({from:'site'})};};
+  const first=await requestJSON('data/latest.json?t=1');
+  assert.equal(first.d.from,'site');
+  assert.equal(urls.filter(u=>u.includes('/live/m/')).length,3);
+  urls.length=0;
+  const ctx2=app({navigator:{onLine:true,serviceWorker:{controller:{}}}});
+  ctx2.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>({from:'site'})};};
+  await ctx2.api.requestJSON('data/latest.json?t=1');
+  assert.ok(!urls.some(u=>u.includes('/live/m/')),'service worker varsa sıranı o idarə edir');
+  urls.length=0;
+  const ctx3=app();
+  ctx3.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>({})};};
+  await ctx3.api.requestJSON('data/news.json?t=1');
+  assert.ok(!urls.some(u=>u.includes('/live/m/')),'tam lent saytdan gəlir');
+});
+test('an update waits while the reader is busy: open video, open popup, typing, or scrolled down',()=>{
+  const busy=(selector,extra={})=>{
+    const ctx=app({document:{documentElement:{dataset:{}},addEventListener(){},createElement(){return {};},querySelector:s=>s.includes(selector)?{}:null,...extra},scrollY:0});
+    let rendered=0;
+    vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render;',ctx);
+    ctx.api.requestRender();
+    rendered=ctx.rendered||0;
+    return {rendered,pending:ctx.api.S.renderPending};
+  };
+  assert.deepEqual(busy('#nothing'),{rendered:1,pending:false});
+  assert.deepEqual(busy('iframe'),{rendered:0,pending:true});
+  assert.deepEqual(busy('altpop'),{rendered:0,pending:true});
+  assert.deepEqual(busy('#nothing',{activeElement:{closest:()=>({})}}),{rendered:0,pending:true});
+  const ctx=app({scrollY:900});
+  ctx.api.requestRender();
+  assert.equal(ctx.api.S.renderPending,true);
+});
+test('a broken secondary block cannot freeze the news list',()=>{
+  const ctx=app(),{S,homeView}=ctx.api;
+  const at=new Date().toISOString();
+  S.data={articles:[{id:'1',title:'Bakıda yeni park açılıb bu gün',category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:at}]};
+  S.football={leagues:[{results:[{home:'A',away:'B'}]}]};
+  const html=homeView();
+  assert.ok(html.includes('apa.az/1'));
+});
+test('club filter sees names next to punctuation',()=>{
+  const {clubMatches}=app().api;
+  for(const title of ['«Qarabağ» qalib gəldi','"Sabah" səfərdə uduzdu: Qarabağ, Neftçi','Oyun (Qarabağ) başa çatdı','Qarabağ: yeni transfer'])assert.equal(clubMatches({title},'Qarabağ'),true,title);
+  assert.equal(clubMatches({title:'Qarabağlı alim mükafat aldı'},'Qarabağ'),false);
+});
+test('saved stories survive a second tab',()=>{
+  const memory=new Map();
+  const shared={getItem:k=>memory.has(k)?memory.get(k):null,setItem:(k,v)=>memory.set(k,String(v)),removeItem:k=>memory.delete(k)};
+  const a=app({localStorage:shared}).api.storage,b=app({localStorage:shared}).api.storage;
+  a.setItem('k','bir');
+  assert.equal(b.getItem('k'),'bir');
+  b.setItem('k','iki');
+  assert.equal(a.getItem('k'),'iki');
+});
+test('notifications use the service worker where the page API is not allowed',async()=>{
+  const ctx=app(),{S,showBreaking}=ctx.api,shown=[];
+  S.swReg={showNotification:async(title,options)=>{shown.push([title,options]);}};
+  await showBreaking({id:'1',title:'Son xəbər',sourceUrl:'https://apa.az/1'});
+  assert.equal(shown[0][0],'Son dəqiqə');
+  assert.equal(shown[0][1].data.url,'https://apa.az/1');
+});
+test('section pages reach back through the archive without repeating or leaking',async()=>{
+  const ctx=policyApp(),{S,sectionView,loadArchive}=ctx.api;
+  const at=h=>new Date(Date.now()-h*3600e3).toISOString();
+  const row=(id,h,source='APA',host='apa.az',title='Məktəblərdə yeni dərs ili başladı')=>({id,title,category:'tehsil',lang:'az',source,sourceUrl:`https://${host}/${id}`,publishedAt:at(h)});
+  S.data={articles:[row('now',1)]};
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({articles:[row('now',1),row('old',50),row('bad',40,'Azadlıq','azadliq.org')]})});
+  await loadArchive('tehsil');
+  const html=sectionView('tehsil');
+  assert.ok(html.includes('apa.az/old'),'köhnə xəbər');
+  assert.equal(html.split('apa.az/now').length-1>=1,true);
+  assert.ok(html.indexOf('apa.az/now')<html.indexOf('apa.az/old'),'ən yeni üstdə');
+  assert.ok(!html.includes('azadliq'),'qayda arxivə də tətbiq olunur');
+  await loadArchive('prezident');
+  assert.equal(S.archive.prezident,undefined);
 });
 function policyApp() {
   const src = fs.readFileSync(path.join(root, 'assets/content-policy.js'), 'utf8');
@@ -527,10 +620,27 @@ test('new application code replaces a cached version while online', async () => 
   const {context} = worker();
   let stored;
   context.fetch = async () => new Response('new code');
-  context.caches.open = async () => ({put: async (_key, response) => { stored = await response.text(); }});
+  context.caches.open = async () => ({match: async () => undefined, put: async (_key, response) => { stored = await response.text(); }});
   const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'new code');
   assert.equal(stored, 'new code');
+});
+
+test('new code wins over the cached copy when the network answers in time', async () => {
+  const {context} = worker();
+  context.fetch = async () => new Response('new code');
+  context.caches.open = async () => ({match: async () => new Response('cached code'), put: async () => {}});
+  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'new code');
+});
+
+test('a hanging network does not leave a blank page when a copy is saved', async () => {
+  const {context} = worker();
+  context.fetch = () => new Promise(() => {});
+  context.caches.open = async () => ({match: async () => new Response('cached code')});
+  vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
+  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'cached code');
 });
 
 test('application code is still available offline', async () => {
