@@ -10,7 +10,7 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip
+import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip
 import urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
 import content_policy
@@ -361,6 +361,8 @@ SOCIAL_FILE = OUT_DIR / "social.json"
 STATUS_FILE = OUT_DIR / "status.json"
 SOURCES_FILE = OUT_DIR / "sources.json"
 OG_FILE = OUT_DIR / "og.json"
+IMG_CHECK_FILE = CACHE_DIR / "img_check.json"
+ARCHIVE_OG_FILE = CACHE_DIR / "archive_og.json"
 DATES_FILE = OUT_DIR / "dates.json"   # tarixsiz lent elementləri üçün səhifədən oxunan dərc vaxtı
 VIDEO_FILE = OUT_DIR / "video.json"
 FOOTBALL_FILE = OUT_DIR / "football.json"
@@ -457,7 +459,7 @@ IMG_RE = re.compile(r"""<img[^>]+src\s*=\s*["']([^"']+)["']""", re.I)
 IMG_EXT = re.compile(r"\.(jpe?g|png|webp|gif|avif)(\?|$)", re.I)
 
 # Saytın ümumi paylaşım şəkli (loqo) xəbərin şəkli deyil: azertag social.jpg, «son dakika» lövhəsi və s.
-GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$", re.I)
+GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$|/site/assets/|/assets/images/", re.I)
 
 def _is_generic_img(u):
     return bool(u) and bool(GENERIC_IMG.search(u))
@@ -466,6 +468,9 @@ def _abs_img(u, base):
     if not u:
         return None
     u = html.unescape(u.strip())
+    doubled = re.match(r"https?://[^/]*?(https?://.+)$", u)  # «https://azpolitika.infohttps://static...»: ünvan iki dəfə yazılıb
+    if doubled:
+        u = doubled.group(1)
     if u.startswith("//"):
         u = "https:" + u
     u = urllib.parse.urljoin(base or "", u)
@@ -1045,9 +1050,10 @@ def telegram_items(channel, host, pages=3, limit=20):
             if len(title) < 12:
                 continue
             when = re.search(r'datetime="([^"]+)"', part)
+            photo = re.search(r"tgme_widget_message_photo_wrap[^>]*?background-image:url\('([^']+)'", part)
             out.append({
                 "title": title, "link": link, "description": "",
-                "pubDate": when.group(1) if when else "", "author": "", "image": None,
+                "pubDate": when.group(1) if when else "", "author": "", "image": photo.group(1) if photo else None,
             })
             if len(out) >= limit:
                 return out
@@ -1295,7 +1301,10 @@ def _older_than(pub, floor):
 def apply_og_cache(articles):
     """Sürətli dövrə şəkil sorğusu göndərmir; yavaş prosesin tapdığı şəkillər işlədilir."""
     cache = _read_json(OG_FILE, {})
+    checked = _read_json(IMG_CHECK_FILE, {})
     for a in articles:
+        if checked.get(a.get("imageUrl")):
+            a["imageUrl"] = None
         image = cache.get(a.get("sourceUrl") or "") if isinstance(cache, dict) else None
         if not a.get("imageUrl") and isinstance(image, str) and image and not _is_generic_img(image):
             a["imageUrl"] = image
@@ -1379,6 +1388,19 @@ def feed_backlog(cutoff):
                 continue
     return rows
 
+def fill_archive_images(rows, images, limit=40):
+    """Lentdən keçməyən xəbərin (feed_backlog) og:image sorğusu olmayıb: burada, bir saata 40 səhifə. Tapılan arxivdə qalır."""
+    todo = [a["sourceUrl"] for a in rows if not a.get("imageUrl") and a["sourceUrl"] not in images][:limit]
+    if todo:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            found = list(ex.map(_fetch_og, todo))
+        repeats = collections.Counter(img for img in found if img)
+        images.update((url, "" if repeats[img] >= 3 else img) for url, img in zip(todo, found) if img is not None)
+    for a in rows:
+        if not a.get("imageUrl") and images.get(a["sourceUrl"]):
+            a["imageUrl"] = images[a["sourceUrl"]]
+    return rows
+
 def update_archive(now=None):
     now = now or time.time()
     articles = _read_json(OUT_FILE, {}).get("articles") or []
@@ -1388,6 +1410,7 @@ def update_archive(now=None):
     cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
     merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []}
     backlog = feed_backlog(cutoff)
+    images = _read_json(ARCHIVE_OG_FILE, {})
     for slug, _label, _desc in SECTIONS:
         if slug == "prezident":  # Zuğulba lentdə 60 gün qalır
             continue
@@ -1398,18 +1421,23 @@ def update_archive(now=None):
         for a in [*saved, *(a for a in backlog if a["category"] in names), *(a for a in articles if a.get("category") in names)]:
             url = fix_source_link(a.get("sourceUrl"))
             if url and url not in merged:
-                rows[url] = {**{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "sourceUrl": url, "category": slug}
+                known = (rows.get(url) or {}).get("imageUrl")  # lentin şəkilsiz nüsxəsi arxivdə tapılan şəkli silməsin
+                rows[url] = {**({"imageUrl": known} if known else {}), **{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "sourceUrl": url, "category": slug}
         # Tarixi oxunmayan xəbər arxivdə qalmır.
         kept = [a for a in rows.values() if (_parse_dt(a.get("publishedAt")) or cutoff - datetime.timedelta(1)) >= cutoff
                 and not is_junk(a.get("sourceUrl", "")) and not removed_source(a)
                 and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
         kept, _ = content_policy.enforce(kept)
         kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+        kept = kept[:ARCHIVE_MAX_BY_SECTION.get(slug, ARCHIVE_MAX)]
+        if slug in BACKLOG_SECTIONS:
+            kept = fill_archive_images(kept, images)
         ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-        _write_atomic(path, json.dumps({"at": now, "articles": kept[:ARCHIVE_MAX_BY_SECTION.get(slug, ARCHIVE_MAX)]}, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(path, json.dumps({"at": now, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
         for old in aliases:  # köhnə fayl boşalır: növbəti dəfə eyni xəbər yenidən köçürülməsin
             if old.exists():
                 _write_atomic(old, json.dumps({"at": now, "articles": []}, separators=(",", ":")))
+    _save_cache(ARCHIVE_OG_FILE, images)
 
 
 # Səsli oxu söndürülüb, reader.json-u işlədən yoxdur: 400 xəbərin tam mətni açıq yayımlanmasın (müəllif hüququ).
@@ -1427,7 +1455,7 @@ def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = _read_json(OUT_FILE, {}).get("articles") or []
     steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
-             lambda: fill_og_images(articles), retire_reader, refresh_slow_feeds, write_public, update_archive]
+             lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive]
     for step in steps:
         try:
             step()
@@ -1439,7 +1467,7 @@ def slow_cycle():
 MARKET_DEFS = [
     # id, ad (UI), vahid, onluq
     ("USD", "Dollar", "AZN", 4), ("EUR", "Avro", "AZN", 4), ("RUB100", "100 Rubl", "AZN", 4),
-    ("TRY100", "100 Lirə", "AZN", 4), ("BRENT", "Brent", "USD", 2), ("WTI", "Neft (WTI)", "USD", 2),
+    ("TRY100", "100 Lirə", "AZN", 4), ("CNY", "Yuan", "AZN", 4), ("BRENT", "Brent", "USD", 2), ("WTI", "Neft (WTI)", "USD", 2),
     ("XAU", "Qızıl", "USD", 1), ("XAG", "Gümüş", "USD", 2), ("BTC", "Bitcoin", "USD", 0),
 ]
 
@@ -1497,7 +1525,7 @@ def get_currencies():
     res = {}
     if cur:
         r, p = cur[1], (prev[1] if prev else {})
-        for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100)):
+        for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100), ("CNY", "CNY", 1)):
             if code in r:
                 res[mid] = {"value": r[code] * mult, "prev": p[code] * mult if code in p else None,
                             "src": "AMB", "asOf": cur[0].isoformat()}
@@ -1505,7 +1533,7 @@ def get_currencies():
     # Ehtiyat: open.er-api.com (açarsız, gündəlik)
     g = fetch_json("https://open.er-api.com/v6/latest/USD")
     azn = g["rates"]["AZN"]
-    for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100)):
+    for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100), ("CNY", "CNY", 1)):
         if code in g["rates"]:
             res[mid] = {"value": azn / g["rates"][code] * mult, "prev": None, "src": "ExchangeRate-API"}
     return res
@@ -3022,7 +3050,24 @@ _OG_NAMES = {"og:image", "og:image:url", "twitter:image", "twitter:image:src"}
 _LD_IMG = re.compile(r'"image"\s*:\s*(?:\{[^}]*?"url"\s*:\s*)?"(https?://[^"]+)"', re.I)
 _IMG_SRC = re.compile(r'<link[^>]+rel=["\']image_src["\'][^>]+href=["\']([^"\']+)', re.I)
 
-def _og_from_html(raw, base):
+_H1 = re.compile(r"<h1\b", re.I)
+_PAGE_IMG = re.compile(r"""<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)""", re.I)
+_NOT_PHOTO = re.compile(r"\.(?:gif|svg)(?:\?|$)|icon|avatar|banner|sprite|pixel|^data:", re.I)
+
+def _headline_img(text, base, skip=()):
+    """og:image saytın loqosudursa (Lent.az) xəbərin öz şəkli başlığın yanındadır. Yalnız saytın öz ünvanından: reklam olmasın."""
+    h1 = _H1.search(text)
+    if not h1:
+        return ""
+    host = urllib.parse.urlparse(base).netloc.replace("www.", "")
+    near = [(abs(m.start() - h1.start()), m.group(1)) for m in _PAGE_IMG.finditer(text, max(0, h1.start() - 2500), h1.start() + 2500)]
+    for _, src in sorted(near, key=lambda n: n[0]):
+        img = _abs_img(src, base)
+        if img and host and host in urllib.parse.urlparse(img).netloc and img not in skip and not _is_generic_img(img) and not _NOT_PHOTO.search(img):
+            return img
+    return ""
+
+def _og_from_html(raw, base, skip=()):
     text = raw.decode("utf-8", "replace")
     cands = []
     for tag in _OG_META.findall(text):
@@ -3038,22 +3083,51 @@ def _og_from_html(raw, base):
     m = _LD_IMG.search(text)
     if m:
         cands.append(html.unescape(m.group(1)))
-    for c in cands:
+    # Sporx og:image-də nisbi ünvan verir, əsl şəkil isə başqa hostdadır: tam ünvanlı namizəd üstündür.
+    for c in sorted(cands, key=lambda c: not c.startswith(("http://", "https://", "//"))):
         img = _abs_img(c, base)
-        if img and not _is_generic_img(img):
+        if img and img not in skip and not _is_generic_img(img):
             return img
-    return ""
+    return _headline_img(text, base, skip)
 
-def _fetch_og(url):
+def _fetch_og(url, skip=()):
+    """Şəkil ünvanı; səhifədə yoxdursa və ya sayt bizi buraxmırsa "" (403: tez-tez yoxlanmır), şəbəkə xətasında None (tezliklə yenidən)."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
         with urllib.request.urlopen(req, timeout=6) as r:
             ctype = (r.headers.get("Content-Type") or "").lower()
             if ctype and "html" not in ctype and "xml" not in ctype:
                 return ""
-            return _og_from_html(r.read(90000), url)
+            return _og_from_html(r.read(300000), url, skip)
+    except urllib.error.HTTPError as e:
+        return None if e.code >= 500 else ""
     except Exception:
-        return ""
+        return None
+
+def _image_dead(url):
+    """Yalnız sayt özü «yoxdur» deyəndə: GitHub IP-sini bloklayan host brauzerdə açıla bilər."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Range": "bytes=0-0"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            return "html" in (r.headers.get("Content-Type") or "").lower()
+    except urllib.error.HTTPError as e:
+        return e.code in (404, 410)
+    except Exception:
+        return False
+
+def drop_dead_images(articles, limit=120):
+    """Lentin verdiyi şəkil ölüdürsə (Modern.az: /file/articles/... 404) xəbər şəkilsiz sayılır, fill_og_images səhifədən tapır."""
+    checked = _read_json(IMG_CHECK_FILE, {})
+    urls = {a["imageUrl"] for a in articles if a.get("imageUrl")}
+    todo = [u for u in urls if u not in checked][:limit]
+    if todo:
+        with ThreadPoolExecutor(max_workers=12) as ex:
+            checked.update(zip(todo, ex.map(_image_dead, todo)))
+    _save_cache(IMG_CHECK_FILE, {u: checked[u] for u in urls if u in checked})
+    for a in articles:
+        if checked.get(a.get("imageUrl")):
+            a["imageUrl"] = None
+    return articles
 
 # ---------------------------------------------------------------- tarixsiz lentlər ---
 # Bəzi lentlər (İki Sahil) pubDate vermir. Əvvəl belə elementlər hər dövrədə «indi» tarixi alırdı:
@@ -3191,6 +3265,7 @@ def fill_og_images(articles, limit=120):
     for k, v in list(cache.items()):
         if v and freq.get(v, 0) >= 3:
             cache[k] = ""
+    logos = {v for v, n in freq.items() if n >= 3}
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
@@ -3208,18 +3283,20 @@ def fill_og_images(articles, limit=120):
     try:
         if batch:
             with ThreadPoolExecutor(max_workers=12) as ex:
-                found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
+                found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or "", logos), batch))
             for img in found:
                 if img:
                     freq[img] = freq.get(img, 0) + 1
             for a, img in zip(batch, found):
+                # Şəbəkə xətası və ya yeni üzə çıxan loqo: xəbər lentdə cəmi 3-4 saat qalır, 6 saat gözləsə şəkilsiz çıxıb gedir.
+                soon = img is None or bool(img and freq.get(img, 0) >= 3)
                 if img and freq.get(img, 0) >= 3:
                     img = ""  # bu dövrədə də eyni şəkil təkrarlanır: loqo
                 cache[a["sourceUrl"]] = img or ""
                 if img:
                     retry_after.pop(a["sourceUrl"], None)
                 else:
-                    retry_after[a["sourceUrl"]] = now_ts + 6 * 3600
+                    retry_after[a["sourceUrl"]] = now_ts + (900 if soon else 6 * 3600)
                 if img:
                     a["imageUrl"] = img
     except Exception as e:

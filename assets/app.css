@@ -1003,3 +1003,23 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 .nav-sub .pill{min-height:34px;padding:4px 11px;font-size:.82rem}
 #view{scroll-margin-top:90px}
 @media(max-width:600px){#view{scroll-margin-top:8px}}
+
+/* «Paylaş» işarə yox, yazıdır */
+.share{width:auto;height:24px;padding:0 9px;border:1px solid var(--border);font-size:.72rem;font-weight:700;line-height:1;white-space:nowrap}
+.share:hover{border-color:var(--primary)}
+@media (max-width:600px){.share{width:auto;height:28px;padding:0 10px}}
+/* Rejim düyməsi: yazı kənara dəyməsin (.topbar .prefs button 3px qoyur) */
+.topbar .prefs .theme-btn{padding:0 6px}
+@media (min-width:601px){.topbar .prefs .theme-btn{padding:0 8px;height:22px}}
+/* Tıxac: Namaz yaşıl, hava mavi, yol isə işıqforun narıncısı */
+:root{--tix-pill:linear-gradient(180deg,#ea580c 0%,#c2410c 100%);--tix-on:#fff7ed}
+:root[data-theme="light"]{--tix-pill:linear-gradient(180deg,#fdba74 0%,#fb923c 100%);--tix-on:#7c2d12}
+.tix-top{background:var(--tix-pill);color:var(--tix-on);border-color:transparent}
+.tix-top:hover{filter:brightness(1.08);border-color:transparent;color:var(--tix-on)}
+/* Loqo tünd fon üçün çəkilib: işıqlı rejimdə də şəkil yerində tünd lövhə (başlıqdakı .logo kimi) */
+:root[data-theme="light"] .image-fallback{background:radial-gradient(ellipse at 80% 20%,#ffc21b24,transparent 65%),linear-gradient(145deg,#1f1c17,#0e0d0b);color:#d6d0c4}
+:root[data-theme="light"] .image-fallback small{color:#b5afa3}
+.fcontact{margin:8px 0 0}
+@media(max-width:600px){.grid .card .image-fallback>span,.grid .card .image-fallback small,.secrow .card .image-fallback>span,.secrow .card .image-fallback small{display:none}}
+/* Telefonda başlıqlar alçaq, barmaq üçün rahat qalır */
+@media(max-width:600px){nav.main>a{min-height:30px;padding:3px 10px;font-size:.8rem;line-height:1.2}nav.main{gap:3px}.nav-sub .pill{min-height:30px;padding:3px 10px;font-size:.8rem}}

@@ -656,6 +656,53 @@ class SectionPagesTest(unittest.TestCase):
         self.assertNotEqual(updater.categorize("Pensions rise", "", "en", None, True), "Sosial müdafiə")
         self.assertNotEqual(updater.categorize("Зарплаты растут", "", "ru", None, True), "Sosial müdafiə")
 
+    def test_yuan_is_a_tracked_currency(self):
+        self.assertIn(("CNY", "Yuan", "AZN", 4), updater.MARKET_DEFS)
+
+    def test_doubled_image_address_is_repaired(self):
+        self.assertEqual(updater._abs_img("https://azpolitika.infohttps://static.azpolitika.info/a.jpg", "https://azpolitika.info/x"), "https://static.azpolitika.info/a.jpg")
+        kept = "https://iaaspr.tmgrup.com.tr/5cd/0/0?u=https://iaspr.tmgrup.com.tr/a.jpg"
+        self.assertEqual(updater._abs_img(kept, "https://x.tr/"), kept)
+
+    def test_page_image_prefers_full_address_and_skips_site_logo(self):
+        sporx = b'<meta property="og:image" content="/img/59/a.jpg"><script>{"image":"https://cdn.sporx.com/img/59/a.jpg"}</script>'
+        self.assertEqual(updater._og_from_html(sporx, "https://www.sporx.com/x"), "https://cdn.sporx.com/img/59/a.jpg")
+        lent = ('<meta property="og:image" content="https://lent.az/site/assets/images/img/lent-az.png"><img src="https://lent.az/storage/old/sidebar.webp">' + "x" * 3000
+                + '<img src="https://ads.net/a.jpg"><img src="https://lent.az/storage/news/big/a.webp"><h1 class="news-title">Başlıq</h1><img src="https://lent.az/site/assets/images/icons/time.svg">').encode()
+        self.assertEqual(updater._og_from_html(lent, "https://lent.az/xeber/1"), "https://lent.az/storage/news/big/a.webp")
+        same = b'<meta property="og:image" content="https://x.az/brand.png"><img src="https://x.az/news/a.jpg"><h1>T</h1>'
+        self.assertEqual(updater._og_from_html(same, "https://x.az/1", {"https://x.az/brand.png"}), "https://x.az/news/a.jpg")
+
+    def test_page_lookup_tells_blocked_from_network_failure(self):
+        blocked = updater.urllib.error.HTTPError("u", 403, "x", {}, None)
+        with patch.object(updater.urllib.request, "urlopen", side_effect=blocked):
+            self.assertEqual(updater._fetch_og("https://report.az/1"), "")
+        with patch.object(updater.urllib.request, "urlopen", side_effect=TimeoutError()):
+            self.assertIsNone(updater._fetch_og("https://report.az/1"))
+
+    def test_dead_feed_image_is_dropped_and_the_page_image_used(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), patch.object(updater, "IMG_CHECK_FILE", pathlib.Path(tmp) / "c.json"), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"):
+            rows = [{"sourceUrl": "https://modern.az/1", "imageUrl": "https://files.modern.az/dead.jpg"}, {"sourceUrl": "https://apa.az/1", "imageUrl": "https://apa.az/ok.jpg"}]
+            with patch.object(updater, "_image_dead", side_effect=lambda u: "dead" in u) as probe:
+                updater.drop_dead_images(rows)
+                self.assertEqual(probe.call_count, 2)
+                updater.drop_dead_images([{"imageUrl": "https://apa.az/ok.jpg"}])
+                self.assertEqual(probe.call_count, 2, "yoxlanan ünvan təkrar sorğulanmır")
+            self.assertIsNone(rows[0]["imageUrl"])
+            self.assertEqual(rows[1]["imageUrl"], "https://apa.az/ok.jpg")
+            (pathlib.Path(tmp) / "c.json").write_text('{"https://files.modern.az/dead.jpg": true}', encoding="utf-8")
+            (pathlib.Path(tmp) / "og.json").write_text('{"https://modern.az/1": "https://files.modern.az/photo/a.png"}', encoding="utf-8")
+            fast = [{"sourceUrl": "https://modern.az/1", "imageUrl": "https://files.modern.az/dead.jpg"}]
+            updater.apply_og_cache(fast)
+            self.assertEqual(fast[0]["imageUrl"], "https://files.modern.az/photo/a.png")
+
+    def test_telegram_post_photo_becomes_the_image(self):
+        page = ('<div class="tgme_widget_message_wrap"><a class="tgme_widget_message_photo_wrap 1 x" href="https://t.me/r/1" style="width:1px;background-image:url(\'https://cdn4.telesco.pe/file/a.jpg\')"></a>'
+                '<div class="tgme_widget_message_text">Bu xəbərin başlığı kifayət qədər uzundur <a href="https://report.az/a/b">x</a></div><time datetime="2026-10-31T10:00:00+00:00"></time></div>')
+        with patch.object(updater, "fetch", return_value=page.encode()):
+            rows = updater.telegram_items("r", "report.az", pages=1)
+        self.assertEqual(rows[0]["image"], "https://cdn4.telesco.pe/file/a.jpg")
+
     def test_state_sites_never_hold_the_fast_cycle(self):
         self.assertIn("Gəncə ŞİH", updater.SLOW_ONLY_FEEDS)
         self.assertIn("ƏƏSMN", updater.SLOW_ONLY_FEEDS)

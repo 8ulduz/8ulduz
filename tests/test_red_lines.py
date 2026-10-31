@@ -507,7 +507,7 @@ class ArchiveTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = pathlib.Path(self.tmp.name)
-        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv")]
+        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv"), patch.object(updater, "ARCHIVE_OG_FILE", root / "aog.json"), patch.object(updater, "CACHE_DIR", root), patch.object(updater, "_fetch_og", return_value="")]
         for p in self.patches:
             p.start()
 
@@ -587,6 +587,17 @@ class ArchiveTest(unittest.TestCase):
             updater.update_archive()
         self.assertEqual([a["sourceUrl"] for a in self.rows("sosial")], ["https://dost.gov.az/news/1"])
         self.assertEqual(self.rows("sosial")[0]["category"], "sosial")
+
+    def test_backlog_stories_get_their_page_image_once(self):
+        self.write(self.row("https://apa.az/1", 1))
+        first, second = self.backlog_feed(self.feed_item("https://dost.gov.az/news/4", 3))
+        with first, second, patch.object(updater, "_fetch_og", return_value="https://dost.gov.az/a.jpg") as look:
+            updater.update_archive()
+            self.assertEqual(self.rows("sosial")[0]["imageUrl"], "https://dost.gov.az/a.jpg")
+            self.assertEqual(look.call_count, 1)
+            updater.update_archive(now=updater.time.time() + 3700)
+            self.assertEqual(look.call_count, 1, "bir dəfə tapılan yenidən sorğulanmır")
+            self.assertEqual(self.rows("sosial")[0]["imageUrl"], "https://dost.gov.az/a.jpg")
 
     def test_backlog_keeps_the_negative_leadership_filter(self):
         self.write(self.row("https://apa.az/1", 1))

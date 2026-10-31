@@ -36,10 +36,11 @@ const FLAGS = {
   ru: flag(`<rect width="30" height="20" fill="#fff"/><rect y="6.67" width="30" height="6.67" fill="#0039a6"/><rect y="13.33" width="30" height="6.67" fill="#d52b1e"/>`),
   en: flag(`<rect width="30" height="20" fill="#012169"/><path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0l30 20M30 0L0 20" stroke="#c8102e" stroke-width="1.6"/><path d="M15 0v20M0 10h30" stroke="#fff" stroke-width="6.5"/><path d="M15 0v20M0 10h30" stroke="#c8102e" stroke-width="4"/>`),
   us: flag(`<rect width="30" height="20" fill="#fff"/><path d="M0 1.5h30M0 4.6h30M0 7.7h30M0 10.8h30M0 13.9h30M0 17h30M0 20h30" stroke="#b22234" stroke-width="1.54"/><rect width="13" height="10.8" fill="#3c3b6e"/>`),
+  cn: flag(`<rect width="30" height="20" fill="#de2910"/><path d="M7 3.2l1.3 4h4.2l-3.4 2.5 1.3 4L7 11.2l-3.4 2.5 1.3-4L1.5 7.2h4.2z" fill="#ffde00"/><circle cx="15" cy="3.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="6.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="10" r=".9" fill="#ffde00"/><circle cx="15" cy="13" r=".9" fill="#ffde00"/>`),
   eu: flag(`<rect width="30" height="20" fill="#039"/><circle cx="15" cy="10" r="5.6" fill="none" stroke="#fc0" stroke-width="1.7" stroke-dasharray="1.7 1.23"/>`),
 };
 // Bazar kartları və məzənnə səhifəsi: valyutanın bayrağı, qalanının simvolu.
-const MARKET_ICON = { USD: FLAGS.us, EUR: FLAGS.eu, RUB100: FLAGS.ru, TRY100: FLAGS.tr, BRENT: "🛢", WTI: "🛢", XAU: "🥇", XAG: "🥈", BTC: "₿" };
+const MARKET_ICON = { USD: FLAGS.us, EUR: FLAGS.eu, RUB100: FLAGS.ru, TRY100: FLAGS.tr, CNY: FLAGS.cn, BRENT: "🛢", WTI: "🛢", XAU: "🥇", XAG: "🥈", BTC: "₿" };
 const marketIcon = id => MARKET_ICON[id] ? `<span class="mk-ic">${MARKET_ICON[id]}</span>` : "";
 const GROUP_FLAG = { "Azərbaycan": FLAGS.az, "Türkiyə": FLAGS.tr, "Avropa": FLAGS.eu };
 const PREZ_LINKS = [
@@ -388,7 +389,8 @@ const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"
 
 function imageCandidates(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
-  return [...new Set(values.filter(u => typeof u === "string" && /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))];
+  // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
+  return [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))];
 }
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 function img(a, cls = "", eager = false, linked = false) {
@@ -410,8 +412,7 @@ function shownSource(a) {
   return a.source || "";
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
-const SHARE_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>`;
-const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${safeHref(a.sourceUrl)}" aria-label="Paylaş" title="Paylaş">${SHARE_ICON}</button>`;
+const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${safeHref(a.sourceUrl)}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
 const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3 lang="${esc(langOf(a))}">${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
 
@@ -726,7 +727,7 @@ async function loadMarkets() {
   try {
     const g = await (await fetch("https://open.er-api.com/v6/latest/USD")).json(), azn = g.rates.AZN;
     items.push({ label: "Dollar", value: azn, dec: 4, unit: "AZN" }, { label: "Avro", value: azn / g.rates.EUR, dec: 4, unit: "AZN" },
-      { label: "100 Rubl", value: azn / g.rates.RUB * 100, dec: 4, unit: "AZN" }, { label: "100 Lirə", value: azn / g.rates.TRY * 100, dec: 4, unit: "AZN" });
+      { label: "100 Rubl", value: azn / g.rates.RUB * 100, dec: 4, unit: "AZN" }, { label: "100 Lirə", value: azn / g.rates.TRY * 100, dec: 4, unit: "AZN" }, { label: "Yuan", value: azn / g.rates.CNY, dec: 4, unit: "AZN" });
   } catch {}
   for (const [sym, label, dec] of [["XAU", "Qızıl", 1], ["XAG", "Gümüş", 2]]) {
     try { const x = await (await fetch(`https://api.gold-api.com/price/${sym}`)).json(); x?.price && items.push({ label, value: x.price, dec, unit: "USD" }); } catch {}
@@ -1544,8 +1545,9 @@ function trackedSources() {
 }
 function renderFooter() {
   const srcs = trackedSources();
+  const contact = String(window.SITE_CONFIG?.contact || "").trim();
   $("#footer").innerHTML = `<div class="wrap fgrid">
-    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
+    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>Xidmətlər</h4><div class="fcats"><a href="#/bolme/valyuta">Valyuta məzənnəsi</a><a href="#/bolme/cedvel">Premyer Liqa cədvəli</a><a href="#/bolme/tixac">Tıxac və yollar</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
