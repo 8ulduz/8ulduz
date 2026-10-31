@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -848,6 +848,54 @@ test('home keeps slider stories after the sixth in the lists below', () => {
   assert.equal(slides.length,15);
   assert.ok(!below.includes('apa.az/'+slides[0]+'"'),'ilk xəbər aşağıda təkrarlanmır');
   assert.ok(below.includes('apa.az/'+slides[10]+'"'),'11-ci xəbər aşağıda da qalır');
+});
+test('cards can be shared, except stories with an unsafe link', () => {
+  const ctx=app(),{card}=ctx.api,at=new Date().toISOString();
+  ctx.api.S.og={};
+  const row=url=>({id:'1',title:'Xəbər',lang:'az',category:'gundem',source:'APA',sourceUrl:url,publishedAt:at});
+  assert.ok(card(row('https://apa.az/1')).includes('data-share="https://apa.az/1"'));
+  assert.ok(!card(row('javascript:alert(1)')).includes('data-share'));
+});
+test('service addresses open their own views and old section links stay', () => {
+  const ctx=app(),{route}=ctx.api;
+  const at=hash=>{ctx.location.hash=hash;return route();};
+  assert.equal(at('#/bolme/valyuta').name,'rates');
+  assert.equal(at('#/bolme/cedvel').name,'league');
+  assert.equal(at('#/bolme/tixac').name,'traffic');
+  assert.equal(at('#/tixac').name,'traffic');
+  assert.equal(at('#/bolme/idman').slug,'idman');
+});
+test('the rates page names each source and marks the direction', () => {
+  const ctx=app(),{S,ratesView}=ctx.api;
+  S.markets=null;
+  assert.ok(ratesView().includes('yüklənir'));
+  S.markets=[{label:'Dollar',value:1.7,dec:4,unit:'AZN',changePct:0,src:'AMB',asOf:'2026-10-31'},{label:'Avro',value:1.9019,dec:4,unit:'AZN',changePct:0.39,src:'AMB'},{label:'Rubl <b>',value:2.09,dec:4,unit:'AZN',changePct:-0.92,src:'ExchangeRate-API'}];
+  const html=ratesView();
+  assert.ok(html.includes('1.7000 AZN'));
+  assert.ok(html.includes('+0.39%'));
+  assert.ok(html.includes('class="down"'));
+  assert.ok(html.includes('ExchangeRate-API'));
+  assert.ok(html.includes('Rubl &lt;b&gt;'));
+});
+test('the install button appears only when installing is possible', () => {
+  const ctx=app(),{S,installBtn}=ctx.api;
+  assert.equal(installBtn(),'');
+  S.installEvt={};
+  assert.ok(installBtn().includes('data-act="install"'));
+  const iphone=app({navigator:{onLine:true,userAgent:'iPhone'}});
+  assert.ok(iphone.api.installBtn().includes('data-act="install"'));
+  const home=app({navigator:{onLine:true,userAgent:'iPhone',standalone:true}});
+  assert.equal(home.api.installBtn(),'');
+});
+test('counting a click never breaks the page', () => {
+  const ctx=app(),{trackEvent}=ctx.api;
+  trackEvent('share-copy');
+  const seen=[];ctx.window.goatcounter={count:o=>seen.push(o)};
+  trackEvent('share-copy');
+  assert.equal(seen[0].path,'share-copy');
+  assert.equal(seen[0].event,true);
+  ctx.window.goatcounter={count(){throw Error('x');}};
+  trackEvent('share-copy');
 });
 test('a team search finds every spelling, in every language, including the archive', () => {
   const ctx=app(),{S,searchView,searchTopics}=ctx.api,at=new Date().toISOString();

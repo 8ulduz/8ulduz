@@ -2747,8 +2747,8 @@ _SECTION_HTML = """<!doctype html>
   </head>
   <body>
     <div id="app">
-      <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p><ul>__ITEMS__</ul>
-      <p><a href="../../">8ulduz — baş səhifə</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -2761,8 +2761,41 @@ def section_page(slug, label, desc, articles, limit=30):
         f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
         for a in items[:limit])
     url = f"{SITE}bolme/{slug}/"
-    return (_SECTION_HTML.replace("__ITEMS__", lis).replace("__LABEL__", _xml(label)).replace("__DESC__", _xml(desc))
+    return _page_html(slug, label, desc, f"<ul>{lis}</ul>")
+
+def _page_html(slug, label, desc, items):
+    url = f"{SITE}bolme/{slug}/"
+    return (_SECTION_HTML.replace("__ITEMS__", items).replace("__LABEL__", _xml(label)).replace("__DESC__", _xml(desc))
             .replace("__URL__", url).replace("__SITE__", SITE).replace("__SLUG__", slug))
+
+# Xidmət səhifələri: axtarış sistemi hash ünvanını ayrıca səhifə saymır. bolme/ altındadır, çünki pipeline.sh main-ə bu qovluğu yazır.
+SERVICE_PAGES = [
+    ("valyuta", "Valyuta məzənnəsi", "Dollar, avro, rubl və lirənin manatla bugünkü məzənnəsi, neft və qızıl qiyməti"),
+    ("cedvel", "Premyer Liqa cədvəli", "Azərbaycan Premyer Liqasının turnir cədvəli"),
+    ("tixac", "Tıxac və yollar", "Bakı və Abşeronda yol vəziyyəti, qəza və bağlanan yollar haqqında son xəbərlər"),
+]
+_ROAD_RX = re.compile(r"tıxac|qəza(?!lı)|yol polisi|nəqliyyatın hərəkət|yol bağlı|avtomobil yol|(?:^|[^\w])(?:BNA|DYP)(?:[^\w]|$)", re.I)
+
+def _table(head, rows):
+    cells = lambda row, tag: "".join(f"<{tag}>{_xml('' if c is None else str(c))}</{tag}>" for c in row)
+    body = "".join("<tr>" + cells(r, "td") + "</tr>" for r in rows)
+    return "<table><thead><tr>" + cells(head, "th") + "</tr></thead><tbody>" + body + "</tbody></table>"
+
+def service_body(slug, articles):
+    if slug == "valyuta":
+        items = _read_json(MARKETS_FILE, {}).get("items") or []
+        rows = [(i.get("label"), f'{float(i["value"]):.{i.get("dec", 2)}f} {i.get("unit") or ""}'.strip(), i.get("src") or "", i.get("asOf") or (i.get("at") or "")[:10])
+                for i in items if i.get("value") is not None]
+        return _table(("Ad", "Qiymət", "Mənbə", "Tarix"), rows) if rows else "<p>Məzənnə məlumatı hazırda yoxdur.</p>"
+    if slug == "cedvel":
+        fb = _read_json(FOOTBALL_FILE, {})
+        rows = [(t.get("pos"), t.get("team"), t.get("p"), t.get("w"), t.get("d"), t.get("l"), t.get("gf"), t.get("ga"), t.get("pts")) for t in fb.get("table") or []]
+        title = f'<h2>{_xml(fb.get("league"))} {_xml(fb.get("season"))}</h2>' if fb.get("league") else ""
+        return title + _table(("#", "Komanda", "O", "Q", "H", "M", "Vurulan", "Buraxılan", "Xal"), rows) if rows else "<p>Cədvəl hazırda yoxdur.</p>"
+    road = [a for a in articles if (a.get("lang") or "az") == "az" and _ROAD_RX.search(a.get("title") or "")]
+    road.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+    lis = "".join(f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in road[:20])
+    return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p><ul>{lis}</ul>'
 
 def write_sections(articles):
     for slug, label, desc in SECTIONS:
@@ -2774,11 +2807,18 @@ def write_sections(articles):
         d.mkdir(parents=True, exist_ok=True)
         _write_atomic(d / "index.html", f'<!doctype html><html lang="az"><head><meta charset="UTF-8" /><link rel="canonical" href="{SITE}bolme/{new}/" />'
                       f'<meta http-equiv="refresh" content="0;url=../{new}/" /><title>8ulduz</title></head><body><a href="../{new}/">Bölməyə keç</a></body></html>\n', encoding="utf-8")
+    for slug, label, desc in SERVICE_PAGES:
+        try:  # bir xidmətin zədəli faylı bölmə səhifələrini və sitemap-i saxlamasın
+            d = SECTIONS_DIR / slug
+            d.mkdir(parents=True, exist_ok=True)
+            _write_atomic(d / "index.html", _page_html(slug, label, desc, service_body(slug, articles)), encoding="utf-8")
+        except Exception as e:
+            print("  ! xidmət səhifəsi:", slug, type(e).__name__, e)
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
 def write_sitemap():
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-    locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in SECTIONS]
+    locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc in locs:

@@ -520,8 +520,45 @@ class SectionPagesTest(unittest.TestCase):
         self.assertIn('src="../../assets/app.js"', page)
         self.assertIn('"../../#/bolme/idman"', page)
         self.assertIn(updater.SITE + "bolme/idman/", sitemap)
-        self.assertEqual(len(pages), len(updater.SECTIONS) + len(updater.SECTION_ALIASES))  # köhnə ünvanlar yönləndirir
+        self.assertEqual(len(pages), len(updater.SECTIONS) + len(updater.SECTION_ALIASES) + len(updater.SERVICE_PAGES))  # köhnə ünvanlar yönləndirir
+        self.assertIn(updater.SITE + "bolme/valyuta/", sitemap)
         self.assertNotIn("bolme/sehiyye/", sitemap)
+
+    def test_service_pages_carry_real_data_for_search_engines(self):
+        articles = [
+            {"title": "Bakıda tıxac yarandı", "lang": "az", "source": "APA", "sourceUrl": "https://apa.az/1", "publishedAt": "2026-10-27T10:00:00+00:00"},
+            {"title": "Qəzalı vəziyyət elan olundu", "lang": "az", "source": "APA", "sourceUrl": "https://apa.az/2", "publishedAt": "2026-10-27T10:00:00+00:00"},
+            {"title": "Trafik sıkışıklığı tıxac", "lang": "tr", "source": "NTV", "sourceUrl": "https://ntv.com.tr/3", "publishedAt": "2026-10-27T10:00:00+00:00"},
+        ]
+        markets = {"items": [{"label": "Dollar", "value": 1.7, "dec": 4, "unit": "AZN", "src": "AMB", "asOf": "2026-10-31"}, {"label": "Boş", "value": None}]}
+        football = {"league": "Misli Premyer Liqası", "season": "2026-2027", "table": [{"pos": 1, "team": "Sabah <b>", "p": 9, "w": 6, "d": 2, "l": 1, "gf": 20, "ga": 4, "pts": 20}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "m.json").write_text(updater.json.dumps(markets), encoding="utf-8")
+            (root / "f.json").write_text(updater.json.dumps(football), encoding="utf-8")
+            with patch.object(updater, "SECTIONS_DIR", root / "bolme"), patch.object(updater, "MARKETS_FILE", root / "m.json"), patch.object(updater, "FOOTBALL_FILE", root / "f.json"):
+                updater.write_sections(articles)
+                read = lambda slug: (root / "bolme" / slug / "index.html").read_text(encoding="utf-8")
+                rates, table, road = read("valyuta"), read("cedvel"), read("tixac")
+        self.assertIn("1.7000 AZN", rates)
+        self.assertIn("<td>AMB</td>", rates)
+        self.assertNotIn("Boş", rates)
+        self.assertIn('"../../#/bolme/valyuta"', rates)
+        self.assertIn("Sabah &lt;b&gt;", table)
+        self.assertIn("Misli Premyer Liqası", table)
+        self.assertIn("apa.az/1", road)
+        self.assertNotIn("apa.az/2", road)
+        self.assertNotIn("ntv.com.tr", road)
+
+    def test_a_broken_service_file_does_not_stop_the_section_pages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "m.json").write_text(updater.json.dumps({"items": [{"label": "Dollar", "value": "pozuq"}]}), encoding="utf-8")
+            with patch.object(updater, "SECTIONS_DIR", root / "bolme"), patch.object(updater, "MARKETS_FILE", root / "m.json"), patch.object(updater, "FOOTBALL_FILE", root / "yoxdur.json"):
+                updater.write_sections([])
+            self.assertTrue((root / "bolme" / "idman" / "index.html").exists())
+            self.assertFalse((root / "bolme" / "valyuta" / "index.html").exists())
+            self.assertIn("Cədvəl hazırda yoxdur", (root / "bolme" / "cedvel" / "index.html").read_text(encoding="utf-8"))
 
     def test_site_url_follows_the_cname_file(self):
         with tempfile.TemporaryDirectory() as tmp:
