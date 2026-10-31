@@ -114,7 +114,7 @@ nav.main a.nav-tix{position:relative}
 .tix-top:hover{border-color:var(--primary);color:var(--primary)}
 /* Qırmızı nöqtə yalnız pik saatda və ya təzə yol hadisəsində (syncTixDot) */
 .tix-btn{position:relative}
-.tix-btn.hot::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:99px;background:var(--red);box-shadow:0 0 0 2px var(--header)}
+.tix-btn.hot::after{content:"";flex:none;margin-left:6px;width:7px;height:7px;border-radius:99px;background:var(--red)}
 .search{flex:none;position:relative;margin-left:auto}
 .search input{width:148px;height:32px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);padding:0 12px 0 30px;font:inherit;font-size:0.9286rem;outline:none}
 .search input:focus{border-color:var(--primary)}
@@ -125,6 +125,15 @@ nav.main a.nav-tix{position:relative}
 .skip{position:absolute;left:8px;top:-48px;z-index:90;background:var(--primary);color:var(--primary-fg);font-weight:800;padding:6px 12px;border-radius:8px}
 .skip:focus{top:8px}
 .search svg{position:absolute;left:10px;top:9px;opacity:.6}
+.search.has-mic input{width:100%;padding-right:34px}
+.search .mic{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:30px;height:30px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:999px;background:none;color:var(--muted);cursor:pointer}
+.search .mic[hidden]{display:none}
+.search .mic svg{position:static;opacity:1}
+.search .mic:hover{color:var(--primary)}
+.search .mic:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.search .mic.on{background:var(--red);color:#fff}
+@media (prefers-reduced-motion:no-preference){.search .mic.on{animation:mic-on 1.2s ease-in-out infinite}}
+@keyframes mic-on{50%{opacity:.6}}
 @media (min-width:721px){
   .topbar .wrap{flex-wrap:nowrap;height:31px;min-height:31px;overflow:visible}
   .topbar .sync{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -469,6 +478,7 @@ footer .logo img{height:28px}
   .tabbar a,.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--muted);font-size:10px;font-weight:800}
   .tabbar b{font-size:16px;line-height:1}
   .tabbar .on{color:var(--primary)}
+  .tabbar .tix-btn.hot::after{position:absolute;top:9px;left:calc(50% + 7px);margin:0;box-shadow:0 0 0 2px var(--header)}
   nav.main a.nav-tix{display:none}
   body{padding-bottom:62px}
   .totop{bottom:70px}
