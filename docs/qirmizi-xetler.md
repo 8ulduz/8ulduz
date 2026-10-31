@@ -41,3 +41,16 @@ Qaydalar bir fayldadır: `assets/content-policy.js`.
 Yeni mənbə əlavə etmək üçün həm `updater.py`-dakı lentə, həm `content-policy.js`-ə yazılmalıdır. Müxalifət mənbəsi siyahıya əlavə edilmir. Hansı mənbənin müxalifət sayıldığına sayt sahibi qərar verir.
 
 Qaydalar saytın «Haqqımızda» səhifəsində oxuculara açıq yazılıb və orada qalmalıdır.
+
+## 3. Sayt sürətli işləyir: kompüterdə, planşetdə, telefonda və tətbiqlərdə
+
+Sahibin qərarı (2026-10-31). Səhifəyə və ya məlumata ağırlıq əlavə edən hər dəyişiklikdən əvvəl və sonra ölçülür, rəqəmlər PR-da yazılır.
+
+Ölçmə: `npx lighthouse https://8ulduz.az/` (telefon), `--preset=desktop` (kompüter), 768 enində `--screenEmulation.width` (planşet).
+
+- İlk açılışda yükləmə 1,5 MB-dan az qalır. Şəkil birbaşa tam ölçüdə göstərilmir (`sized`, `assets/app.js`).
+- Bir neçə faylın gəlməsi səhifəni bir neçə dəfə yenidən çəkmir (`requestRender`).
+- Baş səhifənin ekrandan uzaq bölmələri yaxınlaşanda qurulur (`lazySection`).
+- `app.js` və `app.css`-in ölçü limiti var, `tests/browser-logic.test.cjs` yoxlayır.
+
+Ölçü 2026-10-31 (lokal, PR #55-dən sonra): telefon 46, planşet 51, kompüter 71 bal. Telefonda hədəfə hələ çatılmayıb.

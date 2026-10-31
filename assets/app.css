@@ -825,6 +825,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 .prez-lent{position:relative;display:flex;flex-direction:column;gap:8px;height:340px;overflow-y:auto;scrollbar-width:thin;scroll-snap-type:y mandatory;scroll-behavior:smooth;overflow-anchor:none}
 .prez-lent>.pcard{flex:none;min-height:74px;scroll-snap-align:start}
 .prez-lent .pcard .t{-webkit-line-clamp:3}
+.lazy-sec:has(>template){min-height:520px}
 .image-fallback{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;padding:12px;background:radial-gradient(ellipse at 80% 20%,#ffc21b24,transparent 65%),linear-gradient(145deg,var(--card2),var(--bg));color:var(--muted);text-align:center}
 .image-fallback img{height:clamp(18px,3.4vw,34px);width:auto;opacity:.92}
 .image-fallback>span{font-weight:700}
