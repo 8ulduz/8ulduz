@@ -640,6 +640,22 @@ class SectionPagesTest(unittest.TestCase):
         self.assertEqual(updater.categorize("Bu il əlilliyi olan daha 826 şəxsə reabilitasiya vasitələri verilib", ""), "Sosial müdafiə")
         self.assertEqual(updater.categorize("Pensiyalar artırılacaq", "Azərbaycanda noyabrdan"), "Sosial müdafiə")
 
+    def test_wages_jobs_and_committee_interviews_are_social_protection(self):
+        for title in ("ŞAD XƏBƏR - Əməkhaqqılar artırılır", "İşdən çıxan şəxsin son əməkhaqqı nə vaxt ödənilməlidir?", "Ehtiyac meyarı 116 manata çatdırılır",
+                      "Gənclər əmək bazarından niyə uzaqlaşır?", "450 mindən çox yeni iş yeri açılacaq", "Musa Quliyev: Heç bir layihə təxirə salınmayıb",
+                      "Deputat: Müəllimlərin maaşları artırılmalıdır"):
+            self.assertEqual(updater.categorize(title, ""), "Sosial müdafiə", title)
+
+    def test_a_passing_summary_phrase_does_not_make_social_protection(self):
+        self.assertNotEqual(updater.categorize("Müşfiq Borçalının 55 illik yubileyi keçirildi", "Tədbirdə sosial dəstək qeyd olundu"), "Sosial müdafiə")
+        self.assertNotEqual(updater.categorize("Dünyada işsizlərin sayı artır", ""), "Sosial müdafiə")
+
+    def test_foreign_and_sport_pay_stays_out_of_social_protection(self):
+        self.assertNotEqual(updater.categorize("Futbolçuların maaşları açıqlandı: Qarabağ matçı öncəsi", ""), "Sosial müdafiə")
+        self.assertNotEqual(updater.categorize("В России выросли зарплаты", "Москва"), "Sosial müdafiə")
+        self.assertNotEqual(updater.categorize("Pensions rise", "", "en", None, True), "Sosial müdafiə")
+        self.assertNotEqual(updater.categorize("Зарплаты растут", "", "ru", None, True), "Sosial müdafiə")
+
     def test_state_sites_never_hold_the_fast_cycle(self):
         self.assertIn("Gəncə ŞİH", updater.SLOW_ONLY_FEEDS)
         self.assertIn("ƏƏSMN", updater.SLOW_ONLY_FEEDS)
