@@ -3113,6 +3113,9 @@ def _fetch_og(url, skip=()):
     except Exception:
         return None
 
+DEAD_IMG_KEEP = 2000   # lentdən çıxmış ölü şəkil ünvanı: xəbər lentə qayıdanda yenidən göstərilməsin
+OG_KEEP_OUTSIDE = 400  # hazırda lentdə olmayan xəbərlərin şəkil cavabı: lent daralıb genişlənəndə xəbər geri qayıdır
+
 def _image_dead(url):
     """Yalnız sayt özü «yoxdur» deyəndə: GitHub IP-sini bloklayan host brauzerdə açıla bilər."""
     try:
@@ -3132,7 +3135,9 @@ def drop_dead_images(articles, limit=120):
     if todo:
         with ThreadPoolExecutor(max_workers=12) as ex:
             checked.update(zip(todo, ex.map(_image_dead, todo)))
-    _save_cache(IMG_CHECK_FILE, {u: checked[u] for u in urls if u in checked})
+    # Xəbərin ölü şəkli silinəndən sonra ünvan siyahıda olmur, amma xəbər lentdən çıxıb qayıdanda lent onu yenə verir.
+    dead = [u for u, is_dead in checked.items() if is_dead and u not in urls][-DEAD_IMG_KEEP:]
+    _save_cache(IMG_CHECK_FILE, {**dict.fromkeys(dead, True), **{u: checked[u] for u in urls if u in checked}})
     for a in articles:
         if checked.get(a.get("imageUrl")):
             a["imageUrl"] = None
@@ -3312,6 +3317,9 @@ def fill_og_images(articles, limit=120):
         err = f"{type(e).__name__}: {str(e)[:80]}"
         print("  ! og:image:", err)
     keep = {a.get("sourceUrl") for a in articles if a.get("sourceUrl")}
+    # Qruplaşma lenti 150 xəbər daraldır, növbəti dövrə köhnə xəbərlərlə yenidən doldurur. Cavab silinsəydi həmin xəbərlər
+    # şəkilsiz qayıdır, hər yavaş dövrədə eyni 50 səhifə yenidən sorğulanırdı (2026-10-31).
+    keep |= set([k for k in cache if k not in keep][-OG_KEEP_OUTSIDE:])
     trimmed = {k: v for k, v in cache.items() if k in keep}
     # Diaqnostika (loglara girişsiz): neçə xəbər şəkilsizdir, bu dövrədə neçəsi sorğulandı və tapıldı
     trimmed["_meta"] = {"at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),

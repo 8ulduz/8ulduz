@@ -694,6 +694,46 @@ class SectionPagesTest(unittest.TestCase):
         with patch.object(updater.urllib.request, "urlopen", side_effect=TimeoutError()):
             self.assertIsNone(updater._fetch_og("https://report.az/1"))
 
+    def test_found_image_survives_while_the_story_is_out_of_the_list(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OUT_DIR", pathlib.Path(tmp)), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"), patch.object(updater, "IMG_CHECK_FILE", pathlib.Path(tmp) / "c.json"):
+            with patch.object(updater, "_fetch_og", return_value="https://x.az/a.jpg") as fetch:
+                updater.fill_og_images([{"sourceUrl": "https://x.az/1"}])
+                updater.fill_og_images([{"sourceUrl": "https://x.az/2", "imageUrl": "https://x.az/b.jpg"}])
+                back = [{"sourceUrl": "https://x.az/1"}]
+                updater.apply_og_cache(back)
+                self.assertEqual(back[0]["imageUrl"], "https://x.az/a.jpg", "lentə qayıdan xəbər şəklini sürətli dövrədə alır")
+                updater.fill_og_images([{"sourceUrl": "https://x.az/1"}])
+                self.assertEqual(fetch.call_count, 1, "səhifə yenidən sorğulanmır")
+
+    def test_page_lookup_answer_for_a_blocked_page_is_not_retried_after_returning(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OUT_DIR", pathlib.Path(tmp)), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"):
+            with patch.object(updater, "_fetch_og", return_value="") as fetch:
+                updater.fill_og_images([{"sourceUrl": "https://x.az/1"}])
+                updater.fill_og_images([{"sourceUrl": "https://x.az/2", "imageUrl": "https://x.az/b.jpg"}])
+                updater.fill_og_images([{"sourceUrl": "https://x.az/1"}])
+                self.assertEqual(fetch.call_count, 1, "403 verən sayta 6 saat ərzində təkrar sorğu yoxdur")
+
+    def test_image_cache_outside_the_list_has_a_limit(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OUT_DIR", pathlib.Path(tmp)), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"), patch.object(updater, "OG_KEEP_OUTSIDE", 2):
+            with patch.object(updater, "_fetch_og", return_value=""):
+                for n in range(5):
+                    updater.fill_og_images([{"sourceUrl": f"https://x.az/{n}"}])
+            stored = json.loads((pathlib.Path(tmp) / "og.json").read_text(encoding="utf-8"))
+            self.assertEqual(sorted(k for k in stored if k != "_meta"), ["https://x.az/2", "https://x.az/3", "https://x.az/4"])
+
+    def test_dead_image_is_remembered_after_the_story_lost_it(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), patch.object(updater, "IMG_CHECK_FILE", pathlib.Path(tmp) / "c.json"), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"):
+            dead, live = "https://files.modern.az/dead.jpg", "https://apa.az/ok.jpg"
+            with patch.object(updater, "_image_dead", side_effect=lambda u: u == dead) as probe:
+                updater.drop_dead_images([{"sourceUrl": "https://modern.az/1", "imageUrl": dead}, {"sourceUrl": "https://apa.az/1", "imageUrl": live}])
+                updater.drop_dead_images([{"sourceUrl": "https://modern.az/1", "imageUrl": None}])
+                self.assertEqual(probe.call_count, 2)
+            stored = json.loads((pathlib.Path(tmp) / "c.json").read_text(encoding="utf-8"))
+            self.assertEqual(stored, {dead: True}, "ölü ünvan qalır, sağlamı lentdən çıxanda silinir")
+            back = [{"sourceUrl": "https://modern.az/1", "imageUrl": dead}]
+            updater.apply_og_cache(back)
+            self.assertIsNone(back[0]["imageUrl"], "lentə qayıdan xəbərdə ölü şəkil göstərilmir")
+
     def test_dead_feed_image_is_dropped_and_the_page_image_used(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), patch.object(updater, "IMG_CHECK_FILE", pathlib.Path(tmp) / "c.json"), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"):
             rows = [{"sourceUrl": "https://modern.az/1", "imageUrl": "https://files.modern.az/dead.jpg"}, {"sourceUrl": "https://apa.az/1", "imageUrl": "https://apa.az/ok.jpg"}]
