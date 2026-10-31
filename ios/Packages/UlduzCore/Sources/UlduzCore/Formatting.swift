@@ -90,6 +90,7 @@ public enum Format {
         let f = NumberFormatter()
         f.locale = Locale(identifier: "en_US")
         f.numberStyle = .decimal
+        f.roundingMode = .halfUp // toLocaleString kimi: NumberFormatter-in standartı .halfEven-dir
         f.minimumFractionDigits = min(decimals, 2)
         f.maximumFractionDigits = decimals
         return f.string(from: NSNumber(value: value)) ?? String(value)

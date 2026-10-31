@@ -168,7 +168,7 @@ final class AppModel {
         guard !started else { return }
         started = true
         if let cachedRules = await client.cachedPolicy() { policy = cachedRules }
-        if let cachedOg: [String: String] = await client.cached("og.json") { og = cachedOg }
+        if let cachedOg: OgImages = await client.cached("og.json") { og = cachedOg.images }
         if let cached: NewsFeed = await client.cached("news.json") {
             rawNews = cached.articles
             feedUpdatedAt = cached.updatedAt
@@ -261,8 +261,8 @@ final class AppModel {
 
     private func loadOgIfDue() async {
         guard Date().timeIntervalSince(ogLoadedAt) >= 60 else { return }
-        if let loaded = try? await client.load("og.json", as: [String: String].self) {
-            og = loaded.value
+        if let loaded = try? await client.load("og.json", as: OgImages.self) {
+            og = loaded.value.images
             ogLoadedAt = Date()
         }
     }

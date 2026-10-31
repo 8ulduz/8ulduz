@@ -30,13 +30,13 @@ final class PipelineTests: XCTestCase {
         XCTAssertFalse(try decoder.decode(SportsFeed.self, from: read("sports.json")).leagues.isEmpty)
         _ = try decoder.decode(VideoFeed.self, from: read("video.json"))
         _ = try decoder.decode(SocialFeed.self, from: read("social.json"))
-        _ = try decoder.decode([String: String].self, from: read("og.json"))
+        XCTAssertFalse(try decoder.decode(OgImages.self, from: read("og.json")).images.isEmpty)
     }
 
     func testRealFeedThroughThePipelineIsFastAndSorted() throws {
         let root = RepoFiles.root
         let news = try JSONDecoder().decode(NewsFeed.self, from: Data(contentsOf: root.appendingPathComponent("data/news.json")))
-        let og = try JSONDecoder().decode([String: String].self, from: Data(contentsOf: root.appendingPathComponent("data/og.json")))
+        let og = try JSONDecoder().decode(OgImages.self, from: Data(contentsOf: root.appendingPathComponent("data/og.json"))).images
         let policy = try ContentPolicy(javascript: String(contentsOf: root.appendingPathComponent("assets/content-policy.js"), encoding: .utf8))
         let started = Date()
         let out = NewsPipeline.publish(raw: news.articles, og: og, policy: policy)

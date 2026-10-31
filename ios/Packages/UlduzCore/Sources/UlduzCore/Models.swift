@@ -160,6 +160,23 @@ public struct NewsFeed: Decodable, Sendable {
     }
 }
 
+/// og.json: keçid → şəkil. Faylda xidməti sahələr də var (`_meta`), yalnız sətir dəyərlər götürülür.
+public struct OgImages: Decodable, Sendable {
+    public var images: [String: String] = [:]
+    private struct AnyKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        for key in c.allKeys {
+            if let url = try? c.decode(String.self, forKey: key) { images[key.stringValue] = url }
+        }
+    }
+}
+
 public struct FeedStatus: Decodable, Sendable, Equatable {
     public var checkedAt: String?
     public var ok: Bool
