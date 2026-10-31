@@ -319,6 +319,210 @@ class PipelineContractTest(unittest.TestCase):
         self.assertIn("gh issue create", self.watchdog)
 
 
+class FastCycleReliefTest(unittest.TestCase):
+    feed = ("Femida.az", "https://femida.az/rss.xml", "az", None)
+
+    def test_a_dead_feed_stops_holding_the_cycle_after_three_failures(self):
+        calls = []
+        def dead(feed):
+            calls.append(feed[0])
+            return feed[0], [], "TimeoutError", feed[1]
+        with patch.object(updater, "_fetch_conditional", side_effect=TimeoutError()), patch.object(updater, "fetch_feed", dead):
+            entry = None
+            for _ in range(5):
+                entry = updater.fetch_feed_fast(self.feed, entry)
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(entry["late"])
+        self.assertEqual(entry["err"], "TimeoutError")
+
+    def test_a_paused_feed_is_tried_again(self):
+        old = {"items": [{"link": "https://femida.az/1"}], "pausedAt": updater.time.time() - updater.FEED_RETRY_S - 1, "fails": 3}
+        with patch.object(updater, "_fetch_conditional", return_value=[{"link": "https://femida.az/2"}]):
+            entry = updater.fetch_feed_fast(self.feed, old)
+        self.assertEqual(entry["items"], [{"link": "https://femida.az/2"}])
+        self.assertFalse(entry.get("pausedAt"))
+
+    def test_our_own_network_failure_pauses_nothing(self):
+        feeds = [(f"S{i}", f"https://s{i}.az/rss", "az", None) for i in range(10)]
+        def fails(feed, old=None):
+            return {"items": [], "err": "DNS", "pausedAt": updater.time.time(), "fails": 3}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", feeds), patch.object(updater, "fetch_feed_fast", fails), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"):
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertTrue(all(not entry["pausedAt"] for entry in saved.values()))
+
+    def test_one_late_answer_does_not_pause_a_healthy_feed(self):
+        def slow(feed, old=None):
+            time.sleep(1)
+            return {"items": [], "err": None}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", [self.feed]), patch.object(updater, "fetch_feed_fast", slow), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "FAST_BUDGET_S", 0.1), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"):
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertEqual(saved[self.feed[0]]["fails"], 1)
+        self.assertFalse(saved[self.feed[0]]["pausedAt"])
+        self.assertIn(self.feed[0], updater.LATE_FEEDS)
+
+    def test_many_slowly_accumulating_pauses_are_cleared_too(self):
+        now = time.time()
+        feeds = [(f"S{i}", f"https://s{i}.az/rss", "az", None) for i in range(10)]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", feeds), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"), \
+                patch.object(updater, "fetch_feed", lambda feed: (feed[0], [], "x", feed[1])), patch.object(updater, "_fetch_conditional", side_effect=TimeoutError()):
+            # Hərəsi fərqli vaxtda dayandırılıb: son bir dəqiqədə yox, son 5 dəqiqədə.
+            (pathlib.Path(tmp) / "f.json").write_text(json.dumps({f[0]: {"items": [], "err": "x", "pausedAt": now - 120, "fails": 3} for f in feeds}), encoding="utf-8")
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertTrue(all(not entry["pausedAt"] for entry in saved.values()))
+
+    def test_answering_late_is_not_counted_as_success(self):
+        self.assertIn("cavab gecikir", (ROOT / "updater.py").read_text(encoding="utf-8"))
+
+    def test_official_pages_do_not_wait_for_each_other(self):
+        started = []
+        def page(url, tries=1, timeout=12):
+            started.append(url)
+            if "azertag" in url:
+                raise TimeoutError("asıldı")
+            return ""
+        with patch.object(updater, "fetch_text", page):
+            items, errors = updater.official_items()
+        self.assertEqual(len(started), 3)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("AZƏRTAC", errors[0])
+
+
+class BulkDatedFeedTest(unittest.TestCase):
+    def test_old_articles_with_a_rewritten_date_are_detected(self):
+        items = [{"pubDate": f"Sat, 31 Oct 2026 04:{i % 16:02d}:00 +0400", "link": f"https://marja.az/{i}"} for i in range(100)]
+        self.assertTrue(updater.bulk_dated(items))
+
+    def test_a_feed_with_a_stable_date_in_its_links_is_not_touched(self):
+        # Azərbaycan qəzeti: lent sorğu vaxtını yazır, əsl tarix keçiddədir (fixed_source_date).
+        items = [{"pubDate": f"Sat, 31 Oct 2026 07:{i % 9:02d}:00 +0000", "link": f"https://azerbaijan-news.az/az/posts/detail/x-{1793300000 + i * 900}/{i}"} for i in range(50)]
+        self.assertFalse(updater.bulk_dated(items))
+
+    def test_a_busy_real_feed_is_not_touched(self):
+        items = [{"pubDate": f"Sat, 31 Oct 2026 {i // 30:02d}:{i * 2 % 60:02d}:00 +0400"} for i in range(120)]
+        self.assertFalse(updater.bulk_dated(items))
+        self.assertFalse(updater.bulk_dated([{"pubDate": "Sat, 31 Oct 2026 04:00:00 +0400"}] * 20))
+
+
+class QualityTest(unittest.TestCase):
+    def label(self, title, desc=""):
+        return updater.categorize(title, desc)
+
+    def test_short_stems_do_not_match_inside_other_words(self):
+        self.assertNotEqual(self.label("Avropa kəşfiyyatı həyəcan təbili çalır"), "Texnologiya")
+        self.assertNotEqual(self.label("Roman Abramoviç Bakıya gəldi"), "Mədəniyyət")
+        self.assertEqual(self.label("Noyabrda 5 bürcü sevgi və pulda yeniliklər gözləyir"), "Həyat")
+        self.assertNotEqual(self.label("Kiyevin doqquz rayonunda su təchizatı pozulub"), "Bölgələr")
+        self.assertEqual(self.label("Tovuzda avtomobil kanala aşdı"), "Bölgələr")
+
+    def test_ascii_azerbaijani_title_is_not_english(self):
+        self.assertEqual(updater.detect_lang("Tehrandan Avropaya", "", "az"), "az")
+        self.assertEqual(updater.detect_lang("Zaqatalada qaz olmayacaq", "", "az"), "az")
+        self.assertEqual(updater.detect_lang("Azerbaijan, Turkiye discuss solar energy deal", "", "az"), "en")
+
+    def test_same_site_stories_do_not_merge_by_event_similarity(self):
+        at = "2026-10-31T01:00:00+00:00"
+        row = lambda url, title, src: {"id": url, "sourceUrl": url, "title": title, "source": src, "publishedAt": at, "summary": "", "category": "gundem", "lang": "az"}
+        out = updater.group_duplicates([row("https://a.az/1", "Bakıda avtobus qəzaya uğrayıb, sürücü həbs olunub", "A"),
+                                        row("https://a.az/2", "Bakıda avtobus sürücüsü qəza törədib və saxlanılıb", "A")])
+        self.assertEqual(len(out), 2)
+
+    def test_a_card_counts_each_site_once(self):
+        at = "2026-10-31T01:00:00+00:00"
+        row = lambda url, src: {"id": url, "sourceUrl": url, "title": "Sabah Şahbuzda işıq olmayacaq bütün gün", "source": src, "publishedAt": at, "summary": "", "category": "gundem", "lang": "az"}
+        out = updater.group_duplicates([row("https://a.az/1", "A"), row("https://a.az/2", "A"), row("https://b.az/1", "B")])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(len({alt["source"] for alt in out[0]["alts"]}), len(out[0]["alts"]))
+        self.assertNotIn(out[0]["source"], {alt["source"] for alt in out[0]["alts"]})
+
+    def test_a_wrong_merge_leaves_the_card_when_groups_change(self):
+        rows = [{"sourceUrl": "https://a.az/1", "alts": [{"sourceUrl": "https://b.az/9", "source": "B"}]}, {"sourceUrl": "https://c.az/2"}]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "g.json"):
+            updater.GROUPS_FILE.write_text('{"https://c.az/2":[{"sourceUrl":"https://d.az/3","source":"D"}]}', encoding="utf-8")
+            out = updater.apply_groups(rows)
+        self.assertNotIn("alts", out[0])
+        self.assertEqual(out[1]["alts"][0]["source"], "D")
+
+    def test_first_minute_of_a_job_keeps_existing_merges(self):
+        rows = [{"sourceUrl": "https://a.az/1", "alts": [{"sourceUrl": "https://b.az/9", "source": "B"}]}]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "yoxdur.json"):
+            self.assertEqual(updater.apply_groups(rows), rows)
+
+    def test_foreign_sources_have_a_smaller_share(self):
+        self.assertLess(updater.MAX_PER_WORLD_SOURCE, updater.MAX_PER_SOURCE)
+        self.assertLess(updater.MAX_WORLD, updater.FAST_MAX_ITEMS / 3)
+
+
+class ArchiveTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = pathlib.Path(self.tmp.name)
+        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv")]
+        for p in self.patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+        self.tmp.cleanup()
+
+    def write(self, *articles):
+        updater.OUT_FILE.write_text(updater.json.dumps({"articles": list(articles)}), encoding="utf-8")
+
+    def row(self, url, hours, **extra):
+        at = updater.datetime.datetime.now(updater.datetime.timezone.utc) - updater.datetime.timedelta(hours=hours)
+        return {"id": url, "title": "Məktəblərdə yeni dərs ili", "summary": "", "source": "APA", "sourceUrl": url, "publishedAt": at.isoformat(), "category": "tehsil", "lang": "az", **extra}
+
+    def rows(self, slug="tehsil"):
+        return updater._read_json(updater.ARCHIVE_DIR / f"{slug}.json", {}).get("articles") or []
+
+    def test_items_stay_after_they_leave_the_feed(self):
+        self.write(self.row("https://apa.az/1", 2))
+        updater.update_archive(now=updater.time.time())
+        self.write(self.row("https://apa.az/2", 1))
+        updater.update_archive(now=updater.time.time() + 3700)
+        self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/2", "https://apa.az/1"])
+
+    def test_written_at_most_once_an_hour(self):
+        now = updater.time.time()
+        self.write(self.row("https://apa.az/1", 2))
+        updater.update_archive(now=now)
+        self.write(self.row("https://apa.az/2", 1))
+        updater.update_archive(now=now + 600)
+        self.assertEqual(len(self.rows()), 1)
+
+    def test_old_and_forbidden_items_are_removed(self):
+        self.write(self.row("https://apa.az/1", 6 * 24), self.row("https://azadliq.org/1", 1), self.row("https://apa.az/3", 1))
+        updater.update_archive()
+        self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/3"])
+
+    def test_the_presidential_chronicle_has_no_archive(self):
+        self.write(self.row("https://apa.az/1", 1))
+        updater.update_archive()
+        self.assertFalse((updater.ARCHIVE_DIR / "prezident.json").exists())
+
+
+class ReaderRetiredTest(unittest.TestCase):
+    def test_full_texts_are_no_longer_published(self):
+        self.assertFalse(updater.READER_ENABLED)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OUT_DIR", pathlib.Path(tmp)):
+            file = pathlib.Path(tmp) / "reader.json"
+            file.write_text("{}", encoding="utf-8")
+            updater.retire_reader()
+            self.assertFalse(file.exists())
+
+
 class DateFloorTest(unittest.TestCase):
     def test_spaces_in_feed_dates_are_collapsed(self):
         floor = updater.datetime.datetime(2026, 10, 30, 6, 0, tzinfo=updater.datetime.timezone.utc)
