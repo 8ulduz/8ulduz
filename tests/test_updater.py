@@ -654,6 +654,8 @@ class UpdateHealthTest(unittest.TestCase):
         updater.DATES_FILE.write_text(json.dumps({link: day}), encoding="utf-8")
         item = {"link": link, "title": "Yeni məktəb binası açıldı", "description": "", "image": None}
         with patch.object(updater, "collect_fast", return_value=([("Test", [item], None, "https://example.com/rss")], [], [])), \
+             patch.object(updater, "RELABEL_MARK", self.root / "relabeled"), patch.object(updater, "UNDATED_FILE", self.root / "undated.json"), \
+             patch.object(updater, "GROUPS_FILE", self.root / "groups.json"), patch.object(updater, "OG_FILE", self.root / "og.json"), \
              contextlib.redirect_stdout(io.StringIO()):
             updater.main(fast=True)
         urls = [a["sourceUrl"] for a in json.loads(updater.OUT_FILE.read_text(encoding="utf-8"))["articles"]]
