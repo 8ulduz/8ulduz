@@ -2772,7 +2772,7 @@ def _page_html(slug, label, desc, items):
 SERVICE_PAGES = [
     ("valyuta", "Valyuta məzənnəsi", "Dollar, avro, rubl və lirənin manatla bugünkü məzənnəsi, neft və qızıl qiyməti"),
     ("cedvel", "Premyer Liqa cədvəli", "Azərbaycan Premyer Liqasının turnir cədvəli"),
-    ("tixac", "Tıxac və yollar", "Bakı və Abşeronda yol vəziyyəti, qəza və bağlanan yollar haqqında son xəbərlər"),
+    ("tixac", "Tıxac və yollar", "Azərbaycanda yol vəziyyəti, qəza və bağlanan yollar haqqında son xəbərlər"),
 ]
 _ROAD_RX = re.compile(r"tıxac|qəza(?!lı)|yol polisi|nəqliyyatın hərəkət|yol bağlı|avtomobil yol|(?:^|[^\w])(?:BNA|DYP)(?:[^\w]|$)", re.I)
 
