@@ -117,6 +117,9 @@ AZ_FEEDS = [
     ("Yurd.Media",   "https://yurd.media/"),
     ("Region Plus",  "https://regionplus.az/allnews"),
     ("Gündəlik.az",  "https://gundelik.az/rss"),
+    ("Nocomment.az", "https://nocomment.az/feed"),
+    ("Mia.az",       "https://mia.az/feed"),
+    ("Aia.az",       "https://aia.az/rss.xml"),
 ]
 # Xarici mənbələr: (ad, url, dil[, kateqoriya ipucu])
 WORLD_FEEDS = [
@@ -1190,7 +1193,7 @@ def fetch_feed_fast(feed, old=None):
 # Dövlət saytları xarici şəbəkəyə gah açılır, gah 12 saniyə susur (2026-10-31 ölçülüb). Rayon xəbəri dəqiqə gözləyə bilər,
 # xəbər axını isə onları gözləməməlidir: bu lentlər yalnız yavaş dövrədə oxunur, sürətli dövrə onların son nəticəsini götürür.
 # Narnews, Cenub, Region Plus və Qarabağ Media gündə bir neçə dəfədən az yazır: dəqiqəlik oxumağa dəyməz, risk də olmasın.
-SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"}
+SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"}
 
 LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
