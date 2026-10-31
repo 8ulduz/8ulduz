@@ -647,6 +647,18 @@ class UpdateHealthTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["successful"], 1)
 
+    def test_fast_cycle_adds_undated_item_once_the_slow_process_dated_it(self):
+        # İki Sahil lentində tarix yoxdur: tarixi yavaş proses tapır, sürətli dövrə dates.json-dan oxuyur.
+        link = "https://example.com/new"
+        day = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        updater.DATES_FILE.write_text(json.dumps({link: day}), encoding="utf-8")
+        item = {"link": link, "title": "Yeni məktəb binası açıldı", "description": "", "image": None}
+        with patch.object(updater, "collect_fast", return_value=([("Test", [item], None, "https://example.com/rss")], [], [])), \
+             contextlib.redirect_stdout(io.StringIO()):
+            updater.main(fast=True)
+        urls = [a["sourceUrl"] for a in json.loads(updater.OUT_FILE.read_text(encoding="utf-8"))["articles"]]
+        self.assertIn(link, urls)
+
     def test_known_undated_article_gets_its_real_date_fixed(self):
         # Köhnə xəbər «indi» damğası ilə siyahıdadır; lent onu tarixsiz verir — səhifə tarixi tapılanda qeyd düzəlir
         item = {"link": self.article["sourceUrl"], "title": self.article["title"], "description": "", "image": None}

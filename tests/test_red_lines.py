@@ -354,6 +354,34 @@ class FastCycleReliefTest(unittest.TestCase):
             saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
         self.assertTrue(all(not entry["pausedAt"] for entry in saved.values()))
 
+    def test_one_late_answer_does_not_pause_a_healthy_feed(self):
+        def slow(feed, old=None):
+            time.sleep(1)
+            return {"items": [], "err": None}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", [self.feed]), patch.object(updater, "fetch_feed_fast", slow), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "FAST_BUDGET_S", 0.1), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"):
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertEqual(saved[self.feed[0]]["fails"], 1)
+        self.assertFalse(saved[self.feed[0]]["pausedAt"])
+        self.assertIn(self.feed[0], updater.LATE_FEEDS)
+
+    def test_many_slowly_accumulating_pauses_are_cleared_too(self):
+        now = time.time()
+        feeds = [(f"S{i}", f"https://s{i}.az/rss", "az", None) for i in range(10)]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", feeds), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"), \
+                patch.object(updater, "fetch_feed", lambda feed: (feed[0], [], "x", feed[1])), patch.object(updater, "_fetch_conditional", side_effect=TimeoutError()):
+            # Hərəsi fərqli vaxtda dayandırılıb: son bir dəqiqədə yox, son 5 dəqiqədə.
+            (pathlib.Path(tmp) / "f.json").write_text(json.dumps({f[0]: {"items": [], "err": "x", "pausedAt": now - 120, "fails": 3} for f in feeds}), encoding="utf-8")
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertTrue(all(not entry["pausedAt"] for entry in saved.values()))
+
     def test_answering_late_is_not_counted_as_success(self):
         self.assertIn("cavab gecikir", (ROOT / "updater.py").read_text(encoding="utf-8"))
 
@@ -375,6 +403,11 @@ class BulkDatedFeedTest(unittest.TestCase):
     def test_old_articles_with_a_rewritten_date_are_detected(self):
         items = [{"pubDate": f"Sat, 31 Oct 2026 04:{i % 16:02d}:00 +0400", "link": f"https://marja.az/{i}"} for i in range(100)]
         self.assertTrue(updater.bulk_dated(items))
+
+    def test_a_feed_with_a_stable_date_in_its_links_is_not_touched(self):
+        # Azərbaycan qəzeti: lent sorğu vaxtını yazır, əsl tarix keçiddədir (fixed_source_date).
+        items = [{"pubDate": f"Sat, 31 Oct 2026 07:{i % 9:02d}:00 +0000", "link": f"https://azerbaijan-news.az/az/posts/detail/x-{1793300000 + i * 900}/{i}"} for i in range(50)]
+        self.assertFalse(updater.bulk_dated(items))
 
     def test_a_busy_real_feed_is_not_touched(self):
         items = [{"pubDate": f"Sat, 31 Oct 2026 {i // 30:02d}:{i * 2 % 60:02d}:00 +0400"} for i in range(120)]

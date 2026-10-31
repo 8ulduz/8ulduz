@@ -1107,11 +1107,12 @@ def collect_fast():
                 LATE_FEEDS.add(feed[0])
         else:
             usable = old.get("items") and now - old.get("at", 0) < STALE_FEED_S
-            entry = {**old, "err": None if usable else "vaxt bitdi", "pausedAt": now}
+            fails = old.get("fails", 0) + 1
+            entry = {**old, "err": None if usable else "vaxt bitdi", "fails": fails, "pausedAt": now if fails >= FEED_FAILS_BEFORE_PAUSE else 0}
             LATE_FEEDS.add(feed[0])
         cache[feed[0]] = entry
     # Hamısı birdən alınmırsa səbəb bizdədir (DNS, şəbəkə): növbəti dövrə hamısını yenidən oxumalıdır.
-    paused = [name for name, entry in cache.items() if now - entry.get("pausedAt", 0) < 60]
+    paused = [name for name, entry in cache.items() if now - entry.get("pausedAt", 0) < FEED_RETRY_S]
     if len(paused) > len(FEEDS) * FEED_PAUSE_MAX_SHARE:
         print(f"  ! {len(paused)} lent birdən cavab vermir: dayandırılmır", flush=True)
         for name in paused:
@@ -1167,7 +1168,10 @@ def bulk_dated(items):
     times = []
     for it in items:
         try:
-            times.append(email.utils.parsedate_to_datetime(re.sub(r"\s+", " ", (it.get("pubDate") or "").strip())).timestamp())
+            # Keçiddə sabit tarix varsa lentin tarixi işlənmir (Azərbaycan qəzeti): belə lent problemli deyil.
+            fixed = fixed_source_date(it.get("link"))
+            dt = _parse_dt(fixed) if fixed else email.utils.parsedate_to_datetime(re.sub(r"\s+", " ", (it.get("pubDate") or "").strip()))
+            times.append(dt.timestamp())
         except Exception:
             continue
     keep = int(len(items) * 0.8)
@@ -3094,11 +3098,11 @@ def main(fast=False):
     source_floor, by_source = {}, {}
     for a in old if fast else []:
         by_source.setdefault(a.get("source"), []).append(_parse_dt(a.get("publishedAt")))
-    for source, dates in by_source.items():
-        cap = MAX_PER_WORLD_SOURCE if source in WORLD_SOURCES else MAX_PER_SOURCE
-        dates = sorted((d for d in dates if d), reverse=True)
-        if len(dates) >= cap:
-            source_floor[source] = dates[cap - 1]
+    for name, published in by_source.items():
+        cap = MAX_PER_WORLD_SOURCE if name in WORLD_SOURCES else MAX_PER_SOURCE
+        published = sorted((d for d in published if d), reverse=True)
+        if len(published) >= cap:
+            source_floor[name] = published[cap - 1]
     for _, items, err, _ in results:
         for it in items if not err else []:
             if not it.get("pubDate") and it.get("link") in old_by_url:
@@ -3185,6 +3189,9 @@ def main(fast=False):
     mark("select")
     before_groups = len(articles)
     articles = apply_groups(articles) if fast else group_duplicates(articles)
+    for a in articles if bulk else []:
+        if a.get("alts"):
+            a["alts"] = [alt for alt in a["alts"] if alt.get("source") not in bulk]
     stats["grouped"] = before_groups - len(articles)
     mark("group")
     # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır
