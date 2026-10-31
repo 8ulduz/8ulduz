@@ -968,3 +968,25 @@ nav.main a.nav-x{display:none}
   .latest-grid .card h3,.grid .card h3,.card:has(>.star) h3{padding-right:40px}
   .latest-grid .card .badges,.grid .card .badges,.card:has(>.star) .badges{padding-right:44px}
 }
+
+/* Başlıqlar bir-birinə yaxın; alt başlığı olanlar (İdman, Bölgələr) oxla və qalın yazı ilə fərqlənir. */
+nav.main{gap:0}
+nav.main a{padding:5px 6px}
+nav.main a.has-sub{font-weight:800;color:var(--fg)}
+nav.main a.has-sub.on{color:var(--primary-fg)}
+nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.75}
+.flag{display:inline-block;vertical-align:-1px;margin-right:4px;border-radius:2px;box-shadow:0 0 0 1px #0003;flex:none}
+.mk-ic{margin-right:3px}
+.mk-ic .flag{margin-right:0}
+.lang-pills{display:flex;align-items:center;gap:4px;flex:none}
+.lang-pill{display:inline-flex;align-items:center;padding:3px 9px;font-size:.8rem;font-weight:700;white-space:nowrap}
+.chip-h .flag{margin-right:4px}
+/* Telefon: bütün başlıqlar görünür, sətirlərə bölünür. Başlıq yuxarıda qalmır ki, xəbərə yer qalsın: axtarış və bölmələr alt paneldədir. */
+@media(max-width:600px){
+  header.site{position:relative}
+  nav.main{display:flex;flex-wrap:wrap;overflow:visible;gap:4px;-webkit-mask-image:none;mask-image:none}
+  nav.main>a{padding:6px 10px;min-height:34px;font-size:.82rem;background:var(--card2);border-radius:999px}
+  nav.main>a.on{background:var(--primary);color:var(--primary-fg)}
+  .lang-pill{min-height:36px}
+  .sport-chips .chips{flex-wrap:wrap;overflow:visible}
+}

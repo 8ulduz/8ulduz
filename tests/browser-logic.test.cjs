@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -896,6 +896,58 @@ test('counting a click never breaks the page', () => {
   assert.equal(seen[0].event,true);
   ctx.window.goatcounter={count(){throw Error('x');}};
   trackEvent('share-copy');
+});
+test('every city and district has its button and finds its stories', () => {
+  const ctx=app(),{S,sectionView,clubMatches}=ctx.api,at=new Date().toISOString();
+  const row=(id,title,category='gundem')=>({id,title,lang:'az',category,source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at});
+  S.lang=null;S.og={};S.shown=50;S.sportTab=null;S.club=null;
+  S.data={articles:[row('a','Şəkidə yeni park açılıb'),row('b','Şəkildə görünən şəxs tapılıb'),row('c','Qazaxıstanda seçki keçirilib'),row('d','Qazaxın mərkəzində körpü tikilib','bolgeler'),row('e','Məhəmməd Füzuli haqqında kitab çıxıb'),row('f','Füzulidə məktəb açılıb')]};
+  let html=sectionView('bolgeler');
+  for(const name of ['Bakı','Şəki-Zaqatala','Şərqi Zəngəzur','Naxçıvan MR','Abşeron-Xızı'])assert.ok(html.includes('data-club="'+name+'"'),name);
+  assert.ok(html.includes('apa.az/d'),'bölgə səhifəsi öz xəbərlərini göstərir');
+  S.sportTab='Şəki-Zaqatala';
+  html=sectionView('bolgeler');
+  assert.ok(html.includes('data-club="Zaqatala"'),'rayonlar açılır');
+  S.club='Şəki';
+  html=sectionView('bolgeler');
+  assert.ok(html.includes('apa.az/a'),'başqa bölmədəki xəbər də tapılır');
+  assert.ok(!html.includes('apa.az/b'));
+  S.data.articles.push(row('g','"Şəki" futbolçusu qol vurdu','idman'));
+  assert.ok(!sectionView('bolgeler').includes('apa.az/g'),'klub xəbəri rayon düyməsində deyil');
+  const hit=(title,name)=>clubMatches(row('x',title),name);
+  assert.equal(hit('Qazaxıstanda seçki keçirilib','Qazax'),false);
+  assert.equal(hit('Qazaxda körpü tikilib','Qazax'),true);
+  assert.equal(hit('Məhəmməd Füzuli haqqında kitab','Füzuli'),false);
+  assert.equal(hit('Füzulidə məktəb açılıb','Füzuli'),true);
+  assert.equal(hit('Şəki rayonunda yağış','Şəki-Zaqatala'),true);
+  assert.equal(hit('В Гяндже открыли парк','Gəncə'),true);
+  assert.equal(hit('Ordubadda yol təmir olunur','Naxçıvan MR'),true,'bölgə düyməsi bütün rayonlarını əhatə edir');
+  assert.equal(hit('Bakıda yol təmir olunur','Bakı'),true);
+});
+test('all fourteen economic regions and their places are listed once', () => {
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  const block=src.slice(src.indexOf('const REGION_TABS = ['),src.indexOf('const SUB_TABS'));
+  const groups=[...block.matchAll(/\{ name: "([^"]+)", groups:/g)].map(m=>m[1]);
+  assert.equal(groups.length,13,'Bakı öz düyməsidir, üstəgəl 13 iqtisadi rayon');
+  const places=[...block.matchAll(/\{ name: "([^"]+)", keys:/g)].map(m=>m[1]);
+  assert.ok(!groups.some(g=>places.includes(g)),'bölgə ilə şəhərin adı eyni olmasın');
+  assert.equal(new Set(places).size,places.length,'təkrar yoxdur');
+  for(const city of ['Bakı','Gəncə','Naxçıvan','Sumqayıt','Lənkəran','Mingəçevir','Naftalan','Xankəndi','Şəki','Şirvan','Yevlax'])assert.ok(places.includes(city),city);
+});
+test('language buttons show flags and keep the choice', () => {
+  const ctx=app(),{S,languagePicker}=ctx.api;
+  S.lang='tr';
+  const html=languagePicker();
+  assert.equal((html.match(/class="flag"/g)||[]).length,4);
+  assert.ok(html.includes('data-lang="tr" aria-pressed="true"'));
+  assert.ok(html.includes('data-lang="" aria-pressed="false"'));
+});
+test('the rates page shows a flag for currencies and a symbol for the rest', () => {
+  const ctx=app(),{S,ratesView}=ctx.api;
+  S.markets=[{id:'USD',label:'Dollar',value:1.7,dec:4,unit:'AZN'},{id:'BTC',label:'Bitcoin',value:7,dec:0,unit:'USD'},{id:'NEW',label:'Yeni',value:1,dec:0,unit:'USD'}];
+  const html=ratesView();
+  assert.ok(html.includes('class="flag"'));
+  assert.ok(html.includes('₿'));
 });
 test('a team search finds every spelling, in every language, including the archive', () => {
   const ctx=app(),{S,searchView,searchTopics}=ctx.api,at=new Date().toISOString();

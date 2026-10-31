@@ -560,6 +560,98 @@ class SectionPagesTest(unittest.TestCase):
             self.assertFalse((root / "bolme" / "valyuta" / "index.html").exists())
             self.assertIn("Cədvəl hazırda yoxdur", (root / "bolme" / "cedvel" / "index.html").read_text(encoding="utf-8"))
 
+    def test_social_protection_has_its_own_section(self):
+        self.assertEqual(updater.SLUGS["Sosial müdafiə"], "sosial")
+        self.assertIn("sosial", [s[0] for s in updater.SECTIONS])
+        self.assertEqual(updater.label_for("Pensiya məbləği artırılacaq", "", "az"), "Sosial müdafiə")
+        self.assertEqual(updater.label_for("Ünvanlı sosial yardım alanların sayı açıqlanıb", "", "az"), "Sosial müdafiə")
+        self.assertEqual(updater.label_for("Şəhid ailələrinə mənzil verilib", "", "az"), "Sosial müdafiə")
+        self.assertNotEqual(updater.label_for("Tələbələrə təqaüd verildi, universitetdə imtahan başladı", "", "az"), "Sosial müdafiə")
+
+    def test_every_new_source_is_registered_and_official_pages_have_a_reader(self):
+        names = {f[0] for f in updater.FEEDS}
+        for name in ("ƏƏSMN", "DSMF", "DOST Agentliyi", "Məşğulluq Agentliyi", "Gəncə ŞİH", "Babək RİH", "Naxçıvan TV"):
+            self.assertIn(name, names)
+        for url in updater._LIST_SITES:
+            self.assertIn(url, updater.PAGE_PARSERS)
+
+    def test_a_list_page_gives_titles_and_the_nearest_date(self):
+        card = ('<div><a href="https://x-ih.gov.az/az/news/birinci-xeber-30-10-2026.html"><img src="/a.jpg"></a>'
+                '<a href="https://x-ih.gov.az/az/news/birinci-xeber-30-10-2026.html" class="card-title">Kənddə körpünün təmiri aparılır</a><span>29 oktyabr 2026</span></div>'
+                '<div><a href="/az/news/ikinci-xeber.html">İkinci xəbər: qəbul keçirilib</a><span>20 oktyabr 2026, 15:05</span></div>'
+                '<a href="https://x-ih.gov.az/news.html">Bütün xəbərlər bölməsinə keçid</a>')
+        rows = updater.parse_list_page(card, "https://x-ih.gov.az/news.html", r"/az/news/[^/]+\.html$")
+        self.assertEqual([r["title"] for r in rows], ["Kənddə körpünün təmiri aparılır", "İkinci xəbər: qəbul keçirilib"])
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-30"))  # keçiddəki tarix üstündür
+        self.assertTrue(rows[1]["pubDate"].startswith("2026-10-20"))
+        self.assertEqual(rows[1]["link"], "https://x-ih.gov.az/az/news/ikinci-xeber.html")
+
+    def test_a_date_link_is_not_a_title_and_month_first_dates_are_read(self):
+        page = ('<a href="/news/dunya/15-xeber">Yeni xəbərin əsl başlığı burada</a><a href="/news/dunya/15-xeber">16:37 31.10.2026</a>'
+                '<span>Oktyabr 30, 2026 11:00</span><a href="/news/dunya/16-xeber">İkinci xəbərin əsl başlığı</a>')
+        rows = updater.parse_list_page(page, "https://ntv.az/news", r"/news/[a-z-]+/\d+")
+        self.assertEqual(rows[0]["title"], "Yeni xəbərin əsl başlığı burada")
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-31"))
+        self.assertTrue(rows[1]["pubDate"].startswith("2026-10-30"))
+
+    def test_gencexeber_cards_keep_their_own_date_and_a_single_title(self):
+        page = ('<div class="post__item" data-date="2026-10-31 15:18:00"><a href="https://gencexeber.az/butun-xeberler/goygol"><img src="/storage/a.webp" alt="x"></a>'
+                '<a href="https://gencexeber.az/butun-xeberler"><b>Bütün xəbərlər</b></a><time datetime="2026-10-31T15:18:00+04:00"></time>'
+                '<span itemprop="headline">Göygöldə maşın dərəyə aşıb</span><span class="d-none" itemprop="description">Göygöldə maşın dərəyə aşıb</span></div>'
+                '<div class="post__item" data-date="2026-10-30 09:05:00"><a href="https://gencexeber.az/butun-xeberler/gence"><img src="/storage/b.webp"></a>'
+                '<span itemprop="headline">Gəncədə su borusu təmir edilmir</span></div>')
+        rows = updater.PAGE_PARSERS["https://gencexeber.az/butun-xeberler"](page)
+        self.assertEqual([r["title"] for r in rows], ["Göygöldə maşın dərəyə aşıb", "Gəncədə su borusu təmir edilmir"])
+        self.assertEqual(rows[0]["link"], "https://gencexeber.az/butun-xeberler/goygol")
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-31T11:18"))
+        self.assertTrue(rows[1]["pubDate"].startswith("2026-10-30T05:05"))
+        self.assertEqual(rows[1]["image"], "https://gencexeber.az/storage/b.webp")
+
+    def test_yurd_cards_take_the_place_label_but_not_the_section_label(self):
+        card = ('<div data-timestamp="2026-10-29 10:00:00"><a href="https://yurd.media/{}" class="news__item "><img src="https://photos.yurd.media/a.jpg" alt="">'
+                '<div class="news__region">{}</div><div class="news__date"><svg></svg>{}</div><div class="news__title">\n  {}\n</div></a></div>')
+        page = (card.format("hadise/a", "Gəncə", "31.10.2026 18:28", "&quot;QAZ-31&quot; və Mercedes toqquşdu") + card.format("olke/b", "Ölkə", "30.10.2026 09:00", "Assosiasiyanın sədri dəyişdi"))
+        rows = updater.PAGE_PARSERS["https://yurd.media/"](page)
+        self.assertEqual(rows[0]["title"], '"QAZ-31" və Mercedes toqquşdu')
+        self.assertEqual(rows[0]["description"], "Gəncə")
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-31T14:28"))
+        self.assertEqual(rows[1]["description"], "")
+        self.assertTrue(rows[1]["pubDate"].startswith("2026-10-30T05:00"))
+
+    def test_regionplus_cards_join_relative_links_and_images(self):
+        page = ('<div class="nn_item_wrapper"><div class="nn_item  l "><div class="article_title">\n<a href="/posts/view/118239" title="x">Глава МИД ожидает необходимых шагов</a>\n</div>'
+                '<div class="nn_image"><a href="/posts/view/118239"><img src="cache/images/a.jpg" /></a></div><div class="nn_stats"><span>30.10.2026 17:27</span></div></div></div>')
+        rows = updater.PAGE_PARSERS["https://regionplus.az/allnews"](page)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["link"], "https://regionplus.az/posts/view/118239")
+        self.assertEqual(rows[0]["image"], "https://regionplus.az/cache/images/a.jpg")
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-30T13:27"))
+
+    def test_regional_private_sites_are_registered_and_rare_ones_stay_slow(self):
+        names = ["Narnews.az", "Cenub.az", "Gəncəxəbər", "Qarabağ Media", "Yurd.Media", "Region Plus", "Gündəlik.az"]
+        for name in names:
+            self.assertTrue(updater.content_policy.source_registered(name), name)
+            self.assertIn(name, [f[0] for f in updater.FEEDS])
+        self.assertTrue({"Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"} <= updater.SLOW_ONLY_FEEDS)
+        self.assertFalse({"Gəncəxəbər", "Yurd.Media", "Gündəlik.az"} & updater.SLOW_ONLY_FEEDS)
+
+    def test_state_sites_never_hold_the_fast_cycle(self):
+        self.assertIn("Gəncə ŞİH", updater.SLOW_ONLY_FEEDS)
+        self.assertIn("ƏƏSMN", updater.SLOW_ONLY_FEEDS)
+        self.assertNotIn("APA", updater.SLOW_ONLY_FEEDS)
+        with patch.object(updater, "fetch_feed", side_effect=AssertionError("şəbəkəyə çıxmamalıdır")), patch.object(updater, "_fetch_conditional", side_effect=AssertionError("şəbəkəyə çıxmamalıdır")):
+            feed = ("Gəncə ŞİH", "https://ganja-ih.gov.az/news.html", "az", "Bölgələr")
+            self.assertEqual(updater.fetch_feed_fast(feed)["items"], [])
+            kept = updater.fetch_feed_fast(feed, {"items": [{"title": "x"}], "at": 5, "err": "köhnə"})
+            self.assertEqual(kept["items"], [{"title": "x"}])
+            self.assertIsNone(kept["err"])
+
+    def test_read_more_buttons_take_the_title_above_them(self):
+        page = '<h1 class="t">Sakinlərlə səyyar qəbul keçirilib</h1><span>07.10.2026</span><a href="https://b-ih.gov.az/xeber/seyyar-qebul" class="cta">Ətraflı</a>'
+        rows = updater.parse_list_page(page, "https://b-ih.gov.az/xeberler", r"/xeber/[^/?#]+$")
+        self.assertEqual(rows[0]["title"], "Sakinlərlə səyyar qəbul keçirilib")
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-07"))
+
     def test_site_url_follows_the_cname_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

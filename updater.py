@@ -88,6 +88,35 @@ AZ_FEEDS = [
     ("Yeni Azərbaycan", "https://yeniazerbaycan.com/"),
     ("Azərbaycan qəzeti", "https://azerbaijan-news.az/az/feed"),
     ("Baku TV",      "https://baku.tv/sitemap-news-az.xml"),
+    # Sosial müdafiə: nazirlik və tabeli qurumlar (lentləri yoxdur, PAGE_PARSERS). sosial.gov.az xarici IP-yə açılmır, TG_FALLBACK.
+    ("ƏƏSMN",        "https://sosial.gov.az/az/media/xeberler", "Sosial müdafiə"),
+    ("DSMF",         "https://dsmf.gov.az/az/media/xeberler", "Sosial müdafiə"),
+    ("DOST Agentliyi", "https://dost.gov.az/news", "Sosial müdafiə"),
+    ("Məşğulluq Agentliyi", "https://dma.gov.az/media/xeberler", "Sosial müdafiə"),
+    # Bölgələr: rayon və şəhər icra hakimiyyətləri, Naxçıvan televiziyası.
+    ("Gəncə ŞİH", "https://ganja-ih.gov.az/news.html", "Bölgələr"),
+    ("Ağdaş RİH", "https://agdash-ih.gov.az/news.html", "Bölgələr"),
+    ("Beyləqan RİH", "https://beyleqan-ih.gov.az/news.html", "Bölgələr"),
+    ("Daşkəsən RİH", "https://dashkesen-ih.gov.az/news.html", "Bölgələr"),
+    ("Göygöl RİH", "https://goygol-ih.gov.az/news.html", "Bölgələr"),
+    ("İmişli RİH", "https://imishli-ih.gov.az/news.html", "Bölgələr"),
+    ("Naftalan ŞİH", "https://naftalan-ih.gov.az/news.html", "Bölgələr"),
+    ("Oğuz RİH", "https://oguz-ih.gov.az/news.html", "Bölgələr"),
+    ("Qəbələ RİH", "https://qebele-ih.gov.az/news.html", "Bölgələr"),
+    ("Xocavənd RİH", "https://xocavend-ih.gov.az/news.html", "Bölgələr"),
+    ("Babək RİH", "https://babek-ih.gov.az/xeberler", "Bölgələr"),
+    ("Culfa RİH", "https://culfa-ih.gov.az/xeberler", "Bölgələr"),
+    ("Ordubad RİH", "https://ordubad-ih.gov.az/xeberler", "Bölgələr"),
+    ("Sədərək RİH", "https://sederek-ih.gov.az/xeberler", "Bölgələr"),
+    ("Naxçıvan TV",  "https://ntv.az/news", "Bölgələr?"),
+    # Özəl saytlar: müxalifət olmadığını sahibi yoxlayıb (2026-10-31). Lenti olmayanlar PAGE_PARSERS ilə oxunur.
+    ("Narnews.az",   "https://narnews.az/rss.xml", "Bölgələr?"),
+    ("Cenub.az",     "https://cenub.az/rss.xml", "Bölgələr?"),
+    ("Gəncəxəbər",   "https://gencexeber.az/butun-xeberler", "Bölgələr?"),
+    ("Qarabağ Media", "https://qarabag.media/feed/", "Bölgələr?"),
+    ("Yurd.Media",   "https://yurd.media/"),
+    ("Region Plus",  "https://regionplus.az/allnews"),
+    ("Gündəlik.az",  "https://gundelik.az/rss"),
 ]
 # Xarici mənbələr: (ad, url, dil[, kateqoriya ipucu])
 WORLD_FEEDS = [
@@ -199,6 +228,10 @@ IDMAN_WORDS = [
 CATEGORIES = {
     "Prezident": [],  # xüsusi qayda ilə hesablanır (categorize-ə baxın)
     "İdman": IDMAN_WORDS,
+    "Sosial müdafiə": ["sosial müdafiə", "əəsmn", "dsmf", "pensiya", "pensiyaçı", "təqaüdçü", "müavinət", "ünvanlı sosial", "ünvanlı dövlət sosial",
+                        "sosial yardım", "sosial sığorta", "sosial paket", "sosial təminat", "əlillik", "əlilliyi", "şəhid ailə", "müharibə əlil",
+                        "məşğulluq agentliyi", "dövlət məşğulluq", "özünüməşğulluq", "işsizlik", "işsiz", "əmək yarmarka", "dost mərkəzi", "dost agentliyi",
+                        "minimum əmək haqqı", "yaşayış minimumu"],
     "Bölgələr": ["gəncə", "sumqayıt", "mingəçevir", "lənkəran", "şəki", "naxçıvan", "şirvan", "yevlax", "xankəndi", "şuşa",
                  "quba", "qusar", "xaçmaz", "şabran", "siyəzən", "xızı", "abşeron rayonu", "ismayıllı", "ağsu", "şamaxı", "qobustan",
                  "göyçay", "ucar", "zərdab", "kürdəmir", "ağdaş", "hacıqabul", "salyan", "neftçala", "biləsuvar", "saatlı",
@@ -291,10 +324,10 @@ CATEGORIES = {
               "ukraine", "gaza", "israel", "russia", "china", "iran", "trump", "nato", "un ", "husi", "moskva", "kiyev", "киев", "paşinyan", "uqanda", "ebola", "türkiyədə", "kyrgyzstan", "freedom house"],
 }
 # İdman bölməsi gücləndirilib: xallar 2 qat sayılır
-BOOST = {"İdman": 2, "Prezident": 3, "Təhsil": 1.5, "Səhiyyə": 1.5, "Bölgələr": 1.5}
+BOOST = {"İdman": 2, "Prezident": 3, "Təhsil": 1.5, "Səhiyyə": 1.5, "Bölgələr": 1.5, "Sosial müdafiə": 3}
 SLUGS = {"Prezident": "prezident", "Gündəm": "gundem", "Siyasət": "siyaset", "Cəmiyyət": "cemiyyet",
          "İqtisadiyyat": "iqtisadiyyat", "Dünya": "dunya", "İdman": "idman", "Mədəniyyət": "medeniyyet",
-         "Həyat": "heyat", "Texnologiya": "tehsil", "Təhsil": "tehsil", "Səhiyyə": "heyat", "Bölgələr": "bolgeler"}
+         "Həyat": "heyat", "Texnologiya": "tehsil", "Təhsil": "tehsil", "Səhiyyə": "heyat", "Bölgələr": "bolgeler", "Sosial müdafiə": "sosial"}
 # Birləşmiş bölmələr (2026-10-31): açar sözlər ayrı qalır, saytda bir başlıqdır. Köhnə ünvanlar yeni bölməyə yönəlir.
 SECTION_ALIASES = {"sehiyye": "heyat", "texnologiya": "tehsil"}
 DOUBLE = {"iran", "rusiya", "çin", "fransa", "israil", "ukrayna", "abş", "ingiltərə", "almaniya",
@@ -859,6 +892,8 @@ GNEWS_FALLBACK = {
 TG_FALLBACK = {
     "AZƏRTAC": ("azertacnews", "azertag.az"),
     "Report": ("reportnewsaz", "report.az"),
+    "ƏƏSMN": ("sosialgovaz", "sosial.gov.az"),
+    "DOST Agentliyi": ("dostagentliyi", "dost.gov.az"),
 }
 GNEWS_LIMIT = 12
 
@@ -987,7 +1022,9 @@ def telegram_items(channel, host, pages=3, limit=20):
                 continue
             seen.add(link)
             text_m = re.search(r'tgme_widget_message_text[^>]*>(.*?)</div>', part, re.S)
-            raw = re.sub(r"<[^>]+>", " ", text_m.group(1) if text_m else "")
+            body = re.split(r"<br\s*/?>", text_m.group(1), maxsplit=1) if text_m else [""]
+            # Nazirlik kanalında yazı uzundur: başlıq ilk sətirdir. Qısa sətir tək qalmasın.
+            raw = re.sub(r"<[^>]+>", " ", body[0] if len(re.sub(r"<[^>]+>", "", body[0]).strip()) >= 25 else (text_m.group(1) if text_m else ""))
             title = re.sub(r"\s+", " ", html.unescape(raw)).strip()
             title = re.sub(r"\s*Ətraflı\s*:.*$", "", title, flags=re.I).strip()
             title = re.sub(r"^[^\wƏəİıÖöÜüĞğŞşÇç]+", "", title).strip()
@@ -1102,6 +1139,8 @@ def fetch_feed_fast(feed, old=None):
     """Bir lentin təzə nəticəsi: {items, url, at, err, etag, modified}."""
     source, url = feed[0], feed[1]
     old, started = old or {}, time.time()
+    if source in SLOW_ONLY_FEEDS:
+        return {"items": [], "url": url, "at": 0, **old, "err": None}
     if started - old.get("pausedAt", 0) < FEED_RETRY_S:
         return {**old, "late": True}
     used = old.get("url") or url
@@ -1125,6 +1164,11 @@ def fetch_feed_fast(feed, old=None):
         return {**old, "err": err, "fails": fails, "pausedAt": paused}
     return {"items": items[:FEED_KEEP], "url": final or url, "at": started, "err": err, "fails": fails, "pausedAt": paused}
 
+
+# Dövlət saytları xarici şəbəkəyə gah açılır, gah 12 saniyə susur (2026-10-31 ölçülüb). Rayon xəbəri dəqiqə gözləyə bilər,
+# xəbər axını isə onları gözləməməlidir: bu lentlər yalnız yavaş dövrədə oxunur, sürətli dövrə onların son nəticəsini götürür.
+# Narnews, Cenub, Region Plus və Qarabağ Media gündə bir neçə dəfədən az yazır: dəqiqəlik oxumağa dəyməz, risk də olmasın.
+SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"}
 
 LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
@@ -1678,11 +1722,95 @@ def parse_yeniazerbaycan(page):
                       "image": _abs_img(img.group(1), link) if img else None, "author": ""})
     return items
 
+_LIST_DATE = re.compile(r"(?:\d{1,2}:\d{2}\s+)?\d{1,2}[.]\d{1,2}[.]20\d{2}|\d{1,2}\s+[a-zəöüğışçA-ZƏÖÜĞİŞÇ]+\s+20\d{2}(?:,?\s+\d{1,2}:\d{2})?"
+                        r"|[a-zəöüğışçA-ZƏÖÜĞİŞÇ]+\s+\d{1,2},\s+20\d{2}(?:\s+\d{1,2}:\d{2})?")
+
+def _list_date(raw):
+    """«Oktyabr 31, 2026 11:00» (sosial.gov.az) parse_az_date-in bildiyi sıraya çevrilir."""
+    iso = re.fullmatch(r"(20\d{2})-(\d{2})-(\d{2})[T ](\d{2}:\d{2}).*", raw.strip())
+    if iso:
+        return parse_az_date(f"{iso.group(3)}.{iso.group(2)}.{iso.group(1)} {iso.group(4)}")
+    swapped = re.fullmatch(r"([^\d\s]+)\s+(\d{1,2}),\s+(20\d{2})(.*)", raw.strip())
+    text = f"{swapped.group(2)} {swapped.group(1)} {swapped.group(3)}{swapped.group(4)}" if swapped else raw
+    return parse_az_date(text.lower())
+_LIST_ANCHOR = re.compile(r'<a\b([^>]*?)href=["\']([^"\']+)["\']([^>]*)>(.*?)</a>', re.S)
+
+def parse_list_page(page, base, link_rx, limit=20):
+    """Lenti olmayan rəsmi saytın xəbər siyahısı: keçid, başlıq və ona ən yaxın tarix.
+    Eyni xəbərə bir neçə keçid olur (şəkil, başlıq, «Ətraflı»): ən uzun başlıq götürülür."""
+    found = {}
+    for m in _LIST_ANCHOR.finditer(page):
+        link = urllib.parse.urljoin(base, html.unescape(m.group(2)))
+        if not re.search(link_rx, link):
+            continue
+        attrs, inner = m.group(1) + m.group(3), m.group(4)
+        named = re.search(r'title=["\']([^"\']+)', attrs) or re.search(r'alt=["\']([^"\']+)', inner)
+        title = _clean_text(inner)
+        if _LIST_DATE.fullmatch(title):  # tarix də həmin xəbərə keçiddir
+            title = ""
+        if len(title) < 15:
+            title = _clean_text(named.group(1)) if named else ""
+        if len(title) < 15:  # «Ətraflı» düyməsi: başlıq yuxarıdakı blokdadır
+            heads = re.findall(r"<h\d[^>]*>(.*?)</h\d>", page[max(0, m.start() - 900):m.start()], re.S)
+            title = _clean_text(heads[-1]) if heads else ""
+        slug_date = re.search(r"(\d{1,2})-(\d{1,2})-(20\d{2})(?:\.html)?$", link)
+        near = [d for d in _LIST_DATE.finditer(page, max(0, m.start() - 500), m.end() + 500)]
+        near.sort(key=lambda d: min(abs(d.start() - m.start()), abs(d.start() - m.end())))
+        raw = f"{slug_date.group(1)}.{slug_date.group(2)}.{slug_date.group(3)}" if slug_date else (near[0].group(0) if near else "")
+        row = found.get(link)
+        if row and raw and not row["pubDate"]:  # eyni xəbərin vitrindəki keçidində tarix yox idi
+            row["pubDate"] = _list_date(raw)
+        if len(title) < 15 or (row and len(row["title"]) >= len(title)):
+            continue
+        imgs = list(re.finditer(r'<img[^>]+src=["\']([^"\']+)', page[max(0, m.start() - 500):m.end()]))
+        found[link] = {"title": title, "link": link, "description": "", "pubDate": (row or {}).get("pubDate") or (_list_date(raw) if raw else ""),
+                       "image": _abs_img(imgs[-1].group(1), link) if imgs else None, "author": ""}
+    return list(found.values())[:limit]
+
+def parse_cards(page, base, start, link_rx, title_rx, date_rx, limit=40):
+    """Özəl saytların xəbər kartları: səhifə kartlara bölünür ki, qonşu kartın tarixi və şəkli qarışmasın.
+    Kartdakı yer adı (Yurd.Media: «Gəncə») təsvirə yazılır: başlıqda ad olmasa da rayon düyməsi xəbəri tapır."""
+    found = {}
+    for card in re.split(start, page)[1:]:
+        link, title = re.search(link_rx, card), re.search(title_rx, card, re.S)
+        text = _clean_text(title.group(1)) if title else ""
+        if not link or len(text) < 15:
+            continue
+        link = urllib.parse.urljoin(base, html.unescape(link.group(1)))
+        if link in found:
+            continue
+        date, img = re.search(date_rx, card), re.search(r'<img[^>]+src=["\']([^"\']+)', card)
+        label = re.search(r'class="news__region">(.*?)</', card, re.S)
+        place = _clean_text(label.group(1)) if label else ""
+        found[link] = {"title": text, "link": link, "pubDate": _list_date(date.group(1)) if date else "", "author": "",
+                       "description": place if any(_rx(w).search(norm_az(place)) for w in PLACE_WORDS) else "",
+                       "image": _abs_img(img.group(1), base) if img else None}
+    return list(found.values())[:limit]
+
+_CARD_DATE = r"(\d{2}[.]\d{2}[.]20\d{2} \d{2}:\d{2})"
+_CARD_SITES = {
+    "https://gencexeber.az/butun-xeberler": (r'(?=<div class="post__item" data-date=)', r'href="([^"]+/butun-xeberler/[^"]+)"', r'itemprop="headline">(.*?)</span>', r'data-date="([^"]+)"'),
+    "https://yurd.media/": (r'(?=<a href="[^"]+" class="news__item)', r'href="([^"]+)"', r'class="news__title">(.*?)</div>', _CARD_DATE),
+    "https://regionplus.az/allnews": (r'(?=<div class="nn_item[ "])', r'href="(/posts/view/\d+)"', r'class="article_title">\s*<a[^>]+>(.*?)</a>', _CARD_DATE),
+}
+
+_LIST_SITES = {
+    "https://sosial.gov.az/az/media/xeberler": r"/az/media/xeberler/.",
+    "https://dsmf.gov.az/az/media/xeberler": r"/az/media/xeberler/.|dsmf\.gov\.az/post/.",
+    "https://dost.gov.az/news": r"dost\.gov\.az/news/\d+",
+    "https://dma.gov.az/media/xeberler": r"/media/xeberler/.",
+    "https://ntv.az/news": r"ntv\.az/news/[a-z-]+/\d+",
+    **{url: r"/az/news/[^/]+\.html$" for name, url, *_ in AZ_FEEDS if url.endswith("-ih.gov.az/news.html")},
+    **{url: r"/xeber/[^/?#]+$" for name, url, *_ in AZ_FEEDS if url.endswith("-ih.gov.az/xeberler")},
+}
+
 # Lent ünvanı RSS yox, HTML səhifədirsə, _load_direct bu oxuyucunu işlədir (mənbə sağlamlığı, ehtiyatlar və limitlər eynidir).
 PAGE_PARSERS = {
     CROSSMEDIA_URL: parse_crossmedia,
     XALQQAZETI_URL: parse_xalqqazeti,
     YENIAZERBAYCAN_URL: parse_yeniazerbaycan,
+    **{url: (lambda page, url=url, rx=rx: parse_list_page(page, url, rx)) for url, rx in _LIST_SITES.items()},
+    **{url: (lambda page, url=url, rule=rule: parse_cards(page, url, *rule)) for url, rule in _CARD_SITES.items()},
 }
 
 def official_items(tries=1, timeout=12):
@@ -2709,6 +2837,7 @@ SECTIONS = [
     ("idman", "İdman", "İdman aləmindən xəbərlər və nəticələr"),
     ("medeniyyet", "Mədəniyyət", "Kino, musiqi, sənət və mədəni həyat"),
     ("heyat", "Sağlamlıq və həyat", "Tibb, sağlamlıq, qidalanma, psixologiya"),
+    ("sosial", "Sosial müdafiə", "Pensiya, müavinət, sosial yardım, əlillik, məşğulluq"),
     ("bolgeler", "Bölgələr", "Rayonlardan və şəhərlərdən xəbərlər"),
     ("tehsil", "Təhsil və elm", "Məktəb, universitet, elm, texnologiya"),
 ]
