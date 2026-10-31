@@ -1,0 +1,4 @@
+# actionlint 1.7.7 macos-26 adını tanımır (GitHub-ın öz runner-idir).
+self-hosted-runner:
+  labels:
+    - macos-26
