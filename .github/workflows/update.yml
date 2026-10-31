@@ -34,7 +34,7 @@ jobs:
         continue-on-error: true
         with:
           path: .lkg
-          key: updater-lkg2-${{ hashFiles('updater.py', 'reader_content.py', 'content_policy.py', 'assets/content-policy.js') }}
+          key: updater-lkg2-${{ hashFiles('updater.py', 'reader_content.py', 'content_policy.py', 'assets/content-policy.js', '.github/scripts/check_outputs.py') }}
           restore-keys: updater-lkg2-
       - name: Hər 60 saniyədən bir yenilə
         env:
@@ -46,7 +46,7 @@ jobs:
         continue-on-error: true
         with:
           path: .lkg
-          key: updater-lkg2-${{ hashFiles('.lkg/updater.py', '.lkg/reader_content.py', '.lkg/content_policy.py', '.lkg/assets/content-policy.js') }}
+          key: updater-lkg2-${{ hashFiles('.lkg/updater.py', '.lkg/reader_content.py', '.lkg/content_policy.py', '.lkg/assets/content-policy.js', '.lkg/.github/scripts/check_outputs.py') }}
       # Skript gözlənilmədən bitsə də zəncir qırılmasın.
       - name: Növbəti işi başlat
         if: ${{ !cancelled() }}
@@ -60,8 +60,9 @@ jobs:
             echo "Başqa iş var ($others)."
             exit 0
           fi
-          for i in 1 2 3 4 5; do
-            gh workflow run update.yml --ref main && exit 0
-            sleep 3
+          # GitHub qısa kəsilibsə dərhal təslim olmuruq: cron gec gələ bilər.
+          for i in $(seq 1 20); do
+            timeout -k 5 20 gh workflow run update.yml --ref main && exit 0
+            sleep 15
           done
           echo "Dispatch alınmadı. Cron və nəzarətçi ehtiyat qalır."
