@@ -1000,12 +1000,17 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 /* Alt menyu sətirləri: başlıq panelindən azca fərqli fon, hər pillə bir ton tünd */
 :root{--nav-row:var(--card2);--nav-row2:var(--card2)}
 @supports(background:color-mix(in srgb,red,blue)){:root{--nav-row:color-mix(in srgb,var(--primary) 10%,var(--card));--nav-row2:color-mix(in srgb,var(--primary) 20%,var(--card))}}
-.nav-pop[hidden]{display:none}
 .sub-rows{margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .sub-rows .wrap{max-width:none;padding-left:10px;padding-right:10px}
 .sub-rows .nav-row:last-child{border-bottom:0}
-.nav-pop{position:absolute;top:100%;left:0;right:0;z-index:60;max-height:calc(100dvh - 130px);overflow-y:auto;box-shadow:0 14px 28px #0005}
-.nav-pop .chips{flex-wrap:wrap;overflow:visible}
+.nav-pop{position:absolute;top:100%;left:0;z-index:60;display:flex;align-items:flex-start;border-radius:0 0 10px 10px;overflow:hidden;box-shadow:0 14px 28px #0006}
+.nav-pop[hidden]{display:none}
+.pop-col{display:flex;flex-direction:column;gap:6px;width:230px;padding:10px;background:var(--nav-row);max-height:calc(100dvh - 130px);overflow-y:auto}
+.pop-col.two{background:var(--nav-row2)}
+.pop-col .pill{display:flex;align-items:center;justify-content:space-between;width:100%;flex:none;min-height:38px;padding:7px 12px;border-radius:6px;background:var(--card);color:var(--fg);font-size:.9rem;text-align:left;white-space:normal}
+.pop-col .pill.on{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.pop-col [data-kids]::after{content:"›";margin-left:8px;font-size:1.1em;opacity:.8}
+.pop-col .chip-h{flex:none;padding:4px 2px 0;min-width:0}
 .nav-row{background:var(--nav-row);border-bottom:1px solid var(--border);padding:6px 0}
 .nav-row.two{background:var(--nav-row2)}
 .nav-row .sport-chips{margin-bottom:0}
@@ -1040,3 +1045,9 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 .mk-grid::-webkit-scrollbar{display:none}
 .mk-grid>.mk:first-child{margin-left:auto}
 .mk-grid>.mk:last-child{margin-right:auto}
+/* Telefon: başlıq sətirləri bərabərləşir, heç bir endə son başlıq (Video) tək sətrə düşmür */
+@media(max-width:600px){
+  nav.main{display:block;text-wrap:balance}
+  nav.main>a,nav.main a.nav-x{display:inline-flex;align-items:center;vertical-align:top;margin:0 2px 3px 0;padding-left:8px;padding-right:8px}
+  nav.main>a[href="#/"]{display:none}
+}

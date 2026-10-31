@@ -272,20 +272,20 @@ test('sport sub-sections open their own teams and close when you leave',()=>{
   assert.ok(bb.includes('data-club="Avroliqa"'));
   assert.ok(!bb.includes('data-club="Qarabağ"'));
 });
-test('hover menu: one row for the section, a second row only for a tab with its own list',()=>{
+test('hover menu: one list for the section, a second list only for a tab with its own items',()=>{
   const ctx=app(),{S,navPopHtml}=ctx.api;
   S.data={articles:[]};S.club=null;S.sportTab=null;
   const closed=navPopHtml('idman',null);
-  assert.equal(closed.split('nav-row').length-1,1,'bir sətir');
+  assert.equal(closed.split('pop-col').length-1,1,'bir siyahı');
   assert.ok(closed.includes('data-club="Futbol"'));
   assert.ok(!closed.includes('class="pill on"'),'başqa səhifədə heç nə seçili görünmür');
   const football=navPopHtml('idman','Futbol');
-  assert.ok(football.includes('nav-row two'),'Futbol ikinci sətri açır');
+  assert.ok(football.includes('pop-col two'),'Futbol ikinci siyahını açır');
   for(const name of ['Qarabağ','Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
   assert.ok(football.includes('class="pill on" data-club="Futbol"'));
-  assert.ok(!navPopHtml('idman','Tennis').includes('nav-row two'),'siyahısı olmayan başlıq');
+  assert.ok(!navPopHtml('idman','Tennis').includes('pop-col two'),'siyahısı olmayan başlıq');
   const region=navPopHtml('bolgeler','Qarabağ');
-  assert.ok(region.includes('nav-row two')&&region.includes('data-club="Xankəndi"'),'bölgələr də eyni cür açılır');
+  assert.ok(region.includes('pop-col two')&&region.includes('data-club="Xankəndi"'),'bölgələr də eyni cür açılır');
   const more=navPopHtml('more');
   assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="#/bolme/dunya"'));
   assert.ok(!more.includes('href="#/bolme/idman"'),'menyuda görünən bölmə təkrarlanmır');
