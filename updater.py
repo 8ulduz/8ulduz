@@ -1185,7 +1185,8 @@ def compute_groups():
 
 def apply_groups(articles):
     """Yavaş prosesin qruplarını lentə tətbiq edir. Yeni xəbərlər növbəti hesablamaya qədər ayrı qalır, brauzer onları da birləşdirir."""
-    groups = _read_json(GROUPS_FILE, {})
+    # Qrup faylı dəyişiklikdən əvvəl yazılıb ola bilər: köhnə keçid buradan lentə qayıtmasın.
+    groups = {fix_source_link(url): [{**alt, "sourceUrl": fix_source_link(alt.get("sourceUrl"))} for alt in alts] for url, alts in _read_json(GROUPS_FILE, {}).items()}
     present = {a.get("sourceUrl") for a in articles}
     absorbed = {alt.get("sourceUrl") for url, alts in groups.items() if url in present for alt in alts}
     out = []

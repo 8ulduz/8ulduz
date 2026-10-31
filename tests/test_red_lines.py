@@ -454,6 +454,14 @@ class QualityTest(unittest.TestCase):
         self.assertNotIn("alts", out[0])
         self.assertEqual(out[1]["alts"][0]["source"], "D")
 
+    def test_stored_groups_do_not_bring_broken_reyting_links_back(self):
+        rows = [{"sourceUrl": "https://a.az/1"}]
+        stored = {"https://a.az/1": [{"sourceUrl": "https://reyting.az/haber/x.html", "source": "Reyting.az"}]}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "qrup.json"):
+            updater.GROUPS_FILE.write_text(updater.json.dumps(stored), encoding="utf-8")
+            out = updater.apply_groups(rows)
+        self.assertEqual(out[0]["alts"][0]["sourceUrl"], "https://reyting.az/xeber/x")
+
     def test_first_minute_of_a_job_keeps_existing_merges(self):
         rows = [{"sourceUrl": "https://a.az/1", "alts": [{"sourceUrl": "https://b.az/9", "source": "B"}]}]
         with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "yoxdur.json"):
