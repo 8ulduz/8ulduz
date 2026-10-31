@@ -513,7 +513,8 @@ class SectionPagesTest(unittest.TestCase):
         self.assertIn('src="../../assets/app.js"', page)
         self.assertIn('"../../#/bolme/idman"', page)
         self.assertIn(updater.SITE + "bolme/idman/", sitemap)
-        self.assertEqual(len(pages), len(updater.SECTIONS))
+        self.assertEqual(len(pages), len(updater.SECTIONS) + len(updater.SECTION_ALIASES))  # köhnə ünvanlar yönləndirir
+        self.assertNotIn("bolme/sehiyye/", sitemap)
 
     def test_site_url_follows_the_cname_file(self):
         with tempfile.TemporaryDirectory() as tmp:
