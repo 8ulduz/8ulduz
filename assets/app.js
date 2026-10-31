@@ -23,8 +23,8 @@ const SECTION_ALIAS = { sehiyye: "heyat", texnologiya: "tehsil" };
 // Axtarış sistemi üçün statik səhifəsi olan xidmətlər (updater.py, SERVICE_PAGES).
 const SERVICE_ROUTES = { tixac: "traffic", valyuta: "rates", cedvel: "league" };
 const LANGS = [
-  { code: "az", label: "Azərbaycan dilində" }, { code: "ru", label: "на русском языке" },
-  { code: "en", label: "in English" }, { code: "tr", label: "Türkçe" },
+  { code: "az", label: "Azərbaycan dilində" }, { code: "tr", label: "Türkçe" },
+  { code: "ru", label: "на русском языке" }, { code: "en", label: "in English" },
 ];
 const LANG_BADGE = { az: "AZ", ru: "RUS", en: "ENG", tr: "TÜRK" };
 // Windows-da Chrome bayraq emojisini iki hərf kimi göstərir, ona görə bayraqlar SVG-dir.
@@ -693,19 +693,23 @@ function readerBusy() {
   return !!document.activeElement?.closest?.("#view input, #view select, #view textarea");
 }
 // Açılışda 8 fayl bir-bir gəlir, hər biri bütün səhifəni yenidən çəkirdi (telefonda hər dəfə 1-2 saniyə). İndi birləşir:
-// ilk xəbərlər dərhal çəkilir, qalan hamısı ondan 2,5 saniyə sonra bir dəfəyə, sonrakılar 400 ms-də bir.
+// ilk xəbərlər dərhal çəkilir, qalan hamısı gələn kimi bir dəfəyə (ən gec 2,5 saniyə), sonrakılar 400 ms-də bir.
 const RENDER_GAP_MS = 400, FIRST_RENDER_HOLD_MS = 2500;
 function requestRender(whole = true) {
   if (readerBusy()) { S.renderPending = true; syncNewPill(); return; }
   S.renderPending = false; S.pendingNew = 0; syncNewPill();
   if (!S.data) return; // xəbərlər gələndə birinci çəkiliş hamısını götürür
   S.renderWhole ||= whole;
-  if (S.renderTimer) return;
-  S.renderTimer = setTimeout(() => {
-    const all = S.renderWhole;
-    S.renderTimer = null; S.renderWhole = false;
-    if (all) render(); else renderView();
-  }, Math.max(RENDER_GAP_MS, (S.firstRenderAt || 0) + FIRST_RENDER_HOLD_MS - Date.now()));
+  if (S.renderQueued) return;
+  S.renderQueued = true;
+  S.renderTimer = setTimeout(flushRender, Math.max(RENDER_GAP_MS, (S.firstRenderAt || 0) + FIRST_RENDER_HOLD_MS - Date.now()));
+}
+function flushRender() {
+  clearTimeout(S.renderTimer);
+  if (!S.renderQueued) return;
+  const all = S.renderWhole;
+  S.renderQueued = false; S.renderWhole = false;
+  if (all) render(); else renderView();
 }
 function syncNewPill() {
   const pill = $("#newpill");
@@ -938,13 +942,16 @@ function renderTopbar() {
 const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"];
 // Ölçmə çəkilişin ortasında yerləşdirməni təkrarlatmasın: bütün dəyişikliklərdən sonra bir dəfə.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
+// Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad. Şrift kiçilmir: 3 cərgə üçün 9,8 piksələ düşməli idi, oxunmazdı.
+const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", sosial: "Sosial", tehsil: "Təhsil" };
+const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub"].filter(Boolean).join(" ");
-  const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}">${esc(c.label)}</a>`;
+  const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
   const primary = NAV_PRIMARY;
   // nav-x: telefonda «Daha çox» əvəzinə zolaqda birbaşa görünən qalan bölmələr (masaüstündə gizli)
-  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}">${esc(c.label)}</a>`).join("");
+  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
   afterPaint(fitNav);
@@ -1625,6 +1632,31 @@ function trafficView() {
     ${rows}`;
 }
 
+// Yalnız dəyişən blok yenilənir. Əvvəl hər yeni xəbərdə bütün səhifə yenidən qurulurdu: telefonda 1 saniyə donurdu,
+// oxucu həmin an linkə basanda keçid gecikirdi, şəkillər də yenidən yerləşirdi. Blokun mənbə mətni saxlanır,
+// çünki qurulandan sonra DOM dəyişir (oxlar, açılmış bölmə, yüklənmiş şəkil).
+function patchView(v, page) {
+  const next = document.createElement("template");
+  next.innerHTML = page;
+  const fresh = [...next.content.children], old = [...v.children], changed = [];
+  fresh.forEach((node, i) => {
+    const src = node.outerHTML, was = old[i];
+    node._src = src;
+    if (was && was._src === src) { node._src = null; return; }
+    // Açılmış bölmə yenilənəndə bağlanmasın: səhifənin hündürlüyü dəyişib oxucu yerini itirməsin.
+    if (was?.matches(".lazy-sec") && !was.querySelector(":scope > template") && node.matches(".lazy-sec")) node.replaceChildren(node.querySelector(":scope > template").content);
+    if (was) was.replaceWith(node); else v.append(node);
+    changed.push(node);
+  });
+  old.slice(fresh.length).forEach(node => node.remove());
+  if (!changed.length) return;
+  const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
+  if (has("[data-marquee]")) setupMarquees();
+  changed.forEach(n => n.querySelectorAll(".strip").forEach(setupStrip));
+  if (has(".hero-strip")) setupHeroImages();
+  setupFeatureLents();
+  setupLazySections();
+}
 function renderView() {
   syncQuery();
   pageMeta();
@@ -1636,14 +1668,7 @@ function renderView() {
   const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
   const page = err + body;
-  if (page !== S.viewPage) {
-    S.viewPage = page; v.innerHTML = page;
-    setupMarquees();
-    setupStrips();
-    setupHeroImages();
-    setupFeatureLents();
-    setupLazySections();
-  }
+  if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
   $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
   const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
   document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
@@ -2075,9 +2100,6 @@ function stopStep(el, snap) {
 }
 // Karusel: .strip içindəki zolağa ← → oxları və nöqtələr əlavə edir; bir basış bir səhifə (görünən en) sürüşdürür.
 // Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
-function setupStrips() {
-  document.querySelectorAll(".strip").forEach(setupStrip);
-}
 // Baş səhifənin uzaq bölmələri <template>-dədir: yerləşdirilmir, şəkli yüklənmir (telefonda ən ağır iş 4000 elementin hesablanması idi).
 const lazySection = html => html ? `<div class="lazy-sec"><template>${html}</template></div>` : "";
 function setupLazySections() {
@@ -2329,7 +2351,7 @@ document.addEventListener("visibilitychange", () => {
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);
-  marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
+  marqueeResizeT = setTimeout(() => { setupMarquees(); document.querySelectorAll(".strip").forEach(setupStrip); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
 });
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
@@ -2476,7 +2498,9 @@ document.addEventListener("toggle", (e) => {
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);
 shell(); render();
-loadNews().then(() => loadLatest()); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadSports(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
+// Hamısı gələn kimi çəkilir: gözləsə ağır çəkiliş oxucunun linkə basdığı ana düşür, keçid gecikir.
+Promise.allSettled([loadNews().then(() => loadLatest()), loadSocial(), loadSources(), loadVideo(), loadFootball(), loadSports(), loadAds()]).then(flushRender);
+loadMarkets(); loadStatus(); loadWeather(); loadPrayer(savedPrayCity()); loadWarnings();
 setInterval(() => pollNews(), POLL_MS);
 addEventListener("scroll", () => {
   if (S.renderPending && (globalThis.scrollY || 0) < 200) requestRender();

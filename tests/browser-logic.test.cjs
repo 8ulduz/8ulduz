@@ -157,6 +157,29 @@ test('an update waits while the reader is busy: open video, open popup, typing, 
   ctx.api.requestRender();
   assert.equal(ctx.api.S.renderPending,true);
 });
+test('phone headings use short names so they fit three rows, screen readers keep the full name',()=>{
+  const ctx=app();
+  const label=vm.runInContext('navLabel',ctx);
+  assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-s">Sağlamlıq<'));
+  assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-f">Sağlamlıq və həyat<'));
+  assert.equal(label({slug:'gundem',label:'Gündəm'}),'Gündəm');
+});
+test('language order: Azerbaijani, Turkish, Russian, English',()=>{
+  const ctx=app();
+  assert.deepEqual(Array.from(vm.runInContext('LANGS.map(l=>l.code)',ctx)),['az','tr','ru','en']);
+});
+test('speed red line: the waiting redraw runs as soon as the files have arrived',()=>{
+  const ctx=app();
+  vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render; flush = flushRender;',ctx);
+  const {S,requestRender}=ctx.api;
+  S.data={articles:[]};S.firstRenderAt=Date.now();
+  requestRender();
+  assert.equal(ctx.rendered||0,0);
+  ctx.flush();
+  assert.equal(ctx.rendered,1);
+  ctx.flush();
+  assert.equal(ctx.rendered,1,'gözləyən çəkiliş yoxdursa heç nə etmir');
+});
 test('speed red line: the page code stays within its size limit',()=>{
   assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<200e3,'app.js');
   assert.ok(fs.statSync(path.join(root,'assets/app.css')).size<95e3,'app.css');
