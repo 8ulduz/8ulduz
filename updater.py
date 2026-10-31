@@ -32,7 +32,7 @@ AZ_FEEDS = [
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
     ("APA Sport",    "https://apasport.az/rss", "İdman"),
-    # Lent qarışıqdır (hava proqnozu, şou-biznes da var): idmana yalnız idman sözü olan xəbər gedir.
+    # «?»: sayt əsasən bu mövzudadır, amma hər xəbəri yox (categorize). Burada hava proqnozu, şou-biznes da var.
     ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman?"),
     ("Qol.az",       "https://www.qol.az/rss/", "İdman"),
     ("Fanat.az",     "https://fanat.az/feed", "İdman"),
@@ -51,11 +51,11 @@ AZ_FEEDS = [
     ("Aznews.az",    "https://aznews.az/rss/"),
     ("Zim.az",       "https://zim.az/rss.xml"),
     ("Konkret.az",   "https://konkret.az/rss"),
-    ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət"),
+    ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət?"),
     ("İki Sahil",    "https://ikisahil.az/rss"),
     ("Femida.az",    "https://femida.az/rss.xml"),
-    ("Ordu.az",      "https://ordu.az/rss.xml", "Siyasət"),
-    ("Azpolitika.info", "https://azpolitika.info/rss", "Siyasət"),
+    ("Ordu.az",      "https://ordu.az/rss.xml", "Siyasət?"),
+    ("Azpolitika.info", "https://azpolitika.info/rss", "Siyasət?"),
     ("Marja.az",     "https://marja.az/rss.php", "İqtisadiyyat"),
     ("Banco.az",     "https://banco.az/rss.xml", "İqtisadiyyat"),
     ("Media.az",     "https://media.az/rss"),
@@ -677,12 +677,18 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
         scores["Prezident"] = 0  # Zuğulba yalnız Azərbaycan mənbələrindəndir
-    if hint == "İdman?":
-        hint = "İdman" if scores["İdman"] > 0 else None
+    # «Siyasət?»: saytın mövzusu üstünlük verir, amma məcbur etmir. Azpolitika-nın hava proqnozu Siyasət deyil (2026-10-31).
+    soft = hint[:-1] if hint and hint.endswith("?") else None
+    if soft:
+        hint = None
+        if scores[soft] > 0:
+            scores[soft] += 1
     if hint and scores.get("Prezident", 0) < 6:
         return hint
     best = max(scores, key=lambda cat: (scores[cat], in_title.get(cat, 0)))  # bərabərlikdə başlıqdakı söz üstündür
     if scores[best] <= 0:
+        if soft and soft != "İdman":  # idman sözü yoxdursa idman deyil; siyasət saytının adi yazısı isə siyasətdir
+            return soft
         return "Dünya" if world else FALLBACK
     # xarici mənbələrdə prezident bölməsi yalnız güclü göstərici ilə
     return best

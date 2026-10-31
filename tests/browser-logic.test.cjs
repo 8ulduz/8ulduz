@@ -194,8 +194,10 @@ test('sport buttons: short list, every topic finds its news in every language, n
   yes('Formula 1','Verstappen penalized',{source:'Motorsport F1'});yes('Formula 1','Formula-1: Hamilton birinci oldu');yes('Formula 1','Льюис Хэмилтон и «Формула-1»'.replace('«Формула-1»','Формула-1'));no('Formula 1','Yeni formula təklif edildi');
   yes('Tennis','Tennisçimiz qalib gəldi');yes('Şahmat','Şahmatçılarımız medal qazandı');yes('Boks və UFC','UFC champion Makhachev');yes('Güləş və cüdo','Cüdoçumuz Avropa çempionu oldu');
   const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
-  const clubs=src.slice(src.indexOf('const SPORT_TOPICS'),src.indexOf('const CITIES')).match(/name: "/g).length;
-  assert.ok(clubs<=30,'düymə sayı: '+clubs);
+  const clubs=src.slice(src.indexOf('const SPORT_TEAMS'),src.indexOf('const CITIES')).match(/name: "/g).length;
+  assert.ok(clubs<=32,'düymə sayı: '+clubs);
+  yes('Futbol','Galatasaray kazandı');yes('Futbol','Yeni futbol mövsümü');yes('Futbol','Verstappen?',{source:'BBC Futbol'});no('Futbol','Verstappen wins in Mexico');
+  yes('Basketbol','Лейкерс в НБА');yes('Basketbol','Basketbolçumuz qalib gəldi');no('Basketbol','Galatasaray kazandı');
 });
 test('sport shows every language whatever language is chosen, also inside a team',()=>{
   const ctx=app(),{S,sectionView}=ctx.api;
@@ -205,6 +207,21 @@ test('sport shows every language whatever language is chosen, also inside a team
   for(const club of [null,'Galatasaray']){S.club=club;for(const a of S.data.articles)assert.ok(sectionView('idman').includes(a.title),a.title);}
   S.club='Liverpool';
   assert.ok(sectionView('idman').includes('Bu mövzuda son 5 gündə xəbər tapılmadı'));
+});
+test('sport sub-sections open their own teams and close when you leave',()=>{
+  const ctx=app(),{S,sectionView}=ctx.api;
+  S.data={articles:[]};S.club=null;S.sportTab=null;
+  const top=sectionView('idman');
+  for(const name of ['Hamısı','Futbol','Basketbol','Formula 1','Tennis','Şahmat'])assert.ok(top.includes('>'+name+'<'),name);
+  assert.ok(!top.includes('data-club="Qarabağ"'),'komandalar bağlıdır');
+  S.club='Futbol';S.sportTab='Futbol';
+  const foot=sectionView('idman');
+  for(const name of ['Qarabağ','Galatasaray','Real Madrid'])assert.ok(foot.includes('data-club="'+name+'"'),name);
+  assert.ok(!foot.includes('data-club="NBA"'));
+  S.club='NBA';S.sportTab='Basketbol';
+  const bb=sectionView('idman');
+  assert.ok(bb.includes('data-club="Avroliqa"'));
+  assert.ok(!bb.includes('data-club="Qarabağ"'));
 });
 test('club filter sees names next to punctuation',()=>{
   const {clubMatches}=app().api;

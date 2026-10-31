@@ -463,6 +463,14 @@ class QualityTest(unittest.TestCase):
         self.assertLess(updater.MAX_PER_WORLD_SOURCE, updater.MAX_PER_SOURCE)
         self.assertLess(updater.MAX_WORLD + updater.MAX_WORLD_SPORT, updater.FAST_MAX_ITEMS * 0.4)
 
+    def test_a_politics_site_does_not_put_weather_or_football_into_politics(self):
+        cat = lambda title, desc="": updater.categorize(title, desc, "az", "Siyasət?")
+        self.assertEqual(cat("Noyabrın ilk günü hava necə olacaq? - PROQNOZ"), "Cəmiyyət")
+        self.assertEqual(cat("Bu dəfə futbolçular yox, baş məşqçilər dalaşdı + VİDEO"), "İdman")
+        self.assertEqual(cat("Ermənistan parlamentindəki qarşıdurmaya görə Rubinyan məsul tutulur"), "Siyasət")
+        self.assertEqual(cat("Açıq məktub: kimə sual verək"), "Siyasət")
+        self.assertEqual(updater.categorize("Nəcəfli haqqında bir söz", "", "az", "Siyasət"), "Siyasət")
+
     def test_a_mixed_feed_sends_only_sport_to_the_sports_section(self):
         self.assertEqual(updater.categorize("Oktyabrın son günü yağış yağacaq - HAVA PROQNOZU", "", "az", "İdman?"), "Cəmiyyət")
         self.assertNotEqual(updater.categorize("Sevgilisi ilə barışdı", "", "az", "İdman?"), "İdman")
