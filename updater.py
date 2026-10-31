@@ -294,7 +294,9 @@ CATEGORIES = {
 BOOST = {"İdman": 2, "Prezident": 3, "Təhsil": 1.5, "Səhiyyə": 1.5, "Bölgələr": 1.5}
 SLUGS = {"Prezident": "prezident", "Gündəm": "gundem", "Siyasət": "siyaset", "Cəmiyyət": "cemiyyet",
          "İqtisadiyyat": "iqtisadiyyat", "Dünya": "dunya", "İdman": "idman", "Mədəniyyət": "medeniyyet",
-         "Həyat": "heyat", "Texnologiya": "texnologiya", "Təhsil": "tehsil", "Səhiyyə": "sehiyye", "Bölgələr": "bolgeler"}
+         "Həyat": "heyat", "Texnologiya": "tehsil", "Təhsil": "tehsil", "Səhiyyə": "heyat", "Bölgələr": "bolgeler"}
+# Birləşmiş bölmələr (2026-10-31): açar sözlər ayrı qalır, saytda bir başlıqdır. Köhnə ünvanlar yeni bölməyə yönəlir.
+SECTION_ALIASES = {"sehiyye": "heyat", "texnologiya": "tehsil"}
 DOUBLE = {"iran", "rusiya", "çin", "fransa", "israil", "ukrayna", "abş", "ingiltərə", "almaniya",
           "türkiyə", "ermənistan", "gürcüstan"}
 FALLBACK = "Gündəm"
@@ -1298,10 +1300,13 @@ def update_archive(now=None):
         if slug == "prezident":  # Zuğulba lentdə 60 gün qalır
             continue
         path, rows = ARCHIVE_DIR / f"{slug}.json", {}
-        for a in [*(_read_json(path, {}).get("articles") or []), *(a for a in articles if a.get("category") == slug)]:
+        aliases = [ARCHIVE_DIR / f"{old}.json" for old, new in SECTION_ALIASES.items() if new == slug]
+        saved = [row for p in [path, *aliases] for row in _read_json(p, {}).get("articles") or []]
+        names = {slug, *(old for old, new in SECTION_ALIASES.items() if new == slug)}
+        for a in [*saved, *(a for a in articles if a.get("category") in names)]:
             url = a.get("sourceUrl")
             if url and url not in merged:
-                rows[url] = {k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}
+                rows[url] = {**{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "category": slug}
         # Tarixi oxunmayan xəbər arxivdə qalmır.
         kept = [a for a in rows.values() if (_parse_dt(a.get("publishedAt")) or cutoff - datetime.timedelta(1)) >= cutoff
                 and not is_junk(a.get("sourceUrl", "")) and not removed_source(a)
@@ -1310,6 +1315,9 @@ def update_archive(now=None):
         kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
         ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
         _write_atomic(path, json.dumps({"at": now, "articles": kept[:ARCHIVE_MAX_BY_SECTION.get(slug, ARCHIVE_MAX)]}, ensure_ascii=False, separators=(",", ":")))
+        for old in aliases:  # köhnə fayl boşalır: növbəti dəfə eyni xəbər yenidən köçürülməsin
+            if old.exists():
+                _write_atomic(old, json.dumps({"at": now, "articles": []}, separators=(",", ":")))
 
 
 # Səsli oxu söndürülüb, reader.json-u işlədən yoxdur: 400 xəbərin tam mətni açıq yayımlanmasın (müəllif hüququ).
@@ -2694,11 +2702,9 @@ SECTIONS = [
     ("dunya", "Dünya", "Beynəlxalq mətbuat"),
     ("idman", "İdman", "İdman aləmindən xəbərlər və nəticələr"),
     ("medeniyyet", "Mədəniyyət", "Kino, musiqi, sənət və mədəni həyat"),
-    ("heyat", "Həyat", "Həyat tərzi, qidalanma, psixologiya"),
+    ("heyat", "Sağlamlıq və həyat", "Tibb, sağlamlıq, qidalanma, psixologiya"),
     ("bolgeler", "Bölgələr", "Rayonlardan və şəhərlərdən xəbərlər"),
-    ("tehsil", "Təhsil", "Məktəb, universitet, imtahanlar"),
-    ("sehiyye", "Səhiyyə", "Tibb, xəstəxanalar, sağlamlıq"),
-    ("texnologiya", "Texnologiya", "Elm, texnologiya və süni intellekt"),
+    ("tehsil", "Təhsil və elm", "Məktəb, universitet, elm, texnologiya"),
 ]
 SECTIONS_DIR = ROOT / "bolme"
 
@@ -2757,6 +2763,11 @@ def write_sections(articles):
         d = SECTIONS_DIR / slug
         d.mkdir(parents=True, exist_ok=True)
         _write_atomic(d / "index.html", section_page(slug, label, desc, articles), encoding="utf-8")
+    for old, new in SECTION_ALIASES.items():
+        d = SECTIONS_DIR / old
+        d.mkdir(parents=True, exist_ok=True)
+        _write_atomic(d / "index.html", f'<!doctype html><html lang="az"><head><meta charset="UTF-8" /><link rel="canonical" href="{SITE}bolme/{new}/" />'
+                      f'<meta http-equiv="refresh" content="0;url=../{new}/" /><title>8ulduz</title></head><body><a href="../{new}/">Bölməyə keç</a></body></html>\n', encoding="utf-8")
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
 def write_sitemap():

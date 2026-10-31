@@ -538,6 +538,24 @@ class ArchiveTest(unittest.TestCase):
         updater.update_archive()
         self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/3"])
 
+    def test_merged_sections_carry_their_old_archive_over(self):
+        updater.ARCHIVE_DIR.mkdir(parents=True)
+        (updater.ARCHIVE_DIR / "texnologiya.json").write_text(updater.json.dumps({"at": 1, "articles": [self.row("https://apa.az/kohne", 3, category="texnologiya")]}), encoding="utf-8")
+        self.write(self.row("https://apa.az/yeni", 1), self.row("https://apa.az/kohne-lent", 2, category="texnologiya"))
+        updater.update_archive()
+        self.assertEqual(sorted(a["sourceUrl"] for a in self.rows()), ["https://apa.az/kohne", "https://apa.az/kohne-lent", "https://apa.az/yeni"])
+        self.assertEqual({a["category"] for a in self.rows()}, {"tehsil"})
+        self.assertEqual(self.rows("texnologiya"), [])
+
+    def test_merged_sections_have_one_page_each_and_old_addresses_redirect(self):
+        slugs = [s[0] for s in updater.SECTIONS]
+        self.assertNotIn("sehiyye", slugs)
+        self.assertNotIn("texnologiya", slugs)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SECTIONS_DIR", pathlib.Path(tmp)):
+            updater.write_sections([])
+            old = (pathlib.Path(tmp) / "sehiyye" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("url=../heyat/", old)
+
     def test_the_presidential_chronicle_has_no_archive(self):
         self.write(self.row("https://apa.az/1", 1))
         updater.update_archive()
