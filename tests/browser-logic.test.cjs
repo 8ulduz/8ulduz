@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {subNav, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, subNav, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -830,6 +830,7 @@ test('saved article remains readable after it leaves the live feed', () => {
   assert.ok(!html.includes('artıq lentdə yoxdur'));
   ctx.api.S.data.articles=[{...saved,title:'Updated live title'}];
   assert.ok(ctx.api.articleView('archived').includes('Updated live title'));
+  ctx.api.S.archiveScan='missing';
   assert.ok(ctx.api.articleView('missing').includes('artıq lentdə yoxdur'));
 });
 
@@ -855,8 +856,25 @@ test('cards can be shared, except stories with an unsafe link', () => {
   const ctx=app(),{card}=ctx.api,at=new Date().toISOString();
   ctx.api.S.og={};
   const row=url=>({id:'1',title:'Xəbər',lang:'az',category:'gundem',source:'APA',sourceUrl:url,publishedAt:at});
-  assert.ok(card(row('https://apa.az/1')).includes('data-share="https://apa.az/1"'));
+  assert.ok(card(row('https://apa.az/1')).includes('data-share="https://8ulduz.az/#/xeber/1?b=gundem"'),'keçid saytımıza aparır');
   assert.ok(!card(row('javascript:alert(1)')).includes('data-share'));
+});
+test('a shared link still opens after its story was grouped into another one', async () => {
+  const id=require('node:crypto').createHash('sha1').update('https://x.az/1').digest('hex').slice(0,16);
+  const ctx=app({crypto:require('node:crypto').webcrypto,TextEncoder});
+  const {S,articleView,scanArchives}=ctx.api;
+  S.data={articles:[{id:'esas',title:'Əsas xəbər',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:'2026-10-31T10:00:00Z',alts:[{source:'X',sourceUrl:'https://x.az/1',title:'Qruplaşan'}]}]};
+  await scanArchives(id);
+  const html=articleView(id);
+  assert.ok(html.includes('Əsas xəbər')&&html.includes('https://x.az/1'),'qrupun səhifəsi açılır, mənbə keçidi var');
+});
+test('a shared link searches the archives while it looks for an old story', async () => {
+  const ctx=app();
+  const {S,articleView}=ctx.api;
+  S.data={articles:[]};
+  assert.ok(articleView('kohne').includes('Xəbər axtarılır'));
+  await new Promise(r=>setTimeout(r,20));
+  assert.ok(articleView('kohne').includes('artıq lentdə yoxdur'),'heç yerdə yoxdursa bunu deyir');
 });
 test('service addresses open their own views and old section links stay', () => {
   const ctx=app(),{route}=ctx.api;
