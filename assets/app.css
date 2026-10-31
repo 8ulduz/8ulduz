@@ -988,4 +988,5 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
   nav.main>a{padding:6px 10px;min-height:34px;font-size:.82rem;background:var(--card2);border-radius:999px}
   nav.main>a.on{background:var(--primary);color:var(--primary-fg)}
   .lang-pill{min-height:36px}
+  .sport-chips .chips{flex-wrap:wrap;overflow:visible}
 }

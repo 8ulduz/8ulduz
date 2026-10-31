@@ -912,6 +912,8 @@ test('every city and district has its button and finds its stories', () => {
   html=sectionView('bolgeler');
   assert.ok(html.includes('apa.az/a'),'başqa bölmədəki xəbər də tapılır');
   assert.ok(!html.includes('apa.az/b'));
+  S.data.articles.push(row('g','"Şəki" futbolçusu qol vurdu','idman'));
+  assert.ok(!sectionView('bolgeler').includes('apa.az/g'),'klub xəbəri rayon düyməsində deyil');
   const hit=(title,name)=>clubMatches(row('x',title),name);
   assert.equal(hit('Qazaxıstanda seçki keçirilib','Qazax'),false);
   assert.equal(hit('Qazaxda körpü tikilib','Qazax'),true);

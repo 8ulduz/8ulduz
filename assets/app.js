@@ -1390,7 +1390,8 @@ function sectionView(slug) {
     if (S.club) {
       // Yer haqqında xəbər başqa bölmədə də ola bilər: seçiləndə bütün lent və arxivlər axtarılır.
       CATS.forEach(x => loadArchive(x.slug));
-      list = byDate(CATS.reduce((rows, x) => withArchive(x.slug, rows), d).filter(a => clubMatches(a, S.club)));
+      // «Qəbələ» və «Sabah» həm də futbol klubudur: rayon düyməsində oyun xəbəri olmasın.
+      list = byDate(CATS.reduce((rows, x) => withArchive(x.slug, rows), d).filter(a => a.category !== "idman" && clubMatches(a, S.club)));
     }
     extra = sportChips(REGION_TABS);
   }
