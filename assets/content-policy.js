@@ -3,7 +3,7 @@
 window.CONTENT_POLICY = {
   "azSources": {
     "AZƏRTAC": ["azertag.az"], "AZƏRTAC (Regionlar)": ["azertag.az"], "APA": ["apa.az"], "APA Sport": ["apasport.az"],
-    "Sportinfo": ["sportinfo.az"], "Oxu.az": ["oxu.az"], "Publika.az": ["publika.az"], "Lent.az": ["lent.az"],
+    "Sportinfo": ["sportinfo.az"], "Qol.az": ["qol.az"], "Fanat.az": ["fanat.az"], "Oxu.az": ["oxu.az"], "Publika.az": ["publika.az"], "Lent.az": ["lent.az"],
     "Axar.az": ["axar.az"], "Olke.az": ["olke.az"], "Yenicag.az": ["yenicag.az"], "AzVision.az": ["azvision.az"],
     "Moderator.az": ["moderator.az"], "Bizim.Media": ["bizim.media"], "Reyting.az": ["reyting.az"],
     "News24.az": ["news24.az"], "Anews.az": ["anews.az"], "Aznews.az": ["aznews.az"], "Zim.az": ["zim.az"],
@@ -24,9 +24,13 @@ window.CONTENT_POLICY = {
     "Euronews": ["euronews.com"], "Hürriyet": ["hurriyet.com.tr"], "Sabah TR": ["sabah.com.tr"], "Habertürk": ["haberturk.com"],
     "Milliyet": ["milliyet.com.tr"], "CNN Türk": ["cnnturk.com"], "TRT Haber": ["trthaber.com"], "Yeni Şafak": ["yenisafak.com"],
     "AA": ["aa.com.tr"], "TRT Spor": ["trthaber.com", "trtspor.com.tr"], "NTV Spor": ["ntvspor.net"], "TASS": ["tass.ru", "tass.com"],
-    "Interfax": ["interfax.ru", "sport-interfax.ru"], "Championat": ["championat.com"], "Sport.ru": ["sport.ru"], "Match TV": ["matchtv.ru"]
+    "Interfax": ["interfax.ru", "sport-interfax.ru"], "Championat": ["championat.com"], "Sport.ru": ["sport.ru"], "Match TV": ["matchtv.ru"],
+    "A Spor": ["aspor.com.tr"], "Sporx": ["sporx.com"], "Ajansspor": ["ajansspor.com"], "Hürriyet Spor": ["hurriyet.com.tr"],
+    "BBC Futbol": ["bbc.co.uk", "bbc.com"], "Guardian Futbol": ["theguardian.com"], "Motorsport F1": ["motorsport.com"], "The Race": ["the-race.com"],
+    "F1News": ["f1news.ru"], "Eurohoops": ["eurohoops.net"], "Sportando": ["sportando.basketball"], "TalkBasket": ["talkbasket.net"],
+    "BBC Tennis": ["bbc.co.uk", "bbc.com"], "MMA Fighting": ["mmafighting.com"], "Chess.com": ["chess.com"]
   },
-  "sportSources": ["TRT Spor", "NTV Spor", "Championat", "Sport.ru", "Match TV"],
+  "sportSources": ["TRT Spor", "NTV Spor", "Championat", "Sport.ru", "Match TV", "A Spor", "Sporx", "Ajansspor", "Hürriyet Spor", "BBC Futbol", "Guardian Futbol", "Motorsport F1", "The Race", "F1News", "Eurohoops", "Sportando", "TalkBasket", "BBC Tennis", "MMA Fighting", "Chess.com"],
   "videoChannels": ["İctimai TV", "Xezer TV", "ARB 24", "Report.az", "Trend TV"],
   "blockedHosts": ["azadliq.org", "azadliq.info", "meydan.tv", "abzas.org", "abzas.net", "toplum.tv", "mikroskopmedia.com", "turan.az", "musavat.com"],
   "azTerms": "azerbaijan|azerbaycan|azərbaycan|azerbaidjan|aserbaidschan|азербайдж|aliyev|алиев|əliyev|(?<![a-zçəğıöşü])baku(?![a-zçəğıöşü])|bakü|(?<![а-я])баку(?![а-я])|(?<![a-zçəğıöşü])bakı(?:da|dan|nın|ya|nı)?(?![a-zçəğıöşü])|nakhchivan|нахичеван|naxçıvan|nahçıvan|karabakh|karabağ|карабах|qarabağ|stepanakert|степанакерт|khankendi|xankəndi|ханкенди|zangezur|zengezur|зангезур|shusha|şuşa|шуша|gəncə|гянджа|sumgait|sumqayıt|сумгаит|(?<![a-zçəğıöşü])azeri(?![a-zçəğıöşü])|азери|milli məclis|milli mejlis|hajiyev|hacıyev|bayramov|байрамов|socar|сокар|karabagh|nakhichevan|sumgayit|(?<![a-zçəğıöşü])ganja(?![a-zçəğıöşü])|(?<![a-zçəğıöşü])azeris(?![a-zçəğıöşü])|гяндж|(?<![а-я])шуш[аеиуы](?![а-я])|бакинск|ильхам|mehriban|мехрибан|хикмет гаджиев|hikmet hajiyev|лачин|lachin|физули|fuzuli|aghdam|ağdam|агдам|khojaly|hocalı|xocalı|ходжал|арцах|artsakh|zakir hasanov|закир гасанов|кельбаджар|kalbajar|kəlbəcər|kelbecer|zangilan|zəngilan|зангилан|cəbrayıl|jabrayil|джебраил",

@@ -44,21 +44,51 @@ const PROFILES = [
     ["YouTube", "https://www.youtube.com/@FirstvicepresidentofAzerbaijan"],
   ]},
 ];
-const CLUBS = [
-  ["Qarabağ", ["qarabağ", "qarabag"]], ["Sabah", ["sabah fk", "sabah"]], ["Neftçi", ["neftçi", "neftci"]],
-  ["Turan", ["turan"]], ["Zirə", ["zirə", "zire"]], ["Sumqayıt", ["sumqayıt fk", "sumqayıt"]], ["Araz", ["araz"]],
-  ["Şamaxı", ["şamaxı fk", "şamaxı"]], ["Galatasaray", ["galatasaray"]], ["Fenerbahçe", ["fenerbahçe", "fenerbahce"]],
-  ["Beşiktaş", ["beşiktaş", "besiktas"]], ["Trabzonspor", ["trabzonspor"]], ["Başakşehir", ["başakşehir", "basaksehir"]],
-  ["Samsunspor", ["samsunspor"]], ["Man City", ["manchester city", "man city"]], ["Man United", ["manchester united", "man united"]],
-  ["Liverpool", ["liverpool"]], ["Arsenal", ["arsenal"]], ["Chelsea", ["chelsea", "çelsi"]], ["Tottenham", ["tottenham"]],
-  ["Newcastle", ["newcastle"]], ["Aston Villa", ["aston villa"]], ["Real Madrid", ["real madrid"]],
-  ["Barcelona", ["barcelona", "barselona"]], ["Atletico", ["atletico", "atletiko"]], ["Sevilla", ["sevilla"]],
-  ["Villarreal", ["villarreal"]], ["Valencia", ["valencia"]], ["Bayern", ["bayern", "bavariya"]], ["Dortmund", ["dortmund"]],
-  ["Leverkusen", ["leverkusen"]], ["Leipzig", ["leipzig"]], ["Frankfurt", ["frankfurt"]], ["Juventus", ["juventus", "yuventus"]],
-  ["Milan", ["milan"]], ["İnter", ["inter"]], ["Napoli", ["napoli"]], ["Roma", ["roma"]], ["Lazio", ["lazio"]],
-  ["Atalanta", ["atalanta"]], ["PSG", ["psg", "paris saint"]], ["Marseille", ["marseille", "marsel"]], ["Lyon", ["lyon"]],
-  ["Monaco", ["monaco"]], ["Lille", ["lille"]], ["Ajax", ["ajax"]], ["Porto", ["porto"]], ["Benfica", ["benfica"]],
-  ["Sporting", ["sporting"]], ["Celtic", ["celtic"]],
+// İdman bölməsinin düymələri. keys: bütöv ad (şəkilçi ilə), stems: söz başlanğıcı, quoted: dırnaqda ad
+// («sabah» sözü «tomorrow» da deməkdir, «Araz» çaydır), sources: bu mövzuya aid idman saytı, not: bu söz varsa başqa mövzudur.
+const SPORT_TEAMS = [
+  { group: "Azərbaycan", items: [
+    { name: "Qarabağ", keys: ["qarabağ", "qarabag", "qarabakh", "карабах"], not: ["dirçəliş", "universitet", "bərpa işləri", "yenidənqurma"] },
+    { name: "Neftçi", keys: ["neftçi", "neftchi", "нефтчи"] },
+    { name: "Sabah", keys: ["sabah fk", "сабах"], quoted: "sabah" },
+    { name: "Zirə", keys: ["zirə", "зиря"] },
+    { name: "Turan Tovuz", keys: ["turan tovuz", "туран товуз"], quoted: "turan" },
+    { name: "Araz-Naxçıvan", keys: ["araz naxçıvan", "араз нахчыван"], quoted: "araz" },
+    { name: "Milli komanda", keys: ["azərbaycan millisi", "azərbaycan yığması", "azərbaycan milli komandası", "milli komandamız", "millimiz", "сборная азербайджана", "сборной азербайджана", "сборную азербайджана"] },
+  ] },
+  { group: "Türkiyə", items: [
+    { name: "Galatasaray", keys: ["galatasaray", "qalatasaray", "галатасара"] },
+    { name: "Fenerbahçe", keys: ["fenerbahçe", "fənərbaxça", "fenerbaxça", "фенербахче"] },
+    { name: "Beşiktaş", keys: ["beşiktaş", "бешикташ"] },
+    { name: "Trabzonspor", keys: ["trabzonspor", "трабзонспор"] },
+  ] },
+  { group: "Avropa", items: [
+    { name: "Real Madrid", keys: ["real madrid", "реал мадрид", "реал"], not: ["real betis", "real sociedad", "реал бетис", "реал сосьедад", "реал сарагоса"] },
+    { name: "Barcelona", keys: ["barcelona", "barselona", "barça", "барселон"] },
+    { name: "Man City", keys: ["manchester city", "man city", "mançester siti", "манчестер сити"] },
+    { name: "Man United", keys: ["manchester united", "man united", "man utd", "mançester yunayted", "манчестер юнайтед", "мю"] },
+    { name: "Liverpool", keys: ["liverpool", "liverpul", "ливерпул"] },
+    { name: "Arsenal", keys: ["arsenal", "арсенал"], not: ["тульск", "арсенал тула", "нижнего новгорода"] },
+    { name: "Chelsea", keys: ["chelsea", "çelsi", "челси"] },
+    { name: "Bayern", keys: ["bayern", "bavariya", "бавари"] },
+    { name: "İnter", keys: ["inter", "интер"], not: ["inter miami", "интер майами", "майами"] },
+    { name: "Milan", keys: ["milan", "милан"], not: ["inter milan", "интер милан", "olimpia", "олимпия", "armani"] },
+    { name: "Juventus", keys: ["juventus", "yuventus", "ювентус"] },
+    { name: "PSG", keys: ["psg", "psj", "псж", "paris saint germain"] },
+  ] },
+];
+// Alt bölmələr. groups: alt bölmə seçiləndə açılan düymələr; alt bölmə onların xəbərlərini də əhatə edir.
+const SPORT_TABS = [
+  { name: "Futbol", not: ["euroleague", "avroliqa", "евролиг", "basketbol", "basketball", "баскетбол", "nba", "нба"], stems: ["futbol", "football", "soccer", "футбол"], keys: ["uefa", "fifa", "premyer liqa", "super liqa", "süper lig", "la liga", "bundesliqa", "bundesliga", "premier league", "champions league", "çempionlar liqası", "avropa liqası", "konfrans liqası", "лига чемпионов", "рпл", "апл"], sources: ["BBC Futbol", "Guardian Futbol"], groups: SPORT_TEAMS },
+  { name: "Basketbol", stems: ["basketbol", "basketball", "баскетбол"], sources: ["Sportando", "TalkBasket"], groups: [{ group: "", items: [
+    { name: "Avroliqa", keys: ["euroleague", "euroliga", "avroliqa", "евролиг"], sources: ["Eurohoops"] },
+    { name: "NBA", keys: ["nba", "нба", "lakers", "celtics", "knicks", "warriors", "76ers", "bucks", "nuggets"] },
+  ] }] },
+    { name: "Formula 1", keys: ["formula 1", "formula one", "f1", "ф1", "формула 1", "формулы 1", "формуле 1", "qran pri", "grand prix", "гран при"], not: ["фигурн", "катан", "figure skating", "cüdo", "judo", "дзюдо", "boks", "бокс"], sources: ["Motorsport F1", "The Race", "F1News"] },
+    { name: "Tennis", stems: ["tennis", "tenis", "теннис"], keys: ["atp", "wta", "wimbledon"], sources: ["BBC Tennis"] },
+    { name: "Boks və UFC", stems: ["boks", "boxing", "бокс", "ufc", "mma"], sources: ["MMA Fighting"] },
+    { name: "Güləş və cüdo", stems: ["güləş", "güreş", "cüdo", "judo", "wrestling", "дзюдо", "борец"], keys: ["вольная борьба", "вольной борьбе", "греко римская борьба"] },
+    { name: "Şahmat", stems: ["şahmat", "satranç", "шахмат", "chess"], sources: ["Chess.com"] },
 ];
 const CITIES = [["Bakı",40.4093,49.8671],["Sumqayıt",40.5897,49.6686],["Gəncə",40.6828,46.3606],["Mingəçevir",40.77,47.0286],["Şirvan",39.937,48.929],["Naxçıvan",39.2089,45.4122],["Lənkəran",38.7529,48.85],["Şəki",41.1919,47.1706],["Quba",41.3611,48.5133],["Xaçmaz",41.459,48.802],["Şamaxı",40.631,48.641],["İsmayıllı",40.785,48.15],["Qəbələ",40.98,47.86],["Oğuz",41.071,47.465],["Zaqatala",41.63,46.64],["Balakən",41.726,46.404],["Qax",41.418,46.92],["Şuşa",39.758,46.75],["Ağdam",39.993,46.93],["Füzuli",39.604,47.15],["Cəbrayıl",39.399,47.03],["Kəlbəcər",40.106,46.045],["Laçın",39.638,46.546],["Zəngilan",39.088,46.65],["Qubadlı",39.344,46.58],["Tovuz",40.992,45.628],["Göygöl",40.585,46.306],["Yevlax",40.617,47.15],["Bərdə",40.375,47.126],["Ağsu",40.57,48.4],["Kürdəmir",40.335,48.16],["Ucar",40.52,47.65],["Göyçay",40.65,47.74],["Ağdaş",40.65,47.48],["Zərdab",40.22,47.71],["İmişli",39.87,48.06],["Saatlı",39.93,48.37],["Sabirabad",40.01,48.48],["Salyan",39.596,49],["Neftçala",39.376,49.247],["Hacıqabul",40.04,48.94],["Biləsuvar",39.46,48.55],["Masallı",39.034,48.665],["Astara",38.501,48.875],["Lerik",38.775,48.415],["Yardımlı",38.908,48.24]];
 const DAYS = ["bazar", "bazar ertəsi", "çərşənbə axşamı", "çərşənbə", "cümə axşamı", "cümə", "şənbə"];
@@ -761,7 +791,7 @@ function shell() {
   document.addEventListener("click", onClick);
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { S.lang = e.target.value || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
-  window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true }); });
+  window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; S.sportTab = null; S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true }); });
   window.addEventListener("scroll", () => { $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
@@ -1023,32 +1053,47 @@ const ASSISTANT_ON = window.SITE_CONFIG?.assistant === true;
 const DRIVER_ON = window.SITE_CONFIG?.driver === true;
 function renderLangs() {
   const driver = storage.getItem('8ulduz-driver') === 'on';
-  const row = $("#langs"); if (row) row.innerHTML = languagePicker() + (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
+  // İdman bütün dillərdədir: burada dil seçimi təsir etmir, ona görə göstərilmir.
+  const sport = route().name === "section" && route().slug === "idman";
+  const row = $("#langs"); if (row) row.innerHTML = (sport ? `<span class="lang-note">İdman xəbərləri bütün dillərdə göstərilir</span>` : languagePicker()) + (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
 }
 function syncLangStick() {}
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
-const CLUB_EXTRA = {
-  'Qarabağ':['qarabakh','карабах'], 'Neftçi':['neftchi','neftci','нефтчи'], 'Sabah':['сабах'],
-  'Zirə':['зиря'], 'Sumqayıt':['сумгаит'], 'Turan':['туран'], 'Araz':['араз'], 'Şamaxı':['шамахы'],
-  'Galatasaray':['галатасарай'], 'Fenerbahçe':['fenerbaxca','фенербахче'], 'Beşiktaş':['бешикташ'],
-  'Trabzonspor':['трабзонспор'], 'Başakşehir':['башакшехир'], 'Samsunspor':['самсунспор'],
-  'Man City':['манчестер сити'], 'Man United':['манчестер юнайтед'], 'Liverpool':['ливерпуль'],
-  'Arsenal':['арсенал'], 'Chelsea':['челси'], 'Tottenham':['тоттенхэм'], 'Newcastle':['ньюкасл'],
-  'Aston Villa':['астон вилла'], 'Real Madrid':['реал мадрид'], 'Barcelona':['барселона'],
-  'Atletico':['атлетико'], 'Sevilla':['севилья'], 'Villarreal':['вильярреал'], 'Valencia':['валенсия'],
-  'Bayern':['бавария'], 'Dortmund':['дортмунд'], 'Leverkusen':['леверкузен'], 'Leipzig':['лейпциг'],
-  'Frankfurt':['франкфурт'], 'Juventus':['ювентус'], 'Milan':['милан'], 'İnter':['интер'],
-  'Napoli':['наполи'], 'Roma':['рома'], 'Lazio':['лацио'], 'Atalanta':['аталанта'],
-  'PSG':['псж','paris saint germain'], 'Marseille':['марсель'], 'Lyon':['лион'],
-  'Monaco':['монако'], 'Lille':['лилль'], 'Ajax':['аякс'], 'Porto':['порту'],
-  'Benfica':['бенфика'], 'Sporting':['спортинг'], 'Celtic':['селтик'],
-};
+// fold «й»-ni «и» edir, ona görə «ой/ей» burada «ои/еи» yazılır.
+const TOPIC_SUFFIX = "(?:in|nin|un|nun|a|e|i|u|ya|ye|ni|nu|na|ne|la|le|dan|den|ndan|nden|da|de|nda|nde|s|а|у|е|я|ю|ы|и|ь|ом|ем|еи|ои)?";
+const SPORT_BY_NAME = new Map(SPORT_TABS.flatMap(t => [t, ...(t.groups || []).flatMap(g => g.items)]).map(t => [t.name, t]));
+const sportTopic = name => SPORT_BY_NAME.get(name);
+const topicKey = s => fold(s).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+function topicRx(t) {
+  if (t.rx) return t.rx;
+  // Bir saytın alt bölməsi olan mövzuda söz şərti yoxdursa heç nəyə uyğun gəlməsin.
+  const parts = ["\\b\\B"];
+  if (t.keys?.length) parts.push(`(?:${t.keys.map(topicKey).join("|")})${TOPIC_SUFFIX} `);
+  if (t.stems?.length) parts.push(`(?:${t.stems.map(topicKey).join("|")})`);
+  return t.rx = new RegExp(` (?:${parts.join("|")})`, "u");
+}
+const TOPIC_TEXT = new WeakMap();
 function clubMatches(a, club) {
-  const keys = [...(CLUBS.find(k => k[0] === club)?.[1] || []), ...(CLUB_EXTRA[club] || [])].map(fold);
-  const text = ` ${fold(decode(a.title + ' ' + (a.summary || ''))).replace(/[^\p{L}\p{N}]+/gu, ' ')} `;
+  const topic = sportTopic(club);
+  if (!topic) return false;
+  if (topic.sources?.includes(a.source)) return true;
+  // Mətn bir dəfə hazırlanır: Futbol düyməsi hər xəbəri 20 komanda ilə yoxlayır.
+  let seen = TOPIC_TEXT.get(a);
+  if (!seen) {
+    const raw = decode(a.title + ' ' + (a.summary || ''));
+    TOPIC_TEXT.set(a, seen = {raw, text: ` ${topicKey(raw)} `});
+  }
+  if (topic.not?.some(w => seen.text.includes(topicKey(w)))) return false;
+  if (topic.quoted && (topic.quotedRx ||= new RegExp(`["«“'‘„]${topic.quoted}["»”'’]`, "iu")).test(seen.raw)) return true;
   // Word starts allow suffixes (Qarabağın / Карабаха), without matching e.g. “international” for Inter.
-  return keys.some(k => new RegExp('(?:^| )'+k+'(?:(?:in|nin|un|nun|a|e|i|u|dan|den|da|de|s|а|у|е|ом|ы|и)?)(?: |$)','u').test(text));
+  if (topicRx(topic).test(seen.text)) return true;
+  return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
+}
+function sportChips() {
+  const pill = (name, label = name) => `<button class="pill ${(S.club || "") === name || S.sportTab === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
+  const open = SPORT_TABS.find(t => t.name === S.sportTab)?.groups || [];
+  return `<div class="sport-chips"><div class="chips">${pill("", "Hamısı")}${SPORT_TABS.map(t => pill(t.name)).join("")}</div>${open.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div>`;
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
@@ -1243,7 +1288,7 @@ function homeView() {
   const used = new Set(hero.map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const secs = homeCats().map(c => catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug)))).join("");
-  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining) + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(m))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
+  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining) + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
 function articleView(id) {
   const a = S.data.articles.find(a => String(a.id) === id) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
@@ -1256,7 +1301,7 @@ function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
   return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
     (list.length ? `<div class="grid">${shown.map(card).join("")}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
-      : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
+      : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : S.club ? "Bu mövzuda son 5 gündə xəbər tapılmadı." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
 
 // Bölmə arxivi (updater.py, update_archive): lent gündüz 2-3 saat əhatə edir, bölmə səhifəsi isə 5 gün.
@@ -1289,10 +1334,10 @@ function sectionView(slug) {
   let extra = "";
   if (slug === "idman") {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
-    extra = `<div class="chips"><button class="pill ${S.club === null ? "on" : ""}" data-club="">Bütün idman</button>${CLUBS.map(([n]) => `<button class="pill ${S.club === n ? "on" : ""}" data-club="${esc(n)}">${esc(n)}</button>`).join("")}</div>`;
+    extra = sportChips();
   }
   if (slug === "prezident") extra = optional(socialBlock);
-  return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri · Dil süzgəci bu bölməyə tətbiq edilmir.' : c.description, slug === 'idman' ? list : filtered(list), extra);
+  return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
 // Axtarış üçün sadələşdirmə: kiçik hərf, Azərbaycan hərfləri latın əsasına (ə→e, ı→i, ş→s ...), durğu işarələri boşluğa.
@@ -1499,7 +1544,11 @@ function onClick(e) {
   if (t.dataset.fbtab) { S.fbTab = t.dataset.fbtab; renderView(); return; }
   if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; const L = fbLeagues()[S.fbLeague]; S.fbTab = L?.world ? 0 : (S.fbTab === "table" && !L?.table?.length) || typeof S.fbTab === "number" ? "results" : S.fbTab; renderView(); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
-  if (t.dataset.club !== undefined) { S.club = t.dataset.club || null; S.shown = PAGE; renderView(); return; }
+  if (t.dataset.club !== undefined) {
+    S.club = t.dataset.club || null;
+    if (!S.club) S.sportTab = null; else if (SPORT_TABS.some(x => x.name === S.club)) S.sportTab = S.club;
+    S.shown = PAGE; renderView(); return;
+  }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
   const act = t.dataset.act;
   if (act === "latest-more") { S.latestCount = (S.latestCount || 8) + 8; renderView(); }

@@ -32,7 +32,10 @@ AZ_FEEDS = [
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
     ("APA Sport",    "https://apasport.az/rss", "İdman"),
-    ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman"),
+    # «?»: sayt əsasən bu mövzudadır, amma hər xəbəri yox (categorize). Burada hava proqnozu, şou-biznes da var.
+    ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman?"),
+    ("Qol.az",       "https://www.qol.az/rss/", "İdman"),
+    ("Fanat.az",     "https://fanat.az/feed", "İdman"),
     ("Oxu.az",       "https://oxu.az/feed"),
     ("Publika.az",   "https://publika.az/rss/"),
     ("Lent.az",      "https://lent.az/rss"),
@@ -48,11 +51,11 @@ AZ_FEEDS = [
     ("Aznews.az",    "https://aznews.az/rss/"),
     ("Zim.az",       "https://zim.az/rss.xml"),
     ("Konkret.az",   "https://konkret.az/rss"),
-    ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət"),
+    ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət?"),
     ("İki Sahil",    "https://ikisahil.az/rss"),
     ("Femida.az",    "https://femida.az/rss.xml"),
-    ("Ordu.az",      "https://ordu.az/rss.xml", "Siyasət"),
-    ("Azpolitika.info", "https://azpolitika.info/rss", "Siyasət"),
+    ("Ordu.az",      "https://ordu.az/rss.xml", "Siyasət?"),
+    ("Azpolitika.info", "https://azpolitika.info/rss", "Siyasət?"),
     ("Marja.az",     "https://marja.az/rss.php", "İqtisadiyyat"),
     ("Banco.az",     "https://banco.az/rss.xml", "İqtisadiyyat"),
     ("Media.az",     "https://media.az/rss"),
@@ -107,6 +110,22 @@ WORLD_FEEDS = [
     ("Championat",   "https://www.championat.com/rss/news/",                  "ru", "İdman"),
     ("Sport.ru",     "https://www.sport.ru/rssfeeds/news.rss",                "ru", "İdman"),
     ("Match TV",     "https://matchtv.ru/news/rss",                           "ru", "İdman"),
+    # İdman bölməsi: komanda, Avroliqa, NBA, Formula 1 və digər idman növləri üzrə (2026-10-31 GitHub-dan sınanıb)
+    ("A Spor",       "https://www.aspor.com.tr/rss/anasayfa.xml",             "tr", "İdman"),
+    ("Sporx",        "https://www.sporx.com/_xml/rss.php",                    "tr", "İdman"),
+    ("Ajansspor",    "https://ajansspor.com/rss",                             "tr", "İdman"),
+    ("Hürriyet Spor", "https://www.hurriyet.com.tr/rss/spor",                 "tr", "İdman"),
+    ("BBC Futbol",   "https://feeds.bbci.co.uk/sport/football/rss.xml",       "en", "İdman"),
+    ("Guardian Futbol", "https://www.theguardian.com/football/rss",           "en", "İdman"),
+    ("Motorsport F1", "https://www.motorsport.com/rss/f1/news/",              "en", "İdman"),
+    ("The Race",     "https://the-race.com/category/formula-1/feed/",         "en", "İdman"),
+    ("F1News",       "https://www.f1news.ru/export/news.xml",                 "ru", "İdman"),
+    ("Eurohoops",    "https://www.eurohoops.net/en/feed/",                    "en", "İdman"),
+    ("Sportando",    "https://sportando.basketball/en/feed/",                 "en", "İdman"),
+    ("TalkBasket",   "https://www.talkbasket.net/feed",                       "en", "İdman"),
+    ("BBC Tennis",   "https://feeds.bbci.co.uk/sport/tennis/rss.xml",         "en", "İdman"),
+    ("MMA Fighting", "https://www.mmafighting.com/rss/index.xml",             "en", "İdman"),
+    ("Chess.com",    "https://www.chess.com/rss/news",                        "en", "İdman"),
 ]
 FEEDS = [(f[0], f[1], "az", f[2] if len(f) > 2 else None) for f in AZ_FEEDS] + \
         [(f[0], f[1], f[2], f[3] if len(f) > 3 else None) for f in WORLD_FEEDS]
@@ -174,6 +193,8 @@ IDMAN_WORDS = [
     "спартак", "цска", "зенит", "локомотив", "динамо", "краснодар", "лига чемпионов",
     "формула-1", "биатлон", "фигурист", "шайб", "нападающ", "вратар", "полузащитник",
     "football", "soccer", "tennis", "olympic", "goalkeeper", "striker", "athlete", "qarşılaşma", "azarkeş",
+    "avroliqa", "euroleague", "евролиг", "баскетбол", "нба", "basketball", "qran pri", "qran-pri", "гран-при",
+    "шахмат", "satranç", "chess", "tenisçi",
 ]
 CATEGORIES = {
     "Prezident": [],  # xüsusi qayda ilə hesablanır (categorize-ə baxın)
@@ -332,7 +353,14 @@ AZ_MONTHS = {
 MAX_ITEMS = 1200
 MAX_PER_SOURCE = 40   # bir mənbə lenti doldurmasın
 MAX_PER_WORLD_SOURCE = 20  # xarici mənbələr Azərbaycan xəbərlərini lentdən sıxışdırıb çıxarmasın
-MAX_WORLD = 250
+MAX_PER_SPORT_SOURCE = 25
+MAX_WORLD = 150            # xarici ümumi mənbələr
+MAX_WORLD_SPORT = 200      # xarici idman mənbələri: cəmi 35%, qalan yer Azərbaycan xəbərlərinindir
+
+def source_cap(name):
+    if name in content_policy.SPORT_SOURCES:
+        return MAX_PER_SPORT_SOURCE
+    return MAX_PER_WORLD_SOURCE if name in WORLD_SOURCES else MAX_PER_SOURCE
 DATE_LOOKUPS = 30     # tarixsiz lent elementləri üçün bir dövrədə ən çox səhifə sorğusu
 TIMEOUT = 10
 WORKERS = 16
@@ -649,10 +677,18 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
         scores["Prezident"] = 0  # Zuğulba yalnız Azərbaycan mənbələrindəndir
+    # «Siyasət?»: saytın mövzusu üstünlük verir, amma məcbur etmir. Azpolitika-nın hava proqnozu Siyasət deyil (2026-10-31).
+    soft = hint[:-1] if hint and hint.endswith("?") else None
+    if soft:
+        hint = None
+        if scores[soft] > 0:
+            scores[soft] += 1
     if hint and scores.get("Prezident", 0) < 6:
         return hint
     best = max(scores, key=lambda cat: (scores[cat], in_title.get(cat, 0)))  # bərabərlikdə başlıqdakı söz üstündür
     if scores[best] <= 0:
+        if soft and soft != "İdman":  # idman sözü yoxdursa idman deyil; siyasət saytının adi yazısı isə siyasətdir
+            return soft
         return "Dünya" if world else FALLBACK
     # xarici mənbələrdə prezident bölməsi yalnız güclü göstərici ilə
     return best
@@ -1248,6 +1284,7 @@ def resolve_undated():
 # Saatda bir yazılır: main-in tarixçəsi şişməsin. Lentdən çıxan xəbər ən azı 2 saat lentdə olduğu üçün heç nə itmir.
 ARCHIVE_DIR = OUT_DIR / "arxiv"
 ARCHIVE_DAYS, ARCHIVE_MAX, ARCHIVE_EVERY_S = 5, 200, 3600
+ARCHIVE_MAX_BY_SECTION = {"idman": 800}  # komanda düyməsi yalnız bu siyahıdan süzür: az yazılan komandaya da xəbər qalsın
 ARCHIVE_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "video")
 
 def update_archive(now=None):
@@ -1272,7 +1309,7 @@ def update_archive(now=None):
         kept, _ = content_policy.enforce(kept)
         kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
         ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-        _write_atomic(path, json.dumps({"at": now, "articles": kept[:ARCHIVE_MAX]}, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(path, json.dumps({"at": now, "articles": kept[:ARCHIVE_MAX_BY_SECTION.get(slug, ARCHIVE_MAX)]}, ensure_ascii=False, separators=(",", ":")))
 
 
 # Səsli oxu söndürülüb, reader.json-u işlədən yoxdur: 400 xəbərin tam mətni açıq yayımlanmasın (müəllif hüququ).
@@ -3099,7 +3136,7 @@ def main(fast=False):
     for a in old if fast else []:
         by_source.setdefault(a.get("source"), []).append(_parse_dt(a.get("publishedAt")))
     for name, published in by_source.items():
-        cap = MAX_PER_WORLD_SOURCE if name in WORLD_SOURCES else MAX_PER_SOURCE
+        cap = source_cap(name)
         published = sorted((d for d in published if d), reverse=True)
         if len(published) >= cap:
             source_floor[name] = published[cap - 1]
@@ -3167,18 +3204,20 @@ def main(fast=False):
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
-    per_src, world_count = {}, 0
+    per_src, world_count, sport_count = {}, 0, 0
     # Tarixə görə birgə sıralama. Əvvəl «yeni» (bu dövrədə ilk dəfə görülən) xəbərlər köhnələrdən qabaq gəlirdi;
     # limitdən kənarda qalan köhnə xəbərlər növbəti dövrədə yenidən «yeni» sayılıb siyahını hər dəfə dəyişirdi
     # (813-dən yalnız ~50 xəbər dövrədən dövrəyə qalırdı; og keşi və qruplar daim sıfırlanırdı).
     for a in sorted(new_items + old, key=lambda x: x.get("publishedAt") or "", reverse=True):
         if a["sourceUrl"] in dseen:
             continue
-        n, is_world = per_src.get(a.get("source"), 0), a.get("source") in WORLD_SOURCES
-        if n >= (MAX_PER_WORLD_SOURCE if is_world else MAX_PER_SOURCE) or (is_world and world_count >= MAX_WORLD):
+        n, is_sport = per_src.get(a.get("source"), 0), a.get("source") in content_policy.SPORT_SOURCES
+        is_world = a.get("source") in WORLD_SOURCES and not is_sport
+        if n >= source_cap(a.get("source")) or (is_world and world_count >= MAX_WORLD) or (is_sport and sport_count >= MAX_WORLD_SPORT):
             continue
         per_src[a.get("source")] = n + 1
         world_count += is_world
+        sport_count += is_sport
         dseen.add(a["sourceUrl"]); uniq.append(a)
     # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
     # Əvvəl yalnız 800-dən kənarda qalanlar əlavə olunurdu; siyahı 800-dən qısa olanda heç nə əlavə olunmurdu.
