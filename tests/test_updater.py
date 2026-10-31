@@ -635,6 +635,11 @@ class SectionPagesTest(unittest.TestCase):
         self.assertTrue({"Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"} <= updater.SLOW_ONLY_FEEDS)
         self.assertFalse({"Gəncəxəbər", "Yurd.Media", "Gündəlik.az"} & updater.SLOW_ONLY_FEEDS)
 
+    def test_foreign_unemployment_is_not_our_social_protection(self):
+        self.assertNotEqual(updater.categorize("Finlandiya Aİ-də işsizlik səviyyəsinə görə yenidən lider olub", ""), "Sosial müdafiə")
+        self.assertEqual(updater.categorize("Bu il əlilliyi olan daha 826 şəxsə reabilitasiya vasitələri verilib", ""), "Sosial müdafiə")
+        self.assertEqual(updater.categorize("Pensiyalar artırılacaq", "Azərbaycanda noyabrdan"), "Sosial müdafiə")
+
     def test_state_sites_never_hold_the_fast_cycle(self):
         self.assertIn("Gəncə ŞİH", updater.SLOW_ONLY_FEEDS)
         self.assertIn("ƏƏSMN", updater.SLOW_ONLY_FEEDS)

@@ -571,6 +571,41 @@ class ArchiveTest(unittest.TestCase):
             old = (pathlib.Path(tmp) / "sehiyye" / "index.html").read_text(encoding="utf-8")
         self.assertIn("url=../heyat/", old)
 
+    def backlog_feed(self, *items):
+        cache = updater.ARCHIVE_DIR.parent / "feeds.json"
+        cache.write_text(updater.json.dumps({"DOST Agentliyi": {"items": list(items), "at": 5}}), encoding="utf-8")
+        return patch.object(updater, "FEED_CACHE", cache), patch.object(updater, "SLOW_FEED_CACHE", updater.ARCHIVE_DIR.parent / "yoxdur.json")
+
+    def feed_item(self, url, hours, title="DOST mərkəzində müraciətlər qəbul olunur"):
+        at = updater.datetime.datetime.now(updater.datetime.timezone.utc) - updater.datetime.timedelta(hours=hours)
+        return {"title": title, "link": url, "description": "", "pubDate": at.isoformat(), "image": None, "author": ""}
+
+    def test_official_news_older_than_the_feed_reaches_its_section(self):
+        self.write(self.row("https://apa.az/1", 1))
+        first, second = self.backlog_feed(self.feed_item("https://dost.gov.az/news/1", 30), self.feed_item("https://dost.gov.az/news/2", 7 * 24))
+        with first, second:
+            updater.update_archive()
+        self.assertEqual([a["sourceUrl"] for a in self.rows("sosial")], ["https://dost.gov.az/news/1"])
+        self.assertEqual(self.rows("sosial")[0]["category"], "sosial")
+
+    def test_backlog_keeps_the_negative_leadership_filter(self):
+        self.write(self.row("https://apa.az/1", 1))
+        with patch.object(updater, "is_negative_about_leadership", return_value=True):
+            first, second = self.backlog_feed(self.feed_item("https://dost.gov.az/news/3", 2))
+            with first, second:
+                updater.update_archive()
+        self.assertEqual(self.rows("sosial"), [])
+
+    def test_a_new_section_gets_its_archive_without_waiting_an_hour(self):
+        now = updater.time.time()
+        self.write(self.row("https://apa.az/1", 2))
+        updater.update_archive(now=now)
+        (updater.ARCHIVE_DIR / "sosial.json").unlink()
+        self.write(self.row("https://apa.az/2", 1))
+        updater.update_archive(now=now + 600)
+        self.assertTrue((updater.ARCHIVE_DIR / "sosial.json").exists())
+        self.assertEqual(len(self.rows()), 2)
+
     def test_the_presidential_chronicle_has_no_archive(self):
         self.write(self.row("https://apa.az/1", 1))
         updater.update_archive()

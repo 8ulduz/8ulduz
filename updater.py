@@ -714,6 +714,9 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     # «Kiyevin doqquz rayonunda»: yer adı yoxdursa və söhbət başqa ölkədən gedirsə, Bölgələr deyil.
     if scores["Bölgələr"] and (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS)) and not has_any(blob, PLACE_WORDS):
         scores["Bölgələr"] = 0
+    # «Finlandiyada işsizlik»: bölmə Azərbaycanın sosial müdafiəsidir (qurumların öz lentləri ipucu ilə gəlir).
+    if scores["Sosial müdafiə"] and (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS)) and "azərbaycan" not in blob:
+        scores["Sosial müdafiə"] = 0
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
         scores["Prezident"] = 0  # Zuğulba yalnız Azərbaycan mənbələrindəndir
@@ -1336,16 +1339,44 @@ def resolve_undated():
 # Saatda bir yazılır: main-in tarixçəsi şişməsin. Lentdən çıxan xəbər ən azı 2 saat lentdə olduğu üçün heç nə itmir.
 ARCHIVE_DIR = OUT_DIR / "arxiv"
 ARCHIVE_DAYS, ARCHIVE_MAX, ARCHIVE_EVERY_S = 5, 200, 3600
-ARCHIVE_MAX_BY_SECTION = {"idman": 800}  # komanda düyməsi yalnız bu siyahıdan süzür: az yazılan komandaya da xəbər qalsın
+ARCHIVE_MAX_BY_SECTION = {"idman": 800, "bolgeler": 600}  # komanda və rayon düyməsi bu siyahıdan süzür: az yazılana da xəbər qalsın
+BACKLOG_SECTIONS = {"bolgeler", "sosial"}
 ARCHIVE_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "video")
+
+def feed_backlog(cutoff):
+    """Lent 3-4 saat əhatə edir: rayon və qurum xəbəri çox vaxt ondan köhnədir, lentdən keçmədiyi üçün arxivə də düşmürdü.
+    Azərbaycan lentlərinin Bölgələr və Sosial müdafiə xəbərləri arxivə birbaşa gəlir, süzgəclər lentdəki ilə eynidir."""
+    cache = _read_json(FEED_CACHE, {})
+    for name, entry in _read_json(SLOW_FEED_CACHE, {}).items():
+        if entry.get("at", 0) > (cache.get(name) or {}).get("at", 0):
+            cache[name] = entry
+    az, rows = {f[0] for f in AZ_FEEDS}, []
+    for source, _url, dlang, hint in FEEDS:
+        items = (cache.get(source) or {}).get("items") or []
+        if source not in az or bulk_dated(items):
+            continue
+        for it in items:
+            try:
+                if not it.get("pubDate") or _older_than(it["pubDate"], cutoff) or is_junk(it["link"]):
+                    continue
+                if is_negative_about_leadership(it["title"], it["description"], source):
+                    continue
+                art = make_article(it, source, dlang, hint)
+                if art["category"] in BACKLOG_SECTIONS and not foreign_about_azerbaijan(source, art["category"], art["title"], it.get("description") or art["summary"]):
+                    rows.append(art)
+            except Exception:
+                continue
+    return rows
 
 def update_archive(now=None):
     now = now or time.time()
     articles = _read_json(OUT_FILE, {}).get("articles") or []
-    if not articles or now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S:
+    missing = any(not (ARCHIVE_DIR / f"{s[0]}.json").exists() for s in SECTIONS if s[0] != "prezident")  # yeni bölmə bir saat boş qalmasın
+    if not articles or (not missing and now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S):
         return
     cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
     merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []}
+    backlog = feed_backlog(cutoff)
     for slug, _label, _desc in SECTIONS:
         if slug == "prezident":  # Zuğulba lentdə 60 gün qalır
             continue
@@ -1353,7 +1384,7 @@ def update_archive(now=None):
         aliases = [ARCHIVE_DIR / f"{old}.json" for old, new in SECTION_ALIASES.items() if new == slug]
         saved = [row for p in [path, *aliases] for row in _read_json(p, {}).get("articles") or []]
         names = {slug, *(old for old, new in SECTION_ALIASES.items() if new == slug)}
-        for a in [*saved, *(a for a in articles if a.get("category") in names)]:
+        for a in [*saved, *(a for a in backlog if a["category"] in names), *(a for a in articles if a.get("category") in names)]:
             url = fix_source_link(a.get("sourceUrl"))
             if url and url not in merged:
                 rows[url] = {**{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "sourceUrl": url, "category": slug}
@@ -3207,7 +3238,7 @@ def write_status(ok=True, successful=0, total=0, stats=None):
     _write_atomic(STATUS_FILE, json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
                                        "attemptedAt": now, "ok": ok,
                                        "successfulSources": successful, "totalSources": total,
-                                       "degraded": ok and successful < total, "stats": stats or previous.get("stats")}, ensure_ascii=False,
+                                       "degraded": ok and total - successful > total * FEED_PAUSE_MAX_SHARE, "stats": stats or previous.get("stats")}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
