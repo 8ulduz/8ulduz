@@ -3,7 +3,7 @@
 #
 # Üç axın, biri digərini gözləmir:
 #   sürətli  hər CYCLE saniyə: lentlər, xəbər seçimi, status -> live budağı (tarixçəsiz, repo şişmir)
-#   yavaş    arxa planda: məzənnə, şəkil, səs mətni, video, idman, SEO səhifələri
+#   yavaş    arxa planda: məzənnə, şəkil, video, idman, bölmə arxivi, SEO səhifələri
 #   main     hər MAIN_EVERY saniyə: tam lent və SEO -> GitHub Pages
 #
 # Bir iş bitməzdən əvvəl növbətisini başladır və onu görəndən sonra çıxır, ona görə növbə dəyişəndə boşluq olmur.
@@ -202,6 +202,7 @@ publish_main() {
     git -C "$REPO_DIR" reset -q --hard "origin/$BRANCH"
     mkdir -p "$REPO_DIR/data"
     cp -a "$GOOD/data/." "$REPO_DIR/data/"
+    rm -f "$REPO_DIR/data/reader.json"   # səsli oxu söndürülüb: tam mətnlər yayımlanmır
     for name in sitemap.xml feed.xml robots.txt; do
       [ -f "$WORK/$name" ] && cp -a "$WORK/$name" "$REPO_DIR/"
     done
@@ -261,6 +262,7 @@ git -C "$REPO_DIR" config user.email "bot@8ulduz.az"
 copy_code "$REPO_DIR" "$CUR"
 mkdir -p "$WORK/data"
 cp -a "$REPO_DIR/data/." "$WORK/data/" 2>/dev/null
+rm -f "$WORK/data/reader.json"
 [ -f "$REPO_DIR/CNAME" ] && cp "$REPO_DIR/CNAME" "$WORK/"
 for name in sitemap.xml feed.xml robots.txt; do
   [ -f "$REPO_DIR/$name" ] && cp "$REPO_DIR/$name" "$WORK/"
