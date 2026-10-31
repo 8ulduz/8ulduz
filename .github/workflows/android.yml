@@ -39,8 +39,9 @@ jobs:
 
       - name: İmza açarı
         env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          # PR yığımı imzasızdır: imza açarı PR-dakı koda verilmir.
+          KEYSTORE_B64: ${{ github.event_name != 'pull_request' && secrets.ANDROID_KEYSTORE_BASE64 || '' }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
             echo "::warning::ANDROID_KEYSTORE_BASE64 secret-i yoxdur — test APK-sı və imzasız AAB çıxacaq (android/README.md, «İmza açarı»)."
@@ -54,7 +55,7 @@ jobs:
 
       - name: Yoxla və yığ
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
         run: |
           # versionCode hər yığımda artır (Play eyni kodu ikinci dəfə qəbul etmir).
           CODE=$((1000 + GITHUB_RUN_NUMBER))

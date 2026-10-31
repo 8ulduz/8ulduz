@@ -66,8 +66,27 @@ const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avq
 const HOUR = 3600e3, DAY = 24 * HOUR;
 const POLL_MS = 30e3;     // QIRMIZI XƏTT 1: lent dəqiqədə bir yazılır, sayt 30 saniyədən bir yoxlayır
 const NEWS_FULL_MS = 10 * 60e3; // tam lent (~200 KB) bu qədərdən bir; arada yalnız latest.json (~15 KB)
+const LATEST_MAX_MS = 90e3;     // status möhürü dəyişməsə də bu qədərdən bir latest.json yoxlanır
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
 let freshSequence = 0;
+// Service worker-i olmayan ziyarətçi (ilk açılış, bəzi tətbiqdaxili brauzerlər) də dəqiqəlik kanalı görsün. sw.js-dəki qayda ilə eyni.
+const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
+const LIVE_FILE = /^data\/(?:status|latest|markets)\.json/;
+let liveSkipUntil = 0;
+async function liveDirect(url, signal) {
+  if (navigator.serviceWorker?.controller || !LIVE_FILE.test(url) || Date.now() < liveSkipUntil) return null;
+  const name = url.split("?")[0].split("/").pop(), slot = Math.floor((Date.now() / 1000 - 45) / 60);
+  for (const minute of [slot, slot - 1, slot - 2]) {
+    try {
+      const r = await fetch(LIVE_BASE + minute + "/" + name, {cache: "no-store", mode: "cors", credentials: "omit", signal});
+      if (r.ok) return r;
+      if (r.status === 403 || r.status === 429) liveSkipUntil = Date.now() + 5 * 60e3;
+      if (r.status !== 404) return null;
+    } catch { return null; }
+  }
+  liveSkipUntil = Date.now() + 60e3;
+  return null;
+}
 const freshUrl = (path, force = false) => `${path}?t=${Math.floor(Date.now() / 60000)}${force ? `&r=${Date.now()}-${++freshSequence}` : ""}`;
 // Bound both the request and JSON body: suspended mobile requests must not lock the feed.
 async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
@@ -84,7 +103,7 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
     const early = globalThis.__early?.[url];
     if(early)delete globalThis.__early[url];
     const response = (async () => {
-      const get = () => fetch(url, {cache:"no-store", signal:controller.signal});
+      const get = async () => (await liveDirect(url, controller.signal)) || fetch(url, {cache:"no-store", signal:controller.signal});
       const r = await (early ? early.catch(get) : get());
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       return {r, d:await r.json()};
@@ -99,23 +118,24 @@ const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən 
 
 // Məxfi rejimdə və yaddaş dolanda seçimlər heç olmasa açıq vərəqdə işləsin.
 const sessionPrefs = new Map();
+// Yaddaş işləyirsə həmişə oradan oxunur: başqa vərəqin yazdığı itməsin.
 const storage = {
   getItem(key) {
     if (sessionPrefs.has(key)) return sessionPrefs.get(key);
     try { return localStorage.getItem(key); } catch { return null; }
   },
   setItem(key, value) {
-    sessionPrefs.set(key, String(value));
-    try { localStorage.setItem(key, value); } catch {}
+    try { localStorage.setItem(key, value); sessionPrefs.delete(key); } catch { sessionPrefs.set(key, String(value)); }
   },
   removeItem(key) {
-    sessionPrefs.set(key, null);
-    try { localStorage.removeItem(key); } catch {}
+    try { localStorage.removeItem(key); sessionPrefs.delete(key); } catch { sessionPrefs.set(key, null); }
   },
 };
 
 /* ---------------------------------------------------------------- köməkçilər */
 const $ = (s, r = document) => r.querySelector(s);
+// İkinci dərəcəli blokda səhv məlumat xəbər lentini dondurmasın.
+const optional = fn => { try { return fn(); } catch (e) { console.warn("blok göstərilmədi:", e); return ""; } };
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const _dec = document.createElement("textarea");
 function decode(s) {
@@ -343,7 +363,7 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3>${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
+const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3 lang="${esc(langOf(a))}">${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
 window.imgFail = el => {
@@ -472,13 +492,22 @@ function checkBreaking(articles) {
   }
   const known = new Set(seen);
   const novel = fresh.filter(a => a.id && !known.has(a.id)).slice(0, 3);
-  for (const a of novel) {
-    try {
-      const n = new Notification("Son dəqiqə", { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id });
-      n.onclick = () => { window.focus(); if (/^https?:\/\//i.test(a.sourceUrl || "")) window.open(a.sourceUrl, "_blank", "noopener,noreferrer"); };
-    } catch {}
-  }
+  for (const a of novel) showBreaking(a);
   storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
+}
+// Android-də new Notification xəta verir (bildiriş «aktiv» görünür, amma gəlmir): əvvəl service worker.
+async function showBreaking(a) {
+  const options = { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id };
+  try {
+    if (S.swReg?.showNotification) {
+      await S.swReg.showNotification("Son dəqiqə", { ...options, data: { id: a.id, url: a.sourceUrl || "" } });
+      return;
+    }
+  } catch {}
+  try {
+    const n = new Notification("Son dəqiqə", options);
+    n.onclick = () => { window.focus(); if (/^https?:\/\//i.test(a.sourceUrl || "")) window.open(a.sourceUrl, "_blank", "noopener,noreferrer"); };
+  } catch {}
 }
 async function armNotify() {
   if (!("Notification" in window)) return;
@@ -562,10 +591,14 @@ async function loadNews(force = false) {
     if (S.data && S.data.updatedAt === d.updatedAt && S.og) { S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); renderTopbar(); return; }
     await (ogReady || loadOg(controller.signal));
     if(token !== S.newsToken || controller.signal.aborted)return;
-    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    const first = !S.data;
+    // main 10 dəqiqədən bir yazılır: dəqiqəlik gələn xəbərlər tam lentdə hələ olmaya bilər, itməsinlər.
+    const inFull = new Set(d.articles.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
+    S.overlay = (S.overlay || []).filter(o => !inFull.has(o.a.sourceUrl) && Date.now() - o.at < 30 * 60e3);
+    S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined};
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
-    render();
+    if (first || force) render(); else requestRender();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
 }
@@ -586,7 +619,24 @@ function publishNews() {
   checkBreaking(d.articles);
 }
 
-// Dəqiqəlik axın: yalnız yeni xəbərlər gəlir. Oxucu aşağıdadırsa ekran dəyişmir, yuxarı qayıdanda yenilənir.
+// Ekran yalnız oxucu ona toxunmayanda yenidən qurulur: açıq video, xəritə, açılan siyahı və yazılan süzgəc itmir, səhifə atlamır.
+function readerBusy() {
+  if ((globalThis.scrollY || 0) > 400) return true;
+  if ($("#view iframe, #view details.altpop[open]")) return true;
+  return !!document.activeElement?.closest?.("#view input, #view select, #view textarea");
+}
+function requestRender(whole = true) {
+  if (readerBusy()) { S.renderPending = true; syncNewPill(); return; }
+  S.renderPending = false; S.pendingNew = 0; syncNewPill();
+  if (whole) render(); else renderView();
+}
+function syncNewPill() {
+  const pill = $("#newpill");
+  if (!pill) return;
+  pill.hidden = !S.pendingNew;
+  pill.textContent = `↑ ${S.pendingNew} yeni xəbər`;
+}
+// Dəqiqəlik axın: yalnız yeni xəbərlər gəlir. Oxucu məşğuldursa ekran dəyişmir, «N yeni xəbər» düyməsi görünür.
 async function loadLatest(force = false) {
   if (S.latestLoading || !S.rawNews) return;
   S.latestLoading = true;
@@ -596,14 +646,15 @@ async function loadLatest(force = false) {
     if (!Array.isArray(d?.articles)) return;
     S.offline = r.headers?.get?.("X-8ulduz-data") === "cache";
     if (!S.offline) { S.lastSync = new Date(); S.error = null; }
-    S.newsStamp = statusStamp;
+    S.newsStamp = statusStamp; S.latestAt = Date.now();
     const known = new Set(S.rawNews.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
     const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
     if (!fresh.length) { renderTopbar(); return; }
+    S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
     publishNews();
-    if ((globalThis.scrollY || 0) > 400) { S.renderPending = true; renderTopbar(); renderTicker(); }
-    else render();
+    if (readerBusy()) { S.pendingNew = (S.pendingNew || 0) + fresh.length; renderTopbar(); renderTicker(); }
+    requestRender();
   } catch {} finally { S.latestLoading = false; }
 }
 
@@ -689,6 +740,7 @@ function shell() {
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
   <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${safeHref(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
+  <button class="newpill" id="newpill" data-act="apply-new" aria-live="polite" hidden></button>
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
     <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
@@ -709,7 +761,7 @@ function shell() {
   document.addEventListener("click", onClick);
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { S.lang = e.target.value || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
-  window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; syncQuery(); render(); window.scrollTo(0, 0); });
+  window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true }); });
   window.addEventListener("scroll", () => { $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
@@ -755,8 +807,11 @@ function pageMeta() {
 }
 
 function renderTopbar() {
+  if (document.activeElement?.matches?.("#topbar select")) return; // açıq şəhər siyahısı bağlanmasın; seçimdən sonra yenilənir
   const w = S.wx, upd = S.status?.checkedAt || S.data?.updatedAt;
-  const stale = upd && Date.now() - new Date(upd).getTime() > 5 * 60e3;
+  // 11: status təzə olsa da bu ekrana yeni məlumat çatmayıbsa «indicə» yazılmasın.
+  const applied = Math.max(S.newsCheckedAt || 0, S.latestAt || 0);
+  const stale = (upd && Date.now() - new Date(upd).getTime() > 5 * 60e3) || (applied && Date.now() - applied > 5 * 60e3);
   const syncBad = S.error || S.offline || S.status?.ok === false || stale;
   const syncText = S.offline ? "Oflayn — saxlanmış xəbərlər" : S.error ? "Xəbərlər yenilənmədi" : S.status?.ok === false ? "Mənbələr yoxlanmadı" : stale ? "Xəbər lenti köhnəlib" : S.status?.degraded ? "Bəzi mənbələr açılmır" : "";
   let pop = "";
@@ -773,7 +828,7 @@ function renderTopbar() {
   const fs = document.documentElement.dataset.fs || "0";
   const light = document.documentElement.dataset.theme === "light";
   $("#topbar").innerHTML = `    <span>${today()}</span>
-    ${prayBit()}
+    ${optional(prayBit)}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
     <a class="tix-top tix-btn" href="#/tixac" title="Tıxac və yollar">Tıxac</a>
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
@@ -806,13 +861,18 @@ function renderTicker() {
   const breaking = latest.filter(isFresh);
   const list = (breaking.length ? breaking : latest).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
-  const items = [...list, ...list].map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("");
+  // İkinci dövr yalnız zolağın davamlılığı üçündür: ekran oxuyucu və Tab onu keçir.
+  const items = list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("") +
+    list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT} aria-hidden="true" tabindex="-1">${txt(a.title)}</a>`).join("");
   // «Bildiriş»: yeni son-dəqiqə xəbəri üçün brauzer bildirişi (README və «Haqqımızda» bunu vəd edir; düymə itmişdi)
   const on = notifyOn();
   const bell = "Notification" in window
     ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
     : "";
-  $("#ticker").innerHTML = `<div class="ticker"><div class="lbl">⚡ ${tickerLabel(breaking.length)}${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
+  const html = `<div class="ticker"><div class="lbl">⚡ ${tickerLabel(breaking.length)}${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
+  if (html === S.tickerHtml && $("#ticker .track")) return;
+  S.tickerHtml = html;
+  $("#ticker").innerHTML = html;
   startTicker();
 }
 // Lentin hərəkəti Web Animations API ilədir: CSS animasiyası telefonlarda «hərəkəti azalt» rejimində (CSS-də
@@ -824,6 +884,7 @@ function startTicker() {
   const run = $("#ticker .run"), track = $("#ticker .track");
   if (!run || !track || typeof track.animate !== "function") return;
   track.style.animation = "none";
+  const phase = Number(tickAnim?.currentTime) || 0; // yeni xəbər gələndə zolaq olduğu yerdən davam edir
   if (tickAnim) { try { tickAnim.cancel(); } catch {} tickAnim = null; }
   clearTimeout(tickT);
   // «Hərəkəti azalt» ayarı olan telefonlarda lent dayanmasın (son dəqiqə xəbəri məzmundur, bəzək deyil): yalnız 2 dəfə yavaş axsın.
@@ -833,6 +894,7 @@ function startTicker() {
   if (!(half > 0)) return;
   const dur = half / (reduced ? TICK_SPEED / 2 : TICK_SPEED) * 1000;
   const anim = tickAnim = track.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-half}px)` }], { duration: dur, iterations: Infinity });
+  anim.currentTime = phase % dur;
   let drag = null;
   const resume = ms => { clearTimeout(tickT); tickT = setTimeout(() => { if (!drag && tickAnim === anim) anim.play(); }, ms); };
   run.onpointerdown = e => { if (e.button) return; drag = { x: e.clientX, t: Number(anim.currentTime) || 0 }; tickMoved = false; clearTimeout(tickT); anim.pause(); };
@@ -954,13 +1016,6 @@ function fxPop() {
     <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
 }
 
-function langButtons(compact) {
-  const btn = (code, label, short) => {
-    const on = code ? S.lang === code : S.lang === null;
-    return `<button type="button" class="pill${on ? " on" : ""}" data-lang="${code}" aria-label="${esc(label)}"${compact ? ` title="${esc(label)}"` : ""}>${esc(compact ? short : label)}</button>`;
-  };
-  return btn("", "Hamısı", "Hamısı") + LANGS.map(l => btn(l.code, l.label, LANG_BADGE[l.code] || l.code.toUpperCase())).join("");
-}
 function languagePicker() {
   return `<label class="language-picker">Xəbərlərin dili: <select data-language aria-label="Xəbərlərin dili"><option value=""${!S.lang ? " selected" : ""}>Bütün dillər</option>${LANGS.map(l => `<option value="${l.code}"${S.lang === l.code ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select></label>`;
 }
@@ -991,7 +1046,7 @@ const CLUB_EXTRA = {
 };
 function clubMatches(a, club) {
   const keys = [...(CLUBS.find(k => k[0] === club)?.[1] || []), ...(CLUB_EXTRA[club] || [])].map(fold);
-  const text = ` ${fold(decode(a.title + ' ' + (a.summary || '')))} `;
+  const text = ` ${fold(decode(a.title + ' ' + (a.summary || ''))).replace(/[^\p{L}\p{N}]+/gu, ' ')} `;
   // Word starts allow suffixes (Qarabağın / Карабаха), without matching e.g. “international” for Inter.
   return keys.some(k => new RegExp('(?:^| )'+k+'(?:(?:in|nin|un|nun|a|e|i|u|dan|den|da|de|s|а|у|е|ом|ы|и)?)(?: |$)','u').test(text));
 }
@@ -1044,12 +1099,6 @@ function alertStrip() {
   const wx = (S.warn || []).join(" · ");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
   return `<section class="alerts"><b>Yol və hava</b>${rush}<a class="tix-go" href="#/tixac">Tıxac xəritəsi</a>${wx ? `<span class="wxn">${esc(wx)}</span>` : ""}${hits.map(a => `<a href="${safeHref(a.sourceUrl || "#")}" ${OUT}>${a.icon} ${txt(a.title)}</a>`).join("")}</section>`;
-}
-function ytBlock() {
-  const items = S.video?.items || [];
-  if (!items.length) return "";
-  const cards = items.slice(0, 8).map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("");
-  return `<section><div class="sec-h"><h2>Video xəbərlər</h2><span class="cnt">${items.length}</span><a class="more" href="#/videolent">Hamısı →</a></div><div class="strip"><div class="ytrow">${cards}</div></div></section>`;
 }
 function photoStrip(list) {
   const cut = Date.now() - 30 * HOUR;
@@ -1139,12 +1188,6 @@ function videosView() {
   if (!items.length) return `${head}<p class="empty">Video lent hazırda açılmır. Bir az sonra yenidən baxın.</p>`;
   return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
 }
-function videoBlock(list) {
-  if (!list.length) return "";
-  return `<section><div class="sec-h"><h2>Sayt videoları</h2><span class="cnt">${list.length} keçid</span><a class="more" href="#/bolme/video">Hamısı →</a></div>
-    <div class="strip"><div class="vrow">${list.slice(0, 15).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">${img(a)}<div class="b"><h3>${txt(a.title)}</h3><div class="meta"><span class="src">${esc(a.source)}</span><time>${ago(a.publishedAt)} · mənbədə açır</time></div></div></a>`).join("")}</div></div></section>`;
-}
-
 function catSection(c, list) {
   if (!list.length) return "";
   return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length} xəbər</span><a class="more" href="#/bolme/${c.slug}">Bütün xəbərlər →</a></div><div class="strip category-strip"><div class="news-row">${list.slice(0, 12).map(card).join("")}</div></div></section>`;
@@ -1200,10 +1243,10 @@ function homeView() {
   const used = new Set(hero.map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const secs = homeCats().map(c => catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug)))).join("");
-  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + adHtml() + latestBlock(remaining) + secs + unifiedVideo(byDate(m.filter(a => a.video))) + photoStrip(m) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${footballBlock(m)}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${alertStrip()}</details>`;
+  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining) + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(m))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
 function articleView(id) {
-  const a = S.data.articles.find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
+  const a = S.data.articles.find(a => String(a.id) === id) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
   if (!a) return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   document.title = tidy(a.title) + " — 8ulduz";
   return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
@@ -1216,19 +1259,39 @@ function listPage(title, desc, list, extra = "") {
       : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
 
+// Bölmə arxivi (updater.py, update_archive): lent gündüz 2-3 saat əhatə edir, bölmə səhifəsi isə 5 gün.
+const NO_ARCHIVE = new Set(["video", "sondeqiqe", "prezident"]);
+async function loadArchive(slug) {
+  S.archive ||= {};
+  const had = S.archive[slug];
+  if (NO_ARCHIVE.has(slug) || (had && Date.now() - had.at < 30 * 60e3)) return;
+  S.archive[slug] = { at: Date.now(), rows: had?.rows || [] };
+  try {
+    const {d} = await requestJSON(freshUrl(`data/arxiv/${slug}.json`), {}, 8000);
+    if (!Array.isArray(d?.articles)) return;
+    S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a));
+    if (route().name === "section" && route().slug === slug) requestRender(false);
+  } catch {}
+}
+function withArchive(slug, list) {
+  const rows = S.archive?.[slug]?.rows;
+  if (!rows?.length) return list;
+  const known = new Set(list.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
+  return [...list, ...rows.filter(a => !known.has(a.sourceUrl))];
+}
 function sectionView(slug) {
   const c = CATS.find(x => x.slug === slug);
   if (!c) return `<div class="empty"><h1 style="color:var(--fg)">Bölmə tapılmadı</h1><p>Axtardığınız bölmə mövcud deyil.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>`;
   const d = S.data.articles;
   let list = slug === "video" ? d.filter(a => a.video) : slug === "sondeqiqe" ? d.filter(withinHour) : d.filter(a => a.category === slug);
-  list = byDate(list);
-  if (slug === "prezident") list = byDate(list);
+  loadArchive(slug);
+  list = byDate(withArchive(slug, list));
   let extra = "";
   if (slug === "idman") {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
     extra = `<div class="chips"><button class="pill ${S.club === null ? "on" : ""}" data-club="">Bütün idman</button>${CLUBS.map(([n]) => `<button class="pill ${S.club === n ? "on" : ""}" data-club="${esc(n)}">${esc(n)}</button>`).join("")}</div>`;
   }
-  if (slug === "prezident") extra = socialBlock();
+  if (slug === "prezident") extra = optional(socialBlock);
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri · Dil süzgəci bu bölməyə tətbiq edilmir.' : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
@@ -1343,7 +1406,7 @@ function trackedSources() {
 function renderFooter() {
   const srcs = trackedSources();
   $("#footer").innerHTML = `<div class="wrap fgrid">
-    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən müstəqil xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
+    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
@@ -1412,7 +1475,7 @@ function onClick(e) {
     e.preventDefault();
     e.stopPropagation();
     const id = t.dataset.save;
-    const a = byId.get(id) || savedList().find(x => x.id === id);
+    const a = byId.get(id) || Object.values(S.archive || {}).flatMap(x => x.rows).find(x => x.id === id) || savedList().find(x => x.id === id);
     if (a) {
       toggleSave(a);
       const on = isSaved(id);
@@ -1443,6 +1506,7 @@ function onClick(e) {
   else if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
   else if (act === "wx-back") { S.wxSel = null; renderTopbar(); }
+  else if (act === "apply-new") { S.renderPending = false; S.pendingNew = 0; syncNewPill(); render(); window.scrollTo(0, 0); }
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
@@ -1505,7 +1569,9 @@ function enableAnalytics() {
   if (!code) return;
   const s = document.createElement("script");
   s.async = true;
-  s.src = "https://gc.zgo.at/count.js";
+  s.src = "https://gc.zgo.at/count.v4.js"; // versiya və həş: skript dəyişsə işləmir, sayt təsirlənmir
+  s.integrity = "sha384-nRw6qfbWyJha9LhsOtSb2YJDyZdKvvCFh0fJYlkquSFjUxp9FVNugbfy8q1jdxI+";
+  s.crossOrigin = "anonymous";
   s.dataset.goatcounter = `https://${code}.goatcounter.com/count`;
   document.head.appendChild(s);
 }
@@ -1893,19 +1959,19 @@ async function loadAds() {
 async function loadVideo() {
   try {
     const r = await fetch(freshUrl("data/video.json"), { cache: "no-store" });
-    if (r.ok) { S.video = await r.json(); if (route().name === "home" || route().name === "videos") renderView(); }
+    if (r.ok) { S.video = await r.json(); if (route().name === "home" || route().name === "videos") requestRender(false); }
   } catch {}
 }
 async function loadSports() {
   try {
     const r = await fetch(freshUrl("data/sports.json"), { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; if (route().name === "home" && S.data) renderView(); } }
+    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; if (route().name === "home" && S.data) requestRender(false); } }
   } catch {}
 }
 async function loadFootball() {
   try {
     const r = await fetch(freshUrl("data/football.json"), { cache: "no-store" });
-    if (r.ok) { S.football = await r.json(); if (route().name === "home") renderView(); }
+    if (r.ok) { S.football = await r.json(); if (route().name === "home") requestRender(false); }
   } catch {}
 }
 async function loadPrayer(city) {
@@ -1935,13 +2001,13 @@ async function loadWarnings() {
     if (wind >= 50) bits.push(`Külək ${Math.round(wind)} km/s`);
     if (rain >= 20) bits.push(`Yağıntı ${Math.round(rain)} mm`);
     S.warn = bits;
-    if (route().name === "home") renderView();
+    if (route().name === "home") requestRender(false);
   } catch {}
 }
 async function loadSocial() {
   try {
     const r = await fetch(freshUrl("data/social.json"), { cache: "no-store" });
-    if (r.ok) { S.social = await r.json(); render(); }
+    if (r.ok) { S.social = await r.json(); requestRender(); }
   } catch {}
 }
 async function loadSources() {
@@ -1963,20 +2029,24 @@ async function loadStatus(force = false) {
 }
 // Dəqiqəlik yoxlama 151 baytlıq status.json ilə gedir; news.json (~150 KB gzip) yalnız yeni yoxlama olanda və ya
 // əvvəlki yükləmə alınmayanda çəkilir.
-async function pollNews(force = false) {
+async function pollNews(force = false, resume = false) {
   if (!force && document.hidden) return; // arxa planda məlumat xərcləmirik; qayıdanda resumeNews dərhal yoxlayır
   await loadStatus(force);
   const now = S.status?.checkedAt || null;
   if (force || !S.data || S.error || !now || Date.now() - (S.newsCheckedAt || 0) >= NEWS_FULL_MS) {
     await loadNews(force);
     await loadLatest(force);
-  } else if (now !== S.newsStamp) {
+  } else if (resume || now !== S.newsStamp || Date.now() - (S.latestAt || 0) >= LATEST_MAX_MS) {
     await loadLatest();
   }
 }
 const RELOAD_AFTER_HIDDEN_MS = 60 * 60e3;
 function resumeNews() {
-  if(document.hidden){ S.hiddenAt ||= Date.now(); return; }
+  if(document.hidden){
+    S.hiddenAt ||= Date.now();
+    if(S.reloadWhenHidden && !globalThis.speechSynthesis?.speaking)location.reload(); // yeni versiya oxucu baxmayanda
+    return;
+  }
   // Telefonda (və Play tətbiqində) səhifə günlərlə açıq qalır, köhnə kod və ilişmiş vəziyyət də qalır.
   // Bir saatdan çox arxa planda qalıbsa, qayıdanda təzədən açılır; səsli oxu gedirsə kəsilmir.
   const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
@@ -1985,7 +2055,8 @@ function resumeNews() {
   if(Date.now() - (S.lastResumeAt || 0) < 2500)return;
   S.lastResumeAt = Date.now();
   if(S.swReg && Date.now() - (S.swCheckedAt || 0) >= 30 * 60e3){ S.swCheckedAt = Date.now(); S.swReg.update().catch(() => {}); }
-  pollNews(true);
+  // Tam lent yalnız 10 dəqiqədən köhnədirsə gəlir: hər tab keçidində 200 KB getməsin.
+  pollNews(false, true);
 }
 applyPrefs();
 enableAnalytics();
@@ -1997,7 +2068,8 @@ if ("serviceWorker" in navigator) {
       const nw = reg.installing;
       if (!nw) return;
       nw.addEventListener("statechange", () => {
-        if (nw.state === "activated") location.reload();
+        // Oxucunun qarşısında səhifə birdən yenilənməsin.
+        if (nw.state === "activated") { if (document.hidden) location.reload(); else S.reloadWhenHidden = true; }
       });
     });
   }).catch(() => {});
@@ -2018,11 +2090,12 @@ shell(); render();
 loadNews().then(() => loadLatest()); loadMarkets(); loadSocial(); loadStatus(); loadSources(); loadWeather(); loadVideo(); loadFootball(); loadSports(); loadPrayer(savedPrayCity()); loadWarnings(); loadAds();
 setInterval(() => pollNews(), POLL_MS);
 addEventListener("scroll", () => {
-  if (S.renderPending && (globalThis.scrollY || 0) < 200) { S.renderPending = false; render(); }
+  if (S.renderPending && (globalThis.scrollY || 0) < 200) requestRender();
 }, {passive: true});
 // Telefonda arxa plandakı vərəqin taymerləri dayanır: səhifəyə qayıdanda (və geri-irəli keşindən açılanda) dərhal yoxla.
 // Əks halda saatlarla köhnə lent görünürdü — «sayt yenilənmir» təəssüratı.
 document.addEventListener("visibilitychange", resumeNews);
+addEventListener("storage", e => { if (e.key === SAVE_KEY && route().name === "saved") requestRender(false); });
 addEventListener("pageshow", e => { if (e.persisted) resumeNews(); });
 addEventListener("focus", resumeNews);
 addEventListener("online", resumeNews);
@@ -2038,6 +2111,7 @@ document.addEventListener("change", (e) => {
   if (!CITIES.some(c => c[0] === city)) return;
   try { storage.setItem(PRAY_CITY_KEY, city); } catch {}
   S.prayOpen = true;
+  sel.blur();
   loadPrayer(city);
 });
 document.addEventListener("keydown", (e) => {
