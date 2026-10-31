@@ -1040,3 +1040,9 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 .mk-grid::-webkit-scrollbar{display:none}
 .mk-grid>.mk:first-child{margin-left:auto}
 .mk-grid>.mk:last-child{margin-right:auto}
+/* Şəkil tam görünür, kəsilmir: qutuya sığdırılır, artıq qalan yer fonla dolur (telefonda slayder şəklinin 31%-i kəsilirdi) */
+.img>img,.hero-main>.img img,.card .img img{object-fit:contain;object-position:center}
+.img:has(>img){background:var(--img-bg,#0e0d0b)}
+:root[data-theme="light"]{--img-bg:hsl(216 20% 88%)}
+.hero-main>.img:has(>img){background:#0e0d0b}
+.hero-main>.img img{object-position:center top}
