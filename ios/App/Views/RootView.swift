@@ -27,9 +27,10 @@ struct RootView: View {
         }
         .tint(Theme.gold)
         .preferredColorScheme(model.theme.scheme)
-        // Ön planda 30 saniyəlik dövrə işləyir; tətbiq arxaya keçəndə tapşırıq ləğv olunur, qayıdanda dərhal yoxlanır.
-        .task(id: scenePhase) {
-            if scenePhase == .active { await model.foregroundLoop() }
+        // Tətbiq ekranda olduqca 30 saniyəlik dövrə işləyir; arxa plana keçəndə ləğv olunur, qayıdanda dərhal yoxlanır.
+        // `.active` şərti olmaz: sistem pəncərəsi və İdarə mərkəzi altında tətbiq `.inactive`-dir, amma görünür.
+        .task(id: scenePhase == .background) {
+            if scenePhase != .background { await model.foregroundLoop() }
         }
         .onChange(of: router.pendingArticle?.id) { _, _ in openPending() }
         .onChange(of: model.articles.isEmpty) { _, _ in openPending() }

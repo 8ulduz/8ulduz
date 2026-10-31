@@ -9,7 +9,17 @@ final class AppFlowTests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments += ["-8ulduz-theme", "dark"]
+        dismissSystemAlert()
         app.launch()
+        dismissSystemAlert()
+    }
+
+    /// Simulyatorda klaviatura ilk dəfə açılanda sistem «Enable Dictation?» soruşur və ekranı örtür.
+    /// Pəncərə tətbiqin yox, SpringBoard-ındır.
+    private func dismissSystemAlert() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let notNow = springboard.buttons["Not Now"]
+        if notNow.waitForExistence(timeout: 2) { notNow.tap() }
     }
 
     private func shot(_ name: String) {
@@ -39,10 +49,6 @@ final class AppFlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Yadda saxla"].firstMatch.waitForExistence(timeout: 60), "Lent 60 saniyədə gəlmədi")
     }
 
-    private func dismissKeyboard() {
-        if app.keyboards.firstMatch.exists { app.scrollViews.firstMatch.swipeDown() }
-    }
-
     func test1_screens() throws {
         waitForFeed()
         sleep(5) // şəkillər və bazar zolağı yüklənsin
@@ -66,10 +72,11 @@ final class AppFlowTests: XCTestCase {
         let field = app.searchFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.tap()
-        field.typeText("Bakı")
+        dismissSystemAlert()
+        // Sətir sonu axtarışı təsdiqləyir və klaviaturanı bağlayır: açıq klaviatura tab panelini örtür.
+        field.typeText("Bakı\n")
         sleep(4)
-        dismissKeyboard()
-        sleep(1)
+        dismissSystemAlert()
         shot("5-axtaris")
 
         tab("Xidmətlər")

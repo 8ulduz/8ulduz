@@ -324,7 +324,7 @@ struct HeroCard: View {
                         .foregroundStyle(.white.opacity(0.85))
                     }
                     .padding(16)
-                    .padding(.bottom, 14)
+                    .padding(.bottom, 22)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .contentShape(Rectangle())
