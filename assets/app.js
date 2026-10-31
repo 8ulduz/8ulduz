@@ -592,7 +592,10 @@ async function loadNews(force = false) {
     await (ogReady || loadOg(controller.signal));
     if(token !== S.newsToken || controller.signal.aborted)return;
     const first = !S.data;
-    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    // main 10 dəqiqədən bir yazılır: dəqiqəlik gələn xəbərlər tam lentdə hələ olmaya bilər, itməsinlər.
+    const inFull = new Set(d.articles.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
+    S.overlay = (S.overlay || []).filter(o => !inFull.has(o.a.sourceUrl) && Date.now() - o.at < 30 * 60e3);
+    S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined};
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || force) render(); else requestRender();
@@ -647,6 +650,7 @@ async function loadLatest(force = false) {
     const known = new Set(S.rawNews.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
     const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
     if (!fresh.length) { renderTopbar(); return; }
+    S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
     publishNews();
     if (readerBusy()) { S.pendingNew = (S.pendingNew || 0) + fresh.length; renderTopbar(); renderTicker(); }
@@ -1471,7 +1475,7 @@ function onClick(e) {
     e.preventDefault();
     e.stopPropagation();
     const id = t.dataset.save;
-    const a = byId.get(id) || savedList().find(x => x.id === id);
+    const a = byId.get(id) || Object.values(S.archive || {}).flatMap(x => x.rows).find(x => x.id === id) || savedList().find(x => x.id === id);
     if (a) {
       toggleSave(a);
       const on = isSaved(id);

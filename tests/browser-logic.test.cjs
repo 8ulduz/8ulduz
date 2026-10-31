@@ -164,6 +164,19 @@ test('a broken secondary block cannot freeze the news list',()=>{
   const html=homeView();
   assert.ok(html.includes('apa.az/1'));
 });
+test('a full reload keeps minute-channel stories and does not count them twice',async()=>{
+  const ctx=app(),{S,loadNews}=ctx.api;
+  const at=new Date().toISOString();
+  const row=(id,title)=>({id,title,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at});
+  S.data={articles:[]};S.og={};S.rawNews=[row('new','Dəqiqəlik kanaldan gələn tam yeni xəbər')];S.overlay=[{a:S.rawNews[0],at:Date.now()}];
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'x',articles:[row('old','Tam lentdəki başqa bir köhnə xəbər')]})});
+  await loadNews(true);
+  assert.deepEqual([...S.rawNews.map(a=>a.id)].sort(),['new','old']);
+  S.overlay[0].at=Date.now()-31*60e3;
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'y',articles:[row('old','Tam lentdəki başqa bir köhnə xəbər')]})});
+  await loadNews(true);
+  assert.deepEqual([...S.rawNews.map(a=>a.id)],['old'],'yarım saatdan sonra tam lentdə olmalıdır, yoxdursa çıxarılıb');
+});
 test('club filter sees names next to punctuation',()=>{
   const {clubMatches}=app().api;
   for(const title of ['«Qarabağ» qalib gəldi','"Sabah" səfərdə uduzdu: Qarabağ, Neftçi','Oyun (Qarabağ) başa çatdı','Qarabağ: yeni transfer'])assert.equal(clubMatches({title},'Qarabağ'),true,title);
@@ -623,7 +636,20 @@ test('new application code replaces a cached version while online', async () => 
   context.caches.open = async () => ({match: async () => undefined, put: async (_key, response) => { stored = await response.text(); }});
   const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'new code');
+  await new Promise(r => setImmediate(r));
   assert.equal(stored, 'new code');
+});
+
+test('a slow first visit to another page waits for that page instead of showing index.html at the wrong path', async () => {
+  const {context} = worker();
+  let answer;
+  context.fetch = () => new Promise(r => { answer = r; });
+  context.caches.open = async () => ({match: async (req) => String(req).includes('index.html') ? new Response('shell') : undefined, put: async () => {}});
+  vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
+  const pending = vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/mexfilik/index.html'.replace('index.html','')))", context);
+  await new Promise(r => setImmediate(r));
+  answer(new Response('privacy page'));
+  assert.equal(await (await pending).text(), 'privacy page');
 });
 
 test('new code wins over the cached copy when the network answers in time', async () => {

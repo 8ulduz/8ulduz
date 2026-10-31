@@ -137,15 +137,18 @@ async function cacheFirst(req) {
 }
 
 const SHELL_WAIT_MS = 4000; // zəif şəbəkədə ağ ekran qalmasın: keşdəki nüsxə göstərilir, təzəsi arxada yazılır
-async function networkFirstShell(req) {
+async function networkFirstShell(req, event) {
   const cache = await caches.open(STATIC);
-  const network = fetch(new Request(req, { cache: "no-cache" })).then(async (fresh) => {
+  const network = fetch(new Request(req, { cache: "no-cache" })).then((fresh) => {
     if (fresh.ok) {
-      try { await cache.put(req, fresh.clone()); } catch {}
+      // Gövdə arxada yazılır: yavaş yüklənmə 4 saniyəyə daxil deyil, cavab başlığı gələn kimi səhifə axına keçir.
+      const stored = cache.put(req, fresh.clone()).catch(() => {});
+      event?.waitUntil?.(stored);
     }
     return fresh;
   });
-  const saved = (await cache.match(req, { ignoreSearch: true })) || (req.mode === "navigate" ? await cache.match("./index.html") : null);
+  // Yalnız bu ünvanın öz nüsxəsi: başqa yolda index.html açılsa ./assets/ yolları sınır. O hal şəbəkə alınmayanda cacheFirst-dədir.
+  const saved = await cache.match(req, { ignoreSearch: true });
   if (!saved) return network.catch(() => cacheFirst(req));
   network.catch(() => {});
   let timer;
@@ -165,7 +168,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   const shell = event.request.mode === "navigate" || /\.(?:html|js|css|webmanifest)$/.test(url.pathname);
-  event.respondWith(shell ? networkFirstShell(event.request) : cacheFirst(event.request));
+  event.respondWith(shell ? networkFirstShell(event.request, event) : cacheFirst(event.request));
 });
 
 const SEEN_URL = new URL("./notify-seen.json", SCOPE_URL).toString();
