@@ -25,7 +25,7 @@ Azərbaycan və dünyadan son xəbərlər, valyuta və hava — hər dəqiqə.
 Eyni hadisə haqqında müxtəlif saytların xəbərləri bir kartda birləşir. «N mənbə» düyməsi ilə hadisəni kimin necə yazdığını müqayisə edin. Baş səhifə ən çox mənbədə çıxan, yəni günün həqiqətən vacib xəbərlərini önə çıxarır.
 
 ■ Bölmələr
-Gündəm, siyasət, iqtisadiyyat, cəmiyyət, dünya, idman, mədəniyyət, səhiyyə, təhsil, texnologiya, bölgələr və daha çox. Bölmələrin sırasını özünüz qurun, lazım olmayanları gizlədin.
+Gündəm, siyasət, iqtisadiyyat, cəmiyyət, dünya, idman, mədəniyyət, sağlamlıq və həyat, təhsil və elm, bölgələr və daha çox. Bölmələrin sırasını özünüz qurun, lazım olmayanları gizlədin.
 
 ■ Son dəqiqə bildirişləri
 İstəsəniz, vacib xəbərlər bildiriş kimi gəlir. Bildiriş üçün qeydiyyat və ya hesab lazım deyil.

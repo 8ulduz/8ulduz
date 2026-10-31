@@ -12,13 +12,13 @@ const CATS = [
   { slug: "dunya", label: "Dünya", description: "Beynəlxalq mətbuat" },
   { slug: "idman", label: "İdman", description: "İdman aləmindən xəbərlər və nəticələr" },
   { slug: "medeniyyet", label: "Mədəniyyət", description: "Kino, musiqi, sənət və mədəni həyat" },
-  { slug: "heyat", label: "Həyat", description: "Həyat tərzi, qidalanma, psixologiya" },
+  { slug: "heyat", label: "Sağlamlıq və həyat", description: "Tibb, sağlamlıq, qidalanma, psixologiya" },
   { slug: "bolgeler", label: "Bölgələr", description: "Rayonlardan və şəhərlərdən xəbərlər" },
-  { slug: "tehsil", label: "Təhsil", description: "Məktəb, universitet, imtahanlar" },
-  { slug: "sehiyye", label: "Səhiyyə", description: "Tibb, xəstəxanalar, sağlamlıq" },
-  { slug: "texnologiya", label: "Texnologiya", description: "Elm, texnologiya və süni intellekt" },
+  { slug: "tehsil", label: "Təhsil və elm", description: "Məktəb, universitet, elm, texnologiya" },
   { slug: "video", label: "Video", description: "Saytlardakı video xəbərlərə keçidlər" },
 ];
+// Birləşmiş bölmələr: köhnə keçid, saxlanmış xəbər və köhnə keş də yeni bölməyə düşür (updater.py, SECTION_ALIASES).
+const SECTION_ALIAS = { sehiyye: "heyat", texnologiya: "tehsil" };
 const LANGS = [
   { code: "az", label: "Azərbaycan dilində" }, { code: "ru", label: "на русском языке" },
   { code: "en", label: "in English" }, { code: "tr", label: "Türkçe" },
@@ -186,7 +186,7 @@ function tidy(s) {
   return decode(s).replace(/\s*https?:\/\/\S+/gi, "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/(?:\s*[-–—|])+\s*$/u, "").trim();
 }
 const txt = s => esc(tidy(s));
-const catLabel = slug => CATS.find(c => c.slug === slug)?.label ?? slug;
+const catLabel = slug => CATS.find(c => c.slug === (SECTION_ALIAS[slug] || slug))?.label ?? slug;
 function ago(iso) {
   const t = new Date(iso).getTime(); if (Number.isNaN(t)) return "";
   const m = Math.floor(Math.max(0, Date.now() - t) / 6e4);
@@ -636,7 +636,7 @@ async function loadNews(force = false) {
 // Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər. Xam siyahı dəyişmir, latest.json üstünə qoyula bilsin.
 function publishNews() {
   const d = {...S.rawMeta};
-  let articles = S.rawNews.map(a => ({...a, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
+  let articles = S.rawNews.map(a => ({...a, category: SECTION_ALIAS[a.category] || a.category, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
   articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))}));
   d.articles = collapseExact(clusterArticles(articles));
   // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
@@ -745,7 +745,7 @@ function route() {
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
   if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
   if (h === "/haqqinda" || h.startsWith("/haqqinda?")) return { name: "about" };
-  const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: m[1] };
+  const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: SECTION_ALIAS[m[1]] || m[1] };
   if (h === "/tixac" || h.startsWith("/tixac?")) return { name: "traffic" };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
   if (h === "/" || h === "") return { name: "home" };

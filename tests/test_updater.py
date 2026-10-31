@@ -67,11 +67,11 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(updater.label_for("Məktəblərdə buraxılış imtahanının tarixi açıqlandı", "", "az"), "Təhsil")
         self.assertEqual(updater.label_for("Xəstəxanada yeni cərrahiyyə şöbəsi açılıb", "Həkimlər pasiyentləri qəbul edir.", "az"), "Səhiyyə")
         self.assertEqual(updater.SLUGS["Təhsil"], "tehsil")
-        self.assertEqual(updater.SLUGS["Səhiyyə"], "sehiyye")
+        self.assertEqual(updater.SLUGS["Səhiyyə"], "heyat")
 
     def test_ai_news_is_technology(self):
         self.assertEqual(updater.label_for("Azərbaycanda süni intellekt üzrə milli dil modelləri hazırlanır", "", "az"), "Texnologiya")
-        self.assertEqual(updater.SLUGS["Texnologiya"], "texnologiya")
+        self.assertEqual(updater.SLUGS["Texnologiya"], "tehsil")
 
     def test_summary_is_shortened_at_a_word_boundary(self):
         s = updater._short("söz " * 100)

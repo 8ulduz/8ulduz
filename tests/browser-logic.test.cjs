@@ -229,6 +229,21 @@ test('sport sub-sections open their own teams and close when you leave',()=>{
   assert.ok(bb.includes('data-club="Avroliqa"'));
   assert.ok(!bb.includes('data-club="Qarabağ"'));
 });
+test('merged sections: old links, old cached stories and saved stories land in the new section',async()=>{
+  const ctx=app(),{S,route,publishNews,sectionView,catSection}=ctx.api;
+  ctx.location.hash='#/bolme/sehiyye';
+  assert.equal(route().slug,'heyat');
+  ctx.location.hash='#/bolme/texnologiya';
+  assert.equal(route().slug,'tehsil');
+  const at=new Date().toISOString();
+  S.og={};S.rawMeta={};S.rawNews=[{id:'1',title:'Həkimlər yeni üsul tapdı',category:'sehiyye',lang:'az',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:at},{id:'2',title:'Yeni smartfon təqdim olundu',category:'texnologiya',lang:'az',source:'APA',sourceUrl:'https://apa.az/2',publishedAt:at}];
+  publishNews();
+  assert.ok(sectionView('heyat').includes('apa.az/1'));
+  assert.ok(sectionView('tehsil').includes('apa.az/2'));
+  assert.ok(sectionView('heyat').includes('Sağlamlıq və həyat'));
+  assert.ok(sectionView('tehsil').includes('Təhsil və elm'));
+  assert.ok(sectionView('sehiyye').includes('Bölmə tapılmadı'),'ünvan route-da çevrilir, siyahıda iki başlıq qalmır');
+});
 test('club filter sees names next to punctuation',()=>{
   const {clubMatches}=app().api;
   for(const title of ['«Qarabağ» qalib gəldi','"Sabah" səfərdə uduzdu: Qarabağ, Neftçi','Oyun (Qarabağ) başa çatdı','Qarabağ: yeni transfer'])assert.equal(clubMatches({title},'Qarabağ'),true,title);
