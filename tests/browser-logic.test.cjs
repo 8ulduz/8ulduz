@@ -903,7 +903,7 @@ test('every city and district has its button and finds its stories', () => {
   S.lang=null;S.og={};S.shown=50;S.sportTab=null;S.club=null;
   S.data={articles:[row('a','Şəkidə yeni park açılıb'),row('b','Şəkildə görünən şəxs tapılıb'),row('c','Qazaxıstanda seçki keçirilib'),row('d','Qazaxın mərkəzində körpü tikilib','bolgeler'),row('e','Məhəmməd Füzuli haqqında kitab çıxıb'),row('f','Füzulidə məktəb açılıb')]};
   let html=sectionView('bolgeler');
-  for(const name of ['Bakı','Şəki-Zaqatala','Şərqi Zəngəzur','Naxçıvan','Abşeron-Xızı'])assert.ok(html.includes('data-club="'+name+'"'),name);
+  for(const name of ['Bakı','Şəki-Zaqatala','Şərqi Zəngəzur','Naxçıvan MR','Abşeron-Xızı'])assert.ok(html.includes('data-club="'+name+'"'),name);
   assert.ok(html.includes('apa.az/d'),'bölgə səhifəsi öz xəbərlərini göstərir');
   S.sportTab='Şəki-Zaqatala';
   html=sectionView('bolgeler');
@@ -921,13 +921,16 @@ test('every city and district has its button and finds its stories', () => {
   assert.equal(hit('Füzulidə məktəb açılıb','Füzuli'),true);
   assert.equal(hit('Şəki rayonunda yağış','Şəki-Zaqatala'),true);
   assert.equal(hit('В Гяндже открыли парк','Gəncə'),true);
+  assert.equal(hit('Ordubadda yol təmir olunur','Naxçıvan MR'),true,'bölgə düyməsi bütün rayonlarını əhatə edir');
+  assert.equal(hit('Bakıda yol təmir olunur','Bakı'),true);
 });
 test('all fourteen economic regions and their places are listed once', () => {
   const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
   const block=src.slice(src.indexOf('const REGION_TABS = ['),src.indexOf('const SUB_TABS'));
   const groups=[...block.matchAll(/\{ name: "([^"]+)", groups:/g)].map(m=>m[1]);
-  assert.equal(groups.length,14);
+  assert.equal(groups.length,13,'Bakı öz düyməsidir, üstəgəl 13 iqtisadi rayon');
   const places=[...block.matchAll(/\{ name: "([^"]+)", keys:/g)].map(m=>m[1]);
+  assert.ok(!groups.some(g=>places.includes(g)),'bölgə ilə şəhərin adı eyni olmasın');
   assert.equal(new Set(places).size,places.length,'təkrar yoxdur');
   for(const city of ['Bakı','Gəncə','Naxçıvan','Sumqayıt','Lənkəran','Mingəçevir','Naftalan','Xankəndi','Şəki','Şirvan','Yevlax'])assert.ok(places.includes(city),city);
 });
