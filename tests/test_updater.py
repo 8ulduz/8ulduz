@@ -114,6 +114,13 @@ class StateSitesTest(unittest.TestCase):
         self.assertEqual(items[0]["pubDate"], "2026-10-27T14:13:00+04:00")
         self.assertEqual(items[0]["image"], "https://xalqqazeti.az/uploads/news/272156/1.jpg")
 
+    def test_reyting_feed_links_lead_to_the_real_article(self):
+        fix = updater.fix_source_link
+        self.assertEqual(fix("https://reyting.az/haber/sabah-hava-nec-olacaq-proqnoz-10715.html"), "https://reyting.az/xeber/sabah-hava-nec-olacaq-proqnoz-10715")
+        self.assertEqual(fix("https://reyting.az/xeber/artiq-duz"), "https://reyting.az/xeber/artiq-duz")
+        self.assertEqual(fix("https://apa.az/haber/x.html"), "https://apa.az/haber/x.html")
+        self.assertEqual(fix(None), "")
+
     def test_yeniazerbaycan_home_parser_takes_time_from_image_stamp(self):
         page = ('<li><div class="news-post image-post"><img src="https://yeniazerbaycan.com/thumb/575/2026/20261029103456-1793251414390132569_1200x630.jpg" alt="">'
                 '<div class="hover-box"><h2 style="font-size: 20px"><a\n       href="https://yeniazerbaycan.com/az/Gundem/mehriban-eliyeva-tebrik-edib-156131">'

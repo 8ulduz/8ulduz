@@ -538,6 +538,13 @@ class ArchiveTest(unittest.TestCase):
         updater.update_archive()
         self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/3"])
 
+    def test_archive_repairs_broken_reyting_links(self):
+        updater.ARCHIVE_DIR.mkdir(parents=True)
+        (updater.ARCHIVE_DIR / "gundem.json").write_text(updater.json.dumps({"at": 1, "articles": [self.row("https://reyting.az/haber/kohne-1.html", 3, source="Reyting.az")]}), encoding="utf-8")
+        self.write(self.row("https://apa.az/yeni", 1))
+        updater.update_archive()
+        self.assertEqual([a["sourceUrl"] for a in self.rows("gundem")], ["https://reyting.az/xeber/kohne-1"])
+
     def test_merged_sections_carry_their_old_archive_over(self):
         updater.ARCHIVE_DIR.mkdir(parents=True)
         (updater.ARCHIVE_DIR / "texnologiya.json").write_text(updater.json.dumps({"at": 1, "articles": [self.row("https://apa.az/kohne", 3, category="texnologiya")]}), encoding="utf-8")

@@ -561,6 +561,11 @@ def _norm_iso(dt):
     Əvvəl +04:00 və +00:00 qarışıq idi, UTC-li xəbərlər 4 saat aşağı düşürdü."""
     return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
 
+def fix_source_link(link):
+    """Reyting.az lenti /haber/x.html yazır, o ünvan 404 verir; xəbərin əsl ünvanı /xeber/x-dir."""
+    return re.sub(r"^(https?://(?:www\.)?reyting\.az)/haber/(.+?)\.html$", r"\1/xeber/\2", link or "")
+
+
 def fixed_source_date(link, now=None):
     """This publisher's RSS stamps every item with request time (+0000 for local time).
     Its own article URL contains a stable creation timestamp; use that fallback instead
@@ -1304,9 +1309,9 @@ def update_archive(now=None):
         saved = [row for p in [path, *aliases] for row in _read_json(p, {}).get("articles") or []]
         names = {slug, *(old for old, new in SECTION_ALIASES.items() if new == slug)}
         for a in [*saved, *(a for a in articles if a.get("category") in names)]:
-            url = a.get("sourceUrl")
+            url = fix_source_link(a.get("sourceUrl"))
             if url and url not in merged:
-                rows[url] = {**{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "category": slug}
+                rows[url] = {**{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "sourceUrl": url, "category": slug}
         # Tarixi oxunmayan xəbər arxivdə qalmır.
         kept = [a for a in rows.values() if (_parse_dt(a.get("publishedAt")) or cutoff - datetime.timedelta(1)) >= cutoff
                 and not is_junk(a.get("sourceUrl", "")) and not removed_source(a)
@@ -3100,6 +3105,9 @@ def main(fast=False):
         a["category"] = SLUGS.get(lbl, "gundem")
     old = [a for a in old if not foreign_about_azerbaijan(a.get("source"), a.get("category"), a.get("title", ""), a.get("summary", ""))]
     for a in old:
+        a["sourceUrl"] = fix_source_link(a.get("sourceUrl"))
+        for alt in a.get("alts") or []:
+            alt["sourceUrl"] = fix_source_link(alt.get("sourceUrl"))
         stable = fixed_source_date(a.get("sourceUrl"))
         if stable:
             a["publishedAt"] = stable
@@ -3153,6 +3161,7 @@ def main(fast=False):
             source_floor[name] = published[cap - 1]
     for _, items, err, _ in results:
         for it in items if not err else []:
+            it["link"] = fix_source_link(it.get("link"))
             if not it.get("pubDate") and it.get("link") in old_by_url:
                 iso, lookups = undated_date(it, dates, lookups)
                 if iso:

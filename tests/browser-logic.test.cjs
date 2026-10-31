@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -838,11 +838,46 @@ test('photo fallback tries OG and alternate source photos in order', () => {
   assert.deepEqual(Array.from(images),['https://img.example/rss.jpg','https://img.example/og.jpg','https://img.example/alt.jpg','https://img.example/alt-og.jpg']);
 });
 
+test('home keeps slider stories after the sixth in the lists below', () => {
+  const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
+  const words=['alma','armud','banan','qovun','heyva','nar','gilas','albali','erik','saftali','limon','portagal','anar','zeytun','incir','xurma','zoğal','böyürtkən'];
+  S.lang=null;S.og={};S.latestCount=30;S.data={articles:words.map((w,i)=>({id:String(i),title:w+'lər '+w+'ları '+i,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,publishedAt:at}))};
+  const page=homeView(),below=page.slice(page.indexOf('latest-grid'));
+  assert.equal((page.match(/class="hero-main"/g)||[]).length,15);
+  const slides=[...new Set([...page.slice(0,page.indexOf('latest-grid')).matchAll(/apa\.az\/(\d+)/g)].map(m=>m[1]))];
+  assert.equal(slides.length,15);
+  assert.ok(!below.includes('apa.az/'+slides[0]+'"'),'ilk xəbər aşağıda təkrarlanmır');
+  assert.ok(below.includes('apa.az/'+slides[10]+'"'),'11-ci xəbər aşağıda da qalır');
+});
+test('a team search finds every spelling, in every language, including the archive', () => {
+  const ctx=app(),{S,searchView,searchTopics}=ctx.api,at=new Date().toISOString();
+  const row=(id,title,lang,extra={})=>({id,title,lang,category:'idman',source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at,...extra});
+  S.lang='az';S.og={};S.club=null;S.shown=50;
+  S.data={articles:[row('a','Fənərbağça məşqçisini dəyişdi','az'),row('b','Fenerbahçe transferi açıkladı','tr'),row('c','Фенербахче проиграл','ru'),row('d','Dünyada xəbər var','az')]};
+  S.archive={idman:{at:Date.now(),rows:[row('e','Fənərbaxçanın köhnə oyunu','az')]}};
+  for(const said of ['Fənərbaxça','Fənərbağça','fenerbahçe','Fənərbaxça xəbərləri']){
+    S.q=said;
+    assert.deepEqual(Array.from(searchTopics(said)),['Fenerbahçe'],said);
+    const html=searchView();
+    for(const id of 'abce')assert.ok(html.includes('apa.az/'+id),said+' '+id);
+    assert.ok(!html.includes('apa.az/d'),said);
+  }
+});
+test('an ordinary word is not taken for a team and keeps the language filter', () => {
+  const ctx=app(),{S,searchView,searchTopics}=ctx.api,at=new Date().toISOString();
+  assert.deepEqual(Array.from(searchTopics('sabah hava necə olacaq')),[]);
+  assert.deepEqual(Array.from(searchTopics('fənər')),[]);
+  S.lang='az';S.og={};S.club=null;S.shown=50;S.q='hava';
+  S.data={articles:[{id:'a',title:'Sabah hava soyuyacaq',lang:'az',category:'gundem',source:'APA',sourceUrl:'https://apa.az/a',publishedAt:at},{id:'b',title:'Yarın hava soğuyacak',lang:'tr',category:'gundem',source:'NTV',sourceUrl:'https://ntv.com.tr/b',publishedAt:at}]};
+  const html=searchView();
+  assert.ok(html.includes('apa.az/a'));
+  assert.ok(!html.includes('ntv.com.tr/b'));
+});
 test('hero and Zugulba retain multiple articles for their moving feeds', () => {
-  const ctx=app(); const stories=Array.from({length:8},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,publishedAt:new Date().toISOString()}));
-  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories);
+  const ctx=app(); const stories=Array.from({length:18},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,publishedAt:new Date().toISOString()}));
+  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories.slice(0,8));
   assert.ok(hero.includes('class="hero-row"'));
-  assert.equal((hero.match(/class="hero-main"/g)||[]).length,6);
+  assert.equal((hero.match(/class="hero-main"/g)||[]).length,15);
   assert.ok(!hero.includes('row-card'),'slayderin xəbərləri altında təkrarlanmır');
   assert.ok(prez.includes('data-prez-lent'));
   assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
