@@ -19,6 +19,8 @@ const CATS = [
 ];
 // Birləşmiş bölmələr: köhnə keçid, saxlanmış xəbər və köhnə keş də yeni bölməyə düşür (updater.py, SECTION_ALIASES).
 const SECTION_ALIAS = { sehiyye: "heyat", texnologiya: "tehsil" };
+// Axtarış sistemi üçün statik səhifəsi olan xidmətlər (updater.py, SERVICE_PAGES).
+const SERVICE_ROUTES = { tixac: "traffic", valyuta: "rates", cedvel: "league" };
 const LANGS = [
   { code: "az", label: "Azərbaycan dilində" }, { code: "ru", label: "на русском языке" },
   { code: "en", label: "in English" }, { code: "tr", label: "Türkçe" },
@@ -391,7 +393,9 @@ function shownSource(a) {
   } catch {}
   return a.source || "";
 }
-const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time></div>`;
+const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
+const SHARE_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>`;
+const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${safeHref(a.sourceUrl)}" aria-label="Paylaş" title="Paylaş">${SHARE_ICON}</button>`;
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
 const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3 lang="${esc(langOf(a))}">${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
 
@@ -699,7 +703,7 @@ async function loadMarkets() {
   // Əsas mənbə: updater.py-nin yaratdığı data/markets.json (AMB, Yahoo Finance, gold-api və s.)
   try {
     const r = await fetch(freshUrl("data/markets.json"), { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); if (d.items?.length) { S.markets = d.items; renderMarkets(); return; } }
+    if (r.ok) { const d = await r.json(); if (d.items?.length) { S.markets = d.items; renderMarkets(); if (route().name === "rates") requestRender(false); return; } }
   } catch {}
   // Ehtiyat: brauzerdən birbaşa (açarsız, CORS açıq API-lər)
   const items = [];
@@ -711,7 +715,7 @@ async function loadMarkets() {
   for (const [sym, label, dec] of [["XAU", "Qızıl", 1], ["XAG", "Gümüş", 2]]) {
     try { const x = await (await fetch(`https://api.gold-api.com/price/${sym}`)).json(); x?.price && items.push({ label, value: x.price, dec, unit: "USD" }); } catch {}
   }
-  if (items.length) { S.markets = items; renderMarkets(); }
+  if (items.length) { S.markets = items; renderMarkets(); if (route().name === "rates") requestRender(false); }
 }
 
 function wxCode(c) {
@@ -745,7 +749,7 @@ function route() {
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
   if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
   if (h === "/haqqinda" || h.startsWith("/haqqinda?")) return { name: "about" };
-  const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return { name: "section", slug: SECTION_ALIAS[m[1]] || m[1] };
+  const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return SERVICE_ROUTES[m[1]] ? { name: SERVICE_ROUTES[m[1]] } : { name: "section", slug: SECTION_ALIAS[m[1]] || m[1] };
   if (h === "/tixac" || h.startsWith("/tixac?")) return { name: "traffic" };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
   if (h === "/" || h === "") return { name: "home" };
@@ -793,7 +797,7 @@ function shell() {
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { S.lang = e.target.value || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
   window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; S.sportTab = null; S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true }); });
-  window.addEventListener("scroll", () => { $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
+  window.addEventListener("scroll", () => { closeSharePop(); $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition; // Firefox-da yoxdur: düymə gizli qalır
@@ -829,6 +833,8 @@ function pageMeta() {
     name = S.q ? `Axtarış: ${S.q}` : "Axtarış";
     desc = "Başlıq, xülasə və mənbə adına görə axtarış.";
   } else if (r.name === "traffic") { name = "Tıxac və yollar"; desc = "Bakı və Abşeronun canlı yol vəziyyəti."; }
+  else if (r.name === "rates") { name = "Valyuta məzənnəsi"; desc = "Dollar, avro, rubl və lirənin manatla məzənnəsi, neft və qızıl qiyməti."; }
+  else if (r.name === "league") { name = "Premyer Liqa cədvəli"; desc = "Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar."; }
   else if (r.name === "saved") { name = "Seçilmişlər"; desc = "Bu cihazda saxlanan xəbərlər."; }
   else if (r.name === "sources") { name = "Mənbə vəziyyəti"; desc = "RSS lentlərinin son yoxlanması."; }
   else if (r.name === "sections") { name = "Mənim bölmələrim"; desc = "Baş səhifə bölmələrinin sırası."; }
@@ -1058,7 +1064,7 @@ function renderLangs() {
   const driver = storage.getItem('8ulduz-driver') === 'on';
   // İdman bütün dillərdədir: burada dil seçimi təsir etmir, ona görə göstərilmir.
   const sport = route().name === "section" && route().slug === "idman";
-  const row = $("#langs"); if (row) row.innerHTML = (sport ? `<span class="lang-note">İdman xəbərləri bütün dillərdə göstərilir</span>` : languagePicker()) + (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
+  const row = $("#langs"); if (row) row.innerHTML = (sport ? `<span class="lang-note">İdman xəbərləri bütün dillərdə göstərilir</span>` : languagePicker()) + (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + installBtn() + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
 }
 function syncLangStick() {}
 
@@ -1407,6 +1413,19 @@ function highlightSearch() {
   });
 }
 
+function ratesView() {
+  const items = S.markets || [];
+  const rows = items.map(i => {
+    const up = Number(i.changePct) > 0, down = Number(i.changePct) < 0;
+    return `<tr><th scope="row">${esc(i.label)}</th><td>${esc(Number(i.value).toFixed(i.dec ?? 2))} ${esc(i.unit || "")}</td><td class="${up ? "up" : down ? "down" : ""}">${i.changePct == null ? "—" : `${up ? "+" : ""}${esc(Number(i.changePct).toFixed(2))}%`}</td><td class="muted">${esc(i.src || "")}</td></tr>`;
+  }).join("");
+  const asOf = items.find(i => i.asOf)?.asOf;
+  return `<div class="page-h"><div><h1>Valyuta məzənnəsi</h1><p>Dollar, avro, rubl və lirənin manatla məzənnəsi, neft və qızıl qiyməti${asOf ? ` · ${esc(asOf)}` : ""}.</p></div></div>
+    ${rows ? `<div class="svc-wrap"><table class="svc-table"><thead><tr><th>Ad</th><th>Qiymət</th><th>Dəyişmə</th><th>Mənbə</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="empty">Məzənnə məlumatı yüklənir.</p>`}`;
+}
+function leagueView() {
+  return `<div class="page-h"><div><h1>Premyer Liqa cədvəli</h1><p>Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar.</p></div></div>${footballBlock(S.data?.articles || [])}`;
+}
 function trafficView() {
   const area = tixArea();
   const items = localRoadItems(S.data?.articles || []).slice(0, 40);
@@ -1434,7 +1453,7 @@ function renderView() {
   if (!S.data) { v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
-  const body = r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   v.innerHTML = err + body;
   $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
   const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
@@ -1473,6 +1492,7 @@ function renderFooter() {
   $("#footer").innerHTML = `<div class="wrap fgrid">
     <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p></div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
+    <div><h4>Xidmətlər</h4><div class="fcats"><a href="#/bolme/valyuta">Valyuta məzənnəsi</a><a href="#/bolme/cedvel">Premyer Liqa cədvəli</a><a href="#/bolme/tixac">Tıxac və yollar</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
 }
@@ -1495,7 +1515,7 @@ function aboutView() {
       <li>Müxalifət mənbələri lentə daxil edilmir; lentdə yalnız «Mənbələr» siyahısındakı saytlar görünür. Bu da sayt sahibinin redaksiya qərarıdır.</li>
       <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
     </ul></section>
-    <section><h2>Məxfilik</h2><p>Tam mətn (sayt və Android tətbiqi üçün): <a href="./mexfilik/">Məxfilik siyasəti</a>.</p><ul><li>Səslə axtarış mikrofonu yalnız axtarış qutusundakı mikrofon düyməsinə basanda açır. Səsi brauzerinizin öz nitq tanıma xidməti (Chrome-da Google, Safari-də Apple) işləyir; səs bu sayta gəlmir və saxlanmır.</li>${ASSISTANT_ON ? `<li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>` : ""}
+    <section><h2>Məxfilik</h2><p>Tam mətn (sayt və Android tətbiqi üçün): <a href="./mexfilik/">Məxfilik siyasəti</a>.</p><ul><li>Paylaşma düyməsi yalnız seçdiyiniz tətbiqi açır. Sayt yalnız kliklərin ümumi sayını görür, kimin nəyi paylaşdığını yox.</li><li>Səslə axtarış mikrofonu yalnız axtarış qutusundakı mikrofon düyməsinə basanda açır. Səsi brauzerinizin öz nitq tanıma xidməti (Chrome-da Google, Safari-də Apple) işləyir; səs bu sayta gəlmir və saxlanmır.</li>${ASSISTANT_ON ? `<li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>` : ""}
       <li>Sayt kuki qoymur və hesab tələb etmir. Seçilmişlər, bölmə sırası, dil, tema və şəhər seçimi yalnız sizin cihazınızda (brauzerin yaddaşında) saxlanır.</li>
       <li>«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.</li>
       <li>Hava (Open-Meteo), namaz vaxtı (aladhan.com), tıxac xəritəsi (Waze) və video (YouTube) brauzerinizdən birbaşa həmin xidmətlərə sorğu göndərir; onların öz məxfilik qaydaları tətbiq olunur. Xəritə və video yalnız düyməyə basanda yüklənir.</li>
@@ -1524,7 +1544,67 @@ function sectionsView() {
   return `<div class="page-h"><div><h1>Mənim bölmələrim</h1><p>İşarəni götürün və ya sıranı dəyişin. Baş səhifə bunu yadda saxlayır.</p></div></div><ul class="mine">${rows}</ul>`;
 }
 
+// Yalnız ümumi say gedir, şəxsi məlumat yoxdur (source-stats.js ilə eyni üsul).
+function trackEvent(path) {
+  try { window.goatcounter?.count?.({ path, title: path, event: true, no_session: true, referrer: "" }); } catch {}
+}
+function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
+function showPop(btn, html) {
+  closeSharePop();
+  const box = document.createElement("div"), r = btn.getBoundingClientRect();
+  box.className = "sharepop";
+  box.innerHTML = html;
+  document.body.append(box);
+  const w = box.offsetWidth, h = box.offsetHeight;
+  box.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.right - w))}px`;
+  box.style.top = `${r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6}px`;
+  return box;
+}
+// Paylaşılan keçid xəbərin öz mənbəsidir: klik saytlarda olduğu kimi birbaşa mənbəyə gedir.
+async function shareStory(btn) {
+  const url = btn.dataset.share, title = btn.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
+  if (TOUCH_UI && navigator.share) {
+    trackEvent("share-system");
+    try { await navigator.share({ title, text: `${title}\n\n8ulduz.az`, url }); } catch {}
+    return;
+  }
+  const box = showPop(btn, `<a data-to="whatsapp" href="https://wa.me/?text=${encodeURIComponent(`${title}\n${url}\n\n8ulduz.az`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a><a data-to="telegram" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`${title}\n\n8ulduz.az`)}" target="_blank" rel="noopener noreferrer">Telegram</a><button type="button" data-to="copy">Keçidi kopyala</button>`);
+  box.addEventListener("click", async ev => {
+    const to = ev.target.closest("[data-to]");
+    if (!to) return;
+    trackEvent(`share-${to.dataset.to}`);
+    if (to.dataset.to === "copy") {
+      try { await navigator.clipboard.writeText(url); to.textContent = "Kopyalandı"; setTimeout(closeSharePop, 1200); }
+      catch { to.textContent = "Kopyalanmadı"; }
+      return;
+    }
+    closeSharePop();
+  });
+}
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
+// Chrome təklifi özü verir (beforeinstallprompt); iPhone-da yalnız əl ilə mümkündür, ona görə yol göstərilir.
+function installBtn() {
+  if (isStandalone() || (!S.installEvt && !isIOS())) return "";
+  return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;
+}
+async function installApp(btn) {
+  if (!S.installEvt) {
+    trackEvent("install-ios-hint");
+    showPop(btn, `<p>Safari-də <b>Paylaş</b> düyməsinə, sonra <b>Ana ekrana əlavə et</b> seçiminə basın.</p>`);
+    return;
+  }
+  const prompt = S.installEvt;
+  S.installEvt = null;
+  try {
+    prompt.prompt();
+    const choice = await prompt.userChoice;
+    trackEvent(`install-${choice?.outcome || "unknown"}`);
+  } catch {}
+  renderLangs();
+}
 function onClick(e) {
+  if (!e.target.closest(".sharepop")) closeSharePop();
   const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
   if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
@@ -1534,6 +1614,17 @@ function onClick(e) {
     if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }
     if (S.fxOpen && !e.target.closest(".fx-pop") && !e.target.closest("[data-fx]")) { S.fxOpen = false; dirty = true; }
     if (dirty) { renderTopbar(); renderMarkets(); }
+    return;
+  }
+  if (t.dataset.act === "share") {
+    e.preventDefault();
+    e.stopPropagation();
+    shareStory(t);
+    return;
+  }
+  if (t.dataset.act === "install") {
+    e.preventDefault();
+    installApp(t);
     return;
   }
   if (t.dataset.act === "star") {
@@ -2034,13 +2125,13 @@ async function loadVideo() {
 async function loadSports() {
   try {
     const r = await fetch(freshUrl("data/sports.json"), { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; if (route().name === "home" && S.data) requestRender(false); } }
+    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; if (["home", "league"].includes(route().name) && S.data) requestRender(false); } }
   } catch {}
 }
 async function loadFootball() {
   try {
     const r = await fetch(freshUrl("data/football.json"), { cache: "no-store" });
-    if (r.ok) { S.football = await r.json(); if (route().name === "home") requestRender(false); }
+    if (r.ok) { S.football = await r.json(); if (["home", "league"].includes(route().name)) requestRender(false); }
   } catch {}
 }
 async function loadPrayer(city) {
@@ -2129,6 +2220,8 @@ function resumeNews() {
 }
 applyPrefs();
 enableAnalytics();
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt = e; renderLangs(); });
+addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then((reg) => {
     S.swReg = reg;
