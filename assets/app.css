@@ -1048,6 +1048,6 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 /* Telefon: başlıq sətirləri bərabərləşir, heç bir endə son başlıq (Video) tək sətrə düşmür */
 @media(max-width:600px){
   nav.main{display:block;text-wrap:balance}
-  nav.main>a,nav.main a.nav-x{display:inline-flex;align-items:center;vertical-align:top;margin:0 3px 3px 0}
+  nav.main>a,nav.main a.nav-x{display:inline-flex;align-items:center;vertical-align:top;margin:0 2px 3px 0;padding-left:8px;padding-right:8px}
   nav.main>a[href="#/"]{display:none}
 }
