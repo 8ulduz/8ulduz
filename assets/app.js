@@ -786,7 +786,6 @@ function shell() {
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search">
       <button type="button" id="mic" class="mic" aria-label="Səslə axtar" title="Səslə axtar" aria-pressed="false" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></label>
   </div><div class="langstick" id="langstick"></div><div class="nav-pop" id="navpop" hidden></div></header>
-  <div class="nav-sub" id="navsub" hidden></div>
   <div id="ticker"></div>
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
@@ -914,14 +913,8 @@ function renderNav() {
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
   fitNav();
 }
-// Alt başlıqlı bölmə açılan kimi alt başlıqlar menyunun düz altında görünür: zolaq və bazarlardan aşağıda axtarılmır.
+// Bölmə səhifəsində alt başlıqlar kartların düz üstündədir.
 const subNav = slug => SUB_TABS[slug] ? navRows(slug) : "";
-function renderSubNav() {
-  const el = $("#navsub"), r = route();
-  if (!el) return;
-  el.innerHTML = r.name === "section" ? subNav(r.slug) : "";
-  el.hidden = !el.innerHTML;
-}
 // Kursorla açılan menyu: bölmənin üstündə alt başlıqlar sətri, alt siyahısı olan başlığın üstündə daha bir sətir.
 function navPopHtml(slug, tab) {
   if (slug !== "more") return navRows(slug, tab, route().slug === slug ? S.club || "" : null);
@@ -957,13 +950,19 @@ function bindNavPop() {
     else if (e.target.closest("#nav a")) hide();
   });
   pop.addEventListener("click", hide);
-  const sub = $("#navsub");
-  sub.addEventListener("mouseover", e => {
-    const name = e.target.closest("[data-club]")?.dataset.club, slug = route().slug;
-    if (SUB_TABS[slug]?.find(t => t.name === name)?.groups) later(() => show(slug, name), 110);
-    else clearTimeout(timer);
+  // Səhifədəki sətirlər də eyni: başlığın üstünə gələndə alt sətri yerində açılır, kursor çıxanda seçilmiş vəziyyətə qayıdır.
+  let open, rowTimer;
+  $("#view").addEventListener("mouseover", e => {
+    const box = e.target.closest(".sub-rows"), slug = route().slug;
+    clearTimeout(rowTimer);
+    if (!box) {
+      if (open !== undefined) rowTimer = setTimeout(() => { open = undefined; const old = $(".sub-rows"); if (old) old.innerHTML = navRows(route().slug); }, 220);
+      return;
+    }
+    const name = e.target.closest("[data-club]")?.dataset.club;
+    if (name === undefined || name === (open ?? S.sportTab ?? "") || (name && !SUB_TABS[slug]?.some(t => t.name === name))) return;
+    rowTimer = setTimeout(() => { open = name; box.innerHTML = navRows(slug, name); }, 110);
   });
-  sub.addEventListener("mouseleave", () => later(hide, 220));
   document.addEventListener("keydown", e => { if (e.key === "Escape") hide(); });
 }
 // Telefonda menyu sürüşən zolaqdır: seçilmiş bölmə görünən yerdə qalsın.
@@ -1444,7 +1443,7 @@ function sectionView(slug) {
   let list = slug === "video" ? d.filter(a => a.video) : slug === "sondeqiqe" ? d.filter(withinHour) : d.filter(a => a.category === slug);
   loadArchive(slug);
   list = byDate(withArchive(slug, list));
-  let extra = "";
+  let extra = SUB_TABS[slug] ? `<div class="sub-rows">${subNav(slug)}</div>` : "";
   if (slug === "idman") {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
   }
@@ -1776,7 +1775,7 @@ function onClick(e) {
     const tabs = SUB_TABS[pop?.dataset.slug || route().slug] || [];
     if (!S.club) S.sportTab = null; else if (tabs.some(x => x.name === S.club)) S.sportTab = S.club; else if (pop) S.sportTab = pop.dataset.tab;
     if (pop && route().slug !== pop.dataset.slug) { S.keepClub = true; location.hash = `#/bolme/${pop.dataset.slug}`; return; }
-    S.shown = PAGE; renderSubNav(); renderView();
+    S.shown = PAGE; renderView();
     scrollToClub();
     return;
   }
@@ -2225,7 +2224,7 @@ addEventListener("resize", () => {
   marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
 });
 
-function render() { renderTopbar(); renderNav(); renderSubNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
+function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
 
 /* ---------------------------------------------------------------- start */
 async function loadAds() {

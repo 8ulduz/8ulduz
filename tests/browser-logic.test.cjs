@@ -217,7 +217,8 @@ test('sport shows every language whatever language is chosen, also inside a team
 test('sport sub-sections open their own teams and close when you leave',()=>{
   const ctx=app(),{S,sectionView,subNav}=ctx.api;
   S.data={articles:[]};S.club=null;S.sportTab=null;
-  assert.ok(!sectionView('idman').includes('data-club='),'alt başlıqlar səhifədə yox, menyunun altındadır');
+  const page=sectionView('idman');
+  assert.ok(page.indexOf('data-club="Futbol"')>page.indexOf('</h1>')&&page.indexOf('data-club="Futbol"')<page.indexOf('class="empty"'),'alt başlıqlar səhifə başlığı ilə kartların arasındadır');
   assert.equal(subNav('siyaset'),'');
   const top=subNav('idman');
   for(const name of ['Hamısı','Futbol','Basketbol','Formula 1','Tennis','Şahmat'])assert.ok(top.includes('>'+name+'<'),name);

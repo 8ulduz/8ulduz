@@ -999,8 +999,10 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 /* Alt menyu sətirləri: başlıq panelindən azca fərqli fon, hər pillə bir ton tünd */
 :root{--nav-row:var(--card2);--nav-row2:var(--card2)}
 @supports(background:color-mix(in srgb,red,blue)){:root{--nav-row:color-mix(in srgb,var(--primary) 10%,var(--card));--nav-row2:color-mix(in srgb,var(--primary) 20%,var(--card))}}
-.nav-sub[hidden],.nav-pop[hidden]{display:none}
-header.site:has(.nav-pop:not([hidden]))+.nav-sub{visibility:hidden}
+.nav-pop[hidden]{display:none}
+.sub-rows{margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.sub-rows .wrap{max-width:none;padding-left:10px;padding-right:10px}
+.sub-rows .nav-row:last-child{border-bottom:0}
 .nav-pop{position:absolute;top:100%;left:0;right:0;z-index:60;max-height:calc(100dvh - 130px);overflow-y:auto;box-shadow:0 14px 28px #0005}
 .nav-pop .chips{flex-wrap:wrap;overflow:visible}
 .nav-row{background:var(--nav-row);border-bottom:1px solid var(--border);padding:6px 0}
