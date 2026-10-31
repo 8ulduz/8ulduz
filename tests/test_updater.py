@@ -635,6 +635,13 @@ class SectionPagesTest(unittest.TestCase):
         self.assertTrue({"Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"} <= updater.SLOW_ONLY_FEEDS)
         self.assertFalse({"Gəncəxəbər", "Yurd.Media", "Gündəlik.az"} & updater.SLOW_ONLY_FEEDS)
 
+    def test_sites_the_owner_named_are_registered(self):
+        for name in ["Nocomment.az", "Mia.az", "Aia.az"]:
+            self.assertTrue(updater.content_policy.source_registered(name), name)
+            self.assertIn(name, [f[0] for f in updater.FEEDS])
+        self.assertIn("Mia.az", updater.SLOW_ONLY_FEEDS, "lenti 800 KB-dır, dəqiqəlik oxunmur")
+        self.assertFalse({"Nocomment.az", "Aia.az"} & updater.SLOW_ONLY_FEEDS)
+
     def test_foreign_unemployment_is_not_our_social_protection(self):
         self.assertNotEqual(updater.categorize("Finlandiya Aİ-də işsizlik səviyyəsinə görə yenidən lider olub", ""), "Sosial müdafiə")
         self.assertEqual(updater.categorize("Bu il əlilliyi olan daha 826 şəxsə reabilitasiya vasitələri verilib", ""), "Sosial müdafiə")
