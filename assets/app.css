@@ -994,3 +994,12 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 /* Rejim düyməsi: işarənin yanında növbəti rejimin adı */
 .prefs .theme-btn{display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-weight:700;white-space:nowrap}
 .prefs .theme-btn span{font-size:.72rem}
+
+/* Alt başlıqlar menyunun düz altında */
+.nav-sub{padding-top:8px}
+.nav-sub[hidden]{display:none}
+.nav-sub .sport-chips{margin-bottom:2px}
+.nav-sub .chips{gap:4px}
+.nav-sub .pill{min-height:34px;padding:4px 11px;font-size:.82rem}
+#view{scroll-margin-top:90px}
+@media(max-width:600px){#view{scroll-margin-top:8px}}
