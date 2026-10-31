@@ -193,6 +193,12 @@ test('sport buttons: short list, every topic finds its news in every language, n
   yes('NBA','LeBron sinks clutch in NBA');yes('NBA','Лейкерс в НБА');no('NBA','Bakıda basketbol turniri');
   yes('Formula 1','Verstappen penalized',{source:'Motorsport F1'});yes('Formula 1','Formula-1: Hamilton birinci oldu');yes('Formula 1','Льюис Хэмилтон и «Формула-1»'.replace('«Формула-1»','Формула-1'));no('Formula 1','Yeni formula təklif edildi');
   yes('Tennis','Tennisçimiz qalib gəldi');yes('Şahmat','Şahmatçılarımız medal qazandı');yes('Boks və UFC','UFC champion Makhachev');yes('Güləş və cüdo','Cüdoçumuz Avropa çempionu oldu');
+  no('İnter','Messi scores twice for Inter Miami');no('Milan','Inter Milan beat Roma');no('Milan','Olimpia Milan wins in EuroLeague');yes('Milan','Pulişiç daha 5 il “Milan”da');
+  no('Formula 1','Гран-при России по фигурному катанию');yes('Formula 1','Verstappen wins the Mexico Grand Prix');no('Güləş və cüdo','Ферстаппен: борьба за позицию была жёсткой');yes('Güləş və cüdo','Борец завоевал золото');
+  no('Futbol','Real Madrid routs Fenerbahce in Euroleague');no('Futbol','«Барселона» в Евролиге обыграла «Монако»');
+  no('Real Madrid','«Реал Бетис» обыграл');yes('Real Madrid','Hazard joins Real Madrid');
+  yes('Barcelona','Матч с Барселоной');yes('Bayern','Победа над Баварией');yes('Avroliqa','Перед Евролигой');
+  yes('Qarabağ','"Qarabağ"ın futbolçusu bərpa olundu');yes('Milli komanda','Azərbaycan milli komandası qalib gəldi');yes('Milli komanda','Azərbaycan millisinə çağırış');yes('Futbol','Çempionlar Liqasına yollandı');
   const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
   const clubs=src.slice(src.indexOf('const SPORT_TEAMS'),src.indexOf('const CITIES')).match(/name: "/g).length;
   assert.ok(clubs<=32,'düymə sayı: '+clubs);
