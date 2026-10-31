@@ -15,12 +15,16 @@
 set -uo pipefail
 
 CYCLE="${CYCLE:-60}"
+# Qəsdən 40-dan böyükdür: yavaş gündə gec gələn dövrə növbəti dəqiqədə görünür, kəsilən dövrə isə heç görünmür.
+# Adi dövrəni qısa saxlayan updater.py-dakı FAST_BUDGET_S və PR-dakı 35 saniyəlik yoxlamadır.
 FAST_LIMIT="${FAST_LIMIT:-50}"
 SLOW_LIMIT="${SLOW_LIMIT:-280}"
 SLOW_EVERY="${SLOW_EVERY:-240}"
 MAIN_EVERY="${MAIN_EVERY:-600}"
 HANDOFF_AFTER="${HANDOFF_AFTER:-2820}"   # 47 dəq: növbəti işi başlat
 MAX_RUN="${MAX_RUN:-3600}"               # 60 dəq: növbəti iş görünməsə də çıx (timeout-minutes-dən əvvəl)
+STUCK_AFTER="${STUCK_AFTER:-240}"        # dövrə bu qədər irəliləməsə iş özünü dayandırır, növbətisi başlayır
+PUSH_FAILS_MAX="${PUSH_FAILS_MAX:-15}"   # GitHub qısa kəsilsə iş gözləyir; bu qədər dövrə ardıcıl alınmasa yeni iş
 BRANCH="${BRANCH:-main}"
 LIVE_BRANCH="${LIVE_BRANCH:-live}"
 RUN_ID="${GITHUB_RUN_ID:-0}"
@@ -38,9 +42,20 @@ KEEP_SLOTS=5
 CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
 SLOW_PID=""
 PUBLISH_PID=""
+WATCH_PID=""
 
-cleanup() { [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null; [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null; return 0; }
+cleanup() {
+  [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
+  [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null
+  [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
+  return 0
+}
 trap cleanup EXIT
+
+# Şəbəkə asılsa gh sonsuz gözləyə bilər: axın onu gözləməməlidir.
+gh_t() { timeout -k 5 15 "$GH" "$@"; }
+# Xəbər lentini oxuyan proses repo açarını görməsin.
+py_t() { env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 "$@"; }
 
 copy_code() { # $1 mənbə, $2 hədəf
   local f
@@ -62,44 +77,67 @@ same_code() { # $1, $2: eyni koddur?
 another_run_in_charge() {
   local now youngest
   now="$(date +%s)"
-  youngest="$("$GH" run list --workflow update.yml --branch "$BRANCH" --status in_progress --limit 20 --json databaseId,createdAt \
+  youngest="$(gh_t run list --workflow update.yml --branch "$BRANCH" --status in_progress --limit 20 --json databaseId,createdAt \
     --jq "[.[] | select(.databaseId != ${RUN_ID}) | .createdAt | fromdateiso8601] | max // 0" 2>/dev/null || echo 0)"
   [ -n "$youngest" ] && [ "$youngest" != "0" ] && [ $((now - youngest)) -lt $((HANDOFF_AFTER - 180)) ]
 }
 
 newer_run_started() {
   local me count
-  me="$("$GH" run view "$RUN_ID" --json createdAt --jq '.createdAt | fromdateiso8601' 2>/dev/null || echo 0)"
-  count="$("$GH" run list --workflow update.yml --branch "$BRANCH" --status in_progress --limit 20 --json databaseId,createdAt \
+  me="$(gh_t run view "$RUN_ID" --json createdAt --jq '.createdAt | fromdateiso8601' 2>/dev/null || echo 0)"
+  # Öz vaxtımızı bilmiriksə «yeni iş var» deyə bilmərik: işləməyə davam.
+  [ -n "$me" ] && [ "$me" != "0" ] || return 1
+  count="$(gh_t run list --workflow update.yml --branch "$BRANCH" --status in_progress --limit 20 --json databaseId,createdAt \
     --jq "[.[] | select(.databaseId != ${RUN_ID} and (.createdAt | fromdateiso8601) > ${me:-0})] | length" 2>/dev/null || echo 0)"
   [ "${count:-0}" != "0" ]
 }
 
-# Cari kod işləməsə son işlək kodla davam edir. Uğurlu cari kod yeni «işlək» olur.
+# Cari kod işləməsə son işlək kodla davam edir. Cari kod updater və yoxlayıcı işləyəndən sonra yeni «işlək» olur (promote_code).
 run_py() { # $1 rejim, $2 limit
-  if UPDATER_ROOT="$WORK" timeout "$2" "$PY" "$CUR/updater.py" "$1"; then
-    if [ "$1" = "--fast" ] && ! same_code "$CUR" "$LKG"; then
-      copy_code "$CUR" "$LKG" && touch "$LKG/.yeni"
-    fi
+  [ "$1" = "--fast" ] && CUR_RAN=0
+  if UPDATER_ROOT="$WORK" py_t "$2" "$PY" "$CUR/updater.py" "$1"; then
+    [ "$1" = "--fast" ] && CUR_RAN=1
     return 0
   fi
   if [ ! -f "$LKG/updater.py" ] || same_code "$CUR" "$LKG"; then
     return 1
   fi
   echo "::warning::updater.py ($1) xəta verdi — son işlək versiya ilə cəhd edilir"
-  UPDATER_ROOT="$WORK" timeout "$2" "$PY" "$LKG/updater.py" "$1"
+  UPDATER_ROOT="$WORK" py_t "$2" "$PY" "$LKG/updater.py" "$1"
+}
+
+# Son işlək yoxlayıcı: cari yoxlayıcı sınıq olanda.
+check_lkg() { # $1 qovluq
+  echo "::warning::check_outputs.py işləmədi — son işlək yoxlayıcıya keçilir" >&2
+  [ -f "$LKG/.github/scripts/check_outputs.py" ] || return 1
+  py_t 20 "$PY" "$LKG/.github/scripts/check_outputs.py" "$1"
 }
 
 # Zədəli fayl son sağlam nüsxə ilə əvəz olunur; qaydanı pozan xəbər fayldan çıxarılır.
+# Heç bir yoxlayıcı işləməsə axın dayanmır, updater.py-ın öz qapısı qalır.
 guard_outputs() {
-  local f checker="$CUR/.github/scripts/check_outputs.py"
-  for f in $("$PY" "$checker" "$WORK" 2>/dev/null); do
+  local f bad
+  CUR_CHECKED=0
+  if bad="$(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$WORK")"; then
+    CUR_CHECKED=1
+  elif ! bad="$(check_lkg "$WORK")"; then
+    # Yoxlanmamış məlumat «sağlam nüsxə» olmur.
+    echo "::error::Çıxış faylları yoxlanmadı, son sağlam nüsxə yenilənmir"
+    return 0
+  fi
+  for f in $bad; do
     echo "::warning::$f zədəlidir — son sağlam nüsxə saxlanılır"
     if [ -f "$GOOD/$f" ]; then cp "$GOOD/$f" "$WORK/$f"; else rm -f "$WORK/$f"; fi
   done
   mkdir -p "$GOOD/data"
   cp -a "$WORK/data/." "$GOOD/data/" 2>/dev/null
   cp -a "$WORK/sitemap.xml" "$WORK/feed.xml" "$GOOD/" 2>/dev/null
+  return 0
+}
+
+promote_code() {
+  [ "${CUR_RAN:-0}" = 1 ] && [ "${CUR_CHECKED:-0}" = 1 ] || return 0
+  same_code "$CUR" "$LKG" || { copy_code "$CUR" "$LKG" && touch "$LKG/.yeni"; }
   return 0
 }
 
@@ -169,7 +207,7 @@ publish_main() {
     done
     if [ -d "$WORK/bolme" ]; then rm -rf "$REPO_DIR/bolme"; cp -a "$WORK/bolme" "$REPO_DIR/bolme"; fi
     # GOOD yenilənərkən oxunmuş ola bilər: commit-dən əvvəl yenidən yoxla.
-    for name in $("$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" 2>/dev/null); do
+    for name in $(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" || check_lkg "$REPO_DIR"); do
       git -C "$REPO_DIR" checkout -q HEAD -- "$name" 2>/dev/null || rm -f "$REPO_DIR/$name"
     done
     git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme 2>/dev/null
@@ -197,6 +235,21 @@ slow_loop() {
   done
 }
 
+# Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
+# GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
+self_watch() { # $1 əsas proses
+  while sleep 20; do
+    if [ $(( $(date +%s) - $(stat -c %Y "$STATE/heartbeat" 2>/dev/null || echo 0) )) -ge "$STUCK_AFTER" ]; then
+      echo "::warning::Dövrə ${STUCK_AFTER} saniyədir irəliləmir, iş dayandırılır. Növbəti iş başlayacaq."
+      [ -n "${2:-}" ] && kill "$2" 2>/dev/null
+      kill -TERM "$1" 2>/dev/null
+      sleep 10
+      kill -KILL "$1" 2>/dev/null
+      return 0
+    fi
+  done
+}
+
 # --------------------------------------------------------------------- başlanğıc
 if another_run_in_charge; then
   echo "Başqa iş lenti yeniləyir, bu iş lazım deyil."
@@ -219,19 +272,36 @@ rm -f "$LKG/.yeni"
 
 slow_loop &
 SLOW_PID=$!
+touch "$STATE/heartbeat"
+self_watch $$ "$SLOW_PID" &
+WATCH_PID=$!
 
 START=$SECONDS
 last_main=$SECONDS
 last_handoff=-9999
+push_fails=0
 while :; do
   began=$SECONDS
+  touch "$STATE/heartbeat"
   if [ -e "$STATE/code-sync" ]; then
     rm -f "$STATE/code-sync"
     copy_code "$REPO_DIR" "$CUR"
   fi
   run_py --fast "$FAST_LIMIT" || echo "sürətli dövrə xəta verdi"
+  touch "$STATE/heartbeat"
   guard_outputs
-  push_live || echo "::warning::live budağına yazılmadı"
+  promote_code
+  if push_live; then
+    push_fails=0
+  else
+    push_fails=$((push_fails + 1))
+    echo "::warning::live budağına yazılmadı ($push_fails)"
+    if [ "$push_fails" -ge "$PUSH_FAILS_MAX" ]; then
+      echo "::warning::${push_fails} dövrədir yazılmır, yeni iş başlayır."
+      exit 1
+    fi
+  fi
+  touch "$STATE/heartbeat"
   if [ $((SECONDS - last_main)) -ge "$MAIN_EVERY" ] && { [ -z "$PUBLISH_PID" ] || ! kill -0 "$PUBLISH_PID" 2>/dev/null; }; then
     last_main=$SECONDS
     publish_main &
@@ -247,7 +317,7 @@ while :; do
     fi
     if [ $((SECONDS - last_handoff)) -ge 120 ]; then
       last_handoff=$SECONDS
-      "$GH" workflow run update.yml --ref "$BRANCH" || echo "Dispatch alınmadı"
+      gh_t workflow run update.yml --ref "$BRANCH" || echo "Dispatch alınmadı"
     fi
     if [ "$ran" -ge "$MAX_RUN" ]; then
       echo "::warning::Növbəti iş görünmədi. Cron və nəzarətçi davam etdirəcək."

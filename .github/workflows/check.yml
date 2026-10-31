@@ -67,7 +67,8 @@ jobs:
           print("- latest.json:", latest["count"], "xəbər,", os.path.getsize(root + "latest.json") // 1024, "KB")
           PY
           echo "Ən uzun təkrar dövrə: ${worst}s"
-          if [ "$worst" -gt 50 ]; then
-            echo "::error::Sürətli dövrə ${worst}s çəkdi. Qırmızı xətt: 60 saniyə (docs/qirmizi-xetler.md)."
+          # Dövrə dəqiqənin 5-ci saniyəsində başlayır, sayt dəqiqəni 45-ci saniyədən sonra istəyir: yazı üçün də vaxt qalmalıdır.
+          if [ "$worst" -gt 35 ]; then
+            echo "::error::Sürətli dövrə ${worst}s çəkdi, hədd 35 saniyədir. Qırmızı xətt: 60 saniyə (docs/qirmizi-xetler.md)."
             exit 1
           fi
