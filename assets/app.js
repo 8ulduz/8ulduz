@@ -951,11 +951,17 @@ function renderNav() {
 }
 // Bölmə səhifəsində alt başlıqlar kartların düz üstündədir.
 const subNav = slug => SUB_TABS[slug] ? navRows(slug) : "";
-// Kursorla açılan menyu: bölmənin üstündə alt başlıqlar sətri, alt siyahısı olan başlığın üstündə daha bir sətir.
+// Kursorla açılan menyu: başlığın altında şaquli siyahı, alt siyahısı olan bəndin üstündə yanında ikinci siyahı.
 function navPopHtml(slug, tab) {
-  if (slug !== "more") return navRows(slug, tab, route().slug === slug ? S.club || "" : null);
-  const r = route(), links = CATS.filter(c => !NAV_PRIMARY.includes(c.slug)).map(c => `<a class="pill ${r.slug === c.slug ? "on" : ""}" href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("");
-  return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${links}<a class="pill" href="#/secilmis">☆ Saxlanmış xəbərlər</a><a class="pill" href="#/bolmeler">Bölmələri tənzimlə</a></div></div></div>`;
+  if (slug === "more") {
+    const r = route(), links = CATS.filter(c => !NAV_PRIMARY.includes(c.slug)).map(c => `<a class="pill ${r.slug === c.slug ? "on" : ""}" href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("");
+    return `<div class="pop-col">${links}<a class="pill" href="#/secilmis">☆ Saxlanmış xəbərlər</a><a class="pill" href="#/bolmeler">Bölmələri tənzimlə</a></div>`;
+  }
+  const tabs = SUB_TABS[slug], club = route().slug === slug ? S.club || "" : null;
+  const pill = (name, label = name, kids = false) => `<button class="pill ${club === name || tab === name ? "on" : ""}" data-club="${esc(name)}"${kids ? " data-kids" : ""}>${esc(label)}</button>`;
+  const groups = tabs.find(t => t.name === tab)?.groups || [];
+  return `<div class="pop-col">${pill("", "Hamısı")}${tabs.map(t => pill(t.name, t.name, !!t.groups)).join("")}</div>` +
+    (groups.length ? `<div class="pop-col two">${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "");
 }
 // Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
 function bindNavPop() {
@@ -963,12 +969,18 @@ function bindNavPop() {
   let timer;
   const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
   const hide = () => { clearTimeout(timer); pop.hidden = true; };
-  const show = (slug, tab) => { pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.innerHTML = navPopHtml(slug, tab); pop.hidden = false; };
+  let anchor;
+  // Siyahı başlığın altından başlayır, ekrandan çıxacaqsa sola sürüşür.
+  const place = () => {
+    const head = $("#sitehead").getBoundingClientRect();
+    pop.style.left = `${Math.max(8, Math.min(anchor.getBoundingClientRect().left - head.left, head.width - pop.offsetWidth - 8))}px`;
+  };
+  const show = (slug, tab, from = anchor) => { anchor = from; pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.innerHTML = navPopHtml(slug, tab); pop.hidden = false; place(); };
   $("#sitehead").addEventListener("mouseover", e => {
     if (e.target.closest("#navpop")) {
       clearTimeout(timer);
       const name = e.target.closest("[data-club]")?.dataset.club, slug = pop.dataset.slug;
-      if (name !== undefined && name !== pop.dataset.tab && (!name || SUB_TABS[slug]?.some(t => t.name === name))) later(() => show(slug, name), 110);
+      if (name !== undefined && name !== pop.dataset.tab && (!name || SUB_TABS[slug]?.some(t => t.name === name))) later(() => show(slug, name), 160);
       return;
     }
     const item = e.target.closest("#nav a, #nav summary");
@@ -976,7 +988,7 @@ function bindNavPop() {
     const href = item.getAttribute("href")?.match(/^#\/bolme\/(.+)$/)?.[1];
     const slug = item.matches("summary") ? "more" : SUB_TABS[href] ? href : "";
     if (!pop.hidden && slug && slug === pop.dataset.slug) { clearTimeout(timer); return; }
-    if (slug) later(() => show(slug, route().slug === slug ? S.sportTab : null), pop.hidden ? 60 : 120);
+    if (slug) later(() => show(slug, route().slug === slug ? S.sportTab : null, item), pop.hidden ? 60 : 120);
     else if (!pop.hidden) later(hide, 120);
     else clearTimeout(timer);
   });
