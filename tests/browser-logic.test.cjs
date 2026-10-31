@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {sized, img, subNav, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {sized, img, subNav, navPopHtml, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -257,7 +257,8 @@ test('sport shows every language whatever language is chosen, also inside a team
 test('sport sub-sections open their own teams and close when you leave',()=>{
   const ctx=app(),{S,sectionView,subNav}=ctx.api;
   S.data={articles:[]};S.club=null;S.sportTab=null;
-  assert.ok(!sectionView('idman').includes('data-club='),'alt başlıqlar səhifədə yox, menyunun altındadır');
+  const page=sectionView('idman');
+  assert.ok(page.indexOf('data-club="Futbol"')>page.indexOf('</h1>')&&page.indexOf('data-club="Futbol"')<page.indexOf('class="empty"'),'alt başlıqlar səhifə başlığı ilə kartların arasındadır');
   assert.equal(subNav('siyaset'),'');
   const top=subNav('idman');
   for(const name of ['Hamısı','Futbol','Basketbol','Formula 1','Tennis','Şahmat'])assert.ok(top.includes('>'+name+'<'),name);
@@ -270,6 +271,24 @@ test('sport sub-sections open their own teams and close when you leave',()=>{
   const bb=subNav('idman');
   assert.ok(bb.includes('data-club="Avroliqa"'));
   assert.ok(!bb.includes('data-club="Qarabağ"'));
+});
+test('hover menu: one row for the section, a second row only for a tab with its own list',()=>{
+  const ctx=app(),{S,navPopHtml}=ctx.api;
+  S.data={articles:[]};S.club=null;S.sportTab=null;
+  const closed=navPopHtml('idman',null);
+  assert.equal(closed.split('nav-row').length-1,1,'bir sətir');
+  assert.ok(closed.includes('data-club="Futbol"'));
+  assert.ok(!closed.includes('class="pill on"'),'başqa səhifədə heç nə seçili görünmür');
+  const football=navPopHtml('idman','Futbol');
+  assert.ok(football.includes('nav-row two'),'Futbol ikinci sətri açır');
+  for(const name of ['Qarabağ','Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
+  assert.ok(football.includes('class="pill on" data-club="Futbol"'));
+  assert.ok(!navPopHtml('idman','Tennis').includes('nav-row two'),'siyahısı olmayan başlıq');
+  const region=navPopHtml('bolgeler','Qarabağ');
+  assert.ok(region.includes('nav-row two')&&region.includes('data-club="Xankəndi"'),'bölgələr də eyni cür açılır');
+  const more=navPopHtml('more');
+  assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="#/bolme/dunya"'));
+  assert.ok(!more.includes('href="#/bolme/idman"'),'menyuda görünən bölmə təkrarlanmır');
 });
 test('merged sections: old links, old cached stories and saved stories land in the new section',async()=>{
   const ctx=app(),{S,route,publishNews,sectionView,catSection}=ctx.api;

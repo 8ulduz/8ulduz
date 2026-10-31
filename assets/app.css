@@ -997,11 +997,22 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 .prefs .theme-btn span{font-size:.72rem}
 
 /* Alt başlıqlar menyunun düz altında */
-.nav-sub{padding-top:8px}
-.nav-sub[hidden]{display:none}
-.nav-sub .sport-chips{margin-bottom:2px}
-.nav-sub .chips{gap:4px}
-.nav-sub .pill{min-height:34px;padding:4px 11px;font-size:.82rem}
+/* Alt menyu sətirləri: başlıq panelindən azca fərqli fon, hər pillə bir ton tünd */
+:root{--nav-row:var(--card2);--nav-row2:var(--card2)}
+@supports(background:color-mix(in srgb,red,blue)){:root{--nav-row:color-mix(in srgb,var(--primary) 10%,var(--card));--nav-row2:color-mix(in srgb,var(--primary) 20%,var(--card))}}
+.nav-pop[hidden]{display:none}
+.sub-rows{margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.sub-rows .wrap{max-width:none;padding-left:10px;padding-right:10px}
+.sub-rows .nav-row:last-child{border-bottom:0}
+.nav-pop{position:absolute;top:100%;left:0;right:0;z-index:60;max-height:calc(100dvh - 130px);overflow-y:auto;box-shadow:0 14px 28px #0005}
+.nav-pop .chips{flex-wrap:wrap;overflow:visible}
+.nav-row{background:var(--nav-row);border-bottom:1px solid var(--border);padding:6px 0}
+.nav-row.two{background:var(--nav-row2)}
+.nav-row .sport-chips{margin-bottom:0}
+.nav-row .chips{gap:4px;margin-bottom:0;padding-bottom:0}
+.nav-row .chips+.chips{margin-top:5px}
+.nav-row .pill{min-height:34px;padding:4px 11px;font-size:.82rem;background:var(--card);color:var(--fg);display:inline-flex;align-items:center}
+.nav-row .pill.on{background:var(--primary);color:var(--primary-fg)}
 #view{scroll-margin-top:90px}
 @media(max-width:600px){#view{scroll-margin-top:8px}}
 
@@ -1023,7 +1034,7 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 .fcontact{margin:8px 0 0}
 @media(max-width:600px){.grid .card .image-fallback>span,.grid .card .image-fallback small,.secrow .card .image-fallback>span,.secrow .card .image-fallback small{display:none}}
 /* Telefonda başlıqlar alçaq, barmaq üçün rahat qalır */
-@media(max-width:600px){nav.main>a{min-height:30px;padding:3px 10px;font-size:.8rem;line-height:1.2}nav.main{gap:3px}.nav-sub .pill{min-height:30px;padding:3px 10px;font-size:.8rem}}
+@media(max-width:600px){nav.main>a{min-height:30px;padding:3px 10px;font-size:.8rem;line-height:1.2}nav.main{gap:3px}.nav-row .pill{min-height:30px;padding:3px 10px;font-size:.8rem}}
 /* Məzənnə həmişə bir sətirdir: sığmayanda yana sürüşür, sığanda ortada qalır */
 .mk-grid{flex-wrap:nowrap;max-width:none;overflow-x:auto;scrollbar-width:none;justify-content:flex-start}
 .mk-grid::-webkit-scrollbar{display:none}
