@@ -109,6 +109,14 @@ AZ_FEEDS = [
     ("Ordubad RİH", "https://ordubad-ih.gov.az/xeberler", "Bölgələr"),
     ("Sədərək RİH", "https://sederek-ih.gov.az/xeberler", "Bölgələr"),
     ("Naxçıvan TV",  "https://ntv.az/news", "Bölgələr?"),
+    # Özəl saytlar: müxalifət olmadığını sahibi yoxlayıb (2026-10-31). Lenti olmayanlar PAGE_PARSERS ilə oxunur.
+    ("Narnews.az",   "https://narnews.az/rss.xml", "Bölgələr?"),
+    ("Cenub.az",     "https://cenub.az/rss.xml", "Bölgələr?"),
+    ("Gəncəxəbər",   "https://gencexeber.az/butun-xeberler", "Bölgələr?"),
+    ("Qarabağ Media", "https://qarabag.media/feed/", "Bölgələr?"),
+    ("Yurd.Media",   "https://yurd.media/"),
+    ("Region Plus",  "https://regionplus.az/allnews"),
+    ("Gündəlik.az",  "https://gundelik.az/rss"),
 ]
 # Xarici mənbələr: (ad, url, dil[, kateqoriya ipucu])
 WORLD_FEEDS = [
@@ -1159,7 +1167,8 @@ def fetch_feed_fast(feed, old=None):
 
 # Dövlət saytları xarici şəbəkəyə gah açılır, gah 12 saniyə susur (2026-10-31 ölçülüb). Rayon xəbəri dəqiqə gözləyə bilər,
 # xəbər axını isə onları gözləməməlidir: bu lentlər yalnız yavaş dövrədə oxunur, sürətli dövrə onların son nəticəsini götürür.
-SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]}
+# Narnews, Cenub, Region Plus və Qarabağ Media gündə bir neçə dəfədən az yazır: dəqiqəlik oxumağa dəyməz, risk də olmasın.
+SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"}
 
 LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
@@ -1718,6 +1727,9 @@ _LIST_DATE = re.compile(r"(?:\d{1,2}:\d{2}\s+)?\d{1,2}[.]\d{1,2}[.]20\d{2}|\d{1,
 
 def _list_date(raw):
     """«Oktyabr 31, 2026 11:00» (sosial.gov.az) parse_az_date-in bildiyi sıraya çevrilir."""
+    iso = re.fullmatch(r"(20\d{2})-(\d{2})-(\d{2})[T ](\d{2}:\d{2}).*", raw.strip())
+    if iso:
+        return parse_az_date(f"{iso.group(3)}.{iso.group(2)}.{iso.group(1)} {iso.group(4)}")
     swapped = re.fullmatch(r"([^\d\s]+)\s+(\d{1,2}),\s+(20\d{2})(.*)", raw.strip())
     text = f"{swapped.group(2)} {swapped.group(1)} {swapped.group(3)}{swapped.group(4)}" if swapped else raw
     return parse_az_date(text.lower())
@@ -1755,6 +1767,33 @@ def parse_list_page(page, base, link_rx, limit=20):
                        "image": _abs_img(imgs[-1].group(1), link) if imgs else None, "author": ""}
     return list(found.values())[:limit]
 
+def parse_cards(page, base, start, link_rx, title_rx, date_rx, limit=40):
+    """Özəl saytların xəbər kartları: səhifə kartlara bölünür ki, qonşu kartın tarixi və şəkli qarışmasın.
+    Kartdakı yer adı (Yurd.Media: «Gəncə») təsvirə yazılır: başlıqda ad olmasa da rayon düyməsi xəbəri tapır."""
+    found = {}
+    for card in re.split(start, page)[1:]:
+        link, title = re.search(link_rx, card), re.search(title_rx, card, re.S)
+        text = _clean_text(title.group(1)) if title else ""
+        if not link or len(text) < 15:
+            continue
+        link = urllib.parse.urljoin(base, html.unescape(link.group(1)))
+        if link in found:
+            continue
+        date, img = re.search(date_rx, card), re.search(r'<img[^>]+src=["\']([^"\']+)', card)
+        label = re.search(r'class="news__region">(.*?)</', card, re.S)
+        place = _clean_text(label.group(1)) if label else ""
+        found[link] = {"title": text, "link": link, "pubDate": _list_date(date.group(1)) if date else "", "author": "",
+                       "description": place if any(_rx(w).search(norm_az(place)) for w in PLACE_WORDS) else "",
+                       "image": _abs_img(img.group(1), base) if img else None}
+    return list(found.values())[:limit]
+
+_CARD_DATE = r"(\d{2}[.]\d{2}[.]20\d{2} \d{2}:\d{2})"
+_CARD_SITES = {
+    "https://gencexeber.az/butun-xeberler": (r'(?=<div class="post__item" data-date=)', r'href="([^"]+/butun-xeberler/[^"]+)"', r'itemprop="headline">(.*?)</span>', r'data-date="([^"]+)"'),
+    "https://yurd.media/": (r'(?=<a href="[^"]+" class="news__item)', r'href="([^"]+)"', r'class="news__title">(.*?)</div>', _CARD_DATE),
+    "https://regionplus.az/allnews": (r'(?=<div class="nn_item[ "])', r'href="(/posts/view/\d+)"', r'class="article_title">\s*<a[^>]+>(.*?)</a>', _CARD_DATE),
+}
+
 _LIST_SITES = {
     "https://sosial.gov.az/az/media/xeberler": r"/az/media/xeberler/.",
     "https://dsmf.gov.az/az/media/xeberler": r"/az/media/xeberler/.|dsmf\.gov\.az/post/.",
@@ -1771,6 +1810,7 @@ PAGE_PARSERS = {
     XALQQAZETI_URL: parse_xalqqazeti,
     YENIAZERBAYCAN_URL: parse_yeniazerbaycan,
     **{url: (lambda page, url=url, rx=rx: parse_list_page(page, url, rx)) for url, rx in _LIST_SITES.items()},
+    **{url: (lambda page, url=url, rule=rule: parse_cards(page, url, *rule)) for url, rule in _CARD_SITES.items()},
 }
 
 def official_items(tries=1, timeout=12):
