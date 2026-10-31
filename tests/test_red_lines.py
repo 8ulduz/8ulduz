@@ -599,6 +599,11 @@ class ArchiveTest(unittest.TestCase):
             self.assertEqual(look.call_count, 1, "bir dəfə tapılan yenidən sorğulanmır")
             self.assertEqual(self.rows("sosial")[0]["imageUrl"], "https://dost.gov.az/a.jpg")
 
+    def test_wrongly_taken_featured_image_is_removed_from_the_archive(self):
+        self.write(self.row("https://lent.az/xeber/1", 2, source="Lent.az", imageUrl="https://lent.az/storage/news/2026/october/31/middle/a.webp"))
+        updater.update_archive()
+        self.assertNotIn("imageUrl", self.rows()[0])
+
     def test_backlog_keeps_the_negative_leadership_filter(self):
         self.write(self.row("https://apa.az/1", 1))
         with patch.object(updater, "is_negative_about_leadership", return_value=True):
