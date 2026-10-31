@@ -560,6 +560,57 @@ class SectionPagesTest(unittest.TestCase):
             self.assertFalse((root / "bolme" / "valyuta" / "index.html").exists())
             self.assertIn("Cədvəl hazırda yoxdur", (root / "bolme" / "cedvel" / "index.html").read_text(encoding="utf-8"))
 
+    def test_social_protection_has_its_own_section(self):
+        self.assertEqual(updater.SLUGS["Sosial müdafiə"], "sosial")
+        self.assertIn("sosial", [s[0] for s in updater.SECTIONS])
+        self.assertEqual(updater.label_for("Pensiya məbləği artırılacaq", "", "az"), "Sosial müdafiə")
+        self.assertEqual(updater.label_for("Ünvanlı sosial yardım alanların sayı açıqlanıb", "", "az"), "Sosial müdafiə")
+        self.assertEqual(updater.label_for("Şəhid ailələrinə mənzil verilib", "", "az"), "Sosial müdafiə")
+        self.assertNotEqual(updater.label_for("Tələbələrə təqaüd verildi, universitetdə imtahan başladı", "", "az"), "Sosial müdafiə")
+
+    def test_every_new_source_is_registered_and_official_pages_have_a_reader(self):
+        names = {f[0] for f in updater.FEEDS}
+        for name in ("ƏƏSMN", "DSMF", "DOST Agentliyi", "Məşğulluq Agentliyi", "Gəncə ŞİH", "Babək RİH", "Naxçıvan TV"):
+            self.assertIn(name, names)
+        for url in updater._LIST_SITES:
+            self.assertIn(url, updater.PAGE_PARSERS)
+
+    def test_a_list_page_gives_titles_and_the_nearest_date(self):
+        card = ('<div><a href="https://x-ih.gov.az/az/news/birinci-xeber-30-10-2026.html"><img src="/a.jpg"></a>'
+                '<a href="https://x-ih.gov.az/az/news/birinci-xeber-30-10-2026.html" class="card-title">Kənddə körpünün təmiri aparılır</a><span>29 oktyabr 2026</span></div>'
+                '<div><a href="/az/news/ikinci-xeber.html">İkinci xəbər: qəbul keçirilib</a><span>20 oktyabr 2026, 15:05</span></div>'
+                '<a href="https://x-ih.gov.az/news.html">Bütün xəbərlər bölməsinə keçid</a>')
+        rows = updater.parse_list_page(card, "https://x-ih.gov.az/news.html", r"/az/news/[^/]+\.html$")
+        self.assertEqual([r["title"] for r in rows], ["Kənddə körpünün təmiri aparılır", "İkinci xəbər: qəbul keçirilib"])
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-30"))  # keçiddəki tarix üstündür
+        self.assertTrue(rows[1]["pubDate"].startswith("2026-10-20"))
+        self.assertEqual(rows[1]["link"], "https://x-ih.gov.az/az/news/ikinci-xeber.html")
+
+    def test_a_date_link_is_not_a_title_and_month_first_dates_are_read(self):
+        page = ('<a href="/news/dunya/15-xeber">Yeni xəbərin əsl başlığı burada</a><a href="/news/dunya/15-xeber">16:37 31.10.2026</a>'
+                '<span>Oktyabr 30, 2026 11:00</span><a href="/news/dunya/16-xeber">İkinci xəbərin əsl başlığı</a>')
+        rows = updater.parse_list_page(page, "https://ntv.az/news", r"/news/[a-z-]+/\d+")
+        self.assertEqual(rows[0]["title"], "Yeni xəbərin əsl başlığı burada")
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-31"))
+        self.assertTrue(rows[1]["pubDate"].startswith("2026-10-30"))
+
+    def test_state_sites_never_hold_the_fast_cycle(self):
+        self.assertIn("Gəncə ŞİH", updater.SLOW_ONLY_FEEDS)
+        self.assertIn("ƏƏSMN", updater.SLOW_ONLY_FEEDS)
+        self.assertNotIn("APA", updater.SLOW_ONLY_FEEDS)
+        with patch.object(updater, "fetch_feed", side_effect=AssertionError("şəbəkəyə çıxmamalıdır")), patch.object(updater, "_fetch_conditional", side_effect=AssertionError("şəbəkəyə çıxmamalıdır")):
+            feed = ("Gəncə ŞİH", "https://ganja-ih.gov.az/news.html", "az", "Bölgələr")
+            self.assertEqual(updater.fetch_feed_fast(feed)["items"], [])
+            kept = updater.fetch_feed_fast(feed, {"items": [{"title": "x"}], "at": 5, "err": "köhnə"})
+            self.assertEqual(kept["items"], [{"title": "x"}])
+            self.assertIsNone(kept["err"])
+
+    def test_read_more_buttons_take_the_title_above_them(self):
+        page = '<h1 class="t">Sakinlərlə səyyar qəbul keçirilib</h1><span>07.10.2026</span><a href="https://b-ih.gov.az/xeber/seyyar-qebul" class="cta">Ətraflı</a>'
+        rows = updater.parse_list_page(page, "https://b-ih.gov.az/xeberler", r"/xeber/[^/?#]+$")
+        self.assertEqual(rows[0]["title"], "Sakinlərlə səyyar qəbul keçirilib")
+        self.assertTrue(rows[0]["pubDate"].startswith("2026-10-07"))
+
     def test_site_url_follows_the_cname_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

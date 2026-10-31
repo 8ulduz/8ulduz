@@ -13,6 +13,7 @@ const CATS = [
   { slug: "idman", label: "İdman", description: "İdman aləmindən xəbərlər və nəticələr" },
   { slug: "medeniyyet", label: "Mədəniyyət", description: "Kino, musiqi, sənət və mədəni həyat" },
   { slug: "heyat", label: "Sağlamlıq və həyat", description: "Tibb, sağlamlıq, qidalanma, psixologiya" },
+  { slug: "sosial", label: "Sosial müdafiə", description: "Pensiya, müavinət, sosial yardım, əlillik, məşğulluq" },
   { slug: "bolgeler", label: "Bölgələr", description: "Rayonlardan və şəhərlərdən xəbərlər" },
   { slug: "tehsil", label: "Təhsil və elm", description: "Məktəb, universitet, elm, texnologiya" },
   { slug: "video", label: "Video", description: "Saytlardakı video xəbərlərə keçidlər" },
@@ -26,6 +27,21 @@ const LANGS = [
   { code: "en", label: "in English" }, { code: "tr", label: "Türkçe" },
 ];
 const LANG_BADGE = { az: "AZ", ru: "RUS", en: "ENG", tr: "TÜRK" };
+// Windows-da Chrome bayraq emojisini iki hərf kimi göstərir, ona görə bayraqlar SVG-dir.
+const flag = inner => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" aria-hidden="true">${inner}</svg>`;
+const STAR8 = "M21 7.2l.7 1.5 1.6-.6-.6 1.6 1.5.7-1.5.7.6 1.6-1.6-.6-.7 1.5-.7-1.5-1.6.6.6-1.6-1.5-.7 1.5-.7-.6-1.6 1.6.6z";
+const FLAGS = {
+  az: flag(`<rect width="30" height="20" fill="#ef3340"/><rect width="30" height="6.67" fill="#00b5e2"/><rect y="13.33" width="30" height="6.67" fill="#509e2f"/><circle cx="14" cy="10" r="3" fill="#fff"/><circle cx="15" cy="10" r="2.4" fill="#ef3340"/><path d="${STAR8}" fill="#fff" transform="translate(-3.2 -.2) scale(.97)"/>`),
+  tr: flag(`<rect width="30" height="20" fill="#e30a17"/><circle cx="11.5" cy="10" r="5" fill="#fff"/><circle cx="12.8" cy="10" r="4" fill="#e30a17"/><path d="M19.5 10l-3.1 1 1.9-2.6v3.2l-1.9-2.6z" fill="#fff"/>`),
+  ru: flag(`<rect width="30" height="20" fill="#fff"/><rect y="6.67" width="30" height="6.67" fill="#0039a6"/><rect y="13.33" width="30" height="6.67" fill="#d52b1e"/>`),
+  en: flag(`<rect width="30" height="20" fill="#012169"/><path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0l30 20M30 0L0 20" stroke="#c8102e" stroke-width="1.6"/><path d="M15 0v20M0 10h30" stroke="#fff" stroke-width="6.5"/><path d="M15 0v20M0 10h30" stroke="#c8102e" stroke-width="4"/>`),
+  us: flag(`<rect width="30" height="20" fill="#fff"/><path d="M0 1.5h30M0 4.6h30M0 7.7h30M0 10.8h30M0 13.9h30M0 17h30M0 20h30" stroke="#b22234" stroke-width="1.54"/><rect width="13" height="10.8" fill="#3c3b6e"/>`),
+  eu: flag(`<rect width="30" height="20" fill="#039"/><circle cx="15" cy="10" r="5.6" fill="none" stroke="#fc0" stroke-width="1.7" stroke-dasharray="1.7 1.23"/>`),
+};
+// Bazar kartları və məzənnə səhifəsi: valyutanın bayrağı, qalanının simvolu.
+const MARKET_ICON = { USD: FLAGS.us, EUR: FLAGS.eu, RUB100: FLAGS.ru, TRY100: FLAGS.tr, BRENT: "🛢", WTI: "🛢", XAU: "🥇", XAG: "🥈", BTC: "₿" };
+const marketIcon = id => MARKET_ICON[id] ? `<span class="mk-ic">${MARKET_ICON[id]}</span>` : "";
+const GROUP_FLAG = { "Azərbaycan": FLAGS.az, "Türkiyə": FLAGS.tr, "Avropa": FLAGS.eu };
 const PREZ_LINKS = [
   { name: "president.az", url: "https://president.az/az" },
   { name: "mehriban-aliyeva.az", url: "https://mehriban-aliyeva.az/" },
@@ -879,10 +895,12 @@ function renderTopbar() {
 
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
-  const link = c => `<a href="#/bolme/${c.slug}" class="${cur === c.slug ? "on" : ""}">${esc(c.label)}</a>`;
-  const primary = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat"];
+  const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub"].filter(Boolean).join(" ");
+  const subNote = c => SUB_TABS[c.slug] ? ` title="${esc(c.label)}: alt başlıqlar var"` : "";
+  const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}"${subNote(c)}>${esc(c.label)}</a>`;
+  const primary = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"];
   // nav-x: telefonda «Daha çox» əvəzinə zolaqda birbaşa görünən qalan bölmələr (masaüstündə gizli)
-  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x${cur === c.slug ? " on" : ""}">${esc(c.label)}</a>`).join("");
+  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}"${subNote(c)}>${esc(c.label)}</a>`).join("");
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
   fitNav();
@@ -1028,7 +1046,7 @@ function renderMarkets() {
     const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, i.dec)}</span>`
       : `<span${unofficial ? ` class="unoff"` : ""}>${i.unit !== "AZN" ? "qiymət" : unofficial ? "bazar" : "məzənnə"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
+    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
   const note = $("#mk-note");
   if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
@@ -1056,7 +1074,8 @@ function fxPop() {
 }
 
 function languagePicker() {
-  return `<label class="language-picker">Xəbərlərin dili: <select data-language aria-label="Xəbərlərin dili"><option value=""${!S.lang ? " selected" : ""}>Bütün dillər</option>${LANGS.map(l => `<option value="${l.code}"${S.lang === l.code ? " selected" : ""}>${esc(l.label)}</option>`).join("")}</select></label>`;
+  const pill = (code, html, title) => `<button type="button" class="pill lang-pill${(S.lang || "") === code ? " on" : ""}" data-lang="${code}" aria-pressed="${(S.lang || "") === code}" title="${esc(title)}">${html}</button>`;
+  return `<div class="lang-pills" role="group" aria-label="Xəbərlərin dili">${pill("", "Hamısı", "Bütün dillər")}${LANGS.map(l => pill(l.code, `${FLAGS[l.code]}${l.code.toUpperCase()}`, l.label)).join("")}</div>`;
 }
 const ASSISTANT_ON = window.SITE_CONFIG?.assistant === true;
 const DRIVER_ON = window.SITE_CONFIG?.driver === true;
@@ -1070,9 +1089,29 @@ function syncLangStick() {}
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 // fold «й»-ni «и» edir, ona görə «ой/ей» burada «ои/еи» yazılır.
+// Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları. Düymə həmin yerin bütün bölmələrdəki son xəbərlərini açır.
+const REGION_TABS = [
+  { name: "Bakı", groups: [{ group: "", items: [{ name: "Bakı", keys: ["bakı", "baku", "баку"] }] }] },
+  { name: "Abşeron-Xızı", groups: [{ group: "", items: [{ name: "Sumqayıt", keys: ["sumqayıt", "сумгайыт", "сумгаит"] }, { name: "Abşeron", keys: ["abşeron"] }, { name: "Xırdalan", keys: ["xırdalan"] }, { name: "Xızı", keys: ["xızı"] }] }] },
+  { name: "Dağlıq Şirvan", groups: [{ group: "", items: [{ name: "Ağsu", keys: ["ağsu"] }, { name: "İsmayıllı", keys: ["ismayıllı"] }, { name: "Qobustan", keys: ["qobustan"], not: ["qobustan qoruğ"] }, { name: "Şamaxı", keys: ["şamaxı"] }] }] },
+  { name: "Gəncə-Daşkəsən", groups: [{ group: "", items: [{ name: "Gəncə", keys: ["gəncə", "гяндж"] }, { name: "Daşkəsən", keys: ["daşkəsən"] }, { name: "Goranboy", keys: ["goranboy"] }, { name: "Göygöl", keys: ["göygöl"] }, { name: "Naftalan", keys: ["naftalan"] }, { name: "Samux", keys: ["samux"] }] }] },
+  { name: "Qarabağ", groups: [{ group: "", items: [{ name: "Xankəndi", keys: ["xankəndi", "ханкенди"] }, { name: "Ağcabədi", keys: ["ağcabədi"] }, { name: "Ağdam", keys: ["ağdam"] }, { name: "Bərdə", keys: ["bərdə"] }, { name: "Füzuli", keys: ["füzuli"], not: ["məhəmməd füzuli", "füzuli adına", "füzuli poeziya"] }, { name: "Xocalı", keys: ["xocalı"] }, { name: "Xocavənd", keys: ["xocavənd"] }, { name: "Şuşa", keys: ["şuşa", "шуш"] }, { name: "Tərtər", keys: ["tərtər"] }] }] },
+  { name: "Qazax-Tovuz", groups: [{ group: "", items: [{ name: "Ağstafa", keys: ["ağstafa"] }, { name: "Gədəbəy", keys: ["gədəbəy"] }, { name: "Qazax", keys: ["qazax"], not: ["qazaxıstan"] }, { name: "Şəmkir", keys: ["şəmkir"] }, { name: "Tovuz", keys: ["tovuz"] }] }] },
+  { name: "Quba-Xaçmaz", groups: [{ group: "", items: [{ name: "Xaçmaz", keys: ["xaçmaz"] }, { name: "Quba", keys: ["quba"] }, { name: "Qusar", keys: ["qusar"] }, { name: "Siyəzən", keys: ["siyəzən"] }, { name: "Şabran", keys: ["şabran"] }] }] },
+  { name: "Lənkəran-Astara", groups: [{ group: "", items: [{ name: "Lənkəran", keys: ["lənkəran", "ленкоран", "лянкяран"] }, { name: "Astara", keys: ["astara"] }, { name: "Cəlilabad", keys: ["cəlilabad"] }, { name: "Lerik", keys: ["lerik"] }, { name: "Masallı", keys: ["masallı"] }, { name: "Yardımlı", keys: ["yardımlı"] }] }] },
+  { name: "Mərkəzi Aran", groups: [{ group: "", items: [{ name: "Mingəçevir", keys: ["mingəçevir", "мингячевир"] }, { name: "Yevlax", keys: ["yevlax", "евлах"] }, { name: "Ağdaş", keys: ["ağdaş"] }, { name: "Göyçay", keys: ["göyçay"] }, { name: "Kürdəmir", keys: ["kürdəmir"] }, { name: "Ucar", keys: ["ucar"] }, { name: "Zərdab", keys: ["zərdab"] }] }] },
+  { name: "Mil-Muğan", groups: [{ group: "", items: [{ name: "Beyləqan", keys: ["beyləqan"] }, { name: "İmişli", keys: ["imişli"] }, { name: "Saatlı", keys: ["saatlı"] }, { name: "Sabirabad", keys: ["sabirabad"] }] }] },
+  { name: "Naxçıvan", groups: [{ group: "", items: [{ name: "Naxçıvan", keys: ["naxçıvan", "нахчыван", "нахичеван"] }, { name: "Babək", keys: ["babək"], not: ["babək xürrəm", "babək qala"] }, { name: "Culfa", keys: ["culfa"] }, { name: "Kəngərli", keys: ["kəngərli"] }, { name: "Ordubad", keys: ["ordubad"] }, { name: "Sədərək", keys: ["sədərək"] }, { name: "Şahbuz", keys: ["şahbuz"] }, { name: "Şərur", keys: ["şərur"] }] }] },
+  { name: "Şəki-Zaqatala", groups: [{ group: "", items: [{ name: "Şəki", keys: ["şəki", "шеки"] }, { name: "Balakən", keys: ["balakən"] }, { name: "Qax", keys: ["qax"] }, { name: "Qəbələ", keys: ["qəbələ"] }, { name: "Oğuz", keys: ["oğuz"], not: ["oğuz xan", "oğuz türk", "oğuz el"] }, { name: "Zaqatala", keys: ["zaqatala"] }] }] },
+  { name: "Şərqi Zəngəzur", groups: [{ group: "", items: [{ name: "Cəbrayıl", keys: ["cəbrayıl"] }, { name: "Kəlbəcər", keys: ["kəlbəcər"] }, { name: "Qubadlı", keys: ["qubadlı"] }, { name: "Laçın", keys: ["laçın"] }, { name: "Zəngilan", keys: ["zəngilan"] }] }] },
+  { name: "Şirvan-Salyan", groups: [{ group: "", items: [{ name: "Şirvan", keys: ["şirvan"] }, { name: "Biləsuvar", keys: ["biləsuvar"] }, { name: "Hacıqabul", keys: ["hacıqabul"] }, { name: "Neftçala", keys: ["neftçala"] }, { name: "Salyan", keys: ["salyan"] }] }] },
+];
+// Alt başlığı olan bölmələr: menyuda fərqlənir, səhifəsində düymələr açılır.
+const SUB_TABS = { idman: SPORT_TABS, bolgeler: REGION_TABS };
 const TOPIC_SUFFIX = "(?:in|nin|un|nun|a|e|i|u|ya|ye|ni|nu|na|ne|la|le|dan|den|ndan|nden|da|de|nda|nde|s|а|у|е|я|ю|ы|и|ь|ом|ем|еи|ои)?";
-const SPORT_BY_NAME = new Map(SPORT_TABS.flatMap(t => [t, ...(t.groups || []).flatMap(g => g.items)]).map(t => [t.name, t]));
-const sportTopic = name => SPORT_BY_NAME.get(name);
+const topicMap = tabs => new Map(tabs.flatMap(t => [t, ...(t.groups || []).flatMap(g => g.items)]).map(t => [t.name, t]));
+const SPORT_BY_NAME = topicMap(SPORT_TABS), REGION_BY_NAME = topicMap(REGION_TABS);
+const sportTopic = name => SPORT_BY_NAME.get(name) || REGION_BY_NAME.get(name);
 const topicKey = s => fold(s).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 function topicRx(t) {
   if (t.rx) return t.rx;
@@ -1099,10 +1138,10 @@ function clubMatches(a, club) {
   if (topicRx(topic).test(seen.text)) return true;
   return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
 }
-function sportChips() {
+function sportChips(tabs = SPORT_TABS) {
   const pill = (name, label = name) => `<button class="pill ${(S.club || "") === name || S.sportTab === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
-  const open = SPORT_TABS.find(t => t.name === S.sportTab)?.groups || [];
-  return `<div class="sport-chips"><div class="chips">${pill("", "Hamısı")}${SPORT_TABS.map(t => pill(t.name)).join("")}</div>${open.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div>`;
+  const open = tabs.find(t => t.name === S.sportTab)?.groups || [];
+  return `<div class="sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div>${open.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div>`;
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
@@ -1326,7 +1365,7 @@ async function loadArchive(slug) {
     if (!Array.isArray(d?.articles)) return;
     S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a));
     const r = route();
-    if ((r.name === "section" && r.slug === slug) || r.name === "search") requestRender(false);
+    if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search") requestRender(false);
   } catch {}
 }
 function withArchive(slug, list) {
@@ -1347,8 +1386,16 @@ function sectionView(slug) {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
     extra = sportChips();
   }
+  if (slug === "bolgeler") {
+    if (S.club) {
+      // Yer haqqında xəbər başqa bölmədə də ola bilər: seçiləndə bütün lent və arxivlər axtarılır.
+      CATS.forEach(x => loadArchive(x.slug));
+      list = byDate(CATS.reduce((rows, x) => withArchive(x.slug, rows), d).filter(a => clubMatches(a, S.club)));
+    }
+    extra = sportChips(REGION_TABS);
+  }
   if (slug === "prezident") extra = optional(socialBlock);
-  return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : c.description, slug === 'idman' ? list : filtered(list), extra);
+  return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
 // Axtarış üçün sadələşdirmə: kiçik hərf, Azərbaycan hərfləri latın əsasına (ə→e, ı→i, ş→s ...), durğu işarələri boşluğa.
@@ -1417,7 +1464,7 @@ function ratesView() {
   const items = S.markets || [];
   const rows = items.map(i => {
     const up = Number(i.changePct) > 0, down = Number(i.changePct) < 0;
-    return `<tr><th scope="row">${esc(i.label)}</th><td>${esc(Number(i.value).toFixed(i.dec ?? 2))} ${esc(i.unit || "")}</td><td class="${up ? "up" : down ? "down" : ""}">${i.changePct == null ? "—" : `${up ? "+" : ""}${esc(Number(i.changePct).toFixed(2))}%`}</td><td class="muted">${esc(i.src || "")}</td></tr>`;
+    return `<tr><th scope="row">${marketIcon(i.id)}${esc(i.label)}</th><td>${esc(Number(i.value).toFixed(i.dec ?? 2))} ${esc(i.unit || "")}</td><td class="${up ? "up" : down ? "down" : ""}">${i.changePct == null ? "—" : `${up ? "+" : ""}${esc(Number(i.changePct).toFixed(2))}%`}</td><td class="muted">${esc(i.src || "")}</td></tr>`;
   }).join("");
   const asOf = items.find(i => i.asOf)?.asOf;
   return `<div class="page-h"><div><h1>Valyuta məzənnəsi</h1><p>Dollar, avro, rubl və lirənin manatla məzənnəsi, neft və qızıl qiyməti${asOf ? ` · ${esc(asOf)}` : ""}.</p></div></div>
@@ -1657,7 +1704,7 @@ function onClick(e) {
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) {
     S.club = t.dataset.club || null;
-    if (!S.club) S.sportTab = null; else if (SPORT_TABS.some(x => x.name === S.club)) S.sportTab = S.club;
+    if (!S.club) S.sportTab = null; else if ([...SPORT_TABS, ...REGION_TABS].some(x => x.name === S.club)) S.sportTab = S.club;
     S.shown = PAGE; renderView(); return;
   }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }

@@ -17,7 +17,9 @@ window.CONTENT_POLICY = {
     "Tia.az": ["tia.az", "tribuna.az"], "Günün Səsi": ["gununsesi.info"], "Xezerxeber": ["xezerxeber.az"],
     "Minval": ["minval.az"], "Bakupost": ["bakupost.az"], "Banker.az": ["banker.az"], "Cross Media": ["crossmedia.az"],
     "Xalq qəzeti": ["xalqqazeti.az"], "Yeni Azərbaycan": ["yeniazerbaycan.com"], "Azərbaycan qəzeti": ["azerbaijan-news.az"],
-    "Baku TV": ["baku.tv"], "Prezident.az": ["president.az"], "Mehriban Əliyeva": ["mehriban-aliyeva.az"]
+    "Baku TV": ["baku.tv"], "Prezident.az": ["president.az"], "Mehriban Əliyeva": ["mehriban-aliyeva.az"],
+    "ƏƏSMN": ["sosial.gov.az"], "DSMF": ["dsmf.gov.az"], "DOST Agentliyi": ["dost.gov.az"], "Məşğulluq Agentliyi": ["dma.gov.az"], "Naxçıvan TV": ["ntv.az"],
+    "Gəncə ŞİH": ["ganja-ih.gov.az"], "Ağdaş RİH": ["agdash-ih.gov.az"], "Beyləqan RİH": ["beyleqan-ih.gov.az"], "Daşkəsən RİH": ["dashkesen-ih.gov.az"], "Göygöl RİH": ["goygol-ih.gov.az"], "İmişli RİH": ["imishli-ih.gov.az"], "Naftalan ŞİH": ["naftalan-ih.gov.az"], "Oğuz RİH": ["oguz-ih.gov.az"], "Qəbələ RİH": ["qebele-ih.gov.az"], "Xocavənd RİH": ["xocavend-ih.gov.az"], "Babək RİH": ["babek-ih.gov.az"], "Culfa RİH": ["culfa-ih.gov.az"], "Ordubad RİH": ["ordubad-ih.gov.az"], "Sədərək RİH": ["sederek-ih.gov.az"]
   },
   "worldSources": {
     "BBC News": ["bbc.co.uk", "bbc.com"], "Al Jazeera": ["aljazeera.com"], "Daily Sabah": ["dailysabah.com"],
