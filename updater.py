@@ -185,6 +185,7 @@ PRESIDENT_STRONG = [
 PRESIDENT_WEAK_RX = re.compile(r"(?<!\w)(?:prezident(?!i(?!\w)|inin|liy)|dövlət başçısı|ölkə başçısı)")
 PRESIDENT_WEAK_EXTRA = ["sərəncam", "fərman", "təltif"]
 # Xarici kontekst: "Braziliyada prezident seçkiləri" kimi xəbərlər Prezident bölməsinə düşməsin
+SOCIAL_FOREIGN = ["dünyada", "в мире", "росси", "москв", "сша", "европ", "турци", "украин", "грузи", "армени", "казахстан", "герман", "франц", "китай"]
 FOREIGN_MARKERS = [
     "abş", "amerika", "braziliya", "bolqarıstan", "rusiya", "türkiyə", "fransa", "almaniya",
     "ukrayna", "gürcüstan", "ermənistan", "iran", "qazaxıstan", "özbəkistan", "qırğızıstan",
@@ -231,7 +232,15 @@ CATEGORIES = {
     "Sosial müdafiə": ["sosial müdafiə", "əəsmn", "dsmf", "pensiya", "pensiyaçı", "təqaüdçü", "müavinət", "ünvanlı sosial", "ünvanlı dövlət sosial",
                         "sosial yardım", "sosial sığorta", "sosial paket", "sosial təminat", "əlillik", "əlilliyi", "şəhid ailə", "müharibə əlil",
                         "məşğulluq agentliyi", "dövlət məşğulluq", "özünüməşğulluq", "işsizlik", "işsiz", "əmək yarmarka", "dost mərkəzi", "dost agentliyi",
-                        "minimum əmək haqqı", "yaşayış minimumu"],
+                        "minimum əmək haqqı", "yaşayış minimumu",
+                        # Maaş, iş yeri, əmək hüququ: millət vəkili və ekspert müsahibələri əsasən bu sözlərlə gəlir.
+                        "əməkhaqq", "əmək haqq", "maaşlar", "maaşların", "maaş artım", "maaşı artır", "minimum maaş", "ehtiyac meyar",
+                        "əmək bazar", "əmək müqavilə", "əmək məcəllə", "əmək staj", "əmək kitabça", "əmək mübahisə", "əmək hüquq",
+                        "işaxtaran", "vakansiya", "yeni iş yeri", "iş yeri açıl", "iş yerləri açıl", "iş yeri yaradıl", "iş yerləri yaradıl", "işdən çıxan",
+                        "təqaüdə çıx", "təqaüd yaşı", "sosial siyasət", "sosial xidmət", "sosial dəstək", "sosial müavinət", "sosial mənzil",
+                        "uşaq pulu", "uşaqpulu", "əlillər", "müharibə veteran", "məcburi köçkün", "dost evi", "əmək və əhalinin",
+                        "musa quliyev", "anar əliyev",
+                        "пенси", "пособи", "безработ", "прожиточн", "соцзащит", "зарплат", "минтруд", "муса гулиев"],
     "Bölgələr": ["gəncə", "sumqayıt", "mingəçevir", "lənkəran", "şəki", "naxçıvan", "şirvan", "yevlax", "xankəndi", "şuşa",
                  "quba", "qusar", "xaçmaz", "şabran", "siyəzən", "xızı", "abşeron rayonu", "ismayıllı", "ağsu", "şamaxı", "qobustan",
                  "göyçay", "ucar", "zərdab", "kürdəmir", "ağdaş", "hacıqabul", "salyan", "neftçala", "biləsuvar", "saatlı",
@@ -714,8 +723,10 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     # «Kiyevin doqquz rayonunda»: yer adı yoxdursa və söhbət başqa ölkədən gedirsə, Bölgələr deyil.
     if scores["Bölgələr"] and (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS)) and not has_any(blob, PLACE_WORDS):
         scores["Bölgələr"] = 0
-    # «Finlandiyada işsizlik»: bölmə Azərbaycanın sosial müdafiəsidir (qurumların öz lentləri ipucu ilə gəlir).
-    if scores["Sosial müdafiə"] and (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS)) and "azərbaycan" not in blob:
+    # «Finlandiyada işsizlik», «futbolçunun maaşı»: bölmə Azərbaycanın sosial müdafiəsidir (qurumların öz lentləri ipucu ilə gəlir).
+    foreign_topic = (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS) or has_any(blob, SOCIAL_FOREIGN)) and "azərbaycan" not in blob and "азербайджан" not in blob
+    # Başlıqda söz yoxdursa xülasədəki bir ötəri ifadə kifayət deyil (BOOST onu güclü edir): ədəbi yubiley, partiya müşavirəsi.
+    if world or scores["İdman"] or foreign_topic or (not in_title.get("Sosial müdafiə") and scores["Sosial müdafiə"] < 12):
         scores["Sosial müdafiə"] = 0
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
