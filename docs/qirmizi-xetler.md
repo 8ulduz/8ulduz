@@ -6,9 +6,9 @@ Sayt sahibinin qərarı (2026-10-30). Bu iki qayda dəyişməzdir. Hər kod dəy
 
 | Qat | Nə edir | Harada |
 |---|---|---|
-| Sürətli dövrə | Hər 60 saniyə lentləri oxuyur, cəmi 25 saniyə gözləyir. Vaxtında cavab verməyən lentin son nəticəsi işlədilir. | `updater.py --fast`, `pipeline.sh` |
+| Sürətli dövrə | Hər 60 saniyə lentləri oxuyur, cəmi 20 saniyə gözləyir. Vaxtında cavab verməyən lentin son nəticəsi işlədilir. | `updater.py --fast`, `pipeline.sh` |
 | Canlı kanal | `status.json`, `latest.json`, `markets.json` tarixçəsiz `live` budağına, hər dəqiqə ayrı yola (`m/<dəqiqə>/`) yazılır. Repo şişmir, Pages limitinə toxunmur. | `push_live` |
-| Yavaş işlər | Məzənnə, şəkil, səs mətni, video, idman və SEO arxa planda işləyir, xəbəri gözlətmir. | `updater.py --slow` |
+| Yavaş işlər | Məzənnə, şəkil, video, idman, bölmə arxivi və SEO arxa planda işləyir, xəbəri gözlətmir. | `updater.py --slow` |
 | Tam lent | Hər 10 dəqiqə `main`-ə yazılır, Pages yayımlayır. | `publish_main` |
 | Növbə dəyişməsi | İş bitməzdən əvvəl növbətisini başladır, onu görəndən sonra çıxır. | `pipeline.sh`, `update.yml` |
 | Sınıq kod | Cari kod işləməsə son işlək kodla davam edir. | `.lkg`, `run_py` |
