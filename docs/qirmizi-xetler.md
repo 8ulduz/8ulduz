@@ -15,6 +15,7 @@ Sayt sahibinin qərarı (2026-10-30). Bu iki qayda dəyişməzdir. Hər kod dəy
 | Zədəli fayl | Son sağlam nüsxə ilə əvəz olunur. | `guard_outputs`, `check_outputs.py` |
 | İlişmiş iş | Nəzarətçi 6 dəqiqə yazmayan işi dayandırıb yenisini başladır, 10 dəqiqədə issue açır. | `watchdog.yml` |
 | Sayt | 30 saniyədən bir yoxlayır. Ardıcıllıq: canlı kanal, sayt, ehtiyat kanal, keş. | `sw.js`, `app.js` |
+| iPhone tətbiqi | Açıq olanda saytla eyni: 30 saniyə, eyni ardıcıllıq, eyni rəqəmlər. Bağlı olanda iOS icazə vermir, vidcet və bildirişin vaxtına iOS qərar verir. | `ios/Packages/UlduzCore/.../FeedClient.swift`, `ios/App/AppModel.swift` |
 
 Yoxlama: `tests/test_red_lines.py`, `tests/browser-logic.test.cjs` və hər PR-da real lentlərlə işləyən `bir-deqiqe` işi (`check.yml`). Təkrar dövrə 50 saniyəni keçsə PR qırmızı olur.
 
@@ -34,6 +35,7 @@ Qaydalar bir fayldadır: `assets/content-policy.js`.
 | Xarici mənbə qaydası | Başlıq və xülasədə Azərbaycan mövzusu varsa düşmür. | `azTerms`, `foreign_about_azerbaijan` |
 | Son qapı | Yazılan hər lent keçir: updater, sonra dərcdən əvvəl ayrıca skript. | `content_policy.enforce`, `check_outputs.py` |
 | Brauzer | Telefondakı köhnə keş də eyni qaydadan keçir. | `policyViolation` |
+| iPhone tətbiqi | Eyni qayda faylını oxuyur, ayrıca nüsxə yoxdur. Keş, seçilmişlər, vidcet və bildiriş də keçir. Fayl oxunmasa heç nə göstərilmir. | `ios/Packages/UlduzCore/.../ContentPolicy.swift` |
 
 İstisna: xarici idman mənbələrinin klub və idmançı xəbərləri (Qarabağ FK və s.). Rəhbərlik adı keçən idman xəbəri də düşmür (`leaderTerms`).
 
