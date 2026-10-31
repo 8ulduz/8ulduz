@@ -282,8 +282,23 @@ class PipelineContractTest(unittest.TestCase):
         self.assertGreater(70 * 60, self.setting("MAX_RUN"))
 
     def test_every_publish_passes_the_gate(self):
-        self.assertIn("guard_outputs\n  push_live", self.pipeline)
+        self.assertIn("guard_outputs\n  promote_code\n  if push_live", self.pipeline)
         self.assertIn("check_outputs.py", self.pipeline)
+
+    def test_broken_checker_cannot_overwrite_last_known_good(self):
+        run_py = self.pipeline.split("run_py() {")[1].split("\n}\n")[0]
+        self.assertNotIn("copy_code", run_py)
+        self.assertIn('"${CUR_RAN:-0}" = 1 ] && [ "${CUR_CHECKED:-0}" = 1', self.pipeline)
+
+    def test_hung_cycle_ends_the_job_but_a_github_outage_does_not(self):
+        self.assertIn("self_watch $$", self.pipeline)
+        loop = self.pipeline.split("while :; do\n  began=$SECONDS\n  touch")[1]
+        self.assertLess(loop.index('touch "$STATE/heartbeat"\n  guard_outputs'), loop.index("push_live"))
+        self.assertIn('"$push_fails" -ge "$PUSH_FAILS_MAX"', self.pipeline)
+        self.assertNotIn('"$GH" ', self.pipeline.split("# --------------------------------------------------------------------- başlanğıc")[1])
+
+    def test_watchdog_leaves_a_fresh_job_alone(self):
+        self.assertIn("fromdateiso8601) < ($(date +%s) - 360)", self.watchdog)
 
     def test_each_minute_has_its_own_address_because_raw_caches_branch_paths(self):
         sw = (ROOT / "sw.js").read_text(encoding="utf-8")

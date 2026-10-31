@@ -13,10 +13,11 @@ Sayt sahibinin qərarı (2026-10-30). Bu iki qayda dəyişməzdir. Hər kod dəy
 | Növbə dəyişməsi | İş bitməzdən əvvəl növbətisini başladır, onu görəndən sonra çıxır. | `pipeline.sh`, `update.yml` |
 | Sınıq kod | Cari kod işləməsə son işlək kodla davam edir. | `.lkg`, `run_py` |
 | Zədəli fayl | Son sağlam nüsxə ilə əvəz olunur. | `guard_outputs`, `check_outputs.py` |
-| İlişmiş iş | Nəzarətçi 6 dəqiqə yazmayan işi dayandırıb yenisini başladır, 10 dəqiqədə issue açır. | `watchdog.yml` |
+| Asılan dövrə | İşin özü dövrənin 4 dəqiqə irəliləmədiyini görsə çıxır, son addım yeni iş başladır. Yazının alınmaması ayrıdır: GitHub qısa kəsiləndə işlək iş öldürülmür, 15 dövrədən sonra dəyişir. | `self_watch`, `pipeline.sh` |
+| İlişmiş iş | Nəzarətçi 6 dəqiqə yazmayan və 6 dəqiqədən köhnə işi dayandırıb yenisini başladır, 10 dəqiqədə issue açır. Təzə başlayan işə toxunmur. | `watchdog.yml` |
 | Sayt | 30 saniyədən bir yoxlayır. Ardıcıllıq: canlı kanal, sayt, ehtiyat kanal, keş. | `sw.js`, `app.js` |
 
-Yoxlama: `tests/test_red_lines.py`, `tests/browser-logic.test.cjs` və hər PR-da real lentlərlə işləyən `bir-deqiqe` işi (`check.yml`). Təkrar dövrə 50 saniyəni keçsə PR qırmızı olur.
+Yoxlama: `tests/test_red_lines.py`, `tests/browser-logic.test.cjs` və hər PR-da real lentlərlə işləyən `bir-deqiqe` işi (`check.yml`). Təkrar dövrə 35 saniyəni keçsə PR qırmızı olur.
 
 Niyə ayrı yol: `raw.githubusercontent.com` budaq adı ilə verilən faylı sorğu parametrindən asılı olmayaraq 5 dəqiqə keşləyir (2026-10-30 ölçülüb), yeni yolu isə dərhal verir. Yaranmamış yola sorğu 404-ü 55 saniyə keşə salır, ona görə dövrə dəqiqənin 5-ci saniyəsində başlayır, `sw.js` dəqiqəni yalnız 45 saniyə keçəndən sonra istəyir. Bu rəqəmləri dəyişməyin.
 
