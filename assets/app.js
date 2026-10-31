@@ -785,8 +785,8 @@ function shell() {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search">
       <button type="button" id="mic" class="mic" aria-label="Səslə axtar" title="Səslə axtar" aria-pressed="false" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></label>
-  </div><div class="langstick" id="langstick"></div></header>
-  <div class="wrap nav-sub" id="navsub" hidden></div>
+  </div><div class="langstick" id="langstick"></div><div class="nav-pop" id="navpop" hidden></div></header>
+  <div class="nav-sub" id="navsub" hidden></div>
   <div id="ticker"></div>
   <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
@@ -812,9 +812,16 @@ function shell() {
     renderView();
   });
   document.addEventListener("click", onClick);
+  if (globalThis.matchMedia?.("(hover:hover) and (pointer:fine)").matches) bindNavPop();
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { S.lang = e.target.value || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
-  window.addEventListener("hashchange", () => { S.shown = PAGE; S.club = null; S.sportTab = null; S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true }); });
+  window.addEventListener("hashchange", () => {
+    const kept = S.keepClub; // açılan menyudan başqa bölmənin alt başlığı seçilib
+    S.keepClub = false; S.shown = PAGE; if (!kept) { S.club = null; S.sportTab = null; }
+    S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true });
+    if ($("#navpop")) $("#navpop").hidden = true;
+    if (kept) scrollToClub();
+  });
   window.addEventListener("scroll", () => { closeSharePop(); $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
@@ -895,25 +902,69 @@ function renderTopbar() {
   syncTixDot();
 }
 
+const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"];
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
   const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub"].filter(Boolean).join(" ");
-  const subNote = c => SUB_TABS[c.slug] ? ` title="${esc(c.label)}: alt başlıqlar var"` : "";
-  const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}"${subNote(c)}>${esc(c.label)}</a>`;
-  const primary = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"];
+  const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}">${esc(c.label)}</a>`;
+  const primary = NAV_PRIMARY;
   // nav-x: telefonda «Daha çox» əvəzinə zolaqda birbaşa görünən qalan bölmələr (masaüstündə gizli)
-  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}"${subNote(c)}>${esc(c.label)}</a>`).join("");
+  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}">${esc(c.label)}</a>`).join("");
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
   fitNav();
 }
 // Alt başlıqlı bölmə açılan kimi alt başlıqlar menyunun düz altında görünür: zolaq və bazarlardan aşağıda axtarılmır.
-const subNav = slug => SUB_TABS[slug] ? sportChips(SUB_TABS[slug]) : "";
+const subNav = slug => SUB_TABS[slug] ? navRows(slug) : "";
 function renderSubNav() {
   const el = $("#navsub"), r = route();
   if (!el) return;
   el.innerHTML = r.name === "section" ? subNav(r.slug) : "";
   el.hidden = !el.innerHTML;
+}
+// Kursorla açılan menyu: bölmənin üstündə alt başlıqlar sətri, alt siyahısı olan başlığın üstündə daha bir sətir.
+function navPopHtml(slug, tab) {
+  if (slug !== "more") return navRows(slug, tab, route().slug === slug ? S.club || "" : null);
+  const r = route(), links = CATS.filter(c => !NAV_PRIMARY.includes(c.slug)).map(c => `<a class="pill ${r.slug === c.slug ? "on" : ""}" href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("");
+  return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${links}<a class="pill" href="#/secilmis">☆ Saxlanmış xəbərlər</a><a class="pill" href="#/bolmeler">Bölmələri tənzimlə</a></div></div></div>`;
+}
+// Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
+function bindNavPop() {
+  const pop = $("#navpop");
+  let timer;
+  const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
+  const hide = () => { clearTimeout(timer); pop.hidden = true; };
+  const show = (slug, tab) => { pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.innerHTML = navPopHtml(slug, tab); pop.hidden = false; };
+  $("#sitehead").addEventListener("mouseover", e => {
+    if (e.target.closest("#navpop")) {
+      clearTimeout(timer);
+      const name = e.target.closest("[data-club]")?.dataset.club, slug = pop.dataset.slug;
+      if (name !== undefined && name !== pop.dataset.tab && (!name || SUB_TABS[slug]?.some(t => t.name === name))) later(() => show(slug, name), 110);
+      return;
+    }
+    const item = e.target.closest("#nav a, #nav summary");
+    if (!item) { if (!pop.hidden) later(hide, 220); return; }
+    const href = item.getAttribute("href")?.match(/^#\/bolme\/(.+)$/)?.[1];
+    const slug = item.matches("summary") ? "more" : SUB_TABS[href] ? href : "";
+    if (!pop.hidden && slug && slug === pop.dataset.slug) { clearTimeout(timer); return; }
+    if (slug) later(() => show(slug, route().slug === slug ? S.sportTab : null), pop.hidden ? 60 : 120);
+    else if (!pop.hidden) later(hide, 120);
+    else clearTimeout(timer);
+  });
+  $("#sitehead").addEventListener("mouseleave", () => later(hide, 220));
+  $("#sitehead").addEventListener("click", e => {
+    if (e.target.closest(".nav-more summary") && !pop.hidden) e.preventDefault(); // kursorla artıq açıqdır, ikinci siyahı açılmasın
+    else if (e.target.closest("#nav a")) hide();
+  });
+  pop.addEventListener("click", hide);
+  const sub = $("#navsub");
+  sub.addEventListener("mouseover", e => {
+    const name = e.target.closest("[data-club]")?.dataset.club, slug = route().slug;
+    if (SUB_TABS[slug]?.find(t => t.name === name)?.groups) later(() => show(slug, name), 110);
+    else clearTimeout(timer);
+  });
+  sub.addEventListener("mouseleave", () => later(hide, 220));
+  document.addEventListener("keydown", e => { if (e.key === "Escape") hide(); });
 }
 // Telefonda menyu sürüşən zolaqdır: seçilmiş bölmə görünən yerdə qalsın.
 function fitNav() {
@@ -1148,10 +1199,12 @@ function clubMatches(a, club) {
   if (topicRx(topic).test(seen.text)) return true;
   return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
 }
-function sportChips(tabs = SPORT_TABS) {
-  const pill = (name, label = name) => `<button class="pill ${(S.club || "") === name || S.sportTab === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
-  const open = tabs.find(t => t.name === S.sportTab)?.groups || [];
-  return `<div class="sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div>${open.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div>`;
+function navRows(slug, open = S.sportTab, club = S.club || "") {
+  const tabs = SUB_TABS[slug];
+  const pill = (name, label = name) => `<button class="pill ${club === name || open === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
+  const groups = tabs.find(t => t.name === open)?.groups || [];
+  return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div></div></div>` +
+    (groups.length ? `<div class="nav-row two"><div class="wrap sport-chips">${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
@@ -1660,6 +1713,10 @@ async function installApp(btn) {
   } catch {}
   renderLangs();
 }
+// Son düymə seçildi: xəbərlər zolaq və bazarların altındadır, ora keçilir. Alt siyahı açan düymədə yerində qalır.
+function scrollToClub() {
+  if (S.club && !SUB_TABS[route().slug]?.find(x => x.name === S.club)?.groups) $("#view")?.scrollIntoView({ block: "start" });
+}
 function onClick(e) {
   if (!e.target.closest(".sharepop")) closeSharePop();
   const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
@@ -1713,11 +1770,14 @@ function onClick(e) {
   if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; const L = fbLeagues()[S.fbLeague]; S.fbTab = L?.world ? 0 : (S.fbTab === "table" && !L?.table?.length) || typeof S.fbTab === "number" ? "results" : S.fbTab; renderView(); return; }
   if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
   if (t.dataset.club !== undefined) {
+    const pop = t.closest(".nav-pop");
     S.club = t.dataset.club || null;
-    if (!S.club) S.sportTab = null; else if ([...SPORT_TABS, ...REGION_TABS].some(x => x.name === S.club)) S.sportTab = S.club;
+    // Yalnız bu bölmənin başlıqları: «Qarabağ» həm komanda, həm bölgədir, idmanda Futbol sətrini bağlamasın.
+    const tabs = SUB_TABS[pop?.dataset.slug || route().slug] || [];
+    if (!S.club) S.sportTab = null; else if (tabs.some(x => x.name === S.club)) S.sportTab = S.club; else if (pop) S.sportTab = pop.dataset.tab;
+    if (pop && route().slug !== pop.dataset.slug) { S.keepClub = true; location.hash = `#/bolme/${pop.dataset.slug}`; return; }
     S.shown = PAGE; renderSubNav(); renderView();
-    // Son düymə seçildi: xəbərlər zolaq və bazarların altındadır, ora keçilir. Alt siyahı açan düymədə yerində qalır.
-    if (S.club && !SUB_TABS[route().slug]?.find(x => x.name === S.club)?.groups) $("#view")?.scrollIntoView({ block: "start" });
+    scrollToClub();
     return;
   }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
