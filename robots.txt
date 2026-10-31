@@ -1,4 +1,12 @@
 User-agent: *
+Disallow: /tests/
+Disallow: /docs/
+Disallow: /android/
+Disallow: /.github/
+Disallow: /updater.py
+Disallow: /reader_content.py
+Disallow: /content_policy.py
+Disallow: /README.md
 Allow: /
 
 Sitemap: https://8ulduz.az/sitemap.xml
