@@ -177,6 +177,34 @@ test('a full reload keeps minute-channel stories and does not count them twice',
   await loadNews(true);
   assert.deepEqual([...S.rawNews.map(a=>a.id)],['old'],'yarım saatdan sonra tam lentdə olmalıdır, yoxdursa çıxarılıb');
 });
+test('sport buttons: short list, every topic finds its news in every language, no false friends',()=>{
+  const ctx=app(),{clubMatches}=ctx.api;
+  const yes=(club,title,extra={})=>assert.equal(clubMatches({title,...extra},club),true,club+': '+title);
+  const no=(club,title,extra={})=>assert.equal(clubMatches({title,...extra},club),false,club+': '+title);
+  yes('Sabah','"Sabah" səfərdə "Turan Tovuz"a məğlub oldu');yes('Sabah','Dambrauskas "Sabah"ın məğlubiyyətini şərh etdi');no('Sabah','Sabah Şahbuzda işıq olmayacaq');no('Sabah','Oyun sabah başlayır');
+  yes('Araz-Naxçıvan','“Araz-Naxçıvan” “Zirə”yə qarşı');no('Araz-Naxçıvan','Araz çayında balıq ovu');
+  yes('Galatasaray',"Galatasaray'da yeni transfer");yes('Galatasaray','Super Liqa: "Qalatasaray" darmadağına sevindi');yes('Galatasaray','Защитник «Галатасарая» получил травму');
+  yes('Fenerbahçe','Fənərbaxça qalib gəldi');yes('Fenerbahçe','«Фенербахче» уступил');
+  yes('Real Madrid','Hazard joins Real Madrid');yes('Real Madrid','Тренер «Реала» объяснил поражение');no('Real Madrid','Реальная угроза для клуба');no('Real Madrid','Real problem in midfield');
+  yes('Barcelona','Вратарь «Барселоны» травмирован');yes('Bayern','Игрок «Баварии» забил');yes('Liverpool','«Ливерпуль» обыграл');yes('Man United','Carrick tells Manchester United players');
+  no('İnter','International tournament');yes('İnter','«Интер» обыграл');
+  yes('Avroliqa','Евролига: результаты матчей');yes('Avroliqa','Avroliqada Fənərbaxça uduzdu');yes('Avroliqa','Dorsey stays',{source:'Eurohoops'});
+  yes('NBA','LeBron sinks clutch in NBA');yes('NBA','Лейкерс в НБА');no('NBA','Bakıda basketbol turniri');
+  yes('Formula 1','Verstappen penalized',{source:'Motorsport F1'});yes('Formula 1','Formula-1: Hamilton birinci oldu');yes('Formula 1','Льюис Хэмилтон и «Формула-1»'.replace('«Формула-1»','Формула-1'));no('Formula 1','Yeni formula təklif edildi');
+  yes('Tennis','Tennisçimiz qalib gəldi');yes('Şahmat','Şahmatçılarımız medal qazandı');yes('Boks və UFC','UFC champion Makhachev');yes('Güləş və cüdo','Cüdoçumuz Avropa çempionu oldu');
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  const clubs=src.slice(src.indexOf('const SPORT_TOPICS'),src.indexOf('const CITIES')).match(/name: "/g).length;
+  assert.ok(clubs<=30,'düymə sayı: '+clubs);
+});
+test('sport shows every language whatever language is chosen, also inside a team',()=>{
+  const ctx=app(),{S,sectionView}=ctx.api;
+  S.lang='az';
+  const at=new Date().toISOString();
+  S.data={articles:[['az','Qalatasaray qalib gəldi'],['ru','Галатасарай победил'],['tr','Galatasaray kazandı'],['en','Galatasaray win']].map(([lang,title],i)=>({id:String(i),title,lang,category:'idman',source:'APA Sport',sourceUrl:'https://apasport.az/'+i,publishedAt:at}))};
+  for(const club of [null,'Galatasaray']){S.club=club;for(const a of S.data.articles)assert.ok(sectionView('idman').includes(a.title),a.title);}
+  S.club='Liverpool';
+  assert.ok(sectionView('idman').includes('Bu mövzuda son 5 gündə xəbər tapılmadı'));
+});
 test('club filter sees names next to punctuation',()=>{
   const {clubMatches}=app().api;
   for(const title of ['«Qarabağ» qalib gəldi','"Sabah" səfərdə uduzdu: Qarabağ, Neftçi','Oyun (Qarabağ) başa çatdı','Qarabağ: yeni transfer'])assert.equal(clubMatches({title},'Qarabağ'),true,title);

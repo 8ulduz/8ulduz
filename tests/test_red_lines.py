@@ -461,7 +461,24 @@ class QualityTest(unittest.TestCase):
 
     def test_foreign_sources_have_a_smaller_share(self):
         self.assertLess(updater.MAX_PER_WORLD_SOURCE, updater.MAX_PER_SOURCE)
-        self.assertLess(updater.MAX_WORLD, updater.FAST_MAX_ITEMS / 3)
+        self.assertLess(updater.MAX_WORLD + updater.MAX_WORLD_SPORT, updater.FAST_MAX_ITEMS * 0.4)
+
+    def test_every_new_sport_feed_is_registered_and_marked_as_sport(self):
+        for name in ("Qol.az", "Fanat.az"):
+            self.assertTrue(content_policy.source_registered(name))
+            self.assertIn(name, [f[0] for f in updater.FEEDS])
+        world = {f[0]: f for f in updater.FEEDS if f[0] in updater.WORLD_SOURCES}
+        for name in content_policy.SPORT_SOURCES:
+            self.assertIn(name, world, name)
+            self.assertEqual(world[name][3], "İdman", name)
+
+    def test_a_foreign_sports_site_still_cannot_write_about_the_leadership(self):
+        row = article("Motorsport F1", "https://www.motorsport.com/1", title="Baku GP: President Aliyev watched the race", category="idman")
+        self.assertTrue(content_policy.violation(row))
+        race = article("Motorsport F1", "https://www.motorsport.com/2", title="Verstappen wins in Baku", category="idman")
+        self.assertFalse(content_policy.violation(race))
+        moved = article("Motorsport F1", "https://www.motorsport.com/3", title="Baku talks start", category="siyaset")
+        self.assertTrue(content_policy.violation(moved))
 
 
 class ArchiveTest(unittest.TestCase):

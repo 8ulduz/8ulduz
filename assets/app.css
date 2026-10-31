@@ -407,6 +407,10 @@ main>.wrap>section{margin-bottom:18px}
 .page-h .cnt{margin-left:auto;background:var(--card2);border-radius:999px;padding:3px 10px;font-weight:700;font-size:0.8571rem;color:var(--muted);white-space:nowrap}
 .chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
 .chips .pill{padding:3px 10px;font-size:0.8214rem}
+.sport-chips .chips{align-items:center;margin-bottom:6px}
+.sport-chips{margin-bottom:12px}
+.chip-h{flex:none;min-width:76px;color:var(--muted);font-size:0.75rem;font-weight:700}
+.lang-note{color:var(--muted);font-size:0.8214rem}
 .loadmore{display:block;margin:14px auto 0;padding:8px 22px;border:1px solid var(--border);border-radius:999px;font-weight:700;color:var(--muted)}
 .loadmore:hover{border-color:var(--primary);color:var(--fg)}
 .empty{padding:50px 0;text-align:center;color:var(--muted)}
