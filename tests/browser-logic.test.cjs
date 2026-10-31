@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, subNav, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
   return context;
 }
 
@@ -141,8 +141,9 @@ test('red line 1: a visitor without a service worker reads the one-minute channe
 });
 test('an update waits while the reader is busy: open video, open popup, typing, or scrolled down',()=>{
   const busy=(selector,extra={})=>{
-    const ctx=app({document:{documentElement:{dataset:{}},addEventListener(){},createElement(){return {};},querySelector:s=>s.includes(selector)?{}:null,...extra},scrollY:0});
+    const ctx=app({setTimeout:fn=>{fn();return 0;},document:{documentElement:{dataset:{}},addEventListener(){},createElement(){return {};},querySelector:s=>s.includes(selector)?{}:null,...extra},scrollY:0});
     let rendered=0;
+    ctx.api.S.data={articles:[]};
     vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render;',ctx);
     ctx.api.requestRender();
     rendered=ctx.rendered||0;
@@ -155,6 +156,45 @@ test('an update waits while the reader is busy: open video, open popup, typing, 
   const ctx=app({scrollY:900});
   ctx.api.requestRender();
   assert.equal(ctx.api.S.renderPending,true);
+});
+test('speed red line: the page code stays within its size limit',()=>{
+  assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<200e3,'app.js');
+  assert.ok(fs.statSync(path.join(root,'assets/app.css')).size<95e3,'app.css');
+});
+test('speed red line: files arriving together cause one redraw, not one each',async()=>{
+  const ctx=app();
+  vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render;',ctx);
+  const {S,requestRender}=ctx.api;
+  requestRender();
+  await new Promise(r=>setTimeout(r,450));
+  assert.equal(ctx.rendered||0,0,'xəbər yoxdursa çəkilmir, birinci çəkiliş hamısını götürür');
+  S.data={articles:[]};
+  for(let i=0;i<8;i++)requestRender(i%2===0);
+  await new Promise(r=>setTimeout(r,500));
+  assert.equal(ctx.rendered,1);
+});
+test('speed red line: far sections of the home page are kept out of the page until needed',()=>{
+  const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
+  S.lang=null;S.og={};S.data={articles:Array.from({length:30},(_,i)=>({id:String(i),title:'Xəbər başlığı nömrə '+i,category:i%2?'siyaset':'iqtisadiyyat',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,publishedAt:at}))};
+  const page=homeView();
+  assert.ok(page.includes('<div class="lazy-sec"><template><section>'),'bölmələr şablondadır');
+  assert.ok(page.includes('Bütün xəbərlər'),'məzmun səhifə mətnindədir');
+});
+test('speed red line: images are resized and the original stays as the fallback',()=>{
+  const ctx=app(),{S,sized,img}=ctx.api;
+  S.og={};
+  const url='https://apa.az/a b.jpg';
+  assert.equal(sized(url,480),'https://wsrv.nl/?url='+encodeURIComponent(url)+'&w=480&we&output=webp&q=70');
+  assert.equal(sized('https://apa.az/a.svg',480),'https://apa.az/a.svg');
+  assert.equal(sized('https://apa.az/a.gif?x=1',480),'https://apa.az/a.gif?x=1');
+  const html=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'});
+  assert.ok(html.includes('wsrv.nl'));
+  assert.ok(html.includes('data-image-alternatives="[&quot;https://apa.az/a.jpg&quot;]"'),'alınmasa əsl ünvan');
+  assert.ok(!html.includes('image-fallback'),'şəkli olan kartda ehtiyat loqo yoxdur');
+  assert.ok(img({category:'gundem'}).includes('image-fallback'),'şəkli olmayanda var');
+  assert.ok(img({imageUrl:'https://apa.az/a.jpg'},'',false,true,828,true).includes('data-src='),'uzaq slayd sonra yüklənir');
+  S.proxyFails=8;
+  assert.equal(sized(url,480),url,'xidmət işləmirsə birbaşa mənbədən');
 });
 test('a broken secondary block cannot freeze the news list',()=>{
   const ctx=app(),{S,homeView}=ctx.api;
@@ -217,7 +257,8 @@ test('sport shows every language whatever language is chosen, also inside a team
 test('sport sub-sections open their own teams and close when you leave',()=>{
   const ctx=app(),{S,sectionView,subNav}=ctx.api;
   S.data={articles:[]};S.club=null;S.sportTab=null;
-  assert.ok(!sectionView('idman').includes('data-club='),'alt başlıqlar səhifədə yox, menyunun altındadır');
+  const page=sectionView('idman');
+  assert.ok(page.indexOf('data-club="Futbol"')>page.indexOf('</h1>')&&page.indexOf('data-club="Futbol"')<page.indexOf('class="empty"'),'alt başlıqlar səhifə başlığı ilə kartların arasındadır');
   assert.equal(subNav('siyaset'),'');
   const top=subNav('idman');
   for(const name of ['Hamısı','Futbol','Basketbol','Formula 1','Tennis','Şahmat'])assert.ok(top.includes('>'+name+'<'),name);
@@ -230,6 +271,24 @@ test('sport sub-sections open their own teams and close when you leave',()=>{
   const bb=subNav('idman');
   assert.ok(bb.includes('data-club="Avroliqa"'));
   assert.ok(!bb.includes('data-club="Qarabağ"'));
+});
+test('hover menu: one row for the section, a second row only for a tab with its own list',()=>{
+  const ctx=app(),{S,navPopHtml}=ctx.api;
+  S.data={articles:[]};S.club=null;S.sportTab=null;
+  const closed=navPopHtml('idman',null);
+  assert.equal(closed.split('nav-row').length-1,1,'bir sətir');
+  assert.ok(closed.includes('data-club="Futbol"'));
+  assert.ok(!closed.includes('class="pill on"'),'başqa səhifədə heç nə seçili görünmür');
+  const football=navPopHtml('idman','Futbol');
+  assert.ok(football.includes('nav-row two'),'Futbol ikinci sətri açır');
+  for(const name of ['Qarabağ','Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
+  assert.ok(football.includes('class="pill on" data-club="Futbol"'));
+  assert.ok(!navPopHtml('idman','Tennis').includes('nav-row two'),'siyahısı olmayan başlıq');
+  const region=navPopHtml('bolgeler','Qarabağ');
+  assert.ok(region.includes('nav-row two')&&region.includes('data-club="Xankəndi"'),'bölgələr də eyni cür açılır');
+  const more=navPopHtml('more');
+  assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="#/bolme/dunya"'));
+  assert.ok(!more.includes('href="#/bolme/idman"'),'menyuda görünən bölmə təkrarlanmır');
 });
 test('merged sections: old links, old cached stories and saved stories land in the new section',async()=>{
   const ctx=app(),{S,route,publishNews,sectionView,catSection}=ctx.api;
@@ -500,7 +559,7 @@ test('appointment and dismissal news are recognised; Zuğulba includes state sit
   assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // AZƏRTAC və Cross Media var, Oxu.az yalnız «Hamısı»nda
   assert.deepEqual(ids, ['a', 'c', 'd']); // ən yenidən köhnəyə
   const html = ctx.api.prezBlock(ctx.api.prezHome(prez));
-  assert.ok(html.includes('<a class="pcard has-img"') && html.includes('src="https://crossmedia.az/storage/news/a.jpeg"'));
+  assert.ok(html.includes('<a class="pcard has-img"') && html.includes(encodeURIComponent('https://crossmedia.az/storage/news/a.jpeg')));
   assert.ok(html.includes('<a class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
 });
 
