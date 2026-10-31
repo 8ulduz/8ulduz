@@ -1023,3 +1023,8 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 @media(max-width:600px){.grid .card .image-fallback>span,.grid .card .image-fallback small,.secrow .card .image-fallback>span,.secrow .card .image-fallback small{display:none}}
 /* Telefonda başlıqlar alçaq, barmaq üçün rahat qalır */
 @media(max-width:600px){nav.main>a{min-height:30px;padding:3px 10px;font-size:.8rem;line-height:1.2}nav.main{gap:3px}.nav-sub .pill{min-height:30px;padding:3px 10px;font-size:.8rem}}
+/* Məzənnə həmişə bir sətirdir: sığmayanda yana sürüşür, sığanda ortada qalır */
+.mk-grid{flex-wrap:nowrap;max-width:none;overflow-x:auto;scrollbar-width:none;justify-content:flex-start}
+.mk-grid::-webkit-scrollbar{display:none}
+.mk-grid>.mk:first-child{margin-left:auto}
+.mk-grid>.mk:last-child{margin-right:auto}
