@@ -245,7 +245,11 @@ const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "X
 const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed/iu;
 const isAppointment = a => APPT_RX.test(a?.title || "");
 // Əsas blok: hər iki qrup (Prezident, Birinci xanım) görünür, sıra isə ən yenidən köhnəyə.
-function prezHome(list) {
+const PREZ_COUNT = 44, PREZ_FIRST_IMAGES = 8; // Sahibin qərarı: blokda həmişə 44 xəbər
+// Lentə «prezident» sözü ilə yad xəbər də düşür (Yəmən, Fənərbağçanın prezidenti): digər saytlardan yalnız adı keçən xəbər götürülür.
+const OUR_LEADERS = /ilham|i̇lham|əliyev|aliyev|алиев|birinci xan|birinci vitse|prezident\s+administ|azərbaycan\s+prezident|dövlət başçı/iu;
+const aboutOurLeaders = a => OUR_LEADERS.test(a.title || "") || OUR_LEADERS.test(a.summary || "");
+function prezHome(list, all = list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
   // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və dövlət/iqtidar saytları (STATE_SRC); digər saytlar «Hamısı» səhifəsində qalır
@@ -255,14 +259,18 @@ function prezHome(list) {
   const capped = l => l.filter(a => OFFICIAL_SRC.has(a.source) || (perSrc[a.source] = (perSrc[a.source] || 0) + 1) <= 3);
   const president = capped(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
   const lady = capped(byDate(prez.filter(a => isFlItem(a) && age(a) < 60 * DAY)));
-  const MAX = 12;
   const head = 4;
   const ladyKeep = lady.length ? Math.min(lady.length, 2) : 0;
   const presHead = Math.min(president.length, head - ladyKeep);
   const ladyHead = Math.min(lady.length, head - presHead);
   const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
-  return byDate([...first, ...rest].slice(0, MAX));
+  // Rəsmi və dövlət saytları 44-ü doldurmursa: əvvəl həmin saytların qalan xəbərləri, sonra digər saytlar, seçilmiş dil bitibsə başqa dillər.
+  // Yad xəbərlə doldurulmur: belə xəbər çatmasa say 44-dən az olar.
+  const chosen = new Set([...first, ...rest].map(a => a.id));
+  const ours = l => byDate(l.filter(a => a.category === "prezident" && aboutOurLeaders(a)));
+  const fill = [...byDate(prez), ...ours(list), ...ours(all)].filter(a => !chosen.has(a.id) && chosen.add(a.id));
+  return byDate([...first, ...rest, ...fill].slice(0, PREZ_COUNT));
 }
 const byDate = list => [...list].sort((x, y) => new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime());
 const lc = s => (s || "").toLocaleLowerCase("az");
@@ -1286,14 +1294,16 @@ function socialBlock(side = false) {
 }
 function prezBlock(list) {
   // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır (imgFail)
-  const cards = list.map(a => {
+  // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir: birdən 44 şəkil ilk açılışa 350 KB əlavə edirdi (3-cü qırmızı xətt).
+  const card = (a, i) => {
     const [pic, ...rest] = imageCandidates(a);
     const small = sized(pic, 200);
-    const thumb = pic ? `<span class="img"><img src="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)"></span>` : "";
+    const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)"></span>` : "";
     return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
-  }).join("");
-  return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident">Zuğulba Xronikası</a></h2>
-    <span class="cnt muted">${list.length} xəbər</span>
+  };
+  const cards = list.map(card).join("");
+  return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident" aria-label="Zuğulba Xronikası"><span class="prez-long">Zuğulba Xronikası</span><span class="prez-short">Zuğulba</span></a></h2>
+    <span class="prez-n">İlk <b>${list.length}</b> xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
     <div class="prez-body">${list.length ? `<div class="prez-lent" data-prez-lent tabindex="0" aria-label="Zuğulba xəbərləri">${cards}</div>` : ""}
@@ -1455,7 +1465,7 @@ function homeView() {
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const secs = homeCats().map(c => lazySection(catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug))))).join("");
-  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining) + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
+  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining) + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
 // Paylaşılan keçid sonradan da açılsın. Xəbər başqası ilə qruplaşıbsa nömrəsi lentdə qalmır (id ünvanın sha1-idir, updater.py ilə eyni),
 // lentdən çıxıbsa bölmə arxivindədir (5 gün). Bu axtarış yalnız lentdə tapılmayan keçiddə işləyir.
@@ -2181,6 +2191,14 @@ function setupFeatureLents() {
   const lent = document.querySelector("[data-prez-lent]");
   if (lent) {
     const box = lent.closest(".prez");
+    const loadNear = () => {
+      const edge = lent.scrollTop + lent.clientHeight + 400;
+      for (const i of lent.querySelectorAll("img[data-src]")) {
+        if (i.closest(".pcard").offsetTop > edge) break;
+        i.src = i.dataset.src; delete i.dataset.src;
+      }
+    };
+    lent.onscroll = loadNear;
     const step = direction => { const rows=[...lent.children]; const current=rows.findIndex(row => row.offsetTop - rows[0].offsetTop > lent.scrollTop + 3); const next=direction > 0 ? (current < 0 ? 0 : current) : Math.max(0, rows.filter(row=>row.offsetTop-rows[0].offsetTop < lent.scrollTop-3).length-1); lent.scrollTo({top: rows[next] ? rows[next].offsetTop-rows[0].offsetTop : 0, behavior:"smooth"}); };
     box.querySelectorAll("[data-prez-step]").forEach(button => button.onclick = () => { lent._holdUntil=Date.now()+10000; step(Number(button.dataset.prezStep)); });
     const button=box.querySelector("[data-prez-pause]");

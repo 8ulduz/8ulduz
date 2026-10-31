@@ -164,6 +164,28 @@ test('phone headings use short names so they fit three rows, screen readers keep
   assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-f">Sağlamlıq və həyat<'));
   assert.equal(label({slug:'gundem',label:'Gündəm'}),'Gündəm');
 });
+test('Zuğulba always shows 44 stories: official and state sites first, then others',()=>{
+  const ctx=app(),{prezHome,prezBlock}=ctx.api,at=i=>new Date(Date.now()-i*3600e3).toISOString();
+  const row=(id,source,i,lang='az')=>({id,source,lang,category:'prezident',title:'Prezident İlham Əliyev xəbəri '+id,sourceUrl:'https://x.az/'+id,publishedAt:at(i)});
+  const rows=[...Array.from({length:10},(_,i)=>row('r'+i,'Report',i)),...Array.from({length:60},(_,i)=>row('o'+i,'Axar.az',i)),...Array.from({length:5},(_,i)=>row('p'+i,'Prezident.az',200+i))];
+  const out=[...prezHome(rows)];
+  assert.equal(out.length,44);
+  for(let i=0;i<5;i++)assert.ok(out.some(a=>a.id==='p'+i),'köhnə rəsmi xəbər qalır');
+  assert.equal(out.filter(a=>a.source==='Report').length,10,'dövlət saytı digərlərindən əvvəl');
+  assert.equal(new Set(out.map(a=>a.id)).size,44,'təkrar yoxdur');
+  const few=[...prezHome(rows.slice(0,3),rows)];
+  assert.equal(few.length,44,'seçilmiş dildə az olsa da 44');
+  const html=prezBlock(out);
+  assert.ok(html.includes('İlk <b>44</b> xəbər'),'yazı');
+  const foreign=[...prezHome([row('r0','Report',1),{...row('y','Axar.az',2),title:'Husilər prezident sarayına zərbələr endirdi'},{...row('f','Sportinfo',3),title:'Fənərbağçanın prezidenti danışdı'}])];
+  assert.deepEqual(foreign.map(a=>a.id),['r0'],'yad xəbərlə doldurulmur');
+  assert.equal(html.split('class="pcard').length-1,44,'44 kartın hamısı');
+  assert.ok(!html.includes('<template>'));
+  const pics=prezBlock(out.map(a=>({...a,imageUrl:'https://x.az/'+a.id+'.jpg'})));
+  assert.equal(pics.split('class="pcard').length-1,44,'şəkilli 44 kart');
+  assert.equal(pics.split('<img src=').length-1,8,'ilk açılışda yalnız 8 şəkil yüklənir');
+  assert.equal(pics.split('<img data-src=').length-1,36,'qalan şəkillər lent sürüşəndə gəlir');
+});
 test('language order: Azerbaijani, Turkish, Russian, English',()=>{
   const ctx=app();
   assert.deepEqual(Array.from(vm.runInContext('LANGS.map(l=>l.code)',ctx)),['az','tr','ru','en']);
@@ -579,7 +601,7 @@ test('appointment and dismissal news are recognised; Zuğulba includes state sit
     { id: 'c', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev sərəncam imzalayıb: yeni rəis təyin edilib', publishedAt: at(3) },
   ];
   const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
-  assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // AZƏRTAC və Cross Media var, Oxu.az yalnız «Hamısı»nda
+  assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // Oxu.az xəbərində rəhbərliyin adı yoxdur
   assert.deepEqual(ids, ['a', 'c', 'd']); // ən yenidən köhnəyə
   const html = ctx.api.prezBlock(ctx.api.prezHome(prez));
   assert.ok(html.includes('<a class="pcard has-img"') && html.includes(encodeURIComponent('https://crossmedia.az/storage/news/a.jpeg')));
@@ -620,15 +642,14 @@ test('the "most sources" tab keeps its own order on purpose', () => {
   const html = ctx.api.latestBlock([row('fresh', 0.1, []), row('wide', 3, [{source: 'Report', sourceUrl: 'https://report.az/1'}, {source: 'Trend', sourceUrl: 'https://trend.az/1'}])]);
   assert.ok(html.indexOf('apa.az/wide') < html.indexOf('apa.az/fresh'));
 });
-test('one state site cannot fill the Zuğulba block: at most 3 cards per non-official source', () => {
+test('one state site cannot fill the Zuğulba block: at most 3 cards per non-official source when the block is full', () => {
   const ctx = app();
   const at = h => new Date(Date.now() - h * 3600e3).toISOString();
   const prez = [1, 2, 3, 4, 5].map(i => ({ id: 'r' + i, category: 'prezident', source: 'Report', title: 'İlham Əliyev: sitat ' + i, publishedAt: at(i) }));
-  prez.push({ id: 'o', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev səfiri qəbul edib', publishedAt: at(9) });
-  prez.push({ id: 'x', category: 'prezident', source: 'Cross Media', title: 'Prezident İlham Əliyev fərman imzalayıb', publishedAt: at(10) });
+  for (let i = 0; i < 44; i++) prez.push({ id: 'o' + i, category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev səfiri qəbul edib ' + i, publishedAt: at(9 + i) });
   const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
   assert.deepEqual(ids.filter(i => i.startsWith('r')), ['r1', 'r2', 'r3']); // ən yeni 3 Report
-  assert.ok(ids.includes('o') && ids.includes('x'));
+  assert.equal(ids.length, 44);
 });
 
 test('raw links are stripped from headlines', () => {
