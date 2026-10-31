@@ -226,7 +226,7 @@ CATEGORIES = {
                      "gdp", "inflation", "tariff", "stocks", "trade", "investment", "prices", "tender", "invest", "million", "billion", "milyon manat", "milyard", "kombi", "depozit"],
     "Mədəniyyət": ["film", "kino", "sərgi", "muzey", "teatr", "musiqi", "konsert", "kitab",
                    "şair", "yazıçı", "əsər", "incəsənət", "festival", "mükafat", "şarkı",
-                   "sinema", "kitap", "roman", "sanat", "sergi", "concert", "culture", "albüm", "oyuncu",
+                   "sinema", "kitap", "romanı", "romanın", "sanat", "sergi", "concert", "culture", "albüm", "oyuncu",
                    "aktyor", "aktrisa", "müğənni", "rejissor", "serial", "tamaşa", "xalq artisti",
                    "əməkdar artist", "mədəniyyət", "dizi", "şarkıcı", "sanatçı", "oyuncu",
                    "фильм", "кино", "сериал", "театр", "музе", "выставк", "концерт", "певиц", "певец",
@@ -267,7 +267,7 @@ CATEGORIES = {
               "путин", "трамп", "зеленский", "байден", "макрон", "эрдоган", "сша", "нато", "оон",
               "украин", "всу", "израил", "иран", "китай", "европ", "сирии", "газа", "нетаньяху",
               "abd", "rusya", "ukrayna", "israil", "gazze", "avrupa", "almanya", "çin",
-              "ukraine", "gaza", "israel", "russia", "china", "iran", "trump", "nato", "un ", "husi", "moskva", "paşinyan", "uqanda", "ebola", "türkiyədə", "kyrgyzstan", "freedom house"],
+              "ukraine", "gaza", "israel", "russia", "china", "iran", "trump", "nato", "un ", "husi", "moskva", "kiyev", "киев", "paşinyan", "uqanda", "ebola", "türkiyədə", "kyrgyzstan", "freedom house"],
 }
 # İdman bölməsi gücləndirilib: xallar 2 qat sayılır
 BOOST = {"İdman": 2, "Prezident": 3, "Təhsil": 1.5, "Səhiyyə": 1.5, "Bölgələr": 1.5}
@@ -331,6 +331,8 @@ AZ_MONTHS = {
 }
 MAX_ITEMS = 1200
 MAX_PER_SOURCE = 40   # bir mənbə lenti doldurmasın
+MAX_PER_WORLD_SOURCE = 20  # xarici mənbələr Azərbaycan xəbərlərini lentdən sıxışdırıb çıxarmasın
+MAX_WORLD = 250
 DATE_LOOKUPS = 30     # tarixsiz lent elementləri üçün bir dövrədə ən çox səhifə sorğusu
 TIMEOUT = 10
 WORKERS = 16
@@ -355,7 +357,10 @@ def detect_lang(title, desc, default):
         # AZ mənbəsində ə-siz, lakin ı/ş/ç/ğ/ö/ü olan mətn azərbaycancadır; təmiz ASCII isə ingiliscə
         if re.search(r"[ıİşŞçÇğĞöÖüÜ]", blob) or not re.search(r"[A-Za-z]{3}", blob):
             return "az"
-        return "en"
+        # ASCII ilə yazılmış Azərbaycan başlığı: «Tehrandan Avropaya», «Zaqatalada qaz olmayacaq»
+        words = re.findall(r"[a-z]+", title.lower())
+        endings = sum(1 for w in words if re.search(r"(?:ada|ade|dan|den|aya|eye|acaq|ecek|yib|nin|nun)$", w))
+        return "az" if words and endings * 2 >= len(words) else "en"
     if "ı" in blob or "ğ" in blob or "İ" in blob:
         return "tr"
     return default if default else "en"
@@ -572,6 +577,10 @@ _RX = {}
 PLACE_WORDS = {w for w in CATEGORIES["Bölgələr"] if " " not in w and w not in ("rayonunda", "rayonunun", "kəndində", "kəndinin", "bölgələr", "regionlar")}
 _PLACE_SUF = r"(?:n?[ıiuü]n|n?[ıiuü]|[dt][aə]n?|y?[aə]|l[ıiuü](?:lar|lər)?)?(?=$|[^\w])"
 
+# Qısa kök başqa sözün içində tutulmasın: «dava» — «davam», «kəşf» — «kəşfiyyat», «dəri» — «dərin», «kilo» — «kilometr», «цен» — «центр».
+_WORD_GUARD = {"dava": r"(?!m)", "kəşf": r"(?!iyyat)", "dəri": r"(?!n)", "kilo": r"(?!metr)", "цен": r"(?!тр|ност)",
+               "hava": r"(?!limanı|dar|lim|yol)", "sel": r"(?:[iı]n?|ə|də|dən)?(?!\w)", "dolu": r"(?!\w)"}
+
 def _rx(w):
     """Söz başlanğıcına bağlı axtarış (sonu sərbəst: şəkilçilər üçün)."""
     r = _RX.get(w)
@@ -579,7 +588,7 @@ def _rx(w):
         r = _RX[w] = re.compile(r"(?<!\w)" + re.escape(norm_az(w)) + _PLACE_SUF)
     if r is None:
         # ABŞ sözünü Abşeron kimi yer adları ilə qarışdırma.
-        suffix = r"(?=$|[^\w]|[-’'])" if w in ("abş", "abd") else r"(?!et|ет)" if w in ("bank", "банк") else ""
+        suffix = r"(?=$|[^\w]|[-’'])" if w in ("abş", "abd") else r"(?!et|ет)" if w in ("bank", "банк") else _WORD_GUARD.get(w, "")
         r = _RX[w] = re.compile(r"(?<!\w)" + re.escape(norm_az(w)) + suffix)
     return r
 
@@ -608,12 +617,14 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     # A clear title topic takes precedence over incidental location words.
     title_text = norm_az(title)
     if president_score(title_text, lang) < 6:
+        if re.search(r"(?<!\w)(?:bürc|qoroskop|гороскоп|burç)", title_text):
+            return "Həyat"
         if re.search(r"\b(?:teatr\w*|tamaşa(?:sı(?:nın|na|nı|nda|ndan)?|lar(?:ı|ın|a|da|dan)?)?|premyera\w*|romanı|muzey\w*|mədəniyyətlərarası dialoq)\b", title_text):
             return "Mədəniyyət"
         if re.search(r"dini dözümsüzlük|dini tolerantlıq|media savadlılığı", title_text) and not re.search(r"süni intellekt|kibertəhlükəsizlik|proqram təminatı", title_text):
             return "Cəmiyyət"
     blob = norm_az(title + " " + desc)
-    scores = {}
+    scores, in_title = {}, {}
     for cat, words in CATEGORIES.items():
         if cat == "Prezident":
             # Xronikada xəbər özü rəhbərlik haqqında olmalıdır; xülasədəki
@@ -626,17 +637,21 @@ def categorize(title, desc, lang="az", hint=None, world=False):
                     hits += 2 if (" " in w.strip() or w in DOUBLE) else 1
             # başlıqdakı uyğunluqlar daha vacibdir
             tb = norm_az(title)
-            hits += sum(1 for w in words if _rx(w).search(tb))
+            in_title[cat] = sum(1 for w in words if _rx(w).search(tb))
+            hits += in_title[cat]
         hits *= BOOST.get(cat, 1)
         scores[cat] = hits
     if any(norm_az(s) in blob for s in STOPWORDS):
         scores["İqtisadiyyat"] = 0
+    # «Kiyevin doqquz rayonunda»: yer adı yoxdursa və söhbət başqa ölkədən gedirsə, Bölgələr deyil.
+    if scores["Bölgələr"] and (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS)) and not has_any(blob, PLACE_WORDS):
+        scores["Bölgələr"] = 0
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
         scores["Prezident"] = 0  # Zuğulba yalnız Azərbaycan mənbələrindəndir
     if hint and scores.get("Prezident", 0) < 6:
         return hint
-    best = max(scores, key=scores.get)
+    best = max(scores, key=lambda cat: (scores[cat], in_title.get(cat, 0)))  # bərabərlikdə başlıqdakı söz üstündür
     if scores[best] <= 0:
         return "Dünya" if world else FALLBACK
     # xarici mənbələrdə prezident bölməsi yalnız güclü göstərici ilə
@@ -992,9 +1007,12 @@ def fetch_feed(feed):
 # ------------------------------------------------------------ sürətli dövrə ---
 # QIRMIZI XƏTT 1 (docs/qirmizi-xetler.md): dövrə 60 saniyəyə sığmalıdır. Vaxtında cavab verməyən lent dövrəni
 # gözlətmir: sonuncu nəticəsi işlədilir, yavaş proses (--slow) onu ayrıca təzələyir.
-FAST_BUDGET_S = 25       # bütün lentlər üçün ümumi vaxt
+FAST_BUDGET_S = 20       # bütün lentlər üçün ümumi vaxt
 FAST_WORKERS = 40
 FAST_FETCH_TIMEOUT = 8
+FEED_FAILS_BEFORE_PAUSE = 3   # ardıcıl bu qədər alınmayan lent dövrəni saxlamasın (Femida.az hər dəqiqə 18 saniyə aparırdı)
+FEED_RETRY_S = 300       # dayandırılan lent bu qədərdən bir yoxlanır, arada onu yavaş proses oxuyur
+FEED_PAUSE_MAX_SHARE = 0.2    # lentlərin bu qədərindən çoxu birdən alınmırsa problem bizim şəbəkədir: heç nə dayandırılmır
 FEED_KEEP = 120          # lentdən yalnız ən yeni elementlər (İki Sahil 2000 element verir)
 FAST_MAX_ITEMS = 1000    # qruplaşdırma açdığı yer köhnə xəbərlə dolmasın, news.json böyüməsin
 FALLBACK_EVERY_S = 180   # Google News və Telegram ehtiyatını dəqiqədə bir yormayaq
@@ -1041,6 +1059,8 @@ def fetch_feed_fast(feed, old=None):
     """Bir lentin təzə nəticəsi: {items, url, at, err, etag, modified}."""
     source, url = feed[0], feed[1]
     old, started = old or {}, time.time()
+    if started - old.get("pausedAt", 0) < FEED_RETRY_S:
+        return {**old, "late": True}
     used = old.get("url") or url
     if used not in [url] + DIRECT_ALT.get(source, []):  # bu mənbə Google News və ya Telegram ilə gəlir
         if old.get("items") and started - old.get("at", 0) < FALLBACK_EVERY_S:
@@ -1050,16 +1070,20 @@ def fetch_feed_fast(feed, old=None):
         try:
             items = _fetch_conditional(used, entry)
             if items is None and old.get("items"):
-                return {**old, "at": started, "err": None}
+                return {**old, "at": started, "err": None, "fails": 0, "pausedAt": 0}
             if items:
                 return {**entry, "items": items[:FEED_KEEP], "url": used, "at": started, "err": None}
         except Exception:
             pass
     _, items, err, final = fetch_feed(feed)
+    fails = old.get("fails", 0) + 1 if err else 0
+    paused = started if fails >= FEED_FAILS_BEFORE_PAUSE else 0
     if err and old.get("items"):
-        return {**old, "err": err}
-    return {"items": items[:FEED_KEEP], "url": final or url, "at": started, "err": err}
+        return {**old, "err": err, "fails": fails, "pausedAt": paused}
+    return {"items": items[:FEED_KEEP], "url": final or url, "at": started, "err": err, "fails": fails, "pausedAt": paused}
 
+
+LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
 def collect_fast():
     """(results, official items, official errors). Heç bir lent dövrəni FAST_BUDGET_S-dən çox saxlamır."""
@@ -1074,14 +1098,26 @@ def collect_fast():
     wait([future for _, future in futures] + [official], timeout=FAST_BUDGET_S)
     pool.shutdown(wait=False, cancel_futures=True)
     now, results = time.time(), []
+    LATE_FEEDS.clear()
     for feed, future in futures:
         old = cache.get(feed[0]) or {}
         if future.done() and not future.cancelled() and future.exception() is None:
-            entry = future.result()
+            entry = dict(future.result())
+            if entry.pop("late", False):
+                LATE_FEEDS.add(feed[0])
         else:
             usable = old.get("items") and now - old.get("at", 0) < STALE_FEED_S
-            entry = {**old, "err": None if usable else "vaxt bitdi"}
+            entry = {**old, "err": None if usable else "vaxt bitdi", "pausedAt": now}
+            LATE_FEEDS.add(feed[0])
         cache[feed[0]] = entry
+    # Hamısı birdən alınmırsa səbəb bizdədir (DNS, şəbəkə): növbəti dövrə hamısını yenidən oxumalıdır.
+    paused = [name for name, entry in cache.items() if now - entry.get("pausedAt", 0) < 60]
+    if len(paused) > len(FEEDS) * FEED_PAUSE_MAX_SHARE:
+        print(f"  ! {len(paused)} lent birdən cavab vermir: dayandırılmır", flush=True)
+        for name in paused:
+            cache[name] = {**cache[name], "pausedAt": 0, "fails": 0}
+    for feed, _ in futures:
+        entry = cache[feed[0]]
         results.append((feed[0], entry.get("items") or [], entry.get("err"), entry.get("url") or feed[1]))
     saved = _read_json(OFFICIAL_CACHE, [])
     if official.done() and not official.cancelled() and official.exception() is None:
@@ -1113,15 +1149,32 @@ def apply_groups(articles):
         url = a.get("sourceUrl")
         if url in absorbed and url not in groups:
             continue
-        if url in groups:
-            known, alts = {url}, []
-            for alt in [*(a.get("alts") or []), *groups[url]]:
-                if alt.get("sourceUrl") not in known:
-                    known.add(alt.get("sourceUrl"))
-                    alts.append(alt)
-            a = {**a, "alts": alts}
+        # Yavaş prosesin nəticəsi köhnəni əvəz edir: birləşmə sonradan səhv çıxsa kartda qalmasın.
+        # Qrup faylı hələ yoxdursa (işin ilk dəqiqəsi) xəbərin öz siyahısı qalır.
+        if groups:
+            alts = [alt for alt in groups.get(url, []) if alt.get("sourceUrl") != url]
+            a = {**a, "alts": alts} if alts else {k: v for k, v in a.items() if k != "alts"}
         out.append(a)
     return out
+
+
+BULK_MIN_ITEMS, BULK_SPAN_S = 50, 1800
+
+def bulk_dated(items):
+    """Lentin tarixi yazının tarixi deyil: 50+ elementin 80%-i yarım saata sığır (Marja.az 2016-cı il xəbərlərini təzə tarixlə verir)."""
+    if len(items) < BULK_MIN_ITEMS:
+        return False
+    times = []
+    for it in items:
+        try:
+            times.append(email.utils.parsedate_to_datetime(re.sub(r"\s+", " ", (it.get("pubDate") or "").strip())).timestamp())
+        except Exception:
+            continue
+    keep = int(len(items) * 0.8)
+    if len(times) < keep:
+        return False
+    times.sort()
+    return min(times[i + keep - 1] - times[i] for i in range(len(times) - keep + 1)) <= BULK_SPAN_S
 
 
 def _older_than(pub, floor):
@@ -1187,13 +1240,53 @@ def resolve_undated():
     save_dates(dates)
 
 
+# Bölmə arxivi: lent gündüz 2-3 saat əhatə edir, bölmə səhifəsi isə günlərlə xəbər göstərməlidir.
+# Saatda bir yazılır: main-in tarixçəsi şişməsin. Lentdən çıxan xəbər ən azı 2 saat lentdə olduğu üçün heç nə itmir.
+ARCHIVE_DIR = OUT_DIR / "arxiv"
+ARCHIVE_DAYS, ARCHIVE_MAX, ARCHIVE_EVERY_S = 5, 200, 3600
+ARCHIVE_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "video")
+
+def update_archive(now=None):
+    now = now or time.time()
+    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    if not articles or now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S:
+        return
+    cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
+    merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []}
+    for slug, _label, _desc in SECTIONS:
+        if slug == "prezident":  # Zuğulba lentdə 60 gün qalır
+            continue
+        path, rows = ARCHIVE_DIR / f"{slug}.json", {}
+        for a in [*(_read_json(path, {}).get("articles") or []), *(a for a in articles if a.get("category") == slug)]:
+            url = a.get("sourceUrl")
+            if url and url not in merged:
+                rows[url] = {k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}
+        # Tarixi oxunmayan xəbər arxivdə qalmır.
+        kept = [a for a in rows.values() if (_parse_dt(a.get("publishedAt")) or cutoff - datetime.timedelta(1)) >= cutoff
+                and not is_junk(a.get("sourceUrl", "")) and not removed_source(a)
+                and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
+        kept, _ = content_policy.enforce(kept)
+        kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+        ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+        _write_atomic(path, json.dumps({"at": now, "articles": kept[:ARCHIVE_MAX]}, ensure_ascii=False, separators=(",", ":")))
+
+
+# Səsli oxu söndürülüb, reader.json-u işlədən yoxdur: 400 xəbərin tam mətni açıq yayımlanmasın (müəllif hüququ).
+# Sürücü rejimi qayıdanda (config.js, driver) True yazılır.
+READER_ENABLED = False
+
+def retire_reader():
+    if READER_ENABLED:
+        update_reader(_read_json(OUT_FILE, {}).get("articles") or [], OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6))
+    else:
+        (OUT_DIR / "reader.json").unlink(missing_ok=True)
+
+
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = _read_json(OUT_FILE, {}).get("articles") or []
     steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
-             lambda: fill_og_images(articles),
-             lambda: update_reader(articles, OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6)),
-             refresh_slow_feeds, write_public]
+             lambda: fill_og_images(articles), retire_reader, refresh_slow_feeds, write_public, update_archive]
     for step in steps:
         try:
             step()
@@ -1537,7 +1630,7 @@ PAGE_PARSERS = {
     YENIAZERBAYCAN_URL: parse_yeniazerbaycan,
 }
 
-def official_items():
+def official_items(tries=1, timeout=12):
     """Prezident və birinci xanımın rəsmi səhifələri.
 
     president.az/az/rss əsasən vətəndaş məktublarıdır; xəbərlər /az/news HTML-indədir.
@@ -1545,20 +1638,14 @@ def official_items():
     AZƏRTAC (rss-official-chronicle) bir çox şəbəkədən 403 qaytarır, ona görə burada yoxdur.
     AZƏRTAC-ın Regionlar bölməsinin RSS-i yoxdur (rss?cat=regionlar ümumi lentdir); HTML səhifəsi oxunur.
     """
-    items, errors = [], []
-    try:
-        for it in parse_azertag_regions(fetch_text(AZERTAG_REGIONS)):
-            items.append(("AZƏRTAC (Regionlar)", "az", "Bölgələr", None, it))
-    except Exception as e:
-        errors.append(f"AZƏRTAC (Regionlar): {type(e).__name__}: {str(e)[:80]}")
-    try:
-        page = fetch_text("https://president.az/az/news")
-        for it in parse_president_page(page):
-            items.append(("Prezident.az", "az", "Prezident", "Prezident", it))
-    except Exception as e:
-        errors.append(f"Prezident.az: {type(e).__name__}: {str(e)[:80]}")
-    try:
-        page = fetch_text("https://mehriban-aliyeva.az/site/catalogNews")
+    def regions():
+        return [("AZƏRTAC (Regionlar)", "az", "Bölgələr", None, it) for it in parse_azertag_regions(fetch_text(AZERTAG_REGIONS, tries, timeout))]
+
+    def president():
+        return [("Prezident.az", "az", "Prezident", "Prezident", it) for it in parse_president_page(fetch_text("https://president.az/az/news", tries, timeout))]
+
+    def first_lady():
+        items, page = [], fetch_text("https://mehriban-aliyeva.az/site/catalogNews", tries, timeout)
         for td in re.findall(r'<td class="col-\d">(.*?)</td>', page, re.S):
             href = re.search(r'class="view-title" href="([^"]+)"', td)
             date = re.search(r'class="view-date">([^<]+)', td)
@@ -1574,8 +1661,17 @@ def official_items():
                 "pubDate": parse_az_date(date.group(1) if date else ""),
                 "image": _abs_img(img.group(1), link) if img else None, "author": "",
             }))
-    except Exception as e:
-        errors.append(f"Mehriban Əliyeva: {type(e).__name__}: {str(e)[:80]}")
+        return items
+
+    # Hər səhifənin öz vaxtı var: biri asılsa president.az gözləmir, xətası da statusda görünür.
+    items, errors = [], []
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        pages = [("AZƏRTAC (Regionlar)", ex.submit(regions)), ("Prezident.az", ex.submit(president)), ("Mehriban Əliyeva", ex.submit(first_lady))]
+    for name, future in pages:
+        try:
+            items.extend(future.result())
+        except Exception as e:
+            errors.append(f"{name}: {type(e).__name__}: {str(e)[:80]}")
     return items, errors
 
 # X paylaşımları: X-in açıq lenti/embed-i 2026-da çıxışsız istifadəçiyə bağlıdır (syndication 429, embed boş iframe).
@@ -2084,10 +2180,11 @@ def _titles_similar(toks, sh, other_toks, other_sh):
 #   3) şəxs/qurum adları yazılış fərqinə dözümlü tutuşdurulur (Abubəkirov / Əbubəkirov),
 #   4) başlıq+xülasənin söz kökləri (şəkilçilər atılmış) müqayisə olunur.
 #   Keçidli birləşmə: A~B və B~C olanda hər üçü bir kartdadır. Rəsmi mənbələrə tətbiq edilmir (şablon başlıqlar).
-_CONCEPT_RX = [(re.compile(p), " " + c + " ") for p, c in (
+# (?<!\w): «dayanıb» yanğın, «bölüb» ölüm sayılmasın.
+_CONCEPT_RX = [(re.compile(r"(?<!\w)(?:" + p + ")"), " " + c + " ") for p, c in (
     (r"həyatını itir\w*|dünyasını dəyiş\w*|vəfat\w*|həlak\w*|öl(?:üb|dü|üm|ən|məsi|dürül|ü\b)\w*|intihar\w*|cəsəd\w*|meyit\w*", "ölüm"),
-    (r"jurnalist\w*|media nümayəndə\w*|mətbuat nümayəndə\w*|mətbuat əməkdaş\w*|reportyor\w*|müxbir\w*|çəkiliş qrup\w*|operator\w*", "media"),
-    (r"döy(?:üb|dü|ül|məsi|ərək)\w*|hücum\w*|zorakılıq\w*|\bdava(?:sı|lar|da|sında)?\b|qətl\w*|bıçaqla\w*|güllələ\w*|vur(?:ub|du|ulub|ulan|ublar)\w*|təpik\w*|yumruq\w*", "zorakılıq"),
+    (r"jurnalist\w*|media nümayəndə\w*|mətbuat nümayəndə\w*|mətbuat əməkdaş\w*|reportyor\w*|müxbir\w*|çəkiliş qrup\w*", "media"),
+    (r"döy(?:üb|dü|ül|məsi|ərək)\w*|hücum(?!çu)\w*|zorakılıq\w*|\bdava(?:sı|lar|da|sında)?\b|qətl\w*|bıçaqla\w*|güllələ\w*|vur(?:ub|du|ulub|ulan|ublar)\w*|təpik\w*|yumruq\w*", "zorakılıq"),
     (r"işdən (?:çıxar|azad|ayrıl|uzaqlaş|kənarlaş)\w*|vəzifə\w* (?:azad|çıxar|ayrıl|uzaqlaş|kənarlaş)\w*|azad (?:edil|olun)\w*|istefa\w*", "istefa"),
     (r"təyin (?:edil|olun)\w*|vəzifəyə təyin\w*", "təyinat"),
     (r"həbs\w*|saxlanıl\w*|saxlanan\w*|tutul(?:ub|du|an|ması)\w*|cinayət işi|ittiham\w*", "həbs"),
@@ -2361,7 +2458,8 @@ def group_duplicates(articles):
                         score = 3
                 elif not same_src and any(_titles_similar(toks, sh, mtks, msh) for _mt, mtks, msh, _ma in near):
                     score = 3
-                elif len(members) < 12:
+                elif not same_src and len(members) < 12:
+                    # Eyni saytın iki yazısı hadisə oxşarlığı ilə birləşmir: çox vaxt ayrı xəbərlərdir.
                     # Hadisə əsaslı uyğunluq yalnız klasterin toxumu (ilk, ən yeni üzv) ilə yoxlanır — ulduz topologiyası.
                     # Hər hansı üzvlə müqayisə zəncirvari «qar topu» yaradırdı (canlıda 330 alternativli kart).
                     seed = members[0]
@@ -2414,6 +2512,13 @@ def group_duplicates(articles):
                     kept.append(alt)
             alts.extend(kept[:max(0, 20 - len(alts))])
         alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
+        # Kartdakı «N mənbə» həqiqətən N sayt demək olsun.
+        sources_seen, unique = {primary.get("source")}, []
+        for alt in alts:
+            if alt.get("source") not in sources_seen:
+                sources_seen.add(alt.get("source"))
+                unique.append(alt)
+        alts = unique
         if alts:
             primary["alts"] = alts
         else:
@@ -2511,7 +2616,7 @@ def _xml(s):
     return html.escape(cur, quote=True)
 
 def write_feed(articles):
-    items = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)[:50]
+    items = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)[:100]
     now = datetime.datetime.now(datetime.timezone.utc)
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -2615,7 +2720,7 @@ def write_sections(articles):
 
 def write_sitemap():
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-    locs = [SITE, SITE + "feed.xml"] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in SECTIONS]
+    locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in SECTIONS]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc in locs:
@@ -2625,7 +2730,8 @@ def write_sitemap():
 
 def write_robots():
     _write_atomic(ROBOTS_FILE, 
-        "User-agent: *\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n",
+        "User-agent: *\nDisallow: /tests/\nDisallow: /docs/\nDisallow: /android/\nDisallow: /.github/\nDisallow: /updater.py\n"
+        "Disallow: /reader_content.py\nDisallow: /content_policy.py\nDisallow: /README.md\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n",
         encoding="utf-8")
 
 def write_public():
@@ -2976,6 +3082,23 @@ def main(fast=False):
     # Əvvəlcə siyahıda olan, lakin «ilk görülmə» vaxtı ilə qalmış tarixsiz xəbərlər (tarix keşi yaranana qədər
     # yığılanlar): büdcəni onlar alır, yoxsa 2000 elementlik lentdə növbə onlara heç çatmır və saatlarla
     # «N saat əvvəl» kimi bölmələrin başında qalırlar. Səhifə tarixi tapılanda köhnə qeydin vaxtı düzəldilir.
+    # Tarixi etibarsız lent: elementləri götürülmür, əvvəl düşənlər də çıxır. Lent qoşulu qalır, tarix düzələndə özü qayıdır.
+    bulk = {source for source, items, err, _ in results if not err and bulk_dated(items)}
+    if bulk:
+        print("  ⊘ tarixi etibarsız lent:", ", ".join(sorted(bulk)), flush=True)
+        old = [a for a in old if a.get("source") not in bulk]
+        for a in old:
+            if a.get("alts"):
+                a["alts"] = [alt for alt in a["alts"] if alt.get("source") not in bulk]
+    # Limiti dolmuş mənbənin kəsiləcək köhnə elementləri hər dəqiqə yenidən emal olunmasın.
+    source_floor, by_source = {}, {}
+    for a in old if fast else []:
+        by_source.setdefault(a.get("source"), []).append(_parse_dt(a.get("publishedAt")))
+    for source, dates in by_source.items():
+        cap = MAX_PER_WORLD_SOURCE if source in WORLD_SOURCES else MAX_PER_SOURCE
+        dates = sorted((d for d in dates if d), reverse=True)
+        if len(dates) >= cap:
+            source_floor[source] = dates[cap - 1]
     for _, items, err, _ in results:
         for it in items if not err else []:
             if not it.get("pubDate") and it.get("link") in old_by_url:
@@ -2983,17 +3106,20 @@ def main(fast=False):
                 if iso:
                     old_by_url[it["link"]]["publishedAt"] = iso
     for (source, url, dlang, hint), (_, items, err, used_url) in zip(FEEDS, results):
-        source_rows.append({"name": source, "url": used_url or url, "count": 0 if err else len(items), "error": err})
+        source_rows.append({"name": source, "url": used_url or url, "count": 0 if err else len(items),
+                            "error": err or ("cavab gecikir" if fast and source in LATE_FEEDS else None)})
         if err:
             errors.append(f"{source}: {err}")
             continue
         if not items:
             empty.append(source)
-        for it in items:
+        for it in items if source not in bulk else []:
             try:
                 if it["link"] in seen or is_junk(it["link"]):
                     continue
                 if floor and it.get("pubDate") and _older_than(it["pubDate"], floor):
+                    continue
+                if source in source_floor and it.get("pubDate") and _older_than(it["pubDate"], source_floor[source]):
                     continue
                 if it["link"] in region_links:  # Regionlar səhifəsindən gələcək; lentin xülasəsi ona verilir
                     region_desc[it["link"]] = it.get("description") or ""
@@ -3037,17 +3163,18 @@ def main(fast=False):
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
-    per_src = {}
+    per_src, world_count = {}, 0
     # Tarixə görə birgə sıralama. Əvvəl «yeni» (bu dövrədə ilk dəfə görülən) xəbərlər köhnələrdən qabaq gəlirdi;
     # limitdən kənarda qalan köhnə xəbərlər növbəti dövrədə yenidən «yeni» sayılıb siyahını hər dəfə dəyişirdi
     # (813-dən yalnız ~50 xəbər dövrədən dövrəyə qalırdı; og keşi və qruplar daim sıfırlanırdı).
     for a in sorted(new_items + old, key=lambda x: x.get("publishedAt") or "", reverse=True):
         if a["sourceUrl"] in dseen:
             continue
-        n = per_src.get(a.get("source"), 0)
-        if n >= MAX_PER_SOURCE:
+        n, is_world = per_src.get(a.get("source"), 0), a.get("source") in WORLD_SOURCES
+        if n >= (MAX_PER_WORLD_SOURCE if is_world else MAX_PER_SOURCE) or (is_world and world_count >= MAX_WORLD):
             continue
         per_src[a.get("source")] = n + 1
+        world_count += is_world
         dseen.add(a["sourceUrl"]); uniq.append(a)
     # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
     # Əvvəl yalnız 800-dən kənarda qalanlar əlavə olunurdu; siyahı 800-dən qısa olanda heç nə əlavə olunmurdu.
@@ -3117,7 +3244,7 @@ def main(fast=False):
     _write_atomic(OUT_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     if not fast:
         try:
-            update_reader(articles, OUT_DIR / 'reader.json', lambda url: fetch(url, timeout=6))
+            retire_reader()
         except Exception as e:
             print('  ! audio mətn:', type(e).__name__)
     ok = len(FEEDS) - len(errors) - len(empty)
