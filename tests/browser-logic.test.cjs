@@ -181,6 +181,7 @@ test('sport buttons: short list, every topic finds its news in every language, n
   const ctx=app(),{clubMatches}=ctx.api;
   const yes=(club,title,extra={})=>assert.equal(clubMatches({title,...extra},club),true,club+': '+title);
   const no=(club,title,extra={})=>assert.equal(clubMatches({title,...extra},club),false,club+': '+title);
+  yes('Qarabağ','Qarabağ qalib gəldi');no('Qarabağ','Qarabağ Dirçəliş Fondu QHT-lər üçün qrant müsabiqəsi elan edib');no('Qarabağ','Qarabağ Universitetində yeni fakültə');
   yes('Sabah','"Sabah" səfərdə "Turan Tovuz"a məğlub oldu');yes('Sabah','Dambrauskas "Sabah"ın məğlubiyyətini şərh etdi');no('Sabah','Sabah Şahbuzda işıq olmayacaq');no('Sabah','Oyun sabah başlayır');
   yes('Araz-Naxçıvan','“Araz-Naxçıvan” “Zirə”yə qarşı');no('Araz-Naxçıvan','Araz çayında balıq ovu');
   yes('Galatasaray',"Galatasaray'da yeni transfer");yes('Galatasaray','Super Liqa: "Qalatasaray" darmadağına sevindi');yes('Galatasaray','Защитник «Галатасарая» получил травму');

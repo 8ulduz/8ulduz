@@ -32,7 +32,8 @@ AZ_FEEDS = [
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
     ("APA Sport",    "https://apasport.az/rss", "İdman"),
-    ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman"),
+    # Lent qarışıqdır (hava proqnozu, şou-biznes da var): idmana yalnız idman sözü olan xəbər gedir.
+    ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman?"),
     ("Qol.az",       "https://www.qol.az/rss/", "İdman"),
     ("Fanat.az",     "https://fanat.az/feed", "İdman"),
     ("Oxu.az",       "https://oxu.az/feed"),
@@ -676,6 +677,8 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
         scores["Prezident"] = 0  # Zuğulba yalnız Azərbaycan mənbələrindəndir
+    if hint == "İdman?":
+        hint = "İdman" if scores["İdman"] > 0 else None
     if hint and scores.get("Prezident", 0) < 6:
         return hint
     best = max(scores, key=lambda cat: (scores[cat], in_title.get(cat, 0)))  # bərabərlikdə başlıqdakı söz üstündür

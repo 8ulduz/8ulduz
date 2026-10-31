@@ -463,6 +463,12 @@ class QualityTest(unittest.TestCase):
         self.assertLess(updater.MAX_PER_WORLD_SOURCE, updater.MAX_PER_SOURCE)
         self.assertLess(updater.MAX_WORLD + updater.MAX_WORLD_SPORT, updater.FAST_MAX_ITEMS * 0.4)
 
+    def test_a_mixed_feed_sends_only_sport_to_the_sports_section(self):
+        self.assertEqual(updater.categorize("Oktyabrın son günü yağış yağacaq - HAVA PROQNOZU", "", "az", "İdman?"), "Cəmiyyət")
+        self.assertNotEqual(updater.categorize("Sevgilisi ilə barışdı", "", "az", "İdman?"), "İdman")
+        self.assertEqual(updater.categorize("Bakıda futbol turniri başladı", "", "az", "İdman?"), "İdman")
+        self.assertEqual(updater.categorize("Heç bir idman sözü yoxdur burada", "", "az", "İdman"), "İdman")
+
     def test_every_new_sport_feed_is_registered_and_marked_as_sport(self):
         for name in ("Qol.az", "Fanat.az"):
             self.assertTrue(content_policy.source_registered(name))

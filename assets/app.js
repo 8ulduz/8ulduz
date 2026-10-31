@@ -45,10 +45,10 @@ const PROFILES = [
   ]},
 ];
 // İdman bölməsinin düymələri. keys: bütöv ad (şəkilçi ilə), stems: söz başlanğıcı, quoted: dırnaqda ad
-// («sabah» sözü «tomorrow» da deməkdir, «Araz» çaydır), sources: bu mövzuya aid idman saytı.
+// («sabah» sözü «tomorrow» da deməkdir, «Araz» çaydır), sources: bu mövzuya aid idman saytı, not: bu söz varsa başqa mövzudur.
 const SPORT_TOPICS = [
   { group: "Azərbaycan", items: [
-    { name: "Qarabağ", keys: ["qarabağ", "qarabag", "qarabakh", "карабах"] },
+    { name: "Qarabağ", keys: ["qarabağ", "qarabag", "qarabakh", "карабах"], not: ["dirçəliş", "universitet", "bərpa", "yenidənqurma"] },
     { name: "Neftçi", keys: ["neftçi", "neftchi", "нефтчи"] },
     { name: "Sabah", keys: ["sabah fk", "сабах"], quoted: "sabah" },
     { name: "Zirə", keys: ["zirə", "зиря"] },
@@ -1073,7 +1073,8 @@ function clubMatches(a, club) {
   const raw = decode(a.title + ' ' + (a.summary || ''));
   if (topic.quoted && new RegExp(`["«“'‘„]${topic.quoted}["»”'’]`, "iu").test(raw)) return true;
   // Word starts allow suffixes (Qarabağın / Карабаха), without matching e.g. “international” for Inter.
-  return topicRx(topic).test(` ${topicKey(raw)} `);
+  const text = ` ${topicKey(raw)} `;
+  return topicRx(topic).test(text) && !topic.not?.some(w => text.includes(topicKey(w)));
 }
 function sportChips() {
   const pill = (name, label = name) => `<button class="pill ${(S.club || "") === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
