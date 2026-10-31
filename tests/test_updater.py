@@ -659,6 +659,12 @@ class SectionPagesTest(unittest.TestCase):
     def test_yuan_is_a_tracked_currency(self):
         self.assertIn(("CNY", "Yuan", "AZN", 4), updater.MARKET_DEFS)
 
+    def test_lent_links_lead_to_the_story_not_the_home_page(self):
+        fix = updater.fix_source_link
+        self.assertEqual(fix("https://lent.az/xeber/idman/baslig-40694450/1"), "https://lent.az/xeber/idman/baslig-40694450")
+        self.assertEqual(fix("https://lent.az/xeber/idman/baslig-40694450"), "https://lent.az/xeber/idman/baslig-40694450")
+        self.assertEqual(fix("https://apa.az/xeber/baslig-40694450/1"), "https://apa.az/xeber/baslig-40694450/1")
+
     def test_doubled_image_address_is_repaired(self):
         self.assertEqual(updater._abs_img("https://azpolitika.infohttps://static.azpolitika.info/a.jpg", "https://azpolitika.info/x"), "https://static.azpolitika.info/a.jpg")
         kept = "https://iaaspr.tmgrup.com.tr/5cd/0/0?u=https://iaspr.tmgrup.com.tr/a.jpg"
@@ -667,11 +673,19 @@ class SectionPagesTest(unittest.TestCase):
     def test_page_image_prefers_full_address_and_skips_site_logo(self):
         sporx = b'<meta property="og:image" content="/img/59/a.jpg"><script>{"image":"https://cdn.sporx.com/img/59/a.jpg"}</script>'
         self.assertEqual(updater._og_from_html(sporx, "https://www.sporx.com/x"), "https://cdn.sporx.com/img/59/a.jpg")
-        lent = ('<meta property="og:image" content="https://lent.az/site/assets/images/img/lent-az.png"><img src="https://lent.az/storage/old/sidebar.webp">' + "x" * 3000
-                + '<img src="https://ads.net/a.jpg"><img src="https://lent.az/storage/news/big/a.webp"><h1 class="news-title">Başlıq</h1><img src="https://lent.az/site/assets/images/icons/time.svg">').encode()
-        self.assertEqual(updater._og_from_html(lent, "https://lent.az/xeber/1"), "https://lent.az/storage/news/big/a.webp")
-        same = b'<meta property="og:image" content="https://x.az/brand.png"><img src="https://x.az/news/a.jpg"><h1>T</h1>'
-        self.assertEqual(updater._og_from_html(same, "https://x.az/1", {"https://x.az/brand.png"}), "https://x.az/news/a.jpg")
+        url = "https://lent.az/xeber/hadise/gizli-toy-1/1"
+        lent = ('<meta property="og:image" content="https://lent.az/site/assets/images/img/lent-az.png">'
+                '<a href="https://lent.az/xeber/hadise/basqa-xeber/1"><img src="https://lent.az/storage/news/big/basqa.webp"></a>'
+                '<img src="https://lent.az/storage/news/october/31/middle/onde.webp"><h1 class="news-title">Önə çıxan başqa xəbər</h1>'
+                '<a target="_blank" href="' + url + '" aria-label="x"><img src="https://lent.az/storage/news/big/oz.webp" alt="x"></a>').encode()
+        self.assertEqual(updater._og_from_html(lent, url), "https://lent.az/storage/news/big/oz.webp")
+        by_number = '<a href="https://lent.az/xeber/idman/basqa-baslig-40694450"><img src="https://lent.az/storage/news/big/n.webp"></a>'.encode()
+        self.assertEqual(updater._og_from_html(by_number, "https://lent.az/xeber/idman/ilk-baslig-40694450/1"), "https://lent.az/storage/news/big/n.webp")
+        no_card = lent.replace(url.encode(), b"https://lent.az/xeber/hadise/ucuncu/1")
+        self.assertEqual(updater._og_from_html(no_card, url), "", "öz kartı yoxdursa yanlış şəkil yox, şəkilsiz")
+        same = b'<meta property="og:image" content="https://x.az/brand.png"><a href="/xeber/uzun-unvan-1"><img src="https://x.az/news/a.jpg"></a>'
+        self.assertEqual(updater._og_from_html(same, "https://x.az/xeber/uzun-unvan-1", {"https://x.az/brand.png"}), "https://x.az/news/a.jpg")
+        self.assertTrue(updater._is_generic_img("https://lent.az/storage/news/2026/october/31/middle/a.webp"), "səhv götürülmüş önə çıxan şəkil təmizlənir")
 
     def test_page_lookup_tells_blocked_from_network_failure(self):
         blocked = updater.urllib.error.HTTPError("u", 403, "x", {}, None)

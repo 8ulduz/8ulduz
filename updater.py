@@ -459,7 +459,7 @@ IMG_RE = re.compile(r"""<img[^>]+src\s*=\s*["']([^"']+)["']""", re.I)
 IMG_EXT = re.compile(r"\.(jpe?g|png|webp|gif|avif)(\?|$)", re.I)
 
 # Saytın ümumi paylaşım şəkli (loqo) xəbərin şəkli deyil: azertag social.jpg, «son dakika» lövhəsi və s.
-GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$|/site/assets/|/assets/images/", re.I)
+GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$|/site/assets/|/assets/images/|lent\.az/storage/news/.*/middle/", re.I)
 
 def _is_generic_img(u):
     return bool(u) and bool(GENERIC_IMG.search(u))
@@ -609,8 +609,10 @@ def _norm_iso(dt):
     return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
 
 def fix_source_link(link):
-    """Reyting.az lenti /haber/x.html yazır, o ünvan 404 verir; xəbərin əsl ünvanı /xeber/x-dir."""
-    return re.sub(r"^(https?://(?:www\.)?reyting\.az)/haber/(.+?)\.html$", r"\1/xeber/\2", link or "")
+    """Reyting.az lenti /haber/x.html yazır, o ünvan 404 verir; xəbərin əsl ünvanı /xeber/x-dir.
+    Lent.az lenti .../basliq-123/1 yazır, o ünvan ana səhifəyə atır; xəbərin özü .../basliq-123-dədir."""
+    link = re.sub(r"^(https?://(?:www\.)?reyting\.az)/haber/(.+?)\.html$", r"\1/xeber/\2", link or "")
+    return re.sub(r"^(https?://(?:www\.)?lent\.az/xeber/.+-\d+)/1/?$", r"\1", link)
 
 
 def fixed_source_date(link, now=None):
@@ -1390,6 +1392,8 @@ def feed_backlog(cutoff):
 
 def fill_archive_images(rows, images, limit=40):
     """Lentdən keçməyən xəbərin (feed_backlog) og:image sorğusu olmayıb: burada, bir saata 40 səhifə. Tapılan arxivdə qalır."""
+    for url in [u for u, img in images.items() if _is_generic_img(img)]:
+        del images[url]
     todo = [a["sourceUrl"] for a in rows if not a.get("imageUrl") and a["sourceUrl"] not in images][:limit]
     if todo:
         with ThreadPoolExecutor(max_workers=8) as ex:
@@ -1430,6 +1434,9 @@ def update_archive(now=None):
         kept, _ = content_policy.enforce(kept)
         kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
         kept = kept[:ARCHIVE_MAX_BY_SECTION.get(slug, ARCHIVE_MAX)]
+        for a in kept:
+            if _is_generic_img(a.get("imageUrl")):
+                del a["imageUrl"]
         if slug in BACKLOG_SECTIONS:
             kept = fill_archive_images(kept, images)
         ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
@@ -3050,20 +3057,22 @@ _OG_NAMES = {"og:image", "og:image:url", "twitter:image", "twitter:image:src"}
 _LD_IMG = re.compile(r'"image"\s*:\s*(?:\{[^}]*?"url"\s*:\s*)?"(https?://[^"]+)"', re.I)
 _IMG_SRC = re.compile(r'<link[^>]+rel=["\']image_src["\'][^>]+href=["\']([^"\']+)', re.I)
 
-_H1 = re.compile(r"<h1\b", re.I)
 _PAGE_IMG = re.compile(r"""<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)""", re.I)
 _NOT_PHOTO = re.compile(r"\.(?:gif|svg)(?:\?|$)|icon|avatar|banner|sprite|pixel|^data:", re.I)
 
-def _headline_img(text, base, skip=()):
-    """og:image saytın loqosudursa (Lent.az) xəbərin öz şəkli başlığın yanındadır. Yalnız saytın öz ünvanından: reklam olmasın."""
-    h1 = _H1.search(text)
-    if not h1:
+def _own_card_img(text, url, skip=()):
+    """og:image saytın loqosudursa (Lent.az): səhifədə bu xəbərin öz kartı axtarılır, yəni məhz bu ünvana keçid olan şəkil.
+    Səhifənin ilk başlığı olmaz: Lent.az hər səhifədə eyni önə çıxan xəbəri göstərir, xəbər yanlış şəkil alırdı (2026-10-31)."""
+    path = urllib.parse.urlparse(url).path
+    if len(path) < 12:
         return ""
-    host = urllib.parse.urlparse(base).netloc.replace("www.", "")
-    near = [(abs(m.start() - h1.start()), m.group(1)) for m in _PAGE_IMG.finditer(text, max(0, h1.start() - 2500), h1.start() + 2500)]
-    for _, src in sorted(near, key=lambda n: n[0]):
-        img = _abs_img(src, base)
-        if img and host and host in urllib.parse.urlparse(img).netloc and img not in skip and not _is_generic_img(img) and not _NOT_PHOTO.search(img):
+    # Lent.az lentdə «.../basliq-40694450/1», kartda başqa başlıqla «.../basliq-2-40694450» yazır: ünvanda nömrə varsa o müqayisə olunur.
+    number = re.search(r"-(\d{5,})(?:/\d+)?/?$", path)
+    target = r"""[^"']*-""" + number.group(1) + r"(?:/\d+)?/?" if number else r"""(?:https?://[^/"']+)?""" + re.escape(path)
+    for card in re.finditer(r"""<a\b[^>]*href=["']""" + target + r"""["'][^>]*>(.*?)</a>""", text, re.S):
+        src = _PAGE_IMG.search(card.group(1))
+        img = _abs_img(src.group(1), url) if src else ""
+        if img and img not in skip and not _is_generic_img(img) and not _NOT_PHOTO.search(img):
             return img
     return ""
 
@@ -3088,7 +3097,7 @@ def _og_from_html(raw, base, skip=()):
         img = _abs_img(c, base)
         if img and img not in skip and not _is_generic_img(img):
             return img
-    return _headline_img(text, base, skip)
+    return _own_card_img(text, base, skip)
 
 def _fetch_og(url, skip=()):
     """Şəkil ünvanı; səhifədə yoxdursa və ya sayt bizi buraxmırsa "" (403: tez-tez yoxlanmır), şəbəkə xətasında None (tezliklə yenidən)."""
