@@ -196,6 +196,18 @@ class FastCycleTest(unittest.TestCase):
     def news(self, name="news.json"):
         return json.loads((self.root / "data" / name).read_text(encoding="utf-8"))["articles"]
 
+    def test_image_added_to_the_feed_later_reaches_the_story(self):
+        link = "https://apa.az/haqqinda-1"
+        def feed(image):
+            def fetcher(feed, old=None):
+                rows = [dict(self.item(link, "Avropada güclü fırtına başladı"), image=image)] if feed[0] == "APA" else []
+                return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
+            return fetcher
+        self.cycle(feed(None))
+        self.assertFalse(next(a for a in self.news() if a["sourceUrl"] == link).get("imageUrl"))
+        self.cycle(feed("https://apa.az/sekil.jpg"))
+        self.assertEqual(next(a for a in self.news() if a["sourceUrl"] == link)["imageUrl"], "https://apa.az/sekil.jpg")
+
     def test_a_hanging_feed_does_not_hold_the_cycle(self):
         def fetcher(feed, old=None):
             if feed[0] == "Report":

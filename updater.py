@@ -3483,6 +3483,10 @@ def main(fast=False):
         for it in items if source not in bulk else []:
             try:
                 if it["link"] in seen or is_junk(it["link"]):
+                    # Match TV şəkli lentə sonra əlavə edir: artıq görülmüş xəbər şəkilsiz qalmasın (şəbəkə sorğusu yoxdur).
+                    known = old_by_url.get(it["link"])
+                    if known is not None and not known.get("imageUrl") and it.get("image"):
+                        known["imageUrl"] = it["image"]
                     continue
                 if floor and it.get("pubDate") and _older_than(it["pubDate"], floor):
                     continue
