@@ -43,6 +43,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Müvəqqəti dövlət saytları ölçüsü
+        continue-on-error: true
+        env:
+          UPDATER_ROOT: ${{ runner.temp }}/reach
+        run: python -u .github/scripts/reach_tmp.py
       - name: Üç sürətli dövrə
         env:
           UPDATER_ROOT: ${{ runner.temp }}/site
