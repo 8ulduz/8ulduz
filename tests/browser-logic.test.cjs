@@ -157,6 +157,10 @@ test('an update waits while the reader is busy: open video, open popup, typing, 
   ctx.api.requestRender();
   assert.equal(ctx.api.S.renderPending,true);
 });
+test('speed red line: the page code stays within its size limit',()=>{
+  assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<200e3,'app.js');
+  assert.ok(fs.statSync(path.join(root,'assets/app.css')).size<95e3,'app.css');
+});
 test('speed red line: files arriving together cause one redraw, not one each',async()=>{
   const ctx=app();
   vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render;',ctx);
