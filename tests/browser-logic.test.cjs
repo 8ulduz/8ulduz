@@ -176,7 +176,7 @@ test('Zuğulba always shows 44 stories: official and state sites first, then oth
   const few=[...prezHome(rows.slice(0,3),rows)];
   assert.equal(few.length,44,'seçilmiş dildə az olsa da 44');
   const html=prezBlock(out);
-  assert.ok(html.includes('İlk <b>44</b> xəbər'),'yazı');
+  assert.ok(html.includes('Son <b>44</b> xəbər'),'yazı');
   const foreign=[...prezHome([row('r0','Report',1),{...row('y','Axar.az',2),title:'Husilər prezident sarayına zərbələr endirdi'},{...row('f','Sportinfo',3),title:'Fənərbağçanın prezidenti danışdı'}])];
   assert.deepEqual(foreign.map(a=>a.id),['r0'],'yad xəbərlə doldurulmur');
   assert.equal(html.split('class="pcard').length-1,44,'44 kartın hamısı');
@@ -185,6 +185,86 @@ test('Zuğulba always shows 44 stories: official and state sites first, then oth
   assert.equal(pics.split('class="pcard').length-1,44,'şəkilli 44 kart');
   assert.equal(pics.split('<img src=').length-1,8,'ilk açılışda yalnız 8 şəkil yüklənir');
   assert.equal(pics.split('<img data-src=').length-1,36,'qalan şəkillər lent sürüşəndə gəlir');
+});
+const firstRow=id=>({id,title:'Xəbər başlığı '+id,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:new Date().toISOString()});
+function firstApp(files){
+  const ctx=app(),seen=[];
+  ctx.fetch=async url=>{const name=String(url).split('?')[0];seen.push(name);const body=files[name];if(!body)return {ok:false,status:404,headers:new Headers()};return {ok:true,headers:new Headers(),json:async()=>body};};
+  vm.runInContext('globalThis.paints=[]; render = () => { paints.push(S.data ? S.data.articles.length + (S.partial ? " ilk" : " tam") : "boş"); }; globalThis.boot = () => { S.firstReady = loadFirst(); return loadNews(); };',ctx);
+  return {ctx,seen};
+}
+test('first screen paints from first.json, the full list is asked after it and replaces it even with the same stamp',async()=>{
+  const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+  await ctx.boot();
+  assert.ok(seen.indexOf('data/first.json')<seen.indexOf('data/news.json'));
+  assert.equal(ctx.paints[0],'1 ilk');
+  assert.equal(ctx.api.S.partial,false);
+  assert.equal(ctx.api.S.data.articles.length,2);
+});
+test('first screen uses its own image list and asks for the whole og file after painting',async()=>{
+  const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')],og:{'https://apa.az/a':'https://apa.az/a.jpg'}},'data/news.json':{updatedAt:'x',articles:[firstRow('a')]},'data/og.json':{}});
+  vm.runInContext('const realRender = render; render = () => { globalThis.imageAtPaint ??= S.data.articles[0].imageUrl; realRender(); };',ctx);
+  await ctx.boot();
+  assert.equal(ctx.imageAtPaint,'https://apa.az/a.jpg');
+  assert.ok(seen.indexOf('data/first.json')<seen.indexOf('data/news.json'));
+});
+test('first screen: without the file the full list still loads',async()=>{
+  const {ctx}=firstApp({'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+  await ctx.boot();
+  assert.equal(ctx.api.S.data.articles.length,2);
+  assert.ok(!ctx.api.S.partial);
+  assert.equal(ctx.paints[0],'2 tam');
+});
+test('first screen: other pages and languages wait for the full list, a short list is never shown',async()=>{
+  for(const set of ["location.hash='#/bolme/idman'","S.lang='ru'","S.q='neft'"]){
+    const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+    vm.runInContext(set,ctx);
+    await ctx.boot();
+    assert.ok(!seen.includes('data/first.json'),set);
+    assert.equal(ctx.paints[0],'2 tam',set);
+  }
+});
+test('first screen: if the full list fails the reader keeps the first screen and sees the error',async()=>{
+  const {ctx}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/og.json':{}});
+  await ctx.boot();
+  assert.equal(ctx.api.S.partial,true);
+  assert.ok(ctx.api.S.error);
+  assert.equal(ctx.api.S.data.articles.length,1);
+});
+test('first screen stops under the latest list: sections arrive with the full list, breaking alerts wait for it too',()=>{
+  const ctx=app(),{S,homeView,publishNews}=ctx.api;
+  let alerts=0;
+  vm.runInContext('checkBreaking = () => { globalThis.alerts = (globalThis.alerts || 0) + 1; };',ctx);
+  S.rawNews=[firstRow('a'),firstRow('b')];S.rawMeta={};S.partial=true;S.lang='az';
+  publishNews();
+  assert.equal(ctx.alerts,undefined,'qısa siyahı bildiriş yaddaşını korlamasın');
+  const short=homeView();
+  S.partial=false;
+  publishNews();
+  assert.equal(ctx.alerts,1);
+  const full=homeView();
+  assert.ok(!short.includes('service-panel')&&full.includes('service-panel'));
+  assert.ok(full.startsWith(short),'yuxarı hissə eynidir');
+});
+test('a story whose link is dead leaves the screen within a minute, moves to another source, and returns when fixed',async()=>{
+  const ctx=app(),{S}=ctx.api;
+  const main=firstRow('a'),other={...firstRow('b'),alts:[{source:'Report',sourceUrl:'https://report.az/b',title:'Report başlığı',publishedAt:new Date().toISOString()}]},plain=firstRow('c');
+  let dead=[];
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'x',articles:[],dead})});
+  vm.runInContext('requestRender = () => { globalThis.redrawn = (globalThis.redrawn || 0) + 1; };',ctx);
+  S.rawNews=[main,other,plain];S.rawMeta={};S.lang='az';
+  ctx.api.publishNews();
+  dead=['https://apa.az/a','https://apa.az/b'];
+  await ctx.loadLatest();
+  const urls=()=>[...S.data.articles].map(a=>a.sourceUrl).sort();
+  assert.deepEqual(urls(),['https://apa.az/c','https://report.az/b']);
+  assert.equal(S.data.articles.find(a=>a.sourceUrl==='https://report.az/b').title,'Report başlığı');
+  assert.equal(ctx.redrawn,1);
+  await ctx.loadLatest();
+  assert.equal(ctx.redrawn,1,'dəyişiklik yoxdursa ekrana toxunulmur');
+  dead=[];
+  await ctx.loadLatest();
+  assert.deepEqual(urls(),['https://apa.az/a','https://apa.az/b','https://apa.az/c']);
 });
 test('language order: Azerbaijani, Turkish, Russian, English',()=>{
   const ctx=app();

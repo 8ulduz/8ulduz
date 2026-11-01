@@ -20,6 +20,8 @@ CYCLE="${CYCLE:-60}"
 FAST_LIMIT="${FAST_LIMIT:-50}"
 SLOW_LIMIT="${SLOW_LIMIT:-280}"
 SLOW_EVERY="${SLOW_EVERY:-240}"
+LINKS_LIMIT="${LINKS_LIMIT:-55}"
+LINKS_EVERY="${LINKS_EVERY:-30}"
 MAIN_EVERY="${MAIN_EVERY:-600}"
 HANDOFF_AFTER="${HANDOFF_AFTER:-2820}"   # 47 dəq: növbəti işi başlat
 MAX_RUN="${MAX_RUN:-3600}"               # 60 dəq: növbəti iş görünməsə də çıx (timeout-minutes-dən əvvəl)
@@ -43,10 +45,12 @@ CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy
 SLOW_PID=""
 PUBLISH_PID=""
 WATCH_PID=""
+LINKS_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
   [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null
+  [ -n "$LINKS_PID" ] && kill "$LINKS_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -236,6 +240,17 @@ slow_loop() {
   done
 }
 
+# Ölü linkləri tapır. Xəbər dövrəsindən ayrıdır: asılsa və ya düşsə xəbər axınına təsiri yoxdur.
+# run_py işlədilmir: köhnə kod ehtiyatı --links bilmir və tam yeniləməyə keçərdi.
+links_loop() {
+  while :; do
+    local began=$SECONDS left
+    UPDATER_ROOT="$WORK" py_t "$LINKS_LIMIT" "$PY" "$CUR/updater.py" --links || echo "link yoxlaması xəta verdi"
+    left=$((LINKS_EVERY - (SECONDS - began)))
+    [ "$left" -gt 0 ] && sleep "$left"
+  done
+}
+
 # Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
 # GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
 self_watch() { # $1 əsas proses
@@ -243,6 +258,7 @@ self_watch() { # $1 əsas proses
     if [ $(( $(date +%s) - $(stat -c %Y "$STATE/heartbeat" 2>/dev/null || echo 0) )) -ge "$STUCK_AFTER" ]; then
       echo "::warning::Dövrə ${STUCK_AFTER} saniyədir irəliləmir, iş dayandırılır. Növbəti iş başlayacaq."
       [ -n "${2:-}" ] && kill "$2" 2>/dev/null
+      [ -n "${3:-}" ] && kill "$3" 2>/dev/null
       kill -TERM "$1" 2>/dev/null
       sleep 10
       kill -KILL "$1" 2>/dev/null
@@ -274,8 +290,10 @@ rm -f "$LKG/.yeni"
 
 slow_loop &
 SLOW_PID=$!
+links_loop &
+LINKS_PID=$!
 touch "$STATE/heartbeat"
-self_watch $$ "$SLOW_PID" &
+self_watch $$ "$SLOW_PID" "$LINKS_PID" &
 WATCH_PID=$!
 
 START=$SECONDS

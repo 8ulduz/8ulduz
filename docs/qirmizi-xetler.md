@@ -9,6 +9,7 @@ Sayt sahibinin qərarı (2026-10-30). Bu iki qayda dəyişməzdir. Hər kod dəy
 | Sürətli dövrə | Hər 60 saniyə lentləri oxuyur, cəmi 20 saniyə gözləyir. Vaxtında cavab verməyən lentin son nəticəsi işlədilir. | `updater.py --fast`, `pipeline.sh` |
 | Canlı kanal | `status.json`, `latest.json`, `markets.json` tarixçəsiz `live` budağına, hər dəqiqə ayrı yola (`m/<dəqiqə>/`) yazılır. Repo şişmir, Pages limitinə toxunmur. | `push_live` |
 | Yavaş işlər | Məzənnə, şəkil, video, idman, bölmə arxivi və SEO arxa planda işləyir, xəbəri gözlətmir. | `updater.py --slow` |
+| Ölü linklər | 30 saniyədən bir linkləri yoxlayır: 404 verən xəbər çıxır və ya başqa mənbəyə keçir, link düzələndə qayıdır. Xəbər dövrəsi şəbəkə gözləmir, proses düşsə axına təsiri yoxdur. | `updater.py --links`, `links_loop` |
 | Tam lent | Hər 10 dəqiqə `main`-ə yazılır, Pages yayımlayır. | `publish_main` |
 | Növbə dəyişməsi | İş bitməzdən əvvəl növbətisini başladır, onu görəndən sonra çıxır. | `pipeline.sh`, `update.yml` |
 | Sınıq kod | Cari kod işləməsə son işlək kodla davam edir. | `.lkg`, `run_py` |

@@ -44,7 +44,7 @@ def enforce_policy(root=pathlib.Path(".")):
     root = pathlib.Path(root)
     removed = {}
     archive = [f"arxiv/{p.name}" for p in sorted((root / "data" / "arxiv").glob("*.json"))]
-    for name in ("news.json", "latest.json", *archive):
+    for name in ("news.json", "latest.json", "first.json", *archive):
         path = root / "data" / name
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -55,7 +55,7 @@ def enforce_policy(root=pathlib.Path(".")):
         if clean == articles:
             continue
         data["articles"] = clean
-        if "count" in data or name in ("news.json", "latest.json"):
+        if "count" in data or name in ("news.json", "latest.json", "first.json"):
             data["count"] = len(clean)
         tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

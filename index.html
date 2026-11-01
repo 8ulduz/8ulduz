@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Yalnız skript mənbəyi məhdudlaşır. connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. -->
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://gc.zgo.at; object-src 'none'; base-uri 'self'" />
+    <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
+    <link rel="modulepreload" href="./assets/app.js" />
     <script>
       try {
         var t = localStorage.getItem("8ulduz-theme");
@@ -17,7 +19,10 @@
       try {
         var m = Math.floor(Date.now() / 60000);
         window.__early = {};
-        ["data/news.json", "data/og.json"].forEach(function (p) {
+        var lang = null;
+        try { lang = localStorage.getItem("8ulduz-lang"); } catch (e) {}
+        var home = (location.hash === "" || location.hash === "#/") && (lang === null || lang === "az");
+        (home ? ["data/first.json"] : ["data/news.json", "data/og.json"]).forEach(function (p) {
           var u = p + "?t=" + m;
           window.__early[u] = fetch(u, { cache: "no-store" });
           window.__early[u].catch(function () {});
@@ -80,8 +85,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" media="print" onload="this.media='all'" />
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" /></noscript>
     <link rel="stylesheet" href="./assets/app.css" />
-    <script src="./assets/config.js"></script>
-    <script src="./assets/content-policy.js"></script>
+    <script src="./assets/config.js" defer></script>
+    <script src="./assets/content-policy.js" defer></script>
     <script type="module" src="./assets/app.js"></script>
   </head>
   <body>
