@@ -98,7 +98,7 @@ const SPORT_TEAMS = [
 ];
 // Alt bölmələr. groups: alt bölmə seçiləndə açılan düymələr; alt bölmə onların xəbərlərini də əhatə edir.
 const TRANSFER_WORDS = { stems: ["transfer", "трансфер"], keys: ["icarəyə verilib", "icarəyə götürüb", "перешел в", "перешёл в", "перейдет в", "перейдёт в", "арендован", "signs for", "joins on loan", "free agent", "kiraladı", "kiralık"] };
-const TRANSFER_OTHER = ["voleybol", "volleyball", "волейбол", "həndbol", "hentbol", "handball", "гандбол", "хоккей", "hockey", "xokkey", "futzal", "formula 1", "tennis", "теннис", "ufc", "boks", "бокс", "biatlon", "биатлон", "pul transfer"];
+const TRANSFER_OTHER = ["voleybol", "volleyball", "волейбол", "həndbol", "handball", "гандбол", "хоккей", "hockey", "futzal", "formula 1", "tennis", "теннис", "ufc", "boks", "бокс", "pul transfer"];
 const BASKET_WORDS = ["basketbol", "basketball", "баскетбол", " nba", " нба", "euroleague", "avroliqa", "евролиг"], BASKET_SITES = ["Sportando", "TalkBasket", "Eurohoops"];
 const SPORT_TABS = [
   { name: "Transfer xəbərləri", ...TRANSFER_WORDS, not: TRANSFER_OTHER, groups: [{ group: "", items: [
@@ -1026,27 +1026,53 @@ function navPopHtml(slug, tab, liga) {
     (groups.length || leagues.length ? `<div class="pop-col two">${leagues.map(g => `${leagueHead(g)}${g.items.map(l => leagueLink(l, l === on)).join("")}`).join("")}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name, t.label)).join("")).join("")}</div>` : "") +
     (on?.clubs.length ? `<div class="pop-col clubs"><a class="pill all" href="#/komanda/${teamSlug(on.short)}">${esc(on.label)}: cədvəl və klublar ›</a>${on.clubs.map(([n, full]) => `<a class="pill" href="${teamHref(on, full)}">${esc(n)}</a>`).join("")}</div>` : "");
 }
+const popLeft = (left, width, widest) => Math.max(8, Math.min(left, width - widest - 8));
 // Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
 function bindNavPop() {
   const pop = $("#navpop");
   let timer;
   const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
   const hide = () => { clearTimeout(timer); pop.hidden = true; };
-  let anchor;
-  // Siyahı başlığın altından başlayır, ekrandan çıxacaqsa sola sürüşür.
-  const place = () => {
-    const head = $("#sitehead").getBoundingClientRect();
-    pop.style.left = `${Math.max(8, Math.min(anchor.getBoundingClientRect().left - head.left, head.width - pop.offsetWidth - 8))}px`;
+  let anchor, lastX = 0;
+  // Yer yalnız açılanda, ən geniş halına görə: sütun açılanda siyahı sürüşmür.
+  const place = (slug, from) => {
+    const head = $("#sitehead").getBoundingClientRect(), box = from.getBoundingClientRect();
+    pop.style.left = `${popLeft(box.left - head.left, head.width, slug === "more" ? 230 : slug === "idman" && innerWidth >= 900 ? 800 : 460)}px`;
+    pop.style.top = `${box.bottom - head.top}px`;
+    pop.style.setProperty("--pop-h", `${Math.max(200, innerHeight - box.bottom - 84)}px`);
   };
-  const show = (slug, tab, from = anchor, liga = "") => { anchor = from; pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.dataset.liga = liga; pop.innerHTML = navPopHtml(slug, tab, liga); pop.hidden = false; place(); };
+  // Dəyişməyən sütuna toxunulmur.
+  const paint = (html, keep) => {
+    const next = document.createElement("div");
+    next.innerHTML = html;
+    const cols = [...next.children];
+    cols.forEach((col, i) => {
+      const old = pop.children[i];
+      if (!old) return pop.append(col);
+      if (old.outerHTML === col.outerHTML) return;
+      const top = old.scrollTop;
+      old.replaceWith(col);
+      if (keep) col.scrollTop = top;
+    });
+    while (pop.children.length > cols.length) pop.lastChild.remove();
+  };
+  const show = (slug, tab, from = anchor, liga = "") => {
+    const opening = pop.hidden || pop.dataset.slug !== slug, keep = !opening && pop.dataset.tab === (tab ?? "");
+    if (opening) { pop.textContent = ""; place(slug, from); }
+    anchor = from; pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.dataset.liga = liga;
+    paint(navPopHtml(slug, tab, liga), keep);
+    pop.hidden = false;
+  };
   S.navRefresh = () => { if (!pop.hidden && pop.dataset.slug === "idman") show("idman", pop.dataset.tab || null, anchor, pop.dataset.liga); };
   $("#sitehead").addEventListener("mouseover", e => {
     if (e.target.closest("#navpop")) {
       clearTimeout(timer);
+      const wait = e.clientX > lastX ? 450 : 160;
+      lastX = e.clientX;
       const liga = e.target.closest("[data-liga]")?.dataset.liga;
-      if (liga && liga !== pop.dataset.liga) return later(() => show(pop.dataset.slug, pop.dataset.tab, anchor, liga), 160);
+      if (liga && liga !== pop.dataset.liga) return later(() => show(pop.dataset.slug, pop.dataset.tab, anchor, liga), wait);
       const name = e.target.closest("[data-club]")?.dataset.club, slug = pop.dataset.slug;
-      if (name !== undefined && name !== pop.dataset.tab && (!name || SUB_TABS[slug]?.some(t => t.name === name))) later(() => show(slug, name), 160);
+      if (name !== undefined && name !== pop.dataset.tab && (!name || SUB_TABS[slug]?.some(t => t.name === name))) later(() => show(slug, name), wait);
       return;
     }
     const item = e.target.closest("#nav a, #nav summary");
@@ -1313,7 +1339,7 @@ function clubMatches(a, club) {
   if (topicRx(topic).test(seen.text)) return true;
   return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
 }
-// Futbol və Basketbolun altında liqalar, klublar liqadan açılır. Ünvanlar updater.py-dakı team_world_league və _team_sources ilə eynidir.
+// Ünvanlar updater.py-dakı team_world_league və _team_sources ilə eynidir.
 const AZ_LEAGUES = ["Premyer Liqa", "I Liqa", "II Liqa", "Kubok", "Əvəzedicilər"];
 function navLeagues(slug, tab) {
   if (slug !== "idman") return [];
@@ -1330,7 +1356,7 @@ const leagueLink = (l, on) => `<a class="pill${on ? " on" : ""}" href="#/komanda
 function navGroups(tabs, open) {
   const groups = tabs.find(t => t.name === open)?.groups || [];
   if (open === "Transfer xəbərləri") return groups.map(g => ({ ...g, items: g.items.filter(t => t.label !== "Basketbol" || withArchive("idman", S.data?.articles || []).some(a => a.category === "idman" && clubMatches(a, t.name))) }));
-  // Məlumat çatana qədər klubların xəbər düymələri qalır, yoxsa onlara yol olmaz.
+  // Məlumat çatana qədər klubların düymələri qalır.
   if (open === "Basketbol") return navLeagues("idman", open).length ? [] : groups;
   if (open !== "Futbol") return groups;
   return groups.flatMap(g => g.group === "Azərbaycan" ? [{ group: "", items: g.items.filter(t => t.name === "Milli komanda") }] : S.sports?.leagues?.length ? [] : [g]);
