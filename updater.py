@@ -172,7 +172,7 @@ STOPWORDS = ["neftçala", "neftchala", "ceyran", "xəzər"]
 PRESIDENT_STRONG = [
     "ilham əliyev", "mehriban əliyeva", "birinci xanım", "prezident aparatı",
     "azərbaycan prezidenti", "prezident ilham", "azərbaycan respublikasının prezidenti",
-    "birinci vitse-prezident", "ali baş komandan",
+    "birinci vitse-prezident", "ali baş komandan", "azərbaycan lideri",
     "ilham aliyev", "mehriban aliyeva", "president of azerbaijan", "azerbaijani president",
     "president ilham", "first lady of azerbaijan",
     "ильхам алиев", "ильхама алиева", "ильхаму алиеву", "ильхамом алиевым",
@@ -184,8 +184,9 @@ PRESIDENT_STRONG = [
     "xanım mehriban", "first vice-president", "first vice president", "lady mehriban",
 ]
 # Zəif göstəricilər: yalnız xarici kontekst olmadıqda sayılır
-# "X prezidenti" (məs. "Azercell prezidenti", "FIFA prezidenti") başqasının prezidentidir — sayılmır.
-PRESIDENT_WEAK_RX = re.compile(r"(?<!\w)(?:prezident(?!i(?!\w)|inin|liy)|dövlət başçısı|ölkə başçısı)")
+# "X prezidenti" (məs. "Azercell prezidenti", "Fənərbağçanın prezidentinə") başqasının prezidentidir — bütün hallarda sayılmır.
+# «Prezidentlər», «prezidentlə», «prezidentlik» də kimin olduğunu demir. «Prezidentin tapşırığı» isə qalır.
+PRESIDENT_WEAK_RX = re.compile(r"(?<!\w)(?:prezident(?!i(?!\w)|in[iəd]|l)|dövlət başçısı|ölkə başçısı)")
 PRESIDENT_WEAK_EXTRA = ["sərəncam", "fərman", "təltif"]
 # Xarici kontekst: "Braziliyada prezident seçkiləri" kimi xəbərlər Prezident bölməsinə düşməsin
 SOCIAL_FOREIGN = ["dünyada", "в мире", "росси", "москв", "сша", "европ", "турци", "украин", "грузи", "армени", "казахстан", "герман", "франц", "китай"]
@@ -198,6 +199,7 @@ FOREIGN_MARKERS = [
     "ispaniya", "portuqaliya", "macarıstan", "çexiya", "slovakiya", "avstriya", "finlandiya",
     "litva", "latviya", "estoniya", "əfqanıstan", "iraq", "liviya", "tunis", "əlcəzair",
     "nigeriya", "keniya", "cənubi afrika", "kanada", "avstraliya", "filippin", "indoneziya",
+    "yəmən", "husi", "çex respublika", "səudiyyə", "livan", "iordaniya", "qətər", "yunanıstan", "albaniya", "xorvatiya",
     "bolsonaro", "bolsonaru", "keçmiş prezident", "sabiq prezident", "eks-prezident", "eks prezident", "prezident təqaüd",
     "tramp", "trump", "putin", "ərdoğan", "makron", "zelenski", "paşinyan", "tokayev",
     "mirziyoyev", "lukaşenko", "pezeşkiyan", "si szinpin", "lula", "milei", "bayden",
@@ -700,6 +702,9 @@ def president_score(blob, lang):
     weak = len(PRESIDENT_WEAK_RX.findall(blob))
     return weak + sum(1 for w in PRESIDENT_WEAK_EXTRA if _rx(w).search(blob)) if weak else 0
 
+SPORT_SITE_RX = re.compile(r"(?<!\w)(?:fənərba[ğx]ça|\w+spor(?!\w)|[\"“«](?:sabah|qarabağ|kəpəz|neftçi|zirə|inter|göztəpə)|legioner|heç-heçə|stadion|avrokubok|"
+                           r"komandası|klub|meydan[aı]|uduzdu|oyunu|millinin|heyətim|ehtiyatda qaldı|şans aldı|texniki məğlubiyyət|böyük dəbilqə|federasiya)")
+
 def categorize(title, desc, lang="az", hint=None, world=False):
     # A clear title topic takes precedence over incidental location words.
     title_text = norm_az(title)
@@ -717,6 +722,9 @@ def categorize(title, desc, lang="az", hint=None, world=False):
             # Xronikada xəbər özü rəhbərlik haqqında olmalıdır; xülasədəki
             # tarixi arayış və əlaqəli xəbərlərin mətni bunun üçün kifayət deyil.
             hits = president_score(norm_az(title), lang)
+            # Başlıqda yalnız ümumi «prezident» sözü var, ölkəni xülasə deyir: «Husilər prezident sarayına...» — «Yəməndə...».
+            if 0 < hits < 6 and has_any(blob, FOREIGN_MARKERS) and not _AZ_CONTEXT.search(blob):
+                hits = 0
         else:
             hits = 0
             for w in words:
@@ -745,6 +753,9 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     soft = hint[:-1] if hint and hint.endswith("?") else None
     if soft:
         hint = None
+        # İdman saytının dili: «Rüfət meydana çıxdı», «"Sabah"ın yolu». Bu sözlər başqa saytda idman demək deyil («gecə klubu»), ona görə ümumi siyahıda deyil.
+        if soft == "İdman" and scores["Prezident"] < 6 and SPORT_SITE_RX.search(norm_az(title)):
+            return soft
         if scores[soft] > 0:
             scores[soft] += 1
     if hint and scores.get("Prezident", 0) < 6:

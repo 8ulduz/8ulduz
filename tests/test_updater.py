@@ -802,6 +802,43 @@ class SectionPagesTest(unittest.TestCase):
             with self.subTest(title=title):
                 self.assertEqual(updater.label_for(title, "", lang), "Prezident")
 
+    def test_someone_elses_president_is_not_chronicle(self):
+        for title, summary in (("Qurban Qurbanovu “Fənərbağça”nın prezidentinə məsləhət görən", ""),
+                               ("Azercell prezidentindən açıqlama", ""),
+                               ("Baş prokuror Konstitusiya Məhkəməsinə hücum edən prezidentlə bağlı tədbirlər görməyə çağırdı", ""),
+                               ("Husilər prezident sarayına zərbələr endirdi", ""),
+                               ("Prezident sarayına zərbələr endirildi", "Yəməndə döyüşlər davam edir"),
+                               ("Prezident seçkidən sonra danışdı", "Moldovada səslər sayılıb")):
+            with self.subTest(title=title):
+                self.assertNotEqual(updater.label_for(title, summary, "az"), "Prezident")
+
+    def test_our_president_without_a_name_stays_in_chronicle(self):
+        for title, summary in (("Prezident: Beynəlxalq təmaslarımız göstərir ki, Azərbaycan etibar qazanan tərəfdir", ""),
+                               ("Prezidentin tapşırığı icra edilir", ""),
+                               ("Prezidentdən dünyaya qəti və birmənalı mesaj", ""),
+                               ("Prezident Mürvət Həsənlini medalla təltif etdi", ""),
+                               ("Azərbaycan lideri Çex Respublikasının Prezidentini təbrik edib", ""),
+                               ("Prezident tədbir iştirakçılarına müraciət ünvaladı", "İlham Əliyev Fransa nümayəndələrini salamlayıb")):
+            with self.subTest(title=title):
+                self.assertEqual(updater.label_for(title, summary, "az"), "Prezident")
+
+    def test_official_site_keeps_its_section_with_any_title(self):
+        self.assertEqual(updater.label_for("Sənədlər imzalanıb", "", "az", "Prezident"), "Prezident")
+
+    def test_sport_site_language_reaches_the_sport_section(self):
+        for title in ("Qurban Qurbanovu “Fənərbağça”nın prezidentinə məsləhət görən",
+                      "Rüfət meydana çıxdı, komandası son anda 1 xalı qurtardı",
+                      "\"Erzurumspor\" uduzdu, Nəriman Axundzadə yenə ehtiyatda qaldı",
+                      "“Bizim onlardan geri qalmağımızın əsas səbəbi heyətimizdə legionerlərin olmamasıdır”",
+                      "\"Sabah\" və \"Qarabağ\" Azərbaycanın ən yüksək səviyyəli komandalarıdır\""):
+            with self.subTest(title=title):
+                self.assertEqual(updater.label_for(title, "", "az", "İdman?"), "İdman")
+
+    def test_sport_site_keeps_its_other_stories_out_of_sport(self):
+        self.assertEqual(updater.label_for("Prezident İlham Əliyev İspaniya millisini mükafatlandırdı", "", "az", "İdman?"), "Prezident")
+        self.assertNotEqual(updater.label_for("Məşhur cütlük 29 il əvvəl sevgilərinin başladığı yerə getdi - FOTOLAR", "", "az", "İdman?"), "İdman")
+        self.assertNotEqual(updater.label_for("Bakıda gecə klubu bağlandı", "", "az"), "İdman")  # başqa saytda bu söz idman deyil
+
     def test_absheron_is_not_usa(self):
         self.assertEqual(updater.label_for("Abşeronda oğula hökm oxundu", "məhkəmə qərarı", "az"), "Cəmiyyət")
         self.assertTrue(updater.has_any(updater.norm_az("ABŞ-da görüş keçirildi"), ["abş"]))
