@@ -1079,6 +1079,7 @@ class CupGamesTest(unittest.TestCase):
                 self.assertIn("galatasaray", rows[0]["teams"])
                 doc = json.loads((folder / "ingiltere-kuboku.json").read_text(encoding="utf-8"))
                 self.assertEqual((doc["key"], doc["season"], doc["groups"]), ("2026", "2026/27", []))
+                self.assertEqual(doc["source"], "Vikipediya (kubok)", "liqanın Vikipediya keçidi ilə bir sətirdə qarışmır")
                 self.assertIn("2026%E2%80%9327_FA_Cup", doc["url"])
                 asked.clear()
                 def broken(query):

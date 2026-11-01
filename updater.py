@@ -3412,7 +3412,7 @@ def update_cups(checked, now_dt, out_of_time):
                 years = re.search(r"(\d{4})(?:–(\d{2}))?", title)
                 teams, games = cup_games(text, pool, zone, None if years.group(2) else years.group(1))
                 if games:
-                    doc = {"id": cid, "name": name, "short": short, "source": "Vikipediya", "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")), "sport": "football", "asof": "",
+                    doc = {"id": cid, "name": name, "short": short, "source": "Vikipediya (kubok)", "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")), "sport": "football", "asof": "",
                            "key": years.group(1), "season": f"{years.group(1)}/{years.group(2)}" if years.group(2) else years.group(1), "teams": teams, "groups": [], "games": games}
                     _write_if_changed(TEAM_DIR / f"{cid}.json", doc)
             except Exception as e:
