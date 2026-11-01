@@ -471,10 +471,13 @@ def _read_capped(r):
     return raw
 
 def _gunzip_capped(raw):
-    box = zlib.decompressobj(16 + zlib.MAX_WBITS)
-    out = box.decompress(raw, MAX_RESPONSE_BYTES)
-    if box.unconsumed_tail:
-        raise urllib.error.URLError("açılmış cavab çox böyükdür")
+    out = b""
+    while raw:  # gzip bir neçə hissədən ola bilər
+        box = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        out += box.decompress(raw, MAX_RESPONSE_BYTES - len(out) + 1)
+        if len(out) > MAX_RESPONSE_BYTES or not box.eof:  # kəsilmiş cavab da xətadır: lent ehtiyat yola keçir
+            raise urllib.error.URLError("gzip cavabı kəsilib və ya çox böyükdür")
+        raw = box.unused_data.lstrip(b"\0")
     return out
 
 def fetch(url, timeout=TIMEOUT, data=None, headers=None):
@@ -4311,9 +4314,9 @@ def _og_from_html(raw, base, skip=()):
     return _own_card_img(text, base, skip)
 
 def _fetch_og(url, skip=()):
+    """Şəkil ünvanı; səhifədə yoxdursa və ya sayt bizi buraxmırsa "" (403: tez-tez yoxlanmır), şəbəkə xətasında None (tezliklə yenidən)."""
     if not content_policy.safe_url(url):
         return ""
-    """Şəkil ünvanı; səhifədə yoxdursa və ya sayt bizi buraxmırsa "" (403: tez-tez yoxlanmır), şəbəkə xətasında None (tezliklə yenidən)."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
         with urllib.request.urlopen(req, timeout=6) as r:

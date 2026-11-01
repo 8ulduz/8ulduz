@@ -1848,6 +1848,16 @@ class ResponseLimitTest(unittest.TestCase):
             with self.assertRaises(urllib.error.URLError):
                 updater._gunzip_capped(gzip.compress(b"a" * 100000))
 
+    def test_a_cut_gzip_answer_is_an_error_and_parts_are_joined(self):
+        import gzip, urllib.error
+        whole = gzip.compress(b"a" * 5000)
+        with self.assertRaises(urllib.error.URLError):
+            updater._gunzip_capped(whole[:-10])
+        self.assertEqual(updater._gunzip_capped(gzip.compress(b"a") + gzip.compress(b"b") + b"\0\0"), b"ab")
+        with patch.object(updater, "MAX_RESPONSE_BYTES", 1000):
+            with self.assertRaises(urllib.error.URLError):
+                updater._gunzip_capped(gzip.compress(b"a" * 600) + gzip.compress(b"b" * 600))
+
     def test_a_huge_answer_is_not_read(self):
         import io, urllib.error
         with patch.object(updater, "MAX_RESPONSE_BYTES", 10):

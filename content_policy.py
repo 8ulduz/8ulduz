@@ -42,7 +42,8 @@ def _on(host, domains):
 
 
 def safe_url(url):
-    """Yalnız açıq internetdəki http(s) ünvanı: daxili ünvana sorğu getməsin, «evil.com\@sayt.az» saytımızda başqa sayt açmasın."""
+    """Yalnız açıq internetdəki http(s) ünvanı: yazılı daxili IP və ad keçmir, «evil.com\\@sayt.az» başqa sayt açmır.
+    Domenin DNS-i yoxlanmır: dövrə 60 saniyəyə sığmalıdır."""
     text = str(url or "").strip()
     if not text.lower().startswith(("http://", "https://")) or "\\" in text or any(ord(c) < 32 or ord(c) == 127 for c in text):
         return False
