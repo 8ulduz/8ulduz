@@ -839,6 +839,34 @@ class SectionPagesTest(unittest.TestCase):
         self.assertNotEqual(updater.label_for("Məşhur cütlük 29 il əvvəl sevgilərinin başladığı yerə getdi - FOTOLAR", "", "az", "İdman?"), "İdman")
         self.assertNotEqual(updater.label_for("Bakıda gecə klubu bağlandı", "", "az"), "İdman")  # başqa saytda bu söz idman deyil
 
+    def test_first_screen_holds_what_the_top_of_the_home_page_needs(self):
+        now = datetime.datetime(2026, 11, 1, 12, 0, tzinfo=datetime.timezone.utc)
+        at = lambda hours: (now - datetime.timedelta(hours=hours)).isoformat()
+        row = lambda i, hours, **more: dict({"id": str(i), "title": f"Xəbər nömrə {i} başlığı", "category": "gundem", "lang": "az", "publishedAt": at(hours)}, **more)
+        rows = [row(i, 10 + i / 100) for i in range(200)]
+        rows.append(row("cox", 17, alts=[{"sourceUrl": str(i)} for i in range(9)]))  # çox mənbə: slayderə düşür
+        rows.append(row("eyni", 17.5, title="Xəbər nömrə cox başlığı"))  # eyni başlıq: sayt onu birləşdirir, qalmalıdır
+        rows.append(row("yeni", 0))
+        rows.append(row("prez", 500, category="prezident", title="İlham Əliyev qəbul edib"))
+        rows.append(row("ru", 0, lang="ru"))
+        ids = {a["id"] for a in updater.first_screen_rows(rows, now)}
+        self.assertTrue({"cox", "eyni", "yeni", "prez"} <= ids)
+        self.assertNotIn("ru", ids)  # başqa dil tam lenti gözləyir
+        self.assertLess(len(ids), 100)
+
+    def test_first_screen_keeps_a_twin_marked_as_another_language(self):
+        now = datetime.datetime(2026, 11, 1, 12, 0, tzinfo=datetime.timezone.utc)
+        row = {"title": "Bakıda yeni park açıldı bu gün", "category": "gundem", "publishedAt": now.isoformat()}
+        ids = {a["id"] for a in updater.first_screen_rows([dict(row, id="az", lang="az"), dict(row, id="tr", lang="tr")], now)}
+        self.assertEqual(ids, {"az", "tr"})
+
+    def test_first_screen_keeps_recent_stories_only_when_enough_exist(self):
+        now = datetime.datetime(2026, 11, 1, 12, 0, tzinfo=datetime.timezone.utc)
+        old = {"id": "k", "title": "Köhnə amma çox yazılan xəbər", "category": "gundem", "lang": "az", "publishedAt": (now - datetime.timedelta(days=9)).isoformat(), "alts": [{"sourceUrl": "x"}] * 5}
+        fresh = [{"id": str(i), "title": f"Təzə xəbər nömrə {i}", "category": "gundem", "lang": "az", "publishedAt": (now - datetime.timedelta(hours=1, minutes=i)).isoformat()} for i in range(60)]
+        self.assertNotIn("k", {a["id"] for a in updater.first_screen_rows([old] + fresh, now)})
+        self.assertIn("k", {a["id"] for a in updater.first_screen_rows([old] + fresh[:3], now)})
+
     def test_absheron_is_not_usa(self):
         self.assertEqual(updater.label_for("Abşeronda oğula hökm oxundu", "məhkəmə qərarı", "az"), "Cəmiyyət")
         self.assertTrue(updater.has_any(updater.norm_az("ABŞ-da görüş keçirildi"), ["abş"]))
@@ -904,7 +932,7 @@ class UpdateHealthTest(unittest.TestCase):
         self.patches = []
         for name, value in {"OUT_DIR": self.root, "OUT_FILE": self.root / "news.json",
                             "STATUS_FILE": self.root / "status.json", "SOURCES_FILE": self.root / "sources.json",
-                            "DATES_FILE": self.root / "dates.json", "LATEST_FILE": self.root / "latest.json",
+                            "DATES_FILE": self.root / "dates.json", "LATEST_FILE": self.root / "latest.json", "FIRST_FILE": self.root / "first.json",
                             "RECENT_FILE": self.root / "recent.json", "CACHE_DIR": self.root,
                             "FEEDS": [("Test", "https://example.com/rss", "az", None)]}.items():
             p = patch.object(updater, name, value)

@@ -647,9 +647,12 @@ async function loadNews(force = false) {
   const statusStamp = S.status?.checkedAt || null;
   S.newsLoading = true;
   renderTopbar();
+  // İlk ekran çəkilənə qədər tam lent xətti tutmur. Fayl gəlməsə loadFirst 5 saniyəyə bitir.
+  if (S.firstReady) { const wait = S.firstReady; S.firstReady = null; await wait; }
   // İlk yükləmədə og.json xəbərlərlə paralel gəlir (əvvəl news.json bitəndən sonra başlayırdı — telefonda bir gediş-gəliş artıq)
-  const ogReady = S.data ? null : loadOg(controller.signal);
+  const ogReady = S.data && !S.partial ? null : loadOg(controller.signal);
   try {
+    if (token !== S.newsToken) return;
     const {r,d} = await requestJSON(freshUrl("data/news.json", force), {signal:controller.signal});
     if(token !== S.newsToken)return;
     if (!Array.isArray(d.articles)) throw new Error("Xəbər məlumatının quruluşu yanlışdır");
@@ -662,20 +665,41 @@ async function loadNews(force = false) {
     }
     if (!S.offline) S.lastSync = new Date();
     S.error = null;
-    if (S.data && S.data.updatedAt === d.updatedAt && S.og) { S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); renderTopbar(); return; }
+    if (S.data && !S.partial && S.data.updatedAt === d.updatedAt && S.og) { S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); renderTopbar(); return; }
     await (ogReady || loadOg(controller.signal));
     if(token !== S.newsToken || controller.signal.aborted)return;
-    const first = !S.data;
+    const first = !S.data, partial = S.partial;
+    S.partial = false;
     // main 10 dəqiqədən bir yazılır: dəqiqəlik gələn xəbərlər tam lentdə hələ olmaya bilər, itməsinlər.
     const inFull = new Set(d.articles.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
     S.overlay = (S.overlay || []).filter(o => !inFull.has(o.a.sourceUrl) && Date.now() - o.at < 30 * 60e3);
     S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined};
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
-    if (first) S.firstRenderAt = Date.now();
-    if (first || force) render(); else requestRender();
-  } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data) render(); else renderTopbar(); } }
+    if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
+    // İlk ekrandan tam lentə: dəyişməyən bloklara toxunulmur (patchView), səhifə aşağıdan uzanır. Oxucu sürüşübsə də gözləmir, siyahı qısa qalmasın.
+    if (first || force || (partial && readerBusy())) render(); else requestRender();
+  } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data || S.partial) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
+}
+
+// İlk ekran: tam lent telefonda saniyələrlə gəlir, ekranın yuxarısı isə cəmi 100 xəbərdən qurulur (data/first.json).
+// Yalnız standart baxışda (baş səhifə, azərbaycanca): başqa səhifə və dil tam lenti gözləyir, siyahı qısa görünməsin.
+const firstScreen = () => route().name === "home" && !S.q && S.lang === "az";
+async function loadFirst() {
+  if (!firstScreen()) return;
+  try {
+    const {d} = await requestJSON(freshUrl("data/first.json"), {}, 5000);
+    if (!Array.isArray(d?.articles) || !d.articles.length) return;
+    if (S.rawNews) return; // tam lent daha tez gəlib
+    S.partial = true;
+    S.og ||= d.og || {};
+    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    publishNews();
+    S.firstRenderAt = Date.now();
+    render();
+    await new Promise(done => setTimeout(done));
+  } catch {}
 }
 
 // Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər. Xam siyahı dəyişmir, latest.json üstünə qoyula bilsin.
@@ -691,7 +715,7 @@ function publishNews() {
     if (alt) a.imageUrl = alt.imageUrl || S.og?.[alt.sourceUrl];
   }
   S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
-  checkBreaking(d.articles);
+  if (!S.partial) checkBreaking(d.articles);
 }
 
 // Ekran yalnız oxucu ona toxunmayanda yenidən qurulur: açıq video, xəritə, açılan siyahı və yazılan süzgəc itmir, səhifə atlamır.
@@ -1464,8 +1488,10 @@ function homeView() {
   const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), HERO_COUNT);
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
+  const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining);
+  if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
   const secs = homeCats().map(c => lazySection(catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug))))).join("");
-  return `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining) + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
+  return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
 // Paylaşılan keçid sonradan da açılsın. Xəbər başqası ilə qruplaşıbsa nömrəsi lentdə qalmır (id ünvanın sha1-idir, updater.py ilə eyni),
 // lentdən çıxıbsa bölmə arxivindədir (5 gün). Bu axtarış yalnız lentdə tapılmayan keçiddə işləyir.
@@ -1645,20 +1671,31 @@ function trafficView() {
 // Yalnız dəyişən blok yenilənir. Əvvəl hər yeni xəbərdə bütün səhifə yenidən qurulurdu: telefonda 1 saniyə donurdu,
 // oxucu həmin an linkə basanda keçid gecikirdi, şəkillər də yenidən yerləşirdi. Blokun mənbə mətni saxlanır,
 // çünki qurulandan sonra DOM dəyişir (oxlar, açılmış bölmə, yüklənmiş şəkil).
-function patchView(v, page) {
-  const next = document.createElement("template");
-  next.innerHTML = page;
-  const fresh = [...next.content.children], old = [...v.children], changed = [];
+// Slayder və Zuğulba içəridən, kart-kart yenilənir: yeni xəbər gələndə görünən şəkil təzədən yüklənmir, slayder başa qayıtmır.
+const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row";
+function rememberSrc(node) {
+  node._src = node.outerHTML;
+  if (node.matches(PATCH_INSIDE)) [...node.children].forEach(rememberSrc);
+}
+function patchChildren(box, fresh, changed) {
+  const old = [...box.children];
   fresh.forEach((node, i) => {
-    const src = node.outerHTML, was = old[i];
-    node._src = src;
-    if (was && was._src === src) { node._src = null; return; }
+    const was = old[i];
+    rememberSrc(node);
+    if (was && was._src === node._src) return;
+    if (was?.matches(PATCH_INSIDE) && was.className === node.className) { was._src = node._src; patchChildren(was, [...node.children], changed); return; }
     // Açılmış bölmə yenilənəndə bağlanmasın: səhifənin hündürlüyü dəyişib oxucu yerini itirməsin.
     if (was?.matches(".lazy-sec") && !was.querySelector(":scope > template") && node.matches(".lazy-sec")) node.replaceChildren(node.querySelector(":scope > template").content);
-    if (was) was.replaceWith(node); else v.append(node);
+    if (was) was.replaceWith(node); else box.append(node);
     changed.push(node);
   });
   old.slice(fresh.length).forEach(node => node.remove());
+}
+function patchView(v, page) {
+  const next = document.createElement("template");
+  next.innerHTML = page;
+  const changed = [];
+  patchChildren(v, [...next.content.children], changed);
   if (!changed.length) return;
   const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
   if (has("[data-marquee]")) setupMarquees();
@@ -1671,8 +1708,9 @@ function renderView() {
   syncQuery();
   pageMeta();
   const v = $("#view");
-  if (S.error && !S.data) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
-  if (!S.data) { S.viewPage = null; v.innerHTML = skeleton(); return; }
+  const onlyFirst = S.partial && !firstScreen();
+  if (S.error && (!S.data || onlyFirst)) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
+  if (!S.data || onlyFirst) { S.viewPage = null; v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
   const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
@@ -2517,7 +2555,9 @@ document.addEventListener("toggle", (e) => {
 }, true);
 shell(); render();
 // Hamısı gələn kimi çəkilir: gözləsə ağır çəkiliş oxucunun linkə basdığı ana düşür, keçid gecikir.
-Promise.allSettled([loadNews().then(() => loadLatest()), loadSocial(), loadSources(), loadVideo(), loadFootball(), loadSports(), loadAds()]).then(flushRender);
+S.firstReady = loadFirst();
+const newsReady = loadNews().then(() => loadLatest());
+Promise.allSettled([newsReady, loadSocial(), loadSources(), loadVideo(), loadFootball(), loadSports(), loadAds()]).then(flushRender);
 loadMarkets(); loadStatus(); loadWeather(); loadPrayer(savedPrayCity()); loadWarnings();
 setInterval(() => pollNews(), POLL_MS);
 addEventListener("scroll", () => {
