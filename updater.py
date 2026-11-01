@@ -17,6 +17,7 @@ import content_policy
 from reader_content import update_reader
 from concurrent.futures import ThreadPoolExecutor, wait
 import threading
+from zoneinfo import ZoneInfo
 
 
 def _write_atomic(path, text, encoding="utf-8"):
@@ -3225,6 +3226,202 @@ def update_team_squads(league_ids, out_of_time, now_dt):
     _write_if_changed(TEAM_DIR / "heyet-yoxlama.json", stamps)
     return ready
 
+# Ölkə kubokları: oyunlar Vikipediyanın kubok səhifəsindəki oyun qutularındandır (CC BY-SA), kubok başına bir sorğu. Yalnız klub səhifəsi açılanda yüklənir.
+# (qısa ad, ad, səhifə, saat qurşağı, klubları tanıdan liqalar). Saatsız qurşaq: yalnız tarix (ABŞ-da oyunlar müxtəlif qurşaqdadır). Portuqaliya səhifəsində oyun qutusu yoxdur.
+WIKI_CUPS = [
+    ("İngiltərə Kuboku", "İngiltərə Kuboku", "{s} FA Cup", "Europe/London", ("ingiltere", "cempionsip")),
+    ("Liqa Kuboku", "İngiltərə Liqa Kuboku", "{s} EFL Cup", "Europe/London", ("ingiltere", "cempionsip")),
+    ("İspaniya Kuboku", "İspaniya Kral Kuboku", "{s} Copa del Rey", "Europe/Madrid", ("ispaniya",)),
+    ("İtaliya Kuboku", "İtaliya Kuboku", "{s} Coppa Italia", "Europe/Rome", ("italiya",)),
+    ("Almaniya Kuboku", "Almaniya Kuboku", "{s} DFB-Pokal", "Europe/Berlin", ("almaniya",)),
+    ("Fransa Kuboku", "Fransa Kuboku", "{s} Coupe de France", "Europe/Paris", ("fransa",)),
+    ("Türkiyə Kuboku", "Türkiyə Kuboku", "{s} Turkish Cup", "Europe/Istanbul", ("turkiye",)),
+    ("Hollandiya Kuboku", "Hollandiya Kuboku", "{s} KNVB Cup", "Europe/Amsterdam", ("hollandiya",)),
+    ("Belçika Kuboku", "Belçika Kuboku", "{s} Belgian Cup", "Europe/Brussels", ("belcika",)),
+    ("Şotlandiya Kuboku", "Şotlandiya Kuboku", "{s} Scottish Cup", "Europe/London", ("sotlandiya",)),
+    ("Rusiya Kuboku", "Rusiya Kuboku", "{s} Russian Cup", "Europe/Moscow", ("rusiya",)),
+    ("Səudiyyə Kuboku", "Səudiyyə Kral Kuboku", "{s} King's Cup (Saudi Arabia)", "Asia/Riyadh", ("seudiyye",)),
+    ("Braziliya Kuboku", "Braziliya Kuboku", "{y} Copa do Brasil", "America/Sao_Paulo", ("braziliya",)),
+    ("ABŞ Kuboku", "ABŞ Açıq Kuboku", "{y} U.S. Open Cup", None, ("abs",)),
+]
+CUP_PER_CYCLE = 3
+CUP_DUE = {"every": datetime.timedelta(hours=6), "live_every": datetime.timedelta(hours=1), "window": datetime.timedelta(hours=6)}
+_CUP_ORD = {"first": "1-ci", "second": "2-ci", "third": "3-cü", "fourth": "4-cü", "fifth": "5-ci", "sixth": "6-cı", "seventh": "7-ci", "eighth": "8-ci",
+            "1": "1-ci", "2": "2-ci", "3": "3-cü", "4": "4-cü", "5": "5-ci", "6": "6-cı", "7": "7-ci", "8": "8-ci"}
+_CUP_OF = {"64": "1/32 final", "32": "1/16 final", "16": "1/8 final"}
+
+def _cup_round(head):
+    """Bölmə başlığı -> mərhələ. Mərhələ olmayan başlıq (Matches, Draw, Group 1) None: oyun əvvəlki mərhələdə qalır."""
+    h = head.strip().lower().replace("-", " ")
+    if "qualifying" in h or "preliminary" in h:
+        return "Təsnifat"
+    m = re.match(r"(first|second|third|fourth|fifth|sixth|seventh|eighth) round\b", h) or re.fullmatch(r"round ([1-8])", h)
+    if m:
+        return f"{_CUP_ORD[m.group(1)]} mərhələ"
+    m = re.match(r"round of (64|32|16)\b", h)
+    if m:
+        return _CUP_OF[m.group(1)]
+    if h.startswith("eighth finals"):
+        return "1/8 final"
+    if h.startswith(("quarter finals", "quarterfinals")):
+        return "1/4 final"
+    if h.startswith(("semi finals", "semifinals")):
+        return "Yarımfinal"
+    if h == "final":
+        return "Final"
+    return "Qrup mərhələsi" if h.startswith("group stage") else None
+
+def _wiki_box_end(text, start):
+    depth, i = 0, start
+    while i < len(text) - 1:
+        pair = text[i:i + 2]
+        if pair == "{{":
+            depth, i = depth + 1, i + 2
+        elif pair == "}}":
+            depth, i = depth - 1, i + 2
+            if not depth:
+                return i
+        else:
+            i += 1
+    return len(text)
+
+def _wiki_box_params(box):
+    """Qutunun sahələri. Keçid və şablonun içindəki | sahəni bölmür."""
+    params, depth, last = {}, 0, None
+    parts, i = [], 2
+    body = box[:-2]
+    for i in range(2, len(body)):
+        pair = body[i:i + 2]
+        if pair in ("{{", "[["):
+            depth += 1
+        elif pair in ("}}", "]]"):
+            depth -= 1
+        elif body[i] == "|" and not depth:
+            if last is not None:
+                parts.append(body[last:i])
+            last = i + 1
+    if last is not None:
+        parts.append(body[last:])
+    for part in parts:
+        key, sep, value = part.partition("=")
+        if sep:
+            params[key.strip().lower()] = value.strip()
+    return params
+
+def _cup_plain(raw):
+    text = re.sub(r"<ref[^>]*/>|<ref.*?</ref>", "", raw or "", flags=re.S).replace("'''", "").replace("''", "")
+    return re.sub(r"\{\{\s*efn[^{}]*(?:\{\{[^{}]*\}\}[^{}]*)*\}\}", "", text).strip()
+
+def _cup_name(raw):
+    """(göstərilən ad, səhifə adı). Hələ bəlli olmayan tərəf («Winner of Match 5», TBD) boş qaytarılır."""
+    text = re.sub(r"\{\{[^{}]*\}\}", "", _cup_plain(raw))
+    link = re.search(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", text)
+    name = (link.group(2) or link.group(1)) if link else text
+    name = html.unescape(re.sub(r"\s*\([^)]*\)\s*$", "", name.strip())).strip()
+    if not name or re.fullmatch(r"\d[A-Z](?:\W*\d[A-Z])?", name) or re.search(r"\b(winners?|losers?|tbd|tba|match|bye)\b", name.lower()):
+        return "", ""
+    return name, link.group(1).strip() if link else ""
+
+def cup_team(name, page, pool):
+    """Kubokdakı ad -> liqadakı klubun ünvanı. Yalnız tam uyğunluq və ya adın klubun adının içində olması: «Real Madrid Castilla» Real Madrid deyil."""
+    known = {slug: _tsdb_words(t.get("name")) for slug, t in pool.items()}
+    for text in (TSDB_ALIAS.get(name, name), page):
+        words = _tsdb_words(text)
+        hits = [slug for slug, k in known.items() if words and k == words]
+        if len(hits) == 1:
+            return hits[0]
+    words = _tsdb_words(TSDB_ALIAS.get(name, name))
+    hits = [slug for slug, k in known.items() if words and words < k]
+    return hits[0] if len(hits) == 1 else None
+
+def _cup_kick(params, zone, year=None):
+    """(ISO tarix, yalnız gün). Saat və ya qurşaq bəlli deyilsə gün göstərilir. İllik kubokda (ABŞ) tarix ilsiz yazılır: il səhifənin adındandır.
+    Bir neçə günlük tarix («4–5 February 2027») boş qalır: oyunun günü hələ bəlli deyil."""
+    raw, day = _cup_plain(params.get("date")), None
+    tpl = re.search(r"start date\s*\|\s*(\d{4})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})", raw, re.I)
+    if tpl:
+        day = datetime.date(int(tpl.group(1)), int(tpl.group(2)), int(tpl.group(3)))
+    else:
+        text = re.sub(r"\s+", " ", re.sub(r"\{\{[^{}]*\}\}|\[\[|\]\]", "", raw)).strip()
+        for fmt, spare in (("%d %B %Y", ""), ("%B %d, %Y", ""), ("%Y-%m-%d", ""), ("%Y %B %d", year), ("%Y %d %B", year)):
+            try:
+                day = datetime.datetime.strptime(f"{spare} {text}" if spare else text, fmt).date()
+                break
+            except ValueError:
+                pass
+    if not day:
+        return "", False
+    hm = re.search(r"(\d{1,2}):(\d{2})", params.get("time") or "")
+    if hm and zone and int(hm.group(1)) < 24:
+        kick = datetime.datetime(day.year, day.month, day.day, int(hm.group(1)), int(hm.group(2)), tzinfo=ZoneInfo(zone))
+        return kick.isoformat(timespec="seconds"), False
+    return f"{day.isoformat()}T12:00:00+00:00", True
+
+def cup_games(text, pool, zone, year=None):
+    """Kubok səhifəsinin vikimətni -> (klublar, oyunlar). Tərəfi bəlli olmayan qutu yazılmır."""
+    heads = [(m.start(), _cup_round(m.group(2))) for m in re.finditer(r"^(={2,4})\s*(.+?)\s*\1\s*$", text, re.M)]
+    teams, games = {}, []
+    for m in re.finditer(r"\{\{\s*football ?box", text, re.I):
+        params = _wiki_box_params(text[m.start():_wiki_box_end(text, m.start())])
+        (home, home_page), (away, away_page) = _cup_name(params.get("team1")), _cup_name(params.get("team2"))
+        if not home or not away:
+            continue
+        slugs = []
+        for name, page in ((home, home_page), (away, away_page)):
+            slug = cup_team(name, page, pool)
+            teams[slug or team_slug(name)] = dict(pool[slug]) if slug else {"name": name, "logo": ""}
+            slugs.append(slug or team_slug(name))
+        if slugs[0] == slugs[1]:
+            continue
+        date, day = _cup_kick(params, zone, year)
+        game = {"date": date, "home": slugs[0], "away": slugs[1], "played": False, "round": next((r for at, r in reversed(heads) if at < m.start() and r), "")}
+        if day:
+            game["day"] = True
+        place = re.search(r"\[\[(?:[^\]|]+\|)?([^\]]+)\]\]", params.get("stadium") or "")
+        stadium = place.group(1) if place else re.sub(r"\{\{[^{}]*\}\}", "", params.get("stadium") or "").strip()
+        if stadium:
+            game["stadium"] = stadium[:60]
+        score = _cup_plain(params.get("score"))
+        got = re.search(r"(\d+)\s*[–−-]\s*(\d+)", score)
+        if got:
+            game.update(played=True, hs=int(got.group(1)), **{"as": int(got.group(2))})
+            pen = re.search(r"(\d+)\s*[–−-]\s*(\d+)", params.get("penaltyscore") or "")
+            if pen:
+                game["pen"] = f"{pen.group(1)}–{pen.group(2)}"
+        elif re.search(r"cancel|postpon|abandon", score, re.I):
+            game["state"] = "off"
+        games.append(game)
+    return teams, sorted(games, key=lambda g: g.get("date") or "9999")
+
+def update_cups(checked, now_dt, out_of_time):
+    """Ölkə kubokları. Dövrədə ən çoxu CUP_PER_CYCLE sorğu, alınmayan kubokun köhnə faylı qalır. Nəticə: index.json sətirləri."""
+    rows, asked = [], 0
+    for short, name, pattern, zone, leagues in WIKI_CUPS:
+        cid, pool = team_slug(short), {}
+        for lid in leagues:
+            pool.update(_read_json(TEAM_DIR / f"{lid}.json", {}).get("teams") or {})
+        if not pool:
+            continue
+        doc = _read_json(TEAM_DIR / f"{cid}.json", {})
+        if asked < CUP_PER_CYCLE and not out_of_time() and _team_due(doc, checked.get(cid), now_dt, **CUP_DUE):
+            asked += 1
+            checked[cid] = now_dt.isoformat(timespec="seconds")
+            title = _wiki_title(pattern, now_dt)
+            try:
+                text = _wiki_api("action=parse&prop=wikitext&redirects=1&page=" + urllib.parse.quote(title))["parse"]["wikitext"]
+                years = re.search(r"(\d{4})(?:–(\d{2}))?", title)
+                teams, games = cup_games(text, pool, zone, None if years.group(2) else years.group(1))
+                if games:
+                    doc = {"id": cid, "name": name, "short": short, "source": "Vikipediya", "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")), "sport": "football", "asof": "",
+                           "key": years.group(1), "season": f"{years.group(1)}/{years.group(2)}" if years.group(2) else years.group(1), "teams": teams, "groups": [], "games": games}
+                    _write_if_changed(TEAM_DIR / f"{cid}.json", doc)
+            except Exception as e:
+                print(f"  ! kubok {short}:", type(e).__name__)
+        if doc.get("games"):
+            seasons = [{"key": doc["key"], "label": doc["season"]}]
+            rows.append({"id": cid, "name": doc["name"], "short": short, "source": doc["source"], "sport": "football", "cup": True, "seasons": seasons, "ready": seasons, "teams": sorted(doc["teams"])})
+    return rows
+
 def update_team_pages():
     """Komanda səhifələrinin faylları: hər liqa üçün data/futbol/<liga>.json (cədvəl və mövsümün bütün oyunları), keçmiş mövsümlər
     <liga>-<il>.json, siyahı index.json. Alınmayan liqanın köhnə faylı qalır."""
@@ -3345,6 +3542,7 @@ def update_team_pages():
                            "teams": [r["team"] for g in doc["groups"] for r in g["rows"]]})
     squads = update_team_squads([x["id"] for x in world_rows if x["id"] in _OPENLIGA_LEAGUES], out_of_time, now_dt)
     leagues += [dict(x, heyet=squads[x["id"]]) if squads.get(x["id"]) else x for x in world_rows]
+    leagues += update_cups(checked, now_dt, out_of_time)
     _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty), "openliga": openliga})
     print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {time.monotonic() - started:.1f} s")
 

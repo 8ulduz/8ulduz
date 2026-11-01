@@ -958,6 +958,137 @@ class OpenLigaTeamPagesTest(unittest.TestCase):
                 self.assertEqual(len(asked), count + 1, "alınmayanlar bir gün gözləyir, qalan klub soruşulur")
 
 
+class CupGamesTest(unittest.TestCase):
+    POOL = {"galatasaray": {"name": "Galatasaray", "logo": "g.png", "short": "Galatasaray"}, "besiktas": {"name": "Beşiktaş", "logo": "b.png"}, "real-madrid": {"name": "Real Madrid", "logo": ""},
+            "inter-milan": {"name": "Inter Milan", "logo": ""}, "ac-milan": {"name": "AC Milan", "logo": ""}, "hull-city": {"name": "Hull City", "logo": ""}, "manchester-city": {"name": "Manchester City", "logo": ""}}
+    PAGE = """==Rounds==
+{| class="wikitable"
+|}
+==Second round==
+===Matches===
+{{Football box collapsible
+|date= 15 September 2026
+|time= 17:00
+|team1= [[1923 Afyonkarahisar]] (5)
+|score= 2–1
+|report= https://example.org/a=b
+|team2= '''[[Galatasaray S.K. (football)|Galatasaray]] (1)'''
+|goals1= [[Burak|Özbakır]] {{goal|21}}
+|stadium= [[Zafer Stadium|Zafer]]
+|location= Afyonkarahisar
+}}
+==Quarter-finals==
+{{footballbox
+|date={{Start date|2027|2|4|df=y}}
+|time=20:00 [[Time in Turkey|TRT]]
+|team1=[[Beşiktaş J.K.|Beşiktaş]]
+|score=
+|report=
+|team2=[[Galatasaray S.K. (football)|Galatasaray]]
+}}
+{{Football box collapsible
+|date=5 February 2027
+|time=19:00
+|team1=Winner of Match 5
+|score=
+|team2=[[Beşiktaş J.K.|Beşiktaş]]
+}}
+==Semi-finals==
+{{Football box collapsible
+|date=10 March 2027
+|team1=[[Real Madrid Castilla]]
+|score=0–3 [[Walkover|w/o]]<ref name="x">Qərar 1–9</ref>
+|penaltyscore=
+|team2=Real Madrid
+}}
+{{Football box collapsible
+|date=11 March 2027
+|time=21:00
+|team1=[[Beşiktaş J.K.|Beşiktaş]]
+|score=1–1
+|penaltyscore=4–3
+|team2=[[Galatasaray S.K. (football)|Galatasaray]]
+}}
+{{Football box collapsible
+|date=12 March 2027
+|time=21:00
+|team1=[[Beşiktaş J.K.|Beşiktaş]]
+|score=Cancelled{{efn|Qərar 3–0}}
+|team2=[[Galatasaray S.K. (football)|Galatasaray]]
+}}
+"""
+
+    def test_cup_page_gives_games_rounds_and_local_time(self):
+        teams, games = updater.cup_games(self.PAGE, self.POOL, "Europe/Istanbul")
+        self.assertEqual(len(games), 5, "tərəfi bəlli olmayan qutu yazılmır")
+        first = games[0]
+        self.assertEqual((first["home"], first["away"], first["hs"], first["as"], first["played"]), ("1923-afyonkarahisar", "galatasaray", 2, 1, True))
+        self.assertEqual(first["date"], "2026-09-15T17:00:00+03:00")
+        self.assertEqual(first["round"], "2-ci mərhələ", "Matches başlığı mərhələni dəyişmir")
+        self.assertEqual(first["stadium"], "Zafer")
+        self.assertEqual(teams["galatasaray"]["logo"], "g.png", "liqadakı klubun loqosu və ünvanı")
+        self.assertEqual(teams["1923-afyonkarahisar"], {"name": "1923 Afyonkarahisar", "logo": ""})
+        later = games[1]
+        self.assertEqual((later["round"], later["played"], later["date"]), ("1/4 final", False, "2027-02-04T20:00:00+03:00"))
+        self.assertNotIn("hs", later)
+
+    def test_cup_reserve_team_is_not_the_first_team_and_details_are_kept(self):
+        _teams, games = updater.cup_games(self.PAGE, self.POOL, "Europe/Istanbul")
+        walkover, pen, off = games[2], games[3], games[4]
+        self.assertEqual((walkover["home"], walkover["away"], walkover["hs"], walkover["as"]), ("real-madrid-castilla", "real-madrid", 0, 3), "istinaddakı rəqəm hesab sayılmır")
+        self.assertTrue(walkover["day"], "saat yoxdursa yalnız tarix")
+        self.assertEqual(walkover["round"], "Yarımfinal")
+        self.assertEqual(pen["pen"], "4–3")
+        self.assertEqual(off["state"], "off")
+        self.assertFalse(off["played"], "şərhdəki 3–0 hesab deyil")
+
+    def test_cup_places_and_dates_without_a_year_or_a_single_day(self):
+        self.assertEqual(updater._cup_name("1C–2B"), ("", ""), "hələ bəlli olmayan yer")
+        self.assertEqual(updater._cup_name("AZ"), ("AZ", ""), "qısa klub adı qalır")
+        self.assertEqual(updater._cup_kick({"date": "March 17", "time": "19:00"}, None, "2026"), ("2026-03-17T12:00:00+00:00", True))
+        self.assertEqual(updater._cup_kick({"date": "4–5 February 2027", "time": "20:00"}, "Europe/Rome"), ("", False), "günü bəlli deyil")
+        self.assertEqual(updater._cup_kick({"date": "March 17"}, None), ("", False), "il yoxdursa tarix uydurulmur")
+
+    def test_cup_names_match_only_the_same_club(self):
+        for name, page, want in [("Galatasaray", "Galatasaray S.K. (football)", "galatasaray"), ("Inter", "Inter Milan", "inter-milan"), ("Milan", "AC Milan", "ac-milan"),
+                                 ("Real Madrid Castilla", "Real Madrid Castilla", None), ("City", "", None), ("Bursaspor", "Bursaspor", None)]:
+            self.assertEqual(updater.cup_team(name, page, self.POOL), want, name)
+
+    def test_cup_rounds(self):
+        for head, want in [("First round", "1-ci mərhələ"), ("Third round proper", "3-cü mərhələ"), ("Round 5", "5-ci mərhələ"), ("Round of 16", "1/8 final"), ("Eighth-finals", "1/8 final"),
+                           ("Quarter-finals", "1/4 final"), ("Semi-finals", "Yarımfinal"), ("Final", "Final"), ("Group stage (RPL path)", "Qrup mərhələsi"), ("Second qualifying round", "Təsnifat"), ("First preliminary round", "Təsnifat"), ("Quarterfinals", "1/4 final"), ("Semifinals", "Yarımfinal"),
+                           ("Matches", None), ("Final stage", None), ("Group 1", None), ("Top scorers", None)]:
+            self.assertEqual(updater._cup_round(head), want, head)
+
+    def test_step_writes_the_file_keeps_old_data_and_limits_requests(self):
+        now = datetime.datetime(2026, 11, 1, 12, tzinfo=datetime.timezone.utc)
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            for lid in ("turkiye", "ingiltere", "ispaniya", "italiya"):
+                (folder / f"{lid}.json").write_text(json.dumps({"teams": self.POOL}), encoding="utf-8")
+            asked = []
+            def answer(query):
+                asked.append(query)
+                return {"parse": {"wikitext": self.PAGE}}
+            with patch.object(updater, "TEAM_DIR", folder), patch.object(updater, "_wiki_api", answer):
+                checked = {}
+                rows = updater.update_cups(checked, now, lambda: False)
+                self.assertEqual(len(asked), updater.CUP_PER_CYCLE, "dövrədə sorğu həddi")
+                self.assertEqual([r["id"] for r in rows], ["ingiltere-kuboku", "liqa-kuboku", "ispaniya-kuboku"])
+                self.assertTrue(rows[0]["cup"])
+                self.assertIn("galatasaray", rows[0]["teams"])
+                doc = json.loads((folder / "ingiltere-kuboku.json").read_text(encoding="utf-8"))
+                self.assertEqual((doc["key"], doc["season"], doc["groups"]), ("2026", "2026/27", []))
+                self.assertIn("2026%E2%80%9327_FA_Cup", doc["url"])
+                asked.clear()
+                def broken(query):
+                    asked.append(query)
+                    raise OSError("şəbəkə")
+                with patch.object(updater, "_wiki_api", broken), contextlib.redirect_stdout(io.StringIO()):
+                    rows = updater.update_cups(checked, now + datetime.timedelta(hours=7), lambda: False)
+                self.assertEqual(len(asked), updater.CUP_PER_CYCLE)
+                self.assertEqual(len(rows), 3, "şəbəkə xətasında köhnə fayl qalır")
+
 class WorldGamesTest(unittest.TestCase):
     NOW = datetime.datetime(2026, 11, 1, 12, tzinfo=datetime.timezone.utc)
     TEAMS = {"galatasaray": {"name": "Galatasaray"}, "amedspor": {"name": "Amedspor"}, "caykur-rizespor": {"name": "Çaykur Rizespor"}, "besiktas": {"name": "Beşiktaş"},
