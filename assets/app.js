@@ -1010,9 +1010,9 @@ function navPopHtml(slug, tab) {
   }
   const tabs = SUB_TABS[slug], club = route().slug === slug ? S.club || "" : null;
   const pill = (name, label = name, kids = false) => `<button class="pill ${club === name || tab === name ? "on" : ""}" data-club="${esc(name)}"${kids ? " data-kids" : ""}>${esc(label)}</button>`;
-  const groups = tabs.find(t => t.name === tab)?.groups || [];
+  const groups = navGroups(tabs, tab);
   return `<div class="pop-col">${pill("", "Hamısı")}${tabs.map(t => pill(t.name, t.name, !!t.groups)).join("")}</div>` +
-    (groups.length ? `<div class="pop-col two">${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "");
+    (groups.length ? `<div class="pop-col two">${navLeagues(slug, tab).map(g => `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.label)}</span>${g.items.map(leagueLink).join("")}`).join("")}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "");
 }
 // Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
 function bindNavPop() {
@@ -1297,12 +1297,32 @@ function clubMatches(a, club) {
   if (topicRx(topic).test(seen.text)) return true;
   return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
 }
+// Futbolun altında liqalar, klublar liqanın səhifəsindədir. Azərbaycan liqaları həmişə var. Dünya liqası məlumatı alınanda çıxır,
+// o vaxta qədər həmin klubların xəbər düyməsi menyuda qalır, yoxsa onlara yol olmaz.
+const AZ_LEAGUES = ["Premyer Liqa", "I Liqa", "II Liqa", "Kubok", "Əvəzedicilər"];
+const worldLeagues = () => (S.sports?.leagues || []).filter(l => l.sport === "football" && !l.stale && l.groups?.length);
+function navLeagues(slug, tab) {
+  if (slug !== "idman" || tab !== "Futbol") return [];
+  const world = worldLeagues();
+  return [{ group: "Azərbaycan", label: "Azərbaycan liqaları", items: AZ_LEAGUES.map(short => ({ short, name: short })) },
+    ...(world.length ? [{ group: "", label: "Dünya liqaları", items: world.map(l => ({ short: l.short, name: l.name })) }] : [])];
+}
+const leagueLink = l => `<a class="pill" href="#/komanda/${teamSlug(l.short)}">${esc(l.name)}</a>`;
+function navGroups(tabs, open) {
+  const groups = tabs.find(t => t.name === open)?.groups || [];
+  if (open !== "Futbol") return groups;
+  const world = worldLeagues().length;
+  return groups.flatMap(g => {
+    if (g.group === "Azərbaycan") return [{ group: "", items: g.items.filter(t => t.name === "Milli komanda") }];
+    return world ? [] : [g];
+  });
+}
 function navRows(slug, open = S.sportTab, club = S.club || "") {
   const tabs = SUB_TABS[slug];
   const pill = (name, label = name) => `<button class="pill ${club === name || open === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
-  const groups = tabs.find(t => t.name === open)?.groups || [];
+  const groups = navGroups(tabs, open);
   return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div></div></div>` +
-    (groups.length ? `<div class="nav-row two"><div class="wrap sport-chips">${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
+    (groups.length ? `<div class="nav-row two"><div class="wrap sport-chips">${navLeagues(slug, open).map(g => `<div class="chips sub"><span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.label)}</span>${g.items.map(leagueLink).join("")}</div>`).join("")}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
