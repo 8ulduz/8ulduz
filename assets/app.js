@@ -1007,16 +1007,17 @@ function renderNav() {
 // Bölmə səhifəsində alt başlıqlar kartların düz üstündədir.
 const subNav = slug => SUB_TABS[slug] ? navRows(slug) : "";
 // Kursorla açılan menyu: başlığın altında şaquli siyahı, alt siyahısı olan bəndin üstündə yanında ikinci siyahı.
-function navPopHtml(slug, tab) {
+function navPopHtml(slug, tab, liga) {
   if (slug === "more") {
     const r = route(), links = CATS.filter(c => !NAV_PRIMARY.includes(c.slug)).map(c => `<a class="pill ${r.slug === c.slug ? "on" : ""}" href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("");
     return `<div class="pop-col">${links}<a class="pill" href="#/secilmis">☆ Saxlanmış xəbərlər</a><a class="pill" href="#/bolmeler">Bölmələri tənzimlə</a></div>`;
   }
   const tabs = SUB_TABS[slug], club = route().slug === slug ? S.club || "" : null;
   const pill = (name, label = name, kids = false) => `<button class="pill ${club === name || tab === name ? "on" : ""}" data-club="${esc(name)}"${kids ? " data-kids" : ""}>${esc(label)}</button>`;
-  const groups = navGroups(tabs, tab);
+  const groups = navGroups(tabs, tab), leagues = navLeagues(slug, tab), on = leagues.flatMap(g => g.items).find(l => l.short === liga) || leagues[0]?.items[0];
   return `<div class="pop-col">${pill("", "Hamısı")}${tabs.map(t => pill(t.name, t.name, !!t.groups)).join("")}</div>` +
-    (groups.length ? `<div class="pop-col two">${navLeagues(slug, tab).length ? `<span class="chip-h">${GROUP_FLAG["Azərbaycan"]}Azərbaycan liqaları</span>${navLeagues(slug, tab).map(leagueLink).join("")}` : ""}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "");
+    (groups.length || leagues.length ? `<div class="pop-col two">${leagues.map(g => `${leagueHead(g)}${g.items.map(l => leagueLink(l, l === on)).join("")}`).join("")}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "") +
+    (on?.clubs.length ? `<div class="pop-col clubs"><a class="pill all" href="#/komanda/${teamSlug(on.short)}">${esc(on.label)}: cədvəl və klublar ›</a>${on.clubs.map(([n, full]) => `<a class="pill" href="${teamHref(on, full)}">${esc(n)}</a>`).join("")}</div>` : "");
 }
 // Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
 function bindNavPop() {
@@ -1030,10 +1031,13 @@ function bindNavPop() {
     const head = $("#sitehead").getBoundingClientRect();
     pop.style.left = `${Math.max(8, Math.min(anchor.getBoundingClientRect().left - head.left, head.width - pop.offsetWidth - 8))}px`;
   };
-  const show = (slug, tab, from = anchor) => { anchor = from; pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.innerHTML = navPopHtml(slug, tab); pop.hidden = false; place(); };
+  const show = (slug, tab, from = anchor, liga = "") => { anchor = from; pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.dataset.liga = liga; pop.innerHTML = navPopHtml(slug, tab, liga); pop.hidden = false; place(); };
+  S.navRefresh = () => { if (!pop.hidden && pop.dataset.slug === "idman") show("idman", pop.dataset.tab || null, anchor, pop.dataset.liga); };
   $("#sitehead").addEventListener("mouseover", e => {
     if (e.target.closest("#navpop")) {
       clearTimeout(timer);
+      const liga = e.target.closest("[data-liga]")?.dataset.liga;
+      if (liga && liga !== pop.dataset.liga) return later(() => show(pop.dataset.slug, pop.dataset.tab, anchor, liga), 160);
       const name = e.target.closest("[data-club]")?.dataset.club, slug = pop.dataset.slug;
       if (name !== undefined && name !== pop.dataset.tab && (!name || SUB_TABS[slug]?.some(t => t.name === name))) later(() => show(slug, name), 160);
       return;
@@ -1301,21 +1305,33 @@ function clubMatches(a, club) {
   if (topicRx(topic).test(seen.text)) return true;
   return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
 }
-// Futbolun altında Azərbaycan liqaları, klublar liqanın səhifəsindədir. Dünya liqalarının komanda səhifəsi hələ yoxdur:
-// o klubların xəbər düyməsi menyuda qalır, yoxsa onlara yol olmaz. Ünvanlar updater.py-dakı _team_sources ilə eynidir.
+// Futbol və Basketbolun altında liqalar, klublar liqadan açılır. Ünvanlar updater.py-dakı team_world_league və _team_sources ilə eynidir.
 const AZ_LEAGUES = ["Premyer Liqa", "I Liqa", "II Liqa", "Kubok", "Əvəzedicilər"];
-const navLeagues = (slug, tab) => slug === "idman" && tab === "Futbol" ? AZ_LEAGUES : [];
-const leagueLink = short => `<a class="pill" href="#/komanda/${teamSlug(short)}">${esc(short)}</a>`;
+function navLeagues(slug, tab) {
+  if (slug !== "idman") return [];
+  wantSports();
+  const world = sport => (S.sports?.leagues || []).filter(l => l.sport === sport && l.groups?.length).map(l => ({ short: l.short, label: l.name.replace(/ \(.*/, ""), place: l.short === "ÇL" || l.short === "AL" || l.short === "KL" || l.short === l.name ? "" : l.short, clubs: l.groups.flatMap(g => g.rows).map(t => [t.team, t.full || t.team]) }));
+  if (tab === "Basketbol") { const items = world("basketball"); return items.length ? [{ label: "Liqalar", items }] : []; }
+  if (tab !== "Futbol") return [];
+  const az = AZ_LEAGUES.map(short => ({ short, label: short, place: "", clubs: ((S.football?.leagues || []).find(l => l.short === short)?.table || []).map(t => [clubAz(t.team), t.team]) }));
+  const items = world("football");
+  return [{ group: "Azərbaycan", label: "Azərbaycan liqaları", items: az }, ...(items.length ? [{ label: "Dünya liqaları", items }] : [])];
+}
+const leagueHead = g => `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.label)}</span>`;
+const leagueLink = (l, on) => `<a class="pill${on ? " on" : ""}" href="#/komanda/${teamSlug(l.short)}" data-liga="${esc(l.short)}"><span>${esc(l.label)}</span>${l.place ? `<small>${esc(l.place)}</small>` : ""}</a>`;
 function navGroups(tabs, open) {
   const groups = tabs.find(t => t.name === open)?.groups || [];
-  return open !== "Futbol" ? groups : groups.map(g => g.group === "Azərbaycan" ? { group: "", items: g.items.filter(t => t.name === "Milli komanda") } : g);
+  // Məlumat çatana qədər klubların xəbər düymələri qalır, yoxsa onlara yol olmaz.
+  if (open === "Basketbol") return navLeagues("idman", open).length ? [] : groups;
+  if (open !== "Futbol") return groups;
+  return groups.flatMap(g => g.group === "Azərbaycan" ? [{ group: "", items: g.items.filter(t => t.name === "Milli komanda") }] : S.sports?.leagues?.length ? [] : [g]);
 }
 function navRows(slug, open = S.sportTab, club = S.club || "") {
   const tabs = SUB_TABS[slug];
   const pill = (name, label = name) => `<button class="pill ${club === name || open === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
-  const groups = navGroups(tabs, open);
+  const groups = navGroups(tabs, open), leagues = navLeagues(slug, open);
   return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div></div></div>` +
-    (groups.length ? `<div class="nav-row two"><div class="wrap sport-chips">${navLeagues(slug, open).length ? `<div class="chips sub"><span class="chip-h">${GROUP_FLAG["Azərbaycan"]}Azərbaycan liqaları</span>${navLeagues(slug, open).map(leagueLink).join("")}</div>` : ""}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
+    (groups.length || leagues.length ? `<div class="nav-row two"><div class="wrap sport-chips">${leagues.map(g => `<div class="chips sub">${leagueHead(g)}${g.items.map(l => leagueLink(l)).join("")}</div>`).join("")}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
@@ -1421,7 +1437,7 @@ function footballBlock(list) {
     const groups = fb.groups || [];
     const gi = Math.min(Number(S.fbTab) || 0, groups.length - 1);
     const gtabs = groups.length > 1 ? `<div class="fb-groups">${groups.map((g, i) => `<button type="button" class="pill${i === gi ? " on" : ""}" data-fbtab="${i}">${esc(GROUP_AZ[g.name] || g.name)}</button>`).join("")}</div>` : "";
-    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<div class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></div>`).join("");
+    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<a href="${teamHref(fb, t.full || t.team)}" class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></a>`).join("");
     return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.asof ? ` · ${esc(asofLabel(fb.asof))}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link)}" target="_blank" rel="noopener noreferrer">Vikipediya ↗</a></div>
       ${picker}
       <div class="strip"><div class="fb-teams">${wteams}</div></div>
@@ -2476,7 +2492,7 @@ function wantSports() { if (S.sports || S.sportsAsked) return; S.sportsAsked = t
 async function loadSports() {
   try {
     const r = await fetch(freshUrl("data/sports.json"), { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; if (["home", "league"].includes(route().name) && S.data) requestRender(false); } }
+    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; S.navRefresh?.(); if (["home", "league", "section"].includes(route().name) && S.data) requestRender(false); } }
   } catch {}
 }
 async function loadFootball() {

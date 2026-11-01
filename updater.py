@@ -2756,6 +2756,25 @@ def _write_if_changed(path, doc):
     _write_atomic(path, text)
     return True
 
+TEAM_GROUP_AZ = {"Eastern Conference": "Şərq konfransı", "Western Conference": "Qərb konfransı"}
+
+def team_world_league(league):
+    """Dünya liqasının cədvəli (sports.json) -> komanda faylı. Şəbəkə yoxdur. Bu mənbədə oyun təqvimi yoxdur, «games» boşdur."""
+    teams, groups = {}, []
+    for group in league.get("groups") or []:
+        rows = []
+        for row in group.get("rows") or []:
+            name = row.get("full") or row.get("team") or ""
+            slug = team_slug(name)
+            teams[slug] = {"name": name, "logo": row.get("logo") or ""}
+            if row.get("team") != name:
+                teams[slug]["short"] = row.get("team")
+            rows.append(dict({k: v for k, v in row.items() if k not in ("full", "logo")}, team=slug))
+        groups.append({"name": TEAM_GROUP_AZ.get(group.get("name"), group.get("name") or ""), "rows": rows})
+    season = league.get("season") or ""
+    return {"id": team_slug(league.get("short")), "name": league.get("name") or "", "short": league.get("short") or "", "source": "Vikipediya", "url": league.get("url") or "",
+            "sport": league.get("sport") or "football", "asof": league.get("asof") or "", "key": season[:4], "season": season, "teams": teams, "groups": groups, "games": []}
+
 def _team_when(s):
     try:
         t = datetime.datetime.fromisoformat(str(s))
@@ -2830,6 +2849,15 @@ def update_team_pages():
             # Seçicidə yalnız faylı olan mövsüm.
             ready = [x for i, x in enumerate(league["seasons"]) if i == 0 or (TEAM_DIR / f"{spec['id']}-{x['key']}.json").exists()]
             leagues.append(dict(league, ready=ready))
+    for world in _read_json(SPORTS_FILE, {}).get("leagues") or []:
+        doc = team_world_league(world)
+        if not doc["groups"]:
+            continue
+        _write_if_changed(TEAM_DIR / f"{doc['id']}.json", doc)
+        checked[doc["id"]] = world.get("at") or now
+        seasons = [{"key": doc["key"], "label": doc["season"]}]
+        leagues.append({"id": doc["id"], "name": doc["name"], "short": doc["short"], "source": doc["source"], "sport": doc["sport"], "seasons": seasons, "ready": seasons,
+                        "teams": [r["team"] for g in doc["groups"] for r in g["rows"]]})
     _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty)})
     print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {time.monotonic() - started:.1f} s")
 

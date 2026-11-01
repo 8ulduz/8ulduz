@@ -1018,6 +1018,12 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 .pop-col.two{background:var(--nav-row2)}
 .pop-col .pill{display:flex;align-items:center;justify-content:space-between;width:100%;flex:none;min-height:38px;padding:7px 12px;border-radius:6px;background:var(--card);color:var(--fg);font-size:.9rem;text-align:left;white-space:normal}
 .pop-col .pill.on{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+a.pill small{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:400}
+a.pill.on small{color:inherit}
+.pop-col.clubs{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:4px;width:340px}
+.pop-col.clubs .pill{min-height:30px;padding:4px 8px;font-size:.82rem}
+.pop-col.clubs .pill.all{grid-column:1/-1;font-weight:700;color:var(--primary)}
+@media(max-width:899px){.pop-col.clubs{display:none}}
 .pop-col [data-kids]::after{content:"›";margin-left:8px;font-size:1.1em;opacity:.8}
 .pop-col .chip-h{flex:none;padding:4px 2px 0;min-width:0}
 .nav-row{background:var(--nav-row);border-bottom:1px solid var(--border);padding:6px 0}
