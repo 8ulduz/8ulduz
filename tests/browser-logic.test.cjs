@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
   return context;
 }
 
@@ -1400,6 +1400,13 @@ test('football tables link only to the team pages that exist: Azerbaijani league
   S.sports = { leagues: [{ id: 'tur.1', sport: 'football', short: 'Türkiyə', name: 'Süper Liq', groups: [{ name: 'x', rows: [{ pos: 1, team: 'Fenerbahce', full: 'Fenerbahce', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3 }] }] }] };
   const world = footballBlock([]);
   assert.ok(world.includes('<a href="#/komanda/turkiye/fenerbahce" class="fb-team"'), 'dünya klubunun kartı öz səhifəsinə aparır');
+});
+test('sports menu stays put: place is from its widest form', () => {
+  const { popLeft } = app().api;
+  assert.equal(popLeft(300, 1280, 800), 300);
+  assert.equal(popLeft(600, 1280, 800), 472, 'üçüncü sütun açılanda da sığır, açılanda yeri dəyişmir');
+  assert.equal(popLeft(420, 593, 460), 125);
+  assert.equal(popLeft(20, 300, 460), 8, 'ekrandan sola çıxmır');
 });
 test('transfer news: own tab first, football and basketball inside, empty basketball hidden', () => {
   const { S, navPopHtml, subNav, clubMatches } = app().api;
