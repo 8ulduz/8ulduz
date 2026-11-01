@@ -114,15 +114,43 @@ nav.main a.nav-tix{position:relative}
 .tix-top:hover{border-color:var(--primary);color:var(--primary)}
 /* Qırmızı nöqtə yalnız pik saatda və ya təzə yol hadisəsində (syncTixDot) */
 .tix-btn{position:relative}
-.tix-btn.hot::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:99px;background:var(--red);box-shadow:0 0 0 2px var(--header)}
+.tix-btn.hot::after{content:"";flex:none;margin-left:6px;width:7px;height:7px;border-radius:99px;background:var(--red)}
 .search{flex:none;position:relative;margin-left:auto}
 .search input{width:148px;height:32px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);padding:0 12px 0 30px;font:inherit;font-size:0.9286rem;outline:none}
 .search input:focus{border-color:var(--primary)}
 .search input:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.newpill{position:fixed;left:50%;transform:translateX(-50%);top:12px;z-index:80;padding:8px 16px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.newpill[hidden]{display:none}
 .skip{position:absolute;left:8px;top:-48px;z-index:90;background:var(--primary);color:var(--primary-fg);font-weight:800;padding:6px 12px;border-radius:8px}
 .skip:focus{top:8px}
 .search svg{position:absolute;left:10px;top:9px;opacity:.6}
+.share{flex:none;margin-left:auto;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:999px;background:none;color:inherit;opacity:.8;cursor:pointer}
+.share:hover{opacity:1;color:var(--primary)}
+.share:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+.sharepop{position:fixed;z-index:90;display:flex;flex-direction:column;min-width:150px;max-width:260px;padding:4px;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px #000a;font-size:.9rem}
+.sharepop a,.sharepop button{display:block;width:100%;padding:8px 10px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;font-weight:700;text-align:left;cursor:pointer}
+.sharepop a:hover,.sharepop button:hover{background:var(--card2)}
+.sharepop p{margin:0;padding:8px 10px}
+.install-btn{min-height:30px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--fg);font:inherit;font-size:.82rem;font-weight:700;white-space:nowrap;cursor:pointer}
+.install-btn:hover{border-color:var(--primary);color:var(--primary)}
+.svc-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card)}
+.svc-table{width:100%;border-collapse:collapse;font-size:.95rem}
+.svc-table th,.svc-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.svc-table tbody tr:last-child th,.svc-table tbody tr:last-child td{border-bottom:0}
+.svc-table thead th{color:var(--muted);font-size:.8rem}
+.svc-table .up{color:var(--green,#16a34a)}
+.svc-table .down{color:var(--red)}
+@media (max-width:600px){.share{width:32px;height:32px}}
+.search.has-mic input{width:100%;padding-right:34px}
+.search .mic{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:30px;height:30px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:999px;background:none;color:var(--muted);cursor:pointer}
+.search .mic[hidden]{display:none}
+.search .mic svg{position:static;opacity:1}
+.search .mic:hover{color:var(--primary)}
+.search .mic:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.search .mic.on{background:var(--red);color:#fff}
+@media (prefers-reduced-motion:no-preference){.search .mic.on{animation:mic-on 1.2s ease-in-out infinite}}
+@keyframes mic-on{50%{opacity:.6}}
 @media (min-width:721px){
   .topbar .wrap{flex-wrap:nowrap;height:31px;min-height:31px;overflow:visible}
   .topbar .sync{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -179,6 +207,10 @@ nav.main a.nav-tix{position:relative}
 
 /* --- bazar kartları: ortada, kənarlarda boşluq, xəbər kartından ayrı rəng --- */
 .markets{border-bottom:1px solid var(--border);background:transparent}
+/* Qiymətlər və lent sonra gəlir: yeri əvvəlcədən ayrılır, səhifə aşağı itələnmir */
+.markets.pending{height:65px;visibility:hidden}
+#ticker:empty{min-height:31px}
+@media(min-width:601px){.markets.pending{height:68px}#ticker:empty{min-height:34px}}
 /* Valyuta kartları: əvvəlki görünüş (ad / qiymət / dəyişmə sətri), hündürlük bir az azaldılıb (~73px → ~58px); həmişə görünür */
 .mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}
 button.mk{font:inherit;color:inherit;padding:0;text-align:left;cursor:pointer}
@@ -224,7 +256,12 @@ main>.wrap>section{margin-bottom:18px}
 .prez-h h2{margin:0;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;gap:5px;white-space:nowrap}
 .prez-h h2 svg{color:var(--primary);width:14px;height:14px}
 .prez-h .cnt{font-size:11px;white-space:nowrap}
-.prez-h .links{display:flex;gap:8px;font-size:11px;color:var(--muted);min-width:0;overflow:hidden}
+.prez-n{flex:none;display:inline-flex;align-items:baseline;gap:3px;padding:1px 7px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:10.5px;font-weight:700;white-space:nowrap}
+.prez-n b{font-size:16px;line-height:1.25;font-weight:900}
+.prez-short{display:none}
+/* Dar ekranda başlıq qısalır: düymə kənara çıxmasın */
+@media(max-width:420px),(min-width:901px){.prez-long{display:none}.prez-short{display:inline}}
+.prez-h .links{display:none}
 .prez-h .links a{white-space:nowrap}
 .prez-h .links a:hover{color:var(--primary);text-decoration:underline}
 .prez-h .btn{margin-left:auto;padding:2px 9px;font-size:11px;flex:none}
@@ -405,6 +442,11 @@ main>.wrap>section{margin-bottom:18px}
 .page-h .cnt{margin-left:auto;background:var(--card2);border-radius:999px;padding:3px 10px;font-weight:700;font-size:0.8571rem;color:var(--muted);white-space:nowrap}
 .chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
 .chips .pill{padding:3px 10px;font-size:0.8214rem}
+.sport-chips .chips{align-items:center;margin-bottom:6px}
+.sport-chips .chips.sub{padding-left:8px;border-left:2px solid var(--primary)}
+.sport-chips{margin-bottom:12px}
+.chip-h{flex:none;min-width:76px;color:var(--muted);font-size:0.75rem;font-weight:700}
+.lang-note{color:var(--muted);font-size:0.8214rem}
 .loadmore{display:block;margin:14px auto 0;padding:8px 22px;border:1px solid var(--border);border-radius:999px;font-weight:700;color:var(--muted)}
 .loadmore:hover{border-color:var(--primary);color:var(--fg)}
 .empty{padding:50px 0;text-align:center;color:var(--muted)}
@@ -462,6 +504,7 @@ footer .logo img{height:28px}
   .tabbar a,.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--muted);font-size:10px;font-weight:800}
   .tabbar b{font-size:16px;line-height:1}
   .tabbar .on{color:var(--primary)}
+  .tabbar .tix-btn.hot::after{position:absolute;top:9px;left:calc(50% + 7px);margin:0;box-shadow:0 0 0 2px var(--header)}
   nav.main a.nav-tix{display:none}
   body{padding-bottom:62px}
   .totop{bottom:70px}
@@ -632,6 +675,7 @@ footer .logo img{height:28px}
   .fb-links{flex-direction:row;overflow-x:auto;scrollbar-width:none}
   .fb-links::-webkit-scrollbar{display:none}
   .fb-tab{flex:none}
+  .fb-table{min-width:0}
   .fb-table th:nth-child(7),.fb-table td:nth-child(7){display:none}
 }
 .foot .games{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
@@ -791,6 +835,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 .prez-lent{position:relative;display:flex;flex-direction:column;gap:8px;height:340px;overflow-y:auto;scrollbar-width:thin;scroll-snap-type:y mandatory;scroll-behavior:smooth;overflow-anchor:none}
 .prez-lent>.pcard{flex:none;min-height:74px;scroll-snap-align:start}
 .prez-lent .pcard .t{-webkit-line-clamp:3}
+.lazy-sec:has(>template){min-height:520px}
 .image-fallback{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;padding:12px;background:radial-gradient(ellipse at 80% 20%,#ffc21b24,transparent 65%),linear-gradient(145deg,var(--card2),var(--bg));color:var(--muted);text-align:center}
 .image-fallback img{height:clamp(18px,3.4vw,34px);width:auto;opacity:.92}
 .image-fallback>span{font-weight:700}
@@ -934,3 +979,101 @@ nav.main a.nav-x{display:none}
   .latest-grid .card h3,.grid .card h3,.card:has(>.star) h3{padding-right:40px}
   .latest-grid .card .badges,.grid .card .badges,.card:has(>.star) .badges{padding-right:44px}
 }
+
+/* Başlıqlar bir-birinə yaxın; alt başlığı olanlar (İdman, Bölgələr) oxla və qalın yazı ilə fərqlənir. */
+nav.main{gap:0}
+nav.main a{padding:5px 6px}
+nav.main a.has-sub{font-weight:800;color:var(--fg)}
+nav.main a.has-sub.on{color:var(--primary-fg)}
+nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.75}
+.flag{display:inline-block;vertical-align:-1px;margin-right:4px;border-radius:2px;box-shadow:0 0 0 1px #0003;flex:none}
+.mk-ic{margin-right:3px}
+.mk-ic .flag{margin-right:0}
+.lang-pills{display:flex;align-items:center;gap:4px;flex:none}
+.lang-pill{display:inline-flex;align-items:center;padding:3px 9px;font-size:.8rem;font-weight:700;white-space:nowrap}
+.chip-h .flag{margin-right:4px}
+/* Telefon: bütün başlıqlar görünür, sətirlərə bölünür. Başlıq yuxarıda qalmır ki, xəbərə yer qalsın: axtarış və bölmələr alt paneldədir. */
+@media(max-width:600px){
+  header.site{position:relative}
+  nav.main{display:flex;flex-wrap:wrap;overflow:visible;gap:4px;-webkit-mask-image:none;mask-image:none}
+  nav.main>a{padding:6px 10px;min-height:34px;font-size:.82rem;background:var(--card2);border-radius:999px}
+  nav.main>a.on{background:var(--primary);color:var(--primary-fg)}
+  .lang-pill{min-height:36px}
+  .sport-chips .chips{flex-wrap:wrap;overflow:visible}
+}
+
+/* Rejim düyməsi: işarənin yanında növbəti rejimin adı */
+.prefs .theme-btn{display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-weight:700;white-space:nowrap}
+.prefs .theme-btn span{font-size:.72rem}
+
+/* Alt başlıqlar menyunun düz altında */
+/* Alt menyu sətirləri: başlıq panelindən azca fərqli fon, hər pillə bir ton tünd */
+:root{--nav-row:var(--card2);--nav-row2:var(--card2)}
+@supports(background:color-mix(in srgb,red,blue)){:root{--nav-row:color-mix(in srgb,var(--primary) 10%,var(--card));--nav-row2:color-mix(in srgb,var(--primary) 20%,var(--card))}}
+.sub-rows{margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.sub-rows .wrap{max-width:none;padding-left:10px;padding-right:10px}
+.sub-rows .nav-row:last-child{border-bottom:0}
+.nav-pop{position:absolute;top:100%;left:0;z-index:60;display:flex;align-items:flex-start;border-radius:0 0 10px 10px;overflow:hidden;box-shadow:0 14px 28px #0006}
+.nav-pop[hidden]{display:none}
+.pop-col{display:flex;flex-direction:column;gap:6px;width:230px;padding:10px;background:var(--nav-row);max-height:var(--pop-h,calc(100dvh - 130px));overflow-y:auto}
+.pop-col.two{background:var(--nav-row2)}
+.pop-col.two a.pill{min-height:32px;padding:4px 12px}
+.pop-col .pill{display:flex;align-items:center;justify-content:space-between;width:100%;flex:none;min-height:38px;padding:7px 12px;border-radius:6px;background:var(--card);color:var(--fg);font-size:.9rem;text-align:left;white-space:normal}
+.pop-col .pill.on{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+a.pill small{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:400}
+a.pill.on small{color:inherit}
+.pop-col.clubs{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:4px;width:340px}
+.pop-col.clubs .pill{min-height:30px;padding:4px 8px;font-size:.82rem}
+.pop-col.clubs .pill.all{grid-column:1/-1;font-weight:700;color:var(--primary)}
+@media(max-width:899px){.pop-col.clubs{display:none}}
+.pop-col [data-kids]::after{content:"›";margin-left:8px;font-size:1.1em;opacity:.8}
+.pop-col .chip-h{flex:none;padding:4px 2px 0;min-width:0}
+.nav-row{background:var(--nav-row);border-bottom:1px solid var(--border);padding:6px 0}
+.nav-row.two{background:var(--nav-row2)}
+.nav-row .sport-chips{margin-bottom:0}
+.nav-row .chips{gap:4px;margin-bottom:0;padding-bottom:0}
+.nav-row .chips+.chips{margin-top:5px}
+.nav-row .pill{min-height:34px;padding:4px 11px;font-size:.82rem;background:var(--card);color:var(--fg);display:inline-flex;align-items:center}
+.nav-row .pill.on{background:var(--primary);color:var(--primary-fg)}
+#view{scroll-margin-top:90px}
+@media(max-width:600px){#view{scroll-margin-top:8px}}
+
+/* «Paylaş» işarə yox, yazıdır */
+.share{width:auto;height:24px;padding:0 9px;border:1px solid var(--border);font-size:.72rem;font-weight:700;line-height:1;white-space:nowrap}
+.share:hover{border-color:var(--primary)}
+@media (max-width:600px){.share{width:auto;height:28px;padding:0 10px}}
+/* Rejim düyməsi: yazı kənara dəyməsin (.topbar .prefs button 3px qoyur) */
+.topbar .prefs .theme-btn{padding:0 6px}
+@media (min-width:601px){.topbar .prefs .theme-btn{padding:0 8px;height:22px}}
+/* Tıxac: Namaz yaşıl, hava mavi, yol isə işıqforun narıncısı */
+:root{--tix-pill:linear-gradient(180deg,#ea580c 0%,#c2410c 100%);--tix-on:#fff7ed}
+:root[data-theme="light"]{--tix-pill:linear-gradient(180deg,#fdba74 0%,#fb923c 100%);--tix-on:#7c2d12}
+.tix-top{background:var(--tix-pill);color:var(--tix-on);border-color:transparent}
+.tix-top:hover{filter:brightness(1.08);border-color:transparent;color:var(--tix-on)}
+/* Loqo tünd fon üçün çəkilib: işıqlı rejimdə də şəkil yerində tünd lövhə (başlıqdakı .logo kimi) */
+:root[data-theme="light"] .image-fallback{background:radial-gradient(ellipse at 80% 20%,#ffc21b24,transparent 65%),linear-gradient(145deg,#1f1c17,#0e0d0b);color:#d6d0c4}
+:root[data-theme="light"] .image-fallback small{color:#b5afa3}
+.fcontact{margin:8px 0 0}
+@media(max-width:600px){.grid .card .image-fallback>span,.grid .card .image-fallback small,.secrow .card .image-fallback>span,.secrow .card .image-fallback small{display:none}}
+/* Telefonda başlıqlar alçaq, barmaq üçün rahat qalır */
+@media(max-width:600px){nav.main>a{min-height:30px;padding:3px 10px;font-size:.8rem;line-height:1.2}nav.main{gap:3px}.nav-row .pill{min-height:30px;padding:3px 10px;font-size:.8rem}}
+/* Məzənnə həmişə bir sətirdir: sığmayanda yana sürüşür, sığanda ortada qalır */
+.mk-grid{flex-wrap:nowrap;max-width:none;overflow-x:auto;scrollbar-width:none;justify-content:flex-start}
+.mk-grid::-webkit-scrollbar{display:none}
+.mk-grid>.mk:first-child{margin-left:auto}
+.mk-grid>.mk:last-child{margin-right:auto}
+.nav-s{display:none}
+/* Telefon: başlıq sətirləri bərabərləşir, heç bir endə son başlıq (Video) tək sətrə düşmür */
+@media(max-width:600px){
+  nav.main{display:block;text-wrap:balance}
+  nav.main>a,nav.main a.nav-x{display:inline-flex;align-items:center;vertical-align:top;margin:0 2px 3px 0;padding-left:7px;padding-right:7px}
+  nav.main .nav-f{display:none}
+  nav.main .nav-s{display:inline}
+  nav.main>a[href="#/"]{display:none}
+}
+/* Şəkil tam görünür, kəsilmir: qutuya sığdırılır, artıq qalan yer fonla dolur (telefonda slayder şəklinin 31%-i kəsilirdi) */
+.img>img,.hero-main>.img img,.card .img img{object-fit:contain;object-position:center}
+.img:has(>img){background:var(--img-bg,#0e0d0b)}
+:root[data-theme="light"]{--img-bg:hsl(216 20% 88%)}
+.hero-main>.img:has(>img){background:#0e0d0b}
+.hero-main>.img img{object-position:center top}

@@ -4,13 +4,13 @@
 
 Mənbə adının yanında `gün/həftə/ay/il` ümumi keçid sayları göstərilir. `assets/config.js`-dəki GoatCounter hesabında Settings → **Allow adding visitor counts on your website** aktiv olmalıdır; hesabın saat qurşağını **Asia/Baku** seçin. Sayım `source-click-MƏNBƏ` hadisələri ilə yalnız istehsal domenində aparılır, fərdi istifadəçi identifikatoru yaradılmır. Hər klik ayrıca sayılır. Başlanğıcdan əvvəlki statistika bərpa edilmir; xidmət rəqəmləri 4 saata qədər keşləyə bilər. `—` rəqəmin əlçatan olmadığını göstərir.
 
-> Hazırda sürücü rejimi və mikrofonlu «Köməkçi» söndürülüb (`assets/config.js`: `driver`, `assistant`). Kod yerindədir; `true` yazanda geri qayıdır.
+> Hazırda sürücü rejimi və mikrofonlu «Köməkçi» söndürülüb (`assets/config.js`: `driver`, `assistant`). Kod yerindədir; `true` yazanda geri qayıdır. Axtarış qutusunun mikrofonu ayrıca işləyir (`mountVoiceSearch`), brauzer dəstəkləmirsə görünmür.
 
 **Sürücü rejimi** aktiv olanda Azərbaycan dilində xəbər keçidi mənbəni yeni vərəqdə açır, bu səhifə isə mənbədən ayrıca alınmış mətni səsləndirir. Məqalə mətni səhifədə göstərilmir. `reader_content.py` updater tərəfindən çağırılıb `data/reader.json` audio mətn keşini yaradır; bir dövrədə ən çox 24 yeni məqalə işlənir. İlk yayımda keş boş ola bilər. Bloklanmış və ya tanınmayan mənbələr üçün səsləndirmə edilmir. Azərbaycan Web Speech səsi olmayan cihazda ayrıca Azərbaycan TTS provayderi lazımdır; API açarları brauzerə yazılmamalıdır. Mobil brauzerlər başqa vərəqə keçəndə səsi dayandıra bilər.
 
 Yoxlama hesabatı: [29 oktyabr 2026 oxucu auditi](docs/reader-audit-2026-10-29.md).
 
-Statik xəbər aqreqatoru: GitHub Actions hər 5 dəqiqədən bir RSS lentlərini toplayır, sayt isə JSON faylları oxuyur.
+Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərini toplayır, sayt isə JSON faylları oxuyur. Qaydalar: [docs/qirmizi-xetler.md](docs/qirmizi-xetler.md).
 
 ## Struktur
 
@@ -78,7 +78,7 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - Baş səhifə hər dəqiqə yalnız `data/status.json`-u (151 bayt) yoxlayır; `news.json` yalnız `checkedAt` dəyişəndə çəkilir. Lentdəki xəbərlərin demək olar ki, hamısı son 24 saatındır, ona görə faylı arxivə bölməyə ehtiyac yoxdur.
 - «Haqqımızda» (`#/haqqinda`): sayt nədir, mənbələr, redaksiya prinsipləri, məxfilik, əlaqə. Altlıqdan keçid var.
 - Valyuta kartlarında AMB rəsmi məzənnəsi alınmayanda «bazar» nişanı və qeyd çıxır (ehtiyat: ExchangeRate-API). Updater AMB bülletenini hər gün üçün iki dəfə yoxlayır, alınmayan günü keçir.
-- «Texnologiya» bölməsi: elm, texnologiya və süni intellekt xəbərləri (əvvəl «Həyat»a düşürdü).
+- «Təhsil və elm» bölməsi təhsil, elm, texnologiya və süni intellekt xəbərlərini, «Sağlamlıq və həyat» bölməsi səhiyyə və həyat tərzi xəbərlərini birləşdirir (`SECTION_ALIASES`).
 - Xarici mənbələrin (WORLD_FEEDS) Azərbaycan dövləti, rəhbərliyi, Bakı, Qarabağ, Naxçıvan haqqında xəbərləri dərc edilmir (`foreign_about_azerbaijan`, idman istisna); bu mövzu yalnız Azərbaycan mənbələrindən gəlir.
 - «Bölgələr» bölməsi: rayon və şəhər adları ilə təyin olunur (Bakı istisna), mənbə kimi AZƏRTAC-ın «Regionlar» lenti də var. GəncəXəbər və Patriotnews lent vermir (biri bot-qoruma arxasındadır, digəri açılmır).
 - Loqo: `assets/logo.png` (ağ «8» içində 8 guşəli ulduz və yumruq, sarı «ULDUZ»; fon şəffaf, mənbə şəkil sahibdən). Başlıq/altlıqda `logo-80.png` (retina), şəkilsiz kartların yerində də o; açıq temada tünd lövhə üstündə. Favicon, PWA ikonları (`icon-*.png`, maskable) və `og-default.png` (1200×630) eyni loqodan `C:/t8/build_logo.js` ilə yaradılıb (xarici kitabxanasız PNG emalı, `png.js`). Telefonda səhifəyə qayıdanda lent dərhal yoxlanır (`visibilitychange`/`pageshow`/`online`).

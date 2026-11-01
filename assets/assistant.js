@@ -76,10 +76,10 @@ export async function answerCommand(text,snapshot,context={},providers={}) {
     const ageNote=stamp?` Məlumat: ${dateLabel(stamp)}.${within(stamp,24)?'':' Köhnəlmiş ola bilər.'}`:' Yenilənmə vaxtı göstərilməyib; cari vəziyyət təsdiqlənmir.';
     const standing=row.pts!=null?`${row.team}: ${league.league}, ${row.pos}-ci yer, ${row.pts} xal.`:`${row.team}: ${row.pos}-ci yer, ${row.w} qələbə, ${row.l} məğlubiyyət.`;
     const wantsLast=/son oyun|son matc|nece bit|hesab|netice/.test(intent.query);
-    if(!wantsLast)return reply(standing+ageNote,[],{links:[{title:league.source||'Turnir cədvəli',url:league.link||'https://www.espn.com/'}]});
+    if(!wantsLast)return reply(standing+ageNote,[],{links:[{title:league.source||'Turnir cədvəli',url:league.link||'https://en.wikipedia.org/'}]});
     const games=(league.results||[]).filter(g=>g.played&&[g.home,g.away].some(n=>teamAliases(n).some(a=>teamAliases(row.team).includes(a)))&&new Date(g.date).getTime()<=Date.now()).sort((a,b)=>new Date(b.date)-new Date(a.date));
     const game=games[0];
-    return reply((game?`Məlumatdakı son tamamlanmış oyun: ${game.home} ${game.hs} — ${game.as} ${game.away}. Tarix: ${dateLabel(game.date)}. `:'Bu komandanın son oyununun təsdiqlənmiş hesabı hazırkı məlumatda yoxdur. ')+standing+ageNote,[],{links:[{title:league.source||'İdman mənbəyi',url:league.link||'https://www.espn.com/'}]});
+    return reply((game?`Məlumatdakı son tamamlanmış oyun: ${game.home} ${game.hs} — ${game.as} ${game.away}. Tarix: ${dateLabel(game.date)}. `:'Bu komandanın son oyununun təsdiqlənmiş hesabı hazırkı məlumatda yoxdur. ')+standing+ageNote,[],{links:[{title:league.source||'İdman mənbəyi',url:league.link||'https://en.wikipedia.org/'}]});
   }
   if(intent.type==='weather'||intent.type==='prayer') {
     if(intent.unsupportedDate)return reply('İlk versiyada bu gün və sabah üçün məlumat verə bilirəm.');
@@ -119,7 +119,7 @@ export function selectReadingVoice(voices, selected = 'auto') {
 }
 
 // A single spoken request is submitted only after recognition has released the microphone.
-export function createVoiceSession({Recognition, onStart = () => {}, onTranscript = () => {}, onComplete = () => {}, onError = () => {}, onEnd = () => {}}) {
+export function createVoiceSession({Recognition, lang = 'az-AZ', onStart = () => {}, onTranscript = () => {}, onComplete = () => {}, onError = () => {}, onEnd = () => {}}) {
   let epoch = 0, current = null, active = false, timer = null;
   function cancel() {
     epoch++; clearTimeout(timer);
@@ -135,7 +135,7 @@ export function createVoiceSession({Recognition, onStart = () => {}, onTranscrip
     let transcript = '', failed = false, finished = false;
     let rec; try { rec = new Recognition(); } catch { onError('audio-capture'); return; }
     current = rec; active = true;
-    rec.lang = 'az-AZ'; rec.continuous = false; rec.interimResults = true;
+    rec.lang = lang; rec.continuous = false; rec.interimResults = true;
     rec.onstart = () => { if (token === epoch) onStart(); };
     rec.onresult = event => {
       if (token !== epoch || finished || failed) return;
@@ -156,6 +156,35 @@ export function createVoiceSession({Recognition, onStart = () => {}, onTranscrip
     catch { active = false; current = null; onEnd(); onError('audio-capture'); }
   }
   return {start, stop, cancel, get active() { return active; }};
+}
+
+const VOICE_SEARCH_ERRORS = {'not-allowed': 'Mikrofona icazə yoxdur', 'service-not-allowed': 'Səslə axtarış bağlıdır', 'no-speech': 'Səs eşidilmədi', 'audio-capture': 'Mikrofon tapılmadı', 'network': 'Səs xidmətinə çatmır'};
+// Axtarış qutusunun mikrofonu: deyilən söz qutuya yazılır və adi axtarış kimi işləyir.
+export function mountVoiceSearch({button, input, Recognition, onDone = () => {}}) {
+  if (!Recognition || !button || !input) return null;
+  const hint = input.placeholder;
+  let before = '', timer = null;
+  const make = lang => createVoiceSession({Recognition, lang,
+    onStart() { clearTimeout(timer); before = input.value; input.value = ''; input.placeholder = 'Dinləyirəm…'; button.classList.add('on'); button.setAttribute('aria-pressed', 'true'); },
+    onTranscript(text) { input.value = text; },
+    onComplete(text) {
+      input.value = text.replace(/[.!?…]+$/u, '').trim(); input.placeholder = hint;
+      input.dispatchEvent(new Event('input', {bubbles: true}));
+      onDone();
+    },
+    onError(code) {
+      // Azərbaycan dilini tanımayan cihazda (məsələn, iPhone) komanda adları türkcə də düzgün çıxır.
+      if (code === 'language-not-supported' && lang !== 'tr-TR') { session = make('tr-TR'); session.start(); return; }
+      input.value = ''; input.placeholder = VOICE_SEARCH_ERRORS[code] || 'Səs tanınmadı';
+      clearTimeout(timer); timer = setTimeout(() => { input.placeholder = hint; if (!input.value) input.value = before; }, 4000);
+    },
+    onEnd() { button.classList.remove('on'); button.setAttribute('aria-pressed', 'false'); },
+  });
+  let session = make('az-AZ');
+  button.hidden = false;
+  button.parentElement?.classList.add('has-mic');
+  button.addEventListener('click', event => { event.preventDefault(); session.start(); });
+  return {get session() { return session; }};
 }
 
 export function mountAssistant({getSnapshot,wxCode}) {

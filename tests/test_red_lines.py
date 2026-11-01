@@ -152,10 +152,10 @@ class PublishGateTest(unittest.TestCase):
             root = pathlib.Path(tmp)
             (root / "data").mkdir()
             rows = [article("APA", "https://apa.az/1"), article("TASS", "https://tass.ru/1", "Алиев принял"), article("X", "https://meydan.tv/1")]
-            for name in ("news.json", "latest.json"):
+            for name in ("news.json", "latest.json", "first.json"):
                 (root / "data" / name).write_text(json.dumps({"articles": rows, "count": 3}), encoding="utf-8")
             enforce_policy(root)
-            for name in ("news.json", "latest.json"):
+            for name in ("news.json", "latest.json", "first.json"):
                 data = json.loads((root / "data" / name).read_text(encoding="utf-8"))
                 self.assertEqual([a["sourceUrl"] for a in data["articles"]], ["https://apa.az/1"])
                 self.assertEqual(data["count"], 1)
@@ -170,7 +170,7 @@ class FastCycleTest(unittest.TestCase):
         (root / "data").mkdir()
         names = {"OUT_DIR": root / "data", "OUT_FILE": root / "data" / "news.json", "STATUS_FILE": root / "data" / "status.json",
                  "SOURCES_FILE": root / "data" / "sources.json", "OG_FILE": root / "data" / "og.json", "DATES_FILE": root / "data" / "dates.json",
-                 "LATEST_FILE": root / "data" / "latest.json", "CACHE_DIR": root / ".cache", "FEED_CACHE": root / ".cache" / "feeds.json",
+                 "LATEST_FILE": root / "data" / "latest.json", "LINK_HEALTH_FILE": root / ".cache" / "link_health.json", "FIRST_FILE": root / "data" / "first.json", "CACHE_DIR": root / ".cache", "FEED_CACHE": root / ".cache" / "feeds.json",
                  "SLOW_FEED_CACHE": root / ".cache" / "slow.json", "OFFICIAL_CACHE": root / ".cache" / "official.json",
                  "UNDATED_FILE": root / ".cache" / "undated.json", "RECENT_FILE": root / ".cache" / "recent.json", "GNEWS_CACHE": root / ".cache" / "gnews.json",
                  "GROUPS_FILE": root / ".cache" / "groups.json", "RELABEL_MARK": root / ".cache" / "relabeled"}
@@ -195,6 +195,70 @@ class FastCycleTest(unittest.TestCase):
 
     def news(self, name="news.json"):
         return json.loads((self.root / "data" / name).read_text(encoding="utf-8"))["articles"]
+
+    def test_image_added_to_the_feed_later_reaches_the_story(self):
+        link = "https://apa.az/haqqinda-1"
+        def feed(image):
+            def fetcher(feed, old=None):
+                rows = [dict(self.item(link, "Avropada güclü fırtına başladı"), image=image)] if feed[0] == "APA" else []
+                return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
+            return fetcher
+        self.cycle(feed(None))
+        self.assertFalse(next(a for a in self.news() if a["sourceUrl"] == link).get("imageUrl"))
+        self.cycle(feed("https://apa.az/sekil.jpg"))
+        self.assertEqual(next(a for a in self.news() if a["sourceUrl"] == link)["imageUrl"], "https://apa.az/sekil.jpg")
+
+    def first_screen_feed(self, feed, old=None):
+        rows = [self.item("https://apa.az/ilk-1", "Avropada güclü fırtına başladı")] if feed[0] == "APA" else []
+        return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
+
+    def test_every_cycle_writes_the_first_screen_with_the_news(self):
+        self.cycle(self.first_screen_feed)
+        self.assertEqual([a["sourceUrl"] for a in self.news("first.json")], ["https://apa.az/ilk-1"])
+
+    def test_a_failing_first_screen_does_not_stop_the_news(self):
+        with patch.object(updater, "first_screen_rows", side_effect=ValueError("sınaq")):
+            self.cycle(self.first_screen_feed)
+        self.assertEqual([a["sourceUrl"] for a in self.news()], ["https://apa.az/ilk-1"])
+        self.assertFalse((self.root / "data" / "first.json").exists())
+
+    def link_feed(self, feed, old=None):
+        rows = [self.item("https://apa.az/olu-1", "Avropada güclü fırtına başladı"), self.item("https://apa.az/saglam-2", "Asiyada böyük zəlzələ qeydə alındı")] if feed[0] == "APA" else []
+        return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
+
+    def test_a_dead_link_leaves_the_news_and_comes_back_when_fixed(self):
+        (self.root / ".cache").mkdir(exist_ok=True)
+        health = self.root / ".cache" / "link_health.json"
+        self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+        health.write_text(json.dumps({"https://apa.az/olu-1": {"dead": True, "at": time.time(), "since": time.time()}}), encoding="utf-8")
+        self.cycle(self.link_feed)
+        self.assertEqual([a["sourceUrl"] for a in self.news()], ["https://apa.az/saglam-2"])
+        self.assertEqual(json.loads((self.root / "data" / "latest.json").read_text(encoding="utf-8"))["dead"], ["https://apa.az/olu-1"])
+        health.write_text("{}", encoding="utf-8")
+        self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+
+    def test_the_news_cycle_never_checks_links_itself(self):
+        with patch.object(updater, "link_status", side_effect=AssertionError("xəbər dövrəsi linkə sorğu göndərməməlidir")):
+            self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+
+    def test_a_broken_link_file_or_failure_does_not_stop_the_news(self):
+        (self.root / ".cache").mkdir(exist_ok=True)
+        (self.root / ".cache" / "link_health.json").write_text("{pozuq", encoding="utf-8")
+        self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+        with patch.object(updater, "drop_dead_links", side_effect=ValueError("sınaq")):
+            self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+
+    def test_too_many_dead_links_are_not_believed(self):
+        (self.root / ".cache").mkdir(exist_ok=True)
+        many = {f"https://apa.az/{i}": {"dead": True, "at": 1, "since": 1} for i in range(updater.LINK_DEAD_MAX + 1)}
+        (self.root / ".cache" / "link_health.json").write_text(json.dumps(many), encoding="utf-8")
+        self.assertEqual(updater.dead_links(100), set())
+        self.assertEqual(len(updater.dead_links(1000)), updater.LINK_DEAD_MAX + 1)
 
     def test_a_hanging_feed_does_not_hold_the_cycle(self):
         def fetcher(feed, old=None):
@@ -282,8 +346,23 @@ class PipelineContractTest(unittest.TestCase):
         self.assertGreater(70 * 60, self.setting("MAX_RUN"))
 
     def test_every_publish_passes_the_gate(self):
-        self.assertIn("guard_outputs\n  push_live", self.pipeline)
+        self.assertIn("guard_outputs\n  promote_code\n  if push_live", self.pipeline)
         self.assertIn("check_outputs.py", self.pipeline)
+
+    def test_broken_checker_cannot_overwrite_last_known_good(self):
+        run_py = self.pipeline.split("run_py() {")[1].split("\n}\n")[0]
+        self.assertNotIn("copy_code", run_py)
+        self.assertIn('"${CUR_RAN:-0}" = 1 ] && [ "${CUR_CHECKED:-0}" = 1', self.pipeline)
+
+    def test_hung_cycle_ends_the_job_but_a_github_outage_does_not(self):
+        self.assertIn("self_watch $$", self.pipeline)
+        loop = self.pipeline.split("while :; do\n  began=$SECONDS\n  touch")[1]
+        self.assertLess(loop.index('touch "$STATE/heartbeat"\n  guard_outputs'), loop.index("push_live"))
+        self.assertIn('"$push_fails" -ge "$PUSH_FAILS_MAX"', self.pipeline)
+        self.assertNotIn('"$GH" ', self.pipeline.split("# --------------------------------------------------------------------- başlanğıc")[1])
+
+    def test_watchdog_leaves_a_fresh_job_alone(self):
+        self.assertIn("fromdateiso8601) < ($(date +%s) - 360)", self.watchdog)
 
     def test_each_minute_has_its_own_address_because_raw_caches_branch_paths(self):
         sw = (ROOT / "sw.js").read_text(encoding="utf-8")
@@ -302,6 +381,325 @@ class PipelineContractTest(unittest.TestCase):
         self.assertIn("workflow_run", self.watchdog)
         self.assertIn("gh run cancel", self.watchdog)
         self.assertIn("gh issue create", self.watchdog)
+
+
+class FastCycleReliefTest(unittest.TestCase):
+    feed = ("Femida.az", "https://femida.az/rss.xml", "az", None)
+
+    def test_a_dead_feed_stops_holding_the_cycle_after_three_failures(self):
+        calls = []
+        def dead(feed):
+            calls.append(feed[0])
+            return feed[0], [], "TimeoutError", feed[1]
+        with patch.object(updater, "_fetch_conditional", side_effect=TimeoutError()), patch.object(updater, "fetch_feed", dead):
+            entry = None
+            for _ in range(5):
+                entry = updater.fetch_feed_fast(self.feed, entry)
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(entry["late"])
+        self.assertEqual(entry["err"], "TimeoutError")
+
+    def test_a_paused_feed_is_tried_again(self):
+        old = {"items": [{"link": "https://femida.az/1"}], "pausedAt": updater.time.time() - updater.FEED_RETRY_S - 1, "fails": 3}
+        with patch.object(updater, "_fetch_conditional", return_value=[{"link": "https://femida.az/2"}]):
+            entry = updater.fetch_feed_fast(self.feed, old)
+        self.assertEqual(entry["items"], [{"link": "https://femida.az/2"}])
+        self.assertFalse(entry.get("pausedAt"))
+
+    def test_our_own_network_failure_pauses_nothing(self):
+        feeds = [(f"S{i}", f"https://s{i}.az/rss", "az", None) for i in range(10)]
+        def fails(feed, old=None):
+            return {"items": [], "err": "DNS", "pausedAt": updater.time.time(), "fails": 3}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", feeds), patch.object(updater, "fetch_feed_fast", fails), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"):
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertTrue(all(not entry["pausedAt"] for entry in saved.values()))
+
+    def test_one_late_answer_does_not_pause_a_healthy_feed(self):
+        def slow(feed, old=None):
+            time.sleep(1)
+            return {"items": [], "err": None}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", [self.feed]), patch.object(updater, "fetch_feed_fast", slow), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "FAST_BUDGET_S", 0.1), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"):
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertEqual(saved[self.feed[0]]["fails"], 1)
+        self.assertFalse(saved[self.feed[0]]["pausedAt"])
+        self.assertIn(self.feed[0], updater.LATE_FEEDS)
+
+    def test_many_slowly_accumulating_pauses_are_cleared_too(self):
+        now = time.time()
+        feeds = [(f"S{i}", f"https://s{i}.az/rss", "az", None) for i in range(10)]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEEDS", feeds), \
+                patch.object(updater, "official_items", lambda: ([], [])), patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), \
+                patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "f.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"), \
+                patch.object(updater, "OFFICIAL_CACHE", pathlib.Path(tmp) / "o.json"), patch.object(updater, "GNEWS_CACHE", pathlib.Path(tmp) / "g.json"), \
+                patch.object(updater, "fetch_feed", lambda feed: (feed[0], [], "x", feed[1])), patch.object(updater, "_fetch_conditional", side_effect=TimeoutError()):
+            # Hərəsi fərqli vaxtda dayandırılıb: son bir dəqiqədə yox, son 5 dəqiqədə.
+            (pathlib.Path(tmp) / "f.json").write_text(json.dumps({f[0]: {"items": [], "err": "x", "pausedAt": now - 120, "fails": 3} for f in feeds}), encoding="utf-8")
+            updater.collect_fast()
+            saved = updater._read_json(pathlib.Path(tmp) / "f.json", {})
+        self.assertTrue(all(not entry["pausedAt"] for entry in saved.values()))
+
+    def test_answering_late_is_not_counted_as_success(self):
+        self.assertIn("cavab gecikir", (ROOT / "updater.py").read_text(encoding="utf-8"))
+
+    def test_official_pages_do_not_wait_for_each_other(self):
+        started = []
+        def page(url, tries=1, timeout=12):
+            started.append(url)
+            if "azertag" in url:
+                raise TimeoutError("asıldı")
+            return ""
+        with patch.object(updater, "fetch_text", page):
+            items, errors = updater.official_items()
+        self.assertEqual(len(started), 3)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("AZƏRTAC", errors[0])
+
+
+class BulkDatedFeedTest(unittest.TestCase):
+    def test_old_articles_with_a_rewritten_date_are_detected(self):
+        items = [{"pubDate": f"Sat, 31 Oct 2026 04:{i % 16:02d}:00 +0400", "link": f"https://marja.az/{i}"} for i in range(100)]
+        self.assertTrue(updater.bulk_dated(items))
+
+    def test_a_feed_with_a_stable_date_in_its_links_is_not_touched(self):
+        # Azərbaycan qəzeti: lent sorğu vaxtını yazır, əsl tarix keçiddədir (fixed_source_date).
+        items = [{"pubDate": f"Sat, 31 Oct 2026 07:{i % 9:02d}:00 +0000", "link": f"https://azerbaijan-news.az/az/posts/detail/x-{1793300000 + i * 900}/{i}"} for i in range(50)]
+        self.assertFalse(updater.bulk_dated(items))
+
+    def test_a_busy_real_feed_is_not_touched(self):
+        items = [{"pubDate": f"Sat, 31 Oct 2026 {i // 30:02d}:{i * 2 % 60:02d}:00 +0400"} for i in range(120)]
+        self.assertFalse(updater.bulk_dated(items))
+        self.assertFalse(updater.bulk_dated([{"pubDate": "Sat, 31 Oct 2026 04:00:00 +0400"}] * 20))
+
+
+class QualityTest(unittest.TestCase):
+    def label(self, title, desc=""):
+        return updater.categorize(title, desc)
+
+    def test_short_stems_do_not_match_inside_other_words(self):
+        self.assertNotEqual(self.label("Avropa kəşfiyyatı həyəcan təbili çalır"), "Texnologiya")
+        self.assertNotEqual(self.label("Roman Abramoviç Bakıya gəldi"), "Mədəniyyət")
+        self.assertEqual(self.label("Noyabrda 5 bürcü sevgi və pulda yeniliklər gözləyir"), "Həyat")
+        self.assertNotEqual(self.label("Kiyevin doqquz rayonunda su təchizatı pozulub"), "Bölgələr")
+        self.assertEqual(self.label("Tovuzda avtomobil kanala aşdı"), "Bölgələr")
+
+    def test_ascii_azerbaijani_title_is_not_english(self):
+        self.assertEqual(updater.detect_lang("Tehrandan Avropaya", "", "az"), "az")
+        self.assertEqual(updater.detect_lang("Zaqatalada qaz olmayacaq", "", "az"), "az")
+        self.assertEqual(updater.detect_lang("Azerbaijan, Turkiye discuss solar energy deal", "", "az"), "en")
+
+    def test_same_site_stories_do_not_merge_by_event_similarity(self):
+        at = "2026-10-31T01:00:00+00:00"
+        row = lambda url, title, src: {"id": url, "sourceUrl": url, "title": title, "source": src, "publishedAt": at, "summary": "", "category": "gundem", "lang": "az"}
+        out = updater.group_duplicates([row("https://a.az/1", "Bakıda avtobus qəzaya uğrayıb, sürücü həbs olunub", "A"),
+                                        row("https://a.az/2", "Bakıda avtobus sürücüsü qəza törədib və saxlanılıb", "A")])
+        self.assertEqual(len(out), 2)
+
+    def test_a_card_counts_each_site_once(self):
+        at = "2026-10-31T01:00:00+00:00"
+        row = lambda url, src: {"id": url, "sourceUrl": url, "title": "Sabah Şahbuzda işıq olmayacaq bütün gün", "source": src, "publishedAt": at, "summary": "", "category": "gundem", "lang": "az"}
+        out = updater.group_duplicates([row("https://a.az/1", "A"), row("https://a.az/2", "A"), row("https://b.az/1", "B")])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(len({alt["source"] for alt in out[0]["alts"]}), len(out[0]["alts"]))
+        self.assertNotIn(out[0]["source"], {alt["source"] for alt in out[0]["alts"]})
+
+    def test_a_wrong_merge_leaves_the_card_when_groups_change(self):
+        rows = [{"sourceUrl": "https://a.az/1", "alts": [{"sourceUrl": "https://b.az/9", "source": "B"}]}, {"sourceUrl": "https://c.az/2"}]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "g.json"):
+            updater.GROUPS_FILE.write_text('{"https://c.az/2":[{"sourceUrl":"https://d.az/3","source":"D"}]}', encoding="utf-8")
+            out = updater.apply_groups(rows)
+        self.assertNotIn("alts", out[0])
+        self.assertEqual(out[1]["alts"][0]["source"], "D")
+
+    def test_stored_groups_do_not_bring_broken_reyting_links_back(self):
+        rows = [{"sourceUrl": "https://a.az/1"}]
+        stored = {"https://a.az/1": [{"sourceUrl": "https://reyting.az/haber/x.html", "source": "Reyting.az"}]}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "qrup.json"):
+            updater.GROUPS_FILE.write_text(updater.json.dumps(stored), encoding="utf-8")
+            out = updater.apply_groups(rows)
+        self.assertEqual(out[0]["alts"][0]["sourceUrl"], "https://reyting.az/xeber/x")
+
+    def test_first_minute_of_a_job_keeps_existing_merges(self):
+        rows = [{"sourceUrl": "https://a.az/1", "alts": [{"sourceUrl": "https://b.az/9", "source": "B"}]}]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "yoxdur.json"):
+            self.assertEqual(updater.apply_groups(rows), rows)
+
+    def test_foreign_sources_have_a_smaller_share(self):
+        self.assertLess(updater.MAX_PER_WORLD_SOURCE, updater.MAX_PER_SOURCE)
+        self.assertLess(updater.MAX_WORLD + updater.MAX_WORLD_SPORT, updater.FAST_MAX_ITEMS * 0.4)
+
+    def test_a_politics_site_does_not_put_weather_or_football_into_politics(self):
+        cat = lambda title, desc="": updater.categorize(title, desc, "az", "Siyasət?")
+        self.assertEqual(cat("Noyabrın ilk günü hava necə olacaq? - PROQNOZ"), "Cəmiyyət")
+        self.assertEqual(cat("Bu dəfə futbolçular yox, baş məşqçilər dalaşdı + VİDEO"), "İdman")
+        self.assertEqual(cat("Ermənistan parlamentindəki qarşıdurmaya görə Rubinyan məsul tutulur"), "Siyasət")
+        self.assertEqual(cat("Açıq məktub: kimə sual verək"), "Siyasət")
+        self.assertEqual(updater.categorize("Nəcəfli haqqında bir söz", "", "az", "Siyasət"), "Siyasət")
+
+    def test_a_mixed_feed_sends_only_sport_to_the_sports_section(self):
+        self.assertEqual(updater.categorize("Oktyabrın son günü yağış yağacaq - HAVA PROQNOZU", "", "az", "İdman?"), "Cəmiyyət")
+        self.assertNotEqual(updater.categorize("Sevgilisi ilə barışdı", "", "az", "İdman?"), "İdman")
+        self.assertEqual(updater.categorize("Bakıda futbol turniri başladı", "", "az", "İdman?"), "İdman")
+        self.assertEqual(updater.categorize("Heç bir idman sözü yoxdur burada", "", "az", "İdman"), "İdman")
+
+    def test_every_new_sport_feed_is_registered_and_marked_as_sport(self):
+        for name in ("Qol.az", "Fanat.az"):
+            self.assertTrue(content_policy.source_registered(name))
+            self.assertIn(name, [f[0] for f in updater.FEEDS])
+        world = {f[0]: f for f in updater.FEEDS if f[0] in updater.WORLD_SOURCES}
+        for name in content_policy.SPORT_SOURCES:
+            self.assertIn(name, world, name)
+            self.assertEqual(world[name][3], "İdman", name)
+
+    def test_a_foreign_sports_site_still_cannot_write_about_the_leadership(self):
+        row = article("Motorsport F1", "https://www.motorsport.com/1", title="Baku GP: President Aliyev watched the race", category="idman")
+        self.assertTrue(content_policy.violation(row))
+        race = article("Motorsport F1", "https://www.motorsport.com/2", title="Verstappen wins in Baku", category="idman")
+        self.assertFalse(content_policy.violation(race))
+        moved = article("Motorsport F1", "https://www.motorsport.com/3", title="Baku talks start", category="siyaset")
+        self.assertTrue(content_policy.violation(moved))
+
+
+class ArchiveTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = pathlib.Path(self.tmp.name)
+        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv"), patch.object(updater, "ARCHIVE_OG_FILE", root / "aog.json"), patch.object(updater, "CACHE_DIR", root), patch.object(updater, "_fetch_og", return_value="")]
+        for p in self.patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+        self.tmp.cleanup()
+
+    def write(self, *articles):
+        updater.OUT_FILE.write_text(updater.json.dumps({"articles": list(articles)}), encoding="utf-8")
+
+    def row(self, url, hours, **extra):
+        at = updater.datetime.datetime.now(updater.datetime.timezone.utc) - updater.datetime.timedelta(hours=hours)
+        return {"id": url, "title": "Məktəblərdə yeni dərs ili", "summary": "", "source": "APA", "sourceUrl": url, "publishedAt": at.isoformat(), "category": "tehsil", "lang": "az", **extra}
+
+    def rows(self, slug="tehsil"):
+        return updater._read_json(updater.ARCHIVE_DIR / f"{slug}.json", {}).get("articles") or []
+
+    def test_items_stay_after_they_leave_the_feed(self):
+        self.write(self.row("https://apa.az/1", 2))
+        updater.update_archive(now=updater.time.time())
+        self.write(self.row("https://apa.az/2", 1))
+        updater.update_archive(now=updater.time.time() + 3700)
+        self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/2", "https://apa.az/1"])
+
+    def test_written_at_most_once_an_hour(self):
+        now = updater.time.time()
+        self.write(self.row("https://apa.az/1", 2))
+        updater.update_archive(now=now)
+        self.write(self.row("https://apa.az/2", 1))
+        updater.update_archive(now=now + 600)
+        self.assertEqual(len(self.rows()), 1)
+
+    def test_old_and_forbidden_items_are_removed(self):
+        self.write(self.row("https://apa.az/1", 6 * 24), self.row("https://azadliq.org/1", 1), self.row("https://apa.az/3", 1))
+        updater.update_archive()
+        self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/3"])
+
+    def test_archive_repairs_broken_reyting_links(self):
+        updater.ARCHIVE_DIR.mkdir(parents=True)
+        (updater.ARCHIVE_DIR / "gundem.json").write_text(updater.json.dumps({"at": 1, "articles": [self.row("https://reyting.az/haber/kohne-1.html", 3, source="Reyting.az")]}), encoding="utf-8")
+        self.write(self.row("https://apa.az/yeni", 1))
+        updater.update_archive()
+        self.assertEqual([a["sourceUrl"] for a in self.rows("gundem")], ["https://reyting.az/xeber/kohne-1"])
+
+    def test_merged_sections_carry_their_old_archive_over(self):
+        updater.ARCHIVE_DIR.mkdir(parents=True)
+        (updater.ARCHIVE_DIR / "texnologiya.json").write_text(updater.json.dumps({"at": 1, "articles": [self.row("https://apa.az/kohne", 3, category="texnologiya")]}), encoding="utf-8")
+        self.write(self.row("https://apa.az/yeni", 1), self.row("https://apa.az/kohne-lent", 2, category="texnologiya"))
+        updater.update_archive()
+        self.assertEqual(sorted(a["sourceUrl"] for a in self.rows()), ["https://apa.az/kohne", "https://apa.az/kohne-lent", "https://apa.az/yeni"])
+        self.assertEqual({a["category"] for a in self.rows()}, {"tehsil"})
+        self.assertEqual(self.rows("texnologiya"), [])
+
+    def test_merged_sections_have_one_page_each_and_old_addresses_redirect(self):
+        slugs = [s[0] for s in updater.SECTIONS]
+        self.assertNotIn("sehiyye", slugs)
+        self.assertNotIn("texnologiya", slugs)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SECTIONS_DIR", pathlib.Path(tmp)):
+            updater.write_sections([])
+            old = (pathlib.Path(tmp) / "sehiyye" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("url=../heyat/", old)
+
+    def backlog_feed(self, *items):
+        cache = updater.ARCHIVE_DIR.parent / "feeds.json"
+        cache.write_text(updater.json.dumps({"DOST Agentliyi": {"items": list(items), "at": 5}}), encoding="utf-8")
+        return patch.object(updater, "FEED_CACHE", cache), patch.object(updater, "SLOW_FEED_CACHE", updater.ARCHIVE_DIR.parent / "yoxdur.json")
+
+    def feed_item(self, url, hours, title="DOST mərkəzində müraciətlər qəbul olunur"):
+        at = updater.datetime.datetime.now(updater.datetime.timezone.utc) - updater.datetime.timedelta(hours=hours)
+        return {"title": title, "link": url, "description": "", "pubDate": at.isoformat(), "image": None, "author": ""}
+
+    def test_official_news_older_than_the_feed_reaches_its_section(self):
+        self.write(self.row("https://apa.az/1", 1))
+        first, second = self.backlog_feed(self.feed_item("https://dost.gov.az/news/1", 30), self.feed_item("https://dost.gov.az/news/2", 7 * 24))
+        with first, second:
+            updater.update_archive()
+        self.assertEqual([a["sourceUrl"] for a in self.rows("sosial")], ["https://dost.gov.az/news/1"])
+        self.assertEqual(self.rows("sosial")[0]["category"], "sosial")
+
+    def test_backlog_stories_get_their_page_image_once(self):
+        self.write(self.row("https://apa.az/1", 1))
+        first, second = self.backlog_feed(self.feed_item("https://dost.gov.az/news/4", 3))
+        with first, second, patch.object(updater, "_fetch_og", return_value="https://dost.gov.az/a.jpg") as look:
+            updater.update_archive()
+            self.assertEqual(self.rows("sosial")[0]["imageUrl"], "https://dost.gov.az/a.jpg")
+            self.assertEqual(look.call_count, 1)
+            updater.update_archive(now=updater.time.time() + 3700)
+            self.assertEqual(look.call_count, 1, "bir dəfə tapılan yenidən sorğulanmır")
+            self.assertEqual(self.rows("sosial")[0]["imageUrl"], "https://dost.gov.az/a.jpg")
+
+    def test_wrongly_taken_featured_image_is_removed_from_the_archive(self):
+        self.write(self.row("https://lent.az/xeber/1", 2, source="Lent.az", imageUrl="https://lent.az/storage/news/2026/october/31/middle/a.webp"))
+        updater.update_archive()
+        self.assertNotIn("imageUrl", self.rows()[0])
+
+    def test_backlog_keeps_the_negative_leadership_filter(self):
+        self.write(self.row("https://apa.az/1", 1))
+        with patch.object(updater, "is_negative_about_leadership", return_value=True):
+            first, second = self.backlog_feed(self.feed_item("https://dost.gov.az/news/3", 2))
+            with first, second:
+                updater.update_archive()
+        self.assertEqual(self.rows("sosial"), [])
+
+    def test_a_new_section_gets_its_archive_without_waiting_an_hour(self):
+        now = updater.time.time()
+        self.write(self.row("https://apa.az/1", 2))
+        updater.update_archive(now=now)
+        (updater.ARCHIVE_DIR / "sosial.json").unlink()
+        self.write(self.row("https://apa.az/2", 1))
+        updater.update_archive(now=now + 600)
+        self.assertTrue((updater.ARCHIVE_DIR / "sosial.json").exists())
+        self.assertEqual(len(self.rows()), 2)
+
+    def test_the_presidential_chronicle_has_no_archive(self):
+        self.write(self.row("https://apa.az/1", 1))
+        updater.update_archive()
+        self.assertFalse((updater.ARCHIVE_DIR / "prezident.json").exists())
+
+
+class ReaderRetiredTest(unittest.TestCase):
+    def test_full_texts_are_no_longer_published(self):
+        self.assertFalse(updater.READER_ENABLED)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OUT_DIR", pathlib.Path(tmp)):
+            file = pathlib.Path(tmp) / "reader.json"
+            file.write_text("{}", encoding="utf-8")
+            updater.retire_reader()
+            self.assertFalse(file.exists())
 
 
 class DateFloorTest(unittest.TestCase):

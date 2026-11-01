@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
   return context;
 }
 
@@ -99,13 +99,375 @@ test('forced refresh cancels a stuck request and an older request cannot overwri
   assert.equal(ctx.api.S.newsLoading,false);
   assert.equal(ctx.api.S.etag,'recovered');
 });
-test('returning from background refetches news even if a CDN repeats the same status stamp',async()=>{
+test('a forced refresh refetches news even if a CDN repeats the same status stamp',async()=>{
   const ctx=app(),{S}=ctx.api,urls=[];
   S.data={updatedAt:'old',articles:[]};S.status={checkedAt:'same'};S.newsStamp='same';S.newsCheckedAt=Date.now();
   ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{updatedAt:'fresh',articles:[]}};};
   await ctx.api.pollNews(true);
   assert.equal(S.data.updatedAt,'fresh');
-  assert.ok(urls.every(u=>u.includes('&r=')));
+  assert.ok(urls.filter(u=>!u.includes('/live/m/')).every(u=>u.includes('&r=')));
+});
+test('returning to the tab checks the small file at once and does not download the whole feed',async()=>{
+  const ctx=app(),{S}=ctx.api,urls=[];
+  S.data={updatedAt:'old',articles:[]};S.rawNews=[];S.rawMeta={};S.status={checkedAt:'same'};S.newsStamp='same';S.newsCheckedAt=Date.now();S.latestAt=Date.now();
+  ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{articles:[]}};};
+  await ctx.api.pollNews(false,true);
+  assert.ok(urls.some(u=>u.includes('latest.json')));
+  assert.ok(!urls.some(u=>u.includes('news.json')));
+});
+test('red line 1: an unchanged status stamp cannot hold back the feed for more than 90 seconds',async()=>{
+  const ctx=app(),{S}=ctx.api,urls=[];
+  S.data={articles:[]};S.rawNews=[];S.rawMeta={};S.status={checkedAt:'same'};S.newsStamp='same';S.newsCheckedAt=Date.now();S.latestAt=Date.now()-91e3;
+  ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{articles:[]}};};
+  await ctx.api.pollNews();
+  assert.ok(urls.some(u=>u.includes('latest.json')));
+});
+test('red line 1: a visitor without a service worker reads the one-minute channel, and falls back to the site',async()=>{
+  const ctx=app(),{requestJSON}=ctx.api,urls=[];
+  ctx.fetch=async url=>{urls.push(url);return url.includes('/live/m/')?{ok:false,status:404}:{ok:true,headers:new Headers(),json:async()=>({from:'site'})};};
+  const first=await requestJSON('data/latest.json?t=1');
+  assert.equal(first.d.from,'site');
+  assert.equal(urls.filter(u=>u.includes('/live/m/')).length,3);
+  urls.length=0;
+  const ctx2=app({navigator:{onLine:true,serviceWorker:{controller:{}}}});
+  ctx2.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>({from:'site'})};};
+  await ctx2.api.requestJSON('data/latest.json?t=1');
+  assert.ok(!urls.some(u=>u.includes('/live/m/')),'service worker varsa sıranı o idarə edir');
+  urls.length=0;
+  const ctx3=app();
+  ctx3.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>({})};};
+  await ctx3.api.requestJSON('data/news.json?t=1');
+  assert.ok(!urls.some(u=>u.includes('/live/m/')),'tam lent saytdan gəlir');
+});
+test('an update waits while the reader is busy: open video, open popup, typing, or scrolled down',()=>{
+  const busy=(selector,extra={})=>{
+    const ctx=app({setTimeout:fn=>{fn();return 0;},document:{documentElement:{dataset:{}},addEventListener(){},createElement(){return {};},querySelector:s=>s.includes(selector)?{}:null,...extra},scrollY:0});
+    let rendered=0;
+    ctx.api.S.data={articles:[]};
+    vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render;',ctx);
+    ctx.api.requestRender();
+    rendered=ctx.rendered||0;
+    return {rendered,pending:ctx.api.S.renderPending};
+  };
+  assert.deepEqual(busy('#nothing'),{rendered:1,pending:false});
+  assert.deepEqual(busy('iframe'),{rendered:0,pending:true});
+  assert.deepEqual(busy('altpop'),{rendered:0,pending:true});
+  assert.deepEqual(busy('#nothing',{activeElement:{closest:()=>({})}}),{rendered:0,pending:true});
+  const ctx=app({scrollY:900});
+  ctx.api.requestRender();
+  assert.equal(ctx.api.S.renderPending,true);
+});
+test('phone headings use short names so they fit three rows, screen readers keep the full name',()=>{
+  const ctx=app();
+  const label=vm.runInContext('navLabel',ctx);
+  assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-s">Sağlamlıq<'));
+  assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-f">Sağlamlıq və həyat<'));
+  assert.equal(label({slug:'gundem',label:'Gündəm'}),'Gündəm');
+});
+test('Zuğulba always shows 44 stories: official and state sites first, then others',()=>{
+  const ctx=app(),{prezHome,prezBlock}=ctx.api,at=i=>new Date(Date.now()-i*3600e3).toISOString();
+  const row=(id,source,i,lang='az')=>({id,source,lang,category:'prezident',title:'Prezident İlham Əliyev xəbəri '+id,sourceUrl:'https://x.az/'+id,publishedAt:at(i)});
+  const rows=[...Array.from({length:10},(_,i)=>row('r'+i,'Report',i)),...Array.from({length:60},(_,i)=>row('o'+i,'Axar.az',i)),...Array.from({length:5},(_,i)=>row('p'+i,'Prezident.az',200+i))];
+  const out=[...prezHome(rows)];
+  assert.equal(out.length,44);
+  for(let i=0;i<5;i++)assert.ok(out.some(a=>a.id==='p'+i),'köhnə rəsmi xəbər qalır');
+  assert.equal(out.filter(a=>a.source==='Report').length,10,'dövlət saytı digərlərindən əvvəl');
+  assert.equal(new Set(out.map(a=>a.id)).size,44,'təkrar yoxdur');
+  const few=[...prezHome(rows.slice(0,3),rows)];
+  assert.equal(few.length,44,'seçilmiş dildə az olsa da 44');
+  const html=prezBlock(out);
+  assert.ok(html.includes('Son <b>44</b> xəbər'),'yazı');
+  const foreign=[...prezHome([row('r0','Report',1),{...row('y','Axar.az',2),title:'Husilər prezident sarayına zərbələr endirdi'},{...row('f','Sportinfo',3),title:'Fənərbağçanın prezidenti danışdı'}])];
+  assert.deepEqual(foreign.map(a=>a.id),['r0'],'yad xəbərlə doldurulmur');
+  assert.equal(html.split('class="pcard').length-1,44,'44 kartın hamısı');
+  assert.ok(!html.includes('<template>'));
+  const pics=prezBlock(out.map(a=>({...a,imageUrl:'https://x.az/'+a.id+'.jpg'})));
+  assert.equal(pics.split('class="pcard').length-1,44,'şəkilli 44 kart');
+  assert.equal(pics.split('<img src=').length-1,8,'ilk açılışda yalnız 8 şəkil yüklənir');
+  assert.equal(pics.split('<img data-src=').length-1,36,'qalan şəkillər lent sürüşəndə gəlir');
+});
+const firstRow=id=>({id,title:'Xəbər başlığı '+id,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:new Date().toISOString()});
+function firstApp(files){
+  const ctx=app(),seen=[];
+  ctx.fetch=async url=>{const name=String(url).split('?')[0];seen.push(name);const body=files[name];if(!body)return {ok:false,status:404,headers:new Headers()};return {ok:true,headers:new Headers(),json:async()=>body};};
+  vm.runInContext('globalThis.paints=[]; render = () => { paints.push(S.data ? S.data.articles.length + (S.partial ? " ilk" : " tam") : "boş"); }; globalThis.boot = () => { S.firstReady = loadFirst(); return loadNews(); };',ctx);
+  return {ctx,seen};
+}
+test('first screen paints from first.json, the full list is asked after it and replaces it even with the same stamp',async()=>{
+  const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+  await ctx.boot();
+  assert.ok(seen.indexOf('data/first.json')<seen.indexOf('data/news.json'));
+  assert.equal(ctx.paints[0],'1 ilk');
+  assert.equal(ctx.api.S.partial,false);
+  assert.equal(ctx.api.S.data.articles.length,2);
+});
+test('first screen uses its own image list and asks for the whole og file after painting',async()=>{
+  const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')],og:{'https://apa.az/a':'https://apa.az/a.jpg'}},'data/news.json':{updatedAt:'x',articles:[firstRow('a')]},'data/og.json':{}});
+  vm.runInContext('const realRender = render; render = () => { globalThis.imageAtPaint ??= S.data.articles[0].imageUrl; realRender(); };',ctx);
+  await ctx.boot();
+  assert.equal(ctx.imageAtPaint,'https://apa.az/a.jpg');
+  assert.ok(seen.indexOf('data/first.json')<seen.indexOf('data/news.json'));
+});
+test('first screen: without the file the full list still loads',async()=>{
+  const {ctx}=firstApp({'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+  await ctx.boot();
+  assert.equal(ctx.api.S.data.articles.length,2);
+  assert.ok(!ctx.api.S.partial);
+  assert.equal(ctx.paints[0],'2 tam');
+});
+test('first screen: other pages and languages wait for the full list, a short list is never shown',async()=>{
+  for(const set of ["location.hash='#/bolme/idman'","S.lang='ru'","S.q='neft'"]){
+    const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+    vm.runInContext(set,ctx);
+    await ctx.boot();
+    assert.ok(!seen.includes('data/first.json'),set);
+    assert.equal(ctx.paints[0],'2 tam',set);
+  }
+});
+test('first screen: if the full list fails the reader keeps the first screen and sees the error',async()=>{
+  const {ctx}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/og.json':{}});
+  await ctx.boot();
+  assert.equal(ctx.api.S.partial,true);
+  assert.ok(ctx.api.S.error);
+  assert.equal(ctx.api.S.data.articles.length,1);
+});
+test('first screen stops under the latest list: sections arrive with the full list, breaking alerts wait for it too',()=>{
+  const ctx=app(),{S,homeView,publishNews}=ctx.api;
+  let alerts=0;
+  vm.runInContext('checkBreaking = () => { globalThis.alerts = (globalThis.alerts || 0) + 1; };',ctx);
+  S.rawNews=[firstRow('a'),firstRow('b')];S.rawMeta={};S.partial=true;S.lang='az';
+  publishNews();
+  assert.equal(ctx.alerts,undefined,'qısa siyahı bildiriş yaddaşını korlamasın');
+  const short=homeView();
+  S.partial=false;
+  publishNews();
+  assert.equal(ctx.alerts,1);
+  const full=homeView();
+  assert.ok(!short.includes('service-panel')&&full.includes('service-panel'));
+  assert.ok(full.startsWith(short),'yuxarı hissə eynidir');
+});
+test('a story whose link is dead leaves the screen within a minute, moves to another source, and returns when fixed',async()=>{
+  const ctx=app(),{S}=ctx.api;
+  const main=firstRow('a'),other={...firstRow('b'),alts:[{source:'Report',sourceUrl:'https://report.az/b',title:'Report başlığı',publishedAt:new Date().toISOString()}]},plain=firstRow('c');
+  let dead=[];
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'x',articles:[],dead})});
+  vm.runInContext('requestRender = () => { globalThis.redrawn = (globalThis.redrawn || 0) + 1; };',ctx);
+  S.rawNews=[main,other,plain];S.rawMeta={};S.lang='az';
+  ctx.api.publishNews();
+  dead=['https://apa.az/a','https://apa.az/b'];
+  await ctx.loadLatest();
+  const urls=()=>[...S.data.articles].map(a=>a.sourceUrl).sort();
+  assert.deepEqual(urls(),['https://apa.az/c','https://report.az/b']);
+  assert.equal(S.data.articles.find(a=>a.sourceUrl==='https://report.az/b').title,'Report başlığı');
+  assert.equal(ctx.redrawn,1);
+  await ctx.loadLatest();
+  assert.equal(ctx.redrawn,1,'dəyişiklik yoxdursa ekrana toxunulmur');
+  dead=[];
+  await ctx.loadLatest();
+  assert.deepEqual(urls(),['https://apa.az/a','https://apa.az/b','https://apa.az/c']);
+});
+test('language order: Azerbaijani, Turkish, Russian, English',()=>{
+  const ctx=app();
+  assert.deepEqual(Array.from(vm.runInContext('LANGS.map(l=>l.code)',ctx)),['az','tr','ru','en']);
+});
+test('speed red line: the waiting redraw runs as soon as the files have arrived',()=>{
+  const ctx=app();
+  vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render; flush = flushRender;',ctx);
+  const {S,requestRender}=ctx.api;
+  S.data={articles:[]};S.firstRenderAt=Date.now();
+  requestRender();
+  assert.equal(ctx.rendered||0,0);
+  ctx.flush();
+  assert.equal(ctx.rendered,1);
+  ctx.flush();
+  assert.equal(ctx.rendered,1,'gözləyən çəkiliş yoxdursa heç nə etmir');
+});
+test('speed red line: the page code stays within its size limit',()=>{
+  assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<200e3,'app.js');
+  assert.ok(fs.statSync(path.join(root,'assets/app.css')).size<95e3,'app.css');
+});
+test('speed red line: files arriving together cause one redraw, not one each',async()=>{
+  const ctx=app();
+  vm.runInContext('render = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; }; renderView = render;',ctx);
+  const {S,requestRender}=ctx.api;
+  requestRender();
+  await new Promise(r=>setTimeout(r,450));
+  assert.equal(ctx.rendered||0,0,'xəbər yoxdursa çəkilmir, birinci çəkiliş hamısını götürür');
+  S.data={articles:[]};
+  for(let i=0;i<8;i++)requestRender(i%2===0);
+  await new Promise(r=>setTimeout(r,500));
+  assert.equal(ctx.rendered,1);
+});
+test('speed red line: far sections of the home page are kept out of the page until needed',()=>{
+  const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
+  S.lang=null;S.og={};S.data={articles:Array.from({length:30},(_,i)=>({id:String(i),title:'Xəbər başlığı nömrə '+i,category:i%2?'siyaset':'iqtisadiyyat',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,publishedAt:at}))};
+  const page=homeView();
+  assert.ok(page.includes('<div class="lazy-sec"><template><section>'),'bölmələr şablondadır');
+  assert.ok(page.includes('Bütün xəbərlər'),'məzmun səhifə mətnindədir');
+});
+test('speed red line: images are resized and the original stays as the fallback',()=>{
+  const ctx=app(),{S,sized,img}=ctx.api;
+  S.og={};
+  const url='https://apa.az/a b.jpg';
+  assert.equal(sized(url,480),'https://wsrv.nl/?url='+encodeURIComponent(url)+'&w=480&we&output=webp&q=70');
+  assert.equal(sized('https://apa.az/a.svg',480),'https://apa.az/a.svg');
+  assert.equal(sized('https://apa.az/a.gif?x=1',480),'https://apa.az/a.gif?x=1');
+  const html=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'});
+  assert.ok(html.includes('wsrv.nl'));
+  assert.ok(html.includes('data-image-alternatives="[&quot;https://apa.az/a.jpg&quot;]"'),'alınmasa əsl ünvan');
+  assert.ok(!html.includes('image-fallback'),'şəkli olan kartda ehtiyat loqo yoxdur');
+  assert.ok(img({category:'gundem'}).includes('image-fallback'),'şəkli olmayanda var');
+  assert.ok(img({imageUrl:'https://apa.az/a.jpg'},'',false,true,828,true).includes('data-src='),'uzaq slayd sonra yüklənir');
+  S.proxyFails=8;
+  assert.equal(sized(url,480),url,'xidmət işləmirsə birbaşa mənbədən');
+});
+test('a broken secondary block cannot freeze the news list',()=>{
+  const ctx=app(),{S,homeView}=ctx.api;
+  const at=new Date().toISOString();
+  S.data={articles:[{id:'1',title:'Bakıda yeni park açılıb bu gün',category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:at}]};
+  S.football={leagues:[{results:[{home:'A',away:'B'}]}]};
+  const html=homeView();
+  assert.ok(html.includes('apa.az/1'));
+});
+test('a full reload keeps minute-channel stories and does not count them twice',async()=>{
+  const ctx=app(),{S,loadNews}=ctx.api;
+  const at=new Date().toISOString();
+  const row=(id,title)=>({id,title,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at});
+  S.data={articles:[]};S.og={};S.rawNews=[row('new','Dəqiqəlik kanaldan gələn tam yeni xəbər')];S.overlay=[{a:S.rawNews[0],at:Date.now()}];
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'x',articles:[row('old','Tam lentdəki başqa bir köhnə xəbər')]})});
+  await loadNews(true);
+  assert.deepEqual([...S.rawNews.map(a=>a.id)].sort(),['new','old']);
+  S.overlay[0].at=Date.now()-31*60e3;
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'y',articles:[row('old','Tam lentdəki başqa bir köhnə xəbər')]})});
+  await loadNews(true);
+  assert.deepEqual([...S.rawNews.map(a=>a.id)],['old'],'yarım saatdan sonra tam lentdə olmalıdır, yoxdursa çıxarılıb');
+});
+test('sport buttons: short list, every topic finds its news in every language, no false friends',()=>{
+  const ctx=app(),{clubMatches}=ctx.api;
+  const yes=(club,title,extra={})=>assert.equal(clubMatches({title,...extra},club),true,club+': '+title);
+  const no=(club,title,extra={})=>assert.equal(clubMatches({title,...extra},club),false,club+': '+title);
+  yes('Qarabağ','Qarabağ qalib gəldi');no('Qarabağ','Qarabağ Dirçəliş Fondu QHT-lər üçün qrant müsabiqəsi elan edib');no('Qarabağ','Qarabağ Universitetində yeni fakültə');
+  yes('Sabah','"Sabah" səfərdə "Turan Tovuz"a məğlub oldu');yes('Sabah','Dambrauskas "Sabah"ın məğlubiyyətini şərh etdi');no('Sabah','Sabah Şahbuzda işıq olmayacaq');no('Sabah','Oyun sabah başlayır');
+  yes('Araz-Naxçıvan','“Araz-Naxçıvan” “Zirə”yə qarşı');no('Araz-Naxçıvan','Araz çayında balıq ovu');
+  yes('Galatasaray',"Galatasaray'da yeni transfer");yes('Galatasaray','Super Liqa: "Qalatasaray" darmadağına sevindi');yes('Galatasaray','Защитник «Галатасарая» получил травму');
+  yes('Fenerbahçe','Fənərbaxça qalib gəldi');yes('Fenerbahçe','«Фенербахче» уступил');
+  yes('Real Madrid','Hazard joins Real Madrid');yes('Real Madrid','Тренер «Реала» объяснил поражение');no('Real Madrid','Реальная угроза для клуба');no('Real Madrid','Real problem in midfield');
+  yes('Barcelona','Вратарь «Барселоны» травмирован');yes('Bayern','Игрок «Баварии» забил');yes('Liverpool','«Ливерпуль» обыграл');yes('Man United','Carrick tells Manchester United players');
+  no('İnter','International tournament');yes('İnter','«Интер» обыграл');
+  yes('Avroliqa','Евролига: результаты матчей');yes('Avroliqa','Avroliqada Fənərbaxça uduzdu');yes('Avroliqa','Dorsey stays',{source:'Eurohoops'});
+  yes('NBA','LeBron sinks clutch in NBA');yes('NBA','Лейкерс в НБА');no('NBA','Bakıda basketbol turniri');
+  yes('Formula 1','Verstappen penalized',{source:'Motorsport F1'});yes('Formula 1','Formula-1: Hamilton birinci oldu');yes('Formula 1','Льюис Хэмилтон и «Формула-1»'.replace('«Формула-1»','Формула-1'));no('Formula 1','Yeni formula təklif edildi');
+  yes('Tennis','Tennisçimiz qalib gəldi');yes('Şahmat','Şahmatçılarımız medal qazandı');yes('Boks və UFC','UFC champion Makhachev');yes('Güləş və cüdo','Cüdoçumuz Avropa çempionu oldu');
+  no('İnter','Messi scores twice for Inter Miami');no('Milan','Inter Milan beat Roma');no('Milan','Olimpia Milan wins in EuroLeague');yes('Milan','Pulişiç daha 5 il “Milan”da');
+  no('Formula 1','Гран-при России по фигурному катанию');yes('Formula 1','Verstappen wins the Mexico Grand Prix');no('Güləş və cüdo','Ферстаппен: борьба за позицию была жёсткой');yes('Güləş və cüdo','Борец завоевал золото');
+  no('Futbol','Real Madrid routs Fenerbahce in Euroleague');no('Futbol','«Барселона» в Евролиге обыграла «Монако»');
+  no('Real Madrid','«Реал Бетис» обыграл');yes('Real Madrid','Hazard joins Real Madrid');
+  yes('Barcelona','Матч с Барселоной');yes('Bayern','Победа над Баварией');yes('Avroliqa','Перед Евролигой');
+  yes('Qarabağ','"Qarabağ"ın futbolçusu bərpa olundu');yes('Milli komanda','Azərbaycan milli komandası qalib gəldi');yes('Milli komanda','Azərbaycan millisinə çağırış');yes('Futbol','Çempionlar Liqasına yollandı');
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  const clubs=src.slice(src.indexOf('const SPORT_TEAMS'),src.indexOf('const CITIES')).match(/name: "/g).length;
+  assert.ok(clubs<=35,'düymə sayı: '+clubs);
+  yes('Futbol','Galatasaray kazandı');yes('Futbol','Yeni futbol mövsümü');yes('Futbol','Verstappen?',{source:'BBC Futbol'});no('Futbol','Verstappen wins in Mexico');
+  yes('Basketbol','Лейкерс в НБА');yes('Basketbol','Basketbolçumuz qalib gəldi');no('Basketbol','Galatasaray kazandı');
+});
+test('sport shows every language whatever language is chosen, also inside a team',()=>{
+  const ctx=app(),{S,sectionView}=ctx.api;
+  S.lang='az';
+  const at=new Date().toISOString();
+  S.data={articles:[['az','Qalatasaray qalib gəldi'],['ru','Галатасарай победил'],['tr','Galatasaray kazandı'],['en','Galatasaray win']].map(([lang,title],i)=>({id:String(i),title,lang,category:'idman',source:'APA Sport',sourceUrl:'https://apasport.az/'+i,publishedAt:at}))};
+  for(const club of [null,'Galatasaray']){S.club=club;for(const a of S.data.articles)assert.ok(sectionView('idman').includes(a.title),a.title);}
+  S.club='Liverpool';
+  assert.ok(sectionView('idman').includes('Bu mövzuda son 5 gündə xəbər tapılmadı'));
+});
+test('sport sub-sections open their own teams and close when you leave',()=>{
+  const ctx=app(),{S,sectionView,subNav}=ctx.api;
+  S.data={articles:[]};S.club=null;S.sportTab=null;
+  const page=sectionView('idman');
+  assert.ok(page.indexOf('data-club="Futbol"')>page.indexOf('</h1>')&&page.indexOf('data-club="Futbol"')<page.indexOf('class="empty"'),'alt başlıqlar səhifə başlığı ilə kartların arasındadır');
+  assert.equal(subNav('siyaset'),'');
+  const top=subNav('idman');
+  for(const name of ['Hamısı','Futbol','Basketbol','Formula 1','Tennis','Şahmat'])assert.ok(top.includes('>'+name+'<'),name);
+  assert.ok(!top.includes('data-club="Qarabağ"'),'komandalar bağlıdır');
+  S.club='Futbol';S.sportTab='Futbol';
+  const foot=subNav('idman');
+  for(const name of ['Milli komanda','Galatasaray','Real Madrid'])assert.ok(foot.includes('data-club="'+name+'"'),name);
+  assert.ok(foot.includes('href="#/komanda/premyer-liqa"'),'Azərbaycan klubları liqadan açılır');
+  assert.ok(!foot.includes('data-club="Qarabağ"'));
+  assert.ok(!foot.includes('data-club="NBA"'));
+  S.club='NBA';S.sportTab='Basketbol';
+  const bb=subNav('idman');
+  assert.ok(bb.includes('data-club="Avroliqa"'));
+  assert.ok(!bb.includes('data-club="Qarabağ"'));
+});
+test('hover menu: one list for the section, a second list only for a tab with its own items',()=>{
+  const ctx=app(),{S,navPopHtml}=ctx.api;
+  S.data={articles:[]};S.club=null;S.sportTab=null;
+  const closed=navPopHtml('idman',null);
+  assert.equal(closed.split('pop-col').length-1,1,'bir siyahı');
+  assert.ok(closed.includes('data-club="Futbol"'));
+  assert.ok(!closed.includes('class="pill on"'),'başqa səhifədə heç nə seçili görünmür');
+  const football=navPopHtml('idman','Futbol');
+  assert.ok(football.includes('pop-col two'),'Futbol ikinci siyahını açır');
+  for(const name of ['Milli komanda','Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
+  assert.ok(!football.includes('data-club="Qarabağ"'),'Azərbaycan klubları liqadan açılır');
+  assert.ok(football.includes('class="pill on" data-club="Futbol"'));
+  assert.ok(!navPopHtml('idman','Tennis').includes('pop-col two'),'siyahısı olmayan başlıq');
+  const region=navPopHtml('bolgeler','Qarabağ');
+  assert.ok(region.includes('pop-col two')&&region.includes('data-club="Xankəndi"'),'bölgələr də eyni cür açılır');
+  const more=navPopHtml('more');
+  assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="#/bolme/dunya"'));
+  assert.ok(!more.includes('href="#/bolme/idman"'),'menyuda görünən bölmə təkrarlanmır');
+});
+test('merged sections: old links, old cached stories and saved stories land in the new section',async()=>{
+  const ctx=app(),{S,route,publishNews,sectionView,catSection}=ctx.api;
+  ctx.location.hash='#/bolme/sehiyye';
+  assert.equal(route().slug,'heyat');
+  ctx.location.hash='#/bolme/texnologiya';
+  assert.equal(route().slug,'tehsil');
+  const at=new Date().toISOString();
+  S.og={};S.rawMeta={};S.rawNews=[{id:'1',title:'Həkimlər yeni üsul tapdı',category:'sehiyye',lang:'az',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:at},{id:'2',title:'Yeni smartfon təqdim olundu',category:'texnologiya',lang:'az',source:'APA',sourceUrl:'https://apa.az/2',publishedAt:at}];
+  publishNews();
+  assert.ok(sectionView('heyat').includes('apa.az/1'));
+  assert.ok(sectionView('tehsil').includes('apa.az/2'));
+  assert.ok(sectionView('heyat').includes('Sağlamlıq və həyat'));
+  assert.ok(sectionView('tehsil').includes('Təhsil və elm'));
+  assert.ok(sectionView('sehiyye').includes('Bölmə tapılmadı'),'ünvan route-da çevrilir, siyahıda iki başlıq qalmır');
+});
+test('club filter sees names next to punctuation',()=>{
+  const {clubMatches}=app().api;
+  for(const title of ['«Qarabağ» qalib gəldi','"Sabah" səfərdə uduzdu: Qarabağ, Neftçi','Oyun (Qarabağ) başa çatdı','Qarabağ: yeni transfer'])assert.equal(clubMatches({title},'Qarabağ'),true,title);
+  assert.equal(clubMatches({title:'Qarabağlı alim mükafat aldı'},'Qarabağ'),false);
+});
+test('saved stories survive a second tab',()=>{
+  const memory=new Map();
+  const shared={getItem:k=>memory.has(k)?memory.get(k):null,setItem:(k,v)=>memory.set(k,String(v)),removeItem:k=>memory.delete(k)};
+  const a=app({localStorage:shared}).api.storage,b=app({localStorage:shared}).api.storage;
+  a.setItem('k','bir');
+  assert.equal(b.getItem('k'),'bir');
+  b.setItem('k','iki');
+  assert.equal(a.getItem('k'),'iki');
+});
+test('notifications use the service worker where the page API is not allowed',async()=>{
+  const ctx=app(),{S,showBreaking}=ctx.api,shown=[];
+  S.swReg={showNotification:async(title,options)=>{shown.push([title,options]);}};
+  await showBreaking({id:'1',title:'Son xəbər',sourceUrl:'https://apa.az/1'});
+  assert.equal(shown[0][0],'Son dəqiqə');
+  assert.equal(shown[0][1].data.url,'https://apa.az/1');
+});
+test('section pages reach back through the archive without repeating or leaking',async()=>{
+  const ctx=policyApp(),{S,sectionView,loadArchive}=ctx.api;
+  const at=h=>new Date(Date.now()-h*3600e3).toISOString();
+  const row=(id,h,source='APA',host='apa.az',title='Məktəblərdə yeni dərs ili başladı')=>({id,title,category:'tehsil',lang:'az',source,sourceUrl:`https://${host}/${id}`,publishedAt:at(h)});
+  S.data={articles:[row('now',1)]};
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({articles:[row('now',1),row('old',50),row('bad',40,'Azadlıq','azadliq.org')]})});
+  await loadArchive('tehsil');
+  const html=sectionView('tehsil');
+  assert.ok(html.includes('apa.az/old'),'köhnə xəbər');
+  assert.equal(html.split('apa.az/now').length-1>=1,true);
+  assert.ok(html.indexOf('apa.az/now')<html.indexOf('apa.az/old'),'ən yeni üstdə');
+  assert.ok(!html.includes('azadliq'),'qayda arxivə də tətbiq olunur');
+  await loadArchive('prezident');
+  assert.equal(S.archive.prezident,undefined);
 });
 function policyApp() {
   const src = fs.readFileSync(path.join(root, 'assets/content-policy.js'), 'utf8');
@@ -200,6 +562,10 @@ test('the request index.html started early is used once, later polls fetch again
   assert.equal((await ctx.api.requestJSON('data/news.json?t=1')).d.n,'early');
   assert.equal(fetches,0);
   assert.equal((await ctx.api.requestJSON('data/news.json?t=1')).d.n,'net');
+  ctx.__early={'data/news.json?t=1':Promise.resolve({ok:true,headers:new Headers(),json:async()=>({n:'early'})})};
+  assert.equal((await ctx.api.requestJSON('data/news.json?t=2')).d.n,'early','dəqiqə dəyişsə də erkən cavab işlənir');
+  ctx.__early={'data/news.json?t=1':Promise.resolve({ok:true,headers:new Headers(),json:async()=>({n:'early'})})};
+  assert.equal((await ctx.api.requestJSON('data/news.json?t=2&r=1-1')).d.n,'net','əllə yeniləmə təzəsini istəyir');
   ctx.__early={'data/og.json?t=1':Promise.reject(new Error('offline'))};
   assert.equal((await ctx.api.requestJSON('data/og.json?t=1')).d.n,'net');
 });
@@ -245,18 +611,18 @@ test('football block renders results, fixtures and the ordinal round suffix', ()
   assert.equal(ctx.api.ordTur(20), '20-ci');
 });
 
-test('world leagues from ESPN appear after the Azerbaijani ones with their own tables', () => {
+test('world leagues appear after the Azerbaijani ones with their own tables', () => {
   const ctx = app();
   ctx.api.S.football = { leagues: [{ project: 1, short: 'Premyer Liqa', league: 'Misli Premyer Liqası', table: [{ pos: 1, team: 'Sabah', pts: 20, p: 9, w: 6, d: 2, l: 1, gf: 15, ga: 7, gd: 8 }], results: [], fixtures: [] }] };
   ctx.api.S.sports = { leagues: [
-    { id: 'eng.1', sport: 'football', name: 'Premyer Liqa (İngiltərə)', short: 'İngiltərə', season: '2026-27', groups: [{ name: 'Premier League', rows: [{ pos: 1, team: 'Man City', full: 'Manchester City', logo: '', p: 8, w: 7, d: 0, l: 1, gf: 20, ga: 9, gd: 11, pts: 21, note: 'Champions League', color: '#81D6AC' }] }] },
+    { id: 'eng.1', sport: 'football', name: 'Premyer Liqa (İngiltərə)', short: 'İngiltərə', season: '2026/27', asof: '2026-10-31', url: 'https://en.wikipedia.org/wiki/2026%E2%80%9327_Premier_League', groups: [{ name: 'Premier League', rows: [{ pos: 1, team: 'Man City', full: 'Manchester City', logo: '', p: 8, w: 7, d: 0, l: 1, gf: 20, ga: 9, gd: 11, pts: 21, note: 'Champions League', color: '#81D6AC' }] }] },
     { id: 'nba', sport: 'basketball', name: 'NBA', short: 'NBA', season: '2026-27', groups: [{ name: 'Eastern Conference', rows: [{ pos: 1, team: 'Celtics', w: 4, l: 0, p: 4, pct: 1, gb: '-' }] }, { name: 'Western Conference', rows: [{ pos: 1, team: 'Lakers', w: 3, l: 1, p: 4, pct: 0.75, gb: '-' }] }] },
   ] };
   let html = ctx.api.footballBlock([]);
   assert.ok(html.includes('data-fbleague="2"') && html.includes('İngiltərə') && html.includes('NBA'));
   ctx.api.S.fbLeague = 1; ctx.api.S.fbTab = 0;
   html = ctx.api.footballBlock([]);
-  assert.ok(html.includes('Man City') && html.includes('ESPN') && html.includes('<h2>Futbol</h2>'));
+  assert.ok(html.includes('Man City') && html.includes('Vikipediya') && html.includes('wikipedia.org/wiki/2026') && html.includes('31 oktyabr oyunlarına qədər') && html.includes('<h2>Futbol</h2>'));
   ctx.api.S.fbLeague = 2; ctx.api.S.fbTab = 1;
   html = ctx.api.footballBlock([]);
   assert.ok(html.includes('<h2>Basketbol</h2>') && html.includes('Qərb') && html.includes('Lakers') && !html.includes('Celtics'));
@@ -322,10 +688,10 @@ test('appointment and dismissal news are recognised; Zuğulba includes state sit
     { id: 'c', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev sərəncam imzalayıb: yeni rəis təyin edilib', publishedAt: at(3) },
   ];
   const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
-  assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // AZƏRTAC və Cross Media var, Oxu.az yalnız «Hamısı»nda
+  assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // Oxu.az xəbərində rəhbərliyin adı yoxdur
   assert.deepEqual(ids, ['a', 'c', 'd']); // ən yenidən köhnəyə
   const html = ctx.api.prezBlock(ctx.api.prezHome(prez));
-  assert.ok(html.includes('<a class="pcard has-img"') && html.includes('src="https://crossmedia.az/storage/news/a.jpeg"'));
+  assert.ok(html.includes('<a class="pcard has-img"') && html.includes(encodeURIComponent('https://crossmedia.az/storage/news/a.jpeg')));
   assert.ok(html.includes('<a class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
 });
 
@@ -363,15 +729,14 @@ test('the "most sources" tab keeps its own order on purpose', () => {
   const html = ctx.api.latestBlock([row('fresh', 0.1, []), row('wide', 3, [{source: 'Report', sourceUrl: 'https://report.az/1'}, {source: 'Trend', sourceUrl: 'https://trend.az/1'}])]);
   assert.ok(html.indexOf('apa.az/wide') < html.indexOf('apa.az/fresh'));
 });
-test('one state site cannot fill the Zuğulba block: at most 3 cards per non-official source', () => {
+test('one state site cannot fill the Zuğulba block: at most 3 cards per non-official source when the block is full', () => {
   const ctx = app();
   const at = h => new Date(Date.now() - h * 3600e3).toISOString();
   const prez = [1, 2, 3, 4, 5].map(i => ({ id: 'r' + i, category: 'prezident', source: 'Report', title: 'İlham Əliyev: sitat ' + i, publishedAt: at(i) }));
-  prez.push({ id: 'o', category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev səfiri qəbul edib', publishedAt: at(9) });
-  prez.push({ id: 'x', category: 'prezident', source: 'Cross Media', title: 'Prezident İlham Əliyev fərman imzalayıb', publishedAt: at(10) });
+  for (let i = 0; i < 44; i++) prez.push({ id: 'o' + i, category: 'prezident', source: 'Prezident.az', title: 'İlham Əliyev səfiri qəbul edib ' + i, publishedAt: at(9 + i) });
   const ids = [...ctx.api.prezHome(prez).map(a => a.id)];
   assert.deepEqual(ids.filter(i => i.startsWith('r')), ['r1', 'r2', 'r3']); // ən yeni 3 Report
-  assert.ok(ids.includes('o') && ids.includes('x'));
+  assert.equal(ids.length, 44);
 });
 
 test('raw links are stripped from headlines', () => {
@@ -527,10 +892,40 @@ test('new application code replaces a cached version while online', async () => 
   const {context} = worker();
   let stored;
   context.fetch = async () => new Response('new code');
-  context.caches.open = async () => ({put: async (_key, response) => { stored = await response.text(); }});
+  context.caches.open = async () => ({match: async () => undefined, put: async (_key, response) => { stored = await response.text(); }});
   const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'new code');
+  await new Promise(r => setImmediate(r));
   assert.equal(stored, 'new code');
+});
+
+test('a slow first visit to another page waits for that page instead of showing index.html at the wrong path', async () => {
+  const {context} = worker();
+  let answer;
+  context.fetch = () => new Promise(r => { answer = r; });
+  context.caches.open = async () => ({match: async (req) => String(req).includes('index.html') ? new Response('shell') : undefined, put: async () => {}});
+  vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
+  const pending = vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/mexfilik/index.html'.replace('index.html','')))", context);
+  await new Promise(r => setImmediate(r));
+  answer(new Response('privacy page'));
+  assert.equal(await (await pending).text(), 'privacy page');
+});
+
+test('new code wins over the cached copy when the network answers in time', async () => {
+  const {context} = worker();
+  context.fetch = async () => new Response('new code');
+  context.caches.open = async () => ({match: async () => new Response('cached code'), put: async () => {}});
+  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'new code');
+});
+
+test('a hanging network does not leave a blank page when a copy is saved', async () => {
+  const {context} = worker();
+  context.fetch = () => new Promise(() => {});
+  context.caches.open = async () => ({match: async () => new Response('cached code')});
+  vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
+  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'cached code');
 });
 
 test('application code is still available offline', async () => {
@@ -625,6 +1020,7 @@ test('saved article remains readable after it leaves the live feed', () => {
   assert.ok(!html.includes('artıq lentdə yoxdur'));
   ctx.api.S.data.articles=[{...saved,title:'Updated live title'}];
   assert.ok(ctx.api.articleView('archived').includes('Updated live title'));
+  ctx.api.S.archiveScan='missing';
   assert.ok(ctx.api.articleView('missing').includes('artıq lentdə yoxdur'));
 });
 
@@ -635,12 +1031,528 @@ test('photo fallback tries OG and alternate source photos in order', () => {
   assert.deepEqual(Array.from(images),['https://img.example/rss.jpg','https://img.example/og.jpg','https://img.example/alt.jpg','https://img.example/alt-og.jpg']);
 });
 
+test('home keeps slider stories after the sixth in the lists below', () => {
+  const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
+  const words=['alma','armud','banan','qovun','heyva','nar','gilas','albali','erik','saftali','limon','portagal','anar','zeytun','incir','xurma','zoğal','böyürtkən'];
+  S.lang=null;S.og={};S.latestCount=30;S.data={articles:words.map((w,i)=>({id:String(i),title:w+'lər '+w+'ları '+i,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,publishedAt:at}))};
+  const page=homeView(),below=page.slice(page.indexOf('latest-grid'));
+  assert.equal((page.match(/class="hero-main"/g)||[]).length,15);
+  const slides=[...new Set([...page.slice(0,page.indexOf('latest-grid')).matchAll(/apa\.az\/(\d+)/g)].map(m=>m[1]))];
+  assert.equal(slides.length,15);
+  assert.ok(!below.includes('apa.az/'+slides[0]+'"'),'ilk xəbər aşağıda təkrarlanmır');
+  assert.ok(below.includes('apa.az/'+slides[10]+'"'),'11-ci xəbər aşağıda da qalır');
+});
+test('cards can be shared, except stories with an unsafe link', () => {
+  const ctx=app(),{card}=ctx.api,at=new Date().toISOString();
+  ctx.api.S.og={};
+  const row=url=>({id:'1',title:'Xəbər',lang:'az',category:'gundem',source:'APA',sourceUrl:url,publishedAt:at});
+  assert.ok(card(row('https://apa.az/1')).includes('data-share="https://8ulduz.az/#/xeber/1?b=gundem"'),'keçid saytımıza aparır');
+  assert.ok(!card(row('javascript:alert(1)')).includes('data-share'));
+});
+test('a shared link still opens after its story was grouped into another one', async () => {
+  const id=require('node:crypto').createHash('sha1').update('https://x.az/1').digest('hex').slice(0,16);
+  const ctx=app({crypto:require('node:crypto').webcrypto,TextEncoder});
+  const {S,articleView,scanArchives}=ctx.api;
+  S.data={articles:[{id:'esas',title:'Əsas xəbər',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:'2026-10-31T10:00:00Z',alts:[{source:'X',sourceUrl:'https://x.az/1',title:'Qruplaşan'}]}]};
+  await scanArchives(id);
+  const html=articleView(id);
+  assert.ok(html.includes('Əsas xəbər')&&html.includes('https://x.az/1'),'qrupun səhifəsi açılır, mənbə keçidi var');
+});
+test('a shared link searches the archives while it looks for an old story', async () => {
+  const ctx=app();
+  const {S,articleView}=ctx.api;
+  S.data={articles:[]};
+  assert.ok(articleView('kohne').includes('Xəbər axtarılır'));
+  await new Promise(r=>setTimeout(r,20));
+  assert.ok(articleView('kohne').includes('artıq lentdə yoxdur'),'heç yerdə yoxdursa bunu deyir');
+});
+test('service addresses open their own views and old section links stay', () => {
+  const ctx=app(),{route}=ctx.api;
+  const at=hash=>{ctx.location.hash=hash;return route();};
+  assert.equal(at('#/bolme/valyuta').name,'rates');
+  assert.equal(at('#/bolme/cedvel').name,'league');
+  assert.equal(at('#/bolme/tixac').name,'traffic');
+  assert.equal(at('#/tixac').name,'traffic');
+  assert.equal(at('#/bolme/idman').slug,'idman');
+});
+test('the rates page names each source and marks the direction', () => {
+  const ctx=app(),{S,ratesView}=ctx.api;
+  S.markets=null;
+  assert.ok(ratesView().includes('yüklənir'));
+  S.markets=[{label:'Dollar',value:1.7,dec:4,unit:'AZN',changePct:0,src:'AMB',asOf:'2026-10-31'},{label:'Avro',value:1.9019,dec:4,unit:'AZN',changePct:0.39,src:'AMB'},{label:'Rubl <b>',value:2.09,dec:4,unit:'AZN',changePct:-0.92,src:'ExchangeRate-API'}];
+  const html=ratesView();
+  assert.ok(html.includes('1.7000 AZN'));
+  assert.ok(html.includes('+0.39%'));
+  assert.ok(html.includes('class="down"'));
+  assert.ok(html.includes('ExchangeRate-API'));
+  assert.ok(html.includes('Rubl &lt;b&gt;'));
+});
+test('the install button appears only when installing is possible', () => {
+  const ctx=app(),{S,installBtn}=ctx.api;
+  assert.equal(installBtn(),'');
+  S.installEvt={};
+  assert.ok(installBtn().includes('data-act="install"'));
+  const iphone=app({navigator:{onLine:true,userAgent:'iPhone'}});
+  assert.ok(iphone.api.installBtn().includes('data-act="install"'));
+  const home=app({navigator:{onLine:true,userAgent:'iPhone',standalone:true}});
+  assert.equal(home.api.installBtn(),'');
+});
+test('counting a click never breaks the page', () => {
+  const ctx=app(),{trackEvent}=ctx.api;
+  trackEvent('share-copy');
+  const seen=[];ctx.window.goatcounter={count:o=>seen.push(o)};
+  trackEvent('share-copy');
+  assert.equal(seen[0].path,'share-copy');
+  assert.equal(seen[0].event,true);
+  ctx.window.goatcounter={count(){throw Error('x');}};
+  trackEvent('share-copy');
+});
+test('every city and district has its button and finds its stories', () => {
+  const ctx=app(),{S,sectionView,subNav,clubMatches}=ctx.api,at=new Date().toISOString();
+  const row=(id,title,category='gundem')=>({id,title,lang:'az',category,source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at});
+  S.lang=null;S.og={};S.shown=50;S.sportTab=null;S.club=null;
+  S.data={articles:[row('a','Şəkidə yeni park açılıb'),row('b','Şəkildə görünən şəxs tapılıb'),row('c','Qazaxıstanda seçki keçirilib'),row('d','Qazaxın mərkəzində körpü tikilib','bolgeler'),row('e','Məhəmməd Füzuli haqqında kitab çıxıb'),row('f','Füzulidə məktəb açılıb')]};
+  let html=sectionView('bolgeler');
+  for(const name of ['Bakı','Şəki-Zaqatala','Şərqi Zəngəzur','Naxçıvan MR','Abşeron-Xızı'])assert.ok(subNav('bolgeler').includes('data-club="'+name+'"'),name);
+  assert.ok(html.includes('apa.az/d'),'bölgə səhifəsi öz xəbərlərini göstərir');
+  S.sportTab='Şəki-Zaqatala';
+  assert.ok(subNav('bolgeler').includes('data-club="Zaqatala"'),'rayonlar açılır');
+  S.club='Şəki';
+  html=sectionView('bolgeler');
+  assert.ok(html.includes('apa.az/a'),'başqa bölmədəki xəbər də tapılır');
+  assert.ok(!html.includes('apa.az/b'));
+  S.data.articles.push(row('g','"Şəki" futbolçusu qol vurdu','idman'));
+  assert.ok(!sectionView('bolgeler').includes('apa.az/g'),'klub xəbəri rayon düyməsində deyil');
+  const hit=(title,name)=>clubMatches(row('x',title),name);
+  assert.equal(hit('Qazaxıstanda seçki keçirilib','Qazax'),false);
+  assert.equal(hit('Qazaxda körpü tikilib','Qazax'),true);
+  assert.equal(hit('Məhəmməd Füzuli haqqında kitab','Füzuli'),false);
+  assert.equal(hit('Füzulidə məktəb açılıb','Füzuli'),true);
+  assert.equal(hit('Şəki rayonunda yağış','Şəki-Zaqatala'),true);
+  assert.equal(hit('В Гяндже открыли парк','Gəncə'),true);
+  assert.equal(hit('Ordubadda yol təmir olunur','Naxçıvan MR'),true,'bölgə düyməsi bütün rayonlarını əhatə edir');
+  assert.equal(hit('Bakıda yol təmir olunur','Bakı'),true);
+});
+test('all fourteen economic regions and their places are listed once', () => {
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  const block=src.slice(src.indexOf('const REGION_TABS = ['),src.indexOf('const SUB_TABS'));
+  const groups=[...block.matchAll(/\{ name: "([^"]+)", groups:/g)].map(m=>m[1]);
+  assert.equal(groups.length,13,'Bakı öz düyməsidir, üstəgəl 13 iqtisadi rayon');
+  const places=[...block.matchAll(/\{ name: "([^"]+)", keys:/g)].map(m=>m[1]);
+  assert.ok(!groups.some(g=>places.includes(g)),'bölgə ilə şəhərin adı eyni olmasın');
+  assert.equal(new Set(places).size,places.length,'təkrar yoxdur');
+  for(const city of ['Bakı','Gəncə','Naxçıvan','Sumqayıt','Lənkəran','Mingəçevir','Naftalan','Xankəndi','Şəki','Şirvan','Yevlax'])assert.ok(places.includes(city),city);
+});
+test('language buttons show flags and keep the choice', () => {
+  const ctx=app(),{S,languagePicker}=ctx.api;
+  S.lang='tr';
+  const html=languagePicker();
+  assert.equal((html.match(/class="flag"/g)||[]).length,4);
+  assert.ok(html.includes('data-lang="tr" aria-pressed="true"'));
+  assert.ok(html.includes('data-lang="" aria-pressed="false"'));
+});
+test('the rates page shows a flag for currencies and a symbol for the rest', () => {
+  const ctx=app(),{S,ratesView}=ctx.api;
+  S.markets=[{id:'USD',label:'Dollar',value:1.7,dec:4,unit:'AZN'},{id:'BTC',label:'Bitcoin',value:7,dec:0,unit:'USD'},{id:'NEW',label:'Yeni',value:1,dec:0,unit:'USD'}];
+  const html=ratesView();
+  assert.ok(html.includes('class="flag"'));
+  assert.ok(html.includes('₿'));
+});
+test('a team search finds every spelling, in every language, including the archive', () => {
+  const ctx=app(),{S,searchView,searchTopics}=ctx.api,at=new Date().toISOString();
+  const row=(id,title,lang,extra={})=>({id,title,lang,category:'idman',source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at,...extra});
+  S.lang='az';S.og={};S.club=null;S.shown=50;
+  S.data={articles:[row('a','Fənərbağça məşqçisini dəyişdi','az'),row('b','Fenerbahçe transferi açıkladı','tr'),row('c','Фенербахче проиграл','ru'),row('d','Dünyada xəbər var','az')]};
+  S.archive={idman:{at:Date.now(),rows:[row('e','Fənərbaxçanın köhnə oyunu','az')]}};
+  for(const said of ['Fənərbaxça','Fənərbağça','fenerbahçe','Fənərbaxça xəbərləri']){
+    S.q=said;
+    assert.deepEqual(Array.from(searchTopics(said)),['Fenerbahçe'],said);
+    const html=searchView();
+    for(const id of 'abce')assert.ok(html.includes('apa.az/'+id),said+' '+id);
+    assert.ok(!html.includes('apa.az/d'),said);
+  }
+});
+test('an ordinary word is not taken for a team and keeps the language filter', () => {
+  const ctx=app(),{S,searchView,searchTopics}=ctx.api,at=new Date().toISOString();
+  assert.deepEqual(Array.from(searchTopics('sabah hava necə olacaq')),[]);
+  assert.deepEqual(Array.from(searchTopics('fənər')),[]);
+  S.lang='az';S.og={};S.club=null;S.shown=50;S.q='hava';
+  S.data={articles:[{id:'a',title:'Sabah hava soyuyacaq',lang:'az',category:'gundem',source:'APA',sourceUrl:'https://apa.az/a',publishedAt:at},{id:'b',title:'Yarın hava soğuyacak',lang:'tr',category:'gundem',source:'NTV',sourceUrl:'https://ntv.com.tr/b',publishedAt:at}]};
+  const html=searchView();
+  assert.ok(html.includes('apa.az/a'));
+  assert.ok(!html.includes('ntv.com.tr/b'));
+});
 test('hero and Zugulba retain multiple articles for their moving feeds', () => {
-  const ctx=app(); const stories=Array.from({length:8},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,publishedAt:new Date().toISOString()}));
-  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories);
+  const ctx=app(); const stories=Array.from({length:18},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,publishedAt:new Date().toISOString()}));
+  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories.slice(0,8));
   assert.ok(hero.includes('class="hero-row"'));
-  assert.equal((hero.match(/class="hero-main"/g)||[]).length,6);
+  assert.equal((hero.match(/class="hero-main"/g)||[]).length,15);
   assert.ok(!hero.includes('row-card'),'slayderin xəbərləri altında təkrarlanmır');
   assert.ok(prez.includes('data-prez-lent'));
   assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
+});
+
+// Saytın dili: assets/dil.js, lüğətlər assets/dil-<kod>.js.
+function dilModule(file) {
+  const src = fs.readFileSync(path.join(root, file), 'utf8').replace(/^export default /m, 'globalThis.__d = ').replace(/^export (async )?function/gm, '$1function');
+  const ctx = vm.createContext({ globalThis: {} });
+  ctx.globalThis = ctx;
+  vm.runInContext(src, ctx);
+  return ctx;
+}
+test('site language: interface words and dates change, a news headline does not', () => {
+  const mod = dilModule('assets/dil.js');
+  const ru = dilModule('assets/dil-ru.js').__d;
+  const tr = mod.makeTr(ru);
+  assert.equal(tr('Baş səhifə'), 'Главная');
+  assert.equal(tr('Hamısı →'), 'Все →', 'kənar işarə qalır');
+  assert.equal(tr('14 dəqiqə əvvəl'), '14 мин. назад');
+  assert.equal(tr('2 saat əvvəl'), '2 ч. назад');
+  assert.equal(tr('4 mənbə'), '4 источн.');
+  assert.equal(tr('9-cu tur'), '9-й тур');
+  assert.equal(tr('Namaz · Bakı'), 'Намаз · Баку');
+  assert.equal(tr('Yeniləndi: indicə'), 'Обновлено: только что');
+  assert.equal(tr('3 noyabr 2026'), '3 ноября 2026');
+  assert.equal(tr('9 sen, 23:00'), '9 сен, 23:00');
+  assert.equal(tr('Sentyabr 2026'), 'Сентябрь 2026');
+  assert.equal(tr('↑ 3 yeni xəbər'), '↑ 3 новых');
+  assert.equal(tr('21 Cümadəl-ula'), '21 Джумада аль-уля');
+  assert.ok(tr('«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.').startsWith('Кнопка'));
+  assert.equal(tr('Bazar ertəsi, 2 noyabr 2026'), 'Понедельник, 2 ноября 2026');
+  assert.equal(tr('Süper Liq oyunları hələ əlavə olunmayıb.'), 'Матчи турнира «Суперлига» пока не добавлены.');
+  const head = 'Prezident İlham Əliyev Ankarada görüş keçirib';
+  assert.equal(tr(head), head, 'xəbər başlığı tərcümə olunmur');
+  assert.equal(tr(tr('Baş səhifə')), 'Главная', 'tərcümə ikinci dəfə dəyişmir');
+});
+test('site language: all three dictionaries have the same keys and no empty word by accident', () => {
+  const [ru, tr, en] = ['ru', 'tr', 'en'].map(c => dilModule(`assets/dil-${c}.js`).__d);
+  assert.deepEqual(Object.keys(tr.w), Object.keys(ru.w));
+  assert.deepEqual(Object.keys(en.w), Object.keys(ru.w));
+  for (const d of [ru, tr, en]) {
+    assert.equal(d.mon.length, 12); assert.equal(d.monN.length, 12); assert.equal(d.mon3.length, 12); assert.equal(d.days.length, 7);
+    assert.ok(['min', 'hour', 'day', 'src', 'round', 'place', 'stage', 'checked', 'noGames', 'until', 'count', 'more', 'allSrc', 'page', 'noTeamNews', 'tracked', 'form', 'copy', 'fresh'].every(k => d.t[k]));
+    assert.ok(Object.entries(d.w).every(([k, v]) => v || k === 'seçiminə basın'), 'boş tərcümə yoxdur');
+  }
+});
+test('site language: a section without news in that language is hidden, sports never', () => {
+  const { emptySections } = dilModule('assets/dil.js');
+  const list = [{ category: 'bolgeler', lang: 'az' }, { category: 'dunya', lang: 'ru' }, { category: 'dunya', lang: 'az' }, { category: 'idman', lang: 'az' }, { category: 'gundem' }];
+  assert.deepEqual([...emptySections(list, 'ru')].sort(), ['bolgeler', 'gundem']);
+  assert.deepEqual([...emptySections(list, 'en')].sort(), ['bolgeler', 'dunya', 'gundem']);
+  assert.deepEqual([...emptySections(null, 'ru')], []);
+});
+test('site language: Azerbaijani visitors do not load the translation', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(!index.includes('dil.js') && !fs.readFileSync(path.join(root, 'sw.js'), 'utf8').includes('dil.js'), 'əvvəlcədən yüklənmir');
+  assert.equal(src.split('import("./dil.js")').length - 1, 1);
+  const at = src.indexOf('import("./dil.js")');
+  assert.ok(src.slice(at - 260, at).includes('if (uiLang(S.lang))'), 'yalnız başqa dil seçiləndə');
+  for (const f of ['assets/dil.js', 'assets/dil-ru.js', 'assets/dil-tr.js', 'assets/dil-en.js']) assert.ok(fs.statSync(path.join(root, f)).size < 60e3, f);
+});
+// Komanda səhifəsi: assets/komanda.js modulu eyni kontekstdə, app.js-in köməkçiləri ilə işləyir.
+function teamPage(files, articles = []) {
+  const ctx = app({ history: { pushState() {}, back() {} }, Promise, RegExp, WeakMap });
+  const source = fs.readFileSync(path.join(root, 'assets/komanda.js'), 'utf8').replace(/^export /gm, '');
+  vm.runInContext(source, ctx);
+  ctx.files = files; ctx.articles = articles; ctx.renders = 0; ctx.asked = [];
+  vm.runInContext(`S.data = { articles }; S.shown = 48;
+    requestJSON = async url => { const p = url.split("?")[0]; asked.push(p); if (!files[p]) throw Error("404"); return { d: files[p] }; };
+    globalThis.team = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive: () => {}, months: MONTHS, requestJSON: (...a) => requestJSON(...a), freshUrl, requestRender: () => { renders++; } });`, ctx);
+  return ctx;
+}
+const TEAM_INDEX = { checked: { 'premyer-liqa': '2026-11-01T07:00:00+00:00' }, leagues: [
+  { id: 'premyer-liqa', name: 'Misli Premyer Liqası', short: 'Premyer Liqa', source: 'pfl.az', ready: [{ key: '2026', label: '2026-27' }, { key: '2025', label: '2025-26' }], teams: ['qarabag', 'sabah', 'sefa'], heyet: [] },
+  { id: 'kubok', name: 'Azərbaycan Kuboku', short: 'Kubok', source: 'pfl.az', ready: [{ key: '2026', label: '2026-27' }], teams: ['qarabag', 'sumqayit'], heyet: [] },
+  { id: 'evezediciler', name: 'Əvəzedicilər Liqası', short: 'Əvəzedicilər', source: 'pfl.az', reserve: true, ready: [{ key: '2026', label: '2026-27' }], teams: ['qarabag'], heyet: [] },
+  { id: 'turkiye', name: 'Türkiyə Süper Liqası', short: 'Türkiyə', source: 'ESPN', ready: [{ key: '2026', label: '2026-27' }], teams: ['fenerbahce', 'besiktas'], heyet: ['fenerbahce'] },
+] };
+const PREMYER = { id: 'premyer-liqa', name: 'Misli Premyer Liqası', short: 'Premyer Liqa', source: 'pfl.az', key: '2026', season: '2026-27',
+  teams: { qarabag: { name: 'Qarabağ', logo: 'https://pfl.az/q.png' }, sabah: { name: 'Sabah', logo: '' }, sefa: { name: 'Şəfa', logo: '' } },
+  groups: [{ name: '', rows: [{ pos: 1, team: 'sabah', p: 2, w: 2, d: 0, l: 0, gf: 3, ga: 0, gd: 3, pts: 6 }, { pos: 2, team: 'qarabag', p: 2, w: 1, d: 0, l: 1, gf: 2, ga: 1, gd: 1, pts: 3 }, { pos: 3, team: 'sefa', p: 2, w: 0, d: 0, l: 2, gf: 0, ga: 4, gd: -4, pts: 0 }] }],
+  games: [
+    { home: 'qarabag', away: 'sefa', hs: 2, as: 0, date: '2026-08-14T19:30+04:00', played: true, round: '1' },
+    { home: 'sabah', away: 'qarabag', hs: 1, as: 0, date: '2026-08-21T19:30+04:00', played: true, round: '2' },
+    { home: 'qarabag', away: 'sabah', date: '2099-11-06T18:00+04:00', played: false, round: '3' },
+    { home: 'sefa', away: 'qarabag', date: '2020-01-01T18:00+04:00', played: false, state: 'off', round: '4' },
+  ] };
+const KUBOK = { id: 'kubok', name: 'Azərbaycan Kuboku', short: 'Kubok', source: 'pfl.az', key: '2026', season: '2026-27', teams: { qarabag: { name: 'Qarabağ', logo: '' }, sumqayit: { name: 'Sumqayıt', logo: '' } }, groups: [], games: [{ home: 'sumqayit', away: 'qarabag', date: '2099-12-01T18:00+04:00', played: false, round: '1/8 final' }] };
+const TURKIYE = { id: 'turkiye', name: 'Türkiyə Süper Liqası', short: 'Türkiyə', source: 'ESPN', key: '2026', season: '2026-27', teams: { fenerbahce: { name: 'Fenerbahçe', logo: '', id: '436' }, besiktas: { name: 'Beşiktaş', logo: '', id: '1895' } },
+  groups: [{ name: 'Lig', rows: [{ pos: 1, team: 'fenerbahce', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3, note: 'Champions League', color: '#81D6AC' }, { pos: 2, team: 'besiktas', p: 1, w: 0, d: 0, l: 1, gf: 0, ga: 1, gd: -1, pts: 0, note: 'Relegation', color: 'red;background:url(x)' }] }], games: [] };
+const teamFiles = () => ({ 'data/futbol/index.json': TEAM_INDEX, 'data/futbol/premyer-liqa.json': PREMYER, 'data/futbol/kubok.json': KUBOK, 'data/futbol/turkiye.json': TURKIYE,
+  'data/futbol/heyet-turkiye.json': { teams: { fenerbahce: { players: [{ name: 'Mert Günok', pos: 'gk', no: '34', age: 37 }, { name: 'Dusan Tadic', pos: 'mf', no: '10' }] } } } });
+const tick = () => new Promise(done => setImmediate(done));
+// Fayllar gələnə qədər səhifə yükləmə göstərir; hər çağırış çatmayan faylı istəyir.
+async function teamHtml(ctx, r) {
+  const route = { tab: '', season: '', ...r };
+  let html = '';
+  for (let i = 0; i < 5; i++) { ctx.route_ = route; html = vm.runInContext('team.view(route_)', ctx); await tick(); }
+  return html;
+}
+
+test('team route: league, club, tab and season come from the address', () => {
+  const ctx = app();
+  const at = hash => { ctx.location.hash = hash; return ctx.api.route(); };
+  assert.equal(at('#/komanda/premyer-liqa/qarabag').name, 'team');
+  assert.equal(at('#/komanda/premyer-liqa/qarabag').team, 'qarabag');
+  assert.equal(at('#/komanda/premyer-liqa/qarabag/cedvel').tab, 'cedvel');
+  assert.equal(at('#/komanda/turkiye/fenerbahce/cedvel?s=2025').season, '2025');
+  assert.equal(at('#/komanda/turkiye').team, '');
+  assert.equal(at('#/komanda/turkiye?s=2025').season, '2025');
+  assert.equal(at('#/komanda').name, 'notfound');
+  assert.equal(at('#/komanda/a/b/c/d').name, 'notfound');
+});
+test('team slug gives the same address as updater.py', () => {
+  const { teamSlug } = app().api;
+  for (const [name, slug] of [['Qarabağ', 'qarabag'], ['Araz-Naxçıvan', 'araz-naxcivan'], ['İmişli', 'imisli'], ['Əvəzedicilər', 'evezediciler'], ['Türkiyə', 'turkiye'], ['İngiltərə', 'ingiltere'], ['ÇL', 'cl'], ['I Liqa', 'i-liqa'], ['II Liqa', 'ii-liqa'], ['Bodo/Glimt', 'bodo-glimt'], ['Atlético Madrid', 'atletico-madrid'], ['Fenerbahçe', 'fenerbahce']]) assert.equal(teamSlug(name), slug);
+});
+test('world league with games: credits every source, marks a late result and opens the squad', async () => {
+  const league = { id: 'almaniya', name: 'Bundesliqa', short: 'Almaniya', sport: 'football', source: 'OpenLigaDB (www.openligadb.de), ODbL 1.0 lisenziyası', ready: [{ key: '2026', label: '2026/27' }], teams: ['bayern-munich', 'sabah'], heyet: ['bayern-munich'] };
+  const doc = { id: 'almaniya', name: 'Bundesliqa', short: 'Almaniya', sport: 'football', source: league.source, source_url: 'https://www.openligadb.de/', url: 'https://en.wikipedia.org/wiki/x', key: '2026', season: '2026/27',
+    teams: { 'bayern-munich': { name: 'Bayern Munich', short: 'Bayern', logo: '' }, sabah: { name: 'Sabah', logo: '' } },
+    groups: [{ name: '', rows: [{ pos: 1, team: 'bayern-munich', p: 1, w: 1, d: 0, l: 0, gf: 2, ga: 0, gd: 2, pts: 3, note: 'Çempionlar Liqası', color: '#BBF3BB' }] }],
+    games: [{ home: 'bayern-munich', away: 'sabah', date: '2020-02-02T18:30:00+00:00', played: false, round: '1' }] };
+  const ctx = teamPage({ 'data/futbol/index.json': { leagues: [league], checked: {} }, 'data/futbol/almaniya.json': doc,
+    'data/futbol/heyet-almaniya.json': { teams: { 'bayern-munich': { wiki: 'FC Bayern Munich', players: [{ no: '1', pos: 'gk', name: 'Manuel Neuer' }] } } } });
+  const table = await teamHtml(ctx, { liga: 'almaniya', team: 'bayern-munich', tab: 'cedvel' });
+  assert.ok(table.includes('href="https://www.openligadb.de/"') && table.includes('ODbL 1.0'), 'lisenziyanın istədiyi mənbə qeydi');
+  assert.ok(table.includes('href="https://en.wikipedia.org/wiki/x"'), 'cədvəlin mənbəyi də qalır');
+  assert.ok(!table.includes('<img') && table.includes('>B</span>'), 'loqo yoxdursa adın ilk hərfi');
+  const squad = await teamHtml(ctx, { liga: 'almaniya', team: 'bayern-munich', tab: 'heyet' });
+  assert.ok(squad.includes('Manuel Neuer'));
+  assert.ok(squad.includes('https://en.wikipedia.org/wiki/FC_Bayern_Munich') && squad.includes('CC BY-SA 4.0'), 'heyətin mənbəyi və lisenziyası');
+  const games = await teamHtml(ctx, { liga: 'almaniya', team: 'bayern-munich', tab: 'oyunlar' });
+  assert.ok(games.includes('Nəticə gözlənilir'), 'vaxtı keçib nəticəsi gəlməyən oyun');
+  assert.ok(!(await teamHtml(ctx, { liga: 'almaniya', team: 'sabah', tab: 'heyet' })).includes('Manuel Neuer'), 'heyəti olmayan klubda Heyət tabı açılmır');
+  const both = teamPage({ 'data/futbol/index.json': { leagues: [{ ...TEAM_INDEX.leagues[0], ready: [TEAM_INDEX.leagues[0].ready[0]], teams: ['sabah'] }, league], checked: {} }, 'data/futbol/premyer-liqa.json': PREMYER, 'data/futbol/almaniya.json': doc });
+  const sabah = await teamHtml(both, { liga: 'premyer-liqa', team: 'sabah' });
+  assert.ok(sabah.includes('pfl.az') && sabah.includes('ODbL 1.0'), 'iki yarışın oyunu varsa iki mənbə göstərilir');
+});
+test('speed red line: the home page loads no team page code or data', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(!src.includes('data/futbol'), 'məlumat yalnız komanda.js-dən istənir');
+  assert.equal(src.split('komanda.js').length - 1, 1);
+  const body = src.slice(src.indexOf('function teamView'), src.indexOf('function trafficView'));
+  assert.ok(body.includes('import("./komanda.js")') && body.includes('komanda.css'), 'kod və üslub bu funksiyadadır');
+  assert.equal(src.split('teamView(').length - 1, 2, 'tərif və renderView-da komanda ünvanı');
+  assert.ok(src.includes('r.name === "team" ? teamView(r)'));
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(!index.includes('komanda') && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
+  assert.ok(fs.statSync(path.join(root, 'assets/komanda.js')).size < 30e3, 'komanda.js');
+  assert.ok(fs.statSync(path.join(root, 'assets/komanda.css')).size < 12e3, 'komanda.css');
+});
+test('team page helpers: form, next games, standing line and zones', () => {
+  const ctx = teamPage(teamFiles());
+  const run = code => vm.runInContext(code, ctx);
+  ctx.doc = PREMYER;
+  assert.deepEqual(Array.from(run('formOf(gamesOf(doc, "qarabag"), "qarabag")')), ['w', 'l']);
+  assert.equal(run('standingLine(doc, "qarabag", ordTur)'), 'Misli Premyer Liqası, 2-ci yer');
+  assert.equal(run('standingLine(doc, "yoxdur", ordTur)'), 'Misli Premyer Liqası');
+  const split = run('splitGames(gamesOf(doc, "qarabag"))');
+  assert.equal(split.played.length, 2);
+  assert.equal(split.next.length, 1, 'təxirə salınmış oyun növbəti sayılmır');
+  ctx.rows = TURKIYE.groups[0].rows;
+  assert.deepEqual(JSON.parse(run('JSON.stringify(zonesOf(rows))')), [{ note: 'Çempionlar Liqası', color: '#81D6AC' }, { note: 'Aşağı liqaya düşmə', color: 'red;background:url(x)' }]);
+  ctx.index = TEAM_INDEX;
+  assert.deepEqual(Array.from(run('otherLeagues(index, index.leagues[0], "qarabag").map(l => l.id)')), ['kubok'], 'əvəzedicilər qarışmır');
+  assert.equal(run('otherLeagues(index, index.leagues[2], "qarabag").length'), 0);
+  const rx = run('nameRx(["Sumqayıt", "Nice"])');
+  assert.ok(rx.test('Sumqayıtın qələbəsi'));
+  assert.ok(rx.test('Nice qalib gəldi'));
+  assert.ok(!rx.test('a nice goal'), 'kiçik hərflə başqa sözdür');
+  assert.ok(!rx.test('Sumqayıtlı gənc'));
+});
+test('team page: title line, tabs and a highlighted table row, no squad tab without data', async () => {
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'cedvel' });
+  assert.ok(html.includes('<h1>Qarabağ</h1>'));
+  assert.ok(html.includes('>Misli Premyer Liqası</a>, 2-ci yer</p>'));
+  assert.deepEqual(html.match(/(?<=<nav class="tm-tabs".*?)>(Baxış|Oyunlar|Cədvəl|Heyət|Xəbərlər)</g).map(x => x.slice(1, -1)), ['Baxış', 'Oyunlar', 'Cədvəl', 'Xəbərlər'], 'pfl.az heyət vermir: tab yoxdur');
+  assert.match(html, /<tr class="me" aria-current="true"><td class="pos">2<\/td><td class="club"><a href="#\/komanda\/premyer-liqa\/qarabag">/);
+  assert.ok(html.includes('href="#/komanda/premyer-liqa/sabah"'), 'hər klub öz səhifəsinə aparır');
+  assert.ok(html.includes('data-tm-go'), 'mövsüm seçicisi');
+  assert.ok(html.includes('?s=2025'));
+  assert.ok(html.includes('Mənbə: pfl.az'));
+  assert.ok(!html.includes('tm-legend'), 'zona məlumatı olmayan liqada izah yoxdur');
+  const squad = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'heyet' });
+  assert.ok(squad.includes('<a href="#/komanda/premyer-liqa/qarabag" class="on"'), 'yoxdursa Baxışa düşür');
+});
+test('team page: the table fits a phone without sideways scrolling', async () => {
+  const css = fs.readFileSync(path.join(root, 'assets/komanda.css'), 'utf8');
+  const phone = css.slice(css.indexOf('@media(max-width:699px)'));
+  assert.ok(phone.includes('min-width:0') && phone.includes('table-layout:fixed'), 'sabit 600 px eni telefonda yoxdur');
+  assert.ok(phone.includes('.tm-table .goals{display:none}') && phone.includes('.tm-table .form{display:none}'));
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'cedvel' });
+  assert.ok(html.includes('<th class="goals">Qol</th>') && html.includes('<td class="goals">2:1</td>'), 'kompüterdə Qol qalır');
+});
+test('team page: zone bars and squad for a league that has them', async () => {
+  const ctx = teamPage(teamFiles());
+  const table = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce', tab: 'cedvel' });
+  assert.ok(table.includes('box-shadow:inset 3px 0 0 #81D6AC'));
+  assert.ok(!table.includes('url(x)'), 'rəng yoxlanılır: üslub içinə başqa şey düşmür');
+  assert.ok(table.includes('Çempionlar Liqası'));
+  const squad = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce', tab: 'heyet' });
+  assert.ok(squad.includes('>Heyət<'));
+  assert.ok(squad.includes('Qapıçılar') && squad.includes('Mert Günok') && squad.includes('37 yaş'));
+  assert.ok(ctx.asked.includes('data/futbol/heyet-turkiye.json'));
+  const other = await teamHtml(ctx, { liga: 'turkiye', team: 'besiktas', tab: '' });
+  assert.ok(!other.includes('>Heyət<'), 'siyahısı olmayan komandada tab yoxdur');
+});
+test('team page: games from all competitions, cards with date and a full list sheet', async () => {
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag' });
+  assert.ok(ctx.asked.includes('data/futbol/kubok.json'), 'digər yarış da gəlir');
+  assert.ok(!ctx.asked.includes('data/futbol/evezediciler.json'), 'əvəzedicilər gəlmir');
+  assert.ok(!ctx.asked.includes('data/futbol/heyet-turkiye.json') && !ctx.asked.includes('data/futbol/turkiye.json'), 'lazım olmayan fayl istənmir');
+  assert.ok(html.includes('data-tm-sheet'));
+  assert.ok(html.includes('<time datetime="2099-11-06T18:00+04:00">'), 'tarix və vaxt');
+  assert.ok(html.includes('3-cü tur') && html.includes('Azərbaycan Kuboku'));
+  const sheet = vm.runInContext('S.teamSheet', ctx);
+  assert.equal(sheet.title, 'Qarabağ: bütün oyunlar');
+  assert.equal(sheet.html.split('class="tm-game"').length - 1, 5, 'tam siyahı, kubok da daxil');
+  assert.ok(sheet.html.includes('Təxirə salınıb'));
+  const list = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'oyunlar' });
+  assert.ok(list.includes('Avqust 2026'), 'aylara bölünür');
+});
+test('team page: the games tab shows only the chosen competition', async () => {
+  const ctx = teamPage(teamFiles());
+  const league = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'oyunlar' });
+  assert.equal(league.split('class="tm-game"').length - 1, 4, 'yalnız Premyer Liqa');
+  assert.ok(!league.includes('tm-comp">Azərbaycan Kuboku'), 'kubok oyunu qarışmır');
+  assert.ok(league.includes('data-tm-go') && league.includes('Azərbaycan Kuboku'), 'kubok seçimdə qalır');
+  assert.ok(!ctx.asked.includes('data/futbol/kubok.json'), 'seçilməyən yarışın faylı gəlmir');
+  const cup = await teamHtml(ctx, { liga: 'kubok', team: 'qarabag', tab: 'oyunlar' });
+  assert.ok(cup.includes('tm-comp">Azərbaycan Kuboku') && !cup.includes('tm-comp">Misli Premyer Liqası'), 'kubok seçiləndə yalnız kubok');
+  const files = teamFiles();
+  files['data/futbol/premyer-liqa.json'] = { ...PREMYER, games: [] };
+  const empty = teamPage(files);
+  const none = await teamHtml(empty, { liga: 'premyer-liqa', team: 'qarabag', tab: 'oyunlar' });
+  assert.ok(none.includes('Misli Premyer Liqası oyunları hələ əlavə olunmayıb.'), 'oyunu olmayan yarışda başqa yarışın oyunu görünmür');
+  assert.ok(!none.includes('class="tm-game"'));
+  const look = await teamHtml(empty, { liga: 'premyer-liqa', team: 'qarabag' });
+  assert.ok(look.includes('tm-comp">Azərbaycan Kuboku'), 'baxışda bütün yarışlar qalır');
+});
+test('team page: news reuse club topics and stay away from other meanings and sports', async () => {
+  const row = (id, title, extra = {}) => ({ id, title, category: 'idman', lang: 'az', source: 'APA', sourceUrl: `https://apa.az/${id}`, publishedAt: '2026-11-01T06:00:00Z', ...extra });
+  const ctx = teamPage(teamFiles(), [
+    row('a', 'Qarabağın yeni transferi'), row('b', '"Sabah" FK qalib gəldi'), row('c', 'Sabah hava yağışlı olacaq', { category: 'heyat' }), row('d', 'Sabah oyun var'),
+    row('e', 'Qarabağ basketbol komandası qalib gəldi'), row('f', 'Qarabağ dirçəliş proqramı', { category: 'gundem' }), row('g', 'Sumqayıt güləş yarışı'), row('h', 'Sumqayıtın futbolçusu'),
+  ]);
+  const ids = team => Array.from(vm.runInContext(`team.newsOf({ name: ${JSON.stringify(team)} }).map(a => a.id)`, ctx));
+  assert.deepEqual(ids('Qarabağ'), ['a']);
+  assert.deepEqual(ids('Sabah'), ['b'], '«sabah» sözü komanda deyil');
+  assert.deepEqual(ids('Sumqayıt'), ['h'], 'mövzusuz komanda adla axtarılır, başqa idman düşmür');
+  assert.equal(vm.runInContext('team.topicFor("Internazionale")', ctx), 'İnter');
+  assert.equal(vm.runInContext('team.topicFor("Manchester City")', ctx), 'Man City');
+  assert.equal(vm.runInContext('team.topicFor("Real Betis")', ctx), null);
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'xeberler' });
+  assert.ok(html.includes('https://apa.az/a') && !html.includes('https://apa.az/e'));
+});
+test('team page: a national cup from Wikipedia opens the games tab and the competition picker', async () => {
+  const files = teamFiles();
+  files['data/futbol/index.json'] = { ...TEAM_INDEX, leagues: [...TEAM_INDEX.leagues.map(l => l.id === 'turkiye' ? { ...l, source: 'Vikipediya' } : l), { id: 'turkiye-kuboku', name: 'Türkiyə Kuboku', short: 'Türkiyə Kuboku', source: 'Vikipediya (kubok)', cup: true, sport: 'football', ready: [{ key: '2026', label: '2026/27' }], teams: ['fenerbahce'] }] };
+  files['data/futbol/turkiye.json'] = { ...TURKIYE, source: 'Vikipediya', games: [] };
+  files['data/futbol/turkiye-kuboku.json'] = { id: 'turkiye-kuboku', name: 'Türkiyə Kuboku', short: 'Türkiyə Kuboku', source: 'Vikipediya (kubok)', key: '2026', season: '2026/27', groups: [], teams: { fenerbahce: { name: 'Fenerbahçe', logo: '' }, bursaspor: { name: 'Bursaspor', logo: '' } },
+    games: [{ home: 'bursaspor', away: 'fenerbahce', hs: 0, as: 2, played: true, date: '2026-10-27T18:00:00+03:00', round: '4-cü mərhələ' }] };
+  const ctx = teamPage(files);
+  const look = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce' });
+  assert.ok(look.includes('/oyunlar'), 'liqada oyun olmasa da Oyunlar tabı açılır');
+  assert.ok(look.includes('Türkiyə Kuboku · 4-cü mərhələ'));
+  const tab = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce', tab: 'oyunlar' });
+  assert.ok(tab.includes('<option value="#/komanda/turkiye-kuboku/fenerbahce/oyunlar"'), 'kubok Yarış seçimindədir');
+});
+test('team page: missing data never breaks the page', async () => {
+  const noIndex = teamPage({});
+  assert.ok((await teamHtml(noIndex, { liga: 'premyer-liqa', team: 'qarabag' })).includes('Komanda məlumatı açılmadı'));
+  const ctx = teamPage(teamFiles());
+  assert.ok((await teamHtml(ctx, { liga: 'yoxdur', team: 'x' })).includes('Bu liqanın səhifəsi yoxdur'), 'məlumatı alınmayan liqa');
+  const gone = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'xyz' });
+  assert.ok(gone.includes('bu mövsüm komanda bu yarışda deyil') && gone.includes('tm-table'), 'liqanın cədvəli göstərilir');
+  const league = await teamHtml(ctx, { liga: 'premyer-liqa', team: '' });
+  assert.ok(league.includes('<h1>Misli Premyer Liqası</h1>') && !league.includes('class="me"'));
+  const cup = await teamHtml(ctx, { liga: 'kubok', team: 'qarabag', tab: 'cedvel' });
+  assert.ok(!cup.includes('>Cədvəl<'), 'kubokda cədvəl tabı yoxdur');
+  assert.ok(cup.includes('Azərbaycan Kuboku'));
+});
+test('team page: the league name above the club opens the league with all its clubs', async () => {
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce' });
+  assert.match(html, /<p><a class="tm-league" href="#\/komanda\/turkiye">Türkiyə Süper Liqası<\/a>, 1-ci yer<\/p><h1>Fenerbahçe<\/h1>/);
+  const past = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', season: '2025' });
+  assert.ok(past.includes('Komanda məlumatı açılmadı'), 'keçmiş mövsüm faylı olmayanda səhifə sınmır');
+  const league = await teamHtml(ctx, { liga: 'turkiye', team: '' });
+  assert.ok(league.includes('href="#/komanda/turkiye/fenerbahce"') && league.includes('href="#/komanda/turkiye/besiktas"'), 'hər klub açılır');
+  const cup = await teamHtml(ctx, { liga: 'kubok', team: '' });
+  assert.ok(cup.includes('class="tm-clubs"') && cup.includes('href="#/komanda/kubok/sumqayit"'), 'cədvəli olmayan yarışda klub siyahısı');
+  assert.ok(!cup.includes('tm-table'));
+});
+test('football tables link only to the team pages that exist: Azerbaijani leagues', () => {
+  const { S, footballBlock } = app().api;
+  S.football = { leagues: [{ league: 'Misli Premyer Liqası', short: 'Premyer Liqa', table: [{ pos: 1, team: 'Qarabağ', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3 }], results: [], fixtures: [] }] };
+  S.fbLeague = 0; S.fbTab = 'table';
+  const az = footballBlock([]);
+  assert.equal(az.split('href="#/komanda/premyer-liqa/qarabag"').length - 1, 2, 'kart və cədvəl');
+  assert.ok(az.includes('<a href="#/komanda/premyer-liqa/qarabag" class="fb-team"'));
+  S.football = null; S.fbTab = null;
+  S.sports = { leagues: [{ id: 'tur.1', sport: 'football', short: 'Türkiyə', name: 'Süper Liq', groups: [{ name: 'x', rows: [{ pos: 1, team: 'Fenerbahce', full: 'Fenerbahce', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3 }] }] }] };
+  const world = footballBlock([]);
+  assert.ok(world.includes('<a href="#/komanda/turkiye/fenerbahce" class="fb-team"'), 'dünya klubunun kartı öz səhifəsinə aparır');
+});
+test('sports menu stays put: place is from its widest form', () => {
+  const { popLeft } = app().api;
+  assert.equal(popLeft(300, 1280, 800), 300);
+  assert.equal(popLeft(600, 1280, 800), 472, 'üçüncü sütun açılanda da sığır, açılanda yeri dəyişmir');
+  assert.equal(popLeft(420, 593, 460), 125);
+  assert.equal(popLeft(20, 300, 460), 8, 'ekrandan sola çıxmır');
+});
+test('transfer news: own tab first, football and basketball inside, empty basketball hidden', () => {
+  const { S, navPopHtml, subNav, clubMatches } = app().api;
+  const art = (title, source = 'APA', extra = {}) => ({ id: title, title, source, category: 'idman', lang: 'az', publishedAt: new Date().toISOString(), ...extra });
+  const foot = art('Qarabağın yeni transfer hədəfi'), bb = art('Avroliqa klubu transfer etdi'), site = art('Player transfer news', 'Sportando'), ru = art('Трансфер Зенита'), volley = art('Voleybol klubunun transferi'), money = art('Pul transferi ilə bağlı xəbər'), plain = art('Neftçi qalib gəldi'), turk = art('Galatasaray kiralık oyuncu aldı');
+  const all = 'Transfer xəbərləri', f = 'Futbol transferləri', b = 'Basketbol transferləri';
+  for (const a of [foot, ru, turk]) { assert.ok(clubMatches(a, all), a.title); assert.ok(clubMatches(a, f), a.title); assert.ok(!clubMatches(a, b), a.title); }
+  for (const a of [bb, site]) { assert.ok(clubMatches(a, all), a.title); assert.ok(clubMatches(a, b), a.title); assert.ok(!clubMatches(a, f), a.title); }
+  for (const a of [volley, money, plain]) assert.ok(!clubMatches(a, all), a.title);
+  S.club = null; S.data = { articles: [foot] };
+  const first = navPopHtml('idman', null);
+  assert.ok(first.indexOf('data-club="Transfer xəbərləri"') < first.indexOf('data-club="Futbol"'), 'Hamısıdan sonra birinci');
+  let pop = navPopHtml('idman', all);
+  assert.ok(pop.includes('data-club="Futbol transferləri"') && pop.includes('>Futbol</button>'));
+  assert.ok(!pop.includes('data-club="Basketbol transferləri"'), 'xəbəri yoxdursa düymə yoxdur');
+  S.data = { articles: [foot, bb] };
+  pop = navPopHtml('idman', all);
+  assert.ok(pop.includes('data-club="Basketbol transferləri"') && pop.includes('>Basketbol</button>'));
+  S.sportTab = all;
+  assert.ok(subNav('idman').includes('data-club="Basketbol transferləri"'), 'telefonda eyni');
+});
+test('sports menu: leagues instead of clubs, clubs open from the league', () => {
+  const { S, navPopHtml, subNav } = app().api;
+  S.data = { articles: [] }; S.club = null;
+  const rows = names => [{ rows: names.map(([team, full]) => ({ team, full })) }];
+  S.football = { leagues: [{ short: 'Premyer Liqa', table: [{ team: 'Qarabağ' }, { team: 'Sabah' }] }] };
+  S.sports = null; S.sportsAsked = true;
+  assert.ok(navPopHtml('idman', 'Futbol').includes('data-club="Galatasaray"'), 'məlumat çatana qədər klubların düymələri qalır');
+  assert.ok(navPopHtml('idman', 'Basketbol').includes('data-club="NBA"'));
+  S.sports = { leagues: [
+    { id: 'eng.1', sport: 'football', short: 'İngiltərə', name: 'Premyer Liqa (İngiltərə)', groups: rows([['Man City', 'Manchester City']]) },
+    { id: 'tur.1', sport: 'football', short: 'Türkiyə', name: 'Süper Liq', groups: rows([['Galatasaray'], ['Fenerbahce']]) },
+    { id: 'uefa.champions', sport: 'football', short: 'ÇL', name: 'Çempionlar Liqası', groups: rows([['PSG', 'Paris Saint-Germain']]) },
+    { id: 'nba', sport: 'basketball', short: 'NBA', name: 'NBA', groups: rows([['Lakers', 'Los Angeles Lakers']]) },
+  ] };
+  for (const html of [navPopHtml('idman', 'Futbol'), (S.sportTab = 'Futbol', subNav('idman'))]) {
+    for (const liga of ['premyer-liqa', 'i-liqa', 'ii-liqa', 'kubok', 'evezediciler', 'ingiltere', 'turkiye', 'cl']) assert.ok(html.includes('href="#/komanda/' + liga + '"'), liga);
+    assert.ok(html.includes('<span>Süper Liq</span><small>Türkiyə</small>'), 'liqanın adı, yanında ölkəsi');
+    assert.ok(html.includes('<span>Premyer Liqa</span><small>İngiltərə</small>'));
+    assert.ok(html.includes('<span>Çempionlar Liqası</span></a>'));
+    for (const club of ['Neftçi', 'Galatasaray', 'Real Madrid']) assert.ok(!html.includes('data-club="' + club + '"'), club);
+    assert.ok(html.includes('data-club="Milli komanda"'), 'milli komandanın liqası yoxdur');
+  }
+  const pop = navPopHtml('idman', 'Futbol', 'Türkiyə');
+  assert.ok(pop.includes('class="pop-col clubs"') && pop.includes('href="#/komanda/turkiye/galatasaray"') && pop.includes('href="#/komanda/turkiye/fenerbahce"'));
+  assert.ok(navPopHtml('idman', 'Futbol').includes('href="#/komanda/premyer-liqa/qarabag"'), 'açılanda birinci liqanın klubları');
+  assert.ok(!subNav('idman').includes('pop-col clubs'), 'telefonda klublar liqanın səhifəsindədir');
+  const bb = navPopHtml('idman', 'Basketbol', 'NBA');
+  assert.ok(bb.includes('href="#/komanda/nba/los-angeles-lakers"') && !bb.includes('data-club="NBA"'));
+  assert.ok(!navPopHtml('idman', 'Basketbol').includes('turkiye'), 'basketbolda futbol liqası yoxdur');
+  assert.ok(!navPopHtml('bolgeler', 'Bakı').includes('#/komanda/'));
 });

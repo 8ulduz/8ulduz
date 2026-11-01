@@ -46,17 +46,23 @@ jobs:
           status="$(gh api "repos/$GH_REPO/contents/data/status.json?ref=live" --jq .content 2>/dev/null | base64 -d 2>/dev/null || echo "")"
           attempted="$(printf '%s' "$status" | jq -r '.attemptedAt // empty' 2>/dev/null)"
           if [ -n "$attempted" ] && [ $(( $(date +%s) - $(date -d "$attempted" +%s) )) -ge 360 ] && [ "$active" != "0" ] && [ -n "$active" ]; then
-            for id in $(gh run list --workflow update.yml --status in_progress --limit 5 --json databaseId --jq '.[].databaseId'); do
+            # Yalnız 6 dəqiqədən köhnə iş: təzə başlayan işin hələ yazmağa vaxtı olmayıb, onu dayandırsaq dövrəyə düşərik.
+            stuck="$(gh run list --workflow update.yml --branch main --status in_progress --limit 5 --json databaseId,startedAt \
+              --jq "[.[] | select((.startedAt | fromdateiso8601) < ($(date +%s) - 360)) | .databaseId] | join(\" \")" || echo "")"
+            for id in $stuck; do
               echo "::warning::İş $id ilişib, dayandırılır"
               gh run cancel "$id" || true
             done
             # Dayandırılan iş hələ "işləyir" görünsə, yeni iş onu görüb özü çıxar.
             for i in $(seq 1 18); do
-              left="$(gh run list --workflow update.yml --branch main --status in_progress --limit 5 --json databaseId --jq 'length' || echo 0)"
+              [ -n "$stuck" ] || break
+              left="$(gh run list --workflow update.yml --branch main --status in_progress --limit 5 --json databaseId,startedAt \
+                --jq "[.[] | select((.startedAt | fromdateiso8601) < ($(date +%s) - 360))] | length" || echo 0)"
               [ "$left" = "0" ] && break
               sleep 5
             done
-            active=0
+            active="$(gh run list --workflow update.yml --branch main --limit 20 --json status \
+              --jq '[.[] | select(.status != "completed")] | length' || echo "")"
           fi
           if [ "$active" = "0" ]; then
             for i in 1 2 3 4 5; do

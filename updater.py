@@ -10,12 +10,14 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip
+import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip, unicodedata
 import urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
 import content_policy
 from reader_content import update_reader
 from concurrent.futures import ThreadPoolExecutor, wait
+import threading
+from zoneinfo import ZoneInfo
 
 
 def _write_atomic(path, text, encoding="utf-8"):
@@ -32,7 +34,10 @@ AZ_FEEDS = [
     ("AZƏRTAC",      "https://azertag.az/rss"),
     ("APA",          "https://apa.az/rss"),
     ("APA Sport",    "https://apasport.az/rss", "İdman"),
-    ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman"),
+    # «?»: sayt əsasən bu mövzudadır, amma hər xəbəri yox (categorize). Burada hava proqnozu, şou-biznes da var.
+    ("Sportinfo",    "https://www.sportinfo.az/rss/", "İdman?"),
+    ("Qol.az",       "https://www.qol.az/rss/", "İdman"),
+    ("Fanat.az",     "https://fanat.az/feed", "İdman"),
     ("Oxu.az",       "https://oxu.az/feed"),
     ("Publika.az",   "https://publika.az/rss/"),
     ("Lent.az",      "https://lent.az/rss"),
@@ -48,11 +53,11 @@ AZ_FEEDS = [
     ("Aznews.az",    "https://aznews.az/rss/"),
     ("Zim.az",       "https://zim.az/rss.xml"),
     ("Konkret.az",   "https://konkret.az/rss"),
-    ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət"),
+    ("525.az",       "https://525.az/rss_goster.php", "Mədəniyyət?"),
     ("İki Sahil",    "https://ikisahil.az/rss"),
     ("Femida.az",    "https://femida.az/rss.xml"),
-    ("Ordu.az",      "https://ordu.az/rss.xml", "Siyasət"),
-    ("Azpolitika.info", "https://azpolitika.info/rss", "Siyasət"),
+    ("Ordu.az",      "https://ordu.az/rss.xml", "Siyasət?"),
+    ("Azpolitika.info", "https://azpolitika.info/rss", "Siyasət?"),
     ("Marja.az",     "https://marja.az/rss.php", "İqtisadiyyat"),
     ("Banco.az",     "https://banco.az/rss.xml", "İqtisadiyyat"),
     ("Media.az",     "https://media.az/rss"),
@@ -79,12 +84,47 @@ AZ_FEEDS = [
     ("Bakupost",     "https://www.bakupost.az/rss"),
     ("Banker.az",    "https://banker.az/feed/", "İqtisadiyyat"),
     # Dövlət və iqtidar saytları (Zuğulba xronikası üçün də): RSS-i olmayanlar HTML səhifə ilə oxunur (PAGE_PARSERS),
-    # Baku TV Google News sitemap-ı ilə. Caliber.az (yalnız rus/ingilis, Yandex Turbo lenti) və Baku.ws (GitHub-dan 403) yoxdur.
+    # Baku TV Google News sitemap-ı ilə. Caliber.az (yalnız rus/ingilis, Yandex Turbo lenti) yoxdur.
     ("Cross Media",  "https://crossmedia.az/az/all-news"),
     ("Xalq qəzeti",  "https://xalqqazeti.az/az"),
     ("Yeni Azərbaycan", "https://yeniazerbaycan.com/"),
     ("Azərbaycan qəzeti", "https://azerbaijan-news.az/az/feed"),
     ("Baku TV",      "https://baku.tv/sitemap-news-az.xml"),
+    # Sosial müdafiə: nazirlik və tabeli qurumlar (lentləri yoxdur, PAGE_PARSERS). sosial.gov.az xarici IP-yə açılmır, TG_FALLBACK.
+    ("ƏƏSMN",        "https://sosial.gov.az/az/media/xeberler", "Sosial müdafiə"),
+    ("DSMF",         "https://dsmf.gov.az/az/media/xeberler", "Sosial müdafiə"),
+    ("DOST Agentliyi", "https://dost.gov.az/news", "Sosial müdafiə"),
+    ("Məşğulluq Agentliyi", "https://dma.gov.az/media/xeberler", "Sosial müdafiə"),
+    # Bölgələr: rayon və şəhər icra hakimiyyətləri, Naxçıvan televiziyası.
+    ("Gəncə ŞİH", "https://ganja-ih.gov.az/news.html", "Bölgələr"),
+    ("Ağdaş RİH", "https://agdash-ih.gov.az/news.html", "Bölgələr"),
+    ("Beyləqan RİH", "https://beyleqan-ih.gov.az/news.html", "Bölgələr"),
+    ("Daşkəsən RİH", "https://dashkesen-ih.gov.az/news.html", "Bölgələr"),
+    ("Göygöl RİH", "https://goygol-ih.gov.az/news.html", "Bölgələr"),
+    ("İmişli RİH", "https://imishli-ih.gov.az/news.html", "Bölgələr"),
+    ("Naftalan ŞİH", "https://naftalan-ih.gov.az/news.html", "Bölgələr"),
+    ("Oğuz RİH", "https://oguz-ih.gov.az/news.html", "Bölgələr"),
+    ("Qəbələ RİH", "https://qebele-ih.gov.az/news.html", "Bölgələr"),
+    ("Xocavənd RİH", "https://xocavend-ih.gov.az/news.html", "Bölgələr"),
+    ("Babək RİH", "https://babek-ih.gov.az/xeberler", "Bölgələr"),
+    ("Culfa RİH", "https://culfa-ih.gov.az/xeberler", "Bölgələr"),
+    ("Ordubad RİH", "https://ordubad-ih.gov.az/xeberler", "Bölgələr"),
+    ("Sədərək RİH", "https://sederek-ih.gov.az/xeberler", "Bölgələr"),
+    ("Naxçıvan TV",  "https://ntv.az/news", "Bölgələr?"),
+    # Özəl saytlar: müxalifət olmadığını sahibi yoxlayıb (2026-10-31). Lenti olmayanlar PAGE_PARSERS ilə oxunur.
+    ("Narnews.az",   "https://narnews.az/rss.xml", "Bölgələr?"),
+    ("Cenub.az",     "https://cenub.az/rss.xml", "Bölgələr?"),
+    ("Gəncəxəbər",   "https://gencexeber.az/butun-xeberler", "Bölgələr?"),
+    ("Qarabağ Media", "https://qarabag.media/feed/", "Bölgələr?"),
+    ("Yurd.Media",   "https://yurd.media/"),
+    ("Region Plus",  "https://regionplus.az/allnews"),
+    ("Gündəlik.az",  "https://gundelik.az/rss"),
+    ("Nocomment.az", "https://nocomment.az/feed"),
+    ("Mia.az",       "https://mia.az/feed"),
+    ("Aia.az",       "https://aia.az/rss.xml"),
+    ("Oxu24.com",    "https://oxu24.com/sitemap-news.xml"),  # /feed 2 MB-dır, bu 70 KB
+    ("Baku.ws",      "https://baku.ws/rss"),
+    ("Naxçıvan Xəbərləri", "https://naxcivanxeberleri.az/"),
 ]
 # Xarici mənbələr: (ad, url, dil[, kateqoriya ipucu])
 WORLD_FEEDS = [
@@ -92,6 +132,7 @@ WORLD_FEEDS = [
     ("Al Jazeera",   "https://www.aljazeera.com/xml/rss/all.xml",             "en"),
     ("Daily Sabah",  "https://www.dailysabah.com/rss/all",                    "en"),
     ("Euronews",     "https://www.euronews.com/rss",                          "en"),
+    ("DW",           "https://rss.dw.com/xml/rss-en-all",                     "en"),
     ("Hürriyet",     "https://www.hurriyet.com.tr/rss/anasayfa",              "tr"),
     ("Sabah TR",     "https://www.sabah.com.tr/rss/anasayfa.xml",             "tr"),
     ("Habertürk",    "https://www.haberturk.com/rss",                         "tr"),
@@ -107,6 +148,23 @@ WORLD_FEEDS = [
     ("Championat",   "https://www.championat.com/rss/news/",                  "ru", "İdman"),
     ("Sport.ru",     "https://www.sport.ru/rssfeeds/news.rss",                "ru", "İdman"),
     ("Match TV",     "https://matchtv.ru/news/rss",                           "ru", "İdman"),
+    # İdman bölməsi: komanda, Avroliqa, NBA, Formula 1 və digər idman növləri üzrə (2026-10-31 GitHub-dan sınanıb)
+    ("A Spor",       "https://www.aspor.com.tr/rss/anasayfa.xml",             "tr", "İdman"),
+    ("Sporx",        "https://www.sporx.com/_xml/rss.php",                    "tr", "İdman"),
+    ("Ajansspor",    "https://ajansspor.com/rss",                             "tr", "İdman"),
+    ("Hürriyet Spor", "https://www.hurriyet.com.tr/rss/spor",                 "tr", "İdman"),
+    ("BBC Futbol",   "https://feeds.bbci.co.uk/sport/football/rss.xml",       "en", "İdman"),
+    ("Guardian Futbol", "https://www.theguardian.com/football/rss",           "en", "İdman"),
+    ("Motorsport F1", "https://www.motorsport.com/rss/f1/news/",              "en", "İdman"),
+    ("The Race",     "https://the-race.com/category/formula-1/feed/",         "en", "İdman"),
+    ("F1News",       "https://www.f1news.ru/export/news.xml",                 "ru", "İdman"),
+    ("Eurohoops",    "https://www.eurohoops.net/en/feed/",                    "en", "İdman"),
+    ("Sportando",    "https://sportando.basketball/en/feed/",                 "en", "İdman"),
+    ("TalkBasket",   "https://www.talkbasket.net/feed",                       "en", "İdman"),
+    ("BBC Tennis",   "https://feeds.bbci.co.uk/sport/tennis/rss.xml",         "en", "İdman"),
+    ("MMA Fighting", "https://www.mmafighting.com/rss/index.xml",             "en", "İdman"),
+    ("Chess.com",    "https://www.chess.com/rss/news",                        "en", "İdman"),
+    ("Sports.kz",    "https://www.sports.kz/rss",                             "ru", "İdman"),
 ]
 FEEDS = [(f[0], f[1], "az", f[2] if len(f) > 2 else None) for f in AZ_FEEDS] + \
         [(f[0], f[1], f[2], f[3] if len(f) > 3 else None) for f in WORLD_FEEDS]
@@ -121,7 +179,7 @@ STOPWORDS = ["neftçala", "neftchala", "ceyran", "xəzər"]
 PRESIDENT_STRONG = [
     "ilham əliyev", "mehriban əliyeva", "birinci xanım", "prezident aparatı",
     "azərbaycan prezidenti", "prezident ilham", "azərbaycan respublikasının prezidenti",
-    "birinci vitse-prezident", "ali baş komandan",
+    "birinci vitse-prezident", "ali baş komandan", "azərbaycan lideri",
     "ilham aliyev", "mehriban aliyeva", "president of azerbaijan", "azerbaijani president",
     "president ilham", "first lady of azerbaijan",
     "ильхам алиев", "ильхама алиева", "ильхаму алиеву", "ильхамом алиевым",
@@ -133,10 +191,12 @@ PRESIDENT_STRONG = [
     "xanım mehriban", "first vice-president", "first vice president", "lady mehriban",
 ]
 # Zəif göstəricilər: yalnız xarici kontekst olmadıqda sayılır
-# "X prezidenti" (məs. "Azercell prezidenti", "FIFA prezidenti") başqasının prezidentidir — sayılmır.
-PRESIDENT_WEAK_RX = re.compile(r"(?<!\w)(?:prezident(?!i(?!\w)|inin|liy)|dövlət başçısı|ölkə başçısı)")
+# "X prezidenti" (məs. "Azercell prezidenti", "Fənərbağçanın prezidentinə") başqasının prezidentidir — bütün hallarda sayılmır.
+# «Prezidentlər», «prezidentlə», «prezidentlik» də kimin olduğunu demir. «Prezidentin tapşırığı» isə qalır.
+PRESIDENT_WEAK_RX = re.compile(r"(?<!\w)(?:prezident(?!i(?!\w)|in[iəd]|l)|dövlət başçısı|ölkə başçısı)")
 PRESIDENT_WEAK_EXTRA = ["sərəncam", "fərman", "təltif"]
 # Xarici kontekst: "Braziliyada prezident seçkiləri" kimi xəbərlər Prezident bölməsinə düşməsin
+SOCIAL_FOREIGN = ["dünyada", "в мире", "росси", "москв", "сша", "европ", "турци", "украин", "грузи", "армени", "казахстан", "герман", "франц", "китай"]
 FOREIGN_MARKERS = [
     "abş", "amerika", "braziliya", "bolqarıstan", "rusiya", "türkiyə", "fransa", "almaniya",
     "ukrayna", "gürcüstan", "ermənistan", "iran", "qazaxıstan", "özbəkistan", "qırğızıstan",
@@ -146,6 +206,7 @@ FOREIGN_MARKERS = [
     "ispaniya", "portuqaliya", "macarıstan", "çexiya", "slovakiya", "avstriya", "finlandiya",
     "litva", "latviya", "estoniya", "əfqanıstan", "iraq", "liviya", "tunis", "əlcəzair",
     "nigeriya", "keniya", "cənubi afrika", "kanada", "avstraliya", "filippin", "indoneziya",
+    "yəmən", "husi", "çex respublika", "səudiyyə", "livan", "iordaniya", "qətər", "yunanıstan", "albaniya", "xorvatiya",
     "bolsonaro", "bolsonaru", "keçmiş prezident", "sabiq prezident", "eks-prezident", "eks prezident", "prezident təqaüd",
     "tramp", "trump", "putin", "ərdoğan", "makron", "zelenski", "paşinyan", "tokayev",
     "mirziyoyev", "lukaşenko", "pezeşkiyan", "si szinpin", "lula", "milei", "bayden",
@@ -174,10 +235,24 @@ IDMAN_WORDS = [
     "спартак", "цска", "зенит", "локомотив", "динамо", "краснодар", "лига чемпионов",
     "формула-1", "биатлон", "фигурист", "шайб", "нападающ", "вратар", "полузащитник",
     "football", "soccer", "tennis", "olympic", "goalkeeper", "striker", "athlete", "qarşılaşma", "azarkeş",
+    "avroliqa", "euroleague", "евролиг", "баскетбол", "нба", "basketball", "qran pri", "qran-pri", "гран-при",
+    "шахмат", "satranç", "chess", "tenisçi",
 ]
 CATEGORIES = {
     "Prezident": [],  # xüsusi qayda ilə hesablanır (categorize-ə baxın)
     "İdman": IDMAN_WORDS,
+    "Sosial müdafiə": ["sosial müdafiə", "əəsmn", "dsmf", "pensiya", "pensiyaçı", "təqaüdçü", "müavinət", "ünvanlı sosial", "ünvanlı dövlət sosial",
+                        "sosial yardım", "sosial sığorta", "sosial paket", "sosial təminat", "əlillik", "əlilliyi", "şəhid ailə", "müharibə əlil",
+                        "məşğulluq agentliyi", "dövlət məşğulluq", "özünüməşğulluq", "işsizlik", "işsiz", "əmək yarmarka", "dost mərkəzi", "dost agentliyi",
+                        "minimum əmək haqqı", "yaşayış minimumu",
+                        # Maaş, iş yeri, əmək hüququ: millət vəkili və ekspert müsahibələri əsasən bu sözlərlə gəlir.
+                        "əməkhaqq", "əmək haqq", "maaşlar", "maaşların", "maaş artım", "maaşı artır", "minimum maaş", "ehtiyac meyar",
+                        "əmək bazar", "əmək müqavilə", "əmək məcəllə", "əmək staj", "əmək kitabça", "əmək mübahisə", "əmək hüquq",
+                        "işaxtaran", "vakansiya", "yeni iş yeri", "iş yeri açıl", "iş yerləri açıl", "iş yeri yaradıl", "iş yerləri yaradıl", "işdən çıxan",
+                        "təqaüdə çıx", "təqaüd yaşı", "sosial siyasət", "sosial xidmət", "sosial dəstək", "sosial müavinət", "sosial mənzil",
+                        "uşaq pulu", "uşaqpulu", "əlillər", "müharibə veteran", "məcburi köçkün", "dost evi", "əmək və əhalinin",
+                        "musa quliyev", "anar əliyev",
+                        "пенси", "пособи", "безработ", "прожиточн", "соцзащит", "зарплат", "минтруд", "муса гулиев"],
     "Bölgələr": ["gəncə", "sumqayıt", "mingəçevir", "lənkəran", "şəki", "naxçıvan", "şirvan", "yevlax", "xankəndi", "şuşa",
                  "quba", "qusar", "xaçmaz", "şabran", "siyəzən", "xızı", "abşeron rayonu", "ismayıllı", "ağsu", "şamaxı", "qobustan",
                  "göyçay", "ucar", "zərdab", "kürdəmir", "ağdaş", "hacıqabul", "salyan", "neftçala", "biləsuvar", "saatlı",
@@ -226,7 +301,7 @@ CATEGORIES = {
                      "gdp", "inflation", "tariff", "stocks", "trade", "investment", "prices", "tender", "invest", "million", "billion", "milyon manat", "milyard", "kombi", "depozit"],
     "Mədəniyyət": ["film", "kino", "sərgi", "muzey", "teatr", "musiqi", "konsert", "kitab",
                    "şair", "yazıçı", "əsər", "incəsənət", "festival", "mükafat", "şarkı",
-                   "sinema", "kitap", "roman", "sanat", "sergi", "concert", "culture", "albüm", "oyuncu",
+                   "sinema", "kitap", "romanı", "romanın", "sanat", "sergi", "concert", "culture", "albüm", "oyuncu",
                    "aktyor", "aktrisa", "müğənni", "rejissor", "serial", "tamaşa", "xalq artisti",
                    "əməkdar artist", "mədəniyyət", "dizi", "şarkıcı", "sanatçı", "oyuncu",
                    "фильм", "кино", "сериал", "театр", "музе", "выставк", "концерт", "певиц", "певец",
@@ -267,13 +342,15 @@ CATEGORIES = {
               "путин", "трамп", "зеленский", "байден", "макрон", "эрдоган", "сша", "нато", "оон",
               "украин", "всу", "израил", "иран", "китай", "европ", "сирии", "газа", "нетаньяху",
               "abd", "rusya", "ukrayna", "israil", "gazze", "avrupa", "almanya", "çin",
-              "ukraine", "gaza", "israel", "russia", "china", "iran", "trump", "nato", "un ", "husi", "moskva", "paşinyan", "uqanda", "ebola", "türkiyədə", "kyrgyzstan", "freedom house"],
+              "ukraine", "gaza", "israel", "russia", "china", "iran", "trump", "nato", "un ", "husi", "moskva", "kiyev", "киев", "paşinyan", "uqanda", "ebola", "türkiyədə", "kyrgyzstan", "freedom house"],
 }
 # İdman bölməsi gücləndirilib: xallar 2 qat sayılır
-BOOST = {"İdman": 2, "Prezident": 3, "Təhsil": 1.5, "Səhiyyə": 1.5, "Bölgələr": 1.5}
+BOOST = {"İdman": 2, "Prezident": 3, "Təhsil": 1.5, "Səhiyyə": 1.5, "Bölgələr": 1.5, "Sosial müdafiə": 3}
 SLUGS = {"Prezident": "prezident", "Gündəm": "gundem", "Siyasət": "siyaset", "Cəmiyyət": "cemiyyet",
          "İqtisadiyyat": "iqtisadiyyat", "Dünya": "dunya", "İdman": "idman", "Mədəniyyət": "medeniyyet",
-         "Həyat": "heyat", "Texnologiya": "texnologiya", "Təhsil": "tehsil", "Səhiyyə": "sehiyye", "Bölgələr": "bolgeler"}
+         "Həyat": "heyat", "Texnologiya": "tehsil", "Təhsil": "tehsil", "Səhiyyə": "heyat", "Bölgələr": "bolgeler", "Sosial müdafiə": "sosial"}
+# Birləşmiş bölmələr (2026-10-31): açar sözlər ayrı qalır, saytda bir başlıqdır. Köhnə ünvanlar yeni bölməyə yönəlir.
+SECTION_ALIASES = {"sehiyye": "heyat", "texnologiya": "tehsil"}
 DOUBLE = {"iran", "rusiya", "çin", "fransa", "israil", "ukrayna", "abş", "ingiltərə", "almaniya",
           "türkiyə", "ermənistan", "gürcüstan"}
 FALLBACK = "Gündəm"
@@ -281,12 +358,14 @@ FALLBACK = "Gündəm"
 ROOT = pathlib.Path(os.environ.get("UPDATER_ROOT") or pathlib.Path(__file__).parent)
 OUT_DIR = ROOT / "data"
 LATEST_FILE = OUT_DIR / "latest.json"
+FIRST_FILE = OUT_DIR / "first.json"
 CACHE_DIR = ROOT / ".cache"  # yalnız runner-də, repoya düşmür
 FEED_CACHE = CACHE_DIR / "feeds.json"
 SLOW_FEED_CACHE = CACHE_DIR / "feeds-slow.json"
 OFFICIAL_CACHE = CACHE_DIR / "official.json"
 UNDATED_FILE = CACHE_DIR / "undated.json"
 RECENT_FILE = CACHE_DIR / "recent.json"
+LINK_HEALTH_FILE = CACHE_DIR / "link_health.json"
 GNEWS_CACHE = CACHE_DIR / "gnews.json"
 GROUPS_FILE = CACHE_DIR / "groups.json"
 RELABEL_MARK = CACHE_DIR / "relabeled"
@@ -296,6 +375,8 @@ SOCIAL_FILE = OUT_DIR / "social.json"
 STATUS_FILE = OUT_DIR / "status.json"
 SOURCES_FILE = OUT_DIR / "sources.json"
 OG_FILE = OUT_DIR / "og.json"
+IMG_CHECK_FILE = CACHE_DIR / "img_check.json"
+ARCHIVE_OG_FILE = CACHE_DIR / "archive_og.json"
 DATES_FILE = OUT_DIR / "dates.json"   # tarixsiz lent elementləri üçün səhifədən oxunan dərc vaxtı
 VIDEO_FILE = OUT_DIR / "video.json"
 FOOTBALL_FILE = OUT_DIR / "football.json"
@@ -331,6 +412,15 @@ AZ_MONTHS = {
 }
 MAX_ITEMS = 1200
 MAX_PER_SOURCE = 40   # bir mənbə lenti doldurmasın
+MAX_PER_WORLD_SOURCE = 20  # xarici mənbələr Azərbaycan xəbərlərini lentdən sıxışdırıb çıxarmasın
+MAX_PER_SPORT_SOURCE = 25
+MAX_WORLD = 150            # xarici ümumi mənbələr
+MAX_WORLD_SPORT = 200      # xarici idman mənbələri: cəmi 35%, qalan yer Azərbaycan xəbərlərinindir
+
+def source_cap(name):
+    if name in content_policy.SPORT_SOURCES:
+        return MAX_PER_SPORT_SOURCE
+    return MAX_PER_WORLD_SOURCE if name in WORLD_SOURCES else MAX_PER_SOURCE
 DATE_LOOKUPS = 30     # tarixsiz lent elementləri üçün bir dövrədə ən çox səhifə sorğusu
 TIMEOUT = 10
 WORKERS = 16
@@ -355,7 +445,10 @@ def detect_lang(title, desc, default):
         # AZ mənbəsində ə-siz, lakin ı/ş/ç/ğ/ö/ü olan mətn azərbaycancadır; təmiz ASCII isə ingiliscə
         if re.search(r"[ıİşŞçÇğĞöÖüÜ]", blob) or not re.search(r"[A-Za-z]{3}", blob):
             return "az"
-        return "en"
+        # ASCII ilə yazılmış Azərbaycan başlığı: «Tehrandan Avropaya», «Zaqatalada qaz olmayacaq»
+        words = re.findall(r"[a-z]+", title.lower())
+        endings = sum(1 for w in words if re.search(r"(?:ada|ade|dan|den|aya|eye|acaq|ecek|yib|nin|nun)$", w))
+        return "az" if words and endings * 2 >= len(words) else "en"
     if "ı" in blob or "ğ" in blob or "İ" in blob:
         return "tr"
     return default if default else "en"
@@ -380,7 +473,7 @@ IMG_RE = re.compile(r"""<img[^>]+src\s*=\s*["']([^"']+)["']""", re.I)
 IMG_EXT = re.compile(r"\.(jpe?g|png|webp|gif|avif)(\?|$)", re.I)
 
 # Saytın ümumi paylaşım şəkli (loqo) xəbərin şəkli deyil: azertag social.jpg, «son dakika» lövhəsi və s.
-GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$", re.I)
+GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$|/site/assets/|/assets/images/|lent\.az/storage/news/.*/middle/", re.I)
 
 def _is_generic_img(u):
     return bool(u) and bool(GENERIC_IMG.search(u))
@@ -389,6 +482,9 @@ def _abs_img(u, base):
     if not u:
         return None
     u = html.unescape(u.strip())
+    doubled = re.match(r"https?://[^/]*?(https?://.+)$", u)  # «https://azpolitika.infohttps://static...»: ünvan iki dəfə yazılıb
+    if doubled:
+        u = doubled.group(1)
     if u.startswith("//"):
         u = "https:" + u
     u = urllib.parse.urljoin(base or "", u)
@@ -433,7 +529,7 @@ def parse_news_sitemap(root, limit=80):
         img = (url.findtext(f"{_IMG_NS}image/{_IMG_NS}loc") or "").strip()
         if not (link and title):
             continue
-        items.append({"title": html.unescape(title), "link": link, "description": "", "pubDate": pub,
+        items.append({"title": html.unescape(title).strip(), "link": link, "description": "", "pubDate": pub,
                       "author": "", "image": _abs_img(img, link) if img else None})
         if len(items) >= limit:
             break
@@ -526,6 +622,13 @@ def _norm_iso(dt):
     Əvvəl +04:00 və +00:00 qarışıq idi, UTC-li xəbərlər 4 saat aşağı düşürdü."""
     return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
 
+def fix_source_link(link):
+    """Reyting.az lenti /haber/x.html yazır, o ünvan 404 verir; xəbərin əsl ünvanı /xeber/x-dir.
+    Lent.az lenti .../basliq-123/1 yazır, o ünvan ana səhifəyə atır; xəbərin özü .../basliq-123-dədir."""
+    link = re.sub(r"^(https?://(?:www\.)?reyting\.az)/haber/(.+?)\.html$", r"\1/xeber/\2", link or "")
+    return re.sub(r"^(https?://(?:www\.)?lent\.az/xeber/.+-\d+)/1/?$", r"\1", link)
+
+
 def fixed_source_date(link, now=None):
     """This publisher's RSS stamps every item with request time (+0000 for local time).
     Its own article URL contains a stable creation timestamp; use that fallback instead
@@ -572,6 +675,10 @@ _RX = {}
 PLACE_WORDS = {w for w in CATEGORIES["Bölgələr"] if " " not in w and w not in ("rayonunda", "rayonunun", "kəndində", "kəndinin", "bölgələr", "regionlar")}
 _PLACE_SUF = r"(?:n?[ıiuü]n|n?[ıiuü]|[dt][aə]n?|y?[aə]|l[ıiuü](?:lar|lər)?)?(?=$|[^\w])"
 
+# Qısa kök başqa sözün içində tutulmasın: «dava» — «davam», «kəşf» — «kəşfiyyat», «dəri» — «dərin», «kilo» — «kilometr», «цен» — «центр».
+_WORD_GUARD = {"dava": r"(?!m)", "kəşf": r"(?!iyyat)", "dəri": r"(?!n)", "kilo": r"(?!metr)", "цен": r"(?!тр|ност)",
+               "hava": r"(?!limanı|dar|lim|yol)", "sel": r"(?:[iı]n?|ə|də|dən)?(?!\w)", "dolu": r"(?!\w)"}
+
 def _rx(w):
     """Söz başlanğıcına bağlı axtarış (sonu sərbəst: şəkilçilər üçün)."""
     r = _RX.get(w)
@@ -579,7 +686,7 @@ def _rx(w):
         r = _RX[w] = re.compile(r"(?<!\w)" + re.escape(norm_az(w)) + _PLACE_SUF)
     if r is None:
         # ABŞ sözünü Abşeron kimi yer adları ilə qarışdırma.
-        suffix = r"(?=$|[^\w]|[-’'])" if w in ("abş", "abd") else r"(?!et|ет)" if w in ("bank", "банк") else ""
+        suffix = r"(?=$|[^\w]|[-’'])" if w in ("abş", "abd") else r"(?!et|ет)" if w in ("bank", "банк") else _WORD_GUARD.get(w, "")
         r = _RX[w] = re.compile(r"(?<!\w)" + re.escape(norm_az(w)) + suffix)
     return r
 
@@ -604,21 +711,29 @@ def president_score(blob, lang):
     weak = len(PRESIDENT_WEAK_RX.findall(blob))
     return weak + sum(1 for w in PRESIDENT_WEAK_EXTRA if _rx(w).search(blob)) if weak else 0
 
+SPORT_SITE_RX = re.compile(r"(?<!\w)(?:fənərba[ğx]ça|\w+spor(?!\w)|[\"“«](?:sabah|qarabağ|kəpəz|neftçi|zirə|inter|göztəpə)|legioner|heç-heçə|stadion|avrokubok|"
+                           r"komandası|klub|meydan[aı]|uduzdu|oyunu|millinin|heyətim|ehtiyatda qaldı|şans aldı|texniki məğlubiyyət|böyük dəbilqə|federasiya)")
+
 def categorize(title, desc, lang="az", hint=None, world=False):
     # A clear title topic takes precedence over incidental location words.
     title_text = norm_az(title)
     if president_score(title_text, lang) < 6:
+        if re.search(r"(?<!\w)(?:bürc|qoroskop|гороскоп|burç)", title_text):
+            return "Həyat"
         if re.search(r"\b(?:teatr\w*|tamaşa(?:sı(?:nın|na|nı|nda|ndan)?|lar(?:ı|ın|a|da|dan)?)?|premyera\w*|romanı|muzey\w*|mədəniyyətlərarası dialoq)\b", title_text):
             return "Mədəniyyət"
         if re.search(r"dini dözümsüzlük|dini tolerantlıq|media savadlılığı", title_text) and not re.search(r"süni intellekt|kibertəhlükəsizlik|proqram təminatı", title_text):
             return "Cəmiyyət"
     blob = norm_az(title + " " + desc)
-    scores = {}
+    scores, in_title = {}, {}
     for cat, words in CATEGORIES.items():
         if cat == "Prezident":
             # Xronikada xəbər özü rəhbərlik haqqında olmalıdır; xülasədəki
             # tarixi arayış və əlaqəli xəbərlərin mətni bunun üçün kifayət deyil.
             hits = president_score(norm_az(title), lang)
+            # Başlıqda yalnız ümumi «prezident» sözü var, ölkəni xülasə deyir: «Husilər prezident sarayına...» — «Yəməndə...».
+            if 0 < hits < 6 and has_any(blob, FOREIGN_MARKERS) and not _AZ_CONTEXT.search(blob):
+                hits = 0
         else:
             hits = 0
             for w in words:
@@ -626,18 +741,38 @@ def categorize(title, desc, lang="az", hint=None, world=False):
                     hits += 2 if (" " in w.strip() or w in DOUBLE) else 1
             # başlıqdakı uyğunluqlar daha vacibdir
             tb = norm_az(title)
-            hits += sum(1 for w in words if _rx(w).search(tb))
+            in_title[cat] = sum(1 for w in words if _rx(w).search(tb))
+            hits += in_title[cat]
         hits *= BOOST.get(cat, 1)
         scores[cat] = hits
     if any(norm_az(s) in blob for s in STOPWORDS):
         scores["İqtisadiyyat"] = 0
+    # «Kiyevin doqquz rayonunda»: yer adı yoxdursa və söhbət başqa ölkədən gedirsə, Bölgələr deyil.
+    if scores["Bölgələr"] and (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS)) and not has_any(blob, PLACE_WORDS):
+        scores["Bölgələr"] = 0
+    # «Finlandiyada işsizlik», «futbolçunun maaşı»: bölmə Azərbaycanın sosial müdafiəsidir (qurumların öz lentləri ipucu ilə gəlir).
+    foreign_topic = (scores["Dünya"] or has_any(blob, FOREIGN_MARKERS) or has_any(blob, SOCIAL_FOREIGN)) and "azərbaycan" not in blob and "азербайджан" not in blob
+    # Başlıqda söz yoxdursa xülasədəki bir ötəri ifadə kifayət deyil (BOOST onu güclü edir): ədəbi yubiley, partiya müşavirəsi.
+    if world or scores["İdman"] or foreign_topic or (not in_title.get("Sosial müdafiə") and scores["Sosial müdafiə"] < 12):
+        scores["Sosial müdafiə"] = 0
     if world:
         scores["Bölgələr"] = 0  # Bölgələr yalnız Azərbaycanın bölgələridir; xarici mənbə ora düşmür
         scores["Prezident"] = 0  # Zuğulba yalnız Azərbaycan mənbələrindəndir
+    # «Siyasət?»: saytın mövzusu üstünlük verir, amma məcbur etmir. Azpolitika-nın hava proqnozu Siyasət deyil (2026-10-31).
+    soft = hint[:-1] if hint and hint.endswith("?") else None
+    if soft:
+        hint = None
+        # İdman saytının dili: «Rüfət meydana çıxdı», «"Sabah"ın yolu». Bu sözlər başqa saytda idman demək deyil («gecə klubu»), ona görə ümumi siyahıda deyil.
+        if soft == "İdman" and scores["Prezident"] < 6 and SPORT_SITE_RX.search(norm_az(title)):
+            return soft
+        if scores[soft] > 0:
+            scores[soft] += 1
     if hint and scores.get("Prezident", 0) < 6:
         return hint
-    best = max(scores, key=scores.get)
+    best = max(scores, key=lambda cat: (scores[cat], in_title.get(cat, 0)))  # bərabərlikdə başlıqdakı söz üstündür
     if scores[best] <= 0:
+        if soft and soft != "İdman":  # idman sözü yoxdursa idman deyil; siyasət saytının adi yazısı isə siyasətdir
+            return soft
         return "Dünya" if world else FALLBACK
     # xarici mənbələrdə prezident bölməsi yalnız güclü göstərici ilə
     return best
@@ -801,6 +936,8 @@ GNEWS_FALLBACK = {
 TG_FALLBACK = {
     "AZƏRTAC": ("azertacnews", "azertag.az"),
     "Report": ("reportnewsaz", "report.az"),
+    "ƏƏSMN": ("sosialgovaz", "sosial.gov.az"),
+    "DOST Agentliyi": ("dostagentliyi", "dost.gov.az"),
 }
 GNEWS_LIMIT = 12
 
@@ -929,16 +1066,19 @@ def telegram_items(channel, host, pages=3, limit=20):
                 continue
             seen.add(link)
             text_m = re.search(r'tgme_widget_message_text[^>]*>(.*?)</div>', part, re.S)
-            raw = re.sub(r"<[^>]+>", " ", text_m.group(1) if text_m else "")
+            body = re.split(r"<br\s*/?>", text_m.group(1), maxsplit=1) if text_m else [""]
+            # Nazirlik kanalında yazı uzundur: başlıq ilk sətirdir. Qısa sətir tək qalmasın.
+            raw = re.sub(r"<[^>]+>", " ", body[0] if len(re.sub(r"<[^>]+>", "", body[0]).strip()) >= 25 else (text_m.group(1) if text_m else ""))
             title = re.sub(r"\s+", " ", html.unescape(raw)).strip()
             title = re.sub(r"\s*Ətraflı\s*:.*$", "", title, flags=re.I).strip()
             title = re.sub(r"^[^\wƏəİıÖöÜüĞğŞşÇç]+", "", title).strip()
             if len(title) < 12:
                 continue
             when = re.search(r'datetime="([^"]+)"', part)
+            photo = re.search(r"tgme_widget_message_photo_wrap[^>]*?background-image:url\('([^']+)'", part)
             out.append({
                 "title": title, "link": link, "description": "",
-                "pubDate": when.group(1) if when else "", "author": "", "image": None,
+                "pubDate": when.group(1) if when else "", "author": "", "image": photo.group(1) if photo else None,
             })
             if len(out) >= limit:
                 return out
@@ -992,9 +1132,12 @@ def fetch_feed(feed):
 # ------------------------------------------------------------ sürətli dövrə ---
 # QIRMIZI XƏTT 1 (docs/qirmizi-xetler.md): dövrə 60 saniyəyə sığmalıdır. Vaxtında cavab verməyən lent dövrəni
 # gözlətmir: sonuncu nəticəsi işlədilir, yavaş proses (--slow) onu ayrıca təzələyir.
-FAST_BUDGET_S = 25       # bütün lentlər üçün ümumi vaxt
+FAST_BUDGET_S = 20       # bütün lentlər üçün ümumi vaxt
 FAST_WORKERS = 40
 FAST_FETCH_TIMEOUT = 8
+FEED_FAILS_BEFORE_PAUSE = 3   # ardıcıl bu qədər alınmayan lent dövrəni saxlamasın (Femida.az hər dəqiqə 18 saniyə aparırdı)
+FEED_RETRY_S = 300       # dayandırılan lent bu qədərdən bir yoxlanır, arada onu yavaş proses oxuyur
+FEED_PAUSE_MAX_SHARE = 0.2    # lentlərin bu qədərindən çoxu birdən alınmırsa problem bizim şəbəkədir: heç nə dayandırılmır
 FEED_KEEP = 120          # lentdən yalnız ən yeni elementlər (İki Sahil 2000 element verir)
 FAST_MAX_ITEMS = 1000    # qruplaşdırma açdığı yer köhnə xəbərlə dolmasın, news.json böyüməsin
 FALLBACK_EVERY_S = 180   # Google News və Telegram ehtiyatını dəqiqədə bir yormayaq
@@ -1041,6 +1184,10 @@ def fetch_feed_fast(feed, old=None):
     """Bir lentin təzə nəticəsi: {items, url, at, err, etag, modified}."""
     source, url = feed[0], feed[1]
     old, started = old or {}, time.time()
+    if source in SLOW_ONLY_FEEDS:
+        return {"items": [], "url": url, "at": 0, **old, "err": None}
+    if started - old.get("pausedAt", 0) < FEED_RETRY_S:
+        return {**old, "late": True}
     used = old.get("url") or url
     if used not in [url] + DIRECT_ALT.get(source, []):  # bu mənbə Google News və ya Telegram ilə gəlir
         if old.get("items") and started - old.get("at", 0) < FALLBACK_EVERY_S:
@@ -1050,16 +1197,26 @@ def fetch_feed_fast(feed, old=None):
         try:
             items = _fetch_conditional(used, entry)
             if items is None and old.get("items"):
-                return {**old, "at": started, "err": None}
+                return {**old, "at": started, "err": None, "fails": 0, "pausedAt": 0}
             if items:
                 return {**entry, "items": items[:FEED_KEEP], "url": used, "at": started, "err": None}
         except Exception:
             pass
     _, items, err, final = fetch_feed(feed)
+    fails = old.get("fails", 0) + 1 if err else 0
+    paused = started if fails >= FEED_FAILS_BEFORE_PAUSE else 0
     if err and old.get("items"):
-        return {**old, "err": err}
-    return {"items": items[:FEED_KEEP], "url": final or url, "at": started, "err": err}
+        return {**old, "err": err, "fails": fails, "pausedAt": paused}
+    return {"items": items[:FEED_KEEP], "url": final or url, "at": started, "err": err, "fails": fails, "pausedAt": paused}
 
+
+# Dövlət saytları xarici şəbəkəyə gah açılır, gah 12 saniyə susur (2026-10-31 ölçülüb). Rayon xəbəri dəqiqə gözləyə bilər,
+# xəbər axını isə onları gözləməməlidir: bu lentlər yalnız yavaş dövrədə oxunur, sürətli dövrə onların son nəticəsini götürür.
+# Narnews, Cenub, Region Plus və Qarabağ Media gündə bir neçə dəfədən az yazır: dəqiqəlik oxumağa dəyməz, risk də olmasın.
+# Naxçıvan Xəbərlərinin lenti yoxdur, ana səhifəsi 244 KB-dır.
+SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media", "Naxçıvan Xəbərləri"}
+
+LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
 def collect_fast():
     """(results, official items, official errors). Heç bir lent dövrəni FAST_BUDGET_S-dən çox saxlamır."""
@@ -1074,14 +1231,27 @@ def collect_fast():
     wait([future for _, future in futures] + [official], timeout=FAST_BUDGET_S)
     pool.shutdown(wait=False, cancel_futures=True)
     now, results = time.time(), []
+    LATE_FEEDS.clear()
     for feed, future in futures:
         old = cache.get(feed[0]) or {}
         if future.done() and not future.cancelled() and future.exception() is None:
-            entry = future.result()
+            entry = dict(future.result())
+            if entry.pop("late", False):
+                LATE_FEEDS.add(feed[0])
         else:
             usable = old.get("items") and now - old.get("at", 0) < STALE_FEED_S
-            entry = {**old, "err": None if usable else "vaxt bitdi"}
+            fails = old.get("fails", 0) + 1
+            entry = {**old, "err": None if usable else "vaxt bitdi", "fails": fails, "pausedAt": now if fails >= FEED_FAILS_BEFORE_PAUSE else 0}
+            LATE_FEEDS.add(feed[0])
         cache[feed[0]] = entry
+    # Hamısı birdən alınmırsa səbəb bizdədir (DNS, şəbəkə): növbəti dövrə hamısını yenidən oxumalıdır.
+    paused = [name for name, entry in cache.items() if now - entry.get("pausedAt", 0) < FEED_RETRY_S]
+    if len(paused) > len(FEEDS) * FEED_PAUSE_MAX_SHARE:
+        print(f"  ! {len(paused)} lent birdən cavab vermir: dayandırılmır", flush=True)
+        for name in paused:
+            cache[name] = {**cache[name], "pausedAt": 0, "fails": 0}
+    for feed, _ in futures:
+        entry = cache[feed[0]]
         results.append((feed[0], entry.get("items") or [], entry.get("err"), entry.get("url") or feed[1]))
     saved = _read_json(OFFICIAL_CACHE, [])
     if official.done() and not official.cancelled() and official.exception() is None:
@@ -1105,7 +1275,8 @@ def compute_groups():
 
 def apply_groups(articles):
     """Yavaş prosesin qruplarını lentə tətbiq edir. Yeni xəbərlər növbəti hesablamaya qədər ayrı qalır, brauzer onları da birləşdirir."""
-    groups = _read_json(GROUPS_FILE, {})
+    # Qrup faylı dəyişiklikdən əvvəl yazılıb ola bilər: köhnə keçid buradan lentə qayıtmasın.
+    groups = {fix_source_link(url): [{**alt, "sourceUrl": fix_source_link(alt.get("sourceUrl"))} for alt in alts] for url, alts in _read_json(GROUPS_FILE, {}).items()}
     present = {a.get("sourceUrl") for a in articles}
     absorbed = {alt.get("sourceUrl") for url, alts in groups.items() if url in present for alt in alts}
     out = []
@@ -1113,15 +1284,35 @@ def apply_groups(articles):
         url = a.get("sourceUrl")
         if url in absorbed and url not in groups:
             continue
-        if url in groups:
-            known, alts = {url}, []
-            for alt in [*(a.get("alts") or []), *groups[url]]:
-                if alt.get("sourceUrl") not in known:
-                    known.add(alt.get("sourceUrl"))
-                    alts.append(alt)
-            a = {**a, "alts": alts}
+        # Yavaş prosesin nəticəsi köhnəni əvəz edir: birləşmə sonradan səhv çıxsa kartda qalmasın.
+        # Qrup faylı hələ yoxdursa (işin ilk dəqiqəsi) xəbərin öz siyahısı qalır.
+        if groups:
+            alts = [alt for alt in groups.get(url, []) if alt.get("sourceUrl") != url]
+            a = {**a, "alts": alts} if alts else {k: v for k, v in a.items() if k != "alts"}
         out.append(a)
     return out
+
+
+BULK_MIN_ITEMS, BULK_SPAN_S = 50, 1800
+
+def bulk_dated(items):
+    """Lentin tarixi yazının tarixi deyil: 50+ elementin 80%-i yarım saata sığır (Marja.az 2016-cı il xəbərlərini təzə tarixlə verir)."""
+    if len(items) < BULK_MIN_ITEMS:
+        return False
+    times = []
+    for it in items:
+        try:
+            # Keçiddə sabit tarix varsa lentin tarixi işlənmir (Azərbaycan qəzeti): belə lent problemli deyil.
+            fixed = fixed_source_date(it.get("link"))
+            dt = _parse_dt(fixed) if fixed else email.utils.parsedate_to_datetime(re.sub(r"\s+", " ", (it.get("pubDate") or "").strip()))
+            times.append(dt.timestamp())
+        except Exception:
+            continue
+    keep = int(len(items) * 0.8)
+    if len(times) < keep:
+        return False
+    times.sort()
+    return min(times[i + keep - 1] - times[i] for i in range(len(times) - keep + 1)) <= BULK_SPAN_S
 
 
 def _older_than(pub, floor):
@@ -1136,10 +1327,111 @@ def _older_than(pub, floor):
 def apply_og_cache(articles):
     """Sürətli dövrə şəkil sorğusu göndərmir; yavaş prosesin tapdığı şəkillər işlədilir."""
     cache = _read_json(OG_FILE, {})
+    checked = _read_json(IMG_CHECK_FILE, {})
     for a in articles:
+        if checked.get(a.get("imageUrl")):
+            a["imageUrl"] = None
         image = cache.get(a.get("sourceUrl") or "") if isinstance(cache, dict) else None
         if not a.get("imageUrl") and isinstance(image, str) and image and not _is_generic_img(image):
             a["imageUrl"] = image
+
+
+# Ölü linklər: sayt xəbəri lentdə dərc edir, səhifəsi isə bir müddət 404 verir (2026-11-01, Nocomment.az və Modern.az, 15 dəqiqəyə yaxın)
+# və ya xəbəri sonradan silir. Yoxlama ayrı prosesdir (--links): xəbər dövrəsi şəbəkə gözləmir, yalnız bu faylın nəticəsini oxuyur.
+LINK_TIMEOUT_S, LINK_BUDGET_S, LINK_THREADS, LINK_PER_HOST = 6, 40, 12, 2
+LINK_DEAD_RECHECK_S = 60          # ölü link tez-tez yoxlanır: düzələn kimi xəbər qayıdır
+LINK_DEAD_KEEP_S = 24 * 3600
+LINK_FRESH_S, LINK_FRESH_EVERY_S, LINK_OLD_EVERY_S = 6 * 3600, 20 * 60, 3 * 3600
+LINK_ALIVE_PER_RUN = 40
+LINK_HOST_OUTAGE = (4, 0.6)       # bir saytda 4+ yoxlamanın 60%-i ölüdürsə sayt özü nasazdır, xəbərləri gizlədilmir
+LINK_DEAD_MAX = 30                # bundan çoxu ölü görünürsə yoxlamaya güvənilmir (lent boşalmasın)
+
+
+def link_status(url):
+    """«dead» yalnız sayt özü dedikdə: 404, 410 və ya ana səhifəyə atma. Blok (403), xəta və vaxt keçməsi xəbəri gizlətmir."""
+    try:
+        target = urllib.parse.quote(url, safe=":/?&=%#+,;@!$'()*~-._")
+        req = urllib.request.Request(target, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
+        with urllib.request.urlopen(req, timeout=LINK_TIMEOUT_S) as r:
+            landed = urllib.parse.urlsplit(r.geturl()).path.strip("/")
+        return "dead" if not landed and urllib.parse.urlsplit(url).path.strip("/") else "alive"
+    except urllib.error.HTTPError as e:
+        return "dead" if e.code in (404, 410) else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def check_links(now=None):
+    """Bir yoxlama: əvvəl ölü linklər, sonra yeni xəbərlər (ən yenisi birinci), qalan vaxtda köhnələr növbə ilə."""
+    now = now or time.time()
+    state = _read_json(LINK_HEALTH_FILE, {})
+    listed = {}
+    for a in _read_json(OUT_FILE, {}).get("articles") or []:
+        for row in [a, *(a.get("alts") or [])]:
+            if row.get("sourceUrl"):
+                listed[row["sourceUrl"]] = row.get("publishedAt") or a.get("publishedAt") or ""
+    state = {u: v for u, v in state.items() if u in listed or (v.get("dead") and now - v.get("since", now) < LINK_DEAD_KEEP_S)}
+    def age(url):
+        dt = _parse_dt(listed.get(url))
+        return now - dt.timestamp() if dt else LINK_DEAD_KEEP_S
+    dead = [u for u, v in state.items() if v.get("dead") and now - v.get("at", 0) >= LINK_DEAD_RECHECK_S]
+    fresh = sorted((u for u in listed if u not in state), key=age)
+    due = [u for u, v in state.items() if u in listed and not v.get("dead") and now - v.get("at", 0) >= (LINK_FRESH_EVERY_S if age(u) < LINK_FRESH_S else LINK_OLD_EVERY_S)]
+    queue = dead + fresh + sorted(due, key=lambda u: state[u].get("at", 0))[:LINK_ALIVE_PER_RUN]
+    hosts = collections.defaultdict(lambda: threading.Semaphore(LINK_PER_HOST))
+    host_of = lambda u: urllib.parse.urlsplit(u).hostname or ""
+    def one(url):
+        with hosts[host_of(url)]:
+            return url, link_status(url)
+    pool = ThreadPoolExecutor(LINK_THREADS)
+    jobs = [pool.submit(one, u) for u in queue]
+    finished, _late = wait(jobs, timeout=LINK_BUDGET_S)
+    pool.shutdown(wait=False, cancel_futures=True)
+    results = [j.result() for j in finished if not j.cancelled() and not j.exception()]
+    tally = collections.defaultdict(lambda: [0, 0])
+    for url, status in results:
+        tally[host_of(url)][0] += 1
+        tally[host_of(url)][1] += status == "dead"
+    outage = {h for h, (n, d) in tally.items() if n >= LINK_HOST_OUTAGE[0] and d / n >= LINK_HOST_OUTAGE[1]}
+    changed = []
+    for url, status in results:
+        old = state.get(url) or {}
+        if status == "dead" and host_of(url) in outage:
+            status = "unknown"
+        if status == "unknown":
+            state[url] = {**old, "at": now}
+            continue
+        if (status == "dead") != bool(old.get("dead")):
+            changed.append(("ölü " if status == "dead" else "düzəldi ") + url)
+        state[url] = {"at": now, "dead": True, "since": old.get("since", now)} if status == "dead" else {"at": now}
+    _save_cache(LINK_HEALTH_FILE, state)
+    print(f"Link yoxlaması: {len(results)}/{len(queue)}, ölü {sum(1 for v in state.values() if v.get('dead'))}", flush=True)
+    for line in changed[:20]:
+        print(" ", line, flush=True)
+
+
+def dead_links(total):
+    """Hazırda ölü bilinən linklər. Çox görünürsə (yoxlayan tərəf nasazdır) heç nə gizlədilmir: xəbər lenti boşalmamalıdır."""
+    urls = {u for u, v in _read_json(LINK_HEALTH_FILE, {}).items() if v.get("dead")}
+    if len(urls) > max(LINK_DEAD_MAX, total // 20):
+        print(f"  ! ölü link çoxdur ({len(urls)}), gizlədilmir", flush=True)
+        return set()
+    return urls
+
+
+def drop_dead_links(articles, dead):
+    """Ölü linkli xəbər çıxır. Eyni xəbəri başqa sayt da yazıbsa kart ona keçir."""
+    out = []
+    for a in articles:
+        alts = [alt for alt in a.get("alts") or [] if alt.get("sourceUrl") not in dead]
+        if a.get("sourceUrl") not in dead:
+            out.append({**a, "alts": alts} if len(alts) != len(a.get("alts") or []) else a)
+        elif alts:
+            alt, *rest = alts
+            out.append({**a, "id": hashlib.sha1(alt["sourceUrl"].encode()).hexdigest()[:16], "source": alt.get("source") or a.get("source"), "sourceUrl": alt["sourceUrl"],
+                        "publishedAt": alt.get("publishedAt") or a.get("publishedAt"), "title": alt.get("title") or a.get("title"), "lang": alt.get("lang") or a.get("lang"),
+                        "imageUrl": a.get("imageUrl") or alt.get("imageUrl"), "alts": rest})
+    return out
 
 
 def write_latest(articles, previous):
@@ -1154,8 +1446,50 @@ def write_latest(articles, previous):
     rows = [a for a in ordered if a.get("sourceUrl") in top or a.get("sourceUrl") in recent][:LATEST_MAX]
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     OUT_DIR.mkdir(exist_ok=True)
-    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows}, ensure_ascii=False, separators=(",", ":")))
+    # «dead»: sayt tam lenti 10 dəqiqədən bir alır, ölü link isə ekrandan bir dəqiqəyə çıxmalıdır.
+    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": sorted(dead_links(len(articles)))}, ensure_ascii=False, separators=(",", ":")))
     _save_cache(RECENT_FILE, recent)
+
+
+# Sayt baş səhifənin yuxarısını bu xəbərlərdən qurur, tam lent sonra gəlir. Eyni blok alınmalıdır ki, tam lent gələndə ekran dəyişməsin:
+# seçim assets/app.js-dəki heroPick, latestBlock, prezHome və collapseExact ilə uyğun qalmalıdır.
+FIRST_RANKED, FIRST_NEWEST, FIRST_HERO = 40, 30, 15  # slayder 15 xəbər götürür, oxşarları atır; «Son xəbərlər» 8 kart göstərir
+_FIRST_APPOINTMENT = re.compile(r"təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed", re.I)
+
+
+def first_screen_rows(articles, now=None):
+    """Azərbaycanca baxışın ilk ekranı üçün sətirlər: ən çox mənbədə çıxan və ən yeni xəbərlər, bütün Zuğulba xronikası."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    key = lambda a: _norm_title(html.unescape(a.get("title") or ""))
+    groups, twins = {}, collections.defaultdict(list)
+    for a in articles:
+        if a.get("category") != "prezident":
+            twins[key(a)].append(a)  # başqa dil kimi işarələnmiş eyni başlıq da: sayt onları birləşdirir
+            if (a.get("lang") or "az") == "az":
+                groups.setdefault(key(a), twins[key(a)])
+    newest = {k: max((a.get("publishedAt") or "") for a in rows) for k, rows in groups.items()}
+    weight = {k: sum(1 + len(a.get("alts") or []) for a in rows) + (2 if _FIRST_APPOINTMENT.search(rows[0].get("title") or "") else 0) for k, rows in groups.items()}
+    pool = list(groups)
+    for hours in (18, 48):
+        cut, recent = now - datetime.timedelta(hours=hours), []
+        for k in groups:
+            dt = _parse_dt(newest[k])
+            if dt and cut <= dt <= now + datetime.timedelta(minutes=5):
+                recent.append(k)
+        if len(recent) >= FIRST_HERO:
+            pool = recent
+            break
+    keep = set(sorted(pool, key=lambda k: (weight[k], newest[k]), reverse=True)[:FIRST_RANKED])
+    keep.update(sorted(groups, key=lambda k: newest[k], reverse=True)[:FIRST_NEWEST])
+    return [a for a in articles if a.get("category") == "prezident" or key(a) in keep]
+
+
+def write_first(articles, stamp):
+    """first.json: ilk ekranın sətirləri və onların og şəkilləri. Bütöv og.json ekran çəkiləndən sonra gəlir."""
+    rows, og = first_screen_rows(articles), _read_json(OG_FILE, {})
+    urls = {u for a in rows for u in [a.get("sourceUrl"), *[alt.get("sourceUrl") for alt in a.get("alts") or []]]}
+    images = {u: og[u] for u in urls if u in og}
+    _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
 def refresh_slow_feeds(limit_s=150):
@@ -1187,13 +1521,112 @@ def resolve_undated():
     save_dates(dates)
 
 
+# Bölmə arxivi: lent gündüz 2-3 saat əhatə edir, bölmə səhifəsi isə günlərlə xəbər göstərməlidir.
+# Saatda bir yazılır: main-in tarixçəsi şişməsin. Lentdən çıxan xəbər ən azı 2 saat lentdə olduğu üçün heç nə itmir.
+ARCHIVE_DIR = OUT_DIR / "arxiv"
+ARCHIVE_DAYS, ARCHIVE_MAX, ARCHIVE_EVERY_S = 5, 200, 3600
+ARCHIVE_MAX_BY_SECTION = {"idman": 800, "bolgeler": 600}  # komanda və rayon düyməsi bu siyahıdan süzür: az yazılana da xəbər qalsın
+BACKLOG_SECTIONS = {"bolgeler", "sosial"}
+ARCHIVE_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "video")
+
+def feed_backlog(cutoff):
+    """Lent 3-4 saat əhatə edir: rayon və qurum xəbəri çox vaxt ondan köhnədir, lentdən keçmədiyi üçün arxivə də düşmürdü.
+    Azərbaycan lentlərinin Bölgələr və Sosial müdafiə xəbərləri arxivə birbaşa gəlir, süzgəclər lentdəki ilə eynidir."""
+    cache = _read_json(FEED_CACHE, {})
+    for name, entry in _read_json(SLOW_FEED_CACHE, {}).items():
+        if entry.get("at", 0) > (cache.get(name) or {}).get("at", 0):
+            cache[name] = entry
+    az, rows = {f[0] for f in AZ_FEEDS}, []
+    for source, _url, dlang, hint in FEEDS:
+        items = (cache.get(source) or {}).get("items") or []
+        if source not in az or bulk_dated(items):
+            continue
+        for it in items:
+            try:
+                if not it.get("pubDate") or _older_than(it["pubDate"], cutoff) or is_junk(it["link"]):
+                    continue
+                if is_negative_about_leadership(it["title"], it["description"], source):
+                    continue
+                art = make_article(it, source, dlang, hint)
+                if art["category"] in BACKLOG_SECTIONS and not foreign_about_azerbaijan(source, art["category"], art["title"], it.get("description") or art["summary"]):
+                    rows.append(art)
+            except Exception:
+                continue
+    return rows
+
+def fill_archive_images(rows, images, limit=40):
+    """Lentdən keçməyən xəbərin (feed_backlog) og:image sorğusu olmayıb: burada, bir saata 40 səhifə. Tapılan arxivdə qalır."""
+    for url in [u for u, img in images.items() if _is_generic_img(img)]:
+        del images[url]
+    todo = [a["sourceUrl"] for a in rows if not a.get("imageUrl") and a["sourceUrl"] not in images][:limit]
+    if todo:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            found = list(ex.map(_fetch_og, todo))
+        repeats = collections.Counter(img for img in found if img)
+        images.update((url, "" if repeats[img] >= 3 else img) for url, img in zip(todo, found) if img is not None)
+    for a in rows:
+        if not a.get("imageUrl") and images.get(a["sourceUrl"]):
+            a["imageUrl"] = images[a["sourceUrl"]]
+    return rows
+
+def update_archive(now=None):
+    now = now or time.time()
+    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    missing = any(not (ARCHIVE_DIR / f"{s[0]}.json").exists() for s in SECTIONS if s[0] != "prezident")  # yeni bölmə bir saat boş qalmasın
+    if not articles or (not missing and now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S):
+        return
+    cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
+    merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []} | dead_links(len(articles))
+    backlog = feed_backlog(cutoff)
+    images = _read_json(ARCHIVE_OG_FILE, {})
+    for slug, _label, _desc in SECTIONS:
+        if slug == "prezident":  # Zuğulba lentdə 60 gün qalır
+            continue
+        path, rows = ARCHIVE_DIR / f"{slug}.json", {}
+        aliases = [ARCHIVE_DIR / f"{old}.json" for old, new in SECTION_ALIASES.items() if new == slug]
+        saved = [row for p in [path, *aliases] for row in _read_json(p, {}).get("articles") or []]
+        names = {slug, *(old for old, new in SECTION_ALIASES.items() if new == slug)}
+        for a in [*saved, *(a for a in backlog if a["category"] in names), *(a for a in articles if a.get("category") in names)]:
+            url = fix_source_link(a.get("sourceUrl"))
+            if url and url not in merged:
+                known = (rows.get(url) or {}).get("imageUrl")  # lentin şəkilsiz nüsxəsi arxivdə tapılan şəkli silməsin
+                rows[url] = {**({"imageUrl": known} if known else {}), **{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "sourceUrl": url, "category": slug}
+        # Tarixi oxunmayan xəbər arxivdə qalmır.
+        kept = [a for a in rows.values() if (_parse_dt(a.get("publishedAt")) or cutoff - datetime.timedelta(1)) >= cutoff
+                and not is_junk(a.get("sourceUrl", "")) and not removed_source(a)
+                and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
+        kept, _ = content_policy.enforce(kept)
+        kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+        kept = kept[:ARCHIVE_MAX_BY_SECTION.get(slug, ARCHIVE_MAX)]
+        for a in kept:
+            if _is_generic_img(a.get("imageUrl")):
+                del a["imageUrl"]
+        if slug in BACKLOG_SECTIONS:
+            kept = fill_archive_images(kept, images)
+        ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+        _write_atomic(path, json.dumps({"at": now, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
+        for old in aliases:  # köhnə fayl boşalır: növbəti dəfə eyni xəbər yenidən köçürülməsin
+            if old.exists():
+                _write_atomic(old, json.dumps({"at": now, "articles": []}, separators=(",", ":")))
+    _save_cache(ARCHIVE_OG_FILE, images)
+
+
+# Səsli oxu söndürülüb, reader.json-u işlədən yoxdur: 400 xəbərin tam mətni açıq yayımlanmasın (müəllif hüququ).
+# Sürücü rejimi qayıdanda (config.js, driver) True yazılır.
+READER_ENABLED = False
+
+def retire_reader():
+    if READER_ENABLED:
+        update_reader(_read_json(OUT_FILE, {}).get("articles") or [], OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6))
+    else:
+        (OUT_DIR / "reader.json").unlink(missing_ok=True)
+
+
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = _read_json(OUT_FILE, {}).get("articles") or []
     steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
-             lambda: fill_og_images(articles),
-             lambda: update_reader(articles, OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6)),
-             refresh_slow_feeds, write_public]
+             lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
             step()
@@ -1205,7 +1638,7 @@ def slow_cycle():
 MARKET_DEFS = [
     # id, ad (UI), vahid, onluq
     ("USD", "Dollar", "AZN", 4), ("EUR", "Avro", "AZN", 4), ("RUB100", "100 Rubl", "AZN", 4),
-    ("TRY100", "100 Lirə", "AZN", 4), ("BRENT", "Brent", "USD", 2), ("WTI", "Neft (WTI)", "USD", 2),
+    ("TRY100", "100 Lirə", "AZN", 4), ("CNY", "Yuan", "AZN", 4), ("BRENT", "Brent", "USD", 2), ("WTI", "Neft (WTI)", "USD", 2),
     ("XAU", "Qızıl", "USD", 1), ("XAG", "Gümüş", "USD", 2), ("BTC", "Bitcoin", "USD", 0),
 ]
 
@@ -1263,7 +1696,7 @@ def get_currencies():
     res = {}
     if cur:
         r, p = cur[1], (prev[1] if prev else {})
-        for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100)):
+        for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100), ("CNY", "CNY", 1)):
             if code in r:
                 res[mid] = {"value": r[code] * mult, "prev": p[code] * mult if code in p else None,
                             "src": "AMB", "asOf": cur[0].isoformat()}
@@ -1271,7 +1704,7 @@ def get_currencies():
     # Ehtiyat: open.er-api.com (açarsız, gündəlik)
     g = fetch_json("https://open.er-api.com/v6/latest/USD")
     azn = g["rates"]["AZN"]
-    for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100)):
+    for mid, code, mult in (("USD", "USD", 1), ("EUR", "EUR", 1), ("RUB100", "RUB", 100), ("TRY100", "TRY", 100), ("CNY", "CNY", 1)):
         if code in g["rates"]:
             res[mid] = {"value": azn / g["rates"][code] * mult, "prev": None, "src": "ExchangeRate-API"}
     return res
@@ -1530,14 +1963,106 @@ def parse_yeniazerbaycan(page):
                       "image": _abs_img(img.group(1), link) if img else None, "author": ""})
     return items
 
+_LIST_DATE = re.compile(r"(?:\d{1,2}:\d{2}\s+)?\d{1,2}[.]\d{1,2}[.]20\d{2}|\d{1,2}\s+[a-zəöüğışçA-ZƏÖÜĞİŞÇ]+\s+20\d{2}(?:,?\s+\d{1,2}:\d{2})?"
+                        r"|[a-zəöüğışçA-ZƏÖÜĞİŞÇ]+\s+\d{1,2},\s+20\d{2}(?:\s+\d{1,2}:\d{2})?")
+
+def _list_date(raw):
+    """«Oktyabr 31, 2026 11:00» (sosial.gov.az) və «Bu gün, 17:00», «Dünən,22:00», «30-10-2026» (Naxçıvan Xəbərləri) parse_az_date-in bildiyi sıraya çevrilir."""
+    near = re.fullmatch(r"(bu gün|dünən)\s*,?\s*(\d{1,2}:\d{2})", raw.strip().lower())
+    if near:
+        day = datetime.datetime.now(BAKU) - datetime.timedelta(days=near.group(1) == "dünən")
+        return parse_az_date(f"{day:%d.%m.%Y} {near.group(2)}")
+    dashed = re.fullmatch(r"(\d{2})-(\d{2})-(20\d{2})", raw.strip())
+    if dashed:
+        return parse_az_date(".".join(dashed.groups()))
+    iso = re.fullmatch(r"(20\d{2})-(\d{2})-(\d{2})[T ](\d{2}:\d{2}).*", raw.strip())
+    if iso:
+        return parse_az_date(f"{iso.group(3)}.{iso.group(2)}.{iso.group(1)} {iso.group(4)}")
+    swapped = re.fullmatch(r"([^\d\s]+)\s+(\d{1,2}),\s+(20\d{2})(.*)", raw.strip())
+    text = f"{swapped.group(2)} {swapped.group(1)} {swapped.group(3)}{swapped.group(4)}" if swapped else raw
+    return parse_az_date(text.lower())
+_LIST_ANCHOR = re.compile(r'<a\b([^>]*?)href=["\']([^"\']+)["\']([^>]*)>(.*?)</a>', re.S)
+
+def parse_list_page(page, base, link_rx, limit=20):
+    """Lenti olmayan rəsmi saytın xəbər siyahısı: keçid, başlıq və ona ən yaxın tarix.
+    Eyni xəbərə bir neçə keçid olur (şəkil, başlıq, «Ətraflı»): ən uzun başlıq götürülür."""
+    found = {}
+    for m in _LIST_ANCHOR.finditer(page):
+        link = urllib.parse.urljoin(base, html.unescape(m.group(2)))
+        if not re.search(link_rx, link):
+            continue
+        attrs, inner = m.group(1) + m.group(3), m.group(4)
+        named = re.search(r'title=["\']([^"\']+)', attrs) or re.search(r'alt=["\']([^"\']+)', inner)
+        title = _clean_text(inner)
+        if _LIST_DATE.fullmatch(title):  # tarix də həmin xəbərə keçiddir
+            title = ""
+        if len(title) < 15:
+            title = _clean_text(named.group(1)) if named else ""
+        if len(title) < 15:  # «Ətraflı» düyməsi: başlıq yuxarıdakı blokdadır
+            heads = re.findall(r"<h\d[^>]*>(.*?)</h\d>", page[max(0, m.start() - 900):m.start()], re.S)
+            title = _clean_text(heads[-1]) if heads else ""
+        slug_date = re.search(r"(\d{1,2})-(\d{1,2})-(20\d{2})(?:\.html)?$", link)
+        near = [d for d in _LIST_DATE.finditer(page, max(0, m.start() - 500), m.end() + 500)]
+        near.sort(key=lambda d: min(abs(d.start() - m.start()), abs(d.start() - m.end())))
+        raw = f"{slug_date.group(1)}.{slug_date.group(2)}.{slug_date.group(3)}" if slug_date else (near[0].group(0) if near else "")
+        row = found.get(link)
+        if row and raw and not row["pubDate"]:  # eyni xəbərin vitrindəki keçidində tarix yox idi
+            row["pubDate"] = _list_date(raw)
+        if len(title) < 15 or (row and len(row["title"]) >= len(title)):
+            continue
+        imgs = list(re.finditer(r'<img[^>]+src=["\']([^"\']+)', page[max(0, m.start() - 500):m.end()]))
+        found[link] = {"title": title, "link": link, "description": "", "pubDate": (row or {}).get("pubDate") or (_list_date(raw) if raw else ""),
+                       "image": _abs_img(imgs[-1].group(1), link) if imgs else None, "author": ""}
+    return list(found.values())[:limit]
+
+def parse_cards(page, base, start, link_rx, title_rx, date_rx, limit=40):
+    """Özəl saytların xəbər kartları: səhifə kartlara bölünür ki, qonşu kartın tarixi və şəkli qarışmasın.
+    Kartdakı yer adı (Yurd.Media: «Gəncə») təsvirə yazılır: başlıqda ad olmasa da rayon düyməsi xəbəri tapır."""
+    found = {}
+    for card in re.split(start, page)[1:]:
+        link, title = re.search(link_rx, card), re.search(title_rx, card, re.S)
+        text = _clean_text(title.group(1)) if title else ""
+        if not link or len(text) < 15:
+            continue
+        link = urllib.parse.urljoin(base, html.unescape(link.group(1)))
+        if link in found:
+            continue
+        date, img = re.search(date_rx, card), re.search(r'<img[^>]+src=["\']([^"\']+)', card)
+        label = re.search(r'class="news__region">(.*?)</', card, re.S)
+        place = _clean_text(label.group(1)) if label else ""
+        found[link] = {"title": text, "link": link, "pubDate": _list_date(date.group(1)) if date else "", "author": "",
+                       "description": place if any(_rx(w).search(norm_az(place)) for w in PLACE_WORDS) else "",
+                       "image": _abs_img(img.group(1), base) if img else None}
+    return list(found.values())[:limit]
+
+_CARD_DATE = r"(\d{2}[.]\d{2}[.]20\d{2} \d{2}:\d{2})"
+_CARD_SITES = {
+    "https://gencexeber.az/butun-xeberler": (r'(?=<div class="post__item" data-date=)', r'href="([^"]+/butun-xeberler/[^"]+)"', r'itemprop="headline">(.*?)</span>', r'data-date="([^"]+)"'),
+    "https://yurd.media/": (r'(?=<a href="[^"]+" class="news__item)', r'href="([^"]+)"', r'class="news__title">(.*?)</div>', _CARD_DATE),
+    "https://regionplus.az/allnews": (r'(?=<div class="nn_item[ "])', r'href="(/posts/view/\d+)"', r'class="article_title">\s*<a[^>]+>(.*?)</a>', _CARD_DATE),
+    "https://naxcivanxeberleri.az/": (r'(?=<li>\s*<div class="thumb">)', r'href="([^"]+/bloq/[^"]+)"', r'<h4>\s*<a[^>]+>(.*?)</a>', r'class="meta">\s*<span[^>]*>([^<]+)</span>'),
+}
+
+_LIST_SITES = {
+    "https://sosial.gov.az/az/media/xeberler": r"/az/media/xeberler/.",
+    "https://dsmf.gov.az/az/media/xeberler": r"/az/media/xeberler/.|dsmf\.gov\.az/post/.",
+    "https://dost.gov.az/news": r"dost\.gov\.az/news/\d+",
+    "https://dma.gov.az/media/xeberler": r"/media/xeberler/.",
+    "https://ntv.az/news": r"ntv\.az/news/[a-z-]+/\d+",
+    **{url: r"/az/news/[^/]+\.html$" for name, url, *_ in AZ_FEEDS if url.endswith("-ih.gov.az/news.html")},
+    **{url: r"/xeber/[^/?#]+$" for name, url, *_ in AZ_FEEDS if url.endswith("-ih.gov.az/xeberler")},
+}
+
 # Lent ünvanı RSS yox, HTML səhifədirsə, _load_direct bu oxuyucunu işlədir (mənbə sağlamlığı, ehtiyatlar və limitlər eynidir).
 PAGE_PARSERS = {
     CROSSMEDIA_URL: parse_crossmedia,
     XALQQAZETI_URL: parse_xalqqazeti,
     YENIAZERBAYCAN_URL: parse_yeniazerbaycan,
+    **{url: (lambda page, url=url, rx=rx: parse_list_page(page, url, rx)) for url, rx in _LIST_SITES.items()},
+    **{url: (lambda page, url=url, rule=rule: parse_cards(page, url, *rule)) for url, rule in _CARD_SITES.items()},
 }
 
-def official_items():
+def official_items(tries=1, timeout=12):
     """Prezident və birinci xanımın rəsmi səhifələri.
 
     president.az/az/rss əsasən vətəndaş məktublarıdır; xəbərlər /az/news HTML-indədir.
@@ -1545,20 +2070,14 @@ def official_items():
     AZƏRTAC (rss-official-chronicle) bir çox şəbəkədən 403 qaytarır, ona görə burada yoxdur.
     AZƏRTAC-ın Regionlar bölməsinin RSS-i yoxdur (rss?cat=regionlar ümumi lentdir); HTML səhifəsi oxunur.
     """
-    items, errors = [], []
-    try:
-        for it in parse_azertag_regions(fetch_text(AZERTAG_REGIONS)):
-            items.append(("AZƏRTAC (Regionlar)", "az", "Bölgələr", None, it))
-    except Exception as e:
-        errors.append(f"AZƏRTAC (Regionlar): {type(e).__name__}: {str(e)[:80]}")
-    try:
-        page = fetch_text("https://president.az/az/news")
-        for it in parse_president_page(page):
-            items.append(("Prezident.az", "az", "Prezident", "Prezident", it))
-    except Exception as e:
-        errors.append(f"Prezident.az: {type(e).__name__}: {str(e)[:80]}")
-    try:
-        page = fetch_text("https://mehriban-aliyeva.az/site/catalogNews")
+    def regions():
+        return [("AZƏRTAC (Regionlar)", "az", "Bölgələr", None, it) for it in parse_azertag_regions(fetch_text(AZERTAG_REGIONS, tries, timeout))]
+
+    def president():
+        return [("Prezident.az", "az", "Prezident", "Prezident", it) for it in parse_president_page(fetch_text("https://president.az/az/news", tries, timeout))]
+
+    def first_lady():
+        items, page = [], fetch_text("https://mehriban-aliyeva.az/site/catalogNews", tries, timeout)
         for td in re.findall(r'<td class="col-\d">(.*?)</td>', page, re.S):
             href = re.search(r'class="view-title" href="([^"]+)"', td)
             date = re.search(r'class="view-date">([^<]+)', td)
@@ -1574,8 +2093,17 @@ def official_items():
                 "pubDate": parse_az_date(date.group(1) if date else ""),
                 "image": _abs_img(img.group(1), link) if img else None, "author": "",
             }))
-    except Exception as e:
-        errors.append(f"Mehriban Əliyeva: {type(e).__name__}: {str(e)[:80]}")
+        return items
+
+    # Hər səhifənin öz vaxtı var: biri asılsa president.az gözləmir, xətası da statusda görünür.
+    items, errors = [], []
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        pages = [("AZƏRTAC (Regionlar)", ex.submit(regions)), ("Prezident.az", ex.submit(president)), ("Mehriban Əliyeva", ex.submit(first_lady))]
+    for name, future in pages:
+        try:
+            items.extend(future.result())
+        except Exception as e:
+            errors.append(f"{name}: {type(e).__name__}: {str(e)[:80]}")
     return items, errors
 
 # X paylaşımları: X-in açıq lenti/embed-i 2026-da çıxışsız istifadəçiyə bağlıdır (syndication 429, embed boş iframe).
@@ -1885,28 +2413,47 @@ def fetch_pfl_league(project_id):
     d["project"] = project_id
     return d
 
-# Dünya liqaları: ESPN-in açıq (sənədsiz) cədvəl API-si, açar tələb etmir. Avroliqa orada boş gəlir, ona görə yoxdur.
-ESPN_STANDINGS = "https://site.api.espn.com/apis/v2/sports/{sport}/{slug}/standings"
-ESPN_LEAGUES = [
-    ("eng.1", "soccer", "Premyer Liqa (İngiltərə)", "İngiltərə"),
-    ("esp.1", "soccer", "La Liga", "İspaniya"),
-    ("ita.1", "soccer", "Seriya A", "İtaliya"),
-    ("ger.1", "soccer", "Bundesliqa", "Almaniya"),
-    ("fra.1", "soccer", "Liqa 1", "Fransa"),
-    ("tur.1", "soccer", "Süper Liq", "Türkiyə"),
-    ("uefa.champions", "soccer", "Çempionlar Liqası", "ÇL"),
-    ("nba", "basketball", "NBA", "NBA"),
+# Dünya liqaları: ingiliscə Vikipediyanın cədvəlləri (CC BY-SA), açar tələb etmir. ESPN 2026-10-27-dən sorğumuza 403 verir, bloku keçmirik.
+WIKI_API = "https://en.wikipedia.org/w/api.php?format=json&formatversion=2&"
+WIKI_UA = "8ulduz.az/1.0 (https://8ulduz.az) standings"
+CONFERENCES = ("Eastern Conference", "Western Conference")
+WIKI_LEAGUES = [
+    # id, idman, ad, qısa ad, səhifə ({s}: 2026–27, {y}: 2026), bir neçə cədvəl varsa onların adı
+    ("eng.1", "football", "Premyer Liqa (İngiltərə)", "İngiltərə", "{s} Premier League", ()),
+    ("esp.1", "football", "La Liga", "İspaniya", "{s} La Liga", ()),
+    ("ita.1", "football", "Seriya A", "İtaliya", "{s} Serie A", ()),
+    ("ger.1", "football", "Bundesliqa", "Almaniya", "{s} Bundesliga", ()),
+    ("fra.1", "football", "Liqa 1", "Fransa", "{s} Ligue 1", ()),
+    ("tur.1", "football", "Süper Liq", "Türkiyə", "{s} Süper Lig", ()),
+    ("por.1", "football", "Primeyra Liqa", "Portuqaliya", "{s} Primeira Liga", ()),
+    ("ned.1", "football", "Eredivizie", "Hollandiya", "{s} Eredivisie", ()),
+    ("bel.1", "football", "Pro Liqa (Belçika)", "Belçika", "{s} Belgian Pro League", ()),
+    ("sco.1", "football", "Premyership", "Şotlandiya", "{s} Scottish Premiership", ()),
+    ("rus.1", "football", "Premyer Liqa (Rusiya)", "Rusiya", "{s} Russian Premier League", ()),
+    ("ksa.1", "football", "Pro Liqa (Səudiyyə)", "Səudiyyə", "{s} Saudi Pro League", ()),
+    ("bra.1", "football", "Seriya A (Braziliya)", "Braziliya", "{y} Campeonato Brasileiro Série A", ()),
+    ("usa.1", "football", "MLS", "ABŞ", "{y} Major League Soccer season", CONFERENCES),
+    ("eng.2", "football", "Çempionşip", "Çempionşip", "{s} EFL Championship", ()),
+    ("uefa.champions", "football", "Çempionlar Liqası", "ÇL", "{s} UEFA Champions League league phase", ()),
+    ("uefa.europa", "football", "Avropa Liqası", "AL", "{s} UEFA Europa League league phase", ()),
+    ("uefa.conference", "football", "Konfrans Liqası", "KL", "{s} UEFA Conference League league phase", ()),
+    ("nba", "basketball", "NBA", "NBA", "{s} NBA season", CONFERENCES),
+    ("euroleague", "basketball", "Avroliqa", "Avroliqa", "{s} EuroLeague", ()),
 ]
-SPORTS_EVERY = datetime.timedelta(minutes=30)
-
-def _espn_stat(stats, name):
-    for s in stats or []:
-        if s.get("name") == name:
-            v = s.get("value")
-            if v is None:
-                v = s.get("displayValue")
-            return v
-    return None
+SPORTS_EVERY = datetime.timedelta(minutes=15)
+SPORTS_STALE = datetime.timedelta(hours=3)
+SPORTS_BUDGET_S = 25  # bir yavaş dövrədə; çatmayan liqa növbəti dövrəyə qalır (ən köhnə yoxlanan birinci)
+WIKI_SHORT = {"Manchester City": "Man City", "Manchester United": "Man United", "Tottenham Hotspur": "Tottenham", "Nottingham Forest": "Nottm Forest",
+              "Wolverhampton Wanderers": "Wolves", "Brighton & Hove Albion": "Brighton", "Newcastle United": "Newcastle", "Crystal Palace": "C Palace",
+              "Paris Saint-Germain": "PSG", "Bayern Munich": "Bayern", "Borussia Dortmund": "Dortmund", "Bayer Leverkusen": "Leverkusen",
+              "Borussia Mönchengladbach": "Gladbach", "Eintracht Frankfurt": "Frankfurt", "Atlético Madrid": "Atlético", "Athletic Bilbao": "Athletic",
+              "Internazionale": "İnter", "Inter Milan": "İnter", "Sporting CP": "Sporting", "PSV Eindhoven": "PSV"}
+WIKI_NOTE = (("Champions League", "Çempionlar Liqası"), ("Europa League", "Avropa Liqası"), ("Conference League", "Konfrans Liqası"),
+             ("Libertadores", "Kopa Libertadores"), ("Sudamericana", "Kopa Sudamerikana"),
+             ("round of 16", "1/8 final"), ("playoff", "Pley-off"), ("Promotion", "Yuxarı liqaya keçid"), ("Relegation", "Aşağı liqaya düşmə"), ("Eliminated", "Mübarizədən çıxır"))
+_WIKI_NAME = re.compile(r"[\w .'’&/\-]{2,40}", re.U)
+_WIKI_MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+_WIKI_FLAG = re.compile(r"<span class=\"flagicon\">.*?</span>", re.S)
 
 def _num(v, default=0):
     try:
@@ -1914,50 +2461,156 @@ def _num(v, default=0):
     except Exception:
         return default
 
-def parse_espn(doc, sport):
-    """ESPN cədvəl cavabı -> qruplar və sətirlər. Futbol: O/Q/H/M/qol/xal; basketbol: Q/M/faiz/geridə."""
-    groups = doc.get("children") or [doc]
+def _wiki_text(raw):
+    raw = _WIKI_FLAG.sub("", re.sub(r"<sup\b.*?</sup>|<style\b.*?</style>", "", raw, flags=re.S))
+    text = html.unescape(re.sub(r"<[^>]+>", "", raw)).replace("‍", "").replace("\xa0", " ")
+    return text.replace("−", "-").replace("–", "-").strip()
+
+def _wiki_int(text):
+    text = _wiki_text(text)
+    if not re.fullmatch(r"[+-]?\d+", text):
+        raise ValueError(f"rəqəm deyil: {text[:20]}")
+    return int(text)
+
+def _wiki_table(table, sport):
+    """Bir cədvəl: sütunları başlığa görə tapır. Komanda sütunu olmayan cədvəl (NBA-nın divizionları) None qaytarır."""
+    rows, head = [], None
+    note, note_left = "", 0
+    for tr in re.findall(r"<tr\b.*?</tr>", table, re.S):
+        cells = re.findall(r"<t[dh]\b([^>]*)>(.*?)</t[dh]>", tr, re.S)
+        if head is None:
+            names = [_wiki_text(c[1]) for c in cells]
+            if len(names) >= 4 and any(n.startswith("Team") for n in names):
+                head = {("team" if n.startswith("Team") else n): i for i, n in enumerate(names)}
+            continue
+        if len(cells) <= head.get("L", 99):
+            continue
+        cell = lambda *keys: next(cells[head[k]][1] for k in keys if k in head)
+        attrs = lambda *keys: next(cells[head[k]][0] for k in keys if k in head)
+        team = cell("team")
+        full = re.sub(r"\s*(?:\([A-Z](?:, ?[A-Z])*\)|\*+)$", "", re.sub(r"^[a-z]{1,2} - ", "", _wiki_text(team)))
+        if not _WIKI_NAME.fullmatch(full):
+            raise ValueError(f"komanda adı: {full[:20]}")
+        link = re.search(r"<a\b[^>]*\btitle=\"([^\"]+)\"", _WIKI_FLAG.sub("", team))
+        short = full.split()[-1] if sport == "basketball" and "#" in head and " " in full else full
+        row = {"team": WIKI_SHORT.get(full) or ("Trail Blazers" if full.endswith("Trail Blazers") else short), "full": full, "logo": "",
+               "_page": html.unescape(link.group(1)) if link else full, "pos": _wiki_int(cell("Pos", "#")),
+               "p": _wiki_int(cell("Pld", "GP")), "w": _wiki_int(cell("W")), "l": _wiki_int(cell("L"))}
+        if sport == "football":
+            row.update({"d": _wiki_int(cell("D", "T")), "gf": _wiki_int(cell("GF")), "ga": _wiki_int(cell("GA")), "pts": _wiki_int(cell("Pts"))})
+            row["gd"] = row["gf"] - row["ga"]
+            color = re.search(r"background-color:(#[0-9a-fA-F]{6})", attrs("Pos", "#"))
+            if color:
+                row["color"] = color.group(1)
+            # Son sütun birləşmiş xanadır: cədvəlin bir neçə sətrinə aiddir.
+            if note_left <= 0 and len(cells) > head["Pts"] + 1:
+                span = re.search(r"rowspan=\"(\d+)\"", cells[head["Pts"] + 1][0])
+                note_left = int(span.group(1)) if span else 1
+                text = _wiki_text(cells[head["Pts"] + 1][1])
+                note = next((az for en, az in WIKI_NOTE if en in text), "")
+            if note:
+                row["note"] = note
+            note_left -= 1
+        rows.append(row)
+    return rows if head else None
+
+def parse_wiki(text, sport, names=()):
+    """Vikipediya bölməsi -> qruplar. Cədvəl öz-özünə ziddirsə (səhv redaktə) istisna atır: əvvəlki məlumat qalır."""
+    groups = [rows for rows in (_wiki_table(t, sport) for t in re.findall(r"<table\b.*?</table>", text, re.S)) if rows]
+    if not groups or (names and len(groups) != len(names)):
+        raise ValueError("cədvəl tapılmadı")
     out = []
-    for g in groups:
-        entries = ((g.get("standings") or {}).get("entries")) or []
-        rows = []
-        for e in entries:
-            t = e.get("team") or {}
-            st = e.get("stats") or []
-            logos = t.get("logos") or []
-            row = {"team": t.get("shortDisplayName") or t.get("displayName") or "", "full": t.get("displayName") or "",
-                   "logo": (logos[0].get("href") if logos else "") or ""}
-            if sport == "soccer":
-                row.update({"pos": _num(_espn_stat(st, "rank")), "p": _num(_espn_stat(st, "gamesPlayed")), "w": _num(_espn_stat(st, "wins")),
-                            "d": _num(_espn_stat(st, "ties")), "l": _num(_espn_stat(st, "losses")), "gf": _num(_espn_stat(st, "pointsFor")),
-                            "ga": _num(_espn_stat(st, "pointsAgainst")), "gd": _num(_espn_stat(st, "pointDifferential")), "pts": _num(_espn_stat(st, "points"))})
-                note = e.get("note") or {}
-                if note.get("description"):
-                    row["note"] = note.get("description")
-                    row["color"] = note.get("color") or ""
+    for i, rows in enumerate(groups):
+        if len(rows) < 8 or len({r["full"] for r in rows}) != len(rows):
+            raise ValueError("sətirlər səhvdir")
+        top = rows[0]
+        for r in rows:
+            if r["w"] + r["l"] + r.get("d", 0) != r["p"]:
+                raise ValueError(f"oyunların cəmi: {r['full'][:20]}")
+            if sport == "football":
+                if not 3 * r["w"] + r["d"] - 15 <= r["pts"] <= 3 * r["w"] + r["d"]:
+                    raise ValueError(f"xal: {r['full'][:20]}")
             else:
-                w, l = _num(_espn_stat(st, "wins")), _num(_espn_stat(st, "losses"))
-                pct = _espn_stat(st, "winPercent")
-                try:
-                    pct = float(pct)
-                except Exception:
-                    pct = (w / (w + l)) if (w + l) else 0.0
-                row.update({"pos": _num(_espn_stat(st, "playoffSeed")), "w": w, "l": l, "p": w + l, "pct": round(pct, 3),
-                            "gb": _espn_stat(st, "gamesBehind")})
-            rows.append(row)
-        if sport == "soccer":
-            rows.sort(key=lambda r: (r["pos"] or 99, -r["pts"], -r["gd"]))
-        else:
-            rows.sort(key=lambda r: (-r["pct"], -r["w"]))
-        for i, r in enumerate(rows, 1):
-            if not r.get("pos"):
-                r["pos"] = i
-        if rows:
-            out.append({"name": g.get("name") or "", "rows": rows})
+                behind = ((top["w"] - r["w"]) + (r["l"] - top["l"])) / 2
+                r["pct"], r["gb"] = round(r["w"] / r["p"], 3) if r["p"] else 0.0, f"{behind:.1f}" if behind else "-"
+        out.append({"name": names[i] if names else "", "rows": rows})
     return out
 
+def wiki_asof(text):
+    """«Updated to match(es) played on 26 October 2026» -> 2026-10-26: cədvəlin hansı günə qədər olduğu saytda yazılır."""
+    m = re.search(r"Updated to match\(es\) played on (?:(\d{1,2}) (\w+)|(\w+) (\d{1,2}),) (\d{4})", text)
+    if not m or (m.group(2) or m.group(3)) not in _WIKI_MONTHS:
+        return ""
+    return f"{m.group(5)}-{_WIKI_MONTHS.index(m.group(2) or m.group(3)) + 1:02d}-{int(m.group(1) or m.group(4)):02d}"
+
+def _wiki_api(query):
+    return json.loads(fetch(WIKI_API + query, timeout=12, headers={"User-Agent": WIKI_UA, "Accept": "application/json"}).decode("utf-8"))
+
+def _wiki_title(pattern, now_dt):
+    year = now_dt.year if now_dt.month >= 7 else now_dt.year - 1
+    return pattern.format(s=f"{year}–{(year + 1) % 100:02d}", y=now_dt.year)
+
+def _wiki_logos(pages):
+    """Klub səhifəsinin şəkli (loqo). Bir sorğuda 50 səhifəyədək. NBA-da keçid mövsüm səhifəsinədir: klubun özünə baxılır."""
+    plain = {p: re.sub(r"^\d{4}[–-]\d{2} (.+) season$", r"\1", p) for p in pages}
+    query = urllib.parse.urlencode({"action": "query", "redirects": 1, "prop": "pageimages", "piprop": "thumbnail", "pithumbsize": 80, "pilicense": "any",
+                                    "pilimit": 50, "titles": "|".join(sorted(set(plain.values()))[:50])})
+    res = _wiki_api(query).get("query") or {}
+    to = {x["from"]: x["to"] for key in ("normalized", "redirects") for x in res.get(key) or []}
+    images = {p.get("title"): (p.get("thumbnail") or {}).get("source", "").split("?")[0] for p in res.get("pages") or []}
+    def final(title):
+        for _ in range(4):
+            title = to.get(title, title)
+        return title
+    return {page: images.get(final(title), "") for page, title in plain.items()}
+
+def _wiki_league(spec, prev, now_dt):
+    lid, sport, name, short, pattern, names = spec
+    title = _wiki_title(pattern, now_dt)
+    page = urllib.parse.quote(title)
+    section = lambda index: _wiki_api(f"action=parse&prop=text&page={page}&section={index}")["parse"]["text"]
+    sec, text, groups = prev.get("sec"), "", None
+    if sec is not None:
+        try:
+            text = section(sec)
+            groups = parse_wiki(text, sport, names)
+        except Exception:
+            groups = None  # bölmənin nömrəsi dəyişib: siyahıdan təzədən tapılır
+    if groups is None:
+        sections = _wiki_api(f"action=parse&prop=sections&page={page}")["parse"]["sections"]
+        sec = next(s["index"] for s in sections if re.search(r"\b(table|standings)\b", s["line"], re.I))
+        text = section(sec)
+        groups = parse_wiki(text, sport, names)
+    season = title.split()[0].replace("–", "/")
+    rows = [r for g in groups for r in g["rows"]]
+    known_rows = [r for g in prev.get("groups") or [] for r in g.get("rows") or []]
+    # Eyni mövsümdə ikidən çox yeni ad gəlibsə kimsə cədvəli pozub: əvvəlki qalır.
+    if prev.get("season") == season and known_rows and len({r["full"] for r in rows} - {r.get("full") or r.get("team") for r in known_rows}) > 2:
+        raise ValueError("komanda adları dəyişib")
+    logos = {r.get("full") or r.get("team"): r.get("logo") for r in known_rows if "espncdn" not in (r.get("logo") or "")}
+    for r in rows:
+        r["logo"] = logos.get(r["full"]) or ""
+    missing = [r["_page"] for r in rows if not r["logo"]]
+    if missing:
+        try:
+            found = _wiki_logos(missing)
+            for r in rows:
+                r["logo"] = r["logo"] or found.get(r["_page"], "")
+        except Exception as e:
+            print(f"  ! {name} loqoları:", type(e).__name__)
+    for r in rows:
+        del r["_page"]
+        if r["team"] == r["full"]:
+            del r["full"]
+    league = {"id": lid, "sport": sport, "name": name, "short": short, "season": season, "groups": groups, "sec": sec,
+              "at": now_dt.isoformat(timespec="seconds"), "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_"))}
+    asof = wiki_asof(text)
+    if asof:
+        league["asof"] = asof
+    return league
+
 def update_sports():
-    """Dünya futbol liqaları və NBA cədvəlləri (ESPN). 30 dəqiqədən bir; alınmayan liqa üçün köhnə məlumat qalır."""
+    """Dünya liqalarının cədvəlləri (Vikipediya). 15 dəqiqədən bir; alınmayan liqanın əvvəlki cədvəli qalır, 3 saatdan sonra «köhnə» sayılır."""
     now_dt = datetime.datetime.now(datetime.timezone.utc)
     OUT_DIR.mkdir(exist_ok=True)
     try:
@@ -1970,24 +2623,27 @@ def update_sports():
     except Exception:
         pass
     old_by = {l.get("id"): l for l in old.get("leagues") or []}
-    leagues, fresh = [], 0
-    for slug, sport, name, short in ESPN_LEAGUES:
+    started, done = time.monotonic(), {}
+    for spec in sorted(WIKI_LEAGUES, key=lambda s: old_by.get(s[0], {}).get("at", "")):
+        if time.monotonic() - started > SPORTS_BUDGET_S:
+            break
         try:
-            doc = json.loads(fetch(ESPN_STANDINGS.format(sport=sport, slug=slug), timeout=20,
-                                   headers={"Accept": "application/json"}).decode("utf-8"))
-            groups = parse_espn(doc, sport)
-            if not groups:
-                raise ValueError("cədvəl boşdur")
-            leagues.append({"id": slug, "sport": "football" if sport == "soccer" else "basketball", "name": name, "short": short,
-                            "season": str((doc.get("season") or {}).get("year") or ""), "groups": groups})
-            fresh += 1
+            done[spec[0]] = _wiki_league(spec, old_by.get(spec[0]) or {}, now_dt)
         except Exception as e:
-            print(f"  ! {name}:", type(e).__name__)
-            if slug in old_by:
-                leagues.append(dict(old_by[slug], stale=True))
-    _write_atomic(SPORTS_FILE, json.dumps({"updatedAt": now_dt.isoformat(timespec="seconds"), "source": "ESPN", "leagues": leagues},
+            print(f"  ! {spec[2]}:", type(e).__name__, str(e)[:60])
+    leagues = []
+    for spec in WIKI_LEAGUES:
+        league = done.get(spec[0]) or old_by.get(spec[0])
+        if not league:
+            continue
+        try:
+            late = now_dt - datetime.datetime.fromisoformat(league.get("at", "")) > SPORTS_STALE
+        except Exception:
+            late = True
+        leagues.append({k: v for k, v in league.items() if k != "stale"} | ({"stale": True} if late else {}))
+    _write_atomic(SPORTS_FILE, json.dumps({"updatedAt": now_dt.isoformat(timespec="seconds"), "source": "Vikipediya", "leagues": leagues},
                                       ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Dünya liqaları: {fresh}/{len(ESPN_LEAGUES)} təzə")
+    print(f"Dünya liqaları: {len(done)}/{len(WIKI_LEAGUES)} təzə")
 
 def update_football():
     """Bütün liqalar (Premyer, I, II, Kubok, Əvəzedicilər) pfl.az-dan. Üst səviyyədəki sahələr Premyer Liqadır
@@ -2027,6 +2683,882 @@ def update_football():
     data["updatedAt"] = now
     _write_atomic(FOOTBALL_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Futbol: {fresh}/{len(PFL_PROJECTS)} liqa təzə, Premyer: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}")
+
+# Komanda səhifələri (#/komanda/<liga>/<ad>). Məlumat ayrı fayllardadır (data/futbol/), yalnız o səhifə açılanda yüklənir və
+# yalnız slow_cycle-da yazılır: baş səhifəyə də, 60 saniyəlik dövrəyə də ağırlıq gətirmir.
+# Dünya liqalarının cədvəli sports.json-dan, Bundesliqa və Çempionlar Liqasının oyunları OpenLigaDB-dən (aşağıda). ESPN bizi 403 ilə rədd edir, blok yan keçilmir.
+# Heyət yoxdur: pfl.az-ın /clubs cavabında «players» bütün klublarda boşdur, bəzilərində yalnız PDF var (2026-11-01).
+TEAM_DIR = OUT_DIR / "futbol"
+TEAM_EVERY = datetime.timedelta(minutes=30)
+TEAM_EVERY_LIVE = datetime.timedelta(minutes=10)  # oyun gedəndə nəticə tez çatsın
+TEAM_LIVE_WINDOW = datetime.timedelta(hours=3)
+TEAM_BUDGET_S = 25         # bir yavaş dövrədə bu addıma ayrılan vaxt; çatmayan liqa növbəti dövrəyə qalır
+TEAM_PAST_SEASONS = 2      # cari mövsümdən əvvəlki mövsümlər: bir dəfə yazılır, bir daha dəyişmir
+TEAM_PAST_PER_CYCLE = 1
+
+class _NoTeamData(Exception):
+    """Bu mövsümdə həmin yarış yoxdur (şəbəkə xətası deyil)."""
+
+def team_slug(name):
+    """Komanda və liqa ünvanı. app.js-dəki teamSlug ilə eyni nəticə verir (hər iki test eyni nümunələri yoxlayır)."""
+    s = unicodedata.normalize("NFD", str(name or "").lower())
+    s = "".join(c for c in s if not unicodedata.combining(c)).replace("ə", "e").replace("ı", "i")
+    return re.sub(r"[\W_]+", "-", s).strip("-")
+
+def _team_sources():
+    return [{"id": team_slug(short), "project": project, "short": short, "reserve": short == "Əvəzedicilər"} for project, short in PFL_PROJECTS]
+
+def _team_season_label(year):
+    return f"{year}-{(year + 1) % 100:02d}"
+
+def parse_pfl_team_league(season, grid, tours):
+    """pfl.az cavabları -> (komandalar, qruplar, oyunlar). Cədvəlin sırası parse_pfl-dəndir, oyunlar bütün turlardandır."""
+    table = parse_pfl({"data": [season]}, grid, tours, {})["table"]
+    teams, rows = {}, []
+    for row in table:
+        slug = team_slug(row["team"])
+        teams[slug] = {"name": row["team"], "logo": row["logo"]}
+        row = dict(row, team=slug)
+        row.pop("logo", None)
+        rows.append(row)
+    games = []
+    for tour in tours.get("data") or []:
+        for g in tour.get("games") or []:
+            game = _pfl_game(g)
+            if not game["home"] or not game["away"]:
+                continue  # püşk hələ atılmayıb
+            for side, club in (("home", g.get("club_1") or {}), ("away", g.get("club_2") or {})):
+                slug = team_slug(game[side])
+                teams.setdefault(slug, {"name": game[side], "logo": club.get("logo") or ""})
+                game[side] = slug
+            if not game["played"]:
+                game.pop("hs")
+                game.pop("as")
+            if not game["stadium"]:
+                game.pop("stadium")
+            game["round"] = str(tour.get("title") or "")
+            games.append(game)
+    games.sort(key=lambda g: g["date"] or "9999")
+    return teams, ([{"name": "", "rows": rows}] if rows else []), games
+
+def _team_league(spec, key=None):
+    """(sənəd, mövsümlər). pfl.az mövsümləri ən yenisi birinci verir."""
+    rows = [s for s in _pfl_json(f"/seasons?project_id={spec['project']}").get("data") or [] if (s.get("leagues") or [{}])[0].get("id")]
+    rows = rows[:TEAM_PAST_SEASONS + 1]
+    year = lambda s: str(s.get("title") or "")[:4]
+    seasons = [{"key": year(s), "label": _team_season_label(_num(year(s)))} for s in rows]
+    season = next((s for s in rows if year(s) == key), None) if key else (rows[0] if rows else None)
+    if season is None:
+        raise _NoTeamData("mövsüm yoxdur")
+    league = season["leagues"][0]
+    grid = {} if league.get("is_elimination") else _pfl_json(f"/leagues/grid?season_id={season.get('id')}&project_id={spec['project']}")
+    tours = _pfl_json(f"/tours/get-games?league_id={league.get('id')}&withGames=true")
+    teams, groups, games = parse_pfl_team_league(season, grid, tours)
+    if not groups and not games:
+        raise _NoTeamData("məlumat boşdur")
+    doc = {"id": spec["id"], "name": league.get("title") or spec["short"], "short": spec["short"], "source": "pfl.az",
+           "key": year(season), "season": _team_season_label(_num(year(season))), "teams": teams, "groups": groups, "games": games}
+    return doc, seasons
+
+def _write_if_changed(path, doc):
+    """Məlumat dəyişməyibsə fayla toxunulmur: main-ə lazımsız commit getmir."""
+    text = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
+    try:
+        if path.read_text(encoding="utf-8") == text:
+            return False
+    except OSError:
+        pass
+    _write_atomic(path, text)
+    return True
+
+TEAM_GROUP_AZ = {"Eastern Conference": "Şərq konfransı", "Western Conference": "Qərb konfransı"}
+
+def team_world_league(league):
+    """Dünya liqasının cədvəli (sports.json) -> komanda faylı. Şəbəkə yoxdur. Bu mənbədə oyun təqvimi yoxdur, «games» boşdur."""
+    teams, groups = {}, []
+    for group in league.get("groups") or []:
+        rows = []
+        for row in group.get("rows") or []:
+            name = row.get("full") or row.get("team") or ""
+            slug = team_slug(name)
+            teams[slug] = {"name": name, "logo": row.get("logo") or ""}
+            if row.get("team") != name:
+                teams[slug]["short"] = row.get("team")
+            rows.append(dict({k: v for k, v in row.items() if k not in ("full", "logo")}, team=slug))
+        groups.append({"name": TEAM_GROUP_AZ.get(group.get("name"), group.get("name") or ""), "rows": rows})
+    season = league.get("season") or ""
+    return {"id": team_slug(league.get("short")), "name": league.get("name") or "", "short": league.get("short") or "", "source": "Vikipediya", "url": league.get("url") or "",
+            "sport": league.get("sport") or "football", "asof": league.get("asof") or "", "key": season[:4], "season": season, "teams": teams, "groups": groups, "games": []}
+
+def _team_when(s):
+    try:
+        t = datetime.datetime.fromisoformat(str(s))
+    except ValueError:
+        return None
+    return t if t.tzinfo else None
+
+def _team_due(doc, checked, now_dt, every=TEAM_EVERY, live_every=TEAM_EVERY_LIVE, window=TEAM_LIVE_WINDOW):
+    last = _team_when(checked)
+    if last is None or now_dt - last >= every:
+        return True
+    if now_dt - last < live_every:
+        return False
+    for g in doc.get("games") or []:
+        kick = _team_when(g.get("date"))
+        if kick and not g.get("played") and kick <= now_dt <= kick + window:
+            return True
+    return False
+
+# OpenLigaDB: Bundesliqa və Çempionlar Liqasının oyunları. Məlumat ODbL 1.0-dır, açar lazım deyil. Şərtləri (openligadb.de/lizenz, /nutzungsbedingungen, 2026-11-01-də oxunub):
+# - mənbə səhifədə göstərilir (doc["source"]); TeamIconUrl və gerblər lisenziyaya daxil deyil, ona görə götürülmür;
+# - sakit vaxtda gündə bir neçə sorğu, oyun gedəndə əvvəl ucuz getlastchangedate, 429/5xx-də artan gözləmə, tanınan User-Agent;
+# - bu addım yavaş dövrənin sonundadır, başlama vaxtı onsuz da tam dəqiqəyə düşmür.
+# Canlı hesab göstərilmir: mənbənin özü oyun gedəndə gecikmə və səhvin olduğunu yazır. Nəticə oyun bitəndən sonra çıxır.
+OPENLIGA_API = "https://api.openligadb.de"
+OPENLIGA_UA = "8ulduz.az/1.0 (+https://8ulduz.az; https://github.com/8ulduz/8ulduz/issues)"
+OPENLIGA_SOURCE = {"source": "OpenLigaDB (www.openligadb.de), ODbL 1.0 lisenziyası", "source_url": "https://www.openligadb.de/"}
+OPENLIGA_DUE = {"every": datetime.timedelta(hours=6), "live_every": datetime.timedelta(0), "window": datetime.timedelta(hours=4)}
+OPENLIGA_WAIT = datetime.timedelta(minutes=10)
+OPENLIGA_WAIT_MAX = datetime.timedelta(hours=6)
+_OPENLIGA_LEAGUES = {"almaniya": "bl1", "cl": "ucl"}  # team_world_league-in id-si -> OpenLigaDB qısaltması
+# OpenLigaDB teamId -> (sports.json-dakı ad, heyət üçün Vikipediya səhifəsi). Ünvan bu addan gəlir, cədvəlin klubu ilə eyni olur; Sabah həm Premyer Liqada, həm ÇL-dədir.
+# Siyahıda olmayan komanda mənbənin adı ilə görünür, heyəti olmur. Eyni klubun mövsümlərə görə id-si fərqli ola bilər (Atlético, PSG, Napoli, Villarreal).
+_OPENLIGA_CLUBS = {
+    40: ("Bayern Munich", "FC Bayern Munich"), 16: ("VfB Stuttgart", "VfB Stuttgart"), 1635: ("RB Leipzig", "RB Leipzig"), 87: ("Borussia Mönchengladbach", "Borussia Mönchengladbach"),
+    81: ("Mainz 05", "1. FSV Mainz 05"), 31: ("SC Paderborn", "SC Paderborn 07"), 80: ("Union Berlin", "1. FC Union Berlin"), 91: ("Eintracht Frankfurt", "Eintracht Frankfurt"),
+    65: ("1. FC Köln", "1. FC Köln"), 175: ("TSG Hoffenheim", "TSG 1899 Hoffenheim"), 198: ("SV Elversberg", "SV Elversberg"), 6: ("Bayer Leverkusen", "Bayer 04 Leverkusen"),
+    7: ("Borussia Dortmund", "Borussia Dortmund"), 100: ("Hamburger SV", "Hamburger SV"), 112: ("SC Freiburg", "SC Freiburg"), 134: ("Werder Bremen", "SV Werder Bremen"),
+    95: ("FC Augsburg", "FC Augsburg"), 9: ("Schalke 04", "FC Schalke 04"), 1210: ("Club Brugge", "Club Brugge KV"), 438: ("Aston Villa", "Aston Villa F.C."),
+    1217: ("AEK Athens", "AEK Athens F.C."), 5139: ("LASK", "LASK"), 1133: ("Real Madrid", "Real Madrid CF"), 733: ("Inter Milan", "Inter Milan"), 375: ("Porto", "FC Porto"),
+    4244: ("Manchester City", "Manchester City F.C."), 382: ("Villarreal", "Villarreal CF"), 4200: ("Villarreal", "Villarreal CF"), 1204: ("Lille", "Lille OSC"), 1804: ("Real Betis", "Real Betis"),
+    356: ("Barcelona", "FC Barcelona"), 1770: ("Feyenoord", "Feyenoord"), 1484: ("Viking", "Viking FK"), 370: ("Liverpool", "Liverpool F.C."), 4241: ("Atlético Madrid", "Atlético Madrid"),
+    2549: ("Atlético Madrid", "Atlético Madrid"), 2281: ("Paris Saint-Germain", "Paris Saint-Germain F.C."), 4363: ("Paris Saint-Germain", "Paris Saint-Germain F.C."),
+    5699: ("Slovan Bratislava", "ŠK Slovan Bratislava"), 2331: ("Napoli", "SSC Napoli"), 1160: ("Napoli", "SSC Napoli"), 2617: ("Arsenal", "Arsenal F.C."), 1205: ("Sporting CP", "Sporting CP"),
+    2554: ("Galatasaray", "Galatasaray S.K. (football)"), 376: ("PSV Eindhoven", "PSV Eindhoven"), 1186: ("Shakhtar Donetsk", "FC Shakhtar Donetsk"), 366: ("Fenerbahçe", "Fenerbahçe S.K. (football)"),
+    378: ("Roma", "AS Roma"), 5707: ("Bodø/Glimt", "FK Bodø/Glimt"), 2556: ("Manchester United", "Manchester United F.C."), 8798: ("Sabah", ""), 8787: ("Como", "Como 1907"),
+    4578: ("Slavia Prague", "SK Slavia Prague"), 5962: ("Lens", "RC Lens"),
+    # Yalnız keçmiş mövsümlərdə olanlar: adları almanca görünməsin.
+    4458: ("Qarabağ", ""), 1135: ("Athletic Bilbao", ""), 4825: ("Union Saint-Gilloise", ""), 2557: ("Marseille", ""), 369: ("Juventus", ""), 1179: ("Benfica", ""), 2559: ("Tottenham Hotspur", ""),
+    436: ("Olympiacos", ""), 7081: ("Pafos", ""), 364: ("Chelsea", ""), 455: ("Ajax", ""), 1807: ("Atalanta", ""), 453: ("Copenhagen", ""), 2547: ("Monaco", ""), 1075: ("Newcastle United", ""),
+    7082: ("Kairat", ""), 199: ("1. FC Heidenheim", ""), 131: ("VfL Wolfsburg", ""), 98: ("FC St. Pauli", ""),
+}
+_OPENLIGA_ROUNDS = (("Achtelfinale", "1/8 final"), ("Viertelfinale", "1/4 final"), ("Halbfinale", "Yarımfinal"), ("Finale", "Final"), ("Playoffs", "Pley-off"))
+
+def _openliga_json(path):
+    return json.loads(fetch(f"{OPENLIGA_API}/{path}", timeout=15, headers={"User-Agent": OPENLIGA_UA, "Accept": "application/json"}).decode("utf-8"))
+
+def _openliga_round(group):
+    """Tur nömrəsi və ya pley-off mərhələsi. Tanınmayan almanca ad sayta çıxmır."""
+    name = str(group.get("groupName") or "")
+    if "Spieltag" in name:
+        return str(group.get("groupOrderID") or "")
+    for german, az in _OPENLIGA_ROUNDS:
+        if german in name:
+            return az + (", 1-ci oyun" if "Hinspiel" in name else ", cavab oyunu" if "Rückspiel" in name else "")
+    return ""
+
+def _openliga_score(match):
+    """(ev, qonaq, penalti) və ya None. Bitməyən oyunun hesabı götürülmür."""
+    results = {r.get("resultTypeKind"): r for r in match.get("matchResults") or []}
+    end = results.get("AfterExtraTime") or results.get("After90Minutes")
+    if not match.get("matchIsFinished") or not end:
+        return None
+    pen = results.get("AfterPenalties")
+    return end.get("pointsTeam1"), end.get("pointsTeam2"), f"{pen.get('pointsTeam1')}:{pen.get('pointsTeam2')}" if pen else ""
+
+def parse_openliga(matches):
+    """OpenLigaDB getmatchdata -> (komandalar, oyunlar). Loqo götürülmür: lisenziyaya daxil deyil."""
+    teams, games = {}, []
+    for m in matches:
+        sides = []
+        for team in (m.get("team1") or {}, m.get("team2") or {}):
+            name = _OPENLIGA_CLUBS.get(team.get("teamId"), (str(team.get("teamName") or "").strip(),))[0]
+            slug = team_slug(name)
+            if slug:
+                teams[slug] = {"name": name, "logo": ""}
+                sides.append(slug)
+        if len(sides) < 2:
+            continue  # püşk hələ atılmayıb
+        group = m.get("group") or {}
+        game = {"date": str(m.get("matchDateTimeUTC") or "").replace("Z", "+00:00"), "home": sides[0], "away": sides[1], "played": False,
+                "round": _openliga_round(group), "g": group.get("groupOrderID")}
+        score = _openliga_score(m)
+        if score:
+            game.update(played=True, hs=score[0], **{"as": score[1]})
+            if score[2]:
+                game["pen"] = score[2]
+        games.append(game)
+    games.sort(key=lambda g: g["date"] or "9999")
+    return teams, games
+
+def openliga_table(teams, games):
+    """Turnir cədvəli liqa turlarının oyunlarından (pley-off sayılmır). Sıra: xal, qol fərqi, vurulan qol, səfərdə vurulan qol, qələbə, səfər qələbəsi, ad."""
+    rows, away = {}, collections.defaultdict(lambda: [0, 0])
+    for g in games:
+        if not g["round"].isdigit():
+            continue
+        for side in (g["home"], g["away"]):
+            rows.setdefault(side, {"team": side, "p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "gd": 0, "pts": 0})
+        if not g["played"]:
+            continue
+        for side, mine, other in ((g["home"], g["hs"], g["as"]), (g["away"], g["as"], g["hs"])):
+            row = rows[side]
+            won = "w" if mine > other else "l" if mine < other else "d"
+            row["p"] += 1
+            row[won] += 1
+            row["gf"] += mine
+            row["ga"] += other
+            row["gd"] += mine - other
+            row["pts"] += {"w": 3, "d": 1, "l": 0}[won]
+        away[g["away"]][0] += g["as"]
+        away[g["away"]][1] += g["as"] > g["hs"]
+    ordered = sorted(rows.values(), key=lambda r: (-r["pts"], -r["gd"], -r["gf"], -away[r["team"]][0], -r["w"], -away[r["team"]][1], teams.get(r["team"], {}).get("name", r["team"])))
+    for pos, row in enumerate(ordered, 1):
+        row["pos"] = pos
+    return ordered
+
+# Dünya liqalarının oyunları: TheSportsDB-nin açıq API-si, tur-tur (eventsround). Açıq açar 123, hesab tələb etmir. Sənədinə görə dəqiqədə 30 sorğu,
+# amma ölçüdə (2026-11-01) təxminən 10 sorğudan sonra 429 qaytarır, ona görə dövrədə az soruşulur, 429-da dayanılır. Bütün mövsüm təxminən bir neçə saata dolur.
+TSDB_API = "https://www.thesportsdb.com/api/v1/json/123/eventsround.php"
+TSDB_SOURCE = {"source": "TheSportsDB", "source_url": "https://www.thesportsdb.com/"}
+# team_world_league-in id-si -> (TheSportsDB liqası, turlar). Kuboklarda liqa mərhələsi: pley-off turlarının nömrəsi başlayanda yoxlanmalıdır.
+TSDB_LEAGUES = {"ingiltere": (4328, 38), "ispaniya": (4335, 38), "italiya": (4332, 38), "fransa": (4334, 34), "turkiye": (4339, 34), "portuqaliya": (4344, 34), "hollandiya": (4337, 34),
+                "belcika": (4338, 30), "sotlandiya": (4330, 38), "rusiya": (4355, 30), "seudiyye": (4668, 34), "braziliya": (4351, 38), "abs": (4346, 34), "cempionsip": (4329, 46),
+                "al": (4481, 8), "kl": (5071, 6), "avroliqa": (4546, 38)}
+# Kuboklarda seçmə mərhələsinin oyunları eyni tur nömrələrindədir: cədvələ yalnız liqa mərhələsi düşür.
+TSDB_SINCE = {"al": "09-01", "kl": "09-01"}
+TSDB_PER_CYCLE = 5
+TSDB_GAP_S = 2.5
+TSDB_BACKOFF = datetime.timedelta(minutes=15)
+TSDB_WAITING = datetime.timedelta(minutes=30)  # vaxtı keçib nəticəsi gəlməyən tur
+TSDB_SOON = datetime.timedelta(hours=6)        # yaxın 7 gündəki tur: saat dəyişə bilər
+TSDB_LATER = datetime.timedelta(days=7)        # uzaq və ya boş tur
+TSDB_ALIAS = {"Hamburg": "Hamburger SV", "Amed": "Amedspor"}
+_TSDB_STOP = set("fc cf sc ac afc sk fk kv cd ud sv rc rcd ssc us as club bc kk bk jk fsv vfb tsg de of the and 1 04 05 96 1899 sad".split())
+
+def _tsdb_words(name):
+    s = "".join(c for c in unicodedata.normalize("NFD", str(name or "").lower()) if not unicodedata.combining(c)).replace("ı", "i").replace("ə", "e")
+    return {w for w in re.split(r"[\W_]+", s) if w and w not in _TSDB_STOP}
+
+def tsdb_team(name, teams):
+    """TheSportsDB adı -> cədvəldəki klubun ünvanı. Bir mənalı deyilsə None: başqa klubun oyunu göstərilməsin."""
+    words = _tsdb_words(TSDB_ALIAS.get(name, name))
+    known = {slug: _tsdb_words(t.get("name")) for slug, t in teams.items()}
+    for test in (lambda k: k == words, lambda k: words and (words <= k or k <= words), lambda k: words & k):
+        hits = [slug for slug, k in known.items() if test(k)]
+        if hits:
+            return hits[0] if len(hits) == 1 else None
+    return None
+
+def tsdb_games(events, teams, since=""):
+    """eventsround -> saytın oyun sətirləri. Klubu tanınmayan oyun yazılmır."""
+    games = []
+    for e in events or []:
+        if since and str(e.get("strTimestamp") or "")[:10] < since:
+            continue
+        home, away = tsdb_team(e.get("strHomeTeam"), teams), tsdb_team(e.get("strAwayTeam"), teams)
+        if not home or not away or home == away:
+            print("  ! oyun: tanınmayan klub", str(e.get("strEvent"))[:50])
+            continue
+        stamp = str(e.get("strTimestamp") or "")
+        game = {"date": f"{stamp[:19]}+00:00" if stamp else "", "home": home, "away": away, "played": False, "round": str(e.get("intRound") or "")}
+        if e.get("strVenue"):
+            game["stadium"] = str(e["strVenue"])[:60]
+        status = str(e.get("strStatus") or "").upper()
+        if e.get("intHomeScore") not in (None, "") and e.get("intAwayScore") not in (None, "") and status in ("FT", "AET", "PEN", "MATCH FINISHED", "AOT"):
+            game.update(played=True, hs=int(e["intHomeScore"]), **{"as": int(e["intAwayScore"])})
+        elif status in ("PST", "POST", "CANC", "ABD", "MATCH POSTPONED", "POSTPONED", "CANCELLED"):
+            game["state"] = "off"
+        games.append(game)
+    return games
+
+def _tsdb_round_due(games, stamp, now_dt):
+    """Tur nə vaxt yenidən soruşulsun. Bitmiş tur bir daha soruşulmur: dəyişməyən məlumata sorğu getmir."""
+    asked = _team_when(stamp)
+    if not asked:
+        return True
+    if not games:
+        return now_dt - asked >= TSDB_LATER
+    open_games = [g for g in games if not g.get("played") and g.get("state") != "off"]
+    if not open_games:
+        return now_dt - asked >= TSDB_LATER if any(g.get("state") == "off" for g in games) else False
+    kicks = [k for k in (_team_when(g.get("date")) for g in open_games) if k]
+    if any(k <= now_dt for k in kicks):
+        return now_dt - asked >= TSDB_WAITING
+    if any(k - now_dt <= datetime.timedelta(days=7) for k in kicks):
+        return now_dt - asked >= TSDB_SOON
+    return now_dt - asked >= TSDB_LATER
+
+def _tsdb_plan(docs, stamps, now_dt):
+    """Bu dövrə soruşulacaq turlar: əvvəl heç soruşulmamış, oyun gedən tura ən yaxın olan; sonra ən çoxdan gözləyən."""
+    plan = []
+    for doc in docs:
+        spec = TSDB_LEAGUES.get(doc["id"])
+        if not spec:
+            continue
+        mine = stamps.get(doc["id"], {}) if stamps.get(doc["id"], {}).get("season") == doc["key"] else {}
+        by_round = collections.defaultdict(list)
+        for g in doc.get("games") or []:
+            by_round[g.get("round")].append(g)
+        played = [int(r) for r, rows in by_round.items() if r.isdigit() and any(g.get("played") for g in rows)]
+        now_round = max(played) + 1 if played else (doc["groups"][0]["rows"] or [{}])[0].get("p") or 1
+        for r in range(1, spec[1] + 1):
+            stamp = (mine.get("rounds") or {}).get(str(r))
+            if _tsdb_round_due(by_round.get(str(r)) or [], stamp, now_dt):
+                plan.append((0 if not stamp else 1, abs(r - now_round) if not stamp else 0, stamp or "", doc["id"], r))
+    plan.sort()
+    return plan
+
+def tsdb_refresh(docs, stamps, now_dt, out_of_time, sleep=time.sleep):
+    """Bu dövrənin sorğuları. Nəticə: {liqa: {tur: oyunlar}}. 429-da qalan sorğular göndərilmir. Xəbər axınına toxunmur: yavaş dövrənin son addımıdır."""
+    fresh = collections.defaultdict(dict)
+    if (_team_when(stamps.get("until")) or now_dt) > now_dt:
+        return fresh
+    by_id = {d["id"]: d for d in docs}
+    for i, (_new, _near, _stamp, lid, r) in enumerate(_tsdb_plan(docs, stamps, now_dt)[:TSDB_PER_CYCLE]):
+        if out_of_time():
+            break
+        if i:
+            sleep(TSDB_GAP_S)
+        doc = by_id[lid]
+        season = doc["season"].replace("/", "-20") if "/" in doc["season"] else doc["season"]
+        url = TSDB_API + "?" + urllib.parse.urlencode({"id": TSDB_LEAGUES[lid][0], "r": r, "s": season})
+        try:
+            body = fetch(url, timeout=12, headers={"User-Agent": WIKI_UA, "Accept": "application/json"})
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                stamps["until"] = (now_dt + TSDB_BACKOFF).isoformat(timespec="seconds")
+                print("  ! oyunlar: 429, 15 dəqiqə sorğu yoxdur")
+                break
+            print(f"  ! oyunlar {lid} {r}:", e.code)
+            continue
+        except Exception as e:
+            print(f"  ! oyunlar {lid} {r}:", type(e).__name__)
+            continue
+        try:
+            events = (json.loads(body) if body.strip() else {}).get("events") or []
+        except ValueError:
+            print(f"  ! oyunlar {lid} {r}: JSON deyil")
+            continue
+        mine = stamps.setdefault(lid, {})
+        if mine.get("season") != doc["key"]:
+            mine.clear()
+            mine["season"] = doc["key"]
+        mine.setdefault("rounds", {})[str(r)] = now_dt.isoformat(timespec="seconds")
+        fresh[lid][str(r)] = tsdb_games(events, doc["teams"], f"{doc['key']}-{TSDB_SINCE[lid]}" if lid in TSDB_SINCE else "")
+    return fresh
+
+def tsdb_merge(old, fresh):
+    """Təzə soruşulan turlar köhnəsini əvəz edir, qalan turlar yerində qalır."""
+    return sorted([g for g in old or [] if str(g.get("round")) not in fresh] + [g for rows in fresh.values() for g in rows], key=lambda g: g.get("date") or "9999")
+
+# NBA: açıq oyun API-si tapılmadı (cdn.nba.com serverdən 403, TheSportsDB gündə 3 oyun verir). Vikipediyada hər komandanın mövsüm səhifəsində 82 oyun var:
+# tarix, rəqib, hesab. Saatı yoxdur, ona görə sətirdə «day» işarəsi var və saytda yalnız tarix görünür.
+NBA_TEAMS_PER_CYCLE = 5
+NBA_EVERY = datetime.timedelta(hours=2)
+_NBA_MONTHS = {m: i for i, m in enumerate(_WIKI_MONTHS, 1)}
+
+def nba_team_games(text, me, teams, start_year):
+    """Komandanın mövsüm səhifəsinin «Game log» bölməsi -> oyunlar. Hazırlıq oyunları sayılmır. Rəqibi tanınmayan sətir yazılmır."""
+    games = []
+    for table in re.findall(r"<table\b.*?</table>", text, re.S):
+        rows = re.findall(r"<tr\b.*?</tr>", table, re.S)
+        if not rows or "preseason" in _wiki_text(rows[0]).lower():
+            continue
+        for tr in rows:
+            cells = [_wiki_text(c) for c in re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", tr, re.S)]
+            if len(cells) < 4 or not cells[0].isdigit():
+                continue
+            day = re.fullmatch(r"(\w+) (\d{1,2})", cells[1])
+            if not day or day.group(1) not in _NBA_MONTHS:
+                continue
+            away = cells[2].startswith("@")
+            other = tsdb_team(cells[2].lstrip("@ ").strip(), teams)
+            if not other or other == me:
+                continue
+            month = _NBA_MONTHS[day.group(1)]
+            game = {"date": f"{start_year + (month < 7)}-{month:02d}-{int(day.group(2)):02d}T12:00:00+00:00", "day": True,
+                    "home": other if away else me, "away": me if away else other, "played": False, "round": ""}
+            score = re.match(r"[WL] (\d+)-(\d+)", cells[3])
+            if score:
+                mine, theirs = int(score.group(1)), int(score.group(2))
+                game.update(played=True, hs=theirs if away else mine, **{"as": mine if away else theirs})
+            games.append(game)
+    return games
+
+def nba_refresh(doc, stamps, now_dt, out_of_time):
+    """Dövrədə bir neçə komanda. Nəticə: {komanda: oyunlar}."""
+    mine = stamps.setdefault(doc["id"], {})
+    if mine.get("season") != doc["key"]:
+        mine.clear()
+        mine["season"] = doc["key"]
+    asked = mine.setdefault("teams", {})
+    order = sorted(doc["teams"], key=lambda slug: asked.get(slug, ""))
+    fresh = {}
+    for slug in order[:NBA_TEAMS_PER_CYCLE]:
+        last = _team_when(asked.get(slug))
+        if out_of_time() or (last and now_dt - last < NBA_EVERY):
+            break
+        asked[slug] = now_dt.isoformat(timespec="seconds")
+        page = urllib.parse.quote(_wiki_title("{s} " + doc["teams"][slug]["name"] + " season", now_dt))
+        try:
+            sections = _wiki_api(f"action=parse&prop=sections&page={page}")["parse"]["sections"]
+            sec = next(s["index"] for s in sections if s["line"].lower() == "game log")
+            fresh[slug] = nba_team_games(_wiki_api(f"action=parse&prop=text&page={page}&section={sec}")["parse"]["text"], slug, doc["teams"], int(doc["key"]))
+        except Exception as e:
+            print(f"  ! NBA {slug}:", type(e).__name__)
+    return fresh
+
+def nba_merge(old, fresh):
+    """Hər oyun iki səhifədə olur. Təzə sətirlər köhnəni əvəz edir; hesabı olan sətir hesabsızdan üstündür."""
+    games = {(g["date"][:10], g["home"], g["away"]): g for g in old or [] if not {g["home"], g["away"]} & set(fresh)}
+    for rows in fresh.values():
+        for g in rows:
+            key = (g["date"][:10], g["home"], g["away"])
+            if g["played"] or key not in games:
+                games[key] = g
+    return sorted(games.values(), key=lambda g: g["date"])
+
+def team_world_with_games(doc, teams, games, source=None):
+    """sports.json sənədinə oyunlar. Cədvəl Vikipediyadan qalır; OpenLigaDB-də daha çox oyun varsa və klublar üst-üstə düşürsə oyunlardan
+    hesablanır, zona qeydləri yerin yanında qalır. Beləcə tur bitəndə nəticə ilə cədvəl bir-birini danmır."""
+    merged = dict(doc, **(source or OPENLIGA_SOURCE), teams={**teams, **doc["teams"]}, games=games)
+    rows = doc["groups"][0]["rows"] if len(doc["groups"]) == 1 and doc.get("sport") != "basketball" else []
+    table = openliga_table(merged["teams"], games)
+    if {r["team"] for r in table} == {r["team"] for r in rows} and sum(r["p"] for r in table) > sum(r.get("p", 0) for r in rows):
+        zones = {r.get("pos"): {k: r[k] for k in ("note", "color") if k in r} for r in rows}
+        merged["groups"] = [{"name": doc["groups"][0].get("name") or "", "rows": [dict(r, **zones.get(r["pos"], {})) for r in table]}]
+        merged["asof"] = max(g["date"][:10] for g in games if g["played"])
+    return merged
+
+def _openliga_stamps(shortcut, key, games, now_dt):
+    """Oyun gedən turların son dəyişmə vaxtı: dəyişməyibsə tam siyahı istənmir (mənbənin xahişi)."""
+    groups = set()
+    for g in games:
+        kick = _team_when(g.get("date"))
+        if kick and g.get("g") and not g.get("played") and kick <= now_dt <= kick + OPENLIGA_DUE["window"]:
+            groups.add(g["g"])
+    return {str(g): _openliga_json(f"getlastchangedate/{shortcut}/{key}/{g}") for g in sorted(groups)}
+
+def _openliga_refresh(shortcut, key, current, mine, now_dt):
+    """(komandalar, oyunlar) və ya None (faylda olan qalır). mine: bu liqanın yoxlama vəziyyəti, index.json-da saxlanır."""
+    games = current.get("games") or []
+    if (_team_when(mine.get("until")) or now_dt) > now_dt or not _team_due({"games": games}, mine.get("checked"), now_dt, **OPENLIGA_DUE):
+        return None
+    last = _team_when(mine.get("checked"))
+    mine["checked"] = now_dt.isoformat(timespec="seconds")
+    try:
+        # Oyun gedəndə yoxlama tez-tez olur: əvvəl turun son dəyişmə vaxtı, tam siyahı yalnız dəyişibsə.
+        seen = _openliga_stamps(shortcut, key, games, now_dt) if games and last and now_dt - last < OPENLIGA_DUE["every"] else {}
+        if seen and seen == mine.get("changed"):
+            return None
+        matches = _openliga_json(f"getmatchdata/{shortcut}/{key}")
+    except Exception as e:
+        print(f"  ! OpenLigaDB {shortcut}:", type(e).__name__)
+        tries = mine.get("n", 0)
+        mine.update(n=tries + 1, until=(now_dt + min(OPENLIGA_WAIT * 2 ** tries, OPENLIGA_WAIT_MAX)).isoformat(timespec="seconds"))
+        return None
+    mine.pop("n", None)
+    mine.pop("until", None)
+    mine["changed"] = seen
+    return parse_openliga(matches) if matches else None
+
+def _openliga_past(doc, shortcut, key):
+    """Keçmiş mövsümün faylı. Mənbədə həmin mövsüm yoxdursa _NoTeamData."""
+    matches = _openliga_json(f"getmatchdata/{shortcut}/{key}")
+    if not matches:
+        raise _NoTeamData("məlumat boşdur")
+    teams, games = parse_openliga(matches)
+    return {"id": doc["id"], "name": doc["name"], "short": doc["short"], "sport": doc.get("sport") or "football", **OPENLIGA_SOURCE, "key": key,
+            "season": f"{key}/{(int(key) + 1) % 100:02d}", "teams": teams, "groups": [{"name": "", "rows": openliga_table(teams, games)}], "games": games}
+
+# Heyət: ingilis Vikipediyası (CC BY-SA 4.0, səhifədə keçidlə göstərilir). Yalnız əsas heyət bloku: icarədəkilər və gənclər ayrı başlıqdadır.
+# Sayı ağlabatan deyilsə yazılmır: şübhəli siyahıdansa tabın olmaması yaxşıdır. Azərbaycan klublarının Vikipediya keçidi yoxdur.
+WIKI_SQUAD_EVERY = datetime.timedelta(days=7)
+WIKI_SQUAD_RETRY = datetime.timedelta(days=1)
+WIKI_SQUADS_PER_CYCLE = 4
+WIKI_SQUAD_SIZE = (15, 45)
+_WIKI_SQUAD_HEAD = re.compile(r"^(={2,4})\s*([^=\n]*?)\s*\1\s*$", re.M)
+_WIKI_SQUAD_ROW = re.compile(r"\{\{\s*(?:fs|fs2|football squad)\s*player\s*\|(.*?)\}\}(?:\s*\n|\s*(?=\{\{)|$)", re.I | re.S)
+
+def _wiki_cell(value):
+    value = re.sub(r"<ref.*?(?:</ref>|/>)", "", value, flags=re.S)
+    value = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", value)
+    return re.sub(r"\{\{[^{}]*\}\}", "", value).strip()
+
+def parse_wiki_squad(text):
+    """Klub səhifəsinin wikitext-i -> [{no, pos, name}]. Əsas heyət tapılmayanda və ya sayı ağlabatan olmayanda boş siyahı."""
+    heads = list(_WIKI_SQUAD_HEAD.finditer(text))
+    for i, head in enumerate(heads):
+        if not re.search(r"current squad|first[- ]team squad|^squad$|^players$|^first team$", head.group(2), re.I):
+            continue
+        block = text[head.end():heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+        block = re.split(r"\{\{\s*(?:fs|football squad)\s*end", block, maxsplit=1, flags=re.I)[0]  # ikinci cədvəl adətən icarədəkilərdir
+        rows = []
+        for m in _WIKI_SQUAD_ROW.finditer(block):
+            cells = {}
+            for part in re.split(r"\|(?![^\[\{]*[\]\}])", m.group(1)):
+                if "=" in part:
+                    name, value = part.split("=", 1)
+                    cells[name.strip().lower()] = value.strip()
+            name, pos = _wiki_cell(cells.get("name", "")), _wiki_cell(cells.get("pos", "")).lower()
+            if name and pos in ("gk", "df", "mf", "fw"):
+                rows.append({"no": _wiki_cell(cells.get("no", "")), "pos": pos, "name": name})
+        if rows:
+            return rows if WIKI_SQUAD_SIZE[0] <= len(rows) <= WIKI_SQUAD_SIZE[1] else []
+    return []
+
+def update_team_squads(league_ids, out_of_time, now_dt):
+    """data/futbol/heyet-<liga>.json. Dövrədə bir neçə klub, hər klub həftədə bir; eyni klub iki yarışdadırsa bir dəfə soruşulur.
+    Alınmayan klubun köhnə heyəti qalır. Nəticə: {liga: heyəti olan komandalar}."""
+    stamps = _read_json(TEAM_DIR / "heyet-yoxlama.json", {})
+    titles = {team_slug(name): wiki for name, wiki in _OPENLIGA_CLUBS.values() if wiki}
+    pool = {slug: team for league in league_ids for slug, team in (_read_json(TEAM_DIR / f"heyet-{league}.json", {}).get("teams") or {}).items()}
+    members = {league: [slug for slug in _read_json(TEAM_DIR / f"{league}.json", {}).get("teams") or {} if slug in titles] for league in league_ids}
+    def asked_at(slug):
+        return _team_when(stamps.get(slug)) or now_dt - WIKI_SQUAD_EVERY
+    wanted = sorted({slug for slugs in members.values() for slug in slugs if now_dt - asked_at(slug) >= WIKI_SQUAD_EVERY}, key=asked_at)
+    for slug in wanted[:WIKI_SQUADS_PER_CYCLE]:
+        if out_of_time():
+            break
+        stamps[slug] = now_dt.isoformat(timespec="seconds")
+        query = urllib.parse.urlencode({"action": "parse", "prop": "wikitext", "redirects": 1, "page": titles[slug]})
+        try:
+            rows = parse_wiki_squad(_wiki_api(query)["parse"]["wikitext"])
+        except Exception as e:
+            print(f"  ! heyət {slug}:", type(e).__name__)
+            stamps[slug] = (now_dt - WIKI_SQUAD_EVERY + WIKI_SQUAD_RETRY).isoformat(timespec="seconds")
+            continue
+        if rows:
+            pool[slug] = {"players": rows, "wiki": titles[slug]}
+    ready = {}
+    for league, slugs in members.items():
+        teams = {slug: pool[slug] for slug in slugs if slug in pool}
+        if teams:
+            _write_if_changed(TEAM_DIR / f"heyet-{league}.json", {"source": "Vikipediya, CC BY-SA 4.0", "teams": teams})
+        ready[league] = sorted(teams)
+    _write_if_changed(TEAM_DIR / "heyet-yoxlama.json", stamps)
+    return ready
+
+# Ölkə kubokları: oyunlar Vikipediyanın kubok səhifəsindəki oyun qutularındandır (CC BY-SA), kubok başına bir sorğu. Yalnız klub səhifəsi açılanda yüklənir.
+# (qısa ad, ad, səhifə, saat qurşağı, klubları tanıdan liqalar). Saatsız qurşaq: yalnız tarix (ABŞ-da oyunlar müxtəlif qurşaqdadır). Portuqaliya səhifəsində oyun qutusu yoxdur.
+WIKI_CUPS = [
+    ("İngiltərə Kuboku", "İngiltərə Kuboku", "{s} FA Cup", "Europe/London", ("ingiltere", "cempionsip")),
+    ("Liqa Kuboku", "İngiltərə Liqa Kuboku", "{s} EFL Cup", "Europe/London", ("ingiltere", "cempionsip")),
+    ("İspaniya Kuboku", "İspaniya Kral Kuboku", "{s} Copa del Rey", "Europe/Madrid", ("ispaniya",)),
+    ("İtaliya Kuboku", "İtaliya Kuboku", "{s} Coppa Italia", "Europe/Rome", ("italiya",)),
+    ("Almaniya Kuboku", "Almaniya Kuboku", "{s} DFB-Pokal", "Europe/Berlin", ("almaniya",)),
+    ("Fransa Kuboku", "Fransa Kuboku", "{s} Coupe de France", "Europe/Paris", ("fransa",)),
+    ("Türkiyə Kuboku", "Türkiyə Kuboku", "{s} Turkish Cup", "Europe/Istanbul", ("turkiye",)),
+    ("Hollandiya Kuboku", "Hollandiya Kuboku", "{s} KNVB Cup", "Europe/Amsterdam", ("hollandiya",)),
+    ("Belçika Kuboku", "Belçika Kuboku", "{s} Belgian Cup", "Europe/Brussels", ("belcika",)),
+    ("Şotlandiya Kuboku", "Şotlandiya Kuboku", "{s} Scottish Cup", "Europe/London", ("sotlandiya",)),
+    ("Rusiya Kuboku", "Rusiya Kuboku", "{s} Russian Cup", "Europe/Moscow", ("rusiya",)),
+    ("Səudiyyə Kuboku", "Səudiyyə Kral Kuboku", "{s} King's Cup (Saudi Arabia)", "Asia/Riyadh", ("seudiyye",)),
+    ("Braziliya Kuboku", "Braziliya Kuboku", "{y} Copa do Brasil", "America/Sao_Paulo", ("braziliya",)),
+    ("ABŞ Kuboku", "ABŞ Açıq Kuboku", "{y} U.S. Open Cup", None, ("abs",)),
+]
+CUP_PER_CYCLE = 3
+CUP_DUE = {"every": datetime.timedelta(hours=6), "live_every": datetime.timedelta(hours=1), "window": datetime.timedelta(hours=6)}
+_CUP_ORD = {"first": "1-ci", "second": "2-ci", "third": "3-cü", "fourth": "4-cü", "fifth": "5-ci", "sixth": "6-cı", "seventh": "7-ci", "eighth": "8-ci",
+            "1": "1-ci", "2": "2-ci", "3": "3-cü", "4": "4-cü", "5": "5-ci", "6": "6-cı", "7": "7-ci", "8": "8-ci"}
+_CUP_OF = {"64": "1/32 final", "32": "1/16 final", "16": "1/8 final"}
+
+def _cup_round(head):
+    """Bölmə başlığı -> mərhələ. Mərhələ olmayan başlıq (Matches, Draw, Group 1) None: oyun əvvəlki mərhələdə qalır."""
+    h = head.strip().lower().replace("-", " ")
+    if "qualifying" in h or "preliminary" in h:
+        return "Təsnifat"
+    m = re.match(r"(first|second|third|fourth|fifth|sixth|seventh|eighth) round\b", h) or re.fullmatch(r"round ([1-8])", h)
+    if m:
+        return f"{_CUP_ORD[m.group(1)]} mərhələ"
+    m = re.match(r"round of (64|32|16)\b", h)
+    if m:
+        return _CUP_OF[m.group(1)]
+    if h.startswith("eighth finals"):
+        return "1/8 final"
+    if h.startswith(("quarter finals", "quarterfinals")):
+        return "1/4 final"
+    if h.startswith(("semi finals", "semifinals")):
+        return "Yarımfinal"
+    if h == "final":
+        return "Final"
+    return "Qrup mərhələsi" if h.startswith("group stage") else None
+
+def _wiki_box_end(text, start):
+    depth, i = 0, start
+    while i < len(text) - 1:
+        pair = text[i:i + 2]
+        if pair == "{{":
+            depth, i = depth + 1, i + 2
+        elif pair == "}}":
+            depth, i = depth - 1, i + 2
+            if not depth:
+                return i
+        else:
+            i += 1
+    return len(text)
+
+def _wiki_box_params(box):
+    """Qutunun sahələri. Keçid və şablonun içindəki | sahəni bölmür."""
+    params, depth, last = {}, 0, None
+    parts, i = [], 2
+    body = box[:-2]
+    for i in range(2, len(body)):
+        pair = body[i:i + 2]
+        if pair in ("{{", "[["):
+            depth += 1
+        elif pair in ("}}", "]]"):
+            depth -= 1
+        elif body[i] == "|" and not depth:
+            if last is not None:
+                parts.append(body[last:i])
+            last = i + 1
+    if last is not None:
+        parts.append(body[last:])
+    for part in parts:
+        key, sep, value = part.partition("=")
+        if sep:
+            params[key.strip().lower()] = value.strip()
+    return params
+
+def _cup_plain(raw):
+    text = re.sub(r"<ref[^>]*/>|<ref.*?</ref>", "", raw or "", flags=re.S).replace("'''", "").replace("''", "")
+    return re.sub(r"\{\{\s*efn[^{}]*(?:\{\{[^{}]*\}\}[^{}]*)*\}\}", "", text).strip()
+
+def _cup_name(raw):
+    """(göstərilən ad, səhifə adı). Hələ bəlli olmayan tərəf («Winner of Match 5», TBD) boş qaytarılır."""
+    text = re.sub(r"\{\{[^{}]*\}\}", "", _cup_plain(raw))
+    link = re.search(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", text)
+    name = (link.group(2) or link.group(1)) if link else text
+    name = html.unescape(re.sub(r"\s*\([^)]*\)\s*$", "", name.strip())).strip()
+    if not name or re.fullmatch(r"\d[A-Z](?:\W*\d[A-Z])?", name) or re.search(r"\b(winners?|losers?|tbd|tba|match|bye)\b", name.lower()):
+        return "", ""
+    return name, link.group(1).strip() if link else ""
+
+def cup_team(name, page, pool):
+    """Kubokdakı ad -> liqadakı klubun ünvanı. Yalnız tam uyğunluq və ya adın klubun adının içində olması: «Real Madrid Castilla» Real Madrid deyil."""
+    known = {slug: _tsdb_words(t.get("name")) for slug, t in pool.items()}
+    for text in (TSDB_ALIAS.get(name, name), page):
+        words = _tsdb_words(text)
+        hits = [slug for slug, k in known.items() if words and k == words]
+        if len(hits) == 1:
+            return hits[0]
+    words = _tsdb_words(TSDB_ALIAS.get(name, name))
+    hits = [slug for slug, k in known.items() if words and words < k]
+    return hits[0] if len(hits) == 1 else None
+
+def _cup_kick(params, zone, year=None):
+    """(ISO tarix, yalnız gün). Saat və ya qurşaq bəlli deyilsə gün göstərilir. İllik kubokda (ABŞ) tarix ilsiz yazılır: il səhifənin adındandır.
+    Bir neçə günlük tarix («4–5 February 2027») boş qalır: oyunun günü hələ bəlli deyil."""
+    raw, day = _cup_plain(params.get("date")), None
+    tpl = re.search(r"start date\s*\|\s*(\d{4})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})", raw, re.I)
+    if tpl:
+        day = datetime.date(int(tpl.group(1)), int(tpl.group(2)), int(tpl.group(3)))
+    else:
+        text = re.sub(r"\s+", " ", re.sub(r"\{\{[^{}]*\}\}|\[\[|\]\]", "", raw)).strip()
+        for fmt, spare in (("%d %B %Y", ""), ("%B %d, %Y", ""), ("%Y-%m-%d", ""), ("%Y %B %d", year), ("%Y %d %B", year)):
+            try:
+                day = datetime.datetime.strptime(f"{spare} {text}" if spare else text, fmt).date()
+                break
+            except ValueError:
+                pass
+    if not day:
+        return "", False
+    hm = re.search(r"(\d{1,2}):(\d{2})", params.get("time") or "")
+    if hm and zone and int(hm.group(1)) < 24:
+        kick = datetime.datetime(day.year, day.month, day.day, int(hm.group(1)), int(hm.group(2)), tzinfo=ZoneInfo(zone))
+        return kick.isoformat(timespec="seconds"), False
+    return f"{day.isoformat()}T12:00:00+00:00", True
+
+def cup_games(text, pool, zone, year=None):
+    """Kubok səhifəsinin vikimətni -> (klublar, oyunlar). Tərəfi bəlli olmayan qutu yazılmır."""
+    heads = [(m.start(), _cup_round(m.group(2))) for m in re.finditer(r"^(={2,4})\s*(.+?)\s*\1\s*$", text, re.M)]
+    teams, games = {}, []
+    for m in re.finditer(r"\{\{\s*football ?box", text, re.I):
+        params = _wiki_box_params(text[m.start():_wiki_box_end(text, m.start())])
+        (home, home_page), (away, away_page) = _cup_name(params.get("team1")), _cup_name(params.get("team2"))
+        if not home or not away:
+            continue
+        slugs = []
+        for name, page in ((home, home_page), (away, away_page)):
+            slug = cup_team(name, page, pool)
+            teams[slug or team_slug(name)] = dict(pool[slug]) if slug else {"name": name, "logo": ""}
+            slugs.append(slug or team_slug(name))
+        if slugs[0] == slugs[1]:
+            continue
+        date, day = _cup_kick(params, zone, year)
+        game = {"date": date, "home": slugs[0], "away": slugs[1], "played": False, "round": next((r for at, r in reversed(heads) if at < m.start() and r), "")}
+        if day:
+            game["day"] = True
+        place = re.search(r"\[\[(?:[^\]|]+\|)?([^\]]+)\]\]", params.get("stadium") or "")
+        stadium = place.group(1) if place else re.sub(r"\{\{[^{}]*\}\}", "", params.get("stadium") or "").strip()
+        if stadium:
+            game["stadium"] = stadium[:60]
+        score = _cup_plain(params.get("score"))
+        got = re.search(r"(\d+)\s*[–−-]\s*(\d+)", score)
+        if got:
+            game.update(played=True, hs=int(got.group(1)), **{"as": int(got.group(2))})
+            pen = re.search(r"(\d+)\s*[–−-]\s*(\d+)", params.get("penaltyscore") or "")
+            if pen:
+                game["pen"] = f"{pen.group(1)}–{pen.group(2)}"
+        elif re.search(r"cancel|postpon|abandon", score, re.I):
+            game["state"] = "off"
+        games.append(game)
+    return teams, sorted(games, key=lambda g: g.get("date") or "9999")
+
+def update_cups(checked, now_dt, out_of_time):
+    """Ölkə kubokları. Dövrədə ən çoxu CUP_PER_CYCLE sorğu, alınmayan kubokun köhnə faylı qalır. Nəticə: index.json sətirləri."""
+    rows, asked = [], 0
+    for short, name, pattern, zone, leagues in WIKI_CUPS:
+        cid, pool = team_slug(short), {}
+        for lid in leagues:
+            pool.update(_read_json(TEAM_DIR / f"{lid}.json", {}).get("teams") or {})
+        if not pool:
+            continue
+        doc = _read_json(TEAM_DIR / f"{cid}.json", {})
+        if asked < CUP_PER_CYCLE and not out_of_time() and _team_due(doc, checked.get(cid), now_dt, **CUP_DUE):
+            asked += 1
+            checked[cid] = now_dt.isoformat(timespec="seconds")
+            title = _wiki_title(pattern, now_dt)
+            try:
+                text = _wiki_api("action=parse&prop=wikitext&redirects=1&page=" + urllib.parse.quote(title))["parse"]["wikitext"]
+                years = re.search(r"(\d{4})(?:–(\d{2}))?", title)
+                teams, games = cup_games(text, pool, zone, None if years.group(2) else years.group(1))
+                if games:
+                    doc = {"id": cid, "name": name, "short": short, "source": "Vikipediya (kubok)", "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")), "sport": "football", "asof": "",
+                           "key": years.group(1), "season": f"{years.group(1)}/{years.group(2)}" if years.group(2) else years.group(1), "teams": teams, "groups": [], "games": games}
+                    _write_if_changed(TEAM_DIR / f"{cid}.json", doc)
+            except Exception as e:
+                print(f"  ! kubok {short}:", type(e).__name__)
+        if doc.get("games"):
+            seasons = [{"key": doc["key"], "label": doc["season"]}]
+            rows.append({"id": cid, "name": doc["name"], "short": short, "source": doc["source"], "sport": "football", "cup": True, "seasons": seasons, "ready": seasons, "teams": sorted(doc["teams"])})
+    return rows
+
+def update_team_pages():
+    """Komanda səhifələrinin faylları: hər liqa üçün data/futbol/<liga>.json (cədvəl və mövsümün bütün oyunları), keçmiş mövsümlər
+    <liga>-<il>.json, siyahı index.json. Alınmayan liqanın köhnə faylı qalır."""
+    started = time.monotonic()
+    out_of_time = lambda: time.monotonic() - started > TEAM_BUDGET_S
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    now = now_dt.isoformat(timespec="seconds")
+    TEAM_DIR.mkdir(parents=True, exist_ok=True)
+    index = _read_json(TEAM_DIR / "index.json", {})
+    checked = index.get("checked") or {}
+    known = {l.get("id"): l for l in index.get("leagues") or []}
+    empty = set(index.get("empty") or [])
+    openliga = index.get("openliga") or {}
+    sources = _team_sources()
+    fresh = 0
+    for spec in sources:
+        if out_of_time():
+            break
+        if not _team_due(_read_json(TEAM_DIR / f"{spec['id']}.json", {}), checked.get(spec["id"]), now_dt):
+            continue
+        checked[spec["id"]] = now  # alınmayan liqa da növbəsini gözləyir
+        try:
+            doc, seasons = _team_league(spec)
+        except Exception as e:
+            print(f"  ! komanda {spec['short']}:", type(e).__name__)
+            if isinstance(e, urllib.error.HTTPError) and e.code == 403:
+                checked.update({s["id"]: now for s in sources})  # rədd edən sayta bu dövrə başqa sorğu getmir
+                break
+            continue
+        _write_if_changed(TEAM_DIR / f"{spec['id']}.json", doc)
+        table = [r["team"] for g in doc["groups"] for r in g["rows"]]
+        known[spec["id"]] = {"id": spec["id"], "name": doc["name"], "short": spec["short"], "source": doc["source"], "seasons": seasons, "teams": table or sorted(doc["teams"])}
+        if spec["reserve"]:
+            known[spec["id"]]["reserve"] = True
+        fresh += 1
+    past = 0
+    for spec in sources:
+        for season in (known.get(spec["id"]) or {}).get("seasons", [])[1:]:
+            name = f"{spec['id']}-{season['key']}"
+            if out_of_time() or past >= TEAM_PAST_PER_CYCLE or name in empty or (TEAM_DIR / f"{name}.json").exists():
+                continue
+            past += 1
+            try:
+                doc, _seasons = _team_league(spec, season["key"])
+                _write_if_changed(TEAM_DIR / f"{name}.json", doc)
+            except _NoTeamData:
+                empty.add(name)  # bu mövsümdə həmin yarış yoxdur: bir daha soruşulmur
+            except Exception as e:
+                print(f"  ! komanda {name}:", type(e).__name__)
+    leagues = []
+    for spec in sources:
+        league = known.get(spec["id"])
+        if league:
+            # Seçicidə yalnız faylı olan mövsüm.
+            ready = [x for i, x in enumerate(league["seasons"]) if i == 0 or (TEAM_DIR / f"{spec['id']}-{x['key']}.json").exists()]
+            leagues.append(dict(league, ready=ready))
+    world_rows = []
+    worlds = _read_json(SPORTS_FILE, {}).get("leagues") or []
+    tsdb_stamps = _read_json(TEAM_DIR / "oyun-yoxlama.json", {})
+    tsdb_docs = []
+    for world in worlds:
+        doc = team_world_league(world)
+        if doc["id"] in TSDB_LEAGUES and doc["groups"]:
+            tsdb_docs.append(dict(doc, games=_read_json(TEAM_DIR / f"{doc['id']}.json", {}).get("games") or []))
+    try:
+        tsdb_fresh = tsdb_refresh(tsdb_docs, tsdb_stamps, now_dt, out_of_time)
+    except Exception as e:
+        print("  ! oyunlar:", type(e).__name__)
+        tsdb_fresh = {}
+    _write_if_changed(TEAM_DIR / "oyun-yoxlama.json", tsdb_stamps)
+    tsdb_old = {d["id"]: d["games"] for d in tsdb_docs}
+    nba_games = None
+    for world in worlds:
+        if world.get("id") == "nba" and world.get("groups"):
+            doc = team_world_league(world)
+            try:
+                nba_games = nba_merge(_read_json(TEAM_DIR / f"{doc['id']}.json", {}).get("games") or [], nba_refresh(doc, tsdb_stamps, now_dt, out_of_time))
+            except Exception as e:
+                print("  ! NBA oyunları:", type(e).__name__)
+    _write_if_changed(TEAM_DIR / "oyun-yoxlama.json", tsdb_stamps)
+    for world in worlds:
+        doc = team_world_league(world)
+        if not doc["groups"]:
+            continue
+        if doc["id"] in tsdb_old:
+            games = tsdb_merge(tsdb_old[doc["id"]], tsdb_fresh.get(doc["id"]) or {})
+            if games:
+                doc = team_world_with_games(doc, {}, games, TSDB_SOURCE)
+        elif doc["id"] == "nba" and nba_games:
+            doc = team_world_with_games(doc, {}, nba_games, {"source": "Vikipediya"})
+        checked[doc["id"]] = world.get("at") or now
+        seasons = [{"key": doc["key"], "label": doc["season"]}]
+        ready = seasons
+        shortcut = _OPENLIGA_LEAGUES.get(doc["id"])
+        if shortcut:
+            current = _read_json(TEAM_DIR / f"{doc['id']}.json", {})
+            mine = openliga.setdefault(doc["id"], {})
+            fetched = None if out_of_time() else _openliga_refresh(shortcut, doc["key"], current, mine, now_dt)
+            teams, games = fetched or (current.get("teams") or {}, current.get("games") or [])
+            if games:
+                doc = team_world_with_games(doc, teams, games)
+                checked[doc["id"]] = mine.get("checked") or now
+                seasons = seasons + [{"key": str(y), "label": f"{y}/{(y + 1) % 100:02d}"} for y in range(int(doc["key"]) - 1, int(doc["key"]) - TEAM_PAST_SEASONS - 1, -1)]
+                for season in seasons[1:]:
+                    name = f"{doc['id']}-{season['key']}"
+                    if out_of_time() or past >= TEAM_PAST_PER_CYCLE or name in empty or "until" in mine or (TEAM_DIR / f"{name}.json").exists():
+                        continue
+                    past += 1
+                    try:
+                        _write_if_changed(TEAM_DIR / f"{name}.json", _openliga_past(doc, shortcut, season["key"]))
+                    except _NoTeamData:
+                        empty.add(name)
+                    except Exception as e:
+                        print(f"  ! komanda {name}:", type(e).__name__)
+                ready = [x for i, x in enumerate(seasons) if i == 0 or (TEAM_DIR / f"{doc['id']}-{x['key']}.json").exists()]
+        _write_if_changed(TEAM_DIR / f"{doc['id']}.json", doc)
+        world_rows.append({"id": doc["id"], "name": doc["name"], "short": doc["short"], "source": doc["source"], "sport": doc["sport"], "seasons": seasons, "ready": ready,
+                           "teams": [r["team"] for g in doc["groups"] for r in g["rows"]]})
+    squads = update_team_squads([x["id"] for x in world_rows if x["id"] in _OPENLIGA_LEAGUES], out_of_time, now_dt)
+    leagues += [dict(x, heyet=squads[x["id"]]) if squads.get(x["id"]) else x for x in world_rows]
+    leagues += update_cups(checked, now_dt, out_of_time)
+    _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty), "openliga": openliga})
+    print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {time.monotonic() - started:.1f} s")
 
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
 GROUP_WINDOW = datetime.timedelta(hours=36)
@@ -2084,10 +3616,11 @@ def _titles_similar(toks, sh, other_toks, other_sh):
 #   3) şəxs/qurum adları yazılış fərqinə dözümlü tutuşdurulur (Abubəkirov / Əbubəkirov),
 #   4) başlıq+xülasənin söz kökləri (şəkilçilər atılmış) müqayisə olunur.
 #   Keçidli birləşmə: A~B və B~C olanda hər üçü bir kartdadır. Rəsmi mənbələrə tətbiq edilmir (şablon başlıqlar).
-_CONCEPT_RX = [(re.compile(p), " " + c + " ") for p, c in (
+# (?<!\w): «dayanıb» yanğın, «bölüb» ölüm sayılmasın.
+_CONCEPT_RX = [(re.compile(r"(?<!\w)(?:" + p + ")"), " " + c + " ") for p, c in (
     (r"həyatını itir\w*|dünyasını dəyiş\w*|vəfat\w*|həlak\w*|öl(?:üb|dü|üm|ən|məsi|dürül|ü\b)\w*|intihar\w*|cəsəd\w*|meyit\w*", "ölüm"),
-    (r"jurnalist\w*|media nümayəndə\w*|mətbuat nümayəndə\w*|mətbuat əməkdaş\w*|reportyor\w*|müxbir\w*|çəkiliş qrup\w*|operator\w*", "media"),
-    (r"döy(?:üb|dü|ül|məsi|ərək)\w*|hücum\w*|zorakılıq\w*|\bdava(?:sı|lar|da|sında)?\b|qətl\w*|bıçaqla\w*|güllələ\w*|vur(?:ub|du|ulub|ulan|ublar)\w*|təpik\w*|yumruq\w*", "zorakılıq"),
+    (r"jurnalist\w*|media nümayəndə\w*|mətbuat nümayəndə\w*|mətbuat əməkdaş\w*|reportyor\w*|müxbir\w*|çəkiliş qrup\w*", "media"),
+    (r"döy(?:üb|dü|ül|məsi|ərək)\w*|hücum(?!çu)\w*|zorakılıq\w*|\bdava(?:sı|lar|da|sında)?\b|qətl\w*|bıçaqla\w*|güllələ\w*|vur(?:ub|du|ulub|ulan|ublar)\w*|təpik\w*|yumruq\w*", "zorakılıq"),
     (r"işdən (?:çıxar|azad|ayrıl|uzaqlaş|kənarlaş)\w*|vəzifə\w* (?:azad|çıxar|ayrıl|uzaqlaş|kənarlaş)\w*|azad (?:edil|olun)\w*|istefa\w*", "istefa"),
     (r"təyin (?:edil|olun)\w*|vəzifəyə təyin\w*", "təyinat"),
     (r"həbs\w*|saxlanıl\w*|saxlanan\w*|tutul(?:ub|du|an|ması)\w*|cinayət işi|ittiham\w*", "həbs"),
@@ -2361,7 +3894,8 @@ def group_duplicates(articles):
                         score = 3
                 elif not same_src and any(_titles_similar(toks, sh, mtks, msh) for _mt, mtks, msh, _ma in near):
                     score = 3
-                elif len(members) < 12:
+                elif not same_src and len(members) < 12:
+                    # Eyni saytın iki yazısı hadisə oxşarlığı ilə birləşmir: çox vaxt ayrı xəbərlərdir.
                     # Hadisə əsaslı uyğunluq yalnız klasterin toxumu (ilk, ən yeni üzv) ilə yoxlanır — ulduz topologiyası.
                     # Hər hansı üzvlə müqayisə zəncirvari «qar topu» yaradırdı (canlıda 330 alternativli kart).
                     seed = members[0]
@@ -2414,6 +3948,13 @@ def group_duplicates(articles):
                     kept.append(alt)
             alts.extend(kept[:max(0, 20 - len(alts))])
         alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
+        # Kartdakı «N mənbə» həqiqətən N sayt demək olsun.
+        sources_seen, unique = {primary.get("source")}, []
+        for alt in alts:
+            if alt.get("source") not in sources_seen:
+                sources_seen.add(alt.get("source"))
+                unique.append(alt)
+        alts = unique
         if alts:
             primary["alts"] = alts
         else:
@@ -2511,7 +4052,7 @@ def _xml(s):
     return html.escape(cur, quote=True)
 
 def write_feed(articles):
-    items = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)[:50]
+    items = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)[:100]
     now = datetime.datetime.now(datetime.timezone.utc)
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -2548,11 +4089,10 @@ SECTIONS = [
     ("dunya", "Dünya", "Beynəlxalq mətbuat"),
     ("idman", "İdman", "İdman aləmindən xəbərlər və nəticələr"),
     ("medeniyyet", "Mədəniyyət", "Kino, musiqi, sənət və mədəni həyat"),
-    ("heyat", "Həyat", "Həyat tərzi, qidalanma, psixologiya"),
+    ("heyat", "Sağlamlıq və həyat", "Tibb, sağlamlıq, qidalanma, psixologiya"),
+    ("sosial", "Sosial müdafiə", "Pensiya, müavinət, sosial yardım, əlillik, məşğulluq"),
     ("bolgeler", "Bölgələr", "Rayonlardan və şəhərlərdən xəbərlər"),
-    ("tehsil", "Təhsil", "Məktəb, universitet, imtahanlar"),
-    ("sehiyye", "Səhiyyə", "Tibb, xəstəxanalar, sağlamlıq"),
-    ("texnologiya", "Texnologiya", "Elm, texnologiya və süni intellekt"),
+    ("tehsil", "Təhsil və elm", "Məktəb, universitet, elm, texnologiya"),
 ]
 SECTIONS_DIR = ROOT / "bolme"
 
@@ -2579,18 +4119,19 @@ _SECTION_HTML = """<!doctype html>
     <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" />
+    <link rel="modulepreload" href="../../assets/app.js" />
     <link rel="stylesheet" href="../../assets/app.css" />
-    <script src="../../assets/config.js"></script>
-    <script src="../../assets/content-policy.js"></script>
+    <script src="../../assets/config.js" defer></script>
+    <script src="../../assets/content-policy.js" defer></script>
     <script type="module" src="../../assets/app.js"></script>
     <!-- Resurslar yuxarıda nisbi yolla yükləndi; tətbiq kök ünvanda işləyir, ona görə ünvan kökə keçirilir -->
     <script>history.replaceState(null, "", new URL("../../#/bolme/__SLUG__", location.href));</script>
   </head>
   <body>
     <div id="app">
-      <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p><ul>__ITEMS__</ul>
-      <p><a href="../../">8ulduz — baş səhifə</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -2603,19 +4144,64 @@ def section_page(slug, label, desc, articles, limit=30):
         f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
         for a in items[:limit])
     url = f"{SITE}bolme/{slug}/"
-    return (_SECTION_HTML.replace("__ITEMS__", lis).replace("__LABEL__", _xml(label)).replace("__DESC__", _xml(desc))
+    return _page_html(slug, label, desc, f"<ul>{lis}</ul>")
+
+def _page_html(slug, label, desc, items):
+    url = f"{SITE}bolme/{slug}/"
+    return (_SECTION_HTML.replace("__ITEMS__", items).replace("__LABEL__", _xml(label)).replace("__DESC__", _xml(desc))
             .replace("__URL__", url).replace("__SITE__", SITE).replace("__SLUG__", slug))
+
+# Xidmət səhifələri: axtarış sistemi hash ünvanını ayrıca səhifə saymır. bolme/ altındadır, çünki pipeline.sh main-ə bu qovluğu yazır.
+SERVICE_PAGES = [
+    ("valyuta", "Valyuta məzənnəsi", "Dollar, avro, rubl və lirənin manatla bugünkü məzənnəsi, neft və qızıl qiyməti"),
+    ("cedvel", "Premyer Liqa cədvəli", "Azərbaycan Premyer Liqasının turnir cədvəli"),
+    ("tixac", "Tıxac və yollar", "Azərbaycanda yol vəziyyəti, qəza və bağlanan yollar haqqında son xəbərlər"),
+]
+_ROAD_RX = re.compile(r"tıxac|qəza(?!lı)|yol polisi|nəqliyyatın hərəkət|yol bağlı|avtomobil yol|(?:^|[^\w])(?:BNA|DYP)(?:[^\w]|$)", re.I)
+
+def _table(head, rows):
+    cells = lambda row, tag: "".join(f"<{tag}>{_xml('' if c is None else str(c))}</{tag}>" for c in row)
+    body = "".join("<tr>" + cells(r, "td") + "</tr>" for r in rows)
+    return "<table><thead><tr>" + cells(head, "th") + "</tr></thead><tbody>" + body + "</tbody></table>"
+
+def service_body(slug, articles):
+    if slug == "valyuta":
+        items = _read_json(MARKETS_FILE, {}).get("items") or []
+        rows = [(i.get("label"), f'{float(i["value"]):.{i.get("dec", 2)}f} {i.get("unit") or ""}'.strip(), i.get("src") or "", i.get("asOf") or (i.get("at") or "")[:10])
+                for i in items if i.get("value") is not None]
+        return _table(("Ad", "Qiymət", "Mənbə", "Tarix"), rows) if rows else "<p>Məzənnə məlumatı hazırda yoxdur.</p>"
+    if slug == "cedvel":
+        fb = _read_json(FOOTBALL_FILE, {})
+        rows = [(t.get("pos"), t.get("team"), t.get("p"), t.get("w"), t.get("d"), t.get("l"), t.get("gf"), t.get("ga"), t.get("pts")) for t in fb.get("table") or []]
+        title = f'<h2>{_xml(fb.get("league"))} {_xml(fb.get("season"))}</h2>' if fb.get("league") else ""
+        return title + _table(("#", "Komanda", "O", "Q", "H", "M", "Vurulan", "Buraxılan", "Xal"), rows) if rows else "<p>Cədvəl hazırda yoxdur.</p>"
+    road = [a for a in articles if (a.get("lang") or "az") == "az" and _ROAD_RX.search(a.get("title") or "")]
+    road.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+    lis = "".join(f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in road[:20])
+    return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p><ul>{lis}</ul>'
 
 def write_sections(articles):
     for slug, label, desc in SECTIONS:
         d = SECTIONS_DIR / slug
         d.mkdir(parents=True, exist_ok=True)
         _write_atomic(d / "index.html", section_page(slug, label, desc, articles), encoding="utf-8")
+    for old, new in SECTION_ALIASES.items():
+        d = SECTIONS_DIR / old
+        d.mkdir(parents=True, exist_ok=True)
+        _write_atomic(d / "index.html", f'<!doctype html><html lang="az"><head><meta charset="UTF-8" /><link rel="canonical" href="{SITE}bolme/{new}/" />'
+                      f'<meta http-equiv="refresh" content="0;url=../{new}/" /><title>8ulduz</title></head><body><a href="../{new}/">Bölməyə keç</a></body></html>\n', encoding="utf-8")
+    for slug, label, desc in SERVICE_PAGES:
+        try:  # bir xidmətin zədəli faylı bölmə səhifələrini və sitemap-i saxlamasın
+            d = SECTIONS_DIR / slug
+            d.mkdir(parents=True, exist_ok=True)
+            _write_atomic(d / "index.html", _page_html(slug, label, desc, service_body(slug, articles)), encoding="utf-8")
+        except Exception as e:
+            print("  ! xidmət səhifəsi:", slug, type(e).__name__, e)
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
 def write_sitemap():
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-    locs = [SITE, SITE + "feed.xml"] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in SECTIONS]
+    locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc in locs:
@@ -2625,7 +4211,8 @@ def write_sitemap():
 
 def write_robots():
     _write_atomic(ROBOTS_FILE, 
-        "User-agent: *\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n",
+        "User-agent: *\nDisallow: /tests/\nDisallow: /docs/\nDisallow: /android/\nDisallow: /.github/\nDisallow: /updater.py\n"
+        "Disallow: /reader_content.py\nDisallow: /content_policy.py\nDisallow: /README.md\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n",
         encoding="utf-8")
 
 def write_public():
@@ -2647,7 +4234,26 @@ _OG_NAMES = {"og:image", "og:image:url", "twitter:image", "twitter:image:src"}
 _LD_IMG = re.compile(r'"image"\s*:\s*(?:\{[^}]*?"url"\s*:\s*)?"(https?://[^"]+)"', re.I)
 _IMG_SRC = re.compile(r'<link[^>]+rel=["\']image_src["\'][^>]+href=["\']([^"\']+)', re.I)
 
-def _og_from_html(raw, base):
+_PAGE_IMG = re.compile(r"""<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)""", re.I)
+_NOT_PHOTO = re.compile(r"\.(?:gif|svg)(?:\?|$)|icon|avatar|banner|sprite|pixel|^data:", re.I)
+
+def _own_card_img(text, url, skip=()):
+    """og:image saytın loqosudursa (Lent.az): səhifədə bu xəbərin öz kartı axtarılır, yəni məhz bu ünvana keçid olan şəkil.
+    Səhifənin ilk başlığı olmaz: Lent.az hər səhifədə eyni önə çıxan xəbəri göstərir, xəbər yanlış şəkil alırdı (2026-10-31)."""
+    path = urllib.parse.urlparse(url).path
+    if len(path) < 12:
+        return ""
+    # Lent.az lentdə «.../basliq-40694450/1», kartda başqa başlıqla «.../basliq-2-40694450» yazır: ünvanda nömrə varsa o müqayisə olunur.
+    number = re.search(r"-(\d{5,})(?:/\d+)?/?$", path)
+    target = r"""[^"']*-""" + number.group(1) + r"(?:/\d+)?/?" if number else r"""(?:https?://[^/"']+)?""" + re.escape(path)
+    for card in re.finditer(r"""<a\b[^>]*href=["']""" + target + r"""["'][^>]*>(.*?)</a>""", text, re.S):
+        src = _PAGE_IMG.search(card.group(1))
+        img = _abs_img(src.group(1), url) if src else ""
+        if img and img not in skip and not _is_generic_img(img) and not _NOT_PHOTO.search(img):
+            return img
+    return ""
+
+def _og_from_html(raw, base, skip=()):
     text = raw.decode("utf-8", "replace")
     cands = []
     for tag in _OG_META.findall(text):
@@ -2663,22 +4269,56 @@ def _og_from_html(raw, base):
     m = _LD_IMG.search(text)
     if m:
         cands.append(html.unescape(m.group(1)))
-    for c in cands:
+    # Sporx og:image-də nisbi ünvan verir, əsl şəkil isə başqa hostdadır: tam ünvanlı namizəd üstündür.
+    for c in sorted(cands, key=lambda c: not c.startswith(("http://", "https://", "//"))):
         img = _abs_img(c, base)
-        if img and not _is_generic_img(img):
+        if img and img not in skip and not _is_generic_img(img):
             return img
-    return ""
+    return _own_card_img(text, base, skip)
 
-def _fetch_og(url):
+def _fetch_og(url, skip=()):
+    """Şəkil ünvanı; səhifədə yoxdursa və ya sayt bizi buraxmırsa "" (403: tez-tez yoxlanmır), şəbəkə xətasında None (tezliklə yenidən)."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
         with urllib.request.urlopen(req, timeout=6) as r:
             ctype = (r.headers.get("Content-Type") or "").lower()
             if ctype and "html" not in ctype and "xml" not in ctype:
                 return ""
-            return _og_from_html(r.read(90000), url)
+            return _og_from_html(r.read(300000), url, skip)
+    except urllib.error.HTTPError as e:
+        return None if e.code >= 500 else ""
     except Exception:
-        return ""
+        return None
+
+DEAD_IMG_KEEP = 2000   # lentdən çıxmış ölü şəkil ünvanı: xəbər lentə qayıdanda yenidən göstərilməsin
+OG_KEEP_OUTSIDE = 400  # hazırda lentdə olmayan xəbərlərin şəkil cavabı: lent daralıb genişlənəndə xəbər geri qayıdır
+
+def _image_dead(url):
+    """Yalnız sayt özü «yoxdur» deyəndə: GitHub IP-sini bloklayan host brauzerdə açıla bilər."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Range": "bytes=0-0"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            return "html" in (r.headers.get("Content-Type") or "").lower()
+    except urllib.error.HTTPError as e:
+        return e.code in (404, 410)
+    except Exception:
+        return False
+
+def drop_dead_images(articles, limit=120):
+    """Lentin verdiyi şəkil ölüdürsə (Modern.az: /file/articles/... 404) xəbər şəkilsiz sayılır, fill_og_images səhifədən tapır."""
+    checked = _read_json(IMG_CHECK_FILE, {})
+    urls = {a["imageUrl"] for a in articles if a.get("imageUrl")}
+    todo = [u for u in urls if u not in checked][:limit]
+    if todo:
+        with ThreadPoolExecutor(max_workers=12) as ex:
+            checked.update(zip(todo, ex.map(_image_dead, todo)))
+    # Xəbərin ölü şəkli silinəndən sonra ünvan siyahıda olmur, amma xəbər lentdən çıxıb qayıdanda lent onu yenə verir.
+    dead = [u for u, is_dead in checked.items() if is_dead and u not in urls][-DEAD_IMG_KEEP:]
+    _save_cache(IMG_CHECK_FILE, {**dict.fromkeys(dead, True), **{u: checked[u] for u in urls if u in checked}})
+    for a in articles:
+        if checked.get(a.get("imageUrl")):
+            a["imageUrl"] = None
+    return articles
 
 # ---------------------------------------------------------------- tarixsiz lentlər ---
 # Bəzi lentlər (İki Sahil) pubDate vermir. Əvvəl belə elementlər hər dövrədə «indi» tarixi alırdı:
@@ -2816,6 +4456,7 @@ def fill_og_images(articles, limit=120):
     for k, v in list(cache.items()):
         if v and freq.get(v, 0) >= 3:
             cache[k] = ""
+    logos = {v for v, n in freq.items() if n >= 3}
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
@@ -2833,24 +4474,29 @@ def fill_og_images(articles, limit=120):
     try:
         if batch:
             with ThreadPoolExecutor(max_workers=12) as ex:
-                found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or ""), batch))
+                found = list(ex.map(lambda a: _fetch_og(a.get("sourceUrl") or "", logos), batch))
             for img in found:
                 if img:
                     freq[img] = freq.get(img, 0) + 1
             for a, img in zip(batch, found):
+                # Şəbəkə xətası və ya yeni üzə çıxan loqo: xəbər lentdə cəmi 3-4 saat qalır, 6 saat gözləsə şəkilsiz çıxıb gedir.
+                soon = img is None or bool(img and freq.get(img, 0) >= 3)
                 if img and freq.get(img, 0) >= 3:
                     img = ""  # bu dövrədə də eyni şəkil təkrarlanır: loqo
                 cache[a["sourceUrl"]] = img or ""
                 if img:
                     retry_after.pop(a["sourceUrl"], None)
                 else:
-                    retry_after[a["sourceUrl"]] = now_ts + 6 * 3600
+                    retry_after[a["sourceUrl"]] = now_ts + (900 if soon else 6 * 3600)
                 if img:
                     a["imageUrl"] = img
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:80]}"
         print("  ! og:image:", err)
     keep = {a.get("sourceUrl") for a in articles if a.get("sourceUrl")}
+    # Qruplaşma lenti 150 xəbər daraldır, növbəti dövrə köhnə xəbərlərlə yenidən doldurur. Cavab silinsəydi həmin xəbərlər
+    # şəkilsiz qayıdır, hər yavaş dövrədə eyni 50 səhifə yenidən sorğulanırdı (2026-10-31).
+    keep |= set([k for k in cache if k not in keep][-OG_KEEP_OUTSIDE:])
     trimmed = {k: v for k, v in cache.items() if k in keep}
     # Diaqnostika (loglara girişsiz): neçə xəbər şəkilsizdir, bu dövrədə neçəsi sorğulandı və tapıldı
     trimmed["_meta"] = {"at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -2874,7 +4520,7 @@ def write_status(ok=True, successful=0, total=0, stats=None):
     _write_atomic(STATUS_FILE, json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
                                        "attemptedAt": now, "ok": ok,
                                        "successfulSources": successful, "totalSources": total,
-                                       "degraded": ok and successful < total, "stats": stats or previous.get("stats")}, ensure_ascii=False,
+                                       "degraded": ok and total - successful > total * FEED_PAUSE_MAX_SHARE, "stats": stats or previous.get("stats")}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
@@ -2942,6 +4588,9 @@ def main(fast=False):
         a["category"] = SLUGS.get(lbl, "gundem")
     old = [a for a in old if not foreign_about_azerbaijan(a.get("source"), a.get("category"), a.get("title", ""), a.get("summary", ""))]
     for a in old:
+        a["sourceUrl"] = fix_source_link(a.get("sourceUrl"))
+        for alt in a.get("alts") or []:
+            alt["sourceUrl"] = fix_source_link(alt.get("sourceUrl"))
         stable = fixed_source_date(a.get("sourceUrl"))
         if stable:
             a["publishedAt"] = stable
@@ -2976,24 +4625,49 @@ def main(fast=False):
     # Əvvəlcə siyahıda olan, lakin «ilk görülmə» vaxtı ilə qalmış tarixsiz xəbərlər (tarix keşi yaranana qədər
     # yığılanlar): büdcəni onlar alır, yoxsa 2000 elementlik lentdə növbə onlara heç çatmır və saatlarla
     # «N saat əvvəl» kimi bölmələrin başında qalırlar. Səhifə tarixi tapılanda köhnə qeydin vaxtı düzəldilir.
+    # Tarixi etibarsız lent: elementləri götürülmür, əvvəl düşənlər də çıxır. Lent qoşulu qalır, tarix düzələndə özü qayıdır.
+    bulk = {source for source, items, err, _ in results if not err and bulk_dated(items)}
+    if bulk:
+        print("  ⊘ tarixi etibarsız lent:", ", ".join(sorted(bulk)), flush=True)
+        old = [a for a in old if a.get("source") not in bulk]
+        for a in old:
+            if a.get("alts"):
+                a["alts"] = [alt for alt in a["alts"] if alt.get("source") not in bulk]
+    # Limiti dolmuş mənbənin kəsiləcək köhnə elementləri hər dəqiqə yenidən emal olunmasın.
+    source_floor, by_source = {}, {}
+    for a in old if fast else []:
+        by_source.setdefault(a.get("source"), []).append(_parse_dt(a.get("publishedAt")))
+    for name, published in by_source.items():
+        cap = source_cap(name)
+        published = sorted((d for d in published if d), reverse=True)
+        if len(published) >= cap:
+            source_floor[name] = published[cap - 1]
     for _, items, err, _ in results:
         for it in items if not err else []:
+            it["link"] = fix_source_link(it.get("link"))
             if not it.get("pubDate") and it.get("link") in old_by_url:
                 iso, lookups = undated_date(it, dates, lookups)
                 if iso:
                     old_by_url[it["link"]]["publishedAt"] = iso
     for (source, url, dlang, hint), (_, items, err, used_url) in zip(FEEDS, results):
-        source_rows.append({"name": source, "url": used_url or url, "count": 0 if err else len(items), "error": err})
+        source_rows.append({"name": source, "url": used_url or url, "count": 0 if err else len(items),
+                            "error": err or ("cavab gecikir" if fast and source in LATE_FEEDS else None)})
         if err:
             errors.append(f"{source}: {err}")
             continue
         if not items:
             empty.append(source)
-        for it in items:
+        for it in items if source not in bulk else []:
             try:
                 if it["link"] in seen or is_junk(it["link"]):
+                    # Match TV şəkli lentə sonra əlavə edir: artıq görülmüş xəbər şəkilsiz qalmasın (şəbəkə sorğusu yoxdur).
+                    known = old_by_url.get(it["link"])
+                    if known is not None and not known.get("imageUrl") and it.get("image"):
+                        known["imageUrl"] = it["image"]
                     continue
                 if floor and it.get("pubDate") and _older_than(it["pubDate"], floor):
+                    continue
+                if source in source_floor and it.get("pubDate") and _older_than(it["pubDate"], source_floor[source]):
                     continue
                 if it["link"] in region_links:  # Regionlar səhifəsindən gələcək; lentin xülasəsi ona verilir
                     region_desc[it["link"]] = it.get("description") or ""
@@ -3037,17 +4711,20 @@ def main(fast=False):
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
-    per_src = {}
+    per_src, world_count, sport_count = {}, 0, 0
     # Tarixə görə birgə sıralama. Əvvəl «yeni» (bu dövrədə ilk dəfə görülən) xəbərlər köhnələrdən qabaq gəlirdi;
     # limitdən kənarda qalan köhnə xəbərlər növbəti dövrədə yenidən «yeni» sayılıb siyahını hər dəfə dəyişirdi
     # (813-dən yalnız ~50 xəbər dövrədən dövrəyə qalırdı; og keşi və qruplar daim sıfırlanırdı).
     for a in sorted(new_items + old, key=lambda x: x.get("publishedAt") or "", reverse=True):
         if a["sourceUrl"] in dseen:
             continue
-        n = per_src.get(a.get("source"), 0)
-        if n >= MAX_PER_SOURCE:
+        n, is_sport = per_src.get(a.get("source"), 0), a.get("source") in content_policy.SPORT_SOURCES
+        is_world = a.get("source") in WORLD_SOURCES and not is_sport
+        if n >= source_cap(a.get("source")) or (is_world and world_count >= MAX_WORLD) or (is_sport and sport_count >= MAX_WORLD_SPORT):
             continue
         per_src[a.get("source")] = n + 1
+        world_count += is_world
+        sport_count += is_sport
         dseen.add(a["sourceUrl"]); uniq.append(a)
     # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
     # Əvvəl yalnız 800-dən kənarda qalanlar əlavə olunurdu; siyahı 800-dən qısa olanda heç nə əlavə olunmurdu.
@@ -3058,6 +4735,9 @@ def main(fast=False):
     mark("select")
     before_groups = len(articles)
     articles = apply_groups(articles) if fast else group_duplicates(articles)
+    for a in articles if bulk else []:
+        if a.get("alts"):
+            a["alts"] = [alt for alt in a["alts"] if alt.get("source") not in bulk]
     stats["grouped"] = before_groups - len(articles)
     mark("group")
     # Eyni şəkil 3 və daha çox xəbərdə təkrarlanırsa, o, saytın ümumi lövhəsidir — xəbərin şəkli sayılmır
@@ -3089,6 +4769,10 @@ def main(fast=False):
             reason = content_policy.violation(a)
             if reason:
                 print(f"  ⊘ {reason}: {a.get('source')} {a.get('sourceUrl')}", flush=True)
+    try:
+        articles = drop_dead_links(articles, dead_links(len(articles)))
+    except Exception as e:  # QIRMIZI XƏTT 1: yoxlama alınmasa xəbər əvvəlki kimi yazılır
+        print("  ! ölü link:", type(e).__name__, flush=True)
     articles, dropped = content_policy.enforce(articles)
     stats["articles"], stats["policyDropped"] = len(articles), dropped
     save_sources(source_rows)
@@ -3114,10 +4798,14 @@ def main(fast=False):
     }
     OUT_DIR.mkdir(exist_ok=True)
     # yığcam JSON: repo ölçüsünün böyüməsini azaldır
+    try:  # QIRMIZI XƏTT 1: bu fayl alınmasa sayt tam lentlə açılır, xəbər axını dayanmır
+        write_first(articles, data["updatedAt"])
+    except Exception as e:
+        print("  ! first.json:", type(e).__name__, flush=True)
     _write_atomic(OUT_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     if not fast:
         try:
-            update_reader(articles, OUT_DIR / 'reader.json', lambda url: fetch(url, timeout=6))
+            retire_reader()
         except Exception as e:
             print('  ! audio mətn:', type(e).__name__)
     ok = len(FEEDS) - len(errors) - len(empty)
@@ -3146,6 +4834,9 @@ def run():
         return run_fast()
     if "--slow" in sys.argv:
         return slow_cycle()
+    if "--links" in sys.argv:
+        check_links()
+        return 0
     news_ok = True
     result = {"successful": 0, "total": 0}
     if "--no-markets" not in sys.argv:
