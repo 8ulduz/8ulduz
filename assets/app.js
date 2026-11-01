@@ -1327,7 +1327,7 @@ function prezBlock(list) {
   };
   const cards = list.map(card).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident" aria-label="Zuğulba Xronikası"><span class="prez-long">Zuğulba Xronikası</span><span class="prez-short">Zuğulba</span></a></h2>
-    <span class="prez-n">İlk <b>${list.length}</b> xəbər</span>
+    <span class="prez-n">Son <b>${list.length}</b> xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
     <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
     <div class="prez-body">${list.length ? `<div class="prez-lent" data-prez-lent tabindex="0" aria-label="Zuğulba xəbərləri">${cards}</div>` : ""}
