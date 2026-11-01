@@ -97,7 +97,14 @@ const SPORT_TEAMS = [
   ] },
 ];
 // Alt bölmələr. groups: alt bölmə seçiləndə açılan düymələr; alt bölmə onların xəbərlərini də əhatə edir.
+const TRANSFER_WORDS = { stems: ["transfer", "трансфер"], keys: ["icarəyə verilib", "icarəyə götürüb", "перешел в", "перешёл в", "перейдет в", "перейдёт в", "арендован", "signs for", "joins on loan", "free agent", "kiraladı", "kiralık"] };
+const TRANSFER_OTHER = ["voleybol", "volleyball", "волейбол", "həndbol", "hentbol", "handball", "гандбол", "хоккей", "hockey", "xokkey", "futzal", "formula 1", "tennis", "теннис", "ufc", "boks", "бокс", "biatlon", "биатлон", "pul transfer"];
+const BASKET_WORDS = ["basketbol", "basketball", "баскетбол", " nba", " нба", "euroleague", "avroliqa", "евролиг"], BASKET_SITES = ["Sportando", "TalkBasket", "Eurohoops"];
 const SPORT_TABS = [
+  { name: "Transfer xəbərləri", ...TRANSFER_WORDS, not: TRANSFER_OTHER, groups: [{ group: "", items: [
+    { name: "Futbol transferləri", label: "Futbol", ...TRANSFER_WORDS, not: [...TRANSFER_OTHER, ...BASKET_WORDS], skip: BASKET_SITES },
+    { name: "Basketbol transferləri", label: "Basketbol", ...TRANSFER_WORDS, not: TRANSFER_OTHER, must: BASKET_WORDS, mustSites: BASKET_SITES },
+  ] }] },
   { name: "Futbol", not: ["euroleague", "avroliqa", "евролиг", "basketbol", "basketball", "баскетбол", "nba", "нба"], stems: ["futbol", "football", "soccer", "футбол"], keys: ["uefa", "fifa", "premyer liqa", "super liqa", "süper lig", "la liga", "bundesliqa", "bundesliga", "premier league", "champions league", "çempionlar liqası", "avropa liqası", "konfrans liqası", "лига чемпионов", "рпл", "апл"], sources: ["BBC Futbol", "Guardian Futbol"], groups: SPORT_TEAMS },
   { name: "Basketbol", stems: ["basketbol", "basketball", "баскетбол"], sources: ["Sportando", "TalkBasket"], groups: [{ group: "", items: [
     { name: "Avroliqa", keys: ["euroleague", "euroliga", "avroliqa", "евролиг"], sources: ["Eurohoops"] },
@@ -1016,7 +1023,7 @@ function navPopHtml(slug, tab, liga) {
   const pill = (name, label = name, kids = false) => `<button class="pill ${club === name || tab === name ? "on" : ""}" data-club="${esc(name)}"${kids ? " data-kids" : ""}>${esc(label)}</button>`;
   const groups = navGroups(tabs, tab), leagues = navLeagues(slug, tab), on = leagues.flatMap(g => g.items).find(l => l.short === liga) || leagues[0]?.items[0];
   return `<div class="pop-col">${pill("", "Hamısı")}${tabs.map(t => pill(t.name, t.name, !!t.groups)).join("")}</div>` +
-    (groups.length || leagues.length ? `<div class="pop-col two">${leagues.map(g => `${leagueHead(g)}${g.items.map(l => leagueLink(l, l === on)).join("")}`).join("")}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "") +
+    (groups.length || leagues.length ? `<div class="pop-col two">${leagues.map(g => `${leagueHead(g)}${g.items.map(l => leagueLink(l, l === on)).join("")}`).join("")}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name, t.label)).join("")).join("")}</div>` : "") +
     (on?.clubs.length ? `<div class="pop-col clubs"><a class="pill all" href="#/komanda/${teamSlug(on.short)}">${esc(on.label)}: cədvəl və klublar ›</a>${on.clubs.map(([n, full]) => `<a class="pill" href="${teamHref(on, full)}">${esc(n)}</a>`).join("")}</div>` : "");
 }
 // Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
@@ -1291,7 +1298,7 @@ function topicRx(t) {
 const TOPIC_TEXT = new WeakMap();
 function clubMatches(a, club) {
   const topic = sportTopic(club);
-  if (!topic) return false;
+  if (!topic || topic.skip?.includes(a.source)) return false;
   if (topic.sources?.includes(a.source)) return true;
   // Mətn bir dəfə hazırlanır: Futbol düyməsi hər xəbəri 20 komanda ilə yoxlayır.
   let seen = TOPIC_TEXT.get(a);
@@ -1300,6 +1307,7 @@ function clubMatches(a, club) {
     TOPIC_TEXT.set(a, seen = {raw, text: ` ${topicKey(raw)} `});
   }
   if (topic.not?.some(w => seen.text.includes(topicKey(w)))) return false;
+  if (topic.must && !topic.mustSites.includes(a.source) && !topic.must.some(w => seen.text.includes(` ${topicKey(w)}`))) return false;
   if (topic.quoted && (topic.quotedRx ||= new RegExp(`["«“'‘„]${topic.quoted}["»”'’]`, "iu")).test(seen.raw)) return true;
   // Word starts allow suffixes (Qarabağın / Карабаха), without matching e.g. “international” for Inter.
   if (topicRx(topic).test(seen.text)) return true;
@@ -1321,6 +1329,7 @@ const leagueHead = g => `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(
 const leagueLink = (l, on) => `<a class="pill${on ? " on" : ""}" href="#/komanda/${teamSlug(l.short)}" data-liga="${esc(l.short)}"><span>${esc(l.label)}</span>${l.place ? `<small>${esc(l.place)}</small>` : ""}</a>`;
 function navGroups(tabs, open) {
   const groups = tabs.find(t => t.name === open)?.groups || [];
+  if (open === "Transfer xəbərləri") return groups.map(g => ({ ...g, items: g.items.filter(t => t.label !== "Basketbol" || withArchive("idman", S.data?.articles || []).some(a => a.category === "idman" && clubMatches(a, t.name))) }));
   // Məlumat çatana qədər klubların xəbər düymələri qalır, yoxsa onlara yol olmaz.
   if (open === "Basketbol") return navLeagues("idman", open).length ? [] : groups;
   if (open !== "Futbol") return groups;
@@ -1331,7 +1340,7 @@ function navRows(slug, open = S.sportTab, club = S.club || "") {
   const pill = (name, label = name) => `<button class="pill ${club === name || open === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
   const groups = navGroups(tabs, open), leagues = navLeagues(slug, open);
   return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div></div></div>` +
-    (groups.length || leagues.length ? `<div class="nav-row two"><div class="wrap sport-chips">${leagues.map(g => `<div class="chips sub">${leagueHead(g)}${g.items.map(l => leagueLink(l)).join("")}</div>`).join("")}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
+    (groups.length || leagues.length ? `<div class="nav-row two"><div class="wrap sport-chips">${leagues.map(g => `<div class="chips sub">${leagueHead(g)}${g.items.map(l => leagueLink(l)).join("")}</div>`).join("")}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name, t.label)).join("")}</div>`).join("")}</div></div>` : "");
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
