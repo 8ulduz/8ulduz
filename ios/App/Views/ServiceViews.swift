@@ -68,7 +68,7 @@ struct MarketsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 converter
                 LazyVGrid(columns: columns, spacing: 10) {
-                    ForEach(model.markets) { MarketChip(item: $0).frame(maxWidth: .infinity) }
+                    ForEach(model.markets) { MarketChip(item: $0, fills: true) }
                 }
                 if unofficial {
                     Text("Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir.")

@@ -178,6 +178,7 @@ private struct BreakingTicker: View {
 
 struct MarketChip: View {
     let item: MarketItem
+    var fills = false
 
     // Valyutanın bayrağı, qalanının simvolu (assets/app.js `MARKET_ICON`).
     private static let icons = ["USD": "🇺🇸", "EUR": "🇪🇺", "RUB100": "🇷🇺", "TRY100": "🇹🇷", "CNY": "🇨🇳", "BRENT": "🛢", "WTI": "🛢", "XAU": "🥇", "XAG": "🥈", "BTC": "₿"]
@@ -216,7 +217,7 @@ struct MarketChip: View {
             .monospacedDigit()
             .foregroundStyle(tint)
         }
-        .frame(minWidth: 84, alignment: .leading)
+        .frame(minWidth: 84, maxWidth: fills ? .infinity : nil, alignment: .leading)
         .padding(10)
         .cardStyle()
         .accessibilityElement(children: .combine)
