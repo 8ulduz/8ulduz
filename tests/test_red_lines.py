@@ -710,3 +710,11 @@ class DateFloorTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OwnerClearedSourceTest(unittest.TestCase):
+    def test_yeni_musavat_is_allowed_only_on_its_own_site(self):
+        self.assertFalse(content_policy.is_blocked("https://musavat.com/news/x_1.html"), "sahibin qərarı, 2026-11-01")
+        self.assertTrue(content_policy.source_allowed("Yeni Müsavat", "https://musavat.com/news/x_1.html"))
+        self.assertFalse(content_policy.source_allowed("Yeni Müsavat", "https://azadliq.org/a/1.html"))
+        self.assertTrue(content_policy.is_blocked("https://azadliq.org/a/1.html"), "qalan qadağalar yerindədir")

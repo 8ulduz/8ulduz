@@ -81,6 +81,7 @@ AZ_FEEDS = [
     ("Trend RU",     "https://ru.trend.az/rss/"),
     ("Minval",       "https://minval.az/feed"),
     ("Bakupost",     "https://www.bakupost.az/rss"),
+    ("Yeni Müsavat", "https://musavat.com/rss.xml"),  # sahibin qərarı, 2026-11-01. Server IP-lərinə JavaScript yoxlaması qaytarır, keçilmir.
     ("Banker.az",    "https://banker.az/feed/", "İqtisadiyyat"),
     # Dövlət və iqtidar saytları (Zuğulba xronikası üçün də): RSS-i olmayanlar HTML səhifə ilə oxunur (PAGE_PARSERS),
     # Baku TV Google News sitemap-ı ilə. Caliber.az (yalnız rus/ingilis, Yandex Turbo lenti) və Baku.ws (GitHub-dan 403) yoxdur.
