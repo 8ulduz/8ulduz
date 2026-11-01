@@ -351,6 +351,7 @@ FALLBACK = "Gündəm"
 ROOT = pathlib.Path(os.environ.get("UPDATER_ROOT") or pathlib.Path(__file__).parent)
 OUT_DIR = ROOT / "data"
 LATEST_FILE = OUT_DIR / "latest.json"
+FIRST_FILE = OUT_DIR / "first.json"
 CACHE_DIR = ROOT / ".cache"  # yalnız runner-də, repoya düşmür
 FEED_CACHE = CACHE_DIR / "feeds.json"
 SLOW_FEED_CACHE = CACHE_DIR / "feeds-slow.json"
@@ -1340,6 +1341,47 @@ def write_latest(articles, previous):
     OUT_DIR.mkdir(exist_ok=True)
     _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows}, ensure_ascii=False, separators=(",", ":")))
     _save_cache(RECENT_FILE, recent)
+
+
+# Sayt baş səhifənin yuxarısını bu xəbərlərdən qurur, tam lent sonra gəlir. Eyni blok alınmalıdır ki, tam lent gələndə ekran dəyişməsin:
+# seçim assets/app.js-dəki heroPick, latestBlock, prezHome və collapseExact ilə uyğun qalmalıdır.
+FIRST_RANKED, FIRST_NEWEST, FIRST_HERO = 40, 30, 15  # slayder 15 xəbər götürür, oxşarları atır; «Son xəbərlər» 8 kart göstərir
+_FIRST_APPOINTMENT = re.compile(r"təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed", re.I)
+
+
+def first_screen_rows(articles, now=None):
+    """Azərbaycanca baxışın ilk ekranı üçün sətirlər: ən çox mənbədə çıxan və ən yeni xəbərlər, bütün Zuğulba xronikası."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    key = lambda a: _norm_title(html.unescape(a.get("title") or ""))
+    groups, twins = {}, collections.defaultdict(list)
+    for a in articles:
+        if a.get("category") != "prezident":
+            twins[key(a)].append(a)  # başqa dil kimi işarələnmiş eyni başlıq da: sayt onları birləşdirir
+            if (a.get("lang") or "az") == "az":
+                groups.setdefault(key(a), twins[key(a)])
+    newest = {k: max((a.get("publishedAt") or "") for a in rows) for k, rows in groups.items()}
+    weight = {k: sum(1 + len(a.get("alts") or []) for a in rows) + (2 if _FIRST_APPOINTMENT.search(rows[0].get("title") or "") else 0) for k, rows in groups.items()}
+    pool = list(groups)
+    for hours in (18, 48):
+        cut, recent = now - datetime.timedelta(hours=hours), []
+        for k in groups:
+            dt = _parse_dt(newest[k])
+            if dt and cut <= dt <= now + datetime.timedelta(minutes=5):
+                recent.append(k)
+        if len(recent) >= FIRST_HERO:
+            pool = recent
+            break
+    keep = set(sorted(pool, key=lambda k: (weight[k], newest[k]), reverse=True)[:FIRST_RANKED])
+    keep.update(sorted(groups, key=lambda k: newest[k], reverse=True)[:FIRST_NEWEST])
+    return [a for a in articles if a.get("category") == "prezident" or key(a) in keep]
+
+
+def write_first(articles, stamp):
+    """first.json: ilk ekranın sətirləri və onların og şəkilləri. Bütöv og.json ekran çəkiləndən sonra gəlir."""
+    rows, og = first_screen_rows(articles), _read_json(OG_FILE, {})
+    urls = {u for a in rows for u in [a.get("sourceUrl"), *[alt.get("sourceUrl") for alt in a.get("alts") or []]]}
+    images = {u: og[u] for u in urls if u in og}
+    _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
 def refresh_slow_feeds(limit_s=150):
@@ -2958,9 +3000,10 @@ _SECTION_HTML = """<!doctype html>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" />
+    <link rel="modulepreload" href="../../assets/app.js" />
     <link rel="stylesheet" href="../../assets/app.css" />
-    <script src="../../assets/config.js"></script>
-    <script src="../../assets/content-policy.js"></script>
+    <script src="../../assets/config.js" defer></script>
+    <script src="../../assets/content-policy.js" defer></script>
     <script type="module" src="../../assets/app.js"></script>
     <!-- Resurslar yuxarıda nisbi yolla yükləndi; tətbiq kök ünvanda işləyir, ona görə ünvan kökə keçirilir -->
     <script>history.replaceState(null, "", new URL("../../#/bolme/__SLUG__", location.href));</script>
@@ -3631,6 +3674,10 @@ def main(fast=False):
     }
     OUT_DIR.mkdir(exist_ok=True)
     # yığcam JSON: repo ölçüsünün böyüməsini azaldır
+    try:  # QIRMIZI XƏTT 1: bu fayl alınmasa sayt tam lentlə açılır, xəbər axını dayanmır
+        write_first(articles, data["updatedAt"])
+    except Exception as e:
+        print("  ! first.json:", type(e).__name__, flush=True)
     _write_atomic(OUT_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     if not fast:
         try:
