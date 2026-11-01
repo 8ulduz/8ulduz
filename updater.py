@@ -2671,7 +2671,7 @@ def update_football():
 
 # Komanda səhifələri (#/komanda/<liga>/<ad>). Məlumat ayrı fayllardadır (data/futbol/), yalnız o səhifə açılanda yüklənir və
 # yalnız slow_cycle-da yazılır: baş səhifəyə də, 60 saniyəlik dövrəyə də ağırlıq gətirmir.
-# Yalnız Azərbaycan liqaları: dünya liqalarının təqvimi üçün mənbə hələ yoxdur (ESPN bizi 403 ilə rədd edir, blok yan keçilmir).
+# Dünya liqalarının cədvəli sports.json-dan, Bundesliqa və Çempionlar Liqasının oyunları OpenLigaDB-dən (aşağıda). ESPN bizi 403 ilə rədd edir, blok yan keçilmir.
 # Heyət yoxdur: pfl.az-ın /clubs cavabında «players» bütün klublarda boşdur, bəzilərində yalnız PDF var (2026-11-01).
 TEAM_DIR = OUT_DIR / "futbol"
 TEAM_EVERY = datetime.timedelta(minutes=30)
@@ -2782,17 +2782,246 @@ def _team_when(s):
         return None
     return t if t.tzinfo else None
 
-def _team_due(doc, checked, now_dt):
+def _team_due(doc, checked, now_dt, every=TEAM_EVERY, live_every=TEAM_EVERY_LIVE, window=TEAM_LIVE_WINDOW):
     last = _team_when(checked)
-    if last is None or now_dt - last >= TEAM_EVERY:
+    if last is None or now_dt - last >= every:
         return True
-    if now_dt - last < TEAM_EVERY_LIVE:
+    if now_dt - last < live_every:
         return False
     for g in doc.get("games") or []:
         kick = _team_when(g.get("date"))
-        if kick and not g.get("played") and kick <= now_dt <= kick + TEAM_LIVE_WINDOW:
+        if kick and not g.get("played") and kick <= now_dt <= kick + window:
             return True
     return False
+
+# OpenLigaDB: Bundesliqa və Çempionlar Liqasının oyunları. Məlumat ODbL 1.0-dır, açar lazım deyil. Şərtləri (openligadb.de/lizenz, /nutzungsbedingungen, 2026-11-01-də oxunub):
+# - mənbə səhifədə göstərilir (doc["source"]); TeamIconUrl və gerblər lisenziyaya daxil deyil, ona görə götürülmür;
+# - sakit vaxtda gündə bir neçə sorğu, oyun gedəndə əvvəl ucuz getlastchangedate, 429/5xx-də artan gözləmə, tanınan User-Agent;
+# - bu addım yavaş dövrənin sonundadır, başlama vaxtı onsuz da tam dəqiqəyə düşmür.
+# Canlı hesab göstərilmir: mənbənin özü oyun gedəndə gecikmə və səhvin olduğunu yazır. Nəticə oyun bitəndən sonra çıxır.
+OPENLIGA_API = "https://api.openligadb.de"
+OPENLIGA_UA = "8ulduz.az/1.0 (+https://8ulduz.az; https://github.com/8ulduz/8ulduz/issues)"
+OPENLIGA_SOURCE = {"source": "OpenLigaDB (www.openligadb.de), ODbL 1.0 lisenziyası", "source_url": "https://www.openligadb.de/"}
+OPENLIGA_DUE = {"every": datetime.timedelta(hours=6), "live_every": datetime.timedelta(0), "window": datetime.timedelta(hours=4)}
+OPENLIGA_WAIT = datetime.timedelta(minutes=10)
+OPENLIGA_WAIT_MAX = datetime.timedelta(hours=6)
+_OPENLIGA_LEAGUES = {"almaniya": "bl1", "cl": "ucl"}  # team_world_league-in id-si -> OpenLigaDB qısaltması
+# OpenLigaDB teamId -> (sports.json-dakı ad, heyət üçün Vikipediya səhifəsi). Ünvan bu addan gəlir, cədvəlin klubu ilə eyni olur; Sabah həm Premyer Liqada, həm ÇL-dədir.
+# Siyahıda olmayan komanda mənbənin adı ilə görünür, heyəti olmur. Eyni klubun mövsümlərə görə id-si fərqli ola bilər (Atlético, PSG, Napoli, Villarreal).
+_OPENLIGA_CLUBS = {
+    40: ("Bayern Munich", "FC Bayern Munich"), 16: ("VfB Stuttgart", "VfB Stuttgart"), 1635: ("RB Leipzig", "RB Leipzig"), 87: ("Borussia Mönchengladbach", "Borussia Mönchengladbach"),
+    81: ("Mainz 05", "1. FSV Mainz 05"), 31: ("SC Paderborn", "SC Paderborn 07"), 80: ("Union Berlin", "1. FC Union Berlin"), 91: ("Eintracht Frankfurt", "Eintracht Frankfurt"),
+    65: ("1. FC Köln", "1. FC Köln"), 175: ("TSG Hoffenheim", "TSG 1899 Hoffenheim"), 198: ("SV Elversberg", "SV Elversberg"), 6: ("Bayer Leverkusen", "Bayer 04 Leverkusen"),
+    7: ("Borussia Dortmund", "Borussia Dortmund"), 100: ("Hamburger SV", "Hamburger SV"), 112: ("SC Freiburg", "SC Freiburg"), 134: ("Werder Bremen", "SV Werder Bremen"),
+    95: ("FC Augsburg", "FC Augsburg"), 9: ("Schalke 04", "FC Schalke 04"), 1210: ("Club Brugge", "Club Brugge KV"), 438: ("Aston Villa", "Aston Villa F.C."),
+    1217: ("AEK Athens", "AEK Athens F.C."), 5139: ("LASK", "LASK"), 1133: ("Real Madrid", "Real Madrid CF"), 733: ("Inter Milan", "Inter Milan"), 375: ("Porto", "FC Porto"),
+    4244: ("Manchester City", "Manchester City F.C."), 382: ("Villarreal", "Villarreal CF"), 4200: ("Villarreal", "Villarreal CF"), 1204: ("Lille", "Lille OSC"), 1804: ("Real Betis", "Real Betis"),
+    356: ("Barcelona", "FC Barcelona"), 1770: ("Feyenoord", "Feyenoord"), 1484: ("Viking", "Viking FK"), 370: ("Liverpool", "Liverpool F.C."), 4241: ("Atlético Madrid", "Atlético Madrid"),
+    2549: ("Atlético Madrid", "Atlético Madrid"), 2281: ("Paris Saint-Germain", "Paris Saint-Germain F.C."), 4363: ("Paris Saint-Germain", "Paris Saint-Germain F.C."),
+    5699: ("Slovan Bratislava", "ŠK Slovan Bratislava"), 2331: ("Napoli", "SSC Napoli"), 1160: ("Napoli", "SSC Napoli"), 2617: ("Arsenal", "Arsenal F.C."), 1205: ("Sporting CP", "Sporting CP"),
+    2554: ("Galatasaray", "Galatasaray S.K. (football)"), 376: ("PSV Eindhoven", "PSV Eindhoven"), 1186: ("Shakhtar Donetsk", "FC Shakhtar Donetsk"), 366: ("Fenerbahçe", "Fenerbahçe S.K. (football)"),
+    378: ("Roma", "AS Roma"), 5707: ("Bodø/Glimt", "FK Bodø/Glimt"), 2556: ("Manchester United", "Manchester United F.C."), 8798: ("Sabah", ""), 8787: ("Como", "Como 1907"),
+    4578: ("Slavia Prague", "SK Slavia Prague"), 5962: ("Lens", "RC Lens"),
+    # Yalnız keçmiş mövsümlərdə olanlar: adları almanca görünməsin.
+    4458: ("Qarabağ", ""), 1135: ("Athletic Bilbao", ""), 4825: ("Union Saint-Gilloise", ""), 2557: ("Marseille", ""), 369: ("Juventus", ""), 1179: ("Benfica", ""), 2559: ("Tottenham Hotspur", ""),
+    436: ("Olympiacos", ""), 7081: ("Pafos", ""), 364: ("Chelsea", ""), 455: ("Ajax", ""), 1807: ("Atalanta", ""), 453: ("Copenhagen", ""), 2547: ("Monaco", ""), 1075: ("Newcastle United", ""),
+    7082: ("Kairat", ""), 199: ("1. FC Heidenheim", ""), 131: ("VfL Wolfsburg", ""), 98: ("FC St. Pauli", ""),
+}
+_OPENLIGA_ROUNDS = (("Achtelfinale", "1/8 final"), ("Viertelfinale", "1/4 final"), ("Halbfinale", "Yarımfinal"), ("Finale", "Final"), ("Playoffs", "Pley-off"))
+
+def _openliga_json(path):
+    return json.loads(fetch(f"{OPENLIGA_API}/{path}", timeout=15, headers={"User-Agent": OPENLIGA_UA, "Accept": "application/json"}).decode("utf-8"))
+
+def _openliga_round(group):
+    """Tur nömrəsi və ya pley-off mərhələsi. Tanınmayan almanca ad sayta çıxmır."""
+    name = str(group.get("groupName") or "")
+    if "Spieltag" in name:
+        return str(group.get("groupOrderID") or "")
+    for german, az in _OPENLIGA_ROUNDS:
+        if german in name:
+            return az + (", 1-ci oyun" if "Hinspiel" in name else ", cavab oyunu" if "Rückspiel" in name else "")
+    return ""
+
+def _openliga_score(match):
+    """(ev, qonaq, penalti) və ya None. Bitməyən oyunun hesabı götürülmür."""
+    results = {r.get("resultTypeKind"): r for r in match.get("matchResults") or []}
+    end = results.get("AfterExtraTime") or results.get("After90Minutes")
+    if not match.get("matchIsFinished") or not end:
+        return None
+    pen = results.get("AfterPenalties")
+    return end.get("pointsTeam1"), end.get("pointsTeam2"), f"{pen.get('pointsTeam1')}:{pen.get('pointsTeam2')}" if pen else ""
+
+def parse_openliga(matches):
+    """OpenLigaDB getmatchdata -> (komandalar, oyunlar). Loqo götürülmür: lisenziyaya daxil deyil."""
+    teams, games = {}, []
+    for m in matches:
+        sides = []
+        for team in (m.get("team1") or {}, m.get("team2") or {}):
+            name = _OPENLIGA_CLUBS.get(team.get("teamId"), (str(team.get("teamName") or "").strip(),))[0]
+            slug = team_slug(name)
+            if slug:
+                teams[slug] = {"name": name, "logo": ""}
+                sides.append(slug)
+        if len(sides) < 2:
+            continue  # püşk hələ atılmayıb
+        group = m.get("group") or {}
+        game = {"date": str(m.get("matchDateTimeUTC") or "").replace("Z", "+00:00"), "home": sides[0], "away": sides[1], "played": False,
+                "round": _openliga_round(group), "g": group.get("groupOrderID")}
+        score = _openliga_score(m)
+        if score:
+            game.update(played=True, hs=score[0], **{"as": score[1]})
+            if score[2]:
+                game["pen"] = score[2]
+        games.append(game)
+    games.sort(key=lambda g: g["date"] or "9999")
+    return teams, games
+
+def openliga_table(teams, games):
+    """Turnir cədvəli liqa turlarının oyunlarından (pley-off sayılmır). Sıra: xal, qol fərqi, vurulan qol, səfərdə vurulan qol, qələbə, səfər qələbəsi, ad."""
+    rows, away = {}, collections.defaultdict(lambda: [0, 0])
+    for g in games:
+        if not g["round"].isdigit():
+            continue
+        for side in (g["home"], g["away"]):
+            rows.setdefault(side, {"team": side, "p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "gd": 0, "pts": 0})
+        if not g["played"]:
+            continue
+        for side, mine, other in ((g["home"], g["hs"], g["as"]), (g["away"], g["as"], g["hs"])):
+            row = rows[side]
+            won = "w" if mine > other else "l" if mine < other else "d"
+            row["p"] += 1
+            row[won] += 1
+            row["gf"] += mine
+            row["ga"] += other
+            row["gd"] += mine - other
+            row["pts"] += {"w": 3, "d": 1, "l": 0}[won]
+        away[g["away"]][0] += g["as"]
+        away[g["away"]][1] += g["as"] > g["hs"]
+    ordered = sorted(rows.values(), key=lambda r: (-r["pts"], -r["gd"], -r["gf"], -away[r["team"]][0], -r["w"], -away[r["team"]][1], teams.get(r["team"], {}).get("name", r["team"])))
+    for pos, row in enumerate(ordered, 1):
+        row["pos"] = pos
+    return ordered
+
+def team_world_with_games(doc, teams, games):
+    """sports.json sənədinə oyunlar. Cədvəl Vikipediyadan qalır; OpenLigaDB-də daha çox oyun varsa və klublar üst-üstə düşürsə oyunlardan
+    hesablanır, zona qeydləri yerin yanında qalır. Beləcə tur bitəndə nəticə ilə cədvəl bir-birini danmır."""
+    merged = dict(doc, **OPENLIGA_SOURCE, teams={**teams, **doc["teams"]}, games=games)
+    rows = doc["groups"][0]["rows"] if len(doc["groups"]) == 1 else []
+    table = openliga_table(merged["teams"], games)
+    if {r["team"] for r in table} == {r["team"] for r in rows} and sum(r["p"] for r in table) > sum(r.get("p", 0) for r in rows):
+        zones = {r.get("pos"): {k: r[k] for k in ("note", "color") if k in r} for r in rows}
+        merged["groups"] = [{"name": doc["groups"][0].get("name") or "", "rows": [dict(r, **zones.get(r["pos"], {})) for r in table]}]
+        merged["asof"] = max(g["date"][:10] for g in games if g["played"])
+    return merged
+
+def _openliga_stamps(shortcut, key, games, now_dt):
+    """Oyun gedən turların son dəyişmə vaxtı: dəyişməyibsə tam siyahı istənmir (mənbənin xahişi)."""
+    groups = set()
+    for g in games:
+        kick = _team_when(g.get("date"))
+        if kick and g.get("g") and not g.get("played") and kick <= now_dt <= kick + OPENLIGA_DUE["window"]:
+            groups.add(g["g"])
+    return {str(g): _openliga_json(f"getlastchangedate/{shortcut}/{key}/{g}") for g in sorted(groups)}
+
+def _openliga_refresh(shortcut, key, current, mine, now_dt):
+    """(komandalar, oyunlar) və ya None (faylda olan qalır). mine: bu liqanın yoxlama vəziyyəti, index.json-da saxlanır."""
+    games = current.get("games") or []
+    if (_team_when(mine.get("until")) or now_dt) > now_dt or not _team_due({"games": games}, mine.get("checked"), now_dt, **OPENLIGA_DUE):
+        return None
+    last = _team_when(mine.get("checked"))
+    mine["checked"] = now_dt.isoformat(timespec="seconds")
+    try:
+        # Oyun gedəndə yoxlama tez-tez olur: əvvəl turun son dəyişmə vaxtı, tam siyahı yalnız dəyişibsə.
+        seen = _openliga_stamps(shortcut, key, games, now_dt) if games and last and now_dt - last < OPENLIGA_DUE["every"] else {}
+        if seen and seen == mine.get("changed"):
+            return None
+        matches = _openliga_json(f"getmatchdata/{shortcut}/{key}")
+    except Exception as e:
+        print(f"  ! OpenLigaDB {shortcut}:", type(e).__name__)
+        tries = mine.get("n", 0)
+        mine.update(n=tries + 1, until=(now_dt + min(OPENLIGA_WAIT * 2 ** tries, OPENLIGA_WAIT_MAX)).isoformat(timespec="seconds"))
+        return None
+    mine.pop("n", None)
+    mine.pop("until", None)
+    mine["changed"] = seen
+    return parse_openliga(matches) if matches else None
+
+def _openliga_past(doc, shortcut, key):
+    """Keçmiş mövsümün faylı. Mənbədə həmin mövsüm yoxdursa _NoTeamData."""
+    matches = _openliga_json(f"getmatchdata/{shortcut}/{key}")
+    if not matches:
+        raise _NoTeamData("məlumat boşdur")
+    teams, games = parse_openliga(matches)
+    return {"id": doc["id"], "name": doc["name"], "short": doc["short"], "sport": doc.get("sport") or "football", **OPENLIGA_SOURCE, "key": key,
+            "season": f"{key}/{(int(key) + 1) % 100:02d}", "teams": teams, "groups": [{"name": "", "rows": openliga_table(teams, games)}], "games": games}
+
+# Heyət: ingilis Vikipediyası (CC BY-SA 4.0, səhifədə keçidlə göstərilir). Yalnız əsas heyət bloku: icarədəkilər və gənclər ayrı başlıqdadır.
+# Sayı ağlabatan deyilsə yazılmır: şübhəli siyahıdansa tabın olmaması yaxşıdır. Azərbaycan klublarının Vikipediya keçidi yoxdur.
+WIKI_SQUAD_EVERY = datetime.timedelta(days=7)
+WIKI_SQUAD_RETRY = datetime.timedelta(days=1)
+WIKI_SQUADS_PER_CYCLE = 4
+WIKI_SQUAD_SIZE = (15, 45)
+_WIKI_SQUAD_HEAD = re.compile(r"^(={2,4})\s*([^=\n]*?)\s*\1\s*$", re.M)
+_WIKI_SQUAD_ROW = re.compile(r"\{\{\s*(?:fs|fs2|football squad)\s*player\s*\|(.*?)\}\}(?:\s*\n|\s*(?=\{\{)|$)", re.I | re.S)
+
+def _wiki_cell(value):
+    value = re.sub(r"<ref.*?(?:</ref>|/>)", "", value, flags=re.S)
+    value = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", value)
+    return re.sub(r"\{\{[^{}]*\}\}", "", value).strip()
+
+def parse_wiki_squad(text):
+    """Klub səhifəsinin wikitext-i -> [{no, pos, name}]. Əsas heyət tapılmayanda və ya sayı ağlabatan olmayanda boş siyahı."""
+    heads = list(_WIKI_SQUAD_HEAD.finditer(text))
+    for i, head in enumerate(heads):
+        if not re.search(r"current squad|first[- ]team squad|^squad$|^players$|^first team$", head.group(2), re.I):
+            continue
+        block = text[head.end():heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+        block = re.split(r"\{\{\s*(?:fs|football squad)\s*end", block, maxsplit=1, flags=re.I)[0]  # ikinci cədvəl adətən icarədəkilərdir
+        rows = []
+        for m in _WIKI_SQUAD_ROW.finditer(block):
+            cells = {}
+            for part in re.split(r"\|(?![^\[\{]*[\]\}])", m.group(1)):
+                if "=" in part:
+                    name, value = part.split("=", 1)
+                    cells[name.strip().lower()] = value.strip()
+            name, pos = _wiki_cell(cells.get("name", "")), _wiki_cell(cells.get("pos", "")).lower()
+            if name and pos in ("gk", "df", "mf", "fw"):
+                rows.append({"no": _wiki_cell(cells.get("no", "")), "pos": pos, "name": name})
+        if rows:
+            return rows if WIKI_SQUAD_SIZE[0] <= len(rows) <= WIKI_SQUAD_SIZE[1] else []
+    return []
+
+def update_team_squads(league_ids, out_of_time, now_dt):
+    """data/futbol/heyet-<liga>.json. Dövrədə bir neçə klub, hər klub həftədə bir; eyni klub iki yarışdadırsa bir dəfə soruşulur.
+    Alınmayan klubun köhnə heyəti qalır. Nəticə: {liga: heyəti olan komandalar}."""
+    stamps = _read_json(TEAM_DIR / "heyet-yoxlama.json", {})
+    titles = {team_slug(name): wiki for name, wiki in _OPENLIGA_CLUBS.values() if wiki}
+    pool = {slug: team for league in league_ids for slug, team in (_read_json(TEAM_DIR / f"heyet-{league}.json", {}).get("teams") or {}).items()}
+    members = {league: [slug for slug in _read_json(TEAM_DIR / f"{league}.json", {}).get("teams") or {} if slug in titles] for league in league_ids}
+    def asked_at(slug):
+        return _team_when(stamps.get(slug)) or now_dt - WIKI_SQUAD_EVERY
+    wanted = sorted({slug for slugs in members.values() for slug in slugs if now_dt - asked_at(slug) >= WIKI_SQUAD_EVERY}, key=asked_at)
+    for slug in wanted[:WIKI_SQUADS_PER_CYCLE]:
+        if out_of_time():
+            break
+        stamps[slug] = now_dt.isoformat(timespec="seconds")
+        query = urllib.parse.urlencode({"action": "parse", "prop": "wikitext", "redirects": 1, "page": titles[slug]})
+        try:
+            rows = parse_wiki_squad(_wiki_api(query)["parse"]["wikitext"])
+        except Exception as e:
+            print(f"  ! heyət {slug}:", type(e).__name__)
+            stamps[slug] = (now_dt - WIKI_SQUAD_EVERY + WIKI_SQUAD_RETRY).isoformat(timespec="seconds")
+            continue
+        if rows:
+            pool[slug] = {"players": rows, "wiki": titles[slug]}
+    ready = {}
+    for league, slugs in members.items():
+        teams = {slug: pool[slug] for slug in slugs if slug in pool}
+        if teams:
+            _write_if_changed(TEAM_DIR / f"heyet-{league}.json", {"source": "Vikipediya, CC BY-SA 4.0", "teams": teams})
+        ready[league] = sorted(teams)
+    _write_if_changed(TEAM_DIR / "heyet-yoxlama.json", stamps)
+    return ready
 
 def update_team_pages():
     """Komanda səhifələrinin faylları: hər liqa üçün data/futbol/<liga>.json (cədvəl və mövsümün bütün oyunları), keçmiş mövsümlər
@@ -2806,6 +3035,7 @@ def update_team_pages():
     checked = index.get("checked") or {}
     known = {l.get("id"): l for l in index.get("leagues") or []}
     empty = set(index.get("empty") or [])
+    openliga = index.get("openliga") or {}
     sources = _team_sources()
     fresh = 0
     for spec in sources:
@@ -2849,16 +3079,42 @@ def update_team_pages():
             # Seçicidə yalnız faylı olan mövsüm.
             ready = [x for i, x in enumerate(league["seasons"]) if i == 0 or (TEAM_DIR / f"{spec['id']}-{x['key']}.json").exists()]
             leagues.append(dict(league, ready=ready))
+    world_rows = []
     for world in _read_json(SPORTS_FILE, {}).get("leagues") or []:
         doc = team_world_league(world)
         if not doc["groups"]:
             continue
-        _write_if_changed(TEAM_DIR / f"{doc['id']}.json", doc)
         checked[doc["id"]] = world.get("at") or now
         seasons = [{"key": doc["key"], "label": doc["season"]}]
-        leagues.append({"id": doc["id"], "name": doc["name"], "short": doc["short"], "source": doc["source"], "sport": doc["sport"], "seasons": seasons, "ready": seasons,
-                        "teams": [r["team"] for g in doc["groups"] for r in g["rows"]]})
-    _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty)})
+        ready = seasons
+        shortcut = _OPENLIGA_LEAGUES.get(doc["id"])
+        if shortcut:
+            current = _read_json(TEAM_DIR / f"{doc['id']}.json", {})
+            mine = openliga.setdefault(doc["id"], {})
+            fetched = None if out_of_time() else _openliga_refresh(shortcut, doc["key"], current, mine, now_dt)
+            teams, games = fetched or (current.get("teams") or {}, current.get("games") or [])
+            if games:
+                doc = team_world_with_games(doc, teams, games)
+                checked[doc["id"]] = mine.get("checked") or now
+                seasons = seasons + [{"key": str(y), "label": f"{y}/{(y + 1) % 100:02d}"} for y in range(int(doc["key"]) - 1, int(doc["key"]) - TEAM_PAST_SEASONS - 1, -1)]
+                for season in seasons[1:]:
+                    name = f"{doc['id']}-{season['key']}"
+                    if out_of_time() or past >= TEAM_PAST_PER_CYCLE or name in empty or "until" in mine or (TEAM_DIR / f"{name}.json").exists():
+                        continue
+                    past += 1
+                    try:
+                        _write_if_changed(TEAM_DIR / f"{name}.json", _openliga_past(doc, shortcut, season["key"]))
+                    except _NoTeamData:
+                        empty.add(name)
+                    except Exception as e:
+                        print(f"  ! komanda {name}:", type(e).__name__)
+                ready = [x for i, x in enumerate(seasons) if i == 0 or (TEAM_DIR / f"{doc['id']}-{x['key']}.json").exists()]
+        _write_if_changed(TEAM_DIR / f"{doc['id']}.json", doc)
+        world_rows.append({"id": doc["id"], "name": doc["name"], "short": doc["short"], "source": doc["source"], "sport": doc["sport"], "seasons": seasons, "ready": ready,
+                           "teams": [r["team"] for g in doc["groups"] for r in g["rows"]]})
+    squads = update_team_squads([x["id"] for x in world_rows if x["id"] in _OPENLIGA_LEAGUES], out_of_time, now_dt)
+    leagues += [dict(x, heyet=squads[x["id"]]) if squads.get(x["id"]) else x for x in world_rows]
+    _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty), "openliga": openliga})
     print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {time.monotonic() - started:.1f} s")
 
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
