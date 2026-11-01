@@ -252,7 +252,12 @@ main>.wrap>section{margin-bottom:18px}
 .prez-h h2{margin:0;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;gap:5px;white-space:nowrap}
 .prez-h h2 svg{color:var(--primary);width:14px;height:14px}
 .prez-h .cnt{font-size:11px;white-space:nowrap}
-.prez-h .links{display:flex;gap:8px;font-size:11px;color:var(--muted);min-width:0;overflow:hidden}
+.prez-n{flex:none;display:inline-flex;align-items:baseline;gap:3px;padding:1px 7px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:10.5px;font-weight:700;white-space:nowrap}
+.prez-n b{font-size:16px;line-height:1.25;font-weight:900}
+.prez-short{display:none}
+/* Dar ekranda başlıq qısalır: düymə kənara çıxmasın */
+@media(max-width:420px),(min-width:901px){.prez-long{display:none}.prez-short{display:inline}}
+.prez-h .links{display:none}
 .prez-h .links a{white-space:nowrap}
 .prez-h .links a:hover{color:var(--primary);text-decoration:underline}
 .prez-h .btn{margin-left:auto;padding:2px 9px;font-size:11px;flex:none}
