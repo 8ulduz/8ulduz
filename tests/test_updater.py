@@ -621,7 +621,7 @@ class TeamPagesTest(unittest.TestCase):
         self.assertTrue(updater._team_due(quiet, ago(31), now))
 
     def run_step(self, tmp, fetch):
-        with patch.object(updater, "TEAM_DIR", pathlib.Path(tmp) / "futbol"), patch.object(updater, "_pfl_json", fetch), contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(updater, "TEAM_DIR", pathlib.Path(tmp) / "futbol"), patch.object(updater, "SPORTS_FILE", pathlib.Path(tmp) / "sports.json"), patch.object(updater, "_pfl_json", fetch), contextlib.redirect_stdout(io.StringIO()):
             updater.update_team_pages()
         return json.loads((pathlib.Path(tmp) / "futbol" / "index.json").read_text(encoding="utf-8"))
 
