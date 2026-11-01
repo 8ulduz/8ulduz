@@ -83,7 +83,7 @@ AZ_FEEDS = [
     ("Bakupost",     "https://www.bakupost.az/rss"),
     ("Banker.az",    "https://banker.az/feed/", "İqtisadiyyat"),
     # Dövlət və iqtidar saytları (Zuğulba xronikası üçün də): RSS-i olmayanlar HTML səhifə ilə oxunur (PAGE_PARSERS),
-    # Baku TV Google News sitemap-ı ilə. Caliber.az (yalnız rus/ingilis, Yandex Turbo lenti) və Baku.ws (GitHub-dan 403) yoxdur.
+    # Baku TV Google News sitemap-ı ilə. Caliber.az (yalnız rus/ingilis, Yandex Turbo lenti) yoxdur.
     ("Cross Media",  "https://crossmedia.az/az/all-news"),
     ("Xalq qəzeti",  "https://xalqqazeti.az/az"),
     ("Yeni Azərbaycan", "https://yeniazerbaycan.com/"),
@@ -121,6 +121,9 @@ AZ_FEEDS = [
     ("Nocomment.az", "https://nocomment.az/feed"),
     ("Mia.az",       "https://mia.az/feed"),
     ("Aia.az",       "https://aia.az/rss.xml"),
+    ("Oxu24.com",    "https://oxu24.com/sitemap-news.xml"),  # /feed 2 MB-dır, bu 70 KB
+    ("Baku.ws",      "https://baku.ws/rss"),
+    ("Naxçıvan Xəbərləri", "https://naxcivanxeberleri.az/"),
 ]
 # Xarici mənbələr: (ad, url, dil[, kateqoriya ipucu])
 WORLD_FEEDS = [
@@ -128,6 +131,7 @@ WORLD_FEEDS = [
     ("Al Jazeera",   "https://www.aljazeera.com/xml/rss/all.xml",             "en"),
     ("Daily Sabah",  "https://www.dailysabah.com/rss/all",                    "en"),
     ("Euronews",     "https://www.euronews.com/rss",                          "en"),
+    ("DW",           "https://rss.dw.com/xml/rss-en-all",                     "en"),
     ("Hürriyet",     "https://www.hurriyet.com.tr/rss/anasayfa",              "tr"),
     ("Sabah TR",     "https://www.sabah.com.tr/rss/anasayfa.xml",             "tr"),
     ("Habertürk",    "https://www.haberturk.com/rss",                         "tr"),
@@ -159,6 +163,7 @@ WORLD_FEEDS = [
     ("BBC Tennis",   "https://feeds.bbci.co.uk/sport/tennis/rss.xml",         "en", "İdman"),
     ("MMA Fighting", "https://www.mmafighting.com/rss/index.xml",             "en", "İdman"),
     ("Chess.com",    "https://www.chess.com/rss/news",                        "en", "İdman"),
+    ("Sports.kz",    "https://www.sports.kz/rss",                             "ru", "İdman"),
 ]
 FEEDS = [(f[0], f[1], "az", f[2] if len(f) > 2 else None) for f in AZ_FEEDS] + \
         [(f[0], f[1], f[2], f[3] if len(f) > 3 else None) for f in WORLD_FEEDS]
@@ -523,7 +528,7 @@ def parse_news_sitemap(root, limit=80):
         img = (url.findtext(f"{_IMG_NS}image/{_IMG_NS}loc") or "").strip()
         if not (link and title):
             continue
-        items.append({"title": html.unescape(title), "link": link, "description": "", "pubDate": pub,
+        items.append({"title": html.unescape(title).strip(), "link": link, "description": "", "pubDate": pub,
                       "author": "", "image": _abs_img(img, link) if img else None})
         if len(items) >= limit:
             break
@@ -1207,7 +1212,8 @@ def fetch_feed_fast(feed, old=None):
 # Dövlət saytları xarici şəbəkəyə gah açılır, gah 12 saniyə susur (2026-10-31 ölçülüb). Rayon xəbəri dəqiqə gözləyə bilər,
 # xəbər axını isə onları gözləməməlidir: bu lentlər yalnız yavaş dövrədə oxunur, sürətli dövrə onların son nəticəsini götürür.
 # Narnews, Cenub, Region Plus və Qarabağ Media gündə bir neçə dəfədən az yazır: dəqiqəlik oxumağa dəyməz, risk də olmasın.
-SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"}
+# Naxçıvan Xəbərlərinin lenti yoxdur, ana səhifəsi 244 KB-dır.
+SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media", "Naxçıvan Xəbərləri"}
 
 LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
@@ -1960,7 +1966,14 @@ _LIST_DATE = re.compile(r"(?:\d{1,2}:\d{2}\s+)?\d{1,2}[.]\d{1,2}[.]20\d{2}|\d{1,
                         r"|[a-zəöüğışçA-ZƏÖÜĞİŞÇ]+\s+\d{1,2},\s+20\d{2}(?:\s+\d{1,2}:\d{2})?")
 
 def _list_date(raw):
-    """«Oktyabr 31, 2026 11:00» (sosial.gov.az) parse_az_date-in bildiyi sıraya çevrilir."""
+    """«Oktyabr 31, 2026 11:00» (sosial.gov.az) və «Bu gün, 17:00», «Dünən,22:00», «30-10-2026» (Naxçıvan Xəbərləri) parse_az_date-in bildiyi sıraya çevrilir."""
+    near = re.fullmatch(r"(bu gün|dünən)\s*,?\s*(\d{1,2}:\d{2})", raw.strip().lower())
+    if near:
+        day = datetime.datetime.now(BAKU) - datetime.timedelta(days=near.group(1) == "dünən")
+        return parse_az_date(f"{day:%d.%m.%Y} {near.group(2)}")
+    dashed = re.fullmatch(r"(\d{2})-(\d{2})-(20\d{2})", raw.strip())
+    if dashed:
+        return parse_az_date(".".join(dashed.groups()))
     iso = re.fullmatch(r"(20\d{2})-(\d{2})-(\d{2})[T ](\d{2}:\d{2}).*", raw.strip())
     if iso:
         return parse_az_date(f"{iso.group(3)}.{iso.group(2)}.{iso.group(1)} {iso.group(4)}")
@@ -2026,6 +2039,7 @@ _CARD_SITES = {
     "https://gencexeber.az/butun-xeberler": (r'(?=<div class="post__item" data-date=)', r'href="([^"]+/butun-xeberler/[^"]+)"', r'itemprop="headline">(.*?)</span>', r'data-date="([^"]+)"'),
     "https://yurd.media/": (r'(?=<a href="[^"]+" class="news__item)', r'href="([^"]+)"', r'class="news__title">(.*?)</div>', _CARD_DATE),
     "https://regionplus.az/allnews": (r'(?=<div class="nn_item[ "])', r'href="(/posts/view/\d+)"', r'class="article_title">\s*<a[^>]+>(.*?)</a>', _CARD_DATE),
+    "https://naxcivanxeberleri.az/": (r'(?=<li>\s*<div class="thumb">)', r'href="([^"]+/bloq/[^"]+)"', r'<h4>\s*<a[^>]+>(.*?)</a>', r'class="meta">\s*<span[^>]*>([^<]+)</span>'),
 }
 
 _LIST_SITES = {

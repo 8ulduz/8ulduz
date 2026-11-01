@@ -1221,6 +1221,39 @@ class SectionPagesTest(unittest.TestCase):
         self.assertTrue({"Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media"} <= updater.SLOW_ONLY_FEEDS)
         self.assertFalse({"Gəncəxəbər", "Yurd.Media", "Gündəlik.az"} & updater.SLOW_ONLY_FEEDS)
 
+    def test_second_list_the_owner_named_is_registered(self):
+        for name in ["Oxu24.com", "Baku.ws", "Naxçıvan Xəbərləri", "DW", "Sports.kz"]:
+            self.assertTrue(updater.content_policy.source_registered(name), name)
+            self.assertIn(name, [f[0] for f in updater.FEEDS])
+        self.assertIn("Naxçıvan Xəbərləri", updater.SLOW_ONLY_FEEDS, "ana səhifə 244 KB-dır, dəqiqəlik oxunmur")
+        self.assertFalse({"Oxu24.com", "Baku.ws", "DW", "Sports.kz"} & updater.SLOW_ONLY_FEEDS)
+        self.assertNotIn("Oxu24.com", [f[0] for f in updater.WORLD_FEEDS])
+        policy = updater.content_policy
+        for source in ["DW", "Sports.kz"]:
+            self.assertIn(source, policy.WORLD_SOURCES)
+        self.assertTrue(policy.foreign_about_azerbaijan("DW", "dunya", "Aliyev visits Berlin"), "xarici mənbə Azərbaycandan yaza bilməz")
+        self.assertFalse(policy.foreign_about_azerbaijan("DW", "dunya", "Germany's economy grows"))
+        self.assertTrue(policy.foreign_about_azerbaijan("Sports.kz", "İdman", "Алиев вручил награду чемпиону"), "rəhbərlik adı keçən idman xəbəri də düşmür")
+
+    def test_naxcivan_cards_read_today_yesterday_and_plain_dates(self):
+        card = ('<li>\n    <div class="thumb">\n        <img style="width:105px" src="https://img.naxcivanxeberleri.az/blog/{0}.jpg" class="img-responsive">\n    </div>\n'
+                '    <h4>\n        <a href="https://naxcivanxeberleri.az/bloq/{0}">\n            Naxçıvanda yeni məktəb binası açılıb {0}\n            <span style="color: red"></span>\n        </a>\n    </h4>\n'
+                '    <div class="meta">\n        <span style="visibility:visible;">{1}</span>\n    </div>\n</li>\n')
+        page = '<a href="https://naxcivanxeberleri.az/kateqoriya/siyaset-2">Siyasət</a>' + card.format("a-1", "Bu gün, 17:00") + card.format("b-2", "Dünən,22:00") + card.format("c-3", "30-10-2026")
+        rows = updater.PAGE_PARSERS["https://naxcivanxeberleri.az/"](page)
+        self.assertEqual(len(rows), 3)
+        now = datetime.datetime.now(updater.BAKU)
+        self.assertEqual(rows[0]["title"], "Naxçıvanda yeni məktəb binası açılıb a-1")
+        self.assertTrue(rows[0]["pubDate"].startswith(updater._list_date(f"{now:%d.%m.%Y} 17:00")[:16]))
+        self.assertTrue(rows[1]["pubDate"].startswith(updater._list_date(f"{now - datetime.timedelta(days=1):%d.%m.%Y} 22:00")[:16]))
+        self.assertEqual(rows[2]["pubDate"], updater.parse_az_date("30.10.2026"))
+        self.assertEqual(rows[0]["image"], "https://img.naxcivanxeberleri.az/blog/a-1.jpg")
+
+    def test_news_sitemap_title_has_no_stray_space(self):
+        xml = ('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"><url><loc>https://oxu24.com/az/dunya/1/a</loc>'
+               '<news:news><news:publication_date>2026-11-01T17:00:00+04:00</news:publication_date><news:title>“Figaro”: Fransada xəbər&amp;nbsp;</news:title></news:news></url></urlset>').encode()
+        self.assertEqual(updater.parse_feed(xml)[0]["title"], "“Figaro”: Fransada xəbər")
+
     def test_sites_the_owner_named_are_registered(self):
         for name in ["Nocomment.az", "Mia.az", "Aia.az"]:
             self.assertTrue(updater.content_policy.source_registered(name), name)
