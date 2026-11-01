@@ -76,10 +76,10 @@ export async function answerCommand(text,snapshot,context={},providers={}) {
     const ageNote=stamp?` Məlumat: ${dateLabel(stamp)}.${within(stamp,24)?'':' Köhnəlmiş ola bilər.'}`:' Yenilənmə vaxtı göstərilməyib; cari vəziyyət təsdiqlənmir.';
     const standing=row.pts!=null?`${row.team}: ${league.league}, ${row.pos}-ci yer, ${row.pts} xal.`:`${row.team}: ${row.pos}-ci yer, ${row.w} qələbə, ${row.l} məğlubiyyət.`;
     const wantsLast=/son oyun|son matc|nece bit|hesab|netice/.test(intent.query);
-    if(!wantsLast)return reply(standing+ageNote,[],{links:[{title:league.source||'Turnir cədvəli',url:league.link||'https://www.espn.com/'}]});
+    if(!wantsLast)return reply(standing+ageNote,[],{links:[{title:league.source||'Turnir cədvəli',url:league.link||'https://en.wikipedia.org/'}]});
     const games=(league.results||[]).filter(g=>g.played&&[g.home,g.away].some(n=>teamAliases(n).some(a=>teamAliases(row.team).includes(a)))&&new Date(g.date).getTime()<=Date.now()).sort((a,b)=>new Date(b.date)-new Date(a.date));
     const game=games[0];
-    return reply((game?`Məlumatdakı son tamamlanmış oyun: ${game.home} ${game.hs} — ${game.as} ${game.away}. Tarix: ${dateLabel(game.date)}. `:'Bu komandanın son oyununun təsdiqlənmiş hesabı hazırkı məlumatda yoxdur. ')+standing+ageNote,[],{links:[{title:league.source||'İdman mənbəyi',url:league.link||'https://www.espn.com/'}]});
+    return reply((game?`Məlumatdakı son tamamlanmış oyun: ${game.home} ${game.hs} — ${game.as} ${game.away}. Tarix: ${dateLabel(game.date)}. `:'Bu komandanın son oyununun təsdiqlənmiş hesabı hazırkı məlumatda yoxdur. ')+standing+ageNote,[],{links:[{title:league.source||'İdman mənbəyi',url:league.link||'https://en.wikipedia.org/'}]});
   }
   if(intent.type==='weather'||intent.type==='prayer') {
     if(intent.unsupportedDate)return reply('İlk versiyada bu gün və sabah üçün məlumat verə bilirəm.');
