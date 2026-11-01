@@ -675,6 +675,7 @@ footer .logo img{height:28px}
   .fb-links{flex-direction:row;overflow-x:auto;scrollbar-width:none}
   .fb-links::-webkit-scrollbar{display:none}
   .fb-tab{flex:none}
+  .fb-table{min-width:0}
   .fb-table th:nth-child(7),.fb-table td:nth-child(7){display:none}
 }
 .foot .games{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
