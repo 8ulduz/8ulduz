@@ -2905,7 +2905,7 @@ def openliga_table(teams, games):
 # Dünya liqalarının oyunları: TheSportsDB-nin açıq API-si, tur-tur (eventsround). Açıq açar 123, hesab tələb etmir. Sənədinə görə dəqiqədə 30 sorğu,
 # amma ölçüdə (2026-11-01) təxminən 10 sorğudan sonra 429 qaytarır, ona görə dövrədə az soruşulur, 429-da dayanılır. Bütün mövsüm təxminən bir neçə saata dolur.
 TSDB_API = "https://www.thesportsdb.com/api/v1/json/123/eventsround.php"
-TSDB_SOURCE = {"source": "TheSportsDB (oyunlar), Vikipediya", "source_url": "https://www.thesportsdb.com/"}
+TSDB_SOURCE = {"source": "TheSportsDB", "source_url": "https://www.thesportsdb.com/"}
 # team_world_league-in id-si -> (TheSportsDB liqası, turlar). Kuboklarda liqa mərhələsi: pley-off turlarının nömrəsi başlayanda yoxlanmalıdır.
 TSDB_LEAGUES = {"ingiltere": (4328, 38), "ispaniya": (4335, 38), "italiya": (4332, 38), "fransa": (4334, 34), "turkiye": (4339, 34), "portuqaliya": (4344, 34), "hollandiya": (4337, 34),
                 "belcika": (4338, 30), "sotlandiya": (4330, 38), "rusiya": (4355, 30), "seudiyye": (4668, 34), "braziliya": (4351, 38), "abs": (4346, 34), "cempionsip": (4329, 46),
@@ -3314,7 +3314,7 @@ def update_team_pages():
             if games:
                 doc = team_world_with_games(doc, {}, games, TSDB_SOURCE)
         elif doc["id"] == "nba" and nba_games:
-            doc = team_world_with_games(doc, {}, nba_games, {"source": "Vikipediya", "source_url": doc["url"]})
+            doc = team_world_with_games(doc, {}, nba_games, {"source": "Vikipediya"})
         checked[doc["id"]] = world.get("at") or now
         seasons = [{"key": doc["key"], "label": doc["season"]}]
         ready = seasons

@@ -207,9 +207,9 @@ export function mountTeam(d) {
     const checked = index.doc.checked?.[league.id];
     const when = doc.asof ? asof(doc.asof) : "";
     const link = (url, text) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text);
-    const named = x => x.source_url ? `${link(x.source_url, x.source)}${x.url ? `, ${link(x.url, "Vikipediya")}` : ""}` : link(x.url, x.source);
+    const named = x => link(x.source_url || x.url, x.source);
     // Səhifədə göstərilən bütün yarışların mənbəyi: lisenziya bunu tələb edir.
-    const source = (list = [doc]) => `<p class="tm-src muted">Mənbə: ${[...new Map(list.map(x => [x.source, x])).values()].map(named).join(", ")}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
+    const source = (list = [doc]) => `<p class="tm-src muted">Mənbə: ${[...[...new Map(list.map(x => [x.source, x])).values()].map(named), ...list.filter(x => x.source_url && x.url).slice(0, 1).map(x => link(x.url, "Vikipediya"))].join(", ")}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
     const slug = r.team;
     if (!slug || !doc.teams?.[slug]) {
       // Komandasız ünvan və ya bu mövsüm liqada olmayan komanda: liqanın cədvəli.
