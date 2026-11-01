@@ -10,7 +10,9 @@ enum AppTab: Hashable {
 enum Route: Hashable {
     case article(Article)
     case section(String)
-    case markets, weather, prayer, football, videos, traffic, sources, settings, sectionEditor, about
+    case markets, weather, prayer, football, footballOverview, videos, traffic, sources, settings, sectionEditor, about
+    case league(id: String, season: String?)
+    case team(league: String, team: String, season: String?)
 }
 
 @MainActor
@@ -71,7 +73,7 @@ final class Router {
             let link = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "u" }?.value ?? ""
             if let id = parts.first { openArticle(id: id, url: link) }
         case "bolme":
-            if let slug = parts.first, Catalog.category(slug) != nil { show(.section(slug), in: .sections) }
+            if let slug = parts.first, Catalog.category(slug) != nil { show(.section(Catalog.canonical(slug)), in: .sections) }
         case "secilmis": tab = .saved
         case "axtar": focusSearch()
         case "bazar": show(.markets, in: .services)
@@ -123,7 +125,10 @@ struct RouteView: View {
         case .markets: MarketsView()
         case .weather: WeatherView()
         case .prayer: PrayerView()
-        case .football: FootballView()
+        case .football: LeagueHubView()
+        case .footballOverview: FootballView()
+        case .league(let id, let season): LeagueView(id: id, season: season)
+        case .team(let league, let team, let season): TeamView(leagueID: league, team: team, season: season)
         case .videos: VideosView()
         case .traffic: TrafficView()
         case .sources: SourcesView()

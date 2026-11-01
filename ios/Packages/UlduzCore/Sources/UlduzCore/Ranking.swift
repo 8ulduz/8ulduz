@@ -42,8 +42,12 @@ public enum Ranking {
         return out
     }
 
+    /// Karuseldə 15 kart; ilk 6-sı yalnız orada qalır, qalanları aşağıdakı siyahılarda da görünür (app.js `HERO_COUNT`, `HERO_ONLY`).
+    public static let heroCount = 15
+    public static let heroOnly = 6
+
     /// Son 18 saatın ən çox mənbədə çıxan xəbərləri; kifayət etməsə 48 saat, sonra bütün lent.
-    public static func heroPick(_ list: [Article], need: Int = 6, now: Date = Date()) -> [Article] {
+    public static func heroPick(_ list: [Article], need: Int = heroCount, now: Date = Date()) -> [Article] {
         for hours in [18.0, 48.0] {
             let cut = now.addingTimeInterval(-hours * hour)
             let limit = now.addingTimeInterval(5 * 60)
@@ -63,6 +67,12 @@ public enum Ranking {
         let t = TextTools.azLowercased(a.title)
         return firstLadyTerms.contains { t.contains($0) }
     }
+
+    /// Sahibin qərarı: blokda həmişə 44 xəbər (app.js `PREZ_COUNT`).
+    public static let prezCount = 44
+    // Lentə «prezident» sözü ilə yad xəbər də düşür: digər saytlardan yalnız adı keçən xəbər götürülür.
+    private static let ourLeaders = Rx("ilham|i̇lham|əliyev|aliyev|алиев|birinci xan|birinci vitse|prezident\\s+administ|azərbaycan\\s+prezident|dövlət başçı", caseInsensitive: true)
+    private static func aboutOurLeaders(_ a: Article) -> Bool { ourLeaders.test(a.title) || ourLeaders.test(a.summary) }
 
     /// Əsas blok: Prezident və Birinci xanım qrupları görünür, sıra ən yenidən köhnəyə (app.js `prezHome`).
     public static func prezHome(_ list: [Article], now: Date = Date()) -> [Article] {
@@ -89,7 +99,12 @@ public enum Ranking {
         let ladyHead = min(lady.count, head - presHead)
         let first = Array(president.prefix(presHead)) + Array(lady.prefix(ladyHead))
         let rest = Array(president.dropFirst(presHead)) + Array(lady.dropFirst(ladyHead))
-        return byDate(Array((first + rest).prefix(12)))
+        // Rəsmi və dövlət saytları 44-ü doldurmursa: əvvəl həmin saytların qalan xəbərləri, sonra digər saytlar.
+        // Yad xəbərlə doldurulmur: belə xəbər çatmasa say 44-dən az olar.
+        var chosen = Set((first + rest).map(\.id))
+        let ours = byDate(list.filter { $0.category == "prezident" && aboutOurLeaders($0) })
+        let fill = (byDate(prez) + ours).filter { chosen.insert($0.id).inserted }
+        return byDate(Array((first + rest + fill).prefix(prezCount)))
     }
 
     // MARK: - Axtarış
@@ -100,11 +115,21 @@ public enum Ranking {
     }
 
     /// Başlıq 3, xülasə və mənbə adı 1 xal; bütün sözlər varsa əlavə 5 xal (app.js `searchView`).
-    public static func search(_ query: String, in list: [Article]) -> [Article] {
+    public static func search(_ query: String, in list: [Article], language: String? = nil) -> [Article] {
         let words = searchWords(query)
         guard !words.isEmpty else { return [] }
+        let topics = Topics.searchTopics(query)
         var scored: [(article: Article, score: Int)] = []
         for a in list {
+            // Komanda axtarışı idman kimi bütün dillərdə, ən yenisi üstdə.
+            if !topics.isEmpty {
+                let text = TopicText(a)
+                if topics.contains(where: { Topics.matches(text, $0) }) {
+                    scored.append((a, 20))
+                    continue
+                }
+            }
+            if let language, !language.isEmpty, a.language != language { continue }
             let title = TextTools.fold(TextTools.decodeEntities(a.title))
             let altNames = a.alts.map(\.source).joined(separator: " ")
             let rest = TextTools.fold(TextTools.decodeEntities(a.summary + " " + a.source + " " + altNames))
@@ -121,43 +146,27 @@ public enum Ranking {
         return scored.sorted { $0.score != $1.score ? $0.score > $1.score : $0.article.publishedAt > $1.article.publishedAt }.map(\.article)
     }
 
-    // MARK: - Klublar
+    // MARK: - Bölmə
 
-    /// app.js `CLUBS` və `CLUB_EXTRA`.
-    public static let clubs: [(name: String, terms: [String])] = [
-        ("Qarabağ", ["qarabağ", "qarabag", "qarabakh", "карабах"]), ("Sabah", ["sabah fk", "sabah", "сабах"]),
-        ("Neftçi", ["neftçi", "neftci", "neftchi", "нефтчи"]), ("Turan", ["turan", "туран"]), ("Zirə", ["zirə", "zire", "зиря"]),
-        ("Sumqayıt", ["sumqayıt fk", "sumqayıt", "сумгаит"]), ("Araz", ["araz", "араз"]), ("Şamaxı", ["şamaxı fk", "şamaxı", "шамахы"]),
-        ("Galatasaray", ["galatasaray", "галатасарай"]), ("Fenerbahçe", ["fenerbahçe", "fenerbahce", "fenerbaxca", "фенербахче"]),
-        ("Beşiktaş", ["beşiktaş", "besiktas", "бешикташ"]), ("Trabzonspor", ["trabzonspor", "трабзонспор"]),
-        ("Başakşehir", ["başakşehir", "basaksehir", "башакшехир"]), ("Samsunspor", ["samsunspor", "самсунспор"]),
-        ("Man City", ["manchester city", "man city", "манчестер сити"]), ("Man United", ["manchester united", "man united", "манчестер юнайтед"]),
-        ("Liverpool", ["liverpool", "ливерпуль"]), ("Arsenal", ["arsenal", "арсенал"]), ("Chelsea", ["chelsea", "çelsi", "челси"]),
-        ("Tottenham", ["tottenham", "тоттенхэм"]), ("Newcastle", ["newcastle", "ньюкасл"]), ("Aston Villa", ["aston villa", "астон вилла"]),
-        ("Real Madrid", ["real madrid", "реал мадрид"]), ("Barcelona", ["barcelona", "barselona", "барселона"]),
-        ("Atletico", ["atletico", "atletiko", "атлетико"]), ("Sevilla", ["sevilla", "севилья"]), ("Villarreal", ["villarreal", "вильярреал"]),
-        ("Valencia", ["valencia", "валенсия"]), ("Bayern", ["bayern", "bavariya", "бавария"]), ("Dortmund", ["dortmund", "дортмунд"]),
-        ("Leverkusen", ["leverkusen", "леверкузен"]), ("Leipzig", ["leipzig", "лейпциг"]), ("Frankfurt", ["frankfurt", "франкфурт"]),
-        ("Juventus", ["juventus", "yuventus", "ювентус"]), ("Milan", ["milan", "милан"]), ("İnter", ["inter", "интер"]),
-        ("Napoli", ["napoli", "наполи"]), ("Roma", ["roma", "рома"]), ("Lazio", ["lazio", "лацио"]), ("Atalanta", ["atalanta", "аталанта"]),
-        ("PSG", ["psg", "paris saint", "псж", "paris saint germain"]), ("Marseille", ["marseille", "marsel", "марсель"]), ("Lyon", ["lyon", "лион"]),
-        ("Monaco", ["monaco", "монако"]), ("Lille", ["lille", "лилль"]), ("Ajax", ["ajax", "аякс"]), ("Porto", ["porto", "порту"]),
-        ("Benfica", ["benfica", "бенфика"]), ("Sporting", ["sporting", "спортинг"]), ("Celtic", ["celtic", "селтик"]),
-    ]
-
-    // Sözün əvvəli və şəkilçisi nəzərə alınır (Qarabağın / Карабаха), «international» isə İnter sayılmır.
-    private static let clubMatchers: [String: Rx] = {
-        var out: [String: Rx] = [:]
-        for club in clubs {
-            let keys = club.terms.map { NSRegularExpression.escapedPattern(for: TextTools.fold($0)) }.joined(separator: "|")
-            out[club.name] = Rx("(?:^| )(?:\(keys))(?:in|nin|un|nun|a|e|i|u|dan|den|da|de|s|а|у|е|ом|ы|и)?(?: |$)")
+    /// Bölmə səhifəsinin siyahısı (app.js `sectionView`). Əsas lent və 5 günlük arxiv birlikdə.
+    public static func section(_ slug: String, club: String?, articles: [Article], archives: [String: [Article]], language: String?, now: Date = Date()) -> [Article] {
+        var list: [Article]
+        switch slug {
+        case "video": list = articles.filter(\.video)
+        case "sondeqiqe": list = articles.filter { $0.isWithinHour(now: now) }
+        default: list = NewsPipeline.withArchive(articles.filter { $0.category == slug }, rows: archives[slug] ?? [])
         }
-        return out
-    }()
-
-    public static func clubMatches(_ a: Article, club: String) -> Bool {
-        guard let rx = clubMatchers[club] else { return false }
-        return rx.test(" \(TextTools.fold(TextTools.decodeEntities(a.title + " " + a.summary))) ")
+        if slug == "idman" {
+            if let club { list = list.filter { Topics.matches($0, club) } }
+            return byDate(list)
+        }
+        if slug == "bolgeler", let club {
+            // Yer haqqında xəbər başqa bölmədə də ola bilər. «Qəbələ» və «Sabah» həm də futbol klubudur: rayon düyməsində oyun xəbəri olmasın.
+            var pool = articles
+            for rows in archives.values { pool = NewsPipeline.withArchive(pool, rows: rows) }
+            list = pool.filter { $0.category != "idman" && Topics.matches($0, club, scope: .region) }
+        }
+        return filtered(byDate(list), language: language)
     }
 
     // MARK: - Yollar

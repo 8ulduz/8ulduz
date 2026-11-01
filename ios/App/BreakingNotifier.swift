@@ -30,6 +30,11 @@ enum BreakingNotifier {
         UserDefaults.standard.set(ids, forKey: seenKey)
     }
 
+    private static func title(language: String) -> String {
+        guard let path = Bundle.main.path(forResource: language.isEmpty ? "az" : language, ofType: "lproj"), let bundle = Bundle(path: path) else { return "Son dəqiqə" }
+        return bundle.localizedString(forKey: "Son dəqiqə", value: "Son dəqiqə", table: nil)
+    }
+
     static func runInBackground() async {
         schedule()
         WidgetCenter.shared.reloadAllTimelines()
@@ -42,8 +47,9 @@ enum BreakingNotifier {
         guard let loaded = try? await client.load("latest.json", as: NewsFeed.self), loaded.origin != .cache else { return }
 
         let language = defaults.object(forKey: languageKey) == nil ? "az" : (defaults.string(forKey: languageKey) ?? "az")
+        let dead = Set(loaded.value.dead)
         let fresh = Ranking.filtered(policy.clean(loaded.value.articles), language: language.isEmpty ? nil : language)
-            .filter { $0.isWithinHour() }
+            .filter { $0.isWithinHour() && !dead.contains($0.sourceUrl) }
         let ids = fresh.map(\.id)
         guard let seen = defaults.stringArray(forKey: seenKey) else {
             defaults.set(ids, forKey: seenKey)
@@ -53,7 +59,7 @@ enum BreakingNotifier {
         let center = UNUserNotificationCenter.current()
         for article in fresh.filter({ !known.contains($0.id) }).prefix(maxPerRun) {
             let content = UNMutableNotificationContent()
-            content.title = "Son dəqiqə"
+            content.title = title(language: language)
             content.body = article.cleanTitle
             content.sound = .default
             content.threadIdentifier = "son-deqiqe"

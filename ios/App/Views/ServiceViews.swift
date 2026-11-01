@@ -35,7 +35,7 @@ struct ServicesView: View {
     private func row(_ title: String, _ symbol: String, _ route: Route) -> some View {
         NavigationLink(value: route) {
             Label {
-                Text(title)
+                Text(ui: title)
             } icon: {
                 Image(systemName: symbol).foregroundStyle(Theme.gold)
             }
@@ -258,7 +258,7 @@ struct FootballView: View {
                 }
                 if let league {
                     HStack {
-                        Text(league.title + (league.season.isEmpty ? "" : " · \(league.season)") + (league.stale ? " · köhnə məlumat" : ""))
+                        Text(line(league))
                             .font(.footnote)
                             .foregroundStyle(Theme.muted)
                         Spacer()
@@ -272,8 +272,16 @@ struct FootballView: View {
         }
         .refreshable { await model.refresh() }
         .screenBackground()
-        .navigationTitle("Futbol")
+        .navigationTitle("Nəticələr və bombardirlər")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func line(_ league: League) -> String {
+        var parts = [league.title]
+        if !league.season.isEmpty { parts.append(league.season) }
+        if !league.asOf.isEmpty { parts.append(Format.gamesUntil(league.asOf)) }
+        if league.stale { parts.append("köhnə məlumat") }
+        return parts.joined(separator: " · ")
     }
 
     private var leaguePicker: some View {
@@ -308,9 +316,9 @@ struct FootballView: View {
             .pickerStyle(.segmented)
         }
         if league.groups.indices.contains(groupIndex) {
-            StandingsTable(rows: league.groups[groupIndex].rows, basketball: league.isBasketball)
+            StandingsTable(rows: league.groups[groupIndex].rows, basketball: league.isBasketball, leagueSlug: Topics.slug(league.short))
         } else if let first = league.groups.first {
-            StandingsTable(rows: first.rows, basketball: league.isBasketball)
+            StandingsTable(rows: first.rows, basketball: league.isBasketball, leagueSlug: Topics.slug(league.short))
         }
     }
 
@@ -328,7 +336,7 @@ struct FootballView: View {
             games(league.fixtures, round: league.roundNext, empty: "Növbəti tur hələ elan olunmayıb.")
         case "table":
             if let group = league.groups.first {
-                StandingsTable(rows: group.rows, basketball: false)
+                StandingsTable(rows: group.rows, basketball: false, leagueSlug: Topics.slug(league.short))
             } else {
                 games(league.results, round: league.roundPlayed, empty: "Nəticə hələ yoxdur.")
             }
@@ -407,6 +415,7 @@ struct FootballView: View {
 private struct StandingsTable: View {
     let rows: [StandingRow]
     let basketball: Bool
+    let leagueSlug: String
 
     private func cell(_ value: Int?) -> String { value.map(String.init) ?? "–" }
 
@@ -419,13 +428,17 @@ private struct StandingsTable: View {
                     Text("\(row.pos)")
                         .foregroundStyle(Theme.muted)
                         .gridColumnAlignment(.leading)
-                    HStack(spacing: 5) {
-                        if let logo = TextTools.webURL(row.logo) {
-                            RemoteImage(urls: [logo], category: "idman", maxPixel: 60).frame(width: 16, height: 16)
+                    NavigationLink(value: Route.team(league: leagueSlug, team: Topics.slug(row.full), season: nil)) {
+                        HStack(spacing: 5) {
+                            if let logo = TextTools.webURL(row.logo) {
+                                RemoteImage(urls: [logo], category: "idman", maxPixel: 60, contentMode: .fit).frame(width: 16, height: 16)
+                            }
+                            Text(Catalog.clubAz(row.team)).fontWeight(.semibold).lineLimit(1).minimumScaleFactor(0.8)
                         }
-                        Text(Catalog.clubAz(row.team)).fontWeight(.semibold).lineLimit(1).minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(.plain)
                     .gridColumnAlignment(.leading)
                     if basketball {
                         Text(cell(row.won))

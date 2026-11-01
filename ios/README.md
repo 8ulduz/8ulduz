@@ -74,3 +74,22 @@ Sayt, xəbər, mənbə və qayda dəyişiklikləri üçün buna ehtiyac yoxdur. 
 
 - **Universal Links** (`https://8ulduz.az/#/...` keçidləri tətbiqdə açılsın): Team ID bəlli olandan sonra `.well-known/apple-app-site-association` faylı və `com.apple.developer.associated-domains` lazımdır.
 - **`manifest.webmanifest`-də `related_applications`:** tətbiq mağazada çıxandan sonra `itunes` sətri əlavə olunur.
+
+## Saytla uyğunluq
+
+Saytda aşağıdakılar dəyişəndə tətbiqdə də dəyişməlidir:
+
+- Bölmələr: `CATS` və `SECTION_ALIAS` (`assets/app.js`), tətbiqdə `Catalog.swift`.
+- İdman və bölgə düymələri: `SPORT_TABS`, `REGION_TABS`, tətbiqdə `TopicData.swift`. `TopicTests` adları saytla tutuşdurur.
+- Komanda səhifəsi: `assets/komanda.js`, tətbiqdə `TeamData.swift` və `TeamViews.swift`.
+
+## İnterfeys dili
+
+Xəbərin dili türk, rus və ya ingilis seçiləndə interfeys də həmin dilə keçir, xəbər mətni tərcümə olunmur. Vidcetin yazıları azərbaycanca qalır.
+
+Lüğət saytındır (`assets/dil-*.js`), yalnız tətbiqə xas yazılar `ios/tools/app-strings.json`-dadır. Yazı dəyişəndə:
+
+```bash
+node ios/tools/localize.cjs --check
+node ios/tools/localize.cjs
+```

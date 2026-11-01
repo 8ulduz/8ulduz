@@ -9,12 +9,12 @@ public enum NewsPipeline {
                                             "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]
     private static let stopWords: Set<String> = Set("ve ile the and for from or bir bu da de ki veya icin olan və ilə də o üçün ya news xəbər xeber".split(separator: " ").map(String.init))
 
-    public static func publish(raw: [Article], og: [String: String], policy: ContentPolicy) -> [Article] {
+    public static func publish(raw: [Article], og: [String: String], policy: ContentPolicy, dead: Set<String> = []) -> [Article] {
         let withImages = raw.map { a -> Article in
             guard a.imageUrl.isEmpty, let image = og[a.sourceUrl], !image.isEmpty else { return a }
             return a.withImage(image)
         }
-        let allowed = policy.clean(withImages)
+        let allowed = dropDead(policy.clean(withImages), dead: dead)
         var merged = collapseExact(cluster(allowed))
         for i in merged.indices where merged[i].imageUrl.isEmpty && !merged[i].alts.isEmpty {
             let alts = merged[i].alts
@@ -27,14 +27,59 @@ public enum NewsPipeline {
         return Ranking.byDate(merged)
     }
 
-    /// `latest.json`-dan gələn yenilər, artıq lentdə olan keçidlər çıxılmaqla (app.js `loadLatest`).
-    public static func novel(_ latest: [Article], against raw: [Article]) -> [Article] {
+    /// Linki 404 verən xəbər: başqa sayt da yazıbsa kart ona keçir, yoxsa xəbər link düzələnə qədər görünmür.
+    static func dropDead(_ list: [Article], dead: Set<String>) -> [Article] {
+        guard !dead.isEmpty else { return list }
+        return list.compactMap { a -> Article? in
+            let alts = a.alts.filter { !dead.contains($0.sourceUrl) }
+            if !dead.contains(a.sourceUrl) {
+                var kept = a
+                kept.alts = alts
+                return kept
+            }
+            guard let next = alts.first else { return nil }
+            return Article(id: a.id, title: next.title.isEmpty ? a.title : next.title, summary: a.summary, category: a.category,
+                           source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt.isEmpty ? a.publishedAt : next.publishedAt,
+                           imageUrl: a.imageUrl.isEmpty ? next.imageUrl : a.imageUrl, lang: next.lang.isEmpty ? a.lang : next.lang,
+                           author: a.author, video: a.video, alts: Array(alts.dropFirst()))
+        }
+    }
+
+    /// Xəbərin və onun digər mənbələrinin keçidləri.
+    public static func knownLinks(_ list: [Article]) -> Set<String> {
         var known = Set<String>()
-        known.reserveCapacity(raw.count * 2)
-        for a in raw {
+        known.reserveCapacity(list.count * 2)
+        for a in list {
             known.insert(a.sourceUrl)
             for alt in a.alts { known.insert(alt.sourceUrl) }
         }
+        return known
+    }
+
+    /// Xəbər şəkilsiz gəlib, şəkli yavaş prosesdən sonra tapılıb: tam lenti (10 dəqiqə) gözləmədən görünsün.
+    public static func fillImages(from latest: [Article], into raw: inout [Article]) -> Bool {
+        var images: [String: String] = [:]
+        for a in latest where !a.imageUrl.isEmpty { images[a.sourceUrl] = a.imageUrl }
+        var changed = false
+        for i in raw.indices where raw[i].imageUrl.isEmpty {
+            if let image = images[raw[i].sourceUrl] {
+                raw[i].imageUrl = image
+                changed = true
+            }
+        }
+        return changed
+    }
+
+    /// Bölmə arxivi: lent gündüz 2-3 saat əhatə edir, bölmə səhifəsi isə 5 gün (app.js `withArchive`).
+    public static func withArchive(_ list: [Article], rows: [Article]) -> [Article] {
+        guard !rows.isEmpty else { return list }
+        let known = knownLinks(list)
+        return list + rows.filter { !known.contains($0.sourceUrl) }
+    }
+
+    /// `latest.json`-dan gələn yenilər, artıq lentdə olan keçidlər çıxılmaqla (app.js `loadLatest`).
+    public static func novel(_ latest: [Article], against raw: [Article]) -> [Article] {
+        let known = knownLinks(raw)
         return latest.filter { !known.contains($0.sourceUrl) }
     }
 
@@ -179,6 +224,20 @@ public enum NewsPipeline {
     }
 }
 
+/// Mənbələrin şəkilləri 1-2 MB olur. wsrv.nl kiçildir (orta 15 KB), alınmasa əsl ünvan sınanır (app.js `sized`).
+public enum ImageProxy {
+    private static let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~!*'()"))
+    private static let unsuitable = Rx("\\.(?:svg|gif)(?:[?#]|$)", caseInsensitive: true)
+
+    public static func sized(_ url: URL, width: Int) -> URL? {
+        let raw = url.absoluteString
+        guard !unsuitable.test(raw), let encoded = raw.addingPercentEncoding(withAllowedCharacters: allowed) else { return nil }
+        return URL(string: "https://wsrv.nl/?url=\(encoded)&w=\(width)&we&output=webp&q=70")
+    }
+}
+
+private let gluedImage = Rx("^https?://[^/]*?(https?://)", caseInsensitive: true)
+
 public extension Article {
     /// Yüklənə biləcək şəkillər, sıra ilə (app.js `imageCandidates`): xəbərin öz şəkli, sonra digər mənbələrin.
     func imageCandidates(og: [String: String] = [:]) -> [URL] {
@@ -189,13 +248,15 @@ public extension Article {
         }
         var seen = Set<String>()
         var out: [URL] = []
-        for raw in values where !raw.isEmpty {
+        for value in values where !value.isEmpty {
+            // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
+            let raw = gluedImage.replace(value, with: "$1")
             let lower = raw.lowercased()
             guard lower.hasPrefix("http://") || lower.hasPrefix("https://") else { continue }
             if lower.hasSuffix("/") || lower.hasSuffix("/resize") { continue }
             // iOS şifrəsiz bağlantını bağlayır: eyni şəkil https ilə sınanır.
-            let value = lower.hasPrefix("http://") ? "https://" + String(raw.dropFirst(7)) : raw
-            if seen.insert(value).inserted, let url = URL(string: value) { out.append(url) }
+            let safe = lower.hasPrefix("http://") ? "https://" + String(raw.dropFirst(7)) : raw
+            if seen.insert(safe).inserted, let url = URL(string: safe) { out.append(url) }
         }
         return out
     }

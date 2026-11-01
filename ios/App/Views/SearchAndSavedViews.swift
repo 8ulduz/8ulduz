@@ -30,6 +30,7 @@ struct SearchView: View {
             .searchable(text: $query, isPresented: $isActive, placement: .navigationBarDrawer(displayMode: .always), prompt: "Xəbər axtar…")
             .onSubmit(of: .search) { model.noteSearch(query) }
             .task(id: searchKey) { await runSearch() }
+            .task(id: hasQuery) { if hasQuery { await model.loadAllArchives() } }
             .onChange(of: router.searchFocusRequest) { _, _ in isActive = true }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { LanguageMenu() }
@@ -38,7 +39,7 @@ struct SearchView: View {
         }
     }
 
-    private var searchKey: String { "\(query)|\(model.language)|\(model.articles.count)" }
+    private var searchKey: String { "\(query)|\(model.language)|\(model.articles.count)|\(model.archiveStamp)" }
 
     /// Hər hərfdə axtarış işləməsin; nəticə arxa planda hesablanır.
     private func runSearch() async {
@@ -50,8 +51,7 @@ struct SearchView: View {
         }
         try? await Task.sleep(for: .milliseconds(220))
         if Task.isCancelled { return }
-        let pool = model.searchPool
-        let found = await Task.detached(priority: .userInitiated) { Ranking.search(text, in: pool) }.value
+        let found = await model.searchResults(text)
         if Task.isCancelled { return }
         results = found
         searchedQuery = text
@@ -90,7 +90,7 @@ struct SearchView: View {
             }
         } else {
             EmptyStateView(symbol: "magnifyingglass", title: "Xəbər axtarın",
-                           message: "Başlıq, xülasə və mənbə adına görə axtarılır. «qarabag», «ilham eliyev» kimi yazılışlar da tapılır.")
+                           message: "Başlıq, xülasə və mənbə adına görə, son 5 gün. «qarabag», «ilham eliyev» kimi yazılışlar da tapılır.")
         }
     }
 }

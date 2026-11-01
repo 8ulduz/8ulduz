@@ -87,7 +87,7 @@ struct HomeView: View {
                 MarketStrip()
                 ServiceChips()
                 HeroCarousel(items: model.home.hero)
-                if !model.home.prez.isEmpty { PrezBlock(items: Array(model.home.prez.prefix(4))) }
+                if !model.home.prez.isEmpty { PrezBlock(items: model.home.prez) }
                 LatestBlock(items: model.home.latest)
                 ForEach(model.home.sections, id: \.category.slug) { section in
                     CategoryStrip(category: section.category, items: section.articles)
@@ -105,14 +105,21 @@ private struct StatusLine: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
+            // Status təzə olsa da bu ekrana yeni məlumat çatmayıbsa «indicə» yazılmasın.
+            let checked = ISODate.parse(model.status?.checkedAt)
+            let stale = checked.map { context.date.timeIntervalSince($0) > 5 * 60 } ?? false
             HStack(spacing: 6) {
                 Text(Format.today(context.date))
                 Spacer()
                 if let sync = model.lastSync {
                     Circle()
-                        .fill(model.isOffline ? Theme.red : Theme.green)
+                        .fill(model.isOffline || stale ? Theme.red : Theme.green)
                         .frame(width: 7, height: 7)
-                    Text("Yeniləndi: \(Format.ago(sync, now: context.date))")
+                    if stale {
+                        Text("Xəbər lenti köhnəlib")
+                    } else {
+                        Text("Yeniləndi: \(Format.ago(sync, now: context.date))")
+                    }
                 }
             }
             .font(.caption)
@@ -172,6 +179,9 @@ private struct BreakingTicker: View {
 struct MarketChip: View {
     let item: MarketItem
 
+    // Valyutanın bayrağı, qalanının simvolu (assets/app.js `MARKET_ICON`).
+    private static let icons = ["USD": "🇺🇸", "EUR": "🇪🇺", "RUB100": "🇷🇺", "TRY100": "🇹🇷", "CNY": "🇨🇳", "BRENT": "🛢", "WTI": "🛢", "XAU": "🥇", "XAG": "🥈", "BTC": "₿"]
+
     private var tint: Color {
         guard item.hasChange, let pct = item.changePct, pct != 0 else { return Theme.muted }
         return pct > 0 ? Theme.green : Theme.red
@@ -179,10 +189,13 @@ struct MarketChip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(item.label)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.muted)
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                if let icon = Self.icons[item.id] { Text(verbatim: icon) }
+                Text(ui: item.label)
+            }
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(Theme.muted)
+            .lineLimit(1)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(item.valueText)
                     .font(.subheadline.weight(.bold))
@@ -196,7 +209,7 @@ struct MarketChip: View {
                 if item.hasChange, let pct = item.changePct {
                     Text("\(pct > 0 ? "↑" : pct < 0 ? "↓" : "•") %\(String(format: "%.2f", abs(pct)))")
                 } else {
-                    Text(item.unit != "AZN" ? "qiymət" : item.isUnofficial ? "bazar" : "məzənnə")
+                    Text(ui: item.unit != "AZN" ? "qiymət" : item.isUnofficial ? "bazar" : "məzənnə")
                 }
             }
             .font(.caption2.weight(.semibold))
@@ -235,7 +248,7 @@ private struct ServiceChips: View {
         NavigationLink(value: route) {
             HStack(spacing: 6) {
                 Image(systemName: symbol).symbolRenderingMode(.multicolor).foregroundStyle(tint)
-                Text(title).lineLimit(1)
+                Text(ui: title).lineLimit(1)
             }
             .font(.footnote.weight(.semibold))
             .padding(.horizontal, 12)
@@ -281,19 +294,34 @@ private struct HeroCarousel: View {
     }
 }
 
+/// Sahibin qərarı: blokda həmişə 44 xəbər. Şəkil kart ekrana yaxınlaşanda yüklənir.
 private struct PrezBlock: View {
     let items: [Article]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(title: "Zuğulba Xronikası") {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Zuğulba Xronikası")
+                        .font(.title3.weight(.bold))
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Son \(items.count) xəbər")
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                }
+                Spacer()
                 MoreLink(route: .section("prezident"))
             }
-            ForEach(items) { article in
-                ArticleRow(article: article, showCategory: false)
+            .padding(.horizontal, 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: 10) {
+                    ForEach(items) { article in
+                        ArticleMiniCard(article: article, tag: Ranking.isFirstLady(article) ? "Birinci xanım" : nil)
+                    }
+                }
+                .padding(.horizontal, 16)
             }
         }
-        .padding(.horizontal, 16)
     }
 }
 

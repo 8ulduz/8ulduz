@@ -83,7 +83,7 @@ public struct Article: Codable, Identifiable, Hashable, Sendable {
 
     public init(id: String, title: String, summary: String = "", category: String = "gundem", source: String, sourceUrl: String,
                 publishedAt: String = "", imageUrl: String = "", lang: String = "az", author: String = "", video: Bool = false, alts: [AltSource] = []) {
-        self.id = id; self.title = title; self.summary = summary; self.category = category; self.source = source
+        self.id = id; self.title = title; self.summary = summary; self.category = Catalog.canonical(category); self.source = source
         self.sourceUrl = sourceUrl; self.publishedAt = publishedAt; self.imageUrl = imageUrl; self.lang = lang
         self.author = author; self.video = video; self.alts = alts
         cleanTitle = TextTools.tidy(title)
@@ -122,6 +122,14 @@ public struct Article: Codable, Identifiable, Hashable, Sendable {
 
     public var sourceCount: Int { 1 + alts.count }
 
+    /// Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir. b: xəbər lentdən çıxanda hansı arxivə baxılacağı.
+    public var shareURL: URL? {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~"))
+        let safeID = id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id
+        let back = category.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+        return URL(string: "https://8ulduz.az/#/xeber/\(safeID)?b=\(back)")
+    }
+
     /// sesqazeti.az keçidləri Sia.az lentindən gəlir, oxucuya öz adı ilə göstərilir.
     public var shownSource: String {
         TextTools.host(of: sourceUrl) == "sesqazeti.az" ? "Sesqazeti.az" : source
@@ -149,7 +157,11 @@ public struct Article: Codable, Identifiable, Hashable, Sendable {
 public struct NewsFeed: Decodable, Sendable {
     public var updatedAt: String?
     public var articles: [Article]
-    enum CodingKeys: String, CodingKey { case updatedAt, articles }
+    /// latest.json: linki 404 verən xəbərlər (updater.py, `--links`).
+    public var dead: [String]
+    /// first.json: ilk ekranın şəkilləri.
+    public var og: [String: String]
+    enum CodingKeys: String, CodingKey { case updatedAt, articles, dead, og }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         updatedAt = c.text(.updatedAt)
@@ -157,6 +169,8 @@ public struct NewsFeed: Decodable, Sendable {
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "articles yoxdur"))
         }
         articles = c.lossy(.articles)
+        dead = c.lossy(.dead)
+        og = (try? c.decodeIfPresent(OgImages.self, forKey: .og))?.images ?? [:]
     }
 }
 
@@ -469,6 +483,7 @@ public struct League: Hashable, Sendable, Identifiable {
     public var roundNext: String?
     public var link: String
     public var source: String
+    public var asOf: String
 }
 
 struct AzLeagueDTO: Decodable {
@@ -491,7 +506,7 @@ struct AzLeagueDTO: Decodable {
     func toLeague(index: Int) -> League {
         League(id: "az-\(index)", title: league, short: short.isEmpty ? league : short, season: season, sport: "football", isWorld: false, stale: stale,
                groups: table.isEmpty ? [] : [TableGroup(name: "Turnir cədvəli", rows: table)], results: results, fixtures: fixtures, scorers: scorers,
-               roundPlayed: roundPlayed, roundNext: roundNext, link: link, source: source)
+               roundPlayed: roundPlayed, roundNext: roundNext, link: link, source: source, asOf: "")
     }
 }
 
@@ -507,14 +522,15 @@ public struct FootballFeed: Decodable, Sendable {
 public struct SportsFeed: Decodable, Sendable {
     public var leagues: [League]
     private struct Item: Decodable {
-        var id: String, sport: String, name: String, short: String, season: String
+        var id: String, sport: String, name: String, short: String, season: String, url: String, asOf: String
         var stale: Bool
         var groups: [TableGroup]
-        enum CodingKeys: String, CodingKey { case id, sport, name, short, season, stale, groups }
+        enum CodingKeys: String, CodingKey { case id, sport, name, short, season, stale, groups, url, asof }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             id = c.text(.id) ?? UUID().uuidString; sport = c.text(.sport) ?? "football"; name = c.text(.name) ?? ""
             short = c.text(.short) ?? name; season = c.text(.season) ?? ""
+            url = c.text(.url) ?? "https://en.wikipedia.org/"; asOf = c.text(.asof) ?? ""
             stale = c.flag(.stale); groups = c.lossy(.groups)
         }
     }
@@ -524,7 +540,7 @@ public struct SportsFeed: Decodable, Sendable {
         let items: [Item] = c.lossy(.leagues)
         leagues = items.filter { !$0.groups.isEmpty }.map {
             League(id: $0.id, title: $0.name, short: $0.short, season: $0.season, sport: $0.sport, isWorld: true, stale: $0.stale,
-                   groups: $0.groups, results: [], fixtures: [], scorers: [], roundPlayed: nil, roundNext: nil, link: "https://www.espn.com/", source: "ESPN")
+                   groups: $0.groups, results: [], fixtures: [], scorers: [], roundPlayed: nil, roundNext: nil, link: $0.url, source: "Vikipediya", asOf: $0.asOf)
         }
     }
 }

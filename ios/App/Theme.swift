@@ -37,7 +37,7 @@ enum Theme {
     private static let categoryColors: [String: UIColor] = [
         "gundem": hsl(210, 0.70, 0.62), "siyaset": hsl(262, 0.48, 0.68), "cemiyyet": hsl(168, 0.42, 0.52),
         "iqtisadiyyat": hsl(43, 0.78, 0.56), "dunya": hsl(199, 0.62, 0.58), "idman": hsl(142, 0.46, 0.48),
-        "medeniyyet": hsl(328, 0.46, 0.64), "heyat": hsl(16, 0.72, 0.60), "video": hsl(0, 0.72, 0.62),
+        "medeniyyet": hsl(328, 0.46, 0.64), "heyat": hsl(16, 0.72, 0.60), "sosial": hsl(186, 0.50, 0.52), "video": hsl(0, 0.72, 0.62),
         "prezident": hsl(43, 0.96, 0.56), "sondeqiqe": hsl(0, 0.84, 0.60),
     ]
 

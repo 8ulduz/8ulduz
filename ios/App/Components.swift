@@ -8,7 +8,7 @@ import UlduzCore
 /// Mənbə şəkilləri: hotlink qadağası və sınıq keçid adi haldır, ona görə növbəti namizəd sınanır, sonda loqo qalır.
 final class ImageLoader: @unchecked Sendable {
     static let shared = ImageLoader()
-    private let memory = NSCache<NSURL, UIImage>()
+    private let memory = NSCache<NSString, UIImage>()
     private let session: URLSession
 
     private init() {
@@ -24,23 +24,53 @@ final class ImageLoader: @unchecked Sendable {
 
     func clear() { memory.removeAllObjects() }
 
-    func cached(_ urls: [URL]) -> UIImage? {
+    // Eyni şəkil kiçik kartda və böyük kartda ayrı ölçüdə saxlanır: böyük kartda bulanıq görünməsin.
+    private func key(_ url: URL, _ maxPixel: CGFloat) -> NSString { "\(Int(maxPixel))|\(url.absoluteString)" as NSString }
+
+    func cached(_ urls: [URL], maxPixel: CGFloat) -> UIImage? {
         for url in urls {
-            if let hit = memory.object(forKey: url as NSURL) { return hit }
+            if let hit = memory.object(forKey: key(url, maxPixel)) { return hit }
         }
         return nil
     }
 
+    // Xidmət ümumiyyətlə işləmirsə (8 uğursuz cəhd) bu açılışda şəkil birbaşa mənbədən yüklənir (assets/app.js `PROXY_MAX_FAILS`).
+    private static let proxyMaxFails = 8
+    private let proxyLock = NSLock()
+    private var proxyFails = 0
+
+    private func proxyUsable() -> Bool {
+        proxyLock.lock()
+        defer { proxyLock.unlock() }
+        return proxyFails < Self.proxyMaxFails
+    }
+
+    private func noteProxyFail() {
+        proxyLock.lock()
+        defer { proxyLock.unlock() }
+        proxyFails += 1
+    }
+
+    /// Yalnız birinci namizəd kiçildilir, alınmasa əsl ünvan, sonra digər mənbələrin şəkilləri sınanır.
     func load(_ urls: [URL], maxPixel: CGFloat) async -> UIImage? {
-        for url in urls {
+        for (index, url) in urls.enumerated() {
             if Task.isCancelled { return nil }
-            if let hit = memory.object(forKey: url as NSURL) { return hit }
-            guard let (data, response) = try? await session.data(from: url),
-                  let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
-                  let image = Self.downsample(data, maxPixel: maxPixel) else { continue }
-            let cost = (image.cgImage?.bytesPerRow ?? 0) * (image.cgImage?.height ?? 0)
-            memory.setObject(image, forKey: url as NSURL, cost: cost)
-            return image
+            let cacheKey = key(url, maxPixel)
+            if let hit = memory.object(forKey: cacheKey) { return hit }
+            var attempts = [url]
+            if index == 0, proxyUsable(), let small = ImageProxy.sized(url, width: Int(maxPixel)) { attempts.insert(small, at: 0) }
+            for attempt in attempts {
+                let answer = try? await session.data(from: attempt)
+                if Task.isCancelled { return nil }
+                guard let answer, let http = answer.1 as? HTTPURLResponse, (200...299).contains(http.statusCode),
+                      let image = Self.downsample(answer.0, maxPixel: maxPixel) else {
+                    if attempt.host == "wsrv.nl" { noteProxyFail() }
+                    continue
+                }
+                let cost = (image.cgImage?.bytesPerRow ?? 0) * (image.cgImage?.height ?? 0)
+                memory.setObject(image, forKey: cacheKey, cost: cost)
+                return image
+            }
         }
         return nil
     }
@@ -63,6 +93,7 @@ struct RemoteImage: View {
     let urls: [URL]
     var category: String = "gundem"
     var maxPixel: CGFloat = 900
+    var contentMode: ContentMode = .fill
 
     @State private var image: UIImage?
     @State private var finished = false
@@ -73,7 +104,7 @@ struct RemoteImage: View {
                 if let image {
                     Image(uiImage: image)
                         .resizable()
-                        .scaledToFill()
+                        .aspectRatio(contentMode: contentMode)
                         .transition(.opacity)
                 } else {
                     ImagePlaceholder(category: category, loading: !finished)
@@ -81,7 +112,7 @@ struct RemoteImage: View {
             }
             .clipped()
             .task(id: urls) {
-                if let hit = ImageLoader.shared.cached(urls) {
+                if let hit = ImageLoader.shared.cached(urls, maxPixel: maxPixel) {
                     image = hit
                     return
                 }
@@ -122,7 +153,7 @@ struct Pill: View {
     var filled = false
 
     var body: some View {
-        Text(text)
+        Text(ui: text)
             .font(.caption2.weight(.bold))
             .lineLimit(1)
             .padding(.horizontal, 7)
@@ -141,7 +172,7 @@ struct ArticleBadges: View {
         HStack(spacing: 5) {
             if article.isFresh { Pill(text: "SON DƏQİQƏ", color: Theme.red, filled: true) }
             if showCategory { Pill(text: Catalog.label(article.category), color: Theme.color(forCategory: article.category)) }
-            if article.sourceCount > 1 { Pill(text: "\(article.sourceCount) MƏNBƏ", color: Theme.gold, filled: true) }
+            if article.sourceCount > 1 { SourceCountPill(count: article.sourceCount) }
             if article.video { Pill(text: "▶ VİDEO", color: Theme.red) }
             if model.language.isEmpty, let badge = Catalog.languages.first(where: { $0.code == article.language })?.badge {
                 Pill(text: badge)
@@ -219,8 +250,8 @@ struct ArticleLink<Content: View>: View {
                     ? Label("Saxlanmışlardan çıxar", systemImage: "star.slash")
                     : Label("Yadda saxla", systemImage: "star")
             }
-            if let url = TextTools.webURL(article.sourceUrl) {
-                ShareLink(item: url, subject: Text(article.cleanTitle), message: Text(article.cleanTitle)) {
+            if let url = article.shareURL {
+                ShareLink(item: url, subject: Text(article.cleanTitle), message: Text(verbatim: "\(article.cleanTitle)\n\n8ulduz.az")) {
                     Label("Paylaş", systemImage: "square.and.arrow.up")
                 }
             }
@@ -269,6 +300,7 @@ struct ArticleRow: View {
 struct ArticleMiniCard: View {
     @Environment(AppModel.self) private var model
     let article: Article
+    var tag: String?
 
     var body: some View {
         ArticleLink(article: article) {
@@ -278,6 +310,7 @@ struct ArticleMiniCard: View {
                     .frame(maxWidth: .infinity)
                     .clipped()
                 VStack(alignment: .leading, spacing: 6) {
+                    if let tag { Pill(text: tag, color: Theme.gold) }
                     Text(article.cleanTitle)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.primary)
@@ -303,7 +336,7 @@ struct HeroCard: View {
 
     var body: some View {
         ArticleLink(article: article) {
-            RemoteImage(urls: article.imageCandidates(og: model.og), category: article.category, maxPixel: 1200)
+            RemoteImage(urls: article.imageCandidates(og: model.og), category: article.category, maxPixel: 900)
                 .overlay {
                     LinearGradient(colors: [.clear, .black.opacity(0.88)], startPoint: .center, endPoint: .bottom)
                 }
@@ -346,11 +379,11 @@ struct SectionHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(ui: title)
                     .font(.title3.weight(.bold))
                     .accessibilityAddTraits(.isHeader)
                 if let subtitle {
-                    Text(subtitle)
+                    Text(ui: subtitle)
                         .font(.caption)
                         .foregroundStyle(Theme.muted)
                 }
@@ -374,7 +407,7 @@ struct MoreLink: View {
     var body: some View {
         NavigationLink(value: route) {
             HStack(spacing: 2) {
-                Text(title)
+                Text(ui: title)
                 Image(systemName: "chevron.right").font(.caption2.weight(.bold))
             }
             .font(.footnote.weight(.semibold))
@@ -391,9 +424,9 @@ struct EmptyStateView: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label(title, systemImage: symbol)
+            Label { Text(ui: title) } icon: { Image(systemName: symbol) }
         } description: {
-            if let message { Text(message) }
+            if let message { Text(ui: message) }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 40)
@@ -440,6 +473,52 @@ extension League {
     var isBasketball: Bool { sport == "basketball" }
 }
 
+extension Text {
+    /// Dəyişəndə gələn yazı da lüğətə baxır (`Text(String)` baxmır); lüğətdə yoxdursa olduğu kimi qalır.
+    init(ui text: String) { self.init(LocalizedStringKey(text)) }
+}
+
+/// «3 MƏNBƏ».
+private struct SourceCountPill: View {
+    let count: Int
+
+    var body: some View {
+        Text("\(count) MƏNBƏ")
+            .font(.caption2.weight(.bold))
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .foregroundStyle(Color.black.opacity(0.85))
+            .background(Theme.gold, in: Capsule())
+    }
+}
+
+/// Alt bölmə, liqa və komanda tabı düyməsi.
+struct ChipButton: View {
+    let title: String
+    var selected = false
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) { ChipLabel(title: title, selected: selected) }
+            .buttonStyle(.plain)
+    }
+}
+
+struct ChipLabel: View {
+    let title: String
+    var selected = false
+
+    var body: some View {
+        Text(ui: title)
+            .font(.footnote.weight(.semibold))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .foregroundStyle(selected ? Color.black.opacity(0.85) : Color.primary)
+            .background(selected ? Theme.gold : Theme.card2, in: Capsule())
+    }
+}
+
 /// Dil menyusu: ana səhifə və bölmələrin alətlər sətrində.
 struct LanguageMenu: View {
     @Environment(AppModel.self) private var model
@@ -452,7 +531,7 @@ struct LanguageMenu: View {
                 ForEach(Catalog.languages) { Text($0.label).tag($0.code) }
             }
         } label: {
-            Text(Catalog.languages.first { $0.code == model.language }?.badge ?? "Hamısı")
+            Text(ui: Catalog.languages.first { $0.code == model.language }?.badge ?? "Hamısı")
                 .font(.footnote.weight(.bold))
                 .foregroundStyle(Theme.gold)
         }

@@ -27,7 +27,7 @@ struct SettingsView: View {
         List {
             Section("Görünüş") {
                 Picker("Tema", selection: $model.theme) {
-                    ForEach(ThemeChoice.allCases) { Text($0.label).tag($0) }
+                    ForEach(ThemeChoice.allCases) { Text(ui: $0.label).tag($0) }
                 }
                 .listRowBackground(Theme.card)
                 NavigationLink("Bölmələri tənzimlə", value: Route.sectionEditor)
@@ -135,7 +135,7 @@ struct AboutView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         bullet("Hesab yoxdur, tətbiq heç bir şəxsi məlumat və statistika toplamır.")
                         bullet("Seçilmişlər, bölmə sırası, dil, tema və şəhər seçimi yalnız telefonunuzda saxlanır.")
-                        bullet("Hava (Open-Meteo), namaz vaxtı (aladhan.com), tıxac xəritəsi (Waze) və video (YouTube) telefonunuzdan birbaşa həmin xidmətlərə sorğu göndərir; onların öz məxfilik qaydaları tətbiq olunur. Xəritə və video yalnız düyməyə basanda yüklənir.")
+                        bullet("Hava (Open-Meteo), namaz vaxtı (aladhan.com), şəkillərin kiçildilməsi (wsrv.nl, yalnız şəklin ünvanı gedir), tıxac xəritəsi (Waze) və video (YouTube) telefonunuzdan birbaşa həmin xidmətlərə sorğu göndərir; onların öz məxfilik qaydaları tətbiq olunur. Xəritə və video yalnız düyməyə basanda yüklənir.")
                         Button("Məxfilik siyasəti") { Browser.open(AppLinks.privacy) }
                             .foregroundStyle(Theme.gold)
                     }
@@ -162,7 +162,7 @@ struct AboutView: View {
 
     private func block<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
+            Text(ui: title)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             content()
@@ -172,8 +172,8 @@ struct AboutView: View {
 
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text("•").foregroundStyle(Theme.gold)
-            Text(text)
+            Text(verbatim: "•").foregroundStyle(Theme.gold)
+            Text(ui: text)
         }
     }
 }

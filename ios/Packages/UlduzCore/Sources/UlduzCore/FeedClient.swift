@@ -130,13 +130,16 @@ public actor FeedClient {
         return f
     }()
 
+    // Keş qovluğu düzdür: `arxiv/idman.json` və `futbol/index.json` də bir ad olur.
+    private static func cacheName(_ file: String) -> String { "data-" + file.replacingOccurrences(of: "/", with: "-") }
+
     /// Faylı zəncirlə gətirir. Oxunmayan cavab növbəti kanala keçir, uğurlu cavab keşə yazılır.
     public func load<Value: Decodable & Sendable>(_ file: String, as type: Value.Type = Value.self, force: Bool = false) async throws -> Loaded<Value> {
         func parsed(_ data: Data?) -> Value? {
             guard let data else { return nil }
             return try? JSONDecoder().decode(Value.self, from: data)
         }
-        let cacheName = "data-\(file)"
+        let cacheName = Self.cacheName(file)
 
         if let data = await live(file), let value = parsed(data) {
             store.write(data, to: cacheName)
@@ -169,7 +172,7 @@ public actor FeedClient {
 
     /// Şəbəkəyə çıxmadan keşdən (açılışda ekran dərhal dolsun).
     public func cached<Value: Decodable & Sendable>(_ file: String, as type: Value.Type = Value.self) -> Value? {
-        guard let data = store.read("data-\(file)") else { return nil }
+        guard let data = store.read(Self.cacheName(file)) else { return nil }
         return try? JSONDecoder().decode(Value.self, from: data)
     }
 

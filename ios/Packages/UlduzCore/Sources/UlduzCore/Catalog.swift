@@ -55,15 +55,21 @@ public enum Catalog {
         NewsCategory(slug: "dunya", label: "Dünya", description: "Beynəlxalq mətbuat", symbol: "globe.europe.africa.fill"),
         NewsCategory(slug: "idman", label: "İdman", description: "İdman aləmindən xəbərlər və nəticələr", symbol: "sportscourt.fill"),
         NewsCategory(slug: "medeniyyet", label: "Mədəniyyət", description: "Kino, musiqi, sənət və mədəni həyat", symbol: "theatermasks.fill"),
-        NewsCategory(slug: "heyat", label: "Həyat", description: "Həyat tərzi, qidalanma, psixologiya", symbol: "leaf.fill"),
+        NewsCategory(slug: "heyat", label: "Sağlamlıq və həyat", description: "Tibb, sağlamlıq, qidalanma, psixologiya", symbol: "cross.case.fill"),
+        NewsCategory(slug: "sosial", label: "Sosial müdafiə", description: "Pensiya, müavinət, sosial yardım, əlillik, məşğulluq", symbol: "person.2.fill"),
         NewsCategory(slug: "bolgeler", label: "Bölgələr", description: "Rayonlardan və şəhərlərdən xəbərlər", symbol: "map.fill"),
-        NewsCategory(slug: "tehsil", label: "Təhsil", description: "Məktəb, universitet, imtahanlar", symbol: "graduationcap.fill"),
-        NewsCategory(slug: "sehiyye", label: "Səhiyyə", description: "Tibb, xəstəxanalar, sağlamlıq", symbol: "cross.case.fill"),
-        NewsCategory(slug: "texnologiya", label: "Texnologiya", description: "Elm, texnologiya və süni intellekt", symbol: "cpu.fill"),
+        NewsCategory(slug: "tehsil", label: "Təhsil və elm", description: "Məktəb, universitet, elm, texnologiya", symbol: "graduationcap.fill"),
         NewsCategory(slug: "video", label: "Video", description: "Saytlardakı video xəbərlərə keçidlər", symbol: "play.rectangle.fill"),
     ]
 
-    public static func category(_ slug: String) -> NewsCategory? { categories.first { $0.slug == slug } }
+    /// Birləşmiş bölmələr: köhnə keçid, saxlanmış xəbər və köhnə keş də yeni bölməyə düşür (updater.py, SECTION_ALIASES).
+    public static let sectionAlias = ["sehiyye": "heyat", "texnologiya": "tehsil"]
+    public static func canonical(_ slug: String) -> String { sectionAlias[slug] ?? slug }
+
+    public static func category(_ slug: String) -> NewsCategory? {
+        let wanted = canonical(slug)
+        return categories.first { $0.slug == wanted }
+    }
     public static func label(_ slug: String) -> String { category(slug)?.label ?? slug }
 
     /// Ana səhifədə ayrıca bloku olan bölmələr; sıralanan siyahıya düşmür.
@@ -72,9 +78,9 @@ public enum Catalog {
 
     public static let languages: [NewsLanguage] = [
         NewsLanguage(code: "az", label: "Azərbaycan dilində", badge: "AZ"),
+        NewsLanguage(code: "tr", label: "Türkçe", badge: "TÜRK"),
         NewsLanguage(code: "ru", label: "на русском языке", badge: "RUS"),
         NewsLanguage(code: "en", label: "in English", badge: "ENG"),
-        NewsLanguage(code: "tr", label: "Türkçe", badge: "TÜRK"),
     ]
 
     private static func city(_ name: String, _ lat: Double, _ lon: Double) -> City { City(name: name, lat: lat, lon: lon) }

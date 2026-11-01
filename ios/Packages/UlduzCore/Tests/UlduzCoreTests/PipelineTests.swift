@@ -31,6 +31,27 @@ final class PipelineTests: XCTestCase {
         _ = try decoder.decode(VideoFeed.self, from: read("video.json"))
         _ = try decoder.decode(SocialFeed.self, from: read("social.json"))
         XCTAssertFalse(try decoder.decode(OgImages.self, from: read("og.json")).images.isEmpty)
+        XCTAssertFalse(try decoder.decode(NewsFeed.self, from: read("first.json")).articles.isEmpty)
+        XCTAssertFalse(try decoder.decode(NewsFeed.self, from: read("arxiv/idman.json")).articles.isEmpty)
+    }
+
+    func testTeamFilesDecode() throws {
+        let dir = RepoFiles.root.appendingPathComponent("data/futbol")
+        let decoder = JSONDecoder()
+        let index = try decoder.decode(TeamIndex.self, from: Data(contentsOf: dir.appendingPathComponent("index.json")))
+        XCTAssertGreaterThan(index.leagues.count, 10)
+        for league in index.leagues {
+            for season in league.ready {
+                let file = league.path(season: season.key).replacingOccurrences(of: "futbol/", with: "")
+                let doc = try decoder.decode(LeagueDoc.self, from: Data(contentsOf: dir.appendingPathComponent(file)))
+                XCTAssertEqual(doc.id, league.id)
+                XCTAssertFalse(doc.teams.isEmpty, file)
+            }
+            for team in league.squads.prefix(1) {
+                let squad = try decoder.decode(SquadDoc.self, from: Data(contentsOf: dir.appendingPathComponent("heyet-\(league.id).json")))
+                XCTAssertFalse(squad.teams[team]?.players.isEmpty ?? true, team)
+            }
+        }
     }
 
     func testRealFeedThroughThePipelineIsFastAndSorted() throws {
@@ -107,6 +128,18 @@ final class PipelineTests: XCTestCase {
                        ["https://oxu.az/1.jpg", "https://lent.az/og.jpg"])
     }
 
+    func testGluedImageAddressIsRepaired() {
+        let a = item("1", "Başlıq", image: "https://azpolitika.infohttps://cdn.az/1.jpg")
+        XCTAssertEqual(a.imageCandidates().map(\.absoluteString), ["https://cdn.az/1.jpg"])
+    }
+
+    func testImageProxy() {
+        let url = URL(string: "https://apa.az/şəkil 1.jpg?x=1".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)!
+        XCTAssertTrue(ImageProxy.sized(url, width: 420)?.absoluteString.hasPrefix("https://wsrv.nl/?url=https%3A%2F%2Fapa.az%2F") ?? false)
+        XCTAssertTrue(ImageProxy.sized(url, width: 420)?.absoluteString.hasSuffix("&w=420&we&output=webp&q=70") ?? false)
+        XCTAssertNil(ImageProxy.sized(URL(string: "https://x.az/a.svg")!, width: 420))
+    }
+
     // MARK: - Mətn
 
     func testTidy() {
@@ -131,9 +164,10 @@ final class PipelineTests: XCTestCase {
         let a = item("1", "Qarabağın qələbəsi", category: "idman")
         let b = item("2", "International tournament", category: "idman")
         let c = item("3", "«Карабаха» победа", category: "idman", lang: "ru")
-        XCTAssertTrue(Ranking.clubMatches(a, club: "Qarabağ"))
-        XCTAssertFalse(Ranking.clubMatches(b, club: "İnter"))
-        XCTAssertFalse(Ranking.clubMatches(c, club: "Neftçi"))
+        XCTAssertTrue(Topics.matches(a, "Qarabağ"))
+        XCTAssertFalse(Topics.matches(b, "İnter"))
+        XCTAssertFalse(Topics.matches(c, "Neftçi"))
+        XCTAssertTrue(Topics.matches(c, "Qarabağ"))
     }
 
     // MARK: - Sıralama
@@ -155,8 +189,62 @@ final class PipelineTests: XCTestCase {
         list.append(item("o1", "Prezident kənar saytda", source: "Lent.az", url: "https://lent.az/1", category: "prezident"))
         let out = Ranking.prezHome(list, now: now)
         XCTAssertTrue(out.contains { $0.id == "l1" }, "Birinci xanım qrupu görünür")
-        XCTAssertFalse(out.contains { $0.id == "o1" }, "digər saytlar yalnız «Hamısı» səhifəsində")
-        XCTAssertEqual(out.filter { $0.source == "Report" }.count, 3, "bir sayt bloku tutmur")
+        XCTAssertFalse(out.contains { $0.id == "o1" }, "adı keçməyən yad xəbər blokda yoxdur")
+        XCTAssertEqual(out.first?.source, "Report")
+    }
+
+    func testPrezHomeFillsTo44WithOurLeadersOnly() {
+        var list = (0..<60).map { item("o\($0)", "İlham Əliyev görüşdü \($0)", source: "Lent.az", url: "https://lent.az/\($0)", minutesAgo: Double($0), category: "prezident") }
+        list.append(item("y1", "Prezident Tramp bəyanat verib", source: "Lent.az", url: "https://lent.az/y1", category: "prezident"))
+        let out = Ranking.prezHome(list, now: now)
+        XCTAssertEqual(out.count, 44)
+        XCTAssertFalse(out.contains { $0.id == "y1" })
+    }
+
+    // MARK: - Bölmələr və ölü linklər
+
+    func testMergedSectionsMoveToTheNewOne() {
+        XCTAssertEqual(item("1", "Başlıq", category: "sehiyye").category, "heyat")
+        XCTAssertEqual(item("2", "Başlıq", category: "texnologiya").category, "tehsil")
+        XCTAssertEqual(Catalog.category("sehiyye")?.slug, "heyat")
+        XCTAssertNotNil(Catalog.category("sosial"))
+    }
+
+    func testDeadLinkMovesToNextSourceOrDisappears() {
+        var a = item("1", "Birinci", url: "https://a.az/1")
+        a.alts = [AltSource(source: "Oxu.az", sourceUrl: "https://oxu.az/1", title: "Oxu başlığı")]
+        let b = item("2", "İkinci", url: "https://a.az/2")
+        let c = item("3", "Üçüncü", url: "https://a.az/3")
+        let out = NewsPipeline.dropDead([a, b, c], dead: ["https://a.az/1", "https://a.az/2"])
+        XCTAssertEqual(out.map(\.id), ["1", "3"])
+        XCTAssertEqual(out[0].source, "Oxu.az")
+        XCTAssertEqual(out[0].cleanTitle, "Oxu başlığı")
+        XCTAssertTrue(out[0].alts.isEmpty)
+    }
+
+    func testLatestFillsMissingImage() {
+        var raw = [item("1", "Birinci", url: "https://a.az/1")]
+        let latest = [item("1", "Birinci", url: "https://a.az/1", image: "https://a.az/1.jpg")]
+        XCTAssertTrue(NewsPipeline.fillImages(from: latest, into: &raw))
+        XCTAssertEqual(raw[0].imageUrl, "https://a.az/1.jpg")
+        XCTAssertFalse(NewsPipeline.fillImages(from: latest, into: &raw))
+    }
+
+    func testArchiveAddsOnlyUnknownLinks() {
+        let list = [item("1", "Birinci", url: "https://a.az/1")]
+        let rows = [item("1", "Birinci", url: "https://a.az/1"), item("2", "İkinci", url: "https://a.az/2")]
+        XCTAssertEqual(NewsPipeline.withArchive(list, rows: rows).map(\.id), ["1", "2"])
+    }
+
+    func testRegionSearchesEveryArchiveButSkipsSport() {
+        let local = item("1", "Şəkidə yeni məktəb açılıb", category: "tehsil")
+        let sport = item("2", "Şəki komandası qalib gəlib", category: "idman")
+        let out = Ranking.section("bolgeler", club: "Şəki", articles: [sport], archives: ["tehsil": [local]], language: "az", now: now)
+        XCTAssertEqual(out.map(\.id), ["1"])
+    }
+
+    func testShareLinkLeadsToTheSite() {
+        XCTAssertEqual(item("abc", "Başlıq", category: "idman").shareURL?.absoluteString, "https://8ulduz.az/#/xeber/abc?b=idman")
     }
 
     func testRoadItems() {
@@ -216,6 +304,14 @@ final class PipelineTests: XCTestCase {
         XCTAssertNotNil(ISODate.parse("2026-10-31T02:39:13+00:00"))
         XCTAssertEqual(ISODate.parse("2026-10-31T17:30+04:00"), ISODate.parse("2026-10-31T13:30:00Z"))
         XCTAssertNil(ISODate.parse("sabah"))
+    }
+
+    func testInterfaceLanguageChangesDates() {
+        Format.language = "en"
+        defer { Format.language = "az" }
+        XCTAssertEqual(Format.ago(now.addingTimeInterval(-300), now: now), "5 min ago")
+        XCTAssertEqual(Format.round("9"), "Round 9")
+        XCTAssertTrue(Format.monthTitle("2026-10-31T12:00:00+00:00").hasPrefix("October"))
     }
 
     func testBadRowDoesNotBreakTheFeed() throws {

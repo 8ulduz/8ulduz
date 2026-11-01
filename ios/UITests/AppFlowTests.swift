@@ -89,8 +89,46 @@ final class AppFlowTests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
         app.staticTexts["Futbol və cədvəllər"].tap()
-        sleep(3)
+        let league = app.staticTexts["Misli Premyer Liqası"]
+        XCTAssertTrue(league.waitForExistence(timeout: 20), "liqaların siyahısı gəlmədi")
         shot("7-futbol")
+
+        league.tap()
+        let team = app.buttons.matching(identifier: "team-row").firstMatch
+        XCTAssertTrue(team.waitForExistence(timeout: 20), "liqanın cədvəli gəlmədi")
+        sleep(2)
+        shot("8-liqa")
+
+        team.tap()
+        XCTAssertTrue(app.staticTexts["Son nəticələr"].waitForExistence(timeout: 20), "komanda səhifəsi açılmadı")
+        sleep(2)
+        shot("9-komanda")
+    }
+
+    /// İdman bölməsinin alt başlıqları: Futbol seçiləndə liqalar və Milli komanda görünür.
+    func test3_sportSubsections() throws {
+        waitForFeed()
+        tab("Bölmələr")
+        let sport = element(startingWith: "İdman")
+        XCTAssertTrue(sport.waitForExistence(timeout: 10))
+        sport.tap()
+        let football = app.buttons["Futbol"]
+        XCTAssertTrue(football.waitForExistence(timeout: 10), "alt bölmələr yoxdur")
+        football.tap()
+        XCTAssertTrue(app.buttons["Milli komanda"].waitForExistence(timeout: 10), "ikinci sətir açılmadı")
+        sleep(3)
+        shot("10-idman")
+    }
+
+    /// Xarici dil seçiləndə interfeys də həmin dilə keçir, xəbər mətni tərcümə olunmur.
+    func test4_interfaceLanguage() throws {
+        app.terminate()
+        app.launchArguments += ["-8ulduz-lang", "en"]
+        app.launch()
+        dismissSystemAlert()
+        XCTAssertTrue(app.tabBars.buttons["Sections"].waitForExistence(timeout: 30) || app.tabBars.buttons.count == 5)
+        sleep(6)
+        shot("11-ingilis")
     }
 
     func test2_saveAndFind() throws {

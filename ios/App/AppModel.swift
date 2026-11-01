@@ -15,8 +15,8 @@ struct HomeContent: Sendable {
     static func build(_ all: [Article], language: String, sectionOrder: [String], sectionsOff: Set<String>, now: Date = Date()) -> HomeContent {
         let lang = language.isEmpty ? nil : language
         let m = Ranking.filtered(all, language: lang)
-        let hero = Ranking.heroPick(m.filter { $0.category != "prezident" }, need: 6, now: now)
-        let used = Set(hero.map(\.id))
+        let hero = Ranking.heroPick(m.filter { $0.category != "prezident" }, need: Ranking.heroCount, now: now)
+        let used = Set(hero.prefix(Ranking.heroOnly).map(\.id))
         let remaining = m.filter { !used.contains($0.id) && $0.category != "prezident" }
         var sections: [(category: NewsCategory, articles: [Article])] = []
         for slug in sectionOrder where !sectionsOff.contains(slug) {
@@ -79,6 +79,10 @@ final class AppModel {
     private static let weatherEvery: TimeInterval = 30 * 60
     private static let policyEvery: TimeInterval = 6 * 3600
     private static let widgetEvery: TimeInterval = 15 * 60
+    private static let latestEvery: TimeInterval = 90
+    private static let overlayKeep: TimeInterval = 30 * 60
+    private static let archiveEvery: TimeInterval = 30 * 60
+    private static let noArchive: Set<String> = ["video", "sondeqiqe", "prezident"]
     private static let holdOffset: CGFloat = -400
 
     // Lent
@@ -103,9 +107,18 @@ final class AppModel {
     private(set) var og: [String: String] = [:]
     private(set) var saved: [Article] = []
     private(set) var recentSearches: [String] = []
+    private(set) var archives: [String: [Article]] = [:]
+    @ObservationIgnored let teams = TeamStore()
 
     // Seçimlər
-    var language: String { didSet { store(language, Key.language); shareLanguage(); rebuildHome() } }
+    var language: String {
+        didSet {
+            store(language, Key.language)
+            Format.language = interfaceLanguage
+            shareLanguage()
+            rebuildHome()
+        }
+    }
     var theme: ThemeChoice { didSet { store(theme.rawValue, Key.theme) } }
     var cityName: String { didSet { store(cityName, Key.city); Task { await loadCityServices() } } }
     var opensSourceDirectly: Bool { didSet { store(opensSourceDirectly, Key.direct) } }
@@ -120,6 +133,13 @@ final class AppModel {
     @ObservationIgnored private var sports: [League] = []
     @ObservationIgnored private var rawNews: [Article] = []
     @ObservationIgnored private var feedUpdatedAt: String?
+    /// Dəqiqəlik gələn xəbərlər: main 10 dəqiqədən bir yazılır, tam lentdə hələ olmaya bilərlər, itməsinlər.
+    @ObservationIgnored private var overlay: [(article: Article, at: Date)] = []
+    @ObservationIgnored private var deadLinks: Set<String> = []
+    @ObservationIgnored private var isPartial = false
+    @ObservationIgnored private var publishToken = 0
+    @ObservationIgnored private var latestAt = Date.distantPast
+    @ObservationIgnored private var archiveAt: [String: Date] = [:]
     @ObservationIgnored private var newsStamp: String?
     @ObservationIgnored private var newsCheckedAt = Date.distantPast
     @ObservationIgnored private var ogLoadedAt = Date.distantPast
@@ -151,8 +171,12 @@ final class AppModel {
         if let data = d.data(forKey: Key.saved), let list = try? JSONDecoder().decode([Article].self, from: data) {
             saved = list
         }
+        Format.language = interfaceLanguage
         shareLanguage()
     }
+
+    /// Sayt seçilən dildə açılır (assets/dil.js). Xəbər mətni tərcümə olunmur; «Bütün dillər» azərbaycanca qalır.
+    var interfaceLanguage: String { ["ru", "tr", "en"].contains(language) ? language : "az" }
 
     private func store(_ value: Any, _ key: String) { UserDefaults.standard.set(value, forKey: key) }
 
@@ -169,6 +193,7 @@ final class AppModel {
         started = true
         if let cachedRules = await client.cachedPolicy() { policy = cachedRules }
         if let cachedOg: OgImages = await client.cached("og.json") { og = cachedOg.images }
+        if let cached: NewsFeed = await client.cached("latest.json") { deadLinks = Set(cached.dead) }
         if let cached: NewsFeed = await client.cached("news.json") {
             rawNews = cached.articles
             feedUpdatedAt = cached.updatedAt
@@ -211,11 +236,24 @@ final class AppModel {
         let stamp = status?.checkedAt
         let fullDue = Date().timeIntervalSince(newsCheckedAt) >= Self.fullFeedEvery
         if force || articles.isEmpty || loadFailed || stamp == nil || fullDue {
+            // İlk açılışda keş boşdur: ekran 100 xəbərlik yüngül fayldan dolur, tam lent arxada gəlir.
+            async let first: Void = loadFirst()
             await loadNews(force: force)
+            await first
             await loadLatest(force: force)
-        } else if stamp != newsStamp {
+        } else if stamp != newsStamp || Date().timeIntervalSince(latestAt) >= Self.latestEvery {
             await loadLatest(force: false)
         }
+    }
+
+    private func loadFirst() async {
+        guard rawNews.isEmpty, language == "az",
+              let loaded = try? await client.load("first.json", as: NewsFeed.self),
+              rawNews.isEmpty, !loaded.value.articles.isEmpty else { return }
+        if og.isEmpty { og = loaded.value.og }
+        rawNews = loaded.value.articles
+        isPartial = true
+        await publish()
     }
 
     private func loadNews(force: Bool) async {
@@ -228,8 +266,12 @@ final class AppModel {
             newsStamp = stamp
             newsCheckedAt = Date()
             await loadOgIfDue()
-            if loaded.value.updatedAt == feedUpdatedAt && !rawNews.isEmpty && !articles.isEmpty { return }
-            rawNews = loaded.value.articles
+            if loaded.value.updatedAt == feedUpdatedAt && !isPartial && !rawNews.isEmpty && !articles.isEmpty { return }
+            let inFull = NewsPipeline.knownLinks(loaded.value.articles)
+            let now = Date()
+            overlay = overlay.filter { !inFull.contains($0.article.sourceUrl) && now.timeIntervalSince($0.at) < Self.overlayKeep }
+            rawNews = overlay.map { $0.article } + loaded.value.articles
+            isPartial = false
             feedUpdatedAt = loaded.value.updatedAt
             await publish()
         } catch {
@@ -245,9 +287,18 @@ final class AppModel {
         if Task.isCancelled { return }
         noteOrigin(loaded.origin)
         newsStamp = status?.checkedAt
+        latestAt = Date()
+        let dead = Set(loaded.value.dead)
+        let deadChanged = dead != deadLinks
+        deadLinks = dead
         let fresh = NewsPipeline.novel(loaded.value.articles, against: rawNews)
-        guard !fresh.isEmpty else { return }
-        rawNews = fresh + rawNews
+        let gotImage = NewsPipeline.fillImages(from: loaded.value.articles, into: &rawNews)
+        guard !fresh.isEmpty || gotImage || deadChanged else { return }
+        if !fresh.isEmpty {
+            let at = Date()
+            overlay = fresh.map { (article: $0, at: at) } + overlay
+            rawNews = fresh + rawNews
+        }
         await publish()
     }
 
@@ -317,11 +368,15 @@ final class AppModel {
     // MARK: - Lentin dərci
 
     private func publish() async {
-        let raw = rawNews, images = og, rules = policy, lang = language, order = sectionOrder, off = sectionsOff
+        let raw = rawNews, images = og, rules = policy, lang = language, order = sectionOrder, off = sectionsOff, dead = deadLinks
+        publishToken += 1
+        let token = publishToken
         let (list, content) = await Task.detached(priority: .userInitiated) { () -> ([Article], HomeContent) in
-            let list = NewsPipeline.publish(raw: raw, og: images, policy: rules)
+            let list = NewsPipeline.publish(raw: raw, og: images, policy: rules, dead: dead)
             return (list, HomeContent.build(list, language: lang, sectionOrder: order, sectionsOff: off))
         }.value
+        // Sonra başlayan dərc əvvəl bitibsə köhnə nəticə onun üstünə yazılmasın.
+        guard token == publishToken else { return }
         isFirstLoadDone = true
         BreakingNotifier.markSeen(list)
         reloadWidgetsIfDue()
@@ -375,29 +430,74 @@ final class AppModel {
     // MARK: - Süzgəc və axtarış
 
     func article(id: String) -> Article? {
-        articles.first { $0.id == id } ?? saved.first { $0.id == id }
+        if let hit = articles.first(where: { $0.id == id }) ?? saved.first(where: { $0.id == id }) { return hit }
+        for rows in archives.values {
+            if let hit = rows.first(where: { $0.id == id }) { return hit }
+        }
+        return nil
+    }
+
+    // MARK: - Bölmə arxivi
+
+    /// Arxiv dəyişəndə siyahılar yenidən hesablanır.
+    var archiveStamp: Int { archives.values.reduce(0) { $0 + $1.count } }
+
+    /// Lent gündüz 2-3 saat əhatə edir, bölmə səhifəsi və axtarış isə 5 gün (app.js `loadArchive`). Yalnız lazım olanda yüklənir.
+    func loadArchive(_ slug: String) async {
+        guard !Self.noArchive.contains(slug), Catalog.category(slug) != nil else { return }
+        if let at = archiveAt[slug], Date().timeIntervalSince(at) < Self.archiveEvery { return }
+        archiveAt[slug] = Date()
+        // Ekrandan çıxmaq yüklənməni kəsməsin: fayl qayıdanda hazır olsun.
+        let feed = self.client
+        let loaded = await Task { try? await feed.load("arxiv/\(slug).json", as: NewsFeed.self) }.value
+        if let loaded {
+            archives[slug] = policy.clean(loaded.value.articles)
+        } else {
+            archiveAt[slug] = nil
+        }
+    }
+
+    func loadAllArchives() async {
+        await withTaskGroup(of: Void.self) { group in
+            for category in Catalog.categories {
+                group.addTask { await self.loadArchive(category.slug) }
+            }
+        }
     }
 
     func allowsExternalLink(_ url: String) -> Bool { policy.allowsExternalLink(url) }
 
-    /// assets/app.js `sectionView`.
-    func list(forSection slug: String, club: String?) -> [Article] {
-        var list: [Article]
-        switch slug {
-        case "video": list = articles.filter(\.video)
-        case "sondeqiqe": list = articles.filter { $0.isWithinHour() }
-        default: list = articles.filter { $0.category == slug }
-        }
-        if slug == "idman" {
-            if let club { list = list.filter { Ranking.clubMatches($0, club: club) } }
-            return list
-        }
-        return Ranking.filtered(list, language: language.isEmpty ? nil : language)
+    /// Mövzu süzgəci bütün arxivi yoxlayır: hesablama arxa planda gedir (3-cü qırmızı xətt).
+    func sectionRows(_ slug: String, club: String?) async -> [Article] {
+        let all = articles, rows = archives, lang = language
+        return await Task.detached(priority: .userInitiated) {
+            Ranking.section(slug, club: club, articles: all, archives: rows, language: lang.isEmpty ? nil : lang)
+        }.value
     }
 
-    func count(forSection slug: String) -> Int { list(forSection: slug, club: nil).count }
+    func count(forSection slug: String) -> Int {
+        Ranking.section(slug, club: nil, articles: articles, archives: [:], language: language.isEmpty ? nil : language).count
+    }
 
-    var searchPool: [Article] { Ranking.filtered(articles, language: language.isEmpty ? nil : language) }
+    /// Axtarış bölmə arxivlərini də görür.
+    func searchResults(_ text: String) async -> [Article] {
+        let all = articles, rows = archives, lang = language
+        return await Task.detached(priority: .userInitiated) {
+            var pool = all
+            for list in rows.values { pool = NewsPipeline.withArchive(pool, rows: list) }
+            return Ranking.search(text, in: pool, language: lang.isEmpty ? nil : lang)
+        }.value
+    }
+
+    func teamNews(_ team: TeamInfo, _ league: LeagueDoc) async -> [Article] {
+        let all = articles, rows = archives["idman"] ?? []
+        return await Task.detached(priority: .userInitiated) {
+            TeamNews.articles(team: team, league: league, in: NewsPipeline.withArchive(all, rows: rows))
+        }.value
+    }
+
+    /// İdman menyusunun dünya liqaları (sports.json).
+    func worldLeagues(sport: String) -> [League] { leagues.filter { $0.isWorld && $0.sport == sport } }
 
     func noteSearch(_ query: String) {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -12,6 +12,8 @@ struct UlduzApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(\.locale, Locale(identifier: model.interfaceLanguage))
+                .id(model.interfaceLanguage)
                 .environment(model)
                 .environment(Router.shared)
                 .onOpenURL { Router.shared.open(url: $0) }

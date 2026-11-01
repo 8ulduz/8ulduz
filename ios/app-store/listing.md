@@ -37,7 +37,10 @@ BİR HADİSƏ, BÜTÜN MƏNBƏLƏR
 Eyni hadisə haqqında müxtəlif saytların xəbərləri bir kartda birləşir. Kartda hadisəni neçə mənbənin yazdığı görünür, açanda kimin yazdığını müqayisə edirsiniz. Əsas səhifə ən çox mənbədə çıxan xəbərləri önə çıxarır.
 
 BÖLMƏLƏR
-Gündəm, siyasət, iqtisadiyyat, cəmiyyət, dünya, idman, mədəniyyət, səhiyyə, təhsil, texnologiya, bölgələr, həyat və video. Ana səhifədəki bölmələrin sırasını özünüz qurun, lazım olmayanları gizlədin.
+Gündəm, siyasət, iqtisadiyyat, cəmiyyət, dünya, idman, mədəniyyət, sağlamlıq və həyat, sosial müdafiə, bölgələr, təhsil və elm, video. Ana səhifədəki bölmələrin sırasını özünüz qurun, lazım olmayanları gizlədin.
+
+İDMAN
+Alt bölmələr, transfer xəbərləri, Azərbaycan və dünya liqalarının cədvəlləri, ölkə kubokları. Komanda səhifəsində oyunlar, cədvəl, heyət və son xəbərlər.
 
 BAZAR VƏ GÜNDƏLİK MƏLUMAT
 • Dollar, avro, rubl və lirənin məzənnəsi, neft, qızıl, gümüş və bitcoin
@@ -123,7 +126,7 @@ What the app does natively: merges the same story from several outlets into one 
 
 Content: the app shows only the headline, a short summary and an image from each publisher's public RSS feed, always with the publisher's name. The full article opens on the publisher's own website in SFSafariViewController. We do not host article text. Publishers can ask to be removed through the contact address in the app.
 
-The interface is in Azerbaijani. To review: open the first tab for the feed, tap a story for its sources, tap the gold button to open the publisher's site, tap the star to save it, then use the other tabs. The last tab holds markets, weather, prayer times, traffic, football, video, source status, settings and the about page.
+The interface is in Azerbaijani and follows the chosen news language (Turkish, Russian, English). To review: open the first tab for the feed, tap a story for its sources, tap the gold button to open the publisher's site, tap the star to save it, then use the other tabs. The last tab holds markets, weather, prayer times, traffic, football, video, source status, settings and the about page.
 
 Notifications are optional, created on the device and off by default (Services > Settings). Delivery time is decided by iOS background refresh.
 

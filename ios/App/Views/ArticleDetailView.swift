@@ -64,7 +64,7 @@ struct ArticleDetailView: View {
             .padding(16)
         }
         .screenBackground()
-        .navigationTitle(Catalog.label(article.category))
+        .navigationTitle(Text(ui: Catalog.label(article.category)))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -74,8 +74,8 @@ struct ArticleDetailView: View {
                     Image(systemName: model.isSaved(article) ? "star.fill" : "star")
                 }
                 .accessibilityLabel(model.isSaved(article) ? "Saxlanmışlardan çıxar" : "Yadda saxla")
-                if let url = TextTools.webURL(article.sourceUrl) {
-                    ShareLink(item: url, subject: Text(article.cleanTitle), message: Text(article.cleanTitle))
+                if let url = article.shareURL {
+                    ShareLink(item: url, subject: Text(article.cleanTitle), message: Text(verbatim: "\(article.cleanTitle)\n\n8ulduz.az"))
                 }
             }
         }
@@ -83,7 +83,9 @@ struct ArticleDetailView: View {
 
     private var sources: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Bu xəbərin mənbələri (\(article.sourceCount))")
+            Text("Bu xəbərin mənbələri (\(article.sourceCount))")
+                .font(.title3.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
             sourceRow(name: article.shownSource, url: article.sourceUrl, date: article.date)
             ForEach(article.alts) { alt in
                 sourceRow(name: alt.source, url: alt.sourceUrl, date: ISODate.parse(alt.publishedAt))
