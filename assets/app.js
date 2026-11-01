@@ -227,7 +227,7 @@ function today() { const a = new Date(), r = `${DAYS[a.getDay()]}, ${a.getDate()
 const FRESH_MS = 15 * 60e3; // «Son dəqiqə» nişanı və bildiriş: son 15 dəqiqə (əvvəl 1 saat idi, hər kart nişan alırdı)
 const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < FRESH_MS; };
 const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
-// Mənbəyə keçid: toxunma ekranında eyni vərəqdə açılır (yeni vərəq açılması telefonda gec görünürdü; «Geri» saytı qaytarır),
+// Mənbəyə keçid: toxunma ekranında eyni vərəqdə açılır,
 // masaüstündə yeni vərəqdə.
 const TOUCH_UI = typeof matchMedia === "function" && matchMedia("(hover:none)").matches;
 const OUT = TOUCH_UI ? `rel="noopener noreferrer"` : `target="_blank" rel="noopener noreferrer"`;
@@ -246,7 +246,6 @@ const isFirstLady = a => !!a && flText(a.title);
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Zuğulba xronikasında rəsmi səhifələrlə yanaşı dövlət və iqtidar saytlarının prezident xəbərləri də görünür:
-// AZƏRTAC, Cross Media, Xalq qəzeti, «Azərbaycan» qəzeti, Yeni Azərbaycan, Baku TV, APA, Report, Trend, Azernews, Day.Az, News.az, Xəzər.
 // Eyni xəbər bir neçə mənbədə çıxanda updater onları bir karta birləşdirir (rəsmi mənbə əsas olur), ona görə blok təkrarlanmır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
@@ -255,7 +254,7 @@ const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?
 const isAppointment = a => APPT_RX.test(a?.title || "");
 // Əsas blok: hər iki qrup (Prezident, Birinci xanım) görünür, sıra isə ən yenidən köhnəyə.
 const PREZ_COUNT = 44, PREZ_FIRST_IMAGES = 8; // Sahibin qərarı: blokda həmişə 44 xəbər
-// Lentə «prezident» sözü ilə yad xəbər də düşür (Yəmən, Fənərbağçanın prezidenti): digər saytlardan yalnız adı keçən xəbər götürülür.
+// Lentə «prezident» sözü ilə yad xəbər də düşür: digər saytlardan yalnız adı keçən xəbər götürülür.
 const OUR_LEADERS = /ilham|i̇lham|əliyev|aliyev|алиев|birinci xan|birinci vitse|prezident\s+administ|azərbaycan\s+prezident|dövlət başçı/iu;
 const aboutOurLeaders = a => OUR_LEADERS.test(a.title || "") || OUR_LEADERS.test(a.summary || "");
 function prezHome(list, all = list) {
@@ -494,7 +493,7 @@ function roadKind(title) {
   return null;
 }
 function roadItems(list) {
-  return (list || []).filter(a => (a.lang ?? "az") === "az").flatMap(a => {
+  return (list || []).filter(a => (a.lang ?? "az") === (S.lang || "az")).flatMap(a => {
     const k = roadKind(a.title);
     return k ? [{ ...a, icon: k.icon, kind: k.kind }] : [];
   }).sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
@@ -658,7 +657,7 @@ async function loadNews(force = false) {
   renderTopbar();
   // İlk ekran çəkilənə qədər tam lent xətti tutmur. Fayl gəlməsə loadFirst 5 saniyəyə bitir.
   if (S.firstReady) { const wait = S.firstReady; S.firstReady = null; await wait; }
-  // İlk yükləmədə og.json xəbərlərlə paralel gəlir (əvvəl news.json bitəndən sonra başlayırdı — telefonda bir gediş-gəliş artıq)
+  // İlk yükləmədə og.json xəbərlərlə paralel gəlir
   const ogReady = S.data && !S.partial ? null : loadOg(controller.signal);
   try {
     if (token !== S.newsToken) return;
@@ -903,7 +902,7 @@ function shell() {
   });
   document.addEventListener("click", onClick);
   if (globalThis.matchMedia?.("(hover:hover) and (pointer:fine)").matches) bindNavPop();
-  document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { S.lang = e.target.value || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); } });
+  document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { setLang(e.target.value); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
   window.addEventListener("hashchange", () => {
     const kept = S.keepClub; // açılan menyudan başqa bölmənin alt başlığı seçilib
@@ -963,7 +962,7 @@ function pageMeta() {
 
 function renderTopbar() {
   if (document.activeElement?.matches?.("#topbar select")) return; // açıq şəhər siyahısı bağlanmasın; seçimdən sonra yenilənir
-  // İlk ekranın faylı 10 dəqiqəyədək köhnə ola bilər: təzəliyə status və tam lent gələndən sonra baxılır, yoxsa «köhnəlib» yazısı yanıb sönür.
+  // İlk ekranın faylı 10 dəqiqəyədək köhnə ola bilər: təzəliyə status və tam lent gələndən sonra baxılır.
   const w = S.wx, upd = S.status?.checkedAt || (S.partial ? null : S.data?.updatedAt);
   // 11: status təzə olsa da bu ekrana yeni məlumat çatmayıbsa «indicə» yazılmasın.
   const applied = Math.max(S.newsCheckedAt || 0, S.latestAt || 0);
@@ -1045,6 +1044,7 @@ function bindNavPop() {
   const paint = (html, keep) => {
     const next = document.createElement("div");
     next.innerHTML = html;
+    S.tr?.(next);
     const cols = [...next.children];
     cols.forEach((col, i) => {
       const old = pop.children[i];
@@ -1114,7 +1114,7 @@ function fitNav() {
 }
 
 function renderTicker() {
-  const latest = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === "az"));
+  const latest = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === (S.lang || "az")));
   const breaking = latest.filter(isFresh);
   const list = (breaking.length ? breaking : latest).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
@@ -1144,7 +1144,7 @@ function startTicker() {
   const phase = Number(tickAnim?.currentTime) || 0; // yeni xəbər gələndə zolaq olduğu yerdən davam edir
   if (tickAnim) { try { tickAnim.cancel(); } catch {} tickAnim = null; }
   clearTimeout(tickT);
-  // «Hərəkəti azalt» ayarı olan telefonlarda lent dayanmasın (son dəqiqə xəbəri məzmundur, bəzək deyil): yalnız 2 dəfə yavaş axsın.
+  // «Hərəkəti azalt» ayarı olan telefonlarda lent dayanmasın: yalnız 2 dəfə yavaş axsın.
   // (Əvvəl bu halda lent tamam dayanırdı — «son dəqiqə axımı dayandı» şikayətinin səbəbi.)
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const half = track.scrollWidth / 2;
@@ -1288,6 +1288,15 @@ function renderLangs() {
 function syncLangStick() {}
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
+// Saytın dili dəyişirsə səhifə yenidən açılır: tərcümə (dil.js) yalnız başqa dildə yüklənir.
+const uiLang = v => v && v !== "az";
+function setLang(v) {
+  const was = S.lang;
+  S.lang = v || null;
+  storage.setItem(LANG_KEY, S.lang || "");
+  if (uiLang(was) || uiLang(S.lang)) return location.reload();
+  S.shown = PAGE; renderLangs(); renderView();
+}
 // fold «й»-ni «и» edir, ona görə «ой/ей» burada «ои/еи» yazılır.
 // Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları. Düymə həmin yerin bütün bölmələrdəki son xəbərlərini açır.
 const REGION_TABS = [
@@ -1394,7 +1403,7 @@ function socialBlock(side = false) {
 }
 function prezBlock(list) {
   // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır (imgFail)
-  // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir: birdən 44 şəkil ilk açılışa 350 KB əlavə edirdi (3-cü qırmızı xətt).
+  // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir.
   const card = (a, i) => {
     const [pic, ...rest] = imageCandidates(a);
     const small = sized(pic, 200);
@@ -1668,7 +1677,7 @@ function hlRegex(words) {
   const alts = words.map(w => [...w].map(ch => HL_CLASS[ch] || ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(""));
   return alts.length ? new RegExp("(" + alts.join("|") + ")", "giu") : null;
 }
-// Komanda adı axtarılanda yazılışından asılı olmayaraq (Fənərbaxça, Fənərbağça, Fenerbahçe) həmin komandanın xəbərləri gəlir.
+// Komanda adı axtarılanda yazılışından asılı olmayaraq həmin komandanın xəbərləri gəlir.
 function searchTopics(q) {
   const text = ` ${topicKey(q)} `;
   return [...SPORT_BY_NAME.values()].filter(t => (t.keys?.length || t.stems?.length) && topicRx(t).test(text)).map(t => t.name);
@@ -1789,6 +1798,7 @@ function patchChildren(box, fresh, changed) {
 function patchView(v, page) {
   const next = document.createElement("template");
   next.innerHTML = page;
+  S.tr?.(next.content);
   const changed = [];
   patchChildren(v, [...next.content.children], changed);
   if (!changed.length) return;
@@ -2012,7 +2022,7 @@ function onClick(e) {
   if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
   if (t.dataset.fbtab) { S.fbTab = t.dataset.fbtab; renderView(); return; }
   if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; const L = fbLeagues()[S.fbLeague]; S.fbTab = L?.world ? 0 : (S.fbTab === "table" && !L?.table?.length) || typeof S.fbTab === "number" ? "results" : S.fbTab; renderView(); return; }
-  if (t.dataset.lang !== undefined) { S.lang = t.dataset.lang || null; storage.setItem(LANG_KEY, S.lang || ""); S.shown = PAGE; renderLangs(); renderView(); return; }
+  if (t.dataset.lang !== undefined) { setLang(t.dataset.lang); return; }
   if (t.dataset.club !== undefined) {
     const pop = t.closest(".nav-pop");
     S.club = t.dataset.club || null;
@@ -2243,7 +2253,7 @@ function stopStep(el, snap) {
 }
 // Karusel: .strip içindəki zolağa ← → oxları və nöqtələr əlavə edir; bir basış bir səhifə (görünən en) sürüşdürür.
 // Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
-// Baş səhifənin uzaq bölmələri <template>-dədir: yerləşdirilmir, şəkli yüklənmir (telefonda ən ağır iş 4000 elementin hesablanması idi).
+// Baş səhifənin uzaq bölmələri <template>-dədir: yerləşdirilmir, şəkli yüklənmir.
 const lazySection = html => html ? `<div class="lazy-sec"><template>${html}</template></div>` : "";
 function setupLazySections() {
   S.lazyIO?.disconnect();
@@ -2519,7 +2529,7 @@ async function loadAds() {
 async function loadVideo() {
   try {
     const r = await fetch(freshUrl("data/video.json"), { cache: "no-store" });
-    if (r.ok) { S.video = await r.json(); if (route().name === "home" || route().name === "videos") requestRender(false); }
+    if (r.ok) { S.video = await r.json(); if (uiLang(S.lang) && S.video.items) S.video.items = S.video.items.filter(v => langOf({ title: v.title, summary: "" }) === S.lang); if (route().name === "home" || route().name === "videos") requestRender(false); }
   } catch {}
 }
 const SPORTS_DELAY_MS = 4000;
@@ -2650,11 +2660,17 @@ document.addEventListener("toggle", (e) => {
   if (!d.classList?.contains("altpop") || !d.open) return;
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);
+if (uiLang(S.lang)) {
+  const page = document.documentElement.style, show = () => { page.visibility = ""; };
+  page.visibility = "hidden";
+  setTimeout(show, 1500);
+  import("./dil.js").then(m => m.startDil(S, S.lang)).catch(() => {}).finally(show);
+}
 shell(); render();
 // Hamısı gələn kimi çəkilir: gözləsə ağır çəkiliş oxucunun linkə basdığı ana düşür, keçid gecikir.
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
-// Xəbər ekrana çıxandan sonra: xidmət işçisi ilk açılışda bütün faylları (eləcə də app.js-i ikinci dəfə) yükləyir, statistika və köməkçi modullar da şəbəkəni tutur.
+// Xəbər ekrana çıxandan sonra: xidmət işçisi, statistika və köməkçi şəbəkəni tutur.
 const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(() => { enableAnalytics(); registerWorker(); });
 Promise.allSettled([newsReady, loadSocial(), loadSources(), loadVideo(), loadFootball(), loadAds()]).then(flushRender);
@@ -2708,7 +2724,6 @@ setInterval(() => {
   if ((n === "home" || n === "traffic") && S.data) renderView();
 }, 60e3);
 
-// Optional voice UI is independent of feed re-renders.
 if (ASSISTANT_ON) afterNews(() => import("./assistant.js").then(({ mountAssistant }) => mountAssistant({
   getSnapshot: () => ({ articles: S.data?.articles || [], newsAt: S.data?.updatedAt, categories: CATS, cities: CITIES, road: localRoadItems(S.data?.articles || []), sportsAt: S.sports?.updatedAt, leagues: fbLeagues().map(l => ({...l, updatedAt: l.world ? S.sports?.updatedAt : S.football?.updatedAt})) }),
   wxCode,
