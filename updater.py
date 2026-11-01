@@ -702,6 +702,9 @@ def president_score(blob, lang):
     weak = len(PRESIDENT_WEAK_RX.findall(blob))
     return weak + sum(1 for w in PRESIDENT_WEAK_EXTRA if _rx(w).search(blob)) if weak else 0
 
+SPORT_SITE_RX = re.compile(r"(?<!\w)(?:fənərba[ğx]ça|\w+spor(?!\w)|[\"“«](?:sabah|qarabağ|kəpəz|neftçi|zirə|inter|göztəpə)|legioner|heç-heçə|stadion|avrokubok|"
+                           r"komandası|klub|meydan[aı]|uduzdu|oyunu|millinin|heyətim|ehtiyatda qaldı|şans aldı|texniki məğlubiyyət|böyük dəbilqə|federasiya)")
+
 def categorize(title, desc, lang="az", hint=None, world=False):
     # A clear title topic takes precedence over incidental location words.
     title_text = norm_az(title)
@@ -750,6 +753,9 @@ def categorize(title, desc, lang="az", hint=None, world=False):
     soft = hint[:-1] if hint and hint.endswith("?") else None
     if soft:
         hint = None
+        # İdman saytının dili: «Rüfət meydana çıxdı», «"Sabah"ın yolu». Bu sözlər başqa saytda idman demək deyil («gecə klubu»), ona görə ümumi siyahıda deyil.
+        if soft == "İdman" and scores["Prezident"] < 6 and SPORT_SITE_RX.search(norm_az(title)):
+            return soft
         if scores[soft] > 0:
             scores[soft] += 1
     if hint and scores.get("Prezident", 0) < 6:

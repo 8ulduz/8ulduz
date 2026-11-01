@@ -825,6 +825,20 @@ class SectionPagesTest(unittest.TestCase):
     def test_official_site_keeps_its_section_with_any_title(self):
         self.assertEqual(updater.label_for("Sənədlər imzalanıb", "", "az", "Prezident"), "Prezident")
 
+    def test_sport_site_language_reaches_the_sport_section(self):
+        for title in ("Qurban Qurbanovu “Fənərbağça”nın prezidentinə məsləhət görən",
+                      "Rüfət meydana çıxdı, komandası son anda 1 xalı qurtardı",
+                      "\"Erzurumspor\" uduzdu, Nəriman Axundzadə yenə ehtiyatda qaldı",
+                      "“Bizim onlardan geri qalmağımızın əsas səbəbi heyətimizdə legionerlərin olmamasıdır”",
+                      "\"Sabah\" və \"Qarabağ\" Azərbaycanın ən yüksək səviyyəli komandalarıdır\""):
+            with self.subTest(title=title):
+                self.assertEqual(updater.label_for(title, "", "az", "İdman?"), "İdman")
+
+    def test_sport_site_keeps_its_other_stories_out_of_sport(self):
+        self.assertEqual(updater.label_for("Prezident İlham Əliyev İspaniya millisini mükafatlandırdı", "", "az", "İdman?"), "Prezident")
+        self.assertNotEqual(updater.label_for("Məşhur cütlük 29 il əvvəl sevgilərinin başladığı yerə getdi - FOTOLAR", "", "az", "İdman?"), "İdman")
+        self.assertNotEqual(updater.label_for("Bakıda gecə klubu bağlandı", "", "az"), "İdman")  # başqa saytda bu söz idman deyil
+
     def test_absheron_is_not_usa(self):
         self.assertEqual(updater.label_for("Abşeronda oğula hökm oxundu", "məhkəmə qərarı", "az"), "Cəmiyyət")
         self.assertTrue(updater.has_any(updater.norm_az("ABŞ-da görüş keçirildi"), ["abş"]))
