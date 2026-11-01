@@ -10,7 +10,7 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip
+import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip, unicodedata
 import urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
 import content_policy
@@ -1619,7 +1619,7 @@ def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = _read_json(OUT_FILE, {}).get("articles") or []
     steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
-             lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive]
+             lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
             step()
@@ -2668,6 +2668,170 @@ def update_football():
     data["updatedAt"] = now
     _write_atomic(FOOTBALL_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Futbol: {fresh}/{len(PFL_PROJECTS)} liqa təzə, Premyer: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}")
+
+# Komanda səhifələri (#/komanda/<liga>/<ad>). Məlumat ayrı fayllardadır (data/futbol/), yalnız o səhifə açılanda yüklənir və
+# yalnız slow_cycle-da yazılır: baş səhifəyə də, 60 saniyəlik dövrəyə də ağırlıq gətirmir.
+# Yalnız Azərbaycan liqaları: dünya liqalarının təqvimi üçün mənbə hələ yoxdur (ESPN bizi 403 ilə rədd edir, blok yan keçilmir).
+# Heyət yoxdur: pfl.az-ın /clubs cavabında «players» bütün klublarda boşdur, bəzilərində yalnız PDF var (2026-11-01).
+TEAM_DIR = OUT_DIR / "futbol"
+TEAM_EVERY = datetime.timedelta(minutes=30)
+TEAM_EVERY_LIVE = datetime.timedelta(minutes=10)  # oyun gedəndə nəticə tez çatsın
+TEAM_LIVE_WINDOW = datetime.timedelta(hours=3)
+TEAM_BUDGET_S = 25         # bir yavaş dövrədə bu addıma ayrılan vaxt; çatmayan liqa növbəti dövrəyə qalır
+TEAM_PAST_SEASONS = 2      # cari mövsümdən əvvəlki mövsümlər: bir dəfə yazılır, bir daha dəyişmir
+TEAM_PAST_PER_CYCLE = 1
+
+class _NoTeamData(Exception):
+    """Bu mövsümdə həmin yarış yoxdur (şəbəkə xətası deyil)."""
+
+def team_slug(name):
+    """Komanda və liqa ünvanı. app.js-dəki teamSlug ilə eyni nəticə verir (hər iki test eyni nümunələri yoxlayır)."""
+    s = unicodedata.normalize("NFD", str(name or "").lower())
+    s = "".join(c for c in s if not unicodedata.combining(c)).replace("ə", "e").replace("ı", "i")
+    return re.sub(r"[\W_]+", "-", s).strip("-")
+
+def _team_sources():
+    return [{"id": team_slug(short), "project": project, "short": short, "reserve": short == "Əvəzedicilər"} for project, short in PFL_PROJECTS]
+
+def _team_season_label(year):
+    return f"{year}-{(year + 1) % 100:02d}"
+
+def parse_pfl_team_league(season, grid, tours):
+    """pfl.az cavabları -> (komandalar, qruplar, oyunlar). Cədvəlin sırası parse_pfl-dəndir, oyunlar bütün turlardandır."""
+    table = parse_pfl({"data": [season]}, grid, tours, {})["table"]
+    teams, rows = {}, []
+    for row in table:
+        slug = team_slug(row["team"])
+        teams[slug] = {"name": row["team"], "logo": row["logo"]}
+        row = dict(row, team=slug)
+        row.pop("logo", None)
+        rows.append(row)
+    games = []
+    for tour in tours.get("data") or []:
+        for g in tour.get("games") or []:
+            game = _pfl_game(g)
+            if not game["home"] or not game["away"]:
+                continue  # püşk hələ atılmayıb
+            for side, club in (("home", g.get("club_1") or {}), ("away", g.get("club_2") or {})):
+                slug = team_slug(game[side])
+                teams.setdefault(slug, {"name": game[side], "logo": club.get("logo") or ""})
+                game[side] = slug
+            if not game["played"]:
+                game.pop("hs")
+                game.pop("as")
+            if not game["stadium"]:
+                game.pop("stadium")
+            game["round"] = str(tour.get("title") or "")
+            games.append(game)
+    games.sort(key=lambda g: g["date"] or "9999")
+    return teams, ([{"name": "", "rows": rows}] if rows else []), games
+
+def _team_league(spec, key=None):
+    """(sənəd, mövsümlər). pfl.az mövsümləri ən yenisi birinci verir."""
+    rows = [s for s in _pfl_json(f"/seasons?project_id={spec['project']}").get("data") or [] if (s.get("leagues") or [{}])[0].get("id")]
+    rows = rows[:TEAM_PAST_SEASONS + 1]
+    year = lambda s: str(s.get("title") or "")[:4]
+    seasons = [{"key": year(s), "label": _team_season_label(_num(year(s)))} for s in rows]
+    season = next((s for s in rows if year(s) == key), None) if key else (rows[0] if rows else None)
+    if season is None:
+        raise _NoTeamData("mövsüm yoxdur")
+    league = season["leagues"][0]
+    grid = {} if league.get("is_elimination") else _pfl_json(f"/leagues/grid?season_id={season.get('id')}&project_id={spec['project']}")
+    tours = _pfl_json(f"/tours/get-games?league_id={league.get('id')}&withGames=true")
+    teams, groups, games = parse_pfl_team_league(season, grid, tours)
+    if not groups and not games:
+        raise _NoTeamData("məlumat boşdur")
+    doc = {"id": spec["id"], "name": league.get("title") or spec["short"], "short": spec["short"], "source": "pfl.az",
+           "key": year(season), "season": _team_season_label(_num(year(season))), "teams": teams, "groups": groups, "games": games}
+    return doc, seasons
+
+def _write_if_changed(path, doc):
+    """Məlumat dəyişməyibsə fayla toxunulmur: main-ə lazımsız commit getmir."""
+    text = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
+    try:
+        if path.read_text(encoding="utf-8") == text:
+            return False
+    except OSError:
+        pass
+    _write_atomic(path, text)
+    return True
+
+def _team_when(s):
+    try:
+        t = datetime.datetime.fromisoformat(str(s))
+    except ValueError:
+        return None
+    return t if t.tzinfo else None
+
+def _team_due(doc, checked, now_dt):
+    last = _team_when(checked)
+    if last is None or now_dt - last >= TEAM_EVERY:
+        return True
+    if now_dt - last < TEAM_EVERY_LIVE:
+        return False
+    for g in doc.get("games") or []:
+        kick = _team_when(g.get("date"))
+        if kick and not g.get("played") and kick <= now_dt <= kick + TEAM_LIVE_WINDOW:
+            return True
+    return False
+
+def update_team_pages():
+    """Komanda səhifələrinin faylları: hər liqa üçün data/futbol/<liga>.json (cədvəl və mövsümün bütün oyunları), keçmiş mövsümlər
+    <liga>-<il>.json, siyahı index.json. Alınmayan liqanın köhnə faylı qalır."""
+    started = time.monotonic()
+    out_of_time = lambda: time.monotonic() - started > TEAM_BUDGET_S
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    now = now_dt.isoformat(timespec="seconds")
+    TEAM_DIR.mkdir(parents=True, exist_ok=True)
+    index = _read_json(TEAM_DIR / "index.json", {})
+    checked = index.get("checked") or {}
+    known = {l.get("id"): l for l in index.get("leagues") or []}
+    empty = set(index.get("empty") or [])
+    sources = _team_sources()
+    fresh = 0
+    for spec in sources:
+        if out_of_time():
+            break
+        if not _team_due(_read_json(TEAM_DIR / f"{spec['id']}.json", {}), checked.get(spec["id"]), now_dt):
+            continue
+        checked[spec["id"]] = now  # alınmayan liqa da növbəsini gözləyir
+        try:
+            doc, seasons = _team_league(spec)
+        except Exception as e:
+            print(f"  ! komanda {spec['short']}:", type(e).__name__)
+            if isinstance(e, urllib.error.HTTPError) and e.code == 403:
+                checked.update({s["id"]: now for s in sources})  # rədd edən sayta bu dövrə başqa sorğu getmir
+                break
+            continue
+        _write_if_changed(TEAM_DIR / f"{spec['id']}.json", doc)
+        table = [r["team"] for g in doc["groups"] for r in g["rows"]]
+        known[spec["id"]] = {"id": spec["id"], "name": doc["name"], "short": spec["short"], "source": doc["source"], "seasons": seasons, "teams": table or sorted(doc["teams"])}
+        if spec["reserve"]:
+            known[spec["id"]]["reserve"] = True
+        fresh += 1
+    past = 0
+    for spec in sources:
+        for season in (known.get(spec["id"]) or {}).get("seasons", [])[1:]:
+            name = f"{spec['id']}-{season['key']}"
+            if out_of_time() or past >= TEAM_PAST_PER_CYCLE or name in empty or (TEAM_DIR / f"{name}.json").exists():
+                continue
+            past += 1
+            try:
+                doc, _seasons = _team_league(spec, season["key"])
+                _write_if_changed(TEAM_DIR / f"{name}.json", doc)
+            except _NoTeamData:
+                empty.add(name)  # bu mövsümdə həmin yarış yoxdur: bir daha soruşulmur
+            except Exception as e:
+                print(f"  ! komanda {name}:", type(e).__name__)
+    leagues = []
+    for spec in sources:
+        league = known.get(spec["id"])
+        if league:
+            # Seçicidə yalnız faylı olan mövsüm.
+            ready = [x for i, x in enumerate(league["seasons"]) if i == 0 or (TEAM_DIR / f"{spec['id']}-{x['key']}.json").exists()]
+            leagues.append(dict(league, ready=ready))
+    _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty)})
+    print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {time.monotonic() - started:.1f} s")
 
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
 GROUP_WINDOW = datetime.timedelta(hours=36)

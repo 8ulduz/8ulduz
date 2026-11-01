@@ -1,8 +1,10 @@
 import contextlib
 import datetime
+import inspect
 import io
 import json
 import pathlib
+import re
 import tempfile
 import unittest
 import urllib.error
@@ -580,6 +582,118 @@ class WikiTablesTest(unittest.TestCase):
         self.assertNotIn("_page", rows[0])
         self.assertNotIn("full", rows[1])
         self.assertEqual((league["asof"], league["season"]), ("2026-10-31", "2026/27"))
+
+
+class TeamPagesTest(unittest.TestCase):
+    def test_slug_matches_the_browser_cases(self):
+        # tests/browser-logic.test.cjs eyni nümunələri teamSlug üçün yoxlayır: ünvanlar eyni qalmalıdır.
+        for name, slug in [("Qarabağ", "qarabag"), ("Araz-Naxçıvan", "araz-naxcivan"), ("İmişli", "imisli"), ("Əvəzedicilər", "evezediciler"), ("Türkiyə", "turkiye"),
+                           ("İngiltərə", "ingiltere"), ("ÇL", "cl"), ("I Liqa", "i-liqa"), ("II Liqa", "ii-liqa"), ("Bodo/Glimt", "bodo-glimt"), ("Atlético Madrid", "atletico-madrid"), ("Fenerbahçe", "fenerbahce")]:
+            self.assertEqual(updater.team_slug(name), slug)
+        # assets/app.js AZ_LEAGUES-dən menyu keçidləri qurur: ünvanlar eyni qalmalıdır.
+        self.assertEqual([s["id"] for s in updater._team_sources()], ["premyer-liqa", "i-liqa", "ii-liqa", "kubok", "evezediciler"])
+
+    def test_pfl_league_holds_the_whole_season(self):
+        season = {"title": "2026-2027", "leagues": [{"title": "Misli Premyer Liqası"}]}
+        grid = {"data": [{"title": "Qarabağ", "logo": "https://pfl.az/q.png", "rate": {"ordering": 1, "o": 1, "q": 1, "x": 3}}]}
+        tours = {"data": [
+            {"title": "1", "games": [{"club_1": {"title": "Qarabağ", "logo": "https://pfl.az/q.png"}, "club_2": {"title": "Şəfa", "logo": "https://pfl.az/s.png"}, "club_score_1": 2, "club_score_2": 0, "status": 3, "start_date": "14/08/2026 19:30", "stadion": {"title": "Stadion"}}]},
+            {"title": "2", "games": [{"club_1": {"title": "Şəfa"}, "club_2": {"title": "Qarabağ"}, "club_score_1": 0, "club_score_2": 0, "status": 0, "start_date": "21/08/2026 19:30"},
+                                     {"club_1": {}, "club_2": {"title": "Qarabağ"}, "status": 0, "start_date": ""}]}]}
+        teams, groups, games = updater.parse_pfl_team_league(season, grid, tours)
+        self.assertEqual(sorted(teams), ["qarabag", "sefa"])
+        self.assertEqual(teams["sefa"]["logo"], "https://pfl.az/s.png", "cədvəldə olmayan rəqibin loqosu oyundan gəlir")
+        self.assertEqual(groups[0]["rows"][0]["team"], "qarabag")
+        self.assertEqual(len(games), 2, "püşkü atılmamış oyun yazılmır")
+        self.assertEqual((games[0]["hs"], games[0]["as"], games[0]["round"]), (2, 0, "1"))
+        self.assertNotIn("hs", games[1], "oynanmamış oyunda 0:0 göstərilmir")
+        self.assertEqual(updater.parse_pfl_team_league(season, {}, {"data": []})[1], [], "kubokda cədvəl yoxdur")
+
+    def test_refresh_is_faster_only_while_a_game_may_be_running(self):
+        now = datetime.datetime(2026, 11, 8, 14, 0, tzinfo=datetime.timezone.utc)
+        ago = lambda minutes: (now - datetime.timedelta(minutes=minutes)).isoformat()
+        running = {"games": [{"date": "2026-11-08T17:00+04:00", "played": False}]}
+        quiet = {"games": [{"date": "2026-11-08T17:00+04:00", "played": True}, {"date": "", "played": False}, {"date": "2026-11-09T17:00+04:00", "played": False}]}
+        self.assertTrue(updater._team_due({}, None, now))
+        self.assertFalse(updater._team_due(running, ago(5), now))
+        self.assertTrue(updater._team_due(running, ago(11), now))
+        self.assertFalse(updater._team_due(quiet, ago(11), now))
+        self.assertTrue(updater._team_due(quiet, ago(31), now))
+
+    def run_step(self, tmp, fetch):
+        with patch.object(updater, "TEAM_DIR", pathlib.Path(tmp) / "futbol"), patch.object(updater, "_pfl_json", fetch), contextlib.redirect_stdout(io.StringIO()):
+            updater.update_team_pages()
+        return json.loads((pathlib.Path(tmp) / "futbol" / "index.json").read_text(encoding="utf-8"))
+
+    def pfl_answer(self, url):
+        if "/seasons" in url:
+            return {"data": [{"id": 2, "title": "2026-2027", "leagues": [{"id": 20, "title": "Misli Premyer Liqası"}]}, {"id": 1, "title": "2025-2026", "leagues": [{"id": 10, "title": "Misli Premyer Liqası"}]}]}
+        if "/grid" in url:
+            return {"data": [{"title": "Qarabağ", "rate": {"ordering": 1, "x": 3}}]}
+        return {"data": [{"title": "1", "games": [{"club_1": {"title": "Qarabağ"}, "club_2": {"title": "Şəfa"}, "club_score_1": 1, "club_score_2": 0, "status": 3, "start_date": "14/08/2026 19:30"}]}]}
+
+    def test_a_site_answering_403_is_not_asked_again_this_cycle(self):
+        calls = []
+        def denied(url):
+            calls.append(url)
+            raise updater.urllib.error.HTTPError(url, 403, "Access Denied", {}, None)
+        with tempfile.TemporaryDirectory() as tmp:
+            index = self.run_step(tmp, denied)
+            self.assertEqual(len(calls), 1, "rədd edəndə qalan liqalara sorğu getmir")
+            self.assertEqual(sorted(index["checked"]), sorted(s["id"] for s in updater._team_sources()), "növbəti cəhd vaxtını gözləyir")
+            self.assertEqual(index["leagues"], [])
+            self.run_step(tmp, denied)
+            self.assertEqual(len(calls), 1, "yarım saat sorğu yoxdur")
+
+    def test_a_failed_league_keeps_its_old_file_and_an_unchanged_file_is_not_rewritten(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.run_step(tmp, self.pfl_answer)
+            path = pathlib.Path(tmp) / "futbol" / "premyer-liqa.json"
+            first = path.read_text(encoding="utf-8")
+            written = path.stat().st_mtime_ns
+            self.assertIn("qarabag", json.loads(first)["teams"])
+            index = json.loads((path.parent / "index.json").read_text(encoding="utf-8"))
+            index["checked"] = {}
+            (path.parent / "index.json").write_text(json.dumps(index), encoding="utf-8")
+            def down(url):
+                raise TimeoutError()
+            after = self.run_step(tmp, down)
+            self.assertEqual(path.read_text(encoding="utf-8"), first)
+            self.assertEqual(len(after["leagues"]), 5, "alınmayan liqa siyahıdan çıxmır")
+            (path.parent / "index.json").write_text(json.dumps(index), encoding="utf-8")
+            self.run_step(tmp, self.pfl_answer)
+            self.assertEqual(path.stat().st_mtime_ns, written, "dəyişməyən fayl main-ə yazılmır")
+
+    def test_past_seasons_are_written_one_per_cycle_and_listed_when_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            index = self.run_step(tmp, self.pfl_answer)
+            folder = pathlib.Path(tmp) / "futbol"
+            self.assertEqual(len(list(folder.glob("*-2025.json"))), 1)
+            self.assertEqual([s["key"] for s in index["leagues"][0]["ready"]], ["2026", "2025"])
+            self.assertEqual([s["key"] for s in index["leagues"][1]["ready"]], ["2026"], "faylı olmayan mövsüm seçicidə yoxdur")
+            self.assertEqual(index["leagues"][4]["reserve"], True)
+            self.assertNotIn("reserve", index["leagues"][0])
+
+    def test_a_season_without_the_competition_is_not_asked_again(self):
+        def answer(url):
+            if "/seasons" in url or "/grid" in url:
+                return self.pfl_answer(url)
+            return {"data": []} if "league_id=10" in url else self.pfl_answer(url)
+        no_table = lambda url: {"data": []} if "/grid" in url else answer(url)
+        with tempfile.TemporaryDirectory() as tmp:
+            index = {}
+            for _ in range(6):
+                index = self.run_step(tmp, no_table)
+            self.assertEqual(sorted(index["empty"]), sorted(f"{s['id']}-2025" for s in updater._team_sources()))
+            self.assertEqual(list((pathlib.Path(tmp) / "futbol").glob("*-2025.json")), [])
+
+    def test_team_files_are_written_only_by_the_slow_cycle(self):
+        # QIRMIZI XƏTT 1 və 3: şəbəkə sorğusu 60 saniyəlik dövrəyə düşməsin, baş səhifənin faylları böyüməsin.
+        source = pathlib.Path(updater.__file__).read_text(encoding="utf-8")
+        self.assertEqual(re.findall(r"\bupdate_team_pages\b", source).count("update_team_pages"), 2, "tərif və slow_cycle")
+        self.assertIn("update_archive, update_team_pages]", inspect.getsource(updater.slow_cycle), "yavaş dövrənin son addımıdır: digər addımları gözlətmir")
+        self.assertNotIn("team", inspect.getsource(updater.run_fast))
+        self.assertLessEqual(updater.TEAM_BUDGET_S, 30)
 
 
 class SectionPagesTest(unittest.TestCase):

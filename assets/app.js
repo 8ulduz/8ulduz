@@ -844,6 +844,7 @@ function route() {
   let h = location.hash.replace(/^#/, "") || "/";
   try { h = decodeURIComponent(h); } catch {} // natamam %-kod səhifəni dayandırmasın
   const article = h.match(/^\/xeber\/([^#?]+)/); if (article) return { name: "article", id: article[1] };
+  const team = h.match(/^\/komanda\/([^/?]+)(?:\/([^/?]+))?(?:\/([^/?]+))?(?:\?s=(\d{4}))?$/); if (team) return { name: "team", liga: team[1], team: team[2] || "", tab: team[3] || "", season: team[4] || "" };
   if (h === "/menbeler" || h.startsWith("/menbeler?")) return { name: "sources" };
   if (h === "/videolent" || h.startsWith("/videolent?")) return { name: "videos" };
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
@@ -948,6 +949,7 @@ function pageMeta() {
   else if (r.name === "videos") { name = "Video xəbərlər"; desc = "Azərbaycan kanallarının video lentləri."; }
   else if (r.name === "about") { name = "Haqqımızda"; desc = "8ulduz nədir, mənbələr, redaksiya prinsipləri, məxfilik və əlaqə."; }
   else if (r.name === "notfound") { name = "Səhifə tapılmadı"; }
+  else if (r.name === "team") { name = "Komanda"; }
   document.title = `${name} — 8ulduz`;
   if (md && desc) md.setAttribute("content", desc);
 }
@@ -1012,9 +1014,9 @@ function navPopHtml(slug, tab) {
   }
   const tabs = SUB_TABS[slug], club = route().slug === slug ? S.club || "" : null;
   const pill = (name, label = name, kids = false) => `<button class="pill ${club === name || tab === name ? "on" : ""}" data-club="${esc(name)}"${kids ? " data-kids" : ""}>${esc(label)}</button>`;
-  const groups = tabs.find(t => t.name === tab)?.groups || [];
+  const groups = navGroups(tabs, tab);
   return `<div class="pop-col">${pill("", "Hamısı")}${tabs.map(t => pill(t.name, t.name, !!t.groups)).join("")}</div>` +
-    (groups.length ? `<div class="pop-col two">${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "");
+    (groups.length ? `<div class="pop-col two">${navLeagues(slug, tab).length ? `<span class="chip-h">${GROUP_FLAG["Azərbaycan"]}Azərbaycan liqaları</span>${navLeagues(slug, tab).map(leagueLink).join("")}` : ""}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name)).join("")).join("")}</div>` : "");
 }
 // Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
 function bindNavPop() {
@@ -1299,12 +1301,21 @@ function clubMatches(a, club) {
   if (topicRx(topic).test(seen.text)) return true;
   return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
 }
+// Futbolun altında Azərbaycan liqaları, klublar liqanın səhifəsindədir. Dünya liqalarının komanda səhifəsi hələ yoxdur:
+// o klubların xəbər düyməsi menyuda qalır, yoxsa onlara yol olmaz. Ünvanlar updater.py-dakı _team_sources ilə eynidir.
+const AZ_LEAGUES = ["Premyer Liqa", "I Liqa", "II Liqa", "Kubok", "Əvəzedicilər"];
+const navLeagues = (slug, tab) => slug === "idman" && tab === "Futbol" ? AZ_LEAGUES : [];
+const leagueLink = short => `<a class="pill" href="#/komanda/${teamSlug(short)}">${esc(short)}</a>`;
+function navGroups(tabs, open) {
+  const groups = tabs.find(t => t.name === open)?.groups || [];
+  return open !== "Futbol" ? groups : groups.map(g => g.group === "Azərbaycan" ? { group: "", items: g.items.filter(t => t.name === "Milli komanda") } : g);
+}
 function navRows(slug, open = S.sportTab, club = S.club || "") {
   const tabs = SUB_TABS[slug];
   const pill = (name, label = name) => `<button class="pill ${club === name || open === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
-  const groups = tabs.find(t => t.name === open)?.groups || [];
+  const groups = navGroups(tabs, open);
   return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div></div></div>` +
-    (groups.length ? `<div class="nav-row two"><div class="wrap sport-chips">${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
+    (groups.length ? `<div class="nav-row two"><div class="wrap sport-chips">${navLeagues(slug, open).length ? `<div class="chips sub"><span class="chip-h">${GROUP_FLAG["Azərbaycan"]}Azərbaycan liqaları</span>${navLeagues(slug, open).map(leagueLink).join("")}</div>` : ""}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name)).join("")}</div>`).join("")}</div></div>` : "");
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
@@ -1371,6 +1382,9 @@ const CLUB_AZ = { "Sabah Baku": "Sabah", "Sabah FK": "Sabah", "Qarabag": "Qaraba
   "Zira": "Zirə", "Zira FK": "Zirə", "Sumqayit": "Sumqayıt", "Sumgayit": "Sumqayıt", "Kapaz": "Kəpəz", "Shamakhi": "Şamaxı", "Araz-Naxcivan": "Araz-Naxçıvan", "Araz Nakhchivan": "Araz-Naxçıvan",
   "Imisli": "İmişli", "Gabala": "Qəbələ", "Sabail": "Səbail", "Karvan": "Karvan-Yevlax", "Turan Tovuz": "Turan Tovuz", "Sheki": "Şəki", "Mingachevir": "Mingəçevir" };
 const clubAz = n => CLUB_AZ[String(n || "").trim()] || n || "";
+// Komanda səhifəsinin ünvanı: updater.py-dakı team_slug ilə eyni. Səhifələr yalnız Azərbaycan liqalarınındır.
+const teamSlug = s => topicKey(s).replace(/ /g, "-");
+const teamHref = (l, name) => `#/komanda/${teamSlug(l.short || "Premyer Liqa")}/${encodeURIComponent(teamSlug(name))}`;
 // football.json: «leagues» siyahısı (Premyer, I, II, Kubok, Əvəzedicilər); köhnə faylda yalnız üst səviyyə var
 function fbLeagues() {
   const fb = S.football;
@@ -1414,7 +1428,7 @@ function footballBlock(list) {
       ${gtabs}
       <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div></section>`;
   }
-  const teams = fb.table.map(t => `<div class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></div>`).join("");
+  const teams = fb.table.map(t => `<a href="${teamHref(fb, t.team)}" class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></a>`).join("");
   const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
     .filter(([k]) => k !== "table" || fb.table?.length)
     .map(([k, l, r]) => `<button type="button" class="fb-tab${tab === k ? " on" : ""}" data-fbtab="${k}"><span>${l}${r ? `<small>${esc(/^\d+$/.test(String(r)) ? ordTur(r) + " tur" : String(r))}</small>` : ""}</span><i>→</i></button>`).join("");
@@ -1422,7 +1436,7 @@ function footballBlock(list) {
   let pane = "";
   if (tab === "results") pane = fb.results?.length ? `<ul class="games">${fb.results.map(game).join("")}</ul>` : `<p class="muted foot-note">Nəticə hələ yoxdur.</p>`;
   else if (tab === "fixtures") pane = fb.fixtures?.length ? `<ul class="games">${fb.fixtures.map(game).join("")}</ul>` : `<p class="muted foot-note">Növbəti tur hələ elan olunmayıb.</p>`;
-  else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${esc(clubAz(t.team))}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm"><a href="${teamHref(fb, t.team)}">${esc(clubAz(t.team))}</a></td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
   else if (tab === "scorers") pane = fb.scorers?.length ? `<ol class="fb-scorers">${fb.scorers.map(s => `<li><b>${esc(s.name)}</b> <span class="muted">${esc(clubAz(s.club))}</span><em>${esc(s.goals)} qol</em></li>`).join("")}</ol>` : `<p class="muted foot-note">Bombardir siyahısı alınmadı.</p>`;
   return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
     ${picker}
@@ -1558,7 +1572,7 @@ async function loadArchive(slug) {
     if (!Array.isArray(d?.articles)) return;
     S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a));
     const r = route();
-    if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search") requestRender(false);
+    if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search" || (r.name === "team" && slug === "idman")) requestRender(false);
   } catch {}
 }
 function withArchive(slug, list) {
@@ -1666,6 +1680,19 @@ function leagueView() {
   wantSports();
   return `<div class="page-h"><div><h1>Premyer Liqa cədvəli</h1><p>Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar.</p></div></div>${footballBlock(S.data?.articles || [])}`;
 }
+// Komanda səhifəsi ayrı fayldadır: kodu və üslubu yalnız bu ünvan açılanda gəlir.
+function teamView(r) {
+  if (S.teamPage) return S.teamPage.view(r);
+  if (!S.teamLoading && Date.now() - (S.teamFailedAt || 0) > 30e3) {
+    S.teamLoading = true;
+    const css = new Promise(done => { const link = document.createElement("link"); link.rel = "stylesheet"; link.href = `${ASSET}komanda.css`; link.onload = link.onerror = done; document.head.append(link); });
+    Promise.all([import("./komanda.js"), css]).then(([{ mountTeam }]) => {
+      S.teamPage = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive, months: MONTHS, requestJSON, freshUrl, requestRender });
+      requestRender(false);
+    }).catch(() => { S.teamLoading = false; S.teamFailedAt = Date.now(); requestRender(false); });
+  }
+  return S.teamFailedAt ? `<div class="err" role="alert">Komanda səhifəsi açılmadı. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : skeleton();
+}
 function trafficView() {
   const area = tixArea();
   const items = localRoadItems(S.data?.articles || []).slice(0, 40);
@@ -1730,7 +1757,7 @@ function renderView() {
   if (!S.data || onlyFirst) { S.viewPage = null; v.innerHTML = skeleton(); return; }
   const r = route();
   const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
-  const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+  const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
   // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
   const page = err + body;
   if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
