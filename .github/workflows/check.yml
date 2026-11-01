@@ -30,7 +30,7 @@ jobs:
       # Sınıq workflow faylı main-ə düşsə yeniləmə tamamilə dayanır — PR-da tutulsun.
       - name: Workflow fayllarını yoxla (actionlint)
         run: |
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/03d0035246f3e81f36aed592ffb4bebf33a03106/scripts/download-actionlint.bash) 1.7.7
           ./actionlint -color -shellcheck= -pyflakes=
 
   # QIRMIZI XƏTT 1: dövrə real lentlərlə, GitHub runner-də 60 saniyəyə sığmalıdır. Heç nə yazmır.
