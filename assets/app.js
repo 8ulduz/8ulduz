@@ -709,6 +709,14 @@ function publishNews() {
   const d = {...S.rawMeta};
   let articles = S.rawNews.map(a => ({...a, category: SECTION_ALIAS[a.category] || a.category, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
   articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))}));
+  // Linki 404 verən xəbər: başqa sayt da yazıbsa kart ona keçir, yoxsa xəbər link düzələnə qədər görünmür.
+  if (S.deadLinks?.size) articles = articles.flatMap(a => {
+    const alts = a.alts.filter(alt => !S.deadLinks.has(alt.sourceUrl));
+    if (!S.deadLinks.has(a.sourceUrl)) return [{...a, alts}];
+    if (!alts.length) return [];
+    const [next, ...rest] = alts;
+    return [{...a, source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt || a.publishedAt, title: next.title || a.title, lang: next.lang || a.lang, imageUrl: a.imageUrl || next.imageUrl, alts: rest}];
+  });
   d.articles = collapseExact(clusterArticles(articles));
   // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
   for (const a of d.articles) {
@@ -762,6 +770,8 @@ async function loadLatest(force = false) {
     S.offline = r.headers?.get?.("X-8ulduz-data") === "cache";
     if (!S.offline) { S.lastSync = new Date(); S.error = null; }
     S.newsStamp = statusStamp; S.latestAt = Date.now();
+    const dead = new Set(d.dead || []), deadChanged = dead.size !== (S.deadLinks?.size || 0) || [...dead].some(u => !S.deadLinks.has(u));
+    S.deadLinks = dead;
     const known = new Set(S.rawNews.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
     const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
     // Xəbər şəkilsiz gəlib, şəkli yavaş prosesdən sonra tapılıb: tam lenti (10 dəqiqə) gözləmədən görünsün.
@@ -771,7 +781,7 @@ async function loadLatest(force = false) {
       const row = byUrl.get(a.sourceUrl);
       if (row && !row.imageUrl && a.imageUrl) { row.imageUrl = a.imageUrl; gotImage = true; }
     }
-    if (gotImage && !fresh.length) { publishNews(); requestRender(false); renderTopbar(); return; }
+    if ((gotImage || deadChanged) && !fresh.length) { publishNews(); requestRender(false); renderTopbar(); return; }
     if (!fresh.length) { renderTopbar(); return; }
     S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];

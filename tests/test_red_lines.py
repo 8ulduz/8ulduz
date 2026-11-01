@@ -170,7 +170,7 @@ class FastCycleTest(unittest.TestCase):
         (root / "data").mkdir()
         names = {"OUT_DIR": root / "data", "OUT_FILE": root / "data" / "news.json", "STATUS_FILE": root / "data" / "status.json",
                  "SOURCES_FILE": root / "data" / "sources.json", "OG_FILE": root / "data" / "og.json", "DATES_FILE": root / "data" / "dates.json",
-                 "LATEST_FILE": root / "data" / "latest.json", "FIRST_FILE": root / "data" / "first.json", "CACHE_DIR": root / ".cache", "FEED_CACHE": root / ".cache" / "feeds.json",
+                 "LATEST_FILE": root / "data" / "latest.json", "LINK_HEALTH_FILE": root / ".cache" / "link_health.json", "FIRST_FILE": root / "data" / "first.json", "CACHE_DIR": root / ".cache", "FEED_CACHE": root / ".cache" / "feeds.json",
                  "SLOW_FEED_CACHE": root / ".cache" / "slow.json", "OFFICIAL_CACHE": root / ".cache" / "official.json",
                  "UNDATED_FILE": root / ".cache" / "undated.json", "RECENT_FILE": root / ".cache" / "recent.json", "GNEWS_CACHE": root / ".cache" / "gnews.json",
                  "GROUPS_FILE": root / ".cache" / "groups.json", "RELABEL_MARK": root / ".cache" / "relabeled"}
@@ -221,6 +221,44 @@ class FastCycleTest(unittest.TestCase):
             self.cycle(self.first_screen_feed)
         self.assertEqual([a["sourceUrl"] for a in self.news()], ["https://apa.az/ilk-1"])
         self.assertFalse((self.root / "data" / "first.json").exists())
+
+    def link_feed(self, feed, old=None):
+        rows = [self.item("https://apa.az/olu-1", "Avropada güclü fırtına başladı"), self.item("https://apa.az/saglam-2", "Asiyada böyük zəlzələ qeydə alındı")] if feed[0] == "APA" else []
+        return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
+
+    def test_a_dead_link_leaves_the_news_and_comes_back_when_fixed(self):
+        (self.root / ".cache").mkdir(exist_ok=True)
+        health = self.root / ".cache" / "link_health.json"
+        self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+        health.write_text(json.dumps({"https://apa.az/olu-1": {"dead": True, "at": time.time(), "since": time.time()}}), encoding="utf-8")
+        self.cycle(self.link_feed)
+        self.assertEqual([a["sourceUrl"] for a in self.news()], ["https://apa.az/saglam-2"])
+        self.assertEqual(json.loads((self.root / "data" / "latest.json").read_text(encoding="utf-8"))["dead"], ["https://apa.az/olu-1"])
+        health.write_text("{}", encoding="utf-8")
+        self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+
+    def test_the_news_cycle_never_checks_links_itself(self):
+        with patch.object(updater, "link_status", side_effect=AssertionError("xəbər dövrəsi linkə sorğu göndərməməlidir")):
+            self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+
+    def test_a_broken_link_file_or_failure_does_not_stop_the_news(self):
+        (self.root / ".cache").mkdir(exist_ok=True)
+        (self.root / ".cache" / "link_health.json").write_text("{pozuq", encoding="utf-8")
+        self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+        with patch.object(updater, "drop_dead_links", side_effect=ValueError("sınaq")):
+            self.cycle(self.link_feed)
+        self.assertEqual(len(self.news()), 2)
+
+    def test_too_many_dead_links_are_not_believed(self):
+        (self.root / ".cache").mkdir(exist_ok=True)
+        many = {f"https://apa.az/{i}": {"dead": True, "at": 1, "since": 1} for i in range(updater.LINK_DEAD_MAX + 1)}
+        (self.root / ".cache" / "link_health.json").write_text(json.dumps(many), encoding="utf-8")
+        self.assertEqual(updater.dead_links(100), set())
+        self.assertEqual(len(updater.dead_links(1000)), updater.LINK_DEAD_MAX + 1)
 
     def test_a_hanging_feed_does_not_hold_the_cycle(self):
         def fetcher(feed, old=None):

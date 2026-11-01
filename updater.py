@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 import content_policy
 from reader_content import update_reader
 from concurrent.futures import ThreadPoolExecutor, wait
+import threading
 
 
 def _write_atomic(path, text, encoding="utf-8"):
@@ -358,6 +359,7 @@ SLOW_FEED_CACHE = CACHE_DIR / "feeds-slow.json"
 OFFICIAL_CACHE = CACHE_DIR / "official.json"
 UNDATED_FILE = CACHE_DIR / "undated.json"
 RECENT_FILE = CACHE_DIR / "recent.json"
+LINK_HEALTH_FILE = CACHE_DIR / "link_health.json"
 GNEWS_CACHE = CACHE_DIR / "gnews.json"
 GROUPS_FILE = CACHE_DIR / "groups.json"
 RELABEL_MARK = CACHE_DIR / "relabeled"
@@ -1327,6 +1329,104 @@ def apply_og_cache(articles):
             a["imageUrl"] = image
 
 
+# Ölü linklər: sayt xəbəri lentdə dərc edir, səhifəsi isə bir müddət 404 verir (2026-11-01, Nocomment.az və Modern.az, 15 dəqiqəyə yaxın)
+# və ya xəbəri sonradan silir. Yoxlama ayrı prosesdir (--links): xəbər dövrəsi şəbəkə gözləmir, yalnız bu faylın nəticəsini oxuyur.
+LINK_TIMEOUT_S, LINK_BUDGET_S, LINK_THREADS, LINK_PER_HOST = 6, 40, 12, 2
+LINK_DEAD_RECHECK_S = 60          # ölü link tez-tez yoxlanır: düzələn kimi xəbər qayıdır
+LINK_DEAD_KEEP_S = 24 * 3600
+LINK_FRESH_S, LINK_FRESH_EVERY_S, LINK_OLD_EVERY_S = 6 * 3600, 20 * 60, 3 * 3600
+LINK_ALIVE_PER_RUN = 40
+LINK_HOST_OUTAGE = (4, 0.6)       # bir saytda 4+ yoxlamanın 60%-i ölüdürsə sayt özü nasazdır, xəbərləri gizlədilmir
+LINK_DEAD_MAX = 30                # bundan çoxu ölü görünürsə yoxlamaya güvənilmir (lent boşalmasın)
+
+
+def link_status(url):
+    """«dead» yalnız sayt özü dedikdə: 404, 410 və ya ana səhifəyə atma. Blok (403), xəta və vaxt keçməsi xəbəri gizlətmir."""
+    try:
+        target = urllib.parse.quote(url, safe=":/?&=%#+,;@!$'()*~-._")
+        req = urllib.request.Request(target, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
+        with urllib.request.urlopen(req, timeout=LINK_TIMEOUT_S) as r:
+            landed = urllib.parse.urlsplit(r.geturl()).path.strip("/")
+        return "dead" if not landed and urllib.parse.urlsplit(url).path.strip("/") else "alive"
+    except urllib.error.HTTPError as e:
+        return "dead" if e.code in (404, 410) else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def check_links(now=None):
+    """Bir yoxlama: əvvəl ölü linklər, sonra yeni xəbərlər (ən yenisi birinci), qalan vaxtda köhnələr növbə ilə."""
+    now = now or time.time()
+    state = _read_json(LINK_HEALTH_FILE, {})
+    listed = {}
+    for a in _read_json(OUT_FILE, {}).get("articles") or []:
+        for row in [a, *(a.get("alts") or [])]:
+            if row.get("sourceUrl"):
+                listed[row["sourceUrl"]] = row.get("publishedAt") or a.get("publishedAt") or ""
+    state = {u: v for u, v in state.items() if u in listed or (v.get("dead") and now - v.get("since", now) < LINK_DEAD_KEEP_S)}
+    def age(url):
+        dt = _parse_dt(listed.get(url))
+        return now - dt.timestamp() if dt else LINK_DEAD_KEEP_S
+    dead = [u for u, v in state.items() if v.get("dead") and now - v.get("at", 0) >= LINK_DEAD_RECHECK_S]
+    fresh = sorted((u for u in listed if u not in state), key=age)
+    due = [u for u, v in state.items() if u in listed and not v.get("dead") and now - v.get("at", 0) >= (LINK_FRESH_EVERY_S if age(u) < LINK_FRESH_S else LINK_OLD_EVERY_S)]
+    queue = dead + fresh + sorted(due, key=lambda u: state[u].get("at", 0))[:LINK_ALIVE_PER_RUN]
+    hosts = collections.defaultdict(lambda: threading.Semaphore(LINK_PER_HOST))
+    host_of = lambda u: urllib.parse.urlsplit(u).hostname or ""
+    def one(url):
+        with hosts[host_of(url)]:
+            return url, link_status(url)
+    pool = ThreadPoolExecutor(LINK_THREADS)
+    jobs = [pool.submit(one, u) for u in queue]
+    finished, _late = wait(jobs, timeout=LINK_BUDGET_S)
+    pool.shutdown(wait=False, cancel_futures=True)
+    results = [j.result() for j in finished if not j.cancelled() and not j.exception()]
+    tally = collections.defaultdict(lambda: [0, 0])
+    for url, status in results:
+        tally[host_of(url)][0] += 1
+        tally[host_of(url)][1] += status == "dead"
+    outage = {h for h, (n, d) in tally.items() if n >= LINK_HOST_OUTAGE[0] and d / n >= LINK_HOST_OUTAGE[1]}
+    changed = []
+    for url, status in results:
+        old = state.get(url) or {}
+        if status == "dead" and host_of(url) in outage:
+            status = "unknown"
+        if status == "unknown":
+            state[url] = {**old, "at": now}
+            continue
+        if (status == "dead") != bool(old.get("dead")):
+            changed.append(("ölü " if status == "dead" else "düzəldi ") + url)
+        state[url] = {"at": now, "dead": True, "since": old.get("since", now)} if status == "dead" else {"at": now}
+    _save_cache(LINK_HEALTH_FILE, state)
+    print(f"Link yoxlaması: {len(results)}/{len(queue)}, ölü {sum(1 for v in state.values() if v.get('dead'))}", flush=True)
+    for line in changed[:20]:
+        print(" ", line, flush=True)
+
+
+def dead_links(total):
+    """Hazırda ölü bilinən linklər. Çox görünürsə (yoxlayan tərəf nasazdır) heç nə gizlədilmir: xəbər lenti boşalmamalıdır."""
+    urls = {u for u, v in _read_json(LINK_HEALTH_FILE, {}).items() if v.get("dead")}
+    if len(urls) > max(LINK_DEAD_MAX, total // 20):
+        print(f"  ! ölü link çoxdur ({len(urls)}), gizlədilmir", flush=True)
+        return set()
+    return urls
+
+
+def drop_dead_links(articles, dead):
+    """Ölü linkli xəbər çıxır. Eyni xəbəri başqa sayt da yazıbsa kart ona keçir."""
+    out = []
+    for a in articles:
+        alts = [alt for alt in a.get("alts") or [] if alt.get("sourceUrl") not in dead]
+        if a.get("sourceUrl") not in dead:
+            out.append({**a, "alts": alts} if len(alts) != len(a.get("alts") or []) else a)
+        elif alts:
+            alt, *rest = alts
+            out.append({**a, "id": hashlib.sha1(alt["sourceUrl"].encode()).hexdigest()[:16], "source": alt.get("source") or a.get("source"), "sourceUrl": alt["sourceUrl"],
+                        "publishedAt": alt.get("publishedAt") or a.get("publishedAt"), "title": alt.get("title") or a.get("title"), "lang": alt.get("lang") or a.get("lang"),
+                        "imageUrl": a.get("imageUrl") or alt.get("imageUrl"), "alts": rest})
+    return out
+
+
 def write_latest(articles, previous):
     """latest.json: son yarım saatda lentə düşənlər və ən yeni xəbərlər. Sayt onu tam lentin üstünə qoyur."""
     now, known = time.time(), {a.get("sourceUrl") for a in previous}
@@ -1339,7 +1439,8 @@ def write_latest(articles, previous):
     rows = [a for a in ordered if a.get("sourceUrl") in top or a.get("sourceUrl") in recent][:LATEST_MAX]
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     OUT_DIR.mkdir(exist_ok=True)
-    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows}, ensure_ascii=False, separators=(",", ":")))
+    # «dead»: sayt tam lenti 10 dəqiqədən bir alır, ölü link isə ekrandan bir dəqiqəyə çıxmalıdır.
+    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": sorted(dead_links(len(articles)))}, ensure_ascii=False, separators=(",", ":")))
     _save_cache(RECENT_FILE, recent)
 
 
@@ -1468,7 +1569,7 @@ def update_archive(now=None):
     if not articles or (not missing and now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S):
         return
     cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
-    merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []}
+    merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []} | dead_links(len(articles))
     backlog = feed_backlog(cutoff)
     images = _read_json(ARCHIVE_OG_FILE, {})
     for slug, _label, _desc in SECTIONS:
@@ -3649,6 +3750,10 @@ def main(fast=False):
             reason = content_policy.violation(a)
             if reason:
                 print(f"  ⊘ {reason}: {a.get('source')} {a.get('sourceUrl')}", flush=True)
+    try:
+        articles = drop_dead_links(articles, dead_links(len(articles)))
+    except Exception as e:  # QIRMIZI XƏTT 1: yoxlama alınmasa xəbər əvvəlki kimi yazılır
+        print("  ! ölü link:", type(e).__name__, flush=True)
     articles, dropped = content_policy.enforce(articles)
     stats["articles"], stats["policyDropped"] = len(articles), dropped
     save_sources(source_rows)
@@ -3710,6 +3815,9 @@ def run():
         return run_fast()
     if "--slow" in sys.argv:
         return slow_cycle()
+    if "--links" in sys.argv:
+        check_links()
+        return 0
     news_ok = True
     result = {"successful": 0, "total": 0}
     if "--no-markets" not in sys.argv:

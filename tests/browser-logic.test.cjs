@@ -246,6 +246,26 @@ test('first screen stops under the latest list: sections arrive with the full li
   assert.ok(!short.includes('service-panel')&&full.includes('service-panel'));
   assert.ok(full.startsWith(short),'yuxarı hissə eynidir');
 });
+test('a story whose link is dead leaves the screen within a minute, moves to another source, and returns when fixed',async()=>{
+  const ctx=app(),{S}=ctx.api;
+  const main=firstRow('a'),other={...firstRow('b'),alts:[{source:'Report',sourceUrl:'https://report.az/b',title:'Report başlığı',publishedAt:new Date().toISOString()}]},plain=firstRow('c');
+  let dead=[];
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'x',articles:[],dead})});
+  vm.runInContext('requestRender = () => { globalThis.redrawn = (globalThis.redrawn || 0) + 1; };',ctx);
+  S.rawNews=[main,other,plain];S.rawMeta={};S.lang='az';
+  ctx.api.publishNews();
+  dead=['https://apa.az/a','https://apa.az/b'];
+  await ctx.loadLatest();
+  const urls=()=>[...S.data.articles].map(a=>a.sourceUrl).sort();
+  assert.deepEqual(urls(),['https://apa.az/c','https://report.az/b']);
+  assert.equal(S.data.articles.find(a=>a.sourceUrl==='https://report.az/b').title,'Report başlığı');
+  assert.equal(ctx.redrawn,1);
+  await ctx.loadLatest();
+  assert.equal(ctx.redrawn,1,'dəyişiklik yoxdursa ekrana toxunulmur');
+  dead=[];
+  await ctx.loadLatest();
+  assert.deepEqual(urls(),['https://apa.az/a','https://apa.az/b','https://apa.az/c']);
+});
 test('language order: Azerbaijani, Turkish, Russian, English',()=>{
   const ctx=app();
   assert.deepEqual(Array.from(vm.runInContext('LANGS.map(l=>l.code)',ctx)),['az','tr','ru','en']);

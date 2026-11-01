@@ -5,6 +5,7 @@ import json
 import pathlib
 import tempfile
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 import updater
@@ -867,6 +868,60 @@ class SectionPagesTest(unittest.TestCase):
         self.assertNotIn("k", {a["id"] for a in updater.first_screen_rows([old] + fresh, now)})
         self.assertIn("k", {a["id"] for a in updater.first_screen_rows([old] + fresh[:3], now)})
 
+    def test_dead_story_moves_to_its_other_source(self):
+        row = {"id": "x", "source": "Modern.az", "sourceUrl": "https://modern.az/1", "title": "Başlıq", "publishedAt": "2026-11-01T10:00:00+00:00", "lang": "az", "imageUrl": "https://modern.az/1.jpg",
+               "alts": [{"source": "APA", "sourceUrl": "https://apa.az/1", "title": "APA başlığı", "publishedAt": "2026-11-01T10:05:00+00:00", "lang": "az"}, {"source": "Oxu.az", "sourceUrl": "https://oxu.az/1"}]}
+        moved = updater.drop_dead_links([row], {"https://modern.az/1"})[0]
+        self.assertEqual((moved["source"], moved["sourceUrl"], moved["title"]), ("APA", "https://apa.az/1", "APA başlığı"))
+        self.assertEqual(moved["imageUrl"], "https://modern.az/1.jpg")
+        self.assertEqual([a["source"] for a in moved["alts"]], ["Oxu.az"])
+        self.assertNotEqual(moved["id"], "x")
+        self.assertEqual(updater.drop_dead_links([row], {"https://modern.az/1", "https://apa.az/1", "https://oxu.az/1"}), [])
+        self.assertEqual(updater.drop_dead_links([row], {"https://oxu.az/1"})[0]["alts"][0]["source"], "APA")
+
+    def test_only_the_site_itself_can_call_a_link_dead(self):
+        def answer(code):
+            def opener(req, timeout=None):
+                raise urllib.error.HTTPError(req.full_url, code, "x", {}, None)
+            return opener
+        for code, want in ((404, "dead"), (410, "dead"), (403, "unknown"), (429, "unknown"), (500, "unknown"), (503, "unknown")):
+            with self.subTest(code=code), patch.object(updater.urllib.request, "urlopen", answer(code)):
+                self.assertEqual(updater.link_status("https://a.az/xeber/1"), want)
+        with patch.object(updater.urllib.request, "urlopen", side_effect=TimeoutError()):
+            self.assertEqual(updater.link_status("https://a.az/xeber/1"), "unknown")
+
+    def test_a_redirect_to_the_home_page_is_a_dead_link(self):
+        class Landed:
+            def __init__(self, url): self.url = url
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def geturl(self): return self.url
+        with patch.object(updater.urllib.request, "urlopen", lambda req, timeout=None: Landed("https://a.az/")):
+            self.assertEqual(updater.link_status("https://a.az/xeber/1"), "dead")
+        with patch.object(updater.urllib.request, "urlopen", lambda req, timeout=None: Landed("https://a.az/yeni/1")):
+            self.assertEqual(updater.link_status("https://a.az/xeber/1"), "alive")
+
+    def test_link_check_finds_dead_keeps_unknown_and_spares_a_broken_site(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            urls = ["https://a.az/1", "https://b.az/1", "https://c.az/1"] + [f"https://nasaz.az/{i}" for i in range(5)]
+            (root / "news.json").write_text(json.dumps({"articles": [{"sourceUrl": u, "publishedAt": "2026-11-01T10:00:00+00:00"} for u in urls]}), encoding="utf-8")
+            health = root / "link_health.json"
+            answers = {"https://a.az/1": "dead", "https://b.az/1": "alive", "https://c.az/1": "unknown"}
+            with patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "LINK_HEALTH_FILE", health), patch.object(updater, "CACHE_DIR", root), \
+                    patch.object(updater, "link_status", lambda u: answers.get(u, "dead")), contextlib.redirect_stdout(io.StringIO()):
+                updater.check_links(now=1000000.0)
+                state = json.loads(health.read_text(encoding="utf-8"))
+                self.assertTrue(state["https://a.az/1"]["dead"])
+                self.assertNotIn("dead", state["https://b.az/1"])
+                self.assertNotIn("dead", state["https://c.az/1"])
+                self.assertFalse(any(v.get("dead") for u, v in state.items() if "nasaz" in u))  # sayt özü nasazdır
+                answers["https://a.az/1"] = "alive"
+                updater.check_links(now=1000000.0 + 30)  # hələ vaxtı çatmayıb
+                self.assertTrue(json.loads(health.read_text(encoding="utf-8"))["https://a.az/1"]["dead"])
+                updater.check_links(now=1000000.0 + updater.LINK_DEAD_RECHECK_S + 1)
+                self.assertNotIn("dead", json.loads(health.read_text(encoding="utf-8"))["https://a.az/1"])
+
     def test_absheron_is_not_usa(self):
         self.assertEqual(updater.label_for("Abşeronda oğula hökm oxundu", "məhkəmə qərarı", "az"), "Cəmiyyət")
         self.assertTrue(updater.has_any(updater.norm_az("ABŞ-da görüş keçirildi"), ["abş"]))
@@ -932,7 +987,7 @@ class UpdateHealthTest(unittest.TestCase):
         self.patches = []
         for name, value in {"OUT_DIR": self.root, "OUT_FILE": self.root / "news.json",
                             "STATUS_FILE": self.root / "status.json", "SOURCES_FILE": self.root / "sources.json",
-                            "DATES_FILE": self.root / "dates.json", "LATEST_FILE": self.root / "latest.json", "FIRST_FILE": self.root / "first.json",
+                            "DATES_FILE": self.root / "dates.json", "LATEST_FILE": self.root / "latest.json", "LINK_HEALTH_FILE": self.root / "link_health.json", "FIRST_FILE": self.root / "first.json",
                             "RECENT_FILE": self.root / "recent.json", "CACHE_DIR": self.root,
                             "FEEDS": [("Test", "https://example.com/rss", "az", None)]}.items():
             p = patch.object(updater, name, value)
