@@ -1192,6 +1192,63 @@ test('hero and Zugulba retain multiple articles for their moving feeds', () => {
   assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
 });
 
+// Saytın dili: assets/dil.js, lüğətlər assets/dil-<kod>.js.
+function dilModule(file) {
+  const src = fs.readFileSync(path.join(root, file), 'utf8').replace(/^export default /m, 'globalThis.__d = ').replace(/^export (async )?function/gm, '$1function');
+  const ctx = vm.createContext({ globalThis: {} });
+  ctx.globalThis = ctx;
+  vm.runInContext(src, ctx);
+  return ctx;
+}
+test('site language: interface words and dates change, a news headline does not', () => {
+  const mod = dilModule('assets/dil.js');
+  const ru = dilModule('assets/dil-ru.js').__d;
+  const tr = mod.makeTr(ru);
+  assert.equal(tr('Baş səhifə'), 'Главная');
+  assert.equal(tr('Hamısı →'), 'Все →', 'kənar işarə qalır');
+  assert.equal(tr('14 dəqiqə əvvəl'), '14 мин. назад');
+  assert.equal(tr('2 saat əvvəl'), '2 ч. назад');
+  assert.equal(tr('4 mənbə'), '4 источн.');
+  assert.equal(tr('9-cu tur'), '9-й тур');
+  assert.equal(tr('Namaz · Bakı'), 'Намаз · Баку');
+  assert.equal(tr('Yeniləndi: indicə'), 'Обновлено: только что');
+  assert.equal(tr('3 noyabr 2026'), '3 ноября 2026');
+  assert.equal(tr('9 sen, 23:00'), '9 сен, 23:00');
+  assert.equal(tr('Sentyabr 2026'), 'Сентябрь 2026');
+  assert.equal(tr('↑ 3 yeni xəbər'), '↑ 3 новых');
+  assert.equal(tr('21 Cümadəl-ula'), '21 Джумада аль-уля');
+  assert.ok(tr('«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.').startsWith('Кнопка'));
+  assert.equal(tr('Bazar ertəsi, 2 noyabr 2026'), 'Понедельник, 2 ноября 2026');
+  assert.equal(tr('Süper Liq oyunları hələ əlavə olunmayıb.'), 'Матчи турнира «Суперлига» пока не добавлены.');
+  const head = 'Prezident İlham Əliyev Ankarada görüş keçirib';
+  assert.equal(tr(head), head, 'xəbər başlığı tərcümə olunmur');
+  assert.equal(tr(tr('Baş səhifə')), 'Главная', 'tərcümə ikinci dəfə dəyişmir');
+});
+test('site language: all three dictionaries have the same keys and no empty word by accident', () => {
+  const [ru, tr, en] = ['ru', 'tr', 'en'].map(c => dilModule(`assets/dil-${c}.js`).__d);
+  assert.deepEqual(Object.keys(tr.w), Object.keys(ru.w));
+  assert.deepEqual(Object.keys(en.w), Object.keys(ru.w));
+  for (const d of [ru, tr, en]) {
+    assert.equal(d.mon.length, 12); assert.equal(d.monN.length, 12); assert.equal(d.mon3.length, 12); assert.equal(d.days.length, 7);
+    assert.ok(['min', 'hour', 'day', 'src', 'round', 'place', 'stage', 'checked', 'noGames', 'until', 'count', 'more', 'allSrc', 'page', 'noTeamNews', 'tracked', 'form', 'copy', 'fresh'].every(k => d.t[k]));
+    assert.ok(Object.entries(d.w).every(([k, v]) => v || k === 'seçiminə basın'), 'boş tərcümə yoxdur');
+  }
+});
+test('site language: a section without news in that language is hidden, sports never', () => {
+  const { emptySections } = dilModule('assets/dil.js');
+  const list = [{ category: 'bolgeler', lang: 'az' }, { category: 'dunya', lang: 'ru' }, { category: 'dunya', lang: 'az' }, { category: 'idman', lang: 'az' }, { category: 'gundem' }];
+  assert.deepEqual([...emptySections(list, 'ru')].sort(), ['bolgeler', 'gundem']);
+  assert.deepEqual([...emptySections(list, 'en')].sort(), ['bolgeler', 'dunya', 'gundem']);
+  assert.deepEqual([...emptySections(null, 'ru')], []);
+});
+test('site language: Azerbaijani visitors do not load the translation', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(!index.includes('dil.js') && !fs.readFileSync(path.join(root, 'sw.js'), 'utf8').includes('dil.js'), 'əvvəlcədən yüklənmir');
+  assert.equal(src.split('import("./dil.js")').length - 1, 1);
+  const at = src.indexOf('import("./dil.js")');
+  assert.ok(src.slice(at - 260, at).includes('if (uiLang(S.lang))'), 'yalnız başqa dil seçiləndə');
+  for (const f of ['assets/dil.js', 'assets/dil-ru.js', 'assets/dil-tr.js', 'assets/dil-en.js']) assert.ok(fs.statSync(path.join(root, f)).size < 60e3, f);
+});
 // Komanda səhifəsi: assets/komanda.js modulu eyni kontekstdə, app.js-in köməkçiləri ilə işləyir.
 function teamPage(files, articles = []) {
   const ctx = app({ history: { pushState() {}, back() {} }, Promise, RegExp, WeakMap });
@@ -1363,63 +1420,6 @@ test('team page: news reuse club topics and stay away from other meanings and sp
   assert.equal(vm.runInContext('team.topicFor("Real Betis")', ctx), null);
   const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'xeberler' });
   assert.ok(html.includes('https://apa.az/a') && !html.includes('https://apa.az/e'));
-});
-// Saytın dili: assets/dil.js, lüğətlər assets/dil-<kod>.js.
-function dilModule(file) {
-  const src = fs.readFileSync(path.join(root, file), 'utf8').replace(/^export default /m, 'globalThis.__d = ').replace(/^export (async )?function/gm, '$1function');
-  const ctx = vm.createContext({ globalThis: {} });
-  ctx.globalThis = ctx;
-  vm.runInContext(src, ctx);
-  return ctx;
-}
-test('site language: interface words and dates change, a news headline does not', () => {
-  const mod = dilModule('assets/dil.js');
-  const ru = dilModule('assets/dil-ru.js').__d;
-  const tr = mod.makeTr(ru);
-  assert.equal(tr('Baş səhifə'), 'Главная');
-  assert.equal(tr('Hamısı →'), 'Все →', 'kənar işarə qalır');
-  assert.equal(tr('14 dəqiqə əvvəl'), '14 мин. назад');
-  assert.equal(tr('2 saat əvvəl'), '2 ч. назад');
-  assert.equal(tr('4 mənbə'), '4 источн.');
-  assert.equal(tr('9-cu tur'), '9-й тур');
-  assert.equal(tr('Namaz · Bakı'), 'Намаз · Баку');
-  assert.equal(tr('Yeniləndi: indicə'), 'Обновлено: только что');
-  assert.equal(tr('3 noyabr 2026'), '3 ноября 2026');
-  assert.equal(tr('9 sen, 23:00'), '9 сен, 23:00');
-  assert.equal(tr('Sentyabr 2026'), 'Сентябрь 2026');
-  assert.equal(tr('↑ 3 yeni xəbər'), '↑ 3 новых');
-  assert.equal(tr('21 Cümadəl-ula'), '21 Джумада аль-уля');
-  assert.ok(tr('«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.').startsWith('Кнопка'));
-  assert.equal(tr('Bazar ertəsi, 2 noyabr 2026'), 'Понедельник, 2 ноября 2026');
-  assert.equal(tr('Süper Liq oyunları hələ əlavə olunmayıb.'), 'Матчи турнира «Суперлига» пока не добавлены.');
-  const head = 'Prezident İlham Əliyev Ankarada görüş keçirib';
-  assert.equal(tr(head), head, 'xəbər başlığı tərcümə olunmur');
-  assert.equal(tr(tr('Baş səhifə')), 'Главная', 'tərcümə ikinci dəfə dəyişmir');
-});
-test('site language: all three dictionaries have the same keys and no empty word by accident', () => {
-  const [ru, tr, en] = ['ru', 'tr', 'en'].map(c => dilModule(`assets/dil-${c}.js`).__d);
-  assert.deepEqual(Object.keys(tr.w), Object.keys(ru.w));
-  assert.deepEqual(Object.keys(en.w), Object.keys(ru.w));
-  for (const d of [ru, tr, en]) {
-    assert.equal(d.mon.length, 12); assert.equal(d.monN.length, 12); assert.equal(d.mon3.length, 12); assert.equal(d.days.length, 7);
-    assert.ok(['min', 'hour', 'day', 'src', 'round', 'place', 'stage', 'checked', 'noGames', 'until', 'count', 'more', 'allSrc', 'page', 'noTeamNews', 'tracked', 'form', 'copy', 'fresh'].every(k => d.t[k]));
-    assert.ok(Object.entries(d.w).every(([k, v]) => v || k === 'seçiminə basın'), 'boş tərcümə yoxdur');
-  }
-});
-test('site language: a section without news in that language is hidden, sports never', () => {
-  const { emptySections } = dilModule('assets/dil.js');
-  const list = [{ category: 'bolgeler', lang: 'az' }, { category: 'dunya', lang: 'ru' }, { category: 'dunya', lang: 'az' }, { category: 'idman', lang: 'az' }, { category: 'gundem' }];
-  assert.deepEqual([...emptySections(list, 'ru')].sort(), ['bolgeler', 'gundem']);
-  assert.deepEqual([...emptySections(list, 'en')].sort(), ['bolgeler', 'dunya', 'gundem']);
-  assert.deepEqual([...emptySections(null, 'ru')], []);
-});
-test('site language: Azerbaijani visitors do not load the translation', () => {
-  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  assert.ok(!index.includes('dil.js') && !fs.readFileSync(path.join(root, 'sw.js'), 'utf8').includes('dil.js'), 'əvvəlcədən yüklənmir');
-  assert.equal(src.split('import("./dil.js")').length - 1, 1);
-  const at = src.indexOf('import("./dil.js")');
-  assert.ok(src.slice(at - 260, at).includes('if (uiLang(S.lang))'), 'yalnız başqa dil seçiləndə');
-  for (const f of ['assets/dil.js', 'assets/dil-ru.js', 'assets/dil-tr.js', 'assets/dil-en.js']) assert.ok(fs.statSync(path.join(root, f)).size < 60e3, f);
 });
 test('team page: missing data never breaks the page', async () => {
   const noIndex = teamPage({});
