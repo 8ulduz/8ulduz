@@ -176,7 +176,7 @@ test('Zuğulba always shows 44 stories: official and state sites first, then oth
   const few=[...prezHome(rows.slice(0,3),rows)];
   assert.equal(few.length,44,'seçilmiş dildə az olsa da 44');
   const html=prezBlock(out);
-  assert.ok(html.includes('İlk <b>44</b> xəbər'),'yazı');
+  assert.ok(html.includes('Son <b>44</b> xəbər'),'yazı');
   const foreign=[...prezHome([row('r0','Report',1),{...row('y','Axar.az',2),title:'Husilər prezident sarayına zərbələr endirdi'},{...row('f','Sportinfo',3),title:'Fənərbağçanın prezidenti danışdı'}])];
   assert.deepEqual(foreign.map(a=>a.id),['r0'],'yad xəbərlə doldurulmur');
   assert.equal(html.split('class="pcard').length-1,44,'44 kartın hamısı');
