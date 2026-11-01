@@ -621,7 +621,7 @@ class TeamPagesTest(unittest.TestCase):
         self.assertTrue(updater._team_due(quiet, ago(31), now))
 
     def run_step(self, tmp, fetch):
-        with patch.object(updater, "TEAM_DIR", pathlib.Path(tmp) / "futbol"), patch.object(updater, "_pfl_json", fetch), contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(updater, "TEAM_DIR", pathlib.Path(tmp) / "futbol"), patch.object(updater, "SPORTS_FILE", pathlib.Path(tmp) / "sports.json"), patch.object(updater, "_pfl_json", fetch), contextlib.redirect_stdout(io.StringIO()):
             updater.update_team_pages()
         return json.loads((pathlib.Path(tmp) / "futbol" / "index.json").read_text(encoding="utf-8"))
 
@@ -694,6 +694,40 @@ class TeamPagesTest(unittest.TestCase):
         self.assertIn("update_archive, update_team_pages]", inspect.getsource(updater.slow_cycle), "yavaş dövrənin son addımıdır: digər addımları gözlətmir")
         self.assertNotIn("team", inspect.getsource(updater.run_fast))
         self.assertLessEqual(updater.TEAM_BUDGET_S, 30)
+
+
+class WorldTeamPagesTest(unittest.TestCase):
+    LEAGUE = {"id": "tur.1", "sport": "football", "name": "Süper Liq", "short": "Türkiyə", "season": "2026/27", "asof": "2026-10-26", "at": "2026-11-01T09:00:00+00:00", "url": "https://en.wikipedia.org/wiki/x",
+              "groups": [{"name": "", "rows": [{"team": "Galatasaray", "logo": "g.png", "pos": 1, "p": 9, "w": 7, "d": 1, "l": 1, "gf": 19, "ga": 12, "gd": 7, "pts": 22},
+                                               {"team": "Beşiktaş", "full": "Beşiktaş JK", "logo": "", "pos": 2, "p": 9, "w": 5, "d": 1, "l": 3, "gf": 10, "ga": 9, "gd": 1, "pts": 16, "note": "Avropa Liqası", "color": "#BBF3BB"}]}]}
+
+    def test_league_file_from_the_table(self):
+        doc = updater.team_world_league(self.LEAGUE)
+        self.assertEqual((doc["id"], doc["key"], doc["source"], doc["games"]), ("turkiye", "2026", "Vikipediya", []))
+        self.assertEqual(doc["teams"]["galatasaray"], {"name": "Galatasaray", "logo": "g.png"})
+        self.assertEqual(doc["teams"]["besiktas-jk"]["short"], "Beşiktaş")
+        rows = doc["groups"][0]["rows"]
+        self.assertEqual([r["team"] for r in rows], ["galatasaray", "besiktas-jk"])
+        self.assertNotIn("logo", rows[0])
+        self.assertEqual(rows[1]["note"], "Avropa Liqası")
+
+    def test_conference_names_are_azerbaijani(self):
+        nba = dict(self.LEAGUE, sport="basketball", short="NBA", groups=[{"name": "Eastern Conference", "rows": []}])
+        self.assertEqual(updater.team_world_league(nba)["groups"][0]["name"], "Şərq konfransı")
+
+    def test_world_leagues_join_the_index_without_any_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sports, team_dir = pathlib.Path(tmp) / "sports.json", pathlib.Path(tmp) / "futbol"
+            sports.write_text(json.dumps({"leagues": [self.LEAGUE]}), encoding="utf-8")
+            with patch.object(updater, "SPORTS_FILE", sports), patch.object(updater, "TEAM_DIR", team_dir), \
+                    patch.object(updater, "_team_sources", return_value=[]), patch.object(updater, "fetch", side_effect=AssertionError("şəbəkə")):
+                updater.update_team_pages()
+            index = json.loads((team_dir / "index.json").read_text(encoding="utf-8"))
+            league = index["leagues"][0]
+            self.assertEqual((league["id"], league["sport"], league["teams"]), ("turkiye", "football", ["galatasaray", "besiktas-jk"]))
+            self.assertEqual(league["ready"], [{"key": "2026", "label": "2026/27"}])
+            self.assertEqual(index["checked"]["turkiye"], self.LEAGUE["at"])
+            self.assertTrue((team_dir / "turkiye.json").exists())
 
 
 class SectionPagesTest(unittest.TestCase):

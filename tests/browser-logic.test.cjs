@@ -366,7 +366,7 @@ test('sport buttons: short list, every topic finds its news in every language, n
   yes('Qarabağ','"Qarabağ"ın futbolçusu bərpa olundu');yes('Milli komanda','Azərbaycan milli komandası qalib gəldi');yes('Milli komanda','Azərbaycan millisinə çağırış');yes('Futbol','Çempionlar Liqasına yollandı');
   const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
   const clubs=src.slice(src.indexOf('const SPORT_TEAMS'),src.indexOf('const CITIES')).match(/name: "/g).length;
-  assert.ok(clubs<=32,'düymə sayı: '+clubs);
+  assert.ok(clubs<=35,'düymə sayı: '+clubs);
   yes('Futbol','Galatasaray kazandı');yes('Futbol','Yeni futbol mövsümü');yes('Futbol','Verstappen?',{source:'BBC Futbol'});no('Futbol','Verstappen wins in Mexico');
   yes('Basketbol','Лейкерс в НБА');yes('Basketbol','Basketbolçumuz qalib gəldi');no('Basketbol','Galatasaray kazandı');
 });
@@ -1377,23 +1377,56 @@ test('football tables link only to the team pages that exist: Azerbaijani league
   S.football = null; S.fbTab = null;
   S.sports = { leagues: [{ id: 'tur.1', sport: 'football', short: 'Türkiyə', name: 'Süper Liq', groups: [{ name: 'x', rows: [{ pos: 1, team: 'Fenerbahce', full: 'Fenerbahce', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3 }] }] }] };
   const world = footballBlock([]);
-  assert.ok(!world.includes('#/komanda/'), 'dünya liqasının səhifəsi yoxdur: keçid boş səhifəyə aparmasın');
-  assert.ok(world.includes('<div class="fb-team"'));
+  assert.ok(world.includes('<a href="#/komanda/turkiye/fenerbahce" class="fb-team"'), 'dünya klubunun kartı öz səhifəsinə aparır');
 });
-test('sports menu: football opens Azerbaijani leagues, basketball keeps its own', () => {
+test('transfer news: own tab first, football and basketball inside, empty basketball hidden', () => {
+  const { S, navPopHtml, subNav, clubMatches } = app().api;
+  const art = (title, source = 'APA', extra = {}) => ({ id: title, title, source, category: 'idman', lang: 'az', publishedAt: new Date().toISOString(), ...extra });
+  const foot = art('Qarabağın yeni transfer hədəfi'), bb = art('Avroliqa klubu transfer etdi'), site = art('Player transfer news', 'Sportando'), ru = art('Трансфер Зенита'), volley = art('Voleybol klubunun transferi'), money = art('Pul transferi ilə bağlı xəbər'), plain = art('Neftçi qalib gəldi'), turk = art('Galatasaray kiralık oyuncu aldı');
+  const all = 'Transfer xəbərləri', f = 'Futbol transferləri', b = 'Basketbol transferləri';
+  for (const a of [foot, ru, turk]) { assert.ok(clubMatches(a, all), a.title); assert.ok(clubMatches(a, f), a.title); assert.ok(!clubMatches(a, b), a.title); }
+  for (const a of [bb, site]) { assert.ok(clubMatches(a, all), a.title); assert.ok(clubMatches(a, b), a.title); assert.ok(!clubMatches(a, f), a.title); }
+  for (const a of [volley, money, plain]) assert.ok(!clubMatches(a, all), a.title);
+  S.club = null; S.data = { articles: [foot] };
+  const first = navPopHtml('idman', null);
+  assert.ok(first.indexOf('data-club="Transfer xəbərləri"') < first.indexOf('data-club="Futbol"'), 'Hamısıdan sonra birinci');
+  let pop = navPopHtml('idman', all);
+  assert.ok(pop.includes('data-club="Futbol transferləri"') && pop.includes('>Futbol</button>'));
+  assert.ok(!pop.includes('data-club="Basketbol transferləri"'), 'xəbəri yoxdursa düymə yoxdur');
+  S.data = { articles: [foot, bb] };
+  pop = navPopHtml('idman', all);
+  assert.ok(pop.includes('data-club="Basketbol transferləri"') && pop.includes('>Basketbol</button>'));
+  S.sportTab = all;
+  assert.ok(subNav('idman').includes('data-club="Basketbol transferləri"'), 'telefonda eyni');
+});
+test('sports menu: leagues instead of clubs, clubs open from the league', () => {
   const { S, navPopHtml, subNav } = app().api;
   S.data = { articles: [] }; S.club = null;
-  S.sports = { leagues: [{ id: 'tur.1', sport: 'football', short: 'Türkiyə', name: 'Süper Liq', groups: [{ rows: [] }] }] };
+  const rows = names => [{ rows: names.map(([team, full]) => ({ team, full })) }];
+  S.football = { leagues: [{ short: 'Premyer Liqa', table: [{ team: 'Qarabağ' }, { team: 'Sabah' }] }] };
+  S.sports = null; S.sportsAsked = true;
+  assert.ok(navPopHtml('idman', 'Futbol').includes('data-club="Galatasaray"'), 'məlumat çatana qədər klubların düymələri qalır');
+  assert.ok(navPopHtml('idman', 'Basketbol').includes('data-club="NBA"'));
+  S.sports = { leagues: [
+    { id: 'eng.1', sport: 'football', short: 'İngiltərə', name: 'Premyer Liqa (İngiltərə)', groups: rows([['Man City', 'Manchester City']]) },
+    { id: 'tur.1', sport: 'football', short: 'Türkiyə', name: 'Süper Liq', groups: rows([['Galatasaray'], ['Fenerbahce']]) },
+    { id: 'uefa.champions', sport: 'football', short: 'ÇL', name: 'Çempionlar Liqası', groups: rows([['PSG', 'Paris Saint-Germain']]) },
+    { id: 'nba', sport: 'basketball', short: 'NBA', name: 'NBA', groups: rows([['Lakers', 'Los Angeles Lakers']]) },
+  ] };
   for (const html of [navPopHtml('idman', 'Futbol'), (S.sportTab = 'Futbol', subNav('idman'))]) {
-    for (const liga of ['premyer-liqa', 'i-liqa', 'ii-liqa', 'kubok', 'evezediciler']) assert.ok(html.includes('href="#/komanda/' + liga + '"'), liga);
-    assert.ok(html.includes('Azərbaycan liqaları'));
-    assert.equal(html.split('#/komanda/').length - 1, 5, 'səhifəsi olmayan dünya liqası menyuya düşmür');
-    assert.ok(!html.includes('data-club="Neftçi"'), 'Azərbaycan klubu liqadan açılır');
+    for (const liga of ['premyer-liqa', 'i-liqa', 'ii-liqa', 'kubok', 'evezediciler', 'ingiltere', 'turkiye', 'cl']) assert.ok(html.includes('href="#/komanda/' + liga + '"'), liga);
+    assert.ok(html.includes('<span>Süper Liq</span><small>Türkiyə</small>'), 'liqanın adı, yanında ölkəsi');
+    assert.ok(html.includes('<span>Premyer Liqa</span><small>İngiltərə</small>'));
+    assert.ok(html.includes('<span>Çempionlar Liqası</span></a>'));
+    for (const club of ['Neftçi', 'Galatasaray', 'Real Madrid']) assert.ok(!html.includes('data-club="' + club + '"'), club);
     assert.ok(html.includes('data-club="Milli komanda"'), 'milli komandanın liqası yoxdur');
-    assert.ok(html.includes('data-club="Galatasaray"'), 'səhifəsi olmayan klubun xəbər düyməsi qalır');
   }
-  const bb = navPopHtml('idman', 'Basketbol');
-  assert.ok(bb.includes('data-club="Avroliqa"') && bb.includes('data-club="NBA"'));
-  assert.ok(!bb.includes('#/komanda/'));
-  assert.ok(!navPopHtml('bolgeler', 'Qarabağ').includes('#/komanda/'), 'bölgələrə toxunmur');
+  const pop = navPopHtml('idman', 'Futbol', 'Türkiyə');
+  assert.ok(pop.includes('class="pop-col clubs"') && pop.includes('href="#/komanda/turkiye/galatasaray"') && pop.includes('href="#/komanda/turkiye/fenerbahce"'));
+  assert.ok(navPopHtml('idman', 'Futbol').includes('href="#/komanda/premyer-liqa/qarabag"'), 'açılanda birinci liqanın klubları');
+  assert.ok(!subNav('idman').includes('pop-col clubs'), 'telefonda klublar liqanın səhifəsindədir');
+  const bb = navPopHtml('idman', 'Basketbol', 'NBA');
+  assert.ok(bb.includes('href="#/komanda/nba/los-angeles-lakers"') && !bb.includes('data-club="NBA"'));
+  assert.ok(!navPopHtml('idman', 'Basketbol').includes('turkiye'), 'basketbolda futbol liqası yoxdur');
+  assert.ok(!navPopHtml('bolgeler', 'Bakı').includes('#/komanda/'));
 });
