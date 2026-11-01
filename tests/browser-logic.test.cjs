@@ -1319,6 +1319,15 @@ test('team page: title line, tabs and a highlighted table row, no squad tab with
   const squad = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'heyet' });
   assert.ok(squad.includes('<a href="#/komanda/premyer-liqa/qarabag" class="on"'), 'yoxdursa Baxışa düşür');
 });
+test('team page: the table fits a phone without sideways scrolling', async () => {
+  const css = fs.readFileSync(path.join(root, 'assets/komanda.css'), 'utf8');
+  const phone = css.slice(css.indexOf('@media(max-width:699px)'));
+  assert.ok(phone.includes('min-width:0') && phone.includes('table-layout:fixed'), 'sabit 600 px eni telefonda yoxdur');
+  assert.ok(phone.includes('.tm-table .goals{display:none}') && phone.includes('.tm-table .form{display:none}'));
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'cedvel' });
+  assert.ok(html.includes('<th class="goals">Qol</th>') && html.includes('<td class="goals">2:1</td>'), 'kompüterdə Qol qalır');
+});
 test('team page: zone bars and squad for a league that has them', async () => {
   const ctx = teamPage(teamFiles());
   const table = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce', tab: 'cedvel' });

@@ -122,8 +122,8 @@ export function mountTeam(d) {
 
   // --- cədvəl: ilk iki sütun yerində qalır, qalanı yana sürüşür
   function basketTable(doc, rows, slug, key) {
-    const body = rows.map(r => { const t = doc.teams[r.team] || {}; return `<tr${r.team === slug ? ` class="me" aria-current="true"` : ""}><td class="pos">${esc(r.pos)}</td><td class="club"><a href="${href(doc.id, r.team, "", key)}">${logo(t.logo, 18)}<span>${esc(t.short || t.name || r.team)}</span></a></td><td>${esc(r.p)}</td><td>${esc(r.w)}</td><td>${esc(r.l)}</td><td>${(r.pct * 100).toFixed(1)}</td><td class="pts">${esc(r.gb)}</td></tr>`; }).join("");
-    return `<div class="tm-scroll" tabindex="0" role="region" aria-label="Turnir cədvəli"><table class="tm-table"><thead><tr><th class="pos">#</th><th class="club">Komanda</th><th title="Oyun">O</th><th title="Qələbə">Q</th><th title="Məğlubiyyət">M</th><th>%</th><th title="Liderdən geri">Geridə</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    const body = rows.map(r => { const t = doc.teams[r.team] || {}; return `<tr${r.team === slug ? ` class="me" aria-current="true"` : ""}><td class="pos">${esc(r.pos)}</td><td class="club"><a href="${href(doc.id, r.team, "", key)}">${logo(t.logo, 18)}<span>${esc(t.short || t.name || r.team)}</span></a></td><td>${esc(r.p)}</td><td>${esc(r.w)}</td><td>${esc(r.l)}</td><td class="pct">${(r.pct * 100).toFixed(1)}</td><td class="pts gb">${esc(r.gb)}</td></tr>`; }).join("");
+    return `<div class="tm-scroll" tabindex="0" role="region" aria-label="Turnir cədvəli"><table class="tm-table"><thead><tr><th class="pos">#</th><th class="club">Komanda</th><th title="Oyun">O</th><th title="Qələbə">Q</th><th title="Məğlubiyyət">M</th><th class="pct">%</th><th class="gb" title="Liderdən geri">Geridə</th></tr></thead><tbody>${body}</tbody></table></div>`;
   }
   function tableHtml(doc, rows, slug, key) {
     if (doc.sport === "basketball") return basketTable(doc, rows, slug, key);
@@ -131,9 +131,9 @@ export function mountTeam(d) {
       const t = doc.teams[r.team] || {};
       const bar = r.color && /^#[0-9a-f]{3,8}$/i.test(r.color) ? ` style="box-shadow:inset 3px 0 0 ${r.color}"` : "";
       const form = formOf(gamesOf(doc, r.team), r.team).map(x => `<i class="tm-r ${x}">${x === "w" ? "Q" : x === "d" ? "H" : "M"}</i>`).join("");
-      return `<tr${r.team === slug ? ` class="me" aria-current="true"` : ""}><td class="pos"${bar}${r.note ? ` title="${esc(NOTE_AZ[r.note] || r.note)}"` : ""}>${esc(r.pos)}</td><td class="club"><a href="${href(doc.id, r.team, "", key)}">${logo(t.logo, 18, t.short || t.name)}<span>${esc(t.short || t.name || r.team)}</span></a></td><td>${esc(r.p)}</td><td>${esc(r.w)}</td><td>${esc(r.d)}</td><td>${esc(r.l)}</td><td>${esc(r.gf)}:${esc(r.ga)}</td><td>${r.gd > 0 ? "+" : ""}${esc(r.gd)}</td><td class="pts">${esc(r.pts)}</td>${doc.games?.length ? `<td class="form">${form}</td>` : ""}</tr>`;
+      return `<tr${r.team === slug ? ` class="me" aria-current="true"` : ""}><td class="pos"${bar}${r.note ? ` title="${esc(NOTE_AZ[r.note] || r.note)}"` : ""}>${esc(r.pos)}</td><td class="club"><a href="${href(doc.id, r.team, "", key)}">${logo(t.logo, 18, t.short || t.name)}<span>${esc(t.short || t.name || r.team)}</span></a></td><td>${esc(r.p)}</td><td>${esc(r.w)}</td><td>${esc(r.d)}</td><td>${esc(r.l)}</td><td class="goals">${esc(r.gf)}:${esc(r.ga)}</td><td>${r.gd > 0 ? "+" : ""}${esc(r.gd)}</td><td class="pts">${esc(r.pts)}</td>${doc.games?.length ? `<td class="form">${form}</td>` : ""}</tr>`;
     }).join("");
-    return `<div class="tm-scroll" tabindex="0" role="region" aria-label="Turnir cədvəli"><table class="tm-table"><thead><tr><th class="pos">#</th><th class="club">Komanda</th><th title="Oyun">O</th><th title="Qələbə">Q</th><th title="Heç-heçə">H</th><th title="Məğlubiyyət">M</th><th>Qol</th><th title="Fərq">F</th><th>Xal</th>${doc.games?.length ? `<th class="form">Son 5</th>` : ""}</tr></thead><tbody>${body}</tbody></table></div>`;
+    return `<div class="tm-scroll" tabindex="0" role="region" aria-label="Turnir cədvəli"><table class="tm-table"><thead><tr><th class="pos">#</th><th class="club">Komanda</th><th title="Oyun">O</th><th title="Qələbə">Q</th><th title="Heç-heçə">H</th><th title="Məğlubiyyət">M</th><th class="goals">Qol</th><th title="Fərq">F</th><th class="pts">Xal</th>${doc.games?.length ? `<th class="form">Son 5</th>` : ""}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
   function legend(rows) {
     const zones = zonesOf(rows);

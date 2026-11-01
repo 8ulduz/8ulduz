@@ -67,6 +67,25 @@
 .tm-table tr.me td{background:color-mix(in srgb,var(--primary) 18%,var(--card));font-weight:800}
 .tm-table tr.me td.pos{color:var(--fg)}
 @media(min-width:900px){.tm-table .club{width:240px;min-width:240px;max-width:240px}}
+/* Telefon: cədvəl ekrana sığır, yana sürüşmür. Klub ən geniş sütundur, qalanı rəqəm enindədir; Qol və Son 5 Fərq və Baxış tabında var. */
+@media(max-width:699px){
+  .tm-table{min-width:0;table-layout:fixed;font-size:0.8571rem}
+  .tm-table th,.tm-table td{width:26px;padding:6px 1px}
+  .tm-table th{font-size:0.7143rem}
+  .tm-table .pos{position:static;width:24px;min-width:0;max-width:none;padding:6px 1px 6px 4px}
+  .tm-table .club{position:static;width:auto;min-width:0;max-width:none;box-shadow:none}
+  .tm-table th.club{padding:6px 4px}
+  .tm-table .club a{gap:5px;padding:5px 4px;min-height:32px}
+  .tm-table .pts{width:30px}
+  .tm-table .pct{width:36px}
+  .tm-table .gb{width:44px}
+  .tm-table .goals{display:none}
+  .tm-table .form{display:none}
+}
+@media(min-width:480px) and (max-width:699px){
+  .tm-table .form{display:table-cell;width:76px;min-width:0}
+  .tm-table td.form .tm-r{width:13px;height:13px;margin:0;font-size:8px}
+}
 .tm-legend{list-style:none;display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;padding:0;font-size:0.8214rem;color:var(--muted)}
 .tm-legend li{display:flex;align-items:center;gap:6px}
 .tm-legend i{display:inline-block;width:4px;height:14px;border-radius:2px}
