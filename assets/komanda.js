@@ -224,8 +224,8 @@ export function mountTeam(d) {
     const tab = TABS.some(([k]) => k === r.tab) && (r.tab !== "heyet" || hasSquad) && (r.tab !== "cedvel" || doc.groups?.length) && (r.tab !== "oyunlar" || hasGames) ? r.tab : "";
     const head = `<header class="tm-head">${logo(team.logo, 56, team.name)}<div><p><a class="tm-league" href="${leagueHref(league.id, seasonKey)}">${esc(doc.name)}</a>${esc(standingLine(doc, slug, ordinal).slice(doc.name.length))}${seasonKey ? ` · ${esc(doc.season)}` : ""}</p><h1>${esc(team.name)}</h1></div></header>`;
     const tabs = `<nav class="tm-tabs" aria-label="Komanda bölmələri">${TABS.filter(([k]) => (k !== "heyet" || hasSquad) && (k !== "cedvel" || doc.groups?.length) && (k !== "oyunlar" || hasGames)).map(([k, label]) => `<a href="${href(league.id, slug, k, seasonKey)}"${k === tab ? ` class="on" aria-current="page"` : ""}>${label}</a>`).join("")}</nav>`;
-    // Oyunlar bütün yarışlardan: cari mövsümdə komandanın digər yarışlarının faylları da gəlir.
-    const needGames = hasGames && (tab === "" || tab === "oyunlar");
+    // Baxışda oyunlar bütün yarışlardan: cari mövsümdə komandanın digər yarışlarının faylları da gəlir. Oyunlar tabı yalnız seçilmiş yarışı göstərir.
+    const needGames = hasGames && tab === "";
     const others = needGames && !seasonKey ? otherLeagues(index.doc, league, slug).map(l => ({ l, f: file(leaguePath(l, l.ready[0].key)) })) : [];
     const docs = [doc, ...others.map(o => o.f.doc).filter(Boolean)];
     const rows = docs.flatMap(x => gamesOf(x, slug).map(g => ({ g, doc: x })));
@@ -241,8 +241,7 @@ export function mountTeam(d) {
         ${doc.groups?.length ? `<section class="tm-sec"><div class="sec-h"><h2>Turnir cədvəli</h2><a class="more" href="${href(league.id, slug, "cedvel", seasonKey)}">Bütün cədvəl →</a></div>${miniTable(doc, slug)}</section>` : ""}
         <section class="tm-sec"><div class="sec-h"><h2>Xəbərlər</h2></div>${newsBlock(team, 6, `<a class="loadmore tm-more" href="${href(league.id, slug, "xeberler", seasonKey)}">Bütün xəbərlər →</a>`, doc)}</section>`;
     } else if (tab === "oyunlar") {
-      const names = docs.map(x => x.name).join(", ");
-      body = `${picker(index.doc, league, doc, slug, tab, key)}<section class="tm-sec">${fullList(rows, slug)}<p class="tm-src muted">Siyahıda bu yarışlar var: ${esc(names)}.</p></section>`;
+      body = `${picker(index.doc, league, doc, slug, tab, key)}<section class="tm-sec">${rows.length ? fullList(rows, slug) : `<p class="muted tm-none">${esc(doc.name)} oyunları hələ əlavə olunmayıb.</p>`}</section>`;
     } else if (tab === "cedvel") {
       body = `${picker(index.doc, league, doc, slug, tab, key)}<section class="tm-sec">${tablesHtml(doc, slug, seasonKey)}</section>`;
     } else if (tab === "heyet") {

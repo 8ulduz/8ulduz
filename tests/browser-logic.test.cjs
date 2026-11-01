@@ -1348,6 +1348,24 @@ test('team page: games from all competitions, cards with date and a full list sh
   const list = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'oyunlar' });
   assert.ok(list.includes('Avqust 2026'), 'aylara bölünür');
 });
+test('team page: the games tab shows only the chosen competition', async () => {
+  const ctx = teamPage(teamFiles());
+  const league = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'oyunlar' });
+  assert.equal(league.split('class="tm-game"').length - 1, 4, 'yalnız Premyer Liqa');
+  assert.ok(!league.includes('tm-comp">Azərbaycan Kuboku'), 'kubok oyunu qarışmır');
+  assert.ok(league.includes('data-tm-go') && league.includes('Azərbaycan Kuboku'), 'kubok seçimdə qalır');
+  assert.ok(!ctx.asked.includes('data/futbol/kubok.json'), 'seçilməyən yarışın faylı gəlmir');
+  const cup = await teamHtml(ctx, { liga: 'kubok', team: 'qarabag', tab: 'oyunlar' });
+  assert.ok(cup.includes('tm-comp">Azərbaycan Kuboku') && !cup.includes('tm-comp">Misli Premyer Liqası'), 'kubok seçiləndə yalnız kubok');
+  const files = teamFiles();
+  files['data/futbol/premyer-liqa.json'] = { ...PREMYER, games: [] };
+  const empty = teamPage(files);
+  const none = await teamHtml(empty, { liga: 'premyer-liqa', team: 'qarabag', tab: 'oyunlar' });
+  assert.ok(none.includes('Misli Premyer Liqası oyunları hələ əlavə olunmayıb.'), 'oyunu olmayan yarışda başqa yarışın oyunu görünmür');
+  assert.ok(!none.includes('class="tm-game"'));
+  const look = await teamHtml(empty, { liga: 'premyer-liqa', team: 'qarabag' });
+  assert.ok(look.includes('tm-comp">Azərbaycan Kuboku'), 'baxışda bütün yarışlar qalır');
+});
 test('team page: news reuse club topics and stay away from other meanings and sports', async () => {
   const row = (id, title, extra = {}) => ({ id, title, category: 'idman', lang: 'az', source: 'APA', sourceUrl: `https://apa.az/${id}`, publishedAt: '2026-11-01T06:00:00Z', ...extra });
   const ctx = teamPage(teamFiles(), [
