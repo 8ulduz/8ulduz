@@ -474,34 +474,114 @@ class FootballTest(unittest.TestCase):
         self.assertEqual(d["league"], "Misli Premyer Liqası")
 
 
-class EspnTest(unittest.TestCase):
-    def test_parse_espn_soccer_and_basketball(self):
-        soccer = {"children": [{"name": "Premier League", "standings": {"entries": [
-            {"team": {"displayName": "Manchester City", "shortDisplayName": "Man City", "logos": [{"href": "mc.png"}]},
-             "note": {"description": "Champions League", "color": "#81D6AC"},
-             "stats": [{"name": "rank", "value": 1}, {"name": "gamesPlayed", "value": 8}, {"name": "wins", "value": 7}, {"name": "ties", "value": 0},
-                       {"name": "losses", "value": 1}, {"name": "pointsFor", "value": 20}, {"name": "pointsAgainst", "value": 9},
-                       {"name": "pointDifferential", "value": 11}, {"name": "points", "value": 21}]},
-            {"team": {"displayName": "Arsenal", "shortDisplayName": "Arsenal", "logos": []},
-             "stats": [{"name": "rank", "value": 2}, {"name": "gamesPlayed", "value": 8}, {"name": "wins", "value": 6}, {"name": "ties", "value": 1},
-                       {"name": "losses", "value": 1}, {"name": "pointsFor", "value": 15}, {"name": "pointsAgainst", "value": 5},
-                       {"name": "pointDifferential", "value": 10}, {"name": "points", "value": 19}]},
-        ]}}]}
-        g = updater.parse_espn(soccer, "soccer")
-        self.assertEqual(len(g), 1)
-        self.assertEqual([r["team"] for r in g[0]["rows"]], ["Man City", "Arsenal"])
-        self.assertEqual(g[0]["rows"][0]["pts"], 21)
-        self.assertEqual(g[0]["rows"][0]["note"], "Champions League")
-        nba = {"children": [{"name": "Eastern Conference", "standings": {"entries": [
-            {"team": {"displayName": "Miami Heat", "shortDisplayName": "Heat", "logos": []},
-             "stats": [{"name": "wins", "value": 0}, {"name": "losses", "value": 4}, {"name": "winPercent", "value": 0.0}, {"name": "gamesBehind", "displayValue": "3.5"}, {"name": "playoffSeed", "value": 15}]},
-            {"team": {"displayName": "Boston Celtics", "shortDisplayName": "Celtics", "logos": []},
-             "stats": [{"name": "wins", "value": 4}, {"name": "losses", "value": 0}, {"name": "winPercent", "value": 1.0}, {"name": "gamesBehind", "displayValue": "-"}, {"name": "playoffSeed", "value": 1}]},
-        ]}}, {"name": "Western Conference", "standings": {"entries": []}}]}
-        b = updater.parse_espn(nba, "basketball")
-        self.assertEqual(len(b), 1)  # boş konfrans atılır
-        self.assertEqual(b[0]["rows"][0]["team"], "Celtics")
-        self.assertEqual(b[0]["rows"][1]["gb"], "3.5")
+def wiki_row(pos, team, cells, extra="<td></td>", link=None):
+    return (f'<tr><td style="background-color:#BBF3BB;">{pos}</td><th scope="row"><span class="flagicon"><a href="/x" title="Bayraq"><img/></a></span> '
+            f'<a href="/wiki/x" title="{link or team}">{team}</a></th>' + "".join(f"<td>{c}</td>" for c in cells) + extra + "</tr>")
+
+
+class WikiTablesTest(unittest.TestCase):
+    HEAD = ('<tr><th>Pos</th><th>Team<div>vte</div></th><th><abbr>Pld</abbr></th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th>'
+            '<th>Qualification or relegation</th></tr>')
+    NOW = datetime.datetime(2026, 11, 1, tzinfo=datetime.timezone.utc)
+
+    def good_rows(self):
+        rows = [wiki_row(1, "Manchester City", [9, 7, 0, 2, 20, 10, "+10", 21], '<td rowspan="2">Qualification for the <a>Champions League</a></td>'),
+                wiki_row(2, "Arsenal (C)", [9, 6, 3, 0, 17, 5, "+12", 21], "")]
+        return rows + [wiki_row(n, f"Klub {n}", [8, 2, 2, 4, 5, 9, "−4", 8]) for n in range(3, 10)]
+
+    def table(self, rows):
+        return "<table>" + self.HEAD + "".join(rows) + "</table>"
+
+    def page(self):
+        return self.table(self.good_rows()) + "<p>Updated to match(es) played on 31 October 2026</p>"
+
+    def test_football_table(self):
+        rows = updater.parse_wiki(self.table(self.good_rows()), "football")[0]["rows"]
+        self.assertEqual((rows[0]["team"], rows[0]["full"]), ("Man City", "Manchester City"))
+        self.assertEqual(rows[1]["team"], "Arsenal")  # (C) işarəsi atılır
+        marks = [wiki_row(1, "Bodø/Glimt", [8, 2, 2, 4, 5, 9, "−4", 8], ""), wiki_row(2, "Arsenal *", [8, 2, 2, 4, 5, 9, "−4", 8], "")]
+        self.assertEqual([r["team"] for r in updater._wiki_table(self.table(marks), "football")], ["Bodø/Glimt", "Arsenal"])
+        self.assertEqual((rows[0]["note"], rows[1]["note"]), ("Çempionlar Liqası", "Çempionlar Liqası"))  # birləşmiş xana
+        self.assertNotIn("note", rows[2])
+        self.assertEqual(rows[2]["gd"], -4)
+        self.assertEqual(rows[0]["color"], "#BBF3BB")
+
+    def test_flag_link_is_not_the_club_page(self):
+        self.assertEqual(updater._wiki_table(self.table(self.good_rows()), "football")[0]["_page"], "Manchester City")
+
+    def test_contradictory_table_is_rejected(self):
+        for bad in (wiki_row(4, "Klub 4", [8, 9, 9, 9, 5, 9, "−4", 8]),  # oyunların cəmi
+                    wiki_row(4, "Klub 4", [8, 2, 2, 4, 5, 9, "−4", 99]),  # xal
+                    wiki_row(4, "Klub http://reklam.example/?a=1", [8, 2, 2, 4, 5, 9, "−4", 8]),  # ad
+                    wiki_row(4, "Klub 3", [8, 2, 2, 4, 5, 9, "−4", 8])):  # eyni klub iki dəfə
+            rows = self.good_rows()
+            rows[3] = bad
+            with self.assertRaises(ValueError):
+                updater.parse_wiki(self.table(rows), "football")
+        with self.assertRaises(ValueError):
+            updater.parse_wiki(self.table(self.good_rows()[:4]), "football")  # sətir azdır
+
+    def test_nba_uses_conference_tables_not_divisions(self):
+        division = ('<table><tr><th>Atlantic Division</th><th>W</th><th>L</th><th>PCT</th><th>GP</th></tr>'
+                    '<tr><td>Boston Celtics</td><td>4</td><td>1</td><td>.800</td><td>5</td></tr></table>')
+        def conf(title):
+            rows = "".join(f'<tr><td>{n}</td><td><a href="/x" title="2026–27 Klub{n} season">z – Şəhər Klub{n}</a></td><td>{9 - n}</td><td>{n}</td><td>.5</td><td>–</td><td>9</td></tr>' for n in range(1, 9))
+            return f'<table><tr><th colspan="7">{title}</th></tr><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>PCT</th><th>GB</th><th>GP</th></tr>{rows}</table>'
+        groups = updater.parse_wiki(division + conf("Eastern Conference") + conf("Western Conference"), "basketball", updater.CONFERENCES)
+        self.assertEqual([g["name"] for g in groups], ["Eastern Conference", "Western Conference"])
+        first, second = groups[0]["rows"][:2]
+        self.assertEqual((first["team"], first["full"]), ("Klub1", "Şəhər Klub1"))
+        self.assertEqual(first["pct"], 0.889)
+        self.assertEqual((first["gb"], second["gb"]), ("-", "1.0"))
+
+    def test_asof_both_date_formats(self):
+        self.assertEqual(updater.wiki_asof("Updated to match(es) played on 26 October 2026. Source"), "2026-10-26")
+        self.assertEqual(updater.wiki_asof("Updated to match(es) played on October 31, 2026. Source"), "2026-10-31")
+        self.assertEqual(updater.wiki_asof("cədvəl"), "")
+
+    def test_season_title_turns_over_in_july(self):
+        june = datetime.datetime(2027, 6, 30, tzinfo=datetime.timezone.utc)
+        july = datetime.datetime(2027, 7, 1, tzinfo=datetime.timezone.utc)
+        self.assertEqual(updater._wiki_title("{s} La Liga", june), "2026–27 La Liga")
+        self.assertEqual(updater._wiki_title("{s} La Liga", july), "2027–28 La Liga")
+        self.assertEqual(updater._wiki_title("{y} Major League Soccer season", july), "2027 Major League Soccer season")
+
+    def test_failed_league_keeps_old_table_and_goes_stale_after_three_hours(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "sports.json"
+            now = datetime.datetime.now(datetime.timezone.utc)
+            recent = {"id": "eng.1", "groups": [{"rows": []}], "at": (now - datetime.timedelta(hours=1)).isoformat()}
+            late = {"id": "esp.1", "groups": [{"rows": []}], "at": (now - datetime.timedelta(hours=4)).isoformat()}
+            path.write_text(json.dumps({"updatedAt": (now - datetime.timedelta(hours=1)).isoformat(), "leagues": [recent, late]}), encoding="utf-8")
+            with patch.object(updater, "SPORTS_FILE", path), patch.object(updater, "OUT_DIR", pathlib.Path(tmp)), \
+                    patch.object(updater, "_wiki_api", side_effect=OSError("şəbəkə")):
+                updater.update_sports()
+            by = {l["id"]: l for l in json.loads(path.read_text(encoding="utf-8"))["leagues"]}
+            self.assertNotIn("stale", by["eng.1"])
+            self.assertTrue(by["esp.1"]["stale"])
+
+    def test_many_new_names_in_the_same_season_are_refused(self):
+        prev = {"season": "2026/27", "sec": 7, "groups": [{"rows": [{"team": "Köhnə"}]}]}
+        with patch.object(updater, "_wiki_api", return_value={"parse": {"text": self.page()}}):
+            with self.assertRaises(ValueError):
+                updater._wiki_league(updater.WIKI_LEAGUES[0], prev, self.NOW)
+
+    def test_league_gets_logos_and_keeps_known_ones(self):
+        def api(query):
+            if "pageimages" in query:
+                return {"query": {"pages": [{"title": "Arsenal (C)", "thumbnail": {"source": "https://upload.wikimedia.org/a.png?utm=1"}}]}}
+            return {"parse": {"text": self.page()}}
+        prev = {"sec": 7, "groups": [{"rows": [{"team": "Man City", "full": "Manchester City", "logo": "https://upload.wikimedia.org/mc.png"},
+                                               {"team": "Klub 3", "logo": "https://a.espncdn.com/k.png"}]}]}
+        with patch.object(updater, "_wiki_api", side_effect=api):
+            league = updater._wiki_league(updater.WIKI_LEAGUES[0], prev, self.NOW)
+        rows = league["groups"][0]["rows"]
+        self.assertEqual(rows[0]["logo"], "https://upload.wikimedia.org/mc.png")
+        self.assertEqual(rows[1]["logo"], "https://upload.wikimedia.org/a.png")
+        self.assertEqual(rows[2]["logo"], "")  # ESPN loqosu saxlanmır
+        self.assertNotIn("_page", rows[0])
+        self.assertNotIn("full", rows[1])
+        self.assertEqual((league["asof"], league["season"]), ("2026-10-31", "2026/27"))
 
 
 class TeamPagesTest(unittest.TestCase):

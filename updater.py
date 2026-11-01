@@ -2398,28 +2398,47 @@ def fetch_pfl_league(project_id):
     d["project"] = project_id
     return d
 
-# Dünya liqaları: ESPN-in açıq (sənədsiz) cədvəl API-si, açar tələb etmir. Avroliqa orada boş gəlir, ona görə yoxdur.
-ESPN_STANDINGS = "https://site.api.espn.com/apis/v2/sports/{sport}/{slug}/standings"
-ESPN_LEAGUES = [
-    ("eng.1", "soccer", "Premyer Liqa (İngiltərə)", "İngiltərə"),
-    ("esp.1", "soccer", "La Liga", "İspaniya"),
-    ("ita.1", "soccer", "Seriya A", "İtaliya"),
-    ("ger.1", "soccer", "Bundesliqa", "Almaniya"),
-    ("fra.1", "soccer", "Liqa 1", "Fransa"),
-    ("tur.1", "soccer", "Süper Liq", "Türkiyə"),
-    ("uefa.champions", "soccer", "Çempionlar Liqası", "ÇL"),
-    ("nba", "basketball", "NBA", "NBA"),
+# Dünya liqaları: ingiliscə Vikipediyanın cədvəlləri (CC BY-SA), açar tələb etmir. ESPN 2026-10-27-dən sorğumuza 403 verir, bloku keçmirik.
+WIKI_API = "https://en.wikipedia.org/w/api.php?format=json&formatversion=2&"
+WIKI_UA = "8ulduz.az/1.0 (https://8ulduz.az) standings"
+CONFERENCES = ("Eastern Conference", "Western Conference")
+WIKI_LEAGUES = [
+    # id, idman, ad, qısa ad, səhifə ({s}: 2026–27, {y}: 2026), bir neçə cədvəl varsa onların adı
+    ("eng.1", "football", "Premyer Liqa (İngiltərə)", "İngiltərə", "{s} Premier League", ()),
+    ("esp.1", "football", "La Liga", "İspaniya", "{s} La Liga", ()),
+    ("ita.1", "football", "Seriya A", "İtaliya", "{s} Serie A", ()),
+    ("ger.1", "football", "Bundesliqa", "Almaniya", "{s} Bundesliga", ()),
+    ("fra.1", "football", "Liqa 1", "Fransa", "{s} Ligue 1", ()),
+    ("tur.1", "football", "Süper Liq", "Türkiyə", "{s} Süper Lig", ()),
+    ("por.1", "football", "Primeyra Liqa", "Portuqaliya", "{s} Primeira Liga", ()),
+    ("ned.1", "football", "Eredivizie", "Hollandiya", "{s} Eredivisie", ()),
+    ("bel.1", "football", "Pro Liqa (Belçika)", "Belçika", "{s} Belgian Pro League", ()),
+    ("sco.1", "football", "Premyership", "Şotlandiya", "{s} Scottish Premiership", ()),
+    ("rus.1", "football", "Premyer Liqa (Rusiya)", "Rusiya", "{s} Russian Premier League", ()),
+    ("ksa.1", "football", "Pro Liqa (Səudiyyə)", "Səudiyyə", "{s} Saudi Pro League", ()),
+    ("bra.1", "football", "Seriya A (Braziliya)", "Braziliya", "{y} Campeonato Brasileiro Série A", ()),
+    ("usa.1", "football", "MLS", "ABŞ", "{y} Major League Soccer season", CONFERENCES),
+    ("eng.2", "football", "Çempionşip", "Çempionşip", "{s} EFL Championship", ()),
+    ("uefa.champions", "football", "Çempionlar Liqası", "ÇL", "{s} UEFA Champions League league phase", ()),
+    ("uefa.europa", "football", "Avropa Liqası", "AL", "{s} UEFA Europa League league phase", ()),
+    ("uefa.conference", "football", "Konfrans Liqası", "KL", "{s} UEFA Conference League league phase", ()),
+    ("nba", "basketball", "NBA", "NBA", "{s} NBA season", CONFERENCES),
+    ("euroleague", "basketball", "Avroliqa", "Avroliqa", "{s} EuroLeague", ()),
 ]
-SPORTS_EVERY = datetime.timedelta(minutes=30)
-
-def _espn_stat(stats, name):
-    for s in stats or []:
-        if s.get("name") == name:
-            v = s.get("value")
-            if v is None:
-                v = s.get("displayValue")
-            return v
-    return None
+SPORTS_EVERY = datetime.timedelta(minutes=15)
+SPORTS_STALE = datetime.timedelta(hours=3)
+SPORTS_BUDGET_S = 25  # bir yavaş dövrədə; çatmayan liqa növbəti dövrəyə qalır (ən köhnə yoxlanan birinci)
+WIKI_SHORT = {"Manchester City": "Man City", "Manchester United": "Man United", "Tottenham Hotspur": "Tottenham", "Nottingham Forest": "Nottm Forest",
+              "Wolverhampton Wanderers": "Wolves", "Brighton & Hove Albion": "Brighton", "Newcastle United": "Newcastle", "Crystal Palace": "C Palace",
+              "Paris Saint-Germain": "PSG", "Bayern Munich": "Bayern", "Borussia Dortmund": "Dortmund", "Bayer Leverkusen": "Leverkusen",
+              "Borussia Mönchengladbach": "Gladbach", "Eintracht Frankfurt": "Frankfurt", "Atlético Madrid": "Atlético", "Athletic Bilbao": "Athletic",
+              "Internazionale": "İnter", "Inter Milan": "İnter", "Sporting CP": "Sporting", "PSV Eindhoven": "PSV"}
+WIKI_NOTE = (("Champions League", "Çempionlar Liqası"), ("Europa League", "Avropa Liqası"), ("Conference League", "Konfrans Liqası"),
+             ("Libertadores", "Kopa Libertadores"), ("Sudamericana", "Kopa Sudamerikana"),
+             ("round of 16", "1/8 final"), ("playoff", "Pley-off"), ("Promotion", "Yuxarı liqaya keçid"), ("Relegation", "Aşağı liqaya düşmə"), ("Eliminated", "Mübarizədən çıxır"))
+_WIKI_NAME = re.compile(r"[\w .'’&/\-]{2,40}", re.U)
+_WIKI_MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+_WIKI_FLAG = re.compile(r"<span class=\"flagicon\">.*?</span>", re.S)
 
 def _num(v, default=0):
     try:
@@ -2427,50 +2446,156 @@ def _num(v, default=0):
     except Exception:
         return default
 
-def parse_espn(doc, sport):
-    """ESPN cədvəl cavabı -> qruplar və sətirlər. Futbol: O/Q/H/M/qol/xal; basketbol: Q/M/faiz/geridə."""
-    groups = doc.get("children") or [doc]
+def _wiki_text(raw):
+    raw = _WIKI_FLAG.sub("", re.sub(r"<sup\b.*?</sup>|<style\b.*?</style>", "", raw, flags=re.S))
+    text = html.unescape(re.sub(r"<[^>]+>", "", raw)).replace("‍", "").replace("\xa0", " ")
+    return text.replace("−", "-").replace("–", "-").strip()
+
+def _wiki_int(text):
+    text = _wiki_text(text)
+    if not re.fullmatch(r"[+-]?\d+", text):
+        raise ValueError(f"rəqəm deyil: {text[:20]}")
+    return int(text)
+
+def _wiki_table(table, sport):
+    """Bir cədvəl: sütunları başlığa görə tapır. Komanda sütunu olmayan cədvəl (NBA-nın divizionları) None qaytarır."""
+    rows, head = [], None
+    note, note_left = "", 0
+    for tr in re.findall(r"<tr\b.*?</tr>", table, re.S):
+        cells = re.findall(r"<t[dh]\b([^>]*)>(.*?)</t[dh]>", tr, re.S)
+        if head is None:
+            names = [_wiki_text(c[1]) for c in cells]
+            if len(names) >= 4 and any(n.startswith("Team") for n in names):
+                head = {("team" if n.startswith("Team") else n): i for i, n in enumerate(names)}
+            continue
+        if len(cells) <= head.get("L", 99):
+            continue
+        cell = lambda *keys: next(cells[head[k]][1] for k in keys if k in head)
+        attrs = lambda *keys: next(cells[head[k]][0] for k in keys if k in head)
+        team = cell("team")
+        full = re.sub(r"\s*(?:\([A-Z](?:, ?[A-Z])*\)|\*+)$", "", re.sub(r"^[a-z]{1,2} - ", "", _wiki_text(team)))
+        if not _WIKI_NAME.fullmatch(full):
+            raise ValueError(f"komanda adı: {full[:20]}")
+        link = re.search(r"<a\b[^>]*\btitle=\"([^\"]+)\"", _WIKI_FLAG.sub("", team))
+        short = full.split()[-1] if sport == "basketball" and "#" in head and " " in full else full
+        row = {"team": WIKI_SHORT.get(full) or ("Trail Blazers" if full.endswith("Trail Blazers") else short), "full": full, "logo": "",
+               "_page": html.unescape(link.group(1)) if link else full, "pos": _wiki_int(cell("Pos", "#")),
+               "p": _wiki_int(cell("Pld", "GP")), "w": _wiki_int(cell("W")), "l": _wiki_int(cell("L"))}
+        if sport == "football":
+            row.update({"d": _wiki_int(cell("D", "T")), "gf": _wiki_int(cell("GF")), "ga": _wiki_int(cell("GA")), "pts": _wiki_int(cell("Pts"))})
+            row["gd"] = row["gf"] - row["ga"]
+            color = re.search(r"background-color:(#[0-9a-fA-F]{6})", attrs("Pos", "#"))
+            if color:
+                row["color"] = color.group(1)
+            # Son sütun birləşmiş xanadır: cədvəlin bir neçə sətrinə aiddir.
+            if note_left <= 0 and len(cells) > head["Pts"] + 1:
+                span = re.search(r"rowspan=\"(\d+)\"", cells[head["Pts"] + 1][0])
+                note_left = int(span.group(1)) if span else 1
+                text = _wiki_text(cells[head["Pts"] + 1][1])
+                note = next((az for en, az in WIKI_NOTE if en in text), "")
+            if note:
+                row["note"] = note
+            note_left -= 1
+        rows.append(row)
+    return rows if head else None
+
+def parse_wiki(text, sport, names=()):
+    """Vikipediya bölməsi -> qruplar. Cədvəl öz-özünə ziddirsə (səhv redaktə) istisna atır: əvvəlki məlumat qalır."""
+    groups = [rows for rows in (_wiki_table(t, sport) for t in re.findall(r"<table\b.*?</table>", text, re.S)) if rows]
+    if not groups or (names and len(groups) != len(names)):
+        raise ValueError("cədvəl tapılmadı")
     out = []
-    for g in groups:
-        entries = ((g.get("standings") or {}).get("entries")) or []
-        rows = []
-        for e in entries:
-            t = e.get("team") or {}
-            st = e.get("stats") or []
-            logos = t.get("logos") or []
-            row = {"team": t.get("shortDisplayName") or t.get("displayName") or "", "full": t.get("displayName") or "",
-                   "logo": (logos[0].get("href") if logos else "") or ""}
-            if sport == "soccer":
-                row.update({"pos": _num(_espn_stat(st, "rank")), "p": _num(_espn_stat(st, "gamesPlayed")), "w": _num(_espn_stat(st, "wins")),
-                            "d": _num(_espn_stat(st, "ties")), "l": _num(_espn_stat(st, "losses")), "gf": _num(_espn_stat(st, "pointsFor")),
-                            "ga": _num(_espn_stat(st, "pointsAgainst")), "gd": _num(_espn_stat(st, "pointDifferential")), "pts": _num(_espn_stat(st, "points"))})
-                note = e.get("note") or {}
-                if note.get("description"):
-                    row["note"] = note.get("description")
-                    row["color"] = note.get("color") or ""
+    for i, rows in enumerate(groups):
+        if len(rows) < 8 or len({r["full"] for r in rows}) != len(rows):
+            raise ValueError("sətirlər səhvdir")
+        top = rows[0]
+        for r in rows:
+            if r["w"] + r["l"] + r.get("d", 0) != r["p"]:
+                raise ValueError(f"oyunların cəmi: {r['full'][:20]}")
+            if sport == "football":
+                if not 3 * r["w"] + r["d"] - 15 <= r["pts"] <= 3 * r["w"] + r["d"]:
+                    raise ValueError(f"xal: {r['full'][:20]}")
             else:
-                w, l = _num(_espn_stat(st, "wins")), _num(_espn_stat(st, "losses"))
-                pct = _espn_stat(st, "winPercent")
-                try:
-                    pct = float(pct)
-                except Exception:
-                    pct = (w / (w + l)) if (w + l) else 0.0
-                row.update({"pos": _num(_espn_stat(st, "playoffSeed")), "w": w, "l": l, "p": w + l, "pct": round(pct, 3),
-                            "gb": _espn_stat(st, "gamesBehind")})
-            rows.append(row)
-        if sport == "soccer":
-            rows.sort(key=lambda r: (r["pos"] or 99, -r["pts"], -r["gd"]))
-        else:
-            rows.sort(key=lambda r: (-r["pct"], -r["w"]))
-        for i, r in enumerate(rows, 1):
-            if not r.get("pos"):
-                r["pos"] = i
-        if rows:
-            out.append({"name": g.get("name") or "", "rows": rows})
+                behind = ((top["w"] - r["w"]) + (r["l"] - top["l"])) / 2
+                r["pct"], r["gb"] = round(r["w"] / r["p"], 3) if r["p"] else 0.0, f"{behind:.1f}" if behind else "-"
+        out.append({"name": names[i] if names else "", "rows": rows})
     return out
 
+def wiki_asof(text):
+    """«Updated to match(es) played on 26 October 2026» -> 2026-10-26: cədvəlin hansı günə qədər olduğu saytda yazılır."""
+    m = re.search(r"Updated to match\(es\) played on (?:(\d{1,2}) (\w+)|(\w+) (\d{1,2}),) (\d{4})", text)
+    if not m or (m.group(2) or m.group(3)) not in _WIKI_MONTHS:
+        return ""
+    return f"{m.group(5)}-{_WIKI_MONTHS.index(m.group(2) or m.group(3)) + 1:02d}-{int(m.group(1) or m.group(4)):02d}"
+
+def _wiki_api(query):
+    return json.loads(fetch(WIKI_API + query, timeout=12, headers={"User-Agent": WIKI_UA, "Accept": "application/json"}).decode("utf-8"))
+
+def _wiki_title(pattern, now_dt):
+    year = now_dt.year if now_dt.month >= 7 else now_dt.year - 1
+    return pattern.format(s=f"{year}–{(year + 1) % 100:02d}", y=now_dt.year)
+
+def _wiki_logos(pages):
+    """Klub səhifəsinin şəkli (loqo). Bir sorğuda 50 səhifəyədək. NBA-da keçid mövsüm səhifəsinədir: klubun özünə baxılır."""
+    plain = {p: re.sub(r"^\d{4}[–-]\d{2} (.+) season$", r"\1", p) for p in pages}
+    query = urllib.parse.urlencode({"action": "query", "redirects": 1, "prop": "pageimages", "piprop": "thumbnail", "pithumbsize": 80, "pilicense": "any",
+                                    "pilimit": 50, "titles": "|".join(sorted(set(plain.values()))[:50])})
+    res = _wiki_api(query).get("query") or {}
+    to = {x["from"]: x["to"] for key in ("normalized", "redirects") for x in res.get(key) or []}
+    images = {p.get("title"): (p.get("thumbnail") or {}).get("source", "").split("?")[0] for p in res.get("pages") or []}
+    def final(title):
+        for _ in range(4):
+            title = to.get(title, title)
+        return title
+    return {page: images.get(final(title), "") for page, title in plain.items()}
+
+def _wiki_league(spec, prev, now_dt):
+    lid, sport, name, short, pattern, names = spec
+    title = _wiki_title(pattern, now_dt)
+    page = urllib.parse.quote(title)
+    section = lambda index: _wiki_api(f"action=parse&prop=text&page={page}&section={index}")["parse"]["text"]
+    sec, text, groups = prev.get("sec"), "", None
+    if sec is not None:
+        try:
+            text = section(sec)
+            groups = parse_wiki(text, sport, names)
+        except Exception:
+            groups = None  # bölmənin nömrəsi dəyişib: siyahıdan təzədən tapılır
+    if groups is None:
+        sections = _wiki_api(f"action=parse&prop=sections&page={page}")["parse"]["sections"]
+        sec = next(s["index"] for s in sections if re.search(r"\b(table|standings)\b", s["line"], re.I))
+        text = section(sec)
+        groups = parse_wiki(text, sport, names)
+    season = title.split()[0].replace("–", "/")
+    rows = [r for g in groups for r in g["rows"]]
+    known_rows = [r for g in prev.get("groups") or [] for r in g.get("rows") or []]
+    # Eyni mövsümdə ikidən çox yeni ad gəlibsə kimsə cədvəli pozub: əvvəlki qalır.
+    if prev.get("season") == season and known_rows and len({r["full"] for r in rows} - {r.get("full") or r.get("team") for r in known_rows}) > 2:
+        raise ValueError("komanda adları dəyişib")
+    logos = {r.get("full") or r.get("team"): r.get("logo") for r in known_rows if "espncdn" not in (r.get("logo") or "")}
+    for r in rows:
+        r["logo"] = logos.get(r["full"]) or ""
+    missing = [r["_page"] for r in rows if not r["logo"]]
+    if missing:
+        try:
+            found = _wiki_logos(missing)
+            for r in rows:
+                r["logo"] = r["logo"] or found.get(r["_page"], "")
+        except Exception as e:
+            print(f"  ! {name} loqoları:", type(e).__name__)
+    for r in rows:
+        del r["_page"]
+        if r["team"] == r["full"]:
+            del r["full"]
+    league = {"id": lid, "sport": sport, "name": name, "short": short, "season": season, "groups": groups, "sec": sec,
+              "at": now_dt.isoformat(timespec="seconds"), "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_"))}
+    asof = wiki_asof(text)
+    if asof:
+        league["asof"] = asof
+    return league
+
 def update_sports():
-    """Dünya futbol liqaları və NBA cədvəlləri (ESPN). 30 dəqiqədən bir; alınmayan liqa üçün köhnə məlumat qalır."""
+    """Dünya liqalarının cədvəlləri (Vikipediya). 15 dəqiqədən bir; alınmayan liqanın əvvəlki cədvəli qalır, 3 saatdan sonra «köhnə» sayılır."""
     now_dt = datetime.datetime.now(datetime.timezone.utc)
     OUT_DIR.mkdir(exist_ok=True)
     try:
@@ -2483,24 +2608,27 @@ def update_sports():
     except Exception:
         pass
     old_by = {l.get("id"): l for l in old.get("leagues") or []}
-    leagues, fresh = [], 0
-    for slug, sport, name, short in ESPN_LEAGUES:
+    started, done = time.monotonic(), {}
+    for spec in sorted(WIKI_LEAGUES, key=lambda s: old_by.get(s[0], {}).get("at", "")):
+        if time.monotonic() - started > SPORTS_BUDGET_S:
+            break
         try:
-            doc = json.loads(fetch(ESPN_STANDINGS.format(sport=sport, slug=slug), timeout=20,
-                                   headers={"Accept": "application/json"}).decode("utf-8"))
-            groups = parse_espn(doc, sport)
-            if not groups:
-                raise ValueError("cədvəl boşdur")
-            leagues.append({"id": slug, "sport": "football" if sport == "soccer" else "basketball", "name": name, "short": short,
-                            "season": str((doc.get("season") or {}).get("year") or ""), "groups": groups})
-            fresh += 1
+            done[spec[0]] = _wiki_league(spec, old_by.get(spec[0]) or {}, now_dt)
         except Exception as e:
-            print(f"  ! {name}:", type(e).__name__)
-            if slug in old_by:
-                leagues.append(dict(old_by[slug], stale=True))
-    _write_atomic(SPORTS_FILE, json.dumps({"updatedAt": now_dt.isoformat(timespec="seconds"), "source": "ESPN", "leagues": leagues},
+            print(f"  ! {spec[2]}:", type(e).__name__, str(e)[:60])
+    leagues = []
+    for spec in WIKI_LEAGUES:
+        league = done.get(spec[0]) or old_by.get(spec[0])
+        if not league:
+            continue
+        try:
+            late = now_dt - datetime.datetime.fromisoformat(league.get("at", "")) > SPORTS_STALE
+        except Exception:
+            late = True
+        leagues.append({k: v for k, v in league.items() if k != "stale"} | ({"stale": True} if late else {}))
+    _write_atomic(SPORTS_FILE, json.dumps({"updatedAt": now_dt.isoformat(timespec="seconds"), "source": "Vikipediya", "leagues": leagues},
                                       ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Dünya liqaları: {fresh}/{len(ESPN_LEAGUES)} təzə")
+    print(f"Dünya liqaları: {len(done)}/{len(WIKI_LEAGUES)} təzə")
 
 def update_football():
     """Bütün liqalar (Premyer, I, II, Kubok, Əvəzedicilər) pfl.az-dan. Üst səviyyədəki sahələr Premyer Liqadır

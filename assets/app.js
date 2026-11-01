@@ -149,8 +149,10 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
   try {
     if(signal?.aborted)cancel();
     // index.html-in erkən başlatdığı sorğu (yalnız bir dəfə); alınmasa adi sorğu
-    const early = globalThis.__early?.[url];
-    if(early)delete globalThis.__early[url];
+    // Ünvanda dəqiqə var: səhifə dəqiqənin sonunda açılanda erkən cavab boşa getməsin, fayl ikinci dəfə yüklənməsin.
+    const earlyKey = url.includes("&r=") ? null : Object.keys(globalThis.__early || {}).find(k => k.split("?")[0] === url.split("?")[0]);
+    const early = earlyKey && globalThis.__early[earlyKey];
+    if(early)delete globalThis.__early[earlyKey];
     const response = (async () => {
       const get = async () => (await liveDirect(url, controller.signal)) || fetch(url, {cache:"no-store", signal:controller.signal});
       const r = await (early ? early.catch(get) : get());
@@ -813,6 +815,7 @@ async function loadMarkets() {
     try { const x = await (await fetch(`https://api.gold-api.com/price/${sym}`)).json(); x?.price && items.push({ label, value: x.price, dec, unit: "USD" }); } catch {}
   }
   if (items.length) { S.markets = items; renderMarkets(); if (route().name === "rates") requestRender(false); }
+  else $("#markets").hidden = true; // heç bir mənbə cavab vermədi: ayrılmış yer boş qalmasın
 }
 
 function wxCode(c) {
@@ -868,7 +871,7 @@ function shell() {
       <button type="button" id="mic" class="mic" aria-label="Səslə axtar" title="Səslə axtar" aria-pressed="false" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></label>
   </div><div class="langstick" id="langstick"></div><div class="nav-pop" id="navpop" hidden></div></header>
   <div id="ticker"></div>
-  <div class="markets" id="markets" hidden><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
+  <div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
   <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${safeHref(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
@@ -953,7 +956,8 @@ function pageMeta() {
 
 function renderTopbar() {
   if (document.activeElement?.matches?.("#topbar select")) return; // açıq şəhər siyahısı bağlanmasın; seçimdən sonra yenilənir
-  const w = S.wx, upd = S.status?.checkedAt || S.data?.updatedAt;
+  // İlk ekranın faylı 10 dəqiqəyədək köhnə ola bilər: təzəliyə status və tam lent gələndən sonra baxılır, yoxsa «köhnəlib» yazısı yanıb sönür.
+  const w = S.wx, upd = S.status?.checkedAt || (S.partial ? null : S.data?.updatedAt);
   // 11: status təzə olsa da bu ekrana yeni məlumat çatmayıbsa «indicə» yazılmasın.
   const applied = Math.max(S.newsCheckedAt || 0, S.latestAt || 0);
   const stale = (upd && Date.now() - new Date(upd).getTime() > 5 * 60e3) || (applied && Date.now() - applied > 5 * 60e3);
@@ -1196,7 +1200,7 @@ function convertAmt(amount, fromId, toId) {
 }
 function renderMarkets() {
   const m = S.markets; if (!m?.length) return;
-  $("#markets").hidden = false;
+  $("#markets").classList.remove("pending");
   $("#mk").innerHTML = m.map(i => {
     const unofficial = i.unit === "AZN" && i.src && i.src !== "AMB";
     const has = !unofficial && i.changePct != null && i.change != null;
@@ -1389,10 +1393,12 @@ function fbLeagues() {
   // Dünya liqaları (sports.json): cədvəl qrupları (NBA: Şərq/Qərb); ilk qrup komanda kartları üçün cədvəl kimi götürülür
   const world = (S.sports?.leagues || []).filter(l => l?.groups?.length).map(l => ({
     world: true, sport: l.sport, id: l.id, short: l.short, league: l.name, season: l.season || "", stale: !!l.stale,
-    groups: l.groups, table: l.groups[0].rows, results: [], fixtures: [], scorers: [], link: "https://www.espn.com/", source: "ESPN",
+    groups: l.groups, table: l.groups[0].rows, results: [], fixtures: [], scorers: [], link: l.url || "https://en.wikipedia.org/", source: "Vikipediya", asof: l.asof || "",
   }));
   return [...az, ...world];
 }
+// Cədvəl hansı günün oyunlarına qədərdir: Vikipediya bəzi liqaları bir neçə gün gec yeniləyir.
+const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${MONTHS[m - 1]} oyunlarına qədər` : ""; };
 const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
 function worldTable(l, g) {
   const rows = g.rows || [];
@@ -1416,7 +1422,7 @@ function footballBlock(list) {
     const gi = Math.min(Number(S.fbTab) || 0, groups.length - 1);
     const gtabs = groups.length > 1 ? `<div class="fb-groups">${groups.map((g, i) => `<button type="button" class="pill${i === gi ? " on" : ""}" data-fbtab="${i}">${esc(GROUP_AZ[g.name] || g.name)}</button>`).join("")}</div>` : "";
     const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<div class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></div>`).join("");
-    return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><span class="more muted">ESPN</span></div>
+    return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.asof ? ` · ${esc(asofLabel(fb.asof))}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link)}" target="_blank" rel="noopener noreferrer">Vikipediya ↗</a></div>
       ${picker}
       <div class="strip"><div class="fb-teams">${wteams}</div></div>
       ${gtabs}
@@ -1671,6 +1677,7 @@ function ratesView() {
     ${rows ? `<div class="svc-wrap"><table class="svc-table"><thead><tr><th>Ad</th><th>Qiymət</th><th>Dəyişmə</th><th>Mənbə</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="empty">Məzənnə məlumatı yüklənir.</p>`}`;
 }
 function leagueView() {
+  wantSports();
   return `<div class="page-h"><div><h1>Premyer Liqa cədvəli</h1><p>Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar.</p></div></div>${footballBlock(S.data?.articles || [])}`;
 }
 // Komanda səhifəsi ayrı fayldadır: kodu və üslubu yalnız bu ünvan açılanda gəlir.
@@ -2464,6 +2471,8 @@ async function loadVideo() {
     if (r.ok) { S.video = await r.json(); if (route().name === "home" || route().name === "videos") requestRender(false); }
   } catch {}
 }
+const SPORTS_DELAY_MS = 4000;
+function wantSports() { if (S.sports || S.sportsAsked) return; S.sportsAsked = true; loadSports(); }
 async function loadSports() {
   try {
     const r = await fetch(freshUrl("data/sports.json"), { cache: "no-store" });
@@ -2561,10 +2570,10 @@ function resumeNews() {
   pollNews(false, true);
 }
 applyPrefs();
-enableAnalytics();
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt = e; renderLangs(); });
 addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
-if ("serviceWorker" in navigator) {
+function registerWorker() {
+  if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then((reg) => {
     S.swReg = reg;
     if (!navigator.serviceWorker.controller) return;
@@ -2594,7 +2603,13 @@ shell(); render();
 // Hamısı gələn kimi çəkilir: gözləsə ağır çəkiliş oxucunun linkə basdığı ana düşür, keçid gecikir.
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
-Promise.allSettled([newsReady, loadSocial(), loadSources(), loadVideo(), loadFootball(), loadSports(), loadAds()]).then(flushRender);
+// Xəbər ekrana çıxandan sonra: xidmət işçisi ilk açılışda bütün faylları (eləcə də app.js-i ikinci dəfə) yükləyir, statistika və köməkçi modullar da şəbəkəni tutur.
+const afterNews = run => newsReady.finally(() => setTimeout(run));
+afterNews(() => { enableAnalytics(); registerWorker(); });
+Promise.allSettled([newsReady, loadSocial(), loadSources(), loadVideo(), loadFootball(), loadAds()]).then(flushRender);
+// 20 liqanın cədvəli (~17 KB): açılışla xətti bölüşmür. Oxucu cədvələ özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
+afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
+document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
 loadMarkets(); loadStatus(); loadWeather(); loadPrayer(savedPrayCity()); loadWarnings();
 setInterval(() => pollNews(), POLL_MS);
 addEventListener("scroll", () => {
@@ -2643,13 +2658,13 @@ setInterval(() => {
 }, 60e3);
 
 // Optional voice UI is independent of feed re-renders.
-if (ASSISTANT_ON) import("./assistant.js").then(({ mountAssistant }) => mountAssistant({
+if (ASSISTANT_ON) afterNews(() => import("./assistant.js").then(({ mountAssistant }) => mountAssistant({
   getSnapshot: () => ({ articles: S.data?.articles || [], newsAt: S.data?.updatedAt, categories: CATS, cities: CITIES, road: localRoadItems(S.data?.articles || []), sportsAt: S.sports?.updatedAt, leagues: fbLeagues().map(l => ({...l, updatedAt: l.world ? S.sports?.updatedAt : S.football?.updatedAt})) }),
   wxCode,
-})).catch(() => {});
-import('./source-stats.js').then(({mountSourceStats}) => mountSourceStats({code:window.SITE_CONFIG?.goatcounter, getArticles:()=>[...(S.data?.articles || []),...savedList()]})).catch(()=>{});
-if (DRIVER_ON) import('./reader.js').then(({mountReader}) => mountReader({
+})).catch(() => {}));
+afterNews(() => import('./source-stats.js').then(({mountSourceStats}) => mountSourceStats({code:window.SITE_CONFIG?.goatcounter, getArticles:()=>[...(S.data?.articles || []),...savedList()]})).catch(()=>{}));
+if (DRIVER_ON) afterNews(() => import('./reader.js').then(({mountReader}) => mountReader({
   getArticles:()=>[...(S.data?.articles || []),...savedList()],
   driverEnabled:()=>storage.getItem('8ulduz-driver')==='on',
   setDriver:on=>{storage.setItem('8ulduz-driver',on?'on':'off');renderLangs();},
-})).catch(()=>{});
+})).catch(()=>{}));
