@@ -1,5 +1,5 @@
 // Komanda səhifəsi (#/komanda/<liga>/<ad>). Kod, üslub və məlumat yalnız bu səhifə açılanda yüklənir: baş səhifənin sürətinə toxunmur.
-// Məlumat: data/futbol/ (updater.py, update_team_pages). Heyəti olmayan liqada Heyət tabı görünmür.
+// Məlumat: data/futbol/ (updater.py, update_team_pages), hazırda yalnız pfl.az. Heyət tabı və zona zolaqları yalnız faylda məlumat olanda görünür.
 const DIR = "data/futbol/";
 const FILE_TTL = 10 * 60e3;
 const FAIL_WAIT = 30e3;
