@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
   return context;
 }
 
@@ -1103,4 +1103,199 @@ test('hero and Zugulba retain multiple articles for their moving feeds', () => {
   assert.ok(!hero.includes('row-card'),'slayderin xəbərləri altında təkrarlanmır');
   assert.ok(prez.includes('data-prez-lent'));
   assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
+});
+
+// Komanda səhifəsi: assets/komanda.js modulu eyni kontekstdə, app.js-in köməkçiləri ilə işləyir.
+function teamPage(files, articles = []) {
+  const ctx = app({ history: { pushState() {}, back() {} }, Promise, RegExp, WeakMap });
+  const source = fs.readFileSync(path.join(root, 'assets/komanda.js'), 'utf8').replace(/^export /gm, '');
+  vm.runInContext(source, ctx);
+  ctx.files = files; ctx.articles = articles; ctx.renders = 0; ctx.asked = [];
+  vm.runInContext(`S.data = { articles }; S.shown = 48;
+    requestJSON = async url => { const p = url.split("?")[0]; asked.push(p); if (!files[p]) throw Error("404"); return { d: files[p] }; };
+    globalThis.team = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive: () => {}, months: MONTHS, requestJSON: (...a) => requestJSON(...a), freshUrl, requestRender: () => { renders++; } });`, ctx);
+  return ctx;
+}
+const TEAM_INDEX = { checked: { 'premyer-liqa': '2026-11-01T07:00:00+00:00' }, leagues: [
+  { id: 'premyer-liqa', name: 'Misli Premyer Liqası', short: 'Premyer Liqa', source: 'pfl.az', ready: [{ key: '2026', label: '2026-27' }, { key: '2025', label: '2025-26' }], teams: ['qarabag', 'sabah', 'sefa'], heyet: [] },
+  { id: 'kubok', name: 'Azərbaycan Kuboku', short: 'Kubok', source: 'pfl.az', ready: [{ key: '2026', label: '2026-27' }], teams: ['qarabag', 'sumqayit'], heyet: [] },
+  { id: 'evezediciler', name: 'Əvəzedicilər Liqası', short: 'Əvəzedicilər', source: 'pfl.az', reserve: true, ready: [{ key: '2026', label: '2026-27' }], teams: ['qarabag'], heyet: [] },
+  { id: 'turkiye', name: 'Türkiyə Süper Liqası', short: 'Türkiyə', source: 'ESPN', ready: [{ key: '2026', label: '2026-27' }], teams: ['fenerbahce', 'besiktas'], heyet: ['fenerbahce'] },
+] };
+const PREMYER = { id: 'premyer-liqa', name: 'Misli Premyer Liqası', short: 'Premyer Liqa', source: 'pfl.az', key: '2026', season: '2026-27',
+  teams: { qarabag: { name: 'Qarabağ', logo: 'https://pfl.az/q.png' }, sabah: { name: 'Sabah', logo: '' }, sefa: { name: 'Şəfa', logo: '' } },
+  groups: [{ name: '', rows: [{ pos: 1, team: 'sabah', p: 2, w: 2, d: 0, l: 0, gf: 3, ga: 0, gd: 3, pts: 6 }, { pos: 2, team: 'qarabag', p: 2, w: 1, d: 0, l: 1, gf: 2, ga: 1, gd: 1, pts: 3 }, { pos: 3, team: 'sefa', p: 2, w: 0, d: 0, l: 2, gf: 0, ga: 4, gd: -4, pts: 0 }] }],
+  games: [
+    { home: 'qarabag', away: 'sefa', hs: 2, as: 0, date: '2026-08-14T19:30+04:00', played: true, round: '1' },
+    { home: 'sabah', away: 'qarabag', hs: 1, as: 0, date: '2026-08-21T19:30+04:00', played: true, round: '2' },
+    { home: 'qarabag', away: 'sabah', date: '2099-11-06T18:00+04:00', played: false, round: '3' },
+    { home: 'sefa', away: 'qarabag', date: '2020-01-01T18:00+04:00', played: false, state: 'off', round: '4' },
+  ] };
+const KUBOK = { id: 'kubok', name: 'Azərbaycan Kuboku', short: 'Kubok', source: 'pfl.az', key: '2026', season: '2026-27', teams: { qarabag: { name: 'Qarabağ', logo: '' }, sumqayit: { name: 'Sumqayıt', logo: '' } }, groups: [], games: [{ home: 'sumqayit', away: 'qarabag', date: '2099-12-01T18:00+04:00', played: false, round: '1/8 final' }] };
+const TURKIYE = { id: 'turkiye', name: 'Türkiyə Süper Liqası', short: 'Türkiyə', source: 'ESPN', key: '2026', season: '2026-27', teams: { fenerbahce: { name: 'Fenerbahçe', logo: '', id: '436' }, besiktas: { name: 'Beşiktaş', logo: '', id: '1895' } },
+  groups: [{ name: 'Lig', rows: [{ pos: 1, team: 'fenerbahce', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3, note: 'Champions League', color: '#81D6AC' }, { pos: 2, team: 'besiktas', p: 1, w: 0, d: 0, l: 1, gf: 0, ga: 1, gd: -1, pts: 0, note: 'Relegation', color: 'red;background:url(x)' }] }], games: [] };
+const teamFiles = () => ({ 'data/futbol/index.json': TEAM_INDEX, 'data/futbol/premyer-liqa.json': PREMYER, 'data/futbol/kubok.json': KUBOK, 'data/futbol/turkiye.json': TURKIYE,
+  'data/futbol/heyet-turkiye.json': { teams: { fenerbahce: { players: [{ name: 'Mert Günok', pos: 'gk', no: '34', age: 37 }, { name: 'Dusan Tadic', pos: 'mf', no: '10' }] } } } });
+const tick = () => new Promise(done => setImmediate(done));
+// Fayllar gələnə qədər səhifə yükləmə göstərir; hər çağırış çatmayan faylı istəyir.
+async function teamHtml(ctx, r) {
+  const route = { tab: '', season: '', ...r };
+  let html = '';
+  for (let i = 0; i < 5; i++) { ctx.route_ = route; html = vm.runInContext('team.view(route_)', ctx); await tick(); }
+  return html;
+}
+
+test('team route: league, club, tab and season come from the address', () => {
+  const ctx = app();
+  const at = hash => { ctx.location.hash = hash; return ctx.api.route(); };
+  assert.equal(at('#/komanda/premyer-liqa/qarabag').name, 'team');
+  assert.equal(at('#/komanda/premyer-liqa/qarabag').team, 'qarabag');
+  assert.equal(at('#/komanda/premyer-liqa/qarabag/cedvel').tab, 'cedvel');
+  assert.equal(at('#/komanda/turkiye/fenerbahce/cedvel?s=2025').season, '2025');
+  assert.equal(at('#/komanda/turkiye').team, '');
+  assert.equal(at('#/komanda/turkiye?s=2025').season, '2025');
+  assert.equal(at('#/komanda').name, 'notfound');
+  assert.equal(at('#/komanda/a/b/c/d').name, 'notfound');
+});
+test('team slug gives the same address as updater.py', () => {
+  const { teamSlug } = app().api;
+  for (const [name, slug] of [['Qarabağ', 'qarabag'], ['Araz-Naxçıvan', 'araz-naxcivan'], ['İmişli', 'imisli'], ['Əvəzedicilər', 'evezediciler'], ['Türkiyə', 'turkiye'], ['İngiltərə', 'ingiltere'], ['ÇL', 'cl'], ['I Liqa', 'i-liqa'], ['II Liqa', 'ii-liqa'], ['Bodo/Glimt', 'bodo-glimt'], ['Atlético Madrid', 'atletico-madrid'], ['Fenerbahçe', 'fenerbahce']]) assert.equal(teamSlug(name), slug);
+});
+test('speed red line: the home page loads no team page code or data', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(!src.includes('data/futbol'), 'məlumat yalnız komanda.js-dən istənir');
+  assert.equal(src.split('komanda.js').length - 1, 1);
+  const body = src.slice(src.indexOf('function teamView'), src.indexOf('function trafficView'));
+  assert.ok(body.includes('import("./komanda.js")') && body.includes('komanda.css'), 'kod və üslub bu funksiyadadır');
+  assert.equal(src.split('teamView(').length - 1, 2, 'tərif və renderView-da komanda ünvanı');
+  assert.ok(src.includes('r.name === "team" ? teamView(r)'));
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(!index.includes('komanda') && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
+  assert.ok(fs.statSync(path.join(root, 'assets/komanda.js')).size < 30e3, 'komanda.js');
+  assert.ok(fs.statSync(path.join(root, 'assets/komanda.css')).size < 12e3, 'komanda.css');
+});
+test('football tables link to team pages, but not stale leagues or basketball', () => {
+  const { S, footballBlock } = app().api;
+  S.football = { leagues: [{ league: 'Misli Premyer Liqası', short: 'Premyer Liqa', table: [{ pos: 1, team: 'Qarabağ', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3 }], results: [], fixtures: [] }] };
+  S.fbLeague = 0; S.fbTab = 'table';
+  const az = footballBlock([]);
+  assert.ok(az.includes('href="#/komanda/premyer-liqa/qarabag"'), 'kart və cədvəl');
+  assert.ok(!az.includes('<div class="fb-team"'));
+  const row = { pos: 1, team: 'Sabah', full: 'Sabah FK', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3 };
+  S.football = null;
+  S.sports = { leagues: [{ id: 'uefa.champions', sport: 'football', short: 'ÇL', name: 'Çempionlar Liqası', groups: [{ name: 'x', rows: [row] }] }] };
+  S.fbTab = null;
+  assert.ok(footballBlock([]).includes('href="#/komanda/cl/sabah"'), 'CLUB_AZ: ESPN adı pfl.az səhifəsi ilə birləşir');
+  S.sports.leagues[0].stale = true;
+  const stale = footballBlock([]);
+  assert.ok(!stale.includes('#/komanda/'), 'köhnə məlumatlı liqanın səhifəsi yoxdur');
+  assert.ok(stale.includes('<div class="fb-team"'), 'kart keçidsiz qalır');
+  S.sports.leagues[0] = { id: 'nba', sport: 'basketball', short: 'NBA', name: 'NBA', groups: [{ name: 'x', rows: [{ pos: 1, team: 'Celtics', w: 1, l: 0, pct: 1, gb: 0 }] }] };
+  assert.ok(!footballBlock([]).includes('#/komanda/'));
+});
+test('team page helpers: form, next games, standing line and zones', () => {
+  const ctx = teamPage(teamFiles());
+  const run = code => vm.runInContext(code, ctx);
+  ctx.doc = PREMYER;
+  assert.deepEqual(Array.from(run('formOf(gamesOf(doc, "qarabag"), "qarabag")')), ['w', 'l']);
+  assert.equal(run('standingLine(doc, "qarabag", ordTur)'), 'Misli Premyer Liqası, 2-ci yer');
+  assert.equal(run('standingLine(doc, "yoxdur", ordTur)'), 'Misli Premyer Liqası');
+  const split = run('splitGames(gamesOf(doc, "qarabag"))');
+  assert.equal(split.played.length, 2);
+  assert.equal(split.next.length, 1, 'təxirə salınmış oyun növbəti sayılmır');
+  ctx.rows = TURKIYE.groups[0].rows;
+  assert.deepEqual(JSON.parse(run('JSON.stringify(zonesOf(rows))')), [{ note: 'Çempionlar Liqası', color: '#81D6AC' }, { note: 'Aşağı liqaya düşmə', color: 'red;background:url(x)' }]);
+  ctx.index = TEAM_INDEX;
+  assert.deepEqual(Array.from(run('otherLeagues(index, index.leagues[0], "qarabag").map(l => l.id)')), ['kubok'], 'əvəzedicilər qarışmır');
+  assert.equal(run('otherLeagues(index, index.leagues[2], "qarabag").length'), 0);
+  const rx = run('nameRx(["Sumqayıt", "Nice"])');
+  assert.ok(rx.test('Sumqayıtın qələbəsi'));
+  assert.ok(rx.test('Nice qalib gəldi'));
+  assert.ok(!rx.test('a nice goal'), 'kiçik hərflə başqa sözdür');
+  assert.ok(!rx.test('Sumqayıtlı gənc'));
+});
+test('team page: title line, tabs and a highlighted table row, no squad tab without data', async () => {
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'cedvel' });
+  assert.ok(html.includes('<h1>Qarabağ</h1>'));
+  assert.ok(html.includes('>Misli Premyer Liqası</a>, 2-ci yer</p>'));
+  assert.deepEqual(html.match(/(?<=<nav class="tm-tabs".*?)>(Baxış|Oyunlar|Cədvəl|Heyət|Xəbərlər)</g).map(x => x.slice(1, -1)), ['Baxış', 'Oyunlar', 'Cədvəl', 'Xəbərlər'], 'pfl.az heyət vermir: tab yoxdur');
+  assert.match(html, /<tr class="me" aria-current="true"><td class="pos">2<\/td><td class="club"><a href="#\/komanda\/premyer-liqa\/qarabag">/);
+  assert.ok(html.includes('href="#/komanda/premyer-liqa/sabah"'), 'hər klub öz səhifəsinə aparır');
+  assert.ok(html.includes('data-tm-go'), 'mövsüm seçicisi');
+  assert.ok(html.includes('?s=2025'));
+  assert.ok(html.includes('Mənbə: pfl.az'));
+  assert.ok(!html.includes('tm-legend'), 'zona məlumatı olmayan liqada izah yoxdur');
+  const squad = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'heyet' });
+  assert.ok(squad.includes('<a href="#/komanda/premyer-liqa/qarabag" class="on"'), 'yoxdursa Baxışa düşür');
+});
+test('team page: zone bars and squad for a league that has them', async () => {
+  const ctx = teamPage(teamFiles());
+  const table = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce', tab: 'cedvel' });
+  assert.ok(table.includes('box-shadow:inset 3px 0 0 #81D6AC'));
+  assert.ok(!table.includes('url(x)'), 'rəng yoxlanılır: üslub içinə başqa şey düşmür');
+  assert.ok(table.includes('Çempionlar Liqası'));
+  const squad = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce', tab: 'heyet' });
+  assert.ok(squad.includes('>Heyət<'));
+  assert.ok(squad.includes('Qapıçılar') && squad.includes('Mert Günok') && squad.includes('37 yaş'));
+  assert.ok(ctx.asked.includes('data/futbol/heyet-turkiye.json'));
+  const other = await teamHtml(ctx, { liga: 'turkiye', team: 'besiktas', tab: '' });
+  assert.ok(!other.includes('>Heyət<'), 'siyahısı olmayan komandada tab yoxdur');
+});
+test('team page: games from all competitions, cards with date and a full list sheet', async () => {
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag' });
+  assert.ok(ctx.asked.includes('data/futbol/kubok.json'), 'digər yarış da gəlir');
+  assert.ok(!ctx.asked.includes('data/futbol/evezediciler.json'), 'əvəzedicilər gəlmir');
+  assert.ok(!ctx.asked.includes('data/futbol/heyet-turkiye.json') && !ctx.asked.includes('data/futbol/turkiye.json'), 'lazım olmayan fayl istənmir');
+  assert.ok(html.includes('data-tm-sheet'));
+  assert.ok(html.includes('<time datetime="2099-11-06T18:00+04:00">'), 'tarix və vaxt');
+  assert.ok(html.includes('3-cü tur') && html.includes('Azərbaycan Kuboku'));
+  const sheet = vm.runInContext('S.teamSheet', ctx);
+  assert.equal(sheet.title, 'Qarabağ: bütün oyunlar');
+  assert.equal(sheet.html.split('class="tm-game"').length - 1, 5, 'tam siyahı, kubok da daxil');
+  assert.ok(sheet.html.includes('Təxirə salınıb'));
+  const list = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'oyunlar' });
+  assert.ok(list.includes('Avqust 2026'), 'aylara bölünür');
+});
+test('team page: news reuse club topics and stay away from other meanings and sports', async () => {
+  const row = (id, title, extra = {}) => ({ id, title, category: 'idman', lang: 'az', source: 'APA', sourceUrl: `https://apa.az/${id}`, publishedAt: '2026-11-01T06:00:00Z', ...extra });
+  const ctx = teamPage(teamFiles(), [
+    row('a', 'Qarabağın yeni transferi'), row('b', '"Sabah" FK qalib gəldi'), row('c', 'Sabah hava yağışlı olacaq', { category: 'heyat' }), row('d', 'Sabah oyun var'),
+    row('e', 'Qarabağ basketbol komandası qalib gəldi'), row('f', 'Qarabağ dirçəliş proqramı', { category: 'gundem' }), row('g', 'Sumqayıt güləş yarışı'), row('h', 'Sumqayıtın futbolçusu'),
+  ]);
+  const ids = team => Array.from(vm.runInContext(`team.newsOf({ name: ${JSON.stringify(team)} }).map(a => a.id)`, ctx));
+  assert.deepEqual(ids('Qarabağ'), ['a']);
+  assert.deepEqual(ids('Sabah'), ['b'], '«sabah» sözü komanda deyil');
+  assert.deepEqual(ids('Sumqayıt'), ['h'], 'mövzusuz komanda adla axtarılır, başqa idman düşmür');
+  assert.equal(vm.runInContext('team.topicFor("Internazionale")', ctx), 'İnter');
+  assert.equal(vm.runInContext('team.topicFor("Manchester City")', ctx), 'Man City');
+  assert.equal(vm.runInContext('team.topicFor("Real Betis")', ctx), null);
+  const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'xeberler' });
+  assert.ok(html.includes('https://apa.az/a') && !html.includes('https://apa.az/e'));
+});
+test('team page: missing data never breaks the page', async () => {
+  const noIndex = teamPage({});
+  assert.ok((await teamHtml(noIndex, { liga: 'premyer-liqa', team: 'qarabag' })).includes('Komanda məlumatı açılmadı'));
+  const ctx = teamPage(teamFiles());
+  assert.ok((await teamHtml(ctx, { liga: 'yoxdur', team: 'x' })).includes('Bu liqanın səhifəsi yoxdur'), 'məlumatı alınmayan liqa');
+  const gone = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'xyz' });
+  assert.ok(gone.includes('bu mövsüm komanda bu yarışda deyil') && gone.includes('tm-table'), 'liqanın cədvəli göstərilir');
+  const league = await teamHtml(ctx, { liga: 'premyer-liqa', team: '' });
+  assert.ok(league.includes('<h1>Misli Premyer Liqası</h1>') && !league.includes('class="me"'));
+  const cup = await teamHtml(ctx, { liga: 'kubok', team: 'qarabag', tab: 'cedvel' });
+  assert.ok(!cup.includes('>Cədvəl<'), 'kubokda cədvəl tabı yoxdur');
+  assert.ok(cup.includes('Azərbaycan Kuboku'));
+});
+test('team page: the league name above the club opens the league with all its clubs', async () => {
+  const ctx = teamPage(teamFiles());
+  const html = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce' });
+  assert.match(html, /<p><a class="tm-league" href="#\/komanda\/turkiye">Türkiyə Süper Liqası<\/a>, 1-ci yer<\/p><h1>Fenerbahçe<\/h1>/);
+  const past = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', season: '2025' });
+  assert.ok(past.includes('Komanda məlumatı açılmadı'), 'keçmiş mövsüm faylı olmayanda səhifə sınmır');
+  const league = await teamHtml(ctx, { liga: 'turkiye', team: '' });
+  assert.ok(league.includes('href="#/komanda/turkiye/fenerbahce"') && league.includes('href="#/komanda/turkiye/besiktas"'), 'hər klub açılır');
+  const cup = await teamHtml(ctx, { liga: 'kubok', team: '' });
+  assert.ok(cup.includes('class="tm-clubs"') && cup.includes('href="#/komanda/kubok/sumqayit"'), 'cədvəli olmayan yarışda klub siyahısı');
+  assert.ok(!cup.includes('tm-table'));
 });

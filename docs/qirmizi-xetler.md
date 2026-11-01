@@ -52,5 +52,6 @@ Sahibin qərarı (2026-10-31). Səhifəyə və ya məlumata ağırlıq əlavə e
 - Bir neçə faylın gəlməsi səhifəni bir neçə dəfə yenidən çəkmir (`requestRender`).
 - Baş səhifənin ekrandan uzaq bölmələri yaxınlaşanda qurulur (`lazySection`).
 - `app.js` və `app.css`-in ölçü limiti var, `tests/browser-logic.test.cjs` yoxlayır.
+- Komanda səhifəsinin kodu (`komanda.js`, `komanda.css`) və məlumatı (`data/futbol/`) yalnız o ünvan açılanda yüklənir, fayllar yalnız `slow_cycle`-da yazılır.
 
 Ölçü 2026-10-31 (lokal, PR #55-dən sonra): telefon 46, planşet 51, kompüter 71 bal. Telefonda hədəfə hələ çatılmayıb.

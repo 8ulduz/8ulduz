@@ -1,8 +1,10 @@
 import contextlib
 import datetime
+import inspect
 import io
 import json
 import pathlib
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -499,6 +501,178 @@ class EspnTest(unittest.TestCase):
         self.assertEqual(len(b), 1)  # boş konfrans atılır
         self.assertEqual(b[0]["rows"][0]["team"], "Celtics")
         self.assertEqual(b[0]["rows"][1]["gb"], "3.5")
+
+
+class TeamPagesTest(unittest.TestCase):
+    def espn_event(self, id_, year, home, away, **kw):
+        status = kw.get("status", {"name": "STATUS_FULL_TIME", "state": "post", "completed": True})
+        side = lambda name, tid, where, score: {"homeAway": where, "score": score, "team": {"id": tid, "displayName": name, "shortDisplayName": name, "logo": f"https://a.espncdn.com/{tid}.png"}}
+        return {"id": id_, "date": kw.get("date", "2026-11-08T13:00Z"), "season": {"year": year, "slug": kw.get("slug", "2026-27-league")},
+                "competitions": [{"date": kw.get("date", "2026-11-08T13:00Z"), "timeValid": kw.get("time_valid", True), "status": {"type": status},
+                                  "venue": {"fullName": "Stadion"}, "competitors": [side(home, "1", "home", "2"), side(away, "2", "away", "1")]}]}
+
+    def test_slug_matches_the_browser_cases(self):
+        # tests/browser-logic.test.cjs eyni nümunələri teamSlug üçün yoxlayır: ünvanlar eyni qalmalıdır.
+        for name, slug in [("Qarabağ", "qarabag"), ("Araz-Naxçıvan", "araz-naxcivan"), ("İmişli", "imisli"), ("Əvəzedicilər", "evezediciler"), ("Türkiyə", "turkiye"),
+                           ("İngiltərə", "ingiltere"), ("ÇL", "cl"), ("I Liqa", "i-liqa"), ("II Liqa", "ii-liqa"), ("Bodo/Glimt", "bodo-glimt"), ("Atlético Madrid", "atletico-madrid"), ("Fenerbahçe", "fenerbahce")]:
+            self.assertEqual(updater.team_slug(name), slug)
+        ids = [s["id"] for s in updater._team_sources()]
+        self.assertEqual(ids, ["premyer-liqa", "i-liqa", "ii-liqa", "kubok", "evezediciler", "ingiltere", "ispaniya", "italiya", "almaniya", "fransa", "turkiye", "cl"])
+        self.assertNotIn("nba", ids)
+
+    def test_espn_games_keep_only_the_season_and_read_every_state(self):
+        boards = [{"events": [
+            self.espn_event("1", 2025, "Old A", "Old B"),
+            self.espn_event("2", 2026, "Fenerbahce", "Sabah FK", slug="league-phase"),
+            self.espn_event("3", 2026, "Besiktas", "Goztepe", status={"name": "STATUS_SCHEDULED", "state": "pre", "completed": False}, time_valid=False),
+            self.espn_event("4", 2026, "Besiktas", "Galatasaray", status={"name": "STATUS_POSTPONED", "state": "post", "completed": False}),
+            self.espn_event("5", 2026, "Besiktas", "Konyaspor", status={"name": "STATUS_FIRST_HALF", "state": "in", "completed": False}),
+        ]}, {"events": [self.espn_event("2", 2026, "Fenerbahce", "Sabah FK", slug="league-phase")]}]
+        teams, games = updater.parse_espn_games(boards, 2026)
+        self.assertEqual(len(games), 4, "köhnə mövsüm və təkrar oyun düşmür")
+        played = next(g for g in games if g["home"] == "fenerbahce")
+        self.assertEqual((played["away"], played["hs"], played["as"], played["played"], played["round"]), ("sabah", 2, 1, True, "Liqa mərhələsi"))
+        self.assertEqual(teams["sabah"]["name"], "Sabah", "Azərbaycan klubu pfl.az-dakı səhifə ilə birləşir")
+        self.assertEqual(teams["fenerbahce"]["name"], "Fenerbahçe")
+        later = next(g for g in games if g["away"] == "goztepe")
+        self.assertEqual(later["date"], "2026-11-08", "vaxtı dəqiq olmayan oyunda saat yazılmır")
+        self.assertNotIn("hs", later)
+        self.assertEqual(next(g for g in games if g["away"] == "galatasaray")["state"], "off")
+        self.assertEqual(next(g for g in games if g["away"] == "konyaspor")["state"], "live")
+
+    def test_espn_table_uses_slugs_and_keeps_zone_bars(self):
+        doc = {"children": [{"name": "Lig", "standings": {"entries": [
+            {"team": {"id": "436", "displayName": "Fenerbahce", "shortDisplayName": "Fenerbahce", "logos": [{"href": "https://a.espncdn.com/436.png"}]},
+             "note": {"color": "#81D6AC", "description": "Champions League"},
+             "stats": [{"name": "rank", "value": 1}, {"name": "gamesPlayed", "value": 10}, {"name": "points", "value": 25}]},
+        ]}}]}
+        teams, groups = updater.parse_espn_team_table(doc)
+        self.assertEqual(teams["fenerbahce"], {"name": "Fenerbahçe", "logo": "https://a.espncdn.com/436.png", "id": "436"})
+        row = groups[0]["rows"][0]
+        self.assertEqual((row["team"], row["pos"], row["pts"], row["note"], row["color"]), ("fenerbahce", 1, 25, "Champions League", "#81D6AC"))
+        self.assertNotIn("full", row)
+
+    def test_espn_roster_is_grouped_by_position(self):
+        players = updater.parse_espn_roster({"athletes": [
+            {"displayName": "Mert Günok", "jersey": "34", "age": 37, "position": {"displayName": "Goalkeeper"}, "flag": {"href": "https://a.espncdn.com/tur.png", "alt": "Türkiye"}},
+            {"displayName": "Naməlum", "position": {"displayName": "Coach"}}, {"position": {"displayName": "Forward"}}]})
+        self.assertEqual(players[0], {"name": "Mert Günok", "pos": "gk", "no": "34", "age": 37, "flag": "https://a.espncdn.com/tur.png", "country": "Türkiye"})
+        self.assertEqual(players[1], {"name": "Naməlum", "pos": ""})
+        self.assertEqual(len(players), 2, "adsız oyunçu yazılmır")
+
+    def test_pfl_league_holds_the_whole_season(self):
+        season = {"title": "2026-2027", "leagues": [{"title": "Misli Premyer Liqası"}]}
+        grid = {"data": [{"title": "Qarabağ", "logo": "https://pfl.az/q.png", "rate": {"ordering": 1, "o": 1, "q": 1, "x": 3}}]}
+        tours = {"data": [
+            {"title": "1", "games": [{"club_1": {"title": "Qarabağ", "logo": "https://pfl.az/q.png"}, "club_2": {"title": "Şəfa", "logo": "https://pfl.az/s.png"}, "club_score_1": 2, "club_score_2": 0, "status": 3, "start_date": "14/08/2026 19:30", "stadion": {"title": "Stadion"}}]},
+            {"title": "2", "games": [{"club_1": {"title": "Şəfa"}, "club_2": {"title": "Qarabağ"}, "club_score_1": 0, "club_score_2": 0, "status": 0, "start_date": "21/08/2026 19:30"},
+                                     {"club_1": {}, "club_2": {"title": "Qarabağ"}, "status": 0, "start_date": ""}]}]}
+        teams, groups, games = updater.parse_pfl_team_league(season, grid, tours)
+        self.assertEqual(sorted(teams), ["qarabag", "sefa"])
+        self.assertEqual(teams["sefa"]["logo"], "https://pfl.az/s.png", "cədvəldə olmayan rəqibin loqosu oyundan gəlir")
+        self.assertEqual(groups[0]["rows"][0]["team"], "qarabag")
+        self.assertEqual(len(games), 2, "püşkü atılmamış oyun yazılmır")
+        self.assertEqual((games[0]["hs"], games[0]["as"], games[0]["round"]), (2, 0, "1"))
+        self.assertNotIn("hs", games[1], "oynanmamış oyunda 0:0 göstərilmir")
+        self.assertEqual(updater.parse_pfl_team_league(season, {}, {"data": []})[1], [], "kubokda cədvəl yoxdur")
+
+    def test_refresh_is_faster_only_while_a_game_may_be_running(self):
+        now = datetime.datetime(2026, 11, 8, 14, 0, tzinfo=datetime.timezone.utc)
+        ago = lambda minutes: (now - datetime.timedelta(minutes=minutes)).isoformat()
+        running = {"games": [{"date": "2026-11-08T13:00Z", "played": False}]}
+        quiet = {"games": [{"date": "2026-11-08T13:00Z", "played": True}, {"date": "2026-11-09", "played": False}, {"date": "2026-11-08T13:00Z", "played": False, "state": "off"}]}
+        self.assertTrue(updater._team_due({}, None, now))
+        self.assertFalse(updater._team_due(running, ago(5), now))
+        self.assertTrue(updater._team_due(running, ago(11), now))
+        self.assertFalse(updater._team_due(quiet, ago(11), now))
+        self.assertTrue(updater._team_due(quiet, ago(31), now))
+
+    def run_step(self, tmp, fetch):
+        with patch.object(updater, "TEAM_DIR", pathlib.Path(tmp) / "futbol"), patch.object(updater, "_team_json", fetch), patch.object(updater, "_pfl_json", lambda path: fetch("pfl:" + path)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            updater.update_team_pages()
+        return json.loads((pathlib.Path(tmp) / "futbol" / "index.json").read_text(encoding="utf-8"))
+
+    def pfl_answer(self, url):
+        if "/seasons" in url:
+            return {"data": [{"id": 2, "title": "2026-2027", "leagues": [{"id": 20, "title": "Misli Premyer Liqası"}]}, {"id": 1, "title": "2025-2026", "leagues": [{"id": 10, "title": "Misli Premyer Liqası"}]}]}
+        if "/grid" in url:
+            return {"data": [{"title": "Qarabağ", "rate": {"ordering": 1, "x": 3}}]}
+        return {"data": [{"title": "1", "games": [{"club_1": {"title": "Qarabağ"}, "club_2": {"title": "Şəfa"}, "club_score_1": 1, "club_score_2": 0, "status": 3, "start_date": "14/08/2026 19:30"}]}]}
+
+    def test_a_site_answering_403_is_not_asked_again_this_cycle(self):
+        calls = []
+        def fake(url):
+            calls.append(url)
+            if url.startswith("pfl:"):
+                return self.pfl_answer(url)
+            raise updater.urllib.error.HTTPError(url, 403, "Access Denied", {}, None)
+        with tempfile.TemporaryDirectory() as tmp:
+            index = self.run_step(tmp, fake)
+            espn = [u for u in calls if not u.startswith("pfl:")]
+            self.assertEqual(len(espn), 1, "ESPN rədd edəndə qalan liqalara sorğu getmir")
+            self.assertIn("turkiye", index["checked"], "növbəti cəhd vaxtını gözləyir")
+            self.assertEqual([l["id"] for l in index["leagues"]], ["premyer-liqa", "i-liqa", "ii-liqa", "kubok", "evezediciler"], "məlumatı olmayan liqanın səhifəsi yoxdur")
+            self.assertNotIn("heyet", {k for l in index["leagues"] for k, v in l.items() if v})
+            self.assertEqual(index["leagues"][4].get("reserve"), True)
+            calls.clear()
+            self.run_step(tmp, fake)
+            self.assertFalse([u for u in calls if not u.startswith("pfl:")], "yarım saat ESPN-ə sorğu yoxdur")
+
+    def test_a_failed_league_keeps_its_old_file_and_an_unchanged_file_is_not_rewritten(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.run_step(tmp, lambda url: self.pfl_answer(url) if url.startswith("pfl:") else (_ for _ in ()).throw(TimeoutError()))
+            path = pathlib.Path(tmp) / "futbol" / "premyer-liqa.json"
+            first = path.read_text(encoding="utf-8")
+            os_time = path.stat().st_mtime_ns
+            self.assertIn("qarabag", json.loads(first)["teams"])
+            def down(url):
+                raise TimeoutError()
+            index = json.loads((path.parent / "index.json").read_text(encoding="utf-8"))
+            index["checked"] = {}
+            (path.parent / "index.json").write_text(json.dumps(index), encoding="utf-8")
+            self.run_step(tmp, down)
+            self.assertEqual(path.read_text(encoding="utf-8"), first)
+            (path.parent / "index.json").write_text(json.dumps(index), encoding="utf-8")
+            self.run_step(tmp, lambda url: self.pfl_answer(url) if url.startswith("pfl:") else (_ for _ in ()).throw(TimeoutError()))
+            self.assertEqual(path.stat().st_mtime_ns, os_time, "dəyişməyən fayl main-ə yazılmır")
+
+    def test_past_seasons_are_written_one_per_cycle_and_listed_when_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = lambda url: self.pfl_answer(url) if url.startswith("pfl:") else (_ for _ in ()).throw(TimeoutError())
+            index = self.run_step(tmp, fake)
+            folder = pathlib.Path(tmp) / "futbol"
+            self.assertEqual(len(list(folder.glob("*-2025.json"))), 1)
+            self.assertEqual([s["key"] for s in index["leagues"][0]["ready"]], ["2026", "2025"])
+            self.assertEqual([s["key"] for s in index["leagues"][1]["ready"]], ["2026"], "faylı olmayan mövsüm seçicidə yoxdur")
+
+    def test_rosters_come_in_small_batches_and_only_where_there_is_a_table(self):
+        rows = [{"team": f"t{i}"} for i in range(10)]
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            (folder / "turkiye.json").write_text(json.dumps({"groups": [{"rows": rows}], "teams": {r["team"]: {"id": str(i)} for i, r in enumerate(rows)}}), encoding="utf-8")
+            calls = []
+            def fake(url):
+                calls.append(url)
+                return {"athletes": [{"displayName": "Oyunçu", "position": {"displayName": "Forward"}}]}
+            spec = {"id": "turkiye", "espn": "tur.1"}
+            now = datetime.datetime(2026, 11, 8, tzinfo=datetime.timezone.utc)
+            with patch.object(updater, "TEAM_DIR", folder), patch.object(updater, "_team_json", fake):
+                self.assertEqual(updater._team_roster_step(spec, now, 6, lambda: False), 6)
+                self.assertEqual(updater._team_roster_step(spec, now, 6, lambda: False), 4)
+                self.assertEqual(updater._team_roster_step(spec, now, 6, lambda: False), 0, "təzə siyahı yenidən soruşulmur")
+                self.assertEqual(updater._team_roster_step(spec, now + updater.ROSTER_EVERY, 6, lambda: False), 6)
+            self.assertEqual(len(calls), 16)
+            self.assertTrue(calls[0].endswith("/soccer/tur.1/teams/0/roster"))
+
+    def test_team_files_are_written_only_by_the_slow_cycle(self):
+        # QIRMIZI XƏTT 1 və 3: şəbəkə sorğusu 60 saniyəlik dövrəyə düşməsin, baş səhifənin faylları böyüməsin.
+        source = pathlib.Path(updater.__file__).read_text(encoding="utf-8")
+        self.assertEqual(re.findall(r"\bupdate_team_pages\b", source).count("update_team_pages"), 2, "tərif və slow_cycle")
+        steps = inspect.getsource(updater.slow_cycle)
+        self.assertIn("update_archive, update_team_pages]", steps, "yavaş dövrənin son addımıdır: digər addımları gözlətmir")
+        self.assertNotIn("team", inspect.getsource(updater.run_fast))
+        self.assertLessEqual(updater.TEAM_BUDGET_S, 30)
 
 
 class SectionPagesTest(unittest.TestCase):
