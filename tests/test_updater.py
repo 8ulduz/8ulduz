@@ -730,6 +730,234 @@ class WorldTeamPagesTest(unittest.TestCase):
             self.assertTrue((team_dir / "turkiye.json").exists())
 
 
+class OpenLigaTeamPagesTest(unittest.TestCase):
+    # Vikipediya cədvəli (sports.json): Bayern və Dortmund bir oyun oynayıb, Stuttgart oynamayıb.
+    ROWS = [{"team": "Bayern", "full": "Bayern Munich", "logo": "b.png", "pos": 1, "p": 1, "w": 1, "d": 0, "l": 0, "gf": 5, "ga": 1, "gd": 4, "pts": 3, "note": "Çempionlar Liqası", "color": "#BBF3BB"},
+            {"team": "VfB Stuttgart", "logo": "s.png", "pos": 2, "p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "gd": 0, "pts": 0},
+            {"team": "Dortmund", "full": "Borussia Dortmund", "logo": "d.png", "pos": 3, "p": 1, "w": 0, "d": 0, "l": 1, "gf": 1, "ga": 5, "gd": -4, "pts": 0, "note": "Aşağı liqa", "color": "#FFBBBB"}]
+    LEAGUE = {"sport": "football", "name": "Bundesliqa", "short": "Almaniya", "season": "2026/27", "asof": "2026-08-28", "at": "2026-11-01T09:00:00+00:00", "url": "https://en.wikipedia.org/wiki/x", "groups": [{"name": "", "rows": ROWS}]}
+
+    @staticmethod
+    def match(home, away, day, score=None, group=1, name="1. Spieltag", kinds=None):
+        results = [{"resultTypeKind": "After90Minutes", "pointsTeam1": score[0], "pointsTeam2": score[1]}] if score else []
+        return {"team1": {"teamId": home, "teamName": f"id{home}", "teamIconUrl": "https://example.org/logo.png"}, "team2": {"teamId": away, "teamName": f"id{away}"},
+                "matchDateTimeUTC": f"2026-{day}T18:30:00Z", "matchIsFinished": bool(score), "matchResults": results + (kinds or []), "group": {"groupName": name, "groupOrderID": group}}
+
+    def test_addresses_are_the_table_addresses(self):
+        # Ünvanlar sports.json-dakı addan gəlir: PR #69-un menyusu və cədvəli eyni səhifəyə aparır.
+        self.assertEqual(sorted(updater._OPENLIGA_LEAGUES), ["almaniya", "cl"])
+        doc = updater.team_world_league(self.LEAGUE)
+        teams, _games = updater.parse_openliga([self.match(40, 7, "08-28"), self.match(16, 8798, "08-29")])
+        self.assertEqual(doc["id"], "almaniya")
+        self.assertLessEqual(set(doc["teams"]), set(teams), "cədvəlin hər klubu oyunlarda eyni ünvanla")
+        self.assertIn("sabah", teams, "Sabah Premyer Liqa səhifəsi ilə eyni ünvandadır")
+        self.assertEqual(updater.team_slug(updater._OPENLIGA_CLUBS[4458][0]), "qarabag")
+
+    def test_logos_are_not_taken_and_unknown_clubs_keep_the_source_name(self):
+        teams, games = updater.parse_openliga([self.match(40, 999, "08-28", (5, 1))])
+        self.assertEqual(teams["bayern-munich"], {"name": "Bayern Munich", "logo": ""}, "mənbənin loqosu lisenziyaya daxil deyil")
+        self.assertEqual(teams["id999"]["name"], "id999")
+        self.assertEqual((games[0]["date"], games[0]["hs"], games[0]["as"], games[0]["round"]), ("2026-08-28T18:30:00+00:00", 5, 1, "1"))
+
+    def test_unfinished_game_shows_no_score_even_if_the_source_has_one(self):
+        running = self.match(40, 7, "11-01", (1, 0))
+        running["matchIsFinished"] = False
+        _teams, games = updater.parse_openliga([running])
+        self.assertEqual(games[0]["played"], False)
+        self.assertNotIn("hs", games[0])
+
+    def test_knockouts_keep_extra_time_and_stay_out_of_the_table(self):
+        extra = [{"resultTypeKind": "AfterExtraTime", "pointsTeam1": 2, "pointsTeam2": 3}, {"resultTypeKind": "AfterPenalties", "pointsTeam1": 4, "pointsTeam2": 5}]
+        teams, games = updater.parse_openliga([self.match(40, 7, "09-16", (1, 0)), self.match(40, 7, "12-01", (2, 2), 11, "Achtelfinale Rückspiele", extra), self.match(7, 40, "12-02", None, 9, "Unbekannte Runde")])
+        self.assertEqual(updater.openliga_table(teams, games)[0]["p"], 1)
+        ko = next(g for g in games if g.get("pen"))
+        self.assertEqual((ko["hs"], ko["as"], ko["pen"], ko["round"]), (2, 3, "4:5", "1/8 final, cavab oyunu"))
+        self.assertEqual(next(g for g in games if g["date"].startswith("2026-12-02"))["round"], "", "tanınmayan almanca ad sayta çıxmır")
+
+    def test_table_breaks_ties_by_away_goals(self):
+        teams, games = updater.parse_openliga([self.match(733, 40, "09-16", (2, 1)), self.match(2556, 40, "09-17", (1, 0)), self.match(40, 2556, "10-01", (2, 1)), self.match(40, 733, "10-02", (1, 0))])
+        table = updater.openliga_table(teams, games)
+        self.assertEqual([(r["pts"], r["gd"], r["gf"]) for r in table[1:]], [(3, 0, 2), (3, 0, 2)])
+        self.assertEqual([r["team"] for r in table[1:]], ["manchester-united", "inter-milan"], "səfərdə qol vuran yuxarıda")
+
+    def test_table_follows_the_games_only_when_they_are_newer_and_clubs_match(self):
+        doc = updater.team_world_league(self.LEAGUE)
+        same = [self.match(40, 7, "08-28", (5, 1)), self.match(16, 40, "11-20")]
+        teams, games = updater.parse_openliga(same)
+        kept = updater.team_world_with_games(doc, teams, games)
+        self.assertEqual(kept["groups"], doc["groups"], "oyun sayı eynidir: cədvəl Vikipediyadan qalır")
+        self.assertEqual(kept["asof"], "2026-08-28")
+        self.assertEqual(kept["teams"]["bayern-munich"]["logo"], "b.png")
+        self.assertEqual((kept["source_url"], kept["url"], kept["games"]), ("https://www.openligadb.de/", self.LEAGUE["url"], games))
+        newer = same + [self.match(7, 16, "09-04", (3, 0), 2, "2. Spieltag")]
+        teams, games = updater.parse_openliga(newer)
+        fresh = updater.team_world_with_games(doc, teams, games)
+        rows = fresh["groups"][0]["rows"]
+        self.assertEqual([r["team"] for r in rows], ["bayern-munich", "borussia-dortmund", "vfb-stuttgart"])
+        self.assertEqual((rows[1]["p"], rows[1]["pts"]), (2, 3))
+        self.assertEqual(rows[0]["note"], "Çempionlar Liqası")
+        self.assertEqual(rows[2]["note"], "Aşağı liqa", "zona yerin yanında qalır")
+        self.assertEqual(fresh["asof"], "2026-09-04")
+        teams, games = updater.parse_openliga(newer + [self.match(999, 40, "09-10", (0, 1), 3, "3. Spieltag")])
+        self.assertEqual(updater.team_world_with_games(doc, teams, games)["groups"], doc["groups"], "tanınmayan klub var: Vikipediya cədvəli toxunulmur")
+
+    def run_step(self, tmp, answer, league=None):
+        folder = pathlib.Path(tmp)
+        (folder / "sports.json").write_text(json.dumps({"leagues": [league or self.LEAGUE]}), encoding="utf-8")
+        with patch.object(updater, "TEAM_DIR", folder / "futbol"), patch.object(updater, "SPORTS_FILE", folder / "sports.json"), patch.object(updater, "_team_sources", lambda: []), \
+                patch.object(updater, "_openliga_json", answer), patch.object(updater, "_wiki_api", lambda q: {"parse": {"wikitext": ""}}), contextlib.redirect_stdout(io.StringIO()):
+            updater.update_team_pages()
+        return json.loads((folder / "futbol" / "index.json").read_text(encoding="utf-8"))
+
+    def rewind(self, tmp, minutes=None, expired=False):
+        path = pathlib.Path(tmp) / "futbol" / "index.json"
+        index = json.loads(path.read_text(encoding="utf-8"))
+        now = datetime.datetime.now(datetime.timezone.utc)
+        for state in index["openliga"].values():
+            state["checked"] = (now - datetime.timedelta(minutes=minutes if minutes is not None else 600)).isoformat(timespec="seconds")
+            if expired and "until" in state:
+                state["until"] = (now - datetime.timedelta(minutes=1)).isoformat()
+        path.write_text(json.dumps(index), encoding="utf-8")
+
+    def test_games_join_the_table_file_and_the_index(self):
+        answer = lambda path: [self.match(40, 7, "08-28", (5, 1)), self.match(16, 40, "11-20")] if path == "getmatchdata/bl1/2026" else []
+        with tempfile.TemporaryDirectory() as tmp:
+            index = self.run_step(tmp, answer)
+            doc = json.loads((pathlib.Path(tmp) / "futbol" / "almaniya.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(doc["games"]), 2)
+        self.assertEqual(doc["groups"][0]["rows"][0]["team"], "bayern-munich")
+        league = index["leagues"][0]
+        self.assertFalse(league["source"].startswith("Viki"), "komanda.js oyunu olan yarışı buradan tanıyır")
+        self.assertEqual([s["key"] for s in league["seasons"]], ["2026", "2025", "2024"])
+        self.assertEqual(league["ready"], [{"key": "2026", "label": "2026/27"}], "faylı olmayan mövsüm seçicidə yoxdur")
+        self.assertEqual(index["empty"], ["almaniya-2025"], "mənbədə olmayan mövsüm bir daha soruşulmur")
+
+    def test_past_season_is_written_once_with_its_own_table(self):
+        answer = lambda path: [self.match(40, 7, "08-28", (5, 1))]
+        with tempfile.TemporaryDirectory() as tmp:
+            index = self.run_step(tmp, answer)
+            past = json.loads((pathlib.Path(tmp) / "futbol" / "almaniya-2025.json").read_text(encoding="utf-8"))
+        self.assertEqual((past["key"], past["season"], past["groups"][0]["rows"][0]["team"]), ("2025", "2025/26", "bayern-munich"))
+        self.assertEqual([s["key"] for s in index["leagues"][0]["ready"]], ["2026", "2025"])
+
+    def test_quiet_league_is_asked_a_few_times_a_day_and_live_one_cheaply(self):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        calls = []
+        running = self.match(40, 7, "01-01")
+        running["matchDateTimeUTC"] = (now - datetime.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:00Z")
+        def answer(path):
+            calls.append(path)
+            return "2026-11-01T10:00:00" if path.startswith("getlastchangedate") else [running] if path.endswith("2026") else []
+        with tempfile.TemporaryDirectory() as tmp:
+            self.run_step(tmp, answer)
+            calls.clear()
+            self.rewind(tmp, 5)
+            self.run_step(tmp, answer)
+            self.assertEqual(calls[0], "getlastchangedate/bl1/2026/1", "oyun gedəndə əvvəl ucuz sorğu")
+            self.assertIn("getmatchdata/bl1/2026", calls, "dəyişmə vaxtı yeni: tam siyahı")
+            calls.clear()
+            self.rewind(tmp, 5)
+            self.run_step(tmp, answer)
+            self.assertEqual(calls, ["getlastchangedate/bl1/2026/1"], "dəyişməyibsə tam siyahı istənmir")
+        at = datetime.datetime(2026, 11, 8, 14, 0, tzinfo=datetime.timezone.utc)
+        ago = lambda hours: (at - datetime.timedelta(hours=hours)).isoformat()
+        quiet = {"games": [{"date": "2026-11-20T18:30:00+00:00", "played": False}]}
+        self.assertFalse(updater._team_due(quiet, ago(5), at, **updater.OPENLIGA_DUE))
+        self.assertTrue(updater._team_due(quiet, ago(6), at, **updater.OPENLIGA_DUE))
+        late = {"games": [{"date": "2026-11-08T09:00:00+00:00", "played": False}]}
+        self.assertFalse(updater._team_due(late, ago(1), at, **updater.OPENLIGA_DUE), "pəncərə bitib: nəticə növbəti sakit yoxlamada")
+
+    def test_failure_keeps_the_games_and_waits_longer_each_time(self):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        ok = lambda path: [self.match(40, 7, "08-28", (5, 1))]
+        calls = []
+        def busy(path):
+            calls.append(path)
+            raise updater.urllib.error.HTTPError(path, 429, "Too Many", {}, None)
+        with tempfile.TemporaryDirectory() as tmp:
+            self.run_step(tmp, ok)
+            path = pathlib.Path(tmp) / "futbol" / "almaniya.json"
+            self.rewind(tmp)
+            after = self.run_step(tmp, busy)
+            self.assertEqual(len(json.loads(path.read_text(encoding="utf-8"))["games"]), 1, "köhnə oyunlar qalır")
+            self.assertEqual(after["openliga"]["almaniya"]["n"], 1)
+            count = len(calls)
+            self.rewind(tmp)
+            self.run_step(tmp, busy)
+            self.assertEqual(len(calls), count, "gözləmə bitməyib: sorğu yoxdur")
+            self.rewind(tmp, expired=True)
+            again = self.run_step(tmp, busy)
+            self.assertEqual(again["openliga"]["almaniya"]["n"], 2)
+            self.assertGreater(datetime.datetime.fromisoformat(again["openliga"]["almaniya"]["until"]) - now, datetime.timedelta(minutes=15), "gözləmə artır")
+            self.rewind(tmp, expired=True)
+            self.assertNotIn("until", self.run_step(tmp, ok)["openliga"]["almaniya"])
+
+    def test_source_that_never_answered_leaves_the_table_page_as_it_was(self):
+        def down(path):
+            raise TimeoutError()
+        with tempfile.TemporaryDirectory() as tmp:
+            index = self.run_step(tmp, down)
+            doc = json.loads((pathlib.Path(tmp) / "futbol" / "almaniya.json").read_text(encoding="utf-8"))
+        self.assertEqual((doc["source"], doc["games"]), ("Vikipediya", []))
+        self.assertEqual(index["leagues"][0]["source"], "Vikipediya")
+        self.assertEqual(index["checked"]["almaniya"], self.LEAGUE["at"])
+
+    SQUAD = """==Players==
+===Current squad===
+{{updated|1 October 2026}}
+{{Fs start}}
+{{Fs player|no=1|nat=GER|pos=GK|name=[[Manuel Neuer]]|other=[[Captain (association football)|captain]]}}
+{{Fs player|no=2|nat=FRA|pos=DF|name=[[Dayot Upamecano|Upamecano]]<ref>x</ref>}}
+{{football squad player|no=|nat=ENG|pos=FW|name=[[Harry Kane (footballer)|Harry Kane]]}}
+{{Fs player|no=9|nat=ENG|pos=XX|name=Yanlış mövqe}}
+{{Fs end}}
+{{Fs start}}
+{{Fs player|no=40|nat=GER|pos=MF|name=[[Başlıqsız İcarə]]}}
+{{Fs end}}
+===Out on loan===
+{{Fs player|no=30|nat=GER|pos=MF|name=[[İcarədəki Oyunçu]]}}
+==History==
+"""
+
+    def test_wiki_squad_reads_only_the_first_team_block(self):
+        with patch.object(updater, "WIKI_SQUAD_SIZE", (1, 45)):
+            rows = updater.parse_wiki_squad(self.SQUAD)
+        self.assertEqual(rows, [{"no": "1", "pos": "gk", "name": "Manuel Neuer"}, {"no": "2", "pos": "df", "name": "Upamecano"}, {"no": "", "pos": "fw", "name": "Harry Kane"}])
+        self.assertEqual(updater.parse_wiki_squad(self.SQUAD), [], "şübhəli sayda oyunçu yazılmır")
+        self.assertEqual(updater.parse_wiki_squad("==History==\ntext"), [])
+
+    def test_squads_are_asked_a_few_per_cycle_once_per_club_and_kept_on_failure(self):
+        doc = lambda *ids: {"teams": {updater.team_slug(updater._OPENLIGA_CLUBS[i][0]): {} for i in ids}}
+        now = datetime.datetime(2026, 11, 8, 14, 0, tzinfo=datetime.timezone.utc)
+        asked = []
+        def answer(query):
+            asked.append(urllib.parse.parse_qs(query)["page"][0])
+            return {"parse": {"wikitext": self.SQUAD}}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "TEAM_DIR", pathlib.Path(tmp)), patch.object(updater, "WIKI_SQUAD_SIZE", (1, 45)), patch.object(updater, "WIKI_SQUADS_PER_CYCLE", 2), \
+                patch.object(updater, "_wiki_api", answer), contextlib.redirect_stdout(io.StringIO()):
+            folder = pathlib.Path(tmp)
+            (folder / "a.json").write_text(json.dumps(doc(40, 7, 8798)), encoding="utf-8")
+            (folder / "b.json").write_text(json.dumps(doc(40, 16)), encoding="utf-8")
+            updater.update_team_squads(["a", "b"], lambda: False, now)
+            self.assertEqual(len(asked), 2, "dövrədə limit qədər")
+            updater.update_team_squads(["a", "b"], lambda: False, now)
+            ready = updater.update_team_squads(["a", "b"], lambda: False, now)
+            self.assertEqual(sorted(asked), sorted(["FC Bayern Munich", "Borussia Dortmund", "VfB Stuttgart"]), "eyni klub iki yarışda bir dəfə; Sabahın keçidi yoxdur")
+            self.assertEqual(ready, {"a": ["bayern-munich", "borussia-dortmund"], "b": ["bayern-munich", "vfb-stuttgart"]})
+            self.assertEqual(json.loads((folder / "heyet-a.json").read_text(encoding="utf-8"))["teams"]["bayern-munich"]["wiki"], "FC Bayern Munich")
+            asked.clear()
+            def down(query):
+                asked.append(query)
+                raise TimeoutError()
+            with patch.object(updater, "_wiki_api", down):
+                later = now + datetime.timedelta(days=8)
+                updater.update_team_squads(["a", "b"], lambda: False, later)
+                self.assertEqual(json.loads((folder / "heyet-a.json").read_text(encoding="utf-8"))["teams"]["bayern-munich"]["players"][0]["name"], "Manuel Neuer", "köhnə heyət qalır")
+                count = len(asked)
+                updater.update_team_squads(["a", "b"], lambda: False, later + datetime.timedelta(hours=1))
+                self.assertEqual(len(asked), count + 1, "alınmayanlar bir gün gözləyir, qalan klub soruşulur")
+
+
 class SectionPagesTest(unittest.TestCase):
     def test_section_pages_and_sitemap_are_written(self):
         articles = [

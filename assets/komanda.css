@@ -10,7 +10,7 @@
 .tm-clubs a:hover{border-color:hsl(43 96% 56%/.5)}
 .tm-clubs img,.tm-clubs .tm-nologo{flex:none;object-fit:contain}
 .tm-head p{margin:0 0 2px;color:var(--muted);font-size:0.9286rem}
-.tm-nologo{display:inline-block;flex:none;border-radius:50%;background:var(--card2)}
+.tm-nologo{display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:50%;background:var(--card2);color:var(--muted);font-weight:800;line-height:1}
 .tm-tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);margin-bottom:14px}
 .tm-tabs::-webkit-scrollbar{display:none}
 .tm-tabs a{flex:none;padding:9px 14px;font-weight:700;font-size:0.9286rem;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}

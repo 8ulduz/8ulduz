@@ -1248,6 +1248,28 @@ test('team slug gives the same address as updater.py', () => {
   const { teamSlug } = app().api;
   for (const [name, slug] of [['Qarabağ', 'qarabag'], ['Araz-Naxçıvan', 'araz-naxcivan'], ['İmişli', 'imisli'], ['Əvəzedicilər', 'evezediciler'], ['Türkiyə', 'turkiye'], ['İngiltərə', 'ingiltere'], ['ÇL', 'cl'], ['I Liqa', 'i-liqa'], ['II Liqa', 'ii-liqa'], ['Bodo/Glimt', 'bodo-glimt'], ['Atlético Madrid', 'atletico-madrid'], ['Fenerbahçe', 'fenerbahce']]) assert.equal(teamSlug(name), slug);
 });
+test('world league with games: credits every source, marks a late result and opens the squad', async () => {
+  const league = { id: 'almaniya', name: 'Bundesliqa', short: 'Almaniya', sport: 'football', source: 'OpenLigaDB (www.openligadb.de), ODbL 1.0 lisenziyası', ready: [{ key: '2026', label: '2026/27' }], teams: ['bayern-munich', 'sabah'], heyet: ['bayern-munich'] };
+  const doc = { id: 'almaniya', name: 'Bundesliqa', short: 'Almaniya', sport: 'football', source: league.source, source_url: 'https://www.openligadb.de/', url: 'https://en.wikipedia.org/wiki/x', key: '2026', season: '2026/27',
+    teams: { 'bayern-munich': { name: 'Bayern Munich', short: 'Bayern', logo: '' }, sabah: { name: 'Sabah', logo: '' } },
+    groups: [{ name: '', rows: [{ pos: 1, team: 'bayern-munich', p: 1, w: 1, d: 0, l: 0, gf: 2, ga: 0, gd: 2, pts: 3, note: 'Çempionlar Liqası', color: '#BBF3BB' }] }],
+    games: [{ home: 'bayern-munich', away: 'sabah', date: '2020-02-02T18:30:00+00:00', played: false, round: '1' }] };
+  const ctx = teamPage({ 'data/futbol/index.json': { leagues: [league], checked: {} }, 'data/futbol/almaniya.json': doc,
+    'data/futbol/heyet-almaniya.json': { teams: { 'bayern-munich': { wiki: 'FC Bayern Munich', players: [{ no: '1', pos: 'gk', name: 'Manuel Neuer' }] } } } });
+  const table = await teamHtml(ctx, { liga: 'almaniya', team: 'bayern-munich', tab: 'cedvel' });
+  assert.ok(table.includes('href="https://www.openligadb.de/"') && table.includes('ODbL 1.0'), 'lisenziyanın istədiyi mənbə qeydi');
+  assert.ok(table.includes('href="https://en.wikipedia.org/wiki/x"'), 'cədvəlin mənbəyi də qalır');
+  assert.ok(!table.includes('<img') && table.includes('>B</span>'), 'loqo yoxdursa adın ilk hərfi');
+  const squad = await teamHtml(ctx, { liga: 'almaniya', team: 'bayern-munich', tab: 'heyet' });
+  assert.ok(squad.includes('Manuel Neuer'));
+  assert.ok(squad.includes('https://en.wikipedia.org/wiki/FC_Bayern_Munich') && squad.includes('CC BY-SA 4.0'), 'heyətin mənbəyi və lisenziyası');
+  const games = await teamHtml(ctx, { liga: 'almaniya', team: 'bayern-munich', tab: 'oyunlar' });
+  assert.ok(games.includes('Nəticə gözlənilir'), 'vaxtı keçib nəticəsi gəlməyən oyun');
+  assert.ok(!(await teamHtml(ctx, { liga: 'almaniya', team: 'sabah', tab: 'heyet' })).includes('Manuel Neuer'), 'heyəti olmayan klubda Heyət tabı açılmır');
+  const both = teamPage({ 'data/futbol/index.json': { leagues: [{ ...TEAM_INDEX.leagues[0], ready: [TEAM_INDEX.leagues[0].ready[0]], teams: ['sabah'] }, league], checked: {} }, 'data/futbol/premyer-liqa.json': PREMYER, 'data/futbol/almaniya.json': doc });
+  const sabah = await teamHtml(both, { liga: 'premyer-liqa', team: 'sabah' });
+  assert.ok(sabah.includes('pfl.az') && sabah.includes('ODbL 1.0'), 'iki yarışın oyunu varsa iki mənbə göstərilir');
+});
 test('speed red line: the home page loads no team page code or data', () => {
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(!src.includes('data/futbol'), 'məlumat yalnız komanda.js-dən istənir');

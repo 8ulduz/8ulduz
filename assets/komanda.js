@@ -1,5 +1,5 @@
 // Komanda səhifəsi (#/komanda/<liga>/<ad>). Kod, üslub və məlumat yalnız bu səhifə açılanda yüklənir: baş səhifənin sürətinə toxunmur.
-// Məlumat: data/futbol/ (updater.py, update_team_pages), hazırda yalnız pfl.az. Heyət tabı və zona zolaqları yalnız faylda məlumat olanda görünür.
+// Məlumat: data/futbol/ (updater.py, update_team_pages): pfl.az, Vikipediya, OpenLigaDB. Heyət tabı və zona zolaqları yalnız faylda məlumat olanda görünür.
 const DIR = "data/futbol/";
 const FILE_TTL = 10 * 60e3;
 const FAIL_WAIT = 30e3;
@@ -89,19 +89,19 @@ export function mountTeam(d) {
   }
   const leaguePath = (league, key) => `${DIR}${league.id}${key === league.ready[0].key ? "" : `-${key}`}.json`;
   const href = (liga, slug, tab = "", key = "") => `#/komanda/${liga}/${encodeURIComponent(slug)}${tab ? `/${tab}` : ""}${key ? `?s=${key}` : ""}`;
-  const logo = (url, size) => url ? `<img src="${esc(sized(url, size * 2))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px" aria-hidden="true"></span>`;
+  const logo = (url, size, name = "") => url ? `<img src="${esc(sized(url, size * 2))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px" aria-hidden="true">${esc([...name][0] || "")}</span>`;
   const message = (title, text, back = "") => `<div class="empty"><h1 style="color:var(--fg)">${esc(title)}</h1><p>${esc(text)}</p>${back}</div>`;
   const home = `<a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a>`;
   const asof = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${months[m - 1]} oyunlarına qədər` : ""; };
   const leagueHref = (id, key) => `#/komanda/${id}${key ? `?s=${key}` : ""}`;
   // Kubokda cədvəl yoxdur: liqanın səhifəsi klubların siyahısıdır.
-  const clubList = doc => `<ul class="tm-clubs">${Object.keys(doc.teams || {}).sort((a, b) => doc.teams[a].name.localeCompare(doc.teams[b].name, "az")).map(slug => `<li><a href="${href(doc.id, slug)}">${logo(doc.teams[slug].logo, 24)}<span>${esc(doc.teams[slug].name)}</span></a></li>`).join("")}</ul>`;
+  const clubList = doc => `<ul class="tm-clubs">${Object.keys(doc.teams || {}).sort((a, b) => doc.teams[a].name.localeCompare(doc.teams[b].name, "az")).map(slug => `<li><a href="${href(doc.id, slug)}">${logo(doc.teams[slug].logo, 24, doc.teams[slug].name)}<span>${esc(doc.teams[slug].name)}</span></a></li>`).join("")}</ul>`;
 
   // --- oyun kartları
   function gameCard(g, doc, slug) {
-    const side = (who, score) => { const t = doc.teams[who] || {}; return `<span class="tm-side${who === slug ? " me" : ""}">${logo(t.logo, 20)}<span class="nm">${esc(t.short || t.name || who)}</span>${g.played ? `<b>${esc(score)}</b>` : ""}</span>`; };
+    const side = (who, score) => { const t = doc.teams[who] || {}; return `<span class="tm-side${who === slug ? " me" : ""}">${logo(t.logo, 20, t.short || t.name)}<span class="nm">${esc(t.short || t.name || who)}</span>${g.played ? `<b>${esc(score)}</b>` : ""}</span>`; };
     const res = resultOf(g, slug), other = g.home === slug ? g.away : g.home;
-    const state = g.played ? (g.pen ? `Pen. ${esc(g.pen)}` : "Bitib") : g.state === "live" ? "Oyun gedir" : g.state === "off" ? "Təxirə salınıb" : "";
+    const state = g.played ? (g.pen ? `Pen. ${esc(g.pen)}` : "Bitib") : g.state === "live" ? "Oyun gedir" : g.state === "off" ? "Təxirə salınıb" : g.date && new Date(g.date).getTime() < Date.now() ? "Nəticə gözlənilir" : "";
     return `<a class="tm-game" href="${href(doc.id, other)}" title="${esc(g.stadium || "")}">
       <span class="tm-comp">${esc(doc.name)}${g.round ? ` · ${esc(/^\d+$/.test(g.round) ? `${ordinal(g.round)} tur` : g.round)}` : ""}</span>
       ${side(g.home, g.hs)}${side(g.away, g.as)}
@@ -131,7 +131,7 @@ export function mountTeam(d) {
       const t = doc.teams[r.team] || {};
       const bar = r.color && /^#[0-9a-f]{3,8}$/i.test(r.color) ? ` style="box-shadow:inset 3px 0 0 ${r.color}"` : "";
       const form = formOf(gamesOf(doc, r.team), r.team).map(x => `<i class="tm-r ${x}">${x === "w" ? "Q" : x === "d" ? "H" : "M"}</i>`).join("");
-      return `<tr${r.team === slug ? ` class="me" aria-current="true"` : ""}><td class="pos"${bar}${r.note ? ` title="${esc(NOTE_AZ[r.note] || r.note)}"` : ""}>${esc(r.pos)}</td><td class="club"><a href="${href(doc.id, r.team, "", key)}">${logo(t.logo, 18)}<span>${esc(t.short || t.name || r.team)}</span></a></td><td>${esc(r.p)}</td><td>${esc(r.w)}</td><td>${esc(r.d)}</td><td>${esc(r.l)}</td><td>${esc(r.gf)}:${esc(r.ga)}</td><td>${r.gd > 0 ? "+" : ""}${esc(r.gd)}</td><td class="pts">${esc(r.pts)}</td>${doc.games?.length ? `<td class="form">${form}</td>` : ""}</tr>`;
+      return `<tr${r.team === slug ? ` class="me" aria-current="true"` : ""}><td class="pos"${bar}${r.note ? ` title="${esc(NOTE_AZ[r.note] || r.note)}"` : ""}>${esc(r.pos)}</td><td class="club"><a href="${href(doc.id, r.team, "", key)}">${logo(t.logo, 18, t.short || t.name)}<span>${esc(t.short || t.name || r.team)}</span></a></td><td>${esc(r.p)}</td><td>${esc(r.w)}</td><td>${esc(r.d)}</td><td>${esc(r.l)}</td><td>${esc(r.gf)}:${esc(r.ga)}</td><td>${r.gd > 0 ? "+" : ""}${esc(r.gd)}</td><td class="pts">${esc(r.pts)}</td>${doc.games?.length ? `<td class="form">${form}</td>` : ""}</tr>`;
     }).join("");
     return `<div class="tm-scroll" tabindex="0" role="region" aria-label="Turnir cədvəli"><table class="tm-table"><thead><tr><th class="pos">#</th><th class="club">Komanda</th><th title="Oyun">O</th><th title="Qələbə">Q</th><th title="Heç-heçə">H</th><th title="Məğlubiyyət">M</th><th>Qol</th><th title="Fərq">F</th><th>Xal</th>${doc.games?.length ? `<th class="form">Son 5</th>` : ""}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
@@ -186,10 +186,12 @@ export function mountTeam(d) {
     const f = file(`${DIR}heyet-${league.id}.json`);
     const players = f.doc?.teams?.[slug]?.players;
     if (!players?.length) return `<p class="muted tm-none">${f.failed ? "Heyət yüklənmədi." : f.doc ? `${esc(name)} üçün heyət məlumatı yoxdur.` : "Yüklənir…"}</p>`;
+    const wiki = f.doc.teams[slug].wiki;
+    const credit = wiki ? `<p class="tm-src muted">Heyət: <a href="https://en.wikipedia.org/wiki/${encodeURIComponent(wiki.replace(/ /g, "_"))}" target="_blank" rel="noopener noreferrer">Vikipediya</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a></p>` : "";
     return POS_AZ.map(([key, label]) => {
       const rows = players.filter(p => (p.pos || "") === key);
       return rows.length ? `<section class="tm-sec tm-squad"><h3 class="tm-month">${label}</h3><ul>${rows.map(p => `<li><b>${esc(p.no || "")}</b>${p.flag ? `<img src="${esc(sized(p.flag, 40))}" alt="${esc(p.country || "")}" title="${esc(p.country || "")}" width="20" height="20" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span>${esc(p.name)}</span>${p.age ? `<em>${esc(p.age)} yaş</em>` : ""}</li>`).join("")}</ul></section>` : "";
-    }).join("");
+    }).join("") + credit;
   }
 
   function view(r) {
@@ -204,12 +206,15 @@ export function mountTeam(d) {
     const doc = main.doc, seasonKey = key === current ? "" : key;
     const checked = index.doc.checked?.[league.id];
     const when = doc.asof ? asof(doc.asof) : "";
-    const source = `<p class="tm-src muted">Mənbə: ${doc.url ? `<a href="${esc(doc.url)}" target="_blank" rel="noopener noreferrer">${esc(doc.source)}</a>` : esc(doc.source)}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
+    const link = (url, text) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text);
+    const named = x => x.source_url ? `${link(x.source_url, x.source)}${x.url ? `, ${link(x.url, "Vikipediya")}` : ""}` : link(x.url, x.source);
+    // Səhifədə göstərilən bütün yarışların mənbəyi: lisenziya bunu tələb edir.
+    const source = (list = [doc]) => `<p class="tm-src muted">Mənbə: ${[...new Map(list.map(x => [x.source, x])).values()].map(named).join(", ")}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
     const slug = r.team;
     if (!slug || !doc.teams?.[slug]) {
       // Komandasız ünvan və ya bu mövsüm liqada olmayan komanda: liqanın cədvəli.
       document.title = `${doc.name} — 8ulduz`;
-      return `<div class="page-h"><div><h1>${esc(doc.name)}</h1><p>${esc(doc.season)}${slug ? " · bu mövsüm komanda bu yarışda deyil" : ""}</p></div></div>${picker(index.doc, league, doc, slug && league.teams.includes(slug) ? slug : "", "cedvel", key)}<section class="tm-sec">${doc.groups?.length ? tablesHtml(doc, "", seasonKey) : clubList(doc)}</section>${source}`;
+      return `<div class="page-h"><div><h1>${esc(doc.name)}</h1><p>${esc(doc.season)}${slug ? " · bu mövsüm komanda bu yarışda deyil" : ""}</p></div></div>${picker(index.doc, league, doc, slug && league.teams.includes(slug) ? slug : "", "cedvel", key)}<section class="tm-sec">${doc.groups?.length ? tablesHtml(doc, "", seasonKey) : clubList(doc)}</section>${source()}`;
     }
     const team = doc.teams[slug];
     document.title = `${team.name} — 8ulduz`;
@@ -217,7 +222,7 @@ export function mountTeam(d) {
     const hasSquad = !seasonKey && league.heyet?.includes(slug);
     const hasGames = doc.games?.length || (!seasonKey && otherLeagues(index.doc, league, slug).some(l => !l.source?.startsWith("Viki")));
     const tab = TABS.some(([k]) => k === r.tab) && (r.tab !== "heyet" || hasSquad) && (r.tab !== "cedvel" || doc.groups?.length) && (r.tab !== "oyunlar" || hasGames) ? r.tab : "";
-    const head = `<header class="tm-head">${logo(team.logo, 56)}<div><p><a class="tm-league" href="${leagueHref(league.id, seasonKey)}">${esc(doc.name)}</a>${esc(standingLine(doc, slug, ordinal).slice(doc.name.length))}${seasonKey ? ` · ${esc(doc.season)}` : ""}</p><h1>${esc(team.name)}</h1></div></header>`;
+    const head = `<header class="tm-head">${logo(team.logo, 56, team.name)}<div><p><a class="tm-league" href="${leagueHref(league.id, seasonKey)}">${esc(doc.name)}</a>${esc(standingLine(doc, slug, ordinal).slice(doc.name.length))}${seasonKey ? ` · ${esc(doc.season)}` : ""}</p><h1>${esc(team.name)}</h1></div></header>`;
     const tabs = `<nav class="tm-tabs" aria-label="Komanda bölmələri">${TABS.filter(([k]) => (k !== "heyet" || hasSquad) && (k !== "cedvel" || doc.groups?.length) && (k !== "oyunlar" || hasGames)).map(([k, label]) => `<a href="${href(league.id, slug, k, seasonKey)}"${k === tab ? ` class="on" aria-current="page"` : ""}>${label}</a>`).join("")}</nav>`;
     // Oyunlar bütün yarışlardan: cari mövsümdə komandanın digər yarışlarının faylları da gəlir.
     const needGames = hasGames && (tab === "" || tab === "oyunlar");
@@ -245,7 +250,7 @@ export function mountTeam(d) {
     } else {
       body = `<section class="tm-sec"><div class="sec-h"><h2>Xəbərlər</h2></div>${newsBlock(team, 0, "", doc)}</section>`;
     }
-    return `${head}${tabs}${body}${source}`;
+    return `${head}${tabs}${body}${source(docs)}`;
   }
 
   // --- vərəq: telefonda aşağıdan açılır, geri düyməsi bağlayır
