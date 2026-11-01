@@ -10,8 +10,8 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, gzip, unicodedata
-import urllib.request, urllib.parse, urllib.error
+import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, unicodedata
+import urllib.request, urllib.parse, urllib.error, base64, zlib
 import xml.etree.ElementTree as ET
 import content_policy
 from reader_content import update_reader
@@ -453,13 +453,37 @@ def detect_lang(title, desc, default):
         return "tr"
     return default if default else "en"
 
+MAX_RESPONSE_BYTES = 32 * 1024 * 1024  # bundan böyük cavab oxunmur: dövrə 60 saniyəyə sığmalıdır
+
+class _SafeRedirect(urllib.request.HTTPRedirectHandler):
+    """Xəbər keçidi daxili ünvana yönləndirsə sorğu getmir."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not content_policy.safe_url(newurl):
+            raise urllib.error.HTTPError(newurl, 403, "daxili ünvana yönləndirmə", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+urllib.request.install_opener(urllib.request.build_opener(_SafeRedirect))
+
+def _read_capped(r):
+    raw = r.read(MAX_RESPONSE_BYTES + 1)
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise urllib.error.URLError("cavab çox böyükdür")
+    return raw
+
+def _gunzip_capped(raw):
+    box = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    out = box.decompress(raw, MAX_RESPONSE_BYTES)
+    if box.unconsumed_tail:
+        raise urllib.error.URLError("açılmış cavab çox böyükdür")
+    return out
+
 def fetch(url, timeout=TIMEOUT, data=None, headers=None):
     h = {"User-Agent": UA, "Accept": "application/rss+xml, application/xml, text/xml, text/html, */*"}
     if headers:
         h.update(headers)
     req = urllib.request.Request(url, data=data, headers=h)
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+        return _read_capped(r)
 
 def text_of(el, names):
     for n in names:
@@ -1168,9 +1192,9 @@ def _fetch_conditional(url, entry):
         headers["If-Modified-Since"] = entry["modified"]
     try:
         with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=FAST_FETCH_TIMEOUT) as r:
-            raw = r.read()
+            raw = _read_capped(r)
             if (r.headers.get("Content-Encoding") or "").lower() == "gzip":
-                raw = gzip.decompress(raw)
+                raw = _gunzip_capped(raw)
             entry["etag"], entry["modified"] = r.headers.get("ETag") or "", r.headers.get("Last-Modified") or ""
     except urllib.error.HTTPError as e:
         if e.code == 304:
@@ -4101,7 +4125,8 @@ _SECTION_HTML = """<!doctype html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <script>try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");if(f==="0"||f==="1"||f==="2")document.documentElement.dataset.fs=f;}catch(e){}</script>
+    <meta http-equiv="Content-Security-Policy" content="__CSP__" />
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");if(f==="0"||f==="1"||f==="2")document.documentElement.dataset.fs=f;}catch(e){}</script>
     <title>__LABEL__ — 8ulduz</title>
     <meta name="description" content="__DESC__ — 8ulduz, Azərbaycan və dünyadan son xəbərlər." />
     <link rel="canonical" href="__URL__" />
@@ -4146,9 +4171,18 @@ def section_page(slug, label, desc, articles, limit=30):
     url = f"{SITE}bolme/{slug}/"
     return _page_html(slug, label, desc, f"<ul>{lis}</ul>")
 
+# index.html-dəki siyasətlə eynidir (tests/browser-logic.test.cjs). connect-src qəsdən yoxdur: canlı kanala sorğu bloklanmasın.
+_CSP = "script-src 'self' {hashes} https://gc.zgo.at; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com"
+
+def _with_csp(page):
+    """Səhifənin öz kiçik skriptlərindən başqa daxili skript işləmir."""
+    hashes = ("'sha256-" + base64.b64encode(hashlib.sha256(code.encode("utf-8")).digest()).decode() + "'"
+              for code in re.findall(r"<script>(.*?)</script>", page, re.S))
+    return page.replace("__CSP__", _CSP.format(hashes=" ".join(hashes)))
+
 def _page_html(slug, label, desc, items):
     url = f"{SITE}bolme/{slug}/"
-    return (_SECTION_HTML.replace("__ITEMS__", items).replace("__LABEL__", _xml(label)).replace("__DESC__", _xml(desc))
+    return _with_csp(_SECTION_HTML.replace("__ITEMS__", items).replace("__LABEL__", _xml(label)).replace("__DESC__", _xml(desc))
             .replace("__URL__", url).replace("__SITE__", SITE).replace("__SLUG__", slug))
 
 # Xidmət səhifələri: axtarış sistemi hash ünvanını ayrıca səhifə saymır. bolme/ altındadır, çünki pipeline.sh main-ə bu qovluğu yazır.
@@ -4277,6 +4311,8 @@ def _og_from_html(raw, base, skip=()):
     return _own_card_img(text, base, skip)
 
 def _fetch_og(url, skip=()):
+    if not content_policy.safe_url(url):
+        return ""
     """Şəkil ünvanı; səhifədə yoxdursa və ya sayt bizi buraxmırsa "" (403: tez-tez yoxlanmır), şəbəkə xətasında None (tezliklə yenidən)."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
@@ -4382,6 +4418,8 @@ def parse_page_date(raw, now=None):
     return ""
 
 def _fetch_page_date(url):
+    if not content_policy.safe_url(url):
+        return ""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
         with urllib.request.urlopen(req, timeout=6) as r:
@@ -4768,7 +4806,7 @@ def main(fast=False):
         for a in articles:
             reason = content_policy.violation(a)
             if reason:
-                print(f"  ⊘ {reason}: {a.get('source')} {a.get('sourceUrl')}", flush=True)
+                print(f"  ⊘ {reason}: {a.get('source')!r} {a.get('sourceUrl')!r}", flush=True)  # !r: lentdəki sətir sonu işin əmri olmasın
     try:
         articles = drop_dead_links(articles, dead_links(len(articles)))
     except Exception as e:  # QIRMIZI XƏTT 1: yoxlama alınmasa xəbər əvvəlki kimi yazılır

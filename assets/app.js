@@ -249,7 +249,7 @@ const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Eyni xəbər bir neçə mənbədə çıxanda updater onları bir karta birləşdirir (rəsmi mənbə əsas olur), ona görə blok təkrarlanmır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
-// Vəzifəyə təyinat / vəzifədən azad etmə xəbərləri: yalnız hero və «Ən çox mənbədə» sırasında əlavə çəki. Siyahılar həmişə tarixlədir.
+// Təyinat və azad etmə xəbərləri: yalnız hero və «Ən çox mənbədə» sırasında əlavə çəki.
 const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed/iu;
 const isAppointment = a => APPT_RX.test(a?.title || "");
 // Əsas blok: hər iki qrup (Prezident, Birinci xanım) görünür, sıra isə ən yenidən köhnəyə.
@@ -273,7 +273,7 @@ function prezHome(list, all = list) {
   const ladyHead = Math.min(lady.length, head - presHead);
   const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
-  // Rəsmi və dövlət saytları 44-ü doldurmursa: əvvəl həmin saytların qalan xəbərləri, sonra digər saytlar, seçilmiş dil bitibsə başqa dillər.
+  // Rəsmi saytlar 44-ü doldurmursa: əvvəl onların qalan xəbərləri, sonra digər saytlar, dil bitibsə başqa dillər.
   // Yad xəbərlə doldurulmur: belə xəbər çatmasa say 44-dən az olar.
   const chosen = new Set([...first, ...rest].map(a => a.id));
   const ours = l => byDate(l.filter(a => a.category === "prezident" && aboutOurLeaders(a)));
@@ -422,7 +422,7 @@ function img(a, cls = "", eager = false, linked = false, width = 480, later = fa
   const fallback = url ? "" : imageFallback(a.category);
   const small = sized(url, width), others = small === url ? rest : [url, ...rest];
   const load = later ? "" : eager ? 'fetchpriority="high"' : 'loading="lazy"';
-  const src = url ? `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)">` : "";
+  const src = url ? `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">` : "";
   const tag = linked ? "a" : "div";
   return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
 }
@@ -445,7 +445,7 @@ const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="
 const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3 lang="${esc(langOf(a))}">${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
 
 // Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
-window.imgFail = el => {
+const imgFail = el => {
   if (el.src.startsWith("https://wsrv.nl/")) S.proxyFails = (S.proxyFails || 0) + 1;
   let rest = []; try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
   if (rest.length) { el.dataset.imageAlternatives = JSON.stringify(rest.slice(1)); el.src = rest[0]; return; }
@@ -455,6 +455,8 @@ window.imgFail = el => {
   el.remove();
   if (box?.matches("a.img,div.img")) box.insertAdjacentHTML("afterbegin", imageFallback(el.closest("[data-cat]")?.dataset.cat));
 };
+// CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
+document.addEventListener("error", ({ target: t }) => { const f = t.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && (t.style.visibility = "hidden"); }, true);
 
 /* ---------------------------------------------------------------- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
@@ -1402,12 +1404,12 @@ function socialBlock(side = false) {
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
 function prezBlock(list) {
-  // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır (imgFail)
+  // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır
   // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir.
   const card = (a, i) => {
     const [pic, ...rest] = imageCandidates(a);
     const small = sized(pic, 200);
-    const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)"></span>` : "";
+    const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
     return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
   };
   const cards = list.map(card).join("");
@@ -1462,8 +1464,8 @@ const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); re
 const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
 function worldTable(l, g) {
   const rows = g.rows || [];
-  if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${esc(t.w)}</td><td>${esc(t.l)}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
-  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.w)}</td><td>${esc(t.l)}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
 }
 function footballBlock(list) {
   const all = fbLeagues();
@@ -1481,14 +1483,14 @@ function footballBlock(list) {
     const groups = fb.groups || [];
     const gi = Math.min(Number(S.fbTab) || 0, groups.length - 1);
     const gtabs = groups.length > 1 ? `<div class="fb-groups">${groups.map((g, i) => `<button type="button" class="pill${i === gi ? " on" : ""}" data-fbtab="${i}">${esc(GROUP_AZ[g.name] || g.name)}</button>`).join("")}</div>` : "";
-    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<a href="${teamHref(fb, t.full || t.team)}" class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></a>`).join("");
+    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<a href="${teamHref(fb, t.full || t.team)}" class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></a>`).join("");
     return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.asof ? ` · ${esc(asofLabel(fb.asof))}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link)}" target="_blank" rel="noopener noreferrer">Vikipediya ↗</a></div>
       ${picker}
       <div class="strip"><div class="fb-teams">${wteams}</div></div>
       ${gtabs}
       <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div></section>`;
   }
-  const teams = fb.table.map(t => `<a href="${teamHref(fb, t.team)}" class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></a>`).join("");
+  const teams = fb.table.map(t => `<a href="${teamHref(fb, t.team)}" class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></a>`).join("");
   const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
     .filter(([k]) => k !== "table" || fb.table?.length)
     .map(([k, l, r]) => `<button type="button" class="fb-tab${tab === k ? " on" : ""}" data-fbtab="${k}"><span>${l}${r ? `<small>${esc(/^\d+$/.test(String(r)) ? ordTur(r) + " tur" : String(r))}</small>` : ""}</span><i>→</i></button>`).join("");

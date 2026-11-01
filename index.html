@@ -3,11 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- Yalnız skript mənbəyi məhdudlaşır. connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://gc.zgo.at; object-src 'none'; base-uri 'self'" />
+    <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-FceUHjCqCm9aD/8nMBlxFCEqJEU48uMNvhl7Vpq0twM=' https://gc.zgo.at; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.js" />
     <script>
+      // Sayt başqa saytın çərçivəsində işləmir: GitHub Pages frame-ancestors başlığı göndərə bilmir.
+      if (top !== self) document.documentElement.style.display = "none";
+      // CSP daxili onload-u bloklayır: şrift səhifəni bloklamadan gəlir.
+      document.addEventListener("load", function (e) {
+        var l = e.target;
+        if (l.rel === "stylesheet" && l.media === "print") l.media = "all";
+      }, true);
       try {
         var t = localStorage.getItem("8ulduz-theme");
         document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
@@ -82,7 +89,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Şrift səhifənin göstərilməsini bloklamır: əvvəl sistem şrifti, Inter gələndə dəyişir -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" media="print" onload="this.media='all'" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" media="print" />
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" /></noscript>
     <link rel="stylesheet" href="./assets/app.css" />
     <script src="./assets/config.js" defer></script>
