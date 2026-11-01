@@ -105,7 +105,7 @@ export function mountTeam(d) {
     return `<a class="tm-game" href="${href(doc.id, other)}" title="${esc(g.stadium || "")}">
       <span class="tm-comp">${esc(doc.name)}${g.round ? ` · ${esc(/^\d+$/.test(g.round) ? `${ordinal(g.round)} tur` : g.round)}` : ""}</span>
       ${side(g.home, g.hs)}${side(g.away, g.as)}
-      <span class="tm-when"><time datetime="${esc(g.date || "")}">${g.date ? esc(shortDT(g.date)) : "Vaxtı elan olunmayıb"}</time>${state ? `<em>${state}</em>` : ""}${res ? `<i class="tm-r ${res}">${res === "w" ? "Q" : res === "d" ? "H" : "M"}</i>` : ""}</span></a>`;
+      <span class="tm-when"><time datetime="${esc(g.date || "")}">${g.date ? esc(g.day ? shortDT(g.date).split(",")[0] : shortDT(g.date)) : "Vaxtı elan olunmayıb"}</time>${state ? `<em>${state}</em>` : ""}${res ? `<i class="tm-r ${res}">${res === "w" ? "Q" : res === "d" ? "H" : "M"}</i>` : ""}</span></a>`;
   }
   // Tam siyahı: aylara bölünür (Oyunlar tabı və vərəq eyni siyahıdır).
   function fullList(rows, slug) {
