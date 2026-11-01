@@ -958,6 +958,135 @@ class OpenLigaTeamPagesTest(unittest.TestCase):
                 self.assertEqual(len(asked), count + 1, "alınmayanlar bir gün gözləyir, qalan klub soruşulur")
 
 
+class WorldGamesTest(unittest.TestCase):
+    NOW = datetime.datetime(2026, 11, 1, 12, tzinfo=datetime.timezone.utc)
+    TEAMS = {"galatasaray": {"name": "Galatasaray"}, "amedspor": {"name": "Amedspor"}, "caykur-rizespor": {"name": "Çaykur Rizespor"}, "besiktas": {"name": "Beşiktaş"},
+             "fenerbahce": {"name": "Fenerbahçe"}, "manchester-city": {"name": "Manchester City"}, "manchester-united": {"name": "Manchester United"}}
+
+    def doc(self, games=(), lid="turkiye"):
+        return {"id": lid, "key": "2026", "season": "2026/27", "teams": self.TEAMS, "games": list(games), "groups": [{"rows": [{"p": 9}]}]}
+
+    def event(self, home="Galatasaray", away="Amed", home_score="2", away_score="1", status="FT", stamp="2026-10-26T16:00:00", rnd="9"):
+        return {"strEvent": f"{home} vs {away}", "strHomeTeam": home, "strAwayTeam": away, "intHomeScore": home_score, "intAwayScore": away_score, "strStatus": status, "strTimestamp": stamp, "intRound": rnd, "strVenue": "Stad"}
+
+    def test_names_map_to_table_clubs(self):
+        self.assertEqual(updater.tsdb_team("Amed", self.TEAMS), "amedspor")
+        self.assertEqual(updater.tsdb_team("Rizespor", self.TEAMS), "caykur-rizespor")
+        self.assertEqual(updater.tsdb_team("Besiktas", self.TEAMS), "besiktas")
+        self.assertIsNone(updater.tsdb_team("Manchester", self.TEAMS), "iki klubdan biri seçilmir")
+        self.assertIsNone(updater.tsdb_team("Trabzonspor", self.TEAMS))
+
+    def test_event_becomes_game(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            games = updater.tsdb_games([self.event(), self.event(away="Beşiktaş", home_score=None, away_score=None, status="NS", stamp="2026-11-20T16:00:00", rnd="12"),
+                                        self.event(away="Fenerbahçe", home_score=None, away_score=None, status="Match Postponed"), self.event(away="Yad klub")], self.TEAMS)
+        self.assertEqual(len(games), 3, "tanınmayan klubun oyunu yazılmır")
+        self.assertEqual({k: games[0][k] for k in ("date", "home", "away", "played", "hs", "as", "round", "stadium")},
+                         {"date": "2026-10-26T16:00:00+00:00", "home": "galatasaray", "away": "amedspor", "played": True, "hs": 2, "as": 1, "round": "9", "stadium": "Stad"})
+        self.assertFalse(games[1]["played"])
+        self.assertNotIn("hs", games[1], "oynanmamış oyunda hesab göstərilmir")
+        self.assertEqual(games[2]["state"], "off")
+
+    def test_finished_round_is_never_asked_again(self):
+        ago = lambda **k: (self.NOW - datetime.timedelta(**k)).isoformat()
+        done = [{"played": True, "date": ago(days=9)}]
+        waiting = [{"played": False, "date": ago(hours=3)}]
+        soon = [{"played": False, "date": (self.NOW + datetime.timedelta(days=3)).isoformat()}]
+        later = [{"played": False, "date": (self.NOW + datetime.timedelta(days=30)).isoformat()}]
+        self.assertFalse(updater._tsdb_round_due(done, ago(days=300), self.NOW))
+        self.assertTrue(updater._tsdb_round_due([], None, self.NOW))
+        self.assertFalse(updater._tsdb_round_due(waiting, ago(minutes=29), self.NOW))
+        self.assertTrue(updater._tsdb_round_due(waiting, ago(minutes=31), self.NOW))
+        self.assertFalse(updater._tsdb_round_due(soon, ago(hours=5), self.NOW))
+        self.assertTrue(updater._tsdb_round_due(soon, ago(hours=7), self.NOW))
+        self.assertFalse(updater._tsdb_round_due(later, ago(days=6), self.NOW))
+        self.assertTrue(updater._tsdb_round_due(later, ago(days=8), self.NOW))
+
+    def test_requests_are_limited_and_stop_at_429(self):
+        calls = []
+        def answer(url, timeout=None, headers=None):
+            calls.append(url)
+            if len(calls) == 3:
+                raise urllib.error.HTTPError(url, 429, "çox", {}, None)
+            return json.dumps({"events": [self.event()]}).encode()
+        stamps = {}
+        with patch.object(updater, "fetch", answer), contextlib.redirect_stdout(io.StringIO()):
+            fresh = updater.tsdb_refresh([self.doc()], stamps, self.NOW, lambda: False, sleep=lambda s: None)
+        self.assertEqual(len(calls), 3, "429-dan sonra sorğu getmir")
+        self.assertEqual(len(fresh["turkiye"]), 2)
+        self.assertIn("s=2026-2027", calls[0])
+        self.assertTrue(stamps["until"] > self.NOW.isoformat())
+        calls.clear()
+        with patch.object(updater, "fetch", answer):
+            self.assertEqual(updater.tsdb_refresh([self.doc()], stamps, self.NOW, lambda: False, sleep=lambda s: None), {})
+        self.assertEqual(calls, [], "gözləmə bitməyib")
+        del stamps["until"]
+        with patch.object(updater, "fetch", return_value=b'{"events":null}'), contextlib.redirect_stdout(io.StringIO()):
+            updater.tsdb_refresh([self.doc()], stamps, self.NOW, lambda: False, sleep=lambda s: None)
+        self.assertLessEqual(len(stamps["turkiye"]["rounds"]), 2 + updater.TSDB_PER_CYCLE, "bir dövrədə limitdən çox yox")
+
+    def test_cup_qualifying_games_stay_out(self):
+        qualifying = self.event(stamp="2026-08-04T19:00:00")
+        league = self.event(stamp="2026-10-01T19:00:00")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(len(updater.tsdb_games([qualifying, league], self.TEAMS, "2026-09-01")), 1)
+
+    NBA_TEAMS = {"los-angeles-lakers": {"name": "Los Angeles Lakers"}, "golden-state-warriors": {"name": "Golden State Warriors"}, "boston-celtics": {"name": "Boston Celtics"}, "los-angeles-clippers": {"name": "Los Angeles Clippers"}}
+    NBA_PAGE = ('<table><tr><th>2026 preseason game log</th></tr><tr><td>1</td><td>October 5</td><td>@ Golden State</td><td>W 127–103</td></tr></table>'
+                '<table><tr><th>2026–27 game log</th></tr><tr><th>Game</th><th>Date</th><th>Team</th><th>Score</th></tr>'
+                '<tr><td>1</td><td>October 20</td><td>@ Golden State</td><td>L 98–124</td></tr>'
+                '<tr><td>2</td><td>October 22</td><td>Boston</td><td>W 110–100 (OT)</td></tr>'
+                '<tr><td>3</td><td>October 24</td><td>Yad klub</td><td>W 1–0</td></tr>'
+                '<tr><td>4</td><td>January 11</td><td>L.A. Clippers</td><td></td></tr></table>')
+
+    def test_nba_game_log(self):
+        games = updater.nba_team_games(self.NBA_PAGE, "los-angeles-lakers", self.NBA_TEAMS, 2026)
+        self.assertEqual(len(games), 3, "hazırlıq oyunu və tanınmayan rəqib yoxdur")
+        first, second, later = games
+        self.assertEqual((first["home"], first["away"], first["hs"], first["as"]), ("golden-state-warriors", "los-angeles-lakers", 124, 98), "səfərdə öz hesabı sağdadır")
+        self.assertEqual((second["home"], second["hs"], second["as"], second["date"]), ("los-angeles-lakers", 110, 100, "2026-10-22T12:00:00+00:00"))
+        self.assertTrue(first["day"])
+        self.assertEqual((later["date"][:10], later["away"], later["played"]), ("2027-01-11", "los-angeles-clippers", False))
+        self.assertNotIn("hs", later)
+
+    def test_nba_merge_keeps_one_row_per_game(self):
+        old = [{"date": "2026-10-20T12:00:00+00:00", "home": "a", "away": "b", "played": False}, {"date": "2026-10-21T12:00:00+00:00", "home": "c", "away": "d", "played": True, "hs": 1, "as": 0}]
+        fresh = {"a": [{"date": "2026-10-20T12:00:00+00:00", "home": "a", "away": "b", "played": True, "hs": 2, "as": 1}], "b": [{"date": "2026-10-20T12:00:00+00:00", "home": "a", "away": "b", "played": False}]}
+        merged = updater.nba_merge(old, fresh)
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0]["hs"], 2, "hesabı olan sətir qalır")
+
+    def test_nba_refresh_asks_few_teams_and_waits(self):
+        teams = {f"t{i}": {"name": f"Klub {i}"} for i in range(8)}
+        doc = {"id": "nba", "key": "2026", "teams": teams}
+        stamps, asked = {}, []
+        def api(query):
+            asked.append(query)
+            return {"parse": {"sections": [{"index": "6", "line": "Game log"}]}} if "sections" in query else {"parse": {"text": ""}}
+        with patch.object(updater, "_wiki_api", api):
+            fresh = updater.nba_refresh(doc, stamps, self.NOW, lambda: False)
+            self.assertEqual(len(fresh), updater.NBA_TEAMS_PER_CYCLE)
+            self.assertEqual(len(updater.nba_refresh(doc, stamps, self.NOW, lambda: False)), 3, "növbəti dövrə qalanlar")
+            self.assertEqual(updater.nba_refresh(doc, stamps, self.NOW, lambda: False), {}, "2 saat dolmayıb")
+
+    def test_merge_replaces_only_asked_rounds(self):
+        old = [{"round": "1", "date": "2026-08-01", "home": "a"}, {"round": "2", "date": "2026-08-08", "home": "köhnə"}]
+        merged = updater.tsdb_merge(old, {"2": [{"round": "2", "date": "2026-08-09", "home": "təzə"}]})
+        self.assertEqual([g["home"] for g in merged], ["a", "təzə"])
+
+    def test_games_fill_the_table_when_wikipedia_lags_but_basketball_keeps_its_own(self):
+        rows = [{"team": "a", "pos": 1, "p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "gd": 0, "pts": 0, "note": "Avropa"}, {"team": "b", "pos": 2, "p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "gd": 0, "pts": 0}]
+        doc = {"id": "x", "teams": {"a": {"name": "A"}, "b": {"name": "B"}}, "groups": [{"name": "", "rows": rows}], "sport": "football"}
+        games = [{"home": "b", "away": "a", "played": True, "hs": 1, "as": 0, "round": "1", "date": "2026-11-01T10:00:00+00:00"}]
+        merged = updater.team_world_with_games(doc, {}, games, updater.TSDB_SOURCE)
+        self.assertEqual(merged["source"], updater.TSDB_SOURCE["source"])
+        self.assertEqual(merged["groups"][0]["rows"][0]["team"], "b")
+        self.assertEqual(merged["groups"][0]["rows"][0]["note"], "Avropa", "zona yerin yanında qalır")
+        self.assertEqual(merged["asof"], "2026-11-01")
+        basket = updater.team_world_with_games(dict(doc, sport="basketball"), {}, games, updater.TSDB_SOURCE)
+        self.assertEqual(basket["groups"][0]["rows"][0]["team"], "a", "basketbol cədvəli xalla hesablanmır")
+
+
 class SectionPagesTest(unittest.TestCase):
     def test_section_pages_and_sitemap_are_written(self):
         articles = [

@@ -2902,11 +2902,213 @@ def openliga_table(teams, games):
         row["pos"] = pos
     return ordered
 
-def team_world_with_games(doc, teams, games):
+# Dünya liqalarının oyunları: TheSportsDB-nin açıq API-si, tur-tur (eventsround). Açıq açar 123, hesab tələb etmir. Sənədinə görə dəqiqədə 30 sorğu,
+# amma ölçüdə (2026-11-01) təxminən 10 sorğudan sonra 429 qaytarır, ona görə dövrədə az soruşulur, 429-da dayanılır. Bütün mövsüm təxminən bir neçə saata dolur.
+TSDB_API = "https://www.thesportsdb.com/api/v1/json/123/eventsround.php"
+TSDB_SOURCE = {"source": "TheSportsDB", "source_url": "https://www.thesportsdb.com/"}
+# team_world_league-in id-si -> (TheSportsDB liqası, turlar). Kuboklarda liqa mərhələsi: pley-off turlarının nömrəsi başlayanda yoxlanmalıdır.
+TSDB_LEAGUES = {"ingiltere": (4328, 38), "ispaniya": (4335, 38), "italiya": (4332, 38), "fransa": (4334, 34), "turkiye": (4339, 34), "portuqaliya": (4344, 34), "hollandiya": (4337, 34),
+                "belcika": (4338, 30), "sotlandiya": (4330, 38), "rusiya": (4355, 30), "seudiyye": (4668, 34), "braziliya": (4351, 38), "abs": (4346, 34), "cempionsip": (4329, 46),
+                "al": (4481, 8), "kl": (5071, 6), "avroliqa": (4546, 38)}
+# Kuboklarda seçmə mərhələsinin oyunları eyni tur nömrələrindədir: cədvələ yalnız liqa mərhələsi düşür.
+TSDB_SINCE = {"al": "09-01", "kl": "09-01"}
+TSDB_PER_CYCLE = 5
+TSDB_GAP_S = 2.5
+TSDB_BACKOFF = datetime.timedelta(minutes=15)
+TSDB_WAITING = datetime.timedelta(minutes=30)  # vaxtı keçib nəticəsi gəlməyən tur
+TSDB_SOON = datetime.timedelta(hours=6)        # yaxın 7 gündəki tur: saat dəyişə bilər
+TSDB_LATER = datetime.timedelta(days=7)        # uzaq və ya boş tur
+TSDB_ALIAS = {"Hamburg": "Hamburger SV", "Amed": "Amedspor"}
+_TSDB_STOP = set("fc cf sc ac afc sk fk kv cd ud sv rc rcd ssc us as club bc kk bk jk fsv vfb tsg de of the and 1 04 05 96 1899 sad".split())
+
+def _tsdb_words(name):
+    s = "".join(c for c in unicodedata.normalize("NFD", str(name or "").lower()) if not unicodedata.combining(c)).replace("ı", "i").replace("ə", "e")
+    return {w for w in re.split(r"[\W_]+", s) if w and w not in _TSDB_STOP}
+
+def tsdb_team(name, teams):
+    """TheSportsDB adı -> cədvəldəki klubun ünvanı. Bir mənalı deyilsə None: başqa klubun oyunu göstərilməsin."""
+    words = _tsdb_words(TSDB_ALIAS.get(name, name))
+    known = {slug: _tsdb_words(t.get("name")) for slug, t in teams.items()}
+    for test in (lambda k: k == words, lambda k: words and (words <= k or k <= words), lambda k: words & k):
+        hits = [slug for slug, k in known.items() if test(k)]
+        if hits:
+            return hits[0] if len(hits) == 1 else None
+    return None
+
+def tsdb_games(events, teams, since=""):
+    """eventsround -> saytın oyun sətirləri. Klubu tanınmayan oyun yazılmır."""
+    games = []
+    for e in events or []:
+        if since and str(e.get("strTimestamp") or "")[:10] < since:
+            continue
+        home, away = tsdb_team(e.get("strHomeTeam"), teams), tsdb_team(e.get("strAwayTeam"), teams)
+        if not home or not away or home == away:
+            print("  ! oyun: tanınmayan klub", str(e.get("strEvent"))[:50])
+            continue
+        stamp = str(e.get("strTimestamp") or "")
+        game = {"date": f"{stamp[:19]}+00:00" if stamp else "", "home": home, "away": away, "played": False, "round": str(e.get("intRound") or "")}
+        if e.get("strVenue"):
+            game["stadium"] = str(e["strVenue"])[:60]
+        status = str(e.get("strStatus") or "").upper()
+        if e.get("intHomeScore") not in (None, "") and e.get("intAwayScore") not in (None, "") and status in ("FT", "AET", "PEN", "MATCH FINISHED", "AOT"):
+            game.update(played=True, hs=int(e["intHomeScore"]), **{"as": int(e["intAwayScore"])})
+        elif status in ("PST", "POST", "CANC", "ABD", "MATCH POSTPONED", "POSTPONED", "CANCELLED"):
+            game["state"] = "off"
+        games.append(game)
+    return games
+
+def _tsdb_round_due(games, stamp, now_dt):
+    """Tur nə vaxt yenidən soruşulsun. Bitmiş tur bir daha soruşulmur: dəyişməyən məlumata sorğu getmir."""
+    asked = _team_when(stamp)
+    if not asked:
+        return True
+    if not games:
+        return now_dt - asked >= TSDB_LATER
+    open_games = [g for g in games if not g.get("played") and g.get("state") != "off"]
+    if not open_games:
+        return now_dt - asked >= TSDB_LATER if any(g.get("state") == "off" for g in games) else False
+    kicks = [k for k in (_team_when(g.get("date")) for g in open_games) if k]
+    if any(k <= now_dt for k in kicks):
+        return now_dt - asked >= TSDB_WAITING
+    if any(k - now_dt <= datetime.timedelta(days=7) for k in kicks):
+        return now_dt - asked >= TSDB_SOON
+    return now_dt - asked >= TSDB_LATER
+
+def _tsdb_plan(docs, stamps, now_dt):
+    """Bu dövrə soruşulacaq turlar: əvvəl heç soruşulmamış, oyun gedən tura ən yaxın olan; sonra ən çoxdan gözləyən."""
+    plan = []
+    for doc in docs:
+        spec = TSDB_LEAGUES.get(doc["id"])
+        if not spec:
+            continue
+        mine = stamps.get(doc["id"], {}) if stamps.get(doc["id"], {}).get("season") == doc["key"] else {}
+        by_round = collections.defaultdict(list)
+        for g in doc.get("games") or []:
+            by_round[g.get("round")].append(g)
+        played = [int(r) for r, rows in by_round.items() if r.isdigit() and any(g.get("played") for g in rows)]
+        now_round = max(played) + 1 if played else (doc["groups"][0]["rows"] or [{}])[0].get("p") or 1
+        for r in range(1, spec[1] + 1):
+            stamp = (mine.get("rounds") or {}).get(str(r))
+            if _tsdb_round_due(by_round.get(str(r)) or [], stamp, now_dt):
+                plan.append((0 if not stamp else 1, abs(r - now_round) if not stamp else 0, stamp or "", doc["id"], r))
+    plan.sort()
+    return plan
+
+def tsdb_refresh(docs, stamps, now_dt, out_of_time, sleep=time.sleep):
+    """Bu dövrənin sorğuları. Nəticə: {liqa: {tur: oyunlar}}. 429-da qalan sorğular göndərilmir. Xəbər axınına toxunmur: yavaş dövrənin son addımıdır."""
+    fresh = collections.defaultdict(dict)
+    if (_team_when(stamps.get("until")) or now_dt) > now_dt:
+        return fresh
+    by_id = {d["id"]: d for d in docs}
+    for i, (_new, _near, _stamp, lid, r) in enumerate(_tsdb_plan(docs, stamps, now_dt)[:TSDB_PER_CYCLE]):
+        if out_of_time():
+            break
+        if i:
+            sleep(TSDB_GAP_S)
+        doc = by_id[lid]
+        season = doc["season"].replace("/", "-20") if "/" in doc["season"] else doc["season"]
+        url = TSDB_API + "?" + urllib.parse.urlencode({"id": TSDB_LEAGUES[lid][0], "r": r, "s": season})
+        try:
+            body = fetch(url, timeout=12, headers={"User-Agent": WIKI_UA, "Accept": "application/json"})
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                stamps["until"] = (now_dt + TSDB_BACKOFF).isoformat(timespec="seconds")
+                print("  ! oyunlar: 429, 15 dəqiqə sorğu yoxdur")
+                break
+            print(f"  ! oyunlar {lid} {r}:", e.code)
+            continue
+        except Exception as e:
+            print(f"  ! oyunlar {lid} {r}:", type(e).__name__)
+            continue
+        try:
+            events = (json.loads(body) if body.strip() else {}).get("events") or []
+        except ValueError:
+            print(f"  ! oyunlar {lid} {r}: JSON deyil")
+            continue
+        mine = stamps.setdefault(lid, {})
+        if mine.get("season") != doc["key"]:
+            mine.clear()
+            mine["season"] = doc["key"]
+        mine.setdefault("rounds", {})[str(r)] = now_dt.isoformat(timespec="seconds")
+        fresh[lid][str(r)] = tsdb_games(events, doc["teams"], f"{doc['key']}-{TSDB_SINCE[lid]}" if lid in TSDB_SINCE else "")
+    return fresh
+
+def tsdb_merge(old, fresh):
+    """Təzə soruşulan turlar köhnəsini əvəz edir, qalan turlar yerində qalır."""
+    return sorted([g for g in old or [] if str(g.get("round")) not in fresh] + [g for rows in fresh.values() for g in rows], key=lambda g: g.get("date") or "9999")
+
+# NBA: açıq oyun API-si tapılmadı (cdn.nba.com serverdən 403, TheSportsDB gündə 3 oyun verir). Vikipediyada hər komandanın mövsüm səhifəsində 82 oyun var:
+# tarix, rəqib, hesab. Saatı yoxdur, ona görə sətirdə «day» işarəsi var və saytda yalnız tarix görünür.
+NBA_TEAMS_PER_CYCLE = 5
+NBA_EVERY = datetime.timedelta(hours=2)
+_NBA_MONTHS = {m: i for i, m in enumerate(_WIKI_MONTHS, 1)}
+
+def nba_team_games(text, me, teams, start_year):
+    """Komandanın mövsüm səhifəsinin «Game log» bölməsi -> oyunlar. Hazırlıq oyunları sayılmır. Rəqibi tanınmayan sətir yazılmır."""
+    games = []
+    for table in re.findall(r"<table\b.*?</table>", text, re.S):
+        rows = re.findall(r"<tr\b.*?</tr>", table, re.S)
+        if not rows or "preseason" in _wiki_text(rows[0]).lower():
+            continue
+        for tr in rows:
+            cells = [_wiki_text(c) for c in re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", tr, re.S)]
+            if len(cells) < 4 or not cells[0].isdigit():
+                continue
+            day = re.fullmatch(r"(\w+) (\d{1,2})", cells[1])
+            if not day or day.group(1) not in _NBA_MONTHS:
+                continue
+            away = cells[2].startswith("@")
+            other = tsdb_team(cells[2].lstrip("@ ").strip(), teams)
+            if not other or other == me:
+                continue
+            month = _NBA_MONTHS[day.group(1)]
+            game = {"date": f"{start_year + (month < 7)}-{month:02d}-{int(day.group(2)):02d}T12:00:00+00:00", "day": True,
+                    "home": other if away else me, "away": me if away else other, "played": False, "round": ""}
+            score = re.match(r"[WL] (\d+)-(\d+)", cells[3])
+            if score:
+                mine, theirs = int(score.group(1)), int(score.group(2))
+                game.update(played=True, hs=theirs if away else mine, **{"as": mine if away else theirs})
+            games.append(game)
+    return games
+
+def nba_refresh(doc, stamps, now_dt, out_of_time):
+    """Dövrədə bir neçə komanda. Nəticə: {komanda: oyunlar}."""
+    mine = stamps.setdefault(doc["id"], {})
+    if mine.get("season") != doc["key"]:
+        mine.clear()
+        mine["season"] = doc["key"]
+    asked = mine.setdefault("teams", {})
+    order = sorted(doc["teams"], key=lambda slug: asked.get(slug, ""))
+    fresh = {}
+    for slug in order[:NBA_TEAMS_PER_CYCLE]:
+        last = _team_when(asked.get(slug))
+        if out_of_time() or (last and now_dt - last < NBA_EVERY):
+            break
+        asked[slug] = now_dt.isoformat(timespec="seconds")
+        page = urllib.parse.quote(_wiki_title("{s} " + doc["teams"][slug]["name"] + " season", now_dt))
+        try:
+            sections = _wiki_api(f"action=parse&prop=sections&page={page}")["parse"]["sections"]
+            sec = next(s["index"] for s in sections if s["line"].lower() == "game log")
+            fresh[slug] = nba_team_games(_wiki_api(f"action=parse&prop=text&page={page}&section={sec}")["parse"]["text"], slug, doc["teams"], int(doc["key"]))
+        except Exception as e:
+            print(f"  ! NBA {slug}:", type(e).__name__)
+    return fresh
+
+def nba_merge(old, fresh):
+    """Hər oyun iki səhifədə olur. Təzə sətirlər köhnəni əvəz edir; hesabı olan sətir hesabsızdan üstündür."""
+    games = {(g["date"][:10], g["home"], g["away"]): g for g in old or [] if not {g["home"], g["away"]} & set(fresh)}
+    for rows in fresh.values():
+        for g in rows:
+            key = (g["date"][:10], g["home"], g["away"])
+            if g["played"] or key not in games:
+                games[key] = g
+    return sorted(games.values(), key=lambda g: g["date"])
+
+def team_world_with_games(doc, teams, games, source=None):
     """sports.json sənədinə oyunlar. Cədvəl Vikipediyadan qalır; OpenLigaDB-də daha çox oyun varsa və klublar üst-üstə düşürsə oyunlardan
     hesablanır, zona qeydləri yerin yanında qalır. Beləcə tur bitəndə nəticə ilə cədvəl bir-birini danmır."""
-    merged = dict(doc, **OPENLIGA_SOURCE, teams={**teams, **doc["teams"]}, games=games)
-    rows = doc["groups"][0]["rows"] if len(doc["groups"]) == 1 else []
+    merged = dict(doc, **(source or OPENLIGA_SOURCE), teams={**teams, **doc["teams"]}, games=games)
+    rows = doc["groups"][0]["rows"] if len(doc["groups"]) == 1 and doc.get("sport") != "basketball" else []
     table = openliga_table(merged["teams"], games)
     if {r["team"] for r in table} == {r["team"] for r in rows} and sum(r["p"] for r in table) > sum(r.get("p", 0) for r in rows):
         zones = {r.get("pos"): {k: r[k] for k in ("note", "color") if k in r} for r in rows}
@@ -3080,10 +3282,39 @@ def update_team_pages():
             ready = [x for i, x in enumerate(league["seasons"]) if i == 0 or (TEAM_DIR / f"{spec['id']}-{x['key']}.json").exists()]
             leagues.append(dict(league, ready=ready))
     world_rows = []
-    for world in _read_json(SPORTS_FILE, {}).get("leagues") or []:
+    worlds = _read_json(SPORTS_FILE, {}).get("leagues") or []
+    tsdb_stamps = _read_json(TEAM_DIR / "oyun-yoxlama.json", {})
+    tsdb_docs = []
+    for world in worlds:
+        doc = team_world_league(world)
+        if doc["id"] in TSDB_LEAGUES and doc["groups"]:
+            tsdb_docs.append(dict(doc, games=_read_json(TEAM_DIR / f"{doc['id']}.json", {}).get("games") or []))
+    try:
+        tsdb_fresh = tsdb_refresh(tsdb_docs, tsdb_stamps, now_dt, out_of_time)
+    except Exception as e:
+        print("  ! oyunlar:", type(e).__name__)
+        tsdb_fresh = {}
+    _write_if_changed(TEAM_DIR / "oyun-yoxlama.json", tsdb_stamps)
+    tsdb_old = {d["id"]: d["games"] for d in tsdb_docs}
+    nba_games = None
+    for world in worlds:
+        if world.get("id") == "nba" and world.get("groups"):
+            doc = team_world_league(world)
+            try:
+                nba_games = nba_merge(_read_json(TEAM_DIR / f"{doc['id']}.json", {}).get("games") or [], nba_refresh(doc, tsdb_stamps, now_dt, out_of_time))
+            except Exception as e:
+                print("  ! NBA oyunları:", type(e).__name__)
+    _write_if_changed(TEAM_DIR / "oyun-yoxlama.json", tsdb_stamps)
+    for world in worlds:
         doc = team_world_league(world)
         if not doc["groups"]:
             continue
+        if doc["id"] in tsdb_old:
+            games = tsdb_merge(tsdb_old[doc["id"]], tsdb_fresh.get(doc["id"]) or {})
+            if games:
+                doc = team_world_with_games(doc, {}, games, TSDB_SOURCE)
+        elif doc["id"] == "nba" and nba_games:
+            doc = team_world_with_games(doc, {}, nba_games, {"source": "Vikipediya"})
         checked[doc["id"]] = world.get("at") or now
         seasons = [{"key": doc["key"], "label": doc["season"]}]
         ready = seasons

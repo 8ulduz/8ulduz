@@ -105,7 +105,7 @@ export function mountTeam(d) {
     return `<a class="tm-game" href="${href(doc.id, other)}" title="${esc(g.stadium || "")}">
       <span class="tm-comp">${esc(doc.name)}${g.round ? ` · ${esc(/^\d+$/.test(g.round) ? `${ordinal(g.round)} tur` : g.round)}` : ""}</span>
       ${side(g.home, g.hs)}${side(g.away, g.as)}
-      <span class="tm-when"><time datetime="${esc(g.date || "")}">${g.date ? esc(shortDT(g.date)) : "Vaxtı elan olunmayıb"}</time>${state ? `<em>${state}</em>` : ""}${res ? `<i class="tm-r ${res}">${res === "w" ? "Q" : res === "d" ? "H" : "M"}</i>` : ""}</span></a>`;
+      <span class="tm-when"><time datetime="${esc(g.date || "")}">${g.date ? esc(g.day ? shortDT(g.date).split(",")[0] : shortDT(g.date)) : "Vaxtı elan olunmayıb"}</time>${state ? `<em>${state}</em>` : ""}${res ? `<i class="tm-r ${res}">${res === "w" ? "Q" : res === "d" ? "H" : "M"}</i>` : ""}</span></a>`;
   }
   // Tam siyahı: aylara bölünür (Oyunlar tabı və vərəq eyni siyahıdır).
   function fullList(rows, slug) {
@@ -207,9 +207,9 @@ export function mountTeam(d) {
     const checked = index.doc.checked?.[league.id];
     const when = doc.asof ? asof(doc.asof) : "";
     const link = (url, text) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text);
-    const named = x => x.source_url ? `${link(x.source_url, x.source)}${x.url ? `, ${link(x.url, "Vikipediya")}` : ""}` : link(x.url, x.source);
+    const named = x => link(x.source_url || x.url, x.source);
     // Səhifədə göstərilən bütün yarışların mənbəyi: lisenziya bunu tələb edir.
-    const source = (list = [doc]) => `<p class="tm-src muted">Mənbə: ${[...new Map(list.map(x => [x.source, x])).values()].map(named).join(", ")}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
+    const source = (list = [doc]) => `<p class="tm-src muted">Mənbə: ${[...[...new Map(list.map(x => [x.source, x])).values()].map(named), ...list.filter(x => x.source_url && x.url).slice(0, 1).map(x => link(x.url, "Vikipediya"))].join(", ")}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
     const slug = r.team;
     if (!slug || !doc.teams?.[slug]) {
       // Komandasız ünvan və ya bu mövsüm liqada olmayan komanda: liqanın cədvəli.
