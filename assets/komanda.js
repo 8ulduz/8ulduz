@@ -220,7 +220,7 @@ export function mountTeam(d) {
     document.title = `${team.name} — 8ulduz`;
     document.querySelector('meta[name="description"]')?.setAttribute("content", `${team.name}: oyunlar, turnir cədvəli və son xəbərlər.`);
     const hasSquad = !seasonKey && league.heyet?.includes(slug);
-    const hasGames = doc.games?.length || (!seasonKey && otherLeagues(index.doc, league, slug).some(l => !l.source?.startsWith("Viki")));
+    const hasGames = doc.games?.length || (!seasonKey && otherLeagues(index.doc, league, slug).some(l => l.cup || !l.source?.startsWith("Viki")));
     const tab = TABS.some(([k]) => k === r.tab) && (r.tab !== "heyet" || hasSquad) && (r.tab !== "cedvel" || doc.groups?.length) && (r.tab !== "oyunlar" || hasGames) ? r.tab : "";
     const head = `<header class="tm-head">${logo(team.logo, 56, team.name)}<div><p><a class="tm-league" href="${leagueHref(league.id, seasonKey)}">${esc(doc.name)}</a>${esc(standingLine(doc, slug, ordinal).slice(doc.name.length))}${seasonKey ? ` · ${esc(doc.season)}` : ""}</p><h1>${esc(team.name)}</h1></div></header>`;
     const tabs = `<nav class="tm-tabs" aria-label="Komanda bölmələri">${TABS.filter(([k]) => (k !== "heyet" || hasSquad) && (k !== "cedvel" || doc.groups?.length) && (k !== "oyunlar" || hasGames)).map(([k, label]) => `<a href="${href(league.id, slug, k, seasonKey)}"${k === tab ? ` class="on" aria-current="page"` : ""}>${label}</a>`).join("")}</nav>`;

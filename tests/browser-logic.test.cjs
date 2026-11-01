@@ -1391,6 +1391,19 @@ test('team page: news reuse club topics and stay away from other meanings and sp
   const html = await teamHtml(ctx, { liga: 'premyer-liqa', team: 'qarabag', tab: 'xeberler' });
   assert.ok(html.includes('https://apa.az/a') && !html.includes('https://apa.az/e'));
 });
+test('team page: a national cup from Wikipedia opens the games tab and the competition picker', async () => {
+  const files = teamFiles();
+  files['data/futbol/index.json'] = { ...TEAM_INDEX, leagues: [...TEAM_INDEX.leagues.map(l => l.id === 'turkiye' ? { ...l, source: 'Vikipediya' } : l), { id: 'turkiye-kuboku', name: 'Türkiyə Kuboku', short: 'Türkiyə Kuboku', source: 'Vikipediya (kubok)', cup: true, sport: 'football', ready: [{ key: '2026', label: '2026/27' }], teams: ['fenerbahce'] }] };
+  files['data/futbol/turkiye.json'] = { ...TURKIYE, source: 'Vikipediya', games: [] };
+  files['data/futbol/turkiye-kuboku.json'] = { id: 'turkiye-kuboku', name: 'Türkiyə Kuboku', short: 'Türkiyə Kuboku', source: 'Vikipediya (kubok)', key: '2026', season: '2026/27', groups: [], teams: { fenerbahce: { name: 'Fenerbahçe', logo: '' }, bursaspor: { name: 'Bursaspor', logo: '' } },
+    games: [{ home: 'bursaspor', away: 'fenerbahce', hs: 0, as: 2, played: true, date: '2026-10-27T18:00:00+03:00', round: '4-cü mərhələ' }] };
+  const ctx = teamPage(files);
+  const look = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce' });
+  assert.ok(look.includes('/oyunlar'), 'liqada oyun olmasa da Oyunlar tabı açılır');
+  assert.ok(look.includes('Türkiyə Kuboku · 4-cü mərhələ'));
+  const tab = await teamHtml(ctx, { liga: 'turkiye', team: 'fenerbahce', tab: 'oyunlar' });
+  assert.ok(tab.includes('<option value="#/komanda/turkiye-kuboku/fenerbahce/oyunlar"'), 'kubok Yarış seçimindədir');
+});
 test('team page: missing data never breaks the page', async () => {
   const noIndex = teamPage({});
   assert.ok((await teamHtml(noIndex, { liga: 'premyer-liqa', team: 'qarabag' })).includes('Komanda məlumatı açılmadı'));
