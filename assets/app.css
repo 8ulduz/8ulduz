@@ -207,6 +207,10 @@ nav.main a.nav-tix{position:relative}
 
 /* --- bazar kartları: ortada, kənarlarda boşluq, xəbər kartından ayrı rəng --- */
 .markets{border-bottom:1px solid var(--border);background:transparent}
+/* Qiymətlər və lent sonra gəlir: yeri əvvəlcədən ayrılır, səhifə aşağı itələnmir */
+.markets.pending{height:65px;visibility:hidden}
+#ticker:empty{min-height:31px}
+@media(min-width:601px){.markets.pending{height:68px}#ticker:empty{min-height:34px}}
 /* Valyuta kartları: əvvəlki görünüş (ad / qiymət / dəyişmə sətri), hündürlük bir az azaldılıb (~73px → ~58px); həmişə görünür */
 .mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}
 button.mk{font:inherit;color:inherit;padding:0;text-align:left;cursor:pointer}
