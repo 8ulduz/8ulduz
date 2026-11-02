@@ -1936,10 +1936,10 @@ async function shareStory(btn) {
   const url = btn.dataset.share, title = btn.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
   if (TOUCH_UI && navigator.share) {
     trackEvent("share-system");
-    try { await navigator.share({ title, text: `${title}\n\n8ulduz.az`, url }); } catch {}
+    try { await navigator.share({ title, text: title, url }); } catch {}
     return;
   }
-  const box = showPop(btn, `<a data-to="whatsapp" href="https://wa.me/?text=${encodeURIComponent(`${title}\n${url}\n\n8ulduz.az`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a><a data-to="telegram" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`${title}\n\n8ulduz.az`)}" target="_blank" rel="noopener noreferrer">Telegram</a><button type="button" data-to="copy">Keçidi kopyala</button>`);
+  const box = showPop(btn, `<a data-to="whatsapp" href="https://wa.me/?text=${encodeURIComponent(`${title}\n${url}`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a><a data-to="telegram" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}" target="_blank" rel="noopener noreferrer">Telegram</a><button type="button" data-to="copy">Keçidi kopyala</button>`);
   box.addEventListener("click", async ev => {
     const to = ev.target.closest("[data-to]");
     if (!to) return;
