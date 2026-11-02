@@ -2,6 +2,7 @@
 import datetime
 import json
 import pathlib
+import re
 import sys
 import unittest
 from unittest import mock
@@ -93,6 +94,17 @@ class RedLineTest(unittest.TestCase):
         self.assertIn("--force-with-lease", pipeline.split("tg_round() {")[1].split("\n}\n")[0])
         round_ = pipeline.split("tg_round() {")[1].split("\n}\n")[0]
         self.assertLess(round_.index("push -q --force-with-lease"), round_.index(" send "))
+
+    def test_every_code_file_is_in_the_last_good_cache_key(self):
+        # Açarda olmayan fayl keşə heç vaxt düşmür: hər iş «kod dəyişib» sanır, sürətli dövrə xətada boş yerə ikinci cəhd edir.
+        pipeline = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "update.yml").read_text(encoding="utf-8")
+        files = re.search(r'^CODE_FILES="([^"]+)"', pipeline, re.M).group(1).split()
+        restore = re.search(r"key: updater-lkg2-\$\{\{ hashFiles\(([^)]*)\)", workflow).group(1)
+        save = re.findall(r"key: updater-lkg2-\$\{\{ hashFiles\(([^)]*)\)", workflow)[1]
+        for f in files:
+            self.assertIn(f"'{f}'", restore)
+            self.assertIn(f"'.lkg/{f}'", save)
 
 
 class DigestTest(unittest.TestCase):
