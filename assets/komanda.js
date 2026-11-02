@@ -89,7 +89,7 @@ export function mountTeam(d) {
   }
   const leaguePath = (league, key) => `${DIR}${league.id}${key === league.ready[0].key ? "" : `-${key}`}.json`;
   const href = (liga, slug, tab = "", key = "") => `#/komanda/${liga}/${encodeURIComponent(slug)}${tab ? `/${tab}` : ""}${key ? `?s=${key}` : ""}`;
-  const logo = (url, size, name = "") => url ? `<img src="${esc(sized(url, size * 2))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px" aria-hidden="true">${esc([...name][0] || "")}</span>`;
+  const logo = (url, size, name = "") => url ? `<img src="${esc(sized(url, size * 2))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="hide">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px" aria-hidden="true">${esc([...name][0] || "")}</span>`;
   const message = (title, text, back = "") => `<div class="empty"><h1 style="color:var(--fg)">${esc(title)}</h1><p>${esc(text)}</p>${back}</div>`;
   const home = `<a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a>`;
   const asof = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${months[m - 1]} oyunlarına qədər` : ""; };
@@ -190,7 +190,7 @@ export function mountTeam(d) {
     const credit = wiki ? `<p class="tm-src muted">Heyət: <a href="https://en.wikipedia.org/wiki/${encodeURIComponent(wiki.replace(/ /g, "_"))}" target="_blank" rel="noopener noreferrer">Vikipediya</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a></p>` : "";
     return POS_AZ.map(([key, label]) => {
       const rows = players.filter(p => (p.pos || "") === key);
-      return rows.length ? `<section class="tm-sec tm-squad"><h3 class="tm-month">${label}</h3><ul>${rows.map(p => `<li><b>${esc(p.no || "")}</b>${p.flag ? `<img src="${esc(sized(p.flag, 40))}" alt="${esc(p.country || "")}" title="${esc(p.country || "")}" width="20" height="20" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<span>${esc(p.name)}</span>${p.age ? `<em>${esc(p.age)} yaş</em>` : ""}</li>`).join("")}</ul></section>` : "";
+      return rows.length ? `<section class="tm-sec tm-squad"><h3 class="tm-month">${label}</h3><ul>${rows.map(p => `<li><b>${esc(p.no || "")}</b>${p.flag ? `<img src="${esc(sized(p.flag, 40))}" alt="${esc(p.country || "")}" title="${esc(p.country || "")}" width="20" height="20" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span>${esc(p.name)}</span>${p.age ? `<em>${esc(p.age)} yaş</em>` : ""}</li>`).join("")}</ul></section>` : "";
     }).join("") + credit;
   }
 

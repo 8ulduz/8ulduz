@@ -5,6 +5,7 @@ Qaydalar assets/content-policy.js faylındadır (brauzer də onu oxuyur). Üç y
 - qadağan olunmuş saytlar heç vaxt düşmür;
 - xarici mənbələrin Azərbaycan və rəhbərliyi haqqında xəbərləri düşmür. İstisna yalnız idman saytlarıdır (sportSources), rəhbərlik adı keçmirsə.
 """
+import ipaddress
 import json
 import pathlib
 import re
@@ -40,6 +41,28 @@ def _on(host, domains):
     return any(host == d or host.endswith("." + d) for d in domains)
 
 
+def safe_url(url):
+    """Yalnız açıq internetdəki http(s) ünvanı: yazılı daxili IP və ad keçmir, «evil.com\\@sayt.az» başqa sayt açmır.
+    Domenin DNS-i yoxlanmır: dövrə 60 saniyəyə sığmalıdır."""
+    text = str(url or "").strip()
+    if not text.lower().startswith(("http://", "https://")) or "\\" in text or any(ord(c) < 32 or ord(c) == 127 for c in text):
+        return False
+    try:
+        parts = urllib.parse.urlsplit(text)
+        host = (parts.hostname or "").lower().rstrip(".")
+    except ValueError:
+        return False
+    if not host or parts.username is not None or host == "localhost" or host.endswith((".localhost", ".local", ".internal")):
+        return False
+    last = host.rsplit(".", 1)[-1]
+    if ":" in host or last.isdigit() or last.startswith("0x"):  # 127.1 və 0x7f.1 də ünvandır
+        try:
+            return ipaddress.ip_address(host).is_global
+        except ValueError:
+            return False
+    return True
+
+
 def is_blocked(url):
     return _on(host_of(url), BLOCKED_HOSTS)
 
@@ -52,8 +75,8 @@ def source_allowed(name, url):
     """Mənbə icazəli siyahıdadır və keçid onun öz saytına aparır."""
     domains = AZ_SOURCES.get(name) or WORLD_SOURCES.get(name)
     host = host_of(url)
-    # javascript://sayt.az/... ünvanının da «host»u olur: yalnız http(s) keçidi qəbul edilir.
-    secure = str(url or "").lower().startswith(("http://", "https://"))
+    # javascript://sayt.az/... ünvanının da «host»u olur: yalnız açıq internetdəki http(s) keçidi qəbul edilir.
+    secure = safe_url(url)
     return secure and bool(domains) and bool(host) and _on(host, domains) and not is_blocked(url)
 
 

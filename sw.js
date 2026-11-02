@@ -230,6 +230,7 @@ self.addEventListener("periodicsync", (event) => {
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || SCOPE_URL.href;
+  const link = event.notification.data && event.notification.data.url;
+  const url = /^https?:\/\//i.test(link || "") ? link : SCOPE_URL.href;
   event.waitUntil(self.clients.openWindow(url));
 });

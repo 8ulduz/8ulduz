@@ -1840,5 +1840,58 @@ class UpdateHealthTest(unittest.TestCase):
             self.assertEqual(updater.run(), 1)
 
 
+class ResponseLimitTest(unittest.TestCase):
+    def test_a_gzip_bomb_stops_at_the_limit(self):
+        import gzip, urllib.error
+        with patch.object(updater, "MAX_RESPONSE_BYTES", 1000):
+            self.assertEqual(updater._gunzip_capped(gzip.compress(b"a" * 900)), b"a" * 900)
+            with self.assertRaises(urllib.error.URLError):
+                updater._gunzip_capped(gzip.compress(b"a" * 100000))
+
+    def test_a_cut_gzip_answer_is_an_error_and_parts_are_joined(self):
+        import gzip, urllib.error
+        whole = gzip.compress(b"a" * 5000)
+        with self.assertRaises(urllib.error.URLError):
+            updater._gunzip_capped(whole[:-10])
+        self.assertEqual(updater._gunzip_capped(gzip.compress(b"a") + gzip.compress(b"b") + b"\0\0"), b"ab")
+        with patch.object(updater, "MAX_RESPONSE_BYTES", 1000):
+            with self.assertRaises(urllib.error.URLError):
+                updater._gunzip_capped(gzip.compress(b"a" * 600) + gzip.compress(b"b" * 600))
+
+    def test_a_huge_answer_is_not_read(self):
+        import io, urllib.error
+        with patch.object(updater, "MAX_RESPONSE_BYTES", 10):
+            self.assertEqual(updater._read_capped(io.BytesIO(b"a" * 10)), b"a" * 10)
+            with self.assertRaises(urllib.error.URLError):
+                updater._read_capped(io.BytesIO(b"a" * 11))
+
+    def test_no_request_goes_to_an_internal_address(self):
+        with patch.object(updater.urllib.request, "urlopen", side_effect=AssertionError("sorğu getdi")):
+            self.assertEqual(updater._fetch_og("http://169.254.169.254/latest"), "")
+            self.assertEqual(updater._fetch_page_date("http://127.0.0.1/"), "")
+
+    def test_a_redirect_to_an_internal_address_is_refused(self):
+        import email.message, urllib.error, urllib.request
+        handler = updater._SafeRedirect()
+        req = urllib.request.Request("https://sayt.az/a")
+        with self.assertRaises(urllib.error.HTTPError):
+            handler.redirect_request(req, None, 302, "Found", email.message.Message(), "http://169.254.169.254/x")
+        self.assertIsNotNone(handler.redirect_request(req, None, 302, "Found", email.message.Message(), "https://sayt.az/b"))
+
+
+class SectionPagePolicyTest(unittest.TestCase):
+    def test_section_page_allows_only_its_own_scripts(self):
+        import base64, hashlib, re as _re
+        page = updater._page_html("siyaset", "Siyasət", "Təsvir", "<li>x</li>")
+        policy = _re.search(r'Content-Security-Policy" content="([^"]+)"', page).group(1)
+        self.assertNotIn("unsafe-inline", policy)
+        self.assertNotIn("__CSP__", page)
+        scripts = _re.findall(r"<script>(.*?)</script>", page, _re.S)
+        self.assertEqual(len(scripts), 2)
+        for code in scripts:
+            digest = base64.b64encode(hashlib.sha256(code.encode()).digest()).decode()
+            self.assertIn(f"'sha256-{digest}'", policy)
+
+
 if __name__ == "__main__":
     unittest.main()
