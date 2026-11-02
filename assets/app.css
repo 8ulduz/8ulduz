@@ -1077,3 +1077,5 @@ a.pill.on small{color:inherit}
 :root[data-theme="light"]{--img-bg:hsl(216 20% 88%)}
 .hero-main>.img:has(>img){background:#0e0d0b}
 .hero-main>.img img{object-position:center top}
+/* Telefon və planşetdə slayder: başlıq şəklin üstündə yox, altında; şəklin aşağı yarısı kölgə və yazı altında qalmır */
+@media(max-width:900px){.hero-row .hero-main{flex-direction:column;height:auto;min-height:0;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{margin-top:0;padding:12px 16px 14px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:var(--fg)}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}.hero-strip .st-btn{top:calc((100vw - 28px)*.28)}}
