@@ -20,7 +20,7 @@ struct SectionsView: View {
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(shown) { category in
                         NavigationLink(value: Route.section(category.slug)) {
-                            SectionTile(category: category, count: model.count(forSection: category.slug))
+                            SectionTile(category: category)
                         }
                         .buttonStyle(.plain)
                     }
@@ -40,7 +40,6 @@ struct SectionsView: View {
 
 private struct SectionTile: View {
     let category: NewsCategory
-    let count: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -53,10 +52,11 @@ private struct SectionTile: View {
                 .font(.subheadline.weight(.bold))
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-            Text("\(count) xəbər")
+            Text(ui: category.description)
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
-                .monospacedDigit()
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
         }
         .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
         .padding(12)

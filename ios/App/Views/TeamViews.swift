@@ -41,7 +41,7 @@ struct LeagueHubView: View {
             Section {
                 ForEach(leagues) { league in
                     NavigationLink(value: Route.league(id: league.id, season: nil)) {
-                        Text(league.name)
+                        Text(ui: league.name)
                     }
                     .listRowBackground(Theme.card)
                 }
@@ -314,7 +314,7 @@ struct TeamView: View {
         let leagues = [league] + others
         if leagues.count > 1 {
             Picker("Yarış", selection: Binding(get: { league.id }, set: { chosenLeague = $0; chosenSeason = nil })) {
-                ForEach(leagues) { Text($0.name).tag($0.id) }
+                ForEach(leagues) { Text(ui: $0.name).tag($0.id) }
             }
             .pickerStyle(.menu)
         }

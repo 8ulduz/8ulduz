@@ -245,11 +245,13 @@ private struct MarketStrip: View {
 private struct ServiceChips: View {
     @Environment(AppModel.self) private var model
 
-    private func chip(_ symbol: String, _ title: String, _ route: Route, tint: Color) -> some View {
+    // Ad tərcümə olunur, dəyər (dərəcə, saat) olduğu kimi qalır.
+    private func chip(_ symbol: String, _ title: String, value: String? = nil, _ route: Route, tint: Color) -> some View {
         NavigationLink(value: route) {
             HStack(spacing: 6) {
                 Image(systemName: symbol).symbolRenderingMode(.multicolor).foregroundStyle(tint)
                 Text(ui: title).lineLimit(1)
+                if let value { Text(value).lineLimit(1) }
             }
             .font(.footnote.weight(.semibold))
             .padding(.horizontal, 12)
@@ -264,10 +266,10 @@ private struct ServiceChips: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 if let w = model.weatherHere {
-                    chip(w.symbol, "\(w.city) \(w.temp)°", .weather, tint: Theme.gold)
+                    chip(w.symbol, w.city, value: "\(w.temp)°", .weather, tint: Theme.gold)
                 }
                 if let p = model.prayer, let next = p.next() {
-                    chip("moon.stars.fill", "\(next.label) \(next.time)", .prayer, tint: Theme.green)
+                    chip("moon.stars.fill", next.label, value: next.time, .prayer, tint: Theme.green)
                 }
                 chip(Ranking.bakuRushHour() ? "exclamationmark.triangle.fill" : "car.fill", Ranking.bakuRushHour() ? "Pik saat" : "Tıxac", .traffic,
                      tint: Ranking.bakuRushHour() ? Theme.red : Theme.muted)

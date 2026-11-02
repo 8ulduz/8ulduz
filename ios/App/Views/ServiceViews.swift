@@ -127,7 +127,7 @@ struct MarketsView: View {
     private func picker(_ title: String, selection: Binding<String>) -> some View {
         Picker(title, selection: selection) {
             Text("AZN").tag("AZN")
-            ForEach(model.markets) { Text($0.label).tag($0.id) }
+            ForEach(model.markets) { Text(ui: $0.label).tag($0.id) }
         }
         .pickerStyle(.menu)
         .frame(maxWidth: .infinity)
@@ -156,7 +156,13 @@ struct WeatherView: View {
                                 .font(.system(size: 44))
                             VStack(alignment: .leading) {
                                 Text("\(w.temp)°").font(.largeTitle.weight(.bold))
-                                Text("\(w.city) · \(w.label)").font(.subheadline).foregroundStyle(Theme.muted)
+                                HStack(spacing: 4) {
+                                    Text(ui: w.city)
+                                    Text(verbatim: "·")
+                                    Text(ui: w.label)
+                                }
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.muted)
                             }
                         }
                         Text("Hiss olunan \(w.feels)° · Rütubət %\(w.humidity) · Külək \(w.wind) km/s · Təzyiq \(w.pressure) hPa · Yağıntı \(String(format: "%.1f", w.precipitation)) mm")
@@ -176,10 +182,10 @@ struct WeatherView: View {
                     } label: {
                         HStack {
                             Image(systemName: w.symbol).symbolRenderingMode(.multicolor).frame(width: 28)
-                            Text(w.city)
+                            Text(ui: w.city)
                             if w.city == model.cityName { Image(systemName: "checkmark").foregroundStyle(Theme.gold) }
                             Spacer()
-                            Text(w.label).font(.caption).foregroundStyle(Theme.muted)
+                            Text(ui: w.label).font(.caption).foregroundStyle(Theme.muted)
                             Text("\(w.temp)°").fontWeight(.semibold).monospacedDigit()
                         }
                     }
@@ -206,7 +212,7 @@ struct PrayerView: View {
         List {
             Section {
                 Picker("Şəhər", selection: $model.cityName) {
-                    ForEach(Catalog.cities) { Text($0.name).tag($0.name) }
+                    ForEach(Catalog.cities) { Text(ui: $0.name).tag($0.name) }
                 }
                 .listRowBackground(Theme.card)
             }
@@ -216,7 +222,7 @@ struct PrayerView: View {
                     ForEach(day.times) { time in
                         HStack {
                             Image(systemName: time.symbol).foregroundStyle(Theme.gold).frame(width: 28)
-                            Text(time.label).fontWeight(time.id == next?.id ? .bold : .regular)
+                            Text(ui: time.label).fontWeight(time.id == next?.id ? .bold : .regular)
                             Spacer()
                             Text(time.time).fontWeight(.semibold).monospacedDigit()
                             if time.id == next?.id { Pill(text: "NÖVBƏTİ", color: Theme.green) }
@@ -553,7 +559,7 @@ struct TrafficView: View {
                     Pill(text: "PİK SAAT", color: Theme.red, filled: true)
                 }
                 Picker("Ərazi", selection: $areaID) {
-                    ForEach(Catalog.trafficAreas) { Text($0.label).tag($0.id) }
+                    ForEach(Catalog.trafficAreas) { Text(ui: $0.label).tag($0.id) }
                 }
                 .pickerStyle(.menu)
                 Group {
