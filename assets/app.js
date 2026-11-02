@@ -329,51 +329,35 @@ function preferPrimary(a, b) {
   if ((a.summary || "").length !== (b.summary || "").length) return (a.summary || "").length > (b.summary || "").length ? a : b;
   return (a.publishedAt || "") >= (b.publishedAt || "") ? a : b;
 }
-// Server qrupları ~4-9 dəqiqədən bir hesablayır: son 30 dəqiqənin xəbərləri brauzerdə birləşir, köhnə qruplar qalır.
-// Qrup söz indeksi ilə tapılır (hamı-hamı ilə müqayisə telefonda ~1 s idi); başlığın sözləri yadda qalır.
-const TOKS = new Map();
+// updater.py qruplamayıbsa, eyni qayda ilə brauzerdə birləşdir (təzə xəbərləri server sürətli dövrədə özü qoşur)
 function clusterArticles(list) {
-  if (!list?.length) return list;
-  const grouped = list.some(a => a.alts?.length), fresh = Date.now() - 30 * 60e3;
-  if (grouped && !list.some(a => new Date(a.publishedAt).getTime() > fresh)) return list;
-  if (TOKS.size > 5000) TOKS.clear();
+  if (!list?.length || list.some(a => a.alts?.length)) return list;
   const prepared = list.map(a => {
     const dt = new Date(a.publishedAt).getTime();
-    let toks = TOKS.get(a.title);
-    if (!toks) TOKS.set(a.title, toks = titleTokens(a.title));
-    return { dt: Number.isNaN(dt) ? null : dt, toks, set: new Set(toks), a, f: !grouped || dt > fresh && !OFFICIAL_SRC.has(a.source) };
+    const toks = titleTokens(a.title);
+    return { dt: Number.isNaN(dt) ? null : dt, toks, sh: shingles(toks), a };
   }).sort((x, y) => (y.dt ?? 0) - (x.dt ?? 0));
-  const clusters = [], index = new Map();
-  const join = (members, item) => {
-    members.push(item);
-    if (members.i != null) for (const t of item.set) { let c = index.get(t); if (!c) index.set(t, c = new Set()); c.add(members); }
-  };
+  const clusters = [];
   for (const item of prepared) {
-    let placed = null;
-    if (item.dt != null && item.toks.length >= 3 && (item.f || !OFFICIAL_SRC.has(item.a.source))) {
-      const hits = new Map();
-      for (const t of item.set) for (const c of index.get(t) || []) hits.set(c, (hits.get(c) || 0) + 1);
-      const cand = [...hits].filter(([, n]) => n >= 3).map(([c]) => c).sort((x, y) => x.i - y.i);
-      for (const members of cand) {
-        if (Math.abs(item.dt - members[0].dt) > GROUP_MS || members.some(m => m.a.source === item.a.source)) continue;
-        if (members.some(m => m.dt != null && Math.abs(item.dt - m.dt) <= GROUP_MS && titlesSimilar(item.toks, item.sh ??= shingles(item.toks), m.toks, m.sh ??= shingles(m.toks)))) { placed = members; break; }
+    let placed = false;
+    if (item.dt != null && item.toks.length >= 3) {
+      for (const members of clusters) {
+        const head = members[0].dt;
+        if (head == null || Math.abs(item.dt - head) > GROUP_MS) continue;
+        if (members.some(m => m.a.source === item.a.source)) continue;
+        if (members.some(m => m.dt != null && Math.abs(item.dt - m.dt) <= GROUP_MS && titlesSimilar(item.toks, item.sh, m.toks, m.sh))) {
+          members.push(item); placed = true; break;
+        }
       }
     }
-    if (!placed) { clusters.push(placed = []); if (item.f) placed.i = clusters.length; }
-    join(placed, item);
+    if (!placed) clusters.push([item]);
   }
   const out = [];
   for (const members of clusters) {
-    if (members.length === 1) { out.push(members[0].a); continue; }
     let primary = members[0].a;
     for (const m of members.slice(1)) primary = preferPrimary(primary, m.a);
-    const alts = [], urls = new Set([primary.sourceUrl]);
-    for (const { a } of members) for (const x of [a, ...(a.alts || [])]) {
-      if (!x.sourceUrl || urls.has(x.sourceUrl)) continue;
-      urls.add(x.sourceUrl);
-      alts.push({ source: x.source, sourceUrl: x.sourceUrl, publishedAt: x.publishedAt, imageUrl: x.imageUrl || "" });
-    }
-    primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+    const alts = members.filter(m => m.a !== primary).map(m => ({ source: m.a.source, sourceUrl: m.a.sourceUrl, publishedAt: m.a.publishedAt, imageUrl: m.a.imageUrl || "" }));
+    if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
     out.push(primary);
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));

@@ -268,6 +268,44 @@ class ImageTest(unittest.TestCase):
         self.assertEqual(updater._og_from_html(ld, "https://x.az/a"), "https://x.az/p.jpg")
 
 
+class AttachFreshTest(unittest.TestCase):
+    """Yavaş prosesdən sonra gələn təzə xəbər sürətli dövrədə eyni hadisənin kartına qoşulur."""
+    NOW = datetime.datetime(2026, 11, 2, 20, 0, tzinfo=datetime.timezone.utc)
+
+    def art(self, source, title, minutes, **kw):
+        t = (self.NOW - datetime.timedelta(minutes=minutes)).isoformat()
+        return {"source": source, "sourceUrl": f"https://{source.lower()}.az/{minutes}", "title": title, "publishedAt": t, **kw}
+
+    def test_fresh_copy_joins_the_older_card(self):
+        old = self.art("Oxu24", "Putin Rzayi ilə telefon danışığı apardı", 240, alts=[{"source": "Report", "sourceUrl": "https://report.az/1"}])
+        new = self.art("Bakupost", "Putin Rzayi ilə telefon danışığı apardı", 5)
+        out = updater.attach_fresh([new, old], now=self.NOW)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["source"], "Oxu24")
+        self.assertEqual([x["source"] for x in out[0]["alts"]], ["Bakupost", "Report"])
+
+    def test_similar_fresh_titles_merge_once(self):
+        a = self.art("Moderator", "Gəncədə 34 yaşlı şəxs bıçaqlandı xəstəxanaya çatdırıldı", 3)
+        b = self.art("Teleqraf", "Gəncədə 34 yaşlı şəxs bıçaqlandı xəstəxanaya çatdırıldı", 6)
+        c = self.art("Qafqazinfo", "Gəncədə 34 yaşlı şəxs bıçaqlandı xəstəxanaya çatdırıldı", 7)
+        out = updater.attach_fresh([a, b, c], now=self.NOW)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(len(out[0]["alts"]), 2)
+
+    def test_same_source_official_and_old_are_left_alone(self):
+        same = [self.art("Oxu", "Bakıda yeni park açıldı sakinlər sevinir", 3), {**self.art("Oxu", "Bakıda yeni park açıldı sakinlər sevinir", 9), "sourceUrl": "https://oxu.az/x"}]
+        self.assertEqual(len(updater.attach_fresh(same, now=self.NOW)), 2)
+        official = [self.art("Prezident.az", "İlham Əliyev Fransa səfirini qəbul edib", 3), self.art("APA", "İlham Əliyev Fransa səfirini qəbul edib", 50)]
+        self.assertEqual(len(updater.attach_fresh(official, now=self.NOW)), 2)
+        old = [self.art("APA", "Sumqayıtda yanğın baş verib ev yandı", 90), self.art("Oxu", "Sumqayıtda yanğın baş verib ev yandı", 120)]
+        self.assertEqual(len(updater.attach_fresh(old, now=self.NOW)), 2)
+
+    def test_apply_groups_never_breaks_the_feed(self):
+        with patch.object(updater, "attach_fresh", side_effect=RuntimeError("x")), patch.object(updater, "_read_json", return_value={}):
+            arts = [self.art("APA", "Bir xəbər başlığı burada", 1)]
+            self.assertEqual(updater.apply_groups(arts), arts)
+
+
 class DateAndFilterTest(unittest.TestCase):
     def test_dates_are_normalised_to_utc_and_naive_means_baku(self):
         self.assertEqual(updater._to_iso("Mon, 27 Oct 2026 13:50:00 +0400"), "2026-10-27T09:50:00+00:00")
