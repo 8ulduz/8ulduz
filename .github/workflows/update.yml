@@ -39,6 +39,9 @@ jobs:
       - name: Hər 60 saniyədən bir yenilə
         env:
           GH_TOKEN: ${{ github.token }}
+          # Telegram kanalı: ikisi də yazılmayınca paylaşım işə düşmür (README, «Telegram kanalı»).
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT: ${{ vars.TELEGRAM_CHAT }}
         run: bash .github/scripts/pipeline.sh
       - name: İşlək kodu yadda saxla
         if: ${{ always() && hashFiles('.lkg/.yeni') != '' }}

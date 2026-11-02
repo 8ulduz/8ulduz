@@ -1046,7 +1046,7 @@ test('cards can be shared, except stories with an unsafe link', () => {
   const ctx=app(),{card}=ctx.api,at=new Date().toISOString();
   ctx.api.S.og={};
   const row=url=>({id:'1',title:'Xəbər',lang:'az',category:'gundem',source:'APA',sourceUrl:url,publishedAt:at});
-  assert.ok(card(row('https://apa.az/1')).includes('data-share="https://8ulduz.az/#/xeber/1?b=gundem"'),'keçid saytımıza aparır');
+  assert.ok(card(row('https://apa.az/1')).includes('data-share="https://8ulduz.az/?ref=paylasim#/xeber/1?b=gundem"'),'keçid saytımıza aparır');
   assert.ok(!card(row('javascript:alert(1)')).includes('data-share'));
 });
 test('a shared link still opens after its story was grouped into another one', async () => {

@@ -87,6 +87,38 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - «Təhsil» və «Səhiyyə» bölmələri açar sözlərlə təyin olunur (`CATEGORIES`, 1.5 çəki); «Həyat» həyat tərzi, qidalanma və psixologiya üçün qalır.
 - Şəkil: saytın ümumi paylaşım şəkli (azertag social.jpg və s.) və 3+ xəbərdə təkrarlanan şəkil xəbərin şəkli sayılmır; şəkilsiz xəbər üçün səhifədən og:image → twitter:image → image_src → JSON-LD oxunur (hər dövrədə 120 səhifə), yoxdursa eyni xəbərin digər mənbəsinin şəkli götürülür.
 
+## Telegram kanalı
+
+Xəbər işi kanala özü yazır (`.github/scripts/telegram_post.py`, `pipeline.sh`-da `tg_loop`). Açar və kanal yazılmayınca heç nə işləmir.
+
+**Kanala nə gedir** (vaxt Bakı ilə):
+- **Son dəqiqə:** ən azı 3 mənbədə çıxan təzə xəbər. Saatda ən çox 3 paylaşım gedir, eyni mövzu 24 saatda bir dəfə. Prezident bölməsi saytdakı kimi buraya düşmür. Gecə 00:00–07:00 yalnız 8+ mənbəli xəbər gedir, səssiz bildirişlə.
+- **08:30 Səhər xülasəsi:** son 12 saatın 5 əsas xəbəri və dollar, avro, rubl məzənnəsi.
+- **21:00 Günün yekunu:** günün 5 əsas xəbəri. İş 90 dəqiqədən çox gecikərsə, həmin xülasə o gün göndərilmir.
+
+**Mətndə nə olur:**
+- Yalnız başlıq, mənbənin keçidi və saytdakı «Bütün mənbələr» səhifəsi. Xülasə mətni və şəkil göndərilmir (müəllif hüququ).
+- Önizləmə mənbənin öz səhifəsidir.
+- Xəbərlər lentdəki kimi yenidən `content_policy.enforce`-dan keçir.
+
+**Təkrar paylaşım olmur.** Vəziyyət tarixçəsiz `telegram-state` budağındadır (`state.json`). Hər mesajdan əvvəl bu budaq `--force-with-lease` ilə yazılır. Növbə dəyişəndə iki iş eyni anda işləsə də, eyni mesajı yalnız biri göndərir. Bu budağı silməyin, əks halda son paylaşımlar yenidən gedə bilər.
+
+**Qoşulmaq üçün:**
+1. Telegram-da kanal açın, məsələn `@ulduz8az`. Ad rəqəmlə başlaya bilməz.
+2. [@BotFather](https://t.me/BotFather)-da `/newbot` ilə bot yaradın və açarı götürün.
+3. Botu kanala admin kimi əlavə edin. Ona yalnız «Post messages» icazəsi lazımdır.
+4. GitHub → Settings → Secrets and variables → Actions:
+   - **Secrets** bölməsində `TELEGRAM_BOT_TOKEN` (botun açarı);
+   - **Variables** bölməsində `TELEGRAM_CHAT` (`@ulduz8az`).
+
+   Bunu yalnız `8ulduz` hesabı edə bilər. Açar söhbətə, koda və ya fayla yazılmamalıdır.
+5. `assets/config.js`-də `telegram: "ulduz8az"` yazın, onda saytda «kanala qoşulun» bloku görünür.
+6. Növbəti xəbər işi (ən geci 47 dəqiqə sonra) kanala yazmağa başlayır.
+
+**Söndürmək üçün:** `TELEGRAM_CHAT` dəyişənini silin. Növbəti iş kanala yazmır.
+
+Kanaldan gələn ziyarətlər GoatCounter-də `tg` və `tg-xulase`, saytdakı paylaşım düyməsindən gələnlər isə `paylasim` kimi görünür.
+
 ## Domen (8ulduz.az)
 
 Sayt GitHub Pages-dədir; xüsusi domen üçün:
