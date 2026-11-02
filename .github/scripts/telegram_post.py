@@ -182,7 +182,9 @@ def pick_alert(articles, state, now):
 def plan(news, markets, state, now):
     """(mesaj, yeni vəziyyət) və ya (None, None). Mesaj Bot API sendMessage sahələridir, chat_id-siz."""
     state = json.loads(json.dumps(state or {}))
-    articles = allowed((news or {}).get("articles") or [])
+    if not (news or {}).get("articles"):
+        return None, None  # lent oxunmayıb: xülasə «göndərilib» sayılmasın
+    articles = allowed(news["articles"])
     due = due_digest(state, now)
     if due:
         name, window, label = due
