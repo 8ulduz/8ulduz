@@ -17,6 +17,7 @@ Sayt sahibinin qərarı (2026-10-30). Bu iki qayda dəyişməzdir. Hər kod dəy
 | Asılan dövrə | İşin özü dövrənin 4 dəqiqə irəliləmədiyini görsə çıxır, son addım yeni iş başladır. Yazının alınmaması ayrıdır: GitHub qısa kəsiləndə işlək iş öldürülmür, 15 dövrədən sonra dəyişir. | `self_watch`, `pipeline.sh` |
 | İlişmiş iş | Nəzarətçi 6 dəqiqə yazmayan və 6 dəqiqədən köhnə işi dayandırıb yenisini başladır, 10 dəqiqədə issue açır. Təzə başlayan işə toxunmur. | `watchdog.yml` |
 | Sayt | 30 saniyədən bir yoxlayır. Ardıcıllıq: canlı kanal, sayt, ehtiyat kanal, keş. | `sw.js`, `app.js` |
+| iPhone tətbiqi | Açıq olanda saytla eyni: 30 saniyə, eyni ardıcıllıq, eyni rəqəmlər. Bağlı olanda iOS icazə vermir, vidcet və bildirişin vaxtına iOS qərar verir. | `ios/Packages/UlduzCore/.../FeedClient.swift`, `ios/App/AppModel.swift` |
 
 Yoxlama: `tests/test_red_lines.py`, `tests/browser-logic.test.cjs` və hər PR-da real lentlərlə işləyən `bir-deqiqe` işi (`check.yml`). Təkrar dövrə 35 saniyəni keçsə PR qırmızı olur.
 
@@ -36,6 +37,7 @@ Qaydalar bir fayldadır: `assets/content-policy.js`.
 | Xarici mənbə qaydası | Başlıq və xülasədə Azərbaycan mövzusu varsa düşmür. | `azTerms`, `foreign_about_azerbaijan` |
 | Son qapı | Yazılan hər lent keçir: updater, sonra dərcdən əvvəl ayrıca skript. | `content_policy.enforce`, `check_outputs.py` |
 | Brauzer | Telefondakı köhnə keş də eyni qaydadan keçir. | `policyViolation` |
+| iPhone tətbiqi | Eyni qayda faylını oxuyur, ayrıca nüsxə yoxdur. Keş, seçilmişlər, vidcet və bildiriş də keçir. Fayl oxunmasa heç nə göstərilmir. | `ios/Packages/UlduzCore/.../ContentPolicy.swift` |
 
 İstisna: xarici idman mənbələrinin klub və idmançı xəbərləri (Qarabağ FK və s.). Rəhbərlik adı keçən idman xəbəri də düşmür (`leaderTerms`).
 
@@ -54,5 +56,6 @@ Sahibin qərarı (2026-10-31). Səhifəyə və ya məlumata ağırlıq əlavə e
 - Baş səhifənin ekrandan uzaq bölmələri yaxınlaşanda qurulur (`lazySection`).
 - `app.js` və `app.css`-in ölçü limiti var, `tests/browser-logic.test.cjs` yoxlayır.
 - Komanda səhifəsinin kodu (`komanda.js`, `komanda.css`) və məlumatı (`data/futbol/`) yalnız o ünvan açılanda yüklənir, fayllar yalnız `slow_cycle`-da yazılır.
+- iPhone tətbiqi eyni qaydadadır: şəkillər kiçildilir (`ImageProxy`), ilk açılış `first.json`-dan dolur, arxiv və komanda faylları yalnız o ekran açılanda gəlir, süzgəc və axtarış arxa planda hesablanır. Tətbiqin sürəti hələ real telefonda ölçülməyib.
 
 Ölçü 2026-10-31 (lokal, PR #55-dən sonra): telefon 46, planşet 51, kompüter 71 bal. Telefonda hədəfə hələ çatılmayıb.

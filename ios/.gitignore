@@ -1,0 +1,12 @@
+# Layihə project.yml-dən yaranır
+*.xcodeproj/
+*.xcworkspace/
+build/
+DerivedData/
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+*.p8
+*.p12
+*.mobileprovision
