@@ -329,34 +329,38 @@ function preferPrimary(a, b) {
   if ((a.summary || "").length !== (b.summary || "").length) return (a.summary || "").length > (b.summary || "").length ? a : b;
   return (a.publishedAt || "") >= (b.publishedAt || "") ? a : b;
 }
-// updater.py-nin qaydası ilə brauzerdə birləşdir. Server qrupları yavaş prosesdə hesablayır: ondan sonra gələn xəbərlər
-// (son 3 saat) ayrı qalır. Onda yalnız bu təzə xəbərlər hamı ilə müqayisə olunur, köhnə qruplar olduğu kimi qalır.
+// Server qrupları ~4-9 dəqiqədən bir hesablayır: son 30 dəqiqənin xəbərləri brauzerdə birləşir, köhnə qruplar qalır.
+// Qrup söz indeksi ilə tapılır (hamı-hamı ilə müqayisə telefonda ~1 s idi); başlığın sözləri yadda qalır.
+const TOKS = new Map();
 function clusterArticles(list) {
   if (!list?.length) return list;
-  const grouped = list.some(a => a.alts?.length), fresh = Date.now() - 3 * HOUR;
+  const grouped = list.some(a => a.alts?.length), fresh = Date.now() - 30 * 60e3;
+  if (grouped && !list.some(a => new Date(a.publishedAt).getTime() > fresh)) return list;
+  if (TOKS.size > 5000) TOKS.clear();
   const prepared = list.map(a => {
     const dt = new Date(a.publishedAt).getTime();
-    const toks = titleTokens(a.title);
-    return { dt: Number.isNaN(dt) ? null : dt, toks, set: new Set(toks), sh: shingles(toks), a, f: !grouped || dt > fresh && !OFFICIAL_SRC.has(a.source) };
+    let toks = TOKS.get(a.title);
+    if (!toks) TOKS.set(a.title, toks = titleTokens(a.title));
+    return { dt: Number.isNaN(dt) ? null : dt, toks, set: new Set(toks), a, f: !grouped || dt > fresh && !OFFICIAL_SRC.has(a.source) };
   }).sort((x, y) => (y.dt ?? 0) - (x.dt ?? 0));
-  const clusters = [], hot = [];
+  const clusters = [], index = new Map();
+  const join = (members, item) => {
+    members.push(item);
+    if (members.i != null) for (const t of item.set) { let c = index.get(t); if (!c) index.set(t, c = new Set()); c.add(members); }
+  };
   for (const item of prepared) {
     let placed = null;
     if (item.dt != null && item.toks.length >= 3 && (item.f || !OFFICIAL_SRC.has(item.a.source))) {
-      for (const members of item.f ? clusters : hot) {
-        const head = members[0].dt;
-        if (head == null || Math.abs(item.dt - head) > GROUP_MS) continue;
-        if (members.some(m => m.a.source === item.a.source)) continue;
-        if (members.some(m => {
-          if (m.dt == null || Math.abs(item.dt - m.dt) > GROUP_MS) return false;
-          let k = 0;
-          for (const x of item.set) if (m.set.has(x)) k++;
-          return k >= 3 && titlesSimilar(item.toks, item.sh, m.toks, m.sh);
-        })) { members.push(item); placed = members; break; }
+      const hits = new Map();
+      for (const t of item.set) for (const c of index.get(t) || []) hits.set(c, (hits.get(c) || 0) + 1);
+      const cand = [...hits].filter(([, n]) => n >= 3).map(([c]) => c).sort((x, y) => x.i - y.i);
+      for (const members of cand) {
+        if (Math.abs(item.dt - members[0].dt) > GROUP_MS || members.some(m => m.a.source === item.a.source)) continue;
+        if (members.some(m => m.dt != null && Math.abs(item.dt - m.dt) <= GROUP_MS && titlesSimilar(item.toks, item.sh ??= shingles(item.toks), m.toks, m.sh ??= shingles(m.toks)))) { placed = members; break; }
       }
     }
-    if (!placed) clusters.push(placed = [item]);
-    if (item.f && !placed.hot) { placed.hot = 1; hot.push(placed); }
+    if (!placed) { clusters.push(placed = []); if (item.f) placed.i = clusters.length; }
+    join(placed, item);
   }
   const out = [];
   for (const members of clusters) {
