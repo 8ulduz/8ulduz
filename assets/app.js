@@ -329,35 +329,47 @@ function preferPrimary(a, b) {
   if ((a.summary || "").length !== (b.summary || "").length) return (a.summary || "").length > (b.summary || "").length ? a : b;
   return (a.publishedAt || "") >= (b.publishedAt || "") ? a : b;
 }
-// updater.py qruplamayıbsa, eyni qayda ilə brauzerdə birləşdir (news.json yığcam qalır, alts gələndə ona etibar edir)
+// updater.py-nin qaydası ilə brauzerdə birləşdir. Server qrupları yavaş prosesdə hesablayır: ondan sonra gələn xəbərlər
+// (son 3 saat) ayrı qalır. Onda yalnız bu təzə xəbərlər hamı ilə müqayisə olunur, köhnə qruplar olduğu kimi qalır.
 function clusterArticles(list) {
-  if (!list?.length || list.some(a => a.alts?.length)) return list;
+  if (!list?.length) return list;
+  const grouped = list.some(a => a.alts?.length), fresh = Date.now() - 3 * HOUR;
   const prepared = list.map(a => {
     const dt = new Date(a.publishedAt).getTime();
     const toks = titleTokens(a.title);
-    return { dt: Number.isNaN(dt) ? null : dt, toks, sh: shingles(toks), a };
+    return { dt: Number.isNaN(dt) ? null : dt, toks, set: new Set(toks), sh: shingles(toks), a, f: !grouped || dt > fresh && !OFFICIAL_SRC.has(a.source) };
   }).sort((x, y) => (y.dt ?? 0) - (x.dt ?? 0));
-  const clusters = [];
+  const clusters = [], hot = [];
   for (const item of prepared) {
-    let placed = false;
-    if (item.dt != null && item.toks.length >= 3) {
-      for (const members of clusters) {
+    let placed = null;
+    if (item.dt != null && item.toks.length >= 3 && (item.f || !OFFICIAL_SRC.has(item.a.source))) {
+      for (const members of item.f ? clusters : hot) {
         const head = members[0].dt;
         if (head == null || Math.abs(item.dt - head) > GROUP_MS) continue;
         if (members.some(m => m.a.source === item.a.source)) continue;
-        if (members.some(m => m.dt != null && Math.abs(item.dt - m.dt) <= GROUP_MS && titlesSimilar(item.toks, item.sh, m.toks, m.sh))) {
-          members.push(item); placed = true; break;
-        }
+        if (members.some(m => {
+          if (m.dt == null || Math.abs(item.dt - m.dt) > GROUP_MS) return false;
+          let k = 0;
+          for (const x of item.set) if (m.set.has(x)) k++;
+          return k >= 3 && titlesSimilar(item.toks, item.sh, m.toks, m.sh);
+        })) { members.push(item); placed = members; break; }
       }
     }
-    if (!placed) clusters.push([item]);
+    if (!placed) clusters.push(placed = [item]);
+    if (item.f && !placed.hot) { placed.hot = 1; hot.push(placed); }
   }
   const out = [];
   for (const members of clusters) {
+    if (members.length === 1) { out.push(members[0].a); continue; }
     let primary = members[0].a;
     for (const m of members.slice(1)) primary = preferPrimary(primary, m.a);
-    const alts = members.filter(m => m.a !== primary).map(m => ({ source: m.a.source, sourceUrl: m.a.sourceUrl, publishedAt: m.a.publishedAt, imageUrl: m.a.imageUrl || "" }));
-    if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+    const alts = [], urls = new Set([primary.sourceUrl]);
+    for (const { a } of members) for (const x of [a, ...(a.alts || [])]) {
+      if (!x.sourceUrl || urls.has(x.sourceUrl)) continue;
+      urls.add(x.sourceUrl);
+      alts.push({ source: x.source, sourceUrl: x.sourceUrl, publishedAt: x.publishedAt, imageUrl: x.imageUrl || "" });
+    }
+    primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
     out.push(primary);
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
@@ -1587,8 +1599,10 @@ function homeView() {
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining);
   if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
-  const secs = homeCats().map(c => lazySection(catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug))))).join("");
-  return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
+  // Slayderdə və «Son xəbərlər»də görünən xəbər aşağıdakı bloklarda təkrarlanmır
+  const seen = new Set([...hero, ...(S.latestOrder === "sources" ? rankBySources(remaining) : byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
+  const secs = homeCats().map(c => lazySection(catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug && fresh(a)))))).join("");
+  return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
 // Paylaşılan keçid sonradan da açılsın. Xəbər başqası ilə qruplaşıbsa nömrəsi lentdə qalmır (id ünvanın sha1-idir, updater.py ilə eyni),
 // lentdən çıxıbsa bölmə arxivindədir (5 gün). Bu axtarış yalnız lentdə tapılmayan keçiddə işləyir.
