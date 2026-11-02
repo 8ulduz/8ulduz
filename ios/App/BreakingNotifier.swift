@@ -48,9 +48,10 @@ enum BreakingNotifier {
 
         let language = defaults.object(forKey: languageKey) == nil ? "az" : (defaults.string(forKey: languageKey) ?? "az")
         let dead = Set(loaded.value.dead)
-        let fresh = Ranking.filtered(policy.clean(loaded.value.articles), language: language.isEmpty ? nil : language)
-            .filter { $0.isWithinHour() && !dead.contains($0.sourceUrl) }
-        let ids = fresh.map(\.id)
+        let recent = policy.clean(loaded.value.articles).filter { $0.isWithinHour() && !dead.contains($0.sourceUrl) }
+        let fresh = Ranking.filtered(recent, language: language.isEmpty ? nil : language)
+        // «Görülmüş» siyahı bütün dillərdir: dil dəyişəndə köhnə xəbər təzə kimi gəlmir.
+        let ids = recent.map(\.id)
         guard let seen = defaults.stringArray(forKey: seenKey) else {
             defaults.set(ids, forKey: seenKey)
             return

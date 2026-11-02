@@ -96,12 +96,12 @@ final class AppFlowTests: XCTestCase {
         league.tap()
         let team = app.buttons.matching(identifier: "team-row").firstMatch
         XCTAssertTrue(team.waitForExistence(timeout: 20), "liqanın cədvəli gəlmədi")
-        sleep(2)
+        sleep(6) // loqolar yüklənsin
         shot("8-liqa")
 
         team.tap()
         XCTAssertTrue(app.staticTexts["Son nəticələr"].waitForExistence(timeout: 20), "komanda səhifəsi açılmadı")
-        sleep(2)
+        sleep(6)
         shot("9-komanda")
     }
 

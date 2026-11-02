@@ -512,7 +512,7 @@ struct TeamLogo: View {
     var body: some View {
         Group {
             if let link = TextTools.webURL(url) {
-                RemoteImage(urls: [link], category: "idman", maxPixel: size * 3, contentMode: .fit)
+                RemoteImage(urls: [link], category: "idman", maxPixel: size * 3, contentMode: .fit, showsPlaceholder: false)
             } else {
                 Text(String(name.prefix(1)))
                     .font(.system(size: size * 0.46, weight: .bold))

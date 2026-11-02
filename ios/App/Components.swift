@@ -94,6 +94,7 @@ struct RemoteImage: View {
     var category: String = "gundem"
     var maxPixel: CGFloat = 900
     var contentMode: ContentMode = .fill
+    var showsPlaceholder = true
 
     @State private var image: UIImage?
     @State private var finished = false
@@ -106,7 +107,7 @@ struct RemoteImage: View {
                         .resizable()
                         .aspectRatio(contentMode: contentMode)
                         .transition(.opacity)
-                } else {
+                } else if showsPlaceholder {
                     ImagePlaceholder(category: category, loading: !finished)
                 }
             }

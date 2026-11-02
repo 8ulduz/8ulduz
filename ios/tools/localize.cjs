@@ -86,9 +86,11 @@ function main() {
     const lang = site(code);
     const app = appAll[code] || {};
     tables[code] = { lang, rows: [] };
-    for (const key of [...new Set([...keys, ...Object.keys(app)])].sort()) {
+    // %, $ işarəli yazılar saytın öz şablonudur: format sətri kimi oxunmasın.
+    const data = Object.keys(lang.w).filter(k => !/[%$]/.test(k + lang.w[k]));
+    for (const key of [...new Set([...keys, ...Object.keys(app), ...data])].sort()) {
       const value = translate(key, lang, app);
-      if (value === null) missing.set(key, (missing.get(key) || []).concat(code));
+      if (value === null) { if (keys.includes(key)) missing.set(key, (missing.get(key) || []).concat(code)); }
       else tables[code].rows.push([key, value]);
     }
   }

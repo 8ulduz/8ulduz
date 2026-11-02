@@ -24,7 +24,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Alətlər
         run: |
@@ -89,7 +89,7 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             | xcbeautify --renderer github-actions
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
           name: ekran-sekilleri
@@ -97,7 +97,7 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: failure()
         with:
           name: test-neticesi
@@ -111,7 +111,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Açarı hazırla
         env:
