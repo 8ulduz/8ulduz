@@ -28,7 +28,7 @@ Eyni hadisə haqqında müxtəlif saytların xəbərləri bir kartda birləşir.
 Gündəm, siyasət, iqtisadiyyat, cəmiyyət, dünya, idman, mədəniyyət, sağlamlıq və həyat, təhsil və elm, bölgələr və daha çox. Bölmələrin sırasını özünüz qurun, lazım olmayanları gizlədin.
 
 ■ Son dəqiqə bildirişləri
-İstəsəniz, vacib xəbərlər bildiriş kimi gəlir. Bildiriş üçün qeydiyyat və ya hesab lazım deyil.
+İstəsəniz, tətbiq açıq olanda yeni xəbərlər bildiriş kimi gəlir. Tətbiq bağlı olanda bildiriş Android-in icazə verdiyi vaxtlarda, gecikmə ilə gələ bilər. Qeydiyyat və ya hesab lazım deyil.
 
 ■ Bazar və gündəlik məlumat
 Dollar, avro, rubl və lirənin məzənnəsi, neft, qızıl və gümüş qiymətləri, şəhərinizin havası və namaz vaxtları — hamısı bir ekranda.

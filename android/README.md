@@ -4,7 +4,7 @@ Bu qovluq 8ulduz.az-ın Google Play tətbiqidir. Tətbiq **Trusted Web Activity 
 
 **Nəticədə:**
 - Saytda edilən hər dəyişiklik tətbiqdə dərhal görünür; yeni xəbər və ya dizayn üçün tətbiqi yeniləməyə ehtiyac yoxdur.
-- Tətbiq çox yüngüldür (bir neçə MB), Chrome-un sürətini, girişlərini və təhlükəsizlik yeniləmələrini istifadə edir.
+- Tətbiq çox yüngüldür (AAB təxminən 1 MB), Chrome-un sürətini, girişlərini və təhlükəsizlik yeniləmələrini istifadə edir.
 - Saytın «Son dəqiqə» bildirişləri tətbiqin adı və ikonu ilə gəlir (Android 13+ üçün icazə istənilir).
 - 8ulduz.az keçidləri (məs. WhatsApp-dan) tətbiqdə açılır, xəbər mənbələrinin keçidləri isə tətbiqin içində açılan brauzer pəncərəsində.
 - İkonu basılı saxlayanda qısa yollar: Gündəm, İdman, Seçilmişlər, Axtar.
@@ -22,28 +22,24 @@ Bu qovluq 8ulduz.az-ın Google Play tətbiqidir. Tətbiq **Trusted Web Activity 
 Kompüterdə Android Studio lazım deyil. `android/**` dəyişəndə GitHub Actions (`.github/workflows/android.yml`) avtomatik:
 
 1. lint yoxlamasını keçirir;
-2. imzalı **AAB** (Play üçün) və **APK** (telefona birbaşa quraşdırmaq üçün) yığır;
-3. imzanın barmaq izinin `.well-known/assetlinks.json`-da olduğunu yoxlayır;
-4. faylları **Actions → Android tətbiqi → son işin «Artifacts» bölməsinə** qoyur.
+2. **imzasız AAB** və test APK-sı yığır (secret-lər yazılıbsa, imzalı AAB və APK);
+3. faylları **Actions → Android tətbiqi → son işin «Artifacts» bölməsinə** qoyur.
+
+AAB sonra kompüterdə yükləmə açarı ilə imzalanır (aşağıda). Beləcə açar və parol GitHub-a getmir.
 
 `versionCode` hər yığımda avtomatik artır. Mağazada görünən versiyanı (`1.0.0`) `android/gradle.properties`-də dəyişin.
 
 ## Bir dəfəlik quraşdırma
 
-### 1. İmza açarı → GitHub secrets
+### 1. İmza açarı
 
-Play-ə yüklənən hər fayl eyni **yükləmə açarı** ilə imzalanmalıdır. Açar repoda **yoxdur** (repo açıqdır) və GitHub-da iki secret kimi saxlanır:
-
-| Secret | Dəyər |
-|---|---|
-| `ANDROID_KEYSTORE_BASE64` | `upload-keystore.p12` faylının base64 forması |
-| `ANDROID_KEYSTORE_PASSWORD` | açarın parolu |
-
-Repo → Settings → Secrets and variables → Actions və ya `gh secret set` ilə yazılır. Secret yoxdursa, workflow test APK-sı və imzasız AAB yığır. Bu AAB-ı açarı GitHub-a vermədən kompüterdə imzalamaq olar (JDK 17 lazımdır):
+Play-ə yüklənən hər fayl eyni **yükləmə açarı** ilə imzalanmalıdır. Açar repoda **yoxdur** (repo açıqdır), sahibinin kompüterində saxlanır. Actions-dakı imzasız AAB belə imzalanır (JDK 17 lazımdır):
 
 ```bash
 jarsigner -keystore upload-keystore.p12 -storetype pkcs12 -storepass:file parol.txt -sigalg SHA256withRSA -digestalg SHA-256 -signedjar 8ulduz.aab 8ulduz-imzasiz.aab upload
 ```
+
+İstəsəniz yığımı GitHub-da da imzalatmaq olar: repo sahibi hesabı `ANDROID_KEYSTORE_BASE64` (`upload-keystore.p12`-nin base64 forması) və `ANDROID_KEYSTORE_PASSWORD` secret-lərini yazmalıdır. Onda workflow imzanın barmaq izini `.well-known/assetlinks.json` ilə də yoxlayır.
 
 > Açarı və parolu itirsəniz, Play Console-dan yeni yükləmə açarı istəmək mümkündür (Play App Signing sayəsində), amma bu bir neçə gün çəkir. Ehtiyat nüsxəsini saxlayın.
 
@@ -70,7 +66,7 @@ Play App Signing tətbiqi Google-un öz açarı ilə yenidən imzalayır. Ünvan
 Sayt dəyişiklikləri üçün buna ehtiyac yoxdur. Yalnız tətbiqin özü (ikon, ad, qısa yollar, Android versiyası) dəyişəndə:
 
 1. `android/gradle.properties`-də `appVersionName`-i artırın, dəyişikliyi `main`-ə salın.
-2. Actions-dakı yeni `.aab` faylını Play Console-a yükləyin.
+2. Actions-dakı yeni imzasız `.aab` faylını imzalayıb Play Console-a yükləyin.
 
 **Avtomatik yükləmə (istəyə bağlı):** Google Cloud-da Play Developer API xidmət hesabı yaradıb Play Console-da ona «Buraxılışları idarə et» icazəsi verin, JSON açarını `PLAY_SERVICE_ACCOUNT_JSON` secret-inə yazın. Sonra Actions → Android tətbiqi → **Run workflow** → `internal` / `alpha` / `production`. İstehsal buraxılışı qaralama kimi gedir, «Yayımla»nı Play Console-da siz basırsınız. İlk buraxılış həmişə əl ilə yüklənməlidir.
 

@@ -1249,6 +1249,25 @@ test('site language: Azerbaijani visitors do not load the translation', () => {
   assert.ok(src.slice(at - 260, at).includes('if (uiLang(S.lang))'), 'yalnız başqa dil seçiləndə');
   for (const f of ['assets/dil.js', 'assets/dil-ru.js', 'assets/dil-tr.js', 'assets/dil-en.js']) assert.ok(fs.statSync(path.join(root, f)).size < 60e3, f);
 });
+// CSP: daxili skript yalnız hash ilə, daxili hadisə işləyicisi yoxdur.
+test('content security policy allows only the page own inline script', () => {
+  const crypto = require('crypto');
+  const read = p => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
+  const index = read('index.html');
+  const policy = index.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
+  assert.ok(!policy.includes('unsafe-inline'));
+  assert.ok(!/connect-src|default-src/.test(policy), 'canlı kanal CSP ilə bloklanmamalıdır');
+  const inline = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  assert.equal(inline.length, 1);
+  const hash = crypto.createHash('sha256').update(inline[0], 'utf8').digest('base64');
+  assert.ok(policy.includes("'sha256-" + hash + "'"), 'inline skript dəyişib, CSP hash-i yenilənməlidir');
+  const updater = read('updater.py');
+  const template = updater.match(/_CSP = "([^"]+)"/)[1].replace('{hashes}', "'sha256-" + hash + "'");
+  assert.equal(template, policy);
+  for (const p of ['index.html', 'assets/app.js', 'assets/komanda.js', 'assets/dil.js', 'assets/reader.js', 'assets/assistant.js'])
+    assert.ok(!/\son(error|load|click|change|input|submit)=["']/.test(read(p)), p + ' daxili hadisə işləyicisi saxlayır');
+});
+
 // Komanda səhifəsi: assets/komanda.js modulu eyni kontekstdə, app.js-in köməkçiləri ilə işləyir.
 function teamPage(files, articles = []) {
   const ctx = app({ history: { pushState() {}, back() {} }, Promise, RegExp, WeakMap });

@@ -708,5 +708,23 @@ class DateFloorTest(unittest.TestCase):
         self.assertTrue(updater._older_than("Fri,  30   Oct 2026 05:00:00 GMT", floor))
 
 
+class SafeUrlTest(unittest.TestCase):
+    def test_public_links_pass(self):
+        for url in ("https://oxu24.com/a?b=1", "http://sayt.az/xəbər başlığı", " https://sayt.az/a\n", "https://8.8.8.8/a"):
+            self.assertTrue(content_policy.safe_url(url), url)
+
+    def test_internal_and_confusing_links_fail(self):
+        for url in ("http://169.254.169.254/latest", "http://127.0.0.1/", "http://127.1/", "http://0x7f.1/", "http://2130706433/",
+                    "http://[::1]/", "http://10.0.0.1/", "http://localhost:8080/", "http://printer.local/", "file:///etc/passwd",
+                    "javascript://sayt.az/%0aalert(1)", "https://evil.com\\@report.az/", "https://report.az@evil.com/",
+                    "https://report.az/a\tb", "", None):
+            self.assertFalse(content_policy.safe_url(url), url)
+
+    def test_policy_refuses_a_link_browsers_read_differently(self):
+        name, domains = next(iter(content_policy.AZ_SOURCES.items()))
+        self.assertTrue(content_policy.source_allowed(name, f"https://{domains[0]}/a"))
+        self.assertFalse(content_policy.source_allowed(name, f"https://evil.com\\@{domains[0]}/a"))
+
+
 if __name__ == "__main__":
     unittest.main()

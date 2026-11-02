@@ -1,0 +1,4 @@
+Contact: mailto:8ulduz.az@gmail.com
+Expires: 2027-11-01T00:00:00.000Z
+Preferred-Languages: az, en, ru
+Canonical: https://8ulduz.az/.well-known/security.txt
