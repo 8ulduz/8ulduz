@@ -565,6 +565,7 @@ function homeCats() {
 function notifyOn() { return storage.getItem(NOTIFY_KEY) === "1" && "Notification" in window && Notification.permission === "granted"; }
 function checkBreaking(articles) {
   if (!notifyOn()) return;
+  tellWorkerLang();
   const fresh = (articles || []).filter(isFresh);
   let seen = null;
   try { seen = JSON.parse(storage.getItem(SEEN_KEY) || "null"); } catch {}
@@ -573,10 +574,13 @@ function checkBreaking(articles) {
     return;
   }
   const known = new Set(seen);
-  const novel = fresh.filter(a => a.id && !known.has(a.id)).slice(0, 3);
+  // Bildiriş seçilmiş dildədir; «görülmüş» siyahı isə bütün dillərdir: dil dəyişəndə köhnə xəbər təzə kimi gəlmir.
+  const novel = filtered(fresh).filter(a => a.id && !known.has(a.id)).slice(0, 3);
   for (const a of novel) showBreaking(a);
   storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
 }
+// Fon yoxlaması (sw.js) localStorage görmür: seçilmiş dili ona bildiririk.
+function tellWorkerLang() { try { navigator.serviceWorker?.controller?.postMessage({ type: "notify-lang", lang: S.lang || "" }); } catch {} }
 // Android-də new Notification xəta verir (bildiriş «aktiv» görünür, amma gəlmir): əvvəl service worker.
 async function showBreaking(a) {
   const options = { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id };
@@ -597,6 +601,7 @@ async function armNotify() {
   if (perm === "default") { try { perm = await Notification.requestPermission(); } catch { perm = "denied"; } }
   if (perm !== "granted") { storage.removeItem(NOTIFY_KEY); renderTicker(); return; }
   storage.setItem(NOTIFY_KEY, "1");
+  tellWorkerLang();
   storage.setItem(SEEN_KEY, JSON.stringify((S.data?.articles || []).filter(isFresh).map(a => a.id)));
   try {
     const reg = await navigator.serviceWorker.ready;

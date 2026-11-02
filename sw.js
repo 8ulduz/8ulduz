@@ -188,6 +188,16 @@ async function writeSeen(ids) {
   const cache = await caches.open(DATA);
   await cache.put(SEEN_URL, new Response(JSON.stringify(ids), { headers: { "Content-Type": "application/json" } }));
 }
+const LANG_URL = new URL("./notify-lang.json", SCOPE_URL).toString();
+async function readLang() { // "" = bütün dillər; hələ bildirilməyibsə saytın standart dili
+  const hit = await (await caches.open(DATA)).match(LANG_URL);
+  if (!hit) return "az";
+  try { const v = await hit.json(); return typeof v === "string" ? v : "az"; } catch { return "az"; }
+}
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "notify-lang") return;
+  event.waitUntil(caches.open(DATA).then((c) => c.put(LANG_URL, new Response(JSON.stringify(String(event.data.lang || "")), { headers: { "Content-Type": "application/json" } }))));
+});
 async function syncBreaking() {
   const res = await freshData(new Request(new URL("data/latest.json", SCOPE_URL)));
   if (!res) return;
@@ -203,7 +213,8 @@ async function syncBreaking() {
     return;
   }
   const known = new Set(seen);
-  const novel = fresh.filter((a) => a.id && !known.has(a.id)).slice(0, 2);
+  const lang = await readLang();
+  const novel = fresh.filter((a) => a.id && !known.has(a.id) && (!lang || a.lang === lang)).slice(0, 2);
   for (const a of novel) {
     await self.registration.showNotification("Son dəqiqə", {
       body: decodeBasic(a.title),
