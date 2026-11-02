@@ -1301,7 +1301,7 @@ def compute_groups():
 
 
 def apply_groups(articles):
-    """Yavaş prosesin qruplarını lentə tətbiq edir. Yeni xəbərlər növbəti hesablamaya qədər ayrı qalır, brauzer onları da birləşdirir."""
+    """Yavaş prosesin qruplarını lentə tətbiq edir. Ondan sonra gələn təzə xəbərləri attach_fresh qoşur."""
     # Qrup faylı dəyişiklikdən əvvəl yazılıb ola bilər: köhnə keçid buradan lentə qayıtmasın.
     groups = {fix_source_link(url): [{**alt, "sourceUrl": fix_source_link(alt.get("sourceUrl"))} for alt in alts] for url, alts in _read_json(GROUPS_FILE, {}).items()}
     present = {a.get("sourceUrl") for a in articles}
@@ -1317,7 +1317,60 @@ def apply_groups(articles):
             alts = [alt for alt in groups.get(url, []) if alt.get("sourceUrl") != url]
             a = {**a, "alts": alts} if alts else {k: v for k, v in a.items() if k != "alts"}
         out.append(a)
-    return out
+    try:
+        return attach_fresh(out)
+    except Exception as e:  # qırmızı xətt 1: birləşmə alınmasa lent olduğu kimi yazılır
+        print(f"təzə xəbər qruplanmadı: {e!r}")
+        return out
+
+
+FRESH_GROUP = datetime.timedelta(minutes=30)
+
+def attach_fresh(articles, now=None):
+    """Yavaş proses qrupları ~4-9 dəqiqədən bir hesablayır; ondan sonra gələn xəbər (son 30 dəqiqə) eyni hadisənin
+    kartına alternativ kimi qoşulur. Əvvəl bunu brauzer edirdi və telefonda ~1 s çəkirdi.
+    Qayda group_duplicates kimidir: eyni başlıq və ya oxşar başlıq, fərqli mənbə, 36 saat içində; rəsmi mənbə toxunulmur.
+    Namizəd ortaq sözlə tapılır (söz indeksi), hamı hamı ilə müqayisə olunmur."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    items = []
+    for a in articles:
+        toks = _title_tokens(a.get("title") or "")
+        items.append((a, _parse_dt(a.get("publishedAt")), toks, set(toks)))
+    index = collections.defaultdict(list)
+    for i, (_a, _dt, _toks, ts) in enumerate(items):
+        for t in ts:
+            index[t].append(i)
+    order = sorted(range(len(items)), key=lambda i: items[i][1] or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc), reverse=True)
+    merged, target = set(), {}
+    for i in order:
+        a, dt, toks, ts = items[i]
+        if (i in merged or i in target or dt is None or now - dt > FRESH_GROUP or len(toks) < 3
+                or a.get("alts") or a.get("source") in OFFICIAL_SOURCES):
+            continue
+        key = _norm_title(a.get("title") or "")
+        hits = collections.Counter(j for t in ts for j in index[t] if j != i and j not in merged)
+        best, best_score = None, 0
+        for j, n in hits.items():
+            if n < 3:
+                continue
+            b, bdt, btoks, _bts = items[j]
+            b = target.get(j, b)
+            srcs = {b.get("source")} | {x.get("source") for x in b.get("alts") or []}
+            if bdt is None or abs(dt - bdt) > GROUP_WINDOW or b.get("source") in OFFICIAL_SOURCES or a.get("source") in srcs:
+                continue
+            score = 4 if len(key) >= 12 and key == _norm_title(b.get("title") or "") else 3 if _titles_similar(toks, _shingles(toks), btoks, _shingles(btoks)) else 0
+            if score > best_score or score and score == best_score and len(b.get("alts") or []) > len(target.get(best, items[best][0]).get("alts") or []):
+                best, best_score = j, score
+        if best is None:
+            continue
+        b = target.get(best, items[best][0])
+        alt = _compact_alt(a)
+        if not alt:
+            continue
+        alts = sorted([*(b.get("alts") or []), alt], key=lambda x: x.get("publishedAt") or "", reverse=True)
+        target[best] = {**b, "alts": alts, "imageUrl": b.get("imageUrl") or a.get("imageUrl") or ""} if not b.get("imageUrl") and a.get("imageUrl") else {**b, "alts": alts}
+        merged.add(i)
+    return [target.get(i, a) for i, (a, _dt, _toks, _ts) in enumerate(items) if i not in merged]
 
 
 BULK_MIN_ITEMS, BULK_SPAN_S = 50, 1800
