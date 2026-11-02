@@ -418,7 +418,9 @@ const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"
 function imageCandidates(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
-  return [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))];
+  // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
+  const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
+  return [...all.filter(u => !cut(u)), ...all.filter(cut)];
 }
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // Mənbələrin şəkilləri 1-2 MB olur, ilk açılış 11-16 MB idi. wsrv.nl kiçildir (orta 15 KB). Alınmasa imgFail əsl ünvana keçir,
@@ -468,6 +470,8 @@ const imgFail = el => {
   if (box?.matches("a.img,div.img")) box.insertAdjacentHTML("afterbegin", imageFallback(el.closest("[data-cat]")?.dataset.cat));
 };
 // CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
+// Slayder şəkli çərçivədən az fərqlənirsə (20%) onu doldurur, çox fərqlənirsə bütöv qalır
+document.addEventListener("load", ({ target: t }) => { if (t.tagName === "IMG" && t.closest(".hero-main")) { const r = t.naturalWidth / t.naturalHeight / (t.clientWidth / t.clientHeight || 1); t.style.objectFit = r > .8 && r < 1.25 ? "cover" : ""; } }, true);
 document.addEventListener("error", ({ target: t }) => { const f = t.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && (t.style.visibility = "hidden"); }, true);
 
 /* ---------------------------------------------------------------- vəziyyət */
@@ -1545,6 +1549,7 @@ function videosView() {
 }
 function catSection(c, list) {
   if (!list.length) return "";
+  list = picFirst(list);
   return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length} xəbər</span><a class="more" href="#/bolme/${c.slug}">Bütün xəbərlər →</a></div><div class="strip category-strip"><div class="news-row">${list.slice(0, 12).map(card).join("")}</div></div></section>`;
 }
 
@@ -1583,8 +1588,9 @@ function heroPick(list, need = 9) {
   return diverse(rankBySources(list), need);
 }
 
+const picFirst = l => [...l.filter(imgUrl), ...l.filter(a => !imgUrl(a))]; // şəkilsiz xəbər ana səhifədə sona
 function latestBlock(list) {
-  const ranked = S.latestOrder === "sources" ? rankBySources(list) : byDate(list);
+  const ranked = picFirst(S.latestOrder === "sources" ? rankBySources(list) : byDate(list));
   const count = S.latestCount || 8;
   return `<section><div class="sec-h"><h2>Son xəbərlər</h2><div class="feed-tabs"><button data-feed="latest" class="pill${S.latestOrder !== "sources" ? " on" : ""}" aria-pressed="${S.latestOrder !== "sources"}">Ən yeni</button><button data-feed="sources" class="pill${S.latestOrder === "sources" ? " on" : ""}" aria-pressed="${S.latestOrder === "sources"}">Ən çox mənbədə</button></div></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
@@ -1600,7 +1606,7 @@ function homeView() {
   const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining);
   if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
   // Slayderdə və «Son xəbərlər»də görünən xəbər aşağıdakı bloklarda təkrarlanmır
-  const seen = new Set([...hero, ...(S.latestOrder === "sources" ? rankBySources(remaining) : byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
+  const seen = new Set([...hero, ...picFirst(S.latestOrder === "sources" ? rankBySources(remaining) : byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
   const secs = homeCats().map(c => lazySection(catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug && fresh(a)))))).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
