@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-oEyXr12I13QEORknCZj0tm3xNiJusEPdXV0ZzZ4E9s8=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-SiSYOT7BtqEF/3CpjqQKL0kbTckq7OPeJWBNgsF6RyY=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.js" />
     <script>
@@ -29,6 +29,7 @@
         var lang = null;
         try { lang = localStorage.getItem("8ulduz-lang"); } catch (e) {}
         var home = (location.hash === "" || location.hash === "#/") && (lang === null || lang === "az");
+        document.documentElement.dataset.route = home ? "home" : "other"; // statik skelet yalnız baş səhifədə görünür (app.css .pre-skel)
         var files = home ? ["data/first.json"] : ["data/news.json", "data/og.json"];
         // Paylaşılan keçid (#/xeber/ID): xəbərin sətri 32 hissəli paylaşma siyahısından (~20 KB) tam lentdən əvvəl gəlir (app.js loadShared).
         var art = location.hash.match(/^#\/xeber\/([0-9a-f]{16})/);
@@ -113,9 +114,9 @@
   <div id="ticker"></div>
   <div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <div class="filters"><div class="wrap" id="langs"><a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a></div></div>
-  <main><div class="wrap" id="view" tabindex="-1"><section class="prez"><div class="skel" style="height:180px"></div></section>
+  <main><div class="wrap" id="view" tabindex="-1"><div class="pre-skel"><section class="prez"><div class="skel" style="height:180px"></div></section>
     <section class="hero"><div class="skel" style="height:340px"></div></section>
-    <section><div class="grid"><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div></div></section><noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript></div></main>
+    <section><div class="grid"><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div></div></section></div><noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript></div></main>
   <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="https://t.me/" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <button class="newpill" id="newpill" data-act="apply-new" aria-live="polite" hidden></button>

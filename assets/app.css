@@ -696,6 +696,7 @@ footer .logo img{height:28px}
 .foot-news a{text-align:left;font-size:13px;font-weight:600;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:860px){.ytgrid{grid-template-columns:1fr 1fr}}
 .err{border:1px solid hsl(0 84% 60%/.4);background:hsl(0 84% 60%/.1);border-radius:8px;padding:8px 10px;font-size:0.9286rem;margin-bottom:10px}
+html[data-route=other] .pre-skel{display:none} /* statik skelet baş səhifə formasındadır: başqa marşrutda çəkilmir, səhifə atlamır */
 .skel{border-radius:10px;background:linear-gradient(100deg,var(--card2) 30%,hsl(222 28% 18%) 48%,var(--card2) 62%);background-size:220% 100%;animation:shimmer 1.15s linear infinite}
 :root[data-theme="light"] .skel{background:linear-gradient(100deg,var(--card2) 30%,#fff 48%,var(--card2) 62%);background-size:220% 100%}
 @keyframes shimmer{to{background-position:-220% 0}}

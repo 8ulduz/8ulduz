@@ -1415,7 +1415,7 @@ test('speed red line: index.html carries the same shell app.js builds, with nav 
   let want = parts.app;
   want = want.replace(/(<nav class="main" id="nav" aria-label="Bölmələr">)(<\/nav>)/, (_, a, b) => a + parts.nav + b);
   want = want.replace(/(<div class="wrap" id="langs">)(<\/div>)/, (_, a, b) => a + parts.langs + b);
-  want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + parts.skeleton + '<noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
+  want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + '<div class="pre-skel">' + parts.skeleton + '</div><noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
   assert.equal(m[1], want, 'index.html qabığı app.js shell() ilə eyni deyil');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(src.includes('if (!$("#app").dataset?.shell) $("#app").innerHTML'), 'shell() statik qabığı silməməlidir');

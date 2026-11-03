@@ -1634,7 +1634,8 @@ function catSection(c, list) {
   return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length} xəbər</span><a class="more" href="#/bolme/${c.slug}">Bütün xəbərlər →</a></div><div class="strip category-strip"><div class="news-row">${list.slice(0, 12).map(card).join("")}</div></div></section>`;
 }
 
-function skeleton() {
+function skeleton(kind) {
+  if (kind === "article") return `<div class="skel" style="height:30px;margin:14px 0 10px"></div><div class="skel" style="height:200px"></div>`; // başlıq + şəkil yeri: xəbər gələndə səhifə atlamır
   return `<section class="prez"><div class="skel" style="height:180px"></div></section>
     <section class="hero"><div class="skel" style="height:340px"></div></section>
     <section><div class="grid">${"<div class='skel' style='height:220px'></div>".repeat(4)}</div></section>`;
@@ -1955,7 +1956,7 @@ function renderView() {
     // Paylaşılan keçid: xəbərin sətri paylaşma siyahısından gəlibsə tam lent gözlənilmir (loadShared).
     const shared = r.name === "article" && S.sharedStory?.id === r.id;
     if (S.error && (!S.data || onlyFirst) && !shared) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
-    if ((!S.data || onlyFirst) && !shared) { S.viewPage = null; v.innerHTML = skeleton(); return; }
+    if ((!S.data || onlyFirst) && !shared) { S.viewPage = null; v.innerHTML = skeleton(r.name === "article" ? "article" : ""); return; }
     const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
     const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
     // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
