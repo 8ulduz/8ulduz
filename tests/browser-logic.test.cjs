@@ -320,6 +320,9 @@ test('speed red line: images are resized and the original stays as the fallback'
   assert.equal(sized(url,480),'https://wsrv.nl/?url='+encodeURIComponent(url)+'&w=480&we&output=webp&q=70');
   assert.equal(sized('https://apa.az/a.svg',480),'https://apa.az/a.svg');
   assert.equal(sized('https://apa.az/a.gif?x=1',480),'https://apa.az/a.gif?x=1');
+  assert.equal(sized('https://metbuat.az/a.jpg',480),'https://metbuat.az/a.jpg','wsrv 404 verən sayt birbaşa');
+  assert.equal(sized('https://cdn.sporx.com/a.jpg',480),'https://cdn.sporx.com/a.jpg');
+  assert.ok(sized('https://files.modern.az/a.jfif',320).includes('wsrv.nl'),'jfif kiçildilir');
   const html=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'});
   assert.ok(html.includes('wsrv.nl'));
   assert.ok(html.includes('data-image-alternatives="[&quot;https://apa.az/a.jpg&quot;]"'),'alınmasa əsl ünvan');
@@ -334,6 +337,25 @@ test('speed red line: images are resized and the original stays as the fallback'
   assert.ok(img({imageUrl:'https://apa.az/a.jpg'}).includes('loading="lazy"') && img({imageUrl:'https://apa.az/a.jpg'}).includes('decoding="async"'));
   S.proxyFails=8;
   assert.equal(sized(url,480),url,'xidmət işləmirsə birbaşa mənbədən');
+});
+test('phone cards also open the source in a new tab', () => {
+  const ctx = app({ matchMedia: q => ({ matches: String(q).includes('hover:none') }) });
+  const at = new Date().toISOString();
+  const html = ctx.api.card({ id: '1', title: 'Başlıq', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at, imageUrl: 'https://apa.az/a.jpg' });
+  assert.ok(html.includes('target="_blank" rel="noopener noreferrer"'));
+});
+test('Turkish home still lists stories and does not leave Zuğulba at zero', () => {
+  const ctx = app(), { S, homeView } = ctx.api;
+  const at = new Date().toISOString();
+  const tr = (id) => ({ id, title: 'Türkiye haberi ' + id, lang: 'tr', category: 'dunya', source: 'CNN Türk', sourceUrl: 'https://cnnturk.com/' + id, publishedAt: at, imageUrl: 'https://img.example/' + id + '.jpg' });
+  S.lang = 'tr'; S.og = {};
+  S.data = { articles: [...Array.from({ length: 10 }, (_, i) => tr('t' + i)), { id: 'p', title: 'Prezident İlham Əliyev qəbul edib', lang: 'az', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/p', publishedAt: at }] };
+  const html = homeView();
+  assert.ok(html.includes('class="pcard'), 'Zuğulba boş qalmır');
+  assert.ok(!html.includes('Son <b>0</b>'));
+  const latest = html.slice(html.indexOf('latest-grid'), html.indexOf('</section>', html.indexOf('latest-grid')));
+  assert.ok((latest.match(/<article/g) || []).length >= 1, 'Son xəbərlər doludur');
+  assert.ok(!html.includes('image-fallback') && !html.includes('logo-80'), 'şəkilsiz yerdə loqo bloku yoxdur');
 });
 test('a broken secondary block cannot freeze the news list',()=>{
   const ctx=app(),{S,homeView}=ctx.api;

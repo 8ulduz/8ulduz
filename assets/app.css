@@ -3,7 +3,7 @@
 [hidden]{display:none!important}
 :root{
   --bg:hsl(222 47% 5%);--fg:hsl(210 40% 96%);--card:hsl(222 40% 8%);--card2:hsl(222 34% 11%);
-  --primary:hsl(43 96% 56%);--primary-fg:hsl(222 47% 8%);--muted:hsl(215 20% 62%);--muted2:hsl(215 16% 46%);
+  --primary:hsl(43 96% 56%);--primary-fg:hsl(222 47% 8%);--muted:hsl(215 20% 68%);--muted2:hsl(215 16% 62%);
   --border:hsl(222 24% 16%);--red:hsl(0 84% 60%);--green:#10b981;
   --pray-on:#f0fdf4;--pray-dim:#d1fae5;
   --pray-fill:radial-gradient(90% 55% at 100% 0%,hsl(158 72% 46%/.3),transparent 58%),linear-gradient(180deg,#047857 0%,#064e3b 100%);
@@ -61,6 +61,7 @@ img{display:block}
 .topbar .sp{margin-left:auto}
 .prefs{display:inline-flex;align-items:center;gap:3px;margin-left:8px}
 .prefs button{height:20px;min-width:22px;padding:0 5px;border:1px solid var(--border);border-radius:999px;color:var(--fg);font-weight:800;line-height:1}
+.prefs button .face{display:contents}
 .prefs button[disabled]{opacity:.35;cursor:default}
 .prefs button:hover:not([disabled]){border-color:var(--primary);color:var(--primary)}
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:1px}
@@ -165,7 +166,8 @@ nav.main a.nav-tix{position:relative}
   .topbar .yenilendi{margin-left:auto}
 }
 @media (max-width:720px){
-  .prefs button{height:30px;min-width:34px;font-size:0.9rem}
+  .prefs button{height:44px;min-width:44px;padding:0;border-color:transparent;background:transparent;margin:-7px 0;font-size:0.9rem}
+  .prefs button .face{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:34px;padding:0 7px;border:1px solid var(--border);border-radius:999px}
   .pray,.wx-btn,.tix-top{height:30px;font-size:0.8571rem}
   .topbar .wrap{gap:6px 8px;padding-top:4px;padding-bottom:4px}
   /* Başlıq: 1 sətir loqo+axtarış, 1 sətir sürüşən bölmələr (əvvəl 3 sətir bükülürdü) */
@@ -880,7 +882,8 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
   .topbar .wrap{gap:4px}
   .topbar .pray>b:not(.pt),.topbar .pray>.pi,.topbar .pray>.caret{display:none}
   .topbar .pray,.topbar .wx-btn{gap:4px;padding:5px 7px;font-size:11px}
-  .topbar .prefs button{min-width:28px;padding:0 3px}
+  .topbar .prefs button{flex:none;height:44px;min-width:44px;padding:0;border-color:transparent;background:transparent;margin:-8px 0}
+  .topbar .prefs button .face{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:32px;padding:0 6px;border:1px solid var(--border);border-radius:999px}
 }
 @media(max-width:380px){.topbar .pray>.pt{display:none}}
 
