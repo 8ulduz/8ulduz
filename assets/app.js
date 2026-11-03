@@ -423,12 +423,12 @@ function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // xidmət ümumiyyətlə işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən yüklənir.
 const PROXY_MAX_FAILS = 8;
 // wsrv bu saytların şəklini 404 verir (sayt proksini kəsir; statically və Photon kimi açıq proksilər də eyni cür kəsilir).
-// Birbaşa mənbədən yüklənir: 170–290 KB-lıq orijinal. Telefonda yalnız slayderin ilk şəkli üçün (heavyImage), kartlar mətnlə qalır.
+// Birbaşa mənbədən yüklənir: 170–290 KB-lıq orijinal. Şəkil həmişə görünür, amma heç vaxt yüksək prioritetlə yüklənmir (heavyImage):
+// ilk ekranın mətni, kodu və məlumatı onunla yarışmır. (Telefonda şəkli atmaq sınandı: «şəkil gəlmir» şikayəti, geri alındı.)
 const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
-// Proksidən keçməyən (kiçildilməyən) ünvan: namizədlərdə sona düşür, telefonda slayderdən başqa yerdə yüklənmir.
+// Proksidən keçməyən (kiçildilməyən) ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
 const heavyImage = u => typeof u === "string" && !u.startsWith("https://wsrv.nl/") && (PROXY_SKIP.test(hostOf(u)) || (proxyBad.get(hostOf(u)) || 0) > 0);
-const lightImg = a => imageCandidates(a).some(u => !heavyImage(u)); // slayderə yalnız kiçildilə bilən şəkil düşür
 function sized(url, width) {
   const host = hostOf(url);
   if (!url || !host || (S.proxyFails || 0) >= PROXY_MAX_FAILS || (proxyBad.get(host) || 0) >= 2 || PROXY_SKIP.test(host) || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
@@ -442,9 +442,8 @@ function heroPicWidth(first) {
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);
   if (!url) return ""; // şəkilsiz xəbər qutu tutmur: kart yalnız mətndir
-  if (TOUCH_UI && !eager && heavyImage(url)) return ""; // telefonda 200 KB-lıq orijinal kart şəkli üçün yüklənmir
   const small = sized(url, width), others = small === url ? rest : [url, ...rest];
-  const load = later ? "" : eager ? 'fetchpriority="high"' : 'loading="lazy"';
+  const load = later ? "" : eager && !heavyImage(small) ? 'fetchpriority="high"' : 'loading="lazy"'; // ağır orijinal ilk ekranla yarışmır
   const src = `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">`;
   const tag = linked ? "a" : "div";
   return `<${tag} class="img ${cls}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${src}</${tag}>`;
@@ -496,8 +495,7 @@ const imgFail = el => {
   }
   let rest = [];
   try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
-  // Telefonda slayderdən başqa yerdə proksisiz orijinal (200 KB+) yüklənmir: kart mətnlə qalır.
-  const next = rest.find(u => typeof u === "string" && u && u !== el.src && !(TOUCH_UI && !el.closest(".hero-main") && heavyImage(u)));
+  const next = rest.find(u => typeof u === "string" && u && u !== el.src);
   if (next) {
     el.dataset.imageAlternatives = JSON.stringify(rest.slice(rest.indexOf(next) + 1));
     el.src = next;
@@ -825,9 +823,9 @@ function publishNews() {
 }
 function primeHeroImage(articles) {
   if (route().name !== "home" || S.q) return;
-  const a = heroPick((articles || []).filter(x => (S.lang ? langOf(x) === S.lang : true) && x.category !== "prezident" && lightImg(x)), 1)[0];
+  const a = heroPick((articles || []).filter(x => (S.lang ? langOf(x) === S.lang : true) && x.category !== "prezident" && imgUrl(x)), 1)[0];
   const href = a && sized(imageCandidates(a)[0], heroPicWidth(true));
-  if (!href || S.lcpHref === href) return;
+  if (!href || heavyImage(href) || S.lcpHref === href) return; // ağır orijinal əvvəlcədən yüklənmir
   S.lcpHref = href;
   const head = document.head;
   if (!head?.querySelector || !head.appendChild) return;
@@ -1510,7 +1508,7 @@ function prezBlock(list) {
   // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır
   // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir.
   const card = (a, i) => {
-    const [pic, ...rest] = TOUCH_UI ? imageCandidates(a).filter(u => !heavyImage(u)) : imageCandidates(a); // telefonda proksisiz orijinal (200 KB+) kiçik şəkil üçün yüklənmir
+    const [pic, ...rest] = imageCandidates(a);
     const small = sized(pic, 168);
     const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
     return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
@@ -1526,7 +1524,7 @@ function prezBlock(list) {
 
 const HERO_COUNT = 15, HERO_ONLY = 6; // İlk 6 xəbər yalnız slayderdədir; qalanları aşağıdakı siyahılarda da qalır, çünki slayderdə növbəsi 90 saniyədən bir gəlir.
 function heroBlock(list) {
-  const slides = list.filter(lightImg).slice(0, HERO_COUNT); // şəkilsiz (və yalnız proksisiz şəkilli) xəbər slayderə düşmür, boş kadr olmur
+  const slides = list.filter(imgUrl).slice(0, HERO_COUNT); // şəkilsiz xəbər slayderə düşmür, boş kadr olmur
   if (!slides.length) return "";
   return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${slides.map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, heroPicWidth(i === 0), i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
@@ -1539,7 +1537,7 @@ function alertStrip() {
 }
 function photoStrip(list) {
   const cut = Date.now() - 30 * HOUR;
-  const pics = byDate(list.filter(a => a.imageUrl && lightImg(a) && new Date(a.publishedAt).getTime() > cut)).slice(0, 14);
+  const pics = byDate(list.filter(a => a.imageUrl && new Date(a.publishedAt).getTime() > cut)).slice(0, 14);
   if (pics.length < 4) return "";
   return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="strip"><div class="phrow">${pics.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<span>${txt(a.title)}</span></a>`).join("")}</div></div></section>`;
 }
@@ -1684,7 +1682,7 @@ function unifiedVideo(list) {
   return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
 }
 function homeView() {
-  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && lightImg(a)), HERO_COUNT);
+  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && imgUrl(a)), HERO_COUNT);
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining);

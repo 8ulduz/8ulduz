@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug, loadShared, shareRow, loadCached, loadFirst, heavyImage, lightImg, cardAt, imgFail, renderView};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug, loadShared, shareRow, loadCached, loadFirst, heavyImage, cardAt, imgFail, renderView, img};`, context);
   return context;
 }
 
@@ -1460,17 +1460,18 @@ test('speed red line: the cached feed is shown before the network answers and th
   assert.equal(S.data.articles[0].title, 'Şəbəkədən xəbər', 'şəbəkədən gələn ilk ekran keşdəkini əvəz edir');
   assert.equal(S.fromCache, false);
 });
-test('speed red line: phones do not download un-proxied originals outside the slider', () => {
+test('speed red line: un-proxied originals are still shown, but never with high priority', () => {
   const phone = app({ matchMedia: q => ({ matches: q === '(hover:none)' }) }).api, desktop = app().api;
   const heavy = { id: 'h', title: 'Ağır şəkil', source: 'Qafqazinfo', sourceUrl: 'https://qafqazinfo.az/a', imageUrl: 'https://qafqazinfo.az/uploads/1/tramp.jpg', publishedAt: new Date().toISOString(), category: 'gundem' };
   const light = { ...heavy, id: 'l', sourceUrl: 'https://apa.az/a', imageUrl: 'https://apa.az/img/1.jpg' };
   assert.equal(phone.heavyImage(heavy.imageUrl), true);
   assert.equal(phone.heavyImage('https://wsrv.nl/?url=x'), false);
-  assert.equal(phone.lightImg(heavy), false);
-  assert.equal(phone.lightImg({ ...heavy, alts: [{ sourceUrl: 'https://apa.az/b', imageUrl: 'https://apa.az/img/2.jpg' }] }), true, 'başqa mənbənin kiçildilə bilən şəkli var');
-  assert.ok(phone.cardAt(heavy, 'h3').includes('class="card noimg"') && !phone.cardAt(heavy, 'h3').includes('<img'), 'telefonda kart mətnlə qalır');
-  assert.ok(phone.cardAt(light, 'h3').includes('https://wsrv.nl/'), 'kiçildilən şəkil telefonda da gəlir');
-  assert.ok(desktop.cardAt(heavy, 'h3').includes('qafqazinfo.az/uploads/1/tramp.jpg'), 'kompüterdə orijinal yüklənir');
+  for (const ctx of [phone, desktop]) {
+    assert.ok(ctx.cardAt(heavy, 'h3').includes('qafqazinfo.az/uploads/1/tramp.jpg'), 'şəkil həmişə görünür («şəkil gəlmir» olmasın)');
+    assert.ok(ctx.cardAt(light, 'h3').includes('https://wsrv.nl/'), 'kiçildilən şəkil proksidən gəlir');
+    assert.ok(ctx.img(heavy, '', true).includes('loading="lazy"') && !ctx.img(heavy, '', true).includes('fetchpriority'), 'ağır orijinal yüksək prioritet almır');
+    assert.ok(ctx.img(light, '', true).includes('fetchpriority="high"'), 'kiçildilən ilk şəkil yüksək prioritetdədir');
+  }
   const { imageCandidates } = desktop;
   assert.deepEqual([...imageCandidates({ imageUrl: 'https://qafqazinfo.az/1.jpg', alts: [{ imageUrl: 'https://apa.az/2.jpg' }] })], ['https://apa.az/2.jpg', 'https://qafqazinfo.az/1.jpg'], 'proksidən keçməyən sayt sona düşür');
 });
