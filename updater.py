@@ -4261,7 +4261,8 @@ def section_page(slug, label, desc, articles, limit=30):
     return _page_html(slug, label, desc, f"<ul>{lis}</ul>")
 
 # index.html-dəki siyasətlə eynidir (tests/browser-logic.test.cjs). connect-src qəsdən yoxdur: canlı kanala sorğu bloklanmasın.
-_CSP = "script-src 'self' {hashes} https://gc.zgo.at; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com"
+# connect-src olmayanda sendBeacon 8ulduz.goatcounter.com-a keçir. Skript gc.zgo.at-dandır; hər iki ünvan script-src-dədir.
+_CSP = "script-src 'self' {hashes} https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com"
 
 def _with_csp(page):
     """Səhifənin öz kiçik skriptlərindən başqa daxili skript işləmir."""

@@ -34,23 +34,17 @@ Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərin
 - `feed.xml`, `sitemap.xml`, `robots.txt` — updater hər uğurlu yoxlamada yenidən yazır.
 - `bolme/<slug>/index.html` — hər bölmə üçün statik səhifə (updater yazır, `SECTIONS`). Axtarış sistemləri üçün həqiqi ünvandır: başlıq, təsvir, son 30 azərbaycandilli xəbərin keçidi. Brauzerdə açılanda resurslar nisbi yolla yüklənir, sonra ünvan `#/bolme/<slug>`-a keçir və adi tətbiq işləyir. Sitemap-da hamısı var.
 - `manifest.webmanifest`, `sw.js`, `assets/icon-*.png` — quraşdırılan PWA. Xəbər JSON-u onlayn olanda heç vaxt köhnə keşdən verilmir.
-- `assets/config.js` — GoatCounter sayt kodu (standart: boş, statistika sönülü), Telegram kanalı (`telegram`, boş olanda «kanala qoşulun» bloku görünmür) və əlaqə e-poçtu (`contact`, «Haqqımızda» səhifəsində).
+- `assets/config.js` — GoatCounter sayt kodu (`8ulduz`; boş sətir sayğacı söndürür), Telegram kanalı (`telegram`, boş olanda «kanala qoşulun» bloku görünmür) və əlaqə e-poçtu (`contact`, «Haqqımızda» səhifəsində).
 - `updater.py` — RSS + rəsmi səhifələr + bazar + sosial toplayıcı. Mənbə siyahısı: `AZ_FEEDS`, `WORLD_FEEDS`. Yaxın başlıqlı xəbərlər bir kartda birləşir (`alts`).
 - `.github/workflows/update.yml` — avtomatik yeniləmə işi.
 
 ## Ziyarət statistikası (GoatCounter)
 
-Saytda kuksuz sayğac var, amma **hesab kodu boşdur və heç nə göndərilmir**. Öz hesabınızı yaradın:
-
-1. [goatcounter.com](https://www.goatcounter.com)-da pulsuz hesab açın və sayt kodunu götürün (ünvan `https://KOD.goatcounter.com` formasındadır).
-2. `assets/config.js` içində boş sətri öz kodunuzla əvəz edin: `goatcounter: "KOD"`.
-3. Dəyişikliyi `main` budağına göndərin. Kodu silsəniz (yenidən `""`), sayğac dayanır.
-
-Hazır kod uydurulmayıb — sahib öz hesabını yaratmalıdır.
+Sayt kodu `8ulduz` (`assets/config.js`, `https://8ulduz.goatcounter.com`). Skript `https://gc.zgo.at/count.v4.js` ünvanından gəlir. Sayt bir səhifəlik tətbiqdir: açılış və hər marşrut (hash və axtarış ünvanı) ayrı səhifə baxışı kimi, həmin yol və başlıqla sayılır. `goatcounter` boş sətir olanda sayğac dayanır.
 
 Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir).
 
-«Ən çox oxunan» bloku hazırda gizlidir: məqalə üzrə oxunma statistikası yoxdur (GoatCounter kodu boşdur və oxunma siyahısı açarsız gəlmir). Əvəzinə baş səhifədə «Günün 5 əsas xəbəri» son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir.
+«Ən çox oxunan» bloku hazırda gizlidir: məqalə üzrə oxunma siyahısı açarsız gəlmir. Əvəzinə baş səhifədə «Günün 5 əsas xəbəri» son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir.
 
 - `data/video.json` — İctimai TV, Xezer TV, ARB 24, Report.az və Trend TV YouTube RSS lentləri. Başlıqlar liderlik süzgəcindən keçir. Saytda video yalnız düyməyə basanda açılır.
 - `data/sports.json` — dünya liqaları: İngiltərə, İspaniya, İtaliya, Almaniya, Fransa, Türkiyə, Çempionlar Liqası və NBA (Şərq/Qərb) cədvəlləri ESPN-in açıq, sənədsiz cədvəl API-sindən (`ESPN_LEAGUES`, `parse_espn`), 30 dəqiqədən bir. Avroliqa ESPN-də boş gəldiyi üçün yoxdur. Futbol blokunda Azərbaycan liqalarından sonra çiplərlə seçilir.

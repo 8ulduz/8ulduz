@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: əvvəl şəbəkə, oflayn olanda keş. Şəkillər: əvvəl keş. */
-const VERSION = "v28"; // kiçik şəkil, yeni vərəqə, Zuğulba digər dildə
+const VERSION = "v29"; // kiçik şəkil, yeni vərəqə, Zuğulba digər dildə; GoatCounter sayğacı keşə düşmür
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -162,6 +162,8 @@ async function networkFirstShell(req, event) {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+  // Sayğac sorğusu (sendBeacon) və skript özü getsin: keşlənsə və ya kəsilsə ziyarət yazılmır.
+  if (url.hostname === "gc.zgo.at" || url.hostname.endsWith(".goatcounter.com")) return;
   if (event.request.method !== "GET" || !inScope(url)) return;
   if (isData(url)) {
     event.respondWith(networkFirstData(event.request));
