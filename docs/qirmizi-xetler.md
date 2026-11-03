@@ -52,7 +52,7 @@ Sahibin qərarı (2026-10-31). Səhifəyə və ya məlumata ağırlıq əlavə e
 - İlk açılışda yükləmə 1,5 MB-dan az qalır. Şəkil birbaşa tam ölçüdə göstərilmir (`sized`, `assets/app.js`).
 - Bir neçə faylın gəlməsi səhifəni bir neçə dəfə yenidən çəkmir (`requestRender`).
 - Baş səhifənin ekrandan uzaq bölmələri yaxınlaşanda qurulur (`lazySection`).
-- `app.js` və `app.css`-in ölçü limiti var, `tests/browser-logic.test.cjs` yoxlayır.
+- `app.js` və `app.css`-in ölçü limiti var, `tests/browser-logic.test.cjs` yoxlayır: `app.js` 220 000 baytdan az (sahibin qərarı, 2026-11-03; əvvəl 200 000), `app.css` 95 000 baytdan az. Limit kodun nəzarətsiz böyüməsini tutur; sürəti dəyişikliyin gördüyü iş təyin edir, ona görə ölçmə yenə hər PR-da lazımdır.
 - Komanda səhifəsinin kodu (`komanda.js`, `komanda.css`) və məlumatı (`data/futbol/`) yalnız o ünvan açılanda yüklənir, fayllar yalnız `slow_cycle`-da yazılır.
 
 Ölçü 2026-10-31 (lokal, PR #55-dən sonra): telefon 46, planşet 51, kompüter 71 bal. Telefonda hədəfə hələ çatılmayıb.
