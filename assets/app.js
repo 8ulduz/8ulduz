@@ -1055,7 +1055,7 @@ function renderTopbar() {
   const light = document.documentElement.dataset.theme === "light";
   $("#topbar").innerHTML = `    <span>${today()}</span>
     ${optional(prayBit)}
-    <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
+    <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span class="wx-place">Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span class="wx-caret">▾</span></button>${pop}</div>
     <a class="tix-top tix-btn" href="#/tixac" title="Tıxac və yollar">Tıxac</a>
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
@@ -1265,7 +1265,7 @@ function prayCityOptions(current) {
 function prayBit() {
   const p = S.pray;
   const city = p?.city || savedPrayCity();
-  if (!p) return `<button class="pray" data-act="pray" type="button">Namaz · ${esc(city)}</button>`;
+  if (!p) return `<button class="pray" data-act="pray" type="button"><span class="plab">Namaz</span><span class="pcity-name"> · ${esc(city)}</span></button>`;
   const h = p.hijri || {};
   const month = HIJRI_AZ[Number(h.month?.number)] || h.month?.en || "";
   const next = nextPrayer(p.timings);
@@ -1277,7 +1277,7 @@ function prayBit() {
     return `<div class="pray-row${on ? " next" : ""}">${prayIcon(k)}<span class="pn">${esc(lab)}</span>${mark}<b class="pt">${time}</b></div>`;
   }).join("");
   const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>Namaz</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div><label class="pray-pick"><span>Şəhər</span><select class="pray-city" aria-label="Namaz şəhəri">${prayCityOptions(city)}</select></label>${rows}</div>` : "";
-  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity">Namaz · ${esc(city)}</span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
+  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity"><span class="plab">Namaz</span><span class="pcity-name"> · ${esc(city)}</span></span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
 }
 function nextPrayer(times) {
   if (!times) return { key: "", lab: "Namaz", time: "", mins: null };
@@ -1354,7 +1354,9 @@ function renderLangs() {
   const driver = storage.getItem('8ulduz-driver') === 'on';
   // İdman bütün dillərdədir: burada dil seçimi təsir etmir, ona görə göstərilmir.
   const sport = route().name === "section" && route().slug === "idman";
-  const row = $("#langs"); if (row) row.innerHTML = (sport ? `<span class="lang-note">İdman xəbərləri bütün dillərdə göstərilir</span>` : languagePicker()) + (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + installBtn() + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
+  const picker = sport ? `<span class="lang-note">İdman xəbərləri bütün dillərdə göstərilir</span>` : languagePicker();
+  const stick = $("#langstick"); if (stick) stick.innerHTML = picker;
+  const row = $("#langs"); if (row) row.innerHTML = (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + installBtn() + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
 }
 function syncLangStick() {}
 
@@ -2466,9 +2468,15 @@ function setupFeatureLents() {
   const hero = document.querySelector(".hero-strip");
   if (hero) {
     const row = hero.querySelector(".hero-row"), button = hero.querySelector(".hero-pause");
+    const stopAuto = () => { hero._userStop = true; };
+    row?.addEventListener("pointerdown", stopAuto);
+    row?.addEventListener("wheel", stopAuto, { passive: true });
+    row?.addEventListener("keydown", stopAuto);
     button.onclick = () => { hero._paused = !hero._paused; button.setAttribute("aria-pressed", String(hero._paused)); button.textContent = hero._paused ? "▶" : "Ⅱ"; button.setAttribute("aria-label", hero._paused ? "Əsas xəbər lentini davam etdir" : "Əsas xəbər lentini dayandır"); };
-    hero.onpointerdown = () => { hero._holdUntil = Date.now() + 10000; };
-    if (row.children.length > 1) featureTimers.push(setInterval(() => { if (hero._paused || paused(hero)) return; const next = Math.round(row.scrollLeft / row.clientWidth) + 1; row.scrollTo({left: next >= row.children.length ? 0 : next * row.clientWidth, behavior:"smooth"}); }, 6000));
+    const slideW = () => row?.querySelector(".hero-main")?.getBoundingClientRect().width || row?.clientWidth || 0;
+    const settle = () => { const w = slideW(); if (!(w > 0)) return; const target = Math.round(row.scrollLeft / w) * w; if (Math.abs(row.scrollLeft - target) > 1) row.scrollTo({ left: target }); };
+    if (row && "onscrollend" in window) row.addEventListener("scrollend", settle);
+    if (row && row.children.length > 1) featureTimers.push(setInterval(() => { if (hero._userStop || hero._paused || paused(hero)) return; const w = slideW(); if (!(w > 0)) return; const next = Math.round(row.scrollLeft / w) + 1; row.scrollTo({ left: next >= row.children.length ? 0 : Math.round(next * w), behavior: "smooth" }); }, 6000));
   }
   const lent = document.querySelector("[data-prez-lent]");
   if (lent) {
