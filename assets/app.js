@@ -465,8 +465,9 @@ const imgFail = el => {
   if (box?.matches("a.img,div.img")) box.insertAdjacentHTML("afterbegin", imageFallback(el.closest("[data-cat]")?.dataset.cat));
 };
 // CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
+// Kompüterdə şəkil qutusu şəklin öz nisbətini alır (başlıq yanda qalan yeri tutur): şəkil kəsilmir, qara zolaq qalmır.
 // Slayder şəkli çərçivədən az fərqlənirsə (20%) onu doldurur, çox fərqlənirsə bütöv qalır
-document.addEventListener("load", ({ target: t }) => { if (t.tagName === "IMG" && t.closest(".hero-main")) { const r = t.naturalWidth / t.naturalHeight / (t.clientWidth / t.clientHeight || 1); t.style.objectFit = r > .8 && r < 1.25 ? "cover" : ""; } }, true);
+document.addEventListener("load", ({ target: t }) => { if (t.tagName === "IMG" && t.closest(".hero-main")) { const n = t.naturalWidth / t.naturalHeight; if (innerWidth > 900 && n > 1.2 && n < 2) t.parentElement.style.aspectRatio = n; const r = n / (t.clientWidth / t.clientHeight || 1); t.style.objectFit = r > .8 && r < 1.25 ? "cover" : ""; } }, true);
 document.addEventListener("error", ({ target: t }) => { const f = t.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && (t.style.visibility = "hidden"); }, true);
 
 /* ---------------------------------------------------------------- vəziyyət */
