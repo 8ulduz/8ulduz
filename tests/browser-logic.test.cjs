@@ -21,6 +21,14 @@ function app(extra = {}) {
   return context;
 }
 
+test('rush hour uses Baku time (UTC+4) without Intl',()=>{
+  const rush=vm.runInContext('bakuRush',app());
+  assert.equal(rush(new Date('2026-11-03T05:30:00Z')),true,'çərşənbə axşamı 09:30');
+  assert.equal(rush(new Date('2026-11-03T12:00:00Z')),false,'16:00');
+  assert.equal(rush(new Date('2026-11-03T14:10:00Z')),true,'18:10');
+  assert.equal(rush(new Date('2026-11-07T05:30:00Z')),false,'şənbə');
+  assert.equal(rush(new Date('2026-11-02T20:30:00Z')),false,'bazar ertəsi gecə 00:30');
+});
 test('Baku traffic excludes foreign disasters, condolences and stale reports',()=>{
   const {localRoadItems}=app().api;
   const stamp=new Date().toISOString();
