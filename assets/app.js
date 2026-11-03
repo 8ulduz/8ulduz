@@ -723,6 +723,8 @@ async function loadNews(force = false) {
   renderTopbar();
   // İlk ekran çəkilənə qədər tam lent xətti tutmur. Fayl gəlməsə loadFirst 5 saniyəyə bitir.
   if (S.firstReady) { const wait = S.firstReady; S.firstReady = null; await wait; }
+  // İlk ekran görünürsə tam lent (240 KB) əsas axın boşalanda gəlir: slayder şəkilləri və ilk toxunuş onunla yarışmasın (ən gec 2 s).
+  if (S.partial && !force && token === S.newsToken) await new Promise(r => (globalThis.requestIdleCallback || (f => setTimeout(f, 300)))(r, { timeout: 2000 }));
   // İlk yükləmədə og.json xəbərlərlə paralel gəlir
   const ogReady = S.data && !S.partial ? null : loadOg(controller.signal);
   try {
