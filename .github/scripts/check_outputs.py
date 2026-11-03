@@ -43,7 +43,7 @@ def enforce_policy(root=pathlib.Path(".")):
     """Lent fayllarından qaydanı pozan xəbərləri çıxarır. {fayl: {səbəb: say}} qaytarır."""
     root = pathlib.Path(root)
     removed = {}
-    archive = [f"arxiv/{p.name}" for p in sorted((root / "data" / "arxiv").glob("*.json"))]
+    archive = [f"{d}/{p.name}" for d in ("arxiv", "paylas") for p in sorted((root / "data" / d).glob("*.json"))]
     for name in ("news.json", "latest.json", "first.json", *archive):
         path = root / "data" / name
         try:
