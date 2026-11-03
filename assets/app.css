@@ -1109,7 +1109,16 @@ header.site .langstick::-webkit-scrollbar{display:none}
 .prez-h h2,.pcard .t{font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--fw-semibold)}
 .pcard .t{-webkit-line-clamp:3}
 .prez-lent{margin-top:8px}
-@media(max-width:860px){.topbar .tix-top{display:inline-flex}}
+/* Telefonda yuxarı zolaq bir sətirdir: namaz, hava və düymələr. Tıxac həbi yuxarıda yoxdur. */
+@media(max-width:720px){
+  .topbar .wrap{flex-wrap:nowrap;align-items:center;gap:4px;height:36px;min-height:36px;padding-top:0;padding-bottom:0;overflow:hidden}
+  .topbar .sync-state{position:absolute;left:var(--gutter);right:var(--gutter);top:100%;flex-basis:auto;order:0;width:auto;background:var(--bg);z-index:2}
+  .topbar .prefs{margin-left:auto;flex:none;gap:2px}
+  .topbar .prefs button{height:32px;min-width:32px;margin:0;padding:0}
+  .topbar .prefs button .face{height:28px;min-width:28px;padding:0 5px}
+  .topbar .prefs .theme-btn .face>span:last-child{display:none}
+  .topbar .pray,.topbar .wx-btn{height:28px;flex:none}
+}
 @media(max-width:600px){
   header.site{position:sticky;top:0}
   .hrow{min-height:0;padding:4px var(--gutter);gap:4px 8px}

@@ -1056,7 +1056,6 @@ function renderTopbar() {
   $("#topbar").innerHTML = `    <span>${today()}</span>
     ${optional(prayBit)}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
-    <a class="tix-top tix-btn" href="#/tixac" title="Tıxac və yollar">Tıxac</a>
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
