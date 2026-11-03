@@ -1405,7 +1405,7 @@ function shellParts() {
     requestAnimationFrame: () => 0,
   });
   vm.runInContext('shell(); renderNav(); renderLangs();', ctx);
-  return { app: els.app.innerHTML, nav: els.nav.innerHTML, langs: els.langs.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
+  return { app: els.app.innerHTML, nav: els.nav.innerHTML, langs: els.langs.innerHTML, langstick: els.langstick.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
 }
 test('speed red line: index.html carries the same shell app.js builds, with nav and skeleton filled', () => {
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
@@ -1415,6 +1415,7 @@ test('speed red line: index.html carries the same shell app.js builds, with nav 
   let want = parts.app;
   want = want.replace(/(<nav class="main" id="nav" aria-label="Bölmələr">)(<\/nav>)/, (_, a, b) => a + parts.nav + b);
   want = want.replace(/(<div class="wrap" id="langs">)(<\/div>)/, (_, a, b) => a + parts.langs + b);
+  want = want.replace(/(<div class="langstick" id="langstick">)(<\/div>)/, (_, a, b) => a + parts.langstick + b);
   want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + '<div class="pre-skel">' + parts.skeleton + '</div><noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
   assert.equal(m[1], want, 'index.html qabığı app.js shell() ilə eyni deyil');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');

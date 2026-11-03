@@ -1141,7 +1141,7 @@ header.site .langstick::-webkit-scrollbar{display:none}
   .prez-n b{font-size:var(--fs-body);font-weight:var(--fw-bold)}
   .filters:not(:has(.install-btn)):not(:has(.driver-toggle)){display:none}
   .filters .wrap{padding-top:4px;padding-bottom:4px}
-  #ticker:empty{min-height:28px}
+  #ticker:empty{min-height:25px}
   .ticker .lbl{padding:0 8px;gap:4px;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-bold);letter-spacing:0}
   .ticker .lbl .bell{font-size:var(--fs-meta);width:auto;min-height:0;height:22px;padding:0 6px;border-radius:999px}
   .ticker .lbl .bell::after{content:none}
