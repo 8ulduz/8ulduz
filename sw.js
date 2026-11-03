@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v33"; // sürət: qabıq keşdən dərhal açılır, şrift faylları yoxdur, paylaşma keçidi tam lenti gözləmir
+const VERSION = "v34"; // arxa yeniləmə keşə yazılmırdı (gövdə artıq oxunmuşdu): kopya əvvəlcədən götürülür; v33-dəki köhnə kod təzələnsin
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -145,10 +145,13 @@ const CODE_FILE = /\.(?:js|css)$/;
 async function cachedShell(req, event) {
   const cache = await caches.open(STATIC);
   const saved = await cache.match(req, { ignoreSearch: true });
+  // Müqayisə üçün mətn saxlanmış cavab səhifəyə verilməzdən ƏVVƏL götürülür: gövdə oxunandan sonra clone() xəta atır
+  // və keş heç vaxt yenilənmirdi (v33-də belə idi: köhnə app.js telefonda qalırdı).
+  const savedText = saved && CODE_FILE.test(new URL(req.url).pathname) ? saved.clone().text().catch(() => null) : null;
   const network = fetch(new Request(req, { cache: "no-cache" })).then(async (fresh) => {
     if (!fresh.ok) return fresh;
     const copy = fresh.clone();
-    const changed = !!saved && CODE_FILE.test(new URL(req.url).pathname) && (await saved.clone().text()) !== (await fresh.clone().text());
+    const changed = !!savedText && (await savedText) !== (await fresh.clone().text());
     await cache.put(req, copy).catch(() => {});
     if (changed) for (const client of await self.clients.matchAll({ type: "window" })) client.postMessage({ type: "shell-updated" });
     return fresh;

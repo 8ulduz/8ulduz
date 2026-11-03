@@ -962,11 +962,13 @@ test('a slow first visit to another page waits for that page instead of showing 
 test('the saved shell answers at once; changed code is stored for the next visit and announced', async () => {
   const {context} = worker();
   let stored, messages = [];
-  context.fetch = async () => new Response('new code');
+  // Şəbəkə səhifə keşdəki cavabı oxuyandan SONRA gəlir (əsl brauzerdə həmişə belədir): müqayisə yenə işləməlidir.
+  context.fetch = () => new Promise(r => setTimeout(() => r(new Response('new code')), 5));
   context.caches.open = async () => ({match: async () => new Response('cached code'), put: async (_key, response) => { stored = await response.text(); }});
   context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
   const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'cached code');
+  await new Promise(r => setTimeout(r, 15));
   for (let i = 0; i < 20 && !messages.length; i++) await new Promise(r => setImmediate(r));
   assert.equal(stored, 'new code');
   assert.deepEqual(messages.map(m => m.type), ['shell-updated']);
