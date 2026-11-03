@@ -1847,20 +1847,22 @@ function patchView(v, page) {
 function renderView() {
   syncQuery();
   pageMeta();
-  const v = $("#view");
-  const onlyFirst = S.partial && !firstScreen();
-  if (S.error && (!S.data || onlyFirst)) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
-  if (!S.data || onlyFirst) { S.viewPage = null; v.innerHTML = skeleton(); return; }
-  const r = route();
-  const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
-  const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
-  // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
-  const page = err + body;
-  if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
-  $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
-  const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
-  document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
-  highlightSearch();
+  try {
+    const v = $("#view");
+    const onlyFirst = S.partial && !firstScreen();
+    if (S.error && (!S.data || onlyFirst)) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
+    if (!S.data || onlyFirst) { S.viewPage = null; v.innerHTML = skeleton(); return; }
+    const r = route();
+    const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
+    const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+    // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
+    const page = err + body;
+    if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
+    $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
+    const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
+    document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
+    highlightSearch();
+  } finally { countVisit(); }
 }
 
 function sourceLevel(s) {
@@ -2133,6 +2135,36 @@ function setPref(act) {
   setupMarquees();
   afterPaint(fitNav);
 }
+// Canonical həmişə / olduğu üçün skriptin öz açılış sayımı bütün marşrutları bir səhifə yazır.
+// no_onload: yolu və başlığı render bitəndə özümüz göndəririk. Hash dəyişməsi və axtarışın
+// history.replaceState-i hər ikisi renderView-dən keçir. utm_source ünvanda qalır; count.js onu
+// kampaniya kimi (q) göndərir, yola yazmırıq ki, eyni səhifə iki dəfə düşməsin.
+let visitSent = "";
+const visitQueue = [];
+function visitPath() {
+  const base = location.pathname || "/";
+  const hash = location.hash || "";
+  return !hash || hash === "#" || hash === "#/" ? base : base + hash;
+}
+function titlePending() {
+  const r = route();
+  return (r.name === "article" && (!S.data || S.archiveScanning)) || (r.name === "team" && !S.teamPage && !S.teamFailedAt);
+}
+function countVisit() {
+  try {
+    if (!String(window.SITE_CONFIG?.goatcounter || "").trim() || titlePending()) return;
+    const path = visitPath();
+    if (path === visitSent) return;
+    visitSent = path;
+    const vars = { path, title: document.title || "8ulduz" };
+    if (typeof window.goatcounter?.count === "function") window.goatcounter.count(vars);
+    else visitQueue.push(vars);
+  } catch {}
+}
+function flushVisits() {
+  if (typeof window.goatcounter?.count !== "function") return;
+  for (const vars of visitQueue.splice(0)) { try { window.goatcounter.count(vars); } catch {} }
+}
 function enableAnalytics() {
   const code = String(window.SITE_CONFIG?.goatcounter || "").trim();
   if (!code) return;
@@ -2142,6 +2174,8 @@ function enableAnalytics() {
   s.integrity = "sha384-nRw6qfbWyJha9LhsOtSb2YJDyZdKvvCFh0fJYlkquSFjUxp9FVNugbfy8q1jdxI+";
   s.crossOrigin = "anonymous";
   s.dataset.goatcounter = `https://${code}.goatcounter.com/count`;
+  s.dataset.goatcounterSettings = '{"no_onload":true}';
+  s.addEventListener("load", flushVisits);
   document.head.appendChild(s);
 }
 

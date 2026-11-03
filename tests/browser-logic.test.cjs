@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
   return context;
 }
 
@@ -765,6 +765,14 @@ function worker(cacheNames = []) {
   return {context, listeners, deleted};
 }
 
+test('service worker does not intercept GoatCounter', () => {
+  const {listeners} = worker();
+  let called = false;
+  for (const url of ['https://8ulduz.goatcounter.com/count?p=%2F', 'https://gc.zgo.at/count.v4.js']) {
+    listeners.fetch({request: new Request(url), respondWith() { called = true; }});
+  }
+  assert.equal(called, false);
+});
 test('service worker retains caches belonging to other sites', async () => {
   const version = fs.readFileSync(path.join(root,'sw.js'),'utf8').match(/const VERSION = "([^"]+)"/)[1];
   const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-static-'+version]);
@@ -1115,6 +1123,74 @@ test('counting a click never breaks the page', () => {
   ctx.window.goatcounter={count(){throw Error('x');}};
   trackEvent('share-copy');
 });
+test('each route is a page view with its own path and title', () => {
+  const ctx=app(),{countVisit,flushVisits,S}=ctx.api;
+  ctx.window.SITE_CONFIG={goatcounter:'8ulduz'};
+  ctx.location.pathname='/'; ctx.location.search=''; ctx.location.hash='#/';
+  ctx.document.title='8ulduz — Son xəbərlər';
+  const seen=[];
+  ctx.window.goatcounter={count:o=>seen.push({...o})};
+  countVisit();
+  assert.deepEqual(seen,[{path:'/',title:'8ulduz — Son xəbərlər'}]);
+  countVisit();
+  assert.equal(seen.length,1,'eyni yol təkrar sayılmır');
+  ctx.location.hash='#/bolme/idman'; ctx.document.title='İdman — 8ulduz';
+  countVisit();
+  assert.equal(seen[1].path,'/#/bolme/idman');
+  assert.equal(seen[1].title,'İdman — 8ulduz');
+  assert.equal(seen[1].event,undefined);
+  ctx.location.search='?utm_source=android'; ctx.location.hash='#/secilmis'; ctx.document.title='Seçilmişlər — 8ulduz';
+  countVisit();
+  assert.equal(seen[2].path,'/#/secilmis','android kampaniyası yolu ikiyə bölmür');
+  ctx.location.search=''; ctx.location.hash='#/axtar?q=neft'; ctx.document.title='Axtarış: neft — 8ulduz';
+  countVisit();
+  assert.equal(seen[3].path,'/#/axtar?q=neft');
+  assert.equal(seen[3].title,'Axtarış: neft — 8ulduz');
+  ctx.location.hash='#/xeber/abc'; S.archiveScanning=true;
+  countVisit();
+  assert.equal(seen.length,4,'başlıq hazır olmamış xəbər sayılmır');
+  S.data={articles:[]}; S.archiveScanning=false; ctx.document.title='Xəbər — 8ulduz';
+  countVisit();
+  assert.equal(seen[4].path,'/#/xeber/abc');
+  assert.equal(seen[4].title,'Xəbər — 8ulduz');
+  ctx.location.hash='#/komanda/premyer-liqa/qarabag'; S.teamPage=null; S.teamFailedAt=0;
+  countVisit();
+  assert.equal(seen.length,5,'komanda səhifəsi açılmamış sayılmır');
+  S.teamPage={}; ctx.document.title='Qarabağ — 8ulduz';
+  countVisit();
+  assert.equal(seen[5].title,'Qarabağ — 8ulduz');
+  const queued=app();
+  queued.window.SITE_CONFIG={goatcounter:'8ulduz'};
+  queued.location.pathname='/'; queued.location.search=''; queued.location.hash='#/haqqinda';
+  queued.document.title='Haqqımızda — 8ulduz';
+  queued.api.countVisit();
+  const late=[]; queued.window.goatcounter={count:o=>late.push(o)};
+  queued.api.flushVisits();
+  assert.equal(late[0].path,'/#/haqqinda');
+  assert.equal(late[0].title,'Haqqımızda — 8ulduz');
+  const off=app();
+  off.window.SITE_CONFIG={goatcounter:''};
+  off.location.pathname='/'; off.location.search=''; off.location.hash='#/';
+  off.document.title='8ulduz';
+  off.api.countVisit();
+  off.window.goatcounter={count(){throw Error('sent');}};
+  off.api.flushVisits();
+});
+test('the counter script is https and skips the canonical page load', () => {
+  const ctx=app(), scripts=[];
+  ctx.document.createElement=()=>({dataset:{},addEventListener(){}});
+  ctx.document.head={appendChild(s){scripts.push(s);}};
+  ctx.window.SITE_CONFIG={goatcounter:'8ulduz'};
+  ctx.api.enableAnalytics();
+  assert.equal(scripts[0].src,'https://gc.zgo.at/count.v4.js');
+  assert.equal(scripts[0].dataset.goatcounter,'https://8ulduz.goatcounter.com/count');
+  assert.equal(scripts[0].dataset.goatcounterSettings,'{"no_onload":true}');
+  assert.match(scripts[0].integrity,/sha384-/);
+  const view=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  const body=view.slice(view.indexOf('function renderView'), view.indexOf('function sourceLevel'));
+  assert.ok(body.includes('countVisit()'));
+  assert.match(fs.readFileSync(path.join(root,'assets/config.js'),'utf8'), /goatcounter:\s*"8ulduz"/);
+});
 test('every city and district has its button and finds its stories', () => {
   const ctx=app(),{S,sectionView,subNav,clubMatches}=ctx.api,at=new Date().toISOString();
   const row=(id,title,category='gundem')=>({id,title,lang:'az',category,source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:at});
@@ -1265,6 +1341,7 @@ test('content security policy allows only the page own inline script', () => {
   const policy = index.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
   assert.ok(!policy.includes('unsafe-inline'));
   assert.ok(!/connect-src|default-src/.test(policy), 'canlı kanal CSP ilə bloklanmamalıdır');
+  assert.ok(policy.includes('https://gc.zgo.at') && policy.includes('https://8ulduz.goatcounter.com'));
   const inline = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
   assert.equal(inline.length, 1);
   const hash = crypto.createHash('sha256').update(inline[0], 'utf8').digest('base64');
