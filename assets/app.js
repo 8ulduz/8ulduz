@@ -1937,6 +1937,17 @@ function patchView(v, page) {
   while (lazyHtml.size > 99) lazyHtml.delete(lazyHtml.keys().next().value);
   S.tr?.(next.content);
   const changed = [];
+  // Hazır ilk ekranın (və ya statik skeletin) sarğısı açılır: dəyişməyən kart yerində qalır, qurğular (slayder, oxlar) ilk dəfə
+  // bağlanır deyə hamısı dəyişmiş sayılır. app.js-dən əvvəl yüklənə bilməyən şəkil növbəti namizədə keçir (hadisə artıq ötüb).
+  const pre = v.querySelector?.(":scope > .pre-skel");
+  if (pre) {
+    v.querySelector(":scope > noscript")?.remove();
+    const kids = [...pre.children];
+    kids.forEach(rememberSrc);
+    pre.replaceWith(...kids);
+    changed.push(...kids);
+    for (const i of v.querySelectorAll("img[data-fail=alt][src]")) if (i.complete && (i.naturalWidth || 0) < 2) imgFail(i);
+  }
   patchChildren(v, [...next.content.children], changed);
   if (!changed.length) return;
   const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
@@ -1955,8 +1966,14 @@ function renderView() {
     const r = route();
     // Paylaşılan keçid: xəbərin sətri paylaşma siyahısından gəlibsə tam lent gözlənilmir (loadShared).
     const shared = r.name === "article" && S.sharedStory?.id === r.id;
-    if (S.error && (!S.data || onlyFirst) && !shared) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
-    if ((!S.data || onlyFirst) && !shared) { S.viewPage = null; v.innerHTML = skeleton(r.name === "article" ? "article" : ""); return; }
+    // Hazır ilk ekran (index.html, .github/scripts/prerender.cjs): məlumat gələnə qədər durur, skelet və ya xəta onu silmir.
+    const pre = !S.data && firstScreen() && !!v.querySelector?.(".pre-skel[data-prerender]");
+    if (S.error && (!S.data || onlyFirst) && !shared) {
+      const alert = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`;
+      if (pre) { if (!v.querySelector(".err")) v.insertAdjacentHTML("afterbegin", alert); return; }
+      S.viewPage = null; v.innerHTML = alert; return;
+    }
+    if ((!S.data || onlyFirst) && !shared) { if (pre) return; S.viewPage = null; v.innerHTML = skeleton(r.name === "article" ? "article" : ""); return; }
     const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
     const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
     // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.

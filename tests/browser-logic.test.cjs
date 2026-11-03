@@ -1418,7 +1418,12 @@ test('speed red line: index.html carries the same shell app.js builds, with nav 
   want = want.replace(/(<nav class="main" id="nav" aria-label="Bölmələr">)(<\/nav>)/, (_, a, b) => a + parts.nav + b);
   want = want.replace(/(<div class="wrap" id="langs">)(<\/div>)/, (_, a, b) => a + parts.langs + b);
   want = want.replace(/(<div class="langstick" id="langstick">)(<\/div>)/, (_, a, b) => a + parts.langstick + b);
-  want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + '<div class="pre-skel">' + parts.skeleton + '</div><noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
+  // #view: ya statik skelet, ya da pipeline-ın hazır ilk ekranı (.github/scripts/prerender.cjs); qabığın qalanı eyni olmalıdır.
+  const got = m[1].match(/(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/);
+  assert.ok(got, 'index.html-də #view bloku və noscript yoxdur');
+  const pre = /^<div class="pre-skel" data-prerender="[^"]+">[\s\S]*<section class="hero">[\s\S]*<\/div>$/.test(got[2]);
+  assert.ok(pre || got[2] === '<div class="pre-skel">' + parts.skeleton + '</div>', '#view-də skelet və ya hazır ilk ekran olmalıdır');
+  want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + got[2] + '<noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
   assert.equal(m[1], want, 'index.html qabığı app.js shell() ilə eyni deyil');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(src.includes('if (!$("#app").dataset?.shell) $("#app").innerHTML'), 'shell() statik qabığı silməməlidir');
@@ -1585,7 +1590,8 @@ test('speed red line: the home page loads no team page code or data', () => {
   assert.equal(src.split('teamView(').length - 1, 2, 'tərif və renderView-da komanda ünvanı');
   assert.ok(src.includes('r.name === "team" ? teamView(r)'));
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  assert.ok(!index.includes('komanda') && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
+  // index.html-də hazır ilk ekranın xəbər mətni «komanda» sözünü daşıya bilər; yoxlanan kod və məlumat keçidləridir.
+  assert.ok(!/komanda\.(?:js|css)|data\/futbol|#\/komanda\//.test(index) && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
   assert.ok(fs.statSync(path.join(root, 'assets/komanda.js')).size < 30e3, 'komanda.js');
   assert.ok(fs.statSync(path.join(root, 'assets/komanda.css')).size < 12e3, 'komanda.css');
 });
@@ -1804,4 +1810,64 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
   assert.ok(bb.includes('href="#/komanda/nba/los-angeles-lakers"') && !bb.includes('data-club="NBA"'));
   assert.ok(!navPopHtml('idman', 'Basketbol').includes('turkiye'), 'basketbolda futbol liqası yoxdur');
   assert.ok(!navPopHtml('bolgeler', 'Bakı').includes('#/komanda/'));
+});
+
+// Sürət (qırmızı xətt 3): pipeline baş səhifənin ilk ekranını index.html-ə hazır yazır (.github/scripts/prerender.cjs),
+// brauzer onu CSS ilə birgə çəkir, app.js gələndə eyni görünüşü təzə məlumatla əvəz edir.
+function firstFixture(now) {
+  const stamp = new Date(now - 5 * 60e3).toISOString();
+  const art = i => ({ id: 'a0a0a0a0a0a0a0a' + i.toString(16), title: `Mövzu${i} barədə yeni${i} açıqlama${i}`, summary: '', source: 'APA', sourceUrl: 'https://apa.az/' + i, publishedAt: stamp, category: i % 3 ? 'sosial' : 'iqtisadiyyat', lang: 'az', imageUrl: 'https://apa.az/' + i + '.jpg' });
+  return { updatedAt: stamp, count: 16, og: {}, articles: [...Array(16)].map((_, i) => art(i)) };
+}
+test('speed red line: the first screen is prerendered from first.json with app.js itself, for phone widths, first picture eager', () => {
+  const { homeHtml, validate } = require(path.join(root, '.github/scripts/prerender.cjs'));
+  const now = Date.parse('2026-11-03T12:00:00Z');
+  const html = homeHtml(root, firstFixture(now), { now, width: 390 });
+  validate(html);
+  assert.ok(html.includes('<section class="hero">') && html.includes('Son xəbərlər') && html.includes('Zuğulba'), 'slayder, Son xəbərlər, Zuğulba');
+  assert.ok(html.includes('5 dəqiqə əvvəl'), 'vaxt hazırlanma anına görədir');
+  assert.ok(/w=640&amp;we&amp;output=webp[^>]*fetchpriority="high"/.test(html), 'telefon ölçüsü (640), ilk şəkil yüksək prioritetlə');
+  assert.ok(!html.includes('lazy-sec') && !html.includes('service-panel'), 'yalnız ilk ekran: bölmələr tam lentlə gəlir');
+  assert.ok(!/<script\b/i.test(html), 'daxili skript yoxdur: CSP hash-ı dəyişməz qalır');
+  // Eyni mənbə qaydası (qırmızı xətt 2): content-policy.js yüklənir, mənbə siyahısında olmayan sayt hazır nüsxəyə düşmür.
+  const bad = firstFixture(now); bad.articles[0] = { ...bad.articles[0], source: 'Azadlıq', sourceUrl: 'https://azadliq.org/x' };
+  assert.ok(!homeHtml(root, bad, { now, width: 390 }).includes('azadliq.org'));
+});
+test('speed red line: prerender rewrites only the #view block of index.html and is idempotent', () => {
+  const { prerender } = require(path.join(root, '.github/scripts/prerender.cjs'));
+  const os = require('node:os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), '8ulduz-pre-'));
+  for (const d of ['assets', 'data', '.github/scripts']) fs.mkdirSync(path.join(tmp, d), { recursive: true });
+  for (const f of ['index.html', 'assets/app.js', 'assets/content-policy.js']) fs.copyFileSync(path.join(root, f), path.join(tmp, f));
+  const now = Date.parse('2026-11-03T12:00:00Z');
+  fs.writeFileSync(path.join(tmp, 'data/first.json'), JSON.stringify(firstFixture(now)));
+  const before = fs.readFileSync(path.join(tmp, 'index.html'), 'utf8');
+  const viewRe = /(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/;
+  const r1 = prerender(tmp, { now, width: 390 });
+  const after = fs.readFileSync(path.join(tmp, 'index.html'), 'utf8');
+  assert.equal(r1.changed, true);
+  assert.ok(after.includes('<div class="pre-skel" data-prerender="' + firstFixture(now).updatedAt + '">'), 'hazır blokun vaxt möhürü');
+  assert.equal(before.replace(viewRe, '$1$3'), after.replace(viewRe, '$1$3'), '#view-dən başqa heç nə dəyişməməlidir (CSP, qabıq, sətir sonları)');
+  assert.equal((after.match(/<script>/g) || []).length, 1, 'daxili skript sayı dəyişməz');
+  assert.equal(prerender(tmp, { now, width: 390 }).changed, false, 'ikinci dəfə eyni nəticə, fayl yazılmır');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+test('speed red line: the prerendered first screen stays until data arrives; the skeleton and the error do not wipe it', () => {
+  let html = '<div class="pre-skel" data-prerender="x">hazır</div>';
+  const view = { querySelector: s => s === '.pre-skel[data-prerender]' && html.includes('data-prerender') ? {} : null, set innerHTML(v) { html = v; }, get innerHTML() { return html; }, insertAdjacentHTML(_, h) { html = h + html; } };
+  const ctx = app({ document: { documentElement: { dataset: {} }, title: '', addEventListener() {}, querySelector: s => s === '#view' ? view : s === '#cta' ? {} : null, querySelectorAll: () => [], createElement: () => ({}) } });
+  vm.runInContext('syncQuery = () => {}; pageMeta = () => {}; countVisit = () => {}; highlightSearch = () => {};', ctx);
+  ctx.api.renderView();
+  assert.equal(html, '<div class="pre-skel" data-prerender="x">hazır</div>', 'skelet hazır ekranı silməməlidir');
+  ctx.api.S.error = 'şəbəkə';
+  ctx.api.renderView();
+  assert.ok(html.startsWith('<div class="err"') && html.endsWith('hazır</div>'), 'xəta yuxarıda, hazır ekran qalır');
+  ctx.api.S.error = null;
+  ctx.location.hash = '#/bolme/sosial';
+  ctx.api.renderView();
+  assert.ok(html.includes('class="skel"') && !html.includes('hazır'), 'başqa səhifə hazır ekranı gözləmir, skelet çəkilir');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('const pre = v.querySelector?.(":scope > .pre-skel");') && src.includes('pre.replaceWith(...kids)'), 'patchView sarğını açır, kartlar yerində qalır');
+  const pipeline = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
+  assert.ok(pipeline.includes('prerender.cjs') && pipeline.includes('bolme index.html'), 'pipeline hər main yazılışında ilk ekranı hazırlayır və commit edir');
 });

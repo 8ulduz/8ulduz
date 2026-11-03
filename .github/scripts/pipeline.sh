@@ -199,6 +199,17 @@ wait_next_cycle() {
   return 0
 }
 
+# Sürət (qırmızı xətt 3): baş səhifənin ilk ekranı index.html-də hazır gəlir (.github/scripts/prerender.cjs, cari main-dəki
+# app.js və first.json ilə). Alınmasa və ya node yoxdursa index.html olduğu kimi qalır: sayt app.js ilə yenə dolur.
+prerender_home() {
+  command -v node >/dev/null 2>&1 || { echo "node yoxdur, ilk ekran hazırlanmır"; return 0; }
+  if ! env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 60 node "$REPO_DIR/.github/scripts/prerender.cjs" "$REPO_DIR"; then
+    echo "::warning::İlk ekran hazırlanmadı, index.html dəyişmir"
+    git -C "$REPO_DIR" checkout -q HEAD -- index.html 2>/dev/null
+  fi
+  return 0
+}
+
 publish_main() {
   local i name
   for i in 1 2 3 4 5; do
@@ -211,11 +222,12 @@ publish_main() {
       [ -f "$WORK/$name" ] && cp -a "$WORK/$name" "$REPO_DIR/"
     done
     if [ -d "$WORK/bolme" ]; then rm -rf "$REPO_DIR/bolme"; cp -a "$WORK/bolme" "$REPO_DIR/bolme"; fi
+    prerender_home
     # GOOD yenilənərkən oxunmuş ola bilər: commit-dən əvvəl yenidən yoxla.
     for name in $(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" || check_lkg "$REPO_DIR"); do
       git -C "$REPO_DIR" checkout -q HEAD -- "$name" 2>/dev/null || rm -f "$REPO_DIR/$name"
     done
-    git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme 2>/dev/null
+    git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme index.html 2>/dev/null
     if git -C "$REPO_DIR" diff --cached --quiet; then
       touch "$STATE/code-sync"
       return 0
