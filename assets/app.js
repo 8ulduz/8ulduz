@@ -703,7 +703,7 @@ async function loadNews(force = false) {
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
-    // İlk ekrandan tam lentə: dəyişməyən bloklara toxunulmur (patchView), səhifə aşağıdan uzanır. Oxucu sürüşübsə də gözləmir, siyahı qısa qalmasın.
+    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır (patchView), səhifə aşağıdan uzanır; oxucu sürüşübsə də gözləmir.
     if (first || force || (partial && readerBusy())) render(); else requestRender();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data || S.partial) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
@@ -1605,8 +1605,8 @@ function homeView() {
   const secs = homeCats().map(c => lazySection(catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug && fresh(a)))))).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
-// Paylaşılan keçid sonradan da açılsın. Xəbər başqası ilə qruplaşıbsa nömrəsi lentdə qalmır (id ünvanın sha1-idir, updater.py ilə eyni),
-// lentdən çıxıbsa bölmə arxivindədir (5 gün). Bu axtarış yalnız lentdə tapılmayan keçiddə işləyir.
+// Paylaşılan keçid sonra da açılsın: qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i, updater.py ilə eyni),
+// lentdən çıxan xəbər bölmə arxivindədir (5 gün). Yalnız lentdə tapılmayan keçiddə işləyir.
 async function scanArchives(id) {
   S.archiveScanning = true;
   try {
@@ -1797,7 +1797,7 @@ function trafficView() {
 // Yalnız dəyişən blok yenilənir. Əvvəl hər yeni xəbərdə bütün səhifə yenidən qurulurdu: telefonda 1 saniyə donurdu,
 // oxucu həmin an linkə basanda keçid gecikirdi, şəkillər də yenidən yerləşirdi. Blokun mənbə mətni saxlanır,
 // çünki qurulandan sonra DOM dəyişir (oxlar, açılmış bölmə, yüklənmiş şəkil).
-// Slayder və Zuğulba içəridən, kart-kart yenilənir: yeni xəbər gələndə görünən şəkil təzədən yüklənmir, slayder başa qayıtmır.
+// Slayder və Zuğulba kart-kart yenilənir: görünən şəkil təzədən yüklənmir, slayder başa qayıtmır.
 const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row";
 function rememberSrc(node) {
   node._src = node.outerHTML;
@@ -1811,7 +1811,7 @@ function patchChildren(box, fresh, changed) {
     if (was && was._src === node._src) return;
     if (was?.matches(PATCH_INSIDE) && was.className === node.className) { was._src = node._src; patchChildren(was, [...node.children], changed); return; }
     // Açılmış bölmə yenilənəndə bağlanmasın: səhifənin hündürlüyü dəyişib oxucu yerini itirməsin.
-    if (was?.matches(".lazy-sec") && !was.querySelector(":scope > template") && node.matches(".lazy-sec")) node.replaceChildren(node.querySelector(":scope > template").content);
+    if (was?.matches(".lazy-sec") && was.firstChild && node.matches(".lazy-sec")) lazyFill(node);
     if (was) was.replaceWith(node); else box.append(node);
     changed.push(node);
   });
@@ -1819,14 +1819,19 @@ function patchChildren(box, fresh, changed) {
 }
 function patchView(v, page) {
   const next = document.createElement("template");
-  next.innerHTML = page;
+  next.innerHTML = page.replace(/<div class="lazy-sec"><template>([\s\S]*?)<\/template><\/div>/g, (_, h) => {
+    let k = h.length; for (let i = 0; i < h.length; i++) k = Math.imul(k ^ h.charCodeAt(i), 16777619);
+    k = h.length + "-" + (k >>> 0).toString(36); lazyHtml.delete(k); lazyHtml.set(k, h);
+    return `<div class="lazy-sec" data-lazy="${k}"></div>`;
+  });
+  while (lazyHtml.size > 99) lazyHtml.delete(lazyHtml.keys().next().value);
   S.tr?.(next.content);
   const changed = [];
   patchChildren(v, [...next.content.children], changed);
   if (!changed.length) return;
   const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
   if (has("[data-marquee]")) setupMarquees();
-  setupStrips(changed.flatMap(n => [...n.querySelectorAll(".strip")]));
+  setupStrips(new Set(changed.flatMap(n => [n.closest(".strip"), ...n.querySelectorAll(".strip")]).filter(Boolean))); // içəridən yenilənən slayderin oxları da
   if (has(".hero-strip")) setupHeroImages();
   setupFeatureLents();
   setupLazySections();
@@ -2273,16 +2278,22 @@ function stopStep(el, snap) {
   const { best, bestD } = nearestStop(el);
   if (bestD > 1) el.scrollTop = best;
 }
-// Karusel: .strip içindəki zolağa ← → oxları və nöqtələr əlavə edir; bir basış bir səhifə (görünən en) sürüşdürür.
-// Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
-// Baş səhifənin uzaq bölmələri <template>-dədir: yerləşdirilmir, şəkli yüklənmir.
+// Karusel: .strip zolağına ← → oxları və nöqtələr; bir basış bir görünən en. Zolaq adi scroll qutusudur (barmaq, orta düymə,
+// klaviatura işləyir), ölçü dəyişəndə yenidən qurulur.
+// Baş səhifənin uzaq bölmələri boş qutudur, HTML-i yaddaşdadır: oxunmur, yerləşdirilmir, şəkli yüklənmir.
 const lazySection = html => html ? `<div class="lazy-sec"><template>${html}</template></div>` : "";
+const lazyHtml = new Map();
+function lazyFill(box) {
+  const h = lazyHtml.get(box.dataset.lazy);
+  if (box.firstChild || h == null) return false;
+  const t = document.createElement("template");
+  t.innerHTML = h; S.tr?.(t.content); box.replaceChildren(t.content);
+  return true;
+}
 function setupLazySections() {
   S.lazyIO?.disconnect();
   const show = box => {
-    const tpl = box.querySelector(":scope > template");
-    if (!tpl) return;
-    box.replaceChildren(tpl.content);
+    if (!lazyFill(box)) return;
     setupStrips(box.querySelectorAll(".strip"));
     if (box.querySelector("[data-marquee]")) setupMarquees();
   };
@@ -2292,10 +2303,13 @@ function setupLazySections() {
   boxes.forEach(b => S.lazyIO.observe(b));
 }
 function setupStrips(list) {
-  const strips = [...list], syncs = [];
-  strips.forEach(s => s.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove()));
-  strips.map(stripPlan).forEach(put => { const sync = put?.(); if (sync) syncs.push(sync); });
-  if (syncs.length) requestAnimationFrame(() => syncs.forEach(f => f()));
+  const strips = [...list];
+  if (strips.length) requestAnimationFrame(() => setTimeout(() => {
+    const on = strips.filter(s => s.isConnected), syncs = [];
+    on.forEach(s => s.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove()));
+    on.map(stripPlan).forEach(put => { const sync = put?.(); if (sync) syncs.push(sync); });
+    if (syncs.length) requestAnimationFrame(() => syncs.forEach(f => f()));
+  }));
 }
 function stripPlan(strip) {
     const row = strip.querySelector(".hero-row,.news-row,.ytrow,.phrow,.vrow,.fb-teams");
@@ -2392,8 +2406,8 @@ function setupFeatureLents() {
         if (lastY == null) return;
         const y = e.touches[0].clientY, dy = lastY - y; lastY = y;
         samples.push([performance.now(), y]); if (samples.length > 6) samples.shift();
-        // overscroll-behavior:none ilə brauzer jest lentdə başlayanda səhifəni HEÇ sürüşdürmür (kənarda olsa belə) — ona görə
-        // kənar ötürməsini həmişə JS edir. Yalnız səhifə kənardan (brauzer tərəfindən) tərpənsə, bu jestdə JS dayanır (ikiqat olmasın).
+        // overscroll-behavior:none ilə lentdə başlayan jest səhifəni sürüşdürmür, kənar ötürməsini JS edir;
+        // səhifəni brauzer özü tərpədibsə JS dayanır (ikiqat olmasın).
         if (mode === "page") return;
         if (mode === null) mode = "lent";
         if (Math.abs(window.scrollY - expectedY) > 1) { mode = "page"; return; }
