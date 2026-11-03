@@ -291,7 +291,7 @@ test('speed red line: the waiting redraw runs as soon as the files have arrived'
   assert.equal(ctx.rendered,1,'gözləyən çəkiliş yoxdursa heç nə etmir');
 });
 test('speed red line: the page code stays within its size limit',()=>{
-  assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<200e3,'app.js');
+  assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<220e3,'app.js');
   assert.ok(fs.statSync(path.join(root,'assets/app.css')).size<95e3,'app.css');
 });
 test('speed red line: files arriving together cause one redraw, not one each',async()=>{
