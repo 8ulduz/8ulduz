@@ -414,15 +414,21 @@ function imageCandidates(a) {
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
   // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
   const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
-  return [...all.filter(u => !cut(u)), ...all.filter(cut)];
+  // Proksidən keçməyən sayt (PROXY_SKIP) sona: eyni xəbərin başqa mənbəsinin kiçildilə bilən şəkli varsa o çıxır.
+  const blocked = u => PROXY_SKIP.test(hostOf(u));
+  return [...all.filter(u => !cut(u) && !blocked(u)), ...all.filter(u => cut(u) && !blocked(u)), ...all.filter(blocked)];
 }
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // Mənbələrin şəkilləri 1-2 MB olur, ilk açılış 11-16 MB idi. wsrv.nl kiçildir (orta 15 KB). Alınmasa imgFail əsl ünvana keçir,
 // xidmət ümumiyyətlə işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən yüklənir.
 const PROXY_MAX_FAILS = 8;
-// wsrv bu saytların şəklini 404 verir (brauzer ORB ilə kəsir). Birbaşa mənbədən yüklənir.
-const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$/i;
+// wsrv bu saytların şəklini 404 verir (sayt proksini kəsir; statically və Photon kimi açıq proksilər də eyni cür kəsilir).
+// Birbaşa mənbədən yüklənir: 170–290 KB-lıq orijinal. Telefonda yalnız slayderin ilk şəkli üçün (heavyImage), kartlar mətnlə qalır.
+const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
+// Proksidən keçməyən (kiçildilməyən) ünvan: namizədlərdə sona düşür, telefonda slayderdən başqa yerdə yüklənmir.
+const heavyImage = u => typeof u === "string" && !u.startsWith("https://wsrv.nl/") && (PROXY_SKIP.test(hostOf(u)) || (proxyBad.get(hostOf(u)) || 0) > 0);
+const lightImg = a => imageCandidates(a).some(u => !heavyImage(u)); // slayderə yalnız kiçildilə bilən şəkil düşür
 function sized(url, width) {
   const host = hostOf(url);
   if (!url || !host || (S.proxyFails || 0) >= PROXY_MAX_FAILS || (proxyBad.get(host) || 0) >= 2 || PROXY_SKIP.test(host) || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
@@ -436,6 +442,7 @@ function heroPicWidth(first) {
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);
   if (!url) return ""; // şəkilsiz xəbər qutu tutmur: kart yalnız mətndir
+  if (TOUCH_UI && !eager && heavyImage(url)) return ""; // telefonda 200 KB-lıq orijinal kart şəkli üçün yüklənmir
   const small = sized(url, width), others = small === url ? rest : [url, ...rest];
   const load = later ? "" : eager ? 'fetchpriority="high"' : 'loading="lazy"';
   const src = `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">`;
@@ -459,7 +466,7 @@ const shareUrl = a => `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=$
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
-function cardAt(a, hx) { return `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true, 360)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
+function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
 // Şəkil yüklənməsə növbəti namizəd yoxlanır. Heç biri alınmasa kart yalnız mətn qalır.
 // Slayderdə boş kadr qalmır: şəkli sınan slayd çıxarılır (xəbərin özü siyahılarda qalır).
@@ -489,7 +496,8 @@ const imgFail = el => {
   }
   let rest = [];
   try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
-  const next = rest.find(u => typeof u === "string" && u && u !== el.src);
+  // Telefonda slayderdən başqa yerdə proksisiz orijinal (200 KB+) yüklənmir: kart mətnlə qalır.
+  const next = rest.find(u => typeof u === "string" && u && u !== el.src && !(TOUCH_UI && !el.closest(".hero-main") && heavyImage(u)));
   if (next) {
     el.dataset.imageAlternatives = JSON.stringify(rest.slice(rest.indexOf(next) + 1));
     el.src = next;
@@ -739,7 +747,7 @@ async function loadNews(force = false) {
     // main 10 dəqiqədən bir yazılır: dəqiqəlik gələn xəbərlər tam lentdə hələ olmaya bilər, itməsinlər.
     const inFull = new Set(d.articles.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
     S.overlay = (S.overlay || []).filter(o => !inFull.has(o.a.sourceUrl) && Date.now() - o.at < 30 * 60e3);
-    S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined};
+    S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined}; S.fromCache = false;
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
@@ -757,14 +765,35 @@ async function loadFirst() {
   try {
     const {d} = await requestJSON(freshUrl("data/first.json"), {}, 5000);
     if (!Array.isArray(d?.articles) || !d.articles.length) return;
-    if (S.rawNews) return; // tam lent daha tez gəlib
-    S.partial = true;
-    S.og ||= d.og || {};
+    if (S.rawNews && !S.fromCache) return; // tam lent daha tez gəlib
+    S.partial = true; S.fromCache = false;
+    S.og = d.og || S.og || {};
     S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
     publishNews();
     S.firstRenderAt = Date.now();
     render();
     await new Promise(done => setTimeout(done));
+  } catch {}
+}
+
+// Təkrar açılış: xidmət işçisinin keşindəki son lent şəbəkəni gözləmədən çəkilir, təzəsi gələn kimi yerini alır
+// (loadFirst/loadNews, fromCache). Keş adı sw.js-dəki DATA ilə eynidir; sw.js faylı sorğu parametrsiz saxlayır.
+async function loadCached() {
+  if (!firstScreen() || typeof caches === "undefined" || S.rawNews) return;
+  try {
+    const key = (await caches.keys()).find(k => k.startsWith("8ulduz-data-"));
+    if (!key) return;
+    const cache = await caches.open(key);
+    const root = new URL(ASSET.replace(/assets\/$/, ""), location.href);
+    const hit = (await cache.match(new URL("data/first.json", root).href)) || (await cache.match(new URL("data/news.json", root).href));
+    if (!hit || S.rawNews) return;
+    const d = await hit.json();
+    if (!Array.isArray(d?.articles) || !d.articles.length || S.rawNews) return;
+    S.partial = true; S.fromCache = true;
+    S.og ||= d.og || {};
+    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    publishNews();
+    render();
   } catch {}
 }
 
@@ -794,15 +823,16 @@ function publishNews() {
 }
 function primeHeroImage(articles) {
   if (route().name !== "home" || S.q) return;
-  const a = heroPick((articles || []).filter(x => (S.lang ? langOf(x) === S.lang : true) && x.category !== "prezident" && imgUrl(x)), 1)[0];
+  const a = heroPick((articles || []).filter(x => (S.lang ? langOf(x) === S.lang : true) && x.category !== "prezident" && lightImg(x)), 1)[0];
   const href = a && sized(imageCandidates(a)[0], heroPicWidth(true));
   if (!href || S.lcpHref === href) return;
   S.lcpHref = href;
   const head = document.head;
   if (!head?.querySelector || !head.appendChild) return;
   let link = head.querySelector("link[data-lcp]");
-  if (!link) { link = document.createElement("link"); link.rel = "preload"; link.as = "image"; link.dataset.lcp = "1"; head.appendChild(link); }
+  if (!link) { link = document.createElement("link"); link.rel = "preload"; link.as = "image"; link.dataset.lcp = "1"; }
   link.href = href; link.fetchPriority = "high";
+  if (!link.isConnected) head.appendChild(link); // href əvvəl, sonra sənədə: boş href xəbərdarlığı olmasın
 }
 
 // Ekran yalnız oxucu ona toxunmayanda yenidən qurulur: açıq video, xəritə, açılan siyahı və yazılan süzgəc itmir, səhifə atlamır.
@@ -936,7 +966,8 @@ function route() {
 
 /* ---------------------------------------------------------------- render */
 function shell() {
-  $("#app").innerHTML = `
+  // index.html eyni qabığı statik daşıyır (data-shell): CSS gələn kimi çəkilir, JS gözlənilmir. Onda burada yalnız hadisələr bağlanır.
+  if (!$("#app").dataset?.shell) $("#app").innerHTML = `
   <a class="skip" href="#view">Məzmuna keç</a>
   <div class="topbar"><div class="wrap" id="topbar"></div></div>
   <header class="site" id="sitehead"><div class="wrap hrow">
@@ -1477,7 +1508,7 @@ function prezBlock(list) {
   // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır
   // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir.
   const card = (a, i) => {
-    const [pic, ...rest] = imageCandidates(a);
+    const [pic, ...rest] = TOUCH_UI ? imageCandidates(a).filter(u => !heavyImage(u)) : imageCandidates(a); // telefonda proksisiz orijinal (200 KB+) kiçik şəkil üçün yüklənmir
     const small = sized(pic, 168);
     const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
     return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
@@ -1493,7 +1524,7 @@ function prezBlock(list) {
 
 const HERO_COUNT = 15, HERO_ONLY = 6; // İlk 6 xəbər yalnız slayderdədir; qalanları aşağıdakı siyahılarda da qalır, çünki slayderdə növbəsi 90 saniyədən bir gəlir.
 function heroBlock(list) {
-  const slides = list.filter(imgUrl).slice(0, HERO_COUNT); // şəkilsiz xəbər slayderə düşmür, boş kadr olmur
+  const slides = list.filter(lightImg).slice(0, HERO_COUNT); // şəkilsiz (və yalnız proksisiz şəkilli) xəbər slayderə düşmür, boş kadr olmur
   if (!slides.length) return "";
   return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${slides.map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, heroPicWidth(i === 0), i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
@@ -1506,7 +1537,7 @@ function alertStrip() {
 }
 function photoStrip(list) {
   const cut = Date.now() - 30 * HOUR;
-  const pics = byDate(list.filter(a => a.imageUrl && new Date(a.publishedAt).getTime() > cut)).slice(0, 14);
+  const pics = byDate(list.filter(a => a.imageUrl && lightImg(a) && new Date(a.publishedAt).getTime() > cut)).slice(0, 14);
   if (pics.length < 4) return "";
   return `<section><div class="sec-h"><h2>Foto qalereya</h2><span class="cnt">günün şəkilləri</span></div><div class="strip"><div class="phrow">${pics.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<span>${txt(a.title)}</span></a>`).join("")}</div></div></section>`;
 }
@@ -1650,7 +1681,7 @@ function unifiedVideo(list) {
   return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
 }
 function homeView() {
-  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && imgUrl(a)), HERO_COUNT);
+  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && lightImg(a)), HERO_COUNT);
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining);
@@ -1663,20 +1694,35 @@ function homeView() {
 // Paylaşılan keçid sonra da açılsın: qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i, updater.py ilə eyni),
 // lentdən çıxan xəbər paylaşma siyahısındadır (24 saat, updater.py update_share_index), daha köhnəsi bölmə arxivində.
 // Yalnız lentdə tapılmayan keçiddə işləyir.
+// Paylaşma siyahısı (data/paylas/N.json, 32 hissə; updater.py update_share_index): nömrəyə görə xəbərin sətri.
+// Qrupa düşən mənbənin sətri əsas xəbərə yönəlir (of), ən çox 3 addım. Tapılmasa null, şəbəkə xətası atılır.
+async function shareRow(id) {
+  for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
+    const {d} = await requestJSON(freshUrl(`data/paylas/${parseInt(k.slice(0, 2), 16) >> 3}.json`), {}, 8000);
+    const row = d?.articles?.find(a => a.id === k);
+    if (row?.of) { k = row.of; continue; }
+    return row && !removedSource(row) && !policyViolation(row) ? row : null;
+  }
+  return null;
+}
+// Paylaşılan keçid (WhatsApp, Telegram) açılanda tam lent (240 KB) gözlənilmir: xəbərin sətri ~20 KB-lıq paylaşma
+// hissəsindən gəlir (index.html onu erkən istəyir), lent arxada yüklənir və gələndə səhifənin qalanı dolur.
+async function loadShared(id) {
+  if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
+  try {
+    const row = await shareRow(id);
+    if (row && !S.data) { S.sharedStory = { id, row }; if (route().name === "article") renderView(); }
+  } catch {}
+}
 async function scanArchives(id) {
   S.archiveScanning = true;
   try {
-    if (globalThis.crypto?.subtle) for (const a of S.data.articles.filter(a => a.alts?.length)) for (const alt of a.alts) {
+    if (globalThis.crypto?.subtle) for (const a of (S.data?.articles || []).filter(a => a.alts?.length)) for (const alt of a.alts) {
       const hash = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(alt.sourceUrl));
       if ([...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16) === id) { S.sharedStory = { id, row: a }; return; }
     }
-    for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) try {
-      const {d} = await requestJSON(freshUrl(`data/paylas/${parseInt(k.slice(0, 2), 16) >> 3}.json`), {}, 8000);
-      const row = d?.articles?.find(a => a.id === k);
-      if (row?.of) { k = row.of; continue; } // qrupa düşən mənbə: əsas xəbərin sətri
-      if (row && !removedSource(row) && !policyViolation(row)) { S.sharedStory = { id, row }; return; }
-      break;
-    } catch { break; }
+    const row = await shareRow(id).catch(() => null);
+    if (row) { S.sharedStory = { id, row }; return; }
     const hint = (location.hash.split("?")[1] || "").match(/(?:^|&)b=([^&]+)/)?.[1];
     for (const slug of new Set([hint, ...CATS.map(c => c.slug)].filter(Boolean))) {
       await loadArchive(slug);
@@ -1688,14 +1734,14 @@ async function scanArchives(id) {
   }
 }
 function articleView(id) {
-  const a = S.data.articles.find(a => String(a.id) === id) || (S.sharedStory?.id === id && S.sharedStory.row) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
+  const a = (S.data?.articles || []).find(a => String(a.id) === id) || (S.sharedStory?.id === id && S.sharedStory.row) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
   if (!a) {
-    if (S.archiveScan !== id) { S.archiveScan = id; scanArchives(id); }
+    if (S.data && S.archiveScan !== id) { S.archiveScan = id; scanArchives(id); }
     if (S.archiveScanning) return '<p class="empty">Xəbər axtarılır…</p>';
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz";
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", true, false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
 }
 
 function listPage(title, desc, list, extra = "") {
@@ -1905,9 +1951,11 @@ function renderView() {
   try {
     const v = $("#view");
     const onlyFirst = S.partial && !firstScreen();
-    if (S.error && (!S.data || onlyFirst)) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
-    if (!S.data || onlyFirst) { S.viewPage = null; v.innerHTML = skeleton(); return; }
     const r = route();
+    // Paylaşılan keçid: xəbərin sətri paylaşma siyahısından gəlibsə tam lent gözlənilmir (loadShared).
+    const shared = r.name === "article" && S.sharedStory?.id === r.id;
+    if (S.error && (!S.data || onlyFirst) && !shared) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
+    if ((!S.data || onlyFirst) && !shared) { S.viewPage = null; v.innerHTML = skeleton(); return; }
     const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
     const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
     // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
@@ -2781,6 +2829,15 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt 
 addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
 function registerWorker() {
   if (!("serviceWorker" in navigator)) return;
+  // sw.js arxa yoxlamada app.js/app.css-in dəyişdiyini görəndə bildirir: oxucu hələ toxunmayıbsa (ilk 4 saniyə, yuxarıda,
+  // yazmır) səhifə dərhal, yoxsa gözdən itəndə yenidən açılır. Bir sessiyada bir dəfə: yayım zamanı CDN iki nüsxə verərsə dövrə olmasın.
+  navigator.serviceWorker.addEventListener("message", e => {
+    if (e.data?.type !== "shell-updated") return;
+    let once = false;
+    try { once = !sessionStorage.getItem("8ulduz-reloaded"); if (once) sessionStorage.setItem("8ulduz-reloaded", "1"); } catch {}
+    if (once && performance.now() < 4000 && (globalThis.scrollY || 0) < 50 && !document.activeElement?.matches?.("input,textarea")) location.reload();
+    else S.reloadWhenHidden = true;
+  });
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then((reg) => {
     S.swReg = reg;
     if (!navigator.serviceWorker.controller) return;
@@ -2814,6 +2871,8 @@ if (uiLang(S.lang)) {
 }
 shell(); render();
 // Hamısı gələn kimi çəkilir: gözləsə ağır çəkiliş oxucunun linkə basdığı ana düşür, keçid gecikir.
+{ const r0 = route(); if (r0.name === "article") loadShared(r0.id); }
+loadCached();
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
 // Xəbər ekrana çıxandan sonra: xidmət işçisi, statistika və köməkçi şəbəkəni tutur.

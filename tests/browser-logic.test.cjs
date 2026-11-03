@@ -17,7 +17,7 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug, loadShared, shareRow, loadCached, loadFirst, heavyImage, lightImg, cardAt, imgFail, renderView};`, context);
   return context;
 }
 
@@ -291,8 +291,10 @@ test('speed red line: the waiting redraw runs as soon as the files have arrived'
   assert.equal(ctx.rendered,1,'gözləyən çəkiliş yoxdursa heç nə etmir');
 });
 test('speed red line: the page code stays within its size limit',()=>{
-  assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<220e3,'app.js');
-  assert.ok(fs.statSync(path.join(root,'assets/app.css')).size<95e3,'app.css');
+  // Ölçü yayımdakı kimi (LF): Windows-da CRLF ilə açılan nüsxə hər sətirə bir bayt artıq olur.
+  const size=p=>Buffer.byteLength(fs.readFileSync(path.join(root,p),'utf8').replace(/\r\n/g,'\n'));
+  assert.ok(size('assets/app.js')<220e3,'app.js');
+  assert.ok(size('assets/app.css')<95e3,'app.css');
 });
 test('speed red line: files arriving together cause one redraw, not one each',async()=>{
   const ctx=app();
@@ -937,7 +939,7 @@ test('new application code replaces a cached version while online', async () => 
   let stored;
   context.fetch = async () => new Response('new code');
   context.caches.open = async () => ({match: async () => undefined, put: async (_key, response) => { stored = await response.text(); }});
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'new code');
   await new Promise(r => setImmediate(r));
   assert.equal(stored, 'new code');
@@ -949,18 +951,39 @@ test('a slow first visit to another page waits for that page instead of showing 
   context.fetch = () => new Promise(r => { answer = r; });
   context.caches.open = async () => ({match: async (req) => String(req).includes('index.html') ? new Response('shell') : undefined, put: async () => {}});
   vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
-  const pending = vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/mexfilik/index.html'.replace('index.html','')))", context);
+  const pending = vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/mexfilik/index.html'.replace('index.html','')))", context);
   await new Promise(r => setImmediate(r));
   answer(new Response('privacy page'));
   assert.equal(await (await pending).text(), 'privacy page');
 });
 
-test('new code wins over the cached copy when the network answers in time', async () => {
+// Sürət (qırmızı xətt 3): təkrar açılış şəbəkəni gözləmir. Saxlanmış qabıq dərhal verilir, təzəsi arxada saxlanır və
+// kod dəyişibsə açıq səhifələrə bildirilir (app.js səhifəni yeniləyir).
+test('the saved shell answers at once; changed code is stored for the next visit and announced', async () => {
   const {context} = worker();
+  let stored, messages = [];
   context.fetch = async () => new Response('new code');
-  context.caches.open = async () => ({match: async () => new Response('cached code'), put: async () => {}});
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
-  assert.equal(await res.text(), 'new code');
+  context.caches.open = async () => ({match: async () => new Response('cached code'), put: async (_key, response) => { stored = await response.text(); }});
+  context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'cached code');
+  for (let i = 0; i < 20 && !messages.length; i++) await new Promise(r => setImmediate(r));
+  assert.equal(stored, 'new code');
+  assert.deepEqual(messages.map(m => m.type), ['shell-updated']);
+});
+test('unchanged code and a changed index.html are stored quietly', async () => {
+  for (const [url, saved, fresh] of [['assets/app.js', 'same', 'same'], ['', '<p>old</p>', '<p>new</p>']]) {
+    const {context} = worker();
+    let stored, messages = [];
+    context.fetch = async () => new Response(fresh);
+    context.caches.open = async () => ({match: async () => new Response(saved), put: async (_key, response) => { stored = await response.text(); }});
+    context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/" + url + "'))", context);
+    assert.equal(await res.text(), saved);
+    for (let i = 0; i < 20 && stored === undefined; i++) await new Promise(r => setImmediate(r));
+    assert.equal(stored, fresh);
+    assert.deepEqual(messages, []);
+  }
 });
 
 test('a hanging network does not leave a blank page when a copy is saved', async () => {
@@ -968,14 +991,14 @@ test('a hanging network does not leave a blank page when a copy is saved', async
   context.fetch = () => new Promise(() => {});
   context.caches.open = async () => ({match: async () => new Response('cached code')});
   vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'cached code');
 });
 
 test('application code is still available offline', async () => {
   const {context} = worker();
   context.caches.open = async () => ({match: async () => new Response('cached code')});
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'cached code');
 });
 
@@ -1370,6 +1393,87 @@ test('site language: Azerbaijani visitors do not load the translation', () => {
   assert.ok(src.slice(at - 260, at).includes('if (uiLang(S.lang))'), 'yalnız başqa dil seçiləndə');
   for (const f of ['assets/dil.js', 'assets/dil-ru.js', 'assets/dil-tr.js', 'assets/dil-en.js']) assert.ok(fs.statSync(path.join(root, f)).size < 60e3, f);
 });
+// Sürət (qırmızı xətt 3): index.html qabığı statik daşıyır — CSS gələn kimi başlıq, bölmələr və skelet çəkilir, JS gözlənilmir.
+// Statik nüsxə app.js shell()-in çıxışı ilə eynidir ki, JS gələndə səhifə atlamasın.
+function shellParts() {
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
+  const ctx = app({
+    location: { hash: '#/', href: 'https://8ulduz.az/' }, history: { replaceState() {} },
+    window: { addEventListener() {}, SITE_CONFIG: { goatcounter: '', telegram: '', contact: '' } },
+    document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
+    requestAnimationFrame: () => 0,
+  });
+  vm.runInContext('shell(); renderNav(); renderLangs();', ctx);
+  return { app: els.app.innerHTML, nav: els.nav.innerHTML, langs: els.langs.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
+}
+test('speed red line: index.html carries the same shell app.js builds, with nav and skeleton filled', () => {
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+  const parts = shellParts();
+  const m = index.match(/<div id="app" data-shell="1">([\s\S]*?)<\/div>\n  <\/body>/);
+  assert.ok(m, 'index.html-də data-shell qabığı yoxdur');
+  let want = parts.app;
+  want = want.replace(/(<nav class="main" id="nav" aria-label="Bölmələr">)(<\/nav>)/, (_, a, b) => a + parts.nav + b);
+  want = want.replace(/(<div class="wrap" id="langs">)(<\/div>)/, (_, a, b) => a + parts.langs + b);
+  want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + parts.skeleton + '<noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
+  assert.equal(m[1], want, 'index.html qabığı app.js shell() ilə eyni deyil');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (!$("#app").dataset?.shell) $("#app").innerHTML'), 'shell() statik qabığı silməməlidir');
+});
+test('speed red line: no web font is downloaded; header has no backdrop blur', () => {
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), updater = fs.readFileSync(path.join(root, 'updater.py'), 'utf8');
+  for (const [name, text] of [['index.html', index], ['sw.js', sw], ['updater.py', updater], ['app.css', css]]) assert.ok(!/fonts\.css|as="font"|woff2|@font-face/.test(text), name + ' şrift yükləyir');
+  assert.ok(!fs.existsSync(path.join(root, 'assets/fonts')), 'assets/fonts qovluğu qalıb');
+  assert.ok(!/backdrop-filter/.test(css), 'backdrop-filter telefonda sürüşməni ağırlaşdırır');
+  assert.ok(index.includes('<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />'), 'canlı kanalın hostu əvvəlcədən açılmalıdır');
+});
+test('speed red line: a shared link renders the story from the share index before the full feed', async () => {
+  const ctx = app({ location: { hash: '#/xeber/0a0a0a0a0a0a0a0a' } });
+  const { S, loadShared, articleView } = ctx.api;
+  const asked = [];
+  ctx.asked = asked;
+  vm.runInContext(`requestJSON = async url => { asked.push(url.split("?")[0]); return { d: { articles: [
+    { id: "0a0a0a0a0a0a0a0a", of: "0b0b0b0b0b0b0b0b" },
+    { id: "0b0b0b0b0b0b0b0b", title: "Pensiyalar artırılır", source: "APA", sourceUrl: "https://apa.az/x", publishedAt: new Date().toISOString(), category: "sosial", lang: "az" } ] } }; };
+    renderView = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; };`, ctx);
+  await loadShared('0a0a0a0a0a0a0a0a');
+  assert.deepEqual(asked, ['data/paylas/1.json', 'data/paylas/1.json'], '0a→hissə 1, of ilə 0b→hissə 1');
+  assert.equal(S.sharedStory.row.title, 'Pensiyalar artırılır');
+  assert.equal(ctx.rendered, 1, 'tam lent olmadan çəkilir');
+  assert.equal(S.data, null);
+  assert.ok(articleView('0a0a0a0a0a0a0a0a').includes('Pensiyalar artırılır'), 'xəbər səhifəsi tam lentsiz qurulur');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(index.includes('files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json")'), 'index.html paylaşma hissəsini erkən istəyir');
+});
+test('speed red line: the cached feed is shown before the network answers and then replaced', async () => {
+  const first = { updatedAt: 'old', articles: [{ id: 'c1', title: 'Keşdən xəbər', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] };
+  const matched = [];
+  const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-static-v33', '8ulduz-data-v33'], open: async name => ({ match: async url => { matched.push(name + ' ' + url); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
+  const { S, loadCached, loadFirst } = ctx.api;
+  await loadCached();
+  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json']);
+  assert.equal(S.data.articles[0].title, 'Keşdən xəbər');
+  assert.equal(S.partial, true);
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: 'new', articles: [{ id: 'n1', title: 'Şəbəkədən xəbər', source: 'APA', sourceUrl: 'https://apa.az/2', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] }) });
+  await loadFirst();
+  assert.equal(S.data.articles[0].title, 'Şəbəkədən xəbər', 'şəbəkədən gələn ilk ekran keşdəkini əvəz edir');
+  assert.equal(S.fromCache, false);
+});
+test('speed red line: phones do not download un-proxied originals outside the slider', () => {
+  const phone = app({ matchMedia: q => ({ matches: q === '(hover:none)' }) }).api, desktop = app().api;
+  const heavy = { id: 'h', title: 'Ağır şəkil', source: 'Qafqazinfo', sourceUrl: 'https://qafqazinfo.az/a', imageUrl: 'https://qafqazinfo.az/uploads/1/tramp.jpg', publishedAt: new Date().toISOString(), category: 'gundem' };
+  const light = { ...heavy, id: 'l', sourceUrl: 'https://apa.az/a', imageUrl: 'https://apa.az/img/1.jpg' };
+  assert.equal(phone.heavyImage(heavy.imageUrl), true);
+  assert.equal(phone.heavyImage('https://wsrv.nl/?url=x'), false);
+  assert.equal(phone.lightImg(heavy), false);
+  assert.equal(phone.lightImg({ ...heavy, alts: [{ sourceUrl: 'https://apa.az/b', imageUrl: 'https://apa.az/img/2.jpg' }] }), true, 'başqa mənbənin kiçildilə bilən şəkli var');
+  assert.ok(phone.cardAt(heavy, 'h3').includes('class="card noimg"') && !phone.cardAt(heavy, 'h3').includes('<img'), 'telefonda kart mətnlə qalır');
+  assert.ok(phone.cardAt(light, 'h3').includes('https://wsrv.nl/'), 'kiçildilən şəkil telefonda da gəlir');
+  assert.ok(desktop.cardAt(heavy, 'h3').includes('qafqazinfo.az/uploads/1/tramp.jpg'), 'kompüterdə orijinal yüklənir');
+  const { imageCandidates } = desktop;
+  assert.deepEqual([...imageCandidates({ imageUrl: 'https://qafqazinfo.az/1.jpg', alts: [{ imageUrl: 'https://apa.az/2.jpg' }] })], ['https://apa.az/2.jpg', 'https://qafqazinfo.az/1.jpg'], 'proksidən keçməyən sayt sona düşür');
+});
+
 // CSP: daxili skript yalnız hash ilə, daxili hadisə işləyicisi yoxdur.
 test('content security policy allows only the page own inline script', () => {
   const crypto = require('crypto');

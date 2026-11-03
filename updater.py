@@ -4231,10 +4231,8 @@ _SECTION_HTML = """<!doctype html>
     <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
     <link rel="manifest" href="__SITE__manifest.webmanifest" />
     <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
-    <link rel="preload" href="../../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="../../assets/fonts/inter-latin-ext.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />
     <link rel="modulepreload" href="../../assets/app.js" />
-    <link rel="stylesheet" href="../../assets/fonts.css" />
     <link rel="stylesheet" href="../../assets/app.css" />
     <script src="../../assets/config.js" defer></script>
     <script src="../../assets/content-policy.js" defer></script>

@@ -1,4 +1,4 @@
-/* 8ulduz — sadə, yığcam dizayn. Mənbə kodu: assets/app.js + assets/app.css (build tələb olunmur). Şrift: assets/fonts.css */
+/* 8ulduz — sadə, yığcam dizayn. Mənbə kodu: assets/app.js + assets/app.css (build tələb olunmur). Şrift: sistem şrifti (şəbəkədən 131 KB şrift gəlmir) */
 /* hidden atributu display:flex kimi qaydalardan güclü olsun (Telegram bloku kanal boş olanda da görünürdü) */
 [hidden]{display:none!important}
 :root{
@@ -18,7 +18,7 @@
   --fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;
   --fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px;
   --fw-regular:400;--fw-semibold:600;--fw-bold:700;
-  --header:hsl(222 47% 5%/.93);--surface:hsl(222 47% 5%/.5);--soc-chip:hsl(222 47% 5%/.45);--chip:hsl(210 40% 92%);--src-fg:hsl(210 40% 90%);--modal-fg:hsl(210 40% 96%/.9);
+  --header:hsl(222 47% 5%);--surface:hsl(222 47% 5%/.5);--soc-chip:hsl(222 47% 5%/.45);--chip:hsl(210 40% 92%);--src-fg:hsl(210 40% 90%);--modal-fg:hsl(210 40% 96%/.9);
   --footer:hsl(222 40% 8%/.4);--ad:hsl(222 40% 8%/.35);--ad-border:hsl(222 24% 24%);
   --ticker-bg:hsl(0 84% 60%/.08);--ticker-fg:hsl(210 40% 96%/.9);
   --mk-a:hsl(188 36% 18%);--mk-b:hsl(205 40% 12%);--mk-border:hsl(43 58% 46%/.55);
@@ -41,7 +41,7 @@ html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title
   --sky-fill:radial-gradient(90% 60% at 0% 0%,#fff,transparent 55%),linear-gradient(180deg,#e0f2fe 0%,#7dd3fc 100%);
   --sky-pill:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 100%);
   --sky-chip:hsl(199 100% 100%/.62);--sky-chip-line:hsl(201 70% 28%/.2);
-  --header:hsl(210 40% 98%/.94);--surface:hsl(204 45% 96%);--soc-chip:hsl(204 45% 96%);--chip:hsl(222 35% 20%);--src-fg:hsl(222 35% 20%);--modal-fg:hsl(222 47% 12%);
+  --header:hsl(210 40% 98%);--surface:hsl(204 45% 96%);--soc-chip:hsl(204 45% 96%);--chip:hsl(222 35% 20%);--src-fg:hsl(222 35% 20%);--modal-fg:hsl(222 47% 12%);
   --footer:hsl(210 33% 95%);--ad:hsl(210 30% 95%);--ad-border:hsl(214 18% 76%);
   --ticker-bg:hsl(0 70% 96%);--ticker-fg:hsl(222 40% 16%);
   --mk-a:hsl(183 48% 88%);--mk-b:hsl(196 42% 78%);--mk-border:hsl(188 42% 32%/.45);
@@ -50,7 +50,7 @@ html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-padding-top:110px}
-body{margin:0;background:var(--bg);color:var(--fg);font:var(--fw-regular) var(--fs-body)/var(--lh-body) Inter,"Inter Fallback",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{margin:0;background:var(--bg);color:var(--fg);font:var(--fw-regular) var(--fs-body)/var(--lh-body) system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 img{display:block}
@@ -94,7 +94,8 @@ img{display:block}
 .wx-det b{color:var(--sky-on);font-size:0.95rem}
 
 /* --- başlıq --- */
-header.site{position:sticky;top:0;z-index:50;background:var(--header);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+/* Fon qeyri-şəffaf, bulanıq fon yoxdur: telefonda hər sürüşmə kadrında başlığın altını bulandırmaq bahadır. */
+header.site{position:sticky;top:0;z-index:50;background:var(--header);border-bottom:1px solid var(--border)}
 .hrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;min-height:52px;height:auto;padding:8px var(--gutter)} /* yan boşluq .wrap ilə eyni: loqo kənara yapışmasın */
 /* Söz nişanı: sarı kvadrat ikon çıxarılıb. «8» ağ (açıq temada tünd), «ULDUZ» sarı→qızılı keçidli,
    «Z»-nin sağ üstündə kiçik 8 guşəli ulduz (bayraqdakı kimi) — yeganə bəzək. */
@@ -204,6 +205,7 @@ nav.main a.nav-tix{position:relative}
   .ticker .lbl .bell{font-size:0;padding:0;width:28px;min-height:30px;border-radius:0;display:grid;place-items:center}
   .ticker .lbl .bell::after{content:'🔔';font-size:13px}
   .ticker .run{padding:5px 0}
+  #ticker:empty{min-height:31px} /* lent gələnə qədər yer saxlanır: səhifə aşağı atılmır */
   .ticker .track{gap:20px;padding-left:8px}
   .ticker .track a{font-size:12px;line-height:20px}
 }

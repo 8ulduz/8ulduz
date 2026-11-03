@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-FceUHjCqCm9aD/8nMBlxFCEqJEU48uMNvhl7Vpq0twM=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-oEyXr12I13QEORknCZj0tm3xNiJusEPdXV0ZzZ4E9s8=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.js" />
     <script>
@@ -29,9 +29,13 @@
         var lang = null;
         try { lang = localStorage.getItem("8ulduz-lang"); } catch (e) {}
         var home = (location.hash === "" || location.hash === "#/") && (lang === null || lang === "az");
-        (home ? ["data/first.json"] : ["data/news.json", "data/og.json"]).forEach(function (p) {
+        var files = home ? ["data/first.json"] : ["data/news.json", "data/og.json"];
+        // Paylaşılan keçid (#/xeber/ID): xəbərin sətri 32 hissəli paylaşma siyahısından (~20 KB) tam lentdən əvvəl gəlir (app.js loadShared).
+        var art = location.hash.match(/^#\/xeber\/([0-9a-f]{16})/);
+        if (art) files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json");
+        files.forEach(function (p, i) {
           var u = p + "?t=" + m;
-          window.__early[u] = fetch(u, { cache: "no-store" });
+          window.__early[u] = fetch(u, { cache: "no-store", priority: i ? "low" : "high" });
           window.__early[u].catch(function () {});
         });
       } catch (e) {}
@@ -86,17 +90,42 @@
     }
     </script>
     <link rel="preconnect" href="https://wsrv.nl" />
-    <link rel="preload" href="./assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="./assets/fonts/inter-latin-ext.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="./assets/fonts.css" />
+    <!-- Canlı kanal (status, latest, markets) bu hostdandır: DNS+TLS əvvəlcədən açılır (Lighthouse: ~480 ms). Şrift faylı yoxdur: sistem şrifti dərhal çəkilir. -->
+    <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />
     <link rel="stylesheet" href="./assets/app.css" />
     <script src="./assets/config.js" defer></script>
     <script src="./assets/content-policy.js" defer></script>
     <script type="module" src="./assets/app.js"></script>
   </head>
   <body>
-    <div id="app">
-      <noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>
-    </div>
+    <!-- Qabıq app.js shell()-in eyni çıxışıdır (test tutur): CSS gələn kimi başlıq, bölmələr və skelet çəkilir, JS yalnız hadisələri bağlayır. -->
+    <div id="app" data-shell="1">
+  <a class="skip" href="#view">Məzmuna keç</a>
+  <div class="topbar"><div class="wrap" id="topbar"></div></div>
+  <header class="site" id="sitehead"><div class="wrap hrow">
+    <a class="logo" href="#/" aria-label="8ulduz — baş səhifə"><img src="./assets/logo-80.png" alt="8ULDUZ" decoding="async"></a>
+    <nav class="main" id="nav" aria-label="Bölmələr"><a href="#/" class="on">Baş səhifə</a><a href="#/bolme/sondeqiqe" class="" aria-label="Son dəqiqə">Son dəqiqə</a><a href="#/bolme/gundem" class="" aria-label="Gündəm">Gündəm</a><a href="#/bolme/siyaset" class="" aria-label="Siyasət">Siyasət</a><a href="#/bolme/iqtisadiyyat" class="" aria-label="İqtisadiyyat">İqtisadiyyat</a><a href="#/bolme/idman" class="has-sub" aria-label="İdman">İdman</a><a href="#/bolme/bolgeler" class="has-sub" aria-label="Bölgələr">Bölgələr</a><a href="#/bolme/sosial" class="" aria-label="Sosial müdafiə"><span class="nav-f">Sosial müdafiə</span><span class="nav-s">Sosial</span></a><a href="#/bolme/prezident" class="nav-x " aria-label="Zuğulba Xronikası"><span class="nav-f">Zuğulba Xronikası</span><span class="nav-s">Zuğulba</span></a><a href="#/bolme/cemiyyet" class="nav-x " aria-label="Cəmiyyət">Cəmiyyət</a><a href="#/bolme/dunya" class="nav-x " aria-label="Dünya">Dünya</a><a href="#/bolme/medeniyyet" class="nav-x " aria-label="Mədəniyyət">Mədəniyyət</a><a href="#/bolme/heyat" class="nav-x " aria-label="Sağlamlıq və həyat"><span class="nav-f">Sağlamlıq və həyat</span><span class="nav-s">Sağlamlıq</span></a><a href="#/bolme/tehsil" class="nav-x " aria-label="Təhsil və elm"><span class="nav-f">Təhsil və elm</span><span class="nav-s">Təhsil</span></a><a href="#/bolme/video" class="nav-x " aria-label="Video">Video</a><details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop"><a href="#/bolme/prezident" class="" aria-label="Zuğulba Xronikası"><span class="nav-f">Zuğulba Xronikası</span><span class="nav-s">Zuğulba</span></a><a href="#/bolme/cemiyyet" class="" aria-label="Cəmiyyət">Cəmiyyət</a><a href="#/bolme/dunya" class="" aria-label="Dünya">Dünya</a><a href="#/bolme/medeniyyet" class="" aria-label="Mədəniyyət">Mədəniyyət</a><a href="#/bolme/heyat" class="" aria-label="Sağlamlıq və həyat"><span class="nav-f">Sağlamlıq və həyat</span><span class="nav-s">Sağlamlıq</span></a><a href="#/bolme/tehsil" class="" aria-label="Təhsil və elm"><span class="nav-f">Təhsil və elm</span><span class="nav-s">Təhsil</span></a><a href="#/bolme/video" class="" aria-label="Video">Video</a><a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details></nav>
+    <label class="search"><span class="sr">Axtar</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search">
+      <button type="button" id="mic" class="mic" aria-label="Səslə axtar" title="Səslə axtar" aria-pressed="false" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></label>
+  </div><div class="langstick" id="langstick"></div><div class="nav-pop" id="navpop" hidden></div></header>
+  <div id="ticker"></div>
+  <div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
+  <div class="filters"><div class="wrap" id="langs"><a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a></div></div>
+  <main><div class="wrap" id="view" tabindex="-1"><section class="prez"><div class="skel" style="height:180px"></div></section>
+    <section class="hero"><div class="skel" style="height:340px"></div></section>
+    <section><div class="grid"><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div><div class='skel' style='height:220px'></div></div></section><noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript></div></main>
+  <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="https://t.me/" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
+  <footer id="footer"></footer>
+  <button class="newpill" id="newpill" data-act="apply-new" aria-live="polite" hidden></button>
+  <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
+  <nav class="tabbar" aria-label="Sürətli keçid">
+    <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
+    <a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>
+    <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
+    <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
+    <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
+  </nav></div>
   </body>
 </html>

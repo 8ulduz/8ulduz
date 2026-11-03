@@ -1,8 +1,8 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
-   HTML/JS/CSS: əvvəl şəbəkə, oflayn olanda keş. Şəkillər: əvvəl keş. */
-const VERSION = "v32"; // yuxarı zolaq bir sətir: Tıxac həbi çıxdı, düymələr namaz və havanın yanına keçdi
+   HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
+const VERSION = "v33"; // sürət: qabıq keşdən dərhal açılır, şrift faylları yoxdur, paylaşma keçidi tam lenti gözləmir
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -18,8 +18,7 @@ function isData(url) {
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(STATIC);
-    await cache.addAll(["./", "./index.html", "./assets/fonts.css", "./assets/app.css", "./assets/app.js", "./assets/assistant.js", "./assets/reader.js", "./assets/source-stats.js", "./assets/config.js", "./assets/content-policy.js", "./manifest.webmanifest",
-      "./assets/fonts/inter-latin.woff2", "./assets/fonts/inter-latin-ext.woff2", "./assets/fonts/inter-cyrillic.woff2",
+    await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/assistant.js", "./assets/reader.js", "./assets/source-stats.js", "./assets/config.js", "./assets/content-policy.js", "./manifest.webmanifest",
       "./assets/logo-80.png", "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon-maskable-192.png", "./assets/icon-maskable-512.png", "./assets/og-default.png"]);
     await self.skipWaiting();
   })());
@@ -137,28 +136,27 @@ async function cacheFirst(req) {
   }
 }
 
-const SHELL_WAIT_MS = 4000; // zəif şəbəkədə ağ ekran qalmasın: keşdəki nüsxə göstərilir, təzəsi arxada yazılır
-async function networkFirstShell(req, event) {
+// HTML/JS/CSS: saxlanmış nüsxə dərhal verilir (təkrar açılış şəbəkəni gözləmir), təzəsi arxada yüklənib növbəti açılış
+// üçün saxlanır. Kod dəyişəndə VERSION artır və install hamısını təzədən yığır. Artmasa da: arxa yoxlama app.js/app.css-də
+// fərq görəndə açıq səhifələrə «shell-updated» göndərir (app.js: oxucu hələ toxunmayıbsa dərhal, yoxsa gözdən itəndə yenilənir).
+// index.html hər yayımda dəyişə bilər, ona görə o müqayisə olunmur. Nüsxə yoxdursa (ilk açılış, başqa yol) şəbəkə gözlənilir.
+// Yalnız bu ünvanın öz nüsxəsi: başqa yolda index.html açılsa ./assets/ yolları sınır. O hal şəbəkə alınmayanda cacheFirst-dədir.
+const CODE_FILE = /\.(?:js|css)$/;
+async function cachedShell(req, event) {
   const cache = await caches.open(STATIC);
-  const network = fetch(new Request(req, { cache: "no-cache" })).then((fresh) => {
-    if (fresh.ok) {
-      // Gövdə arxada yazılır: yavaş yüklənmə 4 saniyəyə daxil deyil, cavab başlığı gələn kimi səhifə axına keçir.
-      const stored = cache.put(req, fresh.clone()).catch(() => {});
-      event?.waitUntil?.(stored);
-    }
+  const saved = await cache.match(req, { ignoreSearch: true });
+  const network = fetch(new Request(req, { cache: "no-cache" })).then(async (fresh) => {
+    if (!fresh.ok) return fresh;
+    const copy = fresh.clone();
+    const changed = !!saved && CODE_FILE.test(new URL(req.url).pathname) && (await saved.clone().text()) !== (await fresh.clone().text());
+    await cache.put(req, copy).catch(() => {});
+    if (changed) for (const client of await self.clients.matchAll({ type: "window" })) client.postMessage({ type: "shell-updated" });
     return fresh;
   });
-  // Yalnız bu ünvanın öz nüsxəsi: başqa yolda index.html açılsa ./assets/ yolları sınır. O hal şəbəkə alınmayanda cacheFirst-dədir.
-  const saved = await cache.match(req, { ignoreSearch: true });
   if (!saved) return network.catch(() => cacheFirst(req));
+  event?.waitUntil?.(network.catch(() => {}));
   network.catch(() => {});
-  let timer;
-  const late = new Promise((resolve) => { timer = setTimeout(() => resolve(saved), SHELL_WAIT_MS); });
-  try {
-    return await Promise.race([network, late]);
-  } catch {
-    return saved;
-  } finally { clearTimeout(timer); }
+  return saved;
 }
 
 self.addEventListener("fetch", (event) => {
@@ -171,7 +169,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   const shell = event.request.mode === "navigate" || /\.(?:html|js|css|webmanifest)$/.test(url.pathname);
-  event.respondWith(shell ? networkFirstShell(event.request, event) : cacheFirst(event.request));
+  event.respondWith(shell ? cachedShell(event.request, event) : cacheFirst(event.request));
 });
 
 const SEEN_URL = new URL("./notify-seen.json", SCOPE_URL).toString();
