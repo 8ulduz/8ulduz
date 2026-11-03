@@ -1070,8 +1070,8 @@ a.pill.on small{color:inherit}
 /* Şəkil kartın sahəsini örtür: sabit çərçivə, mərkəzdən kəsik. Uzanma, qara zolaq və boş yer yoxdur. */
 .img>img,.hero-main>.img img,.card .img img,.pcard .img img{object-fit:cover;object-position:center}
 .card>.img,.hero-main>.img{background:var(--card)}
-/* Telefon və planşetdə slayder: başlıq şəklin üstündə yox, altında; şəklin aşağı yarısı kölgə və yazı altında qalmır */
-@media(max-width:900px){.hero-row .hero-main{flex-direction:column;height:auto;min-height:0;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{margin-top:0;padding:12px 16px 14px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:var(--fg)}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}.hero-strip .st-btn{top:calc((100vw - 28px)*.28)}}
+/* Telefon və planşetdə slayder: başlıq şəklin altındakı tünd örtükdədir, kartın hündürlüyü şəkil qədərdir. */
+@media(max-width:900px){.hero-row .hero-main{position:relative;display:block;height:auto;min-height:0;overflow:hidden;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;z-index:0;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:block;z-index:1;pointer-events:none;background:linear-gradient(to top,#000 0%,rgba(0,0,0,.75) 36%,transparent 68%)}.hero-row .hero-main .body{position:absolute;z-index:2;left:0;right:0;bottom:0;margin:0;padding:32px 14px 12px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:#fff}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:#fff}.hero-strip .st-btn{top:42%}}
 /* Kompüterdə slayder: şəkil 16:9 çərçivəni örtür (object-fit: cover), başlıq sağda. */
 @media(min-width:901px){.hero-row .hero-main{background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;height:100%;aspect-ratio:16/9;max-width:min(70%,calc(100% - 250px))}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{flex:1;min-width:0;margin:0;justify-content:center;padding:56px 58px 40px 22px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:var(--fg);font-size:clamp(1.15rem,1.6vw,1.6rem);-webkit-line-clamp:6}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}}
 /* Telefonda «Son xəbərlər» kartı: mənbə sətri bütün endə, şəklin altında. Əvvəl başlıq hündür olanda şəklin altında boş yer qalırdı. */
@@ -1093,7 +1093,7 @@ header.site .langstick::-webkit-scrollbar{display:none}
 .card p{display:none}
 .latest-grid,.grid{gap:var(--gutter)}
 .hero-row>.hero-main{flex:0 0 100%;width:100%;scroll-snap-align:center;scroll-snap-stop:always;border-radius:var(--radius)}
-.card,.pcard,.prez,.mk{border-radius:var(--radius)}
+.card,.pcard,.prez{border-radius:var(--radius)}
 .latest-grid .card,.compact-category .card,.grid .card,.news-row>.card{display:flex;flex-direction:column;align-items:stretch;overflow:hidden;border-radius:var(--radius);background:var(--card);border:1px solid var(--border)}
 .latest-grid .card>.img,.compact-category .card>.img,.grid .card>.img,.news-row .card>.img,.card>.img{width:100%;height:auto;aspect-ratio:16/9;flex:none;align-self:stretch;border-radius:0;grid-row:auto;grid-column:auto}
 .latest-grid .card>.b,.compact-category .card>.b,.grid .card>.b,.news-row .card>.b,.card>.b{display:flex;flex-direction:column;gap:6px;padding:12px;min-width:0}
@@ -1101,7 +1101,7 @@ header.site .langstick::-webkit-scrollbar{display:none}
 .latest-grid .card .badges,.latest-grid .card .card-hit,.latest-grid .card .meta{margin:0}
 .card .meta .src{max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .star{top:8px;right:8px;width:28px;height:28px;min-width:28px;min-height:28px;font-size:var(--fs-body)}
-.topbar,.hero-main .meta,.card .meta{font-size:var(--fs-meta);line-height:var(--lh-meta)}
+.hero-main .meta,.card .meta{font-size:var(--fs-meta);line-height:var(--lh-meta)}
 .totop{font-size:var(--fs-title)}
 .prez .soc-links{flex-direction:row;flex-wrap:nowrap;overflow-x:auto;align-items:center}
 .prez .soc-g{flex-direction:row;flex-wrap:nowrap;width:auto;flex:none}
@@ -1109,16 +1109,8 @@ header.site .langstick::-webkit-scrollbar{display:none}
 .prez-h h2,.pcard .t{font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--fw-semibold)}
 .pcard .t{-webkit-line-clamp:3}
 .prez-lent{margin-top:8px}
+@media(max-width:860px){.topbar .tix-top{display:inline-flex}}
 @media(max-width:600px){
-  .topbar .wrap{flex-wrap:nowrap;align-items:center;gap:6px;height:36px;min-height:0;padding-top:0;padding-bottom:0;overflow:hidden}
-  .topbar .tix-top{display:inline-flex}
-  .topbar .pray,.topbar .wx-btn,.topbar .tix-top{height:26px;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-semibold);padding:0 8px}
-  .topbar .pray .pcity-name,.topbar .wx-caret,.topbar .prefs .theme-btn .face span:last-child,.topbar .sync,.topbar .yenilendi{display:none}
-  .topbar .sync-state{display:none}
-  .topbar .sync-state.bad{display:block;position:absolute;left:var(--gutter);right:var(--gutter);top:100%;font-size:var(--fs-meta);line-height:var(--lh-meta)}
-  .topbar .prefs{margin-left:auto;gap:0}
-  .topbar .prefs button{height:28px;min-width:28px;margin:0;font-size:var(--fs-meta)}
-  .topbar .prefs button .face{height:24px;min-width:24px;padding:0 4px}
   header.site{position:sticky;top:0}
   .hrow{min-height:0;padding:4px var(--gutter);gap:4px 8px}
   .logo img,.hrow .logo img{height:28px}
@@ -1133,8 +1125,7 @@ header.site .langstick::-webkit-scrollbar{display:none}
   header.site .langstick,header.site.stuck .langstick{padding:2px var(--gutter)}
   .filters .wrap{padding-top:2px;padding-bottom:2px}
   .install-btn{min-height:26px;height:26px;font-size:var(--fs-meta);padding:0 10px}
-  .prefs .theme-btn span{font-size:var(--fs-meta);line-height:var(--lh-meta)}
-  .prez-n,.prez-h .cnt,.prez-h .btn,.soc-g a i,.source-count,.pray .pt{font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-bold)}
+  .prez-n,.prez-h .cnt,.prez-h .btn,.soc-g a i,.source-count{font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-bold)}
   .prez-n b{font-size:var(--fs-body);font-weight:var(--fw-bold)}
   .filters:not(:has(.install-btn)):not(:has(.driver-toggle)){display:none}
   .filters .wrap{padding-top:4px;padding-bottom:4px}
@@ -1144,18 +1135,8 @@ header.site .langstick::-webkit-scrollbar{display:none}
   .ticker .lbl .bell::after{content:none}
   .ticker .run{padding:4px 0}
   .ticker .track a{font-size:var(--fs-meta);line-height:var(--lh-meta)}
-  .markets.pending{height:34px}
-  .mk-grid{padding:4px 0;gap:6px}
-  .mk{flex-direction:row;align-items:center;gap:4px;height:28px;min-width:0;padding:0 8px}
-  .mk .n,.mk .v,.mk .c,.mk .v small{padding:0;margin:0;font-size:var(--fs-meta);line-height:var(--lh-meta);background:transparent}
-  .mk .n{font-weight:var(--fw-regular);color:var(--muted)}
-  .mk .v{font-weight:var(--fw-bold);color:var(--fg)}
-  .mk .c{font-weight:var(--fw-semibold);gap:3px}
-  .mk .c.up{color:#34d399;background:transparent}
-  .mk .c.down{color:#f87171;background:transparent}
-  .mk .c.flat{color:var(--muted);background:transparent}
   main{padding-top:8px}
-  .hero-row .hero-main h2{-webkit-line-clamp:4}
+  .hero-row .hero-main h2{font-size:var(--fs-title);line-height:var(--lh-title);-webkit-line-clamp:3}
   .news-row{gap:0;scroll-snap-type:x mandatory}
   .news-row>.card{flex-basis:100%;scroll-snap-align:center;scroll-snap-stop:always}
   .tabbar a,.tabbar button{font-size:var(--fs-meta);font-weight:var(--fw-semibold)}
@@ -1163,4 +1144,5 @@ header.site .langstick::-webkit-scrollbar{display:none}
   .pill,.loadmore{min-height:28px}
   .share{height:24px;padding:0 8px}
 }
+@media(max-width:900px){.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:var(--fw-bold);-webkit-line-clamp:3}}
 @media(min-width:901px){.hero-row .hero-main h2{font-size:var(--fs-display);-webkit-line-clamp:6}}

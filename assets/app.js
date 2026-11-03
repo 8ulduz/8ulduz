@@ -1055,7 +1055,7 @@ function renderTopbar() {
   const light = document.documentElement.dataset.theme === "light";
   $("#topbar").innerHTML = `    <span>${today()}</span>
     ${optional(prayBit)}
-    <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span class="wx-place">Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span class="wx-caret">▾</span></button>${pop}</div>
+    <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
     <a class="tix-top tix-btn" href="#/tixac" title="Tıxac və yollar">Tıxac</a>
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
@@ -1265,7 +1265,7 @@ function prayCityOptions(current) {
 function prayBit() {
   const p = S.pray;
   const city = p?.city || savedPrayCity();
-  if (!p) return `<button class="pray" data-act="pray" type="button"><span class="plab">Namaz</span><span class="pcity-name"> · ${esc(city)}</span></button>`;
+  if (!p) return `<button class="pray" data-act="pray" type="button">Namaz · ${esc(city)}</button>`;
   const h = p.hijri || {};
   const month = HIJRI_AZ[Number(h.month?.number)] || h.month?.en || "";
   const next = nextPrayer(p.timings);
@@ -1277,7 +1277,7 @@ function prayBit() {
     return `<div class="pray-row${on ? " next" : ""}">${prayIcon(k)}<span class="pn">${esc(lab)}</span>${mark}<b class="pt">${time}</b></div>`;
   }).join("");
   const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>Namaz</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div><label class="pray-pick"><span>Şəhər</span><select class="pray-city" aria-label="Namaz şəhəri">${prayCityOptions(city)}</select></label>${rows}</div>` : "";
-  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity"><span class="plab">Namaz</span><span class="pcity-name"> · ${esc(city)}</span></span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
+  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity">Namaz · ${esc(city)}</span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
 }
 function nextPrayer(times) {
   if (!times) return { key: "", lab: "Namaz", time: "", mins: null };
