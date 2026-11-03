@@ -4,12 +4,22 @@
 // pipeline.sh (publish_main) hər main yazılışında işlədir: node .github/scripts/prerender.cjs <repo>
 // HTML ayrı şablondan deyil, app.js-in öz homeView()-undan çıxır (data/first.json, S.partial): sayt və hazır nüsxə eyni koddur.
 // Telefon eni (390) üçün çəkilir: ilk şəkil 640 px-dir və HTML-dən dərhal yüklənir; kompüterdə app.js onu 800 px ilə əvəz edir.
+// Yalnız ekranda görünən hissə saxlanır (3 slayd, 8 Zuğulba kartı, 4 son xəbər): tam blok 104 KB (24 KB gzip) idi və ilk
+// çəkilişi gecikdirirdi; qalanı app.js tam siyahı ilə doldurur (44 Zuğulba kartı qaydası səhifənin özündə dəyişmir).
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 
 const NOSCRIPT = "<noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>";
 const VIEW_RE = /(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/;
+const KEEP = { slides: 3, prez: 8, latest: 4 };
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+// app.js decode() başlıqdakı HTML işarələrini <textarea> ilə açır; burada brauzer yoxdur, eyni işi bu cədvəl görür.
+const NAMED = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", laquo: "«", raquo: "»", hellip: "…", bdquo: "„", ldquo: "“", rdquo: "”", lsquo: "‘", rsquo: "’", copy: "©", shy: "­" };
+const decodeEntities = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+  if (e[0] === "#") { const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : m; }
+  return NAMED[e.toLowerCase()] ?? m;
+});
 
 // app.js-in brauzer mühiti: shellgen/test harness ilə eyni saxta DOM. Yalnız HTML qurulur, heç nə çəkilmir.
 function homeHtml(root, first, { now = 0, width = 390 } = {}) {
@@ -21,7 +31,9 @@ function homeHtml(root, first, { now = 0, width = 390 } = {}) {
     console: { ...console, log() {}, warn() {}, info() {} }, Map, Set, URL, Date: D, AbortController, setTimeout, clearTimeout, performance, innerWidth: width,
     addEventListener() {}, localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     location: { hash: "#/", href: "https://8ulduz.az/" }, navigator: { onLine: true }, history: { replaceState() {} },
-    document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, title: "", addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
+    document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, title: "", addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; },
+      // textarea (decode) və template (patchView) üçün: value işarələri açır
+      createElement() { return { _v: "", set innerHTML(v) { this._v = String(v); }, get innerHTML() { return this._v; }, get value() { return decodeEntities(this._v); }, content: {}, children: [] }; } },
     matchMedia: () => ({ matches: false }), requestAnimationFrame: () => 0,
     SITE_CONFIG: { goatcounter: "", telegram: "", contact: "" },
   });
@@ -34,13 +46,25 @@ function homeHtml(root, first, { now = 0, width = 390 } = {}) {
   return vm.runInContext("S.og = __first.og || {}; S.rawNews = __first.articles; S.rawMeta = { ...__first, articles: undefined }; S.partial = true; publishNews(); homeView();", context);
 }
 
+// Ekranda görünən hissə: slayderin ilk slaydları, Zuğulbanın ilk kartları, «Son xəbərlər»in ilk kartları. Kartların içində
+// eyni teq yuvalanmır (app.js heroBlock/prezBlock/cardAt), ona görə ardıcıl kəsmək kifayətdir.
+function firstScreen(html, keep = KEEP) {
+  const trim = (s, re, n) => { let i = 0; return s.replace(re, m => (++i > n ? "" : m)); };
+  let out = trim(html, /<article class="hero-main"[\s\S]*?<\/article>/g, keep.slides);
+  out = trim(out, /<a class="pcard[\s\S]*?<\/a>/g, keep.prez);
+  const at = out.indexOf('<div class="latest-grid">');
+  if (at >= 0) out = out.slice(0, at) + trim(out.slice(at), /<article class="card[\s\S]*?<\/article>/g, keep.latest);
+  return out;
+}
+
 function validate(html) {
   if (typeof html !== "string" || html.length < 3000) throw Error("ilk ekran qısadır: " + (html && html.length));
-  if (html.length > 400000) throw Error("ilk ekran böyükdür: " + html.length);
+  if (html.length > 120000) throw Error("ilk ekran böyükdür: " + html.length);
   if (!html.includes('<section class="hero">')) throw Error("slayder yoxdur");
   if (!html.includes("Son xəbərlər")) throw Error("«Son xəbərlər» bloku yoxdur");
   if (/<script\b/i.test(html)) throw Error("hazır HTML-də skript var (CSP hash-ı dəyişməlidir)"); // index.html-in CSP-si yalnız bir daxili skriptə icazə verir
   if (/<noscript/i.test(html)) throw Error("hazır HTML-də noscript var");
+  if (/&amp;amp;/.test(html)) throw Error("başlıqdakı işarələr açılmayıb");
 }
 
 // index.html-in #view blokunu yenidən yazır. Qalan hər şey (qabıq, CSP, sətir sonları) toxunulmur. Dəyişiklik varsa true.
@@ -52,7 +76,7 @@ function prerender(root, opts = {}) {
   if (!m) throw Error("index.html-də #view bloku və noscript tapılmadı");
   const first = JSON.parse(fs.readFileSync(path.join(root, "data/first.json"), "utf8"));
   if (!Array.isArray(first.articles) || first.articles.length < 10) throw Error("first.json-da xəbər azdır");
-  const html = homeHtml(root, first, opts);
+  const html = firstScreen(homeHtml(root, first, opts));
   validate(html);
   const block = `${m[1]}<div class="pre-skel" data-prerender="${esc(first.updatedAt || "")}">${html}</div>${m[3]}`;
   const out = index.slice(0, m.index) + block + index.slice(m.index + m[0].length);
@@ -63,7 +87,7 @@ function prerender(root, opts = {}) {
   return { changed: true, bytes: Buffer.byteLength(out), view: html.length };
 }
 
-module.exports = { homeHtml, prerender, validate, VIEW_RE, NOSCRIPT };
+module.exports = { homeHtml, firstScreen, prerender, validate, decodeEntities, VIEW_RE, NOSCRIPT, KEEP };
 
 if (require.main === module) {
   const root = process.argv[2] || process.cwd();

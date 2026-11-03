@@ -1816,14 +1816,21 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
 // brauzer onu CSS ilə birgə çəkir, app.js gələndə eyni görünüşü təzə məlumatla əvəz edir.
 function firstFixture(now) {
   const stamp = new Date(now - 5 * 60e3).toISOString();
-  const art = i => ({ id: 'a0a0a0a0a0a0a0a' + i.toString(16), title: `Mövzu${i} barədə yeni${i} açıqlama${i}`, summary: '', source: 'APA', sourceUrl: 'https://apa.az/' + i, publishedAt: stamp, category: i % 3 ? 'sosial' : 'iqtisadiyyat', lang: 'az', imageUrl: 'https://apa.az/' + i + '.jpg' });
+  // 1-ci başlıqda HTML işarəsi: brauzerdə decode() textarea ilə açır, prerender-də cədvəl (açılmasa «&amp;amp;» çıxır)
+  const art = i => ({ id: 'a0a0a0a0a0a0a0a' + i.toString(16), title: i === 1 ? 'Neft &amp; qaz barədə yeni1 açıqlama1' : `Mövzu${i} barədə yeni${i} açıqlama${i}`, summary: '', source: 'APA', sourceUrl: 'https://apa.az/' + i, publishedAt: stamp, category: i % 3 ? 'sosial' : 'iqtisadiyyat', lang: 'az', imageUrl: 'https://apa.az/' + i + '.jpg' });
   return { updatedAt: stamp, count: 16, og: {}, articles: [...Array(16)].map((_, i) => art(i)) };
 }
 test('speed red line: the first screen is prerendered from first.json with app.js itself, for phone widths, first picture eager', () => {
-  const { homeHtml, validate } = require(path.join(root, '.github/scripts/prerender.cjs'));
+  const { homeHtml, firstScreen, validate, KEEP } = require(path.join(root, '.github/scripts/prerender.cjs'));
   const now = Date.parse('2026-11-03T12:00:00Z');
-  const html = homeHtml(root, firstFixture(now), { now, width: 390 });
+  const full = homeHtml(root, firstFixture(now), { now, width: 390 });
+  assert.ok(full.includes('Neft &amp; qaz') && !full.includes('&amp;amp;'), 'başlıqdakı HTML işarəsi brauzerdəki kimi açılır');
+  assert.equal((full.match(/class="hero-main"/g) || []).length, 15, 'tam slayder 15 slayd');
+  const html = firstScreen(full);
   validate(html);
+  assert.equal((html.match(/class="hero-main"/g) || []).length, KEEP.slides, 'görünən hissə: slaydlar');
+  assert.ok((html.match(/class="pcard/g) || []).length <= KEEP.prez && (html.match(/<article class="card/g) || []).length <= KEEP.latest, 'görünən hissə: Zuğulba və son xəbər kartları');
+  assert.ok(html.includes('Neft &amp; qaz'), 'ilk slayd qalır');
   assert.ok(html.includes('<section class="hero">') && html.includes('Son xəbərlər') && html.includes('Zuğulba'), 'slayder, Son xəbərlər, Zuğulba');
   assert.ok(html.includes('5 dəqiqə əvvəl'), 'vaxt hazırlanma anına görədir');
   assert.ok(/w=640&amp;we&amp;output=webp[^>]*fetchpriority="high"/.test(html), 'telefon ölçüsü (640), ilk şəkil yüksək prioritetlə');
