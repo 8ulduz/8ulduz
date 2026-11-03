@@ -425,15 +425,14 @@ function sized(url, width) {
   if (!url || (S.proxyFails || 0) >= PROXY_MAX_FAILS || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
   return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
 }
-const imageFallback = cat => `<span class="image-fallback">${LOGO}<span>${esc(catLabel(cat || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);
-  const fallback = url ? "" : imageFallback(a.category);
+  if (!url) return ""; // şəkilsiz xəbər qutu tutmur: kart yalnız mətndir
   const small = sized(url, width), others = small === url ? rest : [url, ...rest];
   const load = later ? "" : eager ? 'fetchpriority="high"' : 'loading="lazy"';
-  const src = url ? `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">` : "";
+  const src = `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">`;
   const tag = linked ? "a" : "div";
-  return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
+  return `<${tag} class="img ${cls}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${src}</${tag}>`;
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
@@ -453,22 +452,48 @@ const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button
 const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
 const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3 lang="${esc(langOf(a))}">${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
 
-// Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
+// Şəkil yüklənməsə növbəti namizəd yoxlanır. Heç biri alınmasa kart yalnız mətn qalır.
+// Slayderdə boş kadr qalmır: şəkli sınan slayd çıxarılır (xəbərin özü siyahılarda qalır).
+function dropHeroSlide(slide) {
+  const row = slide.parentElement;
+  const strip = slide.closest(".strip");
+  const section = slide.closest(".hero");
+  const width = row?.clientWidth || 0;
+  const index = row ? [...row.children].indexOf(slide) : -1;
+  const showing = width > 0 && index >= 0 && Math.round(row.scrollLeft / width) === index;
+  slide.remove();
+  const left = row ? [...row.children] : [];
+  if (!left.length) { section?.remove(); return; }
+  if (showing) row.scrollLeft = Math.min(index, left.length - 1) * width;
+  if (strip) setupStrips([strip]);
+  setupHeroImages();
+}
 const imgFail = el => {
-  if (el.src.startsWith("https://wsrv.nl/")) S.proxyFails = (S.proxyFails || 0) + 1;
-  let rest = []; try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
-  if (rest.length) { el.dataset.imageAlternatives = JSON.stringify(rest.slice(1)); el.src = rest[0]; return; }
-  const box = el.parentElement;
-  box?.classList.add("image-unavailable");
-  const c = el.closest(".card"); if (c) c.classList.add("noimg");
+  if (!el?.isConnected) return;
+  el.style.visibility = "hidden"; // qırıq ikon görünməsin, növbəti ünvan yoxlanana qədər
+  if (String(el.src || "").startsWith("https://wsrv.nl/")) S.proxyFails = (S.proxyFails || 0) + 1;
+  let rest = [];
+  try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
+  const next = rest.find(u => typeof u === "string" && u && u !== el.src);
+  if (next) {
+    el.dataset.imageAlternatives = JSON.stringify(rest.slice(rest.indexOf(next) + 1));
+    el.src = next;
+    return;
+  }
+  const slide = el.closest(".hero-main");
+  if (slide) { dropHeroSlide(slide); return; }
+  const photo = el.closest(".phrow > a");
+  if (photo) { photo.remove(); return; }
+  const card = el.closest(".card, .pcard");
+  const box = el.closest(".img");
   el.remove();
-  if (box?.matches("a.img,div.img")) box.insertAdjacentHTML("afterbegin", imageFallback(el.closest("[data-cat]")?.dataset.cat));
+  if (card) card.classList.add("noimg");
+  box?.remove();
 };
 // CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
-// Kompüterdə şəkil qutusu şəklin öz nisbətini alır (başlıq yanda qalan yeri tutur): şəkil kəsilmir, qara zolaq qalmır.
-// Slayder şəkli çərçivədən az fərqlənirsə (20%) onu doldurur, çox fərqlənirsə bütöv qalır
-document.addEventListener("load", ({ target: t }) => { if (t.tagName === "IMG" && t.closest(".hero-main")) { const n = t.naturalWidth / t.naturalHeight; if (innerWidth > 900 && n > 1.2 && n < 2) t.parentElement.style.aspectRatio = n; const r = n / (t.clientWidth / t.clientHeight || 1); t.style.objectFit = r > .8 && r < 1.25 ? "cover" : ""; } }, true);
-document.addEventListener("error", ({ target: t }) => { const f = t.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && (t.style.visibility = "hidden"); }, true);
+// Ölçü CSS-də sabitdir: şəkil sahəni object-fit:cover ilə örtür, nisbət dəyişmir.
+document.addEventListener("load", (e) => { const t = e.target; if (t?.tagName === "IMG" && t.dataset?.fail === "alt") t.style.visibility = ""; }, true);
+document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && t.style && (t.style.visibility = "hidden"); }, true);
 
 /* ---------------------------------------------------------------- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
@@ -1439,8 +1464,9 @@ function prezBlock(list) {
 
 const HERO_COUNT = 15, HERO_ONLY = 6; // İlk 6 xəbər yalnız slayderdədir; qalanları aşağıdakı siyahılarda da qalır, çünki slayderdə növbəsi 90 saniyədən bir gəlir.
 function heroBlock(list) {
-  if (!list.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, HERO_COUNT).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, 828, i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
+  const slides = list.filter(imgUrl).slice(0, HERO_COUNT); // şəkilsiz xəbər slayderə düşmür, boş kadr olmur
+  if (!slides.length) return "";
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${slides.map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, 828, i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
 
 function alertStrip() {
@@ -1540,7 +1566,7 @@ function videosView() {
   const items = S.video?.items || [];
   const head = `<div class="page-h"><div><h1>Video xəbərlər</h1><p>Azərbaycan kanallarının YouTube lentləri. Video düyməyə basanda açılır.</p></div><span class="cnt">${items.length}</span></div>`;
   if (!items.length) return `${head}<p class="empty">Video lent hazırda açılmır. Bir az sonra yenidən baxın.</p>`;
-  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
+  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
 }
 function catSection(c, list) {
   if (!list.length) return "";
@@ -1592,10 +1618,10 @@ function latestBlock(list) {
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
   if (!hosted.length && !list.length) return "";
-  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb"><img src="${esc(v.imageUrl || "")}" alt="" loading="lazy"><i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
 }
 function homeView() {
-  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), HERO_COUNT);
+  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && imgUrl(a)), HERO_COUNT);
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining);
