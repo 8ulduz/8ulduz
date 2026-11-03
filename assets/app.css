@@ -94,7 +94,7 @@ img{display:block}
 .wx-det b{color:var(--sky-on);font-size:0.95rem}
 
 /* --- başlıq --- */
-/* Fon qeyri-şəffaf, bulanıq fon yoxdur: telefonda hər sürüşmə kadrında başlığın altını bulandırmaq bahadır. */
+/* Qeyri-şəffaf fon, bulanıqlıq yoxdur: telefonda hər kadrda bahadır */
 header.site{position:sticky;top:0;z-index:50;background:var(--header);border-bottom:1px solid var(--border)}
 .hrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;min-height:52px;height:auto;padding:8px var(--gutter)} /* yan boşluq .wrap ilə eyni: loqo kənara yapışmasın */
 /* Söz nişanı: sarı kvadrat ikon çıxarılıb. «8» ağ (açıq temada tünd), «ULDUZ» sarı→qızılı keçidli,
@@ -173,7 +173,7 @@ nav.main a.nav-tix{position:relative}
   .prefs button{height:44px;min-width:44px;padding:0;border-color:transparent;background:transparent;margin:-7px 0;font-size:0.9rem}
   .prefs button .face{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:34px;padding:0 7px;border:1px solid var(--border);border-radius:999px}
   .pray,.wx-btn,.tix-top{height:30px;font-size:0.8571rem}
-  .topbar .wrap{gap:6px 8px;padding-top:4px;padding-bottom:4px}
+  .topbar .wrap{gap:6px 8px;padding-top:4px;padding-bottom:4px;min-height:36px} /* dolu zolaq qədər: atlamır */
   /* Başlıq: 1 sətir loqo+axtarış, 1 sətir sürüşən bölmələr (əvvəl 3 sətir bükülürdü) */
   .hrow{min-height:44px;padding:6px 14px;gap:6px 8px}
   nav.main{flex-basis:100%;order:3;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:2px}
@@ -205,7 +205,7 @@ nav.main a.nav-tix{position:relative}
   .ticker .lbl .bell{font-size:0;padding:0;width:28px;min-height:30px;border-radius:0;display:grid;place-items:center}
   .ticker .lbl .bell::after{content:'🔔';font-size:13px}
   .ticker .run{padding:5px 0}
-  #ticker:empty{min-height:31px} /* lent gələnə qədər yer saxlanır: səhifə aşağı atılmır */
+  #ticker:empty{min-height:25px} /* lent gələnə qədər yer */
   .ticker .track{gap:20px;padding-left:8px}
   .ticker .track a{font-size:12px;line-height:20px}
 }
@@ -215,9 +215,9 @@ nav.main a.nav-tix{position:relative}
 /* --- bazar kartları: ortada, kənarlarda boşluq, xəbər kartından ayrı rəng --- */
 .markets{border-bottom:1px solid var(--border);background:transparent}
 /* Qiymətlər və lent sonra gəlir: yeri əvvəlcədən ayrılır, səhifə aşağı itələnmir */
-.markets.pending{height:65px;visibility:hidden}
-#ticker:empty{min-height:31px}
-@media(min-width:601px){.markets.pending{height:68px}#ticker:empty{min-height:34px}}
+.markets.pending{height:86px;visibility:hidden} /* dolu zolaqla eyni hündürlük (ölçülüb): səhifə atlamır */
+#ticker:empty{min-height:25px}
+@media(min-width:601px){.markets.pending{height:89px}#ticker:empty{min-height:37px}}
 /* Valyuta kartları: əvvəlki görünüş (ad / qiymət / dəyişmə sətri), hündürlük bir az azaldılıb (~73px → ~58px); həmişə görünür */
 .mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}
 button.mk{font:inherit;color:inherit;padding:0;text-align:left;cursor:pointer}
@@ -696,7 +696,7 @@ footer .logo img{height:28px}
 .foot-news a{text-align:left;font-size:13px;font-weight:600;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:860px){.ytgrid{grid-template-columns:1fr 1fr}}
 .err{border:1px solid hsl(0 84% 60%/.4);background:hsl(0 84% 60%/.1);border-radius:8px;padding:8px 10px;font-size:0.9286rem;margin-bottom:10px}
-html[data-route=other] .pre-skel{display:none} /* statik skelet baş səhifə formasındadır: başqa marşrutda çəkilmir, səhifə atlamır */
+html[data-route=other] .pre-skel{display:none} /* statik skelet yalnız baş səhifədə */
 .skel{border-radius:10px;background:linear-gradient(100deg,var(--card2) 30%,hsl(222 28% 18%) 48%,var(--card2) 62%);background-size:220% 100%;animation:shimmer 1.15s linear infinite}
 :root[data-theme="light"] .skel{background:linear-gradient(100deg,var(--card2) 30%,#fff 48%,var(--card2) 62%);background-size:220% 100%}
 @keyframes shimmer{to{background-position:-220% 0}}

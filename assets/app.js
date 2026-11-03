@@ -171,7 +171,7 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
 }
 // Aktivlərin yolu app.js-in öz ünvanından (bölmə səhifələri /bolme/x/ altından açılır; testlərdə script yoxdur → ./assets/)
 const ASSET = (document.querySelector('script[src*="assets/app.js"]')?.src || "./assets/app.js").replace(/app\.js.*$/, "");
-const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" decoding="async">`;
+const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" width="352" height="80" decoding="async">`; // ölçü atributda: şəkil gələnə qədər yer saxlanır (CSS hündürlüyü verir, en nisbətlə)
 const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən xəbər
 
 // Məxfi rejimdə və yaddaş dolanda seçimlər heç olmasa açıq vərəqdə işləsin.
@@ -2712,7 +2712,8 @@ addEventListener("resize", () => {
   marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(document.querySelectorAll(".strip")); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
 });
 
-function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
+// Alt yazı məzmunla birgə gəlir: boş səhifədə başlığın altında çəkilib sonra aşağı itələnməsin (CLS).
+function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); if (S.data || S.sharedStory || S.error) renderFooter(); syncTixDot(); }
 
 /* ---------------------------------------------------------------- start */
 async function loadAds() {
