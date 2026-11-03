@@ -284,8 +284,15 @@ const byDate = list => [...list].sort((x, y) => new Date(y.publishedAt).getTime(
 const lc = s => (s || "").toLocaleLowerCase("az");
 const GROUP_MS = 36 * HOUR;
 const GROUP_STOP = new Set("ve ile the and for from or bir bu da de ki veya icin olan və ilə də o üçün ya news xəbər xeber".split(/\s+/));
+const normSeen = new Map();
 function normTitle(s) {
-  return (s || "").toLowerCase().replace(/i̇/g, "i")
+  s ||= "";
+  let v = normSeen.get(s);
+  if (v === undefined) { if (normSeen.size > 8000) normSeen.clear(); normSeen.set(s, v = normTitleRaw(s)); }
+  return v;
+}
+function normTitleRaw(s) {
+  return s.toLowerCase().replace(/i̇/g, "i")
     .replace(/ə/g, "e").replace(/â/g, "a").replace(/ı/g, "i").replace(/î/g, "i").replace(/ö/g, "o").replace(/ü/g, "u").replace(/û/g, "u")
     .replace(/ş/g, "s").replace(/ç/g, "c").replace(/ğ/g, "g")
     .replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
@@ -364,14 +371,14 @@ function clusterArticles(list) {
 }
 // Eyni başlıq (eyni mənbə adı da olsa) 36 saat içində bir kart olsun.
 function collapseExact(list) {
-  const groups = [];
+  const groups = [], byKey = new Map();
   for (const a of list || []) {
     const key = normTitle(decode(a.title));
     const dt = new Date(a.publishedAt).getTime();
     let g = null;
-    if (key.length >= 12 && !Number.isNaN(dt)) g = groups.find(x => x.key === key && Math.abs(x.dt - dt) <= GROUP_MS);
-    if (!g) groups.push({ key, dt: Number.isNaN(dt) ? 0 : dt, items: [a] });
-    else g.items.push(a);
+    if (key.length >= 12 && !Number.isNaN(dt)) g = byKey.get(key)?.find(x => Math.abs(x.dt - dt) <= GROUP_MS);
+    if (!g) { groups.push(g = { key, dt: Number.isNaN(dt) ? 0 : dt, items: [] }); byKey.set(key, [...byKey.get(key) || [], g]); }
+    g.items.push(a);
   }
   const out = [];
   for (const g of groups) {
@@ -516,9 +523,8 @@ function tixArea() { return TRAFFIC_AREAS.find(a => a.id === S.tixArea) || TRAFF
 function wazeSrc(a) { return `https://embed.waze.com/iframe?zoom=${a.zoom}&lat=${a.lat}&lon=${a.lon}`; }
 function wazeLive(a) { return `https://www.waze.com/live-map?ll=${a.lat},${a.lon}&zoom=${a.zoom}`; }
 function bakuClock(date = new Date()) {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Baku", hourCycle: "h23", weekday: "short", hour: "numeric" });
-  const parts = Object.fromEntries(fmt.formatToParts(date).map(p => [p.type, p.value]));
-  return { wd: parts.weekday, hour: Number(parts.hour) };
+  const b = new Date(date.getTime() + 4 * HOUR);
+  return { wd: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][b.getUTCDay()], hour: b.getUTCHours() };
 }
 function bakuRush(date = new Date()) {
   const { wd, hour } = bakuClock(date);
@@ -531,7 +537,7 @@ function roadFresh(a) {
   const age = Date.now() - t;
   return age >= -5 * 60e3 && age < HOUR;
 }
-function roadHot(list) { return bakuRush() || roadItems(list).some(roadFresh); }
+function roadHot(list) { return bakuRush() || roadItems(list.filter(a => Date.now() - new Date(a.publishedAt) < HOUR)).some(roadFresh); }
 function syncTixDot() {
   const hot = roadHot(S.data?.articles || []);
   document.querySelectorAll(".tix-btn").forEach(el => {
@@ -1819,7 +1825,7 @@ function patchView(v, page) {
   if (!changed.length) return;
   const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
   if (has("[data-marquee]")) setupMarquees();
-  changed.forEach(n => n.querySelectorAll(".strip").forEach(setupStrip));
+  setupStrips(changed.flatMap(n => [...n.querySelectorAll(".strip")]));
   if (has(".hero-strip")) setupHeroImages();
   setupFeatureLents();
   setupLazySections();
@@ -2276,7 +2282,7 @@ function setupLazySections() {
     const tpl = box.querySelector(":scope > template");
     if (!tpl) return;
     box.replaceChildren(tpl.content);
-    box.querySelectorAll(".strip").forEach(setupStrip);
+    setupStrips(box.querySelectorAll(".strip"));
     if (box.querySelector("[data-marquee]")) setupMarquees();
   };
   const boxes = [...document.querySelectorAll(".lazy-sec")];
@@ -2284,17 +2290,24 @@ function setupLazySections() {
   S.lazyIO = new IntersectionObserver(rows => rows.forEach(e => { if (e.isIntersecting) { S.lazyIO.unobserve(e.target); show(e.target); } }), { rootMargin: "900px 0px" });
   boxes.forEach(b => S.lazyIO.observe(b));
 }
-function setupStrip(strip) {
+function setupStrips(list) {
+  const strips = [...list], syncs = [];
+  strips.forEach(s => s.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove()));
+  strips.map(stripPlan).forEach(put => { const sync = put?.(); if (sync) syncs.push(sync); });
+  if (syncs.length) requestAnimationFrame(() => syncs.forEach(f => f()));
+}
+function stripPlan(strip) {
     const row = strip.querySelector(".hero-row,.news-row,.ytrow,.phrow,.vrow,.fb-teams");
     if (!row) return;
-    strip.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove());
     // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın
-    if (getComputedStyle(row).flexDirection === "column") { strip.dataset.pages = "1"; strip.classList.add("at-end"); return; } // telefonda şaquli siyahı
+    if (getComputedStyle(row).flexDirection === "column") return () => { strip.dataset.pages = "1"; strip.classList.add("at-end"); }; // telefonda şaquli siyahı
     const kids = [...row.children];
     const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
     const cw = kids[0] ? kids[0].getBoundingClientRect().width : 0;
     const per = Math.max(1, Math.floor((row.clientWidth + gap + 1) / ((cw || row.clientWidth) + gap)));
     const pages = Math.max(1, Math.ceil(kids.length / per));
+    const step = per * (cw + gap) || row.clientWidth;
+    return () => {
     strip.dataset.pages = String(pages);
     if (pages === 1) { strip.classList.add("at-end"); return; }
     const prev = document.createElement("button"), next = document.createElement("button"), dots = document.createElement("div");
@@ -2303,7 +2316,6 @@ function setupStrip(strip) {
     next.className = "st-btn st-next"; next.textContent = "›"; next.setAttribute("aria-label", "Növbəti");
     dots.className = "st-dots";
     for (let i = 0; i < pages; i++) { const d = document.createElement("button"); d.type = "button"; d.setAttribute("aria-label", `Səhifə ${i + 1}`); d.dataset.page = String(i); dots.appendChild(d); }
-    const step = per * (cw + gap) || row.clientWidth;
     const go = i => row.scrollTo({ left: Math.max(0, Math.min(i, pages - 1)) * step, behavior: "smooth" });
     const sync = () => {
       const cur = Math.min(pages - 1, Math.round(row.scrollLeft / step));
@@ -2319,7 +2331,8 @@ function setupStrip(strip) {
     dots.onclick = e => { const b = e.target.closest("button[data-page]"); if (b) go(Number(b.dataset.page)); };
     row.addEventListener("scroll", sync, { passive: true });
     strip.append(prev, next, dots);
-    sync();
+    return sync;
+    };
 }
 // Slayderin uzaq şəkilləri yaxınlaşanda yüklənir: ilk açılışda 15 şəkil gözlənilmir.
 function setupHeroImages() {
@@ -2527,7 +2540,7 @@ document.addEventListener("visibilitychange", () => {
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);
-  marqueeResizeT = setTimeout(() => { setupMarquees(); document.querySelectorAll(".strip").forEach(setupStrip); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
+  marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(document.querySelectorAll(".strip")); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
 });
 
 function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
