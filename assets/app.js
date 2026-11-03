@@ -1606,7 +1606,8 @@ function homeView() {
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
 // Paylaşılan keçid sonra da açılsın: qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i, updater.py ilə eyni),
-// lentdən çıxan xəbər bölmə arxivindədir (5 gün). Yalnız lentdə tapılmayan keçiddə işləyir.
+// lentdən çıxan xəbər paylaşma siyahısındadır (24 saat, updater.py update_share_index), daha köhnəsi bölmə arxivində.
+// Yalnız lentdə tapılmayan keçiddə işləyir.
 async function scanArchives(id) {
   S.archiveScanning = true;
   try {
@@ -1614,6 +1615,13 @@ async function scanArchives(id) {
       const hash = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(alt.sourceUrl));
       if ([...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16) === id) { S.sharedStory = { id, row: a }; return; }
     }
+    for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) try {
+      const {d} = await requestJSON(freshUrl(`data/paylas/${parseInt(k.slice(0, 2), 16) >> 3}.json`), {}, 8000);
+      const row = d?.articles?.find(a => a.id === k);
+      if (row?.of) { k = row.of; continue; } // qrupa düşən mənbə: əsas xəbərin sətri
+      if (row && !removedSource(row) && !policyViolation(row)) { S.sharedStory = { id, row }; return; }
+      break;
+    } catch { break; }
     const hint = (location.hash.split("?")[1] || "").match(/(?:^|&)b=([^&]+)/)?.[1];
     for (const slug of new Set([hint, ...CATS.map(c => c.slug)].filter(Boolean))) {
       await loadArchive(slug);

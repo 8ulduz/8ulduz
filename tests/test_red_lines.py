@@ -571,7 +571,7 @@ class ArchiveTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = pathlib.Path(self.tmp.name)
-        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv"), patch.object(updater, "ARCHIVE_OG_FILE", root / "aog.json"), patch.object(updater, "CACHE_DIR", root), patch.object(updater, "_fetch_og", return_value="")]
+        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv"), patch.object(updater, "SHARE_DIR", root / "paylas"), patch.object(updater, "ARCHIVE_OG_FILE", root / "aog.json"), patch.object(updater, "CACHE_DIR", root), patch.object(updater, "_fetch_og", return_value="")]
         for p in self.patches:
             p.start()
 
@@ -596,6 +596,26 @@ class ArchiveTest(unittest.TestCase):
         self.write(self.row("https://apa.az/2", 1))
         updater.update_archive(now=updater.time.time() + 3700)
         self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/2", "https://apa.az/1"])
+
+    def shared(self, url):
+        sid = updater.hashlib.sha1(url.encode()).hexdigest()[:16]
+        part = updater._read_json(updater.SHARE_DIR / f"{updater.share_part(sid)}.json", {}).get("articles") or []
+        return next((r for r in part if r["id"] == sid), None)
+
+    def test_shared_link_opens_for_a_day_after_the_story_leaves_the_feed(self):
+        now, url, alt = updater.time.time(), "https://apa.az/1", "https://report.az/1"
+        sid = lambda u: updater.hashlib.sha1(u.encode()).hexdigest()[:16]
+        self.write(self.row(url, 1, id=sid(url), alts=[{"source": "Report", "sourceUrl": alt}]), self.row("https://azadliq.org/1", 1, id=sid("https://azadliq.org/1")))
+        updater.update_archive(now=now)
+        self.assertIsNone(self.shared("https://azadliq.org/1"))
+        self.write(self.row("https://apa.az/2", 0, id=sid("https://apa.az/2")))
+        for hours in (1.1, 24.5):
+            updater.update_archive(now=now + hours * 3600)
+            self.assertEqual(self.shared(url)["sourceUrl"], url)
+            self.assertEqual(self.shared(alt)["of"], sid(url))  # qrupa düşən mənbənin keçidi əsas xəbərə yönəlir
+        updater.update_archive(now=now + 26 * 3600)
+        self.assertIsNone(self.shared(url))
+        self.assertEqual(self.shared("https://apa.az/2")["sourceUrl"], "https://apa.az/2")
 
     def test_written_at_most_once_an_hour(self):
         now = updater.time.time()
