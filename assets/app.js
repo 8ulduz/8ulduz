@@ -227,10 +227,9 @@ function today() { const a = new Date(), r = `${DAYS[a.getDay()]}, ${a.getDate()
 const FRESH_MS = 15 * 60e3; // «Son dəqiqə» nişanı və bildiriş: son 15 dəqiqə (əvvəl 1 saat idi, hər kart nişan alırdı)
 const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < FRESH_MS; };
 const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
-// Mənbəyə və sosial hesablara keçid: toxunma ekranında eyni vərəqdə açılır (geri düyməsi sayta qaytarır),
-// masaüstündə yeni vərəqdə.
+// Mənbə yeni vərəqədə açılır — telefonda da (geri düyməsi mənbənin özündə qalır).
 const TOUCH_UI = typeof matchMedia === "function" && matchMedia("(hover:none)").matches;
-const OUT = TOUCH_UI ? `rel="noopener noreferrer"` : `target="_blank" rel="noopener noreferrer"`;
+const OUT = `target="_blank" rel="noopener noreferrer"`;
 const TELEGRAM = String(window.SITE_CONFIG?.telegram || "").trim(); // boş: «kanala qoşulun» bloku göstərilmir
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
@@ -421,19 +420,27 @@ function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // Mənbələrin şəkilləri 1-2 MB olur, ilk açılış 11-16 MB idi. wsrv.nl kiçildir (orta 15 KB). Alınmasa imgFail əsl ünvana keçir,
 // xidmət ümumiyyətlə işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən yüklənir.
 const PROXY_MAX_FAILS = 8;
+// wsrv bu saytların şəklini 404 verir (brauzer ORB ilə kəsir). Birbaşa mənbədən yüklənir.
+const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$/i;
+const proxyBad = new Map();
 function sized(url, width) {
-  if (!url || (S.proxyFails || 0) >= PROXY_MAX_FAILS || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
+  const host = hostOf(url);
+  if (!url || !host || (S.proxyFails || 0) >= PROXY_MAX_FAILS || (proxyBad.get(host) || 0) >= 2 || PROXY_SKIP.test(host) || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
   return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
 }
-const imageFallback = cat => `<span class="image-fallback">${LOGO}<span>${esc(catLabel(cat || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
+function viewWidth() { return globalThis.innerWidth || 1200; }
+function heroPicWidth(first) {
+  const narrow = viewWidth() < 900;
+  return first ? (narrow ? 640 : 800) : (narrow ? 480 : 640);
+}
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);
-  const fallback = url ? "" : imageFallback(a.category);
+  if (!url) return ""; // şəkilsiz xəbər qutu tutmur: kart yalnız mətndir
   const small = sized(url, width), others = small === url ? rest : [url, ...rest];
   const load = later ? "" : eager ? 'fetchpriority="high"' : 'loading="lazy"';
-  const src = url ? `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">` : "";
+  const src = `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">`;
   const tag = linked ? "a" : "div";
-  return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
+  return `<${tag} class="img ${cls}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${src}</${tag}>`;
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
@@ -450,25 +457,58 @@ const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl
 // Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir. b: xəbər lentdən çıxanda hansı arxivə baxılacağı.
 const shareUrl = a => `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
-const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3 lang="${esc(langOf(a))}">${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
+const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
+const card = a => cardAt(a, "h3");
+function cardAt(a, hx) { return `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true, 360)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
-// Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
+// Şəkil yüklənməsə növbəti namizəd yoxlanır. Heç biri alınmasa kart yalnız mətn qalır.
+// Slayderdə boş kadr qalmır: şəkli sınan slayd çıxarılır (xəbərin özü siyahılarda qalır).
+function dropHeroSlide(slide) {
+  const row = slide.parentElement;
+  const strip = slide.closest(".strip");
+  const section = slide.closest(".hero");
+  const width = row?.clientWidth || 0;
+  const index = row ? [...row.children].indexOf(slide) : -1;
+  const showing = width > 0 && index >= 0 && Math.round(row.scrollLeft / width) === index;
+  slide.remove();
+  const left = row ? [...row.children] : [];
+  if (!left.length) { section?.remove(); return; }
+  if (showing) row.scrollLeft = Math.min(index, left.length - 1) * width;
+  if (strip) setupStrips([strip]);
+  setupHeroImages();
+}
 const imgFail = el => {
-  if (el.src.startsWith("https://wsrv.nl/")) S.proxyFails = (S.proxyFails || 0) + 1;
-  let rest = []; try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
-  if (rest.length) { el.dataset.imageAlternatives = JSON.stringify(rest.slice(1)); el.src = rest[0]; return; }
-  const box = el.parentElement;
-  box?.classList.add("image-unavailable");
-  const c = el.closest(".card"); if (c) c.classList.add("noimg");
+  if (!el?.isConnected) return;
+  el.style.visibility = "hidden"; // qırıq ikon görünməsin, növbəti ünvan yoxlanana qədər
+  if (String(el.src || "").startsWith("https://wsrv.nl/")) {
+    S.proxyFails = (S.proxyFails || 0) + 1;
+    let rest0 = []; try { rest0 = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
+    const origin = rest0.find(u => typeof u === "string" && !u.includes("wsrv.nl"));
+    const host = hostOf(origin || "");
+    if (host) proxyBad.set(host, (proxyBad.get(host) || 0) + 1);
+  }
+  let rest = [];
+  try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
+  const next = rest.find(u => typeof u === "string" && u && u !== el.src);
+  if (next) {
+    el.dataset.imageAlternatives = JSON.stringify(rest.slice(rest.indexOf(next) + 1));
+    el.src = next;
+    return;
+  }
+  const slide = el.closest(".hero-main");
+  if (slide) { dropHeroSlide(slide); return; }
+  const photo = el.closest(".phrow > a");
+  if (photo) { photo.remove(); return; }
+  const card = el.closest(".card, .pcard");
+  const box = el.closest(".img");
   el.remove();
-  if (box?.matches("a.img,div.img")) box.insertAdjacentHTML("afterbegin", imageFallback(el.closest("[data-cat]")?.dataset.cat));
+  if (card) card.classList.add("noimg");
+  box?.remove();
 };
 // CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
-// Kompüterdə şəkil qutusu şəklin öz nisbətini alır (başlıq yanda qalan yeri tutur): şəkil kəsilmir, qara zolaq qalmır.
-// Slayder şəkli çərçivədən az fərqlənirsə (20%) onu doldurur, çox fərqlənirsə bütöv qalır
-document.addEventListener("load", ({ target: t }) => { if (t.tagName === "IMG" && t.closest(".hero-main")) { const n = t.naturalWidth / t.naturalHeight; if (innerWidth > 900 && n > 1.2 && n < 2) t.parentElement.style.aspectRatio = n; const r = n / (t.clientWidth / t.clientHeight || 1); t.style.objectFit = r > .8 && r < 1.25 ? "cover" : ""; } }, true);
-document.addEventListener("error", ({ target: t }) => { const f = t.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && (t.style.visibility = "hidden"); }, true);
+// Ölçü CSS-də sabitdir: şəkil sahəni object-fit:cover ilə örtür, nisbət dəyişmir.
+document.addEventListener("load", (e) => { const t = e.target; if (t?.tagName === "IMG" && t.dataset?.fail === "alt") { if ((t.naturalWidth || 0) < 2) imgFail(t); else t.style.visibility = ""; } }, true);
+document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && t.style && (t.style.visibility = "hidden"); }, true);
 
 /* ---------------------------------------------------------------- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
@@ -750,6 +790,19 @@ function publishNews() {
   }
   S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
   if (!S.partial) checkBreaking(d.articles);
+  primeHeroImage(d.articles);
+}
+function primeHeroImage(articles) {
+  if (route().name !== "home" || S.q) return;
+  const a = heroPick((articles || []).filter(x => (S.lang ? langOf(x) === S.lang : true) && x.category !== "prezident" && imgUrl(x)), 1)[0];
+  const href = a && sized(imageCandidates(a)[0], heroPicWidth(true));
+  if (!href || S.lcpHref === href) return;
+  S.lcpHref = href;
+  const head = document.head;
+  if (!head?.querySelector || !head.appendChild) return;
+  let link = head.querySelector("link[data-lcp]");
+  if (!link) { link = document.createElement("link"); link.rel = "preload"; link.as = "image"; link.dataset.lcp = "1"; head.appendChild(link); }
+  link.href = href; link.fetchPriority = "high";
 }
 
 // Ekran yalnız oxucu ona toxunmayanda yenidən qurulur: açıq video, xəritə, açılan siyahı və yazılan süzgəc itmir, səhifə atlamır.
@@ -1007,7 +1060,7 @@ function renderTopbar() {
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
-    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}>↻</button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}">${light ? "☾" : "☀"}<span>${light ? "Tünd" : "İşıqlı"}</span></button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
+    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
   syncTixDot();
 }
 
@@ -1424,7 +1477,7 @@ function prezBlock(list) {
   // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir.
   const card = (a, i) => {
     const [pic, ...rest] = imageCandidates(a);
-    const small = sized(pic, 200);
+    const small = sized(pic, 168);
     const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
     return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
   };
@@ -1439,8 +1492,9 @@ function prezBlock(list) {
 
 const HERO_COUNT = 15, HERO_ONLY = 6; // İlk 6 xəbər yalnız slayderdədir; qalanları aşağıdakı siyahılarda da qalır, çünki slayderdə növbəsi 90 saniyədən bir gəlir.
 function heroBlock(list) {
-  if (!list.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, HERO_COUNT).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, 828, i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
+  const slides = list.filter(imgUrl).slice(0, HERO_COUNT); // şəkilsiz xəbər slayderə düşmür, boş kadr olmur
+  if (!slides.length) return "";
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${slides.map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, heroPicWidth(i === 0), i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
 
 function alertStrip() {
@@ -1540,7 +1594,7 @@ function videosView() {
   const items = S.video?.items || [];
   const head = `<div class="page-h"><div><h1>Video xəbərlər</h1><p>Azərbaycan kanallarının YouTube lentləri. Video düyməyə basanda açılır.</p></div><span class="cnt">${items.length}</span></div>`;
   if (!items.length) return `${head}<p class="empty">Video lent hazırda açılmır. Bir az sonra yenidən baxın.</p>`;
-  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
+  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
 }
 function catSection(c, list) {
   if (!list.length) return "";
@@ -1592,13 +1646,13 @@ function latestBlock(list) {
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
   if (!hosted.length && !list.length) return "";
-  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb"><img src="${esc(v.imageUrl || "")}" alt="" loading="lazy"><i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
 }
 function homeView() {
-  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), HERO_COUNT);
+  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && imgUrl(a)), HERO_COUNT);
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
-  const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining);
+  const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining);
   if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
   // Slayderdə və «Son xəbərlər»də görünən xəbər aşağıdakı bloklarda təkrarlanmır
   const seen = new Set([...hero, ...picFirst(S.latestOrder === "sources" ? rankBySources(remaining) : byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
@@ -1646,7 +1700,7 @@ function articleView(id) {
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
   return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
-    (list.length ? `<div class="grid">${shown.map(card).join("")}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
+    (list.length ? `<div class="grid">${shown.map(a => cardAt(a, "h2")).join("")}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
       : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : S.club ? "Bu mövzuda son 5 gündə xəbər tapılmadı." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
 
@@ -2758,11 +2812,13 @@ const newsReady = loadNews().then(() => loadLatest());
 // Xəbər ekrana çıxandan sonra: xidmət işçisi, statistika və köməkçi şəbəkəni tutur.
 const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(() => { enableAnalytics(); registerWorker(); });
-Promise.allSettled([newsReady, loadSocial(), loadSources(), loadVideo(), loadFootball(), loadAds()]).then(flushRender);
+newsReady.then(flushRender);
+// Hava, namaz, video və sosial şəbəkə ilk şəkilin (LCP) xəttini tutmasın: xəbər ekrana çıxandan sonra.
+afterNews(() => { loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadWeather(); loadPrayer(savedPrayCity()); loadWarnings(); });
 // 20 liqanın cədvəli (~17 KB): açılışla xətti bölüşmür. Oxucu cədvələ özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
-loadMarkets(); loadStatus(); loadWeather(); loadPrayer(savedPrayCity()); loadWarnings();
+loadMarkets(); loadStatus();
 setInterval(() => pollNews(), POLL_MS);
 addEventListener("scroll", () => {
   if (S.renderPending && (globalThis.scrollY || 0) < 200) requestRender();

@@ -314,20 +314,48 @@ test('speed red line: far sections of the home page are kept out of the page unt
   assert.ok(page.includes('Bütün xəbərlər'),'məzmun səhifə mətnindədir');
 });
 test('speed red line: images are resized and the original stays as the fallback',()=>{
-  const ctx=app(),{S,sized,img}=ctx.api;
+  const ctx=app(),{S,sized,img,card}=ctx.api;
   S.og={};
   const url='https://apa.az/a b.jpg';
   assert.equal(sized(url,480),'https://wsrv.nl/?url='+encodeURIComponent(url)+'&w=480&we&output=webp&q=70');
   assert.equal(sized('https://apa.az/a.svg',480),'https://apa.az/a.svg');
   assert.equal(sized('https://apa.az/a.gif?x=1',480),'https://apa.az/a.gif?x=1');
+  assert.equal(sized('https://metbuat.az/a.jpg',480),'https://metbuat.az/a.jpg','wsrv 404 verən sayt birbaşa');
+  assert.equal(sized('https://cdn.sporx.com/a.jpg',480),'https://cdn.sporx.com/a.jpg');
+  assert.ok(sized('https://files.modern.az/a.jfif',320).includes('wsrv.nl'),'jfif kiçildilir');
   const html=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'});
   assert.ok(html.includes('wsrv.nl'));
   assert.ok(html.includes('data-image-alternatives="[&quot;https://apa.az/a.jpg&quot;]"'),'alınmasa əsl ünvan');
   assert.ok(!html.includes('image-fallback'),'şəkli olan kartda ehtiyat loqo yoxdur');
-  assert.ok(img({category:'gundem'}).includes('image-fallback'),'şəkli olmayanda var');
+  assert.equal(img({category:'gundem'}),'','şəkli olmayanda qutu yoxdur');
+  const bare=card({id:'1',title:'Başlıq',category:'gundem',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:new Date().toISOString()});
+  assert.ok(bare.includes('class="card noimg"') && !bare.includes('<img') && !bare.includes('<p'),'şəkilsiz kart yalnız mətndir, xülasə yoxdur');
+  assert.ok(bare.includes('target="_blank"'),'kart mənbəni yeni vərəqədə açır');
+  const eager=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'},'',true,true,828,false);
+  assert.ok(eager.includes('fetchpriority="high"') && !eager.includes('loading="lazy"'),'slayderin ilk şəkli dərhal yüklənir');
   assert.ok(img({imageUrl:'https://apa.az/a.jpg'},'',false,true,828,true).includes('data-src='),'uzaq slayd sonra yüklənir');
+  assert.ok(img({imageUrl:'https://apa.az/a.jpg'}).includes('loading="lazy"') && img({imageUrl:'https://apa.az/a.jpg'}).includes('decoding="async"'));
   S.proxyFails=8;
   assert.equal(sized(url,480),url,'xidmət işləmirsə birbaşa mənbədən');
+});
+test('phone cards also open the source in a new tab', () => {
+  const ctx = app({ matchMedia: q => ({ matches: String(q).includes('hover:none') }) });
+  const at = new Date().toISOString();
+  const html = ctx.api.card({ id: '1', title: 'Başlıq', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at, imageUrl: 'https://apa.az/a.jpg' });
+  assert.ok(html.includes('target="_blank" rel="noopener noreferrer"'));
+});
+test('Turkish home still lists stories and does not leave Zuğulba at zero', () => {
+  const ctx = app(), { S, homeView } = ctx.api;
+  const at = new Date().toISOString();
+  const tr = (id) => ({ id, title: 'Türkiye haberi ' + id, lang: 'tr', category: 'dunya', source: 'CNN Türk', sourceUrl: 'https://cnnturk.com/' + id, publishedAt: at, imageUrl: 'https://img.example/' + id + '.jpg' });
+  S.lang = 'tr'; S.og = {};
+  S.data = { articles: [...Array.from({ length: 10 }, (_, i) => tr('t' + i)), { id: 'p', title: 'Prezident İlham Əliyev qəbul edib', lang: 'az', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/p', publishedAt: at }] };
+  const html = homeView();
+  assert.ok(html.includes('class="pcard'), 'Zuğulba boş qalmır');
+  assert.ok(!html.includes('Son <b>0</b>'));
+  const latest = html.slice(html.indexOf('latest-grid'), html.indexOf('</section>', html.indexOf('latest-grid')));
+  assert.ok((latest.match(/<article/g) || []).length >= 1, 'Son xəbərlər doludur');
+  assert.ok(!html.includes('image-fallback') && !html.includes('logo-80'), 'şəkilsiz yerdə loqo bloku yoxdur');
 });
 test('a broken secondary block cannot freeze the news list',()=>{
   const ctx=app(),{S,homeView}=ctx.api;
@@ -1050,9 +1078,13 @@ test('photo fallback tries OG and alternate source photos in order', () => {
 test('home keeps slider stories after the sixth in the lists below', () => {
   const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
   const words=['alma','armud','banan','qovun','heyva','nar','gilas','albali','erik','saftali','limon','portagal','anar','zeytun','incir','xurma','zoğal','böyürtkən'];
-  S.lang=null;S.og={};S.latestCount=30;S.data={articles:words.map((w,i)=>({id:String(i),title:w+'lər '+w+'ları '+i,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,publishedAt:at}))};
+  const rows=words.map((w,i)=>({id:String(i),title:w+'lər '+w+'ları '+i,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,imageUrl:'https://img.example/'+i+'.jpg',publishedAt:at}));
+  rows.push({id:'bare',title:'Şəkilsiz xəbər lentdə qalır',category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/bare',publishedAt:at,imageUrl:''});
+  S.lang=null;S.og={};S.latestCount=30;S.data={articles:rows};
   const page=homeView(),below=page.slice(page.indexOf('latest-grid'));
   assert.equal((page.match(/class="hero-main"/g)||[]).length,15);
+  assert.ok(!page.slice(0,page.indexOf('latest-grid')).includes('apa.az/bare'),'şəkilsiz xəbər slayderə düşmür');
+  assert.ok(below.includes('apa.az/bare') && below.includes('class="card noimg"'),'şəkilsiz xəbər siyahıda mətndir');
   const slides=[...new Set([...page.slice(0,page.indexOf('latest-grid')).matchAll(/apa\.az\/(\d+)/g)].map(m=>m[1]))];
   assert.equal(slides.length,15);
   assert.ok(!below.includes('apa.az/'+slides[0]+'"'),'ilk xəbər aşağıda təkrarlanmır');
@@ -1267,10 +1299,15 @@ test('an ordinary word is not taken for a team and keeps the language filter', (
   assert.ok(!html.includes('ntv.com.tr/b'));
 });
 test('hero and Zugulba retain multiple articles for their moving feeds', () => {
-  const ctx=app(); const stories=Array.from({length:18},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,publishedAt:new Date().toISOString()}));
-  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories.slice(0,8));
+  const ctx=app(); const stories=Array.from({length:18},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,imageUrl:'https://img.example/'+i+'.jpg',publishedAt:new Date().toISOString()}));
+  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories.slice(0,8).map(s=>({...s,imageUrl:''})));
   assert.ok(hero.includes('class="hero-row"'));
   assert.equal((hero.match(/class="hero-main"/g)||[]).length,15);
+  assert.ok(hero.includes('fetchpriority="high"') && (hero.match(/loading="lazy"/g)||[]).length>=1,'ilk slayd dərhal, qalanı tənbəl');
+  assert.equal(ctx.api.heroBlock(stories.map(s=>({...s,imageUrl:''}))),'','şəkilsiz xəbər slayderə düşmür');
+  const mixed=ctx.api.heroBlock([stories[0],{...stories[1],imageUrl:''},stories[2]]);
+  assert.equal((mixed.match(/class="hero-main"/g)||[]).length,2);
+  assert.ok(!mixed.includes('example.com/1"'),'şəkilsiz slayd yoxdur');
   assert.ok(!hero.includes('row-card'),'slayderin xəbərləri altında təkrarlanmır');
   assert.ok(prez.includes('data-prez-lent'));
   assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
