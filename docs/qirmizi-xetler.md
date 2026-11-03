@@ -56,3 +56,14 @@ Sahibin qərarı (2026-10-31). Səhifəyə və ya məlumata ağırlıq əlavə e
 - Komanda səhifəsinin kodu (`komanda.js`, `komanda.css`) və məlumatı (`data/futbol/`) yalnız o ünvan açılanda yüklənir, fayllar yalnız `slow_cycle`-da yazılır.
 
 Ölçü 2026-10-31 (lokal, PR #55-dən sonra): telefon 46, planşet 51, kompüter 71 bal. Telefonda hədəfə hələ çatılmayıb.
+
+Sahibin qərarı (2026-11-03): sürət qırmızı xəttdir, hər keçid «göz qırpımında» olmalıdır. Həmin gün canlı ölçü (telefon): baş səhifə 54 bal, FCP 2,4 s, LCP 4,7 s, 1450 KB; paylaşılan xəbər səhifəsi 64 bal, LCP 6,0 s. Ona görə qaydalar əlavə olundu, hamısını `tests/browser-logic.test.cjs` («speed red line») tutur:
+
+- Şəbəkədən şrift gəlmir: sistem şrifti (`app.css`). 131 KB-lıq Inter ilk ekranla eyni xətti bölüşürdü.
+- `index.html` qabığı (başlıq, bölmələr, skelet) statik daşıyır, `shell()` onu silmir: CSS gələn kimi səhifə görünür. Statik nüsxə `shell()` ilə eyni olmalıdır; `shell()` və ya `renderNav()` dəyişəndə index.html də yenilənir (test tutur).
+- `sw.js`: HTML/JS/CSS saxlanmış nüsxədən dərhal verilir, təzəsi arxada saxlanır (`cachedShell`); kod dəyişəndə `VERSION` artır, artmasa da fərq səhifəyə bildirilir. `app.js` təkrar açılışda keşdəki lenti şəbəkəni gözləmədən çəkir (`loadCached`).
+- Paylaşılan keçid (`#/xeber/ID`) tam lenti gözləmir: xəbər `data/paylas/N.json`-dan çəkilir (`loadShared`), `index.html` onu erkən istəyir.
+- Proksidən keçməyən saytların (`PROXY_SKIP`) 170–290 KB-lıq orijinal şəkli telefonda slayderdən başqa yerdə yüklənmir (`heavyImage`), slayderə yalnız kiçildilə bilən şəkil düşür.
+- Başlıqda `backdrop-filter` yoxdur; canlı kanalın hostuna `preconnect` var; telefonda lent üçün yer saxlanır.
+
+Ölçü 2026-11-03 (lokal, dəyişiklikdən əvvəl → sonra, eyni serverdə): telefon simulyasiyası (gzip ilə lokal server, şəbəkə və CPU Lighthouse-un standart yavaşlatması). Baş səhifə: 58 → 60 bal, FCP 1,8 s → 1,2 s, LCP 6,3 s → 4,7 s, Speed Index 4,7 s → 3,2 s, CLS 0.005 → 0.035. Paylaşılan xəbər səhifəsi: 64 → 68 bal, FCP 1,8 s → 1,7 s, LCP 5,6 s → 5,0 s, Speed Index 4,6 s → 4,2 s, CLS 0 → 0. Canlı saytda təkrar açılış əlavə olaraq keşdən gəlir (burada ölçülmür). Ölçmə skriptləri: Lighthouse 12, `node serve3.js <kök> <port>`.
