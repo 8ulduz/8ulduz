@@ -1126,19 +1126,7 @@ a.pill.on small{color:inherit}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: kompüterdə loqo/bölmələr/axtarışın altında, telefonda loqo ilə bölmələr arasında */
 .hrow{flex-wrap:wrap}
 .hrow>.topbar{flex:1 0 100%;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
-/* Paylaşma: kompüterdə düymə → panel; telefonda (hover:none) şəbəkə işarələri */
-.shr{display:inline-flex;align-items:center;gap:4px;margin-left:auto;flex:none}
-.shr .share{margin-left:0}
-.sh{display:none;width:28px;height:28px;padding:0;border:0;border-radius:50%;color:#fff;place-items:center;cursor:pointer}
-.sh svg{display:block;width:15px;height:15px;fill:#fff}
-.sh[data-to=x]{background:#111;box-shadow:0 0 0 1px #777}.sh[data-to=wa]{background:#25d366}.sh[data-to=cp]{background:var(--card2);color:var(--fg);box-shadow:0 0 0 1px var(--border)}
-.sh[data-to=fb],.sh[data-to=tg]{background:none}
-.sh[data-to=fb] svg,.sh[data-to=tg] svg{width:28px;height:28px;fill:#1877f2}
-.sh[data-to=tg] svg{fill:#229ed9}
-@media(hover:none){.shr .share{display:none}.shr .sh{display:grid}
-  /* Telefonda slayderdə işarələr öz sətrində (mənbə adı qırılmasın); kartlarda kiçik */
-  .hero-main .meta{flex-wrap:wrap;row-gap:6px}.hero-main .shr{flex:1 0 100%;justify-content:flex-end}
-  .card .shr .sh{width:24px;height:24px}.card .sh svg{width:13px;height:13px}.card .sh[data-to=fb] svg,.card .sh[data-to=tg] svg{width:24px;height:24px}}
+/* Paylaşma: hər yerdə «Paylaş» düyməsi → panel (telefondakı yerində işarələr sahibin istəyi ilə götürüldü, 2026-11-05) */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
 /* Hərəkət düymələri; dayanıq lent barmaqla sürüşür */

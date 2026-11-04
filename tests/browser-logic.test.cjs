@@ -2076,7 +2076,7 @@ test('owner notes: the logo row comes first with the install slot and a search b
   assert.ok(css.includes('.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}') && css.includes('.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}'), 'telefonda Zuğulba kartları bərabər, lent düz iki kart + ara (üçüncü kartın kəsiyi görünmür)');
   assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir (yalnız ≤370 px-də böyük işarə)');
   assert.ok(css.includes('#son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}'), '«Son xəbərlər» aydın xətlə ayrılır');
-  assert.ok(css.includes('@media(hover:none){.shr .share{display:none}.shr .sh{display:grid'), 'telefonda paylaşma ikonları, kompüterdə düymə');
+  assert.ok(!css.includes('.shr .sh{display:grid') && !css.includes('.sh{display:none'), 'telefonda da «Paylaş» düyməsi, yerində işarə yoxdur (sahib, 2026-11-05)');
 });
 test('owner notes: the utility bar carries the language dropdown with flag and code; a bad sync shows a retry button there', () => {
   const els = {};
@@ -2099,21 +2099,14 @@ test('owner notes: the utility bar carries the language dropdown with flag and c
   html = els.topbar.innerHTML;
   assert.ok(html.includes('<b>Hamısı</b>') && html.includes('class="retry" data-act="refresh"'), '«Hamısı» və xəta olanda «Yenilə»');
 });
-test('owner notes: share — the card carries F, X, W, T and copy beside the button, the Zuğulba card only the button, every target is a web address', () => {
+test('owner notes: share — every card carries the «Paylaş» button only (phone icons withdrawn 2026-11-05), the panel lists F, X, W, T, copy; every target is a web address', () => {
   const ctx = app(), { card, prezBlock, prezHome, S } = ctx.api, at = new Date().toISOString();
   S.og = {};
   const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
-  assert.ok(/<span class="shr" data-share="https:\/\/8ulduz\.az\/#\/xeber\/1\?b=gundem"><button type="button" class="share" data-act="share"/.test(html), 'düymə və ikonlar bir qrupdadır');
-  assert.ok(!html.includes('class="sh"'), 'ikonlar kartın HTML-ində yoxdur: ekrana yaxınlaşanda qoyulur (sürət)');
-  const icons = vm.runInContext('SHR_ICONS', ctx); for (const k of ['fb', 'x', 'wa', 'tg', 'cp']) assert.ok(icons.includes(`class="sh" data-to="${k}"`), k);
-  const filled = [], shr = { classList: { contains: c => c === 'shr' }, children: { length: 1 }, insertAdjacentHTML: (w, h) => filled.push(h), querySelectorAll: () => [] };
-  ctx.document.querySelectorAll = sel => sel.includes('.shr') ? [shr] : []; ctx.matchMedia = () => ({ matches: true });
-  vm.runInContext('setupLazySections()', ctx);
-  assert.deepEqual(filled, [icons], 'toxunma ekranında ikonlar kart görünəndə əlavə olunur');
-  ctx.matchMedia = () => ({ matches: false }); filled.length = 0; vm.runInContext('setupLazySections()', ctx);
-  assert.deepEqual(filled, [], 'kompüterdə (hover) ikon qoyulmur, panel var');
+  assert.ok(html.includes('<button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/xeber/1?b=gundem" title="Paylaş">Paylaş</button>'), '«Paylaş» düyməsi');
+  assert.ok(!html.includes('class="sh"') && !html.includes('class="shr"') && !/SHR_ICONS|\.shr/.test(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8')), 'kartda yerində işarə yoxdur, kodda qalığı da (sahib, 2026-11-05)');
   const prez = prezBlock(prezHome([{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, lang: 'az' }]));
-  assert.ok(!prez.includes('class="shr"') && prez.includes('data-prez-pause'), 'Zuğulba kartında yalnız düymə; başlıqda dayandır düyməsi');
+  assert.ok(prez.includes('class="share"') && prez.includes('data-prez-pause'), 'Zuğulba kartında da düymə; başlıqda dayandır düyməsi');
   const to = vm.runInContext('SHARE_TO', ctx);
   assert.deepEqual(Object.keys(to), ['fb', 'x', 'wa', 'tg', 'in', 'mail']);
   for (const [k, v] of Object.entries(to)) { const u = v[2]('https%3A%2F%2F8ulduz.az%2F%23%2Fxeber%2F1', 'B'); assert.ok(/^(https:\/\/|mailto:)/.test(u) && u.includes('8ulduz.az'), k); }
@@ -2181,9 +2174,9 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
   S.og = {};
   const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
-  const icons = vm.runInContext('SHR_ICONS', ctx); // ikonlar kart ekrana yaxınlaşanda qoyulur (setupLazySections); mətni sprite-dandır
-  assert.ok(icons.includes('<use href="./assets/sosial.svg#fb"/>') && icons.includes('sosial.svg#cp') && html.includes('class="shr"'), 'ikonlar <use> ilə çəkilir, hərf yoxdur');
-  assert.ok(!/data-to="fb">f</.test(icons));
+  const shIcon = vm.runInContext('shIcon', ctx); // panelin işarələri sprite-dandır
+  assert.equal(shIcon('fb'), '<svg aria-hidden="true"><use href="./assets/sosial.svg#fb"/></svg>', 'işarə <use> ilə çəkilir, hərf yoxdur');
+  assert.ok(html.includes('class="share"') && !html.includes('class="sh"'), 'kartda yalnız düymə');
   // telefon: yuxarı zolağın qutusu açılır, dil + rejim + şrift loqo sətrində, Namaz + hava + lupa + «Ana ekrana əlavə et» ikinci sətirdə
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.hrow>.topbar,.hrow>.topbar>.wrap{display:contents}') && css.includes('.hrow .ldd{order:2;margin-left:auto}') && css.includes('.hrow .prefs{order:3') && css.includes('.hrow::after{content:"";order:4;flex:1 0 100%') && css.includes('.inst{order:8;margin-left:auto}'), 'telefon sətirləri sahibin sırası ilə');
@@ -2293,7 +2286,7 @@ test("owner's share notes: main-feed stories share /x/ID, minute-feed and non-he
   assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('for (const a of fresh) a.live = 1;'), 'dəqiqəlik lentdən gələn sətir işarələnir');
 });
 
-test("owner's share notes: on Android the official accounts and share targets open the app in place so Back returns to the site", () => {
+test("owner's share notes: on Android share targets open the app in place, official accounts open in a Chrome tab (Back returns to the site)", () => {
   const ctx = app({ navigator: { onLine: true, userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile' }, location: { hash: '#/', href: 'https://8ulduz.az/' } });
   const appLink = vm.runInContext('appLink', ctx);
   assert.equal(appLink('https://x.com/presidentaz'), 'intent://x.com/presidentaz#Intent;scheme=https;package=com.twitter.android;S.browser_fallback_url=https%3A%2F%2Fx.com%2Fpresidentaz;end');
@@ -2305,7 +2298,9 @@ test("owner's share notes: on Android the official accounts and share targets op
   let prevented = false;
   const a = { href: 'https://www.instagram.com/presidentaz/', closest: sel => sel === '.soc-g a' ? a : null };
   vm.runInContext('onClick', ctx)({ target: a, preventDefault() { prevented = true; } });
-  assert.ok(prevented && ctx.location.href.startsWith('intent://www.instagram.com/presidentaz/#Intent;scheme=https;package=com.instagram.android;'), 'rəsmi hesab: səhifə yerində qalır, tətbiq üstə açılır');
+  assert.equal(ctx.location.href, 'intent://www.instagram.com/presidentaz/#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fwww.instagram.com%2Fpresidentaz%2F;end', 'rəsmi hesab: Chrome vərəqində (tətbiqdən geri baş ekrana düşürdü), geri sayta');
+  assert.ok(prevented);
+  assert.equal(vm.runInContext('chromeLink', ctx)('http://x.com/a'), '', 'yalnız https');
   const btn = { dataset: { to: 'fb' }, classList: { contains: () => true }, closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'B' } }) };
   vm.runInContext('shareTo', ctx)(btn);
   assert.ok(ctx.location.href.startsWith('intent://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2F8ulduz.az%2Fx%2F0123456789abcdef#Intent;'), 'paylaşma düyməsi də');

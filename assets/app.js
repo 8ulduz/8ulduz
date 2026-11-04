@@ -462,24 +462,21 @@ const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl
 // Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir; b: lentdən çıxanda baxılacaq arxiv.
 // Önizləmə serverdən oxunur, #/ serverə getmir: main-dəki xəbər /x/ID səhifəsi ilə (sharePages, updater.py write_share_pages), dəqiqəlik (live) yox.
 const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
-// Paylaşma: kompüterdə «Paylaş» paneli, telefonda yerində F, X, W, T, kopyala (hover:none); Zuğulba kartında yalnız düymə.
+// Paylaşma: «Paylaş» düyməsi → panel (F, X, W, T, kopyala, «Başqa…»). Telefondakı yerində işarələr sahibin istəyi ilə götürüldü (2026-11-05).
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
 // Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
 const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
-// Android: sosial keçid tətbiqə intent: ilə, səhifə yerində qalır (yeni vərəqdən açılan tətbiqdən geri baş ekrana düşürdü); tətbiq yoxdursa veb.
+// Android: paylaşma hədəfi tətbiqə intent: ilə, səhifə yerində qalır; tətbiq yoxdursa veb. pkg verilsə həmin paket (rəsmi hesablar: Chrome).
 const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
-function appLink(u) {
+function appLink(u, pkg) {
   if (!/Android/.test(navigator.userAgent || "")) return "";
-  try { const x = new URL(u), pkg = x.protocol === "https:" && APP_PKG.find(([re]) => re.test(x.hostname))?.[1]; return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
+  try { const x = new URL(u); pkg = x.protocol === "https:" && (pkg || APP_PKG.find(([re]) => re.test(x.hostname))?.[1]); return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
 }
 function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
-// Telefon işarələri (5 düymə, ~1 KB) kart ekrana yaxınlaşanda qoyulur (setupLazySections): hamısı birdən səhifəni 125 KB böyüdürdü.
-const SHR_ICONS = Object.entries(SHARE_TO).filter(([, v]) => v[1]).map(([k, v]) => `<button type="button" class="sh" data-to="${k}" aria-label="${v[0]}">${shIcon(k)}</button>`).join("") + `<button type="button" class="sh" data-to="cp" aria-label="Keçidi kopyala">${shIcon("cp")}</button>`;
-const shareBtn = (a, icons = true) => {
-  if (safeHref(a.sourceUrl) === "#") return "";
-  const u = esc(shareUrl(a)), btn = `<button type="button" class="share" data-act="share" data-share="${u}" title="Paylaş">Paylaş</button>`;
-  return icons ? `<span class="shr" data-share="${u}">${btn}</span>` : btn;
-};
+// Rəsmi hesab (Android): X tətbiqi geri basanda baş ekrana atırdı (sahib, 2026-11-05: hələ də). Keçid Chrome-un öz vərəqində açılır
+// (package=com.android.chrome): başqa tətbiqdən açılan vərəqdə geri düyməsi vərəqi bağlayıb açan tətbiqə — sayta — qayıdır. Chrome yoxdursa veb ünvan.
+const chromeLink = u => appLink(u, "com.android.chrome");
+const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
 function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
@@ -1607,7 +1604,7 @@ function prezBlock(list) {
     const small = sized(pic, 168);
     const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
     // Kart keçiddir, «Paylaş» keçidin kənarında (içində düymə olmaz), sağ aşağıda.
-    return `<article class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}"><a class="pcard-hit" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>${shareBtn(a, false)}</article>`;
+    return `<article class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}"><a class="pcard-hit" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>${shareBtn(a)}</article>`;
   };
   const cards = list.map(card).join("");
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident" aria-label="Zuğulba Xronikası"><span class="prez-long">Zuğulba Xronikası</span><span class="prez-short">Zuğulba</span></a></h2>
@@ -2174,12 +2171,11 @@ function shareStory(btn) {
   box.dataset.share = btn.dataset.share; box.dataset.title = shareTitle(btn);
 }
 async function shareTo(t) {
-  const box = t.closest(".sharepop,.shr"), url = box?.dataset.share || "", title = box?.dataset.title ?? shareTitle(t), to = t.dataset.to;
+  const box = t.closest(".sharepop"), url = box?.dataset.share || "", title = box?.dataset.title ?? shareTitle(t), to = t.dataset.to;
   trackEvent(`share-${to}`);
   if (to === "cp") { // başlıq + keçid: yapışdırılanda hansı xəbər olduğu görünür
-    const icon = t.classList.contains("sh"), was = t.textContent;
-    try { await navigator.clipboard.writeText(title ? `${title}\n${url}` : url); t.textContent = icon ? "✓" : "Kopyalandı"; } catch { t.textContent = icon ? "✕" : "Kopyalanmadı"; }
-    setTimeout(() => { if (icon) t.textContent = was; else closeSharePop(); }, 1400);
+    try { await navigator.clipboard.writeText(title ? `${title}\n${url}` : url); t.textContent = "Kopyalandı"; } catch { t.textContent = "Kopyalanmadı"; }
+    setTimeout(closeSharePop, 1400);
     return;
   }
   closeSharePop();
@@ -2223,7 +2219,7 @@ function scrollToClub() {
 }
 function onClick(e) {
   if (!e.target.closest(".sharepop")) closeSharePop();
-  const soc = e.target.closest(".soc-g a"), app = soc && appLink(soc.href); // rəsmi hesab: Android-də tətbiqə, geri sayta
+  const soc = e.target.closest(".soc-g a"), app = soc && chromeLink(soc.href); // rəsmi hesab: Android-də Chrome vərəqində, geri sayta
   if (app) { e.preventDefault(); location.href = app; return; }
   if (S.langOpen && !e.target.closest(".ldd")) { S.langOpen = false; renderTopbar(); } // dil siyahısı kənara hər toxunuşda bağlanır
   const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
@@ -2559,15 +2555,12 @@ function lazyFill(box) {
 }
 function setupLazySections() {
   S.lazyIO?.disconnect();
-  const touch = globalThis.matchMedia?.("(hover:none)").matches;
   const show = box => {
-    if (box.classList.contains("shr")) { if (box.children.length === 1) box.insertAdjacentHTML("beforeend", SHR_ICONS); return; }
     if (!lazyFill(box)) return;
     setupStrips(box.querySelectorAll(".strip"));
     if (box.querySelector("[data-marquee]")) setupMarquees();
-    if (touch) box.querySelectorAll(".shr").forEach(s => S.lazyIO ? S.lazyIO.observe(s) : show(s));
   };
-  const boxes = [...document.querySelectorAll(touch ? ".lazy-sec, .shr" : ".lazy-sec")];
+  const boxes = [...document.querySelectorAll(".lazy-sec")];
   if (!globalThis.IntersectionObserver) { boxes.forEach(show); return; }
   S.lazyIO = new IntersectionObserver(rows => rows.forEach(e => { if (e.isIntersecting) { S.lazyIO.unobserve(e.target); show(e.target); } }), { rootMargin: "900px 0px" });
   boxes.forEach(b => S.lazyIO.observe(b));
