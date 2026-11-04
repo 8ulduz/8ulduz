@@ -543,9 +543,30 @@ test('saved stories survive a second tab',()=>{
 test('notifications use the service worker where the page API is not allowed',async()=>{
   const ctx=app(),{S,showBreaking}=ctx.api,shown=[];
   S.swReg={showNotification:async(title,options)=>{shown.push([title,options]);}};
-  await showBreaking({id:'1',title:'Son xəbər',sourceUrl:'https://apa.az/1'});
+  await showBreaking({id:'1',title:'Son xəbər',category:'gundem',sourceUrl:'https://apa.az/1'});
   assert.equal(shown[0][0],'Son dəqiqə');
-  assert.equal(shown[0][1].data.url,'https://apa.az/1');
+  assert.equal(shown[0][1].data.url,'https://8ulduz.az/#/xeber/1?b=gundem','klik mənbəyə yox, saytın xəbər səhifəsinə aparır');
+  assert.deepEqual([shown[0][1].data.id,shown[0][1].data.cat],['1','gundem']);
+});
+test('a notification click opens the story on the site, in the open page when there is one',async()=>{
+  const {listeners,context}=worker();
+  const opened=[],messages=[];let focused=0;
+  context.self.clients.openWindow=async u=>{opened.push(u);};
+  let windows=[];
+  context.self.clients.matchAll=async()=>windows;
+  const click=data=>{let done;listeners.notificationclick({notification:{close(){},data},waitUntil(p){done=p;}});return done;};
+  await click({id:'7',cat:'gundem',url:'https://apa.az/7'});
+  assert.deepEqual(opened,['https://example.com/8ulduz/#/xeber/7?b=gundem'],'səhifə açıq deyilsə saytın xəbər səhifəsi açılır (mənbə yox)');
+  windows=[{url:'https://example.com/8ulduz/#/',focus:async()=>{focused++;},postMessage:m=>messages.push(m)}];
+  await click({id:'8',url:'https://apa.az/8'});
+  assert.equal(opened.length,1,'açıq səhifə varsa yeni pəncərə açılmır');
+  assert.equal(focused,1);
+  assert.equal(JSON.stringify(messages),JSON.stringify([{type:'open-story',id:'8'}]),'açıq səhifəyə xəbərin id-si göndərilir'); // obyekt başqa vm kontekstindəndir
+  await click({});
+  assert.equal(opened[1],'https://example.com/8ulduz/','id-siz bildiriş baş səhifəni açır');
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  assert.ok(src.includes('e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; }'),'səhifə open-story mesajı ilə xəbər səhifəsinə keçir');
+  assert.ok(src.includes('n.onclick = () => { window.focus(); location.hash = detailUrl(a); };'),'səhifə bildirişinin kliki də saytın xəbər səhifəsinə aparır');
 });
 test('section pages reach back through the archive without repeating or leaking',async()=>{
   const ctx=policyApp(),{S,sectionView,loadArchive}=ctx.api;

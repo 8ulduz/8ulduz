@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v38"; // v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi; v37: tam lent dil üzrə (news.en/ru/tr.json main-də); v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan
+const VERSION = "v39"; // v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi; v37: tam lent dil üzrə (news.en/ru/tr.json main-də); v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -227,7 +227,7 @@ async function syncBreaking() {
       body: decodeBasic(a.title),
       icon: new URL("assets/icon-192.png", SCOPE_URL).toString(),
       tag: "break-" + a.id,
-      data: { id: a.id, url: a.sourceUrl || "" },
+      data: { id: a.id, cat: a.category || "", url: storyUrl(a.id, a.category) },
     });
   }
   await writeSeen(fresh.map((a) => a.id));
@@ -235,9 +235,15 @@ async function syncBreaking() {
 self.addEventListener("periodicsync", (event) => {
   if (event.tag === "breaking") event.waitUntil(syncBreaking());
 });
+// Saytın öz xəbər səhifəsi: oxucu bildirişə basanda mənbəyə yox, 8ulduz-a gəlir (sahibin qeydi, 2026-11-04)
+function storyUrl(id, cat) { return new URL("#/xeber/" + encodeURIComponent(id) + (cat ? "?b=" + encodeURIComponent(cat) : ""), SCOPE_URL).href; }
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const link = event.notification.data && event.notification.data.url;
-  const url = /^https?:\/\//i.test(link || "") ? link : SCOPE_URL.href;
-  event.waitUntil(self.clients.openWindow(url));
+  const d = event.notification.data || {};
+  const url = d.id ? storyUrl(d.id, d.cat) : SCOPE_URL.href; // köhnə bildirişin data.url-i mənbə ola bilər: ona baxılmır
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (list) => {
+    const open = list.find((w) => w.url.startsWith(SCOPE_URL.href));
+    if (open && d.id) { try { await open.focus(); open.postMessage({ type: "open-story", id: d.id }); return; } catch {} } // açıq səhifə yenidən yüklənmir
+    return self.clients.openWindow(url);
+  }));
 });

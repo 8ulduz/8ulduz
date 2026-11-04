@@ -662,13 +662,13 @@ async function showBreaking(a) {
   const options = { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id };
   try {
     if (S.swReg?.showNotification) {
-      await S.swReg.showNotification("Son dəqiqə", { ...options, data: { id: a.id, url: a.sourceUrl || "" } });
+      await S.swReg.showNotification("Son dəqiqə", { ...options, data: { id: a.id, cat: a.category || "", url: shareUrl(a) } }); // klik saytın xəbər səhifəsinə aparır, mənbəyə yox
       return;
     }
   } catch {}
   try {
     const n = new Notification("Son dəqiqə", options);
-    n.onclick = () => { window.focus(); if (/^https?:\/\//i.test(a.sourceUrl || "")) window.open(a.sourceUrl, "_blank", "noopener,noreferrer"); };
+    n.onclick = () => { window.focus(); location.hash = detailUrl(a); }; // saytın öz xəbər səhifəsi
   } catch {}
 }
 async function armNotify() {
@@ -2955,6 +2955,7 @@ function registerWorker() {
   // sw.js arxa yoxlamada app.js/app.css-in dəyişdiyini görəndə bildirir: oxucu hələ toxunmayıbsa (ilk 4 saniyə, yuxarıda,
   // yazmır) səhifə dərhal, yoxsa gözdən itəndə yenidən açılır. Bir sessiyada bir dəfə: yayım zamanı CDN iki nüsxə verərsə dövrə olmasın.
   navigator.serviceWorker.addEventListener("message", e => {
+    if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
     if (e.data?.type !== "shell-updated") return;
     let once = false;
     try { once = !sessionStorage.getItem("8ulduz-reloaded"); if (once) sessionStorage.setItem("8ulduz-reloaded", "1"); } catch {}
