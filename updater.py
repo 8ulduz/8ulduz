@@ -236,7 +236,6 @@ WORLD_FEEDS = [
     ("24.kg",        "https://24.kg/rss/",                                    "ru"),
     ("Tengrinews",   "https://tengrinews.kz/news.rss",                        "ru"),
     ("Газета.uz",    "https://www.gazeta.uz/ru/rss/",                         "ru"),
-    ("Podrobno.uz",  "https://podrobno.uz/rss/",                              "ru"),
     ("Kun.uz Русский", "https://kun.uz/ru/news/rss",                          "ru"),
     ("Habr",         "https://habr.com/ru/rss/news/?fl=ru",                   "ru", "Texnologiya"),
     ("3DNews",       "https://3dnews.ru/news/rss/",                           "ru", "Texnologiya"),
@@ -1257,7 +1256,9 @@ FALLBACK_EVERY_S = 180   # Google News və Telegram ehtiyatını dəqiqədə bir
 STALE_FEED_S = 900       # bundan köhnə nəticə «mənbə işləmir» sayılır
 LATEST_WINDOW_S = 1800   # latest.json main-dəki news.json-un gecikməsini örtməlidir
 LATEST_TOP = 40
-LATEST_MAX = 300         # 2026-11-04: xarici lentlər çoxalanda yarım saatın xəbəri 200-ə sığmırdı
+LATEST_MAX = 300         # ümumi fayl («Hamısı», ehtiyat, bildirişlər); 2026-11-04: xarici lentlər çoxalanda yarım saatın xəbəri 200-ə sığmırdı
+LATEST_LANG_MAX = 200    # latest.<dil>.json: oxucu hər dəqiqə yalnız öz dilinin lentini çəkir (qırmızı xətt 3); azərbaycanca xəbər xarici axınla sıxılmır (qırmızı xətt 1)
+FEED_LANGS = ("az", "en", "ru", "tr")
 
 
 def _read_json(path, default):
@@ -1602,20 +1603,35 @@ def drop_dead_links(articles, dead):
     return out
 
 
+def _latest_rows(articles, recent, cap):
+    """Ən yeni LATEST_TOP xəbər və son yarım saatda lentə düşənlər, tarix sırası ilə, ən çoxu cap."""
+    ordered = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)
+    top = {a.get("sourceUrl") for a in ordered[:LATEST_TOP]}
+    return [a for a in ordered if a.get("sourceUrl") in top or a.get("sourceUrl") in recent][:cap]
+
+
 def write_latest(articles, previous):
-    """latest.json: son yarım saatda lentə düşənlər və ən yeni xəbərlər. Sayt onu tam lentin üstünə qoyur."""
+    """latest.json: son yarım saatda lentə düşənlər və ən yeni xəbərlər. Sayt onu tam lentin üstünə qoyur.
+    latest.<dil>.json: eyni seçim yalnız o dilin xəbərlərindən. QIRMIZI XƏTT 3: oxucu hər dəqiqə yalnız öz dilinin faylını
+    çəkir (2026-11-04: ümumi fayl 300 sətirdə 71 KB gzip idi, 2/3-ü xarici dildə). Dil faylları yalnız tarixçəsiz live
+    budağına gedir (pipeline.sh push_live; publish_main onları main-ə yazmır), ümumi fayl ehtiyat və «Hamısı» üçün qalır."""
     now, known = time.time(), {a.get("sourceUrl") for a in previous}
     recent = {u: t for u, t in _read_json(RECENT_FILE, {}).items() if now - t < LATEST_WINDOW_S}
     for a in articles:
         if a.get("sourceUrl") not in known:
             recent.setdefault(a.get("sourceUrl"), now)
-    ordered = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)
-    top = {a.get("sourceUrl") for a in ordered[:LATEST_TOP]}
-    rows = [a for a in ordered if a.get("sourceUrl") in top or a.get("sourceUrl") in recent][:LATEST_MAX]
+    rows = _latest_rows(articles, recent, LATEST_MAX)
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     OUT_DIR.mkdir(exist_ok=True)
     # «dead»: sayt tam lenti 10 dəqiqədən bir alır, ölü link isə ekrandan bir dəqiqəyə çıxmalıdır.
-    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": sorted(dead_links(len(articles)))}, ensure_ascii=False, separators=(",", ":")))
+    dead = sorted(dead_links(len(articles)))
+    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": dead}, ensure_ascii=False, separators=(",", ":")))
+    try:  # QIRMIZI XƏTT 1: dil faylı alınmasa ümumi fayl və lent yenə yazılır
+        for code in FEED_LANGS:
+            sub = _latest_rows([a for a in articles if (a.get("lang") or "az") == code], recent, LATEST_LANG_MAX)
+            _write_atomic(OUT_DIR / f"latest.{code}.json", json.dumps({"updatedAt": stamp, "count": len(sub), "articles": sub, "dead": dead}, ensure_ascii=False, separators=(",", ":")))
+    except Exception as e:
+        print("  ! latest.<dil>.json:", type(e).__name__, flush=True)
     _save_cache(RECENT_FILE, recent)
 
 
@@ -4731,11 +4747,12 @@ def write_status(ok=True, successful=0, total=0, stats=None):
     except (OSError, ValueError):
         previous = {}
     OUT_DIR.mkdir(exist_ok=True)
-    _write_atomic(STATUS_FILE, json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
-                                       "attemptedAt": now, "ok": ok,
-                                       "successfulSources": successful, "totalSources": total,
-                                       "degraded": ok and total - successful > total * FEED_PAUSE_MAX_SHARE, "stats": stats or previous.get("stats")}, ensure_ascii=False,
-                                       separators=(",", ":")), encoding="utf-8")
+    status = {"checkedAt": now if ok else previous.get("checkedAt"), "attemptedAt": now, "ok": ok,
+              "successfulSources": successful, "totalSources": total,
+              "degraded": ok and total - successful > total * FEED_PAUSE_MAX_SHARE, "stats": stats or previous.get("stats")}
+    if os.environ.get("LATEST_LANG_FILES"):  # yalnız dil fayllarını live-ə yazan pipeline.sh qoyur: sayt bayraqsız ümumi latest.json çəkir (köhnə iş 404 verməsin)
+        status["langs"] = list(FEED_LANGS)
+    _write_atomic(STATUS_FILE, json.dumps(status, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
 # --------------------------------------------------------------------- main ---

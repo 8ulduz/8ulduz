@@ -41,6 +41,7 @@ GOOD="$(mktemp -d)"      # son sağlam məlumat nüsxəsi
 STATE="$(mktemp -d)"
 SLOTS="$STATE/m"         # son dəqiqələrin faylları
 KEEP_SLOTS=5
+export LATEST_LANG_FILES=1   # updater.py status.json-a "langs" yazır: bu pipeline dil fayllarını (latest.az.json və s.) live-ə göndərir
 CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
 SLOW_PID=""
 PUBLISH_PID=""
@@ -162,7 +163,9 @@ push_live() {
   slot=$(( $(date +%s) / 60 ))
   dir="$SLOTS/$slot"
   mkdir -p "$dir"
-  for name in status latest markets; do
+  # Dil faylları (latest.az.json və s.) yalnız buradadır: hər dəqiqə dəyişən 4 kiçik fayl main-in tarixçəsini şişirtməsin
+  # (publish_main onları silir). Sayt onları status.json-dakı "langs" ilə tanıyır, alınmasa ümumi latest.json-a qayıdır.
+  for name in status latest latest.az latest.en latest.ru latest.tr markets; do
     [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
   done
   for old in $(ls "$SLOTS" | sort -n | head -n -"$KEEP_SLOTS"); do
@@ -218,6 +221,7 @@ publish_main() {
     mkdir -p "$REPO_DIR/data"
     cp -a "$GOOD/data/." "$REPO_DIR/data/"
     rm -f "$REPO_DIR/data/reader.json"   # səsli oxu söndürülüb: tam mətnlər yayımlanmır
+    rm -f "$REPO_DIR"/data/latest.??.json   # dil faylları yalnız live budağındadır (push_live): main-in tarixçəsi şişməsin
     for name in sitemap.xml feed.xml robots.txt; do
       [ -f "$WORK/$name" ] && cp -a "$WORK/$name" "$REPO_DIR/"
     done

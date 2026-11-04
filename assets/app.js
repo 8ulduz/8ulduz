@@ -121,13 +121,13 @@ const DAYS = ["bazar", "bazar ertəsi", "çərşənbə axşamı", "çərşənbə
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const HOUR = 3600e3, DAY = 24 * HOUR;
 const POLL_MS = 30e3;     // QIRMIZI XƏTT 1: lent dəqiqədə bir yazılır, sayt 30 saniyədən bir yoxlayır
-const NEWS_FULL_MS = 10 * 60e3; // tam lent (~200 KB) bu qədərdən bir; arada yalnız latest.json (~15 KB)
+const NEWS_FULL_MS = 10 * 60e3; // tam lent (~300 KB) bu qədərdən bir; arada yalnız dilin latest faylı (~30 KB)
 const LATEST_MAX_MS = 90e3;     // status möhürü dəyişməsə də bu qədərdən bir latest.json yoxlanır
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
 let freshSequence = 0;
 // Service worker-i olmayan ziyarətçi (ilk açılış, bəzi tətbiqdaxili brauzerlər) də dəqiqəlik kanalı görsün. sw.js-dəki qayda ilə eyni.
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
-const LIVE_FILE = /^data\/(?:status|latest|markets)\.json/;
+const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
 async function liveDirect(url, signal) {
   if (navigator.serviceWorker?.controller || !LIVE_FILE.test(url) || Date.now() < liveSkipUntil) return null;
@@ -874,13 +874,24 @@ function syncNewPill() {
   pill.hidden = !S.pendingNew;
   pill.textContent = `↑ ${S.pendingNew} yeni xəbər`;
 }
+// Dəqiqəlik lent dil üzrə (qırmızı xətt 3): latest.az.json və s. yalnız live budağındadır; ümumi latest.json 300 sətirdə 71 KB idi (2/3-ü
+// başqa dildə). status.json «langs» deyir ki, kanal dil fayllarını yazır (köhnə pipeline-da 404 canlı kanalı söndürməsin); alınmasa ümumi fayl.
+async function latestJSON(force) {
+  if (S.lang && S.status?.langs?.includes(S.lang)) {
+    try {
+      const got = await requestJSON(freshUrl(`data/latest.${S.lang}.json`, force), {}, 8000);
+      if (Array.isArray(got.d?.articles) && got.r.headers?.get?.("X-8ulduz-data") !== "cache") return got;
+    } catch {}
+  }
+  return requestJSON(freshUrl("data/latest.json", force), {}, 8000);
+}
 // Dəqiqəlik axın: yalnız yeni xəbərlər gəlir. Oxucu məşğuldursa ekran dəyişmir, «N yeni xəbər» düyməsi görünür.
 async function loadLatest(force = false) {
   if (S.latestLoading || !S.rawNews) return;
   S.latestLoading = true;
   const statusStamp = S.status?.checkedAt || null;
   try {
-    const {r, d} = await requestJSON(freshUrl("data/latest.json", force), {}, 8000);
+    const {r, d} = await latestJSON(force);
     if (!Array.isArray(d?.articles)) return;
     S.offline = r.headers?.get?.("X-8ulduz-data") === "cache";
     if (!S.offline) { S.lastSync = new Date(); S.error = null; }

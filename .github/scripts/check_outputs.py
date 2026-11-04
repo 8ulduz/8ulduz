@@ -44,7 +44,8 @@ def enforce_policy(root=pathlib.Path(".")):
     root = pathlib.Path(root)
     removed = {}
     archive = [f"{d}/{p.name}" for d in ("arxiv", "paylas") for p in sorted((root / "data" / d).glob("*.json"))]
-    for name in ("news.json", "latest.json", "first.json", *archive):
+    languages = [f"latest.{code}.json" for code in ("az", "en", "ru", "tr")]  # dəqiqəlik dil faylları (live budağı) da qapıdan keçir
+    for name in ("news.json", "latest.json", "first.json", *languages, *archive):
         path = root / "data" / name
         try:
             data = json.loads(path.read_text(encoding="utf-8"))

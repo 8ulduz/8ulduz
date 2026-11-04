@@ -147,6 +147,30 @@ test('red line 1: a visitor without a service worker reads the one-minute channe
   await ctx3.api.requestJSON('data/news.json?t=1');
   assert.ok(!urls.some(u=>u.includes('/live/m/')),'tam lent saytdan gəlir');
 });
+test('red line 3: the minute feed is asked per language when the channel offers it, and falls back to the shared file', async () => {
+  const run = async (lang, answer, status = {checkedAt: 'x', langs: ['az', 'en', 'ru', 'tr']}) => {
+    const ctx = app({navigator: {onLine: true, serviceWorker: {controller: {}}}}), {S} = ctx.api, urls = [];
+    S.lang = lang; S.status = status; S.rawNews = []; S.rawMeta = {}; S.og = {};
+    ctx.fetch = async url => { urls.push(url.split('?')[0]); return answer(url); };
+    await vm.runInContext('loadLatest()', ctx);
+    return urls;
+  };
+  const ok = (extra = {}) => ({ok: true, headers: new Headers(extra), json: async () => ({articles: []})});
+  assert.deepEqual(await run('az', () => ok()), ['data/latest.az.json'], 'yalnız öz dilinin faylı');
+  assert.deepEqual(await run('ru', () => ok()), ['data/latest.ru.json']);
+  assert.deepEqual(await run(null, () => ok()), ['data/latest.json'], '«Hamısı» ümumi faylı çəkir');
+  assert.deepEqual(await run('az', () => ok(), {checkedAt: 'x'}), ['data/latest.json'], 'kanal dil fayllarını bildirməyibsə (köhnə pipeline) ümumi fayl');
+  assert.deepEqual(await run('az', url => url.includes('latest.az') ? {ok: false, status: 404, headers: new Headers()} : ok()), ['data/latest.az.json', 'data/latest.json'], 'dil faylı alınmasa ümumi fayl');
+  assert.deepEqual(await run('az', url => url.includes('latest.az') ? ok({'X-8ulduz-data': 'cache'}) : ok()), ['data/latest.az.json', 'data/latest.json'], 'keşdən gələn dil faylı canlı kanalın yoxluğudur: ümumi fayl soruşulur');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('LIVE_FILE = /^data\\/(?:status|latest(?:\\.[a-z]{2})?|markets)\\.json/'), 'service worker-siz ziyarətçi də dil faylını dəqiqəlik kanaldan oxuyur');
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(sw.includes('latest(?:\\.[a-z]{2})?|markets'), 'sw.js dil faylını canlı kanaldan verir');
+  const pipeline = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
+  assert.ok(pipeline.includes('for name in status latest latest.az latest.en latest.ru latest.tr markets'), 'push_live dil fayllarını yazır');
+  assert.ok(pipeline.includes('rm -f "$REPO_DIR"/data/latest.??.json'), 'main-ə yazılmır: tarixçə şişməsin');
+  assert.ok(pipeline.includes('export LATEST_LANG_FILES=1'), 'status.json bayrağı yalnız yeni pipeline ilə');
+});
 test('an update waits while the reader is busy: open video, open popup, typing, or scrolled down',()=>{
   const busy=(selector,extra={})=>{
     const ctx=app({setTimeout:fn=>{fn();return 0;},document:{documentElement:{dataset:{}},addEventListener(){},createElement(){return {};},querySelector:s=>s.includes(selector)?{}:null,...extra},scrollY:0});
@@ -875,7 +899,7 @@ test('stuck Pages deployment: live files come from the mirror, static ones stay 
 });
 const LIVE = 'https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/';
 test('red line 1: status, latest and markets come from the one-minute live channel first', async () => {
-  for (const file of ['status.json', 'latest.json', 'markets.json']) {
+  for (const file of ['status.json', 'latest.json', 'latest.az.json', 'markets.json']) {
     const {get, calls} = dataWorker(async url => { assert.ok(url.startsWith(LIVE)); return json({from: 'live'}); });
     const r = await get(file + '?t=1');
     assert.equal(r.headers.get('X-8ulduz-data'), 'live');

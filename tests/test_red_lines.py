@@ -1,5 +1,6 @@
 """Saytın iki qırmızı xətti (docs/qirmizi-xetler.md). Bu testlər düşürsə, kodu yox, dəyişikliyi yoxlayın."""
 import json
+import os
 import pathlib
 import re
 import sys
@@ -152,10 +153,10 @@ class PublishGateTest(unittest.TestCase):
             root = pathlib.Path(tmp)
             (root / "data").mkdir()
             rows = [article("APA", "https://apa.az/1"), article("TASS", "https://tass.ru/1", "Алиев принял"), article("X", "https://meydan.tv/1")]
-            for name in ("news.json", "latest.json", "first.json"):
+            for name in ("news.json", "latest.json", "first.json", "latest.az.json"):
                 (root / "data" / name).write_text(json.dumps({"articles": rows, "count": 3}), encoding="utf-8")
             enforce_policy(root)
-            for name in ("news.json", "latest.json", "first.json"):
+            for name in ("news.json", "latest.json", "first.json", "latest.az.json"):
                 data = json.loads((root / "data" / name).read_text(encoding="utf-8"))
                 self.assertEqual([a["sourceUrl"] for a in data["articles"]], ["https://apa.az/1"])
                 self.assertEqual(data["count"], 1)
@@ -284,6 +285,28 @@ class FastCycleTest(unittest.TestCase):
             urls = {a["sourceUrl"] for a in self.news(name)}
             self.assertEqual(urls, {"https://apa.az/1", "https://www.bbc.co.uk/2"}, name)
 
+    def test_each_language_has_its_own_minute_file_and_the_shared_file_keeps_all(self):
+        def fetcher(feed, old=None):
+            items = {"APA": [self.item("https://apa.az/1", "Bakıda yeni park istifadəyə verildi")],
+                     "BBC News": [self.item("https://www.bbc.co.uk/2", "Storm hits the northern coast of Europe")],
+                     "Report": []}[feed[0]]
+            return {"items": items, "url": feed[1], "at": time.time(), "err": None}
+        with patch.dict(os.environ):
+            os.environ.pop("LATEST_LANG_FILES", None)
+            self.assertEqual(self.cycle(fetcher), 0)
+        urls = lambda name: [a["sourceUrl"] for a in self.news(name)]
+        self.assertEqual(urls("latest.az.json"), ["https://apa.az/1"])
+        self.assertEqual(urls("latest.en.json"), ["https://www.bbc.co.uk/2"])
+        self.assertEqual(urls("latest.ru.json"), [])
+        self.assertEqual(set(urls("latest.json")), {"https://apa.az/1", "https://www.bbc.co.uk/2"})
+        self.assertEqual(json.loads((self.root / "data" / "latest.az.json").read_text(encoding="utf-8"))["count"], 1)
+        status = json.loads((self.root / "data" / "status.json").read_text(encoding="utf-8"))
+        self.assertNotIn("langs", status, "köhnə pipeline.sh dil fayllarını live-ə yazmır: sayt onları istəməsin")
+        with patch.dict(os.environ, {"LATEST_LANG_FILES": "1"}):
+            self.assertEqual(self.cycle(fetcher), 0)
+        status = json.loads((self.root / "data" / "status.json").read_text(encoding="utf-8"))
+        self.assertEqual(status["langs"], ["az", "en", "ru", "tr"])
+
     def test_a_failed_cycle_keeps_the_feed_and_still_reports_status(self):
         updater.OUT_FILE.write_text(json.dumps({"articles": [article("APA", "https://apa.az/1", "Köhnə xəbər başlığı burada")]}), encoding="utf-8")
         self.assertEqual(self.cycle(lambda feed, old=None: {"items": [], "url": feed[1], "at": 0, "err": "HTTP 500"}), 1)
@@ -348,6 +371,12 @@ class PipelineContractTest(unittest.TestCase):
     def test_every_publish_passes_the_gate(self):
         self.assertIn("guard_outputs\n  promote_code\n  if push_live", self.pipeline)
         self.assertIn("check_outputs.py", self.pipeline)
+
+    def test_language_minute_files_go_only_to_the_live_branch(self):
+        self.assertIn("for name in status latest latest.az latest.en latest.ru latest.tr markets", self.pipeline)
+        self.assertIn('rm -f "$REPO_DIR"/data/latest.??.json', self.pipeline)
+        self.assertIn("export LATEST_LANG_FILES=1", self.pipeline)
+        self.assertEqual(updater.FEED_LANGS, ("az", "en", "ru", "tr"))
 
     def test_broken_checker_cannot_overwrite_last_known_good(self):
         run_py = self.pipeline.split("run_py() {")[1].split("\n}\n")[0]

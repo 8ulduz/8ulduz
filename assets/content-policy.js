@@ -46,7 +46,7 @@ window.CONTENT_POLICY = {
     "Variety": ["variety.com"], "Hollywood Reporter": ["hollywoodreporter.com"], "Rolling Stone": ["rollingstone.com"], "Deadline": ["deadline.com"], "Sky Sports": ["skysports.com"],
     "РБК": ["rbc.ru"], "Коммерсантъ": ["kommersant.ru"], "Lenta.ru": ["lenta.ru"], "Известия": ["iz.ru"], "Ведомости": ["vedomosti.ru"],
     "AA Русский": ["aa.com.tr"], "DW Русский": ["dw.com"], "Euronews Русский": ["euronews.com"], "BBC Русская служба": ["bbc.com", "bbc.co.uk"],
-    "24.kg": ["24.kg"], "Tengrinews": ["tengrinews.kz"], "Газета.uz": ["gazeta.uz"], "Podrobno.uz": ["podrobno.uz"],
+    "24.kg": ["24.kg"], "Tengrinews": ["tengrinews.kz"], "Газета.uz": ["gazeta.uz"],
     "Habr": ["habr.com"], "3DNews": ["3dnews.ru"], "iXBT": ["ixbt.com"], "N+1": ["nplus1.ru"], "Naked Science": ["naked-science.ru"], "Афиша Daily": ["afisha.ru"],
     "Sports.ru": ["sports.ru"], "Спорт-Экспресс": ["sport-express.ru"], "TASS Sport": ["tass.ru", "tass.com"], "Interfax Sport": ["sport-interfax.ru", "interfax.ru"]
   },

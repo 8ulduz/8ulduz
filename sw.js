@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v35"; // v35: naviqasiyanın keş açarı yalnız yoldur (sorğu sətri ilə açılan nüsxələr qabığı köhnəldirdi); hamısı təzədən yığılsın
+const VERSION = "v36"; // v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan; v35: naviqasiyanın keş açarı yalnız yoldur
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -38,7 +38,7 @@ const MIRROR = "https://raw.githubusercontent.com/8ulduz/8ulduz/main/";
 // QIRMIZI XƏTT 1: pipeline.sh hər dəqiqənin faylını ayrı yola yazır (m/<dəqiqə>/status.json), çünki budaq adı ilə
 // verilən fayl 5 dəqiqə keşdə qalır. Yaranmamış yola sorğu 404-ü 55 saniyə keşə salır: dəqiqə yalnız yazılandan sonra istənir.
 const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
-const LIVE_FILES = /data\/(?:status|latest|markets)\.json$/;
+const LIVE_FILES = /data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json$/; // latest.az.json və s. yalnız live budağındadır (main-də yoxdur)
 const LIVE_WAIT_MS = 2500;
 const LIVE_GRACE_S = 45;
 const LIVE_PAUSE_MS = 5 * 60e3; // 429/403 olsa bu qədər sayt kanalı işlənir
@@ -46,7 +46,7 @@ let liveSkipUntil = 0;
 const ORIGIN_WAIT_MS = 4000; // başlıq gəlməsə ehtiyat kanala keç; gövdə axarkən kəsilmir
 const MIRROR_WAIT_MS = 6000;
 const STALE_MS = 15 * 60e3; // Pages bu qədər yayımlamayıbsa ilişib sayılır
-const LIVE_DATA = /data\/(?:status|latest|news)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur
+const LIVE_DATA = /data\/(?:status|latest(?:\.[a-z]{2})?|news)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur
 
 async function attempt(input, init, waitMs) {
   const controller = new AbortController();
