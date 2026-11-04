@@ -16,7 +16,7 @@ Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərin
 
 - `index.html`, `assets/app.js`, `assets/app.css` — saytın **mənbə kodu** (build addımı yoxdur, birbaşa redaktə olunur).
   Marşrutlar: `#/` (baş səhifə), `#/bolme/<slug>` (bölmə), `#/axtar?q=...` (axtarış), `#/tixac` (tıxac xəritəsi).
-- `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON).
+- `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON): azərbaycanca sətirlər və xarici idman; ingilis/rus/türk sətirləri `data/news.en.json`, `news.ru.json`, `news.tr.json`-dadır (sayt dil faylını `status.json`-dakı `newsLangs` ilə tanıyır, «Hamısı» hamısını birləşdirir).
 - `data/markets.json` — valyuta (AMB, ehtiyat: ExchangeRate-API), Brent/WTI neft və bitcoin (Yahoo Finance, ehtiyat: CNBC/CoinGecko), qızıl/gümüş (gold-api.com).
 - `data/social.json` — Prezidentin və birinci xanımın rəsmi YouTube videoları və X/Instagram/Facebook paylaşımları (X-in açıq lenti bağlı olduğundan paylaşımlar onları xəbər verən rəsmi/agentlik xəbərlərindən götürülür, `via` sahəsi mənbəni göstərir). Yalnız vaxta görə sıralanır.
 - `data/status.json` — son uğurlu yoxlamanın vaxtı (`checkedAt`). Saytdakı «Yeniləndi» bunu göstərir.
@@ -69,7 +69,7 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - Xəbər kartı, hero və siyahılar mənbə ünvanını yeni vərəqdə açır. «+N mənbə» düyməsi həmin xəbərin digər mənbələrini kiçik siyahıda göstərir. Axtarış başlıqla yanaşı xülasənin mətnində də axtarır, amma xülasə səhifədə göstərilmir.
 - Telegram kanalı: `assets/config.js`-də `telegram` boş olduğu üçün «kanala qoşulun» bloku göstərilmir; kanal yarananda ünvanı yazın.
 - Kartlarda başlığın altında xülasənin ilk iki sətri görünür (dar ekranda yalnız şəkilsiz kartlarda). Başlıqdakı xam ünvanlar (Telegram lentləri) həm updater-də, həm brauzerdə kəsilir.
-- Baş səhifə hər dəqiqə yalnız `data/status.json`-u (151 bayt) yoxlayır; `news.json` yalnız `checkedAt` dəyişəndə çəkilir. Lentdəki xəbərlərin demək olar ki, hamısı son 24 saatındır, ona görə faylı arxivə bölməyə ehtiyac yoxdur.
+- Baş səhifə hər dəqiqə yalnız `data/status.json`-u yoxlayır; tam lent (`news.json` və ya oxucunun dil faylı) yalnız `checkedAt` dəyişəndə, 10 dəqiqədən bir çəkilir. Lentdəki xəbərlərin demək olar ki, hamısı son 24 saatındır, ona görə faylı arxivə bölməyə ehtiyac yoxdur.
 - «Haqqımızda» (`#/haqqinda`): sayt nədir, mənbələr, redaksiya prinsipləri, məxfilik, əlaqə. Altlıqdan keçid var.
 - Valyuta kartlarında AMB rəsmi məzənnəsi alınmayanda «bazar» nişanı və qeyd çıxır (ehtiyat: ExchangeRate-API). Updater AMB bülletenini hər gün üçün iki dəfə yoxlayır, alınmayan günü keçir.
 - «Təhsil və elm» bölməsi təhsil, elm, texnologiya və süni intellekt xəbərlərini, «Sağlamlıq və həyat» bölməsi səhiyyə və həyat tərzi xəbərlərini birləşdirir (`SECTION_ALIASES`).

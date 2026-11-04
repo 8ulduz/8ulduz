@@ -171,6 +171,37 @@ test('red line 3: the minute feed is asked per language when the channel offers 
   assert.ok(pipeline.includes('rm -f "$REPO_DIR"/data/latest.??.json'), 'main-ə yazılmır: tarixçə şişməsin');
   assert.ok(pipeline.includes('export LATEST_LANG_FILES=1'), 'status.json bayrağı yalnız yeni pipeline ilə');
 });
+test('red line 3: the full feed is asked per language when status offers it, «Hamısı» merges every file, Azerbaijani always gets news.json', async () => {
+  const run = async (lang, answer, status = {checkedAt: 'x', newsLangs: ['en', 'ru', 'tr']}) => {
+    const ctx = app({navigator: {onLine: true, serviceWorker: {controller: {}}}}), {S} = ctx.api, urls = [];
+    S.lang = lang; S.status = status; S.og = {};
+    ctx.fetch = async url => { const name = url.split('?')[0]; urls.push(name); return answer(name); };
+    await ctx.api.loadNews(true);
+    return {urls, S};
+  };
+  const row = (id, lang) => ({id, title: 'Xəbər başlığı ' + id, category: 'gundem', lang, source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: new Date().toISOString()});
+  const ok = (rows, extra = {}) => ({ok: true, headers: new Headers(extra), json: async () => ({updatedAt: 'x', articles: rows})});
+  assert.deepEqual((await run('az', () => ok([]))).urls, ['data/news.json'], 'azərbaycanca oxucu həmişə news.json (azərbaycanca + xarici idman)');
+  assert.deepEqual((await run('en', () => ok([]))).urls, ['data/news.en.json'], 'yalnız öz dilinin faylı');
+  assert.deepEqual((await run('en', () => ok([]), {checkedAt: 'x'})).urls, ['data/news.json'], 'bayraq yoxdursa (köhnə pipeline) ümumi fayl');
+  assert.deepEqual((await run('ru', name => name.endsWith('news.ru.json') ? {ok: false, status: 404, headers: new Headers()} : ok([]))).urls, ['data/news.ru.json', 'data/news.json'], 'dil faylı alınmasa ümumi fayl');
+  const files = {'data/news.json': [row('a', 'az'), row('s', 'ru')], 'data/news.en.json': [row('e', 'en')], 'data/news.ru.json': [row('s', 'ru'), row('r', 'ru')], 'data/news.tr.json': [row('t', 'tr')]};
+  const all = await run(null, name => ok(files[name], {etag: name}));
+  assert.deepEqual([...all.urls].sort(), Object.keys(files).sort(), '«Hamısı» bütün faylları çəkir');
+  assert.deepEqual([...all.S.rawNews.map(a => a.id)].sort(), ['a', 'e', 'r', 's', 't'], 'hər dil gəlir, eyni keçid bir dəfə');
+  assert.equal(all.S.etag.split('|').length, 4, 'etiket bütün faylların birləşməsidir');
+  const first = await run('en', name => name.endsWith('status.json') ? {ok: true, headers: new Headers(), json: async () => ({checkedAt: 'x', newsLangs: ['en', 'ru', 'tr']})} : ok([]), null);
+  assert.deepEqual(first.urls, ['data/status.json', 'data/news.en.json'], 'status hələ yoxdursa (ilk açılış) əvvəl o soruşulur');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (!S.lang) loadNews(true);'), '«Hamısı»ya keçəndə başqa dillərin faylları gəlir');
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(sw.includes('news(?:\\.[a-z]{2})?'), 'sw.js dil faylının ilişib-ilişmədiyinə də baxır');
+  const pipeline = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
+  assert.ok(pipeline.includes('export NEWS_LANG_FILES=1'), 'bölgü və status.json bayrağı yalnız yeni pipeline ilə');
+  assert.ok(!pipeline.includes('news.??.json'), 'dil faylları main-dədir: publish_main onları silmir');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(index.includes('"data/news." + lang + ".json"'), 'index.html ingilis/rus/türk oxucu üçün erkən dil faylını istəyir');
+});
 test('an update waits while the reader is busy: open video, open popup, typing, or scrolled down',()=>{
   const busy=(selector,extra={})=>{
     const ctx=app({setTimeout:fn=>{fn();return 0;},document:{documentElement:{dataset:{}},addEventListener(){},createElement(){return {};},querySelector:s=>s.includes(selector)?{}:null,...extra},scrollY:0});

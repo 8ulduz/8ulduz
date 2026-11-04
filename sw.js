@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v36"; // v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan; v35: naviqasiyanın keş açarı yalnız yoldur
+const VERSION = "v37"; // v37: tam lent dil üzrə (news.en/ru/tr.json main-də); v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -46,7 +46,7 @@ let liveSkipUntil = 0;
 const ORIGIN_WAIT_MS = 4000; // başlıq gəlməsə ehtiyat kanala keç; gövdə axarkən kəsilmir
 const MIRROR_WAIT_MS = 6000;
 const STALE_MS = 15 * 60e3; // Pages bu qədər yayımlamayıbsa ilişib sayılır
-const LIVE_DATA = /data\/(?:status|latest(?:\.[a-z]{2})?|news)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur
+const LIVE_DATA = /data\/(?:status|latest(?:\.[a-z]{2})?|news(?:\.[a-z]{2})?)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur (news.<dil>.json da main-dədir)
 
 async function attempt(input, init, waitMs) {
   const controller = new AbortController();

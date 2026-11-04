@@ -1259,6 +1259,7 @@ LATEST_TOP = 40
 LATEST_MAX = 300         # ümumi fayl («Hamısı», ehtiyat, bildirişlər); 2026-11-04: xarici lentlər çoxalanda yarım saatın xəbəri 200-ə sığmırdı
 LATEST_LANG_MAX = 200    # latest.<dil>.json: oxucu hər dəqiqə yalnız öz dilinin lentini çəkir (qırmızı xətt 3); azərbaycanca xəbər xarici axınla sıxılmır (qırmızı xətt 1)
 FEED_LANGS = ("az", "en", "ru", "tr")
+NEWS_LANGS = ("en", "ru", "tr")  # tam lentin dil faylları news.<dil>.json (main-də, write_news); news.json azərbaycanca + xarici idman
 
 
 def _read_json(path, default):
@@ -1266,6 +1267,25 @@ def _read_json(path, default):
         return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
     except Exception:
         return default
+
+
+def read_feed(path=None):
+    """Tam lent bir siyahıda: news.json və onun «langs» siyahısındakı dil faylları (news.en.json və s., write_news), eyni keçid bir dəfə.
+    Bölünməmiş (köhnə) news.json-da «langs» yoxdur: yalnız o oxunur. Lenti oxuyan hər yer (əvvəlki dövrə, arxiv, paylaşma, sitemap/feed,
+    qruplar, link yoxlaması) bunu işlədir ki, bölgü onlara görünməsin."""
+    path = pathlib.Path(path or OUT_FILE)
+    def rows_of(p):
+        d = _read_json(p, {})
+        return list(d.get("articles") or []) if isinstance(d, dict) else []
+    data = _read_json(path, {})
+    rows = rows_of(path)
+    seen = {a.get("sourceUrl") for a in rows}
+    for code in (data.get("langs") if isinstance(data, dict) else None) or []:
+        for a in rows_of(path.with_name(f"news.{code}.json")):
+            if a.get("sourceUrl") not in seen:
+                seen.add(a.get("sourceUrl"))
+                rows.append(a)
+    return rows
 
 
 def _save_cache(path, value):
@@ -1383,7 +1403,7 @@ def collect_fast():
 
 def compute_groups():
     """Eyni hadisənin qruplaşdırılması ağırdır (bütün cütlər): yavaş prosesdə hesablanır, sürətli dövrə nəticəni tətbiq edir."""
-    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    articles = read_feed()
     if articles:
         grouped = group_duplicates([dict(a, alts=list(a.get("alts") or [])) for a in articles])
         _save_cache(GROUPS_FILE, {a["sourceUrl"]: a["alts"] for a in grouped if a.get("alts")})
@@ -1535,7 +1555,7 @@ def check_links(now=None):
     now = now or time.time()
     state = _read_json(LINK_HEALTH_FILE, {})
     listed = {}
-    for a in _read_json(OUT_FILE, {}).get("articles") or []:
+    for a in read_feed():
         for row in [a, *(a.get("alts") or [])]:
             if row.get("sourceUrl"):
                 listed[row["sourceUrl"]] = row.get("publishedAt") or a.get("publishedAt") or ""
@@ -1633,6 +1653,23 @@ def write_latest(articles, previous):
     except Exception as e:
         print("  ! latest.<dil>.json:", type(e).__name__, flush=True)
     _save_cache(RECENT_FILE, recent)
+
+
+def write_news(data):
+    """news.json. NEWS_LANG_FILES ilə (yeni pipeline.sh; QIRMIZI XƏTT 3): news.json = azərbaycanca sətirlər + xarici idman (sahibin qaydası:
+    idman bölməsi bütün dillərdədir), news.<dil>.json = yalnız o dilin sətirləri (rus/ingilis/türk oxucuya azərbaycanca və türkcə xəbər düşmür);
+    «langs» hansı dil fayllarının olduğunu deyir (read_feed onları birləşdirir). Hamısı main-ə gedir: bölgü tarixçəyə əlavə yük vermir
+    (docs/qirmizi-xetler.md §3). Bayraqsız (köhnə pipeline) əvvəlki kimi bir fayl."""
+    dump = lambda d: json.dumps(d, ensure_ascii=False, separators=(",", ":"))
+    if not os.environ.get("NEWS_LANG_FILES"):
+        _write_atomic(OUT_FILE, dump(data), encoding="utf-8")
+        return
+    articles = data["articles"]
+    for code in NEWS_LANGS:  # əvvəl dil faylları, sonra onlara işarə edən news.json
+        rows = [a for a in articles if a.get("lang") == code]
+        _write_atomic(OUT_FILE.with_name(f"news.{code}.json"), dump({"updatedAt": data["updatedAt"], "count": len(rows), "articles": rows}), encoding="utf-8")
+    own = [a for a in articles if (a.get("lang") or "az") not in NEWS_LANGS or a.get("category") == "idman"]
+    _write_atomic(OUT_FILE, dump({"updatedAt": data["updatedAt"], "count": len(own), "langs": list(NEWS_LANGS), "articles": own}), encoding="utf-8")
 
 
 # Sayt baş səhifənin yuxarısını bu xəbərlərdən qurur, tam lent sonra gəlir. Eyni blok alınmalıdır ki, tam lent gələndə ekran dəyişməsin:
@@ -1787,7 +1824,7 @@ def update_share_index(articles, now):
 
 def update_archive(now=None):
     now = now or time.time()
-    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    articles = read_feed()
     missing = any(not (ARCHIVE_DIR / f"{s[0]}.json").exists() for s in SECTIONS if s[0] != "prezident")  # yeni bölmə bir saat boş qalmasın
     if not articles or (not missing and now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S):
         return
@@ -1834,14 +1871,14 @@ READER_ENABLED = False
 
 def retire_reader():
     if READER_ENABLED:
-        update_reader(_read_json(OUT_FILE, {}).get("articles") or [], OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6))
+        update_reader(read_feed(), OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6))
     else:
         (OUT_DIR / "reader.json").unlink(missing_ok=True)
 
 
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
-    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    articles = read_feed()
     steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive, update_team_pages]
     for step in steps:
@@ -2417,7 +2454,7 @@ def update_social():
     if failed:
         posts.extend(p for p in old if p.get("who") in failed and p.get("network") == "YouTube")
     try:
-        arts = json.loads(OUT_FILE.read_text(encoding="utf-8")).get("articles") or []
+        arts = read_feed()
         posts.extend(social_from_news(arts))
     except Exception as e:
         print(f"  ! sosial (xəbərdən): {type(e).__name__}: {str(e)[:80]}")
@@ -4442,11 +4479,7 @@ def write_robots():
         encoding="utf-8")
 
 def write_public():
-    try:
-        articles = json.loads(OUT_FILE.read_text(encoding="utf-8")).get("articles") or []
-    except Exception:
-        articles = []
-    articles, _ = content_policy.enforce(articles)  # feed.xml və bölmə səhifələri də qapıdan keçir
+    articles, _ = content_policy.enforce(read_feed())  # feed.xml və bölmə səhifələri də qapıdan keçir
     write_feed(articles)
     write_sections(articles)
     write_sitemap()
@@ -4752,6 +4785,8 @@ def write_status(ok=True, successful=0, total=0, stats=None):
               "degraded": ok and total - successful > total * FEED_PAUSE_MAX_SHARE, "stats": stats or previous.get("stats")}
     if os.environ.get("LATEST_LANG_FILES"):  # yalnız dil fayllarını live-ə yazan pipeline.sh qoyur: sayt bayraqsız ümumi latest.json çəkir (köhnə iş 404 verməsin)
         status["langs"] = list(FEED_LANGS)
+    if os.environ.get("NEWS_LANG_FILES"):  # tam lent dil üzrə (write_news): sayt news.<dil>.json-u yalnız bayraqla istəyir, yoxsa news.json
+        status["newsLangs"] = list(NEWS_LANGS)
     _write_atomic(STATUS_FILE, json.dumps(status, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
@@ -4779,10 +4814,7 @@ def main(fast=False):
         tick = time.time()
         if fast:
             print("  ·", name, marks[name], flush=True)
-    try:
-        old = json.loads(OUT_FILE.read_text(encoding="utf-8"))["articles"]
-    except Exception:
-        old = []
+    old = read_feed()  # bölünmüş lent (news.json + dil faylları, write_news) bir siyahıda
     prev_articles = [dict(a) for a in old]
     old = prune_removed_sources(old)
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
@@ -5035,7 +5067,7 @@ def main(fast=False):
         write_first(articles, data["updatedAt"])
     except Exception as e:
         print("  ! first.json:", type(e).__name__, flush=True)
-    _write_atomic(OUT_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    write_news(data)
     if not fast:
         try:
             retire_reader()

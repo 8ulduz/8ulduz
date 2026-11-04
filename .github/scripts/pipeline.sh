@@ -42,6 +42,7 @@ STATE="$(mktemp -d)"
 SLOTS="$STATE/m"         # son dəqiqələrin faylları
 KEEP_SLOTS=5
 export LATEST_LANG_FILES=1   # updater.py status.json-a "langs" yazır: bu pipeline dil fayllarını (latest.az.json və s.) live-ə göndərir
+export NEWS_LANG_FILES=1     # updater.py tam lenti dil üzrə yazır (news.json = azərbaycanca + xarici idman, news.en/ru/tr.json = o dil) və status.json-a "newsLangs" qoyur; hamısı main-ə gedir (publish_main data/-nı olduğu kimi köçürür)
 CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
 SLOW_PID=""
 PUBLISH_PID=""

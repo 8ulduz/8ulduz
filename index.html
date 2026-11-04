@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-SiSYOT7BtqEF/3CpjqQKL0kbTckq7OPeJWBNgsF6RyY=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-o17iOwsDSE9jYUG5IPUPxbO/t8GyMmJ1B4EPKUo27A0=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.js" />
     <script>
@@ -30,7 +30,8 @@
         try { lang = localStorage.getItem("8ulduz-lang"); } catch (e) {}
         var home = (location.hash === "" || location.hash === "#/") && (lang === null || lang === "az");
         document.documentElement.dataset.route = home ? "home" : "other"; // statik skelet yalnız baş səhifədə görünür (app.css .pre-skel)
-        var files = home ? ["data/first.json"] : ["data/news.json", "data/og.json"];
+        // İngilis/rus/türk oxucu tam lentin öz dil faylını alır (data/news.<dil>.json, app.js newsJSON); «Hamısı» və azərbaycanca news.json.
+        var files = home ? ["data/first.json"] : [/^(en|ru|tr)$/.test(lang) ? "data/news." + lang + ".json" : "data/news.json", "data/og.json"];
         // Paylaşılan keçid (#/xeber/ID): xəbərin sətri 32 hissəli paylaşma siyahısından (~20 KB) tam lentdən əvvəl gəlir (app.js loadShared).
         var art = location.hash.match(/^#\/xeber\/([0-9a-f]{16})/);
         if (art) files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json");
