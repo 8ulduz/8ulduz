@@ -2204,3 +2204,63 @@ test('owner notes: the Telegram address from config.js reaches the static shell`
   assert.equal(els.app.innerHTML, '', 'statik qabıq (data-shell) yenidən yazılmır');
   assert.equal(btn.href, 'https://t.me/kanal', 'statik qabıqdakı boş t.me keçidi kanal ünvanı ilə doldurulur');
 });
+
+// Sahibin 4 noyabr videoları (08.mp4, 09.mp4): yenidən açılışda hazır ilk ekranda Zuğulbanın ilk kartı rusca idi (Day.Az),
+// hava «—» → Bakı 19° → şəhər 15° titrəyirdi, «2 yeni xəbər» düyməsi səhifənin başında asılı qalırdı (sahib aşağı çəkib yenilədi).
+test('Zuğulba: the reader\'s language comes first; other languages only fill the tail', () => {
+  const ctx = app(), { prezHome, S } = ctx.api;
+  const at = i => new Date(Date.now() - i * 3600e3).toISOString();
+  const row = (id, i, lang, title) => ({ id, lang, category: 'prezident', source: lang === 'az' ? 'Günün Səsi' : 'Day.Az', title, sourceUrl: 'https://x.az/' + id, publishedAt: at(i) });
+  const az = Array.from({ length: 5 }, (_, i) => row('a' + i, i + 2, 'az', 'İlham Əliyev təbrik edib ' + i));
+  const ru = Array.from({ length: 50 }, (_, i) => row('r' + i, i, 'ru', 'Ильхам Алиев принял посла ' + i));
+  S.lang = 'az';
+  const out = [...prezHome(az, [...ru, ...az])];
+  assert.equal(out.length, 44, 'say qaydası qalır: dil çatmayanda başqa dil doldurur');
+  assert.deepEqual(out.slice(0, 5).map(a => a.id), ['a0', 'a1', 'a2', 'a3', 'a4'], 'oxucunun dili əvvəl, rusca daha təzə olsa da');
+  assert.ok(out.slice(5).every(a => a.lang === 'ru'), 'başqa dil yalnız sonda');
+  const many = Array.from({ length: 50 }, (_, i) => row('m' + i, i + 2, 'az', 'İlham Əliyev qəbul edib ' + i));
+  assert.ok([...prezHome(many, [...ru, ...many])].every(a => a.lang === 'az'), 'dil dolursa başqa dil heç girmir');
+});
+test('pending render re-arms while the reader is busy: new stories apply after the last touch, not at the next minute poll', () => {
+  const ctx = app(), { S, requestRender } = ctx.api;
+  const timers = []; ctx.timers = timers;
+  vm.runInContext('globalThis.setTimeout = (fn, ms) => { timers.push([fn, ms]); return timers.length; }; globalThis.clearTimeout = () => {};', ctx);
+  S.data = { articles: [] }; S.touchAt = Date.now(); S.pendingNew = 3;
+  requestRender();
+  assert.equal(S.renderPending, true);
+  let [fn, ms] = timers.pop(); assert.equal(ms, 8500);
+  fn(); // hələ məşğuldur: əvvəl burada dayanırdı, növbəti dəqiqəyə qalırdı
+  [fn, ms] = timers.pop(); assert.equal(ms, 2000, 'məşğul qalıbsa 2 saniyədən bir yoxlanır');
+  assert.equal(S.renderPending, true);
+  S.touchAt = 0; fn();
+  assert.equal(S.renderPending, false, 'toxunma kəsilən kimi çəkilir');
+  assert.equal(S.pendingNew, 0, 'düymə sönür');
+});
+test('weather and prayer times wait for the known location: no Bakı-then-city flicker, last weather restored from storage', async () => {
+  const store = new Map(), ls = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
+  const wxJson = { current: { temperature_2m: 15, apparent_temperature: 14, relative_humidity_2m: 50, precipitation: 0, weathercode: 1, surface_pressure: 1010, wind_speed_10m: 3 } };
+  const make = (state, urls) => app({ localStorage: ls,
+    navigator: { onLine: true, geolocation: { getCurrentPosition: ok => ok({ coords: { latitude: 40.6828, longitude: 46.3606 } }) }, permissions: { query: async () => ({ state }) } },
+    fetch: async u => { urls.push(String(u)); return { ok: true, json: async () => /current=temperature_2m/.test(u) ? wxJson : /aladhan/.test(u) ? { data: { timings: { Fajr: '05:55' } } } : {} }; } });
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(r => setImmediate(r)); };
+  // Konum icazəsi əvvəl verilib: əvvəl şəhər, sonra hava və namaz — Bakı sorğusu heç getmir
+  let urls = [];
+  const ctx = make('granted', urls);
+  ctx.api.storage.setItem('8ulduz-geo', '1');
+  await vm.runInContext('loadLocal()', ctx); await settle();
+  const wx = urls.filter(u => /current=temperature_2m/.test(u)), pray = urls.filter(u => /aladhan/.test(u));
+  assert.equal(wx.length, 1, 'bir hava sorğusu'); assert.ok(wx[0].includes('latitude=40.6828'), 'birbaşa Gəncə: ' + wx[0]);
+  assert.equal(pray.length, 1); assert.ok(pray[0].includes('latitude=40.6828'), 'namaz da Gəncə');
+  assert.equal(ctx.api.S.wx.city, 'Gəncə'); assert.equal(ctx.api.S.wx.temp, 15);
+  // Növbəti açılış: son hava yaddaşdan dərhal («—» yerinə)
+  const next = make('granted', []);
+  vm.runInContext('restoreLocal()', next);
+  assert.equal(next.api.S.wx?.temp, 15, 'yaddaşdakı hava'); assert.equal(next.api.S.wx.city, 'Gəncə');
+  // İcazə yoxdursa (soruşulmamış): Bakı ilə gəlir, konum soruşulmur
+  urls = []; store.delete('8ulduz-geo');
+  const plain = make('prompt', urls);
+  await vm.runInContext('loadLocal()', plain); await settle();
+  const wx2 = urls.filter(u => /current=temperature_2m/.test(u));
+  assert.equal(wx2.length, 1); assert.ok(wx2[0].includes('latitude=40.4093'), 'Bakı');
+  assert.ok(!plain.api.S.geo, 'konum soruşulmayıb');
+});
