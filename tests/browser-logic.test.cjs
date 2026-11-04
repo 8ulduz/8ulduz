@@ -2326,11 +2326,11 @@ test("owner's share notes: the worker leaves /x/ID to the browser, 404.html send
   assert.ok(code.includes('/\\/x\\/([0-9a-f]{16})$/') && code.includes('location.replace("/#/xeber/"+m[1])'), '/x/ID → #/xeber/ID (tarixçədə iz qoymur)');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\r\n/g, '\n');
   const phone = css.slice(css.lastIndexOf('@media(max-width:600px)'));
-  assert.ok(phone.includes('.prez .soc-links{flex-direction:column') && phone.includes('.prez .soc-g a::after{content:attr(title)') && phone.includes('.prez .soc-g a .hd{display:block'), 'telefonda hesablar alt-alta: ad başlıq, hər hesab öz sətrində');
-  assert.ok(css.includes('.hd{display:none}') && css.includes('.soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}'), 'hesab adı yalnız telefonda; işarələr sprite-dan ölçülənir');
+  assert.ok(phone.includes('.prez .soc-links{flex-direction:column') && phone.includes('.prez .soc-g{flex-direction:row;flex-wrap:wrap') && !phone.includes('attr(title)'), 'telefonda iki sətir: üstdə İlham Əliyev, altda Mehriban Əliyeva, işarələr əvvəlki kimi');
+  assert.ok(css.includes('.soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}'), 'işarələr sprite-dan ölçülənir');
   const svg = fs.readFileSync(path.join(root, 'assets/sosial.svg'), 'utf8');
   assert.ok(svg.includes('<symbol id="ig"') && svg.includes('<symbol id="yt"'), 'Instagram və YouTube işarələri sprite-dadır');
   const { profileRows } = { profileRows: vm.runInContext('profileRows', app()) };
   const rows = profileRows();
-  assert.ok(rows.includes('sosial.svg#ig') && rows.includes('<span class="hd">@presidentaz</span>') && rows.includes('<span class="hd">PresidentIlhamAliyev</span>') && !rows.includes('<path'), 'hesab sətri: sprite işarəsi + hesab adı, daxili SVG yoxdur');
+  assert.ok(rows.includes('sosial.svg#ig') && !rows.includes('class="hd"') && !rows.includes('<path') && rows.indexOf('İlham Əliyev') < rows.indexOf('Mehriban Əliyeva'), 'hesab sətri: sprite işarəsi, ad yoxdur, İlham Əliyev əvvəl');
 });

@@ -1198,15 +1198,11 @@ a.pill.on small{color:inherit}
   nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}
 }
 @media(min-width:400px) and (max-width:600px){.nav-inst .ni-s{display:none}.nav-inst .ni-f{display:inline}}
-.hd{display:none}
 .soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}
-@media(max-width:600px){/* Rəsmi hesablar alt-alta (sahibin qeydi 2026-11-04): ad başlıq, hər hesab öz sətrində: işarə, şəbəkə (title), hesab adı */
-.prez .soc-links{flex-direction:column;flex-wrap:nowrap;overflow:visible;align-items:stretch;gap:4px;margin:4px 0 8px}
-.prez .soc-g{flex-direction:column;flex-wrap:nowrap;align-items:stretch;width:100%;gap:4px}
-.prez .soc-g b{flex-basis:auto;white-space:normal;padding-top:4px;font-size:var(--fs-body)}
-.prez .soc-g a{display:flex;gap:10px;width:100%;height:auto;min-height:40px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;color:var(--fg);font-size:var(--fs-body)}
-.prez .soc-g a::after{content:attr(title);order:1;font-weight:600}
-.prez .soc-g a svg{width:18px;height:18px;color:var(--primary)}
-.prez .soc-g a i{display:none}
-.prez .soc-g a .hd{display:block;order:2;margin-left:auto;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:var(--fs-meta)}
+@media(max-width:600px){/* Rəsmi hesablar (sahibin qeydi 2026-11-04): işarələr əvvəlki kimi, iki sətir — üstdə İlham Əliyev, altda Mehriban Əliyeva */
+.prez .soc-links{flex-direction:column;flex-wrap:nowrap;overflow:visible;align-items:stretch;gap:6px;margin:4px 0 8px}
+.prez .soc-g{flex-direction:row;flex-wrap:wrap;align-items:center;width:100%;gap:6px}
+.prez .soc-g b{flex-basis:auto;white-space:nowrap;margin-right:6px;font-size:var(--fs-body)}
+.prez .soc-g a{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;color:var(--primary)}
+.prez .soc-g a svg{width:20px;height:20px}
 }

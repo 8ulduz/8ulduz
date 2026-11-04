@@ -1586,12 +1586,10 @@ function orderedSocialPosts(max = 8) {
 }
 const NET_KEY = { Instagram: "ig", Facebook: "fb", YouTube: "yt" }; // sosial.svg
 const netIcon = name => shIcon(NET_KEY[name] || "x");
-// Telefonda hesab sətri: işarə, şəbəkə (title), hesab adı (.hd); kompüterdə yalnız işarə.
-const handle = (n, u) => (n === "Facebook" ? "" : "@") + u.replace(/\/$/, "").split("/").pop().replace(/^@/, "");
 function profileRows() {
   const whoOrder = { "İlham Əliyev": 0, "Mehriban Əliyeva": 1 };
   return [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
-    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" ${OUT} title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}<span class="hd">${handle(n, u)}</span></a>`).join("")}</span>`).join("");
+    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" ${OUT} title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
 }
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
