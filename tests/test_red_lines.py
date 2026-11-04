@@ -456,6 +456,14 @@ class PipelineContractTest(unittest.TestCase):
         self.assertEqual(updater.NEWS_LANGS, ("en", "ru", "tr"))
         self.assertIn(r"news(?:\.[a-z]{2})?", (ROOT / "sw.js").read_text(encoding="utf-8"))
 
+    def test_share_pages_go_to_main_behind_the_flag(self):
+        # Sahibin qeydi (2026-11-04): paylaşılan keçiddə xəbər görünsün — og etiketli x/<id>.html səhifələri main-ə yalnız bayraqla gedir
+        self.assertIn("export SHARE_PAGES=1", self.pipeline)
+        self.assertIn('if [ -d "$WORK/x" ]; then rm -rf "$REPO_DIR/x"; cp -a "$WORK/x" "$REPO_DIR/x"; fi', self.pipeline)
+        self.assertIn('if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x', self.pipeline)
+        self.assertIn('[ -d "$REPO_DIR/x" ] && cp -a "$REPO_DIR/x" "$WORK/x"', self.pipeline)
+        self.assertIn("write_share_pages(articles)", (ROOT / "updater.py").read_text(encoding="utf-8"))
+
     def test_broken_checker_cannot_overwrite_last_known_good(self):
         run_py = self.pipeline.split("run_py() {")[1].split("\n}\n")[0]
         self.assertNotIn("copy_code", run_py)

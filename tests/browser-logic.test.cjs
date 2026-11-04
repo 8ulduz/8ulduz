@@ -2264,3 +2264,73 @@ test('weather and prayer times wait for the known location: no Bakı-then-city f
   assert.equal(wx2.length, 1); assert.ok(wx2[0].includes('latitude=40.4093'), 'Bakı');
   assert.ok(!plain.api.S.geo, 'konum soruşulmayıb');
 });
+
+// Sahibin 4 noyabr qeydləri (telefon): sosial hesablar alt-alta, X/Facebook-dan geri sayta, Facebook paylaşımında xəbər görünsün,
+// kopyalanan keçiddə xəbər bilinsin və geri sayta qayıtsın.
+test("owner's share notes: main-feed stories share /x/ID, minute-feed and non-hex ids keep the hash link, copy carries the title", async () => {
+  const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
+  S.og = {};
+  const row = (id, extra = {}) => ({ id, title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at, ...extra });
+  S.data = { articles: [] };
+  assert.ok(card(row('0123456789abcdef')).includes('data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem"'), 'bayraqsız (köhnə pipeline) əvvəlki keçid');
+  S.data = { articles: [], sharePages: true };
+  assert.ok(card(row('0123456789abcdef')).includes('data-share="https://8ulduz.az/x/0123456789abcdef"'), 'main-dəki xəbər og etiketli səhifə ilə paylaşılır');
+  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes('data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem"'), 'dəqiqəlik gələn xəbərin səhifəsi hələ yoxdur');
+  assert.ok(card(row('1')).includes('data-share="https://8ulduz.az/#/xeber/1?b=gundem"'), '16 rəqəmli olmayan nömrə');
+  const written = [];
+  ctx.navigator.clipboard = { writeText: async s => { written.push(s); } };
+  const btn = { dataset: { to: 'cp' }, classList: { contains: () => true }, textContent: 'c', closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'Neft bahalaşdı' } }) };
+  await vm.runInContext('shareTo', ctx)(btn);
+  assert.deepEqual(written, ['Neft bahalaşdı\nhttps://8ulduz.az/x/0123456789abcdef'], 'kopyada başlıq + keçid');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('for (const a of fresh) a.live = 1;'), 'dəqiqəlik lentdən gələn sətir işarələnir');
+});
+
+test("owner's share notes: on Android the official accounts and share targets open the app in place so Back returns to the site", () => {
+  const ctx = app({ navigator: { onLine: true, userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile' }, location: { hash: '#/', href: 'https://8ulduz.az/' } });
+  const appLink = vm.runInContext('appLink', ctx);
+  assert.equal(appLink('https://x.com/presidentaz'), 'intent://x.com/presidentaz#Intent;scheme=https;package=com.twitter.android;S.browser_fallback_url=https%3A%2F%2Fx.com%2Fpresidentaz;end');
+  assert.ok(appLink('https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2F8ulduz.az%2Fx%2F1').startsWith('intent://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2F8ulduz.az%2Fx%2F1#Intent;scheme=https;package=com.facebook.katana;'), 'Facebook paylaşımı tətbiqdə');
+  assert.ok(appLink('https://wa.me/?text=B%0Ahttps%3A%2F%2F8ulduz.az').includes('package=com.whatsapp;') && appLink('https://t.me/share/url?url=u').includes('package=org.telegram.messenger;') && appLink('https://www.youtube.com/@presidentaz').includes('package=com.google.android.youtube;'));
+  assert.equal(appLink('https://president.az/az'), '', 'tətbiqi olmayan sayt əvvəlki kimi');
+  assert.equal(appLink('http://x.com/a'), '', 'yalnız https');
+  assert.equal(vm.runInContext('appLink', app())('https://x.com/presidentaz'), '', 'Android deyilsə yeni vərəq (window.open)');
+  let prevented = false;
+  const a = { href: 'https://www.instagram.com/presidentaz/', closest: sel => sel === '.soc-g a' ? a : null };
+  vm.runInContext('onClick', ctx)({ target: a, preventDefault() { prevented = true; } });
+  assert.ok(prevented && ctx.location.href.startsWith('intent://www.instagram.com/presidentaz/#Intent;scheme=https;package=com.instagram.android;'), 'rəsmi hesab: səhifə yerində qalır, tətbiq üstə açılır');
+  const btn = { dataset: { to: 'fb' }, classList: { contains: () => true }, closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'B' } }) };
+  vm.runInContext('shareTo', ctx)(btn);
+  assert.ok(ctx.location.href.startsWith('intent://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2F8ulduz.az%2Fx%2F0123456789abcdef#Intent;'), 'paylaşma düyməsi də');
+});
+
+test("owner's share notes: a story opened from a shared link gets the home page under it so Back returns to the site", () => {
+  const calls = [];
+  const ctx = app({ location: { hash: '#/xeber/0123456789abcdef?b=gundem' }, history: { length: 1, replaceState: (s, t, u) => calls.push(['replace', u]), pushState: (s, t, u) => calls.push(['push', u]) } });
+  vm.runInContext('backHome()', ctx);
+  assert.deepEqual(calls, [['replace', '#/'], ['push', '#/xeber/0123456789abcdef?b=gundem']]);
+  calls.length = 0; ctx.history.length = 3;
+  vm.runInContext('backHome()', ctx);
+  assert.deepEqual(calls, [], 'saytın içindən açılan xəbərdə tarixçə dəyişmir');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('{ loadShared(r0.id); backHome(); }'), 'açılışda paylaşılan keçiddə çağırılır');
+});
+
+test("owner's share notes: the worker leaves /x/ID to the browser, 404.html sends an expired share page to the story, phone CSS stacks the accounts", () => {
+  const {listeners} = worker();
+  let called = false;
+  listeners.fetch({request: {url: 'https://example.com/8ulduz/x/0123456789abcdef', mode: 'navigate', method: 'GET'}, respondWith() { called = true; }});
+  assert.equal(called, false, 'paylaşma səhifəsi işçinin keşinə düşmür');
+  const nf = fs.readFileSync(path.join(root, '404.html'), 'utf8');
+  const code = nf.match(/<script>([^<]*location\.replace[^<]*)<\/script>/)[1];
+  const hash = require('crypto').createHash('sha256').update(code).digest('base64');
+  assert.ok(nf.includes(`'sha256-${hash}'`), '404 səhifəsinin yönləndirmə skripti CSP-dədir');
+  assert.ok(code.includes('/\\/x\\/([0-9a-f]{16})$/') && code.includes('location.replace("/#/xeber/"+m[1])'), '/x/ID → #/xeber/ID (tarixçədə iz qoymur)');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const phone = css.slice(css.lastIndexOf('@media(max-width:600px)'));
+  assert.ok(phone.includes('.prez .soc-links{flex-direction:column') && phone.includes('.prez .soc-g a::after{content:attr(title)') && phone.includes('.prez .soc-g a .hd{display:block'), 'telefonda hesablar alt-alta: ad başlıq, hər hesab öz sətrində');
+  assert.ok(css.includes('.hd{display:none}') && css.includes('.soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}'), 'hesab adı yalnız telefonda; işarələr sprite-dan ölçülənir');
+  const svg = fs.readFileSync(path.join(root, 'assets/sosial.svg'), 'utf8');
+  assert.ok(svg.includes('<symbol id="ig"') && svg.includes('<symbol id="yt"'), 'Instagram və YouTube işarələri sprite-dadır');
+  const { profileRows } = { profileRows: vm.runInContext('profileRows', app()) };
+  const rows = profileRows();
+  assert.ok(rows.includes('sosial.svg#ig') && rows.includes('<span class="hd">@presidentaz</span>') && rows.includes('<span class="hd">PresidentIlhamAliyev</span>') && !rows.includes('<path'), 'hesab sətri: sprite işarəsi + hesab adı, daxili SVG yoxdur');
+});

@@ -125,7 +125,7 @@ const NEWS_FULL_MS = 10 * 60e3; // tam lent bu qədərdən bir; arada yalnız di
 const LATEST_MAX_MS = 90e3;     // status möhürü dəyişməsə də bu qədərdən bir latest.json yoxlanır
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
 let freshSequence = 0;
-// Service worker-i olmayan ziyarətçi (ilk açılış, tətbiqdaxili brauzer) də dəqiqəlik kanalı görsün; sw.js-dəki qayda ilə eyni.
+// Service worker-siz ziyarətçi (ilk açılış, tətbiqdaxili brauzer) də dəqiqəlik kanalı görsün; sw.js ilə eyni qayda.
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
@@ -254,15 +254,15 @@ const isAppointment = a => APPT_RX.test(a?.title || "");
 const PREZ_COUNT = 44, PREZ_FIRST_IMAGES = 8; // Sahibin qərarı: blokda həmişə 44 xəbər
 // Lentə «prezident» sözü ilə yad xəbər də düşür: digər saytlardan yalnız adı keçən xəbər götürülür.
 const OUR_LEADERS = /ilham|i̇lham|əliyev|aliyev|алиев|birinci xan|birinci vitse|prezident\s+administ|azərbaycan\s+prezident|dövlət başçı/iu;
-// «ABŞ-nin birinci xanımı»: yiyəlik şəkilçili vəzifə başqa ölkənindir; ad və ya Azərbaycan yoxdursa bizim deyil (updater.py president_score).
+// «ABŞ-nin birinci xanımı»: yiyəlik şəkilçili vəzifə başqa ölkənindir; ad və ya Azərbaycan yoxdursa bizim deyil (president_score).
 const FOREIGN_FL = /birinci xan[ıi]m(?:ı|ın|ına|ını|ında|ından|ının)(?!\p{L})/iu, AZ_CTX = /əliyev|aliyev|алиев|azərbaycan/iu;
 const aboutOurLeaders = a => { const t = `${a.title || ""} ${a.summary || ""}`; return OUR_LEADERS.test(t) && !(FOREIGN_FL.test(t) && !AZ_CTX.test(t)); };
 function prezHome(list, all = list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
-  // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və dövlət saytları (STATE_SRC); digər saytlar «Hamısı» səhifəsində qalır
+  // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və dövlət saytları (STATE_SRC); digərləri «Hamısı» səhifəsində
   const prez = list.filter(a => a.category === "prezident" && (OFFICIAL_SRC.has(a.source) || STATE_SRC.has(a.source)));
-  // Bir sayt bloku tutmasın (məs. Report-un sitat lenti): rəsmi səhifələr limitsiz, digər mənbələr ən çox 3 kart (ən yeniləri)
+  // Bir sayt bloku tutmasın (Report-un sitat lenti): rəsmi səhifələr limitsiz, digər mənbələr ən çox 3 kart
   const perSrc = {};
   const capped = l => l.filter(a => OFFICIAL_SRC.has(a.source) || (perSrc[a.source] = (perSrc[a.source] || 0) + 1) <= 3);
   const president = capped(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
@@ -273,7 +273,7 @@ function prezHome(list, all = list) {
   const ladyHead = Math.min(lady.length, head - presHead);
   const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
-  // 44 dolmursa: rəsmi/dövlət saytlarının qalanı, digər saytlar, sonda başqa dillər (tarixə görə qarışanda ilk ekranda rusca kart çıxırdı). Yad xəbərlə doldurulmur.
+  // 44 dolmursa: rəsmi/dövlət saytlarının qalanı, digər saytlar, sonda başqa dillər (qarışanda ilk ekranda rusca kart çıxırdı); yad xəbər yox.
   const chosen = new Set([...first, ...rest].map(a => a.id)), take = l => l.filter(a => !chosen.has(a.id) && chosen.add(a.id));
   const ours = l => byDate(l.filter(a => a.category === "prezident" && aboutOurLeaders(a)));
   const own = [...first, ...rest, ...take(byDate(prez)), ...take(ours(list))].slice(0, PREZ_COUNT);
@@ -414,20 +414,19 @@ function imageCandidates(a) {
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
   // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
   const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
-  // Proksidən keçməyən sayt (PROXY_SKIP) sona: eyni xəbərin başqa mənbəsinin kiçildilə bilən şəkli varsa o çıxır.
+  // Proksidən keçməyən sayt (PROXY_SKIP) sona: başqa mənbənin kiçildilə bilən şəkli varsa o çıxır.
   const blocked = u => PROXY_SKIP.test(hostOf(u));
   return [...all.filter(u => !cut(u) && !blocked(u)), ...all.filter(u => cut(u) && !blocked(u)), ...all.filter(blocked)];
 }
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // Mənbə şəkilləri 1-2 MB olur (ilk açılış 11-16 MB idi); wsrv.nl kiçildir (orta 15 KB), alınmasa imgFail əsl ünvana keçir,
-// xidmət ümumiyyətlə işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən yüklənir.
+// xidmət işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən.
 const PROXY_MAX_FAILS = 8;
-// wsrv bu saytların şəklini 404 verir (sayt proksini kəsir; statically və Photon kimi açıq proksilər də eyni cür kəsilir).
-// Birbaşa mənbədən (170–290 KB orijinal): şəkil həmişə görünür, amma heç vaxt yüksək prioritetlə yüklənmir (heavyImage):
-// ilk ekranın mətni, kodu və məlumatı onunla yarışmır. (Telefonda şəkli atmaq sınandı: «şəkil gəlmir» şikayəti, geri alındı.)
+// wsrv bu saytların şəklini 404 verir (sayt proksini kəsir; açıq proksilər də). Birbaşa mənbədən (170–290 KB): şəkil həmişə görünür,
+// amma yüksək prioritet almır (heavyImage): ilk ekranla yarışmır. (Telefonda şəkli atmaq sınandı: «şəkil gəlmir», geri alındı.)
 const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
-// Proksidən keçməyən (kiçildilməyən) ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
+// Proksidən keçməyən ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
 const heavyImage = u => typeof u === "string" && !u.startsWith("https://wsrv.nl/") && (PROXY_SKIP.test(hostOf(u)) || (proxyBad.get(hostOf(u)) || 0) > 0);
 function sized(url, width) {
   const host = hostOf(url);
@@ -461,11 +460,20 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
 // Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir; b: lentdən çıxanda baxılacaq arxiv.
-const shareUrl = a => `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
-// Paylaşma: kompüterdə «Paylaş» panel açır, telefonda yerində F, X, W, T və kopyala ikonları (CSS hover:none); Zuğulba kartında yalnız düymə.
+// Önizləmə serverdən oxunur, #/ ünvanı serverə getmir: main-dəki xəbər /x/ID səhifəsi ilə (sharePages, updater.py write_share_pages), dəqiqəlik (live) hələ yox.
+const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
+// Paylaşma: kompüterdə «Paylaş» paneli, telefonda yerində F, X, W, T, kopyala işarələri (hover:none); Zuğulba kartında yalnız düymə.
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
-// Şəbəkələrin öz işarələri (sahibin qeydi: hərf yox, işarə) bir sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
+// Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
 const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
+// Android: sosial keçid tətbiqə intent: ilə, səhifə yerində qalır (yeni vərəqdən açılan tətbiqdən geri telefon baş ekrana düşürdü, sayta yox);
+// tətbiq yoxdursa browser_fallback_url veb versiyanı açır. Başqa sistemdə yeni vərəq.
+const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
+function appLink(u) {
+  if (!/Android/.test(navigator.userAgent || "")) return "";
+  try { const x = new URL(u), pkg = x.protocol === "https:" && APP_PKG.find(([re]) => re.test(x.hostname))?.[1]; return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
+}
+function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
 const shareBtn = (a, icons = true) => {
   if (safeHref(a.sourceUrl) === "#") return "";
   const u = esc(shareUrl(a)), btn = `<button type="button" class="share" data-act="share" data-share="${u}" title="Paylaş">Paylaş</button>`;
@@ -769,13 +777,13 @@ async function loadNews(force = false) {
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
-    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır (patchView), səhifə aşağıdan uzanır; oxucu sürüşübsə də gözləmir.
+    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır (patchView), səhifə aşağıdan uzanır.
     if (first || force || (partial && readerBusy())) render(); else requestRender();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data || S.partial) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
 }
 
-// İlk ekran (data/first.json, ~100 xəbər) yalnız standart baxışda (baş səhifə, azərbaycanca): başqa səhifə/dil tam lenti gözləyir.
+// İlk ekran (data/first.json, ~100 xəbər) yalnız baş səhifədə, azərbaycanca: başqa səhifə/dil tam lenti gözləyir.
 const firstScreen = () => route().name === "home" && !S.q && S.lang === "az";
 async function loadFirst() {
   if (!firstScreen()) return;
@@ -851,15 +859,15 @@ function primeHeroImage(articles) {
   if (!link.isConnected) head.appendChild(link); // href əvvəl, sonra sənədə: boş href xəbərdarlığı olmasın
 }
 
-// Ekran yalnız oxucu toxunmayanda yenidən qurulur: açıq video, xəritə, siyahı və yazılan süzgəc itmir, səhifə atlamır.
+// Ekran yalnız oxucu toxunmayanda yenidən qurulur: açıq video, xəritə, süzgəc itmir, səhifə atlamır.
 function readerBusy() {
   if ((globalThis.scrollY || 0) > 400 || Date.now() - (S.touchAt || 0) < 8000) return true; // son 8 saniyədə toxunub, çevirib və ya yazıb: oxuyur, ekran gözləyir
   if ($("#view iframe, #view details.altpop[open]")) return true;
   return !!document.activeElement?.closest?.("#view input, #view select, #view textarea");
 }
-// Açılışda 8 fayl bir-bir gəlir, hər biri səhifəni yenidən çəkirdi (telefonda 1-2 s). İndi: ilk xəbərlər dərhal, qalanı bir dəfəyə (ən gec 2,5 s), sonrakılar 400 ms-də bir.
+// Açılışda 8 fayl bir-bir gəlib hər dəfə səhifəni çəkdirirdi (1-2 s): indi ilk xəbərlər dərhal, qalanı bir dəfəyə (≤2,5 s), sonra 400 ms-də bir.
 const RENDER_GAP_MS = 400, FIRST_RENDER_HOLD_MS = 2500;
-// Gözləyən çəkiliş toxunma kəsiləndən 8 s sonra özü çəkilir (2 s-dən bir yoxlanır, ən çox 10 dəq; əvvəl «N yeni xəbər» başda asılı qalırdı).
+// Gözləyən çəkiliş toxunma kəsiləndən 8 s sonra özü çəkilir (2 s-dən bir yoxlanır, ən çox 10 dəq; əvvəl düymə asılı qalırdı).
 function armBusy(ms, n = 0) { clearTimeout(S.busyT); S.busyT = setTimeout(() => { if (!S.renderPending) return; if (!readerBusy()) requestRender(S.renderWhole); else if (n < 300) armBusy(2000, n + 1); }, ms); S.busyT?.unref?.(); }
 function requestRender(whole = true) {
   S.renderWhole ||= whole;
@@ -893,7 +901,7 @@ async function latestJSON(force) {
   }
   return requestJSON(freshUrl("data/latest.json", force), {}, 8000);
 }
-// Tam lent də dil üzrə: news.json = azərbaycanca + xarici idman, news.<dil>.json = o dil (main-də); «newsLangs» yoxdursa/alınmasa news.json; «Hamısı» hamısını birləşdirir.
+// Tam lent dil üzrə: news.json = az + xarici idman, news.<dil>.json = o dil (main); «newsLangs» yoxdursa/alınmasa news.json; «Hamısı» birləşdirir.
 async function newsJSON(force, signal) {
   const file = code => requestJSON(freshUrl(`data/news${code ? "." + code : ""}.json`, force), {signal}), tagOf = got => got.r.headers.get("etag") || got.r.headers.get("last-modified") || "";
   const langs = S.status?.newsLangs || [];
@@ -905,7 +913,7 @@ async function newsJSON(force, signal) {
   }
   return {...main, tag: tags.some(Boolean) ? tags.join("|") : null};
 }
-// Dəqiqəlik axın: yalnız yeni xəbərlər gəlir. Oxucu məşğuldursa ekran dəyişmir, «N yeni xəbər» düyməsi görünür.
+// Dəqiqəlik axın: yalnız yeni xəbərlər. Oxucu məşğuldursa ekran dəyişmir, «N yeni xəbər» düyməsi görünür.
 async function loadLatest(force = false) {
   if (S.latestLoading || !S.rawNews) return;
   S.latestLoading = true;
@@ -929,6 +937,7 @@ async function loadLatest(force = false) {
     }
     if ((gotImage || deadChanged) && !fresh.length) { publishNews(); requestRender(false); renderTopbar(); return; }
     if (!fresh.length) { renderTopbar(); return; }
+    for (const a of fresh) a.live = 1; // hələ main-də deyil (shareUrl)
     S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
     publishNews();
@@ -980,7 +989,7 @@ async function weather(list) {
 }
 const WX_KEY = "8ulduz-wx";
 async function loadWeather() { try { S.wx = (await weather([geoCity()]))[0]; storage.setItem(WX_KEY, JSON.stringify({ ...S.wx, at: Date.now() })); renderTopbar(); } catch {} }
-// Son hava yaddaşdan dərhal («—» yox); konum icazəsi varsa əvvəl şəhər, sonra hava/namaz/xəbərdarlıq (Bakı → şəhər titrəməsi olmasın).
+// Son hava yaddaşdan dərhal («—» yox); konum icazəsi varsa əvvəl şəhər, sonra hava/namaz/xəbərdarlıq (Bakı→şəhər titrəməsin).
 function restoreLocal() { try { const w = JSON.parse(storage.getItem(WX_KEY) || "null"); if (w && Date.now() - w.at < 3 * HOUR) S.wx = w; } catch {} }
 async function loadLocal() { if (!(await autoLocate())) { loadWeather(); loadPrayer(savedPrayCity()); loadWarnings(); } }
 async function loadAllWeather() {
@@ -1047,7 +1056,7 @@ function route() {
 
 /* ---- render */
 function shell() {
-  // index.html eyni qabığı statik daşıyır (data-shell): CSS gələn kimi çəkilir, JS gözlənilmir; onda yalnız hadisələr bağlanır.
+  // index.html eyni qabığı statik daşıyır (data-shell): CSS gələn kimi çəkilir; onda yalnız hadisələr bağlanır.
   if (!$("#app").dataset?.shell) $("#app").innerHTML = `
   <a class="skip" href="#view">Məzmuna keç</a>
   <header class="site" id="sitehead"><div class="wrap hrow">
@@ -1183,7 +1192,7 @@ function renderTopbar() {
 const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"];
 // Ölçmə çəkilişin ortasında yerləşdirməni təkrarlatmasın: bütün dəyişikliklərdən sonra bir dəfə.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
-// Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad. Şrift kiçilmir: 3 cərgə üçün 9,8 piksələ düşməli idi, oxunmazdı.
+// Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad (şrift kiçilmir: 9,8 px olardı, oxunmazdı).
 const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", sosial: "Sosial", tehsil: "Təhsil" };
 const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
 function renderNav() {
@@ -1191,7 +1200,7 @@ function renderNav() {
   const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub"].filter(Boolean).join(" ");
   const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
   const primary = NAV_PRIMARY, nb = i => i === 4 || i === 9 ? '<i class="nb"></i>' : ""; // telefonda 3×5: 5-ci və 10-cudan sonra sıra qırığı
-  // nav-x: telefonda görünən qalan bölmələr; .nav-inst: «Ana ekrana əlavə et» 15-ci düymə, yalnız quraşdırma mümkünsə
+  // nav-x: telefonda görünən qalan bölmələr; .nav-inst: «Ana ekrana əlavə et» 15-ci düymə (quraşdırma mümkünsə)
   const extra = CATS.filter(c => !primary.includes(c.slug)).map((c, i) => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>${nb(i + 7)}`).join("");
   $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map((slug, i) => link(CATS.find(c => c.slug === slug)) + nb(i)).join("") + extra +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button>` +
@@ -1320,8 +1329,8 @@ function renderTicker() {
   $("#ticker").innerHTML = html;
   afterPaint(startTicker);
 }
-// Lentin hərəkəti Web Animations API ilədir: CSS animasiyası telefonda «hərəkəti azalt» (animation:none) və ilişən :hover üzündən
-// dayanırdı; JS animasiyası asılı deyil, kompozitorda hamardır. Siçan üstündə dayanır; çəkmək olur, buraxandan 1.5 s sonra davam edir.
+// Lentin hərəkəti Web Animations API ilədir: CSS animasiyası telefonda «hərəkəti azalt» və ilişən :hover üzündən dayanırdı; JS asılı deyil,
+// kompozitorda hamardır. Siçan üstündə dayanır; çəkmək olur, buraxandan 1.5 s sonra davam edir.
 const TICK_SPEED = 55; // px/s
 let tickAnim = null, tickT = 0, tickMoved = false;
 function startTicker() {
@@ -1353,7 +1362,7 @@ function startTicker() {
   run.onpointerenter = e => { if (e.pointerType === "mouse" && matchMedia("(hover:hover)").matches) { clearTimeout(tickT); anim.pause(); } };
   run.onclick = e => { if (tickMoved) { e.preventDefault(); e.stopPropagation(); tickMoved = false; } };
 }
-// Son 15 dəqiqədə xəbər yoxdursa lent «Son dəqiqə» yox, «Son xəbərlər» adlanır (köhnə xəbər təzə kimi görünməsin)
+// Son 15 dəqiqədə xəbər yoxdursa lent «Son dəqiqə» yox, «Son xəbərlər» adlanır
 const tickerLabel = fresh => fresh > 0 ? "Son dəqiqə" : "Son xəbərlər";
 
 function prayIcon(key) {
@@ -1460,7 +1469,7 @@ function fxPop() {
     <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
 }
 
-// Dil siyahısı (sahibin nümunəsi, 2026-11-04): hər dil öz sətrində, dairəvi bayraq + kod, seçilmiş sətir rənglidir; «Hamısı» sonda.
+// Dil siyahısı (sahibin nümunəsi, 2026-11-04): hər dil öz sətrində, dairəvi bayraq + kod, seçilmiş rəngli; «Hamısı» sonda.
 function languagePicker() {
   const row = (code, html, title) => `<button type="button" class="ldm${(S.lang || "") === code ? " on" : ""}" data-lang="${code}" aria-pressed="${(S.lang || "") === code}" title="${esc(title)}">${html}</button>`;
   return `<div class="lang-list" role="group" aria-label="Xəbərlərin dili">${LANGS.map(l => row(l.code, `${FLAGS[l.code]}<b>${l.code.toUpperCase()}</b>`, l.label)).join("")}${row("", `<span class="flag globe">🌐</span><b>Hamısı</b>`, "Bütün dillər")}</div>`;
@@ -1491,7 +1500,7 @@ function setLang(v) {
   if (!S.lang) loadNews(true); // «Hamısı»: başqa dillərin faylları da gəlsin
 }
 // fold «й»-ni «и» edir, ona görə «ой/ей» burada «ои/еи» yazılır.
-// Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları. Düymə həmin yerin bütün bölmələrdəki son xəbərlərini açır.
+// Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları. Düymə həmin yerin bütün son xəbərlərini açır.
 const REGION_TABS = [
   { name: "Bakı", keys: ["bakı", "baku", "баку"] },
   { name: "Abşeron-Xızı", groups: [{ group: "", items: [{ name: "Sumqayıt", keys: ["sumqayıt", "сумгайыт", "сумгаит"] }, { name: "Abşeron", keys: ["abşeron"] }, { name: "Xırdalan", keys: ["xırdalan"] }, { name: "Xızı", keys: ["xızı"] }] }] },
@@ -1575,17 +1584,14 @@ function navRows(slug, open = S.sportTab, club = S.club || "") {
 function orderedSocialPosts(max = 8) {
   return byDate(S.social?.posts || []).slice(0, max);
 }
-const NET_ICON = {
-  x: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M14.6 3h3.1l-6.8 7.8L19 21h-2.7l-5.3-6.9L6.3 21H3.1l7.3-8.4L3.4 3h2.8l4.8 6.3L14.6 3Zm-1.1 16.2h1.5L6.6 4.7H5L13.5 19.2Z"/></svg>`,
-  ig: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg>`,
-  fb: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M14 8.5h3V5.5h-3c-2.5 0-4 1.6-4 4.1V12H8v3h2v7h3v-7h2.4l.6-3H13v-2.2c0-.7.3-1.3 1-1.3Z"/></svg>`,
-  yt: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M22.5 12.2s0-3-.4-4.3c-.2-.9-.9-1.6-1.8-1.8C18.8 5.7 12 5.7 12 5.7s-6.8 0-8.3.4c-.9.2-1.6.9-1.8 1.8C1.5 9.2 1.5 12.2 1.5 12.2s0 3 .4 4.3c.2.9.9 1.6 1.8 1.8 1.5.4 8.3.4 8.3.4s6.8 0 8.3-.4c.9-.2 1.6-.9 1.8-1.8.4-1.3.4-4.3.4-4.3ZM9.8 15.4V9l6 3.2-6 3.2Z"/></svg>`,
-};
-const netIcon = name => name === "Instagram" ? NET_ICON.ig : name === "Facebook" ? NET_ICON.fb : name === "YouTube" ? NET_ICON.yt : NET_ICON.x;
+const NET_KEY = { Instagram: "ig", Facebook: "fb", YouTube: "yt" }; // sosial.svg
+const netIcon = name => shIcon(NET_KEY[name] || "x");
+// Telefonda hesab sətri: işarə, şəbəkə (title), hesab adı (.hd); kompüterdə yalnız işarə.
+const handle = (n, u) => (n === "Facebook" ? "" : "@") + u.replace(/\/$/, "").split("/").pop().replace(/^@/, "");
 function profileRows() {
   const whoOrder = { "İlham Əliyev": 0, "Mehriban Əliyeva": 1 };
   return [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
-    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" ${OUT} title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
+    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" ${OUT} title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}<span class="hd">${handle(n, u)}</span></a>`).join("")}</span>`).join("");
 }
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
@@ -1645,7 +1651,7 @@ function fbLeagues() {
   const fb = S.football;
   const ls = fb ? (Array.isArray(fb.leagues) && fb.leagues.length ? fb.leagues : [fb]) : [];
   const az = ls.filter(l => l && (l.table?.length || l.results?.length || l.fixtures?.length));
-  // Dünya liqaları (sports.json): cədvəl qrupları (NBA: Şərq/Qərb); ilk qrup komanda kartları üçün cədvəl kimi götürülür
+  // Dünya liqaları (sports.json): cədvəl qrupları (NBA: Şərq/Qərb); ilk qrup komanda kartlarının cədvəlidir
   const world = (S.sports?.leagues || []).filter(l => l?.groups?.length).map(l => ({
     world: true, sport: l.sport, id: l.id, short: l.short, league: l.name, season: l.season || "", stale: !!l.stale,
     groups: l.groups, table: l.groups[0].rows, results: [], fixtures: [], scorers: [], link: l.url || "https://en.wikipedia.org/", source: "Vikipediya", asof: l.asof || "",
@@ -1792,10 +1798,8 @@ function homeView() {
   }).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
-// Paylaşılan keçid sonra da açılsın: qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i, updater.py ilə eyni),
-// lentdən çıxan xəbər paylaşma siyahısındadır (24 saat, updater.py update_share_index), daha köhnəsi bölmə arxivində.
-// Yalnız lentdə tapılmayan keçiddə işləyir.
-// Paylaşma siyahısı (data/paylas/N.json, 32 hissə; updater.py update_share_index): nömrəyə görə xəbərin sətri.
+// Paylaşılan keçid sonra da açılsın (yalnız lentdə tapılmayanda): qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i),
+// lentdən çıxan 24 saat paylaşma siyahısındadır (data/paylas/N.json, 32 hissə; updater.py update_share_index), köhnəsi arxivdə.
 // Qrupa düşən mənbənin sətri əsas xəbərə yönəlir (of), ən çox 3 addım. Tapılmasa null, şəbəkə xətası atılır.
 async function shareRow(id) {
   for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
@@ -1808,6 +1812,8 @@ async function shareRow(id) {
 }
 // Paylaşılan keçid (WhatsApp, Telegram) açılanda tam lent (240 KB) gözlənilmir: xəbərin sətri ~20 KB-lıq paylaşma
 // hissəsindən gəlir (index.html onu erkən istəyir), lent arxada yüklənir və gələndə səhifənin qalanı dolur.
+// Paylaşılan keçiddən açılan xəbərdə geri düyməsi baş səhifəyə qayıtsın (tətbiqdən çıxmasın): altdan baş səhifə qoyulur.
+function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
 async function loadShared(id) {
   if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
   try {
@@ -1923,7 +1929,7 @@ function searchText(a) {
 function searchView() {
   const words = searchWords(S.q);
   if (!words.length) return listPage(`Axtarış: “${S.q}”`, "Ən azı iki hərf yazın", []);
-  // Lent gündüz 2-3 saat əhatə edir: axtarış bölmə arxivlərini də (5 gün) görür. Onlar yalnız axtarış başlayanda yüklənir.
+  // Lent gündüz 2-3 saat əhatə edir: axtarış bölmə arxivlərini də (5 gün) görür; onlar axtarışda yüklənir.
   CATS.forEach(c => loadArchive(c.slug));
   const topics = searchTopics(S.q), scored = [];
   for (const a of CATS.reduce((list, c) => withArchive(c.slug, list), S.data.articles)) {
@@ -2018,7 +2024,7 @@ function rememberSrc(node) {
   node._src = node.outerHTML;
   if (node.matches(PATCH_INSIDE)) [...node.children].forEach(rememberSrc);
 }
-// Sürüşən siyahıda baxılan ilk kart və sürüşmə payı: yeniləmədən sonra eyni kart eyni yerdə (sahibin qeydi: yenilənmə oxunanı tərpətməsin).
+// Sürüşən siyahıda baxılan ilk kart və sürüşmə payı: yeniləmədən sonra eyni kart eyni yerdə (oxunan tərpənməsin).
 function anchorOf(box) {
   const x = box.matches(".hero-row"), pos = x ? box.scrollLeft : box.scrollTop;
   const at = n => x ? n.offsetLeft - box.firstElementChild.offsetLeft : n.offsetTop - box.firstElementChild.offsetTop;
@@ -2089,7 +2095,7 @@ function renderView() {
     const r = route();
     // Paylaşılan keçid: xəbərin sətri paylaşma siyahısından gəlibsə tam lent gözlənilmir (loadShared).
     const shared = r.name === "article" && S.sharedStory?.id === r.id;
-    // Hazır ilk ekran (index.html, .github/scripts/prerender.cjs): məlumat gələnə qədər durur, skelet və ya xəta onu silmir.
+    // Hazır ilk ekran (index.html, prerender.cjs): məlumat gələnə qədər durur, skelet və ya xəta onu silmir.
     const pre = !S.data && firstScreen() && !!v.querySelector?.(".pre-skel[data-prerender]");
     if (S.error && (!S.data || onlyFirst) && !shared) {
       const alert = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`;
@@ -2117,7 +2123,7 @@ function sourceLevel(s) {
   return "bad";
 }
 
-// Nadir səhifələr (Mənbə vəziyyəti, Haqqımızda, Mənim bölmələrim) ayrıca moduldadır (sehife.js): yalnız açılanda yüklənir (qırmızı xətt 3).
+// Nadir səhifələr (Mənbə vəziyyəti, Haqqımızda, Mənim bölmələrim) sehife.js-dədir: açılanda yüklənir (qırmızı xətt 3).
 function pageView(name) {
   if (S.pages) return S.pages[name]({ S, esc, sourceName, shownSource, removedSource, sourceLevel, ago, trackedSources, sectionPref, CATS, ASSISTANT_ON, DRIVER_ON, config: window.SITE_CONFIG || {} });
   if (!S.pagesAsked) { S.pagesAsked = true; import("./sehife.js").then(m => { S.pages = m; renderView(); }).catch(() => { S.pagesAsked = false; }); }
@@ -2171,20 +2177,20 @@ function shareStory(btn) {
 async function shareTo(t) {
   const box = t.closest(".sharepop,.shr"), url = box?.dataset.share || "", title = box?.dataset.title ?? shareTitle(t), to = t.dataset.to;
   trackEvent(`share-${to}`);
-  if (to === "cp") {
+  if (to === "cp") { // başlıq + keçid: yapışdırılanda hansı xəbər olduğu görünür
     const icon = t.classList.contains("sh"), was = t.textContent;
-    try { await navigator.clipboard.writeText(url); t.textContent = icon ? "✓" : "Kopyalandı"; } catch { t.textContent = icon ? "✕" : "Kopyalanmadı"; }
+    try { await navigator.clipboard.writeText(title ? `${title}\n${url}` : url); t.textContent = icon ? "✓" : "Kopyalandı"; } catch { t.textContent = icon ? "✕" : "Kopyalanmadı"; }
     setTimeout(() => { if (icon) t.textContent = was; else closeSharePop(); }, 1400);
     return;
   }
   closeSharePop();
   if (to === "sys") { try { await navigator.share({ title, text: title, url }); } catch {} return; }
   const u = SHARE_TO[to]?.[2](encodeURIComponent(url), encodeURIComponent(title));
-  if (u) window.open(u, "_blank", "noopener,noreferrer");
+  if (u) openOut(u);
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
-// Chrome: beforeinstallprompt; iPhone: əl ilə. Kompüterdə başlıqda (#inst), telefonda bölmə sətirlərində 15-ci düymə (.nav-inst).
+// Chrome: beforeinstallprompt; iPhone: əl ilə. Kompüterdə başlıqda (#inst), telefonda bölmələrdə 15-ci düymə (.nav-inst).
 function installBtn() {
   if (isStandalone() || (!S.installEvt && !isIOS())) return "";
   return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;
@@ -2218,6 +2224,8 @@ function scrollToClub() {
 }
 function onClick(e) {
   if (!e.target.closest(".sharepop")) closeSharePop();
+  const soc = e.target.closest(".soc-g a"), app = soc && appLink(soc.href); // rəsmi hesab: Android-də tətbiqə, geri sayta
+  if (app) { e.preventDefault(); location.href = app; return; }
   if (S.langOpen && !e.target.closest(".ldd")) { S.langOpen = false; renderTopbar(); } // dil siyahısı kənara hər toxunuşda bağlanır
   const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
@@ -2399,7 +2407,7 @@ const LEAVE_MS = 2000;
 const WHEEL_MS = 3000;
 const TOUCH_MS = 5000;
 function reducedMotion() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
-// Hərəkət (lent, slayder, Zuğulba): düymə ilə dayanır, seçim yaddaşda; sistemdə «hərəkəti azalt» varsa standart dayanıqdır, düymə açır.
+// Hərəkət (lent, slayder, Zuğulba): düymə ilə dayanır, seçim yaddaşda; «hərəkəti azalt» varsa standart dayanıq, düymə açır.
 const MOTION_KEY = "8ulduz-motion";
 function motionOff() { const v = storage.getItem(MOTION_KEY); return v ? v === "off" : reducedMotion(); }
 const motionBtn = () => `<button type="button" class="mo" data-act="motion" aria-pressed="${motionOff()}" title="${motionOff() ? "Hərəkəti başlat" : "Hərəkəti dayandır"}">${motionOff() ? "▶" : "Ⅱ"}</button>`;
@@ -2539,7 +2547,7 @@ function stopStep(el, snap) {
   const { best, bestD } = nearestStop(el);
   if (bestD > 1) el.scrollTop = best;
 }
-// Karusel: .strip zolağına ← → oxları və nöqtələr; bir basış bir görünən en. Zolaq adi scroll qutusudur (barmaq, klaviatura işləyir), ölçü dəyişəndə yenidən qurulur.
+// Karusel: .strip zolağına ← → oxları və nöqtələr; bir basış bir görünən en; ölçü dəyişəndə yenidən qurulur.
 // Baş səhifənin uzaq bölmələri boş qutudur, HTML-i yaddaşdadır: oxunmur, yerləşdirilmir, şəkli yüklənmir.
 const lazySection = html => html ? `<div class="lazy-sec"><template>${html}</template></div>` : "";
 const lazyHtml = new Map();
@@ -2670,9 +2678,8 @@ function setupFeatureLents() {
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
     if (TOUCH_UI) {
-      // Toxunma ekranı: lent brauzerin öz sürüşməsi ilə sürüşür; zəncir söndürülüb (CSS overscroll-behavior:none).
-      // Ötürmə JS-dədir: lentin sonunda/başında barmaq məsafəsi səhifəyə, barmaq qalxanda ətalət. Brauzer özü səhifəni
-      // sürüşdürərsə (bəzi brauzerlər none-a baxmayaraq zəncir edir) JS həmin jestdə dayanır — heç vaxt ikiqat olmur.
+      // Toxunma ekranı: lent brauzerin öz sürüşməsi ilə; zəncir söndürülüb (overscroll-behavior:none), ötürmə JS-dədir: lentin
+      // sonunda/başında barmaq məsafəsi səhifəyə, barmaq qalxanda ətalət. Brauzer özü zəncir edərsə JS həmin jestdə dayanır (ikiqat olmur).
       let lastY = null, samples = [], inertia = 0, mode = null, expectedY = 0;
       const atEnd = () => lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1;
       const atTop = () => lent.scrollTop <= 0;
@@ -2789,7 +2796,7 @@ document.addEventListener("focusout", (e) => {
     scheduleStep(el, LEAVE_MS);
   }, 0);
 });
-// Barmaq/siçan kart üzərinə gələn kimi mənbə saytına əvvəlcədən qoşulur (DNS+TLS); keçid 100–300 ms tez açılır
+// Barmaq/siçan kart üzərinə gələn kimi mənbə saytına qoşulur (DNS+TLS); keçid 100–300 ms tez açılır
 const preconnected = new Set();
 document.addEventListener("pointerdown", (e) => {
   const a = e.target.closest?.("a[href^=http]");
@@ -2810,7 +2817,7 @@ document.addEventListener("pointerdown", (e) => {
   scheduleStep(el, TOUCH_MS);
 }, true);
 // Təkər: siyahı öz içində sürüşür; dibə (və ya başa) çatıbsa, təkər səhifəni sürüşdürür.
-// Brauzerin öz keçidi (scroll chaining) burada etibarsızdır: addımlama siyahını geri çəkir və Chrome ilk hədəfə «yapışır».
+// Brauzerin öz keçidi (scroll chaining) etibarsızdır: addımlama siyahını geri çəkir, Chrome ilk hədəfə «yapışır».
 document.addEventListener("wheel", (e) => {
   const el = marqueeOf(e.target);
   if (!el) return;
@@ -2922,7 +2929,7 @@ async function loadStatus(force = false) {
   } catch {}
   if(S.statusAbort === controller){S.statusAbort = null; renderTopbar();}
 }
-// Dəqiqəlik yoxlama status.json ilə; tam lent yalnız yeni yoxlama olanda (10 dəqiqədən bir) və ya əvvəlki yükləmə alınmayanda.
+// Dəqiqəlik yoxlama status.json ilə; tam lent yalnız yeni yoxlamada (10 dəqiqədən bir) və ya əvvəlki alınmayanda.
 async function pollNews(force = false, resume = false) {
   if (!force && document.hidden) return; // arxa planda məlumat xərcləmirik; qayıdanda resumeNews dərhal yoxlayır
   await loadStatus(force);
@@ -2941,7 +2948,7 @@ function resumeNews() {
     if(S.reloadWhenHidden && !globalThis.speechSynthesis?.speaking)location.reload(); // yeni versiya oxucu baxmayanda
     return;
   }
-  // Bir saatdan çox arxa planda qalıbsa qayıdanda səhifə təzədən açılır (köhnə kod ilişməsin); səsli oxu kəsilmir.
+  // Bir saatdan çox arxa planda qalıbsa qayıdanda təzədən açılır (köhnə kod ilişməsin); səsli oxu kəsilmir.
   const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
   S.hiddenAt = 0;
   if(away >= RELOAD_AFTER_HIDDEN_MS && !globalThis.speechSynthesis?.speaking){ location.reload(); return; }
@@ -2956,7 +2963,7 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt 
 addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
 function registerWorker() {
   if (!("serviceWorker" in navigator)) return;
-  // sw.js app.js/app.css dəyişəndə bildirir: toxunulmayıbsa (ilk 4 s) dərhal, yoxsa gözdən itəndə yenidən açılır; sessiyada bir dəfə (CDN iki nüsxə verərsə dövrə olmasın).
+  // sw.js kod dəyişəndə bildirir: toxunulmayıbsa (ilk 4 s) dərhal, yoxsa gözdən itəndə yenidən açılır; sessiyada bir dəfə (dövrə olmasın).
   navigator.serviceWorker.addEventListener("message", e => {
     if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
     if (e.data?.type !== "shell-updated") return;
@@ -2998,7 +3005,7 @@ if (uiLang(S.lang)) {
 }
 shell(); render();
 // Hamısı gələn kimi çəkilir: gözləsə ağır çəkiliş oxucunun linkə basdığı ana düşür, keçid gecikir.
-{ const r0 = route(); if (r0.name === "article") loadShared(r0.id); }
+{ const r0 = route(); if (r0.name === "article") { loadShared(r0.id); backHome(); } }
 loadCached(); restoreLocal();
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
@@ -3008,7 +3015,7 @@ afterNews(() => { enableAnalytics(); registerWorker(); });
 newsReady.then(flushRender);
 // Hava, namaz, video və sosial şəbəkə ilk şəkilin (LCP) xəttini tutmasın: xəbər ekrana çıxandan sonra.
 afterNews(() => { loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
-// 20 liqanın cədvəli (~17 KB): açılışla xətti bölüşmür. Oxucu cədvələ özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
+// 20 liqanın cədvəli (~17 KB) açılışla xətti bölüşmür: oxucu özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
 loadMarkets(); loadStatus();
@@ -3017,7 +3024,7 @@ addEventListener("scroll", () => {
   if (S.renderPending && (globalThis.scrollY || 0) < 200) requestRender();
 }, {passive: true});
 for (const ev of ["pointerdown", "wheel", "touchmove", "keydown"]) addEventListener(ev, () => { S.touchAt = Date.now(); }, { passive: true, capture: true });
-// Telefonda arxa plandakı vərəqin taymerləri dayanır: səhifəyə qayıdanda (və geri-irəli keşindən açılanda) dərhal yoxla.
+// Telefonda arxa plandakı vərəqin taymerləri dayanır: qayıdanda (geri-irəli keşindən də) dərhal yoxla.
 // Əks halda saatlarla köhnə lent görünürdü — «sayt yenilənmir» təəssüratı.
 document.addEventListener("visibilitychange", resumeNews);
 addEventListener("storage", e => { if (e.key === SAVE_KEY && route().name === "saved") requestRender(false); });

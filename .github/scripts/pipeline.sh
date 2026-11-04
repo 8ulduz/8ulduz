@@ -42,6 +42,7 @@ STATE="$(mktemp -d)"
 SLOTS="$STATE/m"         # son dəqiqələrin faylları
 KEEP_SLOTS=5
 export LATEST_LANG_FILES=1   # updater.py status.json-a "langs" yazır: bu pipeline dil fayllarını (latest.az.json və s.) live-ə göndərir
+export SHARE_PAGES=1         # updater.py hər xəbərə x/<id>.html paylaşma səhifəsi (og etiketləri) yazır və lentin başlığına "sharePages" qoyur; publish_main x/ qovluğunu main-ə köçürür
 export NEWS_LANG_FILES=1     # updater.py tam lenti dil üzrə yazır (news.json = azərbaycanca + xarici idman, news.en/ru/tr.json = o dil) və status.json-a "newsLangs" qoyur; hamısı main-ə gedir (publish_main data/-nı olduğu kimi köçürür)
 CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
 SLOW_PID=""
@@ -227,12 +228,14 @@ publish_main() {
       [ -f "$WORK/$name" ] && cp -a "$WORK/$name" "$REPO_DIR/"
     done
     if [ -d "$WORK/bolme" ]; then rm -rf "$REPO_DIR/bolme"; cp -a "$WORK/bolme" "$REPO_DIR/bolme"; fi
+    if [ -d "$WORK/x" ]; then rm -rf "$REPO_DIR/x"; cp -a "$WORK/x" "$REPO_DIR/x"; fi   # paylaşma səhifələri (updater.write_share_pages)
     prerender_home
     # GOOD yenilənərkən oxunmuş ola bilər: commit-dən əvvəl yenidən yoxla.
     for name in $(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" || check_lkg "$REPO_DIR"); do
       git -C "$REPO_DIR" checkout -q HEAD -- "$name" 2>/dev/null || rm -f "$REPO_DIR/$name"
     done
     git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme index.html 2>/dev/null
+    if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x 2>/dev/null; fi   # ayrıca: qovluq yoxdursa yuxarıdakı add pozulmasın
     if git -C "$REPO_DIR" diff --cached --quiet; then
       touch "$STATE/code-sync"
       return 0
@@ -301,6 +304,7 @@ for name in sitemap.xml feed.xml robots.txt; do
   [ -f "$REPO_DIR/$name" ] && cp "$REPO_DIR/$name" "$WORK/"
 done
 [ -d "$REPO_DIR/bolme" ] && cp -a "$REPO_DIR/bolme" "$WORK/bolme"
+[ -d "$REPO_DIR/x" ] && cp -a "$REPO_DIR/x" "$WORK/x"   # mövcud paylaşma səhifələri: təzədən yazılmasın, 25 saatdan sonra silinsin
 guard_outputs
 seed_slots
 rm -f "$LKG/.yeni"

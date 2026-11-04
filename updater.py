@@ -1697,7 +1697,8 @@ def write_news(data):
     idman bölməsi bütün dillərdədir), news.<dil>.json = yalnız o dilin sətirləri (rus/ingilis/türk oxucuya azərbaycanca və türkcə xəbər düşmür);
     «langs» hansı dil fayllarının olduğunu deyir (read_feed onları birləşdirir). Hamısı main-ə gedir: bölgü tarixçəyə əlavə yük vermir
     (docs/qirmizi-xetler.md §3). Bayraqsız (köhnə pipeline) əvvəlki kimi bir fayl."""
-    dump = lambda d: json.dumps(d, ensure_ascii=False, separators=(",", ":"))
+    # "sharePages": sayt /x/ID paylaşma keçidini yalnız bu işarə ilə verir (write_share_pages; eyni yayımda səhifələr də main-dədir)
+    dump = lambda d: json.dumps({**d, **({"sharePages": True} if os.environ.get("SHARE_PAGES") else {})}, ensure_ascii=False, separators=(",", ":"))
     if not os.environ.get("NEWS_LANG_FILES"):
         _write_atomic(OUT_FILE, dump(data), encoding="utf-8")
         return
@@ -1747,7 +1748,7 @@ def write_first(articles, stamp):
     rows, og = first_screen_rows(articles), _read_json(OG_FILE, {})
     urls = {u for a in rows for u in [a.get("sourceUrl"), *[alt.get("sourceUrl") for alt in a.get("alts") or []]]}
     images = {u: og[u] for u in urls if u in og}
-    _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images, **({"sharePages": True} if os.environ.get("SHARE_PAGES") else {})}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
 def refresh_slow_feeds(limit_s=150):
@@ -1854,10 +1855,72 @@ def update_share_index(articles, now):
         alts = [{k: x[k] for k in ("source", "sourceUrl") if x.get(k)} for x in a.get("alts") or [] if x.get("sourceUrl")]
         parts[share_part(a["id"])][a["id"]] = {**row, "alts": alts} if alts else row
     SHARE_DIR.mkdir(parents=True, exist_ok=True)
+    keep = {a["id"] for a in rows}  # paylaşma səhifələri (write_share_pages): lentdəki və siyahıdakı xəbərlərinki qalır
     for i, part in enumerate(parts):
         rows = [r for r in part.values() if not removed_source(r) and not is_negative_about_leadership(r.get("title", ""), "", r.get("source"))]
         rows, _ = content_policy.enforce(rows)
+        keep.update(r["id"] for r in rows if not r.get("of"))
         _write_atomic(SHARE_DIR / f"{i}.json", json.dumps({"at": now, "articles": rows}, ensure_ascii=False, separators=(",", ":")))
+    prune_share_pages(keep)
+
+# Paylaşma səhifələri (sahibin qeydi 2026-11-04: «Facebookda paylaşanda hansı xəbəri paylaşdığın görünmür»). Facebook, WhatsApp,
+# Telegram önizləməni keçidin og: etiketlərindən oxuyur; #/xeber/ID hash-dır, serverə getmir, hamı saytın ümumi kartını görürdü.
+# İndi lentdəki hər xəbərin kiçik statik səhifəsi var: x/<id>.html (~1 KB: başlıq, xülasə, şəkil, og:url), oxucunu dərhal saytın
+# xəbər səhifəsinə keçirir (meta refresh tarixçədə iz qoymur, geri düyməsi işləyir). Səhifə paylaşma siyahısı qədər (25 saat) qalır,
+# sonra silinir; köhnə keçidi 404.html #/xeber/ID-yə yönəldir (arxivdən açılır). Yalnız SHARE_PAGES=1 ilə: pipeline.sh qovluğu main-ə
+# yazır və sayt /x/ keçidini yalnız lentin başlığında "sharePages" görəndə verir (köhnə pipeline-da səhifəsiz keçid yaranmasın).
+# Sürətli dövrədə yalnız yeni fayllar yazılır (dəqiqədə ~10), silinmə saatlıq update_share_index-dədir. QIRMIZI XƏTT 3-ə toxunmur:
+# tətbiqin öz yolu dəyişmir, paylaşılan keçidə ~1 KB-lıq bir sorğu əlavə olunur. QIRMIZI XƏTT 2: sətirlər content_policy.enforce-dan keçir.
+SHARE_PAGES_DIR = ROOT / "x"
+_LOCALE = {"az": "az_AZ", "ru": "ru_RU", "en": "en_US", "tr": "tr_TR"}
+_SHARE_HTML = ('<!doctype html>\n<html lang="{lang}"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
+               '<title>{title} — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="{app}" />\n'
+               '<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="{title}" />\n'
+               '<meta property="og:description" content="{desc}" /><meta property="og:url" content="{url}" /><meta property="og:image" content="{image}" />\n'
+               '<meta property="og:locale" content="{locale}" /><meta name="twitter:card" content="summary_large_image" />\n'
+               '<meta http-equiv="refresh" content="0;url={app}" />\n'
+               '</head><body><p><a href="{app}">{title}</a> — <a href="{site}">8ulduz</a></p></body></html>\n')
+
+def share_page(a):
+    """Bir xəbərin paylaşma səhifəsi: og etiketləri və dərhal saytın xəbər səhifəsinə keçid."""
+    sid, title = a["id"], _xml(re.sub(r"\s+", " ", str(a.get("title") or "")).strip())
+    desc = re.sub(r"<[^>]+>|\s+", " ", str(a.get("summary") or "")).strip()
+    if len(desc) > 200:
+        desc = desc[:197].rsplit(" ", 1)[0] + "…"
+    desc = _xml(desc or f'{a.get("source") or "8ulduz"} · {str(a.get("publishedAt") or "")[:10]}')
+    image = str(a.get("imageUrl") or "")
+    image = _xml(image if image.startswith("https://") else f"{SITE}assets/og-default.png")
+    app = _xml(f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}')
+    return _SHARE_HTML.format(lang=_xml(a.get("lang") or "az"), title=title, desc=desc, url=f"{SITE}x/{sid}", image=image,
+                              locale=_LOCALE.get(a.get("lang") or "az", "az_AZ"), app=app, site=SITE)
+
+def write_share_pages(articles):
+    """Lentdəki hər xəbər üçün (16 rəqəmli id) hələ olmayan paylaşma səhifəsini yazır; sayını qaytarır. Bayraqsız heç nə etmir."""
+    if not os.environ.get("SHARE_PAGES"):
+        return 0
+    SHARE_PAGES_DIR.mkdir(parents=True, exist_ok=True)
+    have = {p.name for p in SHARE_PAGES_DIR.glob("*.html")}
+    rows = [a for a in articles if share_part(a.get("id")) is not None and not removed_source(a)
+            and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
+    rows, _ = content_policy.enforce(rows)
+    n = 0
+    for a in rows:
+        if f'{a["id"]}.html' not in have:
+            _write_atomic(SHARE_PAGES_DIR / f'{a["id"]}.html', share_page(a), encoding="utf-8")
+            n += 1
+    return n
+
+def prune_share_pages(keep):
+    """Paylaşma siyahısında da, lentdə də olmayan xəbərin səhifəsi silinir (siyahı ilə eyni müddət: 25 saat); sayını qaytarır."""
+    if not os.environ.get("SHARE_PAGES") or not SHARE_PAGES_DIR.is_dir():
+        return 0
+    gone = [p for p in SHARE_PAGES_DIR.glob("*.html") if p.stem not in keep]
+    for p in gone:
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    return len(gone)
 
 def update_archive(now=None):
     now = now or time.time()
@@ -5132,6 +5195,10 @@ def main(fast=False):
     }
     OUT_DIR.mkdir(exist_ok=True)
     # yığcam JSON: repo ölçüsünün böyüməsini azaldır
+    try:  # paylaşma səhifələri lentdən əvvəl: lentin dediyi hər /x/ID səhifəsi var (xəta axını dayandırmır)
+        write_share_pages(articles)
+    except Exception as e:
+        print("  ! paylaşma səhifələri:", type(e).__name__, flush=True)
     try:  # QIRMIZI XƏTT 1: bu fayl alınmasa sayt tam lentlə açılır, xəbər axını dayanmır
         write_first(articles, data["updatedAt"])
     except Exception as e:

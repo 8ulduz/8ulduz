@@ -1986,3 +1986,57 @@ class RepeatedPhotoTest(unittest.TestCase):
                 articles = [{'sourceUrl': u} for u in urls]
                 updater.fill_og_images(articles)
             self.assertEqual([a.get('imageUrl') for a in articles], [photo] * 3)
+
+class SharePagesTest(unittest.TestCase):
+    """Sahibin qeydi (2026-11-04): paylaşılan keçiddə hansı xəbər olduğu görünsün — hər xəbərin og etiketli statik səhifəsi (x/<id>.html)."""
+    def rows(self):
+        sid = lambda u: updater.hashlib.sha1(u.encode()).hexdigest()[:16]
+        return sid, [
+            {"id": sid("https://apa.az/1"), "title": "Neft <b>bahalaşdı</b> & manat", "summary": "Brent 80 dolları keçdi.  Ətraflı…", "category": "iqtisadiyyat", "lang": "az", "source": "APA", "sourceUrl": "https://apa.az/1", "publishedAt": "2026-11-04T10:00:00+00:00", "imageUrl": "https://apa.az/i.jpg"},
+            {"id": sid("https://report.az/2"), "title": "Şəkilsiz xəbər", "category": "gundem", "lang": "az", "source": "Report", "sourceUrl": "https://report.az/2", "publishedAt": "2026-11-04T11:00:00+00:00"},
+            {"id": "1", "title": "Köhnə nömrə", "category": "gundem", "lang": "az", "source": "APA", "sourceUrl": "https://apa.az/3", "publishedAt": "2026-11-04T11:00:00+00:00"},
+        ]
+
+    def test_pages_are_written_only_behind_the_flag_and_only_for_hex_ids(self):
+        sid, rows = self.rows()
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SHARE_PAGES_DIR", pathlib.Path(tmp) / "x"):
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": ""}):
+                self.assertEqual(updater.write_share_pages(rows), 0)
+                self.assertFalse((pathlib.Path(tmp) / "x").exists())
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": "1"}):
+                self.assertEqual(updater.write_share_pages(rows), 2)
+                self.assertEqual(updater.write_share_pages(rows), 0)  # mövcud səhifə təzədən yazılmır
+                page = (pathlib.Path(tmp) / "x" / f'{sid("https://apa.az/1")}.html').read_text(encoding="utf-8")
+                plain = (pathlib.Path(tmp) / "x" / f'{sid("https://report.az/2")}.html').read_text(encoding="utf-8")
+                self.assertFalse((pathlib.Path(tmp) / "x" / "1.html").exists())
+        self.assertIn('<meta property="og:title" content="Neft &lt;b&gt;bahalaşdı&lt;/b&gt; &amp; manat" />', page)
+        self.assertIn('<meta property="og:description" content="Brent 80 dolları keçdi. Ətraflı…" />', page)
+        self.assertIn(f'<meta property="og:url" content="{updater.SITE}x/{sid("https://apa.az/1")}" />', page)
+        self.assertIn('<meta property="og:image" content="https://apa.az/i.jpg" />', page)
+        self.assertIn(f'content="0;url={updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat"', page)
+        self.assertNotIn("{", page)
+        self.assertNotIn("<script", page)
+        self.assertIn(f"{updater.SITE}assets/og-default.png", plain)
+        self.assertIn("Report · 2026-11-04", plain)
+
+    def test_old_pages_are_pruned_with_the_share_index(self):
+        sid, rows = self.rows()
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SHARE_PAGES_DIR", pathlib.Path(tmp) / "x"), patch.dict(updater.os.environ, {"SHARE_PAGES": "1"}):
+            updater.write_share_pages(rows)
+            (pathlib.Path(tmp) / "x" / "deadbeefdeadbeef.html").write_text("köhnə", encoding="utf-8")
+            self.assertEqual(updater.prune_share_pages({sid("https://apa.az/1")}), 2)
+            self.assertEqual(sorted(p.name for p in (pathlib.Path(tmp) / "x").iterdir()), [f'{sid("https://apa.az/1")}.html'])
+
+    def test_feed_headers_carry_the_flag_only_when_pages_are_published(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OUT_FILE", pathlib.Path(tmp) / "news.json"), patch.object(updater, "FIRST_FILE", pathlib.Path(tmp) / "first.json"), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"):
+            data = {"updatedAt": "2026-11-04T10:00:00+00:00", "count": 0, "articles": []}
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": "", "NEWS_LANG_FILES": ""}):
+                updater.write_news(data)
+                updater.write_first([], data["updatedAt"])
+                self.assertNotIn("sharePages", (pathlib.Path(tmp) / "news.json").read_text(encoding="utf-8"))
+                self.assertNotIn("sharePages", (pathlib.Path(tmp) / "first.json").read_text(encoding="utf-8"))
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": "1", "NEWS_LANG_FILES": "1"}):
+                updater.write_news(data)
+                updater.write_first([], data["updatedAt"])
+                for name in ("news.json", "news.ru.json", "first.json"):
+                    self.assertTrue(updater.json.loads((pathlib.Path(tmp) / name).read_text(encoding="utf-8")).get("sharePages"), name)

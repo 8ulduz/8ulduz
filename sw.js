@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v40"; // v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
+const VERSION = "v41"; // v41: /x/ID paylaşma səhifəsi (og etiketləri, dərhal #/xeber/ID-yə keçir) işçidən yan keçir; v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -175,6 +175,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(networkFirstData(event.request));
     return;
   }
+  if (/\/x\/[0-9a-f]{16}$/.test(url.pathname)) return; // paylaşma səhifəsi (updater.py write_share_pages): keşə düşməsin, köhnəsi 404.html-dən yönlənir
   const shell = event.request.mode === "navigate" || /\.(?:html|js|css|webmanifest)$/.test(url.pathname);
   event.respondWith(shell ? cachedShell(event.request, event) : cacheFirst(event.request));
 });
