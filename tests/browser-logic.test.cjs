@@ -988,6 +988,20 @@ test('unchanged code and a changed index.html are stored quietly', async () => {
   }
 });
 
+test('a navigation with a query string reads and stores the shell under the path only', async () => {
+  const {context} = worker();
+  const seen = {match: [], put: []};
+  context.fetch = async (req) => { seen.fetched = req.url; return new Response('<p>fresh</p>'); };
+  context.caches.open = async () => ({match: async (key, opts) => { seen.match.push([String(key), opts?.ignoreSearch]); return new Response('<p>saved</p>'); }, put: async (key) => { seen.put.push(String(key)); }});
+  context.navReq = { url: 'https://example.com/8ulduz/?utm_source=whatsapp#/xeber/1', mode: 'navigate', method: 'GET' };
+  const res = await vm.runInContext("cachedShell(navReq)", context);
+  assert.equal(await res.text(), '<p>saved</p>');
+  for (let i = 0; i < 20 && !seen.put.length; i++) await new Promise(r => setImmediate(r));
+  assert.deepEqual(seen.match, [['https://example.com/8ulduz/', false]], 'sorğu sətri açara düşmür, ignoreSearch yoxdur');
+  assert.deepEqual(seen.put, ['https://example.com/8ulduz/'], 'təzə nüsxə eyni açarın üstünə yazılır');
+  assert.equal(seen.fetched, 'https://example.com/8ulduz/');
+});
+
 test('a hanging network does not leave a blank page when a copy is saved', async () => {
   const {context} = worker();
   context.fetch = () => new Promise(() => {});
