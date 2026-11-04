@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v37"; // v37: tam lent dil üzrə (news.en/ru/tr.json main-də); v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan
+const VERSION = "v38"; // v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi; v37: tam lent dil üzrə (news.en/ru/tr.json main-də); v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);

@@ -1476,7 +1476,7 @@ function shellParts() {
     requestAnimationFrame: () => 0,
   });
   vm.runInContext('shell(); renderNav(); renderLangs();', ctx);
-  return { app: els.app.innerHTML, nav: els.nav.innerHTML, langs: els.langs.innerHTML, langstick: els.langstick.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
+  return { app: els.app.innerHTML, nav: els.nav.innerHTML, inst: els.inst.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
 }
 test('speed red line: index.html carries the same shell app.js builds, with nav and skeleton filled', () => {
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
@@ -1485,8 +1485,7 @@ test('speed red line: index.html carries the same shell app.js builds, with nav 
   assert.ok(m, 'index.html-də data-shell qabığı yoxdur');
   let want = parts.app;
   want = want.replace(/(<nav class="main" id="nav" aria-label="Bölmələr">)(<\/nav>)/, (_, a, b) => a + parts.nav + b);
-  want = want.replace(/(<div class="wrap" id="langs">)(<\/div>)/, (_, a, b) => a + parts.langs + b);
-  want = want.replace(/(<div class="langstick" id="langstick">)(<\/div>)/, (_, a, b) => a + parts.langstick + b);
+  want = want.replace(/(<span class="inst" id="inst">)(<\/span>)/, (_, a, b) => a + parts.inst + b);
   // #view: ya statik skelet, ya da pipeline-ın hazır ilk ekranı (.github/scripts/prerender.cjs); qabığın qalanı eyni olmalıdır.
   const got = m[1].match(/(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/);
   assert.ok(got, 'index.html-də #view bloku və noscript yoxdur');
@@ -1568,7 +1567,7 @@ test('content security policy allows only the page own inline script', () => {
   const updater = read('updater.py');
   const template = updater.match(/_CSP = "([^"]+)"/)[1].replace('{hashes}', "'sha256-" + hash + "'");
   assert.equal(template, policy);
-  for (const p of ['index.html', 'assets/app.js', 'assets/komanda.js', 'assets/dil.js', 'assets/reader.js', 'assets/assistant.js'])
+  for (const p of ['index.html', 'assets/app.js', 'assets/komanda.js', 'assets/dil.js', 'assets/reader.js', 'assets/assistant.js', 'assets/sehife.js'])
     assert.ok(!/\son(error|load|click|change|input|submit)=["']/.test(read(p)), p + ' daxili hadisə işləyicisi saxlayır');
 });
 
@@ -2008,4 +2007,107 @@ test('location: nearest city within Azerbaijan, none abroad; traffic centres on 
   assert.equal(geoCity()[0], 'Sumqayıt');
   S.geo = { lat: 41.01, lon: 28.97, city: null, at: Date.now() };
   assert.equal(geoCity()[0], 'Bakı', 'xaricdə hava və namaz Bakıya görə qalır');
+});
+
+// 2026-11-04, sahibin 14 qeydi: başlıq sırası, dil seçimi, paylaşma ikonları, hərəkət düyməsi, Zuğulba süzgəci, nadir səhifələr ayrıca modulda.
+test('owner notes: the logo row comes first with the install slot and a search button, the utility bar second; old language and filter rows are gone', () => {
+  const app_ = shellParts().app;
+  assert.ok(app_.indexOf('id="sitehead"') < app_.indexOf('id="topbar"'), 'loqo sətri yuxarı zolaqdan əvvəldir');
+  assert.ok(app_.includes('<span class="inst" id="inst"></span>') && app_.includes('class="qbtn" data-act="find"'), 'quraşdırma yeri və lupa düyməsi başlıq sətrindədir');
+  assert.ok(!app_.includes('langstick') && !app_.includes('id="langs"') && !app_.includes('class="filters"'), 'köhnə dil və süzgəc sətirləri yoxdur');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.inst .install-btn{background:var(--primary)'), '«Ana ekrana əlavə et» seçilən rəngdədir');
+  assert.ok(css.includes('.prez-lent{height:204px!important}'), 'telefonda Zuğulba iki kart hündürlüyündədir');
+  assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir');
+  assert.ok(css.includes('#son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}'), '«Son xəbərlər» aydın xətlə ayrılır');
+  assert.ok(css.includes('@media(hover:none){.shr .share{display:none}.shr .sh{display:grid'), 'telefonda paylaşma ikonları, kompüterdə düymə');
+});
+test('owner notes: the utility bar carries the language dropdown with flag and code; a bad sync shows a retry button there', () => {
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, classList: { toggle() {}, add() {}, remove() {} }, dataset: {}, style: {} };
+  const ctx = app({ document: { documentElement: { dataset: {} }, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return {}; } } });
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  vm.runInContext(src.slice(src.indexOf('\nfunction renderTopbar() {'), src.indexOf('\nconst NAV_PRIMARY')), ctx); // harness-in boş renderTopbar-ı əvəzinə əsli
+  const { S } = ctx.api;
+  S.lang = 'ru';
+  vm.runInContext('renderTopbar()', ctx);
+  let html = els.topbar.innerHTML;
+  assert.ok(html.includes('class="ldd"') && html.includes('data-act="lang"') && html.includes('<b>RU</b>') && html.includes('class="flag"') && !html.includes('data-lang='), 'bağlı dil seçimi: bayraq + kod + ox');
+  assert.ok(html.includes('class="wcity"') && /<span>İşıqlı<\/span>/.test(html), 'hava şəhəri ayrıca, rejim düyməsində söz');
+  S.langOpen = true;
+  vm.runInContext('renderTopbar()', ctx);
+  html = els.topbar.innerHTML;
+  assert.ok(html.includes('data-lang="ru" aria-pressed="true"') && html.includes('data-lang="" aria-pressed="false"'), 'açıq: dil düymələri');
+  S.lang = null; S.langOpen = false; S.error = 'x';
+  vm.runInContext('renderTopbar()', ctx);
+  html = els.topbar.innerHTML;
+  assert.ok(html.includes('<b>Hamısı</b>') && html.includes('class="retry" data-act="refresh"'), '«Hamısı» və xəta olanda «Yenilə»');
+});
+test('owner notes: share — the card carries F, X, W, T and copy beside the button, the Zuğulba card only the button, every target is a web address', () => {
+  const ctx = app(), { card, prezBlock, prezHome, S } = ctx.api, at = new Date().toISOString();
+  S.og = {};
+  const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
+  assert.ok(/<span class="shr" data-share="https:\/\/8ulduz\.az\/#\/xeber\/1\?b=gundem"><button type="button" class="share" data-act="share"/.test(html), 'düymə və ikonlar bir qrupdadır');
+  for (const k of ['fb', 'x', 'wa', 'tg', 'cp']) assert.ok(html.includes(`class="sh" data-to="${k}"`), k);
+  const prez = prezBlock(prezHome([{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, lang: 'az' }]));
+  assert.ok(!prez.includes('class="shr"') && prez.includes('data-prez-pause'), 'Zuğulba kartında yalnız düymə; başlıqda dayandır düyməsi');
+  const to = vm.runInContext('SHARE_TO', ctx);
+  assert.deepEqual(Object.keys(to), ['fb', 'x', 'wa', 'tg', 'in', 'mail']);
+  for (const [k, v] of Object.entries(to)) { const u = v[2]('https%3A%2F%2F8ulduz.az%2F%23%2Fxeber%2F1', 'B'); assert.ok(/^(https:\/\/|mailto:)/.test(u) && u.includes('8ulduz.az'), k); }
+  assert.ok(!card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'javascript:alert(1)', publishedAt: at }).includes('data-to='), 'təhlükəli keçid paylaşılmır');
+});
+test('owner notes: motion can be stopped and restarted; the system reduced-motion setting stops it by default and the button overrides it', () => {
+  const off = (reduce, stored) => { const ctx = app({ matchMedia: q => ({ matches: reduce && /reduced-motion/.test(q) }) }); if (stored) ctx.api.storage.setItem('8ulduz-motion', stored); return vm.runInContext('motionOff()', ctx); };
+  assert.equal(off(false, null), false);
+  assert.equal(off(true, null), true, 'hərəkəti azalt → dayanıq');
+  assert.equal(off(true, 'on'), false, 'düymə ilə açılıb');
+  assert.equal(off(false, 'off'), true, 'düymə ilə dayandırılıb');
+  const ctx = app();
+  assert.ok(vm.runInContext('motionBtn()', ctx).includes('data-act="motion" aria-pressed="false"'));
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (motionOff() || !el.classList.contains("vmarquee")) return;') && src.includes('document.hidden || motionOff() ||') && src.replace(/\r\n/g, '\n').includes('if (motionOff()) return;\n  const half'), 'addım, slayder və lent eyni açarı dinləyir');
+  assert.ok(src.includes('const KEYED = ".hero-row,.prez-lent"') && src.includes('restoreAnchor(box, anchor)'), 'yenilənmə sürüşən siyahıda oxunan kartı yerində saxlayır');
+  assert.ok(src.includes("Date.now() - (S.touchAt || 0) < 8000"), 'oxucu toxunduqdan sonra 8 saniyə ekran dəyişmir');
+});
+test('owner notes: Zuğulba filter — another country\'s first lady is not ours, our leadership is', () => {
+  const ctx = app(), f = vm.runInContext('aboutOurLeaders', ctx), at = new Date().toISOString();
+  assert.equal(f({ title: 'ABŞ-nin birinci xanımı Oleşkidə atəşkəslə bağlı diplomatik görüş təşkil edəcək' }), false);
+  assert.equal(f({ title: 'Özbəkistanın birinci xanımına kömək etdi' }), false);
+  assert.equal(f({ title: 'Birinci xanım Mehriban Əliyeva Şuşada olub' }), true);
+  assert.equal(f({ title: 'Azərbaycanın birinci xanımı sərgi ilə tanış olub' }), true);
+  assert.equal(f({ title: 'Birinci xanım Bakıda sərgi ilə tanış olub' }), true);
+  const foreign = [{ id: 'f', category: 'prezident', source: 'Baku.ws', sourceUrl: 'https://baku.ws/x', title: 'ABŞ-nin birinci xanımı Oleşkidə atəşkəslə bağlı diplomatik görüş təşkil edəcək', publishedAt: at, lang: 'az' }];
+  assert.equal(ctx.api.prezHome(foreign).length, 0, 'yad xanım Zuğulbaya düşmür');
+});
+test('owner notes: turning notifications on shows a confirmation notification at once', async () => {
+  const shown = [];
+  const ctx = app({ window: { addEventListener() {}, Notification: { permission: 'granted' } }, Notification: { permission: 'granted' } });
+  vm.runInContext('renderTicker = () => {};', ctx);
+  ctx.api.S.swReg = { showNotification: async (title, o) => { shown.push([title, o]); } };
+  await vm.runInContext('armNotify()', ctx);
+  assert.equal(ctx.api.storage.getItem('8ulduz-notify'), '1');
+  assert.ok(shown.length === 1 && shown[0][0] === 'Son dəqiqə' && /Bildiriş aktivdir/.test(shown[0][1].body), 'aktiv edən kimi nümunə bildiriş gəlir');
+});
+test('owner notes: slider images are all fetched as soon as the reader touches the slider; the Zuğulba list looks further ahead', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('row.addEventListener("pointerdown", all, { once: true, passive: true })') && src.includes('row.children[at - 1], row.children[at]'), 'slayder: toxunanda hamısı, əvvəlki slayd da əvvəlcədən');
+  assert.ok(src.includes('lent.clientHeight + 900') && src.includes('lent.addEventListener("touchstart", loadNear'), 'Zuğulba: 900 px irəli, toxunanda dərhal');
+});
+test('owner notes: rare pages (sources, about, sections) live in sehife.js, are asked only when opened and still render with the helpers', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.equal(src.split('import("./sehife.js")').length - 1, 1);
+  assert.ok(!src.includes('<h1>Haqqımızda</h1>') && !src.includes('<h1>Mənbə vəziyyəti</h1>') && !src.includes('<ul class="mine">'), 'səhifə mətnləri app.js-də deyil');
+  const mod = fs.readFileSync(path.join(root, 'assets/sehife.js'), 'utf8').replace(/\r\n/g, '\n');
+  for (const n of ['sourcesView', 'aboutView', 'sectionsView']) assert.ok(mod.includes(`export function ${n}(d)`), n);
+  const ctx = app(), { S } = ctx.api;
+  const m = vm.runInContext('(function(){' + mod.replace(/^export /gm, '') + '\nreturn { sourcesView, aboutView, sectionsView }; })()', ctx);
+  S.data = { articles: [{ id: 'a', title: 'Xəbər', source: 'APA', sourceUrl: 'https://apa.az/1', category: 'gundem', lang: 'az', publishedAt: new Date().toISOString() }] };
+  S.sources = { sources: [{ name: 'APA', url: 'https://apa.az/rss', count: 3, okAt: new Date().toISOString() }] };
+  vm.runInContext('globalThis.__deps = { S, esc, sourceName, shownSource, removedSource, sourceLevel, ago, trackedSources, sectionPref, CATS, ASSISTANT_ON, DRIVER_ON, config: { contact: "a@b.az", goatcounter: "x" } };', ctx);
+  const d = ctx.__deps;
+  assert.ok(m.aboutView(d).includes('<h1>Haqqımızda</h1>') && m.aboutView(d).includes('a@b.az'));
+  assert.ok(m.sourcesView(d).includes('<h1>Mənbə vəziyyəti</h1>') && m.sourcesView(d).includes('src-row ok'));
+  assert.ok(m.sectionsView(d).includes('<h1>Mənim bölmələrim</h1>') && m.sectionsView(d).includes('data-act="sec-toggle"'));
+  assert.equal(ctx.api.homeView.name, 'homeView');
+  assert.ok(vm.runInContext('aboutView()', ctx).includes('Yüklənir'), 'modul gələnə qədər yüklənir yazısı');
 });
