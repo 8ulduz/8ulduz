@@ -2017,7 +2017,7 @@ test('owner notes: the logo row comes first with the install slot and a search b
   assert.ok(!app_.includes('langstick') && !app_.includes('id="langs"') && !app_.includes('class="filters"'), 'köhnə dil və süzgəc sətirləri yoxdur');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.inst .install-btn{background:var(--primary)'), '«Ana ekrana əlavə et» seçilən rəngdədir');
-  assert.ok(css.includes('.prez-lent{height:204px!important}'), 'telefonda Zuğulba iki kart hündürlüyündədir');
+  assert.ok(css.includes('.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}') && css.includes('.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}'), 'telefonda Zuğulba kartları bərabər, lent düz iki kart + ara (üçüncü kartın kəsiyi görünmür)');
   assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir (yalnız ≤370 px-də böyük işarə)');
   assert.ok(css.includes('#son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}'), '«Son xəbərlər» aydın xətlə ayrılır');
   assert.ok(css.includes('@media(hover:none){.shr .share{display:none}.shr .sh{display:grid'), 'telefonda paylaşma ikonları, kompüterdə düymə');
