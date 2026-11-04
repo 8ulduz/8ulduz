@@ -2132,3 +2132,19 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   assert.ok(list.indexOf('data-lang="az"') < list.indexOf('data-lang=""'), '«Hamısı» sonda');
   assert.ok(css.includes('.ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%') && css.includes('.ldd-pop{') && css.includes('background:#fff;color:#0a1120'), 'dairəvi bayraq, fərqli fonlu kart');
 });
+test('owner notes: the Telegram address from config.js reaches the static shell`s «Kanala keç» link', () => {
+  const cfg = fs.readFileSync(path.join(root, 'assets/config.js'), 'utf8');
+  assert.ok(cfg.includes('telegram: "https://t.me/') && !cfg.includes('telegram: "https://t.me/"'), 'config.js-də Telegram ünvanı var');
+  const btn = { href: '' };
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector(s) { return id === 'cta' && s === '.btn' ? btn : null; }, querySelectorAll() { return []; }, focus() {}, dataset: id === 'app' ? { shell: '1' } : {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
+  const ctx = app({
+    location: { hash: '#/', href: 'https://8ulduz.az/' }, history: { replaceState() {} },
+    window: { addEventListener() {}, SITE_CONFIG: { goatcounter: '', telegram: 'https://t.me/kanal', contact: '' } },
+    document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
+    requestAnimationFrame: () => 0,
+  });
+  vm.runInContext('shell()', ctx);
+  assert.equal(els.app.innerHTML, '', 'statik qabıq (data-shell) yenidən yazılmır');
+  assert.equal(btn.href, 'https://t.me/kanal', 'statik qabıqdakı boş t.me keçidi kanal ünvanı ilə doldurulur');
+});

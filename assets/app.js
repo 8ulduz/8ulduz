@@ -1069,6 +1069,7 @@ function shell() {
     <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
   </nav>`;
+  if (TELEGRAM) { const a = $("#cta")?.querySelector(".btn"); if (a) a.href = safeHref(TELEGRAM); } // statik qabıqda ünvan boşdur
   const q = $("#q");
   q.addEventListener("keydown", e => { if (e.key === "Enter") q.blur(); }); // telefonda klaviatura bağlansın
   q.addEventListener("blur", () => { if (!q.value) $("#sitehead")?.classList.remove("q-open"); }); // telefonda boş axtarış qutusu bağlanır
