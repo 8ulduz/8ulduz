@@ -121,7 +121,7 @@ const DAYS = ["bazar", "bazar ertəsi", "çərşənbə axşamı", "çərşənbə
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const HOUR = 3600e3, DAY = 24 * HOUR;
 const POLL_MS = 30e3;     // QIRMIZI XƏTT 1: lent dəqiqədə bir yazılır, sayt 30 saniyədən bir yoxlayır
-const NEWS_FULL_MS = 10 * 60e3; // tam lent (~300 KB) bu qədərdən bir; arada yalnız dilin latest faylı (~30 KB)
+const NEWS_FULL_MS = 10 * 60e3; // tam lent bu qədərdən bir; arada yalnız dilin latest faylı
 const LATEST_MAX_MS = 90e3;     // status möhürü dəyişməsə də bu qədərdən bir latest.json yoxlanır
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
 let freshSequence = 0;
@@ -883,7 +883,7 @@ function syncNewPill() {
   pill.hidden = !S.pendingNew;
   pill.textContent = `↑ ${S.pendingNew} yeni xəbər`;
 }
-// Dəqiqəlik lent dil üzrə (qırmızı xətt 3): latest.<dil>.json yalnız live budağındadır; status.json «langs» yoxdursa (köhnə pipeline) və ya alınmasa ümumi fayl.
+// Dəqiqəlik lent dil üzrə: latest.<dil>.json yalnız live-dədir; status «langs» yoxdursa və ya alınmasa ümumi fayl.
 async function latestJSON(force) {
   if (S.lang && S.status?.langs?.includes(S.lang)) {
     try {
@@ -1185,10 +1185,11 @@ function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
   const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub"].filter(Boolean).join(" ");
   const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
-  const primary = NAV_PRIMARY;
-  // nav-x: telefonda «Daha çox» əvəzinə zolaqda birbaşa görünən qalan bölmələr (masaüstündə gizli)
-  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
-  $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
+  const primary = NAV_PRIMARY, nb = i => i === 4 || i === 9 ? '<i class="nb"></i>' : ""; // telefonda 3×5: 5-ci və 10-cudan sonra sıra qırığı
+  // nav-x: telefonda görünən qalan bölmələr; .nav-inst: «Ana ekrana əlavə et» 15-ci düymə (sahibin qeydi), yalnız quraşdırma mümkünsə
+  const extra = CATS.filter(c => !primary.includes(c.slug)).map((c, i) => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>${nb(i + 7)}`).join("");
+  $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map((slug, i) => link(CATS.find(c => c.slug === slug)) + nb(i)).join("") + extra +
+    `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button>` +
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
   afterPaint(fitNav);
 }
@@ -1465,6 +1466,7 @@ const DRIVER_ON = window.SITE_CONFIG?.driver === true;
 function renderLangs() {
   const driver = storage.getItem('8ulduz-driver') === 'on';
   const row = $("#inst"); if (row) row.innerHTML = (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + installBtn();
+  $(".nav-inst")?.toggleAttribute("hidden", !installBtn());
 }
 // Dil seçimi yuxarı zolaqda: bayraq + kod + ox, klikdə dillər açılır. İdman bölməsində qeyd: idman hər dildədir (sahibin qaydası).
 function langDD() {
@@ -2178,8 +2180,7 @@ async function shareTo(t) {
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
-// Chrome təklifi özü verir (beforeinstallprompt); iPhone-da yalnız əl ilə mümkündür, ona görə yol göstərilir.
-// Kompüterdə başlıq sətrində, telefonda Namaz/hava sətrində (CSS sırası), seçilən rəngdə (sahibin qeydi).
+// Chrome: beforeinstallprompt; iPhone: əl ilə (yol göstərilir). Kompüterdə başlıqda (#inst), telefonda bölmə sətirlərində 15-ci düymə (.nav-inst), öz rəngində.
 function installBtn() {
   if (isStandalone() || (!S.installEvt && !isIOS())) return "";
   return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;

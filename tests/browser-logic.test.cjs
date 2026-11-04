@@ -227,6 +227,26 @@ test('phone headings use short names so they fit three rows, screen readers keep
   assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-f">Sağlamlıq və həyat<'));
   assert.equal(label({slug:'gundem',label:'Gündəm'}),'Gündəm');
 });
+test('phone nav: three rows of five, «Ana ekrana əlavə et» is the 15th pill and shows only when the app can be installed', () => {
+  const els = {};
+  const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; }, querySelectorAll() { return []; }, querySelector: s => s === '#nav' ? (els.nav ||= { innerHTML: '' }) : null };
+  const ctx = app({ document: doc, requestAnimationFrame: () => 0 }), { S } = ctx.api;
+  const html = () => { vm.runInContext('renderNav()', ctx); return els.nav.innerHTML; };
+  let h = html().split('<details class="nav-more">')[0]; // «Daha çox» menyusu (masaüstü) sayılmır
+  const rows = h.split('<i class="nb"></i>').map(r => (r.match(/<a href="#\/bolme\//g) || []).length);
+  assert.deepEqual(rows, [5, 5, 4], 'iki sıra qırığı: 5 / 5 / 4 bölmə + düymə');
+  assert.ok(h.includes('<button type="button" class="nav-inst" data-act="install" hidden>'), 'quraşdırma mümkün deyilsə düymə gizlidir');
+  assert.ok(h.indexOf('class="nav-inst"') > h.lastIndexOf('<a href="#/bolme/'), 'düymə sonuncu, 15-ci yerdədir');
+  S.installEvt = {};
+  h = html();
+  assert.ok(h.includes('class="nav-inst" data-act="install">'), 'Chrome təklif verəndə düymə görünür');
+  assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.nb,.nav-inst{display:none}'), 'masaüstündə nə qırıq, nə düymə');
+  assert.ok(css.includes('nav.main .nb{display:block;flex:1 0 100%;height:0'), 'sıra qırığı yalnız telefonda');
+  assert.ok(/nav\.main \.nav-inst\{display:inline-flex[^}]*background:var\(--primary\)/.test(css), 'düymə öz rəngində');
+  assert.ok(css.includes('nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto'), 'sətirlər bərabər dolur');
+});
 test('Zuğulba always shows 44 stories: official and state sites first, then others',()=>{
   const ctx=app(),{prezHome,prezBlock}=ctx.api,at=i=>new Date(Date.now()-i*3600e3).toISOString();
   const row=(id,source,i,lang='az')=>({id,source,lang,category:'prezident',title:'Prezident İlham Əliyev xəbəri '+id,sourceUrl:'https://x.az/'+id,publishedAt:at(i)});
