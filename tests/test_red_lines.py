@@ -129,14 +129,23 @@ class ChronicleTest(unittest.TestCase):
 
     def test_foreign_leaders_stay_out(self):
         for title in ["Bolsonaru özünü \"prezident\" elan etdi", "Keçmiş prezident dar ağacına gedir",
-                      "Ceyhun Bayramovdan diqqətçəkən jest: Özbəkistanın birinci xanımına kömək etdi"]:
+                      "Ceyhun Bayramovdan diqqətçəkən jest: Özbəkistanın birinci xanımına kömək etdi",
+                      # 2026-11-04: Baku.ws-in bu xəbəri Zuğulbaya düşmüşdü — ölkə adı defislə («ABŞ-nin») tanınmırdı
+                      "ABŞ-nin birinci xanımı Oleşkidə atəşkəslə bağlı diplomatik görüş təşkil edəcək",
+                      "Fransanın birinci xanımı Brijit Makron sərgi açıb",
+                      "Türkiyənin birinci xanımı Əminə Ərdoğan Bakıya gəlib",
+                      "Birinci xanım Melaniya Tramp uşaqlarla görüşüb",
+                      "Birinci xanımı qarşılayan nazir istefa verdi"]:
             self.assertNotEqual(self.label(title), "Prezident", title)
         self.assertNotEqual(self.label("Первая леди Франции посетила выставку", "ru"), "Prezident")
         self.assertNotEqual(self.label("Azerbaijan's first vice president", "en", True), "Prezident")
 
     def test_azerbaijani_leadership_stays_in(self):
         for title in ["Prezident İlham Əliyev fərman imzalayıb", "Birinci vitse-prezident Mehriban Əliyeva tədbirdə iştirak edib",
-                      "Birinci xanım Bakıda sərgi ilə tanış olub"]:
+                      "Birinci xanım Bakıda sərgi ilə tanış olub",
+                      "Azərbaycanın birinci xanımı sərgi ilə tanış olub",
+                      "Birinci xanım Mehriban Əliyeva Türkiyə Prezidentinin xanımı ilə görüşüb",
+                      "Birinci xanım Mehriban Əliyeva Fransaya səfər edib"]:
             self.assertEqual(self.label(title), "Prezident", title)
 
     def test_social_post_is_not_attributed_to_the_wrong_person(self):
@@ -208,6 +217,26 @@ class FastCycleTest(unittest.TestCase):
         self.assertFalse(next(a for a in self.news() if a["sourceUrl"] == link).get("imageUrl"))
         self.cycle(feed("https://apa.az/sekil.jpg"))
         self.assertEqual(next(a for a in self.news() if a["sourceUrl"] == link)["imageUrl"], "https://apa.az/sekil.jpg")
+
+    def test_a_retitled_story_keeps_one_record(self):
+        """Eyni mənbənin eyni nömrəli xəbəri yeni başlıq və slug ilə gələndə ikinci qeyd yaranmır: başlıq yenilənir, keçid və nömrə qalır."""
+        def feed_with(link, title):
+            def fetcher(feed, old=None):
+                rows = [self.item(link, title)] if feed[0] == ("Report" if "report.az" in link else "APA") else []
+                return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
+            return fetcher
+        self.cycle(feed_with("https://apa.az/europe/tbiliside-yangin-baslayib-1011019", "Tbilisidə telekanal binasında yanğın başlayıb"))
+        first = [a for a in self.news() if "apa.az" in a["sourceUrl"]]
+        self.assertEqual(len(first), 1)
+        self.cycle(feed_with("https://apa.az/europe/tbiliside-yangin-sondurulub-yenilenib-1011019", "Tbilisidə telekanal binasında yanğın söndürülüb - YENİLƏNİB"))
+        rows = [a for a in self.news() if "apa.az" in a["sourceUrl"]]
+        self.assertEqual(len(rows), 1, "eyni nömrəli xəbər iki dəfə düşməməlidir")
+        self.assertEqual(rows[0]["sourceUrl"], "https://apa.az/europe/tbiliside-yangin-baslayib-1011019")
+        self.assertEqual(rows[0]["id"], first[0]["id"], "paylaşılan keçid dəyişmir")
+        self.assertIn("söndürülüb", rows[0]["title"])
+        # başqa sayt eyni nömrə ilə ayrı xəbərdir
+        self.cycle(feed_with("https://report.az/az/hadise/basliq-1011019", "Bakıda yol qəzası olub"))
+        self.assertEqual(len([a for a in self.news() if a["sourceUrl"].endswith("1011019")]), 2)
 
     def first_screen_feed(self, feed, old=None):
         rows = [self.item("https://apa.az/ilk-1", "Avropada güclü fırtına başladı")] if feed[0] == "APA" else []

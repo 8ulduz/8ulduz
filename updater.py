@@ -590,6 +590,15 @@ GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|defau
 def _is_generic_img(u):
     return bool(u) and bool(GENERIC_IMG.search(u))
 
+# Xəbər fotosu kimi görünən ünvan (tarixli və ya uzun nömrəli yükləmə yolu) bir neçə xəbərdə təkrarlansa da loqo sayılmır:
+# AZƏRTAC bir tədbirin 3-5 xəbərinə eyni fotonu qoyur, TASS idman xəbərlərinə arxiv fotosunu (2026-11-04, sahibin «şəkilsiz
+# xəbər» qeydi). Saytın loqo və ümumi lövhə yolları GENERIC_IMG-dədir; onlar üçün 3 təkrar kifayətdir.
+_PHOTO_PATH = re.compile(r"/(?:files|uploads?|storage|media|photos?|images?)/.*\d{6,}|/20\d\d/\d{1,2}/", re.I)
+
+def _is_logo(u, n):
+    """n fərqli xəbərdə eyni şəkil: 3 və daha çoxdursa loqodur; xəbər fotosu kimi görünən ünvan üçün 8 və daha çox."""
+    return bool(u) and n >= (8 if _PHOTO_PATH.search(u) else 3)
+
 def _abs_img(u, base):
     if not u:
         return None
@@ -741,6 +750,23 @@ def fix_source_link(link):
     return re.sub(r"^(https?://(?:www\.)?lent\.az/xeber/.+-\d+)/1/?$", r"\1", link)
 
 
+_STORY_ID = re.compile(r"(?:/|[-_])(\d{5,})(?:\.html?|/|$)")
+
+def story_key(link):
+    """Mənbə domeni + xəbərin sabit nömrəsi («metbuat.az#1566209»). Sayt başlığı dəyişəndə keçidin slug hissəsi də dəyişir
+    (/news/1566209/kohne-basliq.html → /news/1566209/yeni-basliq.html), nömrə eyni qalır; belə xəbər ikinci dəfə lentə düşməsin
+    (2026-11-04, sahibin «pensiya» qeydi). Yalnız öz seqmentində və ya seqmentin sonunda duran 5+ rəqəmli nömrə sayılır
+    (yoldakı 20261104 tarixi və slugdakı «100000-manat» məbləği yox); bir neçə nömrədən sonuncusu (skysports: /news/12040/13607905/).
+    Nömrəsiz keçid üçün None: belə xəbər əvvəlki kimi keçidlə tanınır."""
+    try:
+        u = urllib.parse.urlparse(link or "")
+    except ValueError:
+        return None
+    host = (u.hostname or "").lower().removeprefix("www.")
+    nums = [n for n in _STORY_ID.findall(u.path or "") if not re.fullmatch(r"(?:19|20)\d{6}", n)]
+    return f"{host}#{nums[-1]}" if host and nums else None
+
+
 def fixed_source_date(link, now=None):
     """This publisher's RSS stamps every item with request time (+0000 for local time).
     Its own article URL contains a stable creation timestamp; use that fallback instead
@@ -808,13 +834,24 @@ def has_any(blob, words):
 # Vəzifə adı təkbaşına Azərbaycan demək deyil: «Özbəkistanın birinci xanımı», «Первая леди Франции».
 PRESIDENT_ROLES = {"birinci xanım", "birinci xanim", "birinci xanımlar", "birinci vitse-prezident", "первой леди", "первая леди",
                    "первый вице-президент", "first vice-president", "first vice president"}
-_ROLE_FOREIGN = re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, FOREIGN_MARKERS)) + r")\w*\s+(?:prezidentinin\s+)?(?:birinci xan[ıi]m|birinci vitse-prezident)")
+# Ölkə adı defis və şəkilçi ilə də gəlir («ABŞ-nin birinci xanımı», «Fransa'nın birinci xanımı»): \w* defisdə dayanırdı və
+# Baku.ws-in «ABŞ-nin birinci xanımı Oleşkidə...» xəbəri Zuğulbaya düşmüşdü (2026-11-04).
+_ROLE_FOREIGN = re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, FOREIGN_MARKERS)) + r")[\w'’-]*\s+(?:prezidentinin\s+)?(?:birinci xan[ıi]m|birinci vitse-prezident)")
+# Yiyəlik şəkilçili vəzifə («birinci xanımı», «birinci xanımına») kiminsə xanımıdır: ad və ya Azərbaycan yoxdursa başqa ölkənindir.
+_ROLE_POSSESSED = re.compile(r"birinci xan[ıi]m(?:[ıi]|[ıi]n|[ıi]n[ıi]n|[ıi]na|[ıi]n[ıi]|[ıi]nda|[ıi]ndan)(?!\w)")
 _AZ_CONTEXT = re.compile(r"əliyev|aliyev|алиев|azərbaycan|azerbaycan|azerbaijan|азербайдж")
 
 def president_score(blob, lang):
+    """Rəhbərlik balı: şəxs (ad) > vəzifə > ümumi söz. Vəzifə adı («birinci xanım», «birinci vitse-prezident») yalnız
+    Azərbaycanla əlaqə aydın olanda sayılır: yanında və ya mətndə başqa ölkənin adı, yiyəlik şəkilçisi ilə kiminsə xanımı
+    və Azərbaycan/ad yoxdursa — başqa ölkənin rəhbəridir. Ad varsa («Birinci xanım Mehriban Əliyeva Türkiyədə») həmişə bizimdir."""
     hits = [w for w in PRESIDENT_STRONG if _rx(w).search(blob)]
     if hits and all(w in PRESIDENT_ROLES for w in hits):
-        if _ROLE_FOREIGN.search(blob) if lang == "az" else not _AZ_CONTEXT.search(blob):
+        if lang == "az":
+            foreign = bool(_ROLE_FOREIGN.search(blob)) or ((bool(_ROLE_POSSESSED.search(blob)) or has_any(blob, FOREIGN_MARKERS)) and not _AZ_CONTEXT.search(blob))
+        else:
+            foreign = not _AZ_CONTEXT.search(blob)
+        if foreign:
             hits = []
     if hits:
         return 4 + 2 * len(hits)
@@ -4717,9 +4754,9 @@ def fill_og_images(articles, limit=120):
         if a.get("imageUrl"):
             freq[a["imageUrl"]] = freq.get(a["imageUrl"], 0) + 1
     for k, v in list(cache.items()):
-        if v and freq.get(v, 0) >= 3:
+        if v and _is_logo(v, freq.get(v, 0)):
             cache[k] = ""
-    logos = {v for v, n in freq.items() if n >= 3}
+    logos = {v for v, n in freq.items() if _is_logo(v, n)}
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
@@ -4743,8 +4780,8 @@ def fill_og_images(articles, limit=120):
                     freq[img] = freq.get(img, 0) + 1
             for a, img in zip(batch, found):
                 # Şəbəkə xətası və ya yeni üzə çıxan loqo: xəbər lentdə cəmi 3-4 saat qalır, 6 saat gözləsə şəkilsiz çıxıb gedir.
-                soon = img is None or bool(img and freq.get(img, 0) >= 3)
-                if img and freq.get(img, 0) >= 3:
+                soon = img is None or _is_logo(img, freq.get(img, 0))
+                if _is_logo(img, freq.get(img, 0)):
                     img = ""  # bu dövrədə də eyni şəkil təkrarlanır: loqo
                 cache[a["sourceUrl"]] = img or ""
                 if img:
@@ -4870,11 +4907,28 @@ def main(fast=False):
     now_utc = datetime.datetime.now(datetime.timezone.utc)
     cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)
     old = [a for a in old if (_parse_dt(a.get("publishedAt")) or now_utc) >= (cutoff_prez if a.get("category") == "prezident" else cutoff)]
+    # Əvvəlki dövrələrdən qalan eyni nömrəli cütlər (slug dəyişmiş eyni xəbər): yalnız ən yenisi qalır.
+    keyed, dedup = set(), []
+    for a in old:
+        k = story_key(a.get("sourceUrl"))
+        if k in keyed:
+            continue
+        if k:
+            keyed.add(k)
+        dedup.append(a)
+    old = dedup
     seen = {a["sourceUrl"] for a in old}
     if fast:  # başqa xəbərin mənbəsi kimi birləşmiş keçid yenidən «yeni» sayılmasın
         seen |= {alt.get("sourceUrl") for a in old for alt in a.get("alts") or []}
     old_by_url = {a["sourceUrl"]: a for a in old}
-    new_items, errors, empty = [], [], []
+    # Eyni mənbənin eyni nömrəli xəbəri (başlıq və slug dəyişəndə) yeni qeyd sayılmasın: nömrə üzrə köhnə qeyd tapılır (story_key).
+    old_by_key = {}
+    for a in old:
+        for u in [a.get("sourceUrl"), *(alt.get("sourceUrl") for alt in a.get("alts") or [])]:
+            k = story_key(u)
+            if k and k not in old_by_key:
+                old_by_key[k] = a
+    new_items, errors, empty, new_keys = [], [], [], set()
     # Sürətli dövrə köhnə xəbərlə lenti geri doldurmur: lentdəki ən köhnədən köhnə element emal olunmur.
     regular = [_parse_dt(a.get("publishedAt")) for a in old if a.get("category") != "prezident"]
     floor = min([d for d in regular if d], default=None) if fast and len(regular) >= 300 else None
@@ -4928,6 +4982,21 @@ def main(fast=False):
                     if known is not None and not known.get("imageUrl") and it.get("image"):
                         known["imageUrl"] = it["image"]
                     continue
+                key = story_key(it["link"])
+                if key and key in old_by_key:
+                    # Eyni xəbər yeni başlıq və slug ilə: qeyd birdir, başlığı yenilənir, keçid və nömrə (paylaşma) qalır.
+                    known, title = old_by_key[key], _plain(it["title"], title=True)
+                    if title and title != known.get("title"):
+                        known["title"] = title
+                        known["summary"] = _short(_plain(it["description"])) or known.get("summary", "")
+                    if not known.get("imageUrl") and it.get("image"):
+                        known["imageUrl"] = it["image"]
+                    seen.add(it["link"])
+                    continue
+                if key:
+                    if key in new_keys:  # eyni dövrədə iki lentdən (əsas və bölmə RSS-i) fərqli slug ilə
+                        continue
+                    new_keys.add(key)
                 if floor and it.get("pubDate") and _older_than(it["pubDate"], floor):
                     continue
                 if source in source_floor and it.get("pubDate") and _older_than(it["pubDate"], source_floor[source]):
@@ -5012,11 +5081,11 @@ def main(fast=False):
             img_count[a["imageUrl"]] = img_count.get(a["imageUrl"], 0) + 1
     for a in articles:
         u = a.get("imageUrl")
-        if u and (img_count.get(u, 0) >= 3 or _is_generic_img(u)):
+        if u and (_is_logo(u, img_count.get(u, 0)) or _is_generic_img(u)):
             a["imageUrl"] = None
         if not a.get("imageUrl"):
             for alt in a.get("alts") or []:
-                if alt.get("imageUrl") and img_count.get(alt["imageUrl"], 0) < 3 and not _is_generic_img(alt["imageUrl"]):
+                if alt.get("imageUrl") and not _is_logo(alt["imageUrl"], img_count.get(alt["imageUrl"], 0)) and not _is_generic_img(alt["imageUrl"]):
                     a["imageUrl"] = alt["imageUrl"]
                     break
     if fast:

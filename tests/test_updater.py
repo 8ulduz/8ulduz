@@ -1933,3 +1933,56 @@ class SectionPagePolicyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StoryKeyTest(unittest.TestCase):
+    """Mənbə domeni + sabit xəbər nömrəsi (2026-11-04, sahibin «pensiya» qeydi): slug dəyişəndə eyni xəbər ikinci dəfə düşmür."""
+
+    def test_key_is_host_plus_stable_number(self):
+        k = updater.story_key
+        self.assertEqual(k("https://metbuat.az/news/1566209/kohne-basliq.html"), "metbuat.az#1566209")
+        self.assertEqual(k("https://metbuat.az/news/1566209/yeni-basliq.html"), "metbuat.az#1566209")
+        self.assertEqual(k("https://azertag.az/xeber/basliq_sozleri-4495089"), "azertag.az#4495089")
+        self.assertEqual(k("https://www.qafqazinfo.az/news/detail/basliq-527380"), "qafqazinfo.az#527380")
+        self.assertEqual(k("https://crossmedia.az/az/article/115842"), "crossmedia.az#115842")
+        self.assertEqual(k("https://www.skysports.com/golf/news/12040/13607905/basliq"), "skysports.com#13607905")
+        self.assertEqual(k("https://president.az/az/articles/view/74436"), "president.az#74436")
+
+    def test_dates_amounts_and_plain_slugs_give_no_key(self):
+        k = updater.story_key
+        self.assertIsNone(k("https://x.az/2026/11/04/basliq"))
+        self.assertIsNone(k("https://x.az/news/20261104/basliq"))
+        self.assertIsNone(k("https://oxu.az/economy/100000-manat-pensiya"))
+        self.assertIsNone(k("https://report.az/az/daxili-siyaset/basliq"))
+        self.assertIsNone(k("https://x.az/news/1234"))
+        self.assertIsNone(k(""))
+        self.assertIsNone(k(None))
+
+    def test_same_number_on_another_site_is_another_story(self):
+        self.assertNotEqual(updater.story_key("https://a.az/news/12345"), updater.story_key("https://b.az/news/12345"))
+
+
+class RepeatedPhotoTest(unittest.TestCase):
+    """Eyni şəkil 3 xəbərdə: loqo sayılırdı. Xəbər fotosu kimi görünən ünvan (AZƏRTAC-ın bir tədbirin bütün xəbərlərinə qoyduğu foto,
+    TASS-ın arxiv fotosu) indi 8 təkrara qədər qalır; loqo yolları (GENERIC_IMG) və adi ünvanlar üçün 3 qalır."""
+
+    def test_event_photo_survives_a_few_repeats_but_a_logo_does_not(self):
+        photo = "https://azertag.az/files/2026/3/1200x630/17937966932718921692_1200x630.jpg"
+        tass = "https://cdn-media.tass.ru/fit/400x300_b2b00b17/tass/m2/uploads/i/20250116/8011617.jpg"
+        self.assertFalse(updater._is_logo(photo, 4))
+        self.assertFalse(updater._is_logo(tass, 5))
+        self.assertTrue(updater._is_logo(photo, 9))
+        self.assertTrue(updater._is_logo("https://marja.az/images/logo.png", 3))
+        self.assertTrue(updater._is_logo("https://x.az/site/share.png", 3))
+        self.assertFalse(updater._is_logo("https://x.az/site/share.png", 2))
+        self.assertFalse(updater._is_logo("", 9))
+
+    def test_fill_og_images_keeps_a_photo_shared_by_three_stories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            photo = "https://azertag.az/files/2026/3/1200x630/17937966932718921692_1200x630.jpg"
+            urls = [f"https://azertag.az/xeber/tedbir-{i}" for i in range(3)]
+            with patch.object(updater, 'OG_FILE', folder / 'og.json'), patch.object(updater, 'OUT_DIR', folder), patch.object(updater, '_fetch_og', return_value=photo):
+                articles = [{'sourceUrl': u} for u in urls]
+                updater.fill_og_images(articles)
+            self.assertEqual([a.get('imageUrl') for a in articles], [photo] * 3)
