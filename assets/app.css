@@ -101,7 +101,7 @@ header.site{position:sticky;top:0;z-index:50;background:var(--header);border-bot
 .logo{display:flex;align-items:center;flex:none}
 .logo img{display:block;height:40px;width:auto}
 :root[data-theme="light"] .logo{background:#0e0d0b;border-radius:9px;padding:4px 9px}
-/* Masaüstündə bir sətir: sığmayan bölmələr «Daha çox»a keçir, Tıxac görünür qalır */
+/* Masaüstü: bir sətir, sığmayanlar «Daha çox»da */
 nav.main{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;flex:1 1 220px;min-width:0;overflow:visible}
 nav.main a{white-space:nowrap;padding:5px 8px;border-radius:999px;font-weight:600;font-size:0.8929rem;line-height:1.25;color:var(--muted);flex:none}
 nav.main a:hover{background:var(--card2);color:var(--fg)}
@@ -122,7 +122,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 .search input:focus{border-color:var(--primary)}
 .search input:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
-/* Aşağıda: yuxarıda başlığı və bölmələri örtürdü (sahibin ekran görüntüsü). Telefonda alt panelin üstündə. */
+/* Aşağıda (yuxarıda başlığı örtürdü); telefonda alt panelin üstündə */
 .newpill{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:80;padding:8px 16px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 .newpill[hidden]{display:none}
 .skip{position:absolute;left:8px;top:-48px;z-index:90;background:var(--primary);color:var(--primary-fg);font-weight:700;padding:6px 12px;border-radius:8px}
@@ -161,7 +161,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
   nav.main:has(.nav-more[open]){overflow:visible}
   nav.main a{padding:4px 7px;font-size:0.82rem}
 }
-/* «Son əlaqə» yalnız geniş ekranda; orta ekranda kəsilməsin deyə gizlidir */
+/* «Son əlaqə» yalnız geniş ekranda */
 @media (max-width:1100px){
   .topbar .sync{display:none}
   .topbar .yenilendi{margin-left:auto}
@@ -705,7 +705,6 @@ html[data-route=other] .pre-skel{display:none} /* statik skelet yalnız baş sə
 :root[data-theme="light"] .prez{background:linear-gradient(90deg,hsl(43 85% 48%/.14),var(--card) 42%,var(--card))}
 :root[data-theme="light"] .pcard,:root[data-theme="light"] .prez .soc-p{border-color:hsl(188 28% 72%)}
 
-/* Compact news layout: the source and saved controls remain independent links. */
 .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 :root{--maxw:1440px}
 .hrow{flex-wrap:nowrap;gap:12px}
@@ -779,7 +778,6 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 @media(max-width:600px){.latest-grid{grid-template-columns:1fr}.hero-main{min-height:260px;height:280px}.hero-main h2{font-size:1.4rem}.search{min-width:0;flex-basis:160px}.hrow .logo img{height:30px}nav.main a{font-size:.77rem;padding:7px 5px}.nav-more summary{font-size:.77rem;padding:7px 5px}.nav-more-pop{position:fixed;top:110px;left:14px;right:14px;min-width:0;max-height:65vh}.feed-tabs{margin-left:0}.foot .games li{grid-template-columns:80px minmax(0,1fr) 42px minmax(0,1fr);gap:5px;font-size:.8rem}.foot .games time{font-size:.65rem}.star{width:32px;height:32px}.pill,.loadmore,.nav-more-pop a{min-height:44px}.totop{width:44px;height:44px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
-/* News carousels: arrows remain visible on touch screens and desktops. */
 .hero-row,.news-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-behavior:smooth;min-width:0;align-items:flex-start;padding-bottom:4px}
 .hero-row::-webkit-scrollbar,.news-row::-webkit-scrollbar{display:none}
 .hero-row{gap:0;align-items:stretch}
@@ -806,7 +804,6 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 @media(max-width:600px){.news-row>.card{flex-basis:86%}.news-row{gap:10px}.hero-row .hero-main .body{padding:16px 42px}.hero-row .hero-main h2{font-size:1.25rem}.news-row .card .img{width:100%;height:auto;aspect-ratio:16/9}.prez-lent{height:300px}.ytrow>.vcard{flex-basis:200px}}
 @media(prefers-reduced-motion:reduce){.hero-row,.news-row,.prez-lent{scroll-behavior:auto}}
 
-/* Keep the mobile More trigger and its menu inside the viewport. */
 @media(max-width:900px){
   nav.main{display:flex;flex-wrap:wrap;flex-basis:100%;width:100%;min-width:0;overflow:visible}
   nav.main .nav-more{position:static}
@@ -847,7 +844,6 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 }
 @media(max-width:380px){.topbar .pray>.pt{display:none}}
 
-/* Voice assistant: opt-in microphone, written commands always available. */
 #voice-assistant{position:fixed;left:18px;bottom:20px;z-index:75;font-size:14px}
 .assistant-launch{background:var(--primary);color:var(--primary-fg);padding:12px 16px;border-radius:999px;box-shadow:0 4px 20px #0005;font-weight:700;min-height:44px}
 .assistant-panel{position:fixed;left:18px;bottom:78px;width:420px;max-width:calc(100vw - 36px);max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 50px #0008;padding:16px}
@@ -892,7 +888,6 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
   .driver-toggle{min-height:44px}
   .driver-reader{left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom,0px));width:auto;padding:12px}
 }
-/* Keep the reader tools clear of the bottom navigation and phone safe area. */
 @media(max-width:900px){
   #voice-assistant{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
   .assistant-panel{bottom:calc(134px + env(safe-area-inset-bottom,0px));max-height:calc(100dvh - 150px - env(safe-area-inset-bottom,0px))}
@@ -900,9 +895,8 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
   .search input,.source-search input,.pray-city,.language-picker select{font-size:16px}
 }
 .assistant-tools button[aria-pressed="true"]{background:var(--red);color:#fff;border-color:var(--red)}
-/* Toxunma/dar ekran: Zuğulba lenti üçün snap və öz-özünə addımlama yoxdur */
+/* Toxunma/dar ekran: Zuğulba lentində snap və addımlama yoxdur */
 @media (hover:none),(max-width:900px){
-  /* Daxili sürüşmə qalır; brauzer zənciri söndürülüb, kənarda ötürməni app.js edir */
   .prez-lent{height:320px!important;overflow-y:auto;scroll-snap-type:none;scroll-behavior:auto;overscroll-behavior-y:none;touch-action:pan-y}
 }
 
@@ -910,8 +904,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 nav.main a.nav-x{display:none}
-/* Telefon: bütün bölmələr görünür, sətirlərə bölünür (sahibin qərarı, 2026-11-03: ya hamısı, ya heç biri — kəsik başlıq olmasın);
-   «Baş səhifə» alt paneldəki «Əsas»dadır; ☆ düyməsi başlığı örtmür; köməkçi yığcam ikonadır. */
+/* Telefon: bütün bölmələr görünür (sahibin qərarı 2026-11-03: ya hamısı, ya heç biri); «Baş səhifə» alt paneldədir */
 @media(max-width:600px){
   nav.main{display:flex;flex-wrap:wrap;overflow:visible;gap:4px 3px;-webkit-mask-image:none;mask-image:none}
   nav.main>a,nav.main .nav-more>summary{flex:none;white-space:nowrap;overflow-wrap:normal;padding:3px 7px;min-height:30px;font-size:.8rem}
@@ -929,7 +922,7 @@ nav.main a.nav-x{display:none}
   .latest-grid .card .badges,.grid .card .badges,.card:has(>.star) .badges{padding-right:44px}
 }
 
-/* Başlıqlar bir-birinə yaxın; alt başlığı olanlar (İdman, Bölgələr) oxla və qalın yazı ilə fərqlənir. */
+/* Alt başlıqlı bölmələr (İdman, Bölgələr) oxla və qalın */
 nav.main{gap:0}
 nav.main a{padding:5px 6px}
 nav.main a.has-sub{font-weight:700;color:var(--fg)}
@@ -938,16 +931,13 @@ nav.main a.has-sub::after{content:"▾";margin-left:3px;font-size:.8em;opacity:.
 .flag{display:inline-block;vertical-align:-1px;margin-right:4px;border-radius:2px;box-shadow:0 0 0 1px #0003;flex:none}
 .mk-ic{margin-right:3px}
 .mk-ic .flag{margin-right:0}
-.lang-pills{display:flex;align-items:center;gap:4px;flex:none}
-.lang-pill{display:inline-flex;align-items:center;padding:3px 9px;font-size:.8rem;font-weight:700;white-space:nowrap}
 .chip-h .flag{margin-right:4px}
-/* Telefon: bütün başlıqlar görünür, sətirlərə bölünür. Başlıq yuxarıda qalmır ki, xəbərə yer qalsın: axtarış və bölmələr alt paneldədir. */
+/* Telefon: bütün başlıqlar görünür, sətirlərə bölünür */
 @media(max-width:600px){
   header.site{position:relative}
   nav.main{display:flex;flex-wrap:wrap;overflow:visible;gap:4px;-webkit-mask-image:none;mask-image:none}
   nav.main>a{padding:6px 10px;min-height:34px;font-size:.82rem;background:var(--card2);border-radius:999px}
   nav.main>a.on{background:var(--primary);color:var(--primary-fg)}
-  .lang-pill{min-height:36px}
   .sport-chips .chips{flex-wrap:wrap;overflow:visible}
 }
 
@@ -991,24 +981,24 @@ a.pill.on small{color:inherit}
 .share{width:auto;height:24px;padding:0 9px;border:1px solid var(--border);font-size:.72rem;font-weight:700;line-height:1;white-space:nowrap}
 .share:hover{border-color:var(--primary)}
 @media (max-width:600px){.share{width:auto;height:28px;padding:0 10px}}
-/* Rejim düyməsi: yazı kənara dəyməsin (.topbar .prefs button 3px qoyur) */
+/* Rejim düyməsi: yazı kənara dəyməsin */
 .topbar .prefs .theme-btn{padding:0 6px}
 @media (min-width:601px){.topbar .prefs .theme-btn{padding:0 8px;height:22px}}
 /* Tıxac: Namaz yaşıl, hava mavi, yol isə işıqforun narıncısı */
 :root{--tix-pill:linear-gradient(180deg,#ea580c 0%,#c2410c 100%);--tix-on:#fff7ed}
 :root[data-theme="light"]{--tix-pill:linear-gradient(180deg,#fdba74 0%,#fb923c 100%);--tix-on:#7c2d12}
 
-/* Loqo tünd fon üçün çəkilib: işıqlı rejimdə də şəkil yerində tünd lövhə (başlıqdakı .logo kimi) */
+/* Loqo: işıqlı rejimdə də tünd lövhə */
 .fcontact{margin:8px 0 0}
 /* Telefonda başlıqlar alçaq, barmaq üçün rahat qalır */
 @media(max-width:600px){nav.main>a{min-height:30px;padding:3px 10px;font-size:.8rem;line-height:1.2}nav.main{gap:3px}.nav-row .pill{min-height:30px;padding:3px 10px;font-size:.8rem}}
-/* Məzənnə həmişə bir sətirdir: sığmayanda yana sürüşür, sığanda ortada qalır */
+/* Məzənnə bir sətir: sığmayanda yana sürüşür */
 .mk-grid{flex-wrap:nowrap;max-width:none;overflow-x:auto;scrollbar-width:none;justify-content:flex-start}
 .mk-grid::-webkit-scrollbar{display:none}
 .mk-grid>.mk:first-child{margin-left:auto}
 .mk-grid>.mk:last-child{margin-right:auto}
 .nav-s{display:none}
-/* Telefon: başlıq sətirləri bərabərləşir, heç bir endə son başlıq (Video) tək sətrə düşmür */
+/* Telefon: başlıq sətirləri bərabərləşir */
 @media(max-width:600px){
   nav.main{display:block;text-wrap:balance}
   nav.main>a,nav.main a.nav-x{display:inline-flex;align-items:center;vertical-align:top;margin:0 2px 3px 0;padding-left:7px;padding-right:7px}
@@ -1016,23 +1006,22 @@ a.pill.on small{color:inherit}
   nav.main .nav-s{display:inline}
   nav.main>a[href="#/"]{display:none}
 }
-/* Şəkil kartın sahəsini örtür: sabit çərçivə, mərkəzdən kəsik. Uzanma, qara zolaq və boş yer yoxdur. */
+/* Şəkil kartı örtür (cover), mərkəzdən kəsik */
 .img>img,.hero-main>.img img,.card .img img,.pcard .img img{object-fit:cover;object-position:center}
 .card>.img,.hero-main>.img{background:var(--card)}
-/* Telefon və planşetdə slayder: başlıq şəklin altındakı tünd örtükdədir, kartın hündürlüyü şəkil qədərdir. */
+/* Telefon/planşet slayderi: başlıq tünd örtükdə, hündürlük şəkil qədər */
 @media(max-width:900px){.hero-row .hero-main{position:relative;display:block;height:auto;min-height:0;overflow:hidden;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;z-index:0;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:block;z-index:1;pointer-events:none;background:linear-gradient(to top,#000 0%,rgba(0,0,0,.75) 36%,transparent 68%)}.hero-row .hero-main .body{position:absolute;z-index:2;left:0;right:0;bottom:0;margin:0;padding:32px 14px 12px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:#fff}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:#fff}.hero-strip .st-btn{top:42%}}
-/* Kompüterdə slayder: şəkil 16:9 çərçivəni örtür (object-fit: cover), başlıq sağda. */
+/* Kompüterdə slayder: 16:9 şəkil, başlıq sağda */
 @media(min-width:901px){.hero-row .hero-main{background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;height:100%;aspect-ratio:16/9;max-width:min(70%,calc(100% - 250px))}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{flex:1;min-width:0;margin:0;justify-content:center;padding:56px 58px 40px 22px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:var(--fg);font-size:clamp(1.15rem,1.6vw,1.6rem);-webkit-line-clamp:6}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}}
-/* Telefonda «Son xəbərlər» kartı: mənbə sətri bütün endə, şəklin altında. Əvvəl başlıq hündür olanda şəklin altında boş yer qalırdı. */
+/* Telefonda «Son xəbərlər» kartı: mənbə sətri şəklin altında, bütün endə */
 @media(max-width:600px){.latest-grid .card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}.latest-grid .card>.img{grid-row:1/3;align-self:center;width:136px;aspect-ratio:16/9;border-radius:0 10px 10px 0}.latest-grid .card>.b{display:contents}.latest-grid .card .badges{grid-column:2;margin:9px 11px 0}.latest-grid .card .card-hit{grid-column:2;margin:5px 11px 0}.latest-grid .card .meta{grid-column:1/-1;margin:6px 11px 10px}.latest-grid .card.noimg{grid-template-columns:minmax(0,1fr)}.latest-grid .card.noimg .badges,.latest-grid .card.noimg .card-hit,.latest-grid .card.noimg .meta{grid-column:1}}
-
 
 .card[data-cat],.pcard[data-cat]{border-left-width:1px;border-left-color:var(--border)}
 .sec-h h2{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:var(--fw-semibold)}
 .hero-main h2,.hero-row .hero-main h2{font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--fw-bold)}
 .card h3,.grid .card h3,.latest-grid .card h3,.news-row .card h3,.card:has(>.star) h3{font-size:var(--fs-headline);line-height:var(--lh-headline);font-weight:var(--fw-bold);-webkit-line-clamp:4;padding-right:0}
 .latest-grid .card .badges,.grid .card .badges,.card:has(>.star) .badges{padding-right:0}
-.meta,.bd,.pill,.lang-pill,.share,.btn,.tag,.source-count{font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-semibold)}
+.meta,.bd,.pill,.share,.btn,.tag,.source-count{font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-semibold)}
 .card p{display:none}
 .latest-grid,.grid{gap:var(--gutter)}
 .hero-row>.hero-main{flex:0 0 100%;width:100%;scroll-snap-align:center;scroll-snap-stop:always;border-radius:var(--radius)}
@@ -1079,8 +1068,6 @@ a.pill.on small{color:inherit}
 .prez-lent{margin-top:8px}
 /* Telefonda yuxarı zolaq bir sətirdir: namaz, hava və düymələr. Tıxac həbi yuxarıda yoxdur. */
 @media(max-width:720px){
-  .topbar .wrap{flex-wrap:nowrap;align-items:center;gap:4px;height:36px;min-height:36px;padding-top:0;padding-bottom:0;overflow:hidden}
-  .topbar .sync-state{position:absolute;left:var(--gutter);right:var(--gutter);top:100%;flex-basis:auto;order:0;width:auto;background:var(--bg);z-index:2}
   .topbar .prefs{margin-left:auto;flex:none;gap:2px}
   .topbar .prefs button{height:32px;min-width:32px;margin:0;padding:0}
   .topbar .prefs button .face{height:28px;min-width:28px;padding:0 5px}
@@ -1094,7 +1081,6 @@ a.pill.on small{color:inherit}
   nav.main::-webkit-scrollbar{display:none}
   nav.main>a,nav.main a.nav-x{display:inline-flex;flex:none;align-items:center;white-space:nowrap;margin:0;min-height:28px;padding:0 10px;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-semibold);border-radius:999px}
   nav.main>a[href="#/"],nav.main .nav-more{display:none}
-  .lang-pill{min-height:26px;padding:0 8px}
   .logo{order:1}
   .search{order:2;flex:1 1 0;min-width:0;width:auto}
   .search input{width:100%;min-width:0;height:28px;font-size:var(--fs-body)}
@@ -1119,7 +1105,7 @@ a.pill.on small{color:inherit}
 @media(min-width:901px){.hero-row .hero-main h2{font-size:var(--fs-display);-webkit-line-clamp:6}}
 /* Son söz (sahibin qərarı): telefonda bölmələrin hamısı sətirlərə bölünərək görünür, sürüşmə və kəsik yoxdur. */
 @media(max-width:600px){nav.main{display:flex;flex-wrap:wrap;overflow:visible;white-space:normal;gap:3px 2px;-webkit-mask-image:none;mask-image:none}nav.main>a,nav.main a.nav-x{margin:0}}
-/* 2026-11-04, sahibin qeydləri: loqo ən üstdə, yanında «Ana ekrana əlavə et»; yuxarı zolaq ikinci sətirdə, orada dil seçimi (bayraq+kod+ox); telefonda axtarış lupa düyməsi ilə açılır */
+/* 2026-11-04, sahibin qeydləri: loqo ən üstdə, yuxarı zolaq ikinci sətirdə (orada dil seçimi), telefonda axtarış lupa düyməsi ilə */
 .inst{display:inline-flex;align-items:center;flex:none}
 .inst:empty{display:none}
 .inst .install-btn{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
@@ -1130,21 +1116,35 @@ a.pill.on small{color:inherit}
 .ldd-btn .flag{margin:0}
 .ldd-btn .caret{font-size:.7em;opacity:.7}
 .ldd.open .ldd-btn,.ldd-btn:hover{border-color:var(--primary)}
-.ldd-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:80;display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 28px #000a}
-.ldd-pop .lang-pills{flex-wrap:wrap}
+/* Dil siyahısı: fərqli fonlu kart (tünd temada ağ, işıqlıda tünd), hər dil öz sətrində, dairəvi bayraq */
+.ldd-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:80;display:flex;flex-direction:column;gap:4px;padding:6px;background:#fff;color:#0a1120;border-radius:14px;box-shadow:0 12px 28px #000a}
+:root[data-theme="light"] .ldd-pop{background:#0e1a2e;color:#fff}
+.ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%;box-shadow:0 0 0 1px #0003;margin:0}
+.lang-list{display:flex;flex-direction:column;min-width:150px}
+.ldm{display:flex;align-items:center;gap:10px;padding:8px 12px;border:0;border-radius:10px;font:inherit;font-size:1rem;font-weight:700;color:inherit;background:none;text-align:left;cursor:pointer}
+.ldm .globe{display:grid;place-items:center;font-size:14px;background:#dde3ee}
+.ldm:hover{background:#0000000f}
+:root[data-theme="light"] .ldm:hover{background:#ffffff1f}
+.ldm.on{background:var(--primary);color:var(--primary-fg)}
+.ldd-pop .lang-note{max-width:220px;padding:4px 12px 0;opacity:.75}
 .topbar .retry{margin-left:6px;padding:0 8px;border:1px solid currentColor;border-radius:999px;font:inherit;font-size:.75rem;font-weight:700;color:inherit;background:none}
 .prefs .theme-btn .face{gap:4px}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: kompüterdə loqo/bölmələr/axtarışın altında, telefonda loqo sətri ilə bölmə sətirləri arasında */
 .hrow{flex-wrap:wrap}
 .hrow>.topbar{flex:1 0 100%;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
-/* Paylaşma: kompüterdə «Paylaş» düyməsi panel açır; telefonda (hover:none) düymənin yerində F, X, W, T və kopyala */
+/* Paylaşma: kompüterdə düymə → panel; telefonda (hover:none) şəbəkə işarələri */
 .shr{display:inline-flex;align-items:center;gap:4px;margin-left:auto;flex:none}
 .shr .share{margin-left:0}
-.sh{display:none;width:24px;height:24px;padding:0;border:0;border-radius:50%;color:#fff;font:700 12px/1 system-ui,sans-serif;place-items:center;cursor:pointer}
-.sh[data-to=fb]{background:#1877f2}.sh[data-to=x]{background:#111;box-shadow:0 0 0 1px #777}.sh[data-to=wa]{background:#25d366}.sh[data-to=tg]{background:#229ed9}.sh[data-to=cp]{background:var(--card2);color:var(--fg);box-shadow:0 0 0 1px var(--border)}
-@media(hover:none){.shr .share{display:none}.shr .sh{display:grid;width:28px;height:28px;font-size:13px}}
-.sharepop{min-width:190px}
-/* Hərəkət: lentdə və Zuğulbada dayandır/başlat düyməsi; dayanıq lent barmaqla sürüşür */
+.sh{display:none;width:28px;height:28px;padding:0;border:0;border-radius:50%;color:#fff;place-items:center;cursor:pointer}
+.sh svg{display:block;width:15px;height:15px;fill:#fff}
+.sh[data-to=x]{background:#111;box-shadow:0 0 0 1px #777}.sh[data-to=wa]{background:#25d366}.sh[data-to=cp]{background:var(--card2);color:var(--fg);box-shadow:0 0 0 1px var(--border)}
+.sh[data-to=fb],.sh[data-to=tg]{background:none}
+.sh[data-to=fb] svg,.sh[data-to=tg] svg{width:28px;height:28px;fill:#1877f2}
+.sh[data-to=tg] svg{fill:#229ed9}
+@media(hover:none){.shr .share{display:none}.shr .sh{display:grid}}
+.sharepop button{display:flex;align-items:center;gap:9px}
+.sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
+/* Hərəkət düymələri; dayanıq lent barmaqla sürüşür */
 .ticker .lbl .mo{flex:none;width:22px;height:22px;padding:0;border-radius:99px;background:#ffffff22;color:#fff;font-size:11px;line-height:1}
 .ticker .run.still .track{animation:none}
 .ticker .run.still{overflow-x:auto;scrollbar-width:none}
@@ -1154,17 +1154,31 @@ a.pill.on small{color:inherit}
 #son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}
 #view>#son-xeberler+.lazy-sec{border-top:0;margin-top:22px;padding-top:0}
 @media(max-width:720px){
-  .qbtn{display:grid;order:2}
-  .inst{order:3;margin-left:auto}
-  .search{display:none;order:4;flex:1 1 100%;width:100%;margin:0}
+  /* Telefon (sahibin qeydi): 1-ci sətir loqo+dil+rejim+şrift, 2-ci sətir Namaz+hava+lupa+«Ana ekrana əlavə et»; zolağın qutusu açılır (display:contents) */
+  .hrow{gap:4px}
+  .hrow>.topbar,.hrow>.topbar>.wrap{display:contents}
+  .hrow>.logo{order:1}
+  .hrow .ldd{order:2;margin-left:auto}
+  .hrow .prefs{order:3;margin:0}
+  .hrow::after{content:"";order:4;flex:1 0 100%;height:0;margin:0 calc(-1 * var(--gutter));border-top:1px solid var(--border)}
+  .hrow .pray-wrap,.hrow .pray{order:5}
+  .hrow .wx{order:6}
+  .qbtn{display:grid;order:7}
+  .inst{order:8;margin-left:auto}
+  .hrow .sync-state{position:static;order:9;flex:1 0 100%;width:auto;background:none}
+  .search{display:none;order:9;flex:1 1 100%;width:100%;margin:0}
   .q-open .search{display:block}
-  .hrow>.topbar{order:5;margin-bottom:-6px}
-  nav.main{order:6}
+  nav.main{order:10}
   .topbar .prefs button[data-act="refresh"]{display:none}
   .topbar .wx-btn>.wcity,.topbar .pray .pc{display:none}
   .topbar .prefs .theme-btn .face{padding:0 7px;min-width:0}
-  .ldd{position:static}
-  .ldd-pop{left:var(--gutter);right:var(--gutter);top:100%}
+  .ticker .lbl .bell{font-size:0;width:24px;min-height:0;height:22px;padding:0;display:grid;place-items:center;border-radius:999px}
+  .ticker .lbl .bell::after{content:"🔔";font-size:13px}
+  /* Məzənnə kartı iki sətir: ad; qiymət (2 rəqəm) + dəyişmə nişanı yanaşı */
+  .mk{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:3px}
+  .mk .n{grid-column:1/-1}
+  .mk .v{padding-bottom:3px}
+  .mk .c{margin:0 4px 3px 0;padding:0 5px;border-radius:999px;justify-content:center;line-height:1.5}
   .ticker .lbl .lt{display:none}
   .ticker .lbl{font-size:15px;padding:0 6px;gap:5px}
   /* Məzənnə zolağı bir az alçaq (format eynidir) */
@@ -1172,6 +1186,8 @@ a.pill.on small{color:inherit}
   .mk .n{padding-top:2px}
   .mk .v{padding-bottom:1px;line-height:1.15}
   .mk .c{padding:0 5px;line-height:1.3}
-  .markets.pending{height:63px}
+  .markets.pending{height:50px}
 }
 @media(max-width:600px){.prez-lent{height:204px!important}}
+/* Ən dar ekranda (≤370 px) rejim sözü sığmır: sahibin icazəsi ilə böyük günəş/ay işarəsi */
+@media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}

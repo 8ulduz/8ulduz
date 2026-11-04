@@ -750,7 +750,7 @@ def fix_source_link(link):
     return re.sub(r"^(https?://(?:www\.)?lent\.az/xeber/.+-\d+)/1/?$", r"\1", link)
 
 
-_STORY_ID = re.compile(r"(?:/|[-_])(\d{5,})(?:\.html?|/|$)")
+_STORY_ID = re.compile(r"(?:/|[-_])(\d{5,})(?=\.html?|/|$)")  # sonrakı ayırıcı udulmur: ardıcıl nömrələrin hamısı tapılır (skysports /12040/13607905/)
 
 def story_key(link):
     """Mənbə domeni + xəbərin sabit nömrəsi («metbuat.az#1566209»). Sayt başlığı dəyişəndə keçidin slug hissəsi də dəyişir

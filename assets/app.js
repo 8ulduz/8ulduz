@@ -28,7 +28,7 @@ const LANGS = [
 ];
 const LANG_BADGE = { az: "AZ", ru: "RUS", en: "ENG", tr: "TÜRK" };
 // Windows-da Chrome bayraq emojisini iki hərf kimi göstərir, ona görə bayraqlar SVG-dir.
-const flag = inner => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" aria-hidden="true">${inner}</svg>`;
+const flag = inner => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`; // slice: dil siyahısında dairəvi kəsilir
 const STAR8 = "M21 7.2l.7 1.5 1.6-.6-.6 1.6 1.5.7-1.5.7.6 1.6-1.6-.6-.7 1.5-.7-1.5-1.6.6.6-1.6-1.5-.7 1.5-.7-.6-1.6 1.6.6z";
 const FLAGS = {
   az: flag(`<rect width="30" height="20" fill="#ef3340"/><rect width="30" height="6.67" fill="#00b5e2"/><rect y="13.33" width="30" height="6.67" fill="#509e2f"/><circle cx="14" cy="10" r="3" fill="#fff"/><circle cx="15" cy="10" r="2.4" fill="#ef3340"/><path d="${STAR8}" fill="#fff" transform="translate(-3.2 -.2) scale(.97)"/>`),
@@ -155,7 +155,7 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
   signal?.addEventListener("abort", cancel, {once:true});
   try {
     if(signal?.aborted)cancel();
-    // index.html-in erkən sorğusu (bir dəfə; alınmasa adi sorğu). Dəqiqə fərqli olsa da işlənir: səhifə dəqiqənin sonunda açılanda fayl iki dəfə yüklənməsin.
+    // index.html-in erkən sorğusu bir dəfə işlənir (alınmasa adi sorğu); dəqiqə fərqli olsa da qəbul olunur.
     const earlyKey = url.includes("&r=") ? null : Object.keys(globalThis.__early || {}).find(k => k.split("?")[0] === url.split("?")[0]);
     const early = earlyKey && globalThis.__early[earlyKey];
     if(early)delete globalThis.__early[earlyKey];
@@ -464,11 +464,13 @@ const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl
 // Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir. b: xəbər lentdən çıxanda hansı arxivə baxılacağı.
 const shareUrl = a => `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
 // Paylaşma: kompüterdə «Paylaş» panel açır (bütün yerlər), telefonda düymənin yerində F, X, W, T və kopyala ikonları (CSS hover:none). Zuğulba kartında yalnız düymə (yer dardır).
-const SHARE_TO = { fb: ["Facebook", "f", u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", "X", (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", "W", (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", "T", (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", "", u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", "", (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
+const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
+// Şəbəkələrin öz işarələri (sahibin qeydi: hərf yox, işarə) bir sprite faylındadır (assets/sosial.svg): hər kartda yalnız <use> keçidi, yollar bir dəfə yüklənir.
+const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
 const shareBtn = (a, icons = true) => {
   if (safeHref(a.sourceUrl) === "#") return "";
   const u = esc(shareUrl(a)), btn = `<button type="button" class="share" data-act="share" data-share="${u}" title="Paylaş">Paylaş</button>`;
-  return icons ? `<span class="shr" data-share="${u}">${btn}${Object.entries(SHARE_TO).filter(([, v]) => v[1]).map(([k, v]) => `<button type="button" class="sh" data-to="${k}" aria-label="${v[0]}">${v[1]}</button>`).join("")}<button type="button" class="sh" data-to="cp" aria-label="Keçidi kopyala">⧉</button></span>` : btn;
+  return icons ? `<span class="shr" data-share="${u}">${btn}${Object.entries(SHARE_TO).filter(([, v]) => v[1]).map(([k, v]) => `<button type="button" class="sh" data-to="${k}" aria-label="${v[0]}">${shIcon(k)}</button>`).join("")}<button type="button" class="sh" data-to="cp" aria-label="Keçidi kopyala">${shIcon("cp")}</button></span>` : btn;
 };
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
@@ -792,7 +794,7 @@ async function loadFirst() {
   } catch {}
 }
 
-// Təkrar açılış: xidmət işçisinin keşindəki son lent şəbəkəni gözləmədən çəkilir, təzəsi gələn kimi yerini alır (fromCache). Keş adı sw.js-dəki DATA ilə eynidir.
+// Təkrar açılış: SW keşindəki son lent dərhal çəkilir, təzəsi gələndə əvəz olunur (fromCache); keş adı sw.js DATA ilə eynidir.
 async function loadCached() {
   if (!firstScreen() || typeof caches === "undefined" || S.rawNews) return;
   try {
@@ -1269,7 +1271,7 @@ function bindNavPop() {
     else if (e.target.closest("#nav a")) hide();
   });
   pop.addEventListener("click", hide);
-  // Səhifədəki sətirlər də eyni: başlığın üstünə gələndə alt sətri yerində açılır, kursor çıxanda seçilmiş vəziyyətə qayıdır.
+  // Səhifədəki sətirlər də eyni: kursor başlığın üstündə ikən alt sətir açılır, çıxanda seçilmiş vəziyyət qayıdır.
   let open, rowTimer;
   $("#view").addEventListener("mouseover", e => {
     const box = e.target.closest(".sub-rows"), slug = route().slug;
@@ -1421,10 +1423,11 @@ function renderMarkets() {
     const has = !unofficial && i.changePct != null && i.change != null;
     const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
     // «bazar» nişanı alt sətirdədir: başlığın yanında 92px kartda «100 Rubl BA…» kimi kəsilirdi
-    const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, i.dec)}</span>`
+    const dec = Math.min(i.dec ?? 2, 2); // kartda nöqtədən sonra ən çox 2 rəqəm (sahibin qeydi); tam dəqiqlik məzənnə səhifəsindədir
+    const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, dec)}</span>`
       : `<span${unofficial ? ` class="unoff"` : ""}>${i.unit !== "AZN" ? "qiymət" : unofficial ? "bazar" : "məzənnə"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
+    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
   const note = $("#mk-note");
   if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
@@ -1451,9 +1454,10 @@ function fxPop() {
     <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
 }
 
+// Dil siyahısı (sahibin nümunəsi, 2026-11-04): hər dil öz sətrində, dairəvi bayraq + kod, seçilmiş sətir rənglidir; «Hamısı» sonda.
 function languagePicker() {
-  const pill = (code, html, title) => `<button type="button" class="pill lang-pill${(S.lang || "") === code ? " on" : ""}" data-lang="${code}" aria-pressed="${(S.lang || "") === code}" title="${esc(title)}">${html}</button>`;
-  return `<div class="lang-pills" role="group" aria-label="Xəbərlərin dili">${pill("", "Hamısı", "Bütün dillər")}${LANGS.map(l => pill(l.code, `${FLAGS[l.code]}${l.code.toUpperCase()}`, l.label)).join("")}</div>`;
+  const row = (code, html, title) => `<button type="button" class="ldm${(S.lang || "") === code ? " on" : ""}" data-lang="${code}" aria-pressed="${(S.lang || "") === code}" title="${esc(title)}">${html}</button>`;
+  return `<div class="lang-list" role="group" aria-label="Xəbərlərin dili">${LANGS.map(l => row(l.code, `${FLAGS[l.code]}<b>${l.code.toUpperCase()}</b>`, l.label)).join("")}${row("", `<span class="flag globe">🌐</span><b>Hamısı</b>`, "Bütün dillər")}</div>`;
 }
 const ASSISTANT_ON = window.SITE_CONFIG?.assistant === true;
 const DRIVER_ON = window.SITE_CONFIG?.driver === true;
@@ -1885,7 +1889,7 @@ function sectionView(slug) {
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
-// Axtarış üçün sadələşdirmə: kiçik hərf, Azərbaycan hərfləri latın əsasına (ə→e, ı→i, ş→s ...), durğu işarələri boşluğa.
+// Axtarış üçün sadələşdirmə: kiçik hərf, ə→e, ı→i, ş→s və s., durğu işarələri boşluğa.
 // «ilham eliyev», «qarabag», «naxcivan», «AZERTAC» kimi yazılışlar da tapılır.
 const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c" };
 function fold(s) {
@@ -1980,7 +1984,7 @@ function trafficView() {
   const jump = a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`;
   const jumps = (konum ? jump(konum) : `<button type="button" class="pill" data-act="geo"${S.geoBusy ? " disabled" : ""}>${S.geoBusy ? "Konum axtarılır…" : "📍 Konumum"}</button>`) + TRAFFIC_AREAS.map(jump).join("") + (S.geoErr && !konum ? `<span class="geo-err">${esc(S.geoErr)}</span>` : "");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  // Waze telefonda xəritə əvəzinə «tətbiqi yüklə» göstərir: toxunma ekranında canlı tıxac Yandex-dən, Waze düymə ilə tətbiqdə açılır.
+  // Waze telefonda yalnız «tətbiqi yüklə» göstərir: toxunma ekranında canlı tıxac Yandex-dən, Waze düymə ilə tətbiqdə.
   const map = S.tixOn
     ? TOUCH_UI
       ? `<iframe title="Canlı tıxac xəritəsi (Yandex)" src="${esc(yandexSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
@@ -2154,7 +2158,7 @@ function showPop(btn, html) {
 }
 const shareTitle = el => el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
 function shareStory(btn) {
-  const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${v[0]}</button>`).join("") + `<button type="button" data-to="cp">Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
+  const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${shIcon(k)}${v[0]}</button>`).join("") + `<button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
   box.dataset.share = btn.dataset.share; box.dataset.title = shareTitle(btn);
 }
 async function shareTo(t) {
@@ -2174,6 +2178,7 @@ async function shareTo(t) {
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
 // Chrome təklifi özü verir (beforeinstallprompt); iPhone-da yalnız əl ilə mümkündür, ona görə yol göstərilir.
+// Kompüterdə başlıq sətrində, telefonda Namaz/hava sətrində (CSS sırası), seçilən rəngdə (sahibin qeydi).
 function installBtn() {
   if (isStandalone() || (!S.installEvt && !isIOS())) return "";
   return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;
@@ -2624,14 +2629,14 @@ function setupHeroImages() {
 let featureTimers = [];
 function setupFeatureLents() {
   featureTimers.forEach(clearInterval); featureTimers = [];
-  // Toxunma ekranında «hover» və linkin fokusu toxunuşdan sonra qalır və slayderi həmişəlik dayandırırdı: yalnız siçan və klaviatura fokusu sayılır.
+  // Toxunuşdan sonra qalan :hover və fokus slayderi dayandırmasın: yalnız siçan və klaviatura fokusu sayılır.
   const hoverUI = matchMedia("(hover:hover)").matches;
   const keyFocus = node => { try { return !!node.querySelector(":focus-visible"); } catch { return node.contains(document.activeElement); } };
   const paused = node => document.hidden || motionOff() || (hoverUI && node.matches(":hover")) || keyFocus(node) || Date.now() < (node._holdUntil || 0);
   const hero = document.querySelector(".hero-strip");
   if (hero) {
     const row = hero.querySelector(".hero-row"), button = hero.querySelector(".hero-pause");
-    // Barmaq, təkər, klaviatura: 12 saniyə dayanır, həmişəlik yox (səhifəni sürüşdürərkən toxunuş onu kəsirdi); tam dayandırmaq üçün düymə var.
+    // Barmaq, təkər, klaviatura: 12 saniyə dayanır, həmişəlik yox; tam dayandırmaq üçün düymə var.
     const hold = () => { hero._holdUntil = Date.now() + 12000; };
     row?.addEventListener("pointerdown", hold);
     row?.addEventListener("wheel", hold, { passive: true });
@@ -2931,7 +2936,7 @@ function resumeNews() {
     if(S.reloadWhenHidden && !globalThis.speechSynthesis?.speaking)location.reload(); // yeni versiya oxucu baxmayanda
     return;
   }
-  // Telefonda (və Play tətbiqində) səhifə günlərlə açıq qalır (köhnə kod, ilişmiş vəziyyət): bir saatdan çox arxa planda qalıbsa qayıdanda təzədən açılır; səsli oxu kəsilmir.
+  // Bir saatdan çox arxa planda qalıbsa qayıdanda səhifə təzədən açılır (köhnə kod ilişməsin); səsli oxu kəsilmir.
   const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
   S.hiddenAt = 0;
   if(away >= RELOAD_AFTER_HIDDEN_MS && !globalThis.speechSynthesis?.speaking){ location.reload(); return; }

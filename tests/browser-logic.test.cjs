@@ -2018,7 +2018,7 @@ test('owner notes: the logo row comes first with the install slot and a search b
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.inst .install-btn{background:var(--primary)'), '«Ana ekrana əlavə et» seçilən rəngdədir');
   assert.ok(css.includes('.prez-lent{height:204px!important}'), 'telefonda Zuğulba iki kart hündürlüyündədir');
-  assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir');
+  assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir (yalnız ≤370 px-də böyük işarə)');
   assert.ok(css.includes('#son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}'), '«Son xəbərlər» aydın xətlə ayrılır');
   assert.ok(css.includes('@media(hover:none){.shr .share{display:none}.shr .sh{display:grid'), 'telefonda paylaşma ikonları, kompüterdə düymə');
 });
@@ -2110,4 +2110,25 @@ test('owner notes: rare pages (sources, about, sections) live in sehife.js, are 
   assert.ok(m.sectionsView(d).includes('<h1>Mənim bölmələrim</h1>') && m.sectionsView(d).includes('data-act="sec-toggle"'));
   assert.equal(ctx.api.homeView.name, 'homeView');
   assert.ok(vm.runInContext('aboutView()', ctx).includes('Yüklənir'), 'modul gələnə qədər yüklənir yazısı');
+});
+test('owner notes: share icons come from one sprite file, the phone install chip sits inside the section rows, the language list is one row per language', () => {
+  const sprite = fs.readFileSync(path.join(root, 'assets/sosial.svg'), 'utf8');
+  for (const id of ['fb', 'x', 'wa', 'tg', 'in', 'mail', 'cp']) assert.ok(sprite.includes(`<symbol id="${id}"`), id);
+  assert.ok(!/<script|on\w+=/i.test(sprite), 'sprite-də skript yoxdur');
+  const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
+  S.og = {};
+  const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
+  assert.ok(html.includes('<use href="./assets/sosial.svg#fb"/>') && html.includes('sosial.svg#cp'), 'ikonlar <use> ilə çəkilir, hərf yoxdur');
+  assert.ok(!/data-to="fb">f</.test(html));
+  // telefon: yuxarı zolağın qutusu açılır, dil + rejim + şrift loqo sətrində, Namaz + hava + lupa + «Ana ekrana əlavə et» ikinci sətirdə
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.hrow>.topbar,.hrow>.topbar>.wrap{display:contents}') && css.includes('.hrow .ldd{order:2;margin-left:auto}') && css.includes('.hrow .prefs{order:3') && css.includes('.hrow::after{content:"";order:4;flex:1 0 100%') && css.includes('.inst{order:8;margin-left:auto}'), 'telefon sətirləri sahibin sırası ilə');
+  assert.ok(css.includes('.ticker .lbl .bell::after{content:"🔔"') && css.includes('.ticker .lbl .bell{font-size:0'), 'telefonda «Bildiriş» sözü yox, zəng işarəsi');
+  assert.ok(css.includes('.mk{display:grid;grid-template-columns:minmax(0,1fr) auto'), 'məzənnə kartı iki sətir');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('const dec = Math.min(i.dec ?? 2, 2);') && src.includes('${fmt(i.value, dec)}'), 'kartda nöqtədən sonra ən çox 2 rəqəm');
+  const list = ctx.api.languagePicker();
+  assert.equal((list.match(/class="ldm/g) || []).length, 5, 'dörd dil + «Hamısı», hər biri öz sətrində');
+  assert.ok(list.indexOf('data-lang="az"') < list.indexOf('data-lang=""'), '«Hamısı» sonda');
+  assert.ok(css.includes('.ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%') && css.includes('.ldd-pop{') && css.includes('background:#fff;color:#0a1120'), 'dairəvi bayraq, fərqli fonlu kart');
 });

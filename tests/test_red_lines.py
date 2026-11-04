@@ -1,4 +1,6 @@
 """Saytın iki qırmızı xətti (docs/qirmizi-xetler.md). Bu testlər düşürsə, kodu yox, dəyişikliyi yoxlayın."""
+import datetime
+import email.utils
 import json
 import os
 import pathlib
@@ -195,7 +197,9 @@ class FastCycleTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def item(self, link, title):
-        return {"title": title, "link": link, "description": "", "pubDate": "Fri, 30 Oct 2026 06:00:00 GMT", "author": "", "image": None}
+        # Tarix nisbi: sabit «30 Oct 2026» 5 gündən köhnə olanda lentdən kəsilirdi və ikinci dövrə testləri sakitcə başqa yolla keçirdi
+        pub = email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2))
+        return {"title": title, "link": link, "description": "", "pubDate": pub, "author": "", "image": None}
 
     def cycle(self, fetcher, official=None, feeds=None):
         feeds = feeds or [("APA", "https://apa.az/rss", "az", None), ("BBC News", "https://feeds.bbci.co.uk/x", "en", None), ("Report", "https://report.az/rss", "az", None)]
