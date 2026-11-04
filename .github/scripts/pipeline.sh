@@ -22,6 +22,8 @@ SLOW_LIMIT="${SLOW_LIMIT:-280}"
 SLOW_EVERY="${SLOW_EVERY:-240}"
 LINKS_LIMIT="${LINKS_LIMIT:-55}"
 LINKS_EVERY="${LINKS_EVERY:-30}"
+TG_EVERY="${TG_EVERY:-60}"
+TG_BRANCH="${TG_BRANCH:-telegram-state}"   # Telegram kanalının vəziyyəti (tarixçəsiz, yalnız state.json)
 MAIN_EVERY="${MAIN_EVERY:-600}"
 HANDOFF_AFTER="${HANDOFF_AFTER:-2820}"   # 47 dəq: növbəti işi başlat
 MAX_RUN="${MAX_RUN:-3600}"               # 60 dəq: növbəti iş görünməsə də çıx (timeout-minutes-dən əvvəl)
@@ -41,16 +43,18 @@ GOOD="$(mktemp -d)"      # son sağlam məlumat nüsxəsi
 STATE="$(mktemp -d)"
 SLOTS="$STATE/m"         # son dəqiqələrin faylları
 KEEP_SLOTS=5
-CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
+CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py .github/scripts/telegram_post.py"
 SLOW_PID=""
 PUBLISH_PID=""
 WATCH_PID=""
 LINKS_PID=""
+TG_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
   [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null
   [ -n "$LINKS_PID" ] && kill "$LINKS_PID" 2>/dev/null
+  [ -n "$TG_PID" ] && kill "$TG_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -58,8 +62,8 @@ trap cleanup EXIT
 
 # Şəbəkə asılsa gh sonsuz gözləyə bilər: axın onu gözləməməlidir.
 gh_t() { timeout -k 5 15 "$GH" "$@"; }
-# Xəbər lentini oxuyan proses repo açarını görməsin.
-py_t() { env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 "$@"; }
+# Xəbər lentini oxuyan proses repo və Telegram açarını görməsin.
+py_t() { env -u GH_TOKEN -u GITHUB_TOKEN -u TELEGRAM_BOT_TOKEN timeout -k 5 "$@"; }
 
 copy_code() { # $1 mənbə, $2 hədəf
   local f
@@ -263,6 +267,46 @@ links_loop() {
   done
 }
 
+# Telegram kanalı (.github/scripts/telegram_post.py). Sirlər yoxdursa işə düşmür. Xəbər axınından ayrıdır: asılsa və ya
+# düşsə axına təsiri yoxdur. Növbə dəyişəndə iki iş üst-üstə işləyir: eyni xəbər iki dəfə getməsin deyə vəziyyət əvvəl
+# budağa yazılır, sonra göndərilir. Budağı başqa iş dəyişibsə push alınmır (--force-with-lease) və bu iş göndərmir.
+# Budaq yalnız başqa iş onu dəyişəndə çəkilir: main-ə yazan fetch ilə nadir toqquşma qalır.
+TG_HEAD=""
+tg_round() {
+  local dir="$STATE/tg" remote blob tree commit
+  mkdir -p "$dir"
+  remote="$(timeout 20 git -C "$REPO_DIR" ls-remote origin "refs/heads/$TG_BRANCH")" || return 1
+  remote="${remote%%[[:space:]]*}"
+  if [ -z "$remote" ]; then
+    echo '{}' > "$dir/state.json"
+  elif [ "$remote" != "$TG_HEAD" ] || [ ! -s "$dir/state.json" ]; then
+    timeout 20 git -C "$REPO_DIR" fetch -q --no-tags origin "+refs/heads/$TG_BRANCH:refs/tg/state" || return 1
+    [ "$(git -C "$REPO_DIR" rev-parse refs/tg/state)" = "$remote" ] || return 1
+    git -C "$REPO_DIR" show "refs/tg/state:state.json" > "$dir/state.json" 2>/dev/null || echo '{}' > "$dir/state.json"
+  fi
+  TG_HEAD="$remote"
+  rm -f "$dir/new.json" "$dir/msg.json"
+  py_t 20 "$PY" "$CUR/.github/scripts/telegram_post.py" plan "$WORK/data/news.json" "$WORK/data/markets.json" \
+    "$dir/state.json" "$dir/new.json" "$dir/msg.json" || return 0
+  blob="$(git -C "$REPO_DIR" hash-object -w "$dir/new.json")" || return 1
+  tree="$(printf '100644 blob %s\tstate.json\n' "$blob" | git -C "$REPO_DIR" mktree)" || return 1
+  commit="$(git -C "$REPO_DIR" commit-tree "$tree" -m "Telegram")" || return 1
+  timeout 25 git -C "$REPO_DIR" push -q --force-with-lease="refs/heads/$TG_BRANCH:$remote" origin "$commit:refs/heads/$TG_BRANCH" || return 1
+  TG_HEAD="$commit"
+  cp "$dir/new.json" "$dir/state.json"
+  [ -s "$dir/msg.json" ] || return 0
+  env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 20 "$PY" "$CUR/.github/scripts/telegram_post.py" send "$dir/msg.json"
+}
+
+tg_loop() {
+  while :; do
+    local began=$SECONDS left
+    tg_round || echo "Telegram dövrəsi alınmadı"
+    left=$((TG_EVERY - (SECONDS - began)))
+    [ "$left" -gt 0 ] && sleep "$left"
+  done
+}
+
 # Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
 # GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
 self_watch() { # $1 əsas proses
@@ -271,6 +315,7 @@ self_watch() { # $1 əsas proses
       echo "::warning::Dövrə ${STUCK_AFTER} saniyədir irəliləmir, iş dayandırılır. Növbəti iş başlayacaq."
       [ -n "${2:-}" ] && kill "$2" 2>/dev/null
       [ -n "${3:-}" ] && kill "$3" 2>/dev/null
+      [ -n "${4:-}" ] && kill "$4" 2>/dev/null
       kill -TERM "$1" 2>/dev/null
       sleep 10
       kill -KILL "$1" 2>/dev/null
@@ -304,8 +349,12 @@ slow_loop &
 SLOW_PID=$!
 links_loop &
 LINKS_PID=$!
+if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT:-}" ]; then
+  tg_loop &
+  TG_PID=$!
+fi
 touch "$STATE/heartbeat"
-self_watch $$ "$SLOW_PID" "$LINKS_PID" &
+self_watch $$ "$SLOW_PID" "$LINKS_PID" "$TG_PID" &
 WATCH_PID=$!
 
 START=$SECONDS

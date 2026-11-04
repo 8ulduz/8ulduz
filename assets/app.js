@@ -461,7 +461,8 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
 // Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir. b: xəbər lentdən çıxanda hansı arxivə baxılacağı.
-const shareUrl = a => `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
+// ref: GoatCounter paylaşımdan gələn ziyarəti ayrıca göstərir; canonical «/» olduğu üçün səhifə ünvanı dəyişmir.
+const shareUrl = a => `https://8ulduz.az/?ref=paylasim#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
