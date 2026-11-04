@@ -187,10 +187,10 @@ test('Zuğulba always shows 44 stories: official and state sites first, then oth
   assert.ok(html.includes('Son <b>44</b> xəbər'),'yazı');
   const foreign=[...prezHome([row('r0','Report',1),{...row('y','Axar.az',2),title:'Husilər prezident sarayına zərbələr endirdi'},{...row('f','Sportinfo',3),title:'Fənərbağçanın prezidenti danışdı'}])];
   assert.deepEqual(foreign.map(a=>a.id),['r0'],'yad xəbərlə doldurulmur');
-  assert.equal(html.split('class="pcard').length-1,44,'44 kartın hamısı');
+  assert.equal(html.split('<article class="pcard').length-1,44,'44 kartın hamısı');
   assert.ok(!html.includes('<template>'));
   const pics=prezBlock(out.map(a=>({...a,imageUrl:'https://x.az/'+a.id+'.jpg'})));
-  assert.equal(pics.split('class="pcard').length-1,44,'şəkilli 44 kart');
+  assert.equal(pics.split('<article class="pcard').length-1,44,'şəkilli 44 kart');
   assert.equal(pics.split('<img src=').length-1,8,'ilk açılışda yalnız 8 şəkil yüklənir');
   assert.equal(pics.split('<img data-src=').length-1,36,'qalan şəkillər lent sürüşəndə gəlir');
 });
@@ -729,8 +729,8 @@ test('appointment and dismissal news are recognised; Zuğulba includes state sit
   assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // Oxu.az xəbərində rəhbərliyin adı yoxdur
   assert.deepEqual(ids, ['a', 'c', 'd']); // ən yenidən köhnəyə
   const html = ctx.api.prezBlock(ctx.api.prezHome(prez));
-  assert.ok(html.includes('<a class="pcard has-img"') && html.includes(encodeURIComponent('https://crossmedia.az/storage/news/a.jpeg')));
-  assert.ok(html.includes('<a class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
+  assert.ok(html.includes('<article class="pcard has-img"') && html.includes(encodeURIComponent('https://crossmedia.az/storage/news/a.jpeg')));
+  assert.ok(html.includes('<article class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
 });
 
 test('every news list is newest first: an old appointment story is not pinned above fresh news', () => {
@@ -1877,4 +1877,66 @@ test('speed red line: the prerendered first screen stays until data arrives; the
   assert.ok(src.includes('const pre = v.querySelector?.(":scope > .pre-skel");') && src.includes('pre.replaceWith(...kids)'), 'patchView sarğını açır, kartlar yerində qalır');
   const pipeline = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
   assert.ok(pipeline.includes('prerender.cjs') && pipeline.includes('bolme index.html'), 'pipeline hər main yazılışında ilk ekranı hazırlayır və commit edir');
+});
+
+// Sahibin telefon qeydləri (2026-11-04): Zuğulbada paylaş, «yeni xəbər» düyməsi, boş qalmayan bölmə, slayder, açılan panellər,
+// dörd valyuta, namaz/hava pəncərələri, konum, liqadan İdmana qayıdış.
+test('Zuğulba card is a link with a share button outside the link; the latest list has an anchor', () => {
+  const ctx = app(), { prezBlock, prezHome, latestBlock } = ctx.api;
+  const at = new Date().toISOString();
+  const prez = [{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, imageUrl: 'https://president.az/a.jpg', lang: 'az' }];
+  const html = prezBlock(prezHome(prez));
+  assert.ok(html.includes('<article class="pcard has-img" data-cat="prezident"><a class="pcard-hit" href="https://president.az/1"'), 'kart keçiddir');
+  assert.ok(/<\/a><button type="button" class="share" data-act="share" data-share="https:\/\/8ulduz\.az\/#\/xeber\/p1[^"]*"[^>]*>Paylaş<\/button><\/article>/.test(html), 'Paylaş düyməsi keçidin kənarındadır');
+  assert.ok(!html.match(/<a class="pcard-hit"[^>]*>([\s\S]*?)<\/a>/)[1].includes('<button'), 'keçidin içində düymə yoxdur');
+  ctx.api.S.latestOrder = 'latest';
+  assert.ok(latestBlock([]).startsWith('<section id="son-xeberler">'), '«N yeni xəbər» düyməsi bura sürüşdürür');
+});
+test('a home section never vanishes: shown stories stay in it, an empty category falls back to its archive', () => {
+  const ctx = app(), { S, homeView } = ctx.api;
+  const at = new Date().toISOString();
+  const sos = Array.from({ length: 5 }, (_, i) => ({ id: 's' + i, title: 'Pensiya artımı barədə yeni qərar ' + i, category: 'sosial', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/s' + i, publishedAt: at }));
+  S.lang = 'az'; S.og = {}; S.partial = false;
+  S.data = { articles: sos }; // hamısı «Son xəbərlər»dədir
+  let html = homeView();
+  assert.ok(html.includes('<h2>Sosial müdafiə</h2>') && html.includes('5 xəbər'), 'blok var, xəbərlər «Son xəbərlər»də olsa da');
+  S.data = { articles: [{ id: 'g', title: 'Bakıda yeni park açılıb bu gün', category: 'gundem', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/g', publishedAt: at }] };
+  S.archive = { sosial: { at: Date.now(), rows: sos } };
+  html = homeView();
+  assert.ok(html.includes('<h2>Sosial müdafiə</h2>'), 'lentdə yoxdursa arxivdən dolur');
+  assert.ok(!html.includes('<h2>Video</h2>') || html.includes('ytrow'), 'video bölməsi arxiv istəmir');
+  S.partial = true;
+  assert.ok(!homeView().includes('lazy-sec'), 'ilk ekran dəyişmir');
+});
+test('phone fixes are in place: slider does not stop for good, panels close on outside click, four currencies fit, popups are not clipped', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(!src.includes('_userStop') && src.includes('hoverUI && node.matches(":hover")') && src.includes('hero._holdUntil = Date.now() + 12000'), 'toxunuş slayderi 12 saniyə saxlayır, həmişəlik yox');
+  assert.ok(src.includes('row.children[at + 2], row.children[0]') && src.includes('row._near?.(to)'), 'növbəti slaydların şəkli əvvəlcədən yüklənir');
+  assert.ok(src.includes('details.service-panel[open], details.social-details[open]') && src.includes('S.svcOpen = false; if (!kept)'), 'açılan bölmələr kənara basanda və səhifə dəyişəndə bağlanır');
+  assert.ok(src.includes('r.slug === S.clubSlug') && src.includes('r.name === "team" ? "idman"'), 'liqadan geri qayıdanda Futbol sırası qalır, nav İdmanı göstərir');
+  assert.ok(src.includes('function jumpToLatest()') && src.includes('S.latestOrder = "latest"; S.latestCount = 8; } render(); jumpToLatest();'), '«yeni xəbər» düyməsi Son xəbərlər → Ən yeni');
+  assert.ok(src.includes('navigator.permissions?.query?.({ name: "geolocation" })') && src.includes('data-act="geo"') && !src.includes('getCurrentPosition(applyGeo, undefined'), 'konum yalnız düymə ilə və ya əvvəl verilmiş icazə ilə');
+  assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)'), 'telefonda canlı xəritə Yandex, Waze tətbiqdə açılır');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.mk:nth-child(-n+4){flex:0 0 calc((100% - 18px)/4)') && css.includes('.mk:nth-child(-n+4) .c span:last-child{display:none}'), 'dörd valyuta bir ekranda');
+  assert.ok(css.includes('.topbar{position:relative}') && css.includes('.topbar .wrap{position:static}'), 'namaz və hava pəncərələri zolağın içində kəsilmir');
+  assert.ok(css.includes('.pcard .share{position:absolute'), 'Zuğulba paylaş düyməsi kartın küncündədir');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(/frame-src [^"]*https:\/\/yandex\.com/.test(index), 'CSP Yandex xəritəsinə icazə verir');
+});
+test('location: nearest city within Azerbaijan, none abroad; traffic centres on it until the reader picks an area', () => {
+  const ctx = app(), { S } = ctx.api;
+  const nearestCity = vm.runInContext('nearestCity', ctx), tixArea = vm.runInContext('tixArea', ctx), savedPrayCity = vm.runInContext('savedPrayCity', ctx), geoCity = vm.runInContext('geoCity', ctx);
+  assert.equal(nearestCity(40.59, 49.67)[0], 'Sumqayıt');
+  assert.equal(nearestCity(40.68, 46.36)[0], 'Gəncə');
+  assert.equal(nearestCity(41.01, 28.97), null, 'İstanbul: şəhər seçilmir');
+  assert.equal(tixArea().id, 'merkez');
+  S.geo = { lat: 40.59, lon: 49.67, city: 'Sumqayıt', at: Date.now() };
+  assert.equal(tixArea().id, 'konum', 'konum tapılıbsa xəritə ona mərkəzlənir');
+  S.tixArea = 'hava'; S.tixUser = true;
+  assert.equal(tixArea().id, 'hava', 'oxucunun seçimi üstündür');
+  assert.equal(savedPrayCity(), 'Sumqayıt', 'şəhər seçilməyibsə namaz konumun şəhərinə görədir');
+  assert.equal(geoCity()[0], 'Sumqayıt');
+  S.geo = { lat: 41.01, lon: 28.97, city: null, at: Date.now() };
+  assert.equal(geoCity()[0], 'Bakı', 'xaricdə hava və namaz Bakıya görə qalır');
 });

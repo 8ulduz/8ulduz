@@ -51,7 +51,7 @@ function homeHtml(root, first, { now = 0, width = 390 } = {}) {
 function firstScreen(html, keep = KEEP) {
   const trim = (s, re, n) => { let i = 0; return s.replace(re, m => (++i > n ? "" : m)); };
   let out = trim(html, /<article class="hero-main"[\s\S]*?<\/article>/g, keep.slides);
-  out = trim(out, /<a class="pcard[\s\S]*?<\/a>/g, keep.prez);
+  out = trim(out, /<article class="pcard[\s\S]*?<\/article>/g, keep.prez);
   const at = out.indexOf('<div class="latest-grid">');
   if (at >= 0) out = out.slice(0, at) + trim(out.slice(at), /<article class="card[\s\S]*?<\/article>/g, keep.latest);
   return out;

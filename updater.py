@@ -165,6 +165,89 @@ WORLD_FEEDS = [
     ("MMA Fighting", "https://www.mmafighting.com/rss/index.xml",             "en", "İdman"),
     ("Chess.com",    "https://www.chess.com/rss/news",                        "en", "İdman"),
     ("Sports.kz",    "https://www.sports.kz/rss",                             "ru", "İdman"),
+    # İngilis və rus dilində mənbələr (2026-11-04, sahibin istəyi: xaricdən gələn oxucu üçün geniş və şaxəli lent).
+    # Hamısı həmin gün yoxlanıb: 200 cavab, təzə elementlər. Ağır lentlər (RBC 256 KB, Tengrinews 715 KB, Спорт-Экспресс 521 KB,
+    # Daryo 265 KB, NASA 270 KB, iXBT 235 KB, Naked Science 171 KB) SLOW_ONLY_FEEDS-dədir: dəqiqəlik dövrə onları oxumur.
+    # Yoxlanıb götürülməyənlər: CNN (lent 2023-dən yenilənmir), RIA (açılmır), Reuters/AP (açıq RSS yoxdur), Al Arabiya,
+    # Arab News, ATP (403), ESPN, Goal, UEFA, Gulf News, Kyodo, Kazinform, TRT World, Zakon.kz (404), Forbes.ru (HTML).
+    ("Guardian World", "https://www.theguardian.com/world/rss",                "en"),
+    ("NYT World",    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml", "en"),
+    ("Sky News",     "https://feeds.skynews.com/feeds/rss/world.xml",         "en"),
+    ("France 24",    "https://www.france24.com/en/rss",                       "en"),
+    ("NPR",          "https://feeds.npr.org/1004/rss.xml",                    "en"),
+    ("CBS News",     "https://www.cbsnews.com/latest/rss/world",              "en"),
+    ("ABC News",     "https://abcnews.go.com/abcnews/internationalheadlines", "en"),
+    ("The Independent", "https://www.independent.co.uk/news/world/rss",       "en"),
+    ("AA English",   "https://www.aa.com.tr/en/rss/default?cat=politics",     "en"),
+    ("AA Economy",   "https://www.aa.com.tr/en/rss/default?cat=economy",      "en", "İqtisadiyyat"),
+    ("AA Sport",     "https://www.aa.com.tr/en/rss/default?cat=sports",       "en", "İdman"),
+    ("TASS English", "https://tass.com/rss/v2.xml",                           "en"),
+    ("Times of India", "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms", "en"),
+    ("Politico Europe", "https://www.politico.eu/feed/",                      "en"),
+    ("Euractiv",     "https://www.euractiv.com/feed/",                        "en"),
+    ("Foreign Policy", "https://foreignpolicy.com/feed/",                     "en"),
+    ("The Diplomat", "https://thediplomat.com/feed/",                         "en"),
+    ("The Economist", "https://www.economist.com/latest/rss.xml",             "en"),
+    ("Vox",          "https://www.vox.com/rss/index.xml",                     "en"),
+    ("The Astana Times", "https://astanatimes.com/feed/",                     "en"),
+    ("Daryo",        "https://daryo.uz/en/feed",                              "en"),
+    ("Kun.uz English", "https://kun.uz/en/news/rss",                          "en"),
+    ("BBC Business", "https://feeds.bbci.co.uk/news/business/rss.xml",        "en", "İqtisadiyyat"),
+    ("BBC Technology", "https://feeds.bbci.co.uk/news/technology/rss.xml",    "en", "Texnologiya"),
+    ("BBC Science",  "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", "en", "Təhsil"),
+    ("BBC Health",   "https://feeds.bbci.co.uk/news/health/rss.xml",          "en", "Həyat"),
+    ("BBC Culture",  "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", "en", "Mədəniyyət"),
+    ("Guardian Business", "https://www.theguardian.com/uk/business/rss",      "en", "İqtisadiyyat"),
+    ("Guardian Technology", "https://www.theguardian.com/uk/technology/rss",  "en", "Texnologiya"),
+    ("Guardian Science", "https://www.theguardian.com/science/rss",           "en", "Təhsil"),
+    ("Guardian Culture", "https://www.theguardian.com/uk/culture/rss",        "en", "Mədəniyyət"),
+    ("Daily Sabah Business", "https://www.dailysabah.com/rss/business",       "en", "İqtisadiyyat"),
+    ("Daily Sabah Sports", "https://www.dailysabah.com/rss/sports",           "en", "İdman"),
+    ("CNBC",         "https://www.cnbc.com/id/100727362/device/rss/rss.html", "en", "İqtisadiyyat"),
+    ("MarketWatch",  "https://feeds.content.dowjones.io/public/rss/mw_topstories", "en", "İqtisadiyyat"),
+    ("Fortune",      "https://fortune.com/feed/",                             "en", "İqtisadiyyat"),
+    ("OilPrice",     "https://oilprice.com/rss/main",                         "en", "İqtisadiyyat"),
+    ("Bloomberg",    "https://feeds.bloomberg.com/markets/news.rss",          "en", "İqtisadiyyat"),
+    ("Financial Times", "https://www.ft.com/rss/home",                        "en", "İqtisadiyyat"),
+    ("TechCrunch",   "https://techcrunch.com/feed/",                          "en", "Texnologiya"),
+    ("The Verge",    "https://www.theverge.com/rss/index.xml",                "en", "Texnologiya"),
+    ("Ars Technica", "https://feeds.arstechnica.com/arstechnica/index",       "en", "Texnologiya"),
+    ("Wired",        "https://www.wired.com/feed/rss",                        "en", "Texnologiya"),
+    ("Engadget",     "https://www.engadget.com/rss.xml",                      "en", "Texnologiya"),
+    ("ScienceDaily", "https://www.sciencedaily.com/rss/all.xml",              "en", "Təhsil"),
+    ("New Scientist", "https://www.newscientist.com/feed/home/",              "en", "Təhsil"),
+    ("NASA",         "https://www.nasa.gov/news-release/feed/",               "en", "Təhsil"),
+    ("Phys.org",     "https://phys.org/rss-feed/",                            "en", "Təhsil"),
+    ("Nature",       "https://www.nature.com/nature.rss",                     "en", "Təhsil"),
+    ("Variety",      "https://variety.com/feed/",                             "en", "Mədəniyyət"),
+    ("Hollywood Reporter", "https://www.hollywoodreporter.com/feed/",         "en", "Mədəniyyət"),
+    ("Rolling Stone", "https://www.rollingstone.com/feed/",                   "en", "Mədəniyyət"),
+    ("Deadline",     "https://deadline.com/feed/",                            "en", "Mədəniyyət"),
+    ("Sky Sports",   "https://www.skysports.com/rss/12040",                   "en", "İdman"),
+    ("РБК",          "https://rssexport.rbc.ru/rbcnews/news/30/full.rss",     "ru"),
+    ("Коммерсантъ",  "https://www.kommersant.ru/RSS/main.xml",                "ru"),
+    ("Lenta.ru",     "https://lenta.ru/rss/top7",                             "ru"),
+    ("Известия",     "https://iz.ru/xml/rss/all.xml",                         "ru"),
+    ("Ведомости",    "https://www.vedomosti.ru/rss/news",                     "ru", "İqtisadiyyat"),
+    ("AA Русский",   "https://www.aa.com.tr/ru/rss/default?cat=guncel",       "ru"),
+    ("DW Русский",   "https://rss.dw.com/xml/rss-ru-all",                     "ru"),
+    ("Euronews Русский", "https://ru.euronews.com/rss",                       "ru"),
+    ("BBC Русская служба", "https://feeds.bbci.co.uk/russian/rss.xml",        "ru"),
+    ("24.kg",        "https://24.kg/rss/",                                    "ru"),
+    ("Tengrinews",   "https://tengrinews.kz/news.rss",                        "ru"),
+    ("Газета.uz",    "https://www.gazeta.uz/ru/rss/",                         "ru"),
+    ("Podrobno.uz",  "https://podrobno.uz/rss/",                              "ru"),
+    ("Kun.uz Русский", "https://kun.uz/ru/news/rss",                          "ru"),
+    ("Habr",         "https://habr.com/ru/rss/news/?fl=ru",                   "ru", "Texnologiya"),
+    ("3DNews",       "https://3dnews.ru/news/rss/",                           "ru", "Texnologiya"),
+    ("iXBT",         "https://www.ixbt.com/export/news.rss",                  "ru", "Texnologiya"),
+    ("N+1",          "https://nplus1.ru/rss",                                 "ru", "Təhsil"),
+    ("Naked Science", "https://naked-science.ru/feed",                        "ru", "Təhsil"),
+    ("Афиша Daily",  "https://daily.afisha.ru/rss/",                          "ru", "Mədəniyyət"),
+    ("Sports.ru",    "https://www.sports.ru/rss/all_news.xml",                "ru", "İdman"),
+    ("Спорт-Экспресс", "https://www.sport-express.ru/services/materials/news/se/", "ru", "İdman"),
+    ("TASS Sport",   "https://tass.ru/rss/v2.xml?sections=sport",             "ru", "İdman"),
+    ("Interfax Sport", "https://www.sport-interfax.ru/rss",                   "ru", "İdman"),
 ]
 FEEDS = [(f[0], f[1], "az", f[2] if len(f) > 2 else None) for f in AZ_FEEDS] + \
         [(f[0], f[1], f[2], f[3] if len(f) > 3 else None) for f in WORLD_FEEDS]
@@ -410,12 +493,15 @@ AZ_MONTHS = {
     "yanvar": 1, "fevral": 2, "mart": 3, "aprel": 4, "may": 5, "iyun": 6,
     "iyul": 7, "avqust": 8, "sentyabr": 9, "oktyabr": 10, "noyabr": 11, "dekabr": 12,
 }
-MAX_ITEMS = 1200
+MAX_ITEMS = 1600
 MAX_PER_SOURCE = 40   # bir mənbə lenti doldurmasın
-MAX_PER_WORLD_SOURCE = 20  # xarici mənbələr Azərbaycan xəbərlərini lentdən sıxışdırıb çıxarmasın
-MAX_PER_SPORT_SOURCE = 25
-MAX_WORLD = 150            # xarici ümumi mənbələr
-MAX_WORLD_SPORT = 200      # xarici idman mənbələri: cəmi 35%, qalan yer Azərbaycan xəbərlərinindir
+MAX_PER_WORLD_SOURCE = 10  # xarici mənbələr Azərbaycan xəbərlərini lentdən sıxışdırıb çıxarmasın: çox mənbə, hərəsindən az
+MAX_PER_SPORT_SOURCE = 15
+# Xarici ümumi mənbələr dil üzrə: ingilis və rus lentləri bir-birini və türk lentini sıxışdırmasın (2026-11-04: sahibin
+# istəyi ilə ingilis və rus mənbələri artırıldı). İdmanla birlikdə lentin 40%-dən azdır, qalan yer Azərbaycan xəbərlərinindir.
+MAX_WORLD_LANG = {"en": 160, "ru": 130, "tr": 60}
+MAX_WORLD = sum(MAX_WORLD_LANG.values())
+MAX_WORLD_SPORT = 200      # xarici idman mənbələri
 
 def source_cap(name):
     if name in content_policy.SPORT_SOURCES:
@@ -1166,12 +1252,12 @@ FEED_FAILS_BEFORE_PAUSE = 3   # ardıcıl bu qədər alınmayan lent dövrəni s
 FEED_RETRY_S = 300       # dayandırılan lent bu qədərdən bir yoxlanır, arada onu yavaş proses oxuyur
 FEED_PAUSE_MAX_SHARE = 0.2    # lentlərin bu qədərindən çoxu birdən alınmırsa problem bizim şəbəkədir: heç nə dayandırılmır
 FEED_KEEP = 120          # lentdən yalnız ən yeni elementlər (İki Sahil 2000 element verir)
-FAST_MAX_ITEMS = 1000    # qruplaşdırma açdığı yer köhnə xəbərlə dolmasın, news.json böyüməsin
+FAST_MAX_ITEMS = 1400    # qruplaşdırma açdığı yer köhnə xəbərlə dolmasın, news.json böyüməsin (2026-11-04: 1000 → 1400, xarici dillərə yer)
 FALLBACK_EVERY_S = 180   # Google News və Telegram ehtiyatını dəqiqədə bir yormayaq
 STALE_FEED_S = 900       # bundan köhnə nəticə «mənbə işləmir» sayılır
 LATEST_WINDOW_S = 1800   # latest.json main-dəki news.json-un gecikməsini örtməlidir
 LATEST_TOP = 40
-LATEST_MAX = 200
+LATEST_MAX = 300         # 2026-11-04: xarici lentlər çoxalanda yarım saatın xəbəri 200-ə sığmırdı
 
 
 def _read_json(path, default):
@@ -1241,7 +1327,9 @@ def fetch_feed_fast(feed, old=None):
 # xəbər axını isə onları gözləməməlidir: bu lentlər yalnız yavaş dövrədə oxunur, sürətli dövrə onların son nəticəsini götürür.
 # Narnews, Cenub, Region Plus və Qarabağ Media gündə bir neçə dəfədən az yazır: dəqiqəlik oxumağa dəyməz, risk də olmasın.
 # Naxçıvan Xəbərlərinin lenti yoxdur, ana səhifəsi 244 KB-dır.
-SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media", "Naxçıvan Xəbərləri"}
+# Ağır xarici lentlər (170 KB-dan böyük): dəqiqəlik dövrəyə yük olmasın, yavaş dövrə oxuyur (2026-11-04).
+SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media", "Naxçıvan Xəbərləri"} \
+    | {"РБК", "Tengrinews", "Спорт-Экспресс", "Daryo", "NASA", "iXBT", "Naked Science"}
 
 LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
@@ -4260,7 +4348,7 @@ def section_page(slug, label, desc, articles, limit=30):
 
 # index.html-dəki siyasətlə eynidir (tests/browser-logic.test.cjs). connect-src qəsdən yoxdur: canlı kanala sorğu bloklanmasın.
 # connect-src olmayanda sendBeacon 8ulduz.goatcounter.com-a keçir. Skript gc.zgo.at-dandır; hər iki ünvan script-src-dədir.
-_CSP = "script-src 'self' {hashes} https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com"
+_CSP = "script-src 'self' {hashes} https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com"
 
 def _with_csp(page):
     """Səhifənin öz kiçik skriptlərindən başqa daxili skript işləmir."""
@@ -4837,7 +4925,7 @@ def main(fast=False):
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
-    per_src, world_count, sport_count = {}, 0, 0
+    per_src, world_count, sport_count = {}, {}, 0  # world_count dil üzrədir (MAX_WORLD_LANG)
     # Tarixə görə birgə sıralama. Əvvəl «yeni» (bu dövrədə ilk dəfə görülən) xəbərlər köhnələrdən qabaq gəlirdi;
     # limitdən kənarda qalan köhnə xəbərlər növbəti dövrədə yenidən «yeni» sayılıb siyahını hər dəfə dəyişirdi
     # (813-dən yalnız ~50 xəbər dövrədən dövrəyə qalırdı; og keşi və qruplar daim sıfırlanırdı).
@@ -4846,10 +4934,12 @@ def main(fast=False):
             continue
         n, is_sport = per_src.get(a.get("source"), 0), a.get("source") in content_policy.SPORT_SOURCES
         is_world = a.get("source") in WORLD_SOURCES and not is_sport
-        if n >= source_cap(a.get("source")) or (is_world and world_count >= MAX_WORLD) or (is_sport and sport_count >= MAX_WORLD_SPORT):
+        lang = a.get("lang") or "en"
+        if n >= source_cap(a.get("source")) or (is_world and world_count.get(lang, 0) >= MAX_WORLD_LANG.get(lang, MAX_WORLD_LANG["en"])) or (is_sport and sport_count >= MAX_WORLD_SPORT):
             continue
         per_src[a.get("source")] = n + 1
-        world_count += is_world
+        if is_world:
+            world_count[lang] = world_count.get(lang, 0) + 1
         sport_count += is_sport
         dseen.add(a["sourceUrl"]); uniq.append(a)
     # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
