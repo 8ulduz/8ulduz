@@ -1141,7 +1141,10 @@ a.pill.on small{color:inherit}
 .sh[data-to=fb],.sh[data-to=tg]{background:none}
 .sh[data-to=fb] svg,.sh[data-to=tg] svg{width:28px;height:28px;fill:#1877f2}
 .sh[data-to=tg] svg{fill:#229ed9}
-@media(hover:none){.shr .share{display:none}.shr .sh{display:grid}}
+@media(hover:none){.shr .share{display:none}.shr .sh{display:grid}
+  /* Telefonda slayderdə işarələr öz sətrində (mənbə adı hərf-hərf qırılmasın); kartlarda bir az kiçik */
+  .hero-main .meta{flex-wrap:wrap;row-gap:6px}.hero-main .shr{flex:1 0 100%;justify-content:flex-end}
+  .card .shr .sh{width:24px;height:24px}.card .sh svg{width:13px;height:13px}.card .sh[data-to=fb] svg,.card .sh[data-to=tg] svg{width:24px;height:24px}}
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
 /* Hərəkət düymələri; dayanıq lent barmaqla sürüşür */
