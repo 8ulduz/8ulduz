@@ -460,24 +460,25 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
 // Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir; b: lentdən çıxanda baxılacaq arxiv.
-// Önizləmə serverdən oxunur, #/ ünvanı serverə getmir: main-dəki xəbər /x/ID səhifəsi ilə (sharePages, updater.py write_share_pages), dəqiqəlik (live) hələ yox.
+// Önizləmə serverdən oxunur, #/ serverə getmir: main-dəki xəbər /x/ID səhifəsi ilə (sharePages, updater.py write_share_pages), dəqiqəlik (live) yox.
 const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
-// Paylaşma: kompüterdə «Paylaş» paneli, telefonda yerində F, X, W, T, kopyala işarələri (hover:none); Zuğulba kartında yalnız düymə.
+// Paylaşma: kompüterdə «Paylaş» paneli, telefonda yerində F, X, W, T, kopyala (hover:none); Zuğulba kartında yalnız düymə.
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
 // Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
 const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
-// Android: sosial keçid tətbiqə intent: ilə, səhifə yerində qalır (yeni vərəqdən açılan tətbiqdən geri telefon baş ekrana düşürdü, sayta yox);
-// tətbiq yoxdursa browser_fallback_url veb versiyanı açır. Başqa sistemdə yeni vərəq.
+// Android: sosial keçid tətbiqə intent: ilə, səhifə yerində qalır (yeni vərəqdən açılan tətbiqdən geri baş ekrana düşürdü); tətbiq yoxdursa veb.
 const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
 function appLink(u) {
   if (!/Android/.test(navigator.userAgent || "")) return "";
   try { const x = new URL(u), pkg = x.protocol === "https:" && APP_PKG.find(([re]) => re.test(x.hostname))?.[1]; return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
 }
 function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
+// Telefon işarələri (5 düymə, ~1 KB) kart ekrana yaxınlaşanda qoyulur (setupLazySections): hamısı birdən səhifəni 125 KB böyüdürdü.
+const SHR_ICONS = Object.entries(SHARE_TO).filter(([, v]) => v[1]).map(([k, v]) => `<button type="button" class="sh" data-to="${k}" aria-label="${v[0]}">${shIcon(k)}</button>`).join("") + `<button type="button" class="sh" data-to="cp" aria-label="Keçidi kopyala">${shIcon("cp")}</button>`;
 const shareBtn = (a, icons = true) => {
   if (safeHref(a.sourceUrl) === "#") return "";
   const u = esc(shareUrl(a)), btn = `<button type="button" class="share" data-act="share" data-share="${u}" title="Paylaş">Paylaş</button>`;
-  return icons ? `<span class="shr" data-share="${u}">${btn}${Object.entries(SHARE_TO).filter(([, v]) => v[1]).map(([k, v]) => `<button type="button" class="sh" data-to="${k}" aria-label="${v[0]}">${shIcon(k)}</button>`).join("")}<button type="button" class="sh" data-to="cp" aria-label="Keçidi kopyala">${shIcon("cp")}</button></span>` : btn;
+  return icons ? `<span class="shr" data-share="${u}">${btn}</span>` : btn;
 };
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
@@ -1329,8 +1330,8 @@ function renderTicker() {
   $("#ticker").innerHTML = html;
   afterPaint(startTicker);
 }
-// Lentin hərəkəti Web Animations API ilədir: CSS animasiyası telefonda «hərəkəti azalt» və ilişən :hover üzündən dayanırdı; JS asılı deyil,
-// kompozitorda hamardır. Siçan üstündə dayanır; çəkmək olur, buraxandan 1.5 s sonra davam edir.
+// Lentin hərəkəti Web Animations API ilədir (CSS animasiyası «hərəkəti azalt» və ilişən :hover üzündən dayanırdı). Siçan üstündə dayanır;
+// çəkmək olur, buraxandan 1.5 s sonra davam edir.
 const TICK_SPEED = 55; // px/s
 let tickAnim = null, tickT = 0, tickMoved = false;
 function startTicker() {
@@ -1796,8 +1797,8 @@ function homeView() {
   }).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
-// Paylaşılan keçid sonra da açılsın (yalnız lentdə tapılmayanda): qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i),
-// lentdən çıxan 24 saat paylaşma siyahısındadır (data/paylas/N.json, 32 hissə; updater.py update_share_index), köhnəsi arxivdə.
+// Paylaşılan keçid sonra da açılsın (yalnız lentdə tapılmayanda): qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i), lentdən
+// çıxan 24 saat paylaşma siyahısındadır (data/paylas/N.json, 32 hissə; update_share_index), köhnəsi arxivdə.
 // Qrupa düşən mənbənin sətri əsas xəbərə yönəlir (of), ən çox 3 addım. Tapılmasa null, şəbəkə xətası atılır.
 async function shareRow(id) {
   for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
@@ -1810,7 +1811,7 @@ async function shareRow(id) {
 }
 // Paylaşılan keçid (WhatsApp, Telegram) açılanda tam lent (240 KB) gözlənilmir: xəbərin sətri ~20 KB-lıq paylaşma
 // hissəsindən gəlir (index.html onu erkən istəyir), lent arxada yüklənir və gələndə səhifənin qalanı dolur.
-// Paylaşılan keçiddən açılan xəbərdə geri düyməsi baş səhifəyə qayıtsın (tətbiqdən çıxmasın): altdan baş səhifə qoyulur.
+// Paylaşılan keçiddən açılan xəbərdə geri düyməsi baş səhifəyə qayıtsın: altdan baş səhifə qoyulur.
 function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
 async function loadShared(id) {
   if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
@@ -2558,12 +2559,15 @@ function lazyFill(box) {
 }
 function setupLazySections() {
   S.lazyIO?.disconnect();
+  const touch = globalThis.matchMedia?.("(hover:none)").matches;
   const show = box => {
+    if (box.classList.contains("shr")) { if (box.children.length === 1) box.insertAdjacentHTML("beforeend", SHR_ICONS); return; }
     if (!lazyFill(box)) return;
     setupStrips(box.querySelectorAll(".strip"));
     if (box.querySelector("[data-marquee]")) setupMarquees();
+    if (touch) box.querySelectorAll(".shr").forEach(s => S.lazyIO ? S.lazyIO.observe(s) : show(s));
   };
-  const boxes = [...document.querySelectorAll(".lazy-sec")];
+  const boxes = [...document.querySelectorAll(touch ? ".lazy-sec, .shr" : ".lazy-sec")];
   if (!globalThis.IntersectionObserver) { boxes.forEach(show); return; }
   S.lazyIO = new IntersectionObserver(rows => rows.forEach(e => { if (e.isIntersecting) { S.lazyIO.unobserve(e.target); show(e.target); } }), { rootMargin: "900px 0px" });
   boxes.forEach(b => S.lazyIO.observe(b));
@@ -2961,7 +2965,7 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt 
 addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
 function registerWorker() {
   if (!("serviceWorker" in navigator)) return;
-  // sw.js kod dəyişəndə bildirir: toxunulmayıbsa (ilk 4 s) dərhal, yoxsa gözdən itəndə yenidən açılır; sessiyada bir dəfə (dövrə olmasın).
+  // sw.js kod dəyişəndə bildirir: toxunulmayıbsa (ilk 4 s) dərhal, yoxsa gözdən itəndə yenidən açılır; sessiyada bir dəfə.
   navigator.serviceWorker.addEventListener("message", e => {
     if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
     if (e.data?.type !== "shell-updated") return;

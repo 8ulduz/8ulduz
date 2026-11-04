@@ -2104,7 +2104,14 @@ test('owner notes: share — the card carries F, X, W, T and copy beside the but
   S.og = {};
   const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
   assert.ok(/<span class="shr" data-share="https:\/\/8ulduz\.az\/#\/xeber\/1\?b=gundem"><button type="button" class="share" data-act="share"/.test(html), 'düymə və ikonlar bir qrupdadır');
-  for (const k of ['fb', 'x', 'wa', 'tg', 'cp']) assert.ok(html.includes(`class="sh" data-to="${k}"`), k);
+  assert.ok(!html.includes('class="sh"'), 'ikonlar kartın HTML-ində yoxdur: ekrana yaxınlaşanda qoyulur (sürət)');
+  const icons = vm.runInContext('SHR_ICONS', ctx); for (const k of ['fb', 'x', 'wa', 'tg', 'cp']) assert.ok(icons.includes(`class="sh" data-to="${k}"`), k);
+  const filled = [], shr = { classList: { contains: c => c === 'shr' }, children: { length: 1 }, insertAdjacentHTML: (w, h) => filled.push(h), querySelectorAll: () => [] };
+  ctx.document.querySelectorAll = sel => sel.includes('.shr') ? [shr] : []; ctx.matchMedia = () => ({ matches: true });
+  vm.runInContext('setupLazySections()', ctx);
+  assert.deepEqual(filled, [icons], 'toxunma ekranında ikonlar kart görünəndə əlavə olunur');
+  ctx.matchMedia = () => ({ matches: false }); filled.length = 0; vm.runInContext('setupLazySections()', ctx);
+  assert.deepEqual(filled, [], 'kompüterdə (hover) ikon qoyulmur, panel var');
   const prez = prezBlock(prezHome([{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, lang: 'az' }]));
   assert.ok(!prez.includes('class="shr"') && prez.includes('data-prez-pause'), 'Zuğulba kartında yalnız düymə; başlıqda dayandır düyməsi');
   const to = vm.runInContext('SHARE_TO', ctx);
@@ -2174,8 +2181,9 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
   S.og = {};
   const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
-  assert.ok(html.includes('<use href="./assets/sosial.svg#fb"/>') && html.includes('sosial.svg#cp'), 'ikonlar <use> ilə çəkilir, hərf yoxdur');
-  assert.ok(!/data-to="fb">f</.test(html));
+  const icons = vm.runInContext('SHR_ICONS', ctx); // ikonlar kart ekrana yaxınlaşanda qoyulur (setupLazySections); mətni sprite-dandır
+  assert.ok(icons.includes('<use href="./assets/sosial.svg#fb"/>') && icons.includes('sosial.svg#cp') && html.includes('class="shr"'), 'ikonlar <use> ilə çəkilir, hərf yoxdur');
+  assert.ok(!/data-to="fb">f</.test(icons));
   // telefon: yuxarı zolağın qutusu açılır, dil + rejim + şrift loqo sətrində, Namaz + hava + lupa + «Ana ekrana əlavə et» ikinci sətirdə
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.hrow>.topbar,.hrow>.topbar>.wrap{display:contents}') && css.includes('.hrow .ldd{order:2;margin-left:auto}') && css.includes('.hrow .prefs{order:3') && css.includes('.hrow::after{content:"";order:4;flex:1 0 100%') && css.includes('.inst{order:8;margin-left:auto}'), 'telefon sətirləri sahibin sırası ilə');

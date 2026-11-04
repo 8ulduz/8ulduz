@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v41"; // v41: /x/ID paylaşma səhifəsi (og etiketləri, dərhal #/xeber/ID-yə keçir) işçidən yan keçir; v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
+const VERSION = "v42"; // v42: məlumat cavabı keş yazısını gözləmir; v41: /x/ID paylaşma səhifəsi (og etiketləri, dərhal #/xeber/ID-yə keçir) işçidən yan keçir; v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -102,13 +102,15 @@ async function freshData(req) {
   return origin ? marked(origin, "network") : null;
 }
 
-async function networkFirstData(req) {
+async function networkFirstData(req, event) {
   const cache = await caches.open(DATA);
   const bare = new URL(req.url);
   bare.search = "";
   const fresh = await freshData(req);
   if (fresh) {
-    try { await cache.put(bare.toString(), fresh.clone()); } catch {}
+    // Keşə yazı arxada: səhifə cavabı başlıq gələn kimi alır (əvvəl 770 KB-lıq lentin yazılması da gözlənilirdi).
+    const put = cache.put(bare.toString(), fresh.clone()).catch(() => {});
+    event?.waitUntil?.(put);
     return fresh;
   }
   const hit = await cache.match(bare.toString());
@@ -172,7 +174,7 @@ self.addEventListener("fetch", (event) => {
   if (url.hostname === "gc.zgo.at" || url.hostname.endsWith(".goatcounter.com")) return;
   if (event.request.method !== "GET" || !inScope(url)) return;
   if (isData(url)) {
-    event.respondWith(networkFirstData(event.request));
+    event.respondWith(networkFirstData(event.request, event));
     return;
   }
   if (/\/x\/[0-9a-f]{16}$/.test(url.pathname)) return; // paylaşma səhifəsi (updater.py write_share_pages): keşə düşməsin, köhnəsi 404.html-dən yönlənir
