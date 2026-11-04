@@ -22,7 +22,11 @@ const decodeEntities = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (
 });
 
 // app.js-in brauzer mühiti: shellgen/test harness ilə eyni saxta DOM. Yalnız HTML qurulur, heç nə çəkilmir.
-function homeHtml(root, first, { now = 0, width = 390 } = {}) {
+// Baş səhifənin ilk ekranı (#view) və yuxarı zolaq (#topbar). Zolaq boş qalanda JS onu dolduran kimi lupa düyməsi 119 px sağa,
+// bölmələr 4 px aşağı sürüşürdü (Lighthouse CLS 0,118, 2026-11-05 izi); hazır zolaq açılışdakı ilə eyni quruluşdadır (hava «—», dil «Hamısı»).
+function homeHtml(root, first, opts) { return renderHome(root, first, opts).view; }
+const oneLine = s => String(s).replace(/\s*\n\s*/g, " ").trim();
+function renderHome(root, first, { now = 0, width = 390 } = {}) {
   const els = {};
   const el = id => els[id] ||= { id, _html: "", set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
   // Sabit vaxt (testlər üçün): «5 dəqiqə əvvəl» və slayder pəncərəsi həmin ana görə hesablanır.
@@ -41,9 +45,17 @@ function homeHtml(root, first, { now = 0, width = 390 } = {}) {
   vm.runInContext(fs.readFileSync(path.join(root, "assets/content-policy.js"), "utf8"), context);
   const source = fs.readFileSync(path.join(root, "assets/app.js"), "utf8").split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
-  vm.runInContext("render = () => {}; renderTopbar = () => {}; checkBreaking = () => {}; primeHeroImage = () => {}; requestRender = () => {};", context);
+  vm.runInContext("const __topbar = renderTopbar; render = () => {}; renderTopbar = () => {}; checkBreaking = () => {}; primeHeroImage = () => {}; requestRender = () => {};", context);
   context.__first = first;
-  return vm.runInContext("S.og = __first.og || {}; S.rawNews = __first.articles; S.rawMeta = { ...__first, articles: undefined }; S.partial = true; publishNews(); homeView();", context);
+  const view = vm.runInContext("S.og = __first.og || {}; S.rawNews = __first.articles; S.rawMeta = { ...__first, articles: undefined }; S.partial = true; publishNews(); homeView();", context);
+  const topbar = oneLine(vm.runInContext("__topbar(); document.querySelector('#topbar').innerHTML", context));
+  return { view, topbar };
+}
+const TOPBAR_RE = /(<div class="topbar"><div class="wrap" id="topbar">)([^\n]*)(<\/div><\/div>\r?)$/m;
+function validateTopbar(html) {
+  if (typeof html !== "string" || html.length < 300 || html.length > 8000) throw Error("yuxarı zolaq ölçüsü: " + (html && html.length));
+  if (/<script\b|\n/i.test(html)) throw Error("yuxarı zolaqda skript və ya sətir sonu var");
+  for (const k of ['class="wx', 'data-act="theme"', 'class="ldd"', 'data-act="pray"']) if (!html.includes(k)) throw Error("yuxarı zolaqda yoxdur: " + k);
 }
 
 // Ekranda görünən hissə: slayderin ilk slaydları, Zuğulbanın ilk kartları, «Son xəbərlər»in ilk kartları. Kartların içində
@@ -76,10 +88,12 @@ function prerender(root, opts = {}) {
   if (!m) throw Error("index.html-də #view bloku və noscript tapılmadı");
   const first = JSON.parse(fs.readFileSync(path.join(root, "data/first.json"), "utf8"));
   if (!Array.isArray(first.articles) || first.articles.length < 10) throw Error("first.json-da xəbər azdır");
-  const html = firstScreen(homeHtml(root, first, opts));
+  if ((index.match(/id="topbar"/g) || []).length !== 1 || !TOPBAR_RE.test(index)) throw Error('index.html-də #topbar sətri bir dəfə olmalıdır');
+  const home = renderHome(root, first, opts), html = firstScreen(home.view);
   validate(html);
+  validateTopbar(home.topbar);
   const block = `${m[1]}<div class="pre-skel" data-prerender="${esc(first.updatedAt || "")}">${html}</div>${m[3]}`;
-  const out = index.slice(0, m.index) + block + index.slice(m.index + m[0].length);
+  const out = (index.slice(0, m.index) + block + index.slice(m.index + m[0].length)).replace(TOPBAR_RE, (_, a, b, c) => a + home.topbar + c);
   if (out === index) return { changed: false, bytes: Buffer.byteLength(out), view: html.length };
   const tmp = file + ".tmp";
   fs.writeFileSync(tmp, out); // yarımçıq fayl qalmasın: əvvəl kənara, sonra yerinə
@@ -87,7 +101,7 @@ function prerender(root, opts = {}) {
   return { changed: true, bytes: Buffer.byteLength(out), view: html.length };
 }
 
-module.exports = { homeHtml, firstScreen, prerender, validate, decodeEntities, VIEW_RE, NOSCRIPT, KEEP };
+module.exports = { homeHtml, renderHome, firstScreen, prerender, validate, validateTopbar, decodeEntities, VIEW_RE, TOPBAR_RE, NOSCRIPT, KEEP };
 
 if (require.main === module) {
   const root = process.argv[2] || process.cwd();

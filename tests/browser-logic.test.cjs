@@ -1548,7 +1548,10 @@ test('speed red line: index.html carries the same shell app.js builds, with nav 
   const pre = /^<div class="pre-skel" data-prerender="[^"]+">[\s\S]*<section class="hero">[\s\S]*<\/div>$/.test(got[2]);
   assert.ok(pre || got[2] === '<div class="pre-skel">' + parts.skeleton + '</div>', '#view-də skelet və ya hazır ilk ekran olmalıdır');
   want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + got[2] + '<noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
-  assert.equal(m[1], want, 'index.html qabığı app.js shell() ilə eyni deyil');
+  // #topbar: ya boş, ya da pipeline-ın hazır yuxarı zolağı (lupa düyməsi JS gələndə sıçramasın); qabığın qalanı eyni olmalıdır.
+  const tb = m[1].match(/<div class="wrap" id="topbar">([^\n]*)<\/div><\/div>$/m);
+  assert.ok(tb && (tb[1] === '' || (tb[1].includes('data-act="theme"') && tb[1].includes('class="wx'))), '#topbar boş və ya hazır zolaq olmalıdır');
+  assert.equal(m[1].replace(tb[0], '<div class="wrap" id="topbar"></div></div>'), want, 'index.html qabığı app.js shell() ilə eyni deyil');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(src.includes('if (!$("#app").dataset?.shell) $("#app").innerHTML'), 'shell() statik qabığı silməməlidir');
 });
@@ -1974,11 +1977,14 @@ test('speed red line: prerender rewrites only the #view block of index.html and 
   fs.writeFileSync(path.join(tmp, 'data/first.json'), JSON.stringify(firstFixture(now)));
   const before = fs.readFileSync(path.join(tmp, 'index.html'), 'utf8');
   const viewRe = /(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/;
+  const tbRe = /(<div class="wrap" id="topbar">)([^\n]*)(<\/div><\/div>\r?)$/m;
   const r1 = prerender(tmp, { now, width: 390 });
   const after = fs.readFileSync(path.join(tmp, 'index.html'), 'utf8');
   assert.equal(r1.changed, true);
   assert.ok(after.includes('<div class="pre-skel" data-prerender="' + firstFixture(now).updatedAt + '">'), 'hazır blokun vaxt möhürü');
-  assert.equal(before.replace(viewRe, '$1$3'), after.replace(viewRe, '$1$3'), '#view-dən başqa heç nə dəyişməməlidir (CSP, qabıq, sətir sonları)');
+  const tb = after.match(tbRe)[2]; // yuxarı zolaq hazır: açılışdakı quruluş (hava «—», dil düyməsi, rejim düyməsi), bir sətirdə, skriptsiz
+  assert.ok(tb.includes('<b>—</b>') && tb.includes('class="ldd"') && tb.includes('data-act="theme"') && tb.includes('data-act="pray"') && !/<script/.test(tb), 'hazır yuxarı zolaq: ' + tb.slice(0, 200));
+  assert.equal(before.replace(viewRe, '$1$3').replace(tbRe, '$1$3'), after.replace(viewRe, '$1$3').replace(tbRe, '$1$3'), '#view və #topbar-dan başqa heç nə dəyişməməlidir (CSP, qabıq, sətir sonları)');
   assert.equal((after.match(/<script>/g) || []).length, 1, 'daxili skript sayı dəyişməz');
   assert.equal(prerender(tmp, { now, width: 390 }).changed, false, 'ikinci dəfə eyni nəticə, fayl yazılmır');
   fs.rmSync(tmp, { recursive: true, force: true });
