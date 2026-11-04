@@ -783,6 +783,15 @@ async function loadNews(force = false) {
 
 // İlk ekran (data/first.json, ~100 xəbər) yalnız baş səhifədə, azərbaycanca: başqa səhifə/dil tam lenti gözləyir.
 const firstScreen = () => route().name === "home" && !S.q && S.lang === "az";
+// Hazır ilk ekranda birinci çəkiliş slayder şəklinin boyanmasını gözləyir (bir kadr; yoxsa LCP çəkilişdən sonraya düşürdü), ən çox 1,5 s.
+function heroPainted() {
+  const im = route().name === "home" && $("#view .pre-skel[data-prerender] .hero-main img[src]");
+  if (!im) return Promise.resolve();
+  return new Promise(ok => {
+    const go = () => (globalThis.requestAnimationFrame || setTimeout)(() => setTimeout(ok));
+    if (im.complete) go(); else { im.addEventListener("load", go, { once: true }); im.addEventListener("error", go, { once: true }); setTimeout(ok, 1500); }
+  });
+}
 async function loadFirst() {
   if (!firstScreen()) return;
   try {
@@ -793,6 +802,7 @@ async function loadFirst() {
     S.og = d.og || S.og || {};
     S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
     publishNews();
+    await heroPainted();
     S.firstRenderAt = Date.now();
     render();
     await new Promise(done => setTimeout(done));
