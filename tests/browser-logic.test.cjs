@@ -1097,6 +1097,21 @@ test('a navigation with a query string reads and stores the shell under the path
   assert.deepEqual(seen.put, ['https://example.com/8ulduz/'], 'təzə nüsxə eyni açarın üstünə yazılır');
   assert.equal(seen.fetched, 'https://example.com/8ulduz/');
 });
+// Kod faylı da: bir dəfə app.js?c=… istənəndə (yoxlama sorğusu) ayrı nüsxə yaranırdı və ignoreSearch həmişə onu qaytarırdı —
+// arxa yoxlama sorğusuz açarı təzələsə də oxucu köhnə kodda qalırdı (sw v39, 4 noyabr).
+test('a code file asked with a query string is read and stored under the path only', async () => {
+  const {context} = worker();
+  const seen = {match: [], put: []};
+  context.fetch = async (req) => { seen.fetched = req.url || String(req); return new Response('fresh code'); };
+  context.caches.open = async () => ({match: async (key, opts) => { seen.match.push([String(key), opts?.ignoreSearch]); return new Response('saved code'); }, put: async (key) => { seen.put.push(String(key)); }});
+  context.self.clients.matchAll = async () => [];
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js?c=1793809578259'))", context);
+  assert.equal(await res.text(), 'saved code');
+  for (let i = 0; i < 20 && !seen.put.length; i++) await new Promise(r => setImmediate(r));
+  assert.deepEqual(seen.match, [['https://example.com/8ulduz/assets/app.js', false]], 'sorğu sətri açara düşmür, ignoreSearch yoxdur');
+  assert.deepEqual(seen.put, ['https://example.com/8ulduz/assets/app.js'], 'təzə nüsxə sorğusuz açarın üstünə yazılır');
+  assert.equal(seen.fetched, 'https://example.com/8ulduz/assets/app.js', 'şəbəkəyə də sorğusuz yol gedir');
+});
 
 test('a hanging network does not leave a blank page when a copy is saved', async () => {
   const {context} = worker();

@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v39"; // v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi; v37: tam lent dil üzrə (news.en/ru/tr.json main-də); v36: dəqiqəlik lent dil üzrə (latest.az.json və s.) canlı kanaldan
+const VERSION = "v40"; // v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -144,14 +144,15 @@ async function cacheFirst(req) {
 const CODE_FILE = /\.(?:js|css)$/;
 async function cachedShell(req, event) {
   const cache = await caches.open(STATIC);
-  // Naviqasiyanın açarı yalnız yoldur: ?utm_source=… kimi sorğu ilə hər açılış ayrı nüsxə yaradırdı, ignoreSearch isə həmişə
-  // ən köhnəsini qaytarırdı və qabıq (CSP, hazır ekran) o oxucuda heç vaxt yenilənmirdi.
-  const nav = req.mode === "navigate", key = nav ? req.url.split(/[?#]/)[0] : req;
-  const saved = await cache.match(key, { ignoreSearch: !nav });
+  // Açar həmişə yalnız yoldur (naviqasiya da, kod faylı da): ?utm_source=… və ya app.js?c=… kimi sorğu öz nüsxəsini
+  // yaradırdı, ignoreSearch isə həmişə ən köhnəsini qaytarırdı; arxa yoxlama yalnız sorğusuz açarı təzələdiyindən o oxucu
+  // köhnə kodda qalırdı (v39-da app.js belə ilişdi). Şəbəkəyə də sorğusuz yol gedir: CDN-də bir nüsxə.
+  const key = req.url.split(/[?#]/)[0];
+  const saved = await cache.match(key, { ignoreSearch: false });
   // Müqayisə üçün mətn saxlanmış cavab səhifəyə verilməzdən ƏVVƏL götürülür: gövdə oxunandan sonra clone() xəta atır
   // və keş heç vaxt yenilənmirdi (v33-də belə idi: köhnə app.js telefonda qalırdı).
   const savedText = saved && CODE_FILE.test(new URL(req.url).pathname) ? saved.clone().text().catch(() => null) : null;
-  const network = fetch(new Request(nav ? key : req, { cache: "no-cache" })).then(async (fresh) => {
+  const network = fetch(new Request(key, { cache: "no-cache" })).then(async (fresh) => {
     if (!fresh.ok) return fresh;
     const copy = fresh.clone();
     const changed = !!savedText && (await savedText) !== (await fresh.clone().text());
