@@ -872,7 +872,7 @@ function readerBusy() {
   if ($("#view iframe, #view details.altpop[open]")) return true;
   return !!document.activeElement?.closest?.("#view input, #view select, #view textarea");
 }
-// Açılışda ilk xəbərlər dərhal, qalan fayllar bir dəfəyə (≤2,5 s), sonra 400 ms-də bir (əvvəl 8 fayl 8 çəkiliş idi).
+// Açılışda ilk xəbərlər dərhal, qalan fayllar bir dəfəyə (≤2,5 s), sonra 400 ms-də bir.
 const RENDER_GAP_MS = 400, FIRST_RENDER_HOLD_MS = 2500;
 // Gözləyən çəkiliş toxunma kəsiləndən 8 s sonra özü çəkilir (2 s-dən bir yoxlanır, ən çox 10 dəq; əvvəl düymə asılı qalırdı).
 function armBusy(ms, n = 0) { clearTimeout(S.busyT); S.busyT = setTimeout(() => { if (!S.renderPending) return; if (!readerBusy()) requestRender(S.renderWhole); else if (n < 300) armBusy(2000, n + 1); }, ms); S.busyT?.unref?.(); }
@@ -1610,7 +1610,7 @@ function prezBlock(list) {
   const card = (a, i) => {
     const [pic, ...rest] = imageCandidates(a);
     const small = sized(pic, 168);
-    const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
+    const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" fetchpriority="low" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
     // Kart keçiddir, «Paylaş» keçidin kənarında (içində düymə olmaz), sağ aşağıda.
     return `<article class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}"><a class="pcard-hit" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>${shareBtn(a)}</article>`;
   };

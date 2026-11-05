@@ -1957,6 +1957,9 @@ test('speed red line: the first screen is prerendered from first.json with app.j
   validate(html);
   assert.equal((html.match(/class="hero-main"/g) || []).length, KEEP.slides, 'görünən hissə: slaydlar');
   assert.ok((html.match(/class="pcard/g) || []).length <= KEEP.prez && (html.match(/<article class="card/g) || []).length <= KEEP.latest, 'görünən hissə: Zuğulba və son xəbər kartları');
+  assert.deepEqual(KEEP, { slides: 2, prez: 4, latest: 2, alts: 2 }, 'telefon ekranına sığan qədər (sürət, 2026-11-05)');
+  for (const m of html.matchAll(/data-image-alternatives="\[([^"]*)\]"/g)) assert.ok(m[1].split('&quot;,&quot;').length <= 2, 'hazır nüsxədə ehtiyat şəkil siyahısı 2-yə qədər');
+  assert.ok(/class="pcard[^>]*>[\s\S]*?<img [^>]*loading="lazy" fetchpriority="low"/.test(full), 'Zuğulba kiçik şəkilləri aşağı prioritetlə: slayder şəkli birinci keçir');
   assert.ok(html.includes('Neft &amp; qaz'), 'ilk slayd qalır');
   assert.ok(html.includes('<section class="hero">') && html.includes('Son xəbərlər') && html.includes('Zuğulba'), 'slayder, Son xəbərlər, Zuğulba');
   assert.ok(html.includes('5 dəqiqə əvvəl'), 'vaxt hazırlanma anına görədir');

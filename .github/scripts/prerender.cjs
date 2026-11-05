@@ -11,7 +11,9 @@ const fs = require("node:fs"), path = require("node:path"), vm = require("node:v
 
 const NOSCRIPT = "<noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>";
 const VIEW_RE = /(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/;
-const KEEP = { slides: 3, prez: 8, latest: 4 };
+// Telefon ekranına sığan qədər (2026-11-05 ölçüsü: 31,5 KB → ~15 KB; böyük statik DOM slayder şəklinin boyanmasını ləngidirdi).
+// Ehtiyat şəkil siyahısı (data-image-alternatives) hazır nüsxədə 2 ünvana qədər: JS gələndə tam siyahı qayıdır.
+const KEEP = { slides: 2, prez: 4, latest: 2, alts: 2 };
 const esc = s => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 // app.js decode() başlıqdakı HTML işarələrini <textarea> ilə açır; burada brauzer yoxdur, eyni işi bu cədvəl görür.
@@ -66,6 +68,7 @@ function firstScreen(html, keep = KEEP) {
   out = trim(out, /<article class="pcard[\s\S]*?<\/article>/g, keep.prez);
   const at = out.indexOf('<div class="latest-grid">');
   if (at >= 0) out = out.slice(0, at) + trim(out.slice(at), /<article class="card[\s\S]*?<\/article>/g, keep.latest);
+  if (keep.alts != null) out = out.replace(/data-image-alternatives="\[([^"]*)\]"/g, (_, list) => `data-image-alternatives="[${list.split("&quot;,&quot;").slice(0, keep.alts).join("&quot;,&quot;")}]"`);
   return out;
 }
 
