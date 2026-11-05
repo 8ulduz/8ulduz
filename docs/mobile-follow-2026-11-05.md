@@ -36,3 +36,7 @@ Telefonun izdə müşahidə olunmuş (modelləşdirilməmiş) FCP-si 1 215 → 1
 İlk açılışın əlavə transferi bu ölçülərdə 661–783 B-dir və yük 1,5 MB-dan aşağı qalır. `follow.js` heç bir ilk açılış ölçüsündə istənməyib: modul 6 750 B, gzip 2 658 B və yalnız klikdə gəlir. Əsas fayllar (LF): `app.js` 219 602 / 220 000 B, `app.css` 94 527 / 95 000 B.
 
 Rəsmi WhatsApp, Facebook, Instagram, LinkedIn və izlənə bilən Google News ünvanları sahibdən gözlənilir. Telegram üçün əvvəlki ayar saxlanılıb.
+
+## Əsas budaqla uyğunlaşdırma
+
+Sonradan `main`-də yayımlanmış idman səhifəsi sürət düzəlişləri (`3045d52068488d6914b136ad7949633616b3e2c3`) saxlanılıb. Yeganə birləşdirmə konflikti xidmət işçisinin versiya sətrində idi: yeni versiya `v49` oldu. Əsas JavaScript faylının ölçü limitinə sığması üçün yalnız izahlı şərhlər qısaldılıb; hazırkı LF ölçüsü 219 777 / 220 000 B-dir. CSS 94 527 / 95 000 B qalır. Yuxarıdakı Lighthouse rəqəmləri ilk variantın göstərilmiş bazasına aiddir; bu uyğunlaşdırma ayrıca sürət qazancı kimi təqdim edilmir.

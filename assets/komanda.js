@@ -72,21 +72,30 @@ export function nameRx(names) {
   return safe ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${safe})${SUFFIX}(?![\\p{L}\\p{N}])`, "u") : null;
 }
 
-export function mountTeam(d) {
-  const { S, esc, card, byDate, sized, shortDT, ordinal, ago, decode, clubMatches, topics, withArchive, loadArchive, months, requestJSON, freshUrl, requestRender } = d;
-  const files = new Map();
-  function file(path) {
-    let f = files.get(path);
-    if (!f || Date.now() - f.at > FILE_TTL) {
-      f = { at: Date.now(), doc: f?.doc || null, failed: false };
-      files.set(path, f);
-      const mine = f;
-      requestJSON(freshUrl(path), {}, 12000).then(({ d: doc }) => { mine.doc = doc; })
-        .catch(() => { mine.failed = true; mine.at = Date.now() - FILE_TTL + FAIL_WAIT; })
-        .finally(() => requestRender(false));
-    }
-    return f;
+// Fayllar vəziyyət obyektində (S.tmFiles) saxlanır ki, prefetch (idman bölməsi açılanda, liqa ünvanı açılan kimi) və səhifə eyni nüsxəni görsün.
+function fileOf(S, path) {
+  const files = S.tmFiles ||= new Map(), dp = S.tmDeps;
+  let f = files.get(path);
+  if (!f || Date.now() - f.at > FILE_TTL) {
+    f = { at: Date.now(), doc: f?.doc || null, failed: false };
+    files.set(path, f);
+    const mine = f;
+    dp.requestJSON(dp.freshUrl(path), {}, 12000).then(({ d: doc }) => { mine.doc = doc; })
+      .catch(() => { mine.failed = true; mine.at = Date.now() - FILE_TTL + FAIL_WAIT; })
+      .finally(() => dp.requestRender(false));
   }
+  return f;
+}
+// Zəncir əvəzinə paralel: index.json və (mövsüm seçilməyibsə) liqanın öz faylı birlikdə istənir; telefonda liqa səhifəsi 3–6 s açılırdı.
+export function prefetch(d, r) {
+  d.S.tmDeps ||= d;
+  fileOf(d.S, `${DIR}index.json`);
+  if (r?.liga && !r.season && /^[a-z0-9-]+$/.test(r.liga)) fileOf(d.S, `${DIR}${r.liga}.json`);
+}
+export function mountTeam(d) {
+  d.S.tmDeps = d;
+  const { S, esc, card, byDate, sized, shortDT, ordinal, ago, decode, clubMatches, topics, withArchive, loadArchive, months, requestJSON, freshUrl, requestRender } = d;
+  const file = path => fileOf(S, path);
   const leaguePath = (league, key) => `${DIR}${league.id}${key === league.ready[0].key ? "" : `-${key}`}.json`;
   const href = (liga, slug, tab = "", key = "") => `#/komanda/${liga}/${encodeURIComponent(slug)}${tab ? `/${tab}` : ""}${key ? `?s=${key}` : ""}`;
   const logo = (url, size, name = "") => url ? `<img src="${esc(sized(url, size * 2))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="hide">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px" aria-hidden="true">${esc([...name][0] || "")}</span>`;

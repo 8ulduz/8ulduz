@@ -1711,9 +1711,13 @@ test('world league with games: credits every source, marks a late result and ope
 test('speed red line: the home page loads no team page code or data', () => {
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(!src.includes('data/futbol'), 'məlumat yalnız komanda.js-dən istənir');
-  assert.equal(src.split('komanda.js').length - 1, 1);
+  assert.equal(src.split('import("./komanda.js")').length - 1, 1, 'modul bir yerdən (teamModule) yüklənir');
+  assert.equal(src.split('komanda.js').length - 1, 2, 'import + idman bölməsində modulepreload (preTeam)');
   const body = src.slice(src.indexOf('function teamView'), src.indexOf('function trafficView'));
-  assert.ok(body.includes('import("./komanda.js")') && body.includes('komanda.css'), 'kod və üslub bu funksiyadadır');
+  assert.ok(body.includes('teamModule(r)') && body.includes('komanda.css'), 'kod və üslub bu funksiyadan gəlir');
+  assert.ok(src.includes('if (r.name === "section" && r.slug === "idman") preTeam();'), 'idman bölməsi açılanda modul, üslub və index əvvəlcədən yüklənir');
+  const km = fs.readFileSync(path.join(root, 'assets/komanda.js'), 'utf8');
+  assert.ok(km.includes('export function prefetch(d, r)') && km.includes('fileOf(d.S, `${DIR}index.json`);') && km.includes('fileOf(d.S, `${DIR}${r.liga}.json`)'), 'komanda.js index və liqanın faylını birlikdə istəyir');
   assert.equal(src.split('teamView(').length - 1, 2, 'tərif və renderView-da komanda ünvanı');
   assert.ok(src.includes('r.name === "team" ? teamView(r)'));
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
