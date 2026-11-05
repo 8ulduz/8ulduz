@@ -1806,7 +1806,7 @@ function homeView() {
   }).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
-// Paylaşılan keçid sonra da açılsın: qrup xəbərinin nömrəsi lentdə yoxdur (sha1); 24 saat paylaşma siyahısında (data/paylas/N.json), sonra arxivdə.
+// Paylaşılan keçid sonra da açılsın: qrup xəbərinin nömrəsi lentdə yoxdur (sha1); 24 saat paylaşma siyahısında (data/paylas/N.json).
 // Qrupa düşən mənbənin sətri əsas xəbərə yönəlir (of), ən çox 3 addım. Tapılmasa null, şəbəkə xətası atılır.
 async function shareRow(id) {
   for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
@@ -1985,16 +1985,25 @@ function leagueView() {
   wantSports();
   return `<div class="page-h"><div><h1>Premyer Liqa cədvəli</h1><p>Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar.</p></div></div>${footballBlock(S.data?.articles || [])}`;
 }
-// Komanda səhifəsi ayrı fayldadır: kodu və üslubu yalnız bu ünvan açılanda gəlir.
+// Komanda səhifəsi ayrı fayldadır: kodu və üslubu yalnız bu ünvan açılanda gəlir. Liqa səhifəsi 4 ardıcıl gedişlə açılırdı (modul, üslub,
+// index.json, liqa.json; telefonda 3–6 s): modul bir dəfə yüklənir, gələn kimi index və liqanın faylını birlikdə istəyir (prefetch);
+// idman bölməsi açılanda modul, üslub və index əvvəlcədən gəlir (preTeam) — liqa ünvanı açılanda yalnız liqanın faylı qalır.
+const teamModule = r => (S.teamMod ||= import("./komanda.js")).then(m => { m.prefetch?.({ S, requestJSON, freshUrl, requestRender }, r); return m; });
+function preTeam() {
+  if (S.teamPre) return;
+  S.teamPre = true;
+  for (const [f, rel] of [["komanda.js", "modulepreload"], ["komanda.css", "preload"]]) { const l = document.createElement("link"); l.rel = rel; if (rel === "preload") l.as = "style"; l.href = `${ASSET}${f}`; document.head?.append?.(l); }
+  teamModule().catch(() => {});
+}
 function teamView(r) {
   if (S.teamPage) return S.teamPage.view(r);
   if (!S.teamLoading && Date.now() - (S.teamFailedAt || 0) > 30e3) {
     S.teamLoading = true;
     const css = new Promise(done => { const link = document.createElement("link"); link.rel = "stylesheet"; link.href = `${ASSET}komanda.css`; link.onload = link.onerror = done; document.head.append(link); });
-    Promise.all([import("./komanda.js"), css]).then(([{ mountTeam }]) => {
+    Promise.all([teamModule(r), css]).then(([{ mountTeam }]) => {
       S.teamPage = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive, months: MONTHS, requestJSON, freshUrl, requestRender });
       requestRender(false);
-    }).catch(() => { S.teamLoading = false; S.teamFailedAt = Date.now(); requestRender(false); });
+    }).catch(() => { S.teamLoading = false; S.teamMod = null; S.teamFailedAt = Date.now(); requestRender(false); });
   }
   return S.teamFailedAt ? `<div class="err" role="alert">Komanda səhifəsi açılmadı. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : skeleton();
 }
@@ -2112,6 +2121,7 @@ function renderView() {
     }
     if ((!S.data || onlyFirst) && !shared) { if (pre) return; S.viewPage = null; v.innerHTML = skeleton(r.name === "article" ? "article" : ""); return; }
     const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
+    if (r.name === "section" && r.slug === "idman") preTeam();
     const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
     // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
     const page = err + body;
