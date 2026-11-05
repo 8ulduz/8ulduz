@@ -11,7 +11,8 @@
 //   Telegram  TELEGRAM_BOT_TOKEN (bot kanala admin kimi əlavə olunur). Kanal TELEGRAM_CHAT-da (@ad və ya -100… nömrə) verilməyibsə,
 //             botun admin edildiyi kanal botun öz yeniləmələrindən tapılır və yadda qalır (gizli kanalın açıq adı olmur).
 //             t.me/sekkizulduz kanal deyil, şəxsi hesabdır: bot ora yaza bilmir.
-//   Facebook  FB_PAGE_ID, FB_PAGE_TOKEN (yalnız Facebook SƏHİFƏSİ; şəxsi profilə API ilə yazmaq mümkün deyil)
+//   Facebook  FB_PAGE_ID (8ulduz səhifəsi 1470250006171917, social.yml-də), FB_PAGE_TOKEN (Meta tətbiqi «8ulduz paylasma» 1000332509080909,
+//             uzadılmış istifadəçi açarından alınmış müddətsiz səhifə açarı; yalnız SƏHİFƏ, şəxsi profilə API ilə yazmaq olmur)
 //   X         X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (developer.x.com, «Read and write» icazəsi)
 //   LinkedIn  LINKEDIN_TOKEN (w_member_social), LINKEDIN_AUTHOR (urn:li:person:… və ya urn:li:organization:…)
 // Açarlar heç vaxt jurnala yazılmır. Paylaşılan nömrələr .social/posted.json-dadır (actions/cache), 3 gün saxlanır.
@@ -104,7 +105,7 @@ function networks(env = process.env) {
         body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
     } });
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN) list.push({ name: "facebook", request: a => [
-    `https://graph.facebook.com/v21.0/${encodeURIComponent(env.FB_PAGE_ID)}/feed`,
+    `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/${encodeURIComponent(env.FB_PAGE_ID)}/feed`,
     { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ message: cut(a.title, 500), link: shareUrl(a), access_token: env.FB_PAGE_TOKEN }).toString() }] });
   if (env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_SECRET) list.push({ name: "x", request: a => {

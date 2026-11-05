@@ -27,7 +27,9 @@ API yalnız Facebook **səhifəsinə** yazır, şəxsi profilə yazmır. Verilə
 
 1. developers.facebook.com → Create App → «Other» → «Business».
 2. Graph API Explorer: səhifəni seçin, `pages_manage_posts` və `pages_read_engagement` icazələri ilə səhifə tokeni alın, sonra Access Token Debugger-də «Extend» ilə uzunmüddətli edin.
-3. Secrets: `FB_PAGE_TOKEN`. Variables: `FB_PAGE_ID` (səhifənin nömrəsi).
+3. Secrets: `FB_PAGE_TOKEN`. Səhifənin nömrəsi (8ulduz: 1470250006171917) social.yml-də yazılıb; başqa səhifə üçün Variables: `FB_PAGE_ID`.
+
+2026-11-05-də qurulub: səhifə «8ulduz», Meta tətbiqi «8ulduz paylasma» (1000332509080909). Səhifə açarı uzadılmış (60 günlük) istifadəçi açarından alındığı üçün müddətsizdir; Facebook parolu dəyişsə və ya tətbiqin icazəsi götürülsə, yenidən alınmalıdır.
 
 ## X
 

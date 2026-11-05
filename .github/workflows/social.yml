@@ -47,7 +47,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT: ${{ vars.TELEGRAM_CHAT }}
-          FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID || '1470250006171917' }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}

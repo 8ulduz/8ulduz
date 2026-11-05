@@ -112,7 +112,7 @@ test("social: Facebook page and LinkedIn requests carry the share link", () => {
   const [fb, li] = S.networks({ FB_PAGE_ID: "42", FB_PAGE_TOKEN: "p", LINKEDIN_TOKEN: "l", LINKEDIN_AUTHOR: "urn:li:person:abc" });
   const a = art("f1");
   const [fu, fi] = fb.request(a);
-  assert.equal(fu, "https://graph.facebook.com/v21.0/42/feed");
+  assert.equal(fu, "https://graph.facebook.com/v27.0/42/feed");
   assert.equal(new URLSearchParams(fi.body).get("link"), "https://8ulduz.az/x/f100000000000000");
   const [lu, lii] = li.request(a);
   const body = JSON.parse(lii.body);
