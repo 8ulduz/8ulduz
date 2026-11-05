@@ -104,10 +104,19 @@ function networks(env = process.env) {
       return [`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
     } });
-  if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN) list.push({ name: "facebook", request: a => [
-    `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/${encodeURIComponent(env.FB_PAGE_ID)}/feed`,
-    { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ message: cut(a.title, 500), link: shareUrl(a), access_token: env.FB_PAGE_TOKEN }).toString() }] });
+  if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN) {
+    const graph = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/${encodeURIComponent(env.FB_PAGE_ID)}`;
+    list.push({ name: "facebook", token: env.FB_PAGE_TOKEN,
+      // Sirrə istifadəçi açarı da yazıla bilər (2026-11-05 belə oldu: #200 «requires ... with page token»): ondan səhifə açarı alınır.
+      // Səhifə açarı ilə bu sorğu access_token qaytarmır, onda açar olduğu kimi qalır.
+      async prepare(f, state, log) {
+        const r = await f(`${graph}?fields=access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
+        if (r?.access_token && r.access_token !== env.FB_PAGE_TOKEN) { this.token = r.access_token; log("facebook: istifadəçi açarından səhifə açarı alındı (sirrə səhifə açarını yazmaq daha yaxşıdır)"); }
+        return true;
+      },
+      request(a) { return [`${graph}/feed`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ message: cut(a.title, 500), link: shareUrl(a), access_token: this.token }).toString() }]; } });
+  }
   if (env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_SECRET) list.push({ name: "x", request: a => {
     const url = "https://api.x.com/2/tweets";
     const { header } = oauthHeader("POST", url, { key: env.X_API_KEY, secret: env.X_API_SECRET, token: env.X_ACCESS_TOKEN, tokenSecret: env.X_ACCESS_SECRET });
@@ -148,7 +157,9 @@ async function run({ articles, env = process.env, now = Date.now(), fetch: f = g
     if (!live.has(a.id)) live.set(a.id, f(shareUrl(a), { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(15000) }).then(r => r.status === 200, () => false));
     return live.get(a.id);
   };
-  const hide = s => String(s?.message || s).split(env.TELEGRAM_BOT_TOKEN || "\u0000").join("***"); // açar URL-də ola bilər (Telegram)
+  // Açar URL-də və ya cavabda ola bilər: bütün açarlar (və alınmış səhifə açarı) jurnalda *** olur.
+  const hide = s => [env.TELEGRAM_BOT_TOKEN, env.FB_PAGE_TOKEN, ...nets.map(n => n.token)].filter(x => x && x.length > 8)
+    .reduce((m, k) => m.split(k).join("***"), String(s?.message || s));
   for (const net of nets) {
     if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
     const done = state[net.name] ||= {};

@@ -114,6 +114,7 @@ test("social: Facebook page and LinkedIn requests carry the share link", () => {
   const [fu, fi] = fb.request(a);
   assert.equal(fu, "https://graph.facebook.com/v27.0/42/feed");
   assert.equal(new URLSearchParams(fi.body).get("link"), "https://8ulduz.az/x/f100000000000000");
+  assert.equal(new URLSearchParams(fi.body).get("access_token"), "p");
   const [lu, lii] = li.request(a);
   const body = JSON.parse(lii.body);
   assert.equal(lu, "https://api.linkedin.com/rest/posts");
@@ -148,4 +149,21 @@ test("social: the site's Telegram buttons lead to the channel the bot posts to, 
   const cfg = fs.readFileSync(path.join(__dirname, "../assets/config.js"), "utf8");
   assert.ok(cfg.includes('telegram: "https://t.me/sekkizulduz_az"'), "«Kanala keç» və «İzlə → Telegram» 8ULDUZ kanalına aparır");
   assert.ok(!/telegram: "https:\/\/t\.me\/(sekkizulduz|vuqarm6666)"/.test(cfg), "@sekkizulduz və @vuqarm6666 şəxsi hesabdır, kanal deyil");
+});
+
+test("social: a Facebook user token in the secret is turned into the page token before posting, and neither is logged", async () => {
+  const env = { FB_PAGE_ID: "1470250006171917", FB_PAGE_TOKEN: "EAAuserTOKEN123456" };
+  const posts = [], logs = [];
+  const fetch = async (url, init = {}) => {
+    if (url.includes("?fields=access_token")) return { json: async () => ({ access_token: "EAApageTOKEN654321", id: "1470250006171917" }) };
+    if (init.method === "HEAD") return { status: 200 };
+    posts.push([url, new URLSearchParams(init.body)]);
+    return { ok: false, status: 400, text: async () => "bad EAApageTOKEN654321 EAAuserTOKEN123456" };
+  };
+  await S.run({ articles: [art("fa")], env, now: NOW, fetch, state: {}, log: s => logs.push(s) });
+  assert.equal(posts[0][0], "https://graph.facebook.com/v27.0/1470250006171917/feed");
+  assert.equal(posts[0][1].get("access_token"), "EAApageTOKEN654321", "səhifə açarı ilə yazılır");
+  const all = logs.join("\n");
+  assert.ok(all.includes("istifadəçi açarından səhifə açarı alındı"));
+  assert.ok(!all.includes("EAApageTOKEN654321") && !all.includes("EAAuserTOKEN123456") && all.includes("***"), "açarlar jurnalda görünmür");
 });
