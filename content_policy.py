@@ -7,6 +7,7 @@ Qaydalar assets/content-policy.js faylındadır (brauzer də onu oxuyur). Üç y
 """
 import ipaddress
 import json
+import os
 import pathlib
 import re
 import urllib.parse
@@ -27,6 +28,40 @@ VIDEO_CHANNELS = frozenset(POLICY["videoChannels"])
 BLOCKED_HOSTS = tuple(POLICY["blockedHosts"])
 AZ_TERMS = re.compile(POLICY["azTerms"], re.I)
 LEADER_TERMS = re.compile(POLICY["leaderTerms"], re.I)
+REMOVED_ARTICLES = dict(POLICY.get("removedArticles") or {})
+try:
+    # Arxa planda yenilənir; sürətli dövrədə şəbəkə sorğusu yoxdur.
+    _hot = pathlib.Path(os.environ.get("UPDATER_ROOT", _FILE.parents[1])) / ".cache" / "editorial-removals.json"
+    REMOVED_ARTICLES.update(json.loads(_hot.read_text(encoding="utf-8")))
+except (OSError, ValueError, TypeError):
+    pass
+_REMOVED_IDS, _REMOVED_URLS, _REMOVED_KEYS = set(), set(), set(REMOVED_ARTICLES)
+for _record in REMOVED_ARTICLES.values():
+    if not isinstance(_record, dict):
+        continue
+    _REMOVED_IDS.update([_record["id"]] if isinstance(_record.get("id"), str) else [])
+    for _name, _target in (("ids", _REMOVED_IDS), ("urls", _REMOVED_URLS), ("keys", _REMOVED_KEYS)):
+        if isinstance(_record.get(_name), list):
+            _target.update(s for s in _record[_name] if isinstance(s, str))
+_REMOVED_HOSTS = tuple(k.split("#")[0] for k in _REMOVED_KEYS if "#" in k)
+
+
+def removal_key(url):
+    try:
+        u = urllib.parse.urlsplit(url or "")
+        nums = [n for n in re.findall(r"(?:/|[-_])(\d{5,})(?=\.html?|/|$)", u.path)
+                if not re.fullmatch(r"(?:19|20)\d{6}", n)]
+        host = (u.hostname or "").lower().removeprefix("www.")
+        return f"{host}#{nums[-1]}" if host and nums else ""
+    except ValueError:
+        return ""
+
+
+def removed_article(article):
+    url, ident = article.get("sourceUrl"), article.get("id")
+    if ident in _REMOVED_IDS or url in _REMOVED_URLS:
+        return True
+    return bool(url) and any(host in url for host in _REMOVED_HOSTS) and removal_key(url) in _REMOVED_KEYS
 
 
 def host_of(url):
@@ -77,7 +112,7 @@ def source_allowed(name, url):
     host = host_of(url)
     # javascript://sayt.az/... ünvanının da «host»u olur: yalnız açıq internetdəki http(s) keçidi qəbul edilir.
     secure = safe_url(url)
-    return secure and bool(domains) and bool(host) and _on(host, domains) and not is_blocked(url)
+    return secure and bool(domains) and bool(host) and _on(host, domains) and not is_blocked(url) and not removed_article({"sourceUrl": url})
 
 
 def foreign_about_azerbaijan(source, category, title, desc=""):
@@ -93,6 +128,8 @@ def foreign_about_azerbaijan(source, category, title, desc=""):
 def violation(article):
     """Qayda pozulubsa səbəb, pozulmayıbsa None."""
     source, url = article.get("source"), article.get("sourceUrl")
+    if removed_article(article):
+        return "sayt sahibinin çıxardığı xəbər"
     if is_blocked(url):
         return "qadağan olunmuş sayt"
     if not source_allowed(source, url):

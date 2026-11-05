@@ -53,6 +53,18 @@ window.CONTENT_POLICY = {
   "sportSources": ["Sports.kz", "TRT Spor", "NTV Spor", "Championat", "Sport.ru", "Match TV", "A Spor", "Sporx", "Ajansspor", "Hürriyet Spor", "BBC Futbol", "Guardian Futbol", "Motorsport F1", "The Race", "F1News", "Eurohoops", "Sportando", "TalkBasket", "BBC Tennis", "MMA Fighting", "Chess.com",
     "AA Sport", "Daily Sabah Sports", "Sky Sports", "Sports.ru", "Спорт-Экспресс", "TASS Sport", "Interfax Sport"],
   "videoChannels": ["İctimai TV", "Xezer TV", "ARB 24", "Report.az", "Trend TV"],
+  "removedArticles": {
+    "nocomment.az#555222": {
+      "key": "nocomment.az#555222",
+      "id": "5e6cc2e84ced07dd",
+      "ids": ["5e6cc2e84ced07dd"],
+      "keys": ["nocomment.az#555222"],
+      "title": "Nazirlik bu şəxləri hədəfə götürdü - 900–1000 civarında pensiya alanlar... - ŞOK İDDİA",
+      "urls": ["https://nocomment.az/cemiyyet/nazirlik-bu-sexleri-hedefe-goturdu-900-1000-manat-civarinda-pensiya-alanlar-sok-iddia-555222", "https://nocomment.az/cemiyyet/nazirlik-bu-sexleri-hedefe-goturdu-900-1000-civarinda-pensiya-alanlar-sok-iddia-555222"],
+      "at": "2026-11-05T13:45:00Z",
+      "by": "site-owner"
+    }
+  },
   "blockedHosts": ["azadliq.org", "azadliq.info", "meydan.tv", "abzas.org", "abzas.net", "toplum.tv", "mikroskopmedia.com", "turan.az", "musavat.com"],
   "azTerms": "azerbaijan|azerbaycan|azərbaycan|azerbaidjan|aserbaidschan|азербайдж|aliyev|алиев|əliyev|(?<![a-zçəğıöşü])baku(?![a-zçəğıöşü])|bakü|(?<![а-я])баку(?![а-я])|(?<![a-zçəğıöşü])bakı(?:da|dan|nın|ya|nı)?(?![a-zçəğıöşü])|nakhchivan|нахичеван|naxçıvan|nahçıvan|karabakh|karabağ|карабах|qarabağ|stepanakert|степанакерт|khankendi|xankəndi|ханкенди|zangezur|zengezur|зангезур|shusha|şuşa|шуша|gəncə|гянджа|sumgait|sumqayıt|сумгаит|(?<![a-zçəğıöşü])azeri(?![a-zçəğıöşü])|азери|milli məclis|milli mejlis|hajiyev|hacıyev|bayramov|байрамов|socar|сокар|karabagh|nakhichevan|sumgayit|(?<![a-zçəğıöşü])ganja(?![a-zçəğıöşü])|(?<![a-zçəğıöşü])azeris(?![a-zçəğıöşü])|гяндж|(?<![а-я])шуш[аеиуы](?![а-я])|бакинск|ильхам|mehriban|мехрибан|хикмет гаджиев|hikmet hajiyev|лачин|lachin|физули|fuzuli|aghdam|ağdam|агдам|khojaly|hocalı|xocalı|ходжал|арцах|artsakh|zakir hasanov|закир гасанов|кельбаджар|kalbajar|kəlbəcər|kelbecer|zangilan|zəngilan|зангилан|cəbrayıl|jabrayil|джебраил",
   "leaderTerms": "aliyev|алиев|əliyev|azerbaijan.{0,12}president|president.{0,12}azerbaijan|президент.{0,12}азербайдж|azerbaycan cumhurbaşkan|azərbaycan prezident|hajiyev|hacıyev|bayramov|байрамов|ильхам|mehriban|мехрибан|azerbaijani leader|azerbaijan.{0,3}s leader|глава азербайдж|лидер азербайдж|azerbaycan lider"
