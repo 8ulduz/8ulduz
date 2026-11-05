@@ -986,7 +986,6 @@ a.pill.on small{color:inherit}
 
 /* Loqo: işıqlı rejimdə də tünd lövhə */
 .fcontact{margin:8px 0 0}
-.fsoc{margin:10px 0 0;gap:6px}.fsoc a{width:34px;height:34px;border:1px solid var(--border);border-radius:8px}.fsoc a svg{width:18px;height:18px}
 /* Telefonda başlıqlar alçaq, barmaq üçün rahat qalır */
 @media(max-width:600px){nav.main>a{min-height:30px;padding:3px 10px;font-size:.8rem;line-height:1.2}nav.main{gap:3px}.nav-row .pill{min-height:30px;padding:3px 10px;font-size:.8rem}}
 /* Məzənnə bir sətir: sığmayanda yana sürüşür */

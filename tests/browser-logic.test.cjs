@@ -2218,20 +2218,6 @@ test('owner notes: the Telegram address from config.js reaches the static shell`
   assert.equal(els.app.innerHTML, '', 'statik qabıq (data-shell) yenidən yazılmır');
   assert.equal(btn.href, 'https://t.me/kanal', 'statik qabıqdakı boş t.me keçidi kanal ünvanı ilə doldurulur');
 });
-test('owner 2026-11-05: the site`s own accounts sit in the footer as sprite icons; config has no vm6666 link', () => {
-  const cfg = fs.readFileSync(path.join(root, 'assets/config.js'), 'utf8');
-  assert.ok(!/vuqar|vm6666/i.test(cfg), 'config.js-də vm6666 ilə bağlı ünvan yoxdur');
-  for (const u of ['https://www.facebook.com/profile.php?id=61596034210996', 'https://x.com/8ulduz', 'https://t.me/sekkizulduz', 'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/']) assert.ok(cfg.includes(`"${u}"`), u);
-  assert.ok(cfg.includes('telegram: "https://t.me/sekkizulduz"'), 'kanala qoşulun bloku da yeni kanala');
-  const footer = { innerHTML: '' };
-  const ctx = app({ window: { addEventListener() {}, SITE_CONFIG: { social: { fb: 'https://www.facebook.com/a', x: 'https://x.com/b', bad: 'https://e.com', tg: 'javascript:alert(1)' } } },
-    document: { documentElement: { dataset: {}, style: {} }, addEventListener() {}, querySelector: s => s === '#footer' ? footer : null, querySelectorAll: () => [], createElement: () => ({ set innerHTML(v) {}, content: {}, children: [] }) } });
-  vm.runInContext('renderFooter()', ctx);
-  const h = footer.innerHTML;
-  assert.ok(h.includes('<p class="soc-g fsoc">'), 'rəsmi hesablar kimi .soc-g: Android-də Chrome vərəqində açılır, geri sayta');
-  assert.ok(h.includes('href="https://www.facebook.com/a"') && h.includes('title="Facebook"') && h.includes('sosial.svg#fb') && h.includes('href="https://x.com/b"') && h.includes('sosial.svg#x'));
-  assert.ok(!h.includes('e.com') && !h.includes('javascript:') && h.includes('href="#"'), 'tanınmayan açar düşür, https olmayan ünvan # olur');
-});
 
 // Sahibin 4 noyabr videoları (08.mp4, 09.mp4): yenidən açılışda hazır ilk ekranda Zuğulbanın ilk kartı rusca idi (Day.Az),
 // hava «—» → Bakı 19° → şəhər 15° titrəyirdi, «2 yeni xəbər» düyməsi səhifənin başında asılı qalırdı (sahib aşağı çəkib yenilədi).
