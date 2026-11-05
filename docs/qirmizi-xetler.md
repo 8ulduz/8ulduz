@@ -1,5 +1,7 @@
 # Saytın qırmızı xətləri
 
+**Prioritet sırası barədə sahibin 2026-11-05 göstərişi:** sürət hər yerdə birinci prioritetdir; «gözqırpımında» açılış daimi hədəfdir. Bölmə nömrələri kod və testlərdəki sabit istinadlar üçündür. Xəbərin dəqiqəlik yenilənməsi və mənbə qaydaları da qüvvədə qalır.
+
 Sayt sahibinin qərarı (2026-10-30). Bu iki qayda dəyişməzdir. Hər kod dəyişikliyi, o cümlədən süni intellekt agentlərinin dəyişikliyi, bunlara əməl etməlidir. Qaydanı yumşaldan dəyişiklik yalnız sayt sahibinin açıq göstərişi ilə edilir.
 
 ## 1. Xəbər ən geci 60 saniyədən bir yenilənir və axın dayanmır

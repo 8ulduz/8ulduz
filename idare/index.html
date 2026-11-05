@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.github.com; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Xəbərləri idarə et — 8ULDUZ</title>
+  <link rel="stylesheet" href="./panel.css">
+  <script type="module" src="./panel.js"></script>
+</head>
+<body>
+  <main>
+    <header><a class="brand" href="../">8ULDUZ</a><span>Redaksiya</span></header>
+    <h1>Xəbərləri idarə et</h1>
+    <p class="intro">Xəbəri axtarın, yoxlayın və saytdan çıxarın. Silinən xəbər lent yenilənəndə geri qayıtmır.</p>
+    <section id="login-panel" class="box">
+      <h2>İdarəetməyə giriş</h2>
+      <p>Saytın GitHub hesabına verilmiş giriş açarından istifadə edin. Açar yalnız bu açıq səhifənin yaddaşında qalır.</p>
+      <form id="login-form">
+        <label for="token">GitHub giriş açarı</label>
+        <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+        <button class="primary" type="submit">Giriş et</button>
+      </form>
+      <details><summary>Açar necə hazırlanır?</summary><p>GitHub-da sayt sahibinin hesabı ilə <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">məhdud giriş açarı yaradın</a>: sahib <b>8ulduz</b>, repo <b>8ulduz</b>, icazə <b>Contents: Read and write</b>. Açarı çatda göndərməyin; yalnız yuxarıdakı giriş sahəsinə daxil edin.</p></details>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="editor" hidden>
+      <div class="session"><b id="account"></b><button id="logout" type="button">Çıxış</button></div>
+      <section class="box">
+        <h2>Xəbər keçidi ilə sil</h2>
+        <form id="url-form">
+          <label for="source-url">Mənbədəki xəbər keçidi və ya 8ULDUZ xəbər keçidi</label>
+          <input id="source-url" type="url" inputmode="url" placeholder="https://…" required>
+          <button class="secondary" type="submit">Xəbəri yoxla</button>
+        </form>
+      </section>
+      <label for="search">Lentdə axtar</label>
+      <input id="search" type="search" placeholder="Başlıq, mənbə və ya keçid…" autocomplete="off">
+      <p id="count" class="muted"></p>
+      <div id="results"></div>
+    </section>
+    <dialog id="confirm" aria-labelledby="confirm-title">
+      <h2 id="confirm-title">Bu xəbəri saytdan sil</h2>
+      <p id="chosen-title" class="chosen"></p><a id="chosen-url" target="_blank" rel="noopener noreferrer"></a>
+      <p>Xəbər, onun paylaşılmış keçidi və eyni xəbərin birləşdirilmiş mənbələri gizlədiləcək.</p>
+      <div class="actions"><button id="cancel" type="button">İmtina</button><button id="remove" class="danger" type="button">Saytdan sil</button></div>
+    </dialog>
+  </main>
+</body>
+</html>
