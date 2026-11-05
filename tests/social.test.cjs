@@ -136,3 +136,9 @@ test("social: the workflow is separate from the news pipeline, reads only the fe
   const pipe = fs.readFileSync(path.join(__dirname, "../.github/scripts/pipeline.sh"), "utf8");
   assert.ok(!pipe.includes("social"), "xəbər axınına (qırmızı xətt 1) toxunmur");
 });
+
+test("social: the site's Telegram buttons lead to the channel the bot posts to, not to a personal account", () => {
+  const cfg = fs.readFileSync(path.join(__dirname, "../assets/config.js"), "utf8");
+  assert.ok(cfg.includes('telegram: "https://t.me/sekkizulduz_az"'), "«Kanala keç» və «İzlə → Telegram» 8ULDUZ kanalına aparır");
+  assert.ok(!/telegram: "https:\/\/t\.me\/(sekkizulduz|vuqarm6666)"/.test(cfg), "@sekkizulduz və @vuqarm6666 şəxsi hesabdır, kanal deyil");
+});
