@@ -273,7 +273,7 @@ function prezHome(list, all = list) {
   const ladyHead = Math.min(lady.length, head - presHead);
   const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
-  // 44 dolmursa: rəsmi/dövlət saytlarının qalanı, digər saytlar, sonda başqa dillər (qarışanda ilk ekranda rusca kart çıxırdı); yad xəbər yox.
+  // 44 dolmursa: rəsmi saytların qalanı, digər saytlar, sonda başqa dillər (qarışanda ilk ekranda rusca kart çıxırdı).
   const chosen = new Set([...first, ...rest].map(a => a.id)), take = l => l.filter(a => !chosen.has(a.id) && chosen.add(a.id));
   const ours = l => byDate(l.filter(a => a.category === "prezident" && aboutOurLeaders(a)));
   const own = [...first, ...rest, ...take(byDate(prez)), ...take(ours(list))].slice(0, PREZ_COUNT);
@@ -422,8 +422,7 @@ function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // Mənbə şəkilləri 1-2 MB olur (ilk açılış 11-16 MB idi); wsrv.nl kiçildir (orta 15 KB), alınmasa imgFail əsl ünvana keçir,
 // xidmət işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən.
 const PROXY_MAX_FAILS = 8;
-// wsrv bu saytların şəklini 404 verir (sayt proksini kəsir; açıq proksilər də). Birbaşa mənbədən (170–290 KB): şəkil həmişə görünür,
-// amma yüksək prioritet almır (heavyImage): ilk ekranla yarışmır. (Telefonda şəkli atmaq sınandı: «şəkil gəlmir», geri alındı.)
+// wsrv bu saytların şəklini 404 verir: birbaşa mənbədən (170–290 KB), yüksək prioritetsiz (heavyImage). Telefonda şəkli atmaq geri alındı.
 const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
 // Proksidən keçməyən ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
@@ -473,8 +472,8 @@ function appLink(u, pkg, extra = "") {
   try { const x = new URL(u); pkg = x.protocol === "https:" && (pkg || APP_PKG.find(([re]) => re.test(x.hostname))?.[1]); return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};${extra}S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
 }
 function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
-// Rəsmi hesab (Android): X tətbiqi və Chrome-un adi vərəqi geri basanda baş ekrana atırdı (sahib, 2026-11-05). İndi Chrome Custom Tab
-// (SESSION əlavəsi): saytın tapşırığında qalır, geri onu bağlayıb sayta qayıdır; CCT-nin ilk naviqasiyası tətbiqə sıçramır.
+// Rəsmi hesab (Android): tətbiq və adi Chrome vərəqi geri basanda baş ekrana atırdı. İndi Chrome Custom Tab (SESSION əlavəsi): saytın
+// tapşırığında qalır, geri sayta qayıdır; CCT-nin ilk naviqasiyası tətbiqə sıçramır.
 const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.customtabs.extra.SESSION=;");
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
@@ -873,7 +872,7 @@ function readerBusy() {
   if ($("#view iframe, #view details.altpop[open]")) return true;
   return !!document.activeElement?.closest?.("#view input, #view select, #view textarea");
 }
-// Açılışda 8 fayl bir-bir gəlib hər dəfə səhifəni çəkdirirdi (1-2 s): indi ilk xəbərlər dərhal, qalanı bir dəfəyə (≤2,5 s), sonra 400 ms-də bir.
+// Açılışda ilk xəbərlər dərhal, qalan fayllar bir dəfəyə (≤2,5 s), sonra 400 ms-də bir (əvvəl 8 fayl 8 çəkiliş idi).
 const RENDER_GAP_MS = 400, FIRST_RENDER_HOLD_MS = 2500;
 // Gözləyən çəkiliş toxunma kəsiləndən 8 s sonra özü çəkilir (2 s-dən bir yoxlanır, ən çox 10 dəq; əvvəl düymə asılı qalırdı).
 function armBusy(ms, n = 0) { clearTimeout(S.busyT); S.busyT = setTimeout(() => { if (!S.renderPending) return; if (!readerBusy()) requestRender(S.renderWhole); else if (n < 300) armBusy(2000, n + 1); }, ms); S.busyT?.unref?.(); }
@@ -909,7 +908,7 @@ async function latestJSON(force) {
   }
   return requestJSON(freshUrl("data/latest.json", force), {}, 8000);
 }
-// Tam lent dil üzrə: news.json = az + xarici idman, news.<dil>.json = o dil (main); «newsLangs» yoxdursa/alınmasa news.json; «Hamısı» birləşdirir.
+// Tam lent dil üzrə: news.json = az + xarici idman, news.<dil>.json = o dil; «newsLangs» yoxdursa news.json; «Hamısı» birləşdirir.
 async function newsJSON(force, signal) {
   const file = code => requestJSON(freshUrl(`data/news${code ? "." + code : ""}.json`, force), {signal}), tagOf = got => got.r.headers.get("etag") || got.r.headers.get("last-modified") || "";
   const langs = S.status?.newsLangs || [];
@@ -1337,8 +1336,7 @@ function renderTicker() {
   $("#ticker").innerHTML = html;
   afterPaint(startTicker);
 }
-// Lentin hərəkəti Web Animations API ilədir (CSS animasiyası «hərəkəti azalt» və ilişən :hover üzündən dayanırdı). Siçan üstündə dayanır;
-// çəkmək olur, buraxandan 1.5 s sonra davam edir.
+// Lentin hərəkəti Web Animations API ilədir (CSS animasiyası «hərəkəti azalt» və :hover-də dayanırdı); siçan üstündə dayanır, çəkmək olur.
 const TICK_SPEED = 55; // px/s
 let tickAnim = null, tickT = 0, tickMoved = false;
 function startTicker() {
@@ -1804,8 +1802,7 @@ function homeView() {
   }).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
-// Paylaşılan keçid sonra da açılsın (yalnız lentdə tapılmayanda): qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i), lentdən
-// çıxan 24 saat paylaşma siyahısındadır (data/paylas/N.json, 32 hissə; update_share_index), köhnəsi arxivdə.
+// Paylaşılan keçid sonra da açılsın: qruplaşan xəbərin nömrəsi lentdə yoxdur (id ünvanın sha1-i); 24 saat paylaşma siyahısında (data/paylas/N.json, 32 hissə), sonra arxivdə.
 // Qrupa düşən mənbənin sətri əsas xəbərə yönəlir (of), ən çox 3 addım. Tapılmasa null, şəbəkə xətası atılır.
 async function shareRow(id) {
   for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
@@ -2176,7 +2173,9 @@ function showPop(btn, html) {
   return box;
 }
 const shareTitle = el => el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
+// Telefonda (hover:none) birbaşa sistemin paylaşma pəncərəsi: paneldən açılan X tətbiqi paylaşımdan sonra öz lentinə keçib geri baş ekrana atırdı (video, 2026-11-05).
 function shareStory(btn) {
+  if (navigator.share && globalThis.matchMedia?.("(hover:none)").matches) { trackEvent("share-sys"); const title = shareTitle(btn), url = btn.dataset.share; navigator.share({ title, text: title, url }).catch(() => {}); return; }
   const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${shIcon(k)}${v[0]}</button>`).join("") + `<button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
   box.dataset.share = btn.dataset.share; box.dataset.title = shareTitle(btn);
 }

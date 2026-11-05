@@ -2343,3 +2343,17 @@ test("owner's share notes: the worker leaves /x/ID to the browser, 404.html send
   const rows = profileRows();
   assert.ok(rows.includes('sosial.svg#ig') && !rows.includes('class="hd"') && !rows.includes('<path') && rows.indexOf('İlham Əliyev') < rows.indexOf('Mehriban Əliyeva'), 'hesab sətri: sprite işarəsi, ad yoxdur, İlham Əliyev əvvəl');
 });
+
+test("owner's share video (2026-11-05): on a phone «Paylaş» opens the system share sheet with title and link; the desktop keeps the panel", () => {
+  const shared = [];
+  const ctx = app({ navigator: { onLine: true, userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile', share: o => { shared.push(o); return Promise.resolve(); } }, matchMedia: q => ({ matches: q === '(hover:none)' }) });
+  const art = { querySelector: () => ({ textContent: ' Neft bahalaşdı ' }) };
+  const btn = { dataset: { share: 'https://8ulduz.az/x/0123456789abcdef' }, closest: sel => sel === 'article' ? art : null };
+  vm.runInContext('shareStory', ctx)(btn);
+  assert.deepEqual(JSON.parse(JSON.stringify(shared)), [{ title: 'Neft bahalaşdı', text: 'Neft bahalaşdı', url: 'https://8ulduz.az/x/0123456789abcdef' }], 'telefonda sistem pəncərəsi: başlıq + keçid (tətbiq paylaşımdan sonra sayta qayıdır)');
+  const pops = [];
+  const desk = app({ navigator: { onLine: true, share: o => { shared.push(o); return Promise.resolve(); } }, matchMedia: () => ({ matches: false }) });
+  vm.runInContext('showPop = (b, h) => { __pops.push(h); return { dataset: {} }; }', Object.assign(desk, { __pops: pops }));
+  vm.runInContext('shareStory', desk)(btn);
+  assert.equal(shared.length, 1); assert.equal(pops.length, 1); assert.ok(pops[0].includes('data-to="x"') && pops[0].includes('data-to="sys"'), 'kompüterdə panel, «Başqa…» ilə');
+});
