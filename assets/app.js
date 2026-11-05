@@ -422,7 +422,7 @@ function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // Mənbə şəkilləri 1-2 MB olur (ilk açılış 11-16 MB idi); wsrv.nl kiçildir (orta 15 KB), alınmasa imgFail əsl ünvana keçir,
 // xidmət işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən.
 const PROXY_MAX_FAILS = 8;
-// wsrv bu saytların şəklini 404 verir: birbaşa mənbədən (170–290 KB), yüksək prioritetsiz (heavyImage). Telefonda şəkli atmaq geri alındı.
+// wsrv bu saytların şəklini 404 verir: birbaşa mənbədən (170–290 KB), yüksək prioritetsiz (heavyImage).
 const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
 // Proksidən keçməyən ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
@@ -774,7 +774,7 @@ async function loadNews(force = false) {
 
 // İlk ekran (data/first.json, ~100 xəbər) yalnız baş səhifədə, azərbaycanca: başqa səhifə/dil tam lenti gözləyir.
 const firstScreen = () => route().name === "home" && !S.q && S.lang === "az";
-// Hazır ilk ekranda birinci çəkiliş slayder şəklinin boyanmasını gözləyir (bir kadr; yoxsa LCP çəkilişdən sonraya düşürdü), ən çox 1,5 s.
+// Hazır ilk ekranda birinci çəkiliş slayder şəklinin boyanmasını gözləyir (yoxsa LCP gecikirdi), ən çox 1,5 s.
 function heroPainted() {
   const im = route().name === "home" && $("#view .pre-skel[data-prerender] .hero-main img[src]");
   if (!im) return Promise.resolve();
@@ -1000,7 +1000,7 @@ async function loadAllWeather() {
 
 /* ---- konum */
 // Konum yalnız «Konumum» düyməsi ilə soruşulur; icazə varsa növbəti açılışda soruşmadan (permissions API).
-// Xidmətlərə dəqiq nöqtə getmir: hava/namaz ən yaxın şəhərlə, tıxac ~1 km-ə yuvarlaqlanmış nöqtə ilə; sayta yazılmır.
+// Xidmətlərə dəqiq nöqtə getmir: hava/namaz ən yaxın şəhərlə, tıxac ~1 km-ə yuvarlaq nöqtə ilə.
 const GEO_KEY = "8ulduz-geo";
 function nearestCity(lat, lon) {
   const k = Math.cos(lat * Math.PI / 180);
@@ -1985,10 +1985,11 @@ function leagueView() {
   wantSports();
   return `<div class="page-h"><div><h1>Premyer Liqa cədvəli</h1><p>Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar.</p></div></div>${footballBlock(S.data?.articles || [])}`;
 }
-// Komanda səhifəsi ayrı fayldadır: kodu və üslubu yalnız bu ünvan açılanda gəlir. Liqa səhifəsi 4 ardıcıl gedişlə açılırdı (modul, üslub,
-// index.json, liqa.json; telefonda 3–6 s): modul bir dəfə yüklənir, gələn kimi index və liqanın faylını birlikdə istəyir (prefetch);
-// idman bölməsi açılanda modul, üslub və index əvvəlcədən gəlir (preTeam) — liqa ünvanı açılanda yalnız liqanın faylı qalır.
-const teamModule = r => (S.teamMod ||= import("./komanda.js")).then(m => { m.prefetch?.({ S, requestJSON, freshUrl, requestRender }, r); return m; });
+// Komanda səhifəsi ayrı fayldadır. Liqa səhifəsi 4 ardıcıl gedişlə açılırdı (modul, üslub, index.json, liqa.json; telefonda 3–6 s): modul
+// bir dəfə yüklənir, gələn kimi index və liqanın faylı birlikdə istənir (prefetch); idman bölməsi açılanda modul, üslub və index əvvəlcədən gəlir.
+// Komanda səhifəsi faylı gələn kimi çəkilir: lentin 400 ms / 2,5 s toplama fasiləsi açılan səhifəyə aid deyil.
+const teamRender = () => { if (route().name === "team") renderView(); else requestRender(false); };
+const teamModule = r => (S.teamMod ||= import("./komanda.js")).then(m => { m.prefetch?.({ S, requestJSON, freshUrl, requestRender: teamRender }, r); return m; });
 function preTeam() {
   if (S.teamPre) return;
   S.teamPre = true;
@@ -2001,7 +2002,7 @@ function teamView(r) {
     S.teamLoading = true;
     const css = new Promise(done => { const link = document.createElement("link"); link.rel = "stylesheet"; link.href = `${ASSET}komanda.css`; link.onload = link.onerror = done; document.head.append(link); });
     Promise.all([teamModule(r), css]).then(([{ mountTeam }]) => {
-      S.teamPage = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive, months: MONTHS, requestJSON, freshUrl, requestRender });
+      S.teamPage = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive, months: MONTHS, requestJSON, freshUrl, requestRender: teamRender });
       requestRender(false);
     }).catch(() => { S.teamLoading = false; S.teamMod = null; S.teamFailedAt = Date.now(); requestRender(false); });
   }
@@ -2141,7 +2142,7 @@ function sourceLevel(s) {
   return "bad";
 }
 
-// Nadir səhifələr (Mənbə vəziyyəti, Haqqımızda, Mənim bölmələrim) sehife.js-dədir: açılanda yüklənir (qırmızı xətt 3).
+// Nadir səhifələr (Mənbə vəziyyəti, Haqqımızda, Mənim bölmələrim) sehife.js-dədir: açılanda yüklənir.
 function pageView(name) {
   if (S.pages) return S.pages[name]({ S, esc, sourceName, shownSource, removedSource, sourceLevel, ago, trackedSources, sectionPref, CATS, ASSISTANT_ON, DRIVER_ON, config: window.SITE_CONFIG || {} });
   if (!S.pagesAsked) { S.pagesAsked = true; import("./sehife.js").then(m => { S.pages = m; renderView(); }).catch(() => { S.pagesAsked = false; }); }
