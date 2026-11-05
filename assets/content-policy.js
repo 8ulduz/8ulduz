@@ -61,8 +61,8 @@ window.CONTENT_POLICY = {
       "keys": ["nocomment.az#555222"],
       "title": "Nazirlik bu şəxləri hədəfə götürdü - 900–1000 civarında pensiya alanlar... - ŞOK İDDİA",
       "urls": ["https://nocomment.az/cemiyyet/nazirlik-bu-sexleri-hedefe-goturdu-900-1000-manat-civarinda-pensiya-alanlar-sok-iddia-555222", "https://nocomment.az/cemiyyet/nazirlik-bu-sexleri-hedefe-goturdu-900-1000-civarinda-pensiya-alanlar-sok-iddia-555222"],
-      "at": "2026-11-05T13:45:00Z",
-      "by": "site-owner"
+      "at": "2026-11-05T14:08:19.916Z",
+      "by": "site-owner-request"
     }
   },
   "blockedHosts": ["azadliq.org", "azadliq.info", "meydan.tv", "abzas.org", "abzas.net", "toplum.tv", "mikroskopmedia.com", "turan.az", "musavat.com"],

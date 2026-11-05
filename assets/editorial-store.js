@@ -56,7 +56,7 @@ export class GithubEditor {
   logout() { this.#token = ''; this.user = null; }
   async request(path, options = {}) {
     if (!this.#token) throw new Error('Əvvəlcə giriş edin.');
-    const response = await this.fetcher(API + path, {...options, cache: 'no-store', redirect: 'error', headers: {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Authorization': 'Bearer ' + this.#token, ...(options.body ? {'Content-Type': 'application/json'} : {})}});
+    const response = await this.fetcher(API + path, {...options, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(15000), headers: {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Authorization': 'Bearer ' + this.#token, ...(options.body ? {'Content-Type': 'application/json'} : {})}});
     if (!response.ok) {
       const error = new Error(response.status === 401 ? 'Giriş açarı qəbul edilmədi.' : response.status === 403 ? 'Bu əməliyyat üçün yazma icazəsi yoxdur.' : response.status === 409 ? 'Qayda faylı dəyişib; yenidən yoxlanılır.' : 'GitHub sorğusu alınmadı (' + response.status + ').');
       error.status = response.status; throw error;

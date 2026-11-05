@@ -44,6 +44,9 @@ class EditorialTest(unittest.TestCase):
             before=path.read_text()
             with self.assertRaises(ValueError):sync.sync_once(tmp,"8ulduz/8ulduz","test-only",opener({"bad":{"urls":None}}))
             self.assertEqual(path.read_text(),before)
+            older={**row,'urls':["https://apa.az/story-12345?old=1"]}
+            sync.sync_once(tmp,"8ulduz/8ulduz","test-only",opener({row['key']:older}))
+            self.assertEqual(set(json.loads(path.read_text())[row['key']]['urls']),{row['urls'][0],older['urls'][0]})
 
     def test_the_site_keeps_content_sources_and_the_fast_cycle_independent_of_admin_network_calls(self):
         self.assertIn('EDITORIAL_PID=$!',(ROOT/'.github/scripts/pipeline.sh').read_text())

@@ -43,7 +43,13 @@ def sync_once(root, repo, token, opener=urllib.request.urlopen):
         previous = validate(json.loads(dest.read_text(encoding="utf-8")))
     except (OSError, ValueError, TypeError):
         previous = {}
-    records = {**previous, **records}
+    for key, row in records.items():
+        old = previous.get(key, {})
+        merged = {**old, **row}
+        for field in ("urls", "ids", "keys"):
+            merged[field] = list(dict.fromkeys([*old.get(field, []), *row.get(field, [])]))
+        previous[key] = merged
+    records = previous
     encoded = json.dumps(records, ensure_ascii=False, separators=(",", ":"))
     if dest.exists() and dest.read_text(encoding="utf-8") == encoded:
         return False

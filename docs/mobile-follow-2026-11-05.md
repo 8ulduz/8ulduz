@@ -6,7 +6,7 @@ Baza: `7b0724dbb282a85e8aa76a59d0112ce93dc8b550`.
 
 - Telefonda (720 px və aşağı) lupanın yanında tam «8ULDUZ-u izlə» yazısı var. Statik HTML-də də mövcuddur; JavaScript gələndə yer dəyişmir.
 - Mətn sabitdir. Ayrı kənar qatın şəffaflığı 3 saniyədə 0,25 → 0,9 → 0,25 dəyişir; işıq tam sönmür. Ölçü, kölgə radiusu və mətn animasiya olunmur. Hərəkəti azalt və saytın hərəkət düyməsi sabit parıltı seçir.
-- Panel `follow.js` ilə yalnız ilk toxunuşda yüklənir. Hazırda yalnız əvvəlki Telegram ayarı var; digər platformalar rəsmi HTTPS ünvanları veriləndə görünür. Ünvanlar uydurulmur, boş seçimlər göstərilmir.
+- Panel `follow.js` ilə yalnız ilk toxunuşda yüklənir. Sahibin verdiyi Telegram, Facebook, LinkedIn şəxsi profili və X keçidləri qoşulub; digər platformalar rəsmi HTTPS ünvanları veriləndə görünür. Boş seçimlər göstərilmir.
 - Paneldə nativ dialog, klaviatura fokusunun saxlanması və açan düyməyə qayıdış var. Geri, Escape, × və kənara toxunma paneli bağlayır. Təkrar sürətli bağlama oxucunu saytdan çıxarmır. Tarixçəyə giriş verməyən WebView-də bağlama düyməsi işləyir.
 - Altlıqdakı düymə eyni paneli kompüterdə də açır. Android keçidləri layihədəki mövcud Chrome Custom Tab mexanizmindən istifadə edir.
 
@@ -35,7 +35,7 @@ Telefonun izdə müşahidə olunmuş (modelləşdirilməmiş) FCP-si 1 215 → 1
 
 İlk açılışın əlavə transferi bu ölçülərdə 661–783 B-dir və yük 1,5 MB-dan aşağı qalır. `follow.js` heç bir ilk açılış ölçüsündə istənməyib: modul 6 750 B, gzip 2 658 B və yalnız klikdə gəlir. Əsas fayllar (LF): `app.js` 219 602 / 220 000 B, `app.css` 94 527 / 95 000 B.
 
-Rəsmi WhatsApp, Facebook, Instagram, LinkedIn və izlənə bilən Google News ünvanları sahibdən gözlənilir. Telegram üçün əvvəlki ayar saxlanılıb.
+Sahibin verdiyi keçidlər: Telegram `https://t.me/sekkizulduz`, Facebook `https://www.facebook.com/profile.php?id=61596034210996`, LinkedIn `https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/`, X `https://x.com/8ulduz`. LinkedIn yoxlaması təşkilat səhifəsi ilə yanaşı şəxsi profili də qəbul edir. WhatsApp, Instagram və Google News ünvanları verilməyib və boşdur.
 
 ## Əsas budaqla uyğunlaşdırma
 

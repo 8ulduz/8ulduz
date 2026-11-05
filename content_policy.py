@@ -32,8 +32,15 @@ REMOVED_ARTICLES = dict(POLICY.get("removedArticles") or {})
 try:
     # Arxa planda yenilənir; sürətli dövrədə şəbəkə sorğusu yoxdur.
     _hot = pathlib.Path(os.environ.get("UPDATER_ROOT", _FILE.parents[1])) / ".cache" / "editorial-removals.json"
-    REMOVED_ARTICLES.update(json.loads(_hot.read_text(encoding="utf-8")))
-except (OSError, ValueError, TypeError):
+    for _key, _row in json.loads(_hot.read_text(encoding="utf-8")).items():
+        if not isinstance(_row, dict):
+            continue
+        _old = REMOVED_ARTICLES.get(_key, {})
+        _merged = {**_old, **_row}
+        for _field in ("urls", "ids", "keys"):
+            _merged[_field] = list(dict.fromkeys([*(_old.get(_field) or []), *(_row.get(_field) or [])]))
+        REMOVED_ARTICLES[_key] = _merged
+except (OSError, ValueError, TypeError, AttributeError):
     pass
 _REMOVED_IDS, _REMOVED_URLS, _REMOVED_KEYS = set(), set(), set(REMOVED_ARTICLES)
 for _record in REMOVED_ARTICLES.values():
