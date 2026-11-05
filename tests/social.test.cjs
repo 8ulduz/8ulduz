@@ -134,11 +134,14 @@ test("social: state keeps posted ids for 3 days and survives a broken file", () 
 test("social: the workflow is separate from the news pipeline, reads only the feed and passes secrets by name", () => {
   const wf = fs.readFileSync(path.join(__dirname, "../.github/workflows/social.yml"), "utf8");
   assert.ok(wf.includes("node .github/scripts/social.cjs data/news.json"));
-  assert.ok(wf.includes('workflows: ["pages build and deployment"]') && wf.includes("cron:"), "hər sayt yayımından sonra, cron ehtiyat");
+  assert.ok(wf.includes("workflow_dispatch:") && wf.includes("cron:"), "pipeline dispatch edir, cron ehtiyat");
   assert.ok(wf.includes("contents: read") && !wf.includes("contents: write"), "repoya yazmır");
   for (const s of ["TELEGRAM_BOT_TOKEN", "FB_PAGE_TOKEN", "X_ACCESS_SECRET", "LINKEDIN_TOKEN"]) assert.ok(wf.includes(`\${{ secrets.${s} }}`), s);
   const pipe = fs.readFileSync(path.join(__dirname, "../.github/scripts/pipeline.sh"), "utf8");
-  assert.ok(!pipe.includes("social"), "xəbər axınına (qırmızı xətt 1) toxunmur");
+  // Qırmızı xətt 1: yalnız main yayımı uğurlu olanda, arxa planda və vaxt limiti ilə; sürətli dövrəyə toxunmur.
+  assert.equal(pipe.split("social.yml").length - 1, 1, "bir yerdən başladılır");
+  const pub = pipe.slice(pipe.indexOf("publish_main() {"), pipe.indexOf("\nslow_loop() {"));
+  assert.ok(pub.includes('( sleep 90; gh_t workflow run social.yml --ref "$BRANCH" >/dev/null 2>&1 ) &'), "main yayımından sonra, arxa planda, gh_t (15 s limit)");
 });
 
 test("social: the site's Telegram buttons lead to the channel the bot posts to, not to a personal account", () => {
