@@ -2325,7 +2325,7 @@ function onClick(e) {
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
-  else if (act === "follow") import("./follow.js").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
+  else if (act === "follow") import("./follow.js?v=3").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();
   else if (act === "tix-open") { S.tixOn = true; renderView(); }
