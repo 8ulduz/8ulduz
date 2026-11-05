@@ -2,8 +2,8 @@
 
 ## 8ULDUZ-u izlə
 
-Telefonda lupanın yanında tam yazılı düymə var; kənar işıq 6 saniyəlik dövrlə sarı və göy arasında yumşaq artıb-azalır.
-Panel hava/namaz pəncərələri kimi düymənin yanında açılır; kodu yalnız ilk toxunuşda yüklənir. Telefonun geri düyməsi, Escape, bağlama işarəsi, düyməyə təkrar toxunma və kənara toxunma paneli bağlayır. Səhifə qaraldılmır və sürüşdürmə kilidlənmir.
+Telefonda lupanın yanında 32 px hündürlükdə tam yazılı düymə var; daha aydın kənar işıq 2,4 saniyəlik dövrlə sarı və göy arasında növbələşir.
+260 px enli yığcam panel başlığın altında, «İdman» menyusunun rəngində açılır; kodu yalnız ilk toxunuşda yüklənir. Telefonun geri düyməsi, Escape, bağlama işarəsi, düyməyə təkrar toxunma və kənara toxunma paneli bağlayır. Səhifə qaraldılmır və sürüşdürmə kilidlənmir.
 Eyni panel altlıqdakı düymədən kompüterdə də açılır. Hərəkəti azalt ayarı və saytın hərəkət düyməsi parıltını sabit saxlayır.
 
 `assets/config.js`-də `follow` obyektinə rəsmi HTTPS hesab ünvanları yazılır: `whatsapp`, `facebook`, `instagram`, `linkedin`, `googleNews` (istəyə görə `youtube`, `x`).
