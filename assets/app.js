@@ -1598,8 +1598,7 @@ function socialBlock(side = false) {
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
-// Gec dolan hissə (telefon): Zuğulbanın 9–44-cü kartı və slayderin 4–15-ci slaydı ilk çəkilişdə <template data-late>-dədir (yerləşdirilmir,
-// DOM 1600 → 800 düyün), ilk boyadan sonra boş vaxtda açılır (lateFill); sonrakı çəkilişlər tam gəlir (S.lateDone).
+// Telefon: Zuğulbanın 9+ kartı və 4+ slayd <template data-late>-də (DOM 1600 → 800), boş vaxtda açılır (lateFill, S.lateDone).
 const LATE_HERO = 3;
 const late = (parts, n) => TOUCH_UI && parts.length > n ? parts.slice(0, n).join("") + `<template data-late>${parts.slice(n).join("")}</template>` : parts.join("");
 function lateFill() {
@@ -1985,9 +1984,8 @@ function leagueView() {
   wantSports();
   return `<div class="page-h"><div><h1>Premyer Liqa cədvəli</h1><p>Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar.</p></div></div>${footballBlock(S.data?.articles || [])}`;
 }
-// Komanda səhifəsi ayrı fayldadır. Liqa səhifəsi 4 ardıcıl gedişlə açılırdı (modul, üslub, index.json, liqa.json; telefonda 3–6 s): modul
-// bir dəfə yüklənir, gələn kimi index və liqanın faylı birlikdə istənir (prefetch); idman bölməsi açılanda modul, üslub və index əvvəlcədən gəlir.
-// Komanda səhifəsi faylı gələn kimi çəkilir: lentin 400 ms / 2,5 s toplama fasiləsi açılan səhifəyə aid deyil.
+// Komanda səhifəsi ayrı fayldadır: index və liqa faylı paralel (prefetch), idman bölməsində modul əvvəlcədən (preTeam);
+// fayl gələn kimi çəkilir (lentin 400 ms toplama fasiləsi yox).
 const teamRender = () => { if (route().name === "team") renderView(); else requestRender(false); };
 const teamModule = r => (S.teamMod ||= import("./komanda.js")).then(m => { m.prefetch?.({ S, requestJSON, freshUrl, requestRender: teamRender }, r); return m; });
 function preTeam() {
@@ -2157,8 +2155,10 @@ function trackedSources() {
 function renderFooter() {
   const srcs = trackedSources();
   const contact = String(window.SITE_CONFIG?.contact || "").trim();
+  // Saytın öz hesabları: rəsmi hesablar kimi .soc-g (Android-də Chrome vərəqi, geri sayta), işarə sprite-dan.
+  const soc = Object.entries(window.SITE_CONFIG?.social || {}).filter(([k]) => SHARE_TO[k]).map(([k, u]) => `<a href="${safeHref(u)}" ${OUT} title="${SHARE_TO[k][0]}" aria-label="8ulduz, ${SHARE_TO[k][0]}">${shIcon(k)}</a>`).join("");
   $("#footer").innerHTML = `<div class="wrap fgrid">
-    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
+    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}${soc ? `<p class="soc-g fsoc">${soc}</p>` : ""}</div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>Xidmətlər</h4><div class="fcats"><a href="#/bolme/valyuta">Valyuta məzənnəsi</a><a href="#/bolme/cedvel">Premyer Liqa cədvəli</a><a href="#/bolme/tixac">Tıxac və yollar</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
@@ -2189,7 +2189,7 @@ function showPop(btn, html) {
   return box;
 }
 const shareTitle = el => el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
-// Telefonda (hover:none) birbaşa sistemin paylaşma pəncərəsi: paneldən açılan X tətbiqi paylaşımdan sonra geri baş ekrana atırdı (video, 2026-11-05).
+// Telefonda sistemin paylaşma pəncərəsi (paneldən açılan X geri baş ekrana atırdı).
 function shareStory(btn) {
   if (navigator.share && globalThis.matchMedia?.("(hover:none)").matches) { trackEvent("share-sys"); const title = shareTitle(btn), url = btn.dataset.share; navigator.share({ title, text: title, url }).catch(() => {}); return; }
   const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${shIcon(k)}${v[0]}</button>`).join("") + `<button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
