@@ -82,6 +82,18 @@ jobs:
         run: |
           set -uo pipefail
           TITLE="Sayt yenilənmir"
+          # İlişmiş Pages yayımı: «davam edir» vəziyyətində 10 dəqiqədən çox qalan yayım sonrakıların hamısını
+          # «əvvəlcə onu ləğv edin» xətası ilə rədd etdirir; yeni yığım istəmək kömək etmir (2026-11-05: sayt 40 dəq köhnə qaldı).
+          for sha in $(gh api "repos/$GH_REPO/deployments?environment=github-pages&per_page=6" \
+              --jq '.[] | select((now - (.created_at | fromdateiso8601)) > 600) | .sha' 2>/dev/null || true); do
+            st="$(gh api "repos/$GH_REPO/pages/deployments/$sha" --jq .status 2>/dev/null || echo "")"
+            case "$st" in
+              *queued*|*progress*|syncing_files|finished_file_sync|updating_pages)
+                echo "::warning::İlişmiş Pages yayımı $sha ($st) ləğv edilir"
+                gh api -X POST "repos/$GH_REPO/pages/deployments/$sha/cancel" || true
+                gh api -X POST "repos/$GH_REPO/pages/builds" || true ;;
+            esac
+          done
           site="https://$(gh api "repos/$GH_REPO/pages" --jq .cname 2>/dev/null || echo 8ulduz.az)"
           live="$(curl -fsS --max-time 30 --retry 3 --retry-all-errors "$site/data/status.json?t=$(date +%s)" || echo "")"
           repo="$(gh api "repos/$GH_REPO/contents/data/status.json?ref=main" --jq .content 2>/dev/null | base64 -d 2>/dev/null || echo "")"
