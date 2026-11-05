@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-o17iOwsDSE9jYUG5IPUPxbO/t8GyMmJ1B4EPKUo27A0=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-S2XPoBRSpnMidQLd35JL8/3LCoYGet66NMwYC9QMCF8=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.js" />
     <script>
@@ -31,13 +31,21 @@
         var home = (location.hash === "" || location.hash === "#/") && (lang === null || lang === "az");
         document.documentElement.dataset.route = home ? "home" : "other"; // statik skelet yalnız baş səhifədə görünür (app.css .pre-skel)
         // İngilis/rus/türk oxucu tam lentin öz dil faylını alır (data/news.<dil>.json, app.js newsJSON); «Hamısı» və azərbaycanca news.json.
-        var files = home ? ["data/first.json"] : [/^(en|ru|tr)$/.test(lang) ? "data/news." + lang + ".json" : "data/news.json", "data/og.json"];
+        // Bölmə keçidi (Telegram, Facebook) də əvvəlcə ilk lentlə açılır (app.js partialOk): tam lent sonra, aşağı prioritetlə.
+        var sec = !home && /^#\/bolme\/(prezident|sondeqiqe|gundem|siyaset|cemiyyet|iqtisadiyyat|dunya|idman|medeniyyet|heyat|sosial|bolgeler|tehsil|video|sehiyye|texnologiya)$/.test(location.hash) && (lang === null || lang === "az");
+        // Liqa/komanda keçidi (lenti gözləmir, app.js renderView): liqa faylları və modul əvvəl, tam lent sonra (birbaşa keçid ~3 s idi).
+        var team = !home && location.hash.match(/^#\/komanda\/([a-z0-9-]+)/);
+        var full = [/^(en|ru|tr)$/.test(lang) ? "data/news." + lang + ".json" : "data/news.json", "data/og.json"];
+        var files = home ? ["data/first.json"] : sec ? ["data/first.json"].concat(full) : team ? ["data/futbol/index.json", "data/futbol/" + team[1] + ".json"].concat(full) : full;
+        if (team) [["komanda.js", "modulepreload"], ["komanda.css", "preload"]].forEach(function (x) {
+          var l = document.createElement("link"); l.rel = x[1]; if (x[1] === "preload") l.as = "style"; l.href = "./assets/" + x[0]; document.head.appendChild(l);
+        });
         // Paylaşılan keçid (#/xeber/ID): xəbərin sətri 32 hissəli paylaşma siyahısından (~20 KB) tam lentdən əvvəl gəlir (app.js loadShared).
         var art = location.hash.match(/^#\/xeber\/([0-9a-f]{16})/);
         if (art) files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json");
         files.forEach(function (p, i) {
           var u = p + "?t=" + m;
-          window.__early[u] = fetch(u, { cache: "no-store", priority: i ? "low" : "high" });
+          window.__early[u] = fetch(u, { cache: "no-store", priority: i < (team ? 2 : 1) ? "high" : "low" });
           window.__early[u].catch(function () {});
         });
       } catch (e) {}

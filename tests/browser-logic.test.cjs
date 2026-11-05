@@ -298,14 +298,31 @@ test('first screen: without the file the full list still loads',async()=>{
   assert.ok(!ctx.api.S.partial);
   assert.equal(ctx.paints[0],'2 tam');
 });
+// 2026-11-06 (sahib: sürət birinci qırmızı xəttdir): bölmə keçidi də ilk lentlə açılır (aşağıdakı test); qalan səhifələr, dillər və axtarış tam lenti gözləyir.
 test('first screen: other pages and languages wait for the full list, a short list is never shown',async()=>{
-  for(const set of ["location.hash='#/bolme/idman'","S.lang='ru'","S.q='neft'"]){
+  for(const set of ["location.hash='#/bolme/valyuta'","location.hash='#/menbeler'","location.hash='#/bolme/idman';S.lang='ru'","S.lang='ru'","S.q='neft'"]){
     const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
     vm.runInContext(set,ctx);
     await ctx.boot();
     assert.ok(!seen.includes('data/first.json'),set);
     assert.equal(ctx.paints[0],'2 tam',set);
   }
+});
+test('speed: a section link (Telegram, Facebook) paints from the first list, then the full list replaces it',async()=>{
+  const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+  vm.runInContext("location.hash='#/bolme/gundem'",ctx);
+  await ctx.boot();
+  assert.ok(seen.indexOf('data/first.json')>=0 && seen.indexOf('data/first.json')<seen.indexOf('data/news.json'),'kiçik fayl əvvəl (birbaşa keçid telefonda 3–6 s gözləyirdi)');
+  assert.equal(ctx.paints[0],'1 ilk');
+  assert.equal(ctx.api.S.partial,false,'sonra tam lent');
+});
+test('speed: a section absent from the first list shows the skeleton, never «no news»; league and team pages do not wait for the feed',()=>{
+  const ctx=app(),{S,sectionView}=ctx.api;
+  S.partial=true;S.data={articles:[firstRow('a')]};S.og={};S.archive={};
+  const html=sectionView('medeniyyet');
+  assert.ok(html.includes('class="skel"') && !html.includes('hələ xəbər yoxdur'));
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  assert.ok(src.includes('const shared = r.name === "team" || r.name === "article"'),'liqa birbaşa keçidi 7,5 s lent gözləyirdi');
 });
 test('first screen: if the full list fails the reader keeps the first screen and sees the error',async()=>{
   const {ctx}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/og.json':{}});
@@ -1735,7 +1752,10 @@ test('speed red line: the home page loads no team page code or data', () => {
   assert.ok(src.includes('r.name === "team" ? teamView(r)'));
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
   // index.html-də hazır ilk ekranın xəbər mətni «komanda» sözünü daşıya bilər; yoxlanan kod və məlumat keçidləridir.
-  assert.ok(!/komanda\.(?:js|css)|data\/futbol|#\/komanda\//.test(index) && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
+  // 2026-11-06: erkən skript yalnız liqa/komanda keçidində (#/komanda/...) liqa fayllarını və modulu istəyir; ana səhifə yalnız first.json.
+  const early = index.match(/<script>([\s\S]*?)<\/script>/)[1], rest = index.replace(early, '');
+  assert.ok(!/komanda\.(?:js|css)|data\/futbol|#\/komanda\//.test(rest) && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
+  assert.ok(early.includes('var team = !home && location.hash.match(/^#\\/komanda\\/([a-z0-9-]+)/);') && early.includes('var files = home ? ["data/first.json"] :'), 'skriptdə yalnız liqa/komanda keçidində');
   assert.ok(fs.statSync(path.join(root, 'assets/komanda.js')).size < 30e3, 'komanda.js');
   assert.ok(fs.statSync(path.join(root, 'assets/komanda.css')).size < 12e3, 'komanda.css');
 });

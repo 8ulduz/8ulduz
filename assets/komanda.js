@@ -98,7 +98,7 @@ export function mountTeam(d) {
   const file = path => fileOf(S, path);
   const leaguePath = (league, key) => `${DIR}${league.id}${key === league.ready[0].key ? "" : `-${key}`}.json`;
   const href = (liga, slug, tab = "", key = "") => `#/komanda/${liga}/${encodeURIComponent(slug)}${tab ? `/${tab}` : ""}${key ? `?s=${key}` : ""}`;
-  const logo = (url, size, name = "") => url ? `<img src="${esc(sized(url, size * 2))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="hide">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px" aria-hidden="true">${esc([...name][0] || "")}</span>`;
+  const logo = (url, size, name = "") => url ? `<img src="${esc(sized(url, size * 2, 1))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="hide">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px" aria-hidden="true">${esc([...name][0] || "")}</span>`;
   const message = (title, text, back = "") => `<div class="empty"><h1 style="color:var(--fg)">${esc(title)}</h1><p>${esc(text)}</p>${back}</div>`;
   const home = `<a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a>`;
   const asof = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${months[m - 1]} oyunlarına qədər` : ""; };

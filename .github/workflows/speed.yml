@@ -1,0 +1,60 @@
+name: Sürət ölçüsü
+# Qırmızı xətt 3 (sahib 2026-11-06: «gözqırpımı sürət», bütün bölmə və alt bölmələr, «eyni problem bir daha təkrarlanmasın»).
+# .github/scripts/speed.cjs başsız Chrome-da telefonu təqlid edir (412 px, toxunma, 4× yavaş prosessor, mobil şəbəkə) və
+# soyuq açılışı, 14 bölməni, alt bölmələri, rayonları, liqa və komanda səhifələrini, xəbəri, axtarışı ölçür.
+# Kod dəyişəndə: saytın bu nüsxəsi yerli serverdə, qısa dövrə. Gecə: canlı sayt, tam dövrə. Büdcə keçilsə iş qırmızı olur.
+# Xəbər axınından (update.yml) və yayımdan ayrıdır: heç nəyi dayandırmır, repoya yazmır.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - assets/**
+      - index.html
+      - sw.js
+      - .github/scripts/speed.cjs
+      - .github/workflows/speed.yml
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: speed
+  cancel-in-progress: true
+
+jobs:
+  speed:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+      - name: Bu nüsxə (yerli server, qısa dövrə)
+        if: github.event_name != 'schedule'
+        env:
+          SPEED_QUICK: "1"
+          SPEED_REPS: "3"
+          SPEED_JSON: speed.json
+        run: |
+          node .github/scripts/serve.cjs . 8080 &
+          sleep 1
+          CHROME="$(command -v google-chrome || command -v chromium)" node .github/scripts/speed.cjs http://localhost:8080/ --budget
+      - name: Canlı sayt (tam dövrə)
+        if: github.event_name == 'schedule'
+        env:
+          SPEED_REPS: "2"
+          SPEED_JSON: speed.json
+        run: CHROME="$(command -v google-chrome || command -v chromium)" node .github/scripts/speed.cjs https://8ulduz.az/ --budget
+      - name: Ölçülər
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        continue-on-error: true
+        with:
+          name: speed
+          path: speed.json
+          retention-days: 30
