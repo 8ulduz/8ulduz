@@ -5,9 +5,9 @@ Baza: `7b0724dbb282a85e8aa76a59d0112ce93dc8b550`.
 ## Davranış
 
 - Telefonda (720 px və aşağı) lupanın yanında tam «8ULDUZ-u izlə» yazısı var. Statik HTML-də də mövcuddur; JavaScript gələndə yer dəyişmir.
-- Mətn sabitdir. İki sabit rəngli kənar qatın yalnız şəffaflığı 6 saniyədə dəyişir: sarı və göy işıq növbələşir, tam sönmür. Ölçü, kölgə radiusu və mətn animasiya olunmur. Hərəkəti azalt və saytın hərəkət düyməsi sabit parıltı seçir.
+- Mətn sabitdir. Mobil düymə 32 px-dir. İki sabit rəngli, 2 px kənar qatın yalnız şəffaflığı 2,4 saniyədə dəyişir: sarı və göy işıq növbələşir, tam sönmür. Ölçü, kölgə radiusu və mətn animasiya olunmur. Hərəkəti azalt və saytın hərəkət düyməsi sabit parıltı seçir.
 - Panel `follow.js` ilə yalnız ilk toxunuşda yüklənir. Sahibin verdiyi Telegram, Facebook, Instagram, LinkedIn şəxsi profili və X keçidləri qoşulub; digər platformalar rəsmi HTTPS ünvanları veriləndə görünür. Boş seçimlər göstərilmir.
-- Panel hava/namaz pəncərələri kimi düymənin yanında nativ, qeyri-modal dialogla açılır; səhifə qaraldılmır və sürüşdürmə kilidlənmir. Ekranın aşağısında yer azdırsa düymənin üstünə açılır, kənarlardan daşmır. Geri, Escape, ×, təkrar düymə və kənara toxunma paneli bağlayır. Təkrar sürətli bağlama oxucunu saytdan çıxarmır; başqa idarəyə toxunanda fokus geri oğurlanmır. Tarixçəyə giriş verməyən WebView-də bağlama düyməsi işləyir.
+- Panel başlığın altında nativ, qeyri-modal dialogla açılır; maksimum eni 260 px, beş keçidlə hündürlüyü təxminən 198 px-dir. Fon «İdman» menyusu ilə eyni `--nav-row`, keçidlər onun kimi `--card` rəngindədir. Səhifə qaraldılmır və sürüşdürmə kilidlənmir. Ekranın aşağısında yer azdırsa düymənin üstünə açılır, kənarlardan daşmır. Geri, Escape, ×, təkrar düymə və kənara toxunma paneli bağlayır. Təkrar sürətli bağlama oxucunu saytdan çıxarmır; başqa idarəyə toxunanda fokus geri oğurlanmır. Tarixçəyə giriş verməyən WebView-də bağlama düyməsi işləyir.
 - Altlıqdakı düymə eyni paneli kompüterdə də açır. Android keçidləri layihədəki mövcud Chrome Custom Tab mexanizmindən istifadə edir.
 
 ## Yoxlamalar

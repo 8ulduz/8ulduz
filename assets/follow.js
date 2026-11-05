@@ -26,22 +26,22 @@ export function followLinks(config = {}) {
 }
 
 const styles = `
-.follow-dialog{position:fixed;inset:0 auto auto 8px;z-index:1200;box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:85dvh;margin:0;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--fg);box-shadow:0 16px 36px #0008;font:inherit;overflow:auto;overscroll-behavior:contain}
+.follow-dialog{position:fixed;inset:0 auto auto 8px;z-index:1200;box-sizing:border-box;width:min(260px,calc(100vw - 16px));max-height:85dvh;margin:0;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--nav-row);color:var(--fg);box-shadow:0 14px 28px #0006;font:inherit;overflow:auto;overscroll-behavior:contain}
 .follow-dialog header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.follow-dialog h2{margin:0;font-size:var(--fs-title);line-height:var(--lh-title)}
-.follow-dialog .follow-close{width:44px;height:44px;flex:none;border-radius:50%;font-size:22px;color:var(--muted)}
-.follow-dialog p{margin:0 0 16px;color:var(--muted);font-size:var(--fs-meta);line-height:var(--lh-meta)}
-.follow-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.follow-grid a{display:flex;align-items:center;gap:10px;min-height:56px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card2);font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--fw-semibold);overflow-wrap:anywhere}
+.follow-dialog h2{margin:0;font-size:.9rem;line-height:1.3}
+.follow-dialog .follow-close{width:32px;height:32px;flex:none;border-radius:50%;font-size:22px;color:var(--muted)}
+.follow-dialog p{margin:0 0 8px;color:var(--muted);font-size:.72rem;line-height:1.4}
+.follow-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.follow-grid a{display:flex;align-items:center;gap:6px;min-height:38px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:.82rem;line-height:1.3;font-weight:var(--fw-semibold);overflow-wrap:anywhere}
 .follow-grid a:last-child:nth-child(odd){grid-column:1/-1}
 .follow-grid a:hover{border-color:var(--primary)}
-.follow-grid svg,.follow-grid .follow-google{width:20px;height:20px;flex:none;fill:currentColor}
+.follow-grid svg,.follow-grid .follow-google{width:18px;height:18px;flex:none;fill:currentColor}
 .follow-grid .follow-google{display:grid;place-items:center;font-weight:var(--fw-bold)}
 .follow-dialog :focus-visible{outline:2px solid var(--primary);outline-offset:3px}
 `;
 
 export function followPosition(anchor, size, viewport) {
-  const edge = 8, gap = 6, width = Math.min(360, viewport.width - 2 * edge);
+  const edge = 8, gap = 6, width = Math.min(260, viewport.width - 2 * edge);
   const below = Math.max(0, viewport.height - edge - anchor.bottom - gap), above = Math.max(0, anchor.top - gap - edge);
   if (Math.max(below, above) < Math.min(size.height, 160)) return {width, maxHeight: viewport.height - 2 * edge, left: Math.max(edge, Math.min(anchor.right - width, viewport.width - width - edge)), top: edge};
   const down = below >= Math.min(size.height, 240) || below >= above;
@@ -88,7 +88,7 @@ export function wireFollowDialog(dialog, opener, win = window) {
   dialog.querySelector('.follow-close').addEventListener('click', close);
   try {
     const viewport = {width: win.document.documentElement.clientWidth || win.innerWidth, height: win.innerHeight};
-    if (dialog.style) dialog.style.width = Math.min(360, viewport.width - 16) + 'px';
+    if (dialog.style) dialog.style.width = Math.min(260, viewport.width - 16) + 'px';
     dialog.show();
     if (opener?.getBoundingClientRect && dialog.style) {
       const button = opener.getBoundingClientRect(), head = opener.closest?.('#sitehead')?.getBoundingClientRect();
