@@ -21,7 +21,7 @@ test("social: only Azerbaijani stories covered by 4+ sources (or the President s
     art("a8", { title: "  " }),
   ], NOW, opt).map(a => a.id.slice(0, 2));
   assert.deepEqual(list, ["a3", "a2", "a6"], "bərabər balda daha yeni birinci, sonra lent sırası");
-  assert.deepEqual(opt, { minSources: 4, maxAgeH: 3, perRun: 1 }, "saatda ən çox 3 post (20 dəqiqədə bir)");
+  assert.deepEqual(opt, { minSources: 4, maxAgeH: 3, perRun: 1, minGapMin: 18 }, "saatda ən çox 3 post (postlar arası 18 dəqiqə)");
 });
 
 test("social: a network is used only when its secret exists; no secrets means nothing is sent", async () => {
@@ -58,8 +58,11 @@ test("social: Telegram post links to the site share page, one per run, never twi
   assert.ok(body.text.startsWith("<b>Bakı &amp; Sumqayıt: külək</b>") && body.text.endsWith("https://8ulduz.az/x/c100000000000000"), "c2-nin səhifəsi hələ yoxdur: növbəti");
   assert.equal(body.link_preview_options.url, "https://8ulduz.az/x/c100000000000000");
   assert.ok(state.telegram["c100000000000000"]);
-  await S.run({ articles, env, now: NOW, fetch, state, log: s => logs.push(s) });
-  assert.equal(sent[1][1].text.includes("x/c300000000000000"), true, "ikinci dövrədə növbəti xəbər, təkrar yox");
+  await S.run({ articles, env, now: NOW + 5 * 60e3, fetch, state, log: s => logs.push(s) });
+  assert.equal(sent.length, 1, "5 dəqiqə sonra (növbəti sayt yayımı) post yoxdur: fasilə 18 dəqiqədir");
+  assert.ok(logs.some(s => s.includes("telegram: son post 5 dəq əvvəl, növbəti 13 dəq sonra")));
+  await S.run({ articles, env, now: NOW + 20 * 60e3, fetch, state, log: s => logs.push(s) });
+  assert.equal(sent[1][1].text.includes("x/c300000000000000"), true, "fasilədən sonra növbəti xəbər, təkrar yox");
   assert.ok(!logs.join("\n").includes("SECRET"));
 });
 
@@ -131,6 +134,7 @@ test("social: state keeps posted ids for 3 days and survives a broken file", () 
 test("social: the workflow is separate from the news pipeline, reads only the feed and passes secrets by name", () => {
   const wf = fs.readFileSync(path.join(__dirname, "../.github/workflows/social.yml"), "utf8");
   assert.ok(wf.includes("node .github/scripts/social.cjs data/news.json"));
+  assert.ok(wf.includes('workflows: ["pages build and deployment"]') && wf.includes("cron:"), "hər sayt yayımından sonra, cron ehtiyat");
   assert.ok(wf.includes("contents: read") && !wf.includes("contents: write"), "repoya yazmır");
   for (const s of ["TELEGRAM_BOT_TOKEN", "FB_PAGE_TOKEN", "X_ACCESS_SECRET", "LINKEDIN_TOKEN"]) assert.ok(wf.includes(`\${{ secrets.${s} }}`), s);
   const pipe = fs.readFileSync(path.join(__dirname, "../.github/scripts/pipeline.sh"), "utf8");

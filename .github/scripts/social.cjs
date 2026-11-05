@@ -27,6 +27,8 @@ function options(env = process.env) {
     minSources: num(env.SOCIAL_MIN_SOURCES, 4),
     maxAgeH: num(env.SOCIAL_MAX_AGE_H, 3),
     perRun: num(env.SOCIAL_PER_RUN, 1),
+    // Şəbəkəyə iki post arasında ən az bu qədər dəqiqə: iş həm cron, həm hər sayt yayımından sonra (~10 dəq) başlayır.
+    minGapMin: num(env.SOCIAL_MIN_GAP_MIN, 18),
   };
 }
 
@@ -149,6 +151,9 @@ async function run({ articles, env = process.env, now = Date.now(), fetch: f = g
   for (const net of nets) {
     if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
     const done = state[net.name] ||= {};
+    const last = state._last ||= {};
+    const ago = Math.round((now / 1000 - (last[net.name] || 0)) / 60);
+    if (ago < opt.minGapMin) { log(`${net.name}: son post ${ago} dəq əvvəl, növbəti ${opt.minGapMin - ago} dəq sonra`); continue; }
     let n = 0;
     for (const a of list) {
       if (n >= opt.perRun) break;
@@ -158,7 +163,7 @@ async function run({ articles, env = process.env, now = Date.now(), fetch: f = g
         const [url, init] = net.request(a);
         const r = await f(url, { ...init, signal: AbortSignal.timeout(20000) });
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
-        done[a.id] = Math.floor(now / 1000);
+        done[a.id] = last[net.name] = Math.floor(now / 1000);
         result.posted.push([net.name, a.id]);
         log(`${net.name}: paylaşıldı — ${clean(a.title)}`);
       } catch (e) {

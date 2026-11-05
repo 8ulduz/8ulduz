@@ -3,6 +3,12 @@ name: Profillərdə paylaş
 # Xəbər axınından (update.yml) ayrıdır: bu iş düşsə də, gecikse də lent yenilənməyə davam edir. Repoya yazmır.
 
 on:
+  # Əsas tətik: hər sayt yayımından sonra (pipeline main-ə ~10 dəqiqədə bir yazır, /x/ səhifələri artıq canlıdır).
+  # GitHub cron-u yeni iş axınında saatlarla gecikir/atılır (2026-11-05: :47 və :07 gəlmədi); cron ehtiyatdır.
+  # Postlar arası fasilə social.cjs-dədir (SOCIAL_MIN_GAP_MIN, 18 dəq): saatda ən çox 3 post.
+  workflow_run:
+    workflows: ["pages build and deployment"]
+    types: [completed]
   schedule:
     - cron: "7,27,47 * * * *"
   workflow_dispatch:
