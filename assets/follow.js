@@ -19,7 +19,7 @@ export function followLinks(config = {}) {
       if (url.protocol !== 'https:' || url.username || url.password || url.port || !hosts.includes(host) || url.pathname === '/') return [];
       if (id === 'whatsapp' && !/^\/channel\/[^/]+\/?$/.test(url.pathname)) return [];
       if (id === 'googleNews' && !/^\/publications\/[^/]+/.test(url.pathname)) return [];
-      if (id === 'linkedin' && !/^\/company\/[^/]+/.test(url.pathname)) return [];
+      if (id === 'linkedin' && !/^\/(?:company|in)\/[^/]+\/?$/.test(url.pathname)) return [];
       return [{id, label, icon, href: url.href}];
     } catch { return []; }
   });

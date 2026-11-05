@@ -17,9 +17,17 @@ test('a wrong host, unsafe URL or messaging/search link is never presented as a 
   for (const url of ['javascript:alert(1)','http://t.me/example','https://t.me.evil.test/example','https://t.me@evil.test/example','https://name:pass@t.me/example','https://t.me:444/example','https://t.me/','not a URL']) {
     assert.deepEqual(followLinks({telegram:url}), [], url);
   }
-  for (const follow of [{whatsapp:'https://wa.me/1234'}, {whatsapp:'https://whatsapp.com/send?phone=1234'}, {googleNews:'https://news.google.com/search?q=8ulduz'}, {linkedin:'https://linkedin.com/in/example'}]) {
+  for (const follow of [{whatsapp:'https://wa.me/1234'}, {whatsapp:'https://whatsapp.com/send?phone=1234'}, {googleNews:'https://news.google.com/search?q=8ulduz'}, {linkedin:'https://linkedin.com/search/results/all/?keywords=8ulduz'}]) {
     assert.deepEqual(followLinks({follow}), []);
   }
+});
+
+test('the owner-supplied personal LinkedIn, Facebook profile, Telegram and X accounts all appear', async () => {
+  const {followLinks} = await ready;
+  const links = followLinks({telegram:'https://t.me/sekkizulduz',follow:{facebook:'https://www.facebook.com/profile.php?id=61596034210996',linkedin:'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/',x:'https://x.com/8ulduz'}});
+  assert.deepEqual(links.map(x=>x.id), ['telegram','facebook','linkedin','x']);
+  assert.ok(links.find(x=>x.id==='facebook').href.endsWith('id=61596034210996'));
+  assert.equal(links.find(x=>x.id==='linkedin').href, 'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/');
 });
 
 function fixture({denyHistory=false,delayPop=false}={}) {
