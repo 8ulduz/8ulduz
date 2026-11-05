@@ -8,7 +8,9 @@
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
 //
 // Şəbəkə yalnız açarı GitHub sirrində olanda işləyir (yoxdursa ötürülür):
-//   Telegram  TELEGRAM_BOT_TOKEN (bot kanala admin kimi əlavə olunur; sirr 2026-11-05-də əlavə edilib), TELEGRAM_CHAT (standart: @sekkizulduz)
+//   Telegram  TELEGRAM_BOT_TOKEN (bot kanala admin kimi əlavə olunur). Kanal TELEGRAM_CHAT-da (@ad və ya -100… nömrə) verilməyibsə,
+//             botun admin edildiyi kanal botun öz yeniləmələrindən tapılır və yadda qalır (gizli kanalın açıq adı olmur).
+//             t.me/sekkizulduz kanal deyil, şəxsi hesabdır: bot ora yaza bilmir.
 //   Facebook  FB_PAGE_ID, FB_PAGE_TOKEN (yalnız Facebook SƏHİFƏSİ; şəxsi profilə API ilə yazmaq mümkün deyil)
 //   X         X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (developer.x.com, «Read and write» icazəsi)
 //   LinkedIn  LINKEDIN_TOKEN (w_member_social), LINKEDIN_AUTHOR (urn:li:person:… və ya urn:li:organization:…)
@@ -65,12 +67,35 @@ function oauthHeader(method, url, k, nonce = crypto.randomBytes(16).toString("he
 // Hər şəbəkə: açar varsa { name, request(a) } — request fetch-ə veriləcək [url, init] qaytarır.
 function networks(env = process.env) {
   const list = [];
-  if (env.TELEGRAM_BOT_TOKEN) list.push({ name: "telegram", request: a => {
-    const url = shareUrl(a), sum = cut(a.summary, 300);
-    const text = `<b>${html(cut(a.title, 250))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(sum)}` : ""}\n\n${url}`;
-    return [`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT || "@sekkizulduz", text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
-  } });
+  if (env.TELEGRAM_BOT_TOKEN) list.push({ name: "telegram", chat: env.TELEGRAM_CHAT || "",
+    // Kanal verilməyibsə: bot kanala admin ediləndə Telegram bunu botun yeniləmələrinə yazır (24 saat saxlanır); tapılan kanal state-də qalır.
+    async prepare(f, state, log) {
+      if (this.chat) return true;
+      if (state._telegram?.chat) { this.chat = state._telegram.chat; return true; }
+      const r = await f(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getUpdates?allowed_updates=${encodeURIComponent('["my_chat_member","channel_post"]')}`, { signal: AbortSignal.timeout(15000) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(`getUpdates: ${d.description || r.status}`);
+      const chats = new Map();
+      for (const u of d.result || []) {
+        const m = u.my_chat_member, p = u.channel_post;
+        if (m?.chat?.id && m.chat.type !== "private") {
+          if (["administrator", "creator"].includes(m.new_chat_member?.status)) chats.set(m.chat.id, m.chat.title || ""); else chats.delete(m.chat.id);
+        }
+        if (p?.chat?.id) chats.set(p.chat.id, p.chat.title || "");
+      }
+      if (!chats.size) { log("telegram: bot heç bir kanalda admin deyil (və ya 24 saatdan əvvəl əlavə edilib): botu kanala yenidən admin edin və ya TELEGRAM_CHAT yazın"); return false; }
+      const [id, title] = [...chats].pop();
+      log(`telegram: kanal tapıldı — ${title} (${id})${chats.size > 1 ? `; digərləri: ${[...chats].slice(0, -1).map(([i, t]) => `${t} (${i})`).join(", ")}` : ""}`);
+      this.chat = id;
+      state._telegram = { chat: id, title };
+      return true;
+    },
+    request(a) {
+      const url = shareUrl(a), sum = cut(a.summary, 300);
+      const text = `<b>${html(cut(a.title, 250))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(sum)}` : ""}\n\n${url}`;
+      return [`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
+    } });
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN) list.push({ name: "facebook", request: a => [
     `https://graph.facebook.com/v21.0/${encodeURIComponent(env.FB_PAGE_ID)}/feed`,
     { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -96,6 +121,7 @@ function readState(file, now) {
   const out = {};
   for (const [net, ids] of Object.entries(s)) {
     if (!ids || typeof ids !== "object") continue;
+    if (net.startsWith("_")) { out[net] = ids; continue; } // şəbəkənin parametrləri (məs. tapılmış Telegram kanalı)
     out[net] = Object.fromEntries(Object.entries(ids).filter(([, t]) => now / 1000 - t < KEEP_S));
   }
   return out;
@@ -114,7 +140,9 @@ async function run({ articles, env = process.env, now = Date.now(), fetch: f = g
     if (!live.has(a.id)) live.set(a.id, f(shareUrl(a), { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(15000) }).then(r => r.status === 200, () => false));
     return live.get(a.id);
   };
+  const hide = s => String(s?.message || s).split(env.TELEGRAM_BOT_TOKEN || "\u0000").join("***"); // açar URL-də ola bilər (Telegram)
   for (const net of nets) {
+    if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
     const done = state[net.name] ||= {};
     let n = 0;
     for (const a of list) {
@@ -129,8 +157,8 @@ async function run({ articles, env = process.env, now = Date.now(), fetch: f = g
         result.posted.push([net.name, a.id]);
         log(`${net.name}: paylaşıldı — ${clean(a.title)}`);
       } catch (e) {
-        // Açar URL-də ola bilər (Telegram): yalnız səbəbi yazırıq.
-        const msg = String(e?.message || e).split(env.TELEGRAM_BOT_TOKEN || "\u0000").join("***");
+        const msg = hide(e);
+        if (net.name === "telegram" && /chat not found|kicked|not a member|not enough rights|need administrator/i.test(msg)) delete state._telegram; // növbəti dövrə kanalı yenidən axtarır
         result.failed.push([net.name, a.id]);
         log(`${net.name}: alınmadı — ${msg}`);
         break; // şəbəkə imtina edirsə bu dövrədə ona daha yazmırıq

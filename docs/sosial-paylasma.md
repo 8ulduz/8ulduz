@@ -16,10 +16,10 @@ Açarlar burada yazılır: GitHub → 8ulduz/8ulduz → Settings → Secrets and
 ## Telegram (pulsuz, 3 dəqiqə)
 
 1. Telegram-da @BotFather-ə yazın: `/newbot`. Ad və `_bot` ilə bitən istifadəçi adı verin. BotFather tokeni göndərəcək.
-2. t.me/sekkizulduz kanalında: İdarəçilər → İdarəçi əlavə et → yeni bot. «Mesaj göndərmək» icazəsi kifayətdir.
+2. Kanalda: İdarəçilər → İdarəçi əlavə et → yeni bot. «Mesaj göndərmək» icazəsi kifayətdir. (t.me/sekkizulduz kanal deyil, şəxsi hesabdır: bot ora yaza bilmir.)
 3. Secrets: `TELEGRAM_BOT_TOKEN` = BotFather-in verdiyi token.
 
-Kanal başqadırsa, Variables: `TELEGRAM_CHAT` = `@kanal_adi`.
+Kanal ünvanı yazmaq lazım deyil: iş axını botun admin edildiyi kanalı botun öz yeniləmələrindən tapır və yadda saxlayır (jurnalda «kanal tapıldı — ad (nömrə)»). Bot 24 saatdan əvvəl əlavə edilibsə, onu kanaldan çıxarıb yenidən admin edin. Başqa kanal seçmək üçün Variables: `TELEGRAM_CHAT` = `@kanal_adi` və ya `-100…` nömrəsi.
 
 ## Facebook
 
