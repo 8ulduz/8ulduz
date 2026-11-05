@@ -5,16 +5,35 @@ import json
 import pathlib
 import tempfile
 import unittest
+import sys
 
 import content_policy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / ".github/scripts"))
+from check_outputs import enforce_policy
 spec = importlib.util.spec_from_file_location("editorial_sync", ROOT / ".github/scripts/editorial_sync.py")
 sync = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sync)
 
 
 class EditorialTest(unittest.TestCase):
+    def test_publish_gate_purges_withdrawal_from_updated_archives_and_share_indexes(self):
+        withdrawn={"id":"5e6cc2e84ced07dd","source":"Nocomment.az","sourceUrl":"https://nocomment.az/changed-title-555222","title":"Removed","category":"sosial"}
+        kept={"id":"kept","source":"APA","sourceUrl":"https://apa.az/other-story-12345","title":"Kept","category":"sosial"}
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp)
+            for name in ("arxiv/sosial.json","paylas/11.json"):
+                path=root/'data'/name
+                path.parent.mkdir(parents=True,exist_ok=True)
+                path.write_text(json.dumps({"articles":[withdrawn,kept],"count":2}),encoding="utf-8")
+            result=enforce_policy(root)
+            self.assertEqual(set(result),{"arxiv/sosial.json","paylas/11.json"})
+            for name in result:
+                data=json.loads((root/'data'/name).read_text(encoding="utf-8"))
+                self.assertEqual([a['id'] for a in data['articles']],["kept"])
+                self.assertEqual(data['count'],1)
+
     def test_the_requested_story_and_changed_slug_are_blocked_but_its_neighbour_is_allowed(self):
         self.assertTrue(content_policy.removed_article({"sourceUrl":"https://www.nocomment.az/another-title-555222?utm_source=x"}))
         self.assertTrue(content_policy.removed_article({"id":"5e6cc2e84ced07dd"}))

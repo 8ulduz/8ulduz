@@ -18,7 +18,7 @@ Qərarlar `assets/content-policy.js` faylının `removedArticles` bölməsindəd
 
 ## Bu tapşırıqda çıxarılan xəbər
 
-Nocomment.az №555222, paylaşma ID-si `5e6cc2e84ced07dd`. Sayt sahibinin şəkillə verdiyi qərar əsasında qadağa əlavə olunub, `data/arxiv/sosial.json`, `data/paylas/11.json` və `x/5e6cc2e84ced07dd.html` təmizlənib. Rəqəmli sabit mənbə açarı slug variantlarını da tutur. Mənbədəki mətnin doğruluğu barədə nəticə çıxarılmır.
+Nocomment.az №555222, paylaşma ID-si `5e6cc2e84ced07dd`. Sayt sahibinin şəkillə verdiyi qərar əsasında qadağa əlavə olunub və statik paylaşma önizləməsi çıxarılıb. Brauzer bu xəbəri köhnə `data/arxiv/sosial.json` və `data/paylas/11.json` nüsxələrindən də göstərmir; dərc qapısı həmin faylların növbəti yazılışından qeydi çıxarır. Avtomatik xəbər JSON-ları PR-da əl ilə dondurulmur ki, normal xəbər yenilənməsi birləşdirmə konflikti yaratmasın. Rəqəmli sabit mənbə açarı slug variantlarını da tutur. Mənbədəki mətnin doğruluğu barədə nəticə çıxarılmır.
 
 ## Yoxlama
 
