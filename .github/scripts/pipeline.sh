@@ -49,11 +49,15 @@ SLOW_PID=""
 PUBLISH_PID=""
 WATCH_PID=""
 LINKS_PID=""
+EDITORIAL_PID=""
+ROLLOUT_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
   [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null
   [ -n "$LINKS_PID" ] && kill "$LINKS_PID" 2>/dev/null
+  [ -n "$EDITORIAL_PID" ] && kill "$EDITORIAL_PID" 2>/dev/null
+  [ -n "$ROLLOUT_PID" ] && kill "$ROLLOUT_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -117,7 +121,7 @@ run_py() { # $1 rejim, $2 limit
 check_lkg() { # $1 qovluq
   echo "::warning::check_outputs.py işləmədi — son işlək yoxlayıcıya keçilir" >&2
   [ -f "$LKG/.github/scripts/check_outputs.py" ] || return 1
-  py_t 20 "$PY" "$LKG/.github/scripts/check_outputs.py" "$1"
+  UPDATER_ROOT="$WORK" py_t 20 "$PY" "$LKG/.github/scripts/check_outputs.py" "$1"
 }
 
 # Zədəli fayl son sağlam nüsxə ilə əvəz olunur; qaydanı pozan xəbər fayldan çıxarılır.
@@ -125,7 +129,7 @@ check_lkg() { # $1 qovluq
 guard_outputs() {
   local f bad
   CUR_CHECKED=0
-  if bad="$(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$WORK")"; then
+  if bad="$(UPDATER_ROOT="$WORK" py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$WORK")"; then
     CUR_CHECKED=1
   elif ! bad="$(check_lkg "$WORK")"; then
     # Yoxlanmamış məlumat «sağlam nüsxə» olmur.
@@ -288,7 +292,7 @@ self_watch() { # $1 əsas proses
 }
 
 # --------------------------------------------------------------------- başlanğıc
-if another_run_in_charge; then
+if [ "${ROLLOUT:-}" != 1 ] && another_run_in_charge; then
   echo "Başqa iş lenti yeniləyir, bu iş lazım deyil."
   exit 0
 fi
@@ -313,6 +317,9 @@ slow_loop &
 SLOW_PID=$!
 links_loop &
 LINKS_PID=$!
+# Etibarlı köməkçi yalnız sabit GitHub API ünvanından qayda faylını oxuyur. Mənbə/lent prosesləri açarı görmür.
+UPDATER_ROOT="$WORK" "$PY" "$REPO_DIR/.github/scripts/editorial_sync.py" --watch &
+EDITORIAL_PID=$!
 touch "$STATE/heartbeat"
 self_watch $$ "$SLOW_PID" "$LINKS_PID" &
 WATCH_PID=$!
@@ -334,6 +341,12 @@ while :; do
   promote_code
   if push_live; then
     push_fails=0
+    if [ "${ROLLOUT:-}" = 1 ]; then
+      # Yalnız ilk uğurlu canlı yazıdan sonra; API işi sürətli dövrəni gözlətmir.
+      FIRST_LIVE_PUSH_OK=1 "$PY" "$REPO_DIR/.github/scripts/finish_rollout.py" &
+      ROLLOUT_PID=$!
+      ROLLOUT=""
+    fi
   else
     push_fails=$((push_fails + 1))
     echo "::warning::live budağına yazılmadı ($push_fails)"

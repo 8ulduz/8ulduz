@@ -603,6 +603,19 @@ test('section pages reach back through the archive without repeating or leaking'
   await loadArchive('prezident');
   assert.equal(S.archive.prezident,undefined);
 });
+test('an editorial withdrawal hides an old saved story, archive card and shared article immediately', () => {
+  const ctx = app(), {S} = ctx.api;
+  const row={id:'withdrawn-id',source:'APA',sourceUrl:'https://apa.az/old-title-12345',title:'WITHDRAWN',category:'sosial',publishedAt:new Date().toISOString()};
+  S.archive={sosial:{at:Date.now(),rows:[row]}};S.data={articles:[]};S.archiveScan=row.id;S.sharedStory={id:row.id,row};
+  ctx.api.storage.setItem('8ulduz-saved',JSON.stringify([row]));
+  vm.runInContext(`addRemovals({one:{ids:['withdrawn-id'],urls:['https://apa.az/old-title-12345'],keys:['apa.az#12345']}})`,ctx);
+  assert.equal(ctx.api.withArchive('sosial',[]).length,0);
+  assert.ok(!ctx.api.articleView(row.id).includes('WITHDRAWN'));
+  assert.ok(!ctx.api.savedView().includes('WITHDRAWN'));
+  assert.equal(ctx.api.policyViolation({...row,id:'changed',sourceUrl:'https://apa.az/new-title-12345'}),true);
+  assert.equal(ctx.api.policyViolation({...row,id:'other',sourceUrl:'https://apa.az/new-title-12346'}),false);
+});
+
 function policyApp() {
   const src = fs.readFileSync(path.join(root, 'assets/content-policy.js'), 'utf8');
   return app({CONTENT_POLICY: JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1))});

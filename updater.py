@@ -1682,11 +1682,12 @@ def write_latest(articles, previous):
     OUT_DIR.mkdir(exist_ok=True)
     # «dead»: sayt tam lenti 10 dəqiqədən bir alır, ölü link isə ekrandan bir dəqiqəyə çıxmalıdır.
     dead = sorted(dead_links(len(articles)))
-    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": dead}, ensure_ascii=False, separators=(",", ":")))
+    removed = content_policy.REMOVED_ARTICLES
+    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": dead, "removed": removed}, ensure_ascii=False, separators=(",", ":")))
     try:  # QIRMIZI XƏTT 1: dil faylı alınmasa ümumi fayl və lent yenə yazılır
         for code in FEED_LANGS:
             sub = _latest_rows([a for a in articles if (a.get("lang") or "az") == code], recent, LATEST_LANG_MAX)
-            _write_atomic(OUT_DIR / f"latest.{code}.json", json.dumps({"updatedAt": stamp, "count": len(sub), "articles": sub, "dead": dead}, ensure_ascii=False, separators=(",", ":")))
+            _write_atomic(OUT_DIR / f"latest.{code}.json", json.dumps({"updatedAt": stamp, "count": len(sub), "articles": sub, "dead": dead, "removed": removed}, ensure_ascii=False, separators=(",", ":")))
     except Exception as e:
         print("  ! latest.<dil>.json:", type(e).__name__, flush=True)
     _save_cache(RECENT_FILE, recent)
@@ -1899,6 +1900,9 @@ def write_share_pages(articles):
     if not os.environ.get("SHARE_PAGES"):
         return 0
     SHARE_PAGES_DIR.mkdir(parents=True, exist_ok=True)
+    for ident in content_policy._REMOVED_IDS:
+        if re.fullmatch(r"[0-9a-f]{16}", ident):
+            (SHARE_PAGES_DIR / f"{ident}.html").unlink(missing_ok=True)
     have = {p.name for p in SHARE_PAGES_DIR.glob("*.html")}
     rows = [a for a in articles if share_part(a.get("id")) is not None and not removed_source(a)
             and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
