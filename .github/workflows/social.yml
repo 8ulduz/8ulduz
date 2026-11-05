@@ -6,6 +6,12 @@ on:
   schedule:
     - cron: "7,27,47 * * * *"
   workflow_dispatch:
+  # Skript və ya iş axını main-də dəyişəndə dərhal bir dövrə (cron yeni iş axınını gec qoşur; təkrar post yoxdur, siyahı keşdədir).
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/social.yml
+      - .github/scripts/social.cjs
 
 permissions:
   contents: read
