@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v46"; // v46: namaz işarələri sprite-da, gec dolan Zuğulba/slayder; v45: telefonda «Paylaş» sistem pəncərəsi; v44: rəsmi hesablar Chrome Custom Tab kimi; v43: telefonda yenə «Paylaş» düyməsi, rəsmi hesablar Chrome vərəqində; v42: məlumat cavabı keş yazısını gözləmir; v41: /x/ID paylaşma səhifəsi (og etiketləri, dərhal #/xeber/ID-yə keçir) işçidən yan keçir; v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
+const VERSION = "v47"; // v47: lightweight voice module, optional assets cached on demand; v46: namaz işarələri sprite-da, gec dolan Zuğulba/slayder; v45: telefonda «Paylaş» sistem pəncərəsi; v44: rəsmi hesablar Chrome Custom Tab kimi; v43: telefonda yenə «Paylaş» düyməsi, rəsmi hesablar Chrome vərəqində; v42: məlumat cavabı keş yazısını gözləmir; v41: /x/ID paylaşma səhifəsi (og etiketləri, dərhal #/xeber/ID-yə keçir) işçidən yan keçir; v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -18,8 +18,8 @@ function isData(url) {
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(STATIC);
-    await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/assistant.js", "./assets/reader.js", "./assets/source-stats.js", "./assets/config.js", "./assets/content-policy.js", "./manifest.webmanifest",
-      "./assets/logo-80.png", "./assets/icon-192.png", "./assets/icon-512.png", "./assets/icon-maskable-192.png", "./assets/icon-maskable-512.png", "./assets/og-default.png"]);
+    await cache.addAll(["./", "./index.html", "./assets/app.css", "./assets/app.js", "./assets/voice-search.js", "./assets/source-stats.js", "./assets/config.js", "./assets/content-policy.js", "./manifest.webmanifest",
+      "./assets/logo-80.png", "./assets/icon-192.png"]);
     await self.skipWaiting();
   })());
 });

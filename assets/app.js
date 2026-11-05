@@ -1111,7 +1111,7 @@ function shell() {
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition; // Firefox-da yoxdur: düymə gizli qalır
-  if (Recognition) import('./assistant.js').then(({mountVoiceSearch}) => mountVoiceSearch({button: $("#mic"), input: q, Recognition, onDone: () => scrollTo(0, 0)})).catch(() => {});
+  if (Recognition) import('./voice-search.js').then(({mountVoiceSearch}) => mountVoiceSearch({button: $("#mic"), input: q, Recognition, onDone: () => scrollTo(0, 0)})).catch(() => {});
 }
 function syncQuery() {
   const r = route();
