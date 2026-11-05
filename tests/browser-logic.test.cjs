@@ -2221,7 +2221,7 @@ test('owner notes: the Telegram address from config.js reaches the static shell`
 test('owner 2026-11-05: the site`s own accounts sit in the footer as sprite icons; config has no vm6666 link', () => {
   const cfg = fs.readFileSync(path.join(root, 'assets/config.js'), 'utf8');
   assert.ok(!/vuqar|vm6666/i.test(cfg), 'config.js-də vm6666 ilə bağlı ünvan yoxdur');
-  for (const u of ['https://www.facebook.com/profile.php?id=61596034210996', 'https://x.com/8uldux', 'https://t.me/sekkizulduz', 'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/']) assert.ok(cfg.includes(`"${u}"`), u);
+  for (const u of ['https://www.facebook.com/profile.php?id=61596034210996', 'https://x.com/8ulduz', 'https://t.me/sekkizulduz', 'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/']) assert.ok(cfg.includes(`"${u}"`), u);
   assert.ok(cfg.includes('telegram: "https://t.me/sekkizulduz"'), 'kanala qoşulun bloku da yeni kanala');
   const footer = { innerHTML: '' };
   const ctx = app({ window: { addEventListener() {}, SITE_CONFIG: { social: { fb: 'https://www.facebook.com/a', x: 'https://x.com/b', bad: 'https://e.com', tg: 'javascript:alert(1)' } } },
