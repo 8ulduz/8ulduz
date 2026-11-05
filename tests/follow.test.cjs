@@ -22,10 +22,11 @@ test('a wrong host, unsafe URL or messaging/search link is never presented as a 
   }
 });
 
-test('the owner-supplied personal LinkedIn, Facebook profile, Telegram and X accounts all appear', async () => {
+test('the owner-supplied Instagram, personal LinkedIn, Facebook profile, Telegram and X accounts all appear', async () => {
   const {followLinks} = await ready;
-  const links = followLinks({telegram:'https://t.me/sekkizulduz',follow:{facebook:'https://www.facebook.com/profile.php?id=61596034210996',linkedin:'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/',x:'https://x.com/8ulduz'}});
-  assert.deepEqual(links.map(x=>x.id), ['telegram','facebook','linkedin','x']);
+  const links = followLinks({telegram:'https://t.me/sekkizulduz',follow:{facebook:'https://www.facebook.com/profile.php?id=61596034210996',instagram:'https://www.instagram.com/8ulduz.az/',linkedin:'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/',x:'https://x.com/8ulduz'}});
+  assert.deepEqual(links.map(x=>x.id), ['telegram','facebook','instagram','linkedin','x']);
+  assert.equal(links.find(x=>x.id==='instagram').href,'https://www.instagram.com/8ulduz.az/');
   assert.ok(links.find(x=>x.id==='facebook').href.endsWith('id=61596034210996'));
   assert.equal(links.find(x=>x.id==='linkedin').href, 'https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/');
 });
@@ -36,11 +37,11 @@ function fixture({denyHistory=false,delayPop=false}={}) {
   let backCount=0, focusCount=0, removed=false, prevented=false;
   const button={addEventListener:(name, fn)=>listeners.set('button-'+name,fn)};
   const dialog={open:false,addEventListener:(name,fn)=>listeners.set(name,fn),querySelector:()=>button,
-    showModal(){this.open=true;}, close(){this.open=false;listeners.get('close')();}, remove(){removed=true;},getBoundingClientRect:()=>({left:10,right:100,top:100,bottom:300})};
+    show(){this.open=true;}, close(){this.open=false;listeners.get('close')();}, remove(){removed=true;},getBoundingClientRect:()=>({left:10,right:100,top:100,bottom:300})};
   const win={location:{href:'https://8ulduz.az/#/xeber/abc'},document:{documentElement:{classList:{contains:x=>classes.has(x),add:x=>classes.add(x),remove:x=>classes.delete(x)}}},
     addEventListener:(name,fn)=>windowEvents.set(name,fn), removeEventListener:name=>windowEvents.delete(name),
     history:{state:previous,pushState(s,title,url){if(denyHistory)throw Error('private webview');assert.equal(url,win.location.href);entries.push(s);this.state=s;},back(){backCount++;entries.pop();this.state=entries.at(-1);if(!delayPop)windowEvents.get('popstate')?.();}}};
-  return {dialog,win,opener:{isConnected:true,focus:()=>focusCount++},listeners,classes,previous,
+  return {dialog,win,opener:{isConnected:true,focus:()=>focusCount++},listeners,windowEvents,classes,previous,
     escape(){listeners.get('cancel')({preventDefault(){prevented=true;}});},pop(){windowEvents.get('popstate')?.();},
     state:()=>({backCount,focusCount,removed,prevented,entries:entries.length})};
 }
@@ -48,7 +49,7 @@ function fixture({denyHistory=false,delayPop=false}={}) {
 test('Escape consumes only the panel history entry and restores the article and focus', async () => {
   const {wireFollowDialog}=await ready, f=fixture();
   wireFollowDialog(f.dialog,f.opener,f.win);
-  assert.equal(f.dialog.open,true); assert.ok(f.classes.has('follow-open'));
+  assert.equal(f.dialog.open,true); assert.ok(!f.classes.has('follow-open'),'page is not scroll-locked by a popover');
   assert.equal(f.win.history.state.article,'keep-me');
   f.escape();
   assert.deepEqual(f.state(),{backCount:1,focusCount:1,removed:true,prevented:true,entries:1});
@@ -69,9 +70,54 @@ test('two rapid dismissals cannot navigate past the article', async () => {
   f.pop();assert.equal(f.state().focusCount,1);assert.equal(f.dialog.open,false);
 });
 
+test('closing is visible immediately even when the browser delays its history callback', async () => {
+  const {wireFollowDialog}=await ready,f=fixture({delayPop:true});
+  const close=wireFollowDialog(f.dialog,f.opener,f.win);
+  close();assert.equal(f.dialog.open,false);assert.equal(f.state().focusCount,1);
+  f.pop();assert.equal(f.state().focusCount,1);assert.equal(f.state().backCount,1);
+});
+
 test('a webview that refuses history still has a working close button', async () => {
   const {wireFollowDialog}=await ready, f=fixture({denyHistory:true});
   wireFollowDialog(f.dialog,f.opener,f.win);
   f.listeners.get('button-click')();
   assert.equal(f.state().backCount,0);assert.equal(f.dialog.open,false);assert.equal(f.state().focusCount,1);
+});
+
+test('the anchored panel fits narrow phones and opens above a button near the bottom', async () => {
+  const {followPosition}=await ready;
+  for(const width of [305,320,360,390,768]){
+    const p=followPosition({top:60,bottom:104,right:width-12},{height:330},{width,height:740});
+    assert.ok(p.left>=8 && p.left+p.width<=width-8);
+    assert.equal(p.top,110);assert.ok(p.top+Math.min(330,p.maxHeight)<=732);
+  }
+  const above=followPosition({top:650,bottom:694,right:375},{height:330},{width:390,height:740});
+  assert.ok(above.top+330<650);
+});
+
+test('the panel remains within the viewport in a short landscape window', async () => {
+  const {followPosition}=await ready;
+  const p=followPosition({top:150,bottom:194,right:800},{height:400},{width:844,height:260});
+  assert.ok(p.top>=8 && p.top+p.maxHeight<=252);
+});
+
+test('clicking elsewhere dismisses the popover without stealing focus from that control', async () => {
+  const {wireFollowDialog}=await ready,f=fixture();wireFollowDialog(f.dialog,f.opener,f.win);
+  f.windowEvents.get('click')({target:{}});
+  assert.equal(f.dialog.open,false);assert.equal(f.state().backCount,1);assert.equal(f.state().focusCount,0);
+});
+
+test('automatic carousel or navigation scrolling does not dismiss the panel; page scrolling does', async () => {
+  const {wireFollowDialog}=await ready,f=fixture();wireFollowDialog(f.dialog,f.opener,f.win);
+  f.windowEvents.get('scroll')({target:{}});assert.equal(f.dialog.open,true);
+  f.windowEvents.get('scroll')({target:f.win.document});assert.equal(f.dialog.open,false);
+  assert.equal(f.state().focusCount,0);
+});
+
+test('a section link outside the popover navigates after its temporary history entry is removed', async () => {
+  const {wireFollowDialog}=await ready,f=fixture();wireFollowDialog(f.dialog,f.opener,f.win);
+  let prevented=false;
+  f.windowEvents.get('click')({target:{closest:()=>({target:'',getAttribute:()=>'#/bolme/sosial'})},preventDefault(){prevented=true;}});
+  assert.equal(prevented,true);assert.equal(f.win.location.hash,'#/bolme/sosial');
+  assert.equal(f.state().entries,1);assert.equal(f.state().backCount,1);
 });

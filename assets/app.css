@@ -1106,11 +1106,13 @@ a.pill.on small{color:inherit}
 .inst .install-btn:hover{filter:brightness(1.08);color:var(--primary-fg)}
 .qbtn{display:none;width:32px;height:32px;padding:0;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--fg);place-items:center;flex:none}
 .follow-btn{display:none;position:relative;flex:none;isolation:isolate;align-items:center;justify-content:center;min-height:44px;padding:0 9px;border:1px solid var(--primary);border-radius:11px;background:var(--card);color:var(--fg);font-size:var(--fs-meta);font-weight:var(--fw-bold);line-height:1.2;white-space:nowrap}
-.follow-btn::after{content:"";position:absolute;inset:-1px;pointer-events:none;border:1px solid var(--primary);border-radius:inherit;box-shadow:0 0 9px var(--primary),inset 0 0 4px var(--primary);opacity:.25;animation:follow-glow 3s ease-in-out infinite}
+.follow-btn::before,.follow-btn::after{content:"";position:absolute;inset:-1px;pointer-events:none;border:1px solid var(--glow);border-radius:inherit;box-shadow:0 0 9px var(--glow),inset 0 0 4px var(--glow);animation:var(--follow-motion,follow-glow 6s ease-in-out infinite)}
+.follow-btn::after{--glow:var(--primary);opacity:.3}
+.follow-btn::before{--glow:#4aa7ff;opacity:.08;animation-delay:-3s}
 #footer .follow-btn{display:inline-flex;margin-top:12px}
-@keyframes follow-glow{0%,100%{opacity:.25}50%{opacity:.9}}
-:root[data-motion="off"] .follow-btn::after{animation:none;opacity:.6}
-@media(prefers-reduced-motion:reduce){:root:not([data-motion="on"]) .follow-btn::after{animation:none;opacity:.6}}
+@keyframes follow-glow{0%,100%{opacity:.3}25%{opacity:.9}50%,75%{opacity:.08}}
+:root[data-motion="off"] .follow-btn{--follow-motion:none}
+@media(prefers-reduced-motion:reduce){:root:not([data-motion="on"]) .follow-btn{--follow-motion:none}}
 .ldd{position:relative;flex:none}
 .ldd-btn{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--fg);font:inherit;font-size:.78rem;font-weight:700;white-space:nowrap}
 .ldd-btn .flag{margin:0}
