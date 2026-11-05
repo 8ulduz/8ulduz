@@ -16,10 +16,10 @@ Açarlar burada yazılır: GitHub → 8ulduz/8ulduz → Settings → Secrets and
 ## Telegram (pulsuz, 3 dəqiqə)
 
 1. Telegram-da @BotFather-ə yazın: `/newbot`. Ad və `_bot` ilə bitən istifadəçi adı verin. BotFather tokeni göndərəcək.
-2. t.me/sekkizulduz kanalında: İdarəçilər → İdarəçi əlavə et → yeni bot. «Mesaj göndərmək» icazəsi kifayətdir.
+2. Kanalda: İdarəçilər → İdarəçi əlavə et → yeni bot. «Mesaj göndərmək» icazəsi kifayətdir. (t.me/sekkizulduz kanal deyil, şəxsi hesabdır: bot ora yaza bilmir.)
 3. Secrets: `TELEGRAM_BOT_TOKEN` = BotFather-in verdiyi token.
 
-Kanal başqadırsa, Variables: `TELEGRAM_CHAT` = `@kanal_adi`.
+Kanal ünvanı yazmaq lazım deyil: iş axını botun admin edildiyi kanalı botun öz yeniləmələrindən tapır və yadda saxlayır (jurnalda «kanal tapıldı — ad (nömrə)»). Bot 24 saatdan əvvəl əlavə edilibsə, onu kanaldan çıxarıb yenidən admin edin. Başqa kanal seçmək üçün Variables: `TELEGRAM_CHAT` = `@kanal_adi` və ya `-100…` nömrəsi.
 
 ## Facebook
 
@@ -27,7 +27,9 @@ API yalnız Facebook **səhifəsinə** yazır, şəxsi profilə yazmır. Verilə
 
 1. developers.facebook.com → Create App → «Other» → «Business».
 2. Graph API Explorer: səhifəni seçin, `pages_manage_posts` və `pages_read_engagement` icazələri ilə səhifə tokeni alın, sonra Access Token Debugger-də «Extend» ilə uzunmüddətli edin.
-3. Secrets: `FB_PAGE_TOKEN`. Variables: `FB_PAGE_ID` (səhifənin nömrəsi).
+3. Secrets: `FB_PAGE_TOKEN`. Səhifənin nömrəsi (8ulduz: 1470250006171917) social.yml-də yazılıb; başqa səhifə üçün Variables: `FB_PAGE_ID`.
+
+2026-11-05-də qurulub: səhifə «8ulduz», Meta tətbiqi «8ulduz paylasma» (1000332509080909). Səhifə açarı uzadılmış (60 günlük) istifadəçi açarından alındığı üçün müddətsizdir; Facebook parolu dəyişsə və ya tətbiqin icazəsi götürülsə, yenidən alınmalıdır.
 
 ## X
 

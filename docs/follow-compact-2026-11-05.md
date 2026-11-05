@@ -2,7 +2,7 @@
 
 Sahibin telefon rəyinə əsasən düymə 44 → 32 px, eni standart şriftdə təxminən 100 → 88 px oldu. Lupa sətrində qalır, bölmələri örtmür. Panel 360 → 260 px, beş keçidlə hündürlük 289 → 198 px oldu. Panel fonu «İdman» menyusunun `--nav-row`, keçidlərin fonu onun `--card` dəyişənidir; açıq/tünd rejimə birlikdə uyğunlaşırlar.
 
-Kənar ikiqat 2 px sərhədlə daha aydındır. Sarı–göy dövr 6 → 2,4 saniyə, rəng fazaları arası 1,2 saniyədir. Yalnız şəffaflıq animasiya olunur; hərəkəti dayandırma ayarı saxlanır. Modul yalnız toxunmada yüklənir (`follow.js?v=4`), SW v53.
+Kənar ikiqat 2 px sərhədlə daha aydındır. Sarı–göy dövr 6 → 2,4 saniyə, rəng fazaları arası 1,2 saniyədir. Yalnız şəffaflıq animasiya olunur; hərəkəti dayandırma ayarı saxlanır. Modul yalnız toxunmada yüklənir (`follow.js?v=4`), SW v54.
 
 ## Yoxlama
 

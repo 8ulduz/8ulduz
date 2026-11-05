@@ -247,6 +247,9 @@ publish_main() {
     git -C "$REPO_DIR" commit -q -m "Xəbərlər yeniləndi"
     if timeout 90 git -C "$REPO_DIR" push -q origin "HEAD:$BRANCH"; then
       touch "$STATE/code-sync"
+      # «Profillərdə paylaş» işi: GitHub cron-u saatlarla gecikir, Pages yayımı isə workflow_run başlatmır.
+      # Pages yeni /x/ səhifələrini yayımlasın deyə 90 s sonra, arxa planda; xəta nəzərə alınmır, dövrə gözləmir.
+      ( sleep 90; gh_t workflow run social.yml --ref "$BRANCH" >/dev/null 2>&1 ) &
       return 0
     fi
     echo "main push alınmadı, yenidən cəhd ($i)"

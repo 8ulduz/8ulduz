@@ -3,9 +3,18 @@ name: Profillərdə paylaş
 # Xəbər axınından (update.yml) ayrıdır: bu iş düşsə də, gecikse də lent yenilənməyə davam edir. Repoya yazmır.
 
 on:
+  # Əsas tətik: xəbər pipeline-ı main-ə yazandan 90 s sonra bu işi dispatch edir (pipeline.sh publish_main, ~10 dəqiqədə bir).
+  # GitHub cron-u saatlarla gecikir/atılır (2026-11-05: :47 və :07 gəlmədi), Pages yayımı workflow_run başlatmır; cron ehtiyatdır.
+  # Postlar arası fasilə social.cjs-dədir (SOCIAL_MIN_GAP_MIN, 18 dəq): saatda ən çox 3 post.
   schedule:
     - cron: "7,27,47 * * * *"
   workflow_dispatch:
+  # Skript və ya iş axını main-də dəyişəndə dərhal bir dövrə (cron yeni iş axınını gec qoşur; təkrar post yoxdur, siyahı keşdədir).
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/social.yml
+      - .github/scripts/social.cjs
 
 permissions:
   contents: read
@@ -38,7 +47,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT: ${{ vars.TELEGRAM_CHAT }}
-          FB_PAGE_ID: ${{ vars.FB_PAGE_ID }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID || '1470250006171917' }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
