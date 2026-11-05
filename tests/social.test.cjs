@@ -67,13 +67,14 @@ test("social: Telegram without a channel posts nothing and says so; an explicit 
   const logs = [], sent = [];
   const fetch = async (url, init = {}) => {
     if (url.includes("/getUpdates")) return { json: async () => ({ ok: true, result: [] }) };
+    if (url.includes("/getMe")) return { json: async () => ({ ok: true, result: { username: "ulduz_bot" } }) };
     if (init.method === "HEAD") return { status: 200 };
     sent.push(JSON.parse(init.body));
     return { ok: true, status: 200, text: async () => "" };
   };
   const res = await S.run({ articles: [art("ab")], env: { TELEGRAM_BOT_TOKEN: "1:S" }, now: NOW, fetch, state: {}, log: s => logs.push(s) });
   assert.deepEqual(res, { posted: [], failed: [] });
-  assert.ok(logs.some(s => s.includes("heç bir kanalda admin deyil")));
+  assert.ok(logs.some(s => s.includes("bot @ulduz_bot heç bir kanalda admin deyil")), "sahib hansı botu əlavə edəcəyini görür");
   await S.run({ articles: [art("ab")], env: { TELEGRAM_BOT_TOKEN: "1:S", TELEGRAM_CHAT: "@kanal" }, now: NOW, fetch, state: {}, log: () => {} });
   assert.equal(sent[0].chat_id, "@kanal");
 });

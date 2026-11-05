@@ -83,7 +83,12 @@ function networks(env = process.env) {
         }
         if (p?.chat?.id) chats.set(p.chat.id, p.chat.title || "");
       }
-      if (!chats.size) { log("telegram: bot heç bir kanalda admin deyil (və ya 24 saatdan əvvəl əlavə edilib): botu kanala yenidən admin edin və ya TELEGRAM_CHAT yazın"); return false; }
+      if (!chats.size) {
+        // Hansı bot olduğunu deyirik (açıq ad, açar deyil): sahib kanala məhz bu botu əlavə etməlidir.
+        const me = await f(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
+        log(`telegram: bot${me?.result?.username ? ` @${me.result.username}` : ""} heç bir kanalda admin deyil (və ya 24 saatdan əvvəl əlavə edilib): botu kanala yenidən admin edin və ya TELEGRAM_CHAT yazın`);
+        return false;
+      }
       const [id, title] = [...chats].pop();
       log(`telegram: kanal tapıldı — ${title} (${id})${chats.size > 1 ? `; digərləri: ${[...chats].slice(0, -1).map(([i, t]) => `${t} (${i})`).join(", ")}` : ""}`);
       this.chat = id;
