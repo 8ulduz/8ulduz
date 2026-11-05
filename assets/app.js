@@ -466,16 +466,16 @@ const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.i
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
 // Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
 const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
-// Android: paylaşma hədəfi tətbiqə intent: ilə, səhifə yerində qalır; tətbiq yoxdursa veb. pkg verilsə həmin paket (rəsmi hesablar: Chrome).
+// Android: paylaşma hədəfi tətbiqə intent: ilə, səhifə yerində qalır; tətbiq yoxdursa veb. pkg/extra verilsə həmin paket və əlavə.
 const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
-function appLink(u, pkg) {
+function appLink(u, pkg, extra = "") {
   if (!/Android/.test(navigator.userAgent || "")) return "";
-  try { const x = new URL(u); pkg = x.protocol === "https:" && (pkg || APP_PKG.find(([re]) => re.test(x.hostname))?.[1]); return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
+  try { const x = new URL(u); pkg = x.protocol === "https:" && (pkg || APP_PKG.find(([re]) => re.test(x.hostname))?.[1]); return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};${extra}S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
 }
 function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
-// Rəsmi hesab (Android): X tətbiqi geri basanda baş ekrana atırdı (sahib, 2026-11-05: hələ də). Keçid Chrome-un öz vərəqində açılır
-// (package=com.android.chrome): başqa tətbiqdən açılan vərəqdə geri düyməsi vərəqi bağlayıb açan tətbiqə — sayta — qayıdır. Chrome yoxdursa veb ünvan.
-const chromeLink = u => appLink(u, "com.android.chrome");
+// Rəsmi hesab (Android): X tətbiqi və Chrome-un adi vərəqi geri basanda baş ekrana atırdı (sahib, 2026-11-05). İndi Chrome Custom Tab
+// (SESSION əlavəsi): saytın tapşırığında qalır, geri onu bağlayıb sayta qayıdır; CCT-nin ilk naviqasiyası tətbiqə sıçramır.
+const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.customtabs.extra.SESSION=;");
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");

@@ -2304,7 +2304,7 @@ test("owner's share notes: on Android share targets open the app in place, offic
   let prevented = false;
   const a = { href: 'https://www.instagram.com/presidentaz/', closest: sel => sel === '.soc-g a' ? a : null };
   vm.runInContext('onClick', ctx)({ target: a, preventDefault() { prevented = true; } });
-  assert.equal(ctx.location.href, 'intent://www.instagram.com/presidentaz/#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fwww.instagram.com%2Fpresidentaz%2F;end', 'rəsmi hesab: Chrome vərəqində (tətbiqdən geri baş ekrana düşürdü), geri sayta');
+  assert.equal(ctx.location.href, 'intent://www.instagram.com/presidentaz/#Intent;scheme=https;package=com.android.chrome;S.android.support.customtabs.extra.SESSION=;S.browser_fallback_url=https%3A%2F%2Fwww.instagram.com%2Fpresidentaz%2F;end', 'rəsmi hesab: Chrome Custom Tab kimi (saytın tapşırığında; tətbiqdən və adi vərəqdən geri baş ekrana düşürdü), geri sayta');
   assert.ok(prevented);
   assert.equal(vm.runInContext('chromeLink', ctx)('http://x.com/a'), '', 'yalnız https');
   const btn = { dataset: { to: 'fb' }, classList: { contains: () => true }, closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'B' } }) };
