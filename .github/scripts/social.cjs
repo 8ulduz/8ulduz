@@ -8,7 +8,7 @@
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
 //
 // Şəbəkə yalnız açarı GitHub sirrində olanda işləyir (yoxdursa ötürülür):
-//   Telegram  TELEGRAM_BOT_TOKEN (bot kanala admin kimi əlavə olunur), TELEGRAM_CHAT (standart: @sekkizulduz)
+//   Telegram  TELEGRAM_BOT_TOKEN (bot kanala admin kimi əlavə olunur; sirr 2026-11-05-də əlavə edilib), TELEGRAM_CHAT (standart: @sekkizulduz)
 //   Facebook  FB_PAGE_ID, FB_PAGE_TOKEN (yalnız Facebook SƏHİFƏSİ; şəxsi profilə API ilə yazmaq mümkün deyil)
 //   X         X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (developer.x.com, «Read and write» icazəsi)
 //   LinkedIn  LINKEDIN_TOKEN (w_member_social), LINKEDIN_AUTHOR (urn:li:person:… və ya urn:li:organization:…)
