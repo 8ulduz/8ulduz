@@ -14,7 +14,7 @@ Qərarlar `assets/content-policy.js` faylının `removedArticles` bölməsindəd
 
 `editorial_sync.py` etibarlı arxa prosesdə GitHub API-dən qərarları 15 saniyədən bir alır. Xəbər dövrəsi yalnız kiçik lokal faylı oxuyur, şəbəkəni gözləmir. Qərarlar bütün `latest.<dil>.json` fayllarına `removed` ilə daxil olur; sayt öz mövcud 30 saniyəlik yoxlamasında köhnə kartı oxuma/«yeni xəbər» gözləməsinə salmadan gizlədir. Sürətli dövrənin dəqiqə yolları və vaxt rəqəmləri dəyişmir. Adətən növbəti 1–2 dəqiqəyə yayılır; GitHub və ya şəbəkə dayananda dərhal yayılma zəmanəti yoxdur. Panel qərarın saxlanmasını və canlı axına çatmasını ayrı göstərir.
 
-**İlk yayımda** yeni `pipeline.sh` ilə işləyən yeniləyici işi lazımdır: artıq başlamış köhnə shell yeni arxa prosesi özbaşına başlatmır. Normal növbə dəyişməsi yeni versiyanı işə salır; dərhal aktivləşdirmək üçün repo sahibi yeni versiyanın işə düşməsini nəzarətlə təmin etməlidir. İşlək xəbər axını kəsilməməlidir. Yeni işin loqunda «Redaksiya silinmə siyahısı yeniləndi» sətri və canlı faylda `removed` görünmədən funksiyanı canlıda işlək saymayın.
+**İlk yayımda** Actions → «Xəbərləri yenilə» → Run workflow → `rollout` seçilir. Yeni iş əvvəlcə öz ilk canlı yazısını uğurla edir, yalnız bundan sonra ayrıca arxa proses köhnə yeniləyiciləri dayandırır. Cari və daha yeni işlərə toxunmur. Beləliklə işlək axın qabaqcadan kəsilmir. Normal cron/növbə dəyişməsi əvvəlki qayda ilə qalır. Yeni işin loqunda «Redaksiya silinmə siyahısı yeniləndi» sətri və canlı faylda `removed` görünmədən funksiyanı canlıda işlək saymayın.
 
 ## Bu tapşırıqda çıxarılan xəbər
 

@@ -12,4 +12,4 @@ Eyni məlumatla lokal gzip serverində əvvəl/sonra Lighthouse 12.8.2. Baza `21
 
 Nəticə: bu cütlərdə ümumi açılış balında geriləmə görünmür, yük 1,5 MB həddindən aşağıdır. Telefon LCP-si hələ təxminən 3 saniyədir; «gözqırpımında» hədəfə çatıldığı iddia edilmir. Sürət sahibin birinci prioriteti olaraq AGENTS və qırmızı xətlərdə qeyd olunub. Canlı nəticə sahibin yayımından sonra ayrıca yoxlanmalıdır.
 
-Yoxlama: 218 JavaScript + 265 Python testi. Mobil brauzerdə dörd hesabın düzgün ünvanları, panelin açılıb-bağlanması; 320 px-də idarəetmə girişinin daşmaması yoxlanıb. Panelə real sahib açarı daxil edilərək silmə əməliyyatı brauzerdə yoxlanmayıb.
+Yoxlama: 218 JavaScript + 268 Python testi. Mobil brauzerdə dörd hesabın düzgün ünvanları, panelin açılıb-bağlanması; 320 px-də idarəetmə girişinin daşmaması yoxlanıb. Üç növbə dəyişməsi testi yeni iş ilk canlı yazını etməmiş köhnə işlərin dayandırılmamasını, cari və daha yeni işlərin saxlanmasını yoxlayır. Panelə real sahib açarı daxil edilərək silmə əməliyyatı brauzerdə yoxlanmayıb.

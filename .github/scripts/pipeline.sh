@@ -50,12 +50,14 @@ PUBLISH_PID=""
 WATCH_PID=""
 LINKS_PID=""
 EDITORIAL_PID=""
+ROLLOUT_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
   [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null
   [ -n "$LINKS_PID" ] && kill "$LINKS_PID" 2>/dev/null
   [ -n "$EDITORIAL_PID" ] && kill "$EDITORIAL_PID" 2>/dev/null
+  [ -n "$ROLLOUT_PID" ] && kill "$ROLLOUT_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -290,7 +292,7 @@ self_watch() { # $1 əsas proses
 }
 
 # --------------------------------------------------------------------- başlanğıc
-if another_run_in_charge; then
+if [ "${ROLLOUT:-}" != 1 ] && another_run_in_charge; then
   echo "Başqa iş lenti yeniləyir, bu iş lazım deyil."
   exit 0
 fi
@@ -339,6 +341,12 @@ while :; do
   promote_code
   if push_live; then
     push_fails=0
+    if [ "${ROLLOUT:-}" = 1 ]; then
+      # Yalnız ilk uğurlu canlı yazıdan sonra; API işi sürətli dövrəni gözlətmir.
+      FIRST_LIVE_PUSH_OK=1 "$PY" "$REPO_DIR/.github/scripts/finish_rollout.py" &
+      ROLLOUT_PID=$!
+      ROLLOUT=""
+    fi
   else
     push_fails=$((push_fails + 1))
     echo "::warning::live budağına yazılmadı ($push_fails)"
