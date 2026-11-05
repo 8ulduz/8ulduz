@@ -1,5 +1,16 @@
 # 8ulduz — son xəbərlər saytı
 
+## 8ULDUZ-u izlə
+
+Telefonda lupanın yanında tam yazılı düymə var; kənar işıq 3 saniyəlik dövrlə fasiləsiz artıb-azalır.
+Panelin kodu yalnız ilk toxunuşda yüklənir. Telefonun geri düyməsi, Escape, bağlama işarəsi və kənara toxunma paneli bağlayır.
+Eyni panel altlıqdakı düymədən kompüterdə də açılır. Hərəkəti azalt ayarı və saytın hərəkət düyməsi parıltını sabit saxlayır.
+
+`assets/config.js`-də `follow` obyektinə rəsmi HTTPS hesab ünvanları yazılır: `whatsapp`, `facebook`, `instagram`, `linkedin`, `googleNews` (istəyə görə `youtube`, `x`).
+Telegram əvvəlki `telegram` ayarından götürülür; `follow.telegram` veriləndə onu əvəz edir (boş sətir gizlədir).
+WhatsApp üçün `/channel/`, Google News üçün izlənə bilən `/publications/`, LinkedIn üçün `/company/` ünvanı lazımdır.
+Boş və ya başqa platformaya aparan ünvan göstərilmir. Kliklər `follow-telegram`, `follow-whatsapp` və s. hadisəsi kimi sayılır; izləmənin tamamlandığı iddia edilmir.
+
 ## Mənbə keçid sayları və sürücü rejimi
 
 Mənbə adının yanında `gün/həftə/ay/il` ümumi keçid sayları göstərilir. `assets/config.js`-dəki GoatCounter hesabında Settings → **Allow adding visitor counts on your website** aktiv olmalıdır; hesabın saat qurşağını **Asia/Baku** seçin. Sayım `source-click-MƏNBƏ` hadisələri ilə yalnız istehsal domenində aparılır, fərdi istifadəçi identifikatoru yaradılmır. Hər klik ayrıca sayılır. Başlanğıcdan əvvəlki statistika bərpa edilmir; xidmət rəqəmləri 4 saata qədər keşləyə bilər. `—` rəqəmin əlçatan olmadığını göstərir.
