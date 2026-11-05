@@ -18,7 +18,8 @@ const REPS = Math.max(1, Number(process.env.SPEED_REPS || 1)); // ünvan keçidl
 const median = xs => { const v = xs.filter(x => typeof x === "number").sort((a, b) => a - b); return v.length ? v[Math.floor((v.length - 1) / 2)] : null; };
 // Büdcə (4× yavaş prosessorda, ms). Keçid: düyməyə/ünvana basandan yeni məzmunun görünməsinə qədər.
 // Yerli fayllar şəbəkəsiz gəlir; ilk ziyarətdə liqa faylı kimi şəbəkə gözləməsi «net» kimi ayrıca sayılır.
-const LIMITS = { cold: 4000, nav: 300, sub: 300, longTask: 250, dom: 2500 };
+// Uzun iş 300: Bölgələrdə ilk seçim 14 arxivin mətnini sessiyada bir dəfə hazırlayır (~265 ms, 4×); qalan hamısı ≤ 200.
+const LIMITS = { cold: 4000, nav: 300, sub: 300, longTask: 300, dom: 2500 };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function chromePath() {
