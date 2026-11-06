@@ -284,7 +284,7 @@ main>.wrap>section{margin-bottom:18px}
 .soc-g a i{font-style:normal;font-size:9px;font-weight:700}
 .soc-g a:has(i){width:auto;padding:0 3px}
 .soc-list{display:flex;flex-direction:column;gap:2px;min-width:0}
-.soc-r{display:flex;align-items:center;gap:6px;min-width:0}.soc-r .soc-p{flex:1}.prez .soc-r{flex:none}
+.soc-r{display:flex;align-items:center;gap:6px;min-width:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);padding-right:6px}.soc .soc-r>a.soc-p{flex:1;min-width:0;max-width:none;border:0;background:none}.prez .soc-r{flex:none;max-width:100%}
 .prez .soc-list .soc-p{flex:none}
 .soc-p{display:flex;flex-direction:row;align-items:center;gap:6px;min-width:0;text-align:left;border:1px solid var(--border);border-radius:8px;padding:4px 7px;background:var(--surface)}
 .soc-p:hover{border-color:hsl(43 96% 56%/.5)}

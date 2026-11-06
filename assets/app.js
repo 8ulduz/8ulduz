@@ -1606,7 +1606,7 @@ function profileRows() {
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
   const posts = side ? socialForSide() : orderedSocialPosts(8);
-  const cards = posts.map(p => { const u = safeHref(p.url); return `<article class="soc-r"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>${u === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(u)}" title="Paylaş">Paylaş</button>`}</article>`; }).join("");
+  const cards = posts.map(p => { const u = safeHref(p.url); return `<article class="soc-r"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident" title="Paylaş">Paylaş</button></article>`; }).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
