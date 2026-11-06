@@ -1,6 +1,6 @@
 // Ziyarət statistikası (GoatCounter, kuksuz): https://8ulduz.goatcounter.com
 // Boş sətir sayğacı söndürür.
-// Telegram kanalı: "https://t.me/KANAL". Boş olanda «kanala qoşulun» bloku göstərilmir. 8ULDUZ kanalı @sekkizulduz_az-dır
+// Telegram kanalı: "https://t.me/KANAL". Boş olanda izləmə panelində göstərilmir. 8ULDUZ kanalı @sekkizulduz_az-dır
 // (xəbərləri .github/scripts/social.cjs göndərir); @sekkizulduz kanal deyil, şəxsi hesabdır.
 // Əlaqə e-poçtu: "Haqqımızda" səhifəsində görünür; boş olanda yalnız GitHub keçidi qalır.
 // assistant: mikrofonlu «Köməkçi» düyməsi; driver: «Sürücü rejimi». Hələlik söndürülüb, true yazanda geri qayıdır
