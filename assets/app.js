@@ -1604,9 +1604,9 @@ function profileRows() {
     .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" ${OUT} title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
 }
 function socialForSide() { return orderedSocialPosts(12); }
-function socialBlock(side = false) {
-  const posts = side ? socialForSide() : orderedSocialPosts(8);
-  const cards = posts.map(p => { const u = safeHref(p.url); return `<article class="soc-r"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident" title="Paylaş">Paylaş</button></article>`; }).join("");
+function socialBlock(side = false, sel = "") {
+  const posts = side ? socialForSide() : orderedSocialPosts(sel ? 16 : 8);
+  const cards = posts.map(p => { const u = safeHref(p.url); const su = !/^[0-9a-f]{16}$/.test(p.id) ? "" : S.data?.sharePages ? "x/" + p.id : "#/bolme/prezident?s=" + p.id; return `<article class="soc-r${p.id === sel ? ' on" id="soc-on' : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/${su || "#/bolme/prezident"}" title="Paylaş">Paylaş</button></article>`; }).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
@@ -1826,9 +1826,7 @@ async function shareRow(id) {
   }
   return null;
 }
-// Paylaşılan keçid (WhatsApp, Telegram) açılanda tam lent (240 KB) gözlənilmir: xəbərin sətri ~20 KB-lıq paylaşma
-// hissəsindən gəlir (index.html onu erkən istəyir), lent arxada yüklənir və gələndə səhifənin qalanı dolur.
-// Paylaşılan keçiddən açılan xəbərdə geri düyməsi baş səhifəyə qayıtsın: altdan baş səhifə qoyulur.
+// Paylaşılan keçid: xəbər ~20 KB-lıq paylaşma hissəsindən gəlir, lent arxada; geri düyməsi baş səhifəyə.
 function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
 async function loadShared(id) {
   if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
@@ -1859,6 +1857,7 @@ async function scanArchives(id) {
 function articleView(id) {
   const a = (S.data?.articles || []).find(a => String(a.id) === id) || (S.sharedStory?.id === id && S.sharedStory.row) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
   if (!a || removedArticle(a)) {
+    if (S.social?.posts?.some(p => p.id === id)) { location.replace("#/bolme/prezident?s=" + id); return ""; }
     if (S.data && S.archiveScan !== id) { S.archiveScan = id; scanArchives(id); }
     if (S.archiveScanning) return '<p class="empty">Xəbər axtarılır…</p>';
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
@@ -1923,7 +1922,11 @@ function sectionView(slug) {
       list = byDate(allNews().filter(a => a.category !== "idman" && clubMatches(a, S.club)));
     }
   }
-  if (slug === "prezident") extra = `<details class="social-details"><summary>Rəsmi sosial hesablar ▾</summary>${optional(socialBlock)}</details>`;
+  if (slug === "prezident") {
+    const s = location.hash.match(/[?&]s=([0-9a-f]{16})/)?.[1] || "";
+    extra = `<details class="social-details"${s ? " open" : ""}><summary>Rəsmi sosial hesablar ▾</summary>${optional(() => socialBlock(false, s))}</details>`;
+    if (s && S.social && S.socOn !== s) { S.socOn = s; afterPaint(() => $("#soc-on")?.scrollIntoView({ block: "center" })); }
+  }
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
@@ -2048,9 +2051,7 @@ function trafficView() {
     ${rows}`;
 }
 
-// Yalnız dəyişən blok yenilənir (bütün səhifə qurulanda telefon 1 s donurdu). Blokun mənbə mətni saxlanır,
-// çünki qurulandan sonra DOM dəyişir (oxlar, açılmış bölmə, yüklənmiş şəkil).
-// Slayder və Zuğulba kart-kart yenilənir: görünən şəkil təzədən yüklənmir, slayder başa qayıtmır.
+// Yalnız dəyişən blok yenilənir (mənbə mətni saxlanır); slayder və Zuğulba kart-kart.
 const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row,.prez,.prez-body,.prez-lent";
 const KEYED = ".hero-row,.prez-lent"; // sürüşən siyahılar: yeri dəyişən kart köçürülür (şəkli təzədən yüklənmir), oxunan kart ekranda yerində qalır
 function rememberSrc(node) {

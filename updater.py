@@ -1882,8 +1882,8 @@ _SHARE_HTML = ('<!doctype html>\n<html lang="{lang}"><head><meta charset="UTF-8"
                '<meta http-equiv="refresh" content="0;url={app}" />\n'
                '</head><body><p><a href="{app}">{title}</a> — <a href="{site}">8ulduz</a></p></body></html>\n')
 
-def share_page(a):
-    """Bir xəbərin paylaşma səhifəsi: og etiketləri və dərhal saytın xəbər səhifəsinə keçid."""
+def share_page(a, app=None):
+    """Bir xəbərin paylaşma səhifəsi: og etiketləri və dərhal saytın xəbər səhifəsinə (və ya verilən app ünvanına) keçid."""
     sid, title = a["id"], _xml(re.sub(r"\s+", " ", str(a.get("title") or "")).strip())
     desc = re.sub(r"<[^>]+>|\s+", " ", str(a.get("summary") or "")).strip()
     if len(desc) > 200:
@@ -1891,7 +1891,7 @@ def share_page(a):
     desc = _xml(desc or f'{a.get("source") or "8ulduz"} · {str(a.get("publishedAt") or "")[:10]}')
     image = str(a.get("imageUrl") or "")
     image = _xml(image if image.startswith("https://") else f"{SITE}assets/og-default.png")
-    app = _xml(f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}')
+    app = _xml(app or f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}')
     return _SHARE_HTML.format(lang=_xml(a.get("lang") or "az"), title=title, desc=desc, url=f"{SITE}x/{sid}", image=image,
                               locale=_LOCALE.get(a.get("lang") or "az", "az_AZ"), app=app, site=SITE)
 
@@ -1914,10 +1914,38 @@ def write_share_pages(articles):
             n += 1
     return n
 
+def write_social_share_pages(posts):
+    """Sosial yazının paylaşma səhifəsi x/<id>.html (sahib 2026-11-06: paylaşılan keçid həmin yazıya aparsın, WhatsApp-da
+    basılsın): og etiketləri, oxucu saytda Zuğulba səhifəsinə, həmin yazı seçili açılır (#/bolme/prezident?s=<id>).
+    Xəbərdən gələn yazının (via) id-si xəbərinkidir, onun səhifəsi write_share_pages-dədir. Sayını qaytarır."""
+    if not os.environ.get("SHARE_PAGES"):
+        return 0
+    SHARE_PAGES_DIR.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for p in posts:
+        sid = str(p.get("id") or "")
+        path = SHARE_PAGES_DIR / f"{sid}.html"
+        if p.get("via") or not re.fullmatch(r"[0-9a-f]{16}", sid) or path.exists():
+            continue
+        text = re.sub(r"\s+", " ", str(p.get("text") or "")).strip()
+        a = {"id": sid, "title": text if len(text) <= 140 else text[:137].rsplit(" ", 1)[0] + "…", "lang": "az",
+             "summary": f'{p.get("name") or "Zuğulba"} · {p.get("network") or ""}', "imageUrl": p.get("imageUrl")}
+        _write_atomic(path, share_page(a, f"{SITE}#/bolme/prezident?s={sid}"), encoding="utf-8")
+        n += 1
+    return n
+
+def _social_ids():
+    try:
+        return {str(p.get("id")) for p in json.loads(SOCIAL_FILE.read_text(encoding="utf-8")).get("posts") or []}
+    except Exception:
+        return set()
+
 def prune_share_pages(keep):
-    """Paylaşma siyahısında da, lentdə də olmayan xəbərin səhifəsi silinir (siyahı ilə eyni müddət: 25 saat); sayını qaytarır."""
+    """Paylaşma siyahısında da, lentdə də olmayan xəbərin səhifəsi silinir (siyahı ilə eyni müddət: 25 saat); sayını qaytarır.
+    social.json-dakı yazıların səhifələri qalır."""
     if not os.environ.get("SHARE_PAGES") or not SHARE_PAGES_DIR.is_dir():
         return 0
+    keep = set(keep) | _social_ids()
     gone = [p for p in SHARE_PAGES_DIR.glob("*.html") if p.stem not in keep]
     for p in gone:
         try:
@@ -2885,6 +2913,10 @@ def update_social():
     OUT_DIR.mkdir(exist_ok=True)
     _write_atomic(SOCIAL_FILE, json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
+    try:
+        write_social_share_pages(posts[:16])
+    except Exception as e:
+        print(f"  ! sosial paylaşma səhifələri: {type(e).__name__}: {str(e)[:80]}")
     merge_sources(yt_rows)
     print(f"Sosial: {min(16, len(posts))} yazı ({sum(1 for p in posts[:16] if p.get('via'))} xəbərdən)")
 

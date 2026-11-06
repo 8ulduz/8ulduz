@@ -2050,6 +2050,30 @@ class SharePagesTest(unittest.TestCase):
         self.assertIn(f"{updater.SITE}assets/og-default.png", plain)
         self.assertIn("Report · 2026-11-04", plain)
 
+    def test_social_posts_get_a_share_page_that_opens_the_post(self):
+        # sahib 2026-11-06: sosial yazının keçidi həmin yazıya aparsın və WhatsApp-da basılsın (hash yox, həqiqi ünvan)
+        posts = [{"id": "56ba6f3455e532b6", "who": "birinci-xanim", "name": "Mehriban Əliyeva", "network": "YouTube",
+                  "text": "Cəbrayıl rayonunun Soltanlı kəndinin açılışı", "url": "https://www.youtube.com/watch?v=cRkQomTZgUk",
+                  "imageUrl": "https://i4.ytimg.com/vi/cRkQomTZgUk/hqdefault.jpg"},
+                 {"id": "aaaaaaaaaaaaaaaa", "network": "X", "text": "xəbərdən", "via": "Report.az"},
+                 {"id": "yt-1", "network": "YouTube", "text": "köhnə id"}]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SHARE_PAGES_DIR", pathlib.Path(tmp) / "x"), \
+                patch.object(updater, "SOCIAL_FILE", pathlib.Path(tmp) / "social.json"):
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": ""}):
+                self.assertEqual(updater.write_social_share_pages(posts), 0)
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": "1"}):
+                self.assertEqual(updater.write_social_share_pages(posts), 1)
+                self.assertEqual(updater.write_social_share_pages(posts), 0)
+                page = (pathlib.Path(tmp) / "x" / "56ba6f3455e532b6.html").read_text(encoding="utf-8")
+                (pathlib.Path(tmp) / "social.json").write_text(json.dumps({"posts": posts}), encoding="utf-8")
+                self.assertEqual(updater.prune_share_pages(set()), 0, "social.json-dakı yazının səhifəsi qalır")
+        self.assertIn(f'content="0;url={updater.SITE}#/bolme/prezident?s=56ba6f3455e532b6"', page)
+        self.assertIn(f'<meta property="og:url" content="{updater.SITE}x/56ba6f3455e532b6" />', page)
+        self.assertIn('<meta property="og:title" content="Cəbrayıl rayonunun Soltanlı kəndinin açılışı" />', page)
+        self.assertIn('<meta property="og:image" content="https://i4.ytimg.com/vi/cRkQomTZgUk/hqdefault.jpg" />', page)
+        self.assertIn("Mehriban Əliyeva · YouTube", page)
+        self.assertNotIn("<script", page)
+
     def test_old_pages_are_pruned_with_the_share_index(self):
         sid, rows = self.rows()
         with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SHARE_PAGES_DIR", pathlib.Path(tmp) / "x"), patch.dict(updater.os.environ, {"SHARE_PAGES": "1"}):
