@@ -257,6 +257,37 @@ class ImageTest(unittest.TestCase):
                 self.assertEqual(fetch.call_count, 2)
                 self.assertEqual(article['imageUrl'], 'https://example.com/photo.jpg')
 
+    def test_fresh_articles_get_their_photo_without_waiting_for_the_slow_cycle(self):
+        # Sahib (2026-11-06): şəkilsiz kart olmamalıdır. --og yalnız təzə şəkilsiz xəbərləri yoxlayır, yavaş dövrənin tapdıqlarını silmir.
+        now = datetime.datetime(2026, 11, 6, 14, 0, tzinfo=datetime.timezone.utc)
+        iso = lambda m: (now - datetime.timedelta(minutes=m)).isoformat()
+        rows = [{"sourceUrl": "https://x.az/new", "publishedAt": iso(2)},
+                {"sourceUrl": "https://x.az/has", "publishedAt": iso(2), "imageUrl": "https://x.az/h.jpg"},
+                {"sourceUrl": "https://x.az/old", "publishedAt": iso(600)},
+                {"sourceUrl": "https://x.az/down", "publishedAt": iso(3)}]
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            cache = folder / "og.json"
+            cache.write_text(json.dumps({"https://x.az/slow": "https://x.az/s.jpg"}), encoding="utf-8")
+            photo = {"https://x.az/new": "https://x.az/n.jpg", "https://x.az/down": None}
+            with patch.object(updater, "OG_FILE", cache), patch.object(updater, "OUT_DIR", folder), \
+                 patch.object(updater, "read_feed", return_value=rows), \
+                 patch.object(updater, "_fetch_og", side_effect=lambda u, skip=(): photo[u]) as fetch:
+                self.assertEqual(updater.fill_fresh_og(now.timestamp()), 1)
+                self.assertEqual(sorted(c.args[0] for c in fetch.call_args_list), ["https://x.az/down", "https://x.az/new"])
+                stored = json.loads(cache.read_text(encoding="utf-8"))
+                self.assertEqual(stored["https://x.az/new"], "https://x.az/n.jpg")
+                self.assertEqual(stored["https://x.az/slow"], "https://x.az/s.jpg")
+                self.assertGreater(stored["_meta"]["retryAfter"]["https://x.az/down"], now.timestamp())
+                updater.fill_fresh_og(now.timestamp())
+                self.assertEqual(fetch.call_count, 2, "tapılan şəkil və tezliklə yenidən yoxlanacaq səhifə təkrar sorğulanmır")
+                updater.fill_fresh_og(now.timestamp() + 61)
+                self.assertEqual(fetch.call_args.args[0], "https://x.az/down", "şəbəkə xətası bir dəqiqə sonra yenidən yoxlanır")
+            article = {"sourceUrl": "https://x.az/new"}
+            with patch.object(updater, "OG_FILE", cache), patch.object(updater, "IMG_CHECK_FILE", folder / "none.json"):
+                updater.apply_og_cache([article])
+            self.assertEqual(article["imageUrl"], "https://x.az/n.jpg", "sürətli dövrə şəkli növbəti dəqiqədə götürür")
+
     def test_generic_share_images_are_rejected_and_real_ones_kept(self):
         self.assertTrue(updater._is_generic_img("https://azertag.az/resources/images/social.jpg"))
         self.assertTrue(updater._is_generic_img("https://img.piri.net/resim/imagecrop/2026/04/01/09/50/tr_son_dakika_530x530.jpg"))

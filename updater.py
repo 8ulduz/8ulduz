@@ -5182,6 +5182,69 @@ def fill_og_images(articles, limit=120):
         print("  ! og keşi:", type(e).__name__)
     return len(batch)
 
+# Sahib (2026-11-06): «şəkilsiz kart olmamalıdır». Təzə xəbərlərin üçdə biri lentdən şəkilsiz gəlir, şəkli yavaş dövrə
+# (4-5 dəqiqədən bir) tapırdı: xəbər 5-15 dəqiqə şəkilsiz görünürdü. Bu yoxlama link prosesində 30 saniyədən bir işləyir (--og):
+# yalnız son FRESH_OG_AGE_S içindəki şəkilsiz xəbərlər, ən yenisi birinci. Sürətli dövrə şəbəkə gözləmir, apply_og_cache nəticəni götürür.
+FRESH_OG_LIMIT, FRESH_OG_AGE_S, FRESH_OG_RETRY_S = 24, 3 * 3600, 60
+
+
+def fill_fresh_og(now=None, limit=FRESH_OG_LIMIT):
+    now_ts = now or time.time()
+    cache = _read_json(OG_FILE, {})
+    cache = cache if isinstance(cache, dict) else {}
+    meta = cache.get("_meta") if isinstance(cache.get("_meta"), dict) else {}
+    retry = meta.get("retryAfter") if isinstance(meta.get("retryAfter"), dict) else {}
+    freq = {}
+    rows = read_feed()
+    for v in [v for k, v in cache.items() if k != "_meta"] + [a.get("imageUrl") for a in rows]:
+        if isinstance(v, str) and v:
+            freq[v] = freq.get(v, 0) + 1
+    logos = {v for v, n in freq.items() if _is_logo(v, n)}
+    def age(a):
+        try:
+            return now_ts - datetime.datetime.fromisoformat(str(a.get("publishedAt")).replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return FRESH_OG_AGE_S + 1
+    todo = []
+    for a in rows:
+        url = a.get("sourceUrl") or ""
+        if not url or a.get("imageUrl") or cache.get(url) or retry.get(url, 0) > now_ts or not 0 <= age(a) <= FRESH_OG_AGE_S:
+            continue
+        if url in cache and url not in retry:
+            continue  # səhifədə şəkil yoxdur (yavaş dövrə 6 saat sonra yenə baxır)
+        todo.append(a)
+    todo = sorted(todo, key=age)[:limit]
+    if not todo:
+        return 0
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        found = list(ex.map(lambda a: _fetch_og(a["sourceUrl"], logos), todo))
+    new, again = {}, {}
+    for a, img in zip(todo, found):
+        if img and not _is_logo(img, freq.get(img, 0) + 1) and not _is_generic_img(img):
+            new[a["sourceUrl"]] = img
+        else:
+            again[a["sourceUrl"]] = now_ts + (FRESH_OG_RETRY_S if img is None else 900)
+    # Yavaş dövrə də bu faylı yazır: oxu-yaz arası qısa olsun, onun tapdıqları itməsin.
+    latest = _read_json(OG_FILE, {})
+    latest = latest if isinstance(latest, dict) else {}
+    m = latest.get("_meta") if isinstance(latest.get("_meta"), dict) else {}
+    r = dict(m.get("retryAfter") if isinstance(m.get("retryAfter"), dict) else {})
+    for url, img in new.items():
+        latest[url] = img
+        r.pop(url, None)
+    for url, t in again.items():
+        if not latest.get(url):
+            r[url] = t
+    latest["_meta"] = {**m, "retryAfter": r, "fresh": {"at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "batch": len(todo), "found": len(new)}}
+    try:
+        OUT_DIR.mkdir(exist_ok=True)
+        _write_atomic(OG_FILE, json.dumps(latest, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print("  ! og (təzə):", type(e).__name__)
+    if new:
+        print(f"og:image (təzə): {len(new)}/{len(todo)}")
+    return len(new)
+
 def write_status(ok=True, successful=0, total=0, stats=None):
     """Son cəhd və son uğur ayrıdır; uğursuz cəhd köhnə xəbəri təzə göstərmir. stats: seçim sayları (diaqnostika)."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
@@ -5547,6 +5610,9 @@ def run():
         return slow_cycle()
     if "--links" in sys.argv:
         check_links()
+        return 0
+    if "--og" in sys.argv:
+        fill_fresh_og()
         return 0
     news_ok = True
     result = {"successful": 0, "total": 0}

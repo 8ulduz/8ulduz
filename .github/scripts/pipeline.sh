@@ -22,6 +22,7 @@ SLOW_LIMIT="${SLOW_LIMIT:-280}"
 SLOW_EVERY="${SLOW_EVERY:-240}"
 LINKS_LIMIT="${LINKS_LIMIT:-55}"
 LINKS_EVERY="${LINKS_EVERY:-30}"
+OG_LIMIT="${OG_LIMIT:-25}"   # təzə xəbərin şəkli (--og): link yoxlamasından sonra, eyni 30 saniyəlik döngüdə
 MAIN_EVERY="${MAIN_EVERY:-600}"
 HANDOFF_AFTER="${HANDOFF_AFTER:-2820}"   # 47 dəq: növbəti işi başlat
 MAX_RUN="${MAX_RUN:-3600}"               # 60 dəq: növbəti iş görünməsə də çıx (timeout-minutes-dən əvvəl)
@@ -277,6 +278,8 @@ links_loop() {
   while :; do
     local began=$SECONDS left
     UPDATER_ROOT="$WORK" py_t "$LINKS_LIMIT" "$PY" "$CUR/updater.py" --links || echo "link yoxlaması xəta verdi"
+    # Sahib (2026-11-06): şəkilsiz kart olmasın. Təzə xəbərin şəkli 30 saniyədə tapılır, yavaş dövrəni (4-5 dəq) gözləmir.
+    UPDATER_ROOT="$WORK" py_t "$OG_LIMIT" "$PY" "$CUR/updater.py" --og || echo "təzə şəkil yoxlaması xəta verdi"
     left=$((LINKS_EVERY - (SECONDS - began)))
     [ "$left" -gt 0 ] && sleep "$left"
   done
