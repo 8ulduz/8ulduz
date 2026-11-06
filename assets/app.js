@@ -1606,7 +1606,7 @@ function profileRows() {
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false, sel = "") {
   const posts = side ? socialForSide() : orderedSocialPosts(sel ? 16 : 8);
-  const cards = posts.map(p => { const u = safeHref(p.url); const su = !/^[0-9a-f]{16}$/.test(p.id) ? "" : S.data?.sharePages ? "x/" + p.id : "#/bolme/prezident?s=" + p.id; return `<article class="soc-r${p.id === sel ? ' on" id="soc-on' : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/${su || "#/bolme/prezident"}" title="Paylaş">Paylaş</button></article>`; }).join("");
+  const cards = posts.map(p => { const u = safeHref(p.url); const su = /^[0-9a-f]{16}$/.test(p.id) ? "?s=" + p.id : ""; return `<article class="soc-r${p.id === sel ? ' on" id="soc-on' : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident${su}" title="Paylaş">Paylaş</button></article>`; }).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
@@ -1857,7 +1857,6 @@ async function scanArchives(id) {
 function articleView(id) {
   const a = (S.data?.articles || []).find(a => String(a.id) === id) || (S.sharedStory?.id === id && S.sharedStory.row) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
   if (!a || removedArticle(a)) {
-    if (S.social?.posts?.some(p => p.id === id)) { location.replace("#/bolme/prezident?s=" + id); return ""; }
     if (S.data && S.archiveScan !== id) { S.archiveScan = id; scanArchives(id); }
     if (S.archiveScanning) return '<p class="empty">Xəbər axtarılır…</p>';
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
@@ -3056,7 +3055,8 @@ const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(() => { enableAnalytics(); registerWorker(); });
 newsReady.then(flushRender);
 // Hava, namaz, video və sosial şəbəkə ilk şəkilin (LCP) xəttini tutmasın: xəbər ekrana çıxandan sonra.
-afterNews(() => { loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
+const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();
+afterNews(() => { socNow || loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
 // 20 liqanın cədvəli (~17 KB) açılışla xətti bölüşmür: oxucu özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);

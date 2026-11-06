@@ -887,12 +887,12 @@ test('social posts are ordered by time only and show the reporting source', () =
   assert.ok(html.includes('<span class="via">Report.az</span>'));
   assert.ok(html.indexOf('yeni') < html.indexOf('orta'));
   // sahib 2026-11-06: sosial yazının da «Paylaş» düyməsi var, yazının qutusunun içində; paylaşılan keçid 8ulduz-dur (YouTube/X yox)
-  // keçid həmin yazıya aparır və WhatsApp-da basılır: həqiqi ünvan x/<id> (updater.write_social_share_pages), səhifə yoxdursa #/bolme/prezident?s=<id>
+  // keçid həmin yazıya aparır: #/bolme/prezident?s=<id> (WhatsApp-da 8ulduz şəkli qalır; sahib 2026-11-06)
   Object.assign(ctx.api.S.social.posts[1], { id: '56ba6f3455e532b6', url: 'https://x.com/1st_Lady_AZ/status/1' });
   ctx.api.S.data = { sharePages: true, articles: [] };
   let soc = ctx.api.socialBlock(false);
   assert.ok(soc.includes('href="https://x.com/1st_Lady_AZ/status/1"'));
-  assert.ok(soc.includes('</a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/x/56ba6f3455e532b6" title="Paylaş">Paylaş</button></article>'));
+  assert.ok(soc.includes('</a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident?s=56ba6f3455e532b6" title="Paylaş">Paylaş</button></article>'));
   assert.ok(soc.includes('data-share="https://8ulduz.az/#/bolme/prezident" title'), 'id-siz yazı Zuğulbaya aparır');
   assert.ok(!soc.includes('data-share="https://x.com'));
   ctx.api.S.data = { articles: [] };
@@ -901,7 +901,7 @@ test('social posts are ordered by time only and show the reporting source', () =
   // Zuğulba səhifəsi xronika ilə açılır: sosial şəbəkələr bağlı bölmədədir; menyuda «Sosial müdafiə» tam yazılır
   const src = fs.readFileSync(path.join(__dirname, '..', 'assets/app.js'), 'utf8');
   assert.ok(src.includes('extra = `<details class="social-details"${s ? " open" : ""}><summary>'), 'bağlı bölmə; yazının keçidindən gələndə açıq');
-  assert.ok(src.includes('if (S.social?.posts?.some(p => p.id === id)) { location.replace("#/bolme/prezident?s=" + id);'), 'x/ səhifəsi hələ yoxdursa (404 → #/xeber/id) yazı Zuğulbada açılır');
+  assert.ok(src.includes("const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();"), "keçiddən gələndə sosial yazılar xəbərlə paralel yüklənir (sürət)");
   assert.ok(!/NAV_SHORT = \{[^}]*sosial/.test(src));
   const css = fs.readFileSync(path.join(__dirname, '..', 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.card :is(h2,h3){margin:0') && css.includes('.card h2,.card h3,'), 'bölmə kartının başlığı (h2) sətir hündürlüyü alır');
