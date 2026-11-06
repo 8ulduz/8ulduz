@@ -4573,6 +4573,9 @@ def write_sitemap():
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc in locs:
         body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{today}</lastmod><changefreq>hourly</changefreq></url>")
+    # Sabit məlumat səhifələrinə hər dövrədə saxta dəyişmə tarixi yazılmır.
+    for path in ("haqqinda/", "mexfilik/"):
+        body.append(f"<url><loc>{_xml(SITE + path)}</loc></url>")
     body.append("</urlset>\n")
     _write_atomic(SITEMAP_FILE, "".join(body), encoding="utf-8")
 
