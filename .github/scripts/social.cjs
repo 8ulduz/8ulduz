@@ -34,7 +34,15 @@ function options(env = process.env) {
 }
 
 const sources = a => 1 + (Array.isArray(a.alts) ? a.alts.length : 0);
-const shareUrl = a => `${SITE}x/${a.id}`;
+const shareUrl = a => a.url || `${SITE}x/${a.id}`;  // icmalın öz ünvanı var (icmal/<tarix>-seher/)
+// Günün icmalı (updater.write_digest, 09:00 və 19:00 Bakı): siyahı icmal/index.json-dadır. 4 saatdan köhnə buraxılış göndərilmir.
+const DIGEST_MAX_AGE_H = 4;
+function digests(index, now) {
+  return (Array.isArray(index) ? index : []).filter(e => e && /^\d{4}-\d{2}-\d{2}-(seher|axsam)$/.test(e.slug || "") && Array.isArray(e.items) && e.items.length
+    && now - e.at * 1000 < DIGEST_MAX_AGE_H * 3600e3 && now - e.at * 1000 > -60e3)
+    .map(e => ({ id: `icmal-${e.slug}`, title: e.title, url: e.url, items: e.items, digest: true }));
+}
+const digestList = a => a.items.map((x, i) => `${i + 1}. ${cut(x.t, 140)}`).join("\n");
 // Eyni başlıq başqa mənbədən yeni nömrə ilə gəlir: şəbəkəyə ikinci dəfə getməsin (5–6 noyabr Telegram-da təkrar).
 const titleKey = a => "t:" + crypto.createHash("sha1").update(clean(a.title).toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "")).digest("hex").slice(0, 16);
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -102,7 +110,8 @@ function networks(env = process.env) {
     },
     request(a) {
       const url = shareUrl(a), sum = cut(a.summary, 300);
-      const text = `<b>${html(cut(a.title, 250))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(sum)}` : ""}\n\n${url}`;
+      const text = a.digest ? `<b>${html(a.title)}</b>\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${html(digestList(a))}\n\n${url}`
+        : `<b>${html(cut(a.title, 250))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(sum)}` : ""}\n\n${url}`;
       return [`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
     } });
@@ -117,7 +126,7 @@ function networks(env = process.env) {
         return true;
       },
       request(a) { return [`${graph}/feed`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ message: cut(a.title, 500), link: shareUrl(a), access_token: this.token }).toString() }]; } });
+        body: new URLSearchParams({ message: a.digest ? `${a.title}\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${digestList(a)}` : cut(a.title, 500), link: shareUrl(a), access_token: this.token }).toString() }]; } });
   }
   if (env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_SECRET) list.push({ name: "x", request: a => {
     const url = "https://api.x.com/2/tweets";
@@ -147,8 +156,8 @@ function readState(file, now) {
 }
 
 // Bir dövrə: hər şəbəkəyə ən vacib, hələ paylaşılmamış xəbər(lər). Paylaşma səhifəsi saytda yoxdursa (main hələ yayımlanmayıb) növbəti.
-async function run({ articles, env = process.env, now = Date.now(), fetch: f = globalThis.fetch, state = {}, log = console.log }) {
-  const opt = options(env), nets = networks(env), list = candidates(articles, now, opt);
+async function run({ articles, digestIndex = [], env = process.env, now = Date.now(), fetch: f = globalThis.fetch, state = {}, log = console.log }) {
+  const opt = options(env), nets = networks(env), eds = digests(digestIndex, now), list = [...eds, ...candidates(articles, now, opt)];
   const result = { posted: [], failed: [] };
   if (!nets.length) {
     log(`Açar yoxdur, heç nə göndərilmir. Növbəti seçim: ${list[0] ? `${sources(list[0])} mənbə — ${clean(list[0].title)}` : "yoxdur"}`);
@@ -167,17 +176,20 @@ async function run({ articles, env = process.env, now = Date.now(), fetch: f = g
     const done = state[net.name] ||= {};
     const last = state._last ||= {};
     const ago = Math.round((now / 1000 - (last[net.name] || 0)) / 60);
-    if (ago < opt.minGapMin) { log(`${net.name}: son post ${ago} dəq əvvəl, növbəti ${opt.minGapMin - ago} dəq sonra`); continue; }
+    // İcmal saatında getməlidir: fasiləni gözləmir (xəbər postları gözləyir).
+    const early = ago < opt.minGapMin;
+    if (early && !eds.some(a => !done[a.id])) { log(`${net.name}: son post ${ago} dəq əvvəl, növbəti ${opt.minGapMin - ago} dəq sonra`); continue; }
     let n = 0;
-    for (const a of list) {
+    for (const a of early ? eds : list) {
       if (n >= opt.perRun) break;
-      if (done[a.id] || done[titleKey(a)] || !(await pageLive(a))) continue;
+      if (done[a.id] || (!a.digest && done[titleKey(a)]) || !(await pageLive(a))) continue;
       n++;
       try {
         const [url, init] = net.request(a);
         const r = await f(url, { ...init, signal: AbortSignal.timeout(20000) });
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
-        done[a.id] = done[titleKey(a)] = last[net.name] = Math.floor(now / 1000);
+        done[a.id] = last[net.name] = Math.floor(now / 1000);
+        if (!a.digest) done[titleKey(a)] = done[a.id];
         result.posted.push([net.name, a.id]);
         log(`${net.name}: paylaşıldı — ${clean(a.title)}`);
       } catch (e) {
@@ -198,12 +210,14 @@ async function main() {
   const now = Date.now();
   const articles = JSON.parse(fs.readFileSync(feed, "utf8")).articles || [];
   const state = readState(stateFile, now);
-  const res = await run({ articles, now, state });
+  let digestIndex = [];
+  try { digestIndex = JSON.parse(fs.readFileSync("icmal/index.json", "utf8")); } catch {}
+  const res = await run({ articles, digestIndex, now, state });
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify(state));
   // Hamısı alınmayıbsa iş qırmızı olsun (sahib görsün); qismən uğur yaşıl.
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { candidates, networks, oauthHeader, readState, run, options, cut };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });

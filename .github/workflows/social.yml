@@ -38,6 +38,7 @@ jobs:
             .github/scripts/indexnow.cjs
             data/news.json
             xeber/index.json
+            icmal/index.json
             /*.txt
           sparse-checkout-cone-mode: false
       - name: Paylaşılanların siyahısı

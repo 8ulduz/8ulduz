@@ -197,3 +197,25 @@ test("social: Google Search Console verification files stay in the site root (Go
 test("social: Yandex Webmaster verification file stays in the site root", () => {
   assert.ok(fs.readFileSync(path.join(__dirname, "..", "yandex_08701d77d2078d9e.html"), "utf8").includes("Verification: 08701d77d2078d9e"), "silinsə, Yandex təsdiqi itir");
 });
+
+test("social: the daily digest goes out at its hour even inside the 18-minute gap, as a numbered list with its own link, once", async () => {
+  const sent = [];
+  const fetch = async (url, init) => {
+    if (init.method === "HEAD") return { status: 200 };
+    sent.push(JSON.parse(init.body).text);
+    return { ok: true, status: 200, text: async () => "" };
+  };
+  const env = { TELEGRAM_BOT_TOKEN: "123:SECRET", TELEGRAM_CHAT: "-1002" };
+  const at = NOW / 1000 - 300;
+  const ed = { slug: "2026-11-05-seher", title: "Səhər icmalı · 5 noyabr 2026", url: "https://8ulduz.az/icmal/2026-11-05-seher/", at,
+    items: [{ t: "Birinci xəbər", n: 12 }, { t: "İkinci & son xəbər", n: 9 }] };
+  const state = { _last: { telegram: NOW / 1000 - 5 * 60 } };
+  await S.run({ articles: [art("e1")], digestIndex: [ed], env, now: NOW, fetch, state, log: () => {} });
+  assert.equal(sent.length, 1, "5 dəqiqə əvvəl post olsa da icmal gedir, adi xəbər isə gözləyir");
+  assert.ok(sent[0].startsWith("<b>Səhər icmalı · 5 noyabr 2026</b>"));
+  assert.ok(sent[0].includes("1. Birinci xəbər\n2. İkinci &amp; son xəbər"));
+  assert.ok(sent[0].endsWith("https://8ulduz.az/icmal/2026-11-05-seher/"));
+  await S.run({ articles: [], digestIndex: [ed], env, now: NOW + 20 * 60e3, fetch, state, log: () => {} });
+  assert.equal(sent.length, 1, "icmal ikinci dəfə getmir");
+  assert.deepEqual(S.digests([{ ...ed, at: NOW / 1000 - 5 * 3600 }], NOW), [], "4 saatdan köhnə buraxılış göndərilmir");
+});

@@ -1986,7 +1986,7 @@ _STORY_HTML = """<!doctype html>
       <main class="wrap"><p><a href="../../">8ulduz</a> › <a href="../../bolme/__SLUG__/">__LABEL__</a></p><h1>__TITLE__</h1>
       <p><time datetime="__ISO__">__WHEN__</time> · __COUNT__ mənbə</p><p>__SUMMARY__</p>
       <h2>Bu xəbəri yazan mənbələr</h2><ul>__SOURCES__</ul>
-      <p><a href="../../bolme/__SLUG__/">__LABEL__ bölməsinin digər xəbərləri</a> · <a href="../../">8ulduz — baş səhifə</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../bolme/__SLUG__/">__LABEL__ bölməsinin digər xəbərləri</a> · <a href="../../">8ulduz — baş səhifə</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -2059,6 +2059,154 @@ def write_story_pages(articles, now=None):
     if changed:
         STORY_DIR.mkdir(parents=True, exist_ok=True)
         _write_atomic(STORY_DIR / "index.json", json.dumps(index, separators=(",", ":")))
+    return index
+
+# Günün icmalı (sahib, 2026-11-06: «daimi oxucu» planının 1-ci addımı). Bakı vaxtı 09:00 və 19:00-da ən çox mənbənin yazdığı
+# 10 Azərbaycan xəbəri bir səhifəyə yığılır: icmal/<tarix>-seher/ və icmal/<tarix>-axsam/ (axşam səhərkini təkrarlamır). Buraxılış
+# bir dəfə yazılır və dəyişmir; siyahı icmal/index.json-dadır (sosial iş axını oradan Telegram/Facebook-a göndərir). Səhifə JS-siz,
+# tətbiqi yükləmir (~6 KB). Şəbəkə sorğusu yoxdur. QIRMIZI XƏTT 2: xəbərlər enforce və rəhbərlik süzgəcindən keçir.
+DIGEST_DIR = ROOT / "icmal"
+DIGEST_SIZE = 10
+DIGEST_KEEP_DAYS = 90
+DIGEST_EDITIONS = (("seher", 9, "Səhər icmalı", 24), ("axsam", 19, "Axşam icmalı", 12))  # (açar, saat, ad, neçə saatlıq xəbər)
+DIGEST_LATE_H = 6  # pipeline dayanıbsa buraxılış ən gec bu qədər sonra yazılır, sonra buraxılır
+
+def _title_key(t):
+    return re.sub(r"[^\w]+", "", unicodedata.normalize("NFKC", str(t or "")).casefold())
+
+def digest_pick(articles, start, end, skip=()):
+    """[start, end) aralığında ən çox mənbənin yazdığı Azərbaycan xəbərləri (bərabərdə daha yeni), başlığa görə təkrarsız."""
+    rows = []
+    for a in articles:
+        dt = _parse_dt(a.get("publishedAt"))
+        if (not dt or not (start <= dt.timestamp() < end) or (a.get("lang") or "az") != "az" or not str(a.get("title") or "").strip()
+                or a.get("id") in skip or removed_source(a)
+                or is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))):
+            continue
+        rows.append(a)
+    rows, _ = content_policy.enforce(rows)
+    rows.sort(key=lambda a: (1 + len(a.get("alts") or []), a.get("publishedAt") or ""), reverse=True)
+    out, seen = [], set()
+    for a in rows:
+        k = _title_key(a.get("title"))
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(a)
+        if len(out) == DIGEST_SIZE:
+            break
+    return out
+
+_DIGEST_HTML = """<!doctype html>
+<html lang="az">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>__TITLE__ — 8ulduz</title>
+<meta name="description" content="__DESC__" />
+<link rel="canonical" href="__URL__" />
+<meta name="theme-color" content="#0a1120" />
+<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="__TITLE__" />
+<meta property="og:description" content="__DESC__" /><meta property="og:url" content="__URL__" /><meta property="og:image" content="__IMAGE__" />
+<meta property="og:locale" content="az_AZ" /><meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
+<link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
+<script type="application/ld+json">__LD__</script>
+<style>body{margin:0;font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#0a1120;color:#e8edf5}main{max-width:720px;margin:0 auto;padding:16px}a{color:#7cc4ff}h1{font-size:1.5em;margin:.4em 0 .2em}ol{padding-left:1.4em}li{margin:0 0 1.1em}li>a{font-weight:600;font-size:1.05em;text-decoration:none}small{display:block;color:#9fb0c6}li p{margin:.3em 0 0}.cta{background:#13203a;border-radius:12px;padding:12px 14px;margin:1.4em 0}@media(prefers-color-scheme:light){body{background:#fff;color:#111}small{color:#555}.cta{background:#eef4fb}a{color:#0b5cad}}</style>
+</head>
+<body><main>
+<p><a href="__SITE__">8ULDUZ</a> › <a href="__SITE__icmal/">Günün icmalı</a></p>
+<h1>__TITLE__</h1>
+<p>__INTRO__</p>
+<ol>__ITEMS__</ol>
+<p class="cta">Hər səhər və axşam günün 10 əsas xəbəri Telegram kanalımızda: <a href="https://t.me/sekkizulduz_az">t.me/sekkizulduz_az</a></p>
+<p>__NAV__<a href="__SITE__icmal/">Bütün icmallar</a> · <a href="__SITE__">8ULDUZ — bütün xəbərlər</a></p>
+</main></body>
+</html>
+"""
+
+def _digest_date(d):
+    return f"{d.day} {_AZ_MONTH_NAMES[d.month - 1]} {d.year}"
+
+def digest_page(ed, items, stories, prev=None):
+    """Bir buraxılışın səhifəsi. ed: index.json sətri."""
+    lis = []
+    for i, a in enumerate(items, 1):
+        href = f'{SITE}xeber/{a["id"]}/' if a.get("id") in (stories or {}) else f'{SITE}#/xeber/{a.get("id")}?b={a.get("category") or ""}'
+        names = list(dict.fromkeys([a.get("source"), *(x.get("source") for x in a.get("alts") or [])]))
+        names = [n for n in names if n]
+        who = ", ".join(names[:3]) + (f" və daha {len(names) - 3}" if len(names) > 3 else "")
+        summary = re.sub(r"<[^>]+>|\s+", " ", str(a.get("summary") or "")).strip()
+        summary = summary if len(summary) <= 220 else summary[:217].rsplit(" ", 1)[0] + "…"
+        lis.append(f'<li><a href="{_xml(href)}">{_xml(a.get("title"))}</a><small>{1 + len(a.get("alts") or [])} mənbə · {_xml(who)}</small>'
+                   + (f"<p>{_xml(summary)}</p>" if summary and summary != a.get("title") else "") + "</li>")
+    image = next((str(a.get("imageUrl")) for a in items if str(a.get("imageUrl") or "").startswith("https://")), f"{SITE}assets/og-default.png")
+    ld = json.dumps({"@context": "https://schema.org", "@type": "ItemList", "name": ed["title"], "itemListElement": [
+        {"@type": "ListItem", "position": i, "name": str(a.get("title") or ""),
+         "url": f'{SITE}xeber/{a["id"]}/' if a.get("id") in (stories or {}) else SITE} for i, a in enumerate(items, 1)]},
+        ensure_ascii=False).replace("</", "<\\/")
+    nav = f'<a href="{SITE}icmal/{prev["slug"]}/">← {_xml(prev["title"])}</a> · ' if prev else ""
+    return (_DIGEST_HTML.replace("__LD__", ld).replace("__ITEMS__", "".join(lis)).replace("__NAV__", nav)
+            .replace("__INTRO__", _xml(f'{ed["label"]}: son {ed["hours"]} saatda ən çox mənbənin yazdığı {len(items)} xəbər. Sıra xəbəri yazan saytların sayına görədir.'))
+            .replace("__DESC__", _xml("; ".join(str(a.get("title") or "") for a in items[:3])[:300]))
+            .replace("__TITLE__", _xml(ed["title"])).replace("__IMAGE__", _xml(image))
+            .replace("__URL__", f'{SITE}icmal/{ed["slug"]}/').replace("__SITE__", SITE))
+
+def _digest_archive(index):
+    lis = "".join(f'<li><a href="{SITE}icmal/{e["slug"]}/">{_xml(e["title"])}</a><small>{_xml(e.get("lead") or "")}</small></li>' for e in index[:60])
+    ed = {"title": "Günün icmalı", "label": "8ULDUZ", "hours": 24, "slug": ""}
+    page = digest_page(ed, [], {})
+    page = page.replace(f'<link rel="canonical" href="{SITE}icmal//" />', f'<link rel="canonical" href="{SITE}icmal/" />')
+    page = page.replace(f'content="{SITE}icmal//"', f'content="{SITE}icmal/"')
+    page = re.sub(r"<p>8ULDUZ: son 24 saatda.*?</p>", "<p>Hər gün səhər 09:00-da və axşam 19:00-da ən çox mənbənin yazdığı 10 xəbər.</p>", page, count=1, flags=re.S)
+    desc = "8ULDUZ: hər gün səhər və axşam ən çox mənbənin yazdığı 10 Azərbaycan xəbəri"
+    return page.replace("<ol></ol>", f"<ol>{lis}</ol>").replace('content="" />', f'content="{desc}" />')
+
+def read_digest_index():
+    rows = _read_json(DIGEST_DIR / "index.json", [])
+    return rows if isinstance(rows, list) else []
+
+def write_digest(articles, stories=None, now=None):
+    """Vaxtı çatmış, hələ yazılmamış buraxılışı yazır; buraxılışların siyahısını (ən yenisi birinci) qaytarır."""
+    now = now or time.time()
+    local = datetime.datetime.fromtimestamp(now, BAKU)
+    index = read_digest_index()
+    have = {e.get("slug") for e in index}
+    changed = False
+    for key, hour, label, hours in DIGEST_EDITIONS:
+        at = local.replace(hour=hour, minute=0, second=0, microsecond=0)
+        slug = f"{at:%Y-%m-%d}-{key}"
+        if slug in have or not (0 <= (local - at).total_seconds() < DIGEST_LATE_H * 3600):
+            continue
+        end = at.timestamp()
+        skip = {i for e in index if e.get("date") == f"{at:%Y-%m-%d}" for i in e.get("ids") or []}
+        items = digest_pick(articles, end - hours * 3600, end, skip)
+        if len(items) < 5:
+            continue
+        ed = {"slug": slug, "date": f"{at:%Y-%m-%d}", "edition": key, "label": label, "hours": hours, "at": int(end),
+              "title": f"{label} · {_digest_date(at)}", "url": f"{SITE}icmal/{slug}/", "ids": [a["id"] for a in items],
+              "items": [{"t": re.sub(r"\s+", " ", str(a.get("title") or "")).strip(), "n": 1 + len(a.get("alts") or [])} for a in items],
+              "lead": re.sub(r"\s+", " ", str(items[0].get("title") or "")).strip()}
+        d = DIGEST_DIR / slug
+        d.mkdir(parents=True, exist_ok=True)
+        _write_atomic(d / "index.html", digest_page(ed, items, stories, index[0] if index else None), encoding="utf-8")
+        index.insert(0, ed)
+        have.add(slug)
+        changed = True
+    keep_from = now - DIGEST_KEEP_DAYS * 86400
+    for e in [e for e in index if e.get("at", 0) < keep_from]:
+        for p in (DIGEST_DIR / e["slug"] / "index.html", DIGEST_DIR / e["slug"]):
+            try:
+                p.unlink() if p.is_file() else p.rmdir()
+            except OSError:
+                pass
+        index.remove(e)
+        changed = True
+    if changed:
+        DIGEST_DIR.mkdir(parents=True, exist_ok=True)
+        index.sort(key=lambda e: e.get("at", 0), reverse=True)
+        _write_atomic(DIGEST_DIR / "index.json", json.dumps(index, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(DIGEST_DIR / "index.html", _digest_archive(index), encoding="utf-8")
     return index
 
 def update_archive(now=None):
@@ -4623,7 +4771,7 @@ _SECTION_HTML = """<!doctype html>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -4703,7 +4851,7 @@ def write_sections(articles, stories=()):
             print("  ! xidmət səhifəsi:", slug, type(e).__name__, e)
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
-def write_sitemap(stories=None):
+def write_sitemap(stories=None, digests=()):
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
@@ -4713,6 +4861,10 @@ def write_sitemap(stories=None):
     # Sabit məlumat səhifələrinə hər dövrədə saxta dəyişmə tarixi yazılmır.
     for path in ("haqqinda/", "mexfilik/"):
         body.append(f"<url><loc>{_xml(SITE + path)}</loc></url>")
+    if digests:
+        body.append(f"<url><loc>{SITE}icmal/</loc><lastmod>{datetime.datetime.fromtimestamp(digests[0]['at'], datetime.timezone.utc).date().isoformat()}</lastmod></url>")
+    for e in list(digests)[:60]:
+        body.append(f"<url><loc>{SITE}icmal/{e['slug']}/</loc><lastmod>{e['date']}</lastmod></url>")
     newest = sorted((stories or {}).items(), key=lambda kv: kv[1][0], reverse=True)[:STORY_SITEMAP_MAX]
     for sid, row in newest:
         day = datetime.datetime.fromtimestamp(row[0], datetime.timezone.utc).date().isoformat()
@@ -4734,8 +4886,13 @@ def write_public():
     except Exception as e:
         print("  ! xəbər səhifələri:", type(e).__name__, e)
         stories = {}
+    try:  # günün icmalı: alınmasa qalan hər şey köhnə qaydada
+        digests = write_digest(articles, stories)
+    except Exception as e:
+        print("  ! icmal:", type(e).__name__, e)
+        digests = []
     write_sections(articles, stories)
-    write_sitemap(stories)
+    write_sitemap(stories, digests)
     write_robots()
 
 _OG_META = re.compile(r"<meta\b[^>]*>", re.I)
