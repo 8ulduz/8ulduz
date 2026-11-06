@@ -10,4 +10,3 @@ Disallow: /README.md
 Allow: /
 
 Sitemap: https://8ulduz.az/sitemap.xml
-Sitemap: https://8ulduz.az/sitemap-movzu.xml
