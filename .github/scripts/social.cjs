@@ -35,6 +35,8 @@ function options(env = process.env) {
 
 const sources = a => 1 + (Array.isArray(a.alts) ? a.alts.length : 0);
 const shareUrl = a => `${SITE}x/${a.id}`;
+// Eyni başlıq başqa mənbədən yeni nömrə ilə gəlir: şəbəkəyə ikinci dəfə getməsin (5–6 noyabr Telegram-da təkrar).
+const titleKey = a => "t:" + crypto.createHash("sha1").update(clean(a.title).toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "")).digest("hex").slice(0, 16);
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 // Paylaşmağa layiq xəbərlər, ən vacibi birinci (mənbə sayı, sonra yenilik).
@@ -169,13 +171,13 @@ async function run({ articles, env = process.env, now = Date.now(), fetch: f = g
     let n = 0;
     for (const a of list) {
       if (n >= opt.perRun) break;
-      if (done[a.id] || !(await pageLive(a))) continue;
+      if (done[a.id] || done[titleKey(a)] || !(await pageLive(a))) continue;
       n++;
       try {
         const [url, init] = net.request(a);
         const r = await f(url, { ...init, signal: AbortSignal.timeout(20000) });
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
-        done[a.id] = last[net.name] = Math.floor(now / 1000);
+        done[a.id] = done[titleKey(a)] = last[net.name] = Math.floor(now / 1000);
         result.posted.push([net.name, a.id]);
         log(`${net.name}: paylaşıldı — ${clean(a.title)}`);
       } catch (e) {

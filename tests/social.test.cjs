@@ -167,3 +167,18 @@ test("social: a Facebook user token in the secret is turned into the page token 
   assert.ok(all.includes("istifadəçi açarından səhifə açarı alındı"));
   assert.ok(!all.includes("EAApageTOKEN654321") && !all.includes("EAAuserTOKEN123456") && all.includes("***"), "açarlar jurnalda görünmür");
 });
+
+test("social: the same headline under a new story number is not posted to a network twice", async () => {
+  const sent = [];
+  const fetch = async (url, init) => {
+    if (init.method === "HEAD") return { status: 200 };
+    sent.push(JSON.parse(init.body).text);
+    return { ok: true, status: 200, text: async () => "" };
+  };
+  const env = { TELEGRAM_BOT_TOKEN: "123:SECRET", TELEGRAM_CHAT: "-1002" }, state = {};
+  const title = "Bu şəxslər 3600 manat maaş alacaq";
+  await S.run({ articles: [art("d1", { title })], env, now: NOW, fetch, state, log: () => {} });
+  await S.run({ articles: [art("d2", { title: ` ${title.toUpperCase()}! ` }), art("d3")], env, now: NOW + 20 * 60e3, fetch, state, log: () => {} });
+  assert.equal(sent.length, 2);
+  assert.ok(sent[1].includes("x/d300000000000000"), "5–6 noyabr Telegram-da eyni başlıq iki dəfə getmişdi");
+});
