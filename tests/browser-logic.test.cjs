@@ -62,6 +62,29 @@ test('broken percent-encoded route does not break the page', () => {
   assert.equal(ctx.api.route().q, 'İlham');
 });
 
+test('reader font starts at the former two-click size and adjusts in both directions without losing saved sizes', () => {
+  const ctx = app({requestAnimationFrame() {}});
+  vm.runInContext('setupMarquees = () => {};', ctx);
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+  vm.runInContext('setPref("fs-up"); setPref("fs-up"); setPref("fs-up");', ctx);
+  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'upper bound');
+  assert.equal(ctx.api.storage.getItem('8ulduz-fs'), '4');
+  ctx.document.documentElement.dataset.fs = '';
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'saved size restored');
+  vm.runInContext('for(let i=0;i<6;i++) setPref("fs-down");', ctx);
+  assert.equal(ctx.document.documentElement.dataset.fs, '0', 'lower bound');
+  for (const saved of ['0','1','2','3','4']) {
+    ctx.api.storage.setItem('8ulduz-fs', saved);
+    ctx.api.applyPrefs();
+    assert.equal(ctx.document.documentElement.dataset.fs, saved, 'existing choice kept');
+  }
+  ctx.api.storage.setItem('8ulduz-fs', 'broken');
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+});
+
 test('invalid JSON response does not poison ETag; same response can recover', async () => {
   const ctx = app();
   let valid = false;

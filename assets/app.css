@@ -2,9 +2,9 @@
 /* hidden display:flex qaydalarından güclü olsun (Telegram bloku boş kanalda görünürdü) */
 [hidden]{display:none!important}
 :root{
-  --bg:hsl(222 47% 5%);--fg:hsl(210 40% 96%);--card:hsl(222 40% 8%);--card2:hsl(222 34% 11%);
-  --primary:hsl(43 96% 56%);--primary-fg:hsl(222 47% 8%);--muted:hsl(215 20% 68%);--muted2:hsl(215 16% 62%);
-  --border:hsl(222 24% 16%);--red:hsl(0 84% 60%);--green:#10b981;
+  --bg:#20252b;--fg:#e1e3e6;--card:#292f36;--card2:#323a43;
+  --primary:#e4b95b;--primary-fg:#20252b;--muted:#b2b9c2;--muted2:#a6afb9;
+  --border:#48515c;--red:hsl(0 84% 60%);--green:#10b981;
   --pray-on:#f0fdf4;--pray-dim:#d1fae5;
   --pray-fill:radial-gradient(90% 55% at 100% 0%,hsl(158 72% 46%/.3),transparent 58%),linear-gradient(180deg,#047857 0%,#064e3b 100%);
   --pray-pill:linear-gradient(180deg,#059669 0%,#047857 100%);
@@ -15,23 +15,25 @@
   --sky-pill:linear-gradient(180deg,#0284c7 0%,#0369a1 100%);
   --sky-chip:hsl(199 100% 100%/.14);--sky-chip-line:hsl(199 100% 100%/.32);
   --radius:12px;--gap:16px;--gutter:16px;--maxw:1320px;
-  --fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;
-  --fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px;
+  --fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;
+  --fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px;
   --fw-regular:400;--fw-semibold:600;--fw-bold:700;
-  --header:hsl(222 47% 5%);--surface:hsl(222 47% 5%/.5);--soc-chip:hsl(222 47% 5%/.45);--chip:hsl(210 40% 92%);--src-fg:hsl(210 40% 90%);--modal-fg:hsl(210 40% 96%/.9);
-  --footer:hsl(222 40% 8%/.4);--ad:hsl(222 40% 8%/.35);--ad-border:hsl(222 24% 24%);
-  --ticker-bg:hsl(0 84% 60%/.08);--ticker-fg:hsl(210 40% 96%/.9);
+  --header:#20252b;--surface:#252b32;--soc-chip:#252b32;--chip:#d9dde2;--src-fg:#d9dde2;--modal-fg:#e1e3e6;
+  --footer:#252b32;--ad:#252b32;--ad-border:#53606c;
+  --ticker-bg:#302b2e;--ticker-fg:#e1e3e6;
   --mk-a:hsl(188 36% 18%);--mk-b:hsl(205 40% 12%);--mk-border:hsl(43 58% 46%/.55);
   --mk-label:hsl(43 45% 78%);--mk-unit:hsl(43 30% 70%);--mk-flat:hsl(200 28% 14%);--mk-flat-fg:hsl(43 35% 74%);--mk-chg:hsl(200 30% 10%/.55);
   --fallback:radial-gradient(ellipse at 20% 0%,hsl(43 96% 56% / .12),transparent 55%),radial-gradient(ellipse at 90% 100%,hsl(215 90% 55% / .14),transparent 55%),linear-gradient(135deg,#0e1525,#080c17);
 }
 html{font-size:var(--fs-body)}
+html[data-fs="0"]{--fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;--fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px}
 html[data-fs="1"]{--fs-display:24px;--lh-display:30px;--fs-title:20px;--lh-title:26px;--fs-headline:19px;--lh-headline:26px;--fs-body:17px;--lh-body:25px;--fs-meta:13px;--lh-meta:18px}
-html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;--fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px}
+html[data-fs="3"]{--fs-display:28px;--lh-display:35px;--fs-title:24px;--lh-title:31px;--fs-headline:23px;--lh-headline:31px;--fs-body:20px;--lh-body:29px;--fs-meta:15px;--lh-meta:22px}
+html[data-fs="4"]{--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title:34px;--fs-headline:25px;--lh-headline:34px;--fs-body:22px;--lh-body:32px;--fs-meta:16px;--lh-meta:23px}
 :root[data-theme="light"]{
-  --bg:hsl(210 40% 97%);--fg:hsl(222 47% 12%);--card:#fff;--card2:hsl(210 32% 93%);
-  --primary:hsl(38 88% 36%);--primary-fg:#fff;--muted:hsl(215 16% 32%);--muted2:hsl(215 12% 42%);
-  --border:hsl(214 22% 82%);
+  --bg:#eae7df;--fg:#30343a;--card:#f3f0e8;--card2:#e1ddd4;
+  --primary:#79581f;--primary-fg:#f3f0e8;--muted:#555d66;--muted2:#59616b;
+  --border:#b9b4a9;
   --pray-on:#064e3b;--pray-dim:#065f46;
   --pray-fill:radial-gradient(90% 60% at 0% 0%,#fff,transparent 55%),linear-gradient(180deg,#ecfdf5 0%,#6ee7b7 100%);
   --pray-pill:linear-gradient(180deg,#6ee7b7 0%,#34d399 100%);
@@ -41,9 +43,9 @@ html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title
   --sky-fill:radial-gradient(90% 60% at 0% 0%,#fff,transparent 55%),linear-gradient(180deg,#e0f2fe 0%,#7dd3fc 100%);
   --sky-pill:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 100%);
   --sky-chip:hsl(199 100% 100%/.62);--sky-chip-line:hsl(201 70% 28%/.2);
-  --header:hsl(210 40% 98%);--surface:hsl(204 45% 96%);--soc-chip:hsl(204 45% 96%);--chip:hsl(222 35% 20%);--src-fg:hsl(222 35% 20%);--modal-fg:hsl(222 47% 12%);
-  --footer:hsl(210 33% 95%);--ad:hsl(210 30% 95%);--ad-border:hsl(214 18% 76%);
-  --ticker-bg:hsl(0 70% 96%);--ticker-fg:hsl(222 40% 16%);
+  --header:#eae7df;--surface:#e8e4db;--soc-chip:#e8e4db;--chip:#3d4249;--src-fg:#3d4249;--modal-fg:#30343a;
+  --footer:#e1ddd4;--ad:#e1ddd4;--ad-border:#a49f94;
+  --ticker-bg:#eadfda;--ticker-fg:#30343a;
   --mk-a:hsl(183 48% 88%);--mk-b:hsl(196 42% 78%);--mk-border:hsl(188 42% 32%/.45);
   --mk-label:hsl(192 48% 20%);--mk-unit:hsl(196 28% 28%);--mk-flat:hsl(188 32% 74%);--mk-flat-fg:hsl(200 32% 18%);--mk-chg:hsl(196 28% 32%/.12);
   --fallback:radial-gradient(ellipse at 20% 0%,hsl(43 90% 70% / .35),transparent 55%),radial-gradient(ellipse at 90% 100%,hsl(190 50% 70% / .28),transparent 55%),linear-gradient(135deg,#e7eef6,#f7f4ea);
@@ -1133,7 +1135,8 @@ a.pill.on small{color:inherit}
 .prefs .theme-btn .face{gap:4px}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: kompüterdə loqo/bölmələr/axtarışın altında, telefonda loqo ilə bölmələr arasında */
 .hrow{flex-wrap:wrap}
-.hrow>.topbar{flex:1 0 100%;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
+.hrow>.topbar{flex:1 0 100%;min-width:0;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
+.hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
 /* Paylaşma: hər yerdə «Paylaş» düyməsi → panel (telefondakı yerində işarələr sahibin istəyi ilə götürüldü, 2026-11-05) */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
