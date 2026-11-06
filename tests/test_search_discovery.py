@@ -143,7 +143,7 @@ class DigestTest(unittest.TestCase):
         import datetime
         nine = datetime.datetime(2026, 11, 6, 9, 5, tzinfo=updater.BAKU).timestamp()
         seven = datetime.datetime(2026, 11, 6, 19, 5, tzinfo=updater.BAKU).timestamp()
-        arts = [self.art(f'{i:016x}', 5, -1 - i * 0.5) for i in range(12)] + [self.art(f'{i:016x}', 5, 1 + i) for i in range(100, 112)]
+        arts = [self.art(f'{i:016x}', 5, -1 - i * 0.5) for i in range(12)] + [self.art(f'{i:016x}', 5, i - 99) for i in range(100, 112)]
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(updater, 'DIGEST_DIR', pathlib.Path(tmp) / 'icmal'):
                 morning = updater.write_digest(arts, {}, now=nine)[0]
