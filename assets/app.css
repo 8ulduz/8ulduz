@@ -2,9 +2,9 @@
 /* hidden display:flex qaydalarından güclü olsun (Telegram bloku boş kanalda görünürdü) */
 [hidden]{display:none!important}
 :root{
-  --bg:#273449;--fg:#dce3ed;--card:#2e3d53;--card2:#374860;
-  --primary:#d6bd80;--primary-fg:#273449;--muted:#b8c4d4;--muted2:#b0bdcf;
-  --border:#54677e;--red:hsl(0 84% 60%);--green:#10b981;
+  --bg:#15233b;--fg:#d5deeb;--card:#1c2c46;--card2:#263952;
+  --primary:#d6bd80;--primary-fg:#15233b;--muted:#aabbd2;--muted2:#a0b1c9;
+  --border:#3e5370;--red:hsl(0 84% 60%);--green:#10b981;
   --pray-on:#e0e8e4;--pray-dim:#c4d5cc;
   --pray-fill:linear-gradient(180deg,#344d46,#2e443e);
   --pray-pill:#35594e;
@@ -12,18 +12,18 @@
   --pray-next:#42675a;
   --sky-on:#e0e8f1;--sky-dim:#c1d0df;
   --sky-fill:linear-gradient(180deg,#344a60,#2c4054);
-  --sky-pill:#34516b;
+  --sky-pill:#294663;
   --sky-chip:hsl(199 100% 100%/.14);--sky-chip-line:hsl(199 100% 100%/.32);
   --radius:12px;--gap:16px;--gutter:16px;--maxw:1320px;
   --fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;
   --fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px;
   --fw-regular:400;--fw-semibold:600;--fw-bold:700;
-  --header:#273449;--surface:#2b394e;--soc-chip:#2b394e;--chip:#d0d9e5;--src-fg:#d0d9e5;--modal-fg:#dce3ed;
-  --footer:#2b394e;--ad:#2b394e;--ad-border:#60738a;
-  --ticker-bg:#3a3846;--ticker-fg:#dce3ed;
-  --mk-a:#304459;--mk-b:#304459;--mk-border:#5a6d82;
-  --mk-label:#d0d8e4;--mk-unit:#b8c4d4;--mk-flat:#34475e;--mk-flat-fg:#d1dbe8;--mk-chg:#203046;
-  --fallback:#2e3d53;
+  --header:#15233b;--surface:#1a2a43;--soc-chip:#1a2a43;--chip:#c9d4e5;--src-fg:#c9d4e5;--modal-fg:#d5deeb;
+  --footer:#1a2a43;--ad:#1a2a43;--ad-border:#4c627f;
+  --ticker-bg:#292637;--ticker-fg:#d5deeb;
+  --mk-a:#213550;--mk-b:#213550;--mk-border:#465e7c;
+  --mk-label:#c4d1e2;--mk-unit:#aabbd2;--mk-flat:#263b56;--mk-flat-fg:#cbd7e6;--mk-chg:#14243b;
+  --fallback:#1c2c46;
 }
 html{font-size:var(--fs-body)}
 html[data-fs="0"]{--fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;--fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px}

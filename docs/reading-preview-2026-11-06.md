@@ -50,3 +50,7 @@ Hesablanmış minimum kontrast: əsas mətn 11,53:1, yardımçı mətnlər 5,12:
 Sahibin növbəti istəyi: lacivərd bir qədər açılsın və parıltısız, mat olsun. Yeni tünd fon #273449, kart #2e3d53, ikinci səth #374860, mətn #dce3ed. Qızılı vurğu #d6bd80 ilə yumşaldılıb; məzənnə səthləri düz rəngdə, namaz/hava düymələri daha az doymuş rənglərdədir. Tünd rejimdə izləmə düyməsinin yanıb-sönən işıqlı çərçivələri gizlədilib. Açıq sarı variant saxlanır.
 
 Minimum hesablanmış kontrast: əsas mətn 7,20:1, yardımçı mətn 4,88:1, vurğu 5,07:1. Şriftin iki reqressiya testi və CSP testi keçib. Brauzerdə 412 px enli ana səhifə: şrift 18 px, daşma yoxdur, parıldayan pseudo-element display:none. Ölçü və düzülüş qaydaları bu düzəlişdə dəyişmir. Yalnız önizləmədir; yayım yoxdur.
+
+## Son tünd rəng düzəlişi
+
+Sahib əvvəlki mat variantı həddən artıq açıq və boz hesab etdi. Aktual önizləmə: dərin lacivərd fon #15233b, kart #1c2c46, ikinci səth #263952, mətn #d5deeb. Parıltısız görünüş saxlanır. Əsas mətn minimum 8,65:1, yardımçı mətn 5,38:1 kontrasta malikdir. Bu düzəlişdə yalnız rənglər dəyişir; açıq sarı variant, şrift və düzülüş saxlanır. Canlıya tətbiq edilməyib.

@@ -1960,7 +1960,7 @@ _STORY_HTML = """<!doctype html>
     <title>__TITLE__ — 8ulduz</title>
     <meta name="description" content="__DESC__" />
     <link rel="canonical" href="__URL__" />
-    <meta name="theme-color" content="#273449" />
+    <meta name="theme-color" content="#15233b" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="8ulduz" />
     <meta property="og:title" content="__TITLE__" />
@@ -4599,7 +4599,7 @@ _SECTION_HTML = """<!doctype html>
     <title>__LABEL__ — 8ulduz</title>
     <meta name="description" content="__DESC__ — 8ulduz, Azərbaycan və dünyadan son xəbərlər." />
     <link rel="canonical" href="__URL__" />
-    <meta name="theme-color" content="#273449" />
+    <meta name="theme-color" content="#15233b" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="8ulduz" />
     <meta property="og:title" content="__LABEL__ — 8ulduz" />
