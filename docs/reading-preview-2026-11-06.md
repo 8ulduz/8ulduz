@@ -36,3 +36,11 @@ Sahib POCO X5 Pro telefonundan iki A+ klikindən sonrakı ana səhifəni göndə
 Eyni 393 px enli yerli brauzerdə köhnə nüsxənin iki A+ klikindən sonrakı halı ilə yeni əsas ölçü tutuşduruldu: hər ikisində gövdə 18 px, ana slayd başlığı 22 px, Zuğulba kart mətni 18 px, kart 330×110 px, başlıq sahəsi 221,33 px, slaydın yuxarı koordinatı 314,875 px. Bütün əvvəlki 2-ci pillə şrift və sətir hündürlüyü dəyişənlərinin qorunması üçün reqressiya testi əlavə edildi.
 
 Yeni göstərilən önizləmə ana səhifədir; mobil ölçü yoxlaması fiziki POCO cihazında yox, kompüter brauzerində aparılıb. Sistem şriftinin forması və toxunma rejiminə aid elementlər fiziki telefondan fərqlənə bilər. Canlıya tətbiq edilməyib.
+
+## Sahibin yeni rəng təklifi — çox açıq sarı və lacivərd
+
+Əvvəlki yayım göstərişi rəng barədə yeni mesajla dayandırıldı; yalnız git fetch icra olunmuşdu, heç bir push, PR və merge edilməmişdi.
+
+Açıq rejimin yeni önizləməsi: fon #fff8d8, kart #fffcef, mətn #172b4d, seçilmiş düymə #19385f, düymə mətni #fff8d8. Loqo altlığı, məzənnə səthləri, altlıq və məlumat səhifələri palitraya uyğunlaşdırılıb. Bu düzəlişdə şrift və həndəsə qaydaları dəyişməyib.
+
+Hesablanmış minimum kontrast: əsas mətn 11,53:1, yardımçı mətnlər 5,12:1 və yuxarı. Şriftin əvvəlki iki-klik ölçüsünü və böyütmə/kiçiltmə davranışını qoruyan iki test keçib. Brauzerdə 412 px enli ana səhifə yoxlanıb: üfüqi daşma yoxdur. Bu rəng variantı da yalnız önizləmədir; canlıya yayımlanmayıb.

@@ -31,9 +31,9 @@ html[data-fs="1"]{--fs-display:24px;--lh-display:30px;--fs-title:20px;--lh-title
 html[data-fs="3"]{--fs-display:28px;--lh-display:35px;--fs-title:24px;--lh-title:31px;--fs-headline:23px;--lh-headline:31px;--fs-body:20px;--lh-body:29px;--fs-meta:15px;--lh-meta:22px}
 html[data-fs="4"]{--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title:34px;--fs-headline:25px;--lh-headline:34px;--fs-body:22px;--lh-body:32px;--fs-meta:16px;--lh-meta:23px}
 :root[data-theme="light"]{
-  --bg:#eae7df;--fg:#30343a;--card:#f3f0e8;--card2:#e1ddd4;
-  --primary:#79581f;--primary-fg:#f3f0e8;--muted:#555d66;--muted2:#59616b;
-  --border:#b9b4a9;
+  --bg:#fff8d8;--fg:#172b4d;--card:#fffcef;--card2:#f2e9bd;
+  --primary:#19385f;--primary-fg:#fff8d8;--muted:#465773;--muted2:#52617b;
+  --border:#c7bf98;
   --pray-on:#064e3b;--pray-dim:#065f46;
   --pray-fill:radial-gradient(90% 60% at 0% 0%,#fff,transparent 55%),linear-gradient(180deg,#ecfdf5 0%,#6ee7b7 100%);
   --pray-pill:linear-gradient(180deg,#6ee7b7 0%,#34d399 100%);
@@ -43,11 +43,11 @@ html[data-fs="4"]{--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title
   --sky-fill:radial-gradient(90% 60% at 0% 0%,#fff,transparent 55%),linear-gradient(180deg,#e0f2fe 0%,#7dd3fc 100%);
   --sky-pill:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 100%);
   --sky-chip:hsl(199 100% 100%/.62);--sky-chip-line:hsl(201 70% 28%/.2);
-  --header:#eae7df;--surface:#e8e4db;--soc-chip:#e8e4db;--chip:#3d4249;--src-fg:#3d4249;--modal-fg:#30343a;
-  --footer:#e1ddd4;--ad:#e1ddd4;--ad-border:#a49f94;
-  --ticker-bg:#eadfda;--ticker-fg:#30343a;
-  --mk-a:hsl(183 48% 88%);--mk-b:hsl(196 42% 78%);--mk-border:hsl(188 42% 32%/.45);
-  --mk-label:hsl(192 48% 20%);--mk-unit:hsl(196 28% 28%);--mk-flat:hsl(188 32% 74%);--mk-flat-fg:hsl(200 32% 18%);--mk-chg:hsl(196 28% 32%/.12);
+  --header:#fff8d8;--surface:#f8f1d2;--soc-chip:#f8f1d2;--chip:#243b5a;--src-fg:#243b5a;--modal-fg:#172b4d;
+  --footer:#f2e9bd;--ad:#f2e9bd;--ad-border:#aca16d;
+  --ticker-bg:#f4e8cf;--ticker-fg:#172b4d;
+  --mk-a:#f4e8b1;--mk-b:#eee0a2;--mk-border:#b3a567;
+  --mk-label:#203653;--mk-unit:#465773;--mk-flat:#e8ddab;--mk-flat-fg:#203653;--mk-chg:#19385f14;
   --fallback:radial-gradient(ellipse at 20% 0%,hsl(43 90% 70% / .35),transparent 55%),radial-gradient(ellipse at 90% 100%,hsl(190 50% 70% / .28),transparent 55%),linear-gradient(135deg,#e7eef6,#f7f4ea);
 }
 *{box-sizing:border-box}
@@ -102,7 +102,7 @@ header.site{position:sticky;top:0;z-index:50;background:var(--header);border-bot
 /* Loqo: assets/logo.png (ağ «8», sarı ULDUZ); açıq temada tünd lövhə üstündə */
 .logo{display:flex;align-items:center;flex:none}
 .logo img{display:block;height:40px;width:auto}
-:root[data-theme="light"] .logo{background:#0e0d0b;border-radius:9px;padding:4px 9px}
+:root[data-theme="light"] .logo{background:#172b4d;border-radius:9px;padding:4px 9px}
 /* Masaüstü: bir sətir, sığmayanlar «Daha çox»da */
 nav.main{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;flex:1 1 220px;min-width:0;overflow:visible}
 nav.main a{white-space:nowrap;padding:5px 8px;border-radius:999px;font-weight:600;font-size:0.8929rem;line-height:1.25;color:var(--muted);flex:none}
