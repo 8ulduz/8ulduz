@@ -73,7 +73,7 @@ Play Console → **Siyasət → Tətbiq məzmunu**.
 | Bölmə | Cavab |
 |---|---|
 | Məxfilik siyasəti | `https://8ulduz.az/mexfilik/` |
-| Reklamlar | **Xeyr, reklam yoxdur.** (`data/ads.json`-a reklam yeri əlavə etsəniz, bunu «Bəli»yə dəyişin.) |
+| Reklamlar | **Bəli, reklam var.** Saytın öz bannerləri (`data/ads.json`): reklam şəbəkəsi, izləmə və reklam identifikatoru yoxdur, ona görə «Məlumat təhlükəsizliyi» dəyişmir. Pul qazanıldığı üçün hesabın satıcı statusu «tacir» olmalıdır. |
 | Tətbiqə giriş | Bütün funksiyalar girişsiz işləyir |
 | Məzmun reytinqi (IARC) | Kateqoriya: «Referans, xəbər və ya təhsil». Zorakılıq/cinsi məzmun/qumar: xəbər kontekstindən başqa yoxdur; istifadəçilər arası ünsiyyət yoxdur; istifadəçi məzmunu paylaşılmır; yer məlumatı paylaşılmır |
 | Hədəf auditoriya | 18 və yuxarı (ən sadəsi; 13+ seçsəniz Ailə siyasəti suallarına da cavab lazım olur) |
