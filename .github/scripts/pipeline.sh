@@ -233,13 +233,15 @@ publish_main() {
     done
     if [ -d "$WORK/bolme" ]; then rm -rf "$REPO_DIR/bolme"; cp -a "$WORK/bolme" "$REPO_DIR/bolme"; fi
     if [ -d "$WORK/x" ]; then rm -rf "$REPO_DIR/x"; cp -a "$WORK/x" "$REPO_DIR/x"; fi   # paylaşma səhifələri (updater.write_share_pages)
+    if [ -d "$WORK/xeber" ]; then rm -rf "$REPO_DIR/xeber"; cp -a "$WORK/xeber" "$REPO_DIR/xeber"; fi   # Google üçün xəbər səhifələri (updater.write_story_pages)
     prerender_home
     # GOOD yenilənərkən oxunmuş ola bilər: commit-dən əvvəl yenidən yoxla.
     for name in $(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" || check_lkg "$REPO_DIR"); do
       git -C "$REPO_DIR" checkout -q HEAD -- "$name" 2>/dev/null || rm -f "$REPO_DIR/$name"
     done
     git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme index.html 2>/dev/null
-    if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x 2>/dev/null; fi   # ayrıca: qovluq yoxdursa yuxarıdakı add pozulmasın
+    if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x 2>/dev/null; fi
+    if [ -d "$REPO_DIR/xeber" ]; then git -C "$REPO_DIR" add xeber 2>/dev/null; fi   # ayrıca: qovluq yoxdursa yuxarıdakı add pozulmasın
     if git -C "$REPO_DIR" diff --cached --quiet; then
       touch "$STATE/code-sync"
       return 0
@@ -312,6 +314,7 @@ for name in sitemap.xml feed.xml robots.txt; do
 done
 [ -d "$REPO_DIR/bolme" ] && cp -a "$REPO_DIR/bolme" "$WORK/bolme"
 [ -d "$REPO_DIR/x" ] && cp -a "$REPO_DIR/x" "$WORK/x"   # mövcud paylaşma səhifələri: təzədən yazılmasın, 25 saatdan sonra silinsin
+[ -d "$REPO_DIR/xeber" ] && cp -a "$REPO_DIR/xeber" "$WORK/xeber"   # Google üçün xəbər səhifələri: 30 gün qalır (updater.write_story_pages)
 guard_outputs
 seed_slots
 rm -f "$LKG/.yeni"

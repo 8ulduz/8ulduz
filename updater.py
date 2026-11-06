@@ -1926,6 +1926,141 @@ def prune_share_pages(keep):
             pass
     return len(gone)
 
+# Google üçün xəbər səhifələri (sahib, 2026-11-06: Search Console-da 28 gündə 33 göstəriş, yeganə sorğu «8 ulduz»). /x/ID noindex-dir
+# və dərhal #/xeber/ID-yə keçir, hash-ı isə Google ayrıca səhifə saymır: sayt Google üçün 17 səhifə idi. İndi yalnız əsas Azərbaycan
+# xəbərlərinin (4+ mənbə və ya Zuğulba) xeber/<id>/ səhifəsi var: başlıq, xülasə və xəbəri yazan bütün mənbələr (aqreqatorun öz
+# dəyəri), bölmə keçidi. Bölmə səhifələri kimi tətbiq də yüklənir və ünvan #/xeber/ID olur. Səhifə 30 gün qalır; siyahı bir faylda
+# (xeber/index.json), dövrədə yalnız yeni və mənbə sayı dəyişən xəbər yazılır. Şəbəkə sorğusu yoxdur. QIRMIZI XƏTT 2: enforce-dan keçir.
+STORY_DIR = ROOT / "xeber"
+STORY_KEEP_S = 30 * 86400
+STORY_MIN_SOURCES = 4
+STORY_SITEMAP_MAX = 5000
+_AZ_MONTH_NAMES = ("yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr")
+
+def story_worthy(a):
+    """Google üçün ayrıca səhifəyə layiq xəbər: Azərbaycan dilində, paylaşma nömrəsi var, 4+ mənbə və ya Zuğulba."""
+    return bool(re.fullmatch(r"[0-9a-f]{16}", str(a.get("id") or "")) and (a.get("lang") or "az") == "az"
+                and str(a.get("title") or "").strip()
+                and (a.get("category") == "prezident" or 1 + len(a.get("alts") or []) >= STORY_MIN_SOURCES))
+
+def _baku_time(iso):
+    dt = _parse_dt(iso)
+    if not dt:
+        return ""
+    dt = dt.astimezone(ZoneInfo("Asia/Baku"))
+    return f"{dt.day} {_AZ_MONTH_NAMES[dt.month - 1]} {dt.year}, {dt:%H:%M}"
+
+_STORY_HTML = """<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="__CSP__" />
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");if(f==="0"||f==="1"||f==="2")document.documentElement.dataset.fs=f;}catch(e){}</script>
+    <title>__TITLE__ — 8ulduz</title>
+    <meta name="description" content="__DESC__" />
+    <link rel="canonical" href="__URL__" />
+    <meta name="theme-color" content="#0a1120" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="8ulduz" />
+    <meta property="og:title" content="__TITLE__" />
+    <meta property="og:description" content="__DESC__" />
+    <meta property="og:url" content="__URL__" />
+    <meta property="og:locale" content="az_AZ" />
+    <meta property="og:image" content="__IMAGE__" />
+    <meta property="article:published_time" content="__ISO__" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">__LD__</script>
+    <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
+    <link rel="manifest" href="__SITE__manifest.webmanifest" />
+    <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
+    <link rel="modulepreload" href="../../assets/app.js" />
+    <link rel="stylesheet" href="../../assets/app.css" />
+    <script src="../../assets/config.js" defer></script>
+    <script src="../../assets/content-policy.js" defer></script>
+    <script type="module" src="../../assets/app.js"></script>
+    <script>history.replaceState(null, "", new URL("../../#/xeber/__ID__?b=__SLUG__", location.href));</script>
+  </head>
+  <body>
+    <div id="app">
+      <main class="wrap"><p><a href="../../">8ulduz</a> › <a href="../../bolme/__SLUG__/">__LABEL__</a></p><h1>__TITLE__</h1>
+      <p><time datetime="__ISO__">__WHEN__</time> · __COUNT__ mənbə</p><p>__SUMMARY__</p>
+      <h2>Bu xəbəri yazan mənbələr</h2><ul>__SOURCES__</ul>
+      <p><a href="../../bolme/__SLUG__/">__LABEL__ bölməsinin digər xəbərləri</a> · <a href="../../">8ulduz — baş səhifə</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+    </div>
+  </body>
+</html>
+"""
+
+def story_page(a):
+    """Bir əsas xəbərin axtarış üçün səhifəsi (xeber/<id>/index.html)."""
+    sid, slug = a["id"], a.get("category") or "gundem"
+    label = {s: l for s, l, _d in SECTIONS}.get(slug, "Xəbərlər")
+    title = re.sub(r"\s+", " ", str(a.get("title") or "")).strip()
+    summary = re.sub(r"<[^>]+>|\s+", " ", str(a.get("summary") or "")).strip()
+    desc = summary if len(summary) <= 160 else summary[:157].rsplit(" ", 1)[0] + "…"
+    rows = [a, *(a.get("alts") or [])]
+    seen, lis = set(), []
+    for r in rows:
+        url = fix_source_link(r.get("sourceUrl"))
+        if not url or url in seen or not str(url).startswith(("https://", "http://")):
+            continue
+        seen.add(url)
+        lis.append(f'<li><a href="{_xml(url)}" rel="noopener">{_xml(r.get("title") or title)}</a> <small>{_xml(r.get("source"))}</small></li>')
+    image = str(a.get("imageUrl") or "")
+    image = image if image.startswith("https://") else f"{SITE}assets/og-default.png"
+    url = f"{SITE}xeber/{sid}/"
+    ld = json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "8ulduz", "item": SITE},
+        {"@type": "ListItem", "position": 2, "name": label, "item": f"{SITE}bolme/{slug}/"},
+        {"@type": "ListItem", "position": 3, "name": title, "item": url}]}, ensure_ascii=False).replace("</", "<\\/")
+    iso = str(a.get("publishedAt") or "")
+    page = (_STORY_HTML.replace("__LD__", ld).replace("__SOURCES__", "".join(lis)).replace("__SUMMARY__", _xml(summary))
+            .replace("__DESC__", _xml(desc or title)).replace("__TITLE__", _xml(title)).replace("__LABEL__", _xml(label))
+            .replace("__IMAGE__", _xml(image)).replace("__WHEN__", _xml(_baku_time(iso))).replace("__ISO__", _xml(iso))
+            .replace("__COUNT__", str(len(lis))).replace("__URL__", url).replace("__SITE__", SITE)
+            .replace("__ID__", sid).replace("__SLUG__", slug))
+    return _with_csp(page)
+
+def read_story_index():
+    return _read_json(STORY_DIR / "index.json", {})
+
+def write_story_pages(articles, now=None):
+    """Əsas xəbərlərin səhifələrini yazır (yalnız yeni və mənbə sayı dəyişən), 30 gündən köhnəni və silinəni götürür.
+    Siyahını {id: [vaxt, mənbə sayı, bölmə]} qaytarır."""
+    now = now or time.time()
+    index = {k: v for k, v in read_story_index().items() if isinstance(v, list) and len(v) >= 2}
+    rows = [a for a in articles if story_worthy(a) and not removed_source(a)
+            and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
+    rows, _ = content_policy.enforce(rows)
+    changed = False
+    for a in rows:
+        dt = _parse_dt(a.get("publishedAt"))
+        if not dt or now - dt.timestamp() > STORY_KEEP_S:
+            continue
+        n = 1 + len(a.get("alts") or [])
+        old = index.get(a["id"])
+        if old and old[1] == n and (STORY_DIR / a["id"] / "index.html").exists():
+            continue
+        d = STORY_DIR / a["id"]
+        d.mkdir(parents=True, exist_ok=True)
+        _write_atomic(d / "index.html", story_page(a), encoding="utf-8")
+        index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem"]
+        changed = True
+    for sid in list(index):
+        if now - index[sid][0] > STORY_KEEP_S or sid in content_policy._REMOVED_IDS:
+            for p in (STORY_DIR / sid / "index.html", STORY_DIR / sid):
+                try:
+                    p.unlink() if p.is_file() else p.rmdir()
+                except OSError:
+                    pass
+            del index[sid]
+            changed = True
+    if changed:
+        STORY_DIR.mkdir(parents=True, exist_ok=True)
+        _write_atomic(STORY_DIR / "index.json", json.dumps(index, separators=(",", ":")))
+    return index
+
 def update_archive(now=None):
     now = now or time.time()
     articles = read_feed()
@@ -4494,11 +4629,13 @@ _SECTION_HTML = """<!doctype html>
 </html>
 """
 
-def section_page(slug, label, desc, articles, limit=30):
+def section_page(slug, label, desc, articles, limit=30, stories=()):
     items = [a for a in articles if a.get("category") == slug and (a.get("lang") or "az") == "az"]
     items.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+    # Öz səhifəsi olan xəbər ora keçid verir (Google səhifəni bölmədən də tapır), qalanı mənbəyə.
+    href = lambda a: f'../../xeber/{a["id"]}/' if a.get("id") in stories else _xml(a.get("sourceUrl"))
     lis = "".join(
-        f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
+        f'<li><a href="{href(a)}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
         for a in items[:limit])
     url = f"{SITE}bolme/{slug}/"
     return _page_html(slug, label, desc, f"<ul>{lis}</ul>")
@@ -4547,11 +4684,11 @@ def service_body(slug, articles):
     lis = "".join(f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in road[:20])
     return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p><ul>{lis}</ul>'
 
-def write_sections(articles):
+def write_sections(articles, stories=()):
     for slug, label, desc in SECTIONS:
         d = SECTIONS_DIR / slug
         d.mkdir(parents=True, exist_ok=True)
-        _write_atomic(d / "index.html", section_page(slug, label, desc, articles), encoding="utf-8")
+        _write_atomic(d / "index.html", section_page(slug, label, desc, articles, stories=stories), encoding="utf-8")
     for old, new in SECTION_ALIASES.items():
         d = SECTIONS_DIR / old
         d.mkdir(parents=True, exist_ok=True)
@@ -4566,7 +4703,7 @@ def write_sections(articles):
             print("  ! xidmət səhifəsi:", slug, type(e).__name__, e)
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
-def write_sitemap():
+def write_sitemap(stories=None):
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
@@ -4576,6 +4713,10 @@ def write_sitemap():
     # Sabit məlumat səhifələrinə hər dövrədə saxta dəyişmə tarixi yazılmır.
     for path in ("haqqinda/", "mexfilik/"):
         body.append(f"<url><loc>{_xml(SITE + path)}</loc></url>")
+    newest = sorted((stories or {}).items(), key=lambda kv: kv[1][0], reverse=True)[:STORY_SITEMAP_MAX]
+    for sid, row in newest:
+        day = datetime.datetime.fromtimestamp(row[0], datetime.timezone.utc).date().isoformat()
+        body.append(f"<url><loc>{SITE}xeber/{sid}/</loc><lastmod>{day}</lastmod></url>")
     body.append("</urlset>\n")
     _write_atomic(SITEMAP_FILE, "".join(body), encoding="utf-8")
 
@@ -4588,8 +4729,13 @@ def write_robots():
 def write_public():
     articles, _ = content_policy.enforce(read_feed())  # feed.xml və bölmə səhifələri də qapıdan keçir
     write_feed(articles)
-    write_sections(articles)
-    write_sitemap()
+    try:  # xəbər səhifələri alınmasa bölmələr və sitemap köhnə qaydada yazılır
+        stories = write_story_pages(articles)
+    except Exception as e:
+        print("  ! xəbər səhifələri:", type(e).__name__, e)
+        stories = {}
+    write_sections(articles, stories)
+    write_sitemap(stories)
     write_robots()
 
 _OG_META = re.compile(r"<meta\b[^>]*>", re.I)
