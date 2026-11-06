@@ -193,3 +193,7 @@ test("social: Google Search Console verification files stay in the site root (Go
   for (const f of ["google46236e63755f93fb.html", "google5f791d9cb20ec3f6.html"])
     assert.equal(fs.readFileSync(path.join(__dirname, "..", f), "utf8").trim(), `google-site-verification: ${f}`, `${f} silinsə, Google təsdiqi itir`);
 });
+
+test("social: Yandex Webmaster verification file stays in the site root", () => {
+  assert.ok(fs.readFileSync(path.join(__dirname, "..", "yandex_08701d77d2078d9e.html"), "utf8").includes("Verification: 08701d77d2078d9e"), "silinsə, Yandex təsdiqi itir");
+});
