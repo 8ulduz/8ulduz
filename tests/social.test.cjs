@@ -188,3 +188,8 @@ test("social: the site's Facebook button leads to the page the bot posts to, not
   assert.ok(cfg.includes('facebook: "https://www.facebook.com/profile.php?id=61596264031461"'), "«8ulduz» səhifəsi (Graph səhifə nömrəsi 1470250006171917)");
   assert.ok(!cfg.includes("61596034210996"), "«Səkkiz Ulduz» ayrı profildir, xəbərlər ora getmir");
 });
+
+test("social: Google Search Console verification files stay in the site root (Google News publisher page depends on them)", () => {
+  for (const f of ["google46236e63755f93fb.html", "google5f791d9cb20ec3f6.html"])
+    assert.equal(fs.readFileSync(path.join(__dirname, "..", f), "utf8").trim(), `google-site-verification: ${f}`, `${f} silinsə, Google təsdiqi itir`);
+});
