@@ -1454,7 +1454,7 @@ function renderMarkets() {
     const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, dec)}</span>`
       : `<span${unofficial ? ` class="unoff"` : ""}>${i.unit !== "AZN" ? "qiymət" : unofficial ? "bazar" : "məzənnə"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
+    return `<button type="button" class="mk" data-fx="${esc(i.id)}" data-d="${cls}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v" data-ar="${has ? (i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "") : ""}">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
   const note = $("#mk-note");
   if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
@@ -2378,7 +2378,7 @@ function applyPrefs() {
   if (!/^[0-4]$/.test(fs || "")) fs = "2";
   document.documentElement.dataset.fs = fs;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = theme === "light" ? "#fff8d8" : "#15233b";
+  if (meta) meta.content = theme === "light" ? "#f6f4ee" : "#15233b";
 }
 function setPref(act) {
   if (act === "theme") {

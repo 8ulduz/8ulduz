@@ -2129,7 +2129,11 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   // Sahib, 2026-11-06: üç kart + › sınandı, əvvəlki dörd kartlı format qaytarıldı.
   assert.ok(css.includes('.mk:nth-child(-n+4){flex:0 0 calc((100% - 18px)/4)') && css.includes('.mk:nth-child(-n+4) .c span:last-child{display:none}'), 'dörd valyuta bir ekranda');
-  assert.ok(css.includes('.mk.mk[data-fx=XAU]{--mk-a:#e2bf4f') && css.includes('.mk.mk[data-fx=XAG]') && css.includes('.mk.mk:is([data-fx=BRENT],[data-fx=WTI]){--mk-a:#2e2823'), 'qızıl qızılı, gümüş gümüşü, neft qara rəngdə');
+  // Sahib, 2026-11-06 (axşam): 3 rəng qaydası — kartlar bir rəngdə; telefonda faiz yerinə ox, qiymət yaşıl/qırmızı (2 rəqəm tam görünür)
+  assert.ok(!css.includes('[data-fx=XAU]{--mk-a') && !css.includes('--mh:'), 'valyuta kartları ayrı-ayrı rənglənmir');
+  assert.ok(css.includes('.mk .c{display:none}.mk .v::after{content:attr(data-ar)') && css.includes('.mk[data-d=up] .v{color:var(--up)}.mk[data-d=down] .v{color:var(--down)}'), 'telefonda ox və rəng');
+  assert.ok(src.includes('data-d="${cls}"') && src.includes('data-ar="${has ? (i.changePct > 0 ? "↑"'), 'kart istiqaməti bilir');
+  assert.ok(css.includes('--bg:#f6f4ee;--fg:#172b4d;--card:#fff;') && !css.includes('#229ED9'), 'açıq fon ağımtıl, Telegram sətri saytın göy rəngində');
   assert.ok(css.includes('.topbar{position:relative}') && css.includes('.topbar .wrap{position:static}'), 'namaz və hava pəncərələri zolağın içində kəsilmir');
   assert.ok(css.includes('.pcard .share{position:absolute'), 'Zuğulba paylaş düyməsi kartın küncündədir');
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
