@@ -219,3 +219,54 @@ test("social: the daily digest goes out at its hour even inside the 18-minute ga
   assert.equal(sent.length, 1, "icmal ikinci dəfə getmir");
   assert.deepEqual(S.digests([{ ...ed, at: NOW / 1000 - 5 * 3600 }], NOW), [], "4 saatdan köhnə buraxılış göndərilmir");
 });
+
+test("social: Instagram posts a picture story to the Instagram account linked to the Facebook page, quietly skips until it is linked", async () => {
+  const env = { FB_PAGE_ID: "1470250006171917", FB_PAGE_TOKEN: "EAAuserTOKEN123456" };
+  assert.deepEqual(S.networks(env).map(n => n.name), ["facebook", "instagram"]);
+  assert.deepEqual(S.networks({ ...env, INSTAGRAM: "0" }).map(n => n.name), ["facebook"], "söndürmək olur");
+  const pic = art("e1", { imageUrl: "https://apa.az/i.jpg", title: "Bakıda yeni park açıldı", summary: "Park 5 hektardır." });
+  const noPic = art("e2", { alts: Array(9).fill({}) }); // ən çox mənbəli, amma şəkilsiz: Instagram-a getmir
+  const calls = [], logs = [];
+  let linked = false, ready = 1;
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    calls.push([url, init.body ? Object.fromEntries(new URLSearchParams(init.body)) : null]);
+    if (url.includes("fields=instagram_business_account")) return { json: async () => linked ? { access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } } : { access_token: "PAGEtok12345" } };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    if (url.endsWith("/1784/media")) return { ok: true, status: 200, json: async () => ({ id: "C9" }), text: async () => "" };
+    if (url.endsWith("/1784/media_publish")) return ready-- > 0 ? { ok: false, status: 400, text: async () => '{"error":{"code":9007,"message":"Media ID is not available"}}' } : { ok: true, status: 200, text: async () => "" };
+    throw new Error("gözlənilməz " + url);
+  };
+  const state = {};
+  let res = await S.run({ articles: [noPic, pic], env, now: NOW, fetch, state, log: s => logs.push(s) });
+  assert.deepEqual(res.posted.map(x => x[0]), ["facebook"], "hesab bağlı deyil: Instagram sakitcə ötürülür");
+  assert.deepEqual(res.failed, []);
+  assert.ok(logs.some(s => s.startsWith("instagram: səhifəyə bağlı Instagram peşəkar hesabı yoxdur")));
+  linked = true; calls.length = 0;
+  const net = S.networks(env).find(n => n.name === "instagram");
+  assert.equal(net.gapMin, 45, "gündə ən çox 32 post (Instagram API həddi 50)");
+  res = await S.run({ articles: [noPic, pic], env: { ...env, IG_WAIT_MS: "0" }, now: NOW + 60 * 60e3, fetch, state: { ...state, _last: {} }, log: () => {} });
+  const media = calls.find(c => c[0].endsWith("/1784/media"));
+  assert.ok(media, "şəkilli xəbər göndərildi");
+  assert.equal(media[1].image_url, "https://apa.az/i.jpg");
+  assert.equal(media[1].access_token, "PAGEtok12345", "istifadəçi açarından alınmış səhifə açarı");
+  assert.ok(media[1].caption.startsWith("Bakıda yeni park açıldı\n\nPark 5 hektardır.") && media[1].caption.includes("8ulduz.az"));
+  assert.ok(!calls.some(c => c[1]?.image_url === undefined && c[0].endsWith("/media")), "şəkilsiz xəbər Instagram-a getmir");
+  assert.equal(calls.filter(c => c[0].endsWith("/media_publish")).length, 2, "hazır deyilsə (9007) gözləyib yenidən dərc edir");
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === pic.id));
+});
+
+test("social: a picture Instagram refuses is skipped so the next run tries another story", async () => {
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", INSTAGRAM: "1" };
+  const pic = art("f1", { imageUrl: "https://site.az/a.webp" });
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) return { json: async () => ({ instagram_business_account: { id: "17" } }) };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    return { ok: false, status: 400, text: async () => '{"error":{"code":36003,"message":"Only photo or video can be accepted as media type"}}' };
+  };
+  const state = {};
+  const res = await S.run({ articles: [pic], env, now: NOW, fetch, state, log: () => {} });
+  assert.deepEqual(res.failed, [["instagram", pic.id]]);
+  assert.ok(state.instagram[pic.id], "təkrar yoxlanmır");
+});

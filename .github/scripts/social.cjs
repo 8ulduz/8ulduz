@@ -15,6 +15,8 @@
 //             uzadılmış istifadəçi açarından alınmış müddətsiz səhifə açarı; yalnız SƏHİFƏ, şəxsi profilə API ilə yazmaq olmur)
 //   X         X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (developer.x.com, «Read and write» icazəsi)
 //   LinkedIn  LINKEDIN_TOKEN (w_member_social), LINKEDIN_AUTHOR (urn:li:person:… və ya urn:li:organization:…)
+//   Instagram Facebook açarları ilə; səhifəyə bağlı Instagram peşəkar hesabı və açarda instagram_content_publish icazəsi olanda işləyir
+//             (söndürmək: Variables INSTAGRAM=0). Yalnız şəkilli xəbər, 45 dəqiqədən bir.
 // Açarlar heç vaxt jurnala yazılmır. Paylaşılan nömrələr .social/posted.json-dadır (actions/cache), 3 gün saxlanır.
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
@@ -140,6 +142,42 @@ function networks(env = process.env) {
     body: JSON.stringify({ author: env.LINKEDIN_AUTHOR, commentary: cut(a.title, 700), visibility: "PUBLIC",
       distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
       content: { article: { source: shareUrl(a), title: cut(a.title, 200) } }, lifecycleState: "PUBLISHED", isReshareDisabledByAuthor: false }) }] });
+  // Instagram (sahib 2026-11-06): Facebook səhifəsinə bağlı Instagram peşəkar hesabına şəkilli post. Ayrı açar yoxdur: səhifə açarı
+  // instagram_basic + instagram_content_publish icazəsi ilə alınmalıdır. Hesab bağlı deyilsə və ya icazə yoxdursa sakitcə ötürülür.
+  // Instagram yalnız şəkilli post qəbul edir (JPEG, ictimai URL), keçid postda basılmır: mətnin sonunda «8ulduz.az» yazılır.
+  if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN && env.INSTAGRAM !== "0") {
+    const root = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`;
+    list.push({ name: "instagram", token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 45), // gündə ≤32 (API həddi 50)
+      wants: a => !a.digest && /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
+      async prepare(f, state, log) {
+        const r = await f(`${root}${encodeURIComponent(env.FB_PAGE_ID)}?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
+        if (r?.access_token) this.token = r.access_token;
+        this.ig ||= r?.instagram_business_account?.id || "";
+        if (!this.ig) { log(`instagram: səhifəyə bağlı Instagram peşəkar hesabı yoxdur və ya açarda instagram_basic icazəsi yoxdur${r?.error?.message ? ` (${r.error.message})` : ""} — ötürülür`); return false; }
+        return true;
+      },
+      caption(a) {
+        const sum = cut(a.summary, 600);
+        return `${cut(a.title, 300)}${sum && sum !== clean(a.title) ? `\n\n${sum}` : ""}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n#8ulduz #xəbərlər #Azərbaycan`;
+      },
+      // Konteyner → (hazır olanda) dərc. Cavab fetch Response kimidir: run eyni yoxlamanı edir.
+      async post(a, f) {
+        const call = (p, body) => f(`${root}${p}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ ...body, access_token: this.token }).toString(), signal: AbortSignal.timeout(30000) });
+        const c = await call(`${this.ig}/media`, { image_url: a.imageUrl, caption: this.caption(a) });
+        if (!c.ok) return c;
+        const { id } = await c.json();
+        for (let i = 0; ; i++) {
+          const p = await call(`${this.ig}/media_publish`, { creation_id: id });
+          if (p.ok || i >= 4) return p;
+          const t = await p.text().catch(() => "");
+          if (!/9007|not ready|not available/i.test(t)) return { ok: false, status: p.status, text: async () => t };
+          await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
+        }
+      },
+      // Şəkli Instagram qəbul etmədi (format, ölçü, sayt bağlayır): bu xəbər ötürülür, növbəti dövrə başqasını götürür.
+      skipFailed: true });
+  }
   return list;
 }
 
@@ -177,16 +215,18 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
     const last = state._last ||= {};
     const ago = Math.round((now / 1000 - (last[net.name] || 0)) / 60);
     // İcmal saatında getməlidir: fasiləni gözləmir (xəbər postları gözləyir).
-    const early = ago < opt.minGapMin;
-    if (early && !eds.some(a => !done[a.id])) { log(`${net.name}: son post ${ago} dəq əvvəl, növbəti ${opt.minGapMin - ago} dəq sonra`); continue; }
+    const gap = net.gapMin ?? opt.minGapMin, mine = (early => (early ? eds : list).filter(a => !net.wants || net.wants(a)));
+    const early = ago < gap;
+    if (early && !mine(true).some(a => !done[a.id])) { log(`${net.name}: son post ${ago} dəq əvvəl, növbəti ${gap - ago} dəq sonra`); continue; }
     let n = 0;
-    for (const a of early ? eds : list) {
+    for (const a of mine(early)) {
       if (n >= opt.perRun) break;
       if (done[a.id] || (!a.digest && done[titleKey(a)]) || !(await pageLive(a))) continue;
       n++;
       try {
-        const [url, init] = net.request(a);
-        const r = await f(url, { ...init, signal: AbortSignal.timeout(20000) });
+        let r;
+        if (net.post) r = await net.post(a, f);
+        else { const [url, init] = net.request(a); r = await f(url, { ...init, signal: AbortSignal.timeout(20000) }); }
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
         done[a.id] = last[net.name] = Math.floor(now / 1000);
         if (!a.digest) done[titleKey(a)] = done[a.id];
@@ -195,6 +235,7 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
       } catch (e) {
         const msg = hide(e);
         if (net.name === "telegram" && /chat not found|kicked|not a member|not enough rights|need administrator/i.test(msg)) delete state._telegram; // növbəti dövrə kanalı yenidən axtarır
+        if (net.skipFailed) done[a.id] = Math.floor(now / 1000); // eyni xəbər hər dövrədə təkrar yoxlanmasın
         result.failed.push([net.name, a.id]);
         log(`${net.name}: alınmadı — ${msg}`);
         break; // şəbəkə imtina edirsə bu dövrədə ona daha yazmırıq

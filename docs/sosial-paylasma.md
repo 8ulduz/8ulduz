@@ -31,6 +31,17 @@ API yalnız Facebook **səhifəsinə** yazır, şəxsi profilə yazmır. Botun y
 
 2026-11-05-də qurulub: səhifə «8ulduz», Meta tətbiqi «8ulduz paylasma» (1000332509080909). Səhifə açarı uzadılmış (60 günlük) istifadəçi açarından alındığı üçün müddətsizdir; Facebook parolu dəyişsə və ya tətbiqin icazəsi götürülsə, yenidən alınmalıdır.
 
+## Instagram
+
+Sahibin göstərişi (2026-11-06). Ayrıca açar lazım deyil, Facebook açarı ilə işləyir. Hesab bağlanana qədər iş axını Instagram-ı sakitcə ötürür.
+
+1. Telefonda Instagram hesabı açın (məsələn `8ulduz.az`). Parametrlər → Hesab növü → **Peşəkar hesab** → **Biznes** (kateqoriya: «Xəbər və media saytı»).
+2. Facebook-da «8ulduz» səhifəsi → Parametrlər → Bağlı hesablar → Instagram → **Qoşul**.
+3. developers.facebook.com → «8ulduz paylasma» tətbiqi → istifadə ssenarisi əlavə edin: Instagram məzmununu idarə etmək. İcazələr: `instagram_basic`, `instagram_content_publish`.
+4. Graph API Explorer: əvvəlki icazələr (`pages_show_list`, `pages_read_engagement`, `pages_manage_posts`) üstəgəl yuxarıdakı ikisi ilə yeni açar alın, «Extend» edin. Secrets: `FB_PAGE_TOKEN`-i yeniləyin.
+
+Nə paylaşılır: Facebook-dakı qayda ilə seçilən, **şəkli olan** xəbər, 45 dəqiqədən bir (gündə ən çox 32). Mətn: başlıq, xülasə, «Ətraflı: 8ulduz.az». Instagram postdakı keçidi basılan etmir, ona görə saytın ünvanı profilin «bio» hissəsinə yazılmalıdır. Instagram şəkli qəbul etməsə (format, ölçü), həmin xəbər ötürülür. Söndürmək: Variables `INSTAGRAM` = `0`.
+
 ## X
 
 1. developer.x.com → Project və App yaradın. User authentication settings → «Read and write».
