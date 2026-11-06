@@ -30,6 +30,7 @@ private enum WidgetData {
         if let cached = await client.cachedPolicy() { policy = cached }
         let list: [Article]
         if let loaded = try? await client.load("latest.json", as: NewsFeed.self) {
+            policy.addRemovals(loaded.value.removed)
             list = loaded.value.articles
         } else {
             let cached: NewsFeed? = await client.cached("news.json")

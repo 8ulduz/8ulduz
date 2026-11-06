@@ -20,6 +20,20 @@ struct ServicesView: View {
                     row("Futbol və cədvəllər", "sportscourt.fill", .football)
                     row("Video xəbərlər", "play.rectangle.fill", .videos)
                 }
+                Section("8ULDUZ-u izlə") {
+                    ForEach(Catalog.followLinks) { item in
+                        if let link = item.link {
+                            Link(destination: link) {
+                                Label {
+                                    Text(verbatim: item.label)
+                                } icon: {
+                                    Image(systemName: item.symbol).foregroundStyle(Theme.gold)
+                                }
+                            }
+                            .listRowBackground(Theme.card)
+                        }
+                    }
+                }
                 Section("Tətbiq") {
                     row("Tənzimləmələr", "gearshape.fill", .settings)
                     row("Mənbə vəziyyəti", "dot.radiowaves.left.and.right", .sources)
@@ -174,6 +188,9 @@ struct WeatherView: View {
                     .listRowBackground(Theme.card)
                 }
             }
+            if filter.isEmpty {
+                Section { LocateButton().listRowBackground(Theme.card) }
+            }
             Section("Bütün şəhərlər") {
                 if model.weatherAll.isEmpty { ProgressView().frame(maxWidth: .infinity).listRowBackground(Theme.card) }
                 ForEach(rows) { w in
@@ -215,6 +232,7 @@ struct PrayerView: View {
                     ForEach(Catalog.cities) { Text(ui: $0.name).tag($0.name) }
                 }
                 .listRowBackground(Theme.card)
+                LocateButton().listRowBackground(Theme.card)
             }
             if let day = model.prayer, day.city == model.cityName {
                 let next = day.next()
@@ -501,10 +519,10 @@ struct VideosView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                if model.videoItems.isEmpty {
+                if model.shownVideos.isEmpty {
                     EmptyStateView(symbol: "play.rectangle", title: "Video lent açılmır", message: "Bir az sonra yenidən baxın.")
                 }
-                ForEach(model.videoItems) { VideoCard(item: $0, width: nil) }
+                ForEach(model.shownVideos) { VideoCard(item: $0, width: nil) }
             }
             .padding(16)
         }

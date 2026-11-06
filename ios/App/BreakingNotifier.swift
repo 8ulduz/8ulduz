@@ -45,6 +45,7 @@ enum BreakingNotifier {
         var policy = ContentPolicy.bundled()
         if let cached = await client.cachedPolicy() { policy = cached }
         guard let loaded = try? await client.load("latest.json", as: NewsFeed.self), loaded.origin != .cache else { return }
+        policy.addRemovals(loaded.value.removed)
 
         let language = defaults.object(forKey: languageKey) == nil ? "az" : (defaults.string(forKey: languageKey) ?? "az")
         let dead = Set(loaded.value.dead)

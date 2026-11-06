@@ -12,6 +12,7 @@
 "1/8 finala çıxış" = "Son 16'ya çıkış";
 "100 Lirə" = "100 Lira";
 "100 Rubl" = "100 Ruble";
+"8ULDUZ-u izlə" = "8ULDUZ'u takip et";
 "8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, tam mətn mənbənin öz saytında açılır. Lent hər dəqiqə yenilənir." = "8ulduz, Azerbaycan ve dünya haberlerini bir araya getiren otomatik bir haber akışıdır. Burada haber yazılmaz: başlık, kısa özet ve görsel kaynağın açık RSS akışından veya resmî sayfasından alınır, tam metin kaynağın kendi sitesinde açılır. Akış her dakika güncellenir.";
 "8ulduz kanalına qoşulun" = "8ulduz kanalına katılın";
 "8ulduz nədir, mənbələr, redaksiya prinsipləri, məxfilik və əlaqə" = "8ulduz nedir, kaynaklar, yayın ilkeleri, gizlilik ve iletişim";
@@ -39,6 +40,7 @@
 "Avropa Liqasının seçmə mərhələsi" = "Avrupa Ligi eleme turu";
 "Axtar" = "Ara";
 "Axtardığınız bölmə mövcud deyil" = "Aradığınız bölüm mevcut değil";
+"Axtarılır…" = "Aranıyor…";
 "Axtarış" = "Arama";
 "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin" = "Aramanıza uygun haber bulunamadı. Başka kelimeler deneyin veya dil seçimini değiştirin";
 "Azərbaycan" = "Azerbaycan";
@@ -230,6 +232,10 @@
 "Komanda səhifəsi açılmadı. İnternet bağlantınızı yoxlayın" = "Takım sayfası açılamadı. İnternet bağlantınızı kontrol edin";
 "Konfrans Liqası" = "Konferans Ligi";
 "Konfrans Liqasının seçmə mərhələsi" = "Konferans Ligi eleme turu";
+"Konum tapılmadı" = "Konum bulunamadı";
+"Konuma icazə verilmədi" = "Konum izni verilmedi";
+"Konumum" = "Konumum";
+"Konumunuza ən yaxın şəhər" = "Size en yakın şehir";
 "Kopyalandı" = "Kopyalandı";
 "Kopyalanmadı" = "Kopyalanamadı";
 "Kubok" = "Kupa";
@@ -511,6 +517,7 @@
 "Yarımfinal" = "Yarı final";
 "Yarımmüdafiəçilər" = "Orta saha";
 "Yarış" = "Turnuva";
+"Yaxında şəhər tapılmadı" = "Yakında şehir bulunamadı";
 "Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın" = "Gönderiler şu anda açılmıyor — hesaplara yukarıdaki bağlantılardan bakın";
 "Yazın" = "Yazın";
 "Yağıntı" = "Yağış";

@@ -11,6 +11,7 @@ public struct ContentPolicy: Sendable {
         var blockedHosts: [String]
         var azTerms: String
         var leaderTerms: String
+        var removedArticles: RemovalMap?
     }
 
     public enum ParseError: Error { case noObject }
@@ -18,6 +19,11 @@ public struct ContentPolicy: Sendable {
     private let rules: Rules
     private let azTerms: Rx
     private let leaderTerms: Rx
+    // Sahibin istəyi ilə silinən xəbərlər: qayda faylından və dəqiqəlik lentin `removed` sahəsindən.
+    private var removedIds: Set<String> = []
+    private var removedUrls: Set<String> = []
+    private var removedKeys: Set<String> = []
+    private var removedHosts: [String] = []
 
     public init(javascript: String) throws {
         guard let marker = javascript.range(of: "CONTENT_POLICY"),
@@ -27,6 +33,46 @@ public struct ContentPolicy: Sendable {
         rules = try JSONDecoder().decode(Rules.self, from: json)
         azTerms = Rx(rules.azTerms, caseInsensitive: true)
         leaderTerms = Rx(rules.leaderTerms, caseInsensitive: true)
+        addRemovals(rules.removedArticles?.rows ?? [])
+    }
+
+    /// app.js `addRemovals`. Siyahı dəyişibsə true: lent yenidən süzülməlidir.
+    @discardableResult
+    public mutating func addRemovals(_ rows: [Removal]) -> Bool {
+        let before = removedIds.count + removedUrls.count + removedKeys.count
+        for r in rows {
+            removedIds.formUnion(r.ids)
+            removedUrls.formUnion(r.urls)
+            for key in r.keys {
+                removedKeys.insert(key)
+                if let hash = key.firstIndex(of: "#") {
+                    let host = String(key[..<hash])
+                    if !host.isEmpty, !removedHosts.contains(host) { removedHosts.append(host) }
+                }
+            }
+        }
+        return before != removedIds.count + removedUrls.count + removedKeys.count
+    }
+
+    private static let pathNumber = try! NSRegularExpression(pattern: #"(?:/|[-_])(\d{5,})(?=\.html?|/|$)"#)
+    private static let dateNumber = try! NSRegularExpression(pattern: #"^(?:19|20)\d{6}$"#)
+
+    /// app.js `removedArticle`: id, keçid və ya «sayt#nömrə» (keçidin yolundakı son uzun nömrə, tarix deyil).
+    public func isRemoved(id: String?, url: String) -> Bool {
+        if let id, removedIds.contains(id) { return true }
+        if removedUrls.contains(url) { return true }
+        guard removedHosts.contains(where: { url.contains($0) }), let parts = URL(string: url), let host = parts.host else { return false }
+        let path = parts.path
+        let range = NSRange(path.startIndex..., in: path)
+        let numbers = Self.pathNumber.matches(in: path, range: range).compactMap { m -> String? in
+            guard let r = Range(m.range(at: 1), in: path) else { return nil }
+            let n = String(path[r])
+            return Self.dateNumber.firstMatch(in: n, range: NSRange(n.startIndex..., in: n)) == nil ? n : nil
+        }
+        guard let last = numbers.last else { return false }
+        var name = host.lowercased()
+        if name.hasPrefix("www.") { name.removeFirst(4) }
+        return removedKeys.contains("\(name)#\(last)")
     }
 
     /// Qayda faylı oxunmursa xarici mənbədən heç nə buraxılmır, sayt mənbələri də siyahısız olduğu üçün düşür.
@@ -75,6 +121,7 @@ public struct ContentPolicy: Sendable {
 
     /// app.js `sourceForbidden`: siyahıda olmayan mənbə, qadağan sayt və ya keçidi başqa sayta aparan xəbər.
     public func sourceForbidden(source: String, url: String) -> Bool {
+        if isRemoved(id: nil, url: url) { return true }
         let host = TextTools.host(of: url)
         guard isHTTP(url), !onHost(host, rules.blockedHosts), let domains = domains(for: source) else { return true }
         return !onHost(host, domains)
@@ -91,7 +138,7 @@ public struct ContentPolicy: Sendable {
     }
 
     public func violation(_ a: Article) -> Bool {
-        violation(source: a.source, url: a.sourceUrl, title: a.title, summary: a.summary, category: a.category)
+        isRemoved(id: a.id, url: a.sourceUrl) || violation(source: a.source, url: a.sourceUrl, title: a.title, summary: a.summary, category: a.category)
     }
 
     /// app.js `altForbidden`: əlavə mənbənin öz başlığı da, əsas xəbərin mövzusu da yoxlanır.
@@ -121,7 +168,7 @@ public struct ContentPolicy: Sendable {
 
     /// Xarici keçid (vidcet, bildiriş) yalnız icazəli mənbəyə apara bilər.
     public func allowsExternalLink(_ url: String) -> Bool {
-        guard isHTTP(url) else { return false }
+        guard isHTTP(url), !isRemoved(id: nil, url: url) else { return false }
         let host = TextTools.host(of: url)
         if onHost(host, rules.blockedHosts) { return false }
         return rules.azSources.values.contains { onHost(host, $0) } || rules.worldSources.values.contains { onHost(host, $0) }

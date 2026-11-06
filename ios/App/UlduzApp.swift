@@ -12,6 +12,7 @@ struct UlduzApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .foregroundStyle(Theme.text)
                 .environment(\.locale, Locale(identifier: model.interfaceLanguage))
                 .id(model.interfaceLanguage)
                 .environment(model)

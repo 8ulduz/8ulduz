@@ -25,14 +25,22 @@ enum Theme {
         Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? dark : light })
     }
 
-    static let background = dynamic(dark: hsl(222, 0.47, 0.05), light: hsl(210, 0.40, 0.97))
-    static let card = dynamic(dark: hsl(222, 0.40, 0.08), light: .white)
-    static let card2 = dynamic(dark: hsl(222, 0.34, 0.11), light: hsl(210, 0.32, 0.93))
-    static let gold = dynamic(dark: hsl(43, 0.96, 0.56), light: hsl(38, 0.88, 0.36))
-    static let muted = dynamic(dark: hsl(215, 0.20, 0.62), light: hsl(215, 0.16, 0.32))
-    static let border = dynamic(dark: hsl(222, 0.24, 0.16), light: hsl(214, 0.22, 0.82))
+    static func hex(_ value: UInt32) -> UIColor {
+        UIColor(red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255, blue: CGFloat(value & 0xFF) / 255, alpha: 1)
+    }
+
+    // Üç rəng: əsas göy, vurğu qızılı, təcili qırmızı. Tünddə vurğu qızılı, açıqda lacivərd (app.css `--primary`).
+    static let background = dynamic(dark: hex(0x15233B), light: hex(0xF6F4EE))
+    static let card = dynamic(dark: hex(0x1C2C46), light: .white)
+    static let card2 = dynamic(dark: hex(0x263952), light: hex(0xE6EBF2))
+    static let text = dynamic(dark: hex(0xD5DEEB), light: hex(0x172B4D))
+    static let gold = dynamic(dark: hex(0xD6BD80), light: hex(0x19385F))
+    static let muted = dynamic(dark: hex(0xAABBD2), light: hex(0x465773))
+    static let border = dynamic(dark: hex(0x3E5370), light: hex(0xE2DDD0))
     static let red = Color(uiColor: hsl(0, 0.84, 0.60))
     static let green = Color(red: 0x10 / 255, green: 0xB9 / 255, blue: 0x81 / 255)
+    static let up = dynamic(dark: hex(0x34D399), light: hex(0x047857))
+    static let down = dynamic(dark: hex(0xF87171), light: hex(0xB91C1C))
 
     private static let categoryColors: [String: UIColor] = [
         "gundem": hsl(210, 0.70, 0.62), "siyaset": hsl(262, 0.48, 0.68), "cemiyyet": hsl(168, 0.42, 0.52),

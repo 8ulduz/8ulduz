@@ -28,7 +28,7 @@ struct HomeContent: Sendable {
         return HomeContent(
             breaking: Array(m.filter { $0.isWithinHour(now: now) }.prefix(12)),
             hero: hero,
-            prez: Ranking.prezHome(m, now: now),
+            prez: Ranking.prezHome(m, all: all, now: now),
             latest: remaining,
             sections: sections,
             videos: Array(m.filter(\.video).prefix(15))
@@ -99,6 +99,13 @@ final class AppModel {
     private(set) var markets: [MarketItem] = []
     private(set) var videoItems: [VideoItem] = []
     private(set) var socialPosts: [SocialPost] = []
+    private(set) var adSlots: [AdSlot] = []
+
+    /// Xarici dil seçiləndə yalnız həmin dildə olan videolar (app.js `loadVideo`).
+    var shownVideos: [VideoItem] {
+        guard ["en", "ru", "tr"].contains(language) else { return videoItems }
+        return videoItems.filter { Article(id: $0.id, title: $0.title, source: "", sourceUrl: "", lang: "").language == language }
+    }
     private(set) var sourceRows: [SourceStatus] = []
     private(set) var leagues: [League] = []
     private(set) var weatherHere: WeatherNow?
@@ -117,6 +124,8 @@ final class AppModel {
             Format.language = interfaceLanguage
             shareLanguage()
             rebuildHome()
+            // Hər dilin öz faylı var (news.<dil>.json): dil dəyişəndə lent həmin fayldan gəlir.
+            if newsFiles(for: oldValue) != newsFiles(for: language) { reloadForLanguage() }
         }
     }
     var theme: ThemeChoice { didSet { store(theme.rawValue, Key.theme) } }
@@ -136,6 +145,8 @@ final class AppModel {
     /// Dəqiqəlik gələn xəbərlər: main 10 dəqiqədən bir yazılır, tam lentdə hələ olmaya bilərlər, itməsinlər.
     @ObservationIgnored private var overlay: [(article: Article, at: Date)] = []
     @ObservationIgnored private var deadLinks: Set<String> = []
+    /// Dəqiqəlik lentdən gələn silinmiş xəbərlər: qayda faylı yenilənəndə itməsinlər.
+    @ObservationIgnored private var liveRemovals: [Removal] = []
     @ObservationIgnored private var isPartial = false
     @ObservationIgnored private var publishToken = 0
     @ObservationIgnored private var latestAt = Date.distantPast
@@ -192,11 +203,17 @@ final class AppModel {
         guard !started else { return }
         started = true
         if let cachedRules = await client.cachedPolicy() { policy = cachedRules }
+        purgeRemoved()
         if let cachedOg: OgImages = await client.cached("og.json") { og = cachedOg.images }
-        if let cached: NewsFeed = await client.cached("latest.json") { deadLinks = Set(cached.dead) }
-        if let cached: NewsFeed = await client.cached("news.json") {
-            rawNews = cached.articles
-            feedUpdatedAt = cached.updatedAt
+        if let cachedStatus: FeedStatus = await client.cached("status.json") { status = cachedStatus }
+        if let cached: NewsFeed = await client.cached("latest.json") {
+            deadLinks = Set(cached.dead)
+            _ = addLiveRemovals(cached.removed)
+        }
+        var cachedNews: NewsFeed? = await client.cached(newsFiles(for: language)[0])
+        if cachedNews == nil { cachedNews = await client.cached("news.json") }
+        if let cachedNews {
+            rawNews = cachedNews.articles
             await publish()
         }
         if let cached: MarketsFeed = await client.cached("markets.json") { markets = cached.items }
@@ -256,23 +273,70 @@ final class AppModel {
         await publish()
     }
 
+    /// app.js `newsJSON`: azərbaycanca `news.json`, digər dil öz faylı, «Hamısı» hamısı birlikdə.
+    private func newsFiles(for language: String) -> [String] {
+        status?.newsFiles(language: language) ?? ["news.json"]
+    }
+
+    private func reloadForLanguage() {
+        feedUpdatedAt = nil
+        newsCheckedAt = .distantPast
+        Task {
+            await loadNews(force: false)
+            await loadLatest(force: false)
+        }
+    }
+
+    /// Dilin öz faylı alınmasa ümumi fayl; «Hamısı» üçün digər dillərin faylları paralel gəlir, eyni keçid ikinci dəfə düşmür.
+    private func fetchNews(_ files: [String], force: Bool) async throws -> (feed: [Article], stamp: String, origin: FeedClient.Origin) {
+        let main: FeedClient.Loaded<NewsFeed>
+        if let own = files.first, own != "news.json", let got = try? await client.load(own, as: NewsFeed.self, force: force) {
+            main = got
+        } else {
+            main = try await client.load("news.json", as: NewsFeed.self, force: force)
+        }
+        var rows = main.value.articles
+        var stamps = [main.value.updatedAt ?? ""]
+        let extraFiles = files.count > 1 ? Array(files.dropFirst()) : []
+        if !extraFiles.isEmpty {
+            let feed = client
+            let extra = await withTaskGroup(of: (Int, NewsFeed?).self, returning: [NewsFeed].self) { group in
+                for (i, file) in extraFiles.enumerated() {
+                    group.addTask { (i, try? await feed.load(file, as: NewsFeed.self, force: force).value) }
+                }
+                var got: [(Int, NewsFeed?)] = []
+                for await row in group { got.append(row) }
+                return got.sorted { $0.0 < $1.0 }.compactMap(\.1)
+            }
+            var seen = Set(rows.map(\.sourceUrl))
+            for more in extra {
+                rows += more.articles.filter { seen.insert($0.sourceUrl).inserted }
+                stamps.append(more.updatedAt ?? "")
+            }
+        }
+        return (rows, stamps.joined(separator: "|"), main.origin)
+    }
+
     private func loadNews(force: Bool) async {
         let stamp = status?.checkedAt
+        let files = newsFiles(for: language)
         do {
-            let loaded = try await client.load("news.json", as: NewsFeed.self, force: force)
+            let loaded = try await fetchNews(files, force: force)
             if Task.isCancelled { return }
+            // Yükləmə vaxtı dil dəyişibsə köhnə dilin lenti yenisinin üstünə yazılmasın.
+            guard files == newsFiles(for: language) else { return }
             noteOrigin(loaded.origin)
             loadFailed = false
             newsStamp = stamp
             newsCheckedAt = Date()
             await loadOgIfDue()
-            if loaded.value.updatedAt == feedUpdatedAt && !isPartial && !rawNews.isEmpty && !articles.isEmpty { return }
-            let inFull = NewsPipeline.knownLinks(loaded.value.articles)
+            if loaded.stamp == feedUpdatedAt && !isPartial && !rawNews.isEmpty && !articles.isEmpty { return }
+            let inFull = NewsPipeline.knownLinks(loaded.feed)
             let now = Date()
             overlay = overlay.filter { !inFull.contains($0.article.sourceUrl) && now.timeIntervalSince($0.at) < Self.overlayKeep }
-            rawNews = overlay.map { $0.article } + loaded.value.articles
+            rawNews = overlay.map { $0.article } + loaded.feed
             isPartial = false
-            feedUpdatedAt = loaded.value.updatedAt
+            feedUpdatedAt = loaded.stamp
             await publish()
         } catch {
             if Task.isCancelled { return }
@@ -282,8 +346,33 @@ final class AppModel {
         isFirstLoadDone = true
     }
 
+    /// app.js `latestJSON`: dilin dəqiqəlik faylı (yalnız canlı kanalda), alınmasa və ya keşdəndirsə ümumi `latest.json`.
+    private func fetchLatest(force: Bool) async -> FeedClient.Loaded<NewsFeed>? {
+        if let file = status?.latestFile(language: language),
+           let own = try? await client.load(file, as: NewsFeed.self, force: force), own.origin != .cache {
+            return own
+        }
+        return try? await client.load("latest.json", as: NewsFeed.self, force: force)
+    }
+
+    private func addLiveRemovals(_ rows: [Removal]) -> Bool {
+        let fresh = rows.filter { !liveRemovals.contains($0) }
+        guard !fresh.isEmpty else { return false }
+        liveRemovals += fresh
+        guard policy.addRemovals(fresh) else { return false }
+        purgeRemoved()
+        return true
+    }
+
+    /// Silinmiş xəbər artıq yüklənmiş arxivdə və seçilmişlərdə də görünməsin (app.js `withArchive`, `savedList`).
+    private func purgeRemoved() {
+        let rules = policy
+        archives = archives.mapValues { rules.clean($0) }
+        saved = saved.filter { !rules.isRemoved(id: $0.id, url: $0.sourceUrl) }
+    }
+
     private func loadLatest(force: Bool) async {
-        guard !rawNews.isEmpty, let loaded = try? await client.load("latest.json", as: NewsFeed.self, force: force) else { return }
+        guard !rawNews.isEmpty, let loaded = await fetchLatest(force: force) else { return }
         if Task.isCancelled { return }
         noteOrigin(loaded.origin)
         newsStamp = status?.checkedAt
@@ -291,9 +380,10 @@ final class AppModel {
         let dead = Set(loaded.value.dead)
         let deadChanged = dead != deadLinks
         deadLinks = dead
+        let removedChanged = addLiveRemovals(loaded.value.removed)
         let fresh = NewsPipeline.novel(loaded.value.articles, against: rawNews)
         let gotImage = NewsPipeline.fillImages(from: loaded.value.articles, into: &rawNews)
-        guard !fresh.isEmpty || gotImage || deadChanged else { return }
+        guard !fresh.isEmpty || gotImage || deadChanged || removedChanged else { return }
         if !fresh.isEmpty {
             let at = Date()
             overlay = fresh.map { (article: $0, at: at) } + overlay
@@ -321,8 +411,10 @@ final class AppModel {
     private func refreshPolicyIfDue() async {
         guard Date().timeIntervalSince(policyAt) >= Self.policyEvery else { return }
         policyAt = Date()
-        guard let fresh = await client.refreshPolicy() else { return }
+        guard var fresh = await client.refreshPolicy() else { return }
+        fresh.addRemovals(liveRemovals)
         policy = fresh
+        purgeRemoved()
         if !rawNews.isEmpty { await publish() }
     }
 
@@ -335,7 +427,9 @@ final class AppModel {
             async let sourcesLoad = try? client.load("sources.json", as: SourcesFeed.self)
             async let videoLoad = try? client.load("video.json", as: VideoFeed.self)
             async let footballLoad = try? client.load("football.json", as: FootballFeed.self)
+            async let adsLoad = try? client.load("ads.json", as: AdsFeed.self)
             if let v = await marketsLoad?.value, !v.items.isEmpty { markets = v.items }
+            if let v = await adsLoad?.value { adSlots = v.slots }
             if let v = await socialLoad?.value { socialPosts = v.posts }
             if let v = await sourcesLoad?.value { sourceRows = v.sources }
             if let v = await videoLoad?.value { videoItems = v.items.filter { policy.allowsVideo(channel: $0.channel) } }

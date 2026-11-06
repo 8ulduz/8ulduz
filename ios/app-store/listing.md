@@ -19,7 +19,7 @@ Xəbər, bazar, hava, futbol
 **Promo mətn** (170 simvola qədər):
 
 ```
-Azərbaycan və dünyadan son xəbərlər bir lentdə. Eyni hadisəni bütün mənbələrdən müqayisə edin. Hesab və reklam yoxdur.
+Azərbaycan və dünyadan son xəbərlər bir lentdə. Eyni hadisəni bütün mənbələrdən müqayisə edin. Hesab və izləmə yoxdur.
 ```
 
 **Açar sözlər** (100 simvola qədər):
@@ -64,7 +64,7 @@ RAHAT OXU
 • İstəsəniz «Son dəqiqə» bildirişləri
 
 MƏXFİLİK
-Hesab yoxdur, reklam yoxdur, şəxsi məlumat toplanmır. Seçimləriniz yalnız telefonunuzda saxlanır.
+Hesab yoxdur, izləmə yoxdur, şəxsi məlumat toplanmır. Seçimləriniz yalnız telefonunuzda saxlanır. «Reklam» işarəli bannerləri 8ulduz özü yerləşdirir, onlar fərdiləşdirilmir.
 
 8ulduz xəbər yazmır: başlıq, qısa xülasə və şəkil mənbənin açıq lentindən götürülür, xəbərin tam mətni mənbənin öz saytında açılır. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. Valyuta və bazar məlumatı maliyyə məsləhəti deyil.
 ```
@@ -98,7 +98,8 @@ Ekran şəkilləri canlı lentdən çəkilir, ona görə xəbərlər çəkiliş 
 
 **Data Not Collected** seçin. Əsas:
 
-- Tətbiqdə analitika, reklam, hesab, izləmə kitabxanası yoxdur (`ios/App/Resources/PrivacyInfo.xcprivacy`).
+- Tətbiqdə analitika, reklam şəbəkəsi, hesab, izləmə kitabxanası yoxdur (`ios/App/Resources/PrivacyInfo.xcprivacy`). «Reklam» işarəli banner saytın öz faylından (`data/ads.json`) gəlir, baxış və klik sayılmır.
+- «Konumum» konumu yalnız düyməyə basanda soruşur, ondan cihazda ən yaxın şəhəri seçir və konumu heç yerə göndərmir. Yalnız cihazda işlənən məlumat Apple-ın qaydasına görə «toplanan» sayılmır.
 - Seçilmişlər və seçimlər yalnız telefonda saxlanır.
 - Hava və namaz sorğularında Open-Meteo və aladhan.com yalnız seçilmiş şəhərin koordinatlarını və adi veb sorğusu kimi IP-ni görür. Bu məlumat tərtibatçıya gəlmir, ona görə «toplanan» sayılmır. Mətn məxfilik siyasətində yazılıb.
 - Tracking: **No**.

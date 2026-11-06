@@ -122,8 +122,15 @@ public struct Article: Codable, Identifiable, Hashable, Sendable {
 
     public var sourceCount: Int { 1 + alts.count }
 
-    /// Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir. b: xəbər lentdən çıxanda hansı arxivə baxılacağı.
+    /// Tam lentdən gəlib və saytda `x/<id>` önizləmə səhifəsi var (lentin `sharePages`). Dəqiqəlik gələn xəbərdə hələ yoxdur.
+    public var hasSharePage = false
+
+    /// Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir (app.js `shareUrl`).
+    /// Önizləməli səhifə varsa `x/<id>`, yoxdursa `#/xeber/<id>?b=` (b: xəbər lentdən çıxanda hansı arxivə baxılacağı).
     public var shareURL: URL? {
+        if hasSharePage, id.range(of: "^[0-9a-f]{16}$", options: .regularExpression) != nil {
+            return URL(string: "https://8ulduz.az/x/\(id)")
+        }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~"))
         let safeID = id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id
         let back = category.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
@@ -161,16 +168,84 @@ public struct NewsFeed: Decodable, Sendable {
     public var dead: [String]
     /// first.json: ilk ekranın şəkilləri.
     public var og: [String: String]
-    enum CodingKeys: String, CodingKey { case updatedAt, articles, dead, og }
+    /// latest.json: sahibin istəyi ilə silinən xəbərlər (content-policy.js `removedArticles` ilə eyni quruluş).
+    public var removed: [Removal]
+    /// news.json, news.<dil>.json: xəbərlərin `x/<id>` önizləmə səhifəsi var.
+    public var sharePages: Bool
+    enum CodingKeys: String, CodingKey { case updatedAt, articles, dead, og, removed, sharePages }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         updatedAt = c.text(.updatedAt)
         guard c.contains(.articles) else {
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "articles yoxdur"))
         }
-        articles = c.lossy(.articles)
+        sharePages = c.flag(.sharePages)
+        let rows: [Article] = c.lossy(.articles)
+        articles = sharePages ? rows.map { var a = $0; a.hasSharePage = true; return a } : rows
         dead = c.lossy(.dead)
         og = (try? c.decodeIfPresent(OgImages.self, forKey: .og))?.images ?? [:]
+        removed = (try? c.decodeIfPresent(RemovalMap.self, forKey: .removed))?.rows ?? []
+    }
+}
+
+/// data/ads.json: 8ulduz-un özünün yerləşdirdiyi banner. Şəkli və keçidi olmayan yer göstərilmir (app.js `adSlots`).
+public struct AdSlot: Decodable, Sendable, Hashable, Identifiable {
+    public var image: String
+    public var link: String
+    public var alt: String
+    public var id: String { image + "|" + link }
+    enum CodingKeys: String, CodingKey { case image, link, alt }
+    public init(image: String, link: String, alt: String = "") { self.image = image; self.link = link; self.alt = alt }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        image = c.text(.image) ?? ""
+        link = c.text(.link) ?? ""
+        alt = c.text(.alt) ?? ""
+    }
+    public var imageURL: URL? { TextTools.webURL(image) }
+    public var linkURL: URL? { TextTools.webURL(link) }
+}
+
+public struct AdsFeed: Decodable, Sendable {
+    public var slots: [AdSlot]
+    enum CodingKeys: String, CodingKey { case slots }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        slots = c.lossy(.slots, as: AdSlot.self).filter { $0.imageURL != nil && $0.linkURL != nil }
+    }
+}
+
+/// Silinmiş xəbər: id, keçid və ya «sayt#nömrə» açarı ilə tanınır (app.js `addRemovals`).
+public struct Removal: Decodable, Sendable, Hashable {
+    public var ids: [String]
+    public var urls: [String]
+    public var keys: [String]
+    enum CodingKeys: String, CodingKey { case id, ids, urls, key, keys }
+    public init(ids: [String] = [], urls: [String] = [], keys: [String] = []) {
+        self.ids = ids; self.urls = urls; self.keys = keys
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ids = ([c.text(.id)].compactMap { $0 } + c.lossy(.ids, as: String.self)).filter { !$0.isEmpty }
+        urls = c.lossy(.urls, as: String.self).filter { !$0.isEmpty }
+        keys = ([c.text(.key)].compactMap { $0 } + c.lossy(.keys, as: String.self)).filter { !$0.isEmpty }
+    }
+}
+
+/// `{"sayt#123": {...}}`: zədəli sətir qalanını sındırmır.
+struct RemovalMap: Decodable, Sendable {
+    var rows: [Removal] = []
+    private struct AnyKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        for key in c.allKeys {
+            if let row = try? c.decode(Removal.self, forKey: key) { rows.append(row) }
+        }
     }
 }
 
@@ -197,12 +272,32 @@ public struct FeedStatus: Decodable, Sendable, Equatable {
     public var degraded: Bool
     public var successfulSources: Int?
     public var totalSources: Int?
-    enum CodingKeys: String, CodingKey { case checkedAt, ok, degraded, successfulSources, totalSources }
+    /// Dəqiqəlik `latest.<dil>.json` olan dillər (yalnız canlı kanalda).
+    public var langs: [String]
+    /// Ayrıca `news.<dil>.json` olan dillər; azərbaycanca həmişə `news.json`-dur.
+    public var newsLangs: [String]
+    enum CodingKeys: String, CodingKey { case checkedAt, ok, degraded, successfulSources, totalSources, langs, newsLangs }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         checkedAt = c.text(.checkedAt)
         ok = c.flag(.ok); degraded = c.flag(.degraded)
         successfulSources = c.integer(.successfulSources); totalSources = c.integer(.totalSources)
+        langs = c.lossy(.langs, as: String.self)
+        newsLangs = c.lossy(.newsLangs, as: String.self)
+    }
+
+    /// app.js `newsJSON`: seçilmiş dilin öz faylı, «Hamısı» üçün hamısı birlikdə, qalanı `news.json`.
+    public func newsFiles(language: String) -> [String] {
+        let own = ["en", "ru", "tr"]
+        if own.contains(language), newsLangs.contains(language) { return ["news.\(language).json"] }
+        if language.isEmpty { return ["news.json"] + newsLangs.filter(own.contains).map { "news.\($0).json" } }
+        return ["news.json"]
+    }
+
+    /// app.js `latestJSON`: dilin dəqiqəlik faylı varsa o, yoxdursa ümumi fayl.
+    public func latestFile(language: String) -> String? {
+        guard !language.isEmpty, language.range(of: "^[a-z]{2}$", options: .regularExpression) != nil, langs.contains(language) else { return nil }
+        return "latest.\(language).json"
     }
 }
 

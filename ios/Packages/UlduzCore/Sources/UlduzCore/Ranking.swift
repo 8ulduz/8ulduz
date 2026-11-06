@@ -75,7 +75,8 @@ public enum Ranking {
     private static func aboutOurLeaders(_ a: Article) -> Bool { ourLeaders.test(a.title) || ourLeaders.test(a.summary) }
 
     /// Əsas blok: Prezident və Birinci xanım qrupları görünür, sıra ən yenidən köhnəyə (app.js `prezHome`).
-    public static func prezHome(_ list: [Article], now: Date = Date()) -> [Article] {
+    /// `all`: bütün dillər; 44 öz dilindən dolmayanda sona başqa dillərin xəbərləri qoyulur.
+    public static func prezHome(_ list: [Article], all: [Article]? = nil, now: Date = Date()) -> [Article] {
         let official = NewsPipeline.officialSources, state = NewsPipeline.stateSources
         let prez = list.filter { $0.category == "prezident" && (official.contains($0.source) || state.contains($0.source)) }
         func age(_ a: Article) -> TimeInterval { a.date.map { now.timeIntervalSince($0) } ?? .infinity }
@@ -99,12 +100,14 @@ public enum Ranking {
         let ladyHead = min(lady.count, head - presHead)
         let first = Array(president.prefix(presHead)) + Array(lady.prefix(ladyHead))
         let rest = Array(president.dropFirst(presHead)) + Array(lady.dropFirst(ladyHead))
-        // Rəsmi və dövlət saytları 44-ü doldurmursa: əvvəl həmin saytların qalan xəbərləri, sonra digər saytlar.
+        // 44 dolmursa: rəsmi saytların qalanı, digər saytlar, sonda başqa dillər (qarışanda ilk ekranda rusca kart çıxırdı).
         // Yad xəbərlə doldurulmur: belə xəbər çatmasa say 44-dən az olar.
         var chosen = Set((first + rest).map(\.id))
-        let ours = byDate(list.filter { $0.category == "prezident" && aboutOurLeaders($0) })
-        let fill = (byDate(prez) + ours).filter { chosen.insert($0.id).inserted }
-        return byDate(Array((first + rest + fill).prefix(prezCount)))
+        func take(_ l: [Article]) -> [Article] { l.filter { chosen.insert($0.id).inserted } }
+        func ours(_ l: [Article]) -> [Article] { byDate(l.filter { $0.category == "prezident" && aboutOurLeaders($0) }) }
+        let own = Array((first + rest + take(byDate(prez)) + take(ours(list))).prefix(prezCount))
+        let other = Array(take(ours(all ?? list)).prefix(max(0, prezCount - own.count)))
+        return byDate(own) + byDate(other)
     }
 
     // MARK: - Axtarış

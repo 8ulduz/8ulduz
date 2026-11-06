@@ -22,6 +22,14 @@ public struct City: Identifiable, Hashable, Sendable {
     public var id: String { name }
 }
 
+public struct FollowLink: Identifiable, Hashable, Sendable {
+    public let label: String
+    public let url: String
+    public let symbol: String
+    public var id: String { label }
+    public var link: URL? { URL(string: url) }
+}
+
 public struct TrafficArea: Identifiable, Hashable, Sendable {
     public let id: String
     public let label: String
@@ -98,6 +106,27 @@ public enum Catalog {
         city("Saatlı", 39.93, 48.37), city("Sabirabad", 40.01, 48.48), city("Salyan", 39.596, 49.0), city("Neftçala", 39.376, 49.247),
         city("Hacıqabul", 40.04, 48.94), city("Biləsuvar", 39.46, 48.55), city("Masallı", 39.034, 48.665), city("Astara", 38.501, 48.875),
         city("Lerik", 38.775, 48.415), city("Yardımlı", 38.908, 48.24),
+    ]
+
+    /// «Konumum»: ən yaxın şəhər, 80 km-dən uzaqdırsa (xaricdə) heç biri (app.js `nearestCity`).
+    public static func nearestCity(lat: Double, lon: Double) -> City? {
+        let k = cos(lat * .pi / 180)
+        var best: City?
+        var bestDistance = Double.infinity
+        for c in cities {
+            let d = hypot((c.lat - lat) * 111, (c.lon - lon) * 111 * k)
+            if d < bestDistance { bestDistance = d; best = c }
+        }
+        return bestDistance <= 80 ? best : nil
+    }
+
+    /// assets/config.js `telegram` və `follow`: yalnız 8ULDUZ-un öz rəsmi hesabları (follow.js «8ULDUZ-u izlə»).
+    public static let followLinks: [FollowLink] = [
+        FollowLink(label: "Telegram", url: "https://t.me/sekkizulduz_az", symbol: "paperplane.fill"),
+        FollowLink(label: "Facebook", url: "https://www.facebook.com/profile.php?id=61596264031461", symbol: "person.2.fill"),
+        FollowLink(label: "Instagram", url: "https://www.instagram.com/8ulduz.az/", symbol: "camera.fill"),
+        FollowLink(label: "LinkedIn", url: "https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/", symbol: "briefcase.fill"),
+        FollowLink(label: "X", url: "https://x.com/8ulduz", symbol: "at"),
     ]
 
     public static let trafficAreas: [TrafficArea] = [

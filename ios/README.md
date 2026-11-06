@@ -82,6 +82,11 @@ Saytda aşağıdakılar dəyişəndə tətbiqdə də dəyişməlidir:
 - Bölmələr: `CATS` və `SECTION_ALIAS` (`assets/app.js`), tətbiqdə `Catalog.swift`.
 - İdman və bölgə düymələri: `SPORT_TABS`, `REGION_TABS`, tətbiqdə `TopicData.swift`. `TopicTests` adları saytla tutuşdurur.
 - Komanda səhifəsi: `assets/komanda.js`, tətbiqdə `TeamData.swift` və `TeamViews.swift`.
+- Lent faylları: `newsJSON`, `latestJSON` (`news.<dil>.json`, `latest.<dil>.json`, `status.json` `newsLangs`/`langs`), tətbiqdə `FeedStatus.newsFiles`, `AppModel.fetchNews`.
+- Silinmiş xəbərlər: `removedArticles` (`assets/content-policy.js`) və `latest.json` `removed`, tətbiqdə `ContentPolicy.isRemoved`.
+- Rənglər: `:root` və `:root[data-theme="light"]` (`assets/app.css`), tətbiqdə `Theme.swift` və `AccentColor`.
+- İzləmə keçidləri: `telegram`, `follow` (`assets/config.js`), tətbiqdə `Catalog.followLinks`.
+- Reklam: `data/ads.json`, `adHtml` (`assets/app.js`), tətbiqdə `AdBanner`.
 
 ## İnterfeys dili
 

@@ -12,6 +12,7 @@
 "1/8 finala çıxış" = "Выход в 1/8 финала";
 "100 Lirə" = "100 лир";
 "100 Rubl" = "100 рублей";
+"8ULDUZ-u izlə" = "Подписаться на 8ULDUZ";
 "8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, tam mətn mənbənin öz saytında açılır. Lent hər dəqiqə yenilənir." = "8ulduz — автоматическая лента, собирающая новости Азербайджана и мира. Здесь новости не пишутся: заголовок, краткое описание и изображение берутся из открытой RSS-ленты или официальной страницы источника, полный текст открывается на сайте источника. Лента обновляется каждую минуту.";
 "8ulduz kanalına qoşulun" = "Подпишитесь на канал 8ulduz";
 "8ulduz nədir, mənbələr, redaksiya prinsipləri, məxfilik və əlaqə" = "Что такое 8ulduz, источники, редакционные принципы, конфиденциальность и контакты";
@@ -39,6 +40,7 @@
 "Avropa Liqasının seçmə mərhələsi" = "Квалификация Лиги Европы";
 "Axtar" = "Поиск";
 "Axtardığınız bölmə mövcud deyil" = "Такого раздела нет";
+"Axtarılır…" = "Поиск…";
 "Axtarış" = "Поиск";
 "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin" = "Ничего не найдено. Попробуйте другие слова или смените язык";
 "Azərbaycan" = "Азербайджан";
@@ -230,6 +232,10 @@
 "Komanda səhifəsi açılmadı. İnternet bağlantınızı yoxlayın" = "Страница команды не открылась. Проверьте подключение к интернету";
 "Konfrans Liqası" = "Лига конференций";
 "Konfrans Liqasının seçmə mərhələsi" = "Квалификация Лиги конференций";
+"Konum tapılmadı" = "Местоположение не найдено";
+"Konuma icazə verilmədi" = "Нет доступа к геопозиции";
+"Konumum" = "Моё местоположение";
+"Konumunuza ən yaxın şəhər" = "Ближайший к вам город";
 "Kopyalandı" = "Скопировано";
 "Kopyalanmadı" = "Не скопировано";
 "Kubok" = "Кубок";
@@ -511,6 +517,7 @@
 "Yarımfinal" = "Полуфинал";
 "Yarımmüdafiəçilər" = "Полузащитники";
 "Yarış" = "Турнир";
+"Yaxında şəhər tapılmadı" = "Поблизости нет города";
 "Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın" = "Публикации сейчас не открываются — смотрите аккаунты по ссылкам выше";
 "Yazın" = "Напишите";
 "Yağıntı" = "Осадки";

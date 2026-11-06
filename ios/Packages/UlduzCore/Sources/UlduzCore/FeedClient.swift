@@ -44,8 +44,13 @@ public actor FeedClient {
     public static let siteRoot = "https://8ulduz.az/"
     static let liveRoot = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/"
     static let mirrorRoot = "https://raw.githubusercontent.com/8ulduz/8ulduz/main/"
-    static let liveFiles: Set<String> = ["status.json", "latest.json", "markets.json"]
-    static let staleCheckedFiles: Set<String> = ["status.json", "latest.json", "news.json"]
+    // sw.js `LIVE_FILES`, `LIVE_DATA`: latest.<dil>.json yalnız live budağındadır, news.<dil>.json main-dədir.
+    static func isLiveFile(_ file: String) -> Bool {
+        file == "status.json" || file == "markets.json" || file.range(of: #"^latest(\.[a-z]{2})?\.json$"#, options: .regularExpression) != nil
+    }
+    static func isStaleChecked(_ file: String) -> Bool {
+        file == "status.json" || file.range(of: #"^(latest|news)(\.[a-z]{2})?\.json$"#, options: .regularExpression) != nil
+    }
     static let liveWait: TimeInterval = 2.5
     static let liveGrace: TimeInterval = 45
     static let livePause: TimeInterval = 5 * 60
@@ -93,7 +98,7 @@ public actor FeedClient {
     }
 
     private func live(_ file: String) async -> Data? {
-        guard Self.liveFiles.contains(file), now() >= liveSkipUntil else { return nil }
+        guard Self.isLiveFile(file), now() >= liveSkipUntil else { return nil }
         for minute in liveMinutes() {
             do {
                 return try await attempt("\(Self.liveRoot)\(minute)/\(file)", wait: Self.liveWait).0
@@ -116,7 +121,7 @@ public actor FeedClient {
     }
 
     private func siteIsStuck(_ response: HTTPURLResponse, file: String) -> Bool {
-        guard Self.staleCheckedFiles.contains(file),
+        guard Self.isStaleChecked(file),
               let header = response.value(forHTTPHeaderField: "Last-Modified"),
               let modified = Self.httpDate.date(from: header) else { return false }
         return now().timeIntervalSince(modified) > Self.staleAfter

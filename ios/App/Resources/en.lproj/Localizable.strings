@@ -12,6 +12,7 @@
 "1/8 finala çıxış" = "Round of 16";
 "100 Lirə" = "100 Lira";
 "100 Rubl" = "100 Rubles";
+"8ULDUZ-u izlə" = "Follow 8ULDUZ";
 "8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, tam mətn mənbənin öz saytında açılır. Lent hər dəqiqə yenilənir." = "8ulduz is an automatic news feed that brings Azerbaijani and world news together. No story is written here: the headline, short summary and image come from the source's public RSS feed or official page, and the full text opens on the source's own site. The feed updates every minute.";
 "8ulduz kanalına qoşulun" = "Join the 8ulduz channel";
 "8ulduz nədir, mənbələr, redaksiya prinsipləri, məxfilik və əlaqə" = "What 8ulduz is, sources, editorial principles, privacy and contact";
@@ -39,6 +40,7 @@
 "Avropa Liqasının seçmə mərhələsi" = "Europa League qualifying";
 "Axtar" = "Search";
 "Axtardığınız bölmə mövcud deyil" = "This section does not exist";
+"Axtarılır…" = "Locating…";
 "Axtarış" = "Search";
 "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin" = "No matching news. Try other words or change the language";
 "Azərbaycan" = "Azerbaijan";
@@ -230,6 +232,10 @@
 "Komanda səhifəsi açılmadı. İnternet bağlantınızı yoxlayın" = "The team page did not open. Check your internet connection";
 "Konfrans Liqası" = "Conference League";
 "Konfrans Liqasının seçmə mərhələsi" = "Conference League qualifying";
+"Konum tapılmadı" = "Location not found";
+"Konuma icazə verilmədi" = "Location permission denied";
+"Konumum" = "My location";
+"Konumunuza ən yaxın şəhər" = "The city nearest to you";
 "Kopyalandı" = "Copied";
 "Kopyalanmadı" = "Not copied";
 "Kubok" = "Cup";
@@ -511,6 +517,7 @@
 "Yarımfinal" = "Semi-final";
 "Yarımmüdafiəçilər" = "Midfielders";
 "Yarış" = "Competition";
+"Yaxında şəhər tapılmadı" = "No city nearby";
 "Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın" = "Posts are not opening right now — see the accounts through the links above";
 "Yazın" = "Write to";
 "Yağıntı" = "Precipitation";

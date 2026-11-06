@@ -88,6 +88,7 @@ struct HomeView: View {
                 ServiceChips()
                 HeroCarousel(items: model.home.hero)
                 if !model.home.prez.isEmpty { PrezBlock(items: model.home.prez) }
+                if !model.adSlots.isEmpty { AdBanner(slots: model.adSlots) }
                 LatestBlock(items: model.home.latest)
                 ForEach(model.home.sections, id: \.category.slug) { section in
                     CategoryStrip(category: section.category, items: section.articles)
@@ -125,6 +126,38 @@ private struct StatusLine: View {
             .font(.caption)
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 16)
+        }
+    }
+}
+
+/// 8ulduz-un öz bannerləri (data/ads.json): reklam şəbəkəsi, izləmə və identifikator yoxdur.
+/// Bir neçə banner varsa 30 saniyədən bir növbəti göstərilir (app.js `adHtml`).
+private struct AdBanner: View {
+    let slots: [AdSlot]
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let slot = slots[Int(context.date.timeIntervalSince1970 / 30) % slots.count]
+            if let link = slot.linkURL {
+                Link(destination: link) {
+                    RemoteImage(urls: slot.imageURL.map { [$0] } ?? [], category: "gundem", maxPixel: 1200)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(alignment: .topTrailing) {
+                            Text("Reklam")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.55), in: Capsule())
+                                .foregroundStyle(.white)
+                                .padding(6)
+                        }
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.border, lineWidth: 1))
+                }
+                .accessibilityLabel(slot.alt.isEmpty ? String(localized: "Reklam") : slot.alt)
+                .padding(.horizontal, 16)
+            }
         }
     }
 }
@@ -185,7 +218,7 @@ struct MarketChip: View {
 
     private var tint: Color {
         guard item.hasChange, let pct = item.changePct, pct != 0 else { return Theme.muted }
-        return pct > 0 ? Theme.green : Theme.red
+        return pct > 0 ? Theme.up : Theme.down
     }
 
     var body: some View {
@@ -425,7 +458,7 @@ private struct VideoStrip: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if !model.videoItems.isEmpty {
+        if !model.shownVideos.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 SectionHeader(title: "Video xəbərlər") {
                     MoreLink(route: .videos)
@@ -433,7 +466,7 @@ private struct VideoStrip: View {
                 .padding(.horizontal, 16)
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .top, spacing: 10) {
-                        ForEach(model.videoItems.prefix(8)) { VideoCard(item: $0) }
+                        ForEach(model.shownVideos.prefix(8)) { VideoCard(item: $0) }
                     }
                     .padding(.horizontal, 16)
                 }

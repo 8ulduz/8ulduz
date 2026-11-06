@@ -38,10 +38,12 @@ public enum NewsPipeline {
                 return kept
             }
             guard let next = alts.first else { return nil }
-            return Article(id: a.id, title: next.title.isEmpty ? a.title : next.title, summary: a.summary, category: a.category,
-                           source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt.isEmpty ? a.publishedAt : next.publishedAt,
-                           imageUrl: a.imageUrl.isEmpty ? next.imageUrl : a.imageUrl, lang: next.lang.isEmpty ? a.lang : next.lang,
-                           author: a.author, video: a.video, alts: Array(alts.dropFirst()))
+            var moved = Article(id: a.id, title: next.title.isEmpty ? a.title : next.title, summary: a.summary, category: a.category,
+                                source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt.isEmpty ? a.publishedAt : next.publishedAt,
+                                imageUrl: a.imageUrl.isEmpty ? next.imageUrl : a.imageUrl, lang: next.lang.isEmpty ? a.lang : next.lang,
+                                author: a.author, video: a.video, alts: Array(alts.dropFirst()))
+            moved.hasSharePage = a.hasSharePage // önizləmə səhifəsi xəbərin id-sinə bağlıdır
+            return moved
         }
     }
 

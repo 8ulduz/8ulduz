@@ -19,6 +19,7 @@
 "%lld yeni xəbər" = "%lld yeni xəbər";
 "+%@" = "+%@";
 "1/8 finala çıxış" = "1/8 finala çıxış";
+"8ULDUZ-u izlə" = "8ULDUZ-u izlə";
 "8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, tam mətn mənbənin öz saytında açılır. Lent hər dəqiqə yenilənir." = "8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, tam mətn mənbənin öz saytında açılır. Lent hər dəqiqə yenilənir.";
 "8ulduz.az@gmail.com" = "8ulduz.az@gmail.com";
 "Abşeron" = "Abşeron";
@@ -34,6 +35,7 @@
 "Avropa Liqası" = "Avropa Liqası";
 "Avropa Liqasının seçmə mərhələsi" = "Avropa Liqasının seçmə mərhələsi";
 "Axtar" = "Axtar";
+"Axtarılır…" = "Axtarılır…";
 "Azərbaycan" = "Azərbaycan";
 "Azərbaycan dilində" = "Azərbaycan dilində";
 "Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir." = "Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir.";
@@ -176,6 +178,10 @@
 "Komanda məlumatı açılmadı. İnternet bağlantınızı yoxlayın." = "Komanda məlumatı açılmadı. İnternet bağlantınızı yoxlayın.";
 "Konfrans Liqası" = "Konfrans Liqası";
 "Konfrans Liqasının seçmə mərhələsi" = "Konfrans Liqasının seçmə mərhələsi";
+"Konum tapılmadı" = "Konum tapılmadı";
+"Konuma icazə verilmədi" = "Konuma icazə verilmədi";
+"Konumum" = "Konumum";
+"Konumunuza ən yaxın şəhər" = "Konumunuza ən yaxın şəhər";
 "Kubok" = "Kubok";
 "Kürdəmir" = "Kürdəmir";
 "Kəlbəcər" = "Kəlbəcər";
@@ -185,6 +191,7 @@
 "Lent" = "Lent";
 "Lent yüklənmədi" = "Lent yüklənmədi";
 "Lerik" = "Lerik";
+"LinkedIn" = "LinkedIn";
 "Liqa" = "Liqa";
 "Liverpool" = "Liverpool";
 "Logo" = "Logo";
@@ -278,6 +285,7 @@
 "Rayonlardan və şəhərlərdən xəbərlər" = "Rayonlardan və şəhərlərdən xəbərlər";
 "Real Madrid" = "Real Madrid";
 "Redaksiya prinsipləri" = "Redaksiya prinsipləri";
+"Reklam" = "Reklam";
 "Relegated" = "Relegated";
 "Relegation" = "Relegation";
 "Relegation playoff" = "Relegation playoff";
@@ -327,6 +335,7 @@
 "Səhv, təklif və mənbə əlavəsi üçün yazın. Xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir; mənbə öz xəbərinin göstərilməsini istəmirsə, bildirin, lent siyahıdan çıxarılar." = "Səhv, təklif və mənbə əlavəsi üçün yazın. Xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir; mənbə öz xəbərinin göstərilməsini istəmirsə, bildirin, lent siyahıdan çıxarılar.";
 "TRY100" = "TRY100";
 "Telefon kimi" = "Telefon kimi";
+"Telegram" = "Telegram";
 "Tema" = "Tema";
 "Tennis" = "Tennis";
 "Tibb, sağlamlıq, qidalanma, psixologiya" = "Tibb, sağlamlıq, qidalanma, psixologiya";
@@ -387,6 +396,7 @@
 "Yardımlı" = "Yardımlı";
 "Yarımmüdafiəçilər" = "Yarımmüdafiəçilər";
 "Yarış" = "Yarış";
+"Yaxında şəhər tapılmadı" = "Yaxında şəhər tapılmadı";
 "Yaşıl: son saatlarda xəbər gəlib. Sarı: boş və ya köhnəlmiş uğur. Qırmızı: xəta." = "Yaşıl: son saatlarda xəbər gəlib. Sarı: boş və ya köhnəlmiş uğur. Qırmızı: xəta.";
 "Yenidən" = "Yenidən";
 "Yeniləndi: %@" = "Yeniləndi: %@";
