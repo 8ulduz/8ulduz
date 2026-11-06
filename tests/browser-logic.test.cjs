@@ -570,7 +570,9 @@ test('sport sub-sections open their own teams and close when you leave',()=>{
   assert.ok(!top.includes('data-club="Qarabağ"'),'komandalar bağlıdır');
   S.club='Futbol';S.sportTab='Futbol';
   const foot=subNav('idman');
-  for(const name of ['Milli komanda','Galatasaray','Real Madrid'])assert.ok(foot.includes('data-club="'+name+'"'),name);
+  for(const name of ['Galatasaray','Real Madrid'])assert.ok(foot.includes('data-club="'+name+'"'),name);
+  // sahib 2026-11-07: «Milli komanda» düyməsi yerinə liqaların yanında «Milli komandalar» (altında ölkələr)
+  assert.ok(!foot.includes('data-club="Milli komanda"')&&foot.includes('href="#/komanda/milli-komandalar/azerbaycan"'),'Milli komandalar');
   assert.ok(foot.includes('href="#/komanda/premyer-liqa"'),'Azərbaycan klubları liqadan açılır');
   assert.ok(!foot.includes('data-club="Qarabağ"'));
   assert.ok(!foot.includes('data-club="NBA"'));
@@ -588,7 +590,12 @@ test('hover menu: one list for the section, a second list only for a tab with it
   assert.ok(!closed.includes('class="pill on"'),'başqa səhifədə heç nə seçili görünmür');
   const football=navPopHtml('idman','Futbol');
   assert.ok(football.includes('pop-col two'),'Futbol ikinci siyahını açır');
-  for(const name of ['Milli komanda','Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
+  for(const name of ['Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
+  const nat=navPopHtml('idman','Futbol','Milli komandalar');
+  for(const [slug,name] of [['azerbaycan','Azərbaycan'],['ispaniya','İspaniya'],['seudiyye-erebistani','Səudiyyə Ərəbistanı'],['abs','ABŞ']])assert.ok(nat.includes('href="#/komanda/milli-komandalar/'+slug+'">'+name+'</a>'),name);
+  assert.ok(nat.includes('>Ölkələr ›</a>'),'ölkələrin siyahısı');
+  assert.ok((S.sportTab='Futbol',ctx.api.subNav('idman')).includes('href="#/komanda/milli-komandalar/ispaniya">İspaniya</a>'),'telefonda ölkələr başlığın altında');
+  S.sportTab=null;
   assert.ok(!football.includes('data-club="Qarabağ"'),'Azərbaycan klubları liqadan açılır');
   assert.ok(football.includes('class="pill on" data-club="Futbol"'));
   assert.ok(!navPopHtml('idman','Tennis').includes('pop-col two'),'siyahısı olmayan başlıq');
@@ -2036,7 +2043,7 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
     assert.ok(html.includes('<span>Premyer Liqa</span><small>İngiltərə</small>'));
     assert.ok(html.includes('<span>Çempionlar Liqası</span></a>'));
     for (const club of ['Neftçi', 'Galatasaray', 'Real Madrid']) assert.ok(!html.includes('data-club="' + club + '"'), club);
-    assert.ok(html.includes('data-club="Milli komanda"'), 'milli komandanın liqası yoxdur');
+    assert.ok(html.includes('#/komanda/milli-komandalar') && !html.includes('data-club="Milli komanda"'), 'sahib 2026-11-07: Milli komandalar liqaların yanında');
   }
   const pop = navPopHtml('idman', 'Futbol', 'Türkiyə');
   assert.ok(pop.includes('class="pop-col clubs"') && pop.includes('href="#/komanda/turkiye/galatasaray"') && pop.includes('href="#/komanda/turkiye/fenerbahce"'));

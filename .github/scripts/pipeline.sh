@@ -276,10 +276,19 @@ publish_main() {
   return 1
 }
 
+# Milli komandaların yarışları (sahib 2026-11-07): Vikipediyadan data/futbol/ml-*.json, asiya-kuboku.json (.github/scripts/milli.cjs).
+# Skript özü 6 saatda bir (oyun günü 30 dəqiqədə bir) soruşur, dövrədə ən çox 2 sorğu; alınmasa əvvəlki fayl qalır.
+milli_step() {
+  command -v node >/dev/null 2>&1 || return 0
+  env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 60 node "$REPO_DIR/.github/scripts/milli.cjs" "$WORK" || echo "milli komandalar xəta verdi"
+  return 0
+}
+
 slow_loop() {
   while :; do
     local began=$SECONDS left
     run_py --slow "$SLOW_LIMIT" || echo "yavaş dövrə xəta verdi"
+    milli_step
     left=$((SLOW_EVERY - (SECONDS - began)))
     [ "$left" -gt 0 ] && sleep "$left"
   done

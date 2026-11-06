@@ -1,5 +1,5 @@
-// Komanda səhifəsi (#/komanda/<liga>/<ad>). Kod, üslub və məlumat yalnız bu səhifə açılanda yüklənir: baş səhifənin sürətinə toxunmur.
-// Məlumat: data/futbol/ (updater.py, update_team_pages): pfl.az, Vikipediya, OpenLigaDB. Heyət tabı və zona zolaqları yalnız faylda məlumat olanda görünür.
+// Komanda səhifəsi (#/komanda/<liga>/<ad>): yalnız bu səhifə açılanda yüklənir.
+// Məlumat: data/futbol/ (updater.py update_team_pages, milli.cjs).
 const DIR = "data/futbol/";
 const FILE_TTL = 10 * 60e3;
 const FAIL_WAIT = 30e3;
@@ -12,14 +12,46 @@ const NOTE_AZ = {
   "Qualifies for round of 16": "1/8 finala çıxış", "Knockout phase playoffs - seeded": "Pley-off (səbətli)", "Knockout phase playoffs - unseeded": "Pley-off (səbətsiz)", "Eliminated": "Mübarizədən çıxır",
 };
 const POS_AZ = [["gk", "Qapıçılar"], ["df", "Müdafiəçilər"], ["mf", "Yarımmüdafiəçilər"], ["fw", "Hücumçular"], ["", "Digər"]];
-// Xəbər süzgəci: «Sabah» və «Qəbələ» həm də başqa mənadadır, ona görə yalnız idman bölməsi və başqa idman növlərinin xəbəri olmadan.
+// Xəbər: yalnız idman bölməsi, başqa idman növü olmadan («Sabah», «Qəbələ»).
 const OTHER_SPORT = /basketbol|voleybol|həndbol|tennis|cüdo|güləş|boks|futzal|şahmat|шахмат|gimnast|basketball|баскетбол|волейбол/iu;
-// Avroliqa klubu futbol klubu ilə adaşdır (Real Madrid, Barselona): basketbol sözü olmayan xəbər düşmür.
+// Avroliqa klubu futbol klubu ilə adaşdır: basketbol sözü olmalıdır.
 const BASKET = /basketbol|basketball|баскетбол|avroliqa|euroleague|евролиг/iu;
 const TOPIC_ALIAS = { "Internazionale": "İnter", "Paris Saint-Germain": "PSG" };
 const SUFFIX = "(?:in|nin|un|nun|ün|nün|ın|nın|a|e|i|u|ya|ye|ni|nu|na|ne|la|le|dan|den|ndan|nden|da|de|nda|nde|nı|nü|s|а|у|е|я|ю|ы|и|ь|ом|ем)?";
 
-// Komandanın bu yarışdakı oyunları: yarış başına bir dəfə hesablanır (cədvəldə hər sətir soruşur).
+// Milli komandalar (sahib 2026-11-07): #/komanda/milli-komandalar/<ölkə> -> index-də «nat» yarışı (milli.cjs);
+// yarışı yoxdursa yalnız xəbərlər.
+// Sətir: ad (app.js ilə eyni), az kök, türkcə, rusca yiyəlik hal.
+export const MILLI = "milli-komandalar";
+export const NAT = {
+  azerbaycan: ["Azərbaycan"], ingiltere: ["İngiltərə", "", "ingiltere", "англии"], ispaniya: ["İspaniya", "", "ispanya", "испании"],
+  italiya: ["İtaliya", "", "italya", "италии"], almaniya: ["Almaniya", "", "almanya", "германии"], fransa: ["Fransa", "", "", "франции"],
+  turkiye: ["Türkiyə", "", "türkiye", "турции"], portuqaliya: ["Portuqaliya", "", "portekiz", "португалии"], hollandiya: ["Hollandiya", "hollandiya|niderland", "hollanda", "нидерландов"],
+  belcika: ["Belçika", "", "", "бельгии"], sotlandiya: ["Şotlandiya", "", "iskoçya", "шотландии"], rusiya: ["Rusiya", "", "rusya", "россии"],
+  "seudiyye-erebistani": ["Səudiyyə Ərəbistanı", "səudiyyə(?: ərəbistanı)?", "suudi arabistan", "саудовской аравии"], braziliya: ["Braziliya", "", "brezilya", "бразилии"],
+  abs: ["ABŞ", "abş", "abd", "сша"],
+};
+const NAT_RX = new Map();
+export function natRx(name) {
+  if (!NAT_RX.has(name)) {
+    const e = Object.values(NAT).find(x => x[0] === name) || [name];
+    const esc = s => s.replace(/[.*+?^${}()[\]\\]/g, "\\$&");
+    const az = e[1] || esc(name.toLocaleLowerCase("az")), tr = e[2] ? `|${e[2]}` : "";
+    NAT_RX.set(name, new RegExp(`(?:^|[^\\p{L}])(?:${az}${tr})\\s+(?:millisi|milli komanda|milli takım|yığma)${e[3] ? `|сборн\\p{L}*\\s+${e[3]}` : ""}`, "iu"));
+  }
+  return NAT_RX.get(name);
+}
+// Liqanın adı (liqa səhifəsinin xəbərləri); «Premyer Liqa» iki ölkədədir.
+const LEAGUE_WORDS = {
+  ingiltere: "ingiltərə premyer liqası|apl\\b|английской премьер|premier league", ispaniya: "la liqa|la liga|ла лиг", italiya: "seriya a\\b|serie a\\b|серии а\\b",
+  almaniya: "bundesliqa|bundesliga|бундеслиг", fransa: "liqa 1\\b|ligue 1|лиги 1\\b", turkiye: "süper liq|süper lig|super lig|суперлиг",
+  cl: "çempionlar liqası|şampiyonlar ligi|лиг[аиу] чемпионов|champions league", al: "avropa liqası|avrupa ligi|лиг[аиу] европы|europa league",
+  kl: "konfrans liqası|konferans ligi|лиг[аиу] конференций", "premyer-liqa": "misli premyer liqa|premyer liqa(?:nın|da|ya)? \\d+-?c?i? tur|azərbaycan premyer liqası",
+  nba: "\\bnba\\b|\\bнба\\b", avroliqa: "avroliqa|euroleague|евролиг", "asiya-kuboku": "asiya kuboku|asya kupası|кубок[аеу]? азии",
+};
+const leagueWordRx = id => { const w = /^ml-/.test(id) ? "millətlər liqası|uluslar ligi|лиг[аиу] наций|nations league" : LEAGUE_WORDS[id]; return w ? new RegExp(w, "iu") : null; };
+
+// Komandanın oyunları: yarış başına bir dəfə hesablanır.
 const BY_TEAM = new WeakMap();
 export function gamesOf(doc, slug) {
   let map = BY_TEAM.get(doc);
@@ -39,7 +71,7 @@ export function formOf(games, slug, n = 5) {
   return games.filter(g => g.played).sort(byKick).slice(-n).map(g => resultOf(g, slug));
 }
 const byKick = (x, y) => (x.date || "9999").localeCompare(y.date || "9999");
-// Oynanmış və qarşıdakı oyunlar. Vaxtı keçib nəticəsi gəlməyən oyun «qarşıdakı» sayılmır, təxirə salınan da.
+// Oynanmış və qarşıdakı oyunlar.
 export function splitGames(games, now = Date.now()) {
   const sorted = [...games].sort(byKick);
   const played = sorted.filter(g => g.played);
@@ -53,26 +85,26 @@ export function rowOf(doc, slug) {
 // «Türkiyə Süper Liqası, 1-ci yer»
 export function standingLine(doc, slug, ordinal) {
   const hit = rowOf(doc, slug);
-  return hit ? `${doc.name}, ${ordinal(hit.row.pos)} yer` : doc.name;
+  return hit && hit.row.p !== 0 ? `${doc.name}, ${ordinal(hit.row.pos)} yer` : doc.name; // oyun olmayıbsa yer yoxdur (Asiya Kuboku)
 }
-// Cədvəlin zona izahı: ESPN-in verdiyi qeydlər, cədvəldəki sırası ilə.
+// Cədvəlin zona izahı.
 export function zonesOf(rows) {
   const seen = new Map();
   for (const r of rows) if (r.note && r.color && !seen.has(r.note)) seen.set(r.note, r.color);
   return [...seen].map(([note, color]) => ({ note: NOTE_AZ[note] || note, color }));
 }
-// Komandanın digər yarışları (Kubok, Çempionlar Liqası). Əvəzedicilər ayrı komandadır, oyunları qarışmır.
+// Komandanın digər yarışları; Əvəzedicilər ayrıdır.
 export function otherLeagues(index, league, slug) {
   if (league.reserve) return [];
   return (index.leagues || []).filter(l => l.id !== league.id && !l.reserve && (l.sport || "football") === (league.sport || "football") && l.teams?.includes(slug));
 }
-// Ad birbaşa regex-ə düşür, mövzusu olmayan komanda üçün: böyük hərf saxlanır, ingiliscə «nice» Nitsa sayılmasın.
+// Mövzusu olmayan komanda: ad regex-də, böyük hərflə.
 export function nameRx(names) {
   const safe = [...new Set(names.filter(n => n && n.length >= 3))].map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   return safe ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${safe})${SUFFIX}(?![\\p{L}\\p{N}])`, "u") : null;
 }
 
-// Fayllar vəziyyət obyektində (S.tmFiles) saxlanır ki, prefetch (idman bölməsi açılanda, liqa ünvanı açılan kimi) və səhifə eyni nüsxəni görsün.
+// Fayllar S.tmFiles-dadır: prefetch və səhifə eyni nüsxəni görür.
 function fileOf(S, path) {
   const files = S.tmFiles ||= new Map(), dp = S.tmDeps;
   let f = files.get(path);
@@ -86,11 +118,11 @@ function fileOf(S, path) {
   }
   return f;
 }
-// Zəncir əvəzinə paralel: index.json və (mövsüm seçilməyibsə) liqanın öz faylı birlikdə istənir; telefonda liqa səhifəsi 3–6 s açılırdı.
+// Paralel: index.json və liqanın faylı birlikdə.
 export function prefetch(d, r) {
   d.S.tmDeps ||= d;
   fileOf(d.S, `${DIR}index.json`);
-  if (r?.liga && !r.season && /^[a-z0-9-]+$/.test(r.liga)) fileOf(d.S, `${DIR}${r.liga}.json`);
+  if (r?.liga && r.liga !== MILLI && !r.season && /^[a-z0-9-]+$/.test(r.liga)) fileOf(d.S, `${DIR}${r.liga}.json`);
 }
 export function mountTeam(d) {
   d.S.tmDeps = d;
@@ -103,10 +135,8 @@ export function mountTeam(d) {
   const home = `<a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a>`;
   const asof = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${months[m - 1]} oyunlarına qədər` : ""; };
   const leagueHref = (id, key) => `#/komanda/${id}${key ? `?s=${key}` : ""}`;
-  // Kubokda cədvəl yoxdur: liqanın səhifəsi klubların siyahısıdır.
   const clubList = doc => `<ul class="tm-clubs">${Object.keys(doc.teams || {}).sort((a, b) => doc.teams[a].name.localeCompare(doc.teams[b].name, "az")).map(slug => `<li><a href="${href(doc.id, slug)}">${logo(doc.teams[slug].logo, 24, doc.teams[slug].name)}<span>${esc(doc.teams[slug].name)}</span></a></li>`).join("")}</ul>`;
 
-  // --- oyun kartları
   function gameCard(g, doc, slug) {
     const side = (who, score) => { const t = doc.teams[who] || {}; return `<span class="tm-side${who === slug ? " me" : ""}">${logo(t.logo, 20, t.short || t.name)}<span class="nm">${esc(t.short || t.name || who)}</span>${g.played ? `<b>${esc(score)}</b>` : ""}</span>`; };
     const res = resultOf(g, slug), other = g.home === slug ? g.away : g.home;
@@ -116,7 +146,6 @@ export function mountTeam(d) {
       ${side(g.home, g.hs)}${side(g.away, g.as)}
       <span class="tm-when"><time datetime="${esc(g.date || "")}">${g.date ? esc(g.day ? shortDT(g.date).split(",")[0] : shortDT(g.date)) : "Vaxtı elan olunmayıb"}</time>${state ? `<em>${state}</em>` : ""}${res ? `<i class="tm-r ${res}">${res === "w" ? "Q" : res === "d" ? "H" : "M"}</i>` : ""}</span></a>`;
   }
-  // Tam siyahı: aylara bölünür (Oyunlar tabı və vərəq eyni siyahıdır).
   function fullList(rows, slug) {
     if (!rows.length) return `<p class="muted tm-none">Oyun tapılmadı.</p>`;
     const byMonth = new Map();
@@ -129,7 +158,6 @@ export function mountTeam(d) {
     return [...byMonth].map(([m, cards]) => `<h3 class="tm-month">${esc(m[0].toLocaleUpperCase("az") + m.slice(1))}</h3><div class="tm-games list">${cards.join("")}</div>`).join("");
   }
 
-  // --- cədvəl: ilk iki sütun yerində qalır, qalanı yana sürüşür
   function basketTable(doc, rows, slug, key) {
     const body = rows.map(r => { const t = doc.teams[r.team] || {}; return `<tr${r.team === slug ? ` class="me" aria-current="true"` : ""}><td class="pos">${esc(r.pos)}</td><td class="club"><a href="${href(doc.id, r.team, "", key)}">${logo(t.logo, 18)}<span>${esc(t.short || t.name || r.team)}</span></a></td><td>${esc(r.p)}</td><td>${esc(r.w)}</td><td>${esc(r.l)}</td><td class="pct">${(r.pct * 100).toFixed(1)}</td><td class="pts gb">${esc(r.gb)}</td></tr>`; }).join("");
     return `<div class="tm-scroll" tabindex="0" role="region" aria-label="Turnir cədvəli"><table class="tm-table"><thead><tr><th class="pos">#</th><th class="club">Komanda</th><th title="Oyun">O</th><th title="Qələbə">Q</th><th title="Məğlubiyyət">M</th><th class="pct">%</th><th class="gb" title="Liderdən geri">Geridə</th></tr></thead><tbody>${body}</tbody></table></div>`;
@@ -158,7 +186,6 @@ export function mountTeam(d) {
     if (!doc.groups?.length) return `<p class="muted tm-none">Bu yarışda turnir cədvəli yoxdur.</p>`;
     return doc.groups.map(g => `${doc.groups.length > 1 && g.name ? `<h3 class="tm-month">${esc(g.name)}</h3>` : ""}${tableHtml(doc, g.rows, slug, key)}${legend(g.rows)}`).join("");
   }
-  // Baxışdakı qısa cədvəl: komanda və qonşuları.
   function miniTable(doc, slug) {
     const hit = rowOf(doc, slug);
     if (!hit) return "";
@@ -166,7 +193,8 @@ export function mountTeam(d) {
     return tableHtml(doc, rows.slice(from, from + 5), slug, "");
   }
 
-  // --- xəbərlər: app.js-dəki klub mövzuları, mövzusu olmayan komanda üçün adın özü
+    // --- xəbərlər
+  const low = a => decode(`${a.title} ${a.summary || ""}`).toLocaleLowerCase("az");
   function topicFor(name) {
     const alias = TOPIC_ALIAS[name];
     if (alias) return alias;
@@ -174,6 +202,11 @@ export function mountTeam(d) {
   }
   function newsOf(team, doc) {
     loadArchive("idman");
+    if (doc?.nat) {
+            // Azərbaycan: «Milli komanda» mövzusu; qalanı «<ölkə> millisi».
+      const pool = withArchive("idman", S.data?.articles || []).filter(a => a.category === "idman");
+      return byDate(team.name === "Azərbaycan" ? pool.filter(a => clubMatches(a, "Milli komanda")) : pool.filter(a => natRx(team.name).test(low(a))));
+    }
     const basket = doc?.sport === "basketball";
     const topic = basket ? null : topicFor(team.name);
     const rx = topic ? null : nameRx([team.name, team.short]);
@@ -183,8 +216,21 @@ export function mountTeam(d) {
       return topic ? clubMatches(a, topic) : !!rx?.test(decode(`${a.title} ${a.summary || ""}`));
     }));
   }
-  function newsBlock(team, slice, more, doc) {
-    const list = newsOf(team, doc);
+    // Liqanın xəbərləri: klubları və liqanın adı; lent dəyişməyibsə keşdən.
+  const LEAGUE_NEWS = new Map();
+  function leagueNews(doc) {
+    loadArchive("idman");
+    const pool = withArchive("idman", S.data?.articles || []), stamp = `${pool.length}|${S.data?.updatedAt || ""}`;
+    const hit = LEAGUE_NEWS.get(doc.id);
+    if (hit?.stamp === stamp) return hit.list;
+    const seen = new Set(), rx = leagueWordRx(doc.id);
+    const list = byDate([...Object.values(doc.teams || {}).flatMap(t => newsOf(t, doc)),
+      ...(rx ? pool.filter(a => a.category === "idman" && rx.test(low(a))) : [])].filter(a => !seen.has(a.id) && seen.add(a.id)));
+    LEAGUE_NEWS.set(doc.id, { stamp, list });
+    return list;
+  }
+  function newsBlock(team, slice, more, doc, given) {
+    const list = given || newsOf(team, doc);
     if (!list.length) return `<p class="muted tm-none">${esc(team.name)} haqqında son 5 gündə xəbər tapılmadı.</p>`;
     const rows = slice ? list.slice(0, slice) : list.slice(0, S.shown || 48);
     return `<div class="grid">${rows.map(card).join("")}</div>${slice && list.length > slice ? more : !slice && list.length > rows.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - rows.length})</button>` : ""}`;
@@ -206,6 +252,24 @@ export function mountTeam(d) {
   function view(r) {
     const index = file(`${DIR}index.json`);
     if (!index.doc) return index.failed ? message("Komanda məlumatı açılmadı", "İnternet bağlantınızı yoxlayın. Səhifə özü yenidən cəhd edəcək.", home) : `<div class="tm-wait"><div class="skel" style="height:96px"></div><div class="skel" style="height:220px"></div></div>`;
+    if (r.liga === MILLI) {
+      const nat = (index.doc.leagues || []).filter(l => l.nat);
+      if (!r.team || !NAT[r.team] && !nat.some(l => l.teams?.includes(r.team))) {
+        document.title = "Milli komandalar — 8ulduz";
+        return `<div class="page-h"><div><h1>Milli komandalar</h1><p>Ölkəni seçin: yarışları, cədvəldəki yeri, oyunları və son xəbərləri.</p></div></div>
+          <section class="tm-sec"><ul class="tm-clubs">${Object.entries(NAT).map(([slug, [name]]) => `<li><a href="${href(MILLI, slug)}"><span>${esc(name)}</span></a></li>`).join("")}</ul></section>
+          ${nat.length ? `<section class="tm-sec"><div class="sec-h"><h2>Yarışlar</h2></div><ul class="tm-clubs">${nat.map(l => `<li><a href="${leagueHref(l.id)}"><span>${esc(l.name)}</span></a></li>`).join("")}</ul></section>` : ""}`;
+      }
+      const comp = nat.find(l => l.teams?.includes(r.team));
+      if (!comp) {
+                // Yarışı olmayan milli komanda: yalnız xəbərlər.
+        const name = NAT[r.team][0];
+        document.title = `${name} millisi — 8ulduz`;
+        return `<div class="page-h"><div><h1>${esc(name)} millisi</h1><p>Hazırda izlədiyimiz yarışda cədvəli yoxdur. Son xəbərlər:</p></div></div><p><a class="tm-league" href="${leagueHref(MILLI)}">← Milli komandalar</a></p>
+          <section class="tm-sec">${newsBlock({ name }, 0, "", { nat: true })}</section>`;
+      }
+      r = { ...r, liga: comp.id };
+    }
     const league = (index.doc.leagues || []).find(l => l.id === r.liga);
     if (!league) return message("Bu liqanın səhifəsi yoxdur", "Hazırda yalnız məlumatı alınan liqaların komanda səhifələri açılır.", home);
     const current = league.ready[0].key;
@@ -217,13 +281,13 @@ export function mountTeam(d) {
     const when = doc.asof ? asof(doc.asof) : "";
     const link = (url, text) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text);
     const named = x => link(x.source_url || x.url, x.source);
-    // Səhifədə göstərilən bütün yarışların mənbəyi: lisenziya bunu tələb edir.
+        // Mənbə (lisenziya tələbi).
     const source = (list = [doc]) => `<p class="tm-src muted">Mənbə: ${[...[...new Map(list.map(x => [x.source, x])).values()].map(named), ...list.filter(x => x.source_url && x.url).slice(0, 1).map(x => link(x.url, "Vikipediya"))].join(", ")}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
     const slug = r.team;
     if (!slug || !doc.teams?.[slug]) {
-      // Komandasız ünvan və ya bu mövsüm liqada olmayan komanda: liqanın cədvəli.
+            // Komandasız ünvan: liqanın cədvəli.
       document.title = `${doc.name} — 8ulduz`;
-      return `<div class="page-h"><div><h1>${esc(doc.name)}</h1><p>${esc(doc.season)}${slug ? " · bu mövsüm komanda bu yarışda deyil" : ""}</p></div></div>${picker(index.doc, league, doc, slug && league.teams.includes(slug) ? slug : "", "cedvel", key)}<section class="tm-sec">${doc.groups?.length ? tablesHtml(doc, "", seasonKey) : clubList(doc)}</section>${source()}`;
+      return `<div class="page-h"><div><h1>${esc(doc.name)}</h1><p>${esc(doc.season)}${slug ? " · bu mövsüm komanda bu yarışda deyil" : ""}</p></div></div>${picker(index.doc, league, doc, slug && league.teams.includes(slug) ? slug : "", "cedvel", key)}<section class="tm-sec">${doc.groups?.length ? tablesHtml(doc, "", seasonKey) : clubList(doc)}</section>${seasonKey ? "" : `<section class="tm-sec"><div class="sec-h"><h2>${esc(doc.name)}: xəbərlər</h2></div>${newsBlock({ name: doc.name }, 0, "", doc, leagueNews(doc))}</section>`}${source()}`;
     }
     const team = doc.teams[slug];
     document.title = `${team.name} — 8ulduz`;
@@ -233,7 +297,7 @@ export function mountTeam(d) {
     const tab = TABS.some(([k]) => k === r.tab) && (r.tab !== "heyet" || hasSquad) && (r.tab !== "cedvel" || doc.groups?.length) && (r.tab !== "oyunlar" || hasGames) ? r.tab : "";
     const head = `<header class="tm-head">${logo(team.logo, 56, team.name)}<div><p><a class="tm-league" href="${leagueHref(league.id, seasonKey)}">${esc(doc.name)}</a>${esc(standingLine(doc, slug, ordinal).slice(doc.name.length))}${seasonKey ? ` · ${esc(doc.season)}` : ""}</p><h1>${esc(team.name)}</h1></div></header>`;
     const tabs = `<nav class="tm-tabs" aria-label="Komanda bölmələri">${TABS.filter(([k]) => (k !== "heyet" || hasSquad) && (k !== "cedvel" || doc.groups?.length) && (k !== "oyunlar" || hasGames)).map(([k, label]) => `<a href="${href(league.id, slug, k, seasonKey)}"${k === tab ? ` class="on" aria-current="page"` : ""}>${label}</a>`).join("")}</nav>`;
-    // Baxışda oyunlar bütün yarışlardan: cari mövsümdə komandanın digər yarışlarının faylları da gəlir. Oyunlar tabı yalnız seçilmiş yarışı göstərir.
+        // Baxışda bütün yarışların oyunları, Oyunlar tabında seçilmiş yarış.
     const needGames = hasGames && tab === "";
     const others = needGames && !seasonKey ? otherLeagues(index.doc, league, slug).map(l => ({ l, f: file(leaguePath(l, l.ready[0].key)) })) : [];
     const docs = [doc, ...others.map(o => o.f.doc).filter(Boolean)];
@@ -261,7 +325,6 @@ export function mountTeam(d) {
     return `${head}${tabs}${body}${source(docs)}`;
   }
 
-  // --- vərəq: telefonda aşağıdan açılır, geri düyməsi bağlayır
   function openSheet() {
     const sheet = S.teamSheet;
     if (!sheet) return;

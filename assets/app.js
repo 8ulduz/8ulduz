@@ -1,5 +1,5 @@
 // 8ulduz — sayt kodu (build tələb olunmur; birbaşa GitHub Pages-də işləyir).
-// Məlumat: data/news.json və news.<dil>.json (xəbərlər), data/markets.json (valyuta/neft/qızıl) — updater.py yaradır.
+// Məlumat: data/*.json — updater.py yaradır.
 
 /* ---- sabitlər */
 const CATS = [
@@ -923,7 +923,7 @@ async function newsJSON(force, signal) {
   }
   return {...main, tag: tags.some(Boolean) ? tags.join("|") : null};
 }
-// Dəqiqəlik axın: yalnız yeni xəbərlər. Oxucu məşğuldursa ekran dəyişmir, «N yeni xəbər» düyməsi görünür.
+// Dəqiqəlik axın: oxucu məşğuldursa «N yeni xəbər» düyməsi.
 async function loadLatest(force = false) {
   if (S.latestLoading || !S.rawNews) return;
   S.latestLoading = true;
@@ -1108,7 +1108,7 @@ function shell() {
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { setLang(e.target.value); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
   window.addEventListener("hashchange", () => {
-    // Alt başlıq qalır: menyudan başqa bölmənin alt başlığı seçiləndə və liqa/komanda səhifəsindən qayıdanda.
+    // Alt başlıq qalır (menyudan seçiləndə, liqa səhifəsindən qayıdanda).
     const r = route(), kept = S.keepClub || r.name === "team" || (S.prevRoute?.name === "team" && r.name === "section" && r.slug === S.clubSlug);
     S.prevRoute = r;
     S.langOpen = false; S.keepClub = false; S.shown = PAGE; S.lateDone = 0; S.svcOpen = false; if (!kept) { S.club = null; S.sportTab = null; S.clubUrl = ""; }
@@ -1232,7 +1232,7 @@ function navPopHtml(slug, tab, liga) {
   const groups = navGroups(tabs, tab), leagues = navLeagues(slug, tab), on = leagues.flatMap(g => g.items).find(l => l.short === liga) || leagues[0]?.items[0];
   return `<div class="pop-col">${pill("", "Hamısı")}${tabs.map(t => pill(t.name, t.name, !!t.groups)).join("")}</div>` +
     (groups.length || leagues.length ? `<div class="pop-col two">${leagues.map(g => `${leagueHead(g)}${g.items.map(l => leagueLink(l, l === on)).join("")}`).join("")}${groups.map(g => (g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : "") + g.items.map(t => pill(t.name, t.label)).join("")).join("")}</div>` : "") +
-    (on?.clubs.length ? `<div class="pop-col clubs"><a class="pill all" href="#/komanda/${teamSlug(on.short)}">${esc(on.label)}: cədvəl və klublar ›</a>${on.clubs.map(([n, full]) => `<a class="pill" href="${teamHref(on, full)}">${esc(n)}</a>`).join("")}</div>` : "");
+    (on?.clubs.length ? `<div class="pop-col clubs"><a class="pill all" href="#/komanda/${teamSlug(on.short)}">${esc(on.label)}${on.nat ? "" : ": cədvəl və klublar"} ›</a>${on.clubs.map(([n, full]) => `<a class="pill" href="${teamHref(on, full)}">${esc(n)}</a>`).join("")}</div>` : "");
 }
 const popLeft = (left, width, widest) => Math.max(8, Math.min(left, width - widest - 8));
 // Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
@@ -1571,8 +1571,8 @@ function navLeagues(slug, tab) {
   if (tab === "Basketbol") { const items = world("basketball"); return items.length ? [{ label: "Liqalar", items }] : []; }
   if (tab !== "Futbol") return [];
   const az = AZ_LEAGUES.map(short => ({ short, label: short, place: "", clubs: ((S.football?.leagues || []).find(l => l.short === short)?.table || []).map(t => [clubAz(t.team), t.team]) }));
-  const items = world("football");
-  return [{ group: "Azərbaycan", label: "Azərbaycan liqaları", items: az }, ...(items.length ? [{ label: "Dünya liqaları", items }] : [])];
+  const items = world("football"), nat = "Azərbaycan,İngiltərə,İspaniya,İtaliya,Almaniya,Fransa,Türkiyə,Portuqaliya,Hollandiya,Belçika,Şotlandiya,Rusiya,Səudiyyə Ərəbistanı,Braziliya,ABŞ".split(",");
+  return [{ group: "Azərbaycan", label: "Azərbaycan liqaları", items: az }, ...(items.length ? [{ label: "Dünya liqaları", items }] : []), { label: "Milli komandalar", items: [{ short: "Milli komandalar", label: "Ölkələr", place: "", nat: 1, clubs: nat.map(n => [n, n]) }] }];
 }
 const leagueHead = g => `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.label)}</span>`;
 const leagueLink = (l, on) => `<a class="pill${on ? " on" : ""}" href="#/komanda/${teamSlug(l.short)}" data-liga="${esc(l.short)}"><span>${esc(l.label)}</span>${l.place ? `<small>${esc(l.place)}</small>` : ""}</a>`;
@@ -1582,14 +1582,14 @@ function navGroups(tabs, open) {
   // Məlumat çatana qədər klubların düymələri qalır.
   if (open === "Basketbol") return navLeagues("idman", open).length ? [] : groups;
   if (open !== "Futbol") return groups;
-  return groups.flatMap(g => g.group === "Azərbaycan" ? [{ group: "", items: g.items.filter(t => t.name === "Milli komanda") }] : S.sports?.leagues?.length ? [] : [g]);
+  return groups.flatMap(g => g.group === "Azərbaycan" || S.sports?.leagues?.length ? [] : [g]);
 }
 function navRows(slug, open = S.sportTab, club = S.club || "") {
   const tabs = SUB_TABS[slug];
   const pill = (name, label = name) => `<button class="pill ${club === name || open === name ? "on" : ""}" data-club="${esc(name)}">${esc(label)}</button>`;
   const groups = navGroups(tabs, open), leagues = navLeagues(slug, open);
   return `<div class="nav-row"><div class="wrap sport-chips"><div class="chips">${pill("", "Hamısı")}${tabs.map(t => pill(t.name)).join("")}</div></div></div>` +
-    (groups.length || leagues.length ? `<div class="nav-row two"><div class="wrap sport-chips">${leagues.map(g => `<div class="chips sub">${leagueHead(g)}${g.items.map(l => leagueLink(l)).join("")}</div>`).join("")}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name, t.label)).join("")}</div>`).join("")}</div></div>` : "");
+    (groups.length || leagues.length ? `<div class="nav-row two"><div class="wrap sport-chips">${leagues.map(g => `<div class="chips sub">${leagueHead(g)}${g.items.map(l => l.nat ? l.clubs.map(([n]) => `<a class="pill" href="${teamHref(l, n)}">${esc(n)}</a>`).join("") : leagueLink(l)).join("")}</div>`).join("")}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name, t.label)).join("")}</div>`).join("")}</div></div>` : "");
 }
 
 // Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
@@ -3058,7 +3058,7 @@ newsReady.then(flushRender);
 // Hava, namaz, video və sosial şəbəkə ilk şəkilin (LCP) xəttini tutmasın: xəbər ekrana çıxandan sonra.
 const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();
 afterNews(() => { socNow || loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
-// 20 liqanın cədvəli (~17 KB) açılışla xətti bölüşmür: oxucu özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
+// Liqa cədvəlləri (~17 KB) xəbərlərdən sonra və ya oxucu gedəndə.
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
 loadMarkets(); loadStatus();

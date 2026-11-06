@@ -4118,6 +4118,22 @@ def update_cups(checked, now_dt, out_of_time):
             rows.append({"id": cid, "name": doc["name"], "short": short, "source": doc["source"], "sport": "football", "cup": True, "seasons": seasons, "ready": seasons, "teams": sorted(doc["teams"])})
     return rows
 
+# Milli komandaların yarışları (sahib 2026-11-07): faylları .github/scripts/milli.cjs (pipeline slow_loop) Vikipediyadan yazır.
+# Burada yalnız siyahıya (index.json) düşür, «nat» işarəsi ilə: sayt «Milli komandalar»dakı ölkənin yarışını buradan tapır. Şəbəkə yoxdur.
+NATIONAL_DOCS = ("ml-a", "ml-b", "ml-c", "ml-d", "asiya-kuboku")
+
+def national_rows():
+    rows = []
+    for nid in NATIONAL_DOCS:
+        doc = _read_json(TEAM_DIR / f"{nid}.json", {})
+        if not isinstance(doc, dict) or not doc.get("teams"):
+            continue
+        seasons = [{"key": str(doc.get("key") or ""), "label": str(doc.get("season") or "")}]
+        rows.append({"id": nid, "name": doc.get("name") or nid, "short": doc.get("short") or nid, "source": doc.get("source") or "Vikipediya",
+                     "sport": "football", "nat": True, "seasons": seasons, "ready": seasons,
+                     "teams": [r["team"] for g in doc.get("groups") or [] for r in g.get("rows") or []] or sorted(doc["teams"])})
+    return rows
+
 def update_team_pages():
     """Komanda səhifələrinin faylları: hər liqa üçün data/futbol/<liga>.json (cədvəl və mövsümün bütün oyunları), keçmiş mövsümlər
     <liga>-<il>.json, siyahı index.json. Alınmayan liqanın köhnə faylı qalır."""
@@ -4239,6 +4255,7 @@ def update_team_pages():
     squads = update_team_squads([x["id"] for x in world_rows if x["id"] in _OPENLIGA_LEAGUES], out_of_time, now_dt)
     leagues += [dict(x, heyet=squads[x["id"]]) if squads.get(x["id"]) else x for x in world_rows]
     leagues += update_cups(checked, now_dt, out_of_time)
+    leagues += national_rows()
     _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty), "openliga": openliga})
     print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {time.monotonic() - started:.1f} s")
 

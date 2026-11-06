@@ -2071,3 +2071,19 @@ class SharePagesTest(unittest.TestCase):
                 updater.write_first([], data["updatedAt"])
                 for name in ("news.json", "news.ru.json", "first.json"):
                     self.assertTrue(updater.json.loads((pathlib.Path(tmp) / name).read_text(encoding="utf-8")).get("sharePages"), name)
+
+
+class NationalTeamsTest(unittest.TestCase):
+    """Sahib, 2026-11-07: «Milli komandalar» — ölkənin yarışı komanda səhifəsində (faylları .github/scripts/milli.cjs yazır)."""
+
+    def test_national_competitions_are_listed_for_the_team_pages(self):
+        doc = {"id": "ml-d", "name": "Millətlər Liqası D", "short": "Millətlər Liqası D", "source": "Vikipediya", "nat": True, "key": "2026", "season": "2026/27",
+               "teams": {"azerbaycan": {"name": "Azərbaycan", "logo": ""}, "litva": {"name": "Litva", "logo": ""}},
+               "groups": [{"name": "Qrup 2", "rows": [{"team": "azerbaycan", "pos": 1}, {"team": "litva", "pos": 2}]}], "games": []}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "TEAM_DIR", pathlib.Path(tmp)):
+            self.assertEqual(updater.national_rows(), [], "fayl yoxdursa siyahıya düşmür")
+            (pathlib.Path(tmp) / "ml-d.json").write_text(json.dumps(doc), encoding="utf-8")
+            (pathlib.Path(tmp) / "ml-a.json").write_text("pozuq", encoding="utf-8")
+            rows = updater.national_rows()
+        self.assertEqual(rows, [{"id": "ml-d", "name": "Millətlər Liqası D", "short": "Millətlər Liqası D", "source": "Vikipediya", "sport": "football", "nat": True,
+                                 "seasons": [{"key": "2026", "label": "2026/27"}], "ready": [{"key": "2026", "label": "2026/27"}], "teams": ["azerbaycan", "litva"]}])
