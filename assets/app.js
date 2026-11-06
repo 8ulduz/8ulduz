@@ -2370,9 +2370,13 @@ function onClick(e) {
 }
 
 const THEME_KEY = "8ulduz-theme", FS_KEY = "8ulduz-fs";
+const SYS_LIGHT = globalThis.matchMedia?.("(prefers-color-scheme: light)"); // istinad saxlanır: yoxsa dinləyici itir
+// Oxucu rejimi seçməyibsə telefon rejimi dəyişəndə (axşam avtomatik tünd) sayt da dəyişir.
+SYS_LIGHT?.addEventListener?.("change", () => { if (!storage.getItem(THEME_KEY)) { applyPrefs(); renderTopbar(); } });
 function applyPrefs() {
   document.documentElement.dataset.motion = motionOff() ? "off" : "on";
-  const theme = storage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  const saved = storage.getItem(THEME_KEY); // seçim yoxdursa telefonun rejimi (sahib, 2026-11-06); bilinməsə tünd
+  const theme = saved === "light" || saved === "dark" ? saved : SYS_LIGHT?.matches ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
   let fs = storage.getItem(FS_KEY);
   if (!/^[0-4]$/.test(fs || "")) fs = "2";

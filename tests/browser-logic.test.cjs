@@ -54,6 +54,17 @@ test('blocked browser storage still allows preferences and saving', () => {
   assert.equal(ctx.api.storage.getItem('8ulduz-theme'), null);
 });
 
+test('first visit follows the phone theme, the reader choice wins, unknown is dark (owner, 2026-11-06)', () => {
+  for (const [sys, saved, want] of [[true, null, 'light'], [false, null, 'dark'], [undefined, null, 'dark'], [true, 'dark', 'dark'], [false, 'light', 'light']]) {
+    const ctx = app(sys === undefined ? {} : { matchMedia: q => ({ matches: q.includes('light') && sys, addEventListener() {} }) });
+    if (saved) ctx.api.storage.setItem('8ulduz-theme', saved);
+    ctx.api.applyPrefs();
+    assert.equal(ctx.document.documentElement.dataset.theme, want, `sistem ${sys}, seçim ${saved}`);
+  }
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(index.includes('t === "light" || t === "dark" ? t : matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"'), 'ilk çəkilişdə də eyni qayda (ekran yanıb-sönmür)');
+});
+
 test('broken percent-encoded route does not break the page', () => {
   const ctx = app();
   ctx.location.hash = '#/axtar?q=100%';
