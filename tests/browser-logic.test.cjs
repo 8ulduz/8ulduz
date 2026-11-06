@@ -85,6 +85,16 @@ test('reader font starts at the former two-click size and adjusts in both direct
   assert.equal(ctx.document.documentElement.dataset.fs, '2');
 });
 
+test('the default typography keeps every token of the original two-click size', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  const defaults = css.match(/:root\{([^}]+)\}/)[1];
+  const values = Object.fromEntries([...defaults.matchAll(/--((?:fs|lh)-[\w-]+):([^;]+);/g)].map(m=>[m[1],m[2]]));
+  assert.deepEqual(values, {
+    'fs-display':'26px','lh-display':'32px','fs-title':'22px','lh-title':'28px',
+    'fs-headline':'21px','lh-headline':'28px','fs-body':'18px','lh-body':'26px','fs-meta':'14px','lh-meta':'20px'
+  }, 'reference: original html[data-fs="2"] before this change');
+});
+
 test('invalid JSON response does not poison ETag; same response can recover', async () => {
   const ctx = app();
   let valid = false;

@@ -17,7 +17,7 @@ Vəziyyət: yalnız yerli önizləmə. Sahib canlıya tətbiqdən əvvəl görm�
 - Köhnə 0/1/2 seçimlərinin görünən ölçüsü dəyişmir; yeni seçimlər də eyni yaddaş açarında saxlanır.
 - CSS-in öz əsas ölçüsü də 18 px-dir: JavaScript gözlənilmir və yaddaş bağlananda kiçik şriftə qayıtmır.
 - İlk HTML skripti və yaradılan bölmə/paylaşma səhifələri yeni 0–4 aralığını tanıyır; CSP hash yenilənib. Hazır ilk ekran generatorla yenilənib.
-- Böyük şriftlə planşetin yuxarı zolağı lazım olduqda yeni sətrə keçir.
+- Yalnız yeni 3/4-cü pillələrdə planşetin yuxarı zolağı lazım olduqda yeni sətrə keçir. Əsas (əvvəlki 2) ölçünün düzülüş qaydası dəyişmir.
 
 ## Yoxlama
 
@@ -28,3 +28,11 @@ Vəziyyət: yalnız yerli önizləmə. Sahib canlıya tətbiqdən əvvəl görm�
 - Yayım yoxdur; yayım sonrası avtomatik sürət büdcəsi hələ işlədilməyib.
 
 Mənbə qaydaları və sürətli dövrə dəyişmir.
+
+## Şəkil üzrə düzəliş
+
+Sahib POCO X5 Pro telefonundan iki A+ klikindən sonrakı ana səhifəni göndərdi. Əvvəlki təqdimat Gündəm bölməsindən və daha dar brauzer enindən idi; onu telefonun ana səhifəsi ilə birbaşa müqayisə etmək düzgün deyildi.
+
+Eyni 393 px enli yerli brauzerdə köhnə nüsxənin iki A+ klikindən sonrakı halı ilə yeni əsas ölçü tutuşduruldu: hər ikisində gövdə 18 px, ana slayd başlığı 22 px, Zuğulba kart mətni 18 px, kart 330×110 px, başlıq sahəsi 221,33 px, slaydın yuxarı koordinatı 314,875 px. Bütün əvvəlki 2-ci pillə şrift və sətir hündürlüyü dəyişənlərinin qorunması üçün reqressiya testi əlavə edildi.
+
+Yeni göstərilən önizləmə ana səhifədir; mobil ölçü yoxlaması fiziki POCO cihazında yox, kompüter brauzerində aparılıb. Sistem şriftinin forması və toxunma rejiminə aid elementlər fiziki telefondan fərqlənə bilər. Canlıya tətbiq edilməyib.

@@ -1135,8 +1135,9 @@ a.pill.on small{color:inherit}
 .prefs .theme-btn .face{gap:4px}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: kompüterdə loqo/bölmələr/axtarışın altında, telefonda loqo ilə bölmələr arasında */
 .hrow{flex-wrap:wrap}
-.hrow>.topbar{flex:1 0 100%;min-width:0;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
-.hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
+.hrow>.topbar{flex:1 0 100%;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
+html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar{min-width:0}
+html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
 /* Paylaşma: hər yerdə «Paylaş» düyməsi → panel (telefondakı yerində işarələr sahibin istəyi ilə götürüldü, 2026-11-05) */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
