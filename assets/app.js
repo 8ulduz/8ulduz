@@ -240,8 +240,7 @@ const isFirstLady = a => !!a && flText(a.title);
 // Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
-// Zuğulba xronikasında rəsmi səhifələrlə yanaşı dövlət və iqtidar saytlarının prezident xəbərləri də görünür:
-// Eyni xəbər bir neçə mənbədə çıxanda updater bir karta birləşdirir (rəsmi mənbə əsas), blok təkrarlanmır.
+// Zuğulba: rəsmi səhifələr + dövlət saytlarının prezident xəbərləri; eyni xəbər bir kartdır (rəsmi mənbə əsas).
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
 // Təyinat və azad etmə xəbərləri: yalnız hero və «Ən çox mənbədə» sırasında əlavə çəki.
@@ -269,7 +268,7 @@ function prezHome(list, all = list) {
   const ladyHead = Math.min(lady.length, head - presHead);
   const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
-  // 44 dolmursa: rəsmi saytların qalanı, digər saytlar, sonda başqa dillər (qarışanda ilk ekranda rusca kart çıxırdı).
+  // 44 dolmursa: rəsmi saytlar, digər saytlar, sonda başqa dillər.
   const chosen = new Set([...first, ...rest].map(a => a.id)), take = l => l.filter(a => !chosen.has(a.id) && chosen.add(a.id));
   const ours = l => byDate(l.filter(a => a.category === "prezident" && aboutOurLeaders(a)));
   const own = [...first, ...rest, ...take(byDate(prez)), ...take(ours(list))].slice(0, PREZ_COUNT);
@@ -1203,7 +1202,7 @@ const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", 
 // Ölçmə çəkilişin ortasında yerləşdirməni təkrarlatmasın: bütün dəyişikliklərdən sonra bir dəfə.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
 // Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad (şrift kiçilmir: 9,8 px olardı, oxunmazdı).
-const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", sosial: "Sosial", tehsil: "Təhsil" };
+const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", tehsil: "Təhsil" };
 const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
@@ -1607,7 +1606,7 @@ function profileRows() {
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
   const posts = side ? socialForSide() : orderedSocialPosts(8);
-  const cards = posts.map(p => `<a class="soc-p" href="${safeHref(p.url)}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>`).join("");
+  const cards = posts.map(p => { const u = safeHref(p.url); return `<article class="soc-r"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>${u === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(u)}" title="Paylaş">Paylaş</button>`}</article>`; }).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
@@ -1924,7 +1923,7 @@ function sectionView(slug) {
       list = byDate(allNews().filter(a => a.category !== "idman" && clubMatches(a, S.club)));
     }
   }
-  if (slug === "prezident") extra = optional(socialBlock);
+  if (slug === "prezident") extra = `<details class="social-details"><summary>Rəsmi sosial hesablar ▾</summary>${optional(socialBlock)}</details>`;
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
@@ -2774,7 +2773,7 @@ function setupMarquees() {
     el.style.height = "";
     el.classList.remove("vmarquee");
     for (const item of el.children) item.style.height = "";
-    // Toxunma ekranında və dar ekranda daxili sürüşmə yoxdur: overscroll səhifəni tuturdu; ilk 4–5 sətir sabit görünür
+    // Toxunma/dar ekranda daxili sürüşmə yoxdur (overscroll səhifəni tuturdu)
     el.classList.toggle("static-list", matchMedia("(hover: none)").matches || matchMedia("(max-width: 900px)").matches);
     if (el.classList.contains("static-list")) { unwrapMarquee(el); return; }
     if (marqueeNarrow(el)) { unwrapMarquee(el); return; }

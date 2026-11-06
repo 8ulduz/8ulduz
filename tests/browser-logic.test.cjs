@@ -886,6 +886,16 @@ test('social posts are ordered by time only and show the reporting source', () =
   const html = ctx.api.socialBlock(true);
   assert.ok(html.includes('<span class="via">Report.az</span>'));
   assert.ok(html.indexOf('yeni') < html.indexOf('orta'));
+  // sahib 2026-11-06: sosial yazının da «Paylaş» düyməsi var (keçidin kənarında)
+  ctx.api.S.social.posts[1].url = 'https://x.com/1st_Lady_AZ/status/1';
+  assert.ok(ctx.api.socialBlock(false).includes('</a><button type="button" class="share" data-act="share" data-share="https://x.com/1st_Lady_AZ/status/1" title="Paylaş">Paylaş</button></article>'));
+  // Zuğulba səhifəsi xronika ilə açılır: sosial şəbəkələr bağlı bölmədədir; menyuda «Sosial müdafiə» tam yazılır
+  const src = fs.readFileSync(path.join(__dirname, '..', 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (slug === "prezident") extra = `<details class="social-details"><summary>'));
+  assert.ok(!/NAV_SHORT = \{[^}]*sosial/.test(src));
+  const css = fs.readFileSync(path.join(__dirname, '..', 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.card :is(h2,h3){margin:0') && css.includes('.card h2,.card h3,'), 'bölmə kartının başlığı (h2) sətir hündürlüyü alır');
+  assert.ok(css.includes('nav.main .nav-more-pop a{font-size:var(--fs-body)'));
 });
 
 test('appointment and dismissal news are recognised; Zuğulba includes state sites with thumbnails', () => {
