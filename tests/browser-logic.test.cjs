@@ -260,29 +260,31 @@ test('phone headings use short names so they fit three rows, screen readers keep
   assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-f">Sağlamlıq və həyat<'));
   assert.equal(label({slug:'gundem',label:'Gündəm'}),'Gündəm');
 });
-test('phone nav: three rows of five, «Ana ekrana əlavə et» is the 15th pill and shows only when the app can be installed', () => {
+test('phone nav: one row of four sections and ☰ that opens every section in a list, then the Telegram line (owner, 2026-11-06)', () => {
   const els = {};
   const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; }, querySelectorAll() { return []; }, querySelector: s => s === '#nav' ? (els.nav ||= { innerHTML: '' }) : null };
   const ctx = app({ document: doc, requestAnimationFrame: () => 0 }), { S } = ctx.api;
   const html = () => { vm.runInContext('renderNav()', ctx); return els.nav.innerHTML; };
-  let h = html().split('<details class="nav-more">')[0]; // «Daha çox» menyusu (masaüstü) sayılmır
-  const rows = h.split('<i class="nb"></i>').map(r => (r.match(/<a href="#\/bolme\//g) || []).length);
-  assert.deepEqual(rows, [5, 5, 4], 'iki sıra qırığı: 5 / 5 / 4 bölmə + düymə');
+  let h = html();
+  const [row, rest] = h.split('<details class="nav-more">');
+  const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
+  assert.deepEqual(phone, ['sondeqiqe', 'gundem', 'idman', 'prezident'], 'telefonda sətirdə yalnız 4 bölmə');
+  const list = (rest.split('</details>')[0].match(/<a href="#\/bolme\//g) || []).length;
+  assert.equal(list, (h.match(/<a href="#\/bolme\/[a-z]+" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
+  assert.ok(rest.includes('<summary aria-label="Bütün bölmələr">☰ Hamısı</summary>'));
   assert.ok(h.includes('<button type="button" class="nav-inst" data-act="install" hidden>'), 'quraşdırma mümkün deyilsə düymə gizlidir');
-  assert.ok(h.indexOf('class="nav-inst"') > h.lastIndexOf('<a href="#/bolme/'), 'düymə sonuncu, 15-ci yerdədir');
+  assert.ok(rest.split('</details>')[0].includes('class="nav-inst"'), '«Ana ekrana» ☰ siyahısının içindədir');
   S.installEvt = {};
   h = html();
   assert.ok(h.includes('class="nav-inst" data-act="install">'), 'Chrome təklif verəndə düymə görünür');
   assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı');
+  assert.ok(h.indexOf('class="nav-tg" href="https://t.me/sekkizulduz_az"') > h.indexOf('</details>'), 'Telegram çağırışı ☰-dan sonra, öz sətrində');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
-  assert.ok(css.includes('.nb,.nav-inst{display:none}'), 'masaüstündə nə qırıq, nə düymə');
-  assert.ok(css.includes('nav.main .nb{display:block;flex:1 0 100%;height:0'), 'sıra qırığı yalnız telefonda');
-  // Sahib, 2026-11-06: 375 px-də «İdman» tək sətrə düşürdü (4 sətir); boşalan yerdə gündəlik icmalın Telegram çağırışı.
-  assert.ok(css.includes('nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}'), 'ilk sətir (5 bölmə) 343 px-ə sığır');
-  assert.ok(css.includes('nav.main .nav-tg{display:none}') && css.includes('nav.main .nav-tg{display:flex;flex:1 0 100%'), 'çağırış yalnız telefonda, öz sətrində');
-  assert.ok(h.includes('class="nav-tg" href="https://t.me/sekkizulduz_az"') && h.indexOf('nav-tg') > h.indexOf('nav-inst'), 'Telegram çağırışı bölmələrdən sonra');
+  assert.ok(css.includes('.nav-inst{display:none}nav.main .nav-tg{display:none}'), 'masaüstündə nə düymə, nə çağırış');
+  assert.ok(css.includes('nav.main>a:not(.ph,.nav-tg){display:none}'), 'telefonda qalan bölmələr ☰-dadır');
+  assert.ok(css.includes('nav.main .nav-more-pop{position:fixed;inset:auto 0 0;') && css.includes('grid-template-columns:1fr 1fr'), 'siyahı aşağıdan, iki sütun alt-alta');
+  assert.ok(css.includes('nav.main .nav-tg{display:flex;flex:1 0 100%'), 'çağırış yalnız telefonda, öz sətrində');
   assert.ok(/nav\.main \.nav-inst\{display:inline-flex[^}]*background:var\(--primary\)/.test(css), 'düymə öz rəngində');
-  assert.ok(css.includes('nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto'), 'sətirlər bərabər dolur');
 });
 test('Zuğulba always shows 44 stories: official and state sites first, then others',()=>{
   const ctx=app(),{prezHome,prezBlock}=ctx.api,at=i=>new Date(Date.now()-i*3600e3).toISOString();

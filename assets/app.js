@@ -1199,7 +1199,7 @@ function renderTopbar() {
   syncTixDot();
 }
 
-const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"];
+const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["sondeqiqe", "gundem", "idman", "prezident"];
 // Ölçmə çəkilişin ortasında yerləşdirməni təkrarlatmasın: bütün dəyişikliklərdən sonra bir dəfə.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
 // Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad (şrift kiçilmir: 9,8 px olardı, oxunmazdı).
@@ -1207,15 +1207,15 @@ const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", sosial: "Sosial
 const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
-  const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub"].filter(Boolean).join(" ");
+  const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub", NAV_PHONE.includes(c.slug) && "ph"].filter(Boolean).join(" ");
   const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
-  const primary = NAV_PRIMARY, nb = i => i === 4 || i === 9 ? '<i class="nb"></i>' : ""; // telefonda 3×5: 5-ci və 10-cudan sonra sıra qırığı
-  // nav-x: telefonda görünən qalan bölmələr; .nav-inst: «Ana ekrana əlavə et» 15-ci düymə (quraşdırma mümkünsə)
-  const extra = CATS.filter(c => !primary.includes(c.slug)).map((c, i) => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>${nb(i + 7)}`).join("");
-  const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map((slug, i) => link(CATS.find(c => c.slug === slug)) + nb(i)).join("") + extra +
-    `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button>` +
-    `<a class="nav-tg" href="${esc(window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az")}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>` +
-    `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
+  // Telefon (sahib, 2026-11-06): bir sətirdə 4 bölmə (.ph) və ☰; ☰ bütün bölmələri alt-alta açır, «Ana ekrana» da oradadır
+  const primary = NAV_PRIMARY;
+  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
+  const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
+    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a>` +
+    `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button></div></details>` +
+    `<a class="nav-tg" href="${esc(window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az")}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>`;
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;
   afterPaint(fitNav);
