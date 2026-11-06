@@ -2,36 +2,38 @@
 /* hidden display:flex qaydalarından güclü olsun (Telegram bloku boş kanalda görünürdü) */
 [hidden]{display:none!important}
 :root{
-  --bg:hsl(222 47% 5%);--fg:hsl(210 40% 96%);--card:hsl(222 40% 8%);--card2:hsl(222 34% 11%);
-  --primary:hsl(43 96% 56%);--primary-fg:hsl(222 47% 8%);--muted:hsl(215 20% 68%);--muted2:hsl(215 16% 62%);
-  --border:hsl(222 24% 16%);--red:hsl(0 84% 60%);--green:#10b981;
-  --pray-on:#f0fdf4;--pray-dim:#d1fae5;
-  --pray-fill:radial-gradient(90% 55% at 100% 0%,hsl(158 72% 46%/.3),transparent 58%),linear-gradient(180deg,#047857 0%,#064e3b 100%);
-  --pray-pill:linear-gradient(180deg,#059669 0%,#047857 100%);
+  --bg:#15233b;--fg:#d5deeb;--card:#1c2c46;--card2:#263952;
+  --primary:#d6bd80;--primary-fg:#15233b;--muted:#aabbd2;--muted2:#a0b1c9;
+  --border:#3e5370;--red:hsl(0 84% 60%);--green:#10b981;
+  --pray-on:#e0e8e4;--pray-dim:#c4d5cc;
+  --pray-fill:linear-gradient(180deg,#344d46,#2e443e);
+  --pray-pill:#35594e;
   --pray-chip:hsl(152 70% 100%/.14);--pray-chip-line:hsl(152 60% 100%/.32);
-  --pray-next:linear-gradient(180deg,#10b981 0%,#059669 100%);
-  --sky-on:#f8fcff;--sky-dim:#e0f2fe;
-  --sky-fill:radial-gradient(90% 55% at 100% 0%,hsl(199 95% 62%/.28),transparent 58%),linear-gradient(180deg,#0369a1 0%,#0c4a6e 100%);
-  --sky-pill:linear-gradient(180deg,#0284c7 0%,#0369a1 100%);
+  --pray-next:#42675a;
+  --sky-on:#e0e8f1;--sky-dim:#c1d0df;
+  --sky-fill:linear-gradient(180deg,#344a60,#2c4054);
+  --sky-pill:#294663;
   --sky-chip:hsl(199 100% 100%/.14);--sky-chip-line:hsl(199 100% 100%/.32);
   --radius:12px;--gap:16px;--gutter:16px;--maxw:1320px;
-  --fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;
-  --fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px;
+  --fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;
+  --fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px;
   --fw-regular:400;--fw-semibold:600;--fw-bold:700;
-  --header:hsl(222 47% 5%);--surface:hsl(222 47% 5%/.5);--soc-chip:hsl(222 47% 5%/.45);--chip:hsl(210 40% 92%);--src-fg:hsl(210 40% 90%);--modal-fg:hsl(210 40% 96%/.9);
-  --footer:hsl(222 40% 8%/.4);--ad:hsl(222 40% 8%/.35);--ad-border:hsl(222 24% 24%);
-  --ticker-bg:hsl(0 84% 60%/.08);--ticker-fg:hsl(210 40% 96%/.9);
-  --mk-a:hsl(188 36% 18%);--mk-b:hsl(205 40% 12%);--mk-border:hsl(43 58% 46%/.55);
-  --mk-label:hsl(43 45% 78%);--mk-unit:hsl(43 30% 70%);--mk-flat:hsl(200 28% 14%);--mk-flat-fg:hsl(43 35% 74%);--mk-chg:hsl(200 30% 10%/.55);
-  --fallback:radial-gradient(ellipse at 20% 0%,hsl(43 96% 56% / .12),transparent 55%),radial-gradient(ellipse at 90% 100%,hsl(215 90% 55% / .14),transparent 55%),linear-gradient(135deg,#0e1525,#080c17);
+  --header:#15233b;--surface:#1a2a43;--soc-chip:#1a2a43;--chip:#c9d4e5;--src-fg:#c9d4e5;--modal-fg:#d5deeb;
+  --footer:#1a2a43;--ad:#1a2a43;--ad-border:#4c627f;
+  --ticker-bg:#292637;--ticker-fg:#d5deeb;
+  --mk-a:#213550;--mk-b:#213550;--mk-border:#465e7c;
+  --mk-label:#c4d1e2;--mk-unit:#aabbd2;--mk-flat:#263b56;--mk-flat-fg:#cbd7e6;--mk-chg:#14243b;
+  --fallback:#1c2c46;
 }
 html{font-size:var(--fs-body)}
+html[data-fs="0"]{--fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;--fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px}
 html[data-fs="1"]{--fs-display:24px;--lh-display:30px;--fs-title:20px;--lh-title:26px;--fs-headline:19px;--lh-headline:26px;--fs-body:17px;--lh-body:25px;--fs-meta:13px;--lh-meta:18px}
-html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;--fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px}
+html[data-fs="3"]{--fs-display:28px;--lh-display:35px;--fs-title:24px;--lh-title:31px;--fs-headline:23px;--lh-headline:31px;--fs-body:20px;--lh-body:29px;--fs-meta:15px;--lh-meta:22px}
+html[data-fs="4"]{--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title:34px;--fs-headline:25px;--lh-headline:34px;--fs-body:22px;--lh-body:32px;--fs-meta:16px;--lh-meta:23px}
 :root[data-theme="light"]{
-  --bg:hsl(210 40% 97%);--fg:hsl(222 47% 12%);--card:#fff;--card2:hsl(210 32% 93%);
-  --primary:hsl(38 88% 36%);--primary-fg:#fff;--muted:hsl(215 16% 32%);--muted2:hsl(215 12% 42%);
-  --border:hsl(214 22% 82%);
+  --bg:#fff8d8;--fg:#172b4d;--card:#fffcef;--card2:#f2e9bd;
+  --primary:#19385f;--primary-fg:#fff8d8;--muted:#465773;--muted2:#52617b;
+  --border:#c7bf98;
   --pray-on:#064e3b;--pray-dim:#065f46;
   --pray-fill:radial-gradient(90% 60% at 0% 0%,#fff,transparent 55%),linear-gradient(180deg,#ecfdf5 0%,#6ee7b7 100%);
   --pray-pill:linear-gradient(180deg,#6ee7b7 0%,#34d399 100%);
@@ -41,11 +43,11 @@ html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title
   --sky-fill:radial-gradient(90% 60% at 0% 0%,#fff,transparent 55%),linear-gradient(180deg,#e0f2fe 0%,#7dd3fc 100%);
   --sky-pill:linear-gradient(180deg,#7dd3fc 0%,#38bdf8 100%);
   --sky-chip:hsl(199 100% 100%/.62);--sky-chip-line:hsl(201 70% 28%/.2);
-  --header:hsl(210 40% 98%);--surface:hsl(204 45% 96%);--soc-chip:hsl(204 45% 96%);--chip:hsl(222 35% 20%);--src-fg:hsl(222 35% 20%);--modal-fg:hsl(222 47% 12%);
-  --footer:hsl(210 33% 95%);--ad:hsl(210 30% 95%);--ad-border:hsl(214 18% 76%);
-  --ticker-bg:hsl(0 70% 96%);--ticker-fg:hsl(222 40% 16%);
-  --mk-a:hsl(183 48% 88%);--mk-b:hsl(196 42% 78%);--mk-border:hsl(188 42% 32%/.45);
-  --mk-label:hsl(192 48% 20%);--mk-unit:hsl(196 28% 28%);--mk-flat:hsl(188 32% 74%);--mk-flat-fg:hsl(200 32% 18%);--mk-chg:hsl(196 28% 32%/.12);
+  --header:#fff8d8;--surface:#f8f1d2;--soc-chip:#f8f1d2;--chip:#243b5a;--src-fg:#243b5a;--modal-fg:#172b4d;
+  --footer:#f2e9bd;--ad:#f2e9bd;--ad-border:#aca16d;
+  --ticker-bg:#f4e8cf;--ticker-fg:#172b4d;
+  --mk-a:#f4e8b1;--mk-b:#eee0a2;--mk-border:#b3a567;
+  --mk-label:#203653;--mk-unit:#465773;--mk-flat:#e8ddab;--mk-flat-fg:#203653;--mk-chg:#19385f14;
   --fallback:radial-gradient(ellipse at 20% 0%,hsl(43 90% 70% / .35),transparent 55%),radial-gradient(ellipse at 90% 100%,hsl(190 50% 70% / .28),transparent 55%),linear-gradient(135deg,#e7eef6,#f7f4ea);
 }
 *{box-sizing:border-box}
@@ -100,7 +102,7 @@ header.site{position:sticky;top:0;z-index:50;background:var(--header);border-bot
 /* Loqo: assets/logo.png (ağ «8», sarı ULDUZ); açıq temada tünd lövhə üstündə */
 .logo{display:flex;align-items:center;flex:none}
 .logo img{display:block;height:40px;width:auto}
-:root[data-theme="light"] .logo{background:#0e0d0b;border-radius:9px;padding:4px 9px}
+:root[data-theme="light"] .logo{background:#172b4d;border-radius:9px;padding:4px 9px}
 /* Masaüstü: bir sətir, sığmayanlar «Daha çox»da */
 nav.main{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;flex:1 1 220px;min-width:0;overflow:visible}
 nav.main a{white-space:nowrap;padding:5px 8px;border-radius:999px;font-weight:600;font-size:0.8929rem;line-height:1.25;color:var(--muted);flex:none}
@@ -1109,6 +1111,8 @@ a.pill.on small{color:inherit}
 .follow-btn::before,.follow-btn::after{content:"";position:absolute;inset:-1px;pointer-events:none;border:2px solid var(--glow);border-radius:inherit;box-shadow:0 0 6px var(--glow),inset 0 0 4px var(--glow);animation:var(--follow-motion,follow-glow 2.4s ease-in-out infinite)}
 .follow-btn::after{--glow:var(--primary);opacity:1}
 .follow-btn::before{--glow:#4aa7ff;opacity:.08;animation-delay:-1.2s}
+:root:not([data-theme="light"]) .follow-btn{border-color:var(--border)}
+:root:not([data-theme="light"]) .follow-btn::before,:root:not([data-theme="light"]) .follow-btn::after{display:none}
 #footer .follow-btn{display:inline-flex;margin-top:12px}
 @keyframes follow-glow{0%,100%{opacity:1}50%{opacity:.08}}
 :root[data-motion="off"] .follow-btn{--follow-motion:none}
@@ -1134,6 +1138,9 @@ a.pill.on small{color:inherit}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: kompüterdə loqo/bölmələr/axtarışın altında, telefonda loqo ilə bölmələr arasında */
 .hrow{flex-wrap:wrap}
 .hrow>.topbar{flex:1 0 100%;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
+html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar{min-width:0}
+html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
+@media(min-width:721px){html[data-fs="2"] .hrow>.topbar{min-width:0}html[data-fs="2"] .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}}
 /* Paylaşma: hər yerdə «Paylaş» düyməsi → panel (telefondakı yerində işarələr sahibin istəyi ilə götürüldü, 2026-11-05) */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}

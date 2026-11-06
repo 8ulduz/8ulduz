@@ -1956,11 +1956,11 @@ _STORY_HTML = """<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
-    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");if(f==="0"||f==="1"||f==="2")document.documentElement.dataset.fs=f;}catch(e){}</script>
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__TITLE__ — 8ulduz</title>
     <meta name="description" content="__DESC__" />
     <link rel="canonical" href="__URL__" />
-    <meta name="theme-color" content="#0a1120" />
+    <meta name="theme-color" content="#15233b" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="8ulduz" />
     <meta property="og:title" content="__TITLE__" />
@@ -4595,11 +4595,11 @@ _SECTION_HTML = """<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
-    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");if(f==="0"||f==="1"||f==="2")document.documentElement.dataset.fs=f;}catch(e){}</script>
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__LABEL__ — 8ulduz</title>
     <meta name="description" content="__DESC__ — 8ulduz, Azərbaycan və dünyadan son xəbərlər." />
     <link rel="canonical" href="__URL__" />
-    <meta name="theme-color" content="#0a1120" />
+    <meta name="theme-color" content="#15233b" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="8ulduz" />
     <meta property="og:title" content="__LABEL__ — 8ulduz" />
