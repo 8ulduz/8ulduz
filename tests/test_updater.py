@@ -2087,3 +2087,17 @@ class NationalTeamsTest(unittest.TestCase):
             rows = updater.national_rows()
         self.assertEqual(rows, [{"id": "ml-d", "name": "Millətlər Liqası D", "short": "Millətlər Liqası D", "source": "Vikipediya", "sport": "football", "nat": True,
                                  "seasons": [{"key": "2026", "label": "2026/27"}], "ready": [{"key": "2026", "label": "2026/27"}], "teams": ["azerbaycan", "litva"]}])
+
+
+class BulkDatedArchiveTest(unittest.TestCase):
+    def test_a_feed_with_unreliable_dates_also_leaves_the_archive(self):
+        # 2026-11-07: Marja.az lentindən çıxmışdı, amma arxivdə 38 şəkilsiz, eyni vaxtlı xəbəri İqtisadiyyatın yarısını tuturdu.
+        same = "Fri, 06 Nov 2026 17:46:22 +0000"
+        bulk = {"at": 1, "items": [{"link": f"https://marja.az/{i}/x", "title": f"x{i}", "pubDate": same} for i in range(updater.BULK_MIN_ITEMS + 5)]}
+        fine = {"at": 1, "items": [{"link": f"https://apa.az/{i}", "title": f"y{i}", "pubDate": f"Fri, 06 Nov 2026 {i % 24:02d}:00:00 +0000"} for i in range(updater.BULK_MIN_ITEMS + 5)]}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FEED_CACHE", pathlib.Path(tmp) / "c.json"), patch.object(updater, "SLOW_FEED_CACHE", pathlib.Path(tmp) / "s.json"):
+            (pathlib.Path(tmp) / "c.json").write_text(json.dumps({"Marja.az": bulk, "APA": fine}), encoding="utf-8")
+            sources = updater.bulk_dated_sources()
+        self.assertIn("Marja.az", sources)
+        self.assertNotIn("APA", sources)
+        self.assertIn('and a.get("source") not in bulk', inspect.getsource(updater.update_archive))

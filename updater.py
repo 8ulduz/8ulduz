@@ -1040,7 +1040,13 @@ def _short(desc, n=SUMMARY_MAX):
     cut = desc[:n].rsplit(" ", 1)[0]
     return cut + "…"
 
+# Lentin bölmə süzgəci işləməyən mənbə (2026-11-07: TASS «sections=sport» bütün xəbərləri verir, İdmanda «Kiyevdə partlayışlar» çıxdı):
+# yalnız bu ünvanlı xəbər lentin bölməsinə düşür, qalanının bölməsini məzmun müəyyən edir (xəbər itmir).
+HINT_URL = {"TASS Sport": "tass.ru/sport/"}
+
 def make_article(it, source, default_lang, hint=None, force_label=None):
+    if hint and source in HINT_URL and HINT_URL[source] not in str(it.get("link") or ""):
+        hint = None
     title = _plain(it["title"], title=True)
     desc = _plain(it["description"])
     lang = detect_lang(title, desc, default_lang)
@@ -1789,13 +1795,24 @@ ARCHIVE_MAX_BY_SECTION = {"idman": 800, "bolgeler": 600}  # komanda və rayon d�
 BACKLOG_SECTIONS = {"bolgeler", "sosial"}
 ARCHIVE_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "video")
 
-def feed_backlog(cutoff):
-    """Lent 3-4 saat əhatə edir: rayon və qurum xəbəri çox vaxt ondan köhnədir, lentdən keçmədiyi üçün arxivə də düşmürdü.
-    Azərbaycan lentlərinin Bölgələr və Sosial müdafiə xəbərləri arxivə birbaşa gəlir, süzgəclər lentdəki ilə eynidir."""
+def _feed_cache():
+    """Lentlərin son cavabı (sürətli və yavaş dövrənin keşi, hansı təzədirsə)."""
     cache = _read_json(FEED_CACHE, {})
     for name, entry in _read_json(SLOW_FEED_CACHE, {}).items():
         if entry.get("at", 0) > (cache.get(name) or {}).get("at", 0):
             cache[name] = entry
+    return cache
+
+def bulk_dated_sources():
+    """Hazırda tarixi etibarsız lentlər (bulk_dated). Lentdən onsuz da çıxırlar; 2026-11-07: Marja.az-ın əvvəl arxivə düşmüş
+    38 şəkilsiz, eyni vaxtlı xəbəri (köhnə reklamlar da) İqtisadiyyat səhifəsinin yarısını tuturdu — arxivdən də çıxırlar."""
+    cache = _feed_cache()
+    return {source for source, *_ in FEEDS if bulk_dated((cache.get(source) or {}).get("items") or [])}
+
+def feed_backlog(cutoff):
+    """Lent 3-4 saat əhatə edir: rayon və qurum xəbəri çox vaxt ondan köhnədir, lentdən keçmədiyi üçün arxivə də düşmürdü.
+    Azərbaycan lentlərinin Bölgələr və Sosial müdafiə xəbərləri arxivə birbaşa gəlir, süzgəclər lentdəki ilə eynidir."""
+    cache = _feed_cache()
     az, rows = {f[0] for f in AZ_FEEDS}, []
     for source, _url, dlang, hint in FEEDS:
         items = (cache.get(source) or {}).get("items") or []
@@ -2259,6 +2276,7 @@ def update_archive(now=None):
     cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
     merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []} | dead_links(len(articles))
     backlog = feed_backlog(cutoff)
+    bulk = bulk_dated_sources()
     images = _read_json(ARCHIVE_OG_FILE, {})
     update_share_index(articles, now)
     for slug, _label, _desc in SECTIONS:
@@ -2275,7 +2293,7 @@ def update_archive(now=None):
                 rows[url] = {**({"imageUrl": known} if known else {}), **{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "sourceUrl": url, "category": slug}
         # Tarixi oxunmayan xəbər arxivdə qalmır.
         kept = [a for a in rows.values() if (_parse_dt(a.get("publishedAt")) or cutoff - datetime.timedelta(1)) >= cutoff
-                and not is_junk(a.get("sourceUrl", "")) and not removed_source(a)
+                and not is_junk(a.get("sourceUrl", "")) and not removed_source(a) and a.get("source") not in bulk
                 and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
         kept, _ = content_policy.enforce(kept)
         kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
