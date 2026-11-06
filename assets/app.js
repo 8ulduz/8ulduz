@@ -2381,7 +2381,7 @@ function applyPrefs() {
   if (!/^[0-4]$/.test(fs || "")) fs = "2";
   document.documentElement.dataset.fs = fs;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = theme === "light" ? "#fff8d8" : "#20252b";
+  if (meta) meta.content = theme === "light" ? "#fff8d8" : "#273449";
 }
 function setPref(act) {
   if (act === "theme") {

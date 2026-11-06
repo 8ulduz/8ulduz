@@ -44,3 +44,9 @@ Yeni göstərilən önizləmə ana səhifədir; mobil ölçü yoxlaması fiziki 
 Açıq rejimin yeni önizləməsi: fon #fff8d8, kart #fffcef, mətn #172b4d, seçilmiş düymə #19385f, düymə mətni #fff8d8. Loqo altlığı, məzənnə səthləri, altlıq və məlumat səhifələri palitraya uyğunlaşdırılıb. Bu düzəlişdə şrift və həndəsə qaydaları dəyişməyib.
 
 Hesablanmış minimum kontrast: əsas mətn 11,53:1, yardımçı mətnlər 5,12:1 və yuxarı. Şriftin əvvəlki iki-klik ölçüsünü və böyütmə/kiçiltmə davranışını qoruyan iki test keçib. Brauzerdə 412 px enli ana səhifə yoxlanıb: üfüqi daşma yoxdur. Bu rəng variantı da yalnız önizləmədir; canlıya yayımlanmayıb.
+
+## Tünd rejim üçün mat lacivərd təklifi
+
+Sahibin növbəti istəyi: lacivərd bir qədər açılsın və parıltısız, mat olsun. Yeni tünd fon #273449, kart #2e3d53, ikinci səth #374860, mətn #dce3ed. Qızılı vurğu #d6bd80 ilə yumşaldılıb; məzənnə səthləri düz rəngdə, namaz/hava düymələri daha az doymuş rənglərdədir. Tünd rejimdə izləmə düyməsinin yanıb-sönən işıqlı çərçivələri gizlədilib. Açıq sarı variant saxlanır.
+
+Minimum hesablanmış kontrast: əsas mətn 7,20:1, yardımçı mətn 4,88:1, vurğu 5,07:1. Şriftin iki reqressiya testi və CSP testi keçib. Brauzerdə 412 px enli ana səhifə: şrift 18 px, daşma yoxdur, parıldayan pseudo-element display:none. Ölçü və düzülüş qaydaları bu düzəlişdə dəyişmir. Yalnız önizləmədir; yayım yoxdur.
