@@ -220,6 +220,17 @@ prerender_home() {
   return 0
 }
 
+# Rayon və idman mövzu səhifələri (rayon/<slug>/, idman/<slug>/, sitemap-movzu.xml; sahib 2026-11-06, Google üçün həqiqi ünvanlar).
+# Seçim app.js-in clubMatches()-i ilə; alınmasa əvvəlki səhifələr qalır.
+topic_pages() {
+  command -v node >/dev/null 2>&1 || return 0
+  if ! env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 60 node "$REPO_DIR/.github/scripts/topics.cjs" "$REPO_DIR"; then
+    echo "::warning::Mövzu səhifələri yazılmadı, əvvəlkilər qalır"
+    git -C "$REPO_DIR" checkout -q HEAD -- rayon idman sitemap-movzu.xml 2>/dev/null
+  fi
+  return 0
+}
+
 publish_main() {
   local i name
   for i in 1 2 3 4 5; do
@@ -237,6 +248,7 @@ publish_main() {
     if [ -d "$WORK/xeber" ]; then rm -rf "$REPO_DIR/xeber"; cp -a "$WORK/xeber" "$REPO_DIR/xeber"; fi   # Google üçün xəbər səhifələri (updater.write_story_pages)
     if [ -d "$WORK/icmal" ]; then rm -rf "$REPO_DIR/icmal"; cp -a "$WORK/icmal" "$REPO_DIR/icmal"; fi   # günün icmalı (updater.write_digest)
     prerender_home
+    topic_pages
     # GOOD yenilənərkən oxunmuş ola bilər: commit-dən əvvəl yenidən yoxla.
     for name in $(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" || check_lkg "$REPO_DIR"); do
       git -C "$REPO_DIR" checkout -q HEAD -- "$name" 2>/dev/null || rm -f "$REPO_DIR/$name"
@@ -245,6 +257,7 @@ publish_main() {
     if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x 2>/dev/null; fi
     if [ -d "$REPO_DIR/xeber" ]; then git -C "$REPO_DIR" add xeber 2>/dev/null; fi
     if [ -d "$REPO_DIR/icmal" ]; then git -C "$REPO_DIR" add icmal 2>/dev/null; fi   # ayrıca: qovluq yoxdursa yuxarıdakı add pozulmasın
+    for name in rayon idman sitemap-movzu.xml; do [ -e "$REPO_DIR/$name" ] && git -C "$REPO_DIR" add "$name" 2>/dev/null; done   # mövzu səhifələri (topic_pages)
     if git -C "$REPO_DIR" diff --cached --quiet; then
       touch "$STATE/code-sync"
       return 0

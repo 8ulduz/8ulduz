@@ -1059,7 +1059,7 @@ function route() {
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
   if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
   if (h === "/haqqinda" || h.startsWith("/haqqinda?")) return { name: "about" };
-  const m = h.match(/^\/bolme\/([^/?]+)/); if (m) return SERVICE_ROUTES[m[1]] ? { name: SERVICE_ROUTES[m[1]] } : { name: "section", slug: SECTION_ALIAS[m[1]] || m[1] };
+  const m = h.match(/^\/bolme\/([^/?]+)(?:\?m=([^&]+))?/); if (m) return SERVICE_ROUTES[m[1]] ? { name: SERVICE_ROUTES[m[1]] } : { name: "section", slug: SECTION_ALIAS[m[1]] || m[1], m: m[2] || "" };
   if (h === "/tixac" || h.startsWith("/tixac?")) return { name: "traffic" };
   const q = h.match(/^\/axtar(?:\?q=(.*))?$/); if (q) return { name: "search", q: q[1] || "" };
   if (h === "/" || h === "") return { name: "home" };
@@ -1112,7 +1112,7 @@ function shell() {
     // Alt başlıq qalır: menyudan başqa bölmənin alt başlığı seçiləndə və liqa/komanda səhifəsindən qayıdanda.
     const r = route(), kept = S.keepClub || r.name === "team" || (S.prevRoute?.name === "team" && r.name === "section" && r.slug === S.clubSlug);
     S.prevRoute = r;
-    S.langOpen = false; S.keepClub = false; S.shown = PAGE; S.lateDone = 0; S.svcOpen = false; if (!kept) { S.club = null; S.sportTab = null; }
+    S.langOpen = false; S.keepClub = false; S.shown = PAGE; S.lateDone = 0; S.svcOpen = false; if (!kept) { S.club = null; S.sportTab = null; S.clubUrl = ""; }
     S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true });
     if ($("#navpop")) $("#navpop").hidden = true;
     if (kept) scrollToClub();
@@ -1909,6 +1909,9 @@ function sectionView(slug) {
   loadArchive(slug);
   list = byDate(withArchive(slug, list));
   if (S.partial && !list.length) return skeleton();
+  // ?m=Quba: rayon/idman səhifəsindən (topics.cjs) gələn keçid həmin mövzunu seçir; sonra oxucunun seçimi qalır
+  const um = route().m, tabs = SUB_TABS[slug] || [];
+  if (um && sportTopic(um) && S.clubUrl !== location.hash) { S.club = um; S.clubUrl = location.hash; S.sportTab = tabs.find(x => x.name === um || x.groups?.some(g => g.items.some(i => i.name === um)))?.name || null; }
   let extra = SUB_TABS[slug] ? `<div class="sub-rows">${subNav(slug)}</div>` : "";
   if (slug === "idman") {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
@@ -2046,8 +2049,7 @@ function trafficView() {
     ${rows}`;
 }
 
-// Yalnız dəyişən blok yenilənir. Əvvəl hər yeni xəbərdə bütün səhifə yenidən qurulurdu: telefonda 1 s donurdu,
-// oxucu həmin an linkə basanda keçid gecikirdi, şəkillər də yenidən yerləşirdi. Blokun mənbə mətni saxlanır,
+// Yalnız dəyişən blok yenilənir (bütün səhifə qurulanda telefon 1 s donurdu). Blokun mənbə mətni saxlanır,
 // çünki qurulandan sonra DOM dəyişir (oxlar, açılmış bölmə, yüklənmiş şəkil).
 // Slayder və Zuğulba kart-kart yenilənir: görünən şəkil təzədən yüklənmir, slayder başa qayıtmır.
 const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row,.prez,.prez-body,.prez-lent";
@@ -2397,7 +2399,7 @@ function setPref(act) {
   setupMarquees();
   afterPaint(fitNav);
 }
-// Baxış render bitəndə özümüz göndəririk (no_onload): GoatCounter və GA4 (ga.js, sahib 2026-11-06). GA4 faylı sayt açılandan sonra yüklənir.
+// Baxış render bitəndə göndərilir: GoatCounter və GA4 (ga.js, sayt açılandan sonra).
 let visitSent = "", gaOn = 0;
 const visitQueue = [], gaQ = [];
 const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=1").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
@@ -2719,8 +2721,7 @@ function setupFeatureLents() {
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
     if (TOUCH_UI) {
-      // Toxunma ekranı: lent brauzerin öz sürüşməsi ilə; zəncir söndürülüb (overscroll-behavior:none), ötürmə JS-dədir: lentin
-      // sonunda/başında barmaq məsafəsi səhifəyə, qalxanda ətalət; brauzer özü zəncir edərsə JS dayanır.
+      // Toxunma: lent öz sürüşməsi ilə, sonunda barmaq səhifəyə ötürülür (JS).
       let lastY = null, samples = [], inertia = 0, mode = null, expectedY = 0;
       const atEnd = () => lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1;
       const atTop = () => lent.scrollTop <= 0;

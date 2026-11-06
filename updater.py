@@ -4910,7 +4910,8 @@ def write_sitemap(stories=None, digests=()):
 def write_robots():
     _write_atomic(ROBOTS_FILE, 
         "User-agent: *\nDisallow: /tests/\nDisallow: /docs/\nDisallow: /android/\nDisallow: /.github/\nDisallow: /updater.py\n"
-        "Disallow: /reader_content.py\nDisallow: /content_policy.py\nDisallow: /README.md\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n",
+        "Disallow: /reader_content.py\nDisallow: /content_policy.py\nDisallow: /README.md\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n"
+        "Sitemap: " + SITE + "sitemap-movzu.xml\n",  # rayon/ və idman/ mövzu səhifələri (.github/scripts/topics.cjs, pipeline publish_main)
         encoding="utf-8")
 
 def write_public():
