@@ -1214,6 +1214,7 @@ function renderNav() {
   const extra = CATS.filter(c => !primary.includes(c.slug)).map((c, i) => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>${nb(i + 7)}`).join("");
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map((slug, i) => link(CATS.find(c => c.slug === slug)) + nb(i)).join("") + extra +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button>` +
+    `<a class="nav-tg" href="${esc(window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az")}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>` +
     `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;

@@ -1190,9 +1190,10 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 /* ≤370 px: rejim sözü sığmır, böyük günəş/ay işarəsi (sahibin icazəsi) */
 @media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}
 /* Telefon: bölmələr 3×5 (.nb sıra qırığı), «Ana ekrana əlavə et» 15-ci düymə öz rəngində */
-.nb,.nav-inst{display:none}
+.nb,.nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
-  nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 4px}
+  nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}
+  nav.main .nav-tg{display:flex;flex:1 0 100%;justify-content:center;align-items:center;min-height:30px;border-radius:999px;background:#229ED9;color:#fff;font-weight:var(--fw-bold)}
   nav.main .nb{display:block;flex:1 0 100%;height:0;margin-top:-3px}
   nav.main .nav-inst{display:inline-flex;align-items:center;min-height:28px;border:0;border-radius:999px;background:var(--primary);color:var(--primary-fg);font:inherit;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-bold);white-space:nowrap;cursor:pointer}
   nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}

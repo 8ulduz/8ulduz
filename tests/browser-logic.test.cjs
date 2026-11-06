@@ -277,6 +277,10 @@ test('phone nav: three rows of five, «Ana ekrana əlavə et» is the 15th pill 
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.nb,.nav-inst{display:none}'), 'masaüstündə nə qırıq, nə düymə');
   assert.ok(css.includes('nav.main .nb{display:block;flex:1 0 100%;height:0'), 'sıra qırığı yalnız telefonda');
+  // Sahib, 2026-11-06: 375 px-də «İdman» tək sətrə düşürdü (4 sətir); boşalan yerdə gündəlik icmalın Telegram çağırışı.
+  assert.ok(css.includes('nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}'), 'ilk sətir (5 bölmə) 343 px-ə sığır');
+  assert.ok(css.includes('nav.main .nav-tg{display:none}') && css.includes('nav.main .nav-tg{display:flex;flex:1 0 100%'), 'çağırış yalnız telefonda, öz sətrində');
+  assert.ok(h.includes('class="nav-tg" href="https://t.me/sekkizulduz_az"') && h.indexOf('nav-tg') > h.indexOf('nav-inst'), 'Telegram çağırışı bölmələrdən sonra');
   assert.ok(/nav\.main \.nav-inst\{display:inline-flex[^}]*background:var\(--primary\)/.test(css), 'düymə öz rəngində');
   assert.ok(css.includes('nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto'), 'sətirlər bərabər dolur');
 });
