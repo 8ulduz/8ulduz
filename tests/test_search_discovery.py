@@ -107,6 +107,20 @@ class DigestTest(unittest.TestCase):
         return {'id': sid, 'title': title or f'Xəbər {sid}', 'summary': 'Qısa xülasə.', 'category': 'gundem', 'source': 'APA',
                 'sourceUrl': f'https://apa.az/news/{sid}', 'publishedAt': at, 'lang': 'az', 'alts': alts, **kw}
 
+    def test_one_event_gives_one_story(self):
+        # Sahib (2026-11-06): «1 hadisədən yalnız 1 xəbər» — ilk axşam icmalında 10 xəbərdən 7-si bir səfər idi
+        start = updater.datetime.datetime(2026, 11, 5, 21, tzinfo=updater.BAKU).timestamp()
+        trip = 'Prezident və birinci xanım Zəngilan Şəhər Təhsil Kompleksinin açılışında iştirak ediblər'
+        arts = [self.art('a' * 16, 5, 1, title=trip, summary='İlham Əliyev noyabrın 6-da Zəngilan rayonuna səfər edib, təhsil kompleksi açılıb.'),
+                self.art('b' * 16, 5, 2, title='Zəngilan Şəhər Təhsil Kompleksi istifadəyə verildi', summary='Zəngilan rayonunda təhsil kompleksi açılıb.'),
+                self.art('c' * 16, 4, 3, title='Prezident: "Köçkünlərin doğma torpaqlara qayıtması böyük arzu idi"', summary='Bu barədə dövlət başçısı deyib.'),
+                self.art('d' * 16, 3, 4, title='Güclü külək əsəcək - XƏBƏRDARLIQ', summary='Milli Hidrometeorologiya xidməti küləklə bağlı xəbərdarlıq edib.'),
+                self.art('e' * 16, 2, 5, title='Naxçıvanın Bakıdakı nümayəndəliyi ləğv olundu', summary='Müvafiq fərman imzalanıb, nümayəndəlik bağlanır.'),
+                self.art('f' * 16, 2, 6, title='Bakıda yeni metro stansiyası açıldı', summary='Stansiya sərnişinlərin istifadəsinə verilib.')]
+        picked = updater.digest_pick(arts, start, start + 86400)
+        self.assertEqual([a['id'] for a in picked], ['a' * 16, 'd' * 16, 'e' * 16, 'f' * 16],
+                         'səfərin ikinci xəbəri və Prezidentin sitatı düşür, ayrı hadisələr qalır')
+
     def test_morning_edition_lists_the_ten_most_covered_stories_once(self):
         import datetime
         nine = datetime.datetime(2026, 11, 6, 9, 5, tzinfo=updater.BAKU).timestamp()

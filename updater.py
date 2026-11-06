@@ -10,7 +10,7 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, unicodedata
+import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, unicodedata, math
 import urllib.request, urllib.parse, urllib.error, base64, zlib
 import xml.etree.ElementTree as ET
 import content_policy
@@ -2074,8 +2074,33 @@ DIGEST_LATE_H = 6  # pipeline dayanıbsa buraxılış ən gec bu qədər sonra y
 def _title_key(t):
     return re.sub(r"[^\w]+", "", unicodedata.normalize("NFKC", str(t or "")).casefold())
 
+# Sahib (2026-11-06): «1 hadisədən yalnız 1 xəbər». İlk axşam icmalında 10 xəbərdən 7-si Prezidentin bir səfəri idi.
+# Eyni hadisə: başlıq + xülasənin əvvəli üzrə nadir sözlər (5 hərflik kök, aralıqdakı xəbərlərə görə ağırlıq) oxşarlığı
+# DIGEST_SAME_EVENT-dən böyükdür (6 noyabr: səfər xəbərləri 0.32-0.90, ayrı hadisələr 0.16-0.24). Rəhbərin sözlərindən sitat
+# («Prezident: "..."») xülasədə yeri yazılmır: icmalda rəhbərin bir hadisəsi varsa, sitat həmin hadisənin parçası sayılır.
+DIGEST_SAME_EVENT = 0.3
+_EVENT_STOP = set("ilə üçün olan olub edib edilib ediblər haqqında barədə daha artıq bütün onun onların həm isə kimi sonra əvvəl "
+                  "yeni ildə günü foto video yenilənib yeniləndi şərh açıqlama xəbər verir".split())
+_LEADER_RE = re.compile(r"prezident|ilham əliyev|dövlət başçısı")
+_LEADER_QUOTE_RE = re.compile(r"^\s*(?:prezident|dövlət başçısı|ilham əliyev)[^:]{0,25}:")
+
+
+def _az_lower(s):
+    return str(s or "").replace("İ", "i").replace("I", "ı").lower()
+
+
+def _event_tokens(a):
+    text = _az_lower(f"{a.get('title') or ''} {(a.get('summary') or '')[:220]}")
+    return {w[:5] for w in re.findall(r"[^\W\d_]{4,}", text) if w not in _EVENT_STOP}
+
+
+def _leader_quote(a):
+    t = _az_lower(a.get("title"))
+    return bool(_LEADER_QUOTE_RE.match(t) or (re.match(r"\s*[\"“«„]", t) and _LEADER_RE.search(_az_lower((a.get("summary") or "")[:300]))))
+
+
 def digest_pick(articles, start, end, skip=()):
-    """[start, end) aralığında ən çox mənbənin yazdığı Azərbaycan xəbərləri (bərabərdə daha yeni), başlığa görə təkrarsız."""
+    """[start, end) aralığında ən çox mənbənin yazdığı Azərbaycan xəbərləri (bərabərdə daha yeni); eyni başlıq və eyni hadisə bir dəfə."""
     rows = []
     for a in articles:
         dt = _parse_dt(a.get("publishedAt"))
@@ -2086,13 +2111,23 @@ def digest_pick(articles, start, end, skip=()):
         rows.append(a)
     rows, _ = content_policy.enforce(rows)
     rows.sort(key=lambda a: (1 + len(a.get("alts") or []), a.get("publishedAt") or ""), reverse=True)
-    out, seen = [], set()
-    for a in rows:
+    toks = [_event_tokens(a) for a in rows]
+    df = collections.Counter(w for t in toks for w in t)
+    idf = {w: math.log((len(rows) + 1) / (n + 1)) for w, n in df.items()}
+    norm = [math.sqrt(sum(idf[w] ** 2 for w in t)) for t in toks]
+    def same_event(i, j):
+        if not norm[i] or not norm[j]:
+            return False
+        return sum(idf[w] ** 2 for w in toks[i] & toks[j]) / (norm[i] * norm[j]) >= DIGEST_SAME_EVENT
+    out, picked, seen, leader = [], [], set(), False
+    for i, a in enumerate(rows):
         k = _title_key(a.get("title"))
-        if k in seen:
+        if k in seen or (leader and _leader_quote(a)) or any(same_event(i, j) for j in picked):
             continue
         seen.add(k)
+        picked.append(i)
         out.append(a)
+        leader = leader or bool(_LEADER_RE.search(_az_lower(f"{a.get('title') or ''} {(a.get('summary') or '')[:220]}")))
         if len(out) == DIGEST_SIZE:
             break
     return out
