@@ -1933,12 +1933,15 @@ def prune_share_pages(keep):
 # (xeber/index.json), dövrədə yalnız yeni və mənbə sayı dəyişən xəbər yazılır. Şəbəkə sorğusu yoxdur. QIRMIZI XƏTT 2: enforce-dan keçir.
 STORY_DIR = ROOT / "xeber"
 STORY_KEEP_S = 30 * 86400
-STORY_MIN_SOURCES = 4
+STORY_MIN_SOURCES = 3  # sahib 2026-11-07: «sayta gələni artır» — 4-dən 3-ə (gündə ~+300 səhifə, ~7 KB)
 STORY_SITEMAP_MAX = 5000
+# Şablon dəyişəndə köhnə səhifələr yenidən yazılsın (index-in 4-cü sahəsi); bir dövrədə ən çox STORY_REWRITE, repo birdən böyüməsin.
+# 2: Google Discover üçün max-image-preview:large (sahib 2026-11-07).
+STORY_VER, STORY_REWRITE = 2, 150
 _AZ_MONTH_NAMES = ("yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr")
 
 def story_worthy(a):
-    """Google üçün ayrıca səhifəyə layiq xəbər: Azərbaycan dilində, paylaşma nömrəsi var, 4+ mənbə və ya Zuğulba."""
+    """Google üçün ayrıca səhifəyə layiq xəbər: Azərbaycan dilində, paylaşma nömrəsi var, 3+ mənbə və ya Zuğulba."""
     return bool(re.fullmatch(r"[0-9a-f]{16}", str(a.get("id") or "")) and (a.get("lang") or "az") == "az"
                 and str(a.get("title") or "").strip()
                 and (a.get("category") == "prezident" or 1 + len(a.get("alts") or []) >= STORY_MIN_SOURCES))
@@ -1960,6 +1963,7 @@ _STORY_HTML = """<!doctype html>
     <title>__TITLE__ — 8ulduz</title>
     <meta name="description" content="__DESC__" />
     <link rel="canonical" href="__URL__" />
+    <meta name="robots" content="max-image-preview:large" />
     <meta name="theme-color" content="#15233b" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="8ulduz" />
@@ -2033,7 +2037,7 @@ def write_story_pages(articles, now=None):
     rows = [a for a in articles if story_worthy(a) and not removed_source(a)
             and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
     rows, _ = content_policy.enforce(rows)
-    changed = False
+    changed, redo = False, STORY_REWRITE
     for a in rows:
         dt = _parse_dt(a.get("publishedAt"))
         if not dt or now - dt.timestamp() > STORY_KEEP_S:
@@ -2041,11 +2045,13 @@ def write_story_pages(articles, now=None):
         n = 1 + len(a.get("alts") or [])
         old = index.get(a["id"])
         if old and old[1] == n and (STORY_DIR / a["id"] / "index.html").exists():
-            continue
+            if (old[3] if len(old) > 3 else 1) >= STORY_VER or redo <= 0:
+                continue
+            redo -= 1  # köhnə şablon: yenidən yazılır
         d = STORY_DIR / a["id"]
         d.mkdir(parents=True, exist_ok=True)
         _write_atomic(d / "index.html", story_page(a), encoding="utf-8")
-        index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem"]
+        index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem", STORY_VER]
         changed = True
     for sid in list(index):
         if now - index[sid][0] > STORY_KEEP_S or sid in content_policy._REMOVED_IDS:

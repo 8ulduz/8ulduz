@@ -31,12 +31,16 @@ export function pageUrl(path, loc = location) {
   return loc.origin + (route !== "/" ? route : base || "/") + loc.search;
 }
 
-export function hit(id, path, title, now = Date.now()) {
+// ev: hadisə (sahib 2026-11-07: keçidləri ölçmək) — "out-apa.az" (mənbəyə keçid), "share-wa" (paylaşma), "install-…".
+// GA4-də hadisənin adı birinci hissədir (out, share, install), qalanı «type» parametridir.
+export function hit(id, path, title, now = Date.now(), ev = "") {
   if (!/^G-[A-Z0-9]+$/.test(String(id || "")) || !/^(www\.)?8ulduz\.az$/.test(location.hostname)) return null; // yerli sınaq statistikaya düşmür
   const { s, first, start } = state(now);
+  const [name, ...type] = String(ev).split("-");
   const q = new URLSearchParams({ v: "2", tid: id, cid: s.cid, sid: String(s.sid), sct: String(s.sct), _p: String(Math.floor(Math.random() * 1e9)),
-    _s: String(++seq), en: "page_view", dl: pageUrl(path), dt: String(title || "8ulduz").slice(0, 300), ul: String(navigator.language || "").toLowerCase(),
-    sr: `${screen.width || 0}x${screen.height || 0}` });
+    _s: String(++seq), en: ev ? name.replace(/\W/g, "_").slice(0, 40) || "event" : "page_view", dl: pageUrl(path), dt: String(title || "8ulduz").slice(0, 300),
+    ul: String(navigator.language || "").toLowerCase(), sr: `${screen.width || 0}x${screen.height || 0}` });
+  if (ev) { q.set("ep.type", type.join("-").slice(0, 100)); q.set("seg", "1"); send(q); return q; }
   const ref = document.referrer;
   if (seq === 1 && ref && !ref.startsWith(location.origin)) q.set("dr", ref);
   if (first) q.set("_fv", "1");

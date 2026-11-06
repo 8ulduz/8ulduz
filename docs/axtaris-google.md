@@ -2,7 +2,7 @@
 
 **Problem.** Search Console (8ulduz.az@gmail.com): 28 gündə 33 göstəriş, 12 klik, yeganə sorğu «8 ulduz». Google sayta 17 səhifə kimi baxırdı: ana səhifə, bölmələr, xidmət səhifələri. Xəbərlər `#/xeber/ID` ünvanındadır, `#`-dan sonrasını isə Google ayrıca səhifə saymır. `/x/ID` paylaşma səhifələri `noindex`-dir və dərhal tətbiqə keçir.
 
-**Həll.** `updater.write_story_pages` əsas Azərbaycan xəbərləri üçün `xeber/<id>/index.html` yazır. Əsas xəbər 4+ mənbədən gələn və ya Zuğulba xəbəridir.
+**Həll.** `updater.write_story_pages` əsas Azərbaycan xəbərləri üçün `xeber/<id>/index.html` yazır. Əsas xəbər 3+ mənbədən gələn (7 noyabra qədər 4+) və ya Zuğulba xəbəridir. Səhifədə `max-image-preview:large` var (Google Discover).
 
 Səhifədə nələr var:
 

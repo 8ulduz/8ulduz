@@ -94,7 +94,7 @@ const SPORT_TEAMS = [
     { name: "PSG", keys: ["psg", "psj", "псж", "paris saint germain"] },
   ] },
 ];
-// Alt bölmələr. groups: alt bölmə seçiləndə açılan düymələr; alt bölmə onların xəbərlərini də əhatə edir.
+// Alt bölmələr; groups: alt bölmə seçiləndə açılan düymələr.
 const TRANSFER_WORDS = { stems: ["transfer", "трансфер"], keys: ["icarəyə verilib", "icarəyə götürüb", "перешел в", "перешёл в", "перейдет в", "перейдёт в", "арендован", "signs for", "joins on loan", "free agent", "kiraladı", "kiralık"] };
 const TRANSFER_OTHER = ["voleybol", "volleyball", "волейбол", "həndbol", "handball", "гандбол", "хоккей", "hockey", "futzal", "formula 1", "tennis", "теннис", "ufc", "boks", "бокс", "pul transfer"];
 const BASKET_WORDS = ["basketbol", "basketball", "баскетбол", " nba", " нба", "euroleague", "avroliqa", "евролиг"], BASKET_SITES = ["Sportando", "TalkBasket", "Eurohoops"];
@@ -240,7 +240,7 @@ const isFirstLady = a => !!a && flText(a.title);
 // Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
-// Zuğulba: rəsmi səhifələr + dövlət saytlarının prezident xəbərləri; eyni xəbər bir kartdır (rəsmi mənbə əsas).
+// Zuğulba: rəsmi + dövlət saytlarının prezident xəbərləri; eyni xəbər bir kartdır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
 // Təyinat və azad etmə xəbərləri: yalnız hero və «Ən çox mənbədə» sırasında əlavə çəki.
@@ -452,7 +452,7 @@ function shownSource(a) {
   return a.source || "";
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
-// Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir; b: lentdən çıxanda baxılacaq arxiv.
+// Paylaşılan keçid saytımıza aparır; b: lentdən çıxanda baxılacaq arxiv.
 // Önizləmə serverdən oxunur: main-dəki xəbər /x/ID səhifəsi ilə (sharePages), dəqiqəlik yox.
 const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
@@ -1299,7 +1299,7 @@ function bindNavPop() {
     else if (e.target.closest("#nav a")) hide();
   });
   pop.addEventListener("click", hide);
-  // Səhifədəki sətirlər də eyni: kursor başlıqdadırsa alt sətir açılır, çıxanda seçilmiş vəziyyət qayıdır.
+  // Səhifədəki sətirlər də eyni.
   let open, rowTimer;
   $("#view").addEventListener("mouseover", e => {
     const box = e.target.closest(".sub-rows"), slug = route().slug;
@@ -2189,8 +2189,10 @@ function savedView() {
 
 // Yalnız ümumi say gedir, şəxsi məlumat yoxdur (source-stats.js ilə eyni üsul).
 function trackEvent(path) {
+  gaQ.push([visitPath(), document.title, void 0, path]); gaFlush();
   try { window.goatcounter?.count?.({ path, title: path, event: true, no_session: true, referrer: "" }); } catch {}
 }
+addEventListener("click", e => { const a = e.target.closest?.("a[target=_blank]"); if (a?.host && a.host !== location.host) trackEvent("out-" + a.host); }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
   closeSharePop();
@@ -2400,7 +2402,7 @@ function setPref(act) {
 // Baxış render bitəndə göndərilir: GoatCounter və GA4 (ga.js, sayt açılandan sonra).
 let visitSent = "", gaOn = 0;
 const visitQueue = [], gaQ = [];
-const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=1").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
+const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=2").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
 function visitPath() {
   const base = location.pathname || "/";
   const hash = location.hash || "";

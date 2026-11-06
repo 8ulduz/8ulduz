@@ -56,8 +56,23 @@ test("ga4: bad id sends nothing; the site loads the sender only after it is show
   assert.equal(local.api.hit("G-NHSDLY61CD", "/", "x"), null, "yerli sınaq GA4-ə getmir"); assert.equal(local.sent.length, 0);
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8"), cfg = fs.readFileSync(path.join(root, "assets/config.js"), "utf8");
   assert.ok(cfg.includes('ga4: "G-NHSDLY61CD"'));
-  assert.ok(app.includes('import("./ga.js?v=1")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
+  assert.ok(app.includes('import("./ga.js?v=2")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
   for (const f of ["assets/app.js", "index.html", "assets/config.js"]) assert.ok(!/googletagmanager|gtag\/js/.test(fs.readFileSync(path.join(root, f), "utf8")), f + ': Google-un ağır skripti yoxdur');
   assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4000, 'göndərici kiçik qalır');
   assert.ok(fs.readFileSync(path.join(root, "mexfilik/index.html"), "utf8").includes("Google Analytics 4"), 'məxfilik səhifəsində yazılıb');
+});
+
+test("ga4: clicks to sources, shares and installs are counted as events (owner 2026-11-07: measure click-throughs)", () => {
+  const { api, sent, timers } = load({ stored: { cid: "1.2", sid: 1793990000, sct: 3, last: Date.parse("2026-11-07T08:00:00Z") } });
+  api.hit("G-NHSDLY61CD", "/#/bolme/gundem", "Gündəm — 8ulduz", Date.parse("2026-11-07T08:01:00Z"), "out-apa.az");
+  api.hit("G-NHSDLY61CD", "/", "8ulduz", Date.parse("2026-11-07T08:02:00Z"), "share-wa");
+  let p = params(sent[0]);
+  assert.equal(p.en, "out"); assert.equal(p["ep.type"], "apa.az"); assert.equal(p.dl, "https://8ulduz.az/bolme/gundem?utm_source=telegram");
+  assert.equal(p._fv, undefined); assert.equal(p.dr, undefined); assert.equal(p.cid, "1.2");
+  p = params(sent[1]);
+  assert.equal(p.en, "share"); assert.equal(p["ep.type"], "wa");
+  assert.equal(timers.length, 0, "hadisə fəal sessiya taymerini başlatmır");
+  const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  assert.ok(app.includes("gaQ.push([visitPath(), document.title, void 0, path]); gaFlush();"), "trackEvent GA4-ə də gedir");
+  assert.ok(app.includes('trackEvent("out-" + a.host)'), "mənbəyə (başqa sayta) keçid sayılır");
 });

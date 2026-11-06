@@ -47,7 +47,8 @@ class StoryPagesTest(unittest.TestCase):
 
     def test_only_main_azerbaijani_stories_get_a_search_page(self):
         self.assertTrue(updater.story_worthy(self.story('a' * 16)))
-        self.assertFalse(updater.story_worthy(self.story('b' * 16, alts=2)), '3 mənbə: yox')
+        self.assertTrue(updater.story_worthy(self.story('b' * 16, alts=2)), 'sahib 2026-11-07: 3 mənbə artıq bəs edir')
+        self.assertFalse(updater.story_worthy(self.story('e' * 16, alts=1)), '2 mənbə: yox')
         self.assertTrue(updater.story_worthy(self.story('c' * 16, alts=0, category='prezident')), 'Zuğulba həmişə')
         self.assertFalse(updater.story_worthy(self.story('d' * 16, lang='ru')))
         self.assertFalse(updater.story_worthy(self.story('not-an-id')))
@@ -56,9 +57,10 @@ class StoryPagesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(updater, 'STORY_DIR', pathlib.Path(tmp) / 'xeber'):
                 stories = updater.write_story_pages([self.story('1' * 16), self.story('2' * 16, alts=1), self.story('3' * 16, hours=31 * 24)])
-                self.assertEqual(sorted(stories), ['1' * 16], '3 mənbəli və 30 gündən köhnə xəbərin səhifəsi yoxdur')
+                self.assertEqual(sorted(stories), ['1' * 16], '2 mənbəli və 30 gündən köhnə xəbərin səhifəsi yoxdur')
                 page = (pathlib.Path(tmp) / 'xeber' / ('1' * 16) / 'index.html').read_text(encoding='utf-8')
                 self.assertNotIn('noindex', page)
+                self.assertIn('<meta name="robots" content="max-image-preview:large" />', page, 'Google Discover: böyük şəkil')
                 self.assertIn(f'<link rel="canonical" href="{updater.SITE}xeber/{"1" * 16}/" />', page)
                 self.assertIn('<h1>Zəfər Günü ilə bağlı hərbi yürüşlər olacaq</h1>', page)
                 self.assertIn('4 mənbə', page)
@@ -74,6 +76,10 @@ class StoryPagesTest(unittest.TestCase):
                 again = updater.write_story_pages([self.story('1' * 16)])
                 self.assertEqual(stamp, (pathlib.Path(tmp) / 'xeber' / ('1' * 16) / 'index.html').stat().st_mtime_ns, 'dəyişməyən səhifə təzədən yazılmır')
                 self.assertEqual(sorted(again), ['1' * 16], 'lentdən çıxan xəbərin səhifəsi 30 gün qalır')
+                # köhnə şablonla yazılmış səhifə (index-də versiya yoxdur) yenidən yazılır, sonra versiya qeyd olunur
+                idx = pathlib.Path(tmp) / 'xeber' / 'index.json'
+                raw = updater.json.loads(idx.read_text(encoding='utf-8')); raw['1' * 16] = raw['1' * 16][:3]; idx.write_text(updater.json.dumps(raw), encoding='utf-8')
+                self.assertEqual(updater.write_story_pages([self.story('1' * 16)])['1' * 16][3], updater.STORY_VER)
                 updater.write_story_pages([], now=updater.time.time() + 31 * 86400)
                 self.assertFalse((pathlib.Path(tmp) / 'xeber' / ('1' * 16)).exists(), '30 gündən sonra silinir')
 
