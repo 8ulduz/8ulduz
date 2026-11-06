@@ -182,3 +182,9 @@ test("social: the same headline under a new story number is not posted to a netw
   assert.equal(sent.length, 2);
   assert.ok(sent[1].includes("x/d300000000000000"), "5–6 noyabr Telegram-da eyni başlıq iki dəfə getmişdi");
 });
+
+test("social: the site's Facebook button leads to the page the bot posts to, not to the 'Səkkiz Ulduz' profile", () => {
+  const cfg = fs.readFileSync(path.join(__dirname, "..", "assets", "config.js"), "utf8");
+  assert.ok(cfg.includes('facebook: "https://www.facebook.com/profile.php?id=61596264031461"'), "«8ulduz» səhifəsi (Graph səhifə nömrəsi 1470250006171917)");
+  assert.ok(!cfg.includes("61596034210996"), "«Səkkiz Ulduz» ayrı profildir, xəbərlər ora getmir");
+});

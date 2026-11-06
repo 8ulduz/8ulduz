@@ -23,7 +23,7 @@ Kanal ünvanı yazmaq lazım deyil: iş axını botun admin edildiyi kanalı bot
 
 ## Facebook
 
-API yalnız Facebook **səhifəsinə** yazır, şəxsi profilə yazmır. Verilən keçid (`profile.php?id=61596034210996`) profil kimi açılır; səhifə deyilsə, «Səkkiz Ulduz» adlı səhifə yaradılmalıdır.
+API yalnız Facebook **səhifəsinə** yazır, şəxsi profilə yazmır. Botun yazdığı səhifə «8ulduz»dur (`profile.php?id=61596264031461`, köhnə səhifə nömrəsi 1470250006171917). Saytın «izlə» düyməsi 6 noyabra qədər səhvən «Səkkiz Ulduz» profilinə (`61596034210996`, 1 izləyici) aparırdı.
 
 1. developers.facebook.com → Create App → «Other» → «Business».
 2. Graph API Explorer: səhifəni seçin, `pages_manage_posts` və `pages_read_engagement` icazələri ilə səhifə tokeni alın, sonra Access Token Debugger-də «Extend» ilə uzunmüddətli edin.
