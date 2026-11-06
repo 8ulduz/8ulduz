@@ -1082,7 +1082,7 @@ function shell() {
     <div class="topbar"><div class="wrap" id="topbar"></div></div>
   </div><div class="nav-pop" id="navpop" hidden></div></header>
   <div id="ticker"></div>
-  <div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
+  <div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><button type="button" class="mk-r" data-act="mkr" aria-label="Digər məzənnələr">›</button><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
   <footer id="footer"></footer>
   <button class="newpill" id="newpill" data-act="apply-new" aria-live="polite" hidden></button>
@@ -2334,6 +2334,7 @@ function onClick(e) {
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
+  else if (act === "mkr") { const g = $("#mk"); g.scrollLeft + g.clientWidth >= g.scrollWidth - 4 ? g.scrollTo({ left: 0, behavior: "smooth" }) : g.scrollBy({ left: g.clientWidth - 40, behavior: "smooth" }); }
   else if (act === "follow") import("./follow.js?v=4").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();

@@ -2125,7 +2125,10 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   assert.ok(src.includes('navigator.permissions?.query?.({ name: "geolocation" })') && src.includes('data-act="geo"') && !src.includes('getCurrentPosition(applyGeo, undefined'), 'konum yalnız düymə ilə və ya əvvəl verilmiş icazə ilə');
   assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)'), 'telefonda canlı xəritə Yandex, Waze tətbiqdə açılır');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
-  assert.ok(css.includes('.mk:nth-child(-n+4){flex:0 0 calc((100% - 18px)/4)') && css.includes('.mk:nth-child(-n+4) .c span:last-child{display:none}'), 'dörd valyuta bir ekranda');
+  // Sahib, 2026-11-06: dörd kartda qiymətin ikinci rəqəmi kəsilirdi; indi ekranda üç kart və sağa › düyməsi.
+  assert.ok(css.includes('.mk{flex:0 0 calc((100% - 44px)/3);min-width:0}') && css.includes('.mk .c span:last-child{display:none}') && css.includes('.mk-r{display:grid}'), 'üç valyuta bir ekranda, qalanı › ilə');
+  assert.ok(src.includes('data-act="mkr"') && src.includes('act === "mkr"'), '› düyməsi zolağı sürüşdürür, sonda əvvələ qayıdır');
+  assert.ok(css.includes('.mk.mk[data-fx=XAU]{--mk-a:#e2bf4f') && css.includes('.mk.mk[data-fx=XAG]') && css.includes('.mk.mk:is([data-fx=BRENT],[data-fx=WTI]){--mk-a:#2e2823'), 'qızıl qızılı, gümüş gümüşü, neft qara rəngdə');
   assert.ok(css.includes('.topbar{position:relative}') && css.includes('.topbar .wrap{position:static}'), 'namaz və hava pəncərələri zolağın içində kəsilmir');
   assert.ok(css.includes('.pcard .share{position:absolute'), 'Zuğulba paylaş düyməsi kartın küncündədir');
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
