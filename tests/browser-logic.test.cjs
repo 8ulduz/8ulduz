@@ -2268,12 +2268,11 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   assert.ok(list.indexOf('data-lang="az"') < list.indexOf('data-lang=""'), '«Hamısı» sonda');
   assert.ok(css.includes('.ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%') && css.includes('.ldd-pop{') && css.includes('background:#fff;color:#0a1120'), 'dairəvi bayraq, fərqli fonlu kart');
 });
-test('owner notes: the Telegram address from config.js reaches the static shell`s «Kanala keç» link', () => {
+test('follow stays in the header; the channel promotion and duplicate footer follow control are removed', () => {
   const cfg = fs.readFileSync(path.join(root, 'assets/config.js'), 'utf8');
   assert.ok(cfg.includes('telegram: "https://t.me/') && !cfg.includes('telegram: "https://t.me/"'), 'config.js-də Telegram ünvanı var');
-  const btn = { href: '' };
   const els = {};
-  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector(s) { return id === 'cta' && s === '.btn' ? btn : null; }, querySelectorAll() { return []; }, focus() {}, dataset: id === 'app' ? { shell: '1' } : {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: id === 'app' ? { shell: '1' } : {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
   const ctx = app({
     location: { hash: '#/', href: 'https://8ulduz.az/' }, history: { replaceState() {} },
     window: { addEventListener() {}, SITE_CONFIG: { goatcounter: '', telegram: 'https://t.me/kanal', contact: '' } },
@@ -2282,7 +2281,12 @@ test('owner notes: the Telegram address from config.js reaches the static shell`
   });
   vm.runInContext('shell()', ctx);
   assert.equal(els.app.innerHTML, '', 'statik qabıq (data-shell) yenidən yazılmır');
-  assert.equal(btn.href, 'https://t.me/kanal', 'statik qabıqdakı boş t.me keçidi kanal ünvanı ilə doldurulur');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(!index.includes('id="cta"'), 'kanala qoşulma kartı yoxdur');
+  assert.equal((index.match(/class="follow-btn"/g) || []).length, 1, 'yalnız başlıqdakı izləmə düyməsi qalır');
+  vm.runInContext('S.data = {articles: []}; renderFooter();', ctx);
+  assert.ok(!els.footer.innerHTML.includes('data-act="follow"'), 'altlıqda təkrar izləmə yoxdur');
+  assert.ok(els.footer.innerHTML.includes('Haqqımızda'), 'faydalı altlıq keçidləri saxlanır');
 });
 
 // Sahibin 4 noyabr videoları (08.mp4, 09.mp4): yenidən açılışda hazır ilk ekranda Zuğulbanın ilk kartı rusca idi (Day.Az),

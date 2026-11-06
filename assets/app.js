@@ -227,7 +227,6 @@ const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTi
 // Mənbə yeni vərəqədə açılır — telefonda da (geri düyməsi mənbənin özündə qalır).
 const TOUCH_UI = typeof matchMedia === "function" && matchMedia("(hover:none)").matches;
 const OUT = `target="_blank" rel="noopener noreferrer"`;
-const TELEGRAM = String(window.SITE_CONFIG?.telegram || "").trim(); // boş: «kanala qoşulun» bloku göstərilmir
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
   s = lc(s);
@@ -1085,7 +1084,6 @@ function shell() {
   <div id="ticker"></div>
   <div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
-  <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${safeHref(TELEGRAM || "https://t.me/")}" ${OUT}>Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <button class="newpill" id="newpill" data-act="apply-new" aria-live="polite" hidden></button>
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
@@ -1096,7 +1094,6 @@ function shell() {
     <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
   </nav>`;
-  if (TELEGRAM) { const a = $("#cta")?.querySelector(".btn"); if (a) a.href = safeHref(TELEGRAM); } // statik qabıqda ünvan boşdur
   const q = $("#q");
   q.addEventListener("keydown", e => { if (e.key === "Enter") q.blur(); }); // telefonda klaviatura bağlansın
   q.addEventListener("blur", () => { if (!q.value) $("#sitehead")?.classList.remove("q-open"); }); // telefonda boş axtarış qutusu bağlanır
@@ -2144,7 +2141,6 @@ function renderView() {
     // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
     const page = err + body;
     if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
-    $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
     const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" || r.name === "team" ? "sections" : r.name === "home" && !S.q ? "home" : "";
     document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
     highlightSearch();
@@ -2175,7 +2171,7 @@ function renderFooter() {
   const srcs = trackedSources();
   const contact = String(window.SITE_CONFIG?.contact || "").trim();
   const h = `<div class="wrap fgrid">
-    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p><button type="button" class="follow-btn" data-act="follow" aria-haspopup="dialog">8ULDUZ-u izlə</button>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
+    <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>Xidmətlər</h4><div class="fcats"><a href="#/bolme/valyuta">Valyuta məzənnəsi</a><a href="#/bolme/cedvel">Premyer Liqa cədvəli</a><a href="#/bolme/tixac">Tıxac və yollar</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
