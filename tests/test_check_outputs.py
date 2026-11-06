@@ -32,6 +32,12 @@ class CheckOutputsTest(unittest.TestCase):
         (self.root / "data" / "news.json").write_text('{"articles": []}', encoding="utf-8")
         self.assertEqual(bad_outputs(self.root), ["data/news.json"])
 
+    def test_language_feed_files_need_an_article_list_but_may_be_empty(self):
+        (self.root / "data" / "news.en.json").write_text('{"articles": []}', encoding="utf-8")
+        self.assertEqual(bad_outputs(self.root), [])
+        (self.root / "data" / "news.ru.json").write_text('{"count": 1}', encoding="utf-8")
+        self.assertEqual(bad_outputs(self.root), ["data/news.ru.json"])
+
 
 if __name__ == "__main__":
     unittest.main()

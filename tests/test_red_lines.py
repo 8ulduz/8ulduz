@@ -1,5 +1,8 @@
 """Saytın iki qırmızı xətti (docs/qirmizi-xetler.md). Bu testlər düşürsə, kodu yox, dəyişikliyi yoxlayın."""
+import datetime
+import email.utils
 import json
+import os
 import pathlib
 import re
 import sys
@@ -128,14 +131,23 @@ class ChronicleTest(unittest.TestCase):
 
     def test_foreign_leaders_stay_out(self):
         for title in ["Bolsonaru özünü \"prezident\" elan etdi", "Keçmiş prezident dar ağacına gedir",
-                      "Ceyhun Bayramovdan diqqətçəkən jest: Özbəkistanın birinci xanımına kömək etdi"]:
+                      "Ceyhun Bayramovdan diqqətçəkən jest: Özbəkistanın birinci xanımına kömək etdi",
+                      # 2026-11-04: Baku.ws-in bu xəbəri Zuğulbaya düşmüşdü — ölkə adı defislə («ABŞ-nin») tanınmırdı
+                      "ABŞ-nin birinci xanımı Oleşkidə atəşkəslə bağlı diplomatik görüş təşkil edəcək",
+                      "Fransanın birinci xanımı Brijit Makron sərgi açıb",
+                      "Türkiyənin birinci xanımı Əminə Ərdoğan Bakıya gəlib",
+                      "Birinci xanım Melaniya Tramp uşaqlarla görüşüb",
+                      "Birinci xanımı qarşılayan nazir istefa verdi"]:
             self.assertNotEqual(self.label(title), "Prezident", title)
         self.assertNotEqual(self.label("Первая леди Франции посетила выставку", "ru"), "Prezident")
         self.assertNotEqual(self.label("Azerbaijan's first vice president", "en", True), "Prezident")
 
     def test_azerbaijani_leadership_stays_in(self):
         for title in ["Prezident İlham Əliyev fərman imzalayıb", "Birinci vitse-prezident Mehriban Əliyeva tədbirdə iştirak edib",
-                      "Birinci xanım Bakıda sərgi ilə tanış olub"]:
+                      "Birinci xanım Bakıda sərgi ilə tanış olub",
+                      "Azərbaycanın birinci xanımı sərgi ilə tanış olub",
+                      "Birinci xanım Mehriban Əliyeva Türkiyə Prezidentinin xanımı ilə görüşüb",
+                      "Birinci xanım Mehriban Əliyeva Fransaya səfər edib"]:
             self.assertEqual(self.label(title), "Prezident", title)
 
     def test_social_post_is_not_attributed_to_the_wrong_person(self):
@@ -152,10 +164,10 @@ class PublishGateTest(unittest.TestCase):
             root = pathlib.Path(tmp)
             (root / "data").mkdir()
             rows = [article("APA", "https://apa.az/1"), article("TASS", "https://tass.ru/1", "Алиев принял"), article("X", "https://meydan.tv/1")]
-            for name in ("news.json", "latest.json", "first.json"):
+            for name in ("news.json", "latest.json", "first.json", "latest.az.json", "news.en.json"):
                 (root / "data" / name).write_text(json.dumps({"articles": rows, "count": 3}), encoding="utf-8")
             enforce_policy(root)
-            for name in ("news.json", "latest.json", "first.json"):
+            for name in ("news.json", "latest.json", "first.json", "latest.az.json", "news.en.json"):
                 data = json.loads((root / "data" / name).read_text(encoding="utf-8"))
                 self.assertEqual([a["sourceUrl"] for a in data["articles"]], ["https://apa.az/1"])
                 self.assertEqual(data["count"], 1)
@@ -185,10 +197,12 @@ class FastCycleTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def item(self, link, title):
-        return {"title": title, "link": link, "description": "", "pubDate": "Fri, 30 Oct 2026 06:00:00 GMT", "author": "", "image": None}
+        # Tarix nisbi: sabit «30 Oct 2026» 5 gündən köhnə olanda lentdən kəsilirdi və ikinci dövrə testləri sakitcə başqa yolla keçirdi
+        pub = email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2))
+        return {"title": title, "link": link, "description": "", "pubDate": pub, "author": "", "image": None}
 
-    def cycle(self, fetcher, official=None):
-        feeds = [("APA", "https://apa.az/rss", "az", None), ("BBC News", "https://feeds.bbci.co.uk/x", "en", None), ("Report", "https://report.az/rss", "az", None)]
+    def cycle(self, fetcher, official=None, feeds=None):
+        feeds = feeds or [("APA", "https://apa.az/rss", "az", None), ("BBC News", "https://feeds.bbci.co.uk/x", "en", None), ("Report", "https://report.az/rss", "az", None)]
         with patch.object(updater, "FEEDS", feeds), patch.object(updater, "fetch_feed_fast", fetcher), \
                 patch.object(updater, "official_items", official or (lambda: ([], []))), patch.object(updater, "FAST_BUDGET_S", 0.3):
             return updater.run_fast()
@@ -207,6 +221,26 @@ class FastCycleTest(unittest.TestCase):
         self.assertFalse(next(a for a in self.news() if a["sourceUrl"] == link).get("imageUrl"))
         self.cycle(feed("https://apa.az/sekil.jpg"))
         self.assertEqual(next(a for a in self.news() if a["sourceUrl"] == link)["imageUrl"], "https://apa.az/sekil.jpg")
+
+    def test_a_retitled_story_keeps_one_record(self):
+        """Eyni mənbənin eyni nömrəli xəbəri yeni başlıq və slug ilə gələndə ikinci qeyd yaranmır: başlıq yenilənir, keçid və nömrə qalır."""
+        def feed_with(link, title):
+            def fetcher(feed, old=None):
+                rows = [self.item(link, title)] if feed[0] == ("Report" if "report.az" in link else "APA") else []
+                return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
+            return fetcher
+        self.cycle(feed_with("https://apa.az/europe/tbiliside-yangin-baslayib-1011019", "Tbilisidə telekanal binasında yanğın başlayıb"))
+        first = [a for a in self.news() if "apa.az" in a["sourceUrl"]]
+        self.assertEqual(len(first), 1)
+        self.cycle(feed_with("https://apa.az/europe/tbiliside-yangin-sondurulub-yenilenib-1011019", "Tbilisidə telekanal binasında yanğın söndürülüb - YENİLƏNİB"))
+        rows = [a for a in self.news() if "apa.az" in a["sourceUrl"]]
+        self.assertEqual(len(rows), 1, "eyni nömrəli xəbər iki dəfə düşməməlidir")
+        self.assertEqual(rows[0]["sourceUrl"], "https://apa.az/europe/tbiliside-yangin-baslayib-1011019")
+        self.assertEqual(rows[0]["id"], first[0]["id"], "paylaşılan keçid dəyişmir")
+        self.assertIn("söndürülüb", rows[0]["title"])
+        # başqa sayt eyni nömrə ilə ayrı xəbərdir
+        self.cycle(feed_with("https://report.az/az/hadise/basliq-1011019", "Bakıda yol qəzası olub"))
+        self.assertEqual(len([a for a in self.news() if a["sourceUrl"].endswith("1011019")]), 2)
 
     def first_screen_feed(self, feed, old=None):
         rows = [self.item("https://apa.az/ilk-1", "Avropada güclü fırtına başladı")] if feed[0] == "APA" else []
@@ -284,6 +318,67 @@ class FastCycleTest(unittest.TestCase):
             urls = {a["sourceUrl"] for a in self.news(name)}
             self.assertEqual(urls, {"https://apa.az/1", "https://www.bbc.co.uk/2"}, name)
 
+    def test_each_language_has_its_own_minute_file_and_the_shared_file_keeps_all(self):
+        def fetcher(feed, old=None):
+            items = {"APA": [self.item("https://apa.az/1", "Bakıda yeni park istifadəyə verildi")],
+                     "BBC News": [self.item("https://www.bbc.co.uk/2", "Storm hits the northern coast of Europe")],
+                     "Report": []}[feed[0]]
+            return {"items": items, "url": feed[1], "at": time.time(), "err": None}
+        with patch.dict(os.environ):
+            os.environ.pop("LATEST_LANG_FILES", None)
+            self.assertEqual(self.cycle(fetcher), 0)
+        urls = lambda name: [a["sourceUrl"] for a in self.news(name)]
+        self.assertEqual(urls("latest.az.json"), ["https://apa.az/1"])
+        self.assertEqual(urls("latest.en.json"), ["https://www.bbc.co.uk/2"])
+        self.assertEqual(urls("latest.ru.json"), [])
+        self.assertEqual(set(urls("latest.json")), {"https://apa.az/1", "https://www.bbc.co.uk/2"})
+        self.assertEqual(json.loads((self.root / "data" / "latest.az.json").read_text(encoding="utf-8"))["count"], 1)
+        status = json.loads((self.root / "data" / "status.json").read_text(encoding="utf-8"))
+        self.assertNotIn("langs", status, "köhnə pipeline.sh dil fayllarını live-ə yazmır: sayt onları istəməsin")
+        with patch.dict(os.environ, {"LATEST_LANG_FILES": "1"}):
+            self.assertEqual(self.cycle(fetcher), 0)
+        status = json.loads((self.root / "data" / "status.json").read_text(encoding="utf-8"))
+        self.assertEqual(status["langs"], ["az", "en", "ru", "tr"])
+
+    def test_full_feed_is_split_by_language_only_with_the_new_pipeline(self):
+        """QIRMIZI XƏTT 3: azərbaycanca oxucu news.json-dan öz sətirlərini (+ xarici idman: idman bölməsi bütün dillərdədir) çəkir,
+        ingilis/rus/türk oxucu news.<dil>.json-dan yalnız öz dilini; bayraqsız (köhnə pipeline) hər şey əvvəlki kimi bir fayldadır."""
+        feeds = [("APA", "https://apa.az/rss", "az", None), ("BBC News", "https://feeds.bbci.co.uk/x", "en", None),
+                 ("Match TV", "https://matchtv.ru/news/rss", "ru", "İdman"), ("Report", "https://report.az/rss", "az", None)]
+        fresh = lambda link, title: {**self.item(link, title), "pubDate": time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())}
+        # Hər dövrədə yalnız APA-dan yeni xəbər gəlir (dəyişiklik olmayanda main() faylı yazmır); BBC və Match TV yalnız birinci dövrədədir,
+        # sonra əvvəlki lentdən (bölünmüş fayllardan) daşınmalıdır (qırmızı xətt 1).
+        def fetcher(feed, old=None, step=1):
+            apa = {1: fresh("https://apa.az/1", "Bakıda yeni park istifadəyə verildi"), 2: fresh("https://apa.az/2", "Metroda yeni qatarlar işə düşdü"),
+                   3: fresh("https://apa.az/3", "Hava limanında yeni terminal açıldı")}[step]
+            items = {"APA": [apa], "Report": [],
+                     "BBC News": [fresh("https://www.bbc.co.uk/2", "Storm hits the northern coast of Europe")] if step == 1 else [],
+                     "Match TV": [fresh("https://matchtv.ru/5", "Карабах вышел в плей-офф")] if step == 1 else []}[feed[0]]
+            return {"items": items, "url": feed[1], "at": time.time(), "err": None}
+        urls = lambda name="news.json": [a["sourceUrl"] for a in self.news(name)]
+        with patch.dict(os.environ):
+            os.environ.pop("NEWS_LANG_FILES", None)
+            self.assertEqual(self.cycle(fetcher, feeds=feeds), 0)
+            self.assertEqual(set(urls()), {"https://apa.az/1", "https://www.bbc.co.uk/2", "https://matchtv.ru/5"}, "bayraqsız hər şey bir faylda")
+            self.assertFalse((self.root / "data" / "news.en.json").exists())
+            self.assertNotIn("newsLangs", json.loads((self.root / "data" / "status.json").read_text(encoding="utf-8")))
+            os.environ["NEWS_LANG_FILES"] = "1"
+            self.assertEqual(self.cycle(lambda feed, old=None: fetcher(feed, step=2), feeds=feeds), 0)
+        self.assertEqual(set(urls()), {"https://apa.az/1", "https://apa.az/2", "https://matchtv.ru/5"}, "azərbaycanca + xarici idman; ingilis sətri burada deyil")
+        self.assertEqual(urls("news.en.json"), ["https://www.bbc.co.uk/2"], "BBC bu dövrədə gəlməsə də əvvəlki lentdən daşınır")
+        self.assertEqual(urls("news.ru.json"), ["https://matchtv.ru/5"])
+        self.assertEqual(urls("news.tr.json"), [])
+        data = json.loads((self.root / "data" / "news.json").read_text(encoding="utf-8"))
+        self.assertEqual((data["langs"], data["count"]), (["en", "ru", "tr"], 3))
+        self.assertEqual(json.loads((self.root / "data" / "status.json").read_text(encoding="utf-8"))["newsLangs"], ["en", "ru", "tr"])
+        self.assertEqual(sorted(a["sourceUrl"] for a in updater.read_feed()),
+                         ["https://apa.az/1", "https://apa.az/2", "https://matchtv.ru/5", "https://www.bbc.co.uk/2"], "birləşmiş lentdə hər keçid bir dəfə")
+        # Üçüncü dövrə əvvəlki lenti bölünmüş fayllardan oxuyur: dil faylındakı xəbər itmir
+        with patch.dict(os.environ, {"NEWS_LANG_FILES": "1"}):
+            self.assertEqual(self.cycle(lambda feed, old=None: fetcher(feed, step=3), feeds=feeds), 0)
+        self.assertEqual(urls("news.en.json"), ["https://www.bbc.co.uk/2"], "ingilis sətri dil faylından daşınır")
+        self.assertEqual(set(urls()), {"https://apa.az/1", "https://apa.az/2", "https://apa.az/3", "https://matchtv.ru/5"})
+
     def test_a_failed_cycle_keeps_the_feed_and_still_reports_status(self):
         updater.OUT_FILE.write_text(json.dumps({"articles": [article("APA", "https://apa.az/1", "Köhnə xəbər başlığı burada")]}), encoding="utf-8")
         self.assertEqual(self.cycle(lambda feed, old=None: {"items": [], "url": feed[1], "at": 0, "err": "HTTP 500"}), 1)
@@ -348,6 +443,26 @@ class PipelineContractTest(unittest.TestCase):
     def test_every_publish_passes_the_gate(self):
         self.assertIn("guard_outputs\n  promote_code\n  if push_live", self.pipeline)
         self.assertIn("check_outputs.py", self.pipeline)
+
+    def test_language_minute_files_go_only_to_the_live_branch(self):
+        self.assertIn("for name in status latest latest.az latest.en latest.ru latest.tr markets", self.pipeline)
+        self.assertIn('rm -f "$REPO_DIR"/data/latest.??.json', self.pipeline)
+        self.assertIn("export LATEST_LANG_FILES=1", self.pipeline)
+        self.assertEqual(updater.FEED_LANGS, ("az", "en", "ru", "tr"))
+
+    def test_full_feed_language_files_stay_on_main_behind_the_flag(self):
+        self.assertIn("export NEWS_LANG_FILES=1", self.pipeline)
+        self.assertNotIn("news.??.json", self.pipeline)  # dil faylları main-dədir: publish_main yalnız latest.??.json-u silir
+        self.assertEqual(updater.NEWS_LANGS, ("en", "ru", "tr"))
+        self.assertIn(r"news(?:\.[a-z]{2})?", (ROOT / "sw.js").read_text(encoding="utf-8"))
+
+    def test_share_pages_go_to_main_behind_the_flag(self):
+        # Sahibin qeydi (2026-11-04): paylaşılan keçiddə xəbər görünsün — og etiketli x/<id>.html səhifələri main-ə yalnız bayraqla gedir
+        self.assertIn("export SHARE_PAGES=1", self.pipeline)
+        self.assertIn('if [ -d "$WORK/x" ]; then rm -rf "$REPO_DIR/x"; cp -a "$WORK/x" "$REPO_DIR/x"; fi', self.pipeline)
+        self.assertIn('if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x', self.pipeline)
+        self.assertIn('[ -d "$REPO_DIR/x" ] && cp -a "$REPO_DIR/x" "$WORK/x"', self.pipeline)
+        self.assertIn("write_share_pages(articles)", (ROOT / "updater.py").read_text(encoding="utf-8"))
 
     def test_broken_checker_cannot_overwrite_last_known_good(self):
         run_py = self.pipeline.split("run_py() {")[1].split("\n}\n")[0]
@@ -571,7 +686,7 @@ class ArchiveTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = pathlib.Path(self.tmp.name)
-        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv"), patch.object(updater, "ARCHIVE_OG_FILE", root / "aog.json"), patch.object(updater, "CACHE_DIR", root), patch.object(updater, "_fetch_og", return_value="")]
+        self.patches = [patch.object(updater, "OUT_FILE", root / "news.json"), patch.object(updater, "ARCHIVE_DIR", root / "arxiv"), patch.object(updater, "SHARE_DIR", root / "paylas"), patch.object(updater, "ARCHIVE_OG_FILE", root / "aog.json"), patch.object(updater, "CACHE_DIR", root), patch.object(updater, "_fetch_og", return_value="")]
         for p in self.patches:
             p.start()
 
@@ -596,6 +711,26 @@ class ArchiveTest(unittest.TestCase):
         self.write(self.row("https://apa.az/2", 1))
         updater.update_archive(now=updater.time.time() + 3700)
         self.assertEqual([a["sourceUrl"] for a in self.rows()], ["https://apa.az/2", "https://apa.az/1"])
+
+    def shared(self, url):
+        sid = updater.hashlib.sha1(url.encode()).hexdigest()[:16]
+        part = updater._read_json(updater.SHARE_DIR / f"{updater.share_part(sid)}.json", {}).get("articles") or []
+        return next((r for r in part if r["id"] == sid), None)
+
+    def test_shared_link_opens_for_a_day_after_the_story_leaves_the_feed(self):
+        now, url, alt = updater.time.time(), "https://apa.az/1", "https://report.az/1"
+        sid = lambda u: updater.hashlib.sha1(u.encode()).hexdigest()[:16]
+        self.write(self.row(url, 1, id=sid(url), alts=[{"source": "Report", "sourceUrl": alt}]), self.row("https://azadliq.org/1", 1, id=sid("https://azadliq.org/1")))
+        updater.update_archive(now=now)
+        self.assertIsNone(self.shared("https://azadliq.org/1"))
+        self.write(self.row("https://apa.az/2", 0, id=sid("https://apa.az/2")))
+        for hours in (1.1, 24.5):
+            updater.update_archive(now=now + hours * 3600)
+            self.assertEqual(self.shared(url)["sourceUrl"], url)
+            self.assertEqual(self.shared(alt)["of"], sid(url))  # qrupa düşən mənbənin keçidi əsas xəbərə yönəlir
+        updater.update_archive(now=now + 26 * 3600)
+        self.assertIsNone(self.shared(url))
+        self.assertEqual(self.shared("https://apa.az/2")["sourceUrl"], "https://apa.az/2")
 
     def test_written_at_most_once_an_hour(self):
         now = updater.time.time()

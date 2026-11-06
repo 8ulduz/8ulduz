@@ -10,7 +10,7 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, unicodedata
+import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, unicodedata, math
 import urllib.request, urllib.parse, urllib.error, base64, zlib
 import xml.etree.ElementTree as ET
 import content_policy
@@ -165,6 +165,88 @@ WORLD_FEEDS = [
     ("MMA Fighting", "https://www.mmafighting.com/rss/index.xml",             "en", "İdman"),
     ("Chess.com",    "https://www.chess.com/rss/news",                        "en", "İdman"),
     ("Sports.kz",    "https://www.sports.kz/rss",                             "ru", "İdman"),
+    # İngilis və rus dilində mənbələr (2026-11-04, sahibin istəyi: xaricdən gələn oxucu üçün geniş və şaxəli lent).
+    # Hamısı həmin gün yoxlanıb: 200 cavab, təzə elementlər. Ağır lentlər (RBC 256 KB, Tengrinews 715 KB, Спорт-Экспресс 521 KB,
+    # Daryo 265 KB, NASA 270 KB, iXBT 235 KB, Naked Science 171 KB) SLOW_ONLY_FEEDS-dədir: dəqiqəlik dövrə onları oxumur.
+    # Yoxlanıb götürülməyənlər: CNN (lent 2023-dən yenilənmir), RIA (açılmır), Reuters/AP (açıq RSS yoxdur), Al Arabiya,
+    # Arab News, ATP (403), ESPN, Goal, UEFA, Gulf News, Kyodo, Kazinform, TRT World, Zakon.kz (404), Forbes.ru (HTML).
+    ("Guardian World", "https://www.theguardian.com/world/rss",                "en"),
+    ("NYT World",    "https://rss.nytimes.com/services/xml/rss/nyt/World.xml", "en"),
+    ("Sky News",     "https://feeds.skynews.com/feeds/rss/world.xml",         "en"),
+    ("France 24",    "https://www.france24.com/en/rss",                       "en"),
+    ("NPR",          "https://feeds.npr.org/1004/rss.xml",                    "en"),
+    ("CBS News",     "https://www.cbsnews.com/latest/rss/world",              "en"),
+    ("ABC News",     "https://abcnews.go.com/abcnews/internationalheadlines", "en"),
+    ("The Independent", "https://www.independent.co.uk/news/world/rss",       "en"),
+    ("AA English",   "https://www.aa.com.tr/en/rss/default?cat=politics",     "en"),
+    ("AA Economy",   "https://www.aa.com.tr/en/rss/default?cat=economy",      "en", "İqtisadiyyat"),
+    ("AA Sport",     "https://www.aa.com.tr/en/rss/default?cat=sports",       "en", "İdman"),
+    ("TASS English", "https://tass.com/rss/v2.xml",                           "en"),
+    ("Times of India", "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms", "en"),
+    ("Politico Europe", "https://www.politico.eu/feed/",                      "en"),
+    ("Euractiv",     "https://www.euractiv.com/feed/",                        "en"),
+    ("Foreign Policy", "https://foreignpolicy.com/feed/",                     "en"),
+    ("The Diplomat", "https://thediplomat.com/feed/",                         "en"),
+    ("The Economist", "https://www.economist.com/latest/rss.xml",             "en"),
+    ("Vox",          "https://www.vox.com/rss/index.xml",                     "en"),
+    ("The Astana Times", "https://astanatimes.com/feed/",                     "en"),
+    ("Daryo",        "https://daryo.uz/en/feed",                              "en"),
+    ("Kun.uz English", "https://kun.uz/en/news/rss",                          "en"),
+    ("BBC Business", "https://feeds.bbci.co.uk/news/business/rss.xml",        "en", "İqtisadiyyat"),
+    ("BBC Technology", "https://feeds.bbci.co.uk/news/technology/rss.xml",    "en", "Texnologiya"),
+    ("BBC Science",  "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", "en", "Təhsil"),
+    ("BBC Health",   "https://feeds.bbci.co.uk/news/health/rss.xml",          "en", "Həyat"),
+    ("BBC Culture",  "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", "en", "Mədəniyyət"),
+    ("Guardian Business", "https://www.theguardian.com/uk/business/rss",      "en", "İqtisadiyyat"),
+    ("Guardian Technology", "https://www.theguardian.com/uk/technology/rss",  "en", "Texnologiya"),
+    ("Guardian Science", "https://www.theguardian.com/science/rss",           "en", "Təhsil"),
+    ("Guardian Culture", "https://www.theguardian.com/uk/culture/rss",        "en", "Mədəniyyət"),
+    ("Daily Sabah Business", "https://www.dailysabah.com/rss/business",       "en", "İqtisadiyyat"),
+    ("Daily Sabah Sports", "https://www.dailysabah.com/rss/sports",           "en", "İdman"),
+    ("CNBC",         "https://www.cnbc.com/id/100727362/device/rss/rss.html", "en", "İqtisadiyyat"),
+    ("MarketWatch",  "https://feeds.content.dowjones.io/public/rss/mw_topstories", "en", "İqtisadiyyat"),
+    ("Fortune",      "https://fortune.com/feed/",                             "en", "İqtisadiyyat"),
+    ("OilPrice",     "https://oilprice.com/rss/main",                         "en", "İqtisadiyyat"),
+    ("Bloomberg",    "https://feeds.bloomberg.com/markets/news.rss",          "en", "İqtisadiyyat"),
+    ("Financial Times", "https://www.ft.com/rss/home",                        "en", "İqtisadiyyat"),
+    ("TechCrunch",   "https://techcrunch.com/feed/",                          "en", "Texnologiya"),
+    ("The Verge",    "https://www.theverge.com/rss/index.xml",                "en", "Texnologiya"),
+    ("Ars Technica", "https://feeds.arstechnica.com/arstechnica/index",       "en", "Texnologiya"),
+    ("Wired",        "https://www.wired.com/feed/rss",                        "en", "Texnologiya"),
+    ("Engadget",     "https://www.engadget.com/rss.xml",                      "en", "Texnologiya"),
+    ("ScienceDaily", "https://www.sciencedaily.com/rss/all.xml",              "en", "Təhsil"),
+    ("New Scientist", "https://www.newscientist.com/feed/home/",              "en", "Təhsil"),
+    ("NASA",         "https://www.nasa.gov/news-release/feed/",               "en", "Təhsil"),
+    ("Phys.org",     "https://phys.org/rss-feed/",                            "en", "Təhsil"),
+    ("Nature",       "https://www.nature.com/nature.rss",                     "en", "Təhsil"),
+    ("Variety",      "https://variety.com/feed/",                             "en", "Mədəniyyət"),
+    ("Hollywood Reporter", "https://www.hollywoodreporter.com/feed/",         "en", "Mədəniyyət"),
+    ("Rolling Stone", "https://www.rollingstone.com/feed/",                   "en", "Mədəniyyət"),
+    ("Deadline",     "https://deadline.com/feed/",                            "en", "Mədəniyyət"),
+    ("Sky Sports",   "https://www.skysports.com/rss/12040",                   "en", "İdman"),
+    ("РБК",          "https://rssexport.rbc.ru/rbcnews/news/30/full.rss",     "ru"),
+    ("Коммерсантъ",  "https://www.kommersant.ru/RSS/main.xml",                "ru"),
+    ("Lenta.ru",     "https://lenta.ru/rss/top7",                             "ru"),
+    ("Известия",     "https://iz.ru/xml/rss/all.xml",                         "ru"),
+    ("Ведомости",    "https://www.vedomosti.ru/rss/news",                     "ru", "İqtisadiyyat"),
+    ("AA Русский",   "https://www.aa.com.tr/ru/rss/default?cat=guncel",       "ru"),
+    ("DW Русский",   "https://rss.dw.com/xml/rss-ru-all",                     "ru"),
+    ("Euronews Русский", "https://ru.euronews.com/rss",                       "ru"),
+    ("BBC Русская служба", "https://feeds.bbci.co.uk/russian/rss.xml",        "ru"),
+    ("24.kg",        "https://24.kg/rss/",                                    "ru"),
+    ("Tengrinews",   "https://tengrinews.kz/news.rss",                        "ru"),
+    ("Газета.uz",    "https://www.gazeta.uz/ru/rss/",                         "ru"),
+    ("Kun.uz Русский", "https://kun.uz/ru/news/rss",                          "ru"),
+    ("Habr",         "https://habr.com/ru/rss/news/?fl=ru",                   "ru", "Texnologiya"),
+    ("3DNews",       "https://3dnews.ru/news/rss/",                           "ru", "Texnologiya"),
+    ("iXBT",         "https://www.ixbt.com/export/news.rss",                  "ru", "Texnologiya"),
+    ("N+1",          "https://nplus1.ru/rss",                                 "ru", "Təhsil"),
+    ("Naked Science", "https://naked-science.ru/feed",                        "ru", "Təhsil"),
+    ("Афиша Daily",  "https://daily.afisha.ru/rss/",                          "ru", "Mədəniyyət"),
+    ("Sports.ru",    "https://www.sports.ru/rss/all_news.xml",                "ru", "İdman"),
+    ("Спорт-Экспресс", "https://www.sport-express.ru/services/materials/news/se/", "ru", "İdman"),
+    ("TASS Sport",   "https://tass.ru/rss/v2.xml?sections=sport",             "ru", "İdman"),
+    ("Interfax Sport", "https://www.sport-interfax.ru/rss",                   "ru", "İdman"),
 ]
 FEEDS = [(f[0], f[1], "az", f[2] if len(f) > 2 else None) for f in AZ_FEEDS] + \
         [(f[0], f[1], f[2], f[3] if len(f) > 3 else None) for f in WORLD_FEEDS]
@@ -410,12 +492,15 @@ AZ_MONTHS = {
     "yanvar": 1, "fevral": 2, "mart": 3, "aprel": 4, "may": 5, "iyun": 6,
     "iyul": 7, "avqust": 8, "sentyabr": 9, "oktyabr": 10, "noyabr": 11, "dekabr": 12,
 }
-MAX_ITEMS = 1200
+MAX_ITEMS = 1600
 MAX_PER_SOURCE = 40   # bir mənbə lenti doldurmasın
-MAX_PER_WORLD_SOURCE = 20  # xarici mənbələr Azərbaycan xəbərlərini lentdən sıxışdırıb çıxarmasın
-MAX_PER_SPORT_SOURCE = 25
-MAX_WORLD = 150            # xarici ümumi mənbələr
-MAX_WORLD_SPORT = 200      # xarici idman mənbələri: cəmi 35%, qalan yer Azərbaycan xəbərlərinindir
+MAX_PER_WORLD_SOURCE = 10  # xarici mənbələr Azərbaycan xəbərlərini lentdən sıxışdırıb çıxarmasın: çox mənbə, hərəsindən az
+MAX_PER_SPORT_SOURCE = 15
+# Xarici ümumi mənbələr dil üzrə: ingilis və rus lentləri bir-birini və türk lentini sıxışdırmasın (2026-11-04: sahibin
+# istəyi ilə ingilis və rus mənbələri artırıldı). İdmanla birlikdə lentin 40%-dən azdır, qalan yer Azərbaycan xəbərlərinindir.
+MAX_WORLD_LANG = {"en": 160, "ru": 130, "tr": 60}
+MAX_WORLD = sum(MAX_WORLD_LANG.values())
+MAX_WORLD_SPORT = 200      # xarici idman mənbələri
 
 def source_cap(name):
     if name in content_policy.SPORT_SOURCES:
@@ -504,6 +589,15 @@ GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|defau
 
 def _is_generic_img(u):
     return bool(u) and bool(GENERIC_IMG.search(u))
+
+# Xəbər fotosu kimi görünən ünvan (tarixli və ya uzun nömrəli yükləmə yolu) bir neçə xəbərdə təkrarlansa da loqo sayılmır:
+# AZƏRTAC bir tədbirin 3-5 xəbərinə eyni fotonu qoyur, TASS idman xəbərlərinə arxiv fotosunu (2026-11-04, sahibin «şəkilsiz
+# xəbər» qeydi). Saytın loqo və ümumi lövhə yolları GENERIC_IMG-dədir; onlar üçün 3 təkrar kifayətdir.
+_PHOTO_PATH = re.compile(r"/(?:files|uploads?|storage|media|photos?|images?)/.*\d{6,}|/20\d\d/\d{1,2}/", re.I)
+
+def _is_logo(u, n):
+    """n fərqli xəbərdə eyni şəkil: 3 və daha çoxdursa loqodur; xəbər fotosu kimi görünən ünvan üçün 8 və daha çox."""
+    return bool(u) and n >= (8 if _PHOTO_PATH.search(u) else 3)
 
 def _abs_img(u, base):
     if not u:
@@ -656,6 +750,23 @@ def fix_source_link(link):
     return re.sub(r"^(https?://(?:www\.)?lent\.az/xeber/.+-\d+)/1/?$", r"\1", link)
 
 
+_STORY_ID = re.compile(r"(?:/|[-_])(\d{5,})(?=\.html?|/|$)")  # sonrakı ayırıcı udulmur: ardıcıl nömrələrin hamısı tapılır (skysports /12040/13607905/)
+
+def story_key(link):
+    """Mənbə domeni + xəbərin sabit nömrəsi («metbuat.az#1566209»). Sayt başlığı dəyişəndə keçidin slug hissəsi də dəyişir
+    (/news/1566209/kohne-basliq.html → /news/1566209/yeni-basliq.html), nömrə eyni qalır; belə xəbər ikinci dəfə lentə düşməsin
+    (2026-11-04, sahibin «pensiya» qeydi). Yalnız öz seqmentində və ya seqmentin sonunda duran 5+ rəqəmli nömrə sayılır
+    (yoldakı 20261104 tarixi və slugdakı «100000-manat» məbləği yox); bir neçə nömrədən sonuncusu (skysports: /news/12040/13607905/).
+    Nömrəsiz keçid üçün None: belə xəbər əvvəlki kimi keçidlə tanınır."""
+    try:
+        u = urllib.parse.urlparse(link or "")
+    except ValueError:
+        return None
+    host = (u.hostname or "").lower().removeprefix("www.")
+    nums = [n for n in _STORY_ID.findall(u.path or "") if not re.fullmatch(r"(?:19|20)\d{6}", n)]
+    return f"{host}#{nums[-1]}" if host and nums else None
+
+
 def fixed_source_date(link, now=None):
     """This publisher's RSS stamps every item with request time (+0000 for local time).
     Its own article URL contains a stable creation timestamp; use that fallback instead
@@ -723,13 +834,24 @@ def has_any(blob, words):
 # Vəzifə adı təkbaşına Azərbaycan demək deyil: «Özbəkistanın birinci xanımı», «Первая леди Франции».
 PRESIDENT_ROLES = {"birinci xanım", "birinci xanim", "birinci xanımlar", "birinci vitse-prezident", "первой леди", "первая леди",
                    "первый вице-президент", "first vice-president", "first vice president"}
-_ROLE_FOREIGN = re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, FOREIGN_MARKERS)) + r")\w*\s+(?:prezidentinin\s+)?(?:birinci xan[ıi]m|birinci vitse-prezident)")
+# Ölkə adı defis və şəkilçi ilə də gəlir («ABŞ-nin birinci xanımı», «Fransa'nın birinci xanımı»): \w* defisdə dayanırdı və
+# Baku.ws-in «ABŞ-nin birinci xanımı Oleşkidə...» xəbəri Zuğulbaya düşmüşdü (2026-11-04).
+_ROLE_FOREIGN = re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, FOREIGN_MARKERS)) + r")[\w'’-]*\s+(?:prezidentinin\s+)?(?:birinci xan[ıi]m|birinci vitse-prezident)")
+# Yiyəlik şəkilçili vəzifə («birinci xanımı», «birinci xanımına») kiminsə xanımıdır: ad və ya Azərbaycan yoxdursa başqa ölkənindir.
+_ROLE_POSSESSED = re.compile(r"birinci xan[ıi]m(?:[ıi]|[ıi]n|[ıi]n[ıi]n|[ıi]na|[ıi]n[ıi]|[ıi]nda|[ıi]ndan)(?!\w)")
 _AZ_CONTEXT = re.compile(r"əliyev|aliyev|алиев|azərbaycan|azerbaycan|azerbaijan|азербайдж")
 
 def president_score(blob, lang):
+    """Rəhbərlik balı: şəxs (ad) > vəzifə > ümumi söz. Vəzifə adı («birinci xanım», «birinci vitse-prezident») yalnız
+    Azərbaycanla əlaqə aydın olanda sayılır: yanında və ya mətndə başqa ölkənin adı, yiyəlik şəkilçisi ilə kiminsə xanımı
+    və Azərbaycan/ad yoxdursa — başqa ölkənin rəhbəridir. Ad varsa («Birinci xanım Mehriban Əliyeva Türkiyədə») həmişə bizimdir."""
     hits = [w for w in PRESIDENT_STRONG if _rx(w).search(blob)]
     if hits and all(w in PRESIDENT_ROLES for w in hits):
-        if _ROLE_FOREIGN.search(blob) if lang == "az" else not _AZ_CONTEXT.search(blob):
+        if lang == "az":
+            foreign = bool(_ROLE_FOREIGN.search(blob)) or ((bool(_ROLE_POSSESSED.search(blob)) or has_any(blob, FOREIGN_MARKERS)) and not _AZ_CONTEXT.search(blob))
+        else:
+            foreign = not _AZ_CONTEXT.search(blob)
+        if foreign:
             hits = []
     if hits:
         return 4 + 2 * len(hits)
@@ -1166,12 +1288,15 @@ FEED_FAILS_BEFORE_PAUSE = 3   # ardıcıl bu qədər alınmayan lent dövrəni s
 FEED_RETRY_S = 300       # dayandırılan lent bu qədərdən bir yoxlanır, arada onu yavaş proses oxuyur
 FEED_PAUSE_MAX_SHARE = 0.2    # lentlərin bu qədərindən çoxu birdən alınmırsa problem bizim şəbəkədir: heç nə dayandırılmır
 FEED_KEEP = 120          # lentdən yalnız ən yeni elementlər (İki Sahil 2000 element verir)
-FAST_MAX_ITEMS = 1000    # qruplaşdırma açdığı yer köhnə xəbərlə dolmasın, news.json böyüməsin
+FAST_MAX_ITEMS = 1400    # qruplaşdırma açdığı yer köhnə xəbərlə dolmasın, news.json böyüməsin (2026-11-04: 1000 → 1400, xarici dillərə yer)
 FALLBACK_EVERY_S = 180   # Google News və Telegram ehtiyatını dəqiqədə bir yormayaq
 STALE_FEED_S = 900       # bundan köhnə nəticə «mənbə işləmir» sayılır
 LATEST_WINDOW_S = 1800   # latest.json main-dəki news.json-un gecikməsini örtməlidir
 LATEST_TOP = 40
-LATEST_MAX = 200
+LATEST_MAX = 300         # ümumi fayl («Hamısı», ehtiyat, bildirişlər); 2026-11-04: xarici lentlər çoxalanda yarım saatın xəbəri 200-ə sığmırdı
+LATEST_LANG_MAX = 200    # latest.<dil>.json: oxucu hər dəqiqə yalnız öz dilinin lentini çəkir (qırmızı xətt 3); azərbaycanca xəbər xarici axınla sıxılmır (qırmızı xətt 1)
+FEED_LANGS = ("az", "en", "ru", "tr")
+NEWS_LANGS = ("en", "ru", "tr")  # tam lentin dil faylları news.<dil>.json (main-də, write_news); news.json azərbaycanca + xarici idman
 
 
 def _read_json(path, default):
@@ -1179,6 +1304,25 @@ def _read_json(path, default):
         return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
     except Exception:
         return default
+
+
+def read_feed(path=None):
+    """Tam lent bir siyahıda: news.json və onun «langs» siyahısındakı dil faylları (news.en.json və s., write_news), eyni keçid bir dəfə.
+    Bölünməmiş (köhnə) news.json-da «langs» yoxdur: yalnız o oxunur. Lenti oxuyan hər yer (əvvəlki dövrə, arxiv, paylaşma, sitemap/feed,
+    qruplar, link yoxlaması) bunu işlədir ki, bölgü onlara görünməsin."""
+    path = pathlib.Path(path or OUT_FILE)
+    def rows_of(p):
+        d = _read_json(p, {})
+        return list(d.get("articles") or []) if isinstance(d, dict) else []
+    data = _read_json(path, {})
+    rows = rows_of(path)
+    seen = {a.get("sourceUrl") for a in rows}
+    for code in (data.get("langs") if isinstance(data, dict) else None) or []:
+        for a in rows_of(path.with_name(f"news.{code}.json")):
+            if a.get("sourceUrl") not in seen:
+                seen.add(a.get("sourceUrl"))
+                rows.append(a)
+    return rows
 
 
 def _save_cache(path, value):
@@ -1241,7 +1385,9 @@ def fetch_feed_fast(feed, old=None):
 # xəbər axını isə onları gözləməməlidir: bu lentlər yalnız yavaş dövrədə oxunur, sürətli dövrə onların son nəticəsini götürür.
 # Narnews, Cenub, Region Plus və Qarabağ Media gündə bir neçə dəfədən az yazır: dəqiqəlik oxumağa dəyməz, risk də olmasın.
 # Naxçıvan Xəbərlərinin lenti yoxdur, ana səhifəsi 244 KB-dır.
-SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media", "Naxçıvan Xəbərləri"}
+# Ağır xarici lentlər (170 KB-dan böyük): dəqiqəlik dövrəyə yük olmasın, yavaş dövrə oxuyur (2026-11-04).
+SLOW_ONLY_FEEDS = {f[0] for f in AZ_FEEDS if ".gov.az/" in f[1]} | {"Mia.az", "Narnews.az", "Cenub.az", "Region Plus", "Qarabağ Media", "Naxçıvan Xəbərləri"} \
+    | {"РБК", "Tengrinews", "Спорт-Экспресс", "Daryo", "NASA", "iXBT", "Naked Science"}
 
 LATE_FEEDS = set()  # bu dövrədə cavab verməyən, köhnə nəticəsi işlədilən lentlər: statusda uğurlu sayılmır
 
@@ -1294,14 +1440,14 @@ def collect_fast():
 
 def compute_groups():
     """Eyni hadisənin qruplaşdırılması ağırdır (bütün cütlər): yavaş prosesdə hesablanır, sürətli dövrə nəticəni tətbiq edir."""
-    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    articles = read_feed()
     if articles:
         grouped = group_duplicates([dict(a, alts=list(a.get("alts") or [])) for a in articles])
         _save_cache(GROUPS_FILE, {a["sourceUrl"]: a["alts"] for a in grouped if a.get("alts")})
 
 
 def apply_groups(articles):
-    """Yavaş prosesin qruplarını lentə tətbiq edir. Yeni xəbərlər növbəti hesablamaya qədər ayrı qalır, brauzer onları da birləşdirir."""
+    """Yavaş prosesin qruplarını lentə tətbiq edir. Ondan sonra gələn təzə xəbərləri attach_fresh qoşur."""
     # Qrup faylı dəyişiklikdən əvvəl yazılıb ola bilər: köhnə keçid buradan lentə qayıtmasın.
     groups = {fix_source_link(url): [{**alt, "sourceUrl": fix_source_link(alt.get("sourceUrl"))} for alt in alts] for url, alts in _read_json(GROUPS_FILE, {}).items()}
     present = {a.get("sourceUrl") for a in articles}
@@ -1317,7 +1463,60 @@ def apply_groups(articles):
             alts = [alt for alt in groups.get(url, []) if alt.get("sourceUrl") != url]
             a = {**a, "alts": alts} if alts else {k: v for k, v in a.items() if k != "alts"}
         out.append(a)
-    return out
+    try:
+        return attach_fresh(out)
+    except Exception as e:  # qırmızı xətt 1: birləşmə alınmasa lent olduğu kimi yazılır
+        print(f"təzə xəbər qruplanmadı: {e!r}")
+        return out
+
+
+FRESH_GROUP = datetime.timedelta(minutes=30)
+
+def attach_fresh(articles, now=None):
+    """Yavaş proses qrupları ~4-9 dəqiqədən bir hesablayır; ondan sonra gələn xəbər (son 30 dəqiqə) eyni hadisənin
+    kartına alternativ kimi qoşulur. Əvvəl bunu brauzer edirdi və telefonda ~1 s çəkirdi.
+    Qayda group_duplicates kimidir: eyni başlıq və ya oxşar başlıq, fərqli mənbə, 36 saat içində; rəsmi mənbə toxunulmur.
+    Namizəd ortaq sözlə tapılır (söz indeksi), hamı hamı ilə müqayisə olunmur."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    items = []
+    for a in articles:
+        toks = _title_tokens(a.get("title") or "")
+        items.append((a, _parse_dt(a.get("publishedAt")), toks, set(toks)))
+    index = collections.defaultdict(list)
+    for i, (_a, _dt, _toks, ts) in enumerate(items):
+        for t in ts:
+            index[t].append(i)
+    order = sorted(range(len(items)), key=lambda i: items[i][1] or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc), reverse=True)
+    merged, target = set(), {}
+    for i in order:
+        a, dt, toks, ts = items[i]
+        if (i in merged or i in target or dt is None or now - dt > FRESH_GROUP or len(toks) < 3
+                or a.get("alts") or a.get("source") in OFFICIAL_SOURCES):
+            continue
+        key = _norm_title(a.get("title") or "")
+        hits = collections.Counter(j for t in ts for j in index[t] if j != i and j not in merged)
+        best, best_score = None, 0
+        for j, n in hits.items():
+            if n < 3:
+                continue
+            b, bdt, btoks, _bts = items[j]
+            b = target.get(j, b)
+            srcs = {b.get("source")} | {x.get("source") for x in b.get("alts") or []}
+            if bdt is None or abs(dt - bdt) > GROUP_WINDOW or b.get("source") in OFFICIAL_SOURCES or a.get("source") in srcs:
+                continue
+            score = 4 if len(key) >= 12 and key == _norm_title(b.get("title") or "") else 3 if _titles_similar(toks, _shingles(toks), btoks, _shingles(btoks)) else 0
+            if score > best_score or score and score == best_score and len(b.get("alts") or []) > len(target.get(best, items[best][0]).get("alts") or []):
+                best, best_score = j, score
+        if best is None:
+            continue
+        b = target.get(best, items[best][0])
+        alt = _compact_alt(a)
+        if not alt:
+            continue
+        alts = sorted([*(b.get("alts") or []), alt], key=lambda x: x.get("publishedAt") or "", reverse=True)
+        target[best] = {**b, "alts": alts, "imageUrl": b.get("imageUrl") or a.get("imageUrl") or ""} if not b.get("imageUrl") and a.get("imageUrl") else {**b, "alts": alts}
+        merged.add(i)
+    return [target.get(i, a) for i, (a, _dt, _toks, _ts) in enumerate(items) if i not in merged]
 
 
 BULK_MIN_ITEMS, BULK_SPAN_S = 50, 1800
@@ -1393,7 +1592,7 @@ def check_links(now=None):
     now = now or time.time()
     state = _read_json(LINK_HEALTH_FILE, {})
     listed = {}
-    for a in _read_json(OUT_FILE, {}).get("articles") or []:
+    for a in read_feed():
         for row in [a, *(a.get("alts") or [])]:
             if row.get("sourceUrl"):
                 listed[row["sourceUrl"]] = row.get("publishedAt") or a.get("publishedAt") or ""
@@ -1461,21 +1660,55 @@ def drop_dead_links(articles, dead):
     return out
 
 
+def _latest_rows(articles, recent, cap):
+    """Ən yeni LATEST_TOP xəbər və son yarım saatda lentə düşənlər, tarix sırası ilə, ən çoxu cap."""
+    ordered = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)
+    top = {a.get("sourceUrl") for a in ordered[:LATEST_TOP]}
+    return [a for a in ordered if a.get("sourceUrl") in top or a.get("sourceUrl") in recent][:cap]
+
+
 def write_latest(articles, previous):
-    """latest.json: son yarım saatda lentə düşənlər və ən yeni xəbərlər. Sayt onu tam lentin üstünə qoyur."""
+    """latest.json: son yarım saatda lentə düşənlər və ən yeni xəbərlər. Sayt onu tam lentin üstünə qoyur.
+    latest.<dil>.json: eyni seçim yalnız o dilin xəbərlərindən. QIRMIZI XƏTT 3: oxucu hər dəqiqə yalnız öz dilinin faylını
+    çəkir (2026-11-04: ümumi fayl 300 sətirdə 71 KB gzip idi, 2/3-ü xarici dildə). Dil faylları yalnız tarixçəsiz live
+    budağına gedir (pipeline.sh push_live; publish_main onları main-ə yazmır), ümumi fayl ehtiyat və «Hamısı» üçün qalır."""
     now, known = time.time(), {a.get("sourceUrl") for a in previous}
     recent = {u: t for u, t in _read_json(RECENT_FILE, {}).items() if now - t < LATEST_WINDOW_S}
     for a in articles:
         if a.get("sourceUrl") not in known:
             recent.setdefault(a.get("sourceUrl"), now)
-    ordered = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)
-    top = {a.get("sourceUrl") for a in ordered[:LATEST_TOP]}
-    rows = [a for a in ordered if a.get("sourceUrl") in top or a.get("sourceUrl") in recent][:LATEST_MAX]
+    rows = _latest_rows(articles, recent, LATEST_MAX)
     stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     OUT_DIR.mkdir(exist_ok=True)
     # «dead»: sayt tam lenti 10 dəqiqədən bir alır, ölü link isə ekrandan bir dəqiqəyə çıxmalıdır.
-    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": sorted(dead_links(len(articles)))}, ensure_ascii=False, separators=(",", ":")))
+    dead = sorted(dead_links(len(articles)))
+    removed = content_policy.REMOVED_ARTICLES
+    _write_atomic(LATEST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "dead": dead, "removed": removed}, ensure_ascii=False, separators=(",", ":")))
+    try:  # QIRMIZI XƏTT 1: dil faylı alınmasa ümumi fayl və lent yenə yazılır
+        for code in FEED_LANGS:
+            sub = _latest_rows([a for a in articles if (a.get("lang") or "az") == code], recent, LATEST_LANG_MAX)
+            _write_atomic(OUT_DIR / f"latest.{code}.json", json.dumps({"updatedAt": stamp, "count": len(sub), "articles": sub, "dead": dead, "removed": removed}, ensure_ascii=False, separators=(",", ":")))
+    except Exception as e:
+        print("  ! latest.<dil>.json:", type(e).__name__, flush=True)
     _save_cache(RECENT_FILE, recent)
+
+
+def write_news(data):
+    """news.json. NEWS_LANG_FILES ilə (yeni pipeline.sh; QIRMIZI XƏTT 3): news.json = azərbaycanca sətirlər + xarici idman (sahibin qaydası:
+    idman bölməsi bütün dillərdədir), news.<dil>.json = yalnız o dilin sətirləri (rus/ingilis/türk oxucuya azərbaycanca və türkcə xəbər düşmür);
+    «langs» hansı dil fayllarının olduğunu deyir (read_feed onları birləşdirir). Hamısı main-ə gedir: bölgü tarixçəyə əlavə yük vermir
+    (docs/qirmizi-xetler.md §3). Bayraqsız (köhnə pipeline) əvvəlki kimi bir fayl."""
+    # "sharePages": sayt /x/ID paylaşma keçidini yalnız bu işarə ilə verir (write_share_pages; eyni yayımda səhifələr də main-dədir)
+    dump = lambda d: json.dumps({**d, **({"sharePages": True} if os.environ.get("SHARE_PAGES") else {})}, ensure_ascii=False, separators=(",", ":"))
+    if not os.environ.get("NEWS_LANG_FILES"):
+        _write_atomic(OUT_FILE, dump(data), encoding="utf-8")
+        return
+    articles = data["articles"]
+    for code in NEWS_LANGS:  # əvvəl dil faylları, sonra onlara işarə edən news.json
+        rows = [a for a in articles if a.get("lang") == code]
+        _write_atomic(OUT_FILE.with_name(f"news.{code}.json"), dump({"updatedAt": data["updatedAt"], "count": len(rows), "articles": rows}), encoding="utf-8")
+    own = [a for a in articles if (a.get("lang") or "az") not in NEWS_LANGS or a.get("category") == "idman"]
+    _write_atomic(OUT_FILE, dump({"updatedAt": data["updatedAt"], "count": len(own), "langs": list(NEWS_LANGS), "articles": own}), encoding="utf-8")
 
 
 # Sayt baş səhifənin yuxarısını bu xəbərlərdən qurur, tam lent sonra gəlir. Eyni blok alınmalıdır ki, tam lent gələndə ekran dəyişməsin:
@@ -1516,7 +1749,7 @@ def write_first(articles, stamp):
     rows, og = first_screen_rows(articles), _read_json(OG_FILE, {})
     urls = {u for a in rows for u in [a.get("sourceUrl"), *[alt.get("sourceUrl") for alt in a.get("alts") or []]]}
     images = {u: og[u] for u in urls if u in og}
-    _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images, **({"sharePages": True} if os.environ.get("SHARE_PAGES") else {})}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
 def refresh_slow_feeds(limit_s=150):
@@ -1596,9 +1829,424 @@ def fill_archive_images(rows, images, limit=40):
             a["imageUrl"] = images[a["sourceUrl"]]
     return rows
 
+# Paylaşılan keçid (#/xeber/<id>) xəbər lentdən çıxandan sonra ən azı 24 saat açılsın. Bölmə arxivi 200 xəbərlə kəsilir
+# (Gündəm gündüz cəmi 3 saat), lenti isə böyütmək olmaz (sürət). Ayrıca siyahı: id-yə görə 32 fayl, keçid yalnız birini yükləyir.
+SHARE_DIR = OUT_DIR / "paylas"
+SHARE_KEEP_S, SHARE_PARTS = 25 * 3600, 32   # yazı saatda birdir: 25 saat lentdən çıxandan sonra tam 24 saat deməkdir
+SHARE_FIELDS = ("title", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl")
+
+def share_part(sid):
+    return int(sid[:2], 16) >> 3 if re.fullmatch(r"[0-9a-f]{16}", str(sid or "")) else None
+
+def update_share_index(articles, now):
+    parts = [{} for _ in range(SHARE_PARTS)]
+    for i, part in enumerate(parts):
+        for row in _read_json(SHARE_DIR / f"{i}.json", {}).get("articles") or []:
+            if now - row.get("at", 0) < SHARE_KEEP_S and share_part(row.get("id")) == i:
+                part[row["id"]] = row
+    rows = [a for a in articles if share_part(a.get("id")) is not None]
+    # Qrupa düşən mənbənin öz nömrəsi lentdə yoxdur: onun sətri qrupun əsas xəbərinə yönəlir (of).
+    for a in rows:
+        for x in a.get("alts") or []:
+            if x.get("sourceUrl"):
+                sid = hashlib.sha1(x["sourceUrl"].encode()).hexdigest()[:16]
+                parts[share_part(sid)][sid] = {"id": sid, "of": a["id"], "source": x.get("source"), "sourceUrl": x["sourceUrl"], "at": int(now)}
+    for a in rows:
+        row = {"id": a["id"], **{k: a[k] for k in SHARE_FIELDS if a.get(k)}, "at": int(now)}
+        alts = [{k: x[k] for k in ("source", "sourceUrl") if x.get(k)} for x in a.get("alts") or [] if x.get("sourceUrl")]
+        parts[share_part(a["id"])][a["id"]] = {**row, "alts": alts} if alts else row
+    SHARE_DIR.mkdir(parents=True, exist_ok=True)
+    keep = {a["id"] for a in rows}  # paylaşma səhifələri (write_share_pages): lentdəki və siyahıdakı xəbərlərinki qalır
+    for i, part in enumerate(parts):
+        rows = [r for r in part.values() if not removed_source(r) and not is_negative_about_leadership(r.get("title", ""), "", r.get("source"))]
+        rows, _ = content_policy.enforce(rows)
+        keep.update(r["id"] for r in rows if not r.get("of"))
+        _write_atomic(SHARE_DIR / f"{i}.json", json.dumps({"at": now, "articles": rows}, ensure_ascii=False, separators=(",", ":")))
+    prune_share_pages(keep)
+
+# Paylaşma səhifələri (sahibin qeydi 2026-11-04: «Facebookda paylaşanda hansı xəbəri paylaşdığın görünmür»). Facebook, WhatsApp,
+# Telegram önizləməni keçidin og: etiketlərindən oxuyur; #/xeber/ID hash-dır, serverə getmir, hamı saytın ümumi kartını görürdü.
+# İndi lentdəki hər xəbərin kiçik statik səhifəsi var: x/<id>.html (~1 KB: başlıq, xülasə, şəkil, og:url), oxucunu dərhal saytın
+# xəbər səhifəsinə keçirir (meta refresh tarixçədə iz qoymur, geri düyməsi işləyir). Səhifə paylaşma siyahısı qədər (25 saat) qalır,
+# sonra silinir; köhnə keçidi 404.html #/xeber/ID-yə yönəldir (arxivdən açılır). Yalnız SHARE_PAGES=1 ilə: pipeline.sh qovluğu main-ə
+# yazır və sayt /x/ keçidini yalnız lentin başlığında "sharePages" görəndə verir (köhnə pipeline-da səhifəsiz keçid yaranmasın).
+# Sürətli dövrədə yalnız yeni fayllar yazılır (dəqiqədə ~10), silinmə saatlıq update_share_index-dədir. QIRMIZI XƏTT 3-ə toxunmur:
+# tətbiqin öz yolu dəyişmir, paylaşılan keçidə ~1 KB-lıq bir sorğu əlavə olunur. QIRMIZI XƏTT 2: sətirlər content_policy.enforce-dan keçir.
+SHARE_PAGES_DIR = ROOT / "x"
+_LOCALE = {"az": "az_AZ", "ru": "ru_RU", "en": "en_US", "tr": "tr_TR"}
+_SHARE_HTML = ('<!doctype html>\n<html lang="{lang}"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
+               '<title>{title} — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="{app}" />\n'
+               '<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="{title}" />\n'
+               '<meta property="og:description" content="{desc}" /><meta property="og:url" content="{url}" /><meta property="og:image" content="{image}" />\n'
+               '<meta property="og:locale" content="{locale}" /><meta name="twitter:card" content="summary_large_image" />\n'
+               '<meta http-equiv="refresh" content="0;url={app}" />\n'
+               '</head><body><p><a href="{app}">{title}</a> — <a href="{site}">8ulduz</a></p></body></html>\n')
+
+def share_page(a):
+    """Bir xəbərin paylaşma səhifəsi: og etiketləri və dərhal saytın xəbər səhifəsinə keçid."""
+    sid, title = a["id"], _xml(re.sub(r"\s+", " ", str(a.get("title") or "")).strip())
+    desc = re.sub(r"<[^>]+>|\s+", " ", str(a.get("summary") or "")).strip()
+    if len(desc) > 200:
+        desc = desc[:197].rsplit(" ", 1)[0] + "…"
+    desc = _xml(desc or f'{a.get("source") or "8ulduz"} · {str(a.get("publishedAt") or "")[:10]}')
+    image = str(a.get("imageUrl") or "")
+    image = _xml(image if image.startswith("https://") else f"{SITE}assets/og-default.png")
+    app = _xml(f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}')
+    return _SHARE_HTML.format(lang=_xml(a.get("lang") or "az"), title=title, desc=desc, url=f"{SITE}x/{sid}", image=image,
+                              locale=_LOCALE.get(a.get("lang") or "az", "az_AZ"), app=app, site=SITE)
+
+def write_share_pages(articles):
+    """Lentdəki hər xəbər üçün (16 rəqəmli id) hələ olmayan paylaşma səhifəsini yazır; sayını qaytarır. Bayraqsız heç nə etmir."""
+    if not os.environ.get("SHARE_PAGES"):
+        return 0
+    SHARE_PAGES_DIR.mkdir(parents=True, exist_ok=True)
+    for ident in content_policy._REMOVED_IDS:
+        if re.fullmatch(r"[0-9a-f]{16}", ident):
+            (SHARE_PAGES_DIR / f"{ident}.html").unlink(missing_ok=True)
+    have = {p.name for p in SHARE_PAGES_DIR.glob("*.html")}
+    rows = [a for a in articles if share_part(a.get("id")) is not None and not removed_source(a)
+            and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
+    rows, _ = content_policy.enforce(rows)
+    n = 0
+    for a in rows:
+        if f'{a["id"]}.html' not in have:
+            _write_atomic(SHARE_PAGES_DIR / f'{a["id"]}.html', share_page(a), encoding="utf-8")
+            n += 1
+    return n
+
+def prune_share_pages(keep):
+    """Paylaşma siyahısında da, lentdə də olmayan xəbərin səhifəsi silinir (siyahı ilə eyni müddət: 25 saat); sayını qaytarır."""
+    if not os.environ.get("SHARE_PAGES") or not SHARE_PAGES_DIR.is_dir():
+        return 0
+    gone = [p for p in SHARE_PAGES_DIR.glob("*.html") if p.stem not in keep]
+    for p in gone:
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    return len(gone)
+
+# Google üçün xəbər səhifələri (sahib, 2026-11-06: Search Console-da 28 gündə 33 göstəriş, yeganə sorğu «8 ulduz»). /x/ID noindex-dir
+# və dərhal #/xeber/ID-yə keçir, hash-ı isə Google ayrıca səhifə saymır: sayt Google üçün 17 səhifə idi. İndi yalnız əsas Azərbaycan
+# xəbərlərinin (4+ mənbə və ya Zuğulba) xeber/<id>/ səhifəsi var: başlıq, xülasə və xəbəri yazan bütün mənbələr (aqreqatorun öz
+# dəyəri), bölmə keçidi. Bölmə səhifələri kimi tətbiq də yüklənir və ünvan #/xeber/ID olur. Səhifə 30 gün qalır; siyahı bir faylda
+# (xeber/index.json), dövrədə yalnız yeni və mənbə sayı dəyişən xəbər yazılır. Şəbəkə sorğusu yoxdur. QIRMIZI XƏTT 2: enforce-dan keçir.
+STORY_DIR = ROOT / "xeber"
+STORY_KEEP_S = 30 * 86400
+STORY_MIN_SOURCES = 4
+STORY_SITEMAP_MAX = 5000
+_AZ_MONTH_NAMES = ("yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr")
+
+def story_worthy(a):
+    """Google üçün ayrıca səhifəyə layiq xəbər: Azərbaycan dilində, paylaşma nömrəsi var, 4+ mənbə və ya Zuğulba."""
+    return bool(re.fullmatch(r"[0-9a-f]{16}", str(a.get("id") or "")) and (a.get("lang") or "az") == "az"
+                and str(a.get("title") or "").strip()
+                and (a.get("category") == "prezident" or 1 + len(a.get("alts") or []) >= STORY_MIN_SOURCES))
+
+def _baku_time(iso):
+    dt = _parse_dt(iso)
+    if not dt:
+        return ""
+    dt = dt.astimezone(ZoneInfo("Asia/Baku"))
+    return f"{dt.day} {_AZ_MONTH_NAMES[dt.month - 1]} {dt.year}, {dt:%H:%M}"
+
+_STORY_HTML = """<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="__CSP__" />
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
+    <title>__TITLE__ — 8ulduz</title>
+    <meta name="description" content="__DESC__" />
+    <link rel="canonical" href="__URL__" />
+    <meta name="theme-color" content="#15233b" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="8ulduz" />
+    <meta property="og:title" content="__TITLE__" />
+    <meta property="og:description" content="__DESC__" />
+    <meta property="og:url" content="__URL__" />
+    <meta property="og:locale" content="az_AZ" />
+    <meta property="og:image" content="__IMAGE__" />
+    <meta property="article:published_time" content="__ISO__" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">__LD__</script>
+    <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
+    <link rel="manifest" href="__SITE__manifest.webmanifest" />
+    <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
+    <link rel="modulepreload" href="../../assets/app.js" />
+    <link rel="stylesheet" href="../../assets/app.css" />
+    <script src="../../assets/config.js" defer></script>
+    <script src="../../assets/content-policy.js" defer></script>
+    <script type="module" src="../../assets/app.js"></script>
+    <script>history.replaceState(null, "", new URL("../../#/xeber/__ID__?b=__SLUG__", location.href));</script>
+  </head>
+  <body>
+    <div id="app">
+      <main class="wrap"><p><a href="../../">8ulduz</a> › <a href="../../bolme/__SLUG__/">__LABEL__</a></p><h1>__TITLE__</h1>
+      <p><time datetime="__ISO__">__WHEN__</time> · __COUNT__ mənbə</p><p>__SUMMARY__</p>
+      <h2>Bu xəbəri yazan mənbələr</h2><ul>__SOURCES__</ul>
+      <p><a href="../../bolme/__SLUG__/">__LABEL__ bölməsinin digər xəbərləri</a> · <a href="../../">8ulduz — baş səhifə</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+    </div>
+  </body>
+</html>
+"""
+
+def story_page(a):
+    """Bir əsas xəbərin axtarış üçün səhifəsi (xeber/<id>/index.html)."""
+    sid, slug = a["id"], a.get("category") or "gundem"
+    label = {s: l for s, l, _d in SECTIONS}.get(slug, "Xəbərlər")
+    title = re.sub(r"\s+", " ", str(a.get("title") or "")).strip()
+    summary = re.sub(r"<[^>]+>|\s+", " ", str(a.get("summary") or "")).strip()
+    desc = summary if len(summary) <= 160 else summary[:157].rsplit(" ", 1)[0] + "…"
+    rows = [a, *(a.get("alts") or [])]
+    seen, lis = set(), []
+    for r in rows:
+        url = fix_source_link(r.get("sourceUrl"))
+        if not url or url in seen or not str(url).startswith(("https://", "http://")):
+            continue
+        seen.add(url)
+        lis.append(f'<li><a href="{_xml(url)}" rel="noopener">{_xml(r.get("title") or title)}</a> <small>{_xml(r.get("source"))}</small></li>')
+    image = str(a.get("imageUrl") or "")
+    image = image if image.startswith("https://") else f"{SITE}assets/og-default.png"
+    url = f"{SITE}xeber/{sid}/"
+    ld = json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "8ulduz", "item": SITE},
+        {"@type": "ListItem", "position": 2, "name": label, "item": f"{SITE}bolme/{slug}/"},
+        {"@type": "ListItem", "position": 3, "name": title, "item": url}]}, ensure_ascii=False).replace("</", "<\\/")
+    iso = str(a.get("publishedAt") or "")
+    page = (_STORY_HTML.replace("__LD__", ld).replace("__SOURCES__", "".join(lis)).replace("__SUMMARY__", _xml(summary))
+            .replace("__DESC__", _xml(desc or title)).replace("__TITLE__", _xml(title)).replace("__LABEL__", _xml(label))
+            .replace("__IMAGE__", _xml(image)).replace("__WHEN__", _xml(_baku_time(iso))).replace("__ISO__", _xml(iso))
+            .replace("__COUNT__", str(len(lis))).replace("__URL__", url).replace("__SITE__", SITE)
+            .replace("__ID__", sid).replace("__SLUG__", slug))
+    return _with_csp(page)
+
+def read_story_index():
+    return _read_json(STORY_DIR / "index.json", {})
+
+def write_story_pages(articles, now=None):
+    """Əsas xəbərlərin səhifələrini yazır (yalnız yeni və mənbə sayı dəyişən), 30 gündən köhnəni və silinəni götürür.
+    Siyahını {id: [vaxt, mənbə sayı, bölmə]} qaytarır."""
+    now = now or time.time()
+    index = {k: v for k, v in read_story_index().items() if isinstance(v, list) and len(v) >= 2}
+    rows = [a for a in articles if story_worthy(a) and not removed_source(a)
+            and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
+    rows, _ = content_policy.enforce(rows)
+    changed = False
+    for a in rows:
+        dt = _parse_dt(a.get("publishedAt"))
+        if not dt or now - dt.timestamp() > STORY_KEEP_S:
+            continue
+        n = 1 + len(a.get("alts") or [])
+        old = index.get(a["id"])
+        if old and old[1] == n and (STORY_DIR / a["id"] / "index.html").exists():
+            continue
+        d = STORY_DIR / a["id"]
+        d.mkdir(parents=True, exist_ok=True)
+        _write_atomic(d / "index.html", story_page(a), encoding="utf-8")
+        index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem"]
+        changed = True
+    for sid in list(index):
+        if now - index[sid][0] > STORY_KEEP_S or sid in content_policy._REMOVED_IDS:
+            for p in (STORY_DIR / sid / "index.html", STORY_DIR / sid):
+                try:
+                    p.unlink() if p.is_file() else p.rmdir()
+                except OSError:
+                    pass
+            del index[sid]
+            changed = True
+    if changed:
+        STORY_DIR.mkdir(parents=True, exist_ok=True)
+        _write_atomic(STORY_DIR / "index.json", json.dumps(index, separators=(",", ":")))
+    return index
+
+# Günün icmalı (sahib, 2026-11-06: «daimi oxucu» planının 1-ci addımı). Bakı vaxtı 09:00 və 19:00-da ən çox mənbənin yazdığı
+# 10 Azərbaycan xəbəri bir səhifəyə yığılır: icmal/<tarix>-seher/ və icmal/<tarix>-axsam/ (axşam səhərkini təkrarlamır). Buraxılış
+# bir dəfə yazılır və dəyişmir; siyahı icmal/index.json-dadır (sosial iş axını oradan Telegram/Facebook-a göndərir). Səhifə JS-siz,
+# tətbiqi yükləmir (~6 KB). Şəbəkə sorğusu yoxdur. QIRMIZI XƏTT 2: xəbərlər enforce və rəhbərlik süzgəcindən keçir.
+DIGEST_DIR = ROOT / "icmal"
+DIGEST_SIZE = 10
+DIGEST_KEEP_DAYS = 90
+DIGEST_EDITIONS = (("seher", 9, "Səhər icmalı", 24), ("axsam", 19, "Axşam icmalı", 12))  # (açar, saat, ad, neçə saatlıq xəbər)
+DIGEST_LATE_H = 6  # pipeline dayanıbsa buraxılış ən gec bu qədər sonra yazılır, sonra buraxılır
+
+def _title_key(t):
+    return re.sub(r"[^\w]+", "", unicodedata.normalize("NFKC", str(t or "")).casefold())
+
+# Sahib (2026-11-06): «1 hadisədən yalnız 1 xəbər». İlk axşam icmalında 10 xəbərdən 7-si Prezidentin bir səfəri idi.
+# Eyni hadisə: başlıq + xülasənin əvvəli üzrə nadir sözlər (5 hərflik kök, aralıqdakı xəbərlərə görə ağırlıq) oxşarlığı
+# DIGEST_SAME_EVENT-dən böyükdür (6 noyabr: səfər xəbərləri 0.32-0.90, ayrı hadisələr 0.16-0.24). Rəhbərin sözlərindən sitat
+# («Prezident: "..."») xülasədə yeri yazılmır: icmalda rəhbərin bir hadisəsi varsa, sitat həmin hadisənin parçası sayılır.
+DIGEST_SAME_EVENT = 0.3
+_EVENT_STOP = set("ilə üçün olan olub edib edilib ediblər haqqında barədə daha artıq bütün onun onların həm isə kimi sonra əvvəl "
+                  "yeni ildə günü foto video yenilənib yeniləndi şərh açıqlama xəbər verir".split())
+_LEADER_RE = re.compile(r"prezident|ilham əliyev|dövlət başçısı")
+_LEADER_QUOTE_RE = re.compile(r"^\s*(?:prezident|dövlət başçısı|ilham əliyev)[^:]{0,25}:")
+
+
+def _az_lower(s):
+    return str(s or "").replace("İ", "i").replace("I", "ı").lower()
+
+
+def _event_tokens(a):
+    text = _az_lower(f"{a.get('title') or ''} {(a.get('summary') or '')[:220]}")
+    return {w[:5] for w in re.findall(r"[^\W\d_]{4,}", text) if w not in _EVENT_STOP}
+
+
+def _leader_quote(a):
+    t = _az_lower(a.get("title"))
+    return bool(_LEADER_QUOTE_RE.match(t) or (re.match(r"\s*[\"“«„]", t) and _LEADER_RE.search(_az_lower((a.get("summary") or "")[:300]))))
+
+
+def digest_pick(articles, start, end, skip=()):
+    """[start, end) aralığında ən çox mənbənin yazdığı Azərbaycan xəbərləri (bərabərdə daha yeni); eyni başlıq və eyni hadisə bir dəfə."""
+    rows = []
+    for a in articles:
+        dt = _parse_dt(a.get("publishedAt"))
+        if (not dt or not (start <= dt.timestamp() < end) or (a.get("lang") or "az") != "az" or not str(a.get("title") or "").strip()
+                or a.get("id") in skip or removed_source(a)
+                or is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))):
+            continue
+        rows.append(a)
+    rows, _ = content_policy.enforce(rows)
+    rows.sort(key=lambda a: (1 + len(a.get("alts") or []), a.get("publishedAt") or ""), reverse=True)
+    toks = [_event_tokens(a) for a in rows]
+    df = collections.Counter(w for t in toks for w in t)
+    idf = {w: math.log((len(rows) + 1) / (n + 1)) for w, n in df.items()}
+    norm = [math.sqrt(sum(idf[w] ** 2 for w in t)) for t in toks]
+    def same_event(i, j):
+        if not norm[i] or not norm[j]:
+            return False
+        return sum(idf[w] ** 2 for w in toks[i] & toks[j]) / (norm[i] * norm[j]) >= DIGEST_SAME_EVENT
+    out, picked, seen, leader = [], [], set(), False
+    for i, a in enumerate(rows):
+        k = _title_key(a.get("title"))
+        if k in seen or (leader and _leader_quote(a)) or any(same_event(i, j) for j in picked):
+            continue
+        seen.add(k)
+        picked.append(i)
+        out.append(a)
+        leader = leader or bool(_LEADER_RE.search(_az_lower(f"{a.get('title') or ''} {(a.get('summary') or '')[:220]}")))
+        if len(out) == DIGEST_SIZE:
+            break
+    return out
+
+_DIGEST_HTML = """<!doctype html>
+<html lang="az">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>__TITLE__ — 8ulduz</title>
+<meta name="description" content="__DESC__" />
+<link rel="canonical" href="__URL__" />
+<meta name="theme-color" content="#0a1120" />
+<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="__TITLE__" />
+<meta property="og:description" content="__DESC__" /><meta property="og:url" content="__URL__" /><meta property="og:image" content="__IMAGE__" />
+<meta property="og:locale" content="az_AZ" /><meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
+<link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
+<script type="application/ld+json">__LD__</script>
+<style>body{margin:0;font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#0a1120;color:#e8edf5}main{max-width:720px;margin:0 auto;padding:16px}a{color:#7cc4ff}h1{font-size:1.5em;margin:.4em 0 .2em}ol{padding-left:1.4em}li{margin:0 0 1.1em}li>a{font-weight:600;font-size:1.05em;text-decoration:none}small{display:block;color:#9fb0c6}li p{margin:.3em 0 0}.cta{background:#13203a;border-radius:12px;padding:12px 14px;margin:1.4em 0}@media(prefers-color-scheme:light){body{background:#fff;color:#111}small{color:#555}.cta{background:#eef4fb}a{color:#0b5cad}}</style>
+</head>
+<body><main>
+<p><a href="__SITE__">8ULDUZ</a> › <a href="__SITE__icmal/">Günün icmalı</a></p>
+<h1>__TITLE__</h1>
+<p>__INTRO__</p>
+<ol>__ITEMS__</ol>
+<p class="cta">Hər səhər və axşam günün 10 əsas xəbəri Telegram kanalımızda: <a href="https://t.me/sekkizulduz_az">t.me/sekkizulduz_az</a></p>
+<p>__NAV__<a href="__SITE__icmal/">Bütün icmallar</a> · <a href="__SITE__">8ULDUZ — bütün xəbərlər</a></p>
+</main></body>
+</html>
+"""
+
+def _digest_date(d):
+    return f"{d.day} {_AZ_MONTH_NAMES[d.month - 1]} {d.year}"
+
+def digest_page(ed, items, stories, prev=None):
+    """Bir buraxılışın səhifəsi. ed: index.json sətri."""
+    lis = []
+    for i, a in enumerate(items, 1):
+        href = f'{SITE}xeber/{a["id"]}/' if a.get("id") in (stories or {}) else f'{SITE}#/xeber/{a.get("id")}?b={a.get("category") or ""}'
+        names = list(dict.fromkeys([a.get("source"), *(x.get("source") for x in a.get("alts") or [])]))
+        names = [n for n in names if n]
+        who = ", ".join(names[:3]) + (f" və daha {len(names) - 3}" if len(names) > 3 else "")
+        summary = re.sub(r"<[^>]+>|\s+", " ", str(a.get("summary") or "")).strip()
+        summary = summary if len(summary) <= 220 else summary[:217].rsplit(" ", 1)[0] + "…"
+        lis.append(f'<li><a href="{_xml(href)}">{_xml(a.get("title"))}</a><small>{1 + len(a.get("alts") or [])} mənbə · {_xml(who)}</small>'
+                   + (f"<p>{_xml(summary)}</p>" if summary and summary != a.get("title") else "") + "</li>")
+    image = next((str(a.get("imageUrl")) for a in items if str(a.get("imageUrl") or "").startswith("https://")), f"{SITE}assets/og-default.png")
+    ld = json.dumps({"@context": "https://schema.org", "@type": "ItemList", "name": ed["title"], "itemListElement": [
+        {"@type": "ListItem", "position": i, "name": str(a.get("title") or ""),
+         "url": f'{SITE}xeber/{a["id"]}/' if a.get("id") in (stories or {}) else SITE} for i, a in enumerate(items, 1)]},
+        ensure_ascii=False).replace("</", "<\\/")
+    nav = f'<a href="{SITE}icmal/{prev["slug"]}/">← {_xml(prev["title"])}</a> · ' if prev else ""
+    return (_DIGEST_HTML.replace("__LD__", ld).replace("__ITEMS__", "".join(lis)).replace("__NAV__", nav)
+            .replace("__INTRO__", _xml(f'{ed["label"]}: son {ed["hours"]} saatda ən çox mənbənin yazdığı {len(items)} xəbər. Sıra xəbəri yazan saytların sayına görədir.'))
+            .replace("__DESC__", _xml("; ".join(str(a.get("title") or "") for a in items[:3])[:300]))
+            .replace("__TITLE__", _xml(ed["title"])).replace("__IMAGE__", _xml(image))
+            .replace("__URL__", f'{SITE}icmal/{ed["slug"]}/').replace("__SITE__", SITE))
+
+def _digest_archive(index):
+    lis = "".join(f'<li><a href="{SITE}icmal/{e["slug"]}/">{_xml(e["title"])}</a><small>{_xml(e.get("lead") or "")}</small></li>' for e in index[:60])
+    ed = {"title": "Günün icmalı", "label": "8ULDUZ", "hours": 24, "slug": ""}
+    page = digest_page(ed, [], {})
+    page = page.replace(f'<link rel="canonical" href="{SITE}icmal//" />', f'<link rel="canonical" href="{SITE}icmal/" />')
+    page = page.replace(f'content="{SITE}icmal//"', f'content="{SITE}icmal/"')
+    page = re.sub(r"<p>8ULDUZ: son 24 saatda.*?</p>", "<p>Hər gün səhər 09:00-da və axşam 19:00-da ən çox mənbənin yazdığı 10 xəbər.</p>", page, count=1, flags=re.S)
+    desc = "8ULDUZ: hər gün səhər və axşam ən çox mənbənin yazdığı 10 Azərbaycan xəbəri"
+    return page.replace("<ol></ol>", f"<ol>{lis}</ol>").replace('content="" />', f'content="{desc}" />')
+
+def read_digest_index():
+    rows = _read_json(DIGEST_DIR / "index.json", [])
+    return rows if isinstance(rows, list) else []
+
+def write_digest(articles, stories=None, now=None):
+    """Vaxtı çatmış, hələ yazılmamış buraxılışı yazır; buraxılışların siyahısını (ən yenisi birinci) qaytarır."""
+    now = now or time.time()
+    local = datetime.datetime.fromtimestamp(now, BAKU)
+    index = read_digest_index()
+    have = {e.get("slug") for e in index}
+    changed = False
+    for key, hour, label, hours in DIGEST_EDITIONS:
+        at = local.replace(hour=hour, minute=0, second=0, microsecond=0)
+        slug = f"{at:%Y-%m-%d}-{key}"
+        if slug in have or not (0 <= (local - at).total_seconds() < DIGEST_LATE_H * 3600):
+            continue
+        end = at.timestamp()
+        skip = {i for e in index if e.get("date") == f"{at:%Y-%m-%d}" for i in e.get("ids") or []}
+        items = digest_pick(articles, end - hours * 3600, end, skip)
+        if len(items) < 5:
+            continue
+        ed = {"slug": slug, "date": f"{at:%Y-%m-%d}", "edition": key, "label": label, "hours": hours, "at": int(end),
+              "title": f"{label} · {_digest_date(at)}", "url": f"{SITE}icmal/{slug}/", "ids": [a["id"] for a in items],
+              "items": [{"t": re.sub(r"\s+", " ", str(a.get("title") or "")).strip(), "n": 1 + len(a.get("alts") or [])} for a in items],
+              "lead": re.sub(r"\s+", " ", str(items[0].get("title") or "")).strip()}
+        d = DIGEST_DIR / slug
+        d.mkdir(parents=True, exist_ok=True)
+        _write_atomic(d / "index.html", digest_page(ed, items, stories, index[0] if index else None), encoding="utf-8")
+        index.insert(0, ed)
+        have.add(slug)
+        changed = True
+    keep_from = now - DIGEST_KEEP_DAYS * 86400
+    for e in [e for e in index if e.get("at", 0) < keep_from]:
+        for p in (DIGEST_DIR / e["slug"] / "index.html", DIGEST_DIR / e["slug"]):
+            try:
+                p.unlink() if p.is_file() else p.rmdir()
+            except OSError:
+                pass
+        index.remove(e)
+        changed = True
+    if changed:
+        DIGEST_DIR.mkdir(parents=True, exist_ok=True)
+        index.sort(key=lambda e: e.get("at", 0), reverse=True)
+        _write_atomic(DIGEST_DIR / "index.json", json.dumps(index, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(DIGEST_DIR / "index.html", _digest_archive(index), encoding="utf-8")
+    return index
+
 def update_archive(now=None):
     now = now or time.time()
-    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    articles = read_feed()
     missing = any(not (ARCHIVE_DIR / f"{s[0]}.json").exists() for s in SECTIONS if s[0] != "prezident")  # yeni bölmə bir saat boş qalmasın
     if not articles or (not missing and now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S):
         return
@@ -1606,6 +2254,7 @@ def update_archive(now=None):
     merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []} | dead_links(len(articles))
     backlog = feed_backlog(cutoff)
     images = _read_json(ARCHIVE_OG_FILE, {})
+    update_share_index(articles, now)
     for slug, _label, _desc in SECTIONS:
         if slug == "prezident":  # Zuğulba lentdə 60 gün qalır
             continue
@@ -1644,14 +2293,14 @@ READER_ENABLED = False
 
 def retire_reader():
     if READER_ENABLED:
-        update_reader(_read_json(OUT_FILE, {}).get("articles") or [], OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6))
+        update_reader(read_feed(), OUT_DIR / "reader.json", lambda url: fetch(url, timeout=6))
     else:
         (OUT_DIR / "reader.json").unlink(missing_ok=True)
 
 
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
-    articles = _read_json(OUT_FILE, {}).get("articles") or []
+    articles = read_feed()
     steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive, update_team_pages]
     for step in steps:
@@ -2227,7 +2876,7 @@ def update_social():
     if failed:
         posts.extend(p for p in old if p.get("who") in failed and p.get("network") == "YouTube")
     try:
-        arts = json.loads(OUT_FILE.read_text(encoding="utf-8")).get("articles") or []
+        arts = read_feed()
         posts.extend(social_from_news(arts))
     except Exception as e:
         print(f"  ! sosial (xəbərdən): {type(e).__name__}: {str(e)[:80]}")
@@ -4129,11 +4778,11 @@ _SECTION_HTML = """<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
-    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");if(f==="0"||f==="1"||f==="2")document.documentElement.dataset.fs=f;}catch(e){}</script>
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__LABEL__ — 8ulduz</title>
     <meta name="description" content="__DESC__ — 8ulduz, Azərbaycan və dünyadan son xəbərlər." />
     <link rel="canonical" href="__URL__" />
-    <meta name="theme-color" content="#0a1120" />
+    <meta name="theme-color" content="#15233b" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="8ulduz" />
     <meta property="og:title" content="__LABEL__ — 8ulduz" />
@@ -4145,9 +4794,7 @@ _SECTION_HTML = """<!doctype html>
     <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
     <link rel="manifest" href="__SITE__manifest.webmanifest" />
     <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional" rel="stylesheet" />
+    <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />
     <link rel="modulepreload" href="../../assets/app.js" />
     <link rel="stylesheet" href="../../assets/app.css" />
     <script src="../../assets/config.js" defer></script>
@@ -4159,23 +4806,26 @@ _SECTION_HTML = """<!doctype html>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
 """
 
-def section_page(slug, label, desc, articles, limit=30):
+def section_page(slug, label, desc, articles, limit=30, stories=()):
     items = [a for a in articles if a.get("category") == slug and (a.get("lang") or "az") == "az"]
     items.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+    # Öz səhifəsi olan xəbər ora keçid verir (Google səhifəni bölmədən də tapır), qalanı mənbəyə.
+    href = lambda a: f'../../xeber/{a["id"]}/' if a.get("id") in stories else _xml(a.get("sourceUrl"))
     lis = "".join(
-        f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
+        f'<li><a href="{href(a)}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
         for a in items[:limit])
     url = f"{SITE}bolme/{slug}/"
     return _page_html(slug, label, desc, f"<ul>{lis}</ul>")
 
 # index.html-dəki siyasətlə eynidir (tests/browser-logic.test.cjs). connect-src qəsdən yoxdur: canlı kanala sorğu bloklanmasın.
-_CSP = "script-src 'self' {hashes} https://gc.zgo.at; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com"
+# connect-src olmayanda sendBeacon 8ulduz.goatcounter.com-a keçir. Skript gc.zgo.at-dandır; hər iki ünvan script-src-dədir.
+_CSP = "script-src 'self' {hashes} https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com"
 
 def _with_csp(page):
     """Səhifənin öz kiçik skriptlərindən başqa daxili skript işləmir."""
@@ -4217,11 +4867,11 @@ def service_body(slug, articles):
     lis = "".join(f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in road[:20])
     return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p><ul>{lis}</ul>'
 
-def write_sections(articles):
+def write_sections(articles, stories=()):
     for slug, label, desc in SECTIONS:
         d = SECTIONS_DIR / slug
         d.mkdir(parents=True, exist_ok=True)
-        _write_atomic(d / "index.html", section_page(slug, label, desc, articles), encoding="utf-8")
+        _write_atomic(d / "index.html", section_page(slug, label, desc, articles, stories=stories), encoding="utf-8")
     for old, new in SECTION_ALIASES.items():
         d = SECTIONS_DIR / old
         d.mkdir(parents=True, exist_ok=True)
@@ -4236,13 +4886,24 @@ def write_sections(articles):
             print("  ! xidmət səhifəsi:", slug, type(e).__name__, e)
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
-def write_sitemap():
+def write_sitemap(stories=None, digests=()):
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc in locs:
         body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{today}</lastmod><changefreq>hourly</changefreq></url>")
+    # Sabit məlumat səhifələrinə hər dövrədə saxta dəyişmə tarixi yazılmır.
+    for path in ("haqqinda/", "mexfilik/"):
+        body.append(f"<url><loc>{_xml(SITE + path)}</loc></url>")
+    if digests:
+        body.append(f"<url><loc>{SITE}icmal/</loc><lastmod>{datetime.datetime.fromtimestamp(digests[0]['at'], datetime.timezone.utc).date().isoformat()}</lastmod></url>")
+    for e in list(digests)[:60]:
+        body.append(f"<url><loc>{SITE}icmal/{e['slug']}/</loc><lastmod>{e['date']}</lastmod></url>")
+    newest = sorted((stories or {}).items(), key=lambda kv: kv[1][0], reverse=True)[:STORY_SITEMAP_MAX]
+    for sid, row in newest:
+        day = datetime.datetime.fromtimestamp(row[0], datetime.timezone.utc).date().isoformat()
+        body.append(f"<url><loc>{SITE}xeber/{sid}/</loc><lastmod>{day}</lastmod></url>")
     body.append("</urlset>\n")
     _write_atomic(SITEMAP_FILE, "".join(body), encoding="utf-8")
 
@@ -4253,14 +4914,20 @@ def write_robots():
         encoding="utf-8")
 
 def write_public():
-    try:
-        articles = json.loads(OUT_FILE.read_text(encoding="utf-8")).get("articles") or []
-    except Exception:
-        articles = []
-    articles, _ = content_policy.enforce(articles)  # feed.xml və bölmə səhifələri də qapıdan keçir
+    articles, _ = content_policy.enforce(read_feed())  # feed.xml və bölmə səhifələri də qapıdan keçir
     write_feed(articles)
-    write_sections(articles)
-    write_sitemap()
+    try:  # xəbər səhifələri alınmasa bölmələr və sitemap köhnə qaydada yazılır
+        stories = write_story_pages(articles)
+    except Exception as e:
+        print("  ! xəbər səhifələri:", type(e).__name__, e)
+        stories = {}
+    try:  # günün icmalı: alınmasa qalan hər şey köhnə qaydada
+        digests = write_digest(articles, stories)
+    except Exception as e:
+        print("  ! icmal:", type(e).__name__, e)
+        digests = []
+    write_sections(articles, stories)
+    write_sitemap(stories, digests)
     write_robots()
 
 _OG_META = re.compile(r"<meta\b[^>]*>", re.I)
@@ -4495,9 +5162,9 @@ def fill_og_images(articles, limit=120):
         if a.get("imageUrl"):
             freq[a["imageUrl"]] = freq.get(a["imageUrl"], 0) + 1
     for k, v in list(cache.items()):
-        if v and freq.get(v, 0) >= 3:
+        if v and _is_logo(v, freq.get(v, 0)):
             cache[k] = ""
-    logos = {v for v, n in freq.items() if n >= 3}
+    logos = {v for v, n in freq.items() if _is_logo(v, n)}
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
@@ -4521,8 +5188,8 @@ def fill_og_images(articles, limit=120):
                     freq[img] = freq.get(img, 0) + 1
             for a, img in zip(batch, found):
                 # Şəbəkə xətası və ya yeni üzə çıxan loqo: xəbər lentdə cəmi 3-4 saat qalır, 6 saat gözləsə şəkilsiz çıxıb gedir.
-                soon = img is None or bool(img and freq.get(img, 0) >= 3)
-                if img and freq.get(img, 0) >= 3:
+                soon = img is None or _is_logo(img, freq.get(img, 0))
+                if _is_logo(img, freq.get(img, 0)):
                     img = ""  # bu dövrədə də eyni şəkil təkrarlanır: loqo
                 cache[a["sourceUrl"]] = img or ""
                 if img:
@@ -4550,6 +5217,69 @@ def fill_og_images(articles, limit=120):
         print("  ! og keşi:", type(e).__name__)
     return len(batch)
 
+# Sahib (2026-11-06): «şəkilsiz kart olmamalıdır». Təzə xəbərlərin üçdə biri lentdən şəkilsiz gəlir, şəkli yavaş dövrə
+# (4-5 dəqiqədən bir) tapırdı: xəbər 5-15 dəqiqə şəkilsiz görünürdü. Bu yoxlama link prosesində 30 saniyədən bir işləyir (--og):
+# yalnız son FRESH_OG_AGE_S içindəki şəkilsiz xəbərlər, ən yenisi birinci. Sürətli dövrə şəbəkə gözləmir, apply_og_cache nəticəni götürür.
+FRESH_OG_LIMIT, FRESH_OG_AGE_S, FRESH_OG_RETRY_S = 24, 3 * 3600, 60
+
+
+def fill_fresh_og(now=None, limit=FRESH_OG_LIMIT):
+    now_ts = now or time.time()
+    cache = _read_json(OG_FILE, {})
+    cache = cache if isinstance(cache, dict) else {}
+    meta = cache.get("_meta") if isinstance(cache.get("_meta"), dict) else {}
+    retry = meta.get("retryAfter") if isinstance(meta.get("retryAfter"), dict) else {}
+    freq = {}
+    rows = read_feed()
+    for v in [v for k, v in cache.items() if k != "_meta"] + [a.get("imageUrl") for a in rows]:
+        if isinstance(v, str) and v:
+            freq[v] = freq.get(v, 0) + 1
+    logos = {v for v, n in freq.items() if _is_logo(v, n)}
+    def age(a):
+        try:
+            return now_ts - datetime.datetime.fromisoformat(str(a.get("publishedAt")).replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return FRESH_OG_AGE_S + 1
+    todo = []
+    for a in rows:
+        url = a.get("sourceUrl") or ""
+        if not url or a.get("imageUrl") or cache.get(url) or retry.get(url, 0) > now_ts or not 0 <= age(a) <= FRESH_OG_AGE_S:
+            continue
+        if url in cache and url not in retry:
+            continue  # səhifədə şəkil yoxdur (yavaş dövrə 6 saat sonra yenə baxır)
+        todo.append(a)
+    todo = sorted(todo, key=age)[:limit]
+    if not todo:
+        return 0
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        found = list(ex.map(lambda a: _fetch_og(a["sourceUrl"], logos), todo))
+    new, again = {}, {}
+    for a, img in zip(todo, found):
+        if img and not _is_logo(img, freq.get(img, 0) + 1) and not _is_generic_img(img):
+            new[a["sourceUrl"]] = img
+        else:
+            again[a["sourceUrl"]] = now_ts + (FRESH_OG_RETRY_S if img is None else 900)
+    # Yavaş dövrə də bu faylı yazır: oxu-yaz arası qısa olsun, onun tapdıqları itməsin.
+    latest = _read_json(OG_FILE, {})
+    latest = latest if isinstance(latest, dict) else {}
+    m = latest.get("_meta") if isinstance(latest.get("_meta"), dict) else {}
+    r = dict(m.get("retryAfter") if isinstance(m.get("retryAfter"), dict) else {})
+    for url, img in new.items():
+        latest[url] = img
+        r.pop(url, None)
+    for url, t in again.items():
+        if not latest.get(url):
+            r[url] = t
+    latest["_meta"] = {**m, "retryAfter": r, "fresh": {"at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "batch": len(todo), "found": len(new)}}
+    try:
+        OUT_DIR.mkdir(exist_ok=True)
+        _write_atomic(OG_FILE, json.dumps(latest, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print("  ! og (təzə):", type(e).__name__)
+    if new:
+        print(f"og:image (təzə): {len(new)}/{len(todo)}")
+    return len(new)
+
 def write_status(ok=True, successful=0, total=0, stats=None):
     """Son cəhd və son uğur ayrıdır; uğursuz cəhd köhnə xəbəri təzə göstərmir. stats: seçim sayları (diaqnostika)."""
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
@@ -4558,11 +5288,14 @@ def write_status(ok=True, successful=0, total=0, stats=None):
     except (OSError, ValueError):
         previous = {}
     OUT_DIR.mkdir(exist_ok=True)
-    _write_atomic(STATUS_FILE, json.dumps({"checkedAt": now if ok else previous.get("checkedAt"),
-                                       "attemptedAt": now, "ok": ok,
-                                       "successfulSources": successful, "totalSources": total,
-                                       "degraded": ok and total - successful > total * FEED_PAUSE_MAX_SHARE, "stats": stats or previous.get("stats")}, ensure_ascii=False,
-                                       separators=(",", ":")), encoding="utf-8")
+    status = {"checkedAt": now if ok else previous.get("checkedAt"), "attemptedAt": now, "ok": ok,
+              "successfulSources": successful, "totalSources": total,
+              "degraded": ok and total - successful > total * FEED_PAUSE_MAX_SHARE, "stats": stats or previous.get("stats")}
+    if os.environ.get("LATEST_LANG_FILES"):  # yalnız dil fayllarını live-ə yazan pipeline.sh qoyur: sayt bayraqsız ümumi latest.json çəkir (köhnə iş 404 verməsin)
+        status["langs"] = list(FEED_LANGS)
+    if os.environ.get("NEWS_LANG_FILES"):  # tam lent dil üzrə (write_news): sayt news.<dil>.json-u yalnız bayraqla istəyir, yoxsa news.json
+        status["newsLangs"] = list(NEWS_LANGS)
+    _write_atomic(STATUS_FILE, json.dumps(status, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
 # --------------------------------------------------------------------- main ---
@@ -4589,10 +5322,7 @@ def main(fast=False):
         tick = time.time()
         if fast:
             print("  ·", name, marks[name], flush=True)
-    try:
-        old = json.loads(OUT_FILE.read_text(encoding="utf-8"))["articles"]
-    except Exception:
-        old = []
+    old = read_feed()  # bölünmüş lent (news.json + dil faylları, write_news) bir siyahıda
     prev_articles = [dict(a) for a in old]
     old = prune_removed_sources(old)
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
@@ -4648,11 +5378,28 @@ def main(fast=False):
     now_utc = datetime.datetime.now(datetime.timezone.utc)
     cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)
     old = [a for a in old if (_parse_dt(a.get("publishedAt")) or now_utc) >= (cutoff_prez if a.get("category") == "prezident" else cutoff)]
+    # Əvvəlki dövrələrdən qalan eyni nömrəli cütlər (slug dəyişmiş eyni xəbər): yalnız ən yenisi qalır.
+    keyed, dedup = set(), []
+    for a in old:
+        k = story_key(a.get("sourceUrl"))
+        if k in keyed:
+            continue
+        if k:
+            keyed.add(k)
+        dedup.append(a)
+    old = dedup
     seen = {a["sourceUrl"] for a in old}
     if fast:  # başqa xəbərin mənbəsi kimi birləşmiş keçid yenidən «yeni» sayılmasın
         seen |= {alt.get("sourceUrl") for a in old for alt in a.get("alts") or []}
     old_by_url = {a["sourceUrl"]: a for a in old}
-    new_items, errors, empty = [], [], []
+    # Eyni mənbənin eyni nömrəli xəbəri (başlıq və slug dəyişəndə) yeni qeyd sayılmasın: nömrə üzrə köhnə qeyd tapılır (story_key).
+    old_by_key = {}
+    for a in old:
+        for u in [a.get("sourceUrl"), *(alt.get("sourceUrl") for alt in a.get("alts") or [])]:
+            k = story_key(u)
+            if k and k not in old_by_key:
+                old_by_key[k] = a
+    new_items, errors, empty, new_keys = [], [], [], set()
     # Sürətli dövrə köhnə xəbərlə lenti geri doldurmur: lentdəki ən köhnədən köhnə element emal olunmur.
     regular = [_parse_dt(a.get("publishedAt")) for a in old if a.get("category") != "prezident"]
     floor = min([d for d in regular if d], default=None) if fast and len(regular) >= 300 else None
@@ -4706,6 +5453,21 @@ def main(fast=False):
                     if known is not None and not known.get("imageUrl") and it.get("image"):
                         known["imageUrl"] = it["image"]
                     continue
+                key = story_key(it["link"])
+                if key and key in old_by_key:
+                    # Eyni xəbər yeni başlıq və slug ilə: qeyd birdir, başlığı yenilənir, keçid və nömrə (paylaşma) qalır.
+                    known, title = old_by_key[key], _plain(it["title"], title=True)
+                    if title and title != known.get("title"):
+                        known["title"] = title
+                        known["summary"] = _short(_plain(it["description"])) or known.get("summary", "")
+                    if not known.get("imageUrl") and it.get("image"):
+                        known["imageUrl"] = it["image"]
+                    seen.add(it["link"])
+                    continue
+                if key:
+                    if key in new_keys:  # eyni dövrədə iki lentdən (əsas və bölmə RSS-i) fərqli slug ilə
+                        continue
+                    new_keys.add(key)
                 if floor and it.get("pubDate") and _older_than(it["pubDate"], floor):
                     continue
                 if source in source_floor and it.get("pubDate") and _older_than(it["pubDate"], source_floor[source]):
@@ -4752,7 +5514,7 @@ def main(fast=False):
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
     old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
-    per_src, world_count, sport_count = {}, 0, 0
+    per_src, world_count, sport_count = {}, {}, 0  # world_count dil üzrədir (MAX_WORLD_LANG)
     # Tarixə görə birgə sıralama. Əvvəl «yeni» (bu dövrədə ilk dəfə görülən) xəbərlər köhnələrdən qabaq gəlirdi;
     # limitdən kənarda qalan köhnə xəbərlər növbəti dövrədə yenidən «yeni» sayılıb siyahını hər dəfə dəyişirdi
     # (813-dən yalnız ~50 xəbər dövrədən dövrəyə qalırdı; og keşi və qruplar daim sıfırlanırdı).
@@ -4761,10 +5523,12 @@ def main(fast=False):
             continue
         n, is_sport = per_src.get(a.get("source"), 0), a.get("source") in content_policy.SPORT_SOURCES
         is_world = a.get("source") in WORLD_SOURCES and not is_sport
-        if n >= source_cap(a.get("source")) or (is_world and world_count >= MAX_WORLD) or (is_sport and sport_count >= MAX_WORLD_SPORT):
+        lang = a.get("lang") or "en"
+        if n >= source_cap(a.get("source")) or (is_world and world_count.get(lang, 0) >= MAX_WORLD_LANG.get(lang, MAX_WORLD_LANG["en"])) or (is_sport and sport_count >= MAX_WORLD_SPORT):
             continue
         per_src[a.get("source")] = n + 1
-        world_count += is_world
+        if is_world:
+            world_count[lang] = world_count.get(lang, 0) + 1
         sport_count += is_sport
         dseen.add(a["sourceUrl"]); uniq.append(a)
     # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
@@ -4788,11 +5552,11 @@ def main(fast=False):
             img_count[a["imageUrl"]] = img_count.get(a["imageUrl"], 0) + 1
     for a in articles:
         u = a.get("imageUrl")
-        if u and (img_count.get(u, 0) >= 3 or _is_generic_img(u)):
+        if u and (_is_logo(u, img_count.get(u, 0)) or _is_generic_img(u)):
             a["imageUrl"] = None
         if not a.get("imageUrl"):
             for alt in a.get("alts") or []:
-                if alt.get("imageUrl") and img_count.get(alt["imageUrl"], 0) < 3 and not _is_generic_img(alt["imageUrl"]):
+                if alt.get("imageUrl") and not _is_logo(alt["imageUrl"], img_count.get(alt["imageUrl"], 0)) and not _is_generic_img(alt["imageUrl"]):
                     a["imageUrl"] = alt["imageUrl"]
                     break
     if fast:
@@ -4839,11 +5603,15 @@ def main(fast=False):
     }
     OUT_DIR.mkdir(exist_ok=True)
     # yığcam JSON: repo ölçüsünün böyüməsini azaldır
+    try:  # paylaşma səhifələri lentdən əvvəl: lentin dediyi hər /x/ID səhifəsi var (xəta axını dayandırmır)
+        write_share_pages(articles)
+    except Exception as e:
+        print("  ! paylaşma səhifələri:", type(e).__name__, flush=True)
     try:  # QIRMIZI XƏTT 1: bu fayl alınmasa sayt tam lentlə açılır, xəbər axını dayanmır
         write_first(articles, data["updatedAt"])
     except Exception as e:
         print("  ! first.json:", type(e).__name__, flush=True)
-    _write_atomic(OUT_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    write_news(data)
     if not fast:
         try:
             retire_reader()
@@ -4877,6 +5645,9 @@ def run():
         return slow_cycle()
     if "--links" in sys.argv:
         check_links()
+        return 0
+    if "--og" in sys.argv:
+        fill_fresh_og()
         return 0
     news_ok = True
     result = {"successful": 0, "total": 0}

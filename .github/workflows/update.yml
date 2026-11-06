@@ -8,6 +8,11 @@ on:
     # Cron ehtiyatdır. GitHub onu 20–40 dəqiqə gecikdirə və ya atıya bilər.
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      rollout:
+        description: Yeni kodu canlı axını kəsmədən aktivləşdir
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -39,6 +44,7 @@ jobs:
       - name: Hər 60 saniyədən bir yenilə
         env:
           GH_TOKEN: ${{ github.token }}
+          ROLLOUT: ${{ github.event_name == 'workflow_dispatch' && inputs.rollout && '1' || '' }}
         run: bash .github/scripts/pipeline.sh
       - name: İşlək kodu yadda saxla
         if: ${{ always() && hashFiles('.lkg/.yeni') != '' }}

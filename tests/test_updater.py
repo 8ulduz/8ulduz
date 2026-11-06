@@ -257,6 +257,37 @@ class ImageTest(unittest.TestCase):
                 self.assertEqual(fetch.call_count, 2)
                 self.assertEqual(article['imageUrl'], 'https://example.com/photo.jpg')
 
+    def test_fresh_articles_get_their_photo_without_waiting_for_the_slow_cycle(self):
+        # Sahib (2026-11-06): şəkilsiz kart olmamalıdır. --og yalnız təzə şəkilsiz xəbərləri yoxlayır, yavaş dövrənin tapdıqlarını silmir.
+        now = datetime.datetime(2026, 11, 6, 14, 0, tzinfo=datetime.timezone.utc)
+        iso = lambda m: (now - datetime.timedelta(minutes=m)).isoformat()
+        rows = [{"sourceUrl": "https://x.az/new", "publishedAt": iso(2)},
+                {"sourceUrl": "https://x.az/has", "publishedAt": iso(2), "imageUrl": "https://x.az/h.jpg"},
+                {"sourceUrl": "https://x.az/old", "publishedAt": iso(600)},
+                {"sourceUrl": "https://x.az/down", "publishedAt": iso(3)}]
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            cache = folder / "og.json"
+            cache.write_text(json.dumps({"https://x.az/slow": "https://x.az/s.jpg"}), encoding="utf-8")
+            photo = {"https://x.az/new": "https://x.az/n.jpg", "https://x.az/down": None}
+            with patch.object(updater, "OG_FILE", cache), patch.object(updater, "OUT_DIR", folder), \
+                 patch.object(updater, "read_feed", return_value=rows), \
+                 patch.object(updater, "_fetch_og", side_effect=lambda u, skip=(): photo[u]) as fetch:
+                self.assertEqual(updater.fill_fresh_og(now.timestamp()), 1)
+                self.assertEqual(sorted(c.args[0] for c in fetch.call_args_list), ["https://x.az/down", "https://x.az/new"])
+                stored = json.loads(cache.read_text(encoding="utf-8"))
+                self.assertEqual(stored["https://x.az/new"], "https://x.az/n.jpg")
+                self.assertEqual(stored["https://x.az/slow"], "https://x.az/s.jpg")
+                self.assertGreater(stored["_meta"]["retryAfter"]["https://x.az/down"], now.timestamp())
+                updater.fill_fresh_og(now.timestamp())
+                self.assertEqual(fetch.call_count, 2, "tapılan şəkil və tezliklə yenidən yoxlanacaq səhifə təkrar sorğulanmır")
+                updater.fill_fresh_og(now.timestamp() + 61)
+                self.assertEqual(fetch.call_args.args[0], "https://x.az/down", "şəbəkə xətası bir dəqiqə sonra yenidən yoxlanır")
+            article = {"sourceUrl": "https://x.az/new"}
+            with patch.object(updater, "OG_FILE", cache), patch.object(updater, "IMG_CHECK_FILE", folder / "none.json"):
+                updater.apply_og_cache([article])
+            self.assertEqual(article["imageUrl"], "https://x.az/n.jpg", "sürətli dövrə şəkli növbəti dəqiqədə götürür")
+
     def test_generic_share_images_are_rejected_and_real_ones_kept(self):
         self.assertTrue(updater._is_generic_img("https://azertag.az/resources/images/social.jpg"))
         self.assertTrue(updater._is_generic_img("https://img.piri.net/resim/imagecrop/2026/04/01/09/50/tr_son_dakika_530x530.jpg"))
@@ -266,6 +297,44 @@ class ImageTest(unittest.TestCase):
         self.assertEqual(updater._og_from_html(page, "https://azertag.az/xeber/1"), "https://azertag.az/files/2026/real.jpg")
         ld = b'<script type="application/ld+json">{"@type":"NewsArticle","image":{"@type":"ImageObject","url":"https://x.az/p.jpg"}}</script>'
         self.assertEqual(updater._og_from_html(ld, "https://x.az/a"), "https://x.az/p.jpg")
+
+
+class AttachFreshTest(unittest.TestCase):
+    """Yavaş prosesdən sonra gələn təzə xəbər sürətli dövrədə eyni hadisənin kartına qoşulur."""
+    NOW = datetime.datetime(2026, 11, 2, 20, 0, tzinfo=datetime.timezone.utc)
+
+    def art(self, source, title, minutes, **kw):
+        t = (self.NOW - datetime.timedelta(minutes=minutes)).isoformat()
+        return {"source": source, "sourceUrl": f"https://{source.lower()}.az/{minutes}", "title": title, "publishedAt": t, **kw}
+
+    def test_fresh_copy_joins_the_older_card(self):
+        old = self.art("Oxu24", "Putin Rzayi ilə telefon danışığı apardı", 240, alts=[{"source": "Report", "sourceUrl": "https://report.az/1"}])
+        new = self.art("Bakupost", "Putin Rzayi ilə telefon danışığı apardı", 5)
+        out = updater.attach_fresh([new, old], now=self.NOW)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["source"], "Oxu24")
+        self.assertEqual([x["source"] for x in out[0]["alts"]], ["Bakupost", "Report"])
+
+    def test_similar_fresh_titles_merge_once(self):
+        a = self.art("Moderator", "Gəncədə 34 yaşlı şəxs bıçaqlandı xəstəxanaya çatdırıldı", 3)
+        b = self.art("Teleqraf", "Gəncədə 34 yaşlı şəxs bıçaqlandı xəstəxanaya çatdırıldı", 6)
+        c = self.art("Qafqazinfo", "Gəncədə 34 yaşlı şəxs bıçaqlandı xəstəxanaya çatdırıldı", 7)
+        out = updater.attach_fresh([a, b, c], now=self.NOW)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(len(out[0]["alts"]), 2)
+
+    def test_same_source_official_and_old_are_left_alone(self):
+        same = [self.art("Oxu", "Bakıda yeni park açıldı sakinlər sevinir", 3), {**self.art("Oxu", "Bakıda yeni park açıldı sakinlər sevinir", 9), "sourceUrl": "https://oxu.az/x"}]
+        self.assertEqual(len(updater.attach_fresh(same, now=self.NOW)), 2)
+        official = [self.art("Prezident.az", "İlham Əliyev Fransa səfirini qəbul edib", 3), self.art("APA", "İlham Əliyev Fransa səfirini qəbul edib", 50)]
+        self.assertEqual(len(updater.attach_fresh(official, now=self.NOW)), 2)
+        old = [self.art("APA", "Sumqayıtda yanğın baş verib ev yandı", 90), self.art("Oxu", "Sumqayıtda yanğın baş verib ev yandı", 120)]
+        self.assertEqual(len(updater.attach_fresh(old, now=self.NOW)), 2)
+
+    def test_apply_groups_never_breaks_the_feed(self):
+        with patch.object(updater, "attach_fresh", side_effect=RuntimeError("x")), patch.object(updater, "_read_json", return_value={}):
+            arts = [self.art("APA", "Bir xəbər başlığı burada", 1)]
+            self.assertEqual(updater.apply_groups(arts), arts)
 
 
 class DateAndFilterTest(unittest.TestCase):
@@ -1895,3 +1964,110 @@ class SectionPagePolicyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StoryKeyTest(unittest.TestCase):
+    """Mənbə domeni + sabit xəbər nömrəsi (2026-11-04, sahibin «pensiya» qeydi): slug dəyişəndə eyni xəbər ikinci dəfə düşmür."""
+
+    def test_key_is_host_plus_stable_number(self):
+        k = updater.story_key
+        self.assertEqual(k("https://metbuat.az/news/1566209/kohne-basliq.html"), "metbuat.az#1566209")
+        self.assertEqual(k("https://metbuat.az/news/1566209/yeni-basliq.html"), "metbuat.az#1566209")
+        self.assertEqual(k("https://azertag.az/xeber/basliq_sozleri-4495089"), "azertag.az#4495089")
+        self.assertEqual(k("https://www.qafqazinfo.az/news/detail/basliq-527380"), "qafqazinfo.az#527380")
+        self.assertEqual(k("https://crossmedia.az/az/article/115842"), "crossmedia.az#115842")
+        self.assertEqual(k("https://www.skysports.com/golf/news/12040/13607905/basliq"), "skysports.com#13607905")
+        self.assertEqual(k("https://president.az/az/articles/view/74436"), "president.az#74436")
+
+    def test_dates_amounts_and_plain_slugs_give_no_key(self):
+        k = updater.story_key
+        self.assertIsNone(k("https://x.az/2026/11/04/basliq"))
+        self.assertIsNone(k("https://x.az/news/20261104/basliq"))
+        self.assertIsNone(k("https://oxu.az/economy/100000-manat-pensiya"))
+        self.assertIsNone(k("https://report.az/az/daxili-siyaset/basliq"))
+        self.assertIsNone(k("https://x.az/news/1234"))
+        self.assertIsNone(k(""))
+        self.assertIsNone(k(None))
+
+    def test_same_number_on_another_site_is_another_story(self):
+        self.assertNotEqual(updater.story_key("https://a.az/news/12345"), updater.story_key("https://b.az/news/12345"))
+
+
+class RepeatedPhotoTest(unittest.TestCase):
+    """Eyni şəkil 3 xəbərdə: loqo sayılırdı. Xəbər fotosu kimi görünən ünvan (AZƏRTAC-ın bir tədbirin bütün xəbərlərinə qoyduğu foto,
+    TASS-ın arxiv fotosu) indi 8 təkrara qədər qalır; loqo yolları (GENERIC_IMG) və adi ünvanlar üçün 3 qalır."""
+
+    def test_event_photo_survives_a_few_repeats_but_a_logo_does_not(self):
+        photo = "https://azertag.az/files/2026/3/1200x630/17937966932718921692_1200x630.jpg"
+        tass = "https://cdn-media.tass.ru/fit/400x300_b2b00b17/tass/m2/uploads/i/20250116/8011617.jpg"
+        self.assertFalse(updater._is_logo(photo, 4))
+        self.assertFalse(updater._is_logo(tass, 5))
+        self.assertTrue(updater._is_logo(photo, 9))
+        self.assertTrue(updater._is_logo("https://marja.az/images/logo.png", 3))
+        self.assertTrue(updater._is_logo("https://x.az/site/share.png", 3))
+        self.assertFalse(updater._is_logo("https://x.az/site/share.png", 2))
+        self.assertFalse(updater._is_logo("", 9))
+
+    def test_fill_og_images_keeps_a_photo_shared_by_three_stories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            photo = "https://azertag.az/files/2026/3/1200x630/17937966932718921692_1200x630.jpg"
+            urls = [f"https://azertag.az/xeber/tedbir-{i}" for i in range(3)]
+            with patch.object(updater, 'OG_FILE', folder / 'og.json'), patch.object(updater, 'OUT_DIR', folder), patch.object(updater, '_fetch_og', return_value=photo):
+                articles = [{'sourceUrl': u} for u in urls]
+                updater.fill_og_images(articles)
+            self.assertEqual([a.get('imageUrl') for a in articles], [photo] * 3)
+
+class SharePagesTest(unittest.TestCase):
+    """Sahibin qeydi (2026-11-04): paylaşılan keçiddə hansı xəbər olduğu görünsün — hər xəbərin og etiketli statik səhifəsi (x/<id>.html)."""
+    def rows(self):
+        sid = lambda u: updater.hashlib.sha1(u.encode()).hexdigest()[:16]
+        return sid, [
+            {"id": sid("https://apa.az/1"), "title": "Neft <b>bahalaşdı</b> & manat", "summary": "Brent 80 dolları keçdi.  Ətraflı…", "category": "iqtisadiyyat", "lang": "az", "source": "APA", "sourceUrl": "https://apa.az/1", "publishedAt": "2026-11-04T10:00:00+00:00", "imageUrl": "https://apa.az/i.jpg"},
+            {"id": sid("https://report.az/2"), "title": "Şəkilsiz xəbər", "category": "gundem", "lang": "az", "source": "Report", "sourceUrl": "https://report.az/2", "publishedAt": "2026-11-04T11:00:00+00:00"},
+            {"id": "1", "title": "Köhnə nömrə", "category": "gundem", "lang": "az", "source": "APA", "sourceUrl": "https://apa.az/3", "publishedAt": "2026-11-04T11:00:00+00:00"},
+        ]
+
+    def test_pages_are_written_only_behind_the_flag_and_only_for_hex_ids(self):
+        sid, rows = self.rows()
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SHARE_PAGES_DIR", pathlib.Path(tmp) / "x"):
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": ""}):
+                self.assertEqual(updater.write_share_pages(rows), 0)
+                self.assertFalse((pathlib.Path(tmp) / "x").exists())
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": "1"}):
+                self.assertEqual(updater.write_share_pages(rows), 2)
+                self.assertEqual(updater.write_share_pages(rows), 0)  # mövcud səhifə təzədən yazılmır
+                page = (pathlib.Path(tmp) / "x" / f'{sid("https://apa.az/1")}.html').read_text(encoding="utf-8")
+                plain = (pathlib.Path(tmp) / "x" / f'{sid("https://report.az/2")}.html').read_text(encoding="utf-8")
+                self.assertFalse((pathlib.Path(tmp) / "x" / "1.html").exists())
+        self.assertIn('<meta property="og:title" content="Neft &lt;b&gt;bahalaşdı&lt;/b&gt; &amp; manat" />', page)
+        self.assertIn('<meta property="og:description" content="Brent 80 dolları keçdi. Ətraflı…" />', page)
+        self.assertIn(f'<meta property="og:url" content="{updater.SITE}x/{sid("https://apa.az/1")}" />', page)
+        self.assertIn('<meta property="og:image" content="https://apa.az/i.jpg" />', page)
+        self.assertIn(f'content="0;url={updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat"', page)
+        self.assertNotIn("{", page)
+        self.assertNotIn("<script", page)
+        self.assertIn(f"{updater.SITE}assets/og-default.png", plain)
+        self.assertIn("Report · 2026-11-04", plain)
+
+    def test_old_pages_are_pruned_with_the_share_index(self):
+        sid, rows = self.rows()
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SHARE_PAGES_DIR", pathlib.Path(tmp) / "x"), patch.dict(updater.os.environ, {"SHARE_PAGES": "1"}):
+            updater.write_share_pages(rows)
+            (pathlib.Path(tmp) / "x" / "deadbeefdeadbeef.html").write_text("köhnə", encoding="utf-8")
+            self.assertEqual(updater.prune_share_pages({sid("https://apa.az/1")}), 2)
+            self.assertEqual(sorted(p.name for p in (pathlib.Path(tmp) / "x").iterdir()), [f'{sid("https://apa.az/1")}.html'])
+
+    def test_feed_headers_carry_the_flag_only_when_pages_are_published(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OUT_FILE", pathlib.Path(tmp) / "news.json"), patch.object(updater, "FIRST_FILE", pathlib.Path(tmp) / "first.json"), patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"):
+            data = {"updatedAt": "2026-11-04T10:00:00+00:00", "count": 0, "articles": []}
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": "", "NEWS_LANG_FILES": ""}):
+                updater.write_news(data)
+                updater.write_first([], data["updatedAt"])
+                self.assertNotIn("sharePages", (pathlib.Path(tmp) / "news.json").read_text(encoding="utf-8"))
+                self.assertNotIn("sharePages", (pathlib.Path(tmp) / "first.json").read_text(encoding="utf-8"))
+            with patch.dict(updater.os.environ, {"SHARE_PAGES": "1", "NEWS_LANG_FILES": "1"}):
+                updater.write_news(data)
+                updater.write_first([], data["updatedAt"])
+                for name in ("news.json", "news.ru.json", "first.json"):
+                    self.assertTrue(updater.json.loads((pathlib.Path(tmp) / name).read_text(encoding="utf-8")).get("sharePages"), name)

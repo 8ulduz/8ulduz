@@ -1,6 +1,19 @@
 # 8ulduz — son xəbərlər saytı
 
+## 8ULDUZ-u izlə
+
+Telefonda lupanın yanında 32 px hündürlükdə tam yazılı düymə var; daha aydın kənar işıq 2,4 saniyəlik dövrlə sarı və göy arasında növbələşir.
+260 px enli yığcam panel başlığın altında, «İdman» menyusunun rəngində açılır; kodu yalnız ilk toxunuşda yüklənir. Telefonun geri düyməsi, Escape, bağlama işarəsi, düyməyə təkrar toxunma və kənara toxunma paneli bağlayır. Səhifə qaraldılmır və sürüşdürmə kilidlənmir.
+Eyni panel altlıqdakı düymədən kompüterdə də açılır. Hərəkəti azalt ayarı və saytın hərəkət düyməsi parıltını sabit saxlayır.
+
+`assets/config.js`-də `follow` obyektinə rəsmi HTTPS hesab ünvanları yazılır: `whatsapp`, `facebook`, `instagram`, `linkedin`, `googleNews` (istəyə görə `youtube`, `x`).
+Telegram əvvəlki `telegram` ayarından götürülür; `follow.telegram` veriləndə onu əvəz edir (boş sətir gizlədir).
+WhatsApp üçün `/channel/`, Google News üçün izlənə bilən `/publications/`, LinkedIn üçün `/company/` və ya `/in/` ünvanı lazımdır.
+Boş və ya başqa platformaya aparan ünvan göstərilmir. Kliklər `follow-telegram`, `follow-whatsapp` və s. hadisəsi kimi sayılır; izləmənin tamamlandığı iddia edilmir.
+
 ## Mənbə keçid sayları və sürücü rejimi
+
+Xəbəri saytdan çıxarmaq üçün ayrıca [redaksiya paneli](idare/) var: giriş, xəbər axtarışı, mənbə və ya 8ULDUZ keçidi ilə silinmə. Qərar lentə, arxivə, seçilmişlərə və paylaşılmış keçidə tətbiq olunur. [İstifadə və ilk aktivləşdirmə](docs/editorial-removal.md).
 
 Mənbə adının yanında `gün/həftə/ay/il` ümumi keçid sayları göstərilir. `assets/config.js`-dəki GoatCounter hesabında Settings → **Allow adding visitor counts on your website** aktiv olmalıdır; hesabın saat qurşağını **Asia/Baku** seçin. Sayım `source-click-MƏNBƏ` hadisələri ilə yalnız istehsal domenində aparılır, fərdi istifadəçi identifikatoru yaradılmır. Hər klik ayrıca sayılır. Başlanğıcdan əvvəlki statistika bərpa edilmir; xidmət rəqəmləri 4 saata qədər keşləyə bilər. `—` rəqəmin əlçatan olmadığını göstərir.
 
@@ -16,7 +29,7 @@ Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərin
 
 - `index.html`, `assets/app.js`, `assets/app.css` — saytın **mənbə kodu** (build addımı yoxdur, birbaşa redaktə olunur).
   Marşrutlar: `#/` (baş səhifə), `#/bolme/<slug>` (bölmə), `#/axtar?q=...` (axtarış), `#/tixac` (tıxac xəritəsi).
-- `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON).
+- `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON): azərbaycanca sətirlər və xarici idman; ingilis/rus/türk sətirləri `data/news.en.json`, `news.ru.json`, `news.tr.json`-dadır (sayt dil faylını `status.json`-dakı `newsLangs` ilə tanıyır, «Hamısı» hamısını birləşdirir).
 - `data/markets.json` — valyuta (AMB, ehtiyat: ExchangeRate-API), Brent/WTI neft və bitcoin (Yahoo Finance, ehtiyat: CNBC/CoinGecko), qızıl/gümüş (gold-api.com).
 - `data/social.json` — Prezidentin və birinci xanımın rəsmi YouTube videoları və X/Instagram/Facebook paylaşımları (X-in açıq lenti bağlı olduğundan paylaşımlar onları xəbər verən rəsmi/agentlik xəbərlərindən götürülür, `via` sahəsi mənbəni göstərir). Yalnız vaxta görə sıralanır.
 - `data/status.json` — son uğurlu yoxlamanın vaxtı (`checkedAt`). Saytdakı «Yeniləndi» bunu göstərir.
@@ -34,23 +47,17 @@ Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərin
 - `feed.xml`, `sitemap.xml`, `robots.txt` — updater hər uğurlu yoxlamada yenidən yazır.
 - `bolme/<slug>/index.html` — hər bölmə üçün statik səhifə (updater yazır, `SECTIONS`). Axtarış sistemləri üçün həqiqi ünvandır: başlıq, təsvir, son 30 azərbaycandilli xəbərin keçidi. Brauzerdə açılanda resurslar nisbi yolla yüklənir, sonra ünvan `#/bolme/<slug>`-a keçir və adi tətbiq işləyir. Sitemap-da hamısı var.
 - `manifest.webmanifest`, `sw.js`, `assets/icon-*.png` — quraşdırılan PWA. Xəbər JSON-u onlayn olanda heç vaxt köhnə keşdən verilmir.
-- `assets/config.js` — GoatCounter sayt kodu (standart: boş, statistika sönülü), Telegram kanalı (`telegram`, boş olanda «kanala qoşulun» bloku görünmür) və əlaqə e-poçtu (`contact`, «Haqqımızda» səhifəsində).
+- `assets/config.js` — GoatCounter sayt kodu (`8ulduz`; boş sətir sayğacı söndürür), Telegram kanalı (`telegram`, boş olanda «kanala qoşulun» bloku görünmür) və əlaqə e-poçtu (`contact`, «Haqqımızda» səhifəsində).
 - `updater.py` — RSS + rəsmi səhifələr + bazar + sosial toplayıcı. Mənbə siyahısı: `AZ_FEEDS`, `WORLD_FEEDS`. Yaxın başlıqlı xəbərlər bir kartda birləşir (`alts`).
 - `.github/workflows/update.yml` — avtomatik yeniləmə işi.
 
 ## Ziyarət statistikası (GoatCounter)
 
-Saytda kuksuz sayğac var, amma **hesab kodu boşdur və heç nə göndərilmir**. Öz hesabınızı yaradın:
-
-1. [goatcounter.com](https://www.goatcounter.com)-da pulsuz hesab açın və sayt kodunu götürün (ünvan `https://KOD.goatcounter.com` formasındadır).
-2. `assets/config.js` içində boş sətri öz kodunuzla əvəz edin: `goatcounter: "KOD"`.
-3. Dəyişikliyi `main` budağına göndərin. Kodu silsəniz (yenidən `""`), sayğac dayanır.
-
-Hazır kod uydurulmayıb — sahib öz hesabını yaratmalıdır.
+Sayt kodu `8ulduz` (`assets/config.js`, `https://8ulduz.goatcounter.com`). Skript `https://gc.zgo.at/count.v4.js` ünvanından gəlir. Sayt bir səhifəlik tətbiqdir: açılış və hər marşrut (hash və axtarış ünvanı) ayrı səhifə baxışı kimi, həmin yol və başlıqla sayılır. `goatcounter` boş sətir olanda sayğac dayanır.
 
 Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir).
 
-«Ən çox oxunan» bloku hazırda gizlidir: məqalə üzrə oxunma statistikası yoxdur (GoatCounter kodu boşdur və oxunma siyahısı açarsız gəlmir). Əvəzinə baş səhifədə «Günün 5 əsas xəbəri» son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir.
+«Ən çox oxunan» bloku hazırda gizlidir: məqalə üzrə oxunma siyahısı açarsız gəlmir. Əvəzinə baş səhifədə «Günün 5 əsas xəbəri» son 18 saatda ən çox mənbədə çıxan xəbərləri göstərir.
 
 - `data/video.json` — İctimai TV, Xezer TV, ARB 24, Report.az və Trend TV YouTube RSS lentləri. Başlıqlar liderlik süzgəcindən keçir. Saytda video yalnız düyməyə basanda açılır.
 - `data/sports.json` — dünya liqaları: İngiltərə, İspaniya, İtaliya, Almaniya, Fransa, Türkiyə, Çempionlar Liqası və NBA (Şərq/Qərb) cədvəlləri ESPN-in açıq, sənədsiz cədvəl API-sindən (`ESPN_LEAGUES`, `parse_espn`), 30 dəqiqədən bir. Avroliqa ESPN-də boş gəldiyi üçün yoxdur. Futbol blokunda Azərbaycan liqalarından sonra çiplərlə seçilir.
@@ -75,7 +82,7 @@ Hava məlumatı brauzerdə birbaşa Open-Meteo-dan alınır (açar tələb etmir
 - Xəbər kartı, hero və siyahılar mənbə ünvanını yeni vərəqdə açır. «+N mənbə» düyməsi həmin xəbərin digər mənbələrini kiçik siyahıda göstərir. Axtarış başlıqla yanaşı xülasənin mətnində də axtarır, amma xülasə səhifədə göstərilmir.
 - Telegram kanalı: `assets/config.js`-də `telegram` boş olduğu üçün «kanala qoşulun» bloku göstərilmir; kanal yarananda ünvanı yazın.
 - Kartlarda başlığın altında xülasənin ilk iki sətri görünür (dar ekranda yalnız şəkilsiz kartlarda). Başlıqdakı xam ünvanlar (Telegram lentləri) həm updater-də, həm brauzerdə kəsilir.
-- Baş səhifə hər dəqiqə yalnız `data/status.json`-u (151 bayt) yoxlayır; `news.json` yalnız `checkedAt` dəyişəndə çəkilir. Lentdəki xəbərlərin demək olar ki, hamısı son 24 saatındır, ona görə faylı arxivə bölməyə ehtiyac yoxdur.
+- Baş səhifə hər dəqiqə yalnız `data/status.json`-u yoxlayır; tam lent (`news.json` və ya oxucunun dil faylı) yalnız `checkedAt` dəyişəndə, 10 dəqiqədən bir çəkilir. Lentdəki xəbərlərin demək olar ki, hamısı son 24 saatındır, ona görə faylı arxivə bölməyə ehtiyac yoxdur.
 - «Haqqımızda» (`#/haqqinda`): sayt nədir, mənbələr, redaksiya prinsipləri, məxfilik, əlaqə. Altlıqdan keçid var.
 - Valyuta kartlarında AMB rəsmi məzənnəsi alınmayanda «bazar» nişanı və qeyd çıxır (ehtiyat: ExchangeRate-API). Updater AMB bülletenini hər gün üçün iki dəfə yoxlayır, alınmayan günü keçir.
 - «Təhsil və elm» bölməsi təhsil, elm, texnologiya və süni intellekt xəbərlərini, «Sağlamlıq və həyat» bölməsi səhiyyə və həyat tərzi xəbərlərini birləşdirir (`SECTION_ALIASES`).

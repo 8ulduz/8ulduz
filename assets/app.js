@@ -1,7 +1,7 @@
 // 8ulduz — sayt kodu (build tələb olunmur; birbaşa GitHub Pages-də işləyir).
-// Məlumat: data/news.json (xəbərlər), data/markets.json (valyuta/neft/qızıl) — hər ikisini updater.py yaradır.
+// Məlumat: data/news.json və news.<dil>.json (xəbərlər), data/markets.json (valyuta/neft/qızıl) — updater.py yaradır.
 
-/* ---------------------------------------------------------------- sabitlər */
+/* ---- sabitlər */
 const CATS = [
   { slug: "prezident", label: "Zuğulba Xronikası", description: "Prezident İlham Əliyev və Birinci xanım Mehriban Əliyevanın gündəliyi" },
   { slug: "sondeqiqe", label: "Son dəqiqə", description: "Son bir saatın xəbərləri" },
@@ -18,7 +18,6 @@ const CATS = [
   { slug: "tehsil", label: "Təhsil və elm", description: "Məktəb, universitet, elm, texnologiya" },
   { slug: "video", label: "Video", description: "Saytlardakı video xəbərlərə keçidlər" },
 ];
-// Birləşmiş bölmələr: köhnə keçid, saxlanmış xəbər və köhnə keş də yeni bölməyə düşür (updater.py, SECTION_ALIASES).
 const SECTION_ALIAS = { sehiyye: "heyat", texnologiya: "tehsil" };
 // Axtarış sistemi üçün statik səhifəsi olan xidmətlər (updater.py, SERVICE_PAGES).
 const SERVICE_ROUTES = { tixac: "traffic", valyuta: "rates", cedvel: "league" };
@@ -28,7 +27,7 @@ const LANGS = [
 ];
 const LANG_BADGE = { az: "AZ", ru: "RUS", en: "ENG", tr: "TÜRK" };
 // Windows-da Chrome bayraq emojisini iki hərf kimi göstərir, ona görə bayraqlar SVG-dir.
-const flag = inner => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" aria-hidden="true">${inner}</svg>`;
+const flag = inner => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`; // slice: dil siyahısında dairəvi kəsilir
 const STAR8 = "M21 7.2l.7 1.5 1.6-.6-.6 1.6 1.5.7-1.5.7.6 1.6-1.6-.6-.7 1.5-.7-1.5-1.6.6.6-1.6-1.5-.7 1.5-.7-.6-1.6 1.6.6z";
 const FLAGS = {
   az: flag(`<rect width="30" height="20" fill="#ef3340"/><rect width="30" height="6.67" fill="#00b5e2"/><rect y="13.33" width="30" height="6.67" fill="#509e2f"/><circle cx="14" cy="10" r="3" fill="#fff"/><circle cx="15" cy="10" r="2.4" fill="#ef3340"/><path d="${STAR8}" fill="#fff" transform="translate(-3.2 -.2) scale(.97)"/>`),
@@ -63,8 +62,7 @@ const PROFILES = [
     ["YouTube", "https://www.youtube.com/@FirstvicepresidentofAzerbaijan"],
   ]},
 ];
-// İdman bölməsinin düymələri. keys: bütöv ad (şəkilçi ilə), stems: söz başlanğıcı, quoted: dırnaqda ad
-// («sabah» sözü «tomorrow» da deməkdir, «Araz» çaydır), sources: bu mövzuya aid idman saytı, not: bu söz varsa başqa mövzudur.
+// «Araz» çaydır), sources: bu mövzunun idman saytı, not: bu söz varsa başqa mövzudur.
 const SPORT_TEAMS = [
   { group: "Azərbaycan", items: [
     { name: "Qarabağ", keys: ["qarabağ", "qarabag", "qarabakh", "карабах"], not: ["dirçəliş", "universitet", "bərpa işləri", "yenidənqurma"] },
@@ -121,13 +119,13 @@ const DAYS = ["bazar", "bazar ertəsi", "çərşənbə axşamı", "çərşənbə
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 const HOUR = 3600e3, DAY = 24 * HOUR;
 const POLL_MS = 30e3;     // QIRMIZI XƏTT 1: lent dəqiqədə bir yazılır, sayt 30 saniyədən bir yoxlayır
-const NEWS_FULL_MS = 10 * 60e3; // tam lent (~200 KB) bu qədərdən bir; arada yalnız latest.json (~15 KB)
+const NEWS_FULL_MS = 10 * 60e3; // tam lent bu qədərdən bir; arada yalnız dilin latest faylı
 const LATEST_MAX_MS = 90e3;     // status möhürü dəyişməsə də bu qədərdən bir latest.json yoxlanır
 // GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
 let freshSequence = 0;
-// Service worker-i olmayan ziyarətçi (ilk açılış, bəzi tətbiqdaxili brauzerlər) də dəqiqəlik kanalı görsün. sw.js-dəki qayda ilə eyni.
+// Service worker-siz ziyarətçi də dəqiqəlik kanalı görsün; sw.js ilə eyni qayda.
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
-const LIVE_FILE = /^data\/(?:status|latest|markets)\.json/;
+const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
 async function liveDirect(url, signal) {
   if (navigator.serviceWorker?.controller || !LIVE_FILE.test(url) || Date.now() < liveSkipUntil) return null;
@@ -155,8 +153,7 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
   signal?.addEventListener("abort", cancel, {once:true});
   try {
     if(signal?.aborted)cancel();
-    // index.html-in erkən başlatdığı sorğu (yalnız bir dəfə); alınmasa adi sorğu
-    // Ünvanda dəqiqə var: səhifə dəqiqənin sonunda açılanda erkən cavab boşa getməsin, fayl ikinci dəfə yüklənməsin.
+    // index.html-in erkən sorğusu bir dəfə işlənir (alınmasa adi sorğu); dəqiqə fərqli olsa da qəbul olunur.
     const earlyKey = url.includes("&r=") ? null : Object.keys(globalThis.__early || {}).find(k => k.split("?")[0] === url.split("?")[0]);
     const early = earlyKey && globalThis.__early[earlyKey];
     if(early)delete globalThis.__early[earlyKey];
@@ -169,9 +166,9 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
     return await Promise.race([response, interrupted]);
   } finally { clearTimeout(timer); signal?.removeEventListener("abort", cancel); }
 }
-// Aktivlərin yolu app.js-in öz ünvanından (bölmə səhifələri /bolme/x/ altından açılır; testlərdə script yoxdur → ./assets/)
+// Aktivlərin yolu app.js-in öz ünvanından (bölmə səhifələri /bolme/x/ altından açılır; testlərdə ./assets/)
 const ASSET = (document.querySelector('script[src*="assets/app.js"]')?.src || "./assets/app.js").replace(/app\.js.*$/, "");
-const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" decoding="async">`;
+const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" width="352" height="80" decoding="async">`; // ölçü atributda: şəkil gələnə qədər yer saxlanır (CSS hündürlüyü verir, en nisbətlə)
 const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən xəbər
 
 // Məxfi rejimdə və yaddaş dolanda seçimlər heç olmasa açıq vərəqdə işləsin.
@@ -190,7 +187,7 @@ const storage = {
   },
 };
 
-/* ---------------------------------------------------------------- köməkçilər */
+/* ---- köməkçilər */
 const $ = (s, r = document) => r.querySelector(s);
 // İkinci dərəcəli blokda səhv məlumat xəbər lentini dondurmasın.
 const optional = fn => { try { return fn(); } catch (e) { console.warn("blok göstərilmədi:", e); return ""; } };
@@ -227,11 +224,9 @@ function today() { const a = new Date(), r = `${DAYS[a.getDay()]}, ${a.getDate()
 const FRESH_MS = 15 * 60e3; // «Son dəqiqə» nişanı və bildiriş: son 15 dəqiqə (əvvəl 1 saat idi, hər kart nişan alırdı)
 const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < FRESH_MS; };
 const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
-// Mənbəyə keçid: toxunma ekranında eyni vərəqdə açılır,
-// masaüstündə yeni vərəqdə.
+// Mənbə yeni vərəqədə açılır — telefonda da (geri düyməsi mənbənin özündə qalır).
 const TOUCH_UI = typeof matchMedia === "function" && matchMedia("(hover:none)").matches;
-const OUT = TOUCH_UI ? `rel="noopener noreferrer"` : `target="_blank" rel="noopener noreferrer"`;
-const TELEGRAM = String(window.SITE_CONFIG?.telegram || "").trim(); // boş: «kanala qoşulun» bloku göstərilmir
+const OUT = `target="_blank" rel="noopener noreferrer"`;
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
   s = lc(s);
@@ -246,7 +241,7 @@ const isFirstLady = a => !!a && flText(a.title);
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Zuğulba xronikasında rəsmi səhifələrlə yanaşı dövlət və iqtidar saytlarının prezident xəbərləri də görünür:
-// Eyni xəbər bir neçə mənbədə çıxanda updater onları bir karta birləşdirir (rəsmi mənbə əsas olur), ona görə blok təkrarlanmır.
+// Eyni xəbər bir neçə mənbədə çıxanda updater bir karta birləşdirir (rəsmi mənbə əsas), blok təkrarlanmır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
 // Təyinat və azad etmə xəbərləri: yalnız hero və «Ən çox mənbədə» sırasında əlavə çəki.
@@ -256,13 +251,14 @@ const isAppointment = a => APPT_RX.test(a?.title || "");
 const PREZ_COUNT = 44, PREZ_FIRST_IMAGES = 8; // Sahibin qərarı: blokda həmişə 44 xəbər
 // Lentə «prezident» sözü ilə yad xəbər də düşür: digər saytlardan yalnız adı keçən xəbər götürülür.
 const OUR_LEADERS = /ilham|i̇lham|əliyev|aliyev|алиев|birinci xan|birinci vitse|prezident\s+administ|azərbaycan\s+prezident|dövlət başçı/iu;
-const aboutOurLeaders = a => OUR_LEADERS.test(a.title || "") || OUR_LEADERS.test(a.summary || "");
+const FOREIGN_FL = /birinci xan[ıi]m(?:ı|ın|ına|ını|ında|ından|ının)(?!\p{L})/iu, AZ_CTX = /əliyev|aliyev|алиев|azərbaycan/iu;
+const aboutOurLeaders = a => { const t = `${a.title || ""} ${a.summary || ""}`; return OUR_LEADERS.test(t) && !(FOREIGN_FL.test(t) && !AZ_CTX.test(t)); };
 function prezHome(list, all = list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
-  // Rəsmi mənbələr (president.az, mehriban-aliyeva.az) və dövlət/iqtidar saytları (STATE_SRC); digər saytlar «Hamısı» səhifəsində qalır
+  // Rəsmi mənbələr və dövlət saytları (STATE_SRC); digərləri «Hamısı» səhifəsində
   const prez = list.filter(a => a.category === "prezident" && (OFFICIAL_SRC.has(a.source) || STATE_SRC.has(a.source)));
-  // Bir sayt bloku tutmasın (məs. Report-un çıxışdan sitat lenti): rəsmi səhifələr limitsiz, digər mənbələr ən çox 3 kart (ən yeniləri)
+  // Bir sayt bloku tutmasın (Report-un sitat lenti): rəsmi səhifələr limitsiz, digər mənbələr ən çox 3 kart
   const perSrc = {};
   const capped = l => l.filter(a => OFFICIAL_SRC.has(a.source) || (perSrc[a.source] = (perSrc[a.source] || 0) + 1) <= 3);
   const president = capped(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
@@ -273,19 +269,25 @@ function prezHome(list, all = list) {
   const ladyHead = Math.min(lady.length, head - presHead);
   const first = [...president.slice(0, presHead), ...lady.slice(0, ladyHead)];
   const rest = [...president.slice(presHead), ...lady.slice(ladyHead)];
-  // Rəsmi saytlar 44-ü doldurmursa: əvvəl onların qalan xəbərləri, sonra digər saytlar, dil bitibsə başqa dillər.
-  // Yad xəbərlə doldurulmur: belə xəbər çatmasa say 44-dən az olar.
-  const chosen = new Set([...first, ...rest].map(a => a.id));
+  // 44 dolmursa: rəsmi saytların qalanı, digər saytlar, sonda başqa dillər (qarışanda ilk ekranda rusca kart çıxırdı).
+  const chosen = new Set([...first, ...rest].map(a => a.id)), take = l => l.filter(a => !chosen.has(a.id) && chosen.add(a.id));
   const ours = l => byDate(l.filter(a => a.category === "prezident" && aboutOurLeaders(a)));
-  const fill = [...byDate(prez), ...ours(list), ...ours(all)].filter(a => !chosen.has(a.id) && chosen.add(a.id));
-  return byDate([...first, ...rest, ...fill].slice(0, PREZ_COUNT));
+  const own = [...first, ...rest, ...take(byDate(prez)), ...take(ours(list))].slice(0, PREZ_COUNT);
+  return [...byDate(own), ...byDate(take(ours(all)).slice(0, PREZ_COUNT - own.length))];
 }
 const byDate = list => [...list].sort((x, y) => new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime());
 const lc = s => (s || "").toLocaleLowerCase("az");
 const GROUP_MS = 36 * HOUR;
 const GROUP_STOP = new Set("ve ile the and for from or bir bu da de ki veya icin olan və ilə də o üçün ya news xəbər xeber".split(/\s+/));
+const normSeen = new Map();
 function normTitle(s) {
-  return (s || "").toLowerCase().replace(/i̇/g, "i")
+  s ||= "";
+  let v = normSeen.get(s);
+  if (v === undefined) { if (normSeen.size > 8000) normSeen.clear(); normSeen.set(s, v = normTitleRaw(s)); }
+  return v;
+}
+function normTitleRaw(s) {
+  return s.toLowerCase().replace(/i̇/g, "i")
     .replace(/ə/g, "e").replace(/â/g, "a").replace(/ı/g, "i").replace(/î/g, "i").replace(/ö/g, "o").replace(/ü/g, "u").replace(/û/g, "u")
     .replace(/ş/g, "s").replace(/ç/g, "c").replace(/ğ/g, "g")
     .replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
@@ -329,7 +331,7 @@ function preferPrimary(a, b) {
   if ((a.summary || "").length !== (b.summary || "").length) return (a.summary || "").length > (b.summary || "").length ? a : b;
   return (a.publishedAt || "") >= (b.publishedAt || "") ? a : b;
 }
-// updater.py qruplamayıbsa, eyni qayda ilə brauzerdə birləşdir (news.json yığcam qalır, alts gələndə ona etibar edir)
+// updater.py qruplamayıbsa, eyni qayda ilə brauzerdə birləşdir
 function clusterArticles(list) {
   if (!list?.length || list.some(a => a.alts?.length)) return list;
   const prepared = list.map(a => {
@@ -364,14 +366,14 @@ function clusterArticles(list) {
 }
 // Eyni başlıq (eyni mənbə adı da olsa) 36 saat içində bir kart olsun.
 function collapseExact(list) {
-  const groups = [];
+  const groups = [], byKey = new Map();
   for (const a of list || []) {
     const key = normTitle(decode(a.title));
     const dt = new Date(a.publishedAt).getTime();
     let g = null;
-    if (key.length >= 12 && !Number.isNaN(dt)) g = groups.find(x => x.key === key && Math.abs(x.dt - dt) <= GROUP_MS);
-    if (!g) groups.push({ key, dt: Number.isNaN(dt) ? 0 : dt, items: [a] });
-    else g.items.push(a);
+    if (key.length >= 12 && !Number.isNaN(dt)) g = byKey.get(key)?.find(x => Math.abs(x.dt - dt) <= GROUP_MS);
+    if (!g) { groups.push(g = { key, dt: Number.isNaN(dt) ? 0 : dt, items: [] }); byKey.set(key, [...byKey.get(key) || [], g]); }
+    g.items.push(a);
   }
   const out = [];
   for (const g of groups) {
@@ -406,25 +408,38 @@ const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"
 function imageCandidates(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
-  return [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))];
+  // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
+  const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
+  // Proksidən keçməyən sayt (PROXY_SKIP) sona: başqa mənbənin kiçildilə bilən şəkli varsa o çıxır.
+  const blocked = u => PROXY_SKIP.test(hostOf(u));
+  return [...all.filter(u => !cut(u) && !blocked(u)), ...all.filter(u => cut(u) && !blocked(u)), ...all.filter(blocked)];
 }
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
-// Mənbələrin şəkilləri 1-2 MB olur, ilk açılış 11-16 MB idi. wsrv.nl kiçildir (orta 15 KB). Alınmasa imgFail əsl ünvana keçir,
-// xidmət ümumiyyətlə işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən yüklənir.
+// xidmət işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən.
 const PROXY_MAX_FAILS = 8;
-function sized(url, width) {
-  if (!url || (S.proxyFails || 0) >= PROXY_MAX_FAILS || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
+// wsrv bu saytların şəklini 404 verir: birbaşa mənbədən (170–290 KB), yüksək prioritetsiz (heavyImage).
+const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
+const proxyBad = new Map();
+// Proksidən keçməyən ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
+const heavyImage = u => typeof u === "string" && !u.startsWith("https://wsrv.nl/") && (PROXY_SKIP.test(hostOf(u)) || (proxyBad.get(hostOf(u)) || 0) > 0);
+function sized(url, width, logo) {
+  const host = hostOf(url);
+  if (!url || !host || (!logo && ((S.proxyFails || 0) >= PROXY_MAX_FAILS || (proxyBad.get(host) || 0) >= 2)) || PROXY_SKIP.test(host) || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
   return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
 }
-const imageFallback = cat => `<span class="image-fallback">${LOGO}<span>${esc(catLabel(cat || "gundem"))}</span><small>Şəkil əlçatan deyil</small></span>`;
+function viewWidth() { return globalThis.innerWidth || 1200; }
+function heroPicWidth(first) {
+  const narrow = viewWidth() < 900;
+  return first ? (narrow ? 640 : 800) : (narrow ? 480 : 640);
+}
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);
-  const fallback = url ? "" : imageFallback(a.category);
+  if (!url) return ""; // şəkilsiz xəbər qutu tutmur: kart yalnız mətndir
   const small = sized(url, width), others = small === url ? rest : [url, ...rest];
-  const load = later ? "" : eager ? 'fetchpriority="high"' : 'loading="lazy"';
-  const src = url ? `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">` : "";
+  const load = later ? "" : eager && !heavyImage(small) ? 'fetchpriority="high"' : 'loading="lazy"'; // ağır orijinal ilk ekranla yarışmır
+  const src = `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">`;
   const tag = linked ? "a" : "div";
-  return `<${tag} class="img ${cls}${url ? "" : " image-unavailable"}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${fallback}${src}</${tag}>`;
+  return `<${tag} class="img ${cls}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${src}</${tag}>`;
 }
 function badges(a, withCat = true, alt = "span") {
   const more = !a.alts?.length ? "" : alt === "pop" ? altPop(a) : altBadge(a);
@@ -438,40 +453,79 @@ function shownSource(a) {
   return a.source || "";
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
-// Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir. b: xəbər lentdən çıxanda hansı arxivə baxılacağı.
-const shareUrl = a => `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
+// Paylaşılan keçid saytımıza aparır, mənbəyə keçid xəbər səhifəsindədir; b: lentdən çıxanda baxılacaq arxiv.
+// Önizləmə serverdən oxunur: main-dəki xəbər /x/ID səhifəsi ilə (sharePages), dəqiqəlik yox.
+const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
+const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
+// Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
+const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
+const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
+function appLink(u, pkg, extra = "") {
+  if (!/Android/.test(navigator.userAgent || "")) return "";
+  try { const x = new URL(u); pkg = x.protocol === "https:" && (pkg || APP_PKG.find(([re]) => re.test(x.hostname))?.[1]); return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};${extra}S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
+}
+function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
+// tapşırığında qalır, geri sayta qayıdır; CCT-nin ilk naviqasiyası tətbiqə sıçramır.
+const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.customtabs.extra.SESSION=;");
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
-const starBtn = a => `<span class="star${isSaved(a.id) ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${isSaved(a.id) ? "true" : "false"}" title="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}" aria-label="${isSaved(a.id) ? "Saxlanmışlardan çıxar" : "Yadda saxla"}">${isSaved(a.id) ? "★" : "☆"}</span>`;
-const card = a => `<article class="card${imgUrl(a) ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${img(a, "", false, true)}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><h3 lang="${esc(langOf(a))}">${txt(a.title)}</h3></a>${meta(a)}</div></article>`;
+const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
+const card = a => cardAt(a, "h3");
+function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
-// Şəkil yüklənməsə (hotlink qadağası və s.) kart şəkilsiz rejimə keçir
+// Şəkil yüklənməsə növbəti namizəd yoxlanır. Heç biri alınmasa kart yalnız mətn qalır.
+// Slayderdə boş kadr qalmır: şəkli sınan slayd çıxarılır (xəbərin özü siyahılarda qalır).
+function dropHeroSlide(slide) {
+  const row = slide.parentElement;
+  const strip = slide.closest(".strip");
+  const section = slide.closest(".hero");
+  const width = row?.clientWidth || 0;
+  const index = row ? [...row.children].indexOf(slide) : -1;
+  const showing = width > 0 && index >= 0 && Math.round(row.scrollLeft / width) === index;
+  slide.remove();
+  const left = row ? [...row.children] : [];
+  if (!left.length) { section?.remove(); return; }
+  if (showing) row.scrollLeft = Math.min(index, left.length - 1) * width;
+  if (strip) setupStrips([strip]);
+  setupHeroImages();
+}
 const imgFail = el => {
-  if (el.src.startsWith("https://wsrv.nl/")) S.proxyFails = (S.proxyFails || 0) + 1;
-  let rest = []; try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
-  if (rest.length) { el.dataset.imageAlternatives = JSON.stringify(rest.slice(1)); el.src = rest[0]; return; }
-  const box = el.parentElement;
-  box?.classList.add("image-unavailable");
-  const c = el.closest(".card"); if (c) c.classList.add("noimg");
+  if (!el?.isConnected) return;
+  el.style.visibility = "hidden"; // qırıq ikon görünməsin, növbəti ünvan yoxlanana qədər
+  if (String(el.src || "").startsWith("https://wsrv.nl/")) { // cəza yalnız orijinal açılanda (aşağıda)
+    let rest0 = []; try { rest0 = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
+    const origin = rest0.find(u => typeof u === "string" && !u.includes("wsrv.nl"));
+    const host = hostOf(origin || "");
+    el.addEventListener("load", () => { if (el.src.startsWith("https://wsrv.nl/")) return; S.proxyFails = (S.proxyFails || 0) + 1; if (host) proxyBad.set(host, (proxyBad.get(host) || 0) + 1); }, { once: true });
+  }
+  let rest = [];
+  try { rest = JSON.parse(el.dataset.imageAlternatives || "[]"); } catch {}
+  const next = rest.find(u => typeof u === "string" && u && u !== el.src);
+  if (next) {
+    el.dataset.imageAlternatives = JSON.stringify(rest.slice(rest.indexOf(next) + 1));
+    el.src = next;
+    return;
+  }
+  const slide = el.closest(".hero-main");
+  if (slide) { dropHeroSlide(slide); return; }
+  const photo = el.closest(".phrow > a");
+  if (photo) { photo.remove(); return; }
+  const card = el.closest(".card, .pcard");
+  const box = el.closest(".img");
   el.remove();
-  if (box?.matches("a.img,div.img")) box.insertAdjacentHTML("afterbegin", imageFallback(el.closest("[data-cat]")?.dataset.cat));
+  if (card) card.classList.add("noimg");
+  box?.remove();
 };
 // CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
-document.addEventListener("error", ({ target: t }) => { const f = t.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && (t.style.visibility = "hidden"); }, true);
+// Ölçü CSS-də sabitdir: şəkil sahəni object-fit:cover ilə örtür, nisbət dəyişmir.
+document.addEventListener("load", (e) => { const t = e.target; if (t?.tagName === "IMG" && t.dataset?.fail === "alt") { if ((t.naturalWidth || 0) < 2) imgFail(t); else t.style.visibility = ""; } }, true);
+document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && t.style && (t.style.visibility = "hidden"); }, true);
 
-/* ---------------------------------------------------------------- vəziyyət */
+/* ---- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
 function savedLang() { const v = storage.getItem(LANG_KEY); if (v === "") return null; return LANGS.some(l => l.code === v) ? v : "az"; }
-const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez" };
+const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez", tixUser: false, geo: null, geoBusy: false, geoErr: null };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
-const PRAY_SVG = {
-  Fajr: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M12 8.2v2.1M8.3 11l1.4 1.4M15.7 11l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8.4 18a3.6 3.6 0 0 1 7.2 0" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`,
-  Sunrise: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18.5h16M12 5.2v2.5M8 8l1.6 1.6M16 8l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="14.6" r="3.15" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`,
-  Dhuhr: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.6v2.2M12 18.2v2.2M3.6 12h2.2M18.2 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`,
-  Asr: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="14" cy="14.2" r="3.15" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 6.2v2.2M9 9.2l1.5 1.5M19 10l-1.4 1.3M6.4 14.4H8.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`,
-  Maghrib: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.2h17M12 6.6v2.4M8.5 9.2l1.5 1.5M15.5 9.2 14 10.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M7.2 18.2a4.8 4.8 0 0 1 9.6 0" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`,
-  Isha: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14.8 3.6a7.1 7.1 0 1 0 5.6 11.2A6.2 6.2 0 0 1 14.8 3.6z"/></svg>`,
-};
 // WARN_RE dar saxlanır. Tıxac səhifəsi aşağıdakı ROAD_RULES ilə süzülür.
 const WARN_RE = /tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
 const TRAFFIC_AREAS = [
@@ -508,13 +562,20 @@ function localRoadItems(list) {
     return age >= 0 && age < 2 * HOUR && local.test(a.title) && !unrelated.test(a.title);
   });
 }
-function tixArea() { return TRAFFIC_AREAS.find(a => a.id === S.tixArea) || TRAFFIC_AREAS[0]; }
+// Konum tapılıbsa xəritə ona mərkəzlənir (oxucu bölgə seçməyibsə).
+const geoArea = () => S.geo ? { id: "konum", label: "📍 Konumum", lat: S.geo.lat, lon: S.geo.lon, zoom: 13 } : null;
+function tixArea() {
+  const konum = geoArea();
+  if (konum && (S.tixArea === "konum" || !S.tixUser)) return konum;
+  return TRAFFIC_AREAS.find(a => a.id === S.tixArea) || TRAFFIC_AREAS[0];
+}
 function wazeSrc(a) { return `https://embed.waze.com/iframe?zoom=${a.zoom}&lat=${a.lat}&lon=${a.lon}`; }
 function wazeLive(a) { return `https://www.waze.com/live-map?ll=${a.lat},${a.lon}&zoom=${a.zoom}`; }
+function wazeApp(a) { return `https://www.waze.com/ul?ll=${a.lat}%2C${a.lon}&zoom=${a.zoom}`; }
+function yandexSrc(a) { return `https://yandex.com/map-widget/v1/?ll=${a.lon}%2C${a.lat}&z=${a.zoom}&l=map%2Ctrf&lang=en_US`; }
 function bakuClock(date = new Date()) {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Baku", hourCycle: "h23", weekday: "short", hour: "numeric" });
-  const parts = Object.fromEntries(fmt.formatToParts(date).map(p => [p.type, p.value]));
-  return { wd: parts.weekday, hour: Number(parts.hour) };
+  const b = new Date(date.getTime() + 4 * HOUR);
+  return { wd: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][b.getUTCDay()], hour: b.getUTCHours() };
 }
 function bakuRush(date = new Date()) {
   const { wd, hour } = bakuClock(date);
@@ -527,7 +588,7 @@ function roadFresh(a) {
   const age = Date.now() - t;
   return age >= -5 * 60e3 && age < HOUR;
 }
-function roadHot(list) { return bakuRush() || roadItems(list).some(roadFresh); }
+function roadHot(list) { return bakuRush() || roadItems(list.filter(a => Date.now() - new Date(a.publishedAt) < HOUR)).some(roadFresh); }
 function syncTixDot() {
   const hot = roadHot(S.data?.articles || []);
   document.querySelectorAll(".tix-btn").forEach(el => {
@@ -537,7 +598,7 @@ function syncTixDot() {
   });
 }
 const SAVE_KEY = "8ulduz-saved";
-function savedList() { try { const v = JSON.parse(storage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+function savedList() { try { const v = JSON.parse(storage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v.filter(a => !removedArticle(a)) : []; } catch { return []; } }
 function isSaved(id) { return savedList().some(x => x.id === id); }
 function toggleSave(a) {
   const rest = savedList().filter(x => x.id !== a.id);
@@ -576,7 +637,7 @@ function checkBreaking(articles) {
     return;
   }
   const known = new Set(seen);
-  // Bildiriş seçilmiş dildədir; «görülmüş» siyahı isə bütün dillərdir: dil dəyişəndə köhnə xəbər təzə kimi gəlmir.
+  // Bildiriş seçilmiş dildədir; «görülmüş» siyahı bütün dillərdir.
   const novel = filtered(fresh).filter(a => a.id && !known.has(a.id)).slice(0, 3);
   for (const a of novel) showBreaking(a);
   storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
@@ -588,13 +649,13 @@ async function showBreaking(a) {
   const options = { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id };
   try {
     if (S.swReg?.showNotification) {
-      await S.swReg.showNotification("Son dəqiqə", { ...options, data: { id: a.id, url: a.sourceUrl || "" } });
+      await S.swReg.showNotification("Son dəqiqə", { ...options, data: { id: a.id, cat: a.category || "", url: shareUrl(a) } }); // klik saytın xəbər səhifəsinə aparır, mənbəyə yox
       return;
     }
   } catch {}
   try {
     const n = new Notification("Son dəqiqə", options);
-    n.onclick = () => { window.focus(); if (/^https?:\/\//i.test(a.sourceUrl || "")) window.open(a.sourceUrl, "_blank", "noopener,noreferrer"); };
+    n.onclick = () => { window.focus(); location.hash = detailUrl(a); }; // saytın öz xəbər səhifəsi
   } catch {}
 }
 async function armNotify() {
@@ -605,6 +666,7 @@ async function armNotify() {
   storage.setItem(NOTIFY_KEY, "1");
   tellWorkerLang();
   storage.setItem(SEEN_KEY, JSON.stringify((S.data?.articles || []).filter(isFresh).map(a => a.id)));
+  showBreaking({ id: "on", title: "Bildiriş aktivdir: yeni son dəqiqə xəbəri çıxanda bu cür görünəcək.", sourceUrl: "" }); // aktiv edən kimi nəticə görünsün
   try {
     const reg = await navigator.serviceWorker.ready;
     if (reg.periodicSync) await reg.periodicSync.register("breaking", { minInterval: 5 * 60 * 1000 });
@@ -620,14 +682,33 @@ function adHtml() {
 }
 // QIRMIZI XƏTT 2: server qapısından sonra ikinci yoxlama. Telefondakı köhnə keş də bu qaydadan keçir.
 const POLICY = globalThis.CONTENT_POLICY;
+const removedIds = new Set(), removedUrls = new Set(), removedKeys = new Set(), removedHosts = [];
+function addRemovals(rows) {
+  const before = removedIds.size + removedUrls.size + removedKeys.size;
+  for (const r of Object.values(rows || {})) {
+    if (!r || typeof r !== "object") continue;
+    const list = k => Array.isArray(r[k]) ? r[k].filter(v => typeof v === "string") : [];
+    for (const id of [r.id, ...list("ids")]) if (id) removedIds.add(id);
+    for (const u of list("urls")) removedUrls.add(u);
+    for (const k of [r.key, ...list("keys")]) if (typeof k === "string") { removedKeys.add(k); const h = k.split("#")[0]; if (k.includes("#") && !removedHosts.includes(h)) removedHosts.push(h); }
+  }
+  return before !== removedIds.size + removedUrls.size + removedKeys.size;
+}
+addRemovals(POLICY?.removedArticles);
+function removedArticle(a) {
+  if (removedIds.has(a.id) || removedUrls.has(a.sourceUrl)) return true;
+  if (!removedHosts.some(h => String(a.sourceUrl || "").includes(h))) return false;
+  try { const u = new URL(a.sourceUrl), n = [...u.pathname.matchAll(/(?:\/|[-_])(\d{5,})(?=\.html?|\/|$)/g)].map(m => m[1]).filter(n => !/^(?:19|20)\d{6}$/.test(n)); return !!n.length && removedKeys.has(u.hostname.toLowerCase().replace(/^www\./, "") + "#" + n.at(-1)); } catch { return false; }
+}
 // Köhnə brauzer lookbehind-i dəstəkləmirsə sayt açılmamazlıq etməsin: bu halda server qapısı qalır.
 const policyRx = src => { try { return src ? new RegExp(src, "i") : null; } catch { return null; } };
 const POLICY_AZ = policyRx(POLICY?.azTerms), POLICY_LEADER = policyRx(POLICY?.leaderTerms);
 // JS i bayrağı İ və ı hərflərini qatlamır («ALİYEV», «BAKI»): kiçik hərfli mətn də yoxlanır.
 const policyTest = (rx, text) => !!rx && (rx.test(text) || rx.test(text.toLocaleLowerCase("az")));
-const hostOf = url => { try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; } };
+const hostOf = url => (/^[a-z][\w+.-]*:\/\/(?:[^@/?#]*@)?([^/?#:]+)/i.exec(url || "")?.[1] || "").toLowerCase().replace(/^www\./, "");
 const onHost = (host, list) => list.some(d => host === d || host.endsWith("." + d));
 function sourceForbidden(a) {
+  if (removedArticle(a)) return true;
   if (!POLICY) return false;
   const host = hostOf(a.sourceUrl), domains = POLICY.azSources[a.source] || POLICY.worldSources[a.source];
   return !/^https?:\/\//i.test(String(a.sourceUrl ?? "")) || onHost(host, POLICY.blockedHosts) || !domains || !onHost(host, domains);
@@ -639,7 +720,7 @@ function policyViolation(a) {
   const sport = a.category === "idman" && (POLICY.sportSources || []).includes(a.source);
   return policyTest(sport ? POLICY_LEADER : POLICY_AZ, text);
 }
-// Birləşmiş xəbərin əlavə mənbəsi: öz başlığı da, əsas xəbərin mövzusu da yoxlanır (content_policy.clean_alts ilə eyni).
+// Birləşmiş xəbərin əlavə mənbəsi: öz başlığı da, əsas xəbərin mövzusu da yoxlanır (clean_alts ilə eyni).
 function altForbidden(a, alt) {
   if (removedSource(alt) || sourceForbidden(alt)) return true;
   if (!POLICY?.worldSources[alt.source]) return false;
@@ -649,11 +730,12 @@ function altForbidden(a, alt) {
 }
 function removedSource(a) {
   if (["azadlıq", "azadliq", "azadliq.org"].includes(String(a.source || a.name || "").toLocaleLowerCase("az"))) return true;
-  try { const host = new URL(a.sourceUrl || a.url || "").hostname.toLowerCase(); return host === "azadliq.org" || host.endsWith(".azadliq.org"); } catch { return false; }
+  const host = hostOf(a.sourceUrl || a.url); return host === "azadliq.org" || host.endsWith(".azadliq.org");
 }
 const byId = new Map();
+const urlsOf = list => new Set(list.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
 
-/* ---------------------------------------------------------------- məlumat */
+/* ---- məlumat */
 async function loadNews(force = false) {
   if (S.newsLoading && !force) return;
   S.newsAbort?.abort();
@@ -664,14 +746,16 @@ async function loadNews(force = false) {
   renderTopbar();
   // İlk ekran çəkilənə qədər tam lent xətti tutmur. Fayl gəlməsə loadFirst 5 saniyəyə bitir.
   if (S.firstReady) { const wait = S.firstReady; S.firstReady = null; await wait; }
+  // İlk ekran görünürsə tam lent əsas axın boşalanda gəlir (ən gec 2 s): slayder şəkilləri ilə yarışmasın.
+  if (S.partial && !force && token === S.newsToken) await new Promise(r => (globalThis.requestIdleCallback || (f => setTimeout(f, 300)))(r, { timeout: 2000 }));
   // İlk yükləmədə og.json xəbərlərlə paralel gəlir
   const ogReady = S.data && !S.partial ? null : loadOg(controller.signal);
   try {
+    if (S.lang !== "az" && !S.status) await loadStatus(); // dil faylı varmı: status deyir (azərbaycanca həmişə news.json)
     if (token !== S.newsToken) return;
-    const {r,d} = await requestJSON(freshUrl("data/news.json", force), {signal:controller.signal});
+    const {r, d, tag} = await newsJSON(force, controller.signal);
     if(token !== S.newsToken)return;
     if (!Array.isArray(d.articles)) throw new Error("Xəbər məlumatının quruluşu yanlışdır");
-    const tag = r.headers.get("etag") || r.headers.get("last-modified");
     S.offline = r.headers.get("X-8ulduz-data") === "cache";
     if (tag && tag === S.etag && S.data) {
       if (!S.offline) S.lastSync = new Date();
@@ -686,38 +770,69 @@ async function loadNews(force = false) {
     const first = !S.data, partial = S.partial;
     S.partial = false;
     // main 10 dəqiqədən bir yazılır: dəqiqəlik gələn xəbərlər tam lentdə hələ olmaya bilər, itməsinlər.
-    const inFull = new Set(d.articles.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
+    const inFull = urlsOf(d.articles);
     S.overlay = (S.overlay || []).filter(o => !inFull.has(o.a.sourceUrl) && Date.now() - o.at < 30 * 60e3);
-    S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined};
+    S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined}; S.fromCache = false;
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
-    // İlk ekrandan tam lentə: dəyişməyən bloklara toxunulmur (patchView), səhifə aşağıdan uzanır. Oxucu sürüşübsə də gözləmir, siyahı qısa qalmasın.
+    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır (patchView), səhifə aşağıdan uzanır.
     if (first || force || (partial && readerBusy())) render(); else requestRender();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data || S.partial) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
 }
 
-// İlk ekran: tam lent telefonda saniyələrlə gəlir, ekranın yuxarısı isə cəmi 100 xəbərdən qurulur (data/first.json).
-// Yalnız standart baxışda (baş səhifə, azərbaycanca): başqa səhifə və dil tam lenti gözləyir, siyahı qısa görünməsin.
+// İlk ekran (data/first.json): baş səhifə və bölmə, azərbaycanca.
 const firstScreen = () => route().name === "home" && !S.q && S.lang === "az";
+// Bölmə keçidi: tam lenti (223 KB) gözləmək telefonda 3–6 s idi.
+const partialOk = () => firstScreen() || route().name === "section" && S.lang === "az";
+// Hazır ilk ekranda birinci çəkiliş slayder şəklinin boyanmasını gözləyir (yoxsa LCP gecikirdi), ən çox 1,5 s.
+function heroPainted() {
+  const im = route().name === "home" && $("#view .pre-skel[data-prerender] .hero-main img[src]");
+  if (!im) return Promise.resolve();
+  return new Promise(ok => {
+    const go = () => setTimeout(ok, document.hidden ? 0 : 40); // rAF yox: arxa vərəqdə heç gəlmir, səhifə boş qalırdı
+    if (im.complete) go(); else { im.addEventListener("load", go, { once: true }); im.addEventListener("error", go, { once: true }); }
+    setTimeout(ok, 1500);
+  });
+}
 async function loadFirst() {
-  if (!firstScreen()) return;
+  if (!partialOk()) return;
   try {
     const {d} = await requestJSON(freshUrl("data/first.json"), {}, 5000);
     if (!Array.isArray(d?.articles) || !d.articles.length) return;
-    if (S.rawNews) return; // tam lent daha tez gəlib
-    S.partial = true;
-    S.og ||= d.og || {};
+    if (S.rawNews && !S.fromCache) return; // tam lent daha tez gəlib
+    S.partial = true; S.fromCache = false;
+    S.og = d.og || S.og || {};
     S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
     publishNews();
+    await heroPainted();
     S.firstRenderAt = Date.now();
     render();
     await new Promise(done => setTimeout(done));
   } catch {}
 }
 
-// Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər. Xam siyahı dəyişmir, latest.json üstünə qoyula bilsin.
+async function loadCached() {
+  if (!partialOk() || typeof caches === "undefined" || S.rawNews) return;
+  try {
+    const key = (await caches.keys()).find(k => k.startsWith("8ulduz-data-"));
+    if (!key) return;
+    const cache = await caches.open(key);
+    const root = new URL(ASSET.replace(/assets\/$/, ""), location.href);
+    const hit = (await cache.match(new URL("data/first.json", root).href)) || (await cache.match(new URL("data/news.json", root).href));
+    if (!hit || S.rawNews) return;
+    const d = await hit.json();
+    if (!Array.isArray(d?.articles) || !d.articles.length || S.rawNews) return;
+    S.partial = true; S.fromCache = true;
+    S.og ||= d.og || {};
+    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    publishNews();
+    render();
+  } catch {}
+}
+
+// Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər; xam siyahı dəyişmir.
 function publishNews() {
   const d = {...S.rawMeta};
   let articles = S.rawNews.map(a => ({...a, category: SECTION_ALIAS[a.category] || a.category, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
@@ -739,22 +854,38 @@ function publishNews() {
   }
   S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
   if (!S.partial) checkBreaking(d.articles);
+  primeHeroImage(d.articles);
+}
+function primeHeroImage(articles) {
+  if (route().name !== "home" || S.q) return;
+  const a = heroPick((articles || []).filter(x => (S.lang ? langOf(x) === S.lang : true) && x.category !== "prezident" && imgUrl(x)), 1)[0];
+  const href = a && sized(imageCandidates(a)[0], heroPicWidth(true));
+  if (!href || heavyImage(href) || S.lcpHref === href) return; // ağır orijinal əvvəlcədən yüklənmir
+  S.lcpHref = href;
+  const head = document.head;
+  if (!head?.querySelector || !head.appendChild) return;
+  let link = head.querySelector("link[data-lcp]");
+  if (!link) { link = document.createElement("link"); link.rel = "preload"; link.as = "image"; link.dataset.lcp = "1"; }
+  link.href = href; link.fetchPriority = "high";
+  if (!link.isConnected) head.appendChild(link); // href əvvəl, sonra sənədə: boş href xəbərdarlığı olmasın
 }
 
-// Ekran yalnız oxucu ona toxunmayanda yenidən qurulur: açıq video, xəritə, açılan siyahı və yazılan süzgəc itmir, səhifə atlamır.
+// Ekran yalnız oxucu toxunmayanda yenidən qurulur: açıq video, xəritə, süzgəc itmir, səhifə atlamır.
 function readerBusy() {
-  if ((globalThis.scrollY || 0) > 400) return true;
+  if ($(".follow-dialog[open]")) return true;
+  if ((S.sy ??= globalThis.scrollY || 0) > 400 || Date.now() - (S.touchAt || 0) < 8000) return true; // son 8 saniyədə toxunub, çevirib və ya yazıb: oxuyur, ekran gözləyir
   if ($("#view iframe, #view details.altpop[open]")) return true;
   return !!document.activeElement?.closest?.("#view input, #view select, #view textarea");
 }
-// Açılışda 8 fayl bir-bir gəlir, hər biri bütün səhifəni yenidən çəkirdi (telefonda hər dəfə 1-2 saniyə). İndi birləşir:
-// ilk xəbərlər dərhal çəkilir, qalan hamısı gələn kimi bir dəfəyə (ən gec 2,5 saniyə), sonrakılar 400 ms-də bir.
+// Açılışda ilk xəbərlər dərhal, qalan fayllar bir dəfəyə (≤2,5 s), sonra 400 ms-də bir.
 const RENDER_GAP_MS = 400, FIRST_RENDER_HOLD_MS = 2500;
+// Gözləyən çəkiliş toxunma kəsiləndən 8 s sonra özü çəkilir (2 s-dən bir yoxlanır, ən çox 10 dəq).
+function armBusy(ms, n = 0) { clearTimeout(S.busyT); S.busyT = setTimeout(() => { if (!S.renderPending) return; if (!readerBusy()) requestRender(S.renderWhole); else if (n < 300) armBusy(2000, n + 1); }, ms); S.busyT?.unref?.(); }
 function requestRender(whole = true) {
-  if (readerBusy()) { S.renderPending = true; syncNewPill(); return; }
+  S.renderWhole ||= whole;
+  if (readerBusy()) { S.renderPending = true; syncNewPill(); armBusy(8500); return; }
   S.renderPending = false; S.pendingNew = 0; syncNewPill();
   if (!S.data) return; // xəbərlər gələndə birinci çəkiliş hamısını götürür
-  S.renderWhole ||= whole;
   if (S.renderQueued) return;
   S.renderQueued = true;
   S.renderTimer = setTimeout(flushRender, Math.max(RENDER_GAP_MS, (S.firstRenderAt || 0) + FIRST_RENDER_HOLD_MS - Date.now()));
@@ -772,22 +903,44 @@ function syncNewPill() {
   pill.hidden = !S.pendingNew;
   pill.textContent = `↑ ${S.pendingNew} yeni xəbər`;
 }
-// Dəqiqəlik axın: yalnız yeni xəbərlər gəlir. Oxucu məşğuldursa ekran dəyişmir, «N yeni xəbər» düyməsi görünür.
+// Dəqiqəlik lent dil üzrə: latest.<dil>.json yalnız live-dədir; status «langs» yoxdursa və ya alınmasa ümumi fayl.
+async function latestJSON(force) {
+  if (S.lang && S.status?.langs?.includes(S.lang)) {
+    try {
+      const got = await requestJSON(freshUrl(`data/latest.${S.lang}.json`, force), {}, 8000);
+      if (Array.isArray(got.d?.articles) && got.r.headers?.get?.("X-8ulduz-data") !== "cache") return got;
+    } catch {}
+  }
+  return requestJSON(freshUrl("data/latest.json", force), {}, 8000);
+}
+async function newsJSON(force, signal) {
+  const file = code => requestJSON(freshUrl(`data/news${code ? "." + code : ""}.json`, force), {signal}), tagOf = got => got.r.headers.get("etag") || got.r.headers.get("last-modified") || "";
+  const langs = S.status?.newsLangs || [];
+  if (uiLang(S.lang) && langs.includes(S.lang)) { try { const own = await file(S.lang); return {...own, tag: tagOf(own) || null}; } catch (e) { if (signal?.aborted) throw e; } }
+  const [main, ...more] = await Promise.all([file(), ...(S.lang ? [] : langs).map(code => file(code).catch(() => null))]), rows = main.d?.articles, tags = [tagOf(main)];
+  for (const got of more) if (Array.isArray(rows) && Array.isArray(got?.d?.articles)) {
+    const seen = new Set(rows.map(a => a.sourceUrl));
+    rows.push(...got.d.articles.filter(a => !seen.has(a.sourceUrl))); tags.push(tagOf(got));
+  }
+  return {...main, tag: tags.some(Boolean) ? tags.join("|") : null};
+}
+// Dəqiqəlik axın: yalnız yeni xəbərlər. Oxucu məşğuldursa ekran dəyişmir, «N yeni xəbər» düyməsi görünür.
 async function loadLatest(force = false) {
   if (S.latestLoading || !S.rawNews) return;
   S.latestLoading = true;
   const statusStamp = S.status?.checkedAt || null;
   try {
-    const {r, d} = await requestJSON(freshUrl("data/latest.json", force), {}, 8000);
+    const {r, d} = await latestJSON(force);
     if (!Array.isArray(d?.articles)) return;
     S.offline = r.headers?.get?.("X-8ulduz-data") === "cache";
     if (!S.offline) { S.lastSync = new Date(); S.error = null; }
     S.newsStamp = statusStamp; S.latestAt = Date.now();
+    if (addRemovals(d.removed)) { publishNews(); renderView(); renderTicker(); }
     const dead = new Set(d.dead || []), deadChanged = dead.size !== (S.deadLinks?.size || 0) || [...dead].some(u => !S.deadLinks.has(u));
     S.deadLinks = dead;
-    const known = new Set(S.rawNews.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
+    const known = urlsOf(S.rawNews);
     const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
-    // Xəbər şəkilsiz gəlib, şəkli yavaş prosesdən sonra tapılıb: tam lenti (10 dəqiqə) gözləmədən görünsün.
+    // Xəbər şəkilsiz gəlib, şəkli yavaş prosesdən sonra tapılıb: tam lenti (10 dəq) gözləmədən görünsün.
     const byUrl = new Map(S.rawNews.map(a => [a.sourceUrl, a]));
     let gotImage = false;
     for (const a of d.articles) {
@@ -796,6 +949,7 @@ async function loadLatest(force = false) {
     }
     if ((gotImage || deadChanged) && !fresh.length) { publishNews(); requestRender(false); renderTopbar(); return; }
     if (!fresh.length) { renderTopbar(); return; }
+    for (const a of fresh) a.live = 1; // hələ main-də deyil (shareUrl)
     S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
     publishNews();
@@ -845,14 +999,56 @@ async function weather(list) {
     return { city: list[i][0], temp: Math.round(c.temperature_2m), feels: Math.round(c.apparent_temperature), humidity: Math.round(c.relative_humidity_2m),
       wind: Math.round(c.wind_speed_10m), pressure: Math.round(c.surface_pressure), precip: Math.round((c.precipitation ?? 0) * 10) / 10, label, icon }; });
 }
-async function loadWeather() { try { S.wx = (await weather([CITIES[0]]))[0]; renderTopbar(); } catch {} }
+const WX_KEY = "8ulduz-wx";
+async function loadWeather() { try { S.wx = (await weather([geoCity()]))[0]; storage.setItem(WX_KEY, JSON.stringify({ ...S.wx, at: Date.now() })); renderTopbar(); } catch {} }
+// Son hava yaddaşdan dərhal; konum icazəsi varsa əvvəl şəhər, sonra hava/namaz/xəbərdarlıq (titrəməsin).
+function restoreLocal() { try { const w = JSON.parse(storage.getItem(WX_KEY) || "null"); if (w && Date.now() - w.at < 3 * HOUR) S.wx = w; } catch {} }
+async function loadLocal() { if (!(await autoLocate())) { loadWeather(); loadPrayer(savedPrayCity()); loadWarnings(); } }
 async function loadAllWeather() {
   if (S.wxAll) return; renderTopbar();
   try { S.wxAll = (await weather(CITIES)).sort((a, b) => a.city.localeCompare(b.city, "az")); } catch { S.wxAll = []; }
   renderTopbar();
 }
 
-/* ---------------------------------------------------------------- marşrut */
+/* ---- konum */
+// Konum yalnız «Konumum» düyməsi ilə soruşulur; icazə varsa növbəti açılışda soruşmadan (permissions API).
+// Xidmətlərə dəqiq nöqtə getmir: hava/namaz ən yaxın şəhərlə, tıxac ~1 km-ə yuvarlaq nöqtə ilə.
+const GEO_KEY = "8ulduz-geo";
+function nearestCity(lat, lon) {
+  const k = Math.cos(lat * Math.PI / 180);
+  let best = null, bd = Infinity;
+  for (const c of CITIES) { const d = Math.hypot((c[1] - lat) * 111, (c[2] - lon) * 111 * k); if (d < bd) { bd = d; best = c; } }
+  return bd <= 80 ? best : null; // xaricdə şəhər seçilmir, yalnız xəritə mərkəzlənir
+}
+function geoCity() { return (S.geo?.city && CITIES.find(c => c[0] === S.geo.city)) || CITIES[0]; }
+function applyGeo(pos) {
+  const { latitude: lat, longitude: lon } = pos.coords;
+  S.geo = { lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, city: nearestCity(lat, lon)?.[0] || null, at: Date.now() };
+  S.geoBusy = false; S.geoErr = null;
+  storage.setItem(GEO_KEY, "1");
+  loadWeather(); loadWarnings();
+  loadPrayer(savedPrayCity()); // seçilmiş şəhər qalır
+  renderTopbar();
+  if (route().name === "traffic") renderView();
+}
+function locate(ask) {
+  if (!navigator.geolocation) { if (ask) { S.geoErr = "Brauzer konumu dəstəkləmir"; renderTopbar(); } return Promise.resolve(false); }
+  S.geoBusy = true; S.geoErr = null;
+  if (ask) { renderTopbar(); if (route().name === "traffic") renderView(); }
+  return new Promise(res => navigator.geolocation.getCurrentPosition(pos => { applyGeo(pos); res(true); }, err => {
+    S.geoBusy = false;
+    S.geoErr = err?.code === 1 ? "Konuma icazə verilmədi" : "Konum tapılmadı";
+    if (ask) { renderTopbar(); if (route().name === "traffic") renderView(); }
+    res(false);
+  }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 10 * 60e3 }));
+}
+function autoLocate() { // icazə varsa soruşmadan; alınmasa false (Bakı qalır)
+  if (storage.getItem(GEO_KEY) !== "1" || !navigator.geolocation) return Promise.resolve(false);
+  return Promise.resolve().then(() => navigator.permissions?.query?.({ name: "geolocation" })).then(p => p.state === "granted" && locate(false)).catch(() => false);
+}
+const geoBtn = (attrs = "") => `<button type="button" class="geo-btn${S.geo?.city ? " on" : ""}" data-act="geo"${attrs}${S.geoBusy ? " disabled" : ""} title="Konumunuza ən yaxın şəhər">${S.geoBusy ? "Axtarılır…" : S.geo?.city ? `📍 ${esc(S.geo.city)}` : "📍 Konumum"}</button>`;
+
+/* ---- marşrut */
 function route() {
   let h = location.hash.replace(/^#/, "") || "/";
   try { h = decodeURIComponent(h); } catch {} // natamam %-kod səhifəni dayandırmasın
@@ -870,11 +1066,11 @@ function route() {
   return { name: "notfound" };
 }
 
-/* ---------------------------------------------------------------- render */
+/* ---- render */
 function shell() {
-  $("#app").innerHTML = `
+  // index.html eyni qabığı statik daşıyır (data-shell): CSS gələn kimi çəkilir; onda yalnız hadisələr bağlanır.
+  if (!$("#app").dataset?.shell) $("#app").innerHTML = `
   <a class="skip" href="#view">Məzmuna keç</a>
-  <div class="topbar"><div class="wrap" id="topbar"></div></div>
   <header class="site" id="sitehead"><div class="wrap hrow">
     <a class="logo" href="#/" aria-label="8ulduz — baş səhifə">${LOGO}</a>
     <nav class="main" id="nav" aria-label="Bölmələr"></nav>
@@ -882,12 +1078,12 @@ function shell() {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search">
       <button type="button" id="mic" class="mic" aria-label="Səslə axtar" title="Səslə axtar" aria-pressed="false" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></label>
-  </div><div class="langstick" id="langstick"></div><div class="nav-pop" id="navpop" hidden></div></header>
+    <button type="button" class="qbtn" data-act="find" aria-label="Xəbər axtar" title="Xəbər axtar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button><button type="button" class="follow-btn" data-act="follow" aria-haspopup="dialog">8ULDUZ-u izlə</button><span class="inst" id="inst"></span>
+    <div class="topbar"><div class="wrap" id="topbar"></div></div>
+  </div><div class="nav-pop" id="navpop" hidden></div></header>
   <div id="ticker"></div>
   <div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p><div id="fx-slot"></div></div></div>
-  <div class="filters"><div class="wrap" id="langs"></div></div>
   <main><div class="wrap" id="view" tabindex="-1"></div></main>
-  <div class="wrap"><section class="cta" id="cta" hidden><span class="ic">📬</span><div><h2>8ulduz kanalına qoşulun</h2><p>Ən vacib xəbərlər dərhal Telegram kanalımızda — vaxt itirmədən xəbərdar olun.</p></div><a class="btn" href="${safeHref(TELEGRAM || "https://t.me/")}" target="_blank" rel="noopener noreferrer">Kanala keç →</a></section></div>
   <footer id="footer"></footer>
   <button class="newpill" id="newpill" data-act="apply-new" aria-live="polite" hidden></button>
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
@@ -900,6 +1096,7 @@ function shell() {
   </nav>`;
   const q = $("#q");
   q.addEventListener("keydown", e => { if (e.key === "Enter") q.blur(); }); // telefonda klaviatura bağlansın
+  q.addEventListener("blur", () => { if (!q.value) $("#sitehead")?.classList.remove("q-open"); }); // telefonda boş axtarış qutusu bağlanır
   q.addEventListener("input", () => {
     S.q = q.value.trim(); S.shown = PAGE;
     const want = S.q ? `#/axtar?q=${encodeURIComponent(S.q)}` : "#/";
@@ -912,13 +1109,15 @@ function shell() {
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { setLang(e.target.value); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
   window.addEventListener("hashchange", () => {
-    const kept = S.keepClub; // açılan menyudan başqa bölmənin alt başlığı seçilib
-    S.keepClub = false; S.shown = PAGE; if (!kept) { S.club = null; S.sportTab = null; }
+    // Alt başlıq qalır: menyudan başqa bölmənin alt başlığı seçiləndə və liqa/komanda səhifəsindən qayıdanda.
+    const r = route(), kept = S.keepClub || r.name === "team" || (S.prevRoute?.name === "team" && r.name === "section" && r.slug === S.clubSlug);
+    S.prevRoute = r;
+    S.langOpen = false; S.keepClub = false; S.shown = PAGE; S.lateDone = 0; S.svcOpen = false; if (!kept) { S.club = null; S.sportTab = null; }
     S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true });
     if ($("#navpop")) $("#navpop").hidden = true;
     if (kept) scrollToClub();
   });
-  window.addEventListener("scroll", () => { closeSharePop(); $("#totop").classList.toggle("show", scrollY > 600); syncLangStick(); }, { passive: true });
+  window.addEventListener("scroll", () => { S.sy = scrollY; closeSharePop(); $("#totop").classList.toggle("show", scrollY > 600); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition; // Firefox-da yoxdur: düymə gizli qalır
@@ -983,43 +1182,47 @@ function renderTopbar() {
       ? `<button class="wx-back" data-act="wx-back">← Bölgələrə qayıt</button>
          <div class="wx-now"><span class="wx-emo">${sel.icon}</span><div><b>${esc(sel.city)}</b><div class="muted">${esc(sel.label)}</div></div><b class="wx-temp">${sel.temp}°</b></div>
          <div class="wx-det">${[["Hiss olunur", `${sel.feels}°`], ["Rütubət", `%${sel.humidity}`], ["Külək", `${sel.wind} km/s`], ["Təzyiq", `${sel.pressure} hPa`], ["Yağıntı", `${sel.precip} mm`]].map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("")}</div>`
-      : `<div class="wx-head"><span>Bölgələr üzrə hava</span><button data-act="wx-close" aria-label="Bağla">✕</button></div>` +
+      : `<div class="wx-head"><span>Bölgələr üzrə hava</span>${geoBtn()}<button data-act="wx-close" aria-label="Bağla">✕</button></div>${S.geoErr ? `<p class="geo-err">${esc(S.geoErr)}</p>` : ""}` +
         (!S.wxAll ? `<div class="empty" style="padding:24px 0">Yüklənir…</div>` :
           `<div class="wx-grid">${S.wxAll.map(c => `<button class="wx-city" data-city="${esc(c.city)}"><span>${c.icon} ${esc(c.city)}</span><b>${c.temp}°</b></button>`).join("")}</div>`)) + `</div>`;
   }
-  const fs = document.documentElement.dataset.fs || "0";
+  const fs = document.documentElement.dataset.fs || "2";
   const light = document.documentElement.dataset.theme === "light";
   $("#topbar").innerHTML = `    <span>${today()}</span>
     ${optional(prayBit)}
-    <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span>Bakı</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
-    <a class="tix-top tix-btn" href="#/tixac" title="Tıxac və yollar">Tıxac</a>
+    <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span class="wcity">${esc(w?.city || geoCity()[0])}</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
+    ${langDD()}
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
-    ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}</span>` : ""}
+    ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}${syncBad ? ' <button type="button" class="retry" data-act="refresh">Yenilə</button>' : ""}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
-    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}>↻</button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}">${light ? "☾" : "☀"}<span>${light ? "Tünd" : "İşıqlı"}</span></button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}>A−</button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "2" ? "disabled" : ""}>A+</button></span>`;
+    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
   syncTixDot();
 }
 
-const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"];
+const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["sondeqiqe", "gundem", "idman", "prezident"];
 // Ölçmə çəkilişin ortasında yerləşdirməni təkrarlatmasın: bütün dəyişikliklərdən sonra bir dəfə.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
-// Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad. Şrift kiçilmir: 3 cərgə üçün 9,8 piksələ düşməli idi, oxunmazdı.
+// Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad (şrift kiçilmir: 9,8 px olardı, oxunmazdı).
 const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", sosial: "Sosial", tehsil: "Təhsil" };
 const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
 function renderNav() {
-  const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : "";
-  const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub"].filter(Boolean).join(" ");
+  const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
+  const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub", NAV_PHONE.includes(c.slug) && "ph"].filter(Boolean).join(" ");
   const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
+  // Telefon: 4 bölmə (.ph) və ☰ (hamısı + «Ana ekrana»)
   const primary = NAV_PRIMARY;
-  // nav-x: telefonda «Daha çox» əvəzinə zolaqda birbaşa görünən qalan bölmələr (masaüstündə gizli)
   const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
-  $("#nav").innerHTML = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
-    `<details class="nav-more"><summary>Daha çox ▾</summary><div class="nav-more-pop">${CATS.filter(c => !primary.includes(c.slug)).map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>`;
+  const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
+    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a>` +
+    `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button></div></details>` +
+    `<a class="nav-tg" href="${esc(window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az")}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>`;
+  if (h === S.navH) return;
+  S.navH = $("#nav").innerHTML = h;
   afterPaint(fitNav);
 }
 // Bölmə səhifəsində alt başlıqlar kartların düz üstündədir.
 const subNav = slug => SUB_TABS[slug] ? navRows(slug) : "";
-// Kursorla açılan menyu: başlığın altında şaquli siyahı, alt siyahısı olan bəndin üstündə yanında ikinci siyahı.
+// Kursorla açılan menyu: başlığın altında şaquli siyahı, alt siyahı yanında.
 function navPopHtml(slug, tab, liga) {
   if (slug === "more") {
     const r = route(), links = CATS.filter(c => !NAV_PRIMARY.includes(c.slug)).map(c => `<a class="pill ${r.slug === c.slug ? "on" : ""}" href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("");
@@ -1097,7 +1300,7 @@ function bindNavPop() {
     else if (e.target.closest("#nav a")) hide();
   });
   pop.addEventListener("click", hide);
-  // Səhifədəki sətirlər də eyni: başlığın üstünə gələndə alt sətri yerində açılır, kursor çıxanda seçilmiş vəziyyətə qayıdır.
+  // Səhifədəki sətirlər də eyni: kursor başlıqdadırsa alt sətir açılır, çıxanda seçilmiş vəziyyət qayıdır.
   let open, rowTimer;
   $("#view").addEventListener("mouseover", e => {
     const box = e.target.closest(".sub-rows"), slug = route().slug;
@@ -1128,20 +1331,17 @@ function renderTicker() {
   // İkinci dövr yalnız zolağın davamlılığı üçündür: ekran oxuyucu və Tab onu keçir.
   const items = list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("") +
     list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT} aria-hidden="true" tabindex="-1">${txt(a.title)}</a>`).join("");
-  // «Bildiriş»: yeni son-dəqiqə xəbəri üçün brauzer bildirişi (README və «Haqqımızda» bunu vəd edir; düymə itmişdi)
+  // «Bildiriş»: yeni son-dəqiqə xəbəri üçün brauzer bildirişi
   const on = notifyOn();
   const bell = "Notification" in window
     ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
     : "";
-  const html = `<div class="ticker"><div class="lbl">⚡ ${tickerLabel(breaking.length)}${bell}</div><div class="run"><div class="track">${items}</div></div></div>`;
+  const html = `<div class="ticker"><div class="lbl">⚡<span class="lt"> ${tickerLabel(breaking.length)}</span>${bell}${motionBtn()}</div><div class="run${motionOff() ? " still" : ""}"><div class="track">${items}</div></div></div>`;
   if (html === S.tickerHtml && $("#ticker .track")) return;
   S.tickerHtml = html;
   $("#ticker").innerHTML = html;
   afterPaint(startTicker);
 }
-// Lentin hərəkəti Web Animations API ilədir: CSS animasiyası telefonlarda «hərəkəti azalt» rejimində (CSS-də
-// animation:none) və toxunuşdan sonra ilişən :hover üzündən dayanırdı; JS animasiyası bu qaydalardan asılı deyil və
-// CSS kimi kompozitorda hamar işləyir. Siçan üstündə ikən dayanır; barmaq/siçanla çəkmək olur, buraxandan 1.5 s sonra davam edir.
 const TICK_SPEED = 55; // px/s
 let tickAnim = null, tickT = 0, tickMoved = false;
 function startTicker() {
@@ -1151,12 +1351,11 @@ function startTicker() {
   const phase = Number(tickAnim?.currentTime) || 0; // yeni xəbər gələndə zolaq olduğu yerdən davam edir
   if (tickAnim) { try { tickAnim.cancel(); } catch {} tickAnim = null; }
   clearTimeout(tickT);
-  // «Hərəkəti azalt» ayarı olan telefonlarda lent dayanmasın: yalnız 2 dəfə yavaş axsın.
-  // (Əvvəl bu halda lent tamam dayanırdı — «son dəqiqə axımı dayandı» şikayətinin səbəbi.)
-  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Dayandırılıb (düymə və ya «hərəkəti azalt»): zolaq durur, barmaqla sürüşür; ▶ yenidən başladır.
+  if (motionOff()) return;
   const half = track.scrollWidth / 2;
   if (!(half > 0)) return;
-  const dur = half / (reduced ? TICK_SPEED / 2 : TICK_SPEED) * 1000;
+  const dur = half / TICK_SPEED * 1000;
   const anim = tickAnim = track.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-half}px)` }], { duration: dur, iterations: Infinity });
   anim.currentTime = phase % dur;
   let drag = null;
@@ -1174,11 +1373,12 @@ function startTicker() {
   run.onpointerenter = e => { if (e.pointerType === "mouse" && matchMedia("(hover:hover)").matches) { clearTimeout(tickT); anim.pause(); } };
   run.onclick = e => { if (tickMoved) { e.preventDefault(); e.stopPropagation(); tickMoved = false; } };
 }
-// Son 15 dəqiqədə xəbər yoxdursa lent «Son dəqiqə» yox, «Son xəbərlər» adlanır (köhnə xəbər təzə kimi təqdim olunmasın)
+// Son 15 dəqiqədə xəbər yoxdursa lent «Son dəqiqə» yox, «Son xəbərlər» adlanır
 const tickerLabel = fresh => fresh > 0 ? "Son dəqiqə" : "Son xəbərlər";
 
+// Namaz işarələri sprite-dadır (sosial.svg#p-<ad>): 1,6 KB SVG kodda yer tuturdu.
 function prayIcon(key) {
-  return `<span class="pi">${PRAY_SVG[key] || ""}</span>`;
+  return `<span class="pi">${key ? `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="${ASSET}sosial.svg#p-${esc(key)}"/></svg>` : ""}</span>`;
 }
 function prayLeft(mins) {
   if (mins == null || !Number.isFinite(mins)) return "";
@@ -1193,7 +1393,7 @@ function savedPrayCity() {
     const v = storage.getItem(PRAY_CITY_KEY);
     if (CITIES.some(c => c[0] === v)) return v;
   } catch {}
-  return "Bakı";
+  return S.geo?.city || "Bakı"; // seçilməyibsə konumun şəhəri
 }
 function prayCityOptions(current) {
   return [...CITIES].sort((a, b) => a[0].localeCompare(b[0], "az")).map(([name]) => `<option value="${esc(name)}"${name === current ? " selected" : ""}>${esc(name)}</option>`).join("");
@@ -1201,7 +1401,7 @@ function prayCityOptions(current) {
 function prayBit() {
   const p = S.pray;
   const city = p?.city || savedPrayCity();
-  if (!p) return `<button class="pray" data-act="pray" type="button">Namaz · ${esc(city)}</button>`;
+  if (!p) return `<button class="pray" data-act="pray" type="button">Namaz<i class="pc"> · ${esc(city)}</i></button>`;
   const h = p.hijri || {};
   const month = HIJRI_AZ[Number(h.month?.number)] || h.month?.en || "";
   const next = nextPrayer(p.timings);
@@ -1212,8 +1412,8 @@ function prayBit() {
     const mark = on ? `<span class="pray-when"><em>növbəti</em><small>${esc(prayLeft(next.mins))}</small></span>` : `<span></span>`;
     return `<div class="pray-row${on ? " next" : ""}">${prayIcon(k)}<span class="pn">${esc(lab)}</span>${mark}<b class="pt">${time}</b></div>`;
   }).join("");
-  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>Namaz</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div><label class="pray-pick"><span>Şəhər</span><select class="pray-city" aria-label="Namaz şəhəri">${prayCityOptions(city)}</select></label>${rows}</div>` : "";
-  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity">Namaz · ${esc(city)}</span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
+  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>Namaz</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div><label class="pray-pick"><span>Şəhər</span><select class="pray-city" aria-label="Namaz şəhəri">${prayCityOptions(city)}</select></label><div class="pray-geo">${geoBtn(' data-for="pray"')}${S.geoErr ? `<span class="geo-err">${esc(S.geoErr)}</span>` : ""}</div>${rows}</div>` : "";
+  return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity">Namaz<i class="pc"> · ${esc(city)}</i></span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
 }
 function nextPrayer(times) {
   if (!times) return { key: "", lab: "Namaz", time: "", mins: null };
@@ -1250,10 +1450,11 @@ function renderMarkets() {
     const has = !unofficial && i.changePct != null && i.change != null;
     const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
     // «bazar» nişanı alt sətirdədir: başlığın yanında 92px kartda «100 Rubl BA…» kimi kəsilirdi
-    const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, i.dec)}</span>`
+    const dec = Math.min(i.dec ?? 2, 2); // kartda nöqtədən sonra ən çox 2 rəqəm (sahibin qeydi); tam dəqiqlik məzənnə səhifəsindədir
+    const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, dec)}</span>`
       : `<span${unofficial ? ` class="unoff"` : ""}>${i.unit !== "AZN" ? "qiymət" : unofficial ? "bazar" : "məzənnə"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<button type="button" class="mk" data-fx="${esc(i.id)}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v">${fmt(i.value, i.dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
+    return `<button type="button" class="mk" data-fx="${esc(i.id)}" data-d="${cls}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v" data-ar="${has ? (i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "") : ""}">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
   const note = $("#mk-note");
   if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
@@ -1280,19 +1481,24 @@ function fxPop() {
     <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
 }
 
+// Dil siyahısı (sahibin nümunəsi, 2026-11-04): hər dil öz sətrində, dairəvi bayraq + kod; «Hamısı» sonda.
 function languagePicker() {
-  const pill = (code, html, title) => `<button type="button" class="pill lang-pill${(S.lang || "") === code ? " on" : ""}" data-lang="${code}" aria-pressed="${(S.lang || "") === code}" title="${esc(title)}">${html}</button>`;
-  return `<div class="lang-pills" role="group" aria-label="Xəbərlərin dili">${pill("", "Hamısı", "Bütün dillər")}${LANGS.map(l => pill(l.code, `${FLAGS[l.code]}${l.code.toUpperCase()}`, l.label)).join("")}</div>`;
+  const row = (code, html, title) => `<button type="button" class="ldm${(S.lang || "") === code ? " on" : ""}" data-lang="${code}" aria-pressed="${(S.lang || "") === code}" title="${esc(title)}">${html}</button>`;
+  return `<div class="lang-list" role="group" aria-label="Xəbərlərin dili">${LANGS.map(l => row(l.code, `${FLAGS[l.code]}<b>${l.code.toUpperCase()}</b>`, l.label)).join("")}${row("", `<span class="flag globe">🌐</span><b>Hamısı</b>`, "Bütün dillər")}</div>`;
 }
 const ASSISTANT_ON = window.SITE_CONFIG?.assistant === true;
 const DRIVER_ON = window.SITE_CONFIG?.driver === true;
 function renderLangs() {
   const driver = storage.getItem('8ulduz-driver') === 'on';
-  // İdman bütün dillərdədir: burada dil seçimi təsir etmir, ona görə göstərilmir.
-  const sport = route().name === "section" && route().slug === "idman";
-  const row = $("#langs"); if (row) row.innerHTML = (sport ? `<span class="lang-note">İdman xəbərləri bütün dillərdə göstərilir</span>` : languagePicker()) + (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + installBtn() + '<a class="saved-link" href="#/secilmis">☆ Saxlanmış xəbərlər</a>';
+  const row = $("#inst"); if (row) row.innerHTML = (DRIVER_ON ? `<button type="button" class="driver-toggle" data-driver-mode aria-pressed="${driver}">🚗 ${driver ? 'Sürücü: aktiv' : 'Sürücü rejimi'}</button>` : '') + installBtn();
+  $(".nav-inst")?.toggleAttribute("hidden", !installBtn());
 }
-function syncLangStick() {}
+// Dil seçimi yuxarı zolaqda: bayraq + kod + ox, klikdə dillər açılır; idman bölməsində qeyd: idman hər dildədir.
+function langDD() {
+  const cur = S.lang || "", sport = route().name === "section" && route().slug === "idman";
+  const pop = S.langOpen ? `<div class="ldd-pop">${sport ? `<span class="lang-note">İdman xəbərləri bütün dillərdə göstərilir</span>` : ""}${languagePicker()}</div>` : "";
+  return `<div class="ldd${S.langOpen ? " open" : ""}"><button type="button" class="ldd-btn" data-act="lang" aria-expanded="${S.langOpen ? "true" : "false"}" title="Xəbərlərin dili">${cur ? FLAGS[cur] : "🌐"}<b>${cur ? cur.toUpperCase() : "Hamısı"}</b><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
+}
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
 // Saytın dili dəyişirsə səhifə yenidən açılır: tərcümə (dil.js) yalnız başqa dildə yüklənir.
@@ -1302,10 +1508,11 @@ function setLang(v) {
   S.lang = v || null;
   storage.setItem(LANG_KEY, S.lang || "");
   if (uiLang(was) || uiLang(S.lang)) return location.reload();
-  S.shown = PAGE; renderLangs(); renderView();
+  S.shown = PAGE; S.langOpen = false; renderTopbar(); renderView();
+  if (!S.lang) loadNews(true); // «Hamısı»: başqa dillərin faylları da gəlsin
 }
 // fold «й»-ni «и» edir, ona görə «ой/ей» burada «ои/еи» yazılır.
-// Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları. Düymə həmin yerin bütün bölmələrdəki son xəbərlərini açır.
+// Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları. Düymə həmin yerin bütün son xəbərlərini açır.
 const REGION_TABS = [
   { name: "Bakı", keys: ["bakı", "baku", "баку"] },
   { name: "Abşeron-Xızı", groups: [{ group: "", items: [{ name: "Sumqayıt", keys: ["sumqayıt", "сумгайыт", "сумгаит"] }, { name: "Abşeron", keys: ["abşeron"] }, { name: "Xırdalan", keys: ["xırdalan"] }, { name: "Xızı", keys: ["xızı"] }] }] },
@@ -1348,8 +1555,9 @@ function clubMatches(a, club) {
     const raw = decode(a.title + ' ' + (a.summary || ''));
     TOPIC_TEXT.set(a, seen = {raw, text: ` ${topicKey(raw)} `});
   }
-  if (topic.not?.some(w => seen.text.includes(topicKey(w)))) return false;
-  if (topic.must && !topic.mustSites.includes(a.source) && !topic.must.some(w => seen.text.includes(` ${topicKey(w)}`))) return false;
+  // Mövzu sözləri bir dəfə normallaşır.
+  if ((topic.notK ||= (topic.not || []).map(topicKey)).some(w => seen.text.includes(w))) return false;
+  if (topic.must && !topic.mustSites.includes(a.source) && !(topic.mustK ||= topic.must.map(w => ` ${topicKey(w)}`)).some(w => seen.text.includes(w))) return false;
   if (topic.quoted && (topic.quotedRx ||= new RegExp(`["«“'‘„]${topic.quoted}["»”'’]`, "iu")).test(seen.raw)) return true;
   // Word starts allow suffixes (Qarabağın / Карабаха), without matching e.g. “international” for Inter.
   if (topicRx(topic).test(seen.text)) return true;
@@ -1389,47 +1597,53 @@ function navRows(slug, open = S.sportTab, club = S.club || "") {
 function orderedSocialPosts(max = 8) {
   return byDate(S.social?.posts || []).slice(0, max);
 }
-const NET_ICON = {
-  x: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M14.6 3h3.1l-6.8 7.8L19 21h-2.7l-5.3-6.9L6.3 21H3.1l7.3-8.4L3.4 3h2.8l4.8 6.3L14.6 3Zm-1.1 16.2h1.5L6.6 4.7H5L13.5 19.2Z"/></svg>`,
-  ig: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></svg>`,
-  fb: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M14 8.5h3V5.5h-3c-2.5 0-4 1.6-4 4.1V12H8v3h2v7h3v-7h2.4l.6-3H13v-2.2c0-.7.3-1.3 1-1.3Z"/></svg>`,
-  yt: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M22.5 12.2s0-3-.4-4.3c-.2-.9-.9-1.6-1.8-1.8C18.8 5.7 12 5.7 12 5.7s-6.8 0-8.3.4c-.9.2-1.6.9-1.8 1.8C1.5 9.2 1.5 12.2 1.5 12.2s0 3 .4 4.3c.2.9.9 1.6 1.8 1.8 1.5.4 8.3.4 8.3.4s6.8 0 8.3-.4c.9-.2 1.6-.9 1.8-1.8.4-1.3.4-4.3.4-4.3ZM9.8 15.4V9l6 3.2-6 3.2Z"/></svg>`,
-};
-const netIcon = name => name === "Instagram" ? NET_ICON.ig : name === "Facebook" ? NET_ICON.fb : name === "YouTube" ? NET_ICON.yt : NET_ICON.x;
+const NET_KEY = { Instagram: "ig", Facebook: "fb", YouTube: "yt" }; // sosial.svg
+const netIcon = name => shIcon(NET_KEY[name] || "x");
 function profileRows() {
   const whoOrder = { "İlham Əliyev": 0, "Mehriban Əliyeva": 1 };
   return [...PROFILES].sort((a, b) => (whoOrder[a.who] ?? 9) - (whoOrder[b.who] ?? 9))
-    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener noreferrer" title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
+    .map(g => `<span class="soc-g"><b>${esc(g.who)}</b>${g.links.map(([n, u]) => `<a href="${u}" ${OUT} title="${esc(n)}" aria-label="${esc(g.who)}, ${esc(n)}">${netIcon(n)}${n === "X (AZ)" ? "<i>AZ</i>" : ""}</a>`).join("")}</span>`).join("");
 }
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false) {
   const posts = side ? socialForSide() : orderedSocialPosts(8);
-  const cards = posts.map(p => `<a class="soc-p" href="${safeHref(p.url)}" target="_blank" rel="noopener noreferrer" title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>`).join("");
+  const cards = posts.map(p => `<a class="soc-p" href="${safeHref(p.url)}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a>`).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
+// DOM 1600 → 800), boş vaxtda açılır (lateFill); hər səhifə/alt düymə üçün ayrıca, siyahı 6 kartla başlayır.
+const LATE_HERO = 3, LATE_LIST = 6, lateKey = () => location.hash + "|" + (S.club || "");
+const late = (parts, n) => TOUCH_UI && parts.length > n ? parts.slice(0, n).join("") + `<template data-late>${parts.slice(n).join("")}</template>` : parts.join("");
+function lateFill() {
+  S.lateDone = lateKey();
+  const list = document.querySelectorAll("#view template[data-late]");
+  if (!list.length) return;
+  list.forEach(t => { const c = t.content; S.tr?.(c); [...c.children].forEach(rememberSrc); t.replaceWith(c); });
+  setupStrips(document.querySelectorAll(".hero-strip")); setupHeroImages(); setupFeatureLents();
+}
 function prezBlock(list) {
-  // Şəkil: xəbərin öz şəkli, yoxdursa eyni xəbərin digər mənbəsinin (alts) və ya og keşinin şəkli; yüklənməsə kart şəkilsiz qalır
-  // 44 kartın hamısı siyahıdadır, şəkli isə lent sürüşüb yaxınlaşanda gəlir.
+  // Şəkil: öz, digər mənbənin (alts) və ya og keşinin; yüklənməsə kart şəkilsiz.
   const card = (a, i) => {
     const [pic, ...rest] = imageCandidates(a);
-    const small = sized(pic, 200);
-    const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
-    return `<a class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>`;
+    const small = sized(pic, 168);
+    const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" fetchpriority="low" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
+    // Kart keçiddir, «Paylaş» keçidin kənarında (içində düymə olmaz), sağ aşağıda.
+    return `<article class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}"><a class="pcard-hit" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>${shareBtn(a)}</article>`;
   };
-  const cards = list.map(card).join("");
+  const cards = late(list.map(card), PREZ_FIRST_IMAGES);
   return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident" aria-label="Zuğulba Xronikası"><span class="prez-long">Zuğulba Xronikası</span><span class="prez-short">Zuğulba</span></a></h2>
     <span class="prez-n">Son <b>${list.length}</b> xəbər</span>
-    <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.name}</a>`).join("")}</span>
-    <a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
+    <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" ${OUT}>${l.name}</a>`).join("")}</span>
+    <button type="button" class="prez-pause" data-prez-pause aria-pressed="false" aria-label="Zuğulba lentini dayandır" title="Lenti dayandır">Ⅱ</button><a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
     <div class="prez-body">${list.length ? `<div class="prez-lent" data-prez-lent tabindex="0" aria-label="Zuğulba xəbərləri">${cards}</div>` : ""}
     <details class="social-details"><summary>Rəsmi sosial hesablar ▾</summary>${socialBlock(false)}</details></div></section>`;
 }
 
 const HERO_COUNT = 15, HERO_ONLY = 6; // İlk 6 xəbər yalnız slayderdədir; qalanları aşağıdakı siyahılarda da qalır, çünki slayderdə növbəsi 90 saniyədən bir gəlir.
 function heroBlock(list) {
-  if (!list.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${list.slice(0, HERO_COUNT).map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, 828, i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`).join("")}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
+  const slides = list.filter(imgUrl).slice(0, HERO_COUNT); // şəkilsiz xəbər slayderə düşmür, boş kadr olmur
+  if (!slides.length) return "";
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${late(slides.map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, heroPicWidth(i === 0), i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`), LATE_HERO)}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
 
 function alertStrip() {
@@ -1457,7 +1671,7 @@ function fbLeagues() {
   const fb = S.football;
   const ls = fb ? (Array.isArray(fb.leagues) && fb.leagues.length ? fb.leagues : [fb]) : [];
   const az = ls.filter(l => l && (l.table?.length || l.results?.length || l.fixtures?.length));
-  // Dünya liqaları (sports.json): cədvəl qrupları (NBA: Şərq/Qərb); ilk qrup komanda kartları üçün cədvəl kimi götürülür
+  // Dünya liqaları (sports.json): cədvəl qrupları (NBA: Şərq/Qərb); ilk qrup komanda kartlarının cədvəlidir
   const world = (S.sports?.leagues || []).filter(l => l?.groups?.length).map(l => ({
     world: true, sport: l.sport, id: l.id, short: l.short, league: l.name, season: l.season || "", stale: !!l.stale,
     groups: l.groups, table: l.groups[0].rows, results: [], fixtures: [], scorers: [], link: l.url || "https://en.wikipedia.org/", source: "Vikipediya", asof: l.asof || "",
@@ -1469,8 +1683,8 @@ const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); re
 const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
 function worldTable(l, g) {
   const rows = g.rows || [];
-  if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.w)}</td><td>${esc(t.l)}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
-  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.w)}</td><td>${esc(t.l)}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
 }
 function footballBlock(list) {
   const all = fbLeagues();
@@ -1488,14 +1702,14 @@ function footballBlock(list) {
     const groups = fb.groups || [];
     const gi = Math.min(Number(S.fbTab) || 0, groups.length - 1);
     const gtabs = groups.length > 1 ? `<div class="fb-groups">${groups.map((g, i) => `<button type="button" class="pill${i === gi ? " on" : ""}" data-fbtab="${i}">${esc(GROUP_AZ[g.name] || g.name)}</button>`).join("")}</div>` : "";
-    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<a href="${teamHref(fb, t.full || t.team)}" class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></a>`).join("");
+    const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<a href="${teamHref(fb, t.full || t.team)}" class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></a>`).join("");
     return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.asof ? ` · ${esc(asofLabel(fb.asof))}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link)}" target="_blank" rel="noopener noreferrer">Vikipediya ↗</a></div>
       ${picker}
       <div class="strip"><div class="fb-teams">${wteams}</div></div>
       ${gtabs}
       <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div></section>`;
   }
-  const teams = fb.table.map(t => `<a href="${teamHref(fb, t.team)}" class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></a>`).join("");
+  const teams = fb.table.map(t => `<a href="${teamHref(fb, t.team)}" class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></a>`).join("");
   const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
     .filter(([k]) => k !== "table" || fb.table?.length)
     .map(([k, l, r]) => `<button type="button" class="fb-tab${tab === k ? " on" : ""}" data-fbtab="${k}"><span>${l}${r ? `<small>${esc(/^\d+$/.test(String(r)) ? ordTur(r) + " tur" : String(r))}</small>` : ""}</span><i>→</i></button>`).join("");
@@ -1529,14 +1743,16 @@ function videosView() {
   const items = S.video?.items || [];
   const head = `<div class="page-h"><div><h1>Video xəbərlər</h1><p>Azərbaycan kanallarının YouTube lentləri. Video düyməyə basanda açılır.</p></div><span class="cnt">${items.length}</span></div>`;
   if (!items.length) return `${head}<p class="empty">Video lent hazırda açılmır. Bir az sonra yenidən baxın.</p>`;
-  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
+  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
 }
 function catSection(c, list) {
   if (!list.length) return "";
+  list = picFirst(list);
   return `<section><div class="sec-h"><h2>${esc(c.label)}</h2><span class="cnt">${list.length} xəbər</span><a class="more" href="#/bolme/${c.slug}">Bütün xəbərlər →</a></div><div class="strip category-strip"><div class="news-row">${list.slice(0, 12).map(card).join("")}</div></div></section>`;
 }
 
-function skeleton() {
+function skeleton(kind) {
+  if (kind === "article") return `<div class="skel" style="height:30px;margin:14px 0 10px"></div><div class="skel" style="height:200px"></div>`; // başlıq + şəkil yeri: xəbər gələndə səhifə atlamır
   return `<section class="prez"><div class="skel" style="height:180px"></div></section>
     <section class="hero"><div class="skel" style="height:340px"></div></section>
     <section><div class="grid">${"<div class='skel' style='height:220px'></div>".repeat(4)}</div></section>`;
@@ -1547,7 +1763,7 @@ function rankBySources(list) {
     .sort((x, y) => y.n - x.n || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""))
     .map(x => x.a);
 }
-// Hero: son 18 saatın ən çox mənbədə çıxan xəbərləri; kifayət etməsə pəncərə 48 saata, sonra bütün lentə genişlənir.
+// Hero: son 18 saatın ən çox mənbədə çıxan xəbərləri; azdırsa 48 saat, sonra bütün lent.
 // Eyni hadisənin updater-də birləşməmiş variantları (başlıqda 2+ ortaq uzun söz) hero-da təkrarlanmasın.
 const heroWords = a => new Set(lc(a.title || "").split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 5));
 function diverse(ranked, need) {
@@ -1571,34 +1787,66 @@ function heroPick(list, need = 9) {
   return diverse(rankBySources(list), need);
 }
 
+const picFirst = l => [...l.filter(imgUrl), ...l.filter(a => !imgUrl(a))]; // şəkilsiz xəbər ana səhifədə sona
 function latestBlock(list) {
-  const ranked = S.latestOrder === "sources" ? rankBySources(list) : byDate(list);
+  const ranked = picFirst(S.latestOrder === "sources" ? rankBySources(list) : byDate(list));
   const count = S.latestCount || 8;
-  return `<section><div class="sec-h"><h2>Son xəbərlər</h2><div class="feed-tabs"><button data-feed="latest" class="pill${S.latestOrder !== "sources" ? " on" : ""}" aria-pressed="${S.latestOrder !== "sources"}">Ən yeni</button><button data-feed="sources" class="pill${S.latestOrder === "sources" ? " on" : ""}" aria-pressed="${S.latestOrder === "sources"}">Ən çox mənbədə</button></div></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
+  return `<section id="son-xeberler"><div class="sec-h"><h2>Son xəbərlər</h2><div class="feed-tabs"><button data-feed="latest" class="pill${S.latestOrder !== "sources" ? " on" : ""}" aria-pressed="${S.latestOrder !== "sources"}">Ən yeni</button><button data-feed="sources" class="pill${S.latestOrder === "sources" ? " on" : ""}" aria-pressed="${S.latestOrder === "sources"}">Ən çox mənbədə</button></div></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
   if (!hosted.length && !list.length) return "";
-  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb"><img src="${esc(v.imageUrl || "")}" alt="" loading="lazy"><i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
+}
+function homeArchive(slug) {
+  if (NO_ARCHIVE.has(slug)) return [];
+  (S.archiveHome ||= new Set()).add(slug); loadArchive(slug); // gələndə baş səhifə yenidən çəkilir
+  return filtered(S.archive?.[slug]?.rows || []).slice(0, 12);
 }
 function homeView() {
-  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident"), HERO_COUNT);
+  const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && imgUrl(a)), HERO_COUNT);
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
-  const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m))}</div>` + optional(adHtml) + latestBlock(remaining);
+  const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining);
   if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
-  const secs = homeCats().map(c => lazySection(catSection(c, byDate((c.slug === 'idman' ? S.data.articles : remaining).filter(a => a.category === c.slug))))).join("");
-  return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m)) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
+  // Slayderdə və «Son xəbərlər»də görünən xəbər aşağıdakı bloklarda təkrarlanmır
+  const seen = new Set([...hero, ...picFirst(S.latestOrder === "sources" ? rankBySources(remaining) : byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
+  // Bölmə boş qalmasın: slayder/«Son xəbərlər» götürübsə xəbər burada da qalır; lentdə yoxdursa arxiv gəlir.
+  const secs = homeCats().map(c => {
+    const all = (c.slug === "idman" ? S.data.articles : remaining).filter(a => a.category === c.slug), own = all.filter(fresh);
+    return lazySection(catSection(c, byDate(own.length >= 4 ? own : all.length ? all : homeArchive(c.slug))));
+  }).join("");
+  return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
-// Paylaşılan keçid sonradan da açılsın. Xəbər başqası ilə qruplaşıbsa nömrəsi lentdə qalmır (id ünvanın sha1-idir, updater.py ilə eyni),
-// lentdən çıxıbsa bölmə arxivindədir (5 gün). Bu axtarış yalnız lentdə tapılmayan keçiddə işləyir.
+async function shareRow(id) {
+  for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
+    const {d} = await requestJSON(freshUrl(`data/paylas/${parseInt(k.slice(0, 2), 16) >> 3}.json`), {}, 8000);
+    const row = d?.articles?.find(a => a.id === k);
+    if (row?.of) { k = row.of; continue; }
+    return row && !removedSource(row) && !policyViolation(row) ? row : null;
+  }
+  return null;
+}
+// Paylaşılan keçid (WhatsApp, Telegram) açılanda tam lent (240 KB) gözlənilmir: xəbərin sətri ~20 KB-lıq paylaşma
+// hissəsindən gəlir (index.html onu erkən istəyir), lent arxada yüklənir və gələndə səhifənin qalanı dolur.
+// Paylaşılan keçiddən açılan xəbərdə geri düyməsi baş səhifəyə qayıtsın: altdan baş səhifə qoyulur.
+function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
+async function loadShared(id) {
+  if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
+  try {
+    const row = await shareRow(id);
+    if (row && !S.data) { S.sharedStory = { id, row }; if (route().name === "article") renderView(); }
+  } catch {}
+}
 async function scanArchives(id) {
   S.archiveScanning = true;
   try {
-    if (globalThis.crypto?.subtle) for (const a of S.data.articles.filter(a => a.alts?.length)) for (const alt of a.alts) {
+    if (globalThis.crypto?.subtle) for (const a of (S.data?.articles || []).filter(a => a.alts?.length)) for (const alt of a.alts) {
       const hash = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(alt.sourceUrl));
       if ([...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16) === id) { S.sharedStory = { id, row: a }; return; }
     }
+    const row = await shareRow(id).catch(() => null);
+    if (row) { S.sharedStory = { id, row }; return; }
     const hint = (location.hash.split("?")[1] || "").match(/(?:^|&)b=([^&]+)/)?.[1];
     for (const slug of new Set([hint, ...CATS.map(c => c.slug)].filter(Boolean))) {
       await loadArchive(slug);
@@ -1610,20 +1858,20 @@ async function scanArchives(id) {
   }
 }
 function articleView(id) {
-  const a = S.data.articles.find(a => String(a.id) === id) || (S.sharedStory?.id === id && S.sharedStory.row) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
-  if (!a) {
-    if (S.archiveScan !== id) { S.archiveScan = id; scanArchives(id); }
+  const a = (S.data?.articles || []).find(a => String(a.id) === id) || (S.sharedStory?.id === id && S.sharedStory.row) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
+  if (!a || removedArticle(a)) {
+    if (S.data && S.archiveScan !== id) { S.archiveScan = id; scanArchives(id); }
     if (S.archiveScanning) return '<p class="empty">Xəbər axtarılır…</p>';
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz";
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", true, false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section></article>`;
 }
 
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
   return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
-    (list.length ? `<div class="grid">${shown.map(card).join("")}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
+    (list.length ? `<div class="grid">${late(shown.map(a => cardAt(a, "h2")), LATE_LIST)}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
       : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : S.club ? "Bu mövzuda son 5 gündə xəbər tapılmadı." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
 
@@ -1637,16 +1885,21 @@ async function loadArchive(slug) {
   try {
     const {d} = await requestJSON(freshUrl(`data/arxiv/${slug}.json`), {}, 8000);
     if (!Array.isArray(d?.articles)) return;
-    S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a));
+    S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)); S.arxV = (S.arxV || 0) + 1;
     const r = route();
-    if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search" || (r.name === "team" && slug === "idman")) requestRender(false);
+    if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search" || (r.name === "home" && S.archiveHome?.has(slug)) || (r.name === "team" && slug === "idman")) requestRender(false);
   } catch {}
+}
+// Lent + 14 arxiv bir dəfə birləşir (axtarış, Bölgələr): hər klikdə telefonda 100–250 ms idi.
+function allNews() {
+  if (S.allD !== S.data || S.allV !== S.arxV) { S.allD = S.data; S.allV = S.arxV; S.all = CATS.reduce((l, c) => withArchive(c.slug, l), S.data.articles); }
+  return S.all;
 }
 function withArchive(slug, list) {
   const rows = S.archive?.[slug]?.rows;
   if (!rows?.length) return list;
-  const known = new Set(list.flatMap(a => [a.sourceUrl, ...(a.alts || []).map(alt => alt.sourceUrl)]));
-  return [...list, ...rows.filter(a => !known.has(a.sourceUrl))];
+  const known = urlsOf(list);
+  return [...list, ...rows.filter(a => !known.has(a.sourceUrl) && !removedArticle(a))];
 }
 function sectionView(slug) {
   const c = CATS.find(x => x.slug === slug);
@@ -1655,6 +1908,7 @@ function sectionView(slug) {
   let list = slug === "video" ? d.filter(a => a.video) : slug === "sondeqiqe" ? d.filter(withinHour) : d.filter(a => a.category === slug);
   loadArchive(slug);
   list = byDate(withArchive(slug, list));
+  if (S.partial && !list.length) return skeleton();
   let extra = SUB_TABS[slug] ? `<div class="sub-rows">${subNav(slug)}</div>` : "";
   if (slug === "idman") {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
@@ -1664,18 +1918,19 @@ function sectionView(slug) {
       // Yer haqqında xəbər başqa bölmədə də ola bilər: seçiləndə bütün lent və arxivlər axtarılır.
       CATS.forEach(x => loadArchive(x.slug));
       // «Qəbələ» və «Sabah» həm də futbol klubudur: rayon düyməsində oyun xəbəri olmasın.
-      list = byDate(CATS.reduce((rows, x) => withArchive(x.slug, rows), d).filter(a => a.category !== "idman" && clubMatches(a, S.club)));
+      list = byDate(allNews().filter(a => a.category !== "idman" && clubMatches(a, S.club)));
     }
   }
   if (slug === "prezident") extra = optional(socialBlock);
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
-// Axtarış üçün sadələşdirmə: kiçik hərf, Azərbaycan hərfləri latın əsasına (ə→e, ı→i, ş→s ...), durğu işarələri boşluğa.
+// Axtarış üçün sadələşdirmə: kiçik hərf, ə→e, ı→i, ş→s və s., durğu işarələri boşluğa.
 // «ilham eliyev», «qarabag», «naxcivan», «AZERTAC» kimi yazılışlar da tapılır.
 const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c" };
-function fold(s) {
-  return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[əıöüğşç]/g, ch => FOLD[ch]);
+function fold(s) { // NFD yalnız lazım olanda (2,7× tez)
+  s = String(s || "").toLowerCase().replace(/[əıöüğşç]/g, ch => FOLD[ch]);
+  return /[\u00c0-\u024f\u0300-\u036fйё]/.test(s) ? s.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : s;
 }
 const searchWords = q => fold(q).replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter(w => w.length >= 2 || /\p{N}/u.test(w));
 // İşarələmə üçün: sadələşmiş sözün orijinal mətndə bütün yazılış formalarını tutan regex
@@ -1698,11 +1953,11 @@ function searchText(a) {
 function searchView() {
   const words = searchWords(S.q);
   if (!words.length) return listPage(`Axtarış: “${S.q}”`, "Ən azı iki hərf yazın", []);
-  // Lent gündüz 2-3 saat əhatə edir: axtarış bölmə arxivlərini də (5 gün) görür. Onlar yalnız axtarış başlayanda yüklənir.
+  // Lent gündüz 2-3 saat əhatə edir: axtarış bölmə arxivlərini də (5 gün) görür; onlar axtarışda yüklənir.
   CATS.forEach(c => loadArchive(c.slug));
   const topics = searchTopics(S.q), scored = [];
-  for (const a of CATS.reduce((list, c) => withArchive(c.slug, list), S.data.articles)) {
-    if (topics.some(name => clubMatches(a, name))) { scored.push({ a, score: 20 }); continue; } // idman kimi bütün dillərdə, ən yenisi üstdə
+  for (const a of allNews()) {
+    if (a.category === "idman" && topics.some(name => clubMatches(a, name))) { scored.push({ a, score: 20 }); continue; } // idman kimi bütün dillərdə, ən yenisi üstdə
     if (S.lang && langOf(a) !== S.lang) continue;
     const {t, rest} = searchText(a);
     let score = 0, hits = 0;
@@ -1747,92 +2002,150 @@ function leagueView() {
   wantSports();
   return `<div class="page-h"><div><h1>Premyer Liqa cədvəli</h1><p>Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar.</p></div></div>${footballBlock(S.data?.articles || [])}`;
 }
-// Komanda səhifəsi ayrı fayldadır: kodu və üslubu yalnız bu ünvan açılanda gəlir.
+// Komanda səhifəsi faylı gələn kimi çəkilir: lentin 400 ms / 2,5 s toplama fasiləsi açılan səhifəyə aid deyil.
+const teamRender = () => { if (route().name === "team") renderView(); else requestRender(false); };
+const teamModule = r => (S.teamMod ||= import("./komanda.js")).then(m => { m.prefetch?.({ S, requestJSON, freshUrl, requestRender: teamRender }, r); return m; });
+function preTeam() {
+  if (S.teamPre) return;
+  S.teamPre = true;
+  for (const [f, rel] of [["komanda.js", "modulepreload"], ["komanda.css", "preload"]]) { const l = document.createElement("link"); l.rel = rel; if (rel === "preload") l.as = "style"; l.href = `${ASSET}${f}`; document.head?.append?.(l); }
+  teamModule().catch(() => {});
+}
 function teamView(r) {
   if (S.teamPage) return S.teamPage.view(r);
   if (!S.teamLoading && Date.now() - (S.teamFailedAt || 0) > 30e3) {
     S.teamLoading = true;
     const css = new Promise(done => { const link = document.createElement("link"); link.rel = "stylesheet"; link.href = `${ASSET}komanda.css`; link.onload = link.onerror = done; document.head.append(link); });
-    Promise.all([import("./komanda.js"), css]).then(([{ mountTeam }]) => {
-      S.teamPage = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive, months: MONTHS, requestJSON, freshUrl, requestRender });
+    Promise.all([teamModule(r), css]).then(([{ mountTeam }]) => {
+      S.teamPage = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive, months: MONTHS, requestJSON, freshUrl, requestRender: teamRender });
       requestRender(false);
-    }).catch(() => { S.teamLoading = false; S.teamFailedAt = Date.now(); requestRender(false); });
+    }).catch(() => { S.teamLoading = false; S.teamMod = null; S.teamFailedAt = Date.now(); requestRender(false); });
   }
   return S.teamFailedAt ? `<div class="err" role="alert">Komanda səhifəsi açılmadı. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : skeleton();
 }
 function trafficView() {
-  const area = tixArea();
+  const area = tixArea(), konum = geoArea();
   const items = localRoadItems(S.data?.articles || []).slice(0, 40);
-  const jumps = TRAFFIC_AREAS.map(a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`).join("");
+  const jump = a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`;
+  const jumps = (konum ? jump(konum) : `<button type="button" class="pill" data-act="geo"${S.geoBusy ? " disabled" : ""}>${S.geoBusy ? "Konum axtarılır…" : "📍 Konumum"}</button>`) + TRAFFIC_AREAS.map(jump).join("") + (S.geoErr && !konum ? `<span class="geo-err">${esc(S.geoErr)}</span>` : "");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
+  // Waze telefonda yalnız «tətbiqi yüklə» göstərir: toxunma ekranında tıxac Yandex-dən.
   const map = S.tixOn
-    ? `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
+    ? TOUCH_UI
+      ? `<iframe title="Canlı tıxac xəritəsi (Yandex)" src="${esc(yandexSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
+      : `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
     : `<div class="tix-open"><p>Xəritə yalnız açanda yüklənir.</p><button type="button" class="btn" data-act="tix-open">Xəritəni aç</button></div>`;
   const rows = items.length
     ? `<ul class="tix-list">${items.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
   return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
-    <p class="tix-note">Xəritə Waze-dən açılır. Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
+    <p class="tix-note">${TOUCH_UI ? "Telefonda canlı xəritə Yandex Xəritələrdən açılır; Waze telefonda xəritəni yalnız öz tətbiqində göstərir, aşağıdakı düymə onu açır." : "Xəritə Waze-dən açılır."} Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
     ${rush}
     <div class="tix-jumps">${jumps}</div>
-    <div class="tix-map" id="tix-map">${map}<div class="tix-bar"><a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a></div></div>
+    <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<a href="${esc(wazeApp(area))}" ${OUT}>Waze-də aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
     ${rows}`;
 }
 
-// Yalnız dəyişən blok yenilənir. Əvvəl hər yeni xəbərdə bütün səhifə yenidən qurulurdu: telefonda 1 saniyə donurdu,
+// Yalnız dəyişən blok yenilənir. Əvvəl hər yeni xəbərdə bütün səhifə yenidən qurulurdu: telefonda 1 s donurdu,
 // oxucu həmin an linkə basanda keçid gecikirdi, şəkillər də yenidən yerləşirdi. Blokun mənbə mətni saxlanır,
 // çünki qurulandan sonra DOM dəyişir (oxlar, açılmış bölmə, yüklənmiş şəkil).
-// Slayder və Zuğulba içəridən, kart-kart yenilənir: yeni xəbər gələndə görünən şəkil təzədən yüklənmir, slayder başa qayıtmır.
-const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row";
+// Slayder və Zuğulba kart-kart yenilənir: görünən şəkil təzədən yüklənmir, slayder başa qayıtmır.
+const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row,.prez,.prez-body,.prez-lent";
+const KEYED = ".hero-row,.prez-lent"; // sürüşən siyahılar: yeri dəyişən kart köçürülür (şəkli təzədən yüklənmir), oxunan kart ekranda yerində qalır
 function rememberSrc(node) {
   node._src = node.outerHTML;
   if (node.matches(PATCH_INSIDE)) [...node.children].forEach(rememberSrc);
 }
+// Sürüşən siyahıda baxılan ilk kart və sürüşmə payı: yeniləmədən sonra eyni kart eyni yerdə.
+function anchorOf(box) {
+  const x = box.matches(".hero-row"), pos = x ? box.scrollLeft : box.scrollTop;
+  const at = n => x ? n.offsetLeft - box.firstElementChild.offsetLeft : n.offsetTop - box.firstElementChild.offsetTop;
+  const kid = box.firstElementChild && [...box.children].find(n => at(n) + (x ? n.offsetWidth : n.offsetHeight) > pos + 2);
+  return kid && { kid, off: pos - at(kid), x, at };
+}
+function restoreAnchor(box, a) {
+  if (!a || !a.kid.isConnected) return;
+  const was = box.style.scrollBehavior; box.style.scrollBehavior = "auto";
+  if (a.x) box.scrollLeft = a.at(a.kid) + a.off; else box.scrollTop = a.at(a.kid) + a.off;
+  box.style.scrollBehavior = was;
+}
 function patchChildren(box, fresh, changed) {
-  const old = [...box.children];
+  const old = [...box.children], keyed = !!box.matches?.(KEYED), pool = keyed && new Map(old.map(n => [n._src, n])), kept = new Set(), anchor = keyed && anchorOf(box);
   fresh.forEach((node, i) => {
-    const was = old[i];
     rememberSrc(node);
+    let was = old[i];
+    if (keyed) {
+      const hit = pool.get(node._src);
+      if (hit) { pool.delete(node._src); kept.add(hit); if (box.children[i] !== hit) box.insertBefore(hit, box.children[i] || null); return; }
+      was = null;
+    }
     if (was && was._src === node._src) return;
     if (was?.matches(PATCH_INSIDE) && was.className === node.className) { was._src = node._src; patchChildren(was, [...node.children], changed); return; }
     // Açılmış bölmə yenilənəndə bağlanmasın: səhifənin hündürlüyü dəyişib oxucu yerini itirməsin.
-    if (was?.matches(".lazy-sec") && !was.querySelector(":scope > template") && node.matches(".lazy-sec")) node.replaceChildren(node.querySelector(":scope > template").content);
-    if (was) was.replaceWith(node); else box.append(node);
+    if (was?.matches(".lazy-sec") && was.firstChild && node.matches(".lazy-sec")) lazyFill(node);
+    if (was) was.replaceWith(node); else box.insertBefore(node, box.children[i] || null);
     changed.push(node);
   });
-  old.slice(fresh.length).forEach(node => node.remove());
+  if (keyed) { old.forEach(n => kept.has(n) || n.remove()); restoreAnchor(box, anchor); } else old.slice(fresh.length).forEach(node => node.remove());
 }
 function patchView(v, page) {
   const next = document.createElement("template");
-  next.innerHTML = page;
+  next.innerHTML = page.replace(/<div class="lazy-sec"><template>([\s\S]*?)<\/template><\/div>/g, (_, h) => {
+    let k = h.length; for (let i = 0; i < h.length; i++) k = Math.imul(k ^ h.charCodeAt(i), 16777619);
+    k = h.length + "-" + (k >>> 0).toString(36); lazyHtml.delete(k); lazyHtml.set(k, h);
+    return `<div class="lazy-sec" data-lazy="${k}"></div>`;
+  });
+  while (lazyHtml.size > 99) lazyHtml.delete(lazyHtml.keys().next().value);
+  if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => t.replaceWith(t.content));
   S.tr?.(next.content);
   const changed = [];
+  // Hazır ilk ekranın sarğısı açılır, kartlar yerində qalır; açılmayan şəkil növbəti namizədə.
+  const pre = v.querySelector?.(":scope > .pre-skel");
+  if (pre) {
+    v.querySelector(":scope > noscript")?.remove();
+    const kids = [...pre.children];
+    kids.forEach(rememberSrc);
+    pre.replaceWith(...kids);
+    changed.push(...kids);
+    for (const i of v.querySelectorAll("img[data-fail=alt][src]")) if (i.complete && (i.naturalWidth || 0) < 2) imgFail(i);
+  }
   patchChildren(v, [...next.content.children], changed);
   if (!changed.length) return;
   const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
   if (has("[data-marquee]")) setupMarquees();
-  changed.forEach(n => n.querySelectorAll(".strip").forEach(setupStrip));
-  if (has(".hero-strip")) setupHeroImages();
+  setupStrips(new Set(changed.flatMap(n => [n.closest(".strip"), ...n.querySelectorAll(".strip")]).filter(Boolean))); // içəridən yenilənən slayderin oxları da
+  if (has(".hero-strip") || has(".hero-main")) setupHeroImages();
   setupFeatureLents();
   setupLazySections();
+  if (has("template[data-late]")) (globalThis.requestIdleCallback || (f => setTimeout(f, 200)))(lateFill, { timeout: 1500 });
 }
 function renderView() {
   syncQuery();
   pageMeta();
-  const v = $("#view");
-  const onlyFirst = S.partial && !firstScreen();
-  if (S.error && (!S.data || onlyFirst)) { S.viewPage = null; v.innerHTML = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`; return; }
-  if (!S.data || onlyFirst) { S.viewPage = null; v.innerHTML = skeleton(); return; }
-  const r = route();
-  const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
-  const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
-  // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
-  const page = err + body;
-  if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
-  $("#cta").hidden = !TELEGRAM || r.name !== "home" || !!S.q;
-  const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" ? "sections" : r.name === "home" && !S.q ? "home" : "";
-  document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
-  highlightSearch();
+  try {
+    const v = $("#view");
+    const onlyFirst = S.partial && !partialOk();
+    const r = route();
+    // Paylaşılan keçid: xəbərin sətri paylaşma siyahısından gəlibsə tam lent gözlənilmir (loadShared).
+    const shared = r.name === "team" || r.name === "article" && S.sharedStory?.id === r.id;
+    // Hazır ilk ekran (index.html, prerender.cjs): məlumat gələnə qədər durur, skelet və ya xəta onu silmir.
+    const pre = !S.data && firstScreen() && !!v.querySelector?.(".pre-skel[data-prerender]");
+    if (S.error && (!S.data || onlyFirst) && !shared) {
+      const alert = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`;
+      if (pre) { if (!v.querySelector(".err")) v.insertAdjacentHTML("afterbegin", alert); return; }
+      S.viewPage = null; v.innerHTML = alert; return;
+    }
+    if ((!S.data || onlyFirst) && !shared) { if (pre) return; S.viewPage = null; v.innerHTML = skeleton(r.name === "article" ? "article" : ""); return; }
+    const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
+    if (r.name === "section" && r.slug === "idman") preTeam();
+    const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+    // Məzmun dəyişməyibsə DOM toxunulmur: şəkillər yenidən yüklənmir, oxucunun açdığı siyahı bağlanmır.
+    const page = err + body;
+    if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
+    const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "sections" || r.name === "section" || r.name === "team" ? "sections" : r.name === "home" && !S.q ? "home" : "";
+    document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
+    highlightSearch();
+  } finally { countVisit(); }
 }
 
 function sourceLevel(s) {
@@ -1842,17 +2155,14 @@ function sourceLevel(s) {
   if (s.okAt && age < 36 * HOUR) return "warn";
   return "bad";
 }
-function sourcesView() {
-  const rows = (S.sources?.sources || [...new Set((S.data?.articles || []).map(shownSource))].map(name => ({name}))).filter(s => !removedSource(s));
-  if (!rows) return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Lentlərin son yoxlanması</p></div></div><p class="empty">Yüklənir…</p>`;
-  const label = { ok: "İşləyir", warn: "Zəif", bad: "Xəta" };
-  const body = rows.map(s => {
-    const lv = s.count === undefined ? "unknown" : sourceLevel(s);
-    return `<li class="src-row ${lv}"><span class="src-dot" aria-hidden="true"></span><div><b>${sourceName(s.name)}</b><div class="muted">${esc(s.url || "")}</div>${s.error ? `<div class="src-err">${esc(s.error)}</div>` : ""}</div><div class="src-meta"><span>${label[lv] || "Yoxlama məlumatı yoxdur"}</span><span>${s.count === undefined ? "—" : s.count + " xəbər"}</span><time>${s.okAt ? ago(s.okAt) : "uğur yoxdur"}</time></div></li>`;
-  }).join("");
-  return `<div class="page-h"><div><h1>Mənbə vəziyyəti</h1><p>Yaşıl — son saatlarda xəbər gəlib. Sarı — boş və ya köhnəlmiş uğur. Qırmızı — xəta.</p></div><span class="cnt">${rows.length}</span></div><label class="source-search">Mənbə axtar <input type="search" data-source-search placeholder="Mənbənin adı…"></label><ul class="src-list">${body}</ul>`;
-}
 
+// Nadir səhifələr (Mənbə vəziyyəti, Haqqımızda, Mənim bölmələrim) sehife.js-dədir: açılanda yüklənir.
+function pageView(name) {
+  if (S.pages) return S.pages[name]({ S, esc, sourceName, shownSource, removedSource, sourceLevel, ago, trackedSources, sectionPref, CATS, ASSISTANT_ON, DRIVER_ON, config: window.SITE_CONFIG || {} });
+  if (!S.pagesAsked) { S.pagesAsked = true; import("./sehife.js").then(m => { S.pages = m; renderView(); }).catch(() => { S.pagesAsked = false; }); }
+  return `<div class="empty">Yüklənir…</div>`;
+}
+const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
 function trackedSources() {
   const rows = S.sources?.sources;
   const names = rows ? rows.filter(s => !removedSource(s)).map(s => s.name) : (S.data?.articles ?? []).flatMap(a => [shownSource(a), ...(a.alts || []).map(x => x.source)]);
@@ -1861,59 +2171,20 @@ function trackedSources() {
 function renderFooter() {
   const srcs = trackedSources();
   const contact = String(window.SITE_CONFIG?.contact || "").trim();
-  $("#footer").innerHTML = `<div class="wrap fgrid">
+  const h = `<div class="wrap fgrid">
     <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="#/bolme/${c.slug}">${esc(c.label)}</a>`).join("")}</div></div>
     <div><h4>Xidmətlər</h4><div class="fcats"><a href="#/bolme/valyuta">Valyuta məzənnəsi</a><a href="#/bolme/cedvel">Premyer Liqa cədvəli</a><a href="#/bolme/tixac">Tıxac və yollar</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
-  </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="#/haqqinda">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
+  </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="./haqqinda/">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
+  if (h !== S.footH) S.footH = $("#footer").innerHTML = h;
 }
 
-function aboutView() {
-  const srcs = trackedSources();
-  const contact = String(window.SITE_CONFIG?.contact || "").trim();
-  const gc = String(window.SITE_CONFIG?.goatcounter || "").trim();
-  return `<div class="page-h"><div><h1>Haqqımızda</h1><p>8ulduz nədir, necə işləyir və nəyi göstərmir</p></div></div>
-  <div class="about">
-    <section><h2>Sayt nədir</h2><p>8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, başlığa klikləyəndə xəbər birbaşa mənbənin saytında açılır. Lent hər dəqiqə yenilənir.</p></section>
-    <section><h2>Mənbələr</h2><p>Hazırda ${srcs.length} mənbə izlənilir. Hər lentin vəziyyətini <a href="#/menbeler">Mənbə vəziyyəti</a> səhifəsində görmək olar.</p><div class="srcs">${srcs.map(s => `<span>${sourceName(s)}</span>`).join("")}</div></section>
-    <section><h2>Redaksiya prinsipləri</h2><ul>
-      <li>Eyni hadisə haqqında yaxın başlıqlı xəbərlər bir kartda birləşir; «N mənbə» düyməsi digər mənbələri göstərir.</li>
-      <li>Baş səhifədəki böyük kart və yanındakı siyahı ən yeni xəbəri yox, son saatlarda ən çox mənbədə çıxan xəbərləri göstərir.</li>
-      <li>Bölmələr başlıq və xülasədəki açar sözlərə görə avtomatik təyin olunur; səhv ola bilər.</li>
-      <li>Dil süzgəci standart olaraq Azərbaycan dilindədir; rus, ingilis və türk dilində xəbərlər «Hamısı» və ya müvafiq dil seçiləndə görünür.</li>
-      <li>Ölkə rəhbərliyi haqqında neqativ çağırışlı xəbərlər göstərilmir; bu, sayt sahibinin redaksiya qərarıdır.</li>
-      <li>Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir.</li>
-      <li>Müxalifət mənbələri lentə daxil edilmir; lentdə yalnız «Mənbələr» siyahısındakı saytlar görünür. Bu da sayt sahibinin redaksiya qərarıdır.</li>
-      <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
-    </ul></section>
-    <section><h2>Məxfilik</h2><p>Tam mətn (sayt və Android tətbiqi üçün): <a href="./mexfilik/">Məxfilik siyasəti</a>.</p><ul><li>Paylaşma düyməsi yalnız seçdiyiniz tətbiqi açır. Sayt yalnız kliklərin ümumi sayını görür, kimin nəyi paylaşdığını yox.</li><li>Səslə axtarış mikrofonu yalnız axtarış qutusundakı mikrofon düyməsinə basanda açır. Səsi brauzerinizin öz nitq tanıma xidməti (Chrome-da Google, Safari-də Apple) işləyir; səs bu sayta gəlmir və saxlanmır.</li>${ASSISTANT_ON ? `<li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>` : ""}
-      <li>Sayt kuki qoymur və hesab tələb etmir. Seçilmişlər, bölmə sırası, dil, tema və şəhər seçimi yalnız sizin cihazınızda (brauzerin yaddaşında) saxlanır.</li>
-      <li>«Bildiriş» düyməsi brauzerdən icazə istəyir; bildiriş yalnız səhifə açıq olanda, cihazın özündə yaranır, heç bir serverə göndərilmir.</li>
-      <li>Hava (Open-Meteo), namaz vaxtı (aladhan.com), tıxac xəritəsi (Waze) və video (YouTube) brauzerinizdən birbaşa həmin xidmətlərə sorğu göndərir; onların öz məxfilik qaydaları tətbiq olunur. Xəritə və video yalnız düyməyə basanda yüklənir.</li>
-      <li>Mənbə adının yanındakı rəqəmlər bu gün / bu həftə / bu ay / bu il üzrə bütün ziyarətçilərin həmin mənbəyə keçidləridir; fərdi ziyarətçi sayı deyil. Sayım funksiyanın işə düşməsindən başlayır, 4 saata qədər gecikə bilər. Rəqəm əvəzinə tire məlumatın əlçatan olmadığını göstərir.</li>
-      ${DRIVER_ON ? `<li>Sürücü rejimi sizin seçiminizlə aktivləşir. Mənbə ayrıca vərəqdə açılır; açıq məqalədən alınmış mətn bu saytda göstərilmədən cihazın Azərbaycan səsi ilə oxunur. Səs, mətn və ya fon oxuması əlçatan olmaya bilər. Ayrı mənbənin vərəqi bu sayt tərəfindən idarə olunmur.</li>` : ""}
-      <li>${gc ? "Ziyarət statistikası GoatCounter ilə, kukisiz və şəxsi məlumat toplamadan aparılır." : "Ziyarət statistikası hazırda toplanmır."}</li>
-    </ul></section>
-    <section><h2>Əlaqə</h2><p>${contact ? `Yazın: <a href="mailto:${esc(contact)}">${esc(contact)}</a>. ` : ""}Səhv, təklif və mənbə əlavəsi üçün <a href="https://github.com/8ulduz/8ulduz/issues" target="_blank" rel="noopener noreferrer">GitHub-da müraciət</a> yaza bilərsiniz. Xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir; mənbə öz xəbərinin göstərilməsini istəmirsə, bildirin, lent siyahıdan çıxarılar.</p></section>
-  </div>`;
-}
 
 function savedView() {
   const items = savedList().filter(a => !policyViolation(a));
   return `<div class="page-h"><div><h1>Seçilmişlər</h1><p>Ulduzla saxladığınız xəbərlər bu cihazda qalır.</p></div><span class="cnt">${items.length}</span></div>` +
     (items.length ? `<div class="grid">${items.map(card).join("")}</div><p style="margin:14px 0 0"><button type="button" class="loadmore" data-act="clear-saved">Hamısını sil (${items.length})</button></p>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Kartdakı ulduza basın.</p>`);
-}
-function sectionsView() {
-  const { order, off } = sectionPref();
-  const hide = new Set(off);
-  const rows = order.map((slug, i) => {
-    const c = CATS.find(x => x.slug === slug);
-    if (!c) return "";
-    const on = !hide.has(slug);
-    return `<li data-cat="${esc(slug)}"><button type="button" data-act="sec-up" data-slug="${esc(slug)}" ${i === 0 ? "disabled" : ""} aria-label="Yuxarı">↑</button><button type="button" data-act="sec-down" data-slug="${esc(slug)}" ${i === order.length - 1 ? "disabled" : ""} aria-label="Aşağı">↓</button><button type="button" class="chk${on ? " on" : ""}" data-act="sec-toggle" data-slug="${esc(slug)}" aria-pressed="${on ? "true" : "false"}">${on ? "✓" : ""}</button><a href="#/bolme/${esc(slug)}"><i class="cdot"></i>${esc(c.label)}</a><span>${esc(c.description)}</span></li>`;
-  }).join("");
-  return `<div class="page-h"><div><h1>Mənim bölmələrim</h1><p>İşarəni götürün və ya sıranı dəyişin. Baş səhifə bunu yadda saxlayır.</p></div></div><ul class="mine">${rows}</ul>`;
 }
 
 // Yalnız ümumi say gedir, şəxsi məlumat yoxdur (source-stats.js ilə eyni üsul).
@@ -1932,29 +2203,28 @@ function showPop(btn, html) {
   box.style.top = `${r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6}px`;
   return box;
 }
-async function shareStory(btn) {
-  const url = btn.dataset.share, title = btn.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
-  if (TOUCH_UI && navigator.share) {
-    trackEvent("share-system");
-    try { await navigator.share({ title, text: `${title}\n\n8ulduz.az`, url }); } catch {}
+const shareTitle = el => el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
+function shareStory(btn) {
+  if (navigator.share && globalThis.matchMedia?.("(hover:none)").matches) { trackEvent("share-sys"); const title = shareTitle(btn), url = btn.dataset.share; navigator.share({ title, text: title, url }).catch(() => {}); return; }
+  const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${shIcon(k)}${v[0]}</button>`).join("") + `<button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
+  box.dataset.share = btn.dataset.share; box.dataset.title = shareTitle(btn);
+}
+async function shareTo(t) {
+  const box = t.closest(".sharepop"), url = box?.dataset.share || "", title = box?.dataset.title ?? shareTitle(t), to = t.dataset.to;
+  trackEvent(`share-${to}`);
+  if (to === "cp") { // başlıq + keçid: yapışdırılanda hansı xəbər olduğu görünür
+    try { await navigator.clipboard.writeText(title ? `${title}\n${url}` : url); t.textContent = "Kopyalandı"; } catch { t.textContent = "Kopyalanmadı"; }
+    setTimeout(closeSharePop, 1400);
     return;
   }
-  const box = showPop(btn, `<a data-to="whatsapp" href="https://wa.me/?text=${encodeURIComponent(`${title}\n${url}\n\n8ulduz.az`)}" target="_blank" rel="noopener noreferrer">WhatsApp</a><a data-to="telegram" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`${title}\n\n8ulduz.az`)}" target="_blank" rel="noopener noreferrer">Telegram</a><button type="button" data-to="copy">Keçidi kopyala</button>`);
-  box.addEventListener("click", async ev => {
-    const to = ev.target.closest("[data-to]");
-    if (!to) return;
-    trackEvent(`share-${to.dataset.to}`);
-    if (to.dataset.to === "copy") {
-      try { await navigator.clipboard.writeText(url); to.textContent = "Kopyalandı"; setTimeout(closeSharePop, 1200); }
-      catch { to.textContent = "Kopyalanmadı"; }
-      return;
-    }
-    closeSharePop();
-  });
+  closeSharePop();
+  if (to === "sys") { try { await navigator.share({ title, text: title, url }); } catch {} return; }
+  const u = SHARE_TO[to]?.[2](encodeURIComponent(url), encodeURIComponent(title));
+  if (u) openOut(u);
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
-// Chrome təklifi özü verir (beforeinstallprompt); iPhone-da yalnız əl ilə mümkündür, ona görə yol göstərilir.
+// Chrome: beforeinstallprompt; iPhone: əl ilə. Kompüterdə başlıqda (#inst), telefonda 15-ci düymə (.nav-inst).
 function installBtn() {
   if (isStandalone() || (!S.installEvt && !isIOS())) return "";
   return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;
@@ -1974,15 +2244,28 @@ async function installApp(btn) {
   } catch {}
   renderLangs();
 }
-// Son düymə seçildi: xəbərlər zolaq və bazarların altındadır, ora keçilir. Alt siyahı açan düymədə yerində qalır.
+// Son düymə seçildi: xəbərlərə keçilir; alt siyahı açan düymədə yerində qalır.
+// «N yeni xəbər»: ekran səhifənin başına yox, «Son xəbərlər» → «Ən yeni» siyahısına qayıdır.
+function jumpToLatest() {
+  const sec = route().name === "home" ? document.getElementById("son-xeberler") : null;
+  if (!sec) { window.scrollTo(0, 0); return; }
+  const head = document.getElementById("sitehead");
+  const stuck = head && getComputedStyle(head).position === "sticky" ? head.getBoundingClientRect().height : 0;
+  window.scrollTo({ top: Math.max(0, sec.getBoundingClientRect().top + scrollY - stuck - 8), behavior: "smooth" });
+}
 function scrollToClub() {
   if (S.club && !SUB_TABS[route().slug]?.find(x => x.name === S.club)?.groups) $("#view")?.scrollIntoView({ block: "start" });
 }
 function onClick(e) {
   if (!e.target.closest(".sharepop")) closeSharePop();
-  const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
+  const soc = e.target.closest(".soc-g a"), app = soc && chromeLink(soc.href); // rəsmi hesab: Android-də Chrome vərəqində, geri sayta
+  if (app) { e.preventDefault(); location.href = app; return; }
+  if (S.langOpen && !e.target.closest(".ldd")) { S.langOpen = false; renderTopbar(); } // dil siyahısı kənara hər toxunuşda bağlanır
+  const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
   if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
+  // Açılan bölmələr (cədvəllər, yol və hava, rəsmi hesablar) kənara basanda bağlanır
+  if (!e.target.closest("details.service-panel, details.social-details")) document.querySelectorAll("details.service-panel[open], details.social-details[open]").forEach(d => { d.open = false; });
   if (!t) {
     let dirty = false;
     if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }
@@ -1991,10 +2274,10 @@ function onClick(e) {
     if (dirty) { renderTopbar(); renderMarkets(); }
     return;
   }
-  if (t.dataset.act === "share") {
+  if (t.dataset.act === "share" || t.dataset.to) {
     e.preventDefault();
     e.stopPropagation();
-    shareStory(t);
+    if (t.dataset.to) shareTo(t); else shareStory(t);
     return;
   }
   if (t.dataset.act === "install") {
@@ -2032,7 +2315,7 @@ function onClick(e) {
   if (t.dataset.lang !== undefined) { setLang(t.dataset.lang); return; }
   if (t.dataset.club !== undefined) {
     const pop = t.closest(".nav-pop");
-    S.club = t.dataset.club || null;
+    S.club = t.dataset.club || null; S.clubSlug = pop?.dataset.slug || route().slug;
     // Yalnız bu bölmənin başlıqları: «Qarabağ» həm komanda, həm bölgədir, idmanda Futbol sətrini bağlamasın.
     const tabs = SUB_TABS[pop?.dataset.slug || route().slug] || [];
     if (!S.club) S.sportTab = null; else if (tabs.some(x => x.name === S.club)) S.sportTab = S.club; else if (pop) S.sportTab = pop.dataset.tab;
@@ -2047,17 +2330,21 @@ function onClick(e) {
   else if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
   else if (act === "wx-back") { S.wxSel = null; renderTopbar(); }
-  else if (act === "apply-new") { S.renderPending = false; S.pendingNew = 0; syncNewPill(); render(); window.scrollTo(0, 0); }
+  else if (act === "apply-new") { S.renderPending = false; S.pendingNew = 0; syncNewPill(); if (route().name === "home") { S.latestOrder = "latest"; S.latestCount = 8; } render(); jumpToLatest(); }
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
-  else if (act === "find") { const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
+  else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
+  else if (act === "follow") import("./follow.js?v=4").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
+  else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
+  else if (act === "motion") toggleMotion();
   else if (act === "tix-open") { S.tixOn = true; renderView(); }
   else if (act === "tix-area") {
     const id = t.dataset.area || "merkez";
-    if (id === S.tixArea && S.tixOn) return;
-    S.tixArea = id;
+    if (id === tixArea().id && S.tixOn) return;
+    S.tixArea = id; S.tixUser = true;
     renderView();
   }
+  else if (act === "geo") { if (t.dataset.for === "pray") storage.removeItem(PRAY_CITY_KEY); if (route().name === "traffic") S.tixUser = false; locate(true); }
   else if (act === "pray") { S.prayOpen = !S.prayOpen; renderTopbar(); }
   else if (act === "fx-close") { S.fxOpen = false; renderMarkets(); }
   else if (act === "theme" || act === "fs-down" || act === "fs-up") setPref(act);
@@ -2083,21 +2370,26 @@ function onClick(e) {
 }
 
 const THEME_KEY = "8ulduz-theme", FS_KEY = "8ulduz-fs";
+const SYS_LIGHT = globalThis.matchMedia?.("(prefers-color-scheme: light)"); // istinad saxlanır: yoxsa dinləyici itir
+// Oxucu rejimi seçməyibsə telefon rejimi dəyişəndə (axşam avtomatik tünd) sayt da dəyişir.
+SYS_LIGHT?.addEventListener?.("change", () => { if (!storage.getItem(THEME_KEY)) { applyPrefs(); renderTopbar(); } });
 function applyPrefs() {
-  const theme = storage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  document.documentElement.dataset.motion = motionOff() ? "off" : "on";
+  const saved = storage.getItem(THEME_KEY); // seçim yoxdursa telefonun rejimi (sahib, 2026-11-06); bilinməsə tünd
+  const theme = saved === "light" || saved === "dark" ? saved : SYS_LIGHT?.matches ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
   let fs = storage.getItem(FS_KEY);
-  if (fs !== "0" && fs !== "1" && fs !== "2") fs = "0";
+  if (!/^[0-4]$/.test(fs || "")) fs = "2";
   document.documentElement.dataset.fs = fs;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = theme === "light" ? "#f3f6fb" : "#0a1120";
+  if (meta) meta.content = theme === "light" ? "#f6f4ee" : "#15233b";
 }
 function setPref(act) {
   if (act === "theme") {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     storage.setItem(THEME_KEY, next);
   } else {
-    const n = Math.max(0, Math.min(2, Number(document.documentElement.dataset.fs || "0") + (act === "fs-up" ? 1 : -1)));
+    const n = Math.max(0, Math.min(4, Number(document.documentElement.dataset.fs || "2") + (act === "fs-up" ? 1 : -1)));
     storage.setItem(FS_KEY, String(n));
   }
   applyPrefs();
@@ -2105,7 +2397,38 @@ function setPref(act) {
   setupMarquees();
   afterPaint(fitNav);
 }
+// Baxış render bitəndə özümüz göndəririk (no_onload): GoatCounter və GA4 (ga.js, sahib 2026-11-06). GA4 faylı sayt açılandan sonra yüklənir.
+let visitSent = "", gaOn = 0;
+const visitQueue = [], gaQ = [];
+const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=1").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
+function visitPath() {
+  const base = location.pathname || "/";
+  const hash = location.hash || "";
+  return !hash || hash === "#" || hash === "#/" ? base : base + hash;
+}
+function titlePending() {
+  const r = route();
+  return (r.name === "article" && (!S.data || S.archiveScanning)) || (r.name === "team" && !S.teamPage && !S.teamFailedAt);
+}
+function countVisit() {
+  try {
+    if (titlePending()) return;
+    const path = visitPath();
+    if (path === visitSent) return;
+    visitSent = path;
+    const vars = { path, title: document.title || "8ulduz" };
+    gaQ.push([path, vars.title]); gaFlush();
+    if (!String(window.SITE_CONFIG?.goatcounter || "").trim()) return;
+    if (typeof window.goatcounter?.count === "function") window.goatcounter.count(vars);
+    else visitQueue.push(vars);
+  } catch {}
+}
+function flushVisits() {
+  if (typeof window.goatcounter?.count !== "function") return;
+  for (const vars of visitQueue.splice(0)) { try { window.goatcounter.count(vars); } catch {} }
+}
 function enableAnalytics() {
+  gaOn = 1; gaFlush();
   const code = String(window.SITE_CONFIG?.goatcounter || "").trim();
   if (!code) return;
   const s = document.createElement("script");
@@ -2114,6 +2437,8 @@ function enableAnalytics() {
   s.integrity = "sha384-nRw6qfbWyJha9LhsOtSb2YJDyZdKvvCFh0fJYlkquSFjUxp9FVNugbfy8q1jdxI+";
   s.crossOrigin = "anonymous";
   s.dataset.goatcounter = `https://${code}.goatcounter.com/count`;
+  s.dataset.goatcounterSettings = '{"no_onload":true}';
+  s.addEventListener("load", flushVisits);
   document.head.appendChild(s);
 }
 
@@ -2123,6 +2448,11 @@ const LEAVE_MS = 2000;
 const WHEEL_MS = 3000;
 const TOUCH_MS = 5000;
 function reducedMotion() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
+// Hərəkət düymə ilə dayanır; «hərəkəti azalt» varsa dayanıq.
+const MOTION_KEY = "8ulduz-motion";
+function motionOff() { const v = storage.getItem(MOTION_KEY); return v ? v === "off" : reducedMotion(); }
+const motionBtn = () => `<button type="button" class="mo" data-act="motion" aria-pressed="${motionOff()}" title="${motionOff() ? "Hərəkəti başlat" : "Hərəkəti dayandır"}">${motionOff() ? "▶" : "Ⅱ"}</button>`;
+function toggleMotion() { storage.setItem(MOTION_KEY, motionOff() ? "on" : "off"); applyPrefs(); S.tickerHtml = null; renderTicker(); setupMarquees(); setupFeatureLents(); }
 function marqueeNarrow(el) {
   return !!el.closest(".prez") && matchMedia("(max-width: 860px)").matches;
 }
@@ -2207,7 +2537,7 @@ function autoOn(el) {
 }
 function scheduleStep(el, delay) {
   clearTimeout(el._stepT);
-  if (reducedMotion() || !el.classList.contains("vmarquee")) return;
+  if (motionOff() || !el.classList.contains("vmarquee")) return;
   if (document.hidden || pointerHeld(el)) return;
   let wait = delay;
   if (el._holdUntil) wait = Math.max(wait, el._holdUntil - Date.now());
@@ -2228,7 +2558,7 @@ function animateTo(el, to) {
   const from = el.scrollTop;
   const dist = to - from;
   const token = el._animToken;
-  if (Math.abs(dist) < 1 || reducedMotion()) {
+  if (Math.abs(dist) < 1 || motionOff()) {
     el.scrollTop = Math.round(to);
     scheduleStep(el, STEP_MS);
     return;
@@ -2258,17 +2588,22 @@ function stopStep(el, snap) {
   const { best, bestD } = nearestStop(el);
   if (bestD > 1) el.scrollTop = best;
 }
-// Karusel: .strip içindəki zolağa ← → oxları və nöqtələr əlavə edir; bir basış bir səhifə (görünən en) sürüşdürür.
-// Zolaq adi scroll qutusudur: barmaqla çəkmək, Chrome-da orta düymə və klaviatura da işləyir. Ölçü dəyişəndə yenidən qurulur.
-// Baş səhifənin uzaq bölmələri <template>-dədir: yerləşdirilmir, şəkli yüklənmir.
+// Karusel: .strip zolağına ← → oxları və nöqtələr; bir basış bir görünən en.
+// Baş səhifənin uzaq bölmələri boş qutudur, HTML-i yaddaşdadır: oxunmur, yerləşdirilmir, şəkli yüklənmir.
 const lazySection = html => html ? `<div class="lazy-sec"><template>${html}</template></div>` : "";
+const lazyHtml = new Map();
+function lazyFill(box) {
+  const h = lazyHtml.get(box.dataset.lazy);
+  if (box.firstChild || h == null) return false;
+  const t = document.createElement("template");
+  t.innerHTML = h; S.tr?.(t.content); box.replaceChildren(t.content);
+  return true;
+}
 function setupLazySections() {
   S.lazyIO?.disconnect();
   const show = box => {
-    const tpl = box.querySelector(":scope > template");
-    if (!tpl) return;
-    box.replaceChildren(tpl.content);
-    box.querySelectorAll(".strip").forEach(setupStrip);
+    if (!lazyFill(box)) return;
+    setupStrips(box.querySelectorAll(".strip"));
     if (box.querySelector("[data-marquee]")) setupMarquees();
   };
   const boxes = [...document.querySelectorAll(".lazy-sec")];
@@ -2276,17 +2611,27 @@ function setupLazySections() {
   S.lazyIO = new IntersectionObserver(rows => rows.forEach(e => { if (e.isIntersecting) { S.lazyIO.unobserve(e.target); show(e.target); } }), { rootMargin: "900px 0px" });
   boxes.forEach(b => S.lazyIO.observe(b));
 }
-function setupStrip(strip) {
+function setupStrips(list) {
+  const strips = [...list];
+  if (strips.length) requestAnimationFrame(() => setTimeout(() => {
+    const on = strips.filter(s => s.isConnected), syncs = [];
+    on.forEach(s => s.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove()));
+    on.map(stripPlan).forEach(put => { const sync = put?.(); if (sync) syncs.push(sync); });
+    if (syncs.length) requestAnimationFrame(() => syncs.forEach(f => f()));
+  }));
+}
+function stripPlan(strip) {
     const row = strip.querySelector(".hero-row,.news-row,.ytrow,.phrow,.vrow,.fb-teams");
     if (!row) return;
-    strip.querySelectorAll(".st-btn,.st-dots").forEach(el => el.remove());
     // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın
-    if (getComputedStyle(row).flexDirection === "column") { strip.dataset.pages = "1"; strip.classList.add("at-end"); return; } // telefonda şaquli siyahı
+    if (getComputedStyle(row).flexDirection === "column") return () => { strip.dataset.pages = "1"; strip.classList.add("at-end"); }; // telefonda şaquli siyahı
     const kids = [...row.children];
     const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
     const cw = kids[0] ? kids[0].getBoundingClientRect().width : 0;
     const per = Math.max(1, Math.floor((row.clientWidth + gap + 1) / ((cw || row.clientWidth) + gap)));
     const pages = Math.max(1, Math.ceil(kids.length / per));
+    const step = per * (cw + gap) || row.clientWidth;
+    return () => {
     strip.dataset.pages = String(pages);
     if (pages === 1) { strip.classList.add("at-end"); return; }
     const prev = document.createElement("button"), next = document.createElement("button"), dots = document.createElement("div");
@@ -2295,7 +2640,6 @@ function setupStrip(strip) {
     next.className = "st-btn st-next"; next.textContent = "›"; next.setAttribute("aria-label", "Növbəti");
     dots.className = "st-dots";
     for (let i = 0; i < pages; i++) { const d = document.createElement("button"); d.type = "button"; d.setAttribute("aria-label", `Səhifə ${i + 1}`); d.dataset.page = String(i); dots.appendChild(d); }
-    const step = per * (cw + gap) || row.clientWidth;
     const go = i => row.scrollTo({ left: Math.max(0, Math.min(i, pages - 1)) * step, behavior: "smooth" });
     const sync = () => {
       const cur = Math.min(pages - 1, Math.round(row.scrollLeft / step));
@@ -2311,53 +2655,72 @@ function setupStrip(strip) {
     dots.onclick = e => { const b = e.target.closest("button[data-page]"); if (b) go(Number(b.dataset.page)); };
     row.addEventListener("scroll", sync, { passive: true });
     strip.append(prev, next, dots);
-    sync();
+    return sync;
+    };
 }
 // Slayderin uzaq şəkilləri yaxınlaşanda yüklənir: ilk açılışda 15 şəkil gözlənilmir.
 function setupHeroImages() {
   const row = document.querySelector(".hero-strip .hero-row");
   if (!row) return;
-  const near = () => {
-    const at = Math.round(row.scrollLeft / (row.clientWidth || 1));
-    for (const slide of [row.children[at], row.children[at + 1]]) {
+  // Cari, növbəti iki slayd və dövrənin başı: şəkil slayd gələndə yox, əvvəlcədən yüklənir.
+  const near = to => {
+    const w = row.querySelector(".hero-main")?.getBoundingClientRect().width || row.clientWidth || 1;
+    const at = Number.isInteger(to) ? to : Math.round(row.scrollLeft / w);
+    for (const slide of [row.children[at - 1], row.children[at], row.children[at + 1], row.children[at + 2], row.children[0]]) {
       const i = slide?.querySelector("img[data-src]");
       if (i) { i.src = i.dataset.src; delete i.dataset.src; }
     }
   };
+  // Oxucu slayderə toxunan kimi qalan şəkillər də gəlir: sürətli fırladanda boş kadr gözlənilmir (sahibin qeydi).
+  const all = () => row.querySelectorAll("img[data-src]").forEach(i => { i.src = i.dataset.src; delete i.dataset.src; });
+  if (row._near) row.removeEventListener("scroll", row._near);
+  row._near = near;
   row.addEventListener("scroll", near, { passive: true });
+  row.addEventListener("pointerdown", all, { once: true, passive: true });
+  row.addEventListener("touchstart", all, { once: true, passive: true });
   near();
 }
 let featureTimers = [];
 function setupFeatureLents() {
   featureTimers.forEach(clearInterval); featureTimers = [];
-  const paused = node => document.hidden || reducedMotion() || node.matches(":hover") || node.contains(document.activeElement) || Date.now() < (node._holdUntil || 0);
+  // Toxunuşdan sonra qalan :hover və fokus slayderi dayandırmasın: yalnız siçan və klaviatura fokusu sayılır.
+  const hoverUI = matchMedia("(hover:hover)").matches;
+  const keyFocus = node => { try { return !!node.querySelector(":focus-visible"); } catch { return node.contains(document.activeElement); } };
+  const paused = node => document.hidden || motionOff() || (hoverUI && node.matches(":hover")) || keyFocus(node) || Date.now() < (node._holdUntil || 0);
   const hero = document.querySelector(".hero-strip");
   if (hero) {
     const row = hero.querySelector(".hero-row"), button = hero.querySelector(".hero-pause");
-    button.onclick = () => { hero._paused = !hero._paused; button.setAttribute("aria-pressed", String(hero._paused)); button.textContent = hero._paused ? "▶" : "Ⅱ"; button.setAttribute("aria-label", hero._paused ? "Əsas xəbər lentini davam etdir" : "Əsas xəbər lentini dayandır"); };
-    hero.onpointerdown = () => { hero._holdUntil = Date.now() + 10000; };
-    if (row.children.length > 1) featureTimers.push(setInterval(() => { if (hero._paused || paused(hero)) return; const next = Math.round(row.scrollLeft / row.clientWidth) + 1; row.scrollTo({left: next >= row.children.length ? 0 : next * row.clientWidth, behavior:"smooth"}); }, 6000));
+    // Barmaq, təkər, klaviatura: 12 s dayanır, həmişəlik yox; tam dayandırmaq üçün düymə var.
+    const hold = () => { hero._holdUntil = Date.now() + 12000; };
+    row?.addEventListener("pointerdown", hold);
+    row?.addEventListener("wheel", hold, { passive: true });
+    row?.addEventListener("keydown", hold);
+    const show = () => { const on = hero._paused || motionOff(); button.setAttribute("aria-pressed", String(on)); button.textContent = on ? "▶" : "Ⅱ"; button.setAttribute("aria-label", on ? "Əsas xəbər lentini davam etdir" : "Əsas xəbər lentini dayandır"); };
+    button.onclick = () => { if (motionOff()) toggleMotion(); else hero._paused = !hero._paused; show(); }; // ümumi dayanıqdırsa ▶ hamısını başladır
+    show();
+    const slideW = () => row?.querySelector(".hero-main")?.getBoundingClientRect().width || row?.clientWidth || 0;
+    const settle = () => { const w = slideW(); if (!(w > 0)) return; const target = Math.round(row.scrollLeft / w) * w; if (Math.abs(row.scrollLeft - target) > 1) row.scrollTo({ left: target }); };
+    if (row && "onscrollend" in window) row.addEventListener("scrollend", settle);
+    if (row && row.children.length > 1) featureTimers.push(setInterval(() => { if (hero._paused || paused(hero)) return; const w = slideW(); if (!(w > 0)) return; const next = Math.round(row.scrollLeft / w) + 1, to = next >= row.children.length ? 0 : next; row._near?.(to); row.scrollTo({ left: Math.round(to * w), behavior: "smooth" }); }, 6000));
   }
   const lent = document.querySelector("[data-prez-lent]");
   if (lent) {
     const box = lent.closest(".prez");
     const loadNear = () => {
-      const edge = lent.scrollTop + lent.clientHeight + 400;
+      const edge = lent.scrollTop + lent.clientHeight + 900;
       for (const i of lent.querySelectorAll("img[data-src]")) {
         if (i.closest(".pcard").offsetTop > edge) break;
         i.src = i.dataset.src; delete i.dataset.src;
       }
     };
-    lent.onscroll = loadNear;
+    lent.onscroll = loadNear; lent.addEventListener("touchstart", loadNear, { once: true, passive: true });
     const step = direction => { const rows=[...lent.children]; const current=rows.findIndex(row => row.offsetTop - rows[0].offsetTop > lent.scrollTop + 3); const next=direction > 0 ? (current < 0 ? 0 : current) : Math.max(0, rows.filter(row=>row.offsetTop-rows[0].offsetTop < lent.scrollTop-3).length-1); lent.scrollTo({top: rows[next] ? rows[next].offsetTop-rows[0].offsetTop : 0, behavior:"smooth"}); };
-    box.querySelectorAll("[data-prez-step]").forEach(button => button.onclick = () => { lent._holdUntil=Date.now()+10000; step(Number(button.dataset.prezStep)); });
     const button=box.querySelector("[data-prez-pause]");
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
     if (TOUCH_UI) {
-      // Toxunma ekranı. Lent daxildə brauzerin öz sürüşməsi ilə sürüşür; brauzer zənciri söndürülüb (CSS overscroll-behavior:none).
-      // Ötürmə JS-dədir: lentin sonunda/başında barmaq məsafəsi səhifəyə, barmaq qalxanda ətalət. Brauzer özü səhifəni
-      // sürüşdürərsə (bəzi brauzerlər none-a baxmayaraq zəncir edir) JS həmin jestdə dayanır — heç vaxt ikiqat olmur.
+      // Toxunma ekranı: lent brauzerin öz sürüşməsi ilə; zəncir söndürülüb (overscroll-behavior:none), ötürmə JS-dədir: lentin
+      // sonunda/başında barmaq məsafəsi səhifəyə, qalxanda ətalət; brauzer özü zəncir edərsə JS dayanır.
       let lastY = null, samples = [], inertia = 0, mode = null, expectedY = 0;
       const atEnd = () => lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1;
       const atTop = () => lent.scrollTop <= 0;
@@ -2370,8 +2733,8 @@ function setupFeatureLents() {
         if (lastY == null) return;
         const y = e.touches[0].clientY, dy = lastY - y; lastY = y;
         samples.push([performance.now(), y]); if (samples.length > 6) samples.shift();
-        // overscroll-behavior:none ilə brauzer jest lentdə başlayanda səhifəni HEÇ sürüşdürmür (kənarda olsa belə) — ona görə
-        // kənar ötürməsini həmişə JS edir. Yalnız səhifə kənardan (brauzer tərəfindən) tərpənsə, bu jestdə JS dayanır (ikiqat olmasın).
+        // overscroll-behavior:none ilə lentdə başlayan jest səhifəni sürüşdürmür, kənar ötürməsini JS edir;
+        // səhifəni brauzer özü tərpədibsə JS dayanır (ikiqat olmasın).
         if (mode === "page") return;
         if (mode === null) mode = "lent";
         if (Math.abs(window.scrollY - expectedY) > 1) { mode = "page"; return; }
@@ -2381,7 +2744,7 @@ function setupFeatureLents() {
         if (lastY == null) return;
         lastY = null;
         if (mode === "lent") {
-          // sürət: son ~120 ms-in orta sürəti (px/ms); müsbət = səhifə aşağı. Yalnız lent kənardadırsa səhifədə davam edir.
+          // sürət: son ~120 ms-in orta sürəti (px/ms); müsbət = səhifə aşağı.
           const now = performance.now(), recent = samples.filter(s => now - s[0] <= 120);
           if (recent.length >= 2) {
             const [t0, y0] = recent[0], [t1, y1] = recent[recent.length - 1];
@@ -2474,7 +2837,7 @@ document.addEventListener("focusout", (e) => {
     scheduleStep(el, LEAVE_MS);
   }, 0);
 });
-// Barmaq/siçan kart üzərinə gələn kimi mənbə saytına əvvəlcədən qoşulur (DNS+TLS); keçid 100–300 ms tez açılır
+// Barmaq/siçan kart üzərinə gələn kimi mənbə saytına qoşulur (DNS+TLS); keçid 100–300 ms tez açılır
 const preconnected = new Set();
 document.addEventListener("pointerdown", (e) => {
   const a = e.target.closest?.("a[href^=http]");
@@ -2495,7 +2858,7 @@ document.addEventListener("pointerdown", (e) => {
   scheduleStep(el, TOUCH_MS);
 }, true);
 // Təkər: siyahı öz içində sürüşür; dibə (və ya başa) çatıbsa, təkər səhifəni sürüşdürür.
-// Brauzerin öz keçidi (scroll chaining) burada etibarsızdır: addımlama siyahını geri çəkir və Chrome ilk hədəfə «yapışır».
+// Brauzerin öz keçidi (scroll chaining) etibarsızdır.
 document.addEventListener("wheel", (e) => {
   const el = marqueeOf(e.target);
   if (!el) return;
@@ -2519,12 +2882,13 @@ document.addEventListener("visibilitychange", () => {
 let marqueeResizeT = 0;
 addEventListener("resize", () => {
   clearTimeout(marqueeResizeT);
-  marqueeResizeT = setTimeout(() => { setupMarquees(); document.querySelectorAll(".strip").forEach(setupStrip); setupFeatureLents(); syncLangStick(); fitNav(); }, 150);
+  marqueeResizeT = setTimeout(() => { setupMarquees(); setupStrips(document.querySelectorAll(".strip")); setupFeatureLents(); fitNav(); }, 150);
 });
 
-function render() { renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); renderFooter(); syncTixDot(); }
+// Alt yazı məzmunla birgə gəlir: boş səhifədə başlığın altında çəkilib sonra aşağı itələnməsin (CLS).
+function render() { clearTimeout(S.renderTimer); S.renderQueued = false; renderTopbar(); renderNav(); renderTicker(); renderLangs(); renderView(); if (S.data || S.sharedStory || S.error) renderFooter(); syncTixDot(); }
 
-/* ---------------------------------------------------------------- start */
+/* ---- start */
 async function loadAds() {
   try {
     const r = await fetch(freshUrl("data/ads.json"), { cache: "no-store" });
@@ -2566,7 +2930,7 @@ async function loadPrayer(city) {
   } catch {}
 }
 async function loadWarnings() {
-  const c = CITIES[0];
+  const c = geoCity();
   try {
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${c[1]}&longitude=${c[2]}&daily=weather_code,precipitation_sum,wind_speed_10m_max&timezone=Asia%2FBaku&forecast_days=1`;
     const d = await (await fetch(u)).json();
@@ -2606,8 +2970,7 @@ async function loadStatus(force = false) {
   } catch {}
   if(S.statusAbort === controller){S.statusAbort = null; renderTopbar();}
 }
-// Dəqiqəlik yoxlama 151 baytlıq status.json ilə gedir; news.json (~150 KB gzip) yalnız yeni yoxlama olanda və ya
-// əvvəlki yükləmə alınmayanda çəkilir.
+// Dəqiqəlik yoxlama status.json ilə; tam lent yalnız yeni yoxlamada (10 dəqiqədən bir) və ya əvvəlki alınmayanda.
 async function pollNews(force = false, resume = false) {
   if (!force && document.hidden) return; // arxa planda məlumat xərcləmirik; qayıdanda resumeNews dərhal yoxlayır
   await loadStatus(force);
@@ -2626,15 +2989,14 @@ function resumeNews() {
     if(S.reloadWhenHidden && !globalThis.speechSynthesis?.speaking)location.reload(); // yeni versiya oxucu baxmayanda
     return;
   }
-  // Telefonda (və Play tətbiqində) səhifə günlərlə açıq qalır, köhnə kod və ilişmiş vəziyyət də qalır.
-  // Bir saatdan çox arxa planda qalıbsa, qayıdanda təzədən açılır; səsli oxu gedirsə kəsilmir.
+  // Bir saatdan çox arxa planda qalıbsa qayıdanda təzədən açılır (köhnə kod ilişməsin); səsli oxu kəsilmir.
   const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
   S.hiddenAt = 0;
   if(away >= RELOAD_AFTER_HIDDEN_MS && !globalThis.speechSynthesis?.speaking){ location.reload(); return; }
   if(Date.now() - (S.lastResumeAt || 0) < 2500)return;
   S.lastResumeAt = Date.now();
   if(S.swReg && Date.now() - (S.swCheckedAt || 0) >= 30 * 60e3){ S.swCheckedAt = Date.now(); S.swReg.update().catch(() => {}); }
-  // Tam lent yalnız 10 dəqiqədən köhnədirsə gəlir: hər tab keçidində 200 KB getməsin.
+  // Tam lent yalnız 10 dəqiqədən köhnədirsə gəlir.
   pollNews(false, true);
 }
 applyPrefs();
@@ -2642,6 +3004,15 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt 
 addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
 function registerWorker() {
   if (!("serviceWorker" in navigator)) return;
+  // sw.js kod dəyişəndə: toxunulmayıbsa (4 s) dərhal, yoxsa gözdən itəndə yenidən açılır.
+  navigator.serviceWorker.addEventListener("message", e => {
+    if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
+    if (e.data?.type !== "shell-updated") return;
+    let once = false;
+    try { once = !sessionStorage.getItem("8ulduz-reloaded"); if (once) sessionStorage.setItem("8ulduz-reloaded", "1"); } catch {}
+    if (once && performance.now() < 4000 && (globalThis.scrollY || 0) < 50 && !document.activeElement?.matches?.("input,textarea")) location.reload();
+    else S.reloadWhenHidden = true;
+  });
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then((reg) => {
     S.swReg = reg;
     if (!navigator.serviceWorker.controller) return;
@@ -2675,21 +3046,26 @@ if (uiLang(S.lang)) {
 }
 shell(); render();
 // Hamısı gələn kimi çəkilir: gözləsə ağır çəkiliş oxucunun linkə basdığı ana düşür, keçid gecikir.
+{ const r0 = route(); if (r0.name === "article") { loadShared(r0.id); backHome(); } }
+loadCached(); restoreLocal();
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
 // Xəbər ekrana çıxandan sonra: xidmət işçisi, statistika və köməkçi şəbəkəni tutur.
 const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(() => { enableAnalytics(); registerWorker(); });
-Promise.allSettled([newsReady, loadSocial(), loadSources(), loadVideo(), loadFootball(), loadAds()]).then(flushRender);
-// 20 liqanın cədvəli (~17 KB): açılışla xətti bölüşmür. Oxucu cədvələ özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
+newsReady.then(flushRender);
+// Hava, namaz, video və sosial şəbəkə ilk şəkilin (LCP) xəttini tutmasın: xəbər ekrana çıxandan sonra.
+afterNews(() => { loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
+// 20 liqanın cədvəli (~17 KB) açılışla xətti bölüşmür: oxucu özü gedəndə dərhal, yoxsa xəbərlərdən sonra.
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
-loadMarkets(); loadStatus(); loadWeather(); loadPrayer(savedPrayCity()); loadWarnings();
+loadMarkets(); loadStatus();
 setInterval(() => pollNews(), POLL_MS);
 addEventListener("scroll", () => {
   if (S.renderPending && (globalThis.scrollY || 0) < 200) requestRender();
 }, {passive: true});
-// Telefonda arxa plandakı vərəqin taymerləri dayanır: səhifəyə qayıdanda (və geri-irəli keşindən açılanda) dərhal yoxla.
+for (const ev of ["pointerdown", "wheel", "touchmove", "keydown"]) addEventListener(ev, () => { S.touchAt = Date.now(); }, { passive: true, capture: true });
+// Telefonda arxa plandakı vərəqin taymerləri dayanır: qayıdanda (geri-irəli keşindən də) dərhal yoxla.
 // Əks halda saatlarla köhnə lent görünürdü — «sayt yenilənmir» təəssüratı.
 document.addEventListener("visibilitychange", resumeNews);
 addEventListener("storage", e => { if (e.key === SAVE_KEY && route().name === "saved") requestRender(false); });

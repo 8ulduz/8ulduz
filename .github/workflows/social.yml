@@ -1,0 +1,76 @@
+name: Profillərdə paylaş
+# Saytın ən vacib xəbərləri öz profillərimizdə (Telegram, Facebook səhifəsi, X, LinkedIn). Qayda və açarlar: .github/scripts/social.cjs.
+# Xəbər axınından (update.yml) ayrıdır: bu iş düşsə də, gecikse də lent yenilənməyə davam edir. Repoya yazmır.
+
+on:
+  # Əsas tətik: xəbər pipeline-ı main-ə yazandan 90 s sonra bu işi dispatch edir (pipeline.sh publish_main, ~10 dəqiqədə bir).
+  # GitHub cron-u saatlarla gecikir/atılır (2026-11-05: :47 və :07 gəlmədi), Pages yayımı workflow_run başlatmır; cron ehtiyatdır.
+  # Postlar arası fasilə social.cjs-dədir (SOCIAL_MIN_GAP_MIN, 18 dəq): saatda ən çox 3 post.
+  schedule:
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch:
+  # Skript və ya iş axını main-də dəyişəndə dərhal bir dövrə (cron yeni iş axınını gec qoşur; təkrar post yoxdur, siyahı keşdədir).
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/social.yml
+      - .github/scripts/social.cjs
+      - .github/scripts/indexnow.cjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social
+  cancel-in-progress: false
+
+jobs:
+  post:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/social.cjs
+            .github/scripts/indexnow.cjs
+            data/news.json
+            xeber/index.json
+            icmal/index.json
+            /*.txt
+          sparse-checkout-cone-mode: false
+      - name: Paylaşılanların siyahısı
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .social
+          key: social-state-${{ github.run_id }}
+          restore-keys: social-state-
+      - name: Paylaş
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT: ${{ vars.TELEGRAM_CHAT }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID || '1470250006171917' }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
+          LINKEDIN_AUTHOR: ${{ vars.LINKEDIN_AUTHOR }}
+          SOCIAL_MIN_SOURCES: ${{ vars.SOCIAL_MIN_SOURCES }}
+          SOCIAL_PER_RUN: ${{ vars.SOCIAL_PER_RUN }}
+        run: node .github/scripts/social.cjs data/news.json
+      # Yeni xeber/<id>/ səhifələri Bing və Yandex-ə (IndexNow). Düşsə də paylaşmaya və siyahının saxlanmasına təsir etmir.
+      - name: IndexNow
+        continue-on-error: true
+        run: node .github/scripts/indexnow.cjs
+      - name: Siyahını saxla
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .social
+          key: social-state-${{ github.run_id }}

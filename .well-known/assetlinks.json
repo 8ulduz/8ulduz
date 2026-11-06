@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "az.ulduz8.app",
       "sha256_cert_fingerprints": [
-        "5A:2D:D4:48:EF:A8:04:40:00:51:E2:84:FD:C5:18:19:C0:C1:EB:C5:82:7E:45:48:93:BF:69:A0:7C:67:00:5E"
+        "5A:2D:D4:48:EF:A8:04:40:00:51:E2:84:FD:C5:18:19:C0:C1:EB:C5:82:7E:45:48:93:BF:69:A0:7C:67:00:5E",
+        "63:81:F4:4F:C2:E9:9F:A2:C1:BB:0F:B4:72:A2:5C:12:0E:7E:E4:E8:58:DC:3D:FC:76:ED:11:17:B8:B5:8D:FE"
       ]
     }
   }

@@ -17,10 +17,18 @@ function app(extra = {}) {
   const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug};`, context);
+    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug, loadShared, shareRow, loadCached, loadFirst, heavyImage, cardAt, imgFail, renderView, img};`, context);
   return context;
 }
 
+test('rush hour uses Baku time (UTC+4) without Intl',()=>{
+  const rush=vm.runInContext('bakuRush',app());
+  assert.equal(rush(new Date('2026-11-03T05:30:00Z')),true,'çərşənbə axşamı 09:30');
+  assert.equal(rush(new Date('2026-11-03T12:00:00Z')),false,'16:00');
+  assert.equal(rush(new Date('2026-11-03T14:10:00Z')),true,'18:10');
+  assert.equal(rush(new Date('2026-11-07T05:30:00Z')),false,'şənbə');
+  assert.equal(rush(new Date('2026-11-02T20:30:00Z')),false,'bazar ertəsi gecə 00:30');
+});
 test('Baku traffic excludes foreign disasters, condolences and stale reports',()=>{
   const {localRoadItems}=app().api;
   const stamp=new Date().toISOString();
@@ -46,12 +54,56 @@ test('blocked browser storage still allows preferences and saving', () => {
   assert.equal(ctx.api.storage.getItem('8ulduz-theme'), null);
 });
 
+test('first visit follows the phone theme, the reader choice wins, unknown is dark (owner, 2026-11-06)', () => {
+  for (const [sys, saved, want] of [[true, null, 'light'], [false, null, 'dark'], [undefined, null, 'dark'], [true, 'dark', 'dark'], [false, 'light', 'light']]) {
+    const ctx = app(sys === undefined ? {} : { matchMedia: q => ({ matches: q.includes('light') && sys, addEventListener() {} }) });
+    if (saved) ctx.api.storage.setItem('8ulduz-theme', saved);
+    ctx.api.applyPrefs();
+    assert.equal(ctx.document.documentElement.dataset.theme, want, `sistem ${sys}, seçim ${saved}`);
+  }
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(index.includes('t === "light" || t === "dark" ? t : matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"'), 'ilk çəkilişdə də eyni qayda (ekran yanıb-sönmür)');
+});
+
 test('broken percent-encoded route does not break the page', () => {
   const ctx = app();
   ctx.location.hash = '#/axtar?q=100%';
   assert.equal(ctx.api.route().q, '100%');
   ctx.location.hash = '#/axtar?q=%C4%B0lham';
   assert.equal(ctx.api.route().q, 'İlham');
+});
+
+test('reader font starts at the former two-click size and adjusts in both directions without losing saved sizes', () => {
+  const ctx = app({requestAnimationFrame() {}});
+  vm.runInContext('setupMarquees = () => {};', ctx);
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+  vm.runInContext('setPref("fs-up"); setPref("fs-up"); setPref("fs-up");', ctx);
+  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'upper bound');
+  assert.equal(ctx.api.storage.getItem('8ulduz-fs'), '4');
+  ctx.document.documentElement.dataset.fs = '';
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'saved size restored');
+  vm.runInContext('for(let i=0;i<6;i++) setPref("fs-down");', ctx);
+  assert.equal(ctx.document.documentElement.dataset.fs, '0', 'lower bound');
+  for (const saved of ['0','1','2','3','4']) {
+    ctx.api.storage.setItem('8ulduz-fs', saved);
+    ctx.api.applyPrefs();
+    assert.equal(ctx.document.documentElement.dataset.fs, saved, 'existing choice kept');
+  }
+  ctx.api.storage.setItem('8ulduz-fs', 'broken');
+  ctx.api.applyPrefs();
+  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+});
+
+test('the default typography keeps every token of the original two-click size', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  const defaults = css.match(/:root\{([^}]+)\}/)[1];
+  const values = Object.fromEntries([...defaults.matchAll(/--((?:fs|lh)-[\w-]+):([^;]+);/g)].map(m=>[m[1],m[2]]));
+  assert.deepEqual(values, {
+    'fs-display':'26px','lh-display':'32px','fs-title':'22px','lh-title':'28px',
+    'fs-headline':'21px','lh-headline':'28px','fs-body':'18px','lh-body':'26px','fs-meta':'14px','lh-meta':'20px'
+  }, 'reference: original html[data-fs="2"] before this change');
 });
 
 test('invalid JSON response does not poison ETag; same response can recover', async () => {
@@ -139,6 +191,61 @@ test('red line 1: a visitor without a service worker reads the one-minute channe
   await ctx3.api.requestJSON('data/news.json?t=1');
   assert.ok(!urls.some(u=>u.includes('/live/m/')),'tam lent saytdan gəlir');
 });
+test('red line 3: the minute feed is asked per language when the channel offers it, and falls back to the shared file', async () => {
+  const run = async (lang, answer, status = {checkedAt: 'x', langs: ['az', 'en', 'ru', 'tr']}) => {
+    const ctx = app({navigator: {onLine: true, serviceWorker: {controller: {}}}}), {S} = ctx.api, urls = [];
+    S.lang = lang; S.status = status; S.rawNews = []; S.rawMeta = {}; S.og = {};
+    ctx.fetch = async url => { urls.push(url.split('?')[0]); return answer(url); };
+    await vm.runInContext('loadLatest()', ctx);
+    return urls;
+  };
+  const ok = (extra = {}) => ({ok: true, headers: new Headers(extra), json: async () => ({articles: []})});
+  assert.deepEqual(await run('az', () => ok()), ['data/latest.az.json'], 'yalnız öz dilinin faylı');
+  assert.deepEqual(await run('ru', () => ok()), ['data/latest.ru.json']);
+  assert.deepEqual(await run(null, () => ok()), ['data/latest.json'], '«Hamısı» ümumi faylı çəkir');
+  assert.deepEqual(await run('az', () => ok(), {checkedAt: 'x'}), ['data/latest.json'], 'kanal dil fayllarını bildirməyibsə (köhnə pipeline) ümumi fayl');
+  assert.deepEqual(await run('az', url => url.includes('latest.az') ? {ok: false, status: 404, headers: new Headers()} : ok()), ['data/latest.az.json', 'data/latest.json'], 'dil faylı alınmasa ümumi fayl');
+  assert.deepEqual(await run('az', url => url.includes('latest.az') ? ok({'X-8ulduz-data': 'cache'}) : ok()), ['data/latest.az.json', 'data/latest.json'], 'keşdən gələn dil faylı canlı kanalın yoxluğudur: ümumi fayl soruşulur');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('LIVE_FILE = /^data\\/(?:status|latest(?:\\.[a-z]{2})?|markets)\\.json/'), 'service worker-siz ziyarətçi də dil faylını dəqiqəlik kanaldan oxuyur');
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(sw.includes('latest(?:\\.[a-z]{2})?|markets'), 'sw.js dil faylını canlı kanaldan verir');
+  const pipeline = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
+  assert.ok(pipeline.includes('for name in status latest latest.az latest.en latest.ru latest.tr markets'), 'push_live dil fayllarını yazır');
+  assert.ok(pipeline.includes('rm -f "$REPO_DIR"/data/latest.??.json'), 'main-ə yazılmır: tarixçə şişməsin');
+  assert.ok(pipeline.includes('export LATEST_LANG_FILES=1'), 'status.json bayrağı yalnız yeni pipeline ilə');
+});
+test('red line 3: the full feed is asked per language when status offers it, «Hamısı» merges every file, Azerbaijani always gets news.json', async () => {
+  const run = async (lang, answer, status = {checkedAt: 'x', newsLangs: ['en', 'ru', 'tr']}) => {
+    const ctx = app({navigator: {onLine: true, serviceWorker: {controller: {}}}}), {S} = ctx.api, urls = [];
+    S.lang = lang; S.status = status; S.og = {};
+    ctx.fetch = async url => { const name = url.split('?')[0]; urls.push(name); return answer(name); };
+    await ctx.api.loadNews(true);
+    return {urls, S};
+  };
+  const row = (id, lang) => ({id, title: 'Xəbər başlığı ' + id, category: 'gundem', lang, source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: new Date().toISOString()});
+  const ok = (rows, extra = {}) => ({ok: true, headers: new Headers(extra), json: async () => ({updatedAt: 'x', articles: rows})});
+  assert.deepEqual((await run('az', () => ok([]))).urls, ['data/news.json'], 'azərbaycanca oxucu həmişə news.json (azərbaycanca + xarici idman)');
+  assert.deepEqual((await run('en', () => ok([]))).urls, ['data/news.en.json'], 'yalnız öz dilinin faylı');
+  assert.deepEqual((await run('en', () => ok([]), {checkedAt: 'x'})).urls, ['data/news.json'], 'bayraq yoxdursa (köhnə pipeline) ümumi fayl');
+  assert.deepEqual((await run('ru', name => name.endsWith('news.ru.json') ? {ok: false, status: 404, headers: new Headers()} : ok([]))).urls, ['data/news.ru.json', 'data/news.json'], 'dil faylı alınmasa ümumi fayl');
+  const files = {'data/news.json': [row('a', 'az'), row('s', 'ru')], 'data/news.en.json': [row('e', 'en')], 'data/news.ru.json': [row('s', 'ru'), row('r', 'ru')], 'data/news.tr.json': [row('t', 'tr')]};
+  const all = await run(null, name => ok(files[name], {etag: name}));
+  assert.deepEqual([...all.urls].sort(), Object.keys(files).sort(), '«Hamısı» bütün faylları çəkir');
+  assert.deepEqual([...all.S.rawNews.map(a => a.id)].sort(), ['a', 'e', 'r', 's', 't'], 'hər dil gəlir, eyni keçid bir dəfə');
+  assert.equal(all.S.etag.split('|').length, 4, 'etiket bütün faylların birləşməsidir');
+  const first = await run('en', name => name.endsWith('status.json') ? {ok: true, headers: new Headers(), json: async () => ({checkedAt: 'x', newsLangs: ['en', 'ru', 'tr']})} : ok([]), null);
+  assert.deepEqual(first.urls, ['data/status.json', 'data/news.en.json'], 'status hələ yoxdursa (ilk açılış) əvvəl o soruşulur');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (!S.lang) loadNews(true);'), '«Hamısı»ya keçəndə başqa dillərin faylları gəlir');
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(sw.includes('news(?:\\.[a-z]{2})?'), 'sw.js dil faylının ilişib-ilişmədiyinə də baxır');
+  const pipeline = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
+  assert.ok(pipeline.includes('export NEWS_LANG_FILES=1'), 'bölgü və status.json bayrağı yalnız yeni pipeline ilə');
+  assert.ok(!pipeline.includes('news.??.json'), 'dil faylları main-dədir: publish_main onları silmir');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(index.includes('"data/news." + lang + ".json"'), 'index.html ingilis/rus/türk oxucu üçün erkən dil faylını istəyir');
+});
 test('an update waits while the reader is busy: open video, open popup, typing, or scrolled down',()=>{
   const busy=(selector,extra={})=>{
     const ctx=app({setTimeout:fn=>{fn();return 0;},document:{documentElement:{dataset:{}},addEventListener(){},createElement(){return {};},querySelector:s=>s.includes(selector)?{}:null,...extra},scrollY:0});
@@ -164,6 +271,32 @@ test('phone headings use short names so they fit three rows, screen readers keep
   assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-f">Sağlamlıq və həyat<'));
   assert.equal(label({slug:'gundem',label:'Gündəm'}),'Gündəm');
 });
+test('phone nav: one row of four sections and ☰ that opens every section in a list, then the Telegram line (owner, 2026-11-06)', () => {
+  const els = {};
+  const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; }, querySelectorAll() { return []; }, querySelector: s => s === '#nav' ? (els.nav ||= { innerHTML: '' }) : null };
+  const ctx = app({ document: doc, requestAnimationFrame: () => 0 }), { S } = ctx.api;
+  const html = () => { vm.runInContext('renderNav()', ctx); return els.nav.innerHTML; };
+  let h = html();
+  const [row, rest] = h.split('<details class="nav-more">');
+  const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
+  assert.deepEqual(phone, ['sondeqiqe', 'gundem', 'idman', 'prezident'], 'telefonda sətirdə yalnız 4 bölmə');
+  const list = (rest.split('</details>')[0].match(/<a href="#\/bolme\//g) || []).length;
+  assert.equal(list, (h.match(/<a href="#\/bolme\/[a-z]+" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
+  assert.ok(rest.includes('<summary aria-label="Bütün bölmələr">☰ Hamısı</summary>'));
+  assert.ok(h.includes('<button type="button" class="nav-inst" data-act="install" hidden>'), 'quraşdırma mümkün deyilsə düymə gizlidir');
+  assert.ok(rest.split('</details>')[0].includes('class="nav-inst"'), '«Ana ekrana» ☰ siyahısının içindədir');
+  S.installEvt = {};
+  h = html();
+  assert.ok(h.includes('class="nav-inst" data-act="install">'), 'Chrome təklif verəndə düymə görünür');
+  assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı');
+  assert.ok(h.indexOf('class="nav-tg" href="https://t.me/sekkizulduz_az"') > h.indexOf('</details>'), 'Telegram çağırışı ☰-dan sonra, öz sətrində');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.nav-inst{display:none}nav.main .nav-tg{display:none}'), 'masaüstündə nə düymə, nə çağırış');
+  assert.ok(css.includes('nav.main>a:not(.ph,.nav-tg){display:none}'), 'telefonda qalan bölmələr ☰-dadır');
+  assert.ok(css.includes('nav.main .nav-more-pop{position:fixed;inset:auto 0 0;') && css.includes('grid-template-columns:1fr 1fr'), 'siyahı aşağıdan, iki sütun alt-alta');
+  assert.ok(css.includes('nav.main .nav-tg{display:flex;flex:1 0 100%'), 'çağırış yalnız telefonda, öz sətrində');
+  assert.ok(/nav\.main \.nav-inst\{display:inline-flex[^}]*background:var\(--primary\)/.test(css), 'düymə öz rəngində');
+});
 test('Zuğulba always shows 44 stories: official and state sites first, then others',()=>{
   const ctx=app(),{prezHome,prezBlock}=ctx.api,at=i=>new Date(Date.now()-i*3600e3).toISOString();
   const row=(id,source,i,lang='az')=>({id,source,lang,category:'prezident',title:'Prezident İlham Əliyev xəbəri '+id,sourceUrl:'https://x.az/'+id,publishedAt:at(i)});
@@ -179,10 +312,10 @@ test('Zuğulba always shows 44 stories: official and state sites first, then oth
   assert.ok(html.includes('Son <b>44</b> xəbər'),'yazı');
   const foreign=[...prezHome([row('r0','Report',1),{...row('y','Axar.az',2),title:'Husilər prezident sarayına zərbələr endirdi'},{...row('f','Sportinfo',3),title:'Fənərbağçanın prezidenti danışdı'}])];
   assert.deepEqual(foreign.map(a=>a.id),['r0'],'yad xəbərlə doldurulmur');
-  assert.equal(html.split('class="pcard').length-1,44,'44 kartın hamısı');
+  assert.equal(html.split('<article class="pcard').length-1,44,'44 kartın hamısı');
   assert.ok(!html.includes('<template>'));
   const pics=prezBlock(out.map(a=>({...a,imageUrl:'https://x.az/'+a.id+'.jpg'})));
-  assert.equal(pics.split('class="pcard').length-1,44,'şəkilli 44 kart');
+  assert.equal(pics.split('<article class="pcard').length-1,44,'şəkilli 44 kart');
   assert.equal(pics.split('<img src=').length-1,8,'ilk açılışda yalnız 8 şəkil yüklənir');
   assert.equal(pics.split('<img data-src=').length-1,36,'qalan şəkillər lent sürüşəndə gəlir');
 });
@@ -215,14 +348,31 @@ test('first screen: without the file the full list still loads',async()=>{
   assert.ok(!ctx.api.S.partial);
   assert.equal(ctx.paints[0],'2 tam');
 });
+// 2026-11-06 (sahib: sürət birinci qırmızı xəttdir): bölmə keçidi də ilk lentlə açılır (aşağıdakı test); qalan səhifələr, dillər və axtarış tam lenti gözləyir.
 test('first screen: other pages and languages wait for the full list, a short list is never shown',async()=>{
-  for(const set of ["location.hash='#/bolme/idman'","S.lang='ru'","S.q='neft'"]){
+  for(const set of ["location.hash='#/bolme/valyuta'","location.hash='#/menbeler'","location.hash='#/bolme/idman';S.lang='ru'","S.lang='ru'","S.q='neft'"]){
     const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
     vm.runInContext(set,ctx);
     await ctx.boot();
     assert.ok(!seen.includes('data/first.json'),set);
     assert.equal(ctx.paints[0],'2 tam',set);
   }
+});
+test('speed: a section link (Telegram, Facebook) paints from the first list, then the full list replaces it',async()=>{
+  const {ctx,seen}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/news.json':{updatedAt:'x',articles:[firstRow('a'),firstRow('b')]},'data/og.json':{}});
+  vm.runInContext("location.hash='#/bolme/gundem'",ctx);
+  await ctx.boot();
+  assert.ok(seen.indexOf('data/first.json')>=0 && seen.indexOf('data/first.json')<seen.indexOf('data/news.json'),'kiçik fayl əvvəl (birbaşa keçid telefonda 3–6 s gözləyirdi)');
+  assert.equal(ctx.paints[0],'1 ilk');
+  assert.equal(ctx.api.S.partial,false,'sonra tam lent');
+});
+test('speed: a section absent from the first list shows the skeleton, never «no news»; league and team pages do not wait for the feed',()=>{
+  const ctx=app(),{S,sectionView}=ctx.api;
+  S.partial=true;S.data={articles:[firstRow('a')]};S.og={};S.archive={};
+  const html=sectionView('medeniyyet');
+  assert.ok(html.includes('class="skel"') && !html.includes('hələ xəbər yoxdur'));
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  assert.ok(src.includes('const shared = r.name === "team" || r.name === "article"'),'liqa birbaşa keçidi 7,5 s lent gözləyirdi');
 });
 test('first screen: if the full list fails the reader keeps the first screen and sees the error',async()=>{
   const {ctx}=firstApp({'data/first.json':{updatedAt:'x',articles:[firstRow('a')]},'data/og.json':{}});
@@ -283,8 +433,10 @@ test('speed red line: the waiting redraw runs as soon as the files have arrived'
   assert.equal(ctx.rendered,1,'gözləyən çəkiliş yoxdursa heç nə etmir');
 });
 test('speed red line: the page code stays within its size limit',()=>{
-  assert.ok(fs.statSync(path.join(root,'assets/app.js')).size<200e3,'app.js');
-  assert.ok(fs.statSync(path.join(root,'assets/app.css')).size<95e3,'app.css');
+  // Ölçü yayımdakı kimi (LF): Windows-da CRLF ilə açılan nüsxə hər sətirə bir bayt artıq olur.
+  const size=p=>Buffer.byteLength(fs.readFileSync(path.join(root,p),'utf8').replace(/\r\n/g,'\n'));
+  assert.ok(size('assets/app.js')<220e3,'app.js');
+  assert.ok(size('assets/app.css')<95e3,'app.css');
 });
 test('speed red line: files arriving together cause one redraw, not one each',async()=>{
   const ctx=app();
@@ -306,20 +458,48 @@ test('speed red line: far sections of the home page are kept out of the page unt
   assert.ok(page.includes('Bütün xəbərlər'),'məzmun səhifə mətnindədir');
 });
 test('speed red line: images are resized and the original stays as the fallback',()=>{
-  const ctx=app(),{S,sized,img}=ctx.api;
+  const ctx=app(),{S,sized,img,card}=ctx.api;
   S.og={};
   const url='https://apa.az/a b.jpg';
   assert.equal(sized(url,480),'https://wsrv.nl/?url='+encodeURIComponent(url)+'&w=480&we&output=webp&q=70');
   assert.equal(sized('https://apa.az/a.svg',480),'https://apa.az/a.svg');
   assert.equal(sized('https://apa.az/a.gif?x=1',480),'https://apa.az/a.gif?x=1');
+  assert.equal(sized('https://metbuat.az/a.jpg',480),'https://metbuat.az/a.jpg','wsrv 404 verən sayt birbaşa');
+  assert.equal(sized('https://cdn.sporx.com/a.jpg',480),'https://cdn.sporx.com/a.jpg');
+  assert.ok(sized('https://files.modern.az/a.jfif',320).includes('wsrv.nl'),'jfif kiçildilir');
   const html=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'});
   assert.ok(html.includes('wsrv.nl'));
   assert.ok(html.includes('data-image-alternatives="[&quot;https://apa.az/a.jpg&quot;]"'),'alınmasa əsl ünvan');
   assert.ok(!html.includes('image-fallback'),'şəkli olan kartda ehtiyat loqo yoxdur');
-  assert.ok(img({category:'gundem'}).includes('image-fallback'),'şəkli olmayanda var');
+  assert.equal(img({category:'gundem'}),'','şəkli olmayanda qutu yoxdur');
+  const bare=card({id:'1',title:'Başlıq',category:'gundem',source:'APA',sourceUrl:'https://apa.az/1',publishedAt:new Date().toISOString()});
+  assert.ok(bare.includes('class="card noimg"') && !bare.includes('<img') && !bare.includes('<p'),'şəkilsiz kart yalnız mətndir, xülasə yoxdur');
+  assert.ok(bare.includes('target="_blank"'),'kart mənbəni yeni vərəqədə açır');
+  const eager=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'},'',true,true,828,false);
+  assert.ok(eager.includes('fetchpriority="high"') && !eager.includes('loading="lazy"'),'slayderin ilk şəkli dərhal yüklənir');
   assert.ok(img({imageUrl:'https://apa.az/a.jpg'},'',false,true,828,true).includes('data-src='),'uzaq slayd sonra yüklənir');
+  assert.ok(img({imageUrl:'https://apa.az/a.jpg'}).includes('loading="lazy"') && img({imageUrl:'https://apa.az/a.jpg'}).includes('decoding="async"'));
   S.proxyFails=8;
   assert.equal(sized(url,480),url,'xidmət işləmirsə birbaşa mənbədən');
+});
+test('phone cards also open the source in a new tab', () => {
+  const ctx = app({ matchMedia: q => ({ matches: String(q).includes('hover:none') }) });
+  const at = new Date().toISOString();
+  const html = ctx.api.card({ id: '1', title: 'Başlıq', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at, imageUrl: 'https://apa.az/a.jpg' });
+  assert.ok(html.includes('target="_blank" rel="noopener noreferrer"'));
+});
+test('Turkish home still lists stories and does not leave Zuğulba at zero', () => {
+  const ctx = app(), { S, homeView } = ctx.api;
+  const at = new Date().toISOString();
+  const tr = (id) => ({ id, title: 'Türkiye haberi ' + id, lang: 'tr', category: 'dunya', source: 'CNN Türk', sourceUrl: 'https://cnnturk.com/' + id, publishedAt: at, imageUrl: 'https://img.example/' + id + '.jpg' });
+  S.lang = 'tr'; S.og = {};
+  S.data = { articles: [...Array.from({ length: 10 }, (_, i) => tr('t' + i)), { id: 'p', title: 'Prezident İlham Əliyev qəbul edib', lang: 'az', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/p', publishedAt: at }] };
+  const html = homeView();
+  assert.ok(html.includes('class="pcard'), 'Zuğulba boş qalmır');
+  assert.ok(!html.includes('Son <b>0</b>'));
+  const latest = html.slice(html.indexOf('latest-grid'), html.indexOf('</section>', html.indexOf('latest-grid')));
+  assert.ok((latest.match(/<article/g) || []).length >= 1, 'Son xəbərlər doludur');
+  assert.ok(!html.includes('image-fallback') && !html.includes('logo-80'), 'şəkilsiz yerdə loqo bloku yoxdur');
 });
 test('a broken secondary block cannot freeze the news list',()=>{
   const ctx=app(),{S,homeView}=ctx.api;
@@ -450,9 +630,30 @@ test('saved stories survive a second tab',()=>{
 test('notifications use the service worker where the page API is not allowed',async()=>{
   const ctx=app(),{S,showBreaking}=ctx.api,shown=[];
   S.swReg={showNotification:async(title,options)=>{shown.push([title,options]);}};
-  await showBreaking({id:'1',title:'Son xəbər',sourceUrl:'https://apa.az/1'});
+  await showBreaking({id:'1',title:'Son xəbər',category:'gundem',sourceUrl:'https://apa.az/1'});
   assert.equal(shown[0][0],'Son dəqiqə');
-  assert.equal(shown[0][1].data.url,'https://apa.az/1');
+  assert.equal(shown[0][1].data.url,'https://8ulduz.az/#/xeber/1?b=gundem','klik mənbəyə yox, saytın xəbər səhifəsinə aparır');
+  assert.deepEqual([shown[0][1].data.id,shown[0][1].data.cat],['1','gundem']);
+});
+test('a notification click opens the story on the site, in the open page when there is one',async()=>{
+  const {listeners,context}=worker();
+  const opened=[],messages=[];let focused=0;
+  context.self.clients.openWindow=async u=>{opened.push(u);};
+  let windows=[];
+  context.self.clients.matchAll=async()=>windows;
+  const click=data=>{let done;listeners.notificationclick({notification:{close(){},data},waitUntil(p){done=p;}});return done;};
+  await click({id:'7',cat:'gundem',url:'https://apa.az/7'});
+  assert.deepEqual(opened,['https://example.com/8ulduz/#/xeber/7?b=gundem'],'səhifə açıq deyilsə saytın xəbər səhifəsi açılır (mənbə yox)');
+  windows=[{url:'https://example.com/8ulduz/#/',focus:async()=>{focused++;},postMessage:m=>messages.push(m)}];
+  await click({id:'8',url:'https://apa.az/8'});
+  assert.equal(opened.length,1,'açıq səhifə varsa yeni pəncərə açılmır');
+  assert.equal(focused,1);
+  assert.equal(JSON.stringify(messages),JSON.stringify([{type:'open-story',id:'8'}]),'açıq səhifəyə xəbərin id-si göndərilir'); // obyekt başqa vm kontekstindəndir
+  await click({});
+  assert.equal(opened[1],'https://example.com/8ulduz/','id-siz bildiriş baş səhifəni açır');
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  assert.ok(src.includes('e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; }'),'səhifə open-story mesajı ilə xəbər səhifəsinə keçir');
+  assert.ok(src.includes('n.onclick = () => { window.focus(); location.hash = detailUrl(a); };'),'səhifə bildirişinin kliki də saytın xəbər səhifəsinə aparır');
 });
 test('section pages reach back through the archive without repeating or leaking',async()=>{
   const ctx=policyApp(),{S,sectionView,loadArchive}=ctx.api;
@@ -469,6 +670,19 @@ test('section pages reach back through the archive without repeating or leaking'
   await loadArchive('prezident');
   assert.equal(S.archive.prezident,undefined);
 });
+test('an editorial withdrawal hides an old saved story, archive card and shared article immediately', () => {
+  const ctx = app(), {S} = ctx.api;
+  const row={id:'withdrawn-id',source:'APA',sourceUrl:'https://apa.az/old-title-12345',title:'WITHDRAWN',category:'sosial',publishedAt:new Date().toISOString()};
+  S.archive={sosial:{at:Date.now(),rows:[row]}};S.data={articles:[]};S.archiveScan=row.id;S.sharedStory={id:row.id,row};
+  ctx.api.storage.setItem('8ulduz-saved',JSON.stringify([row]));
+  vm.runInContext(`addRemovals({one:{ids:['withdrawn-id'],urls:['https://apa.az/old-title-12345'],keys:['apa.az#12345']}})`,ctx);
+  assert.equal(ctx.api.withArchive('sosial',[]).length,0);
+  assert.ok(!ctx.api.articleView(row.id).includes('WITHDRAWN'));
+  assert.ok(!ctx.api.savedView().includes('WITHDRAWN'));
+  assert.equal(ctx.api.policyViolation({...row,id:'changed',sourceUrl:'https://apa.az/new-title-12345'}),true);
+  assert.equal(ctx.api.policyViolation({...row,id:'other',sourceUrl:'https://apa.az/new-title-12346'}),false);
+});
+
 function policyApp() {
   const src = fs.readFileSync(path.join(root, 'assets/content-policy.js'), 'utf8');
   return app({CONTENT_POLICY: JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1))});
@@ -691,8 +905,8 @@ test('appointment and dismissal news are recognised; Zuğulba includes state sit
   assert.ok(ids.includes('a') && ids.includes('d') && !ids.includes('b')); // Oxu.az xəbərində rəhbərliyin adı yoxdur
   assert.deepEqual(ids, ['a', 'c', 'd']); // ən yenidən köhnəyə
   const html = ctx.api.prezBlock(ctx.api.prezHome(prez));
-  assert.ok(html.includes('<a class="pcard has-img"') && html.includes(encodeURIComponent('https://crossmedia.az/storage/news/a.jpeg')));
-  assert.ok(html.includes('<a class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
+  assert.ok(html.includes('<article class="pcard has-img"') && html.includes(encodeURIComponent('https://crossmedia.az/storage/news/a.jpeg')));
+  assert.ok(html.includes('<article class="pcard" data-cat="prezident"')); // şəkilsiz xəbər şəkil yeri tutmur
 });
 
 test('every news list is newest first: an old appointment story is not pinned above fresh news', () => {
@@ -757,6 +971,14 @@ function worker(cacheNames = []) {
   return {context, listeners, deleted};
 }
 
+test('service worker does not intercept GoatCounter', () => {
+  const {listeners} = worker();
+  let called = false;
+  for (const url of ['https://8ulduz.goatcounter.com/count?p=%2F', 'https://gc.zgo.at/count.v4.js']) {
+    listeners.fetch({request: new Request(url), respondWith() { called = true; }});
+  }
+  assert.equal(called, false);
+});
 test('service worker retains caches belonging to other sites', async () => {
   const version = fs.readFileSync(path.join(root,'sw.js'),'utf8').match(/const VERSION = "([^"]+)"/)[1];
   const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-static-'+version]);
@@ -829,7 +1051,7 @@ test('stuck Pages deployment: live files come from the mirror, static ones stay 
 });
 const LIVE = 'https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/';
 test('red line 1: status, latest and markets come from the one-minute live channel first', async () => {
-  for (const file of ['status.json', 'latest.json', 'markets.json']) {
+  for (const file of ['status.json', 'latest.json', 'latest.az.json', 'markets.json']) {
     const {get, calls} = dataWorker(async url => { assert.ok(url.startsWith(LIVE)); return json({from: 'live'}); });
     const r = await get(file + '?t=1');
     assert.equal(r.headers.get('X-8ulduz-data'), 'live');
@@ -893,7 +1115,7 @@ test('new application code replaces a cached version while online', async () => 
   let stored;
   context.fetch = async () => new Response('new code');
   context.caches.open = async () => ({match: async () => undefined, put: async (_key, response) => { stored = await response.text(); }});
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'new code');
   await new Promise(r => setImmediate(r));
   assert.equal(stored, 'new code');
@@ -905,18 +1127,70 @@ test('a slow first visit to another page waits for that page instead of showing 
   context.fetch = () => new Promise(r => { answer = r; });
   context.caches.open = async () => ({match: async (req) => String(req).includes('index.html') ? new Response('shell') : undefined, put: async () => {}});
   vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
-  const pending = vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/mexfilik/index.html'.replace('index.html','')))", context);
+  const pending = vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/mexfilik/index.html'.replace('index.html','')))", context);
   await new Promise(r => setImmediate(r));
   answer(new Response('privacy page'));
   assert.equal(await (await pending).text(), 'privacy page');
 });
 
-test('new code wins over the cached copy when the network answers in time', async () => {
+// Sürət (qırmızı xətt 3): təkrar açılış şəbəkəni gözləmir. Saxlanmış qabıq dərhal verilir, təzəsi arxada saxlanır və
+// kod dəyişibsə açıq səhifələrə bildirilir (app.js səhifəni yeniləyir).
+test('the saved shell answers at once; changed code is stored for the next visit and announced', async () => {
   const {context} = worker();
-  context.fetch = async () => new Response('new code');
-  context.caches.open = async () => ({match: async () => new Response('cached code'), put: async () => {}});
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
-  assert.equal(await res.text(), 'new code');
+  let stored, messages = [];
+  // Şəbəkə səhifə keşdəki cavabı oxuyandan SONRA gəlir (əsl brauzerdə həmişə belədir): müqayisə yenə işləməlidir.
+  context.fetch = () => new Promise(r => setTimeout(() => r(new Response('new code')), 5));
+  context.caches.open = async () => ({match: async () => new Response('cached code'), put: async (_key, response) => { stored = await response.text(); }});
+  context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  assert.equal(await res.text(), 'cached code');
+  await new Promise(r => setTimeout(r, 15));
+  for (let i = 0; i < 20 && !messages.length; i++) await new Promise(r => setImmediate(r));
+  assert.equal(stored, 'new code');
+  assert.deepEqual(messages.map(m => m.type), ['shell-updated']);
+});
+test('unchanged code and a changed index.html are stored quietly', async () => {
+  for (const [url, saved, fresh] of [['assets/app.js', 'same', 'same'], ['', '<p>old</p>', '<p>new</p>']]) {
+    const {context} = worker();
+    let stored, messages = [];
+    context.fetch = async () => new Response(fresh);
+    context.caches.open = async () => ({match: async () => new Response(saved), put: async (_key, response) => { stored = await response.text(); }});
+    context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/" + url + "'))", context);
+    assert.equal(await res.text(), saved);
+    for (let i = 0; i < 20 && stored === undefined; i++) await new Promise(r => setImmediate(r));
+    assert.equal(stored, fresh);
+    assert.deepEqual(messages, []);
+  }
+});
+
+test('a navigation with a query string reads and stores the shell under the path only', async () => {
+  const {context} = worker();
+  const seen = {match: [], put: []};
+  context.fetch = async (req) => { seen.fetched = req.url; return new Response('<p>fresh</p>'); };
+  context.caches.open = async () => ({match: async (key, opts) => { seen.match.push([String(key), opts?.ignoreSearch]); return new Response('<p>saved</p>'); }, put: async (key) => { seen.put.push(String(key)); }});
+  context.navReq = { url: 'https://example.com/8ulduz/?utm_source=whatsapp#/xeber/1', mode: 'navigate', method: 'GET' };
+  const res = await vm.runInContext("cachedShell(navReq)", context);
+  assert.equal(await res.text(), '<p>saved</p>');
+  for (let i = 0; i < 20 && !seen.put.length; i++) await new Promise(r => setImmediate(r));
+  assert.deepEqual(seen.match, [['https://example.com/8ulduz/', false]], 'sorğu sətri açara düşmür, ignoreSearch yoxdur');
+  assert.deepEqual(seen.put, ['https://example.com/8ulduz/'], 'təzə nüsxə eyni açarın üstünə yazılır');
+  assert.equal(seen.fetched, 'https://example.com/8ulduz/');
+});
+// Kod faylı da: bir dəfə app.js?c=… istənəndə (yoxlama sorğusu) ayrı nüsxə yaranırdı və ignoreSearch həmişə onu qaytarırdı —
+// arxa yoxlama sorğusuz açarı təzələsə də oxucu köhnə kodda qalırdı (sw v39, 4 noyabr).
+test('a code file asked with a query string is read and stored under the path only', async () => {
+  const {context} = worker();
+  const seen = {match: [], put: []};
+  context.fetch = async (req) => { seen.fetched = req.url || String(req); return new Response('fresh code'); };
+  context.caches.open = async () => ({match: async (key, opts) => { seen.match.push([String(key), opts?.ignoreSearch]); return new Response('saved code'); }, put: async (key) => { seen.put.push(String(key)); }});
+  context.self.clients.matchAll = async () => [];
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js?c=1793809578259'))", context);
+  assert.equal(await res.text(), 'saved code');
+  for (let i = 0; i < 20 && !seen.put.length; i++) await new Promise(r => setImmediate(r));
+  assert.deepEqual(seen.match, [['https://example.com/8ulduz/assets/app.js', false]], 'sorğu sətri açara düşmür, ignoreSearch yoxdur');
+  assert.deepEqual(seen.put, ['https://example.com/8ulduz/assets/app.js'], 'təzə nüsxə sorğusuz açarın üstünə yazılır');
+  assert.equal(seen.fetched, 'https://example.com/8ulduz/assets/app.js', 'şəbəkəyə də sorğusuz yol gedir');
 });
 
 test('a hanging network does not leave a blank page when a copy is saved', async () => {
@@ -924,14 +1198,14 @@ test('a hanging network does not leave a blank page when a copy is saved', async
   context.fetch = () => new Promise(() => {});
   context.caches.open = async () => ({match: async () => new Response('cached code')});
   vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', context);
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'cached code');
 });
 
 test('application code is still available offline', async () => {
   const {context} = worker();
   context.caches.open = async () => ({match: async () => new Response('cached code')});
-  const res = await vm.runInContext("networkFirstShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+  const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
   assert.equal(await res.text(), 'cached code');
 });
 
@@ -1034,9 +1308,13 @@ test('photo fallback tries OG and alternate source photos in order', () => {
 test('home keeps slider stories after the sixth in the lists below', () => {
   const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
   const words=['alma','armud','banan','qovun','heyva','nar','gilas','albali','erik','saftali','limon','portagal','anar','zeytun','incir','xurma','zoğal','böyürtkən'];
-  S.lang=null;S.og={};S.latestCount=30;S.data={articles:words.map((w,i)=>({id:String(i),title:w+'lər '+w+'ları '+i,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,publishedAt:at}))};
+  const rows=words.map((w,i)=>({id:String(i),title:w+'lər '+w+'ları '+i,category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,imageUrl:'https://img.example/'+i+'.jpg',publishedAt:at}));
+  rows.push({id:'bare',title:'Şəkilsiz xəbər lentdə qalır',category:'gundem',lang:'az',source:'APA',sourceUrl:'https://apa.az/bare',publishedAt:at,imageUrl:''});
+  S.lang=null;S.og={};S.latestCount=30;S.data={articles:rows};
   const page=homeView(),below=page.slice(page.indexOf('latest-grid'));
   assert.equal((page.match(/class="hero-main"/g)||[]).length,15);
+  assert.ok(!page.slice(0,page.indexOf('latest-grid')).includes('apa.az/bare'),'şəkilsiz xəbər slayderə düşmür');
+  assert.ok(below.includes('apa.az/bare') && below.includes('class="card noimg"'),'şəkilsiz xəbər siyahıda mətndir');
   const slides=[...new Set([...page.slice(0,page.indexOf('latest-grid')).matchAll(/apa\.az\/(\d+)/g)].map(m=>m[1]))];
   assert.equal(slides.length,15);
   assert.ok(!below.includes('apa.az/'+slides[0]+'"'),'ilk xəbər aşağıda təkrarlanmır');
@@ -1106,6 +1384,74 @@ test('counting a click never breaks the page', () => {
   assert.equal(seen[0].event,true);
   ctx.window.goatcounter={count(){throw Error('x');}};
   trackEvent('share-copy');
+});
+test('each route is a page view with its own path and title', () => {
+  const ctx=app(),{countVisit,flushVisits,S}=ctx.api;
+  ctx.window.SITE_CONFIG={goatcounter:'8ulduz'};
+  ctx.location.pathname='/'; ctx.location.search=''; ctx.location.hash='#/';
+  ctx.document.title='8ulduz — Son xəbərlər';
+  const seen=[];
+  ctx.window.goatcounter={count:o=>seen.push({...o})};
+  countVisit();
+  assert.deepEqual(seen,[{path:'/',title:'8ulduz — Son xəbərlər'}]);
+  countVisit();
+  assert.equal(seen.length,1,'eyni yol təkrar sayılmır');
+  ctx.location.hash='#/bolme/idman'; ctx.document.title='İdman — 8ulduz';
+  countVisit();
+  assert.equal(seen[1].path,'/#/bolme/idman');
+  assert.equal(seen[1].title,'İdman — 8ulduz');
+  assert.equal(seen[1].event,undefined);
+  ctx.location.search='?utm_source=android'; ctx.location.hash='#/secilmis'; ctx.document.title='Seçilmişlər — 8ulduz';
+  countVisit();
+  assert.equal(seen[2].path,'/#/secilmis','android kampaniyası yolu ikiyə bölmür');
+  ctx.location.search=''; ctx.location.hash='#/axtar?q=neft'; ctx.document.title='Axtarış: neft — 8ulduz';
+  countVisit();
+  assert.equal(seen[3].path,'/#/axtar?q=neft');
+  assert.equal(seen[3].title,'Axtarış: neft — 8ulduz');
+  ctx.location.hash='#/xeber/abc'; S.archiveScanning=true;
+  countVisit();
+  assert.equal(seen.length,4,'başlıq hazır olmamış xəbər sayılmır');
+  S.data={articles:[]}; S.archiveScanning=false; ctx.document.title='Xəbər — 8ulduz';
+  countVisit();
+  assert.equal(seen[4].path,'/#/xeber/abc');
+  assert.equal(seen[4].title,'Xəbər — 8ulduz');
+  ctx.location.hash='#/komanda/premyer-liqa/qarabag'; S.teamPage=null; S.teamFailedAt=0;
+  countVisit();
+  assert.equal(seen.length,5,'komanda səhifəsi açılmamış sayılmır');
+  S.teamPage={}; ctx.document.title='Qarabağ — 8ulduz';
+  countVisit();
+  assert.equal(seen[5].title,'Qarabağ — 8ulduz');
+  const queued=app();
+  queued.window.SITE_CONFIG={goatcounter:'8ulduz'};
+  queued.location.pathname='/'; queued.location.search=''; queued.location.hash='#/haqqinda';
+  queued.document.title='Haqqımızda — 8ulduz';
+  queued.api.countVisit();
+  const late=[]; queued.window.goatcounter={count:o=>late.push(o)};
+  queued.api.flushVisits();
+  assert.equal(late[0].path,'/#/haqqinda');
+  assert.equal(late[0].title,'Haqqımızda — 8ulduz');
+  const off=app();
+  off.window.SITE_CONFIG={goatcounter:''};
+  off.location.pathname='/'; off.location.search=''; off.location.hash='#/';
+  off.document.title='8ulduz';
+  off.api.countVisit();
+  off.window.goatcounter={count(){throw Error('sent');}};
+  off.api.flushVisits();
+});
+test('the counter script is https and skips the canonical page load', () => {
+  const ctx=app(), scripts=[];
+  ctx.document.createElement=()=>({dataset:{},addEventListener(){}});
+  ctx.document.head={appendChild(s){scripts.push(s);}};
+  ctx.window.SITE_CONFIG={goatcounter:'8ulduz'};
+  ctx.api.enableAnalytics();
+  assert.equal(scripts[0].src,'https://gc.zgo.at/count.v4.js');
+  assert.equal(scripts[0].dataset.goatcounter,'https://8ulduz.goatcounter.com/count');
+  assert.equal(scripts[0].dataset.goatcounterSettings,'{"no_onload":true}');
+  assert.match(scripts[0].integrity,/sha384-/);
+  const view=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  const body=view.slice(view.indexOf('function renderView'), view.indexOf('function sourceLevel'));
+  assert.ok(body.includes('countVisit()'));
+  assert.match(fs.readFileSync(path.join(root,'assets/config.js'),'utf8'), /goatcounter:\s*"8ulduz"/);
 });
 test('every city and district has its button and finds its stories', () => {
   const ctx=app(),{S,sectionView,subNav,clubMatches}=ctx.api,at=new Date().toISOString();
@@ -1183,10 +1529,15 @@ test('an ordinary word is not taken for a team and keeps the language filter', (
   assert.ok(!html.includes('ntv.com.tr/b'));
 });
 test('hero and Zugulba retain multiple articles for their moving feeds', () => {
-  const ctx=app(); const stories=Array.from({length:18},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,publishedAt:new Date().toISOString()}));
-  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories.slice(0,8));
+  const ctx=app(); const stories=Array.from({length:18},(_,i)=>({id:String(i),title:'News '+i,category:'gundem',source:'Source',sourceUrl:'https://example.com/'+i,imageUrl:'https://img.example/'+i+'.jpg',publishedAt:new Date().toISOString()}));
+  const hero=ctx.api.heroBlock(stories),prez=ctx.api.prezBlock(stories.slice(0,8).map(s=>({...s,imageUrl:''})));
   assert.ok(hero.includes('class="hero-row"'));
   assert.equal((hero.match(/class="hero-main"/g)||[]).length,15);
+  assert.ok(hero.includes('fetchpriority="high"') && (hero.match(/loading="lazy"/g)||[]).length>=1,'ilk slayd dərhal, qalanı tənbəl');
+  assert.equal(ctx.api.heroBlock(stories.map(s=>({...s,imageUrl:''}))),'','şəkilsiz xəbər slayderə düşmür');
+  const mixed=ctx.api.heroBlock([stories[0],{...stories[1],imageUrl:''},stories[2]]);
+  assert.equal((mixed.match(/class="hero-main"/g)||[]).length,2);
+  assert.ok(!mixed.includes('example.com/1"'),'şəkilsiz slayd yoxdur');
   assert.ok(!hero.includes('row-card'),'slayderin xəbərləri altında təkrarlanmır');
   assert.ok(prez.includes('data-prez-lent'));
   assert.equal((prez.match(/class="pcard"/g)||[]).length,8);
@@ -1249,6 +1600,96 @@ test('site language: Azerbaijani visitors do not load the translation', () => {
   assert.ok(src.slice(at - 260, at).includes('if (uiLang(S.lang))'), 'yalnız başqa dil seçiləndə');
   for (const f of ['assets/dil.js', 'assets/dil-ru.js', 'assets/dil-tr.js', 'assets/dil-en.js']) assert.ok(fs.statSync(path.join(root, f)).size < 60e3, f);
 });
+// Sürət (qırmızı xətt 3): index.html qabığı statik daşıyır — CSS gələn kimi başlıq, bölmələr və skelet çəkilir, JS gözlənilmir.
+// Statik nüsxə app.js shell()-in çıxışı ilə eynidir ki, JS gələndə səhifə atlamasın.
+function shellParts() {
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
+  const ctx = app({
+    location: { hash: '#/', href: 'https://8ulduz.az/' }, history: { replaceState() {} },
+    window: { addEventListener() {}, SITE_CONFIG: { goatcounter: '', telegram: '', contact: '' } },
+    document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
+    requestAnimationFrame: () => 0,
+  });
+  vm.runInContext('shell(); renderNav(); renderLangs();', ctx);
+  return { app: els.app.innerHTML, nav: els.nav.innerHTML, inst: els.inst.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
+}
+test('speed red line: index.html carries the same shell app.js builds, with nav and skeleton filled', () => {
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+  const parts = shellParts();
+  const m = index.match(/<div id="app" data-shell="1">([\s\S]*?)<\/div>\n  <\/body>/);
+  assert.ok(m, 'index.html-də data-shell qabığı yoxdur');
+  let want = parts.app;
+  want = want.replace(/(<nav class="main" id="nav" aria-label="Bölmələr">)(<\/nav>)/, (_, a, b) => a + parts.nav + b);
+  want = want.replace(/(<span class="inst" id="inst">)(<\/span>)/, (_, a, b) => a + parts.inst + b);
+  // #view: ya statik skelet, ya da pipeline-ın hazır ilk ekranı (.github/scripts/prerender.cjs); qabığın qalanı eyni olmalıdır.
+  const got = m[1].match(/(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/);
+  assert.ok(got, 'index.html-də #view bloku və noscript yoxdur');
+  const pre = /^<div class="pre-skel" data-prerender="[^"]+">[\s\S]*<section class="hero">[\s\S]*<\/div>$/.test(got[2]);
+  assert.ok(pre || got[2] === '<div class="pre-skel">' + parts.skeleton + '</div>', '#view-də skelet və ya hazır ilk ekran olmalıdır');
+  want = want.replace(/(<div class="wrap" id="view" tabindex="-1">)(<\/div>)/, (_, a, b) => a + got[2] + '<noscript>Saytı görmək üçün JavaScript-i aktiv edin.</noscript>' + b);
+  // #topbar: ya boş, ya da pipeline-ın hazır yuxarı zolağı (lupa düyməsi JS gələndə sıçramasın); qabığın qalanı eyni olmalıdır.
+  const tb = m[1].match(/<div class="wrap" id="topbar">([^\n]*)<\/div><\/div>$/m);
+  assert.ok(tb && (tb[1] === '' || (tb[1].includes('data-act="theme"') && tb[1].includes('class="wx'))), '#topbar boş və ya hazır zolaq olmalıdır');
+  assert.equal(m[1].replace(tb[0], '<div class="wrap" id="topbar"></div></div>'), want, 'index.html qabığı app.js shell() ilə eyni deyil');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (!$("#app").dataset?.shell) $("#app").innerHTML'), 'shell() statik qabığı silməməlidir');
+});
+test('speed red line: no web font is downloaded; header has no backdrop blur', () => {
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), updater = fs.readFileSync(path.join(root, 'updater.py'), 'utf8');
+  for (const [name, text] of [['index.html', index], ['sw.js', sw], ['updater.py', updater], ['app.css', css]]) assert.ok(!/fonts\.css|as="font"|woff2|@font-face/.test(text), name + ' şrift yükləyir');
+  assert.ok(!fs.existsSync(path.join(root, 'assets/fonts')), 'assets/fonts qovluğu qalıb');
+  assert.ok(!/backdrop-filter/.test(css), 'backdrop-filter telefonda sürüşməni ağırlaşdırır');
+  assert.ok(index.includes('<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />'), 'canlı kanalın hostu əvvəlcədən açılmalıdır');
+});
+test('speed red line: a shared link renders the story from the share index before the full feed', async () => {
+  const ctx = app({ location: { hash: '#/xeber/0a0a0a0a0a0a0a0a' } });
+  const { S, loadShared, articleView } = ctx.api;
+  const asked = [];
+  ctx.asked = asked;
+  vm.runInContext(`requestJSON = async url => { asked.push(url.split("?")[0]); return { d: { articles: [
+    { id: "0a0a0a0a0a0a0a0a", of: "0b0b0b0b0b0b0b0b" },
+    { id: "0b0b0b0b0b0b0b0b", title: "Pensiyalar artırılır", source: "APA", sourceUrl: "https://apa.az/x", publishedAt: new Date().toISOString(), category: "sosial", lang: "az" } ] } }; };
+    renderView = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; };`, ctx);
+  await loadShared('0a0a0a0a0a0a0a0a');
+  assert.deepEqual(asked, ['data/paylas/1.json', 'data/paylas/1.json'], '0a→hissə 1, of ilə 0b→hissə 1');
+  assert.equal(S.sharedStory.row.title, 'Pensiyalar artırılır');
+  assert.equal(ctx.rendered, 1, 'tam lent olmadan çəkilir');
+  assert.equal(S.data, null);
+  assert.ok(articleView('0a0a0a0a0a0a0a0a').includes('Pensiyalar artırılır'), 'xəbər səhifəsi tam lentsiz qurulur');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(index.includes('files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json")'), 'index.html paylaşma hissəsini erkən istəyir');
+});
+test('speed red line: the cached feed is shown before the network answers and then replaced', async () => {
+  const first = { updatedAt: 'old', articles: [{ id: 'c1', title: 'Keşdən xəbər', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] };
+  const matched = [];
+  const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-static-v33', '8ulduz-data-v33'], open: async name => ({ match: async url => { matched.push(name + ' ' + url); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
+  const { S, loadCached, loadFirst } = ctx.api;
+  await loadCached();
+  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json']);
+  assert.equal(S.data.articles[0].title, 'Keşdən xəbər');
+  assert.equal(S.partial, true);
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: 'new', articles: [{ id: 'n1', title: 'Şəbəkədən xəbər', source: 'APA', sourceUrl: 'https://apa.az/2', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] }) });
+  await loadFirst();
+  assert.equal(S.data.articles[0].title, 'Şəbəkədən xəbər', 'şəbəkədən gələn ilk ekran keşdəkini əvəz edir');
+  assert.equal(S.fromCache, false);
+});
+test('speed red line: un-proxied originals are still shown, but never with high priority', () => {
+  const phone = app({ matchMedia: q => ({ matches: q === '(hover:none)' }) }).api, desktop = app().api;
+  const heavy = { id: 'h', title: 'Ağır şəkil', source: 'Qafqazinfo', sourceUrl: 'https://qafqazinfo.az/a', imageUrl: 'https://qafqazinfo.az/uploads/1/tramp.jpg', publishedAt: new Date().toISOString(), category: 'gundem' };
+  const light = { ...heavy, id: 'l', sourceUrl: 'https://apa.az/a', imageUrl: 'https://apa.az/img/1.jpg' };
+  assert.equal(phone.heavyImage(heavy.imageUrl), true);
+  assert.equal(phone.heavyImage('https://wsrv.nl/?url=x'), false);
+  for (const ctx of [phone, desktop]) {
+    assert.ok(ctx.cardAt(heavy, 'h3').includes('qafqazinfo.az/uploads/1/tramp.jpg'), 'şəkil həmişə görünür («şəkil gəlmir» olmasın)');
+    assert.ok(ctx.cardAt(light, 'h3').includes('https://wsrv.nl/'), 'kiçildilən şəkil proksidən gəlir');
+    assert.ok(ctx.img(heavy, '', true).includes('loading="lazy"') && !ctx.img(heavy, '', true).includes('fetchpriority'), 'ağır orijinal yüksək prioritet almır');
+    assert.ok(ctx.img(light, '', true).includes('fetchpriority="high"'), 'kiçildilən ilk şəkil yüksək prioritetdədir');
+  }
+  const { imageCandidates } = desktop;
+  assert.deepEqual([...imageCandidates({ imageUrl: 'https://qafqazinfo.az/1.jpg', alts: [{ imageUrl: 'https://apa.az/2.jpg' }] })], ['https://apa.az/2.jpg', 'https://qafqazinfo.az/1.jpg'], 'proksidən keçməyən sayt sona düşür');
+});
+
 // CSP: daxili skript yalnız hash ilə, daxili hadisə işləyicisi yoxdur.
 test('content security policy allows only the page own inline script', () => {
   const crypto = require('crypto');
@@ -1257,6 +1698,7 @@ test('content security policy allows only the page own inline script', () => {
   const policy = index.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
   assert.ok(!policy.includes('unsafe-inline'));
   assert.ok(!/connect-src|default-src/.test(policy), 'canlı kanal CSP ilə bloklanmamalıdır');
+  assert.ok(policy.includes('https://gc.zgo.at') && policy.includes('https://8ulduz.goatcounter.com'));
   const inline = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
   assert.equal(inline.length, 1);
   const hash = crypto.createHash('sha256').update(inline[0], 'utf8').digest('base64');
@@ -1264,7 +1706,7 @@ test('content security policy allows only the page own inline script', () => {
   const updater = read('updater.py');
   const template = updater.match(/_CSP = "([^"]+)"/)[1].replace('{hashes}', "'sha256-" + hash + "'");
   assert.equal(template, policy);
-  for (const p of ['index.html', 'assets/app.js', 'assets/komanda.js', 'assets/dil.js', 'assets/reader.js', 'assets/assistant.js'])
+  for (const p of ['index.html', 'assets/app.js', 'assets/komanda.js', 'assets/dil.js', 'assets/reader.js', 'assets/assistant.js', 'assets/sehife.js'])
     assert.ok(!/\son(error|load|click|change|input|submit)=["']/.test(read(p)), p + ' daxili hadisə işləyicisi saxlayır');
 });
 
@@ -1349,13 +1791,21 @@ test('world league with games: credits every source, marks a late result and ope
 test('speed red line: the home page loads no team page code or data', () => {
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(!src.includes('data/futbol'), 'məlumat yalnız komanda.js-dən istənir');
-  assert.equal(src.split('komanda.js').length - 1, 1);
+  assert.equal(src.split('import("./komanda.js")').length - 1, 1, 'modul bir yerdən (teamModule) yüklənir');
+  assert.equal(src.split('komanda.js').length - 1, 2, 'import + idman bölməsində modulepreload (preTeam)');
   const body = src.slice(src.indexOf('function teamView'), src.indexOf('function trafficView'));
-  assert.ok(body.includes('import("./komanda.js")') && body.includes('komanda.css'), 'kod və üslub bu funksiyadadır');
+  assert.ok(body.includes('teamModule(r)') && body.includes('komanda.css'), 'kod və üslub bu funksiyadan gəlir');
+  assert.ok(src.includes('if (r.name === "section" && r.slug === "idman") preTeam();'), 'idman bölməsi açılanda modul, üslub və index əvvəlcədən yüklənir');
+  const km = fs.readFileSync(path.join(root, 'assets/komanda.js'), 'utf8');
+  assert.ok(km.includes('export function prefetch(d, r)') && km.includes('fileOf(d.S, `${DIR}index.json`);') && km.includes('fileOf(d.S, `${DIR}${r.liga}.json`)'), 'komanda.js index və liqanın faylını birlikdə istəyir');
   assert.equal(src.split('teamView(').length - 1, 2, 'tərif və renderView-da komanda ünvanı');
   assert.ok(src.includes('r.name === "team" ? teamView(r)'));
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8'), sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  assert.ok(!index.includes('komanda') && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
+  // index.html-də hazır ilk ekranın xəbər mətni «komanda» sözünü daşıya bilər; yoxlanan kod və məlumat keçidləridir.
+  // 2026-11-06: erkən skript yalnız liqa/komanda keçidində (#/komanda/...) liqa fayllarını və modulu istəyir; ana səhifə yalnız first.json.
+  const early = index.match(/<script>([\s\S]*?)<\/script>/)[1], rest = index.replace(early, '');
+  assert.ok(!/komanda\.(?:js|css)|data\/futbol|#\/komanda\//.test(rest) && !sw.includes('komanda'), 'ilk açılışda və service worker quraşdırılanda da yüklənmir');
+  assert.ok(early.includes('var team = !home && location.hash.match(/^#\\/komanda\\/([a-z0-9-]+)/);') && early.includes('var files = home ? ["data/first.json"] :'), 'skriptdə yalnız liqa/komanda keçidində');
   assert.ok(fs.statSync(path.join(root, 'assets/komanda.js')).size < 30e3, 'komanda.js');
   assert.ok(fs.statSync(path.join(root, 'assets/komanda.css')).size < 12e3, 'komanda.css');
 });
@@ -1574,4 +2024,436 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
   assert.ok(bb.includes('href="#/komanda/nba/los-angeles-lakers"') && !bb.includes('data-club="NBA"'));
   assert.ok(!navPopHtml('idman', 'Basketbol').includes('turkiye'), 'basketbolda futbol liqası yoxdur');
   assert.ok(!navPopHtml('bolgeler', 'Bakı').includes('#/komanda/'));
+});
+
+// Sürət (qırmızı xətt 3): pipeline baş səhifənin ilk ekranını index.html-ə hazır yazır (.github/scripts/prerender.cjs),
+// brauzer onu CSS ilə birgə çəkir, app.js gələndə eyni görünüşü təzə məlumatla əvəz edir.
+function firstFixture(now) {
+  const stamp = new Date(now - 5 * 60e3).toISOString();
+  // 1-ci başlıqda HTML işarəsi: brauzerdə decode() textarea ilə açır, prerender-də cədvəl (açılmasa «&amp;amp;» çıxır)
+  const art = i => ({ id: 'a0a0a0a0a0a0a0a' + i.toString(16), title: i === 1 ? 'Neft &amp; qaz barədə yeni1 açıqlama1' : `Mövzu${i} barədə yeni${i} açıqlama${i}`, summary: '', source: 'APA', sourceUrl: 'https://apa.az/' + i, publishedAt: stamp, category: i % 3 ? 'sosial' : 'iqtisadiyyat', lang: 'az', imageUrl: 'https://apa.az/' + i + '.jpg' });
+  return { updatedAt: stamp, count: 16, og: {}, articles: [...Array(16)].map((_, i) => art(i)) };
+}
+test('speed red line: the first screen is prerendered from first.json with app.js itself, for phone widths, first picture eager', () => {
+  const { homeHtml, firstScreen, validate, KEEP } = require(path.join(root, '.github/scripts/prerender.cjs'));
+  const now = Date.parse('2026-11-03T12:00:00Z');
+  const full = homeHtml(root, firstFixture(now), { now, width: 390 });
+  assert.ok(full.includes('Neft &amp; qaz') && !full.includes('&amp;amp;'), 'başlıqdakı HTML işarəsi brauzerdəki kimi açılır');
+  assert.equal((full.match(/class="hero-main"/g) || []).length, 15, 'tam slayder 15 slayd');
+  const html = firstScreen(full);
+  validate(html);
+  assert.equal((html.match(/class="hero-main"/g) || []).length, KEEP.slides, 'görünən hissə: slaydlar');
+  assert.ok((html.match(/class="pcard/g) || []).length <= KEEP.prez && (html.match(/<article class="card/g) || []).length <= KEEP.latest, 'görünən hissə: Zuğulba və son xəbər kartları');
+  assert.deepEqual(KEEP, { slides: 2, prez: 4, latest: 2, alts: 2 }, 'telefon ekranına sığan qədər (sürət, 2026-11-05)');
+  for (const m of html.matchAll(/data-image-alternatives="\[([^"]*)\]"/g)) assert.ok(m[1].split('&quot;,&quot;').length <= 2, 'hazır nüsxədə ehtiyat şəkil siyahısı 2-yə qədər');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('alt="" loading="lazy" fetchpriority="low" decoding="async"'), 'Zuğulba kiçik şəkilləri aşağı prioritetlə: slayder şəkli birinci keçir (fikstürdə şəkil yoxdur, mənbə yoxlanır)');
+  assert.ok(html.includes('Neft &amp; qaz'), 'ilk slayd qalır');
+  assert.ok(html.includes('<section class="hero">') && html.includes('Son xəbərlər') && html.includes('Zuğulba'), 'slayder, Son xəbərlər, Zuğulba');
+  assert.ok(html.includes('5 dəqiqə əvvəl'), 'vaxt hazırlanma anına görədir');
+  assert.ok(/w=640&amp;we&amp;output=webp[^>]*fetchpriority="high"/.test(html), 'telefon ölçüsü (640), ilk şəkil yüksək prioritetlə');
+  assert.ok(!html.includes('lazy-sec') && !html.includes('service-panel'), 'yalnız ilk ekran: bölmələr tam lentlə gəlir');
+  assert.ok(!/<script\b/i.test(html), 'daxili skript yoxdur: CSP hash-ı dəyişməz qalır');
+  // Eyni mənbə qaydası (qırmızı xətt 2): content-policy.js yüklənir, mənbə siyahısında olmayan sayt hazır nüsxəyə düşmür.
+  const bad = firstFixture(now); bad.articles[0] = { ...bad.articles[0], source: 'Azadlıq', sourceUrl: 'https://azadliq.org/x' };
+  assert.ok(!homeHtml(root, bad, { now, width: 390 }).includes('azadliq.org'));
+});
+test('speed red line: prerender rewrites only the #view block of index.html and is idempotent', () => {
+  const { prerender } = require(path.join(root, '.github/scripts/prerender.cjs'));
+  const os = require('node:os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), '8ulduz-pre-'));
+  for (const d of ['assets', 'data', '.github/scripts']) fs.mkdirSync(path.join(tmp, d), { recursive: true });
+  for (const f of ['index.html', 'assets/app.js', 'assets/content-policy.js']) fs.copyFileSync(path.join(root, f), path.join(tmp, f));
+  const now = Date.parse('2026-11-03T12:00:00Z');
+  fs.writeFileSync(path.join(tmp, 'data/first.json'), JSON.stringify(firstFixture(now)));
+  const before = fs.readFileSync(path.join(tmp, 'index.html'), 'utf8');
+  const viewRe = /(<div class="wrap" id="view" tabindex="-1">)([\s\S]*?)(<noscript>Saytı görmək üçün JavaScript-i aktiv edin\.<\/noscript><\/div><\/main>)/;
+  const tbRe = /(<div class="wrap" id="topbar">)([^\n]*)(<\/div><\/div>\r?)$/m;
+  const r1 = prerender(tmp, { now, width: 390 });
+  const after = fs.readFileSync(path.join(tmp, 'index.html'), 'utf8');
+  assert.equal(r1.changed, true);
+  assert.ok(after.includes('<div class="pre-skel" data-prerender="' + firstFixture(now).updatedAt + '">'), 'hazır blokun vaxt möhürü');
+  const tb = after.match(tbRe)[2]; // yuxarı zolaq hazır: açılışdakı quruluş (hava «—», dil düyməsi, rejim düyməsi), bir sətirdə, skriptsiz
+  assert.ok(tb.includes('<b>—</b>') && tb.includes('class="ldd"') && tb.includes('data-act="theme"') && tb.includes('data-act="pray"') && !/<script/.test(tb), 'hazır yuxarı zolaq: ' + tb.slice(0, 200));
+  assert.equal(before.replace(viewRe, '$1$3').replace(tbRe, '$1$3'), after.replace(viewRe, '$1$3').replace(tbRe, '$1$3'), '#view və #topbar-dan başqa heç nə dəyişməməlidir (CSP, qabıq, sətir sonları)');
+  assert.equal((after.match(/<script>/g) || []).length, 1, 'daxili skript sayı dəyişməz');
+  assert.equal(prerender(tmp, { now, width: 390 }).changed, false, 'ikinci dəfə eyni nəticə, fayl yazılmır');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+test('speed red line: the prerendered first screen stays until data arrives; the skeleton and the error do not wipe it', () => {
+  let html = '<div class="pre-skel" data-prerender="x">hazır</div>';
+  const view = { querySelector: s => s === '.pre-skel[data-prerender]' && html.includes('data-prerender') ? {} : null, set innerHTML(v) { html = v; }, get innerHTML() { return html; }, insertAdjacentHTML(_, h) { html = h + html; } };
+  const ctx = app({ document: { documentElement: { dataset: {} }, title: '', addEventListener() {}, querySelector: s => s === '#view' ? view : s === '#cta' ? {} : null, querySelectorAll: () => [], createElement: () => ({}) } });
+  vm.runInContext('syncQuery = () => {}; pageMeta = () => {}; countVisit = () => {}; highlightSearch = () => {};', ctx);
+  ctx.api.renderView();
+  assert.equal(html, '<div class="pre-skel" data-prerender="x">hazır</div>', 'skelet hazır ekranı silməməlidir');
+  ctx.api.S.error = 'şəbəkə';
+  ctx.api.renderView();
+  assert.ok(html.startsWith('<div class="err"') && html.endsWith('hazır</div>'), 'xəta yuxarıda, hazır ekran qalır');
+  ctx.api.S.error = null;
+  ctx.location.hash = '#/bolme/sosial';
+  ctx.api.renderView();
+  assert.ok(html.includes('class="skel"') && !html.includes('hazır'), 'başqa səhifə hazır ekranı gözləmir, skelet çəkilir');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('const pre = v.querySelector?.(":scope > .pre-skel");') && src.includes('pre.replaceWith(...kids)'), 'patchView sarğını açır, kartlar yerində qalır');
+  const pipeline = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
+  assert.ok(pipeline.includes('prerender.cjs') && pipeline.includes('bolme index.html'), 'pipeline hər main yazılışında ilk ekranı hazırlayır və commit edir');
+});
+
+// Sahibin telefon qeydləri (2026-11-04): Zuğulbada paylaş, «yeni xəbər» düyməsi, boş qalmayan bölmə, slayder, açılan panellər,
+// dörd valyuta, namaz/hava pəncərələri, konum, liqadan İdmana qayıdış.
+test('Zuğulba card is a link with a share button outside the link; the latest list has an anchor', () => {
+  const ctx = app(), { prezBlock, prezHome, latestBlock } = ctx.api;
+  const at = new Date().toISOString();
+  const prez = [{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, imageUrl: 'https://president.az/a.jpg', lang: 'az' }];
+  const html = prezBlock(prezHome(prez));
+  assert.ok(html.includes('<article class="pcard has-img" data-cat="prezident"><a class="pcard-hit" href="https://president.az/1"'), 'kart keçiddir');
+  assert.ok(/<\/a><button type="button" class="share" data-act="share" data-share="https:\/\/8ulduz\.az\/#\/xeber\/p1[^"]*"[^>]*>Paylaş<\/button><\/article>/.test(html), 'Paylaş düyməsi keçidin kənarındadır');
+  assert.ok(!html.match(/<a class="pcard-hit"[^>]*>([\s\S]*?)<\/a>/)[1].includes('<button'), 'keçidin içində düymə yoxdur');
+  ctx.api.S.latestOrder = 'latest';
+  assert.ok(latestBlock([]).startsWith('<section id="son-xeberler">'), '«N yeni xəbər» düyməsi bura sürüşdürür');
+});
+test('a home section never vanishes: shown stories stay in it, an empty category falls back to its archive', () => {
+  const ctx = app(), { S, homeView } = ctx.api;
+  const at = new Date().toISOString();
+  const sos = Array.from({ length: 5 }, (_, i) => ({ id: 's' + i, title: 'Pensiya artımı barədə yeni qərar ' + i, category: 'sosial', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/s' + i, publishedAt: at }));
+  S.lang = 'az'; S.og = {}; S.partial = false;
+  S.data = { articles: sos }; // hamısı «Son xəbərlər»dədir
+  let html = homeView();
+  assert.ok(html.includes('<h2>Sosial müdafiə</h2>') && html.includes('5 xəbər'), 'blok var, xəbərlər «Son xəbərlər»də olsa da');
+  S.data = { articles: [{ id: 'g', title: 'Bakıda yeni park açılıb bu gün', category: 'gundem', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/g', publishedAt: at }] };
+  S.archive = { sosial: { at: Date.now(), rows: sos } };
+  html = homeView();
+  assert.ok(html.includes('<h2>Sosial müdafiə</h2>'), 'lentdə yoxdursa arxivdən dolur');
+  assert.ok(!html.includes('<h2>Video</h2>') || html.includes('ytrow'), 'video bölməsi arxiv istəmir');
+  S.partial = true;
+  assert.ok(!homeView().includes('lazy-sec'), 'ilk ekran dəyişmir');
+});
+test('phone fixes are in place: slider does not stop for good, panels close on outside click, four currencies fit, popups are not clipped', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(!src.includes('_userStop') && src.includes('hoverUI && node.matches(":hover")') && src.includes('hero._holdUntil = Date.now() + 12000'), 'toxunuş slayderi 12 saniyə saxlayır, həmişəlik yox');
+  assert.ok(src.includes('row.children[at + 2], row.children[0]') && src.includes('row._near?.(to)'), 'növbəti slaydların şəkli əvvəlcədən yüklənir');
+  assert.ok(src.includes('details.service-panel[open], details.social-details[open]') && src.includes('S.svcOpen = false; if (!kept)'), 'açılan bölmələr kənara basanda və səhifə dəyişəndə bağlanır');
+  assert.ok(src.includes('r.slug === S.clubSlug') && src.includes('r.name === "team" ? "idman"'), 'liqadan geri qayıdanda Futbol sırası qalır, nav İdmanı göstərir');
+  assert.ok(src.includes('function jumpToLatest()') && src.includes('S.latestOrder = "latest"; S.latestCount = 8; } render(); jumpToLatest();'), '«yeni xəbər» düyməsi Son xəbərlər → Ən yeni');
+  assert.ok(src.includes('navigator.permissions?.query?.({ name: "geolocation" })') && src.includes('data-act="geo"') && !src.includes('getCurrentPosition(applyGeo, undefined'), 'konum yalnız düymə ilə və ya əvvəl verilmiş icazə ilə');
+  assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)'), 'telefonda canlı xəritə Yandex, Waze tətbiqdə açılır');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  // Sahib, 2026-11-06: üç kart + › sınandı, əvvəlki dörd kartlı format qaytarıldı.
+  assert.ok(css.includes('.mk:nth-child(-n+4){flex:0 0 calc((100% - 18px)/4)') && css.includes('.mk:nth-child(-n+4) .c span:last-child{display:none}'), 'dörd valyuta bir ekranda');
+  // Sahib, 2026-11-06 (axşam): 3 rəng qaydası — kartlar bir rəngdə; telefonda faiz yerinə ox, qiymət yaşıl/qırmızı (2 rəqəm tam görünür)
+  assert.ok(!css.includes('[data-fx=XAU]{--mk-a') && !css.includes('--mh:'), 'valyuta kartları ayrı-ayrı rənglənmir');
+  assert.ok(css.includes('.mk .c{display:none}.mk .v::after{content:attr(data-ar)') && css.includes('.mk[data-d=up] .v{color:var(--up)}.mk[data-d=down] .v{color:var(--down)}'), 'telefonda ox və rəng');
+  assert.ok(src.includes('data-d="${cls}"') && src.includes('data-ar="${has ? (i.changePct > 0 ? "↑"'), 'kart istiqaməti bilir');
+  assert.ok(css.includes('--bg:#f6f4ee;--fg:#172b4d;--card:#fff;') && !css.includes('#229ED9'), 'açıq fon ağımtıl, Telegram sətri saytın göy rəngində');
+  assert.ok(css.includes('.topbar{position:relative}') && css.includes('.topbar .wrap{position:static}'), 'namaz və hava pəncərələri zolağın içində kəsilmir');
+  assert.ok(css.includes('.pcard .share{position:absolute'), 'Zuğulba paylaş düyməsi kartın küncündədir');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(/frame-src [^"]*https:\/\/yandex\.com/.test(index), 'CSP Yandex xəritəsinə icazə verir');
+});
+test('location: nearest city within Azerbaijan, none abroad; traffic centres on it until the reader picks an area', () => {
+  const ctx = app(), { S } = ctx.api;
+  const nearestCity = vm.runInContext('nearestCity', ctx), tixArea = vm.runInContext('tixArea', ctx), savedPrayCity = vm.runInContext('savedPrayCity', ctx), geoCity = vm.runInContext('geoCity', ctx);
+  assert.equal(nearestCity(40.59, 49.67)[0], 'Sumqayıt');
+  assert.equal(nearestCity(40.68, 46.36)[0], 'Gəncə');
+  assert.equal(nearestCity(41.01, 28.97), null, 'İstanbul: şəhər seçilmir');
+  assert.equal(tixArea().id, 'merkez');
+  S.geo = { lat: 40.59, lon: 49.67, city: 'Sumqayıt', at: Date.now() };
+  assert.equal(tixArea().id, 'konum', 'konum tapılıbsa xəritə ona mərkəzlənir');
+  S.tixArea = 'hava'; S.tixUser = true;
+  assert.equal(tixArea().id, 'hava', 'oxucunun seçimi üstündür');
+  assert.equal(savedPrayCity(), 'Sumqayıt', 'şəhər seçilməyibsə namaz konumun şəhərinə görədir');
+  assert.equal(geoCity()[0], 'Sumqayıt');
+  S.geo = { lat: 41.01, lon: 28.97, city: null, at: Date.now() };
+  assert.equal(geoCity()[0], 'Bakı', 'xaricdə hava və namaz Bakıya görə qalır');
+});
+
+// 2026-11-04, sahibin 14 qeydi: başlıq sırası, dil seçimi, paylaşma ikonları, hərəkət düyməsi, Zuğulba süzgəci, nadir səhifələr ayrıca modulda.
+test('owner notes: the logo row comes first with the install slot and a search button, the utility bar second; old language and filter rows are gone', () => {
+  const app_ = shellParts().app;
+  assert.ok(app_.indexOf('id="sitehead"') < app_.indexOf('id="topbar"'), 'loqo sətri yuxarı zolaqdan əvvəldir');
+  assert.ok(app_.includes('<span class="inst" id="inst"></span>') && app_.includes('class="qbtn" data-act="find"'), 'quraşdırma yeri və lupa düyməsi başlıq sətrindədir');
+  assert.ok(!app_.includes('langstick') && !app_.includes('id="langs"') && !app_.includes('class="filters"'), 'köhnə dil və süzgəc sətirləri yoxdur');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.inst .install-btn{background:var(--primary)'), '«Ana ekrana əlavə et» seçilən rəngdədir');
+  assert.ok(css.includes('.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}') && css.includes('.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}'), 'telefonda Zuğulba kartları bərabər, lent düz iki kart + ara (üçüncü kartın kəsiyi görünmür)');
+  assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir (yalnız ≤370 px-də böyük işarə)');
+  assert.ok(css.includes('#son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}'), '«Son xəbərlər» aydın xətlə ayrılır');
+  assert.ok(!css.includes('.shr .sh{display:grid') && !css.includes('.sh{display:none'), 'telefonda da «Paylaş» düyməsi, yerində işarə yoxdur (sahib, 2026-11-05)');
+});
+test('owner notes: the utility bar carries the language dropdown with flag and code; a bad sync shows a retry button there', () => {
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, classList: { toggle() {}, add() {}, remove() {} }, dataset: {}, style: {} };
+  const ctx = app({ document: { documentElement: { dataset: {} }, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return {}; } } });
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  vm.runInContext(src.slice(src.indexOf('\nfunction renderTopbar() {'), src.indexOf('\nconst NAV_PRIMARY')), ctx); // harness-in boş renderTopbar-ı əvəzinə əsli
+  const { S } = ctx.api;
+  S.lang = 'ru';
+  vm.runInContext('renderTopbar()', ctx);
+  let html = els.topbar.innerHTML;
+  assert.ok(html.includes('class="ldd"') && html.includes('data-act="lang"') && html.includes('<b>RU</b>') && html.includes('class="flag"') && !html.includes('data-lang='), 'bağlı dil seçimi: bayraq + kod + ox');
+  assert.ok(html.includes('class="wcity"') && /<span>İşıqlı<\/span>/.test(html), 'hava şəhəri ayrıca, rejim düyməsində söz');
+  S.langOpen = true;
+  vm.runInContext('renderTopbar()', ctx);
+  html = els.topbar.innerHTML;
+  assert.ok(html.includes('data-lang="ru" aria-pressed="true"') && html.includes('data-lang="" aria-pressed="false"'), 'açıq: dil düymələri');
+  S.lang = null; S.langOpen = false; S.error = 'x';
+  vm.runInContext('renderTopbar()', ctx);
+  html = els.topbar.innerHTML;
+  assert.ok(html.includes('<b>Hamısı</b>') && html.includes('class="retry" data-act="refresh"'), '«Hamısı» və xəta olanda «Yenilə»');
+});
+test('owner notes: share — every card carries the «Paylaş» button only (phone icons withdrawn 2026-11-05), the panel lists F, X, W, T, copy; every target is a web address', () => {
+  const ctx = app(), { card, prezBlock, prezHome, S } = ctx.api, at = new Date().toISOString();
+  S.og = {};
+  const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
+  assert.ok(html.includes('<button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/xeber/1?b=gundem" title="Paylaş">Paylaş</button>'), '«Paylaş» düyməsi');
+  assert.ok(!html.includes('class="sh"') && !html.includes('class="shr"') && !/SHR_ICONS|\.shr/.test(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8')), 'kartda yerində işarə yoxdur, kodda qalığı da (sahib, 2026-11-05)');
+  const prez = prezBlock(prezHome([{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, lang: 'az' }]));
+  assert.ok(prez.includes('class="share"') && prez.includes('data-prez-pause'), 'Zuğulba kartında da düymə; başlıqda dayandır düyməsi');
+  const to = vm.runInContext('SHARE_TO', ctx);
+  assert.deepEqual(Object.keys(to), ['fb', 'x', 'wa', 'tg', 'in', 'mail']);
+  for (const [k, v] of Object.entries(to)) { const u = v[2]('https%3A%2F%2F8ulduz.az%2F%23%2Fxeber%2F1', 'B'); assert.ok(/^(https:\/\/|mailto:)/.test(u) && u.includes('8ulduz.az'), k); }
+  assert.ok(!card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'javascript:alert(1)', publishedAt: at }).includes('data-to='), 'təhlükəli keçid paylaşılmır');
+});
+test('owner notes: motion can be stopped and restarted; the system reduced-motion setting stops it by default and the button overrides it', () => {
+  const off = (reduce, stored) => { const ctx = app({ matchMedia: q => ({ matches: reduce && /reduced-motion/.test(q) }) }); if (stored) ctx.api.storage.setItem('8ulduz-motion', stored); return vm.runInContext('motionOff()', ctx); };
+  assert.equal(off(false, null), false);
+  assert.equal(off(true, null), true, 'hərəkəti azalt → dayanıq');
+  assert.equal(off(true, 'on'), false, 'düymə ilə açılıb');
+  assert.equal(off(false, 'off'), true, 'düymə ilə dayandırılıb');
+  const ctx = app();
+  assert.ok(vm.runInContext('motionBtn()', ctx).includes('data-act="motion" aria-pressed="false"'));
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (motionOff() || !el.classList.contains("vmarquee")) return;') && src.includes('document.hidden || motionOff() ||') && src.replace(/\r\n/g, '\n').includes('if (motionOff()) return;\n  const half'), 'addım, slayder və lent eyni açarı dinləyir');
+  assert.ok(src.includes('const KEYED = ".hero-row,.prez-lent"') && src.includes('restoreAnchor(box, anchor)'), 'yenilənmə sürüşən siyahıda oxunan kartı yerində saxlayır');
+  assert.ok(src.includes("Date.now() - (S.touchAt || 0) < 8000"), 'oxucu toxunduqdan sonra 8 saniyə ekran dəyişmir');
+});
+test('owner notes: Zuğulba filter — another country\'s first lady is not ours, our leadership is', () => {
+  const ctx = app(), f = vm.runInContext('aboutOurLeaders', ctx), at = new Date().toISOString();
+  assert.equal(f({ title: 'ABŞ-nin birinci xanımı Oleşkidə atəşkəslə bağlı diplomatik görüş təşkil edəcək' }), false);
+  assert.equal(f({ title: 'Özbəkistanın birinci xanımına kömək etdi' }), false);
+  assert.equal(f({ title: 'Birinci xanım Mehriban Əliyeva Şuşada olub' }), true);
+  assert.equal(f({ title: 'Azərbaycanın birinci xanımı sərgi ilə tanış olub' }), true);
+  assert.equal(f({ title: 'Birinci xanım Bakıda sərgi ilə tanış olub' }), true);
+  const foreign = [{ id: 'f', category: 'prezident', source: 'Baku.ws', sourceUrl: 'https://baku.ws/x', title: 'ABŞ-nin birinci xanımı Oleşkidə atəşkəslə bağlı diplomatik görüş təşkil edəcək', publishedAt: at, lang: 'az' }];
+  assert.equal(ctx.api.prezHome(foreign).length, 0, 'yad xanım Zuğulbaya düşmür');
+});
+test('owner notes: turning notifications on shows a confirmation notification at once', async () => {
+  const shown = [];
+  const ctx = app({ window: { addEventListener() {}, Notification: { permission: 'granted' } }, Notification: { permission: 'granted' } });
+  vm.runInContext('renderTicker = () => {};', ctx);
+  ctx.api.S.swReg = { showNotification: async (title, o) => { shown.push([title, o]); } };
+  await vm.runInContext('armNotify()', ctx);
+  assert.equal(ctx.api.storage.getItem('8ulduz-notify'), '1');
+  assert.ok(shown.length === 1 && shown[0][0] === 'Son dəqiqə' && /Bildiriş aktivdir/.test(shown[0][1].body), 'aktiv edən kimi nümunə bildiriş gəlir');
+});
+test('owner notes: slider images are all fetched as soon as the reader touches the slider; the Zuğulba list looks further ahead', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('row.addEventListener("pointerdown", all, { once: true, passive: true })') && src.includes('row.children[at - 1], row.children[at]'), 'slayder: toxunanda hamısı, əvvəlki slayd da əvvəlcədən');
+  assert.ok(src.includes('lent.clientHeight + 900') && src.includes('lent.addEventListener("touchstart", loadNear'), 'Zuğulba: 900 px irəli, toxunanda dərhal');
+});
+test('owner notes: rare pages (sources, about, sections) live in sehife.js, are asked only when opened and still render with the helpers', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.equal(src.split('import("./sehife.js")').length - 1, 1);
+  assert.ok(!src.includes('<h1>Haqqımızda</h1>') && !src.includes('<h1>Mənbə vəziyyəti</h1>') && !src.includes('<ul class="mine">'), 'səhifə mətnləri app.js-də deyil');
+  const mod = fs.readFileSync(path.join(root, 'assets/sehife.js'), 'utf8').replace(/\r\n/g, '\n');
+  for (const n of ['sourcesView', 'aboutView', 'sectionsView']) assert.ok(mod.includes(`export function ${n}(d)`), n);
+  const ctx = app(), { S } = ctx.api;
+  const m = vm.runInContext('(function(){' + mod.replace(/^export /gm, '') + '\nreturn { sourcesView, aboutView, sectionsView }; })()', ctx);
+  S.data = { articles: [{ id: 'a', title: 'Xəbər', source: 'APA', sourceUrl: 'https://apa.az/1', category: 'gundem', lang: 'az', publishedAt: new Date().toISOString() }] };
+  S.sources = { sources: [{ name: 'APA', url: 'https://apa.az/rss', count: 3, okAt: new Date().toISOString() }] };
+  vm.runInContext('globalThis.__deps = { S, esc, sourceName, shownSource, removedSource, sourceLevel, ago, trackedSources, sectionPref, CATS, ASSISTANT_ON, DRIVER_ON, config: { contact: "a@b.az", goatcounter: "x" } };', ctx);
+  const d = ctx.__deps;
+  assert.ok(m.aboutView(d).includes('<h1>Haqqımızda</h1>') && m.aboutView(d).includes('a@b.az'));
+  assert.ok(m.sourcesView(d).includes('<h1>Mənbə vəziyyəti</h1>') && m.sourcesView(d).includes('src-row ok'));
+  assert.ok(m.sectionsView(d).includes('<h1>Mənim bölmələrim</h1>') && m.sectionsView(d).includes('data-act="sec-toggle"'));
+  assert.equal(ctx.api.homeView.name, 'homeView');
+  assert.ok(vm.runInContext('aboutView()', ctx).includes('Yüklənir'), 'modul gələnə qədər yüklənir yazısı');
+});
+test('owner notes: share icons come from one sprite file, the phone install chip sits inside the section rows, the language list is one row per language', () => {
+  const sprite = fs.readFileSync(path.join(root, 'assets/sosial.svg'), 'utf8');
+  for (const id of ['fb', 'x', 'wa', 'tg', 'in', 'mail', 'cp']) assert.ok(sprite.includes(`<symbol id="${id}"`), id);
+  assert.ok(!/<script|on\w+=/i.test(sprite), 'sprite-də skript yoxdur');
+  const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
+  S.og = {};
+  const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
+  const shIcon = vm.runInContext('shIcon', ctx); // panelin işarələri sprite-dandır
+  assert.equal(shIcon('fb'), '<svg aria-hidden="true"><use href="./assets/sosial.svg#fb"/></svg>', 'işarə <use> ilə çəkilir, hərf yoxdur');
+  assert.ok(html.includes('class="share"') && !html.includes('class="sh"'), 'kartda yalnız düymə');
+  // telefon: yuxarı zolağın qutusu açılır, dil + rejim + şrift loqo sətrində, Namaz + hava + lupa + «Ana ekrana əlavə et» ikinci sətirdə
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.hrow>.topbar,.hrow>.topbar>.wrap{display:contents}') && css.includes('.hrow .ldd{order:2;margin-left:auto}') && css.includes('.hrow .prefs{order:3') && css.includes('.hrow::after{content:"";order:4;flex:1 0 100%') && css.includes('.inst{order:8;margin-left:auto}'), 'telefon sətirləri sahibin sırası ilə');
+  assert.ok(css.includes('.ticker .lbl .bell::after{content:"🔔"') && css.includes('.ticker .lbl .bell{font-size:0'), 'telefonda «Bildiriş» sözü yox, zəng işarəsi');
+  assert.ok(css.includes('.mk{display:grid;grid-template-columns:minmax(0,1fr) auto'), 'məzənnə kartı iki sətir');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('const dec = Math.min(i.dec ?? 2, 2);') && src.includes('${fmt(i.value, dec)}'), 'kartda nöqtədən sonra ən çox 2 rəqəm');
+  const list = ctx.api.languagePicker();
+  assert.equal((list.match(/class="ldm/g) || []).length, 5, 'dörd dil + «Hamısı», hər biri öz sətrində');
+  assert.ok(list.indexOf('data-lang="az"') < list.indexOf('data-lang=""'), '«Hamısı» sonda');
+  assert.ok(css.includes('.ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%') && css.includes('.ldd-pop{') && css.includes('background:#fff;color:#0a1120'), 'dairəvi bayraq, fərqli fonlu kart');
+});
+test('follow stays in the header; the channel promotion and duplicate footer follow control are removed', () => {
+  const cfg = fs.readFileSync(path.join(root, 'assets/config.js'), 'utf8');
+  assert.ok(cfg.includes('telegram: "https://t.me/') && !cfg.includes('telegram: "https://t.me/"'), 'config.js-də Telegram ünvanı var');
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: id === 'app' ? { shell: '1' } : {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
+  const ctx = app({
+    location: { hash: '#/', href: 'https://8ulduz.az/' }, history: { replaceState() {} },
+    window: { addEventListener() {}, SITE_CONFIG: { goatcounter: '', telegram: 'https://t.me/kanal', contact: '' } },
+    document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
+    requestAnimationFrame: () => 0,
+  });
+  vm.runInContext('shell()', ctx);
+  assert.equal(els.app.innerHTML, '', 'statik qabıq (data-shell) yenidən yazılmır');
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(!index.includes('id="cta"'), 'kanala qoşulma kartı yoxdur');
+  assert.equal((index.match(/class="follow-btn"/g) || []).length, 1, 'yalnız başlıqdakı izləmə düyməsi qalır');
+  vm.runInContext('S.data = {articles: []}; renderFooter();', ctx);
+  assert.ok(!els.footer.innerHTML.includes('data-act="follow"'), 'altlıqda təkrar izləmə yoxdur');
+  assert.ok(els.footer.innerHTML.includes('Haqqımızda'), 'faydalı altlıq keçidləri saxlanır');
+});
+
+// Sahibin 4 noyabr videoları (08.mp4, 09.mp4): yenidən açılışda hazır ilk ekranda Zuğulbanın ilk kartı rusca idi (Day.Az),
+// hava «—» → Bakı 19° → şəhər 15° titrəyirdi, «2 yeni xəbər» düyməsi səhifənin başında asılı qalırdı (sahib aşağı çəkib yenilədi).
+test('Zuğulba: the reader\'s language comes first; other languages only fill the tail', () => {
+  const ctx = app(), { prezHome, S } = ctx.api;
+  const at = i => new Date(Date.now() - i * 3600e3).toISOString();
+  const row = (id, i, lang, title) => ({ id, lang, category: 'prezident', source: lang === 'az' ? 'Günün Səsi' : 'Day.Az', title, sourceUrl: 'https://x.az/' + id, publishedAt: at(i) });
+  const az = Array.from({ length: 5 }, (_, i) => row('a' + i, i + 2, 'az', 'İlham Əliyev təbrik edib ' + i));
+  const ru = Array.from({ length: 50 }, (_, i) => row('r' + i, i, 'ru', 'Ильхам Алиев принял посла ' + i));
+  S.lang = 'az';
+  const out = [...prezHome(az, [...ru, ...az])];
+  assert.equal(out.length, 44, 'say qaydası qalır: dil çatmayanda başqa dil doldurur');
+  assert.deepEqual(out.slice(0, 5).map(a => a.id), ['a0', 'a1', 'a2', 'a3', 'a4'], 'oxucunun dili əvvəl, rusca daha təzə olsa da');
+  assert.ok(out.slice(5).every(a => a.lang === 'ru'), 'başqa dil yalnız sonda');
+  const many = Array.from({ length: 50 }, (_, i) => row('m' + i, i + 2, 'az', 'İlham Əliyev qəbul edib ' + i));
+  assert.ok([...prezHome(many, [...ru, ...many])].every(a => a.lang === 'az'), 'dil dolursa başqa dil heç girmir');
+});
+test('pending render re-arms while the reader is busy: new stories apply after the last touch, not at the next minute poll', () => {
+  const ctx = app(), { S, requestRender } = ctx.api;
+  const timers = []; ctx.timers = timers;
+  vm.runInContext('globalThis.setTimeout = (fn, ms) => { timers.push([fn, ms]); return timers.length; }; globalThis.clearTimeout = () => {};', ctx);
+  S.data = { articles: [] }; S.touchAt = Date.now(); S.pendingNew = 3;
+  requestRender();
+  assert.equal(S.renderPending, true);
+  let [fn, ms] = timers.pop(); assert.equal(ms, 8500);
+  fn(); // hələ məşğuldur: əvvəl burada dayanırdı, növbəti dəqiqəyə qalırdı
+  [fn, ms] = timers.pop(); assert.equal(ms, 2000, 'məşğul qalıbsa 2 saniyədən bir yoxlanır');
+  assert.equal(S.renderPending, true);
+  S.touchAt = 0; fn();
+  assert.equal(S.renderPending, false, 'toxunma kəsilən kimi çəkilir');
+  assert.equal(S.pendingNew, 0, 'düymə sönür');
+});
+test('weather and prayer times wait for the known location: no Bakı-then-city flicker, last weather restored from storage', async () => {
+  const store = new Map(), ls = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
+  const wxJson = { current: { temperature_2m: 15, apparent_temperature: 14, relative_humidity_2m: 50, precipitation: 0, weathercode: 1, surface_pressure: 1010, wind_speed_10m: 3 } };
+  const make = (state, urls) => app({ localStorage: ls,
+    navigator: { onLine: true, geolocation: { getCurrentPosition: ok => ok({ coords: { latitude: 40.6828, longitude: 46.3606 } }) }, permissions: { query: async () => ({ state }) } },
+    fetch: async u => { urls.push(String(u)); return { ok: true, json: async () => /current=temperature_2m/.test(u) ? wxJson : /aladhan/.test(u) ? { data: { timings: { Fajr: '05:55' } } } : {} }; } });
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(r => setImmediate(r)); };
+  // Konum icazəsi əvvəl verilib: əvvəl şəhər, sonra hava və namaz — Bakı sorğusu heç getmir
+  let urls = [];
+  const ctx = make('granted', urls);
+  ctx.api.storage.setItem('8ulduz-geo', '1');
+  await vm.runInContext('loadLocal()', ctx); await settle();
+  const wx = urls.filter(u => /current=temperature_2m/.test(u)), pray = urls.filter(u => /aladhan/.test(u));
+  assert.equal(wx.length, 1, 'bir hava sorğusu'); assert.ok(wx[0].includes('latitude=40.6828'), 'birbaşa Gəncə: ' + wx[0]);
+  assert.equal(pray.length, 1); assert.ok(pray[0].includes('latitude=40.6828'), 'namaz da Gəncə');
+  assert.equal(ctx.api.S.wx.city, 'Gəncə'); assert.equal(ctx.api.S.wx.temp, 15);
+  // Növbəti açılış: son hava yaddaşdan dərhal («—» yerinə)
+  const next = make('granted', []);
+  vm.runInContext('restoreLocal()', next);
+  assert.equal(next.api.S.wx?.temp, 15, 'yaddaşdakı hava'); assert.equal(next.api.S.wx.city, 'Gəncə');
+  // İcazə yoxdursa (soruşulmamış): Bakı ilə gəlir, konum soruşulmur
+  urls = []; store.delete('8ulduz-geo');
+  const plain = make('prompt', urls);
+  await vm.runInContext('loadLocal()', plain); await settle();
+  const wx2 = urls.filter(u => /current=temperature_2m/.test(u));
+  assert.equal(wx2.length, 1); assert.ok(wx2[0].includes('latitude=40.4093'), 'Bakı');
+  assert.ok(!plain.api.S.geo, 'konum soruşulmayıb');
+});
+
+// Sahibin 4 noyabr qeydləri (telefon): sosial hesablar alt-alta, X/Facebook-dan geri sayta, Facebook paylaşımında xəbər görünsün,
+// kopyalanan keçiddə xəbər bilinsin və geri sayta qayıtsın.
+test("owner's share notes: main-feed stories share /x/ID, minute-feed and non-hex ids keep the hash link, copy carries the title", async () => {
+  const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
+  S.og = {};
+  const row = (id, extra = {}) => ({ id, title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at, ...extra });
+  S.data = { articles: [] };
+  assert.ok(card(row('0123456789abcdef')).includes('data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem"'), 'bayraqsız (köhnə pipeline) əvvəlki keçid');
+  S.data = { articles: [], sharePages: true };
+  assert.ok(card(row('0123456789abcdef')).includes('data-share="https://8ulduz.az/x/0123456789abcdef"'), 'main-dəki xəbər og etiketli səhifə ilə paylaşılır');
+  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes('data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem"'), 'dəqiqəlik gələn xəbərin səhifəsi hələ yoxdur');
+  assert.ok(card(row('1')).includes('data-share="https://8ulduz.az/#/xeber/1?b=gundem"'), '16 rəqəmli olmayan nömrə');
+  const written = [];
+  ctx.navigator.clipboard = { writeText: async s => { written.push(s); } };
+  const btn = { dataset: { to: 'cp' }, classList: { contains: () => true }, textContent: 'c', closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'Neft bahalaşdı' } }) };
+  await vm.runInContext('shareTo', ctx)(btn);
+  assert.deepEqual(written, ['Neft bahalaşdı\nhttps://8ulduz.az/x/0123456789abcdef'], 'kopyada başlıq + keçid');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('for (const a of fresh) a.live = 1;'), 'dəqiqəlik lentdən gələn sətir işarələnir');
+});
+
+test("owner's share notes: on Android share targets open the app in place, official accounts open in a Chrome tab (Back returns to the site)", () => {
+  const ctx = app({ navigator: { onLine: true, userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile' }, location: { hash: '#/', href: 'https://8ulduz.az/' } });
+  const appLink = vm.runInContext('appLink', ctx);
+  assert.equal(appLink('https://x.com/presidentaz'), 'intent://x.com/presidentaz#Intent;scheme=https;package=com.twitter.android;S.browser_fallback_url=https%3A%2F%2Fx.com%2Fpresidentaz;end');
+  assert.ok(appLink('https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2F8ulduz.az%2Fx%2F1').startsWith('intent://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2F8ulduz.az%2Fx%2F1#Intent;scheme=https;package=com.facebook.katana;'), 'Facebook paylaşımı tətbiqdə');
+  assert.ok(appLink('https://wa.me/?text=B%0Ahttps%3A%2F%2F8ulduz.az').includes('package=com.whatsapp;') && appLink('https://t.me/share/url?url=u').includes('package=org.telegram.messenger;') && appLink('https://www.youtube.com/@presidentaz').includes('package=com.google.android.youtube;'));
+  assert.equal(appLink('https://president.az/az'), '', 'tətbiqi olmayan sayt əvvəlki kimi');
+  assert.equal(appLink('http://x.com/a'), '', 'yalnız https');
+  assert.equal(vm.runInContext('appLink', app())('https://x.com/presidentaz'), '', 'Android deyilsə yeni vərəq (window.open)');
+  let prevented = false;
+  const a = { href: 'https://www.instagram.com/presidentaz/', closest: sel => sel === '.soc-g a' ? a : null };
+  vm.runInContext('onClick', ctx)({ target: a, preventDefault() { prevented = true; } });
+  assert.equal(ctx.location.href, 'intent://www.instagram.com/presidentaz/#Intent;scheme=https;package=com.android.chrome;S.android.support.customtabs.extra.SESSION=;S.browser_fallback_url=https%3A%2F%2Fwww.instagram.com%2Fpresidentaz%2F;end', 'rəsmi hesab: Chrome Custom Tab kimi (saytın tapşırığında; tətbiqdən və adi vərəqdən geri baş ekrana düşürdü), geri sayta');
+  assert.ok(prevented);
+  assert.equal(vm.runInContext('chromeLink', ctx)('http://x.com/a'), '', 'yalnız https');
+  const btn = { dataset: { to: 'fb' }, classList: { contains: () => true }, closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'B' } }) };
+  vm.runInContext('shareTo', ctx)(btn);
+  assert.ok(ctx.location.href.startsWith('intent://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2F8ulduz.az%2Fx%2F0123456789abcdef#Intent;'), 'paylaşma düyməsi də');
+});
+
+test("owner's share notes: a story opened from a shared link gets the home page under it so Back returns to the site", () => {
+  const calls = [];
+  const ctx = app({ location: { hash: '#/xeber/0123456789abcdef?b=gundem' }, history: { length: 1, replaceState: (s, t, u) => calls.push(['replace', u]), pushState: (s, t, u) => calls.push(['push', u]) } });
+  vm.runInContext('backHome()', ctx);
+  assert.deepEqual(calls, [['replace', '#/'], ['push', '#/xeber/0123456789abcdef?b=gundem']]);
+  calls.length = 0; ctx.history.length = 3;
+  vm.runInContext('backHome()', ctx);
+  assert.deepEqual(calls, [], 'saytın içindən açılan xəbərdə tarixçə dəyişmir');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('{ loadShared(r0.id); backHome(); }'), 'açılışda paylaşılan keçiddə çağırılır');
+});
+
+test("owner's share notes: the worker leaves /x/ID to the browser, 404.html sends an expired share page to the story, phone CSS stacks the accounts", () => {
+  const {listeners} = worker();
+  let called = false;
+  listeners.fetch({request: {url: 'https://example.com/8ulduz/x/0123456789abcdef', mode: 'navigate', method: 'GET'}, respondWith() { called = true; }});
+  assert.equal(called, false, 'paylaşma səhifəsi işçinin keşinə düşmür');
+  const nf = fs.readFileSync(path.join(root, '404.html'), 'utf8');
+  const code = nf.match(/<script>([^<]*location\.replace[^<]*)<\/script>/)[1];
+  const hash = require('crypto').createHash('sha256').update(code).digest('base64');
+  assert.ok(nf.includes(`'sha256-${hash}'`), '404 səhifəsinin yönləndirmə skripti CSP-dədir');
+  assert.ok(code.includes('/\\/x\\/([0-9a-f]{16})$/') && code.includes('location.replace("/#/xeber/"+m[1])'), '/x/ID → #/xeber/ID (tarixçədə iz qoymur)');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const phone = css.slice(css.lastIndexOf('@media(max-width:600px)'));
+  assert.ok(phone.includes('.prez .soc-links{flex-direction:column') && phone.includes('.prez .soc-g{flex-direction:row;flex-wrap:wrap') && !phone.includes('attr(title)'), 'telefonda iki sətir: üstdə İlham Əliyev, altda Mehriban Əliyeva, işarələr əvvəlki kimi');
+  assert.ok(css.includes('.soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}'), 'işarələr sprite-dan ölçülənir');
+  const svg = fs.readFileSync(path.join(root, 'assets/sosial.svg'), 'utf8');
+  assert.ok(svg.includes('<symbol id="ig"') && svg.includes('<symbol id="yt"'), 'Instagram və YouTube işarələri sprite-dadır');
+  const { profileRows } = { profileRows: vm.runInContext('profileRows', app()) };
+  const rows = profileRows();
+  assert.ok(rows.includes('sosial.svg#ig') && !rows.includes('class="hd"') && !rows.includes('<path') && rows.indexOf('İlham Əliyev') < rows.indexOf('Mehriban Əliyeva'), 'hesab sətri: sprite işarəsi, ad yoxdur, İlham Əliyev əvvəl');
+});
+
+test("owner's share video (2026-11-05): on a phone «Paylaş» opens the system share sheet with title and link; the desktop keeps the panel", () => {
+  const shared = [];
+  const ctx = app({ navigator: { onLine: true, userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile', share: o => { shared.push(o); return Promise.resolve(); } }, matchMedia: q => ({ matches: q === '(hover:none)' }) });
+  const art = { querySelector: () => ({ textContent: ' Neft bahalaşdı ' }) };
+  const btn = { dataset: { share: 'https://8ulduz.az/x/0123456789abcdef' }, closest: sel => sel === 'article' ? art : null };
+  vm.runInContext('shareStory', ctx)(btn);
+  assert.deepEqual(JSON.parse(JSON.stringify(shared)), [{ title: 'Neft bahalaşdı', text: 'Neft bahalaşdı', url: 'https://8ulduz.az/x/0123456789abcdef' }], 'telefonda sistem pəncərəsi: başlıq + keçid (tətbiq paylaşımdan sonra sayta qayıdır)');
+  const pops = [];
+  const desk = app({ navigator: { onLine: true, share: o => { shared.push(o); return Promise.resolve(); } }, matchMedia: () => ({ matches: false }) });
+  vm.runInContext('showPop = (b, h) => { __pops.push(h); return { dataset: {} }; }', Object.assign(desk, { __pops: pops }));
+  vm.runInContext('shareStory', desk)(btn);
+  assert.equal(shared.length, 1); assert.equal(pops.length, 1); assert.ok(pops[0].includes('data-to="x"') && pops[0].includes('data-to="sys"'), 'kompüterdə panel, «Başqa…» ilə');
 });

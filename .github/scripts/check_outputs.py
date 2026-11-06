@@ -10,6 +10,7 @@ Bu skriptin özü xəta versə heç nə çap etmir və dərc davam edir: yenilə
 import json
 import os
 import pathlib
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -28,6 +29,8 @@ def bad_outputs(root=pathlib.Path(".")):
             continue
         if path.name == "news.json" and not (isinstance(data, dict) and isinstance(data.get("articles"), list) and data["articles"]):
             bad.append(path)
+        elif re.fullmatch(r"news\.[a-z]{2}\.json", path.name) and not (isinstance(data, dict) and isinstance(data.get("articles"), list)):
+            bad.append(path)  # tam lentin dil faylı (updater.write_news): boş ola bilər, amma siyahı olmalıdır
     for name in ("sitemap.xml", "feed.xml"):
         path = root / name
         if not path.exists():
@@ -43,8 +46,10 @@ def enforce_policy(root=pathlib.Path(".")):
     """Lent fayllarından qaydanı pozan xəbərləri çıxarır. {fayl: {səbəb: say}} qaytarır."""
     root = pathlib.Path(root)
     removed = {}
-    archive = [f"arxiv/{p.name}" for p in sorted((root / "data" / "arxiv").glob("*.json"))]
-    for name in ("news.json", "latest.json", "first.json", *archive):
+    archive = [f"{d}/{p.name}" for d in ("arxiv", "paylas") for p in sorted((root / "data" / d).glob("*.json"))]
+    languages = [f"latest.{code}.json" for code in ("az", "en", "ru", "tr")]  # dəqiqəlik dil faylları (live budağı) da qapıdan keçir
+    languages += [f"news.{code}.json" for code in ("en", "ru", "tr")]  # tam lentin dil faylları (main, updater.write_news): xarici mənbələr məhz buradadır
+    for name in ("news.json", "latest.json", "first.json", *languages, *archive):
         path = root / "data" / name
         try:
             data = json.loads(path.read_text(encoding="utf-8"))

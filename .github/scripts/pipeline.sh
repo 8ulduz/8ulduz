@@ -22,6 +22,7 @@ SLOW_LIMIT="${SLOW_LIMIT:-280}"
 SLOW_EVERY="${SLOW_EVERY:-240}"
 LINKS_LIMIT="${LINKS_LIMIT:-55}"
 LINKS_EVERY="${LINKS_EVERY:-30}"
+OG_LIMIT="${OG_LIMIT:-25}"   # təzə xəbərin şəkli (--og): link yoxlamasından sonra, eyni 30 saniyəlik döngüdə
 MAIN_EVERY="${MAIN_EVERY:-600}"
 HANDOFF_AFTER="${HANDOFF_AFTER:-2820}"   # 47 dəq: növbəti işi başlat
 MAX_RUN="${MAX_RUN:-3600}"               # 60 dəq: növbəti iş görünməsə də çıx (timeout-minutes-dən əvvəl)
@@ -41,16 +42,23 @@ GOOD="$(mktemp -d)"      # son sağlam məlumat nüsxəsi
 STATE="$(mktemp -d)"
 SLOTS="$STATE/m"         # son dəqiqələrin faylları
 KEEP_SLOTS=5
+export LATEST_LANG_FILES=1   # updater.py status.json-a "langs" yazır: bu pipeline dil fayllarını (latest.az.json və s.) live-ə göndərir
+export SHARE_PAGES=1         # updater.py hər xəbərə x/<id>.html paylaşma səhifəsi (og etiketləri) yazır və lentin başlığına "sharePages" qoyur; publish_main x/ qovluğunu main-ə köçürür
+export NEWS_LANG_FILES=1     # updater.py tam lenti dil üzrə yazır (news.json = azərbaycanca + xarici idman, news.en/ru/tr.json = o dil) və status.json-a "newsLangs" qoyur; hamısı main-ə gedir (publish_main data/-nı olduğu kimi köçürür)
 CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
 SLOW_PID=""
 PUBLISH_PID=""
 WATCH_PID=""
 LINKS_PID=""
+EDITORIAL_PID=""
+ROLLOUT_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
   [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null
   [ -n "$LINKS_PID" ] && kill "$LINKS_PID" 2>/dev/null
+  [ -n "$EDITORIAL_PID" ] && kill "$EDITORIAL_PID" 2>/dev/null
+  [ -n "$ROLLOUT_PID" ] && kill "$ROLLOUT_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -114,7 +122,7 @@ run_py() { # $1 rejim, $2 limit
 check_lkg() { # $1 qovluq
   echo "::warning::check_outputs.py işləmədi — son işlək yoxlayıcıya keçilir" >&2
   [ -f "$LKG/.github/scripts/check_outputs.py" ] || return 1
-  py_t 20 "$PY" "$LKG/.github/scripts/check_outputs.py" "$1"
+  UPDATER_ROOT="$WORK" py_t 20 "$PY" "$LKG/.github/scripts/check_outputs.py" "$1"
 }
 
 # Zədəli fayl son sağlam nüsxə ilə əvəz olunur; qaydanı pozan xəbər fayldan çıxarılır.
@@ -122,7 +130,7 @@ check_lkg() { # $1 qovluq
 guard_outputs() {
   local f bad
   CUR_CHECKED=0
-  if bad="$(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$WORK")"; then
+  if bad="$(UPDATER_ROOT="$WORK" py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$WORK")"; then
     CUR_CHECKED=1
   elif ! bad="$(check_lkg "$WORK")"; then
     # Yoxlanmamış məlumat «sağlam nüsxə» olmur.
@@ -162,7 +170,9 @@ push_live() {
   slot=$(( $(date +%s) / 60 ))
   dir="$SLOTS/$slot"
   mkdir -p "$dir"
-  for name in status latest markets; do
+  # Dil faylları (latest.az.json və s.) yalnız buradadır: hər dəqiqə dəyişən 4 kiçik fayl main-in tarixçəsini şişirtməsin
+  # (publish_main onları silir). Sayt onları status.json-dakı "langs" ilə tanıyır, alınmasa ümumi latest.json-a qayıdır.
+  for name in status latest latest.az latest.en latest.ru latest.tr markets; do
     [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
   done
   for old in $(ls "$SLOTS" | sort -n | head -n -"$KEEP_SLOTS"); do
@@ -199,6 +209,17 @@ wait_next_cycle() {
   return 0
 }
 
+# Sürət (qırmızı xətt 3): baş səhifənin ilk ekranı index.html-də hazır gəlir (.github/scripts/prerender.cjs, cari main-dəki
+# app.js və first.json ilə). Alınmasa və ya node yoxdursa index.html olduğu kimi qalır: sayt app.js ilə yenə dolur.
+prerender_home() {
+  command -v node >/dev/null 2>&1 || { echo "node yoxdur, ilk ekran hazırlanmır"; return 0; }
+  if ! env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 60 node "$REPO_DIR/.github/scripts/prerender.cjs" "$REPO_DIR"; then
+    echo "::warning::İlk ekran hazırlanmadı, index.html dəyişmir"
+    git -C "$REPO_DIR" checkout -q HEAD -- index.html 2>/dev/null
+  fi
+  return 0
+}
+
 publish_main() {
   local i name
   for i in 1 2 3 4 5; do
@@ -207,15 +228,23 @@ publish_main() {
     mkdir -p "$REPO_DIR/data"
     cp -a "$GOOD/data/." "$REPO_DIR/data/"
     rm -f "$REPO_DIR/data/reader.json"   # səsli oxu söndürülüb: tam mətnlər yayımlanmır
+    rm -f "$REPO_DIR"/data/latest.??.json   # dil faylları yalnız live budağındadır (push_live): main-in tarixçəsi şişməsin
     for name in sitemap.xml feed.xml robots.txt; do
       [ -f "$WORK/$name" ] && cp -a "$WORK/$name" "$REPO_DIR/"
     done
     if [ -d "$WORK/bolme" ]; then rm -rf "$REPO_DIR/bolme"; cp -a "$WORK/bolme" "$REPO_DIR/bolme"; fi
+    if [ -d "$WORK/x" ]; then rm -rf "$REPO_DIR/x"; cp -a "$WORK/x" "$REPO_DIR/x"; fi   # paylaşma səhifələri (updater.write_share_pages)
+    if [ -d "$WORK/xeber" ]; then rm -rf "$REPO_DIR/xeber"; cp -a "$WORK/xeber" "$REPO_DIR/xeber"; fi   # Google üçün xəbər səhifələri (updater.write_story_pages)
+    if [ -d "$WORK/icmal" ]; then rm -rf "$REPO_DIR/icmal"; cp -a "$WORK/icmal" "$REPO_DIR/icmal"; fi   # günün icmalı (updater.write_digest)
+    prerender_home
     # GOOD yenilənərkən oxunmuş ola bilər: commit-dən əvvəl yenidən yoxla.
     for name in $(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" || check_lkg "$REPO_DIR"); do
       git -C "$REPO_DIR" checkout -q HEAD -- "$name" 2>/dev/null || rm -f "$REPO_DIR/$name"
     done
-    git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme 2>/dev/null
+    git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme index.html 2>/dev/null
+    if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x 2>/dev/null; fi
+    if [ -d "$REPO_DIR/xeber" ]; then git -C "$REPO_DIR" add xeber 2>/dev/null; fi
+    if [ -d "$REPO_DIR/icmal" ]; then git -C "$REPO_DIR" add icmal 2>/dev/null; fi   # ayrıca: qovluq yoxdursa yuxarıdakı add pozulmasın
     if git -C "$REPO_DIR" diff --cached --quiet; then
       touch "$STATE/code-sync"
       return 0
@@ -223,6 +252,9 @@ publish_main() {
     git -C "$REPO_DIR" commit -q -m "Xəbərlər yeniləndi"
     if timeout 90 git -C "$REPO_DIR" push -q origin "HEAD:$BRANCH"; then
       touch "$STATE/code-sync"
+      # «Profillərdə paylaş» işi: GitHub cron-u saatlarla gecikir, Pages yayımı isə workflow_run başlatmır.
+      # Pages yeni /x/ səhifələrini yayımlasın deyə 90 s sonra, arxa planda; xəta nəzərə alınmır, dövrə gözləmir.
+      ( sleep 90; gh_t workflow run social.yml --ref "$BRANCH" >/dev/null 2>&1 ) &
       return 0
     fi
     echo "main push alınmadı, yenidən cəhd ($i)"
@@ -246,6 +278,8 @@ links_loop() {
   while :; do
     local began=$SECONDS left
     UPDATER_ROOT="$WORK" py_t "$LINKS_LIMIT" "$PY" "$CUR/updater.py" --links || echo "link yoxlaması xəta verdi"
+    # Sahib (2026-11-06): şəkilsiz kart olmasın. Təzə xəbərin şəkli 30 saniyədə tapılır, yavaş dövrəni (4-5 dəq) gözləmir.
+    UPDATER_ROOT="$WORK" py_t "$OG_LIMIT" "$PY" "$CUR/updater.py" --og || echo "təzə şəkil yoxlaması xəta verdi"
     left=$((LINKS_EVERY - (SECONDS - began)))
     [ "$left" -gt 0 ] && sleep "$left"
   done
@@ -268,7 +302,7 @@ self_watch() { # $1 əsas proses
 }
 
 # --------------------------------------------------------------------- başlanğıc
-if another_run_in_charge; then
+if [ "${ROLLOUT:-}" != 1 ] && another_run_in_charge; then
   echo "Başqa iş lenti yeniləyir, bu iş lazım deyil."
   exit 0
 fi
@@ -284,6 +318,9 @@ for name in sitemap.xml feed.xml robots.txt; do
   [ -f "$REPO_DIR/$name" ] && cp "$REPO_DIR/$name" "$WORK/"
 done
 [ -d "$REPO_DIR/bolme" ] && cp -a "$REPO_DIR/bolme" "$WORK/bolme"
+[ -d "$REPO_DIR/x" ] && cp -a "$REPO_DIR/x" "$WORK/x"   # mövcud paylaşma səhifələri: təzədən yazılmasın, 25 saatdan sonra silinsin
+[ -d "$REPO_DIR/icmal" ] && cp -a "$REPO_DIR/icmal" "$WORK/icmal"   # günün icmalı: yazılmış buraxılış təkrar yazılmır
+[ -d "$REPO_DIR/xeber" ] && cp -a "$REPO_DIR/xeber" "$WORK/xeber"   # Google üçün xəbər səhifələri: 30 gün qalır (updater.write_story_pages)
 guard_outputs
 seed_slots
 rm -f "$LKG/.yeni"
@@ -292,6 +329,9 @@ slow_loop &
 SLOW_PID=$!
 links_loop &
 LINKS_PID=$!
+# Etibarlı köməkçi yalnız sabit GitHub API ünvanından qayda faylını oxuyur. Mənbə/lent prosesləri açarı görmür.
+UPDATER_ROOT="$WORK" "$PY" "$REPO_DIR/.github/scripts/editorial_sync.py" --watch &
+EDITORIAL_PID=$!
 touch "$STATE/heartbeat"
 self_watch $$ "$SLOW_PID" "$LINKS_PID" &
 WATCH_PID=$!
@@ -313,6 +353,12 @@ while :; do
   promote_code
   if push_live; then
     push_fails=0
+    if [ "${ROLLOUT:-}" = 1 ]; then
+      # Yalnız ilk uğurlu canlı yazıdan sonra; API işi sürətli dövrəni gözlətmir.
+      FIRST_LIVE_PUSH_OK=1 "$PY" "$REPO_DIR/.github/scripts/finish_rollout.py" &
+      ROLLOUT_PID=$!
+      ROLLOUT=""
+    fi
   else
     push_fails=$((push_fails + 1))
     echo "::warning::live budağına yazılmadı ($push_fails)"

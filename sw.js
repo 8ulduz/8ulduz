@@ -1,8 +1,8 @@
 /* 8ulduz — GitHub Pages alt yolu /8ulduz/ (və lokal eyni quruluş).
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
-   HTML/JS/CSS: əvvəl şəbəkə, oflayn olanda keş. Şəkillər: əvvəl keş. */
-const VERSION = "v25"; // yeni loqo
+   HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
+const VERSION = "v66"; // v66: GA4 yüngül göndərici (assets/ga.js, sayt açılandan sonra); v65: ilk açılış telefonun rejimi ilə (seçim yoxdursa); v64: 3 rəng (göy, qızılı, qırmızı), açıq rejim ağımtıl, telefonda valyutada faiz yerinə ox; v63: telefonda məzənnə zolağının əvvəlki dörd kartlı formatı qaytarıldı (rənglər qalır); v62: telefonda bir sətir bölmə (Son dəqiqə, Gündəm, İdman, Zuğulba) və ☰ — bütün bölmələr aşağıdan siyahı ilə; v61: telefonda məzənnə zolağında 3 kart (qiymət tam) və › düyməsi, qızıl/gümüş/neft öz rəngində; v60: telefonda bölmələr 3 sətirdə, altında «Günün 10 əsas xəbəri — Telegram-da»; v56: Facebook düyməsi botun yazdığı «8ulduz» səhifəsinə; v55: sürət (telefonda siyahı 6 kartla, bölmə/liqa keçidi lenti gözləmir, loqolar proksidən); v54: compact follow controls, brighter faster glow, sports menu colors; v53: Telegram düymələri 8ULDUZ kanalına (t.me/sekkizulduz_az); v52: anchored follow popover, Instagram and yellow-blue opacity glow; v51: owner article removal panel and configured mobile follow links; v50: v49 (altlıqda saytın hesabları) sahibin istəyi ilə geri alındı; v48: liqa səhifəsi faylı gələn kimi çəkilir; v47: liqa səhifəsi paralel yüklənir (idman modulu əvvəlcədən); v46: namaz işarələri sprite-da, gec dolan Zuğulba/slayder; v45: telefonda «Paylaş» sistem pəncərəsi; v44: rəsmi hesablar Chrome Custom Tab kimi; v43: telefonda yenə «Paylaş» düyməsi, rəsmi hesablar Chrome vərəqində; v42: məlumat cavabı keş yazısını gözləmir; v41: /x/ID paylaşma səhifəsi (og etiketləri, dərhal #/xeber/ID-yə keçir) işçidən yan keçir; v40: kod faylının keş açarı sorğusuz (app.js?c=… nüsxəsi köhnə kodu saxlayırdı); v39: bildiriş kliki saytın xəbər səhifəsinə aparır; v38: başlıq sırası, dil seçimi zolaqda, paylaşma ikonları, hərəkət düyməsi
 const STATIC = "8ulduz-static-" + VERSION;
 const DATA = "8ulduz-data-" + VERSION;
 const SCOPE_URL = new URL("./", self.location);
@@ -38,7 +38,7 @@ const MIRROR = "https://raw.githubusercontent.com/8ulduz/8ulduz/main/";
 // QIRMIZI XƏTT 1: pipeline.sh hər dəqiqənin faylını ayrı yola yazır (m/<dəqiqə>/status.json), çünki budaq adı ilə
 // verilən fayl 5 dəqiqə keşdə qalır. Yaranmamış yola sorğu 404-ü 55 saniyə keşə salır: dəqiqə yalnız yazılandan sonra istənir.
 const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
-const LIVE_FILES = /data\/(?:status|latest|markets)\.json$/;
+const LIVE_FILES = /data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json$/; // latest.az.json və s. yalnız live budağındadır (main-də yoxdur)
 const LIVE_WAIT_MS = 2500;
 const LIVE_GRACE_S = 45;
 const LIVE_PAUSE_MS = 5 * 60e3; // 429/403 olsa bu qədər sayt kanalı işlənir
@@ -46,7 +46,7 @@ let liveSkipUntil = 0;
 const ORIGIN_WAIT_MS = 4000; // başlıq gəlməsə ehtiyat kanala keç; gövdə axarkən kəsilmir
 const MIRROR_WAIT_MS = 6000;
 const STALE_MS = 15 * 60e3; // Pages bu qədər yayımlamayıbsa ilişib sayılır
-const LIVE_DATA = /data\/(?:status|latest|news)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur
+const LIVE_DATA = /data\/(?:status|latest(?:\.[a-z]{2})?|news(?:\.[a-z]{2})?)\.json$/; // yalnız hər dövrə dəyişən fayllar müqayisə olunur (news.<dil>.json da main-dədir)
 
 async function attempt(input, init, waitMs) {
   const controller = new AbortController();
@@ -102,13 +102,15 @@ async function freshData(req) {
   return origin ? marked(origin, "network") : null;
 }
 
-async function networkFirstData(req) {
+async function networkFirstData(req, event) {
   const cache = await caches.open(DATA);
   const bare = new URL(req.url);
   bare.search = "";
   const fresh = await freshData(req);
   if (fresh) {
-    try { await cache.put(bare.toString(), fresh.clone()); } catch {}
+    // Keşə yazı arxada: səhifə cavabı başlıq gələn kimi alır (əvvəl 770 KB-lıq lentin yazılması da gözlənilirdi).
+    const put = cache.put(bare.toString(), fresh.clone()).catch(() => {});
+    event?.waitUntil?.(put);
     return fresh;
   }
   const hit = await cache.match(bare.toString());
@@ -136,39 +138,48 @@ async function cacheFirst(req) {
   }
 }
 
-const SHELL_WAIT_MS = 4000; // zəif şəbəkədə ağ ekran qalmasın: keşdəki nüsxə göstərilir, təzəsi arxada yazılır
-async function networkFirstShell(req, event) {
+// HTML/JS/CSS: saxlanmış nüsxə dərhal verilir (təkrar açılış şəbəkəni gözləmir), təzəsi arxada yüklənib növbəti açılış
+// üçün saxlanır. Kod dəyişəndə VERSION artır və install hamısını təzədən yığır. Artmasa da: arxa yoxlama app.js/app.css-də
+// fərq görəndə açıq səhifələrə «shell-updated» göndərir (app.js: oxucu hələ toxunmayıbsa dərhal, yoxsa gözdən itəndə yenilənir).
+// index.html hər yayımda dəyişə bilər, ona görə o müqayisə olunmur. Nüsxə yoxdursa (ilk açılış, başqa yol) şəbəkə gözlənilir.
+// Yalnız bu ünvanın öz nüsxəsi: başqa yolda index.html açılsa ./assets/ yolları sınır. O hal şəbəkə alınmayanda cacheFirst-dədir.
+const CODE_FILE = /\.(?:js|css)$/;
+async function cachedShell(req, event) {
   const cache = await caches.open(STATIC);
-  const network = fetch(new Request(req, { cache: "no-cache" })).then((fresh) => {
-    if (fresh.ok) {
-      // Gövdə arxada yazılır: yavaş yüklənmə 4 saniyəyə daxil deyil, cavab başlığı gələn kimi səhifə axına keçir.
-      const stored = cache.put(req, fresh.clone()).catch(() => {});
-      event?.waitUntil?.(stored);
-    }
+  // Açar həmişə yalnız yoldur (naviqasiya da, kod faylı da): ?utm_source=… və ya app.js?c=… kimi sorğu öz nüsxəsini
+  // yaradırdı, ignoreSearch isə həmişə ən köhnəsini qaytarırdı; arxa yoxlama yalnız sorğusuz açarı təzələdiyindən o oxucu
+  // köhnə kodda qalırdı (v39-da app.js belə ilişdi). Şəbəkəyə də sorğusuz yol gedir: CDN-də bir nüsxə.
+  const key = req.url.split(/[?#]/)[0];
+  const saved = await cache.match(key, { ignoreSearch: false });
+  // Müqayisə üçün mətn saxlanmış cavab səhifəyə verilməzdən ƏVVƏL götürülür: gövdə oxunandan sonra clone() xəta atır
+  // və keş heç vaxt yenilənmirdi (v33-də belə idi: köhnə app.js telefonda qalırdı).
+  const savedText = saved && CODE_FILE.test(new URL(req.url).pathname) ? saved.clone().text().catch(() => null) : null;
+  const network = fetch(new Request(key, { cache: "no-cache" })).then(async (fresh) => {
+    if (!fresh.ok) return fresh;
+    const copy = fresh.clone();
+    const changed = !!savedText && (await savedText) !== (await fresh.clone().text());
+    await cache.put(key, copy).catch(() => {});
+    if (changed) for (const client of await self.clients.matchAll({ type: "window" })) client.postMessage({ type: "shell-updated" });
     return fresh;
   });
-  // Yalnız bu ünvanın öz nüsxəsi: başqa yolda index.html açılsa ./assets/ yolları sınır. O hal şəbəkə alınmayanda cacheFirst-dədir.
-  const saved = await cache.match(req, { ignoreSearch: true });
   if (!saved) return network.catch(() => cacheFirst(req));
+  event?.waitUntil?.(network.catch(() => {}));
   network.catch(() => {});
-  let timer;
-  const late = new Promise((resolve) => { timer = setTimeout(() => resolve(saved), SHELL_WAIT_MS); });
-  try {
-    return await Promise.race([network, late]);
-  } catch {
-    return saved;
-  } finally { clearTimeout(timer); }
+  return saved;
 }
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+  // Sayğac sorğusu (sendBeacon) və skript özü getsin: keşlənsə və ya kəsilsə ziyarət yazılmır.
+  if (url.hostname === "gc.zgo.at" || url.hostname.endsWith(".goatcounter.com")) return;
   if (event.request.method !== "GET" || !inScope(url)) return;
   if (isData(url)) {
-    event.respondWith(networkFirstData(event.request));
+    event.respondWith(networkFirstData(event.request, event));
     return;
   }
+  if (/\/x\/[0-9a-f]{16}$/.test(url.pathname)) return; // paylaşma səhifəsi (updater.py write_share_pages): keşə düşməsin, köhnəsi 404.html-dən yönlənir
   const shell = event.request.mode === "navigate" || /\.(?:html|js|css|webmanifest)$/.test(url.pathname);
-  event.respondWith(shell ? networkFirstShell(event.request, event) : cacheFirst(event.request));
+  event.respondWith(shell ? cachedShell(event.request, event) : cacheFirst(event.request));
 });
 
 const SEEN_URL = new URL("./notify-seen.json", SCOPE_URL).toString();
@@ -220,7 +231,7 @@ async function syncBreaking() {
       body: decodeBasic(a.title),
       icon: new URL("assets/icon-192.png", SCOPE_URL).toString(),
       tag: "break-" + a.id,
-      data: { id: a.id, url: a.sourceUrl || "" },
+      data: { id: a.id, cat: a.category || "", url: storyUrl(a.id, a.category) },
     });
   }
   await writeSeen(fresh.map((a) => a.id));
@@ -228,9 +239,15 @@ async function syncBreaking() {
 self.addEventListener("periodicsync", (event) => {
   if (event.tag === "breaking") event.waitUntil(syncBreaking());
 });
+// Saytın öz xəbər səhifəsi: oxucu bildirişə basanda mənbəyə yox, 8ulduz-a gəlir (sahibin qeydi, 2026-11-04)
+function storyUrl(id, cat) { return new URL("#/xeber/" + encodeURIComponent(id) + (cat ? "?b=" + encodeURIComponent(cat) : ""), SCOPE_URL).href; }
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const link = event.notification.data && event.notification.data.url;
-  const url = /^https?:\/\//i.test(link || "") ? link : SCOPE_URL.href;
-  event.waitUntil(self.clients.openWindow(url));
+  const d = event.notification.data || {};
+  const url = d.id ? storyUrl(d.id, d.cat) : SCOPE_URL.href; // köhnə bildirişin data.url-i mənbə ola bilər: ona baxılmır
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (list) => {
+    const open = list.find((w) => w.url.startsWith(SCOPE_URL.href));
+    if (open && d.id) { try { await open.focus(); open.postMessage({ type: "open-story", id: d.id }); return; } catch {} } // açıq səhifə yenidən yüklənmir
+    return self.clients.openWindow(url);
+  }));
 });
