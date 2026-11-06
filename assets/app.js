@@ -782,7 +782,7 @@ async function loadNews(force = false) {
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
 }
 
-// İlk ekran (data/first.json, ~180 xəbər), azərbaycanca: baş səhifə və bölmə keçidi; qalan səhifələr tam lenti gözləyir.
+// İlk ekran (data/first.json): baş səhifə və bölmə, azərbaycanca.
 const firstScreen = () => route().name === "home" && !S.q && S.lang === "az";
 // Bölmə keçidi: tam lenti (223 KB) gözləmək telefonda 3–6 s idi.
 const partialOk = () => firstScreen() || route().name === "section" && S.lang === "az";
@@ -1209,7 +1209,7 @@ function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
   const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub", NAV_PHONE.includes(c.slug) && "ph"].filter(Boolean).join(" ");
   const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
-  // Telefon (sahib, 2026-11-06): bir sətirdə 4 bölmə (.ph) və ☰; ☰ bütün bölmələri alt-alta açır, «Ana ekrana» da oradadır
+  // Telefon: 4 bölmə (.ph) və ☰ (hamısı + «Ana ekrana»)
   const primary = NAV_PRIMARY;
   const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
@@ -2397,12 +2397,10 @@ function setPref(act) {
   setupMarquees();
   afterPaint(fitNav);
 }
-// Canonical həmişə / olduğu üçün skriptin öz açılış sayımı bütün marşrutları bir səhifə yazır.
-// no_onload: yolu və başlığı render bitəndə özümüz göndəririk. Hash dəyişməsi və axtarışın
-// history.replaceState-i hər ikisi renderView-dən keçir. utm_source ünvanda qalır; count.js onu
-// kampaniya kimi (q) göndərir, yola yazmırıq ki, eyni səhifə iki dəfə düşməsin.
-let visitSent = "";
-const visitQueue = [];
+// Baxış render bitəndə özümüz göndəririk (no_onload): GoatCounter və GA4 (ga.js, sahib 2026-11-06). GA4 faylı sayt açılandan sonra yüklənir.
+let visitSent = "", gaOn = 0;
+const visitQueue = [], gaQ = [];
+const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=1").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
 function visitPath() {
   const base = location.pathname || "/";
   const hash = location.hash || "";
@@ -2414,11 +2412,13 @@ function titlePending() {
 }
 function countVisit() {
   try {
-    if (!String(window.SITE_CONFIG?.goatcounter || "").trim() || titlePending()) return;
+    if (titlePending()) return;
     const path = visitPath();
     if (path === visitSent) return;
     visitSent = path;
     const vars = { path, title: document.title || "8ulduz" };
+    gaQ.push([path, vars.title]); gaFlush();
+    if (!String(window.SITE_CONFIG?.goatcounter || "").trim()) return;
     if (typeof window.goatcounter?.count === "function") window.goatcounter.count(vars);
     else visitQueue.push(vars);
   } catch {}
@@ -2428,6 +2428,7 @@ function flushVisits() {
   for (const vars of visitQueue.splice(0)) { try { window.goatcounter.count(vars); } catch {} }
 }
 function enableAnalytics() {
+  gaOn = 1; gaFlush();
   const code = String(window.SITE_CONFIG?.goatcounter || "").trim();
   if (!code) return;
   const s = document.createElement("script");
@@ -2447,7 +2448,7 @@ const LEAVE_MS = 2000;
 const WHEEL_MS = 3000;
 const TOUCH_MS = 5000;
 function reducedMotion() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
-// Hərəkət (lent, slayder, Zuğulba): düymə ilə dayanır, seçim yaddaşda; «hərəkəti azalt» varsa standart dayanıq.
+// Hərəkət düymə ilə dayanır; «hərəkəti azalt» varsa dayanıq.
 const MOTION_KEY = "8ulduz-motion";
 function motionOff() { const v = storage.getItem(MOTION_KEY); return v ? v === "off" : reducedMotion(); }
 const motionBtn = () => `<button type="button" class="mo" data-act="motion" aria-pressed="${motionOff()}" title="${motionOff() ? "Hərəkəti başlat" : "Hərəkəti dayandır"}">${motionOff() ? "▶" : "Ⅱ"}</button>`;

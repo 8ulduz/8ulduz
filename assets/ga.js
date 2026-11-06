@@ -1,0 +1,55 @@
+// Google Analytics 4, yüngül göndərici (sahib, 2026-11-06: əsas statistika GA4 olsun, sürət qorunsun).
+// Google-un gtag.js-i (153 KB sıxılmış, 444 KB kod) yüklənmir: baxış birbaşa GA4-ün /g/collect ünvanına gedir.
+// Yalnız ümumi say: təsadüfi cihaz nömrəsi (cid), sessiya nömrəsi, səhifə, başlıq, dil, ekran ölçüsü. Ad, e-poçt, konum yoxdur.
+// Fayl app.js-dən ayrıdır və yalnız sayt açılandan sonra (enableAnalytics) yüklənir: ilk ekrana təsiri yoxdur.
+const KEY = "8ulduz-ga", SESSION_MS = 30 * 60e3, ENGAGED_MS = 10e3;
+const GA = "https://www.google-analytics.com/g/collect?";
+let seq = 0, engaged = false;
+
+function send(q) {
+  const u = GA + q;
+  try { if (navigator.sendBeacon?.(u)) return; } catch {}
+  fetch(u, { method: "POST", mode: "no-cors", keepalive: true, credentials: "omit" }).catch(() => {});
+}
+
+function state(now) {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY) || "null"); } catch {}
+  const first = !s?.cid;
+  if (first) s = { cid: `${Math.floor(Math.random() * 2147483647)}.${Math.floor(now / 1000)}`, sct: 0 };
+  const start = !s.sid || now - (s.last || 0) > SESSION_MS;
+  if (start) { s.sid = Math.floor(now / 1000); s.sct = (s.sct || 0) + 1; }
+  s.last = now;
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  return { s, first, start };
+}
+
+// Hash marşrutu (#/bolme/gundem) GA4 hesabatında ayrıca səhifə kimi görünsün: /bolme/gundem
+export function pageUrl(path, loc = location) {
+  const [base, hash = ""] = String(path || "/").split("#");
+  const route = hash.replace(/^\/?/, "/").split("?")[0];
+  return loc.origin + (route !== "/" ? route : base || "/") + loc.search;
+}
+
+export function hit(id, path, title, now = Date.now()) {
+  if (!/^G-[A-Z0-9]+$/.test(String(id || "")) || !/^(www\.)?8ulduz\.az$/.test(location.hostname)) return null; // yerli sınaq statistikaya düşmür
+  const { s, first, start } = state(now);
+  const q = new URLSearchParams({ v: "2", tid: id, cid: s.cid, sid: String(s.sid), sct: String(s.sct), _p: String(Math.floor(Math.random() * 1e9)),
+    _s: String(++seq), en: "page_view", dl: pageUrl(path), dt: String(title || "8ulduz").slice(0, 300), ul: String(navigator.language || "").toLowerCase(),
+    sr: `${screen.width || 0}x${screen.height || 0}` });
+  const ref = document.referrer;
+  if (seq === 1 && ref && !ref.startsWith(location.origin)) q.set("dr", ref);
+  if (first) q.set("_fv", "1");
+  if (start) { q.set("_ss", "1"); q.set("_nsi", "1"); }
+  if (engaged) q.set("seg", "1");
+  send(q);
+  // 10 saniyə açıq qalan səhifə: «fəal sessiya» (GA4-də bounce/engagement düzgün çıxsın)
+  if (!engaged) setTimeout(() => {
+    if (engaged || document.visibilityState !== "visible") return;
+    engaged = true;
+    const e = new URLSearchParams(q); e.set("en", "user_engagement"); e.set("seg", "1"); e.set("_et", String(ENGAGED_MS)); e.set("_s", String(++seq));
+    e.delete("_fv"); e.delete("_ss"); e.delete("_nsi"); e.delete("dr");
+    send(e);
+  }, ENGAGED_MS);
+  return q;
+}
