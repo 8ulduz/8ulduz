@@ -1605,8 +1605,8 @@ function profileRows() {
 }
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false, sel = "") {
-  const posts = side ? socialForSide() : orderedSocialPosts(sel ? 16 : 8);
-  const cards = posts.map(p => { const u = safeHref(p.url); const su = /^[0-9a-f]{16}$/.test(p.id) ? "?s=" + p.id : ""; return `<article class="soc-r${p.id === sel ? ' on" id="soc-on' : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident${su}" title="Paylaş">Paylaş</button></article>`; }).join("");
+  const posts = side ? socialForSide() : orderedSocialPosts(sel ? 16 : 8).sort((a, b) => (b.id === sel) - (a.id === sel));
+  const cards = posts.map(p => { const u = safeHref(p.url); const su = /^[0-9a-f]{16}$/.test(p.id) ? "?s=" + p.id : ""; return `<article class="soc-r${p.id === sel ? " on" : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident${su}" title="Paylaş">Paylaş</button></article>`; }).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
@@ -1924,7 +1924,6 @@ function sectionView(slug) {
   if (slug === "prezident") {
     const s = location.hash.match(/[?&]s=([0-9a-f]{16})/)?.[1] || "";
     extra = `<details class="social-details"${s ? " open" : ""}><summary>Rəsmi sosial hesablar ▾</summary>${optional(() => socialBlock(false, s))}</details>`;
-    if (s && S.social && S.socOn !== s) { S.socOn = s; afterPaint(() => $("#soc-on")?.scrollIntoView({ block: "center" })); }
   }
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }

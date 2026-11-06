@@ -897,7 +897,9 @@ test('social posts are ordered by time only and show the reporting source', () =
   assert.ok(!soc.includes('data-share="https://x.com'));
   ctx.api.S.data = { articles: [] };
   soc = ctx.api.socialBlock(false, '56ba6f3455e532b6');
-  assert.ok(soc.includes('<article class="soc-r on" id="soc-on">') && soc.includes('data-share="https://8ulduz.az/#/bolme/prezident?s=56ba6f3455e532b6"'), 'keçiddən gələndə yazı seçili');
+  assert.ok(soc.startsWith('<aside') && soc.indexOf('<article class="soc-r on">') === soc.indexOf('<article'), 'keçiddən gələndə yazı seçili və siyahının başında (sürüşmə/sıçrama yoxdur)');
+  assert.ok(soc.includes('data-share="https://8ulduz.az/#/bolme/prezident?s=56ba6f3455e532b6"'));
+  assert.ok(!fs.readFileSync(path.join(__dirname, "..", "assets/app.js"), "utf8").includes("soc-on"), "scrollIntoView yoxdur");
   // Zuğulba səhifəsi xronika ilə açılır: sosial şəbəkələr bağlı bölmədədir; menyuda «Sosial müdafiə» tam yazılır
   const src = fs.readFileSync(path.join(__dirname, '..', 'assets/app.js'), 'utf8');
   assert.ok(src.includes('extra = `<details class="social-details"${s ? " open" : ""}><summary>'), 'bağlı bölmə; yazının keçidindən gələndə açıq');
