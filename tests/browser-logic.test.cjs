@@ -2576,7 +2576,7 @@ test("owner's share notes: a story opened from a shared link gets the home page 
   calls.length = 0; ctx.history.length = 3;
   vm.runInContext('backHome()', ctx);
   assert.deepEqual(calls, [], 'saytın içindən açılan xəbərdə tarixçə dəyişmir');
-  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('{ loadShared(r0.id); backHome(); }'), 'açılışda paylaşılan keçiddə çağırılır');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('else loadShared(r0.id); backHome(); }'), 'açılışda paylaşılan keçiddə çağırılır');
 });
 
 test("owner's share notes: the worker leaves /x/ID to the browser, 404.html sends an expired share page to the story, phone CSS stacks the accounts", () => {
