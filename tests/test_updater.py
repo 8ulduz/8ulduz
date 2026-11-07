@@ -2066,8 +2066,12 @@ class SharePagesTest(unittest.TestCase):
         self.assertIn(f'<meta property="og:image" content="https://wsrv.nl/?url={q("https://apa.az/i.jpg", safe="")}&amp;w=1200&amp;h=630&amp;fit=cover'
                       f'&amp;a=attention&amp;output=jpg&amp;q=78&amp;default={q(updater.SITE + "assets/og-default.png", safe="")}" />', page)
         self.assertIn(f'content="0;url={updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat&amp;h=26110410"', page)  # h: arxiv budağının saatı (arxiv.cjs)
-        self.assertNotIn("{", page)
-        self.assertNotIn("<script", page)
+        # Yeganə skript: sətri sessionStorage-a qoyub sayta keçid (sahib, 2026-11-07: «keçidlər gözqırpımında»); başqa skript olmur.
+        scripts = re.findall(r"<script>.*?</script>", page, re.S)
+        self.assertEqual(len(scripts), 1)
+        self.assertTrue(scripts[0].startswith('<script>try{sessionStorage.setItem("x:') and scripts[0].endswith(')</script>'))
+        self.assertEqual(page.count("<script"), 1)
+        self.assertNotIn("{", page.replace(scripts[0], ""))
         self.assertIn(f"{updater.SITE}assets/og-default.png", plain)
         self.assertIn("Report · 2026-11-04", plain)
 
