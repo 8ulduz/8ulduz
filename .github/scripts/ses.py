@@ -151,7 +151,7 @@ def main(d):
     idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born}, separators=(",", ":")).encode()
     rows = other + [f"100644 blob {sha}\t{i}.mp3" for i, sha in sorted(have.items())]
     rows.append(f"100644 blob {git(d, 'hash-object', '-w', '--stdin', data=idx)}\tindex.json")
-    tree = git(d, "mktree", data=("\n".join(rows) + "\n").encode())
+    tree = git(d, "mktree", "--missing", data=("\n".join(rows) + "\n").encode())
     commit = git(d, "-c", "user.name=8ulduz-bot", "-c", "user.email=bot@8ulduz.az", "commit-tree", tree, "-m", "Xəbər səsləri")
     git(d, "push", "-q", "--force", "origin", f"{commit}:refs/heads/main")
     print(f"ses: {made} yeni səs, {dropped} köhnə silindi, cəmi {len(have)}")
