@@ -50,7 +50,9 @@ async function main(root, dir) {
   const articles = (await Promise.all(FEEDS.map(get))).flat();
   if (articles.length < 50) { console.log(`arxiv: lent alınmadı (${articles.length}), dayanıram`); return; }
   // Mövcud budaq (dir: --filter=blob:none ilə klonlanıb; yalnız lazım olan saatların faylı endirilir).
-  const have = new Map();
+  const have = new Map(), other = [];
+  // saat/ xaricindəki qovluqlar (idx/: köhnə saatsız keçidlərin göstəricisi, bir dəfə yazılıb) olduğu kimi qalır.
+  try { for (const line of git(dir, ["ls-tree", "HEAD"]).split("\n").filter(Boolean)) if (!/\tsaat$/.test(line)) other.push(line); } catch {}
   try { for (const line of git(dir, ["ls-tree", "HEAD", "saat/"]).split("\n").filter(Boolean)) { const [, , sha, name] = line.split(/\s+/); have.set(name.replace(/\.json$/, ""), sha); } } catch {}
   const buckets = {}, touched = new Set(articles.map(a => hourOf(a.publishedAt)).filter(Boolean));
   for (const h of touched) if (have.has(h)) { try { buckets[h] = Object.fromEntries((JSON.parse(git(dir, ["cat-file", "blob", have.get(h)])).articles || []).map(r => [r.id, r])); } catch {} }
@@ -63,7 +65,7 @@ async function main(root, dir) {
   for (const h of [...have.keys()]) if (tooOld(h, now)) { have.delete(h); dropped++; }
   if (!changed.length && !dropped) { console.log("arxiv: dəyişiklik yoxdur"); return; }
   const saat = git(dir, ["mktree"], [...have].sort().map(([h, sha]) => `100644 blob ${sha}\t${h}.json`).join("\n") + "\n");
-  const tree = git(dir, ["mktree"], `040000 tree ${saat}\tsaat\n`);
+  const tree = git(dir, ["mktree"], [...other, `040000 tree ${saat}\tsaat`].join("\n") + "\n");
   const commit = git(dir, ["-c", "user.name=8ulduz-bot", "-c", "user.email=bot@8ulduz.az", "commit-tree", tree, "-m", "Xəbər arxivi"]);
   git(dir, ["push", "-q", "--force", "origin", `${commit}:refs/heads/${BRANCH}`]);
   console.log(`arxiv: ${articles.length} sətir, ${changed.length} saat yeniləndi, ${have.size} saat budaqda, ${dropped} köhnə silindi`);

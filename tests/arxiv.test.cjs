@@ -34,6 +34,6 @@ test("arxiv: nothing is added to main or the site; the job runs apart from the n
   assert.ok(sc.includes("refs/heads/${BRANCH}") && sc.includes('BRANCH = "arxiv"') && !sc.includes("refs/heads/main"));
   assert.ok(!fs.readFileSync(path.join(root, ".github/scripts/pipeline.sh"), "utf8").includes("arxiv.cjs"), "60 saniyəlik axına toxunmur");
   const js = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
-  assert.ok(js.includes("https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/${h}.json") && js.includes("await shareRow(id) || await arxRow(id)"), "sayt yalnız köhnə keçiddə oxuyur");
+  assert.ok(js.includes("https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/") && js.includes("${R}saat/${h}.json") && js.includes("${R}idx/${id.slice(0, 2)}.json") && js.includes("await shareRow(id) || await arxRow(id)"), "sayt yalnız köhnə keçiddə oxuyur");
   assert.ok(/return r && !removedSource\(r\) && !policyViolation\(r\) \? r : null;\n\}\n\/\/ Paylaşılan keçid/.test(js.replace(/\r\n/g, "\n")), "arxivdən gələn sətir də qaydadan keçir");
 });

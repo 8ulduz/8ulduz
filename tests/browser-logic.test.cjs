@@ -2616,8 +2616,8 @@ test('article page lists up to 3 related stories by rare shared title words, not
   S.data={articles:[row('a','Bakıda Xəzər sahilində yeni park açılıb'),row('b','Xəzər sahilində açılan park sakinləri sevindirib'),row('c','Bakı metrosunda qatarlar gecikir'),row('d','Xəzər parkı haqqında yeni qərar: sahilində kafe olmayacaq'),row('e','Xəzər parkı haqqında yeni qərar: sahilində kafe olmayacaq - FOTO'),...filler]};
   const html=articleView('a');
   assert.match(html,/Bu barədə daha çox/);
-  assert.match(html,/href="#\/xeber\/b"/);
-  assert.equal((html.match(/href="#\/xeber\/[de]"/g)||[]).length,1,'eyni başlığın ikinci nüsxəsi təkrarlanmır');
+  assert.match(html,/href="#\/xeber\/b\?h=\d{8}"/); // h: arxivin saatı (sahib 2026-11-07)
+  assert.equal((html.match(/href="#\/xeber\/[de]\?h=\d{8}"/g)||[]).length,1,'eyni başlığın ikinci nüsxəsi təkrarlanmır');
   assert.doesNotMatch(html,/xeber\/c"/,'yalnız «Bakı» ortaqdır');
   assert.doesNotMatch(html,/xeber\/f\d/,'İlham Əliyev çox işlənir, əlaqə sayılmır');
   S.data.articles.push(row('g','Şuşa əməliyyatı ilə bağlı mühüm DETAL AÇIQLANDI'),row('h','Nazirdən məktəblərlə bağlı MÜHÜM AÇIQLAMA'));

@@ -237,10 +237,10 @@ const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Zuğulba: rəsmi + dövlət saytlarının prezident xəbərləri; eyni xəbər bir kartdır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
-// Təyinat və azad etmə xəbərləri: yalnız hero və «Ən çox mənbədə» sırasında əlavə çəki.
+// Təyinat xəbərləri: hero sırasında əlavə çəki.
 const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed/iu;
 const isAppointment = a => APPT_RX.test(a?.title || "");
-// Əsas blok: hər iki qrup (Prezident, Birinci xanım) görünür, sıra isə ən yenidən köhnəyə.
+// Əsas blok: hər iki qrup, ən yenidən köhnəyə.
 const PREZ_COUNT = 44, PREZ_FIRST_IMAGES = 8; // Sahibin qərarı: blokda həmişə 44 xəbər
 // Lentə «prezident» sözü ilə yad xəbər də düşür.
 const OUR_LEADERS = /ilham|i̇lham|əliyev|aliyev|алиев|birinci xan|birinci vitse|prezident\s+administ|azərbaycan\s+prezident|dövlət başçı/iu;
@@ -411,7 +411,7 @@ function collapseExact(list) {
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
 }
-const detailUrl = a => `#/xeber/${encodeURIComponent(a.id)}`;
+const detailUrl = a => `#/xeber/${encodeURIComponent(a.id)}${hourOf(a) && "?h=" + hourOf(a)}`;
 const sourceName = name => `${esc(name)}<small class="source-count" data-source-count="${esc(name)}" title="Gün / həftə / ay / il · ümumi keçid sayı"></small>`;
 const altBadge = a => a.alts?.length ? `<a class="bd out" href="${detailUrl(a)}#sources">${1 + a.alts.length} mənbə</a>` : "";
 function altPop(a) {
@@ -754,7 +754,7 @@ async function loadNews(force = false) {
   const statusStamp = S.status?.checkedAt || null;
   S.newsLoading = true;
   renderTopbar();
-  // İlk ekran çəkilənə qədər tam lent xətti tutmur. Fayl gəlməsə loadFirst 5 saniyəyə bitir.
+  // İlk ekran çəkilənə qədər tam lent xətti tutmur.
   if (S.firstReady) { const wait = S.firstReady; S.firstReady = null; await wait; }
   // İlk ekran görünürsə tam lent əsas axın boşalanda gəlir (ən gec 2 s).
   if (S.partial && !force && token === S.newsToken) await new Promise(r => (globalThis.requestIdleCallback || (f => setTimeout(f, 300)))(r, { timeout: 2000 }));
@@ -786,7 +786,7 @@ async function loadNews(force = false) {
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
-    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır (patchView), səhifə aşağıdan uzanır.
+    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır.
     if (first || force || (partial && readerBusy())) render(); else requestRender();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data || S.partial) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
@@ -1841,11 +1841,14 @@ async function shareRow(id) {
   return null;
 }
 // Köhnə keçid (?h=saat): sətir arxiv budağındadır, saytın fayllarına əlavə yük yoxdur.
+// Saatsız köhnə keçid: idx/<2 rəqəm>.json id -> saat (+ əsas xəbər).
 async function arxRow(id) {
-  const h = (location.hash.match(/[?&]h=(\d{8})\b/) || [])[1];
-  if (!h) return null;
-  const { d } = await requestJSON(`https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/${h}.json`, {}, 8000);
-  const r = d?.articles?.find(a => a.id === id);
+  const R = "https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/";
+  let h = (location.hash.match(/[?&]h=(\d{8})\b/) || [])[1], k = id;
+  if (!h) { const { d } = await requestJSON(`${R}idx/${id.slice(0, 2)}.json`, {}, 8000), v = String(d?.[id] || ""); h = v.slice(0, 8); k = v.slice(8) || id; }
+  if (!/^\d{8}$/.test(h)) return null;
+  const { d } = await requestJSON(`${R}saat/${h}.json`, {}, 8000);
+  const r = d?.articles?.find(a => a.id === k);
   return r && !removedSource(r) && !policyViolation(r) ? r : null;
 }
 // Paylaşılan keçid: xəbər paylaşma hissəsindən gəlir.
@@ -1895,7 +1898,7 @@ function articleView(id) {
   return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
-// «Telegram-da izlə» (izle.cjs): bölmə, klub/rayon və ya axtarış sözü (q_ + UTF-8 base64url).
+// «Telegram-da izlə» (izle.cjs).
 const tgIzle = (k, who) => { const bot = window.SITE_CONFIG?.tgBot; return bot ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=${k}" ${OUT}>📩 ${who ? esc(who) + ": " : ""}Telegram-da izlə</a>` : ""; };
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
@@ -1968,7 +1971,7 @@ function sectionView(slug) {
 }
 
 // Axtarış üçün sadələşdirmə: ə→e, ı→i və s. («ilham eliyev», «qarabag» da tapılır).
-// й, ё və İ-dən qalan nöqtə (U+0307) də burada: NFD yalnız nadir hərfdə işləyir (sürət).
+// й, ё, U+0307 da burada: NFD yalnız nadir hərfdə.
 const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c", "й": "и", "ё": "е", "\u0307": "" };
 function fold(s) { // NFD yalnız lazım olanda (2,7× tez)
   s = String(s || "").toLowerCase().replace(/[əıöüğşçйё\u0307]/g, ch => FOLD[ch]);
