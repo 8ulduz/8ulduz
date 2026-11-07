@@ -2620,7 +2620,7 @@ test('owner 2026-11-07: on a phone the Zuğulba block is a closed header that op
   assert.ok(css.includes('.prez-h h2{font-size:clamp(15px,6vw,25px);letter-spacing:0;min-width:0}') && css.includes('.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: bir sırada ad, say və ox (kart böyümür)');
   assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && css.includes('.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}') && js.includes('href="#/bolme/prezident">Hamısı →</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: bağlı halda yalnız «Zuğulba Xronikası», açılanda say və «Hamısı →»');
   assert.ok(js.includes('const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn"))'), 'başlığa basanda açılır, «Hamısı →» bölməyə aparır');
-  assert.ok(css.includes('nav.main .nav-more>summary::before{content:"☰";font-size:20px;color:var(--primary)}'), '☰ ulduz rəngində');
+  assert.ok(css.includes('nav.main .nav-more>summary::before{content:"☰";font-size:26px;line-height:1;color:var(--primary)}'), '☰ ulduz rəngində');
 });
 test('owner 2026-11-07: a shared social post opens hours/days later (archive, selected post first)', () => {
   const ctx = app(), { S, socialBlock } = ctx.api;
