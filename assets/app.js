@@ -237,10 +237,10 @@ const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Zuğulba: rəsmi + dövlət saytlarının prezident xəbərləri; eyni xəbər bir kartdır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
-// Təyinat xəbərləri: hero sırasında əlavə çəki.
+// Təyinat xəbərlərinə əlavə çəki.
 const APPT_RX = /təyin (?:edil|olun)|vəzifə(?:sin|y)[əd]|(?:vəzifə(?:sin)?|iş)d[əa]n azad|назначен|освобожд[её]н от должности|appointed|dismissed/iu;
 const isAppointment = a => APPT_RX.test(a?.title || "");
-// Əsas blok: hər iki qrup, ən yenidən köhnəyə.
+// Əsas blok: ən yenidən köhnəyə.
 const PREZ_COUNT = 44, PREZ_FIRST_IMAGES = 8; // Sahibin qərarı: blokda həmişə 44 xəbər
 // Lentə «prezident» sözü ilə yad xəbər də düşür.
 const OUR_LEADERS = /ilham|i̇lham|əliyev|aliyev|алиев|birinci xan|birinci vitse|prezident\s+administ|azərbaycan\s+prezident|dövlət başçı/iu;
@@ -692,7 +692,7 @@ function adHtml() {
   const s = slots[Math.floor(Date.now() / 30000) % slots.length];
   return `<section class="ad ad-live" aria-label="Reklam"><a href="${safeHref(s.link)}" target="_blank" rel="sponsored noopener noreferrer"><img src="${esc(s.image)}" alt="${esc(s.alt || "Reklam")}" loading="lazy" decoding="async"></a></section>`;
 }
-// QIRMIZI XƏTT 2: server qapısından sonra ikinci yoxlama. Telefondakı köhnə keş də bu qaydadan keçir.
+// QIRMIZI XƏTT 2: server qapısından sonra ikinci yoxlama.
 const POLICY = globalThis.CONTENT_POLICY;
 const removedIds = new Set(), removedUrls = new Set(), removedKeys = new Set(), removedHosts = [];
 function addRemovals(rows) {
@@ -714,7 +714,7 @@ function removedArticle(a) {
 }
 const policyRx = src => { try { return src ? new RegExp(src, "i") : null; } catch { return null; } };
 const POLICY_AZ = policyRx(POLICY?.azTerms), POLICY_LEADER = policyRx(POLICY?.leaderTerms);
-// JS i bayrağı İ və ı hərflərini qatlamır («ALİYEV», «BAKI»): kiçik hərfli mətn də yoxlanır.
+// JS i bayrağı İ/ı-ni qatlamır: kiçik hərfli mətn də yoxlanır.
 const policyTest = (rx, text) => !!rx && (rx.test(text) || rx.test(text.toLocaleLowerCase("az")));
 const hostOf = url => (/^[a-z][\w+.-]*:\/\/(?:[^@/?#]*@)?([^/?#:]+)/i.exec(url || "")?.[1] || "").toLowerCase().replace(/^www\./, "");
 const onHost = (host, list) => list.some(d => host === d || host.endsWith("." + d));
@@ -3091,6 +3091,8 @@ shell(); render();
 // Hamısı gələn kimi çəkilir.
 // xeber/<id>/ səhifəsi xəbərin sətrini gətirir (#row).
 { const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || 0); if (w?.id === r0.id) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { loadShared(r0.id); backHome(); } }
+// Bayram təbriki (bayram.js): yalnız günündə (Bakı vaxtı); ?bayram sınaq.
+{ const d = new Date(Date.now() + 144e5).toISOString().slice(5, 10); if (d === "11-08" || /[?&]bayram\b/.test(location.search)) setTimeout(() => import(`${ASSET}bayram.js`).then(m => m.show("11-08")).catch(() => {}), 800); }
 loadCached(); restoreLocal();
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
