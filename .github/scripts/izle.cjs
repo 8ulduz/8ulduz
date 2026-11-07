@@ -90,7 +90,7 @@ function handle(state, u, cat) {
         out.push({ method: "sendMessage", chat_id: id, text: `✅ «${cat.get(arg).label}» ${had ? "artıq izlənir" : "izlənir"}. Yeni xəbər çıxan kimi buraya göndərəcəyəm.\n\nSiyahı və dayandırmaq: /izlediklerim` });
       }
     } else if (cmd === "/start" || cmd === "/help" || cmd === "/komek") {
-      out.push({ method: "sendMessage", chat_id: id, text: `Salam! Bu, 8ULDUZ xəbər botudur.\n\nİzləmək istədiyiniz mövzunu buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev. Və ya saytda (${SITE}) bölmə, komanda, rayon səhifəsində və axtarışda «📩 Telegram-da izlə» düyməsinə basın — yeni xəbərlər buraya gələcək.\n\n${listText(id)}`, ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
+      out.push({ method: "sendMessage", chat_id: id, text: arg === "movzu" ? "📩 Nəyi izləmək istəyirsiniz? Mövzunu bir-iki sözlə buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev.\n\nYeni xəbər çıxan kimi buraya göndərəcəyəm." : `Salam! Bu, 8ULDUZ xəbər botudur.\n\nİzləmək istədiyiniz mövzunu buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev. Və ya saytda (${SITE}) bölmə, komanda, rayon səhifəsində və axtarışda «📩 Telegram-da izlə» düyməsinə basın — yeni xəbərlər buraya gələcək.\n\n${listText(id)}`, ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
     } else if (/^\/(izlediklerim|izlədiklərim|list)$/i.test(cmd)) {
       out.push({ method: "sendMessage", chat_id: id, text: listText(id), ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
     } else if (/^\/(dayandir|dayandır|stop)$/i.test(cmd)) {

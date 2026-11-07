@@ -150,7 +150,7 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
   signal?.addEventListener("abort", cancel, {once:true});
   try {
     if(signal?.aborted)cancel();
-    // index.html-in erkən sorğusu bir dəfə işlənir (alınmasa adi sorğu); dəqiqə fərqli olsa da qəbul olunur.
+    // index.html-in erkən sorğusu bir dəfə işlənir.
     const earlyKey = url.includes("&r=") ? null : Object.keys(globalThis.__early || {}).find(k => k.split("?")[0] === url.split("?")[0]);
     const early = earlyKey && globalThis.__early[earlyKey];
     if(early)delete globalThis.__early[earlyKey];
@@ -435,7 +435,7 @@ function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 const PROXY_MAX_FAILS = 8;
 const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
-// Proksidən keçməyən ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
+// Proksidən keçməyən ünvan: sona düşür, əvvəlcədən yüklənmir.
 const heavyImage = u => typeof u === "string" && !u.startsWith("https://wsrv.nl/") && (PROXY_SKIP.test(hostOf(u)) || (proxyBad.get(hostOf(u)) || 0) > 0);
 function sized(url, width, logo) {
   const host = hostOf(url);
@@ -655,7 +655,7 @@ function checkBreaking(articles) {
   storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
 }
 function tellWorkerLang() { try { navigator.serviceWorker?.controller?.postMessage({ type: "notify-lang", lang: S.lang || "" }); } catch {} }
-// Android-də new Notification xəta verir (bildiriş «aktiv» görünür, amma gəlmir): əvvəl service worker.
+// Android-də new Notification xəta verir: əvvəl service worker.
 async function showBreaking(a) {
   const options = { body: decode(a.title), icon: "./assets/icon-192.png", tag: "break-" + a.id };
   try {
@@ -1010,7 +1010,7 @@ async function weather(list) {
 }
 const WX_KEY = "8ulduz-wx";
 async function loadWeather() { try { S.wx = (await weather([geoCity()]))[0]; storage.setItem(WX_KEY, JSON.stringify({ ...S.wx, at: Date.now() })); renderTopbar(); } catch {} }
-// Son hava yaddaşdan dərhal; konum icazəsi varsa əvvəl şəhər, sonra hava/namaz/xəbərdarlıq (titrəməsin).
+// Son hava yaddaşdan dərhal; konum icazəsi varsa əvvəl şəhər.
 function restoreLocal() { try { const w = JSON.parse(storage.getItem(WX_KEY) || "null"); if (w && Date.now() - w.at < 3 * HOUR) S.wx = w; } catch {} }
 async function loadLocal() { if (!(await autoLocate())) { loadWeather(); loadPrayer(savedPrayCity()); loadWarnings(); } }
 async function loadAllWeather() {
@@ -1881,7 +1881,7 @@ function articleView(id) {
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz";
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}</article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
 // «Telegram-da izlə» (izle.cjs): bölmə, klub/rayon və ya axtarış sözü (q_ + UTF-8 base64url).
@@ -2109,7 +2109,7 @@ function patchChildren(box, fresh, changed) {
     }
     if (was && was._src === node._src) return;
     if (was?.matches(PATCH_INSIDE) && was.className === node.className) { was._src = node._src; patchChildren(was, [...node.children], changed); return; }
-    // Açılmış bölmə yenilənəndə bağlanmasın: səhifənin hündürlüyü dəyişib oxucu yerini itirməsin.
+    // Açılmış bölmə yenilənəndə bağlanmasın.
     if (was?.matches(".lazy-sec") && was.firstChild && node.matches(".lazy-sec")) lazyFill(node);
     if (was) was.replaceWith(node); else box.insertBefore(node, box.children[i] || null);
     changed.push(node);
@@ -2154,7 +2154,7 @@ function renderView() {
     const v = $("#view");
     const onlyFirst = S.partial && !partialOk();
     const r = route();
-    // Paylaşılan keçid: xəbərin sətri paylaşma siyahısından gəlibsə tam lent gözlənilmir (loadShared).
+    // Paylaşılan keçid: tam lent gözlənilmir (loadShared).
     const shared = r.name === "team" || r.name === "article" && S.sharedStory?.id === r.id;
     // Hazır ilk ekran (index.html, prerender.cjs): məlumat gələnə qədər durur, skelet və ya xəta onu silmir.
     const pre = !S.data && firstScreen() && !!v.querySelector?.(".pre-skel[data-prerender]");
@@ -2275,7 +2275,7 @@ async function installApp(btn) {
   renderLangs();
 }
 // Son düymə seçildi: xəbərlərə keçilir; alt siyahı açan düymədə yerində qalır.
-// «N yeni xəbər»: ekran səhifənin başına yox, «Son xəbərlər» → «Ən yeni» siyahısına qayıdır.
+// «N yeni xəbər»: «Ən yeni» siyahısına qayıdır.
 function jumpToLatest() {
   const sec = route().name === "home" ? document.getElementById("son-xeberler") : null;
   if (!sec) { window.scrollTo(0, 0); return; }

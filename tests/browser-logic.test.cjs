@@ -2661,6 +2661,19 @@ test('owner 2026-11-07: the bottom bar has six buttons — Video added, Tıxac k
   }
   assert.ok(js.includes('r.name === "section" && r.slug === "video" ? "video"'), 'Video səhifəsində düymə seçili');
 });
+test('owner 2026-11-07: the article ends with «Telegram-da izlə» for its district, club or section; the follow panel offers any topic', () => {
+  const ctx = app(), { S, articleView } = ctx.api, at = new Date().toISOString();
+  const row = (id, category, title) => ({ id, category, title, source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at, lang: 'az' });
+  S.data = { articles: [row('g1', 'bolgeler', 'Gəncədə yeni park açılıb'), row('f1', 'idman', 'Fənərbağça qələbə qazandı'), row('d1', 'dunya', 'Bakıda beynəlxalq forum'), row('s1', 'sondeqiqe', 'Təcili xəbər')] };
+  assert.ok(!articleView('g1').includes('tg-izle'), 'botun adı yoxdursa düymə yoxdur');
+  ctx.window.SITE_CONFIG = { tgBot: 'SekkizUlduzBot' };
+  assert.ok(articleView('g1').includes('?start=r_gence"') && articleView('g1').includes('📩 Gəncə: Telegram-da izlə'), 'rayon');
+  assert.ok(articleView('f1').includes('?start=i_fenerbahce"'), 'komanda');
+  assert.ok(articleView('d1').includes('?start=b_dunya"'), 'başqa bölmədə rayon yox, bölmə');
+  assert.ok(!articleView('s1').includes('tg-izle'), 'Son dəqiqə mövzu deyil');
+  const f = fs.readFileSync(path.join(root, 'assets/follow.js'), 'utf8');
+  assert.ok(f.includes("?start=movzu") && f.includes('📩 İstədiyiniz mövzunu Telegram-da izləyin'), 'izlə pəncərəsində bot');
+});
 test('owner 2026-11-07: any topic — a search result offers «Telegram-da izlə» with the search words for the bot', () => {
   const ctx = app(), { S, searchView } = ctx.api;
   S.data = { articles: [] };

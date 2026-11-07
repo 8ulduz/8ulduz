@@ -82,3 +82,8 @@ test("izlə: any topic — the reader writes a word to the bot or presses the bu
   const hava = I.kwTopic(I.keyOf("hava"));
   assert.ok(hava.match(row("h", "gundem", "Sabah yağış yağacaq")) && !hava.match(row("l", "gundem", "Hava limanında tədbir")));
 });
+
+test("izlə: the follow panel link asks the reader which topic to follow", () => {
+  const out = I.handle(I.newState(), msg(5, "/start movzu"), I.catalog(app));
+  assert.match(out[0].text, /^📩 Nəyi izləmək istəyirsiniz\?/);
+});

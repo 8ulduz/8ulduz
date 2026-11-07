@@ -37,6 +37,7 @@ const styles = `
 .follow-grid a:hover{border-color:var(--primary)}
 .follow-grid svg,.follow-grid .follow-google{width:18px;height:18px;flex:none;fill:currentColor}
 .follow-grid .follow-google{display:grid;place-items:center;font-weight:var(--fw-bold)}
+.follow-tg{display:block;margin-top:6px;padding:8px;border:1px solid var(--primary);border-radius:6px;background:var(--card);font-size:.82rem;font-weight:var(--fw-semibold);text-align:center}
 .follow-dialog :focus-visible{outline:2px solid var(--primary);outline-offset:3px}
 `;
 
@@ -138,6 +139,15 @@ export function openFollow(opener, track = () => {}, chromeLink = () => '') {
       if (app) { event.preventDefault(); location.href = app; }
     });
     grid.append(link);
+  }
+  // «Telegram-da izlə» botu (izle.cjs): oxucu istədiyi mövzunu bota yazır (pensiya, Gəncə, hava...).
+  const bot = globalThis.SITE_CONFIG?.tgBot;
+  if (bot && grid.children.length) {
+    const tg = document.createElement('a');
+    tg.className = 'follow-tg'; tg.href = `https://t.me/${bot}?start=movzu`; tg.target = '_blank'; tg.rel = 'noopener noreferrer';
+    tg.textContent = '📩 İstədiyiniz mövzunu Telegram-da izləyin';
+    tg.addEventListener('click', () => { track('follow-tgbot'); activeClose?.(); });
+    grid.after(tg);
   }
   if (!grid.children.length) { grid.remove(); dialog.querySelector('p').textContent = 'İzləmə kanalları hazırda əlçatan deyil. Daha sonra yenidən yoxlayın.'; }
   document.body.append(dialog);
