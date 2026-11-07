@@ -218,7 +218,7 @@ function today() { const a = new Date(), r = `${DAYS[a.getDay()]}, ${a.getDate()
 const FRESH_MS = 15 * 60e3; // «Son dəqiqə» nişanı və bildiriş: son 15 dəqiqə (əvvəl 1 saat idi, hər kart nişan alırdı)
 const isFresh = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < FRESH_MS; };
 const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTime(); return age >= 0 && age < HOUR; };
-// Mənbə yeni vərəqədə açılır — telefonda da (geri düyməsi mənbənin özündə qalır).
+// Mənbə yeni vərəqədə açılır.
 const TOUCH_UI = typeof matchMedia === "function" && matchMedia("(hover:none)").matches;
 const OUT = `target="_blank" rel="noopener noreferrer"`;
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
@@ -424,7 +424,7 @@ const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"
 function imageCandidates(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
-  // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
+  // Kəsilmiş kiçik şəkil sona.
   const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$|static\.president\.az\/assets\/president-administration-/i.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
   // Proksidən keçməyən sayt (PROXY_SKIP) sona.
   const blocked = u => PROXY_SKIP.test(hostOf(u));
@@ -976,7 +976,7 @@ async function loadOg(signal) {
   } catch { if(!signal?.aborted)S.og = {}; }
 }
 async function loadMarkets() {
-  // Əsas mənbə: updater.py-nin yaratdığı data/markets.json (AMB, Yahoo Finance, gold-api və s.)
+  // Mənbə: data/markets.json.
   try {
     const r = await fetch(freshUrl("data/markets.json"), { cache: "no-store" });
     if (r.ok) { const d = await r.json(); if (d.items?.length) { S.markets = d.items; renderMarkets(); if (route().name === "rates") requestRender(false); return; } }
@@ -1606,7 +1606,7 @@ function navRows(slug, open = S.sportTab, club = S.club || "") {
     (groups.length || leagues.length ? `<div class="nav-row two"><div class="wrap sport-chips">${leagues.map(g => `<div class="chips sub">${leagueHead(g)}${g.items.map(l => leagueLink(l)).join("")}</div>`).join("")}${groups.map(g => `<div class="chips sub">${g.group ? `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.group)}</span>` : ""}${g.items.map(t => pill(t.name, t.label)).join("")}</div>`).join("")}</div></div>` : "");
 }
 
-// Sosial yazılar yalnız vaxta görə, ən yenisi üstdə (şəbəkə və hesabdan asılı olmayaraq)
+// Sosial yazılar vaxta görə, ən yenisi üstdə.
 function orderedSocialPosts(max = 8) {
   return byDate(S.social?.posts || []).slice(0, max);
 }
@@ -1776,7 +1776,7 @@ function rankBySources(list) {
     .sort((x, y) => y.n - x.n || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""))
     .map(x => x.a);
 }
-// Hero: son 18 saatın ən çox mənbədə çıxan xəbərləri; azdırsa 48 saat, sonra bütün lent.
+// Hero: son 18 saatın ən çox mənbəli xəbərləri.
 // Eyni hadisənin variantları hero-da təkrarlanmasın.
 const heroWords = a => new Set(lc(a.title || "").split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 5));
 function diverse(ranked, need) {
@@ -1822,7 +1822,7 @@ function homeView() {
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
   const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining);
   if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
-  // Slayderdə və «Son xəbərlər»də görünən xəbər aşağıdakı bloklarda təkrarlanmır
+  // Yuxarıda görünən xəbər təkrarlanmır.
   const seen = new Set([...hero, ...picFirst(S.latestOrder === "sources" ? rankBySources(remaining) : byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
   // Slayderdəki xəbər bölmədə də qalır; lentdə yoxdursa arxiv.
   const secs = homeCats().map(c => {
@@ -1894,8 +1894,8 @@ function articleView(id) {
     if (S.archiveScanning) return '<p class="empty">Xəbər axtarılır…</p>';
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
-  document.title = tidy(a.title) + " — 8ulduz";
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
+  document.title = tidy(a.title) + " — 8ulduz"; S.art = a;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a>${globalThis.speechSynthesis ? '<button type="button" class="pill tg-izle" data-act="dinle">🔊 Dinlə</button>' : ""}<section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
 // «Telegram-da izlə» (izle.cjs).
@@ -2022,7 +2022,7 @@ function searchView() {
   const q = S.q.trim(), b = new TextEncoder().encode(q);
   return listPage(`Axtarış: “${S.q}”`, desc, list, b.length < 46 ? tgIzle("q_" + btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""), `«${q}»`) : "");
 }
-// Axtarış nəticəsində başlıqdakı uyğun sözlər işarələnir (DOM-da, mətnlər dəyişmir)
+// Axtarışda uyğun sözlər işarələnir.
 function highlightSearch() {
   const rx = route().name === "search" ? S.hl : null;
   if (!rx) return;
@@ -2075,7 +2075,7 @@ function trafficView() {
   const jump = a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`;
   const jumps = (konum ? jump(konum) : `<button type="button" class="pill" data-act="geo"${S.geoBusy ? " disabled" : ""}>${S.geoBusy ? "Konum axtarılır…" : "📍 Konumum"}</button>`) + TRAFFIC_AREAS.map(jump).join("") + (S.geoErr && !konum ? `<span class="geo-err">${esc(S.geoErr)}</span>` : "");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  // Waze telefonda yalnız «tətbiqi yüklə» göstərir: toxunma ekranında tıxac Yandex-dən.
+  // Telefonda tıxac Yandex-dən.
   const map = S.tixOn
     ? TOUCH_UI
       ? `<iframe title="Canlı tıxac xəritəsi (Yandex)" src="${esc(yandexSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
@@ -2322,6 +2322,10 @@ function onClick(e) {
     e.preventDefault();
     e.stopPropagation();
     if (t.dataset.to) shareTo(t); else shareStory(t);
+    return;
+  }
+  if (t.dataset.act === "dinle") { // «Dinlə» (assets/dinle.js, yalnız basılanda)
+    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode }))).then(p => p.play(S.art)).catch(() => {});
     return;
   }
   if (t.dataset.act === "install") {
@@ -3031,7 +3035,7 @@ function resumeNews() {
     if(S.reloadWhenHidden && !globalThis.speechSynthesis?.speaking)location.reload(); // yeni versiya oxucu baxmayanda
     return;
   }
-  // Bir saatdan çox arxa planda qalıbsa qayıdanda təzədən açılır (köhnə kod ilişməsin).
+  // Uzun fasilədən sonra təzədən açılır.
   const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
   S.hiddenAt = 0;
   if(away >= RELOAD_AFTER_HIDDEN_MS && !globalThis.speechSynthesis?.speaking){ location.reload(); return; }
@@ -3046,7 +3050,7 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt 
 addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
 function registerWorker() {
   if (!("serviceWorker" in navigator)) return;
-  // sw.js kod dəyişəndə: toxunulmayıbsa (4 s) dərhal, yoxsa gözdən itəndə yenidən açılır.
+  // sw.js kod dəyişəndə yenidən açılır.
   navigator.serviceWorker.addEventListener("message", e => {
     if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
     if (e.data?.type !== "shell-updated") return;
