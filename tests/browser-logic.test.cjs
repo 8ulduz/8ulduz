@@ -1005,13 +1005,17 @@ test('social posts are ordered by time only and show the reporting source', () =
   ctx.api.S.data = { sharePages: true, articles: [] };
   let soc = ctx.api.socialBlock(false);
   assert.ok(soc.includes('href="https://x.com/1st_Lady_AZ/status/1"'));
-  assert.ok(soc.includes('</a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident?s=56ba6f3455e532b6" title="Paylaş">Paylaş</button></article>'));
-  assert.ok(soc.includes('data-share="https://8ulduz.az/#/bolme/prezident" title'), 'id-siz yazı Zuğulbaya aparır');
+  // sahib 2026-11-07: paylaşımda kimə aiddirsə adı başlığın önündə — «İlham Əliyev: …» / «Mehriban Əliyeva: …»; keçid yazının öz
+  // og səhifəsidir (bolme/prezident/s/<id>, updater.write_social_share_pages), oradan dərhal #/bolme/prezident?s=<id>
+  assert.ok(soc.includes('</a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/bolme/prezident/s/56ba6f3455e532b6" data-title="Mehriban Əliyeva: yeni" title="Paylaş">Paylaş</button></article>'));
+  assert.ok(soc.includes('data-share="https://8ulduz.az/#/bolme/prezident" data-title="İlham Əliyev: '), 'id-siz yazı Zuğulbaya aparır');
+  const nf = fs.readFileSync(path.join(__dirname, '..', '404.html'), 'utf8');
+  assert.ok(nf.includes('s=p.match(/\\/bolme\\/prezident\\/s\\/([0-9a-f]{16})$/)') && nf.includes('location.replace("/#/bolme/prezident?s="+s[1])'), 'səhifə hələ yayımlanmayıbsa Zuğulbada həmin yazı');
   assert.ok(!soc.includes('data-share="https://x.com'));
   ctx.api.S.data = { articles: [] };
   soc = ctx.api.socialBlock(false, '56ba6f3455e532b6');
   assert.ok(soc.startsWith('<aside') && soc.indexOf('<article class="soc-r on">') === soc.indexOf('<article'), 'keçiddən gələndə yazı seçili və siyahının başında (sürüşmə/sıçrama yoxdur)');
-  assert.ok(soc.includes('data-share="https://8ulduz.az/#/bolme/prezident?s=56ba6f3455e532b6"'));
+  assert.ok(soc.includes('data-share="https://8ulduz.az/bolme/prezident/s/56ba6f3455e532b6"'));
   assert.ok(!fs.readFileSync(path.join(__dirname, "..", "assets/app.js"), "utf8").includes("soc-on"), "scrollIntoView yoxdur");
   // Zuğulba səhifəsi xronika ilə açılır: sosial şəbəkələr bağlı bölmədədir; menyuda «Sosial müdafiə» tam yazılır
   const src = fs.readFileSync(path.join(__dirname, '..', 'assets/app.js'), 'utf8');

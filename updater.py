@@ -3003,10 +3003,51 @@ def update_social():
                                        separators=(",", ":")), encoding="utf-8")
     merge_sources(yt_rows)
     try:
-        write_social_archive(posts)
+        write_social_share_pages(write_social_archive(posts))
     except Exception as e:
         print(f"  ! sosial arxiv: {type(e).__name__}: {str(e)[:80]}")
     print(f"Sosial: {min(16, len(posts))} yazı ({sum(1 for p in posts[:16] if p.get('via'))} xəbərdən)")
+
+# Sosial yazının paylaşma səhifəsi (sahib 2026-11-07: «sosial şəbəkələrdən paylaşanda kimə aiddirsə adı yazılsın: İlham Əliyev:
+# başlıq»). bolme/prezident/s/<id>.html: og başlığı «İlham Əliyev: …» / «Mehriban Əliyeva: …», yazının şəkli, oxucu dərhal
+# Zuğulba xronikasında həmin yazıya keçir (#/bolme/prezident?s=<id>). Arxiv qədər (30 gün) qalır; dəyişməyən səhifə yazılmır.
+SOCIAL_WHO = {"prezident": "İlham Əliyev", "birinci-xanim": "Mehriban Əliyeva"}
+
+def social_share_title(p):
+    text = re.sub(r"\s+", " ", html.unescape(str(p.get("text") or ""))).strip()
+    who = SOCIAL_WHO.get(p.get("who"))
+    return f"{who}: {text}" if who else text
+
+def social_share_page(p):
+    sid = p["id"]
+    image, fallback = str(p.get("imageUrl") or ""), f"{SITE}assets/og-default.png"
+    image = (f"https://wsrv.nl/?url={urllib.parse.quote(image, safe='')}&w=1200&h=630&fit=cover&a=attention&output=jpg&q=78&default={urllib.parse.quote(fallback, safe='')}"
+             if image.startswith("https://") else fallback)
+    desc = " · ".join(x for x in (p.get("name"), p.get("network"), p.get("via")) if x) or "8ulduz"
+    return _SHARE_HTML.format(lang="az", title=_xml(social_share_title(p)), desc=_xml(desc), url=_xml(f"{SITE}bolme/prezident/s/{sid}"),
+                              image=_xml(image), locale="az_AZ", app=_xml(f"{SITE}#/bolme/prezident?s={sid}"), site=SITE)
+
+def write_social_share_pages(rows, root=None):
+    """Arxivdəki hər yazının (16 rəqəmli id) paylaşma səhifəsi; arxivdən çıxanın səhifəsi silinir. Yazılan səhifə sayını qaytarır."""
+    d = (root or ROOT) / "bolme" / "prezident" / "s"
+    d.mkdir(parents=True, exist_ok=True)
+    keep, n = set(), 0
+    for p in rows:
+        if not re.fullmatch(r"[0-9a-f]{16}", str(p.get("id") or "")):
+            continue
+        keep.add(f'{p["id"]}.html')
+        page, f = social_share_page(p), d / f'{p["id"]}.html'
+        try:
+            if f.read_text(encoding="utf-8") == page:
+                continue
+        except OSError:
+            pass
+        _write_atomic(f, page, encoding="utf-8")
+        n += 1
+    for f in d.glob("*.html"):
+        if f.name not in keep:
+            f.unlink(missing_ok=True)
+    return n
 
 SOCIAL_ARCHIVE_FILE = OUT_DIR / "social-arxiv.json"
 SOCIAL_ARCHIVE_DAYS, SOCIAL_ARCHIVE_MAX = 30, 400

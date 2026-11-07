@@ -2108,6 +2108,31 @@ class BulkDatedArchiveTest(unittest.TestCase):
         self.assertIn('and a.get("source") not in bulk', inspect.getsource(updater.update_archive))
 
 
+class SocialSharePageTest(unittest.TestCase):
+    """Sahib, 2026-11-07: sosial yazını paylaşanda kimə aiddirsə adı başlığın önündə — «İlham Əliyev: başlıq»."""
+
+    def test_share_page_names_the_person_and_opens_the_post(self):
+        rows = [{"id": "a" * 16, "who": "prezident", "name": "Prezident İlham Əliyev", "network": "YouTube", "text": "Eşq olsun &amp; Azərbaycan xalqına!",
+                 "imageUrl": "https://i4.ytimg.com/vi/x/hq.jpg"},
+                {"id": "b" * 16, "who": "birinci-xanim", "name": "Mehriban Əliyeva", "network": "X", "text": "Zəfər Günü"},
+                {"id": "zz", "who": "prezident", "text": "id-siz"}]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self.assertEqual(updater.write_social_share_pages(rows, root), 2)
+            d = root / "bolme" / "prezident" / "s"
+            a, b = (d / f'{"a" * 16}.html').read_text(encoding="utf-8"), (d / f'{"b" * 16}.html').read_text(encoding="utf-8")
+            self.assertIn('<meta property="og:title" content="İlham Əliyev: Eşq olsun &amp; Azərbaycan xalqına!" />', a)
+            self.assertIn('<meta property="og:title" content="Mehriban Əliyeva: Zəfər Günü" />', b)
+            self.assertIn(f'<meta property="og:url" content="{updater.SITE}bolme/prezident/s/{"a" * 16}" />', a)
+            self.assertIn(f'content="0;url={updater.SITE}#/bolme/prezident?s={"a" * 16}"', a)
+            self.assertIn("https://wsrv.nl/?url=https%3A%2F%2Fi4.ytimg.com", a)
+            self.assertIn(f"{updater.SITE}assets/og-default.png", b, "şəkilsiz yazıda saytın şəkli")
+            self.assertIn('name="robots" content="noindex"', a)
+            self.assertEqual(updater.write_social_share_pages(rows, root), 0, "dəyişməyən səhifə yazılmır")
+            updater.write_social_share_pages(rows[1:], root)
+            self.assertEqual(sorted(p.name for p in d.iterdir()), [f'{"b" * 16}.html'], "arxivdən çıxanın səhifəsi silinir")
+        self.assertIn("write_social_share_pages(write_social_archive(posts))", (pathlib.Path(updater.__file__)).read_text(encoding="utf-8"))
+
 class SocialArchiveTest(unittest.TestCase):
     """Sahib, 2026-11-07: paylaşılan sosial yazının keçidi bir neçə saat sonra boş açılırdı (social.json yalnız son yazılar)."""
 

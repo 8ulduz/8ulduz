@@ -317,7 +317,7 @@ function titlesSimilar(toks, sh, other, otherSh) {
   return false;
 }
 function preferPrimary(a, b) {
-  // Rəsmi mənbə həmişə əsas kart olur (Zuğulba xronikası yalnız rəsmi mənbələri göstərir)
+  // Rəsmi mənbə həmişə əsas kart olur.
   const ao = OFFICIAL_SRC.has(a.source), bo = OFFICIAL_SRC.has(b.source);
   if (ao !== bo) return ao ? a : b;
   if (!!a.imageUrl !== !!b.imageUrl) return a.imageUrl ? a : b;
@@ -1620,7 +1620,7 @@ function profileRows() {
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false, sel = "") {
   const posts = side ? socialForSide() : [...(S.social?.posts || []).filter(p => p.id === sel), ...orderedSocialPosts(8).filter(p => p.id !== sel)];
-  const cards = posts.map(p => { const u = safeHref(p.url); const su = /^[0-9a-f]{16}$/.test(p.id) ? "?s=" + p.id : ""; return `<article class="soc-r${p.id === sel ? " on" : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident${su}" title="Paylaş">Paylaş</button></article>`; }).join("");
+  const cards = posts.map(p => { const u = safeHref(p.url), su = /^[0-9a-f]{16}$/.test(p.id) ? "bolme/prezident/s/" + p.id : "#/bolme/prezident", who = { prezident: "İlham Əliyev: ", "birinci-xanim": "Mehriban Əliyeva: " }[p.who] || ""; return `<article class="soc-r${p.id === sel ? " on" : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/${su}" data-title="${esc(who + decode(p.text))}" title="Paylaş">Paylaş</button></article>`; }).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
@@ -1841,7 +1841,7 @@ async function shareRow(id) {
   return null;
 }
 // Köhnə keçid (?h=saat): sətir arxiv budağındadır, saytın fayllarına əlavə yük yoxdur.
-// Saatsız köhnə keçid: idx/<2 rəqəm>.json id -> saat (+ əsas xəbər).
+// Saatsız köhnə keçid: idx/<id[0:2]>.json
 async function arxRow(id) {
   const R = "https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/";
   let h = (location.hash.match(/[?&]h=(\d{8})\b/) || [])[1], k = id;
@@ -1958,7 +1958,7 @@ function sectionView(slug) {
     if (S.club) {
       // Yer seçiləndə bütün lent və arxivlər axtarılır.
       CATS.forEach(x => loadArchive(x.slug));
-      // «Qəbələ» və «Sabah» həm də futbol klubudur: rayon düyməsində oyun xəbəri olmasın.
+      // «Qəbələ», «Sabah» həm də klubdur.
       list = byDate(allNews().filter(a => a.category !== "idman" && clubMatches(a, S.club)));
     }
   }
@@ -1970,7 +1970,7 @@ function sectionView(slug) {
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
-// Axtarış üçün sadələşdirmə: ə→e, ı→i və s. («ilham eliyev», «qarabag» da tapılır).
+// Axtarış üçün sadələşdirmə: ə→e, ı→i və s.
 // й, ё, U+0307 da burada: NFD yalnız nadir hərfdə.
 const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c", "й": "и", "ё": "е", "\u0307": "" };
 function fold(s) { // NFD yalnız lazım olanda (2,7× tez)
@@ -2248,7 +2248,7 @@ function showPop(btn, html) {
   box.style.top = `${r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6}px`;
   return box;
 }
-const shareTitle = el => el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || "";
+const shareTitle = el => el.dataset?.title || el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || ""; // sosial yazı: «İlham Əliyev: …»
 function shareStory(btn) {
   if (navigator.share && globalThis.matchMedia?.("(hover:none)").matches) { trackEvent("share-sys"); const title = shareTitle(btn), url = btn.dataset.share; navigator.share({ title, text: title, url }).catch(() => {}); return; }
   const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${shIcon(k)}${v[0]}</button>`).join("") + `<button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
@@ -3091,7 +3091,7 @@ shell(); render();
 // Hamısı gələn kimi çəkilir.
 // xeber/<id>/ səhifəsi xəbərin sətrini gətirir (#row).
 { const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || 0); if (w?.id === r0.id) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { loadShared(r0.id); backHome(); } }
-// Bayram təbriki (bayram.js): yalnız günündə (Bakı vaxtı); ?bayram sınaq.
+// Bayram (bayram.js): yalnız günündə.
 { const d = new Date(Date.now() + 144e5).toISOString().slice(5, 10); if (d === "11-08" || /[?&]bayram\b/.test(location.search)) setTimeout(() => import(`${ASSET}bayram.js`).then(m => m.show("11-08")).catch(() => {}), 800); }
 loadCached(); restoreLocal();
 S.firstReady = loadFirst();
