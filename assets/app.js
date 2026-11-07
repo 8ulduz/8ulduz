@@ -26,7 +26,6 @@ const LANGS = [
   { code: "ru", label: "на русском языке" }, { code: "en", label: "in English" },
 ];
 const LANG_BADGE = { az: "AZ", ru: "RUS", en: "ENG", tr: "TÜRK" };
-// Windows-da Chrome bayraq emojisini iki hərf kimi göstərir, ona görə bayraqlar SVG-dir.
 const flag = inner => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`; // slice: dil siyahısında dairəvi kəsilir
 const STAR8 = "M21 7.2l.7 1.5 1.6-.6-.6 1.6 1.5.7-1.5.7.6 1.6-1.6-.6-.7 1.5-.7-1.5-1.6.6.6-1.6-1.5-.7 1.5-.7-.6-1.6 1.6.6z";
 const FLAGS = {
@@ -38,7 +37,6 @@ const FLAGS = {
   cn: flag(`<rect width="30" height="20" fill="#de2910"/><path d="M7 3.2l1.3 4h4.2l-3.4 2.5 1.3 4L7 11.2l-3.4 2.5 1.3-4L1.5 7.2h4.2z" fill="#ffde00"/><circle cx="15" cy="3.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="6.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="10" r=".9" fill="#ffde00"/><circle cx="15" cy="13" r=".9" fill="#ffde00"/>`),
   eu: flag(`<rect width="30" height="20" fill="#039"/><circle cx="15" cy="10" r="5.6" fill="none" stroke="#fc0" stroke-width="1.7" stroke-dasharray="1.7 1.23"/>`),
 };
-// Bazar kartları və məzənnə səhifəsi: valyutanın bayrağı, qalanının simvolu.
 const MARKET_ICON = { USD: FLAGS.us, EUR: FLAGS.eu, RUB100: FLAGS.ru, TRY100: FLAGS.tr, CNY: FLAGS.cn, BRENT: "🛢", WTI: "🛢", XAU: "🥇", XAG: "🥈", BTC: "₿" };
 const marketIcon = id => MARKET_ICON[id] ? `<span class="mk-ic">${MARKET_ICON[id]}</span>` : "";
 const GROUP_FLAG = { "Azərbaycan": FLAGS.az, "Türkiyə": FLAGS.tr, "Avropa": FLAGS.eu };
@@ -142,7 +140,6 @@ async function liveDirect(url, signal) {
   return null;
 }
 const freshUrl = (path, force = false) => `${path}?t=${Math.floor(Date.now() / 60000)}${force ? `&r=${Date.now()}-${++freshSequence}` : ""}`;
-// Bound both the request and JSON body: suspended mobile requests must not lock the feed.
 async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
   const controller = new AbortController();
   let timer, cancel;
@@ -173,7 +170,6 @@ const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən 
 
 // Məxfi rejimdə və yaddaş dolanda seçimlər heç olmasa açıq vərəqdə işləsin.
 const sessionPrefs = new Map();
-// Yaddaş işləyirsə həmişə oradan oxunur: başqa vərəqin yazdığı itməsin.
 const storage = {
   getItem(key) {
     if (sessionPrefs.has(key)) return sessionPrefs.get(key);
@@ -189,7 +185,6 @@ const storage = {
 
 /* ---- köməkçilər */
 const $ = (s, r = document) => r.querySelector(s);
-// İkinci dərəcəli blokda səhv məlumat xəbər lentini dondurmasın.
 const optional = fn => { try { return fn(); } catch (e) { console.warn("blok göstərilmədi:", e); return ""; } };
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const _dec = document.createElement("textarea");
@@ -205,7 +200,6 @@ function decode(s) {
   return cur;
 }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ESC[c]); }
-// Lent etibarsız mənbədir: keçid yalnız http(s) ola bilər (javascript: işləməsin).
 const safeHref = u => { const s = String(u ?? "").trim(); return /^https?:\/\//i.test(s) ? esc(s) : "#"; };
 function tidy(s) {
   return decode(s).replace(/\s*https?:\/\/\S+/gi, "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/(?:\s*[-–—|])+\s*$/u, "").trim();
@@ -363,26 +357,46 @@ function clusterArticles(list) {
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
 }
-// Eyni başlıq (eyni mənbə adı da olsa) 36 saat içində bir kart olsun.
+// Eyni keçid və ya 36 saat içində eyni başlıq: lent/arxiv qrupları da birləşir.
+const DUP_META = new WeakMap();
+function duplicateMeta(a) {
+  let m = DUP_META.get(a);
+  if (m && m.title === a.title && m.url === a.sourceUrl && m.at === a.publishedAt && m.alts === a.alts) return m;
+  const entries = [a, ...a.alts || []];
+  const keys = entries.map(x => ({key: normTitle(decode(x.title)).replace(/(?:\s+(?:foto(?:lar)?|video(?:lar)?|yenilenib))+$/, ""), dt: new Date(x.publishedAt || a.publishedAt).getTime()})).filter(x => x.key.length >= 12 && !Number.isNaN(x.dt));
+  const urls = entries.map(x => x.sourceUrl?.replace(/^(https?:\/\/)www\./i, "$1")).filter(Boolean);
+  DUP_META.set(a, m = {title: a.title, url: a.sourceUrl, at: a.publishedAt, alts: a.alts, keys, urls});
+  return m;
+}
 function collapseExact(list) {
-  const groups = [], byKey = new Map();
+  const groups = [], byKey = new Map(), byUrl = new Map();
+  const root = g => { while (g?.parent) g = g.parent; return g; };
   for (const a of list || []) {
-    const key = normTitle(decode(a.title));
-    const dt = new Date(a.publishedAt).getTime();
-    let g = null;
-    if (key.length >= 12 && !Number.isNaN(dt)) g = byKey.get(key)?.find(x => Math.abs(x.dt - dt) <= GROUP_MS);
-    if (!g) { groups.push(g = { key, dt: Number.isNaN(dt) ? 0 : dt, items: [] }); byKey.set(key, [...byKey.get(key) || [], g]); }
+    const {keys, urls} = duplicateMeta(a);
+    const matches = new Set(urls.map(u => root(byUrl.get(u))).filter(Boolean));
+    for (const {key, dt} of keys) {
+      const same = byKey.get(key)?.find(x => Math.abs(x.dt - dt) <= GROUP_MS);
+      if (same) matches.add(root(same.g));
+    }
+    let g = matches.values().next().value;
+    if (!g) groups.push(g = { items: [] });
+    for (const other of matches) if (other !== g) { g.items.push(...other.items); other.items = []; other.parent = g; }
+    for (const {key, dt} of keys) { if (!byKey.has(key)) byKey.set(key, []); byKey.get(key).push({dt, g}); }
     g.items.push(a);
+    for (const u of urls) byUrl.set(u, g);
   }
   const out = [];
   for (const g of groups) {
+    if (!g.items.length) continue;
     let primary = g.items[0];
     for (const a of g.items.slice(1)) primary = preferPrimary(primary, a);
+    primary = {...primary};
     const alts = [];
-    const urls = new Set([primary.sourceUrl]);
+    const urls = new Set([primary.sourceUrl]), sources = new Set([primary.source]);
     const push = (src, url, publishedAt, imageUrl) => {
-      if (!url || urls.has(url)) return;
+      if (!url || urls.has(url) || sources.has(src)) return;
       urls.add(url);
+      sources.add(src);
       alts.push({ source: src, sourceUrl: url, publishedAt, imageUrl: imageUrl || "" });
     };
     for (const a of g.items) {
@@ -390,6 +404,9 @@ function collapseExact(list) {
       for (const alt of a.alts || []) push(alt.source, alt.sourceUrl, alt.publishedAt, alt.imageUrl);
     }
     if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+    else delete primary.alts;
+    DUP_META.set(primary, {title: primary.title, url: primary.sourceUrl, at: primary.publishedAt, alts: primary.alts,
+      keys: g.items.flatMap(a => duplicateMeta(a).keys), urls: g.items.flatMap(a => duplicateMeta(a).urls)});
     out.push(primary);
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
@@ -400,7 +417,7 @@ const altBadge = a => a.alts?.length ? `<a class="bd out" href="${detailUrl(a)}#
 function altPop(a) {
   if (!a.alts?.length) return "";
   const rows = [a, ...a.alts].map(r => `<a href="${safeHref(r.sourceUrl)}" ${OUT}>${sourceName(r.source)}</a>`).join("");
-  return `<details class="altpop"><summary class="bd gold">${1 + a.alts.length} mənbə</summary><div>${rows}</div></details>`;
+  return `<details class="altpop"><summary class="bd gold">${1 + a.alts.length} mənbə</summary><div><template>${rows}</template></div></details>`;
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
 
@@ -408,7 +425,7 @@ function imageCandidates(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
   // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
-  const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
+  const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$|static\.president\.az\/assets\/president-administration-/i.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
   // Proksidən keçməyən sayt (PROXY_SKIP) sona: başqa mənbənin kiçildilə bilən şəkli varsa o çıxır.
   const blocked = u => PROXY_SKIP.test(hostOf(u));
   return [...all.filter(u => !cut(u) && !blocked(u)), ...all.filter(u => cut(u) && !blocked(u)), ...all.filter(blocked)];
@@ -416,7 +433,6 @@ function imageCandidates(a) {
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // xidmət işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən.
 const PROXY_MAX_FAILS = 8;
-// wsrv bu saytların şəklini 404 verir: birbaşa mənbədən (170–290 KB), yüksək prioritetsiz (heavyImage).
 const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
 // Proksidən keçməyən ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
@@ -453,7 +469,6 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
 // Paylaşılan keçid saytımıza aparır; b: lentdən çıxanda baxılacaq arxiv.
-// Önizləmə serverdən oxunur: main-dəki xəbər /x/ID səhifəsi ilə (sharePages), dəqiqəlik yox.
 const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
 // Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
@@ -471,7 +486,6 @@ const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan
 const card = a => cardAt(a, "h3");
 function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
-// Şəkil yüklənməsə növbəti namizəd yoxlanır. Heç biri alınmasa kart yalnız mətn qalır.
 // Slayderdə boş kadr qalmır: şəkli sınan slayd çıxarılır (xəbərin özü siyahılarda qalır).
 function dropHeroSlide(slide) {
   const row = slide.parentElement;
@@ -561,7 +575,6 @@ function localRoadItems(list) {
     return age >= 0 && age < 2 * HOUR && local.test(a.title) && !unrelated.test(a.title);
   });
 }
-// Konum tapılıbsa xəritə ona mərkəzlənir (oxucu bölgə seçməyibsə).
 const geoArea = () => S.geo ? { id: "konum", label: "📍 Konumum", lat: S.geo.lat, lon: S.geo.lon, zoom: 13 } : null;
 function tixArea() {
   const konum = geoArea();
@@ -641,7 +654,6 @@ function checkBreaking(articles) {
   for (const a of novel) showBreaking(a);
   storage.setItem(SEEN_KEY, JSON.stringify(fresh.map(a => a.id)));
 }
-// Fon yoxlaması (sw.js) localStorage görmür: seçilmiş dili ona bildiririk.
 function tellWorkerLang() { try { navigator.serviceWorker?.controller?.postMessage({ type: "notify-lang", lang: S.lang || "" }); } catch {} }
 // Android-də new Notification xəta verir (bildiriş «aktiv» görünür, amma gəlmir): əvvəl service worker.
 async function showBreaking(a) {
@@ -699,7 +711,6 @@ function removedArticle(a) {
   if (!removedHosts.some(h => String(a.sourceUrl || "").includes(h))) return false;
   try { const u = new URL(a.sourceUrl), n = [...u.pathname.matchAll(/(?:\/|[-_])(\d{5,})(?=\.html?|\/|$)/g)].map(m => m[1]).filter(n => !/^(?:19|20)\d{6}$/.test(n)); return !!n.length && removedKeys.has(u.hostname.toLowerCase().replace(/^www\./, "") + "#" + n.at(-1)); } catch { return false; }
 }
-// Köhnə brauzer lookbehind-i dəstəkləmirsə sayt açılmamazlıq etməsin: bu halda server qapısı qalır.
 const policyRx = src => { try { return src ? new RegExp(src, "i") : null; } catch { return null; } };
 const POLICY_AZ = policyRx(POLICY?.azTerms), POLICY_LEADER = policyRx(POLICY?.leaderTerms);
 // JS i bayrağı İ və ı hərflərini qatlamır («ALİYEV», «BAKI»): kiçik hərfli mətn də yoxlanır.
@@ -719,7 +730,6 @@ function policyViolation(a) {
   const sport = a.category === "idman" && (POLICY.sportSources || []).includes(a.source);
   return policyTest(sport ? POLICY_LEADER : POLICY_AZ, text);
 }
-// Əlavə mənbə: öz başlığı da, əsas xəbərin mövzusu da yoxlanır (clean_alts).
 function altForbidden(a, alt) {
   if (removedSource(alt) || sourceForbidden(alt)) return true;
   if (!POLICY?.worldSources[alt.source]) return false;
@@ -869,16 +879,13 @@ function primeHeroImage(articles) {
   if (!link.isConnected) head.appendChild(link); // href əvvəl, sonra sənədə: boş href xəbərdarlığı olmasın
 }
 
-// Ekran yalnız oxucu toxunmayanda yenidən qurulur: açıq video, xəritə, süzgəc itmir, səhifə atlamır.
 function readerBusy() {
   if ($(".follow-dialog[open]")) return true;
   if ((S.sy ??= globalThis.scrollY || 0) > 400 || Date.now() - (S.touchAt || 0) < 8000) return true; // son 8 saniyədə toxunub, çevirib və ya yazıb: oxuyur, ekran gözləyir
   if ($("#view iframe, #view details.altpop[open]")) return true;
   return !!document.activeElement?.closest?.("#view input, #view select, #view textarea");
 }
-// Açılışda ilk xəbərlər dərhal, qalan fayllar bir dəfəyə (≤2,5 s), sonra 400 ms-də bir.
 const RENDER_GAP_MS = 400, FIRST_RENDER_HOLD_MS = 2500;
-// Gözləyən çəkiliş toxunma kəsiləndən 8 s sonra özü çəkilir (2 s-dən bir yoxlanır, ən çox 10 dəq).
 function armBusy(ms, n = 0) { clearTimeout(S.busyT); S.busyT = setTimeout(() => { if (!S.renderPending) return; if (!readerBusy()) requestRender(S.renderWhole); else if (n < 300) armBusy(2000, n + 1); }, ms); S.busyT?.unref?.(); }
 function requestRender(whole = true) {
   S.renderWhole ||= whole;
@@ -1890,21 +1897,27 @@ async function loadArchive(slug) {
   try {
     const {d} = await requestJSON(freshUrl(`data/arxiv/${slug}.json`), {}, 8000);
     if (!Array.isArray(d?.articles)) return;
-    S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)); S.arxV = (S.arxV || 0) + 1;
+    S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))})); S.arxV = (S.arxV || 0) + 1;
     const r = route();
     if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search" || (r.name === "home" && S.archiveHome?.has(slug)) || (r.name === "team" && slug === "idman")) requestRender(false);
   } catch {}
 }
-// Lent + 14 arxiv bir dəfə birləşir (axtarış, Bölgələr): hər klikdə telefonda 100–250 ms idi.
 function allNews() {
-  if (S.allD !== S.data || S.allV !== S.arxV) { S.allD = S.data; S.allV = S.arxV; S.all = CATS.reduce((l, c) => withArchive(c.slug, l), S.data.articles); }
+  if (S.allD !== S.data || S.allV !== S.arxV) { S.allD = S.data; S.allV = S.arxV; S.all = collapseExact([...S.data.articles, ...CATS.flatMap(c => S.archive?.[c.slug]?.rows || []).filter(a => !removedArticle(a))]); }
   return S.all;
 }
+const ARCHIVE_POOLS = new WeakMap();
 function withArchive(slug, list) {
-  const rows = S.archive?.[slug]?.rows;
+  const archive = S.archive?.[slug], rows = archive?.rows;
   if (!rows?.length) return list;
-  const known = urlsOf(list);
-  return [...list, ...rows.filter(a => !known.has(a.sourceUrl) && !removedArticle(a))];
+  const full = list === S.data?.articles, rev = removedIds.size + removedUrls.size + removedKeys.size;
+  const cache = full ? ARCHIVE_POOLS.get(list) : null, memo = cache?.get(slug);
+  if (memo && memo.data === S.data && memo.rows === rows && memo.rev === rev) return memo.pool;
+  const saved = rows.filter(a => !removedArticle(a)), known = urlsOf(saved);
+  const live = (S.data?.articles || []).filter(a => known.has(a.sourceUrl) || a.alts?.some(x => known.has(x.sourceUrl)));
+  const pool = collapseExact([...list, ...live, ...saved]);
+  if (full) { const m = cache || new Map(); m.set(slug, {data: S.data, rows, rev, pool}); ARCHIVE_POOLS.set(list, m); }
+  return pool;
 }
 function sectionView(slug) {
   const c = CATS.find(x => x.slug === slug);
@@ -2064,7 +2077,6 @@ function rememberSrc(node) {
   node._src = node.outerHTML;
   if (node.matches(PATCH_INSIDE)) [...node.children].forEach(rememberSrc);
 }
-// Sürüşən siyahıda baxılan ilk kart və sürüşmə payı: yeniləmədən sonra eyni kart eyni yerdə.
 function anchorOf(box) {
   const x = box.matches(".hero-row"), pos = x ? box.scrollLeft : box.scrollTop;
   const at = n => x ? n.offsetLeft - box.firstElementChild.offsetLeft : n.offsetTop - box.firstElementChild.offsetTop;
@@ -2234,7 +2246,6 @@ async function shareTo(t) {
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
-// Chrome: beforeinstallprompt; iPhone: əl ilə. Kompüterdə başlıqda (#inst), telefonda 15-ci düymə (.nav-inst).
 function installBtn() {
   if (isStandalone() || (!S.installEvt && !isIOS())) return "";
   return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;
@@ -2381,7 +2392,6 @@ function onClick(e) {
 
 const THEME_KEY = "8ulduz-theme", FS_KEY = "8ulduz-fs";
 const SYS_LIGHT = globalThis.matchMedia?.("(prefers-color-scheme: light)"); // istinad saxlanır: yoxsa dinləyici itir
-// Oxucu rejimi seçməyibsə telefon rejimi dəyişəndə (axşam avtomatik tünd) sayt da dəyişir.
 SYS_LIGHT?.addEventListener?.("change", () => { if (!storage.getItem(THEME_KEY)) { applyPrefs(); renderTopbar(); } });
 function applyPrefs() {
   document.documentElement.dataset.motion = motionOff() ? "off" : "on";
@@ -2407,7 +2417,6 @@ function setPref(act) {
   setupMarquees();
   afterPaint(fitNav);
 }
-// Baxış render bitəndə göndərilir: GoatCounter və GA4 (ga.js, sayt açılandan sonra).
 let visitSent = "", gaOn = 0;
 const visitQueue = [], gaQ = [];
 const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=2").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
@@ -2668,7 +2677,6 @@ function stripPlan(strip) {
     return sync;
     };
 }
-// Slayderin uzaq şəkilləri yaxınlaşanda yüklənir: ilk açılışda 15 şəkil gözlənilmir.
 function setupHeroImages() {
   const row = document.querySelector(".hero-strip .hero-row");
   if (!row) return;
@@ -2846,7 +2854,6 @@ document.addEventListener("focusout", (e) => {
     scheduleStep(el, LEAVE_MS);
   }, 0);
 });
-// Barmaq/siçan kart üzərinə gələn kimi mənbə saytına qoşulur (DNS+TLS); keçid 100–300 ms tez açılır
 const preconnected = new Set();
 document.addEventListener("pointerdown", (e) => {
   const a = e.target.closest?.("a[href^=http]");
@@ -3045,6 +3052,7 @@ document.addEventListener("toggle", (e) => {
   const d = e.target;
   if (d.classList?.contains("service-panel")) S.svcOpen = d.open; // nəticə/cədvəl düyməsi paneli bağlamasın
   if (!d.classList?.contains("altpop") || !d.open) return;
+  const t = d.querySelector("template"); if (t) t.replaceWith(t.content);
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);
 if (uiLang(S.lang)) {
@@ -3059,14 +3067,11 @@ shell(); render();
 loadCached(); restoreLocal();
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
-// Xəbər ekrana çıxandan sonra: xidmət işçisi, statistika və köməkçi şəbəkəni tutur.
 const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(() => { enableAnalytics(); registerWorker(); });
 newsReady.then(flushRender);
-// Hava, namaz, video və sosial şəbəkə ilk şəkilin (LCP) xəttini tutmasın: xəbər ekrana çıxandan sonra.
 const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();
 afterNews(() => { socNow || loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
-// Liqa cədvəlləri (~17 KB) xəbərlərdən sonra və ya oxucu gedəndə.
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
 loadMarkets(); loadStatus();

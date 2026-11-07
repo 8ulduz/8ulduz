@@ -66,7 +66,7 @@ test('speed: search and Regions merge the feed with 14 archives once, until some
   const ctx = app();
   vm.runInContext('S.data = { articles: [] }; S.archive = {};', ctx);
   ctx.rows = [story(1)];
-  vm.runInContext('S.data = { articles: rows }; S.archive = { gundem: { at: Date.now(), rows: [{ ...rows[0], id: "x", sourceUrl: "https://apa.az/x" }] } };', ctx);
+  vm.runInContext('S.data = { articles: rows }; S.archive = { gundem: { at: Date.now(), rows: [{ ...rows[0], id: "x", title: "Arxivdə başqa müstəqil hadisə", sourceUrl: "https://apa.az/x" }] } };', ctx);
   const one = vm.runInContext('allNews()', ctx), two = vm.runInContext('allNews()', ctx);
   assert.equal(one, two, 'eyni siyahı, yenidən yığılmır');
   assert.equal(one.length, 2);
@@ -74,7 +74,7 @@ test('speed: search and Regions merge the feed with 14 archives once, until some
   assert.notEqual(vm.runInContext('allNews()', ctx), one, 'arxiv gələndə yenidən');
   vm.runInContext('S.data = { articles: [] }', ctx);
   assert.equal(vm.runInContext('allNews()', ctx).length, 1, 'lent dəyişəndə yenidən');
-  assert.ok(APP.includes('S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)); S.arxV = (S.arxV || 0) + 1;'));
+  assert.ok(APP.includes('S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))})); S.arxV = (S.arxV || 0) + 1;'));
   assert.ok(APP.includes('for (const a of allNews()) {') && APP.includes('list = byDate(allNews().filter('), 'axtarış və Bölgələr eyni birləşməni işlədir');
 });
 

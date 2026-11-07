@@ -290,6 +290,7 @@ class ImageTest(unittest.TestCase):
 
     def test_generic_share_images_are_rejected_and_real_ones_kept(self):
         self.assertTrue(updater._is_generic_img("https://azertag.az/resources/images/social.jpg"))
+        self.assertTrue(updater._is_generic_img("https://static.president.az/assets/president-administration-abcd.png"))
         self.assertTrue(updater._is_generic_img("https://img.piri.net/resim/imagecrop/2026/04/01/09/50/tr_son_dakika_530x530.jpg"))
         self.assertFalse(updater._is_generic_img("https://static.president.az/upload/960x572/2026/10/27/a.jpg"))
         page = b'<html><head><meta property="og:image" content="https://azertag.az/resources/images/social.jpg"/>' \
