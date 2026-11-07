@@ -27,6 +27,11 @@ class SesTest(unittest.TestCase):
         self.assertEqual(ses.script_of(a, "Bakıda yağış. Sabah  güclü yağış gözlənilir."), "Bakıda yağış. APA xəbər verir. Sabah güclü yağış gözlənilir.")
         self.assertEqual(ses.script_of(a, ""), "Bakıda yağış. APA xəbər verir. Qısa", "tam mətn alınmasa saytdakı xülasə")
 
+    def test_minute_feed_stories_are_added_once(self):
+        feed = [{"id": "a" * 16, "title": "Köhnə"}]
+        live = [{"id": "b" * 16, "title": "Təzə"}, {"id": "a" * 16, "title": "Köhnə"}]
+        self.assertEqual([a["title"] for a in ses.merged(feed, live)], ["Təzə", "Köhnə"])
+
     def test_long_text_is_cut_at_a_sentence(self):
         text = ("Bir cümlə budur. " * 400).strip()
         out = ses.clip(text, 1000)

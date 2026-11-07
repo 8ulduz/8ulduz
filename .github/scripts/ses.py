@@ -83,6 +83,27 @@ def fetch(url, timeout=12):
         return r.read(3_000_000).decode("utf-8", errors="replace")
 
 
+LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/"
+
+
+def live_rows(now):
+    """Saytın dəqiqəlik canlı lenti (live budağı, app.js liveDirect ilə eyni yol): yeni xəbər 10 dəqiqəlik əsas lenti gözləmir.
+    Sahib, 2026-11-08: «anında düşən xəbəri mənbədən oxusun»."""
+    slot = int(now.timestamp() - 45) // 60
+    for minute in (slot, slot - 1, slot - 2):
+        try:
+            return json.loads(fetch(f"{LIVE}{minute}/latest.az.json", 15)).get("articles") or []
+        except Exception:
+            continue
+    return []
+
+
+def merged(feed, live):
+    """Canlı lentin xəbərləri əsas lentə qatılır (eyni id bir dəfə)."""
+    seen = {a.get("id") for a in feed}
+    return [a for a in live if a.get("id") not in seen] + feed
+
+
 def git(d, *args, data=None):
     return subprocess.run(["git", "-C", d, *args], input=data, capture_output=True, check=True).stdout.decode().strip()
 
@@ -107,6 +128,7 @@ def main(d):
     if len(feed) < 50:
         print(f"ses: lent alınmadı ({len(feed)})")
         return
+    feed = merged(feed, live_rows(now))
     have, other, index = {}, [], {}
     try:
         for line in git(d, "ls-tree", "HEAD").splitlines():
