@@ -1,7 +1,7 @@
 // Bayram təbriki (sahib, 2026-11-07: «8 noyabr Zəfər Günü münasibətilə 00:00-dan sonra saytı açanda təbrik banneri açılsın»).
 // app.js bu modulu yalnız bayram günü (Bakı vaxtı) yükləyir; adi gündə heç bir bayt gəlmir. Təbrik sahibin seçdiyi banner şəklidir
 // (assets/bayram-zefer.webp, 800×800, ~67 KB): yalnız bu gün, ilk ekrandan sonra yüklənir. Sağ yuxarıda ✕; kənara toxunmaq və Esc də
-// bağlayır. Hər girişdə açılır.
+// bağlayır. Sahib (2026-11-08): səhifəni yeniləyəndə çıxmasın, sayt bağlanıb yenidən açılanda çıxsın — sessiyada bir dəfə (sessionStorage).
 const DAYS = {
   "11-08": {
     // Mətn sahibindir (2026-11-07). Şəkildəki yazı: «Azərbaycan xalqının ZƏFƏR günü mübarək olsun!»
@@ -24,10 +24,11 @@ const CSS = `
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
-// Sahibin istəyi (2026-11-08): bayram günü sayta hər girişdə çıxır, sessiyada bir dəfəlik məhdudiyyət yoxdur.
-export function show(key, doc = document) {
+export function show(key, doc = document, store = globalThis.sessionStorage) {
   const day = DAYS[key];
   if (!day || doc.querySelector(".bayram")) return null;
+  const seen = "8ulduz-bayram-" + key;
+  try { if (store?.getItem(seen) && !/[?&]bayram\b/.test(globalThis.location?.search || "")) return null; store?.setItem(seen, "1"); } catch {}
   if (!doc.getElementById("bayram-style")) { const st = doc.createElement("style"); st.id = "bayram-style"; st.textContent = CSS; doc.head.append(st); }
   const src = new URL(day.img, import.meta.url).href; // şəkil modulun öz qovluğundadır (assets/)
   const box = doc.createElement("div");

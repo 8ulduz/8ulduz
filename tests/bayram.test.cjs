@@ -23,7 +23,7 @@ test("bayram: the module shows the owner's banner image from assets, no outside 
   assert.ok(img.size < 120e3, "banner şəkli 120 KB-dan kiçik: yalnız bayram günü, ilk ekrandan sonra yüklənir");
 });
 
-test("bayram: the module loads (a syntax error would silently show nothing) and opens on every visit", async () => {
+test("bayram: the module loads (a syntax error would silently show nothing) and opens once per session", async () => {
   const m = await import(require("node:url").pathToFileURL(path.join(root, "assets/bayram.js")).href);
   const made = [], store = new Map();
   const el = () => ({ attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener() {}, append() {}, remove() {}, querySelector: () => ({ focus() {} }) });
@@ -32,6 +32,6 @@ test("bayram: the module loads (a syntax error would silently show nothing) and 
   const box = m.show("11-08", doc, st);
   assert.ok(box && box.innerHTML.includes("bayram-zefer.webp") && box.innerHTML.includes('class="bayram-x"') && box.attrs.role === "dialog");
   assert.equal(box.attrs["aria-label"], "8ULDUZ.AZ Azərbaycanın ZƏFƏR GÜNÜnü təbrik edir!");
-  assert.ok(m.show("11-08", doc, st), "hər girişdə yenidən açılır (sahib, 2026-11-08)");
+  assert.equal(m.show("11-08", doc, st), null, "sessiyada ikinci dəfə açılmır");
   assert.equal(m.show("01-01", doc, st), null, "başqa gün yoxdur");
 });
