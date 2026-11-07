@@ -90,3 +90,19 @@ test("dinlə: without a prepared file the device voice reads, Turkish voice with
   assert.equal(env.spoken[0].lang, "tr-TR");
   p.stop();
 });
+
+test("dinlə: pressing «Dinlə» again on the story that is playing stops it (sahib, 2026-11-07)", async () => {
+  const js = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  assert.ok(js.includes(".then(p => p.playing && p.id === a?.id ? p.stop() : p.play(a))"), "ikinci basış dayandırır");
+  const { createPlayer } = await load();
+  const env = fakeEnv(true), p = createPlayer({ list: () => list, ...env });
+  await p.play(list[0]);
+  assert.equal(p.id, list[0].id); assert.equal(p.playing, true);
+  p.stop();
+  assert.equal(p.playing, false); assert.equal(p.id, undefined);
+});
+
+test("dinlə: pressing «Dinlə» on a slider card stops the slider (sahib, 2026-11-07)", () => {
+  const js = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  assert.ok(js.includes(`t.closest(".hero-strip")?.querySelector('.hero-pause[aria-pressed="false"]')?.click();`));
+});

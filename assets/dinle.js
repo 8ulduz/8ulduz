@@ -176,5 +176,5 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
     files.clear();
   }
   globalThis.addEventListener?.("pagehide", stop);
-  return { play, stop, toggle, next, get playing() { return playing; }, get mode() { return mode; } };
+  return { play, stop, toggle, next, get playing() { return playing; }, get mode() { return mode; }, get id() { return cur?.id; } };
 }

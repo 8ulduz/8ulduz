@@ -231,7 +231,7 @@ const flText = s => {
 };
 // Nişan başlığa görədir.
 const isFirstLady = a => !!a && flText(a.title);
-// Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
+// Birinci xanım.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
 // Zuğulba: rəsmi + dövlət saytlarının prezident xəbərləri; eyni xəbər bir kartdır.
@@ -249,7 +249,7 @@ const aboutOurLeaders = a => { const t = `${a.title || ""} ${a.summary || ""}`; 
 function prezHome(list, all = list) {
   const now = Date.now();
   const age = a => now - new Date(a.publishedAt).getTime();
-  // Rəsmi mənbələr və dövlət saytları (STATE_SRC); digərləri «Hamısı» səhifəsində
+  // Rəsmi mənbələr (STATE_SRC)
   const prez = list.filter(a => a.category === "prezident" && (OFFICIAL_SRC.has(a.source) || STATE_SRC.has(a.source)));
   // Rəsmi səhifələr limitsiz, digər mənbə ən çox 3 kart
   const perSrc = {};
@@ -480,7 +480,7 @@ function appLink(u, pkg, extra = "") {
   try { const x = new URL(u); pkg = x.protocol === "https:" && (pkg || APP_PKG.find(([re]) => re.test(x.hostname))?.[1]); return pkg ? `intent://${x.host}${x.pathname}${x.search}#Intent;scheme=https;package=${pkg};${extra}S.browser_fallback_url=${encodeURIComponent(u)};end` : ""; } catch { return ""; }
 }
 function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
-// tapşırığında qalır, geri sayta qayıdır; CCT-nin ilk naviqasiyası tətbiqə sıçramır.
+// CCT: geri sayta qayıdır.
 const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.customtabs.extra.SESSION=;");
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">Dinlə</button><button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
@@ -530,7 +530,7 @@ const imgFail = el => {
   box?.remove();
 };
 // CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
-// Ölçü CSS-də sabitdir: şəkil sahəni object-fit:cover ilə örtür, nisbət dəyişmir.
+// Ölçü CSS-də sabitdir.
 document.addEventListener("load", (e) => { const t = e.target; if (t?.tagName === "IMG" && t.dataset?.fail === "alt") { if ((t.naturalWidth || 0) < 2) imgFail(t); else t.style.visibility = ""; } }, true);
 document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && t.style && (t.style.visibility = "hidden"); }, true);
 
@@ -788,6 +788,7 @@ async function loadNews(force = false) {
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
     // İlk ekrandan tam lentə: dəyişməyən bloklar qalır.
     if (first || force || (partial && readerBusy())) render(); else requestRender();
+    if (!partial) backY();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data || S.partial) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
 }
@@ -1128,6 +1129,7 @@ function shell() {
     if ($("#navpop")) $("#navpop").hidden = true;
     if (kept) scrollToClub();
   });
+  addEventListener("pagehide", () => { try { sessionStorage.setItem("8y:" + location.hash, scrollY | 0); } catch {} });
   window.addEventListener("scroll", () => { S.sy = scrollY; closeSharePop(); $("#totop").classList.toggle("show", scrollY > 600); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
@@ -1254,7 +1256,7 @@ function bindNavPop() {
   const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
   const hide = () => { clearTimeout(timer); pop.hidden = true; };
   let anchor, lastX = 0;
-  // Yer yalnız açılanda, ən geniş halına görə: sütun açılanda siyahı sürüşmür.
+  // Yer yalnız açılanda.
   const place = (slug, from) => {
     const head = $("#sitehead").getBoundingClientRect(), box = from.getBoundingClientRect();
     pop.style.left = `${popLeft(box.left - head.left, head.width, slug === "more" ? 230 : slug === "idman" && innerWidth >= 900 ? 800 : 460)}px`;
@@ -1540,7 +1542,7 @@ const REGION_TABS = [
   { name: "Şərqi Zəngəzur", groups: [{ group: "", items: [{ name: "Cəbrayıl", keys: ["cəbrayıl"] }, { name: "Kəlbəcər", keys: ["kəlbəcər"] }, { name: "Qubadlı", keys: ["qubadlı"] }, { name: "Laçın", keys: ["laçın"] }, { name: "Zəngilan", keys: ["zəngilan"] }] }] },
   { name: "Şirvan-Salyan", groups: [{ group: "", items: [{ name: "Şirvan", keys: ["şirvan"] }, { name: "Biləsuvar", keys: ["biləsuvar"] }, { name: "Hacıqabul", keys: ["hacıqabul"] }, { name: "Neftçala", keys: ["neftçala"] }, { name: "Salyan", keys: ["salyan"] }] }] },
 ];
-// Alt başlığı olan bölmələr: menyuda fərqlənir, səhifəsində düymələr açılır.
+// Alt başlığı olan bölmələr.
 const SUB_TABS = { idman: SPORT_TABS, bolgeler: REGION_TABS };
 const TOPIC_SUFFIX = "(?:in|nin|un|nun|a|e|i|u|ya|ye|ni|nu|na|ne|la|le|dan|den|ndan|nden|da|de|nda|nde|s|а|у|е|я|ю|ы|и|ь|ом|ем|еи|ои)?";
 const topicMap = tabs => new Map(tabs.flatMap(t => [t, ...(t.groups || []).flatMap(g => g.items)]).map(t => [t.name, t]));
@@ -1551,7 +1553,7 @@ const TK_SLOW = /[^\x00-\x7f«»\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u024f\u0400-\u
 const topicKey = s => (s = fold(s), TK_SLOW.test(s) ? s.replace(/[^\p{L}\p{N}]+/gu, " ") : s.replace(/[^a-z0-9\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u024f\u0400-\u0481\u048a-\u04ff]+/g, " ")).trim();
 function topicRx(t) {
   if (t.rx) return t.rx;
-  // Bir saytın alt bölməsi olan mövzuda söz şərti yoxdursa heç nəyə uyğun gəlməsin.
+  // Söz şərti yoxdursa uyğun gəlmir.
   const parts = ["\\b\\B"];
   if (t.keys?.length) parts.push(`(?:${t.keys.map(topicKey).join("|")})${TOPIC_SUFFIX} `);
   if (t.stems?.length) parts.push(`(?:${t.stems.map(topicKey).join("|")})`);
@@ -1851,8 +1853,13 @@ async function arxRow(id) {
   const r = d?.articles?.find(a => a.id === k);
   return r && !removedSource(r) && !policyViolation(r) ? r : null;
 }
-// Paylaşılan keçid: xəbər paylaşma hissəsindən gəlir.
+// Paylaşılan keçid.
 function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
+// Geri qayıdış: oxucu mənbədən qayıdanda qaldığı yer.
+function backY() {
+  if (S.backY) return; S.backY = 1;
+  try { const y = +sessionStorage.getItem("8y:" + location.hash); if (y > 0 && performance.getEntriesByType("navigation")[0]?.type === "back_forward" && scrollY < 50) requestAnimationFrame(() => scrollTo(0, y)); } catch {}
+}
 async function loadShared(id) {
   if (S.data || S.sharedStory?.id === id || !/^[0-9a-f]{16}$/.test(id)) return;
   try {
@@ -2198,7 +2205,7 @@ function sourceLevel(s) {
   return "bad";
 }
 
-// Nadir səhifələr (Mənbə vəziyyəti, Haqqımızda, Mənim bölmələrim) sehife.js-dədir.
+// Nadir səhifələr sehife.js-dədir.
 function pageView(name) {
   if (S.pages) return S.pages[name]({ S, esc, sourceName, shownSource, removedSource, sourceLevel, ago, trackedSources, sectionPref, CATS, ASSISTANT_ON, DRIVER_ON, config: window.SITE_CONFIG || {} });
   if (!S.pagesAsked) { S.pagesAsked = true; import("./sehife.js").then(m => { S.pages = m; renderView(); }).catch(() => { S.pagesAsked = false; }); }
@@ -2326,8 +2333,9 @@ function onClick(e) {
   }
   if (t.dataset.act === "dinle") { // «Dinlə» (assets/dinle.js, yalnız basılanda)
     e.preventDefault(); e.stopPropagation();
+    t.closest(".hero-strip")?.querySelector('.hero-pause[aria-pressed="false"]')?.click(); // slayder dayanır
     const id = t.dataset.id, a = [...(S.data?.articles || []), ...Object.values(S.archive || {}).flatMap(x => x.rows || []), S.sharedStory?.row, S.art].find(x => x && x.id === id) || S.art;
-    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode }))).then(p => p.play(a)).catch(() => {});
+    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode }))).then(p => p.playing && p.id === a?.id ? p.stop() : p.play(a)).catch(() => {}); // 2-ci basış: dayan
     return;
   }
   if (t.dataset.act === "install") {
