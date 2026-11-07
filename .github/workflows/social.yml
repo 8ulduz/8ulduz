@@ -65,6 +65,7 @@ jobs:
         run: node .github/scripts/social.cjs data/news.json
       # Yeni xeber/<id>/ səhifələri Bing və Yandex-ə (IndexNow). Düşsə də paylaşmaya və siyahının saxlanmasına təsir etmir.
       - name: IndexNow
+        if: ${{ !cancelled() }}
         continue-on-error: true
         run: node .github/scripts/indexnow.cjs
       - name: Siyahını saxla
