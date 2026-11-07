@@ -32,9 +32,9 @@ test("dinlə: the natural Azerbaijani voice (Edge) comes first, then any Azerbai
   assert.equal(pickVoice([v("English", "en-US")]), null);
 });
 
-test("dinlə: the site loads the module only when «🔊 Dinlə» is pressed (speed red line)", () => {
+test("dinlə: every card has «Dinlə» next to «Paylaş»; the module loads only when pressed (speed red line)", () => {
   const js = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
-  assert.ok(js.includes(`globalThis.speechSynthesis ? '<button type="button" class="pill tg-izle" data-act="dinle">🔊 Dinlə</button>' : ""`), "düymə yalnız səsli oxuma olan brauzerdə");
+  assert.ok(js.includes('<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">Dinlə</button><button type="button" class="share" data-act="share"'), "hər kartda «Paylaş»ın yanında «Dinlə» (sahib, 2026-11-07)");
   assert.ok(js.includes('(S.dinle ||= import(`${ASSET}dinle.js`)'), "modul yalnız basılanda");
   assert.ok(!/<script[^>]+dinle\.js|modulepreload[^>]+dinle/.test(fs.readFileSync(path.join(root, "index.html"), "utf8")), "ilk açılışda yüklənmir");
 });

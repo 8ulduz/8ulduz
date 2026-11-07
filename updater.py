@@ -1896,7 +1896,7 @@ _SHARE_HTML = ('<!doctype html>\n<html lang="{lang}"><head><meta charset="UTF-8"
                '<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="{title}" />\n'
                '<meta property="og:description" content="{desc}" /><meta property="og:url" content="{url}" /><meta property="og:image" content="{image}" />\n'
                '<meta property="og:locale" content="{locale}" /><meta name="twitter:card" content="summary_large_image" />\n'
-               '<meta http-equiv="refresh" content="0;url={app}" />\n'
+               '{pre}<meta http-equiv="refresh" content="0;url={app}" />\n'
                '</head><body><p><a href="{app}">{title}</a> — <a href="{site}">8ulduz</a></p></body></html>\n')
 
 def share_page(a):
@@ -1911,9 +1911,25 @@ def share_page(a):
     image = _xml(f"https://wsrv.nl/?url={urllib.parse.quote(image, safe='')}&w=1200&h=630&fit=cover&a=attention&output=jpg&q=78&default={urllib.parse.quote(fallback, safe='')}"
                  if image.startswith("https://") else fallback)
     hm = re.match(r"20(\d\d)-(\d\d)-(\d\d)T(\d\d)", str(a.get("publishedAt") or ""))  # h: arxiv budağının saatı (.github/scripts/arxiv.cjs)
-    app = _xml(f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}' + (f'&h={"".join(hm.groups())}' if hm else ''))
+    raw_app = f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}' + (f'&h={"".join(hm.groups())}' if hm else '')
     return _SHARE_HTML.format(lang=_xml(a.get("lang") or "az"), title=title, desc=desc, url=f"{SITE}x/{sid}", image=image,
-                              locale=_LOCALE.get(a.get("lang") or "az", "az_AZ"), app=app, site=SITE)
+                              locale=_LOCALE.get(a.get("lang") or "az", "az_AZ"), app=_xml(raw_app), site=SITE, pre=share_jump(a, raw_app))
+
+# Facebook/WhatsApp-dan gələn oxucu (sahib, 2026-11-07: «keçidlər gözqırpımında»): səhifə xəbərin sətrini sessionStorage-a qoyur
+# və dərhal sayta keçir; sayt xəbəri heç bir yükləməni (150 KB-lıq paylaşma siyahısı, tam lent) gözləmədən göstərir (app.js açılış).
+# Botlar (Facebook, WhatsApp önizləməsi) skripti işlətmir, og etiketlərini oxuyur; skriptsiz brauzer meta refresh ilə keçir.
+SHARE_ROW_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "imageUrl", "category", "publishedAt", "lang", "video", "author")
+
+def _js(v):
+    return json.dumps(v, ensure_ascii=False).replace("</", "<\\/").replace("<!--", "<\\!--")
+
+def share_jump(a, app):
+    row = {k: (str(a[k])[:600] if k == "summary" else a[k]) for k in SHARE_ROW_FIELDS if a.get(k)}
+    alts = [{k: x[k] for k in ("id", "title", "source", "sourceUrl") if x.get(k)} for x in (a.get("alts") or [])[:20] if x.get("sourceUrl")]
+    if alts:
+        row["alts"] = alts
+    body = json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+    return f'<script>try{{sessionStorage.setItem({_js("x:" + a["id"])},{_js(body)})}}catch(e){{}}location.replace({_js(app)})</script>\n'
 
 def write_share_pages(articles):
     """Lentdəki hər xəbər üçün (16 rəqəmli id) hələ olmayan paylaşma səhifəsini yazır; sayını qaytarır. Bayraqsız heç nə etmir."""
@@ -3027,7 +3043,7 @@ def social_share_page(p):
              if image.startswith("https://") else fallback)
     desc = " · ".join(x for x in (p.get("name"), p.get("network"), p.get("via")) if x) or "8ulduz"
     return _SHARE_HTML.format(lang="az", title=_xml(social_share_title(p)), desc=_xml(desc), url=_xml(f"{SITE}bolme/prezident/s/{sid}"),
-                              image=_xml(image), locale="az_AZ", app=_xml(f"{SITE}#/bolme/prezident?s={sid}"), site=SITE)
+                              image=_xml(image), locale="az_AZ", app=_xml(f"{SITE}#/bolme/prezident?s={sid}"), site=SITE, pre="")
 
 def write_social_share_pages(rows, root=None):
     """Arxivdəki hər yazının (16 rəqəmli id) paylaşma səhifəsi; arxivdən çıxanın səhifəsi silinir. Yazılan səhifə sayını qaytarır."""

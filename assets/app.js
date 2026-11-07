@@ -119,7 +119,7 @@ const HOUR = 3600e3, DAY = 24 * HOUR;
 const POLL_MS = 30e3;     // QIRMIZI XƏTT 1: lent dəqiqədə bir yazılır, sayt 30 saniyədən bir yoxlayır
 const NEWS_FULL_MS = 10 * 60e3; // tam lent bu qədərdən bir; arada yalnız dilin latest faylı
 const LATEST_MAX_MS = 90e3;     // status möhürü dəyişməsə də bu qədərdən bir latest.json yoxlanır
-// GitHub Pages JSON-u ~600 san cache edir; hər dəqiqə yeni sorğu açarı təzə faylı gətirir
+// Hər dəqiqə yeni sorğu açarı (Pages keşi)
 let freshSequence = 0;
 // Service worker-siz ziyarətçi də dəqiqəlik kanalı görsün; sw.js ilə eyni qayda.
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
@@ -209,7 +209,7 @@ const catLabel = slug => CATS.find(c => c.slug === (SECTION_ALIAS[slug] || slug)
 function ago(iso) {
   const t = new Date(iso).getTime(); if (Number.isNaN(t)) return "";
   const m = Math.floor(Math.max(0, Date.now() - t) / 6e4);
-  if (m < 1) return "indicə"; if (m < 60) return `${m} dəqiqə əvvəl`;
+  if (m < 1) return "indicə"; if (m < 60) return `${m} ${globalThis.innerWidth < 700 ? "dəq" : "dəqiqə"} əvvəl`;
   const h = Math.floor(m / 60); if (h < 24) return `${h} saat əvvəl`;
   const d = Math.floor(h / 24); return d < 30 ? `${d} gün əvvəl` : fullDate(iso);
 }
@@ -482,7 +482,7 @@ function appLink(u, pkg, extra = "") {
 function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
 // tapşırığında qalır, geri sayta qayıdır; CCT-nin ilk naviqasiyası tətbiqə sıçramır.
 const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.customtabs.extra.SESSION=;");
-const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
+const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">Dinlə</button><button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
 function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
@@ -1339,7 +1339,7 @@ function renderTicker() {
   const breaking = latest.filter(isFresh);
   const list = (breaking.length ? breaking : latest).slice(0, 12);
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
-  // İkinci dövr yalnız zolağın davamlılığı üçündür: ekran oxuyucu və Tab onu keçir.
+  // İkinci dövr: zolağın davamı.
   const items = list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("") +
     list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT} aria-hidden="true" tabindex="-1">${txt(a.title)}</a>`).join("");
   // «Bildiriş»: yeni son-dəqiqə xəbəri üçün brauzer bildirişi
@@ -1840,7 +1840,7 @@ async function shareRow(id) {
   }
   return null;
 }
-// Köhnə keçid (?h=saat): sətir arxiv budağındadır, saytın fayllarına əlavə yük yoxdur.
+// Köhnə keçid: arxiv budağı.
 // Saatsız köhnə keçid: idx/<id[0:2]>.json
 async function arxRow(id) {
   const R = "https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/";
@@ -1854,7 +1854,7 @@ async function arxRow(id) {
 // Paylaşılan keçid: xəbər paylaşma hissəsindən gəlir.
 function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
 async function loadShared(id) {
-  if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
+  if (S.data || S.sharedStory?.id === id || !/^[0-9a-f]{16}$/.test(id)) return;
   try {
     const row = await shareRow(id) || await arxRow(id);
     if (row) { S.sharedStory = { id, row }; if (route().name === "article") renderView(); } // lent arada gəlsə də
@@ -1879,7 +1879,7 @@ async function scanArchives(id) {
     if (route().name === "article") renderView();
   }
 }
-// «Bu barədə daha çox»: 36 saatda başlığı 2+ nadir sözlə üst-üstə düşən 3 xəbər.
+// «Bu barədə daha çox».
 function relatedOf(a) {
   const all = S.data?.articles || [], df = new Map(), t = +new Date(a.publishedAt), skip = new Set([a, ...(a.alts || [])].map(x => x.id));
   for (const b of all) for (const w of new Set(titleTokens(b.title))) df.set(w, (df.get(w) || 0) + 1);
@@ -1895,7 +1895,7 @@ function articleView(id) {
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz"; S.art = a;
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a>${globalThis.speechSynthesis ? '<button type="button" class="pill tg-izle" data-act="dinle">🔊 Dinlə</button>' : ""}<section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
 // «Telegram-da izlə» (izle.cjs).
@@ -2325,7 +2325,9 @@ function onClick(e) {
     return;
   }
   if (t.dataset.act === "dinle") { // «Dinlə» (assets/dinle.js, yalnız basılanda)
-    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode }))).then(p => p.play(S.art)).catch(() => {});
+    e.preventDefault(); e.stopPropagation();
+    const id = t.dataset.id, a = [...(S.data?.articles || []), ...Object.values(S.archive || {}).flatMap(x => x.rows || []), S.sharedStory?.row, S.art].find(x => x && x.id === id) || S.art;
+    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode }))).then(p => p.play(a)).catch(() => {});
     return;
   }
   if (t.dataset.act === "install") {
@@ -3094,7 +3096,7 @@ if (uiLang(S.lang)) {
 shell(); render();
 // Hamısı gələn kimi çəkilir.
 // xeber/<id>/ səhifəsi xəbərin sətrini gətirir (#row).
-{ const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || 0); if (w?.id === r0.id) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { loadShared(r0.id); backHome(); } }
+{ const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || sessionStorage.getItem("x:" + r0.id) || 0); if (w?.id === r0.id && !policyViolation(w)) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { loadShared(r0.id); backHome(); } }
 // Bayram (bayram.js): yalnız günündə.
 { const d = new Date(Date.now() + 144e5).toISOString().slice(5, 10); if (d === "11-08" || /[?&]bayram\b/.test(location.search)) setTimeout(() => import(`${ASSET}bayram.js`).then(m => m.show("11-08")).catch(() => {}), 800); }
 loadCached(); restoreLocal();

@@ -13,6 +13,22 @@ from unittest.mock import patch
 import updater
 
 
+class ShareJumpTest(unittest.TestCase):
+    """Facebook/WhatsApp keçidi: paylaşma səhifəsi sətri sessionStorage-a qoyur, sayt xəbəri gözləmədən açır (2026-11-07)."""
+    def test_share_page_hands_the_row_to_the_site_and_jumps(self):
+        a = {"id": "0123456789abcdef", "title": "Başlıq </script><b>", "summary": "Xülasə", "source": "APA", "sourceUrl": "https://apa.az/1",
+             "category": "siyaset", "publishedAt": "2026-11-07T13:05:00+04:00", "lang": "az", "alts": [{"source": "Report", "sourceUrl": "https://report.az/1"}]}
+        page = updater.share_page(a)
+        m = re.search(r'<script>try\{sessionStorage\.setItem\("x:0123456789abcdef",(".*?")\)\}catch\(e\)\{\}location\.replace\(("[^"]+")\)</script>', page)
+        self.assertTrue(m, page)
+        self.assertNotIn("</script><b>", page, "başlıq skripti qıra bilmir")
+        row = json.loads(json.loads(m.group(1).replace("<\\/", "</")))
+        self.assertEqual((row["id"], row["source"], row["alts"][0]["source"]), ("0123456789abcdef", "APA", "Report"))
+        self.assertEqual(json.loads(m.group(2)), "https://8ulduz.az/#/xeber/0123456789abcdef?b=siyaset&h=26110713")
+        self.assertIn('<meta http-equiv="refresh"', page, "skriptsiz brauzer də keçir")
+        self.assertIn('og:title', page)
+
+
 class RemovedSourceTest(unittest.TestCase):
     def test_removed_feed_and_retained_alternatives(self):
         self.assertFalse(any('azadliq.org' in feed[1] for feed in updater.FEEDS))

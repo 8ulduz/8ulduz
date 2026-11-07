@@ -2205,7 +2205,7 @@ test('speed red line: the first screen is prerendered from first.json with app.j
   assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('alt="" loading="lazy" fetchpriority="low" decoding="async"'), 'Zuğulba kiçik şəkilləri aşağı prioritetlə: slayder şəkli birinci keçir (fikstürdə şəkil yoxdur, mənbə yoxlanır)');
   assert.ok(html.includes('Neft &amp; qaz'), 'ilk slayd qalır');
   assert.ok(html.includes('<section class="hero">') && html.includes('Son xəbərlər') && html.includes('Zuğulba'), 'slayder, Son xəbərlər, Zuğulba');
-  assert.ok(html.includes('5 dəqiqə əvvəl'), 'vaxt hazırlanma anına görədir');
+  assert.ok(/5 dəq(?:iqə)? əvvəl/.test(html), 'vaxt hazırlanma anına görədir (telefonda «dəq»)');
   assert.ok(/w=640&amp;we&amp;output=webp[^>]*fetchpriority="high"/.test(html), 'telefon ölçüsü (640), ilk şəkil yüksək prioritetlə');
   assert.ok(!html.includes('lazy-sec') && !html.includes('service-panel'), 'yalnız ilk ekran: bölmələr tam lentlə gəlir');
   assert.ok(!/<script\b/i.test(html), 'daxili skript yoxdur: CSP hash-ı dəyişməz qalır');
@@ -2263,7 +2263,7 @@ test('Zuğulba card is a link with a share button outside the link; the latest l
   const prez = [{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, imageUrl: 'https://president.az/a.jpg', lang: 'az' }];
   const html = prezBlock(prezHome(prez));
   assert.ok(html.includes('<article class="pcard has-img" data-cat="prezident"><a class="pcard-hit" href="https://president.az/1"'), 'kart keçiddir');
-  assert.ok(/<\/a><button type="button" class="share" data-act="share" data-share="https:\/\/8ulduz\.az\/#\/xeber\/p1[^"]*"[^>]*>Paylaş<\/button><\/article>/.test(html), 'Paylaş düyməsi keçidin kənarındadır');
+  assert.ok(/<\/a><button type="button" class="share" data-act="dinle" data-id="p1">Dinlə<\/button><button type="button" class="share" data-act="share" data-share="https:\/\/8ulduz\.az\/#\/xeber\/p1[^"]*"[^>]*>Paylaş<\/button><\/article>/.test(html), 'Paylaş düyməsi keçidin kənarındadır');
   assert.ok(!html.match(/<a class="pcard-hit"[^>]*>([\s\S]*?)<\/a>/)[1].includes('<button'), 'keçidin içində düymə yoxdur');
   ctx.api.S.latestOrder = 'latest';
   assert.ok(latestBlock([]).startsWith('<section id="son-xeberler">'), '«N yeni xəbər» düyməsi bura sürüşdürür');
