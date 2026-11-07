@@ -1954,7 +1954,80 @@ STORY_MIN_SOURCES = 3  # sahib 2026-11-07: «sayta gələni artır» — 4-dən 
 STORY_SITEMAP_MAX = 5000
 # Şablon dəyişəndə köhnə səhifələr yenidən yazılsın (index-in 4-cü sahəsi); bir dövrədə ən çox STORY_REWRITE, repo birdən böyüməsin.
 # 2: Google Discover üçün max-image-preview:large (sahib 2026-11-07).
-STORY_VER, STORY_REWRITE = 2, 150
+# 3: og:image mənbələrin ən enli şəkli (Discover 1200+ px istəyir; 2026-11-07 ölçüsü: əsas şəkillərin 13/40-ı 1200+ idi).
+STORY_VER, STORY_REWRITE = 3, 150
+IMG_SIZE_FILE = CACHE_DIR / "img_size.json"
+IMG_SIZE_KEEP, DISCOVER_MIN_W = 4000, 1200
+
+def _image_size(b):
+    """Şəklin eni faylın başından (PNG, GIF, WebP, JPEG); tanınmasa 0."""
+    try:
+        if b[:8] == b"\x89PNG\r\n\x1a\n":
+            return int.from_bytes(b[16:20], "big")
+        if b[:4] == b"GIF8":
+            return int.from_bytes(b[6:8], "little")
+        if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+            kind = b[12:16]
+            if kind == b"VP8X":
+                return 1 + int.from_bytes(b[24:27], "little")
+            if kind == b"VP8 ":
+                return int.from_bytes(b[26:28], "little") & 0x3FFF
+            if kind == b"VP8L":
+                return (int.from_bytes(b[21:25], "little") & 0x3FFF) + 1
+        if b[:2] == b"\xff\xd8":
+            i = 2
+            while i + 9 < len(b):
+                if b[i] != 0xFF:
+                    i += 1
+                    continue
+                m = b[i + 1]
+                if 0xC0 <= m <= 0xCF and m not in (0xC4, 0xC8, 0xCC):
+                    return int.from_bytes(b[i + 7:i + 9], "big")
+                i += 2 + int.from_bytes(b[i + 2:i + 4], "big")
+    except Exception:
+        pass
+    return 0
+
+def _image_width(url):
+    """Yalnız faylın ilk 64 KB-ı soruşulur (Range): eni oradadır."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Range": "bytes=0-65535"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return _image_size(r.read(65536))
+    except Exception:
+        return 0
+
+def story_image_widths(articles, limit=80):
+    """Xəbər səhifəsi olacaq xəbərlərin (əsas və mənbələrin) şəkillərinin eni; hər ünvan bir dəfə, yavaş dövrədə (write_public)."""
+    sizes = _read_json(IMG_SIZE_FILE, {})
+    if not isinstance(sizes, dict):
+        sizes = {}
+    todo = []
+    for a in articles:
+        if not story_worthy(a):
+            continue
+        for r in [a, *(a.get("alts") or [])]:
+            u = str(r.get("imageUrl") or "")
+            if u.startswith("https://") and u not in sizes and u not in todo and not _is_generic_img(u):
+                todo.append(u)
+    todo = todo[:limit]
+    if todo:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            sizes.update(zip(todo, ex.map(_image_width, todo)))
+        _save_cache(IMG_SIZE_FILE, dict(list(sizes.items())[-IMG_SIZE_KEEP:]))
+    return sizes
+
+def discover_image(a, sizes):
+    """og:image: əsas şəkil 1200 px-dən dardırsa eyni xəbərin digər mənbələrindən ən enlisi; ölçü bilinmirsə əsas şəkil."""
+    main = str(a.get("imageUrl") or "")
+    best, width = (main, sizes.get(main) or 0) if main.startswith("https://") else ("", 0)
+    if width >= DISCOVER_MIN_W:
+        return best
+    for r in a.get("alts") or []:
+        u = str(r.get("imageUrl") or "")
+        if u.startswith("https://") and (sizes.get(u) or 0) > width and not _is_generic_img(u):
+            best, width = u, sizes[u]
+    return best
 _AZ_MONTH_NAMES = ("yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr")
 
 def story_worthy(a):
@@ -2013,7 +2086,7 @@ _STORY_HTML = """<!doctype html>
 </html>
 """
 
-def story_page(a):
+def story_page(a, sizes=None):
     """Bir əsas xəbərin axtarış üçün səhifəsi (xeber/<id>/index.html)."""
     sid, slug = a["id"], a.get("category") or "gundem"
     label = {s: l for s, l, _d in SECTIONS}.get(slug, "Xəbərlər")
@@ -2028,8 +2101,7 @@ def story_page(a):
             continue
         seen.add(url)
         lis.append(f'<li><a href="{_xml(url)}" rel="noopener">{_xml(r.get("title") or title)}</a> <small>{_xml(r.get("source"))}</small></li>')
-    image = str(a.get("imageUrl") or "")
-    image = image if image.startswith("https://") else f"{SITE}assets/og-default.png"
+    image = discover_image(a, sizes or {}) or f"{SITE}assets/og-default.png"
     url = f"{SITE}xeber/{sid}/"
     ld = json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "8ulduz", "item": SITE},
@@ -2054,6 +2126,11 @@ def write_story_pages(articles, now=None):
     rows = [a for a in articles if story_worthy(a) and not removed_source(a)
             and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
     rows, _ = content_policy.enforce(rows)
+    try:  # şəkil ölçüsü alınmasa səhifələr əsas şəkillə yazılır
+        sizes = story_image_widths(rows)
+    except Exception as e:
+        print("  ! şəkil ölçüsü:", type(e).__name__, e)
+        sizes = {}
     changed, redo = False, STORY_REWRITE
     for a in rows:
         dt = _parse_dt(a.get("publishedAt"))
@@ -2067,7 +2144,7 @@ def write_story_pages(articles, now=None):
             redo -= 1  # köhnə şablon: yenidən yazılır
         d = STORY_DIR / a["id"]
         d.mkdir(parents=True, exist_ok=True)
-        _write_atomic(d / "index.html", story_page(a), encoding="utf-8")
+        _write_atomic(d / "index.html", story_page(a, sizes), encoding="utf-8")
         index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem", STORY_VER]
         changed = True
     for sid in list(index):

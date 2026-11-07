@@ -183,3 +183,44 @@ class DigestTest(unittest.TestCase):
         sh = (ROOT / '.github/scripts/pipeline.sh').read_text(encoding='utf-8')
         for line in ('cp -a "$WORK/icmal" "$REPO_DIR/icmal"', 'git -C "$REPO_DIR" add icmal', 'cp -a "$REPO_DIR/icmal" "$WORK/icmal"'):
             self.assertIn(line, sh)
+
+
+class DiscoverImageTest(unittest.TestCase):
+    """Sahib, 2026-11-07: Google Discover. og:image 1200+ px olmalıdır; əsas şəkil dardırsa eyni xəbərin başqa mənbəsinin şəkli."""
+
+    def test_image_width_is_read_from_the_first_bytes(self):
+        png = b'\x89PNG\r\n\x1a\n' + b'\x00\x00\x00\rIHDR' + (1280).to_bytes(4, 'big') + (720).to_bytes(4, 'big')
+        self.assertEqual(updater._image_size(png), 1280)
+        jpeg = b'\xff\xd8' + b'\xff\xe0' + (16).to_bytes(2, 'big') + b'J' * 14 + b'\xff\xc0' + (17).to_bytes(2, 'big') + b'\x08' + (630).to_bytes(2, 'big') + (1200).to_bytes(2, 'big') + b'\x00' * 12
+        self.assertEqual(updater._image_size(jpeg), 1200)
+        webp = b'RIFF' + b'\x00' * 4 + b'WEBPVP8X' + b'\x00' * 8 + (1599).to_bytes(3, 'little') + (899).to_bytes(3, 'little')
+        self.assertEqual(updater._image_size(webp), 1600)
+        self.assertEqual(updater._image_size(b'<html>'), 0)
+        self.assertEqual(updater._image_size(b'\xff\xd8\xff\xe0'), 0, 'kəsik fayl xəta vermir')
+
+    def test_the_widest_source_image_is_used_when_the_main_one_is_small(self):
+        a = {'imageUrl': 'https://apa.az/small.jpg', 'alts': [{'imageUrl': 'https://report.az/big.jpg'}, {'imageUrl': 'https://axar.az/mid.jpg'},
+                                                             {'imageUrl': 'https://x.az/logo.png'}, {'imageUrl': 'http://y.az/huge.jpg'}]}
+        sizes = {'https://apa.az/small.jpg': 640, 'https://report.az/big.jpg': 1280, 'https://axar.az/mid.jpg': 900, 'https://x.az/logo.png': 4000}
+        self.assertEqual(updater.discover_image(a, sizes), 'https://report.az/big.jpg', 'loqo və https olmayan ünvan seçilmir')
+        self.assertEqual(updater.discover_image(a, {**sizes, 'https://apa.az/small.jpg': 1200}), 'https://apa.az/small.jpg', 'əsas şəkil kifayət qədər böyükdürsə o qalır')
+        self.assertEqual(updater.discover_image(a, {}), 'https://apa.az/small.jpg', 'ölçü bilinmirsə əsas şəkil')
+        self.assertEqual(updater.discover_image({'alts': [{'imageUrl': 'https://report.az/big.jpg'}]}, sizes), 'https://report.az/big.jpg', 'əsas şəkil yoxdursa mənbənin şəkli')
+        self.assertEqual(updater.discover_image({}, sizes), '')
+
+    def test_story_page_carries_the_chosen_image_and_still_loads_no_image(self):
+        import datetime
+        at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        a = {'id': 'f' * 16, 'title': 'Başlıq', 'summary': 'Xülasə', 'category': 'gundem', 'source': 'APA', 'sourceUrl': 'https://apa.az/1', 'publishedAt': at, 'lang': 'az',
+             'imageUrl': 'https://apa.az/small.jpg', 'alts': [{'source': 'Report', 'sourceUrl': 'https://report.az/1', 'imageUrl': 'https://report.az/big.jpg', 'lang': 'az'}]}
+        page = updater.story_page(a, {'https://apa.az/small.jpg': 640, 'https://report.az/big.jpg': 1280})
+        self.assertIn('<meta property="og:image" content="https://report.az/big.jpg" />', page)
+        self.assertNotIn('<img', page, 'QIRMIZI XƏTT 3: tətbiq yüklənənə qədər əlavə şəkil sorğusu yoxdur')
+        self.assertIn('content="https://apa.az/small.jpg"', updater.story_page(a), 'ölçü yoxdursa əvvəlki kimi')
+        with patch.object(updater, '_image_width', side_effect=lambda u: 1280 if 'big' in u else 640) as probe, tempfile.TemporaryDirectory() as tmp, \
+                patch.object(updater, 'IMG_SIZE_FILE', pathlib.Path(tmp) / 's.json'):
+            rows = [{**a, 'alts': a['alts'] * 1 + [{'source': 'Trend', 'sourceUrl': 'https://trend.az/1', 'imageUrl': 'https://trend.az/x.jpg'}]}]
+            self.assertEqual(updater.story_image_widths(rows), {'https://apa.az/small.jpg': 640, 'https://report.az/big.jpg': 1280, 'https://trend.az/x.jpg': 640})
+            self.assertEqual(probe.call_count, 3)
+            updater.story_image_widths(rows)
+            self.assertEqual(probe.call_count, 3, 'hər ünvan bir dəfə soruşulur')
