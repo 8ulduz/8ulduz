@@ -1134,7 +1134,7 @@ function shell() {
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition; // Firefox-da yoxdur: düymə gizli qalır
-  if (Recognition) import('./assistant.js').then(({mountVoiceSearch}) => mountVoiceSearch({button: $("#mic"), input: q, Recognition, onDone: () => scrollTo(0, 0)})).catch(() => {});
+  if (Recognition) setTimeout(() => import('./assistant.js').then(({mountVoiceSearch}) => mountVoiceSearch({button: $("#mic"), input: q, Recognition, onDone: () => scrollTo(0, 0)})).catch(() => {}), 3e3); // xəbərlərlə yarışmasın
 }
 function syncQuery() {
   const r = route();
@@ -2099,7 +2099,7 @@ function trafficView() {
     ${rows}`;
 }
 
-// Yalnız dəyişən blok yenilənir (mənbə mətni saxlanır); slayder və Zuğulba kart-kart.
+// Yalnız dəyişən blok yenilənir.
 const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row,.prez,.prez-body,.prez-lent";
 const KEYED = ".hero-row,.prez-lent"; // sürüşən siyahılar: yeri dəyişən kart köçürülür (şəkli təzədən yüklənmir), oxunan kart ekranda yerində qalır
 function rememberSrc(node) {
@@ -2315,7 +2315,7 @@ function onClick(e) {
   const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
   if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
-  // Açılan bölmələr (cədvəllər, yol və hava, rəsmi hesablar) kənara basanda bağlanır
+  // Açılan bölmələr kənara basanda bağlanır
   if (!e.target.closest("details.service-panel, details.social-details")) document.querySelectorAll("details.service-panel[open], details.social-details[open]").forEach(d => { d.open = false; });
   if (!t) {
     let dirty = false;
