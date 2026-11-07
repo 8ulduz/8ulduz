@@ -1852,7 +1852,7 @@ async function loadShared(id) {
   if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
   try {
     const row = await shareRow(id) || await arxRow(id);
-    if (row && !S.data) { S.sharedStory = { id, row }; if (route().name === "article") renderView(); }
+    if (row) { S.sharedStory = { id, row }; if (route().name === "article") renderView(); } // lent arada gəlsə də
   } catch {}
 }
 async function scanArchives(id) {

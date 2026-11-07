@@ -1796,6 +1796,19 @@ test('speed red line: a shared link renders the story from the share index befor
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(index.includes('files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json")'), 'index.html paylaşma hissəsini erkən istəyir');
 });
+test('owner 2026-11-07: an old shared link (?h=hour) opens from the archive branch even if the feed arrives meanwhile', async () => {
+  const ctx = app({ location: { hash: '#/xeber/0c0c0c0c0c0c0c0c?b=sosial&h=26110713' } });
+  const { S, loadShared, articleView } = ctx.api;
+  const asked = [];
+  ctx.asked = asked;
+  vm.runInContext(`requestJSON = async url => { asked.push(url.split("?")[0]); if (url.includes("/arxiv/")) { S.data = { articles: [] };
+    return { d: { articles: [{ id: "0c0c0c0c0c0c0c0c", title: "Köhnə xəbər", source: "APA", sourceUrl: "https://apa.az/k", publishedAt: "2026-11-07T13:05:00Z", category: "sosial", lang: "az" }] } }; }
+    return { d: { articles: [] } }; };
+    renderView = () => {};`, ctx);
+  await loadShared('0c0c0c0c0c0c0c0c');
+  assert.deepEqual(asked, ['data/paylas/1.json', 'https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/26110713.json'], 'əvvəl paylaşma siyahısı, sonra saatın arxiv faylı');
+  assert.ok(articleView('0c0c0c0c0c0c0c0c').includes('Köhnə xəbər'), 'lent arada gəlsə də xəbər açılır');
+});
 test('speed red line: the cached feed is shown before the network answers and then replaced', async () => {
   const first = { updatedAt: 'old', articles: [{ id: 'c1', title: 'Keşdən xəbər', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] };
   const matched = [];
