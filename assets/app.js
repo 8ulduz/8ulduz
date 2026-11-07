@@ -234,7 +234,7 @@ const isFirstLady = a => !!a && flText(a.title);
 // Birinci xanım.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
 const OFFICIAL_SRC = new Set(["Prezident.az", "Mehriban Əliyeva"]);
-// Zuğulba: rəsmi + dövlət saytlarının prezident xəbərləri; eyni xəbər bir kartdır.
+// Zuğulba: eyni xəbər bir kartdır.
 const STATE_SRC = new Set(["AZƏRTAC", "AZƏRTAC (Regionlar)", "Cross Media", "Xalq qəzeti", "Azərbaycan qəzeti", "Yeni Azərbaycan", "Baku TV",
   "APA", "Report", "Trend", "Azernews", "Day.Az", "News.az", "Xezerxeber"]);
 // Təyinat xəbərlərinə əlavə çəki.
@@ -423,7 +423,7 @@ const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"
 
 function imageCandidates(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
-  // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
+  // Qoşa ünvan düzəldilir.
   // Kəsilmiş kiçik şəkil sona.
   const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$|static\.president\.az\/assets\/president-administration-/i.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
   // Proksidən keçməyən sayt (PROXY_SKIP) sona.
@@ -482,7 +482,7 @@ function appLink(u, pkg, extra = "") {
 function openOut(u) { const i = appLink(u); if (i) location.href = i; else window.open(u, "_blank", "noopener,noreferrer"); }
 // CCT: geri sayta qayıdır.
 const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.customtabs.extra.SESSION=;");
-const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">Dinlə</button><button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
+const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">${S.dinOn === a.id ? "■ Bitir" : "Dinlə"}</button><button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
 function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
@@ -529,7 +529,7 @@ const imgFail = el => {
   if (card) card.classList.add("noimg");
   box?.remove();
 };
-// CSP daxili onerror-u bloklayır; şəkil xətası yalnız tutma mərhələsində görünür.
+// Şəkil xətası tutma mərhələsində.
 // Ölçü CSS-də sabitdir.
 document.addEventListener("load", (e) => { const t = e.target; if (t?.tagName === "IMG" && t.dataset?.fail === "alt") { if ((t.naturalWidth || 0) < 2) imgFail(t); else t.style.visibility = ""; } }, true);
 document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && t.style && (t.style.visibility = "hidden"); }, true);
@@ -1386,7 +1386,7 @@ function startTicker() {
   run.onpointerenter = e => { if (e.pointerType === "mouse" && matchMedia("(hover:hover)").matches) { clearTimeout(tickT); anim.pause(); } };
   run.onclick = e => { if (tickMoved) { e.preventDefault(); e.stopPropagation(); tickMoved = false; } };
 }
-// Son 15 dəqiqədə xəbər yoxdursa lent «Son dəqiqə» yox, «Son xəbərlər» adlanır
+// Təzə xəbər yoxdursa «Son xəbərlər».
 const tickerLabel = fresh => fresh > 0 ? "Son dəqiqə" : "Son xəbərlər";
 
 // Namaz işarələri sprite-dadır (sosial.svg#p-<ad>): 1,6 KB SVG kodda yer tuturdu.
@@ -1564,7 +1564,7 @@ function clubMatches(a, club) {
   const topic = sportTopic(club);
   if (!topic || topic.skip?.includes(a.source)) return false;
   if (topic.sources?.includes(a.source)) return true;
-  // Mətn bir dəfə hazırlanır: Futbol düyməsi hər xəbəri 20 komanda ilə yoxlayır.
+  // Mətn bir dəfə hazırlanır.
   let seen = TOPIC_TEXT.get(a);
   if (!seen) {
     const raw = decode(a.title + ' ' + (a.summary || ''));
@@ -2295,7 +2295,7 @@ async function installApp(btn) {
   } catch {}
   renderLangs();
 }
-// Son düymə seçildi: xəbərlərə keçilir; alt siyahı açan düymədə yerində qalır.
+// Son düymə: xəbərlərə keçilir.
 // «N yeni xəbər»: «Ən yeni» siyahısına qayıdır.
 function jumpToLatest() {
   const sec = route().name === "home" ? document.getElementById("son-xeberler") : null;
@@ -2335,7 +2335,7 @@ function onClick(e) {
     e.preventDefault(); e.stopPropagation();
     t.closest(".hero-strip")?.querySelector('.hero-pause[aria-pressed="false"]')?.click(); // slayder dayanır
     const id = t.dataset.id, a = [...(S.data?.articles || []), ...Object.values(S.archive || {}).flatMap(x => x.rows || []), S.sharedStory?.row, S.art].find(x => x && x.id === id) || S.art;
-    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode }))).then(p => p.playing && p.id === a?.id ? p.stop() : p.play(a)).catch(() => {}); // 2-ci basış: dayan
+    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode, onState: s => { S.dinOn = s.playing && s.id; for (const b of document.querySelectorAll("[data-act=dinle]")) b.textContent = b.dataset.id === s.id && s.msg || (b.dataset.id === S.dinOn ? "■ Bitir" : "Dinlə"); if (s.msg) setTimeout(() => { for (const b of document.querySelectorAll("[data-act=dinle]")) if (b.textContent === s.msg) b.textContent = "Dinlə"; }, 3e3); } }))).then(p => p.playing && p.id === a?.id ? p.stop() : p.play(a)).catch(() => {}); // 2-ci basış: dayan
     return;
   }
   if (t.dataset.act === "install") {
@@ -2644,7 +2644,7 @@ function stopStep(el, snap) {
   const { best, bestD } = nearestStop(el);
   if (bestD > 1) el.scrollTop = best;
 }
-// Karusel: .strip zolağına ← → oxları və nöqtələr; bir basış bir görünən en.
+// Karusel: oxlar və nöqtələr.
 // Baş səhifənin uzaq bölmələri boş qutudur, HTML-i yaddaşdadır.
 const lazySection = html => html ? `<div class="lazy-sec"><template>${html}</template></div>` : "";
 const lazyHtml = new Map();
@@ -2745,8 +2745,7 @@ function setupFeatureLents() {
   const hero = document.querySelector(".hero-strip");
   if (hero) {
     const row = hero.querySelector(".hero-row"), button = hero.querySelector(".hero-pause");
-    // Barmaq, təkər, klaviatura: 12 s dayanır.
-    const hold = () => { hero._holdUntil = Date.now() + 12000; };
+      const hold = () => { hero._holdUntil = Date.now() + 12000; };
     row?.addEventListener("pointerdown", hold);
     row?.addEventListener("wheel", hold, { passive: true });
     row?.addEventListener("keydown", hold);
@@ -3045,7 +3044,6 @@ function resumeNews() {
     if(S.reloadWhenHidden && !globalThis.speechSynthesis?.speaking)location.reload(); // yeni versiya oxucu baxmayanda
     return;
   }
-  // Uzun fasilədən sonra təzədən açılır.
   const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
   S.hiddenAt = 0;
   if(away >= RELOAD_AFTER_HIDDEN_MS && !globalThis.speechSynthesis?.speaking){ location.reload(); return; }

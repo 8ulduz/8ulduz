@@ -34,7 +34,9 @@ test("dinlə: the natural Azerbaijani voice (Edge) comes first, then any Azerbai
 
 test("dinlə: every card has «Dinlə» next to «Paylaş»; the module loads only when pressed (speed red line)", () => {
   const js = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
-  assert.ok(js.includes('<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">Dinlə</button><button type="button" class="share" data-act="share"'), "hər kartda «Paylaş»ın yanında «Dinlə» (sahib, 2026-11-07)");
+  assert.ok(js.includes('<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">${S.dinOn === a.id ? "■ Bitir" : "Dinlə"}</button><button type="button" class="share" data-act="share"'), "hər kartda «Paylaş»ın yanında «Dinlə»; oxunanda «■ Bitir» (sahib, 2026-11-07/08)");
+  assert.ok(js.includes('onState: s => { S.dinOn = s.playing && s.id;'), "ayrıca pəncərə yoxdur: vəziyyət düymənin özündədir");
+  assert.ok(!/\.dinle\{position:fixed/.test(fs.readFileSync(path.join(root, "assets/dinle.js"), "utf8")), "səs pəncərəsi yoxdur");
   assert.ok(js.includes('(S.dinle ||= import(`${ASSET}dinle.js`)'), "modul yalnız basılanda");
   assert.ok(!/<script[^>]+dinle\.js|modulepreload[^>]+dinle/.test(fs.readFileSync(path.join(root, "index.html"), "utf8")), "ilk açılışda yüklənmir");
 });
@@ -105,4 +107,15 @@ test("dinlə: pressing «Dinlə» again on the story that is playing stops it (s
 test("dinlə: pressing «Dinlə» on a slider card stops the slider (sahib, 2026-11-07)", () => {
   const js = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
   assert.ok(js.includes(`t.closest(".hero-strip")?.querySelector('.hero-pause[aria-pressed="false"]')?.click();`));
+});
+
+test("dinlə: the player reports its state to the button (playing at once, stopped after «Bitir»), no window of its own", async () => {
+  const { createPlayer } = await load();
+  const env = fakeEnv(true), states = [], p = createPlayer({ list: () => list, ...env, onState: s => states.push({ ...s }) });
+  const started = p.play(list[0]);
+  assert.deepEqual(states[0], { id: list[0].id, playing: true, msg: undefined }, "düymə dərhal «■ Bitir» olur");
+  await started;
+  p.stop();
+  assert.equal(states.at(-1).playing, false);
+  assert.equal(env.doc.body.children.length, 0, "səhifəyə pəncərə əlavə olunmur");
 });
