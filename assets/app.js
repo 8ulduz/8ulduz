@@ -251,7 +251,7 @@ function prezHome(list, all = list) {
   const age = a => now - new Date(a.publishedAt).getTime();
   // Rəsmi mənbələr və dövlət saytları (STATE_SRC); digərləri «Hamısı» səhifəsində
   const prez = list.filter(a => a.category === "prezident" && (OFFICIAL_SRC.has(a.source) || STATE_SRC.has(a.source)));
-  // Bir sayt bloku tutmasın (Report-un sitat lenti): rəsmi səhifələr limitsiz, digər mənbələr ən çox 3 kart
+  // Rəsmi səhifələr limitsiz, digər mənbə ən çox 3 kart
   const perSrc = {};
   const capped = l => l.filter(a => OFFICIAL_SRC.has(a.source) || (perSrc[a.source] = (perSrc[a.source] || 0) + 1) <= 3);
   const president = capped(byDate(prez.filter(a => !isFlItem(a) && age(a) < 21 * DAY)));
@@ -1206,9 +1206,9 @@ function renderTopbar() {
 }
 
 const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["sondeqiqe", "gundem", "idman", "bolgeler"];
-// Ölçmə çəkilişin ortasında yerləşdirməni təkrarlatmasın: bütün dəyişikliklərdən sonra bir dəfə.
+// Ölçmə bir dəfə, dəyişikliklərdən sonra.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
-// Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad (şrift kiçilmir: 9,8 px olardı, oxunmazdı).
+// Telefonda qısa ad.
 const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", tehsil: "Təhsil" };
 const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
 function renderNav() {
@@ -1242,7 +1242,7 @@ function navPopHtml(slug, tab, liga) {
     (on?.clubs.length ? `<div class="pop-col clubs"><a class="pill all" href="#/komanda/${teamSlug(on.short)}">${esc(on.label)}: cədvəl və ${on.nat ? "komandalar" : "klublar"} ›</a>${on.clubs.map(([n, full]) => `<a class="pill" href="${teamHref(on, full)}">${esc(n)}</a>`).join("")}</div>` : "");
 }
 const popLeft = (left, width, widest) => Math.max(8, Math.min(left, width - widest - 8));
-// Gecikmələr: kursor başlıqdan aşağı sətrə enəndə yolda qonşu düyməyə toxunsa menyu dəyişməsin.
+// Kursor aşağı enəndə qonşu düymə menyunu dəyişməsin.
 function bindNavPop() {
   const pop = $("#navpop");
   let timer;
@@ -1628,12 +1628,12 @@ function lateFill() {
   setupStrips(document.querySelectorAll(".hero-strip")); setupHeroImages(); setupFeatureLents();
 }
 function prezBlock(list) {
-  // Şəkil: öz, digər mənbənin (alts) və ya og keşinin; yüklənməsə kart şəkilsiz.
+  // Şəkil: öz, alts və ya og keşi.
   const card = (a, i) => {
     const [pic, ...rest] = imageCandidates(a);
     const small = sized(pic, 168);
     const thumb = pic ? `<span class="img"><img ${i < PREZ_FIRST_IMAGES ? "src" : "data-src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(small === pic ? rest : [pic, ...rest]))}" alt="" loading="lazy" fetchpriority="low" decoding="async" referrerpolicy="no-referrer" data-fail="alt"></span>` : "";
-    // Kart keçiddir, «Paylaş» keçidin kənarında (içində düymə olmaz), sağ aşağıda.
+    // Kart keçiddir, «Paylaş» kənarda.
     return `<article class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}"><a class="pcard-hit" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>${shareBtn(a)}</article>`;
   };
   const cards = late(list.map(card), PREZ_FIRST_IMAGES);

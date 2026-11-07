@@ -1146,7 +1146,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 .ticker .lbl .mo{flex:none;width:22px;height:22px;padding:0;border-radius:99px;background:#ffffff22;color:#fff;font-size:11px;line-height:1}
 .ticker .run.still .track{animation:none}
 .ticker .run.still{overflow-x:auto;scrollbar-width:none}
-@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(16px,7.2vw,30px);letter-spacing:0;min-width:0}.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}.prez.open .prez-h{flex-wrap:wrap;row-gap:6px}.prez.open .prez-h h2{flex:1 0 100%}.prez:not(.open) .prez-body{display:none}.prez:not(.open){padding:3px 10px}.prez:not(.open) .prez-h{padding-bottom:0;border:0}.prez:not(.open) .prez-h h2{flex:1;line-height:1.15}.prez:not(.open) .prez-h h2 a{flex:1;text-align:center;margin-right:19px}.prez-h{cursor:pointer}}
+@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(15px,6vw,25px);letter-spacing:0;min-width:0}.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}.prez.open .prez-h{flex-wrap:wrap;row-gap:6px}.prez.open .prez-h h2{flex:1 0 100%}.prez:not(.open) .prez-body{display:none}.prez:not(.open){padding:3px 10px}.prez:not(.open) .prez-h{padding-bottom:0;border:0}.prez:not(.open) .prez-h h2{flex:1;line-height:1.15}.prez:not(.open) .prez-h h2 a{flex:1;text-align:center;margin-right:19px}.prez-h{cursor:pointer}}
 .prez-pause{flex:none;width:24px;height:24px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--fg);font-size:11px;line-height:1}
 @media(hover:none){.prez-pause{display:none}}
 /* «Son xəbərlər» Gündəmdən aydın xətlə ayrılır */
@@ -1162,7 +1162,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
   .hrow::after{content:"";order:4;flex:1 0 100%;height:0;margin:0 calc(-1 * var(--gutter));border-top:1px solid var(--border)}
   .hrow .pray-wrap,.hrow .pray{order:5}
   .hrow .wx{order:6}
-  .qbtn{display:grid;order:7}
+  .qbtn{display:grid;order:7;width:25px;height:25px}.topbar .pray,.topbar .wx-btn{height:25px}
   .hrow>.follow-btn{display:inline-flex;order:8;margin-left:auto;min-height:25px;padding:0 7px;border-radius:999px;font-size:.72rem}
   .inst{order:8;margin-left:auto}
   .hrow>.follow-btn+.inst{margin-left:0}
