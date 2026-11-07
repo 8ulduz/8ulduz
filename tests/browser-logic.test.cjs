@@ -2420,7 +2420,7 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   // telefon: yuxarı zolağın qutusu açılır, dil + rejim + şrift loqo sətrində, Namaz + hava + lupa + «Ana ekrana əlavə et» ikinci sətirdə
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.hrow>.topbar,.hrow>.topbar>.wrap{display:contents}') && css.includes('.hrow .ldd{order:2;margin-left:auto}') && css.includes('.hrow .prefs{order:3') && css.includes('.hrow::after{content:"";order:4;flex:1 0 100%') && css.includes('.inst{order:8;margin-left:auto}'), 'telefon sətirləri sahibin sırası ilə');
-  assert.ok(css.includes('.ticker .lbl .bell::after{content:"";width:14px;height:14px;background:currentColor;-webkit-mask:url(bell.svg)') && fs.readFileSync(path.join(root, 'assets/bell.svg'), 'utf8').startsWith('<svg') && css.includes('.ticker .lbl .bell{font-size:0'), 'telefonda «Bildiriş» sözü yox, zəng işarəsi');
+  assert.ok(css.includes('.ticker .lbl .bell svg{display:block;width:14px;height:14px;fill:currentColor}') && fs.readFileSync(path.join(root, 'assets/sosial.svg'), 'utf8').includes('<symbol id="bell"') && css.includes('.ticker .lbl .bell{font-size:0'), 'telefonda «Bildiriş» sözü yox, zəng işarəsi');
   assert.ok(css.includes('.mk{display:grid;grid-template-columns:minmax(0,1fr) auto'), 'məzənnə kartı iki sətir');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(src.includes('const dec = Math.min(i.dec ?? 2, 2);') && src.includes('${fmt(i.value, dec)}'), 'kartda nöqtədən sonra ən çox 2 rəqəm');

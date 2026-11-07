@@ -190,7 +190,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 /* --- son dəqiqə lenti --- */
 .ticker{display:flex;border-bottom:1px solid var(--border);background:var(--ticker-bg);overflow:hidden}
 .ticker .lbl{flex:none;display:flex;align-items:center;gap:6px;background:var(--red);color:#fff;font-weight:700;font-size:0.7857rem;text-transform:uppercase;letter-spacing:.06em;padding:0 12px}
-.ticker .lbl .bell{letter-spacing:0;text-transform:none;background:#ffffff22;color:#fff;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700}
+.ticker .lbl .bell svg{display:none}.ticker .lbl .bell{letter-spacing:0;text-transform:none;background:#ffffff22;color:#fff;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700}
 .ticker .lbl .bell.on{background:#fff;color:var(--red)}
 .ticker .run{flex:1;overflow:hidden;padding:7px 0;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
 .ticker .run:active{cursor:grabbing}
@@ -1174,7 +1174,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
   .topbar .wx-btn>.wcity,.topbar .pray .pc{display:none}
   .topbar .prefs .theme-btn .face{padding:0 7px;min-width:0}
   .ticker .lbl .bell{font-size:0;width:24px;min-height:0;height:22px;padding:0;display:grid;place-items:center;border-radius:999px}
-  .ticker .lbl .bell::after{content:"";width:14px;height:14px;background:currentColor;-webkit-mask:url(bell.svg) center/contain no-repeat;mask:url(bell.svg) center/contain no-repeat}
+  .ticker .lbl .bell svg{display:block;width:14px;height:14px;fill:currentColor}
   /* Məzənnə kartı iki sətir */
   .mk{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:3px}
   .mk .n{grid-column:1/-1}

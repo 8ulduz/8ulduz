@@ -1340,7 +1340,7 @@ function renderTicker() {
   // «Bildiriş»: yeni son-dəqiqə xəbəri üçün brauzer bildirişi
   const on = notifyOn();
   const bell = "Notification" in window
-    ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
+    ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${shIcon("bell")}${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
     : "";
   const html = `<div class="ticker"><div class="lbl">⚡<span class="lt"> ${tickerLabel(breaking.length)}</span>${bell}${motionBtn()}</div><div class="run${motionOff() ? " still" : ""}"><div class="track">${items}</div></div></div>`;
   if (html === S.tickerHtml && $("#ticker .track")) return;
