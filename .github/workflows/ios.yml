@@ -21,9 +21,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    # 2026-11-06: arm64 macOS maşınları iki dəfə 15 dəqiqə tapılmadı (GitHub: «capacity constraints»), iş ləğv olundu.
-    # Intel maşınları ayrı növbədədir; yığım bir az yavaş gedir. Arm64-də yer olanda macos-26-ya qaytarmaq olar.
-    runs-on: macos-26-intel
+    # arm64. 2026-11-06 axşam burada yer olmadığı üçün iş iki dəfə ləğv olundu; macos-26-intel ilə isə
+    # «Axtar» tabı açılanda UI testi donurdu (Intel virtual maşınında qrafik prosessor yoxdur). Ona görə yenə arm64.
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
