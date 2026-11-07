@@ -2418,7 +2418,7 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   // telefon: yuxarı zolağın qutusu açılır, dil + rejim + şrift loqo sətrində, Namaz + hava + lupa + «Ana ekrana əlavə et» ikinci sətirdə
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.hrow>.topbar,.hrow>.topbar>.wrap{display:contents}') && css.includes('.hrow .ldd{order:2;margin-left:auto}') && css.includes('.hrow .prefs{order:3') && css.includes('.hrow::after{content:"";order:4;flex:1 0 100%') && css.includes('.inst{order:8;margin-left:auto}'), 'telefon sətirləri sahibin sırası ilə');
-  assert.ok(css.includes('.ticker .lbl .bell::after{content:"🔔"') && css.includes('.ticker .lbl .bell{font-size:0'), 'telefonda «Bildiriş» sözü yox, zəng işarəsi');
+  assert.ok(css.includes('.ticker .lbl .bell::after{content:"";width:14px;height:14px;background:currentColor;-webkit-mask:url(bell.svg)') && fs.readFileSync(path.join(root, 'assets/bell.svg'), 'utf8').startsWith('<svg') && css.includes('.ticker .lbl .bell{font-size:0'), 'telefonda «Bildiriş» sözü yox, zəng işarəsi');
   assert.ok(css.includes('.mk{display:grid;grid-template-columns:minmax(0,1fr) auto'), 'məzənnə kartı iki sətir');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(src.includes('const dec = Math.min(i.dec ?? 2, 2);') && src.includes('${fmt(i.value, dec)}'), 'kartda nöqtədən sonra ən çox 2 rəqəm');
@@ -2617,8 +2617,8 @@ test('owner 2026-11-07: on a phone the Zuğulba block is a closed header that op
   S.prezOpen = true;
   assert.match(block([]), /^<section class="prez open">/, 'açıq qalır (yenidən çəkilişdə bağlanmır)');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
-  assert.ok(css.includes('.prez-h h2{font-size:clamp(16px,4.7vw,20px);letter-spacing:0;min-width:0}') && css.includes('.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: bir sırada ad, say və ox (kart böyümür)');
-  assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && js.includes('aria-label="Zuğulba Xronikası bölməsi">→</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: telefonda tam ad «Zuğulba Xronikası», «Hamısı» yerinə ox');
+  assert.ok(css.includes('.prez-h h2{font-size:clamp(16px,7.2vw,30px);letter-spacing:0;min-width:0}') && css.includes('.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: bir sırada ad, say və ox (kart böyümür)');
+  assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && css.includes('.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}') && js.includes('href="#/bolme/prezident">Hamısı →</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: bağlı halda yalnız «Zuğulba Xronikası», açılanda say və «Hamısı →»');
   assert.ok(js.includes('const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn"))'), 'başlığa basanda açılır, «Hamısı →» bölməyə aparır');
   assert.ok(css.includes('nav.main .nav-more>summary::before{content:"☰";font-size:20px;color:var(--primary)}'), '☰ ulduz rəngində');
 });

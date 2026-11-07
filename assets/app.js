@@ -1640,7 +1640,7 @@ function prezBlock(list) {
   return `<section class="prez${S.prezOpen ? " open" : ""}"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident" aria-label="Zuğulba Xronikası"><span class="prez-long">Zuğulba Xronikası</span><span class="prez-short">Zuğulba</span></a></h2>
     <span class="prez-n">Son <b>${list.length}</b> xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" ${OUT}>${l.name}</a>`).join("")}</span>
-    <button type="button" class="prez-pause" data-prez-pause aria-pressed="false" aria-label="Zuğulba lentini dayandır" title="Lenti dayandır">Ⅱ</button><a class="btn" href="#/bolme/prezident" aria-label="Zuğulba Xronikası bölməsi">→</a></div>
+    <button type="button" class="prez-pause" data-prez-pause aria-pressed="false" aria-label="Zuğulba lentini dayandır" title="Lenti dayandır">Ⅱ</button><a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
     <div class="prez-body">${list.length ? `<div class="prez-lent" data-prez-lent tabindex="0" aria-label="Zuğulba xəbərləri">${cards}</div>` : ""}
     <details class="social-details"><summary>Rəsmi sosial hesablar ▾</summary>${socialBlock(false)}</details></div></section>`;
 }

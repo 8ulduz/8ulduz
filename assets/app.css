@@ -1146,7 +1146,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 .ticker .lbl .mo{flex:none;width:22px;height:22px;padding:0;border-radius:99px;background:#ffffff22;color:#fff;font-size:11px;line-height:1}
 .ticker .run.still .track{animation:none}
 .ticker .run.still{overflow-x:auto;scrollbar-width:none}
-@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(16px,4.7vw,20px);letter-spacing:0;min-width:0}.prez-h h2 a{overflow:hidden;text-overflow:ellipsis}.prez-n{margin-left:auto;font-size:9px;padding:1px 6px}.prez-n b{font-size:12px}.prez-h .btn{margin-left:0;padding:0 2px;min-height:0;border:0;background:none;box-shadow:none;color:var(--primary);font-size:22px;font-weight:900;line-height:1}.prez:not(.open) .prez-body{display:none}.prez-h{cursor:pointer}}
+@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(16px,7.2vw,30px);letter-spacing:0;min-width:0}.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}.prez.open .prez-h{flex-wrap:wrap;row-gap:6px}.prez.open .prez-h h2{flex:1 0 100%}.prez:not(.open) .prez-body{display:none}.prez-h{cursor:pointer}}
 .prez-pause{flex:none;width:24px;height:24px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--fg);font-size:11px;line-height:1}
 @media(hover:none){.prez-pause{display:none}}
 /* «Son xəbərlər» Gündəmdən aydın xətlə ayrılır */
@@ -1163,7 +1163,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
   .hrow .pray-wrap,.hrow .pray{order:5}
   .hrow .wx{order:6}
   .qbtn{display:grid;order:7}
-  .hrow>.follow-btn{display:inline-flex;order:8;margin-left:auto;min-height:32px;padding:0 7px;border-radius:999px;font-size:.72rem}
+  .hrow>.follow-btn{display:inline-flex;order:8;margin-left:auto;min-height:25px;padding:0 7px;border-radius:999px;font-size:.72rem}
   .inst{order:8;margin-left:auto}
   .hrow>.follow-btn+.inst{margin-left:0}
   .hrow .sync-state{position:static;order:9;flex:1 0 100%;width:auto;background:none}
@@ -1174,7 +1174,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
   .topbar .wx-btn>.wcity,.topbar .pray .pc{display:none}
   .topbar .prefs .theme-btn .face{padding:0 7px;min-width:0}
   .ticker .lbl .bell{font-size:0;width:24px;min-height:0;height:22px;padding:0;display:grid;place-items:center;border-radius:999px}
-  .ticker .lbl .bell::after{content:"🔔";font-size:13px}
+  .ticker .lbl .bell::after{content:"";width:14px;height:14px;background:currentColor;-webkit-mask:url(bell.svg) center/contain no-repeat;mask:url(bell.svg) center/contain no-repeat}
   /* Məzənnə kartı iki sətir: ad; qiymət (2 rəqəm) + dəyişmə nişanı yanaşı */
   .mk{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:3px}
   .mk .n{grid-column:1/-1}
