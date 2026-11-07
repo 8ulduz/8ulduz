@@ -2049,7 +2049,7 @@ class SharePagesTest(unittest.TestCase):
         q = updater.urllib.parse.quote
         self.assertIn(f'<meta property="og:image" content="https://wsrv.nl/?url={q("https://apa.az/i.jpg", safe="")}&amp;w=1200&amp;h=630&amp;fit=cover'
                       f'&amp;a=attention&amp;output=jpg&amp;q=78&amp;default={q(updater.SITE + "assets/og-default.png", safe="")}" />', page)
-        self.assertIn(f'content="0;url={updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat"', page)
+        self.assertIn(f'content="0;url={updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat&amp;h=26110410"', page)  # h: arxiv budağının saatı (arxiv.cjs)
         self.assertNotIn("{", page)
         self.assertNotIn("<script", page)
         self.assertIn(f"{updater.SITE}assets/og-default.png", plain)

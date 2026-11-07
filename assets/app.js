@@ -229,7 +229,7 @@ const flText = s => {
     || s.includes("first vice-president") || s.includes("first vice president")
     || s.includes("birinci vitse-prezident") || s.includes("первой леди") || s.includes("первая леди");
 };
-// Nişan başlığa görədir (rəsmi səhifənin ortaq tədbirləri ayrıca «Birinci xanım» nişanı almır).
+// Nişan başlığa görədir.
 const isFirstLady = a => !!a && flText(a.title);
 // Birinci xanım: rəsmi səhifəsi və ya başlıq. Prezident qrupu bundan kənarda qalanlardır.
 const isFlItem = a => !!a && (a.source === "Mehriban Əliyeva" || flText(a.title));
@@ -468,10 +468,11 @@ function shownSource(a) {
   return a.source || "";
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
-// Paylaşılan keçid saytımıza aparır; b: lentdən çıxanda baxılacaq arxiv.
-const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
+// Paylaşma keçidi: b bölmə, h saat (arxiv.cjs hourOf).
+const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
+const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}${hourOf(a) && "?h=" + hourOf(a)}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${hourOf(a) && "&h=" + hourOf(a)}`;
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
-// Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
+// Şəbəkə işarələri sprite-dadır (sosial.svg).
 const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
 const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
 function appLink(u, pkg, extra = "") {
@@ -855,7 +856,7 @@ function publishNews() {
     return [{...a, source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt || a.publishedAt, title: next.title || a.title, lang: next.lang || a.lang, imageUrl: a.imageUrl || next.imageUrl, alts: rest}];
   });
   d.articles = collapseExact(clusterArticles(articles));
-  // Əsas kartın şəkli yoxdursa, eyni xəbərin digər mənbəsindən (və ya onun og:image-indən) götür
+  // Şəkil yoxdursa digər mənbədən.
   for (const a of d.articles) {
     if (a.imageUrl || !a.alts?.length) continue;
     const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og?.[x.sourceUrl]);
@@ -1021,7 +1022,7 @@ async function loadAllWeather() {
 
 /* ---- konum */
 // Konum yalnız «Konumum» düyməsi ilə soruşulur.
-// Xidmətlərə dəqiq nöqtə getmir: hava/namaz ən yaxın şəhərlə, tıxac ~1 km-ə yuvarlaq nöqtə ilə.
+// Xidmətlərə dəqiq nöqtə getmir.
 const GEO_KEY = "8ulduz-geo";
 function nearestCity(lat, lon) {
   const k = Math.cos(lat * Math.PI / 180);
@@ -1459,7 +1460,7 @@ function renderMarkets() {
     const unofficial = i.unit === "AZN" && i.src && i.src !== "AMB";
     const has = !unofficial && i.changePct != null && i.change != null;
     const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
-    // «bazar» nişanı alt sətirdədir: başlığın yanında 92px kartda «100 Rubl BA…» kimi kəsilirdi
+    // «bazar» nişanı alt sətirdədir.
     const dec = Math.min(i.dec ?? 2, 2); // kartda nöqtədən sonra ən çox 2 rəqəm (sahibin qeydi); tam dəqiqlik məzənnə səhifəsindədir
     const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, dec)}</span>`
       : `<span${unofficial ? ` class="unoff"` : ""}>${i.unit !== "AZN" ? "qiymət" : unofficial ? "bazar" : "məzənnə"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
@@ -1511,7 +1512,7 @@ function langDD() {
 }
 
 function filtered(list) { return S.lang ? list.filter(a => langOf(a) === S.lang) : list; }
-// Saytın dili dəyişirsə səhifə yenidən açılır: tərcümə (dil.js) yalnız başqa dildə yüklənir.
+// Dil dəyişəndə səhifə yenidən açılır.
 const uiLang = v => v && v !== "az";
 function setLang(v) {
   const was = S.lang;
@@ -1688,7 +1689,7 @@ function fbLeagues() {
   }));
   return [...az, ...world];
 }
-// Cədvəl hansı günün oyunlarına qədərdir: Vikipediya bəzi liqaları bir neçə gün gec yeniləyir.
+// Cədvəl hansı günün oyunlarına qədərdir.
 const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${MONTHS[m - 1]} oyunlarına qədər` : ""; };
 const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
 function worldTable(l, g) {
@@ -1704,7 +1705,7 @@ function footballBlock(list) {
     if (/(?:basketbol|voleybol|həndbol|tennis|cüdo|güləş|boks|futzal)/u.test(title)) return false;
     return a.category === "idman" && /futbol|premyer|liqa|qarabağ|neftçi|qarabag|sabah fk|mill[iı]/iu.test(title);
   })).slice(0, 4);
-  // Heç bir liqanın məlumatı olmayanda blok göstərilmir; futbol xəbərləri İdman bölməsindədir.
+  // Liqa məlumatı yoxdursa blok yoxdur.
   if (!fb) return "";
   const tab = (S.fbTab === "table" && !fb.table?.length) ? "results" : (S.fbTab || "results");
   const picker = all.length > 1 ? `<div class="fb-leagues" role="tablist" aria-label="Liqalar">${all.map((l, i) => `${i > 0 && (l.world !== all[i - 1].world || l.sport !== all[i - 1].sport) ? `<i class="sep" aria-hidden="true"></i>` : ""}<button type="button" class="pill${l === fb ? " on" : ""}${l.sport === "basketball" ? " bb" : ""}" data-fbleague="${i}" role="tab" aria-selected="${l === fb}">${esc(l.short || l.league || "")}</button>`).join("")}</div>` : "";
@@ -1837,12 +1838,20 @@ async function shareRow(id) {
   }
   return null;
 }
+// Köhnə keçid (?h=saat): sətir arxiv budağındadır, saytın fayllarına əlavə yük yoxdur.
+async function arxRow(id) {
+  const h = (location.hash.match(/[?&]h=(\d{8})\b/) || [])[1];
+  if (!h) return null;
+  const { d } = await requestJSON(`https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/${h}.json`, {}, 8000);
+  const r = d?.articles?.find(a => a.id === id);
+  return r && !removedSource(r) && !policyViolation(r) ? r : null;
+}
 // Paylaşılan keçid: xəbər paylaşma hissəsindən gəlir.
 function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
 async function loadShared(id) {
   if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
   try {
-    const row = await shareRow(id);
+    const row = await shareRow(id) || await arxRow(id);
     if (row && !S.data) { S.sharedStory = { id, row }; if (route().name === "article") renderView(); }
   } catch {}
 }
@@ -1956,8 +1965,7 @@ function sectionView(slug) {
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
-// Axtarış üçün sadələşdirmə: kiçik hərf, ə→e, ı→i, ş→s və s., durğu işarələri boşluğa.
-// «ilham eliyev», «qarabag», «naxcivan», «AZERTAC» kimi yazılışlar da tapılır.
+// Axtarış üçün sadələşdirmə: ə→e, ı→i və s. («ilham eliyev», «qarabag» da tapılır).
 const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c" };
 function fold(s) { // NFD yalnız lazım olanda (2,7× tez)
   s = String(s || "").toLowerCase().replace(/[əıöüğşç]/g, ch => FOLD[ch]);
@@ -2127,7 +2135,7 @@ function patchView(v, page) {
   if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => t.replaceWith(t.content));
   S.tr?.(next.content);
   const changed = [];
-  // Hazır ilk ekranın sarğısı açılır, kartlar yerində qalır; açılmayan şəkil növbəti namizədə.
+  // Hazır ilk ekranın sarğısı açılır, kartlar yerində qalır.
   const pre = v.querySelector?.(":scope > .pre-skel");
   if (pre) {
     v.querySelector(":scope > noscript")?.remove();
@@ -2156,7 +2164,7 @@ function renderView() {
     const r = route();
     // Paylaşılan keçid: tam lent gözlənilmir (loadShared).
     const shared = r.name === "team" || r.name === "article" && S.sharedStory?.id === r.id;
-    // Hazır ilk ekran (index.html, prerender.cjs): məlumat gələnə qədər durur, skelet və ya xəta onu silmir.
+    // Hazır ilk ekran: məlumat gələnə qədər durur.
     const pre = !S.data && firstScreen() && !!v.querySelector?.(".pre-skel[data-prerender]");
     if (S.error && (!S.data || onlyFirst) && !shared) {
       const alert = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`;
@@ -2676,7 +2684,7 @@ function stripPlan(strip) {
       prev.classList.toggle("off", row.scrollLeft <= 2); next.classList.toggle("off", end);
       [...dots.children].forEach((d, i) => d.classList.toggle("on", i === cur));
     };
-    // Oxlar yerində qalır; sonda növbəti ox, əvvəldə əvvəlki ox heç nə etmir (dövrə vurmur)
+    // Oxlar dövrə vurmur.
     const page = () => Math.round(row.scrollLeft / step);
     prev.onclick = () => { if (page() > 0) go(page() - 1); };
     next.onclick = () => { if (page() < pages - 1) go(page() + 1); };
@@ -2689,7 +2697,7 @@ function stripPlan(strip) {
 function setupHeroImages() {
   const row = document.querySelector(".hero-strip .hero-row");
   if (!row) return;
-  // Cari, növbəti iki slayd və dövrənin başı: şəkil slayd gələndə yox, əvvəlcədən yüklənir.
+  // Növbəti slaydların şəkli əvvəlcədən.
   const near = to => {
     const w = row.querySelector(".hero-main")?.getBoundingClientRect().width || row.clientWidth || 1;
     const at = Number.isInteger(to) ? to : Math.round(row.scrollLeft / w);

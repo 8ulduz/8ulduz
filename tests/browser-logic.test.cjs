@@ -1459,7 +1459,8 @@ test('cards can be shared, except stories with an unsafe link', () => {
   const ctx=app(),{card}=ctx.api,at=new Date().toISOString();
   ctx.api.S.og={};
   const row=url=>({id:'1',title:'Xəbər',lang:'az',category:'gundem',source:'APA',sourceUrl:url,publishedAt:at});
-  assert.ok(card(row('https://apa.az/1')).includes('data-share="https://8ulduz.az/#/xeber/1?b=gundem"'),'keçid saytımıza aparır');
+  // h: xəbərin saatı (sahib 2026-11-07: köhnə keçid arxiv budağından açılır, .github/scripts/arxiv.cjs)
+  assert.ok(card(row('https://apa.az/1')).includes(`data-share="https://8ulduz.az/#/xeber/1?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`),'keçid saytımıza aparır');
   assert.ok(!card(row('javascript:alert(1)')).includes('data-share'));
 });
 test('a shared link still opens after its story was grouped into another one', async () => {
@@ -2343,7 +2344,7 @@ test('owner notes: share — every card carries the «Paylaş» button only (pho
   const ctx = app(), { card, prezBlock, prezHome, S } = ctx.api, at = new Date().toISOString();
   S.og = {};
   const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
-  assert.ok(html.includes('<button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/xeber/1?b=gundem" title="Paylaş">Paylaş</button>'), '«Paylaş» düyməsi');
+  assert.ok(html.includes(`<button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/xeber/1?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}" title="Paylaş">Paylaş</button>`), '«Paylaş» düyməsi');
   assert.ok(!html.includes('class="sh"') && !html.includes('class="shr"') && !/SHR_ICONS|\.shr/.test(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8')), 'kartda yerində işarə yoxdur, kodda qalığı da (sahib, 2026-11-05)');
   const prez = prezBlock(prezHome([{ id: 'p1', category: 'prezident', source: 'Prezident.az', sourceUrl: 'https://president.az/1', title: 'İlham Əliyev sərəncam imzalayıb', publishedAt: at, lang: 'az' }]));
   assert.ok(prez.includes('class="share"') && prez.includes('data-prez-pause'), 'Zuğulba kartında da düymə; başlıqda dayandır düyməsi');
@@ -2517,11 +2518,11 @@ test("owner's share notes: main-feed stories share /x/ID, minute-feed and non-he
   S.og = {};
   const row = (id, extra = {}) => ({ id, title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at, ...extra });
   S.data = { articles: [] };
-  assert.ok(card(row('0123456789abcdef')).includes('data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem"'), 'bayraqsız (köhnə pipeline) əvvəlki keçid');
+  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'bayraqsız (köhnə pipeline) əvvəlki keçid');
   S.data = { articles: [], sharePages: true };
-  assert.ok(card(row('0123456789abcdef')).includes('data-share="https://8ulduz.az/x/0123456789abcdef"'), 'main-dəki xəbər og etiketli səhifə ilə paylaşılır');
-  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes('data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem"'), 'dəqiqəlik gələn xəbərin səhifəsi hələ yoxdur');
-  assert.ok(card(row('1')).includes('data-share="https://8ulduz.az/#/xeber/1?b=gundem"'), '16 rəqəmli olmayan nömrə');
+  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://8ulduz.az/x/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'main-dəki xəbər og etiketli səhifə ilə paylaşılır');
+  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes(`data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'dəqiqəlik gələn xəbərin səhifəsi hələ yoxdur');
+  assert.ok(card(row('1')).includes(`data-share="https://8ulduz.az/#/xeber/1?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), '16 rəqəmli olmayan nömrə');
   const written = [];
   ctx.navigator.clipboard = { writeText: async s => { written.push(s); } };
   const btn = { dataset: { to: 'cp' }, classList: { contains: () => true }, textContent: 'c', closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'Neft bahalaşdı' } }) };
@@ -2570,7 +2571,7 @@ test("owner's share notes: the worker leaves /x/ID to the browser, 404.html send
   const code = nf.match(/<script>([^<]*location\.replace[^<]*)<\/script>/)[1];
   const hash = require('crypto').createHash('sha256').update(code).digest('base64');
   assert.ok(nf.includes(`'sha256-${hash}'`), '404 səhifəsinin yönləndirmə skripti CSP-dədir');
-  assert.ok(code.includes('/\\/x\\/([0-9a-f]{16})$/') && code.includes('location.replace("/#/xeber/"+m[1])'), '/x/ID → #/xeber/ID (tarixçədə iz qoymur)');
+  assert.ok(code.includes('/\\/x\\/([0-9a-f]{16})$/') && code.includes('location.replace("/#/xeber/"+m[1]+q)') && code.includes('location.replace("/xeber/"+x[1]+"/"+q)'), '/x/ID → #/xeber/ID (tarixçədə iz qoymur)');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\r\n/g, '\n');
   const phone = css.slice(css.lastIndexOf('@media(max-width:600px)'));
   assert.ok(phone.includes('.prez .soc-links{flex-direction:column') && phone.includes('.prez .soc-g{flex-direction:row;flex-wrap:wrap') && !phone.includes('attr(title)'), 'telefonda iki sətir: üstdə İlham Əliyev, altda Mehriban Əliyeva, işarələr əvvəlki kimi');

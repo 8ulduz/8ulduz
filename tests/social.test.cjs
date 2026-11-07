@@ -42,7 +42,7 @@ test("social: Telegram post links to the site share page, one per run, never twi
       { my_chat_member: { chat: { id: -1001, type: "channel", title: "Köhnə" }, new_chat_member: { status: "left" } } },
       { my_chat_member: { chat: { id: 5, type: "private", title: "" }, new_chat_member: { status: "member" } } },
       { my_chat_member: { chat: { id: -1002, type: "channel", title: "8ULDUZ" }, new_chat_member: { status: "administrator" } } }] }) };
-    if (init.method === "HEAD") return { status: url.endsWith("x/c200000000000000") ? 404 : 200 };
+    if (init.method === "HEAD") return { status: url.includes("x/c200000000000000") ? 404 : 200 };
     sent.push([url, JSON.parse(init.body)]);
     return { ok: true, status: 200, text: async () => "" };
   };
@@ -55,8 +55,8 @@ test("social: Telegram post links to the site share page, one per run, never twi
   assert.equal(body.chat_id, -1002, "botun admin olduğu kanal yeniləmələrdən tapılır (çıxarıldığı və şəxsi söhbət sayılmır)");
   assert.deepEqual(state._telegram, { chat: -1002, title: "8ULDUZ" }, "tapılan kanal yadda qalır");
   assert.ok(logs.some(s => s.includes("kanal tapıldı — 8ULDUZ (-1002)")));
-  assert.ok(body.text.startsWith("<b>Bakı &amp; Sumqayıt: külək</b>") && body.text.endsWith("https://8ulduz.az/x/c100000000000000"), "c2-nin səhifəsi hələ yoxdur: növbəti");
-  assert.equal(body.link_preview_options.url, "https://8ulduz.az/x/c100000000000000");
+  assert.ok(body.text.startsWith("<b>Bakı &amp; Sumqayıt: külək</b>") && body.text.includes("https://8ulduz.az/x/c100000000000000?h="), "c2-nin səhifəsi hələ yoxdur: növbəti");
+  assert.match(body.link_preview_options.url, /^https:\/\/8ulduz\.az\/x\/c100000000000000\?h=\d{8}$/, "h: xəbərin saatı (arxiv.cjs)");
   assert.ok(state.telegram["c100000000000000"]);
   await S.run({ articles, env, now: NOW + 5 * 60e3, fetch, state, log: s => logs.push(s) });
   assert.equal(sent.length, 1, "5 dəqiqə sonra (növbəti sayt yayımı) post yoxdur: fasilə 18 dəqiqədir");
@@ -113,13 +113,13 @@ test("social: Facebook page and LinkedIn requests carry the share link", () => {
   const a = art("f1");
   const [fu, fi] = fb.request(a);
   assert.equal(fu, "https://graph.facebook.com/v27.0/42/feed");
-  assert.equal(new URLSearchParams(fi.body).get("link"), "https://8ulduz.az/x/f100000000000000");
+  assert.equal(new URLSearchParams(fi.body).get("link"), `https://8ulduz.az/x/f100000000000000?h=${a.publishedAt.slice(2, 13).replace(/\D/g, "")}`);
   assert.equal(new URLSearchParams(fi.body).get("access_token"), "p");
   const [lu, lii] = li.request(a);
   const body = JSON.parse(lii.body);
   assert.equal(lu, "https://api.linkedin.com/rest/posts");
   assert.equal(body.author, "urn:li:person:abc");
-  assert.equal(body.content.article.source, "https://8ulduz.az/x/f100000000000000");
+  assert.equal(body.content.article.source, `https://8ulduz.az/x/f100000000000000?h=${a.publishedAt.slice(2, 13).replace(/\D/g, "")}`);
 });
 
 test("social: state keeps posted ids for 3 days and survives a broken file", () => {

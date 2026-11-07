@@ -1910,7 +1910,8 @@ def share_page(a):
     # Önizləmə şəkli proksidən 1200×630 JPEG (~100 KB): WhatsApp 600 KB-dan böyüyü göstərmir; mənbədə silinmiş şəkil yerinə saytın şəkli.
     image = _xml(f"https://wsrv.nl/?url={urllib.parse.quote(image, safe='')}&w=1200&h=630&fit=cover&a=attention&output=jpg&q=78&default={urllib.parse.quote(fallback, safe='')}"
                  if image.startswith("https://") else fallback)
-    app = _xml(f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}')
+    hm = re.match(r"20(\d\d)-(\d\d)-(\d\d)T(\d\d)", str(a.get("publishedAt") or ""))  # h: arxiv budağının saatı (.github/scripts/arxiv.cjs)
+    app = _xml(f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}' + (f'&h={"".join(hm.groups())}' if hm else ''))
     return _SHARE_HTML.format(lang=_xml(a.get("lang") or "az"), title=title, desc=desc, url=f"{SITE}x/{sid}", image=image,
                               locale=_LOCALE.get(a.get("lang") or "az", "az_AZ"), app=app, site=SITE)
 

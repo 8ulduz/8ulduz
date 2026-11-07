@@ -64,7 +64,8 @@ function catalog(app) {
 
 // Oxucuya hansı xəbərlər gedir: idmanda hər dil (sahibin dil qaydası), qalanında yalnız Azərbaycan dili.
 const wanted = (a, app) => a?.id && a.title && a.sourceUrl && !app.policyViolation(a) && (a.category === "idman" || (a.lang || "az") === "az");
-const storyUrl = a => /^[0-9a-f]{16}$/.test(a.id) ? `${SITE}#/xeber/${a.id}?b=${encodeURIComponent(a.category || "")}` : a.sourceUrl;
+// h: xəbərin saatı — lentdən çıxandan sonra sətir arxiv budağından açılır (arxiv.cjs).
+const storyUrl = a => /^[0-9a-f]{16}$/.test(a.id) ? `${SITE}#/xeber/${a.id}?b=${encodeURIComponent(a.category || "")}&h=${require("./arxiv.cjs").hourOf(a.publishedAt)}` : a.sourceUrl;
 
 function newState(s) {
   s = s && typeof s === "object" ? s : {};

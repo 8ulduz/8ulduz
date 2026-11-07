@@ -31,6 +31,7 @@ jobs:
           fetch-depth: 1
           sparse-checkout: |
             .github/scripts/izle.cjs
+            .github/scripts/arxiv.cjs
             .github/scripts/topics.cjs
             assets/app.js
             assets/content-policy.js

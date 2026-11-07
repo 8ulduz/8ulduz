@@ -1,0 +1,44 @@
+name: Xəbər arxivi
+# Paylaşılan keçid günlər sonra da açılsın: saytın lentlərindəki hər xəbərin sətri «arxiv» budağına, saata görə bir faylda
+# (.github/scripts/arxiv.cjs). main-ə və sayta (GitHub Pages) fayl əlavə olunmur, budaq tarixçəsizdir. Xəbər axınından ayrıdır.
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/arxiv.yml
+      - .github/scripts/arxiv.cjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: arxiv
+  cancel-in-progress: false
+
+jobs:
+  arxiv:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/arxiv.cjs
+            .github/scripts/topics.cjs
+            assets/app.js
+            assets/content-policy.js
+          sparse-checkout-cone-mode: false
+      - name: Arxiv budağı
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          git clone -q --depth 1 --filter=blob:none --no-checkout --branch arxiv "$URL" .arxiv 2>/dev/null \
+            || { rm -rf .arxiv; git init -q .arxiv && git -C .arxiv remote add origin "$URL"; }
+      - name: Yaz
+        run: node .github/scripts/arxiv.cjs . .arxiv

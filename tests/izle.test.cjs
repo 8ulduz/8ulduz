@@ -51,7 +51,7 @@ test("izlə: a new matching story goes once to each follower; old, foreign-langu
   ], cat, app);
   assert.deepEqual(out.map(m => m.chat_id).sort(), ["1", "2"], "hər oxucuya bir dəfə, Quba izləyəninə yox");
   assert.equal(out[0].method, "sendPhoto"); assert.match(out[0].caption, /^<b>Fənərbağça yeni məşqçi/);
-  assert.equal(out[0].reply_markup.inline_keyboard[0][0].url, "https://8ulduz.az/#/xeber/a1b2c3d4e5f60718?b=idman");
+  assert.equal(out[0].reply_markup.inline_keyboard[0][0].url, "https://8ulduz.az/#/xeber/a1b2c3d4e5f60718?b=idman&h=" + at(0).slice(2, 13).replace(/\D/g, ""));
   assert.deepEqual(I.deliveries(s, [row("a1b2c3d4e5f60718", "idman", "Fənərbağça yeni məşqçi ilə müqavilə imzaladı")], cat, app), [], "ikinci dəfə göndərilmir");
 });
 
