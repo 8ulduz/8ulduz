@@ -139,8 +139,10 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
     if (id !== gen) return;
     if (url) {
       mode = "file"; aud.src = url; aud.playbackRate = rate;
-      aud.onended = () => { if (id === gen) next(true); };
-      aud.onerror = () => { if (id === gen) { files.set(a.id, Promise.resolve("")); play(a); } };  // fayl xarabdırsa cihazın səsi
+      // Yalnız bu faylın hadisəsi sayılır: toxunuşdakı səssiz klipin gecikən «bitdi» siqnalı xəbəri bitmiş saymasın.
+      const mine = () => id === gen && aud.currentSrc === url;
+      aud.onended = () => { if (mine()) next(true); };
+      aud.onerror = () => { if (mine()) { files.set(a.id, Promise.resolve("")); play(a); } };  // fayl xarabdırsa cihazın səsi
       playing = true; ppLabel(); media(a);
       status("Oxunur · tam xəbər, təbii Azərbaycan səsi");
       try { await aud.play(); } catch { playing = false; ppLabel(); status("Başlatmaq üçün «▶ Davam» basın."); }

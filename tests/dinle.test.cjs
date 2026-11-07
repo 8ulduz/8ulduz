@@ -49,16 +49,16 @@ function fakeEnv(hasFile) {
   const el = () => ({ tag: "", children: [], dataset: {}, style: {}, textContent: "", setAttribute() {}, append(c) { this.children.push(c); }, remove() {}, addEventListener() {},
     querySelector(sel) { return (this._q ||= {})[sel] ||= el(); }, set innerHTML(v) {}, get innerHTML() { return ""; } });
   const doc = { head: el(), body: el(), getElementById: () => null, createElement: el };
-  const fetched = [], played = [], spoken = [];
+  const fetched = [], played = [], spoken = [], els = [];
   const fetchFn = async url => {
     fetched.push(url.split("?")[0]);
     if (url.includes("index.json")) return { ok: true, json: async () => ({ ids: hasFile ? ["aaaaaaaaaaaaaaaa", "cccccccccccccccc"] : [] }) };
     return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
   };
-  class AudioCtor { constructor() { this.src = ""; } play() { played.push(this.src); return Promise.resolve(); } pause() {} }
+  class AudioCtor { constructor() { this.src = ""; els.push(this); } get currentSrc() { return this.src; } play() { played.push(this.src); return Promise.resolve(); } pause() {} }
   const synth = { getVoices: () => [{ name: "Google Türkçe", lang: "tr-TR", localService: true }], speak: u => spoken.push(u), cancel() {}, pause() {}, resume() {} };
   class Utterance { constructor(t) { this.text = t; } }
-  return { doc, fetchFn, AudioCtor, synth, Utterance, fetched, played, spoken, nav: {}, store: { getItem: () => null, setItem() {} } };
+  return { doc, fetchFn, AudioCtor, synth, Utterance, fetched, played, spoken, els, nav: {}, store: { getItem: () => null, setItem() {} } };
 }
 const list = [{ id: "aaaaaaaaaaaaaaaa", title: "Xəbər bir", lang: "az" }, { id: "bbbbbbbbbbbbbbbb", title: "Xəbər iki", lang: "az" }, { id: "cccccccccccccccc", title: "Xəbər üç", lang: "az" }];
 
@@ -72,6 +72,11 @@ test("dinlə: the full-story natural-voice file plays first; «next» goes to th
   assert.deepEqual(env.fetched, [AUDIO + "index.json", AUDIO + "aaaaaaaaaaaaaaaa.mp3", AUDIO + "cccccccccccccccc.mp3"], "səssiz «iki» atlanır");
   assert.equal(AUDIO, "https://raw.githubusercontent.com/8ulduz/ses/main/", "səslər sayt reposunda yox, ayrıca reposdadır");
   assert.ok(env.played[0].startsWith("data:audio/wav"), "toxunuş anında element açılır (iPhone)");
+  const el = env.els[0], playing = el.src, n = env.played.length;
+  el.src = "data:audio/wav;x"; el.onended(); el.src = playing; await new Promise(r => setTimeout(r, 10));  // gecikən səssiz klip hadisəsi xəbəri bitirmir
+  assert.equal(env.played.length, n, "növbəti xəbərə keçilmədi");
+  el.onended(); await new Promise(r => setTimeout(r, 10));
+  assert.ok(env.played.length > n, "faylın özü bitəndə növbəti xəbər başlayır");
   p.stop();
 });
 
