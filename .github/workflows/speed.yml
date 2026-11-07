@@ -6,6 +6,8 @@ name: Sürət ölçüsü
 # Xəbər axınından (update.yml) və yayımdan ayrıdır: heç nəyi dayandırmır, repoya yazmır.
 
 on:
+  pull_request:
+    paths: ['assets/**', 'index.html', 'sw.js', '.github/scripts/speed.cjs', '.github/workflows/speed.yml']
   push:
     branches: [main]
     paths:
@@ -27,7 +29,7 @@ concurrency:
 
 jobs:
   speed:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
