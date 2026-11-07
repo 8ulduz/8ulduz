@@ -2133,6 +2133,14 @@ class SocialSharePageTest(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in d.iterdir()), [f'{"b" * 16}.html'], "arxivdən çıxanın səhifəsi silinir")
         self.assertIn("write_social_share_pages(write_social_archive(posts))", (pathlib.Path(updater.__file__)).read_text(encoding="utf-8"))
 
+    def test_pages_are_written_before_the_post_appears_on_the_site(self):
+        src = (pathlib.Path(updater.__file__)).read_text(encoding="utf-8")
+        body = src[src.index("def update_social():"):src.index("SOCIAL_WHO = ")]
+        self.assertLess(body.index("write_social_share_pages(write_social_archive(posts))"), body.index("_write_atomic(SOCIAL_FILE"),
+                        "əvvəl səhifə, sonra social.json: saytda görünən yazının səhifəsi eyni yayımda var")
+        nf = (pathlib.Path(updater.__file__).parent / "404.html").read_text(encoding="utf-8")
+        self.assertIn('<meta property="og:image" content="https://8ulduz.az/assets/og-default.png" />', nf, "səhifə yoxdursa saytın kartı")
+
 class SocialArchiveTest(unittest.TestCase):
     """Sahib, 2026-11-07: paylaşılan sosial yazının keçidi bir neçə saat sonra boş açılırdı (social.json yalnız son yazılar)."""
 

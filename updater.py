@@ -2999,13 +2999,15 @@ def update_social():
     posts.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
-    _write_atomic(SOCIAL_FILE, json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
-                                       separators=(",", ":")), encoding="utf-8")
-    merge_sources(yt_rows)
+    # Əvvəl arxiv və paylaşma səhifələri, sonra social.json (sahib 2026-11-07: «daimi düzəliş, sonra problem olmasın»): saytda görünən
+    # hər yazının səhifəsi eyni yayımda artıq var. Səhifə alınmasa 404.html saytın kartını göstərib oxucunu yazıya aparır.
     try:
         write_social_share_pages(write_social_archive(posts))
     except Exception as e:
         print(f"  ! sosial arxiv: {type(e).__name__}: {str(e)[:80]}")
+    _write_atomic(SOCIAL_FILE, json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
+                                       separators=(",", ":")), encoding="utf-8")
+    merge_sources(yt_rows)
     print(f"Sosial: {min(16, len(posts))} yazı ({sum(1 for p in posts[:16] if p.get('via'))} xəbərdən)")
 
 # Sosial yazının paylaşma səhifəsi (sahib 2026-11-07: «sosial şəbəkələrdən paylaşanda kimə aiddirsə adı yazılsın: İlham Əliyev:
