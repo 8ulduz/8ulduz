@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: speed
+  group: speed-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
