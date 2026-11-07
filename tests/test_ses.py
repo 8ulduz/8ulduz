@@ -11,7 +11,7 @@ spec.loader.exec_module(ses)
 
 
 class SesTest(unittest.TestCase):
-    def test_pick_az_recent_most_sources_first(self):
+    def test_pick_az_recent_newest_first(self):
         now = datetime.datetime(2026, 11, 7, 12, tzinfo=datetime.timezone.utc)
         at = lambda h: (now - datetime.timedelta(hours=h)).isoformat()
         row = lambda i, title, h, **kw: {"id": i * 16, "title": title, "source": "APA", "sourceUrl": f"https://apa.az/{i}",
@@ -20,7 +20,7 @@ class SesTest(unittest.TestCase):
                 row("c", "Rus xəbəri", 1, lang="ru"), row("d", "Köhnə xəbər", 40), row("e", "Artıq səslənib", 1),
                 {**row("f", "Keçidsiz", 1), "sourceUrl": "http://x.az/1"}]
         got = [a["title"] for a in ses.pick(rows, {"e" * 16}, now)]
-        self.assertEqual(got, ["Neft qiyməti artdı", "Bakıda yeni park açıldı"])
+        self.assertEqual(got, ["Bakıda yeni park açıldı", "Neft qiyməti artdı"])
 
     def test_script_starts_with_title_and_source_then_full_text(self):
         a = {"title": "Bakıda yağış.", "source": "APA", "summary": "Qısa"}

@@ -31,7 +31,8 @@ from reader_content import extract_article  # noqa: E402
 SITE = "https://8ulduz.az/"
 VOICE = "az-AZ-BabekNeural"
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
-PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 14, 30, 30, 260, 5000
+# Bütün Azərbaycan xəbərləri (sahib, 2026-11-08: «ancaq başlığı oxudu»): gündə ~750, ən yenisi birinci.
+PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 40, 26, 26, 1000, 5000
 ID_RE = re.compile(r"^[0-9a-f]{16}$")
 
 
@@ -44,7 +45,7 @@ def parse_time(s):
 
 
 def pick(articles, have, now):
-    """Səslənəcək xəbərlər: Azərbaycan dilində, son 30 saat, çox mənbəli olanlar önə, sonra yenilər."""
+    """Səslənəcək xəbərlər: Azərbaycan dilində, son 26 saat, ən yenisi birinci (təzə xəbərin səsi tez hazır olsun)."""
     rows = []
     for a in articles:
         t = parse_time(a.get("publishedAt"))
@@ -52,7 +53,7 @@ def pick(articles, have, now):
                 and str(a.get("sourceUrl", "")).startswith("https://") and t and -600 <= (now - t).total_seconds() < MAX_AGE_H * 3600):
             rows.append(a)
     rows, _ = content_policy.enforce(rows)
-    return sorted(rows, key=lambda a: (-(1 + len(a.get("alts") or [])), -parse_time(a["publishedAt"]).timestamp()))
+    return sorted(rows, key=lambda a: (-parse_time(a["publishedAt"]).timestamp(), -len(a.get("alts") or [])))
 
 
 def clip(text, limit=MAX_CHARS):
@@ -90,9 +91,9 @@ async def speak(text, path):
     import edge_tts  # yalnız iş axınında quraşdırılır
     raw = path + ".raw.mp3"
     await edge_tts.Communicate(text, VOICE).save(raw)
-    # 32 kbit/s mono: nitq üçün kifayətdir, fayl ~3 dəfə kiçik (telefonun interneti az yeyilir)
+    # 24 kbit/s mono: nitq üçün kifayətdir, fayl ~4 dəfə kiçik (telefonun interneti az yeyilir)
     if shutil.which("ffmpeg"):
-        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-ac", "1", "-ar", "22050", "-b:a", "32k", path], check=True)
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-ac", "1", "-ar", "16000", "-b:a", "24k", path], check=True)
         os.remove(raw)
     else:  # ffmpeg yoxdursa Edge-in öz faylı (48 kbit/s)
         os.replace(raw, path)

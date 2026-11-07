@@ -153,7 +153,7 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
       if (!choice) { playing = false; ppLabel(); status("Bu xəbərin hazır səsi yoxdur, cihazda da Azərbaycan və ya türk səsi tapılmadı."); return; }
       mode = "tts"; parts = chunks(textOf(a, decode)); playing = true; ppLabel(); media(a);
       const vn = String(choice.voice.name).replace(/^(Microsoft|Google)\s+/, "").replace(/\s+(Online|-).*$/, "");
-      status(choice.az ? `Oxunur · səs: ${vn}` : `Oxunur · türk səsi (${vn}) — bu xəbərin hazır səsi hələ yoxdur`);
+      status(`Qısa oxunur (${choice.az ? vn : "türk səsi"}): bu xəbərin tam səsi bir neçə dəqiqəyə hazır olur`);
       speak(id);
     }
     const n = after(a); if (n) audioFor(n.id);  // növbəti xəbərin səsi arxada hazırlanır
