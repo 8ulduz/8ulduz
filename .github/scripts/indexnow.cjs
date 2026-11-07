@@ -22,8 +22,12 @@ function pending(index, sent, now) {
 }
 
 async function run({ index, state, key, now = Date.now(), fetch: f = globalThis.fetch, log = console.log }) {
-  const sent = state.sent = Object.fromEntries(Object.entries(state.sent || {}).filter(([, t]) => now / 1000 - t < KEEP_S));
+  let sent = state.sent = Object.fromEntries(Object.entries(state.sent || {}).filter(([, t]) => now / 1000 - t < KEEP_S));
   if (!key) { log("indexnow: açar faylı yoxdur"); return []; }
+  if (state.key !== key) {
+    sent = state.sent = {};
+    state.key = key;
+  }
   const candidates = pending(index, sent, now).slice(0, MAX);
   if (!candidates.length) { log("indexnow: yeni səhifə yoxdur"); return []; }
   // Pages açar faylını yayımlamamış göndəriş başlamasın: xəbər səhifələri əvvəlcədən açıq ola bilər.

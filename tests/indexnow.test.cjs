@@ -51,6 +51,18 @@ test("indexnow: a rejected notification preserves pending pages and reports the 
   assert.deepEqual(state.sent, {}, "a rejected URL is never recorded as successfully submitted");
 });
 
+test("indexnow: rotating a rejected proof retries recent pages once under the new key", async () => {
+  const id = "1".repeat(16), key = "2".repeat(32), index = { [id]: [T - 60, 4, "gundem"] };
+  for (const oldKey of [undefined, "3".repeat(32)]) {
+    const state = { key: oldKey, sent: { [id]: T - 60 } };
+    const fetch = async (url, init) => init.method === "GET" ? { status: 200, text: async () => key }
+      : { status: init.method === "HEAD" ? 200 : 202 };
+    assert.deepEqual(await I.run({ index, state, key, now: NOW, fetch, log: () => {} }), [id], "old or unversioned delivery state cannot suppress the new ownership proof's notifications");
+    assert.equal(state.key, key);
+    assert.deepEqual(await I.run({ index, state, key, now: NOW + 60e3, fetch: () => assert.fail("already sent under this key"), log: () => {} }), []);
+  }
+});
+
 test("indexnow: the key file in the site root holds its own name", () => {
   const key = I.keyOf(path.join(__dirname, ".."));
   assert.match(key, /^[0-9a-f]{32}$/);
