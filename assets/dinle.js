@@ -68,19 +68,19 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
     let done = false; const end = () => { if (!done) { done = true; res(synth?.getVoices?.() || []); } };
     synth?.addEventListener?.("voiceschanged", end, { once: true }); setTimeout(end, 1500);
   });
-  // Hazır səs faylı (yoxdursa ""): bir sorğu, 6 saniyə; növbəti xəbərinki əvvəlcədən götürülür ki, ara olmasın.
+  // Hazır səs faylı (yoxdursa ""): bir sorğu, zəif internetdə də 20 saniyə gözlənir; növbəti xəbərinki əvvəlcədən götürülür ki, ara olmasın.
   // Hazır səslərin siyahısı (index.json): bir sorğu, 10 dəqiqədə bir təzələnir; siyahıda olmayan xəbər üçün sorğu getmir.
   let voiced = null, voicedAt = 0;
   const loadVoiced = async () => {
     if (voiced && Date.now() - voicedAt < 6e5) return voiced;
-    try { const r = await fetchFn(`${AUDIO}index.json?t=${Math.floor(Date.now() / 6e5)}`, { signal: AbortSignal.timeout(5000) }); if (r.ok) { voiced = new Set((await r.json()).ids || []); voicedAt = Date.now(); } } catch {}
+    try { const r = await fetchFn(`${AUDIO}index.json?t=${Math.floor(Date.now() / 6e5)}`, { signal: AbortSignal.timeout(8000) }); if (r.ok) { voiced = new Set((await r.json()).ids || []); voicedAt = Date.now(); } } catch {}
     return voiced || new Set();
   };
   const audioFor = id => {
     if (!files.has(id)) files.set(id, (async () => {
       if (!fetchFn || !AudioCtor || !/^[0-9a-f]{16}$/.test(String(id || "")) || !(await loadVoiced()).has(id)) return "";
       try {
-        const r = await fetchFn(`${AUDIO}${id}.mp3`, { signal: AbortSignal.timeout(6000) });
+        const r = await fetchFn(`${AUDIO}${id}.mp3`, { signal: AbortSignal.timeout(20000) });
         if (!r.ok) return "";
         return URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: "audio/mpeg" }));
       } catch { return ""; }
