@@ -45,7 +45,7 @@ const PREZ_LINKS = [
   { name: "mehriban-aliyeva.az", url: "https://mehriban-aliyeva.az/" },
   { name: "X — @presidentaz", url: "https://x.com/presidentaz" },
 ];
-// Rəsmi hesablar (president.az və mehriban-aliyeva.az səhifələrindəki keçidlər). Telegram kanalı yoxdur.
+// Rəsmi hesablar (president.az, mehriban-aliyeva.az).
 const PROFILES = [
   { who: "İlham Əliyev", links: [
     ["X", "https://x.com/presidentaz"], ["X (AZ)", "https://x.com/azpresident"],
@@ -487,7 +487,7 @@ const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan
 const card = a => cardAt(a, "h3");
 function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
-// Slayderdə boş kadr qalmır: şəkli sınan slayd çıxarılır (xəbərin özü siyahılarda qalır).
+// Şəkli sınan slayd çıxarılır.
 function dropHeroSlide(slide) {
   const row = slide.parentElement;
   const strip = slide.closest(".strip");
@@ -1546,7 +1546,9 @@ const TOPIC_SUFFIX = "(?:in|nin|un|nun|a|e|i|u|ya|ye|ni|nu|na|ne|la|le|dan|den|n
 const topicMap = tabs => new Map(tabs.flatMap(t => [t, ...(t.groups || []).flatMap(g => g.items)]).map(t => [t.name, t]));
 const SPORT_BY_NAME = topicMap(SPORT_TABS), REGION_BY_NAME = topicMap(REGION_TABS);
 const sportTopic = name => SPORT_BY_NAME.get(name) || REGION_BY_NAME.get(name);
-const topicKey = s => fold(s).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+// Sürət: latın/kiril mətndə \p{L} əvəzinə eyni nəticəli sinif.
+const TK_SLOW = /[^\x00-\x7f«»\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u024f\u0400-\u0481\u048a-\u04ff\u2010-\u2027\u2030-\u205e]/;
+const topicKey = s => (s = fold(s), TK_SLOW.test(s) ? s.replace(/[^\p{L}\p{N}]+/gu, " ") : s.replace(/[^a-z0-9\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u024f\u0400-\u0481\u048a-\u04ff]+/g, " ")).trim();
 function topicRx(t) {
   if (t.rx) return t.rx;
   // Bir saytın alt bölməsi olan mövzuda söz şərti yoxdursa heç nəyə uyğun gəlməsin.
@@ -1966,9 +1968,10 @@ function sectionView(slug) {
 }
 
 // Axtarış üçün sadələşdirmə: ə→e, ı→i və s. («ilham eliyev», «qarabag» da tapılır).
-const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c" };
+// й, ё və İ-dən qalan nöqtə (U+0307) də burada: NFD yalnız nadir hərfdə işləyir (sürət).
+const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c", "й": "и", "ё": "е", "\u0307": "" };
 function fold(s) { // NFD yalnız lazım olanda (2,7× tez)
-  s = String(s || "").toLowerCase().replace(/[əıöüğşç]/g, ch => FOLD[ch]);
+  s = String(s || "").toLowerCase().replace(/[əıöüğşçйё\u0307]/g, ch => FOLD[ch]);
   return /[\u00c0-\u024f\u0300-\u036fйё]/.test(s) ? s.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : s;
 }
 const searchWords = q => fold(q).replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter(w => w.length >= 2 || /\p{N}/u.test(w));
@@ -2725,7 +2728,7 @@ function setupFeatureLents() {
   const hero = document.querySelector(".hero-strip");
   if (hero) {
     const row = hero.querySelector(".hero-row"), button = hero.querySelector(".hero-pause");
-    // Barmaq, təkər, klaviatura: 12 s dayanır, həmişəlik yox; tam dayandırmaq üçün düymə var.
+    // Barmaq, təkər, klaviatura: 12 s dayanır.
     const hold = () => { hero._holdUntil = Date.now() + 12000; };
     row?.addEventListener("pointerdown", hold);
     row?.addEventListener("wheel", hold, { passive: true });
@@ -2984,7 +2987,7 @@ async function loadSocial() {
   try {
     const r = await fetch(freshUrl("data/social.json"), { cache: "no-store" });
     if (r.ok) { S.social = await r.json(); requestRender(); }
-    // Paylaşılan köhnə yazı social.json-dan çıxıbsa arxivdən (30 gün, updater write_social_archive).
+    // Köhnə yazı social.json-da yoxdursa arxivdən.
     const s = location.hash.match(/[?&]s=([0-9a-f]{16})/)?.[1], p = s && !S.social.posts.some(p => p.id === s) && (await requestJSON(freshUrl("data/social-arxiv.json"))).d?.posts?.find(p => p.id === s);
     if (p) { S.social.posts.push(p); requestRender(); }
   } catch {}
@@ -3083,7 +3086,7 @@ if (uiLang(S.lang)) {
 }
 shell(); render();
 // Hamısı gələn kimi çəkilir.
-// xeber/<id>/ səhifəsi xəbərin sətrini özündə gətirir (#row): lentdən çıxsa da 30 gün açılır.
+// xeber/<id>/ səhifəsi xəbərin sətrini gətirir (#row).
 { const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || 0); if (w?.id === r0.id) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { loadShared(r0.id); backHome(); } }
 loadCached(); restoreLocal();
 S.firstReady = loadFirst();

@@ -2715,3 +2715,11 @@ test('owner 2026-11-07: «Telegram-da izlə» on section pages opens the bot wit
   const cat = catalog(loadApp(root));
   for (const k of ['b_dunya', 'i_fenerbahce', 'r_quba']) assert.ok(cat.has(k), 'bot açarı tanıyır: ' + k);
 });
+test('speed 2026-11-07: topic text uses a plain class for Latin/Cyrillic and gives exactly the \p{L} result, rare letters included', () => {
+  const ctx = app(), { topicKey, fold } = { topicKey: vm.runInContext('topicKey', ctx), fold: vm.runInContext('fold', ctx) };
+  const ref = s => { s = String(s || '').toLowerCase().replace(/[əıöüğşç]/g, ch => ({ ə: 'e', ı: 'i', ö: 'o', ü: 'u', ğ: 'g', ş: 's', ç: 'c' })[ch]);
+    return (/[\u00c0-\u024f\u0300-\u036fйё]/.test(s) ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : s).replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); };
+  for (const t of ['Qarabağ 2:1 × Neftçi ÷ ²³ µ', 'Карабах — ёлка «ура» “x” … ‰ Йошкар-Ола', 'Ελλάδα ١٢٣ 中国', 'İLHAM ƏLİYEV İnter', 'a҂b҃c', 'naïve café', 'x\u00a0y', '', '⚽️ Fənərbağça ➡ “Qalatasaray”', 'Реал — «Барселона» 3:0'])
+    assert.equal(topicKey(t), ref(t), t);
+  assert.equal(fold('Йошкар ёж İnter'), 'иошкар еж inter');
+});
