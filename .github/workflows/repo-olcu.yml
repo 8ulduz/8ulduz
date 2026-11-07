@@ -1,0 +1,28 @@
+name: Repo ölçüsü
+# Repo tarixçəsi gündə ~20 MB böyüyür (docs/qirmizi-xetler.md, «Struktur qaydaları»). Sayta və axına təsiri yoxdur (bütün işlər
+# fetch-depth: 1), GitHub-ın sərt tövsiyəsi isə 5 GB-dır. Bu yoxlama həftədə bir ölçür; 2 GB-ı keçəndə qırmızı olur və GitHub
+# sahibə e-poçt göndərir — 5 GB-a hələ aylar qalarkən «data main-dən çıxsın» köçürməsi planlı edilsin.
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  olcu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ölç
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          kb=$(gh api "repos/${{ github.repository }}" --jq .size)
+          echo "Repo: $((kb / 1024)) MB" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$kb" -gt 2000000 ]; then
+            echo "::error::Repo $((kb / 1024)) MB > 2 GB: data fayllarını main-dən tarixçəsiz budağa köçürmək vaxtıdır (docs/qirmizi-xetler.md)"
+            exit 1
+          fi

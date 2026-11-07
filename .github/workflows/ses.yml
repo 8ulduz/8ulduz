@@ -1,0 +1,52 @@
+name: Xəbər səsləri
+# «Dinlə» hər telefonda təbii Azərbaycan səsi ilə: əsas xəbərlərin səsi Azure Babək səsi ilə hazırlanıb «ses» budağına yazılır
+# (.github/scripts/ses.cjs). main-ə və sayta fayl əlavə olunmur, budaq tarixçəsizdir. Xəbər axınından ayrıdır: düşsə də lent dayanmır.
+# Sirlər: AZURE_SPEECH_KEY (+ AZURE_SPEECH_REGION, susmaya görə westeurope). Sirr yoxdursa iş heç nə etmir.
+
+on:
+  schedule:
+    - cron: "4,19,34,49 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ses.yml
+      - .github/scripts/ses.cjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ses
+  cancel-in-progress: false
+
+jobs:
+  ses:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/ses.cjs
+            .github/scripts/topics.cjs
+            assets/app.js
+            assets/content-policy.js
+            assets/dinle.js
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Ses budağı
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          git clone -q --depth 1 --filter=blob:none --no-checkout --branch ses "$URL" .ses 2>/dev/null \
+            || { rm -rf .ses; git init -q .ses && git -C .ses remote add origin "$URL"; }
+      - name: Səsləndir
+        env:
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+        run: node .github/scripts/ses.cjs . .ses
