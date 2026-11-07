@@ -41,6 +41,14 @@ function merge(buckets, articles, ok = () => true) {
 
 const tooOld = (h, now) => { const t = Date.UTC(2000 + +h.slice(0, 2), +h.slice(2, 4) - 1, +h.slice(4, 6), +h.slice(6, 8)); return !(t > now - KEEP_DAYS * 86400e3); };
 
+// Budaqdakı saat faylları: saat -> blob. ls-tree yolu «saat/26110713.json» verir; ad yalnız saatdır (əks halda hamısı «köhnə» sayılıb silinirdi).
+function readHours(dir) {
+  const out = new Map();
+  let list = "";
+  try { list = git(dir, ["ls-tree", "HEAD", "saat/"]); } catch { return out; }
+  for (const line of list.split("\n").filter(Boolean)) { const [meta, name] = line.split("\t"), sha = meta.split(" ")[2], h = (name.match(/(\d{8})\.json$/) || [])[1]; if (h && sha) out.set(h, sha); }
+  return out;
+}
 const git = (dir, args, input) => execFileSync("git", ["-C", dir, ...args], { input, encoding: "utf8", maxBuffer: 64 << 20 }).trim();
 
 async function main(root, dir) {
@@ -53,7 +61,7 @@ async function main(root, dir) {
   const have = new Map(), other = [];
   // saat/ xaricindəki qovluqlar (idx/: köhnə saatsız keçidlərin göstəricisi, bir dəfə yazılıb) olduğu kimi qalır.
   try { for (const line of git(dir, ["ls-tree", "HEAD"]).split("\n").filter(Boolean)) if (!/\tsaat$/.test(line)) other.push(line); } catch {}
-  try { for (const line of git(dir, ["ls-tree", "HEAD", "saat/"]).split("\n").filter(Boolean)) { const [, , sha, name] = line.split(/\s+/); have.set(name.replace(/\.json$/, ""), sha); } } catch {}
+  for (const [h, sha] of readHours(dir)) have.set(h, sha);
   const buckets = {}, touched = new Set(articles.map(a => hourOf(a.publishedAt)).filter(Boolean));
   for (const h of touched) if (have.has(h)) { try { buckets[h] = Object.fromEntries((JSON.parse(git(dir, ["cat-file", "blob", have.get(h)])).articles || []).map(r => [r.id, r])); } catch {} }
   const changed = merge(buckets, articles, a => !app.policyViolation(a));
@@ -71,5 +79,5 @@ async function main(root, dir) {
   console.log(`arxiv: ${articles.length} sətir, ${changed.length} saat yeniləndi, ${have.size} saat budaqda, ${dropped} köhnə silindi`);
 }
 
-module.exports = { hourOf, compact, merge, tooOld, KEEP_DAYS };
+module.exports = { hourOf, compact, merge, tooOld, readHours, main, KEEP_DAYS };
 if (require.main === module) main(path.resolve(process.argv[2] || "."), path.resolve(process.argv[3] || ".arxiv")).catch(e => { console.error("arxiv:", e?.message || e); process.exitCode = 1; });

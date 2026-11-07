@@ -37,3 +37,17 @@ test("arxiv: nothing is added to main or the site; the job runs apart from the n
   assert.ok(js.includes("https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/") && js.includes("${R}saat/${h}.json") && js.includes("${R}idx/${id.slice(0, 2)}.json") && js.includes("await shareRow(id) || await arxRow(id)"), "sayt yalnız köhnə keçiddə oxuyur");
   assert.ok(/return r && !removedSource\(r\) && !policyViolation\(r\) \? r : null;\n\}\n\/\/ Paylaşılan keçid/.test(js.replace(/\r\n/g, "\n")), "arxivdən gələn sətir də qaydadan keçir");
 });
+
+test("arxiv: the hours already on the branch are read by hour name, so nothing recent is dropped as «old» (bug 2026-11-07)", () => {
+  const os = require("node:os"), { execFileSync } = require("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "arxiv-")), g = (...a) => execFileSync("git", ["-C", dir, ...a], { encoding: "utf8" });
+  g("init", "-q");
+  fs.mkdirSync(path.join(dir, "saat")); fs.mkdirSync(path.join(dir, "idx"));
+  fs.writeFileSync(path.join(dir, "saat", "26110713.json"), "{}"); fs.writeFileSync(path.join(dir, "saat", "26110603.json"), "{}"); fs.writeFileSync(path.join(dir, "idx", "ab.json"), "{}");
+  g("add", "."); g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "t");
+  const hours = A.readHours(dir);
+  assert.deepEqual([...hours.keys()].sort(), ["26110603", "26110713"]);
+  for (const h of hours.keys()) assert.equal(A.tooOld(h, Date.UTC(2026, 10, 7)), false, h);
+  assert.equal(A.readHours(path.join(dir, "yoxdur")).size, 0, "budaq yoxdursa boş");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
