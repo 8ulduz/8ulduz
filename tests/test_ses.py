@@ -16,7 +16,7 @@ class SesTest(unittest.TestCase):
         at = lambda h: (now - datetime.timedelta(hours=h)).isoformat()
         row = lambda i, title, h, **kw: {"id": i * 16, "title": title, "source": "APA", "sourceUrl": f"https://apa.az/{i}",
                                          "category": "iqtisadiyyat", "publishedAt": at(h), "lang": "az", **kw}
-        rows = [row("a", "Bakıda yeni park açıldı", 1), row("b", "Neft qiyməti artdı", 2, alts=[{"source": "Report"}]),
+        rows = [row("a", "Bakıda yeni park açıldı", 1), row("b", "Neft qiyməti artdı", 2, alts=[{"source": "Report", "title": "Neft qiyməti artdı", "sourceUrl": "https://report.az/1"}]),
                 row("c", "Rus xəbəri", 1, lang="ru"), row("d", "Köhnə xəbər", 40), row("e", "Artıq səslənib", 1),
                 {**row("f", "Keçidsiz", 1), "sourceUrl": "http://x.az/1"}]
         got = [a["title"] for a in ses.pick(rows, {"e" * 16}, now)]
