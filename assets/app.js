@@ -1205,7 +1205,7 @@ function renderTopbar() {
   syncTixDot();
 }
 
-const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["sondeqiqe", "gundem", "idman", "bolgeler"];
+const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["gundem", "dunya", "idman", "bolgeler"];
 // Ölçmə bir dəfə, dəyişikliklərdən sonra.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
 // Telefonda qısa ad.

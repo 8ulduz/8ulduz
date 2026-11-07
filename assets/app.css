@@ -195,7 +195,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 .ticker .run{flex:1;overflow:hidden;padding:7px 0;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
 .ticker .run:active{cursor:grabbing}
 .ticker .track{display:flex;gap:36px;width:max-content;animation:marquee 90s linear infinite;padding-left:20px;will-change:transform}
-/* Yalnız siçanla dayandır: toxunuşda «hover» ilişib lent tamam dayanırdı */
+/* Yalnız siçanla dayandır */
 @media (hover:hover){.ticker:hover .track{animation-play-state:paused}}
 .ticker .run{-webkit-overflow-scrolling:touch}
 .ticker .track a{white-space:nowrap;font-size:0.9286rem;color:var(--ticker-fg)}
@@ -313,7 +313,7 @@ main>.wrap>section{margin-bottom:18px}
 }
 .pcard{display:flex;flex-direction:row;align-items:center;gap:8px;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 8px;min-height:0;min-width:0}
 .pcard .x{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-/* Zuğulba kartının şəkli; yüklənməsə gizlənir, mətn tam enə yayılır */
+/* Zuğulba kartının şəkli */
 .pcard .img{flex:none;width:84px;height:60px;border-radius:6px;background:var(--fallback)}
 
 .pcard:hover{border-color:hsl(43 96% 56%/.5)}
@@ -556,7 +556,7 @@ footer .logo img{height:28px}
 .ytrow::-webkit-scrollbar,.phrow::-webkit-scrollbar{display:none}
 .ytrow>*,.phrow>*,.vrow>*{scroll-snap-align:start}
 
-/* Telefonda karusel yox: 4 kartlıq şaquli siyahı (qalanı «Hamısı») */
+/* Telefonda karusel yox: 4 kart */
 @media (max-width:520px){
   .secrow{flex-direction:column;gap:8px;overflow:visible;scroll-snap-type:none;padding:0}
   .secrow>.card{flex:none;width:100%;flex-direction:row}
@@ -1120,7 +1120,7 @@ a.pill.on small{color:inherit}
 .ldd-btn .flag{margin:0}
 .ldd-btn .caret{font-size:.7em;opacity:.7}
 .ldd.open .ldd-btn,.ldd-btn:hover{border-color:var(--primary)}
-/* Dil siyahısı: fərqli fonlu kart, hər dil öz sətrində, dairəvi bayraq */
+/* Dil siyahısı */
 .ldd-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:80;display:flex;flex-direction:column;gap:4px;padding:6px;background:#fff;color:#0a1120;border-radius:14px;box-shadow:0 12px 28px #000a}
 :root[data-theme="light"] .ldd-pop{background:#0e1a2e;color:#fff}
 .ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%;box-shadow:0 0 0 1px #0003;margin:0}
@@ -1146,7 +1146,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 .ticker .lbl .mo{flex:none;width:22px;height:22px;padding:0;border-radius:99px;background:#ffffff22;color:#fff;font-size:11px;line-height:1}
 .ticker .run.still .track{animation:none}
 .ticker .run.still{overflow-x:auto;scrollbar-width:none}
-@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(15px,6vw,25px);letter-spacing:0;min-width:0}.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}.prez.open .prez-h{flex-wrap:wrap;row-gap:6px}.prez.open .prez-h h2{flex:1 0 100%}.prez:not(.open) .prez-body{display:none}.prez:not(.open){padding:3px 10px}.prez:not(.open) .prez-h{padding-bottom:0;border:0}.prez:not(.open) .prez-h h2{flex:1;line-height:1.15}.prez:not(.open) .prez-h h2 a{flex:1;text-align:center;margin-right:19px}.prez-h{cursor:pointer}}
+@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(15px,6vw,25px);letter-spacing:0;min-width:0}.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}.prez.open .prez-h{flex-wrap:wrap;row-gap:6px}.prez.open .prez-h h2{flex:1 0 100%}.prez:not(.open) .prez-body{display:none}.prez:not(.open){padding:3px 10px}.prez:not(.open) .prez-h{padding-bottom:0;border:0}.prez:not(.open) .prez-h h2{flex:1;line-height:1.15}.prez:not(.open) .prez-h h2 a{flex:1;text-align:center}.top2 .prez{order:-1}.prez-h h2::after{content:"▾";flex:none;width:14px;font-size:14px;color:var(--primary)}.prez.open .prez-h h2::after{content:"▴";margin-left:auto}.prez-h{cursor:pointer}}
 .prez-pause{flex:none;width:24px;height:24px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--fg);font-size:11px;line-height:1}
 @media(hover:none){.prez-pause{display:none}}
 /* «Son xəbərlər» Gündəmdən aydın xətlə ayrılır */
@@ -1200,7 +1200,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 @media(max-width:600px){
   nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}
   nav.main .nav-tg{display:flex;flex:1 0 100%;justify-content:center;align-items:center;min-height:24px;border-radius:999px;background:var(--navy);color:#fff;font-weight:var(--fw-bold)}
-  nav.main>a:not(.ph,.nav-tg){display:none}
+  nav.main>a:not(.ph,.nav-tg){display:none}nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}
   nav.main .nav-more{display:flex}nav.main .nav-more>summary{font-size:0;min-height:28px;padding:0 12px;border-radius:999px;background:var(--card2)}nav.main .nav-more>summary::before{content:"☰";font-size:32px;line-height:.8;color:var(--primary)}
   nav.main .nav-more-pop{position:fixed;inset:auto 0 0;max-width:none;max-height:75dvh;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 12px 70px;border-radius:16px 16px 0 0;z-index:1000}
   nav.main .nav-more-pop a{font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--fw-bold);color:var(--fg);padding:9px 12px}

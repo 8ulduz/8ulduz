@@ -280,7 +280,9 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   const [row, rest] = h.split('<details class="nav-more">');
   const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
   // sahib 2026-11-07: İdmanın yanında Zuğulba yox, Bölgələr (Zuğulba aşağıda öz blokunda, bağlı başlıq)
-  assert.deepEqual(phone, ['sondeqiqe', 'gundem', 'idman', 'bolgeler'], 'telefonda sətirdə yalnız 4 bölmə');
+  // sahib 2026-11-07 (sonra): «Gündəm sonra Dünya»; «Son dəqiqə» ☰-də (qırmızı zolaq və «Son xəbərlər» onu təkrarlayırdı)
+  assert.deepEqual(phone, ['gundem', 'idman', 'bolgeler', 'dunya'], 'telefonda sətirdə yalnız 4 bölmə (HTML sırası; masaüstü menyu dəyişmir)');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}'), 'telefonda görünən sıra: Gündəm, Dünya, İdman, Bölgələr');
   const list = (rest.split('</details>')[0].match(/<a href="#\/bolme\//g) || []).length;
   assert.equal(list, (h.match(/<a href="#\/bolme\/[a-z]+" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
   assert.ok(rest.includes('<summary aria-label="Bütün bölmələr">☰ Hamısı</summary>'));
