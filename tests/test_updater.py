@@ -2044,7 +2044,11 @@ class SharePagesTest(unittest.TestCase):
         self.assertIn('<meta property="og:title" content="Neft &lt;b&gt;bahalaşdı&lt;/b&gt; &amp; manat" />', page)
         self.assertIn('<meta property="og:description" content="Brent 80 dolları keçdi. Ətraflı…" />', page)
         self.assertIn(f'<meta property="og:url" content="{updater.SITE}x/{sid("https://apa.az/1")}" />', page)
-        self.assertIn('<meta property="og:image" content="https://apa.az/i.jpg" />', page)
+        # Sahib 2026-11-07 (paylaşma yoxlaması): önizləmə şəkli proksidən 1200×630 JPEG — WhatsApp 600 KB-dan böyük şəkli göstərmir,
+        # mənbədə silinmiş şəklin yerinə saytın şəkli (default=).
+        q = updater.urllib.parse.quote
+        self.assertIn(f'<meta property="og:image" content="https://wsrv.nl/?url={q("https://apa.az/i.jpg", safe="")}&amp;w=1200&amp;h=630&amp;fit=cover'
+                      f'&amp;a=attention&amp;output=jpg&amp;q=78&amp;default={q(updater.SITE + "assets/og-default.png", safe="")}" />', page)
         self.assertIn(f'content="0;url={updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat"', page)
         self.assertNotIn("{", page)
         self.assertNotIn("<script", page)

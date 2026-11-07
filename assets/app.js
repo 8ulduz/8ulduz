@@ -426,7 +426,7 @@ function imageCandidates(a) {
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
   // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
   const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$|static\.president\.az\/assets\/president-administration-/i.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
-  // Proksidən keçməyən sayt (PROXY_SKIP) sona: başqa mənbənin kiçildilə bilən şəkli varsa o çıxır.
+  // Proksidən keçməyən sayt (PROXY_SKIP) sona.
   const blocked = u => PROXY_SKIP.test(hostOf(u));
   return [...all.filter(u => !cut(u) && !blocked(u)), ...all.filter(u => cut(u) && !blocked(u)), ...all.filter(blocked)];
 }
@@ -1569,7 +1569,7 @@ function clubMatches(a, club) {
   if ((topic.notK ||= (topic.not || []).map(topicKey)).some(w => seen.text.includes(w))) return false;
   if (topic.must && !topic.mustSites.includes(a.source) && !(topic.mustK ||= topic.must.map(w => ` ${topicKey(w)}`)).some(w => seen.text.includes(w))) return false;
   if (topic.quoted && (topic.quotedRx ||= new RegExp(`["«“'‘„]${topic.quoted}["»”'’]`, "iu")).test(seen.raw)) return true;
-  // Word starts allow suffixes (Qarabağın / Карабаха), without matching e.g. “international” for Inter.
+  // Word starts allow suffixes (Qarabağın).
   if (topicRx(topic).test(seen.text)) return true;
   return !!topic.groups?.some(g => g.items.some(t => clubMatches(a, t.name)));
 }
@@ -1837,7 +1837,7 @@ async function shareRow(id) {
   }
   return null;
 }
-// Paylaşılan keçid: xəbər ~20 KB-lıq paylaşma hissəsindən gəlir, lent arxada.
+// Paylaşılan keçid: xəbər paylaşma hissəsindən gəlir.
 function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
 async function loadShared(id) {
   if (S.data || !/^[0-9a-f]{16}$/.test(id)) return;
@@ -1942,7 +1942,7 @@ function sectionView(slug) {
   }
   if (slug === "bolgeler") {
     if (S.club) {
-      // Yer haqqında xəbər başqa bölmədə də ola bilər: seçiləndə bütün lent və arxivlər axtarılır.
+      // Yer seçiləndə bütün lent və arxivlər axtarılır.
       CATS.forEach(x => loadArchive(x.slug));
       // «Qəbələ» və «Sabah» həm də futbol klubudur: rayon düyməsində oyun xəbəri olmasın.
       list = byDate(allNews().filter(a => a.category !== "idman" && clubMatches(a, S.club)));
@@ -1964,13 +1964,13 @@ function fold(s) { // NFD yalnız lazım olanda (2,7× tez)
   return /[\u00c0-\u024f\u0300-\u036fйё]/.test(s) ? s.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : s;
 }
 const searchWords = q => fold(q).replace(/[^\p{L}\p{N}]+/gu, " ").split(" ").filter(w => w.length >= 2 || /\p{N}/u.test(w));
-// İşarələmə üçün: sadələşmiş sözün orijinal mətndə bütün yazılış formalarını tutan regex
+// İşarələmə: sözün bütün yazılışlarını tutan regex
 const HL_CLASS = { e: "[eəE]", i: "[iıİI]", o: "[oöOÖ]", u: "[uüUÜ]", g: "[gğGĞ]", s: "[sşSŞ]", c: "[cçCÇ]" };
 function hlRegex(words) {
   const alts = words.map(w => [...w].map(ch => HL_CLASS[ch] || ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(""));
   return alts.length ? new RegExp("(" + alts.join("|") + ")", "giu") : null;
 }
-// Komanda adı axtarılanda yazılışından asılı olmayaraq həmin komandanın xəbərləri gəlir.
+// Komanda adı axtarılanda onun xəbərləri gəlir.
 function searchTopics(q) {
   const text = ` ${topicKey(q)} `;
   return [...SPORT_BY_NAME.values()].filter(t => (t.keys?.length || t.stems?.length) && topicRx(t).test(text)).map(t => t.name);
@@ -2882,7 +2882,7 @@ document.addEventListener("pointerdown", (e) => {
   el._holdUntil = Date.now() + TOUCH_MS;
   scheduleStep(el, TOUCH_MS);
 }, true);
-// Təkər: siyahı öz içində sürüşür; dibə (və ya başa) çatıbsa, təkər səhifəni sürüşdürür.
+// Təkər: siyahı dibə çatıbsa səhifəni sürüşdürür.
 // Brauzerin öz keçidi (scroll chaining) etibarsızdır.
 document.addEventListener("wheel", (e) => {
   const el = marqueeOf(e.target);
@@ -3075,7 +3075,8 @@ if (uiLang(S.lang)) {
 }
 shell(); render();
 // Hamısı gələn kimi çəkilir.
-{ const r0 = route(); if (r0.name === "article") { loadShared(r0.id); backHome(); } }
+// xeber/<id>/ səhifəsi xəbərin sətrini özündə gətirir (#row): lentdən çıxsa da 30 gün açılır.
+{ const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || 0); if (w?.id === r0.id) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { loadShared(r0.id); backHome(); } }
 loadCached(); restoreLocal();
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());

@@ -1906,8 +1906,10 @@ def share_page(a):
     if len(desc) > 200:
         desc = desc[:197].rsplit(" ", 1)[0] + "…"
     desc = _xml(desc or f'{a.get("source") or "8ulduz"} · {str(a.get("publishedAt") or "")[:10]}')
-    image = str(a.get("imageUrl") or "")
-    image = _xml(image if image.startswith("https://") else f"{SITE}assets/og-default.png")
+    image, fallback = str(a.get("imageUrl") or ""), f"{SITE}assets/og-default.png"
+    # Önizləmə şəkli proksidən 1200×630 JPEG (~100 KB): WhatsApp 600 KB-dan böyüyü göstərmir; mənbədə silinmiş şəkil yerinə saytın şəkli.
+    image = _xml(f"https://wsrv.nl/?url={urllib.parse.quote(image, safe='')}&w=1200&h=630&fit=cover&a=attention&output=jpg&q=78&default={urllib.parse.quote(fallback, safe='')}"
+                 if image.startswith("https://") else fallback)
     app = _xml(f'{SITE}#/xeber/{sid}?b={a.get("category") or ""}')
     return _SHARE_HTML.format(lang=_xml(a.get("lang") or "az"), title=title, desc=desc, url=f"{SITE}x/{sid}", image=image,
                               locale=_LOCALE.get(a.get("lang") or "az", "az_AZ"), app=app, site=SITE)
@@ -1955,7 +1957,8 @@ STORY_SITEMAP_MAX = 5000
 # Şablon dəyişəndə köhnə səhifələr yenidən yazılsın (index-in 4-cü sahəsi); bir dövrədə ən çox STORY_REWRITE, repo birdən böyüməsin.
 # 2: Google Discover üçün max-image-preview:large (sahib 2026-11-07).
 # 3: og:image mənbələrin ən enli şəkli (Discover 1200+ px istəyir; 2026-11-07 ölçüsü: əsas şəkillərin 13/40-ı 1200+ idi).
-STORY_VER, STORY_REWRITE = 3, 150
+# 4: xəbərin sətri səhifənin özündədir (#row): paylaşılan/köhnə keçid lentdən çıxsa da açılır (sahib 2026-11-07, paylaşma yoxlaması).
+STORY_VER, STORY_REWRITE = 4, 150
 IMG_SIZE_FILE = CACHE_DIR / "img_size.json"
 IMG_SIZE_KEEP, DISCOVER_MIN_W = 4000, 1200
 
@@ -2051,6 +2054,7 @@ _STORY_HTML = """<!doctype html>
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
     <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__TITLE__ — 8ulduz</title>
+    <script type="application/json" id="row">__ROW__</script>
     <meta name="description" content="__DESC__" />
     <link rel="canonical" href="__URL__" />
     <meta name="robots" content="max-image-preview:large" />
@@ -2108,7 +2112,11 @@ def story_page(a, sizes=None):
         {"@type": "ListItem", "position": 2, "name": label, "item": f"{SITE}bolme/{slug}/"},
         {"@type": "ListItem", "position": 3, "name": title, "item": url}]}, ensure_ascii=False).replace("</", "<\\/")
     iso = str(a.get("publishedAt") or "")
-    page = (_STORY_HTML.replace("__LD__", ld).replace("__SOURCES__", "".join(lis)).replace("__SUMMARY__", _xml(summary))
+    keep = ("id", "title", "summary", "source", "sourceUrl", "imageUrl", "category", "publishedAt", "lang", "video")
+    row = {k: a[k] for k in keep if a.get(k)}
+    row["alts"] = [{k: r[k] for k in ("id", "title", "source", "sourceUrl") if r.get(k)} for r in (a.get("alts") or [])][:20]
+    row = json.dumps(row, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\u0021--")
+    page = (_STORY_HTML.replace("__ROW__", row).replace("__LD__", ld).replace("__SOURCES__", "".join(lis)).replace("__SUMMARY__", _xml(summary))
             .replace("__DESC__", _xml(desc or title)).replace("__TITLE__", _xml(title)).replace("__LABEL__", _xml(label))
             .replace("__IMAGE__", _xml(image)).replace("__WHEN__", _xml(_baku_time(iso))).replace("__ISO__", _xml(iso))
             .replace("__COUNT__", str(len(lis))).replace("__URL__", url).replace("__SITE__", SITE)

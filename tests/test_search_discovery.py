@@ -1,5 +1,6 @@
 """Search discovery must describe the aggregator honestly and stay lightweight."""
 import pathlib
+import re
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -207,6 +208,26 @@ class DiscoverImageTest(unittest.TestCase):
         self.assertEqual(updater.discover_image(a, {}), 'https://apa.az/small.jpg', 'ölçü bilinmirsə əsas şəkil')
         self.assertEqual(updater.discover_image({'alts': [{'imageUrl': 'https://report.az/big.jpg'}]}, sizes), 'https://report.az/big.jpg', 'əsas şəkil yoxdursa mənbənin şəkli')
         self.assertEqual(updater.discover_image({}, sizes), '')
+
+    def test_story_page_carries_its_own_row_so_an_old_shared_link_still_opens(self):
+        """Sahib 2026-11-07 (paylaşma yoxlaması): lentdən və 200 xəbərlik arxivdən çıxmış xəbərin keçidi «Xəbər artıq lentdə yoxdur» deyirdi.
+        Səhifə xəbərin sətrini özündə gətirir (#row), sayt onu oxuyur; skript deyil (CSP), </script> ilə qırılmır."""
+        import datetime, json
+        at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        a = {'id': 'e' * 16, 'title': 'Başlıq </script><!-- x', 'summary': 'Xülasə', 'category': 'gundem', 'source': 'APA', 'sourceUrl': 'https://apa.az/1',
+             'publishedAt': at, 'lang': 'az', 'imageUrl': 'https://apa.az/i.jpg', 'secret': 'yox',
+             'alts': [{'id': 'a1', 'title': 'Alt', 'source': 'Report', 'sourceUrl': 'https://report.az/1', 'imageUrl': 'https://report.az/i.jpg'}]}
+        page = updater.story_page(a)
+        raw = re.search(r'<script type="application/json" id="row">(.*?)</script>', page, re.S).group(1)
+        self.assertNotIn('</', raw)
+        self.assertNotIn('<!--', raw)
+        row = json.loads(raw)
+        self.assertEqual(row['id'], a['id'])
+        self.assertEqual(row['title'], a['title'])
+        self.assertEqual(row['sourceUrl'], 'https://apa.az/1')
+        self.assertEqual(row['alts'], [{'id': 'a1', 'title': 'Alt', 'source': 'Report', 'sourceUrl': 'https://report.az/1'}])
+        self.assertNotIn('secret', row)
+        self.assertGreaterEqual(updater.STORY_VER, 4, 'köhnə səhifələr sətirlə yenidən yazılır')
 
     def test_story_page_carries_the_chosen_image_and_still_loads_no_image(self):
         import datetime
