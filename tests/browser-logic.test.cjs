@@ -740,6 +740,34 @@ test('cached duplicate identities refresh when a story headline, link or date ch
   assert.equal(withArchive('tehsil',[a]).length,1,'eyni xəbər keçidi başlıq/tarixdən asılı olmadan tanınır');
 });
 
+test('a grouped official story uses its news photo rather than the generic administration logo',()=>{
+  const {imageCandidates,S}=app().api;
+  const logo='https://static.president.az/assets/president-administration-abcd.png';
+  S.og={'https://president.az/1':logo};
+  const a={sourceUrl:'https://president.az/1',imageUrl:logo,alts:[{imageUrl:'https://apa.az/news-photo.jpg'}]};
+  assert.deepEqual(Array.from(imageCandidates(a)),['https://apa.az/news-photo.jpg']);
+});
+
+test('league views reuse the same merged sports pool until data, archive or withdrawals change',()=>{
+  const ctx=app(),{S,withArchive}=ctx.api;
+  const a={id:'live',title:'Qarabağ yeni mövsümə hazırlaşır',source:'APA',sourceUrl:'https://apa.az/live',publishedAt:new Date().toISOString()};
+  const b={...a,id:'old',title:'Neftçi məşqlərini davam etdirir',sourceUrl:'https://apa.az/archive'};
+  S.data={articles:[a]};S.archive={idman:{rows:[b]}};
+  const first=withArchive('idman',S.data.articles);
+  assert.equal(withArchive('idman',S.data.articles),first,'cədvəl, xəbərlər və sayğac eyni hazır siyahını işlədir');
+  S.archive.idman.rows=[{...b}];
+  const second=withArchive('idman',S.data.articles);
+  assert.notEqual(second,first,'arxiv yenilənəndə yenidən');
+  S.data={articles:[{...a,title:'Qarabağ yeni baş məşqçisini təqdim etdi'}]};
+  const third=withArchive('idman',S.data.articles);
+  assert.notEqual(third,second,'lent yenilənəndə yenidən');
+  vm.runInContext('addRemovals({one:{ids:["old"]}})',ctx);
+  const last=withArchive('idman',S.data.articles);
+  assert.notEqual(last,third,'geri çəkilmə də yaddaşı etibarsız edir');
+  assert.equal(last.length,1);
+  assert.equal(last[0].id,'live');
+});
+
 test('archive alternatives pass the same source policy as live alternatives',async()=>{
   const ctx=policyApp(),{S,loadArchive}=ctx.api;
   const a={id:'a',title:'Məktəblərdə yeni dərs ili başladı',category:'tehsil',lang:'az',source:'APA',sourceUrl:'https://apa.az/a',publishedAt:new Date().toISOString(),alts:[

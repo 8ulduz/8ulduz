@@ -425,7 +425,7 @@ function imageCandidates(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
   // Köhnə sətirlərdə qalan «https://azpolitika.infohttps://...» ünvanı düzəldilir.
   // Mənbənin kəsilmiş kiçik şəkli (_t.webp, /thumbs/, ratio=) sona: tam foto varsa o çıxır
-  const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$/.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
+  const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$|static\.president\.az\/assets\/president-administration-/i.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
   // Proksidən keçməyən sayt (PROXY_SKIP) sona: başqa mənbənin kiçildilə bilən şəkli varsa o çıxır.
   const blocked = u => PROXY_SKIP.test(hostOf(u));
   return [...all.filter(u => !cut(u) && !blocked(u)), ...all.filter(u => cut(u) && !blocked(u)), ...all.filter(blocked)];
@@ -1907,11 +1907,15 @@ function allNews() {
   return S.all;
 }
 function withArchive(slug, list) {
-  const rows = S.archive?.[slug]?.rows;
+  const archive = S.archive?.[slug], rows = archive?.rows;
   if (!rows?.length) return list;
+  const full = list === S.data?.articles, rev = removedIds.size + removedUrls.size + removedKeys.size;
+  if (full && archive.poolData === S.data && archive.poolRows === rows && archive.poolRev === rev) return archive.pool;
   const saved = rows.filter(a => !removedArticle(a)), known = urlsOf(saved);
   const live = (S.data?.articles || []).filter(a => known.has(a.sourceUrl) || a.alts?.some(x => known.has(x.sourceUrl)));
-  return collapseExact([...list, ...live, ...saved]);
+  const pool = collapseExact([...list, ...live, ...saved]);
+  if (full) Object.assign(archive, {poolData: S.data, poolRows: rows, poolRev: rev, pool});
+  return pool;
 }
 function sectionView(slug) {
   const c = CATS.find(x => x.slug === slug);
