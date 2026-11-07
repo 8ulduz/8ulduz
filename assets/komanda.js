@@ -19,7 +19,7 @@ const BASKET = /basketbol|basketball|баскетбол|avroliqa|euroleague|ев
 const TOPIC_ALIAS = { "Internazionale": "İnter", "Paris Saint-Germain": "PSG" };
 const SUFFIX = "(?:in|nin|un|nun|ün|nün|ın|nın|a|e|i|u|ya|ye|ni|nu|na|ne|la|le|dan|den|ndan|nden|da|de|nda|nde|nı|nü|s|а|у|е|я|ю|ы|и|ь|ом|ем)?";
 
-// Milli komandalar (sahib 2026-11-07): #/komanda/milli-komandalar/<ölkə> -> index-də «nat» yarışı (milli.cjs);
+// Milli komandalar: index-də «nat» yarışı (milli.cjs);
 // yarışı yoxdursa yalnız xəbərlər.
 // Sətir: ad (app.js ilə eyni), az kök, türkcə, rusca yiyəlik hal.
 export const MILLI = "milli-komandalar";
@@ -323,7 +323,9 @@ export function mountTeam(d) {
     } else {
       body = `<section class="tm-sec"><div class="sec-h"><h2>Xəbərlər</h2></div>${newsBlock(team, 0, "", doc)}</section>`;
     }
-    return `${head}${tabs}${body}${source(docs)}`;
+    const bot = window.SITE_CONFIG?.tgBot, tp = bot && topicFor(team.name);
+    const tg = tp ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=i_${tp.toLowerCase().replace(/ə/g, "e").replace(/ı/g, "i").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-")}" target="_blank" rel="noopener">📩 ${esc(tp)}: Telegram-da izlə</a>` : "";
+    return `${head}${tg}${tabs}${body}${source(docs)}`;
   }
 
   function openSheet() {

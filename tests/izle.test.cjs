@@ -61,3 +61,8 @@ test("izlə: the workflow runs apart from the news pipeline, keeps the followers
   const gi = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
   assert.ok(/^\.izle\/?$/m.test(gi), "siyahı repoya düşmür");
 });
+
+test("izlə: the team page shows the button for teams that have a news topic", () => {
+  const k = fs.readFileSync(path.join(root, "assets/komanda.js"), "utf8");
+  assert.ok(k.includes("tg-izle") && k.includes("topicFor(team.name)") && k.includes("?start=i_"));
+});
