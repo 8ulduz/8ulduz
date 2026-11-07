@@ -14,11 +14,13 @@ test("bayram: the greeting loads only on 8 November in Baku time, after the firs
   assert.equal(day(Date.UTC(2026, 10, 8, 20, 0, 0)), "11-09", "9 noyabr 00:00 Bakıda bitir");
 });
 
-test("bayram: the module has the Victory Day text, no image file and no outside address (speed, red line 3)", () => {
+test("bayram: the module shows the owner's banner image from assets, no outside address, and stays small (speed, red line 3)", () => {
   const b = fs.readFileSync(path.join(root, "assets/bayram.js"), "utf8");
   assert.ok(b.includes('"11-08"') && b.includes("8ULDUZ.AZ Azərbaycanın ZƏFƏR GÜNÜnü təbrik edir") && b.includes("Bağla"));
-  assert.ok(!/<img|https?:\/\//.test(b.replace(/^\/\/.*$/gm, "")), "şəkil və xarici ünvan yoxdur");
+  assert.ok(!/https?:\/\//.test(b.replace(/^\/\/.*$/gm, "")), "xarici ünvan yoxdur");
   assert.ok(b.length < 6000, "kiçik modul");
+  const img = fs.statSync(path.join(root, "assets/bayram-zefer.webp"));
+  assert.ok(img.size < 120e3, "banner şəkli 120 KB-dan kiçik: yalnız bayram günü, ilk ekrandan sonra yüklənir");
 });
 
 test("bayram: the module loads (a syntax error would silently show nothing) and opens once per session", async () => {
@@ -28,7 +30,8 @@ test("bayram: the module loads (a syntax error would silently show nothing) and 
   const doc = { querySelector: () => null, getElementById: () => null, createElement: t => { const e = el(); made.push([t, e]); return e; }, head: { append() {} }, body: { append() {} }, addEventListener() {}, removeEventListener() {} };
   const st = { getItem: k => store.get(k) || null, setItem: (k, v) => store.set(k, v) };
   const box = m.show("11-08", doc, st);
-  assert.ok(box && box.innerHTML.includes("8ULDUZ.AZ Azərbaycanın ZƏFƏR GÜNÜnü təbrik edir!") && box.attrs.role === "dialog");
+  assert.ok(box && box.innerHTML.includes("bayram-zefer.webp") && box.innerHTML.includes('class="bayram-x"') && box.attrs.role === "dialog");
+  assert.equal(box.attrs["aria-label"], "8ULDUZ.AZ Azərbaycanın ZƏFƏR GÜNÜnü təbrik edir!");
   assert.equal(m.show("11-08", doc, st), null, "sessiyada ikinci dəfə açılmır");
   assert.equal(m.show("01-01", doc, st), null, "başqa gün yoxdur");
 });
