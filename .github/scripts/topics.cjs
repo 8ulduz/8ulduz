@@ -12,6 +12,8 @@
 const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 
 const SITE = "https://8ulduz.az/";
+// «Telegram-da izlə» botu (izle.cjs): adı assets/config.js tgBot-dadır; boşdursa düymə yoxdur.
+const botOf = root => { try { return (fs.readFileSync(path.join(root, "assets/config.js"), "utf8").match(/tgBot:\s*"([A-Za-z0-9_]{5,32})"/) || [])[1] || ""; } catch { return ""; } };
 const KEEP_DAYS = 30, KEEP = 30, MIN_INDEX = 3, REWRITE_MS = 60 * 60e3;
 const KINDS = { rayon: { tabs: "REGION_TABS", section: "bolgeler", label: "Bölgələr" }, idman: { tabs: "SPORT_TABS", section: "idman", label: "İdman" } };
 
@@ -92,7 +94,7 @@ __ROBOTS__<link rel="canonical" href="__URL__" />
 <p><a href="${SITE}">8ULDUZ</a> › <a href="${SITE}bolme/__SECTION__/">__SECTION_LABEL__</a>__CRUMB__</p>
 <h1>__H1__</h1>
 <p>__INTRO__</p>
-<a class="go" href="__APP__">Son xəbərləri saytda aç</a>
+<a class="go" href="__APP__">Son xəbərləri saytda aç</a>__TG__
 __ITEMS__
 __REL__
 <p><a href="${SITE}icmal/">Günün icmalı</a> · <a href="https://t.me/sekkizulduz_az">Telegram kanalımız</a> · <a href="${SITE}">8ULDUZ — bütün xəbərlər</a></p>
@@ -114,7 +116,7 @@ function oldItems(file) {
   } catch { return { items: [], at: 0 }; }
 }
 
-function page(t, items, all, stories, now) {
+function page(t, items, all, stories, now, bot = "") {
   const { h1, title, desc } = heading(t);
   const url = `${SITE}${t.kind}/${t.slug}/`, k = KINDS[t.kind];
   const app = `${SITE}#/bolme/${k.section}?m=${encodeURIComponent(t.name)}`;
@@ -132,14 +134,14 @@ function page(t, items, all, stories, now) {
   const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
   return PAGE.replace(/__TITLE__/g, esc(title)).replace(/__DESC__/g, esc(desc)).replace(/__URL__/g, url).replace("__ROBOTS__", items.length >= MIN_INDEX ? "" : '<meta name="robots" content="noindex, follow" />\n')
     .replace("__LD__", json(ld)).replace("__DATA__", json({ name: t.name, at: now, items })).replace("__SECTION__", k.section).replace("__SECTION_LABEL__", k.label)
-    .replace("__CRUMB__", crumb).replace("__H1__", esc(h1)).replace("__INTRO__", intro).replace("__APP__", esc(app)).replace("__ITEMS__", list).replace("__REL__", rel);
+    .replace("__CRUMB__", crumb).replace("__H1__", esc(h1)).replace("__INTRO__", intro).replace("__APP__", esc(app)).replace("__TG__", bot ? ` <a class="go" href="https://t.me/${bot}?start=${t.kind === "rayon" ? "r" : "i"}_${t.slug}" rel="noopener">📩 Telegram-da izlə</a>` : "").replace("__ITEMS__", list).replace("__REL__", rel);
 }
 
 function run(root, { now = Date.now(), app = loadApp(root) } = {}) {
   const rows = readRows(root).filter(a => !app.policyViolation(a));
   let stories = {};
   try { stories = JSON.parse(fs.readFileSync(path.join(root, "xeber/index.json"), "utf8")) || {}; } catch {}
-  const all = topics(app), cutoff = now - KEEP_DAYS * 86400e3, map = [];
+  const all = topics(app), cutoff = now - KEEP_DAYS * 86400e3, map = [], bot = botOf(root);
   let written = 0;
   for (const t of all) {
     const pool = t.kind === "rayon" ? rows.filter(a => a.category !== "idman") : rows.filter(a => a.category === "idman");
@@ -152,7 +154,7 @@ function run(root, { now = Date.now(), app = loadApp(root) } = {}) {
     const exists = fs.existsSync(file);
     if (!exists || (!same && now - old.at >= REWRITE_MS)) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, page(t, items, all, stories, now));
+      fs.writeFileSync(file, page(t, items, all, stories, now, bot));
       written++;
     }
     const kept = exists && (same || now - old.at < REWRITE_MS) ? old.items : items;

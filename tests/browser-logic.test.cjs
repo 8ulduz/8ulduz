@@ -2661,3 +2661,20 @@ test('owner 2026-11-07: the bottom bar has six buttons — Video added, Tıxac k
   }
   assert.ok(js.includes('r.name === "section" && r.slug === "video" ? "video"'), 'Video səhifəsində düymə seçili');
 });
+test('owner 2026-11-07: «Telegram-da izlə» on section pages opens the bot with the section or the chosen club/district', () => {
+  const ctx = app(), { S, sectionView } = ctx.api;
+  S.data = { articles: [] };
+  assert.ok(!sectionView('idman').includes('tg-izle'), 'botun adı yoxdursa düymə yoxdur');
+  ctx.window.SITE_CONFIG = { tgBot: 'SekkizUlduzBot' };
+  S.club = null;
+  assert.ok(sectionView('dunya').includes('href="https://t.me/SekkizUlduzBot?start=b_dunya"'), 'bölmə');
+  S.club = 'Fenerbahçe';
+  assert.ok(sectionView('idman').includes('href="https://t.me/SekkizUlduzBot?start=i_fenerbahce"') && sectionView('idman').includes('📩 Fenerbahçe: Telegram-da izlə'), 'komanda');
+  S.club = 'Quba';
+  assert.ok(sectionView('bolgeler').includes('?start=r_quba"'), 'rayon');
+  S.club = null;
+  assert.ok(!sectionView('sondeqiqe').includes('tg-izle'), 'Son dəqiqə mövzu deyil');
+  const { catalog } = require('../.github/scripts/izle.cjs'), { loadApp } = require('../.github/scripts/topics.cjs');
+  const cat = catalog(loadApp(root));
+  for (const k of ['b_dunya', 'i_fenerbahce', 'r_quba']) assert.ok(cat.has(k), 'bot açarı tanıyır: ' + k);
+});

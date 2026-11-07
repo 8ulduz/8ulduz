@@ -163,7 +163,7 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
     return await Promise.race([response, interrupted]);
   } finally { clearTimeout(timer); signal?.removeEventListener("abort", cancel); }
 }
-// Aktivlərin yolu app.js-in öz ünvanından (bölmə səhifələri /bolme/x/ altından açılır; testlərdə ./assets/)
+// Aktivlərin yolu app.js-in öz ünvanından.
 const ASSET = (document.querySelector('script[src*="assets/app.js"]')?.src || "./assets/app.js").replace(/app\.js.*$/, "");
 const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" width="352" height="80" decoding="async">`; // ölçü atributda: şəkil gələnə qədər yer saxlanır (CSS hündürlüyü verir, en nisbətlə)
 const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən xəbər
@@ -1361,7 +1361,7 @@ function startTicker() {
   const phase = Number(tickAnim?.currentTime) || 0; // yeni xəbər gələndə zolaq olduğu yerdən davam edir
   if (tickAnim) { try { tickAnim.cancel(); } catch {} tickAnim = null; }
   clearTimeout(tickT);
-  // Dayandırılıb (düymə və ya «hərəkəti azalt»): zolaq durur, barmaqla sürüşür; ▶ yenidən başladır.
+  // Dayandırılıb: zolaq durur, ▶ başladır.
   if (motionOff()) return;
   const half = track.scrollWidth / 2;
   if (!(half > 0)) return;
@@ -1681,7 +1681,7 @@ function fbLeagues() {
   const fb = S.football;
   const ls = fb ? (Array.isArray(fb.leagues) && fb.leagues.length ? fb.leagues : [fb]) : [];
   const az = ls.filter(l => l && (l.table?.length || l.results?.length || l.fixtures?.length));
-  // Dünya liqaları (sports.json): cədvəl qrupları (NBA: Şərq/Qərb); ilk qrup komanda kartlarının cədvəlidir
+  // Dünya liqaları (sports.json).
   const world = (S.sports?.leagues || []).filter(l => l?.groups?.length).map(l => ({
     world: true, sport: l.sport, id: l.id, short: l.short, league: l.name, season: l.season || "", stale: !!l.stale,
     groups: l.groups, table: l.groups[0].rows, results: [], fixtures: [], scorers: [], link: l.url || "https://en.wikipedia.org/", source: "Vikipediya", asof: l.asof || "",
@@ -1950,6 +1950,8 @@ function sectionView(slug) {
     const s = location.hash.match(/[?&]s=([0-9a-f]{16})/)?.[1] || "";
     extra = `<details class="social-details"${s ? " open" : ""}><summary>Rəsmi sosial hesablar ▾</summary>${optional(() => socialBlock(false, s))}</details>`;
   }
+  const bot = window.SITE_CONFIG?.tgBot; // «Telegram-da izlə» (izle.cjs)
+  if (bot && slug !== "sondeqiqe") extra = `<a class="pill tg-izle" href="https://t.me/${bot}?start=${S.club ? (slug === "idman" ? "i_" : "r_") + teamSlug(S.club) : "b_" + slug}" ${OUT}>📩 ${S.club ? esc(S.club) + ": " : ""}Telegram-da izlə</a>` + extra;
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
@@ -2647,7 +2649,7 @@ function setupStrips(list) {
 function stripPlan(strip) {
     const row = strip.querySelector(".hero-row,.news-row,.ytrow,.phrow,.vrow,.fb-teams");
     if (!row) return;
-    // Səhifə = görünən enə sığan kart sayı; boşluqlar hesaba alınır ki, artıq «boş» səhifə çıxmasın
+    // Səhifə = görünən enə sığan kart sayı.
     if (getComputedStyle(row).flexDirection === "column") return () => { strip.dataset.pages = "1"; strip.classList.add("at-end"); }; // telefonda şaquli siyahı
     const kids = [...row.children];
     const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
@@ -2706,7 +2708,7 @@ function setupHeroImages() {
 let featureTimers = [];
 function setupFeatureLents() {
   featureTimers.forEach(clearInterval); featureTimers = [];
-  // Toxunuşdan sonra qalan :hover və fokus slayderi dayandırmasın: yalnız siçan və klaviatura fokusu sayılır.
+  // Toxunuşdan qalan :hover slayderi dayandırmasın.
   const hoverUI = matchMedia("(hover:hover)").matches;
   const keyFocus = node => { try { return !!node.querySelector(":focus-visible"); } catch { return node.contains(document.activeElement); } };
   const paused = node => document.hidden || motionOff() || (hoverUI && node.matches(":hover")) || keyFocus(node) || Date.now() < (node._holdUntil || 0);
@@ -2755,7 +2757,7 @@ function setupFeatureLents() {
         if (lastY == null) return;
         const y = e.touches[0].clientY, dy = lastY - y; lastY = y;
         samples.push([performance.now(), y]); if (samples.length > 6) samples.shift();
-        // overscroll-behavior:none ilə lentdə başlayan jest səhifəni sürüşdürmür, kənar ötürməsini JS edir;
+        // overscroll-behavior:none: kənar ötürməsini JS edir;
         // səhifəni brauzer özü tərpədibsə JS dayanır (ikiqat olmasın).
         if (mode === "page") return;
         if (mode === null) mode = "lent";
