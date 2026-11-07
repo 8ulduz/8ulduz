@@ -1,0 +1,56 @@
+name: Telegram-da izlə
+# Oxucu saytda «📩 Telegram-da izlə» basır, bot o mövzunun yeni xəbərlərini ona göndərir (.github/scripts/izle.cjs).
+# Xəbər axınından (update.yml) ayrıdır: bu iş düşsə də lent yenilənir. Repoya yazmır. Abunəçi siyahısı yalnız Actions keşindədir.
+# Bir iş ~50 dəqiqə işləyir; növbəti iş (cron, concurrency növbəsi) o bitən kimi başlayır, siyahını keşdən götürür.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/izle.yml
+      - .github/scripts/izle.cjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: izle
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/izle.cjs
+            .github/scripts/topics.cjs
+            assets/app.js
+            assets/content-policy.js
+          sparse-checkout-cone-mode: false
+      - name: İzləyənlərin siyahısı
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .izle
+          key: izle-state-${{ github.run_id }}
+          restore-keys: izle-state-
+      - name: Bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          IZLE_RUN_MS: "3000000"
+        run: node .github/scripts/izle.cjs .
+      - name: Siyahını saxla
+        if: ${{ always() && hashFiles('.izle/state.json') != '' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .izle
+          key: izle-state-${{ github.run_id }}
