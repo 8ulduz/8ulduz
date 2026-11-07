@@ -1793,7 +1793,7 @@ ARCHIVE_DIR = OUT_DIR / "arxiv"
 ARCHIVE_DAYS, ARCHIVE_MAX, ARCHIVE_EVERY_S = 5, 200, 3600
 ARCHIVE_MAX_BY_SECTION = {"idman": 800, "bolgeler": 600}  # komanda və rayon düyməsi bu siyahıdan süzür: az yazılana da xəbər qalsın
 BACKLOG_SECTIONS = {"bolgeler", "sosial"}
-ARCHIVE_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "video")
+ARCHIVE_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "video", "alts")
 
 def _feed_cache():
     """Lentlərin son cavabı (sürətli və yavaş dövrənin keşi, hansı təzədirsə)."""
@@ -2271,7 +2271,8 @@ def update_archive(now=None):
     now = now or time.time()
     articles = read_feed()
     missing = any(not (ARCHIVE_DIR / f"{s[0]}.json").exists() for s in SECTIONS if s[0] != "prezident")  # yeni bölmə bir saat boş qalmasın
-    if not articles or (not missing and now - _read_json(ARCHIVE_DIR / "gundem.json", {}).get("at", 0) < ARCHIVE_EVERY_S):
+    stamp = _read_json(ARCHIVE_DIR / "gundem.json", {})
+    if not articles or (not missing and stamp.get("grouped") == 1 and now - stamp.get("at", 0) < ARCHIVE_EVERY_S):
         return
     cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
     merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []} | dead_links(len(articles))
@@ -2289,13 +2290,18 @@ def update_archive(now=None):
         for a in [*saved, *(a for a in backlog if a["category"] in names), *(a for a in articles if a.get("category") in names)]:
             url = fix_source_link(a.get("sourceUrl"))
             if url and url not in merged:
-                known = (rows.get(url) or {}).get("imageUrl")  # lentin şəkilsiz nüsxəsi arxivdə tapılan şəkli silməsin
+                previous = rows.get(url) or {}
+                known = previous.get("imageUrl")  # lentin şəkilsiz nüsxəsi arxivdə tapılan şəkli silməsin
                 rows[url] = {**({"imageUrl": known} if known else {}), **{k: a[k] for k in ARCHIVE_FIELDS if a.get(k)}, "sourceUrl": url, "category": slug}
+                if previous.get("alts"):
+                    rows[url]["alts"] = [*(a.get("alts") or []), *previous["alts"]]
         # Tarixi oxunmayan xəbər arxivdə qalmır.
         kept = [a for a in rows.values() if (_parse_dt(a.get("publishedAt")) or cutoff - datetime.timedelta(1)) >= cutoff
                 and not is_junk(a.get("sourceUrl", "")) and not removed_source(a) and a.get("source") not in bulk
                 and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
         kept, _ = content_policy.enforce(kept)
+        # Köhnə xam arxiv də təmizlənir; ağır hadisə müqayisəsi yalnız yavaş dövrədədir.
+        kept = group_duplicates(kept, same_source_exact=False)
         kept.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
         kept = kept[:ARCHIVE_MAX_BY_SECTION.get(slug, ARCHIVE_MAX)]
         for a in kept:
@@ -2304,7 +2310,7 @@ def update_archive(now=None):
         if slug in BACKLOG_SECTIONS:
             kept = fill_archive_images(kept, images)
         ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-        _write_atomic(path, json.dumps({"at": now, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(path, json.dumps({"at": now, "grouped": 1, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
         for old in aliases:  # köhnə fayl boşalır: növbəti dəfə eyni xəbər yenidən köçürülməsin
             if old.exists():
                 _write_atomic(old, json.dumps({"at": now, "articles": []}, separators=(",", ":")))
@@ -4564,10 +4570,25 @@ def _prefer_primary(a, b):
         return a if len(a.get("summary") or "") > len(b.get("summary") or "") else b
     return a if (a.get("publishedAt") or "") >= (b.get("publishedAt") or "") else b
 
-def group_duplicates(articles):
+def _group_candidates(a, toks, title_index, stem_index, event_index, exact_index):
+    """Oxşarlıq üçün ən azı 3 ortaq söz/kök lazımdır. Hadisə növü eyni olanlar da saxlanır:
+    şəxs adının yazılışı fərqlənəndə (_ent_match) 3 dəqiq kök üst-üstə düşməyə bilər."""
+    classes, _persons, _orgs, stems, _anchors_, _places_ = _event_sig(a)
+    hits = set(exact_index.get(_norm_title(a.get("title") or ""), ()))
+    for words, index in ((set(toks), title_index), (stems, stem_index)):
+        counts = collections.Counter(i for word in words for i in index.get(word, ()))
+        hits.update(i for i, n in counts.items() if n >= 3)
+    for event in classes:
+        hits.update(event_index.get(event, ()))
+    return hits
+
+
+def group_duplicates(articles, same_source_exact=True):
     """Yaxın başlıqlı, fərqli mənbəli xəbərləri bir elementdə birləşdirir.
 
     Əsas xəbər tam qalır; digərləri yığcam `alts` siyahısındadır (mənbə + keçid + vaxt).
+    Arxivdə eyni saytın şablon başlıqları ayrı saxlanır (`same_source_exact=False`);
+    başqa mənbənin uyğun başlığı nüsxəni təsdiqləyirsə həmin qrupa qoşula bilər.
     """
     remembered = {}
     _SIG_CACHE.clear()
@@ -4586,12 +4607,14 @@ def group_duplicates(articles):
         prepared.append((dt, toks, _shingles(toks), a))
     prepared.sort(key=lambda x: x[0] or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc), reverse=True)
     clusters = []
+    title_index, stem_index, event_index, exact_index = (collections.defaultdict(set) for _ in range(4))
     for dt, toks, sh, a in prepared:
-        best, best_score = None, 0
+        best, best_score, best_i = None, 0, None
         if dt is not None and len(toks) >= 3:
             key = _norm_title(a.get("title") or "")
             src = a.get("source")
-            for members in clusters:
+            for ci in sorted(_group_candidates(a, toks, title_index, stem_index, event_index, exact_index)):
+                members = clusters[ci]
                 head = members[0][0]
                 if head is None or abs(dt - head) > GROUP_WINDOW:
                     continue
@@ -4602,14 +4625,15 @@ def group_duplicates(articles):
                 official = src in OFFICIAL_SOURCES or any(ma.get("source") in OFFICIAL_SOURCES for _mt, _k, _s, ma in members)
                 same_src = src in {ma.get("source") for _mt, _k, _s, ma in members}
                 score = 0
-                if exact:
+                if exact and (same_source_exact or not same_src):
                     score = 4
                 elif official:
                     # rəsmi şablon başlıqlar («X-in nazirini qəbul edib») fərqli hadisələrdə oxşar görünür — çox yaxın olmalıdır
                     if not same_src and any(_jaccard(set(toks), set(mtks)) >= 0.85 and _titles_similar(toks, sh, mtks, msh)
                                             for _mt, mtks, msh, _ma in near):
                         score = 3
-                elif not same_src and any(_titles_similar(toks, sh, mtks, msh) for _mt, mtks, msh, _ma in near):
+                elif any(ma.get("source") != src and _titles_similar(toks, sh, mtks, msh) for _mt, mtks, msh, ma in near):
+                    # Mənbənin klasterdə başqa yazısı olsa da, digər saytın eyni başlığı surəti təsdiqləyir.
                     score = 3
                 elif not same_src and len(members) < 12:
                     # Eyni saytın iki yazısı hadisə oxşarlığı ilə birləşmir: çox vaxt ayrı xəbərlərdir.
@@ -4623,11 +4647,20 @@ def group_duplicates(articles):
                         elif strength == 1:
                             score = 1
                 if score > best_score:
-                    best, best_score = members, score
+                    best, best_score, best_i = members, score, ci
         if best is not None:
             best.append((dt, toks, sh, a))
         else:
+            best_i = len(clusters)
             clusters.append([(dt, toks, sh, a)])
+        for word in set(toks):
+            title_index[word].add(best_i)
+        sig = _event_sig(a)
+        for word in sig[3]:
+            stem_index[word].add(best_i)
+        for event in sig[0]:
+            event_index[event].add(best_i)
+        exact_index[_norm_title(a.get("title") or "")].add(best_i)
     out = []
     for members in clusters:
         urls = {m[3].get("sourceUrl") for m in members}

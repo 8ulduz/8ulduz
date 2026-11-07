@@ -173,7 +173,6 @@ const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən 
 
 // Məxfi rejimdə və yaddaş dolanda seçimlər heç olmasa açıq vərəqdə işləsin.
 const sessionPrefs = new Map();
-// Yaddaş işləyirsə həmişə oradan oxunur: başqa vərəqin yazdığı itməsin.
 const storage = {
   getItem(key) {
     if (sessionPrefs.has(key)) return sessionPrefs.get(key);
@@ -189,7 +188,6 @@ const storage = {
 
 /* ---- köməkçilər */
 const $ = (s, r = document) => r.querySelector(s);
-// İkinci dərəcəli blokda səhv məlumat xəbər lentini dondurmasın.
 const optional = fn => { try { return fn(); } catch (e) { console.warn("blok göstərilmədi:", e); return ""; } };
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const _dec = document.createElement("textarea");
@@ -205,7 +203,6 @@ function decode(s) {
   return cur;
 }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ESC[c]); }
-// Lent etibarsız mənbədir: keçid yalnız http(s) ola bilər (javascript: işləməsin).
 const safeHref = u => { const s = String(u ?? "").trim(); return /^https?:\/\//i.test(s) ? esc(s) : "#"; };
 function tidy(s) {
   return decode(s).replace(/\s*https?:\/\/\S+/gi, "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/(?:\s*[-–—|])+\s*$/u, "").trim();
@@ -363,26 +360,38 @@ function clusterArticles(list) {
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
 }
-// Eyni başlıq (eyni mənbə adı da olsa) 36 saat içində bir kart olsun.
+// Eyni keçid və ya 36 saat içində eyni başlıq: lent/arxiv qrupları da birləşir.
 function collapseExact(list) {
-  const groups = [], byKey = new Map();
+  const groups = [], byKey = new Map(), byUrl = new Map();
+  const root = g => { while (g?.parent) g = g.parent; return g; };
   for (const a of list || []) {
-    const key = normTitle(decode(a.title));
-    const dt = new Date(a.publishedAt).getTime();
-    let g = null;
-    if (key.length >= 12 && !Number.isNaN(dt)) g = byKey.get(key)?.find(x => Math.abs(x.dt - dt) <= GROUP_MS);
-    if (!g) { groups.push(g = { key, dt: Number.isNaN(dt) ? 0 : dt, items: [] }); byKey.set(key, [...byKey.get(key) || [], g]); }
+    const entries = [a, ...a.alts || []];
+    const keys = entries.map(x => ({key: normTitle(decode(x.title)).replace(/(?:\s+(?:foto(?:lar)?|video(?:lar)?|yenilenib))+$/, ""), dt: new Date(x.publishedAt || a.publishedAt).getTime()})).filter(x => x.key.length >= 12 && !Number.isNaN(x.dt));
+    const urls = entries.map(x => x.sourceUrl?.replace(/^(https?:\/\/)www\./i, "$1")).filter(Boolean);
+    const matches = new Set(urls.map(u => root(byUrl.get(u))).filter(Boolean));
+    for (const {key, dt} of keys) {
+      const same = byKey.get(key)?.find(x => Math.abs(x.dt - dt) <= GROUP_MS);
+      if (same) matches.add(root(same.g));
+    }
+    let g = matches.values().next().value;
+    if (!g) groups.push(g = { items: [] });
+    for (const other of matches) if (other !== g) { g.items.push(...other.items); other.items = []; other.parent = g; }
+    for (const {key, dt} of keys) { if (!byKey.has(key)) byKey.set(key, []); byKey.get(key).push({dt, g}); }
     g.items.push(a);
+    for (const u of urls) byUrl.set(u, g);
   }
   const out = [];
   for (const g of groups) {
+    if (!g.items.length) continue;
     let primary = g.items[0];
     for (const a of g.items.slice(1)) primary = preferPrimary(primary, a);
+    primary = {...primary};
     const alts = [];
-    const urls = new Set([primary.sourceUrl]);
+    const urls = new Set([primary.sourceUrl]), sources = new Set([primary.source]);
     const push = (src, url, publishedAt, imageUrl) => {
-      if (!url || urls.has(url)) return;
+      if (!url || urls.has(url) || sources.has(src)) return;
       urls.add(url);
+      sources.add(src);
       alts.push({ source: src, sourceUrl: url, publishedAt, imageUrl: imageUrl || "" });
     };
     for (const a of g.items) {
@@ -390,6 +399,7 @@ function collapseExact(list) {
       for (const alt of a.alts || []) push(alt.source, alt.sourceUrl, alt.publishedAt, alt.imageUrl);
     }
     if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+    else delete primary.alts;
     out.push(primary);
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
@@ -416,7 +426,6 @@ function imageCandidates(a) {
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // xidmət işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən.
 const PROXY_MAX_FAILS = 8;
-// wsrv bu saytların şəklini 404 verir: birbaşa mənbədən (170–290 KB), yüksək prioritetsiz (heavyImage).
 const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
 const proxyBad = new Map();
 // Proksidən keçməyən ünvan: namizədlərdə sona düşür, əvvəlcədən yüklənmir, yüksək prioritet almır.
@@ -453,7 +462,6 @@ function shownSource(a) {
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time>${shareBtn(a)}</div>`;
 // Paylaşılan keçid saytımıza aparır; b: lentdən çıxanda baxılacaq arxiv.
-// Önizləmə serverdən oxunur: main-dəki xəbər /x/ID səhifəsi ilə (sharePages), dəqiqəlik yox.
 const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}`;
 const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
 // Şəbəkə işarələri (sahib: hərf yox, işarə) sprite-dadır (assets/sosial.svg): kartda yalnız <use>.
@@ -471,7 +479,6 @@ const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan
 const card = a => cardAt(a, "h3");
 function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
-// Şəkil yüklənməsə növbəti namizəd yoxlanır. Heç biri alınmasa kart yalnız mətn qalır.
 // Slayderdə boş kadr qalmır: şəkli sınan slayd çıxarılır (xəbərin özü siyahılarda qalır).
 function dropHeroSlide(slide) {
   const row = slide.parentElement;
@@ -1890,21 +1897,21 @@ async function loadArchive(slug) {
   try {
     const {d} = await requestJSON(freshUrl(`data/arxiv/${slug}.json`), {}, 8000);
     if (!Array.isArray(d?.articles)) return;
-    S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)); S.arxV = (S.arxV || 0) + 1;
+    S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))})); S.arxV = (S.arxV || 0) + 1;
     const r = route();
     if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search" || (r.name === "home" && S.archiveHome?.has(slug)) || (r.name === "team" && slug === "idman")) requestRender(false);
   } catch {}
 }
-// Lent + 14 arxiv bir dəfə birləşir (axtarış, Bölgələr): hər klikdə telefonda 100–250 ms idi.
 function allNews() {
-  if (S.allD !== S.data || S.allV !== S.arxV) { S.allD = S.data; S.allV = S.arxV; S.all = CATS.reduce((l, c) => withArchive(c.slug, l), S.data.articles); }
+  if (S.allD !== S.data || S.allV !== S.arxV) { S.allD = S.data; S.allV = S.arxV; S.all = collapseExact([...S.data.articles, ...CATS.flatMap(c => S.archive?.[c.slug]?.rows || []).filter(a => !removedArticle(a))]); }
   return S.all;
 }
 function withArchive(slug, list) {
   const rows = S.archive?.[slug]?.rows;
   if (!rows?.length) return list;
-  const known = urlsOf(list);
-  return [...list, ...rows.filter(a => !known.has(a.sourceUrl) && !removedArticle(a))];
+  const saved = rows.filter(a => !removedArticle(a)), known = urlsOf(saved);
+  const live = (S.data?.articles || []).filter(a => known.has(a.sourceUrl) || a.alts?.some(x => known.has(x.sourceUrl)));
+  return collapseExact([...list, ...live, ...saved]);
 }
 function sectionView(slug) {
   const c = CATS.find(x => x.slug === slug);
@@ -2064,7 +2071,6 @@ function rememberSrc(node) {
   node._src = node.outerHTML;
   if (node.matches(PATCH_INSIDE)) [...node.children].forEach(rememberSrc);
 }
-// Sürüşən siyahıda baxılan ilk kart və sürüşmə payı: yeniləmədən sonra eyni kart eyni yerdə.
 function anchorOf(box) {
   const x = box.matches(".hero-row"), pos = x ? box.scrollLeft : box.scrollTop;
   const at = n => x ? n.offsetLeft - box.firstElementChild.offsetLeft : n.offsetTop - box.firstElementChild.offsetTop;
@@ -2234,7 +2240,6 @@ async function shareTo(t) {
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
-// Chrome: beforeinstallprompt; iPhone: əl ilə. Kompüterdə başlıqda (#inst), telefonda 15-ci düymə (.nav-inst).
 function installBtn() {
   if (isStandalone() || (!S.installEvt && !isIOS())) return "";
   return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;
@@ -2668,7 +2673,6 @@ function stripPlan(strip) {
     return sync;
     };
 }
-// Slayderin uzaq şəkilləri yaxınlaşanda yüklənir: ilk açılışda 15 şəkil gözlənilmir.
 function setupHeroImages() {
   const row = document.querySelector(".hero-strip .hero-row");
   if (!row) return;
@@ -2846,7 +2850,6 @@ document.addEventListener("focusout", (e) => {
     scheduleStep(el, LEAVE_MS);
   }, 0);
 });
-// Barmaq/siçan kart üzərinə gələn kimi mənbə saytına qoşulur (DNS+TLS); keçid 100–300 ms tez açılır
 const preconnected = new Set();
 document.addEventListener("pointerdown", (e) => {
   const a = e.target.closest?.("a[href^=http]");
@@ -3059,14 +3062,11 @@ shell(); render();
 loadCached(); restoreLocal();
 S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
-// Xəbər ekrana çıxandan sonra: xidmət işçisi, statistika və köməkçi şəbəkəni tutur.
 const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(() => { enableAnalytics(); registerWorker(); });
 newsReady.then(flushRender);
-// Hava, namaz, video və sosial şəbəkə ilk şəkilin (LCP) xəttini tutmasın: xəbər ekrana çıxandan sonra.
 const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();
 afterNews(() => { socNow || loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
-// Liqa cədvəlləri (~17 KB) xəbərlərdən sonra və ya oxucu gedəndə.
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
 loadMarkets(); loadStatus();

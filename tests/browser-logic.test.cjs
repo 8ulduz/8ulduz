@@ -677,6 +677,64 @@ test('section pages reach back through the archive without repeating or leaking'
   await loadArchive('prezident');
   assert.equal(S.archive.prezident,undefined);
 });
+
+test('the real university foundation copies occupy one card after merging the archive',()=>{
+  const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/education-duplicates.json'),'utf8'));
+  const ctx=policyApp(),{S,withArchive}=ctx.api;
+  const other={...fixture.live[0],id:'other',sourceUrl:'https://apa.az/different-school',title:'Şuşada başqa məktəb binasının açılışı keçirildi',alts:[]};
+  const live=[...fixture.live,other];
+  S.data={articles:live};S.archive={tehsil:{at:Date.now(),rows:fixture.groupedArchive}};
+  const before=JSON.stringify([live,S.archive]);
+  const result=withArchive('tehsil',live);
+  assert.equal(result.length,2,'təməlqoyma + ayrıca məktəb açılışı');
+  const card=result.find(x=>x.sourceUrl!==other.sourceUrl);
+  const expected=new Set(fixture.groupedArchive.flatMap(a=>[a,...a.alts||[]]).map(x=>x.source));
+  assert.deepEqual(new Set([card,...card.alts].map(x=>x.source)),expected,'hər mənbə bir dəfə qalır');
+  assert.equal(JSON.stringify([live,S.archive]),before,'arxiv lentin özünü dəyişmir');
+});
+
+test('an archive group joins both existing groups through their actual article links',()=>{
+  const {S,withArchive}=app().api,at=new Date().toISOString();
+  const row=(source,url,title)=>({source,sourceUrl:url,title,publishedAt:at});
+  const a=row('APA','https://apa.az/a','Birinci başlıq tam fərqlidir');
+  const b=row('Report','https://report.az/b','İkinci başlıq başqa formada yazılıb');
+  const c={...row('AZƏRTAC','https://azertag.az/c','Hadisənin arxivdəki başlığı'),alts:[a,b]};
+  S.archive={tehsil:{rows:[c,{...b,sourceUrl:'https://www.report.az/b'}]}};
+  const result=withArchive('tehsil',[a,b]);
+  assert.equal(result.length,1,'sondan gələn qrup əvvəlki iki kartı da birləşdirir');
+  assert.equal(new Set([result[0],...result[0].alts].map(x=>x.source)).size,3);
+  assert.equal(result[0].alts.length,2,'www nüsxəsi əlavə mənbə sayılmır');
+});
+
+test('a story grouped under another category keeps all its sources in the original section',()=>{
+  const {S,withArchive}=app().api,at=new Date().toISOString();
+  const a={id:'a',title:'Qarabağ Universitetində kitabxananın təməli qoyuldu',category:'tehsil',source:'APA',sourceUrl:'https://apa.az/a',publishedAt:at};
+  const official={...a,id:'p',category:'prezident',source:'Prezident.az',sourceUrl:'https://president.az/az/articles/view/12345',alts:[a,{...a,source:'AZƏRTAC',sourceUrl:'https://azertag.az/a'}]};
+  S.data={articles:[official]};S.archive={tehsil:{rows:[a]}};
+  const cards=withArchive('tehsil',[]);
+  assert.equal(cards.length,1,'bölmə əsas kartın kateqoriyası dəyişəndə boşalmır');
+  assert.equal(cards[0].source,'Prezident.az','rəsmi mənbə prioriteti qalır');
+  assert.equal(cards[0].alts.length,2,'digər kateqoriyadakı mənbələr itmir');
+});
+
+test('archive equality respects the 36-hour window and does not guess from a similar subject',()=>{
+  const {S,withArchive}=app().api;
+  const row=(id,title,h)=>({id,title,source:id,sourceUrl:`https://apa.az/${id}`,publishedAt:new Date(Date.UTC(2026,10,7)-h*3600e3).toISOString()});
+  const a=row('a','Qarabağ Universitetində kitabxananın təməli qoyuldu',0);
+  S.archive={tehsil:{rows:[row('b',a.title,1),row('c',a.title,40),row('d','Qarabağ Universitetində yeni fakültə yaradıldı',0)]}};
+  const result=withArchive('tehsil',[a]);
+  assert.equal(result.length,3,'yalnız eyni vaxtdakı eyni başlıq birləşir');
+});
+
+test('archive alternatives pass the same source policy as live alternatives',async()=>{
+  const ctx=policyApp(),{S,loadArchive}=ctx.api;
+  const a={id:'a',title:'Məktəblərdə yeni dərs ili başladı',category:'tehsil',lang:'az',source:'APA',sourceUrl:'https://apa.az/a',publishedAt:new Date().toISOString(),alts:[
+    {source:'Azadlıq',sourceUrl:'https://azadliq.org/b'},
+    {source:'Report',sourceUrl:'https://report.az/a',title:'Məktəblərdə yeni dərs ili başladı',lang:'az'}]};
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({articles:[a]})});
+  await loadArchive('tehsil');
+  assert.deepEqual(Array.from(S.archive.tehsil.rows[0].alts,x=>x.source),['Report']);
+});
 test('an editorial withdrawal hides an old saved story, archive card and shared article immediately', () => {
   const ctx = app(), {S} = ctx.api;
   const row={id:'withdrawn-id',source:'APA',sourceUrl:'https://apa.az/old-title-12345',title:'WITHDRAWN',category:'sosial',publishedAt:new Date().toISOString()};
