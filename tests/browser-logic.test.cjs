@@ -726,6 +726,20 @@ test('archive equality respects the 36-hour window and does not guess from a sim
   assert.equal(result.length,3,'yalnız eyni vaxtdakı eyni başlıq birləşir');
 });
 
+test('cached duplicate identities refresh when a story headline, link or date changes',()=>{
+  const {S,withArchive}=app().api;
+  const a={title:'Qarabağ Universitetində yeni kitabxana yaradıldı',source:'APA',sourceUrl:'https://apa.az/a',publishedAt:'2026-11-07T07:00:00Z'};
+  const b={...a,source:'Report',sourceUrl:'https://report.az/b'};
+  S.archive={tehsil:{rows:[b]}};
+  assert.equal(withArchive('tehsil',[a]).length,1);
+  b.title='Şuşada peşə məktəbinin yeni binası açıldı';
+  assert.equal(withArchive('tehsil',[a]).length,2,'köhnə başlıq yaddaşda qalmır');
+  b.title=a.title;b.publishedAt='2026-11-01T07:00:00Z';
+  assert.equal(withArchive('tehsil',[a]).length,2,'tarix pəncərəsi təzədən hesablanır');
+  b.sourceUrl=a.sourceUrl;
+  assert.equal(withArchive('tehsil',[a]).length,1,'eyni xəbər keçidi başlıq/tarixdən asılı olmadan tanınır');
+});
+
 test('archive alternatives pass the same source policy as live alternatives',async()=>{
   const ctx=policyApp(),{S,loadArchive}=ctx.api;
   const a={id:'a',title:'Məktəblərdə yeni dərs ili başladı',category:'tehsil',lang:'az',source:'APA',sourceUrl:'https://apa.az/a',publishedAt:new Date().toISOString(),alts:[
