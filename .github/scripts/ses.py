@@ -17,6 +17,7 @@ import datetime
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -90,8 +91,11 @@ async def speak(text, path):
     raw = path + ".raw.mp3"
     await edge_tts.Communicate(text, VOICE).save(raw)
     # 32 kbit/s mono: nitq üçün kifayətdir, fayl ~3 dəfə kiçik (telefonun interneti az yeyilir)
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-ac", "1", "-ar", "22050", "-b:a", "32k", path], check=True)
-    os.remove(raw)
+    if shutil.which("ffmpeg"):
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-ac", "1", "-ar", "22050", "-b:a", "32k", path], check=True)
+        os.remove(raw)
+    else:  # ffmpeg yoxdursa Edge-in öz faylı (48 kbit/s)
+        os.replace(raw, path)
     if os.path.getsize(path) < 3000:
         raise RuntimeError("boş səs")
 
