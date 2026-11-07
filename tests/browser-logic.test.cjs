@@ -7,7 +7,7 @@ const root = path.join(__dirname, '..');
 
 function app(extra = {}) {
   const context = vm.createContext({
-    console, Map, Set, URL, Date, AbortController, setTimeout, clearTimeout, addEventListener() {},
+    console, Map, Set, URL, Date, AbortController, TextEncoder, btoa, setTimeout, clearTimeout, addEventListener() {},
     localStorage: { getItem() { throw Error('blocked'); }, setItem() { throw Error('quota'); }, removeItem() { throw Error('blocked'); } },
     location: { hash: '#/' }, navigator: { onLine: true },
     window: { addEventListener() {} },
@@ -2660,6 +2660,16 @@ test('owner 2026-11-07: the bottom bar has six buttons — Video added, Tıxac k
     assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 6, 'aşağıda 6 düymə');
   }
   assert.ok(js.includes('r.name === "section" && r.slug === "video" ? "video"'), 'Video səhifəsində düymə seçili');
+});
+test('owner 2026-11-07: any topic — a search result offers «Telegram-da izlə» with the search words for the bot', () => {
+  const ctx = app(), { S, searchView } = ctx.api;
+  S.data = { articles: [] };
+  ctx.window.SITE_CONFIG = { tgBot: 'SekkizUlduzBot' };
+  S.q = 'İran Amerika';
+  const { keyOf } = require('../.github/scripts/izle.cjs');
+  assert.ok(searchView().includes(`href="https://t.me/SekkizUlduzBot?start=${keyOf('İran Amerika')}"`) && searchView().includes('📩 «İran Amerika»: Telegram-da izlə'));
+  S.q = 'x'.repeat(50);
+  assert.ok(!searchView().includes('tg-izle'), 'Telegram start parametrinə sığmayan söz düymə vermir');
 });
 test('owner 2026-11-07: «Telegram-da izlə» on section pages opens the bot with the section or the chosen club/district', () => {
   const ctx = app(), { S, sectionView } = ctx.api;

@@ -16,6 +16,40 @@ const NAMED = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", la
 const unent = s => String(s ?? "").replace(/&(#\d+|[a-z]+);/gi, (m, e) => e[0] === "#" ? String.fromCodePoint(+e.slice(1) || 32) : NAMED[e.toLowerCase()] ?? m);
 const html = s => unent(s).replace(/<[^>]+>/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
 
+// Sərbəst mövzu (sahib 2026-11-07: «təhsil, Gəncə, hava, Rusiya–Ukrayna, İran–Amerika, İlham Əliyev, pensiya»):
+// oxucu saytda axtarır və ya bota sadəcə söz yazır. Açar q_<sözün UTF-8 base64url-i> (Telegram start: yalnız A-Za-z0-9_-, 64 simvol).
+// Seçim saytın axtarışı kimi: ə→e, ı→i və s.; hər əsas söz (kökü) başlıqda və ya xülasədə olmalıdır; «haqqında», «müharibəsi»,
+// «münasibətləri» kimi ümumi sözlər tələb olunmur. Bir neçə yaxın ad bir sözü əvəz edir (ABŞ = Amerika, hava = proqnoz/yağış...).
+const FOLD = { "ə": "e", "ı": "i", "ö": "o", "ü": "u", "ğ": "g", "ş": "s", "ç": "c" };
+const fold = s => String(s || "").toLocaleLowerCase("az").replace(/[əıöüğşç]/g, ch => FOLD[ch]).normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+const GENERIC = /^(salam|sagol|tesekkur|hello|hi$|ok$|haqq|bared|xeber|ve$|ile$|uzre|munasib|muharib|elaqe|veziyyet|son$|yeni)/;
+const SAME = [
+  ["ameri", "abs", "vasinqton", "trump", "tramp"], ["rusiy", "rf", "moskva", "kreml", "putin"], ["ukray", "kiyev", "zelenski"],
+  ["iran", "tehran"], ["israil", "netanyahu"], ["turkiy", "ankara", "erdogan"], ["pensiy", "teqaud"],
+  ["hava proqnoz", "hava serait", "havanin", "yagis", "yagint", "qar yag", "sulu qar", "kulek", "kuley", "saxta", "sinoptik", "meteoroloj", "temperatur", "dumanl", "bulud"],
+];
+const stem = w => w.length > 5 ? w.slice(0, Math.max(5, w.length - 3)) : w;
+function kwTopic(key) {
+  if (!/^q_[A-Za-z0-9_-]{2,62}$/.test(key)) return null;
+  let label;
+  try { label = Buffer.from(key.slice(2).replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8").replace(/\s+/g, " ").trim(); } catch { return null; }
+  if (!label || label.length > 45 || /[\u0000-\u001f<>\ufffd]/.test(label)) return null;
+  return kwFromText(label);
+}
+function kwFromText(label) {
+  const words = fold(label).split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 2 || /\d/.test(w));
+  const use = words.filter(w => !GENERIC.test(w)).slice(0, 4);
+  if (!use.length) return null;
+  const alts = use.map(w => { const s = stem(w), g = SAME.find(x => x.some(y => !y.includes(" ") && (s.startsWith(y) || s.length > 2 && y.startsWith(s)))); return g || [s]; });
+  return { label, kw: true, match: a => { const t = " " + fold(`${a.title} ${a.summary || ""}`).replace(/[^\p{L}\p{N}]+/gu, " ") + " "; return alts.every(g => g.some(y => t.includes(" " + y))); } };
+}
+const keyOf = text => "q_" + Buffer.from(text, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+// Kataloqda yoxdursa sərbəst mövzu kimi yaradılır (bir dəfə).
+function topicOf(cat, key) {
+  if (!cat.has(key)) { const t = kwTopic(key); if (!t) return null; cat.set(key, t); }
+  return cat.get(key);
+}
+
 // Mövzu kataloqu: açar -> { label, match(a) }.
 function catalog(app) {
   const map = new Map();
@@ -41,11 +75,14 @@ function newState(s) {
 function handle(state, u, cat) {
   const out = [], msg = u.message, cb = u.callback_query;
   const list = id => state.subs[id] || [];
-  const listText = id => list(id).length ? `Siz izləyirsiniz:\n${list(id).map(k => `• ${cat.get(k)?.label || k}`).join("\n")}` : "Hələ heç nə izləmirsiniz. Saytda bölmə, komanda və ya rayon səhifəsində «📩 Telegram-da izlə» düyməsinə basın: " + SITE;
+  const listText = id => list(id).length ? `Siz izləyirsiniz:\n${list(id).map(k => `• ${cat.get(k)?.label || k}`).join("\n")}` : "Hələ heç nə izləmirsiniz. Mövzunu buraya yazın (məsələn: pensiya) və ya saytda «📩 Telegram-da izlə» düyməsinə basın: " + SITE;
   const stopKb = id => ({ inline_keyboard: list(id).map(k => [{ text: `🔕 ${cat.get(k)?.label || k} — dayandır`, callback_data: `stop:${k}` }]) });
   if (msg?.chat?.type === "private" && typeof msg.text === "string") {
-    const id = String(msg.chat.id), [cmd, arg = ""] = msg.text.trim().split(/\s+/, 2);
-    if (cmd === "/start" && arg && cat.has(arg)) {
+    const id = String(msg.chat.id), text = msg.text.trim(), [cmd, arg = ""] = text.split(/\s+/, 2);
+    let key = cmd === "/start" && arg && topicOf(cat, arg) ? arg : "";
+    if (!key && !text.startsWith("/") && Buffer.byteLength(text) < 46 && kwFromText(text)) topicOf(cat, key = keyOf(text.replace(/\s+/g, " ")));
+    if (key && cat.has(key)) {
+      const arg = key;
       const had = list(id).includes(arg);
       if (!had && list(id).length >= MAX_TOPICS) out.push({ method: "sendMessage", chat_id: id, text: `Ən çox ${MAX_TOPICS} mövzu izləmək olar. Birini dayandırın: /izlediklerim` });
       else {
@@ -53,12 +90,12 @@ function handle(state, u, cat) {
         out.push({ method: "sendMessage", chat_id: id, text: `✅ «${cat.get(arg).label}» ${had ? "artıq izlənir" : "izlənir"}. Yeni xəbər çıxan kimi buraya göndərəcəyəm.\n\nSiyahı və dayandırmaq: /izlediklerim` });
       }
     } else if (cmd === "/start" || cmd === "/help" || cmd === "/komek") {
-      out.push({ method: "sendMessage", chat_id: id, text: `Salam! Bu, 8ULDUZ xəbər botudur.\n\nSaytda (${SITE}) istənilən bölmə, komanda və ya rayon səhifəsində «📩 Telegram-da izlə» düyməsinə basın — o mövzunun yeni xəbərləri buraya gələcək.\n\n${listText(id)}`, ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
+      out.push({ method: "sendMessage", chat_id: id, text: `Salam! Bu, 8ULDUZ xəbər botudur.\n\nİzləmək istədiyiniz mövzunu buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev. Və ya saytda (${SITE}) bölmə, komanda, rayon səhifəsində və axtarışda «📩 Telegram-da izlə» düyməsinə basın — yeni xəbərlər buraya gələcək.\n\n${listText(id)}`, ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
     } else if (/^\/(izlediklerim|izlədiklərim|list)$/i.test(cmd)) {
       out.push({ method: "sendMessage", chat_id: id, text: listText(id), ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
     } else if (/^\/(dayandir|dayandır|stop)$/i.test(cmd)) {
       delete state.subs[id];
-      out.push({ method: "sendMessage", chat_id: id, text: "🔕 Bütün izləmələr dayandırıldı. Yenidən başlamaq üçün saytda «📩 Telegram-da izlə» düyməsinə basın." });
+      out.push({ method: "sendMessage", chat_id: id, text: "🔕 Bütün izləmələr dayandırıldı. Yenidən başlamaq üçün mövzunu buraya yazın və ya saytda «📩 Telegram-da izlə» düyməsinə basın." });
     }
   } else if (cb?.data?.startsWith("stop:") && cb.message?.chat?.id) {
     const id = String(cb.message.chat.id), key = cb.data.slice(5);
@@ -76,7 +113,7 @@ function deliveries(state, articles, cat, app) {
   state.seen = [...seen].slice(-SEEN_KEEP);
   const used = new Set(Object.values(state.subs).flat()), out = [];
   for (const a of fresh.filter(a => wanted(a, app)).sort((x, y) => String(x.publishedAt).localeCompare(String(y.publishedAt)))) {
-    const keys = [...used].filter(k => { try { return cat.get(k)?.match(a); } catch { return false; } });
+    const keys = [...used].filter(k => { try { return topicOf(cat, k)?.match(a); } catch { return false; } });
     if (!keys.length) continue;
     for (const [chat, list] of Object.entries(state.subs)) {
       const key = list.find(k => keys.includes(k));
@@ -147,5 +184,5 @@ async function main(root) {
   console.log(`izlə: ${sent} xəbər göndərildi, ${Object.keys(state.subs).length} oxucu`);
 }
 
-module.exports = { catalog, handle, deliveries, newState, storyUrl, MAX_TOPICS };
+module.exports = { catalog, handle, deliveries, newState, storyUrl, keyOf, kwTopic, MAX_TOPICS };
 if (require.main === module) main(path.resolve(process.argv[2] || ".")).catch(e => { console.error("izlə:", e?.message || e); process.exitCode = 1; });

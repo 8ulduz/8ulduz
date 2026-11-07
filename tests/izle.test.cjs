@@ -66,3 +66,19 @@ test("izlə: the team page shows the button for teams that have a news topic", (
   const k = fs.readFileSync(path.join(root, "assets/komanda.js"), "utf8");
   assert.ok(k.includes("tg-izle") && k.includes("topicFor(team.name)") && k.includes("?start=i_"));
 });
+
+test("izlə: any topic — the reader writes a word to the bot or presses the button on a search; matching is like the site search", () => {
+  const s = I.newState(), c = I.catalog(app);
+  let out = I.handle(s, msg(9, "Pensiya"), c);
+  assert.match(out[0].text, /^✅ «Pensiya» izlənir/);
+  const key = I.keyOf("İran Amerika münasibətləri");
+  assert.match(key, /^q_[A-Za-z0-9_-]{1,62}$/);
+  out = I.handle(s, msg(9, "/start " + key), c);
+  assert.match(out[0].text, /«İran Amerika münasibətləri» izlənir/);
+  assert.deepEqual(I.handle(s, msg(9, "salam"), c).length, 0, "salam mövzu deyil");
+  s.seen = [];
+  const sent = I.deliveries(s, [row("p1", "sosial", "Pensiyalar artırılır"), row("p2", "dunya", "İran ABŞ ilə danışıqlara başlayır"), row("p3", "dunya", "İranda zəlzələ")], c, app);
+  assert.deepEqual(sent.map(m => m.caption || m.text).map(t => t.match(/<b>(.*?)<\/b>/)[1]), ["Pensiyalar artırılır", "İran ABŞ ilə danışıqlara başlayır"]);
+  const hava = I.kwTopic(I.keyOf("hava"));
+  assert.ok(hava.match(row("h", "gundem", "Sabah yağış yağacaq")) && !hava.match(row("l", "gundem", "Hava limanında tədbir")));
+});

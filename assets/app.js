@@ -1491,7 +1491,7 @@ function fxPop() {
     <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
 }
 
-// Dil siyahısı (sahibin nümunəsi, 2026-11-04): hər dil öz sətrində, dairəvi bayraq + kod; «Hamısı» sonda.
+// Dil siyahısı: hər dil öz sətrində, bayraq + kod; «Hamısı» sonda.
 function languagePicker() {
   const row = (code, html, title) => `<button type="button" class="ldm${(S.lang || "") === code ? " on" : ""}" data-lang="${code}" aria-pressed="${(S.lang || "") === code}" title="${esc(title)}">${html}</button>`;
   return `<div class="lang-list" role="group" aria-label="Xəbərlərin dili">${LANGS.map(l => row(l.code, `${FLAGS[l.code]}<b>${l.code.toUpperCase()}</b>`, l.label)).join("")}${row("", `<span class="flag globe">🌐</span><b>Hamısı</b>`, "Bütün dillər")}</div>`;
@@ -1774,7 +1774,7 @@ function rankBySources(list) {
     .map(x => x.a);
 }
 // Hero: son 18 saatın ən çox mənbədə çıxan xəbərləri; azdırsa 48 saat, sonra bütün lent.
-// Eyni hadisənin updater-də birləşməmiş variantları (başlıqda 2+ ortaq uzun söz) hero-da təkrarlanmasın.
+// Eyni hadisənin variantları hero-da təkrarlanmasın.
 const heroWords = a => new Set(lc(a.title || "").split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 5));
 function diverse(ranked, need) {
   const out = [], seen = [];
@@ -1865,7 +1865,7 @@ async function scanArchives(id) {
     if (route().name === "article") renderView();
   }
 }
-// «Bu barədə daha çox» (sahib, 2026-11-07): 36 saatda başlığı 2+ nadir sözlə üst-üstə düşən 3 xəbər.
+// «Bu barədə daha çox»: 36 saatda başlığı 2+ nadir sözlə üst-üstə düşən 3 xəbər.
 function relatedOf(a) {
   const all = S.data?.articles || [], df = new Map(), t = +new Date(a.publishedAt), skip = new Set([a, ...(a.alts || [])].map(x => x.id));
   for (const b of all) for (const w of new Set(titleTokens(b.title))) df.set(w, (df.get(w) || 0) + 1);
@@ -1884,6 +1884,8 @@ function articleView(id) {
   return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="${detailUrl(b)}">${txt(b.title)}</a>`).join("")}</section>` : ""; })}</article>`;
 }
 
+// «Telegram-da izlə» (izle.cjs): bölmə, klub/rayon və ya axtarış sözü (q_ + UTF-8 base64url).
+const tgIzle = (k, who) => { const bot = window.SITE_CONFIG?.tgBot; return bot ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=${k}" ${OUT}>📩 ${who ? esc(who) + ": " : ""}Telegram-da izlə</a>` : ""; };
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
   return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
@@ -1891,7 +1893,7 @@ function listPage(title, desc, list, extra = "") {
       : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : S.club ? "Bu mövzuda son 5 gündə xəbər tapılmadı." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
 
-// Bölmə arxivi (updater.py, update_archive): lent gündüz 2-3 saat əhatə edir, bölmə səhifəsi isə 5 gün.
+// Bölmə arxivi (updater.py): bölmə səhifəsi 5 gün.
 const NO_ARCHIVE = new Set(["video", "sondeqiqe", "prezident"]);
 async function loadArchive(slug) {
   S.archive ||= {};
@@ -1950,8 +1952,7 @@ function sectionView(slug) {
     const s = location.hash.match(/[?&]s=([0-9a-f]{16})/)?.[1] || "";
     extra = `<details class="social-details"${s ? " open" : ""}><summary>Rəsmi sosial hesablar ▾</summary>${optional(() => socialBlock(false, s))}</details>`;
   }
-  const bot = window.SITE_CONFIG?.tgBot; // «Telegram-da izlə» (izle.cjs)
-  if (bot && slug !== "sondeqiqe") extra = `<a class="pill tg-izle" href="https://t.me/${bot}?start=${S.club ? (slug === "idman" ? "i_" : "r_") + teamSlug(S.club) : "b_" + slug}" ${OUT}>📩 ${S.club ? esc(S.club) + ": " : ""}Telegram-da izlə</a>` + extra;
+  if (slug !== "sondeqiqe") extra = tgIzle(S.club ? (slug === "idman" ? "i_" : "r_") + teamSlug(S.club) : "b_" + slug, S.club) + extra;
   return listPage(c.label, slug === 'idman' ? 'Bütün dillərdə idman xəbərləri. Alt bölməni və ya komandanı seçin: son xəbərlər açılır.' : slug === "bolgeler" ? "Bölgəni, sonra şəhər və ya rayonu seçin: son xəbərlər açılır." : c.description, slug === 'idman' ? list : filtered(list), extra);
 }
 
@@ -2004,7 +2005,8 @@ function searchView() {
   const all = scored.filter(x => x.score >= 5).length;
   const desc = topics.length ? `${topics.join(", ")}: bütün dillərdə, son 5 günün xəbərləri.` : words.length > 1 ? `${all} xəbərdə bütün sözlər, ${list.length - all} xəbərdə bəziləri var. Uyğunluğa görə sıralanıb.` : "Başlıq, xülasə və mənbə adına görə, son 5 gün. Uyğunluğa görə sıralanıb.";
   S.hl = hlRegex(words);
-  return listPage(`Axtarış: “${S.q}”`, desc, list);
+  const q = S.q.trim(), b = new TextEncoder().encode(q);
+  return listPage(`Axtarış: “${S.q}”`, desc, list, b.length < 46 ? tgIzle("q_" + btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""), `«${q}»`) : "");
 }
 // Axtarış nəticəsində başlıqdakı uyğun sözlər işarələnir (DOM-da, mətnlər dəyişmir)
 function highlightSearch() {
@@ -3090,7 +3092,7 @@ addEventListener("scroll", () => {
   if (S.renderPending && (globalThis.scrollY || 0) < 200) requestRender();
 }, {passive: true});
 for (const ev of ["pointerdown", "wheel", "touchmove", "keydown"]) addEventListener(ev, () => { S.touchAt = Date.now(); }, { passive: true, capture: true });
-// Telefonda arxa plandakı vərəqin taymerləri dayanır: qayıdanda (geri-irəli keşindən də) dərhal yoxla.
+// Arxa plandan qayıdanda dərhal yoxla.
 // Əks halda saatlarla köhnə lent görünürdü — «sayt yenilənmir» təəssüratı.
 document.addEventListener("visibilitychange", resumeNews);
 addEventListener("storage", e => { if (e.key === SAVE_KEY && route().name === "saved") requestRender(false); });
