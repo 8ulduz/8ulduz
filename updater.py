@@ -4144,7 +4144,7 @@ def update_cups(checked, now_dt, out_of_time):
 
 # Milli komandaların yarışları (sahib 2026-11-07): faylları .github/scripts/milli.cjs (pipeline slow_loop) Vikipediyadan yazır.
 # Burada yalnız siyahıya (index.json) düşür, «nat» işarəsi ilə: sayt «Milli komandalar»dakı ölkənin yarışını buradan tapır. Şəbəkə yoxdur.
-NATIONAL_DOCS = ("ml-a", "ml-b", "ml-c", "ml-d", "asiya-kuboku")
+NATIONAL_DOCS = ("dc-2026", "avro-2028-secme", "ml-a", "ml-b", "ml-c", "ml-d", "asiya-kuboku", "afrika-secme", "konkakaf-a", "konkakaf-b", "konkakaf-c")
 
 def national_rows():
     rows = []

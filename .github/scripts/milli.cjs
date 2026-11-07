@@ -9,13 +9,21 @@ const fs = require("fs"), path = require("path");
 const UA = "8ulduz.az/1.0 (https://8ulduz.az) standings";
 const API = "https://en.wikipedia.org/w/api.php?format=json&formatversion=2&action=parse&prop=text&redirects=1&page=";
 const EVERY_MS = 6 * 3600e3, LIVE_MS = 30 * 60e3, MAX_FETCH = 2;
-// id, ad, səhifə, saat qurşağı (səhifədə yazılan vaxtın qurşağı), mövsüm
+// id, ad, səhifə, saat qurşağı (səhifədə yazılan vaxtın qurşağı), mövsüm; from/to: səhifədə bir neçə liqa varsa bölmənin başlığı;
+// every: bitmiş turnir nadir yoxlanır. Sahib, 2026-11-07: menyuda ölkələr yox, millilərin bütün yarışları (liqalar kimi).
+const WEEK = 7 * 24 * 3600e3;
 const SPECS = [
+  { id: "dc-2026", name: "Dünya Çempionatı 2026", page: "2026 FIFA World Cup", zone: "America/New_York", key: "2026", season: "2026", every: WEEK },
+  { id: "avro-2028-secme", name: "Avropa Çempionatı 2028: seçmə", page: "UEFA Euro 2028 qualifying", zone: "Europe/Paris", key: "2028", season: "2027/28" },
   { id: "ml-a", name: "Millətlər Liqası A", page: "2026–27 UEFA Nations League A", zone: "Europe/Paris", key: "2026", season: "2026/27" },
   { id: "ml-b", name: "Millətlər Liqası B", page: "2026–27 UEFA Nations League B", zone: "Europe/Paris", key: "2026", season: "2026/27" },
   { id: "ml-c", name: "Millətlər Liqası C", page: "2026–27 UEFA Nations League C", zone: "Europe/Paris", key: "2026", season: "2026/27" },
   { id: "ml-d", name: "Millətlər Liqası D", page: "2026–27 UEFA Nations League D", zone: "Europe/Paris", key: "2026", season: "2026/27" },
-  { id: "asiya-kuboku", name: "Asiya Kuboku", page: "2027 AFC Asian Cup", zone: "Asia/Riyadh", key: "2027", season: "2027" },
+  { id: "asiya-kuboku", name: "Asiya Kuboku 2027", page: "2027 AFC Asian Cup", zone: "Asia/Riyadh", key: "2027", season: "2027" },
+  { id: "afrika-secme", name: "Afrika Millətlər Kuboku 2027: seçmə", page: "2027 Africa Cup of Nations qualification", zone: "Etc/UTC", key: "2027", season: "2026/27" },
+  { id: "konkakaf-a", name: "KONKAKAF Millətlər Liqası A", page: "2026–27 CONCACAF Nations League", from: "League_A_2", to: "League_B_2", zone: "America/New_York", key: "2026", season: "2026/27" },
+  { id: "konkakaf-b", name: "KONKAKAF Millətlər Liqası B", page: "2026–27 CONCACAF Nations League", from: "League_B_2", to: "League_C_2", zone: "America/New_York", key: "2026", season: "2026/27" },
+  { id: "konkakaf-c", name: "KONKAKAF Millətlər Liqası C", page: "2026–27 CONCACAF Nations League", from: "League_C_2", to: "References", zone: "America/New_York", key: "2026", season: "2026/27" },
 ];
 // Adlar app.js-dəki «Milli komandalar» siyahısı ilə eynidir: ünvan (teamSlug) addan çıxır.
 const AZ = {
@@ -32,6 +40,25 @@ const AZ = {
   Switzerland: "İsveçrə", Syria: "Suriya", Tajikistan: "Tacikistan", Thailand: "Tailand", Turkey: "Türkiyə", "Türkiye": "Türkiyə", Ukraine: "Ukrayna",
   "United Arab Emirates": "BƏƏ", Uzbekistan: "Özbəkistan", Vietnam: "Vyetnam", Wales: "Uels", Yemen: "Yəmən", "Kingdom of Saudi Arabia": "Səudiyyə Ərəbistanı",
   Australia: "Avstraliya", India: "Hindistan", Lebanon: "Livan", Malaysia: "Malayziya", Philippines: "Filippin", Turkmenistan: "Türkmənistan", "Hong Kong": "Honkonq",
+  Russia: "Rusiya", Brazil: "Braziliya", "United States": "ABŞ", Mexico: "Meksika", Canada: "Kanada", Argentina: "Argentina", Uruguay: "Uruqvay", Colombia: "Kolumbiya",
+  Ecuador: "Ekvador", Paraguay: "Paraqvay", Chile: "Çili", Peru: "Peru", Bolivia: "Boliviya", Venezuela: "Venesuela", "New Zealand": "Yeni Zelandiya",
+  Morocco: "Mərakeş", Egypt: "Misir", Tunisia: "Tunis", Algeria: "Əlcəzair", Libya: "Liviya", Sudan: "Sudan", "South Sudan": "Cənubi Sudan", Senegal: "Seneqal",
+  "Ivory Coast": "Kot-d'İvuar", Ghana: "Qana", Nigeria: "Nigeriya", Cameroon: "Kamerun", "DR Congo": "Konqo DR", Congo: "Konqo", "Cape Verde": "Kabo-Verde",
+  "South Africa": "Cənubi Afrika", Gabon: "Qabon", Niger: "Niger", Lesotho: "Lesoto", Angola: "Anqola", Malawi: "Malavi", Gambia: "Qambiya", "The Gambia": "Qambiya",
+  Somalia: "Somali", Guinea: "Qvineya", Kenya: "Keniya", Eritrea: "Eritreya", Zimbabwe: "Zimbabve", "Equatorial Guinea": "Ekvatorial Qvineya",
+  "Sierra Leone": "Syerra-Leone", Benin: "Benin", "Burkina Faso": "Burkina-Faso", Mauritania: "Mavritaniya", "Central African Republic": "Mərkəzi Afrika Respublikası",
+  Comoros: "Komor adaları", Namibia: "Namibiya", Uganda: "Uqanda", Botswana: "Botsvana", Zambia: "Zambiya", Togo: "Toqo", Burundi: "Burundi", Mozambique: "Mozambik",
+  Ethiopia: "Efiopiya", Rwanda: "Ruanda", Mali: "Mali", Liberia: "Liberiya", "Guinea-Bissau": "Qvineya-Bisau", Madagascar: "Madaqaskar", Tanzania: "Tanzaniya",
+  Mauritius: "Mavriki", Seychelles: "Seyşel adaları", Djibouti: "Cibuti", Chad: "Çad", "São Tomé and Príncipe": "San-Tome və Prinsipi", Eswatini: "Esvatini",
+  Haiti: "Haiti", "Dominican Republic": "Dominikan Respublikası", "Costa Rica": "Kosta-Rika", "Trinidad and Tobago": "Trinidad və Tobaqo", Nicaragua: "Nikaraqua",
+  Guatemala: "Qvatemala", Jamaica: "Yamayka", Suriname: "Surinam", Honduras: "Honduras", Martinique: "Martinika", "El Salvador": "Salvador", Cuba: "Kuba",
+  "Saint Kitts and Nevis": "Sent-Kits və Nevis", Bonaire: "Bonayre", Grenada: "Qrenada", "Saint Vincent and the Grenadines": "Sent-Vinsent və Qrenadinlər",
+  "French Guiana": "Fransız Qvianası", Belize: "Beliz", "Sint Maarten": "Sint-Marten", Panama: "Panama", Curaçao: "Kürasao", Guadeloupe: "Qvadelupa",
+  Guyana: "Qayana", Bermuda: "Bermud adaları", "Puerto Rico": "Puerto-Riko", "Antigua and Barbuda": "Antiqua və Barbuda", Barbados: "Barbados", Bahamas: "Baham adaları",
+  "Saint Lucia": "Sent-Lüsiya", Dominica: "Dominika", Aruba: "Aruba", "Cayman Islands": "Kayman adaları", Montserrat: "Monserrat", Anguilla: "Angilya",
+  "British Virgin Islands": "Britaniya Virgin adaları", "U.S. Virgin Islands": "ABŞ Virgin adaları", "Turks and Caicos Islands": "Törks və Kaykos adaları",
+  "Saint Martin": "Sen-Marten", Nepal: "Nepal", Bangladesh: "Banqladeş", "Sri Lanka": "Şri-Lanka", Myanmar: "Myanma", Cambodia: "Kamboca", Laos: "Laos",
+  "Timor-Leste": "Şərqi Timor", Mongolia: "Monqolustan", Taiwan: "Tayvan", "Chinese Taipei": "Tayvan", Afghanistan: "Əfqanıstan", Pakistan: "Pakistan", Maldives: "Maldiv adaları",
 };
 const NOTE = [[/quarter-final/i, "1/4 finala çıxır"], [/promotion play-?off/i, "Yuxarı liqa üçün pley-off"], [/relegation play-?off/i, "Aşağı liqa üçün pley-off"],
   [/promot/i, "Yuxarı liqaya keçid"], [/relegat/i, "Aşağı liqaya düşmə"], [/possible knockout/i, "Sıralamaya görə pley-off şansı"], [/knockout|round of 16/i, "Pley-offa çıxır"]];
@@ -123,7 +150,12 @@ function boxes(chunk, zone, round) {
 
 // Səhifə -> komanda səhifəsinin sənədi. Yalnız qrup mərhələsi: qrupların bölmələri «Group_1» / «Group_A».
 function parsePage(html, spec) {
-  const heads = [...html.matchAll(/<h3[^>]*id="Group_([A-Z0-9]{1,2})"/g)];
+  if (spec.from) {
+    const at = html.indexOf(`id="${spec.from}"`), end = html.indexOf(`id="${spec.to}"`, at + 1);
+    if (at < 0) throw new Error("bölmə tapılmadı");
+    html = html.slice(at, end > 0 ? end : html.length);
+  }
+  const heads = [...html.matchAll(/<h3[^>]*id="Group_([A-Z0-9]{1,2})(?:_\d+)?"/g)];
   if (!heads.length) throw new Error("qrup tapılmadı");
   const teams = {}, groups = [], games = [];
   heads.forEach((h, i) => {
@@ -145,11 +177,11 @@ function parsePage(html, spec) {
 }
 
 // Nə vaxt yenidən soruşulsun: oyun gedən və ya nəticəsi gözlənilən gün tez, qalan vaxt 6 saatda bir.
-function due(doc, at, now) {
+function due(doc, at, now, every = EVERY_MS) {
   if (!at) return true;
   const since = now - Date.parse(at);
   if (!doc) return since >= LIVE_MS; // alınmayan yarış hər dövrə soruşulmasın
-  if (since >= EVERY_MS) return true;
+  if (since >= every) return true;
   const busy = (doc.games || []).some(g => !g.played && g.state !== "off" && Date.parse(g.date) <= now && now - Date.parse(g.date) < 30 * 3600e3);
   return busy && since >= LIVE_MS;
 }
@@ -165,7 +197,7 @@ async function run(root, { now = Date.now(), fetchText = defaultFetch, log = con
     const file = path.join(dir, `${spec.id}.json`);
     let old = null;
     try { old = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
-    if (asked >= MAX_FETCH || !due(old, state[spec.id], now)) continue;
+    if (asked >= MAX_FETCH || !due(old, state[spec.id], now, spec.every)) continue;
     asked++;
     state[spec.id] = new Date(now).toISOString();
     try {
@@ -180,6 +212,23 @@ async function run(root, { now = Date.now(), fetchText = defaultFetch, log = con
     }
   }
   fs.writeFileSync(stateFile, JSON.stringify(state));
+  writeMenu(dir, path.join(root, "data", "milli-menyu.json"));
+}
+
+// Saytın menyusu (app.js, İdman → Futbol → Milli komandalar): faylı olan yarışlar və ölkələri cədvəl sırası ilə. Kiçik fayl;
+// sports.json kimi data/-dadır: app.js data/futbol-a toxunmur (sürət testi), onu yalnız komanda.js oxuyur.
+function writeMenu(dir, file) {
+  const comps = [];
+  for (const spec of SPECS) {
+    let doc = null;
+    try { doc = JSON.parse(fs.readFileSync(path.join(dir, `${spec.id}.json`), "utf8")); } catch {}
+    if (!doc?.teams) continue;
+    comps.push({ id: spec.id, name: doc.name, teams: (doc.groups || []).flatMap(g => g.rows.map(r => doc.teams[r.team]?.name)).filter(Boolean) });
+  }
+  const out = JSON.stringify({ comps });
+  let old = "";
+  try { old = fs.readFileSync(file, "utf8"); } catch {}
+  if (old !== out) fs.writeFileSync(file, out);
 }
 
 async function defaultFetch(url) {
@@ -190,5 +239,5 @@ async function defaultFetch(url) {
   return j.parse.text;
 }
 
-module.exports = { SPECS, AZ, slugOf, zoned, standings, boxes, parsePage, due, run };
+module.exports = { SPECS, AZ, slugOf, zoned, standings, boxes, parsePage, due, run, writeMenu };
 if (require.main === module) run(process.argv[2] || ".").catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });

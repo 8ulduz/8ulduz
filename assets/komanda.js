@@ -48,8 +48,10 @@ const LEAGUE_WORDS = {
   cl: "çempionlar liqası|şampiyonlar ligi|лиг[аиу] чемпионов|champions league", al: "avropa liqası|avrupa ligi|лиг[аиу] европы|europa league",
   kl: "konfrans liqası|konferans ligi|лиг[аиу] конференций", "premyer-liqa": "misli premyer liqa|premyer liqa(?:nın|da|ya)? \\d+-?c?i? tur|azərbaycan premyer liqası",
   nba: "\\bnba\\b|\\bнба\\b", avroliqa: "avroliqa|euroleague|евролиг", "asiya-kuboku": "asiya kuboku|asya kupası|кубок[аеу]? азии",
+  "dc-2026": "dünya çempionatı-2026|dç-2026|mundial|dünya kupası|чм-2026|world cup", "afrika-secme": "afrika (?:millətlər )?kuboku|afrika uluslar|кубк\\p{L}* африки",
+  "avro-2028-secme": "avro-2028|euro 2028|евро-2028",
 };
-const leagueWordRx = id => { const w = /^ml-/.test(id) ? "millətlər liqası|uluslar ligi|лиг[аиу] наций|nations league" : LEAGUE_WORDS[id]; return w ? new RegExp(w, "iu") : null; };
+const leagueWordRx = id => { const w = /^ml-/.test(id) ? "millətlər liqası|uluslar ligi|лиг[аиу] наций|nations league" : /^konkakaf/.test(id) ? "konkakaf|concacaf|конкакаф" : LEAGUE_WORDS[id]; return w ? new RegExp(w, "iu") : null; };
 
 // Komandanın oyunları: yarış başına bir dəfə hesablanır.
 const BY_TEAM = new WeakMap();
@@ -256,9 +258,8 @@ export function mountTeam(d) {
       const nat = (index.doc.leagues || []).filter(l => l.nat);
       if (!r.team || !NAT[r.team] && !nat.some(l => l.teams?.includes(r.team))) {
         document.title = "Milli komandalar — 8ulduz";
-        return `<div class="page-h"><div><h1>Milli komandalar</h1><p>Ölkəni seçin: yarışları, cədvəldəki yeri, oyunları və son xəbərləri.</p></div></div>
-          <section class="tm-sec"><ul class="tm-clubs">${Object.entries(NAT).map(([slug, [name]]) => `<li><a href="${href(MILLI, slug)}"><span>${esc(name)}</span></a></li>`).join("")}</ul></section>
-          ${nat.length ? `<section class="tm-sec"><div class="sec-h"><h2>Yarışlar</h2></div><ul class="tm-clubs">${nat.map(l => `<li><a href="${leagueHref(l.id)}"><span>${esc(l.name)}</span></a></li>`).join("")}</ul></section>` : ""}`;
+        return `<div class="page-h"><div><h1>Milli komandalar</h1><p>Yarışı seçin: cədvəllər, oyunlar və xəbərlər; cədvəldə ölkəyə basın.</p></div></div>
+          <section class="tm-sec"><ul class="tm-clubs">${nat.map(l => `<li><a href="${leagueHref(l.id)}"><span>${esc(l.name)}</span></a></li>`).join("")}</ul></section>`;
       }
       const comp = nat.find(l => l.teams?.includes(r.team));
       if (!comp) {

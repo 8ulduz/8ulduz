@@ -568,11 +568,12 @@ test('sport sub-sections open their own teams and close when you leave',()=>{
   const top=subNav('idman');
   for(const name of ['Hamısı','Futbol','Basketbol','Formula 1','Tennis','Şahmat'])assert.ok(top.includes('>'+name+'<'),name);
   assert.ok(!top.includes('data-club="Qarabağ"'),'komandalar bağlıdır');
-  S.club='Futbol';S.sportTab='Futbol';
+  S.club='Futbol';S.sportTab='Futbol';S.milli=[{id:'ml-d',name:'Millətlər Liqası D',teams:['Azərbaycan','Litva']},{id:'asiya-kuboku',name:'Asiya Kuboku 2027',teams:['Səudiyyə Ərəbistanı','İraq']}];
   const foot=subNav('idman');
   for(const name of ['Galatasaray','Real Madrid'])assert.ok(foot.includes('data-club="'+name+'"'),name);
-  // sahib 2026-11-07: «Milli komanda» düyməsi yerinə liqaların yanında «Milli komandalar» (altında ölkələr)
-  assert.ok(!foot.includes('data-club="Milli komanda"')&&foot.includes('href="#/komanda/milli-komandalar/azerbaycan"'),'Milli komandalar');
+  // sahib 2026-11-07 (ikinci qeyd): liqaların yanında «Milli komandalar» — altında ölkələr yox, yarışlar (liqalar kimi)
+  assert.ok(!foot.includes('data-club="Milli komanda"')&&foot.includes('href="#/komanda/ml-d"')&&foot.includes('<span>Asiya Kuboku 2027</span>'),'Milli komandalar');
+  assert.ok(!foot.includes('href="#/komanda/milli-komandalar/azerbaycan"')&&!foot.includes('>Azərbaycan</a>'),'menyuda ölkə adları yoxdur');
   assert.ok(foot.includes('href="#/komanda/premyer-liqa"'),'Azərbaycan klubları liqadan açılır');
   assert.ok(!foot.includes('data-club="Qarabağ"'));
   assert.ok(!foot.includes('data-club="NBA"'));
@@ -588,13 +589,15 @@ test('hover menu: one list for the section, a second list only for a tab with it
   assert.equal(closed.split('pop-col').length-1,1,'bir siyahı');
   assert.ok(closed.includes('data-club="Futbol"'));
   assert.ok(!closed.includes('class="pill on"'),'başqa səhifədə heç nə seçili görünmür');
+  S.milli=[{id:'ml-d',name:'Millətlər Liqası D',teams:['Azərbaycan','Litva']},{id:'asiya-kuboku',name:'Asiya Kuboku 2027',teams:['Səudiyyə Ərəbistanı','İraq']}];
   const football=navPopHtml('idman','Futbol');
   assert.ok(football.includes('pop-col two'),'Futbol ikinci siyahını açır');
   for(const name of ['Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
-  const nat=navPopHtml('idman','Futbol','Milli komandalar');
-  for(const [slug,name] of [['azerbaycan','Azərbaycan'],['ispaniya','İspaniya'],['seudiyye-erebistani','Səudiyyə Ərəbistanı'],['abs','ABŞ']])assert.ok(nat.includes('href="#/komanda/milli-komandalar/'+slug+'">'+name+'</a>'),name);
-  assert.ok(nat.includes('>Ölkələr ›</a>'),'ölkələrin siyahısı');
-  assert.ok((S.sportTab='Futbol',ctx.api.subNav('idman')).includes('href="#/komanda/milli-komandalar/ispaniya">İspaniya</a>'),'telefonda ölkələr başlığın altında');
+  // Yarışın üstünə gələndə liqa kimi: iştirakçı ölkələr və «cədvəl və komandalar ›»
+  const nat=navPopHtml('idman','Futbol','asiya-kuboku');
+  for(const [slug,name] of [['seudiyye-erebistani','Səudiyyə Ərəbistanı'],['iraq','İraq']])assert.ok(nat.includes('href="#/komanda/asiya-kuboku/'+slug+'">'+name+'</a>'),name);
+  assert.ok(nat.includes('href="#/komanda/asiya-kuboku">Asiya Kuboku 2027: cədvəl və komandalar ›</a>'),'yarışın səhifəsi');
+  assert.ok(!(S.sportTab='Futbol',ctx.api.subNav('idman')).includes('>İraq</a>'),'telefonda başlığın altında yarışlar, ölkələr yox');
   S.sportTab=null;
   assert.ok(!football.includes('data-club="Qarabağ"'),'Azərbaycan klubları liqadan açılır');
   assert.ok(football.includes('class="pill on" data-club="Futbol"'));
@@ -2143,8 +2146,11 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
     assert.ok(html.includes('<span>Premyer Liqa</span><small>İngiltərə</small>'));
     assert.ok(html.includes('<span>Çempionlar Liqası</span></a>'));
     for (const club of ['Neftçi', 'Galatasaray', 'Real Madrid']) assert.ok(!html.includes('data-club="' + club + '"'), club);
-    assert.ok(html.includes('#/komanda/milli-komandalar') && !html.includes('data-club="Milli komanda"'), 'sahib 2026-11-07: Milli komandalar liqaların yanında');
+    assert.ok(!html.includes('Milli komandalar') && !html.includes('data-club="Milli komanda"'), 'yarışların siyahısı gəlməyibsə başlıq da yoxdur');
   }
+  S.milli = [{ id: 'dc-2026', name: 'Dünya Çempionatı 2026', teams: ['Braziliya', 'ABŞ'] }];
+  const withNat = navPopHtml('idman', 'Futbol');
+  assert.ok(withNat.includes('Milli komandalar</span>') && withNat.includes('href="#/komanda/dc-2026" data-liga="dc-2026"><span>Dünya Çempionatı 2026</span></a>'), 'sahib 2026-11-07: Milli komandalar liqaların yanında, yarışlarla');
   const pop = navPopHtml('idman', 'Futbol', 'Türkiyə');
   assert.ok(pop.includes('class="pop-col clubs"') && pop.includes('href="#/komanda/turkiye/galatasaray"') && pop.includes('href="#/komanda/turkiye/fenerbahce"'));
   assert.ok(navPopHtml('idman', 'Futbol').includes('href="#/komanda/premyer-liqa/qarabag"'), 'açılanda birinci liqanın klubları');
