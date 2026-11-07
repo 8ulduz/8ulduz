@@ -212,7 +212,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 @media (prefers-reduced-motion:reduce){.ticker .track{animation:none;padding-left:10px}.ticker .run{overflow-x:auto;scrollbar-width:none}.ticker .run::-webkit-scrollbar{display:none}}
 
 /* --- bazar kartları: ortada, xəbər kartından ayrı rəng --- */
-/* Sahib, 2026-11-06: 3 rəng — əsas göy, vurğu qızılı, təcili qırmızı; bazarda yalnız ox və qiymət yaşıl/qırmızı */
+/* Sahib 2026-11-06: 3 rəng — göy, qızılı, qırmızı */
 .mk{--mk-label:var(--fg);--mk-unit:var(--fg);--mk-a:hsl(var(--mh,208) 38% 25%);--mk-b:hsl(var(--mh,208) 32% 18%);--mk-border:hsl(var(--mh,208) 30% 46%);--mk-flat:var(--mk-b)}
 :root[data-theme="light"] .mk{--mk-a:hsl(var(--mh,208) 54% 86%);--mk-b:hsl(var(--mh,208) 46% 77%);--mk-border:hsl(var(--mh,208) 28% 59%)}
 
@@ -550,7 +550,7 @@ footer .logo img{height:28px}
 .tix-list .meta{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
 @media (max-width:700px){.tix-map iframe{height:300px}}
 /* Video və foto: dar ekranda barmaqla çəkilən */
-/* Karusel: snap zolağı, masaüstündə ← → oxları və nöqtələr (setupStrips) */
+/* Karusel (setupStrips) */
 .strip{position:relative;min-width:0}
 .ytrow,.phrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scroll-behavior:smooth}
 .ytrow::-webkit-scrollbar,.phrow::-webkit-scrollbar{display:none}
@@ -1041,7 +1041,7 @@ a.pill.on small{color:inherit}
   /* Namaz və hava pəncərələri zolağın */
   .topbar{position:relative}
   .topbar .wrap{position:static}
-  /* Dörd valyuta bir ekrana sığır (sahib 2026-11-06: əvvəlki format qaytarıldı) */
+  /* Dörd valyuta bir ekrana sığır */
   .mk:nth-child(-n+4){flex:0 0 calc((100% - 18px)/4);min-width:0}
   .mk:nth-child(-n+4) .n,.mk:nth-child(-n+4) .v{padding-left:5px;padding-right:5px}
   .mk:nth-child(-n+4) .c{justify-content:center}
@@ -1146,7 +1146,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 .ticker .lbl .mo{flex:none;width:22px;height:22px;padding:0;border-radius:99px;background:#ffffff22;color:#fff;font-size:11px;line-height:1}
 .ticker .run.still .track{animation:none}
 .ticker .run.still{overflow-x:auto;scrollbar-width:none}
-@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(16px,7.2vw,30px);letter-spacing:0;min-width:0}.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}.prez.open .prez-h{flex-wrap:wrap;row-gap:6px}.prez.open .prez-h h2{flex:1 0 100%}.prez:not(.open) .prez-body{display:none}.prez-h{cursor:pointer}}
+@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(16px,7.2vw,30px);letter-spacing:0;min-width:0}.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}.prez.open .prez-h{flex-wrap:wrap;row-gap:6px}.prez.open .prez-h h2{flex:1 0 100%}.prez:not(.open) .prez-body{display:none}.prez:not(.open){padding:3px 10px}.prez:not(.open) .prez-h{padding-bottom:0;border:0}.prez:not(.open) .prez-h h2{flex:1;line-height:1.15}.prez:not(.open) .prez-h h2 a{flex:1;text-align:center;margin-right:19px}.prez-h{cursor:pointer}}
 .prez-pause{flex:none;width:24px;height:24px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--fg);font-size:11px;line-height:1}
 @media(hover:none){.prez-pause{display:none}}
 /* «Son xəbərlər» Gündəmdən aydın xətlə ayrılır */
@@ -1175,7 +1175,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
   .topbar .prefs .theme-btn .face{padding:0 7px;min-width:0}
   .ticker .lbl .bell{font-size:0;width:24px;min-height:0;height:22px;padding:0;display:grid;place-items:center;border-radius:999px}
   .ticker .lbl .bell::after{content:"";width:14px;height:14px;background:currentColor;-webkit-mask:url(bell.svg) center/contain no-repeat;mask:url(bell.svg) center/contain no-repeat}
-  /* Məzənnə kartı iki sətir: ad; qiymət (2 rəqəm) + dəyişmə nişanı yanaşı */
+  /* Məzənnə kartı iki sətir */
   .mk{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:3px}
   .mk .n{grid-column:1/-1}
   .mk .v{padding-bottom:3px}
@@ -1193,9 +1193,9 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 }
 /* Telefon: Zuğulba kartları bərabər, lent düz 2 kart */
 @media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}}
-/* ≤370 px: rejim sözü sığmır, böyük günəş/ay işarəsi (sahibin icazəsi) */
+/* ≤370 px: rejim yalnız işarə */
 @media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}
-/* Telefon: 4 bölmə + ☰ (alt-alta siyahı aşağıdan açılır), altında Telegram */
+/* Telefon: 4 bölmə + ☰, altında Telegram */
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
   nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}
