@@ -1205,7 +1205,7 @@ function renderTopbar() {
   syncTixDot();
 }
 
-const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["sondeqiqe", "gundem", "idman", "prezident"];
+const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["sondeqiqe", "gundem", "idman", "bolgeler"];
 // Ölçmə çəkilişin ortasında yerləşdirməni təkrarlatmasın: bütün dəyişikliklərdən sonra bir dəfə.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
 // Telefonda başlıqlar 3 cərgəyə sığsın deyə qısa ad (şrift kiçilmir: 9,8 px olardı, oxunmazdı).
@@ -1518,7 +1518,7 @@ function setLang(v) {
   if (!S.lang) loadNews(true); // «Hamısı»: başqa dillərin faylları da gəlsin
 }
 // fold «й»-ni «и» edir, ona görə «ой/ей» burada «ои/еи» yazılır.
-// Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları. Düymə həmin yerin bütün son xəbərlərini açır.
+// Bölgələr: 14 iqtisadi rayon və onların şəhər, rayonları.
 const REGION_TABS = [
   { name: "Bakı", keys: ["bakı", "baku", "баку"] },
   { name: "Abşeron-Xızı", groups: [{ group: "", items: [{ name: "Sumqayıt", keys: ["sumqayıt", "сумгайыт", "сумгаит"] }, { name: "Abşeron", keys: ["abşeron"] }, { name: "Xırdalan", keys: ["xırdalan"] }, { name: "Xızı", keys: ["xızı"] }] }] },
@@ -1612,12 +1612,12 @@ function profileRows() {
 }
 function socialForSide() { return orderedSocialPosts(12); }
 function socialBlock(side = false, sel = "") {
-  const posts = side ? socialForSide() : orderedSocialPosts(sel ? 16 : 8).sort((a, b) => (b.id === sel) - (a.id === sel));
+  const posts = side ? socialForSide() : [...(S.social?.posts || []).filter(p => p.id === sel), ...orderedSocialPosts(8).filter(p => p.id !== sel)];
   const cards = posts.map(p => { const u = safeHref(p.url); const su = /^[0-9a-f]{16}$/.test(p.id) ? "?s=" + p.id : ""; return `<article class="soc-r${p.id === sel ? " on" : ""}"><a class="soc-p" href="${u}" ${OUT} title="${esc(p.network)} · ${esc(p.name || "")}${p.via ? " · " + esc(p.via) : ""}"><span class="soc-ic">${netIcon(p.network)}</span><span class="t">${txt(p.text)}</span>${p.via ? `<span class="via">${esc(p.via)}</span>` : ""}<time>${ago(p.publishedAt)}</time></a><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/bolme/prezident${su}" title="Paylaş">Paylaş</button></article>`; }).join("");
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
-// DOM 1600 → 800), boş vaxtda açılır (lateFill); hər səhifə/alt düymə üçün ayrıca, siyahı 6 kartla başlayır.
+// DOM 1600 → 800), boş vaxtda açılır (lateFill).
 const LATE_HERO = 3, LATE_LIST = 6, lateKey = () => location.hash + "|" + (S.club || "");
 const late = (parts, n) => TOUCH_UI && parts.length > n ? parts.slice(0, n).join("") + `<template data-late>${parts.slice(n).join("")}</template>` : parts.join("");
 function lateFill() {
@@ -1637,7 +1637,7 @@ function prezBlock(list) {
     return `<article class="pcard${pic ? " has-img" : ""}" data-cat="${esc(a.category)}"><a class="pcard-hit" href="${safeHref(a.sourceUrl)}" ${OUT}>${thumb}<span class="x"><span class="t">${isFirstLady(a) ? `<em class="tag">Birinci xanım</em>` : ""}${txt(a.title)}</span><span class="meta"><span class="src">${sourceName(shownSource(a))}</span><time>${ago(a.publishedAt)}</time></span></span></a>${shareBtn(a)}</article>`;
   };
   const cards = late(list.map(card), PREZ_FIRST_IMAGES);
-  return `<section class="prez"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident" aria-label="Zuğulba Xronikası"><span class="prez-long">Zuğulba Xronikası</span><span class="prez-short">Zuğulba</span></a></h2>
+  return `<section class="prez${S.prezOpen ? " open" : ""}"><div class="prez-h"><h2>${STAR}<a href="#/bolme/prezident" aria-label="Zuğulba Xronikası"><span class="prez-long">Zuğulba Xronikası</span><span class="prez-short">Zuğulba</span></a></h2>
     <span class="prez-n">Son <b>${list.length}</b> xəbər</span>
     <span class="links">${PREZ_LINKS.map(l => `<a href="${l.url}" ${OUT}>${l.name}</a>`).join("")}</span>
     <button type="button" class="prez-pause" data-prez-pause aria-pressed="false" aria-label="Zuğulba lentini dayandır" title="Lenti dayandır">Ⅱ</button><a class="btn" href="#/bolme/prezident">Hamısı →</a></div>
@@ -1669,10 +1669,10 @@ const CLUB_AZ = { "Sabah Baku": "Sabah", "Sabah FK": "Sabah", "Qarabag": "Qaraba
   "Zira": "Zirə", "Zira FK": "Zirə", "Sumqayit": "Sumqayıt", "Sumgayit": "Sumqayıt", "Kapaz": "Kəpəz", "Shamakhi": "Şamaxı", "Araz-Naxcivan": "Araz-Naxçıvan", "Araz Nakhchivan": "Araz-Naxçıvan",
   "Imisli": "İmişli", "Gabala": "Qəbələ", "Sabail": "Səbail", "Karvan": "Karvan-Yevlax", "Turan Tovuz": "Turan Tovuz", "Sheki": "Şəki", "Mingachevir": "Mingəçevir" };
 const clubAz = n => CLUB_AZ[String(n || "").trim()] || n || "";
-// Komanda səhifəsinin ünvanı: updater.py-dakı team_slug ilə eyni. Səhifələr yalnız Azərbaycan liqalarınındır.
+// Komanda səhifəsinin ünvanı: updater.py team_slug ilə eyni.
 const teamSlug = s => topicKey(s).replace(/ /g, "-");
 const teamHref = (l, name) => `#/komanda/${teamSlug(l.short || "Premyer Liqa")}/${encodeURIComponent(teamSlug(name))}`;
-// football.json: «leagues» siyahısı (Premyer, I, II, Kubok, Əvəzedicilər); köhnə faylda yalnız üst səviyyə var
+// football.json: «leagues» siyahısı.
 function fbLeagues() {
   const fb = S.football;
   const ls = fb ? (Array.isArray(fb.leagues) && fb.leagues.length ? fb.leagues : [fb]) : [];
@@ -2212,6 +2212,7 @@ function trackEvent(path) {
   gaQ.push([visitPath(), document.title, void 0, path]); gaFlush();
   try { window.goatcounter?.count?.({ path, title: path, event: true, no_session: true, referrer: "" }); } catch {}
 }
+addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
 addEventListener("click", e => { const a = e.target.closest?.("a[target=_blank]"); if (a?.host && a.host !== location.host) trackEvent("out-" + a.host); }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
@@ -2967,6 +2968,9 @@ async function loadSocial() {
   try {
     const r = await fetch(freshUrl("data/social.json"), { cache: "no-store" });
     if (r.ok) { S.social = await r.json(); requestRender(); }
+    // Paylaşılan köhnə yazı social.json-dan çıxıbsa arxivdən (30 gün, updater write_social_archive).
+    const s = location.hash.match(/[?&]s=([0-9a-f]{16})/)?.[1], p = s && !S.social.posts.some(p => p.id === s) && (await requestJSON(freshUrl("data/social-arxiv.json"))).d?.posts?.find(p => p.id === s);
+    if (p) { S.social.posts.push(p); requestRender(); }
   } catch {}
 }
 async function loadSources() {

@@ -2993,7 +2993,35 @@ def update_social():
     _write_atomic(SOCIAL_FILE, json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     merge_sources(yt_rows)
+    try:
+        write_social_archive(posts)
+    except Exception as e:
+        print(f"  ! sosial arxiv: {type(e).__name__}: {str(e)[:80]}")
     print(f"Sosial: {min(16, len(posts))} yazı ({sum(1 for p in posts[:16] if p.get('via'))} xəbərdən)")
+
+SOCIAL_ARCHIVE_FILE = OUT_DIR / "social-arxiv.json"
+SOCIAL_ARCHIVE_DAYS, SOCIAL_ARCHIVE_MAX = 30, 400
+
+def write_social_archive(posts, now=None):
+    """Paylaşılan «#/bolme/prezident?s=<id>» keçidi günlər sonra da açılsın (sahib 2026-11-07: «bir neçə saat sonra o xəbər yox
+    idi»): social.json yalnız son 16 yazını saxlayır, burada 30 günün yazıları qalır. Sayt bu faylı yalnız keçiddəki yazı
+    social.json-da olmayanda yükləyir."""
+    old = _read_json(SOCIAL_ARCHIVE_FILE, {})
+    old = old.get("posts") if isinstance(old, dict) and isinstance(old.get("posts"), list) else []
+    cutoff = (now or time.time()) - SOCIAL_ARCHIVE_DAYS * 86400
+    seen, rows = set(), []
+    for p in [*posts, *old]:
+        pid = p.get("id") if isinstance(p, dict) else None
+        dt = _parse_dt(p.get("publishedAt")) if pid else None
+        if not pid or pid in seen or not dt or dt.timestamp() < cutoff:
+            continue
+        seen.add(pid)
+        rows.append(p)
+    rows.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
+    rows = rows[:SOCIAL_ARCHIVE_MAX]
+    if rows != old:
+        _write_atomic(SOCIAL_ARCHIVE_FILE, json.dumps({"posts": rows}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return rows
 
 def _yt_id(link):
     try:

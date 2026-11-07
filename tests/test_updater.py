@@ -2102,3 +2102,24 @@ class BulkDatedArchiveTest(unittest.TestCase):
         self.assertIn("Marja.az", sources)
         self.assertNotIn("APA", sources)
         self.assertIn('and a.get("source") not in bulk', inspect.getsource(updater.update_archive))
+
+
+class SocialArchiveTest(unittest.TestCase):
+    """Sahib, 2026-11-07: paylaşılan sosial yazının keçidi bir neçə saat sonra boş açılırdı (social.json yalnız son yazılar)."""
+
+    def test_shared_posts_stay_for_30_days(self):
+        now = datetime.datetime(2026, 11, 7, 12, tzinfo=datetime.timezone.utc)
+        iso = lambda days: (now - datetime.timedelta(days=days)).isoformat()
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "SOCIAL_ARCHIVE_FILE", pathlib.Path(tmp) / "a.json"):
+            updater.write_social_archive([{"id": "a" * 16, "publishedAt": iso(1), "text": "köhnə"}], now=now.timestamp())
+            rows = updater.write_social_archive([{"id": "b" * 16, "publishedAt": iso(0), "text": "yeni"}, {"id": "a" * 16, "publishedAt": iso(1), "text": "köhnə (təkrar)"}],
+                                                now=now.timestamp())
+            self.assertEqual([r["id"] for r in rows], ["b" * 16, "a" * 16], "social.json-dan çıxan yazı arxivdə qalır, təkrar yazılmır")
+            stamp = (pathlib.Path(tmp) / "a.json").stat().st_mtime_ns
+            updater.write_social_archive([], now=now.timestamp())
+            self.assertEqual(stamp, (pathlib.Path(tmp) / "a.json").stat().st_mtime_ns, "dəyişməyəndə yazılmır")
+            later = updater.write_social_archive([], now=(now + datetime.timedelta(days=29, hours=12)).timestamp())
+            self.assertEqual([r["id"] for r in later], ["b" * 16], "30 gündən köhnə yazı silinir")
+            (pathlib.Path(tmp) / "a.json").write_text("pozuq", encoding="utf-8")
+            self.assertEqual([r["id"] for r in updater.write_social_archive([{"id": "c" * 16, "publishedAt": iso(0)}], now=now.timestamp())], ["c" * 16])
+        self.assertIn("write_social_archive(posts)", inspect.getsource(updater.update_social))

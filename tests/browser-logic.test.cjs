@@ -279,7 +279,8 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   let h = html();
   const [row, rest] = h.split('<details class="nav-more">');
   const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
-  assert.deepEqual(phone, ['sondeqiqe', 'gundem', 'idman', 'prezident'], 'telefonda sətirdə yalnız 4 bölmə');
+  // sahib 2026-11-07: İdmanın yanında Zuğulba yox, Bölgələr (Zuğulba aşağıda öz blokunda, bağlı başlıq)
+  assert.deepEqual(phone, ['sondeqiqe', 'gundem', 'idman', 'bolgeler'], 'telefonda sətirdə yalnız 4 bölmə');
   const list = (rest.split('</details>')[0].match(/<a href="#\/bolme\//g) || []).length;
   assert.equal(list, (h.match(/<a href="#\/bolme\/[a-z]+" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
   assert.ok(rest.includes('<summary aria-label="Bütün bölmələr">☰ Hamısı</summary>'));
@@ -2608,4 +2609,26 @@ test('article page lists up to 3 related stories by rare shared title words, not
   assert.doesNotMatch(articleView('i'),/xeber\/j"/,'«həsr olunan tədbir» əlaqə deyil');
   assert.doesNotMatch(articleView('g'),/xeber\/h"/,'«mühüm açıqlama» kimi ümumi sözlər əlaqə deyil');
   assert.doesNotMatch(articleView('f0'),/xeber\/f\d+"/,'eyni adlı fərqli görüşlər bir-birinə bağlanmır');
+});
+test('owner 2026-11-07: on a phone the Zuğulba block is a closed header that opens on tap; ☰ is gold', () => {
+  const ctx = app(), { S } = ctx.api;
+  const block = vm.runInContext('prezBlock', ctx);
+  assert.match(block([]), /^<section class="prez"><div class="prez-h">/);
+  S.prezOpen = true;
+  assert.match(block([]), /^<section class="prez open">/, 'açıq qalır (yenidən çəkilişdə bağlanmır)');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(css.includes('@media(max-width:600px){.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: yalnız başlıq, say və «Hamısı →»');
+  assert.ok(js.includes('const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn"))'), 'başlığa basanda açılır, «Hamısı →» bölməyə aparır');
+  assert.ok(css.includes('nav.main .nav-more>summary::before{content:"☰";font-size:20px;color:var(--primary)}'), '☰ ulduz rəngində');
+});
+test('owner 2026-11-07: a shared social post opens hours/days later (archive, selected post first)', () => {
+  const ctx = app(), { S, socialBlock } = ctx.api;
+  const post = (n, h) => ({ id: String(n).repeat(16), who: 'prezident', name: 'Prezident', network: 'Facebook', text: 'Yazı ' + n, url: 'https://facebook.com/' + n, publishedAt: new Date(Date.now() - h * 3600e3).toISOString() });
+  S.social = { posts: [...Array.from({ length: 9 }, (_, i) => post(i + 1, i)), post('a', 300)] };
+  const html = socialBlock(false, 'a'.repeat(16));
+  assert.ok(html.indexOf('Yazı a') > 0 && html.indexOf('Yazı a') < html.indexOf('Yazı 1'), 'köhnə (9-cudan sonrakı) yazı birinci və seçili');
+  assert.match(html, /class="soc-r on"/);
+  assert.ok(!socialBlock(false).includes('Yazı a') && (socialBlock(false).match(/class="soc-r/g) || []).length === 8, 'adi baxışda son 8 yazı');
+  const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(js.includes('!S.social.posts.some(p => p.id === s) && (await requestJSON(freshUrl("data/social-arxiv.json"))).d?.posts?.find(p => p.id === s)'), 'social.json-da yoxdursa arxivdən, yalnız onda');
 });
