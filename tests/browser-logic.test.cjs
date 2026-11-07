@@ -2489,11 +2489,12 @@ test("owner's share video (2026-11-05): on a phone «Paylaş» opens the system 
 test('article page lists up to 3 related stories by rare shared title words, not by common names',()=>{
   const ctx=app(), {S,articleView}=ctx.api, t=new Date().toISOString();
   const row=(id,title,lang='az')=>({id,title,lang,source:'APA',sourceUrl:'https://apa.az/'+id,publishedAt:t,category:'gundem'});
-  const filler=Array.from({length:40},(_,i)=>row('f'+i,`İlham Əliyev görüş keçirib nömrə${i} mövzu${i} xəbər${i}`));
-  S.data={articles:[row('a','Bakıda Xəzər sahilində yeni park açılıb'),row('b','Xəzər sahilində açılan park sakinləri sevindirib'),row('c','Bakı metrosunda qatarlar gecikir'),row('d','Xəzər parkı haqqında yeni qərar: sahilində kafe olmayacaq'),...filler]};
+  const filler=Array.from({length:200},(_,i)=>row('f'+i,`İlham Əliyev görüş keçirib nömrə${i} mövzu${i} xəbər${i}`));
+  S.data={articles:[row('a','Bakıda Xəzər sahilində yeni park açılıb'),row('b','Xəzər sahilində açılan park sakinləri sevindirib'),row('c','Bakı metrosunda qatarlar gecikir'),row('d','Xəzər parkı haqqında yeni qərar: sahilində kafe olmayacaq'),row('e','Xəzər parkı haqqında yeni qərar: sahilində kafe olmayacaq - FOTO'),...filler]};
   const html=articleView('a');
   assert.match(html,/Bu barədə daha çox/);
-  assert.match(html,/href="#\/xeber\/b"/); assert.match(html,/href="#\/xeber\/d"/);
+  assert.match(html,/href="#\/xeber\/b"/);
+  assert.equal((html.match(/href="#\/xeber\/[de]"/g)||[]).length,1,'eyni başlığın ikinci nüsxəsi təkrarlanmır');
   assert.doesNotMatch(html,/xeber\/c"/,'yalnız «Bakı» ortaqdır');
   assert.doesNotMatch(html,/xeber\/f\d/,'İlham Əliyev çox işlənir, əlaqə sayılmır');
   assert.doesNotMatch(articleView('f0'),/xeber\/f\d+"/,'eyni adlı fərqli görüşlər bir-birinə bağlanmır');
