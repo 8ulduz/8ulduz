@@ -1146,7 +1146,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 .ticker .lbl .mo{flex:none;width:22px;height:22px;padding:0;border-radius:99px;background:#ffffff22;color:#fff;font-size:11px;line-height:1}
 .ticker .run.still .track{animation:none}
 .ticker .run.still{overflow-x:auto;scrollbar-width:none}
-@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:15px;letter-spacing:0;min-width:0}.prez-h h2 a{overflow:hidden;text-overflow:ellipsis}.prez-n{font-size:9px;padding:1px 6px}.prez-n b{font-size:12px}.prez-h .btn{margin-left:auto;padding:0 2px;min-height:0;border:0;background:none;box-shadow:none;color:var(--primary);font-size:22px;font-weight:900;line-height:1}.prez:not(.open) .prez-body{display:none}.prez-h{cursor:pointer}}
+@media(max-width:600px){.prez-h{gap:6px}.prez-h h2{font-size:clamp(16px,4.7vw,20px);letter-spacing:0;min-width:0}.prez-h h2 a{overflow:hidden;text-overflow:ellipsis}.prez-n{margin-left:auto;font-size:9px;padding:1px 6px}.prez-n b{font-size:12px}.prez-h .btn{margin-left:0;padding:0 2px;min-height:0;border:0;background:none;box-shadow:none;color:var(--primary);font-size:22px;font-weight:900;line-height:1}.prez:not(.open) .prez-body{display:none}.prez-h{cursor:pointer}}
 .prez-pause{flex:none;width:24px;height:24px;padding:0;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--fg);font-size:11px;line-height:1}
 @media(hover:none){.prez-pause{display:none}}
 /* «Son xəbərlər» Gündəmdən aydın xətlə ayrılır */
