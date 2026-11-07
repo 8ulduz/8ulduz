@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""«Dinlə»: xəbərin tam mətni təbii Azərbaycan səsi ilə, hər telefonda, pulsuz.
+
+Sahib, 2026-11-07: «xəbəri saytından tam oxusun»; «Edge daxilindəki səsini kənardan işlət»; «müəllif hüququ mənlikdir».
+Əsas Azərbaycan xəbərlərinin tam mətni mənbə səhifəsindən götürülür (reader_content.extract_article: ödənişli xəbər
+götürülmür), Microsoft Edge-in «Ucadan oxu» səsi (az-AZ-BabekNeural, edge-tts paketi) ilə mp3 olur və ayrıca 8ulduz/ses
+reposuna yazılır. Mətnin özü heç yerdə yayımlanmır, yalnız səs; səs mənbənin adı ilə başlayır.
+Sayt reposuna (8ulduz/8ulduz) heç nə yazılmır: səs faylları böyükdür, sayt reposunu və Pages-i ağırlaşdırmasın. Ses reposu
+tarixçəsizdir (hər yazı valideynsiz commit), lentdən çıxmış və KEEP_H saatdan köhnə səs silinir; repo şişsə silinib yenidən
+yaradıla bilər, sayta təsiri yoxdur. Edge xidməti Microsoft-un rəsmi açıq xidməti deyil: bağlansa iş səhv verir, sayt isə
+cihazın öz səsi ilə oxumağa davam edir (assets/dinle.js). Qırmızı xətt 2: xəbərlər content_policy.enforce-dan keçir.
+
+İşlədilmə (8ulduz/ses reposunun iş axını): python ses.py <ses-klonu>
+"""
+import asyncio
+import datetime
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
+import content_policy  # noqa: E402
+from reader_content import extract_article  # noqa: E402
+
+SITE = "https://8ulduz.az/"
+VOICE = "az-AZ-BabekNeural"
+UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
+PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 14, 30, 30, 260, 5000
+ID_RE = re.compile(r"^[0-9a-f]{16}$")
+
+
+def parse_time(s):
+    try:
+        t = datetime.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return t if t.tzinfo else t.replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+
+
+def pick(articles, have, now):
+    """Səslənəcək xəbərlər: Azərbaycan dilində, son 30 saat, çox mənbəli olanlar önə, sonra yenilər."""
+    rows = []
+    for a in articles:
+        t = parse_time(a.get("publishedAt"))
+        if (ID_RE.match(str(a.get("id", ""))) and (a.get("lang") or "az") == "az" and a.get("title") and a["id"] not in have
+                and str(a.get("sourceUrl", "")).startswith("https://") and t and -600 <= (now - t).total_seconds() < MAX_AGE_H * 3600):
+            rows.append(a)
+    rows, _ = content_policy.enforce(rows)
+    return sorted(rows, key=lambda a: (-(1 + len(a.get("alts") or [])), -parse_time(a["publishedAt"]).timestamp()))
+
+
+def clip(text, limit=MAX_CHARS):
+    """Çox uzun mətn cümlə sərhədində kəsilir."""
+    text = re.sub(r"\s+", " ", text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    return cut[: end + 1] if end > limit // 2 else cut
+
+
+def script_of(a, body):
+    """Oxunan mətn: başlıq, mənbə, tam mətn (alınmayıbsa saytdakı xülasə)."""
+    title = re.sub(r"[.!?…\s]+$", "", re.sub(r"\s+", " ", a.get("title", "")).strip())
+    lead = f"{title}. {a['source']} xəbər verir." if a.get("source") else f"{title}."
+    rest = body or re.sub(r"<[^>]+>", " ", a.get("summary") or "")
+    rest = clip(rest)
+    if rest.startswith(title):
+        rest = rest[len(title):].lstrip(" .")
+    return f"{lead} {rest}".strip()
+
+
+def fetch(url, timeout=12):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/json,*/*"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read(3_000_000).decode("utf-8", errors="replace")
+
+
+def git(d, *args, data=None):
+    return subprocess.run(["git", "-C", d, *args], input=data, capture_output=True, check=True).stdout.decode().strip()
+
+
+async def speak(text, path):
+    import edge_tts  # yalnız iş axınında quraşdırılır
+    raw = path + ".raw.mp3"
+    await edge_tts.Communicate(text, VOICE).save(raw)
+    # 32 kbit/s mono: nitq üçün kifayətdir, fayl ~3 dəfə kiçik (telefonun interneti az yeyilir)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-ac", "1", "-ar", "22050", "-b:a", "32k", path], check=True)
+    os.remove(raw)
+    if os.path.getsize(path) < 3000:
+        raise RuntimeError("boş səs")
+
+
+def main(d):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    feed = json.loads(fetch(f"{SITE}data/news.json?t={int(now.timestamp())}", 30)).get("articles") or []
+    if len(feed) < 50:
+        print(f"ses: lent alınmadı ({len(feed)})")
+        return
+    have, other, index = {}, [], {}
+    try:
+        for line in git(d, "ls-tree", "HEAD").splitlines():
+            meta, name = line.split("\t", 1)
+            m = re.fullmatch(r"([0-9a-f]{16})\.mp3", name)
+            if m:
+                have[m.group(1)] = meta.split()[2]
+            elif name == "index.json":
+                index = json.loads(git(d, "cat-file", "blob", meta.split()[2]))
+            else:
+                other.append(line)  # .github/ (iş axınının özü), README
+    except subprocess.CalledProcessError:
+        pass
+    born = dict(index.get("t") or {})
+    live = {a.get("id") for a in feed}
+    dropped = 0
+    for i in list(have):
+        if i not in live and now.timestamp() - born.get(i, 0) > KEEP_H * 3600:
+            del have[i]
+            dropped += 1
+    made = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for a in pick(feed, have, now):
+            if made >= PER_RUN or len(have) >= MAX_FILES:
+                break
+            try:
+                body = extract_article(fetch(a["sourceUrl"]))
+            except Exception:
+                body = ""
+            path = os.path.join(tmp, a["id"] + ".mp3")
+            try:
+                asyncio.run(speak(script_of(a, body), path))
+            except Exception as e:  # Edge xidməti cavab vermirsə bu dövrə dayanır
+                print("ses:", a["id"], type(e).__name__, str(e)[:120])
+                break
+            have[a["id"]] = git(d, "hash-object", "-w", path)
+            born[a["id"]] = int(now.timestamp())
+            made += 1
+    if not made and not dropped:
+        print("ses: yeni səs yoxdur")
+        return
+    born = {i: t for i, t in born.items() if i in have}
+    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born}, separators=(",", ":")).encode()
+    rows = other + [f"100644 blob {sha}\t{i}.mp3" for i, sha in sorted(have.items())]
+    rows.append(f"100644 blob {git(d, 'hash-object', '-w', '--stdin', data=idx)}\tindex.json")
+    tree = git(d, "mktree", data=("\n".join(rows) + "\n").encode())
+    commit = git(d, "-c", "user.name=8ulduz-bot", "-c", "user.email=bot@8ulduz.az", "commit-tree", tree, "-m", "Xəbər səsləri")
+    git(d, "push", "-q", "--force", "origin", f"{commit}:refs/heads/main")
+    print(f"ses: {made} yeni səs, {dropped} köhnə silindi, cəmi {len(have)}")
+
+
+if __name__ == "__main__":
+    main(os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".ses"))

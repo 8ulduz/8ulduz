@@ -1,0 +1,44 @@
+name: Xəbər səsləri
+# Bu fayl 8ulduz/ses reposunun iş axınıdır (orada .github/workflows/ses.yml). Burada nüsxəsi saxlanır; dəyişəndə oraya da yazın.
+# Əsas Azərbaycan xəbərlərinin tam mətni Edge-in Babək səsi ilə mp3 olur və 8ulduz/ses reposuna yazılır
+# (8ulduz/8ulduz: .github/scripts/ses.py). Sayt reposuna heç nə yazılmır. Xəbər axınından tam ayrıdır.
+
+on:
+  schedule:
+    - cron: "4,19,34,49 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ses
+  cancel-in-progress: false
+
+jobs:
+  ses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: 8ulduz/8ulduz
+          fetch-depth: 1
+          path: site
+          sparse-checkout: |
+            .github/scripts/ses.py
+            content_policy.py
+            reader_content.py
+            assets/content-policy.js
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Edge səsi
+        run: pip install -q "edge-tts>=7,<8"
+      - name: Ses reposu
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: git clone -q --depth 1 --filter=blob:none --no-checkout "$URL" .ses
+      - name: Səsləndir
+        run: python site/.github/scripts/ses.py .ses

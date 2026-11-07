@@ -2,11 +2,11 @@
 // Xəbər səhifəsindəki «🔊 Dinlə» bu modulu yalnız basılanda yükləyir (adi açılışa bayt əlavə olunmur — qırmızı xətt 1).
 // Oxunan: başlıq + saytdakı xülasə (saytda onsuz da göstərilən mətn; mənbənin tam mətni yayılmır). «Növbəti» lentdəki
 // növbəti Azərbaycan dilində xəbərə keçir, xəbər bitəndə özü keçir — radio kimi.
-// Səs sırası: 1) hazır təbii Azərbaycan səsi (Azure Babək, .github/scripts/ses.cjs «ses» budağına yazır) — hər telefonda eyni,
-// ekran kilidlənəndə də çalır; 2) cihazın Azərbaycan səsi (Edge: «Microsoft … Online (Natural)»); 3) türk səsi — ə/x/q
+// Səs sırası: 1) xəbərin TAM mətni hazır təbii Azərbaycan səsi ilə (Edge Babək; .github/scripts/ses.py 8ulduz/ses reposuna
+// yazır) — hər telefonda eyni, ekran kilidlənəndə də çalır; «Növbəti» əvvəl hazır səsli xəbərlərə keçir; 2) cihazın Azərbaycan səsi (Edge: «Microsoft … Online (Natural)»); 3) türk səsi — ə/x/q
 // türkcə yaxın səsə çevrilir ki, düzgün tələffüz olunsun; heç biri yoxdursa açıq izah. Sürət seçimi yadda qalır.
 
-export const AUDIO = "https://raw.githubusercontent.com/8ulduz/8ulduz/ses/";
+export const AUDIO = "https://raw.githubusercontent.com/8ulduz/ses/main/";
 
 export function textOf(a, decode = s => s) {
   const clean = s => decode(String(s || "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -69,9 +69,16 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
     synth?.addEventListener?.("voiceschanged", end, { once: true }); setTimeout(end, 1500);
   });
   // Hazır səs faylı (yoxdursa ""): bir sorğu, 6 saniyə; növbəti xəbərinki əvvəlcədən götürülür ki, ara olmasın.
+  // Hazır səslərin siyahısı (index.json): bir sorğu, 10 dəqiqədə bir təzələnir; siyahıda olmayan xəbər üçün sorğu getmir.
+  let voiced = null, voicedAt = 0;
+  const loadVoiced = async () => {
+    if (voiced && Date.now() - voicedAt < 6e5) return voiced;
+    try { const r = await fetchFn(`${AUDIO}index.json?t=${Math.floor(Date.now() / 6e5)}`, { signal: AbortSignal.timeout(5000) }); if (r.ok) { voiced = new Set((await r.json()).ids || []); voicedAt = Date.now(); } } catch {}
+    return voiced || new Set();
+  };
   const audioFor = id => {
     if (!files.has(id)) files.set(id, (async () => {
-      if (!fetchFn || !AudioCtor || !/^[0-9a-f]{16}$/.test(String(id || ""))) return "";
+      if (!fetchFn || !AudioCtor || !/^[0-9a-f]{16}$/.test(String(id || "")) || !(await loadVoiced()).has(id)) return "";
       try {
         const r = await fetchFn(`${AUDIO}${id}.mp3`, { signal: AbortSignal.timeout(6000) });
         if (!r.ok) return "";
@@ -81,7 +88,8 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
     return files.get(id);
   };
   const azList = () => list().filter(a => (a.lang || "az") === "az");
-  const after = a => { const all = azList(), at = all.findIndex(x => x.id === a?.id); return all[at + 1]; };
+  // Növbəti: əvvəl hazır tam səsi olan xəbər (maşında dinləyən ardıcıl təbii səs eşitsin), sonra qalanlar.
+  const after = a => { const all = azList(), at = all.findIndex(x => x.id === a?.id), rest = all.slice(at + 1); return rest.find(x => voiced?.has(x.id)) || rest[0]; };
   const ui = () => {
     if (box) return box;
     if (!doc.getElementById("dinle-style")) { const st = doc.createElement("style"); st.id = "dinle-style"; st.textContent = CSS; doc.head.append(st); }
@@ -134,7 +142,7 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
       aud.onended = () => { if (id === gen) next(true); };
       aud.onerror = () => { if (id === gen) { files.set(a.id, Promise.resolve("")); play(a); } };  // fayl xarabdırsa cihazın səsi
       playing = true; ppLabel(); media(a);
-      status("Oxunur · təbii Azərbaycan səsi (Babək)");
+      status("Oxunur · tam xəbər, təbii Azərbaycan səsi");
       try { await aud.play(); } catch { playing = false; ppLabel(); status("Başlatmaq üçün «▶ Davam» basın."); }
     } else {
       if (!synth || !Utterance) { playing = false; ppLabel(); status("Bu xəbərin hazır səsi yoxdur, bu brauzer də səsli oxumanı dəstəkləmir."); return; }
@@ -143,7 +151,7 @@ export function createPlayer({ list, decode = s => s, doc = document, synth = gl
       if (!choice) { playing = false; ppLabel(); status("Bu xəbərin hazır səsi yoxdur, cihazda da Azərbaycan və ya türk səsi tapılmadı."); return; }
       mode = "tts"; parts = chunks(textOf(a, decode)); playing = true; ppLabel(); media(a);
       const vn = String(choice.voice.name).replace(/^(Microsoft|Google)\s+/, "").replace(/\s+(Online|-).*$/, "");
-      status(choice.az ? `Oxunur · səs: ${vn}` : `Oxunur · türk səsi (${vn}); təbii Azərbaycan səsi əsas xəbərlərdədir`);
+      status(choice.az ? `Oxunur · səs: ${vn}` : `Oxunur · türk səsi (${vn}) — bu xəbərin hazır səsi hələ yoxdur`);
       speak(id);
     }
     const n = after(a); if (n) audioFor(n.id);  // növbəti xəbərin səsi arxada hazırlanır
