@@ -5701,6 +5701,11 @@ def main(fast=False):
     for a in sorted(new_items + old, key=lambda x: x.get("publishedAt") or "", reverse=True):
         if a["sourceUrl"] in dseen:
             continue
+        # Zuğulba xronikası mənbə limitinə düşmür: öz limiti var (60 gün, 120 xəbər, aşağıda). Əvvəl APA/Report-un köhnə
+        # Zuğulba xəbərləri yeni adi xəbərlərin hesabına lentdən çıxırdı, blok 44-ə çatmırdı (sahib 2026-11-07).
+        if a.get("category") == "prezident":
+            dseen.add(a["sourceUrl"]); uniq.append(a)
+            continue
         n, is_sport = per_src.get(a.get("source"), 0), a.get("source") in content_policy.SPORT_SOURCES
         is_world = a.get("source") in WORLD_SOURCES and not is_sport
         lang = a.get("lang") or "en"

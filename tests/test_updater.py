@@ -2123,3 +2123,16 @@ class SocialArchiveTest(unittest.TestCase):
             (pathlib.Path(tmp) / "a.json").write_text("pozuq", encoding="utf-8")
             self.assertEqual([r["id"] for r in updater.write_social_archive([{"id": "c" * 16, "publishedAt": iso(0)}], now=now.timestamp())], ["c" * 16])
         self.assertIn("write_social_archive(posts)", inspect.getsource(updater.update_social))
+
+
+class ZugulbaKeepTest(unittest.TestCase):
+    """Sahib, 2026-11-07: «keçmiş xəbər var, ardıcıllıqla 44 düzəlməyə bilməz» — Zuğulba mənbə limitinə düşmür."""
+
+    def test_zugulba_items_skip_the_per_source_cap(self):
+        src = inspect.getsource(updater.main)
+        skip = src.index('Zuğulba xronikası mənbə limitinə düşmür')
+        cap = src.index('if n >= source_cap(a.get("source"))')
+        self.assertLess(skip, cap, "Zuğulba xəbəri mənbə limitindən əvvəl seçilir")
+        self.assertIn('dseen.add(a["sourceUrl"]); uniq.append(a)', src[skip:cap])
+        self.assertIn('prez_items = [a for a in uniq if a["category"] == "prezident"][:120]', src, "öz limiti qalır")
+        self.assertIn("cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)", src, "60 gün")
