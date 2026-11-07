@@ -1858,7 +1858,7 @@ async function scanArchives(id) {
 function relatedOf(a) {
   const all = S.data?.articles || [], df = new Map(), t = +new Date(a.publishedAt), skip = new Set([a, ...(a.alts || [])].map(x => x.id));
   for (const b of all) for (const w of new Set(titleTokens(b.title))) df.set(w, (df.get(w) || 0) + 1);
-  const A = new Set(titleTokens(a.title).filter(w => (df.get(w) || 0) <= Math.max(3, all.length / 40) && !/^(muhum|bagl|aciql|son$|yeni|foto|video|veziyyet|haqq|bared|gore|sonra|daha|olub|edib|edir|kecir|detal|xeber|tecili)/.test(w)));
+  const A = new Set(titleTokens(a.title).filter(w => (df.get(w) || 0) <= Math.max(3, all.length / 40) && !/^(muhum|bagl|aciql|son$|yeni|foto|video|veziyyet|haqq|bared|gore|sonra|daha|olub|edib|edir|kecir|detal|xeber|tecili|hesr|olun|oldu|tedbir|tarix|munasib)/.test(w)));
   return all.filter(b => !skip.has(b.id) && Math.abs(+new Date(b.publishedAt) - t) < GROUP_MS && !removedArticle(b))
     .map(b => [new Set(titleTokens(b.title).filter(w => A.has(w))).size, b]).filter(x => x[0] > 1).sort((x, y) => y[0] - x[0]).map(x => x[1]).reduce((k, b) => (k.length < 3 && !k.some(c => jaccard(new Set(titleTokens(b.title)), new Set(titleTokens(c.title))) > .5) && k.push(b), k), []);
 }

@@ -2498,6 +2498,8 @@ test('article page lists up to 3 related stories by rare shared title words, not
   assert.doesNotMatch(html,/xeber\/c"/,'yalnız «Bakı» ortaqdır');
   assert.doesNotMatch(html,/xeber\/f\d/,'İlham Əliyev çox işlənir, əlaqə sayılmır');
   S.data.articles.push(row('g','Şuşa əməliyyatı ilə bağlı mühüm DETAL AÇIQLANDI'),row('h','Nazirdən məktəblərlə bağlı MÜHÜM AÇIQLAMA'));
+  S.data.articles.push(row('i','İtkin düşənlərə həsr olunan tədbir keçirilib'),row('j','Zəfər Gününə həsr olunan mini-futbol turniri keçirilib'));
+  assert.doesNotMatch(articleView('i'),/xeber\/j"/,'«həsr olunan tədbir» əlaqə deyil');
   assert.doesNotMatch(articleView('g'),/xeber\/h"/,'«mühüm açıqlama» kimi ümumi sözlər əlaqə deyil');
   assert.doesNotMatch(articleView('f0'),/xeber\/f\d+"/,'eyni adlı fərqli görüşlər bir-birinə bağlanmır');
 });
