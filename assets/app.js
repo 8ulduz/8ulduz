@@ -417,7 +417,7 @@ const altBadge = a => a.alts?.length ? `<a class="bd out" href="${detailUrl(a)}#
 function altPop(a) {
   if (!a.alts?.length) return "";
   const rows = [a, ...a.alts].map(r => `<a href="${safeHref(r.sourceUrl)}" ${OUT}>${sourceName(r.source)}</a>`).join("");
-  return `<details class="altpop"><summary class="bd gold">${1 + a.alts.length} mənbə</summary><div>${rows}</div></details>`;
+  return `<details class="altpop"><summary class="bd gold">${1 + a.alts.length} mənbə</summary><div><template>${rows}</template></div></details>`;
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
 
@@ -3046,6 +3046,7 @@ document.addEventListener("toggle", (e) => {
   const d = e.target;
   if (d.classList?.contains("service-panel")) S.svcOpen = d.open; // nəticə/cədvəl düyməsi paneli bağlamasın
   if (!d.classList?.contains("altpop") || !d.open) return;
+  const t = d.querySelector("template"); if (t) t.replaceWith(t.content);
   document.querySelectorAll("details.altpop[open]").forEach(x => { if (x !== d) x.open = false; });
 }, true);
 if (uiLang(S.lang)) {
