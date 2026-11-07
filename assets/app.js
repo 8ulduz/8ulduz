@@ -906,8 +906,11 @@ function flushRender() {
 function syncNewPill() {
   const pill = $("#newpill");
   if (!pill) return;
-  pill.hidden = !S.pendingNew;
-  pill.textContent = `↑ ${S.pendingNew} yeni xəbər`;
+  // Sahib 2026-11-07: yalnız olduğun bölmənin (alt düymənin) xəbərləri.
+  const r = route(), c = r.name === "section" && CATS.find(c => c.slug === r.slug), rows = S.pendingNew || [];
+  const mine = r.name === "home" ? rows : c ? rows.filter(a => (r.slug === "sondeqiqe" || (r.slug === "video" ? a.video : a.category === r.slug)) && (!S.club || clubMatches(a, S.club))) : [];
+  pill.hidden = !mine.length;
+  pill.textContent = `↑ ${mine.length} yeni ${c ? (S.club || c.label) + " xəbəri" : "xəbər"}`;
 }
 // Dəqiqəlik lent dil üzrə.
 async function latestJSON(force) {
@@ -959,7 +962,7 @@ async function loadLatest(force = false) {
     S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
     publishNews();
-    if (readerBusy()) { S.pendingNew = (S.pendingNew || 0) + fresh.length; renderTopbar(); renderTicker(); }
+    if (readerBusy()) { S.pendingNew = [...fresh, ...(S.pendingNew || [])]; renderTopbar(); renderTicker(); }
     requestRender();
   } catch {} finally { S.latestLoading = false; }
 }

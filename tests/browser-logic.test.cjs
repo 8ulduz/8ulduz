@@ -2635,3 +2635,20 @@ test('owner 2026-11-07: a shared social post opens hours/days later (archive, se
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(js.includes('!S.social.posts.some(p => p.id === s) && (await requestJSON(freshUrl("data/social-arxiv.json"))).d?.posts?.find(p => p.id === s)'), 'social.json-da yoxdursa arxivdən, yalnız onda');
 });
+test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you are on', () => {
+  const pill = { hidden: true, textContent: '' };
+  const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '#newpill' ? pill : null, createElement() { return {}; } } });
+  const { S } = ctx.api, sync = vm.runInContext('syncNewPill', ctx);
+  const row = (id, category, title = 'Xəbər ' + id) => ({ id, category, title, source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: new Date().toISOString(), lang: 'az' });
+  S.pendingNew = [row('1', 'idman', 'Qarabağ qələbə qazandı'), row('2', 'idman', 'Neftçi məğlub oldu'), row('3', 'siyaset'), row('4', 'dunya')];
+  ctx.location.hash = '#/'; sync();
+  assert.equal(pill.hidden, false); assert.equal(pill.textContent, '↑ 4 yeni xəbər', 'baş səhifədə hamısı');
+  ctx.location.hash = '#/bolme/idman'; S.club = null; sync();
+  assert.equal(pill.textContent, '↑ 2 yeni İdman xəbəri', 'İdmanda yalnız idman');
+  S.club = 'Qarabağ'; sync();
+  assert.equal(pill.textContent, '↑ 1 yeni Qarabağ xəbəri', 'alt düymədə yalnız onun xəbəri');
+  S.club = null; ctx.location.hash = '#/bolme/tehsil'; sync();
+  assert.equal(pill.hidden, true, 'bölmədə yeni xəbər yoxdursa düymə görünmür');
+  ctx.location.hash = '#/xeber/1'; sync();
+  assert.equal(pill.hidden, true, 'xəbəri oxuyanda düymə yoxdur');
+});
