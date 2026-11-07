@@ -1906,15 +1906,17 @@ function allNews() {
   if (S.allD !== S.data || S.allV !== S.arxV) { S.allD = S.data; S.allV = S.arxV; S.all = collapseExact([...S.data.articles, ...CATS.flatMap(c => S.archive?.[c.slug]?.rows || []).filter(a => !removedArticle(a))]); }
   return S.all;
 }
+const ARCHIVE_POOLS = new WeakMap();
 function withArchive(slug, list) {
   const archive = S.archive?.[slug], rows = archive?.rows;
   if (!rows?.length) return list;
   const full = list === S.data?.articles, rev = removedIds.size + removedUrls.size + removedKeys.size;
-  if (full && archive.poolData === S.data && archive.poolRows === rows && archive.poolRev === rev) return archive.pool;
+  const cache = full ? ARCHIVE_POOLS.get(list) : null, memo = cache?.get(slug);
+  if (memo && memo.data === S.data && memo.rows === rows && memo.rev === rev) return memo.pool;
   const saved = rows.filter(a => !removedArticle(a)), known = urlsOf(saved);
   const live = (S.data?.articles || []).filter(a => known.has(a.sourceUrl) || a.alts?.some(x => known.has(x.sourceUrl)));
   const pool = collapseExact([...list, ...live, ...saved]);
-  if (full) Object.assign(archive, {poolData: S.data, poolRows: rows, poolRev: rev, pool});
+  if (full) { const m = cache || new Map(); m.set(slug, {data: S.data, rows, rev, pool}); ARCHIVE_POOLS.set(list, m); }
   return pool;
 }
 function sectionView(slug) {
