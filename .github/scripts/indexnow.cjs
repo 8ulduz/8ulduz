@@ -24,16 +24,32 @@ function pending(index, sent, now) {
 async function run({ index, state, key, now = Date.now(), fetch: f = globalThis.fetch, log = console.log }) {
   const sent = state.sent = Object.fromEntries(Object.entries(state.sent || {}).filter(([, t]) => now / 1000 - t < KEEP_S));
   if (!key) { log("indexnow: açar faylı yoxdur"); return []; }
+  const candidates = pending(index, sent, now).slice(0, MAX);
+  if (!candidates.length) { log("indexnow: yeni səhifə yoxdur"); return []; }
+  // Pages açar faylını yayımlamamış göndəriş başlamasın: xəbər səhifələri əvvəlcədən açıq ola bilər.
+  const keyLocation = `${SITE}${key}.txt`;
+  const proof = await f(keyLocation, { method: "GET", signal: AbortSignal.timeout(10000) });
+  if (proof.status !== 200 || (await proof.text()).trim() !== key) {
+    log("indexnow: açar faylı hələ yayımlanmayıb və ya uyğun gəlmir");
+    return [];
+  }
   const ids = [];
-  for (const id of pending(index, sent, now).slice(0, MAX)) {
+  for (const id of candidates) {
     const ok = await f(`${SITE}xeber/${id}/`, { method: "HEAD", signal: AbortSignal.timeout(10000) }).then(r => r.status === 200, () => false);
     if (ok) ids.push(id);
   }
   if (!ids.length) { log("indexnow: yeni səhifə yoxdur"); return []; }
   const r = await f("https://api.indexnow.org/indexnow", { method: "POST", headers: { "content-type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ host: "8ulduz.az", key, keyLocation: `${SITE}${key}.txt`, urlList: ids.map(id => `${SITE}xeber/${id}/`) }),
+    body: JSON.stringify({ host: "8ulduz.az", key, keyLocation, urlList: ids.map(id => `${SITE}xeber/${id}/`) }),
     signal: AbortSignal.timeout(20000) });
-  if (!(r.status === 200 || r.status === 202)) throw new Error(`indexnow: HTTP ${r.status}`);
+  if (!(r.status === 200 || r.status === 202)) {
+    let code = "";
+    try {
+      const error = await r.json();
+      code = [error.errorCode, error.code].find(v => typeof v === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,79}$/.test(v)) || "";
+    } catch {}
+    throw new Error(`indexnow: HTTP ${r.status}${code ? ` (${code})` : ""}`);
+  }
   for (const id of ids) sent[id] = Math.floor(now / 1000);
   log(`indexnow: ${ids.length} səhifə bildirildi`);
   return ids;
