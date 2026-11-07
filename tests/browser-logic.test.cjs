@@ -2617,7 +2617,7 @@ test('owner 2026-11-07: on a phone the Zuğulba block is a closed header that op
   S.prezOpen = true;
   assert.match(block([]), /^<section class="prez open">/, 'açıq qalır (yenidən çəkilişdə bağlanmır)');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
-  assert.ok(css.includes('.prez-h h2{font-size:13px;letter-spacing:0;min-width:0}') && css.includes('.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: bir sırada ad, say və ox (kart böyümür)');
+  assert.ok(css.includes('.prez-h h2{font-size:15px;letter-spacing:0;min-width:0}') && css.includes('.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: bir sırada ad, say və ox (kart böyümür)');
   assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && js.includes('aria-label="Zuğulba Xronikası bölməsi">→</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: telefonda tam ad «Zuğulba Xronikası», «Hamısı» yerinə ox');
   assert.ok(js.includes('const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn"))'), 'başlığa basanda açılır, «Hamısı →» bölməyə aparır');
   assert.ok(css.includes('nav.main .nav-more>summary::before{content:"☰";font-size:20px;color:var(--primary)}'), '☰ ulduz rəngində');
