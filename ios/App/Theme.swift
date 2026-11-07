@@ -62,7 +62,11 @@ extension View {
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.border, lineWidth: 1))
     }
 
+    /// Mətn rəngi yalnız ekranın məzmununa verilir, sistem axtarış sətrinə keçmir. Rəng tətbiqin kökündə olanda
+    /// «Axtar» tabı açılarkən tətbiq donmuşdu (2026-11-07 UI testi); səbəb ehtimal ki `searchable` idi.
     func screenBackground() -> some View {
-        self.scrollContentBackground(.hidden).background(Theme.background.ignoresSafeArea())
+        self.foregroundStyle(Theme.text)
+            .scrollContentBackground(.hidden)
+            .background(Theme.background.ignoresSafeArea())
     }
 }
