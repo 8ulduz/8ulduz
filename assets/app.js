@@ -1099,6 +1099,7 @@ function shell() {
   <nav class="tabbar" aria-label="Sürətli keçid">
     <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
     <a href="#/bolme/video" data-tab="video"><b>▶</b><span>Video</span></a>
+    <a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>
     <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
     <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
@@ -1222,7 +1223,7 @@ function renderNav() {
   const primary = NAV_PRIMARY;
   const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
-    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/tixac" class="tix-btn">🚦 Tıxac və yollar</a><a href="#/bolmeler">Bölmələri tənzimlə</a>` +
+    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a>` +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button></div></details>` +
     `<a class="nav-tg" href="${esc(window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az")}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>`;
   if (h === S.navH) return;
@@ -2165,7 +2166,7 @@ function renderView() {
     // Məzmun dəyişməyibsə DOM toxunulmur.
     const page = err + body;
     if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
-    const tab = r.name === "saved" ? "saved" : r.name === "section" && r.slug === "video" ? "video" : r.name === "sections" || r.name === "section" || r.name === "team" ? "sections" : r.name === "home" && !S.q ? "home" : "";
+    const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "section" && r.slug === "video" ? "video" : r.name === "sections" || r.name === "section" || r.name === "team" ? "sections" : r.name === "home" && !S.q ? "home" : "";
     document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
     highlightSearch();
   } finally { countVisit(); }

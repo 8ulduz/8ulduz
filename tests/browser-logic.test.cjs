@@ -2652,12 +2652,12 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
   ctx.location.hash = '#/xeber/1'; sync();
   assert.equal(pill.hidden, true, 'xəbəri oxuyanda düymə yoxdur');
 });
-test('owner 2026-11-07: the bottom bar has Video instead of Tıxac; Tıxac stays in ☰ with its red dot', () => {
+test('owner 2026-11-07: the bottom bar has six buttons — Video added, Tıxac kept', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   for (const src of [js, html]) {
     assert.ok(src.includes('<a href="#/bolme/video" data-tab="video"><b>▶</b><span>Video</span></a>'), 'aşağı zolaqda Video');
-    assert.ok(!src.includes('<span>Tıxac</span>'), 'Tıxac aşağı zolaqda yoxdur');
+    assert.ok(src.includes('<a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>'), 'Tıxac qalır');
+    assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 6, 'aşağıda 6 düymə');
   }
-  assert.ok(js.includes('<a href="#/tixac" class="tix-btn">🚦 Tıxac və yollar</a>'), 'Tıxac ☰ siyahısında, pik saatda qırmızı nöqtə ilə');
   assert.ok(js.includes('r.name === "section" && r.slug === "video" ? "video"'), 'Video səhifəsində düymə seçili');
 });
