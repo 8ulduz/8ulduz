@@ -35,7 +35,10 @@ jobs:
           fetch-depth: 1
           sparse-checkout: |
             .github/scripts/social.cjs
+            .github/scripts/topics.cjs
             .github/scripts/indexnow.cjs
+            assets/app.js
+            assets/content-policy.js
             data/news.json
             xeber/index.json
             icmal/index.json

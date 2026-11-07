@@ -17,7 +17,7 @@ on:
       - .github/scripts/speed.cjs
       - .github/workflows/speed.yml
   schedule:
-    - cron: "17 1 * * *"
+    - cron: "17 1,7,11,15 * * *"   # gecə + gün ərzində (lent böyüyəndə yavaşlama kod dəyişmədən də ola bilər; sahib 2026-11-07)
   workflow_dispatch:
 
 permissions:

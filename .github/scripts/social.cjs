@@ -251,7 +251,11 @@ async function main() {
   const feed = process.argv[2] || "data/news.json";
   const stateFile = process.env.SOCIAL_STATE || ".social/posted.json";
   const now = Date.now();
-  const articles = JSON.parse(fs.readFileSync(feed, "utf8")).articles || [];
+  // Qırmızı xətt 2, ikinci qapı (2026-11-07): lent artıq süzülüb, amma şəbəkəyə gedən hər xəbər saytın öz qaydasından da keçir.
+  // Qayda faylı oxunmasa heç nə paylaşılmır (xəta ilə dayanır).
+  const { loadApp } = require("./topics.cjs");
+  const app = loadApp(path.resolve("."));
+  const articles = (JSON.parse(fs.readFileSync(feed, "utf8")).articles || []).filter(a => !app.policyViolation(a));
   const state = readState(stateFile, now);
   let digestIndex = [];
   try { digestIndex = JSON.parse(fs.readFileSync("icmal/index.json", "utf8")); } catch {}
