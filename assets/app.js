@@ -1,4 +1,4 @@
-// 8ulduz — sayt kodu (build tələb olunmur; birbaşa GitHub Pages-də işləyir).
+// 8ulduz — sayt kodu (build yoxdur; birbaşa GitHub Pages-də).
 // Məlumat: data/*.json — updater.py yaradır.
 
 /* ---- sabitlər */
@@ -19,7 +19,7 @@ const CATS = [
   { slug: "video", label: "Video", description: "Saytlardakı video xəbərlərə keçidlər" },
 ];
 const SECTION_ALIAS = { sehiyye: "heyat", texnologiya: "tehsil" };
-// Axtarış sistemi üçün statik səhifəsi olan xidmətlər (updater.py, SERVICE_PAGES).
+// Axtarış üçün statik səhifəli xidmətlər (updater.py, SERVICE_PAGES).
 const SERVICE_ROUTES = { tixac: "traffic", valyuta: "rates", cedvel: "league" };
 const LANGS = [
   { code: "az", label: "Azərbaycan dilində" }, { code: "tr", label: "Türkçe" },
@@ -121,7 +121,7 @@ const NEWS_FULL_MS = 10 * 60e3; // tam lent bu qədərdən bir; arada yalnız di
 const LATEST_MAX_MS = 90e3;     // status möhürü dəyişməsə də bu qədərdən bir latest.json yoxlanır
 // Hər dəqiqə yeni sorğu açarı (Pages keşi)
 let freshSequence = 0;
-// Service worker-siz ziyarətçi də dəqiqəlik kanalı görsün; sw.js ilə eyni qayda.
+// Service worker-siz ziyarətçi də dəqiqəlik kanalı görsün (sw.js ilə eyni).
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
@@ -470,8 +470,9 @@ function shownSource(a) {
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}</span></div>`;
 // Paylaşma keçidi: b bölmə, h saat (arxiv.cjs hourOf).
 const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
-const shareUrl = a => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}${hourOf(a) && "?h=" + hourOf(a)}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${hourOf(a) && "&h=" + hourOf(a)}`;
-const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 1, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 1, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 0, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
+const shareUrl = (a, h = hourOf(a)) => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}${h && "?h=" + h}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${h && "&h=" + h}`;
+// [1]: Facebook/X/LinkedIn hash keçidi oxumur, baş səhifəni alır: təzə xəbərə də /x/ (dəqiqələrlə yaranır).
+const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 0, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 0, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 1, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
 // Şəbəkə işarələri sprite-dadır (sosial.svg).
 const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
 const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
@@ -2239,7 +2240,7 @@ function savedView() {
     (items.length ? `<div class="grid">${items.map(card).join("")}</div><p style="margin:14px 0 0"><button type="button" class="loadmore" data-act="clear-saved">Hamısını sil (${items.length})</button></p>` : `<p class="empty">Hələ seçilmiş xəbər yoxdur. Kartdakı ulduza basın.</p>`);
 }
 
-// Yalnız ümumi say gedir, şəxsi məlumat yoxdur (source-stats.js ilə eyni üsul).
+// Yalnız ümumi say gedir, şəxsi məlumat yoxdur (source-stats.js).
 function trackEvent(path) {
   gaQ.push([visitPath(), document.title, void 0, path]); gaFlush();
   try { window.goatcounter?.count?.({ path, title: path, event: true, no_session: true, referrer: "" }); } catch {}
@@ -2274,7 +2275,7 @@ async function shareTo(t) {
   }
   closeSharePop();
   if (to === "sys") { try { await navigator.share({ title, text: title, url }); } catch {} return; }
-  const u = SHARE_TO[to]?.[2](encodeURIComponent(url), encodeURIComponent(title));
+  const u = SHARE_TO[to]?.[2](encodeURIComponent(SHARE_TO[to][1] ? url.replace(/#\/xeber\/(\w+)\?b=\w*&?/, "x/$1?") : url), encodeURIComponent(title));
   if (u) openOut(u);
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
