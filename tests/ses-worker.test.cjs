@@ -22,3 +22,52 @@ test("ses-worker: only requests from 8ulduz.az are served and only https source 
   assert.equal((await call("http://127.0.0.1/admin", "https://8ulduz.az/")).status, 400);
   assert.equal((await call("https://localhost/x", "https://8ulduz.az/")).status, 400);
 });
+
+// Cloudflare mühitinin kiçik əvəzi: keş və şəbəkə.
+function cfEnv(routes) {
+  const store = new Map(), calls = [];
+  globalThis.caches = { default: { match: async r => store.get(r.url)?.clone(), put: async (r, res) => { store.set(r.url ?? r, res); } } };
+  const real = globalThis.fetch;
+  globalThis.fetch = async (u, o = {}) => { calls.push({ u: String(u), o }); for (const [re, fn] of routes) if (re.test(String(u))) return fn(String(u), o); return new Response("", { status: 404 }); };
+  const waits = [];
+  return { calls, ctx: { waitUntil: p => waits.push(p) }, done: () => Promise.all(waits), restore: () => { globalThis.fetch = real; } };
+}
+const ses = (q, ref = "https://8ulduz.az/") => new Request(`https://dinle.x/ses?${q}`, { headers: { Referer: ref } });
+const page = `<script type="application/ld+json">{"@type":"NewsArticle","articleBody":"${"Napoli klubunun prezidenti baş məşqçi ilə görüşüb və vəziyyəti müzakirə edib. ".repeat(4)}"}</script>`;
+
+test("ses-worker /ses: a prepared voice file is served at once (no Azure call)", async () => {
+  const { default: w } = await load();
+  const env = cfEnv([[/raw\.githubusercontent\.com\/8ulduz\/ses\/main\/0123456789abcdef\.mp3/, () => new Response(new Uint8Array(5000), { status: 200 })]]);
+  try {
+    const r = await w.fetch(ses("u=" + encodeURIComponent("https://apa.az/1") + "&id=0123456789abcdef"), { AZURE_KEY: "k" }, env.ctx);
+    assert.equal(r.status, 200); assert.equal(r.headers.get("Content-Type"), "audio/mpeg");
+    assert.equal((await r.arrayBuffer()).byteLength, 5000);
+    assert.ok(!env.calls.some(c => /tts\.speech\.microsoft\.com/.test(c.u)));
+  } finally { env.restore(); }
+});
+
+test("ses-worker /ses: not prepared yet → the full source text in Microsoft's official Babək voice (Azure), streamed", async () => {
+  const { default: w } = await load();
+  const env = cfEnv([[/sportinfo\.az/, () => new Response(page, { headers: { "content-type": "text/html" } })],
+    [/westeurope\.tts\.speech\.microsoft\.com/, () => new Response(new Uint8Array(8000), { status: 200, headers: { "content-type": "audio/mpeg" } })]]);
+  try {
+    const r = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
+    assert.equal(r.status, 200); assert.equal((await r.arrayBuffer()).byteLength, 8000);
+    const az = env.calls.find(c => /tts\.speech\.microsoft\.com/.test(c.u));
+    assert.equal(az.o.headers["Ocp-Apim-Subscription-Key"], "k");
+    assert.ok(az.o.body.includes("az-AZ-BabekNeural") && az.o.body.includes("Klub prezidenti. Sportinfo xəbər verir. Napoli klubunun"), az.o.body.slice(0, 200));
+    await env.done();
+    const again = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa"), { AZURE_KEY: "k" }, env.ctx);
+    assert.equal(again.status, 200); assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, 1, "ikinci dinləyici keşdən alır");
+  } finally { env.restore(); }
+});
+
+test("ses-worker /ses: without the Azure key (or when the free limit is used up) it answers 503 and the site waits for the prepared voice", async () => {
+  const { default: w } = await load();
+  const env = cfEnv([[/westeurope\.tts/, () => new Response("quota", { status: 429 })], [/apa\.az/, () => new Response(page, { headers: { "content-type": "text/html" } })]]);
+  try {
+    assert.equal((await w.fetch(ses("u=" + encodeURIComponent("https://apa.az/2")), {}, env.ctx)).status, 503);
+    assert.equal((await w.fetch(ses("u=" + encodeURIComponent("https://apa.az/2")), { AZURE_KEY: "k" }, env.ctx)).status, 503);
+    assert.equal((await w.fetch(ses("u=" + encodeURIComponent("https://apa.az/2"), "https://evil.example/"), { AZURE_KEY: "k" }, env.ctx)).status, 403);
+  } finally { env.restore(); }
+});

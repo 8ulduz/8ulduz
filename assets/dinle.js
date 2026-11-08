@@ -51,7 +51,6 @@ const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQ
 // kilid ekranında fasilə/növbəti (Media Session).
 export function createPlayer({ list, decode = s => s, onState = () => {}, synth = globalThis.speechSynthesis, Utterance = globalThis.SpeechSynthesisUtterance,
   nav = globalThis.navigator, fetchFn = globalThis.fetch, AudioCtor = globalThis.Audio, worker = globalThis.SITE_CONFIG?.sesWorker, server = globalThis.SITE_CONFIG?.sesServer }) {
-  let serverDown = 0;  // SARA serveri cavab vermirsə 5 dəqiqə köhnə yolla (hazır fayl / cihaz səsi)
   let cur = null, parts = [], i = 0, gen = 0, choice = null, playing = false, mode = "", aud = null;
   const files = new Map();  // id -> Promise<blob url | "">
   const emit = msg => onState({ id: cur?.id, playing, msg });
@@ -114,17 +113,21 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
   function halt() { gen++; synth?.cancel?.(); if (aud) { aud.onended = aud.onerror = null; aud.pause(); } mode = mode === "file" ? "" : mode; }
   // Telefon (xüsusən iPhone) səsi yalnız toxunuşla başladır: element toxunuş anında açılır və bütün xəbərlər üçün o işlədilir.
   const unlock = () => { if (aud || !AudioCtor) return; try { aud = new AudioCtor(); aud.src = SILENT; aud.play()?.catch?.(() => {}); } catch { aud = null; } };
-  async function play(a) {
+  async function play(a, tries = 0) {
     unlock(); halt(); const id = gen; cur = a; mode = ""; parts = []; i = 0;
     playing = true; emit();  // düymə dərhal «■ Bitir» olur (hazırlanarkən də)
-    // SARA serveri (öz Hetzner serverimiz, .github/ses-server): tam mətn, hər telefonda Azərbaycan səsi, basılan anda axınla.
-    // Ünvan toxunuş anında verilir (iPhone səsi yalnız toxunuşla başladır); xəta olsa köhnə yola keçilir.
-    if (server && Date.now() - serverDown > 3e5 && String(a?.sourceUrl).startsWith("https://")) {
-      const e = encodeURIComponent, src = `${server}?u=${e(a.sourceUrl)}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`;
+    // «dinle» serveri (Cloudflare, .github/ses-worker): hazır tam səs və ya Azure-un rəsmi Babək səsi, basılan anda.
+    // Səs hələ hazır deyilsə (server 503) düymə «Səs hazırlanır…» deyib 15 saniyədən bir yenidən soruşur (2 dəqiqəyədək),
+    // sonra cihazın səsinə keçir. Ünvan toxunuş anında verilir (iPhone səsi yalnız toxunuşla başladır).
+    if (server && tries >= 0 && String(a?.sourceUrl).startsWith("https://")) {
+      const e = encodeURIComponent, src = `${server}?u=${e(a.sourceUrl)}&id=${e(a.id || "")}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`;
       mode = "file"; aud.src = src; media(a);
       const mine = () => id === gen && aud.currentSrc === src;
       aud.onended = () => { if (mine()) next(true); };
-      aud.onerror = () => { if (mine()) { serverDown = Date.now(); play(a); } };
+      aud.onerror = () => {
+        if (!mine()) return;
+        if (tries < 8) { emit("Səs hazırlanır…"); setTimeout(() => { if (id === gen) play(a, tries + 1); }, 15e3); } else play(a, -1);
+      };
       aud.play()?.catch?.(() => { if (id === gen && aud.currentSrc === src && !aud.error) { playing = false; emit("Başlatmaq üçün yenidən basın"); } });
       return;
     }

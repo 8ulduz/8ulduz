@@ -136,17 +136,17 @@ test("dinlə: without a prepared voice the full text comes from the text server 
   p.stop();
 });
 
-test("dinlə: with the SARA server the full story streams at once from it (no index or file lookups); an error falls back", async () => {
+test("dinlə: with the «dinle» server the story streams at once (prepared voice or Azure Babək); not ready → «Səs hazırlanır…» and a retry", async () => {
   const { createPlayer } = await load();
-  const env = fakeEnv(true), story = { ...list[0], title: "Klub prezidenti", source: "Sportinfo", sourceUrl: "https://www.sportinfo.az/1.html" };
-  const p = createPlayer({ list: () => list, ...env, server: "https://ses.example/dinle" });
+  const env = fakeEnv(true), states = [], story = { ...list[0], title: "Klub prezidenti", source: "Sportinfo", sourceUrl: "https://www.sportinfo.az/1.html" };
+  const p = createPlayer({ list: () => list, ...env, server: "https://dinle.example/ses", onState: s => states.push({ ...s }) });
   await p.play(story);
-  const src = "https://ses.example/dinle?u=" + encodeURIComponent(story.sourceUrl) + "&t=" + encodeURIComponent("Klub prezidenti") + "&s=Sportinfo";
+  const src = "https://dinle.example/ses?u=" + encodeURIComponent(story.sourceUrl) + "&id=" + story.id + "&t=" + encodeURIComponent("Klub prezidenti") + "&s=Sportinfo";
   assert.ok(env.played.includes(src), env.played.join(" | "));
   assert.equal(env.fetched.length, 0, "əlavə sorğu yoxdur: səs dərhal serverdən");
   assert.equal(p.mode, "file");
-  const el = env.els[0]; el.onerror();   // server cavab vermir → köhnə yol (hazır fayl)
-  await new Promise(r => setTimeout(r, 10));
-  assert.ok(env.played.some(s => s.startsWith("blob:")), "xəta olanda hazır fayla keçir");
+  env.els[0].onerror();   // server: hələ hazır deyil (503)
+  assert.equal(states.at(-1).msg, "Səs hazırlanır…");
+  assert.equal(p.playing, true, "gözləyir, ikinci basış bitirir");
   p.stop();
 });

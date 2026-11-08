@@ -1,0 +1,9 @@
+# «Dinlə» serveri (worker.js) — Cloudflare Workers, pulsuz plan. Yükləmə: bu qovluqda «npx wrangler deploy».
+# Sirr (yalnız sahib yazır, Cloudflare panelində və ya «npx wrangler secret put AZURE_KEY»): AZURE_KEY.
+name = "dinle"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+AZURE_REGION = "westeurope"
