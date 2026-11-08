@@ -460,6 +460,16 @@ test('speed red line: far sections of the home page are kept out of the page unt
   assert.ok(page.includes('<div class="lazy-sec"><template><section>'),'bölmələr şablondadır');
   assert.ok(page.includes('Bütün xəbərlər'),'məzmun səhifə mətnindədir');
 });
+test('home: a section with a multi-source story is kept whole (owner 2026-11-08: the AZƏRTAC title fell out of the Gündəm strip, its picture stayed behind)',()=>{
+  const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
+  S.lang=null;S.og={};S.data={articles:Array.from({length:30},(_,i)=>({id:(i+'').padStart(16,'a'),title:'Xəbər başlığı nömrə '+i,category:i%2?'gundem':'siyaset',lang:'az',source:'AZƏRTAC',sourceUrl:'https://azertag.az/'+i,imageUrl:'https://azertag.az/'+i+'.jpg',publishedAt:at,alts:[{source:'APA',sourceUrl:'https://apa.az/'+i}]}))};
+  const page=homeView(),src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  const re=vm.runInNewContext(src.match(/next\.innerHTML = page\.replace\((\/<div class="lazy-sec">.*?\/g),/)[1]);
+  const secs=[...page.matchAll(re)].map(m=>m[1]);
+  assert.ok(secs.length&&secs.some(h=>h.includes('class="altpop"')),'bölmədə çox mənbəli xəbər var');
+  for(const h of secs){assert.ok(h.endsWith('</section>'),'bölmə tam götürülür: '+h.slice(-60));assert.equal((h.match(/<article/g)||[]).length,(h.match(/<\/article>/g)||[]).length);}
+  assert.ok(!page.replace(re,'').includes('<!--lz-->'),'hər bölmə öz sonu ilə');
+});
 test('speed red line: images are resized and the original stays as the fallback',()=>{
   const ctx=app(),{S,sized,img,card}=ctx.api;
   S.og={};

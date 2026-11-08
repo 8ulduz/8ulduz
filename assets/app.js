@@ -2139,7 +2139,7 @@ function patchChildren(box, fresh, changed) {
 }
 function patchView(v, page) {
   const next = document.createElement("template");
-  next.innerHTML = page.replace(/<div class="lazy-sec"><template>([\s\S]*?)<\/template><\/div>/g, (_, h) => {
+  next.innerHTML = page.replace(/<div class="lazy-sec"><template>([\s\S]*?)<!--lz--><\/template><\/div>/g, (_, h) => {
     let k = h.length; for (let i = 0; i < h.length; i++) k = Math.imul(k ^ h.charCodeAt(i), 16777619);
     k = h.length + "-" + (k >>> 0).toString(36); lazyHtml.delete(k); lazyHtml.set(k, h);
     return `<div class="lazy-sec" data-lazy="${k}"></div>`;
@@ -2644,9 +2644,8 @@ function stopStep(el, snap) {
   const { best, bestD } = nearestStop(el);
   if (bestD > 1) el.scrollTop = best;
 }
-// Karusel: oxlar və nöqtələr.
-// Baş səhifənin uzaq bölmələri boş qutudur, HTML-i yaddaşdadır.
-const lazySection = html => html ? `<div class="lazy-sec"><template>${html}</template></div>` : "";
+// Uzaq bölmə boş qutudur, HTML yaddaşda. Sonu <!--lz-->: «N mənbə» də </template></div> ilə bitir.
+const lazySection = html => html ? `<div class="lazy-sec"><template>${html}<!--lz--></template></div>` : "";
 const lazyHtml = new Map();
 function lazyFill(box) {
   const h = lazyHtml.get(box.dataset.lazy);
