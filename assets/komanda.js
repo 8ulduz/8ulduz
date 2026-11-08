@@ -324,7 +324,7 @@ export function mountTeam(d) {
       body = `<section class="tm-sec"><div class="sec-h"><h2>Xəbərlər</h2></div>${newsBlock(team, 0, "", doc)}</section>`;
     }
     const bot = window.SITE_CONFIG?.tgBot, tp = bot && topicFor(team.name);
-    const tg = tp ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=i_${tp.toLowerCase().replace(/ə/g, "e").replace(/ı/g, "i").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-")}" target="_blank" rel="noopener">📩 ${esc(tp)}: Telegram-da izlə</a>` : "";
+    const tg = tp ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=${S.lang && S.lang !== "az" ? S.lang + "-" : ""}i_${tp.toLowerCase().replace(/ə/g, "e").replace(/ı/g, "i").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-")}" target="_blank" rel="noopener">📩 ${esc(tp)}: Telegram-da izlə</a>` : "";
     return `${head}${tg}${tabs}${body}${source(docs)}`;
   }
 
