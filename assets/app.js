@@ -1179,6 +1179,8 @@ function pageMeta() {
   if (md && desc) md.setAttribute("content", desc);
 }
 
+// Günün 10 xəbəri: Azərbaycan dilində kanal; ingilis/rus/türk oxucu bota yazılır və öz dilində alır (izle.cjs, start=g_<dil>).
+const tgDigest = () => { const bot = window.SITE_CONFIG?.tgBot; return uiLang(S.lang) && bot ? `https://t.me/${bot}?start=g_${S.lang}` : window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az"; };
 function renderTopbar() {
   if (document.activeElement?.matches?.("#topbar select")) return; // açıq şəhər siyahısı bağlanmasın; seçimdən sonra yenilənir
   // İlk ekranın faylı 10 dəqiqəyədək köhnə ola bilər.
@@ -1228,7 +1230,7 @@ function renderNav() {
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a>` +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button></div></details>` +
-    `<a class="nav-tg" href="${esc(window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az")}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>`;
+    `<a class="nav-tg" href="${esc(tgDigest())}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>`;
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;
   afterPaint(fitNav);
