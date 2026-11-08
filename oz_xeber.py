@@ -265,8 +265,11 @@ def pfl_detail(game, detail):
     yalnız PDF protokoldadır: onları yazmırıq."""
     ref = detail.get("refeerer_main") or {}
     name = " ".join(x for x in (ref.get("name"), ref.get("surname")) if x)
-    fans = detail.get("fan")
-    return dict(game, referee=name, fans=fans if isinstance(fans, int) and fans > 0 else 0)
+    try:
+        fans = int(str(detail.get("fan") or "0").strip())  # API sayı mətn kimi verir: "550"
+    except ValueError:
+        fans = 0
+    return dict(game, referee=name, fans=max(fans, 0))
 
 
 def pfl_table(grid, tours):
@@ -354,16 +357,29 @@ _REL_JUNK = re.compile(r"<(script|style|nav|form|aside|button|select)\b.*?</\1\s
 _REL_PART = re.compile(r"<(p|h[1-4])\b[^>]*>(.*?)</\1\s*>", re.S | re.I)
 
 
+def _box_html(page, start):
+    """Mətn blokunun içi: açılan və bağlanan div-ləri sayıb blokun bağlandığı yeri tapır."""
+    depth = 0
+    for m in re.finditer(r"<(/?)div\b[^>]*>", page[start:], re.I):
+        if not m.group(1):
+            depth += 1
+        elif depth:
+            depth -= 1
+        else:
+            return page[start:start + m.start()]
+    return page[start:]
+
+
 def release_text(page, title=""):
     """Rəsmi xəbər səhifəsinin əsas mətni: abzaslar. Menyu, «digər xəbərlər» və altlıq düşmür.
-    Başlanğıc: mətn bloku (Qəbələ RİH «metn», DOST «xeber-metn»), yoxdursa sonuncu h1, yoxdursa başlığın özü (Naxçıvanın RİH saytları).
-    Abzaslardan sonra gələn ilk başlıq xəbərin sonudur (Məşğulluq Agentliyində ardınca digər xəbərlərin başlıqları gəlir)."""
-    start = 0
+    Mətn bloku varsa (Qəbələ RİH «metn», DOST «xeber-metn») yalnız onun içi oxunur. Yoxdursa, sonuncu h1-dən sonrası, o da
+    yoxdursa başlığın özündən sonrası (Naxçıvanın RİH saytları). Abzaslardan sonra gələn ilk başlıq xəbərin sonudur
+    (Məşğulluq Agentliyində ardınca digər xəbərlərin başlıqları gəlir)."""
     box = _REL_BOX.search(page)
     if box:
-        start = box.end()
+        scope = _box_html(page, box.end())
     else:
-        h1 = None
+        start, h1 = 0, None
         for h1 in re.finditer(r"<h1\b[^>]*>.*?</h1\s*>", page, re.S | re.I):
             pass
         if h1:
@@ -371,7 +387,8 @@ def release_text(page, title=""):
         elif title:
             i = page.find(title[:25], max(page.find("<body"), 0))
             start = i if i > 0 else 0
-    body = _REL_JUNK.sub(" ", page[start:])
+        scope = page[start:]
+    body = _REL_JUNK.sub(" ", scope)
     paras, prev = [], None
     for m in _REL_PART.finditer(body):
         if m.group(1).lower() != "p":
@@ -386,6 +403,14 @@ def release_text(page, title=""):
             prev = m.end()
         if sum(map(len, paras)) > 8000:
             break
+    if not paras and box:
+        # Facebook-dan köçürülmüş mətn: abzaslar <p> yox, <div> və <br> ilə ayrılıb (Beyləqan RİH).
+        for line in re.split(r"<br\s*/?>|</(?:div|p|li|h[1-6])\s*>", body, flags=re.I):
+            text = _clean(line)
+            if len(text) >= 25 and text not in paras:
+                paras.append(text)
+            if sum(map(len, paras)) > 8000:
+                break
     return "\n\n".join(paras)
 
 

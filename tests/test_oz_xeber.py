@@ -149,6 +149,18 @@ class ReleaseTextTest(unittest.TestCase):
             'Dövlət Məşğulluq Agentliyi tərəfindən keçirilən "PeşəFest-2026" festivalının Bakıda yekun tədbiri keçirilib.',
             "Rəşad Mustafayev builki tədbirlərdə 176 minə yaxın iştirakçının olduğunu bildirib."])
 
+    def test_text_copied_from_facebook_in_divs(self):
+        """Beyləqan RİH: mətn bloku var, abzaslar isə <div dir="auto">-dadır; blokdan sonrakı qalereya yazısı xəbərə düşmür."""
+        page = ('<h1>Müşavirə keçirilib</h1><div class="metn"><div class="x14z9mp"><div dir="auto" style="text-align: justify;">'
+                'Oktyabrın 14-də Beyləqan Rayon İcra Hakimiyyətinin təşkilatçılığı ilə müşavirə keçirilib.</div><div dir="auto"> </div></div>'
+                '<div class="x14z9mp"><div dir="auto">Tədbirdə rayon icra hakimiyyətinin başçısı Əziz Əzizov çıxış edib.<br>'
+                'Sonra iştirakçıların sualları cavablandırılıb.</div></div></div>'
+                '<div class="row"><p>Qalereyanın altındakı yazı burada, uzunluğu kifayətdir.</p></div>')
+        self.assertEqual(oz.release_text(page).split("\n\n"), [
+            "Oktyabrın 14-də Beyləqan Rayon İcra Hakimiyyətinin təşkilatçılığı ilə müşavirə keçirilib.",
+            "Tədbirdə rayon icra hakimiyyətinin başçısı Əziz Əzizov çıxış edib.",
+            "Sonra iştirakçıların sualları cavablandırılıb."])
+
     def test_page_without_h1_starts_at_the_title(self):
         page = ('<html><head><title>Qələbənin əbədiləşdirilməsi</title></head><body>'
                 '<div class="menu"><p>Naxçıvan Muxtar Respublikası Ordubad Rayon İcra Hakimiyyəti</p></div>'
@@ -244,7 +256,7 @@ class SinaqTest(unittest.TestCase):
                 path = url[len(oz.PFL_API):]
                 doc = ({"data": [{"id": 76, "leagues": [{"id": 52}]}]} if path.startswith("/seasons") else
                        {"data": TOURS} if path.startswith("/tours") else {"data": GRID} if path.startswith("/leagues/grid") else
-                       {"data": {"refeerer_main": {"name": "İnqilab", "surname": "Məmmədov"}, "fan": 550}})
+                       {"data": {"refeerer_main": {"name": "İnqilab", "surname": "Məmmədov"}, "fan": "550"}})  # API sayı mətn kimi verir
                 return json.dumps(doc, ensure_ascii=False).encode("utf-8")
             if url == REL["link"]:
                 return DOST_PAGE
@@ -271,7 +283,7 @@ class SinaqTest(unittest.TestCase):
         self.assertIn("### AMB 6 noyabr üçün rəsmi məzənnələri açıqlayıb: avro 1,9037 manat", md)
         self.assertIn("### Brent nefti bahalaşıb: bareli 98,32 dollar", md)
         self.assertIn("### «Neftçi» «Kəpəz»i 1:0 hesabı ilə məğlub edib", md)
-        self.assertIn("Görüşü İnqilab Məmmədov idarə edib.", md)
+        self.assertIn("Görüşü İnqilab Məmmədov idarə edib. Oyunu 550 azarkeş izləyib.", md)
         self.assertIn("ANTHROPIC_API_KEY yoxdur", md)
         self.assertIn("### Reliz: " + REL["title"], md)
         self.assertNotIn("Başqa saytın xəbəri", md, "yalnız rəsmi qurumların relizləri")
