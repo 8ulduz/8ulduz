@@ -56,6 +56,17 @@ def pick(articles, have, now):
     return sorted(rows, key=lambda a: (-parse_time(a["publishedAt"]).timestamp(), -len(a.get("alts") or [])))
 
 
+def evict(have, live, pub, born, t):
+    """Hədd (MAX_FILES) dolanda yer açılacaq səs: əvvəl lentdən çıxmış xəbərin (ən köhnəsi), sonra ən əvvəl dərc olunmuş
+    xəbərin səsi. Yalnız yeni xəbərdən (t) köhnədirsə; yoxsa None — təzə xəbər köhnə xəbər üçün silinmir.
+    2026-11-08: hədd dolub səs 8 saat dayanmışdı (köhnə səs yalnız 26 saatdan sonra silinirdi)."""
+    if not have:
+        return None
+    rank = lambda i: (i in live, pub.get(i, born.get(i, 0)))
+    old = min(have, key=rank)
+    return old if rank(old) < (True, t) else None
+
+
 def clip(text, limit=MAX_CHARS):
     """Çox uzun mətn cümlə sərhədində kəsilir."""
     text = re.sub(r"\s+", " ", text or "").strip()
@@ -150,9 +161,13 @@ def main(d):
             del have[i]
             dropped += 1
     made = 0
+    pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
     with tempfile.TemporaryDirectory() as tmp:
         for a in pick(feed, have, now):
-            if made >= PER_RUN or len(have) >= MAX_FILES:
+            if made >= PER_RUN:
+                break
+            old = evict(have, live, pub, born, parse_time(a["publishedAt"]).timestamp()) if len(have) >= MAX_FILES else None
+            if len(have) >= MAX_FILES and not old:
                 break
             try:
                 body = extract_article(fetch(a["sourceUrl"]))
@@ -164,6 +179,9 @@ def main(d):
             except Exception as e:  # Edge xidməti cavab vermirsə bu dövrə dayanır
                 print("ses:", a["id"], type(e).__name__, str(e)[:120])
                 break
+            if old:
+                del have[old]
+                dropped += 1
             have[a["id"]] = git(d, "hash-object", "-w", path)
             born[a["id"]] = int(now.timestamp())
             made += 1

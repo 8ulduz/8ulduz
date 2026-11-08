@@ -32,6 +32,15 @@ class SesTest(unittest.TestCase):
         live = [{"id": "b" * 16, "title": "Təzə"}, {"id": "a" * 16, "title": "Köhnə"}]
         self.assertEqual([a["title"] for a in ses.merged(feed, live)], ["Təzə", "Köhnə"])
 
+    def test_full_store_makes_room_for_newer_stories_only(self):
+        now = 1_800_000_000
+        a, b, c = "a" * 16, "b" * 16, "c" * 16
+        pub = {a: now - 20 * 3600, c: now - 3600}
+        born = {a: now - 3600, b: now - 2 * 3600, c: now - 600}
+        self.assertEqual(ses.evict({a: 1, b: 1, c: 1}, {a, c}, pub, born, now), b, "əvvəl lentdən çıxmış səs")
+        self.assertEqual(ses.evict({a: 1, c: 1}, {a, c}, pub, born, now - 1800), a, "sonra ən köhnə xəbər")
+        self.assertIsNone(ses.evict({c: 1}, {c}, pub, born, now - 5 * 3600), "təzə xəbər köhnə xəbər üçün silinmir")
+
     def test_long_text_is_cut_at_a_sentence(self):
         text = ("Bir cümlə budur. " * 400).strip()
         out = ses.clip(text, 1000)
