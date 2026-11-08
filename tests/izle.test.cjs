@@ -64,7 +64,7 @@ test("izlə: the workflow runs apart from the news pipeline, keeps the followers
 
 test("izlə: the team page shows the button for teams that have a news topic", () => {
   const k = fs.readFileSync(path.join(root, "assets/komanda.js"), "utf8");
-  assert.ok(k.includes("tg-izle") && k.includes("topicFor(team.name)") && k.includes("?start=i_"));
+  assert.ok(k.includes("tg-izle") && k.includes("topicFor(team.name)") && k.includes('?start=${S.lang && S.lang !== "az" ? S.lang + "-" : ""}i_'), "komanda düyməsi saytın dilini də ötürür");
 });
 
 test("izlə: any topic — the reader writes a word to the bot or presses the button on a search; matching is like the site search", () => {
@@ -136,4 +136,53 @@ test("izlə: English, Russian and Turkish readers get the top 10 of the day in t
   assert.equal(out[0].text, "🔕 Abonelik bitti"); assert.equal(s.subs[11], undefined);
   I.handle(s, msg(12, "/start i_fenerbahce"), cat); I.handle(s, msg(12, "/start g_ru"), cat);
   assert.match(I.handle(s, msg(12, "/stop"), cat)[0].text, /^🔕 Bütün izləmələr dayandırıldı/, "Azərbaycan mövzusu da varsa cavab Azərbaycan dilində");
+});
+
+test("izlə: a reader from the English, Russian or Turkish site follows a topic in their own language — replies, topic names and stories (owner 2026-11-08: «'Telegram-da izlə' düymələri başqa dillərdə də»)", () => {
+  const trs = Object.fromEntries(["en", "ru", "tr"].map(c => [c, I.loadTr(root, c)]));
+  const s = I.newState();
+  let out = I.handle(s, msg(21, "/start en-b_dunya"), cat, trs);
+  assert.deepEqual([s.subs[21], s.lang[21]], [["b_dunya"], "en"]);
+  assert.equal(out[0].text, "✅ Now following «World». New stories will come here as soon as they appear.\n\nList and stop: /list");
+  I.handle(s, msg(21, "/start en-i_fenerbahce"), cat, trs);
+  assert.match(I.handle(s, msg(21, "/start en-b_dunya"), cat, trs)[0].text, /^✅ You already follow «World»/);
+  out = I.handle(s, msg(21, "/list"), cat, trs);
+  assert.equal(out[0].text, "You follow:\n• World\n• Fenerbahce"); assert.equal(out[0].reply_markup.inline_keyboard[0][0].text, "🔕 World — stop");
+  assert.match(I.handle(s, msg(22, "/start ru-r_quba"), cat, trs)[0].text, /^✅ Вы следите за темой «Губа»/);
+  out = I.handle(s, { update_id: 7, callback_query: { id: "q", data: "stop:r_quba", message: { chat: { id: 22 } } } }, cat, trs);
+  assert.equal(out[0].text, "🔕 «Губа»: подписка отменена"); assert.equal(s.subs[22], undefined);
+  out = I.handle(s, msg(23, "/start tr-movzu"), cat, trs);
+  assert.match(out[0].text, /^📩 Neyi takip etmek istersiniz\?/); assert.equal(s.lang[23], "tr");
+  assert.match(I.handle(s, msg(23, "Erdoğan"), cat, trs)[0].text, /^✅ «Erdoğan» takip ediliyor/, "bota yazılan söz də o dildə");
+  // Göndəriş: ingilis oxucuya ingilis xəbəri, idman isə istənilən dildə; Azərbaycan oxucusu üçün əvvəlki kimi.
+  s.subs[24] = ["b_dunya"]; s.lang[24] = "az"; s.seen = [];
+  const sent = I.deliveries(s, [
+    row("e100000000000001", "dunya", "Fire in the city", { lang: "en", source: "Trend", sourceUrl: "https://trend.az/world/1" }),
+    row("a100000000000001", "dunya", "Şəhərdə yanğın"),
+    row("f100000000000001", "idman", "Fenerbahçe yeni transfer etdi", { lang: "tr", source: "Ajansspor", sourceUrl: "https://www.ajansspor.com/haber/1" }),
+  ], cat, app, trs);
+  const got = id => sent.filter(m => m.chat_id === id).map(m => (m.caption || m.text).match(/^<b>([^<]+)/)[1]).sort();
+  assert.deepEqual(got("21"), ["Fenerbahçe yeni transfer etdi", "Fire in the city"], "ingilis oxucu: ingilis xəbəri və idman");
+  assert.deepEqual(got("24"), ["Şəhərdə yanğın"], "Azərbaycan oxucusu: əvvəlki kimi");
+  const en = sent.find(m => m.chat_id === "21" && /Fire/.test(m.text || m.caption));
+  assert.match(en.text || en.caption, /Trend · World$/); assert.deepEqual(en.reply_markup.inline_keyboard.map(r => r[0].text), ["📖 Read on 8ULDUZ", "🔕 World — stop"]);
+  assert.match(I.handle(s, msg(21, "/stop"), cat, trs)[0].text, /^🔕 All follows stopped/);
+  out = I.handle(s, msg(25, "/start b_dunya"), cat, trs);
+  assert.equal(s.lang[25], "az"); assert.match(out[0].text, /^✅ «Dünya» izlənir/, "şəkilçisiz köhnə keçid: Azərbaycan dili");
+  assert.equal(I.chatLang(s, "99"), "az", "naməlum oxucu: Azərbaycan dili");
+});
+
+test("izlə: a language's full feed read for the first time, or after nobody followed in it, does not flood readers with old stories", () => {
+  const s = I.newState(), en = (id, title) => row(id, "dunya", title, { lang: "en", source: "Trend", sourceUrl: "https://trend.az/world/" + id });
+  s.subs = { 31: ["b_dunya"], 32: ["g_ru"] }; s.lang = { 31: "en" }; s.seen = [];
+  assert.deepEqual(I.topicLangs(s), ["en"], "yalnız buraxılışa yazılan oxucu dil lentini yükləmir");
+  assert.deepEqual(I.mergeLangFeeds(s, ["en"], { en: [en("e200000000000001", "Old story")] }), [], "ilk dəfə: göndərilmir");
+  assert.ok(s.seen.includes("e200000000000001")); assert.deepEqual(s.primed, ["en"]);
+  const merged = I.mergeLangFeeds(s, ["en"], { en: [en("e200000000000001", "Old story"), en("e200000000000002", "New story")] });
+  assert.deepEqual(I.deliveries(s, merged, cat, app).map(m => m.chat_id + ":" + /New story/.test(m.text || m.caption)), ["31:true"]);
+  I.mergeLangFeeds(s, [], {});
+  assert.deepEqual(s.primed, [], "ingilis dilində izləyən qalmadı");
+  assert.deepEqual(I.mergeLangFeeds(s, ["en"], { en: [en("e200000000000003", "Gap story")] }), [], "fasilədən sonra yenə «görülmüş» sayılır");
+  assert.deepEqual(I.mergeLangFeeds(s, ["en"], { en: null }), [], "lent alınmadısa: heç nə");
+  assert.deepEqual(s.primed, ["en"], "alınmasa da əvvəl hazırlanmış dil qalır");
 });

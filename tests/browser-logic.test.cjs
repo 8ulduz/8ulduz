@@ -2818,7 +2818,36 @@ test('owner 2026-11-07: the article ends with «Telegram-da izlə» for its dist
   assert.ok(articleView('d1').includes('?start=b_dunya"'), 'başqa bölmədə rayon yox, bölmə');
   assert.ok(!articleView('s1').includes('tg-izle'), 'Son dəqiqə mövzu deyil');
   const f = fs.readFileSync(path.join(root, 'assets/follow.js'), 'utf8');
-  assert.ok(f.includes("?start=movzu") && f.includes('📩 İstədiyiniz mövzunu Telegram-da izləyin'), 'izlə pəncərəsində bot');
+  assert.ok(f.includes('lang + "-" : ""}movzu') && f.includes('📩 İstədiyiniz mövzunu Telegram-da izləyin'), 'izlə pəncərəsində bot (saytın dili ilə)');
+});
+test('owner 2026-11-08: on the English, Russian and Turkish site «Telegram-da izlə» is translated and passes the site language to the bot', () => {
+  const ctx = app(), { S, sectionView, searchView } = ctx.api;
+  S.data = { articles: [] }; ctx.window.SITE_CONFIG = { tgBot: 'SekkizUlduzBot' }; S.club = null;
+  for (const [lang, pre] of [['az', ''], [null, ''], ['en', 'en-'], ['ru', 'ru-'], ['tr', 'tr-']]) {
+    S.lang = lang;
+    assert.ok(sectionView('dunya').includes(`href="https://t.me/SekkizUlduzBot?start=${pre}b_dunya"`), `${lang}: bölmə`);
+  }
+  S.lang = 'en'; S.club = 'Fenerbahçe';
+  assert.ok(sectionView('idman').includes('?start=en-i_fenerbahce"'), 'komanda/klub');
+  S.club = null;
+  const bot = require('../.github/scripts/izle.cjs'), q44 = 'ə'.repeat(22);   // 44 bayt: şəkilsiz sığır, «en-» ilə Telegram-ın 64 simvolunu keçir
+  S.q = q44; S.lang = 'az'; assert.ok(searchView().includes(`?start=${bot.keyOf(q44)}"`));
+  S.lang = 'en'; assert.ok(!searchView().includes('tg-izle'), 'şəkilçi ilə sığmayan söz düymə vermir');
+  S.q = 'Iran'; assert.ok(searchView().includes(`?start=en-${bot.keyOf('Iran')}"`));
+  assert.ok(`en-${bot.keyOf('ə'.repeat(21))}`.length <= 64);
+  const kom = fs.readFileSync(path.join(root, 'assets/komanda.js'), 'utf8'), fol = fs.readFileSync(path.join(root, 'assets/follow.js'), 'utf8');
+  assert.ok(kom.includes('?start=${S.lang && S.lang !== "az" ? S.lang + "-" : ""}i_'), 'komanda səhifəsi');
+  assert.ok(fol.includes('?start=${/^(en|ru|tr)$/.test(lang) ? lang + "-" : ""}movzu'), 'izlə paneli');
+  const cat = bot.catalog(require('../.github/scripts/topics.cjs').loadApp(root)), st = bot.newState();
+  bot.handle(st, { update_id: 1, message: { chat: { id: 5, type: 'private' }, text: '/start ru-b_dunya' } }, cat);
+  assert.deepEqual([st.subs[5], st.lang[5]], [['b_dunya'], 'ru'], 'bot şəkilçili açarı tanıyır');
+  const mod = dilModule('assets/dil.js');
+  for (const [l, follow] of [['en', 'Follow on Telegram'], ['ru', 'Следить в Telegram'], ['tr', "Telegram'da takip et"]]) {
+    const tr = mod.makeTr(dilModule(`assets/dil-${l}.js`).__d, l);
+    assert.equal(tr('📩 Fenerbahçe: Telegram-da izlə'), `📩 ${tr('Fenerbahçe')}: ${follow}`);
+    assert.ok(!/ə/.test(tr('📩 İstədiyiniz mövzunu Telegram-da izləyin')), l + ': izlə paneli');
+    assert.ok(bot.TEXT[l].all.includes(follow), l + ': botun mətnindəki düymə adı saytdakı ilə eynidir');
+  }
 });
 test('owner 2026-11-07: any topic — a search result offers «Telegram-da izlə» with the search words for the bot', () => {
   const ctx = app(), { S, searchView } = ctx.api;

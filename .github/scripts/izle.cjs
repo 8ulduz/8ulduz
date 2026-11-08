@@ -10,7 +10,7 @@ const fs = require("node:fs"), path = require("node:path");
 const { loadApp, topics } = require("./topics.cjs");
 
 const SITE = "https://8ulduz.az/";
-const MAX_TOPICS = 30, SEEN_KEEP = 6000, FEED_EVERY_MS = 60e3, FULL_EVERY_MS = 10 * 60e3, SAVE_EVERY_MS = 5 * 60e3;
+const MAX_TOPICS = 30, SEEN_KEEP = 10000, FEED_EVERY_MS = 60e3, FULL_EVERY_MS = 10 * 60e3, SAVE_EVERY_MS = 5 * 60e3;
 const NO_SECTION = new Set(["sondeqiqe"]);
 const NAMED = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", laquo: "«", raquo: "»", ndash: "–", mdash: "—", hellip: "…" };
 const unent = s => String(s ?? "").replace(/&(#\d+|[a-z]+);/gi, (m, e) => e[0] === "#" ? String.fromCodePoint(+e.slice(1) || 32) : NAMED[e.toLowerCase()] ?? m);
@@ -63,8 +63,8 @@ function catalog(app) {
   return map;
 }
 
-// Oxucuya hansı xəbərlər gedir: idmanda hər dil (sahibin dil qaydası), qalanında yalnız Azərbaycan dili.
-const wanted = (a, app) => a?.id && a.title && a.sourceUrl && !app.policyViolation(a) && (a.category === "idman" || (a.lang || "az") === "az");
+// Göndərilə bilən xəbər (mənbə qaydası, qırmızı xətt 2). Dil oxucuya görə deliveries-dədir: idmanda hər dil, qalanında oxucunun dili.
+const wanted = (a, app) => a?.id && a.title && a.sourceUrl && !app.policyViolation(a);
 // h: xəbərin saatı — lentdən çıxandan sonra sətir arxiv budağından açılır (arxiv.cjs).
 const storyUrl = a => /^[0-9a-f]{16}$/.test(a.id) ? `${SITE}#/xeber/${a.id}?b=${encodeURIComponent(a.category || "")}&h=${require("./arxiv.cjs").hourOf(a.publishedAt)}` : a.sourceUrl;
 
@@ -141,19 +141,96 @@ function digestMessages(state, code, ed, articles, app) {
   return chats.map(chat_id => ({ method: "sendMessage", chat_id, text, parse_mode: "HTML", reply_markup, link_preview_options: { is_disabled: true } }));
 }
 
+// «Telegram-da izlə» başqa dillərdə (sahib, 2026-11-08 «'Telegram-da izlə' düymələri başqa dillərdə də»). Saytdakı keçid oxucunun
+// dilini ön şəkilçi ilə ötürür (start=en-i_fenerbahce); bot o oxucuya o dildə yazır və o dildəki xəbərləri göndərir, idman bütün
+// dillərdədir (sahibin dil qaydası). Ön şəkilçisiz keçid Azərbaycan dilidir: köhnə oxucular üçün heç nə dəyişmir.
+// Mövzu adı oxucunun dilində saytın öz lüğəti ilə (assets/dil.js + dil-<dil>.js, sparse-checkout-da var).
+const TEXT = {
+  az: { on: "✅ «$1» izlənir. Yeni xəbər çıxan kimi buraya göndərəcəyəm.\n\nSiyahı və dayandırmaq: /izlediklerim",
+    had: "✅ «$1» artıq izlənir. Yeni xəbər çıxan kimi buraya göndərəcəyəm.\n\nSiyahı və dayandırmaq: /izlediklerim",
+    max: "Ən çox $1 mövzu izləmək olar. Birini dayandırın: /izlediklerim", list: "Siz izləyirsiniz:",
+    none: "Hələ heç nə izləmirsiniz. Mövzunu buraya yazın (məsələn: pensiya) və ya saytda «📩 Telegram-da izlə» düyməsinə basın: $1",
+    stop: "🔕 $1 — dayandır", stopped: "🔕 «$1» dayandırıldı", read: "📖 8ULDUZ-da oxu",
+    all: "🔕 Bütün izləmələr dayandırıldı. Yenidən başlamaq üçün mövzunu buraya yazın və ya saytda «📩 Telegram-da izlə» düyməsinə basın.",
+    movzu: "📩 Nəyi izləmək istəyirsiniz? Mövzunu bir-iki sözlə buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev.\n\nYeni xəbər çıxan kimi buraya göndərəcəyəm.",
+    hello: "Salam! Bu, 8ULDUZ xəbər botudur.\n\nİzləmək istədiyiniz mövzunu buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev. Və ya saytda ($1) bölmə, komanda, rayon səhifəsində və axtarışda «📩 Telegram-da izlə» düyməsinə basın — yeni xəbərlər buraya gələcək.\n\n$2" },
+  en: { on: "✅ Now following «$1». New stories will come here as soon as they appear.\n\nList and stop: /list",
+    had: "✅ You already follow «$1». New stories will come here as soon as they appear.\n\nList and stop: /list",
+    max: "You can follow up to $1 topics. Stop one first: /list", list: "You follow:",
+    none: "You don't follow anything yet. Write a topic here (for example: Iran) or tap «📩 Follow on Telegram» on the site: $1",
+    stop: "🔕 $1 — stop", stopped: "🔕 «$1» stopped", read: "📖 Read on 8ULDUZ",
+    all: "🔕 All follows stopped. To start again, write a topic here or tap «📩 Follow on Telegram» on the site.",
+    movzu: "📩 What would you like to follow? Write the topic here in a word or two, for example: Iran, oil, Champions League, Baku.\n\nNew stories will come here as soon as they appear.",
+    hello: "Hello! This is the 8ULDUZ news bot.\n\nWrite the topic you want to follow here, for example: Iran, oil, Champions League, Baku. Or tap «📩 Follow on Telegram» on a section, team or district page or in search on the site ($1) — new stories will come here.\n\n$2" },
+  ru: { on: "✅ Вы следите за темой «$1». Новые новости будут приходить сюда сразу после публикации.\n\nСписок и отписка: /list",
+    had: "✅ Вы уже следите за темой «$1». Новые новости будут приходить сюда сразу после публикации.\n\nСписок и отписка: /list",
+    max: "Можно следить не более чем за $1 темами. Сначала отпишитесь от одной: /list", list: "Вы следите за темами:",
+    none: "Вы пока ни за чем не следите. Напишите тему сюда (например: Иран) или нажмите «📩 Следить в Telegram» на сайте: $1",
+    stop: "🔕 $1 — отписаться", stopped: "🔕 «$1»: подписка отменена", read: "📖 Читать на 8ULDUZ",
+    all: "🔕 Все подписки отменены. Чтобы начать снова, напишите тему сюда или нажмите «📩 Следить в Telegram» на сайте.",
+    movzu: "📩 За какой темой вы хотите следить? Напишите её сюда одним-двумя словами, например: Иран, нефть, Лига чемпионов, Баку.\n\nНовые новости будут приходить сюда сразу после публикации.",
+    hello: "Здравствуйте! Это новостной бот 8ULDUZ.\n\nНапишите сюда тему, за которой хотите следить, например: Иран, нефть, Лига чемпионов, Баку. Или нажмите «📩 Следить в Telegram» на странице раздела, команды, района или в поиске на сайте ($1) — новые новости будут приходить сюда.\n\n$2" },
+  tr: { on: "✅ «$1» takip ediliyor. Yeni haberler çıkar çıkmaz buraya gelecek.\n\nListe ve durdurma: /list",
+    had: "✅ «$1» zaten takip ediliyor. Yeni haberler çıkar çıkmaz buraya gelecek.\n\nListe ve durdurma: /list",
+    max: "En fazla $1 konu takip edilebilir. Önce birini durdurun: /list", list: "Takip ettikleriniz:",
+    none: "Henüz hiçbir şeyi takip etmiyorsunuz. Konuyu buraya yazın (örneğin: İran) veya sitede «📩 Telegram'da takip et» düğmesine basın: $1",
+    stop: "🔕 $1 — durdur", stopped: "🔕 «$1» durduruldu", read: "📖 8ULDUZ'da oku",
+    all: "🔕 Tüm takipler durduruldu. Yeniden başlamak için konuyu buraya yazın veya sitede «📩 Telegram'da takip et» düğmesine basın.",
+    movzu: "📩 Neyi takip etmek istersiniz? Konuyu bir iki kelimeyle buraya yazın, örneğin: İran, petrol, Şampiyonlar Ligi, Bakü.\n\nYeni haberler çıkar çıkmaz buraya gelecek.",
+    hello: "Merhaba! Bu, 8ULDUZ haber botu.\n\nTakip etmek istediğiniz konuyu buraya yazın, örneğin: İran, petrol, Şampiyonlar Ligi, Bakü. Ya da sitede ($1) bölüm, takım, ilçe sayfasında veya aramada «📩 Telegram'da takip et» düğmesine basın — yeni haberler buraya gelecek.\n\n$2" },
+};
+const put = (s, ...v) => v.reduce((r, x, i) => r.replace(`$${i + 1}`, () => String(x)), s);
+const LANG_PRE = /^(en|ru|tr)-(.+)$/;
+// Oxucunun dili: saytdakı keçiddən (state.lang); yalnız buraxılışa (g_<dil>) yazılıbsa o dil; yoxdursa Azərbaycan dili.
+function chatLang(state, id) {
+  if (TEXT[state.lang?.[id]]) return state.lang[id];
+  const l = state.subs[id] || [];
+  return l.length && l.every(k => digestLang(k)) && TEXT[digestLang(l[0])] ? digestLang(l[0]) : "az";
+}
+// Saytın lüğəti: mövzu adı (Futbol, Quba, Dünya…) oxucunun dilində. Fayl yoxdursa ad olduğu kimi qalır.
+function loadTr(root, code) {
+  try {
+    const vm = require("node:vm"), read = f => fs.readFileSync(path.join(root, "assets", f), "utf8").replace(/^export default /m, "globalThis.__d = ").replace(/^export (async )?function/gm, "$1function");
+    const ctx = vm.createContext({}); ctx.globalThis = ctx;
+    vm.runInContext(read("dil.js"), ctx); vm.runInContext(read(`dil-${code}.js`), ctx);
+    const tr = ctx.makeTr(ctx.__d, code);
+    return s => tr(String(s));
+  } catch { return s => s; }
+}
+// Mövzu izləyənlərin dilləri (Azərbaycan dilindən başqa): onların tam lenti (data/news.<dil>.json) də oxunur.
+const topicLangs = state => [...new Set(Object.keys(state.subs).filter(id => (state.subs[id] || []).some(k => !digestLang(k))).map(id => state.lang?.[id]).filter(c => c && c !== "az" && TEXT[c]))];
+// Dilin lenti ilk dəfə (və ya o dildə izləyən olmayan fasilədən sonra) oxunanda köhnə xəbərlər göndərilmir: «görülmüş» sayılır.
+function mergeLangFeeds(state, langs, fetched) {
+  const out = [], was = new Set(state.primed || []);
+  for (const code of langs) {
+    const rows = fetched[code];
+    if (!rows) continue;
+    if (was.has(code)) out.push(...rows);
+    else state.seen = [...new Set([...(state.seen || []), ...rows.map(a => a?.id).filter(Boolean)])].slice(-SEEN_KEEP);
+  }
+  state.primed = langs.filter(c => fetched[c] || was.has(c));
+  return out;
+}
+
 function newState(s) {
   s = s && typeof s === "object" ? s : {};
-  return { offset: Number(s.offset) || 0, subs: s.subs && typeof s.subs === "object" ? s.subs : {}, seen: Array.isArray(s.seen) ? s.seen : null, dg: s.dg && typeof s.dg === "object" ? s.dg : {} };
+  return { offset: Number(s.offset) || 0, subs: s.subs && typeof s.subs === "object" ? s.subs : {}, seen: Array.isArray(s.seen) ? s.seen : null, dg: s.dg && typeof s.dg === "object" ? s.dg : {},
+    lang: s.lang && typeof s.lang === "object" ? s.lang : {}, primed: Array.isArray(s.primed) ? s.primed : [] };
 }
 
 // Telegram yeniləməsi -> cavablar (testlənir; şəbəkə yoxdur). state.subs: { chatId: [açar, ...] }.
-function handle(state, u, cat) {
+function handle(state, u, cat, trs = {}) {
   const out = [], msg = u.message, cb = u.callback_query;
+  state.lang ||= {};
   const list = id => state.subs[id] || [];
-  const listText = id => list(id).length ? `Siz izləyirsiniz:\n${list(id).map(k => `• ${cat.get(k)?.label || k}`).join("\n")}` : "Hələ heç nə izləmirsiniz. Mövzunu buraya yazın (məsələn: pensiya) və ya saytda «📩 Telegram-da izlə» düyməsinə basın: " + SITE;
-  const stopKb = id => ({ inline_keyboard: list(id).map(k => [{ text: `🔕 ${cat.get(k)?.label || k} — dayandır`, callback_data: `stop:${k}` }]) });
+  const T = id => TEXT[chatLang(state, id)];
+  const name = (id, k) => { const l = cat.get(k)?.label || k; return digestLang(k) ? l : (trs[chatLang(state, id)] || (s => s))(l); };
+  const listText = id => list(id).length ? `${T(id).list}\n${list(id).map(k => `• ${name(id, k)}`).join("\n")}` : put(T(id).none, SITE);
+  const stopKb = id => ({ inline_keyboard: list(id).map(k => [{ text: put(T(id).stop, name(id, k)), callback_data: `stop:${k}` }]) });
   if (msg?.chat?.type === "private" && typeof msg.text === "string") {
-    const id = String(msg.chat.id), text = msg.text.trim(), [cmd, arg = ""] = text.split(/\s+/, 2);
+    const id = String(msg.chat.id), text = msg.text.trim(), [cmd, raw = ""] = text.split(/\s+/, 2);
+    const pre = cmd === "/start" ? LANG_PRE.exec(raw) : null, arg = pre ? pre[2] : raw;
+    if (cmd === "/start" && raw && !digestLang(raw)) state.lang[id] = pre ? pre[1] : "az";   // saytın dili: keçiddəki ön şəkilçi, yoxdursa Azərbaycan dili
     let key = cmd === "/start" && arg && topicOf(cat, arg) ? arg : "";
     if (!key && !text.startsWith("/") && Buffer.byteLength(text) < 46 && kwFromText(text)) topicOf(cat, key = keyOf(text.replace(/\s+/g, " ")));
     const G = cmd === "/start" && DIGEST_LANGS[digestLang(arg)];
@@ -162,33 +239,34 @@ function handle(state, u, cat) {
       if (!had) state.subs[id] = [...list(id), arg];
       out.push({ method: "sendMessage", chat_id: id, text: had ? G.had : G.on });
     } else if (key && cat.has(key)) {
-      const arg = key;
-      const had = list(id).includes(arg);
-      if (!had && list(id).length >= MAX_TOPICS) out.push({ method: "sendMessage", chat_id: id, text: `Ən çox ${MAX_TOPICS} mövzu izləmək olar. Birini dayandırın: /izlediklerim` });
+      const had = list(id).includes(key);
+      if (!had && list(id).length >= MAX_TOPICS) out.push({ method: "sendMessage", chat_id: id, text: put(T(id).max, MAX_TOPICS) });
       else {
-        if (!had) state.subs[id] = [...list(id), arg];
-        out.push({ method: "sendMessage", chat_id: id, text: `✅ «${cat.get(arg).label}» ${had ? "artıq izlənir" : "izlənir"}. Yeni xəbər çıxan kimi buraya göndərəcəyəm.\n\nSiyahı və dayandırmaq: /izlediklerim` });
+        if (!had) state.subs[id] = [...list(id), key];
+        out.push({ method: "sendMessage", chat_id: id, text: put(had ? T(id).had : T(id).on, name(id, key)) });
       }
     } else if (cmd === "/start" || cmd === "/help" || cmd === "/komek") {
-      out.push({ method: "sendMessage", chat_id: id, text: arg === "movzu" ? "📩 Nəyi izləmək istəyirsiniz? Mövzunu bir-iki sözlə buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev.\n\nYeni xəbər çıxan kimi buraya göndərəcəyəm." : `Salam! Bu, 8ULDUZ xəbər botudur.\n\nİzləmək istədiyiniz mövzunu buraya yazın, məsələn: pensiya, Gəncə, hava, İran Amerika, İlham Əliyev. Və ya saytda (${SITE}) bölmə, komanda, rayon səhifəsində və axtarışda «📩 Telegram-da izlə» düyməsinə basın — yeni xəbərlər buraya gələcək.\n\n${listText(id)}`, ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
+      out.push({ method: "sendMessage", chat_id: id, text: arg === "movzu" ? T(id).movzu : put(T(id).hello, SITE, listText(id)), ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
     } else if (/^\/(izlediklerim|izlədiklərim|list)$/i.test(cmd)) {
       out.push({ method: "sendMessage", chat_id: id, text: listText(id), ...(list(id).length ? { reply_markup: stopKb(id) } : {}) });
     } else if (/^\/(dayandir|dayandır|stop)$/i.test(cmd)) {
       const only = list(id).length && list(id).every(k => digestLang(k)) && DIGEST_LANGS[digestLang(list(id)[0])];  // yalnız başqa dildə buraxılış: cavab o dildə
+      const all = T(id).all;
       delete state.subs[id];
-      out.push({ method: "sendMessage", chat_id: id, text: only ? only.off : "🔕 Bütün izləmələr dayandırıldı. Yenidən başlamaq üçün mövzunu buraya yazın və ya saytda «📩 Telegram-da izlə» düyməsinə basın." });
+      out.push({ method: "sendMessage", chat_id: id, text: only ? only.off : all });
     }
   } else if (cb?.data?.startsWith("stop:") && cb.message?.chat?.id) {
-    const id = String(cb.message.chat.id), key = cb.data.slice(5);
+    const id = String(cb.message.chat.id), key = cb.data.slice(5), label = name(id, key), T0 = T(id);
     state.subs[id] = list(id).filter(k => k !== key);
     if (!state.subs[id].length) delete state.subs[id];
-    out.push({ method: "answerCallbackQuery", callback_query_id: cb.id, text: DIGEST_LANGS[digestLang(key)]?.stopped || `🔕 «${cat.get(key)?.label || key}» dayandırıldı` });
+    out.push({ method: "answerCallbackQuery", callback_query_id: cb.id, text: DIGEST_LANGS[digestLang(key)]?.stopped || put(T0.stopped, label) });
   }
   return out;
 }
 
 // Yeni xəbərlər -> göndərişlər. Hər oxucuya bir xəbər bir dəfə (bir neçə mövzusuna uyğun gəlsə də).
-function deliveries(state, articles, cat, app) {
+// Oxucunun dili: idman bütün dillərdə (sahibin dil qaydası), qalanı yalnız onun dilində (Azərbaycan oxucusu üçün əvvəlki kimi).
+function deliveries(state, articles, cat, app, trs = {}) {
   const seen = new Set(state.seen || []), fresh = [];
   for (const a of articles) if (a?.id && !seen.has(a.id)) { seen.add(a.id); fresh.push(a); }
   state.seen = [...seen].slice(-SEEN_KEEP);
@@ -197,11 +275,13 @@ function deliveries(state, articles, cat, app) {
     const keys = [...used].filter(k => { try { return topicOf(cat, k)?.match(a); } catch { return false; } });
     if (!keys.length) continue;
     for (const [chat, list] of Object.entries(state.subs)) {
+      const lang = chatLang(state, chat);
+      if (a.category !== "idman" && (a.lang || "az") !== lang) continue;
       const key = list.find(k => keys.includes(k));
       if (!key) continue;
-      const url = storyUrl(a), label = cat.get(key).label;
+      const T = TEXT[lang], url = storyUrl(a), label = (trs[lang] || (s => s))(cat.get(key).label);
       const caption = `<b>${html(a.title).slice(0, 300)}</b>\n${html(a.source || "")} · ${html(label)}`;
-      const reply_markup = { inline_keyboard: [[{ text: "📖 8ULDUZ-da oxu", url }], [{ text: `🔕 ${label} — dayandır`, callback_data: `stop:${key}` }]] };
+      const reply_markup = { inline_keyboard: [[{ text: T.read, url }], [{ text: put(T.stop, label), callback_data: `stop:${key}` }]] };
       out.push(/^https:\/\//.test(a.imageUrl || "") ? { method: "sendPhoto", chat_id: chat, photo: a.imageUrl, caption, parse_mode: "HTML", reply_markup, _text: caption }
         : { method: "sendMessage", chat_id: chat, text: caption, parse_mode: "HTML", reply_markup, link_preview_options: { is_disabled: true } });
     }
@@ -240,7 +320,7 @@ async function main(root) {
   if (!token) { console.log("izlə: TELEGRAM_BOT_TOKEN yoxdur"); return; }
   let state;
   try { state = newState(JSON.parse(fs.readFileSync(file, "utf8"))); } catch { state = newState(); }
-  const app = loadApp(root), cat = catalog(app);
+  const app = loadApp(root), cat = catalog(app), trs = Object.fromEntries(["en", "ru", "tr"].map(c => [c, loadTr(root, c)]));
   const me = await call(token, { method: "getMe" });
   console.log(`izlə: bot @${me?.result?.username || "?"}, ${cat.size} mövzu, ${Object.keys(state.subs).length} oxucu`);
   const hook = await call(token, { method: "getWebhookInfo" });
@@ -252,14 +332,16 @@ async function main(root) {
     if (!up?.ok) await new Promise(r => setTimeout(r, 5000)); // şəbəkə və ya başqa getUpdates: dövr boş fırlanmasın
     for (const u of up?.result || []) {
       state.offset = u.update_id + 1;
-      for (const m of handle(state, u, cat)) await call(token, m).catch(() => {});
+      for (const m of handle(state, u, cat, trs)) await call(token, m).catch(() => {});
     }
     if (Date.now() - lastFeed >= FEED_EVERY_MS) {
       const full = Date.now() - lastFull >= FULL_EVERY_MS;
       lastFeed = Date.now(); if (full) lastFull = lastFeed;
-      for (const m of deliveries(state, await feed(full), cat, app)) {
+      const articles = await feed(full), langs = full ? topicLangs(state) : [];
+      if (full) articles.push(...mergeLangFeeds(state, langs, Object.fromEntries(await Promise.all(langs.map(async c => [c, await feedLang(c)])))));
+      for (const m of deliveries(state, articles, cat, app, trs)) {
         const d = await call(token, m).catch(() => ({}));
-        if (d?.error_code === 403) delete state.subs[m.chat_id]; // oxucu botu bağlayıb
+        if (d?.error_code === 403) { delete state.subs[m.chat_id]; delete state.lang[m.chat_id]; } // oxucu botu bağlayıb
         else if (d?.ok) sent++;
         await new Promise(r => setTimeout(r, 60));
       }
@@ -285,5 +367,5 @@ async function main(root) {
   console.log(`izlə: ${sent} xəbər göndərildi, ${Object.keys(state.subs).length} oxucu`);
 }
 
-module.exports = { catalog, handle, deliveries, newState, storyUrl, keyOf, kwTopic, MAX_TOPICS, dueEdition, pickTop, digestMessages, DIGEST_LANGS };
+module.exports = { catalog, handle, deliveries, newState, storyUrl, keyOf, kwTopic, MAX_TOPICS, dueEdition, pickTop, digestMessages, DIGEST_LANGS, TEXT, chatLang, loadTr, topicLangs, mergeLangFeeds };
 if (require.main === module) main(path.resolve(process.argv[2] || ".")).catch(e => { console.error("izlə:", e?.message || e); process.exitCode = 1; });

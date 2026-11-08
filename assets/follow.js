@@ -144,7 +144,8 @@ export function openFollow(opener, track = () => {}, chromeLink = () => '') {
   const bot = globalThis.SITE_CONFIG?.tgBot;
   if (bot && grid.children.length) {
     const tg = document.createElement('a');
-    tg.className = 'follow-tg'; tg.href = `https://t.me/${bot}?start=movzu`; tg.target = '_blank'; tg.rel = 'noopener noreferrer';
+    const lang = document.documentElement.lang;  // başqa dildə bot o dildə soruşur (izle.cjs, start=en-movzu)
+    tg.className = 'follow-tg'; tg.href = `https://t.me/${bot}?start=${/^(en|ru|tr)$/.test(lang) ? lang + "-" : ""}movzu`; tg.target = '_blank'; tg.rel = 'noopener noreferrer';
     tg.textContent = '📩 İstədiyiniz mövzunu Telegram-da izləyin';
     tg.addEventListener('click', () => { track('follow-tgbot'); activeClose?.(); });
     grid.after(tg);

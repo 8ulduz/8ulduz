@@ -1911,7 +1911,9 @@ function articleView(id) {
 }
 
 // «Telegram-da izlə» (izle.cjs).
-const tgIzle = (k, who) => { const bot = window.SITE_CONFIG?.tgBot; return bot ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=${k}" ${OUT}>📩 ${who ? esc(who) + ": " : ""}Telegram-da izlə</a>` : ""; };
+// Saytın dili bota ön şəkilçi ilə gedir (en-, ru-, tr-): bot o dildə yazır və o dildəki xəbərləri göndərir. Azərbaycan dilində şəkilçi yoxdur.
+const tgPre = () => uiLang(S.lang) ? S.lang + "-" : "";
+const tgIzle = (k, who) => { const bot = window.SITE_CONFIG?.tgBot; return bot ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=${tgPre()}${k}" ${OUT}>📩 ${who ? esc(who) + ": " : ""}Telegram-da izlə</a>` : ""; };
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
   return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
@@ -2032,7 +2034,7 @@ function searchView() {
   const desc = topics.length ? `${topics.join(", ")}: bütün dillərdə, son 5 günün xəbərləri.` : words.length > 1 ? `${all} xəbərdə bütün sözlər, ${list.length - all} xəbərdə bəziləri var. Uyğunluğa görə sıralanıb.` : "Başlıq, xülasə və mənbə adına görə, son 5 gün. Uyğunluğa görə sıralanıb.";
   S.hl = hlRegex(words);
   const q = S.q.trim(), b = new TextEncoder().encode(q);
-  return listPage(`Axtarış: “${S.q}”`, desc, list, b.length < 46 ? tgIzle("q_" + btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""), `«${q}»`) : "");
+  return listPage(`Axtarış: “${S.q}”`, desc, list, b.length < 46 - tgPre().length ? tgIzle("q_" + btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, ""), `«${q}»`) : "");
 }
 // Axtarışda uyğun sözlər işarələnir.
 function highlightSearch() {
@@ -2397,7 +2399,7 @@ function onClick(e) {
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
-  else if (act === "follow") import("./follow.js?v=4").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
+  else if (act === "follow") import("./follow.js?v=5").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();
   else if (act === "tix-open") { S.tixOn = true; renderView(); }
