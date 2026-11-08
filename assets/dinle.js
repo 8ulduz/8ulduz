@@ -35,9 +35,13 @@ export function chunks(text, limit = 200) {
 }
 
 // Səs seçimi: Azərbaycan (təbii/onlayn səs önə), sonra türk; ad sırası sabitdir ki, hər dəfə eyni səs çıxsın.
-export function pickVoice(voices) {
+// Xəbər başqa dildədirsə (sahib, 2026-11-08: «dinlə düyməsi dillər üzrə dəyişmir») o dilin səsi: ingilis xəbəri ingilis səsi ilə.
+const LOCALE = { en: "en-US", ru: "ru-RU", tr: "tr-TR" };
+export const langOf = a => a?.lang || "az";
+export function pickVoice(voices, want = "az") {
   const score = v => (/natural|online|neural/i.test(v.name) ? 2 : 0) + (v.localService ? 0 : 1);
   const best = re => voices.filter(v => re.test(v.lang || "")).sort((x, y) => score(y) - score(x) || String(x.name).localeCompare(String(y.name)))[0];
+  if (want !== "az" && /^[a-z]{2,3}$/.test(want)) { const own = best(new RegExp(`^${want}(?:[-_]|$)`, "i")); return own ? { voice: own, lang: own.lang || LOCALE[want] || want, az: false, own: true } : null; }
   const az = best(/^az(?:[-_]|$)/i);
   if (az) return { voice: az, lang: "az-AZ", az: true };
   const tr = best(/^tr(?:[-_]|$)/i);
@@ -45,6 +49,7 @@ export function pickVoice(voices) {
 }
 
 const WAIT = "Səs hazırlanır…";
+const SAYS = { az: " xəbər verir. ", en: " reports. ", ru: " сообщает. ", tr: " bildiriyor. " };
 const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
 
 // Ayrıca pəncərə yoxdur (sahib, 2026-11-08: «əlavə pəncərəyə nə ehtiyac var? təkrar basanda dayansın»): vəziyyət kartın öz
@@ -86,18 +91,19 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
     if (worker && String(a?.sourceUrl).startsWith("https://")) try {
       const r = await fetchFn(`${worker}?u=${encodeURIComponent(a.sourceUrl)}`, { signal: AbortSignal.timeout(7000) });
       const t = r.ok ? String((await r.json()).text || "") : "";
-      if (t.length > 200) { const title = textOf({ title: a.title }, decode).replace(/[.]$/, ""); return `${title}. ${a.source ? a.source + " xəbər verir. " : ""}${t.startsWith(title) ? t.slice(title.length) : t}`; }
+      if (t.length > 200) { const title = textOf({ title: a.title }, decode).replace(/[.]$/, ""); return `${title}. ${a.source ? a.source + (SAYS[langOf(a)] || ". ") : ""}${t.startsWith(title) ? t.slice(title.length) : t}`; }
     } catch {}
     return textOf(a, decode);
   };
-  const azList = () => list().filter(a => (a.lang || "az") === "az");
+  const sameLang = a => list().filter(x => langOf(x) === langOf(a));
   // Növbəti: əvvəl hazır tam səsi olan xəbər (maşında dinləyən ardıcıl təbii səs eşitsin), sonra qalanlar.
-  const after = a => { const all = azList(), at = all.findIndex(x => x.id === a?.id), rest = all.slice(at + 1); return rest.find(x => voiced?.has(x.id)) || rest[0]; };
+  const after = a => { const all = sameLang(a), at = all.findIndex(x => x.id === a?.id), rest = all.slice(at + 1); return rest.find(x => voiced?.has(x.id)) || rest[0]; };
   function speak(id) {
     if (id !== gen) return;
     if (i >= parts.length) { stop(); return; }   // xəbər bitdi: dayanır
-    const u = new Utterance(choice.az ? parts[i] : forTurkish(parts[i]));
-    u.voice = choice.voice; u.lang = choice.lang; u.rate = choice.az ? 1 : .95;
+    const own = choice.az || choice.own;   // türk hərfinə çevirmə yalnız Azərbaycan mətni türk səsi ilə oxunanda
+    const u = new Utterance(own ? parts[i] : forTurkish(parts[i]));
+    u.voice = choice.voice; u.lang = choice.lang; u.rate = own ? 1 : .95;
     u.onend = () => { if (id === gen) { i++; speak(id); } };
     u.onerror = e => { if (id === gen && !/cancel|interrupt/.test(e?.error || "")) { playing = false; emit("Səsli oxuma dayandı"); } };
     synth.speak(u);
@@ -121,7 +127,9 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
     // Səs hələ hazır deyilsə (server 503): cihazda Azərbaycan səsi varsa (kompüterdə Edge: Babək) gözləmədən o oxuyur;
     // yoxdursa düymə «Səs hazırlanır…» yazısını saxlayır (sahib, 2026-11-08: «səs hazırlanır yazır qayıdır dinləyə»),
     // 10 saniyədən bir yenidən soruşur (4 dəqiqəyədək), sonra cihazın səsi. Ünvan toxunuş anında verilir (iPhone).
-    if (server && tries >= 0 && String(a?.sourceUrl).startsWith("https://")) {
+    // Babək serveri və hazır səslər yalnız Azərbaycan dilindədir: başqa dildə xəbəri cihazın o dildəki səsi oxuyur.
+    const az = langOf(a) === "az";
+    if (az && server && tries >= 0 && String(a?.sourceUrl).startsWith("https://")) {
       const e = encodeURIComponent, src = `${server}?u=${e(a.sourceUrl)}&id=${e(a.id || "")}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`;
       mode = "file"; aud.src = src; media(a);
       const mine = () => id === gen && aud.currentSrc === src;
@@ -137,7 +145,7 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
       aud.play()?.catch?.(() => { if (id === gen && aud.currentSrc === src && !aud.error) { playing = false; emit("Başlatmaq üçün yenidən basın"); } });
       return;
     }
-    const url = await audioFor(a.id);
+    const url = az ? await audioFor(a.id) : "";
     if (id !== gen) return;
     if (url) {
       mode = "file"; aud.src = url;
@@ -150,9 +158,9 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
     } else {
       if (!synth || !Utterance) { playing = false; emit("Bu brauzerdə səsli oxuma yoxdur"); return; }
       const [vs, text] = await Promise.all([voices(), fullText(a)]);
-      choice = pickVoice(vs);
+      choice = pickVoice(vs, langOf(a));
       if (id !== gen) return;
-      if (!choice) { playing = false; emit("Cihazda Azərbaycan və ya türk səsi yoxdur"); return; }
+      if (!choice) { playing = false; emit(az ? "Cihazda Azərbaycan və ya türk səsi yoxdur" : "Cihazda bu dilin səsi yoxdur"); return; }
       mode = "tts"; parts = chunks(text); media(a);
       speak(id);
     }

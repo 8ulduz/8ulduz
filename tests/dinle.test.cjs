@@ -178,3 +178,51 @@ test("dinlə: with the «dinle» server the story streams at once (prepared voic
   assert.equal(p.playing, true, "gözləyir, ikinci basış bitirir");
   p.stop();
 });
+
+test("dinlə: a story in English, Russian or Turkish is read by the device voice of its own language, never by the Azerbaijani server (owner 2026-11-08: «dinlə düyməsi dillər üzrə dəyişmir»)", async () => {
+  const { createPlayer, pickVoice } = await load();
+  const v = (name, lang) => ({ name, lang, localService: true });
+  assert.equal(pickVoice([v("Google Türkçe", "tr-TR"), v("Google US English", "en-US")], "en").voice.name, "Google US English");
+  assert.equal(pickVoice([v("Google Türkçe", "tr-TR")], "ru"), null, "rus səsi yoxdursa türk səsi rus mətnini oxumur");
+  const env = fakeEnv(true), states = [];
+  env.synth.getVoices = () => [v("Google Türkçe", "tr-TR"), v("Google US English", "en-US")];
+  const en = [{ id: "dddddddddddddddd", title: "Fire in the city", lang: "en", source: "Reuters", sourceUrl: "https://example.com/en1" }, { id: "eeeeeeeeeeeeeeee", title: "Second story", lang: "en" }];
+  const p = createPlayer({ list: () => [...list, ...en], ...env, server: "https://dinle.example/ses", onState: s => states.push({ ...s }) });
+  await p.play(en[0]);
+  assert.ok(!env.played.some(s => s.startsWith("https://dinle.example/")), "Babək serverinə getmir");
+  assert.ok(!env.fetched.some(u => /\.mp3$|index\.json$/.test(u)), "hazır Azərbaycan səsi axtarılmır");
+  assert.equal(p.mode, "tts");
+  assert.equal(env.spoken[0].lang, "en-US");
+  assert.equal(env.spoken[0].text, "Fire in the city.", "mətn türk hərflərinə çevrilmir");
+  p.next(); await flush();
+  assert.equal(env.spoken.at(-1).text, "Second story.", "«Növbəti» eyni dildəki xəbərə keçir");
+  p.stop();
+  const p2 = createPlayer({ list: () => list, ...env });
+  await p2.play({ id: "ffffffffffffffff", title: "Şehirde yangın çıktı", lang: "tr" });
+  assert.equal(env.spoken.at(-1).text, "Şehirde yangın çıktı.", "türk xəbəri türk səsi ilə, hərf dəyişmədən");
+  assert.equal(env.spoken.at(-1).rate, 1);
+  p2.stop();
+  env.synth.getVoices = () => [v("Google Türkçe", "tr-TR")];
+  const p3 = createPlayer({ list: () => list, ...env, onState: s => states.push({ ...s }) });
+  await p3.play({ id: "1111111111111111", title: "Пожар в городе", lang: "ru" });
+  assert.equal(states.at(-1).msg, "Cihazda bu dilin səsi yoxdur");
+  assert.equal(p3.playing, false);
+});
+
+test("dinlə: the button and every message it can show change with the site language (owner 2026-11-08)", () => {
+  const vm = require("node:vm");
+  const dil = f => { const src = fs.readFileSync(path.join(root, f), "utf8").replace(/^export default /m, "globalThis.__d = ").replace(/^export (async )?function/gm, "$1function"); const ctx = vm.createContext({}); ctx.globalThis = ctx; vm.runInContext(src, ctx); return ctx; };
+  const { makeTr } = dil("assets/dil.js");
+  const js = fs.readFileSync(path.join(root, "assets/dinle.js"), "utf8");
+  const msgs = [js.match(/const WAIT = "([^"]+)"/)[1]];
+  for (const m of js.matchAll(/emit\(([^)]*)\)/g)) for (const s of m[1].matchAll(/"([^"]+)"/g)) msgs.push(s[1]);
+  assert.ok(msgs.length >= 6, msgs.join(" | "));
+  const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  assert.ok(app.includes('"■ Bitir" : "Dinlə"'), "düymənin yazıları app.js-dədir");
+  for (const [code, listen, stop] of [["en", "Listen", "■ Stop"], ["ru", "Слушать", "■ Стоп"], ["tr", "Dinle", "■ Durdur"]]) {
+    const tr = makeTr(dil(`assets/dil-${code}.js`).__d);
+    assert.equal(tr("Dinlə"), listen);
+    assert.equal(tr("■ Bitir"), stop);
+    for (const m of msgs) assert.notEqual(tr(m), m, `${code}: «${m}» tərcümə olunmayıb`);
+  }
+});
