@@ -371,6 +371,34 @@ class ImageTest(unittest.TestCase):
         self.assertGreater(retry[undated["sourceUrl"]], t + 5 * 3600)
 
 
+    def test_an_old_6_hour_wait_is_cut_to_15_minutes_while_the_story_is_fresh(self):
+        # Düzəlişdən əvvəl yazılmış 6 saatlıq qeyd təzə xəbəri saxlayırdı: iki AZƏRTAC video xəbəri lentdən şəkilsiz çıxacaqdı.
+        now = datetime.datetime.now(datetime.timezone.utc)
+        t = now.timestamp()
+        fresh = {"sourceUrl": "https://azertag.az/xeber/v-4501596", "publishedAt": (now - datetime.timedelta(minutes=80)).isoformat()}
+        old = {"sourceUrl": "https://x.az/old", "publishedAt": (now - datetime.timedelta(hours=5)).isoformat()}
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            cache = folder / "og.json"
+            meta = lambda: json.loads(cache.read_text(encoding="utf-8"))["_meta"]["retryAfter"]
+            cache.write_text(json.dumps({fresh["sourceUrl"]: "", old["sourceUrl"]: "", "_meta": {"retryAfter": {fresh["sourceUrl"]: t + 6 * 3600, old["sourceUrl"]: t + 6 * 3600}}}), encoding="utf-8")
+            with patch.object(updater, "OG_FILE", cache), patch.object(updater, "OUT_DIR", folder), \
+                 patch.object(updater, "_fetch_og", return_value="https://azertag.az/files/video_photo/1.jpg") as fetch:
+                updater.fill_og_images([dict(fresh), dict(old)])
+                self.assertEqual(fetch.call_count, 0, "15 dəqiqə hələ keçməyib")
+                self.assertLessEqual(meta()[fresh["sourceUrl"]], t + 1000)
+                self.assertGreater(meta()[old["sourceUrl"]], t + 5 * 3600, "köhnə xəbərin qeydi dəyişmir")
+                updater.fill_og_images([dict(fresh), dict(old)])
+                self.assertLessEqual(meta()[fresh["sourceUrl"]], t + 1000, "qeyd hər dövrədə irəli sürüşmür")
+                stored = json.loads(cache.read_text(encoding="utf-8"))
+                stored["_meta"]["retryAfter"][fresh["sourceUrl"]] = t - 1
+                cache.write_text(json.dumps(stored), encoding="utf-8")
+                row = dict(fresh)
+                updater.fill_og_images([row, dict(old)])
+                self.assertEqual([c.args[0] for c in fetch.call_args_list], [fresh["sourceUrl"]])
+                self.assertEqual(row["imageUrl"], "https://azertag.az/files/video_photo/1.jpg")
+
+
 class AttachFreshTest(unittest.TestCase):
     """Yavaş prosesdən sonra gələn təzə xəbər sürətli dövrədə eyni hadisənin kartına qoşulur."""
     NOW = datetime.datetime(2026, 11, 2, 20, 0, tzinfo=datetime.timezone.utc)
