@@ -3045,7 +3045,8 @@ def social_share_page(p):
              if image.startswith("https://") else fallback)
     desc = " · ".join(x for x in (p.get("name"), p.get("network"), p.get("via")) if x) or "8ulduz"
     return _SHARE_HTML.format(lang="az", title=_xml(social_share_title(p)), desc=_xml(desc), url=_xml(f"{SITE}bolme/prezident/s/{sid}"),
-                              image=_xml(image), locale="az_AZ", app=_xml(f"{SITE}#/bolme/prezident?s={sid}"), site=SITE, pre="")
+                              image=_xml(image), locale="az_AZ", app=_xml(f"{SITE}#/bolme/prezident?s={sid}"), site=SITE,
+                              pre=f'<script>location.replace({_js(f"{SITE}#/bolme/prezident?s={sid}")})</script>\n')  # oxucu skriptlə keçir (meta refresh yoxdur)
 
 def write_social_share_pages(rows, root=None):
     """Arxivdəki hər yazının (16 rəqəmli id) paylaşma səhifəsi; arxivdən çıxanın səhifəsi silinir. Yazılan səhifə sayını qaytarır."""

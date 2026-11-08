@@ -2149,7 +2149,8 @@ class SharePagesTest(unittest.TestCase):
         q = updater.urllib.parse.quote
         self.assertIn(f'<meta property="og:image" content="https://wsrv.nl/?url={q("https://apa.az/i.jpg", safe="")}&amp;w=1200&amp;h=630&amp;fit=cover'
                       f'&amp;a=attention&amp;output=jpg&amp;q=78&amp;default={q(updater.SITE + "assets/og-default.png", safe="")}" />', page)
-        self.assertIn(f'content="0;url={updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat&amp;h=26110410"', page)  # h: arxiv budağının saatı (arxiv.cjs)
+        self.assertNotIn('http-equiv="refresh"', page, "Facebook robotu meta refresh-i izləyib baş səhifənin kartını götürürdü (2026-11-08)")
+        self.assertIn(f'location.replace("{updater.SITE}#/xeber/{sid("https://apa.az/1")}?b=iqtisadiyyat&h=26110410")', page)  # h: arxiv budağının saatı (arxiv.cjs)
         # Yeganə skript: sətri sessionStorage-a qoyub sayta keçid (sahib, 2026-11-07: «keçidlər gözqırpımında»); başqa skript olmur.
         scripts = re.findall(r"<script>.*?</script>", page, re.S)
         self.assertEqual(len(scripts), 1)
@@ -2228,7 +2229,8 @@ class SocialSharePageTest(unittest.TestCase):
             self.assertIn('<meta property="og:title" content="İlham Əliyev: Eşq olsun &amp; Azərbaycan xalqına!" />', a)
             self.assertIn('<meta property="og:title" content="Mehriban Əliyeva: Zəfər Günü" />', b)
             self.assertIn(f'<meta property="og:url" content="{updater.SITE}bolme/prezident/s/{"a" * 16}" />', a)
-            self.assertIn(f'content="0;url={updater.SITE}#/bolme/prezident?s={"a" * 16}"', a)
+            self.assertIn(f'<script>location.replace("{updater.SITE}#/bolme/prezident?s={"a" * 16}")</script>', a, "oxucu skriptlə keçir; meta refresh yoxdur (Facebook robotu onu izləyirdi, 2026-11-08)")
+            self.assertNotIn('http-equiv="refresh"', a)
             self.assertIn("https://wsrv.nl/?url=https%3A%2F%2Fi4.ytimg.com", a)
             self.assertIn(f"{updater.SITE}assets/og-default.png", b, "şəkilsiz yazıda saytın şəkli")
             self.assertIn('name="robots" content="noindex"', a)
