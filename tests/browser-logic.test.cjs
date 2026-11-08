@@ -1810,6 +1810,26 @@ test('site language: every time the site writes («5 dəq əvvəl» on phones, t
   assert.deepEqual(['14 dəq əvvəl', '5 dəq', '2 saat 15 dəq', '3 saat', 'indi'].map(tr), ['14 dk önce', '5 dk', '2 sa 15 dk', '3 saat', 'şimdi']);
   assert.equal(en('yoxlanıb 11 dəq əvvəl'), 'checked 11 min ago', 'liqa səhifəsindəki «yoxlanıb» da');
 });
+test('site language: sports sub-sections read like the Azerbaijani ones — national teams, their competitions, groups and countries (owner 2026-11-08: «İdmanın alt bölmələri AZ dakı kimi deyil»)', () => {
+  const mod = dilModule('assets/dil.js'), region = vm.runInContext('REGION', mod);
+  // data/milli-menyu.json-un 2026-11-08 komandaları. Yeni komanda gələndə onun ISO kodunu dil.js REGION-a yazın.
+  const TEAMS = ["Meksika","Cənubi Afrika","Cənubi Koreya","Çexiya","İsveçrə","Kanada","Bosniya və Herseqovina","Qətər","Braziliya","Mərakeş","Şotlandiya","Haiti","ABŞ","Avstraliya","Paraqvay","Türkiyə","Almaniya","Kot-d'İvuar","Ekvador","Kürasao","Hollandiya","Yaponiya","İsveç","Tunis","Belçika","Misir","İran","Yeni Zelandiya","İspaniya","Kabo-Verde","Uruqvay","Səudiyyə Ərəbistanı","Fransa","Norveç","Seneqal","İraq","Argentina","Avstriya","Əlcəzair","İordaniya","Kolumbiya","Portuqaliya","Konqo DR","Özbəkistan","İngiltərə","Xorvatiya","Qana","Panama","İtaliya","Yunanıstan","Serbiya","Danimarka","Uels","Sloveniya","Şimali Makedoniya","Şimali İrlandiya","Macarıstan","Ukrayna","Gürcüstan","Kosovo","İrlandiya","İsrail","Polşa","Rumıniya","Albaniya","Belarus","Finlandiya","San-Marino","Monteneqro","Kipr","Ermənistan","Latviya","Slovakiya","Farer adaları","Moldova","Qazaxıstan","İslandiya","Estoniya","Bolqarıstan","Lüksemburq","Malta","Cəbəllütariq","Andorra","Azərbaycan","Litva","Lixtenşteyn","Küveyt","Oman","Fələstin","Bəhreyn","Şimali Koreya","Suriya","Qırğızıstan","Çin","Tacikistan","Sinqapur","BƏƏ","Vyetnam","Yəmən","Tailand","İndoneziya","Qabon","Niger","Lesoto","Anqola","Malavi","Cənubi Sudan","Qambiya","Somali","Qvineya","Keniya","Eritreya","Zimbabve","Ekvatorial Qvineya","Syerra-Leone","Benin","Burkina-Faso","Mavritaniya","Mərkəzi Afrika Respublikası","Kamerun","Komor adaları","Namibiya","Konqo","Uqanda","Botsvana","Liviya","Zambiya","Toqo","Burundi","Mozambik","Sudan","Efiopiya","Ruanda","Mali","Liberiya","Qvineya-Bisau","Nigeriya","Madaqaskar","Tanzaniya","Dominikan Respublikası","Kosta-Rika","Trinidad və Tobaqo","Nikaraqua","Qvatemala","Yamayka","Surinam","Honduras","Martinika","Salvador","Qayana","Puerto-Riko","Kayman adaları","Dominika","Barbados","Sent-Lüsiya","Qvadelupa","Bermud adaları","Kuba","Sent-Kits və Nevis","Bonayre","Qrenada","Sent-Vinsent və Qrenadinlər","Fransız Qvianası","Beliz","Sint-Marten","Monserrat","Törks və Kaykos adaları","Britaniya Virgin adaları","Antiqua və Barbuda","Aruba","Angilya","Sen-Marten","ABŞ Virgin adaları","Baham adaları"];
+  const LABELS = ['Milli komandalar', 'Pro Liqa', 'Dünya Çempionatı 2026', 'Avropa Çempionatı 2028: seçmə', 'Millətlər Liqası A', 'Millətlər Liqası D', 'Asiya Kuboku 2027', 'Afrika Millətlər Kuboku 2027: seçmə', 'KONKAKAF Millətlər Liqası C', 'Qrup A', 'Qrup 4', 'Dünya Çempionatı 2026: xəbərlər', 'Misli Premier League: xəbərlər'];
+  for (const code of ['en', 'ru', 'tr']) {
+    const d = dilModule(`assets/dil-${code}.js`).__d, tr = mod.makeTr(d, code);
+    for (const s of LABELS) assert.ok(!/ə|Liqası|Kuboku|Çempionat|Qrup|seçmə|komandalar|xəbərlər/.test(tr(s)), `${code}: «${s}» → «${tr(s)}»`);
+    for (const s of TEAMS) {
+      assert.ok(d.w[s] !== undefined || region[s], `«${s}»: nə lüğətdə, nə REGION-da`);
+      assert.ok(!/ə/.test(tr(s)), `${code}: «${s}» → «${tr(s)}»`);
+    }
+    assert.equal(tr('Seriya A'), d.w['Seriya A'], 'lüğətdəki tam ad qaydadan əvvəldir');
+    assert.equal(tr('Prezident İlham Əliyev Ankarada görüş keçirib'), 'Prezident İlham Əliyev Ankarada görüş keçirib', 'xəbər başlığı tərcümə olunmur');
+  }
+  const [en, ru, tr] = ['en', 'ru', 'tr'].map(c => mod.makeTr(dilModule(`assets/dil-${c}.js`).__d, c));
+  assert.deepEqual(['Dünya Çempionatı 2026', 'Millətlər Liqası A: xəbərlər', 'Qrup K', 'Meksika', 'Uels'].map(en), ['World Cup 2026', 'Nations League A: news', 'Group K', 'Mexico', 'Wales']);
+  assert.deepEqual(['Afrika Millətlər Kuboku 2027: seçmə', 'Cənubi Koreya'].map(ru), ['Кубок африканских наций 2027: отбор', 'Южная Корея']);
+  assert.deepEqual(['Milli komandalar', 'Uels', 'Bosniya və Herseqovina'].map(tr), ['Milli takımlar', 'Galler', 'Bosna-Hersek']);
+});
 test('site language: a section without news in that language is hidden, sports never', () => {
   const { emptySections } = dilModule('assets/dil.js');
   const list = [{ category: 'bolgeler', lang: 'az' }, { category: 'dunya', lang: 'ru' }, { category: 'dunya', lang: 'az' }, { category: 'idman', lang: 'az' }, { category: 'gundem' }];

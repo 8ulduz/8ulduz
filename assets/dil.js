@@ -6,9 +6,14 @@ const monthOf = s => MON.indexOf(s.toLowerCase());
 const shortOf = s => MON.findIndex(m => m.slice(0, 3) === s);
 const ATTRS = ["title", "aria-label", "placeholder"];
 const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA"]);
+// Milli komandaların ölkə adları (data/milli-menyu.json) -> ISO kodu; ad brauzerin öz siyahısından (Intl.DisplayNames, CLDR) gəlir.
+// Futbolda başqa yazılanlar (Uels, Konqo DR, Fələstin…) lüğətdədir, lüğət birinci yoxlanır. Yeni komandanın kodunu bura yazın.
+const REGION = Object.fromEntries("Meksika:MX|Çexiya:CZ|İsveçrə:CH|Kanada:CA|Bosniya və Herseqovina:BA|Qətər:QA|Mərakeş:MA|Haiti:HT|Avstraliya:AU|Paraqvay:PY|Ekvador:EC|Kürasao:CW|Yaponiya:JP|İsveç:SE|Tunis:TN|Misir:EG|İran:IR|Yeni Zelandiya:NZ|Kabo-Verde:CV|Uruqvay:UY|Səudiyyə Ərəbistanı:SA|Norveç:NO|Seneqal:SN|İraq:IQ|Argentina:AR|Avstriya:AT|Əlcəzair:DZ|İordaniya:JO|Kolumbiya:CO|Özbəkistan:UZ|Xorvatiya:HR|Qana:GH|Panama:PA|Yunanıstan:GR|Serbiya:RS|Danimarka:DK|Sloveniya:SI|Şimali Makedoniya:MK|Macarıstan:HU|Ukrayna:UA|Gürcüstan:GE|Kosovo:XK|İrlandiya:IE|İsrail:IL|Polşa:PL|Rumıniya:RO|Albaniya:AL|Belarus:BY|Finlandiya:FI|San-Marino:SM|Monteneqro:ME|Kipr:CY|Ermənistan:AM|Latviya:LV|Slovakiya:SK|Farer adaları:FO|Moldova:MD|Qazaxıstan:KZ|İslandiya:IS|Estoniya:EE|Bolqarıstan:BG|Lüksemburq:LU|Malta:MT|Cəbəllütariq:GI|Andorra:AD|Litva:LT|Lixtenşteyn:LI|Küveyt:KW|Oman:OM|Bəhreyn:BH|Şimali Koreya:KP|Suriya:SY|Qırğızıstan:KG|Çin:CN|Tacikistan:TJ|Sinqapur:SG|BƏƏ:AE|Vyetnam:VN|Yəmən:YE|Tailand:TH|İndoneziya:ID|Qabon:GA|Niger:NE|Lesoto:LS|Anqola:AO|Malavi:MW|Cənubi Sudan:SS|Qambiya:GM|Somali:SO|Qvineya:GN|Keniya:KE|Eritreya:ER|Zimbabve:ZW|Ekvatorial Qvineya:GQ|Syerra-Leone:SL|Benin:BJ|Burkina-Faso:BF|Mavritaniya:MR|Mərkəzi Afrika Respublikası:CF|Kamerun:CM|Komor adaları:KM|Namibiya:NA|Uqanda:UG|Botsvana:BW|Liviya:LY|Zambiya:ZM|Toqo:TG|Burundi:BI|Mozambik:MZ|Sudan:SD|Efiopiya:ET|Ruanda:RW|Mali:ML|Liberiya:LR|Qvineya-Bisau:GW|Nigeriya:NG|Madaqaskar:MG|Tanzaniya:TZ|Çad:TD|Dominikan Respublikası:DO|Kosta-Rika:CR|Trinidad və Tobaqo:TT|Nikaraqua:NI|Qvatemala:GT|Yamayka:JM|Surinam:SR|Honduras:HN|Martinika:MQ|Salvador:SV|Qayana:GY|Puerto-Riko:PR|Kayman adaları:KY|Dominika:DM|Barbados:BB|Kuba:CU|Sent-Lüsiya:LC|Qvadelupa:GP|Bermud adaları:BM|Sent-Kits və Nevis:KN|Qrenada:GD|Sent-Vinsent və Qrenadinlər:VC|Fransız Qvianası:GF|Beliz:BZ|Sint-Marten:SX|Monserrat:MS|Törks və Kaykos adaları:TC|Britaniya Virgin adaları:VG|Antiqua və Barbuda:AG|Aruba:AW|Angilya:AI|Sen-Marten:MF|ABŞ Virgin adaları:VI|Baham adaları:BS".split("|").map(x => x.split(":")));
 
-export function makeTr(lang) {
+export function makeTr(lang, code) {
   const { w, t, mon, monN, mon3, days } = lang;
+  let names = null;
+  try { if (code && globalThis.Intl?.DisplayNames) names = new Intl.DisplayNames([code], { type: "region" }); } catch {}
   const out = new Set(Object.values(w));
   const seen = new Map();
   const put = (tpl, ...parts) => parts.reduce((s, p, i) => s.replace(`$${i + 1}`, p), tpl);
@@ -42,9 +47,15 @@ export function makeTr(lang) {
     [/^(\d{1,2}) (\p{L}+)( \d{4})?$/u, m => monthOf(m[2]) < 0 ? null : `${m[1]} ${mon[monthOf(m[2])]}${m[3] || ""}`],
     [/^(\d{1,2}) (\p{L}{3})(, \d{1,2}:\d{2})?$/u, m => shortOf(m[2]) < 0 ? null : `${m[1]} ${mon3[shortOf(m[2])]}${m[3] || ""}`],
     [/^(\p{L}+) (\d{4})$/u, m => monthOf(m[1]) < 0 ? null : `${monN[monthOf(m[1])]} ${m[2]}`],
+    // İdmanın milli yarışları (sahib, 2026-11-08: «İdmanın alt bölmələri AZ-dakı kimi deyil»): «Dünya Çempionatı 2026»,
+    // «Afrika Millətlər Kuboku 2027: seçmə», «Millətlər Liqası A», «Qrup C». Yarışın adı lüğətdən tam uyğun gəlməlidir.
+    [/^(.+?) (\d{4})(: seçmə)?$/, m => w[m[1]] ? `${w[m[1]]} ${m[2]}${m[3] ? ": " + w["seçmə"] : ""}` : null],
+    [/^(.+?) ([A-D])$/, m => w[m[1]] ? `${w[m[1]]} ${m[2]}` : null],
+    [/^Qrup ([A-Z]|\d{1,2})$/, m => put(t.group, m[1])],
   ];
   const core = s => {
     if (w[s] !== undefined) return w[s];
+    if (names && REGION[s]) { const r = names.of(REGION[s]); if (r && r !== REGION[s]) return r; }
     for (const [rx, fn] of RULES) {
       const m = s.match(rx);
       const r = m && fn(m);
@@ -107,7 +118,7 @@ export function emptySections(articles, code) {
 
 export async function startDil(S, code) {
   const { default: lang } = await import(`./dil-${code}.js`);
-  const tr = makeTr(lang);
+  const tr = makeTr(lang, code);
   let from, empty = [];
   const hide = () => {
     if (from !== S.data?.articles) { from = S.data?.articles; empty = emptySections(from, code); }
