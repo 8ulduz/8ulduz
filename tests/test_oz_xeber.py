@@ -273,8 +273,20 @@ class SinaqTest(unittest.TestCase):
         self.assertIn("### «Neftçi» «Kəpəz»i 1:0 hesabı ilə məğlub edib", md)
         self.assertIn("Görüşü İnqilab Məmmədov idarə edib.", md)
         self.assertIn("ANTHROPIC_API_KEY yoxdur", md)
-        self.assertIn("#### Reliz: " + REL["title"], md)
+        self.assertIn("### Reliz: " + REL["title"], md)
         self.assertNotIn("Başqa saytın xəbəri", md, "yalnız rəsmi qurumların relizləri")
+        notes = oz.notices(md, 0) + oz.notices(md, 1)
+        self.assertTrue(notes[0].startswith("::notice title=1. AMB 6 noyabr üçün rəsmi məzənnələri açıqlayıb%3A avro 1%2C9037 manat::"), notes[0])
+        self.assertTrue(any(n.startswith("::notice title=") and "Reliz%3A " in n for n in notes), notes)
+
+    def test_notices_are_split_and_escaped(self):
+        md = "\n".join(["# Başlıq", "", "tarix", "", "## 1. Bölmə", "", "### AMB: 1,7 manat", "", "Giriş 100%.", "", "- sətir", "",
+                        "## 2. Relizlər", "", "> açar yoxdur", "", "### Reliz: X", "", "Reliz: «X»", "",
+                        "<details><summary>m</summary>", "", "uzun mətn", "", "</details>", ""])
+        self.assertEqual(oz.notices(md, 0), ["::notice title=1. AMB%3A 1%2C7 manat::Giriş 100%25.%0A- sətir",
+                                             "::notice title=2. 2. Relizlər::> açar yoxdur",
+                                             "::notice title=3. Reliz%3A X::Reliz: «X»"])
+        self.assertEqual(oz.notices(md, 1), [])
 
     def test_with_claude_release_news_passes_the_gate(self):
         now = datetime.datetime(2026, 11, 6, 10, 0, tzinfo=BAKU)

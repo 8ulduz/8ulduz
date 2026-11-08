@@ -50,6 +50,17 @@ jobs:
         run: |
           python -u oz_xeber.py --sinaq --root site --out oz-xeber-sinaq.md
           cat oz-xeber-sinaq.md >> "$GITHUB_STEP_SUMMARY"
+      # Xülasə və loq yalnız GitHub-a girəndə görünür, annotasiya isə hamıya (iş səhifəsində və açıq API-də).
+      # Bir addımda ən çox 10 annotasiya göstərilir: nümunələr üç addıma bölünür.
+      - name: Nümunələr annotasiya kimi (1–10)
+        if: always()
+        run: if [ -f oz-xeber-sinaq.md ]; then python oz_xeber.py --notices oz-xeber-sinaq.md --part 0; fi
+      - name: Nümunələr annotasiya kimi (11–20)
+        if: always()
+        run: if [ -f oz-xeber-sinaq.md ]; then python oz_xeber.py --notices oz-xeber-sinaq.md --part 1; fi
+      - name: Nümunələr annotasiya kimi (21–30)
+        if: always()
+        run: if [ -f oz-xeber-sinaq.md ]; then python oz_xeber.py --notices oz-xeber-sinaq.md --part 2; fi
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:

@@ -631,18 +631,21 @@ def sinaq(root, limit=10, now=None):
             rel["error"] = type(e).__name__
         if len(rel["text"]) < 80 and len(a.get("summary") or "") >= 120:
             rel["text"] = a["summary"]
-        md += [f"#### Reliz: {rel['title']}", "", f"{rel['official']} · [relizin özü]({rel['link']})", ""]
+        # Hər reliz bir bölmədir: əvvəl bizim xəbər (və ya relizin başlığı), sonra relizin özü.
+        source = [f"Reliz: «{rel['title']}» · {rel['official']} · [relizin özü]({rel['link']})", ""]
+        unwritten = [f"### Reliz: {rel['title']}", "", *source]
         if len(rel["text"]) < 80:
-            md += [f"> Relizin mətni tapılmadı{' (' + rel['error'] + ')' if rel.get('error') else ''}: xəbər yazılmır.", ""]
+            md += unwritten + [f"> Relizin mətni tapılmadı{' (' + rel['error'] + ')' if rel.get('error') else ''}: xəbər yazılmır.", ""]
             continue
-        md += ["<details><summary>Relizin mətni</summary>", "", html.escape(rel["text"]).replace("\n", "<br>"), "", "</details>", ""]
+        original = ["<details><summary>Relizin mətni</summary>", "", html.escape(rel["text"]).replace("\n", "<br>"), "", "</details>", ""]
         if not client:
+            md += unwritten + original
             continue
         try:
             data, tokens, err = write_release(client, rel)
         except Exception as e:
             status = getattr(e, "status_code", "")
-            md += [f"> Claude xətası: {type(e).__name__} {status}", ""]
+            md += unwritten + [f"> Claude xətası: {type(e).__name__} {status}", ""] + original
             if status in (401, 403):
                 break  # açar yanlışdır: qalanlarını yoxlamağa dəyməz
             continue
@@ -650,7 +653,7 @@ def sinaq(root, limit=10, now=None):
         total[1] += tokens[1]
         done += 1
         if err:
-            md += [f"> {err}", ""]
+            md += unwritten + [f"> {err}", ""] + original
             continue
         item = release_item(rel, data)
         md += render(item)
@@ -660,7 +663,7 @@ def sinaq(root, limit=10, now=None):
             md += ["⏸ **Sahibin təsdiqini gözləyərdi:** Prezident və ya birinci vitse-prezident adı, vəzifəsi keçir.", ""]
         else:
             md += ["✅ Fakt qapısından keçdi: avtomatik dərc olunardı.", ""]
-        md += [f"<sub>{tokens[0]} giriş + {tokens[1]} çıxış tokeni ≈ ${cost(tokens):.4f}</sub>", ""]
+        md += [f"<sub>{tokens[0]} giriş + {tokens[1]} çıxış tokeni ≈ ${cost(tokens):.4f}</sub>", ""] + source + original
     if done:
         per = cost(total) / done
         md += ["## Xərc", "", f"{done} xəbər: {total[0]} giriş + {total[1]} çıxış tokeni ≈ ${cost(total):.4f}. "
@@ -668,11 +671,35 @@ def sinaq(root, limit=10, now=None):
     return md
 
 
+def _esc(s):
+    return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def notices(md_text, part, per=10):
+    """Sınağın nəticəsi GitHub annotasiyası kimi. İşin xülasəsi və loqu girişsiz görünmür, annotasiya isə görünür:
+    iş səhifəsində və açıq API-də. Bir addımda ən çox 10 annotasiya göstərilir, ona görə hissə-hissə: part 0, 1, 2..."""
+    chunks = []
+    for chunk in re.split(r"\n(?=##+ )", md_text):
+        chunk = re.sub(r"<details>.*?</details>", "", chunk, flags=re.S).strip()
+        head, _, rest = chunk.partition("\n")
+        if head.startswith("##") and rest.strip():
+            chunks.append((head.lstrip("# ").strip(), "\n".join(line for line in rest.strip().splitlines() if line.strip())))
+    out = []
+    for n, (head, rest) in enumerate(chunks[part * per:(part + 1) * per], part * per + 1):
+        title = _esc(f"{n}. {head}"[:150]).replace(":", "%3A").replace(",", "%2C")
+        out.append(f"::notice title={title}::{_esc(rest)}")
+    return out
+
+
 def _arg(argv, name):
     return argv[argv.index(name) + 1] if name in argv and argv.index(name) + 1 < len(argv) else None
 
 
 def main(argv):
+    if "--notices" in argv:
+        text = pathlib.Path(_arg(argv, "--notices")).read_text(encoding="utf-8")
+        print("\n".join(notices(text, int(_arg(argv, "--part") or 0))))
+        return 0
     if "--sinaq" not in argv:
         print(__doc__)
         return 0
