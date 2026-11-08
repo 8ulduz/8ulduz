@@ -1,6 +1,6 @@
 // Bayram təbriki (sahib, 2026-11-07: «8 noyabr Zəfər Günü münasibətilə 00:00-dan sonra saytı açanda təbrik banneri açılsın»).
 // app.js bu modulu yalnız bayram günü (Bakı vaxtı) yükləyir; adi gündə heç bir bayt gəlmir. Təbrik sahibin seçdiyi banner şəklidir
-// (assets/bayram-zefer.webp, 800×800, ~67 KB): yalnız bu gün, ilk ekrandan sonra yüklənir. Sağ yuxarıda ✕; kənara toxunmaq və Esc də
+// (assets/bayram-zefer.webp, 800×800, ~67 KB; 9 noyabr: bayram-bayraq.webp): yalnız bu gün, ilk ekrandan sonra yüklənir. Sağ yuxarıda ✕; kənara toxunmaq və Esc də
 // bağlayır. Sahib (2026-11-08): səhifəni yeniləyəndə çıxmasın, sayt bağlanıb yenidən açılanda çıxsın — sessiyada bir dəfə (sessionStorage).
 const DAYS = {
   "11-08": {
@@ -8,6 +8,12 @@ const DAYS = {
     title: "8ULDUZ.AZ Azərbaycanın ZƏFƏR GÜNÜnü təbrik edir!",
     img: "bayram-zefer.webp",
     alt: "8 Noyabr, Zəfər Günü. Azərbaycan xalqının Zəfər günü mübarək olsun! Qarabağ Azərbaycandır! 8ulduz.az",
+  },
+  "11-09": {
+    // Sahib (2026-11-08): «bayraq günü münasibətilə banner… 00:00-dan 24 saat, Zəfərdəki kimi». Şəkil: bayram-bayraq.webp, 800×800, ~28 KB.
+    title: "8ULDUZ Azərbaycan xalqını Dövlət Bayrağı Günü münasibətilə təbrik edir!",
+    img: "bayram-bayraq.webp",
+    alt: "9 Noyabr, Dövlət Bayrağı Günü. 8ULDUZ Azərbaycan xalqını Dövlət Bayrağı Günü münasibətilə təbrik edir! 8ulduz.az",
   },
 };
 
