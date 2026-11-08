@@ -58,19 +58,20 @@ test("ses-worker /ses: a prepared voice file is served at once (no Azure call)",
   } finally { env.restore(); }
 });
 
-test("ses-worker /ses: not prepared yet → the full source text in Microsoft's official Babək voice (Azure), streamed", async () => {
+test("ses-worker /ses: not prepared yet → the full source text in Microsoft's official Babək voice (Azure), streamed; the title starts at once and the rest follows", async () => {
   const { default: w } = await load();
   const env = cfEnv([[/sportinfo\.az/, () => new Response(page, { headers: { "content-type": "text/html" } })],
     [/westeurope\.tts\.speech\.microsoft\.com/, () => new Response(new Uint8Array(8000), { status: 200, headers: { "content-type": "audio/mpeg" } })]]);
   try {
     const r = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
-    assert.equal(r.status, 200); assert.equal((await r.arrayBuffer()).byteLength, 8000);
-    const az = env.calls.find(c => /tts\.speech\.microsoft\.com/.test(c.u));
-    assert.equal(az.o.headers["Ocp-Apim-Subscription-Key"], "k");
-    assert.ok(az.o.body.includes("az-AZ-BabekNeural") && az.o.body.includes("Klub prezidenti. Sportinfo xəbər verir. Napoli klubunun"), az.o.body.slice(0, 200));
+    assert.equal(r.status, 200); assert.equal((await r.arrayBuffer()).byteLength, 16000, "başlıq + mətnin qalanı bir axında");
+    const az = env.calls.filter(c => /tts\.speech\.microsoft\.com/.test(c.u));
+    assert.equal(az[0].o.headers["Ocp-Apim-Subscription-Key"], "k");
+    assert.ok(az[0].o.body.includes("az-AZ-BabekNeural") && az[0].o.body.includes("Klub prezidenti. Sportinfo xəbər verir.</voice>"), "əvvəl yalnız başlıq + mənbə — dərhal");
+    assert.ok(az[1].o.body.includes(">Napoli klubunun"), "mətnin qalanı arxasınca, başlıq təkrarlanmadan");
     await env.done();
     const again = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa"), { AZURE_KEY: "k" }, env.ctx);
-    assert.equal(again.status, 200); assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, 1, "ikinci dinləyici keşdən alır");
+    assert.equal(again.status, 200); assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, 2, "ikinci dinləyici keşdən alır");
   } finally { env.restore(); }
 });
 

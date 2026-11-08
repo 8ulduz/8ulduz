@@ -48,7 +48,8 @@ async function audio(req, env, ctx, src, q, cors) {
   const cache = caches.default, key = new Request(`https://dinle.cache/a/${encodeURIComponent(src.href)}`, { headers: req.headers.get("Range") ? { Range: req.headers.get("Range") } : {} });
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, cors);
-  const keep = (res) => { const [a, b] = res.body.tee(); ctx.waitUntil(new Response(b).arrayBuffer().then(buf => buf.byteLength > 3000 && cache.put(new Request(key.url), new Response(buf, { headers: AUDIO_HEADERS }))).catch(() => {})); return new Response(a, { headers: { ...AUDIO_HEADERS, ...cors } }); };
+  // Səs axınla verilir və eyni vaxtda keşə yazılır (yalnız tam alınıbsa: okP).
+  const keep = (res, okP = true) => { const [a, b] = res.body.tee(); ctx.waitUntil(Promise.all([new Response(b).arrayBuffer(), okP]).then(([buf, ok]) => ok && buf.byteLength > 3000 && cache.put(new Request(key.url), new Response(buf, { headers: AUDIO_HEADERS }))).catch(() => {})); return new Response(a, { headers: { ...AUDIO_HEADERS, ...cors } }); };
   const id = q.get("id") || "";
   if (/^[0-9a-f]{16}$/.test(id)) {
     // Dəqiqə nişanı və 404-ün keşlənməməsi: səs hazır olan kimi verilir (əvvəlki «hələ yoxdur» cavabı 5 dəqiqə yadda qalmır).
@@ -56,16 +57,35 @@ async function audio(req, env, ctx, src, q, cors) {
     if (r?.ok) return keep(r);
   }
   if (!env.AZURE_KEY) return new Response("hazır deyil", { status: 503, headers: cors });
-  const text = script(clean(q.get("t") || "").slice(0, 300), clean(q.get("s") || "").slice(0, 80), await sourceText(src));
-  if (!text) return new Response("mətn yoxdur", { status: 422, headers: cors });
-  const r = await fetch(`https://${env.AZURE_REGION || "westeurope"}.tts.speech.microsoft.com/cognitiveservices/v1`, {
-    method: "POST",
-    headers: { "Ocp-Apim-Subscription-Key": env.AZURE_KEY, "Content-Type": "application/ssml+xml", "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3", "User-Agent": "8ulduz-dinle" },
-    body: `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="az-AZ"><voice name="${VOICE}">${xml(text)}</voice></speak>`,
-  }).catch(() => null);
-  if (!r?.ok) return new Response("azure " + (r?.status || "yox"), { status: 503, headers: cors });   // limit dolubsa və s.
-  return keep(r);
+  // Basılan anda (sahib: «anında»): başlıq + mənbə dərhal səslənir (ilk səs ~0,5 s); mənbədən tam mətn paralel gəlir
+  // və başlıq oxunarkən arxasınca səslənir — bir axın, arada fasilə yoxdur.
+  const t = clean(q.get("t") || "").slice(0, 300), s = clean(q.get("s") || "").slice(0, 80), head = script(t, s, "");
+  const tailP = sourceText(src).then(b => { const full = script(t, s, b); return full.startsWith(head) ? full.slice(head.length).trim() : full; });
+  if (!head) {
+    const full = await tailP;
+    if (!full) return new Response("mətn yoxdur", { status: 422, headers: cors });
+    const r = await tts(env, full);
+    return r?.ok ? keep(r) : new Response("azure " + (r?.status || "yox"), { status: 503, headers: cors });
+  }
+  const r1 = await tts(env, head);
+  if (!r1?.ok) return new Response("azure " + (r1?.status || "yox"), { status: 503, headers: cors });   // limit dolubsa və s.
+  const r2P = tailP.then(tail => tail ? tts(env, tail) : null);
+  const { readable, writable } = new TransformStream();
+  const okP = (async () => {
+    await r1.body.pipeTo(writable, { preventClose: true });
+    const r2 = await r2P;
+    if (r2?.ok) await r2.body.pipeTo(writable, { preventClose: true });
+    await writable.close();
+    return !r2 || r2.ok;   // mətnin qalanı alınmayıbsa yalnız başlıq oxunur və keşə yazılmır
+  })().catch(async () => { try { await writable.abort(); } catch {} return false; });
+  return keep(new Response(readable), okP);
 }
+
+const tts = (env, text) => fetch(`https://${env.AZURE_REGION || "westeurope"}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+  method: "POST",
+  headers: { "Ocp-Apim-Subscription-Key": env.AZURE_KEY, "Content-Type": "application/ssml+xml", "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3", "User-Agent": "8ulduz-dinle" },
+  body: `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="az-AZ"><voice name="${VOICE}">${xml(text)}</voice></speak>`,
+}).catch(() => null);
 
 const AUDIO_HEADERS = { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "Accept-Ranges": "bytes" };
 const withHeaders = (res, cors) => { const h = new Headers(res.headers); for (const [k, v] of Object.entries(cors)) h.set(k, v); return new Response(res.body, { status: res.status, headers: h }); };

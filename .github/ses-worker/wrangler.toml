@@ -7,4 +7,4 @@ workers_dev = true
 preview_urls = false
 
 [vars]
-AZURE_REGION = "westeurope"
+AZURE_REGION = "germanywestcentral"  # Azure Speech F0 «8ulduz-ses» (West Europe yeni müştəri qəbul etmir, 2026-11-08)
