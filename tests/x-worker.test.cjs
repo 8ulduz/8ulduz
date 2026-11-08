@@ -58,6 +58,17 @@ test("x-worker 1: the page updater wrote on the site is served as it is, og:url 
   assert.equal(again.headers.get("Cache-Control"), "public, max-age=600");
 });
 
+test("x-worker 1c: an older page on the site still carries the meta refresh and a canonical to the app: both go, Facebook must stay on this page", async () => {
+  const w = await load();
+  const page = `<!doctype html>\n<html lang="az"><head><title>T — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713" />\n<meta property="og:title" content="T" /><meta property="og:url" content="https://8ulduz.az/x/${ID}" />\n<script>location.replace("https://8ulduz.az/#/xeber/${ID}?b=siyaset&h=26110713")</script>\n<meta http-equiv="refresh" content="0;url=https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713" />\n</head><body><p><a href="https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713">T</a></p></body></html>\n`;
+  world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) });
+  const out = await (await call(w, `https://x.8ulduz.az/${ID}?h=26110713`)).text();
+  assert.ok(!out.includes('http-equiv="refresh"'), "refresh atılır");
+  assert.ok(out.includes(`<link rel="canonical" href="https://x.8ulduz.az/${ID}" />`) && out.includes(`<meta property="og:url" content="https://x.8ulduz.az/${ID}" />`), "canonical və og:url bu server");
+  assert.ok(out.includes(`location.replace("https://8ulduz.az/#/xeber/${ID}?b=siyaset&h=26110713")`) && out.includes(`<a href="https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713">T</a>`), "oxucunun yolu (skript və keçid) dəyişmir");
+  assert.equal(out.split("\n").length, page.split("\n").length - 1, "yalnız refresh sətri gedir");
+});
+
 test("x-worker 1b: a 404.html answered with status 200, or a page without og tags, does not count as the share page", async () => {
   const w = await load();
   world({ [`https://8ulduz.az/x/${ID}`]: html(200, "<!doctype html><html><head><title>Səhifə tapılmadı — 8ulduz</title></head></html>") });
@@ -89,8 +100,8 @@ test("x-worker 2: a story that is only in the minute channel gets the same page 
   const handed = JSON.parse(JSON.parse(m[1].replace(/<\\\//g, "</")));
   assert.deepEqual(handed, { id: ID, title: "Başlıq </script><b>", summary: "Xülasə", source: "APA", sourceUrl: "https://apa.az/1", imageUrl: "https://apa.az/i.jpg?a=1&b=(2)", category: "siyaset", publishedAt: "2026-11-07T13:05:00+04:00", lang: "az", alts: [{ source: "Report", sourceUrl: "https://report.az/1" }] }, "SHARE_ROW_FIELDS, keçidsiz alt düşür");
   assert.equal(JSON.parse(m[2]), `https://8ulduz.az/#/xeber/${ID}?b=siyaset&h=26110713`, "saat xəbərin öz vaxtından (arxiv budağı), keçiddəki h yox");
-  assert.ok(page.includes(`<meta http-equiv="refresh" content="0;url=https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713" />`), "skriptsiz brauzer də keçir");
-  assert.ok(page.includes(`<link rel="canonical" href="https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713" />`) && page.includes('<meta name="robots" content="noindex" />'));
+  assert.ok(!page.includes('http-equiv="refresh"'), "meta refresh yoxdur: Facebook robotu onu izləyib baş səhifənin kartını götürürdü (2026-11-08)");
+  assert.ok(page.includes(`<link rel="canonical" href="https://x.8ulduz.az/${ID}" />`) && page.includes('<meta name="robots" content="noindex" />'), "canonical səhifənin özüdür, og:url ilə eyni");
   assert.ok(page.endsWith(`<a href="https://8ulduz.az/">8ulduz</a></p></body></html>\n`));
 });
 

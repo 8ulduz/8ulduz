@@ -34,6 +34,8 @@ WRANGLER_HOME=/tmp/wr XDG_CONFIG_HOME=/tmp/wr npx wrangler deploy
 WRANGLER_HOME=/tmp/wr XDG_CONFIG_HOME=/tmp/wr npx wrangler logout && rm -rf /tmp/wr
 ```
 
+2026-11-08 axşam (canlı jurnal: Workers & Pages → x → Observability → Live): sahibin telefonu yeni keçidi göndərir, Facebook robotu (`facebookexternalhit`, Meta şəbəkəsi, «Page Preview») hər keçidə 3 dəfə gəlir və 200 alır, amma kartda yenə baş səhifə çıxırdı: robot səhifədəki `<meta http-equiv="refresh">`-i izləyib `8ulduz.az/#/…` → baş səhifənin og etiketlərini götürür (WhatsApp və Telegram izləmir). Düzəliş: səhifədə meta refresh yoxdur, `canonical` səhifənin özüdür; köhnə statik səhifələrdən Worker refresh-i özü atır. Facebook bir keçidin kartını keşləyir: yoxlamanı həmin gün paylaşılmamış (təzə) xəbərlə edin və ya Sharing Debugger-də **Scrape Again** basın.
+
 2026-11-08 yoxlaması: `/saglam` → `ok`; Facebook botu kimi təzə xəbərdə `og:title`, `og:description`, `og:image` (wsrv.nl) və `og:url` (`x.8ulduz.az`) gəldi, 0,75 s; olmayan nömrə `302 → https://8ulduz.az/#/xeber/<nömrə>?h=…`.
 
 ## Qurulum (sahib edir, 5 dəqiqə)

@@ -6,7 +6,8 @@
 //   1) https://8ulduz.az/x/<id> varsa (updater.write_share_pages) — olduğu kimi, og:url bu ünvana;
 //   2) yoxdursa xəbərin sətri lentdən tapılır: dəqiqəlik kanal (live budağı, m/<dəqiqə>/latest.json, cari və əvvəlki 3 dəqiqə),
 //      sonra saytın data/latest.json, data/first.json, data/news.json — tapılanda updater.share_page ilə eyni səhifə
-//      (og:title, og:description, og:image wsrv.nl proksisindən 1200×630, sessionStorage-a sətir, dərhal saytın #/xeber/<id>?b=&h= ünvanına);
+//      (og:title, og:description, og:image wsrv.nl proksisindən 1200×630, sessionStorage-a sətir, skriptlə dərhal saytın #/xeber/<id>?b=&h= ünvanına;
+//      meta refresh yoxdur, canonical səhifənin özüdür: Facebook robotu refresh-i izləyib baş səhifənin kartını götürürdü — 2026-11-08);
 //   3) heç yerdə yoxdursa (və ya server xəta versə) 302 → https://8ulduz.az/#/xeber/<id>?h=…: sayt xəbəri arxivdən açır. Keçid heç vaxt ölmür.
 // Tapılan səhifə Cloudflare keşində 10 dəqiqə qalır (bot bir keçidi bir neçə dəfə soruşur).
 // QIRMIZI XƏTT 2: yalnız lentdə olan sətirlər verilir (onlar content_policy.enforce-dan keçib); lentdə olmayan xəbər uydurulmur.
@@ -65,9 +66,13 @@ async function staticPage(id) {
     const r = await get(`${SITE}x/${id}`, PAGE_MS);
     if (r.status !== 200 || !/text\/html/.test(r.headers.get("Content-Type") || "")) return "";
     const html = await r.text();
-    return html.includes('property="og:title"') ? html.replace(`content="${SITE}x/${id}"`, `content="${HOST}${id}"`) : "";
+    return html.includes('property="og:title"') ? withoutRefresh(html.replaceAll(`${SITE}x/${id}`, `${HOST}${id}`), id) : "";
   } catch { return ""; }
 }
+
+// Facebook robotu <meta http-equiv="refresh">-i izləyir: 8ulduz.az/#/xeber/… → baş səhifə → «8ulduz — Son xəbərlər» kartı (2026-11-08, canlı jurnal).
+// Köhnə statik səhifələrdə (25 saatadək) refresh hələ var: burada atılır, canonical bu serverin ünvanı olur (og:url ilə eyni).
+export const withoutRefresh = (html, id) => html.replace(/<meta http-equiv="refresh"[^>]*\/>\n?/, "").replace(/<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${HOST}${id}" />`);
 
 // 2) Xəbərin sətri lentdə. Dəqiqəlik kanal ən təzədir (sayt faylları 10 dəqiqəyədək köhnə ola bilər), ona görə birinci.
 export async function findRow(id, now = Date.now()) {
@@ -118,12 +123,11 @@ export function pageHtml(a, h = "") {
   const app = appUrl(id, a.category, hourOf(a) || h), lang = a.lang || "az";
   return `<!doctype html>
 <html lang="${xml(lang)}"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${title} — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="${xml(app)}" />
+<title>${title} — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="${HOST}${id}" />
 <meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="${title}" />
 <meta property="og:description" content="${desc}" /><meta property="og:url" content="${HOST}${id}" /><meta property="og:image" content="${image}" />
 <meta property="og:locale" content="${LOCALE[lang] || "az_AZ"}" /><meta name="twitter:card" content="summary_large_image" />
-${jump(a, app)}<meta http-equiv="refresh" content="0;url=${xml(app)}" />
-</head><body><p><a href="${xml(app)}">${title}</a> — <a href="${SITE}">8ulduz</a></p></body></html>
+${jump(a, app)}</head><body><p><a href="${xml(app)}">${title}</a> — <a href="${SITE}">8ulduz</a></p></body></html>
 `;
 }
 

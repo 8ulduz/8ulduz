@@ -1884,7 +1884,7 @@ def update_share_index(articles, now):
 # Paylaşma səhifələri (sahibin qeydi 2026-11-04: «Facebookda paylaşanda hansı xəbəri paylaşdığın görünmür»). Facebook, WhatsApp,
 # Telegram önizləməni keçidin og: etiketlərindən oxuyur; #/xeber/ID hash-dır, serverə getmir, hamı saytın ümumi kartını görürdü.
 # İndi lentdəki hər xəbərin kiçik statik səhifəsi var: x/<id>.html (~1 KB: başlıq, xülasə, şəkil, og:url), oxucunu dərhal saytın
-# xəbər səhifəsinə keçirir (meta refresh tarixçədə iz qoymur, geri düyməsi işləyir). Səhifə paylaşma siyahısı qədər (25 saat) qalır,
+# xəbər səhifəsinə keçirir (skriptdəki location.replace tarixçədə iz qoymur, geri düyməsi işləyir). Səhifə paylaşma siyahısı qədər (25 saat) qalır,
 # sonra silinir; köhnə keçidi 404.html #/xeber/ID-yə yönəldir (arxivdən açılır). Yalnız SHARE_PAGES=1 ilə: pipeline.sh qovluğu main-ə
 # yazır və sayt /x/ keçidini yalnız lentin başlığında "sharePages" görəndə verir (köhnə pipeline-da səhifəsiz keçid yaranmasın).
 # Sürətli dövrədə yalnız yeni fayllar yazılır (dəqiqədə ~10), silinmə saatlıq update_share_index-dədir. QIRMIZI XƏTT 3-ə toxunmur:
@@ -1892,11 +1892,11 @@ def update_share_index(articles, now):
 SHARE_PAGES_DIR = ROOT / "x"
 _LOCALE = {"az": "az_AZ", "ru": "ru_RU", "en": "en_US", "tr": "tr_TR"}
 _SHARE_HTML = ('<!doctype html>\n<html lang="{lang}"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
-               '<title>{title} — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="{app}" />\n'
+               '<title>{title} — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="{url}" />\n'
                '<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="{title}" />\n'
                '<meta property="og:description" content="{desc}" /><meta property="og:url" content="{url}" /><meta property="og:image" content="{image}" />\n'
                '<meta property="og:locale" content="{locale}" /><meta name="twitter:card" content="summary_large_image" />\n'
-               '{pre}<meta http-equiv="refresh" content="0;url={app}" />\n'
+               '{pre}'
                '</head><body><p><a href="{app}">{title}</a> — <a href="{site}">8ulduz</a></p></body></html>\n')
 
 def share_page(a):
@@ -1917,7 +1917,9 @@ def share_page(a):
 
 # Facebook/WhatsApp-dan gələn oxucu (sahib, 2026-11-07: «keçidlər gözqırpımında»): səhifə xəbərin sətrini sessionStorage-a qoyur
 # və dərhal sayta keçir; sayt xəbəri heç bir yükləməni (150 KB-lıq paylaşma siyahısı, tam lent) gözləmədən göstərir (app.js açılış).
-# Botlar (Facebook, WhatsApp önizləməsi) skripti işlətmir, og etiketlərini oxuyur; skriptsiz brauzer meta refresh ilə keçir.
+# Botlar (Facebook, WhatsApp önizləməsi) skripti işlətmir, og etiketlərini oxuyur. Səhifədə meta refresh YOXDUR və canonical səhifənin özüdür:
+# Facebook robotu refresh-i izləyib 8ulduz.az/#/… → baş səhifənin kartını («8ulduz — Son xəbərlər») götürürdü (2026-11-08, Worker-in canlı jurnalı).
+# Skriptsiz brauzer səhifədəki keçidə basır.
 SHARE_ROW_FIELDS = ("id", "title", "summary", "source", "sourceUrl", "imageUrl", "category", "publishedAt", "lang", "video", "author")
 
 def _js(v):
@@ -3043,7 +3045,8 @@ def social_share_page(p):
              if image.startswith("https://") else fallback)
     desc = " · ".join(x for x in (p.get("name"), p.get("network"), p.get("via")) if x) or "8ulduz"
     return _SHARE_HTML.format(lang="az", title=_xml(social_share_title(p)), desc=_xml(desc), url=_xml(f"{SITE}bolme/prezident/s/{sid}"),
-                              image=_xml(image), locale="az_AZ", app=_xml(f"{SITE}#/bolme/prezident?s={sid}"), site=SITE, pre="")
+                              image=_xml(image), locale="az_AZ", app=_xml(f"{SITE}#/bolme/prezident?s={sid}"), site=SITE,
+                              pre=f'<script>location.replace({_js(f"{SITE}#/bolme/prezident?s={sid}")})</script>\n')  # oxucu skriptlə keçir (meta refresh yoxdur)
 
 def write_social_share_pages(rows, root=None):
     """Arxivdəki hər yazının (16 rəqəmli id) paylaşma səhifəsi; arxivdən çıxanın səhifəsi silinir. Yazılan səhifə sayını qaytarır."""
