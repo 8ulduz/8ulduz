@@ -118,7 +118,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 .nav-more-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:80;min-width:168px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;display:flex;flex-direction:column;box-shadow:0 12px 28px #000a}
 .nav-more-pop a{display:flex;border-radius:8px;padding:6px 10px}
 
-/* Qırmızı nöqtə: pik saat və ya təzə yol hadisəsi (syncTixDot) */
+
 .tix-btn{position:relative}
 .tix-btn.hot::after{content:"";flex:none;margin-left:6px;width:7px;height:7px;border-radius:99px;background:var(--red)}
 .search{flex:none;position:relative;margin-left:auto}
@@ -135,7 +135,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 .search svg{position:absolute;left:10px;top:9px;opacity:.6}
 .share{flex:none;margin-left:auto;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:999px;background:none;color:inherit;opacity:.8;cursor:pointer}
 .share:hover{opacity:1;color:var(--primary)}
-.share+.share{margin-left:4px}.share[data-act=dinle]{color:var(--primary);border-color:var(--primary)}.pcard [data-act=dinle]{right:auto;left:6px}
+.share+.share{margin-left:4px}.share[data-act=dinle]{color:var(--primary);border-color:var(--primary)}
 .share:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 .sharepop{position:fixed;z-index:90;display:flex;flex-direction:column;min-width:150px;max-width:260px;padding:4px;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px #000a;font-size:.9rem}
 .sharepop a,.sharepop button{display:block;width:100%;padding:8px 10px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;font-weight:700;text-align:left;cursor:pointer}
@@ -177,7 +177,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
   .prefs button .face{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:34px;padding:0 7px;border:1px solid var(--border);border-radius:999px}
   .pray,.wx-btn{height:30px;font-size:0.8571rem}
   .topbar .wrap{gap:6px 8px;padding-top:4px;padding-bottom:4px;min-height:36px} /* dolu zolaq qədər: atlamır */
-  /* Başlıq: loqo+axtarış sətri, sürüşən bölmələr sətri */
+  
   .hrow{min-height:44px;padding:6px 14px;gap:6px 8px}
   nav.main{flex-basis:100%;order:3;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:2px}
   nav.main::-webkit-scrollbar{display:none}
@@ -213,7 +213,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 @keyframes marquee{to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion:reduce){.ticker .track{animation:none;padding-left:10px}.ticker .run{overflow-x:auto;scrollbar-width:none}.ticker .run::-webkit-scrollbar{display:none}}
 
-/* --- bazar kartları: ortada, xəbər kartından ayrı rəng --- */
+
 /* Sahib 2026-11-06: 3 rəng — göy, qızılı, qırmızı */
 .mk{--mk-label:var(--fg);--mk-unit:var(--fg);--mk-a:hsl(var(--mh,208) 38% 25%);--mk-b:hsl(var(--mh,208) 32% 18%);--mk-border:hsl(var(--mh,208) 30% 46%);--mk-flat:var(--mk-b)}
 :root[data-theme="light"] .mk{--mk-a:hsl(var(--mh,208) 54% 86%);--mk-b:hsl(var(--mh,208) 46% 77%);--mk-border:hsl(var(--mh,208) 28% 59%)}
@@ -336,7 +336,7 @@ main>.wrap>section{margin-bottom:18px}
 .ad.ad-live a,.ad.ad-live img{display:block;width:100%;height:54px;object-fit:cover}
 
 /* --- əsas blok --- */
-/* Üst düzülüş: solda hero (2/3), sağda Zuğulba + sosial (1/3) */
+
 .top2{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--gap);margin-bottom:18px;align-items:start}
 .top2 .hero{grid-template-columns:1fr;align-items:start}
 
@@ -605,7 +605,7 @@ footer .logo img{height:28px}
 .phrow a{flex:0 0 160px;position:relative;border:0;padding:0;border-radius:10px;overflow:hidden;height:108px}
 .phrow .img{height:108px}
 .phrow a>span{position:absolute;left:0;right:0;bottom:0;padding:12px 6px 4px;background:linear-gradient(#0000,#000c);color:#fff;font-size:11px;font-weight:700;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-/* Futbol: komanda kartları (karusel) + keçid paneli, altda məlumat */
+
 .fb-leagues{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px}
 .fb-leagues::-webkit-scrollbar{display:none}
 .fb-leagues .sep{flex:none;width:1px;align-self:stretch;margin:3px 4px;background:var(--border)}
@@ -1024,12 +1024,12 @@ a.pill.on small{color:inherit}
 .card p{display:none}
 .latest-grid,.grid{gap:var(--gutter)}
 .hero-row>.hero-main{flex:0 0 100%;width:100%;scroll-snap-align:center;scroll-snap-stop:always;border-radius:var(--radius)}
-/* 2026-11-04, sahibin telefon qeydləri */
-/* Zuğulba kartı: keçid + kənarda «Paylaş» */
+/* Zuğulba kartı: keçid; küncdə «Dinlə» + «Paylaş», telefonda şəkilli kartda «Dinlə» şəklin altında */
 .pcard{position:relative}
 .pcard-hit{display:flex;flex-direction:row;align-items:center;gap:8px;flex:1;min-width:0}
-.pcard .meta{padding-right:58px}
 .pcard .share{position:absolute;right:6px;bottom:5px;margin:0;background:var(--card)}
+.pcard [data-act=share]{width:4.2em;padding:0}.pcard [data-act=dinle]{right:calc(10px + 4.2em)}.pcard .meta{padding-right:calc(38px + 6.6em)}
+@media(max-width:600px){.pcard.has-img:not(.noimg) .meta{padding-right:calc(6px + 4.2em)}.pcard.has-img:not(.noimg) [data-act=dinle]{right:auto;left:8px;min-width:84px}.pcard.has-img:not(.noimg) .img{align-self:flex-start}}
 /* Konum düyməsi (hava, namaz, tıxac) */
 .geo-btn{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);font:inherit;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap}
 .geo-btn.on{border-color:var(--primary);color:var(--primary)}

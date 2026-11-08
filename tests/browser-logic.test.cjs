@@ -2303,6 +2303,7 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   assert.ok(css.includes('--bg:#f6f4ee;--fg:#172b4d;--card:#fff;') && !css.includes('#229ED9'), 'açıq fon ağımtıl, Telegram sətri saytın göy rəngində');
   assert.ok(css.includes('.topbar{position:relative}') && css.includes('.topbar .wrap{position:static}'), 'namaz və hava pəncərələri zolağın içində kəsilmir');
   assert.ok(css.includes('.pcard .share{position:absolute'), 'Zuğulba paylaş düyməsi kartın küncündədir');
+  assert.ok(!/\.pcard \[data-act=dinle\]\{[^}]*left:6px/.test(css) && css.includes('.pcard [data-act=dinle]{right:calc(10px + 4.2em)}'), 'Zuğulba kartında «Dinlə» enə uzanmır, «Paylaş»ın solundadır (sahib, 2026-11-08 telefon şəkli)');
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(/frame-src [^"]*https:\/\/yandex\.com/.test(index), 'CSP Yandex xəritəsinə icazə verir');
 });
