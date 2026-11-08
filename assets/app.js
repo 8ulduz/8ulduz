@@ -485,7 +485,7 @@ const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.cust
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">${S.dinOn === a.id ? "■ Bitir" : "Dinlə"}</button><button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
-function cardAt(a, hx) { const pic = img(a, "", false, true, 360); return `<article class="card${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
+function cardAt(a, hx, cls = "") { const pic = img(a, "", false, true, 360); return `<article class="card${cls}${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
 // Şəkli sınan slayd çıxarılır.
 function dropHeroSlide(slide) {
@@ -1389,7 +1389,6 @@ function startTicker() {
 // Təzə xəbər yoxdursa «Son xəbərlər».
 const tickerLabel = fresh => fresh > 0 ? "Son dəqiqə" : "Son xəbərlər";
 
-// Namaz işarələri sprite-dadır (sosial.svg#p-<ad>): 1,6 KB SVG kodda yer tuturdu.
 function prayIcon(key) {
   return `<span class="pi">${key ? `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="${ASSET}sosial.svg#p-${esc(key)}"/></svg>` : ""}</span>`;
 }
@@ -1754,11 +1753,15 @@ function shortDT(iso) {
   const hm = /T\d\d:\d\d/.test(iso) && !/T00:00/.test(iso) ? `, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : "";
   return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}${hm}`;
 }
+// Videoda saytın keçidi paylaşılır (YouTube-un yox); ?v= ilə video birinci (oynadıcı basanda: iframe ekranı saxlayır, ağırdır).
+const ytTile = (v, tag = "") => `<div class="yt" data-yt="${esc(v.videoId)}" role="button" tabindex="0"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}${tag}</b><span>${txt(v.title)}</span></span><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/videolent?v=${encodeURIComponent(v.videoId)}" data-title="${txt(v.title)}">Paylaş</button></div>`;
 function videosView() {
-  const items = S.video?.items || [];
+  const v0 = (location.hash.match(/[?&]v=([\w-]{6,20})/) || [])[1];
+  let items = S.video?.items || [];
+  if (v0) items = [items.find(v => v.videoId === v0) || { videoId: v0, title: "", imageUrl: `https://i.ytimg.com/vi/${v0}/hqdefault.jpg` }, ...items.filter(v => v.videoId !== v0)];
   const head = `<div class="page-h"><div><h1>Video xəbərlər</h1><p>Azərbaycan kanallarının YouTube lentləri. Video düyməyə basanda açılır.</p></div><span class="cnt">${items.length}</span></div>`;
   if (!items.length) return `${head}<p class="empty">Video lent hazırda açılmır. Bir az sonra yenidən baxın.</p>`;
-  return `${head}<div class="ytgrid">${items.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}</b><span>${txt(v.title)}</span></span></button>`).join("")}</div>`;
+  return `${head}<div class="ytgrid">${items.map(v => ytTile(v)).join("")}</div>`;
 }
 function catSection(c, list) {
   if (!list.length) return "";
@@ -1811,7 +1814,7 @@ function latestBlock(list) {
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
   if (!hosted.length && !list.length) return "";
-  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => `<button type="button" class="yt" data-yt="${esc(v.videoId)}"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)} · Saytda izlə</b><span>${txt(v.title)}</span></span></button>`).join("")}${list.slice(0, 4).map(a => `<a class="card vcard" href="${safeHref(a.sourceUrl)}" ${OUT}>${img(a)}<div class="b"><h3>${txt(a.title)}</h3><span class="muted">${esc(a.source)} · Mənbədə açılır ↗</span></div></a>`).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => ytTile(v, " · Saytda izlə")).join("")}${list.slice(0, 4).map(a => cardAt(a, "h3", " vcard")).join("")}</div></div></section>`;
 }
 function homeArchive(slug) {
   if (NO_ARCHIVE.has(slug)) return [];
@@ -2772,7 +2775,6 @@ function setupFeatureLents() {
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
     if (TOUCH_UI) {
-      // Toxunma: lent öz sürüşməsi ilə, sonunda barmaq səhifəyə ötürülür (JS).
       let lastY = null, samples = [], inertia = 0, mode = null, expectedY = 0;
       const atEnd = () => lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1;
       const atTop = () => lent.scrollTop <= 0;
@@ -2796,7 +2798,6 @@ function setupFeatureLents() {
         if (lastY == null) return;
         lastY = null;
         if (mode === "lent") {
-          // sürət: son ~120 ms-in orta sürəti (px/ms); müsbət = səhifə aşağı.
           const now = performance.now(), recent = samples.filter(s => now - s[0] <= 120);
           if (recent.length >= 2) {
             const [t0, y0] = recent[0], [t1, y1] = recent[recent.length - 1];
@@ -2825,7 +2826,6 @@ function setupMarquees() {
     el.style.height = "";
     el.classList.remove("vmarquee");
     for (const item of el.children) item.style.height = "";
-    // Toxunma/dar ekranda daxili sürüşmə yoxdur (overscroll səhifəni tuturdu)
     el.classList.toggle("static-list", matchMedia("(hover: none)").matches || matchMedia("(max-width: 900px)").matches);
     if (el.classList.contains("static-list")) { unwrapMarquee(el); return; }
     if (marqueeNarrow(el)) { unwrapMarquee(el); return; }
@@ -3144,7 +3144,7 @@ document.addEventListener("change", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" && e.key !== " ") return;
-  const star = e.target.closest?.("[data-act=star]");
+  const star = e.target.closest?.("[data-act=star]") || e.target.matches?.("div[data-yt]") && e.target;
   if (!star) return;
   e.preventDefault();
   e.stopPropagation();

@@ -470,6 +470,26 @@ test('home: a section with a multi-source story is kept whole (owner 2026-11-08:
   for(const h of secs){assert.ok(h.endsWith('</section>'),'bölmə tam götürülür: '+h.slice(-60));assert.equal((h.match(/<article/g)||[]).length,(h.match(/<\/article>/g)||[]).length);}
   assert.ok(!page.replace(re,'').includes('<!--lz-->'),'hər bölmə öz sonu ilə');
 });
+test('video: every video has Paylaş with the site link, a shared link opens that video first (owner 2026-11-08: «videolarda paylaş yoxdur»)',()=>{
+  const ctx=app(),{S}=ctx.api;
+  S.og={};S.video={items:[{videoId:'abcDEF12345',channel:'ARB 24',title:'Birinci video',imageUrl:'https://i.ytimg.com/a.jpg'},{videoId:'xyz_-987654',channel:'Report',title:'İkinci',imageUrl:''}]};
+  let html=vm.runInContext('videosView()',ctx);
+  assert.equal((html.match(/data-act="share"/g)||[]).length,2);
+  assert.ok(html.includes('data-share="https://8ulduz.az/#/videolent?v=abcDEF12345"')&&!html.includes('youtube.com/watch'),'YouTube yox, saytın keçidi');
+  assert.ok(html.includes('data-title="İkinci"'),'paylaşılan mətndə videonun adı');
+  assert.ok(!/<button[^>]*class="yt"/.test(html),'düymənin içində düymə olmur');
+  ctx.location.hash='#/videolent?v=xyz_-987654';
+  html=vm.runInContext('videosView()',ctx);
+  assert.ok(html.indexOf('data-yt="xyz_-987654"')<html.indexOf('data-yt="abcDEF12345"'),'paylaşılan video birinci');
+  assert.ok(!html.includes('<iframe'),'oynadıcı açılışda yüklənmir (ağırdır, ekranın yenilənməsini saxlayır)');
+  ctx.location.hash='#/videolent?v=unknownVid1';
+  html=vm.runInContext('videosView()',ctx);
+  assert.ok(html.indexOf('data-yt="unknownVid1"')<html.indexOf('data-yt="abcDEF12345"')&&html.includes('i.ytimg.com/vi/unknownVid1/hqdefault.jpg'),'lentdən çıxmış video da birinci, şəkli ilə');
+  ctx.location.hash='#/';
+  const block=vm.runInContext(`unifiedVideo([{id:'a'.repeat(16),title:'Video xəbər',source:'Axar.az',sourceUrl:'https://axar.az/1',imageUrl:'https://axar.az/1.jpg',publishedAt:new Date().toISOString(),category:'gundem',video:true,lang:'az'}])`,ctx);
+  assert.equal((block.match(/data-yt=/g)||[]).length,2);
+  assert.ok(/class="card vcard/.test(block)&&block.includes('data-act="dinle"')&&(block.match(/data-act="share"/g)||[]).length===3,'video xəbərdə də Dinlə və Paylaş');
+});
 test('speed red line: images are resized and the original stays as the fallback',()=>{
   const ctx=app(),{S,sized,img,card}=ctx.api;
   S.og={};
