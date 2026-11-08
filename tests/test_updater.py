@@ -1900,17 +1900,6 @@ class UpdateHealthTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["successful"], 1)
 
-    def test_same_story_with_a_new_slug_takes_the_new_link_and_keeps_its_id(self):
-        # AZƏRTAC video əlavə edəndə slug dəyişir, köhnə ünvan 400 verir (2026-11-08): kart yeni ünvana aparsın, paylaşma id-si qalsın.
-        old = {**self.article, "id": "keep", "sourceUrl": "https://azertag.az/xeber/deputat_xalqimiz-4501596", "title": "Deputat: Xalqımız hazırdır"}
-        updater.OUT_FILE.write_text(json.dumps({"articles": [old]}), encoding="utf-8")
-        new = "https://azertag.az/xeber/deputat_xalqimiz_video-4501596"
-        item = {"link": new, "title": "Deputat: Xalqımız hazırdır VİDEO", "description": "", "image": None}
-        result = self.cycle(("Test", [item], None, "https://example.com/rss"))
-        self.assertTrue(result["ok"])
-        rows = json.loads(updater.OUT_FILE.read_text(encoding="utf-8"))["articles"]
-        self.assertEqual([(a["id"], a["sourceUrl"]) for a in rows], [("keep", new)])
-
     def test_fast_cycle_adds_undated_item_once_the_slow_process_dated_it(self):
         # İki Sahil lentində tarix yoxdur: tarixi yavaş proses tapır, sürətli dövrə dates.json-dan oxuyur.
         link = "https://example.com/new"

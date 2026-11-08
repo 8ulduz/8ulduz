@@ -5736,16 +5736,6 @@ def main(fast=False):
                         known["summary"] = _short(_plain(it["description"])) or known.get("summary", "")
                     if not known.get("imageUrl") and it.get("image"):
                         known["imageUrl"] = it["image"]
-                    # Keçid də yenilənir, id (paylaşma) qalır: AZƏRTAC video əlavə edəndə slug dəyişir («..._video-4501596»),
-                    # köhnə ünvan 400 verir — kart xəta səhifəsinə aparırdı, şəkil də tapılmırdı (2026-11-08).
-                    for r in [known, *(known.get("alts") or [])]:
-                        if story_key(r.get("sourceUrl")) == key:
-                            if r.get("sourceUrl") != it["link"]:
-                                old_by_url.pop(r.get("sourceUrl"), None)
-                                r["sourceUrl"] = it["link"]
-                                if r is known:
-                                    old_by_url[it["link"]] = known
-                            break
                     seen.add(it["link"])
                     continue
                 if key:
