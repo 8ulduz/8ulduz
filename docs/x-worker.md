@@ -18,6 +18,24 @@ Tapılan səhifə Cloudflare keşində 10 dəqiqə qalır (bot bir keçidi bir n
 
 Saytın tərəfi (ayrı PR, Worker canlı olandan sonra birləşir): `assets/app.js`-də `shareUrl` hər 16 rəqəmli xəbərə `https://x.8ulduz.az/<nömrə>?h=…` verir — dəqiqəlik kanaldan gələn təzə xəbərə də, telefonun sistem pəncərəsinə də. `updater.py`-ın `/x/` səhifələri qalır: Worker-in birinci mənbəyidir.
 
+## Vəziyyət (2026-11-08): qurulub
+
+Worker **x** Cloudflare-in **V.z.muradov@gmail.com** hesabındadır (8ulduz.az zonası oradadır, hesab ID `0e1ad7c5…`); `x.8ulduz.az` custom domain kimi bağlıdır, `workers.dev` ünvanı söndürülüb (`wrangler.toml`). Yükləmə `npx wrangler deploy` ilə oldu: sahib brauzerdə Wrangler-ə birdəfəlik icazə verdi (yalnız `account:read user:read workers:write workers_scripts:write workers_routes:write zone:read ssl_certs:write`), iş bitən kimi `npx wrangler logout` ilə icazə ləğv edildi; bu kompüterdə həmin hesabın açarı qalmır.
+
+Diqqət: bu kompüterdəki daimi wrangler girişi **8ulduz.az@gmail.com** hesabınadır («Dinlə» serveri, `.github/ses-worker`). O hesabda 8ulduz.az zonası yoxdur: `x` ora yüklənsə `x.8ulduz.az` bağlanmır. Panel yolu da eyni hesab məsələsinə baxır: domen hansı hesabdadırsa, Worker orada.
+
+Kod dəyişəndə (`worker.js`) iki yol var: sahib Cloudflare panelində **Edit code** ilə yapışdırır (aşağıda 4-cü addım), ya da yenidən birdəfəlik giriş (müvəqqəti qovluqda, daimi girişə toxunmadan):
+
+```bash
+cd .github/x-worker
+WRANGLER_HOME=/tmp/wr XDG_CONFIG_HOME=/tmp/wr npx wrangler login --browser=false --scopes account:read user:read workers:write workers_scripts:write workers_routes:write zone:read ssl_certs:write
+# çap olunan keçidi sahib V.z.muradov hesabı ilə açıb «Authorize» basır (2 dəqiqə ərzində)
+WRANGLER_HOME=/tmp/wr XDG_CONFIG_HOME=/tmp/wr npx wrangler deploy
+WRANGLER_HOME=/tmp/wr XDG_CONFIG_HOME=/tmp/wr npx wrangler logout && rm -rf /tmp/wr
+```
+
+2026-11-08 yoxlaması: `/saglam` → `ok`; Facebook botu kimi təzə xəbərdə `og:title`, `og:description`, `og:image` (wsrv.nl) və `og:url` (`x.8ulduz.az`) gəldi, 0,75 s; olmayan nömrə `302 → https://8ulduz.az/#/xeber/<nömrə>?h=…`.
+
 ## Qurulum (sahib edir, 5 dəqiqə)
 
 Vacib: Worker **8ulduz.az domeninin olduğu Cloudflare hesabında** yaradılmalıdır (2026-11-03-də DNS-i köçürdüyünüz hesab, `sage`/`gemma.ns.cloudflare.com`). Başqa hesabda `x.8ulduz.az` ünvanı qoşulmur.
