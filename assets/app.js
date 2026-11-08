@@ -125,8 +125,8 @@ let freshSequence = 0;
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
-async function liveDirect(url, signal) {
-  if (navigator.serviceWorker?.controller || !LIVE_FILE.test(url) || Date.now() < liveSkipUntil) return null;
+async function liveDirect(url, signal, any) {
+  if (!any && (navigator.serviceWorker?.controller || !LIVE_FILE.test(url)) || Date.now() < liveSkipUntil) return null;
   const name = url.split("?")[0].split("/").pop(), slot = Math.floor((Date.now() / 1000 - 45) / 60);
   for (const minute of [slot, slot - 1, slot - 2]) {
     try {
@@ -3002,10 +3002,14 @@ async function loadWarnings() {
     if (route().name === "home") requestRender(false);
   } catch {}
 }
+// Sosial yazılar (sahib 2026-11-08: «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı bizdə yoxdur»): status.social varsa social.json
+// dəqiqəlik kanaldadır (pipeline.sh social_loop). Möhür dəyişəndə çəkilir (loadStatus), dəyişməyəndə sorğu yoxdur; alınmasa sayt kanalı.
 async function loadSocial() {
+  const rev = S.status?.social;
+  S.socialRev = null;
   try {
-    const r = await fetch(freshUrl("data/social.json"), { cache: "no-store" });
-    if (r.ok) { S.social = await r.json(); requestRender(); }
+    const r = (rev && await liveDirect("data/social.json", undefined, 1)) || await fetch(freshUrl("data/social.json"), { cache: "no-store" });
+    if (r.ok) { S.social = await r.json(); S.socialRev = rev || null; requestRender(); }
     // Köhnə yazı social.json-da yoxdursa arxivdən.
     const s = location.hash.match(/[?&]s=([0-9a-f]{16})/)?.[1], p = s && !S.social.posts.some(p => p.id === s) && (await requestJSON(freshUrl("data/social-arxiv.json"))).d?.posts?.find(p => p.id === s);
     if (p) { S.social.posts.push(p); requestRender(); }
@@ -3024,7 +3028,7 @@ async function loadStatus(force = false) {
   const controller = S.statusAbort = new AbortController();
   try {
     const {d} = await requestJSON(freshUrl("data/status.json", force), {signal:controller.signal}, 8000);
-    if(!controller.signal.aborted && S.statusAbort === controller && d && typeof d === "object")S.status = d;
+    if(!controller.signal.aborted && S.statusAbort === controller && d && typeof d === "object"){S.status = d; if (d.social && S.socialRev !== undefined && d.social !== S.socialRev) loadSocial();}
   } catch {}
   if(S.statusAbort === controller){S.statusAbort = null; renderTopbar();}
 }
@@ -3131,7 +3135,7 @@ addEventListener("storage", e => { if (e.key === SAVE_KEY && route().name === "s
 addEventListener("pageshow", e => { if (e.persisted) resumeNews(); });
 addEventListener("focus", resumeNews);
 addEventListener("online", resumeNews);
-setInterval(loadSocial, 5 * 60e3);
+setInterval(() => S.status?.social || loadSocial(), 5 * 60e3);
 setInterval(loadMarkets, 5 * 60e3);
 setInterval(() => { loadSources(); loadVideo(); loadFootball(); }, 5 * 60e3);
 setInterval(loadSports, 30 * 60e3);

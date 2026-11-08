@@ -2884,3 +2884,40 @@ test('speed 2026-11-07: topic text uses a plain class for Latin/Cyrillic and giv
     assert.equal(topicKey(t), ref(t), t);
   assert.equal(fold('Йошкар ёж İnter'), 'иошкар еж inter');
 });
+
+test('owner 2026-11-08 «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı bizdə yoxdur»: official posts come from the minute channel, fetched only when the status stamp changes', async () => {
+  const urls = [];
+  let stamp = 'r1', liveMissing = false;
+  const ctx = app({ fetch: async u => {
+    const s = String(u); urls.push(s);
+    if (liveMissing && /\/live\/m\/\d+\/social\.json$/.test(s)) return { ok: false, status: 404, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => /status\.json/.test(s) ? { social: stamp } : { rev: stamp, posts: [] } };
+  } });
+  const { S } = ctx.api, run = c => vm.runInContext(c, ctx), tick = () => new Promise(r => setTimeout(r, 5));
+  const social = () => urls.filter(u => /social\.json/.test(u)), LIVE = /^https:\/\/raw\.githubusercontent\.com\/8ulduz\/8ulduz\/live\/m\/\d+\/social\.json$/;
+  await run('loadStatus()'); await tick();
+  assert.equal(social().length, 0, 'açılışda sosial yazılar xəbərlərdən sonra (afterNews) çəkilir: status onları qabağa salmır');
+  S.status = {}; await run('loadSocial()');
+  assert.match(social().at(-1), /^data\/social\.json\?t=\d+$/, 'möhür yoxdur (köhnə pipeline): saytın faylı, əvvəlki kimi');
+  await run('loadStatus()'); await tick();
+  assert.match(social().at(-1), LIVE, 'möhür gəldi: dəqiqəlik kanal');
+  assert.equal(S.socialRev, 'r1');
+  const n = social().length;
+  await run('loadStatus()'); await tick();
+  assert.equal(social().length, n, 'möhür dəyişməyibsə sorğu yoxdur');
+  stamp = 'r2'; await run('loadStatus()'); await tick();
+  assert.equal(social().length, n + 1, 'yeni yazı: bir sorğu');
+  assert.match(social().at(-1), LIVE);
+  liveMissing = true; stamp = 'r3'; await run('loadStatus()'); await tick(); await tick();
+  assert.match(social().at(-1), /^data\/social\.json\?t=\d+$/, 'dəqiqəlik kanalda yoxdursa saytın faylı');
+  assert.equal(S.socialRev, 'r3', 'eyni möhürə təkrar sorğu yoxdur');
+  // Service worker-li oxucu: status/latest sw.js ilə, sosial isə birbaşa dəqiqəlik kanaldan.
+  const sw = app({ navigator: { onLine: true, serviceWorker: { controller: {} } }, fetch: async u => { urls.push('sw:' + u); return { ok: true, json: async () => ({ posts: [] }) }; } });
+  sw.api.S.status = { social: 'x' };
+  await vm.runInContext('loadSocial()', sw);
+  assert.match(urls.at(-1), /^sw:https:\/\/raw\.githubusercontent\.com\/8ulduz\/8ulduz\/live\/m\/\d+\/social\.json$/);
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('setInterval(() => S.status?.social || loadSocial(), 5 * 60e3);'), 'möhürsüz (köhnə pipeline) 5 dəqiqədən bir, əvvəlki kimi');
+  assert.ok(src.includes('if (!any && (navigator.serviceWorker?.controller || !LIVE_FILE.test(url)) || Date.now() < liveSkipUntil) return null;'),
+    'status/latest üçün qayda dəyişmir');
+});

@@ -5,6 +5,7 @@
 #   sürətli  hər CYCLE saniyə: lentlər, xəbər seçimi, status -> live budağı (tarixçəsiz, repo şişmir)
 #   yavaş    arxa planda: məzənnə, şəkil, video, idman, bölmə arxivi, SEO səhifələri
 #   main     hər MAIN_EVERY saniyə: tam lent və SEO -> GitHub Pages
+#   sosial   hər SOCIAL_EVERY saniyə: rəsmi hesabların YouTube yazıları (social.json) -> növbəti dəqiqənin live faylı
 #
 # Bir iş bitməzdən əvvəl növbətisini başladır və onu görəndən sonra çıxır, ona görə növbə dəyişəndə boşluq olmur.
 #
@@ -23,6 +24,8 @@ SLOW_EVERY="${SLOW_EVERY:-240}"
 LINKS_LIMIT="${LINKS_LIMIT:-55}"
 LINKS_EVERY="${LINKS_EVERY:-30}"
 OG_LIMIT="${OG_LIMIT:-25}"   # təzə xəbərin şəkli (--og): link yoxlamasından sonra, eyni 30 saniyəlik döngüdə
+SOCIAL_LIMIT="${SOCIAL_LIMIT:-50}"
+SOCIAL_EVERY="${SOCIAL_EVERY:-60}"
 MAIN_EVERY="${MAIN_EVERY:-600}"
 HANDOFF_AFTER="${HANDOFF_AFTER:-2820}"   # 47 dəq: növbəti işi başlat
 MAX_RUN="${MAX_RUN:-3600}"               # 60 dəq: növbəti iş görünməsə də çıx (timeout-minutes-dən əvvəl)
@@ -45,11 +48,13 @@ KEEP_SLOTS=5
 export LATEST_LANG_FILES=1   # updater.py status.json-a "langs" yazır: bu pipeline dil fayllarını (latest.az.json və s.) live-ə göndərir
 export SHARE_PAGES=1         # updater.py hər xəbərə x/<id>.html paylaşma səhifəsi (og etiketləri) yazır və lentin başlığına "sharePages" qoyur; publish_main x/ qovluğunu main-ə köçürür
 export NEWS_LANG_FILES=1     # updater.py tam lenti dil üzrə yazır (news.json = azərbaycanca + xarici idman, news.en/ru/tr.json = o dil) və status.json-a "newsLangs" qoyur; hamısı main-ə gedir (publish_main data/-nı olduğu kimi köçürür)
+export SOCIAL_LOOP=1         # updater.py rəsmi hesabların yazılarını yavaş dövrədə yığmır (social_loop --social hər dəqiqə), status.json-a "social" möhürü qoyur; push_live social.json-u da göndərir
 CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy.js .github/scripts/check_outputs.py"
 SLOW_PID=""
 PUBLISH_PID=""
 WATCH_PID=""
 LINKS_PID=""
+SOCIAL_PID=""
 EDITORIAL_PID=""
 ROLLOUT_PID=""
 
@@ -57,6 +62,7 @@ cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
   [ -n "$SLOW_PID" ] && kill "$SLOW_PID" 2>/dev/null
   [ -n "$LINKS_PID" ] && kill "$LINKS_PID" 2>/dev/null
+  [ -n "$SOCIAL_PID" ] && kill "$SOCIAL_PID" 2>/dev/null
   [ -n "$EDITORIAL_PID" ] && kill "$EDITORIAL_PID" 2>/dev/null
   [ -n "$ROLLOUT_PID" ] && kill "$ROLLOUT_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
@@ -172,7 +178,8 @@ push_live() {
   mkdir -p "$dir"
   # Dil faylları (latest.az.json və s.) yalnız buradadır: hər dəqiqə dəyişən 4 kiçik fayl main-in tarixçəsini şişirtməsin
   # (publish_main onları silir). Sayt onları status.json-dakı "langs" ilə tanıyır, alınmasa ümumi latest.json-a qayıdır.
-  for name in status latest latest.az latest.en latest.ru latest.tr markets; do
+  # social: rəsmi hesabların yazıları (social_loop) dəqiqəlik kanalda; main-də də qalır (publish_main data/-nı köçürür).
+  for name in status latest latest.az latest.en latest.ru latest.tr markets social; do
     [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
   done
   for old in $(ls "$SLOTS" | sort -n | head -n -"$KEEP_SLOTS"); do
@@ -307,6 +314,20 @@ links_loop() {
   done
 }
 
+# Rəsmi hesabların YouTube yazıları (sahib 2026-11-08: «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı bizdə yoxdur»): yavaş
+# dövrəni (4-5 dəq) gözləmir, hər dəqiqə RSS + kanal səhifəsi (updater.merge_yt). social.json növbəti push_live ilə saytdadır.
+# run_py işlədilmir: köhnə kod ehtiyatı --social bilmir və tam yeniləməyə keçərdi; kod bilmirsə döngü heç nə etmir.
+social_loop() {
+  while :; do
+    local began=$SECONDS left
+    if grep -q -- '"--social"' "$CUR/updater.py" 2>/dev/null; then
+      UPDATER_ROOT="$WORK" py_t "$SOCIAL_LIMIT" "$PY" "$CUR/updater.py" --social || echo "sosial yoxlama xəta verdi"
+    fi
+    left=$((SOCIAL_EVERY - (SECONDS - began)))
+    [ "$left" -gt 0 ] && sleep "$left"
+  done
+}
+
 # Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
 # GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
 self_watch() { # $1 əsas proses
@@ -315,6 +336,7 @@ self_watch() { # $1 əsas proses
       echo "::warning::Dövrə ${STUCK_AFTER} saniyədir irəliləmir, iş dayandırılır. Növbəti iş başlayacaq."
       [ -n "${2:-}" ] && kill "$2" 2>/dev/null
       [ -n "${3:-}" ] && kill "$3" 2>/dev/null
+      [ -n "${4:-}" ] && kill "$4" 2>/dev/null
       kill -TERM "$1" 2>/dev/null
       sleep 10
       kill -KILL "$1" 2>/dev/null
@@ -351,11 +373,13 @@ slow_loop &
 SLOW_PID=$!
 links_loop &
 LINKS_PID=$!
+social_loop &
+SOCIAL_PID=$!
 # Etibarlı köməkçi yalnız sabit GitHub API ünvanından qayda faylını oxuyur. Mənbə/lent prosesləri açarı görmür.
 UPDATER_ROOT="$WORK" "$PY" "$REPO_DIR/.github/scripts/editorial_sync.py" --watch &
 EDITORIAL_PID=$!
 touch "$STATE/heartbeat"
-self_watch $$ "$SLOW_PID" "$LINKS_PID" &
+self_watch $$ "$SLOW_PID" "$LINKS_PID" "$SOCIAL_PID" &
 WATCH_PID=$!
 
 START=$SECONDS
