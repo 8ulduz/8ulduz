@@ -5205,6 +5205,22 @@ def _own_card_img(text, url, skip=()):
             return img
     return ""
 
+# AZƏRTAC: og:image ümumi loqodur (social.jpg), xəbərin öz fotosu (img.news-img) və ya videonun kadrı (.news-video img data-src)
+# isə səhifədədir (2026-11-08, sahib: «ən önəmli AZƏRTAC xəbərində şəkil yoxdur»). Yalnız azertag.az: başqa saytda bu siniflər
+# oxşar xəbər kartında ola bilər, yanlış şəkil şəkilsizlikdən pisdir. «?v=...» hər sorğuda dəyişir: atılır (keş və proksi bir ünvan görsün).
+_BODY_IMG = re.compile(r"""<img\b[^>]*\bclass\s*=\s*["'][^"']*\bnews-img\b[^>]*>|<div\b[^>]*\bclass\s*=\s*["'][^"']*\bnews-video\b.{0,1200}?(<img\b[^>]*>)""", re.I | re.S)
+_ANY_SRC = re.compile(r"""\b(?:data-src|src)\s*=\s*["']([^"']+)""", re.I)
+
+def _body_img(text, base, skip=()):
+    if (urllib.parse.urlparse(base or "").hostname or "").lower().removeprefix("www.") != "azertag.az":
+        return ""
+    for m in _BODY_IMG.finditer(text):
+        for src in _ANY_SRC.findall(m.group(1) or m.group(0)):
+            img = _abs_img(re.sub(r"\?v=\w+$", "", src), base)
+            if img and img not in skip and not _is_generic_img(img) and not _NOT_PHOTO.search(img):
+                return img
+    return ""
+
 def _og_from_html(raw, base, skip=()):
     text = raw.decode("utf-8", "replace")
     cands = []
@@ -5226,7 +5242,7 @@ def _og_from_html(raw, base, skip=()):
         img = _abs_img(c, base)
         if img and img not in skip and not _is_generic_img(img):
             return img
-    return _own_card_img(text, base, skip)
+    return _body_img(text, base, skip) or _own_card_img(text, base, skip)
 
 def _fetch_og(url, skip=()):
     """Şəkil ünvanı; səhifədə yoxdursa və ya sayt bizi buraxmırsa "" (403: tez-tez yoxlanmır), şəbəkə xətasında None (tezliklə yenidən)."""
@@ -5436,7 +5452,8 @@ def fill_og_images(articles, limit=120):
                     freq[img] = freq.get(img, 0) + 1
             for a, img in zip(batch, found):
                 # Şəbəkə xətası və ya yeni üzə çıxan loqo: xəbər lentdə cəmi 3-4 saat qalır, 6 saat gözləsə şəkilsiz çıxıb gedir.
-                soon = img is None or _is_logo(img, freq.get(img, 0))
+                # Təzə xəbər də: AZƏRTAC fotonu xəbərdən 30-60 dəqiqə sonra yükləyir; 6 saatlıq qeyd 15 dəqiqəlik təzə yoxlamanı (fill_fresh_og) da bağlayırdı.
+                soon = img is None or _is_logo(img, freq.get(img, 0)) or _fresh_story(a, now_ts)
                 if _is_logo(img, freq.get(img, 0)):
                     img = ""  # bu dövrədə də eyni şəkil təkrarlanır: loqo
                 cache[a["sourceUrl"]] = img or ""
@@ -5469,6 +5486,15 @@ def fill_og_images(articles, limit=120):
 # (4-5 dəqiqədən bir) tapırdı: xəbər 5-15 dəqiqə şəkilsiz görünürdü. Bu yoxlama link prosesində 30 saniyədən bir işləyir (--og):
 # yalnız son FRESH_OG_AGE_S içindəki şəkilsiz xəbərlər, ən yenisi birinci. Sürətli dövrə şəbəkə gözləmir, apply_og_cache nəticəni götürür.
 FRESH_OG_LIMIT, FRESH_OG_AGE_S, FRESH_OG_RETRY_S = 24, 3 * 3600, 60
+
+
+def _fresh_story(a, now_ts):
+    """Xəbər son FRESH_OG_AGE_S içindədir: şəkli tapılmayıbsa 15 dəqiqədən bir yenidən baxılır."""
+    try:
+        age = now_ts - datetime.datetime.fromisoformat(str(a.get("publishedAt")).replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError, OverflowError):
+        return False
+    return 0 <= age <= FRESH_OG_AGE_S
 
 
 def fill_fresh_og(now=None, limit=FRESH_OG_LIMIT):
@@ -5710,6 +5736,16 @@ def main(fast=False):
                         known["summary"] = _short(_plain(it["description"])) or known.get("summary", "")
                     if not known.get("imageUrl") and it.get("image"):
                         known["imageUrl"] = it["image"]
+                    # Keçid də yenilənir, id (paylaşma) qalır: AZƏRTAC video əlavə edəndə slug dəyişir («..._video-4501596»),
+                    # köhnə ünvan 400 verir — kart xəta səhifəsinə aparırdı, şəkil də tapılmırdı (2026-11-08).
+                    for r in [known, *(known.get("alts") or [])]:
+                        if story_key(r.get("sourceUrl")) == key:
+                            if r.get("sourceUrl") != it["link"]:
+                                old_by_url.pop(r.get("sourceUrl"), None)
+                                r["sourceUrl"] = it["link"]
+                                if r is known:
+                                    old_by_url[it["link"]] = known
+                            break
                     seen.add(it["link"])
                     continue
                 if key:

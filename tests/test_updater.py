@@ -316,6 +316,37 @@ class ImageTest(unittest.TestCase):
         self.assertEqual(updater._og_from_html(ld, "https://x.az/a"), "https://x.az/p.jpg")
 
 
+    def test_azertac_video_frame_or_photo_comes_from_the_page_when_og_is_the_logo(self):
+        # Sahib, 2026-11-08: «ən önəmli AZƏRTAC xəbərində şəkil yoxdur». og:image social.jpg-dir, xəbərin öz kadrı səhifədədir.
+        head = b'<meta property="og:image" content="https://azertag.az/resources/images/social.jpg" />'
+        side = b"<video class='preview-video'><source data-src='/files/video/2026/3/x.mp4'></video><img data-src='/files/2026/3/1200x630/other_1200x630.jpg'>"
+        video = head + b'<div class="news-video entry-header"><div class="entry-thumbnail"><a href="https://video.azertag.az/site/video/1">' \
+                       b"<img data-src='/files/video_photo/2026/3/1200x630/1794138652_1200x630.jpg?v=6af064b5ef1d8' class='img-fluid lazyload'></a></div></div>" + side
+        url = "https://azertag.az/xeber/deputat_video-4501596"
+        self.assertEqual(updater._og_from_html(video, url), "https://azertag.az/files/video_photo/2026/3/1200x630/1794138652_1200x630.jpg")
+        photo = head + b'<img src="/files/2026/3/1200x630/1794137694_1200x630.jpeg" alt="x" class="news-img" style="cursor: pointer;">' + side
+        self.assertEqual(updater._og_from_html(photo, url), "https://azertag.az/files/2026/3/1200x630/1794137694_1200x630.jpeg")
+        self.assertEqual(updater._og_from_html(head + side, url), "", "yan sütundakı başqa xəbərin şəkli götürülmür")
+        other = photo.replace(b"azertag.az/resources", b"x.az/resources")
+        self.assertEqual(updater._og_from_html(other, "https://x.az/xeber/a-4501596"), "", "bu qayda yalnız AZƏRTAC üçündür")
+
+    def test_fresh_story_without_a_photo_is_checked_again_in_15_minutes_not_6_hours(self):
+        # AZƏRTAC fotonu xəbərdən 30-60 dəqiqə sonra yükləyir: yavaş dövrənin 6 saatlıq qeydi 15 dəqiqəlik təzə yoxlamanı bağlayırdı.
+        now = datetime.datetime.now(datetime.timezone.utc)
+        fresh = {"sourceUrl": "https://azertag.az/xeber/a-4501500", "publishedAt": (now - datetime.timedelta(minutes=10)).isoformat()}
+        old = {"sourceUrl": "https://x.az/old", "publishedAt": (now - datetime.timedelta(hours=5)).isoformat()}
+        undated = {"sourceUrl": "https://x.az/undated"}
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = pathlib.Path(tmp)
+            with patch.object(updater, "OG_FILE", folder / "og.json"), patch.object(updater, "OUT_DIR", folder), patch.object(updater, "_fetch_og", return_value=""):
+                updater.fill_og_images([fresh, old, undated])
+            retry = json.loads((folder / "og.json").read_text(encoding="utf-8"))["_meta"]["retryAfter"]
+        t = now.timestamp()
+        self.assertLess(retry[fresh["sourceUrl"]], t + 1000)
+        self.assertGreater(retry[old["sourceUrl"]], t + 5 * 3600)
+        self.assertGreater(retry[undated["sourceUrl"]], t + 5 * 3600)
+
+
 class AttachFreshTest(unittest.TestCase):
     """Yavaş prosesdən sonra gələn təzə xəbər sürətli dövrədə eyni hadisənin kartına qoşulur."""
     NOW = datetime.datetime(2026, 11, 2, 20, 0, tzinfo=datetime.timezone.utc)
@@ -1868,6 +1899,17 @@ class UpdateHealthTest(unittest.TestCase):
         result = self.cycle(("Test", [item], None, "https://example.com/rss"))
         self.assertTrue(result["ok"])
         self.assertEqual(result["successful"], 1)
+
+    def test_same_story_with_a_new_slug_takes_the_new_link_and_keeps_its_id(self):
+        # AZƏRTAC video əlavə edəndə slug dəyişir, köhnə ünvan 400 verir (2026-11-08): kart yeni ünvana aparsın, paylaşma id-si qalsın.
+        old = {**self.article, "id": "keep", "sourceUrl": "https://azertag.az/xeber/deputat_xalqimiz-4501596", "title": "Deputat: Xalqımız hazırdır"}
+        updater.OUT_FILE.write_text(json.dumps({"articles": [old]}), encoding="utf-8")
+        new = "https://azertag.az/xeber/deputat_xalqimiz_video-4501596"
+        item = {"link": new, "title": "Deputat: Xalqımız hazırdır VİDEO", "description": "", "image": None}
+        result = self.cycle(("Test", [item], None, "https://example.com/rss"))
+        self.assertTrue(result["ok"])
+        rows = json.loads(updater.OUT_FILE.read_text(encoding="utf-8"))["articles"]
+        self.assertEqual([(a["id"], a["sourceUrl"]) for a in rows], [("keep", new)])
 
     def test_fast_cycle_adds_undated_item_once_the_slow_process_dated_it(self):
         # İki Sahil lentində tarix yoxdur: tarixi yavaş proses tapır, sürətli dövrə dates.json-dan oxuyur.
