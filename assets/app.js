@@ -2335,7 +2335,7 @@ function onClick(e) {
     e.preventDefault(); e.stopPropagation();
     t.closest(".hero-strip")?.querySelector('.hero-pause[aria-pressed="false"]')?.click(); // slayder dayanır
     const id = t.dataset.id, a = [...(S.data?.articles || []), ...Object.values(S.archive || {}).flatMap(x => x.rows || []), S.sharedStory?.row, S.art].find(x => x && x.id === id) || S.art;
-    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode, onState: s => { S.dinOn = s.playing && s.id; for (const b of document.querySelectorAll("[data-act=dinle]")) b.textContent = b.dataset.id === s.id && s.msg || (b.dataset.id === S.dinOn ? "■ Bitir" : "Dinlə"); if (s.msg) setTimeout(() => { for (const b of document.querySelectorAll("[data-act=dinle]")) if (b.textContent === s.msg) b.textContent = "Dinlə"; }, 3e3); } }))).then(p => p.playing && p.id === a?.id ? p.stop() : p.play(a)).catch(() => {}); // 2-ci basış: dayan
+    (S.dinle ||= import(`${ASSET}dinle.js`).then(m => m.createPlayer({ list: () => byDate(S.data?.articles || []), decode, onState: s => { S.dinOn = s.playing && s.id; for (const b of document.querySelectorAll("[data-act=dinle]")) b.textContent = b.dataset.id === s.id && s.msg || (b.dataset.id === S.dinOn ? "■ Bitir" : "Dinlə"); if (s.msg && !s.playing) setTimeout(() => { for (const b of document.querySelectorAll("[data-act=dinle]")) if (b.textContent === s.msg) b.textContent = "Dinlə"; }, 3e3); } }))).then(p => p.playing && p.id === a?.id ? p.stop() : p.play(a)).catch(() => {}); // 2-ci basış: dayan
     return;
   }
   if (t.dataset.act === "install") {

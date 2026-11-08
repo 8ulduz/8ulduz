@@ -62,6 +62,7 @@ function fakeEnv(hasFile) {
   class Utterance { constructor(t) { this.text = t; } }
   return { doc, fetchFn, AudioCtor, synth, Utterance, fetched, played, spoken, els, nav: {}, store: { getItem: () => null, setItem() {} } };
 }
+const flush = async (n = 10) => { for (let k = 0; k < n; k++) await new Promise(r => setImmediate(r)); };
 const list = [{ id: "aaaaaaaaaaaaaaaa", title: "Xəbər bir", lang: "az" }, { id: "bbbbbbbbbbbbbbbb", title: "Xəbər iki", lang: "az" }, { id: "cccccccccccccccc", title: "Xəbər üç", lang: "az" }];
 
 test("dinlə: the full-story natural-voice file plays first; «next» goes to the next story that has one, fetched ahead", async () => {
@@ -120,6 +121,32 @@ test("dinlə: the player reports its state to the button (playing at once, stopp
   assert.equal(env.doc.body.children.length, 0, "səhifəyə pəncərə əlavə olunmur");
 });
 
+test("dinlə: while the voice is being prepared the button keeps «Səs hazırlanır…» (owner: it went back to «Dinlə»); a computer with an Azerbaijani voice reads at once", async t => {
+  const { createPlayer } = await load();
+  const js = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  assert.ok(js.includes("if (s.msg && !s.playing) setTimeout("), "yalnız bitmiş vəziyyətin yazısı 3 saniyədən sonra «Dinlə» olur");
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const story = { ...list[0], title: "Klub prezidenti", source: "Sportinfo", sourceUrl: "https://www.sportinfo.az/1.html" };
+  const env = fakeEnv(false), states = [];
+  const p = createPlayer({ list: () => list, ...env, server: "https://dinle.example/ses", onState: s => states.push({ ...s }) });
+  await p.play(story);
+  env.els[0].onerror(); await flush();
+  assert.deepEqual([states.at(-1).msg, states.at(-1).playing], ["Səs hazırlanır…", true]);
+  t.mock.timers.tick(1e4); await flush();
+  assert.equal(env.played.filter(s => s.startsWith("https://dinle.example/")).length, 2, "10 saniyə sonra yenidən soruşur");
+  assert.deepEqual([states.at(-1).msg, states.at(-1).playing], ["Səs hazırlanır…", true], "yenidən soruşanda da yazı qalır");
+  assert.equal(env.spoken.length, 0, "türk səsi ilə tələsik oxumur, Babəki gözləyir");
+  p.stop();
+  const env2 = fakeEnv(false);
+  env2.synth.getVoices = () => [{ name: "Microsoft Babek Online (Natural) - Azerbaijani (Azerbaijan)", lang: "az-AZ", localService: false }];
+  const p2 = createPlayer({ list: () => list, ...env2, server: "https://dinle.example/ses" });
+  await p2.play(story);
+  env2.els[0].onerror(); await flush(30);
+  assert.equal(p2.mode, "tts", "kompüterdə (Edge) Babək cihazda var: gözləmədən oxuyur");
+  assert.ok(env2.spoken[0].text.startsWith("Klub prezidenti"));
+  p2.stop();
+});
+
 test("dinlə: without a prepared voice the full text comes from the text server and the device voice reads it at once", async () => {
   const { createPlayer } = await load();
   const env = fakeEnv(false), long = "Napoli klubunun prezidenti baş məşqçi ilə görüşüb və komandanın vəziyyətini müzakirə edib. ".repeat(4);
@@ -145,7 +172,7 @@ test("dinlə: with the «dinle» server the story streams at once (prepared voic
   assert.ok(env.played.includes(src), env.played.join(" | "));
   assert.equal(env.fetched.length, 0, "əlavə sorğu yoxdur: səs dərhal serverdən");
   assert.equal(p.mode, "file");
-  env.els[0].onerror();   // server: hələ hazır deyil (503)
+  env.els[0].onerror(); await flush();   // server: hələ hazır deyil (503)
   assert.equal(states.at(-1).msg, "Səs hazırlanır…");
   assert.equal(p.playing, true, "gözləyir, ikinci basış bitirir");
   p.stop();

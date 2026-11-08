@@ -44,6 +44,7 @@ export function pickVoice(voices) {
   return tr ? { voice: tr, lang: "tr-TR", az: false } : null;
 }
 
+const WAIT = "Səs hazırlanır…";
 const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
 
 // Ayrıca pəncərə yoxdur (sahib, 2026-11-08: «əlavə pəncərəyə nə ehtiyac var? təkrar basanda dayansın»): vəziyyət kartın öz
@@ -115,10 +116,11 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
   const unlock = () => { if (aud || !AudioCtor) return; try { aud = new AudioCtor(); aud.src = SILENT; aud.play()?.catch?.(() => {}); } catch { aud = null; } };
   async function play(a, tries = 0) {
     unlock(); halt(); const id = gen; cur = a; mode = ""; parts = []; i = 0;
-    playing = true; emit();  // düymə dərhal «■ Bitir» olur (hazırlanarkən də)
+    playing = true; emit(tries > 0 ? WAIT : undefined);  // düymə dərhal «■ Bitir» olur; gözləmədə «Səs hazırlanır…» qalır
     // «dinle» serveri (Cloudflare, .github/ses-worker): hazır tam səs və ya Azure-un rəsmi Babək səsi, basılan anda.
-    // Səs hələ hazır deyilsə (server 503) düymə «Səs hazırlanır…» deyib 15 saniyədən bir yenidən soruşur (2 dəqiqəyədək),
-    // sonra cihazın səsinə keçir. Ünvan toxunuş anında verilir (iPhone səsi yalnız toxunuşla başladır).
+    // Səs hələ hazır deyilsə (server 503): cihazda Azərbaycan səsi varsa (kompüterdə Edge: Babək) gözləmədən o oxuyur;
+    // yoxdursa düymə «Səs hazırlanır…» yazısını saxlayır (sahib, 2026-11-08: «səs hazırlanır yazır qayıdır dinləyə»),
+    // 10 saniyədən bir yenidən soruşur (2 dəqiqəyədək), sonra cihazın səsi. Ünvan toxunuş anında verilir (iPhone).
     if (server && tries >= 0 && String(a?.sourceUrl).startsWith("https://")) {
       const e = encodeURIComponent, src = `${server}?u=${e(a.sourceUrl)}&id=${e(a.id || "")}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`;
       mode = "file"; aud.src = src; media(a);
@@ -126,7 +128,11 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
       aud.onended = () => { if (mine()) next(true); };
       aud.onerror = () => {
         if (!mine()) return;
-        if (tries < 8) { emit("Səs hazırlanır…"); setTimeout(() => { if (id === gen) play(a, tries + 1); }, 15e3); } else play(a, -1);
+        voices().then(vs => {
+          if (id !== gen) return;
+          if (pickVoice(vs)?.az || tries >= 12) play(a, -1);
+          else { emit(WAIT); setTimeout(() => { if (id === gen) play(a, tries + 1); }, 1e4); }
+        });
       };
       aud.play()?.catch?.(() => { if (id === gen && aud.currentSrc === src && !aud.error) { playing = false; emit("Başlatmaq üçün yenidən basın"); } });
       return;
