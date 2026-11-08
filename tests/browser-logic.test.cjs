@@ -1786,9 +1786,29 @@ test('site language: all three dictionaries have the same keys and no empty word
   assert.deepEqual(Object.keys(en.w), Object.keys(ru.w));
   for (const d of [ru, tr, en]) {
     assert.equal(d.mon.length, 12); assert.equal(d.monN.length, 12); assert.equal(d.mon3.length, 12); assert.equal(d.days.length, 7);
-    assert.ok(['min', 'hour', 'day', 'src', 'round', 'place', 'stage', 'checked', 'noGames', 'until', 'count', 'more', 'allSrc', 'page', 'noTeamNews', 'tracked', 'form', 'copy', 'fresh'].every(k => d.t[k]));
+    assert.ok(['min', 'minS', 'mins', 'hm', 'hrs', 'hour', 'day', 'src', 'round', 'place', 'stage', 'checked', 'noGames', 'until', 'count', 'more', 'allSrc', 'page', 'noTeamNews', 'tracked', 'form', 'copy', 'fresh'].every(k => d.t[k]));
     assert.ok(Object.entries(d.w).every(([k, v]) => v || k === 'seçiminə basın'), 'boş tərcümə yoxdur');
   }
+});
+test('site language: every time the site writes («5 dəq əvvəl» on phones, the prayer countdown) changes language (owner 2026-11-08: «XX dəq əvvəl dil dəyişmir»)', () => {
+  const mod = dilModule('assets/dil.js');
+  const shown = new Set();
+  for (const innerWidth of [390, 1280]) {
+    const ctx = app({ innerWidth }), ago = vm.runInContext('ago', ctx), left = vm.runInContext('prayLeft', ctx);
+    for (const m of [0, 1, 5, 59, 60, 61, 125, 1439, 1440, 3000]) { shown.add(ago(new Date(Date.now() - m * 60e3 - 5e3).toISOString())); shown.add(left(m)); }
+  }
+  assert.ok(shown.has('5 dəq əvvəl') && shown.has('5 dəqiqə əvvəl') && shown.has('2 saat 5 dəq'), [...shown].join(' | '));
+  // Türkcədə «saat», «gün» eyni sözdür: orada yalnız Azərbaycan dilinə məxsus olanlar axtarılır.
+  const AZ = { en: /ə|dəq|saat|gün|indi/, ru: /ə|dəq|saat|gün|indi/, tr: /ə|dəq|\bindi/ };
+  for (const code of ['en', 'ru', 'tr']) {
+    const tr = mod.makeTr(dilModule(`assets/dil-${code}.js`).__d);
+    for (const s of shown) assert.ok(!AZ[code].test(tr(s)), `${code}: «${s}» → «${tr(s)}»`);
+  }
+  const [en, ru, tr] = ['en', 'ru', 'tr'].map(c => mod.makeTr(dilModule(`assets/dil-${c}.js`).__d));
+  assert.deepEqual(['14 dəq əvvəl', '5 dəq', '2 saat 15 dəq', '3 saat', 'indi'].map(en), ['14 min ago', '5 min', '2 h 15 min', '3 h', 'now']);
+  assert.deepEqual(['14 dəq əvvəl', '5 dəq', '2 saat 15 dəq', '3 saat', 'indi'].map(ru), ['14 мин. назад', '5 мин.', '2 ч. 15 мин.', '3 ч.', 'сейчас']);
+  assert.deepEqual(['14 dəq əvvəl', '5 dəq', '2 saat 15 dəq', '3 saat', 'indi'].map(tr), ['14 dk önce', '5 dk', '2 sa 15 dk', '3 saat', 'şimdi']);
+  assert.equal(en('yoxlanıb 11 dəq əvvəl'), 'checked 11 min ago', 'liqa səhifəsindəki «yoxlanıb» da');
 });
 test('site language: a section without news in that language is hidden, sports never', () => {
   const { emptySections } = dilModule('assets/dil.js');

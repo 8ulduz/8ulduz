@@ -14,6 +14,11 @@ export function makeTr(lang) {
   const put = (tpl, ...parts) => parts.reduce((s, p, i) => s.replace(`$${i + 1}`, p), tpl);
   const RULES = [
     [/^(\d+) dəqiqə əvvəl$/, m => put(t.min, m[1])],
+    // Telefonda qısa yazı (app.js ago) və namaza qalan vaxt (app.js prayLeft): sahib, 2026-11-08 «XX dəq əvvəl dil dəyişmir».
+    [/^(\d+) dəq əvvəl$/, m => put(t.minS, m[1])],
+    [/^(\d+) saat (\d+) dəq$/, m => put(t.hm, m[1], m[2])],
+    [/^(\d+) dəq$/, m => put(t.mins, m[1])],
+    [/^(\d+) saat$/, m => put(t.hrs, m[1])],
     [/^(\d+) saat əvvəl$/, m => put(t.hour, m[1])],
     [/^(\d+) gün əvvəl$/, m => put(t.day, m[1])],
     [/^(\d+) mənbə$/, m => put(t.src, m[1])],
