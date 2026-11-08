@@ -89,6 +89,7 @@ test("ga4: automated visits (webdriver, headless, crawlers, no screen) are not c
     assert.equal(api.isBot({ userAgent: ua }, scr), true, ua);
   assert.equal(api.isBot({ userAgent: chrome, webdriver: true }, scr), true, "idarə olunan brauzer");
   assert.equal(api.isBot({ userAgent: chrome }, { width: 0, height: 0 }), true, "ekransız");
+  assert.equal(api.isBot({ userAgent: chrome }, { width: 2000, height: 2000 }), true, "Meta render botunun ekranı");
   api.hit("G-NHSDLY61CD", "/", "8ulduz");
   assert.equal(sent.length, 1, "adi oxucu sayılır");
 });
