@@ -27,7 +27,7 @@ Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərin
 
 ## Struktur
 
-- `index.html`, `assets/app.js`, `assets/app.css` — saytın **mənbə kodu** (build addımı yoxdur, birbaşa redaktə olunur).
+- `index.html`, `assets/app.js`, `assets/app.css` — saytın **mənbə kodu** (birbaşa redaktə olunur). Oxucuya `app.js`-in kiçildilmiş nüsxəsi `assets/app.min.js` gedir: `app.js` dəyişəndən sonra `node .github/kicilt/kicilt.cjs` (bir dəfə əvvəl `npm ci --prefix .github/kicilt --ignore-scripts`). Köhnə qalmış nüsxəni test tutur.
   Marşrutlar: `#/` (baş səhifə), `#/bolme/<slug>` (bölmə), `#/axtar?q=...` (axtarış), `#/tixac` (tıxac xəritəsi).
 - `data/news.json` — xəbər lenti (avtomatik yenilənir, yığcam JSON): azərbaycanca sətirlər və xarici idman; ingilis/rus/türk sətirləri `data/news.en.json`, `news.ru.json`, `news.tr.json`-dadır (sayt dil faylını `status.json`-dakı `newsLangs` ilə tanıyır, «Hamısı» hamısını birləşdirir).
 - `data/markets.json` — valyuta (AMB, ehtiyat: ExchangeRate-API), Brent/WTI neft və bitcoin (Yahoo Finance, ehtiyat: CNBC/CoinGecko), qızıl/gümüş (gold-api.com).

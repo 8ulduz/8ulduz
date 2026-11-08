@@ -12,18 +12,19 @@ const gz = f => zlib.gzipSync(Buffer.from(read(f)), { level: 9 }).length;
 test("struktur 1: the first visit loads exactly these files — a new feature must be a lazy module, not another startup file", () => {
   const html = read("index.html");
   const scripts = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(m => m[1]).sort();
-  assert.deepEqual(scripts, ["./assets/app.js", "./assets/config.js", "./assets/content-policy.js"],
+  assert.deepEqual(scripts, ["./assets/app.min.js", "./assets/config.js", "./assets/content-policy.js"],
     "ilk açılışa yeni skript əlavə olunub — onu app.js-dən import() ilə yalnız lazım olanda yükləyin (bax: bayram.js, dinle.js)");
   const styles = [...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(styles, ["./assets/app.css"], "ilk açılışa yeni CSS faylı — stili tənbəl modulun özü yazsın");
   const preload = [...html.matchAll(/<link\b[^>]*rel="(?:modulepreload|preload)"[^>]*href="([^"]+)"/g)].map(m => m[1]);
-  assert.ok(preload.every(h => h === "./assets/app.js" || /^https:\/\/wsrv\.nl\//.test(h)), "əvvəlcədən yükləmə yalnız app.js və ilk şəkil: " + preload.join(", "));
+  assert.ok(preload.every(h => h === "./assets/app.min.js" || /^https:\/\/wsrv\.nl\//.test(h)), "əvvəlcədən yükləmə yalnız app.min.js və ilk şəkil: " + preload.join(", "));
   const shellImgs = [...html.replace(/<main[\s\S]*?<\/main>/, "").matchAll(/<img\b[^>]*src="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(shellImgs, ["./assets/logo-80.png"], "qabıqda (hazır ilk ekrandan kənarda) yalnız loqo şəkli olur");
 });
 
 test("struktur 2: startup bytes have one total ceiling (gzip), so many small additions cannot add up unnoticed", () => {
-  const files = ["index.html", "assets/app.js", "assets/app.css", "assets/config.js", "assets/content-policy.js"];
+  // Oxucuya gedən fayllar: kod kiçildilmiş nüsxədir (assets/app.min.js, mənbəsi app.js).
+  const files = ["index.html", "assets/app.min.js", "assets/app.css", "assets/config.js", "assets/content-policy.js"];
   const sizes = Object.fromEntries(files.map(f => [f, gz(f)])), total = Object.values(sizes).reduce((a, b) => a + b, 0);
   assert.ok(sizes["index.html"] < 16e3, `index.html ${sizes["index.html"]} B gzip — hazır ilk ekran 16 KB-dan böyük olmamalıdır (prerender.cjs)`);
   assert.ok(total < 115e3, `ilk açılış kodu ${total} B gzip > 115 000: ${JSON.stringify(sizes)}`);
@@ -41,7 +42,7 @@ test("struktur 3: app.js has no static imports; every lazily loaded module exist
     assert.ok(n < 40e3, `${f} ${n} B — tənbəl modul 40 KB-dan kiçik qalsın, böyüyürsə hissələrə bölün`);
   }
   const pre = (read("sw.js").match(/cache\.addAll\(\[([^\]]*)\]/) || [])[1] || "";
-  assert.ok(pre.includes("./assets/app.js"), "sw ilkin keş siyahısı tapılmadı");
+  assert.ok(pre.includes("./assets/app.min.js") && !pre.includes("./assets/app.js"), "sw ilkin keş siyahısı tapılmadı (və ya mənbə app.js də endirilir)");
   for (const f of lazy) assert.ok(!pre.includes(f), `${f} service worker-in ilkin keşinə düşməsin (ilk ziyarətdə arxada endirilir)`);
 });
 

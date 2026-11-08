@@ -1,0 +1,9 @@
+{
+  "name": "8ulduz-kicilt",
+  "private": true,
+  "description": "assets/app.js -> assets/app.min.js (oxucuya gedən kiçildilmiş kod)",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "terser": "5.51.2"
+  }
+}

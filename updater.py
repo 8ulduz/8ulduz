@@ -2089,11 +2089,11 @@ _STORY_HTML = """<!doctype html>
     <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
     <link rel="manifest" href="__SITE__manifest.webmanifest" />
     <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
-    <link rel="modulepreload" href="../../assets/app.js" />
+    <link rel="modulepreload" href="../../assets/app.min.js" />
     <link rel="stylesheet" href="../../assets/app.css" />
     <script src="../../assets/config.js" defer></script>
     <script src="../../assets/content-policy.js" defer></script>
-    <script type="module" src="../../assets/app.js"></script>
+    <script type="module" src="../../assets/app.min.js"></script>
     <script>history.replaceState(null, "", new URL("../../#/xeber/__ID__?b=__SLUG__", location.href));</script>
   </head>
   <body>
@@ -5042,11 +5042,11 @@ _SECTION_HTML = """<!doctype html>
     <link rel="manifest" href="__SITE__manifest.webmanifest" />
     <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
     <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />
-    <link rel="modulepreload" href="../../assets/app.js" />
+    <link rel="modulepreload" href="../../assets/app.min.js" />
     <link rel="stylesheet" href="../../assets/app.css" />
     <script src="../../assets/config.js" defer></script>
     <script src="../../assets/content-policy.js" defer></script>
-    <script type="module" src="../../assets/app.js"></script>
+    <script type="module" src="../../assets/app.min.js"></script>
     <!-- Resurslar yuxarıda nisbi yolla yükləndi; tətbiq kök ünvanda işləyir, ona görə ünvan kökə keçirilir -->
     <script>history.replaceState(null, "", new URL("../../#/bolme/__SLUG__", location.href));</script>
   </head>
