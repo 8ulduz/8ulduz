@@ -1,0 +1,58 @@
+name: Öz xəbər sınağı
+# 8ulduz-un öz xəbərlərinin nümunələri (oz_xeber.py). Sahib, 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra».
+# Sayta və repoya heç nə yazmır: nəticə yalnız bu işin səhifəsində (Summary) və «oz-xeber-sinaq» artefaktındadır.
+# Saytın son məlumatı (relizlər, neftin qiyməti) main-dən yalnız oxunur. Relizləri Claude Haiku 5.5 yazır:
+# ANTHROPIC_API_KEY secret-i yoxdursa yalnız məlumatdan xəbərlər çıxır.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [oz-xeber]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oz-xeber-sinaq
+  cancel-in-progress: true
+
+jobs:
+  sinaq:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Saytın son məlumatı (main, yalnız oxumaq üçün)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          path: site
+          sparse-checkout: |
+            data/news.json
+            data/markets.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Claude SDK (açar varsa)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            pip install --disable-pip-version-check -q anthropic
+            python -c "import anthropic; print('anthropic', anthropic.__version__)"
+          else
+            echo "ANTHROPIC_API_KEY yoxdur: yalnız məlumatdan xəbərlər çıxacaq"
+          fi
+      - name: Nümunələr
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python -u oz_xeber.py --sinaq --root site --out oz-xeber-sinaq.md
+          cat oz-xeber-sinaq.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: oz-xeber-sinaq
+          path: oz-xeber-sinaq.md
+          if-no-files-found: ignore
