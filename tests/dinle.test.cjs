@@ -119,3 +119,19 @@ test("dinlə: the player reports its state to the button (playing at once, stopp
   assert.equal(states.at(-1).playing, false);
   assert.equal(env.doc.body.children.length, 0, "səhifəyə pəncərə əlavə olunmur");
 });
+
+test("dinlə: without a prepared voice the full text comes from the text server and the device voice reads it at once", async () => {
+  const { createPlayer } = await load();
+  const env = fakeEnv(false), long = "Napoli klubunun prezidenti baş məşqçi ilə görüşüb və komandanın vəziyyətini müzakirə edib. ".repeat(4);
+  const base = env.fetchFn, asked = [];
+  env.fetchFn = async (url, o) => url.startsWith("https://dinle.example/") ? (asked.push(url), { ok: true, json: async () => ({ text: long }) }) : base(url, o);
+  const p = createPlayer({ list: () => list, ...env, worker: "https://dinle.example/" });
+  await p.play({ ...list[0], title: "Klub prezidenti", source: "Sportinfo", sourceUrl: "https://www.sportinfo.az/1.html" });
+  assert.deepEqual(asked, ["https://dinle.example/?u=" + encodeURIComponent("https://www.sportinfo.az/1.html")]);
+  assert.equal(p.mode, "tts");
+  for (let k = 0; k < 50 && env.spoken.at(-1)?.onend; k++) { const u = env.spoken.at(-1), n = env.spoken.length; u.onend(); if (env.spoken.length === n) break; }  // hər hissə bitir, növbəti başlayır
+  const said = env.spoken.map(u => u.text).join(" ");
+  assert.ok(said.startsWith("Klub prezidenti."), said.slice(0, 80));
+  assert.ok(said.includes("Napoli"), "tam mətn oxunur, yalnız başlıq yox");
+  p.stop();
+});

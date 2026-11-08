@@ -50,7 +50,7 @@ const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQ
 // düyməsindədir — onState({ id, playing, msg }) ilə sayt «Dinlə» ↔ «■ Dayan» yazır. Xəbər bitəndə növbətiyə özü keçir;
 // kilid ekranında fasilə/növbəti (Media Session).
 export function createPlayer({ list, decode = s => s, onState = () => {}, synth = globalThis.speechSynthesis, Utterance = globalThis.SpeechSynthesisUtterance,
-  nav = globalThis.navigator, fetchFn = globalThis.fetch, AudioCtor = globalThis.Audio }) {
+  nav = globalThis.navigator, fetchFn = globalThis.fetch, AudioCtor = globalThis.Audio, worker = globalThis.SITE_CONFIG?.sesWorker }) {
   let cur = null, parts = [], i = 0, gen = 0, choice = null, playing = false, mode = "", aud = null;
   const files = new Map();  // id -> Promise<blob url | "">
   const emit = msg => onState({ id: cur?.id, playing, msg });
@@ -78,6 +78,16 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
       } catch { return ""; }
     })());
     return files.get(id);
+  };
+  // Hazır səs yoxdursa xəbərin TAM mətni mətn serverindən (.github/ses-worker/worker.js) — basılan anda, cihazın səsi ilə.
+  // Server yoxdursa və ya cavab vermirsə saytdakı başlıq + xülasə oxunur.
+  const fullText = async a => {
+    if (worker && String(a?.sourceUrl).startsWith("https://")) try {
+      const r = await fetchFn(`${worker}?u=${encodeURIComponent(a.sourceUrl)}`, { signal: AbortSignal.timeout(7000) });
+      const t = r.ok ? String((await r.json()).text || "") : "";
+      if (t.length > 200) { const title = textOf({ title: a.title }, decode).replace(/[.]$/, ""); return `${title}. ${a.source ? a.source + " xəbər verir. " : ""}${t.startsWith(title) ? t.slice(title.length) : t}`; }
+    } catch {}
+    return textOf(a, decode);
   };
   const azList = () => list().filter(a => (a.lang || "az") === "az");
   // Növbəti: əvvəl hazır tam səsi olan xəbər (maşında dinləyən ardıcıl təbii səs eşitsin), sonra qalanlar.
@@ -118,10 +128,11 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
       try { await aud.play(); } catch { if (id === gen) { playing = false; emit("Başlatmaq üçün yenidən basın"); } }
     } else {
       if (!synth || !Utterance) { playing = false; emit("Bu brauzerdə səsli oxuma yoxdur"); return; }
-      choice = pickVoice(await voices());
+      const [vs, text] = await Promise.all([voices(), fullText(a)]);
+      choice = pickVoice(vs);
       if (id !== gen) return;
       if (!choice) { playing = false; emit("Cihazda Azərbaycan və ya türk səsi yoxdur"); return; }
-      mode = "tts"; parts = chunks(textOf(a, decode)); media(a);
+      mode = "tts"; parts = chunks(text); media(a);
       speak(id);
     }
     const n = after(a); if (n) audioFor(n.id);  // növbəti xəbərin səsi arxada hazırlanır
