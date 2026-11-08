@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 
-function app(extra = {}) {
+function app(extra = {}, file = 'assets/app.js') {
   const context = vm.createContext({
     console, Map, Set, URL, Date, AbortController, TextEncoder, btoa, setTimeout, clearTimeout, addEventListener() {},
     localStorage: { getItem() { throw Error('blocked'); }, setItem() { throw Error('quota'); }, removeItem() { throw Error('blocked'); } },
@@ -14,7 +14,7 @@ function app(extra = {}) {
     document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, createElement() { return {}; } },
     matchMedia: () => ({ matches: false }), ...extra,
   });
-  const source = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
+  const source = fs.readFileSync(path.join(root, file), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
   vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
     checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug, loadShared, shareRow, loadCached, loadFirst, heavyImage, cardAt, imgFail, renderView, img};`, context);
@@ -437,9 +437,35 @@ test('speed red line: the waiting redraw runs as soon as the files have arrived'
 });
 test('speed red line: the page code stays within its size limit',()=>{
   // Ölçü yayımdakı kimi (LF): Windows-da CRLF ilə açılan nüsxə hər sətirə bir bayt artıq olur.
+  // Hədd oxucuya gedən kiçildilmiş nüsxəyədir (sahib 2026-11-08: 170 000; əvvəl mənbə app.js-ə 220 000): mənbədəki şərh telefona getmir.
   const size=p=>Buffer.byteLength(fs.readFileSync(path.join(root,p),'utf8').replace(/\r\n/g,'\n'));
-  assert.ok(size('assets/app.js')<220e3,'app.js');
+  assert.ok(size('assets/app.min.js')<170e3,'app.min.js');
   assert.ok(size('assets/app.css')<95e3,'app.css');
+});
+test('speed red line: the minified code is built from the current app.js and renders every page the same',async()=>{
+  const {build,SRC,OUT}=require('../.github/kicilt/kicilt.cjs');
+  const want=await build(fs.readFileSync(path.join(root,SRC),'utf8'));
+  assert.ok(fs.readFileSync(path.join(root,OUT),'utf8').replace(/\r\n/g,'\n')===want,`${OUT} köhnədir: node .github/kicilt/kicilt.cjs işlədin`);
+  // Eyni an, eyni lent: kiçildilmiş kod mənbə ilə hərfbəhərf eyni HTML verməlidir (terser-in sıxması bir şeyi dəyişsə burada görünür).
+  const T=Date.parse('2026-11-08T10:00:00Z');
+  class D extends Date{constructor(...a){super(...(a.length?a:[T]));} static now(){return T;}}
+  const j=f=>{try{return JSON.parse(fs.readFileSync(path.join(root,'data',f),'utf8'));}catch{return null;}};
+  const files={data:j('news.json'),sports:j('sports.json'),video:j('video.json'),markets:j('markets.json')?.items,social:j('social.json'),ads:j('ads.json'),sources:j('sources.json'),status:j('status.json')};
+  const pages=file=>{
+    // decode() <textarea> ilə açır: test mühitində sadə əvəzi (hər iki kod üçün eyni), yoxsa «&» olan başlıqda axtarış düşür.
+    const ent={amp:'&',lt:'<',gt:'>',quot:'"','#39':"'"},document={documentElement:{dataset:{}},addEventListener(){},querySelector(){return null;},
+      createElement:()=>({set innerHTML(v){this.value=String(v).replace(/&(amp|lt|gt|quot|#39);/g,(m,e)=>ent[e]);}})};
+    const ctx=app({Date:D,document},file),{S}=ctx.api;
+    S.lang=null;S.og={};Object.assign(S,JSON.parse(JSON.stringify(files)));
+    const id=S.data.articles[0]?.id,run=code=>{try{return vm.runInContext(code,ctx);}catch(e){return 'xəta: '+e.constructor.name;}};
+    const out={home:run('homeView()'),shell:JSON.stringify(shellParts(file)),skel:run('skeleton("")'),saved:run('savedView()'),art:run(`articleView(${JSON.stringify(id)})`),video:run('videosView()'),rates:run('ratesView()')};
+    for(const s of ['gundem','siyaset','idman','dunya','iqtisadiyyat','bolgeler','video'])out[s]=run(`sectionView(${JSON.stringify(s)})`);
+    S.q='Bakı';run('loadArchive=()=>{}');out.search=run('searchView()');
+    return out;
+  };
+  const a=pages(SRC),b=pages(OUT);
+  assert.ok(a.home.length>20e3&&!a.home.startsWith('xəta'),'mənbə baş səhifəni çəkir');
+  for(const k of Object.keys(a))assert.ok(a[k]===b[k],`${k}: kiçildilmiş kod fərqli HTML verir`);
 });
 test('speed red line: files arriving together cause one redraw, not one each',async()=>{
   const ctx=app();
@@ -1772,7 +1798,7 @@ test('site language: Azerbaijani visitors do not load the translation', () => {
 });
 // Sürət (qırmızı xətt 3): index.html qabığı statik daşıyır — CSS gələn kimi başlıq, bölmələr və skelet çəkilir, JS gözlənilmir.
 // Statik nüsxə app.js shell()-in çıxışı ilə eynidir ki, JS gələndə səhifə atlamasın.
-function shellParts() {
+function shellParts(file) {
   const els = {};
   const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
   const ctx = app({
@@ -1780,7 +1806,7 @@ function shellParts() {
     window: { addEventListener() {}, SITE_CONFIG: { goatcounter: '', telegram: '', contact: '' } },
     document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
     requestAnimationFrame: () => 0,
-  });
+  }, file);
   vm.runInContext('shell(); renderNav(); renderLangs();', ctx);
   return { app: els.app.innerHTML, nav: els.nav.innerHTML, inst: els.inst.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
 }

@@ -164,7 +164,8 @@ async function requestJSON(url, {signal} = {}, timeoutMs = 12000) {
   } finally { clearTimeout(timer); signal?.removeEventListener("abort", cancel); }
 }
 // Aktivlərin yolu app.js-in öz ünvanından.
-const ASSET = (document.querySelector('script[src*="assets/app.js"]')?.src || "./assets/app.js").replace(/app\.js.*$/, "");
+// Səhifə kiçildilmiş app.min.js-i (oxucuya gedən nüsxə), köhnə xəbər səhifəsi isə app.js-i yükləyir: modullar hər ikisində eyni qovluqdan.
+const ASSET = (document.querySelector('script[src*="assets/app"]')?.src || "./assets/app.js").replace(/app(?:\.min)?\.js.*$/, "");
 const LOGO = `<img src="${ASSET}logo-80.png" alt="8ULDUZ" width="352" height="80" decoding="async">`; // ölçü atributda: şəkil gələnə qədər yer saxlanır (CSS hündürlüyü verir, en nisbətlə)
 const PAGE = 48;          // bölmə səhifəsində bir dəfəyə göstərilən xəbər
 

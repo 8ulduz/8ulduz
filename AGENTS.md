@@ -11,6 +11,17 @@ Sahibin 2026-11-05 göstərişi: sürət hər cihazda və tətbiqdə birinci pri
 
 `tests/test_red_lines.py` və ya `bir-deqiqe` işi düşürsə, testi yumşaltmayın, dəyişikliyi düzəldin. Qaydanı yalnız sayt sahibi dəyişə bilər, onun açıq göstərişi olmadan dəyişməyin.
 
+## app.js və app.min.js
+
+Oxucuya `assets/app.min.js` gedir: `assets/app.js`-in kiçildilmiş nüsxəsi (sahibin qərarı, 2026-11-08). Kodu yalnız `assets/app.js`-də dəyişin, sonra nüsxəni qurun:
+
+```
+npm ci --prefix .github/kicilt --ignore-scripts   # bir dəfə
+node .github/kicilt/kicilt.cjs
+```
+
+`app.min.js`-i əl ilə dəyişməyin. Köhnə qalsa və ya mənbədən fərqli HTML versə `node --test tests/*.test.cjs` düşür. Ölçü həddi (170 000 bayt) `app.min.js`-ə aiddir.
+
 ## GitHub hesabı
 
 Sayt **`8ulduz`** hesabınındır; `VM6666AZ` (Karvansara/Xeyirli reposunun hesabı) bu sayta toxunmur (sahibin qərarı, 2026-11-02 və 2026-11-07).

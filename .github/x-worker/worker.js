@@ -1,0 +1,140 @@
+// 8ULDUZ paylaşma keçidi — Cloudflare Workers (pulsuz plan), ünvan: https://x.8ulduz.az/<id>?h=<yymmddhh>
+// Sahib, 2026-11-08: «Facebook-da paylaşanda başlıq çıxmır, xəbərə qayıtmır; tam düzəlt, WhatsApp kimi».
+// Niyə: Facebook, WhatsApp, Telegram, X önizləməni keçidin og: etiketlərindən oxuyur. Saytın /x/<id> səhifəsini updater.py yazır,
+// amma main-ə 10 dəqiqədən bir düşür: son dəqiqələrin xəbəri paylaşılanda səhifə hələ yoxdur, önizləmə boş qalırdı. Bu server
+// hər keçidi həmin dəqiqə cavablandırır:
+//   1) https://8ulduz.az/x/<id> varsa (updater.write_share_pages) — olduğu kimi, og:url bu ünvana;
+//   2) yoxdursa xəbərin sətri lentdən tapılır: dəqiqəlik kanal (live budağı, m/<dəqiqə>/latest.json, cari və əvvəlki 3 dəqiqə),
+//      sonra saytın data/latest.json, data/first.json, data/news.json — tapılanda updater.share_page ilə eyni səhifə
+//      (og:title, og:description, og:image wsrv.nl proksisindən 1200×630, sessionStorage-a sətir, dərhal saytın #/xeber/<id>?b=&h= ünvanına);
+//   3) heç yerdə yoxdursa (və ya server xəta versə) 302 → https://8ulduz.az/#/xeber/<id>?h=…: sayt xəbəri arxivdən açır. Keçid heç vaxt ölmür.
+// Tapılan səhifə Cloudflare keşində 10 dəqiqə qalır (bot bir keçidi bir neçə dəfə soruşur).
+// QIRMIZI XƏTT 2: yalnız lentdə olan sətirlər verilir (onlar content_policy.enforce-dan keçib); lentdə olmayan xəbər uydurulmur.
+// QIRMIZI XƏTT 1: dəqiqəlik kanal sw.js ilə eyni qayda ilə oxunur (45 s güzəşt, yaranmamış dəqiqə soruşulmur: raw 404-ü 55 s keşləyir).
+// Yükləmə: bu qovluqda «npx wrangler deploy» və ya Cloudflare panelində kodu yapışdırmaq; addımlar docs/x-worker.md-də.
+
+const SITE = "https://8ulduz.az/";
+const HOST = "https://x.8ulduz.az/";
+const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
+const LIVE_GRACE_S = 45, LIVE_MINUTES = 4;            // sw.js: slot = (indi − 45 s) / 60; cari və əvvəlki 3 dəqiqə
+const FEEDS = ["data/latest.json", "data/first.json", "data/news.json"];
+const PAGE_MS = 4000, FEED_MS = 6000;                 // bot ~10 s gözləyir; gec gələn cavab 302 ilə əvəz olunur
+const CACHE_S = 600;
+const ID = /^\/([0-9a-f]{16})\/?$/;
+const LOCALE = { az: "az_AZ", ru: "ru_RU", en: "en_US", tr: "tr_TR" };
+const ROW_FIELDS = ["id", "title", "summary", "source", "sourceUrl", "imageUrl", "category", "publishedAt", "lang", "video", "author"]; // updater.SHARE_ROW_FIELDS
+const UA = "Mozilla/5.0 (compatible; 8ulduz-x/1.0; +https://8ulduz.az/)";
+
+export default {
+  async fetch(req, env, ctx) {
+    const url = new URL(req.url);
+    if (url.pathname === "/saglam") return new Response("ok", { headers: { "Cache-Control": "no-store" } });
+    const m = url.pathname.match(ID);
+    if (!m) return Response.redirect(SITE, 302);
+    const id = m[1], h = (url.searchParams.get("h") || "").replace(/\D/g, "").slice(0, 8);
+    try {
+      const page = await sharePage(id, h, ctx);
+      if (page) return page;
+    } catch {}
+    return Response.redirect(`${SITE}#/xeber/${id}${h ? "?h=" + h : ""}`, 302); // sayt arxivdən açır (app.js loadShared / scanArchives)
+  },
+};
+
+// updater.share_page raw_app: #/xeber/<id>?b=<bölmə>&h=<arxiv budağının saatı>
+export const appUrl = (id, category = "", h = "") => `${SITE}#/xeber/${id}?b=${category || ""}${h ? "&h=" + h : ""}`;
+
+// Tapılan səhifə (Response) və ya null. Ardıcıllıq: keş → saytın /x/ səhifəsi → dəqiqəlik kanal → saytın lent faylları.
+async function sharePage(id, h, ctx) {
+  const cache = globalThis.caches?.default, key = new Request(HOST + id);
+  if (cache) { const hit = await cache.match(key); if (hit) return hit; }
+  let html = await staticPage(id);
+  if (!html) { const row = await findRow(id); if (row) html = pageHtml(row, h); }
+  if (!html) return null;
+  const res = new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": `public, max-age=${CACHE_S}`, "X-Robots-Tag": "noindex" } });
+  if (cache) { const put = cache.put(key, res.clone()); if (ctx?.waitUntil) ctx.waitUntil(put); else await put.catch(() => {}); }
+  return res;
+}
+
+async function get(url, ms) {
+  return fetch(url, { headers: { "User-Agent": UA, "Accept": "text/html,application/json" }, signal: AbortSignal.timeout(ms), cf: { cacheTtl: 0 } });
+}
+
+// 1) updater.write_share_pages-in yazdığı səhifə; og:url bu serverə (Facebook kanonik ünvanı yenidən soruşur: Pages-ə yox, bura).
+async function staticPage(id) {
+  try {
+    const r = await get(`${SITE}x/${id}`, PAGE_MS);
+    if (r.status !== 200 || !/text\/html/.test(r.headers.get("Content-Type") || "")) return "";
+    const html = await r.text();
+    return html.includes('property="og:title"') ? html.replace(`content="${SITE}x/${id}"`, `content="${HOST}${id}"`) : "";
+  } catch { return ""; }
+}
+
+// 2) Xəbərin sətri lentdə. Dəqiqəlik kanal ən təzədir (sayt faylları 10 dəqiqəyədək köhnə ola bilər), ona görə birinci.
+export async function findRow(id, now = Date.now()) {
+  const slot = Math.floor((now / 1000 - LIVE_GRACE_S) / 60);
+  const minutes = Array.from({ length: LIVE_MINUTES }, (_, i) => `${LIVE}${slot - i}/latest.json`);
+  return (await rowIn(minutes, id)) || rowIn(FEEDS.map(f => SITE + f), id);
+}
+
+async function rowIn(urls, id) {
+  const found = await Promise.all(urls.map(async u => {
+    try {
+      const r = await get(u, FEED_MS);
+      if (r.status !== 200) return null;
+      const d = await r.json();
+      if (removed(d, id)) return { gone: true };
+      return (d.articles || []).find(a => a && a.id === id) || null;
+    } catch { return null; }
+  }));
+  const row = found.find(Boolean);
+  return row && !row.gone ? row : null;
+}
+
+// Redaksiyanın çıxardığı xəbər (latest.json «removed»): səhifə verilmir, 302 ilə sayt özü qərar verir.
+const removed = (d, id) => Object.values(d.removed || {}).some(r => r && (r.id === id || (r.ids || []).includes(id)));
+
+// updater._xml: əvvəl açılır (ikiqat kodlanmış & qalmasın), sonra kodlanır.
+export function xml(s) {
+  let cur = String(s ?? "");
+  for (let i = 0; i < 3; i++) { const nxt = unescapeHtml(cur); if (nxt === cur) break; cur = nxt; }
+  return cur.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
+}
+const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", laquo: "«", raquo: "»", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“" };
+const unescapeHtml = s => s.replace(/&(#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (m, _, hex, dec, name) => hex ? String.fromCodePoint(parseInt(hex, 16)) : dec ? String.fromCodePoint(+dec) : ENT[name.toLowerCase()] ?? m);
+// updater._js: skriptin içində </script> və <!-- qırmır.
+const js = v => JSON.stringify(v).replace(/<\//g, "<\\/").replace(/<!--/g, "<\\!--");
+
+export const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
+
+// updater.share_page + share_jump ilə eyni səhifə (tests/x-worker.test.cjs saytdakı x/<id>.html ilə tutuşdurur).
+export function pageHtml(a, h = "") {
+  const id = a.id, title = xml(String(a.title || "").replace(/\s+/g, " ").trim());
+  let desc = String(a.summary || "").replace(/<[^>]+>|\s+/g, " ").trim();
+  if (desc.length > 200) desc = desc.slice(0, 197).replace(/\s\S*$/, "") + "…";
+  desc = xml(desc || `${a.source || "8ulduz"} · ${String(a.publishedAt || "").slice(0, 10)}`);
+  const fallback = `${SITE}assets/og-default.png`, img = String(a.imageUrl || "");
+  // Önizləmə şəkli proksidən 1200×630 JPEG (~100 KB): WhatsApp 600 KB-dan böyüyü göstərmir; silinmiş şəkil yerinə saytın şəkli.
+  const image = xml(img.startsWith("https://") ? `https://wsrv.nl/?url=${quote(img)}&w=1200&h=630&fit=cover&a=attention&output=jpg&q=78&default=${quote(fallback)}` : fallback);
+  const app = appUrl(id, a.category, hourOf(a) || h), lang = a.lang || "az";
+  return `<!doctype html>
+<html lang="${xml(lang)}"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${title} — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="${xml(app)}" />
+<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="${title}" />
+<meta property="og:description" content="${desc}" /><meta property="og:url" content="${HOST}${id}" /><meta property="og:image" content="${image}" />
+<meta property="og:locale" content="${LOCALE[lang] || "az_AZ"}" /><meta name="twitter:card" content="summary_large_image" />
+${jump(a, app)}<meta http-equiv="refresh" content="0;url=${xml(app)}" />
+</head><body><p><a href="${xml(app)}">${title}</a> — <a href="${SITE}">8ulduz</a></p></body></html>
+`;
+}
+
+// Python urllib.parse.quote(s, safe=""): yalnız A–Z a–z 0–9 _ . - ~ qalır.
+const quote = s => encodeURIComponent(s).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+
+// Facebook/WhatsApp-dan gələn oxucu: sətir sessionStorage-a, sayt xəbəri heç nəyi gözləmədən göstərir (app.js açılış, "x:"+id).
+function jump(a, app) {
+  const row = {};
+  for (const k of ROW_FIELDS) if (a[k]) row[k] = k === "summary" ? String(a[k]).slice(0, 600) : a[k];
+  const alts = (a.alts || []).slice(0, 20).filter(x => x && x.sourceUrl).map(x => Object.fromEntries(["id", "title", "source", "sourceUrl"].filter(k => x[k]).map(k => [k, x[k]])));
+  if (alts.length) row.alts = alts;
+  return `<script>try{sessionStorage.setItem(${js("x:" + a.id)},${js(JSON.stringify(row))})}catch(e){}location.replace(${js(app)})</script>\n`;
+}

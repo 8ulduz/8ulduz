@@ -1404,7 +1404,7 @@ class SectionPagesTest(unittest.TestCase):
                 pages = [d for d in (root / "bolme").iterdir() if (d / "index.html").exists()]
         self.assertIn("Qarabağ &lt;b&gt;qalib&lt;/b&gt; gəldi", page)
         self.assertNotIn("Galatasaray", page)  # yalnız Azərbaycan dilində başlıqlar
-        self.assertIn('src="../../assets/app.js"', page)
+        self.assertIn('src="../../assets/app.min.js"', page)
         self.assertIn('"../../#/bolme/idman"', page)
         self.assertIn(updater.SITE + "bolme/idman/", sitemap)
         self.assertEqual(len(pages), len(updater.SECTIONS) + len(updater.SECTION_ALIASES) + len(updater.SERVICE_PAGES))  # köhnə ünvanlar yönləndirir
