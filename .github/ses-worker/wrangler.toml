@@ -4,6 +4,7 @@ name = "dinle"
 main = "worker.js"
 compatibility_date = "2026-11-01"
 workers_dev = true
+preview_urls = false
 
 [vars]
 AZURE_REGION = "westeurope"

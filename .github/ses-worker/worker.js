@@ -78,7 +78,7 @@ export function script(title, source, body) {
 
 const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", laquo: "«", raquo: "»", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“" };
 export function clean(s) {
-  return String(s).replace(/<[^>]+>/g, " ").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => e[0] === "#" ? String.fromCodePoint(parseInt(e.slice(1).replace(/^x/i, ""), /^#x/i.test(e) ? 16 : 10)) : ENT[e.toLowerCase()] ?? m).replace(/\s+/g, " ").trim();
+  return String(s).replace(/<[^>]+>/g, " ").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => e[0] === "#" ? String.fromCodePoint(parseInt(e.slice(1).replace(/^x/i, ""), /^#x/i.test(e) ? 16 : 10)) : ENT[e.toLowerCase()] ?? m).replace(/\s+/g, " ").replace(/([.!?…])(?=[A-ZÇƏĞİÖŞÜ])/g, "$1 ").trim();  // «gündür.Bu» → «gündür. Bu»
 }
 // reader_content.py ilə eyni qayda: əvvəl JSON-LD articleBody, sonra məqalənin abzasları; ödənişli xəbər oxunmur.
 export function extract(html) {

@@ -14,6 +14,12 @@ test("ses-worker: article text comes from JSON-LD first, then from the article's
   assert.ok(t.includes("ikinci") && !t.includes("menyu") && !t.includes("Bütün hüquqlar"));
 });
 
+test("ses-worker: paragraphs glued by the source get a space so the voice pauses between sentences", async () => {
+  const { clean } = await load();
+  assert.equal(clean("Zəfər günüdür.Bu gün bayramdır!Ölkə sevinir."), "Zəfər günüdür. Bu gün bayramdır! Ölkə sevinir.");
+  assert.equal(clean("Qiymət 1.75 manatdır, sayt report.az-dır."), "Qiymət 1.75 manatdır, sayt report.az-dır.");
+});
+
 test("ses-worker: only requests from 8ulduz.az are served and only https source addresses", async () => {
   const { default: w } = await load();
   const call = (u, ref) => w.fetch(new Request(`https://x.workers.dev/?u=${encodeURIComponent(u)}`, { headers: ref ? { Referer: ref } : {} }), {}, { waitUntil() {} });
