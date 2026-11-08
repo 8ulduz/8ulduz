@@ -673,7 +673,7 @@ html[data-route=other] .pre-skel{display:none} /* statik skelet yalnız baş sə
 .sync-state.bad{color:var(--red)}
 @media (prefers-reduced-motion: reduce){.vmarquee{scroll-behavior:auto}}
 
-/* şəkilsiz kart: boş yer tutmasın, xülasə daha çox görünsün */
+
 .card.noimg .img{display:none}
 .card.noimg .b{border-top:3px solid hsl(43 96% 56%/.7)}
 .card.noimg p{-webkit-line-clamp:6}
@@ -985,7 +985,7 @@ a.pill.on small{color:inherit}
 /* Rejim düyməsi: yazı kənara dəyməsin */
 .topbar .prefs .theme-btn{padding:0 6px}
 @media (min-width:601px){.topbar .prefs .theme-btn{padding:0 8px;height:22px}}
-/* Tıxac: Namaz yaşıl, hava mavi, yol isə işıqforun narıncısı */
+
 :root{--tix-pill:linear-gradient(180deg,#ea580c 0%,#c2410c 100%);--tix-on:#fff7ed}
 :root[data-theme="light"]{--tix-pill:linear-gradient(180deg,#fdba74 0%,#fb923c 100%);--tix-on:#7c2d12}
 
@@ -1024,12 +1024,13 @@ a.pill.on small{color:inherit}
 .card p{display:none}
 .latest-grid,.grid{gap:var(--gutter)}
 .hero-row>.hero-main{flex:0 0 100%;width:100%;scroll-snap-align:center;scroll-snap-stop:always;border-radius:var(--radius)}
-/* Zuğulba kartı: keçid; küncdə «Dinlə» + «Paylaş», telefonda şəkilli kartda «Dinlə» şəklin altında */
+/* Zuğulba kartı: keçid; küncdə «Paylaş», solunda «Dinlə» (şəkilli kartda şəklin altında) */
 .pcard{position:relative}
 .pcard-hit{display:flex;flex-direction:row;align-items:center;gap:8px;flex:1;min-width:0}
 .pcard .share{position:absolute;right:6px;bottom:5px;margin:0;background:var(--card)}
 .pcard [data-act=share]{width:4.2em;padding:0}.pcard [data-act=dinle]{right:calc(10px + 4.2em)}.pcard .meta{padding-right:calc(38px + 6.6em)}
-@media(max-width:600px){.pcard.has-img:not(.noimg) .meta{padding-right:calc(6px + 4.2em)}.pcard.has-img:not(.noimg) [data-act=dinle]{right:auto;left:8px;min-width:84px}.pcard.has-img:not(.noimg) .img{align-self:flex-start}}
+.acts{display:inline-flex;flex:none;margin-left:auto}.hero-main .meta,.pcard .meta{flex-wrap:wrap}
+.pcard.has-img:not(.noimg){min-height:102px}.pcard.has-img:not(.noimg) .meta{padding-right:calc(6px + 4.2em)}.pcard.has-img:not(.noimg) [data-act=dinle]{right:auto;left:8px;min-width:84px}.pcard.has-img:not(.noimg) .pcard-hit{align-self:stretch}.pcard.has-img:not(.noimg) .img{align-self:flex-start}
 /* Konum düyməsi (hava, namaz, tıxac) */
 .geo-btn{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);font:inherit;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap}
 .geo-btn.on{border-color:var(--primary);color:var(--primary)}

@@ -2304,6 +2304,7 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   assert.ok(css.includes('.topbar{position:relative}') && css.includes('.topbar .wrap{position:static}'), 'namaz və hava pəncərələri zolağın içində kəsilmir');
   assert.ok(css.includes('.pcard .share{position:absolute'), 'Zuğulba paylaş düyməsi kartın küncündədir');
   assert.ok(!/\.pcard \[data-act=dinle\]\{[^}]*left:6px/.test(css) && css.includes('.pcard [data-act=dinle]{right:calc(10px + 4.2em)}'), 'Zuğulba kartında «Dinlə» enə uzanmır, «Paylaş»ın solundadır (sahib, 2026-11-08 telefon şəkli)');
+  assert.ok(src.includes('</time><span class="acts">${shareBtn(a)}</span></div>') && css.includes('.acts{display:inline-flex;flex:none;margin-left:auto}') && css.includes('.hero-main .meta,.pcard .meta{flex-wrap:wrap}') && css.includes('.pcard.has-img:not(.noimg) .pcard-hit{align-self:stretch}'), 'dar yerdə «Dinlə» + «Paylaş» birlikdə növbəti sətrə keçir, mənbə adı sıxılmır; Zuğulba şəkli yuxarıda');
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(/frame-src [^"]*https:\/\/yandex\.com/.test(index), 'CSP Yandex xəritəsinə icazə verir');
 });
