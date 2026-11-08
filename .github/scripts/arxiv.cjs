@@ -49,6 +49,16 @@ function readHours(dir) {
   for (const line of list.split("\n").filter(Boolean)) { const [meta, name] = line.split("\t"), sha = meta.split(" ")[2], h = (name.match(/(\d{8})\.json$/) || [])[1]; if (h && sha) out.set(h, sha); }
   return out;
 }
+// Boşluq (iş düşəndə lentdən çıxmış saatlar): saytın bölmə arxivlərindən (data/arxiv/<bölmə>.json) yalnız budaqda hələ olmayan
+// saatların sətirləri. Mövcud saat faylı endirilmir; lentdəki sətir üstündür (eyni id iki dəfə yazılmır).
+const gapRows = (rows, have, buckets) => rows.filter(a => { const h = hourOf(a?.publishedAt); return h && !have.has(h) && !buckets[h]?.[a.id]; });
+
+// Saat ağacı və kök ağac. Budaq --filter=blob:none ilə klonlanır: köhnə saatların faylı yerli nüsxədə yoxdur, onlar serverdədir.
+// --missing olmadan mktree belə faylı «unavailable» sayıb dayanırdı (2026-11-07 17:00-dan 18 iş düşdü: lentdən çıxmış 26032507.json).
+function writeTree(dir, have, other) {
+  const saat = git(dir, ["mktree", "--missing"], [...have].sort().map(([h, sha]) => `100644 blob ${sha}\t${h}.json`).join("\n") + "\n");
+  return git(dir, ["mktree", "--missing"], [...other, `040000 tree ${saat}\tsaat`].join("\n") + "\n");
+}
 const git = (dir, args, input) => execFileSync("git", ["-C", dir, ...args], { input, encoding: "utf8", maxBuffer: 64 << 20 }).trim();
 
 async function main(root, dir) {
@@ -57,6 +67,7 @@ async function main(root, dir) {
   const get = async f => { try { const r = await fetch(`${SITE}data/${f}?t=${now}`, { signal: AbortSignal.timeout(30000) }); return r.ok ? (await r.json()).articles || [] : []; } catch { return []; } };
   const articles = (await Promise.all(FEEDS.map(get))).flat();
   if (articles.length < 50) { console.log(`arxiv: lent alınmadı (${articles.length}), dayanıram`); return; }
+  const sections = (await Promise.all([...new Set(articles.map(a => a.category).filter(c => /^[a-z]+$/.test(String(c))))].map(c => get(`arxiv/${c}.json`)))).flat();
   // Mövcud budaq (dir: --filter=blob:none ilə klonlanıb; yalnız lazım olan saatların faylı endirilir).
   const have = new Map(), other = [];
   // saat/ xaricindəki qovluqlar (idx/: köhnə saatsız keçidlərin göstəricisi, bir dəfə yazılıb) olduğu kimi qalır.
@@ -64,7 +75,8 @@ async function main(root, dir) {
   for (const [h, sha] of readHours(dir)) have.set(h, sha);
   const buckets = {}, touched = new Set(articles.map(a => hourOf(a.publishedAt)).filter(Boolean));
   for (const h of touched) if (have.has(h)) { try { buckets[h] = Object.fromEntries((JSON.parse(git(dir, ["cat-file", "blob", have.get(h)])).articles || []).map(r => [r.id, r])); } catch {} }
-  const changed = merge(buckets, articles, a => !app.policyViolation(a));
+  const ok = a => !app.policyViolation(a);
+  const changed = [...new Set([...merge(buckets, articles, ok), ...merge(buckets, gapRows(sections, have, buckets), ok)])].sort();
   for (const h of changed) {
     const body = JSON.stringify({ h, articles: Object.values(buckets[h]).sort((x, y) => String(x.publishedAt).localeCompare(String(y.publishedAt))) });
     have.set(h, git(dir, ["hash-object", "-w", "--stdin"], body));
@@ -72,12 +84,11 @@ async function main(root, dir) {
   let dropped = 0;
   for (const h of [...have.keys()]) if (tooOld(h, now)) { have.delete(h); dropped++; }
   if (!changed.length && !dropped) { console.log("arxiv: dəyişiklik yoxdur"); return; }
-  const saat = git(dir, ["mktree"], [...have].sort().map(([h, sha]) => `100644 blob ${sha}\t${h}.json`).join("\n") + "\n");
-  const tree = git(dir, ["mktree"], [...other, `040000 tree ${saat}\tsaat`].join("\n") + "\n");
+  const tree = writeTree(dir, have, other);
   const commit = git(dir, ["-c", "user.name=8ulduz-bot", "-c", "user.email=bot@8ulduz.az", "commit-tree", tree, "-m", "Xəbər arxivi"]);
   git(dir, ["push", "-q", "--force", "origin", `${commit}:refs/heads/${BRANCH}`]);
   console.log(`arxiv: ${articles.length} sətir, ${changed.length} saat yeniləndi, ${have.size} saat budaqda, ${dropped} köhnə silindi`);
 }
 
-module.exports = { hourOf, compact, merge, tooOld, readHours, main, KEEP_DAYS };
+module.exports = { hourOf, compact, merge, tooOld, readHours, gapRows, writeTree, main, KEEP_DAYS };
 if (require.main === module) main(path.resolve(process.argv[2] || "."), path.resolve(process.argv[3] || ".arxiv")).catch(e => { console.error("arxiv:", e?.message || e); process.exitCode = 1; });

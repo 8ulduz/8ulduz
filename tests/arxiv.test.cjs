@@ -38,6 +38,27 @@ test("arxiv: nothing is added to main or the site; the job runs apart from the n
   assert.ok(/return r && !removedSource\(r\) && !policyViolation\(r\) \? r : null;\n\}\n\/\/ Paylaşılan keçid/.test(js.replace(/\r\n/g, "\n")), "arxivdən gələn sətir də qaydadan keçir");
 });
 
+test("arxiv: an hour whose file is not in the partial clone does not stop the job (bug 2026-11-07: 18 runs failed on «26032507.json is unavailable»)", () => {
+  const os = require("node:os"), { execFileSync } = require("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "arxiv-")), g = (...a) => execFileSync("git", ["-C", dir, ...a], { encoding: "utf8" }).trim();
+  g("init", "-q");
+  const local = execFileSync("git", ["-C", dir, "hash-object", "-w", "--stdin"], { input: "{}", encoding: "utf8" }).trim();
+  const absent = "56b78666a8642adf23a494c35fbac138224ff31c"; // serverdədir, yerli nüsxədə yox
+  const tree = A.writeTree(dir, new Map([["26110713", local], ["26032507", absent]]), []);
+  const saat = g("ls-tree", tree).split("\t")[0].split(" ")[2];
+  assert.equal(g("ls-tree", saat), `100644 blob ${absent}\t26032507.json\n100644 blob ${local}\t26110713.json`);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("arxiv: hours missed while the job was down are filled from the section archives; existing hours and feed rows win", () => {
+  const row = (id, t) => ({ id: id.repeat(16), title: "X", sourceUrl: "https://apa.az/" + id, publishedAt: t });
+  const have = new Map([["26110717", "sha"]]), buckets = { "26110809": { ["a".repeat(16)]: {} } };
+  const got = A.gapRows([row("a", "2026-11-08T09:10:00Z"), row("b", "2026-11-08T09:20:00Z"), row("c", "2026-11-07T17:30:00Z"), row("d", "2026-11-07T21:05:00Z"), {}], have, buckets);
+  assert.deepEqual(got.map(a => a.id[0]), ["b", "d"], "a: lentdəki sətir üstündür, c: saat budaqda var (fayl endirilmir)");
+  const sc = fs.readFileSync(path.join(root, ".github/scripts/arxiv.cjs"), "utf8");
+  assert.ok(sc.includes("get(`arxiv/${c}.json`)") && sc.includes("gapRows(sections, have, buckets)"), "bölmə arxivləri oxunur");
+});
+
 test("arxiv: the hours already on the branch are read by hour name, so nothing recent is dropped as «old» (bug 2026-11-07)", () => {
   const os = require("node:os"), { execFileSync } = require("node:child_process");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "arxiv-")), g = (...a) => execFileSync("git", ["-C", dir, ...a], { encoding: "utf8" });
