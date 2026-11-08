@@ -5438,6 +5438,9 @@ def fill_og_images(articles, limit=120):
             if cache[url]:
                 a["imageUrl"] = cache[url]
                 continue
+            # Təzə xəbər 15 dəqiqədən çox gözləmir: əvvəl yazılmış 6 saatlıq qeyd də qısalır (2026-11-08, AZƏRTAC-ın gec yüklənən fotosu).
+            if _fresh_story(a, now_ts):
+                retry_after[url] = min(retry_after.get(url, 0), now_ts + 900)
             # Temporary network failures must not hide photos forever.
             if retry_after.get(url, 0) > now_ts:
                 continue
