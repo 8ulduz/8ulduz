@@ -25,7 +25,9 @@ jobs:
             grep -nE '^(FAIL|ERROR):|Error:|^AssertionError|^  File "' /tmp/ut.txt | head -40 | sed 's/^/::error::/'
             exit 1
           }
-      - run: node --check assets/content-policy.js && node --check assets/app.js && node --check assets/assistant.js && node --check assets/reader.js && node --check assets/source-stats.js && node --check sw.js
+      - name: Kiçiltmə aləti (terser; versiya və hash .github/kicilt/package-lock.json-dadır)
+        run: npm ci --prefix .github/kicilt --ignore-scripts --no-audit --no-fund
+      - run: node --check assets/content-policy.js && node --check assets/app.js && node --check assets/app.min.js && node --check assets/assistant.js && node --check assets/reader.js && node --check assets/source-stats.js && node --check sw.js
       - run: node --test tests/*.test.cjs
       # Sınıq workflow faylı main-ə düşsə yeniləmə tamamilə dayanır — PR-da tutulsun.
       - name: Workflow fayllarını yoxla (actionlint)
