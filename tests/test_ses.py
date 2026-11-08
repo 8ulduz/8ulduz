@@ -32,6 +32,13 @@ class SesTest(unittest.TestCase):
         live = [{"id": "b" * 16, "title": "Təzə"}, {"id": "a" * 16, "title": "Köhnə"}]
         self.assertEqual([a["title"] for a in ses.merged(feed, live)], ["Təzə", "Köhnə"])
 
+    def test_small_batches_so_a_new_story_is_voiced_within_a_minute(self):
+        # Sahib, 2026-11-08: «bizim hədəf anında dinləyə bilməkdir». 40-lıq dəstədə təzə xəbər ~5 dəqiqə gözləyirdi.
+        self.assertLessEqual(ses.PER_RUN, 8)
+        wf = (ROOT / ".github" / "ses-reposu" / "ses.yml").read_text(encoding="utf-8")
+        self.assertIn('cron: "*/10 * * * *"', wf)
+        self.assertIn("sleep 15", wf)
+
     def test_full_store_makes_room_for_newer_stories_only(self):
         now = 1_800_000_000
         a, b, c = "a" * 16, "b" * 16, "c" * 16

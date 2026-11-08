@@ -1,7 +1,7 @@
 // «Dinlə» mətn serveri (.github/ses-worker/worker.js, Cloudflare Workers): basılan anda xəbərin tam mətni (sahib, 2026-11-08).
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const path = require("node:path"), { pathToFileURL } = require("node:url");
+const fs = require("node:fs"), path = require("node:path"), { pathToFileURL } = require("node:url");
 const load = () => import(pathToFileURL(path.join(__dirname, "..", ".github/ses-worker/worker.js")).href);
 const para = "Bu xəbərin mətni kifayət qədər uzundur və oxucuya hadisə haqqında ətraflı məlumat verir. ";
 
@@ -40,6 +40,12 @@ function cfEnv(routes) {
 }
 const ses = (q, ref = "https://8ulduz.az/") => new Request(`https://dinle.x/ses?${q}`, { headers: { Referer: ref } });
 const page = `<script type="application/ld+json">{"@type":"NewsArticle","articleBody":"${"Napoli klubunun prezidenti baş məşqçi ilə görüşüb və vəziyyəti müzakirə edib. ".repeat(4)}"}</script>`;
+
+test("ses-worker /ses: «not ready yet» is never cached, so a voice is served the minute it is ready (owner: «anında»)", () => {
+  const js = fs.readFileSync(path.join(__dirname, "..", ".github/ses-worker/worker.js"), "utf8");
+  assert.ok(js.includes('cacheTtlByStatus: { "200-299": 300, "400-599": -1 }'), "404 keşlənmir");
+  assert.ok(js.includes('.mp3?m=${Math.floor(Date.now() / 6e4)}'), "GitHub-ın öz keşindəki köhnə 404 da yan keçilir");
+});
 
 test("ses-worker /ses: a prepared voice file is served at once (no Azure call)", async () => {
   const { default: w } = await load();

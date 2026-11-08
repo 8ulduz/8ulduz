@@ -5,7 +5,7 @@ name: Xəbər səsləri
 
 on:
   schedule:
-    - cron: "4,34 * * * *"
+    - cron: "*/10 * * * *"  # növbədə həmişə bir iş gözləsin: biri bitən kimi o başlayır (saatlıq boşluq olmasın)
   workflow_dispatch:
 
 permissions:
@@ -42,13 +42,13 @@ jobs:
         env:
           URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: git clone -q --depth 1 --filter=blob:none --no-checkout "$URL" .ses
-      # Fasiləsiz işçi (sahib, 2026-11-08): GitHub cədvəli seyrək işlədir, ona görə iş ~50 dəqiqə dəqiqədə bir yeni xəbərləri
-      # səsləndirir; növbəti işə salınma növbədə gözləyir (concurrency), arada boşluq qalmır.
+      # Fasiləsiz işçi (sahib, 2026-11-08: «anında»): iş ~50 dəqiqə hər ~1 dəqiqədə yeni xəbərləri (dövrədə 6) səsləndirir;
+      # növbəti işə salınma növbədə gözləyir (concurrency, cron 10 dəqiqədən bir), arada boşluq qalmır.
       - name: Səsləndir
         run: |
           end=$((SECONDS + 50 * 60))
           while [ $SECONDS -lt $end ]; do
             git -C .ses fetch -q --depth 1 --filter=blob:none origin main && git -C .ses reset -q --soft FETCH_HEAD || true
             python site/.github/scripts/ses.py .ses || true
-            sleep 40
+            sleep 15
           done

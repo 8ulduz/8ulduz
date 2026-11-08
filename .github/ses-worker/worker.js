@@ -51,7 +51,8 @@ async function audio(req, env, ctx, src, q, cors) {
   const keep = (res) => { const [a, b] = res.body.tee(); ctx.waitUntil(new Response(b).arrayBuffer().then(buf => buf.byteLength > 3000 && cache.put(new Request(key.url), new Response(buf, { headers: AUDIO_HEADERS }))).catch(() => {})); return new Response(a, { headers: { ...AUDIO_HEADERS, ...cors } }); };
   const id = q.get("id") || "";
   if (/^[0-9a-f]{16}$/.test(id)) {
-    const r = await fetch(READY + id + ".mp3", { cf: { cacheTtl: 300 } }).catch(() => null);
+    // Dəqiqə nişanı və 404-ün keşlənməməsi: səs hazır olan kimi verilir (əvvəlki «hələ yoxdur» cavabı 5 dəqiqə yadda qalmır).
+    const r = await fetch(`${READY}${id}.mp3?m=${Math.floor(Date.now() / 6e4)}`, { cf: { cacheTtlByStatus: { "200-299": 300, "400-599": -1 } } }).catch(() => null);
     if (r?.ok) return keep(r);
   }
   if (!env.AZURE_KEY) return new Response("hazır deyil", { status: 503, headers: cors });

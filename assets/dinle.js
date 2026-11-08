@@ -120,7 +120,7 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
     // «dinle» serveri (Cloudflare, .github/ses-worker): hazır tam səs və ya Azure-un rəsmi Babək səsi, basılan anda.
     // Səs hələ hazır deyilsə (server 503): cihazda Azərbaycan səsi varsa (kompüterdə Edge: Babək) gözləmədən o oxuyur;
     // yoxdursa düymə «Səs hazırlanır…» yazısını saxlayır (sahib, 2026-11-08: «səs hazırlanır yazır qayıdır dinləyə»),
-    // 10 saniyədən bir yenidən soruşur (2 dəqiqəyədək), sonra cihazın səsi. Ünvan toxunuş anında verilir (iPhone).
+    // 10 saniyədən bir yenidən soruşur (4 dəqiqəyədək), sonra cihazın səsi. Ünvan toxunuş anında verilir (iPhone).
     if (server && tries >= 0 && String(a?.sourceUrl).startsWith("https://")) {
       const e = encodeURIComponent, src = `${server}?u=${e(a.sourceUrl)}&id=${e(a.id || "")}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`;
       mode = "file"; aud.src = src; media(a);
@@ -130,7 +130,7 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
         if (!mine()) return;
         voices().then(vs => {
           if (id !== gen) return;
-          if (pickVoice(vs)?.az || tries >= 12) play(a, -1);
+          if (pickVoice(vs)?.az || tries >= 24) play(a, -1);
           else { emit(WAIT); setTimeout(() => { if (id === gen) play(a, tries + 1); }, 1e4); }
         });
       };

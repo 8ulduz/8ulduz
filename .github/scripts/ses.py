@@ -32,7 +32,8 @@ SITE = "https://8ulduz.az/"
 VOICE = "az-AZ-BabekNeural"
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
 # Bütün Azərbaycan xəbərləri (sahib, 2026-11-08: «ancaq başlığı oxudu»): gündə ~750, ən yenisi birinci.
-PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 40, 26, 26, 1000, 5000
+# Bir dövrədə 6 xəbər (~45 s), sonra dərhal yazılır: təzə xəbər 40-lıq dəstənin bitməsini (~5 dəq) gözləmir («anında»).
+PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 6, 26, 26, 1000, 5000
 ID_RE = re.compile(r"^[0-9a-f]{16}$")
 
 
