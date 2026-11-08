@@ -1,0 +1,9 @@
+# Paylaşma keçidi serveri (worker.js) — Cloudflare Workers, pulsuz plan. Yükləmə: bu qovluqda «npx wrangler deploy»
+# və ya Cloudflare panelində kodu yapışdırmaq (docs/x-worker.md). Ünvan: Settings → Domains & Routes → Custom domain x.8ulduz.az.
+name = "x"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+preview_urls = false
+# Ünvan: 8ulduz.az zonası eyni Cloudflare hesabında olmalıdır (DNS 2026-11-03-dən Cloudflare-dədir). Panelden də əlavə etmək olar.
+routes = [{ pattern = "x.8ulduz.az", custom_domain = true }]

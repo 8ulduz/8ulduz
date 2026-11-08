@@ -44,6 +44,7 @@ Statik xəbər aqreqatoru: GitHub Actions hər 60 saniyədən bir RSS lentlərin
 
   Bir neçə slot 30 saniyədən bir növbələnir. Şəkil zolağı 54px hündürlükdə kəsilir. Açar və ya ödənişli xidmət tələb olunmur.
 - `assets/og-default.png` — paylaşım üçün 1200×630 şəkil. Hər xəbərə ayrı şəkil statik saytda mümkün deyil; `og:image` və Twitter bu şəkli istifadə edir.
+- `x/<nömrə>.html` — hər xəbərin paylaşma səhifəsi (og etiketləri, dərhal `#/xeber/<nömrə>`-yə keçid; updater yazır, 25 saat qalır). Paylaşma keçidləri `https://x.8ulduz.az/<nömrə>` üzərindən gedir: Cloudflare Worker (`.github/x-worker/`) səhifə hələ `main`-ə düşməyibsə onu lentdən həmin dəqiqə qurur — [docs/x-worker.md](docs/x-worker.md).
 - `feed.xml`, `sitemap.xml`, `robots.txt` — updater hər uğurlu yoxlamada yenidən yazır.
 - `bolme/<slug>/index.html` — hər bölmə üçün statik səhifə (updater yazır, `SECTIONS`). Axtarış sistemləri üçün həqiqi ünvandır: başlıq, təsvir, son 30 azərbaycandilli xəbərin keçidi. Brauzerdə açılanda resurslar nisbi yolla yüklənir, sonra ünvan `#/bolme/<slug>`-a keçir və adi tətbiq işləyir. Sitemap-da hamısı var.
 - `manifest.webmanifest`, `sw.js`, `assets/icon-*.png` — quraşdırılan PWA. Xəbər JSON-u onlayn olanda heç vaxt köhnə keşdən verilmir.
