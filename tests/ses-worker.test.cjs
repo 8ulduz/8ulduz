@@ -20,6 +20,23 @@ test("ses-worker: paragraphs glued by the source get a space so the voice pauses
   assert.equal(clean("Qiymət 1.75 manatdır, sayt report.az-dır."), "Qiymət 1.75 manatdır, sayt report.az-dır.");
 });
 
+test("ses-worker: junk under the article is not read (owner: «xəbərin altındakı lazımsız şeyləri də oxuyur»)", async () => {
+  const { extract } = await load();
+  const page = '<article><p>Bakıda bu gün g&amp;uuml;n ərzində yağış yağıb. ' + para + '</p><p>İkinci abzas: ' + para + para + '</p>' +
+    '<p>Xəbər xoşunuza gəldi? Sosial şəbəkələrdə paylaşın</p><p>Ən son xəbərləri bizim WhatsApp kanalımızda izləyin @media</p>' +
+    '<p>Mətndə səhv varsa, onu qeyd edib Ctrl+Enter düyməsini basaraq bizə göndərin.</p>' +
+    '<p class="bold-title">Dövlət və hökumət rəsmiləri Zəfər Tağı abidəsini ziyarət etdilər</p>' +
+    '<p>Nazir: Ərazi bütövlüyünün bərpası Azərbaycanın qüdrətini daha da artırdı</p>' +
+    '<p>The web server is not returning a connection. As a result, the web page is not displaying.</p>' +
+    '<p>Oxşar xəbərlər</p><p>Bu abzas oxşar xəbərlər bölməsindədir və oxunmamalıdır, çünki xəbərin özü deyil. ' + para + '</p></article>';
+  const t = extract(page);
+  assert.ok(t.includes("İkinci abzas") && t.includes("gün ərzində"), t.slice(0, 120));
+  for (const junk of ["paylaşın", "WhatsApp", "Ctrl", "Zəfər Tağı", "Ərazi bütövlüyünün", "web server", "oxunmamalıdır", "&"]) assert.ok(!t.includes(junk), junk);
+  assert.ok(extract('<p>Son xəbərlərə görə, ' + para + '</p><p>' + para + para + '</p>').startsWith("Son xəbərlərə görə"), "«Son xəbərlərə görə» ilə başlayan cümlə kəsilmir");
+  const ld = '<script type="application/ld+json">' + JSON.stringify({ "@type": "NewsArticle", articleBody: para.repeat(3) + "Hörmətli istifadəçi, ödənişli xəbərləri əldə etmək üçün qeydiyyatdan keçin. {{photo-big-1}}" }) + "</script>";
+  assert.equal(extract(ld), para.repeat(3).trim());
+});
+
 test("ses-worker: only requests from 8ulduz.az are served and only https source addresses", async () => {
   const { default: w } = await load();
   const call = (u, ref) => w.fetch(new Request(`https://x.workers.dev/?u=${encodeURIComponent(u)}`, { headers: ref ? { Referer: ref } : {} }), {}, { waitUntil() {} });

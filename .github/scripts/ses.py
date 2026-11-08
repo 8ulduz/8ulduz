@@ -35,6 +35,8 @@ UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chr
 # Bir dövrədə 6 xəbər (~45 s), sonra dərhal yazılır: təzə xəbər 40-lıq dəstənin bitməsini (~5 dəq) gözləmir («anında»).
 PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 6, 26, 26, 1000, 5000
 ID_RE = re.compile(r"^[0-9a-f]{16}$")
+# Mətn təmizliyi (2026-11-08, reader_content.tidy): bundan əvvəl yazılmış səslər yenidən səslənir — təzə xəbər həmişə birinci.
+CLEAN_AT = datetime.datetime(2026, 11, 8, 9, 0, tzinfo=datetime.timezone.utc).timestamp()
 
 
 def parse_time(s):
@@ -66,6 +68,11 @@ def evict(have, live, pub, born, t):
     rank = lambda i: (i in live, pub.get(i, born.get(i, 0)))
     old = min(have, key=rank)
     return old if rank(old) < (True, t) else None
+
+
+def stale(have, born, cutoff=CLEAN_AT):
+    """Təmizlikdən əvvəl yazılmış səslər: yenidən səslənəcək (köhnə fayl yenisi hazır olana qədər qalır)."""
+    return {i for i in have if born.get(i, 0) < cutoff}
 
 
 def clip(text, limit=MAX_CHARS):
@@ -163,13 +170,15 @@ def main(d):
             dropped += 1
     made = 0
     pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
+    redo = stale(have, born)
     with tempfile.TemporaryDirectory() as tmp:
-        for a in pick(feed, have, now):
+        for a in pick(feed, {i: s for i, s in have.items() if i not in redo}, now):
             if made >= PER_RUN:
                 break
-            old = evict(have, live, pub, born, parse_time(a["publishedAt"]).timestamp()) if len(have) >= MAX_FILES else None
-            if len(have) >= MAX_FILES and not old:
-                break
+            full = a["id"] not in have and len(have) >= MAX_FILES
+            old = evict(have, live, pub, born, parse_time(a["publishedAt"]).timestamp()) if full else None
+            if full and not old:
+                continue
             try:
                 body = extract_article(fetch(a["sourceUrl"]))
             except Exception:

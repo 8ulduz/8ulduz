@@ -35,7 +35,7 @@ async function sourceText(src) {
 }
 
 async function textJson(ctx, src, cors) {
-  const cache = caches.default, key = new Request(`https://dinle.cache/t/${encodeURIComponent(src.href)}`);
+  const cache = caches.default, key = new Request(`https://dinle.cache/t2/${encodeURIComponent(src.href)}`);
   const hit = await cache.match(key);
   if (hit) return new Response(hit.body, { headers: { "Content-Type": "application/json; charset=utf-8", ...cors } });
   const text = await sourceText(src), body = JSON.stringify({ text });
@@ -45,7 +45,7 @@ async function textJson(ctx, src, cors) {
 }
 
 async function audio(req, env, ctx, src, q, cors) {
-  const cache = caches.default, key = new Request(`https://dinle.cache/a/${encodeURIComponent(src.href)}`, { headers: req.headers.get("Range") ? { Range: req.headers.get("Range") } : {} });
+  const cache = caches.default, key = new Request(`https://dinle.cache/a2/${encodeURIComponent(src.href)}`, { headers: req.headers.get("Range") ? { Range: req.headers.get("Range") } : {} });
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, cors);
   // Səs axınla verilir və eyni vaxtda keşə yazılır (yalnız tam alınıbsa: okP).
@@ -97,10 +97,34 @@ export function script(title, source, body) {
   return [t && `${t}.`, source && `${source} xəbər verir.`, rest].filter(Boolean).join(" ").trim();
 }
 
-const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", laquo: "«", raquo: "»", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“" };
+// Adlı HTML işarələri: bəzi saytlar «g&uuml;n» yazır (lent, teleqraf, apasport) — səs «ampersand» oxumasın. Böyük-kiçik hərf fərqlidir.
+const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", shy: "", laquo: "«", raquo: "»", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", bdquo: "„", sbquo: "‚", bull: "•", middot: "·", deg: "°", times: "×", euro: "€", copy: "©", reg: "®", trade: "™",
+  uuml: "ü", Uuml: "Ü", ouml: "ö", Ouml: "Ö", ccedil: "ç", Ccedil: "Ç", auml: "ä", Auml: "Ä", euml: "ë", iuml: "ï", acirc: "â", Acirc: "Â", icirc: "î", Icirc: "Î", ucirc: "û", ecirc: "ê", ocirc: "ô",
+  eacute: "é", Eacute: "É", aacute: "á", iacute: "í", oacute: "ó", uacute: "ú", agrave: "à", egrave: "è", scaron: "š", Scaron: "Š", ntilde: "ñ" };
+const ent = s => s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => e[0] === "#" ? String.fromCodePoint(parseInt(e.slice(1).replace(/^x/i, ""), /^#x/i.test(e) ? 16 : 10)) : ENT[e] ?? ENT[e.toLowerCase()] ?? m);
 export function clean(s) {
-  return String(s).replace(/<[^>]+>/g, " ").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => e[0] === "#" ? String.fromCodePoint(parseInt(e.slice(1).replace(/^x/i, ""), /^#x/i.test(e) ? 16 : 10)) : ENT[e.toLowerCase()] ?? m).replace(/\s+/g, " ").replace(/([.!?…])(?=[A-ZÇƏĞİÖŞÜ])/g, "$1 ").trim();  // «gündür.Bu» → «gündür. Bu»
+  return ent(ent(String(s).replace(/<[^>]+>/g, " "))).replace(/\s+/g, " ").replace(/([.!?…])(?=[A-ZÇƏĞİÖŞÜ])/g, "$1 ").trim();  // «gündür.Bu» → «gündür. Bu»
 }
+// Xəbərin altındakı lazımsız hissələr (sahib, 2026-11-08: «xəbərin altındakı lazımsız şeyləri də oxuyur»); reader_content.py-də eynisi.
+// JUNK: paylaşım/abunə çağırışları, hüquq qeydləri, ödənişli xəbər yazısı, səhv/xəta səhifəsi; belə cümlə/abzas oxunmur.
+// STOP: «Oxşar xəbərlər» kimi başlıqdan sonra heç nə oxunmur. Azərbaycan hərfi olmayan abzas (ingiliscə xəta səhifəsi) oxunmur.
+// Abzas rejimində durğu işarəsi olmayan qısa sətir (oxşar xəbərin başlığı) oxunmur.
+const JUNK = /sosial şəbəkələrdə paylaş|xəbər (xoşunuza gəldi|maraqlı gəlib)|kanalımız(da|a)? (izləy|abunə)|abunə olun|ctrl\s*\+\s*enter|mətndə (səhv|xəta)|qeydiyyatdan keçin|ödənişli (xəbər|video|foto)|bizi (facebook|[iİ]nstagram|telegram|whatsapp|youtube|tiktok)|xəbəri paylaş|©|bütün (müəllif )?hüquqlar|hüquqları qorunur|[iİ]stinad (mütləqdir|edilməlidir|vacibdir|zəruridir)|(materiallar(ın|dan)|məlumatdan) [iİ]stifadə|cloudflare ray id|[iİ]zləyin @|^(müəllif|foto|video|mənbə|reklam)\s*:/i;
+const STOP = /^((oxşar|digər|əlaqəli|son) xəbərlər|mövzu(ya aid| ilə bağlı)|ən çox oxunan|xəbər lenti|bölmənin digər)( xəbərləri)?\s*:?$/i;
+const AZ = /[əğışçöüƏĞŞÇÖÜİ]/;
+export function tidy(parts, paragraphs = false) {
+  const out = [];
+  for (let p of parts) {
+    p = p.replace(/\{\{[^}]*\}\}/g, " ").replace(/\((unikal|eksklüziv)\)/gi, " ").replace(/\s+/g, " ").trim();
+    if (!p) continue;
+    if (STOP.test(p)) break;
+    if (JUNK.test(p) || !AZ.test(p)) continue;
+    if (paragraphs && p.length < 220 && !/[.!?…]["”»’]?\s/.test(p) && !/[.!?:;"”»)’']$/.test(p.replace(/(\.\.\.|…)$/, ""))) continue;
+    out.push(p);
+  }
+  return out;
+}
+const sentences = text => tidy(text.split(/(?<=[.!?…])\s+(?=[A-ZÇƏĞİÖŞÜ"“«])/)).join(" ");
 // reader_content.py ilə eyni qayda: əvvəl JSON-LD articleBody, sonra məqalənin abzasları; ödənişli xəbər oxunmur.
 export function extract(html) {
   for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
@@ -111,13 +135,13 @@ export function extract(html) {
       if (Array.isArray(n)) { stack.push(...n); continue; }
       if (!n || typeof n !== "object") continue;
       if (n.isAccessibleForFree === false || n.isAccessibleForFree === "false") return "";
-      if (typeof n.articleBody === "string") { const t = clean(n.articleBody); if (t.length >= 200) return t; }
+      if (typeof n.articleBody === "string") { const t = sentences(clean(n.articleBody)); if (t.length >= 200) return t; }
       for (const v of Object.values(n)) if (v && typeof v === "object") stack.push(v);
     }
   }
   const scope = (html.match(/<article[\s\S]*?<\/article>/i) || [html])[0].replace(/<(script|style|nav|header|footer|aside|form)\b[\s\S]*?<\/\1>/gi, " ");
-  const paras = [...scope.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => clean(m[1])).filter(t => t.length > 40 && !/©|bütün hüquqlar|reklam/i.test(t));
-  const text = [...new Set(paras)].join(" ");
+  const paras = [...scope.matchAll(/<p\b([^>]*)>([\s\S]*?)<\/p>/gi)].filter(m => !/class=["'][^"']*(title|info|caption|date|share|foot|copyright|author|subscribe|banner)/i.test(m[1])).map(m => clean(m[2]));
+  const text = sentences(tidy([...new Set(paras)], true).filter(t => t.length > 40).join(" "));   // qısa «Oxşar xəbərlər» də tidy-yə çatır (dayanma nöqtəsi)
   return text.length >= 200 ? text : "";
 }
 export function cut(text, max = MAX_CHARS) {

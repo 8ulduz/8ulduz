@@ -65,21 +65,22 @@ function fakeEnv(hasFile) {
 const flush = async (n = 10) => { for (let k = 0; k < n; k++) await new Promise(r => setImmediate(r)); };
 const list = [{ id: "aaaaaaaaaaaaaaaa", title: "Xəbər bir", lang: "az" }, { id: "bbbbbbbbbbbbbbbb", title: "Xəbər iki", lang: "az" }, { id: "cccccccccccccccc", title: "Xəbər üç", lang: "az" }];
 
-test("dinlə: the full-story natural-voice file plays first; «next» goes to the next story that has one, fetched ahead", async () => {
+test("dinlə: the full-story natural-voice file plays first; when the story ends it stops (owner: it went on to the next story)", async () => {
   const { createPlayer, AUDIO } = await load();
   const env = fakeEnv(true), p = createPlayer({ list: () => list, ...env });
   await p.play(list[0]);
   assert.equal(p.mode, "file");
   assert.ok(env.played.some(s => s.startsWith("blob:")), "hazır səs faylı çalınır");
   assert.equal(env.spoken.length, 0, "cihaz səsi işə düşmür");
-  assert.deepEqual(env.fetched, [AUDIO + "index.json", AUDIO + "aaaaaaaaaaaaaaaa.mp3", AUDIO + "cccccccccccccccc.mp3"], "səssiz «iki» atlanır");
+  assert.deepEqual(env.fetched, [AUDIO + "index.json", AUDIO + "aaaaaaaaaaaaaaaa.mp3"], "növbəti xəbərin səsi əvvəlcədən yüklənmir");
   assert.equal(AUDIO, "https://raw.githubusercontent.com/8ulduz/ses/main/", "səslər sayt reposunda yox, ayrıca reposdadır");
   assert.ok(env.played[0].startsWith("data:audio/wav"), "toxunuş anında element açılır (iPhone)");
   const el = env.els[0], playing = el.src, n = env.played.length;
   el.src = "data:audio/wav;x"; el.onended(); el.src = playing; await new Promise(r => setTimeout(r, 10));  // gecikən səssiz klip hadisəsi xəbəri bitirmir
   assert.equal(env.played.length, n, "növbəti xəbərə keçilmədi");
   el.onended(); await new Promise(r => setTimeout(r, 10));
-  assert.ok(env.played.length > n, "faylın özü bitəndə növbəti xəbər başlayır");
+  assert.equal(env.played.length, n, "xəbər bitəndə növbətiyə keçmir");
+  assert.equal(p.playing, false, "xəbər bitəndə dayanır (sahib, 2026-11-08)");
   p.stop();
 });
 

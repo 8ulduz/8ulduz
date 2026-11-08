@@ -42,6 +42,10 @@ class SesTest(unittest.TestCase):
         self.assertIn("actions: write", wf)
         self.assertIn('gh workflow run ses.yml -R "${{ github.repository }}"', wf)
 
+    def test_voices_made_before_the_text_cleanup_are_made_again(self):
+        a, b = "a" * 16, "b" * 16
+        self.assertEqual(ses.stale({a: 1, b: 1}, {a: ses.CLEAN_AT - 60, b: ses.CLEAN_AT + 60}), {a})
+
     def test_full_store_makes_room_for_newer_stories_only(self):
         now = 1_800_000_000
         a, b, c = "a" * 16, "b" * 16, "c" * 16

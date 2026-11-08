@@ -10,7 +10,35 @@ from urllib.parse import urlparse
 
 
 def clean(text):
-    return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', text or ''))).strip()
+    return re.sub(r'\s+', ' ', html.unescape(html.unescape(re.sub(r'<[^>]+>', ' ', text or '')))).strip()
+
+
+# Xəbərin altındakı lazımsız hissələr (sahib, 2026-11-08: «xəbərin altındakı lazımsız şeyləri də oxuyur»); .github/ses-worker/worker.js-də eynisi.
+# JUNK: paylaşım/abunə çağırışları, hüquq qeydləri, ödənişli xəbər yazısı, xəta səhifəsi. STOP: «Oxşar xəbərlər»dən sonra heç nə.
+# Azərbaycan hərfi olmayan abzas (ingiliscə xəta səhifəsi) və abzas rejimində durğu işarəsiz qısa sətir (oxşar xəbər başlığı) oxunmur.
+JUNK = re.compile(r'sosial şəbəkələrdə paylaş|xəbər (xoşunuza gəldi|maraqlı gəlib)|kanalımız(da|a)? (izləy|abunə)|abunə olun|ctrl\s*\+\s*enter|mətndə (səhv|xəta)|qeydiyyatdan keçin|ödənişli (xəbər|video|foto)|bizi (facebook|[iİ]nstagram|telegram|whatsapp|youtube|tiktok)|xəbəri paylaş|©|bütün (müəllif )?hüquqlar|hüquqları qorunur|[iİ]stinad (mütləqdir|edilməlidir|vacibdir|zəruridir)|(materiallar(ın|dan)|məlumatdan) [iİ]stifadə|cloudflare ray id|[iİ]zləyin @|^(müəllif|foto|video|mənbə|reklam)\s*:', re.I)
+STOP = re.compile(r'^((oxşar|digər|əlaqəli|son) xəbərlər|mövzu(ya aid| ilə bağlı)|ən çox oxunan|xəbər lenti|bölmənin digər)( xəbərləri)?\s*:?$', re.I)
+AZ = re.compile(r'[əğışçöüƏĞŞÇÖÜİ]')
+
+
+def tidy(parts, paragraphs=False):
+    out = []
+    for p in parts:
+        p = re.sub(r'\s+', ' ', re.sub(r'\((unikal|eksklüziv)\)', ' ', re.sub(r'\{\{[^}]*\}\}', ' ', p), flags=re.I)).strip()
+        if not p:
+            continue
+        if STOP.search(p):
+            break
+        if JUNK.search(p) or not AZ.search(p):
+            continue
+        if paragraphs and len(p) < 220 and not re.search(r'[.!?…]["”»’]?\s', p) and not re.search(r'[.!?:;"”»)’\']$', re.sub(r'(\.\.\.|…)$', '', p)):
+            continue
+        out.append(p)
+    return out
+
+
+def sentences(text):
+    return ' '.join(tidy(re.split(r'(?<=[.!?…])\s+(?=[A-ZÇƏĞİÖŞÜ"“«])', text)))
 
 
 class ArticleParagraphs(HTMLParser):
@@ -29,7 +57,7 @@ class ArticleParagraphs(HTMLParser):
         blocked = parent[2] or tag in ('nav', 'aside', 'footer', 'header', 'h1', 'script', 'style', 'form') or bool(re.search(r'related|recommend|advert|comment|social|paywall', marker, re.I))
         if tag not in ('br', 'img', 'hr', 'meta', 'link', 'input', 'source', 'wbr'):
             self.stack.append((tag, scoped, blocked))
-        if tag == 'p' and scoped and not blocked:
+        if tag == 'p' and scoped and not blocked and not re.search(r'title|info|caption|date|share|foot|copyright|author|subscribe|banner', attrs.get('class', ''), re.I):
             self.paragraph = []
 
     def handle_data(self, data):
@@ -41,7 +69,7 @@ class ArticleParagraphs(HTMLParser):
     def handle_endtag(self, tag):
         if tag == 'p' and self.paragraph is not None:
             text = clean(' '.join(self.paragraph))
-            if len(text) >= 30:
+            if text:  # qısa sətir də saxlanır: «Oxşar xəbərlər» başlığı tidy-də dayanma nöqtəsidir; uzunluq sonra yoxlanır
                 self.rows.append(text)
             self.paragraph = None
         for i in range(len(self.stack) - 1, -1, -1):
@@ -70,15 +98,16 @@ def extract_article(raw):
     if any(node.get('isAccessibleForFree') in (False, 'false') for node in articles):
         return ''
     for node in articles:
-        text = clean(node.get('articleBody')) if isinstance(node.get('articleBody'), str) else ''
+        text = sentences(clean(node.get('articleBody'))) if isinstance(node.get('articleBody'), str) else ''
         if 200 <= len(text) <= 24000:
             return text
     parser = ArticleParagraphs()
     parser.feed(raw)
-    text = '\n\n'.join(dict.fromkeys(parser.rows))
-    if len(parser.rows) >= 2 and 200 <= len(text) <= 24000:
+    rows = [row for row in tidy(dict.fromkeys(parser.rows), paragraphs=True) if len(row) >= 30]
+    text = sentences(' '.join(rows))
+    if len(rows) >= 2 and 200 <= len(text) <= 24000:
         return text
-    text = clean(' '.join(parser.fragments))
+    text = sentences(clean(' '.join(parser.fragments)))
     return text if 200 <= len(text) <= 24000 else ''
 
 

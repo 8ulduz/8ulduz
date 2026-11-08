@@ -21,6 +21,23 @@ class ReaderContentTest(unittest.TestCase):
         self.assertEqual(text.count('İkinci abzas'),1)
         self.assertEqual(extract_article('<p>'+BODY+'</p>'),'')
 
+    def test_junk_under_the_article_is_not_read(self):
+        # Sahib, 2026-11-08: «xəbərin altındakı lazımsız şeyləri də oxuyur».
+        page = ('<article><p>Bakıda bu gün g&amp;uuml;n ərzində yağış yağıb. ' + BODY + '</p><p>İkinci abzas: ' + BODY + '</p>'
+                '<p>Xəbər xoşunuza gəldi? Sosial şəbəkələrdə paylaşın</p><p>Ən son xəbərləri bizim WhatsApp kanalımızda izləyin @media</p>'
+                '<p>Mətndə səhv varsa, onu qeyd edib Ctrl+Enter düyməsini basaraq bizə göndərin.</p>'
+                '<p class="bold-title">Dövlət və hökumət rəsmiləri Zəfər Tağı abidəsini ziyarət etdilər</p>'
+                '<p>Nazir: Ərazi bütövlüyünün bərpası Azərbaycanın qüdrətini daha da artırdı</p>'
+                '<p>Oxşar xəbərlər</p><p>Bu abzas oxşar xəbərlər bölməsindədir və oxunmamalıdır, çünki xəbərin özü deyil. ' + BODY + '</p>'
+                '<p>{{photo-big-1}} Məlumatdan istifadə etdikdə istinad mütləqdir.</p></article>')
+        text = extract_article(page)
+        self.assertIn('İkinci abzas', text)
+        self.assertIn('gün ərzində', text, 'HTML işarəsi hərfə çevrilir')
+        for junk in ('paylaşın', 'WhatsApp', 'Ctrl', 'Zəfər Tağı', 'Ərazi bütövlüyünün', 'oxunmamalıdır', 'photo', 'istinad'):
+            self.assertNotIn(junk, text)
+        ld = '<script type="application/ld+json">' + json.dumps({'@type': 'NewsArticle', 'articleBody': BODY + 'Hörmətli istifadəçi, ödənişli xəbərləri əldə etmək üçün qeydiyyatdan keçin.'}) + '</script>'
+        self.assertEqual(extract_article(ld), BODY.strip())
+
     def test_audio_cache_only_fetches_azerbaijani_and_reuses_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             file=pathlib.Path(tmp)/'reader.json';seen=[]

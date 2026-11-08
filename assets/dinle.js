@@ -1,7 +1,7 @@
 // «Dinlə» (sahib, 2026-11-07: «dinlə funksiyasını mükəmməl şəkildə işə sal»; «istifadə edən üçün çox rahat olsun»).
 // Kartdakı «Dinlə» bu modulu yalnız basılanda yükləyir (adi açılışa bayt əlavə olunmur — qırmızı xətt 1).
-// Oxunan: başlıq + saytdakı xülasə (saytda onsuz da göstərilən mətn; mənbənin tam mətni yayılmır). «Növbəti» lentdəki
-// növbəti Azərbaycan dilində xəbərə keçir, xəbər bitəndə özü keçir — radio kimi.
+// Basılan xəbər oxunur və bitəndə dayanır (sahib, 2026-11-08: «o bitəndə dayanmır … sonra digərinə keçir. bunu düzəlt»);
+// növbəti xəbərə yalnız kilid ekranındakı «Növbəti» düyməsi ilə keçilir.
 // Səs sırası: 1) xəbərin TAM mətni hazır təbii Azərbaycan səsi ilə (Edge Babək; .github/scripts/ses.py 8ulduz/ses reposuna
 // yazır) — hər telefonda eyni, ekran kilidlənəndə də çalır; «Növbəti» əvvəl hazır səsli xəbərlərə keçir; 2) cihazın Azərbaycan səsi (Edge: «Microsoft … Online (Natural)»); 3) türk səsi — ə/x/q
 // türkcə yaxın səsə çevrilir ki, düzgün tələffüz olunsun; heç biri yoxdursa düymədə qısa izah.
@@ -95,7 +95,7 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
   const after = a => { const all = azList(), at = all.findIndex(x => x.id === a?.id), rest = all.slice(at + 1); return rest.find(x => voiced?.has(x.id)) || rest[0]; };
   function speak(id) {
     if (id !== gen) return;
-    if (i >= parts.length) { next(true); return; }
+    if (i >= parts.length) { stop(); return; }   // xəbər bitdi: dayanır
     const u = new Utterance(choice.az ? parts[i] : forTurkish(parts[i]));
     u.voice = choice.voice; u.lang = choice.lang; u.rate = choice.az ? 1 : .95;
     u.onend = () => { if (id === gen) { i++; speak(id); } };
@@ -125,7 +125,7 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
       const e = encodeURIComponent, src = `${server}?u=${e(a.sourceUrl)}&id=${e(a.id || "")}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`;
       mode = "file"; aud.src = src; media(a);
       const mine = () => id === gen && aud.currentSrc === src;
-      aud.onended = () => { if (mine()) next(true); };
+      aud.onended = () => { if (mine()) stop(); };   // xəbər bitdi: dayanır, növbətiyə keçmir
       aud.onerror = () => {
         if (!mine()) return;
         voices().then(vs => {
@@ -143,7 +143,7 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
       mode = "file"; aud.src = url;
       // Yalnız bu faylın hadisəsi sayılır: toxunuşdakı səssiz klipin gecikən «bitdi» siqnalı xəbəri bitmiş saymasın.
       const mine = () => id === gen && aud.currentSrc === url;
-      aud.onended = () => { if (mine()) next(true); };
+      aud.onended = () => { if (mine()) stop(); };
       aud.onerror = () => { if (mine()) { files.set(a.id, Promise.resolve("")); play(a); } };  // fayl xarabdırsa cihazın səsi
       media(a);
       try { await aud.play(); } catch { if (id === gen) { playing = false; emit("Başlatmaq üçün yenidən basın"); } }
@@ -156,7 +156,6 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
       mode = "tts"; parts = chunks(text); media(a);
       speak(id);
     }
-    const n = after(a); if (n) audioFor(n.id);  // növbəti xəbərin səsi arxada hazırlanır
   }
   function toggle() {
     if (!cur) return;
@@ -166,9 +165,9 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
     else { play(cur); return; }
     emit();
   }
-  function next(auto) {
+  function next() {
     const b = after(cur);
-    if (b) play(b); else { halt(); playing = false; emit(auto ? "Xəbərlər bitdi" : ""); cur = null; }
+    if (b) play(b); else stop();
   }
   function stop() {
     halt(); aud?.pause?.(); playing = false; emit(); cur = null;
