@@ -1,0 +1,61 @@
+name: Səs serveri sınağı
+# «Dinlə» SARA serverini (.github/ses-server) GitHub-da işə salır: real xəbəri istəyir, ilk səsin gəlmə vaxtını və faylı yoxlayır.
+# Hetzner-ə quraşdırmadan və hər dəyişiklikdən sonra serverin işlədiyini göstərir. Xəbər axınından ayrıdır.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Mənbə xəbərinin ünvanı
+        required: false
+  push:
+    branches: [main]
+    paths:
+      - .github/ses-server/**
+      - .github/workflows/ses-server.yml
+
+permissions:
+  contents: read
+
+jobs:
+  sinaq:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/ses-server
+            reader_content.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Mühit
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q transformers numpy
+          command -v ffmpeg || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; }
+      - name: Server
+        env:
+          SES_PREFETCH: "0"
+          SES_CACHE: /tmp/ses-cache
+        run: |
+          python .github/ses-server/server.py > /tmp/server.log 2>&1 &
+          for i in $(seq 1 120); do curl -fs http://127.0.0.1:8790/saglam >/dev/null && break; sleep 2; done
+          curl -fs http://127.0.0.1:8790/saglam
+          U="${{ github.event.inputs.url }}"
+          [ -n "$U" ] || U=$(curl -fs https://8ulduz.az/data/news.json | python -c "import json,sys; a=[x for x in json.load(sys.stdin)['articles'] if (x.get('lang') or 'az')=='az' and x.get('sourceUrl','').startswith('https://')]; print(a[0]['sourceUrl'])")
+          echo "xəbər: $U"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8790/dinle?u=$U")" = 403
+          Q="u=$(python -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$U")&t=Sınaq&s=Mənbə"
+          curl -s -H "Referer: https://8ulduz.az/" -o /tmp/ses.mp3 -w "ilk səs %{time_starttransfer} s, hamısı %{time_total} s, %{size_download} bayt\n" "http://127.0.0.1:8790/dinle?$Q" | tee -a "$GITHUB_STEP_SUMMARY"
+          curl -s -H "Referer: https://8ulduz.az/" -o /tmp/ses2.mp3 -w "keşdən: ilk bayt %{time_starttransfer} s\n" "http://127.0.0.1:8790/dinle?$Q" | tee -a "$GITHUB_STEP_SUMMARY"
+          curl -s -H "Referer: https://8ulduz.az/" -H "Range: bytes=0-99" -o /dev/null -w "Range: %{http_code}\n" "http://127.0.0.1:8790/dinle?$Q" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$(stat -c %s /tmp/ses.mp3)" -gt 20000
+          cmp /tmp/ses.mp3 /tmp/ses2.mp3
+          cat /tmp/server.log
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ses-sinaq
+          path: /tmp/ses.mp3
