@@ -41,7 +41,7 @@ class RemovedSourceTest(unittest.TestCase):
         self.assertFalse(updater.removed_source({'sourceUrl': 'https://azadliq.org.example.com/a/2'}))
 
 
-class ZugulbaKeepTest(unittest.TestCase):
+class ZugulbaSelectTest(unittest.TestCase):
     """Sahib 2026-11-08: bayram günü eyni müraciət 30 saytdan gələndə Zuğulba 44 əvəzinə 40 göstərirdi (120-lik hədd təkrarlarla doldu)."""
     def row(self, i, hours, title):
         at = datetime.datetime(2026, 11, 8, 12, 0, tzinfo=datetime.timezone.utc) - datetime.timedelta(hours=hours)
@@ -2215,5 +2215,5 @@ class ZugulbaKeepTest(unittest.TestCase):
         cap = src.index('if n >= source_cap(a.get("source"))')
         self.assertLess(skip, cap, "Zuğulba xəbəri mənbə limitindən əvvəl seçilir")
         self.assertIn('dseen.add(a["sourceUrl"]); uniq.append(a)', src[skip:cap])
-        self.assertIn('prez_items = [a for a in uniq if a["category"] == "prezident"][:120]', src, "öz limiti qalır")
+        self.assertIn('prez_items = select_prez([a for a in uniq if a["category"] == "prezident"], now_utc)', src, "öz limiti qalır")
         self.assertIn("cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)", src, "60 gün")
