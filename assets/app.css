@@ -404,14 +404,6 @@ main>.wrap>section{margin-bottom:18px}
 .bd.out{background:none;border:1px solid var(--border);color:var(--muted)}
 .bd.red{background:var(--red);color:#fff}
 .bd.gold{background:var(--primary);color:var(--primary-fg)}
-/* mobil: üfüqi yığcam kart */
-@media (max-width:520px){
-  .grid .card{flex-direction:row}
-  .grid .card .img{aspect-ratio:auto;width:104px;height:84px;flex:none;border-radius:var(--radius) 0 0 var(--radius)}
-  .grid .card h3{font-size:0.9643rem;-webkit-line-clamp:3}
-  .grid .card .b{padding:7px 9px;gap:3px}
-  .grid .card:not(.noimg) p{display:none}
-}
 
 /* --- video --- */
 .vrow{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 4*var(--gap))/5);gap:var(--gap);overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
@@ -911,17 +903,10 @@ nav.main a.nav-x{display:none}
   nav.main>a,nav.main .nav-more>summary{flex:none;white-space:nowrap;overflow-wrap:normal;padding:3px 7px;min-height:30px;font-size:.8rem}
   nav.main>a[href="#/"],nav.main .nav-more{display:none}
   nav.main a.nav-x{display:flex}
-  .latest-grid .card h3,.grid .card h3,.card:has(>.star) h3{padding-right:40px}
-  .latest-grid .card .badges,.grid .card .badges,.card:has(>.star) .badges{padding-right:44px}
   .assistant-launch{width:48px;height:48px;min-height:48px;padding:0;font-size:0;display:grid;place-items:center}
   .assistant-launch::before{content:"🎙";font-size:20px;line-height:1}
 }
 
-/* 601-900 px-də də ☆ düyməsi 44 px-dir: başlığı örtməsin */
-@media(max-width:900px){
-  .latest-grid .card h3,.grid .card h3,.card:has(>.star) h3{padding-right:40px}
-  .latest-grid .card .badges,.grid .card .badges,.card:has(>.star) .badges{padding-right:44px}
-}
 
 /* Alt başlıqlı bölmələr (İdman, Bölgələr) oxla və qalın */
 nav.main{gap:0}
@@ -1013,7 +998,6 @@ a.pill.on small{color:inherit}
 /* Kompüterdə slayder: 16:9 şəkil, başlıq sağda */
 @media(min-width:901px){.hero-row .hero-main{background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;height:100%;aspect-ratio:16/9;max-width:min(70%,calc(100% - 250px))}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{flex:1;min-width:0;margin:0;justify-content:center;padding:56px 58px 40px 22px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:var(--fg);font-size:clamp(1.15rem,1.6vw,1.6rem);-webkit-line-clamp:6}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}}
 
-@media(max-width:600px){.latest-grid .card{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}.latest-grid .card>.img{grid-row:1/3;align-self:center;width:136px;aspect-ratio:16/9;border-radius:0 10px 10px 0}.latest-grid .card>.b{display:contents}.latest-grid .card .badges{grid-column:2;margin:9px 11px 0}.latest-grid .card .card-hit{grid-column:2;margin:5px 11px 0}.latest-grid .card .meta{grid-column:1/-1;margin:6px 11px 10px}.latest-grid .card.noimg{grid-template-columns:minmax(0,1fr)}.latest-grid .card.noimg .badges,.latest-grid .card.noimg .card-hit,.latest-grid .card.noimg .meta{grid-column:1}}
 
 .card[data-cat],.pcard[data-cat]{border-left-width:1px;border-left-color:var(--border)}
 .sec-h h2{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:var(--fw-semibold)}
@@ -1055,6 +1039,8 @@ a.pill.on small{color:inherit}
 .latest-grid .card>.img,.grid .card>.img,.news-row .card>.img,.card>.img{width:100%;height:auto;aspect-ratio:16/9;flex:none;align-self:stretch;border-radius:0;grid-row:auto;grid-column:auto}
 .latest-grid .card>.b,.grid .card>.b,.news-row .card>.b,.card>.b{display:flex;flex-direction:column;gap:6px;padding:12px;min-width:0}
 .card .meta{flex-wrap:nowrap;margin:0}
+/* Telefonda siyahı TASS kimi (sahib, 2026-11-08): qutusuz, başlıq solda, kiçik şəkil sağda, ☆ düymələrin yanında; bölmədə birinci xəbər böyük */
+@media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>.card:not(:first-child))>.b{display:contents}:is(.latest-grid .card,.grid>.card:not(:first-child))>.img{grid-area:i;align-self:stretch;width:120px;min-height:80px;aspect-ratio:auto;border-radius:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)) .badges{grid-area:b}:is(.latest-grid .card,.grid>.card:not(:first-child)) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>.card:not(:first-child)) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:5}:is(.latest-grid .card,.grid>.card:not(:first-child)) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star:not(.on){color:var(--fg)}}
 .latest-grid .card .badges,.latest-grid .card .card-hit,.latest-grid .card .meta{margin:0}
 .card .meta .src{max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .star{top:8px;right:8px;width:28px;height:28px;min-width:28px;min-height:28px;font-size:var(--fs-body)}
