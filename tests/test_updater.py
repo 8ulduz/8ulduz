@@ -25,7 +25,8 @@ class ShareJumpTest(unittest.TestCase):
         row = json.loads(json.loads(m.group(1).replace("<\\/", "</")))
         self.assertEqual((row["id"], row["source"], row["alts"][0]["source"]), ("0123456789abcdef", "APA", "Report"))
         self.assertEqual(json.loads(m.group(2)), "https://8ulduz.az/#/xeber/0123456789abcdef?b=siyaset&h=26110713")
-        self.assertIn('<meta http-equiv="refresh"', page, "skriptsiz brauzer də keçir")
+        self.assertNotIn('http-equiv="refresh"', page, "Facebook robotu meta refresh-i izləyib baş səhifənin kartını götürürdü (2026-11-08)")
+        self.assertIn('<link rel="canonical" href="https://8ulduz.az/x/0123456789abcdef" />', page, "canonical səhifənin özüdür, og:url ilə eyni")
         self.assertIn('og:title', page)
 
 
