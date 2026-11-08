@@ -230,12 +230,24 @@ class PresidentPageTest(unittest.TestCase):
         self.assertEqual(items[2]["pubDate"], "2026-10-21T15:35:00+00:00")
 
 
+def _yt_card(vid, title, ago=None):
+    """Kanal səhifəsindəki video kartı YouTube-un öz sırası ilə: şəkil, başlıq, vaxt, SONRA contentId (2026-11-08 ölçülüb)."""
+    when = f',{{"text":{{"content":"x"}},"accessibilityLabel":"{ago}"}}' if ago else ""
+    return ('{"lockupViewModel":{"contentImage":{"thumbnailViewModel":{"image":{"sources":[{"url":"https://i.ytimg.com/vi/' + vid
+            + '/hqdefault.jpg"}]}}},"metadata":{"lockupMetadataViewModel":{"title":{"content":"' + title + '"},"metadata":'
+            '{"contentMetadataViewModel":{"metadataRows":[{"metadataParts":[{"text":{"content":"64 views"},"accessibilityLabel":"64 views"}'
+            + when + ']}]}}}},"contentId":"' + vid + '","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","rendererContext":{}}}')
+
+
+def _yt_short(vid, title):
+    return ('{"richItemRenderer":{"content":{"shortsLockupViewModel":{"entityId":"shorts-shelf-item-' + vid + '","accessibilityText":"'
+            + title + ', 553 views - play Short","onTap":{"innertubeCommand":{"reelWatchEndpoint":{"videoId":"' + vid + '"}}},'
+            '"overlayMetadata":{"primaryText":{"content":"' + title + '"}}}}}}')
+
+
 class YouTubeTest(unittest.TestCase):
     def test_channel_page_parser(self):
-        page = ('x{"contentId":"nckqYOoK5lw","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","a":1,"metadata":{"lockupMetadataViewModel":'
-                '{"title":{"content":"Kiyev problemi \\u2014 test"},"metadata":{"metadataParts":[{"text":{"content":"64"},"accessibilityLabel":"64 views"},'
-                '{"text":{"content":"21 min ago"},"accessibilityLabel":"21 minutes ago"}]}}}'
-                '{"contentId":"trDnnGEAkRk","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","metadata":{"lockupMetadataViewModel":{"title":{"content":"İkinci"}}}}')
+        page = "x" + _yt_card("nckqYOoK5lw", "Kiyev problemi \\u2014 test", "21 minutes ago") + "," + _yt_card("trDnnGEAkRk", "İkinci")
         now = datetime.datetime(2026, 10, 28, 12, 0, tzinfo=datetime.timezone.utc)
         items = updater.parse_yt_channel_page(page, now=now)
         self.assertEqual([i["link"][-11:] for i in items], ["nckqYOoK5lw", "trDnnGEAkRk"])
@@ -243,6 +255,151 @@ class YouTubeTest(unittest.TestCase):
         self.assertEqual(items[0]["pubDate"], "2026-10-28T11:39:00+00:00")
         self.assertEqual(items[1]["pubDate"], "2026-10-28T12:00:00+00:00")
         self.assertTrue(items[0]["image"].endswith("/nckqYOoK5lw/hqdefault.jpg"))
+
+    def test_each_video_keeps_its_own_title_and_time(self):
+        """2026-11-08: kart başlığı və vaxtı contentId-dən əvvəl yazır; əvvəlki oxuma hər videoya növbəti videonun başlığını və
+        vaxtını verirdi (Prezidentin videoları saytda 1-1,5 saat erkən görünürdü)."""
+        page = (_yt_card("Gwr6OTkoTyI", "Türkiyə Prezidenti Rəcəb Tayyib Ərdoğanın Azərbaycana rəsmi səfəri", "5 minutes ago")
+                + _yt_card("U82hov62csk", "Zəngilan Şəhər Təhsil Kompleksinin açılışı", "1 day ago")
+                + _yt_card("IsyEx2aYBMg", "Cahangirbəyli kəndinin açılışı", "2 days ago"))
+        now = datetime.datetime(2026, 11, 8, 16, 24, tzinfo=datetime.timezone.utc)
+        got = [(i["link"][-11:], i["title"], i["pubDate"]) for i in updater.parse_yt_channel_page(page, now=now)]
+        self.assertEqual(got, [("Gwr6OTkoTyI", "Türkiyə Prezidenti Rəcəb Tayyib Ərdoğanın Azərbaycana rəsmi səfəri", "2026-11-08T16:19:00+00:00"),
+                               ("U82hov62csk", "Zəngilan Şəhər Təhsil Kompleksinin açılışı", "2026-11-07T16:24:00+00:00"),
+                               ("IsyEx2aYBMg", "Cahangirbəyli kəndinin açılışı", "2026-11-06T16:24:00+00:00")])
+
+    def test_streamed_video_has_its_time(self):
+        page = _yt_card("au7VunC4xsY", "Azərbaycan və Türkiyə Prezidentlərinin mətbuata bəyanatları", "Streamed 4 hours ago")
+        now = datetime.datetime(2026, 11, 8, 16, 24, tzinfo=datetime.timezone.utc)
+        self.assertEqual(updater.parse_yt_channel_page(page, now=now)[0]["pubDate"], "2026-11-08T12:24:00+00:00", "«streams» səhifəsi")
+
+    def test_shorts_page_parser(self):
+        page = "x" + _yt_short("gRfCgiLSOpA", "Dünyada bizim qədər bir-birinə bağlı olan xalqlar da yoxdur") + _yt_short("S6nc69RIa9g", "İkinci")
+        got = updater.parse_yt_shorts_page(page)
+        self.assertEqual([(i["link"], i["title"]) for i in got],
+                         [("https://www.youtube.com/shorts/gRfCgiLSOpA", "Dünyada bizim qədər bir-birinə bağlı olan xalqlar da yoxdur"),
+                          ("https://www.youtube.com/shorts/S6nc69RIa9g", "İkinci")])
+        self.assertNotIn("pubDate", got[0], "Shorts səhifəsi vaxt yazmır")
+
+
+class OfficialYouTubeTest(unittest.TestCase):
+    """Sahib 2026-11-08: «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı bizdə yoxdur». Video kanalda 16:19-da idi, RSS-də 16:27-də;
+    sayt yalnız RSS-ə baxırdı, sosial lent də 4-5 dəqiqədə bir yığılıb 10 dəqiqədə bir sayta gedirdi."""
+    NOW = datetime.datetime(2026, 11, 8, 16, 24, tzinfo=datetime.timezone.utc)
+    FEED = "https://www.youtube.com/feeds/videos.xml?channel_id=UCdT9CFMpO_o1Sy10Dz2b9DQ"
+
+    @staticmethod
+    def rss(vid, title, when, short=False):
+        link = f"https://www.youtube.com/shorts/{vid}" if short else f"https://www.youtube.com/watch?v={vid}"
+        return {"title": title, "link": link, "pubDate": when, "image": f"https://i1.ytimg.com/vi/{vid}/hqdefault.jpg"}
+
+    def test_new_video_comes_from_the_channel_page_before_rss_has_it(self):
+        rss = [self.rss("U82hov62csk", "Zəngilan Şəhər Təhsil Kompleksinin açılışı", "2026-11-06T18:54:06+00:00"),
+               self.rss("IsyEx2aYBMg", "Cahangirbəyli", "2026-11-06T18:41:04+00:00")]
+        page = updater.parse_yt_channel_page(_yt_card("Gwr6OTkoTyI", "Ərdoğanın rəsmi səfəri", "5 minutes ago")
+                                             + _yt_card("U82hov62csk", "səhifədəki başlıq", "1 day ago"), now=self.NOW)
+        items, top = updater.merge_yt(rss, page, None, now=self.NOW)
+        self.assertEqual([(i["link"][-11:], i["pubDate"], i["approx"]) for i in items],
+                         [("Gwr6OTkoTyI", "2026-11-08T16:19:00+00:00", True),
+                          ("U82hov62csk", "2026-11-06T18:54:06+00:00", False),
+                          ("IsyEx2aYBMg", "2026-11-06T18:41:04+00:00", False)])
+        self.assertEqual(items[1]["title"], "Zəngilan Şəhər Təhsil Kompleksinin açılışı", "RSS-dəki video RSS-in başlığı və dəqiq vaxtı ilə")
+        self.assertIsNone(top)
+        self.assertEqual([i["link"][-11:] for i in updater.merge_yt(None, page, None, now=self.NOW)[0]], ["Gwr6OTkoTyI", "U82hov62csk"],
+                         "RSS alınmasa kanal səhifəsi")
+        self.assertEqual(len(updater.merge_yt(rss + rss, page + page, None, now=self.NOW)[0]), 3, "eyni video bir dəfə")
+        self.assertEqual(len(updater.merge_yt(rss, page, None, limit=2, now=self.NOW)[0]), 2)
+
+    def test_new_shorts_are_the_ones_above_a_known_short(self):
+        rss = [self.rss("S6nc69RIa9g", "Sizin dəstəyiniz", "2026-11-08T16:13:31+00:00", short=True)]
+        shorts = updater.parse_yt_shorts_page(_yt_short("gRfCgiLSOpA", "Dünyada bizim qədər") + _yt_short("S6nc69RIa9g", "Sizin dəstəyiniz")
+                                              + _yt_short("wA6y0JtLFTg", "Şuşada görüş"))
+        items, top = updater.merge_yt(rss, [], shorts, now=self.NOW)
+        self.assertEqual([(i["link"], i["pubDate"]) for i in items],
+                         [("https://www.youtube.com/shorts/gRfCgiLSOpA", "2026-11-08T16:24:00+00:00"),
+                          ("https://www.youtube.com/shorts/S6nc69RIa9g", "2026-11-08T16:13:31+00:00")])
+        self.assertEqual(top, "gRfCgiLSOpA")
+        self.assertEqual(updater.merge_yt([], [], shorts, now=self.NOW), ([], "gRfCgiLSOpA"),
+                         "tanınan Shorts yoxdursa hansının yeni olduğu bilinmir: köhnə Shorts təzə kimi görünməsin")
+        self.assertEqual([i["link"][-11:] for i in updater.merge_yt([], [], shorts, top="S6nc69RIa9g", now=self.NOW)[0]], ["gRfCgiLSOpA"],
+                         "keçən dəfə ən üstdə olan Shorts")
+        self.assertEqual([i["link"][-11:] for i in updater.merge_yt([], [], shorts, known={"wA6y0JtLFTg"}, now=self.NOW)[0]],
+                         ["gRfCgiLSOpA", "S6nc69RIa9g"], "əvvəlki yazılardakı Shorts")
+        self.assertEqual(updater.merge_yt([], [], shorts, top="gRfCgiLSOpA", now=self.NOW), ([], "gRfCgiLSOpA"), "yeni Shorts yoxdur")
+
+    def test_update_social_keeps_page_times_takes_rss_times_and_stamps_the_status(self):
+        acct = [(self.FEED, "birinci-xanim", "Mehriban Əliyeva")]
+        later = self.NOW + datetime.timedelta(hours=1, minutes=6)
+        page = lambda ago, now: updater.parse_yt_channel_page(_yt_card("Gwr6OTkoTyI", "Ərdoğanın rəsmi səfəri", ago)
+                                                              + _yt_card("U82hov62csk", "Zəngilan", "1 day ago"), now=now)
+        stream = lambda ago, now: updater.parse_yt_channel_page(_yt_card("au7VunC4xsY", "Mətbuata bəyanatlar", ago), now=now)
+        pages = {(self.FEED, "rss"): [self.rss("U82hov62csk", "Zəngilan", "2026-11-06T18:54:06+00:00")],
+                 (self.FEED, "videos"): page("5 minutes ago", self.NOW), (self.FEED, "streams"): stream("Streamed 4 hours ago", self.NOW),
+                 (self.FEED, "shorts"): []}
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            # Köhnə oxumanın səhv (erkən) vaxtı: RSS-dəki video RSS-in vaxtını alır.
+            (d / "social.json").write_text(json.dumps({"posts": [{"id": "x" * 16, "who": "birinci-xanim", "network": "YouTube",
+                                                                    "url": "https://www.youtube.com/watch?v=U82hov62csk",
+                                                                    "publishedAt": "2026-11-06T18:41:08+00:00"}]}), encoding="utf-8")
+            with patch.object(updater, "SOCIAL_FILE", d / "social.json"), patch.object(updater, "SOCIAL_ARCHIVE_FILE", d / "a.json"), \
+                    patch.object(updater, "STATUS_FILE", d / "status.json"), patch.object(updater, "YT_ACCOUNTS", acct), \
+                    patch.object(updater, "yt_account_pages", lambda accounts: pages), patch.object(updater, "read_feed", lambda *a, **k: []), \
+                    patch.object(updater, "write_social_share_pages", lambda rows, root=None: 0), \
+                    patch.object(updater, "merge_sources", lambda rows: None):
+                updater.update_social()
+                first = json.loads((d / "social.json").read_text(encoding="utf-8"))
+                pages[(self.FEED, "videos")] = page("1 hour ago", later)  # bir saat sonra səhifə «1 hour ago» yazır
+                pages[(self.FEED, "streams")] = stream("Streamed 5 hours ago", later)
+                updater.update_social()
+                second = json.loads((d / "social.json").read_text(encoding="utf-8"))
+                updater.write_status(True, 1, 1)
+                plain = json.loads((d / "status.json").read_text(encoding="utf-8"))
+                with patch.dict(updater.os.environ, {"SOCIAL_LOOP": "1"}):
+                    updater.write_status(True, 1, 1)
+                status = json.loads((d / "status.json").read_text(encoding="utf-8"))
+        self.assertEqual([(p["url"][-11:], p["publishedAt"]) for p in first["posts"]],
+                         [("Gwr6OTkoTyI", "2026-11-08T16:19:00+00:00"), ("au7VunC4xsY", "2026-11-08T12:24:00+00:00"),
+                          ("U82hov62csk", "2026-11-06T18:54:06+00:00")])
+        self.assertEqual(second["posts"], first["posts"], "səhifənin təxmini vaxtı ilk görüldüyü kimi qalır, sıra sürüşmür")
+        self.assertRegex(first["rev"], r"^[0-9a-f]{10}$")
+        self.assertEqual(second["rev"], first["rev"], "dəyişməyən yazıların möhürü dəyişmir: sayt təkrar çəkmir")
+        self.assertNotIn("social", plain, "bayraqsız (köhnə pipeline) möhür yoxdur: sayt əvvəlki kimi saytın faylını çəkir")
+        self.assertEqual(status["social"], second["rev"])
+
+    def test_slow_cycle_leaves_social_to_the_minute_loop(self):
+        calls = []
+        names = ["compute_groups", "update_markets", "resolve_undated", "update_social", "update_video", "update_football", "update_sports",
+                 "retire_reader", "refresh_slow_feeds", "write_public", "update_archive", "update_team_pages"]
+        fakes = {n: (lambda n=n: calls.append(n)) for n in names}
+        with patch.multiple(updater, read_feed=lambda *a, **k: [], fill_og_images=lambda *a, **k: None, drop_dead_images=lambda a: a, **fakes):
+            updater.slow_cycle()
+            self.assertIn("update_social", calls, "köhnə pipeline (bayraqsız): yavaş dövrədə")
+            calls.clear()
+            with patch.dict(updater.os.environ, {"SOCIAL_LOOP": "1"}):
+                updater.slow_cycle()
+        self.assertNotIn("update_social", calls)
+        self.assertIn("update_video", calls)
+
+    def test_social_mode_runs_only_the_social_step(self):
+        called = []
+        with patch.object(updater, "update_social", lambda: called.append("social")), \
+                patch.object(updater, "main", lambda *a, **k: called.append("main")), \
+                patch.object(updater.sys, "argv", ["updater.py", "--social"]):
+            self.assertEqual(updater.run(), 0)
+        self.assertEqual(called, ["social"])
+
+    def test_pipeline_runs_the_social_loop_every_minute_and_sends_it_live(self):
+        sh = (pathlib.Path(updater.__file__).parent / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+        self.assertLessEqual(int(re.search(r'^SOCIAL_EVERY="\$\{SOCIAL_EVERY:-(\d+)\}"', sh, re.M).group(1)), 60)
+        self.assertIn("export SOCIAL_LOOP=1", sh)
+        self.assertIn("social_loop &", sh)
+        loop = sh[sh.index("social_loop() {"):sh.index("# Asılan dövrəni tutur")]
+        self.assertIn('"$CUR/updater.py" --social', loop)
+        self.assertNotIn("run_py", loop, "köhnə kod ehtiyatı --social bilmir, tam yeniləməyə keçərdi")
+        self.assertIn('grep -q -- \'"--social"\' "$CUR/updater.py"', loop)
+        self.assertIn("latest.tr markets social; do", sh)
+        self.assertIn('self_watch $$ "$SLOW_PID" "$LINKS_PID" "$SOCIAL_PID" &', sh)
 
 
 class SocialFromNewsTest(unittest.TestCase):

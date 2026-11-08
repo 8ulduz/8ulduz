@@ -2435,7 +2435,9 @@ def retire_reader():
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = read_feed()
-    steps = [compute_groups, update_markets, resolve_undated, update_social, update_video, update_football, update_sports,
+    # SOCIAL_LOOP: rəsmi hesabların yazıları pipeline.sh-in social_loop-unda hər dəqiqə yığılır (--social), burada yox.
+    social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
+    steps = [compute_groups, update_markets, resolve_undated, *social, update_video, update_football, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
@@ -2981,32 +2983,45 @@ YT_ACCOUNTS = [
 ]
 
 def update_social():
-    posts, failed = [], set()
-    yt_rows = []
+    """Rəsmi hesabların YouTube yazıları (merge_yt) və xəbərlərdən çıxarılan paylaşımlar -> social.json (son 16).
+    pipeline.sh-in social_loop-u bunu hər dəqiqə çağırır (SOCIAL_LOOP), köhnə pipeline-da yavaş dövrə (4-5 dəqiqə)."""
+    doc = _read_json(SOCIAL_FILE, {})
+    doc = doc if isinstance(doc, dict) else {}
+    old = [p for p in doc.get("posts") or [] if isinstance(p, dict)]
+    tops = dict(doc["shorts"]) if isinstance(doc.get("shorts"), dict) else {}
+    arch = _read_json(SOCIAL_ARCHIVE_FILE, {})
+    arch = arch.get("posts") if isinstance(arch, dict) and isinstance(arch.get("posts"), list) else []
+    known = {_yt_id(p.get("url")) for p in [*old, *arch] if isinstance(p, dict)} - {""}
+    pages = yt_account_pages(YT_ACCOUNTS)
+    posts, failed, yt_rows = [], set(), []
     for url, who, name in YT_ACCOUNTS:
+        got = [pages.get((url, tab)) for tab in ("rss", "videos", "streams", "shorts")]
+        rss, videos, streams, shorts = (x if isinstance(x, list) else None for x in got)
+        videos = None if videos is None and streams is None else [*(videos or []), *(streams or [])]
         try:
-            got = yt_items(url, 4)
-            if not got:
+            if not rss and not videos:
+                raise next((x for x in got[:3] if isinstance(x, Exception)), ValueError("boş lent"))
+            items, top = merge_yt(rss, videos, shorts, known=known, top=tops.get(who))
+            if top:
+                tops[who] = top
+            if not items:
                 raise ValueError("boş lent")
-            yt_rows.append({"name": f"YouTube · {name}", "url": url, "count": len(got), "error": None})
-            for it in got:
+            yt_rows.append({"name": f"YouTube · {name}", "url": url, "count": len(items), "error": None})
+            for it in items:
                 posts.append({
                     "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
                     "who": who, "name": name, "network": "YouTube",
                     "text": it["title"], "url": it["link"],
                     "publishedAt": to_iso(it.get("pubDate")),
                     "imageUrl": it.get("image"),
+                    "_approx": bool(it.get("approx")),
                 })
         except Exception as e:
             failed.add(who)
             yt_rows.append({"name": f"YouTube · {name}", "url": url, "count": 0, "error": f"{type(e).__name__}: {str(e)[:80]}"})
             print(f"  ! sosial {name}: {type(e).__name__}: {str(e)[:80]}")
-    old = []
-    try:
-        old = json.loads(SOCIAL_FILE.read_text(encoding="utf-8")).get("posts") or []
-    except Exception:
-        old = []
-    _keep_first_seen(posts, old)
+    # Səhifənin vaxtı təxminidir («5 minutes ago»): ilk qeyd olunan saxlanır ki, sıra sürüşməsin. RSS-in vaxtı dəqiqdir, olduğu kimi.
+    _keep_first_seen([p for p in posts if p.pop("_approx")], old)
     if failed:
         posts.extend(p for p in old if p.get("who") in failed and p.get("network") == "YouTube")
     try:
@@ -3023,10 +3038,13 @@ def update_social():
         write_social_share_pages(write_social_archive(posts))
     except Exception as e:
         print(f"  ! sosial arxiv: {type(e).__name__}: {str(e)[:80]}")
-    _write_atomic(SOCIAL_FILE, json.dumps({"updatedAt": now, "posts": posts[:16]}, ensure_ascii=False,
+    shown = posts[:16]
+    # rev: yazıların möhürü. status.json-a «social» kimi düşür (write_status), sayt social.json-u yalnız möhür dəyişəndə çəkir.
+    rev = hashlib.sha1(json.dumps(shown, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:10]
+    _write_atomic(SOCIAL_FILE, json.dumps({"updatedAt": now, "rev": rev, "shorts": tops, "posts": shown}, ensure_ascii=False,
                                        separators=(",", ":")), encoding="utf-8")
     merge_sources(yt_rows)
-    print(f"Sosial: {min(16, len(posts))} yazı ({sum(1 for p in posts[:16] if p.get('via'))} xəbərdən)")
+    print(f"Sosial: {len(shown)} yazı ({sum(1 for p in shown if p.get('via'))} xəbərdən)")
 
 # Sosial yazının paylaşma səhifəsi (sahib 2026-11-07: «sosial şəbəkələrdən paylaşanda kimə aiddirsə adı yazılsın: İlham Əliyev:
 # başlıq»). bolme/prezident/s/<id>.html: og başlığı «İlham Əliyev: …» / «Mehriban Əliyeva: …», yazının şəkli, oxucu dərhal
@@ -3107,48 +3125,73 @@ def _yt_id(link):
         return ""
     return ""
 
-# YouTube-un RSS lenti (feeds/videos.xml) 2026-cı ilin oktyabrından 404 qaytarır. Ehtiyat: kanalın «videos»
-# səhifəsindəki ytInitialData JSON-u — hər video üçün contentId, başlıq və nisbi vaxt («21 min ago»).
+# YouTube-un RSS lenti (feeds/videos.xml) 2026-cı ilin oktyabrından bəzən 404 qaytarır, işləyəndə də yeni videonu 5-10 dəqiqə
+# gec göstərir. Kanal səhifəsində (ytInitialData JSON-u) hər videonun kartı var: contentId, başlıq və nisbi vaxt («21 min ago»).
 _YT_MARK = re.compile(r'"contentId":"([A-Za-z0-9_-]{11})","contentType":"LOCKUP_CONTENT_TYPE_VIDEO"')
 _YT_TITLE = re.compile(r'"lockupMetadataViewModel":\{"title":\{"content":"((?:[^"\\]|\\.)*)"')
-_YT_REL = re.compile(r'"accessibilityLabel":"(\d+) (minute|hour|day|week|month|year)s? ago"')
-_YT_UNIT = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000, "year": 31536000}
+_YT_REL = re.compile(r'"accessibilityLabel":"(?:Streamed )?(\d+) (second|minute|hour|day|week|month|year)s? ago"')
+_YT_UNIT = {"second": 1, "minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000, "year": 31536000}
+_YT_SHORT = re.compile(r'"entityId":"shorts-shelf-item-([A-Za-z0-9_-]{11})"')
+_YT_SHORT_TITLE = re.compile(r'"overlayMetadata":\{"primaryText":\{"content":"((?:[^"\\]|\\.)*)"')
+
+def _yt_text(s):
+    try:
+        return json.loads('"' + s + '"')
+    except Exception:
+        return s
 
 def parse_yt_channel_page(text, limit=10, now=None):
+    """Kanalın «videos» səhifəsi, kart-kart ({"lockupViewModel":…}). Kart başlığı və vaxtı contentId-dən ƏVVƏL yazır: 2026-11-08-ə
+    qədər contentId-dən sonrakı mətn oxunurdu və hər videoya növbəti videonun başlığı və vaxtı düşürdü (Prezidentin videoları
+    saytda 1-1,5 saat erkən görünürdü)."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    marks = list(_YT_MARK.finditer(text))
-    items = []
-    for i, mk in enumerate(marks):
-        end = marks[i + 1].start() if i + 1 < len(marks) else mk.end() + 8000
-        chunk = text[mk.end():end]
-        t = _YT_TITLE.search(chunk)
-        if not t:
+    items, seen = [], set()
+    for chunk in text.split('{"lockupViewModel":')[1:]:
+        mk, t = _YT_MARK.search(chunk), _YT_TITLE.search(chunk)
+        if not mk or not t or mk.group(1) in seen:
             continue
-        try:
-            title = json.loads('"' + t.group(1) + '"')
-        except Exception:
-            title = t.group(1)
+        vid = mk.group(1)
+        seen.add(vid)
         rel = _YT_REL.search(chunk)
         pub = now - datetime.timedelta(seconds=int(rel.group(1)) * _YT_UNIT[rel.group(2)]) if rel else now
-        vid = mk.group(1)
-        items.append({"title": title, "link": f"https://www.youtube.com/watch?v={vid}", "description": "",
+        items.append({"title": _yt_text(t.group(1)), "link": f"https://www.youtube.com/watch?v={vid}", "description": "",
                       "pubDate": pub.isoformat(timespec="seconds"),
                       "image": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg", "author": ""})
         if len(items) >= limit:
             break
     return items
 
+def parse_yt_shorts_page(text, limit=20):
+    """Kanalın «shorts» səhifəsi: ən yenidən köhnəyə. Vaxt yazılmır (merge_yt yeniliyi sıradan tanıyır)."""
+    items, seen = [], set()
+    for chunk in text.split('"shortsLockupViewModel":{')[1:]:
+        mk, t = _YT_SHORT.search(chunk), _YT_SHORT_TITLE.search(chunk)
+        if not mk or not t or mk.group(1) in seen:
+            continue
+        vid = mk.group(1)
+        seen.add(vid)
+        items.append({"title": _yt_text(t.group(1)), "link": f"https://www.youtube.com/shorts/{vid}", "description": "",
+                      "image": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg", "author": ""})
+        if len(items) >= limit:
+            break
+    return items
+
+def _yt_page(feed_url, tab):
+    """Kanalın «videos»/«streams»/«shorts» səhifəsi, gzip ilə (1,3 MB əvəzinə ~0,3 MB)."""
+    m, u = re.search(r"channel_id=([A-Za-z0-9_-]+)", feed_url), re.search(r"user=([A-Za-z0-9_-]+)", feed_url)
+    if not m and not u:
+        raise ValueError("kanal tapılmadı")
+    page = f"https://www.youtube.com/channel/{m.group(1)}/{tab}" if m else f"https://www.youtube.com/user/{u.group(1)}/{tab}"
+    req = urllib.request.Request(page, headers={"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9",
+                                                "Cookie": "CONSENT=YES+cb; SOCS=CAI", "Accept-Encoding": "gzip"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        raw = _read_capped(r)
+        if (r.headers.get("Content-Encoding") or "").lower() == "gzip":
+            raw = _gunzip_capped(raw)
+    return raw.decode("utf-8", "replace")
+
 def yt_channel_videos(feed_url, limit=10):
-    m = re.search(r"channel_id=([A-Za-z0-9_-]+)", feed_url)
-    if m:
-        page = f"https://www.youtube.com/channel/{m.group(1)}/videos"
-    else:
-        u = re.search(r"user=([A-Za-z0-9_-]+)", feed_url)
-        if not u:
-            raise ValueError("kanal tapılmadı")
-        page = f"https://www.youtube.com/user/{u.group(1)}/videos"
-    text = fetch(page, timeout=20, headers={"Accept-Language": "en-US,en;q=0.9", "Cookie": "CONSENT=YES+cb; SOCS=CAI"}).decode("utf-8", "replace")
-    items = parse_yt_channel_page(text, limit)
+    items = parse_yt_channel_page(_yt_page(feed_url, "videos"), limit)
     if not items:
         raise ValueError("video siyahısı boş")
     return items
@@ -3162,6 +3205,52 @@ def yt_items(url, limit):
     except Exception:
         pass
     return yt_channel_videos(url, limit)
+
+def yt_account_pages(accounts):
+    """Rəsmi hesabların RSS-i, «videos», «streams» (canlı yayımlar: Prezidentin müraciətləri, mərasimlər) və «shorts» səhifəsi
+    paralel (ən çox ~20 s): {(url, "rss"|"videos"|"streams"|"shorts"): siyahı və ya xəta}."""
+    jobs = {}
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for url, _, _ in accounts:
+            jobs[(url, "rss")] = ex.submit(lambda u=url: parse_feed(fetch(u)))
+            for tab in ("videos", "streams"):
+                jobs[(url, tab)] = ex.submit(lambda u=url, t=tab: parse_yt_channel_page(_yt_page(u, t)))
+            jobs[(url, "shorts")] = ex.submit(lambda u=url: parse_yt_shorts_page(_yt_page(u, "shorts")))
+    out = {}
+    for key, job in jobs.items():
+        try:
+            out[key] = job.result()
+        except Exception as e:
+            out[key] = e
+    return out
+
+def merge_yt(rss, videos, shorts, known=(), top=None, limit=4, now=None):
+    """Bir hesabın RSS, «videos» və «shorts» siyahıları (alınmayan None) -> (son yazılar, «shorts»-un ən üstündəki id).
+    Sahib 2026-11-08: «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı bizdə yoxdur» — video kanalda 16:19-da idi, RSS-də 16:27-də.
+    - RSS-dəki yazı RSS-in dəqiq vaxtı və başlığı ilə;
+    - RSS-də hələ olmayan video «videos» səhifəsindən, nisbi vaxtla (approx: ilk qeyd olunan vaxt saxlanır);
+    - «shorts» səhifəsi vaxt yazmır: tanınan Shorts-dan (RSS-də, əvvəlki yazılarda, keçən dəfə ən üstdə olan) yuxarıdakılar yenidir,
+      vaxtı ilk görüldüyü an. Tanınan tapılmasa heç biri götürülmür: köhnə Shorts təzə kimi görünməsin."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    items, have = [], set()
+    for it, approx in [*((x, False) for x in rss or []), *((x, True) for x in videos or [])]:
+        v = _yt_id(it.get("link"))
+        if v and v not in have:
+            have.add(v)
+            items.append({**it, "approx": approx})
+    if shorts:
+        anchors, fresh = have | set(known) | {top}, []
+        for it in shorts:
+            if _yt_id(it.get("link")) in anchors:
+                break
+            fresh.append(it)
+        else:
+            fresh = []
+        for it in fresh:
+            items.append({**it, "pubDate": now.isoformat(timespec="seconds"), "approx": True})
+        top = _yt_id(shorts[0].get("link")) or top
+    items.sort(key=lambda it: to_iso(it.get("pubDate")) or "", reverse=True)
+    return items[:limit], top
 
 def _keep_first_seen(items, old):
     """YouTube kanal səhifəsi dəqiq vaxt vermir («1 day ago» → indi − 1 gün); eyni video əvvəl görülübsə, ilk qeyd olunan
@@ -5575,6 +5664,11 @@ def write_status(ok=True, successful=0, total=0, stats=None):
         status["langs"] = list(FEED_LANGS)
     if os.environ.get("NEWS_LANG_FILES"):  # tam lent dil üzrə (write_news): sayt news.<dil>.json-u yalnız bayraqla istəyir, yoxsa news.json
         status["newsLangs"] = list(NEWS_LANGS)
+    if os.environ.get("SOCIAL_LOOP"):  # social.json dəqiqəlik live-ə gedir (pipeline.sh): sayt onu yalnız bu möhür dəyişəndə çəkir
+        rev = _read_json(SOCIAL_FILE, {})
+        rev = rev.get("rev") if isinstance(rev, dict) else None
+        if rev:
+            status["social"] = rev
     _write_atomic(STATUS_FILE, json.dumps(status, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Yoxlama: {now}")
 
@@ -5952,6 +6046,9 @@ def run():
         return run_fast()
     if "--slow" in sys.argv:
         return slow_cycle()
+    if "--social" in sys.argv:  # pipeline.sh social_loop: rəsmi hesabların yazıları dəqiqədə bir (sahib 2026-11-08)
+        update_social()
+        return 0
     if "--links" in sys.argv:
         check_links()
         return 0
