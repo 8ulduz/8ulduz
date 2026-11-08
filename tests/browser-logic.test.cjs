@@ -2425,7 +2425,7 @@ test('owner notes: share — every card carries the «Paylaş» button only (pho
   assert.ok(prez.includes('class="share"') && prez.includes('data-prez-pause'), 'Zuğulba kartında da düymə; başlıqda dayandır düyməsi');
   const to = vm.runInContext('SHARE_TO', ctx);
   assert.deepEqual(Object.keys(to), ['fb', 'x', 'wa', 'tg', 'in', 'mail']);
-  for (const [k, v] of Object.entries(to)) { const u = v[2]('https%3A%2F%2F8ulduz.az%2F%23%2Fxeber%2F1', 'B'); assert.ok(/^(https:\/\/|mailto:)/.test(u) && u.includes('8ulduz.az'), k); }
+  for (const [k, v] of Object.entries(to)) { const u = v[1]('https%3A%2F%2Fx.8ulduz.az%2F0123456789abcdef', 'B'); assert.ok(/^(https:\/\/|mailto:)/.test(u) && u.includes('8ulduz.az'), k); }
   assert.ok(!card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'javascript:alert(1)', publishedAt: at }).includes('data-to='), 'təhlükəli keçid paylaşılmır');
 });
 test('owner notes: motion can be stopped and restarted; the system reduced-motion setting stops it by default and the button overrides it', () => {
@@ -2588,22 +2588,23 @@ test('weather and prayer times wait for the known location: no Bakı-then-city f
 
 // Sahibin 4 noyabr qeydləri (telefon): sosial hesablar alt-alta, X/Facebook-dan geri sayta, Facebook paylaşımında xəbər görünsün,
 // kopyalanan keçiddə xəbər bilinsin və geri sayta qayıtsın.
-test("owner's share notes: main-feed stories share /x/ID, minute-feed and non-hex ids keep the hash link, copy carries the title", async () => {
+test("owner's share notes (2026-11-08): every 16-hex story shares x.8ulduz.az/ID — minute-feed stories too, no flag needed (the Worker builds the og page); non-hex ids keep the hash link; copy carries the title", async () => {
   const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
   S.og = {};
   const row = (id, extra = {}) => ({ id, title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at, ...extra });
   S.data = { articles: [] };
-  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'bayraqsız (köhnə pipeline) əvvəlki keçid');
+  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://x.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'bayraqsız da: keçid Worker-ə, o səhifəni tapır və ya qurur (docs/x-worker.md)');
   S.data = { articles: [], sharePages: true };
-  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://8ulduz.az/x/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'main-dəki xəbər og etiketli səhifə ilə paylaşılır');
-  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes(`data-share="https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'dəqiqəlik gələn xəbərin səhifəsi hələ yoxdur');
+  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://x.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'main-dəki xəbər');
+  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes(`data-share="https://x.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'dəqiqəlik kanaldan gələn təzə xəbər də eyni ünvan: səhifəsi yoxdursa Worker lentdən qurur');
+  assert.ok(card(row('0123456789abcdef', { publishedAt: '' })).includes('data-share="https://x.8ulduz.az/0123456789abcdef"'), 'vaxtsız sətirdə h yoxdur');
   assert.ok(card(row('1')).includes(`data-share="https://8ulduz.az/#/xeber/1?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), '16 rəqəmli olmayan nömrə');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'); assert.ok(!src.includes('8ulduz.az/x/') && !src.includes('a.live') && !src.includes('sharePages && '), 'köhnə /x/ yolu, dəqiqəlik işarə və bayraq şərti koddan çıxıb (yer: app.js 220 000 həddindədir)');
   const written = [];
   ctx.navigator.clipboard = { writeText: async s => { written.push(s); } };
   const btn = { dataset: { to: 'cp' }, classList: { contains: () => true }, textContent: 'c', closest: () => ({ dataset: { share: 'https://8ulduz.az/x/0123456789abcdef', title: 'Neft bahalaşdı' } }) };
   await vm.runInContext('shareTo', ctx)(btn);
   assert.deepEqual(written, ['Neft bahalaşdı\nhttps://8ulduz.az/x/0123456789abcdef'], 'kopyada başlıq + keçid');
-  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('for (const a of fresh) a.live = 1;'), 'dəqiqəlik lentdən gələn sətir işarələnir');
 });
 
 test("owner's share notes: on Android share targets open the app in place, official accounts open in a Chrome tab (Back returns to the site)", () => {

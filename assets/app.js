@@ -469,11 +469,10 @@ function shownSource(a) {
   return a.source || "";
 }
 const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}</span></div>`;
-// Paylaşma keçidi: b bölmə, h saat (arxiv.cjs hourOf).
+// Paylaşma keçidi: x.8ulduz.az og səhifəni hər dəqiqə verir (docs/x-worker.md); b bölmə, h saat (arxiv.cjs hourOf).
 const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
-const shareUrl = (a, h = hourOf(a)) => S.data?.sharePages && !a.live && /^[0-9a-f]{16}$/.test(a.id) ? `https://8ulduz.az/x/${a.id}${h && "?h=" + h}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${h && "&h=" + h}`;
-// [1]: Facebook/X/LinkedIn hash keçidi oxumur, baş səhifəni alır: təzə xəbərə də /x/ (dəqiqələrlə yaranır).
-const SHARE_TO = { fb: ["Facebook", 1, u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", 1, (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", 0, (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", 0, (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", 1, u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", 0, (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
+const shareUrl = (a, h = hourOf(a)) => /^[0-9a-f]{16}$/.test(a.id) ? `https://x.8ulduz.az/${a.id}${h && "?h=" + h}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${h && "&h=" + h}`;
+const SHARE_TO = { fb: ["Facebook", u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
 // Şəbəkə işarələri sprite-dadır (sosial.svg).
 const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
 const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
@@ -962,7 +961,6 @@ async function loadLatest(force = false) {
     }
     if ((gotImage || deadChanged) && !fresh.length) { publishNews(); requestRender(false); renderTopbar(); return; }
     if (!fresh.length) { renderTopbar(); return; }
-    for (const a of fresh) a.live = 1; // hələ main-də deyil (shareUrl)
     S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
     publishNews();
@@ -2276,7 +2274,7 @@ async function shareTo(t) {
   }
   closeSharePop();
   if (to === "sys") { try { await navigator.share({ title, text: title, url }); } catch {} return; }
-  const u = SHARE_TO[to]?.[2](encodeURIComponent(SHARE_TO[to][1] ? url.replace(/#\/xeber\/(\w+)\?b=\w*&?/, "x/$1?") : url), encodeURIComponent(title));
+  const u = SHARE_TO[to]?.[1](encodeURIComponent(url), encodeURIComponent(title));
   if (u) openOut(u);
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
