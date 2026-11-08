@@ -136,6 +136,8 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 .share{flex:none;margin-left:auto;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:999px;background:none;color:inherit;opacity:.8;cursor:pointer}
 .share:hover{opacity:1;color:var(--primary)}
 .share+.share{margin-left:4px}.share[data-act=dinle]{color:var(--primary);border-color:var(--primary)}
+/* İşıqlı temada slayder yazısı şəkil üstündə (sahib, 11-08) */
+@media(max-width:900px){:root[data-theme=light] .hero-main .share[data-act=dinle]{color:#d6bd80;border-color:#d6bd80}:root[data-theme=light] .hero-main .bd.out{color:#fff;border-color:#fff8;background:#0007}}
 .share:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 .sharepop{position:fixed;z-index:90;display:flex;flex-direction:column;min-width:150px;max-width:260px;padding:4px;background:var(--card);color:var(--fg);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px #000a;font-size:.9rem}
 .sharepop a,.sharepop button{display:block;width:100%;padding:8px 10px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;font-weight:700;text-align:left;cursor:pointer}
@@ -220,7 +222,7 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 
 .markets{border-bottom:1px solid var(--border);background:transparent}
 /* Qiymətlər və lent sonra gəlir: yeri əvvəlcədən ayrılır */
-.markets.pending{height:86px;visibility:hidden} /* dolu zolaqla eyni hündürlük (ölçülüb): səhifə atlamır */
+.markets.pending{height:86px;visibility:hidden} /* dolu zolaq hündürlüyü: atlamır */
 #ticker:empty{min-height:25px}
 @media(min-width:601px){.markets.pending{height:89px}#ticker:empty{min-height:37px}}
 /* Valyuta kartları: ad / qiymət / dəyişmə */
@@ -254,7 +256,7 @@ main>.wrap>section{margin-bottom:18px}
 .sec-h .more{margin-left:auto;font-size:0.8929rem;font-weight:700;color:var(--primary)}
 .sec-h .cnt{font-size:0.8571rem;color:var(--muted)}
 
-/* --- Zuğulba Xronikası: masaüstünde təxminən 180–200px --- */
+/* Zuğulba Xronikası */
 .prez{border:1px solid hsl(43 96% 56%/.4);border-radius:12px;background:linear-gradient(90deg,hsl(43 96% 56%/.09),var(--card) 40%,var(--card));padding:8px 10px}
 .prez-h{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-bottom:0;padding-bottom:6px;border-bottom:1px solid hsl(43 96% 56%/.35)}
 .prez-h h2{margin:0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;gap:5px;white-space:nowrap}
@@ -1008,7 +1010,7 @@ a.pill.on small{color:inherit}
 .card p{display:none}
 .latest-grid,.grid{gap:var(--gutter)}
 .hero-row>.hero-main{flex:0 0 100%;width:100%;scroll-snap-align:center;scroll-snap-stop:always;border-radius:var(--radius)}
-/* Zuğulba kartı: keçid; küncdə «Paylaş», solunda «Dinlə» (şəkilli kartda şəklin altında) */
+/* Zuğulba kartı: küncdə Paylaş, solunda Dinlə */
 .pcard{position:relative}
 .pcard-hit{display:flex;flex-direction:row;align-items:center;gap:8px;flex:1;min-width:0}
 .pcard .share{position:absolute;right:6px;bottom:5px;margin:0;background:var(--card)}
@@ -1039,7 +1041,7 @@ a.pill.on small{color:inherit}
 .latest-grid .card>.img,.grid .card>.img,.news-row .card>.img,.card>.img{width:100%;height:auto;aspect-ratio:16/9;flex:none;align-self:stretch;border-radius:0;grid-row:auto;grid-column:auto}
 .latest-grid .card>.b,.grid .card>.b,.news-row .card>.b,.card>.b{display:flex;flex-direction:column;gap:6px;padding:12px;min-width:0}
 .card .meta{flex-wrap:nowrap;margin:0}
-/* Telefonda siyahı TASS kimi (sahib, 2026-11-08): qutusuz, başlıq solda, kiçik şəkil sağda, ☆ düymələrin yanında; bölmədə birinci xəbər böyük */
+/* Telefonda TASS siyahısı (sahib, 2026-11-08), bölmədə birinci xəbər böyük */
 @media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>.card:not(:first-child))>.b{display:contents}:is(.latest-grid .card,.grid>.card:not(:first-child))>.img{grid-area:i;align-self:stretch;width:120px;min-height:80px;aspect-ratio:auto;border-radius:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)) .badges{grid-area:b}:is(.latest-grid .card,.grid>.card:not(:first-child)) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>.card:not(:first-child)) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:5}:is(.latest-grid .card,.grid>.card:not(:first-child)) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star:not(.on){color:var(--fg)}}
 .latest-grid .card .badges,.latest-grid .card .card-hit,.latest-grid .card .meta{margin:0}
 .card .meta .src{max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

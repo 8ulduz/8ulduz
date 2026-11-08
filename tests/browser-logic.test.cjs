@@ -435,6 +435,15 @@ test('speed red line: the waiting redraw runs as soon as the files have arrived'
   ctx.flush();
   assert.equal(ctx.rendered,1,'gözləyən çəkiliş yoxdursa heç nə etmir');
 });
+test('light theme: on phones the slider text sits on the photo, so «Dinlə» and «N mənbə» keep dark-theme colors (owner 2026-11-08: «işıqlı temada seçilmir slayderdə»)', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const m = css.match(/@media\(max-width:900px\)\{:root\[data-theme=light\] \.hero-main \.share\[data-act=dinle\]\{([^}]*)\}:root\[data-theme=light\] \.hero-main \.bd\.out\{([^}]*)\}\}/);
+  assert.ok(m, 'işıqlı tema slayder qaydası yoxdur');
+  const gold = css.match(/:root\{[^}]*--primary:(#[0-9a-f]+)/)[1];
+  assert.ok(m[1].includes(`color:${gold}`) && m[1].includes(`border-color:${gold}`), 'Dinlə qaranlıq temanın qızılı rəngində');
+  assert.ok(/color:#fff/.test(m[2]) && /background:#000/.test(m[2]), '«N mənbə» ağ yazı, tünd fon (açıq fotoda da oxunur)');
+  assert.ok(!/@media\(min-width:901px\)[^@]*data-theme=light\] \.hero-main \.share/.test(css), 'masaüstündə yazı şəkil üstündə deyil: rəng dəyişmir');
+});
 test('speed red line: the page code stays within its size limit',()=>{
   // Ölçü yayımdakı kimi (LF): Windows-da CRLF ilə açılan nüsxə hər sətirə bir bayt artıq olur.
   // Hədd oxucuya gedən kiçildilmiş nüsxəyədir (sahib 2026-11-08: 170 000; əvvəl mənbə app.js-ə 220 000): mənbədəki şərh telefona getmir.
