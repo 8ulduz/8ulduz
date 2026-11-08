@@ -87,3 +87,53 @@ test("izlə: the follow panel link asks the reader which topic to follow", () =>
   const out = I.handle(I.newState(), msg(5, "/start movzu"), I.catalog(app));
   assert.match(out[0].text, /^📩 Nəyi izləmək istəyirsiniz\?/);
 });
+
+test("izlə: English, Russian and Turkish readers get the top 10 of the day in their own language at 09:00/19:00 Baku, once (owner 2026-11-08: «günün 10 əsas xəbəri … həmin dillər üzrə işləmir»)", () => {
+  const s = I.newState();
+  let out = I.handle(s, msg(9, "/start g_en"), cat);
+  assert.deepEqual(s.subs[9], ["g_en"]); assert.match(out[0].text, /^✅ Done!.*in English/s);
+  out = I.handle(s, msg(9, "/start g_en"), cat);
+  assert.match(out[0].text, /already subscribed/); assert.deepEqual(s.subs[9], ["g_en"], "təkrar yazılmır");
+  assert.match(I.handle(s, msg(10, "/start g_ru"), cat)[0].text, /^✅ Готово!/);
+  assert.match(I.handle(s, msg(11, "/start g_tr"), cat)[0].text, /^✅ Tamam!/);
+  const ed = I.dueEdition(Date.parse("2026-11-08T15:05:00Z"));
+  assert.deepEqual([ed.slug, ed.end - ed.start], ["2026-11-08-axsam", 12 * 3600e3], "19:05 Bakı: axşam buraxılışı, son 12 saat");
+  assert.equal(I.dueEdition(Date.parse("2026-11-08T20:30:00Z")).slug, "2026-11-08-axsam", "gecə 00:30: gecikmiş buraxılış hələ gedir");
+  assert.equal(I.dueEdition(Date.parse("2026-11-08T12:00:00Z")), null, "16:00 Bakı: buraxılış yoxdur");
+  assert.equal(I.dueEdition(Date.parse("2026-11-08T05:10:00Z")).slug, "2026-11-08-seher");
+  const t = h => new Date(ed.end - h * 3600e3).toISOString();
+  const titles = ["Earthquake shakes northern Japan coast", "Central bank raises interest rates again", "Football club signs young striker", "Wildfire forces evacuations in California",
+    "Parliament approves new budget plan", "Scientists discover distant planet", "Oil prices climb after supply cuts", "Airline orders hundred new aircraft",
+    "Election results announced in Brazil", "Storm causes flooding across Europe", "Tech company unveils folding phone", "Marathon record broken in Berlin"];
+  const en = titles.map((title, i) => ({ id: (i + 1).toString(16).padStart(16, "0"), category: "dunya", lang: "en", title, summary: "", source: "Trend", sourceUrl: "https://trend.az/world/" + i, publishedAt: t(1 + i * 0.5), alts: i === 7 ? [{}, {}, {}] : [] }));
+  en.push({ ...en[0], id: "dddddddddddddddd", title: "Earthquake shakes northern Japan coast, tsunami warning issued", alts: [{}, {}] });   // eyni hadisə, çox mənbə
+  en.push({ ...en[1], id: "aaaaaaaaaaaaaaab", title: "Bakıda yeni park açılıb", lang: "az" }, { ...en[2], id: "bbbbbbbbbbbbbbbb", title: "Too old story", publishedAt: t(13) });
+  const sent = I.digestMessages(s, "en", ed, en, app);
+  assert.deepEqual(sent.map(m => m.chat_id), ["9"], "yalnız ingilis dilinə yazılmış oxucu");
+  const text = sent[0].text, lines = text.split("\n").filter(l => /^\d+\. /.test(l));
+  assert.equal(lines.length, 10);
+  assert.match(lines[0], /Airline orders/, "ən çox mənbəli birinci"); assert.match(lines[1], /tsunami warning/);
+  assert.ok(!text.includes("coast</a>") && !text.includes("Bakıda") && !text.includes("Too old"), "eyni hadisə, başqa dil və köhnə xəbər yoxdur");
+  assert.match(text, /^<b>📰 8ULDUZ · Top 10 stories of the day<\/b>\nEvening edition · November 8\n/);
+  assert.match(lines[0], /href="https:\/\/8ulduz\.az\/#\/xeber\/0{15}8\?b=dunya&amp;h=\d+"/, "keçid saytdadır, & qaçırılıb");
+  assert.equal(sent[0].reply_markup.inline_keyboard[1][0].callback_data, "stop:g_en");
+  assert.deepEqual(I.digestMessages(s, "en", ed, en, app), [], "eyni buraxılış iki dəfə getmir");
+  assert.deepEqual(I.digestMessages(s, "ru", ed, en.slice(0, 4).map(a => ({ ...a, lang: "ru" })), app), [], "5-dən az xəbər: getmir");
+  assert.equal(s.dg.ru, ed.slug, "azdırsa da bu buraxılış üçün bir daha axtarılmır");
+  assert.deepEqual(I.deliveries(s, [row("cccccccccccccccc", "idman", "Futbol xəbəri")], cat, app), [], "buraxılış açarı tək xəbər göndərmir");
+  const ru = ["Президент Ильхам Алиев встретился с президентом Турции", "Президент Ильхам Алиев: Нас никто не разделит", "Пожар на складе в Сумгайыте потушен",
+    "Цены на нефть выросли после сокращения добычи", "Сборная победила в отборочном матче", "Учёные открыли новую далёкую планету", "Шторм обрушился на побережье Европы"]
+    .map((title, i) => ({ id: (i + 80).toString(16).padStart(16, "0"), category: "dunya", lang: "ru", title, summary: "", source: "Day.Az", sourceUrl: "https://news.day.az/world/" + i, publishedAt: t(1 + i * 0.3), alts: i < 2 ? [{}, {}] : [] }));
+  const s3 = I.newState(); I.handle(s3, msg(14, "/start g_ru"), cat);
+  const ruText = I.digestMessages(s3, "ru", ed, ru, app)[0].text;
+  assert.ok(ruText.includes("встретился") && !ruText.includes("Нас никто"), "rəhbərin sitatı ayrıca xəbər sayılmır (sahib 2026-11-06: «1 hadisədən yalnız 1 xəbər»)");
+  assert.match(ruText, /Вечерний выпуск · 8 ноября/);
+  const s2 = I.newState(); I.handle(s2, msg(13, "/start g_en"), cat);
+  assert.deepEqual(I.digestMessages(s2, "en", ed, en.map(a => ({ ...a, source: "Reuters", sourceUrl: "https://example.com/x" })), app), [], "qeydiyyatda olmayan mənbə (qırmızı xətt 2) buraxılışa düşmür");
+  out = I.handle(s, msg(9, "/stop"), cat);
+  assert.match(out[0].text, /^🔕 Unsubscribed/); assert.equal(s.subs[9], undefined);
+  out = I.handle(s, { update_id: 5, callback_query: { id: "q", data: "stop:g_tr", message: { chat: { id: 11 } } } }, cat);
+  assert.equal(out[0].text, "🔕 Abonelik bitti"); assert.equal(s.subs[11], undefined);
+  I.handle(s, msg(12, "/start i_fenerbahce"), cat); I.handle(s, msg(12, "/start g_ru"), cat);
+  assert.match(I.handle(s, msg(12, "/stop"), cat)[0].text, /^🔕 Bütün izləmələr dayandırıldı/, "Azərbaycan mövzusu da varsa cavab Azərbaycan dilində");
+});

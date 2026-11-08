@@ -1830,6 +1830,26 @@ test('site language: sports sub-sections read like the Azerbaijani ones — nati
   assert.deepEqual(['Afrika Millətlər Kuboku 2027: seçmə', 'Cənubi Koreya'].map(ru), ['Кубок африканских наций 2027: отбор', 'Южная Корея']);
   assert.deepEqual(['Milli komandalar', 'Uels', 'Bosniya və Herseqovina'].map(tr), ['Milli takımlar', 'Galler', 'Bosna-Hersek']);
 });
+test('Telegram top 10: the header link and words follow the site language; other languages go to the bot in their own language (owner 2026-11-08: «günün 10 əsas xəbəri teleqramda digər dillərə dəyişmir»)', () => {
+  const ctx = app({ window: { addEventListener() {}, SITE_CONFIG: { tgBot: 'sekkizulduz_xeber_bot', telegram: 'https://t.me/sekkizulduz_az' } } });
+  const link = vm.runInContext('tgDigest', ctx), { S } = ctx.api;
+  S.lang = 'az'; assert.equal(link(), 'https://t.me/sekkizulduz_az', 'Azərbaycan dili: kanal');
+  S.lang = null; assert.equal(link(), 'https://t.me/sekkizulduz_az', '«Hamısı»: kanal');
+  const bot = require('../.github/scripts/izle.cjs');
+  for (const l of ['en', 'ru', 'tr']) {
+    S.lang = l; assert.equal(link(), `https://t.me/sekkizulduz_xeber_bot?start=g_${l}`);
+    assert.ok(bot.DIGEST_LANGS[l] && bot.catalog(bot.loadApp ? bot.loadApp(root) : require('../.github/scripts/topics.cjs').loadApp(root)).has(`g_${l}`), `bot g_${l} açarını tanıyır`);
+  }
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('<a class="nav-tg" href="${esc(tgDigest())}"'), 'başlıqdakı keçid dilə görə');
+  const mod = dilModule('assets/dil.js');
+  const want = { en: 'Top 10 stories of the day — on Telegram', ru: '10 главных новостей дня — в Telegram', tr: "Günün en önemli 10 haberi — Telegram'da" };
+  for (const l of ['en', 'ru', 'tr']) {
+    const tr = mod.makeTr(dilModule(`assets/dil-${l}.js`).__d, l);
+    assert.equal(tr('📩 Günün 10 əsas xəbəri — Telegram-da'), '📩 ' + want[l]);
+    assert.ok(!/ə/.test(tr('Hər gün 09:00 və 19:00')), l + ': düymənin izahı');
+  }
+});
 test('site language: a section without news in that language is hidden, sports never', () => {
   const { emptySections } = dilModule('assets/dil.js');
   const list = [{ category: 'bolgeler', lang: 'az' }, { category: 'dunya', lang: 'ru' }, { category: 'dunya', lang: 'az' }, { category: 'idman', lang: 'az' }, { category: 'gundem' }];
