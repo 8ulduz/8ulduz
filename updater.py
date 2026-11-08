@@ -5562,6 +5562,30 @@ def prune_removed_sources(articles):
             for a in articles if not removed_source(a)]
 
 
+PREZ_KEEP, PREZ_TODAY_MAX = 120, 90
+
+def select_prez(rows, now):
+    """Zuğulba üçün lentdə qalan prezident xəbərləri (ən yenidən köhnəyə sıralı siyahı).
+    Hədd 120 idi və təkrarları da sayırdı: 2026-11-08-də eyni müraciət 30 saytdan gəldi, 120 bugünkü sətirlə doldu, əvvəlki
+    günlərin xəbərləri lentdən çıxdı, blok 44-ə çatmadı (sahib: «zuğulba niyə son 40 yazır»). İndi: son 24 saatın xəbərləri
+    təkrarı ilə qalır (sayt onları bir karta birləşdirir, mənbələri göstərir) amma ən çox 90 sətir; əvvəlki günlərdən hər
+    xəbərin bir nüsxəsi qalır (eyni başlığın təkrarı düşür) ki, 120-lik yerin ən azı 30-u köhnə günlərə çatsın."""
+    fresh = now - datetime.timedelta(hours=24)
+    today, older, seen = [], [], set()
+    for a in rows:
+        dt = _parse_dt(a.get("publishedAt"))
+        if dt is not None and dt >= fresh:
+            if len(today) < PREZ_TODAY_MAX:
+                today.append(a)
+            continue
+        key = _norm_title(a.get("title"))
+        if key in seen:
+            continue
+        seen.add(key)
+        older.append(a)
+    return (today + older)[:PREZ_KEEP]
+
+
 def main(fast=False):
     marks, tick = {}, time.time()
     def mark(name):
@@ -5786,7 +5810,7 @@ def main(fast=False):
         dseen.add(a["sourceUrl"]); uniq.append(a)
     # Prezident bölməsi ümumi limitdən asılı deyil: rəsmi xronika (60 gün) həmişə saxlanılır.
     # Əvvəl yalnız 800-dən kənarda qalanlar əlavə olunurdu; siyahı 800-dən qısa olanda heç nə əlavə olunmurdu.
-    prez_items = [a for a in uniq if a["category"] == "prezident"][:120]
+    prez_items = select_prez([a for a in uniq if a["category"] == "prezident"], now_utc)
     articles = [a for a in uniq if a["category"] != "prezident"][:FAST_MAX_ITEMS if fast else MAX_ITEMS] + prez_items
     stats = {"old": len(old), "new": len(new_items), "uniq": len(uniq), "prez": len(prez_items), "articles": len(articles),
              "undated": undated, "dateLookups": budget - lookups}

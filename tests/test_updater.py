@@ -41,6 +41,30 @@ class RemovedSourceTest(unittest.TestCase):
         self.assertFalse(updater.removed_source({'sourceUrl': 'https://azadliq.org.example.com/a/2'}))
 
 
+class ZugulbaSelectTest(unittest.TestCase):
+    """Sahib 2026-11-08: bayram günü eyni müraciət 30 saytdan gələndə Zuğulba 44 əvəzinə 40 göstərirdi (120-lik hədd təkrarlarla doldu)."""
+    def row(self, i, hours, title):
+        at = datetime.datetime(2026, 11, 8, 12, 0, tzinfo=datetime.timezone.utc) - datetime.timedelta(hours=hours)
+        return {"id": str(i), "title": title, "category": "prezident", "source": f"S{i % 7}", "sourceUrl": f"https://s{i % 7}.az/{i}", "publishedAt": at.isoformat()}
+
+    def test_a_flood_of_repeats_today_does_not_evict_earlier_days(self):
+        now = datetime.datetime(2026, 11, 8, 12, 0, tzinfo=datetime.timezone.utc)
+        today = [self.row(i, i % 10, "İlham Əliyev xalqa müraciət etdi" if i % 3 else f"Bugünkü fərqli xəbər {i}") for i in range(150)]
+        older = [self.row(1000 + i, 30 + i * 6, f"Köhnə gün xəbəri {i // 2}") for i in range(60)]  # hər köhnə başlıq 2 saytdan
+        kept = updater.select_prez(today + older, now)
+        self.assertEqual(len(kept), updater.PREZ_KEEP)
+        self.assertEqual(sum(1 for a in kept if int(a["id"]) < 1000), updater.PREZ_TODAY_MAX, "bugünkülər 90 ilə məhdudlaşır, təkrarı ilə")
+        old_kept = [a for a in kept if int(a["id"]) >= 1000]
+        self.assertEqual(len(old_kept), 30)
+        self.assertEqual(len({a["title"] for a in old_kept}), 30, "köhnə günlərdən hər başlığın bir nüsxəsi")
+        self.assertEqual([a["id"] for a in kept[:3]], ["0", "1", "2"], "sıra dəyişmir: ən yeni əvvəl")
+
+    def test_a_quiet_day_keeps_everything_as_before(self):
+        now = datetime.datetime(2026, 11, 8, 12, 0, tzinfo=datetime.timezone.utc)
+        rows = [self.row(i, i * 5, f"Xəbər {i}") for i in range(50)]
+        self.assertEqual(updater.select_prez(rows, now), rows)
+
+
 class CategoriesTest(unittest.TestCase):
     def test_spectator_word_does_not_force_culture(self):
         self.assertEqual(updater.categorize('Qarabağ matçına 30 min tamaşaçı gəlib', 'futbol oyunu', 'az'), 'İdman')
@@ -2191,5 +2215,5 @@ class ZugulbaKeepTest(unittest.TestCase):
         cap = src.index('if n >= source_cap(a.get("source"))')
         self.assertLess(skip, cap, "Zuğulba xəbəri mənbə limitindən əvvəl seçilir")
         self.assertIn('dseen.add(a["sourceUrl"]); uniq.append(a)', src[skip:cap])
-        self.assertIn('prez_items = [a for a in uniq if a["category"] == "prezident"][:120]', src, "öz limiti qalır")
+        self.assertIn('prez_items = select_prez([a for a in uniq if a["category"] == "prezident"], now_utc)', src, "öz limiti qalır")
         self.assertIn("cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)", src, "60 gün")
