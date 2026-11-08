@@ -7,9 +7,14 @@ on:
   schedule:
     - cron: "*/10 * * * *"  # növbədə həmişə bir iş gözləsin: biri bitən kimi o başlayır (saatlıq boşluq olmasın)
   workflow_dispatch:
+  # İş axını faylı dəyişəndə (8ulduz hesabı ilə) dərhal başlayır; botun öz yazıları (GITHUB_TOKEN) iş başlatmır.
+  push:
+    branches: [main]
+    paths: [.github/workflows/ses.yml]
 
 permissions:
   contents: write
+  actions: write   # növbəti işi özü işə salır (aşağıda)
 
 concurrency:
   group: ses
@@ -43,7 +48,7 @@ jobs:
           URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: git clone -q --depth 1 --filter=blob:none --no-checkout "$URL" .ses
       # Fasiləsiz işçi (sahib, 2026-11-08: «anında»): iş ~50 dəqiqə hər ~1 dəqiqədə yeni xəbərləri (dövrədə 6) səsləndirir;
-      # növbəti işə salınma növbədə gözləyir (concurrency, cron 10 dəqiqədən bir), arada boşluq qalmır.
+      # növbəti iş növbədə gözləyir (concurrency) və bu bitən kimi başlayır, arada boşluq qalmır.
       - name: Səsləndir
         run: |
           end=$((SECONDS + 50 * 60))
@@ -52,3 +57,10 @@ jobs:
             python site/.github/scripts/ses.py .ses || true
             sleep 15
           done
+      # GitHub cədvəli gecikir və ya buraxılır (2026-11-08: 07:43-dən sonra iş başlamadı): hər iş bitəndə növbətini özü
+      # işə salır (workflow_dispatch GITHUB_TOKEN ilə də iş başladır). Cron ehtiyat qalır: zəncir qırılsa yenidən başladır.
+      - name: Növbəti iş
+        if: success() || failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ses.yml -R "${{ github.repository }}" || true

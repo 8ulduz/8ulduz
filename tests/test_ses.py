@@ -38,6 +38,9 @@ class SesTest(unittest.TestCase):
         wf = (ROOT / ".github" / "ses-reposu" / "ses.yml").read_text(encoding="utf-8")
         self.assertIn('cron: "*/10 * * * *"', wf)
         self.assertIn("sleep 15", wf)
+        # Cədvəl gecikir/buraxılır: iş bitəndə növbətini özü işə salır.
+        self.assertIn("actions: write", wf)
+        self.assertIn('gh workflow run ses.yml -R "${{ github.repository }}"', wf)
 
     def test_full_store_makes_room_for_newer_stories_only(self):
         now = 1_800_000_000
