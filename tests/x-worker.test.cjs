@@ -136,6 +136,44 @@ test("x-worker 2c: the page text is identical to updater.share_page for the same
   assert.equal(hourOf({}), "");
 });
 
+test("x-worker 0: a reader's browser is sent straight to the site with 302 (no upstream fetch, no HTML); crawlers, old Safari and scripts still get the og page", async () => {
+  const w = await load();
+  const page = `<!doctype html>\n<html lang="az"><head><meta property="og:title" content="Neft bahalaşdı" /><meta property="og:url" content="https://8ulduz.az/x/${ID}" /></head></html>\n`;
+  const seen = world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) });
+  memoryCache();
+  const nav = { "sec-fetch-dest": "document", "sec-fetch-mode": "navigate", "sec-fetch-site": "cross-site", "sec-fetch-user": "?1" };
+  const ask = (ua, extra = {}) => w.default.fetch(new Request(`https://x.8ulduz.az/${ID}?h=26110813`, { headers: { "user-agent": ua, ...extra } }), {}, { waitUntil() {} });
+  // Oxucu: Android Chrome, Facebook-un daxili brauzeri, iPhone Safari 17, Firefox
+  for (const ua of ["Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 13; SM-A525F Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.6668.70 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/485.0.0.49.68;]",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0"]) {
+    const r = await ask(ua, nav);
+    assert.equal(r.status, 302, ua);
+    assert.equal(r.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}?h=26110813`);
+  }
+  assert.deepEqual(seen, [], "oxucu üçün nə /x/ səhifəsi, nə lent soruşulur");
+  // h-sız keçid: yalnız id
+  const bare = await w.default.fetch(new Request(`https://x.8ulduz.az/${ID}`, { headers: { "user-agent": "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36", ...nav } }), {}, { waitUntil() {} });
+  assert.equal(bare.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}`);
+  // Robotlar: Sec-Fetch göndərmirlər → og səhifəsi; Sec-Fetch göndərsələr də adları robotdur → og səhifəsi
+  for (const ua of ["facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)", "meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)", "WhatsApp/2.23.20.0 A",
+    "TelegramBot (like TwitterBot)", "Twitterbot/1.0", "LinkedInBot/1.0 (compatible; Mozilla/5.0; Apache-HttpClient +http://www.linkedin.com)", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Chrome/130.0 Safari/537.36", "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)", "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
+    "curl/8.4.0", "python-requests/2.31", "Viber/19.0.0 (iOS)"]) {
+    for (const extra of [{}, nav]) {
+      const r = await ask(ua, extra);
+      assert.equal(r.status, 200, ua + " " + JSON.stringify(extra));
+      assert.match(await r.text(), /og:title/, ua);
+    }
+  }
+  // Köhnə Safari (iOS 15): Sec-Fetch yoxdur → og səhifəsi (skript keçirir), 302 yox
+  const old = await ask("Mozilla/5.0 (iPhone; CPU iPhone OS 15_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1");
+  assert.equal(old.status, 200);
+  assert.ok(seen.length > 0, "robot və köhnə brauzer üçün səhifə əvvəlki kimi saytdan götürülür");
+  assert.equal(typeof w.isReader, "function");
+});
+
 test("x-worker 3: a link never dies — not in any feed, feed errors, server exceptions and odd paths all end on the site", async () => {
   const w = await load();
   world({});
@@ -170,4 +208,33 @@ test("x-worker: the minute channel is asked with the same path scheme pipeline.s
   assert.equal(await findRow(ID, NOW), null);
   assert.ok(seen.includes(`https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/${SLOT}/latest.json`), seen.join("\n"));
   assert.equal(seen.length, 4 + 3, "4 dəqiqə + 3 lent faylı, hamısı bir dəfə");
+});
+
+// Sürət müqaviləsi (2026-11-09): Worker-in gecikməsi demək olar ki, tamamilə yuxarı sorğulardır — sayı pinlənir.
+test("x-worker speed contract: upstream work per request is bounded — 1 fetch when the static page exists, exactly 8 (two parallel waves) otherwise, 0 for a reader's browser", async () => {
+  const w = await load();
+  const page = `<!doctype html>\n<html lang="az"><head><meta property="og:title" content="N" /><meta property="og:url" content="https://8ulduz.az/x/${ID}" /></head></html>\n`;
+  const ask = (ua, extra = {}) => w.default.fetch(new Request(`https://x.8ulduz.az/${ID}?h=26110813`, { headers: { "user-agent": ua, ...extra } }), {}, { waitUntil() {} });
+  for (const ua of ["facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)", "WhatsApp/2.23.20.0 A", "TelegramBot (like TwitterBot)", "Twitterbot/1.0"]) {
+    let seen = world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) }); memoryCache();
+    assert.equal((await ask(ua)).status, 200);
+    assert.equal(seen.length, 1, ua + ": statik səhifə varsa bir yuxarı sorğu");
+    seen = world({}); memoryCache();
+    assert.equal((await ask(ua)).status, 302);
+    assert.equal(seen.length, 8, ua + ": statik səhifə + 4 dəqiqə + 3 lent faylı, iki paralel dalğa — dördüncü lent və ya ardıcıl gözləmə əlavə etməyin");
+  }
+  const seen = world({}); memoryCache();
+  const r = await ask("Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36", { "sec-fetch-dest": "document", "sec-fetch-mode": "navigate" });
+  assert.equal(r.status, 302);
+  assert.equal(seen.length, 0, "oxucunun brauzeri: yuxarı sorğusuz 302");
+});
+test("x-worker: the hand-off row stays small (summary 600, alts ≤ 20) so sessionStorage and the site's first paint are not burdened", async () => {
+  const { pageHtml } = await load();
+  const big = { ...row, summary: "x".repeat(5000), alts: Array.from({ length: 60 }, (_, i) => ({ source: "S" + i, sourceUrl: "https://apa.az/" + i, title: "t".repeat(300) })) };
+  const m = pageHtml(big).match(/sessionStorage\.setItem\("x:[0-9a-f]+",(".*?")\)\}catch/);
+  assert.ok(m, "sətir ötürülür");
+  const handed = JSON.parse(JSON.parse(m[1].replace(/<\\\//g, "</")));
+  assert.equal(handed.summary.length, 600);
+  assert.equal(handed.alts.length, 20);
+  assert.ok(m[1].length < 12000, `ötürülən sətir ${m[1].length} simvol — 12 000-dən kiçik qalsın`);
 });

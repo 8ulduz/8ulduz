@@ -9,6 +9,10 @@
 //      (og:title, og:description, og:image wsrv.nl proksisindən 1200×630, sessionStorage-a sətir, skriptlə dərhal saytın #/xeber/<id>?b=&h= ünvanına;
 //      meta refresh yoxdur, canonical səhifənin özüdür: Facebook robotu refresh-i izləyib baş səhifənin kartını götürürdü — 2026-11-08);
 //   3) heç yerdə yoxdursa (və ya server xəta versə) 302 → https://8ulduz.az/#/xeber/<id>?h=…: sayt xəbəri arxivdən açır. Keçid heç vaxt ölmür.
+//   0) SÜRƏT (2026-11-09): og səhifəsi yalnız önizləmə robotlarına lazımdır. Keçidə basan oxucunun brauzeri (Sec-Fetch-Dest: document,
+//      Sec-Fetch-Mode: navigate göndərir, robot deyil) dərhal 302 ilə sayta gedir: nə saytın /x/ səhifəsi, nə lent soruşulur (soyuq
+//      cavab 0,6 s idi), HTML və skript də yoxdur. Robot (Facebook, WhatsApp, Telegram, X …) Sec-Fetch başlıqları göndərmir və ya
+//      adında robot sözü var: ona əvvəlki kimi og səhifəsi. Köhnə Safari (iOS < 16.4) Sec-Fetch göndərmir: ona da og səhifəsi, skript keçirir.
 // Tapılan səhifə Cloudflare keşində 10 dəqiqə qalır (bot bir keçidi bir neçə dəfə soruşur).
 // QIRMIZI XƏTT 2: yalnız lentdə olan sətirlər verilir (onlar content_policy.enforce-dan keçib); lentdə olmayan xəbər uydurulmur.
 // QIRMIZI XƏTT 1: dəqiqəlik kanal sw.js ilə eyni qayda ilə oxunur (45 s güzəşt, yaranmamış dəqiqə soruşulmur: raw 404-ü 55 s keşləyir).
@@ -25,6 +29,10 @@ const ID = /^\/([0-9a-f]{16})\/?$/;
 const LOCALE = { az: "az_AZ", ru: "ru_RU", en: "en_US", tr: "tr_TR" };
 const ROW_FIELDS = ["id", "title", "summary", "source", "sourceUrl", "imageUrl", "category", "publishedAt", "lang", "video", "author"]; // updater.SHARE_ROW_FIELDS
 const UA = "Mozilla/5.0 (compatible; 8ulduz-x/1.0; +https://8ulduz.az/)";
+// Önizləmə robotları və skriptlər: adında bu sözlərdən biri olan heç vaxt yönləndirilmir (og səhifəsi alır).
+const BOT = /bot|crawl|spider|slurp|fetch|preview|scrap|externalhit|facebook|meta-external|whatsapp|telegram(?!.*android)|twitterbot|linkedinbot|slack|discord|skype|viber|pinterestbot|pinterest\/0|embedly|iframely|vkshare|odkl|mastodon|bluesky|quora|outbrain|googlebot|google-|googleother|adsbot|mediapartners|feedfetcher|bingbot|bingpreview|msnbot|yandexbot|yandex\.com|duckduckbot|baiduspider|applebot|ia_archiver|archive\.org|curl|wget|python|java\/|okhttp|go-http|node-fetch|axios|libwww|lynx/i;
+// Oxucunun brauzeri: səhifə naviqasiyası başlıqları var (Chrome 76+, Firefox 90+, Safari 16.4+, Android WebView, Facebook/Instagram daxili brauzeri) və adı robot deyil.
+export const isReader = req => { const h = req.headers; return h.get("sec-fetch-dest") === "document" && h.get("sec-fetch-mode") === "navigate" && !BOT.test(h.get("user-agent") || ""); };
 
 export default {
   async fetch(req, env, ctx) {
@@ -33,6 +41,7 @@ export default {
     const m = url.pathname.match(ID);
     if (!m) return Response.redirect(SITE, 302);
     const id = m[1], h = (url.searchParams.get("h") || "").replace(/\D/g, "").slice(0, 8);
+    if (isReader(req)) return Response.redirect(`${SITE}#/xeber/${id}${h ? "?h=" + h : ""}`, 302); // oxucu dərhal sayta (b= bölməsi lentdən tapılır, sayt onsuz da açır)
     try {
       const page = await sharePage(id, h, ctx);
       if (page) return page;

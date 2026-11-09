@@ -245,3 +245,21 @@ class DiscoverImageTest(unittest.TestCase):
             self.assertEqual(probe.call_count, 3)
             updater.story_image_widths(rows)
             self.assertEqual(probe.call_count, 3, 'hər ünvan bir dəfə soruşulur')
+
+
+class StoryTemplateVersionTest(unittest.TestCase):
+    """xeber/<id>/ şablonu dəyişəndə STORY_VER artmalıdır (sürət, 2026-11-09): 2026-11-08-də şablon app.js → app.min.js keçdi, versiya
+    artmadı və ~3 400 köhnə səhifə kiçildilməmiş kodu (+16,5 KB gzip, +56 KB mənbə) yükləməkdə qaldı — index.json onları «cari» sayırdı."""
+    TEMPLATE_SHA = {5: 'ea0b4e59365e'}  # yeni STORY_VER: hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12] sətrini əlavə edin
+
+    def test_story_template_change_bumps_story_ver(self):
+        import hashlib
+        sha = hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12]
+        self.assertIn(updater.STORY_VER, self.TEMPLATE_SHA, 'yeni STORY_VER: şablonun hash-ını TEMPLATE_SHA-ya yazın')
+        self.assertEqual(sha, self.TEMPLATE_SHA[updater.STORY_VER], 'xeber/<id>/ şablonu dəyişib, STORY_VER artmayıb: köhnə səhifələr yenidən yazılmayacaq (write_story_pages versiya qapısı)')
+        self.assertGreaterEqual(updater.STORY_REWRITE * 144, 5000, 'versiya artımı bir gündə (144 dövrə) bütün səhifələri yenidən yazmalıdır')
+
+    def test_story_template_loads_only_the_startup_scripts(self):
+        scripts = re.findall(r'<script[^>]*\bsrc="[^"]*?([\w.-]+\.js)"', updater._STORY_HTML)
+        self.assertEqual(sorted(scripts), ['app.min.js', 'config.js', 'content-policy.js'], 'xəbər səhifəsi ilk açılışın üç faylını yükləyir, başqa heç nə')
+        self.assertNotIn('assets/app.js', updater._STORY_HTML, 'oxucuya mənbə kodu getməz')

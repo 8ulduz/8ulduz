@@ -2436,3 +2436,24 @@ class ZugulbaKeepTest(unittest.TestCase):
         self.assertIn('dseen.add(a["sourceUrl"]); uniq.append(a)', src[skip:cap])
         self.assertIn('prez_items = select_prez([a for a in uniq if a["category"] == "prezident"], now_utc)', src, "öz limiti qalır")
         self.assertIn("cutoff, cutoff_prez = now_utc - datetime.timedelta(days=5), now_utc - datetime.timedelta(days=60)", src, "60 gün")
+
+
+class FirstScreenOgMapTest(unittest.TestCase):
+    """first.json og xəritəsi yalnız şəkil qazandıran girişləri daşıyır (sürət, 2026-11-09): eyni ünvan, boş dəyər və lentdə olmayan giriş düşür."""
+
+    def test_write_first_keeps_only_useful_og_entries(self):
+        rows = [
+            {"id": "a" * 16, "title": "A", "sourceUrl": "https://apa.az/1", "imageUrl": "https://apa.az/1.jpg", "alts": [{"source": "Report", "sourceUrl": "https://report.az/1"}]},
+            {"id": "b" * 16, "title": "B", "sourceUrl": "https://apa.az/2", "imageUrl": "https://apa.az/2.jpg"},
+            {"id": "c" * 16, "title": "C", "sourceUrl": "https://apa.az/3"},
+        ]
+        og = {"https://apa.az/1": "https://apa.az/1.jpg", "https://report.az/1": "https://report.az/r.jpg", "https://apa.az/2": "https://apa.az/other.jpg",
+              "https://apa.az/3": "", "https://x.az/unref": "https://x.az/u.jpg"}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FIRST_FILE", pathlib.Path(tmp) / "first.json"), \
+                patch.object(updater, "first_screen_rows", lambda a: a), patch.object(updater, "_read_json", lambda p, d=None: og):
+            updater.write_first(rows, "2026-11-09T10:00:00+00:00")
+            out = json.loads((pathlib.Path(tmp) / "first.json").read_text(encoding="utf-8"))
+        self.assertEqual(out["og"], {"https://report.az/1": "https://report.az/r.jpg", "https://apa.az/2": "https://apa.az/other.jpg"},
+                         "alt mənbənin şəkli və fərqli ehtiyat qalır; eyni ünvan, boş dəyər və lentdə olmayan giriş düşür")
+        self.assertEqual(out["count"], 3)
+        self.assertEqual([a["id"] for a in out["articles"]], ["a" * 16, "b" * 16, "c" * 16])

@@ -210,7 +210,7 @@ const catLabel = slug => CATS.find(c => c.slug === (SECTION_ALIAS[slug] || slug)
 function ago(iso) {
   const t = new Date(iso).getTime(); if (Number.isNaN(t)) return "";
   const m = Math.floor(Math.max(0, Date.now() - t) / 6e4);
-  if (m < 1) return "indicə"; if (m < 60) return `${m} ${globalThis.innerWidth < 700 ? "dəq" : "dəqiqə"} əvvəl`;
+  if (m < 1) return "indicə"; if (m < 60) return `${m} ${viewWidth() < 700 ? "dəq" : "dəqiqə"} əvvəl`;
   const h = Math.floor(m / 60); if (h < 24) return `${h} saat əvvəl`;
   const d = Math.floor(h / 24); return d < 30 ? `${d} gün əvvəl` : fullDate(iso);
 }
@@ -422,7 +422,17 @@ function altPop(a) {
 }
 const STAR = `<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="9.5" y="9.5" width="13" height="13" rx="2"/><rect x="9.5" y="9.5" width="13" height="13" rx="2" transform="rotate(45 16 16)"/></g></svg>`;
 
+// Nəticə xəbər obyekti üzrə saxlanır (publishNews hər dəfə yeni obyektlər yaradır; og dəyişəndə yaddaş sıfırlanır): bir çəkilişdə eyni xəbər 4–5 dəfə soruşulur.
+let imgMemo = new WeakMap(), imgMemoOg = null;
 function imageCandidates(a) {
+  if (imgMemoOg !== S.og) { imgMemo = new WeakMap(); imgMemoOg = S.og; }
+  const memo = a && typeof a === "object" ? imgMemo.get(a) : null;
+  if (memo) return memo;
+  const out = imageCandidatesRaw(a);
+  if (a && typeof a === "object") imgMemo.set(a, out);
+  return out;
+}
+function imageCandidatesRaw(a) {
   const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
   // Qoşa ünvan düzəldilir.
   // Kəsilmiş kiçik şəkil sona.
@@ -443,7 +453,10 @@ function sized(url, width, logo) {
   if (!url || !host || (!logo && ((S.proxyFails || 0) >= PROXY_MAX_FAILS || (proxyBad.get(host) || 0) >= 2)) || PROXY_SKIP.test(host) || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
   return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
 }
-function viewWidth() { return globalThis.innerWidth || 1200; }
+// Ekranın eni bir dəfə oxunur: innerWidth hər oxunuşda məcburi yerləşdirmə edir (Chrome sürüşmə zolağını hesablayır), çəkiliş tapşırığında 4× telefonda 72–195 ms idi (2026-11-09 izi). resize-da yenilənir.
+let viewW = globalThis.innerWidth || 0;
+function viewWidth() { return viewW || (viewW = globalThis.innerWidth || 1200); }
+addEventListener("resize", () => { viewW = globalThis.innerWidth || 1200; }, { passive: true });
 function heroPicWidth(first) {
   const narrow = viewWidth() < 900;
   return first ? (narrow ? 640 : 800) : (narrow ? 480 : 640);
@@ -612,7 +625,17 @@ function syncTixDot() {
   });
 }
 const SAVE_KEY = "8ulduz-saved";
-function savedList() { try { const v = JSON.parse(storage.getItem(SAVE_KEY) || "[]"); return Array.isArray(v) ? v.filter(a => !removedArticle(a)) : []; } catch { return []; } }
+// Hər kartın ☆ düyməsi (isSaved) bu siyahını istəyir: tam lentdə 1000+ dəfə JSON açmaq əvəzinə mətn və silinmə siyahısı dəyişməyibsə eyni nəticə qaytarılır. Çağıranlar siyahını dəyişmir (filter/some).
+let savedRaw = null, savedRem = -1, savedCache = [];
+function savedList() {
+  try {
+    const raw = storage.getItem(SAVE_KEY) || "[]", rem = removedIds.size + removedUrls.size + removedKeys.size;
+    if (raw === savedRaw && rem === savedRem) return savedCache;
+    const v = JSON.parse(raw);
+    savedRaw = raw; savedRem = rem;
+    return savedCache = Array.isArray(v) ? v.filter(a => !removedArticle(a)) : [];
+  } catch { return []; }
+}
 function isSaved(id) { return savedList().some(x => x.id === id); }
 function toggleSave(a) {
   const rest = savedList().filter(x => x.id !== a.id);
@@ -759,8 +782,8 @@ async function loadNews(force = false) {
   if (S.firstReady) { const wait = S.firstReady; S.firstReady = null; await wait; }
   // İlk ekran görünürsə tam lent əsas axın boşalanda gəlir (ən gec 2 s).
   if (S.partial && !force && token === S.newsToken) await new Promise(r => (globalThis.requestIdleCallback || (f => setTimeout(f, 300)))(r, { timeout: 2000 }));
-  // İlk yükləmədə og.json xəbərlərlə paralel gəlir
-  const ogReady = S.data && !S.partial ? null : loadOg(controller.signal);
+  // og.json (55 KB gzip) tam lenti gözlətmir (2026-11-09): sətirlərin şəkli updater (apply_og_cache) ilə artıq içindədir, ilk ekranın
+  // xəritəsi first.json-dadır; xəritə lentdən sonra boş anda gəlir (loadOg) və yalnız şəkil qazanan sətir varsa lent yenidən çəkilir.
   try {
     if (S.lang !== "az" && !S.status) await loadStatus(); // dil faylı varmı: status deyir (azərbaycanca həmişə news.json)
     if (token !== S.newsToken) return;
@@ -776,7 +799,7 @@ async function loadNews(force = false) {
     if (!S.offline) S.lastSync = new Date();
     S.error = null;
     if (S.data && !S.partial && S.data.updatedAt === d.updatedAt && S.og) { S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now(); renderTopbar(); return; }
-    await (ogReady || loadOg(controller.signal));
+    S.og ||= {};
     if(token !== S.newsToken || controller.signal.aborted)return;
     const first = !S.data, partial = S.partial;
     S.partial = false;
@@ -787,6 +810,7 @@ async function loadNews(force = false) {
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
+    if (!first && !partial) (globalThis.requestIdleCallback || (f => setTimeout(f, 1500)))(() => loadOg(), { timeout: 8000 }); // og xəritəsi 30 dəqiqədə bir, lentdən sonra
     // İlk ekrandan tam lentə: dəyişməyən bloklar qalır.
     if (first || force || (partial && readerBusy())) render(); else requestRender();
     if (!partial) backY();
@@ -813,7 +837,15 @@ async function loadFirst() {
   try {
     const {d} = await requestJSON(freshUrl("data/first.json"), {}, 5000);
     if (!Array.isArray(d?.articles) || !d.articles.length) return;
+    keepFirst(d);
     if (S.rawNews && !S.fromCache) return; // tam lent daha tez gəlib
+    // Keşdəki nüsxə ilə eyni yayımdırsa (updatedAt mikrosaniyəyə qədər eynidir) ikinci çəkiliş yoxdur: eyni HTML-i yenidən qurub
+    // müqayisə etmək telefonda ~0,7 s uzun iş idi (4×; yayımdan sonra yenidən açılış, 10 dəqiqə içində qayıdış). Tam lent (loadNews) yenə gəlir.
+    if (S.fromCache && d.updatedAt && d.updatedAt === S.rawMeta?.updatedAt) {
+      S.fromCache = false; S.og = d.og || S.og || {};
+      if (!S.cachedShown) { S.cachedShown = true; await heroPainted(); S.firstRenderAt = Date.now(); render(); } // keşdəki hələ çəkilməyibsə (kadr gözləyirdi) indi
+      return;
+    }
     S.partial = true; S.fromCache = false;
     S.og = d.og || S.og || {};
     S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
@@ -825,10 +857,22 @@ async function loadFirst() {
   } catch {}
 }
 
+// İşçi (sw.js) səhifəni hələ idarə etmirsə — ilk ziyarət, qeydiyyat ilk ekrandan sonradır — ilk ekranın faylı növbəti açılış üçün
+// səhifənin özü tərəfindən saxlanır (loadCached oxuyur, eyni açar: sorğusuz yol). İşçi idarə edəndə bunu networkFirstData yazır.
+// Boş anda: JSON.stringify ~6 ms (1×). Əvvəl ikinci ziyarət də keşsiz başlayırdı (2026-11-09).
+function keepFirst(d) {
+  if (typeof caches === "undefined" || navigator.serviceWorker?.controller) return;
+  (globalThis.requestIdleCallback || (f => setTimeout(f, 1500)))(() => {
+    try {
+      const key = new URL("data/first.json", new URL(ASSET.replace(/assets\/$/, ""), location.href)).href;
+      caches.open("8ulduz-data").then(c => c.put(key, new Response(JSON.stringify(d), { headers: { "Content-Type": "application/json; charset=utf-8" } }))).catch(() => {});
+    } catch {}
+  }, { timeout: 5000 });
+}
 async function loadCached() {
   if (!partialOk() || typeof caches === "undefined" || S.rawNews) return;
   try {
-    const key = (await caches.keys()).find(k => k.startsWith("8ulduz-data-"));
+    const keys = await caches.keys(), key = keys.find(k => k === "8ulduz-data") || keys.find(k => k.startsWith("8ulduz-data-")); // v142-dən versiyasız ad; köhnəsi keçid üçün
     if (!key) return;
     const cache = await caches.open(key);
     const root = new URL(ASSET.replace(/assets\/$/, ""), location.href);
@@ -836,11 +880,19 @@ async function loadCached() {
     if (!hit || S.rawNews) return;
     const d = await hit.json();
     if (!Array.isArray(d?.articles) || !d.articles.length || S.rawNews) return;
+    // Hazır ilk ekran (index.html — təkrar açılışda işçinin saxladığı nüsxə) keşdəki lentlə eyni yayımdandırsa və ya təzədirsə, keşdəkini çəkməyə
+    // dəyməz: ekranda artıq o məzmun var, şəbəkə nüsxəsi gəlir (çəkiliş ilk kadrı 1×-də ~50 ms gecikdirirdi, A/B 2026-11-09).
+    const pre = route().name === "home" && $("#view .pre-skel[data-prerender]")?.dataset?.prerender;
+    if (pre && d.updatedAt && Date.parse(d.updatedAt) <= Date.parse(pre)) return;
     S.partial = true; S.fromCache = true;
     S.og ||= d.og || {};
     S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
     publishNews();
+    await new Promise(done => afterFrame(done)); // əvvəl hazır ilk ekran boyansın (FCP), keşdəki ondan sonra
+    if (S.rawNews !== d.articles || S.cachedShown) return; // arada şəbəkə nüsxəsi gəlib: onu çəkən var
+    S.cachedShown = true;
     render();
+    S.firstRenderAt = Date.now(); // sonrakı çəkilişlər FIRST_RENDER_HOLD_MS gözləyir (şəbəkədən eyni yayım gəlsə ikinci çəkiliş olmur)
   } catch {}
 }
 
@@ -969,12 +1021,19 @@ async function loadLatest(force = false) {
   } catch {} finally { S.latestLoading = false; }
 }
 
+// og.json: mənbə → şəkil xəritəsi (alt mənbələrin şəkli, şəkilsiz sətirə ehtiyat). Lentdən sonra boş anda, 30 dəqiqədə bir (əvvəl tam lentlə
+// birlikdə gözlənilirdi və 10 dəqiqəlik hər yeniləmədə yenidən gəlirdi: 55 KB gzip). Gələndə yalnız şəkil qazanan sətir varsa lent yenidən çəkilir.
+const OG_REFRESH_MS = 30 * 60e3;
 async function loadOg(signal) {
-  if (S.og && Date.now() - (S.ogLoadedAt || 0) < 60000) return;
+  if (S.ogLoadedAt && Date.now() - S.ogLoadedAt < OG_REFRESH_MS) return;
   try {
-    const {d} = await requestJSON(freshUrl("data/og.json"), {signal}, 3000);
-    S.og = d && typeof d === "object" && !Array.isArray(d) ? d : {}; S.ogLoadedAt = Date.now();
-  } catch { if(!signal?.aborted)S.og = {}; }
+    const {d} = await requestJSON(freshUrl("data/og.json"), {signal}, 5000);
+    S.ogLoadedAt = Date.now();
+    const og = d && typeof d === "object" && !Array.isArray(d) ? d : {};
+    const gain = (S.rawNews || []).some(a => !a.imageUrl && og[a.sourceUrl]); // yalnız əsas şəkil qazanan sətir üçün yenidən çəkilir (alt mənbələrin şəkli növbəti adi çəkilişdə)
+    S.og = { ...(S.og || {}), ...og };
+    if (gain && S.data) { publishNews(); requestRender(false); }
+  } catch { S.og ||= {}; }
 }
 async function loadMarkets() {
   // Mənbə: data/markets.json.
@@ -1203,7 +1262,7 @@ function renderTopbar() {
   }
   const fs = document.documentElement.dataset.fs || "2";
   const light = document.documentElement.dataset.theme === "light";
-  $("#topbar").innerHTML = `    <span>${today()}</span>
+  const h = `    <span>${today()}</span>
     ${optional(prayBit)}
     <div class="wx ${S.wxOpen ? "open" : ""}"><button class="wx-btn" data-act="wx" title="Azərbaycanın bölgələri üzrə hava"><span>${w ? w.icon : "🌡️"}</span><span class="wcity">${esc(w?.city || geoCity()[0])}</span><b>${w ? `${w.temp}°` : "—"}</b><span style="opacity:.6">▾</span></button>${pop}</div>
     ${langDD()}
@@ -1211,12 +1270,15 @@ function renderTopbar() {
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}${syncBad ? ' <button type="button" class="retry" data-act="refresh">Yenilə</button>' : ""}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
     <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" title="Şrifti kiçilt" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" title="Şrifti böyüt" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
+  if (h !== S.topH) S.topH = $("#topbar").innerHTML = h; // dəyişməyən zolaq yenidən yazılmır: hər çəkilişdə (və hər 30 s) yazılırdı — stil işi, çəkilişdən əvvəl çirkli səhifə (D2, 2026-11-09)
   syncTixDot();
 }
 
 const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["gundem", "dunya", "idman", "bolgeler"];
 // Ölçmə bir dəfə, dəyişikliklərdən sonra.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
+// Kadr boyanandan sonra (rAF kadrdan əvvəldir): ölçü oxuyan kod brauzerin öz yerləşdirməsini işlədir, ikinci yerləşdirmə olmur.
+const afterFrame = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(() => setTimeout(fn)) : fn();
 // Telefonda qısa ad.
 const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", tehsil: "Təhsil" };
 const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
@@ -2146,12 +2208,7 @@ function patchChildren(box, fresh, changed) {
 }
 function patchView(v, page) {
   const next = document.createElement("template");
-  next.innerHTML = page.replace(/<div class="lazy-sec"><template>([\s\S]*?)<!--lz--><\/template><\/div>/g, (_, h) => {
-    let k = h.length; for (let i = 0; i < h.length; i++) k = Math.imul(k ^ h.charCodeAt(i), 16777619);
-    k = h.length + "-" + (k >>> 0).toString(36); lazyHtml.delete(k); lazyHtml.set(k, h);
-    return `<div class="lazy-sec" data-lazy="${k}"></div>`;
-  });
-  while (lazyHtml.size > 99) lazyHtml.delete(lazyHtml.keys().next().value);
+  next.innerHTML = page; // uzaq bölmələr səhifə sətrində deyil (lazySection → lazyHtml), yalnız açarlı boş qutular
   if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => t.replaceWith(t.content));
   S.tr?.(next.content);
   const changed = [];
@@ -2652,8 +2709,16 @@ function stopStep(el, snap) {
   if (bestD > 1) el.scrollTop = best;
 }
 // Uzaq bölmə boş qutudur, HTML yaddaşda. Sonu <!--lz-->: «N mənbə» də </template></div> ilə bitir.
-const lazySection = html => html ? `<div class="lazy-sec"><template>${html}<!--lz--></template></div>` : "";
 const lazyHtml = new Map();
+// Açar məzmunun hash-idir (uzunluq + FNV): eyni bölmə eyni açarı alır, S.viewPage müqayisəsi dəyişməz qalır. HTML səhifə sətrinə girmir: patchView-un şablon təhlili 392 KB-dan ~130 KB-a düşür (2026-11-09 ölçüsü, 39 bölmə).
+function lazyKey(h) { let k = h.length; for (let i = 0; i < h.length; i++) k = Math.imul(k ^ h.charCodeAt(i), 16777619); return h.length + "-" + (k >>> 0).toString(36); }
+function lazySection(html) {
+  if (!html) return "";
+  const k = lazyKey(html);
+  lazyHtml.delete(k); lazyHtml.set(k, html);
+  while (lazyHtml.size > 99) lazyHtml.delete(lazyHtml.keys().next().value);
+  return `<div class="lazy-sec" data-lazy="${k}"></div>`;
+}
 function lazyFill(box) {
   const h = lazyHtml.get(box.dataset.lazy);
   if (box.firstChild || h == null) return false;
@@ -2739,7 +2804,7 @@ function setupHeroImages() {
   row.addEventListener("scroll", near, { passive: true });
   row.addEventListener("pointerdown", all, { once: true, passive: true });
   row.addEventListener("touchstart", all, { once: true, passive: true });
-  near();
+  afterFrame(near); // ölçü kadr boyanandan sonra: yamaqla eyni tapşırıqda məcburi yerləşdirmə 4× telefonda 120–391 ms idi (2026-11-09 izi)
 }
 let featureTimers = [];
 function setupFeatureLents() {
@@ -2977,7 +3042,9 @@ async function loadPrayer(city) {
   const c = CITIES.find(x => x[0] === name) || CITIES[0];
   const token = (S.prayToken = (S.prayToken || 0) + 1);
   try {
-    const u = `https://api.aladhan.com/v1/timings?latitude=${c[1]}&longitude=${c[2]}&method=13`;
+    // Tarixli ünvan: tarixsiz /timings 302 ilə bura yönlənirdi; gedişdə açıq qalan yönləndirmə Chrome-un geri-irəli keşini (bfcache) bağlayır (NetworkRequestRedirected). Gün Bakı vaxtı ilə.
+    const bd = new Date(Date.now() + 144e5), day = `${String(bd.getUTCDate()).padStart(2, "0")}-${String(bd.getUTCMonth() + 1).padStart(2, "0")}-${bd.getUTCFullYear()}`;
+    const u = `https://api.aladhan.com/v1/timings/${day}?latitude=${c[1]}&longitude=${c[2]}&method=13`;
     const d = await (await fetch(u)).json();
     if (token !== S.prayToken || !d?.data?.timings) return;
     S.pray = { city: c[0], timings: d.data.timings, hijri: d.data.date?.hijri };
@@ -3045,12 +3112,16 @@ async function pollNews(force = false, resume = false) {
   }
 }
 const RELOAD_AFTER_HIDDEN_MS = 60 * 60e3;
+// Yeni versiya (reloadWhenHidden): vərəq gözdən itən kimi yox, 5 dəqiqə gizli qalandan sonra yenidən açılır (2026-11-09). Mənbəyə keçid
+// vərəqi gizlədir: dərhal yenidən açılış oxucunu qayıdanda yüklənən səhifəyə və itirilmiş yerə gətirirdi (yayım günündə hər dönüşdə).
+const RELOAD_HIDDEN_WAIT_MS = 5 * 60e3;
 function resumeNews() {
   if(document.hidden){
     S.hiddenAt ||= Date.now();
-    if(S.reloadWhenHidden && !globalThis.speechSynthesis?.speaking)location.reload(); // yeni versiya oxucu baxmayanda
+    if(S.reloadWhenHidden){ clearTimeout(S.reloadTimer); S.reloadTimer = setTimeout(() => { if(document.hidden && !globalThis.speechSynthesis?.speaking)location.reload(); }, RELOAD_HIDDEN_WAIT_MS); } // yeni versiya oxucu baxmayanda
     return;
   }
+  clearTimeout(S.reloadTimer);
   const away = S.hiddenAt ? Date.now() - S.hiddenAt : 0;
   S.hiddenAt = 0;
   if(away >= RELOAD_AFTER_HIDDEN_MS && !globalThis.speechSynthesis?.speaking){ location.reload(); return; }
@@ -3060,20 +3131,30 @@ function resumeNews() {
   // Tam lent yalnız 10 dəqiqədən köhnədirsə gəlir.
   pollNews(false, true);
 }
+// İşçinin (sw.js) mesajları açılışdan dinlənir (2026-11-09). Əvvəl dinləyici registerWorker içində idi və o tam lentdən sonra çağırılırdı
+// (telefonda ~10 s): brauzer «shell-updated»i növbədə saxlayıb gec verirdi, kompüterdə çəkilmiş səhifə 3-cü saniyədə yenidən açılırdı
+// (məzmun → boş → məzmun, sayğacda iki ziyarət). İndi: ekranda hələ lent yoxdursa dərhal yenidən açılır (itirilən heç nə yoxdur),
+// lent varsa yeni kod səhifə gözdən itəndə gəlir — VERSION yolu (activated) ilə eyni qayda.
+function onWorkerMessage(e) {
+  if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
+  if (e.data?.type !== "shell-updated") return;
+  let once = false;
+  try { once = !sessionStorage.getItem("8ulduz-reloaded"); if (once) sessionStorage.setItem("8ulduz-reloaded", "1"); } catch {}
+  if (once && performance.now() < 4000 && !S.rawNews && (globalThis.scrollY || 0) < 50 && !document.activeElement?.matches?.("input,textarea")) location.reload();
+  else S.reloadWhenHidden = true;
+}
+function listenWorker() {
+  const sw = navigator.serviceWorker;
+  if (!sw) return;
+  sw.addEventListener("message", onWorkerMessage);
+  sw.startMessages?.(); // dinləyicidən əvvəl gələn mesajlar növbədədir: indi verilsin
+}
 applyPrefs();
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installEvt = e; renderLangs(); });
 addEventListener("appinstalled", () => { S.installEvt = null; trackEvent("install-done"); renderLangs(); });
 function registerWorker() {
   if (!("serviceWorker" in navigator)) return;
-  // sw.js kod dəyişəndə yenidən açılır.
-  navigator.serviceWorker.addEventListener("message", e => {
-    if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
-    if (e.data?.type !== "shell-updated") return;
-    let once = false;
-    try { once = !sessionStorage.getItem("8ulduz-reloaded"); if (once) sessionStorage.setItem("8ulduz-reloaded", "1"); } catch {}
-    if (once && performance.now() < 4000 && (globalThis.scrollY || 0) < 50 && !document.activeElement?.matches?.("input,textarea")) location.reload();
-    else S.reloadWhenHidden = true;
-  });
+  // sw.js kod dəyişəndə yenidən açılır (mesajlar: onWorkerMessage, açılışdan dinlənir).
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then((reg) => {
     S.swReg = reg;
     if (!navigator.serviceWorker.controller) return;
@@ -3082,7 +3163,7 @@ function registerWorker() {
       if (!nw) return;
       nw.addEventListener("statechange", () => {
         // Oxucunun qarşısında səhifə birdən yenilənməsin.
-        if (nw.state === "activated") { if (document.hidden) location.reload(); else S.reloadWhenHidden = true; }
+        if (nw.state === "activated") { S.reloadWhenHidden = true; if (document.hidden) resumeNews(); } // gizli olsa da dərhal yox: 5 dəqiqəlik gözləmə (resumeNews)
       });
     });
   }).catch(() => {});
@@ -3106,6 +3187,7 @@ if (uiLang(S.lang)) {
   setTimeout(show, 1500);
   import("./dil.js").then(m => m.startDil(S, S.lang)).catch(() => {}).finally(show);
 }
+listenWorker();
 shell(); render();
 // Hamısı gələn kimi çəkilir.
 // xeber/<id>/ səhifəsi xəbərin sətrini gətirir (#row).
@@ -3113,14 +3195,19 @@ shell(); render();
 // Bayram (bayram.js): yalnız günündə.
 { const d = new Date(Date.now() + 144e5).toISOString().slice(5, 10); if (/^11-0[89]$/.test(d) || /[?&]bayram\b/.test(location.search)) setTimeout(() => import(`${ASSET}bayram.js`).then(m => m.show(d === "11-08" ? d : "11-09")).catch(() => {}), 800); }
 loadCached(); restoreLocal();
-S.firstReady = loadFirst();
+const firstReady = S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
 const afterNews = run => newsReady.finally(() => setTimeout(run));
-afterNews(() => { enableAnalytics(); registerWorker(); });
+afterNews(enableAnalytics);
+// İşçi (sw.js) ilk ekran çəkiləndən sonra ilk boş anda qurulur (2026-11-09). Əvvəl tam lentdən sonra idi (telefonda 10–12 s):
+// paylaşılan xəbəri oxuyub çıxan oxucuda heç qurulmurdu, hər açılışı soyuq qalırdı; bu ziyarətin lenti də köhnə keşə yazılırdı.
+// İlkin keş kiçikdir (yalnız ilk açılış faylları), lentlə yarışmır.
+firstReady.then(() => (globalThis.requestIdleCallback || (f => setTimeout(f, 1000)))(registerWorker, { timeout: 4000 }));
 newsReady.then(flushRender);
 const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();
 afterNews(() => { socNow || loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
+afterNews(() => (globalThis.requestIdleCallback || (f => setTimeout(f, 1500)))(() => loadOg(), { timeout: 8000 })); // og xəritəsi lentdən sonra, boş anda (H1, 2026-11-09)
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
 loadMarkets(); loadStatus();
 setInterval(() => pollNews(), POLL_MS);

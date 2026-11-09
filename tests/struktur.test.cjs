@@ -8,6 +8,7 @@ const fs = require("node:fs"), path = require("node:path"), zlib = require("node
 const root = path.join(__dirname, "..");
 const read = f => fs.readFileSync(path.join(root, f), "utf8").replace(/\r\n/g, "\n");
 const gz = f => zlib.gzipSync(Buffer.from(read(f)), { level: 9 }).length;
+const B = require("./budce.json"); // bütün büdcələr bir yerdə (sahib, 2026-11-09)
 
 test("struktur 1: the first visit loads exactly these files — a new feature must be a lazy module, not another startup file", () => {
   const html = read("index.html");
@@ -26,8 +27,8 @@ test("struktur 2: startup bytes have one total ceiling (gzip), so many small add
   // Oxucuya gedən fayllar: kod kiçildilmiş nüsxədir (assets/app.min.js, mənbəsi app.js).
   const files = ["index.html", "assets/app.min.js", "assets/app.css", "assets/config.js", "assets/content-policy.js"];
   const sizes = Object.fromEntries(files.map(f => [f, gz(f)])), total = Object.values(sizes).reduce((a, b) => a + b, 0);
-  assert.ok(sizes["index.html"] < 16e3, `index.html ${sizes["index.html"]} B gzip — hazır ilk ekran 16 KB-dan böyük olmamalıdır (prerender.cjs)`);
-  assert.ok(total < 115e3, `ilk açılış kodu ${total} B gzip > 115 000: ${JSON.stringify(sizes)}`);
+  assert.ok(sizes["index.html"] < B.kod["index.html.gz"], `index.html ${sizes["index.html"]} B gzip ≥ ${B.kod["index.html.gz"]} — hazır ilk ekran böyüyüb (prerender.cjs; büdcə tests/budce.json)`);
+  assert.ok(total < B.kod["acilis.gz"], `ilk açılış kodu ${total} B gzip ≥ ${B.kod["acilis.gz"]}: ${JSON.stringify(sizes)} (büdcə tests/budce.json)`);
 });
 
 test("struktur 3: app.js has no static imports; every lazily loaded module exists and stays small", () => {
@@ -39,7 +40,7 @@ test("struktur 3: app.js has no static imports; every lazily loaded module exist
     const p = path.join(root, "assets", f);
     assert.ok(fs.existsSync(p), "import() olmayan fayla: " + f);
     const n = read("assets/" + f).length;
-    assert.ok(n < 40e3, `${f} ${n} B — tənbəl modul 40 KB-dan kiçik qalsın, böyüyürsə hissələrə bölün`);
+    assert.ok(n < B.kod["tenbel.js"], `${f} ${n} B — tənbəl modul ${B.kod["tenbel.js"]} baytdan kiçik qalsın, böyüyürsə hissələrə bölün (tests/budce.json)`);
   }
   const pre = (read("sw.js").match(/cache\.addAll\(\[([^\]]*)\]/) || [])[1] || "";
   assert.ok(pre.includes("./assets/app.min.js") && !pre.includes("./assets/app.js"), "sw ilkin keş siyahısı tapılmadı (və ya mənbə app.js də endirilir)");
@@ -49,7 +50,7 @@ test("struktur 3: app.js has no static imports; every lazily loaded module exist
 test("struktur 4: pictures shipped with the site stay small", () => {
   for (const f of fs.readdirSync(path.join(root, "assets")).filter(f => /\.(png|jpe?g|webp|gif|svg|avif)$/i.test(f))) {
     const n = fs.statSync(path.join(root, "assets", f)).size;
-    assert.ok(n < 110e3, `assets/${f} ${n} B — 110 KB-dan böyük şəkil olmaz (kiçildin və ya wsrv.nl ilə verin)`);
+    assert.ok(n < B.kod.sekil, `assets/${f} ${n} B — ${B.kod.sekil} baytdan böyük şəkil olmaz (kiçildin və ya wsrv.nl ilə verin; tests/budce.json)`);
   }
 });
 

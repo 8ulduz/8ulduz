@@ -145,3 +145,12 @@ test('speed: the early-fetch script in index.html is allowed by its CSP hash (a 
   assert.ok(body.includes('sec ? ["data/first.json"].concat(full)'), 'bölmə keçidi əvvəlcə ilk lenti istəyir (app.js partialOk ilə eyni)');
   assert.ok(body.includes('team ? ["data/futbol/index.json", "data/futbol/" + team[1] + ".json"].concat(full)') && body.includes('"komanda.js", "modulepreload"'), 'liqa/komanda keçidi öz fayllarını tam lentdən əvvəl istəyir');
 });
+
+test('speed: the service worker precaches only first-visit files (sahib v107; 2026-11-09: icons and og-default removed) and names the data cache without a version', () => {
+  const SW = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const pre = SW.match(/cache\.addAll\(\[([^\]]*)\]/)[1].match(/"\.\/[^"]*"/g).map(s => JSON.parse(s));
+  assert.deepEqual(pre, ['./', './assets/app.css', './assets/app.min.js', './assets/config.js', './assets/content-policy.js', './manifest.webmanifest', './assets/logo-80.png', './assets/icon-192.png'],
+    'ilkin keş siyahısı dəyişib: hər fayl hər versiyada yenidən yoxlanır — yalnız ilk açılışın faylları (ikonlar və og şəkli işçidən oxunmur)');
+  assert.ok(SW.includes('const DATA = "8ulduz-data";'), 'məlumat keşi versiyasız: yayımdan sonra lent keşdə qalır (gündə 20–40 yayım var)');
+  assert.ok(!SW.includes('cache.match("./index.html")'), 'oflayn qabıq ./ açarından (index.html ilkin keşdə deyil)');
+});
