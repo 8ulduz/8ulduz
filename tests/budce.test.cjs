@@ -56,9 +56,10 @@ test("büdcə: the rule book lists every budget with the same number (owner deci
   const doc = read("docs/qirmizi-xetler.md");
   const table = doc.slice(doc.indexOf("### Büdcə cədvəli"));
   assert.ok(table.length > 100, "docs/qirmizi-xetler.md-də «### Büdcə cədvəli» yoxdur");
-  const spaced = n => String(n).replace(/\B(?=(\d{3})+$)/g, " ");
+  const spaced = n => typeof n === "number" ? String(n).replace(".", ",").replace(/\B(?=(\d{3})+$)/g, " ") : String(n); // 4 000; 0,05; «restored»; tarix
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const groups = { ...B.kod, ...B.gz, ...B.xam, ...B.melumat, "xulase.max": B.setir["xulase.max"] };
+  const speed = Object.fromEntries(Object.entries(B.speed).filter(([k]) => k !== "_")); // ölçü alətinin büdcələri də cədvəldə (2026-11-09)
+  const groups = { ...B.kod, ...B.gz, ...B.xam, ...B.melumat, "xulase.max": B.setir["xulase.max"], ...speed };
   for (const [k, v] of Object.entries(groups)) assert.ok(new RegExp("\\| `" + esc(k) + "` \\| " + spaced(v) + " \\|").test(table), `docs §3 Büdcə cədvəlində «${k}» = ${spaced(v)} sətri yoxdur: büdcə dəyişibsə cədvələ tarix və səbəblə yazın (yalnız sahibin qərarı)`);
   const rows = [...table.matchAll(/^\| `([^`]+)` \| /gm)].map(m => m[1]);
   for (const k of rows) assert.ok(k in groups, `cədvəldə artıq sətir: ${k} (tests/budce.json-da yoxdur)`);

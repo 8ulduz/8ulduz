@@ -133,10 +133,21 @@ test('speed: address parsing in the policy check is a cheap pattern, not new URL
   assert.ok(!body.includes('new URL('));
 });
 
-test('speed: the measuring tool emulates a phone (touch media, 4× slower CPU) and checks budgets', () => {
+test('speed: the measuring tool emulates a phone (touch media, 4× slower CPU), reads its budgets from tests/budce.json and sees real regressions (v2, 2026-11-09)', () => {
   const tool = fs.readFileSync(path.join(root, '.github/scripts/speed.cjs'), 'utf8');
   assert.ok(tool.includes('{ name: "hover", value: "none" }') && tool.includes('Emulation.setCPUThrottlingRate'), 'telefon yolu (gec doldurma) ölçülür');
-  assert.ok(tool.includes('--budget') && tool.includes('LIMITS'), 'büdcəni keçəndə çıxış kodu 1');
+  assert.ok(tool.includes('--budget') && tool.includes('LIMITS') && tool.includes('tests/budce.json'), 'büdcəni keçəndə çıxış kodu 1; büdcələr tests/budce.json speed qrupundan');
+  assert.ok(tool.includes('404.html') && tool.includes('Network.clearBrowserCache') && tool.includes('Storage.clearDataForOrigin'), 'hər soyuq ölçüdən əvvəl brauzer 404.html ilə isinir, keşlər soyudulur (təzə proses şrift işinə 1,2–1,6 s itirirdi)');
+  assert.ok(tool.includes('Page.addScriptToEvaluateOnNewDocument') && tool.includes('first-contentful-paint') && tool.includes('layout-shift') && tool.includes('largest-contentful-paint') && tool.includes('"longtask"'), 'ilk boya, CLS, LCP və boyadan əvvəlki uzun tapşırıqlar sənəd başlanğıcından (yüklənmədən sonra qoyulan müşahidəçi onları görmürdü)');
+  assert.ok(tool.includes('Network.requestWillBeSent') && tool.includes('heroLoads'), 'sorğu sayı və slayder şəklinin təkrar yüklənməsi şəbəkə hadisələrindən');
+  assert.ok(tool.includes('Page.backForwardCacheNotUsed') && tool.includes('Page.navigateToHistoryEntry') && tool.includes('--enable-features=BackForwardCache'), 'mənbəyə gedib qayıtmaq geri-irəli keşi ilə yoxlanır');
+  assert.ok(tool.includes('--ab') && tool.includes('["A", "B", "A", "B", "A", "B"]') && tool.includes('ab.pay'), 'baza nüsxəsi ilə eyni anda növbəli A/B (mütləq büdcə +500 ms reqressiyanı keçirirdi)');
+  assert.ok(tool.includes('--third-party') && tool.includes('redirect: "manual"') && tool.includes('--pages') && tool.includes('STORY_VER') && tool.includes('--data'), 'gecə yoxlamaları: yönləndirən üçüncü tərəf, köhnə şablonlu xəbər səhifələri, canlı məlumat gzip');
+  const wf = fs.readFileSync(path.join(root, '.github/workflows/speed.yml'), 'utf8');
+  assert.ok(wf.includes('github.event.pull_request.base.sha') && wf.includes('--ab http://localhost:8081/') && wf.includes('--third-party --pages --data'), 'PR-da baza nüsxəsi 8081-də eyni anda ölçülür; gecə dövrəsi üçüncü tərəfləri, səhifələri və məlumatı yoxlayır');
+  const B = require('./budce.json');
+  for (const k of ['cold', 'nav', 'sub', 'longTask', 'dom', 'fcp', 'fcpAfterCss', 'preFcpLongTaskMax', 'preFcpLongTaskSum', 'cls', 'cls.komputer', 'heroLoads', 'bfcache', 'storyCold', 'requests', 'ab.pay', 'ab.min', 'yeni.sert']) assert.ok(k in B.speed, `tests/budce.json speed.${k} yoxdur`);
+  assert.ok(!/const LIMITS = \{/.test(tool), 'büdcə rəqəmləri alətin içində deyil (tests/budce.json)');
 });
 
 test('speed 2026-11-09: the first slide picture is 640 px on every screen, so the prerendered image is not fetched again at 800 on a computer', () => {
