@@ -1,0 +1,50 @@
+{
+  "_": "Sürət büdcələri — bir yerdə (sahib, 2026-11-09). Testlər buradan oxuyur: struktur, browser-logic, budce, cpu-guard. Rəqəm yalnız sahibin qərarı ilə dəyişir, eyni PR-da docs/qirmizi-xetler.md §3 «Büdcə cədvəli»ndə tarix və səbəblə (tests/budce.test.cjs cədvəli faylla tutuşdurur). cpu: 2026-11-09-da bu PC-də ölçülən ən yaxşı/5 (ms): publishNews 36, homeView 65, ikisi 85, sectionView 2, articleView 8, collapseExact 15, searchView 28 — hədd ~5 qatıdır (GitHub runner ~2× yavaş, test faylları paralel). html: eyni gün ölçülən rəqəmlər + ~10%.",
+  "kod": {
+    "app.min.js": 170000,
+    "app.css": 95000,
+    "index.html.gz": 16000,
+    "acilis.gz": 115000,
+    "tenbel.js": 40000,
+    "sekil": 110000
+  },
+  "gz": {
+    "app.css.gz": 24000,
+    "sw.js.gz": 9000
+  },
+  "xam": {
+    "pre-skel": 20000
+  },
+  "melumat": {
+    "first.json.gz": 80000,
+    "latest.json.gz": 90000,
+    "og.json.gz": 70000,
+    "news.json.gz": 260000,
+    "paylas.json.gz": 70000,
+    "status.json.gz": 2000,
+    "markets.json.gz": 2000
+  },
+  "setir": {
+    "saheler": ["id", "title", "summary", "category", "source", "sourceUrl", "publishedAt", "imageUrl", "lang", "author", "video", "alts"],
+    "xulase.max": 600,
+    "paylas.saheler": ["id", "of", "title", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "alts", "at"]
+  },
+  "cpu": {
+    "publishNews": 200,
+    "homeView": 350,
+    "publishNews+homeView": 500,
+    "sectionView": 40,
+    "articleView": 60,
+    "collapseExact": 100,
+    "searchView": 150,
+    "html": {
+      "phoneBytes": 100000, "phoneTags": 1250, "phoneEagerBytes": 45000, "phoneEagerTags": 580,
+      "deskBytes": 100000, "deskTags": 1250, "lazyBytes": 250000, "lazyTags": 3100,
+      "cardBytes": 2700, "cardTags": 32, "use": 12
+    },
+    "layoutReads": {
+      "getBoundingClientRect": 13, "offsetTop": 11, "offsetLeft": 2, "offsetWidth": 2, "offsetHeight": 3, "clientWidth": 8, "clientHeight": 8,
+      "scrollTop": 22, "scrollLeft": 13, "getComputedStyle": 3, "innerWidth": 7, "innerHeight": 2, "scrollY": 11
+    }
+  }
+}

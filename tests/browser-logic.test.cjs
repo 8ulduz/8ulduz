@@ -448,8 +448,9 @@ test('speed red line: the page code stays within its size limit',()=>{
   // Ölçü yayımdakı kimi (LF): Windows-da CRLF ilə açılan nüsxə hər sətirə bir bayt artıq olur.
   // Hədd oxucuya gedən kiçildilmiş nüsxəyədir (sahib 2026-11-08: 170 000; əvvəl mənbə app.js-ə 220 000): mənbədəki şərh telefona getmir.
   const size=p=>Buffer.byteLength(fs.readFileSync(path.join(root,p),'utf8').replace(/\r\n/g,'\n'));
-  assert.ok(size('assets/app.min.js')<170e3,'app.min.js');
-  assert.ok(size('assets/app.css')<95e3,'app.css');
+  const B=require('./budce.json'); // büdcələr bir yerdə (sahib, 2026-11-09)
+  assert.ok(size('assets/app.min.js')<B.kod['app.min.js'],'app.min.js '+size('assets/app.min.js')+' ≥ '+B.kod['app.min.js']+' (tests/budce.json)');
+  assert.ok(size('assets/app.css')<B.kod['app.css'],'app.css '+size('assets/app.css')+' ≥ '+B.kod['app.css']+' (tests/budce.json)');
 });
 test('speed red line: the minified code is built from the current app.js and renders every page the same',async()=>{
   const {build,SRC,OUT}=require('../.github/kicilt/kicilt.cjs');
@@ -492,18 +493,18 @@ test('speed red line: far sections of the home page are kept out of the page unt
   const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
   S.lang=null;S.og={};S.data={articles:Array.from({length:30},(_,i)=>({id:String(i),title:'Xəbər başlığı nömrə '+i,category:i%2?'siyaset':'iqtisadiyyat',lang:'az',source:'APA',sourceUrl:'https://apa.az/'+i,publishedAt:at}))};
   const page=homeView();
-  assert.ok(page.includes('<div class="lazy-sec"><template><section>'),'bölmələr şablondadır');
-  assert.ok(page.includes('Bütün xəbərlər'),'məzmun səhifə mətnindədir');
+  assert.ok(page.includes('<div class="lazy-sec" data-lazy="'),'bölmələr səhifə sətrində deyil, açarlı qutudadır (lazyHtml)');
+  assert.ok(!page.includes('Bütün xəbərlər'),'bölmənin məzmunu səhifə sətrinə girmir (şablon təhlili kiçilir)');
+  assert.ok(vm.runInContext('[...lazyHtml.values()].join("")',ctx).includes('Bütün xəbərlər'),'məzmun lazyHtml-dədir, yaxınlaşanda qurulur');
 });
 test('home: a section with a multi-source story is kept whole (owner 2026-11-08: the AZƏRTAC title fell out of the Gündəm strip, its picture stayed behind)',()=>{
   const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
   S.lang=null;S.og={};S.data={articles:Array.from({length:30},(_,i)=>({id:(i+'').padStart(16,'a'),title:'Xəbər başlığı nömrə '+i,category:i%2?'gundem':'siyaset',lang:'az',source:'AZƏRTAC',sourceUrl:'https://azertag.az/'+i,imageUrl:'https://azertag.az/'+i+'.jpg',publishedAt:at,alts:[{source:'APA',sourceUrl:'https://apa.az/'+i}]}))};
-  const page=homeView(),src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
-  const re=vm.runInNewContext(src.match(/next\.innerHTML = page\.replace\((\/<div class="lazy-sec">.*?\/g),/)[1]);
-  const secs=[...page.matchAll(re)].map(m=>m[1]);
-  assert.ok(secs.length&&secs.some(h=>h.includes('class="altpop"')),'bölmədə çox mənbəli xəbər var');
+  const page=homeView(),lazy=vm.runInContext('lazyHtml',ctx);
+  const secs=[...page.matchAll(/<div class="lazy-sec" data-lazy="([^"]+)"><\/div>/g)].map(m=>lazy.get(m[1]));
+  assert.ok(secs.length&&secs.every(Boolean)&&secs.some(h=>h.includes('class="altpop"')),'bölmədə çox mənbəli xəbər var (HTML lazyHtml-dədir)');
   for(const h of secs){assert.ok(h.endsWith('</section>'),'bölmə tam götürülür: '+h.slice(-60));assert.equal((h.match(/<article/g)||[]).length,(h.match(/<\/article>/g)||[]).length);}
-  assert.ok(!page.replace(re,'').includes('<!--lz-->'),'hər bölmə öz sonu ilə');
+  assert.ok(!/lazy-sec"><template>/.test(page),'bölmənin HTML-i səhifə sətrində deyil');
 });
 test('video: every video has Paylaş with the site link, a shared link opens that video first (owner 2026-11-08: «videolarda paylaş yoxdur»)',()=>{
   const ctx=app(),{S}=ctx.api;
@@ -1162,13 +1163,13 @@ test('raw links are stripped from headlines', () => {
   assert.equal(ctx.api.tidy('Harri Keyn mükafat qazanıb https://report.az/futbol/abc'), 'Harri Keyn mükafat qazanıb');
 });
 
-function worker(cacheNames = []) {
+function worker(cacheNames = [], open) {
   const listeners = {}, deleted = [];
   const context = vm.createContext({URL, Request, Response, Headers, console, AbortController, setTimeout, clearTimeout,
     self: {location: new URL('https://example.com/8ulduz/sw.js'), addEventListener: (name, fn) => listeners[name] = fn,
       clients: {claim: async () => {}}, registration: {}},
     caches: {keys: async () => cacheNames, delete: async key => deleted.push(key),
-      open: async () => ({match: async () => null})},
+      open: open || (async () => ({match: async () => null}))},
     fetch: async () => { throw Error('offline'); },
   });
   vm.runInContext(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), context);
@@ -2399,11 +2400,13 @@ test('a home section never vanishes: shown stories stay in it, an empty category
   const sos = Array.from({ length: 5 }, (_, i) => ({ id: 's' + i, title: 'Pensiya artımı barədə yeni qərar ' + i, category: 'sosial', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/s' + i, publishedAt: at }));
   S.lang = 'az'; S.og = {}; S.partial = false;
   S.data = { articles: sos }; // hamısı «Son xəbərlər»dədir
-  let html = homeView();
+  // Uzaq bölmələrin HTML-i lazyHtml-dədir (lazySection): tam mətn üçün açarlı qutular məzmunla əvəz olunur
+  const full = () => homeView().replace(/<div class="lazy-sec" data-lazy="([^"]+)"><\/div>/g, (_, k) => vm.runInContext('lazyHtml', ctx).get(k) || '');
+  let html = full();
   assert.ok(html.includes('<h2>Sosial müdafiə</h2>') && html.includes('5 xəbər'), 'blok var, xəbərlər «Son xəbərlər»də olsa da');
   S.data = { articles: [{ id: 'g', title: 'Bakıda yeni park açılıb bu gün', category: 'gundem', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/g', publishedAt: at }] };
   S.archive = { sosial: { at: Date.now(), rows: sos } };
-  html = homeView();
+  html = full();
   assert.ok(html.includes('<h2>Sosial müdafiə</h2>'), 'lentdə yoxdursa arxivdən dolur');
   assert.ok(!html.includes('<h2>Video</h2>') || html.includes('ytrow'), 'video bölməsi arxiv istəmir');
   S.partial = true;
@@ -2920,4 +2923,106 @@ test('owner 2026-11-08 «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı b
   assert.ok(src.includes('setInterval(() => S.status?.social || loadSocial(), 5 * 60e3);'), 'möhürsüz (köhnə pipeline) 5 dəqiqədən bir, əvvəlki kimi');
   assert.ok(src.includes('if (!any && (navigator.serviceWorker?.controller || !LIVE_FILE.test(url)) || Date.now() < liveSkipUntil) return null;'),
     'status/latest üçün qayda dəyişmir');
+});
+
+// Sürət, 2026-11-09 (agent C tapıntıları): yayımdan sonrakı açılış keşsiz qalmasın, işçi tam lenti gözləməsin, eyni yayım ikinci dəfə çəkilməsin.
+test('speed: the data cache survives a deploy — version-free name, legacy copy migrated once, only old caches deleted (2026-11-09)', async () => {
+  const SW = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const version = SW.match(/const VERSION = "([^"]+)"/)[1];
+  assert.ok(SW.includes('const DATA = "8ulduz-data";'), 'məlumat keşinin adı versiyadan asılı deyil (hər yayımda silinirdi)');
+  const u = p => 'https://example.com/8ulduz/data/' + p;
+  const stores = { '8ulduz-data-v15': new Map([[u('first.json'), 'köhnə first'], [u('news.json'), 'köhnə news']]), '8ulduz-data': new Map([[u('news.json'), 'yeni news']]) };
+  const open = async name => { const m = stores[name] ||= new Map(); const key = r => typeof r === 'string' ? r : r.url;
+    return { keys: async () => [...m.keys()].map(k => new Request(k)), match: async r => m.has(key(r)) ? new Response(m.get(key(r))) : undefined, put: async (r, res) => { m.set(key(r), await res.text()); } }; };
+  const {listeners, deleted} = worker(['other-app-v1', '8ulduz-static-v15', '8ulduz-data-v15', '8ulduz-data', '8ulduz-static-' + version], open);
+  let done; listeners.activate({waitUntil(p) { done = p; }}); await done;
+  assert.deepEqual(deleted.sort(), ['8ulduz-data-v15', '8ulduz-static-v15'], 'versiyasız məlumat keşi və yeni kod keşi qalır');
+  assert.deepEqual([...stores['8ulduz-data'].entries()].sort(), [[u('first.json'), 'köhnə first'], [u('news.json'), 'yeni news']], 'köhnə keşdən yalnız yeni adda olmayan açar köçür');
+});
+test('speed: loadCached reads the version-free data cache first, a legacy one only as fallback', async () => {
+  const first = { updatedAt: 'x', articles: [{ id: 'c1', title: 'Keşdən', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] };
+  for (const [names, want] of [[['8ulduz-static-v141', '8ulduz-data-v141', '8ulduz-data'], '8ulduz-data'], [['8ulduz-static-v141', '8ulduz-data-v141'], '8ulduz-data-v141']]) {
+    const matched = [];
+    const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => names, open: async name => ({ match: async url => { matched.push(name); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
+    await ctx.api.loadCached();
+    assert.deepEqual(matched, [want]);
+    assert.equal(ctx.api.S.data.articles[0].title, 'Keşdən');
+  }
+});
+test('speed: a network first screen identical to the cached one is not drawn twice (same updatedAt); the full feed still follows', async () => {
+  const first = { updatedAt: '2026-11-09T10:00:00.123456+00:00', articles: [{ id: 'c1', title: 'Keşdən xəbər', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] };
+  const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-data'], open: async () => ({ match: async url => url.endsWith('/data/first.json') ? { json: async () => first } : undefined }) } });
+  const { S, loadCached, loadFirst } = ctx.api;
+  vm.runInContext('globalThis.renders = 0; render = () => { renders++; };', ctx);
+  await loadCached();
+  assert.equal(ctx.renders, 1);
+  assert.ok(S.firstRenderAt > 0, 'keşdən çəkiliş də ilk çəkilişdir (FIRST_RENDER_HOLD_MS ondan sayılır)');
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ ...first, og: { 'https://apa.az/1': 'https://apa.az/i.jpg' } }) });
+  await loadFirst();
+  assert.equal(ctx.renders, 1, 'eyni yayım ikinci dəfə çəkilmir (telefonda ~0,7 s uzun iş idi)');
+  assert.equal(S.fromCache, false);
+  assert.equal(S.partial, true, 'tam lent (loadNews) yenə gözlənilir');
+  assert.deepEqual(S.og, { 'https://apa.az/1': 'https://apa.az/i.jpg' }, 'og xəritəsi şəbəkədəkindən');
+});
+test('speed: a deploy notice while the feed is on screen waits for the tab to hide; only an empty page restarts at once (2026-11-09)', () => {
+  const calls = [];
+  const ctx = app({ sessionStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 900 }, location: { hash: '#/', reload: () => calls.push('reload') }, scrollY: 0,
+    navigator: { onLine: true, serviceWorker: { addEventListener: n => calls.push('listen:' + n), startMessages: () => calls.push('start') } } });
+  const { S } = ctx.api;
+  vm.runInContext('listenWorker()', ctx);
+  assert.deepEqual(calls, ['listen:message', 'start'], 'dinləyici qoyulur, növbədəki mesajlar başladılır');
+  calls.length = 0;
+  const on = vm.runInContext('onWorkerMessage', ctx);
+  on({ data: { type: 'shell-updated' } });
+  assert.deepEqual(calls, ['reload'], 'ekranda heç nə yoxdur: dərhal yenidən açılır');
+  calls.length = 0; S.reloadWhenHidden = false; S.rawNews = [{ id: 'a' }];
+  on({ data: { type: 'shell-updated' } });
+  assert.deepEqual(calls, [], 'lent ekrandadır: məzmun → boş → məzmun yoxdur');
+  assert.equal(S.reloadWhenHidden, true, 'yeni kod səhifə gözdən itəndə');
+  on({ data: { type: 'open-story', id: '0123456789abcdef' } });
+  assert.ok(String(ctx.location.hash).includes('#/xeber/0123456789abcdef'), 'bildiriş kliki xəbəri açır');
+  const APP = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').replace(/\r\n/g, '\n');
+  const start = APP.slice(APP.indexOf('\napplyPrefs();\n'));
+  assert.ok(start.indexOf('\nlistenWorker();\n') > 0 && start.indexOf('\nlistenWorker();\n') < start.indexOf('\nshell(); render();\n'), 'dinləyici açılışda, ilk çəkilişdən əvvəl');
+  assert.ok(start.includes('firstReady.then(() => (globalThis.requestIdleCallback || (f => setTimeout(f, 1000)))(registerWorker, { timeout: 4000 }));') && !/afterNews\([^\n]*registerWorker/.test(start), 'işçi ilk ekrandan sonra boş anda qurulur, tam lentdən sonra deyil (telefonda 10 s idi)');
+  assert.ok(!/navigator\.serviceWorker\.addEventListener\("message"/.test(start.slice(start.indexOf('function registerWorker'))), 'registerWorker-də ikinci dinləyici yoxdur');
+});
+
+test('speed: on a first visit (no worker yet) the page itself keeps first.json for the next visit, under the key the worker uses', async () => {
+  const puts = [];
+  const first = { updatedAt: 'x', articles: [{ id: 'n1', title: 'Şəbəkədən', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] };
+  const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, Response, requestIdleCallback: f => f(), caches: { keys: async () => [], open: async name => ({ match: async () => undefined, put: async (k, r) => { puts.push([name, k, await r.json()]); } }) } });
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => first });
+  await ctx.api.loadFirst();
+  await new Promise(r => setTimeout(r, 10));
+  assert.equal(puts.length, 1);
+  assert.deepEqual(puts[0].slice(0, 2), ['8ulduz-data', 'https://8ulduz.az/data/first.json'], 'versiyasız keş, sorğusuz açar (sw.js networkFirstData bare ilə eyni)');
+  assert.equal(puts[0][2].articles[0].title, 'Şəbəkədən');
+  puts.length = 0;
+  const sw = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, Response, requestIdleCallback: f => f(), navigator: { onLine: true, serviceWorker: { controller: {} } }, caches: { keys: async () => [], open: async () => ({ match: async () => undefined, put: async (k, r) => { puts.push(k); } }) } });
+  sw.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => first });
+  await sw.api.loadFirst();
+  await new Promise(r => setTimeout(r, 10));
+  assert.deepEqual(puts, [], 'işçi idarə edəndə yazan odur (networkFirstData), səhifə yox');
+});
+
+test('speed: the cached first screen is not drawn over a prerendered one of the same or a newer deploy; an older prerender is replaced after the first frame', async () => {
+  const first = { updatedAt: '2026-11-09T10:00:00.000000+00:00', articles: [{ id: 'c1', title: 'Keşdən xəbər', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] };
+  const mk = pre => {
+    const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-data'], open: async () => ({ match: async url => url.endsWith('/data/first.json') ? { json: async () => first } : undefined }) },
+      document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => String(s).includes('.pre-skel') ? { dataset: { prerender: pre } } : null, createElement() { return {}; } } });
+    vm.runInContext('globalThis.renders = 0; render = () => { renders++; };', ctx);
+    return ctx;
+  };
+  for (const pre of ['2026-11-09T10:00:00.000000+00:00', '2026-11-09T10:10:00.000000+00:00']) {
+    const ctx = mk(pre);
+    await ctx.api.loadCached();
+    assert.equal(ctx.renders, 0, pre + ': hazır ilk ekran eyni və ya təzə yayımdandır, keşdəki çəkilmir');
+    assert.equal(ctx.api.S.rawNews, undefined, 'şəbəkə nüsxəsi adi yolla gələcək');
+  }
+  const ctx = mk('2026-11-09T09:50:00.000000+00:00');
+  await ctx.api.loadCached();
+  assert.equal(ctx.renders, 1, 'hazır ilk ekran köhnədir: keşdəki çəkilir (ilk kadrdan sonra)');
+  assert.equal(ctx.api.S.cachedShown, true);
+  assert.equal(ctx.api.S.fromCache, true);
 });

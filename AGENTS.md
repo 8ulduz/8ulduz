@@ -29,3 +29,13 @@ Sayt **`8ulduz`** hesabınındır; `VM6666AZ` (Karvansara/Xeyirli reposunun hesa
 - `git push` özü `8ulduz` ilə gedir: `C:\Users\user\8ulduz` klonunun yerli `credential.https://github.com.helper` ayarı `8ulduz`-un `gh` açarına bağlıdır və bütün worktree-lərə şamildir. Bunu dəyişməyin. Commit müəllifi `8ulduz <346370484+8ulduz@users.noreply.github.com>`-dur.
 - `gh` əmrləri aktiv hesabla gedir; aktiv hesab `8ulduz`-dur. Əmin olmaq üçün: `GH_TOKEN="$(gh auth token --user 8ulduz)" gh pr merge ...`
 - **`gh auth switch` işlətməyin.** Başqa repoda VM6666AZ lazımdırsa, orada `GH_TOKEN="$(gh auth token --user VM6666AZ)"` ilə işlədin.
+
+## Sürət yoxlama siyahısı (hər PR; sahib, 2026-11-09)
+
+Sahibin qərarı: sürət «gözqırpımı»dır — açılışda, keçidlərdə, mənbəyə gedib qayıdanda, paylaşımda və paylaşımdan açılanda; gələcək əlavələr onu azaltmamalıdır. Hər dəyişiklikdə:
+
+1. Yeni xüsusiyyət = tənbəl modul (`import()`); ilk açılışa yeni fayl, yeni sorğu, yeni iş yoxdur (`tests/struktur.test.cjs`, `tests/acilis-muqavilesi.test.cjs`). Açılışdan sonrakı iş `afterNews(() => …)` içinə.
+2. Xarici ünvan əlavə edirsinizsə `tests/fixtures/ucuncu-terefler.json`-a yazın; səhifə açıq olarkən soruşulan ünvan yönləndirməməlidir (3xx cavab bfcache-i söndürür: mənbədən geri qayıdış ani əvəzinə ~0,7 s).
+3. Çəkiliş kodunda yerləşdirmə oxuması (`getBoundingClientRect`, `offsetTop`, `innerWidth`, `scrollY` …) əlavə etməyin — ölçünü hadisədən (resize/scroll) və ya `afterFrame`-dən sonra oxuyun (`tests/cpu-guard.test.cjs` sayır, yalnız azala bilər).
+4. `node .github/kicilt/kicilt.cjs`, sonra `node --test tests/*.test.cjs`. Bütün büdcələr `tests/budce.json`-dadır; dəyişməsi yalnız sahibin qərarı ilə, eyni PR-da `docs/qirmizi-xetler.md` «Büdcə cədvəli»nə tarix və səbəblə.
+5. Ölçün və PR-a yazın: `node .github/scripts/serve.cjs . 8080 &` + `SPEED_QUICK=1 SPEED_REPS=3 node .github/scripts/speed.cjs http://localhost:8080/ --budget`. Eyni kodun ölçüsü ±40% oynaya bilər: baza nüsxəsini eyni anda ölçün (A/A/B), ilk ölçüdən əvvəl brauzeri `404.html` ilə isidin (soyuq proses şrift işinə 0,3–1,6 s itirir).

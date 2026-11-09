@@ -1753,8 +1753,14 @@ def first_screen_rows(articles, now=None):
 def write_first(articles, stamp):
     """first.json: ilk ekranın sətirləri və onların og şəkilləri. Bütöv og.json ekran çəkiləndən sonra gəlir."""
     rows, og = first_screen_rows(articles), _read_json(OG_FILE, {})
-    urls = {u for a in rows for u in [a.get("sourceUrl"), *[alt.get("sourceUrl") for alt in a.get("alts") or []]]}
-    images = {u: og[u] for u in urls if u in og}
+    # Xəritəyə yalnız şəkil qazandıran giriş düşür (sürət, 2026-11-09): apply_og_cache şəkli sətrin özünə yazıb — eyni ünvan və boş dəyər
+    # 139 girişdən 120-si idi, 27 KB (6 KB gzip) ölü yük. Format dəyişmir (ünvan → şəkil); app.js imageCandidates eyni namizədləri alır.
+    have = {}
+    for a in rows:
+        have[a.get("sourceUrl")] = a.get("imageUrl")
+        for alt in a.get("alts") or []:
+            have[alt.get("sourceUrl")] = alt.get("imageUrl")
+    images = {u: og[u] for u in have if u and og.get(u) and og[u] != have.get(u)}
     _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images, **({"sharePages": True} if os.environ.get("SHARE_PAGES") else {})}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
@@ -1977,7 +1983,8 @@ STORY_SITEMAP_MAX = 5000
 # 2: Google Discover üçün max-image-preview:large (sahib 2026-11-07).
 # 3: og:image mənbələrin ən enli şəkli (Discover 1200+ px istəyir; 2026-11-07 ölçüsü: əsas şəkillərin 13/40-ı 1200+ idi).
 # 4: xəbərin sətri səhifənin özündədir (#row): paylaşılan/köhnə keçid lentdən çıxsa da açılır (sahib 2026-11-07, paylaşma yoxlaması).
-STORY_VER, STORY_REWRITE = 4, 150
+# 5: səhifə kiçildilmiş app.min.js yükləyir — şablon 2026-11-08-də dəyişmiş, versiya artmamışdı: ~3 400 köhnə səhifə Google-dan gələnə 221 KB-lıq app.js verirdi (sürət, 2026-11-09).
+STORY_VER, STORY_REWRITE = 5, 150
 IMG_SIZE_FILE = CACHE_DIR / "img_size.json"
 IMG_SIZE_KEEP, DISCOVER_MIN_W = 4000, 1200
 
