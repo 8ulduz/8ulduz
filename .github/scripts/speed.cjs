@@ -305,12 +305,14 @@ async function browser() {
     const { sessionId: s } = await c.send("Target.attachToTarget", { targetId, flatten: true });
     const send = (m, p) => c.send(m, p, s);
     // Şəbəkə hadisələri (sorğu sayı, bayt, slayd şəkli) və bfcache səbəbləri.
-    const net = { reqs: new Map(), reset() { this.reqs = new Map(); }, count() { return this.reqs.size; }, bytes() { let n = 0; for (const r of this.reqs.values()) n += r.bytes; return n; }, hero(key) { let n = 0; for (const r of this.reqs.values()) if (key && heroKey(r.url) === key) n++; return n; } };
+    const net = { reqs: new Map(), reset() { this.reqs = new Map(); }, count() { return this.reqs.size; }, bytes() { let n = 0; for (const r of this.reqs.values()) n += r.bytes; return n; }, hero(key) { let n = 0; for (const r of this.reqs.values()) if (key && heroKey(r.url) === key && !r.cached) n++; return n; } }; // yalnız şəbəkədən gələn yükləmə: hazır ilk ekran təzə məlumatla əvəz olunanda eyni şəkil brauzerin keşindən (0 bayt) yenidən soruşulur — o sayılmır (2026-11-09)
     const bf = [], navs = []; // bfcache səbəbləri; əsas çərçivənin naviqasiyaları (type: BackForwardCacheRestore = keşdən qayıdış)
     c.on(m => {
       if (m.sessionId !== s) return;
       if (m.method === "Network.requestWillBeSent") { if (!net.reqs.has(m.params.requestId)) net.reqs.set(m.params.requestId, { url: m.params.request.url, bytes: 0 }); }
-      else if (m.method === "Network.loadingFinished") { const r = net.reqs.get(m.params.requestId); if (r) r.bytes = m.params.encodedDataLength || 0; }
+      else if (m.method === "Network.requestServedFromCache") { const r = net.reqs.get(m.params.requestId); if (r) r.cached = true; }
+      else if (m.method === "Network.responseReceived") { const r = net.reqs.get(m.params.requestId); if (r && (m.params.response.fromDiskCache || m.params.response.fromPrefetchCache || m.params.response.fromServiceWorker)) r.cached = true; }
+      else if (m.method === "Network.loadingFinished") { const r = net.reqs.get(m.params.requestId); if (r) { r.bytes = m.params.encodedDataLength || 0; if (!r.bytes) r.cached = true; } }
       else if (m.method === "Page.backForwardCacheNotUsed") bf.push(m.params);
       else if (m.method === "Page.frameNavigated" && !m.params.frame.parentId) navs.push({ url: m.params.frame.url, type: m.params.type, at: Date.now() });
     });
