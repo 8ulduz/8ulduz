@@ -1,0 +1,44 @@
+name: Mənbə yoxlaması
+
+# Öz xəbər mənbələrinin GitHub-dan açılıb-açılmadığını yoxlayır (sahib, 2026-11-09: «gündə 30 öz xəbər»).
+# Sayta heç nə yazmır: yalnız oxuyur, nəticə iş səhifəsindəki annotasiyalardadır.
+on:
+  push:
+    branches: [oz-xeber]
+    paths: ['.github/oz-menbeler.txt', '.github/workflows/oz-menbe-yoxla.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  yoxla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/oz-menbeler.txt
+          sparse-checkout-cone-mode: false
+      - name: Ünvanları yoxla
+        run: |
+          set +e
+          out=yoxlama.txt; : > "$out"; last=""
+          grep -v '^\s*#' .github/oz-menbeler.txt | grep -v '^\s*$' | while read -r id url; do
+            host=$(echo "$url" | awk -F/ '{print $3}')
+            [ "$host" = "$last" ] && sleep 2
+            last="$host"
+            r=$(curl -sS -m 25 -L -A "Mozilla/5.0 (compatible; 8ulduz-bot)" -o body.bin -w "%{http_code} %{size_download} %{time_total}" "$url" 2>err.txt)
+            e=$(head -c 120 err.txt | tr '\n' ' ')
+            echo "$id $r ${e}" >> "$out"
+          done
+          cat "$out"
+          # Bir addımda ən çox 10 annotasiya görünür: sətirlər 10 hissəyə bölünür.
+          total=$(wc -l < "$out"); per=$(( (total + 9) / 10 )); [ "$per" -lt 1 ] && per=1
+          n=0
+          split -l "$per" "$out" part_
+          for f in part_*; do
+            n=$((n+1))
+            msg=$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')
+            echo "::notice title=Mənbə yoxlaması ${n}::${msg}"
+          done
