@@ -1,7 +1,7 @@
 {
   "_": "Səhifə kodundakı (assets/*.js) hər xarici ünvan burada qeydlidir: vaxt — açılış (ilk ekranla yarışır), sonra (lent gələndən sonra / dövri), klik (oxucu basanda), keçid (yalnız <a href>), mətn (yalnız sətir). yonlendirir — səhifə açıq olarkən soruşulan ünvan 3xx verirsə bfcache sönür (mənbədən geri qayıdış 667 ms əvəzinə ani); false yalnız curl ilə yoxlanandan sonra yazılır (tests/acilis-muqavilesi.test.cjs).",
   "8ulduz.az": { "vaxt": "mətn", "yonlendirir": false, "qeyd": "saytın öz ünvanı (kanonik keçidlər, paylaşma mətni)" },
-  "x.8ulduz.az": { "vaxt": "mətn", "yonlendirir": false, "qeyd": "paylaşma keçidi (Cloudflare Worker, docs/x-worker.md)" },
+  "www.8ulduz.az": { "vaxt": "mətn", "yonlendirir": false, "qeyd": "paylaşma keçidi (Cloudflare Worker, docs/x-worker.md); 2026-11-09-a qədər x.8ulduz.az idi, köhnə keçidlər işləyir" },
   "wsrv.nl": { "vaxt": "açılış", "yonlendirir": false, "qeyd": "şəkil proksisi (sized); ilk slayd şəkli index.html-dən" },
   "raw.githubusercontent.com": { "vaxt": "açılış", "yonlendirir": false, "qeyd": "dəqiqəlik canlı kanal (live budağı), arxiv budağı, ehtiyat kanal" },
   "api.aladhan.com": { "vaxt": "sonra", "yonlendirir": false, "qeyd": "namaz vaxtları; yalnız tarixli yol /v1/timings/<gg-aa-iiii> — tarixsiz yol 302 verir və bfcache-i söndürürdü (2026-11-09)" },

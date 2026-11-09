@@ -1,4 +1,4 @@
-// 8ULDUZ paylaşma keçidi — Cloudflare Workers (pulsuz plan), ünvan: https://x.8ulduz.az/<id>?h=<yymmddhh>
+// 8ULDUZ paylaşma keçidi — Cloudflare Workers (pulsuz plan), ünvan: https://www.8ulduz.az/<id>?h=<yymmddhh> (köhnə x.8ulduz.az keçidləri də bura gəlir)
 // Sahib, 2026-11-08: «Facebook-da paylaşanda başlıq çıxmır, xəbərə qayıtmır; tam düzəlt, WhatsApp kimi».
 // Niyə: Facebook, WhatsApp, Telegram, X önizləməni keçidin og: etiketlərindən oxuyur. Saytın /x/<id> səhifəsini updater.py yazır,
 // amma main-ə 10 dəqiqədən bir düşür: son dəqiqələrin xəbəri paylaşılanda səhifə hələ yoxdur, önizləmə boş qalırdı. Bu server
@@ -19,7 +19,7 @@
 // Yükləmə: bu qovluqda «npx wrangler deploy» və ya Cloudflare panelində kodu yapışdırmaq; addımlar docs/x-worker.md-də.
 
 const SITE = "https://8ulduz.az/";
-const HOST = "https://x.8ulduz.az/";
+const HOST = "https://www.8ulduz.az/"; // 2026-11-09, sahib: «x.» saytın adı ilə qarışmasın. Köhnə x.8ulduz.az keçidləri eyni Worker-ə gəlir (ikinci custom domain); kartlarda, og:url-də və keş açarında www.
 const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_GRACE_S = 45, LIVE_MINUTES = 4;            // sw.js: slot = (indi − 45 s) / 60; cari və əvvəlki 3 dəqiqə
 const FEEDS = ["data/latest.json", "data/first.json", "data/news.json"];
@@ -39,7 +39,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname === "/saglam") return new Response("ok", { headers: { "Cache-Control": "no-store" } });
     const m = url.pathname.match(ID);
-    if (!m) return Response.redirect(SITE, 302);
+    if (!m) return Response.redirect(SITE, url.hostname === "www.8ulduz.az" && url.pathname === "/" ? 301 : 302); // www kökü sayta daimi yönlənir (əvvəl Pages belə edirdi); qalan yad yollar müvəqqəti
     const id = m[1], h = (url.searchParams.get("h") || "").replace(/\D/g, "").slice(0, 8);
     if (isReader(req)) return Response.redirect(`${SITE}#/xeber/${id}${h ? "?h=" + h : ""}`, 302); // oxucu dərhal sayta (b= bölməsi lentdən tapılır, sayt onsuz da açır)
     try {

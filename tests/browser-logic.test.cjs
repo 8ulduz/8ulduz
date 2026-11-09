@@ -157,7 +157,7 @@ test('a forced refresh refetches news even if a CDN repeats the same status stam
   ctx.fetch=async url=>{urls.push(url);return {ok:true,headers:new Headers(),json:async()=>url.includes('status')?{checkedAt:'same'}:{updatedAt:'fresh',articles:[]}};};
   await ctx.api.pollNews(true);
   assert.equal(S.data.updatedAt,'fresh');
-  assert.ok(urls.filter(u=>!u.includes('/live/m/')).every(u=>u.includes('&r=')));
+  assert.ok(urls.filter(u=>!u.includes('/live/m/')).every(u=>/[?&]r=/.test(u)),'əllə yeniləmə öz açarı ilə (?r=); dəqiqəlik ?t= yoxdur (2026-11-09)');
 });
 test('returning to the tab checks the small file at once and does not download the whole feed',async()=>{
   const ctx=app(),{S}=ctx.api,urls=[];
@@ -2497,7 +2497,7 @@ test('owner notes: share — every card carries the «Paylaş» button only (pho
   assert.ok(prez.includes('class="share"') && prez.includes('data-prez-pause'), 'Zuğulba kartında da düymə; başlıqda dayandır düyməsi');
   const to = vm.runInContext('SHARE_TO', ctx);
   assert.deepEqual(Object.keys(to), ['fb', 'x', 'wa', 'tg', 'in', 'mail']);
-  for (const [k, v] of Object.entries(to)) { const u = v[1]('https%3A%2F%2Fx.8ulduz.az%2F0123456789abcdef', 'B'); assert.ok(/^(https:\/\/|mailto:)/.test(u) && u.includes('8ulduz.az'), k); }
+  for (const [k, v] of Object.entries(to)) { const u = v[1]('https%3A%2F%2Fwww.8ulduz.az%2F0123456789abcdef', 'B'); assert.ok(/^(https:\/\/|mailto:)/.test(u) && u.includes('8ulduz.az'), k); }
   assert.ok(!card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'javascript:alert(1)', publishedAt: at }).includes('data-to='), 'təhlükəli keçid paylaşılmır');
 });
 test('owner notes: motion can be stopped and restarted; the system reduced-motion setting stops it by default and the button overrides it', () => {
@@ -2660,16 +2660,16 @@ test('weather and prayer times wait for the known location: no Bakı-then-city f
 
 // Sahibin 4 noyabr qeydləri (telefon): sosial hesablar alt-alta, X/Facebook-dan geri sayta, Facebook paylaşımında xəbər görünsün,
 // kopyalanan keçiddə xəbər bilinsin və geri sayta qayıtsın.
-test("owner's share notes (2026-11-08): every 16-hex story shares x.8ulduz.az/ID — minute-feed stories too, no flag needed (the Worker builds the og page); non-hex ids keep the hash link; copy carries the title", async () => {
+test("owner's share notes (2026-11-08): every 16-hex story shares www.8ulduz.az/ID — minute-feed stories too, no flag needed (the Worker builds the og page); non-hex ids keep the hash link; copy carries the title", async () => {
   const ctx = app(), { card, S } = ctx.api, at = new Date().toISOString();
   S.og = {};
   const row = (id, extra = {}) => ({ id, title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at, ...extra });
   S.data = { articles: [] };
-  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://x.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'bayraqsız da: keçid Worker-ə, o səhifəni tapır və ya qurur (docs/x-worker.md)');
+  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://www.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'bayraqsız da: keçid Worker-ə, o səhifəni tapır və ya qurur (docs/x-worker.md)');
   S.data = { articles: [], sharePages: true };
-  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://x.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'main-dəki xəbər');
-  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes(`data-share="https://x.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'dəqiqəlik kanaldan gələn təzə xəbər də eyni ünvan: səhifəsi yoxdursa Worker lentdən qurur');
-  assert.ok(card(row('0123456789abcdef', { publishedAt: '' })).includes('data-share="https://x.8ulduz.az/0123456789abcdef"'), 'vaxtsız sətirdə h yoxdur');
+  assert.ok(card(row('0123456789abcdef')).includes(`data-share="https://www.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'main-dəki xəbər');
+  assert.ok(card(row('0123456789abcdef', { live: 1 })).includes(`data-share="https://www.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'dəqiqəlik kanaldan gələn təzə xəbər də eyni ünvan: səhifəsi yoxdursa Worker lentdən qurur');
+  assert.ok(card(row('0123456789abcdef', { publishedAt: '' })).includes('data-share="https://www.8ulduz.az/0123456789abcdef"'), 'vaxtsız sətirdə h yoxdur');
   assert.ok(card(row('1')).includes(`data-share="https://8ulduz.az/#/xeber/1?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), '16 rəqəmli olmayan nömrə');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'); assert.ok(!src.includes('8ulduz.az/x/') && !src.includes('a.live') && !src.includes('sharePages && '), 'köhnə /x/ yolu, dəqiqəlik işarə və bayraq şərti koddan çıxıb (yer: app.js 220 000 həddindədir)');
   const written = [];
@@ -2901,7 +2901,7 @@ test('owner 2026-11-08 «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı b
   await run('loadStatus()'); await tick();
   assert.equal(social().length, 0, 'açılışda sosial yazılar xəbərlərdən sonra (afterNews) çəkilir: status onları qabağa salmır');
   S.status = {}; await run('loadSocial()');
-  assert.match(social().at(-1), /^data\/social\.json\?t=\d+$/, 'möhür yoxdur (köhnə pipeline): saytın faylı, əvvəlki kimi');
+  assert.equal(social().at(-1), 'data/social.json', 'möhür yoxdur (köhnə pipeline): saytın faylı, əvvəlki kimi (sorğu açarı yoxdur, CDN nüsxəsi)');
   await run('loadStatus()'); await tick();
   assert.match(social().at(-1), LIVE, 'möhür gəldi: dəqiqəlik kanal');
   assert.equal(S.socialRev, 'r1');
@@ -2912,7 +2912,7 @@ test('owner 2026-11-08 «1 dəq öncə Mehriban Əliyeva Youtubda paylaşımı b
   assert.equal(social().length, n + 1, 'yeni yazı: bir sorğu');
   assert.match(social().at(-1), LIVE);
   liveMissing = true; stamp = 'r3'; await run('loadStatus()'); await tick(); await tick();
-  assert.match(social().at(-1), /^data\/social\.json\?t=\d+$/, 'dəqiqəlik kanalda yoxdursa saytın faylı');
+  assert.equal(social().at(-1), 'data/social.json', 'dəqiqəlik kanalda yoxdursa saytın faylı');
   assert.equal(S.socialRev, 'r3', 'eyni möhürə təkrar sorğu yoxdur');
   // Service worker-li oxucu: status/latest sw.js ilə, sosial isə birbaşa dəqiqəlik kanaldan.
   const sw = app({ navigator: { onLine: true, serviceWorker: { controller: {} } }, fetch: async u => { urls.push('sw:' + u); return { ok: true, json: async () => ({ posts: [] }) }; } });
@@ -3025,4 +3025,12 @@ test('speed: the cached first screen is not drawn over a prerendered one of the 
   assert.equal(ctx.renders, 1, 'hazır ilk ekran köhnədir: keşdəki çəkilir (ilk kadrdan sonra)');
   assert.equal(ctx.api.S.cachedShown, true);
   assert.equal(ctx.api.S.fromCache, true);
+});
+
+test('speed: site data is asked without a per-minute key (CDN copy; forced refresh keeps its own key) — owner decision 2026-11-09', () => {
+  const ctx = app(), { freshUrl } = { freshUrl: vm.runInContext('freshUrl', ctx) };
+  assert.equal(freshUrl('data/first.json'), 'data/first.json', 'dəqiqəlik ?t= hər faylı CDN-də «tapılmadı» edirdi (+150–250 ms)');
+  assert.match(freshUrl('data/news.json', true), /^data\/news\.json\?r=\d+-\d+$/, 'əllə yeniləmə təzəsini istəyir');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(!/\?t=/.test(html.match(/<script>([\s\S]*?)<\/script>/)[1]), 'erkən sorğular da açarsız');
 });
