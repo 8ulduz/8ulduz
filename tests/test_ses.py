@@ -64,3 +64,13 @@ class SesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HostRedoTest(unittest.TestCase):
+    def test_only_listed_source_audio_written_before_the_fix_is_redone(self):
+        t = ses.REDO_HOSTS["oxu24.com"]
+        feed = [{"id": "a" * 16, "sourceUrl": "https://oxu24.com/az/cemiyyet/1/x"}, {"id": "b" * 16, "sourceUrl": "https://www.oxu24.com/az/2"},
+                {"id": "c" * 16, "sourceUrl": "https://apa.az/3"}, {"id": "d" * 16, "sourceUrl": "https://oxu24.com/az/4"}]
+        have = {"a" * 16: "h", "b" * 16: "h", "c" * 16: "h", "d" * 16: "h"}
+        born = {"a" * 16: t - 60, "b" * 16: t - 60, "c" * 16: t - 60, "d" * 16: t + 60}
+        self.assertEqual(ses.host_redo(have, born, feed), {"a" * 16, "b" * 16}, "yalnız Oxu24, yalnız düzəlişdən əvvəlki səs")

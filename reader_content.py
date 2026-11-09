@@ -53,7 +53,7 @@ class ArticleParagraphs(HTMLParser):
         attrs = dict(attrs)
         marker = attrs.get('class', '') + ' ' + attrs.get('id', '')
         parent = self.stack[-1] if self.stack else ('', False, False)
-        scoped = parent[1] or tag == 'article' or attrs.get('itemprop') == 'articleBody' or attrs.get('id') == 'font_size' or bool(re.search(r'(?:article|news|entry|post|detail)[-_ ](?:body|content|text|desc)|fullstory|full-post-article|\btext-one\b|\bzoomtext\b', marker, re.I))
+        scoped = parent[1] or tag == 'article' or attrs.get('itemprop') == 'articleBody' or attrs.get('id') == 'font_size' or bool(re.search(r'(?:article|news|entry|post|detail)[-_ ](?:body|content|text|desc)|fullstory|full-post-article|\btext-one\b|\bzoomtext\b|\bnews-detail\b', marker, re.I))  # news-detail: Oxu24.com (2026-11-09)
         blocked = parent[2] or tag in ('nav', 'aside', 'footer', 'header', 'h1', 'script', 'style', 'form') or bool(re.search(r'related|recommend|advert|comment|social|paywall', marker, re.I))
         if tag not in ('br', 'img', 'hr', 'meta', 'link', 'input', 'source', 'wbr'):
             self.stack.append((tag, scoped, blocked))

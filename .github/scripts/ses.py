@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,6 +38,19 @@ PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 6, 26, 26, 1000, 5000
 ID_RE = re.compile(r"^[0-9a-f]{16}$")
 # Mətn təmizliyi (2026-11-08, reader_content.tidy): bundan əvvəl yazılmış səslər yenidən səslənir — təzə xəbər həmişə birinci.
 CLEAN_AT = datetime.datetime(2026, 11, 8, 9, 0, tzinfo=datetime.timezone.utc).timestamp()
+# Mətni əvvəl tapılmayan mənbələr: bu vaxtdan əvvəl yazılmış səsləri yenidən səslənir (yalnız həmin saytın xəbərləri, hamısı yox).
+# Oxu24.com: mətn news-detail blokunda idi, səs yalnız başlıq idi (sahib, 2026-11-09).
+REDO_HOSTS = {"oxu24.com": datetime.datetime(2026, 11, 9, 18, 30, tzinfo=datetime.timezone.utc).timestamp()}
+
+
+def host_redo(have, born, feed, hosts=REDO_HOSTS):
+    """Səsi yenidən yazılacaq xəbərlər: mənbəsi REDO_HOSTS-dadır və səsi o vaxtdan əvvəl yazılıb."""
+    out = set()
+    for a in feed:
+        i, h = a.get("id"), re.sub(r"^www\.", "", urllib.parse.urlparse(str(a.get("sourceUrl", ""))).hostname or "")
+        if i in have and h in hosts and born.get(i, 0) < hosts[h]:
+            out.add(i)
+    return out
 
 
 def parse_time(s):
@@ -170,7 +184,7 @@ def main(d):
             dropped += 1
     made = 0
     pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
-    redo = stale(have, born)
+    redo = stale(have, born) | host_redo(have, born, feed)
     with tempfile.TemporaryDirectory() as tmp:
         for a in pick(feed, {i: s for i, s in have.items() if i not in redo}, now):
             if made >= PER_RUN:
