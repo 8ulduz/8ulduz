@@ -1886,7 +1886,10 @@ class SectionPagesTest(unittest.TestCase):
                                ("Baş prokuror Konstitusiya Məhkəməsinə hücum edən prezidentlə bağlı tədbirlər görməyə çağırdı", ""),
                                ("Husilər prezident sarayına zərbələr endirdi", ""),
                                ("Prezident sarayına zərbələr endirildi", "Yəməndə döyüşlər davam edir"),
-                               ("Prezident seçkidən sonra danışdı", "Moldovada səslər sayılıb")):
+                               ("Prezident seçkidən sonra danışdı", "Moldovada səslər sayılıb"),
+                               ("Vaşinqtonda hansı partiyanın namizədi prezident ola biləcək? - Baku TV CANLI", ""),
+                               ("Ağ Evdə prezident çıxış etdi", ""),
+                               ("Kim prezident olacaq?", "")):
             with self.subTest(title=title):
                 self.assertNotEqual(updater.label_for(title, summary, "az"), "Prezident")
 

@@ -294,6 +294,9 @@ FOREIGN_MARKERS = [
     "mirziyoyev", "lukaşenko", "pezeşkiyan", "si szinpin", "lula", "milei", "bayden",
     "fifa prezidenti", "uefa prezidenti", "federasiyasının prezidenti", "klubun prezidenti",
     "prezidentliyə namizəd", "prezident seçki",
+    # «Vaşinqtonda hansı partiyanın namizədi prezident ola biləcək?» (Baku TV, 2026-11-09): ölkə adı yox, paytaxt və seçki dili var.
+    # Bizim Prezident artıq prezidentdir: «prezident ola(caq)», «namizədi prezident» başqa ölkənin seçkisidir.
+    "vaşinqton", "ağ ev", "prezident ola", "namizədi prezident", "prezident namizəd",
 ]
 # --- Digər bölmələr ------------------------------------------------------------
 # Açar sözlər söz başlanğıcına görə uyğunlaşdırılır (məs. "bank" -> "bankı", "banklar"),
