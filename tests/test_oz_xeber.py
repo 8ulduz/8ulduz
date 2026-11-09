@@ -383,6 +383,46 @@ class QuakeTest(unittest.TestCase):
         self.assertIn("Mənbə: [Respublika Seysmoloji Xidmət Mərkəzi](https://seismology.az/az/zelzele/536)", md)
 
 
+# stat.gov.az-ın 2026-11-09 tarixli ana səhifəsi və xəbər səhifəsinin quruluşu (qısaldılıb)
+STAT_HOME_PAGE = ('<li> <a href="news/index.php?lang=az&id=6964"><strong>(13.10.2026, 11:00)</strong> - Sənaye istehsalı haqqında</a> </li> '
+                  '<li> <a href="news/index.php?lang=az&id=6963"><strong>(13.10.2026, 10:00)</strong> - 2026-cı ilin yanvar-sentyabr '
+                  'aylarında Ümumi Daxili Məhsul istehsalı</a> </li> <li class="media"> <a class="pull-left" '
+                  'href="news/index.php?lang=az&id=7003"> <img src="x.jpg"> </a> <div class="media-body">Kollegiya iclası</div></li>')
+STAT_6963 = ('<div class="col-lg-9 col-lg-push-3"> <div class="single-news"> <h1>2026-cı ilin yanvar-sentyabr aylarında Ümumi Daxili '
+             'Məhsul istehsalı</h1> <div class="news-meta"><small>13.10.2026, 10:00</small></div> <p><p>2026-cı ilin yanvar-sentyabr '
+             'aylarında &ouml;lkədə 98765,4 milyon manat məbləğində və ya əvvəlki ilin eyni d&ouml;vr&uuml; ilə m&uuml;qayisədə 1,3 faiz '
+             '&ccedil;ox &uuml;mumi daxili məhsul (&Uuml;DM) istehsal edilib.<br /> Qeyri-neft-qaz sektorunda əlavə dəyər 2,2 faiz artıb.</p> '
+             '<p>Əlaqə n&ouml;mrəsi: 377 10 70 (22-17)</p></p> </div> </div> <div class="col-lg-3 col-lg-pull-9"> '
+             '<div class="panel"><p>Elektron xəritə və digər xidmətlər burada yerləşir</p></div>')
+
+
+class StatTest(unittest.TestCase):
+    def test_list_text_and_releases(self):
+        rows = oz.stat_list(STAT_HOME_PAGE)
+        self.assertEqual([(r["id"], r["title"]) for r in rows],
+                         [(6964, "Sənaye istehsalı haqqında"), (6963, "2026-cı ilin yanvar-sentyabr aylarında Ümumi Daxili Məhsul istehsalı")])
+        self.assertEqual(rows[1]["when"], datetime.datetime(2026, 10, 13, 10, 0, tzinfo=BAKU))
+        text = oz.stat_text(STAT_6963)
+        self.assertTrue(text.startswith("2026-cı ilin yanvar-sentyabr aylarında ölkədə 98765,4 milyon manat"), text)
+        self.assertIn("2,2 faiz artıb", text)
+        self.assertNotIn("Əlaqə", text)
+        self.assertNotIn("Elektron xəritə", text, "kənar sütun relizə düşmür")
+        pages = {oz.STAT_HOME: STAT_HOME_PAGE, oz.STAT_NEWS.format(6963): STAT_6963}
+
+        def fetch(url, timeout=None, headers=None):
+            if url in pages:
+                return pages[url].encode("utf-8")
+            raise OSError(url)
+        with patch.object(oz.time, "sleep"):
+            rels = oz.stat_rels(SimpleNamespace(fetch=fetch))
+        self.assertEqual([r["id"] for r in rels], ["dsk-6964", "dsk-6963"])
+        self.assertEqual(rels[0].get("error"), "OSError")
+        self.assertEqual((rels[1]["official"], rels[1]["date"], rels[1]["link"]),
+                         ("Dövlət Statistika Komitəsi", "13 oktyabr 2026, 10:00", "https://stat.gov.az/news/index.php?lang=az&id=6963"))
+        self.assertEqual(oz.fact_gate("ÜDM 1,3 faiz artıb: 98765,4 milyon manat", rels[1]["text"]), [])
+        self.assertTrue(oz.fact_gate("ÜDM 1,5 faiz artıb", rels[1]["text"]), "relizdə olmayan rəqəm tutulur")
+
+
 class NotOnTheSiteTest(unittest.TestCase):
     """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra». Sayta qoşulanda bu test sahibin göstərişi ilə dəyişir."""
     def test_site_pipeline_does_not_use_it_and_trial_writes_nothing(self):

@@ -491,7 +491,55 @@ def release_text(page, title=""):
     return "\n\n".join(paras)
 
 
-SYSTEM = """You are a news editor at 8ulduz.az, an Azerbaijani news website. You turn one official press release into a short, accurate news item in Azerbaijani (Latin script).
+# Statistika: Dövlət Statistika Komitəsinin «operativ məlumatları» (ÜDM, inflyasiya, sənaye, ticarət, əməkhaqqı...).
+# Ana səhifədə siyahı: «(13.10.2026, 10:00) - başlıq». Ayın təxminən 10–13-də bir dəstə çıxır (2026-11-09 yoxlanıb).
+# Mətn rəqəmlərlə dolu qısa relizdir: Haiku onu xəbərə çevirir, fakt qapısı hər rəqəmi relizdə yoxlayır.
+# www.stat.gov.az GitHub-dan bağlantını kəsə bilir, www-suz ünvan açılır.
+STAT_HOME = "https://stat.gov.az/"
+STAT_NEWS = "https://stat.gov.az/news/index.php?lang=az&id={}"
+STAT_NAME = "Dövlət Statistika Komitəsi"
+_STAT_ROW = re.compile(r'href="news/index\.php\?lang=az&(?:amp;)?id=(\d+)">\s*<strong>\((\d\d\.\d\d\.\d{4}), (\d\d:\d\d)\)</strong>\s*-\s*([^<]+)</a>')
+
+
+def stat_list(page):
+    """Ana səhifədəki operativ məlumatlar -> [{id, when, title}], ən yenisi birinci."""
+    out = {}
+    for qid, day, hm, title in _STAT_ROW.findall(page):
+        try:
+            when = datetime.datetime.strptime(f"{day} {hm}", "%d.%m.%Y %H:%M").replace(tzinfo=BAKU)
+        except ValueError:
+            continue
+        out[int(qid)] = {"id": int(qid), "when": when, "title": " ".join(html.unescape(title).split())}
+    return [out[k] for k in sorted(out, reverse=True)]
+
+
+def stat_text(page):
+    """Relizin mətni: yalnız «single-news» blokunun içi, sondakı «Əlaqə nömrəsi» sətri düşür."""
+    i = page.find('class="single-news"')
+    if i < 0:
+        return ""
+    j = page.find("col-lg-pull", i)
+    paras = release_text(page[i:j if j > 0 else None]).split("\n\n")
+    return "\n\n".join(p for p in paras if p and not p.startswith("Əlaqə"))
+
+
+def stat_rels(u, count=3):
+    """Son operativ məlumatlar relizə çevrilir (sınaq üçün; canlıda yalnız yeniləri)."""
+    rows = stat_list(u.fetch(STAT_HOME, timeout=20).decode("utf-8", "replace"))[:count]
+    rels = []
+    for r in rows:
+        time.sleep(1)
+        rel = {"id": f"dsk-{r['id']}", "source": STAT_NAME, "official": STAT_NAME, "title": r["title"],
+               "link": STAT_NEWS.format(r["id"]), "date": f"{day_text(r['when'])} {r['when'].year}, {r['when']:%H:%M}", "text": ""}
+        try:
+            rel["text"] = stat_text(u.fetch(rel["link"], timeout=20).decode("utf-8", "replace"))
+        except Exception as e:
+            rel["error"] = type(e).__name__
+        rels.append(rel)
+    return rels
+
+
+SYSTEM ="""You are a news editor at 8ulduz.az, an Azerbaijani news website. You turn one official press release into a short, accurate news item in Azerbaijani (Latin script).
 
 Accuracy rules. A program checks them, and an item that breaks one is not published:
 - Use only facts stated in the release. Never add names, positions, numbers, dates, places, organisations, quotes, background or explanations that are not in the release.
@@ -726,6 +774,11 @@ def sinaq(root, limit=10, now=None):
     if why:
         md += [f"> {why}", ""]
     total, done = [0, 0], 0
+    try:
+        rels = stat_rels(u)
+    except Exception as e:
+        rels = []
+        md += [f"> stat.gov.az alınmadı: {type(e).__name__}", ""]
     for n, a in enumerate(_releases(root, limit)):
         if n:
             time.sleep(1)  # dövlət saytlarına sorğular arasında fasilə
@@ -737,6 +790,8 @@ def sinaq(root, limit=10, now=None):
             rel["error"] = type(e).__name__
         if len(rel["text"]) < 80 and len(a.get("summary") or "") >= 120:
             rel["text"] = a["summary"]
+        rels.append(rel)
+    for rel in rels:
         # Hər reliz bir bölmədir: əvvəl bizim xəbər (və ya relizin başlığı), sonra relizin özü.
         source = [f"Reliz: «{rel['title']}» · {rel['official']} · [relizin özü]({rel['link']})", ""]
         unwritten = [f"### Reliz: {rel['title']}", "", *source]
