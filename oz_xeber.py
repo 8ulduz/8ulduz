@@ -329,6 +329,80 @@ def pfl_item(g, table=None):
             "credit": "Peşəkar Futbol Liqası", "link": "https://pfl.az/"}
 
 
+# Zəlzələ: AMEA nəzdində Respublika Seysmoloji Xidmət Mərkəzi (seismology.az) 3,0 və daha güclü təkanları siyahıda verir
+# (2026-11-09 yoxlanıb: ayda 5–10 təkan). Hər təkanın səhifəsində yerli vaxt və «Qeydlər» var: harada, neçə bala qədər hiss olunub.
+SEYS_LIST = "https://seismology.az/az/zelzeleler"
+SEYS_CREDIT = "Respublika Seysmoloji Xidmət Mərkəzi"
+_SEYS_ROW = re.compile(r'ML\s*([\d.]+)</div>.*?/zelzele/(\d+)">([^<]+)</a>.*?(\d\d\.\d\d\.\d{4})\s*\|\s*(\d\d:\d\d:\d\d)\s*UTC.*?<td>\s*(\d+)\s*km', re.S)
+_SEYS_LOCAL = re.compile(r'Yerli vaxt:</div>\s*<div class="value">\s*(\d\d\.\d\d\.\d{4})\s*\|\s*(\d\d:\d\d)', re.S)
+_SEYS_NOTE = re.compile(r'class="noteTitle">.*?</h3>(.*?)(?:<img|<div)', re.S)
+_SEYS_IMG = re.compile(r'<img src="(https://seismology\.az/upload/earthquakes/[^"]+)"')
+SEYS_MIN = 3.5  # bundan zəif təkan yalnız «hiss olunub» yazılıbsa xəbərdir: dənizdəki zəif təkanı heç kim hiss etmir
+
+
+def seys_list(page):
+    """Siyahı səhifəsi -> [{id, ml, area, utc, depth}], ən yenisi birinci."""
+    out = []
+    for row in re.split(r"<tr>", page)[1:]:
+        m = _SEYS_ROW.search(row)
+        if not m:
+            continue
+        ml, qid, area, day, hms, depth = m.groups()
+        try:
+            utc = datetime.datetime.strptime(f"{day} {hms}", "%d.%m.%Y %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
+        except ValueError:
+            continue
+        out.append({"id": int(qid), "ml": float(ml), "area": " ".join(html.unescape(area).split()), "utc": utc, "depth": int(depth)})
+    return out
+
+
+def seys_detail(q, page):
+    """Təkanın öz səhifəsindən yerli vaxt, «Qeydlər» mətni və xəritə şəkli."""
+    q = dict(q, note="", image="")
+    m = _SEYS_LOCAL.search(page)
+    q["local"] = (datetime.datetime.strptime(" ".join(m.groups()), "%d.%m.%Y %H:%M").replace(tzinfo=BAKU)
+                  if m else q["utc"].astimezone(BAKU))
+    m = _SEYS_NOTE.search(page)
+    if m:
+        q["note"] = _clean(re.sub(r"<[^>]+>", " ", m.group(1)))
+    m = _SEYS_IMG.search(page)
+    if m:
+        q["image"] = m.group(1)
+    return q
+
+
+def place_loc(name):
+    """Yer adının yerlik halı: «İsmayıllıda», «Lerikdə», «Xəzər dənizində», «Azərbaycan-Ermənistan sərhəddində»."""
+    back = _last_vowel(name) in "aıou"
+    if " " in name.strip() and _low(name)[-1:] in "iıuü":  # mənsubiyyət şəkilçili ad: dənizi -> dənizində
+        return f"{name}n{'da' if back else 'də'}"
+    return f"{name}{'da' if back else 'də'}"
+
+
+# Ədədin oxunuşunun son sözünə görə yerlik şəkilçisi: 35 «otuz beş» -> «-də», 36 «otuz altı» -> «-da», 30 «otuz» -> «-da».
+_UNIT_LOC = {0: "da", 1: "də", 2: "də", 3: "də", 4: "də", 5: "də", 6: "da", 7: "də", 8: "də", 9: "da"}
+_TEN_LOC = {1: "da", 2: "də", 3: "da", 4: "da", 5: "də"}
+
+
+def time_loc(t):
+    """«saat 11:35-də», «saat 09:06-da», «saat 14:30-da»; dəqiqə 00-dırsa saat oxunur: «saat 12:00-də» (on ikidə)."""
+    n = t.minute or t.hour
+    suf = _UNIT_LOC[n % 10] if n % 10 or n == 0 else _TEN_LOC[n // 10]
+    return f"saat {t:%H:%M}-{suf}"
+
+
+def seys_item(q):
+    """Zəlzələ xəbəri. Mətnin hər faktı Mərkəzin özündəndir: güc, yer, vaxt, dərinlik və «Qeydlər»."""
+    ml, area, when = az_num(q["ml"], 1), q["area"], q.get("local") or q["utc"].astimezone(BAKU)
+    felt = "hiss olunub" in _low(q.get("note") or "")
+    lead = (f"{SEYS_CREDIT}nin məlumatına görə, {day_loc(when)} Bakı vaxtı ilə {time_loc(when)} {place_loc(area)} "
+            f"{ml} maqnitudalı zəlzələ qeydə alınıb. Zəlzələnin ocağı {q['depth']} km dərinlikdə olub.")
+    return {"kind": "zelzele", "key": f"zelzele-{q['id']}", "title": f"{place_loc(area)} {ml} maqnitudalı zəlzələ olub",
+            "lead": lead, "body": [q["note"]] if q.get("note") else [], "image": q.get("image") or "",
+            "credit": SEYS_CREDIT, "link": f"https://seismology.az/az/zelzele/{q['id']}",
+            "worth": q["ml"] >= SEYS_MIN or felt, "felt": felt}
+
+
 # --- 2. Relizdən xəbər --------------------------------------------------------------------------------
 
 OFFICIAL = {
@@ -576,7 +650,10 @@ def release_item(rel, data):
 # --- Sınaq: nümunələr yalnız iş səhifəsində ----------------------------------------------------------
 
 def render(item):
-    out = [f"### {item['title']}", "", item["lead"], ""]
+    out = [f"### {item['title']}", ""]
+    if item.get("image"):
+        out += [f"![]({item['image']})", ""]
+    out += [item["lead"], ""]
     for p in item["body"]:
         out += [f"- {p}" if item.get("list") else p, ""]
     out += [f"Mənbə: [{item['credit']}]({item['link']})", ""]
@@ -639,6 +716,7 @@ def sinaq(root, limit=10, now=None):
             md += ["> Premyer Liqada bitmiş oyun yoxdur.", ""]
     except Exception as e:
         md += [f"> pfl.az alınmadı: {type(e).__name__}", ""]
+    md += seys_sinaq(u)
 
     md += [f"## 2. Relizdən xəbər (Claude Haiku 5.5, `{MODEL}`)", ""]
     client, why = _client()
@@ -693,6 +771,28 @@ def sinaq(root, limit=10, now=None):
         per = cost(total) / done
         md += ["## Xərc", "", f"{done} xəbər: {total[0]} giriş + {total[1]} çıxış tokeni ≈ ${cost(total):.4f}. "
                f"Bir xəbər orta hesabla ${per:.4f}; gündə 45 xəbər olsa ayda ≈ ${per * 45 * 30:.2f}.", ""]
+    return md
+
+
+def seys_sinaq(u, count=5):
+    """Son təkanlar. Canlıda yalnız yeni və «worth» olan dərc olunar; sınaqda hamısı göstərilir, qərarı ilə."""
+    md = []
+    try:
+        quakes = seys_list(u.fetch(SEYS_LIST, timeout=15).decode("utf-8", "replace"))[:count]
+    except Exception as e:
+        return [f"> seismology.az alınmadı: {type(e).__name__}", ""]
+    if not quakes:
+        return ["> Zəlzələ siyahısı oxunmadı.", ""]
+    for q in quakes:
+        time.sleep(1)
+        try:
+            q = seys_detail(q, u.fetch(f"https://seismology.az/az/zelzele/{q['id']}", timeout=15).decode("utf-8", "replace"))
+        except Exception:
+            q = seys_detail(q, "")
+        item = seys_item(q)
+        md += render(item)
+        md += (["✅ Dərc olunardı" + (" (hiss olunub)." if item["felt"] else f" ({az_num(SEYS_MIN, 1)} və daha güclü)."), ""] if item["worth"] else
+               [f"⏭ Dərc olunmazdı: {az_num(SEYS_MIN, 1)}-dən zəifdir və «hiss olunub» yazılmayıb.", ""])
     return md
 
 

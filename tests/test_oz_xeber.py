@@ -313,6 +313,74 @@ class SinaqTest(unittest.TestCase):
         self.assertIn("Dərc vaxtı: 8 noyabr 2026, 15:10", client.calls[0]["messages"][0]["content"])
 
 
+def _seys_row(qid, ml, area, when, depth):
+    return (f'<tr> <td> <div class="score scoreBlue">ML {ml}</div> </td> <td> <h4 class="tableLink">'
+            f'<a href="https://seismology.az/az/zelzele/{qid}">{area}</a></h3> </td> <td class="white-space-nowrap">{when} UTC</td> '
+            f'<td class="white-space-nowrap"> <div class="coordinates"> <span>40.80 N</span> <span>48.38 E</span> </div> </td> '
+            f'<td>{depth}km</td> <td> <a href="https://seismology.az/az/zelzele/{qid}"> <div class="moreBtn"></div> </a> </td> </tr>')
+
+
+# seismology.az-ın 2026-11-09 tarixli səhifələrinin quruluşu (qısaldılıb)
+SEYS_LIST_PAGE = ('<table><thead> <tr> <th>Maqnituda</th> </tr> </thead> <tbody> '
+                  + _seys_row(536, "3.0", "İsmayıllı", "19.10.2026 | 07:35:35", 10)
+                  + _seys_row(535, "3.5", "Xəzər dənizi", "19.10.2026 | 07:27:14", 18)
+                  + _seys_row(533, "3.3", "Xəzər dənizi", "29.09.2026 | 21:47:01", 70) + '</tbody></table>')
+SEYS_536 = ('<div class="property">Tarix:</div> <div class="value">19.10.2026 | 07:35:35 UTC</div> </div> '
+            '<div class="d-flex item"> <div class="property">Yerli vaxt:</div> <div class="value">19.10.2026 | 11:35:35</div> </div> '
+            '<div class="note prettyContent"> <h1 class="d-none">İsmayıllı</h1> <h3 class="noteTitle">Qeydlər</h3> '
+            '<p>Zəlzələlərin tədqiqatı b&uuml;rosunun məlumatına əsasən, Zərnəva stansiyasından 3 km şərqdə, İsmayıllı rayonunda '
+            'zəlzələ qeydə alınıb. Zəlzələ Zərnəva, Tircan, Lahıc kəndlərində 3 bala qədər hiss olunub.</p> '
+            '<img src="https://seismology.az/upload/earthquakes/6ad5ce5b3f2fe.jpg" width="100%" /> <div class="share"></div>')
+
+
+class QuakeTest(unittest.TestCase):
+    def test_list_detail_and_news(self):
+        quakes = oz.seys_list(SEYS_LIST_PAGE)
+        self.assertEqual([(q["id"], q["ml"], q["area"], q["depth"]) for q in quakes],
+                         [(536, 3.0, "İsmayıllı", 10), (535, 3.5, "Xəzər dənizi", 18), (533, 3.3, "Xəzər dənizi", 70)])
+        item = oz.seys_item(oz.seys_detail(quakes[0], SEYS_536))
+        self.assertEqual(item["title"], "İsmayıllıda 3,0 maqnitudalı zəlzələ olub")
+        self.assertEqual(item["lead"], "Respublika Seysmoloji Xidmət Mərkəzinin məlumatına görə, 19 oktyabrda Bakı vaxtı ilə "
+                                       "saat 11:35-də İsmayıllıda 3,0 maqnitudalı zəlzələ qeydə alınıb. "
+                                       "Zəlzələnin ocağı 10 km dərinlikdə olub.")
+        self.assertTrue(item["body"][0].startswith("Zəlzələlərin tədqiqatı bürosunun məlumatına əsasən"), item["body"])
+        self.assertEqual(item["image"], "https://seismology.az/upload/earthquakes/6ad5ce5b3f2fe.jpg")
+        self.assertEqual(item["link"], "https://seismology.az/az/zelzele/536")
+        self.assertTrue(item["worth"] and item["felt"], "zəif, amma hiss olunub: xəbərdir")
+
+    def test_weak_unfelt_quake_is_not_news_and_utc_becomes_baku(self):
+        quakes = oz.seys_list(SEYS_LIST_PAGE)
+        sea = oz.seys_item(oz.seys_detail(quakes[2], ""))
+        self.assertFalse(sea["worth"], "3,3, dənizdə, hiss olunmayıb")
+        self.assertIn("30 sentyabrda Bakı vaxtı ilə saat 01:47-də Xəzər dənizində 3,3", sea["lead"])
+        self.assertTrue(oz.seys_item(oz.seys_detail(quakes[1], ""))["worth"], "3,5 və daha güclü")
+
+    def test_place_and_time_suffixes(self):
+        self.assertEqual([oz.place_loc(x) for x in ("İsmayıllı", "Lerik", "Zaqatala", "Lənkəran", "Şahbuz", "Xəzər dənizi",
+                                                     "Azərbaycan-Ermənistan sərhəddi")],
+                         ["İsmayıllıda", "Lerikdə", "Zaqatalada", "Lənkəranda", "Şahbuzda", "Xəzər dənizində",
+                          "Azərbaycan-Ermənistan sərhəddində"])
+        t = lambda h, m: oz.time_loc(datetime.time(h, m))
+        self.assertEqual([t(11, 35), t(9, 6), t(14, 30), t(12, 0), t(10, 0), t(8, 20), t(0, 0), t(7, 49)],
+                         ["saat 11:35-də", "saat 09:06-da", "saat 14:30-da", "saat 12:00-də", "saat 10:00-da",
+                          "saat 08:20-də", "saat 00:00-da", "saat 07:49-da"])
+
+    def test_sinaq_section(self):
+        pages = {oz.SEYS_LIST: SEYS_LIST_PAGE, "https://seismology.az/az/zelzele/536": SEYS_536}
+
+        def fetch(url, timeout=None, headers=None):
+            if url in pages:
+                return pages[url].encode("utf-8")
+            raise OSError(url)
+        with patch.object(oz.time, "sleep"):
+            md = "\n".join(oz.seys_sinaq(SimpleNamespace(fetch=fetch)))
+        self.assertIn("### İsmayıllıda 3,0 maqnitudalı zəlzələ olub", md)
+        self.assertIn("![](https://seismology.az/upload/earthquakes/6ad5ce5b3f2fe.jpg)", md)
+        self.assertIn("✅ Dərc olunardı (hiss olunub).", md)
+        self.assertIn("⏭ Dərc olunmazdı", md)
+        self.assertIn("Mənbə: [Respublika Seysmoloji Xidmət Mərkəzi](https://seismology.az/az/zelzele/536)", md)
+
+
 class NotOnTheSiteTest(unittest.TestCase):
     """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra». Sayta qoşulanda bu test sahibin göstərişi ilə dəyişir."""
     def test_site_pipeline_does_not_use_it_and_trial_writes_nothing(self):
