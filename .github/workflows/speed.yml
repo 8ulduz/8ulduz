@@ -1,13 +1,17 @@
 name: Sürət ölçüsü
 # Qırmızı xətt 3 (sahib 2026-11-06: «gözqırpımı sürət», bütün bölmə və alt bölmələr, «eyni problem bir daha təkrarlanmasın»).
 # .github/scripts/speed.cjs başsız Chrome-da telefonu təqlid edir (412 px, toxunma, 4× yavaş prosessor, mobil şəbəkə) və
-# soyuq açılışı, 14 bölməni, alt bölmələri, rayonları, liqa və komanda səhifələrini, xəbəri, axtarışı ölçür.
-# Kod dəyişəndə: saytın bu nüsxəsi yerli serverdə, qısa dövrə. Gecə: canlı sayt, tam dövrə. Büdcə keçilsə iş qırmızı olur.
+# soyuq açılışı (ilk boya, CLS, LCP, boyadan əvvəlki uzun tapşırıqlar, sorğular), mənbəyə gedib qayıtmağı (bfcache), paylaşılan xəbəri,
+# 14 bölməni, alt bölmələri, rayonları, liqa və komanda səhifələrini, xəbəri, axtarışı, kompüter keçidini ölçür.
+# PR-da: bu nüsxə 8080-də, PR-ın hədəf budağı (baza) 8081-də — eyni anda A, B, A, B, A, B ölçülür; bu nüsxə bazadan yavaşsa qırmızı
+# (eyni kod runner-də 3,5 Lighthouse balı oynayır, mütləq büdcə reqressiyanı görmürdü). main-ə push: yalnız büdcə.
+# Gecə və gün ərzində: canlı sayt, tam dövrə + üçüncü tərəf yönləndirmələri, xəbər səhifələrinin şablon versiyası, məlumat gzip ölçüləri.
+# Büdcələr tests/budce.json «speed» qrupundadır; yeni ölçülər ilk 10 planlı dövrədə yalnız xəbərdarlıqdır (speed.yeni.sert).
 # Xəbər axınından (update.yml) və yayımdan ayrıdır: heç nəyi dayandırmır, repoya yazmır.
 
 on:
   pull_request:
-    paths: ['assets/**', 'index.html', 'sw.js', '.github/scripts/speed.cjs', '.github/workflows/speed.yml']
+    paths: ['assets/**', 'index.html', 'sw.js', '.github/scripts/speed.cjs', '.github/scripts/serve.cjs', '.github/workflows/speed.yml', 'tests/budce.json']
   push:
     branches: [main]
     paths:
@@ -15,10 +19,17 @@ on:
       - index.html
       - sw.js
       - .github/scripts/speed.cjs
+      - .github/scripts/serve.cjs
       - .github/workflows/speed.yml
+      - tests/budce.json
   schedule:
     - cron: "17 1,7,11,15 * * *"   # gecə + gün ərzində (lent böyüyəndə yavaşlama kod dəyişmədən də ola bilər; sahib 2026-11-07)
   workflow_dispatch:
+    inputs:
+      canli:
+        description: 'Canlı saytı ölç (gecə dövrəsi kimi: tam dövrə, üçüncü tərəflər, səhifələr, məlumat)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,22 +47,35 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 1
-      - name: Bu nüsxə (yerli server, qısa dövrə)
-        if: github.event_name != 'schedule'
+      - name: Baza nüsxəsi (PR-ın hədəf budağı, A/B üçün)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          fetch-depth: 1
+      - name: Bu nüsxə (yerli server, qısa dövrə; PR-da baza ilə A/B)
+        if: github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && inputs.canli)
         env:
           SPEED_QUICK: "1"
           SPEED_REPS: "3"
           SPEED_JSON: speed.json
         run: |
           node .github/scripts/serve.cjs . 8080 &
+          AB=()
+          if [ -d base ]; then
+            node .github/scripts/serve.cjs base 8081 &
+            AB=(--ab http://localhost:8081/)
+          fi
           sleep 1
-          CHROME="$(command -v google-chrome || command -v chromium)" node .github/scripts/speed.cjs http://localhost:8080/ --budget
-      - name: Canlı sayt (tam dövrə)
-        if: github.event_name == 'schedule'
+          CHROME="$(command -v google-chrome || command -v chromium)" node .github/scripts/speed.cjs http://localhost:8080/ --budget "${AB[@]}"
+      - name: Canlı sayt (tam dövrə, gecə yoxlamaları)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.canli)
         env:
           SPEED_REPS: "2"
           SPEED_JSON: speed.json
-        run: CHROME="$(command -v google-chrome || command -v chromium)" node .github/scripts/speed.cjs https://8ulduz.az/ --budget
+          GH_TOKEN: ${{ github.token }}   # --pages: STORY_VER artımının vaxtı (commits API)
+        run: CHROME="$(command -v google-chrome || command -v chromium)" node .github/scripts/speed.cjs https://8ulduz.az/ --budget --third-party --pages --data
       - name: Ölçülər
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

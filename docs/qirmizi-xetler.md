@@ -152,7 +152,7 @@ Sahibin göstərişi: «strukturu elə qur ki, nə əlavə etsək, dəyişsək b
 
 ### Büdcə cədvəli (tests/budce.json; sahib, 2026-11-09)
 
-Bütün sürət büdcələri bir faylda — `tests/budce.json`; testlər (`struktur`, `browser-logic`, `budce`, `cpu-guard`) oradan oxuyur. Rəqəm yalnız sahibin qərarı ilə dəyişir: eyni PR-da kodla birlikdə, bu cədvəldə tarix və səbəb, əvvəl/sonra ölçü ilə. Cədvəl fayldan fərqlənsə `tests/budce.test.cjs` qırmızı olur. Məlumat tavanları 2026-11-05…09 müşahidəsinin ən böyüyü + 20–25%-dir (2026-11-09: first.json 64 186, latest.json 70 378, og.json 55 327, news.json 214 303, paylaş ən böyüyü 57 633 bayt gzip). Sətir sahələri də pinlənir (`setir.saheler`, `paylas.saheler`): yeni sahə hər sətirə baytdır, yalnız sahibin qərarı ilə.
+Bütün sürət büdcələri bir faylda — `tests/budce.json`; testlər (`struktur`, `browser-logic`, `budce`, `cpu-guard`) və ölçü aləti (`.github/scripts/speed.cjs`, «speed» qrupu) oradan oxuyur. Rəqəm yalnız sahibin qərarı ilə dəyişir: eyni PR-da kodla birlikdə, bu cədvəldə tarix və səbəb, əvvəl/sonra ölçü ilə. Cədvəl fayldan fərqlənsə `tests/budce.test.cjs` qırmızı olur. Məlumat tavanları 2026-11-05…09 müşahidəsinin ən böyüyü + 20–25%-dir (2026-11-09: first.json 64 186, latest.json 70 378, og.json 55 327, news.json 214 303, paylaş ən böyüyü 57 633 bayt gzip). Sətir sahələri də pinlənir (`setir.saheler`, `paylas.saheler`): yeni sahə hər sətirə baytdır, yalnız sahibin qərarı ilə.
 
 | Açar | Hədd | Nə ölçülür | Tarix |
 |---|---|---|---|
@@ -173,6 +173,26 @@ Bütün sürət büdcələri bir faylda — `tests/budce.json`; testlər (`struk
 | `status.json.gz` | 2 000 | data/status.json gzip (hər 30 s) | 2026-11-09 |
 | `markets.json.gz` | 2 000 | data/markets.json gzip | 2026-11-09 |
 | `xulase.max` | 600 | lent sətrində xülasənin ən çox simvolu (tam mətn lentə düşməz) | 2026-11-09 |
+| `cold` | 4 000 | soyuq açılış: ünvandan ilk kartın/slaydın ekrana çıxmasına (telefon, 4× prosessor, ms; `.github/scripts/speed.cjs`) | 2026-11-06 |
+| `nav` | 300 | tətbiq daxilində keçid: basmadan yeni məzmunun görünməsinə (ms) | 2026-11-06 |
+| `sub` | 300 | alt bölmə düyməsi (İdman, Bölgələr; 2-ci və 3-cü səviyyə), ms | 2026-11-06 |
+| `longTask` | 300 | keçiddə ən uzun tapşırıq (ms; Bölgələrdə ilk seçim 14 arxivin mətnini bir dəfə hazırlayır) | 2026-11-06 |
+| `dom` | 2 500 | `#view`-da düyün sayı | 2026-11-06 |
+| `fcp` | 1 200 | soyuq açılışda ilk boya (ms; sənəd başlanğıcından müşahidə) | 2026-11-09 |
+| `fcpAfterCss` | 600 | `app.css` gələndən ilk boyaya (ms; şrift/stil işi) | 2026-11-09 |
+| `preFcpLongTaskMax` | 350 | ilk boyadan əvvəl ən uzun tapşırıq (ms) | 2026-11-09 |
+| `preFcpLongTaskSum` | 600 | ilk boyadan əvvəl uzun tapşırıqların cəmi (ms) | 2026-11-09 |
+| `cls` | 0,05 | yerləşdirmə sürüşməsi, ilk 5 s (telefon) | 2026-11-09 |
+| `cls.komputer` | 0,1 | yerləşdirmə sürüşməsi, ilk 5 s (kompüter, 1280 px) | 2026-11-09 |
+| `heroLoads` | 1 | slayderin ilk şəkli ilk 5 saniyədə neçə dəfə yüklənir (kompüterdə 640 → 800 px iki dəfə idi) | 2026-11-09 |
+| `bfcache` | restored | mənbəyə gedib qayıdış geri-irəli keşindən olur (yoxsa Chrome-un səbəbləri yazılır) | 2026-11-09 |
+| `storyCold` | 2 500 | paylaşılan xəbər keçidindən (`#/xeber/<id>?b=&h=`) başlığın ekrana çıxmasına (ms) | 2026-11-09 |
+| `requests` | 70 | soyuq açılışın ilk 5 saniyəsində sorğu sayı | 2026-11-09 |
+| `ab.pay` | 0,1 | A/B: median(B) − median(A) > max(spread(A), ab.pay × median(A), ab.min) olanda qırmızı (ilk boya, görünmə, boyadan əvvəl uzun işlər, LCP, uzun işlər) | 2026-11-09 |
+| `ab.min` | 50 | A/B həddinin ən azı (ms; uzun tapşırıqlar 50 ms-lik pillələrlə gəlir) | 2026-11-09 |
+| `sehife.kohne` | 0,05 | `xeber/<id>/` səhifələrində `STORY_VER`-dən köhnə şablon payı (gecə, `--pages`) | 2026-11-09 |
+| `sehife.saat` | 24 | `STORY_VER` artımından sonra köhnə payın gözlənildiyi müddət (saat) | 2026-11-09 |
+| `yeni.sert` | 2026-11-12T08:00:00Z | 2026-11-09 ölçüləri bu tarixədək yalnız xəbərdarlıqdır (ilk 10 planlı dövrə — runner-in səs-küyü görülsün), sonra sərt | 2026-11-09 |
 
 Məlum risk (2026-11-07, qərar sahibindir): repo tarixçəsi gündə ~20 MB böyüyür (dəqiqəlik lent `live` budağındadır və tarixçəsizdir, amma `main`-ə 10 dəqiqədən bir yazılan tam lent və saatlıq paylaşma siyahısı tarixçədə qalır). 2026-11-07-də repo 308 MB idi. Sayta və xəbər axınına təsiri yoxdur: pipeline `fetch-depth: 1` ilə işləyir, Pages yalnız son vəziyyəti yayımlayır. GitHub-ın tövsiyəsi isə repo üçün 1 GB-dan az, mütləq 5 GB-dan az ölçüdür; bu sürətlə ~2 aya 1 GB-a çatacaq. Qərar (sahib işi tapşırdı, 2026-11-07): (a) tarixçəni silmək işə yaramır — kod PR-ları (`refs/pull/*`, silinmir) köhnə tarixçəni GitHub-da onsuz da saxlayır, yer azalmır, risk isə böyükdür; ona görə edilmir. (b) yeni böyük və ya tez dəyişən fayllar main-ə yazılmır, tarixçəsiz budağa gedir (`live`, `arxiv`, `ses`) — struktur 5 bunu yoxlayır. Ölçü həftədə bir ölçülür (`.github/workflows/repo-olcu.yml`); 2 GB-ı keçəndə yoxlama qırmızı olur və sahibə e-poçt gəlir. O vaxt (bu sürətlə ~2027-nin fevralı, 5 GB-a hələ aylar qalarkən) sayt data fayllarını main-dən tarixçəsiz budağa köçürmək planlı edilir.
 

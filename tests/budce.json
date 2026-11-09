@@ -1,5 +1,5 @@
 {
-  "_": "Sürət büdcələri — bir yerdə (sahib, 2026-11-09). Testlər buradan oxuyur: struktur, browser-logic, budce, cpu-guard. Rəqəm yalnız sahibin qərarı ilə dəyişir, eyni PR-da docs/qirmizi-xetler.md §3 «Büdcə cədvəli»ndə tarix və səbəblə (tests/budce.test.cjs cədvəli faylla tutuşdurur). cpu: 2026-11-09-da bu PC-də ölçülən ən yaxşı/5 (ms): publishNews 36, homeView 65, ikisi 85, sectionView 2, articleView 8, collapseExact 15, searchView 28 — hədd ~5 qatıdır (GitHub runner ~2× yavaş, test faylları paralel). html: eyni gün ölçülən rəqəmlər + ~10%.",
+  "_": "Sürət büdcələri — bir yerdə (sahib, 2026-11-09). Testlər buradan oxuyur: struktur, browser-logic, budce, cpu-guard; ölçü aləti .github/scripts/speed.cjs «speed» qrupunu oxuyur. Rəqəm yalnız sahibin qərarı ilə dəyişir, eyni PR-da docs/qirmizi-xetler.md §3 «Büdcə cədvəli»ndə tarix və səbəblə (tests/budce.test.cjs cədvəli faylla tutuşdurur). cpu: 2026-11-09-da bu PC-də ölçülən ən yaxşı/5 (ms): publishNews 36, homeView 65, ikisi 85, sectionView 2, articleView 8, collapseExact 15, searchView 28 — hədd ~5 qatıdır (GitHub runner ~2× yavaş, test faylları paralel). html: eyni gün ölçülən rəqəmlər + ~10%.",
   "kod": {
     "app.min.js": 170000,
     "app.css": 95000,
@@ -28,6 +28,29 @@
     "saheler": ["id", "title", "summary", "category", "source", "sourceUrl", "publishedAt", "imageUrl", "lang", "author", "video", "alts"],
     "xulase.max": 600,
     "paylas.saheler": ["id", "of", "title", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "alts", "at"]
+  },
+  "speed": {
+    "_": "Başsız Chrome ölçüsü (.github/scripts/speed.cjs; telefon 412 px, prosessor 4× yavaş, 100 ms / 6 Mbit; ms, CLS birimsiz). cold/nav/sub/longTask/dom 2026-11-06-dan; qalanı 2026-11-09 (speed.cjs v2) — yeni.sert tarixinədək (ilk 10 planlı dövrə) yalnız xəbərdarlıq, sonra sərt. A/B: median(B) − median(A) > max(spread(A), ab.pay × median(A), ab.min) olanda qırmızı.",
+    "cold": 4000,
+    "nav": 300,
+    "sub": 300,
+    "longTask": 300,
+    "dom": 2500,
+    "fcp": 1200,
+    "fcpAfterCss": 600,
+    "preFcpLongTaskMax": 350,
+    "preFcpLongTaskSum": 600,
+    "cls": 0.05,
+    "cls.komputer": 0.1,
+    "heroLoads": 1,
+    "bfcache": "restored",
+    "storyCold": 2500,
+    "requests": 70,
+    "ab.pay": 0.1,
+    "ab.min": 50,
+    "sehife.kohne": 0.05,
+    "sehife.saat": 24,
+    "yeni.sert": "2026-11-12T08:00:00Z"
   },
   "cpu": {
     "publishNews": 200,

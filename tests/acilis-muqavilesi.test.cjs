@@ -50,6 +50,7 @@ test("startup contract: every third-party host in the page code is registered wi
     assert.ok(hosts.has(h), `${h} kodda yoxdur: siyahıdan silin`);
     assert.ok(["açılış", "sonra", "klik", "keçid", "mətn"].includes(r.vaxt), `${h}: vaxt`);
     if (r.vaxt === "açılış" || r.vaxt === "sonra") assert.equal(r.yonlendirir, false, `${h}: səhifə açıq olarkən soruşulan ünvan yönləndirməməlidir — 3xx cavab bütün səhifəni bfcache-dən çıxarır (mənbədən geri qayıdış 667 ms, 2026-11-09 ölçüsü); yönləndirməyən ünvanı tapın və ya sorğunu oxucunun klikinə keçirin`);
+    if (r.vaxt === "açılış" || r.vaxt === "sonra") assert.ok(/^https:\/\//.test(r.numune || ""), `${h}: numune — gecə ölçüsü (speed.cjs --third-party) bu nümunə sorğunu redirect: "manual" ilə yoxlayır ({tarix} = gg-aa-iiii)`);
   }
   assert.deepEqual(Object.keys(reg).filter(h => reg[h].vaxt === "açılış").sort(), ["raw.githubusercontent.com", "wsrv.nl"], "açılışda yalnız şəkil proksisi və canlı kanal: yeni xarici sorğu ilk ekranla yarışır");
   assert.ok(!/api\.aladhan\.com\/v1\/timings\?/.test(APP), "namaz vaxtı tarixli yolla (/v1/timings/<gg-aa-iiii>?…): tarixsiz yol 302 ilə tarixliyə yönləndirir");
