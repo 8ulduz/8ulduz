@@ -423,6 +423,78 @@ class StatTest(unittest.TestCase):
         self.assertTrue(oz.fact_gate("ÜDM 1,5 faiz artıb", rels[1]["text"]), "relizdə olmayan rəqəm tutulur")
 
 
+# az.wikipedia «9 noyabr» səhifəsinin vikimətni (2026-11-09, qısaldılıb; sonuncu bənd sınaq üçün əlavə olunub)
+WIKI_9_NOV = """{{Təqvim günü}}
+
+== Əhəmiyyətli hadisələr ==
+=== 1600-cü ildən əvvəl ===
+{{Boş bölmə}}
+
+=== 1901–cari ===
+* [[1994]] — [[Darmştadtium]] [[kimyəvi element]]i kəşf edilib.<ref name="chemist">{{cite web |title=What Happened |url=https://x.com}}</ref>
+
+=== Azərbaycana aid hadisələr ===
+* [[1918]] — [[Azərbaycan bayrağı]] ilk dəfə [[Azərbaycan Xalq Cümhuriyyəti|Azərbaycan Xalq Cümhuriyyəti Nazirlər Şurası]] tərəfindən təsdiq edilmişdir.<ref>{{cite web|title=Bayraq}}</ref>
+* [[1991]] — [[Türkiyə]] [[Azərbaycan]]ın müstəqilliyini tanımışdır.<ref>x</ref>
+* [[2020]]
+** İkinci Qarabağ müharibəsi: Azərbaycan Silahlı Qüvvələri """ + "Bartaz, " * 80 + """kəndlərini azad etmişdir.
+* [[2010]] — [[İlham Əliyev]] fərman imzalayıb.
+
+== Doğumlar ==
+=== 1601–1900 ===
+* [[1818]] — [[İvan Turgenev]], Rusiya yazıçısı
+* [[1841]] — [[VII Eduard]], Böyük Britaniya kralı
+* [[1864]] — [[Pol Serüzye]], Fransa boyakarı
+
+=== 1901–cari ===
+[[Fayl:Alessandro Del Piero in 2014.jpg|thumb|[[Alessandro Del Pyero]]]]
+
+* [[1926]] — [[Davud Kazımov]], Azərbaycan boyakarı
+* [[1957]] — [[İlqar Muradov]], Azərbaycan müğənnisi
+
+== Ölümlər ==
+=== 1600-cü ildən əvvəl ===
+* [[1492]] — [[Əbdürrəhman Cami]], İran şairi
+
+== Bayramlar və xüsusi günlər ==
+* {{bayraq|Azərbaycan}} [[Azərbaycan]] — [[Dövlət Bayrağı Günü]]
+
+== İstinadlar ==
+{{İstinad siyahısı|2}}
+"""
+
+
+class TarixTest(unittest.TestCase):
+    def test_parse(self):
+        p = oz.tarix_parse(WIKI_9_NOV)
+        self.assertEqual(p["world"], [(1994, "Darmştadtium kimyəvi elementi kəşf edilib")])
+        self.assertEqual(p["az"][:2], [(1918, "Azərbaycan bayrağı ilk dəfə Azərbaycan Xalq Cümhuriyyəti Nazirlər Şurası tərəfindən "
+                                              "təsdiq edilmişdir"), (1991, "Türkiyə Azərbaycanın müstəqilliyini tanımışdır")])
+        self.assertNotIn(2020, [y for y, _ in p["az"]], "kəndlərin uzun siyahısı yazılmır")
+        self.assertEqual(p["born"][3], (1926, "Davud Kazımov, Azərbaycan boyakarı"))
+        self.assertEqual(p["died"], [(1492, "Əbdürrəhman Cami, İran şairi")])
+        self.assertEqual(p["days"], ["Azərbaycan — Dövlət Bayrağı Günü"])
+
+    def test_item(self):
+        item = oz.tarix_item(datetime.date(2026, 11, 9), oz.tarix_parse(WIKI_9_NOV))
+        self.assertEqual(item["title"], "Bu gün tarixdə: 9 noyabr — Dövlət Bayrağı Günü")
+        self.assertEqual(item["lead"], "Bu gün 9 noyabrdır, ilin 313-cü günü. İlin sonuna 52 gün qalıb. Azərbaycanda Dövlət Bayrağı Günü "
+                                       "qeyd olunur. Azərbaycan boyakarı Davud Kazımovun anadan olmasından 100 il keçir.")
+        self.assertEqual(item["body"][0], "Azərbaycanda: 1918 — Azərbaycan bayrağı ilk dəfə Azərbaycan Xalq Cümhuriyyəti Nazirlər Şurası "
+                                          "tərəfindən təsdiq edilmişdir (108 il əvvəl).")
+        self.assertIn("Dünyada: 1994 — Darmştadtium kimyəvi elementi kəşf edilib (32 il əvvəl).", item["body"])
+        born = [b for b in item["body"] if b.startswith("Anadan olub")]
+        self.assertEqual(born, ["Anadan olub: 1818 — İvan Turgenev, Rusiya yazıçısı", "Anadan olub: 1841 — VII Eduard, Böyük Britaniya kralı",
+                                "Anadan olub: 1926 — Davud Kazımov, Azərbaycan boyakarı", "Anadan olub: 1957 — İlqar Muradov, Azərbaycan müğənnisi"],
+                         "xarici şəxslərdən ən çox ikisi")
+        self.assertEqual(item["skipped"], ["İlham Əliyev fərman imzalayıb"], "rəhbərlik bəndi sahibə qalır")
+        self.assertFalse(any("İlham" in b for b in item["body"]))
+        self.assertEqual(item["link"], "https://az.wikipedia.org/wiki/9_noyabr")
+        self.assertEqual([oz.tarix_item(datetime.date(2026, m, d), {"world": [(2000, "x")]})["lead"].split(",")[0]
+                          for m, d in ((4, 1), (6, 2), (8, 3))], ["Bu gün 1 apreldir", "Bu gün 2 iyundur", "Bu gün 3 avqustdur"])
+        self.assertIsNone(oz.tarix_item(datetime.date(2026, 11, 9), {}))
+
+
 class NotOnTheSiteTest(unittest.TestCase):
     """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra». Sayta qoşulanda bu test sahibin göstərişi ilə dəyişir."""
     def test_site_pipeline_does_not_use_it_and_trial_writes_nothing(self):

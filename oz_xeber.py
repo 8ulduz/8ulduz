@@ -406,6 +406,120 @@ def seys_item(q):
             "worth": q["ml"] >= SEYS_MIN or felt, "felt": felt}
 
 
+# «Bu gün tarixdə»: Azərbaycan dilli Vikipediyanın gün səhifəsi («9 noyabr»): hadisələr (Azərbaycana aid ayrıca bölmədə),
+# doğumlar, ölümlər, bayramlar. Səhifənin vikimətni API ilə alınır: gündə bir sorğu.
+WIKI_API = "https://az.wikipedia.org/w/api.php?action=parse&page={}&prop=wikitext&format=json&formatversion=2&redirects=1"
+WIKI_PAGE = "https://az.wikipedia.org/wiki/{}"
+TARIX_LONG = 400  # bundan uzun bənd (məsələn, onlarla kəndin siyahısı) xəbərdə yazılmır
+TARIX_MAX = {"az": 6, "world": 4, "born": 6, "died": 4}
+
+
+def wiki_plain(s):
+    """Vikimətn -> düz mətn: istinadlar, şablonlar, fayllar düşür; [[A|B]] -> B, [[A]] -> A."""
+    s = re.sub(r"<ref\b[^>]*/>|<ref\b[^>]*>.*?</ref\s*>", "", s, flags=re.S | re.I)
+    s = re.sub(r"\[\[(?:Fayl|File|Şəkil|Image):[^\[\]]*(?:\[\[[^\]]*\]\][^\[\]]*)*\]\]", "", s, flags=re.I)
+    for _ in range(3):
+        s = re.sub(r"\{\{[^{}]*\}\}", "", s)
+    s = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]*)\]\]", r"\1", s)
+    s = re.sub(r"\[https?://\S+\s+([^\]]+)\]", r"\1", s)
+    s = re.sub(r"'{2,}|<[^>]+>", "", s)
+    return " ".join(html.unescape(s).split())
+
+
+def tarix_parse(wikitext):
+    """Gün səhifəsi -> {"az": [(il, mətn)], "world": [...], "born": [...], "died": [...], "days": [mətn]}."""
+    out = {"az": [], "world": [], "born": [], "died": [], "days": []}
+    group, year = None, None
+    for line in wikitext.splitlines():
+        head = re.match(r"^(=+)\s*(.*?)\s*=+\s*$", line)
+        if head:
+            name = _low(head.group(2))
+            if len(head.group(1)) == 2:
+                group = ("world" if "hadisə" in name else "born" if "doğum" in name or "doğulan" in name else
+                         "died" if "ölüm" in name or "vəfat" in name else "days" if "bayram" in name or "xüsusi gün" in name else None)
+            elif group in ("world", "az"):
+                group = "az" if "azərbaycan" in name else "world"
+            continue
+        m = re.match(r"^(\*+)\s*(.*)$", line)
+        if not m or not group:
+            continue
+        text = wiki_plain(m.group(2))
+        if group == "days":
+            if text:
+                out["days"].append(text)
+            continue
+        y = re.match(r"^(?:e\.ə\.\s*)?(\d{1,4})\s*(?:[—–-]\s*(.*))?$", text)
+        if len(m.group(1)) == 1:
+            year = int(y.group(1)) if y and "e.ə." not in text[:5] else None
+            text = (y.group(2) or "") if y else ""
+        if year and text and len(text) <= TARIX_LONG:
+            out[group].append((year, text.rstrip(".")))
+    return out
+
+
+def _gen_plain(name):
+    """Adın yiyəlik halı, dırnaqsız: «Davud Kazımovun», «Rəşid Behbudovun», «Bülbülün»."""
+    return f"{name}{'n' if _vowel_end(name) else ''}{_four(name, ('ın', 'in', 'un', 'ün'))}"
+
+
+def tarix_item(day, parsed, owner=None):
+    """«Bu gün tarixdə» xəbəri. Rəhbərliyin adı keçən bənd yazılmır (owner: needs_owner); onu sahib özü əlavə edə bilər."""
+    owner = owner or needs_owner
+    month = MONTHS[day.month - 1]
+    doy = day.timetuple().tm_yday
+    left = (datetime.date(day.year, 12, 31) - day).days
+    skipped = []
+
+    def pick(group):
+        rows = []
+        for y, text in parsed.get(group) or []:
+            if owner(text):
+                skipped.append(text)
+            elif group in ("born", "died") and "azərbaycan" not in _low(text) and \
+                    sum("azərbaycan" not in _low(t) for _, t in rows) >= 2:
+                continue  # xarici şəxslərdən ən çox ikisi: əvvəlcə bizimkilər
+            else:
+                rows.append((y, text))
+            if len(rows) >= TARIX_MAX[group]:
+                break
+        return rows
+
+    groups = {g: pick(g) for g in ("az", "world", "born", "died")}
+    holiday = next((d.split("—", 1)[1].strip() for d in parsed.get("days") or []
+                    if d.startswith("Azərbaycan") and "—" in d), "")
+    lead = f"Bu gün {day.day} {month}{_four(month, ('dır', 'dir', 'dur', 'dür'))}, ilin {ordinal(doy)} günü. İlin sonuna {left} gün qalıb."
+    if holiday:
+        lead += f" Azərbaycanda {holiday} qeyd olunur."
+    for y, text in groups["born"]:
+        years = day.year - y
+        name, _, role = text.partition(", ")
+        if "azərbaycan" in _low(role) and years % 25 == 0 and name and role:
+            lead += f" {role[0].upper() + role[1:]} {_gen_plain(name)} anadan olmasından {years} il keçir."
+    labels = {"az": "Azərbaycanda", "world": "Dünyada", "born": "Anadan olub", "died": "Vəfat edib"}
+    body = [f"{labels[g]}: {y} — {text} ({day.year - y} il əvvəl)." if g in ("az", "world") else f"{labels[g]}: {y} — {text}"
+            for g in ("az", "world", "born", "died") for y, text in groups[g]]
+    if not body:
+        return None
+    title = f"Bu gün tarixdə: {day.day} {month}" + (f" — {holiday}" if holiday else "")
+    page = f"{day.day}_{month}"
+    return {"kind": "tarix", "key": f"tarix-{day.isoformat()}", "list": True, "title": title, "lead": lead, "body": body,
+            "credit": "Vikipediya", "link": WIKI_PAGE.format(page), "skipped": skipped}
+
+
+def tarix_sinaq(u, day):
+    try:
+        doc = json.loads(u.fetch(WIKI_API.format(f"{day.day}_{MONTHS[day.month - 1]}"), timeout=15).decode("utf-8"))
+        item = tarix_item(day, tarix_parse((doc.get("parse") or {}).get("wikitext") or ""))
+    except Exception as e:
+        return [f"> Vikipediya alınmadı: {type(e).__name__}", ""]
+    if not item:
+        return ["> Bu gün üçün tarix bəndi tapılmadı.", ""]
+    md = render(item)
+    if item["skipped"]:
+        md += ["⏸ Rəhbərliyin adı keçdiyi üçün yazılmayan bəndlər (sahib baxar): " + " | ".join(item["skipped"]), ""]
+    return md
+
+
 # --- 2. Relizdən xəbər --------------------------------------------------------------------------------
 
 OFFICIAL = {
@@ -779,6 +893,7 @@ def sinaq(root, limit=10, now=None):
     except Exception as e:
         md += [f"> pfl.az alınmadı: {type(e).__name__}", ""]
     md += seys_sinaq(u)
+    md += tarix_sinaq(u, now.date())
 
     md += [f"## 2. Relizdən xəbər (Claude Haiku 5.5, `{MODEL}`)", ""]
     client, why = _client()
