@@ -367,14 +367,17 @@ async function browser() {
     };
     const MED = ["first", "fcp", "lcp", "cls", "cssEnd", "fcpAfterCss", "preFcpLongTaskMax", "preFcpLongTaskSum", "lt", "ltMax", "dom", "requests", "bytes", "heroLoads"];
     const slim = r => ({ first: r.first, fcp: r.fcp, lcp: r.lcp, cls: r.cls, preFcpLongTaskSum: r.preFcpLongTaskSum, lt: r.lt, requests: r.requests, heroLoads: r.heroLoads });
-    const coldRow = async (name, hash, o = {}) => {
-      const runs = [];
-      for (let i = 0; i < (o.reps || REPS); i++) runs.push(await cold(o.base || BASE, hash, o));
+    const rowOf = (name, runs, o = {}) => {
       const r = { ...runs[runs.length - 1] };
       for (const k of MED) r[k] = median(runs.map(x => x[k]));
       if (runs.length > 1) r.runs = runs.map(slim);
       const { over, soft } = coldOver(r, o);
       return add("cold", name, r, over, soft);
+    };
+    const coldRow = async (name, hash, o = {}) => {
+      const runs = [];
+      for (let i = 0; i < (o.reps || REPS); i++) runs.push(await cold(o.base || BASE, hash, o));
+      return rowOf(name, runs, o);
     };
     // Mənbəyə gedib qayıtmaq: ana səhifə açıq → 404.html (mənbə yerinə) → 1 s → tarixçə ilə geri. Chrome səhifəni geri-irəli keşindən
     // qaytarmalıdır (pageshow.persisted → «restored»); qaytarmasa Page.backForwardCacheNotUsed səbəbləri (NetworkRequestRedirected,
@@ -411,16 +414,13 @@ async function browser() {
     };
 
     const hero = await heroOf(BASE), story = await storyOf(BASE);
-    await coldRow("ana səhifə", "", { hero });
-    await bfcache();
-    for (const [h, name] of [["#/bolme/idman", "idman (birbaşa keçid)"], ["#/bolme/gundem", "gündəm (birbaşa keçid)"], ["#/komanda/premyer-liqa", "liqa (birbaşa keçid)"]]) await coldRow(name, h);
-    if (story) await coldRow("paylaşılan xəbər", story.hash, { key: "h1" }); else add("cold", "paylaşılan xəbər", { first: null }, [], ["data/first.json-dan xəbər tapılmadı"]);
-
     // A/B: baza nüsxəsi eyni anda, növbə ilə A, B, A, B, A, B (hər biri REPS dəfə) — dəqiqənin səs-küyü hər ikisinə eyni düşür.
-    // Qırmızı: median(B) − median(A) > max(spread(A), ab.pay × median(A), ab.min). Eyni nüsxə iki portda (A/A) qırmızı olmamalıdır.
+    // Qırmızı: median(B) − median(A) > max(spread(A), ab.pay × median(A), ab.min); spread = A ölçülərinin max − min.
+    // Eyni nüsxə iki portda (A/A) qırmızı olmamalıdır. Ana səhifənin soyuq sətri B ölçülərindəndir (ayrıca 3 açılış artıq iş idi).
     if (AB) {
       const runs = { A: [], B: [] }, heroA = await heroOf(AB);
       for (const side of ["A", "B", "A", "B", "A", "B"]) for (let i = 0; i < REPS; i++) runs[side].push(await cold(side === "A" ? AB : BASE, "", { hero: side === "A" ? heroA : hero }));
+      rowOf("ana səhifə", runs.B, { hero });
       const over = [], cmp = {};
       for (const [k, label] of Object.entries(AB_KEYS)) {
         const a = runs.A.map(r => r[k]), b = runs.B.map(r => r[k]), mA = median(a), mB = median(b);
@@ -430,7 +430,10 @@ async function browser() {
         if (mB - mA > tol) over.push(`${label} ${mB} > baza ${mA} + ${tol}`);
       }
       add("ab", "ana səhifə: baza (A) → bu nüsxə (B)", { base: AB, cmp, runsA: runs.A.map(slim), runsB: runs.B.map(slim) }, over);
-    }
+    } else await coldRow("ana səhifə", "", { hero });
+    await bfcache(); // səhifə bu nüsxənin ana səhifəsidir (A/B-də sonuncu B ölçüsü)
+    for (const [h, name] of [["#/bolme/idman", "idman (birbaşa keçid)"], ["#/bolme/gundem", "gündəm (birbaşa keçid)"], ["#/komanda/premyer-liqa", "liqa (birbaşa keçid)"]]) await coldRow(name, h);
+    if (story) await coldRow("paylaşılan xəbər", story.hash, { key: "h1" }); else add("cold", "paylaşılan xəbər", { first: null }, [], ["data/first.json-dan xəbər tapılmadı"]);
 
     if (COLD_ONLY) return;
     // Təkrar ziyarət (tətbiq quraşdırılıb, xidmət işçisi keşi ilə): telefon sahibinin hər gün gördüyü açılış. Əvvəl işçi tam qurulsun.
@@ -499,7 +502,10 @@ async function browser() {
       const teams = (await evaluate(`[...new Set([...document.querySelectorAll('#view a[href^="${l}/"]')].map(a => a.getAttribute("href")))]`)).filter(h => h.split("/").length === 4).slice(0, 2);
       for (const t of teams) {
         await nav("komanda", t.replace("#/komanda/", ""), `location.hash = ${JSON.stringify(t)}`, LIMITS.nav, 700);
-        for (const tab of ["oyunlar", "cedvel", "xeberler"]) await nav("komanda", t.replace("#/komanda/", "") + "/" + tab, `location.hash = ${JSON.stringify(t + "/" + tab)}`, LIMITS.nav, 400);
+        // Yalnız komandanın göstərdiyi tablar (.tm-tabs): oyunu olmayan komandada «Oyunlar» tabı yoxdur və ünvan baxışa qayıdır —
+        // gecə ölçüsündə 10 milli komanda «məzmun dəyişmədi» yalançı qırmızı verirdi (2026-11-09). Tab siyahısı tapılmasa köhnə üçlük.
+        const shown = await evaluate(`[...document.querySelectorAll("#view .tm-tabs a[href]")].map(a => a.getAttribute("href").split("?")[0]).filter(h => h.startsWith(${JSON.stringify(t + "/")})).map(h => h.slice(${t.length + 1}))`);
+        for (const tab of ["oyunlar", "cedvel", "xeberler"].filter(x => !shown.length || shown.includes(x))) await nav("komanda", t.replace("#/komanda/", "") + "/" + tab, `location.hash = ${JSON.stringify(t + "/" + tab)}`, LIMITS.nav, 400);
       }
     }
 
