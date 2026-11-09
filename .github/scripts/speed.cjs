@@ -52,7 +52,8 @@ const NET_FREE = { offline: false, latency: 0, downloadThroughput: -1, uploadThr
 // Sayğaclar ölçünün özündə qalır (saytın real işi), amma alətin öz 404.html ziyarətləri statistikaya düşməsin.
 const ANALYTICS = ["*gc.zgo.at*", "*goatcounter.com*", "*google-analytics.com*"];
 // Yeni ölçülər ilk 10 planlı dövrədə (gündə 4) yalnız xəbərdarlıqdır; tests/budce.json speed.yeni.sert tarixindən sonra sərt.
-const NEW = ["fcp", "fcpAfterCss", "preFcpLongTaskMax", "preFcpLongTaskSum", "cls", "heroLoads", "bfcache", "storyCold", "requests", "ucuncu", "sehife"];
+// Gecə yoxlamaları (--third-party, --pages, --data) səs-küysüzdür və öz qaydası ilə dərhal qırmızıdır (--pages: versiya artımından 24 saat).
+const NEW = ["fcp", "fcpAfterCss", "preFcpLongTaskMax", "preFcpLongTaskSum", "cls", "heroLoads", "bfcache", "storyCold", "requests"];
 const WARN_ONLY = new Set(Date.now() < Date.parse(LIMITS["yeni.sert"]) ? NEW : []);
 // A/B-də tutuşdurulan ölçülər (ana səhifənin soyuq açılışı).
 const AB_KEYS = { fcp: "ilk boya", first: "görünmə", preFcpLongTaskSum: "boyadan əvvəl uzun işlər", lcp: "LCP", lt: "uzun işlər (5 s)" };
@@ -222,7 +223,7 @@ async function thirdParty() {
     let res;
     try { res = await get(url, { redirect: "manual", timeout: 15000 }); } catch (e) { add("ucuncu", host, { url, status: "xəta" }, [], [`sorğu alınmadı: ${e.message}`]); continue; }
     const location = res.headers.get("location"), over = [], soft = [];
-    if (res.status >= 300 && res.status < 400) (r.yonlendirir === false && !WARN_ONLY.has("ucuncu") ? over : soft).push(`${res.status} → ${location}: səhifə açıq olarkən soruşulan ünvan yönləndirir (bfcache sönür); yönləndirməyən ünvanı tapın və ya sorğunu klikə keçirin`);
+    if (res.status >= 300 && res.status < 400) (r.yonlendirir === false ? over : soft).push(`${res.status} → ${location}: səhifə açıq olarkən soruşulan ünvan yönləndirir (bfcache sönür); yönləndirməyən ünvanı tapın və ya sorğunu klikə keçirin`);
     else if (res.status >= 400) soft.push(`cavab ${res.status}`);
     add("ucuncu", host, { url, status: res.status, location }, over, soft);
   }
@@ -254,16 +255,17 @@ async function pagesCheck() {
     try { const html = await (await get(BASE + "xeber/" + id + "/")).text(); sample.push({ id, ver: verOf(id), min: /assets\/app\.min\.js/.test(html), src: /assets\/app\.js["?]/.test(html) }); }
     catch (e) { sample.push({ id, ver: verOf(id), error: e.message }); }
   }
-  const hard = k => WARN_ONLY.has(k) ? soft : over;
+  // İndeksdə cari versiyalı, amma köhnə şablonlu səhifə = şablon dəyişib, STORY_VER artmayıb (2026-11-08 hadisəsi): dərhal qırmızı.
+  // Köhnə versiyalı səhifələrin app.js yükləməsi gözləniləndir — onları aşağıdakı pay qaydası (24 saat) tutur.
   const bad = sample.filter(s => s.ver >= ver && !s.error && (!s.min || s.src));
-  if (bad.length) hard("sehife").push(`${bad.length} səhifə indeksdə cari (v${ver}), amma şablon köhnə (app.min.js yox / app.js var): ${bad.map(s => s.id).join(", ")} — şablon dəyişib, STORY_VER artmayıb`);
+  if (bad.length) over.push(`${bad.length} səhifə indeksdə cari (v${ver}), amma şablon köhnə (app.min.js yox / app.js var): ${bad.map(s => s.id).join(", ")} — şablon dəyişib, STORY_VER artmayıb`);
   let bump = null;
   if (share > LIMITS["sehife.kohne"]) {
     bump = await lastBump(ver).catch(() => null);
     const msg = `köhnə şablon ${(share * 100).toFixed(1)}% > ${LIMITS["sehife.kohne"] * 100}% (${old.length}/${ids.length} səhifə v<${ver})`;
     if (bump && bump.recent) soft.push(`${msg} — versiya ${bump.at} artıb, ${LIMITS["sehife.saat"]} saat gözlənir`);
     else if (!bump) soft.push(`${msg} — versiya artımının vaxtı bilinmir (GitHub API; GH_TOKEN?)`);
-    else hard("sehife").push(`${msg} — son ${LIMITS["sehife.saat"]} saatda versiya artmayıb, köhnə səhifələr yenidən yazılmır (updater.py STORY_REWRITE)`);
+    else over.push(`${msg} — son ${LIMITS["sehife.saat"]} saatda versiya artmayıb, köhnə səhifələr yenidən yazılmır (updater.py STORY_REWRITE)`);
   }
   add("sehife", "xeber/<id>/ şablon versiyası", { ver, total: ids.length, old: old.length, share: Math.round(share * 1000) / 1000, sample, bump }, over, soft);
 }
@@ -279,12 +281,16 @@ function gzSize(url) {
   });
 }
 async function dataCheck() {
+  // Paylaşma siyahısının hissələri nüsxədəki data/paylas/-dan (hissə sayı dəyişə bilər: 32 → 256), canlıdan 8-8 paralel.
+  const parts = () => { try { const f = fs.readdirSync(path.join(ROOT, "data/paylas")).filter(f => /^\d+\.json$/.test(f)).map(f => "data/paylas/" + f); if (f.length) return f; } catch {} return Array.from({ length: 32 }, (_, i) => `data/paylas/${i}.json`); };
   for (const [key, limit] of Object.entries(B.melumat)) {
-    const files = key === "paylas.json.gz" ? Array.from({ length: 32 }, (_, i) => `data/paylas/${i}.json`) : ["data/" + key.replace(/\.gz$/, "")];
+    const files = key === "paylas.json.gz" ? parts() : ["data/" + key.replace(/\.gz$/, "")];
     let worst = { bytes: 0, file: null, wire: null }; const soft = [];
-    for (const f of files) {
-      try { const r = await gzSize(BASE + f); if (r.status !== 200) { soft.push(`${f}: ${r.status}`); continue; } if (r.bytes > worst.bytes) worst = { bytes: r.bytes, file: f, wire: r.wire }; }
-      catch (e) { soft.push(`${f}: ${e.message}`); }
+    for (let i = 0; i < files.length; i += 8) {
+      await Promise.all(files.slice(i, i + 8).map(async f => {
+        try { const r = await gzSize(BASE + f); if (r.status !== 200) { soft.push(`${f}: ${r.status}`); return; } if (r.bytes > worst.bytes) worst = { bytes: r.bytes, file: f, wire: r.wire }; }
+        catch (e) { soft.push(`${f}: ${e.message}`); }
+      }));
     }
     add("data", key, { ...worst, limit }, worst.bytes >= limit ? [`${worst.file} ${worst.bytes} B gzip ≥ ${limit}: updater.py-də sətir sayı və ya sahə artıb — faylı yox, qaydanı kiçildin (tests/budce.test.cjs)`] : [], soft);
   }
