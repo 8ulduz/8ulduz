@@ -94,11 +94,18 @@ function chromePath() {
   for (const p of ["C:/Program Files/Google/Chrome/Application/chrome.exe", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) if (fs.existsSync(p)) return p;
   throw new Error("Chrome tapılmadı (CHROME=...)");
 }
-async function launch() {
+// Chrome yavaş runner-də (GitHub qəzasından sonra, 2026-11-09) 10 s-də açılmadı: xəta atıldı, amma açıq qalan proses işi 40 dəqiqə
+// asılı saxladı. İndi 30 s gözləyir, alınmasa prosesi öldürüb bir dəfə yenidən cəhd edir; main xətası prosesi dərhal bitirir.
+async function launch(attempt = 1) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "speed-"));
   const proc = spawn(chromePath(), ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${dir}`, "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--mute-audio", "--no-sandbox", "--enable-features=BackForwardCache", "about:blank"], { stdio: "ignore" });
   const portFile = path.join(dir, "DevToolsActivePort");
-  for (let i = 0; i < 100 && !fs.existsSync(portFile); i++) await sleep(100);
+  for (let i = 0; i < 300 && !fs.existsSync(portFile) && proc.exitCode === null; i++) await sleep(100);
+  if (!fs.existsSync(portFile)) {
+    try { proc.kill("SIGKILL"); } catch {}
+    if (attempt < 2) { console.log("Chrome 30 s-də açılmadı, yenidən cəhd…"); return launch(attempt + 1); }
+    throw new Error("Chrome açılmadı (DevToolsActivePort yoxdur)");
+  }
   const [port, wsPath] = fs.readFileSync(portFile, "utf8").split("\n");
   return { proc, dir, ws: `ws://127.0.0.1:${port}${wsPath.trim()}` };
 }
@@ -554,4 +561,4 @@ async function main() {
   if (fail.length) { console.log(`\nBüdcəni keçənlər (${fail.length}):\n  ` + fail.join("\n  ")); if (process.env.GITHUB_ACTIONS) fail.forEach(f => console.log(`::error::${f}`)); if (BUDGET) process.exitCode = 1; }
   else console.log("\nBütün ölçülər büdcə daxilindədir.");
 }
-main().catch(e => { console.error(e); process.exitCode = 2; });
+main().catch(e => { console.error(e); process.exit(2); }); // exitCode yox: açıq qalan Chrome prosesi işi asılı saxlayırdı
