@@ -1913,18 +1913,45 @@ test('speed red line: a shared link renders the story from the share index befor
   const { S, loadShared, articleView } = ctx.api;
   const asked = [];
   ctx.asked = asked;
-  vm.runInContext(`requestJSON = async url => { asked.push(url.split("?")[0]); return { d: { articles: [
+  vm.runInContext(`requestJSON = async url => { asked.push(url.split("?")[0]); return { d: { parts: 256, articles: [
     { id: "0a0a0a0a0a0a0a0a", of: "0b0b0b0b0b0b0b0b" },
     { id: "0b0b0b0b0b0b0b0b", title: "Pensiyalar artırılır", source: "APA", sourceUrl: "https://apa.az/x", publishedAt: new Date().toISOString(), category: "sosial", lang: "az" } ] } }; };
     renderView = () => { globalThis.rendered = (globalThis.rendered || 0) + 1; };`, ctx);
   await loadShared('0a0a0a0a0a0a0a0a');
-  assert.deepEqual(asked, ['data/paylas/1.json', 'data/paylas/1.json'], '0a→hissə 1, of ilə 0b→hissə 1');
+  assert.deepEqual(asked, ['data/paylas/10.json', 'data/paylas/11.json'], '0a→hissə 10, of ilə 0b→hissə 11 (256 hissə: id-nin ilk iki hex rəqəmi)');
   assert.equal(S.sharedStory.row.title, 'Pensiyalar artırılır');
   assert.equal(ctx.rendered, 1, 'tam lent olmadan çəkilir');
   assert.equal(S.data, null);
   assert.ok(articleView('0a0a0a0a0a0a0a0a').includes('Pensiyalar artırılır'), 'xəbər səhifəsi tam lentsiz qurulur');
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  assert.ok(index.includes('files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json")'), 'index.html paylaşma hissəsini erkən istəyir');
+  assert.ok(index.includes('files.unshift("data/paylas/" + parseInt(art[1].slice(0, 2), 16) + ".json")'), 'index.html paylaşma hissəsini (256-dan birini) erkən istəyir');
+});
+test('speed 2026-11-09: share list 32 → 256 parts — the old part (>> 3) is read only while the file is missing or still in the old split', async () => {
+  const row = id => ({ id, title: 'Köhnə bölgüdən', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: new Date().toISOString(), category: 'sosial', lang: 'az' });
+  const run = async (id, files) => {
+    const ctx = app({ location: { hash: '#/xeber/' + id } });
+    ctx.asked = []; ctx.files = files;
+    vm.runInContext(`requestJSON = async url => { const p = url.split("?")[0]; asked.push(p); if (!(p in files)) throw new Error("HTTP 404"); return { d: files[p] }; };`, ctx);
+    return { asked: ctx.asked, row: await ctx.api.shareRow(id) };
+  };
+  // Sayt yeni, updater köhnə: 90.json yoxdur (404) → köhnə hissə 11 (0x5a >> 3).
+  let got = await run('5a5a5a5a5a5a5a5a', { 'data/paylas/11.json': { articles: [row('5a5a5a5a5a5a5a5a')] } });
+  assert.deepEqual(got.asked, ['data/paylas/90.json', 'data/paylas/11.json']); assert.equal(got.row?.title, 'Köhnə bölgüdən');
+  // 0x0a = 10: fayl var, amma köhnə bölgülü (parts yoxdur) → köhnə hissə 1.
+  got = await run('0a0a0a0a0a0a0a0a', { 'data/paylas/10.json': { articles: [] }, 'data/paylas/1.json': { articles: [row('0a0a0a0a0a0a0a0a')] } });
+  assert.deepEqual(got.asked, ['data/paylas/10.json', 'data/paylas/1.json']); assert.equal(got.row?.title, 'Köhnə bölgüdən');
+  // Yeni bölgü (parts 256) sətri tapmır → ikinci sorğu yoxdur (arxiv budağı növbətidir).
+  got = await run('0a0a0a0a0a0a0a0a', { 'data/paylas/10.json': { parts: 256, articles: [] }, 'data/paylas/1.json': { articles: [row('0a0a0a0a0a0a0a0a')] } });
+  assert.deepEqual(got.asked, ['data/paylas/10.json']); assert.equal(got.row, null);
+  // Hər iki fayl alınmır (şəbəkə): əvvəlki kimi xəta qalxır, çağıran (loadShared/scanArchives) tutur. Hissə 0: köhnə və yeni hissə eynidir, təkrar sorğu yoxdur.
+  const ctx0 = app({ location: { hash: '#/xeber/0101010101010101' } }); ctx0.asked = [];
+  vm.runInContext(`requestJSON = async url => { asked.push(url.split("?")[0]); throw new Error("HTTP 404"); };`, ctx0);
+  await assert.rejects(ctx0.api.shareRow('0101010101010101'), /HTTP 404/);
+  assert.deepEqual(ctx0.asked, ['data/paylas/1.json', 'data/paylas/0.json']);
+  got = await run('0000000000000000', {});
+  assert.deepEqual(got.asked, ['data/paylas/0.json']); assert.equal(got.row, null);
+  const up = fs.readFileSync(path.join(root, 'updater.py'), 'utf8');
+  assert.ok(up.includes('SHARE_KEEP_S, SHARE_PARTS = 25 * 3600, 256') && up.includes('return int(sid[:2], 16) if re.fullmatch') && up.includes('"parts": SHARE_PARTS'), 'updater 256 hissə yazır və faylda bölgünü deyir');
 });
 test('owner 2026-11-07: an old shared link (?h=hour) opens from the archive branch even if the feed arrives meanwhile', async () => {
   const ctx = app({ location: { hash: '#/xeber/0c0c0c0c0c0c0c0c?b=sosial&h=26110713' } });
@@ -1933,10 +1960,10 @@ test('owner 2026-11-07: an old shared link (?h=hour) opens from the archive bran
   ctx.asked = asked;
   vm.runInContext(`requestJSON = async url => { asked.push(url.split("?")[0]); if (url.includes("/arxiv/")) { S.data = { articles: [] };
     return { d: { articles: [{ id: "0c0c0c0c0c0c0c0c", title: "Köhnə xəbər", source: "APA", sourceUrl: "https://apa.az/k", publishedAt: "2026-11-07T13:05:00Z", category: "sosial", lang: "az" }] } }; }
-    return { d: { articles: [] } }; };
+    return { d: { parts: 256, articles: [] } }; };
     renderView = () => {};`, ctx);
   await loadShared('0c0c0c0c0c0c0c0c');
-  assert.deepEqual(asked, ['data/paylas/1.json', 'https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/26110713.json'], 'əvvəl paylaşma siyahısı, sonra saatın arxiv faylı');
+  assert.deepEqual(asked, ['data/paylas/12.json', 'https://raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/26110713.json'], 'əvvəl paylaşma siyahısı, sonra saatın arxiv faylı');
   assert.ok(articleView('0c0c0c0c0c0c0c0c').includes('Köhnə xəbər'), 'lent arada gəlsə də xəbər açılır');
 });
 test('speed red line: the cached feed is shown before the network answers and then replaced', async () => {

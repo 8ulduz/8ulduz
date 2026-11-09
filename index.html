@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-vDsPFcBC3g64lHApK8/P3Msiz5t4/sBt814ahktJfrQ=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-/g/dIW5iISNvfN64KG+js/R6wXvMneRbwFSujpkO6zw=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.min.js" />
     <script>
@@ -40,12 +40,12 @@
         if (team) [["komanda.js", "modulepreload"], ["komanda.css", "preload"]].forEach(function (x) {
           var l = document.createElement("link"); l.rel = x[1]; if (x[1] === "preload") l.as = "style"; l.href = "./assets/" + x[0]; document.head.appendChild(l);
         });
-        // Paylaşılan keçid (#/xeber/ID): xəbərin sətri 32 hissəli paylaşma siyahısından (~20 KB) tam lentdən əvvəl gəlir (app.js loadShared).
+        // Paylaşılan keçid (#/xeber/ID): xəbərin sətri 256 hissəli paylaşma siyahısından (~8 KB gzip) tam lentdən əvvəl gəlir (app.js loadShared).
         var art = location.hash.match(/^#\/xeber\/([0-9a-f]{16})/);
         var got = false;
         try { got = !!(art && sessionStorage.getItem("x:" + art[1])); } catch (e) {}
         // Sətir paylaşma səhifəsindən gəlibsə xəbər dərhal çəkilir; tam lent sonra (app.js), xəbərin çəkilməsini gecikdirməsin.
-        if (got) files = []; else if (art) files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json");
+        if (got) files = []; else if (art) files.unshift("data/paylas/" + parseInt(art[1].slice(0, 2), 16) + ".json");
         files.forEach(function (p, i) {
           var u = p; // sorğu açarı yoxdur: CDN nüsxəsi gəlir, Pages hər yayımda keşi təmizləyir (sahib, 2026-11-09; app.js freshUrl)
           window.__early[u] = fetch(u, { cache: "no-store", priority: i < (team ? 2 : 1) ? "high" : "low" });

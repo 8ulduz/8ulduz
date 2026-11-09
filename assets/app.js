@@ -1903,9 +1903,15 @@ function homeView() {
   }).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
+// Paylaşma siyahısı (updater.update_share_index): hissə = id-nin ilk iki hex rəqəmi, 256 fayl, biri ~8 KB gzip (2026-11-09-a qədər 32 fayl,
+// `>> 3`, biri ~54 KB gzip — bir sətir üçün). Keçid dövrü: fayl yoxdursa və ya "parts" 256 deyilsə (updater hələ köhnə bölgü ilə yazır)
+// sətir köhnə hissədə axtarılır; yeni bölgülü fayl sətri tapmayanda ikinci sorğu yoxdur (arxiv budağına keçir).
 async function shareRow(id) {
+  const part = n => requestJSON(freshUrl(`data/paylas/${n}.json`), {}, 8000).then(x => x.d);
   for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
-    const {d} = await requestJSON(freshUrl(`data/paylas/${parseInt(k.slice(0, 2), 16) >> 3}.json`), {}, 8000);
+    const n = parseInt(k.slice(0, 2), 16);
+    let d = await part(n).catch(() => null);
+    if (d?.parts !== 256 && n >> 3 !== n) d = await part(n >> 3);
     const row = d?.articles?.find(a => a.id === k);
     if (row?.of) { k = row.of; continue; }
     return row && !removedSource(row) && !policyViolation(row) ? row : null;

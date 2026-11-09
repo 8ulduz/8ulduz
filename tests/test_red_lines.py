@@ -717,6 +717,20 @@ class ArchiveTest(unittest.TestCase):
         part = updater._read_json(updater.SHARE_DIR / f"{updater.share_part(sid)}.json", {}).get("articles") or []
         return next((r for r in part if r["id"] == sid), None)
 
+    def test_share_index_moves_rows_from_the_old_32_part_files_into_256_parts(self):
+        # 2026-11-09: 32 fayl (id >> 3) → 256 fayl (id-nin ilk iki hex rəqəmi). Köhnə fayldakı, lentdən çıxmış xəbər itmir: öz yeni hissəsinə düşür.
+        now, url = updater.time.time(), "https://apa.az/1"
+        sid = updater.hashlib.sha1(url.encode()).hexdigest()[:16]
+        self.assertEqual((updater.SHARE_PARTS, updater.share_part(sid)), (256, int(sid[:2], 16)))
+        updater.SHARE_DIR.mkdir(parents=True, exist_ok=True)
+        old = {**self.row(url, 3, id=sid), "at": int(now - 7200)}
+        (updater.SHARE_DIR / f"{int(sid[:2], 16) >> 3}.json").write_text(updater.json.dumps({"at": now - 7200, "articles": [old]}), encoding="utf-8")
+        updater.update_share_index([], now)
+        part = updater._read_json(updater.SHARE_DIR / f"{updater.share_part(sid)}.json", {})
+        self.assertEqual(part.get("parts"), 256)
+        self.assertEqual([r["sourceUrl"] for r in part["articles"]], [url])
+        self.assertEqual(len(list(updater.SHARE_DIR.glob("*.json"))), 256)
+
     def test_shared_link_opens_for_a_day_after_the_story_leaves_the_feed(self):
         now, url, alt = updater.time.time(), "https://apa.az/1", "https://report.az/1"
         sid = lambda u: updater.hashlib.sha1(u.encode()).hexdigest()[:16]
