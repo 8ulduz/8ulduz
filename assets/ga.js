@@ -31,10 +31,15 @@ export function pageUrl(path, loc = location) {
   return loc.origin + (route !== "/" ? route : base || "/") + loc.search;
 }
 
+// Botlar sayılmır (sahib 2026-11-08). 2000x2000: Meta/AWS render botu (0 san.). «Cubot» telefonu bot deyil.
+const BOT = /\bbot\b|[a-z]bot\/|crawl|spider|slurp|headless|lighthouse|ptst|pingdom|uptime|phantom|puppeteer|playwright|selenium|externalhit|bingpreview|python|curl\/|wget/i;
+export const isBot = (n = navigator, s = screen) => !!n.webdriver || BOT.test(n.userAgent || "") || !(s.width > 0 && s.height > 0) || (s.width === 2000 && s.height === 2000);
+
 // ev: hadisə (sahib 2026-11-07: keçidləri ölçmək) — "out-apa.az" (mənbəyə keçid), "share-wa" (paylaşma), "install-…".
 // GA4-də hadisənin adı birinci hissədir (out, share, install), qalanı «type» parametridir.
 export function hit(id, path, title, now = Date.now(), ev = "") {
   if (!/^G-[A-Z0-9]+$/.test(String(id || "")) || !/^(www\.)?8ulduz\.az$/.test(location.hostname)) return null; // yerli sınaq statistikaya düşmür
+  if (isBot()) return null;
   const { s, first, start } = state(now);
   const [name, ...type] = String(ev).split("-");
   const q = new URLSearchParams({ v: "2", tid: id, cid: s.cid, sid: String(s.sid), sct: String(s.sct), _p: String(Math.floor(Math.random() * 1e9)),

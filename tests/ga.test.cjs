@@ -13,7 +13,7 @@ function load({ stored = null, ref = "", host = "8ulduz.az" } = {}) {
     screen: { width: 390, height: 844 },
     localStorage: { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) },
     setTimeout: (f, ms) => timers.push([f, ms]), fetch: async () => {} };
-  const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit, pageUrl })";
+  const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit, pageUrl, isBot })";
   return { api: vm.runInNewContext(src, ctx), sent, store, timers };
 }
 const params = u => Object.fromEntries(new URL(u).searchParams);
@@ -56,7 +56,7 @@ test("ga4: bad id sends nothing; the site loads the sender only after it is show
   assert.equal(local.api.hit("G-NHSDLY61CD", "/", "x"), null, "yerli sınaq GA4-ə getmir"); assert.equal(local.sent.length, 0);
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8"), cfg = fs.readFileSync(path.join(root, "assets/config.js"), "utf8");
   assert.ok(cfg.includes('ga4: "G-NHSDLY61CD"'));
-  assert.ok(app.includes('import("./ga.js?v=2")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
+  assert.ok(app.includes('import("./ga.js?v=3")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
   for (const f of ["assets/app.js", "index.html", "assets/config.js"]) assert.ok(!/googletagmanager|gtag\/js/.test(fs.readFileSync(path.join(root, f), "utf8")), f + ': Google-un ağır skripti yoxdur');
   assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4000, 'göndərici kiçik qalır');
   assert.ok(fs.readFileSync(path.join(root, "mexfilik/index.html"), "utf8").includes("Google Analytics 4"), 'məxfilik səhifəsində yazılıb');
@@ -75,4 +75,21 @@ test("ga4: clicks to sources, shares and installs are counted as events (owner 2
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
   assert.ok(app.includes("gaQ.push([visitPath(), document.title, void 0, path]); gaFlush();"), "trackEvent GA4-ə də gedir");
   assert.ok(app.includes('trackEvent("out-" + a.host)'), "mənbəyə (başqa sayta) keçid sayılır");
+});
+
+test("ga4: automated visits (webdriver, headless, crawlers, no screen) are not counted; real phones are", () => {
+  const { api, sent } = load();
+  const chrome = "Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36";
+  const scr = { width: 390, height: 844 };
+  assert.equal(api.isBot({ userAgent: chrome }, scr), false);
+  assert.equal(api.isBot({ userAgent: "Mozilla/5.0 (Linux; Android 13; CUBOT X30) Chrome/130.0 Mobile" }, scr), false, "Cubot telefonu");
+  assert.equal(api.isBot({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1" }, scr), false);
+  for (const ua of ["Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/130.0 Safari/537.36", "Mozilla/5.0 (compatible; Googlebot/2.1)",
+    "Mozilla/5.0 (compatible; bingbot/2.0)", "Chrome-Lighthouse", "facebookexternalhit/1.1", "python-requests/2.32", "curl/8.4"])
+    assert.equal(api.isBot({ userAgent: ua }, scr), true, ua);
+  assert.equal(api.isBot({ userAgent: chrome, webdriver: true }, scr), true, "idarə olunan brauzer");
+  assert.equal(api.isBot({ userAgent: chrome }, { width: 0, height: 0 }), true, "ekransız");
+  assert.equal(api.isBot({ userAgent: chrome }, { width: 2000, height: 2000 }), true, "Meta render botunun ekranı");
+  api.hit("G-NHSDLY61CD", "/", "8ulduz");
+  assert.equal(sent.length, 1, "adi oxucu sayılır");
 });
