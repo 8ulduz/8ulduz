@@ -49,3 +49,21 @@ class ReaderContentTest(unittest.TestCase):
             update_reader(rows,file,fetch)
             self.assertEqual(seen,['https://example.com/az'])
             self.assertEqual(len(json.loads(file.read_text(encoding='utf-8'))['articles']),1)
+
+
+class Oxu24Test(unittest.TestCase):
+    def test_oxu24_news_detail_body_is_read(self):
+        # Sahib, 2026-11-09: «Vasif Talıbovun oğlu xəbər yaydı — Dinlə tam oxumur», «gündəmdə Oxu24 hamısı belədir».
+        page = ('<div class="news-detail"><h1><b>Vasif Talıbovun oğlu <span>AÇIQLAMA YAYDI</span></b></h1>'
+                '<div class="category"><div><p>CƏMİYYƏT</p><p>623</p></div></div>'
+                '<div class="google-source"><div class="google-source__title">Xəbərlərimizi Google-da izləyin</div></div>'
+                '<div class="description"><p><b>Naxçıvan Ali Məclisinin keçmiş sədri Vasif Talıbovun oğlu Rza Talıbov açıqlama yayıb.</b></p>'
+                '<p><b><div><script async src="//x/slot.js"></script><ins class="ainsyndication"></ins></div></b></p>'
+                '<p><a href="https://oxu24.com/az">Oxu24.com</a> xəbər verir ki, Rza Talıbov açıqlamasında adına saxta TikTok hesabı açıldığını bildirib.</p>'
+                '<p>"Diqqətinizə çatdırmaq istəyirəm ki, TikTok sosial şəbəkəsində fəaliyyət göstərən səhifə mənim icazəm olmadan açılmış saxta profildir.</p>'
+                '<p>' + BODY + '</p><p>Xəbər xoşunuza gəldi? Sosial şəbəkələrdə paylaşın</p><p>Bizə yazın: (+99450) 247 90 86</p></div></div>')
+        text = extract_article(page)
+        self.assertIn('Rza Talıbov açıqlama yayıb', text)
+        self.assertIn('saxta profildir', text)
+        for junk in ('CƏMİYYƏT', 'Google-da', 'paylaşın', 'Bizə yazın', 'AÇIQLAMA YAYDI'):
+            self.assertNotIn(junk, text)
