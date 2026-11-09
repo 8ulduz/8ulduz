@@ -135,6 +135,17 @@ test('speed: the measuring tool emulates a phone (touch media, 4× slower CPU) a
   assert.ok(tool.includes('--budget') && tool.includes('LIMITS'), 'büdcəni keçəndə çıxış kodu 1');
 });
 
+test('speed 2026-11-09: the first slide picture is 640 px on every screen, so the prerendered image is not fetched again at 800 on a computer', () => {
+  const list = [story(1, { imageUrl: 'https://apa.az/1.jpg' }), story(2, { imageUrl: 'https://apa.az/2.jpg' })];
+  const desk = app(), phone = app({ innerWidth: 390 });
+  desk.list = list; phone.list = list;
+  const [d1, d2] = vm.runInContext('heroBlock(list)', desk).match(/<img [^>]*>/g), [p1, p2] = vm.runInContext('heroBlock(list)', phone).match(/<img [^>]*>/g);
+  assert.equal(d1, p1, 'ilk slaydın şəkil teqi kompüterdə və telefonda eynidir (hazır HTML-dəki ilə də)');
+  assert.ok(/w=640&amp;we/.test(d1) && /fetchpriority="high"/.test(d1), 'ilk şəkil 640, yüksək prioritet');
+  assert.ok(/w=640&amp;we/.test(d2) && /w=480&amp;we/.test(p2), 'növbəti slaydlar: kompüterdə 640, telefonda 480');
+  assert.equal(vm.runInContext('heroPicWidth(true)', desk), 640, 'primeHeroImage də eyni ünvanı əvvəlcədən yükləyir');
+});
+
 test('speed: the early-fetch script in index.html is allowed by its CSP hash (a stale hash silently blocks it: no early files, the home page flashes on deep links)', () => {
   const crypto = require('node:crypto');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n'); // GitHub Pages LF verir
@@ -153,4 +164,102 @@ test('speed: the service worker precaches only first-visit files (sahib v107; 20
     'ilkin keş siyahısı dəyişib: hər fayl hər versiyada yenidən yoxlanır — yalnız ilk açılışın faylları (ikonlar və og şəkli işçidən oxunmur)');
   assert.ok(SW.includes('const DATA = "8ulduz-data";'), 'məlumat keşi versiyasız: yayımdan sonra lent keşdə qalır (gündə 20–40 yayım var)');
   assert.ok(!SW.includes('cache.match("./index.html")'), 'oflayn qabıq ./ açarından (index.html ilkin keşdə deyil)');
+});
+
+// publishNews yaddaşı (2026-11-09): dəqiqəlik lent hər dəfə ~1 100 sətri yenidən klonlayıb qaydadan keçirirdi. Çıxış köhnə boru xətti ilə
+// bayt-bayt eyni olmalıdır — REF köhnə publishNews-un hazırlıq hissəsidir (yaddaşsız), hər halda yenidən hesablanır.
+const REF = `(() => { let articles = S.rawNews.map(a => ({...a, category: SECTION_ALIAS[a.category] || a.category, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
+  articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))}));
+  if (S.deadLinks?.size) articles = articles.flatMap(a => { const alts = a.alts.filter(alt => !S.deadLinks.has(alt.sourceUrl)); if (!S.deadLinks.has(a.sourceUrl)) return [{...a, alts}]; if (!alts.length) return []; const [next, ...rest] = alts; return [{...a, source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt || a.publishedAt, title: next.title || a.title, lang: next.lang || a.lang, imageUrl: a.imageUrl || next.imageUrl, alts: rest}]; });
+  const rows = collapseExact(clusterArticles(articles));
+  for (const a of rows) { if (a.imageUrl || !a.alts?.length) continue; const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og?.[x.sourceUrl]); if (alt) a.imageUrl = alt.imageUrl || S.og?.[alt.sourceUrl]; }
+  return JSON.stringify(rows); })()`;
+function policyApp() {
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {}, contains() { return false; } }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: {}, style: {}, hidden: false, textContent: '' };
+  const ctx = vm.createContext({
+    console: { ...console, log() {}, warn() {}, info() {} }, Map, Set, URL, Date, AbortController, setTimeout, clearTimeout, performance, TextEncoder, btoa, innerWidth: 390,
+    addEventListener() {}, localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    location: { hash: '#/', href: 'https://8ulduz.az/' }, navigator: { onLine: true }, history: { replaceState() {} },
+    document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, title: '', addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; },
+      createElement() { return { _v: '', set innerHTML(v) { this._v = String(v); }, get innerHTML() { return this._v; }, get value() { return this._v; }, content: {}, children: [] }; } },
+    matchMedia: () => ({ matches: false }), requestAnimationFrame: () => 0,
+  });
+  ctx.window = ctx;
+  vm.runInContext(fs.readFileSync(path.join(root, 'assets/content-policy.js'), 'utf8'), ctx);
+  vm.runInContext(APP.split('\napplyPrefs();\n')[0], ctx);
+  vm.runInContext('render = () => {}; renderTopbar = () => {}; renderView = () => {}; renderTicker = () => {}; checkBreaking = () => {}; primeHeroImage = () => {}; requestRender = () => {}; loadArchive = async () => {}; loadOg = async () => {};', ctx);
+  return ctx;
+}
+function feed(rows, og) {
+  const ctx = policyApp(); ctx.__rows = rows; ctx.__og = og;
+  vm.runInContext('S.og = __og; S.rawNews = __rows; S.rawMeta = { updatedAt: "x", count: __rows.length }; S.partial = false; S.lang = "az";', ctx);
+  return ctx;
+}
+const run = (ctx, code) => vm.runInContext(code, ctx);
+const same = (ctx, label) => { run(ctx, 'publishNews()'); const got = run(ctx, 'JSON.stringify(S.data.articles)'); assert.equal(got, run(ctx, REF), label + ': publishNews köhnə boru xətti ilə bayt-bayt eyni deyil'); return got; };
+const latest = (ctx, d) => { ctx.__d = d; run(ctx, 'latestJSON = async () => ({ r: { headers: { get: () => null } }, d: __d })'); return run(ctx, 'loadLatest()'); };
+
+test('speed 2026-11-09: memoized publishNews is byte-identical to the old pipeline on the real feed through every invalidation path', async () => {
+  // Bərabərliyin əsas hissəsi real lentdir (data/news.json + og.json); hər yaddaş sıfırlanma halının öz sətri sintetikdir:
+  // lent hər 10 dəqiqə dəyişir, xüsusi hal (şəkilsiz, qruplu, çıxarılan sətir) lentdən seçilsə test sabit olmazdı.
+  const stamp = new Date(Date.now() - 3600e3).toISOString();
+  const syn = (k, title, extra = {}) => ({ id: 'e0e0e0e0e0e0e0e' + k, title, summary: '', source: 'APA', sourceUrl: `https://apa.az/sinaq-${k}`, publishedAt: stamp, category: 'gundem', lang: 'az', ...extra });
+  const real = JSON.parse(fs.readFileSync(path.join(root, 'data/news.json'), 'utf8')).articles, og = JSON.parse(fs.readFileSync(path.join(root, 'data/og.json'), 'utf8'));
+  const rows = [...real,
+    syn(1, 'Sınaq sətri: og xəritəsindən şəkil sonradan gəlir'),
+    syn(2, 'Sınaq sətri: redaksiya bu xəbəri lentdən çıxarır'),
+    syn(3, 'Sınaq sətri: əsas keçid ölüdür, alt mənbə qalır', { source: 'Report', sourceUrl: 'https://report.az/sinaq-3', alts: [{ source: 'APA', sourceUrl: 'https://apa.az/sinaq-3-alt', publishedAt: stamp, title: 'Sınaq sətri: alt mənbə ölü keçidi əvəz edir' }] }),
+    syn(4, 'Sınaq sətri: şəkil dəqiqəlik lentdə tapılır')];
+  const ctx = feed(rows, og);
+  const cold = same(ctx, 'soyuq');
+  assert.ok(run(ctx, 'S.data.articles.length') >= 100, 'real lent qaydadan keçmir: test heç nə yoxlamır');
+  assert.ok(['apa.az/sinaq-1', 'apa.az/sinaq-2', 'report.az/sinaq-3', 'apa.az/sinaq-4'].every(u => cold.includes(u)), 'sınaq sətirləri lentdədir');
+  assert.equal(same(ctx, 'isti (ikinci çağırış)'), cold);
+  assert.ok(run(ctx, 'S.rawNews.every(a => PREP.has(a))'), 'hər xam sətrin hazır sətri yaddaşdadır');
+  // og dəyişir (yeni obyekt): şəkilsiz sətir şəkil qazanır.
+  run(ctx, 'S.og = { ...S.og, "https://apa.az/sinaq-1": "https://apa.az/yeni-og.jpg" }');
+  assert.ok(same(ctx, 'og dəyişdi').includes('yeni-og.jpg'), 'og-dən gələn şəkil lentdədir');
+  // Çıxarılan xəbər (addRemovals): yaddaşdakı hazır sətir qalmır.
+  run(ctx, 'addRemovals({ x: { id: "e0e0e0e0e0e0e0e2" } })');
+  assert.ok(!same(ctx, 'çıxarılan xəbər').includes('apa.az/sinaq-2'), 'çıxarılan xəbər lentdə qalmır');
+  // Ölü keçid (loadLatest → deadChanged): əsas mənbə alt mənbə ilə əvəz olunur.
+  const DEAD = ['https://report.az/sinaq-3'];
+  await latest(ctx, { articles: [], dead: DEAD });
+  assert.equal(run(ctx, 'JSON.stringify(S.data.articles)'), run(ctx, REF), 'ölü keçiddən sonra');
+  assert.ok(run(ctx, 'S.data.articles.some(a => a.sourceUrl === "https://apa.az/sinaq-3-alt") && !S.data.articles.some(a => a.sourceUrl === "https://report.az/sinaq-3")'), 'ölü keçid alt mənbə ilə əvəz olunub');
+  // Dəqiqəlik lentdən sonradan tapılan şəkil: eyni ölü siyahı (tam sıfırlama yoxdur), yalnız o sətir yaddaşdan silinir (PREP.delete).
+  await latest(ctx, { articles: [{ ...syn(4, 'Sınaq sətri: şəkil dəqiqəlik lentdə tapılır'), imageUrl: 'https://apa.az/sonradan.jpg' }], dead: DEAD });
+  const late = run(ctx, 'JSON.stringify(S.data.articles)');
+  assert.equal(late, run(ctx, REF), 'şəkil sonradan tapılanda');
+  assert.ok(late.includes('sonradan.jpg'), 'tapılan şəkil lentdədir');
+  // Yeni gələn sətirlər (QIRMIZI XƏTT 2): yaddaş onlara aid deyil — mənbə qaydasından keçirlər.
+  const now = new Date().toISOString();
+  await latest(ctx, { articles: [
+    { id: 'f1f1f1f1f1f1f1f1', title: 'Yeni gələn adi xəbər başlığı', source: 'APA', sourceUrl: 'https://apa.az/yeni-1', publishedAt: now, category: 'gundem', lang: 'az' },
+    { id: 'f2f2f2f2f2f2f2f2', title: 'Qadağan mənbədən xəbər', source: 'Azadlıq', sourceUrl: 'https://azadliq.org/x1', publishedAt: now, category: 'gundem', lang: 'az' },
+    { id: 'f3f3f3f3f3f3f3f3', title: 'Azerbaijan signs new energy deal', source: 'BBC News', sourceUrl: 'https://www.bbc.com/news/x1', publishedAt: now, category: 'dunya', lang: 'en' }], dead: DEAD });
+  const after = run(ctx, 'JSON.stringify(S.data.articles)');
+  assert.equal(after, run(ctx, REF), 'yeni sətirlərdən sonra');
+  assert.ok(after.includes('apa.az/yeni-1') && !after.includes('azadliq.org/x1') && !after.includes('bbc.com/news/x1'), 'yeni sətir qaydadan keçir: icazəli qalır, qadağan düşür');
+  // Fikstür: alt mənbəli real qrup.
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/education-duplicates.json'), 'utf8'));
+  const f = feed(fixture.live, {}); assert.equal(same(f, 'fikstür soyuq'), same(f, 'fikstür isti'));
+  // Alt mənbəsiz lent: clusterArticles qrupları özü qurur — giriş sətrini dəyişməməlidir (əvvəl primary.alts yazırdı, yaddaşla ikinci çağırış fərqli olardı).
+  const plain = Array.from({ length: 30 }, (_, i) => ({ id: 'c' + i, title: `Bakıda yeni məktəb binasının açılışı keçirildi ${Math.floor(i / 2)}`, source: i % 2 ? 'Report' : 'APA', sourceUrl: `https://${i % 2 ? 'report' : 'apa'}.az/${i}`, publishedAt: now, category: 'tehsil', lang: 'az' }));
+  const p = feed(plain, {}); const p1 = same(p, 'alt mənbəsiz soyuq');
+  assert.ok(run(p, 'S.data.articles.some(a => a.alts?.length)'), 'qruplar qurulub');
+  assert.equal(same(p, 'alt mənbəsiz isti'), p1);
+  assert.ok(run(p, 'S.rawNews.every(a => !a.alts)'), 'xam sətirlər dəyişməyib');
+});
+
+test('speed 2026-11-09: the second publishNews on an unchanged feed costs less than half of the first (per-minute refresh)', t => {
+  const rows = JSON.parse(fs.readFileSync(path.join(root, 'data/news.json'), 'utf8')).articles, og = JSON.parse(fs.readFileSync(path.join(root, 'data/og.json'), 'utf8'));
+  const ctx = feed(rows, og);
+  // Ən yaxşı/7; klonlama ölçüyə daxil deyil. Soyuq: təzə obyektlər (tam lent hər 10 dəqiqə), isti: eyni obyektlər (dəqiqəlik lent).
+  const timed = (prep, code) => { let m = Infinity; for (let i = 0; i < 7; i++) { prep(); const t0 = performance.now(); run(ctx, code); m = Math.min(m, performance.now() - t0); } return m; };
+  const cold = timed(() => run(ctx, 'S.rawNews = S.rawNews.map(a => ({ ...a }))'), 'publishNews()');
+  const warm = timed(() => {}, 'publishNews()');
+  t.diagnostic(`publishNews ms (ən yaxşı/7): soyuq ${cold.toFixed(1)}, isti ${warm.toFixed(1)}`);
+  assert.ok(warm < cold / 2, `isti ${warm.toFixed(1)} ms ≥ soyuq ${cold.toFixed(1)} / 2 — hazır sətir yaddaşı işləmir`);
 });

@@ -356,8 +356,8 @@ function clusterArticles(list) {
     let primary = members[0].a;
     for (const m of members.slice(1)) primary = preferPrimary(primary, m.a);
     const alts = members.filter(m => m.a !== primary).map(m => ({ source: m.a.source, sourceUrl: m.a.sourceUrl, publishedAt: m.a.publishedAt, imageUrl: m.a.imageUrl || "" }));
-    if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
-    out.push(primary);
+    // Giriş sətri dəyişmir (preparedRow yaddaşında qalır): qrupun alt mənbələri nüsxəyə yazılır.
+    out.push(alts.length ? {...primary, alts: alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""))} : primary);
   }
   return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
 }
@@ -460,9 +460,11 @@ function sized(url, width, logo) {
 let viewW = globalThis.innerWidth || 0;
 function viewWidth() { return viewW || (viewW = globalThis.innerWidth || 1200); }
 addEventListener("resize", () => { viewW = globalThis.innerWidth || 1200; }, { passive: true });
+// Slayderin ilk şəkli hər ekranda 640: hazır ilk ekran (prerender.cjs, telefon eni) 640 ilə gəlir və brauzer onu HTML-dən dərhal yükləyir;
+// kompüterdə 800 istənəndə eyni şəkil ikinci dəfə yüklənirdi (2026-11-09 ölçüsü, Lighthouse kompüter: 2 wsrv sorğusu, LCP 2,5 s).
+// Kompüterdə şəkil qutusu (.hero-main>.img: hündürlük ≤ 380 px, 16/9) 1× ekranda ≤ ~640 px-dir; qalan slaydlar kompüterdə elə 640-dır, telefonda 480.
 function heroPicWidth(first) {
-  const narrow = viewWidth() < 900;
-  return first ? (narrow ? 640 : 800) : (narrow ? 480 : 640);
+  return first || viewWidth() >= 900 ? 640 : 480;
 }
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);
@@ -722,6 +724,8 @@ function adHtml() {
 // QIRMIZI XƏTT 2: server qapısından sonra ikinci yoxlama.
 const POLICY = globalThis.CONTENT_POLICY;
 const removedIds = new Set(), removedUrls = new Set(), removedKeys = new Set(), removedHosts = [];
+// Hazır sətirlərin yaddaşı (preparedRow): xam sətir obyekti → 0/1 hazır sətir. Qayda dəyişəndə (çıxarılan xəbər, ölü keçid, og) sıfırlanır.
+let PREP = new WeakMap(), prepOg = null;
 function addRemovals(rows) {
   const before = removedIds.size + removedUrls.size + removedKeys.size;
   for (const r of Object.values(rows || {})) {
@@ -731,7 +735,9 @@ function addRemovals(rows) {
     for (const u of list("urls")) removedUrls.add(u);
     for (const k of [r.key, ...list("keys")]) if (typeof k === "string") { removedKeys.add(k); const h = k.split("#")[0]; if (k.includes("#") && !removedHosts.includes(h)) removedHosts.push(h); }
   }
-  return before !== removedIds.size + removedUrls.size + removedKeys.size;
+  const changed = before !== removedIds.size + removedUrls.size + removedKeys.size;
+  if (changed) PREP = new WeakMap(); // çıxarılan xəbər hazır sətirdə qalmasın
+  return changed;
 }
 addRemovals(POLICY?.removedArticles);
 function removedArticle(a) {
@@ -899,20 +905,33 @@ async function loadCached() {
   } catch {}
 }
 
+// Xam sətirdən hazır sətir: bölmə adı, og şəkli, mənbə qaydası (QIRMIZI XƏTT 2: policyViolation), alt mənbələrin süzgəci, ölü keçidin əvəzi —
+// 0 və ya 1 sətirlik massiv, açar sırası əvvəlki boru xətti ilə eynidir (tests/speed-guard.test.cjs bayt-bayt tutuşdurur). Nəticə xam sətir
+// obyekti üzrə yaddaşda qalır: dəqiqəlik lent hər dəfə ~1 100 sətrin hamısını yenidən klonlayıb yoxlayırdı (1×-də 40–46 ms, telefonda ~180 ms),
+// üstəlik yeni obyektlər DUP_META-nı boşa çıxarırdı. Yaddaş yalnız dəyişməyən sətir üçündür: yeni gələn hər sətir (yeni obyekt) qaydadan keçir.
+// Sıfırlanır: S.og dəyişəndə (publishNews), addRemovals yeni çıxarılan tapanda, ölü keçid siyahısı dəyişəndə və şəkli sonradan tapılan sətirdə (loadLatest).
+function preparedRow(a) {
+  const hit = PREP.get(a);
+  if (hit) return hit;
+  const row = {...a, category: SECTION_ALIAS[a.category] || a.category, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl};
+  let out = [];
+  if (!removedSource(row) && !policyViolation(row)) {
+    const b = {...row, alts: (row.alts || []).filter(alt => !altForbidden(row, alt))};
+    if (!S.deadLinks?.size) out = [b];
+    else { // Linki 404 verən xəbər.
+      const alts = b.alts.filter(alt => !S.deadLinks.has(alt.sourceUrl));
+      if (!S.deadLinks.has(b.sourceUrl)) out = [{...b, alts}];
+      else if (alts.length) { const [next, ...rest] = alts; out = [{...b, source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt || b.publishedAt, title: next.title || b.title, lang: next.lang || b.lang, imageUrl: b.imageUrl || next.imageUrl, alts: rest}]; }
+    }
+  }
+  PREP.set(a, out);
+  return out;
+}
 // Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər; xam siyahı dəyişmir.
 function publishNews() {
   const d = {...S.rawMeta};
-  let articles = S.rawNews.map(a => ({...a, category: SECTION_ALIAS[a.category] || a.category, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
-  articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))}));
-  // Linki 404 verən xəbər.
-  if (S.deadLinks?.size) articles = articles.flatMap(a => {
-    const alts = a.alts.filter(alt => !S.deadLinks.has(alt.sourceUrl));
-    if (!S.deadLinks.has(a.sourceUrl)) return [{...a, alts}];
-    if (!alts.length) return [];
-    const [next, ...rest] = alts;
-    return [{...a, source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt || a.publishedAt, title: next.title || a.title, lang: next.lang || a.lang, imageUrl: a.imageUrl || next.imageUrl, alts: rest}];
-  });
-  d.articles = collapseExact(clusterArticles(articles));
+  if (prepOg !== S.og) { PREP = new WeakMap(); prepOg = S.og; }
+  d.articles = collapseExact(clusterArticles(S.rawNews.flatMap(preparedRow)));
   // Şəkil yoxdursa digər mənbədən.
   for (const a of d.articles) {
     if (a.imageUrl || !a.alts?.length) continue;
@@ -1005,6 +1024,7 @@ async function loadLatest(force = false) {
     if (addRemovals(d.removed)) { publishNews(); renderView(); renderTicker(); }
     const dead = new Set(d.dead || []), deadChanged = dead.size !== (S.deadLinks?.size || 0) || [...dead].some(u => !S.deadLinks.has(u));
     S.deadLinks = dead;
+    if (deadChanged) PREP = new WeakMap(); // ölü keçidin əvəzi hazır sətirdədir
     const known = urlsOf(S.rawNews);
     const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
     // Xəbər şəkilsiz gəlib, şəkli yavaş prosesdən sonra tapılıb.
@@ -1012,7 +1032,7 @@ async function loadLatest(force = false) {
     let gotImage = false;
     for (const a of d.articles) {
       const row = byUrl.get(a.sourceUrl);
-      if (row && !row.imageUrl && a.imageUrl) { row.imageUrl = a.imageUrl; gotImage = true; }
+      if (row && !row.imageUrl && a.imageUrl) { row.imageUrl = a.imageUrl; PREP.delete(row); gotImage = true; }
     }
     if ((gotImage || deadChanged) && !fresh.length) { publishNews(); requestRender(false); renderTopbar(); return; }
     if (!fresh.length) { renderTopbar(); return; }
@@ -1903,9 +1923,15 @@ function homeView() {
   }).join("");
   return top + secs + optional(() => unifiedVideo(byDate(m.filter(a => a.video)))) + optional(() => photoStrip(m.filter(fresh))) + `<details class="service-panel"${S.svcOpen ? " open" : ""}><summary>İdman nəticələri və cədvəllər ▾</summary>${optional(() => footballBlock(S.data.articles))}</details>` + `<details class="service-panel"><summary>Yol və hava ▾</summary>${optional(alertStrip)}</details>`;
 }
+// Paylaşma siyahısı (updater.update_share_index): hissə = id-nin ilk iki hex rəqəmi, 256 fayl, biri ~8 KB gzip (2026-11-09-a qədər 32 fayl,
+// `>> 3`, biri ~54 KB gzip — bir sətir üçün). Keçid dövrü: fayl yoxdursa və ya "parts" 256 deyilsə (updater hələ köhnə bölgü ilə yazır)
+// sətir köhnə hissədə axtarılır; yeni bölgülü fayl sətri tapmayanda ikinci sorğu yoxdur (arxiv budağına keçir).
 async function shareRow(id) {
+  const part = n => requestJSON(freshUrl(`data/paylas/${n}.json`), {}, 8000).then(x => x.d);
   for (let k = id, hop = 0; hop < 3 && /^[0-9a-f]{16}$/.test(k); hop++) {
-    const {d} = await requestJSON(freshUrl(`data/paylas/${parseInt(k.slice(0, 2), 16) >> 3}.json`), {}, 8000);
+    const n = parseInt(k.slice(0, 2), 16);
+    let d = await part(n).catch(() => null);
+    if (d?.parts !== 256 && n >> 3 !== n) d = await part(n >> 3);
     const row = d?.articles?.find(a => a.id === k);
     if (row?.of) { k = row.of; continue; }
     return row && !removedSource(row) && !policyViolation(row) ? row : null;

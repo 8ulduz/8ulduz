@@ -1853,20 +1853,26 @@ def fill_archive_images(rows, images, limit=40):
     return rows
 
 # Paylaşılan keçid (#/xeber/<id>) xəbər lentdən çıxandan sonra ən azı 24 saat açılsın. Bölmə arxivi 200 xəbərlə kəsilir
-# (Gündəm gündüz cəmi 3 saat), lenti isə böyütmək olmaz (sürət). Ayrıca siyahı: id-yə görə 32 fayl, keçid yalnız birini yükləyir.
+# (Gündəm gündüz cəmi 3 saat), lenti isə böyütmək olmaz (sürət). Ayrıca siyahı: id-nin ilk iki hex rəqəminə görə 256 fayl, keçid yalnız
+# birini yükləyir. 2026-11-09-a qədər 32 fayl idi (id >> 3): hər biri ~160 KB / 54 KB gzip, lazım olan bir sətir ~300 bayt; indi ~20 KB /
+# 8 KB gzip (telefonda ~50 ms). Faylın "parts" sahəsi bölgünü deyir: sayt köhnə bölgülü faylı görəndə sətri köhnə hissədə də axtarır
+# (app.js shareRow, keçid dövrü üçün).
 SHARE_DIR = OUT_DIR / "paylas"
-SHARE_KEEP_S, SHARE_PARTS = 25 * 3600, 32   # yazı saatda birdir: 25 saat lentdən çıxandan sonra tam 24 saat deməkdir
+SHARE_KEEP_S, SHARE_PARTS = 25 * 3600, 256   # yazı saatda birdir: 25 saat lentdən çıxandan sonra tam 24 saat deməkdir
 SHARE_FIELDS = ("title", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl")
 
 def share_part(sid):
-    return int(sid[:2], 16) >> 3 if re.fullmatch(r"[0-9a-f]{16}", str(sid or "")) else None
+    return int(sid[:2], 16) if re.fullmatch(r"[0-9a-f]{16}", str(sid or "")) else None
 
 def update_share_index(articles, now):
     parts = [{} for _ in range(SHARE_PARTS)]
-    for i, part in enumerate(parts):
-        for row in _read_json(SHARE_DIR / f"{i}.json", {}).get("articles") or []:
-            if now - row.get("at", 0) < SHARE_KEEP_S and share_part(row.get("id")) == i:
-                part[row["id"]] = row
+    # Mövcud fayllar bölgüdən asılı olmayaraq oxunur, sətir öz hissəsinə düşür: 32 → 256 keçidində köhnə fayldakı (lentdən çıxmış) xəbər
+    # itmir; eyni id iki faylda olsa təzə yazılan qalır.
+    for path in (SHARE_DIR.glob("*.json") if SHARE_DIR.is_dir() else []):
+        for row in _read_json(path, {}).get("articles") or []:
+            i = share_part(row.get("id"))
+            if i is not None and now - row.get("at", 0) < SHARE_KEEP_S and row.get("at", 0) >= parts[i].get(row["id"], {}).get("at", 0):
+                parts[i][row["id"]] = row
     rows = [a for a in articles if share_part(a.get("id")) is not None]
     # Qrupa düşən mənbənin öz nömrəsi lentdə yoxdur: onun sətri qrupun əsas xəbərinə yönəlir (of).
     for a in rows:
@@ -1884,7 +1890,7 @@ def update_share_index(articles, now):
         rows = [r for r in part.values() if not removed_source(r) and not is_negative_about_leadership(r.get("title", ""), "", r.get("source"))]
         rows, _ = content_policy.enforce(rows)
         keep.update(r["id"] for r in rows if not r.get("of"))
-        _write_atomic(SHARE_DIR / f"{i}.json", json.dumps({"at": now, "articles": rows}, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(SHARE_DIR / f"{i}.json", json.dumps({"at": now, "parts": SHARE_PARTS, "articles": rows}, ensure_ascii=False, separators=(",", ":")))
     prune_share_pages(keep)
 
 # Paylaşma səhifələri (sahibin qeydi 2026-11-04: «Facebookda paylaşanda hansı xəbəri paylaşdığın görünmür»). Facebook, WhatsApp,
