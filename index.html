@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-xyHpehEc0/oO9v5Ml5PchHGEhWzxxmZCfyK5D1aQ/nk=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-vDsPFcBC3g64lHApK8/P3Msiz5t4/sBt814ahktJfrQ=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.min.js" />
     <script>
@@ -25,7 +25,6 @@
       // Xəbər və şəkil keşini app.js yüklənməsini gözləmədən soruş (telefonda ilk göstərilmə tezləşir).
       // app.js eyni ünvanı (freshUrl) birinci dəfə bu cavabdan götürür.
       try {
-        var m = Math.floor(Date.now() / 60000);
         window.__early = {};
         var lang = null;
         try { lang = localStorage.getItem("8ulduz-lang"); } catch (e) {}
@@ -48,7 +47,7 @@
         // Sətir paylaşma səhifəsindən gəlibsə xəbər dərhal çəkilir; tam lent sonra (app.js), xəbərin çəkilməsini gecikdirməsin.
         if (got) files = []; else if (art) files.unshift("data/paylas/" + (parseInt(art[1].slice(0, 2), 16) >> 3) + ".json");
         files.forEach(function (p, i) {
-          var u = p + "?t=" + m;
+          var u = p; // sorğu açarı yoxdur: CDN nüsxəsi gəlir, Pages hər yayımda keşi təmizləyir (sahib, 2026-11-09; app.js freshUrl)
           window.__early[u] = fetch(u, { cache: "no-store", priority: i < (team ? 2 : 1) ? "high" : "low" });
           window.__early[u].catch(function () {});
         });

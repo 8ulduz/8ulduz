@@ -1,4 +1,4 @@
-// Paylaşma keçidi serveri (.github/x-worker/worker.js, Cloudflare Workers): x.8ulduz.az/<id> hər dəqiqə og etiketli səhifə verir (sahib, 2026-11-08:
+// Paylaşma keçidi serveri (.github/x-worker/worker.js, Cloudflare Workers): www.8ulduz.az/<id> hər dəqiqə og etiketli səhifə verir (sahib, 2026-11-08:
 // «Facebook-da paylaşanda başlıq çıxmır, xəbərə qayıtmır; tam düzəlt, WhatsApp kimi»).
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -42,18 +42,18 @@ test("x-worker 1: the page updater wrote on the site is served as it is, og:url 
   const seen = world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) });
   const { puts } = memoryCache();
   const waited = [];
-  const r = await call(w, `https://x.8ulduz.az/${ID}?h=26110813`, { waitUntil: p => waited.push(p) });
+  const r = await call(w, `https://www.8ulduz.az/${ID}?h=26110813`, { waitUntil: p => waited.push(p) });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get("Content-Type"), "text/html; charset=utf-8");
   assert.equal(r.headers.get("Cache-Control"), "public, max-age=600");
   assert.equal(r.headers.get("X-Robots-Tag"), "noindex");
-  assert.equal(await r.text(), page.replace(`https://8ulduz.az/x/${ID}`, `https://x.8ulduz.az/${ID}`), "yalnız og:url dəyişir");
+  assert.equal(await r.text(), page.replace(`https://8ulduz.az/x/${ID}`, `https://www.8ulduz.az/${ID}`), "yalnız og:url dəyişir");
   assert.deepEqual(seen, [`https://8ulduz.az/x/${ID}`], "səhifə varsa lent soruşulmur");
   await Promise.all(waited);
-  assert.deepEqual(puts, [`https://x.8ulduz.az/${ID}`], "keş açarı h-sız: eyni xəbər bir dəfə saxlanır");
+  assert.deepEqual(puts, [`https://www.8ulduz.az/${ID}`], "keş açarı h-sız: eyni xəbər bir dəfə saxlanır");
   seen.length = 0;
-  const again = await call(w, `https://x.8ulduz.az/${ID}`);
-  assert.equal(await again.text(), page.replace(`https://8ulduz.az/x/${ID}`, `https://x.8ulduz.az/${ID}`));
+  const again = await call(w, `https://www.8ulduz.az/${ID}`);
+  assert.equal(await again.text(), page.replace(`https://8ulduz.az/x/${ID}`, `https://www.8ulduz.az/${ID}`));
   assert.deepEqual(seen, [], "ikinci sorğu keşdən, şəbəkəyə çıxmır");
   assert.equal(again.headers.get("Cache-Control"), "public, max-age=600");
 });
@@ -62,9 +62,9 @@ test("x-worker 1c: an older page on the site still carries the meta refresh and 
   const w = await load();
   const page = `<!doctype html>\n<html lang="az"><head><title>T — 8ulduz</title><meta name="robots" content="noindex" /><link rel="canonical" href="https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713" />\n<meta property="og:title" content="T" /><meta property="og:url" content="https://8ulduz.az/x/${ID}" />\n<script>location.replace("https://8ulduz.az/#/xeber/${ID}?b=siyaset&h=26110713")</script>\n<meta http-equiv="refresh" content="0;url=https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713" />\n</head><body><p><a href="https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713">T</a></p></body></html>\n`;
   world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) });
-  const out = await (await call(w, `https://x.8ulduz.az/${ID}?h=26110713`)).text();
+  const out = await (await call(w, `https://www.8ulduz.az/${ID}?h=26110713`)).text();
   assert.ok(!out.includes('http-equiv="refresh"'), "refresh atılır");
-  assert.ok(out.includes(`<link rel="canonical" href="https://x.8ulduz.az/${ID}" />`) && out.includes(`<meta property="og:url" content="https://x.8ulduz.az/${ID}" />`), "canonical və og:url bu server");
+  assert.ok(out.includes(`<link rel="canonical" href="https://www.8ulduz.az/${ID}" />`) && out.includes(`<meta property="og:url" content="https://www.8ulduz.az/${ID}" />`), "canonical və og:url bu server");
   assert.ok(out.includes(`location.replace("https://8ulduz.az/#/xeber/${ID}?b=siyaset&h=26110713")`) && out.includes(`<a href="https://8ulduz.az/#/xeber/${ID}?b=siyaset&amp;h=26110713">T</a>`), "oxucunun yolu (skript və keçid) dəyişmir");
   assert.equal(out.split("\n").length, page.split("\n").length - 1, "yalnız refresh sətri gedir");
 });
@@ -72,7 +72,7 @@ test("x-worker 1c: an older page on the site still carries the meta refresh and 
 test("x-worker 1b: a 404.html answered with status 200, or a page without og tags, does not count as the share page", async () => {
   const w = await load();
   world({ [`https://8ulduz.az/x/${ID}`]: html(200, "<!doctype html><html><head><title>Səhifə tapılmadı — 8ulduz</title></head></html>") });
-  const r = await call(w, `https://x.8ulduz.az/${ID}?h=26110813`);
+  const r = await call(w, `https://www.8ulduz.az/${ID}?h=26110813`);
   assert.equal(r.status, 302);
   assert.equal(r.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}?h=26110813`);
 });
@@ -82,7 +82,7 @@ test("x-worker 2: a story that is only in the minute channel gets the same page 
   const seen = world({ [`${"https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/"}${SLOT - 1}/latest.json`]: json(200, feed([{ id: "ffffffffffffffff", title: "Başqa" }, row])) });
   const realNow = Date.now; Date.now = () => NOW;
   let r;
-  try { r = await call(w, `https://x.8ulduz.az/${ID}?h=26110712`); } finally { Date.now = realNow; }
+  try { r = await call(w, `https://www.8ulduz.az/${ID}?h=26110712`); } finally { Date.now = realNow; }
   assert.equal(r.status, 200);
   const page = await r.text();
   const live = seen.filter(u => u.includes("/live/m/")).map(u => +u.match(/\/m\/(\d+)\//)[1]);
@@ -91,7 +91,7 @@ test("x-worker 2: a story that is only in the minute channel gets the same page 
   assert.ok(page.startsWith('<!doctype html>\n<html lang="az">'));
   assert.ok(page.includes('<meta property="og:title" content="Başlıq &lt;/script&gt;&lt;b&gt;" />'), "başlıq kodlanır");
   assert.ok(page.includes('<meta property="og:description" content="Xülasə" />'));
-  assert.ok(page.includes(`<meta property="og:url" content="https://x.8ulduz.az/${ID}" />`), "kanonik ünvan bu serverdir: Facebook yenidən soruşsa yenə bura gəlir");
+  assert.ok(page.includes(`<meta property="og:url" content="https://www.8ulduz.az/${ID}" />`), "kanonik ünvan bu serverdir: Facebook yenidən soruşsa yenə bura gəlir");
   assert.ok(page.includes('<meta property="og:image" content="https://wsrv.nl/?url=https%3A%2F%2Fapa.az%2Fi.jpg%3Fa%3D1%26b%3D%282%29&amp;w=1200&amp;h=630&amp;fit=cover&amp;a=attention&amp;output=jpg&amp;q=78&amp;default=https%3A%2F%2F8ulduz.az%2Fassets%2Fog-default.png" />'), "şəkil proksidən 1200×630, Python quote() kimi kodlanır");
   assert.ok(page.includes('<meta property="og:locale" content="az_AZ" />') && page.includes('<meta name="twitter:card" content="summary_large_image" />'));
   const m = page.match(/<script>try\{sessionStorage\.setItem\("x:0123456789abcdef",(".*?")\)\}catch\(e\)\{\}location\.replace\(("[^"]+")\)<\/script>\n/);
@@ -101,19 +101,19 @@ test("x-worker 2: a story that is only in the minute channel gets the same page 
   assert.deepEqual(handed, { id: ID, title: "Başlıq </script><b>", summary: "Xülasə", source: "APA", sourceUrl: "https://apa.az/1", imageUrl: "https://apa.az/i.jpg?a=1&b=(2)", category: "siyaset", publishedAt: "2026-11-07T13:05:00+04:00", lang: "az", alts: [{ source: "Report", sourceUrl: "https://report.az/1" }] }, "SHARE_ROW_FIELDS, keçidsiz alt düşür");
   assert.equal(JSON.parse(m[2]), `https://8ulduz.az/#/xeber/${ID}?b=siyaset&h=26110713`, "saat xəbərin öz vaxtından (arxiv budağı), keçiddəki h yox");
   assert.ok(!page.includes('http-equiv="refresh"'), "meta refresh yoxdur: Facebook robotu onu izləyib baş səhifənin kartını götürürdü (2026-11-08)");
-  assert.ok(page.includes(`<link rel="canonical" href="https://x.8ulduz.az/${ID}" />`) && page.includes('<meta name="robots" content="noindex" />'), "canonical səhifənin özüdür, og:url ilə eyni");
+  assert.ok(page.includes(`<link rel="canonical" href="https://www.8ulduz.az/${ID}" />`) && page.includes('<meta name="robots" content="noindex" />'), "canonical səhifənin özüdür, og:url ilə eyni");
   assert.ok(page.endsWith(`<a href="https://8ulduz.az/">8ulduz</a></p></body></html>\n`));
 });
 
 test("x-worker 2b: when the minute channel has nothing, the site's feed files are searched (latest, first, news); a removed story is not served", async () => {
   const w = await load();
   const seen = world({ "https://8ulduz.az/data/first.json": json(200, feed([row], { og: {}, sharePages: true })) });
-  const r = await call(w, `https://x.8ulduz.az/${ID}`);
+  const r = await call(w, `https://www.8ulduz.az/${ID}`);
   assert.equal(r.status, 200);
   assert.ok((await r.text()).includes('og:title" content="Başlıq'));
   assert.deepEqual(seen.filter(u => u.includes("/data/")).sort(), ["https://8ulduz.az/data/first.json", "https://8ulduz.az/data/latest.json", "https://8ulduz.az/data/news.json"]);
   world({ "https://8ulduz.az/data/latest.json": json(200, feed([], { removed: { "apa.az#1": { id: ID, ids: [ID], title: "Başlıq" } } })), "https://8ulduz.az/data/news.json": json(200, feed([row])) });
-  const gone = await call(w, `https://x.8ulduz.az/${ID}?h=26110713`);
+  const gone = await call(w, `https://www.8ulduz.az/${ID}?h=26110713`);
   assert.equal(gone.status, 302, "redaksiyanın çıxardığı xəbər verilmir (QIRMIZI XƏTT 2: lentdə olmayan sətir uydurulmur), sayt özü qərar verir");
   assert.equal(gone.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}?h=26110713`);
 });
@@ -142,7 +142,7 @@ test("x-worker 0: a reader's browser is sent straight to the site with 302 (no u
   const seen = world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) });
   memoryCache();
   const nav = { "sec-fetch-dest": "document", "sec-fetch-mode": "navigate", "sec-fetch-site": "cross-site", "sec-fetch-user": "?1" };
-  const ask = (ua, extra = {}) => w.default.fetch(new Request(`https://x.8ulduz.az/${ID}?h=26110813`, { headers: { "user-agent": ua, ...extra } }), {}, { waitUntil() {} });
+  const ask = (ua, extra = {}) => w.default.fetch(new Request(`https://www.8ulduz.az/${ID}?h=26110813`, { headers: { "user-agent": ua, ...extra } }), {}, { waitUntil() {} });
   // Oxucu: Android Chrome, Facebook-un daxili brauzeri, iPhone Safari 17, Firefox
   for (const ua of ["Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 13; SM-A525F Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.6668.70 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/485.0.0.49.68;]",
@@ -154,7 +154,7 @@ test("x-worker 0: a reader's browser is sent straight to the site with 302 (no u
   }
   assert.deepEqual(seen, [], "oxucu üçün nə /x/ səhifəsi, nə lent soruşulur");
   // h-sız keçid: yalnız id
-  const bare = await w.default.fetch(new Request(`https://x.8ulduz.az/${ID}`, { headers: { "user-agent": "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36", ...nav } }), {}, { waitUntil() {} });
+  const bare = await w.default.fetch(new Request(`https://www.8ulduz.az/${ID}`, { headers: { "user-agent": "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36", ...nav } }), {}, { waitUntil() {} });
   assert.equal(bare.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}`);
   // Robotlar: Sec-Fetch göndərmirlər → og səhifəsi; Sec-Fetch göndərsələr də adları robotdur → og səhifəsi
   for (const ua of ["facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)", "meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)", "WhatsApp/2.23.20.0 A",
@@ -177,28 +177,30 @@ test("x-worker 0: a reader's browser is sent straight to the site with 302 (no u
 test("x-worker 3: a link never dies — not in any feed, feed errors, server exceptions and odd paths all end on the site", async () => {
   const w = await load();
   world({});
-  let r = await call(w, `https://x.8ulduz.az/${ID}?h=26110812`);
+  let r = await call(w, `https://www.8ulduz.az/${ID}?h=26110812`);
   assert.equal(r.status, 302);
   assert.equal(r.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}?h=26110812`, "sayt arxivdən açır");
-  r = await call(w, `https://x.8ulduz.az/${ID}`);
+  r = await call(w, `https://www.8ulduz.az/${ID}`);
   assert.equal(r.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}`, "saatsız keçid");
-  r = await call(w, `https://x.8ulduz.az/${ID}?h=<script>`);
+  r = await call(w, `https://www.8ulduz.az/${ID}?h=<script>`);
   assert.equal(r.headers.get("Location"), `https://8ulduz.az/#/xeber/${ID}`, "h yalnız rəqəm");
   globalThis.fetch = async () => { throw new TypeError("network down"); };
-  r = await call(w, `https://x.8ulduz.az/${ID}?h=26110812`);
+  r = await call(w, `https://www.8ulduz.az/${ID}?h=26110812`);
   assert.equal([r.status, r.headers.get("Location")].join(" "), `302 https://8ulduz.az/#/xeber/${ID}?h=26110812`, "şəbəkə xətası da 302");
   globalThis.fetch = async () => json(200, "{not json");
-  r = await call(w, `https://x.8ulduz.az/${ID}`);
+  r = await call(w, `https://www.8ulduz.az/${ID}`);
   assert.equal(r.status, 302, "zədəli lent də 302");
   globalThis.caches = { default: { match: async () => { throw new Error("cache down"); }, put: async () => {} } };
-  r = await call(w, `https://x.8ulduz.az/${ID}`);
+  r = await call(w, `https://www.8ulduz.az/${ID}`);
   assert.equal(r.status, 302, "keş xətası da 302");
   delete globalThis.caches;
-  for (const bad of ["https://x.8ulduz.az/", "https://x.8ulduz.az/abc", "https://x.8ulduz.az/0123456789ABCDEF", "https://x.8ulduz.az/x/0123456789abcdef"]) {
+  r = await call(w, "https://www.8ulduz.az/");
+  assert.equal([r.status, r.headers.get("Location")].join(" "), "301 https://8ulduz.az/", "www kökü sayta daimi yönlənir (əvvəl GitHub Pages belə edirdi)");
+  for (const bad of ["https://x.8ulduz.az/", "https://www.8ulduz.az/abc", "https://www.8ulduz.az/0123456789ABCDEF", "https://www.8ulduz.az/x/0123456789abcdef"]) {
     r = await call(w, bad);
     assert.equal([r.status, r.headers.get("Location")].join(" "), "302 https://8ulduz.az/", bad);
   }
-  r = await call(w, "https://x.8ulduz.az/saglam");
+  r = await call(w, "https://www.8ulduz.az/saglam");
   assert.equal([r.status, await r.text()].join(" "), "200 ok");
 });
 
@@ -214,7 +216,7 @@ test("x-worker: the minute channel is asked with the same path scheme pipeline.s
 test("x-worker speed contract: upstream work per request is bounded — 1 fetch when the static page exists, exactly 8 (two parallel waves) otherwise, 0 for a reader's browser", async () => {
   const w = await load();
   const page = `<!doctype html>\n<html lang="az"><head><meta property="og:title" content="N" /><meta property="og:url" content="https://8ulduz.az/x/${ID}" /></head></html>\n`;
-  const ask = (ua, extra = {}) => w.default.fetch(new Request(`https://x.8ulduz.az/${ID}?h=26110813`, { headers: { "user-agent": ua, ...extra } }), {}, { waitUntil() {} });
+  const ask = (ua, extra = {}) => w.default.fetch(new Request(`https://www.8ulduz.az/${ID}?h=26110813`, { headers: { "user-agent": ua, ...extra } }), {}, { waitUntil() {} });
   for (const ua of ["facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)", "WhatsApp/2.23.20.0 A", "TelegramBot (like TwitterBot)", "Twitterbot/1.0"]) {
     let seen = world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) }); memoryCache();
     assert.equal((await ask(ua)).status, 200);
@@ -237,4 +239,19 @@ test("x-worker: the hand-off row stays small (summary 600, alts ≤ 20) so sessi
   assert.equal(handed.summary.length, 600);
   assert.equal(handed.alts.length, 20);
   assert.ok(m[1].length < 12000, `ötürülən sətir ${m[1].length} simvol — 12 000-dən kiçik qalsın`);
+});
+
+test("x-worker: old x.8ulduz.az links keep working and point the card at the new www host (sahib, 2026-11-09: «x.» saytın adı ilə qarışmasın)", async () => {
+  const w = await load();
+  const page = `<!doctype html>\n<html lang="az"><head><meta property="og:title" content="Neft bahalaşdı" /><meta property="og:url" content="https://8ulduz.az/x/${ID}" /></head></html>\n`;
+  world({ [`https://8ulduz.az/x/${ID}`]: html(200, page) });
+  const { puts } = memoryCache();
+  const waited = [];
+  const r = await call(w, `https://x.8ulduz.az/${ID}?h=26110813`, { waitUntil: p => waited.push(p) });
+  assert.equal(r.status, 200);
+  assert.ok((await r.text()).includes(`<meta property="og:url" content="https://www.8ulduz.az/${ID}" />`), "köhnə ünvandan gələn kart da www göstərir");
+  await Promise.all(waited);
+  assert.deepEqual(puts, [`https://www.8ulduz.az/${ID}`], "keş açarı hostdan asılı deyil: eyni xəbər bir dəfə saxlanır");
+  const old = await call(w, "https://x.8ulduz.az/");
+  assert.equal([old.status, old.headers.get("Location")].join(" "), "302 https://8ulduz.az/");
 });
