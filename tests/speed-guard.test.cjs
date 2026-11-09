@@ -135,6 +135,17 @@ test('speed: the measuring tool emulates a phone (touch media, 4× slower CPU) a
   assert.ok(tool.includes('--budget') && tool.includes('LIMITS'), 'büdcəni keçəndə çıxış kodu 1');
 });
 
+test('speed 2026-11-09: the first slide picture is 640 px on every screen, so the prerendered image is not fetched again at 800 on a computer', () => {
+  const list = [story(1, { imageUrl: 'https://apa.az/1.jpg' }), story(2, { imageUrl: 'https://apa.az/2.jpg' })];
+  const desk = app(), phone = app({ innerWidth: 390 });
+  desk.list = list; phone.list = list;
+  const [d1, d2] = vm.runInContext('heroBlock(list)', desk).match(/<img [^>]*>/g), [p1, p2] = vm.runInContext('heroBlock(list)', phone).match(/<img [^>]*>/g);
+  assert.equal(d1, p1, 'ilk slaydın şəkil teqi kompüterdə və telefonda eynidir (hazır HTML-dəki ilə də)');
+  assert.ok(/w=640&amp;we/.test(d1) && /fetchpriority="high"/.test(d1), 'ilk şəkil 640, yüksək prioritet');
+  assert.ok(/w=640&amp;we/.test(d2) && /w=480&amp;we/.test(p2), 'növbəti slaydlar: kompüterdə 640, telefonda 480');
+  assert.equal(vm.runInContext('heroPicWidth(true)', desk), 640, 'primeHeroImage də eyni ünvanı əvvəlcədən yükləyir');
+});
+
 test('speed: the early-fetch script in index.html is allowed by its CSP hash (a stale hash silently blocks it: no early files, the home page flashes on deep links)', () => {
   const crypto = require('node:crypto');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n'); // GitHub Pages LF verir

@@ -460,9 +460,11 @@ function sized(url, width, logo) {
 let viewW = globalThis.innerWidth || 0;
 function viewWidth() { return viewW || (viewW = globalThis.innerWidth || 1200); }
 addEventListener("resize", () => { viewW = globalThis.innerWidth || 1200; }, { passive: true });
+// Slayderin ilk şəkli hər ekranda 640: hazır ilk ekran (prerender.cjs, telefon eni) 640 ilə gəlir və brauzer onu HTML-dən dərhal yükləyir;
+// kompüterdə 800 istənəndə eyni şəkil ikinci dəfə yüklənirdi (2026-11-09 ölçüsü, Lighthouse kompüter: 2 wsrv sorğusu, LCP 2,5 s).
+// Kompüterdə şəkil qutusu (.hero-main>.img: hündürlük ≤ 380 px, 16/9) 1× ekranda ≤ ~640 px-dir; qalan slaydlar kompüterdə elə 640-dır, telefonda 480.
 function heroPicWidth(first) {
-  const narrow = viewWidth() < 900;
-  return first ? (narrow ? 640 : 800) : (narrow ? 480 : 640);
+  return first || viewWidth() >= 900 ? 640 : 480;
 }
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);

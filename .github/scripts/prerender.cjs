@@ -3,7 +3,8 @@
 // hazır HTML kimi yazılır. Brauzer onu CSS gələn kimi çəkir, app.js gələndə eyni görünüşü təzə məlumatla əvəz edir (patchView).
 // pipeline.sh (publish_main) hər main yazılışında işlədir: node .github/scripts/prerender.cjs <repo>
 // HTML ayrı şablondan deyil, app.js-in öz homeView()-undan çıxır (data/first.json, S.partial): sayt və hazır nüsxə eyni koddur.
-// Telefon eni (390) üçün çəkilir: ilk şəkil 640 px-dir və HTML-dən dərhal yüklənir; kompüterdə app.js onu 800 px ilə əvəz edir.
+// Telefon eni (390) üçün çəkilir: ilk şəkil 640 px-dir və HTML-dən dərhal yüklənir; kompüterdə də 640 qalır (app.js heroPicWidth;
+// 2026-11-09-a qədər app.js onu 800 ilə əvəz edirdi — eyni şəkil ikinci dəfə yüklənirdi).
 // Yalnız ekranda görünən hissə saxlanır (3 slayd, 8 Zuğulba kartı, 4 son xəbər): tam blok 104 KB (24 KB gzip) idi və ilk
 // çəkilişi gecikdirirdi; qalanı app.js tam siyahı ilə doldurur (44 Zuğulba kartı qaydası səhifənin özündə dəyişmir).
 "use strict";
