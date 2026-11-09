@@ -31,10 +31,14 @@ test('speed: on a phone a list page starts with 6 cards, the other 42 fill in id
   vm.runInContext('S.shown = 48; S.og = {};', ctx);
   ctx.list = Array.from({ length: 48 }, (_, i) => story(i));
   const html = vm.runInContext('listPage("Gündəm", "", list)', ctx);
-  const [now, later = ''] = html.split('<template data-late>');
+  // 2026-11-09: qalan kartların HTML-i səhifə sətrində deyil, yaddaşdadır (LATE_HTML); sətirdə yalnız açarlı boş şablon qalır
+  const [now, mark = ''] = html.split('<template data-late="');
+  const key = mark.split('"')[0], later = key ? vm.runInContext(`LATE_HTML.get(${JSON.stringify(key)})`, ctx) : '';
+  assert.ok(key && mark.startsWith(key + '"></template>'), 'şablon boşdur: patchView 42 kartı təhlil etmir, rememberSrc seriallaşdırmır');
   assert.equal((now.match(/apa\.az\/\d+/g) || []).length > 0, true);
   assert.equal(new Set(now.match(/apa\.az\/\d+"/g)).size, 6, 'ilk çəkilişdə 6 kart (telefon ekranında 2–3 görünür)');
-  assert.equal(new Set(later.match(/apa\.az\/\d+"/g)).size, 42, 'qalanı şablonda: brauzer yerləşdirmir');
+  assert.equal(new Set((later || '').match(/apa\.az\/\d+"/g)).size, 42, 'qalanı yaddaşda: brauzer yerləşdirmir, təhlil etmir');
+  assert.equal(new Set(html.match(/apa\.az\/\d+"/g)).size, 6, '42 kart səhifə sətrində yoxdur');
   const desk = app();
   vm.runInContext('S.shown = 48; S.og = {};', desk);
   desk.list = ctx.list;
