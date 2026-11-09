@@ -272,7 +272,12 @@ function prezHome(list, all = list) {
   const own = [...first, ...rest, ...take(byDate(prez)), ...take(ours(list))].slice(0, PREZ_COUNT);
   return [...byDate(own), ...byDate(take(ours(all)).slice(0, PREZ_COUNT - own.length))];
 }
-const byDate = list => [...list].sort((x, y) => new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime());
+const AT = new WeakMap(); // sətir → vaxt damğası: byDate hər müqayisədə new Date açırdı (4 100 sətirdə 14,5 → 7,6 ms, 2026-11-09); sıra eynidir
+const atOf = a => { let m = AT.get(a); if (!m || m.at !== a.publishedAt) AT.set(a, m = { at: a.publishedAt, t: new Date(a.publishedAt).getTime() }); return m.t; };
+const byDate = list => [...list].sort((x, y) => atOf(y) - atOf(x));
+// Ən yenisi əvvəl: bütün publishedAt dəyərləri eyni ISO formatdadır (updater.py yazır, tests/kecid.test.cjs pinləyir) — sadə sətir
+// müqayisəsi localeCompare ilə eyni sıranı verir, 3× tez.
+const newest = (x, y) => { const a = x.publishedAt || "", b = y.publishedAt || ""; return a < b ? 1 : a > b ? -1 : 0; };
 const lc = s => (s || "").toLocaleLowerCase("az");
 const GROUP_MS = 36 * HOUR;
 const GROUP_STOP = new Set("ve ile the and for from or bir bu da de ki veya icin olan və ilə də o üçün ya news xəbər xeber".split(/\s+/));
@@ -357,9 +362,9 @@ function clusterArticles(list) {
     for (const m of members.slice(1)) primary = preferPrimary(primary, m.a);
     const alts = members.filter(m => m.a !== primary).map(m => ({ source: m.a.source, sourceUrl: m.a.sourceUrl, publishedAt: m.a.publishedAt, imageUrl: m.a.imageUrl || "" }));
     // Giriş sətri dəyişmir (preparedRow yaddaşında qalır): qrupun alt mənbələri nüsxəyə yazılır.
-    out.push(alts.length ? {...primary, alts: alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""))} : primary);
+    out.push(alts.length ? {...primary, alts: alts.sort(newest)} : primary);
   }
-  return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+  return out.sort(newest);
 }
 // Eyni keçid və ya 36 saat içində eyni başlıq: lent/arxiv qrupları da birləşir.
 const DUP_META = new WeakMap();
@@ -407,13 +412,13 @@ function collapseExact(list) {
       if (a !== primary) push(a.source, a.sourceUrl, a.publishedAt, a.imageUrl);
       for (const alt of a.alts || []) push(alt.source, alt.sourceUrl, alt.publishedAt, alt.imageUrl);
     }
-    if (alts.length) primary.alts = alts.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+    if (alts.length) primary.alts = alts.sort(newest);
     else delete primary.alts;
     DUP_META.set(primary, {title: primary.title, url: primary.sourceUrl, at: primary.publishedAt, alts: primary.alts,
       keys: g.items.flatMap(a => duplicateMeta(a).keys), urls: g.items.flatMap(a => duplicateMeta(a).urls)});
     out.push(primary);
   }
-  return out.sort((x, y) => (y.publishedAt || "").localeCompare(x.publishedAt || ""));
+  return out.sort(newest);
 }
 const detailUrl = a => `#/xeber/${encodeURIComponent(a.id)}${hourOf(a) && "?h=" + hourOf(a)}`;
 const sourceName = name => `${esc(name)}<small class="source-count" data-source-count="${esc(name)}" title="Gün / həftə / ay / il · ümumi keçid sayı"></small>`;
@@ -790,7 +795,7 @@ async function loadNews(force = false) {
   // İlk ekran çəkilənə qədər tam lent xətti tutmur.
   if (S.firstReady) { const wait = S.firstReady; S.firstReady = null; await wait; }
   // İlk ekran görünürsə tam lent əsas axın boşalanda gəlir (ən gec 2 s).
-  if (S.partial && !force && token === S.newsToken) await new Promise(r => (globalThis.requestIdleCallback || (f => setTimeout(f, 300)))(r, { timeout: 2000 }));
+  if (S.partial && !force && token === S.newsToken) await new Promise(r => idle(r, 300, 2000));
   // og.json (55 KB gzip) tam lenti gözlətmir (2026-11-09): sətirlərin şəkli updater (apply_og_cache) ilə artıq içindədir, ilk ekranın
   // xəritəsi first.json-dadır; xəritə lentdən sonra boş anda gəlir (loadOg) və yalnız şəkil qazanan sətir varsa lent yenidən çəkilir.
   try {
@@ -819,7 +824,7 @@ async function loadNews(force = false) {
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
     publishNews();
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
-    if (!first && !partial) (globalThis.requestIdleCallback || (f => setTimeout(f, 1500)))(() => loadOg(), { timeout: 8000 }); // og xəritəsi 30 dəqiqədə bir, lentdən sonra
+    if (!first && !partial) idle(() => loadOg(), 1500, 8000); // og xəritəsi 30 dəqiqədə bir, lentdən sonra
     // İlk ekrandan tam lentə: dəyişməyən bloklar qalır.
     if (first || force || (partial && readerBusy())) render(); else requestRender();
     if (!partial) backY();
@@ -871,12 +876,12 @@ async function loadFirst() {
 // Boş anda: JSON.stringify ~6 ms (1×). Əvvəl ikinci ziyarət də keşsiz başlayırdı (2026-11-09).
 function keepFirst(d) {
   if (typeof caches === "undefined" || navigator.serviceWorker?.controller) return;
-  (globalThis.requestIdleCallback || (f => setTimeout(f, 1500)))(() => {
+  idle(() => {
     try {
       const key = new URL("data/first.json", new URL(ASSET.replace(/assets\/$/, ""), location.href)).href;
       caches.open("8ulduz-data").then(c => c.put(key, new Response(JSON.stringify(d), { headers: { "Content-Type": "application/json; charset=utf-8" } }))).catch(() => {});
     } catch {}
-  }, { timeout: 5000 });
+  }, 1500, 5000);
 }
 async function loadCached() {
   if (!partialOk() || typeof caches === "undefined" || S.rawNews) return;
@@ -1339,7 +1344,7 @@ const popLeft = (left, width, widest) => Math.max(8, Math.min(left, width - wide
 // Kursor aşağı enəndə qonşu düymə menyunu dəyişməsin.
 function bindNavPop() {
   const pop = $("#navpop");
-  let timer;
+  let timer, preT;
   const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
   const hide = () => { clearTimeout(timer); pop.hidden = true; };
   let anchor, lastX = 0;
@@ -1386,7 +1391,9 @@ function bindNavPop() {
       return;
     }
     const item = e.target.closest("#nav a, #nav summary");
+    clearTimeout(preT); // niyyətlə əvvəlcədən yükləmə: kursor keçiddə 120 ms dayananda
     if (!item) { if (!pop.hidden) later(hide, 220); return; }
+    preT = setTimeout(() => preload(item.getAttribute("href")), 120);
     const href = item.getAttribute("href")?.match(/^#\/bolme\/(.+)$/)?.[1];
     const slug = item.matches("summary") ? "more" : SUB_TABS[href] ? href : "";
     if (!pop.hidden && slug && slug === pop.dataset.slug) { clearTimeout(timer); return; }
@@ -1394,7 +1401,7 @@ function bindNavPop() {
     else if (!pop.hidden) later(hide, 120);
     else clearTimeout(timer);
   });
-  $("#sitehead").addEventListener("mouseleave", () => later(hide, 220));
+  $("#sitehead").addEventListener("mouseleave", () => { clearTimeout(preT); later(hide, 220); });
   $("#sitehead").addEventListener("click", e => {
     if (e.target.closest(".nav-more summary") && !pop.hidden) e.preventDefault(); // kursorla artıq açıqdır, ikinci siyahı açılmasın
     else if (e.target.closest("#nav a")) hide();
@@ -1712,14 +1719,27 @@ function socialBlock(side = false, sel = "") {
   const list = side ? `<div class="soc-list" data-marquee data-visible="5">` : `<div class="soc-list">`;
   return `<aside class="soc"><div class="soc-h"><b>Sosial şəbəkələr</b></div><div class="soc-links">${profileRows()}</div>${cards ? `${list}${cards}</div>` : `<p class="soc-empty muted">Yazılar hazırda açılmır — hesablara yuxarıdakı keçidlərdən baxın.</p>`}</aside>`;
 }
-// DOM 1600 → 800), boş vaxtda açılır (lateFill).
-const LATE_HERO = 3, LATE_LIST = 6, lateKey = () => location.hash + "|" + (S.club || "");
-const late = (parts, n) => TOUCH_UI && parts.length > n ? parts.slice(0, n).join("") + `<template data-late>${parts.slice(n).join("")}</template>` : parts.join("");
+// DOM 1600 → 800), boş vaxtda açılır (lateFill). Kartların HTML-i yaddaşdadır (LATE_HTML, açar keyOf: eyni məzmun eyni açar), səhifə sətrində yalnız
+// açarlı boş şablon: patchView 42 kartı təhlil etmir, rememberSrc onları seriallaşdırmır (2026-11-09).
+const LATE_HERO = 3, LATE_LIST = 6, lateKey = () => location.hash + "|" + (S.club || ""), LATE_HTML = new Map();
+const recent = (m, k, v, max) => { m.delete(k); m.set(k, v); while (m.size > max) m.delete(m.keys().next().value); }; // son N giriş qalır
+const late = (parts, n) => {
+  if (!TOUCH_UI || parts.length <= n) return parts.join("");
+  const h = parts.slice(n).join(""), k = keyOf(h);
+  recent(LATE_HTML, k, h, 40);
+  return parts.slice(0, n).join("") + `<template data-late="${k}"></template>`;
+};
+// Açarın HTML-i sənəd parçası kimi; yaddaşdan düşübsə (arada 40-dan çox çəkiliş — praktikada olmur) səhifə yenidən qurulur.
+function lateContent(t) {
+  const h = LATE_HTML.get(t.dataset.late), tpl = document.createElement("template");
+  if (h == null) { S.viewPage = null; setTimeout(renderView); return; }
+  tpl.innerHTML = h; return tpl.content;
+}
 function lateFill() {
   S.lateDone = lateKey();
   const list = document.querySelectorAll("#view template[data-late]");
   if (!list.length) return;
-  list.forEach(t => { const c = t.content; S.tr?.(c); [...c.children].forEach(rememberSrc); t.replaceWith(c); });
+  list.forEach(t => { const c = lateContent(t); if (!c) return; S.tr?.(c); [...c.children].forEach(rememberSrc); t.replaceWith(c); });
   setupStrips(document.querySelectorAll(".hero-strip")); setupHeroImages(); setupFeatureLents();
 }
 function prezBlock(list) {
@@ -1865,7 +1885,7 @@ function skeleton(kind) {
 // Əhəmiyyət: neçə mənbə yazıb (alts), bərabərdirsə daha yeni.
 function rankBySources(list) {
   return list.map(a => ({ a, n: 1 + (a.alts?.length || 0) + (isAppointment(a) ? 2 : 0) }))
-    .sort((x, y) => y.n - x.n || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""))
+    .sort((x, y) => y.n - x.n || newest(x.a, y.a))
     .map(x => x.a);
 }
 // Hero: son 18 saatın ən çox mənbəli xəbərləri.
@@ -2044,13 +2064,28 @@ function withArchive(slug, list) {
   if (full) { const m = cache || new Map(); m.set(slug, {data: S.data, rows, rev, pool}); ARCHIVE_POOLS.set(list, m); }
   return pool;
 }
+// Bölmə hovuzu (2026-11-09): dəqiqəlik lentdə sətirlər yeni obyektlərdir, amma məzmunca çox vaxt eynidir — hovuz (withArchive →
+// collapseExact → byDate, idmanda 1×-də 11–14 ms, telefonda 4×) yalnız bölməyə aid sətirlər, arxiv və ya silinmələr dəyişəndə yenidən qurulur.
+const POOLS = new Map();
+function catPool(slug, list) {
+  if (NO_ARCHIVE.has(slug)) return byDate(list); // arxivsiz bölmədə birləşmə yoxdur; «son dəqiqə» saatla dəyişir
+  const rows = S.archive?.[slug]?.rows, rev = removedIds.size + removedUrls.size + removedKeys.size, m = POOLS.get(slug), hit = m && m.rows === rows && m.rev === rev;
+  if (hit && m.d === S.data) return m.pool; // eyni lent: «Daha çox», alt düymə, başqa bölmənin arxivi
+  const known = hit ? m.known : urlsOf((rows || []).filter(a => !removedArticle(a)));
+  // withArchive-in götürdüyü sətirlər (bölmənin özününkülər + keçidi arxivdə olan hər lent sətri), məzmunca: hər sahə və alt mənbə.
+  const own = JSON.stringify(rows?.length ? list.concat(S.data.articles.filter(a => a.category !== slug && (known.has(a.sourceUrl) || a.alts?.some(x => known.has(x.sourceUrl))))) : list);
+  if (hit && own === m.own) { m.d = S.data; return m.pool; }
+  const pool = byDate(withArchive(slug, list));
+  POOLS.set(slug, { d: S.data, rows, rev, known, own, pool });
+  return pool;
+}
 function sectionView(slug) {
   const c = CATS.find(x => x.slug === slug);
   if (!c) return `<div class="empty"><h1 style="color:var(--fg)">Bölmə tapılmadı</h1><p>Axtardığınız bölmə mövcud deyil.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>`;
   const d = S.data.articles;
   let list = slug === "video" ? d.filter(a => a.video) : slug === "sondeqiqe" ? d.filter(withinHour) : d.filter(a => a.category === slug);
   loadArchive(slug);
-  list = byDate(withArchive(slug, list));
+  list = catPool(slug, list);
   if (S.partial && !list.length) return skeleton();
   // ?m=Quba: topics.cjs səhifəsindən gələn keçid mövzunu seçir
   const um = route().m, tabs = SUB_TABS[slug] || [];
@@ -2094,10 +2129,16 @@ function searchTopics(q) {
   const text = ` ${topicKey(q)} `;
   return [...SPORT_BY_NAME.values()].filter(t => (t.keys?.length || t.stems?.length) && topicRx(t).test(text)).map(t => t.name);
 }
-const SEARCH_TEXT = new WeakMap();
+// Açar id-dir (yoxsa keçid): collapseExact hər qurmada sətri klonlayır, obyekt açarlı yaddaş hər dəfə boşa düşürdü (3 300 sətir üçün
+// fold yenidən, 1×-də ~23 ms; 2026-11-09). Başlıq, xülasə və ya mənbə sayı dəyişibsə yenidən qurulur; 20 000-dən sonra təmizlənir.
+const SEARCH_TEXT = new Map();
 function searchText(a) {
-  let s = SEARCH_TEXT.get(a);
-  if (!s) SEARCH_TEXT.set(a, s = {t: fold(decode(a.title)), rest: fold(decode((a.summary || "") + " " + a.source + " " + (a.alts || []).map(x => x.source).join(" ")))});
+  const k = a.id || a.sourceUrl, n = a.alts?.length || 0;
+  let s = SEARCH_TEXT.get(k);
+  if (!s || s.title !== a.title || s.sum !== a.summary || s.n !== n) {
+    if (SEARCH_TEXT.size >= 2e4) SEARCH_TEXT.clear();
+    SEARCH_TEXT.set(k, s = { title: a.title, sum: a.summary, n, t: fold(decode(a.title)), rest: fold(decode((a.summary || "") + " " + a.source + " " + (a.alts || []).map(x => x.source).join(" "))) });
+  }
   return s;
 }
 function searchView() {
@@ -2119,7 +2160,7 @@ function searchView() {
     if (hits === words.length) score += 5; // bütün sözlər var
     scored.push({ a, score });
   }
-  scored.sort((x, y) => y.score - x.score || (y.a.publishedAt || "").localeCompare(x.a.publishedAt || ""));
+  scored.sort((x, y) => y.score - x.score || newest(x.a, y.a));
   const list = scored.map(x => x.a);
   const all = scored.filter(x => x.score >= 5).length;
   const desc = topics.length ? `${topics.join(", ")}: bütün dillərdə, son 5 günün xəbərləri.` : words.length > 1 ? `${all} xəbərdə bütün sözlər, ${list.length - all} xəbərdə bəziləri var. Uyğunluğa görə sıralanıb.` : "Başlıq, xülasə və mənbə adına görə, son 5 gün. Uyğunluğa görə sıralanıb.";
@@ -2238,7 +2279,7 @@ function patchChildren(box, fresh, changed) {
 function patchView(v, page) {
   const next = document.createElement("template");
   next.innerHTML = page; // uzaq bölmələr səhifə sətrində deyil (lazySection → lazyHtml), yalnız açarlı boş qutular
-  if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => t.replaceWith(t.content));
+  if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => { const c = lateContent(t); if (c) t.replaceWith(c); });
   S.tr?.(next.content);
   const changed = [];
   // Hazır ilk ekranın sarğısı açılır, kartlar yerində qalır.
@@ -2252,6 +2293,10 @@ function patchView(v, page) {
     for (const i of v.querySelectorAll("img[data-fail=alt][src]")) if (i.complete && (i.naturalWidth || 0) < 2) imgFail(i);
   }
   patchChildren(v, [...next.content.children], changed);
+  wire(changed);
+}
+// Yeni (və ya geri qoyulan) düyünlərin qurğuları: slayder oxları və şəkilləri, lentlər, uzaq bölmələr, gec doldurma.
+function wire(changed) {
   if (!changed.length) return;
   const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
   if (has("[data-marquee]")) setupMarquees();
@@ -2259,7 +2304,35 @@ function patchView(v, page) {
   if (has(".hero-strip") || has(".hero-main")) setupHeroImages();
   setupFeatureLents();
   setupLazySections();
-  if (has("template[data-late]")) (globalThis.requestIdleCallback || (f => setTimeout(f, 200)))(lateFill, { timeout: 1500 });
+  if (has("template[data-late]")) idle(lateFill);
+}
+const idle = (fn, ms = 200, max = 1500) => (globalThis.requestIdleCallback || (f => setTimeout(f, ms)))(fn, { timeout: max });
+// Ana səhifənin DOM-u kənara çıxanda saxlanır, qayıdışda geri qoyulur (2026-11-09). Hər qayıdış homeView()-u yenidən qururdu: ~150 KB
+// sətir, şablon təhlili, rememberSrc, telefonda (4×) görünən kadr 336–576 ms. Açarın ilk üç sahəsi (lent, arxiv, dəqiqə) yumşaqdır:
+// saxlanan DOM dərhal qayıdır, boş anda adi çəkiliş onu təzələyir; başqa sahə (dil, sıra, seçilmişlər…) fərqlənirsə atılır, köhnə yol.
+const homeKey = () => [S.data, S.arxV, Date.now() / 6e4 | 0, S.og, S.lang, S.latestOrder, S.latestCount, S.prezOpen, S.fbTab, S.fbLeague, S.video, S.football, S.sports, S.social, S.warn, S.ads, S.dinOn, S.error, storage.getItem(SAVE_KEY), storage.getItem(SECT_KEY)];
+const keyDiff = (a, b) => a.reduce((d, x, i) => x === b[i] ? d : i < 3 ? d || 1 : 2, 0); // 0 eyni, 1 yumşaq, 2 atılır
+function keepHome(v) {
+  S.homeKeep = null;
+  if (!S.data || S.partial || !S.viewPage || !v.firstChild) return;
+  const frag = document.createDocumentFragment();
+  frag.append(...v.childNodes);
+  S.homeKeep = { frag, page: S.viewPage, key: homeKey(), at: Date.now() };
+  S.viewPage = null;
+}
+function restoreHome(v) {
+  const k = S.homeKeep;
+  if (!k) return false;
+  S.homeKeep = null;
+  const d = S.data && !S.partial && Date.now() - k.at < NEWS_FULL_MS ? keyDiff(homeKey(), k.key) : 2;
+  if (d === 2) return false;
+  v.replaceChildren(k.frag);
+  S.viewPage = k.page;
+  shut("details.altpop[open], details.social-details[open]" + (S.svcOpen ? "" : ", details.service-panel[open]")); // təzə qurulan səhifədəki kimi bağlı
+  S.lateDone = v.querySelector("template[data-late]") ? 0 : lateKey(); // dolmuş siyahı yenidən şablona düşməsin
+  wire([...v.children]);
+  if (d) idle(renderView, 500, 2000); // lent və ya dəqiqə dəyişib: boş anda adi çəkiliş (eyni səhifədirsə DOM-a toxunmur)
+  return true;
 }
 function renderView() {
   syncQuery();
@@ -2280,10 +2353,15 @@ function renderView() {
     if ((!S.data || onlyFirst) && !shared) { if (pre) return; S.viewPage = null; v.innerHTML = skeleton(r.name === "article" ? "article" : ""); return; }
     const err = S.error ? `<div class="err" role="status">Son yenilənmə alınmadı. Saxlanmış xəbərlər göstərilir. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : "";
     if (r.name === "section" && r.slug === "idman") preTeam();
-    const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
-    // Məzmun dəyişməyibsə DOM toxunulmur.
-    const page = err + body;
-    if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
+    const home = r.name === "home" && !S.q;
+    if (S.viewHome && !home) keepHome(v); // ana səhifənin DOM-u kənara çıxanda saxlanır (restoreHome)
+    if (!home || !restoreHome(v)) {
+      const body = r.name === "rates" ? ratesView() : r.name === "league" ? leagueView() : r.name === "article" ? articleView(r.id) : r.name === "sources" ? sourcesView() : r.name === "about" ? aboutView() : r.name === "notfound" ? `<div class="empty"><h1 style="color:var(--fg)">Səhifə tapılmadı</h1><p>Belə ünvan yoxdur.</p><a href="#/" style="color:var(--primary);font-weight:700">← Baş səhifəyə qayıt</a></div>` : r.name === "saved" ? savedView() : r.name === "sections" ? sectionsView() : r.name === "videos" ? videosView() : r.name === "traffic" ? trafficView() : r.name === "team" ? teamView(r) : S.q ? searchView() : r.name === "section" ? sectionView(r.slug) : homeView();
+      // Məzmun dəyişməyibsə DOM toxunulmur.
+      const page = err + body;
+      if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
+    }
+    S.viewHome = home && !S.partial;
     const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "section" && r.slug === "video" ? "video" : r.name === "sections" || r.name === "section" || r.name === "team" ? "sections" : r.name === "home" && !S.q ? "home" : "";
     document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
     highlightSearch();
@@ -2299,11 +2377,25 @@ function sourceLevel(s) {
 }
 
 // Nadir səhifələr sehife.js-dədir.
+function loadPages() {
+  if (S.pages || S.pagesAsked) return;
+  S.pagesAsked = true;
+  import("./sehife.js").then(m => { S.pages = m; if (["sources", "about", "sections"].includes(route().name)) renderView(); }).catch(() => { S.pagesAsked = false; });
+}
 function pageView(name) {
   if (S.pages) return S.pages[name]({ S, esc, sourceName, shownSource, removedSource, sourceLevel, ago, trackedSources, sectionPref, CATS, ASSISTANT_ON, DRIVER_ON, config: window.SITE_CONFIG || {} });
-  if (!S.pagesAsked) { S.pagesAsked = true; import("./sehife.js").then(m => { S.pages = m; renderView(); }).catch(() => { S.pagesAsked = false; }); }
+  loadPages();
   return `<div class="empty">Yüklənir…</div>`;
 }
+// Niyyətlə əvvəlcədən yükləmə (2026-11-09): barmaq keçidə toxunan andan (pointerdown) klikə ~100 ms var — bölmənin arxivi, cədvəlin idman
+// faylı, nadir səhifələrin modulu, komanda modulu o anda istənir; kompüterdə kursor menyuda 120 ms dayananda (bindNavPop). Açılışa iş düşmür.
+function preload(h) {
+  const [, p, s] = (h || "").match(/^#\/(bolmeler|bolme|komanda|haqqinda|menbeler)(?:\/([^/?#]+))?/) || [];
+  if (p === "komanda") preTeam();
+  else if (p === "bolme") { if (s === "cedvel") wantSports(); else if (s && !SERVICE_ROUTES[s] && S.data && !S.partial) loadArchive(SECTION_ALIAS[s] || s); }
+  else if (p) loadPages();
+}
+document.addEventListener("pointerdown", e => { const a = e.target.closest?.('a[href^="#/"]'); if (a) preload(a.getAttribute("href")); }, { passive: true, capture: true });
 const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
 function trackedSources() {
   const rows = S.sources?.sources;
@@ -2400,16 +2492,17 @@ function jumpToLatest() {
 function scrollToClub() {
   if (S.club && !SUB_TABS[route().slug]?.find(x => x.name === S.club)?.groups) $("#view")?.scrollIntoView({ block: "start" });
 }
+const shut = sel => document.querySelectorAll(sel).forEach(d => { d.open = false; }); // açıq <details> bağlanır
 function onClick(e) {
   if (!e.target.closest(".sharepop")) closeSharePop();
   const soc = e.target.closest(".soc-g a"), app = soc && chromeLink(soc.href); // rəsmi hesab: Android-də Chrome vərəqində, geri sayta
   if (app) { e.preventDefault(); location.href = app; return; }
   if (S.langOpen && !e.target.closest(".ldd")) { S.langOpen = false; renderTopbar(); } // dil siyahısı kənara hər toxunuşda bağlanır
   const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
-  if (!e.target.closest(".altpop")) document.querySelectorAll("details.altpop[open]").forEach(d => { d.open = false; });
-  if (!e.target.closest(".nav-more")) document.querySelectorAll(".nav-more[open]").forEach(d => { d.open = false; });
+  if (!e.target.closest(".altpop")) shut("details.altpop[open]");
+  if (!e.target.closest(".nav-more")) shut(".nav-more[open]");
   // Açılan bölmələr kənara basanda bağlanır
-  if (!e.target.closest("details.service-panel, details.social-details")) document.querySelectorAll("details.service-panel[open], details.social-details[open]").forEach(d => { d.open = false; });
+  if (!e.target.closest("details.service-panel, details.social-details")) shut("details.service-panel[open], details.social-details[open]");
   if (!t) {
     let dirty = false;
     if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }
@@ -2739,13 +2832,15 @@ function stopStep(el, snap) {
 }
 // Uzaq bölmə boş qutudur, HTML yaddaşda. Sonu <!--lz-->: «N mənbə» də </template></div> ilə bitir.
 const lazyHtml = new Map();
-// Açar məzmunun hash-idir (uzunluq + FNV): eyni bölmə eyni açarı alır, S.viewPage müqayisəsi dəyişməz qalır. HTML səhifə sətrinə girmir: patchView-un şablon təhlili 392 KB-dan ~130 KB-a düşür (2026-11-09 ölçüsü, 39 bölmə).
-function lazyKey(h) { let k = h.length; for (let i = 0; i < h.length; i++) k = Math.imul(k ^ h.charCodeAt(i), 16777619); return h.length + "-" + (k >>> 0).toString(36); }
+// Açar: eyni məzmun eyni açarı alır, S.viewPage müqayisəsi dəyişməz qalır. HTML səhifə sətrinə girmir: patchView-un şablon təhlili 392 KB-dan
+// ~130 KB-a düşür (2026-11-09 ölçüsü, 39 bölmə). Sətrin xeşini brauzer özü hesablayır (Map açarı): JS-də FNV dövrü 105 KB-da 4×-də 2,2 ms,
+// testlərin vm mühitində 13 ms idi; Map ilə 0,1 ms (2026-11-09 ölçüsü).
+const KEYS = new Map(); let keyN = 0;
+const keyOf = h => { const k = KEYS.get(h) || String(++keyN); recent(KEYS, h, k, 200); return k; };
 function lazySection(html) {
   if (!html) return "";
-  const k = lazyKey(html);
-  lazyHtml.delete(k); lazyHtml.set(k, html);
-  while (lazyHtml.size > 99) lazyHtml.delete(lazyHtml.keys().next().value);
+  const k = keyOf(html);
+  recent(lazyHtml, k, html, 99);
   return `<div class="lazy-sec" data-lazy="${k}"></div>`;
 }
 function lazyFill(box) {
@@ -2809,7 +2904,8 @@ function stripPlan(strip) {
     prev.onclick = () => { if (page() > 0) go(page() - 1); };
     next.onclick = () => { if (page() < pages - 1) go(page() + 1); };
     dots.onclick = e => { const b = e.target.closest("button[data-page]"); if (b) go(Number(b.dataset.page)); };
-    row.addEventListener("scroll", sync, { passive: true });
+    if (row._sync) row.removeEventListener("scroll", row._sync); // yenidən qurulan zolaqda köhnə dinləyici qalmasın (ana səhifə geri qoyulanda)
+    row.addEventListener("scroll", row._sync = sync, { passive: true });
     strip.append(prev, next, dots);
     return sync;
     };
@@ -2872,7 +2968,8 @@ function setupFeatureLents() {
     const button=box.querySelector("[data-prez-pause]");
     if (button) button.onclick=()=>{lent._paused=!lent._paused;button.setAttribute("aria-pressed",String(lent._paused));button.textContent=lent._paused?"▶":"Ⅱ";button.setAttribute("aria-label",lent._paused?"Zuğulba lentini davam etdir":"Zuğulba lentini dayandır");};
     lent.onpointerdown=()=>{lent._holdUntil=Date.now()+10000;};
-    if (TOUCH_UI) {
+    if (TOUCH_UI && !lent._touch) { // eyni lentə ikinci dəst toxunuş dinləyicisi (yenidən qurğu, geri qoyulan ana səhifə) ətaləti ikiqat edərdi
+      lent._touch = 1;
       let lastY = null, samples = [], inertia = 0, mode = null, expectedY = 0;
       const atEnd = () => lent.scrollTop + lent.clientHeight >= lent.scrollHeight - 1;
       const atTop = () => lent.scrollTop <= 0;
@@ -3236,7 +3333,7 @@ newsReady.then(flushRender);
 const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();
 afterNews(() => { socNow || loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
-afterNews(() => (globalThis.requestIdleCallback || (f => setTimeout(f, 1500)))(() => loadOg(), { timeout: 8000 })); // og xəritəsi lentdən sonra, boş anda (H1, 2026-11-09)
+afterNews(() => idle(() => loadOg(), 1500, 8000)); // og xəritəsi lentdən sonra, boş anda (H1, 2026-11-09)
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
 loadMarkets(); loadStatus();
 setInterval(() => pollNews(), POLL_MS);
