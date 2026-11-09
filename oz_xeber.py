@@ -395,10 +395,13 @@ def seys_item(q):
     """Zəlzələ xəbəri. Mətnin hər faktı Mərkəzin özündəndir: güc, yer, vaxt, dərinlik və «Qeydlər»."""
     ml, area, when = az_num(q["ml"], 1), q["area"], q.get("local") or q["utc"].astimezone(BAKU)
     felt = "hiss olunub" in _low(q.get("note") or "")
+    note = q.get("note") or ""
+    if not felt and not re.search(r"d", note):  # «Xəzər dənizində zəlzələ qeydə alınıb»: girişi təkrarlayır, yeni fakt yoxdur
+        note = ""
     lead = (f"{SEYS_CREDIT}nin məlumatına görə, {day_loc(when)} Bakı vaxtı ilə {time_loc(when)} {place_loc(area)} "
             f"{ml} maqnitudalı zəlzələ qeydə alınıb. Zəlzələnin ocağı {q['depth']} km dərinlikdə olub.")
     return {"kind": "zelzele", "key": f"zelzele-{q['id']}", "title": f"{place_loc(area)} {ml} maqnitudalı zəlzələ olub",
-            "lead": lead, "body": [q["note"]] if q.get("note") else [], "image": q.get("image") or "",
+            "lead": lead, "body": [note] if note else [], "image": q.get("image") or "",
             "credit": SEYS_CREDIT, "link": f"https://seismology.az/az/zelzele/{q['id']}",
             "worth": q["ml"] >= SEYS_MIN or felt, "felt": felt}
 

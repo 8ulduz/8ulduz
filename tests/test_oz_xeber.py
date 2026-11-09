@@ -352,6 +352,8 @@ class QuakeTest(unittest.TestCase):
         quakes = oz.seys_list(SEYS_LIST_PAGE)
         sea = oz.seys_item(oz.seys_detail(quakes[2], ""))
         self.assertFalse(sea["worth"], "3,3, dənizdə, hiss olunmayıb")
+        repeat = oz.seys_item(dict(oz.seys_detail(quakes[2], ""), note="Zəlzələlərin tədqiqatı bürosunun məlumatına əsasən, Xəzər dənizində zəlzələ qeydə alınıb."))
+        self.assertEqual(repeat["body"], [], "girişi təkrarlayan qeyd yazılmır")
         self.assertIn("30 sentyabrda Bakı vaxtı ilə saat 01:47-də Xəzər dənizində 3,3", sea["lead"])
         self.assertTrue(oz.seys_item(oz.seys_detail(quakes[1], ""))["worth"], "3,5 və daha güclü")
 
