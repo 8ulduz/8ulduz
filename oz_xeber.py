@@ -408,6 +408,8 @@ def seys_item(q):
 
 # «Bu gün tarixdə»: Azərbaycan dilli Vikipediyanın gün səhifəsi («9 noyabr»): hadisələr (Azərbaycana aid ayrıca bölmədə),
 # doğumlar, ölümlər, bayramlar. Səhifənin vikimətni API ilə alınır: gündə bir sorğu.
+# Sahibin qərarı (2026-11-09): «Avtomatik çıxsın» — Vikipediya mətnində səhv ola biləcəyini bilərək, təsdiqsiz dərc olunur.
+# Rəhbərliyin adı keçən bənd yenə də yazılmır (needs_owner).
 WIKI_API = "https://az.wikipedia.org/w/api.php?action=parse&page={}&prop=wikitext&format=json&formatversion=2&redirects=1"
 WIKI_PAGE = "https://az.wikipedia.org/wiki/{}"
 TARIX_LONG = 400  # bundan uzun bənd (məsələn, onlarla kəndin siyahısı) xəbərdə yazılmır
