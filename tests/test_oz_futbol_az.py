@@ -101,6 +101,12 @@ class WritingTest(unittest.TestCase):
         self.assertEqual([fa.sx("Lixtenşteyn", "dat", False), fa.sx("Litva", "acc", False), fa.sx("Premyer Liqa", "loc", False),
                           fa.sx("Misli Premyer Liqası", "gen", False), fa.sx("Azərbaycan Kuboku", "acc", False)],
                          ["Lixtenşteynə", "Litvanı", "Premyer Liqada", "Misli Premyer Liqasının", "Azərbaycan Kubokunu"])
+        # Mənsubiyyət şəkilçili ad: Liqasında, Gəncləri»nə; xarici ad yox: «Manchester City»yə.
+        self.assertEqual([fa.sx("Çempionlar Liqası", "loc", False), fa.sx("Avropa Liqası", "dat", False),
+                          fa.sx("Ağstafa Gəncləri", "dat"), fa.sx("Ağstafa Gəncləri", "abl"), fa.sx("Ağstafa Gəncləri", "ins"),
+                          fa.sx("Manchester City", "dat"), fa.sx("Neftçi", "loc")],
+                         ["Çempionlar Liqasında", "Avropa Liqasına", "«Ağstafa Gəncləri»nə", "«Ağstafa Gəncləri»ndən",
+                          "«Ağstafa Gəncləri»ylə", "«Manchester City»yə", "«Neftçi»də"])
 
     def test_venues_are_written_in_full(self):
         self.assertEqual([fa.venue(v) for v in ("Tovuz şəhər st.", "M.H. Sumqayıt ş. st.", "Bank Respublika A.",
@@ -269,7 +275,8 @@ class RealLowerLeaguesAndCupTest(unittest.TestCase):
         self.assertTrue(item["worth"], item.get("why"))
         self.assertEqual(item["title"], "Azərbaycan Kubokunun 1/8 final mərhələsi: «Turan Tovuz» «Kəpəz»i, «Sabah» «İmişli»ni qəbul edəcək")
         self.assertEqual(item["lead"], "Azərbaycan Kubokunun 1/8 final mərhələsinin cütləri bəllidir. Premyer Liqa komandaları 4 cütdə "
-                                       "qarşılaşacaq: «Turan Tovuz» – «Kəpəz», «Sabah» – «İmişli», «Neftçi» – «Şəfa», «Sumqayıt» – «Qarabağ».")
+                                       "bir-biri ilə qarşılaşacaq: «Turan Tovuz» – «Kəpəz», «Sabah» – «İmişli», «Neftçi» – «Şəfa», "
+                                       "«Sumqayıt» – «Qarabağ».")
         self.assertEqual(len(item["body"]), 8)
         self.assertNotIn("dekabr", item["lead"] + " ".join(item["body"]))  # 1 dekabr 12:00 hamısı üçün yer tutucudur
         self.assertNotIn("kubok-2026-1-8-final-cutler", {i["key"] for i in fa.items(FIX, at("2026-11-09T12:00+04:00"))})
@@ -294,7 +301,8 @@ class RealNationalAndEuropeTest(unittest.TestCase):
                                        "millisini 1:0 hesabı ilə məğlub edib. Bu nəticədən sonra Azərbaycan 3 oyunda 5 xal toplayıb və "
                                        "qrupda birinci yerdədir. Komanda növbəti oyununu 13 noyabrda Bakı vaxtı ilə saat 23:45-də "
                                        "Lixtenşteynə qarşı keçirəcək.")
-        self.assertEqual(item["body"], ["1. Azərbaycan – 3 oyun, 5 xal", "2. Litva – 3 oyun, 4 xal", "3. Lixtenşteyn – 2 oyun, 1 xal"])
+        self.assertEqual(item["body"], ["1-ci yer: Azərbaycan – 3 oyun, 5 xal", "2-ci yer: Litva – 3 oyun, 4 xal",
+                                        "3-cü yer: Lixtenşteyn – 2 oyun, 1 xal"])
 
     def test_sabah_result_in_europe(self):
         item = by_key(fa.items(FIX, at("2026-11-05T08:30+04:00")))["avro-cl-2026-sabah-20261105-netice"]

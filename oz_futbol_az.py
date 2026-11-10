@@ -56,6 +56,8 @@ SAY = {
 }
 _TWO = {"dat": ("y", "a", "ə"), "ins": ("y", "la", "lə"), "loc": ("", "da", "də"), "abl": ("", "dan", "dən")}
 _FOUR = {"acc": ("n", ("ı", "i", "u", "ü")), "gen": ("n", ("ın", "in", "un", "ün"))}
+# Mənsubiyyət şəkilçili son söz (Çempionlar Liqası, Ağstafa Gəncləri): yönlük, yerlik, çıxışlıqda «n» gəlir — Liqasında.
+_POSS = ("liqası", "kuboku", "çempionatı", "stadionu", "mərhələsi", "finalı", "yarımfinalı")
 _AZ_ABC = "abcçdeəfgğhxıijkqlmnoöprsştuüvyz"
 _PLACE = ("birinci", "ikinci", "üçüncü", "dördüncü", "beşinci", "altıncı", "yeddinci", "səkkizinci", "doqquzuncu", "onuncu")
 _ASCII = str.maketrans("əıöüşçğ", "eiouscg")
@@ -71,6 +73,9 @@ def sx(name, case, quote=True):
     else:
         buf, back, front = _TWO[case]
         end = back if ox._last_vowel(said) in "aıou" else front
+        words = ox._low(said).split()
+        if case != "ins" and len(words) > 1 and (words[-1] in _POSS or words[-1].endswith(("ları", "ləri"))):
+            buf = "n"
     return (f"«{name}»" if quote else name) + (buf if ox._vowel_end(said) else "") + end
 
 
@@ -876,7 +881,7 @@ def _cup_pairs(K, stages, order, i, pl_pos, fetch=None):
         lead = f"{sx(cup + ' ' + text, 'gen', False)} cütləri bəllidir."
         top = [g for g in ranked if g["home"] in pl_pos and g["away"] in pl_pos]
         if top:
-            lead += f" Premyer Liqa komandaları {len(top)} cütdə qarşılaşacaq: {', '.join(_pair(g, nm) for g in top)}."
+            lead += f" Premyer Liqa komandaları {len(top)} cütdə bir-biri ilə qarşılaşacaq: {', '.join(_pair(g, nm) for g in top)}."
     if real:
         lead += f" Oyunlar {_span_loc(first, last)} keçiriləcək."
     body = []
@@ -1018,7 +1023,7 @@ def _milli_result(D, az, g, fetch=None):
     elif grp and not any(az in (x["home"], x["away"]) and x["round"] == g["round"] and x["when"] > g["when"] for x in D["games"]):
         lead += " Bu, Azərbaycanın qrupdakı son oyunu idi."
     numbered = not shared and all(pos.get(k) for k in order)
-    body = [f"{str(pos[k]) + '. ' if numbered else ''}{D['names'].get(k, k)} – {table[k]['p']} oyun, {table[k]['pts']} xal"
+    body = [f"{ox.ordinal(pos[k]) + ' yer: ' if numbered else ''}{D['names'].get(k, k)} – {table[k]['p']} oyun, {table[k]['pts']} xal"
             for k in order]
     return {"title": title, "lead": lead, "body": body, "list": True, "credit": _credit(D), "link": _link(D)}
 
