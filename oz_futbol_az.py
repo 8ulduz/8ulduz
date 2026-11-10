@@ -10,6 +10,8 @@ Xəbərlər (bu moduldan gündə ən çox 5):
 1. Premyer Liqanın tur icmalı: turun əsas günlərinin bütün oyunları oynanandan sonra, son oyunun başlamasından 2 saat
    15 dəqiqə sonra (gecə yarısından sonraya düşürsə, səhər 09:00-da). Sonraya salınmış oyun turu saxlamır, qeyd olunur.
    Oyunlardan hesablanan yer yalnız xalı tək olan komandaya yazılır: pfl.az bərabər xalda əvvəlcə qarşılıqlı oyunlara baxır.
+   Rəsmi cədvəl oyunlardan yalnız xalda fərqlənirsə (xal düzəlişi), xal və yer rəsmi cədvəldəndir, turdan əvvəlki vəziyyətlə
+   müqayisə yazılmır; oyun sayı da fərqlənirsə (gecikmə, itən nəticə), xəbər yoxdur.
 2. Premyer Liqanın növbəti turuna baxış: turdan bir gün əvvəl 12:00-da, yalnız bütün oyunların saatı bəllidirsə (00:00 deyil)
    və rəsmi cədvəl oyunların nəticələri ilə uyğundursa.
 3. Bombardirlər: turdan sonrakı gün 10:00-da. pfl.az-dan /bombarders/list (fetch parametri ilə; mövsümün liqa nömrəsi üçün
@@ -335,15 +337,31 @@ def _table_ok(official, table):
     return bool(official) and not _bad_rows(official, table)
 
 
+def _pts_only(official, table):
+    """Rəsmi cədvəl oyunlardan yalnız xalda fərqlənir, oyun sayı hamıda eynidir: bu, gecikmə yox, xal düzəlişidir (texniki nəticə,
+    xal çıxılması; 2025-26: «Sumqayıt» +3, «İmişli» və «Qəbələ» −3) və mövsümün sonunadək qalır. Xal rəsmi cədvəldəndir."""
+    return (bool(official) and not _table_ok(official, table)
+            and all((table.get(k) or _zero())["p"] == int(r.get("p") or 0) for k, r in official.items())
+            and not [k for k, r in table.items() if r["p"] and k not in official])
+
+
+def _official_pts(official, table):
+    """Cədvəlin surəti, xallar rəsmi cədvəldən (xal düzəlişi üçün)."""
+    out = {k: dict(r) for k, r in table.items()}
+    for k, r in official.items():
+        out.setdefault(k, _zero())["pts"] = int(r.get("pts") or 0)
+    return out
+
+
 def _positions(L):
     """Hazırkı yerlər: rəsmi cədvəl oyunlarla uyğundursa ondan, deyilsə hesablanmış. Heç oyun yoxdursa, yer yoxdur."""
     played = [g for g in L["league"] if g["played"]]
     table = _table(played, L["lteams"])
     if not played:
         return table, {}, set(table)
-    if _table_ok(L["official"], table):
+    if _table_ok(L["official"], table) or _pts_only(L["official"], table):
         pos = {k: int(r.get("pos") or 0) for k, r in L["official"].items()}
-        return table, pos, {k for k, v in pos.items() if not v}
+        return _official_pts(L["official"], table), pos, {k for k, v in pos.items() if not v}
     pos, shared = _pos(table)
     return table, pos, shared
 
@@ -519,12 +537,17 @@ def _summary(L, rnd, main, early, later, short, fetch=None):
     current = not any(g["when"] > last for g in played)
     if len(after) < 2:
         return {"title": f"{head}: cədvəl yoxdur", "lead": "Cədvəl qurulmadı.", "body": [], "worth": False, "why": "cədvəl yoxdur"}
-    if current and L["official"] and not _table_ok(L["official"], after):
+    # Xal düzəlişi (oyun sayı eyni, xal fərqli): xal rəsmi cədvəldən; düzəlişin vaxtı bilinmir, turdan əvvəlki vəziyyətlə
+    # müqayisə (fərq, yer dəyişməsi) yazılmır.
+    adjusted = current and _pts_only(L["official"], after)
+    if adjusted:
+        after = _official_pts(L["official"], after)
+    elif current and L["official"] and not _table_ok(L["official"], after):
         bad = _and([_q(nm(k)) for k in _bad_rows(L["official"], after)])
         return {"title": f"{head}: cədvəl uyğun gəlmir", "lead": f"Rəsmi cədvəl oyunların nəticələri ilə uyğun gəlmir: {bad}.",
                 "body": [], "worth": False, "why": f"rəsmi cədvəl oyunların nəticələri ilə uyğun gəlmir: {bad}"}
     order = _order(after, L["names"])
-    had_before = any(r["p"] for r in before.values())
+    had_before = not adjusted and any(r["p"] for r in before.values())
     leader, top = order[0], after[order[0]]["pts"]
     lname = _q(nm(leader))
     tied = [k for k in order if after[k]["pts"] == top]
@@ -656,7 +679,8 @@ def _preview(L, past, rnd, main, fetch=None):
                 "body": [], "worth": False, "why": "oyun saatları hələ bəlli deyil (00:00)"}
     table, pos, shared = _positions(L)
     # Rəsmi cədvəl oyunlarla uyğun gəlmirsə (nəticəsi games[]-də olmayan oyunu sayıb və ya gecikir), xal, yer və son
-    # qarşılaşma səhv ola bilər: xəbər yazılmır (I Liqanın 7-ci turunda belə olub).
+    # qarşılaşma səhv ola bilər: xəbər yazılmır (I Liqanın 7-ci turunda belə olub). Yalnız xal düzəlişi isə maneə deyil:
+    # _positions xalı və yeri rəsmi cədvəldən verir.
     if L["official"] and not _table_ok(L["official"], table):
         bad = _and([_q(nm(k)) for k in _bad_rows(L["official"], table)])
         return {"title": f"{head}: cədvəl uyğun gəlmir", "lead": f"Rəsmi cədvəl oyunların nəticələri ilə uyğun gəlmir: {bad}.",
