@@ -143,8 +143,8 @@ function networks(env = process.env) {
       async post(a, f) {
         if (!a.digest) {
           const og = await this.scrape(shareUrl(a), f).catch(() => null);
-          const pics = (og?.image || []).map(i => String(i?.url || ""));
-          if (og && !og.error && !pics.some(u => u && !/og-default\.png/.test(decodeURIComponent(u)))) return { skip: "Facebook kartda şəkil görmədi" };
+          // Ötürmə yoxdur (2026-11-10, Sharing Debugger): wsrv.nl Facebook robotuna 403 verir — kart şəklini proksidən heç vaxt ala
+          // bilmir; ötürsək Facebook-a heç nə getməzdi. Post həmişə gedir; şəkil paylaşma səhifəsinin öz ünvanından gələndə düzələcək.
           if (og && !og.error) await new Promise(ok => setTimeout(ok, num(env.FB_SCRAPE_WAIT_MS, 8000)));
         }
         const [url, init] = this.request(a);
