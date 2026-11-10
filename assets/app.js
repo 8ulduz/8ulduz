@@ -937,6 +937,7 @@ function publishNews() {
   const d = {...S.rawMeta};
   if (prepOg !== S.og) { PREP = new WeakMap(); prepOg = S.og; }
   d.articles = collapseExact(clusterArticles(S.rawNews.flatMap(preparedRow)));
+  if (S.sw) d.articles = d.articles.map(S.sw); // «N mənbə» kartında keçid ən sürətli mənbəyə (suret.js)
   // Şəkil yoxdursa digər mənbədən.
   for (const a of d.articles) {
     if (a.imageUrl || !a.alts?.length) continue;
@@ -3332,7 +3333,7 @@ afterNews(enableAnalytics);
 firstReady.then(() => (globalThis.requestIdleCallback || (f => setTimeout(f, 1000)))(registerWorker, { timeout: 4000 }));
 newsReady.then(flushRender);
 const socNow = /[?&]s=[0-9a-f]{16}/.test(location.hash) && loadSocial();
-afterNews(() => { socNow || loadSocial(); loadSources(); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
+afterNews(() => { socNow || loadSocial(); loadSources(); import(`${ASSET}suret.js`).then(m => m.load()).then(f => { if (f) { S.sw = f; if (S.data) { publishNews(); requestRender(false); } } }).catch(() => {}); loadVideo(); loadFootball(); loadAds(); loadLocal(); });
 afterNews(() => setTimeout(wantSports, SPORTS_DELAY_MS));
 afterNews(() => idle(() => loadOg(), 1500, 8000)); // og xəritəsi lentdən sonra, boş anda (H1, 2026-11-09)
 document.addEventListener("toggle", e => { if (e.target.matches?.(".service-panel")) wantSports(); }, true);
