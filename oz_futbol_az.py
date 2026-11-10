@@ -59,6 +59,8 @@ SAY = {
     "Qaradağ L.": "Qaradağ Lökbatan",
     "Slavia Prague": "Slavia Praq", "Manchester City": "Mançester Siti", "Lille": "Lil", "Lens": "Lans", "Nice": "Nis",
     "Paris Saint-Germain": "Pari Sen-Jermen", "Sporting CP": "Sportinq Si-Pi", "Marseille": "Marsel",
+    "Sparta Prague": "Sparta Praq", "Chelsea": "Çelsi", "Crystal Palace": "Kristal Pelis", "TSG Hoffenheim": "Hoffenhaym",
+    "Red Star Belgrade": "Red Star Belqreyd", "Union Saint-Gilloise": "Yunion Sen-Jiluaz", "Bordeaux": "Bordo",
 }
 _TWO = {"dat": ("y", "a", "ə"), "ins": ("y", "la", "lə"), "loc": ("", "da", "də"), "abl": ("", "dan", "dən")}
 _FOUR = {"acc": ("n", ("ı", "i", "u", "ü")), "gen": ("n", ("ın", "in", "un", "ün"))}
@@ -73,6 +75,8 @@ def sx(name, case, quote=True):
     """Hal şəkilçisi: acc «Zirə»ni, gen «Neftçi»nin, dat «Sabah»a, ins «Şamaxı»yla, loc «Rheinpark Stadion»da,
     abl «Kəpəz»dən. quote=False: «Litvanı», «Lixtenşteynə», «Premyer Liqada»."""
     said = SAY.get(name, name)
+    if said.endswith(" City"):  # ingilis klubları: «Hull City»ni (Siti)
+        said = said[:-4] + "Siti"
     if case in _FOUR:
         buf, forms = _FOUR[case]
         end = ox._four(said, forms)
@@ -584,6 +588,10 @@ def _summary(L, rnd, main, early, later, short, fetch=None):
     pend = [g for g in later if not g["played"]]
     if pend:
         body.append(f"Turun {_pending(pend, nm, last)}.")
+    if early:  # girişdəki tarixlər turun əsas günləridir: əvvəlcədən oynanan oyunun tarixi ayrıca yazılır
+        word = "oyunu" if len(early) == 1 else "oyunları"
+        body.append(f"Turun {_and([_pair(g, nm) for g in early])} {word} "
+                    f"{_span_loc(min(g['when'] for g in early), max(g['when'] for g in early))} keçirilib.")
     return {"title": title, "lead": lead, "body": body, "list": True, "credit": CREDIT_PFL, "link": LINK_PFL}
 
 
