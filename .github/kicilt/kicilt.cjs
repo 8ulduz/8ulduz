@@ -19,7 +19,7 @@ const OPTIONS = {
   compress: { toplevel: false }, mangle: { toplevel: false },
   format: { comments: false },
 };
-const PREAMBLE = "/* 8ulduz: kiçildilmiş kod. Mənbə assets/app.js, qurmaq: node .github/kicilt/kicilt.cjs (əl ilə dəyişməyin) */";
+const PREAMBLE = "/*8*/";
 
 function terser() {
   try { return require("terser"); } catch {

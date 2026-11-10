@@ -1191,7 +1191,7 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 @media(max-width:600px){
   nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}
   nav.main .nav-tg{display:flex;flex:1 0 100%;justify-content:center;align-items:center;min-height:24px;border-radius:999px;background:var(--navy);color:#fff;font-weight:var(--fw-bold)}
-  nav.main>a:not(.ph,.nav-tg){display:none}nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}
+  nav.main>a:not(.ph,.nav-tg){display:none}nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}
   nav.main .nav-more{display:flex}nav.main .nav-more>summary{font-size:0;min-height:28px;padding:0 12px;border-radius:999px;background:var(--card2)}nav.main .nav-more>summary::before{content:"☰";font-size:32px;line-height:.8;color:var(--primary)}
   nav.main .nav-more-pop{position:fixed;inset:auto 0 0;max-width:none;max-height:75dvh;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 12px 70px;border-radius:16px 16px 0 0;z-index:1000}
   nav.main .nav-more-pop a{font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--fw-bold);color:var(--fg);padding:9px 12px}

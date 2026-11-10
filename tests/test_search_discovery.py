@@ -64,6 +64,8 @@ class StoryPagesTest(unittest.TestCase):
                 self.assertIn('<meta name="robots" content="max-image-preview:large" />', page, 'Google Discover: böyük şəkil')
                 self.assertIn(f'<link rel="canonical" href="{updater.SITE}xeber/{"1" * 16}/" />', page)
                 self.assertIn('<h1>Zəfər Günü ilə bağlı hərbi yürüşlər olacaq</h1>', page)
+                self.assertIn('«Bakının müxtəlif yerlərində hərbi orkestrlər çıxış edəcək.» — APA', page, 'xülasə bir sitat sətridir')
+                self.assertIn('Telegram-a qoşul', page)
                 self.assertIn('4 mənbə', page)
                 for i, host in enumerate(('report.az', 'trend.az', 'axar.az')):
                     self.assertIn(f'href="https://{host}/x/{"1" * 16}-{i}"', page)
@@ -95,6 +97,19 @@ class StoryPagesTest(unittest.TestCase):
         page = updater.section_page('bolgeler', 'Bölgələr', 'x', [self.story(sid), self.story('5' * 16, alts=0)], stories={sid: [0, 4, 'bolgeler']})
         self.assertIn(f'href="../../xeber/{sid}/"', page)
         self.assertIn('href="https://apa.az/news/' + '5' * 16 + '"', page, 'səhifəsi olmayan xəbər mənbəyə aparır')
+        extra = 'ab' * 8
+        linked = updater.section_page('bolgeler', 'Bölgələr', 'x', [self.story(sid)], stories={sid: [1, 4, 'bolgeler'], extra: [2, 4, 'bolgeler']}, titles={extra: ('Köhnə bölgə xəbəri', 'APA')})
+        self.assertIn(f'href="../../xeber/{extra}/"', linked, 'ilk 30-da olmayan xəbər səhifəsi də keçid alır')
+        self.assertIn('Köhnə bölgə xəbəri', linked)
+        self.assertIn('Telegram-a qoşul', linked)
+        self.assertIn('https://t.me/sekkizulduz_az', linked)
+
+    def test_related_stories_are_same_category_story_links(self):
+        a, b, other = self.story('1' * 16), self.story('2' * 16), self.story('3' * 16, category='idman')
+        page = updater.story_page(a, None, [a, b, other])
+        self.assertIn(f'href="../../xeber/{"2" * 16}/"', page)
+        self.assertNotIn(f'href="../../xeber/{"3" * 16}/"', page, 'başqa bölmə düşmür')
+        self.assertIn('Əlaqəli xəbərlər', page)
 
     def test_pipeline_publishes_and_keeps_story_pages(self):
         sh = (ROOT / '.github/scripts/pipeline.sh').read_text(encoding='utf-8')
@@ -250,7 +265,7 @@ class DiscoverImageTest(unittest.TestCase):
 class StoryTemplateVersionTest(unittest.TestCase):
     """xeber/<id>/ şablonu dəyişəndə STORY_VER artmalıdır (sürət, 2026-11-09): 2026-11-08-də şablon app.js → app.min.js keçdi, versiya
     artmadı və ~3 400 köhnə səhifə kiçildilməmiş kodu (+16,5 KB gzip, +56 KB mənbə) yükləməkdə qaldı — index.json onları «cari» sayırdı."""
-    TEMPLATE_SHA = {5: 'ea0b4e59365e'}  # yeni STORY_VER: hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12] sətrini əlavə edin
+    TEMPLATE_SHA = {6: '47e7e28b315b'}  # yeni STORY_VER: hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12] sətrini əlavə edin
 
     def test_story_template_change_bumps_story_ver(self):
         import hashlib
@@ -263,3 +278,58 @@ class StoryTemplateVersionTest(unittest.TestCase):
         scripts = re.findall(r'<script[^>]*\bsrc="[^"]*?([\w.-]+\.js)"', updater._STORY_HTML)
         self.assertEqual(sorted(scripts), ['app.min.js', 'config.js', 'content-policy.js'], 'xəbər səhifəsi ilk açılışın üç faylını yükləyir, başqa heç nə')
         self.assertNotIn('assets/app.js', updater._STORY_HTML, 'oxucuya mənbə kodu getməz')
+
+
+class NewsSitemapTest(unittest.TestCase):
+    """Google News sitemap: son 48 saat, ən çoxu 1000, nəşr adı və tam ISO vaxt."""
+
+    def story(self, sid, hours, title='Başlıq'):
+        import datetime
+        at = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours)).isoformat()
+        return {'id': sid, 'title': title, 'category': 'gundem', 'lang': 'az', 'publishedAt': at, 'source': 'APA'}
+
+    def test_news_sitemap_lists_recent_story_pages_only(self):
+        import datetime
+        fresh, old, missing = 'a' * 16, 'b' * 16, 'c' * 16
+        articles = [self.story(fresh, 3, 'Təzə xəbər'), self.story(old, 72, 'Köhnə xəbər'), self.story(missing, 1, 'Səhifəsiz')]
+        stories = {fresh: [1, 3, 'gundem'], old: [1, 3, 'gundem']}
+        with tempfile.TemporaryDirectory() as tmp:
+            target = pathlib.Path(tmp) / 'sitemap-news.xml'
+            sm = pathlib.Path(tmp) / 'sitemap.xml'
+            with patch.object(updater, 'NEWS_SITEMAP_FILE', target), patch.object(updater, 'SITEMAP_FILE', sm):
+                updater.write_news_sitemap(articles, stories)
+                updater.write_sitemap({fresh: [1793950000, 3, 'gundem']})
+            ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9', 'n': 'http://www.google.com/schemas/sitemap-news/0.9'}
+            root = ET.parse(target).getroot()
+            urls = root.findall('s:url', ns)
+            self.assertEqual(len(urls), 1, '48 saatdan köhnə və səhifəsiz xəbər düşmür')
+            url = urls[0]
+            self.assertEqual(url.find('s:loc', ns).text, f'{updater.SITE}xeber/{fresh}/')
+            news = url.find('n:news', ns)
+            self.assertEqual(news.find('n:publication/n:name', ns).text, '8 Ulduz')
+            self.assertEqual(news.find('n:publication/n:language', ns).text, 'az')
+            self.assertEqual(news.find('n:title', ns).text, 'Təzə xəbər')
+            pub = news.find('n:publication_date', ns).text
+            self.assertRegex(pub, r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$')
+            datetime.datetime.fromisoformat(pub)
+            lastmod = ET.parse(sm).getroot().find('s:url/s:lastmod', ns).text
+            self.assertRegex(lastmod, r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$')
+        self.assertIn('Sitemap: " + SITE + "sitemap-news.xml\\n"', (ROOT / 'updater.py').read_text(encoding='utf-8'))
+        self.assertIn('Sitemap: https://8ulduz.az/sitemap-news.xml', (ROOT / 'robots.txt').read_text(encoding='utf-8'))
+
+    def test_news_sitemap_stops_at_one_thousand(self):
+        articles = [self.story(f'{i:016x}', 1, f'Xəbər {i}') for i in range(1005)]
+        stories = {a['id']: [1, 3, 'gundem'] for a in articles}
+        with tempfile.TemporaryDirectory() as tmp:
+            target = pathlib.Path(tmp) / 'news.xml'
+            with patch.object(updater, 'NEWS_SITEMAP_FILE', target):
+                updater.write_news_sitemap(articles, stories)
+            text = target.read_text(encoding='utf-8')
+        self.assertEqual(text.count('<loc>'), 1000)
+        self.assertIn('xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"', text)
+
+    def test_copied_summary_is_one_attributed_line(self):
+        long = 'Birinci cümlə buradadır. İkinci cümlə köçürülməməlidir. Üçüncü də yox.'
+        line = updater._quote_line(long, 'APA')
+        self.assertEqual(line, '«Birinci cümlə buradadır.» — APA')
+        self.assertNotIn('İkinci', line)

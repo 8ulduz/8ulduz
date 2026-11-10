@@ -278,13 +278,13 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   const html = () => { vm.runInContext('renderNav()', ctx); return els.nav.innerHTML; };
   let h = html();
   const [row, rest] = h.split('<details class="nav-more">');
-  const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
+  const phone = [...row.matchAll(/<a href="\/bolme\/([a-z]+)\/" class="[^"]*\bph\b/g)].map(m => m[1]);
   // sahib 2026-11-07: İdmanın yanında Zuğulba yox, Bölgələr (Zuğulba aşağıda öz blokunda, bağlı başlıq)
   // sahib 2026-11-07 (sonra): «Gündəm sonra Dünya»; «Son dəqiqə» ☰-də (qırmızı zolaq və «Son xəbərlər» onu təkrarlayırdı)
   assert.deepEqual(phone, ['gundem', 'idman', 'bolgeler', 'dunya'], 'telefonda sətirdə yalnız 4 bölmə (HTML sırası; masaüstü menyu dəyişmir)');
-  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}'), 'telefonda görünən sıra: Gündəm, Dünya, İdman, Bölgələr');
-  const list = (rest.split('</details>')[0].match(/<a href="#\/bolme\//g) || []).length;
-  assert.equal(list, (h.match(/<a href="#\/bolme\/[a-z]+" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}'), 'telefonda görünən sıra: Gündəm, Dünya, İdman, Bölgələr');
+  const list = (rest.split('</details>')[0].match(/<a href="\/bolme\//g) || []).length;
+  assert.equal(list, (h.match(/<a href="\/bolme\/[a-z]+\/" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
   assert.ok(rest.includes('<summary aria-label="Bütün bölmələr">☰ Hamısı</summary>'));
   assert.ok(h.includes('<button type="button" class="nav-inst" data-act="install" hidden>'), 'quraşdırma mümkün deyilsə düymə gizlidir');
   assert.ok(rest.split('</details>')[0].includes('class="nav-inst"'), '«Ana ekrana» ☰ siyahısının içindədir');
@@ -674,7 +674,7 @@ test('hover menu: one list for the section, a second list only for a tab with it
   const region=navPopHtml('bolgeler','Qarabağ');
   assert.ok(region.includes('pop-col two')&&region.includes('data-club="Xankəndi"'),'bölgələr də eyni cür açılır');
   const more=navPopHtml('more');
-  assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="#/bolme/dunya"'));
+  assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="/bolme/dunya/"'));
   assert.ok(!more.includes('href="#/bolme/idman"'),'menyuda görünən bölmə təkrarlanmır');
 });
 test('merged sections: old links, old cached stories and saved stories land in the new section',async()=>{
@@ -2698,6 +2698,8 @@ test("owner's share notes (2026-11-08): every 16-hex story shares www.8ulduz.az/
   assert.ok(card(row('0123456789abcdef', { live: 1 })).includes(`data-share="https://www.8ulduz.az/0123456789abcdef?h=${at.slice(2, 13).replace(/\D/g, '')}"`), 'dəqiqəlik kanaldan gələn təzə xəbər də eyni ünvan: səhifəsi yoxdursa Worker lentdən qurur');
   assert.ok(card(row('0123456789abcdef', { publishedAt: '' })).includes('data-share="https://www.8ulduz.az/0123456789abcdef"'), 'vaxtsız sətirdə h yoxdur');
   assert.ok(card(row('1')).includes(`data-share="https://8ulduz.az/#/xeber/1?b=gundem&amp;h=${at.slice(2, 13).replace(/\D/g, '')}"`), '16 rəqəmli olmayan nömrə');
+  assert.ok(card(row('abcdef0123456789', { category: 'prezident' })).includes('data-share="https://8ulduz.az/xeber/abcdef0123456789/"'), 'xəbər səhifəsi olan Zuğulba: kanonik ünvan');
+  assert.ok(card(row('0123456789abcdef', { alts: [{ source: 'Report', sourceUrl: 'https://report.az/1' }, { source: 'Trend', sourceUrl: 'https://trend.az/1' }] })).includes('data-share="https://8ulduz.az/xeber/0123456789abcdef/"'), '3 mənbə: kanonik /xeber/');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'); assert.ok(!src.includes('8ulduz.az/x/') && !src.includes('a.live') && !src.includes('sharePages && '), 'köhnə /x/ yolu, dəqiqəlik işarə və bayraq şərti koddan çıxıb (yer: app.js 220 000 həddindədir)');
   const written = [];
   ctx.navigator.clipboard = { writeText: async s => { written.push(s); } };
@@ -2796,7 +2798,7 @@ test('owner 2026-11-07: on a phone the Zuğulba block is a closed header that op
   assert.match(block([]), /^<section class="prez open">/, 'açıq qalır (yenidən çəkilişdə bağlanmır)');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(css.includes('.prez-h h2{font-size:clamp(15px,6vw,25px);letter-spacing:0;min-width:0}') && css.includes('.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: bir sırada ad, say və ox (kart böyümür)');
-  assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && css.includes('.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}') && js.includes('href="#/bolme/prezident">Hamısı →</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: bağlı halda yalnız «Zuğulba Xronikası», açılanda say və «Hamısı →»');
+  assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && css.includes('.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}') && js.includes('href="/bolme/prezident/">Hamısı →</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: bağlı halda yalnız «Zuğulba Xronikası», açılanda say və «Hamısı →»');
   assert.ok(js.includes('const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn"))'), 'başlığa basanda açılır, «Hamısı →» bölməyə aparır');
   assert.ok(css.includes('nav.main .nav-more>summary::before{content:"☰";font-size:32px;line-height:.8;color:var(--primary)}'), '☰ ulduz rəngində');
 });
@@ -2831,7 +2833,7 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
 test('owner 2026-11-07: the bottom bar has six buttons — Video added, Tıxac kept', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   for (const src of [js, html]) {
-    assert.ok(src.includes('<a href="#/bolme/video" data-tab="video"><b>▶</b><span>Video</span></a>'), 'aşağı zolaqda Video');
+    assert.ok(src.includes('<a href="/bolme/video/" data-tab="video"><b>▶</b><span>Video</span></a>'), 'aşağı zolaqda Video');
     assert.ok(src.includes('<a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>'), 'Tıxac qalır');
     assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 6, 'aşağıda 6 düymə');
   }

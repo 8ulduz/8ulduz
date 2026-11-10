@@ -489,6 +489,7 @@ def site_url(root=None):
 SITE = site_url()
 FEED_FILE = ROOT / "feed.xml"
 SITEMAP_FILE = ROOT / "sitemap.xml"
+NEWS_SITEMAP_FILE = ROOT / "sitemap-news.xml"
 ROBOTS_FILE = ROOT / "robots.txt"
 BAKU = datetime.timezone(datetime.timedelta(hours=4))
 AZ_MONTHS = {
@@ -1993,7 +1994,8 @@ STORY_SITEMAP_MAX = 5000
 # 3: og:image mənbələrin ən enli şəkli (Discover 1200+ px istəyir; 2026-11-07 ölçüsü: əsas şəkillərin 13/40-ı 1200+ idi).
 # 4: xəbərin sətri səhifənin özündədir (#row): paylaşılan/köhnə keçid lentdən çıxsa da açılır (sahib 2026-11-07, paylaşma yoxlaması).
 # 5: səhifə kiçildilmiş app.min.js yükləyir — şablon 2026-11-08-də dəyişmiş, versiya artmamışdı: ~3 400 köhnə səhifə Google-dan gələnə 221 KB-lıq app.js verirdi (sürət, 2026-11-09).
-STORY_VER, STORY_REWRITE = 5, 150
+# 6: əlaqəli xəbərlər, bir sətirlik sitat, Telegram düyməsi (Google indeksləməsi, 2026-11-10).
+STORY_VER, STORY_REWRITE = 6, 150
 IMG_SIZE_FILE = CACHE_DIR / "img_size.json"
 IMG_SIZE_KEEP, DISCOVER_MIN_W = 4000, 1200
 
@@ -2116,16 +2118,44 @@ _STORY_HTML = """<!doctype html>
   </head>
   <body>
     <div id="app">
-      <main class="wrap"><p><a href="../../">8ulduz</a> › <a href="../../bolme/__SLUG__/">__LABEL__</a></p><h1>__TITLE__</h1>
+      <main class="wrap"><p><a class="btn" href="https://t.me/sekkizulduz_az">Telegram-a qoşul</a></p><p><a href="../../">8ulduz</a> › <a href="../../bolme/__SLUG__/">__LABEL__</a></p><h1>__TITLE__</h1>
       <p><time datetime="__ISO__">__WHEN__</time> · __COUNT__ mənbə</p><p>__SUMMARY__</p>
       <h2>Bu xəbəri yazan mənbələr</h2><ul>__SOURCES__</ul>
+      __RELATED__
       <p><a href="../../bolme/__SLUG__/">__LABEL__ bölməsinin digər xəbərləri</a> · <a href="../../">8ulduz — baş səhifə</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
 """
 
-def story_page(a, sizes=None):
+def _quote_line(summary, source):
+    """Mənbədən köçürülən xülasə: bir cümlə, dırnaqda, mənbənin adı ilə."""
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", str(summary or ""))).strip()
+    if not text:
+        return ""
+    line = re.split(r"(?<=[.!?…])\s+", text, maxsplit=1)[0]
+    if len(line) > 180:
+        cut = line[:177].rsplit(" ", 1)[0]
+        line = (cut or line[:177]).rstrip() + "…"
+    who = re.sub(r"\s+", " ", str(source or "")).strip()
+    return "«" + _xml(line) + "»" + ((" — " + _xml(who)) if who else "")
+
+def _related_block(a, pool, now=None):
+    """Eyni bölmənin 5–8 xəbər səhifəsi (azdırsa hamısı). Yalnız səhifəsi qalan xəbərlər."""
+    now = now or time.time()
+    cat = a.get("category") or "gundem"
+    def live(b):
+        dt = _parse_dt(b.get("publishedAt"))
+        return bool(dt and 0 <= now - dt.timestamp() <= STORY_KEEP_S)
+    rows = [b for b in pool or [] if b.get("id") != a.get("id") and (b.get("category") or "gundem") == cat and story_worthy(b) and live(b)]
+    rows.sort(key=lambda b: b.get("publishedAt") or "", reverse=True)
+    rows = rows[:8]
+    if not rows:
+        return ""
+    lis = "".join(f'<li><a href="../../xeber/{b["id"]}/">{_xml(b.get("title"))}</a></li>' for b in rows)
+    return f'<h2>Əlaqəli xəbərlər</h2><ul>{lis}</ul>'
+
+def story_page(a, sizes=None, related=()):
     """Bir əsas xəbərin axtarış üçün səhifəsi (xeber/<id>/index.html)."""
     sid, slug = a["id"], a.get("category") or "gundem"
     label = {s: l for s, l, _d in SECTIONS}.get(slug, "Xəbərlər")
@@ -2151,11 +2181,12 @@ def story_page(a, sizes=None):
     row = {k: a[k] for k in keep if a.get(k)}
     row["alts"] = [{k: r[k] for k in ("id", "title", "source", "sourceUrl") if r.get(k)} for r in (a.get("alts") or [])][:20]
     row = json.dumps(row, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\u0021--")
-    page = (_STORY_HTML.replace("__ROW__", row).replace("__LD__", ld).replace("__SOURCES__", "".join(lis)).replace("__SUMMARY__", _xml(summary))
+    page = (_STORY_HTML.replace("__ROW__", row).replace("__LD__", ld).replace("__SOURCES__", "".join(lis))
+            .replace("__SUMMARY__", _quote_line(a.get("summary"), a.get("source")))
             .replace("__DESC__", _xml(desc or title)).replace("__TITLE__", _xml(title)).replace("__LABEL__", _xml(label))
             .replace("__IMAGE__", _xml(image)).replace("__WHEN__", _xml(_baku_time(iso))).replace("__ISO__", _xml(iso))
             .replace("__COUNT__", str(len(lis))).replace("__URL__", url).replace("__SITE__", SITE)
-            .replace("__ID__", sid).replace("__SLUG__", slug))
+            .replace("__ID__", sid).replace("__SLUG__", slug).replace("__RELATED__", _related_block(a, related)))
     return _with_csp(page)
 
 def read_story_index():
@@ -2187,7 +2218,7 @@ def write_story_pages(articles, now=None):
             redo -= 1  # köhnə şablon: yenidən yazılır
         d = STORY_DIR / a["id"]
         d.mkdir(parents=True, exist_ok=True)
-        _write_atomic(d / "index.html", story_page(a, sizes), encoding="utf-8")
+        _write_atomic(d / "index.html", story_page(a, sizes, rows), encoding="utf-8")
         index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem", STORY_VER]
         changed = True
     for sid in list(index):
@@ -5160,23 +5191,53 @@ _SECTION_HTML = """<!doctype html>
   </head>
   <body>
     <div id="app">
-      <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
+      <main class="wrap"><p><a class="btn" href="https://t.me/sekkizulduz_az">Telegram-a qoşul</a></p><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
       <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
 """
 
-def section_page(slug, label, desc, articles, limit=30, stories=()):
+def _story_titles(stories, articles):
+    """Xəbər səhifəsinin başlığı: lentdən, yoxdursa səhifənin <h1>-indən."""
+    by_id = {a.get("id"): a for a in articles if a.get("id")}
+    titles = {}
+    for sid, row in (stories or {}).items():
+        a = by_id.get(sid)
+        if a and str(a.get("title") or "").strip():
+            titles[sid] = (a.get("title"), a.get("source") or "")
+            continue
+        if isinstance(row, list) and len(row) > 4 and row[4]:
+            titles[sid] = (row[4], "")
+            continue
+        try:
+            text = (STORY_DIR / sid / "index.html").read_text(encoding="utf-8")[:4000]
+            m = re.search(r"<h1>(.*?)</h1>", text)
+            if m:
+                titles[sid] = (html.unescape(m.group(1)), "")
+        except Exception:
+            pass
+    return titles
+
+def section_page(slug, label, desc, articles, limit=30, stories=(), titles=None):
     items = [a for a in articles if a.get("category") == slug and (a.get("lang") or "az") == "az"]
     items.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
     # Öz səhifəsi olan xəbər ora keçid verir (Google səhifəni bölmədən də tapır), qalanı mənbəyə.
     href = lambda a: f'../../xeber/{a["id"]}/' if a.get("id") in stories else _xml(a.get("sourceUrl"))
-    lis = "".join(
-        f'<li><a href="{href(a)}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>'
-        for a in items[:limit])
-    url = f"{SITE}bolme/{slug}/"
-    return _page_html(slug, label, desc, f"<ul>{lis}</ul>")
+    shown = items[:limit]
+    shown_ids = {a.get("id") for a in shown}
+    lis = [f'<li><a href="{href(a)}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in shown]
+    # Bölmənin bütün cari xəbər səhifələri (ilk 30-da olmayanlar da).
+    extra = []
+    for sid, row in (stories or {}).items():
+        if sid in shown_ids or not (isinstance(row, list) and len(row) > 2 and row[2] == slug):
+            continue
+        title, source = (titles or {}).get(sid, ("", ""))
+        if title:
+            extra.append((row[0], sid, title, source))
+    extra.sort(reverse=True)
+    lis.extend(f'<li><a href="../../xeber/{sid}/">{_xml(title)}</a> <small>{_xml(source)}</small></li>' for _, sid, title, source in extra)
+    return _page_html(slug, label, desc, f"<ul>{''.join(lis)}</ul>")
 
 # index.html-dəki siyasətlə eynidir (tests/browser-logic.test.cjs). connect-src qəsdən yoxdur: canlı kanala sorğu bloklanmasın.
 # connect-src olmayanda sendBeacon 8ulduz.goatcounter.com-a keçir. Skript gc.zgo.at-dandır; hər iki ünvan script-src-dədir.
@@ -5223,10 +5284,15 @@ def service_body(slug, articles):
     return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p><ul>{lis}</ul>'
 
 def write_sections(articles, stories=()):
+    try:
+        titles = _story_titles(stories, articles)
+    except Exception as e:
+        print("  ! bölmə keçidləri:", type(e).__name__, e)
+        titles = {}
     for slug, label, desc in SECTIONS:
         d = SECTIONS_DIR / slug
         d.mkdir(parents=True, exist_ok=True)
-        _write_atomic(d / "index.html", section_page(slug, label, desc, articles, stories=stories), encoding="utf-8")
+        _write_atomic(d / "index.html", section_page(slug, label, desc, articles, stories=stories, titles=titles), encoding="utf-8")
     for old, new in SECTION_ALIASES.items():
         d = SECTIONS_DIR / old
         d.mkdir(parents=True, exist_ok=True)
@@ -5241,31 +5307,72 @@ def write_sections(articles, stories=()):
             print("  ! xidmət səhifəsi:", slug, type(e).__name__, e)
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
+def _iso_utc(dt):
+    """Tam ISO vaxt damğası (saniyə, UTC)."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
+
 def write_sitemap(stories=None, digests=()):
-    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    now = _iso_utc(datetime.datetime.now(datetime.timezone.utc))
     locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc in locs:
-        body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{today}</lastmod><changefreq>hourly</changefreq></url>")
+        body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{now}</lastmod><changefreq>hourly</changefreq></url>")
     # Sabit məlumat səhifələrinə hər dövrədə saxta dəyişmə tarixi yazılmır.
     for path in ("haqqinda/", "mexfilik/"):
         body.append(f"<url><loc>{_xml(SITE + path)}</loc></url>")
     if digests:
-        body.append(f"<url><loc>{SITE}icmal/</loc><lastmod>{datetime.datetime.fromtimestamp(digests[0]['at'], datetime.timezone.utc).date().isoformat()}</lastmod></url>")
+        body.append(f"<url><loc>{SITE}icmal/</loc><lastmod>{_iso_utc(datetime.datetime.fromtimestamp(digests[0]['at'], datetime.timezone.utc))}</lastmod></url>")
     for e in list(digests)[:60]:
-        body.append(f"<url><loc>{SITE}icmal/{e['slug']}/</loc><lastmod>{e['date']}</lastmod></url>")
+        when = _iso_utc(datetime.datetime.fromtimestamp(e["at"], datetime.timezone.utc)) if e.get("at") else str(e.get("date") or "") + "T00:00:00+00:00"
+        body.append(f"<url><loc>{SITE}icmal/{e['slug']}/</loc><lastmod>{when}</lastmod></url>")
     newest = sorted((stories or {}).items(), key=lambda kv: kv[1][0], reverse=True)[:STORY_SITEMAP_MAX]
     for sid, row in newest:
-        day = datetime.datetime.fromtimestamp(row[0], datetime.timezone.utc).date().isoformat()
+        day = _iso_utc(datetime.datetime.fromtimestamp(row[0], datetime.timezone.utc))
         body.append(f"<url><loc>{SITE}xeber/{sid}/</loc><lastmod>{day}</lastmod></url>")
     body.append("</urlset>\n")
     _write_atomic(SITEMAP_FILE, "".join(body), encoding="utf-8")
+
+def write_news_sitemap(articles, stories=None, now=None):
+    """Google News sitemap: son 48 saat, ən çoxu 1000 ünvan. Səhifəsi olan xəbərlər."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    if isinstance(now, (int, float)):
+        now = datetime.datetime.fromtimestamp(now, datetime.timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+    if stories is None:
+        stories = read_story_index()
+    cutoff = now - datetime.timedelta(hours=48)
+    rows = []
+    for a in articles or []:
+        sid = str(a.get("id") or "")
+        if sid not in (stories or {}):
+            continue
+        dt = _parse_dt(a.get("publishedAt"))
+        if not dt or dt < cutoff or dt > now + datetime.timedelta(minutes=15):
+            continue
+        title = re.sub(r"\s+", " ", str(a.get("title") or "")).strip()
+        if not title:
+            continue
+        rows.append((dt, sid, title))
+    rows.sort(key=lambda x: x[0], reverse=True)
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">']
+    for dt, sid, title in rows[:1000]:
+        parts.append("<url><loc>" + _xml(f"{SITE}xeber/{sid}/") + "</loc><news:news>"
+                     "<news:publication><news:name>8 Ulduz</news:name><news:language>az</news:language></news:publication>"
+                     "<news:publication_date>" + _xml(_iso_utc(dt)) + "</news:publication_date>"
+                     "<news:title>" + _xml(title) + "</news:title></news:news></url>")
+    parts.append("</urlset>\n")
+    _write_atomic(NEWS_SITEMAP_FILE, "".join(parts), encoding="utf-8")
 
 def write_robots():
     _write_atomic(ROBOTS_FILE, 
         "User-agent: *\nDisallow: /tests/\nDisallow: /docs/\nDisallow: /android/\nDisallow: /.github/\nDisallow: /updater.py\n"
         "Disallow: /reader_content.py\nDisallow: /content_policy.py\nDisallow: /README.md\nAllow: /\n\nSitemap: " + SITE + "sitemap.xml\n"
+        "Sitemap: " + SITE + "sitemap-news.xml\n"
         "Sitemap: " + SITE + "sitemap-movzu.xml\n",  # rayon/ və idman/ mövzu səhifələri (.github/scripts/topics.cjs, pipeline publish_main)
         encoding="utf-8")
 
@@ -5282,9 +5389,22 @@ def write_public():
     except Exception as e:
         print("  ! icmal:", type(e).__name__, e)
         digests = []
-    write_sections(articles, stories)
-    write_sitemap(stories, digests)
-    write_robots()
+    try:  # bölmə səhifəsi alınmasa sitemap yazılsın
+        write_sections(articles, stories)
+    except Exception as e:
+        print("  ! bölmə səhifələri:", type(e).__name__, e)
+    try:
+        write_sitemap(stories, digests)
+    except Exception as e:
+        print("  ! sitemap:", type(e).__name__, e)
+    try:  # Google News sitemap: alınmasa xəbər faylı artıq yazılıb
+        write_news_sitemap(articles, stories)
+    except Exception as e:
+        print("  ! sitemap-news:", type(e).__name__, e)
+    try:
+        write_robots()
+    except Exception as e:
+        print("  ! robots:", type(e).__name__, e)
 
 _OG_META = re.compile(r"<meta\b[^>]*>", re.I)
 _OG_KEY = re.compile(r"""(?:property|name)\s*=\s*["']([^"']+)["']""", re.I)
@@ -6031,6 +6151,10 @@ def main(fast=False):
     except Exception as e:
         print("  ! first.json:", type(e).__name__, flush=True)
     write_news(data)
+    try:  # Google News sitemap hər dövrədə; alınmasa lent artıq yazılıb
+        write_news_sitemap(articles)
+    except Exception as e:
+        print("  ! sitemap-news:", type(e).__name__, e)
     if not fast:
         try:
             retire_reader()

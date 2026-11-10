@@ -1,7 +1,7 @@
 // Ziyarət statistikası (GoatCounter, kuksuz): https://8ulduz.goatcounter.com
 // ga4: Google Analytics 4 ölçmə ID-si (8ulduz.az@gmail.com, «8ulduz.az» mülkü). Yüngül göndərici assets/ga.js; boş sətir söndürür.
 // Boş sətir sayğacı söndürür.
-// Telegram kanalı: "https://t.me/KANAL". Boş olanda izləmə panelində göstərilmir. 8ULDUZ kanalı @sekkizulduz_az-dır
+// Telegram kanalı: 8ULDUZ kanalı @sekkizulduz_az-dır. Boş olanda izləmə panelində göstərilmir.
 // (xəbərləri .github/scripts/social.cjs göndərir); @sekkizulduz kanal deyil, şəxsi hesabdır.
 // Əlaqə e-poçtu: "Haqqımızda" səhifəsində görünür; boş olanda yalnız GitHub keçidi qalır.
 // assistant: mikrofonlu «Köməkçi» düyməsi; driver: «Sürücü rejimi». Hələlik söndürülüb, true yazanda geri qayıdır

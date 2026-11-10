@@ -37,7 +37,10 @@ function options(env = process.env) {
 
 const sources = a => 1 + (Array.isArray(a.alts) ? a.alts.length : 0);
 // icmalın öz ünvanı var (icmal/<tarix>-seher/). h: xəbərin saatı — keçid günlər sonra arxiv budağından açılır (arxiv.cjs).
-const shareUrl = a => a.url || `${SITE}x/${a.id}${hourOf(a.publishedAt) ? `?h=${hourOf(a.publishedAt)}` : ""}`;
+function storyPageExists(id) {
+  try { return fs.existsSync(path.join(process.cwd(), "xeber", id, "index.html")); } catch { return false; }
+}
+const shareUrl = a => a.url || (/^[0-9a-f]{16}$/.test(String(a.id || "")) && storyPageExists(a.id) ? `${SITE}xeber/${a.id}/` : `${SITE}x/${a.id}${hourOf(a.publishedAt) ? `?h=${hourOf(a.publishedAt)}` : ""}`);
 function hourOf(iso) { const m = String(iso || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/); return m ? m.slice(1).join("") : ""; }
 // Günün icmalı (updater.write_digest, 09:00 və 19:00 Bakı): siyahı icmal/index.json-dadır. 4 saatdan köhnə buraxılış göndərilmir.
 const DIGEST_MAX_AGE_H = 4;
