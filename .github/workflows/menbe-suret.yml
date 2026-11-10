@@ -1,0 +1,47 @@
+name: Mənbə sürəti
+# Mənbə saytlarının telefon şəraitində açılma sürəti (.github/scripts/menbe-suret.cjs), gündə iki dəfə. Nəticə «suret» budağına
+# (tarixçəsiz, bir fayl): sayt «N mənbə» kartında keçidi ən sürətli mənbəyə yönəldir. main-ə və sayta fayl yazılmır, xəbər axınından ayrıdır.
+
+on:
+  schedule:
+    - cron: "17 2,14 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/menbe-suret.yml
+      - .github/scripts/menbe-suret.cjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: menbe-suret
+  cancel-in-progress: false
+
+jobs:
+  olc:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/menbe-suret.cjs
+            data/news.json
+          sparse-checkout-cone-mode: false
+      - name: Ölç
+        run: |
+          mkdir -p .suret
+          CHROME="$(command -v google-chrome || command -v chromium)" node .github/scripts/menbe-suret.cjs data/news.json .suret/menbe-suret.json
+      - name: «suret» budağına yaz
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          cd .suret
+          git init -q
+          git add menbe-suret.json
+          git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit -q -m "Mənbə sürəti"
+          git push -q --force "$URL" HEAD:refs/heads/suret

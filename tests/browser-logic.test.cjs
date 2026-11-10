@@ -3088,3 +3088,22 @@ test('speed: site data is asked without a per-minute key (CDN copy; forced refre
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(!/\?t=/.test(html.match(/<script>([\s\S]*?)<\/script>/)[1]), 'erkən sorğular da açarsız');
 });
+
+test("suret: a multi-source card links to the fastest source (≥1 s faster); id, title and picture stay; official sources stay first (owner, 2026-11-10)", async () => {
+  const { swifter } = await import(require("url").pathToFileURL(path.join(root, "assets/suret.js")).href);
+  const ms = { "qafqazinfo.az": 5472, "oxu24.com": 1480, "aia.az": 2084, "apa.az": 1340, "president.az": 4576 };
+  const sw = swifter(ms);
+  const a = { id: "abc", title: "Ebru Gündeş", imageUrl: "https://q.az/i.jpg", source: "Qafqazinfo", sourceUrl: "https://qafqazinfo.az/1", author: "X", lang: "az", publishedAt: "2026-11-10T10:00:00Z",
+    alts: [{ source: "Aia.az", sourceUrl: "https://aia.az/2", lang: "az" }, { source: "Oxu24.com", sourceUrl: "https://oxu24.com/3", lang: "az" }, { source: "Haberturk", sourceUrl: "https://haberturk.com/4", lang: "tr" }] };
+  const b = sw(a);
+  assert.equal(b.id, "abc"); assert.equal(b.title, "Ebru Gündeş"); assert.equal(b.imageUrl, "https://q.az/i.jpg");
+  assert.equal(b.sourceUrl, "https://oxu24.com/3"); assert.equal(b.source, "Oxu24.com"); assert.equal(b.author, "");
+  assert.deepEqual(b.alts.map(x => x.source), ["Qafqazinfo", "Aia.az", "Haberturk"], "əvvəlki əsas mənbə siyahıya keçir, heç biri itmir");
+  assert.equal(sw({ ...a, sourceUrl: "https://www.apa.az/1", source: "APA" }).source, "APA", "1 s-dən az fərq: dəyişmir");
+  assert.equal(sw({ ...a, source: "Prezident.az", sourceUrl: "https://president.az/1" }).source, "Prezident.az", "rəsmi mənbə həmişə əsas");
+  assert.equal(sw({ ...a, sourceUrl: "https://olculmeyen.az/1" }).sourceUrl, "https://olculmeyen.az/1", "ölçülməyən mənbəyə toxunulmur");
+  const single = { ...a, alts: [] }; assert.equal(sw(single), single, "tək mənbə: dəyişmir");
+  assert.equal(swifter(null)(a), a, "sürət faylı yoxdursa kart olduğu kimi");
+  const src = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  assert.ok(src.includes("if (S.sw) d.articles = d.articles.map(S.sw);") && src.includes("import(`${ASSET}suret.js`)"), "lent hazırlananda tətbiq olunur, modul lent gələndən sonra yüklənir");
+});
