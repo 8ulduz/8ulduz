@@ -4,6 +4,8 @@
    - Mərkəzi Bankın gündəlik bülletenindəki «Bank metalları» bölməsi: qızıl, gümüş, platin və palladium, manatla,
      «1 t.u.» (troya unsiyası) üçün, əvvəlki bülletenlə müqayisədə.
    - Dünya qiyməti data/markets.json-dan: qızıl və gümüş (gold-api.com), bitkoin (Yahoo Finance), dəyişməsi ilə.
+     Qızıl və gümüşün markets.json-dakı dəyişməsi yazılmır (spot qiymət fyuçersin bağlanışı ilə müqayisə olunub):
+     dəyişmə öz bağlanış nüsxəmizə görə hesablanır, nüsxə yoxdursa yalnız qiymət yazılır.
    - Bu gün yeni bülleten yoxdursa (bayram, həftə sonu) xəbər yoxdur.
    - Sorğu: gündə 2 (bu günün və əvvəlki bülleten). Ünvanlar oz_xeber.amb_latest-inkilərdir: canlıda AMB məzənnə
      xəbəri ilə eyni sorğulardır. Valyuta siyahısı burada yazılmır, o, AMB məzənnə xəbərindədir (oz_xeber.amb_item).
@@ -35,6 +37,9 @@ DAILY_SLOT = datetime.time(9, 40)
 # Şənbə: birjalar cümə gecəsi bağlanıb. Yahoo-nun yekun qiyməti səhər gəlir: 31 oktyabrda Brent 08:05-də 112,33,
 # 10:45-də 113,43 idi.
 WEEKLY_SLOT = datetime.time(11, 0)
+# ABŞ seansının bağlanışı: qışda 22:00 UTC (17:00 New York), yayda 21:00 UTC; 21:00–22:00 fasilədir. 22:00 UTC-dən əvvəlki
+# son nüsxə hər iki halda bağlanış qiymətidir (qışda ən çox ~10 dəqiqə əvvəl).
+CLOSE_UTC = datetime.time(22, 0)
 FRESH = datetime.timedelta(hours=3)     # markets.json sətri bundan köhnədirsə yazılmır
 SNAP_AGE = datetime.timedelta(hours=6)  # GitHub nüsxəsi istənən andan bundan köhnədirsə götürülmür
 WEEK_CODES = ("USD", "EUR", "RUB", "TRY", "GEL", "IRR", "KZT", "UZS", "KGS", "TMT", "UAH", "BYN", "CNY")
@@ -212,6 +217,36 @@ def _change(item):
     return diff, f"{_dollar(diff, dec)} ({ox.az_num(pct, 2)}%)"
 
 
+def _own_change(item, old):
+    """Öz bağlanış nüsxəmizə görə dəyişmə: eyni mənbədən (spot ilə spot) olmalıdır. Fərq ekrandakı yuvarlaq qiymətlərdən."""
+    if not usable(old) or (old.get("src") or "") != (item.get("src") or ""):
+        return None
+    dec = _dec(item)
+    diff = round(round(item["value"], dec) - round(old["value"], dec), dec)
+    return diff, f"{_dollar(diff, dec)} ({ox.az_num(_pct(item['value'], old['value']), 2)}%)"
+
+
+def prev_close(history, day, back=4):
+    """Təmiz funksiya. history: {gün: markets}, günün bağlanışından sonra götürülmüş nüsxə (gün: birja seansının günü).
+    `day`-dan əvvəlki son gün, ən çox `back` gün geri (bazar ertəsi üçün cümə): (gün, markets) və ya (None, None)."""
+    best = None
+    for key, markets in (history or {}).items():
+        d = _iso_day(key)
+        if d is None or not isinstance(markets, dict) or not day - back * DAY <= d < day:
+            continue
+        if best is None or d > best[0]:
+            best = (d, markets)
+    return best or (None, None)
+
+
+def close_time(at):
+    """`at`-dan əvvəlki son ABŞ seansının bağlanış anı (iş günü, CLOSE_UTC)."""
+    t = datetime.datetime.combine(at.astimezone(datetime.timezone.utc).date(), CLOSE_UTC, datetime.timezone.utc)
+    while t > at or t.weekday() >= 5:
+        t -= DAY
+    return t
+
+
 # --- 1. AMB bank metalları (iş günləri) -----------------------------------------------------------------
 
 def metal_rows(rows, prev_rows):
@@ -259,12 +294,15 @@ def _metals_title(metals, gold):
     return f"AMB-də bank metallarının qiyməti dəyişməyib: qızılın unsiyası {v}"
 
 
-def world_lines(markets, now):
+def world_lines(markets, now, closes=None):
     """Dünya bazarı: qızıl və gümüş bir cümlədə, bitkoin ayrıca. «stale» və ya köhnə sətir yazılmır.
-    Diqqət: updater-də qızıl və gümüşün dəyəri gold-api.com spot qiymətidir, «əvvəlki bağlanış» isə Yahoo-nun GC=F/SI=F
-    fyuçersinin previousClose-udur. Saytın bazar zolağı da bu dəyişməni göstərir; öz gündəlik bağlanış faylımız olanda
-    dəyişmə ona görə hesablanacaq."""
+    Diqqət: updater-də qızıl və gümüşün dəyəri gold-api.com spot qiymətidir, «əvvəlki bağlanış» (change) isə Yahoo-nun
+    GC=F/SI=F fyuçersinin previousClose-udur. 6 noyabr 09:31-də markets.json qızıl üçün −74,8 dollar (−1,82%) yazırdı,
+    spot isə əvvəlki bağlanışda (5 noyabr 21:55 UTC) 4 088,8 idi: həqiqi dəyişmə −50,1 dollar (−1,23%). Ona görə gold-api
+    sətrinin dəyişməsi öz bağlanış nüsxəmizdən hesablanır (closes: {gün: markets}, prev_close); nüsxə yoxdursa yazılmır.
+    Yahoo-dan gələn sətirdə (bitkoin, gold-api alınmayanda qızıl) dəyər və bağlanış eyni mənbədəndir: o dəyişmə yazılır."""
     rows = market_rows(markets)
+    old_rows = market_rows(prev_close(closes, now.date())[1])
     out = []
     metals = [rows[k] for k in ("XAU", "XAG") if usable(rows.get(k), markets, now)]
     if metals:
@@ -274,7 +312,7 @@ def world_lines(markets, now):
         line = f"Dünya bazarında Bakı vaxtı ilə {ox.time_loc(at)} {prices} olub" + (f" ({srcs})." if srcs else ".")
         parts = []
         for i in metals:
-            c = _change(i)
+            c = _own_change(i, old_rows.get(i["id"])) if i.get("src") == "gold-api.com" else _change(i)
             if c:
                 parts.append((WORLD[i["id"]][0], c[0], c[1]))
         if parts:
@@ -291,9 +329,10 @@ def world_lines(markets, now):
     return out
 
 
-def metals_item(cur, prev, markets, now):
-    """AMB bank metalları və dünya qiyməti. cur, prev: parse_bulletin() nəticəsi; markets: data/markets.json.
-    Xəbər yalnız bu günün (now) bülleteni üçündür. Qaytarır (xəbər və ya None, səbəb)."""
+def metals_item(cur, prev, markets, now, closes=None):
+    """AMB bank metalları və dünya qiyməti. cur, prev: parse_bulletin() nəticəsi; markets: data/markets.json;
+    closes: {gün: markets} bağlanış nüsxələri (world_lines). Xəbər yalnız bu günün (now) bülleteni üçündür.
+    Qaytarır (xəbər və ya None, səbəb)."""
     day, rows = cur
     pday, prows = prev if prev and prev[0] and day and prev[0] < day else (None, {})
     if not day:
@@ -316,16 +355,17 @@ def metals_item(cur, prev, markets, now):
     moved = any(m["diff"] for m in metals)
     item = {"kind": "amb-metal", "key": f"amb-metal-{day.isoformat()}", "topic": "iqtisadiyyat",
             "slot": f"{DAILY_SLOT:%H:%M}", "list": True, "title": _metals_title(metals, gold), "lead": lead,
-            "body": [_metal_line(m) for m in metals if m["code"] != "XAU"] + world_lines(markets, now),
+            "body": [_metal_line(m) for m in metals if m["code"] != "XAU"] + world_lines(markets, now, closes),
             "credit": AMB_CREDIT, "link": AMB_LINK, "worth": moved}
     if not moved:
         item["why"] = "AMB-də bank metallarının qiyməti dəyişməyib"
     return _guard(item)
 
 
-def daily(root, now, fetch=None):
+def daily(root, now, fetch=None, closes=None):
     """Bu günün metal xəbəri: iş günü, 09:40-dan sonra, AMB bu gün yeni bülleten veribsə. Həftə sonu və 09:40-dan əvvəl
-    sorğu getmir; bayramda 1 sorğu. Qaytarır (xəbər və ya None, səbəb)."""
+    sorğu getmir; bayramda 1 sorğu. closes: {gün: markets}, canlıda öz gündəlik bağlanış faylımızdan.
+    Qaytarır (xəbər və ya None, səbəb)."""
     now = _baku(now)
     if now.weekday() >= 5:
         return None, "həftə sonu AMB bülleten vermir"
@@ -340,7 +380,7 @@ def daily(root, now, fetch=None):
         prev = previous(fetch, cur[0])
     except Exception as e:
         return None, f"AMB bülleteni alınmadı: {type(e).__name__}"
-    return metals_item(cur, prev, read_markets(root), now)
+    return metals_item(cur, prev, read_markets(root), now, closes)
 
 
 # --- 2. Həftənin bazarları (şənbə) -----------------------------------------------------------------------
@@ -375,13 +415,14 @@ def week_ago(history, now, tol=1):
 
 def week_moves(markets, old, now):
     """Brent, WTI, qızıl, gümüş, bitkoin: indiki markets.json ilə 7 gün əvvəlkinin fərqi. Təmiz funksiya.
-    İndiki sətir təzə olmalıdır (usable, now), köhnə sətir «stale» olmamalıdır; biri yoxdursa alət yazılmır.
+    İndiki sətir təzə olmalıdır (usable, now), köhnə sətir «stale» olmamalıdır, ikisi də eyni mənbədən olmalıdır
+    (gold-api spotu Yahoo fyuçersi ilə müqayisə olunmur); biri yoxdursa alət yazılmır.
     Fərq ekrandakı yuvarlaq qiymətlərdən hesablanır (oxucu çıxsa eyni rəqəmi alsın), faiz dəqiq qiymətlərdən."""
     now_rows, old_rows = market_rows(markets), market_rows(old)
     out = []
     for mid in WEEK_IDS:
         a, b = old_rows.get(mid), now_rows.get(mid)
-        if not usable(b, markets, now) or not usable(a):
+        if not usable(b, markets, now) or not usable(a) or (a.get("src") or "") != (b.get("src") or ""):
             continue
         dec = _dec(b)
         out.append({"id": mid, "old": a["value"], "new": b["value"], "dec": dec, "src": b.get("src") or "",
@@ -566,9 +607,10 @@ def github_history(fetch, now):
 
 def items(root, now, fetch=None, history=None):
     """`now` anında (Bakı) canlının dərc edəcəyi bazar xəbərləri. worth False olan xəbər «why» ilə qayıdır, dərc olunmur.
-    history: {gün: markets}, həftəlik xəbər üçün (öz gündəlik bağlanış faylımızdan)."""
+    history: {gün: markets}, öz gündəlik bağlanış faylımızdan (hələ yoxdur): gündəlik xəbər ondan əvvəlki bağlanışı
+    (prev_close), həftəlik xəbər 7 gün əvvəlkini (week_ago) götürür."""
     now = _baku(now)
-    found = [daily(root, now, fetch)[0], weekly(root, now, fetch, history)[0]]
+    found = [daily(root, now, fetch, history)[0], weekly(root, now, fetch, history)[0]]
     return [i for i in found if i]
 
 
@@ -612,10 +654,19 @@ def _history(fetch, at):
     return ({_when(snap["updatedAt"]).date(): snap} if snap else {}), note
 
 
+def _closes(fetch, at):
+    """Öz bağlanış faylımızın əvəzi: markets.json-un `at`-dan əvvəlki son seans bağlanışındakı nüsxəsi (2 sorğu)."""
+    t = close_time(at)
+    snap, note = _snapshot(fetch, t)
+    return ({t.date(): snap} if snap else {}), note
+
+
 def _sinaq_daily(root, now, fetch):
     item, why = daily(root, now, fetch)
-    if item:
-        return [f"**Bu gün ({_date_text(now.date())}):**", ""] + _shown(item, why)
+    if item:  # bu günün bülleteni var: bağlanış nüsxəsi ilə yenidən (bülletenlər _memo-dadır, təkrar sorğu yoxdur)
+        closes, n_close = _closes(fetch, now)
+        item, why = daily(root, now, fetch, closes)
+        return [f"**Bu gün ({_date_text(now.date())}):** əvvəlki bağlanış: {n_close}.", ""] + _shown(item, why)
     md = [f"**Bu gün ({_date_text(now.date())}, {now:%H:%M}):** ⏭ Dərc olunmazdı: {why}", ""]
     try:
         cur, prev = latest_pair(fetch, now.date())
@@ -630,8 +681,10 @@ def _sinaq_daily(root, now, fetch):
         at = datetime.datetime.combine(day, DAILY_SLOT, BAKU)
         markets, note = _snapshot(fetch, at)
         note = "dünya qiyməti: " + note if markets else note + ": dünya qiyməti yazılmır"
-    item, why = metals_item(cur, prev, markets, at)
-    md += [f"**Son real hal: {_date_text(day)} bülleteni**, xəbər həmin gün {ox.time_loc(DAILY_SLOT)} çıxardı; {note}.", ""]
+    closes, n_close = _closes(fetch, at)
+    item, why = metals_item(cur, prev, markets, at, closes)
+    md += [f"**Son real hal: {_date_text(day)} bülleteni**, xəbər həmin gün {ox.time_loc(DAILY_SLOT)} çıxardı; {note}; "
+           f"əvvəlki bağlanış: {n_close}.", ""]
     return md + _shown(item, why)
 
 
