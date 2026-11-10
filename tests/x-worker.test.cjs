@@ -289,5 +289,5 @@ test("x-worker image: the card picture comes from this server — wsrv.nl first,
     r = await call(w, `https://www.8ulduz.az/i/${ID}.jpg`);
     assert.equal(r.status, 302, "çox böyük və ya şəkil olmayan cavab verilmir");
   } finally { Date.now = realNow; }
-  assert.equal(w.ownImage('<meta property="og:image" content="https://8ulduz.az/assets/og-default.png" />', ID), '<meta property="og:image" content="https://8ulduz.az/assets/og-default.png" />', "saytın öz şəkli dəyişmir");
+  assert.equal(w.ownImage('<meta property="og:image" content="https://8ulduz.az/assets/og-default.png" />', ID), `<meta property="og:image" content="https://www.8ulduz.az/i/${ID}.jpg" />`, "şəkilsiz nüsxədən qurulmuş səhifə də /i/-yə baxır: şəkil sonra gəlibsə kartda görünür (sahib, 2026-11-10)");
 });

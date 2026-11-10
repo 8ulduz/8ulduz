@@ -116,8 +116,10 @@ async function rowIn(urls, id) {
 // Redaksiyanın çıxardığı xəbər (latest.json «removed»): səhifə verilmir, 302 ilə sayt özü qərar verir.
 const removed = (d, id) => Object.values(d.removed || {}).some(r => r && (r.id === id || (r.ids || []).includes(id)));
 
-// og:image wsrv.nl-dirsə bu serverin /i/<id>.jpg ünvanı olur (Facebook wsrv.nl-dən ala bilmir). Saytın şəkli (og-default) dəyişmir.
-export const ownImage = (html, id) => html.replace(/(<meta property="og:image" content=")https:\/\/wsrv\.nl\/[^"]*(" \/>)/, `$1${HOST}i/${id}.jpg$2`);
+// og:image həmişə bu serverin /i/<id>.jpg ünvanıdır (Facebook wsrv.nl-dən ala bilmir). Saytın şəkli (og-default) də əvəz olunur
+// (sahib, 2026-11-10: «İlham Əliyev Türkiyəyə səfərə gəlib» kartında loqo): səhifə xəbər hələ şəkilsiz ikən qurulmuş nüsxədən
+// gələ bilir, şəkil sonra gəlir; /i/ şəkli hər dəfə təzə tapır, yoxdursa özü og-default-a yönləndirir.
+export const ownImage = (html, id) => html.replace(/(<meta property="og:image" content=")(?:https:\/\/wsrv\.nl\/[^"]*|https:\/\/8ulduz\.az\/assets\/og-default\.png)(" \/>)/, `$1${HOST}i/${id}.jpg$2`);
 
 // Şəklin mənbəsi: lentdəki sətir, yoxdursa saytın /x/ səhifəsindəki wsrv ünvanının url= parametri.
 async function imageSource(id) {
