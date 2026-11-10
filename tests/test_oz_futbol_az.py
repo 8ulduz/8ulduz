@@ -649,6 +649,23 @@ class ReviewTest(unittest.TestCase):
         item = next(i for i in got if i["kind"] == "avro-netice")
         self.assertTrue(item["lead"].startswith("Çempionlar Liqasının 1/8 final mərhələsinin ilk oyununda «Sabah» doğma meydanda "
                                                 "«Arsenal»la qarşılaşıb və 1:0 hesabı ilə qalib gəlib."), item["lead"])
+        self.assertNotIn("xal", item["lead"])  # xal yalnız liqa mərhələsindədir: pley-off oyunu xal vermir
+
+    def test_national_game_without_a_known_time_or_postponed_gets_no_preview(self):
+        # milli.cjs vaxtı elan olunmayan oyunu «T12:00:00+00:00» və day=true, təxirə salınanı state="off" yazır:
+        # saat 16:00 uydurulmamalı, təxirə salınan oyuna baxış yazılmamalıdır.
+        doc = json.loads((FIX / "data" / "futbol" / "ml-d.json").read_text(encoding="utf-8"))
+        menu = json.loads((FIX / "data" / "milli-menyu.json").read_text(encoding="utf-8"))
+        nxt = next(g for g in doc["games"] if g["home"] == "lixtensteyn" and g["away"] == "azerbaycan")
+        nxt.update(date="2026-11-13T12:00:00+00:00", day=True)
+        got = self.items_at({"ml-d": doc}, "2026-11-12T12:30+04:00", menu=menu)
+        self.assertEqual([i["key"] for i in got if i["kind"] == "milli-oncesi"], [])
+        res = by_key(self.items_at({"ml-d": doc}, "2026-10-04T20:00+04:00", menu=menu))["milli-ml-d-2026-qrup-2-litva-ev-netice"]
+        self.assertNotIn("növbəti oyununu", res["lead"])
+        del nxt["day"]
+        nxt.update(date="2026-11-13T19:45:00+00:00", state="off")
+        got = self.items_at({"ml-d": doc}, "2026-11-12T12:30+04:00", menu=menu)
+        self.assertEqual([i["key"] for i in got if i["kind"] == "milli-oncesi"], [])
 
 
 class ContractTest(unittest.TestCase):
