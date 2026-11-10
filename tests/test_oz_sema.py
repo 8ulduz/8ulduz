@@ -334,11 +334,16 @@ class SeasonAndSunsetItemTest(unittest.TestCase):
         self.assertEqual(up["slot"], "16:30")
         self.assertEqual(up["title"], "Bakıda Günəş bu gündən etibarən saat 18:00-dən sonra batacaq")
         self.assertEqual(up["lead"], "Hesablamalara görə, Bakıda Günəş bu gün saat 18:01-də batacaq; dünən 17:59-da batmışdı.")
-        self.assertEqual(up["body"], ["Günəş bu gün saat 07:48-də doğur, gündüz 10 saat 13 dəqiqə çəkir.",
-                                      "Bu, 15 oktyabradək davam edəcək."])
+        # Rejimin sonu öz cümləsidir: «Bu, ... davam edəcək» doğma vaxtı və gündüzün uzunluğundan sonra gələndə onlara aid oxunurdu.
+        self.assertEqual(up["body"], ["Günəş 15 oktyabradək hər gün saat 18:00-dən sonra batacaq.",
+                                      "Bu gün Günəş saat 07:48-də doğur, gündüz 10 saat 13 dəqiqə çəkir."])
         (down,) = _kind(D(2026, 7, 29), "gun-batimi")
         self.assertEqual(down["title"], "Bakıda Günəş bu gündən etibarən saat 20:00-dən əvvəl batacaq")
-        self.assertEqual(down["body"][1], "Bu, 2027-ci il 25 mayadək davam edəcək.")
+        self.assertEqual(down["body"][0], "Günəş 2027-ci il 25 mayadək hər gün saat 20:00-dən əvvəl batacaq.")
+        (oct26,) = _kind(D(2026, 10, 16), "gun-batimi")
+        self.assertEqual(oct26["body"][0], "Günəş 2027-ci il 2 fevraladək hər gün saat 18:00-dən əvvəl batacaq.")
+        self.assertFalse(any(p.startswith("Bu, ") for d in (D(2027, 2, 3), D(2026, 7, 29)) for i in _kind(d, "gun-batimi")
+                             for p in i["body"]))
         self.assertEqual(_kind(D(2027, 2, 4), "gun-batimi"), [])
         days = [D(2027, 1, 1) + datetime.timedelta(days=n) for n in range(365)]
         found = [(d.isoformat(), i["key"][-2:]) for d in days for i in _kind(d, "gun-batimi")]
@@ -354,7 +359,7 @@ class MeteorItemTest(unittest.TestCase):
                                       "Geminid meteor axını 14 dekabrda Bakı vaxtı ilə saat 18:00 radələrində zirvəyə çatacaq.")
         self.assertEqual(pre["body"], ["IMO-nun proqnozuna görə, zirvədə ZHR göstəricisi (ideal şəraitdə saatda görünə biləcək "
                                        "meteor sayı): 150.", "Hesablamaya görə, zirvə vaxtı Ayın 25%-i işıqlı olacaq.",
-                                       "Zirvə vaxtı Bakıda gecə olacaq."])
+                                       "Zirvə vaxtı Bakıda hava qaranlıq olacaq."])  # 18:00, Günəş −8,5°: axşamdır, «gecə» deyil
         self.assertEqual((pre["key"], pre["slot"], pre["credit"], pre["link"]),
                          ("sema-meteor-gem-2026-onizleme", "12:15", "Beynəlxalq Meteor Təşkilatı (IMO)",
                           "https://www.imo.net/files/meteor-shower/cal2026.pdf"))
@@ -368,6 +373,7 @@ class MeteorItemTest(unittest.TestCase):
         self.assertIn("28 dekabr – 12 yanvar tarixlərində", qua["lead"])
         self.assertIn("80 (daha çox ola bilər)", qua["body"][0])
         self.assertIn("Ayın 12%-i işıqlı olacaq", qua["body"][1])
+        self.assertEqual(qua["body"][2], "Zirvə vaxtı Bakıda hava qaranlıq olacaq.")  # 07:25, Günəş −7,4°: dan yeri, gecə deyil
         (eta,) = _kind(D(2027, 5, 5), "meteor")
         self.assertEqual(eta["title"], "Eta-Akvarid meteor axını sabah saat 13:00 radələrində zirvəyə çatacaq")
         self.assertIn("Ayın işıqlı hissəsi 1%-dən az olacaq", eta["body"][1])
@@ -426,6 +432,28 @@ class EclipseItemTest(unittest.TestCase):
         (shallow,) = _kind(D(2027, 7, 18), "tutulma")
         self.assertFalse(shallow["worth"])
         self.assertIn("dayaz yarımkölgəli tutulma", shallow["why"])
+
+
+class LatePublicationTest(unittest.TestCase):
+    """Dərc slotdan gec olanda (məsələn, iş saatlarla dayanıb) mətn keçmiş hadisəni gələcək zamanda yazmamalıdır."""
+
+    def test_sunset_after_sunset_is_past_tense(self):
+        (late,) = [i for i in sema.items(ROOT, _baku(2027, 2, 3, 19, 0)) if i["kind"] == "gun-batimi"]
+        self.assertEqual(late["lead"], "Hesablamalara görə, Bakıda Günəş bu gün saat 18:01-də batıb; dünən 17:59-da batmışdı.")
+        (on_time,) = [i for i in sema.items(ROOT, _baku(2027, 2, 3, 9, 0)) if i["kind"] == "gun-batimi"]
+        self.assertIn("bu gün saat 18:01-də batacaq;", on_time["lead"])
+
+    def test_eclipse_after_it_began_is_not_published(self):
+        (before,) = [i for i in sema.items(ROOT, _baku(2027, 8, 2, 13, 0)) if i["kind"] == "tutulma"]
+        self.assertTrue(before["worth"])  # Bakıda tutulma 13:13-də başlayır
+        for now in (_baku(2027, 8, 2, 13, 30), _baku(2027, 8, 2, 16, 0)):
+            (late,) = [i for i in sema.items(ROOT, now) if i["kind"] == "tutulma"]
+            self.assertFalse(late["worth"], now)
+            self.assertEqual(late["why"], "gecikmiş xəbər: tutulma artıq başlayıb")
+        (hidden,) = [i for i in sema.items(ROOT, _baku(2027, 2, 6, 20, 30)) if i["kind"] == "tutulma"]  # ən böyük faza 20:00
+        self.assertFalse(hidden["worth"])
+        (night,) = [i for i in sema.items(ROOT, _baku(2027, 2, 20, 23, 0)) if i["kind"] == "tutulma"]  # tutulma 03:13-də
+        self.assertTrue(night["worth"])
 
 
 class DayRulesTest(unittest.TestCase):
