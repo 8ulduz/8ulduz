@@ -1344,8 +1344,11 @@ def items(root, now, fetch=None, done=()):
         day = e["ready"].date()
         if day not in allowed:
             allowed[day] = _allowed(evs, day)
-        item = _build(e, fetch)
-        if item["worth"] and e["key"] not in allowed[day]:
+        if e["key"] in allowed[day]:
+            out.append(_build(e, fetch))
+            continue
+        item = _build(e, None)  # həddən kənar xəbər dərc olunmur: pfl.az-a sorğu da getmir
+        if item["worth"] or e["fetch"]:
             item.update(worth=False, why=f"gündəlik hədd: bu moduldan gündə ən çox {DAY_CAP} xəbər")
         out.append(item)
     return out
