@@ -256,9 +256,13 @@ def _league(root, lid):
         for k in (g["home"], g["away"]):
             names.setdefault(k, k)
     groups = doc.get("groups") if isinstance(doc.get("groups"), list) else []
+    official = _rows(groups[0]) if groups else {}
+    # Liqa cədvəli yalnız rəqəmli turların oyunlarındandır: «p/o» keçid oyunu və onun I Liqadan gələn rəqibi cədvələ düşmür.
+    league = [g for g in games if g["round"].isdigit()]
+    lteams = sorted({t for g in league for t in (g["home"], g["away"])} | set(official))
     return {"id": lid, "name": str(doc.get("name") or lid), "short": str(doc.get("short") or doc.get("name") or lid),
             "season": str(doc.get("season") or ""), "key": str(doc.get("key") or ""), "names": names, "known": known,
-            "games": games, "official": _rows(groups[0]) if groups else {}, "groups": groups, "doc": doc}
+            "games": games, "league": league, "lteams": lteams, "official": official, "groups": groups, "doc": doc}
 
 
 def _nm(L, k):
@@ -333,8 +337,8 @@ def _table_ok(official, table):
 
 def _positions(L):
     """Hazırkı yerlər: rəsmi cədvəl oyunlarla uyğundursa ondan, deyilsə hesablanmış. Heç oyun yoxdursa, yer yoxdur."""
-    played = [g for g in L["games"] if g["played"]]
-    table = _table(played, L["names"])
+    played = [g for g in L["league"] if g["played"]]
+    table = _table(played, L["lteams"])
     if not played:
         return table, {}, set(table)
     if _table_ok(L["official"], table):
@@ -467,7 +471,8 @@ def _moves(pa, sa, pb, sb, nm):
 
 
 def _in_hand(after, order, nm):
-    """Az oyun keçirənlər: «Sabah», «Qarabağ» 10 oyun keçirib, digər komandalar isə 11 oyun."""
+    """Az oyun keçirənlər: «Sabah», «Qarabağ» 10 oyun keçirib, digər komandalar isə 11 oyun. Heç oyun keçirməyən: «… hələ oyun
+    keçirməyib» («0 oyun keçirib» yox)."""
     most = max(after[k]["p"] for k in order)
     groups = {}
     for k in order:
@@ -475,8 +480,11 @@ def _in_hand(after, order, nm):
             groups.setdefault(after[k]["p"], []).append(_q(nm(k)))
     if not groups:
         return ""
-    parts = [f"{_and(ks)} {p}" for p, ks in sorted(groups.items())]
-    return f"{', '.join(parts)} oyun keçirib, digər komandalar isə {most} oyun."
+    parts = [f"{_and(groups[0])} hələ oyun keçirməyib"] if 0 in groups else []
+    some = [f"{_and(ks)} {p}" for p, ks in sorted(groups.items()) if p]
+    if some:
+        parts.append(f"{', '.join(some)} oyun keçirib")
+    return f"{', '.join(parts)}, digər komandalar isə {most} oyun."
 
 
 def _after_places(L, after, current):
@@ -494,20 +502,20 @@ def _summary(L, rnd, main, early, later, short, fetch=None):
     nm = functools.partial(_nm, L)
     head = f"{sx(L['short'], 'loc', False)} {ox.ordinal(rnd)} tur"
     games = sorted(main + early, key=lambda g: g["when"])
-    played = [g for g in L["games"] if g["played"]]
+    played = [g for g in L["league"] if g["played"]]
     missing = [g for g in main if not g["played"]]
     if missing:
         pairs = _and([_pair(g, nm) for g in missing])
         why = f"tur bitməyib: {pairs} {'oyununun' if len(missing) == 1 else 'oyunlarının'} nəticəsi yoxdur"
-        now_table = _table(played, L["names"])
+        now_table = _table(played, L["lteams"])
         if any(int((L["official"].get(t) or {}).get("p") or 0) > now_table.get(t, _zero())["p"]
                for g in missing for t in (g["home"], g["away"])):
             why += " (rəsmi cədvəl isə bu oyunu sayıb)"
         return {"title": f"{head}: tur bitməyib", "lead": f"Turda {len(main)} oyun var, nəticəsi bəlli olan: {len(main) - len(missing)}.",
                 "body": [], "worth": False, "why": why}
     first, last = min(g["when"] for g in main), max(g["when"] for g in main)
-    after = _table([g for g in played if g["when"] <= last], L["names"])
-    before = _table([g for g in played if g["when"] < first], L["names"])
+    after = _table([g for g in played if g["when"] <= last], L["lteams"])
+    before = _table([g for g in played if g["when"] < first], L["lteams"])
     current = not any(g["when"] > last for g in played)
     if len(after) < 2:
         return {"title": f"{head}: cədvəl yoxdur", "lead": "Cədvəl qurulmadı.", "body": [], "worth": False, "why": "cədvəl yoxdur"}
@@ -558,9 +566,10 @@ def _summary(L, rnd, main, early, later, short, fetch=None):
             lead += f" Lider {lname} {_result_of(leader, lg, nm)} və {top} xal toplayıb."
         else:
             lead += f" {lname} {top} xalla liderdir."
-        if len(seconds) == 1:
+        # Liderdən başqa heç kim xal qazanmayıbsa (second = 0), «0 xal toplayıb» yazılmır.
+        if second and len(seconds) == 1:
             lead += f" {_q(nm(seconds[0]))} {second} xalla ikinci yerdədir."
-        elif seconds:
+        elif second and seconds:
             lead += f" {_and([_q(nm(k)) for k in seconds])} {second} xal toplayıb."
         if had_before and leader not in tied_b:
             lead += f" Turdan əvvəl cədvəlin başında {_and([_q(nm(k)) for k in tied_b])} idi."
@@ -598,11 +607,12 @@ def _summary(L, rnd, main, early, later, short, fetch=None):
 # --- 2. Növbəti tura baxış -----------------------------------------------------------------------------------
 
 def _h2h(past, a, b):
-    """İki komandanın Premyer Liqa oyunları saxlanan mövsümlərdə: say, qələbələr, heç-heçələr, ilk mövsüm, son oyun."""
+    """İki komandanın Premyer Liqa oyunları saxlanan mövsümlərdə: say, qələbələr, heç-heçələr, ilk mövsüm, son oyun.
+    «p/o» keçid oyunu liqa oyunu deyil: sayılmır."""
     rec = {"n": 0, "wa": 0, "wb": 0, "d": 0, "since": "", "last": None}
     for season, games in past or []:
         for g in games:
-            if not g["played"] or {g["home"], g["away"]} != {a, b}:
+            if not g["played"] or not g["round"].isdigit() or {g["home"], g["away"]} != {a, b}:
                 continue
             ga, gb = (g["hs"], g["as"]) if g["home"] == a else (g["as"], g["hs"])
             rec["n"] += 1
