@@ -455,6 +455,21 @@ class LatePublicationTest(unittest.TestCase):
         (night,) = [i for i in sema.items(ROOT, _baku(2027, 2, 20, 23, 0)) if i["kind"] == "tutulma"]  # tutulma 03:13-də
         self.assertTrue(night["worth"])
 
+    def test_morning_solar_eclipse_is_announced_the_evening_before(self):
+        # Cədvələ hər il sətir əlavə olunur. NASA SEdecade2021: 2028 Jul 22 02:56:39 TD, tam, Bakıda 06:56 (görünmür).
+        # Səhər 08:30-da «Bu gün ... olacaq» yazılsaydı, hadisə artıq keçmiş olardı.
+        row = ("2028-07-22", "02:56:39", "Total", 1.056, "SE Asia, E. Indies, Australia, N.Z. [Total: Australia, N. Z.]",
+               "Cənub-Şərqi Asiyada, Şərqi Hindistan adalarında, Avstraliyada və Yeni Zelandiyada",
+               "Tam tutulma zolağı Avstraliya və Yeni Zelandiyadan keçəcək.", "zona")
+        with patch.object(sema, "SOLAR", sema.SOLAR + (row,)):
+            self.assertEqual(_kind(D(2028, 7, 22), "tutulma"), [])
+            (eve,) = _kind(D(2028, 7, 21), "tutulma")
+            (moon,) = _kind(D(2028, 7, 22), "ay-faza")
+        self.assertEqual((eve["slot"], eve["worth"]), ("18:30", True))
+        self.assertEqual(eve["title"], "Sabah tam Günəş tutulması olacaq: Bakıdan görünməyəcək")
+        self.assertIn("Bakı vaxtı ilə saat 06:56-da olacaq", eve["lead"])
+        self.assertFalse(moon["worth"])  # yeni Ay həmin tutulmadır
+
 
 class DayRulesTest(unittest.TestCase):
     def test_daily_cap_of_two_space_items(self):
