@@ -800,6 +800,56 @@ class FootballTest(unittest.TestCase):
         self.assertEqual(d["scorers"], [{"name": "Rikardo Apolinario", "club": "Şamaxı", "goals": 3}])
         self.assertEqual(d["league"], "Misli Premyer Liqası")
 
+    @staticmethod
+    def scorer_rows(*rows):
+        return [{"club": {"title": club}, "player": {"name": name, "surname": surname}, "value": value} for name, surname, club, value in rows]
+
+    def test_parse_pfl_sorts_scorers_by_goals_not_by_api_order(self):
+        # pfl.az 2026-11-10: «value» mətn kimi artan gəlir, lider (9 qol) siyahının sonundadır. /bombarders cavabı: {"data": [...]}
+        premyer = self.scorer_rows(
+            ("Rikardo", "Apolinario", "Şamaxı", "3"), ("Renaldo", "Sefas", "Qarabağ", "3"), ("Blessinq", "Olabiran", "Kəpəz", "3"),
+            ("Abdullahi", "Şuaybu", "Şamaxı", "3"), ("Alen", "Şkribek", "Neftçi", "3"), ("Aleksey", "Kaşuk", "Qarabağ", "4"),
+            ("Ronaldo", "Vaskez", "Sumqayıt", "4"), ("Qustavo", "Klisman", "Neftçi", "4"), ("Davit", "Volkov", "Zirə", "4"),
+            ("Joarlem", "Santos", "Turan Tovuz", "4"), ("Ağadadaş", "Salyanskiy", "Araz-Naxçıvan", "5"),
+            ("Coy-Lens", "Mikels", "Sabah", "7"), ("Breno", "Almeyda", "Neftçi", "9"))
+        d = updater.parse_pfl({}, {}, {}, {"data": premyer})
+        self.assertEqual([(s["name"], s["goals"]) for s in d["scorers"]],
+                         [("Breno Almeyda", 9), ("Coy-Lens Mikels", 7), ("Ağadadaş Salyanskiy", 5), ("Aleksey Kaşuk", 4), ("Davit Volkov", 4)])
+        self.assertEqual(d["scorers"][0]["club"], "Neftçi")
+        # II Liqa: «12» və «17» mətn kimi «3»-dən əvvəl gəlir; rəqəm kimi müqayisə olunmalıdır. Köhnə /bombarders/list səhifəsi də düzülür.
+        liqa2 = self.scorer_rows(
+            ("Amil", "Yunanov", "Şirvan", "12"), ("Elçin", "Qasımov", "Ağstafa Gəncləri", "17"), ("Çingiz", "Məmmədov", "Şirvan", "3"),
+            ("Tural", "Məmmədzadə", "Şəki", "4"), ("Tural", "Qurbatov", "Zəngəzur", "5"), ("Cavid", "İmamverdiyev", "Ağstafa Gəncləri", "5"),
+            ("Asim", "Babazadə", "Hypers", "5"), ("Bayram", "Əliyev", "Kür-Araz", "8"))
+        want = [("Elçin Qasımov", 17), ("Amil Yunanov", 12), ("Bayram Əliyev", 8), ("Asim Babazadə", 5), ("Cavid İmamverdiyev", 5)]
+        for shape in ({"data": liqa2}, {"data": {"data": liqa2, "total": len(liqa2)}}):
+            d = updater.parse_pfl({}, {}, {}, shape)
+            self.assertEqual([(s["name"], s["goals"]) for s in d["scorers"]], want)
+
+    def test_scorer_ties_follow_azerbaijani_alphabet(self):
+        names = ["Zaur", "Tural", "Şahin", "İlkin", "Ilqar", "Fərid", "Əli", "Davud", "Çingiz"]
+        self.assertEqual(sorted(names, key=updater._az_key), ["Çingiz", "Davud", "Əli", "Fərid", "Ilqar", "İlkin", "Şahin", "Tural", "Zaur"])
+        d = updater.parse_pfl({}, {}, {}, {"data": self.scorer_rows(*[(n, "", "X", "2") for n in names], ("Vüqar", "", "Y", "6"))})
+        self.assertEqual([s["name"] for s in d["scorers"]], ["Vüqar", "Çingiz", "Davud", "Əli", "Fərid"])
+        self.assertEqual(updater.parse_pfl({}, {}, {}, {})["scorers"], [])
+
+    def test_fetch_pfl_league_reads_whole_scorer_list_in_one_request(self):
+        # /bombarders/list 20 sətirlik səhifədir: 2026-11-10 II Liqada 8 və 7 qollu bombardirlər 2-ci səhifədə idi
+        calls = []
+
+        def fake(path, timeout=15):
+            calls.append(path)
+            if path.startswith("/seasons"):
+                return {"data": [{"id": 76, "title": "2026-2027", "leagues": [{"id": 55, "title": "II Liqa"}]}]}
+            if path.startswith("/bombarders"):
+                return {"data": self.scorer_rows(("Amil", "Yunanov", "Şirvan", "12"), ("Bayram", "Əliyev", "Kür-Araz", "8"))}
+            return {"data": []}
+        with patch.object(updater, "_pfl_json", fake):
+            d = updater.fetch_pfl_league(3)
+        self.assertEqual([c for c in calls if c.startswith("/bombarders")], ["/bombarders?league_id=55"])
+        self.assertEqual(len(calls), 4)  # mövsüm, cədvəl, turlar, bombardirlər: sorğu sayı artmır
+        self.assertEqual([(s["name"], s["goals"]) for s in d["scorers"]], [("Amil Yunanov", 12), ("Bayram Əliyev", 8)])
+
 
 def wiki_row(pos, team, cells, extra="<td></td>", link=None):
     return (f'<tr><td style="background-color:#BBF3BB;">{pos}</td><th scope="row"><span class="flagicon"><a href="/x" title="Bayraq"><img/></a></span> '

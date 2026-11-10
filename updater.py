@@ -3339,6 +3339,13 @@ def _pfl_game(g):
         "stadium": (g.get("stadion") or {}).get("title") or "",
     }
 
+_AZ_ABC = "abcçdeəfgğhxıijkqlmnoöprsştuüvyz"
+
+def _az_key(s):
+    """Azərbaycan əlifbası sırası (… E, Ə, F …, X, I, İ …). Əlifbadan kənar hərf sonda, boşluq və işarə əvvəldə."""
+    s = str(s or "").replace("I", "ı").replace("İ", "i").lower()
+    return [(_AZ_ABC.index(c) if c in _AZ_ABC else (len(_AZ_ABC) if c.isalnum() else -1), c) for c in s]
+
 def parse_pfl(seasons, grid, tours, scorers):
     """pfl.az cavablarından football.json məzmunu. Şəbəkəsiz test üçün ayrıca funksiyadır.
     grid: hər klub üçün rate {o: oyun, q: qalibiyyət, h: heç-heçə, m: məğlubiyyət, vq/bq: qollar, tf: fərq, x: xal, ordering: yer}.
@@ -3367,11 +3374,16 @@ def parse_pfl(seasons, grid, tours, scorers):
     if nxt is not None:
         round_next = str(nxt.get("title") or "")
         fixtures = [_pfl_game(g) for g in nxt.get("games") or []]
+    rows = scorers.get("data") or []
+    if isinstance(rows, dict):  # /bombarders/list səhifəsi: {"data": [...], "total": …}
+        rows = rows.get("data") or []
     sc = []
-    for s in ((scorers.get("data") or {}).get("data") or [])[:5]:
+    for s in rows:
         p = s.get("player") or {}
         sc.append({"name": (f"{p.get('name') or ''} {p.get('surname') or ''}").strip(),
                    "club": (s.get("club") or {}).get("title") or "", "goals": int(s.get("value") or 0)})
+    # pfl.az «value»-nu mətn kimi artan verir («13» < «3» < «9»): qola görə azalan, bərabərdə ada görə düzürük.
+    sc = sorted(sc, key=lambda x: (-x["goals"], _az_key(x["name"])))[:5]
     return {"league": league.get("title") or "Misli Premyer Liqası", "season": season.get("title") or "",
             "table": table, "results": results, "fixtures": fixtures,
             "roundPlayed": round_played, "roundNext": round_next, "scorers": sc,
@@ -3392,7 +3404,9 @@ def fetch_pfl_league(project_id):
     grid = {} if elimination else _pfl_json(f"/leagues/grid?season_id={season.get('id')}&project_id={project_id}")
     tours = _pfl_json(f"/tours/get-games?league_id={league.get('id')}&withGames=true")
     try:
-        scorers = _pfl_json(f"/bombarders/list?league_id={league.get('id')}")
+        # /bombarders/list 20 sətirlik səhifə verir (2026-11-10: II Liqada 26, Əvəzedicilərdə 24 bombardir; 8 qollular 2-ci səhifədə idi).
+        # /bombarders hamısını bir cavabda verir (pfl.az-ın II Liqa saytı da onu işlədir): sorğu sayı eyni qalır.
+        scorers = _pfl_json(f"/bombarders?league_id={league.get('id')}")
     except Exception:
         scorers = {}
     d = parse_pfl(seasons, grid, tours, scorers)
