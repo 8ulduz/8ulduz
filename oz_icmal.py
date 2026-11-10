@@ -9,19 +9,20 @@
    - Bu günün oyunları Bakı vaxtı ilə, 08:00-dan gecə 04:00-dək (Avropada saat 21:00 oyunu Bakıda 00:00-dır): Azərbaycan
      millisi, avrokubokda Azərbaycan klubu, Premyer Liqa, Kubok, I və II Liqa, saytın izlədiyi xarici klublar; ən çox 5 sətir.
      Saatı bəlli olmayan oyun yazılmır: təxirə salınan, saatı 00:00 olan, pfl.az-da stadionsuz (turun cədvəli açıqlanmayıb,
-     tarix şərtidir) və turun bütün oynanmamış oyunları eyni saata yazılıbsa (yer tutucu cədvəl).
+     tarix şərtidir), turun bütün oynanmamış oyunları eyni saata yazılıbsa və xarici liqa turunun 7+ oyunu bir saatdadırsa
+     (yer tutucu cədvəl). UEFA kuboklarının liqa mərhələsində bu qayda yoxdur: son tur qaydaya görə eyni saatda oynanır.
    - Günün qeyd olunan günləri (oz_teqvim.gun_adlari) və həftə içində iş günü olmaması (oz_teqvim.qeyri_is_gunu).
    Məlumatı olmayan hissə yazılmır. Hava da, oyun da yoxdursa xəbər dərc olunmur.
-2. «Həftənin rəqəmləri» (bazar 12:00): son 7 günün (keçən bazardan şənbəyədək) bazardan kənar rəqəmləri. Brent, qızıl və
-   bitkoinin həftəlik dəyişməsi burada yoxdur: o, şənbə günü bazar xəbərindədir.
-   - Manat: AMB-nin bir həftə ara ilə iki bülletenində dollar və avro.
+2. «Həftənin rəqəmləri» (bazar 12:00): son 7 günün (keçən bazardan şənbəyədək) bazardan kənar rəqəmləri. Brent, qızıl,
+   bitkoin və AMB məzənnələrinin həftəlik dəyişməsi burada yoxdur: o, şənbə günü «Həftənin bazarları»ndadır (oz_bazar,
+   həftənin son bülleteni 7 gün əvvəlki ilə), bazar günü təkrar yazılmır.
    - 3,0 və daha güclü zəlzələlər: seismology.az siyahısı (oz_xeber.seys_list). Zəlzələ yoxdursa sətir yazılmır.
    - Bakıda 7 günün ən yüksək və ən aşağı temperaturu: Open-Meteo (model məlumatı).
    - Premyer Liqada 7 gündə vurulan qollar: data/futbol/premyer-liqa.json.
    Ən azı iki hissə olmalıdır.
 
-Sorğular yalnız fetch ilə gedir: adi gün 2 (Open-Meteo, AMB), bazar günü 4 (həm də AMB-nin bir həftə əvvəlki bülleteni və
-seismology.az). items() günün xəbərlərini bir çağırışda qurur və eyni ünvana ikinci sorğu göndərmir. Canlıda gündə bir dəfə,
+Sorğular yalnız fetch ilə gedir: adi gün 2 (Open-Meteo, AMB), bazar günü 3 (həm də seismology.az; Open-Meteo-nun bir sorğusu
+iki xəbərə çatır). items() günün xəbərlərini bir çağırışda qurur və eyni ünvana ikinci sorğu göndərmir. Canlıda gündə bir dəfə,
 08:00-da çağırılmalıdır (bazar günü 12:00-ın xəbəri də o vaxt qurulur), sonrakı çağırışlara qurulmuş açarlar done ilə verilir.
 Sınaq: python oz_icmal.py --sinaq --root DIR [--now 2026-11-10T09:00+04:00]
 """
@@ -76,8 +77,9 @@ COMPS = {
     "liqa-kuboku": "İngiltərə Liqa Kuboku", "italiya-kuboku": "İtaliya Kuboku", "almaniya-kuboku": "Almaniya Kuboku",
     "fransa-kuboku": "Fransa Kuboku",
 }
-FOREIGN = ("turkiye", "ispaniya", "ingiltere", "italiya", "almaniya", "fransa", "turkiye-kuboku", "ispaniya-kuboku",
-           "ingiltere-kuboku", "liqa-kuboku", "italiya-kuboku", "almaniya-kuboku", "fransa-kuboku") + EURO_CUPS
+LEAGUES = ("turkiye", "ispaniya", "ingiltere", "italiya", "almaniya", "fransa")
+FOREIGN = LEAGUES + ("turkiye-kuboku", "ispaniya-kuboku", "ingiltere-kuboku", "liqa-kuboku", "italiya-kuboku", "almaniya-kuboku",
+                     "fransa-kuboku") + EURO_CUPS
 # Saytın izlədiyi xarici klublar (assets/app.js SPORT_TEAMS, «Türkiyə» və «Avropa» qrupları; oz_futbol_dunya.BIG ilə eyni).
 # Rəqəm növbədir: sətir çox olanda əvvəl Türkiyə klubları, sonra «Real Madrid» və «Barcelona».
 BIG = {
@@ -90,6 +92,9 @@ GAMES_MAX = 5
 FOREIGN_LINE_MAX = 3          # xarici yarışın sətrində ən çox 3 oyun (növbə ilə seçilir, saat sırası ilə yazılır)
 FROM_HOUR, NIGHT_HOUR = 8, 4  # günün oyunları: 08:00-dan sabahkı 04:00-dək (Bakı vaxtı)
 PLACEHOLDER_MIN = 3           # turun ən azı bu qədər oynanmamış oyunu eyni saatdadırsa, saat yer tutucudur
+# Xarici liqa turunda bir saatda bu qədər oynanmamış oyun da yer tutucudur, tur qismən elan olunsa belə (Fransanın 25-ci turu:
+# 8 oyun 2027-03-20 16:00Z-də, yalnız «Marseille» – «Lyon» elan olunub). Real cədvəldə ən çoxu 6-dır (Bundesliqa 2025/26, 28-ci tur).
+PLACEHOLDER_SHARE = 7
 PFL_CREDIT, PFL_LINK = "Peşəkar Futbol Liqası", "https://pfl.az/"
 
 # --- Zəlzələ ------------------------------------------------------------------------------------------------------------
@@ -161,6 +166,13 @@ def _rng(lo, hi):
     if a == b:
         return a
     return f"{a} ilə {b}" if a.startswith("-") else f"{a}–{b}"
+
+
+def _deg(lo, hi):
+    """Siyahı sətri və başlıq üçün: «6–9,8 dərəcə», «3 dərəcə»; «ilə» aralığı «arasında» ilə bitir: «-1,2 ilə 8,3 dərəcə
+    arasında»."""
+    rng = _rng(lo, hi)
+    return f"{rng} dərəcə arasında" if " ilə " in rng else f"{rng} dərəcə"
 
 
 def _num(v):
@@ -266,7 +278,7 @@ def _weather(om, day):
 
 def _city_line(name, w):
     bits = [SKY[w["code"]]] if w.get("code") in SKY else []
-    bits.append(f"temperatur {_rng(w['tmin'], w['tmax'])} dərəcə")
+    bits.append(f"temperatur {_deg(w['tmin'], w['tmax'])}")
     if w.get("rain") is not None and 0 <= w["rain"] <= 100:
         bits.append(f"yağıntı ehtimalı {int(round(w['rain']))}%")
     if w.get("wind") is not None and round(w["wind"], 1) > 0:
@@ -286,12 +298,12 @@ def _weather_lead(w):
 
 
 def _weather_frag(w):
-    sky, rng = SKY.get(w.get("code")), _rng(w["tmin"], w["tmax"])
+    sky, deg = SKY.get(w.get("code")), _deg(w["tmin"], w["tmax"])
     if sky and w["code"] >= SKY_NEWS:
-        return f"Bakıda {sky} gözlənilir, {rng} dərəcə"
+        return f"Bakıda {sky} gözlənilir, {deg}"
     if sky:
-        return f"Bakıda {sky}, {rng} dərəcə"
-    return f"Bakıda {rng} dərəcə"
+        return f"Bakıda {sky}, {deg}"
+    return f"Bakıda {deg}"
 
 
 # --- AMB ----------------------------------------------------------------------------------------------------------------
@@ -363,20 +375,37 @@ def _team(teams, tid):
     return str(name or tid)
 
 
-def _rows(doc, pfl):
-    """Faylın saatı bəlli oyunları: [(oyun, Bakı vaxtı)]. Düşənlər: təxirə salınan (state=off), saatsız, pfl.az-da stadionsuz
-    (turun cədvəli açıqlanmayıb, tarix turun şərti tarixidir) və pfl.az-dan başqa mənbədə turun bütün oynanmamış oyunları eyni
-    saata yazılıbsa (yer tutucu cədvəl: TheSportsDB-də La Liqanın 13-cü turunun 10 oyunu 16:00Z)."""
-    games = [g for g in doc.get("games") if isinstance(g, dict)] if isinstance(doc.get("games"), list) else []
+def _fakes(games, kind):
+    """Yer tutucu saatlar: {(tur, vaxt)}. Turun bütün oynanmamış oyunları (ən azı 3) bir saata yazılıbsa (TheSportsDB-də La
+    Liqanın 13-cü turunun 10 oyunu 16:00Z), xarici liqada (kind="liqa") həm də turun 7+ oyunu bir saatdadırsa. UEFA kuboklarının
+    (kind="uefa") liqa mərhələsində (tur rəqəmdir) qayda yoxdur: cədvəl bütöv açıqlanır, son tur qaydaya görə eyni saatda
+    oynanır (ÇL-in 8-ci turunun 18 oyunu 2027-01-27 20:00Z)."""
+    by = {}
+    for g in games:
+        if not g.get("played") and g.get("state") != "off":
+            by.setdefault(str(g.get("round") or ""), []).append(str(g.get("date") or ""))
     fake = set()
-    if not pfl:
-        by = {}
-        for g in games:
-            if not g.get("played") and g.get("state") != "off":
-                by.setdefault(str(g.get("round") or ""), []).append(str(g.get("date") or ""))
-        for rnd, dates in by.items():
-            if len(dates) >= PLACEHOLDER_MIN and len(set(dates)) == 1:
-                fake.add((rnd, dates[0]))
+    for rnd, dates in by.items():
+        if kind == "uefa" and rnd.isdigit():
+            continue
+        if len(dates) >= PLACEHOLDER_MIN and len(set(dates)) == 1:
+            fake.add((rnd, dates[0]))
+        elif kind == "liqa":
+            fake.update((rnd, d) for d in set(dates) if dates.count(d) >= PLACEHOLDER_SHARE)
+    return fake
+
+
+def _kind(fid):
+    return "uefa" if fid in EURO_CUPS else "liqa" if fid in LEAGUES else "kubok"
+
+
+def _rows(doc, kind):
+    """Faylın saatı bəlli oyunları: [(oyun, Bakı vaxtı)]. kind: "pfl" (Azərbaycan liqaları), "uefa", "liqa", "kubok" (xarici
+    liqa və kuboklar), "milli". Düşənlər: təxirə salınan (state=off), saatsız, pfl.az-da stadionsuz (turun cədvəli
+    açıqlanmayıb, tarix turun şərti tarixidir) və başqa mənbələrdə yer tutucu saat (_fakes)."""
+    games = [g for g in doc.get("games") if isinstance(g, dict)] if isinstance(doc.get("games"), list) else []
+    pfl = kind == "pfl"
+    fake = set() if pfl else _fakes(games, kind)
     out = []
     for g in games:
         if g.get("state") == "off" or (pfl and not g.get("stadium")):
@@ -437,14 +466,14 @@ def day_games(root, day):
     clubs = set(pl["teams"]) if isinstance(pl.get("teams"), dict) else set()
     groups, used = [], set()
 
-    def todays(doc, pfl):
-        return [(g, dt) for g, dt in _rows(doc, pfl) if start <= dt < end]
+    def todays(doc, kind):
+        return [(g, dt) for g, dt in _rows(doc, kind) if start <= dt < end]
 
     for fid in _milli_files(root):
         doc = _football(fut / f"{fid}.json")
         if not doc or not doc.get("nat"):
             continue
-        for g, dt in todays(doc, False):
+        for g, dt in todays(doc, "milli"):
             x = _game(doc, g, dt)
             if "azerbaycan" in (x["hid"], x["aid"]):
                 groups.append({"kind": "milli", "order": (0, 0, dt), "comp": str(doc.get("name") or doc.get("short") or ""),
@@ -453,7 +482,7 @@ def day_games(root, day):
         doc = _football(fut / f"{fid}.json")
         if not doc or not clubs:
             continue
-        for g, dt in todays(doc, False):
+        for g, dt in todays(doc, "uefa"):
             x = _game(doc, g, dt)
             if x["hid"] in clubs or x["aid"] in clubs:
                 used.add((fid, x["hid"], x["aid"]))
@@ -464,7 +493,7 @@ def day_games(root, day):
         if not doc:
             continue
         by = {}
-        for g, dt in todays(doc, True):
+        for g, dt in todays(doc, "pfl"):
             by.setdefault(str(g.get("round") or ""), []).append(_game(doc, g, dt))
         for rnd, games in by.items():
             games.sort(key=lambda x: (x["dt"], x["home"]))
@@ -475,7 +504,7 @@ def day_games(root, day):
         if not doc:
             continue
         games = []
-        for g, dt in todays(doc, False):
+        for g, dt in todays(doc, _kind(fid)):
             x = _game(doc, g, dt)
             if (x["hid"] in BIG or x["aid"] in BIG) and (fid, x["hid"], x["aid"]) not in used:
                 games.append(x)
@@ -639,36 +668,6 @@ def beledci_item(root, day, get):
 
 # --- 2. «Həftənin rəqəmləri» --------------------------------------------------------------------------------------------
 
-def _manat(a_day, old, b_day, new):
-    """İki bülleten arasında dollar və avro. İkisi də dəyişməyibsa None."""
-    names = {"EUR": ("1 avro", "avro", "Avronun"), "USD": ("1 ABŞ dolları", "dollar", "Dolların")}
-    sents, changed = [], []
-    for code in ("EUR", "USD"):
-        if code not in old or code not in new:
-            continue
-        one, short, gen = names[code]
-        d = round(new[code] - old[code], 4)
-        if not d:
-            sents.append(f"{gen} rəsmi məzənnəsi dəyişməyib: {ox.az_num(new[code], 4)} manat.")
-            continue
-        pct = round(d / old[code] * 100, 2)
-        verb = "bahalaşıb" if d > 0 else "ucuzlaşıb"
-        lead = "AMB-nin rəsmi məzənnəsinə görə, " if not changed else ""
-        pct_text = f" ({ox.az_num(pct, 2)}%)" if pct else ""
-        sents.append(f"{lead}{one} {ox.day_loc(a_day)} {ox.az_num(old[code], 4)}, {ox.day_loc(b_day)} "
-                     f"{ox.az_num(new[code], 4)} manat olub: {short} bir həftədə {ox.az_num(d, 4)} manat{pct_text} {verb}.")
-        changed.append((code, short, pct, verb, new[code]))
-    if not changed:
-        return None
-    sents.sort(key=lambda s: not s.startswith("AMB"))  # mənbəli cümlə birinci
-    code, short, pct, verb, value = changed[0]
-    big = abs(pct) >= 1
-    return {"part": "manat", "prio": 2 if big else 5,
-            "frag": f"{short} {ox.az_num(pct, 2)}% {verb}" if big else f"{short} {ox.az_num(value, 4)} manat",
-            "lead": f"AMB-nin rəsmi məzənnəsinə görə {short} " + (f"{ox.az_num(pct, 2)}% {verb}" if pct else f"{verb}"),
-            "body": " ".join(sents), "credit": (AMB_CREDIT, AMB_LINK)}
-
-
 def _quakes(page, start, end):
     """Həftənin 3,0 və daha güclü təkanları. Qaytarır (fakt, səbəb)."""
     rows = ox.seys_list(page)
@@ -748,7 +747,8 @@ def _pl_week(root, start, end):
         return None, "Premyer Liqada bu həftə oyun olmayıb"
     played.sort(key=lambda x: x["dt"])
     n, goals = len(played), sum(_goals(x) for x in played)
-    rounds = list(dict.fromkeys(x["rnd"] for x in played))
+    # Turlar sıra ilə: təxirə salınmış oyun köhnə turdandır («2-ci, 15-ci və 16-cı turlar»).
+    rounds = sorted(set(x["rnd"] for x in played), key=lambda r: (not r.isdigit(), int(r) if r.isdigit() else 0, r))
     if len(rounds) == 1 and rounds[0].isdigit():
         tur = f"{ox.ordinal(int(rounds[0]))} tur"
         whole = sum(1 for g in rows if str(g.get("round") or "") == rounds[0]) == n
@@ -785,20 +785,6 @@ def reqemler_item(root, day, get):
     span = _span(start, end)
     facts, missing = [], {}
     try:
-        b_day, new = _amb(get, day)
-        if b_day < start:
-            raise ValueError(f"son bülleten {ox.day_text(b_day)} tarixlidir: bu həftə bülleten olmayıb")
-        a_day, old = _amb(get, b_day - DAY * 7)
-        if a_day >= b_day:
-            raise ValueError("bir həftə əvvəlki bülleten tapılmadı")
-        fact = _manat(a_day, old, b_day, new)
-        if fact:
-            facts.append(fact)
-        else:
-            missing["manat"] = "dolların və avronun rəsmi məzənnəsi bir həftədə dəyişməyib"
-    except Exception as e:
-        missing["manat"] = f"AMB: {_err(e)}"
-    try:
         fact, why = _quakes(_text(get(ox.SEYS_LIST)), start, end)
         if fact:
             facts.append(fact)
@@ -831,7 +817,7 @@ def reqemler_item(root, day, get):
     credits = list(dict.fromkeys(x["credit"] for x in facts))
     item = {"kind": "reqemler", "key": f"reqemler-{day.isoformat()}", "title": title, "lead": lead,
             "body": [x["body"] for x in facts], "list": True,
-            "credit": ", ".join(c for c, _ in credits) or AMB_CREDIT, "link": credits[0][1] if credits else AMB_LINK,
+            "credit": ", ".join(c for c, _ in credits) or OM_CREDIT, "link": credits[0][1] if credits else OM_LINK,
             "topic": "icmal", "slot": "12:00", "worth": len(facts) >= 2, "missing": missing}
     if not item["worth"]:
         item["why"] = f"həftənin rəqəmlərindən yalnız {len(facts)} hissə alındı (ən azı 2 lazımdır)"
@@ -843,7 +829,7 @@ def reqemler_item(root, day, get):
 def items(root, now, fetch=None, done=()):
     """now-un Bakı günü üçün xəbərlər, hər biri «slot» saatı ilə: hər gün «Günün bələdçisi», bazar günü «Həftənin rəqəmləri»
     də. worth=False olanlar da qaytarılır (səbəbi «why»-dadır). done: artıq qurulmuş (dərc gözləyən və ya dərc olunmuş)
-    açarlar: onlar qurulmur, sorğu getmir. Sorğu yalnız fetch ilə: adi gün 2, bazar günü 4."""
+    açarlar: onlar qurulmur, sorğu getmir. Sorğu yalnız fetch ilə: adi gün 2, bazar günü 3."""
     now = _now(now)
     day = now.date()
     get = _Get(fetch)
@@ -891,7 +877,7 @@ def sinaq(root, now=None, fetch=None):
             note = f"> updater yüklənmədi ({_err(e)}): sorğusuz hissələr göstərilir."
     get = _Get(fetch)
     md = ["# İcmal xəbərləri (oz_icmal.py): sınaq", "",
-          f"{now:%d.%m.%Y %H:%M} (Bakı vaxtı). Sayta heç nə yazılmır. İstehsalda gündə 2 sorğu gedir, bazar günü 4.", ""]
+          f"{now:%d.%m.%Y %H:%M} (Bakı vaxtı). Sayta heç nə yazılmır. İstehsalda gündə 2 sorğu gedir, bazar günü 3.", ""]
     if note:
         md += [note, ""]
     md += ["## 1. «Günün bələdçisi» (hər gün 08:00)", ""]
