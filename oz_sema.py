@@ -386,14 +386,16 @@ def _regime_end(day, lim, up):
     return last
 
 
-def sunset_item(day, h, up, info, prev, last):
+def sunset_item(day, h, up, info, prev, last, ref):
+    """ref: dərc anı. Rejimin sonu öz cümləsidir: «Bu, ... davam edəcək» doğma vaxtından sonra ona aid oxunurdu."""
     lim = datetime.time(h, 0)
     side = "sonra" if up else "əvvəl"
-    body = [f"Günəş bu gün {ox.time_loc(info['rise'])} doğur, gündüz {dur_text(info['length'])} çəkir.",
-            f"Bu, {_until(last, day.year)} davam edəcək."]
+    verb = "batacaq" if info["set"] > ref else "batıb"  # dərc gecikib, Günəş artıq batıbsa
+    body = [f"Günəş {_until(last, day.year)} hər gün {ox.time_loc(lim)}n {side} batacaq.",
+            f"Bu gün Günəş {ox.time_loc(info['rise'])} doğur, gündüz {dur_text(info['length'])} çəkir."]
     return {"kind": "gun-batimi", "key": f"sema-batim-{day:%Y-%m-%d}-{h}",
             "title": f"Bakıda Günəş bu gündən etibarən {ox.time_loc(lim)}n {side} batacaq",
-            "lead": (f"Hesablamalara görə, Bakıda Günəş bu gün {ox.time_loc(info['set'])} batacaq; "
+            "lead": (f"Hesablamalara görə, Bakıda Günəş bu gün {ox.time_loc(info['set'])} {verb}; "
                      f"dünən {_hm_loc(prev['set'])} batmışdı."),
             "body": body, "credit": CREDIT, "link": USNO_SUN, "topic": TOPIC, "slot": SLOT["batim"], "worth": True}
 
@@ -403,12 +405,13 @@ def sunset_items(day, now):
     if not info or not prev:
         return []
     a, b = _mins(prev["set"]), _mins(info["set"])
+    ref = max(now, _at(day, SLOT["batim"]))
     out = []
     for h in SUNSET_HOURS:
         lim = h * 60
         if a <= lim < b or a >= lim > b:
             up = b > lim
-            out.append(sunset_item(day, h, up, info, prev, _regime_end(day, lim, up)))
+            out.append(sunset_item(day, h, up, info, prev, _regime_end(day, lim, up), ref))
     return out
 
 
@@ -497,8 +500,8 @@ def meteor_item(m, preview, ref):
     if m["max"]:
         ends = [m["max"]] + ([m["max_end"]] if m["max_end"] else [])
         alts = [sun_alt(x) for x in ends]
-        if all(a < -6 for a in alts):
-            body.append(f"Zirvə vaxtı Bakıda gecə {olacaq}.")
+        if all(a < -6 for a in alts):  # vətəndaş alatoranlığından sonra; 18:00 və ya 07:25 «gecə» deyil, amma qaranlıqdır
+            body.append(f"Zirvə vaxtı Bakıda hava qaranlıq {olacaq}.")
         elif all(a > 0 for a in alts):
             body.append(f"Zirvə vaxtı Bakıda gündüz {olacaq}.")
     part = "onizleme" if preview else "zirve"
@@ -565,6 +568,15 @@ ECLIPSE_NAME = {("gunes", "Total"): "tam Günəş tutulması", ("gunes", "Annula
 SHALLOW = -0.5  # kölgə maqnitudası bundan kiçik yarımkölgəli tutulmada Ay yarımkölgəyə azca girir: xəbər yazılmır
 
 
+def _placed(e, start):
+    """Xəbərin günü və slotu. start: Bakıda görünən tutulmanın yerli başlanğıcı, yoxsa ən böyük faza. Günortadan əvvəldirsə
+    (gecəyarısından sonrakı Ay tutulması, səhər Günəş tutulması), xəbər əvvəlki axşam: səhər 08:30-da hadisə keçmiş ola bilər."""
+    evening = start.hour < 12
+    e.update(start=start, day=start.date() - datetime.timedelta(days=1) if evening else start.date(),
+             slot=SLOT["tutulma-gece"] if evening else SLOT["tutulma"])
+    return e
+
+
 def eclipses():
     """Cədvəldəki tutulmalar: hər biri xəbərin günü, vaxtı və Bakıdan görünüb-görünməməsi ilə."""
     out = []
@@ -573,17 +585,15 @@ def eclipses():
         local = None
         if isinstance(baku, dict):
             local = {k: (baku_minute(_utc(baku[k])) if k in ("start", "max", "end") else baku[k]) for k in baku}
-        out.append({"body": "gunes", "type": typ, "mag": mag, "greatest": g, "region_en": region_en, "region": region,
-                    "central": central, "local": local, "hidden": None if local else baku, "day": g.date(),
-                    "slot": SLOT["tutulma"], "visible": bool(local), "name": ECLIPSE_NAME[("gunes", typ)],
-                    "link": NASA_SE, "shallow": False})
+        out.append(_placed({"body": "gunes", "type": typ, "mag": mag, "greatest": g, "region_en": region_en, "region": region,
+                            "central": central, "local": local, "hidden": None if local else baku, "visible": bool(local),
+                            "name": ECLIPSE_NAME[("gunes", typ)], "link": NASA_SE, "shallow": False},
+                           local["start"] if local else g))
     for date, td, typ, mag, region_en, region, alt in LUNAR:
         g = baku_minute(_utc(f"{date}T{td}") - datetime.timedelta(seconds=DELTA_T))
-        evening = g.hour < 12  # gecəyarısından sonrakı tutulma: xəbər əvvəlki axşam
-        out.append({"body": "ay", "type": typ, "mag": mag, "greatest": g, "region_en": region_en, "region": region,
-                    "alt": alt, "day": g.date() - datetime.timedelta(days=1) if evening else g.date(),
-                    "slot": SLOT["tutulma-gece"] if evening else SLOT["tutulma"], "visible": alt > 0,
-                    "name": ECLIPSE_NAME[("ay", typ)], "link": NASA_LE, "shallow": typ == "Penumbral" and mag < SHALLOW})
+        out.append(_placed({"body": "ay", "type": typ, "mag": mag, "greatest": g, "region_en": region_en, "region": region,
+                            "alt": alt, "visible": alt > 0, "name": ECLIPSE_NAME[("ay", typ)], "link": NASA_LE,
+                            "shallow": typ == "Penumbral" and mag < SHALLOW}, g))
     return sorted(out, key=lambda e: e["greatest"])
 
 
@@ -652,11 +662,15 @@ def eclipse_item(e, preview, ref):
     item = {"kind": "tutulma", "key": f"sema-tutulma-{g:%Y-%m-%d}-{e['body']}-{part}", "title": title, "lead": lead,
             "body": body, "credit": NASA, "link": e["link"], "topic": TOPIC,
             "slot": SLOT["tutulma-onizleme"] if preview else e["slot"], "worth": True}
+    # Dərc olunmur: dayaz tutulma, yarımkölgəli tutulmanın önizləməsi və gecikmiş dərc. Mətn gələcək zamandadır, dərc anı
+    # e["start"]-ı (Bakıda görünən tutulmanın yerli başlanğıcı, yoxsa ən böyük faza) keçibsə, «olacaq» yanlış olardı.
     if e["shallow"]:
         sign = "-" if e["mag"] < 0 else ""
         item["worth"], item["why"] = False, f"dayaz yarımkölgəli tutulma (kölgə maqnitudası {sign}{ox.az_num(e['mag'], 3)})"
     elif preview and e["type"] == "Penumbral":
         item["worth"], item["why"] = False, "yarımkölgəli tutulma: yalnız tutulma gecəsinin xəbəri"
+    elif ref >= e["start"]:
+        item["worth"], item["why"] = False, "gecikmiş xəbər: tutulma artıq başlayıb"
     return item
 
 
