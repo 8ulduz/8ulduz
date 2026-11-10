@@ -309,11 +309,8 @@ test("social: Facebook gets only stories with a picture, scrapes the link first 
   const i = calls.findIndex(c => c[1].scrape === "true"), j = calls.findIndex(c => c[0].endsWith("/feed"));
   assert.ok(i >= 0 && j > i, "əvvəl keçid oxudulur, sonra post");
   assert.equal(calls[i][1].id, calls[j][1].link, "eyni keçid");
-  card = [{ url: "https://wsrv.nl/?url=x&default=https%3A%2F%2F8ulduz.az%2Fassets%2Fog-default.png" }].map(x => ({ url: "https://8ulduz.az/assets/og-default.png" }));
+  card = [];
   calls.length = 0;
   res = await S.run({ articles: [art("a73", { imageUrl: "https://apa.az/j.jpg" })], env, now: NOW + 3600e3, fetch, state: {}, log: s => logs.push(s) });
-  assert.deepEqual(res.posted, [], "Facebook şəkli görmürsə post yoxdur");
-  assert.deepEqual(res.failed, [], "xəta sayılmır, növbəti dövrədə yenidən yoxlanır");
-  assert.ok(!calls.some(c => c[0].endsWith("/feed")));
-  assert.ok(logs.some(s => s.startsWith("facebook: ötürülür (Facebook kartda şəkil görmədi)")));
+  assert.deepEqual(res.posted.map(x => x[0]), ["facebook"], "Facebook şəkli görməsə də post gedir (wsrv.nl Facebook-a 403 verir, ötürsək heç nə getməzdi)");
 });
