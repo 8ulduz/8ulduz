@@ -957,6 +957,34 @@ def sinaq(root, limit=10, now=None):
         per = cost(total) / done
         md += ["## Xərc", "", f"{done} xəbər: {total[0]} giriş + {total[1]} çıxış tokeni ≈ ${cost(total):.4f}. "
                f"Bir xəbər orta hesabla ${per:.4f}; gündə 45 xəbər olsa ayda ≈ ${per * 45 * 30:.2f}.", ""]
+    return md + faza1_sinaq(root, now, u.fetch)
+
+
+# Mərhələ 1: saytın öz məlumatından şablon xəbərlər (sahib, 2026-11-10: «Bəli, başla»). Hər modul ayrıca faylda, öz testləri ilə.
+# Sayta qoşulmayıb: updater.py və pipeline bu modulları çağırmır (NotOnTheSiteTest).
+FAZA1 = (
+    ("oz_futbol_az", "Azərbaycan futbolu"),
+    ("oz_futbol_dunya", "Dünya futbolu və basketbol"),
+    ("oz_bazar", "Bazar: metallar və həftənin bazarları"),
+    ("oz_teqvim", "Təqvim"),
+    ("oz_sema", "Səma"),
+    ("oz_icmal", "İcmal: «Günün bələdçisi» və «Həftənin rəqəmləri»"),
+)
+
+
+def faza1_sinaq(root, now, fetch):
+    """Mərhələ 1 modullarının nümunələri. Modulun başlıqları iki pillə aşağı salınır ki, bu bölmənin içində qalsın."""
+    import importlib
+    md = ["## 3. Mərhələ 1: saytın öz məlumatından (şablon, süni intellektsiz)", ""]
+    for n, (name, title) in enumerate(FAZA1, 1):
+        md += [f"### 3.{n}. {title} (`{name}.py`)", ""]
+        try:
+            lines = importlib.import_module(name).sinaq(root, now, fetch)
+        except Exception as e:
+            md += [f"> {name} xətası: {type(e).__name__}: {e}"[:300], ""]
+            continue
+        md += [("##" + line) if line.startswith("#") else line for line in lines]
+        md += [""]
     return md
 
 

@@ -110,11 +110,11 @@ def seys_row(qid, ml, area, utc, depth=10):
 
 
 B10 = [
-    "Bakı: buludlu hava, temperatur 6–9,8 dərəcə, yağıntı ehtimalı 5%, külək saniyədə 7,1 metrə qədər",
+    "Bakı: buludlu hava, temperatur 6,0–9,8 dərəcə, yağıntı ehtimalı 5%, külək saniyədə 7,1 metrə qədər",
     "Gəncə: buludlu hava, temperatur 2,3–9,1 dərəcə, yağıntı ehtimalı 0%, külək saniyədə 4,1 metrə qədər",
     "Sumqayıt: buludlu hava, temperatur 5,6–10,1 dərəcə, yağıntı ehtimalı 8%, külək saniyədə 7,8 metrə qədər",
-    "Lənkəran: arabir zəif yağış, temperatur 4,3–12 dərəcə, yağıntı ehtimalı 8%, külək saniyədə 3,3 metrə qədər",
-    "Şəki: buludlu hava, temperatur 2–6,9 dərəcə, yağıntı ehtimalı 0%, külək saniyədə 2 metrə qədər",
+    "Lənkəran: arabir zəif yağış, temperatur 4,3–12,0 dərəcə, yağıntı ehtimalı 8%, külək saniyədə 3,3 metrə qədər",
+    "Şəki: buludlu hava, temperatur 2,0–6,9 dərəcə, yağıntı ehtimalı 0%, külək saniyədə 2 metrə qədər",
     "Naxçıvan: əsasən açıq hava, temperatur -1,2 ilə 8,3 dərəcə arasında, yağıntı ehtimalı 0%, külək saniyədə 1,9 metrə qədər",
     "AMB-nin son rəsmi məzənnələri (6 noyabr üçün): 1 ABŞ dolları 1,7000 manat, 1 avro 1,9037 manat",
     "II Liqa, 10-cu tur: «Difai» – «Zəngəzur» (14:00), «Şirvan» – «Marafon» (15:00), «Şəki» – «Dinamo» (15:00)",
@@ -151,7 +151,7 @@ class FormatTest(unittest.TestCase):
         self.assertEqual([ic._n1(x) for x in (9.8, 10.0, 6, -1.2, -0.04, 7.07, 1.97, 7.75)],
                          ["9,8", "10", "6", "-1,2", "0", "7,1", "2", "7,8"])
         self.assertEqual([ic._rng(6, 9.8), ic._rng(-1.2, 8.3), ic._rng(-5, -1), ic._rng(3, 3)],
-                         ["6–9,8", "-1,2 ilə 8,3", "-5 ilə -1", "3"])
+                         ["6,0–9,8", "-1,2 ilə 8,3", "-5 ilə -1", "3"])
         self.assertEqual(ic._span(D(2026, 11, 1), D(2026, 11, 7)), "1–7 noyabr")
         self.assertEqual(ic._span(D(2026, 10, 26), D(2026, 11, 1)), "26 oktyabr – 1 noyabr")
         self.assertEqual(ic._days_text([D(2026, 11, 4), D(2026, 11, 2)]), "2 və 4 noyabr")
@@ -208,9 +208,9 @@ class BeledciTest(unittest.TestCase):
         self.assertEqual([i["key"] for i in rows], ["beledci-2026-11-10"])
         item = rows[0]
         self.assertEqual(item["body"], B10)
-        self.assertEqual(item["title"], "Günün bələdçisi, 10 noyabr: Bakıda buludlu hava, 6–9,8 dərəcə; II Liqada 3 oyun")
+        self.assertEqual(item["title"], "Günün bələdçisi, 10 noyabr: Bakıda buludlu hava, 6,0–9,8 dərəcə; II Liqada 3 oyun")
         self.assertEqual(item["lead"], "Open-Meteo-nun proqnozuna görə, bu gün Bakıda buludlu hava gözlənilir, temperatur "
-                                       "6–9,8 dərəcə arasında olacaq. Bu gün II Liqada 3 oyun keçiriləcək.")
+                                       "6,0–9,8 dərəcə arasında olacaq. Bu gün II Liqada 3 oyun keçiriləcək.")
         self.assertEqual((item["credit"], item["link"]),
                          ("Open-Meteo, Azərbaycan Mərkəzi Bankı, Peşəkar Futbol Liqası", "https://open-meteo.com/"))
         self.assertEqual((item["topic"], item["slot"], item["kind"], item["worth"], item["list"]),
@@ -441,7 +441,7 @@ class BeledciTest(unittest.TestCase):
             n = Net({ic.om_url(D(2026, 11, 10)): net("om-2026-11-10.json")})
             item, _ = ic.beledci_item(tmp, D(2026, 11, 10), ic._Get(n))
             self.assertTrue(item["worth"], "yalnız hava da xəbərdir")
-            self.assertEqual(item["title"], "Günün bələdçisi, 10 noyabr: Bakıda buludlu hava, 6–9,8 dərəcə")
+            self.assertEqual(item["title"], "Günün bələdçisi, 10 noyabr: Bakıda buludlu hava, 6,0–9,8 dərəcə")
 
     def test_observance_lines(self):
         self.assertEqual(ic._observance(D(2026, 11, 9)), "Bu gün Dövlət Bayrağı Günüdür. Beynəlxalq Elm və Sülh Həftəsi "
@@ -604,7 +604,7 @@ class ItemsAndSinaqTest(unittest.TestCase):
         md = "\n".join(ic.sinaq(FIX, now, fetch=real_net()))
         for text in ("# İcmal xəbərləri (oz_icmal.py): sınaq", "## 1. «Günün bələdçisi» (hər gün 08:00)",
                      "**10 noyabr 2026, çərşənbə axşamı (bu gün), saat 08:00:**",
-                     "### Günün bələdçisi, 10 noyabr: Bakıda buludlu hava, 6–9,8 dərəcə; II Liqada 3 oyun",
+                     "### Günün bələdçisi, 10 noyabr: Bakıda buludlu hava, 6,0–9,8 dərəcə; II Liqada 3 oyun",
                      "- Naxçıvan: əsasən açıq hava, temperatur -1,2 ilə 8,3 dərəcə",
                      "### Növbəti 7 günün oyun hissəsi", "**13 noyabr 2026, cümə:**",
                      "- Millətlər Liqası D, 2-ci qrup: Lixtenşteyn – Azərbaycan (23:45)",

@@ -149,27 +149,31 @@ def _days_text(days):
     return _join([ox.day_text(d) for d in days])
 
 
-def _n1(v):
-    """Bir onluq rəqəm, işarəsi ilə: 9.8 -> «9,8», 10.0 -> «10», -1.2 -> «-1,2», -0.04 -> «0»."""
+def _n1(v, keep=False):
+    """Bir onluq rəqəm, işarəsi ilə: 9.8 -> «9,8», 10.0 -> «10», -1.2 -> «-1,2», -0.04 -> «0».
+    keep=True: «,0» saxlanır (aralıqda iki tərəf eyni yazılsın: «6,0–9,8»)."""
     r = round(float(v), 1)
     if r == 0:
-        return "0"
+        return "0,0" if keep else "0"
     s = ox.az_num(r, 1)
-    if s.endswith(",0"):
+    if s.endswith(",0") and not keep:
         s = s[:-2]
     return ("-" if r < 0 else "") + s
 
 
 def _rng(lo, hi):
-    """Temperatur aralığı: «6–9,8»; mənfi ədədlə «-1,2 ilə 8,3» (tire mənfi işarəsi ilə qarışmasın)."""
+    """Temperatur aralığı: «6–10», «2,3–9,1»; bir tərəf tam ədəddirsə ikisi də bir onluqla: «6,0–9,8» (yoxsa «6–9,8» kimi
+    qarışıq görünür). Mənfi ədədlə «-1,2 ilə 8,3» (tire mənfi işarəsi ilə qarışmasın)."""
     a, b = _n1(lo), _n1(hi)
     if a == b:
         return a
+    if ("," in a) != ("," in b):
+        a, b = _n1(lo, keep=True), _n1(hi, keep=True)
     return f"{a} ilə {b}" if a.startswith("-") else f"{a}–{b}"
 
 
 def _deg(lo, hi):
-    """Siyahı sətri və başlıq üçün: «6–9,8 dərəcə», «3 dərəcə»; «ilə» aralığı «arasında» ilə bitir: «-1,2 ilə 8,3 dərəcə
+    """Siyahı sətri və başlıq üçün: «6,0–9,8 dərəcə», «3 dərəcə»; «ilə» aralığı «arasında» ilə bitir: «-1,2 ilə 8,3 dərəcə
     arasında»."""
     rng = _rng(lo, hi)
     return f"{rng} dərəcə arasında" if " ilə " in rng else f"{rng} dərəcə"

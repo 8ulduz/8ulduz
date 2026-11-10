@@ -498,8 +498,16 @@ class TarixTest(unittest.TestCase):
 class NotOnTheSiteTest(unittest.TestCase):
     """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra». Sayta qoşulanda bu test sahibin göstərişi ilə dəyişir."""
     def test_site_pipeline_does_not_use_it_and_trial_writes_nothing(self):
-        self.assertNotIn("oz_xeber", (ROOT / "updater.py").read_text(encoding="utf-8"))
-        self.assertNotIn("oz_xeber", (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8"))
+        site = (ROOT / "updater.py").read_text(encoding="utf-8") + (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+        modules = sorted(p.stem for p in ROOT.glob("oz_*.py"))
+        self.assertIn("oz_futbol_az", modules, "mərhələ 1 modulları yerindədir")
+        for name in modules:
+            self.assertNotIn(name, site, f"{name} sayta qoşulmayıb (sahibin «tətbiq et» deməyini gözləyir)")
+        self.assertEqual(sorted(n for n, _ in oz.FAZA1), sorted(m for m in modules if m != "oz_xeber"), "sınaq bütün modulları göstərir")
+        mod_wf = (ROOT / ".github" / "workflows" / "oz-modul.yml").read_text(encoding="utf-8")
+        self.assertIn("contents: read", mod_wf)
+        self.assertNotIn("contents: write", mod_wf)
+        self.assertNotIn("git push", mod_wf)
         wf = (ROOT / ".github" / "workflows" / "oz-xeber.yml").read_text(encoding="utf-8")
         self.assertIn("contents: read", wf)
         self.assertNotIn("contents: write", wf)
