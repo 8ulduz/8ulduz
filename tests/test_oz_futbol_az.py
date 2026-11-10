@@ -798,74 +798,166 @@ def site_copy(tmp, swap=None, drop=()):
 SCORE = re.compile(r"«(.+?)» – «(.+?)» – (\d+):(\d+)")
 
 
+def doc_names(doc):
+    return {k: (v or {}).get("name") or k for k, v in (doc.get("teams") or {}).items()}
+
+
+def league_points(doc, until, strictly_before=False):
+    """Modulun kodundan ayrı: yalnız liqa oyunlarından (rəqəmli turlar) xal, liqanın bütün komandaları ilə {ad: xal}."""
+    names = doc_names(doc)
+    league = [g for g in doc["games"] if str(g.get("round")).isdigit()]
+    pts = {names.get(t): 0 for g in league for t in (g["home"], g["away"])}
+    for g in league:
+        when = at(g["date"])
+        if g.get("played") and (when < until if strictly_before else when <= until):
+            for k, a, b in ((g["home"], g["hs"], g["as"]), (g["away"], g["as"], g["hs"])):
+                pts[names.get(k)] += 3 if a > b else 1 if a == b else 0
+    return pts
+
+
 @unittest.skipUnless((SITE / "data" / "futbol" / "premyer-liqa-2025.json").exists(), "main-in məlumatı yoxdur (yalnız CI-da)")
 class MainDataSweepTest(unittest.TestCase):
     """main-in bütün real məlumatı ilə hər hadisənin xəbəri qurulur (pəncərəyə və həddə baxmadan): xəta, boş ad, uzun başlıq
-    olmamalıdır; tur icmallarının nəticələri və qol sayı oyunlardan ayrıca yoxlanır."""
+    olmamalıdır. Tur icmalı, kubok və avrokubok nəticələrinin rəqəmləri modulun kodundan ayrı, oyunlardan yoxlanır."""
 
-    def sweep(self, root, league_file):
+    def sweep(self, root):
         evs, errors = fa._events(root)
         self.assertEqual(errors, [])
-        doc = json.loads((root / "data" / "futbol" / f"{league_file}.json").read_text(encoding="utf-8"))
-        names = {k: (v or {}).get("name") or k for k, v in doc["teams"].items()}
-        built = summaries = 0
+        docs, worth = {}, {}
+
+        def doc(name):
+            if name not in docs:
+                docs[name] = json.loads((root / "data" / "futbol" / f"{name}.json").read_text(encoding="utf-8"))
+            return docs[name]
         for e in evs:
             item = fa._build(e, None)
-            built += 1
             why = item.get("why") or ""
             self.assertFalse(why.startswith("xəta"), (e["key"], why))
             if not item["worth"]:
                 self.assertTrue(why, e["key"])
                 continue
+            worth[e["kind"]] = worth.get(e["kind"], 0) + 1
             text = "\n".join([item["title"], item["lead"]] + item["body"])
             self.assertLessEqual(len(item["title"]), fa.TITLE_MAX, item["title"])
             self.assertFalse(item["title"].endswith("."), item["title"])
             self.assertNotRegex(text, r"«»|None|\{|\}|«[a-z0-9-]+»| 0 oyun keçirib", e["key"])
-            if e["kind"] != "pfl-tur":
-                continue
-            summaries += 1
-            # Hər nəticə sətri həmin turun oynanmış oyunudur; girişdəki oyun və qol sayı sətirlərlə eynidir.
-            rnd = e["key"].rsplit("-t", 1)[1]
-            rg = [g for g in doc["games"] if str(g.get("round")) == rnd and g.get("played")]
-            listed = []
-            for m in (SCORE.fullmatch(b) for b in item["body"]):
-                if m:
-                    hit = [g for g in rg if (names.get(g["home"]), names.get(g["away"]), g["hs"], g["as"]) == (m[1], m[2], int(m[3]), int(m[4]))]
-                    self.assertEqual(len(hit), 1, (e["key"], m[0]))
-                    listed.append(hit[0])
-            n = re.search(r"Turun (\d+) oyununda (?:(\d+) qol vurulub|qol vurulmayıb)\.", item["lead"])
-            self.assertTrue(n, (e["key"], item["lead"]))
-            self.assertEqual(int(n[1]), len(listed), e["key"])
-            self.assertEqual(int(n[2] or 0), sum(g["hs"] + g["as"] for g in listed), e["key"])
-            # Lider: icmaldakı son oyuna qədər yalnız liqa oyunlarından (rəqəmli turlar) hesablanan xal, tək lider.
-            last = max(at(g["date"]) for g in listed)
-            pts = {}
-            for g in doc["games"]:
-                if g.get("played") and str(g.get("round")).isdigit() and at(g["date"]) <= last:
-                    for k, a, b in ((g["home"], g["hs"], g["as"]), (g["away"], g["as"], g["hs"])):
-                        pts[names.get(k)] = pts.get(names.get(k), 0) + (3 if a > b else 1 if a == b else 0)
-            lead = re.search(r"Lider «(.+?)» .*? və (\d+) xal toplayıb\.|«([^»]+)» (\d+) xalla liderdir\.", item["lead"])
-            if lead:
-                who, got = (lead[1], int(lead[2])) if lead[1] else (lead[3], int(lead[4]))
-                self.assertEqual(pts[who], got, e["key"])
-                self.assertLess(sorted(pts.values())[-2], got, (e["key"], "lider tək deyil"))
-        self.assertGreater(built, 50)
-        self.assertGreater(summaries, 5)
+            if e["kind"] in ("pfl-tur", "liqa-tur"):
+                self.check_summary(e, item, doc(e["fam"].split(":")[1] if ":" in e["fam"] else "premyer-liqa"))
+            elif e["kind"] == "kubok-merhele":
+                self.check_cup(e, item, doc("kubok"))
+            elif e["kind"] == "avro-netice":
+                self.check_euro(e, item, doc(e["key"].split("-")[1]))
+        return worth
+
+    def check_summary(self, e, item, d):
+        # Hər nəticə sətri həmin turun oynanmış oyunudur; girişdəki oyun və qol sayı sətirlərlə eynidir.
+        names = doc_names(d)
+        rnd = e["key"].rsplit("-t", 1)[1]
+        rg = [g for g in d["games"] if str(g.get("round")) == rnd and g.get("played")]
+        listed = []
+        for m in (SCORE.fullmatch(b) for b in item["body"]):
+            if m:
+                hit = [g for g in rg if (names.get(g["home"]), names.get(g["away"]), g["hs"], g["as"]) == (m[1], m[2], int(m[3]), int(m[4]))]
+                self.assertEqual(len(hit), 1, (e["key"], m[0]))
+                listed.append(hit[0])
+        n = re.search(r"Turun (\d+) oyununda (?:(\d+) qol vurulub|qol vurulmayıb)\.", item["lead"])
+        self.assertTrue(n, (e["key"], item["lead"]))
+        self.assertEqual((int(n[1]), int(n[2] or 0)), (len(listed), sum(g["hs"] + g["as"] for g in listed)), e["key"])
+        # Lider: icmaldakı son oyuna qədər liqa oyunlarından hesablanan xal, tək lider.
+        last = max(at(g["date"]) for g in listed)
+        after = league_points(d, last)
+        lead = re.search(r"Lider «(.+?)» .*? və (\d+) xal toplayıb\.|«([^»]+)» (\d+) xalla liderdir\.", item["lead"])
+        if lead:
+            who, got = (lead[1], int(lead[2])) if lead[1] else (lead[3], int(lead[4]))
+            self.assertEqual(after[who], got, e["key"])
+            self.assertLess(sorted(after.values())[-2], got, (e["key"], "lider tək deyil"))
+        # Yer dəyişməsi: əvvəlki yer əsas günlərdən əvvəlki xaldan (xalı tək olmalıdır), sonrakı rəsmi cədvəldən (tur sonuncudursa)
+        # və ya xaldan (xalı tək olmalıdır).
+        moves = [b for b in item["body"] if b.startswith("Cədvəldə ")]
+        if not moves:
+            return
+        early = {p for b in item["body"] if b.startswith("Turun «") and b.endswith(" keçirilib.") for p in re.findall(r"«(.+?)» – «(.+?)»", b)}
+        first = min(at(g["date"]) for g in listed if (names.get(g["home"]), names.get(g["away"])) not in early)
+        before = league_points(d, first, strictly_before=True)
+        current = not any(g.get("played") and str(g.get("round")).isdigit() and at(g["date"]) > last for g in d["games"])
+        official = {names.get(r["team"]): r["pos"] for r in ((d.get("groups") or [{}])[0].get("rows") or [])}
+        for who, a, b in re.findall(r"«([^»]+)» (\d+)-c\w+ yerdən (\d+)-c\w+ yerə", moves[0]):
+            self.assertEqual(list(before.values()).count(before[who]), 1, (e["key"], who, "turdan əvvəl xalı bərabərdir"))
+            self.assertEqual(1 + sum(1 for v in before.values() if v > before[who]), int(a), (e["key"], who))
+            if current and official:
+                self.assertEqual(official[who], int(b), (e["key"], who))
+            else:
+                self.assertEqual(list(after.values()).count(after[who]), 1, (e["key"], who, "turdan sonra xalı bərabərdir"))
+                self.assertEqual(1 + sum(1 for v in after.values() if v > after[who]), int(b), (e["key"], who))
+
+    def check_cup(self, e, item, d):
+        # Sətirlər bir mərhələnin oynanmış oyunlarıdır, cəmi hesab ilk oyunla, «keçib» deyilən növbəti mərhələdədir, say və qollar.
+        names = doc_names(d)
+        played = [g for g in d["games"] if g.get("played")]
+        listed = []
+        for b in item["body"]:
+            m = SCORE.match(b)
+            self.assertTrue(m, (e["key"], b))
+            hit = [g for g in played if (names.get(g["home"]), names.get(g["away"]), g["hs"], g["as"]) == (m[1], m[2], int(m[3]), int(m[4]))]
+            self.assertEqual(len(hit), 1, (e["key"], b))
+            g = hit[0]
+            listed.append(g)
+            agg = re.search(r"iki oyunun cəmi (\d+):(\d+)", b)
+            if agg:
+                g1 = [x for x in played if x["round"] == g["round"].replace("cavab", "ilk") and (x["home"], x["away"]) == (g["away"], g["home"])]
+                self.assertEqual(len(g1), 1, (e["key"], b))
+                self.assertEqual((int(agg[1]), int(agg[2])), (g["hs"] + g1[0]["as"], g["as"] + g1[0]["hs"]), (e["key"], b))
+            went = re.search(r"növbəti mərhələyə «(.+?)» keçib", b)
+            if went:
+                later = [x for x in d["games"] if at(x["date"]) > at(g["date"]) and x["round"] != g["round"]]
+                self.assertTrue(any(went[1] in (names.get(x["home"]), names.get(x["away"])) for x in later), (e["key"], b))
+        self.assertEqual(len({g["round"] for g in listed}), 1, e["key"])
+        n = re.search(r"Mərhələnin (\d+) oyununda (?:(\d+) qol vurulub|qol vurulmayıb)\.", item["lead"])
+        if n:
+            self.assertEqual((int(n[1]), int(n[2] or 0)), (len(listed), sum(g["hs"] + g["as"] for g in listed)), e["key"])
+
+    def check_euro(self, e, item, d):
+        # Sətirlər klubun oynanmış oyunlarıdır; «N oyunda X xal» yalnız liqa mərhələsinin (rəqəmli turların) sətirlərindəndir.
+        names = doc_names(d)
+        played = [g for g in d["games"] if g.get("played")]
+        listed = []
+        for b in item["body"]:
+            m = SCORE.fullmatch(b)
+            self.assertTrue(m, (e["key"], b))
+            hit = [g for g in played if (names.get(g["home"]), names.get(g["away"]), g["hs"], g["as"]) == (m[1], m[2], int(m[3]), int(m[4]))]
+            self.assertEqual(len(hit), 1, (e["key"], b))
+            listed.append(hit[0])
+        club = re.match(r"«(.+?)»", item["title"])[1]  # başlıq klubun adı ilə başlayır
+        self.assertTrue(all(club in (names.get(g["home"]), names.get(g["away"])) for g in listed), e["key"])
+        lg = [g for g in listed if str(g["round"]).isdigit()]
+        pts = sum(3 if gf > ga else 1 if gf == ga else 0
+                  for gf, ga in ((g["hs"], g["as"]) if names.get(g["home"]) == club else (g["as"], g["hs"]) for g in lg))
+        m = re.search(r"Azərbaycan təmsilçisi (\d+) oyunda (?:(\d+) xal toplayıb|xal qazanmayıb)", item["lead"])
+        if m:
+            self.assertEqual((int(m[1]), int(m[2] or 0)), (len(lg), pts), e["key"])
 
     def test_current_data(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.sweep(site_copy(tmp), "premyer-liqa")
+            worth = self.sweep(site_copy(tmp))
+        self.assertGreaterEqual(worth.get("pfl-tur", 0), 10, worth)
+        self.assertGreaterEqual(worth.get("liqa-tur", 0), 10, worth)
+        self.assertGreaterEqual(worth.get("avro-netice", 0), 4, worth)
 
     def test_last_season_as_the_current_one(self):
-        # 2025-26 bütöv: 1-ci, 14-cü, 21-ci turun oyunları aylarla sonraya salınıb, «p/o» keçid oyunu, rəsmi cədvəldə xal düzəlişi.
+        # 2025-26 bütöv: 1-ci, 14-cü, 21-ci turun oyunları aylarla sonraya salınıb, «p/o» keçid oyunu, rəsmi cədvəldə xal düzəlişi;
+        # kubokda iki oyunluq 1/4 final və yarımfinal, final; «Qarabağ» Çempionlar Liqasında (8 oyun və pley-off).
         with tempfile.TemporaryDirectory() as tmp:
             root = site_copy(tmp, {"premyer-liqa": "premyer-liqa-2025", "kubok": "kubok-2025", "cl": "cl-2025"}, drop=("premyer-liqa-2025",))
-            self.sweep(root, "premyer-liqa")
+            worth = self.sweep(root)
+        self.assertGreaterEqual(worth.get("pfl-tur", 0), 30, worth)
+        self.assertGreaterEqual(worth.get("kubok-merhele", 0), 8, worth)
+        self.assertGreaterEqual(worth.get("avro-netice", 0), 10, worth)
 
     def test_two_seasons_ago_as_the_current_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = site_copy(tmp, {"premyer-liqa": "premyer-liqa-2024"}, drop=("premyer-liqa-2024", "premyer-liqa-2025"))
-            self.sweep(root, "premyer-liqa")
+            worth = self.sweep(root)
+        self.assertGreaterEqual(worth.get("pfl-tur", 0), 30, worth)
 
 
 class ContractTest(unittest.TestCase):
