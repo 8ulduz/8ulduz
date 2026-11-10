@@ -1,0 +1,18 @@
+# IMO Meteor Shower Calendar excerpts (https://www.imo.net/files/meteor-shower/cal2026.pdf, cal2027.pdf), fetched 2026-11-10.
+# Text extracted from the PDFs; dash and degree glyphs normalized.
+# Table 5 rows: code | activity | maximum date | solar longitude, RA, Dec, V (km/s), r, ZHR
+cal2026 table5 QUA | Dec 28–Jan 12 | Jan 03 | 283.15 230 +49 41 2.1 80
+cal2026 table5 ETA | Apr 19–May28 | May 06 | 45.5 338 −01 66 2.4 50
+cal2026 table5 PER | Jul 17–Aug 24 | Aug 13 | 140.0 48 +58 59 2.2 100
+cal2026 table5 GEM | Dec 04–Dec 20 | Dec 14 | 262.2 112 +33 35 2.6 150
+cal2026 text | Quadrantids (010 QUA) , peak on January 3 close to 21 h UT
+cal2026 text | Maximum: August 13, 02 h to 04 h UT (node at  ⊙ = 140.0 −140.1), but see text; ZHR = 100;
+cal2026 text | Maximum: December 14, 14 h UT (  ⊙ = 262.2); ZHR = 150;
+cal2027 table5 QUA | Dec 28–Jan 12 | Jan 04 | 283.15 230 +49 41 2.1 80+
+cal2027 table5 ETA | Apr 19–May28 | May 06 | 45.5 338 −01 66 2.4 50
+cal2027 table5 PER | Jul 17–Aug 24 | Aug 13 | 140.0 48 +58 59 2.2 110+
+cal2027 table5 GEM | Dec 04–Dec 20 | Dec 14 | 262.2 112 +33 35 2.6 150
+cal2027 text | Maximum: January 4, 03 h 25 m UT ( λ ⊙ = 283.15), ZHR = 80 (can vary ≈ 60 −200)
+cal2027 text | Maximum: May 6, 09 h UT ( λ ⊙ = 45.5); ZHR = 50 (var., 40–80+);
+cal2027 text | Maximum: August 13, 08 h to 10 h UT (node at λ ⊙ = 140.0 −140.1); ZHR = 110+ (details about timing and rates see text);
+cal2027 text | GEM) maximum on December 14 (centred around 20 h UT)
