@@ -1302,7 +1302,7 @@ function renderTopbar() {
   syncTixDot();
 }
 
-const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["gundem", "dunya", "idman", "bolgeler"];
+const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["idman", "bolgeler"]; // sahib, 2026-11-10: Gündəm və Dünya ☰-də, yerinə «Ana ekrana» düyməsi
 // Ölçmə bir dəfə, dəyişikliklərdən sonra.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
 // Kadr boyanandan sonra (rAF kadrdan əvvəldir): ölçü oxuyan kod brauzerin öz yerləşdirməsini işlədir, ikinci yerləşdirmə olmur.
@@ -1314,12 +1314,12 @@ function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
   const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub", NAV_PHONE.includes(c.slug) && "ph"].filter(Boolean).join(" ");
   const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
-  // Telefon: 4 bölmə (.ph) və ☰ (hamısı + «Ana ekrana»)
+  // Telefon: 2 bölmə (.ph), «Ana ekrana» düyməsi və ☰ (hamısı)
   const primary = NAV_PRIMARY;
   const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="#/bolme/${c.slug}" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
-    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a>` +
-    `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button></div></details>` +
+    `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">📲 Ana ekrana əlavə et</span></button>` +
+    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>` +
     `<a class="nav-tg" href="${esc(tgDigest())}" ${OUT} title="Hər gün 09:00 və 19:00">📩 Günün 10 əsas xəbəri — Telegram-da</a>`;
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;
@@ -2461,14 +2461,17 @@ async function shareTo(t) {
 }
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || "");
+// Sahib, 2026-11-10: «Ana ekrana» telefonda həmişə görünsün. Brauzer təklif vermirsə (Facebook/Instagram daxili brauzeri,
+// Samsung Internet, Firefox, Chrome-un imtinadan sonrakı fasiləsi) düymə əllə əlavə etmə yolunu göstərir. Kompüterdə yalnız təklif olanda.
+const isPhone = () => isIOS() || matchMedia("(hover:none)").matches; // Android telefon da hover:none
 function installBtn() {
-  if (isStandalone() || (!S.installEvt && !isIOS())) return "";
+  if (isStandalone() || (!S.installEvt && !isPhone())) return "";
   return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;
 }
 async function installApp(btn) {
   if (!S.installEvt) {
-    trackEvent("install-ios-hint");
-    showPop(btn, `<p>Safari-də <b>Paylaş</b> düyməsinə, sonra <b>Ana ekrana əlavə et</b> seçiminə basın.</p>`);
+    trackEvent("install-hint");
+    import(`${ASSET}ana-ekran.js`).then(m => showPop(btn, m.hint(navigator.userAgent || "", isIOS()))).catch(() => {});
     return;
   }
   const prompt = S.installEvt;
