@@ -889,6 +889,7 @@ class MainDataSweepTest(unittest.TestCase):
             else:
                 self.assertEqual(list(after.values()).count(after[who]), 1, (e["key"], who, "turdan sonra xalı bərabərdir"))
                 self.assertEqual(1 + sum(1 for v in after.values() if v > after[who]), int(b), (e["key"], who))
+            self.moved = getattr(self, "moved", 0) + 1
 
     def check_cup(self, e, item, d):
         # Sətirlər bir mərhələnin oynanmış oyunlarıdır, cəmi hesab ilk oyunla, «keçib» deyilən növbəti mərhələdədir, say və qollar.
@@ -942,6 +943,7 @@ class MainDataSweepTest(unittest.TestCase):
         self.assertGreaterEqual(worth.get("pfl-tur", 0), 10, worth)
         self.assertGreaterEqual(worth.get("liqa-tur", 0), 10, worth)
         self.assertGreaterEqual(worth.get("avro-netice", 0), 4, worth)
+        self.assertGreaterEqual(getattr(self, "moved", 0), 4)  # «yerdən … yerə» yoxlanıb
 
     def test_last_season_as_the_current_one(self):
         # 2025-26 bütöv: 1-ci, 14-cü, 21-ci turun oyunları aylarla sonraya salınıb, «p/o» keçid oyunu, rəsmi cədvəldə xal düzəlişi;
@@ -952,12 +954,14 @@ class MainDataSweepTest(unittest.TestCase):
         self.assertGreaterEqual(worth.get("pfl-tur", 0), 30, worth)
         self.assertGreaterEqual(worth.get("kubok-merhele", 0), 8, worth)
         self.assertGreaterEqual(worth.get("avro-netice", 0), 10, worth)
+        self.assertGreaterEqual(getattr(self, "moved", 0), 20)
 
     def test_two_seasons_ago_as_the_current_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = site_copy(tmp, {"premyer-liqa": "premyer-liqa-2024"}, drop=("premyer-liqa-2024", "premyer-liqa-2025"))
             worth = self.sweep(root)
         self.assertGreaterEqual(worth.get("pfl-tur", 0), 30, worth)
+        self.assertGreaterEqual(getattr(self, "moved", 0), 20)
 
 
 class ContractTest(unittest.TestCase):
