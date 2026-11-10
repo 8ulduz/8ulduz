@@ -1525,6 +1525,13 @@ def night_item(key, lg, md, now):
 
 # --- 6. Böyük klubun oyunu ----------------------------------------------------------------------------------
 
+def _club_key(comp, lg, g):
+    """Oyunun açarı. Avrokubokda eyni cüt liqa mərhələsində və pley-offda eyni meydanda yenə qarşılaşa bilər:
+    pley-off oyununun açarına mərhələ də yazılır."""
+    ko = f"{_slug(g['rnd'])}-" if comp in NIGHTS and not g["rnd"].isdigit() else ""
+    return f"klub-{comp}-{lg['season']}-{ko}{g['home']}-{g['away']}"
+
+
 def club_item(comp, lg, g, now):
     if not _played(g, now):
         return None, "oyun hələ bitməyib"
@@ -1544,7 +1551,7 @@ def club_item(comp, lg, g, now):
     else:
         c_loc = NIGHTS[comp]["loc"]
         stage = (f"{NIGHTS[comp]['gen']} liqa mərhələsinin {ox.ordinal(rnd)} turunda" if rnd.isdigit()
-                 else f"{NIGHTS[comp]['gen']} {_ko_loc(rnd)}")
+                 else f"{NIGHTS[comp]['gen']} {_ko_loc(rnd)}" if rnd else c_loc)
         scope = ("turnirdəki", "turnirdə")
     when = _bk(g["t"])
     day = ox.day_loc(when)
@@ -1579,7 +1586,7 @@ def club_item(comp, lg, g, now):
             lead += f" «{B}» {rb['p']} oyunda {rb['pts']} xal toplayıb."
     body = [f"Görüş {locative(g['stadium'])} keçirilib."] if g["stadium"] else []
     slot = _slot_after(g["t"] + FOOT_READY)
-    item = _item("klub-oyunu", f"klub-{comp}-{lg['season']}-{g['home']}-{g['away']}", title, lead, body, lg, slot, listed=False)
+    item = _item("klub-oyunu", _club_key(comp, lg, g), title, lead, body, lg, slot, listed=False)
     return _finish(item)
 
 
@@ -1850,7 +1857,7 @@ def events(data):
             extra = {}
             if cover.get((comp, g["i"])) == slot.date():
                 extra["why"] = "oyun həmin gün dərc olunan tur icmalındadır"
-            evs.append(_ev("klub-oyunu", f"klub-{comp}-{lg['season']}-{g['home']}-{g['away']}", slot,
+            evs.append(_ev("klub-oyunu", _club_key(comp, lg, g), slot,
                            lambda now, comp=comp, lg=lg, g=g: club_item(comp, lg, g, now),
                            rank=(min(BIG[s] for s in bigs), g["t"], g["i"]), league=comp, **extra))
     lg = data.get("nba")
@@ -1932,7 +1939,10 @@ def _latest(evs, now):
         out += [e for e in past if e["kind"] == "avrokubok" and e.get("league") == key][-1:]
     clubs = [e for e in past if e["kind"] == "klub-oyunu"]
     out += [e for e in clubs if not e.get("why")][-3:] + [e for e in clubs if e.get("why")][-2:]
-    out += [e for e in past if e["kind"] == "nba"][-1:]
+    nbas = [e for e in past if e["kind"] == "nba"]
+    if nbas and not nbas[-1]["make"](nbas[-1]["slot"])[0]:     # son ABŞ günü hələ tam deyil: ondan əvvəlki tam günü də göstər
+        out += [e for e in nbas[-4:-1] if e["make"](e["slot"])[0]][-1:]
+    out += nbas[-1:]
     out += [e for e in past if e["kind"] == "avroliqa"][-1:]
     return out
 

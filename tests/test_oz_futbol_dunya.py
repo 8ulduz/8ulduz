@@ -541,6 +541,14 @@ class SinaqTest(unittest.TestCase):
             if line.startswith(("✅", "⏭")):
                 self.assertTrue(line == "✅ Dərc olunardı" or line.startswith("⏭ Dərc olunmazdı: "), line)
 
+    def test_last_complete_nba_day_is_shown(self):
+        # 10 noyabr günortası: ABŞ-ın 9 noyabr oyunları hələ bitməyib, nümunədə 8 noyabrın tam günü də görünməlidir
+        md = "\n".join(fd.sinaq(FIX, baku(2026, 11, 10, 12, 0)))
+        cases = md[md.index("### Son real hallar"):]
+        self.assertIn("### NBA-da «Los Angeles Lakers» ardıcıl 5-ci qələbəsini qazanıb", cases)
+        self.assertLess(cases.index("`nba-2026-11-08`"), cases.index("`nba-2026-11-09`"))
+        self.assertIn("⏭ Dərc olunmazdı: ABŞ vaxtı ilə 9 noyabr oyunlarının hamısı bitməyib", cases)
+
     def test_cli_and_no_network(self):
         out = io.StringIO()
         with patch("sys.stdout", out):
@@ -762,14 +770,19 @@ class EuropeHoleTest(unittest.TestCase):
     def test_knockout_rounds_have_no_league_table(self):
         # cl-2025.json: fevraldan «Pley-off», «1/8 final, 1-ci oyun» ... Liqa cədvəli bu oyunlarla hesablanmamalıdır
         names = {"galatasaray": "Galatasaray", "juventus": "Juventus", "real-madrid": "Real Madrid", "benfica": "Benfica"}
-        games = [game(iso(2027, 1, 28, 20), "galatasaray", "juventus", 1, 0, "8"), game(iso(2027, 1, 28, 20), "real-madrid", "benfica", 2, 0, "8"),
+        games = [game(iso(2026, 10, 21, 17, 45), "galatasaray", "real-madrid", 0, 1, "3"), game(iso(2026, 10, 21, 20), "benfica", "juventus", 0, 0, "3"),
+                 game(iso(2027, 1, 28, 20), "galatasaray", "juventus", 1, 0, "8"), game(iso(2027, 1, 28, 20), "real-madrid", "benfica", 2, 0, "8"),
                  game(iso(2027, 2, 10, 17, 45), "galatasaray", "real-madrid", 2, 1, "1/8 final, 1-ci oyun"),
                  game(iso(2027, 2, 10, 20), "benfica", "juventus", 1, 1, "1/8 final, 1-ci oyun")]
-        with site({"cl": doc(games, names, rows=official(games[:2], names))}) as root:
+        with site({"cl": doc(games, names, rows=official(games[:4], names))}) as root:
             data = fd.load(root)
-            evs = {e["key"]: e for e in fd.events(data)}
-        self.assertEqual(sorted(k for k in evs if k.startswith("avrokubok")), ["avrokubok-cl-2026-t8"])
-        self.assertNotIn("why", evs["klub-cl-2026-galatasaray-real-madrid"])
+            evs = fd.events(data)
+        keys = [e["key"] for e in evs]
+        self.assertEqual(sorted(k for k in keys if k.startswith("avrokubok")), ["avrokubok-cl-2026-t3", "avrokubok-cl-2026-t8"])
+        # eyni cüt eyni meydanda liqa mərhələsində və pley-offda: iki oyun, iki ayrı açar
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertIn("klub-cl-2026-galatasaray-real-madrid", keys)
+        self.assertNotIn("why", next(e for e in evs if e["key"] == "klub-cl-2026-1-8-final-1-ci-oyun-galatasaray-real-madrid"))
         lg = data["cl"]
         self.assertIsNone(fd.night_item("cl", lg, "1/8 final, 1-ci oyun", baku(2027, 2, 12, 8, 0))[0])
         g = next(x for x in lg["games"] if x["home"] == "galatasaray" and x["rnd"].startswith("1/8"))
@@ -795,33 +808,6 @@ class StadiumHoleTest(unittest.TestCase):
         self.assertEqual(fd.locative("Stadium of Light"), "«Stadium of Light»da")
         self.assertEqual(fd.locative("Stadium de Toulouse"), "«Stadium de Toulouse»da")
         self.assertEqual(fd.locative("Stade de l'Aube"), "«Stade de l'Aube»da")
-
-
-class ZzDumpTest(unittest.TestCase):
-    """Müvəqqəti (rəyçi): main-in məlumatı ilə 26 oktyabr – 10 noyabr arası hər 30 dəqiqədə istehsal nə dərc edərdi."""
-    def test_dump(self):
-        live = ROOT / "site"
-        if not (live / "data" / "futbol").is_dir():
-            self.skipTest("site/ yoxdur")
-        import oz_xeber as ox
-        evs = fd.events(fd.load(live))
-        start, end = baku(2026, 10, 26), baku(2026, 11, 10, 8, 0)
-        seen, out, t = set(), [], start
-        while t <= end:
-            for day in (t.date() - fd.DAY, t.date()):
-                for e in fd.day_plan(evs, day)[0]:
-                    if e["key"] not in seen and e["slot"] <= t <= e["slot"] + fd.LATE:
-                        item, _ = e["make"](t)
-                        if item:
-                            seen.add(e["key"])
-                            out.append(f"@@ {t:%m-%d %H:%M} {e['key']}")
-                            out += ["@@ " + x for x in ox.render(item) if x]
-            t += datetime.timedelta(minutes=30)
-        for e in sorted(evs, key=lambda e: (e["slot"], e["key"])):
-            if start <= e["slot"] <= end and e["key"] not in seen:
-                _, why = e["make"](e["slot"] + fd.LATE)
-                out.append(f"@@ SKIP {e['slot']:%m-%d %H:%M} {e['key']}: {e.get('why') or fd.cut_reason(evs, e) or why}")
-        print("\n".join(out))
 
 
 if __name__ == "__main__":
