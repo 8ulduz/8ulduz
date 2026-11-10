@@ -268,7 +268,7 @@ class BeledciTest(unittest.TestCase):
     def test_placeholder_and_nominal_schedules(self):
         lines = [g["text"] for g in ic.day_games(FIX, D(2026, 11, 22))]
         self.assertEqual(lines, ["Premyer Liqa, 12-ci tur: «Araz-Naxçıvan» – «Neftçi» (14:30), «Kəpəz» – «Qarabağ» (17:00)",
-                                 "Türkiyə Super Liqası: «Konyaspor» – «Beşiktaş» (17:00)",
+                                 "Türkiyə Super Liqası: «Konyaspor» – «Beşiktaş» (17:00), «Trabzonspor» – «Eyüpspor» (20:00)",
                                  "İngiltərə Premyer Liqası: «Liverpool» – «Manchester United» (20:30)"],
                          "La Liqanın 13-cü turunun 10 oyunu 16:00Z-dədir (yer tutucu): «Barcelona» və «Real Madrid» yazılmır")
         lines = [g["text"] for g in ic.day_games(FIX, D(2026, 11, 21))]
@@ -551,6 +551,9 @@ class ItemsAndSinaqTest(unittest.TestCase):
                      "## 2. «Həftənin rəqəmləri» (bazar 12:00)", "**8 noyabr 2026, bazar — ən son real hal, saat 12:00:**",
                      "### Həftənin rəqəmləri, 1–7 noyabr: Premyer Liqada 17 qol",
                      "> Yazılmayan hissələr: zəlzələ — bu həftə 3,0 və daha güclü zəlzələ qeydə alınmayıb",
+                     "### Zəlzələ hissəsi: zəlzələ olan ən son həftə",
+                     "18–24 oktyabr, 25 oktyabr 2026, bazar xəbərinə düşərdi:",
+                     "- Respublika Seysmoloji Xidmət Mərkəzinin məlumatına görə, son 7 gündə 3,0 və daha güclü 2 zəlzələ",
                      "✅ Dərc olunardı", "Bu sınaqda 6 sorğu göndərilib."):
             self.assertIn(text, md)
         self.assertNotIn("⏭", md)

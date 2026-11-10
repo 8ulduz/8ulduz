@@ -913,8 +913,25 @@ def sinaq(root, now=None, fetch=None):
     item, why = reqemler_item(root, sunday, get)
     label = _label(sunday, today) + ("" if sunday == today else " — ən son real hal")
     md += _show(label, item, why)
+    if item and "zəlzələ" in item.get("missing", {}):
+        md += _quake_example(get, sunday, today)
     md += [f"Bu sınaqda {get.count} sorğu göndərilib.", ""]
     return md
+
+
+def _quake_example(get, sunday, today, weeks=12):
+    """Bu həftə zəlzələ yoxdursa, zəlzələ olan ən son həftənin sətri (eyni siyahıdan, yeni sorğu getmir)."""
+    md = ["### Zəlzələ hissəsi: zəlzələ olan ən son həftə", ""]
+    try:
+        page = _text(get(ox.SEYS_LIST))
+    except Exception as e:
+        return md + [f"> seismology.az alınmadı: {_err(e)}", ""]
+    for k in range(1, weeks + 1):
+        day = sunday - DAY * 7 * k
+        fact, _ = _quakes(page, day - DAY * 7, day - DAY)
+        if fact:
+            return md + [f"{_span(day - DAY * 7, day - DAY)}, {_label(day, today)} xəbərinə düşərdi:", "", f"- {fact['body']}", ""]
+    return md + [f"- Son {weeks} həftədə 3,0 və daha güclü zəlzələ olmayıb.", ""]
 
 
 def _arg(argv, name):
