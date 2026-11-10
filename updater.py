@@ -452,7 +452,7 @@ UNDATED_FILE = CACHE_DIR / "undated.json"
 RECENT_FILE = CACHE_DIR / "recent.json"
 LINK_HEALTH_FILE = CACHE_DIR / "link_health.json"
 GNEWS_CACHE = CACHE_DIR / "gnews.json"
-GROUPS_FILE = CACHE_DIR / "groups.json"
+GROUPS_FILE = CACHE_DIR / "groups.json"  # yanında group_rows.json (alt mənbələrin tam sətri) və group_same.json (saytın təkrar yazıları), compute_groups
 RELABEL_MARK = CACHE_DIR / "relabeled"
 OUT_FILE = OUT_DIR / "news.json"
 MARKETS_FILE = OUT_DIR / "markets.json"
@@ -588,7 +588,9 @@ IMG_RE = re.compile(r"""<img[^>]+src\s*=\s*["']([^"']+)["']""", re.I)
 IMG_EXT = re.compile(r"\.(jpe?g|png|webp|gif|avif)(\?|$)", re.I)
 
 # Saytın ümumi paylaşım şəkli (loqo) xəbərin şəkli deyil: azertag social.jpg, «son dakika» lövhəsi və s.
-GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$|/site/assets/|/assets/images/|static\.president\.az/assets/president-administration-|lent\.az/storage/news/.*/middle/", re.I)
+# «/logo» yalnız saytın öz loqosudur: Modern.az xəbər fotosunu tarixli «/2026/11/10/logo/1794304049_...png» qovluğunda saxlayır
+# (loqo damğalı foto), əvvəl belə xəbər həm lentdə, həm səhifədə «loqo» sayılıb şəkilsiz qalırdı (2026-11-10, «Molla rejimi...»).
+GENERIC_IMG = re.compile(r"azertag\.az/resources/images/|/logo(?!/\d{6,})|placeholder|default[-_]?(?:image|img|og)|no[-_]?image|tr_son_dakika|/social\.(?:jpe?g|png)$|/site/assets/|/assets/images/|static\.president\.az/assets/president-administration-|lent\.az/storage/news/.*/middle/", re.I)
 
 def _is_generic_img(u):
     return bool(u) and bool(GENERIC_IMG.search(u))
@@ -602,6 +604,22 @@ def _is_logo(u, n):
     """n fərqli xəbərdə eyni şəkil: 3 və daha çoxdursa loqodur; xəbər fotosu kimi görünən ünvan üçün 8 və daha çox."""
     return bool(u) and n >= (8 if _PHOTO_PATH.search(u) else 3)
 
+# Lentin verdiyi şəkil ünvanı saytda olmayan yoldur, eyni fayl başqa yoldadır. Modern.az RSS-i (2026-11-10 ölçüsü: 30 elementin
+# 30-u) «files.modern.az/file/articles/...» verir: hamısı 404, wsrv.nl da 404; səhifənin og:image-i eyni faylı
+# «/photo/orginal/...» yolunda verir (200). Ölü şəkli yavaş dövrə 4-5 dəqiqədə tapırdı, tapmayanda (sayt GitHub-a cavab
+# verməyəndə) xəbər həmişəlik şəkilsiz qalırdı: canlı lentdə Modern.az-ın 42 sətrindən 17-si ölü şəkilli idi.
+_IMAGE_FIXES = ((re.compile(r"^https?://files\.modern\.az/file/articles/", re.I), "https://files.modern.az/photo/orginal/"),)
+
+
+def fix_image_url(u):
+    """Məlum ölü şəkil yolunu işlək yola çevirir (şəbəkə sorğusu yoxdur, sürətli dövrədə də işləyir)."""
+    if not isinstance(u, str) or not u:
+        return u
+    for rx, good in _IMAGE_FIXES:
+        u = rx.sub(good, u)
+    return u
+
+
 def _abs_img(u, base):
     if not u:
         return None
@@ -612,7 +630,7 @@ def _abs_img(u, base):
     if u.startswith("//"):
         u = "https:" + u
     u = urllib.parse.urljoin(base or "", u)
-    return u if u.startswith(("http://", "https://")) else None
+    return fix_image_url(u) if u.startswith(("http://", "https://")) else None
 
 def image_of(item, link, raw_desc):
     """Elementdən şəkil URL-i: enclosure, media:content, media:thumbnail, ilk <img>."""
@@ -1447,12 +1465,79 @@ def collect_fast():
     return results, off_items, off_errors
 
 
+_GROUP_ROW_FIELDS = ("source", "sourceUrl", "publishedAt", "title", "summary", "category", "lang", "imageUrl")
+
+
 def compute_groups():
-    """Eyni hadisənin qruplaşdırılması ağırdır (bütün cütlər): yavaş prosesdə hesablanır, sürətli dövrə nəticəni tətbiq edir."""
+    """Eyni hadisənin qruplaşdırılması ağırdır (bütün cütlər): yavaş prosesdə hesablanır, sürətli dövrə nəticəni tətbiq edir.
+
+    Kartın alt mənbələri də adi sətir kimi yenidən qruplaşdırılır. Əvvəl onlar yalnız «yadda saxlanmış» siyahı idi və yalnız
+    kartın əsas başlığı ilə yoxlanırdı: əsas sətir dəyişəndə («Venger qərar verməyə hazırlaşır») eyni başlıqlı 3 alt mənbə
+    («Arsen Venger FIFA prezidenti ola bilər») yoxlamadan keçmir, lentdən itir, sürətli dövrə onları RSS-dən yeni xəbər kimi
+    qaytarırdı: ayrı kartlar 4 dəqiqə sonra yenə birləşir, sonra yenə ayrılırdı (2026-11-10 canlı lent: 54 artıq kart,
+    hər hesablamada ~90 keçid itirdi). İndi nəticə yalnız xəbərlər çoxluğundan asılıdır, əvvəlki qruplaşmadan yox."""
     articles = read_feed()
-    if articles:
-        grouped = group_duplicates([dict(a, alts=list(a.get("alts") or [])) for a in articles])
-        _save_cache(GROUPS_FILE, {a["sourceUrl"]: a["alts"] for a in grouped if a.get("alts")})
+    if not articles:
+        return
+    known = _read_json(GROUPS_FILE.with_name("group_rows.json"), {})
+    known = known if isinstance(known, dict) else {}
+    present = {a.get("sourceUrl") for a in articles if a.get("sourceUrl")}
+    rows, seen, origin = [], set(), {}
+    for a in articles:
+        if a.get("sourceUrl") and a["sourceUrl"] not in seen:
+            seen.add(a["sourceUrl"])
+            rows.append({k: v for k, v in a.items() if k != "alts"})
+    for a in articles:
+        for alt in a.get("alts") or []:
+            url = alt.get("sourceUrl")
+            if not url or url in seen or not alt.get("title"):
+                continue  # başlıqsız köhnə alternativ yoxlana bilməz
+            seen.add(url)
+            origin[url] = a.get("sourceUrl")
+            full = known.get(url)
+            if isinstance(full, dict) and full.get("title"):
+                rows.append(dict(full, sourceUrl=url))  # əvvəl əsas sətir olanda yadda saxlanmış xülasə ilə
+            else:
+                rows.append({**alt, "category": a.get("category"), "summary": ""})
+    # Gizlədilmiş təkrarlar (eyni saytın eyni başlıqlı ikinci yazısı) lentdə yoxdur: yenə hesablansın ki, kart dəyişəndə qayıtsın.
+    floor = (datetime.datetime.now(datetime.timezone.utc) - 2 * GROUP_WINDOW).isoformat()
+    for url in _read_json(GROUPS_FILE.with_name("group_same.json"), {}) or {}:
+        full = known.get(url)
+        if url not in seen and isinstance(full, dict) and full.get("title") and (full.get("publishedAt") or "") >= floor:
+            seen.add(url)
+            rows.append(dict(full, sourceUrl=url))
+    by_url = {r["sourceUrl"]: r for r in rows}
+    groups, same, moved = {}, {}, {}
+    for g in group_duplicates([dict(r) for r in rows], same_out=same):
+        alts = g.get("alts") or []
+        if not alts:
+            continue
+        if g["sourceUrl"] not in present:
+            # Sürətli dövrə qrupu lentdəki sətrə bağlayır: əsas sətir indi alt mənbədirsə, lentdəki üzv əsas olur.
+            pick = next((x for x in alts if x.get("sourceUrl") in present), None)
+            if pick is None:
+                continue  # üzvlərin heç biri lentdə əsas deyil: növbəti dövrə onları ayrıca qaytarır, sonra yenə qruplanır
+            alts = sorted([_compact_alt(g), *(x for x in alts if x is not pick)], key=lambda x: x.get("publishedAt") or "", reverse=True)
+            moved[g["sourceUrl"]] = pick["sourceUrl"]
+            g = pick
+        groups[g["sourceUrl"]] = alts
+    # Yenidən hesablama qərar verə bilmədiyi alt mənbə (məs. xülasəsi yoxdur, lentdə əsas üzvü yoxdur) itməsin: əvvəlki kartında qalır.
+    key_of = {u: k for k, alts in groups.items() for u in [k, *(x.get("sourceUrl") for x in alts)]}
+    for url, card in origin.items():
+        if url in key_of or url in same or card not in present:
+            continue
+        key = key_of.get(card, card)
+        alts = groups.setdefault(key, [])
+        row = by_url.get(url) or {}
+        taken = {by_url.get(key, {}).get("source"), *(x.get("source") for x in alts)}
+        alt = _compact_alt(row)
+        if alt and row.get("source") not in taken:
+            alts.append(alt)
+            alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
+            key_of[url] = key
+    _save_cache(GROUPS_FILE, groups)
+    _save_cache(GROUPS_FILE.with_name("group_same.json"), {u: moved.get(p, p) for u, p in same.items()})
+    _save_cache(GROUPS_FILE.with_name("group_rows.json"), {u: {k: r[k] for k in _GROUP_ROW_FIELDS if r.get(k)} for u, r in by_url.items()})
 
 
 def apply_groups(articles):
@@ -1461,6 +1546,9 @@ def apply_groups(articles):
     groups = {fix_source_link(url): [{**alt, "sourceUrl": fix_source_link(alt.get("sourceUrl"))} for alt in alts] for url, alts in _read_json(GROUPS_FILE, {}).items()}
     present = {a.get("sourceUrl") for a in articles}
     absorbed = {alt.get("sourceUrl") for url, alts in groups.items() if url in present for alt in alts}
+    # Saytın eyni xəbəri təkrar dərci: kart lentdədirsə təkrar ayrıca göstərilmir.
+    same = _read_json(GROUPS_FILE.with_name("group_same.json"), {}) if groups else {}
+    absorbed |= {url for url, head in (same if isinstance(same, dict) else {}).items() if head in present and head != url}
     out = []
     for a in articles:
         url = a.get("sourceUrl")
@@ -1564,6 +1652,14 @@ def apply_og_cache(articles):
     cache = _read_json(OG_FILE, {})
     checked = _read_json(IMG_CHECK_FILE, {})
     for a in articles:
+        # Əvvəlki dövrələrdən qalan sətirlər də (lentdən çıxmış Modern.az xəbərləri) düzəlsin
+        if a.get("imageUrl"):
+            a["imageUrl"] = fix_image_url(a["imageUrl"])
+        for alt in a.get("alts") or []:
+            if alt.get("imageUrl"):
+                alt["imageUrl"] = fix_image_url(alt["imageUrl"])
+                if checked.get(alt["imageUrl"]):
+                    alt.pop("imageUrl")
         if checked.get(a.get("imageUrl")):
             a["imageUrl"] = None
         image = cache.get(a.get("sourceUrl") or "") if isinstance(cache, dict) else None
@@ -4591,10 +4687,39 @@ def _jaccard(a, b):
         return 0.0
     return len(a & b) / len(a | b)
 
+# Köməkçi feillər: «verdi/verib», «etdi/edib», «olub/oldu» eyni xəbərin fərqli yazılışıdır, məzmun fərqi deyil.
+_AUX_VERB = re.compile(r"(?:ed|et|ol|ver)(?:ib|ir|di|du|ecek|eceq|ecekdir|ilib|ildi|ilir|ilecek|iler|en|me|meyib|diler|ub|ur|unub|undu|unur|unacaq|acaq|ar|an|maz)?|olunacaq|edilmeyib")
+
+
+def _detail(tok, others):
+    """Başlığın o birində olmayan, məzmun daşıyan sözü: köməkçi feil, ümumi ad (Bakı, prezident) və ya
+    o birindəki sözün başqa şəkilçili forması (Polşa / polşalı, istehsalı / istehsalını) deyil."""
+    if _AUX_VERB.fullmatch(tok) or tok in _EVENT_STOP or _stem(tok) in _GENERIC_ANCHOR:
+        return False
+    n = min(5, len(tok))
+    return not any(o[:n] == tok[:n] and len(o) >= n for o in others)
+
+
+def _different_details(a, b):
+    """Hər iki başlıq öz xüsusi məlumatını verir, ortaq məzmun isə ondan çox deyil: «İlham Əliyev Ərdoğana başsağlığı verdi» /
+    «İlham Əliyev polşalı həmkarına başsağlığı verdi» — 4 ortaq söz, amma ortaq məzmun yalnız «başsağlığı»dır (rəhbərin adı və
+    köməkçi feil sayılmır): iki ayrı xəbər (2026-11-10 canlıda bir kartda idi). «Qazaxda avtomobil yanıb / yandı» kimi
+    başlıqlarda ortaq məzmun fərqdən çoxdur, birləşir."""
+    da, db = sum(1 for t in a - b if _detail(t, b)), sum(1 for t in b - a if _detail(t, a))
+    if not da or not db:
+        return False
+    shared = sum(1 for t in a & b if not _AUX_VERB.fullmatch(t) and t not in _EVENT_STOP and _stem(t) not in _GENERIC_ANCHOR | _LEADER_STEMS)
+    return shared <= max(da, db)
+
+
 def _titles_similar(toks, sh, other_toks, other_sh):
     a, b = set(toks), set(other_toks)
     if len(a) < 3 or len(b) < 3:
         return False
+    if a != b and _different_details(a, b):
+        return False
+    # «verdi» / «verib» fərqi oxşarlığı azaltmasın (Gündəlik.az «...Ərdoğana başsağlığı verdi» əsas kartdan ayrı qalırdı)
+    a, b = {"~" if _AUX_VERB.fullmatch(t) else t for t in a}, {"~" if _AUX_VERB.fullmatch(t) else t for t in b}
     inter = len(a & b)
     tj, sj = _jaccard(a, b), _jaccard(sh, other_sh)
     shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
@@ -4646,6 +4771,9 @@ _STRICT_CLASSES = {"olum", "qeza", "hebs", "yangin"}  # gündəlik tez-tez olan 
 _SUFFIX_RX = re.compile(r"(?:lar|ler|dan|den|nin|nun|araq|erek|in|un|da|de|ya|ye|la|le|si|su|ni|nu|ib|ub|di|du|a|e|i|u)$")
 _GENERIC_ANCHOR = {"baki", "bakin", "bakid", "azerba", "azerb", "respub", "prezid", "nazirl", "dovlet", "milli", "qarab",
                    "video", "foto", "anbaan", "xeber", "real"}
+# Rəhbərliyin adı onlarla müxtəlif xəbərdə keçir: başlıqların ortaq məzmunu sayılmır («Rusiya mediası Prezident İlham Əliyevin
+# Xankəndi çıxışlarını işıqlandırıb» / «İlham Əliyev Ərdoğana başsağlığı verdi» xülasə oxşarlığı ilə bir kartda idi, 2026-11-10).
+_LEADER_STEMS = {"ilham", "eliyev", "mehrib", "heyder", "bascis"}
 _ENTITY_SKIP = {"ilham eliyev", "mehriban eliyeva", "heyder eliyev", "prezident ilham", "azerbaycan respublikasi",
                 "azerbaycan respublikasinin", "milli meclis", "milli meclisin", "nazirler kabineti"}
 _ORG_WORDS = re.compile(r"(?:nazirli|idare|sehe|rayon|respublika|komite|agentli|xidmet|universitet|merkez|sura|partiya|cemiyyet|"
@@ -4777,7 +4905,7 @@ def _same_event(a, b):
     2 — güclü uyğunluq (eyni şəxs, eyni qurum + məzmun, 2+ lövbər + məzmun, kökləri güclü üst-üstə düşür)."""
     # Shared boilerplate in summaries must not join unrelated headlines.
     ta, tb = a.get("title") or "", b.get("title") or ""
-    title_common = (_event_stems(ta) & _event_stems(tb)) - _GENERIC_ANCHOR
+    title_common = (_event_stems(ta) & _event_stems(tb)) - _GENERIC_ANCHOR - _LEADER_STEMS
     people_a, people_b = _entities(ta)[0], _entities(tb)[0]
     if people_a and people_b and len(title_common) < 2 and not _ent_match(people_a, people_b):
         return 0
@@ -4864,12 +4992,22 @@ def _group_candidates(a, toks, title_index, stem_index, event_index, exact_index
     return hits
 
 
-def group_duplicates(articles, same_source_exact=True):
+def _same_headline(a, b):
+    """Eyni başlıq və ya çox yaxın başlıq (eyni saytın təkrar dərci)."""
+    ta, tb = a.get("title") or "", b.get("title") or ""
+    if len(_norm_title(ta)) >= 12 and _norm_title(ta) == _norm_title(tb):
+        return True
+    ka, kb = _title_tokens(ta), _title_tokens(tb)
+    return _titles_similar(ka, _shingles(ka), kb, _shingles(kb))
+
+
+def group_duplicates(articles, same_source_exact=True, same_out=None):
     """Yaxın başlıqlı, fərqli mənbəli xəbərləri bir elementdə birləşdirir.
 
     Əsas xəbər tam qalır; digərləri yığcam `alts` siyahısındadır (mənbə + keçid + vaxt).
     Arxivdə eyni saytın şablon başlıqları ayrı saxlanır (`same_source_exact=False`);
     başqa mənbənin uyğun başlığı nüsxəni təsdiqləyirsə həmin qrupa qoşula bilər.
+    `same_out` lüğəti verilsə, kartdakı saytın eyni başlıqlı təkrar yazıları ora yazılır (keçid → kartın əsas keçidi).
     """
     remembered = {}
     _SIG_CACHE.clear()
@@ -4979,13 +5117,26 @@ def group_duplicates(articles, same_source_exact=True):
                     kept.append(alt)
             alts.extend(kept[:max(0, 20 - len(alts))])
         alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
-        # Kartdakı «N mənbə» həqiqətən N sayt demək olsun.
-        sources_seen, unique = {primary.get("source")}, []
+        # Kartdakı «N mənbə» həqiqətən N sayt demək olsun. Bir saytın iki yazısı varsa kartın başlığına yaxın olan qalır:
+        # əvvəl ən yenisi qalırdı və Konkret.az-ın «Ərdoğana başsağlığı» xəbəri «polşalı həmkarına» yazısına yer verib ayrı kart olurdu.
+        ptitle = primary.get("title") or ""
+        pset = set(_title_tokens(ptitle))
+        def closeness(x):
+            return (_norm_title(x.get("title") or "") == _norm_title(ptitle), _jaccard(set(_title_tokens(x.get("title") or "")), pset))
+        best = {}
         for alt in alts:
-            if alt.get("source") not in sources_seen:
-                sources_seen.add(alt.get("source"))
-                unique.append(alt)
-        alts = unique
+            src = alt.get("source")
+            if src != primary.get("source") and (src not in best or closeness(alt) > closeness(best[src])):
+                best[src] = alt
+        kept = {id(x) for x in best.values()}
+        if same_out is not None:
+            # Eyni sayt eyni xəbəri yeni keçidlə təkrar dərc edib: təkrar ayrıca kart olmasın, kartın altında da sayılmasın.
+            twins = {primary.get("source"): primary, **best}
+            for alt in alts:
+                twin = twins.get(alt.get("source"))
+                if id(alt) not in kept and twin is not None and _same_headline(alt, twin):
+                    same_out[alt["sourceUrl"]] = primary.get("sourceUrl")
+        alts = [x for x in alts if id(x) in kept]
         if alts:
             primary["alts"] = alts
         else:
@@ -5378,18 +5529,28 @@ def _image_dead(url):
         with urllib.request.urlopen(req, timeout=4) as r:
             return "html" in (r.headers.get("Content-Type") or "").lower()
     except urllib.error.HTTPError as e:
-        return e.code in (404, 410)
+        # 403/429/5xx: sayt bu dəfə cavab vermədi — «sağlam» kimi yadda saxlanmasın, növbəti dövrə yenə baxsın
+        return True if e.code in (404, 410) else None
     except Exception:
-        return False
+        return None  # vaxt keçdi, şəbəkə xətası: bilinmir
 
 def drop_dead_images(articles, limit=120):
-    """Lentin verdiyi şəkil ölüdürsə (Modern.az: /file/articles/... 404) xəbər şəkilsiz sayılır, fill_og_images səhifədən tapır."""
+    """Lentin verdiyi şəkil ölüdürsə (Modern.az: /file/articles/... 404) xəbər şəkilsiz sayılır, fill_og_images səhifədən tapır.
+    Yalnız dəqiq cavab yadda qalır. Əvvəl vaxt keçməsi və 403 də «sağlam» kimi həmişəlik yazılırdı: o ünvan bir daha
+    yoxlanmırdı və ölü şəkilli xəbər səhifənin şəklini heç vaxt almırdı. Ən təzə xəbərlərin şəkli birinci yoxlanır."""
     checked = _read_json(IMG_CHECK_FILE, {})
-    urls = {a["imageUrl"] for a in articles if a.get("imageUrl")}
-    todo = [u for u in urls if u not in checked][:limit]
+    rows = sorted((a for a in articles if a.get("imageUrl")), key=lambda a: a.get("publishedAt") or "", reverse=True)
+    urls = set()
+    todo = []
+    for a in rows:
+        u = a["imageUrl"] = fix_image_url(a["imageUrl"])
+        if u not in urls:
+            urls.add(u)
+            if u not in checked and len(todo) < limit:
+                todo.append(u)
     if todo:
         with ThreadPoolExecutor(max_workers=12) as ex:
-            checked.update(zip(todo, ex.map(_image_dead, todo)))
+            checked.update((u, r) for u, r in zip(todo, ex.map(_image_dead, todo)) if r is not None)
     # Xəbərin ölü şəkli silinəndən sonra ünvan siyahıda olmur, amma xəbər lentdən çıxıb qayıdanda lent onu yenə verir.
     dead = [u for u, is_dead in checked.items() if is_dead and u not in urls][-DEAD_IMG_KEEP:]
     _save_cache(IMG_CHECK_FILE, {**dict.fromkeys(dead, True), **{u: checked[u] for u in urls if u in checked}})

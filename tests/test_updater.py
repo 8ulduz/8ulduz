@@ -435,6 +435,43 @@ class SocialFromNewsTest(unittest.TestCase):
 
 
 class ImageTest(unittest.TestCase):
+    def test_modern_az_feed_photo_points_at_the_working_path(self):
+        # 2026-11-10: Modern.az RSS-indəki bütün şəkillər /file/articles/... (404, wsrv.nl da 404), eyni fayl /photo/orginal/... yolundadır
+        item = updater.ET.fromstring('<item><enclosure type="image/jpeg" url="//files.modern.az/file/articles/2026/11/10/1794311920_images-10.jpg" /></item>')
+        self.assertEqual(updater.image_of(item, "https://modern.az/az/dunya/852617/x/", ""),
+                         "https://files.modern.az/photo/orginal/2026/11/10/1794311920_images-10.jpg")
+        # loqo damğalı foto tarixli «/logo/» qovluğundadır: xəbər fotosudur, saytın loqosu deyil
+        logo_dir = '<item><enclosure type="image/jpeg" url="//files.modern.az/file/articles/2026/11/10/logo/1794304049_1561837_a7183224a68a56e8.png" /></item>'
+        self.assertEqual(updater.image_of(updater.ET.fromstring(logo_dir), "https://modern.az/az/aktual/852575/x/", ""),
+                         "https://files.modern.az/photo/orginal/2026/11/10/logo/1794304049_1561837_a7183224a68a56e8.png")
+        self.assertTrue(updater._is_generic_img("https://olke.az/theme/frontend/olke/style/default/images/logo.png"))
+        self.assertTrue(updater._is_generic_img("https://example.az/uploads/logo/site.png"))
+        self.assertEqual(updater.fix_image_url("https://apa.az/file/articles/1.jpg"), "https://apa.az/file/articles/1.jpg")
+        # lentdən əvvəl düşmüş köhnə sətir və onun alt mənbəsi də sürətli dövrədə düzəlir
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "OG_FILE", pathlib.Path(tmp) / "og.json"), patch.object(updater, "IMG_CHECK_FILE", pathlib.Path(tmp) / "c.json"):
+            rows = [{"sourceUrl": "https://modern.az/az/olke/852586/x/", "imageUrl": "https://files.modern.az/file/articles/2026/11/10/a.jpg",
+                     "alts": [{"source": "Modern.az", "sourceUrl": "https://modern.az/2", "imageUrl": "https://files.modern.az/file/articles/2026/11/10/b.jpg"}]}]
+            updater.apply_og_cache(rows)
+        self.assertEqual(rows[0]["imageUrl"], "https://files.modern.az/photo/orginal/2026/11/10/a.jpg")
+        self.assertEqual(rows[0]["alts"][0]["imageUrl"], "https://files.modern.az/photo/orginal/2026/11/10/b.jpg")
+
+    def test_an_unanswered_image_check_is_retried_not_remembered_as_alive(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), patch.object(updater, "IMG_CHECK_FILE", pathlib.Path(tmp) / "c.json"):
+            row = {"sourceUrl": "https://x.az/1", "imageUrl": "https://img.x.az/1.jpg"}
+            with patch.object(updater, "_image_dead", return_value=None) as probe:
+                updater.drop_dead_images([dict(row)])
+                updater.drop_dead_images([dict(row)])
+            self.assertEqual(probe.call_count, 2, "vaxt keçməsi / 403 «sağlam» kimi yadda qalmır")
+            with patch.object(updater, "_image_dead", return_value=True):
+                out = updater.drop_dead_images([dict(row)])
+            self.assertIsNone(out[0]["imageUrl"])
+        with patch.object(updater.urllib.request, "urlopen", side_effect=urllib.error.HTTPError("u", 403, "x", {}, None)):
+            self.assertIsNone(updater._image_dead("https://img.x.az/1.jpg"))
+        with patch.object(updater.urllib.request, "urlopen", side_effect=urllib.error.HTTPError("u", 404, "x", {}, None)):
+            self.assertTrue(updater._image_dead("https://img.x.az/1.jpg"))
+        with patch.object(updater.urllib.request, "urlopen", side_effect=TimeoutError()):
+            self.assertIsNone(updater._image_dead("https://img.x.az/1.jpg"))
+
     def test_failed_photo_lookup_is_retried_then_backed_off(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = pathlib.Path(tmp)
@@ -593,6 +630,88 @@ class AttachFreshTest(unittest.TestCase):
         with patch.object(updater, "attach_fresh", side_effect=RuntimeError("x")), patch.object(updater, "_read_json", return_value={}):
             arts = [self.art("APA", "Bir xəbər başlığı burada", 1)]
             self.assertEqual(updater.apply_groups(arts), arts)
+
+
+class SameStoryCardTest(unittest.TestCase):
+    """2026-11-10 canlı lent (sahib: «məzmunu eyni xəbərlər cəmlənmir»): 936 kartdan 54-ü başqa kartın eyni başlıqlı təkrarı idi."""
+    NOW = datetime.datetime(2026, 11, 10, 12, 0, tzinfo=datetime.timezone.utc)
+
+    def row(self, source, title, minutes, **kw):
+        t = (self.NOW - datetime.timedelta(minutes=minutes)).isoformat()
+        slug = re.sub(r"\W+", "-", source.lower())
+        return {"source": source, "sourceUrl": f"https://{slug}.az/{minutes}", "title": title, "summary": "", "publishedAt": t,
+                "category": "gundem", "lang": "az", **kw}
+
+    def similar(self, a, b):
+        ta, tb = updater._title_tokens(a), updater._title_tokens(b)
+        return updater._titles_similar(ta, updater._shingles(ta), tb, updater._shingles(tb))
+
+    def test_real_headlines_of_one_story_are_similar(self):
+        same = [("İlham Əliyev Ərdoğana başsağlığı verdi", "Prezident İlham Əliyev Ərdoğana başsağlığı verib"),
+                ("İlham Əliyev Rəcəb Tayyib Ərdoğana başsağlığı verdi", "Prezident İlham Əliyev Türkiyə Prezidenti Rəcəb Tayyib Ərdoğana başsağlığı verib"),
+                ("Azərbaycan aqrar məhsul istehsalını daha 3 il müddətinə ƏDV-dən azad edəcək", "Aqrar məhsul istehsalı daha 3 il müddətinə ƏDV-dən azad edilir"),
+                ("Yol polisi səfərdən geri qayıdan sürücülərə müraciət etdi", "Yol polisi səfərdən geri qayıdan sürücülərə müraciət edib"),
+                ("Aktyor Aslan Fətullayev Moskvada vəfat etdi", "Aslan Fətullayev vəfat etdi"),
+                ("Bulvarda suya yıxılan gənc xilas edildi", "Bulvarda suya yıxılan şəxs belə xilas edildi - VİDEO"),
+                ("Serbiya səfirinə \"Dostluq\" ordeni təqdim olunub", "Serbiya səfirinə \"Dostluq\" ordenini təqdim edildi")]
+        for a, b in same:
+            self.assertTrue(self.similar(a, b), (a, b))
+
+    def test_shared_leader_name_and_verb_do_not_make_two_stories_one(self):
+        # Konkret.az, Bakupost, Axar.az, News24.az-ın Polşa başsağlığı Ərdoğan kartına düşmüş, öz Ərdoğan xəbərləri ayrı kart qalmışdı
+        self.assertFalse(self.similar("İlham Əliyev Ərdoğana başsağlığı verdi", "İlham Əliyev polşalı həmkarına başsağlığı verdi"))
+        self.assertFalse(self.similar("Azərbaycan XİN Polşaya başsağlığı verdi", "Azərbaycan Prezidenti polşalı həmkarına başsağlığı verib"))
+        rusiya = self.row("Azərbaycan qəzeti", "Rusiya mediası Prezident İlham Əliyevin Xankəndi və Şuşada çıxışlarını işıqlandırıb", 300,
+                          summary="Rusiya mediası Prezident İlham Əliyevin Türkiyə Prezidenti Rəcəb Tayyib Ərdoğan ilə Xankəndi və Şuşada çıxışlarını geniş işıqlandırıb.")
+        bass = self.row("Gündəlik.az", "İlham Əliyev Rəcəb Tayyib Ərdoğana başsağlığı verdi", 200,
+                        summary="Prezident İlham Əliyev Türkiyə Prezidenti Rəcəb Tayyib Ərdoğana başsağlığı verib.")
+        self.assertEqual(updater._same_event(rusiya, bass), 0)
+
+    def test_condolence_cards_do_not_mix_and_each_site_counts_once(self):
+        rows = [self.row(s, "İlham Əliyev Ərdoğana başsağlığı verdi", m) for s, m in (("Metbuat", 249), ("Konkret.az", 252), ("Axar.az", 254), ("Lent.az", 239))]
+        rows += [self.row(s, "İlham Əliyev polşalı həmkarına başsağlığı verdi", m) for s, m in (("Konkret.az", 232), ("Axar.az", 240), ("Bakupost", 239))]
+        rows += [self.row("Day.Az", "Prezident İlham Əliyev Rəcəb Tayyib Ərdoğana başsağlığı verib", 254)]
+        out = updater.group_duplicates(rows)
+        cards = sorted(sorted([a["source"], *(x["source"] for x in a.get("alts") or [])]) for a in out)
+        self.assertEqual(cards, [["Axar.az", "Bakupost", "Konkret.az"], ["Axar.az", "Day.Az", "Konkret.az", "Lent.az", "Metbuat"]])
+
+    def test_regrouping_keeps_alternatives_whose_title_differs_from_the_card(self):
+        # Fanat.az kartının altındakı 3 «Arsen Venger FIFA prezidenti ola bilər» əsas başlığa bənzəmədiyi üçün hər hesablamada itirdi,
+        # sürətli dövrə onları RSS-dən yenidən ayrı kart kimi qaytarırdı (hər hesablamada ~90 keçid)
+        venger = "Arsen Venger FIFA prezidenti ola bilər"
+        card = self.row("Fanat.az", "İnfantinoya ciddi rəqib çıxır? - Venger qərar verməyə hazırlaşır", 150, imageUrl="https://fanat.az/v.jpg",
+                        summary="Arsen Venger FIFA prezidenti seçkilərində namizəd ola bilər.")
+        card["alts"] = [updater._compact_alt(self.row(s, venger, m)) for s, m in (("Olke.az", 155), ("Konkret.az", 117), ("Azpolitika.info", 153), ("Oxu.az", 184))]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "groups.json"), \
+                patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), patch.object(updater, "read_feed", lambda *a, **k: [json.loads(json.dumps(card))]):
+            for _ in range(3):
+                updater.compute_groups()
+                shown = updater.apply_groups([dict(card, alts=[])])
+                self.assertEqual(len(shown), 1)
+                self.assertEqual(len(shown[0].get("alts") or []), 4, shown)
+
+    def test_a_card_led_by_an_absorbed_row_is_bound_to_the_row_in_the_feed(self):
+        lead = self.row("APA", "Bakıda yeni metro stansiyası istifadəyə verildi", 30, imageUrl="https://apa.az/m.jpg", summary="Uzun xülasə " * 5)
+        card = self.row("Report", "Bakıda yeni metro stansiyası istifadəyə verilib", 20)
+        card["alts"] = [updater._compact_alt(lead)]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "groups.json"), \
+                patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), patch.object(updater, "read_feed", lambda *a, **k: [json.loads(json.dumps(card))]):
+            updater.compute_groups()
+            groups = json.loads((pathlib.Path(tmp) / "groups.json").read_text(encoding="utf-8"))
+        self.assertEqual(list(groups), [card["sourceUrl"]])
+        self.assertEqual([x["sourceUrl"] for x in groups[card["sourceUrl"]]], [lead["sourceUrl"]])
+
+    def test_a_site_repeating_its_own_headline_is_shown_once(self):
+        title = "Azərbaycan, Gürcüstan, Bolqarıstan və Türkiyə \"təmiz enerji\" sazişi imzalayacaqlar"
+        first, again = self.row("Report", title, 80), {**self.row("Report", title, 15), "sourceUrl": "https://report.az/yeni"}
+        other = self.row("Sia.az", title, 90)
+        feed = [again, first, other]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "GROUPS_FILE", pathlib.Path(tmp) / "groups.json"), \
+                patch.object(updater, "CACHE_DIR", pathlib.Path(tmp)), patch.object(updater, "read_feed", lambda *a, **k: [dict(r) for r in feed]):
+            updater.compute_groups()
+            shown = updater.apply_groups([dict(r) for r in feed])
+        self.assertEqual(len(shown), 1, shown)
+        self.assertEqual(sorted([shown[0]["source"], *(x["source"] for x in shown[0]["alts"])]), ["Report", "Sia.az"])
 
 
 class DateAndFilterTest(unittest.TestCase):
