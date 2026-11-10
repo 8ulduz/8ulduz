@@ -74,3 +74,44 @@ class HostRedoTest(unittest.TestCase):
         have = {"a" * 16: "h", "b" * 16: "h", "c" * 16: "h", "d" * 16: "h"}
         born = {"a" * 16: t - 60, "b" * 16: t - 60, "c" * 16: t - 60, "d" * 16: t + 60}
         self.assertEqual(ses.host_redo(have, born, feed), {"a" * 16, "b" * 16}, "yalnız Oxu24, yalnız düzəlişdən əvvəlki səs")
+
+
+class SpokenTextTest(unittest.TestCase):
+    """Sahib, 2026-11-10: «ikincidə ortada video sözü keçir — lazımsız yerlər oxunmasın»."""
+
+    def test_title_markers_are_not_read(self):
+        cases = {
+            'Cevdet Yılmaz: "Ərdoğanla Əliyevin görüşü yayılan dezinformasiyalara ən yaxşı cavab oldu" - Video':
+                'Cevdet Yılmaz: "Ərdoğanla Əliyevin görüşü yayılan dezinformasiyalara ən yaxşı cavab oldu"',
+            "Cəbrayılda Meşə Təlim Mərkəzi açıldı - Foto": "Cəbrayılda Meşə Təlim Mərkəzi açıldı",
+            "Anıtqəbirdə böyük izdiham (FOTO)": "Anıtqəbirdə böyük izdiham",
+            "Bakıda güclü yağış [VİDEO]": "Bakıda güclü yağış",
+            "VİDEO: Qəzanın anı kameraya düşdü": "Qəzanın anı kameraya düşdü",
+            "Yeni körpü açıldı - FOTO/VİDEO": "Yeni körpü açıldı",
+            "Yeni körpü (Foto+Video)": "Yeni körpü",
+            "Prezident tədbirdə iştirak edib - YENİLƏNİB": "Prezident tədbirdə iştirak edib",
+        }
+        for raw, want in cases.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(ses.spoken_title(raw), want)
+
+    def test_ordinary_words_stay(self):
+        for t in ("Qəzanın videosu yayıldı", "Videoda polis görünür", "Foto sərgisi açıldı", "Video oyunlar bazarı böyüyür"):
+            with self.subTest(t=t):
+                self.assertEqual(ses.spoken_title(t), t)
+
+    def test_body_marker_sentences_and_credits_are_dropped(self):
+        body = "Görüş Ankarada keçirilib. Video. Tərəflər əməkdaşlığı müzakirə edib. Foto: APA. Videoda nazir danışır."
+        self.assertEqual(ses.spoken_text(body), "Görüş Ankarada keçirilib. Tərəflər əməkdaşlığı müzakirə edib. Videoda nazir danışır.")
+
+    def test_script_reads_clean_title(self):
+        a = {"title": "Cəbrayılda mərkəz açıldı - Foto", "source": "Oxu.az", "summary": "Mərkəz açıldı. Foto: Oxu.az"}
+        self.assertEqual(ses.script_of(a, ""), "Cəbrayılda mərkəz açıldı. Oxu.az xəbər verir. Mərkəz açıldı.")
+
+    def test_old_audio_of_marked_titles_is_redone_once(self):
+        at = ses.MARK_AT
+        feed = [{"id": "a" * 16, "title": "Görüş keçirildi - Video"}, {"id": "b" * 16, "title": "Görüş keçirildi"},
+                {"id": "c" * 16, "title": "Körpü açıldı (FOTO)"}]
+        have = {"a" * 16: "h", "b" * 16: "h", "c" * 16: "h"}
+        born = {"a" * 16: at - 60, "b" * 16: at - 60, "c" * 16: at + 60}
+        self.assertEqual(ses.marker_redo(have, born, feed), {"a" * 16}, "yalnız nişanlı və düzəlişdən əvvəlki səs")
