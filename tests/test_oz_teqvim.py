@@ -157,8 +157,11 @@ class GunItemTest(unittest.TestCase):
         self.assertIsNone(t.gun_item(D(2026, 11, 11))[0])
 
     def test_novruz_only_in_announced_year(self):
-        lead26 = t.gun_item(D(2026, 3, 21))[0]["lead"]
-        lead27 = t.gun_item(D(2027, 3, 21))[0]["lead"]
+        item26, item27 = t.gun_item(D(2026, 3, 21))[0], t.gun_item(D(2027, 3, 21))[0]
+        lead26, lead27 = item26["lead"], item27["lead"]
+        self.assertEqual(item26["title"], "Bu gün Ümumdünya Poeziya Günüdür", "BMT-nin Novruz günü bayramın təkrarıdır")
+        self.assertNotIn("Beynəlxalq Novruz Günü", " ".join([lead26, *item26["body"]]))
+        self.assertEqual(item27["title"], "Bu gün Beynəlxalq Novruz Günüdür", "2027-ci ilin bayram günləri hələ elan olunmayıb")
         self.assertIn("Azərbaycanda bu gün Novruz bayramı və Ramazan bayramıdır.", lead26)
         self.assertNotIn("bayramı", lead27)
 

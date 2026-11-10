@@ -323,6 +323,8 @@ BMT_HEFTE = (
     (11, 9, 11, 15, "Beynəlxalq Elm və Sülh Həftəsi", "A/RES/43/61"),
     (11, 18, 11, 24, "Antimikrob Müqavimət Barədə Ümumdünya Maarifləndirmə Həftəsi", ""),
 )
+# BMT-nin günü həmin gün Azərbaycanın dövlət bayramı ilə eyni hadisədirsə, ayrıca yazılmır (bayramı «Bu gün tarixdə» verir).
+BMT_EYNI = {"Beynəlxalq Novruz Günü": "Novruz bayramı"}
 BMT_URL = "https://www.un.org/en/observances/list-days-weeks"
 BMT_CREDIT = "Birləşmiş Millətlər Təşkilatı"
 
@@ -527,7 +529,8 @@ def gun_item(day):
     ents = _entries(day)
     dov = [e for e in ents if e["kind"] == "dovlet"]
     pese = [e for e in ents if e["kind"] == "pese"]
-    bmt = [e for e in ents if e["kind"] == "bmt"]
+    state = {e["name"] for e in ents if e["kind"] == "dovlet"}
+    bmt = [e for e in ents if e["kind"] == "bmt" and BMT_EYNI.get(e["name"]) not in state]
     new_weeks = [e for e in ents if e["kind"] == "hefte" and e["first"]]
     old_weeks = [e for e in ents if e["kind"] == "hefte" and not e["first"]]
     pool = pese + bmt + new_weeks
@@ -1004,7 +1007,8 @@ def _guard(item):
 
 
 def items(root, now, fetch=None):
-    """now-un Bakı tarixi üçün bütün xəbərlər (hər birinin «slot» saatı var). Sorğu yoxdur: fetch işlənmir."""
+    """now-un Bakı tarixi üçün bütün xəbərlər, hər birinin «slot» saatı ilə. worth=False olanlar da qaytarılır (səbəbi «why»-dadır):
+    dərc edən onları buraxır. Sorğu yoxdur: fetch işlənmir."""
     now = _now(now)
     day = now.date()
     found = [gun_item(day), is_item(day), istirahet_item(day)]
