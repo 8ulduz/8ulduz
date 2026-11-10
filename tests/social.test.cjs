@@ -42,7 +42,7 @@ test("social: Telegram post links to the site share page, one per run, never twi
       { my_chat_member: { chat: { id: -1001, type: "channel", title: "Köhnə" }, new_chat_member: { status: "left" } } },
       { my_chat_member: { chat: { id: 5, type: "private", title: "" }, new_chat_member: { status: "member" } } },
       { my_chat_member: { chat: { id: -1002, type: "channel", title: "8ULDUZ" }, new_chat_member: { status: "administrator" } } }] }) };
-    if (init.method === "HEAD") return { status: url.includes("x/c200000000000000") ? 404 : 200 };
+    if (init.method === "HEAD") return { status: url.includes("/c200000000000000") ? 404 : 200 };
     sent.push([url, JSON.parse(init.body)]);
     return { ok: true, status: 200, text: async () => "" };
   };
@@ -55,15 +55,15 @@ test("social: Telegram post links to the site share page, one per run, never twi
   assert.equal(body.chat_id, -1002, "botun admin olduğu kanal yeniləmələrdən tapılır (çıxarıldığı və şəxsi söhbət sayılmır)");
   assert.deepEqual(state._telegram, { chat: -1002, title: "8ULDUZ" }, "tapılan kanal yadda qalır");
   assert.ok(logs.some(s => s.includes("kanal tapıldı — 8ULDUZ (-1002)")));
-  assert.ok(body.text.startsWith("<b>Bakı &amp; Sumqayıt: külək</b>") && body.text.includes("https://8ulduz.az/x/c100000000000000?h="), "c2-nin səhifəsi hələ yoxdur: növbəti");
-  assert.match(body.link_preview_options.url, /^https:\/\/8ulduz\.az\/x\/c100000000000000\?h=\d{8}$/, "h: xəbərin saatı (arxiv.cjs)");
+  assert.ok(body.text.startsWith("<b>Bakı &amp; Sumqayıt: külək</b>") && body.text.includes("https://www.8ulduz.az/c100000000000000?h="), "c2-nin səhifəsi hələ yoxdur: növbəti");
+  assert.match(body.link_preview_options.url, /^https:\/\/www\.8ulduz\.az\/c100000000000000\?h=\d{8}$/, "h: xəbərin saatı (arxiv.cjs)");
   assert.ok(state.telegram["c100000000000000"]);
   await S.run({ articles, env, now: NOW + 5 * 60e3, fetch, state, log: s => logs.push(s) });
   assert.equal(sent.length, 1, "5 dəqiqə sonra (növbəti sayt yayımı) post yoxdur: fasilə 18 dəqiqədir");
   assert.ok(logs.some(s => s.includes("telegram: son post 5 dəq əvvəl, növbəti 13 dəq sonra")));
   await S.run({ articles, env, now: NOW + 20 * 60e3, fetch, state, log: s => logs.push(s) });
-  assert.equal(sent[1][1].text.includes("x/c300000000000000"), true, "fasilədən sonra növbəti xəbər, təkrar yox");
-  assert.ok(!logs.join("\n").includes("SECRET"));
+  assert.equal(sent[1][1].text.includes("/c300000000000000"), true, "fasilədən sonra növbəti xəbər, təkrar yox");
+  assert.ok(!logs.join("\n").includes("123:SECRET"));
 });
 
 test("social: Telegram without a channel posts nothing and says so; an explicit TELEGRAM_CHAT is used as is", async () => {
@@ -93,7 +93,7 @@ test("social: a failing network is reported without its token and the story stay
   assert.deepEqual(res.failed, [["telegram", "d100000000000000"]]);
   assert.deepEqual(state.telegram, {});
   assert.ok(state._telegram, 'adi şəbəkə xətasında kanal unudulmur');
-  assert.ok(!logs.join("\n").includes("SECRET") && logs.join("\n").includes("***"));
+  assert.ok(!logs.join("\n").includes("123:SECRET") && logs.join("\n").includes("***"));
 });
 
 test("social: X post is signed with OAuth 1.0a and fits 280 characters", () => {
@@ -104,7 +104,7 @@ test("social: X post is signed with OAuth 1.0a and fits 280 characters", () => {
   const x = S.networks({ X_API_KEY: "k", X_API_SECRET: "s", X_ACCESS_TOKEN: "t", X_ACCESS_SECRET: "a" })[0];
   const [, init] = x.request(art("e1", { title: "Uzun ".repeat(100) }));
   const text = JSON.parse(init.body).text;
-  assert.ok(text.length - "https://8ulduz.az/x/e100000000000000".length + 23 <= 280);
+  assert.ok(text.length - "https://www.8ulduz.az/e100000000000000".length + 23 <= 280);
   assert.ok(init.headers.authorization.startsWith("OAuth "));
 });
 
@@ -113,13 +113,13 @@ test("social: Facebook page and LinkedIn requests carry the share link", () => {
   const a = art("f1");
   const [fu, fi] = fb.request(a);
   assert.equal(fu, "https://graph.facebook.com/v27.0/42/feed");
-  assert.equal(new URLSearchParams(fi.body).get("link"), `https://8ulduz.az/x/f100000000000000?h=${a.publishedAt.slice(2, 13).replace(/\D/g, "")}`);
+  assert.equal(new URLSearchParams(fi.body).get("link"), `https://www.8ulduz.az/f100000000000000?h=${a.publishedAt.slice(2, 13).replace(/\D/g, "")}`);
   assert.equal(new URLSearchParams(fi.body).get("access_token"), "p");
   const [lu, lii] = li.request(a);
   const body = JSON.parse(lii.body);
   assert.equal(lu, "https://api.linkedin.com/rest/posts");
   assert.equal(body.author, "urn:li:person:abc");
-  assert.equal(body.content.article.source, `https://8ulduz.az/x/f100000000000000?h=${a.publishedAt.slice(2, 13).replace(/\D/g, "")}`);
+  assert.equal(body.content.article.source, `https://www.8ulduz.az/f100000000000000?h=${a.publishedAt.slice(2, 13).replace(/\D/g, "")}`);
 });
 
 test("social: state keeps posted ids for 3 days and survives a broken file", () => {
@@ -180,7 +180,7 @@ test("social: the same headline under a new story number is not posted to a netw
   await S.run({ articles: [art("d1", { title })], env, now: NOW, fetch, state, log: () => {} });
   await S.run({ articles: [art("d2", { title: ` ${title.toUpperCase()}! ` }), art("d3")], env, now: NOW + 20 * 60e3, fetch, state, log: () => {} });
   assert.equal(sent.length, 2);
-  assert.ok(sent[1].includes("x/d300000000000000"), "5–6 noyabr Telegram-da eyni başlıq iki dəfə getmişdi");
+  assert.ok(sent[1].includes("/d300000000000000"), "5–6 noyabr Telegram-da eyni başlıq iki dəfə getmişdi");
 });
 
 test("social: the site's Facebook button leads to the page the bot posts to, not to the 'Səkkiz Ulduz' profile", () => {
@@ -269,4 +269,21 @@ test("social: a picture Instagram refuses is skipped so the next run tries anoth
   const res = await S.run({ articles: [pic], env, now: NOW, fetch, state, log: () => {} });
   assert.deepEqual(res.failed, [["instagram", pic.id]]);
   assert.ok(state.instagram[pic.id], "təkrar yoxlanmır");
+});
+
+test("social: missing X secrets are named in the log (2026-11-10: X got no posts, nothing said why), never their values", async () => {
+  const logs = [];
+  await S.run({ articles: [art("g1")], env: { X_API_KEY: "k", X_API_SECRET: "secretvalue" }, now: NOW, fetch: async () => ({ status: 200, ok: true }), log: m => logs.push(m) });
+  assert.ok(logs.some(m => m.startsWith("x: sirr yoxdur — X_ACCESS_TOKEN, X_ACCESS_SECRET")), logs.join("\n"));
+  assert.ok(!logs.join("\n").includes("secretvalue"));
+  const full = [];
+  await S.run({ articles: [], env: { X_API_KEY: "k", X_API_SECRET: "s", X_ACCESS_TOKEN: "t", X_ACCESS_SECRET: "a" }, now: NOW, fetch: async () => ({ status: 200, ok: true }), log: m => full.push(m) });
+  assert.ok(!full.some(m => m.includes("sirr yoxdur")));
+});
+
+test("social: share links use the share Worker host www.8ulduz.az/<id>?h=, not the old 8ulduz.az/x/ pages", () => {
+  const x = S.networks({ X_API_KEY: "k", X_API_SECRET: "s", X_ACCESS_TOKEN: "t", X_ACCESS_SECRET: "a" })[0];
+  const text = JSON.parse(x.request(art("h1"))[1].body).text;
+  assert.match(text, /\nhttps:\/\/www\.8ulduz\.az\/h100000000000000\?h=\d{8}$/);
+  assert.ok(!fs.readFileSync(path.join(__dirname, "../.github/scripts/social.cjs"), "utf8").includes("8ulduz.az/x/"));
 });

@@ -3,7 +3,8 @@
 //
 // Nə paylaşılır: son SOCIAL_MAX_AGE_H saatda (3) ən azı SOCIAL_MIN_SOURCES (4) mənbənin yazdığı azərbaycanca xəbər, ya da Prezident
 // bölməsinin xəbəri; ən çox mənbəli birinci. Hər şəbəkəyə bir dövrədə SOCIAL_PER_RUN (1) post: saatda ən çox 3, spam olmasın.
-// Keçid saytın paylaşma səhifəsidir (https://8ulduz.az/x/<id>): og etiketləri önizləmədə başlıq və şəkli göstərir, oxucu saytda açılır.
+// Keçid paylaşma səhifəsidir (https://www.8ulduz.az/<id>?h=<yymmddhh>, Cloudflare Worker .github/x-worker): og etiketləri önizləmədə
+// başlıq və şəkli göstərir, oxucu saytda açılır. Worker naməlum xəbərə 302 verir: HEAD 200 = xəbər yayımdadır.
 // Lent artıq redaksiya süzgəcindən keçib (qırmızı xətt 2: content_policy, müxalifət və dövlət qaydası), burada yalnız seçim var.
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
 //
@@ -21,7 +22,8 @@
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 
-const SITE = "https://8ulduz.az/";
+const SHARE = "https://www.8ulduz.az/";
+const X_KEYS = ["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"];
 const KEEP_S = 3 * 86400;
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 
@@ -37,7 +39,7 @@ function options(env = process.env) {
 
 const sources = a => 1 + (Array.isArray(a.alts) ? a.alts.length : 0);
 // icmalın öz ünvanı var (icmal/<tarix>-seher/). h: xəbərin saatı — keçid günlər sonra arxiv budağından açılır (arxiv.cjs).
-const shareUrl = a => a.url || `${SITE}x/${a.id}${hourOf(a.publishedAt) ? `?h=${hourOf(a.publishedAt)}` : ""}`;
+const shareUrl = a => a.url || `${SHARE}${a.id}${hourOf(a.publishedAt) ? `?h=${hourOf(a.publishedAt)}` : ""}`;
 function hourOf(iso) { const m = String(iso || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/); return m ? m.slice(1).join("") : ""; }
 // Günün icmalı (updater.write_digest, 09:00 və 19:00 Bakı): siyahı icmal/index.json-dadır. 4 saatdan köhnə buraxılış göndərilmir.
 const DIGEST_MAX_AGE_H = 4;
@@ -132,7 +134,7 @@ function networks(env = process.env) {
       request(a) { return [`${graph}/feed`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ message: a.digest ? `${a.title}\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${digestList(a)}` : cut(a.title, 500), link: shareUrl(a), access_token: this.token }).toString() }]; } });
   }
-  if (env.X_API_KEY && env.X_API_SECRET && env.X_ACCESS_TOKEN && env.X_ACCESS_SECRET) list.push({ name: "x", request: a => {
+  if (X_KEYS.every(k => env[k])) list.push({ name: "x", request: a => {
     const url = "https://api.x.com/2/tweets";
     const { header } = oauthHeader("POST", url, { key: env.X_API_KEY, secret: env.X_API_SECRET, token: env.X_ACCESS_TOKEN, tokenSecret: env.X_ACCESS_SECRET });
     // Keçid X-də 23 simvol sayılır: başlıq 250-yə qədər, cəmi 280-dən az.
@@ -199,6 +201,9 @@ function readState(file, now) {
 async function run({ articles, digestIndex = [], env = process.env, now = Date.now(), fetch: f = globalThis.fetch, state = {}, log = console.log }) {
   const opt = options(env), nets = networks(env), eds = digests(digestIndex, now), list = [...eds, ...candidates(articles, now, opt)];
   const result = { posted: [], failed: [] };
+  // X açarları natamamdırsa şəbəkə sakitcə düşürdü (2026-11-10: «X-də xəbər yoxdur»): hansı sirrin çatmadığını jurnala yaz.
+  const xMissing = X_KEYS.filter(k => !env[k]);
+  if (xMissing.length) log(`x: sirr yoxdur — ${xMissing.join(", ")} (developer.x.com, «Read and write»; repo Settings → Secrets) — ötürülür`);
   if (!nets.length) {
     log(`Açar yoxdur, heç nə göndərilmir. Növbəti seçim: ${list[0] ? `${sources(list[0])} mənbə — ${clean(list[0].title)}` : "yoxdur"}`);
     return result;
