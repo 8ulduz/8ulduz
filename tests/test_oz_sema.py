@@ -433,6 +433,21 @@ class EclipseItemTest(unittest.TestCase):
         self.assertEqual(part["slot"], "18:30")
         self.assertIn("Ən böyük fazada Ay diametrinin 93%-i Yerin tam kölgəsinə girəcək.", part["body"])
 
+    def test_partial_solar_eclipse_has_no_central_path_line(self):
+        # Qismən Günəş tutulmasının mərkəzi zolağı yoxdur (NASA cədvəlində mötərizə yoxdur); 2029-da belə dörd tutulma var.
+        # Cədvələ əlavə olunanda mərkəzi zolaq None olur: abzasda None və ya boş sətir qalmamalıdır.
+        row = ("2029-01-14", "17:13:47", "Partial", 0.871, "N. America, C. America", "Şimali Amerikada və Mərkəzi Amerikada",
+               None, "zona")  # NASA SEdecade2021; JPL Horizons: Bakıdan kontakt yoxdur (ən yaxın an 827″ aralı)
+        with patch.object(sema, "SOLAR", sema.SOLAR + (row,)):
+            (item,) = _kind(D(2029, 1, 14), "tutulma")
+            md = "\n".join(ox.render(item))
+        self.assertEqual(item["title"], "Bu gün qismən Günəş tutulması olacaq: Bakıdan görünməyəcək")
+        self.assertIn("Bakı vaxtı ilə saat 21:13-də olacaq", item["lead"])
+        self.assertEqual(item["body"], ["Bakı tutulmanın görünmə zonasından kənardadır.",
+                                        "Qismən tutulma Şimali Amerikada və Mərkəzi Amerikada görünəcək.",
+                                        "Bakıdan görünmə NASA JPL-in Horizons efemeridləri ilə yoxlanıb."])
+        self.assertNotIn("None", md)
+
     def test_americas_are_both_continents(self):
         # NASA-nın «Americas» sözü Şimali və Cənubi Amerikadır; təkcə «Amerikada» oxucuya ABŞ kimi gələ bilər.
         rows = [(r[4], r[5]) for r in sema.SOLAR] + [(r[4], r[5]) for r in sema.LUNAR]
