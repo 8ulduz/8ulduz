@@ -7,7 +7,7 @@ Sahibin göstərişi (2026-11-05): «bizim xəbərlərimiz profillərimizdə pay
 - `.github/workflows/social.yml` hər 20 dəqiqədən bir (:07, :27, :47) işə düşür. Xəbər axınından ayrıdır, repoya yazmır, sayta yük gətirmir.
 - `.github/scripts/social.cjs` lentdən ən vacib xəbəri seçir: son 3 saatda ən azı 4 mənbənin yazdığı azərbaycanca xəbər və ya Prezident bölməsinin xəbəri. Ən çox mənbəli birinci gedir.
 - Hər şəbəkəyə bir dövrədə bir post gedir, yəni saatda ən çox 3. Eyni xəbər iki dəfə getmir.
-- Keçid saytın paylaşma səhifəsidir (`https://8ulduz.az/x/<nömrə>`). Önizləmədə başlıq və şəkil görünür, oxucu saytda açılır.
+- Keçid saytın paylaşma səhifəsidir (`https://www.8ulduz.az/<nömrə>?h=<saat>`). Önizləmədə başlıq və şəkil görünür, oxucu saytda açılır.
 - Şəbəkə yalnız açarı GitHub-da yazılanda işləyir. Açar yoxdursa heç nə göndərilmir.
 
 Açarlar burada yazılır: GitHub → 8ulduz/8ulduz → Settings → Secrets and variables → Actions.
