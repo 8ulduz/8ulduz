@@ -1,10 +1,10 @@
 name: Öz xəbər modulu
-# Öz xəbər modullarının (oz_*.py) testləri və nümunələri, yalnız oz-f1-* sınaq budaqlarında (sahib, 2026-11-10: «Bəli, başla»).
+# Öz xəbər modullarının (oz_*.py) testləri və nümunələri, yalnız oz-f1-* / oz-f2-* sınaq budaqlarında (sahib, 2026-11-10: «Bəli, başla», «Mərhələ 2-ni qur»).
 # Sayta və repoya heç nə yazmır: main-in məlumatı yalnız oxunur, nəticə iş səhifəsində və «oz-modul-sinaq» artefaktındadır.
 
 on:
   push:
-    branches: ['oz-f1-**']
+    branches: ['oz-f1-**', 'oz-f2-**']
 
 permissions:
   contents: read
