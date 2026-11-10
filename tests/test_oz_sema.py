@@ -319,7 +319,7 @@ class SeasonAndSunsetItemTest(unittest.TestCase):
         self.assertEqual(item["lead"], "Hesablamalara görə, qış gündönümü 22 dekabrda Bakı vaxtı ilə saat 00:50-də olub.")
         self.assertEqual(item["body"], ["Bakıda bu gün Günəş saat 08:00-də doğur, 17:18-də batır; gündüz 9 saat 18 dəqiqə çəkir.",
                                         "Bir həftə sonra, 29 dekabrda gündüz 9 saat 19 dəqiqə çəkəcək."])
-        self.assertEqual((item["key"], item["slot"]), ("sema-fesil-2026-qis-gundonumu", "08:30"))
+        self.assertEqual((item["key"], item["slot"]), ("sema-fesil-2026-qis-gundonumu", "09:30"))
 
     def test_equinox_and_solstice_wording(self):
         (spring,) = _kind(D(2027, 3, 21), "fesil")
@@ -331,6 +331,7 @@ class SeasonAndSunsetItemTest(unittest.TestCase):
 
     def test_sunset_crossings(self):
         (up,) = _kind(D(2027, 2, 3), "gun-batimi")
+        self.assertEqual(up["slot"], "16:30")
         self.assertEqual(up["title"], "Bakıda Günəş bu gündən etibarən saat 18:00-dən sonra batacaq")
         self.assertEqual(up["lead"], "Hesablamalara görə, Bakıda Günəş bu gün saat 18:01-də batacaq; dünən 17:59-da batmışdı.")
         self.assertEqual(up["body"], ["Günəş bu gün saat 07:48-də doğur, gündüz 10 saat 13 dəqiqə çəkir.",

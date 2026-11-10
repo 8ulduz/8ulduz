@@ -30,7 +30,9 @@ CREDIT = "Astronomik hesablama"
 USNO_PHASES = "https://aa.usno.navy.mil/data/MoonPhases"
 USNO_SEASONS = "https://aa.usno.navy.mil/data/Earth_Seasons"
 USNO_SUN = "https://aa.usno.navy.mil/data/RS_OneDay"
-SLOT = {"ay": "08:15", "fesil": "08:30", "batim": "08:45", "meteor-onizleme": "12:15", "meteor": "18:15",
+# Dərc vaxtları (Bakı). Ay fazası 08:15-də (brif); eyni gündə ikinci kosmos xəbəri onun ardınca gəlməsin deyə fəsil 09:30-da,
+# gün batımı isə günortadan sonra, batmadan əvvəl.
+SLOT = {"ay": "08:15", "fesil": "09:30", "batim": "16:30", "meteor-onizleme": "12:15", "meteor": "18:15",
         "tutulma": "08:30", "tutulma-gece": "18:30", "tutulma-onizleme": "12:30"}
 
 
