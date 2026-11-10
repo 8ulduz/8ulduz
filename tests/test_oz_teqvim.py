@@ -45,7 +45,8 @@ class FormatTest(unittest.TestCase):
         self.assertEqual([t._join([]), t._join(["A"]), t._join(["A", "B"]), t._join(["A", "B", "C"])], ["", "A", "A və B", "A, B və C"])
         self.assertEqual(t._range(D(2026, 11, 9), D(2026, 11, 15)), "9–15 noyabr")
         self.assertEqual(t._range(D(2026, 11, 30), D(2026, 12, 6)), "30 noyabr – 6 dekabr")
-        self.assertEqual(t._range(D(2026, 12, 31), D(2027, 1, 3)), "31 dekabr 2026 – 3 yanvar 2027")
+        self.assertEqual(t._range(D(2026, 12, 31), D(2027, 1, 3)), "31 dekabr – 3 yanvar")
+        self.assertEqual(t._range(D(2026, 12, 1), D(2027, 3, 1)), "1 dekabr 2026 – 1 mart 2027")
         self.assertEqual(t._days_text([D(2026, 11, 10), D(2026, 11, 9)]), "9 və 10 noyabr")
         self.assertEqual(t._days_text([D(2026, 11, 11), D(2026, 11, 12), D(2026, 11, 13)]), "11, 12 və 13 noyabr")
         self.assertEqual(t._days_text([D(2026, 3, d) for d in range(23, 28)]), "23–27 mart")
@@ -75,7 +76,8 @@ class TableTest(unittest.TestCase):
 
     def test_unknown_year_is_not_guessed(self):
         self.assertIsNone(t.qeyri_is_gunu(D(2027, 1, 4)))
-        self.assertIsNone(t.qeyri_is_gunu(D(2025, 12, 31)))
+        self.assertIsNone(t.qeyri_is_gunu(D(2025, 12, 30)))
+        self.assertTrue(t.qeyri_is_gunu(D(2025, 12, 31)), "sabit tarixli bayram hər il qeyri-iş günüdür")
         self.assertNotIn("Novruz bayramı", t.gun_adlari(D(2027, 3, 21)), "2027-ci ilin Novruz günləri hələ elan olunmayıb")
         self.assertIn("Beynəlxalq Novruz Günü", t.gun_adlari(D(2027, 3, 21)))
         self.assertEqual(t.gun_adlari(D(2026, 3, 21))[:2], ["Novruz bayramı", "Ramazan bayramı"])
@@ -169,15 +171,15 @@ class GunItemTest(unittest.TestCase):
 class WorkDaysTest(unittest.TestCase):
     def test_short_week(self):
         item, _ = t.is_item(D(2026, 11, 9))
-        self.assertEqual(item["title"], "Bu həftə 3 gün işləyirik: 9 və 10 noyabr iş günü deyil")
+        self.assertEqual(item["title"], "Bu həftə 3 iş günü var: 9 və 10 noyabr iş günü deyil")
         self.assertEqual(item["lead"], "Əmək və Əhalinin Sosial Müdafiəsi Nazirliyinin təsdiq etdiyi 2026-cı ilin istehsalat təqviminə görə, "
                                        "bu həftə beşgünlük iş həftəsində 11, 12 və 13 noyabr iş günləridir.")
         self.assertEqual(item["body"], ["9 noyabr Dövlət Bayrağı Günüdür.",
                                         "10 noyabr istirahət günüdür: 8 noyabr – Zəfər Günü bazar gününə düşüb, 9 noyabr isə Dövlət Bayrağı Günüdür."])
         self.assertEqual((item["key"], item["slot"], item["worth"], item["link"]),
-                         ("is-gunleri-2026-11-09", "08:00", True, t.TEQVIM[2026]))
+                         ("is-gunleri-2026-11-09", "08:00", False, t.TEQVIM[2026]), "istirahət 6 noyabrda verilib")
         item, _ = t.is_item(D(2026, 5, 25))
-        self.assertEqual(item["title"], "Bu həftə 2 gün işləyirik: 27, 28 və 29 may iş günü deyil")
+        self.assertEqual(item["title"], "Bu həftə 2 iş günü var: 27, 28 və 29 may iş günü deyil")
         item, _ = t.is_item(D(2026, 3, 23))
         self.assertEqual(item["title"], "Bu həftə iş günü yoxdur: 23–27 mart istirahət günləridir")
         self.assertTrue(item["lead"].endswith("Növbəti iş günü 31 martdır."))
@@ -187,8 +189,8 @@ class WorkDaysTest(unittest.TestCase):
         self.assertFalse(item["worth"])
         self.assertIn("adi beşgünlük", why)
         self.assertEqual(t.is_item(D(2026, 11, 10)), (None, "bazar ertəsi deyil"))
-        item, why = t.is_item(D(2026, 12, 28))
-        self.assertIsNone(item, "1 yanvar 2027 bilinmir: təxmin edilmir")
+        item, why = t.is_item(D(2027, 1, 4))
+        self.assertIsNone(item, "4 yanvar 2027 bilinmir: təxmin edilmir")
         self.assertIn("2027-ci il üçün rəsmi istehsalat təqvimi hələ yoxdur", why)
 
     def test_day_before_a_holiday_break(self):
@@ -319,7 +321,8 @@ class ItemsAndSinaqTest(unittest.TestCase):
         now = at(2026, 11, 10, 9, 0)
         md = "\n".join(t.sinaq(FIX, now))
         for text in ("## 1. «Bu gün nə günüdür»", "### Bu gün Sülh və İnkişaf Naminə Ümumdünya Elm Günüdür",
-                     "### Bu həftə 3 gün işləyirik: 9 və 10 noyabr iş günü deyil", "— ən son real hal",
+                     "### Bu həftə 3 iş günü var: 9 və 10 noyabr iş günü deyil", "— ən son real hal",
+                     "### Bu həftə 4 iş günü var: 26 iyun iş günü deyil",
                      "### 7–10 noyabr 4 gün istirahətdir, işə 11 noyabrda çıxılacaq",
                      "⏭ Dərc olunmazdı: 2027-ci il üçün rəsmi istehsalat təqvimi hələ yoxdur",
                      "### IV Avropa Oyunlarının açılışına 100 gün qalıb", "### Bu həftə nə gözlənilir: Lixtenşteyn – Azərbaycan oyunu",
@@ -331,6 +334,135 @@ class ItemsAndSinaqTest(unittest.TestCase):
         self.assertEqual(out.getvalue().strip(), md.strip())
         self.assertFalse(re.search(r"https?://(?!www\.un\.org|e-qanun\.az|sosial\.gov\.az|sporteurope\.org|la28\.org|pfl\.az|en\.wikipedia\.org|www\.openligadb\.de)",
                                    md), "yalnız mənbə keçidləri")
+
+
+class ReviewTest(unittest.TestCase):
+    """Müstəqil yoxlamada tapılan boşluqlar (2026-11-10)."""
+
+    def test_european_cups_are_football_files_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "premyer-liqa", {"source": "pfl.az", "teams": {"qarabag": {"name": "Qarabağ"}}, "games": []})
+            write(tmp, "al", {"name": "Avropa Liqası", "sport": "football", "source": "TheSportsDB",
+                              "url": "https://en.wikipedia.org/wiki/x", "source_url": "https://www.thesportsdb.com/",
+                              "teams": {"qarabag": {"name": "Qarabağ"}, "porto": {"name": "Porto"}},
+                              "games": [{"date": "2026-11-26T17:45:00+00:00", "home": "qarabag", "away": "porto", "played": False, "round": "5"}]})
+            write(tmp, "avroliqa", {"name": "Avroliqa", "sport": "basketball", "source": "TheSportsDB",
+                                    "teams": {"qarabag": {"name": "Qarabağ"}, "real-madrid": {"name": "Real Madrid"}},
+                                    "games": [{"date": "2026-11-27T17:00:00+00:00", "home": "real-madrid", "away": "qarabag",
+                                               "played": False, "round": "12"}]})
+            item, _ = t.hefte_item(tmp, at(2026, 11, 23))
+            self.assertIn("«Qarabağ» 26 noyabr saat 21:45-də Avropa Liqası oyununda doğma meydanda «Porto» ilə qarşılaşacaq.", item["lead"],
+                          "UEFA Avropa Liqası al.json-dadır")
+            self.assertNotIn("Real Madrid", " ".join([item["title"], item["lead"], *item["body"]]), "avroliqa.json basketboldur")
+            self.assertEqual((item["credit"].split(", ")[0], item["link"]), ("TheSportsDB", "https://www.thesportsdb.com/"))
+
+    def test_week_with_only_i_liqa_games(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            teams = {"moik": {"name": "MOİK"}, "sebail": {"name": "Səbail"}}
+            write(tmp, "i-liqa", {"source": "pfl.az", "teams": teams, "games": [
+                {"home": "moik", "away": "sebail", "date": "2026-12-23T14:00+04:00", "played": False, "stadium": "Binə", "round": "12"}]})
+            item, why = t.hefte_item(tmp, at(2026, 12, 21))
+            self.assertTrue(item["worth"], why)
+            self.assertIn("I Liqanın 12-ci turu 23 dekabrda keçiriləcək.", item["lead"])
+            write(tmp, "i-liqa", {"source": "pfl.az", "teams": teams, "games": [
+                {"home": "moik", "away": "sebail", "date": "2026-12-23T00:00+04:00", "played": False, "round": "12"}]})
+            item, why = t.hefte_item(tmp, at(2026, 12, 21))
+            self.assertFalse(item["worth"])
+            self.assertNotIn("futbol oyunu və bayram yoxdur", why, "I Liqanın turu var, yalnız cədvəli açıqlanmayıb")
+
+    def test_next_round_sentence_credits_its_source(self):
+        item, _ = t.hefte_item(FIX, at(2026, 11, 9))
+        self.assertIn("«İmişli» – «Zirə» oyunu ilə başlayacaq", item["lead"])
+        self.assertIn("Peşəkar Futbol Liqası", item["credit"].split(", "))
+
+    def test_days_off_by_law_are_known_in_any_year(self):
+        self.assertEqual([t.qeyri_is_gunu(D(2027, 1, d)) for d in (1, 2, 3, 4, 5)], [True, True, True, None, None])
+        self.assertTrue(t.qeyri_is_gunu(D(2027, 3, 8)))
+        self.assertIsNone(t.qeyri_is_gunu(D(2027, 3, 22)), "2027-ci ilin Novruz günləri elan olunmayıb")
+        item, why = t.is_item(D(2026, 12, 28))
+        self.assertTrue(item and item["worth"], why)
+        self.assertEqual(item["title"], "Bu həftə 3 iş günü var: 31 dekabr və 1 yanvar iş günü deyil")
+        self.assertEqual(item["body"], ["31 dekabr Dünya Azərbaycanlılarının Həmrəyliyi Günüdür.", "1 yanvar Yeni il bayramıdır."])
+        self.assertIsNone(t.is_item(D(2027, 1, 4))[0])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIn("31 dekabr və 1 yanvar iş günü deyil.", t.hefte_item(tmp, at(2026, 12, 28))[0]["lead"])
+            self.assertIn("8 mart iş günü deyil.", t.hefte_item(tmp, at(2027, 3, 8))[0]["lead"])
+
+    def test_one_holiday_break_one_item(self):
+        item, why = t.is_item(D(2026, 11, 9))
+        self.assertFalse(item["worth"], "7–10 noyabr istirahəti 6 noyabrda verilib")
+        self.assertIn("6 noyabr", why)
+        for monday in (D(2026, 3, 9), D(2026, 3, 23), D(2026, 3, 30), D(2026, 5, 11), D(2026, 6, 15)):
+            self.assertFalse(t.is_item(monday)[0]["worth"], monday)
+        for monday in (D(2026, 1, 19), D(2026, 3, 16), D(2026, 5, 25), D(2026, 6, 22)):
+            self.assertTrue(t.is_item(monday)[0]["worth"], monday)
+        item, why = t.istirahet_item(D(2026, 5, 26))
+        self.assertFalse(item["worth"], "27–29 may 25 mayın həftə xəbərində verilib")
+        self.assertIn("25 may", why)
+        self.assertFalse(t.istirahet_item(D(2026, 6, 25))[0]["worth"])
+        for day in (D(2026, 3, 6), D(2026, 3, 19), D(2026, 5, 8), D(2026, 6, 12), D(2026, 11, 6)):
+            self.assertTrue(t.istirahet_item(day)[0]["worth"], day)
+        published = [(d, fn.__name__) for d in days(D(2026, 1, 1), D(2026, 12, 31)) for fn in (t.is_item, t.istirahet_item)
+                     if (fn(d)[0] or {}).get("worth")]
+        self.assertEqual(len(published), 10, published)
+
+    def test_titles_are_third_person(self):
+        for monday in days(D(2026, 1, 5), D(2026, 12, 28)):
+            if monday.weekday() == 0:
+                item, _ = t.is_item(monday)
+                if item:
+                    self.assertNotRegex(item["title"], r"ik\b|ıq\b", item["title"])
+
+    def test_profession_names_keep_their_case_in_titles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            item, _ = t.hefte_item(tmp, at(2027, 2, 8))
+        self.assertEqual(item["title"], "Bu həftə nə gözlənilir: vergi xidməti işçilərinin peşə bayramı və Hərbi Hava Qüvvələri Günü")
+
+    def test_same_reason_is_written_once(self):
+        item, _ = t.istirahet_item(D(2026, 3, 19))
+        self.assertEqual(item["body"], ["20 və 21 mart Novruz bayramı və Ramazan bayramıdır.", "22, 23 və 24 mart Novruz bayramıdır.",
+                                        f"25, 26, 27 və 30 mart istirahət günləridir: {t._MART}."])
+
+    def test_break_across_the_new_year(self):
+        self.assertEqual(t._range(D(2026, 12, 31), D(2027, 1, 4)), "31 dekabr – 4 yanvar")
+        self.assertEqual(t._loc(t._range(D(2026, 12, 28), D(2027, 1, 3))), "28 dekabr – 3 yanvarda")
+        with patch.dict(t.TEQVIM, {2027: "https://sosial.gov.az/2027"}), \
+                patch.dict(t.KOCURME, {D(2027, 1, 4): "2 yanvar – Yeni il bayramı şənbə gününə düşüb"}):
+            item, why = t.istirahet_item(D(2026, 12, 30))
+            self.assertTrue(item and item["worth"], why)
+            self.assertEqual(item["title"], "31 dekabr – 4 yanvar 5 gün istirahətdir, işə 5 yanvarda çıxılacaq")
+            self.assertIn("2026-cı və 2027-ci illərin istehsalat təqvimlərinə görə", item["lead"])
+
+    def test_mourning_day_is_not_a_holiday_break(self):
+        with patch.dict(t.TEQVIM, {2031: "https://sosial.gov.az/2031"}):
+            self.assertEqual(D(2031, 1, 20).weekday(), 0)
+            item, why = t.istirahet_item(D(2031, 1, 17))
+            self.assertIsNone(item, "Ümumxalq Hüzn Günü bayram istirahəti deyil")
+            item, _ = t.is_item(D(2031, 1, 20))
+            self.assertTrue(item["worth"])
+            self.assertEqual(item["title"], "Bu həftə 4 iş günü var: 20 yanvar iş günü deyil")
+
+    def test_helper_does_not_repeat_novruz(self):
+        self.assertNotIn("Beynəlxalq Novruz Günü", t.gun_adlari(D(2026, 3, 21)), "bayram günü BMT-nin günü ilə eynidir")
+        self.assertIn("Beynəlxalq Novruz Günü", t.gun_adlari(D(2027, 3, 21)))
+
+    def test_baku_day_boundary(self):
+        utc = datetime.timezone.utc
+        self.assertEqual([i["key"] for i in t.items(FIX, datetime.datetime(2026, 11, 9, 21, 0, tzinfo=utc))], ["gun-2026-11-10"],
+                         "21:00 UTC Bakıda artıq 10 noyabrdır")
+        item, _ = t.hefte_item(FIX, datetime.datetime(2026, 11, 9, 4, 30, tzinfo=utc))
+        self.assertIn("13 noyabr saat 23:45-də", item["lead"], "19:45 UTC oyun Bakı vaxtı ilə yazılır")
+
+    def test_week_titles_fit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for monday in days(D(2026, 1, 5), D(2028, 12, 25)):
+                if monday.weekday():
+                    continue
+                item, _ = t.hefte_item(tmp, at(monday.year, monday.month, monday.day))
+                self.assertLessEqual(len(item["title"]), t.TITLE_MAX, item["title"])
+                self.assertFalse(item["title"].endswith("."), item["title"])
+                if item["worth"]:
+                    self.assertTrue(item["lead"].endswith("."), (monday, item["lead"]))
 
 
 class NotOnTheSiteTest(unittest.TestCase):

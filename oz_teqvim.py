@@ -5,8 +5,10 @@
 1. «Bu gün nə günüdür» (hər gün 07:45, yalnız bir gün düşəndə). Azərbaycanın peşə bayramları və xüsusi günləri, BMT-nin
    beynəlxalq günləri və həftələri bir xəbərdə. Yalnız dövlət bayramı düşən gün dərc olunmur: onu «Bu gün tarixdə» xəbəri
    başlıqda verir. Anım günlərində də dərc olunmur.
-2. «Bu həftə neçə gün işləyirik» (bazar ertəsi 08:00, yalnız həftədə 5-dən az iş günü olanda) və bayram istirahətindən
-   əvvəlki son iş günü (08:00). Mənbə ƏƏSMN-in istehsalat təqvimidir. Rəsmi cədvəli olmayan il üçün heç nə yazılmır.
+2. «Bu həftə neçə iş günü var» (bazar ertəsi 08:00, yalnız həftədə 5-dən az iş günü olanda) və bayram istirahətindən
+   əvvəlki son iş günü (08:00). Mənbə ƏƏSMN-in istehsalat təqvimidir. Rəsmi cədvəli olmayan ildə yalnız qanunla qeyri-iş
+   günü olanlar (həftə sonu, sabit tarixli bayram) bilinir, qalanı təxmin edilmir. Bir istirahət, bir xəbər: əvvəlki iş günü
+   xəbəri verilən istirahət bazar ertəsi təkrarlanmır, bazar ertəsinin xəbəri bütünlüklə verdiyi istirahət də.
 3. Geri sayım: IV Avropa Oyunları (İstanbul, 2027) və XXXIV Yay Olimpiya Oyunları (Los-Anceles, 2028). Yalnız açılışa
    100, 50, 30, 10, 1 gün qalanda və açılış günü (11:00).
 4. «Bu həftə nə gözlənilir» (bazar ertəsi 08:30): həftənin bayramları və günləri, Azərbaycan futbolunun oyunları Bakı vaxtı
@@ -342,7 +344,8 @@ MERHELE = (100, 50, 30, 10, 1, 0)
 
 # Futbol: saytın öz faylları. Azərbaycan klubu = Premyer Liqanın komandası; milli komanda = «azerbaycan».
 LIQALAR = (("premyer-liqa", "Premyer Liqa"), ("i-liqa", "I Liqa"), ("kubok", "Azərbaycan Kuboku"))
-AVROKUBOKLAR = ("cl", "avroliqa", "kl")
+# UEFA-nın Çempionlar, Avropa və Konfrans liqaları. avroliqa.json basketbolun Avroliqasıdır, futbol deyil.
+AVROKUBOKLAR = ("cl", "al", "kl")
 _ORDER = {"milli": 0, "avro": 1, "premyer-liqa": 2, "i-liqa": 3, "kubok": 4}
 
 
@@ -362,12 +365,13 @@ def _join(names):
 
 
 def _range(a, b):
-    """«9–15 noyabr», «30 noyabr – 6 dekabr», «28 dekabr 2026 – 3 yanvar 2027»."""
+    """«9–15 noyabr», «30 noyabr – 6 dekabr», «31 dekabr – 4 yanvar»; il yalnız uzun aralıqda: «1 dekabr 2026 – 1 mart 2027».
+    Qısa aralıqda il yazılmır: «31 dekabr 2026 – 4 yanvar 2027 5 gün» kimi ədədlər yan-yana düşməsin."""
     if a == b:
         return ox.day_text(a)
     if (a.year, a.month) == (b.year, b.month):
         return f"{a.day}–{b.day} {ox.MONTHS[a.month - 1]}"
-    if a.year == b.year:
+    if a.year == b.year or (b - a).days < 60:
         return f"{ox.day_text(a)} – {ox.day_text(b)}"
     return f"{ox.day_text(a)} {a.year} – {ox.day_text(b)} {b.year}"
 
@@ -391,10 +395,6 @@ def _days_text(days):
 
 def _gunleri(n):
     return "günüdür" if n == 1 else "günləridir"
-
-
-def _cap(text):
-    return text[:1].upper() + text[1:]
 
 
 def _ref(ref):
@@ -453,25 +453,40 @@ def _entries(d):
     return out
 
 
+def _bmt_same(ents):
+    """Azərbaycanın həmin gün qeyd olunan dövlət bayramı ilə eyni hadisə olan BMT günləri (2026-da Novruz)."""
+    state = {e["name"] for e in ents if e["kind"] == "dovlet"}
+    return {e["name"] for e in ents if e["kind"] == "bmt" and BMT_EYNI.get(e["name"]) in state}
+
+
 def gun_adlari(d):
     """Günün qeyd olunan günlərinin adları (Azərbaycan dilində): dövlət bayramları (Novruz, Ramazan və Qurban yalnız rəsmi
-    elan olunan il üçün), peşə bayramları, BMT-nin beynəlxalq günləri; BMT həftəsi yalnız başladığı gün."""
+    elan olunan il üçün), peşə bayramları, BMT-nin beynəlxalq günləri; BMT həftəsi yalnız başladığı gün. Bayramla eyni olan
+    BMT günü (Beynəlxalq Novruz Günü) bayram elan olunan ildə təkrar yazılmır."""
+    ents = _entries(d)
+    same = _bmt_same(ents)
     out = []
-    for e in _entries(d):
-        if (e["kind"] != "hefte" or e["first"]) and e["name"] not in out:
+    for e in ents:
+        if (e["kind"] != "hefte" or e["first"]) and e["name"] not in out and e["name"] not in same:
             out.append(e["name"])
     return out
 
 
+def _qanunla_qeyri_is(d):
+    """Hər il qanunla iş günü olmayan gün: şənbə, bazar və ya iş günü hesab edilməyən sabit tarixli bayram (Əmək Məcəlləsi)."""
+    return d.weekday() >= 5 or any(off and _on(d, month, day) for month, day, _, off, _ in DOVLET)
+
+
 def qeyri_is_gunu(d):
     """Beşgünlük iş həftəsində iş günü deyilmi: həftə sonu, iş günü hesab edilməyən bayram və ya köçürülən istirahət günü.
-    Rəsmi təqvimi (TEQVIM) olmayan il üçün None qaytarır: o ilin Novruz, Ramazan, Qurban günləri və köçürmələri bilinmir."""
+    Rəsmi təqvimi (TEQVIM) olmayan ildə qanunla qeyri-iş günü olan gün (həftə sonu, sabit tarixli bayram) üçün True, qalan
+    günlər üçün None qaytarır: o ilin Novruz, Ramazan, Qurban günləri və köçürmələri bilinmir, iş günü təxmin edilmir."""
     d = _date(d)
+    if _qanunla_qeyri_is(d):
+        return True
     if d.year not in TEQVIM:
         return None
-    if d.weekday() >= 5 or d in KOCURME or d in IL_BAYRAM:
-        return True
-    return any(off and _on(d, month, day) for month, day, _, off, _ in DOVLET)
+    return d in KOCURME or d in IL_BAYRAM
 
 
 def _off_reason(d):
@@ -482,14 +497,21 @@ def _off_reason(d):
     return ("bayram", tuple(dict.fromkeys(names)))
 
 
+def _plain_weekend(d):
+    """Bayramı olmayan adi şənbə və ya bazar."""
+    return d.weekday() >= 5 and d not in IL_BAYRAM and not any(e["off"] for e in _entries(d) if e["kind"] == "dovlet")
+
+
 def _reason_lines(days):
-    """Qeyri-iş günlərinin səbəbi, eyni səbəbli ardıcıl günlər bir cümlədə: «10 noyabr istirahət günüdür: ...»."""
+    """Qeyri-iş günlərinin səbəbi, eyni səbəbli günlər bir cümlədə: «10 noyabr istirahət günüdür: ...». Aralarında yalnız adi
+    həftə sonu olan eyni səbəbli günlər də birləşir: «25, 26, 27 və 30 mart istirahət günləridir: ...»."""
     groups = []
     for d in days:
-        if d.weekday() >= 5 and d not in IL_BAYRAM and not any(e["off"] for e in _entries(d) if e["kind"] == "dovlet"):
-            continue  # adi həftə sonu
+        if _plain_weekend(d):
+            continue
         key = _off_reason(d)
-        if groups and groups[-1][0] == key and (d - groups[-1][1][-1]).days == 1:
+        last = groups[-1][1][-1] if groups else None
+        if last and groups[-1][0] == key and all(_plain_weekend(last + DAY * i) for i in range(1, (d - last).days)):
             groups[-1][1].append(d)
         else:
             groups.append((key, [d]))
@@ -529,8 +551,8 @@ def gun_item(day):
     ents = _entries(day)
     dov = [e for e in ents if e["kind"] == "dovlet"]
     pese = [e for e in ents if e["kind"] == "pese"]
-    state = {e["name"] for e in ents if e["kind"] == "dovlet"}
-    bmt = [e for e in ents if e["kind"] == "bmt" and BMT_EYNI.get(e["name"]) not in state]
+    same = _bmt_same(ents)
+    bmt = [e for e in ents if e["kind"] == "bmt" and e["name"] not in same]
     new_weeks = [e for e in ents if e["kind"] == "hefte" and e["first"]]
     old_weeks = [e for e in ents if e["kind"] == "hefte" and not e["first"]]
     pool = pese + bmt + new_weeks
@@ -573,12 +595,58 @@ def _unknown(days):
     return f"{ox.ordinal(years[0])} il üçün rəsmi istehsalat təqvimi hələ yoxdur: iş günləri təxmin edilmir" if years else ""
 
 
-def _src(year):
-    return f"{TEQVIM_CREDIT}nin təsdiq etdiyi {ox.ordinal(year)} ilin istehsalat təqviminə görə"
+def _src(*years):
+    """«... 2026-cı ilin istehsalat təqviminə görə»; iki ilə düşən istirahətdə «2026-cı və 2027-ci illərin ... təqvimlərinə görə»."""
+    years = sorted(set(years))
+    if len(years) == 1:
+        return f"{TEQVIM_CREDIT}nin təsdiq etdiyi {ox.ordinal(years[0])} ilin istehsalat təqviminə görə"
+    return f"{TEQVIM_CREDIT}nin təsdiq etdiyi {' və '.join(ox.ordinal(y) for y in years)} illərin istehsalat təqvimlərinə görə"
+
+
+def _special(d):
+    """Bayram istirahətini yaradan gün: köçürülən istirahət günü və ya iş günü hesab edilməyən bayram. Ümumxalq Hüzn Günü
+    (anım günü) iş günü deyil, amma bayram istirahəti də deyil."""
+    if d in KOCURME or d in IL_BAYRAM:
+        return True
+    return any(e["off"] and not e["anim"] for e in _entries(d) if e["kind"] == "dovlet")
+
+
+def _break_of(d):
+    """d daxil olan bayram istirahəti (ən azı 3 günlük ardıcıl qeyri-iş günləri, içində bayram və ya köçürülən gün): (ilk, son).
+    d iş günüdürsə, istirahət qısadırsa, bayramsızdırsa və ya sərhədi bilinmirsə None."""
+    if not qeyri_is_gunu(d):
+        return None
+    ends = []
+    for step in (-DAY, DAY):
+        x = d
+        for _ in range(40):
+            flag = qeyri_is_gunu(x + step)
+            if flag is None:
+                return None
+            if not flag:
+                break
+            x += step
+        ends.append(x)
+    first, last = ends
+    run = [first + DAY * i for i in range((last - first).days + 1)]
+    return (first, last) if len(run) >= 3 and any(_special(x) for x in run) else None
+
+
+def _told_before(off, monday):
+    """Bir hadisə, bir xəbər: həftənin bütün qeyri-iş günləri bazar ertəsindən əvvəl başlayan bayram istirahətinə düşürsə, o
+    istirahət öncəki iş günü öz xəbərində (istirahet_item) verilib. O günü qaytarır, yoxsa None."""
+    told = []
+    for d in off:
+        br = _break_of(d)
+        if not br or br[0] >= monday or (br[0] - DAY).weekday() == 0:
+            return None  # yeni gün, ya da istirahətdən əvvəlki iş günü bazar ertəsidir: o gün xəbər yoxdur
+        told.append(br[0] - DAY)
+    return max(told) if told else None
 
 
 def is_item(day):
-    """Bazar ertəsi: bu həftə neçə iş günü var. Adi beşgünlük həftə xəbər deyil (worth=False)."""
+    """Bazar ertəsi: bu həftə neçə iş günü var. Adi beşgünlük həftə xəbər deyil (worth=False). Həftənin qeyri-iş günləri
+    əvvəlki həftə başlayan və artıq xəbəri verilən bayram istirahətinə düşürsə, təkrar dərc olunmur (worth=False)."""
     day = _date(day)
     if day.weekday() != 0:
         return None, "bazar ertəsi deyil"
@@ -596,16 +664,19 @@ def is_item(day):
         if nxt:
             lead += f" Növbəti iş günü {_cop(ox.day_text(nxt))}."
     elif n == 5:
-        title = "Bu həftə 5 gün işləyirik"
+        title = "Bu həftə 5 iş günü var"
         lead = f"{_src(day.year)}, bu həftə beşgünlük iş həftəsinin bütün günləri iş günüdür."
     else:
-        title = f"Bu həftə {n} gün işləyirik: {_days_text(off)} iş günü deyil"
+        title = f"Bu həftə {n} iş günü var: {_days_text(off)} iş günü deyil"
         lead = f"{_src(day.year)}, bu həftə beşgünlük iş həftəsində {_days_text(work)} iş {_gunleri(n)}."
     item = {"kind": "is-gunleri", "key": f"is-gunleri-{day.isoformat()}", "title": title, "lead": lead,
-            "body": _reason_lines(off), "credit": TEQVIM_CREDIT, "link": TEQVIM[day.year], "topic": "təqvim",
-            "slot": "08:00", "worth": n < 5}
+            "body": _reason_lines(off), "credit": TEQVIM_CREDIT, "link": TEQVIM.get(day.year, "https://e-qanun.az/"),
+            "topic": "təqvim", "slot": "08:00", "worth": n < 5}
+    told = _told_before(off, day) if off else None
     if n == 5:
         item["why"] = "adi beşgünlük iş həftəsidir: xəbər deyil"
+    elif told:
+        item.update(worth=False, why=f"bu həftənin qeyri-iş günləri {ox.day_text(told)} tarixli bayram istirahəti xəbərində verilib")
     return item, item.get("why", "")
 
 
@@ -639,14 +710,14 @@ def _break_after(day):
             break
         run.append(d)
         d += DAY
-    special = [x for x in run if x in KOCURME or x in IL_BAYRAM or _off_reason(x)[1]]
-    if len(run) < 3 or not special:
+    if len(run) < 3 or not any(_special(x) for x in run):
         return ("yox", "sabahdan bayram istirahəti başlamır")
     return ("var", run[0], run[-1], d)
 
 
 def istirahet_item(day):
-    """Bayram istirahətindən əvvəlki son iş günü: istirahət neçə gündür, işə nə vaxt çıxılır."""
+    """Bayram istirahətindən əvvəlki son iş günü: istirahət neçə gündür, işə nə vaxt çıxılır. İstirahətin iş günlərinin
+    hamısı bu həftədədirsə və bazar ertəsinin həftə xəbəri onları verib, təkrar dərc olunmur (worth=False)."""
     day = _date(day)
     state = _break_after(day)
     if state[0] != "var":
@@ -655,14 +726,20 @@ def istirahet_item(day):
     if day.weekday() == 0:
         return None, "bazar ertəsidir: bunu həftənin iş günləri xəbəri deyir"
     n = (last - first).days + 1
+    run = [first + DAY * i for i in range(n)]
     span = _range(first, last)
     item = {"kind": "istirahet", "key": f"istirahet-{first.isoformat()}",
             "title": f"{span} {n} gün istirahətdir, işə {ox.day_loc(back)} çıxılacaq",
-            "lead": f"{_src(first.year)}, beşgünlük iş həftəsində {span} istirahət günləridir. "
+            "lead": f"{_src(first.year, last.year)}, beşgünlük iş həftəsində {span} istirahət günləridir. "
                     f"Növbəti iş günü {_cop(ox.day_text(back))}.",
-            "body": _reason_lines([first + DAY * i for i in range(n)]), "credit": TEQVIM_CREDIT,
-            "link": TEQVIM[first.year], "topic": "təqvim", "slot": "08:00", "worth": True}
-    return item, ""
+            "body": _reason_lines(run), "credit": TEQVIM_CREDIT,
+            "link": TEQVIM.get(first.year, "https://e-qanun.az/"), "topic": "təqvim", "slot": "08:00", "worth": True}
+    monday = day - DAY * day.weekday()
+    if all(x <= monday + DAY * 4 for x in run if x.weekday() < 5):
+        week, _ = is_item(monday)
+        if week and week["worth"]:
+            item.update(worth=False, why=f"bu istirahətin günləri {ox.day_text(monday)} tarixli həftənin iş günləri xəbərində verilib")
+    return item, item.get("why", "")
 
 
 # --- 3. Oyunlara geri sayım ---------------------------------------------------------------------------
@@ -731,7 +808,7 @@ def _source_name(doc):
         return "Peşəkar Futbol Liqası", "https://pfl.az/"
     if src.startswith("OpenLigaDB"):
         return "OpenLigaDB", doc.get("source_url") or doc.get("url") or "https://www.openligadb.de/"
-    return src, doc.get("url") or ""
+    return src, doc.get("source_url") or doc.get("url") or ""
 
 
 def _team(teams, tid):
@@ -748,6 +825,8 @@ def _games(root):
     clubs = set(pl.get("teams") or {}) if isinstance(pl.get("teams"), dict) else set()
 
     def add(doc, group, comp, quote, pfl, keep):
+        if str(doc.get("sport") or "football") != "football":
+            return  # basketbol və s.
         name, link = _source_name(doc)
         teams = doc.get("teams") if isinstance(doc.get("teams"), dict) else {}
         rows = doc.get("games") if isinstance(doc.get("games"), list) else []
@@ -912,7 +991,8 @@ def hefte_item(root, now):
         club, opp = (g["home"], g["away"]) if home else (g["away"], g["home"])
         lead.append(f"{club} {_when_text(g)} {g['comp']} oyununda {'doğma meydanda' if home else 'səfərdə'} "
                     f"{opp} ilə qarşılaşacaq.")
-    lead.append(_league_lead(pl, pl_nom, every("premyer-liqa"), end))
+    pl_line = _league_lead(pl, pl_nom, every("premyer-liqa"), end)
+    lead.append(pl_line)
     lead.append(_cup_lead(kubok, kubok_nom))
     if il and not pl:
         rnd, whole = _round_of(il, every("i-liqa"))
@@ -964,7 +1044,7 @@ def hefte_item(root, now):
     if il:
         rnd, _ = _round_of(il, il)
         hi.append(f"I Liqanın {_tur(rnd)}u" if rnd and rnd.isdigit() else "I Liqa oyunları")
-    hi += [_cap(e["name"]) for d, ents in cal for e in ents if e["kind"] == "pese"]
+    hi += [e["name"] for d, ents in cal for e in ents if e["kind"] == "pese"]  # «vergi xidməti ...» kiçik hərflə qalır
     hi += [e["name"] for d, ents in cal for e in ents if e["kind"] == "bmt"][:1]
     hi = list(dict.fromkeys(hi))
     title = "Bu həftə nə gözlənilir"
@@ -973,19 +1053,24 @@ def hefte_item(root, now):
         title = both if len(both) <= TITLE_MAX else f"{title}: {hi[0]}"
 
     sources = [(g["source"], g["link"]) for g in sorted(week, key=lambda g: g["group"] != "premyer-liqa") if g["source"]]
+    if pl_line:  # «Premyer Liqada bu həftə oyun yoxdur: 12-ci tur ...» da pfl.az-ın məlumatıdır
+        sources += [(g["source"], g["link"]) for g in every("premyer-liqa")[:1] if g["source"]]
     if any(e["kind"] in ("bmt", "hefte") for _, ents in cal for e in ents):
         sources.append((BMT_CREDIT, BMT_URL))
-    if off:
-        sources.append((TEQVIM_CREDIT, TEQVIM[off[0].year]))
+    if off:  # rəsmi təqvimi olmayan ildə yalnız qanunla qeyri-iş günü olanlar (Əmək Məcəlləsi) yazılır
+        url = TEQVIM.get(off[0].year)
+        sources.append((TEQVIM_CREDIT, url) if url else ("e-qanun.az", "https://e-qanun.az/"))
     sources = list(dict.fromkeys(sources))
     credit = ", ".join(dict.fromkeys(s for s, _ in sources)) or BMT_CREDIT
     link = next((link for _, link in sources if link), BMT_URL)
-    substance = milli or avro or pl or pl_nom or kubok or kubok_nom or off or any(
+    substance = milli or avro or pl or pl_nom or kubok or kubok_nom or il or off or any(
         e["kind"] == "dovlet" for _, ents in cal for e in ents)
     item = {"kind": "hefte", "key": f"hefte-{day.isoformat()}", "title": title, "lead": " ".join(s for s in lead if s),
             "body": body, "list": True, "credit": credit, "link": link, "topic": "icmal", "slot": "08:30",
             "worth": bool(substance)}
-    if not substance:
+    if not substance and by("i-liqa", nominal):
+        item["why"] = "bu həftə bayram və vaxtı bəlli futbol oyunu yoxdur: I Liqanın oyun cədvəli hələ açıqlanmayıb"
+    elif not substance:
         item["why"] = "bu həftə futbol oyunu və bayram yoxdur: yalnız beynəlxalq və peşə günləri (onları gündəlik xəbər verir)"
     return item, item.get("why", "")
 
@@ -1062,7 +1147,7 @@ def sinaq(root, now=None, fetch=None):
         item, why = gun_item(d)
         md += _show(_label(d, today), item, why)
 
-    md += ["## 2. «Bu həftə neçə gün işləyirik» (bazar ertəsi 08:00)", ""]
+    md += ["## 2. «Bu həftə neçə iş günü var» (bazar ertəsi 08:00)", ""]
     item, why = is_item(monday)
     md += _show(_label(monday, today) + " — bu həftə", item, why)
     if not (item and item.get("worth")):
