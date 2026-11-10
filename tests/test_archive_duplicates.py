@@ -37,8 +37,8 @@ class ArchiveDuplicatesTest(unittest.TestCase):
             root = pathlib.Path(tmp)
             path = root / "tehsil.json"
             # Fresh timestamps must not postpone the one-time migration for an hour.
-            path.write_text(json.dumps({"at": now, "articles": fixture["archive"]}), encoding="utf-8")
-            (root / "gundem.json").write_text(json.dumps({"at": now, "articles": []}), encoding="utf-8")
+            path.write_text(json.dumps({"at": now, "grouped": 1, "articles": fixture["archive"]}), encoding="utf-8")
+            (root / "gundem.json").write_text(json.dumps({"at": now, "grouped": 1, "articles": []}), encoding="utf-8")
             with patch.object(updater, "ARCHIVE_DIR", root), \
                  patch.object(updater, "ARCHIVE_OG_FILE", root / "og.json"), \
                  patch.object(updater, "SECTIONS", [("gundem", "Gündəm", ""), ("tehsil", "Təhsil", "")]), \
@@ -49,7 +49,7 @@ class ArchiveDuplicatesTest(unittest.TestCase):
                  patch.object(updater, "update_share_index"):
                 updater.update_archive(now)
                 doc = json.loads(path.read_text(encoding="utf-8"))
-                self.assertEqual(doc["grouped"], 1)
+                self.assertEqual(doc["grouped"], 2)
                 self.assertEqual(len(doc["articles"]), 1)
                 card = doc["articles"][0]
                 sources = {x["source"] for x in [card, *card.get("alts", [])]}

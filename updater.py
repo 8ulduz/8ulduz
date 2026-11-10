@@ -1534,6 +1534,8 @@ def compute_groups():
         key = key_of.get(card, card)
         alts = groups.setdefault(key, [])
         row = by_url.get(url) or {}
+        if _event_conflict(row, by_url.get(key, {})):
+            continue  # qərarsız alternativ qalır; açıq fərqli hadisə əvvəlki kartına qaytarılmır
         taken = {by_url.get(key, {}).get("source"), *(x.get("source") for x in alts)}
         alt = _compact_alt(row)
         if alt and row.get("source") not in taken:
@@ -1549,11 +1551,13 @@ def apply_groups(articles):
     """Yavaş prosesin qruplarını lentə tətbiq edir. Ondan sonra gələn təzə xəbərləri attach_fresh qoşur."""
     # Qrup faylı dəyişiklikdən əvvəl yazılıb ola bilər: köhnə keçid buradan lentə qayıtmasın.
     groups = {fix_source_link(url): [{**alt, "sourceUrl": fix_source_link(alt.get("sourceUrl"))} for alt in alts] for url, alts in _read_json(GROUPS_FILE, {}).items()}
-    present = {a.get("sourceUrl") for a in articles}
+    present = {a.get("sourceUrl"): a for a in articles}
+    groups = {url: [alt for alt in alts if not _event_conflict(present.get(url, {}), alt)] for url, alts in groups.items()}
     absorbed = {alt.get("sourceUrl") for url, alts in groups.items() if url in present for alt in alts}
     # Saytın eyni xəbəri təkrar dərci: kart lentdədirsə təkrar ayrıca göstərilmir.
     same = _read_json(GROUPS_FILE.with_name("group_same.json"), {}) if groups else {}
-    absorbed |= {url for url, head in (same if isinstance(same, dict) else {}).items() if head in present and head != url}
+    absorbed |= {url for url, head in (same if isinstance(same, dict) else {}).items()
+                 if head in present and head != url and not _event_conflict(present.get(url, {}), present[head])}
     out = []
     for a in articles:
         url = a.get("sourceUrl")
@@ -1564,6 +1568,8 @@ def apply_groups(articles):
         if groups:
             alts = [alt for alt in groups.get(url, []) if alt.get("sourceUrl") != url]
             a = {**a, "alts": alts} if alts else {k: v for k, v in a.items() if k != "alts"}
+        elif a.get("alts"):
+            a = {**a, "alts": [alt for alt in a["alts"] if not _event_conflict(a, alt)]}
         out.append(a)
     try:
         return attach_fresh(out)
@@ -1604,7 +1610,7 @@ def attach_fresh(articles, now=None):
             b, bdt, btoks, _bts = items[j]
             b = target.get(j, b)
             srcs = {b.get("source")} | {x.get("source") for x in b.get("alts") or []}
-            if bdt is None or abs(dt - bdt) > GROUP_WINDOW or b.get("source") in OFFICIAL_SOURCES or a.get("source") in srcs:
+            if bdt is None or abs(dt - bdt) > GROUP_WINDOW or b.get("source") in OFFICIAL_SOURCES or a.get("source") in srcs or _event_conflict(a, b):
                 continue
             score = 4 if len(key) >= 12 and key == _norm_title(b.get("title") or "") else 3 if _titles_similar(toks, _shingles(toks), btoks, _shingles(btoks)) else 0
             if score > best_score or score and score == best_score and len(b.get("alts") or []) > len(target.get(best, items[best][0]).get("alts") or []):
@@ -2493,7 +2499,7 @@ def update_archive(now=None):
     articles = read_feed()
     missing = any(not (ARCHIVE_DIR / f"{s[0]}.json").exists() for s in SECTIONS if s[0] != "prezident")  # yeni bölmə bir saat boş qalmasın
     stamp = _read_json(ARCHIVE_DIR / "gundem.json", {})
-    if not articles or (not missing and stamp.get("grouped") == 1 and now - stamp.get("at", 0) < ARCHIVE_EVERY_S):
+    if not articles or (not missing and stamp.get("grouped") == 2 and now - stamp.get("at", 0) < ARCHIVE_EVERY_S):
         return
     cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
     merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []} | dead_links(len(articles))
@@ -2531,7 +2537,7 @@ def update_archive(now=None):
         if slug in BACKLOG_SECTIONS:
             kept = fill_archive_images(kept, images)
         ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-        _write_atomic(path, json.dumps({"at": now, "grouped": 1, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(path, json.dumps({"at": now, "grouped": 2, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
         for old in aliases:  # köhnə fayl boşalır: növbəti dəfə eyni xəbər yenidən köçürülməsin
             if old.exists():
                 _write_atomic(old, json.dumps({"at": now, "articles": []}, separators=(",", ":")))
@@ -4790,6 +4796,20 @@ _EVENT_STOP = {"eden", "edib", "edir", "etdi", "edildi", "olub", "oldu", "olur",
                "video", "foto", "anbaan", "yenilenib", "detal", "detallar", "hadise", "netice", "neticesinde", "barede",
                "melumat", "bildirib", "bildirilib", "deyilir", "deyir", "dedi", "bas", "verib", "verdi", "veren", "qeyd"}
 _SIG_CACHE = {}
+_PHASE_CACHE = {}
+_PLACE_CACHE = {}
+_FOUNDATION_TITLE = re.compile(r"(?<!\w)t[əe]m[əe]l")
+_OPENING_TITLE = re.compile(r"(?<!\w)(?:a[çc][ıi]l(?:[ıi][şs]|[ıi]b|d[ıi])|istifad[əe]y[əe]\s+ver)")
+# «Xankəndi Stadionu» yerlik halında deyil; şəhər adı məkan bildirən isimdən əvvəl gəlir.
+_TITLE_PLACE_RX = re.compile(r"(?<!\w)(?:" + "|".join(re.escape(w) for w in sorted(PLACE_WORDS | {"bakı"}, key=len, reverse=True))
+                             + ")" + _PLACE_SUF + r"(?=\s+(?:stadion|peşə|şəhər|rayon|kənd|universitet|məktəb|kitabxana|xəstəxana))", re.I)
+
+
+def _opening_phase(a):
+    title = (a.get("title") or "").lower().replace("i̇", "i")
+    if title not in _PHASE_CACHE:
+        _PHASE_CACHE[title] = int(bool(_FOUNDATION_TITLE.search(title))) + 2 * int(bool(_OPENING_TITLE.search(title)))
+    return _PHASE_CACHE[title]
 
 def _concepts(text):
     t = (text or "").lower().replace("i̇", "i")
@@ -4848,7 +4868,7 @@ def _places(text):
         if len(w) < 5 or not w[0].isupper() or (w.isupper() and len(w) > 3):
             continue
         low = w.lower()
-        if not re.search(r"(?:da|də|dan|dən)$", low) or _concepts(low).strip() != low:
+        if not re.search(r"(?:da|də|dan|dən)$", low) or _concepts(low).strip() != low or _ORG_WORDS.search(_norm_title(w)):
             continue
         out.add(_stem(_norm_title(w)))
     return out
@@ -4905,9 +4925,26 @@ def _event_sig(a):
         sig = _SIG_CACHE[key] = (classes, persons, orgs, stems, _anchors(text), _places(text))
     return sig
 
+def _event_conflict(a, b):
+    """Təməlqoyma və açılış, yaxud açıq fərqli məkanlar ayrı hadisədir — ümumi səfər xülasəsi onları birləşdirmir."""
+    phase_a, phase_b = _opening_phase(a), _opening_phase(b)
+    if phase_a and phase_b and phase_a != phase_b:
+        return True
+    # Sürətli dövrəyə tam hadisə təhlili (şəxs, qurum, bütün köklər) gətirilmir.
+    def places(row):
+        text = (row.get("title") or "") + ". " + (row.get("summary") or "")[:240]
+        if text not in _PLACE_CACHE:
+            _PLACE_CACHE[text] = _places(text) | {_stem(_norm_title(m.group())) for m in _TITLE_PLACE_RX.finditer(row.get("title") or "")}
+        return _PLACE_CACHE[text]
+    places_a, places_b = places(a), places(b)
+    return bool(places_a and places_b and not (places_a & places_b))
+
+
 def _same_event(a, b):
     """0 — fərqli; 1 — zəif uyğunluq (yalnız klaster başı ilə və ya 2 üzvlə təsdiqlənəndə sayılır);
     2 — güclü uyğunluq (eyni şəxs, eyni qurum + məzmun, 2+ lövbər + məzmun, kökləri güclü üst-üstə düşür)."""
+    if _event_conflict(a, b):
+        return 0
     # Shared boilerplate in summaries must not join unrelated headlines.
     ta, tb = a.get("title") or "", b.get("title") or ""
     title_common = (_event_stems(ta) & _event_stems(tb)) - _GENERIC_ANCHOR - _LEADER_STEMS
@@ -4930,8 +4967,6 @@ def _same_event(a, b):
         return 2
     shared = ca & cb
     if not shared:
-        return 0
-    if la and lb and not (la & lb):                   # fərqli yerlər (Bakıda / Göygöldə): fərqli hadisə
         return 0
     if _ent_match(pa, pb):                             # eyni şəxs + eyni hadisə növü
         return 2
@@ -5016,6 +5051,8 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
     """
     remembered = {}
     _SIG_CACHE.clear()
+    _PHASE_CACHE.clear()
+    _PLACE_CACHE.clear()
     for a in articles:
         for alt in a.get("alts") or []:
             if alt.get("sourceUrl"):
@@ -5043,6 +5080,8 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
                 if head is None or abs(dt - head) > GROUP_WINDOW:
                     continue
                 near = [(mt, mtks, msh, ma) for mt, mtks, msh, ma in members if mt is not None and abs(dt - mt) <= GROUP_WINDOW]
+                if any(_event_conflict(a, ma) for _mt, _k, _s, ma in near):
+                    continue  # ümumi başlıqlı vasitəçi iki ayrı hadisəni zəncirlə birləşdirməsin
                 if not near:
                     continue
                 exact = len(key) >= 12 and any(_norm_title(ma.get("title") or "") == key for _mt, _k, _s, ma in near)
@@ -5118,7 +5157,7 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
                         or _titles_similar(toks, _shingles(toks), ptoks, _shingles(ptoks))
                         or _same_event(alt, primary) >= 2)
                 # Legacy alternatives have no headline: they cannot be verified.
-                if title and same and pdt is not None and adt is not None and abs(adt - pdt) <= GROUP_WINDOW:
+                if title and same and not _event_conflict(alt, primary) and pdt is not None and adt is not None and abs(adt - pdt) <= GROUP_WINDOW:
                     kept.append(alt)
             alts.extend(kept[:max(0, 20 - len(alts))])
         alts.sort(key=lambda x: x.get("publishedAt") or "", reverse=True)
