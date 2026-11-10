@@ -115,7 +115,7 @@ B10 = [
     "Sumqayıt: buludlu hava, temperatur 5,6–10,1 dərəcə, yağıntı ehtimalı 8%, külək saniyədə 7,8 metrə qədər",
     "Lənkəran: arabir zəif yağış, temperatur 4,3–12 dərəcə, yağıntı ehtimalı 8%, külək saniyədə 3,3 metrə qədər",
     "Şəki: buludlu hava, temperatur 2–6,9 dərəcə, yağıntı ehtimalı 0%, külək saniyədə 2 metrə qədər",
-    "Naxçıvan: əsasən açıq hava, temperatur -1,2 ilə 8,3 dərəcə, yağıntı ehtimalı 0%, külək saniyədə 1,9 metrə qədər",
+    "Naxçıvan: əsasən açıq hava, temperatur -1,2 ilə 8,3 dərəcə arasında, yağıntı ehtimalı 0%, külək saniyədə 1,9 metrə qədər",
     "AMB-nin son rəsmi məzənnələri (6 noyabr üçün): 1 ABŞ dolları 1,7000 manat, 1 avro 1,9037 manat",
     "II Liqa, 10-cu tur: «Difai» – «Zəngəzur» (14:00), «Şirvan» – «Marafon» (15:00), «Şəki» – «Dinamo» (15:00)",
     "Bu gün Sülh və İnkişaf Naminə Ümumdünya Elm Günüdür. 10 noyabr iş günü deyil.",
@@ -137,9 +137,9 @@ B8 = [
     "«Manchester United» – «Aston Villa» (20:30)",
     "Bu gün Zəfər Günüdür.",
 ]
+# AMB-nin həftəlik dəyişməsi (6 noyabr bülleteni 30 oktyabr bülleteni ilə) şənbə günü «Həftənin bazarları»ndadır (oz_bazar):
+# bazar günü təkrar yazılmır.
 R8 = [
-    "AMB-nin rəsmi məzənnəsinə görə, 1 avro 30 oktyabrda 1,9019, 6 noyabrda 1,9037 manat olub: avro bir həftədə 0,0018 manat "
-    "(0,09%) bahalaşıb. Dolların rəsmi məzənnəsi dəyişməyib: 1,7000 manat.",
     "Open-Meteo-nun model məlumatına görə, Bakıda son 7 günün ən yüksək temperaturu 20,5 dərəcə (2 noyabr), ən aşağı "
     "temperaturu 8,9 dərəcə (6 noyabr) olub.",
     "Premyer Liqada 7 oyunda 17 qol vurulub (10-cu və 11-ci turlar). Ən çox qol «Şamaxı» – «Neftçi» oyununda vurulub: 2:3.",
@@ -167,7 +167,8 @@ class FormatTest(unittest.TestCase):
             self.assertRegex(phrase, r"^[a-zçəğıöşü ]+$")
         self.assertEqual(ic._city_line("Bakı", {"code": 4, "tmin": 1, "tmax": 2, "rain": None, "wind": None}),
                          "Bakı: temperatur 1–2 dərəcə", "bilinməyən kod üçün təsvir uydurulmur")
-        self.assertEqual(ic._weather_frag({"code": 71, "tmin": -2, "tmax": 1}), "Bakıda zəif qar gözlənilir, -2 ilə 1 dərəcə")
+        self.assertEqual(ic._weather_frag({"code": 71, "tmin": -2, "tmax": 1}),
+                         "Bakıda zəif qar gözlənilir, -2 ilə 1 dərəcə arasında", "«ilə» aralığı «arasında» ilə bitir")
         self.assertEqual(ic._weather_frag({"code": 2, "tmin": 5, "tmax": 9}), "Bakıda dəyişkən buludlu hava, 5–9 dərəcə")
         self.assertEqual(ic._weather_frag({"code": None, "tmin": 5, "tmax": 9}), "Bakıda 5–9 dərəcə")
 
@@ -231,9 +232,8 @@ class BeledciTest(unittest.TestCase):
                                        "keçiriləcək. Xarici klublardan «Fenerbahçe», «Trabzonspor», «Beşiktaş» və «Barcelona» "
                                        "meydana çıxacaq.")
         self.assertEqual(item["credit"], "Open-Meteo, Azərbaycan Mərkəzi Bankı, Peşəkar Futbol Liqası, TheSportsDB")
-        self.assertEqual(len(n.calls), 4, "bazar günü iki xəbər: Open-Meteo və AMB bir dəfə soruşulur")
-        self.assertEqual(set(n.calls), {ic.om_url(D(2026, 11, 8), 7), ox.AMB_URL.format(D(2026, 11, 8)),
-                                        ox.AMB_URL.format(D(2026, 10, 30)), ox.SEYS_LIST})
+        self.assertEqual(len(n.calls), 3, "bazar günü iki xəbər: Open-Meteo bir dəfə soruşulur")
+        self.assertEqual(set(n.calls), {ic.om_url(D(2026, 11, 8), 7), ox.AMB_URL.format(D(2026, 11, 8)), ox.SEYS_LIST})
 
     def test_national_team_day_without_requests(self):
         item, _ = ic.beledci_item(FIX, D(2026, 11, 13), ic._Get(None))
@@ -309,6 +309,66 @@ class BeledciTest(unittest.TestCase):
                                                    "played": False, "round": "15"}]})
             self.assertNotIn("Premyer Liqa", " ".join(g["text"] for g in ic.day_games(tmp, D(2026, 12, 5))),
                              "pfl.az-da stadionsuz oyunun günü şərtidir")
+
+    def test_uefa_final_matchday_kicks_off_together(self):
+        """UEFA qaydası: liqa mərhələsinin son turunda bütün oyunlar eyni vaxtda başlayır. main-in cl.json-unda 8-ci turun 18
+        oyununun hamısı 2027-01-27T20:00Z-dədir, «Arsenal» – «Sabah» da. Bu real cədvəldir, yer tutucu deyil."""
+        names = {"arsenal": "Arsenal", "sabah": "Sabah", "atletico-madrid": "Atlético Madrid", "fenerbahce": "Fenerbahçe",
+                 "paris-saint-germain": "Paris Saint-Germain", "galatasaray": "Galatasaray", "barcelona": "Barcelona",
+                 "como": "Como", "liverpool": "Liverpool", "lens": "Lens"}
+        pairs = (("arsenal", "sabah"), ("atletico-madrid", "fenerbahce"), ("paris-saint-germain", "galatasaray"),
+                 ("barcelona", "como"), ("liverpool", "lens"))
+
+        def cl(rnd):
+            return {"name": "Çempionlar Liqası", "sport": "football", "source": "OpenLigaDB (www.openligadb.de)",
+                    "source_url": "https://www.openligadb.de/", "teams": {k: {"name": v} for k, v in names.items()},
+                    "games": [{"date": "2027-01-27T20:00:00+00:00", "home": h, "away": a, "played": False, "round": rnd}
+                              for h, a in pairs]}
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "premyer-liqa", {"source": "pfl.az", "teams": {"sabah": {"name": "Sabah"}}, "games": []})
+            write(tmp, "cl", cl("8"))
+            self.assertEqual([g["text"] for g in ic.day_games(tmp, D(2027, 1, 27))], [
+                "Çempionlar Liqası, 8-ci tur: «Arsenal» – «Sabah» (gecə 00:00)",
+                "Çempionlar Liqası: «Atlético Madrid» – «Fenerbahçe» (gecə 00:00), «Barcelona» – «Como» (gecə 00:00), "
+                "«Paris Saint-Germain» – «Galatasaray» (gecə 00:00)"])
+            item, _ = ic.beledci_item(tmp, D(2027, 1, 27), ic._Get(None))
+            self.assertEqual(item["title"], "Günün bələdçisi, 27 yanvar: «Sabah» Çempionlar Liqasında «Arsenal» ilə oynayacaq")
+            self.assertTrue(item["lead"].startswith("«Sabah» bu gecə Çempionlar Liqasında səfərdə «Arsenal» ilə qarşılaşacaq "
+                                                    "(Bakı vaxtı ilə saat 00:00-da)."), item["lead"])
+            self.assertEqual(ic.day_games(tmp, D(2027, 1, 28)), [], "gecə oyunu ertəsi günün xəbərində təkrarlanmır")
+            write(tmp, "cl", cl("Play-off"))
+            self.assertEqual(ic.day_games(tmp, D(2027, 1, 27)), [], "pley-off turunun bütün oyunları bir saatdadırsa, yer tutucudur")
+
+    def test_partial_placeholder_round_and_a_real_busy_slot(self):
+        """main-in fransa.json-u: 25-ci turun 8 oyunu 2027-03-20T16:00Z-dədir (yer tutucu), yalnız «Marseille» – «Lyon» elan
+        olunub (21 mart 19:45Z). «Paris Saint-Germain» – «Strasbourg» yazılmır. Bundesliqanın 2025/26 mövsümünün 28-ci turunda
+        isə 6 oyun 2026-04-04T13:30Z-də idi (almaniya-2025.json, real cədvəl): «SC Freiburg» – «Bayern Munich» yazılır."""
+        fr = (("angers", "le-mans"), ("paris-saint-germain", "strasbourg"), ("monaco", "le-havre"), ("rennes", "paris-fc"),
+              ("toulouse", "brest"), ("lorient", "nice"), ("troyes", "auxerre"), ("lens", "lille"))
+        de = (("2026-04-04T13:30:00+00:00", "bayer-leverkusen", "vfl-wolfsburg"),
+              ("2026-04-04T13:30:00+00:00", "sc-freiburg", "bayern-munich"),
+              ("2026-04-04T13:30:00+00:00", "werder-bremen", "rb-leipzig"),
+              ("2026-04-04T13:30:00+00:00", "borussia-monchengladbach", "1-fc-heidenheim"),
+              ("2026-04-04T13:30:00+00:00", "tsg-hoffenheim", "mainz-05"),
+              ("2026-04-04T13:30:00+00:00", "hamburger-sv", "fc-augsburg"),
+              ("2026-04-04T16:30:00+00:00", "vfb-stuttgart", "borussia-dortmund"),
+              ("2026-04-05T13:30:00+00:00", "union-berlin", "fc-st-pauli"),
+              ("2026-04-05T15:30:00+00:00", "eintracht-frankfurt", "1-fc-koln"))
+
+        def doc(name, rows):
+            teams = {t: {"name": {"paris-saint-germain": "Paris Saint-Germain", "sc-freiburg": "SC Freiburg",
+                                  "bayern-munich": "Bayern Munich"}.get(t, t)} for _, h, a in rows for t in (h, a)}
+            return {"name": name, "sport": "football", "source": "TheSportsDB", "teams": teams,
+                    "games": [{"date": d, "home": h, "away": a, "played": False, "round": r} for (d, r), h, a in rows]}
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = [(("2027-03-20T16:00:00+00:00", "25"), h, a) for h, a in fr]
+            rows.append((("2027-03-21T19:45:00+00:00", "25"), "marseille", "lyon"))
+            write(tmp, "fransa", doc("Liqa 1", rows))
+            self.assertEqual(ic.day_games(tmp, D(2027, 3, 20)), [], "turun 8 oyunu bir saatdadır: o saat yer tutucudur")
+            write(tmp, "almaniya", doc("Bundesliqa", [((d, "28"), h, a) for d, h, a in de]))
+            self.assertEqual([g["text"] for g in ic.day_games(tmp, D(2026, 4, 4))],
+                             ["Almaniya Bundesliqası: «SC Freiburg» – «Bayern Munich» (17:30)"],
+                             "real cədvəldə bir saatda 6 oyun ola bilər")
 
     def test_five_lines_and_their_order(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -416,13 +476,13 @@ class ReqemlerTest(unittest.TestCase):
                                         "20,5 dərəcə")
         self.assertEqual(item["lead"], "Son 7 gündə (1–7 noyabr) Premyer Liqada 7 oyunda 17 qol vurulub, Bakıda temperatur "
                                        "Open-Meteo-nun model məlumatına görə 8,9–20,5 dərəcə arasında olub.")
-        self.assertEqual((item["credit"], item["link"]),
-                         ("Azərbaycan Mərkəzi Bankı, Open-Meteo, Peşəkar Futbol Liqası", "https://www.cbar.az/"))
+        self.assertEqual((item["credit"], item["link"]), ("Open-Meteo, Peşəkar Futbol Liqası", "https://open-meteo.com/"))
         self.assertEqual(item["missing"], {"zəlzələ": "bu həftə 3,0 və daha güclü zəlzələ qeydə alınmayıb"},
                          "zəlzələ olmayan həftə üçün boş sətir yazılmır")
         self.assertEqual((item["kind"], item["key"], item["slot"], item["topic"]), ("reqemler", "reqemler-2026-11-08", "12:00", "icmal"))
         text = " ".join([item["title"], item["lead"], *item["body"]])
-        self.assertNotRegex(text, r"Brent|WTI|[Qq]ızıl|[Bb]itkoin", "bazarın həftəlik dəyişməsi şənbə xəbərindədir")
+        self.assertNotRegex(text, r"Brent|WTI|[Qq]ızıl|[Bb]itkoin|AMB|manat|[Aa]vro|[Dd]ollar",
+                            "bazarın və AMB məzənnələrinin həftəlik dəyişməsi şənbə günü «Həftənin bazarları»ndadır")
 
     def test_quakes_from_the_real_list(self):
         page = net("seys.html").decode("utf-8")
@@ -454,23 +514,22 @@ class ReqemlerTest(unittest.TestCase):
                          (None, "seismology.az siyahısının birinci səhifəsi bütünlüklə bu həftədəndir: say tam olmaya bilər"))
         self.assertEqual(ic._quakes("<html>boş</html>", D(2026, 11, 1), D(2026, 11, 7)), (None, "seismology.az siyahısı oxunmadı"))
 
-    def test_week_with_quakes_and_a_big_euro_move(self):
+    def test_week_with_quakes(self):
         start = D(2026, 10, 18)
         days = [(3, lo, lo + 10, 10, 5.0) for lo in (10, 11, 12, 13, 15, 14, 11, 9)]
-        n = Net({ox.AMB_URL.format(D(2026, 10, 25)): amb_xml(D(2026, 10, 23), 1.7, 1.98),
-                 ox.AMB_URL.format(D(2026, 10, 16)): amb_xml(D(2026, 10, 16), 1.7, 1.96),
-                 ox.SEYS_LIST: net("seys.html"), ic.om_url(D(2026, 10, 25), 7): json.dumps(om_doc(start, days)).encode("utf-8")})
+        n = Net({ox.SEYS_LIST: net("seys.html"), ic.om_url(D(2026, 10, 25), 7): json.dumps(om_doc(start, days)).encode("utf-8")})
         item, why = ic.reqemler_item(FIX, D(2026, 10, 25), ic._Get(n))
         self.assertTrue(item["worth"], why)
-        self.assertEqual(item["title"], "Həftənin rəqəmləri, 18–24 oktyabr: avro 1,02% bahalaşıb, Bakıda ən yüksək temperatur 25 dərəcə")
-        self.assertEqual(item["body"][0], "AMB-nin rəsmi məzənnəsinə görə, 1 avro 16 oktyabrda 1,9600, 23 oktyabrda 1,9800 manat "
-                                          "olub: avro bir həftədə 0,0200 manat (1,02%) bahalaşıb. Dolların rəsmi məzənnəsi "
-                                          "dəyişməyib: 1,7000 manat.")
-        self.assertEqual(item["body"][2], "Open-Meteo-nun model məlumatına görə, Bakıda son 7 günün ən yüksək temperaturu 25 "
+        self.assertEqual(item["title"], "Həftənin rəqəmləri, 18–24 oktyabr: Bakıda ən yüksək temperatur 25 dərəcə, 3,0 və daha "
+                                        "güclü 2 zəlzələ")
+        self.assertEqual(item["lead"], "Son 7 gündə (18–24 oktyabr) Bakıda temperatur Open-Meteo-nun model məlumatına görə 10–25 "
+                                       "dərəcə arasında olub, 3,0 və daha güclü 2 zəlzələ qeydə alınıb.")
+        self.assertEqual(item["body"][1], "Open-Meteo-nun model məlumatına görə, Bakıda son 7 günün ən yüksək temperaturu 25 "
                                           "dərəcə (22 oktyabr), ən aşağı temperaturu 10 dərəcə (18 oktyabr) olub.")
         self.assertIn("19 oktyabrda saat 11:27-də Xəzər dənizində (3,5); 19 oktyabrda saat 11:35-də İsmayıllıda (3,0)",
-                      item["body"][1])
+                      item["body"][0])
         self.assertEqual(item["missing"], {"futbol": "Premyer Liqada bu həftə oyun olmayıb"})
+        self.assertEqual(sorted(n.calls), sorted([ox.SEYS_LIST, ic.om_url(D(2026, 10, 25), 7)]), "AMB-yə sorğu getmir")
 
     def test_premyer_liqa_round_wording(self):
         teams = {t: {"name": t.title()} for t in ("a", "b", "c", "d", "e", "f")}
@@ -494,24 +553,25 @@ class ReqemlerTest(unittest.TestCase):
         self.assertEqual(fact["body"], "Premyer Liqada 2 oyunda qol vurulmayıb (12-ci və 13-cü turlar).")
         self.assertEqual((fact["frag"], fact["prio"]), ("", 9))
         self.assertEqual(week([g("a", "b", 1, 0, day=10)]), (None, "Premyer Liqada bu həftə oyun olmayıb"))
+        fact, _ = week([g("a", "b", 1, 0, day=15, rnd="15"), g("c", "d", 0, 0, day=17, rnd="2"),
+                        g("e", "f", 2, 2, day=19, rnd="16")])
+        self.assertEqual(fact["body"], "Premyer Liqada 3 oyunda 5 qol vurulub (2-ci, 15-ci və 16-cı turlar).",
+                         "təxirə salınmış 2-ci turun oyunu: turlar sıra ilə yazılır")
 
-    def test_unchanged_rates_and_too_few_parts(self):
-        self.assertIsNone(ic._manat(D(2026, 10, 30), {"USD": 1.7, "EUR": 1.9}, D(2026, 11, 6), {"USD": 1.7, "EUR": 1.9}))
+    def test_too_few_parts(self):
         item, why = ic.reqemler_item(FIX, D(2026, 11, 8), ic._Get(None))
         self.assertFalse(item["worth"])
         self.assertEqual(why, "həftənin rəqəmlərindən yalnız 1 hissə alındı (ən azı 2 lazımdır)")
-        self.assertEqual(item["body"], [R8[2]])
+        self.assertEqual(item["body"], [R8[1]])
+        self.assertEqual(set(item["missing"]), {"zəlzələ", "temperatur"}, "AMB hissəsi yoxdur")
         self.assertEqual(ic.reqemler_item(FIX, D(2026, 11, 10), ic._Get(None)), (None, "bazar günü deyil"))
-        n = Net({ox.AMB_URL.format(D(2026, 11, 8)): amb_xml(D(2026, 10, 30), 1.7, 1.9)})
-        item, _ = ic.reqemler_item(FIX, D(2026, 11, 8), ic._Get(n))
-        self.assertIn("bu həftə bülleten olmayıb", item["missing"]["manat"])
 
 
 class ItemsAndSinaqTest(unittest.TestCase):
     def test_items_contract_and_requests(self):
         required = {"kind", "key", "title", "lead", "body", "credit", "link", "topic", "slot", "worth"}
         for now, keys, calls in ((at(2026, 11, 10), ["beledci-2026-11-10"], 2),
-                                 (at(2026, 11, 8), ["beledci-2026-11-08", "reqemler-2026-11-08"], 4)):
+                                 (at(2026, 11, 8), ["beledci-2026-11-08", "reqemler-2026-11-08"], 3)):
             n = real_net()
             rows = ic.items(FIX, now, fetch=n)
             self.assertEqual([i["key"] for i in rows], keys)
@@ -531,7 +591,7 @@ class ItemsAndSinaqTest(unittest.TestCase):
         while day <= D(2026, 11, 22):
             before = len(week.calls)
             ic.items(FIX, at(day.year, day.month, day.day), fetch=week)
-            self.assertLessEqual(len(week.calls) - before, 4, day)
+            self.assertLessEqual(len(week.calls) - before, 3, day)
             day += ic.DAY
 
     def test_leadership_is_never_published(self):
@@ -554,7 +614,7 @@ class ItemsAndSinaqTest(unittest.TestCase):
                      "### Zəlzələ hissəsi: zəlzələ olan ən son həftə",
                      "18–24 oktyabr, 25 oktyabr 2026, bazar xəbərinə düşərdi:",
                      "- Respublika Seysmoloji Xidmət Mərkəzinin məlumatına görə, son 7 gündə 3,0 və daha güclü 2 zəlzələ",
-                     "✅ Dərc olunardı", "Bu sınaqda 6 sorğu göndərilib."):
+                     "✅ Dərc olunardı", "İstehsalda gündə 2 sorğu gedir, bazar günü 3.", "Bu sınaqda 4 sorğu göndərilib."):
             self.assertIn(text, md)
         self.assertNotIn("⏭", md)
         import updater
