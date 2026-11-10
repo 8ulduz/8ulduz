@@ -92,7 +92,8 @@ test("x-worker 2: a story that is only in the minute channel gets the same page 
   assert.ok(page.includes('<meta property="og:title" content="Başlıq &lt;/script&gt;&lt;b&gt;" />'), "başlıq kodlanır");
   assert.ok(page.includes('<meta property="og:description" content="Xülasə" />'));
   assert.ok(page.includes(`<meta property="og:url" content="https://www.8ulduz.az/${ID}" />`), "kanonik ünvan bu serverdir: Facebook yenidən soruşsa yenə bura gəlir");
-  assert.ok(page.includes('<meta property="og:image" content="https://wsrv.nl/?url=https%3A%2F%2Fapa.az%2Fi.jpg%3Fa%3D1%26b%3D%282%29&amp;w=1200&amp;h=630&amp;fit=cover&amp;a=attention&amp;output=jpg&amp;q=78&amp;default=https%3A%2F%2F8ulduz.az%2Fassets%2Fog-default.png" />'), "şəkil proksidən 1200×630, Python quote() kimi kodlanır");
+  assert.ok(page.includes(`<meta property="og:image" content="https://www.8ulduz.az/i/${ID}.jpg" />`), "kart şəkli bu serverdən: wsrv.nl Facebook robotuna 403 verir (2026-11-10)");
+  assert.ok((await load()).pageHtml(row).includes('<meta property="og:image" content="https://wsrv.nl/?url=https%3A%2F%2Fapa.az%2Fi.jpg%3Fa%3D1%26b%3D%282%29&amp;w=1200&amp;h=630&amp;fit=cover&amp;a=attention&amp;output=jpg&amp;q=78&amp;default=https%3A%2F%2F8ulduz.az%2Fassets%2Fog-default.png" />'), "səhifə mətni updater.share_page ilə eyni qalır (şəkil proksidən 1200×630, Python quote())");
   assert.ok(page.includes('<meta property="og:locale" content="az_AZ" />') && page.includes('<meta name="twitter:card" content="summary_large_image" />'));
   const m = page.match(/<script>try\{sessionStorage\.setItem\("x:0123456789abcdef",(".*?")\)\}catch\(e\)\{\}location\.replace\(("[^"]+")\)<\/script>\n/);
   assert.ok(m, "sətir sessionStorage-a, dərhal sayta (updater.share_jump)");
@@ -254,4 +255,39 @@ test("x-worker: old x.8ulduz.az links keep working and point the card at the new
   assert.deepEqual(puts, [`https://www.8ulduz.az/${ID}`], "keş açarı hostdan asılı deyil: eyni xəbər bir dəfə saxlanır");
   const old = await call(w, "https://x.8ulduz.az/");
   assert.equal([old.status, old.headers.get("Location")].join(" "), "302 https://8ulduz.az/");
+});
+
+test("x-worker image: the card picture comes from this server — wsrv.nl first, the source picture if the proxy fails, site image when there is none; cached a day (sahib, 2026-11-10: Facebook kartında şəkil yox idi)", async () => {
+  const w = await load();
+  const minute = `https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/${SLOT}/latest.json`;
+  const proxied = "https://wsrv.nl/?url=https%3A%2F%2Fapa.az%2Fi.jpg%3Fa%3D1%26b%3D%282%29&w=1200&h=630&fit=cover&a=attention&output=jpg&q=78";
+  const jpg = (n = 1000) => new Response(new Uint8Array(n), { status: 200, headers: { "Content-Type": "image/jpeg", "Content-Length": String(n) } });
+  const realNow = Date.now; Date.now = () => NOW;
+  try {
+    let seen = world({ [minute]: json(200, feed([row])), [proxied]: () => jpg() });
+    const { puts } = memoryCache();
+    let r = await call(w, `https://www.8ulduz.az/i/${ID}.jpg`);
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get("Content-Type"), "image/jpeg");
+    assert.equal(r.headers.get("Cache-Control"), "public, max-age=86400");
+    assert.ok(seen.includes(proxied), "əvvəl wsrv.nl (kiçik JPEG)");
+    assert.ok(!seen.includes(row.imageUrl), "proksi alınanda mənbəyə getmir");
+    assert.deepEqual(puts, [`https://www.8ulduz.az/i/${ID}.jpg`]);
+
+    seen = world({ [minute]: json(200, feed([row])), [proxied]: () => new Response("Forbidden", { status: 403, headers: { "Content-Type": "text/plain" } }), [row.imageUrl]: () => jpg() });
+    memoryCache();
+    r = await call(w, `https://www.8ulduz.az/i/${ID}.jpg`);
+    assert.equal(r.status, 200, "proksi imtina edəndə mənbənin öz şəkli");
+    assert.ok(seen.includes(row.imageUrl));
+
+    world({ [minute]: json(200, feed([{ ...row, imageUrl: "" }])) }); memoryCache();
+    r = await call(w, `https://www.8ulduz.az/i/${ID}.jpg`);
+    assert.equal(r.status, 302);
+    assert.equal(r.headers.get("Location"), "https://8ulduz.az/assets/og-default.png", "şəkilsiz xəbər: saytın şəkli");
+
+    world({ [minute]: json(200, feed([row])), [proxied]: () => jpg(9e6), [row.imageUrl]: () => new Response("<html>", { status: 200, headers: { "Content-Type": "text/html" } }) }); memoryCache();
+    r = await call(w, `https://www.8ulduz.az/i/${ID}.jpg`);
+    assert.equal(r.status, 302, "çox böyük və ya şəkil olmayan cavab verilmir");
+  } finally { Date.now = realNow; }
+  assert.equal(w.ownImage('<meta property="og:image" content="https://8ulduz.az/assets/og-default.png" />', ID), '<meta property="og:image" content="https://8ulduz.az/assets/og-default.png" />', "saytın öz şəkli dəyişmir");
 });
