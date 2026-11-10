@@ -1,0 +1,452 @@
+"""Öz futbol xəbərləri (oz_futbol_az.py): Premyer Liqanın turu, tura baxış və bombardirlər, I/II Liqa, kubok, milli, avrokubok.
+Şəbəkə yoxdur: pfl.az saxta cavabla əvəz olunur. Real məlumat: tests/fixtures/oz_futbol_az — main-in 2026-11-10 tarixli
+data/futbol faylları (logolar və uzaq turlar çıxarılıb) və pfl.az-ın həmin günkü /seasons, /bombarders/list cavabları."""
+import datetime
+import io
+import json
+import pathlib
+import re
+import tempfile
+import unittest
+from contextlib import redirect_stdout
+from unittest.mock import patch
+
+import oz_futbol_az as fa
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+FIX = pathlib.Path(__file__).resolve().parent / "fixtures" / "oz_futbol_az"
+PFL = "https://pfl.az/api/v1"
+
+
+def at(s):
+    return datetime.datetime.fromisoformat(s)
+
+
+def by_key(rows):
+    return {r["key"]: r for r in rows}
+
+
+class FakeFetch:
+    """pfl.az-ın saxtası: ünvanın sonu -> cavab. Tanımadığı ünvana şəbəkə xətası verir."""
+    def __init__(self, pages):
+        self.pages, self.urls = pages, []
+
+    def __call__(self, url, timeout=None, headers=None):
+        self.urls.append(url)
+        for end, body in self.pages.items():
+            if url.endswith(end):
+                return body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        raise OSError("şəbəkə yoxdur: " + url)
+
+
+def real_pfl():
+    return FakeFetch({"/seasons?project_id=1": (FIX / "pfl" / "seasons.json").read_bytes(),
+                      "/bombarders/list?league_id=52": (FIX / "pfl" / "bombarders-list.json").read_bytes()})
+
+
+# --- Süni liqa: kənar hallar üçün ------------------------------------------------------------------------------
+
+TEAMS = {"neftci": "Neftçi", "sabah": "Sabah", "qarabag": "Qarabağ", "zire": "Zirə"}
+
+
+def game(rnd, date, home, away, score=None, stadium="Palms Sports Arena"):
+    g = {"home": home, "away": away, "date": date, "played": score is not None, "stadium": stadium, "round": str(rnd)}
+    if score is not None:
+        g["hs"], g["as"] = score
+    return g
+
+
+def rows_for(games, teams=TEAMS):
+    """Rəsmi cədvəl kimi: oyun sayı və xal oyunlardan."""
+    t = {k: {"team": k, "p": 0, "pts": 0} for k in teams}
+    for g in games:
+        if g["played"]:
+            for k, a, b in ((g["home"], g["hs"], g["as"]), (g["away"], g["as"], g["hs"])):
+                t[k]["p"] += 1
+                t[k]["pts"] += 3 if a > b else 1 if a == b else 0
+    rows = sorted(t.values(), key=lambda r: -r["pts"])
+    for i, r in enumerate(rows, 1):
+        r["pos"] = i
+    return rows
+
+
+def league(games, rows=None, lid="premyer-liqa", name="Misli Premyer Liqası", short="Premyer Liqa", teams=TEAMS):
+    return {"id": lid, "name": name, "short": short, "source": "pfl.az", "key": "2026", "season": "2026-27",
+            "teams": {k: {"name": v} for k, v in teams.items()},
+            "groups": [{"name": "", "rows": rows_for(games, teams) if rows is None else rows}], "games": games}
+
+
+def site(tmp, docs):
+    """docs: {"premyer-liqa": {...}} -> tmp/data/futbol/premyer-liqa.json."""
+    root = pathlib.Path(tmp)
+    (root / "data" / "futbol").mkdir(parents=True, exist_ok=True)
+    for name, doc in docs.items():
+        text = doc if isinstance(doc, str) else json.dumps(doc, ensure_ascii=False)
+        (root / "data" / "futbol" / f"{name}.json").write_text(text, encoding="utf-8")
+    return root
+
+
+R1 = [game(1, "2026-11-01T15:00+04:00", "neftci", "sabah", (2, 0)), game(1, "2026-11-01T18:00+04:00", "qarabag", "zire", (1, 1))]
+R2 = [game(2, "2026-11-08T15:00+04:00", "sabah", "qarabag", (1, 0)), game(2, "2026-11-08T18:00+04:00", "zire", "neftci", (0, 3))]
+
+
+class WritingTest(unittest.TestCase):
+    def test_case_endings_follow_pronunciation(self):
+        self.assertEqual([fa.sx(n, c) for n, c in (
+            ("Araz-Naxçıvan", "dat"), ("Şamaxı", "ins"), ("Zirə", "acc"), ("Sabah", "abl"), ("Neftçi", "gen"), ("Kəpəz", "dat"),
+            ("Qaradağ L.", "acc"), ("Viking", "dat"), ("Barcelona", "ins"), ("Manchester City", "acc"), ("Slavia Prague", "acc"),
+            ("Rheinpark Stadion", "loc"), ("İmişli", "dat"), ("MOİK", "acc"))],
+            ["«Araz-Naxçıvan»a", "«Şamaxı»yla", "«Zirə»ni", "«Sabah»dan", "«Neftçi»nin", "«Kəpəz»ə", "«Qaradağ L.»ı", "«Viking»ə",
+             "«Barcelona»yla", "«Manchester City»ni", "«Slavia Prague»ı", "«Rheinpark Stadion»da", "«İmişli»yə", "«MOİK»i"])
+        self.assertEqual([fa.sx("Lixtenşteyn", "dat", False), fa.sx("Litva", "acc", False), fa.sx("Premyer Liqa", "loc", False),
+                          fa.sx("Misli Premyer Liqası", "gen", False), fa.sx("Azərbaycan Kuboku", "acc", False)],
+                         ["Lixtenşteynə", "Litvanı", "Premyer Liqada", "Misli Premyer Liqasının", "Azərbaycan Kubokunu"])
+
+    def test_venues_are_written_in_full(self):
+        self.assertEqual([fa.venue(v) for v in ("Tovuz şəhər st.", "M.H. Sumqayıt ş. st.", "Bank Respublika A.",
+                                                 "T.B. - Respublika st.", "Azersun Arena", "H.Ə. adına İmişli ş. st.")],
+                         ["Tovuz şəhər stadionu", "Mehdi Hüseynzadə adına Sumqayıt şəhər stadionu", "Bank Respublika Arena",
+                          "Tofiq Bəhramov adına Respublika stadionu", "Azersun Arena", "İmişli şəhər stadionu"])
+        self.assertEqual([fa._venue_loc("Yevlax şəhər stadionu"), fa._venue_loc("Azersun Arena"), fa._venue_loc("Palms Sports FM")],
+                         ["Yevlax şəhər stadionunda", "Azersun Arenada", ""])
+
+    def test_publish_time_after_a_game(self):
+        self.assertEqual(fa._ready_after(at("2026-11-08T17:30+04:00")), at("2026-11-08T19:45+04:00"))
+        self.assertEqual(fa._ready_after(at("2026-11-08T21:45+04:00")), at("2026-11-09T00:00+04:00"))
+        self.assertEqual(fa._ready_after(at("2026-11-08T23:00+04:00")), at("2026-11-09T09:00+04:00"))
+        self.assertEqual(fa._ready_after(at("2026-11-05T00:00+04:00"), 8), at("2026-11-05T08:00+04:00"))
+        self.assertEqual([fa._span(at("2026-11-06T18:00+04:00"), at("2026-11-08T17:30+04:00")),
+                          fa._span(at("2026-10-30T18:30+04:00"), at("2026-11-02T19:00+04:00"))], ["6–8 noyabr", "30 oktyabr – 2 noyabr"])
+
+
+class RealPremyerLiqaTest(unittest.TestCase):
+    """Real məlumat: 11-ci tur 6–8 noyabr, 12-ci tur 20–22 noyabr, 13-cü turun saatları 00:00."""
+
+    def test_fixture_reads_without_errors(self):
+        evs, errors = fa._events(FIX)
+        self.assertEqual(errors, [])
+        self.assertTrue({"pfl-tur", "pfl-tur-oncesi", "pfl-bombardir", "liqa-tur", "kubok-merhele", "kubok-cutler",
+                         "milli-oncesi", "milli-netice", "avro-oncesi", "avro-netice"} <= {e["kind"] for e in evs})
+
+    def test_round_summary_after_the_last_game(self):
+        item = by_key(fa.items(FIX, at("2026-11-08T20:00+04:00")))["tur-premyer-liqa-2026-t11"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Premyer Liqada 11-ci tur: «Neftçi» fərqi 3 xala çatdırıb, 6 oyunda 13 qol vurulub")
+        self.assertEqual(item["lead"], "Misli Premyer Liqasının 11-ci turu 6–8 noyabrda keçirilib. Lider «Neftçi» «Kəpəz»i 1:0 hesabı "
+                                       "ilə məğlub edib və 24 xal toplayıb. «Sabah» və «Turan Tovuz» 21 xal toplayıb. Liderin fərqi "
+                                       "1 xaldan 3 xala çatıb. Turun 6 oyununda 13 qol vurulub.")
+        self.assertEqual(item["body"], [
+            "«Qarabağ» – «Turan Tovuz» – 0:1", "«Neftçi» – «Kəpəz» – 1:0", "«Şəfa» – «Araz-Naxçıvan» – 2:2",
+            "«Zirə» – «Qəbələ» – 2:1", "«İmişli» – «Sumqayıt» – 0:0", "«Sabah» – «Şamaxı» – 2:2",
+            "Cədvəldə «Turan Tovuz» 4-cü yerdən 3-cü yerə, «Zirə» 6-cı yerdən 5-ci yerə qalxıb; «Qarabağ» 3-cü yerdən 4-cü yerə, "
+            "«Kəpəz» 5-ci yerdən 6-cı yerə düşüb.",
+            "«Sabah», «Qarabağ», «Kəpəz» və «Sumqayıt» 10 oyun keçirib, digər komandalar isə 11 oyun.",
+            "2-ci turun «Sabah» – «Sumqayıt» və «Qarabağ» – «Kəpəz» oyunları 17 dekabrda keçiriləcək."])
+        self.assertEqual((item["slot"], item["topic"], item["credit"], item["kind"], item["list"]),
+                         ("19:45", "idman", "Peşəkar Futbol Liqası", "pfl-tur", True))
+
+    def test_round_summary_window(self):
+        def keys(now):
+            return {i["key"] for i in fa.items(FIX, at(now))}
+        self.assertNotIn("tur-premyer-liqa-2026-t11", keys("2026-11-08T19:40+04:00"))  # son oyun 17:30-da başlayıb
+        self.assertIn("tur-premyer-liqa-2026-t11", keys("2026-11-09T09:00+04:00"))
+        self.assertNotIn("tur-premyer-liqa-2026-t11", keys("2026-11-10T08:00+04:00"))  # 36 saat keçib
+
+    def test_preview_the_day_before_with_head_to_head(self):
+        item = by_key(fa.items(FIX, at("2026-11-19T12:30+04:00")))["tur-oncesi-premyer-liqa-2026-t12"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Premyer Liqada 12-ci tur 20 noyabrda başlayır: lider «Neftçi» sonuncu «Araz-Naxçıvan»a qonaq gedəcək")
+        self.assertEqual(item["lead"], "Misli Premyer Liqasının 12-ci turu 20–22 noyabrda keçiriləcək. Tur 20 noyabrda saat 14:30-da "
+                                       "Yevlax şəhər stadionunda «İmişli» – «Zirə» oyunu ilə başlayacaq. 24 xalla lider olan «Neftçi» "
+                                       "22 noyabrda saat 14:30-da Şamaxı şəhər stadionunda «Araz-Naxçıvan»a qonaq olacaq. Komandalar "
+                                       "Premyer Liqada 2024-25 mövsümündən bəri 8 dəfə qarşılaşıb: «Neftçi» 3, «Araz-Naxçıvan» 2 dəfə "
+                                       "qalib gəlib, 3 oyun heç-heçə bitib.")
+        self.assertEqual(len(item["body"]), 6)
+        self.assertEqual(item["body"][0], "20 noyabr, 14:30, Yevlax şəhər stadionu: «İmişli» (8-ci yer, 11 xal) – «Zirə» (5-ci yer, "
+                                          "19 xal). Son qarşılaşma: 22 avqust 2026, «Zirə» – «İmişli» – 3:1.")
+        # Bu mövsümkü oyunları sonraya salınıb: son qarşılaşma keçən mövsümdəndir.
+        self.assertEqual(item["body"][1], "20 noyabr, 19:00, Mehdi Hüseynzadə adına Sumqayıt şəhər stadionu: «Sumqayıt» (9-cu yer, "
+                                          "10 xal) – «Sabah» (2-ci yer, 21 xal). Son qarşılaşma: 19 mart 2026, «Sabah» – «Sumqayıt» – 3:1.")
+        self.assertEqual(item["slot"], "12:00")
+        self.assertNotIn("tur-oncesi-premyer-liqa-2026-t12", {i["key"] for i in fa.items(FIX, at("2026-11-20T14:30+04:00"))})
+
+    def test_placeholder_kick_off_times_give_no_preview(self):
+        item = by_key(fa.items(FIX, at("2026-11-26T12:30+04:00")))["tur-oncesi-premyer-liqa-2026-t13"]
+        self.assertFalse(item["worth"])
+        self.assertIn("00:00", item["why"])
+
+    def test_scorers_come_from_pfl_sorted_by_goals(self):
+        fetch = real_pfl()
+        item = by_key(fa.items(FIX, at("2026-11-09T10:30+04:00"), fetch))["bombardir-premyer-liqa-2026-t11"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Premyer Liqanın bombardirlər yarışında «Neftçi»nin futbolçusu Breno Almeyda 9 qolla öndədir")
+        self.assertEqual(item["lead"], "Misli Premyer Liqasının 11-ci turundan sonra bombardirlər siyahısına «Neftçi»nin futbolçusu "
+                                       "Breno Almeyda 9 qolla başçılıq edir. «Sabah»dan Coy-Lens Mikels 7, «Araz-Naxçıvan»dan "
+                                       "Ağadadaş Salyanskiy 5 qol vurub.")
+        self.assertEqual(item["body"], [
+            "Breno Almeyda («Neftçi») – 9 qol", "Coy-Lens Mikels («Sabah») – 7 qol", "Ağadadaş Salyanskiy («Araz-Naxçıvan») – 5 qol",
+            "Aleksey Kaşuk («Qarabağ») – 4 qol", "Davit Volkov («Zirə») – 4 qol", "Joarlem Santos («Turan Tovuz») – 4 qol",
+            "Qustavo Klisman («Neftçi») – 4 qol", "Ronaldo Vaskez («Sumqayıt») – 4 qol"])
+        self.assertEqual(fetch.urls, [PFL + "/seasons?project_id=1", PFL + "/bombarders/list?league_id=52"])
+        self.assertEqual(item["slot"], "10:00")
+
+    def test_scorers_need_the_fetch_and_a_quiet_league(self):
+        item = by_key(fa.items(FIX, at("2026-11-09T10:30+04:00")))["bombardir-premyer-liqa-2026-t11"]
+        self.assertFalse(item["worth"])
+        self.assertIn("sorğu", item["why"])
+        broken = by_key(fa.items(FIX, at("2026-11-09T10:30+04:00"), FakeFetch({})))["bombardir-premyer-liqa-2026-t11"]
+        self.assertFalse(broken["worth"])
+        self.assertIn("pfl.az alınmadı", broken["why"])
+
+    def test_paged_scorer_list_falls_back_to_the_full_list(self):
+        page = json.loads((FIX / "pfl" / "bombarders-list.json").read_text(encoding="utf-8"))
+        page["data"]["last_page"], page["data"]["total"] = 2, 25
+        full = {"data": page["data"]["data"] + [{"player": {"name": "Yeni", "surname": "Bombardir"}, "club": {"title": "Zirə"},
+                                                  "value": "12"}]}
+        fetch = FakeFetch({"/seasons?project_id=1": (FIX / "pfl" / "seasons.json").read_bytes(),
+                           "/bombarders/list?league_id=52": page, "/bombarders?league_id=52": full})
+        rows = fa.pfl_scorers(fetch, "2026-27")
+        self.assertEqual([(r["name"], r["goals"]) for r in rows[:3]], [("Yeni Bombardir", 12), ("Breno Almeyda", 9), ("Coy-Lens Mikels", 7)])
+        self.assertEqual(fetch.urls[-1], PFL + "/bombarders?league_id=52")
+        self.assertEqual(len(fetch.urls), 3)
+        with self.assertRaises(ValueError):  # başqa mövsümün liqası
+            fa.pfl_scorers(fetch, "2027-28")
+
+    def test_scorer_sort_is_numeric_with_a_stable_tie_rule(self):
+        rows = [{"player": {"name": n, "surname": s}, "club": {"title": c}, "value": v} for n, s, c, v in (
+            ("Ruslan", "Quliyev", "Şirvan", "12"), ("Elçin", "Qasımov", "Ağstafa Gəncləri", "17"), ("Çingiz", "Məmmədov", "Şirvan", "3"),
+            ("Amil", "Yunanov", "Şirvan", "9"), ("Bəxtiyar", "Həsənov", "Difai", "3"), ("Boş", "Dəyər", "Difai", None))]
+        got, more = fa.scorer_rows({"data": {"data": rows, "last_page": 1, "total": 6}})
+        self.assertFalse(more)
+        self.assertEqual([(r["name"], r["goals"]) for r in fa.sorted_scorers(got)],
+                         [("Elçin Qasımov", 17), ("Ruslan Quliyev", 12), ("Amil Yunanov", 9), ("Bəxtiyar Həsənov", 3),
+                          ("Çingiz Məmmədov", 3)])
+        self.assertEqual(fa.scorer_rows({"data": rows[:2]})[0][0]["goals"], 12)  # /bombarders: səhifəsiz siyahı
+
+
+class RealLowerLeaguesAndCupTest(unittest.TestCase):
+    def test_ii_liqa_round_summary(self):
+        item = by_key(fa.items(FIX, at("2026-11-03T18:00+04:00")))["tur-ii-liqa-2026-t9"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "II Liqada 9-cu tur: «Ağstafa Gəncləri» «Şəki»ni 11:1 hesabı ilə məğlub edib")
+        self.assertEqual(item["lead"], "II Liqanın 9-cu turu 1–3 noyabrda keçirilib. Lider «Qaradağ L.» səfərdə «Marafon»u 1:0 hesabı "
+                                       "ilə məğlub edib və 24 xal toplayıb. «Şirvan» 22 xalla ikinci yerdədir. Liderin fərqi 1 xaldan "
+                                       "2 xala çatıb. Turun 6 oyununda 25 qol vurulub.")
+        self.assertEqual(item["body"][0], "«Ağstafa Gəncləri» – «Şəki» – 11:1")
+        self.assertEqual((len(item["body"]), item["kind"]), (6, "liqa-tur"))
+
+    def test_incomplete_round_gives_no_item(self):
+        item = by_key(fa.items(FIX, at("2026-11-10T18:00+04:00")))["tur-ii-liqa-2026-t10"]
+        self.assertFalse(item["worth"])
+        self.assertEqual(item["why"], "tur bitməyib: «Difai» – «Zəngəzur», «Şirvan» – «Marafon» və «Şəki» – «Dinamo» oyunlarının "
+                                      "nəticəsi yoxdur")
+
+    def test_round_counted_by_the_table_but_missing_in_games(self):
+        item = by_key(fa.items(FIX, at("2026-11-05T18:00+04:00")))["tur-i-liqa-2026-t7"]
+        self.assertFalse(item["worth"])
+        self.assertEqual(item["why"], "tur bitməyib: «Mingəçevir» – «Şahdağ Qusar» oyununun nəticəsi yoxdur (rəsmi cədvəl isə bu "
+                                      "oyunu sayıb)")
+
+    def test_points_tie_at_the_top(self):
+        item = by_key(fa.items(FIX, at("2026-10-22T18:00+04:00")))["tur-i-liqa-2026-t6"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "I Liqada 6-cı tur: «Gəncəbasar» «Zaqatala»nı 7:0 hesabı ilə məğlub edib")
+        self.assertEqual(item["lead"], "I Liqanın 6-cı turu 21–22 oktyabrda keçirilib. «Gəncəbasar» və «Şahdağ Qusar» 15 xalla "
+                                       "cədvəlin başındadır. Turun 5 oyununda 20 qol vurulub.")
+
+    def test_cup_stage_results(self):
+        item = by_key(fa.items(FIX, at("2026-10-29T17:00+04:00")))["kubok-2026-ii-tesnifat-yekun"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Azərbaycan Kubokunun II təsnifat mərhələsi: «Sumqayıt» səfərdə «Kür-Araz»ı 11:0 hesabı ilə "
+                                        "məğlub edib")
+        self.assertEqual(item["lead"], "Azərbaycan Kubokunun II təsnifat mərhələsi 27–29 oktyabrda keçirilib. Mərhələnin 12 oyununda "
+                                       "71 qol vurulub.")
+        self.assertIn("«Səbail» – «Zirə» – 2:2 (növbəti mərhələyə «Zirə» keçib)", item["body"])
+        self.assertEqual(len(item["body"]), 12)
+
+    def test_cup_pairs_without_the_placeholder_date(self):
+        item = by_key(fa.items(FIX, at("2026-11-03T12:00+04:00")))["kubok-2026-1-8-final-cutler"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Azərbaycan Kubokunun 1/8 final mərhələsi: «Turan Tovuz» «Kəpəz»i, «Sabah» «İmişli»ni qəbul edəcək")
+        self.assertEqual(item["lead"], "Azərbaycan Kubokunun 1/8 final mərhələsinin cütləri bəllidir. Premyer Liqa komandaları 4 cütdə "
+                                       "qarşılaşacaq: «Turan Tovuz» – «Kəpəz», «Sabah» – «İmişli», «Neftçi» – «Şəfa», «Sumqayıt» – «Qarabağ».")
+        self.assertEqual(len(item["body"]), 8)
+        self.assertNotIn("dekabr", item["lead"] + " ".join(item["body"]))  # 1 dekabr 12:00 hamısı üçün yer tutucudur
+        self.assertNotIn("kubok-2026-1-8-final-cutler", {i["key"] for i in fa.items(FIX, at("2026-11-09T12:00+04:00"))})
+
+
+class RealNationalAndEuropeTest(unittest.TestCase):
+    def test_national_team_preview(self):
+        item = by_key(fa.items(FIX, at("2026-11-12T12:30+04:00")))["milli-ml-d-2026-20261113-oncesi"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Azərbaycan millisi Millətlər Liqasında 13 noyabrda Lixtenşteynə qonaq gedəcək")
+        self.assertEqual(item["lead"], "Azərbaycan millisi UEFA Millətlər Liqasının D liqasında 2-ci qrupun növbəti oyununu 13 noyabrda "
+                                       "«Rheinpark Stadion»da Lixtenşteyn millisinə qarşı keçirəcək. Görüş Bakı vaxtı ilə saat 23:45-də "
+                                       "başlayacaq. Qrupda Azərbaycan 3 oyunda 5 xalla birinci, Litva 3 oyunda 4 xalla ikinci, "
+                                       "Lixtenşteyn 2 oyunda 1 xalla üçüncü yerdədir. Bu, Azərbaycanın qrupdakı son oyunudur.")
+        self.assertEqual((item["credit"], item["slot"]), ("Vikipediya", "12:00"))
+
+    def test_national_team_result(self):
+        item = by_key(fa.items(FIX, at("2026-10-04T20:00+04:00")))["milli-ml-d-2026-20261004-netice"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Azərbaycan millisi Millətlər Liqasında Litvanı 1:0 hesabı ilə məğlub edib")
+        self.assertEqual(item["lead"], "Azərbaycan millisi UEFA Millətlər Liqasının D liqasında 2-ci qrupun oyununda Neftçi Arenada Litva "
+                                       "millisini 1:0 hesabı ilə məğlub edib. Bu nəticədən sonra Azərbaycan 3 oyunda 5 xal toplayıb və "
+                                       "qrupda birinci yerdədir. Komanda növbəti oyununu 13 noyabrda Bakı vaxtı ilə saat 23:45-də "
+                                       "Lixtenşteynə qarşı keçirəcək.")
+        self.assertEqual(item["body"], ["1. Azərbaycan – 3 oyun, 5 xal", "2. Litva – 3 oyun, 4 xal", "3. Lixtenşteyn – 2 oyun, 1 xal"])
+
+    def test_sabah_result_in_europe(self):
+        item = by_key(fa.items(FIX, at("2026-11-05T08:30+04:00")))["avro-cl-2026-sabah-20261105-netice"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "«Sabah» Çempionlar Liqasında «Viking»ə 1:4 hesabı ilə uduzub")
+        self.assertEqual(item["lead"], "Çempionlar Liqasının liqa mərhələsinin 4-cü turunda «Sabah» səfərdə «Viking»lə qarşılaşıb və 1:4 "
+                                       "hesabı ilə məğlub olub. Azərbaycan təmsilçisi 4 oyunda 3 xal toplayıb (1 qələbə, 3 məğlubiyyət) "
+                                       "və 36 komanda arasında 31-ci yerdədir. «Sabah» növbəti oyununu 25 noyabrda Bakı vaxtı ilə saat "
+                                       "21:45-də doğma meydanda «Barcelona»ya qarşı keçirəcək.")
+        self.assertEqual((item["slot"], item["credit"]), ("08:00", "OpenLigaDB"))  # oyun Bakı vaxtı ilə 00:00-da başlayıb
+
+    def test_sabah_preview(self):
+        item = by_key(fa.items(FIX, at("2026-11-24T12:30+04:00")))["avro-cl-2026-sabah-20261125-oncesi"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "«Sabah» Çempionlar Liqasında 25 noyabrda «Barcelona»nı qəbul edəcək")
+        self.assertEqual(item["lead"], "Çempionlar Liqasının liqa mərhələsinin 5-ci turunda «Sabah» 25 noyabrda Bakı vaxtı ilə saat "
+                                       "21:45-də doğma meydanda «Barcelona»yla qarşılaşacaq. «Sabah» 4 oyunda 3 xal toplayıb və 36 "
+                                       "komanda arasında 31-ci yerdədir. «Barcelona» 4 oyunda 9 xalla 5-ci yerdədir.")
+
+
+class EdgeCaseTest(unittest.TestCase):
+    def items_at(self, docs, now, fetch=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            return by_key(fa.items(site(tmp, docs), at(now), fetch))
+
+    def test_round_with_an_unplayed_game_waits(self):
+        games = R1 + R2 + [game(3, "2026-11-15T15:00+04:00", "neftci", "qarabag", (1, 0)),
+                           game(3, "2026-11-15T18:00+04:00", "sabah", "zire")]
+        item = self.items_at({"premyer-liqa": league(games)}, "2026-11-15T21:00+04:00")["tur-premyer-liqa-2026-t3"]
+        self.assertFalse(item["worth"])
+        self.assertEqual(item["why"], "tur bitməyib: «Sabah» – «Zirə» oyununun nəticəsi yoxdur")
+
+    def test_postponed_game_does_not_hold_the_round(self):
+        games = R1 + R2 + [game(3, "2026-11-15T15:00+04:00", "neftci", "qarabag", (1, 0)),
+                           game(3, "2026-12-20T18:00+04:00", "sabah", "zire")]
+        item = self.items_at({"premyer-liqa": league(games)}, "2026-11-15T18:00+04:00")["tur-premyer-liqa-2026-t3"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Premyer Liqada 3-cü tur: «Neftçi» fərqi 6 xala çatdırıb, 1 oyunda 1 qol vurulub")
+        self.assertIn("Turun «Sabah» – «Zirə» oyunu 20 dekabrda keçiriləcək.", item["body"])
+        self.assertIn("«Sabah» və «Zirə» 2 oyun keçirib, digər komandalar isə 3 oyun.", item["body"])
+        self.assertEqual(item["slot"], "17:15")
+
+    def test_placeholder_times(self):
+        games = R1 + R2 + [game(3, "2026-11-22T00:00+04:00", "neftci", "zire"), game(3, "2026-11-22T00:00+04:00", "sabah", "qarabag")]
+        item = self.items_at({"premyer-liqa": league(games)}, "2026-11-21T12:30+04:00")["tur-oncesi-premyer-liqa-2026-t3"]
+        self.assertFalse(item["worth"])
+        self.assertIn("00:00", item["why"])
+        games[-2]["date"] = games[-1]["date"] = "2026-11-22T16:00+04:00"
+        item = self.items_at({"premyer-liqa": league(games)}, "2026-11-21T12:30+04:00")["tur-oncesi-premyer-liqa-2026-t3"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertTrue(item["title"].startswith("Premyer Liqada 3-cü tur 22 noyabrda başlayır: lider «Neftçi» "), item["title"])
+
+    def test_table_ties_are_not_ranked_by_guess(self):
+        games = [game(1, "2026-11-01T15:00+04:00", "neftci", "sabah", (1, 0)), game(1, "2026-11-01T18:00+04:00", "qarabag", "zire", (1, 0)),
+                 game(2, "2026-11-08T15:00+04:00", "sabah", "zire", (2, 0)), game(2, "2026-11-08T18:00+04:00", "neftci", "qarabag", (0, 0))]
+        got = self.items_at({"premyer-liqa": league(games)}, "2026-11-08T21:00+04:00")
+        item = got["tur-premyer-liqa-2026-t2"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Premyer Liqada 2-ci tur: «Qarabağ» və «Neftçi» 4 xalla öndədir, 2 oyunda 2 qol vurulub")
+        self.assertIn("«Qarabağ» və «Neftçi» 4 xalla cədvəlin başındadır.", item["lead"])
+        self.assertFalse(any(b.startswith("Cədvəldə") for b in item["body"]))  # yeri bölüşülənlərin «yer dəyişməsi» yazılmır
+
+    def test_table_that_disagrees_with_the_games_gives_no_item(self):
+        rows = rows_for(R1 + R2)
+        rows[0]["pts"] += 2
+        item = self.items_at({"premyer-liqa": league(R1 + R2, rows=rows)}, "2026-11-08T21:00+04:00")["tur-premyer-liqa-2026-t2"]
+        self.assertFalse(item["worth"])
+        self.assertTrue(item["why"].startswith("rəsmi cədvəl oyunların nəticələri ilə uyğun gəlmir"), item["why"])
+
+    def test_missing_or_broken_data_gives_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(fa.items(pathlib.Path(tmp), at("2026-11-10T09:00+04:00")), [])
+            md = "\n".join(fa.sinaq(pathlib.Path(tmp), at("2026-11-10T09:00+04:00"), FakeFetch({})))
+            self.assertIn("> Məlumatda belə hal yoxdur.", md)
+        broken = {"premyer-liqa": "{not json", "i-liqa": {"games": "x", "teams": [], "groups": "y"},
+                  "kubok": {"games": [{"home": "a"}, {"home": "a", "away": "b", "date": "dünən"}]}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = site(tmp, broken)
+            self.assertEqual(fa.items(root, at("2026-11-10T09:00+04:00")), [])
+            self.assertEqual(fa._events(root)[1], [])
+
+    def test_leadership_name_is_never_auto_published(self):
+        teams = dict(TEAMS, zire="İlham Əliyev")
+        item = self.items_at({"premyer-liqa": league(R1 + R2, teams=teams)}, "2026-11-08T21:00+04:00")["tur-premyer-liqa-2026-t2"]
+        self.assertFalse(item["worth"])
+        self.assertIn("rəhbərliyin adı", item["why"])
+
+    def test_daily_cap_keeps_the_most_important(self):
+        docs = {"premyer-liqa": league(R1 + R2),
+                "i-liqa": league(R1 + R2, lid="i-liqa", name="I Liqa", short="I Liqa")}
+        got = self.items_at(docs, "2026-11-08T21:00+04:00")
+        self.assertTrue(got["tur-premyer-liqa-2026-t2"]["worth"])
+        self.assertTrue(got["tur-i-liqa-2026-t2"]["worth"])
+        with patch.object(fa, "DAY_CAP", 1):
+            got = self.items_at(docs, "2026-11-08T21:00+04:00")
+        self.assertTrue(got["tur-premyer-liqa-2026-t2"]["worth"])
+        self.assertFalse(got["tur-i-liqa-2026-t2"]["worth"])
+        self.assertIn("gündəlik hədd", got["tur-i-liqa-2026-t2"]["why"])
+
+
+class ContractTest(unittest.TestCase):
+    TIMES = ("2026-10-04T20:00+04:00", "2026-10-22T18:00+04:00", "2026-10-29T17:00+04:00", "2026-11-03T18:00+04:00",
+             "2026-11-05T08:30+04:00", "2026-11-05T18:00+04:00", "2026-11-08T20:00+04:00", "2026-11-09T10:30+04:00",
+             "2026-11-10T18:00+04:00", "2026-11-12T12:30+04:00", "2026-11-19T12:30+04:00", "2026-11-24T12:30+04:00",
+             "2026-11-26T12:30+04:00")
+
+    def test_every_item_follows_the_contract(self):
+        seen = 0
+        for now in self.TIMES:
+            got = fa.items(FIX, at(now), real_pfl())
+            self.assertEqual(got, fa.items(FIX, at(now), real_pfl()))  # eyni məlumat və an: eyni nəticə
+            self.assertLessEqual(sum(1 for i in got if i["worth"]), fa.DAY_CAP * 2)
+            for i in got:
+                seen += 1
+                for k in ("kind", "key", "title", "lead", "body", "credit", "link", "topic", "slot", "worth"):
+                    self.assertIn(k, i)
+                self.assertIsInstance(i["body"], list)
+                self.assertEqual(i["topic"], "idman")
+                self.assertRegex(i["slot"], r"^\d\d:\d\d$")
+                self.assertTrue(i["link"].startswith("https://"), i["link"])
+                if i["worth"]:
+                    self.assertLessEqual(len(i["title"]), fa.TITLE_MAX, i["title"])
+                    self.assertFalse(i["title"].endswith("."), i["title"])
+                    self.assertNotRegex(i["title"] + i["lead"] + " ".join(i["body"]), r"«»|None|\{|\}")
+                else:
+                    self.assertTrue(i.get("why"), i["key"])
+        self.assertGreater(seen, 15)
+
+    def test_sinaq_shows_real_cases_without_network(self):
+        fetch = real_pfl()
+        md = "\n".join(fa.sinaq(FIX, at("2026-11-10T09:00+04:00"), fetch))
+        for head in ("## Premyer Liqa: tur icmalı", "## Premyer Liqa: növbəti tura baxış", "## Premyer Liqa: bombardirlər",
+                     "## I Liqa: tur icmalı", "## II Liqa: tur icmalı", "## Azərbaycan Kuboku: cütlər",
+                     "## Azərbaycan millisi: oyundan bir gün əvvəl", "## Avrokubok: nəticə"):
+            self.assertIn(head, md)
+        self.assertIn("### Premyer Liqada 11-ci tur: «Neftçi» fərqi 3 xala çatdırıb, 6 oyunda 13 qol vurulub", md)
+        self.assertIn("### Premyer Liqanın bombardirlər yarışında «Neftçi»nin futbolçusu Breno Almeyda 9 qolla öndədir", md)
+        self.assertIn("✅ Dərc olunardı", md)
+        self.assertIn("⏭ Dərc olunmazdı: tur bitməyib: «Mingəçevir» – «Şahdağ Qusar»", md)
+        self.assertEqual(fetch.urls, [PFL + "/seasons?project_id=1", PFL + "/bombarders/list?league_id=52"])
+
+    def test_cli_prints_the_sample(self):
+        out = io.StringIO()
+        with patch.object(fa, "_real_fetch", return_value=real_pfl()), redirect_stdout(out):
+            self.assertEqual(fa.main(["--sinaq", "--root", str(FIX), "--now", "2026-11-10T09:00+04:00"]), 0)
+        self.assertIn("## Azərbaycan futbolu: öz xəbərlər (10.11.2026 09:00, Bakı vaxtı)", out.getvalue())
+
+    def test_not_wired_to_the_site(self):
+        for path in (ROOT / "updater.py", ROOT / ".github" / "scripts" / "pipeline.sh"):
+            self.assertNotIn("oz_futbol_az", path.read_text(encoding="utf-8"))
+        self.assertFalse(re.search(r"data/football\.json", (ROOT / "oz_futbol_az.py").read_text(encoding="utf-8").split('"""', 2)[2]))
+
+
+if __name__ == "__main__":
+    unittest.main()
