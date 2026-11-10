@@ -26,10 +26,11 @@ class SearchDiscoveryTest(unittest.TestCase):
         page = (ROOT / 'haqqinda/index.html').read_text(encoding='utf-8')
         self.assertIn('href="https://8ulduz.az/haqqinda/"', page)
         for text in ('xəbər aqreqatorudur', 'orijinal xəbərlərin müəllifi deyil',
-                     'Düzəliş və hüquq müraciətləri', 'Müxalifət mənbələri',
+                     'Düzəliş və hüquq müraciətləri',
                      'mailto:8ulduz.az@gmail.com', '../feed.xml'):
             self.assertIn(text, page)
-        for forbidden in ('<script', 'NewsArticle', 'noindex', 'vm6666', 'v.z.muradov'):
+        # Sahib, 2026-11-10: mətn insan dilində, müxalifət mövzusu səhifədə yoxdur (qayda docs/qirmizi-xetler.md-də qalır).
+        for forbidden in ('<script', 'NewsArticle', 'noindex', 'vm6666', 'v.z.muradov', 'üxalifət'):
             self.assertNotIn(forbidden, page)
         self.assertLess(len(page.encode('utf-8')), 8500)
         self.assertIn('href="./haqqinda/">Haqqımızda', (ROOT / 'assets/app.js').read_text(encoding='utf-8'))

@@ -1189,8 +1189,6 @@ function shell() {
     <a href="#/" data-tab="home"><b>⌂</b><span>Əsas</span></a>
     <a href="#/bolme/video" data-tab="video"><b>▶</b><span>Video</span></a>
     <a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>
-    <a href="#/bolmeler" data-tab="sections"><b>▦</b><span>Bölmələr</span></a>
-    <button type="button" data-act="find"><b>⌕</b><span>Axtar</span></button>
     <a href="#/secilmis" data-tab="saved"><b>☆</b><span>Seçilmişlər</span></a>
   </nav>`;
   const q = $("#q");
@@ -1302,7 +1300,7 @@ function renderTopbar() {
   syncTixDot();
 }
 
-const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["idman", "bolgeler"]; // sahib, 2026-11-10: Gündəm və Dünya ☰-də, yerinə «Ana ekrana» düyməsi
+const NAV_PRIMARY = ["sondeqiqe", "gundem", "siyaset", "iqtisadiyyat", "idman", "bolgeler", "sosial"], NAV_PHONE = ["idman", "bolgeler"]; // sahib, 2026-11-10: Gündəm və Dünya ☰-də, yerinə «Ana ekrana» düyməsi; ana ekrandan açılanda (düymə yoxdur) Gündəm və Dünya qayıdır
 // Ölçmə bir dəfə, dəyişikliklərdən sonra.
 const afterPaint = fn => globalThis.requestAnimationFrame ? requestAnimationFrame(fn) : fn();
 // Kadr boyanandan sonra (rAF kadrdan əvvəldir): ölçü oxuyan kod brauzerin öz yerləşdirməsini işlədir, ikinci yerləşdirmə olmur.
@@ -1312,7 +1310,7 @@ const NAV_SHORT = { prezident: "Zuğulba", heyat: "Sağlamlıq", tehsil: "Təhsi
 const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</span><span class="nav-s">${NAV_SHORT[c.slug]}</span>` : esc(c.label);
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
-  const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub", NAV_PHONE.includes(c.slug) && "ph"].filter(Boolean).join(" ");
+  const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub", (NAV_PHONE.includes(c.slug) || isStandalone() && /^(gundem|dunya)$/.test(c.slug)) && "ph"].filter(Boolean).join(" ");
   const link = c => `<a href="#/bolme/${c.slug}" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
   // Telefon: 2 bölmə (.ph), «Ana ekrana» düyməsi və ☰ (hamısı)
   const primary = NAV_PRIMARY;
@@ -2362,7 +2360,7 @@ function renderView() {
       if (page !== S.viewPage) { S.viewPage = page; patchView(v, page); }
     }
     S.viewHome = home && !S.partial;
-    const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "section" && r.slug === "video" ? "video" : r.name === "sections" || r.name === "section" || r.name === "team" ? "sections" : r.name === "home" && !S.q ? "home" : "";
+    const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "section" && r.slug === "video" ? "video" : r.name === "home" && !S.q ? "home" : "";
     document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
     highlightSearch();
   } finally { countVisit(); }
