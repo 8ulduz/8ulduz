@@ -533,7 +533,7 @@ NASA_LE = "https://eclipse.gsfc.nasa.gov/LEdecade/LEdecade2021.html"
 JPL_NOTE = "Bakı üçün vaxtlar NASA JPL-in Horizons efemeridləri ilə hesablanıb."
 JPL_SEEN = "Bakıdan görünmə NASA JPL-in Horizons efemeridləri ilə yoxlanıb."
 # Günəş: (tarix, ən böyük faza TD, növ, maqnituda, NASA-nın görünmə bölgəsi (cədvəldəki kimi), qismən görünmə yeri,
-#  mərkəzi zolaq, Bakı). Bakı: «zona» (Bakı görünmə zonasından kənardadır), «gecə» (tutulma Bakıda Günəş batandan sonradır)
+#  mərkəzi zolaq (qismən tutulmada None), Bakı). Bakı: «zona» (Bakı görünmə zonasından kənardadır), «gecə» (tutulma Bakıda Günəş batandan sonradır)
 #  və ya JPL Horizons-un topomərkəzi efemeridləri ilə hesablanmış kontaktlar (UTC), maksimal faza, örtülmə payı.
 SOLAR = (
     ("2026-02-17", "12:13:05", "Annular", 0.963, "s Argentina & Chile, s Africa, Antarctica [Annular: Antarctica]",
@@ -647,7 +647,8 @@ def eclipse_item(e, preview, ref):
             body.append("Bakı tutulmanın görünmə zonasından kənardadır.")
         else:
             body.append("Tutulma Bakıda Günəş batandan sonra baş verəcək, ona görə buradan görünməyəcək.")
-        body.append(e["central"])
+        if e["central"]:  # qismən tutulmanın mərkəzi zolağı yoxdur (None)
+            body.append(e["central"])
         body.append(f"Qismən tutulma {e['region']} görünəcək.")
         body.append(JPL_NOTE if loc else JPL_SEEN)
     else:
