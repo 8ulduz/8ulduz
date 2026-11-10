@@ -5,15 +5,20 @@
      «1 t.u.» (troya unsiyası) üçün, əvvəlki bülletenlə müqayisədə.
    - Dünya qiyməti data/markets.json-dan: qızıl və gümüş (gold-api.com), bitkoin (Yahoo Finance), dəyişməsi ilə.
      Qızıl və gümüşün markets.json-dakı dəyişməsi yazılmır (spot qiymət fyuçersin bağlanışı ilə müqayisə olunub):
-     dəyişmə öz bağlanış nüsxəmizə görə hesablanır, nüsxə yoxdursa yalnız qiymət yazılır.
+     dəyişmə öz bağlanış nüsxəmizə görə hesablanır (ABŞ seansının bağlanışından sonrakı 1 saatlıq fasilədə götürülmüş
+     markets.json, prev_close), nüsxə yoxdursa yalnız qiymət yazılır.
    - Bu gün yeni bülleten yoxdursa (bayram, həftə sonu) xəbər yoxdur.
    - Sorğu: gündə 2 (bu günün və əvvəlki bülleten). Ünvanlar oz_xeber.amb_latest-inkilərdir: canlıda AMB məzənnə
      xəbəri ilə eyni sorğulardır. Valyuta siyahısı burada yazılmır, o, AMB məzənnə xəbərindədir (oz_xeber.amb_item).
 2. Həftənin bazarları: şənbə saat 11:00-da.
    - Brent, WTI, qızıl, gümüş və bitkoinin həftəlik dəyişməsi: indiki markets.json 7 gün əvvəlki ilə.
    - AMB-nin rəsmi məzənnələri, qonşu ölkələrin valyutaları da: həftənin son bülleteni 7 gün əvvəlki ilə.
-   - Sorğu: həftədə 2 (AMB). 7 gün əvvəlki markets.json-u canlıda öz kiçik gündəlik bağlanış faylımız verəcək;
+   - Sorğu: həftədə 2 (AMB). 7 gün əvvəlki markets.json-u canlıda öz kiçik nüsxə faylımız verəcək (week_ago);
      sınaq onu GitHub-dan alır (2 sorğu, github_history).
+3. Nüsxələr (history: {istənilən açar: markets.json}) açarına görə yox, öz updatedAt-ına görə seçilir. Canlıda faylda iki
+   cür nüsxə olacaq: hər iş günü ABŞ seansının bağlanışından sonrakı 1 saatda götürülən (gündəlik xəbər üçün) və şənbə
+   həftəlik xəbərin oxuduğu markets.json (gələn şənbə üçün). İkisi bir faylda ola bilər: hər xəbər öz vaxtına uyğun
+   nüsxəni seçir.
 
 Sayta qoşulmayıb: updater.py və pipeline bu faylı çağırmır.
 Nümunələr: python oz_bazar.py --sinaq --root DIR [--now 2026-11-10T09:00+04:00]
@@ -34,14 +39,20 @@ AMB_LINK = "https://www.cbar.az/currency/rates"
 METALS = ("XAU", "XAG", "XPT", "XPD")  # qızıl, gümüş, platin, palladium
 # Bülleten 09:06–09:20 arası çıxır (markets.json tarixçəsi, 2026-11-02...06).
 DAILY_SLOT = datetime.time(9, 40)
-# Şənbə: birjalar cümə gecəsi bağlanıb. Yahoo-nun yekun qiyməti səhər gəlir: 31 oktyabrda Brent 08:05-də 112,33,
-# 10:45-də 113,43 idi.
+# Şənbə: birjalar cümə gecəsi bağlanıb. Yahoo neft fyuçersinin cümə üçün yekun (settlement) qiymətini şənbə səhəri verir:
+# 31 oktyabr 08:41-də (Brent 112,33 -> 113,43), 7 noyabr Brent 09:22-də (97,76 -> 98,32), WTI 09:42-də (90,34 -> 90,83).
+# Həftəlik müqayisədə hər iki nüsxə şənbə SETTLED-dən sonrakı olmalıdır.
 WEEKLY_SLOT = datetime.time(11, 0)
-# ABŞ seansının bağlanışı: qışda 22:00 UTC (17:00 New York), yayda 21:00 UTC; 21:00–22:00 fasilədir. 22:00 UTC-dən əvvəlki
-# son nüsxə hər iki halda bağlanış qiymətidir (qışda ən çox ~10 dəqiqə əvvəl).
-CLOSE_UTC = datetime.time(22, 0)
+SETTLED = datetime.time(10, 0)
+# ABŞ seansının bağlanışı 17:00 New York: yay vaxtında (EDT) 21:00 UTC, qışda (EST) 22:00 UTC. Sonrakı 1 saat fasilədir və
+# gold-api qiyməti o saatda dəyişmir (markets.json: 29 oktyabr 21:07–21:57 UTC 4 022,5; 5 noyabr 22:07–22:52 UTC 4 089,2).
+# Bağlanış nüsxəsi o fasilədəki son nüsxədir. Bağlanışdan əvvəlki nüsxə bağlanış deyil: 5 noyabr 21:55 UTC 4 088,8,
+# 6 noyabr 21:44 UTC 4 066,4 (bağlanış 4 072,1).
+CLOSE_SUMMER, CLOSE_WINTER = datetime.time(21, 0), datetime.time(22, 0)
+BREAK = datetime.timedelta(hours=1)
 FRESH = datetime.timedelta(hours=3)     # markets.json sətri bundan köhnədirsə yazılmır
 SNAP_AGE = datetime.timedelta(hours=6)  # GitHub nüsxəsi istənən andan bundan köhnədirsə götürülmür
+TICK = 0.0001                           # AMB məzənnəni 4 onluq rəqəmlə verir
 WEEK_CODES = ("USD", "EUR", "RUB", "TRY", "GEL", "IRR", "KZT", "UZS", "KGS", "TMT", "UAH", "BYN", "CNY")
 # id: (adlıq hal, yiyəlik hal + vahid, qrup). Qrup başlıqda təkrarı saxlayır: Brent və WTI birlikdə hərəkət edir.
 WORLD = {
@@ -226,25 +237,42 @@ def _own_change(item, old):
     return diff, f"{_dollar(diff, dec)} ({ox.az_num(_pct(item['value'], old['value']), 2)}%)"
 
 
-def prev_close(history, day, back=4):
-    """Təmiz funksiya. history: {gün: markets}, günün bağlanışından sonra götürülmüş nüsxə (gün: birja seansının günü).
-    `day`-dan əvvəlki son gün, ən çox `back` gün geri (bazar ertəsi üçün cümə): (gün, markets) və ya (None, None)."""
+def _snaps(history):
+    """history-dəki markets.json nüsxələri: dəyərlər; açarlar sayılmır (nüsxə öz updatedAt-ı ilə seçilir)."""
+    return [m for m in (history or {}).values() if isinstance(m, dict)]
+
+
+def prev_close(history, now):
+    """Təmiz funksiya. history: markets.json nüsxələri ({istənilən açar: markets}). `now`-dan əvvəlki son ABŞ seansının
+    bağlanışından (close_time) sonrakı 1 saatlıq fasilədə götürülmüş ən son nüsxə: (seansın günü, markets) və ya
+    (None, None). Bağlanışdan əvvəlki və ya köhnə seansın nüsxəsi götürülmür: dəyişmə «əvvəlki bağlanışla» yazılır."""
+    t = close_time(now)
     best = None
-    for key, markets in (history or {}).items():
-        d = _iso_day(key)
-        if d is None or not isinstance(markets, dict) or not day - back * DAY <= d < day:
-            continue
-        if best is None or d > best[0]:
-            best = (d, markets)
-    return best or (None, None)
+    for markets in _snaps(history):
+        at = _when(markets.get("updatedAt"))
+        if at and t <= at < t + BREAK and (best is None or at > best[0]):
+            best = (at, markets)
+    return (t.date(), best[1]) if best else (None, None)
+
+
+def _us_summer(d):
+    """ABŞ-da yay vaxtıdırmı (EDT): martın ikinci bazar günündən noyabrın birinci bazar gününə qədər. d: seansın günü."""
+    start = datetime.date(d.year, 3, 8)
+    end = datetime.date(d.year, 11, 1)
+    start += datetime.timedelta(days=(6 - start.weekday()) % 7)
+    end += datetime.timedelta(days=(6 - end.weekday()) % 7)
+    return start <= d < end
 
 
 def close_time(at):
-    """`at`-dan əvvəlki son ABŞ seansının bağlanış anı (iş günü, CLOSE_UTC)."""
-    t = datetime.datetime.combine(at.astimezone(datetime.timezone.utc).date(), CLOSE_UTC, datetime.timezone.utc)
-    while t > at or t.weekday() >= 5:
-        t -= DAY
-    return t
+    """`at`-dan əvvəlki son ABŞ seansının bağlanış anı, UTC: iş günü 17:00 New York (yayda 21:00, qışda 22:00 UTC)."""
+    at = at.astimezone(datetime.timezone.utc)
+    d = at.date()
+    while True:
+        t = datetime.datetime.combine(d, CLOSE_SUMMER if _us_summer(d) else CLOSE_WINTER, datetime.timezone.utc)
+        if d.weekday() < 5 and t <= at:
+            return t
+        d -= DAY
 
 
 # --- 1. AMB bank metalları (iş günləri) -----------------------------------------------------------------
@@ -298,11 +326,12 @@ def world_lines(markets, now, closes=None):
     """Dünya bazarı: qızıl və gümüş bir cümlədə, bitkoin ayrıca. «stale» və ya köhnə sətir yazılmır.
     Diqqət: updater-də qızıl və gümüşün dəyəri gold-api.com spot qiymətidir, «əvvəlki bağlanış» (change) isə Yahoo-nun
     GC=F/SI=F fyuçersinin previousClose-udur. 6 noyabr 09:31-də markets.json qızıl üçün −74,8 dollar (−1,82%) yazırdı,
-    spot isə əvvəlki bağlanışda (5 noyabr 21:55 UTC) 4 088,8 idi: həqiqi dəyişmə −50,1 dollar (−1,23%). Ona görə gold-api
-    sətrinin dəyişməsi öz bağlanış nüsxəmizdən hesablanır (closes: {gün: markets}, prev_close); nüsxə yoxdursa yazılmır.
+    spot isə əvvəlki bağlanışda (5 noyabr 22:00 UTC, sonrakı fasilədə 22:52 nüsxəsi) 4 089,2 idi: həqiqi dəyişmə
+    −50,5 dollar (−1,23%). Ona görə gold-api sətrinin dəyişməsi öz bağlanış nüsxəmizdən hesablanır (closes: markets.json
+    nüsxələri, prev_close); fasilədə götürülmüş nüsxə yoxdursa yazılmır.
     Yahoo-dan gələn sətirdə (bitkoin, gold-api alınmayanda qızıl) dəyər və bağlanış eyni mənbədəndir: o dəyişmə yazılır."""
     rows = market_rows(markets)
-    old_rows = market_rows(prev_close(closes, now.date())[1])
+    old_rows = market_rows(prev_close(closes, now)[1])
     out = []
     metals = [rows[k] for k in ("XAU", "XAG") if usable(rows.get(k), markets, now)]
     if metals:
@@ -331,7 +360,8 @@ def world_lines(markets, now, closes=None):
 
 def metals_item(cur, prev, markets, now, closes=None):
     """AMB bank metalları və dünya qiyməti. cur, prev: parse_bulletin() nəticəsi; markets: data/markets.json;
-    closes: {gün: markets} bağlanış nüsxələri (world_lines). Xəbər yalnız bu günün (now) bülleteni üçündür.
+    closes: markets.json nüsxələri, bağlanışınkı prev_close ilə seçilir (world_lines). Xəbər yalnız bu günün (now)
+    bülleteni üçündür.
     Qaytarır (xəbər və ya None, səbəb)."""
     day, rows = cur
     pday, prows = prev if prev and prev[0] and day and prev[0] < day else (None, {})
@@ -364,7 +394,7 @@ def metals_item(cur, prev, markets, now, closes=None):
 
 def daily(root, now, fetch=None, closes=None):
     """Bu günün metal xəbəri: iş günü, 09:40-dan sonra, AMB bu gün yeni bülleten veribsə. Həftə sonu və 09:40-dan əvvəl
-    sorğu getmir; bayramda 1 sorğu. closes: {gün: markets}, canlıda öz gündəlik bağlanış faylımızdan.
+    sorğu getmir; bayramda 1 sorğu. closes: markets.json nüsxələri, canlıda öz nüsxə faylımızdan (prev_close).
     Qaytarır (xəbər və ya None, səbəb)."""
     now = _baku(now)
     if now.weekday() >= 5:
@@ -385,44 +415,41 @@ def daily(root, now, fetch=None, closes=None):
 
 # --- 2. Həftənin bazarları (şənbə) -----------------------------------------------------------------------
 
-def _iso_day(key):
-    if isinstance(key, datetime.datetime):
-        return _baku(key).date()
-    if isinstance(key, datetime.date):
-        return key
-    try:
-        return datetime.date.fromisoformat(str(key)[:10])
-    except ValueError:
-        return None
-
-
-def week_ago(history, now, tol=1):
-    """Təmiz funksiya. history: {gün: markets} (gün date və ya «YYYY-MM-DD»). 7 gün əvvəlki gün, o yoxdursa ±tol gün
-    içində ən yaxını. Qaytarır (gün, markets) və ya (None, None).
-    Canlıda tarixçəni öz kiçik gündəlik bağlanış faylımız verəcək (gündə ~10 dəyər, main-in isti yolundan kənarda):
-    CI-da checkout dayazdır, git tarixçəsi yoxdur. Sınaq onu GitHub-dan alır (github_history)."""
-    target = now.date() - 7 * DAY
+def week_ago(history, now):
+    """Təmiz funksiya. history: markets.json nüsxələri ({istənilən açar: markets}); açar yox, nüsxənin updatedAt-ı
+    sayılır. 7 gün əvvəlki nüsxə: o şənbə SETTLED-dən (Yahoo neftin cümə üçün yekun qiymətini verib) bazar günü eyni
+    saata qədər götürülmüş, `now`-dan 7 gün əvvələ ən yaxın nüsxə. Cümə günü, şənbə gecəsi və səhəri götürülmüş nüsxədə
+    neftin qiyməti yekun deyil (31 oktyabr 01:56-da Brent 112,33, 08:41-dən 113,43). Qaytarır (nüsxənin Bakı günü,
+    markets) və ya (None, None).
+    Canlıda tarixçəni öz kiçik nüsxə faylımız verəcək (həftəlik xəbərin şənbə oxuduğu markets.json, main-in isti yolundan
+    kənarda): CI-da checkout dayazdır, git tarixçəsi yoxdur. Sınaq onu GitHub-dan alır (github_history)."""
+    target = _baku(now) - 7 * DAY
+    start = datetime.datetime.combine(target.date(), SETTLED, BAKU)
     best = None
-    for key, markets in (history or {}).items():
-        day = _iso_day(key)
-        if day is None or not isinstance(markets, dict):
+    for markets in _snaps(history):
+        at = _when(markets.get("updatedAt"))
+        if not at or not start <= at <= target + DAY:
             continue
-        gap = abs((day - target).days)
-        if gap <= tol and (best is None or (gap, day) < (best[0], best[1])):
-            best = (gap, day, markets)
-    return (best[1], best[2]) if best else (None, None)
+        rank = (abs(at - target), at)
+        if best is None or rank < best[0]:
+            best = (rank, at, markets)
+    return (best[1].date(), best[2]) if best else (None, None)
 
 
 def week_moves(markets, old, now):
     """Brent, WTI, qızıl, gümüş, bitkoin: indiki markets.json ilə 7 gün əvvəlkinin fərqi. Təmiz funksiya.
-    İndiki sətir təzə olmalıdır (usable, now), köhnə sətir «stale» olmamalıdır, ikisi də eyni mənbədən olmalıdır
-    (gold-api spotu Yahoo fyuçersi ilə müqayisə olunmur); biri yoxdursa alət yazılmır.
+    İndiki sətir təzə olmalıdır (usable, now) və bu şənbə SETTLED-dən sonra götürülməlidir (neftin yekun qiyməti), köhnə
+    sətir «stale» olmamalıdır, ikisi də eyni mənbədən olmalıdır (gold-api spotu Yahoo fyuçersi ilə müqayisə olunmur);
+    biri yoxdursa alət yazılmır.
     Fərq ekrandakı yuvarlaq qiymətlərdən hesablanır (oxucu çıxsa eyni rəqəmi alsın), faiz dəqiq qiymətlərdən."""
     now_rows, old_rows = market_rows(markets), market_rows(old)
+    settled = datetime.datetime.combine(_baku(now).date(), SETTLED, BAKU)
     out = []
     for mid in WEEK_IDS:
         a, b = old_rows.get(mid), now_rows.get(mid)
         if not usable(b, markets, now) or not usable(a) or (a.get("src") or "") != (b.get("src") or ""):
+            continue
+        if _when(b.get("at") or markets.get("updatedAt")) < settled:
             continue
         dec = _dec(b)
         out.append({"id": mid, "old": a["value"], "new": b["value"], "dec": dec, "src": b.get("src") or "",
@@ -479,8 +506,12 @@ def _pair(movers):
 
 
 def _top_currencies(amb):
+    """Ən çox dəyişən valyutalar, faizə görə. Bir «tik» (0,0001 manat) yuvarlaqlaşdırmadır: 100 Özbək somu 0,0141-dən
+    0,0142-yə «0,71%» bahalaşır, Türk lirəsi 0,0340-dan 0,0339-a «0,29%». Belə dəyişmə yalnız başqa dəyişmə yoxdursa
+    sıralanır; cədvəldə (_amb_lines) hamısı qalır."""
     rows = [r for r in (amb or {}).get("rows") or [] if r["diff"] and r["pct"]]
-    return sorted(rows, key=lambda r: -abs(r["pct"]))
+    real = [r for r in rows if abs(r["diff"]) > 1.5 * TICK]
+    return sorted(real or rows, key=lambda r: -abs(r["pct"]))
 
 
 def _week_title(moves, movers, pair, amb):
@@ -533,8 +564,9 @@ def _amb_lines(amb):
 
 
 def weekly_item(markets, history, cur, prev, now):
-    """Şənbə xəbəri, təmiz funksiya (sorğu yoxdur). markets: indiki markets.json; history: {gün: markets} (week_ago);
-    cur, prev: həftənin son bülleteni və 7 gün əvvəlki bülleten (parse_bulletin). Qaytarır (xəbər və ya None, səbəb)."""
+    """Şənbə xəbəri, təmiz funksiya (sorğu yoxdur). markets: indiki markets.json; history: markets.json nüsxələri
+    (week_ago); cur, prev: həftənin son bülleteni və 7 gün əvvəlki bülleten (parse_bulletin). Qaytarır (xəbər və ya None,
+    səbəb)."""
     old_day, old = week_ago(history, now)
     moves = week_moves(markets, old, now) if old else []
     amb, amb_why = week_currencies(cur, prev, now)
@@ -561,8 +593,8 @@ def weekly_item(markets, history, cur, prev, now):
 
 
 def weekly(root, now, fetch=None, history=None):
-    """Bu günün həftəlik xəbəri: şənbə, 11:00-dan sonra. history: {gün: markets}, canlıda öz gündəlik bağlanış
-    faylımızdan (hələ yoxdur). Verilməsə bazar hissəsi yazılmır. Qaytarır (xəbər və ya None, səbəb)."""
+    """Bu günün həftəlik xəbəri: şənbə, 11:00-dan sonra. history: markets.json nüsxələri, canlıda öz nüsxə faylımızdan
+    (hələ yoxdur; week_ago). Verilməsə bazar hissəsi yazılmır. Qaytarır (xəbər və ya None, səbəb)."""
     now = _baku(now)
     if now.weekday() != 5:
         return None, "həftəlik xəbər yalnız şənbə günü çıxır"
@@ -607,8 +639,10 @@ def github_history(fetch, now):
 
 def items(root, now, fetch=None, history=None):
     """`now` anında (Bakı) canlının dərc edəcəyi bazar xəbərləri. worth False olan xəbər «why» ilə qayıdır, dərc olunmur.
-    history: {gün: markets}, öz gündəlik bağlanış faylımızdan (hələ yoxdur): gündəlik xəbər ondan əvvəlki bağlanışı
-    (prev_close), həftəlik xəbər 7 gün əvvəlkini (week_ago) götürür."""
+    history: markets.json nüsxələri ({istənilən açar: markets}), öz nüsxə faylımızdan (hələ yoxdur). Nüsxə updatedAt-ına
+    görə seçilir: gündəlik xəbər son ABŞ seansının bağlanışından sonrakı 1 saatda götürülmüşü (prev_close), həftəlik
+    xəbər keçən şənbə 10:00-dan bazar gününə qədər götürülmüşü (week_ago). Canlıda fayla hər iş günü 22:00–23:00 UTC
+    (yayda 21:00–22:00) arası bir nüsxə və şənbə həftəlik xəbərin oxuduğu markets.json yazılmalıdır."""
     now = _baku(now)
     found = [daily(root, now, fetch, history)[0], weekly(root, now, fetch, history)[0]]
     return [i for i in found if i]
@@ -655,9 +689,12 @@ def _history(fetch, at):
 
 
 def _closes(fetch, at):
-    """Öz bağlanış faylımızın əvəzi: markets.json-un `at`-dan əvvəlki son seans bağlanışındakı nüsxəsi (2 sorğu)."""
+    """Öz nüsxə faylımızın əvəzi: markets.json-un `at`-dan əvvəlki son ABŞ seansının bağlanışından sonrakı 1 saatlıq
+    fasilədəki son nüsxəsi (2 sorğu). Tapılan nüsxə fasilədən deyilsə (bağlanışdan əvvəldir) götürülmür."""
     t = close_time(at)
-    snap, note = _snapshot(fetch, t)
+    snap, note = _snapshot(fetch, min(t + BREAK, at))
+    if snap and not prev_close({"": snap}, at)[1]:
+        return {}, note + ", bağlanışdan sonrakı fasilədən deyil: qızıl və gümüşün dəyişməsi yazılmır"
     return ({t.date(): snap} if snap else {}), note
 
 
