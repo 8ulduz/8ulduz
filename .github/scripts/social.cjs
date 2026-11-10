@@ -122,7 +122,7 @@ function networks(env = process.env) {
         body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
     } });
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN) {
-    const graph = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/${encodeURIComponent(env.FB_PAGE_ID)}`;
+    const graphRoot = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`, graph = `${graphRoot}${encodeURIComponent(env.FB_PAGE_ID)}`;
     list.push({ name: "facebook", token: env.FB_PAGE_TOKEN,
       // Sirrə istifadəçi açarı da yazıla bilər (2026-11-05 belə oldu: #200 «requires ... with page token»): ondan səhifə açarı alınır.
       // Səhifə açarı ilə bu sorğu access_token qaytarmır, onda açar olduğu kimi qalır.
@@ -130,6 +130,25 @@ function networks(env = process.env) {
         const r = await f(`${graph}?fields=access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
         if (r?.access_token && r.access_token !== env.FB_PAGE_TOKEN) { this.token = r.access_token; log("facebook: istifadəçi açarından səhifə açarı alındı (sirrə səhifə açarını yazmaq daha yaxşıdır)"); }
         return true;
+      },
+      // Sahib, 2026-11-10: «Facebook avto paylaşımlarda xəbərin şəkli olmur». Facebook keçidi ilk dəfə görəndə og:image-i arxada
+      // emal edir: dərhal yaradılan postun kartı şəkilsiz qalır və elə qalır. Ona görə: yalnız şəkilli xəbər; əvvəl keçid oxudulur
+      // (scrape=true), Facebook şəkli görməyibsə xəbər bu dövrədə ötürülür; görübsə emal üçün qısa gözləmə, sonra post.
+      wants: a => a.digest || /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
+      async scrape(link, f) {
+        const r = await f(graphRoot, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ id: link, scrape: "true", access_token: this.token }).toString(), signal: AbortSignal.timeout(20000) });
+        return r?.json ? await r.json().catch(() => null) : null;
+      },
+      async post(a, f) {
+        if (!a.digest) {
+          const og = await this.scrape(shareUrl(a), f).catch(() => null);
+          const pics = (og?.image || []).map(i => String(i?.url || ""));
+          if (og && !og.error && !pics.some(u => u && !/og-default\.png/.test(decodeURIComponent(u)))) return { skip: "Facebook kartda şəkil görmədi" };
+          if (og && !og.error) await new Promise(ok => setTimeout(ok, num(env.FB_SCRAPE_WAIT_MS, 8000)));
+        }
+        const [url, init] = this.request(a);
+        return f(url, { ...init, signal: AbortSignal.timeout(20000) });
       },
       request(a) { return [`${graph}/feed`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ message: a.digest ? `${a.title}\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${digestList(a)}` : cut(a.title, 500), link: shareUrl(a), access_token: this.token }).toString() }]; } });
@@ -220,6 +239,15 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
     if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
     const done = state[net.name] ||= {};
     const last = state._last ||= {};
+    // Bir dəfəlik (iş axınında «fb_yenile»): www keçidi ilə artıq paylaşılmış xəbərlər Facebook-a yenidən oxudulur — kartı şəkilsiz
+    // qalmış postlar şəkil alır. Köhnə /x/ səhifə keçidli postlar (2026-11-10 13:01 UTC-dən əvvəl) belə düzəlmir: o səhifələr yoxdur.
+    if (net.scrape && env.FB_RESCRAPE === "1") {
+      const since = Date.parse("2026-11-10T13:01:00Z") / 1000;
+      const again = (articles || []).filter(a => done[a.id] >= since);
+      let ok = 0;
+      for (const a of again) { const og = await net.scrape(shareUrl(a), f).catch(() => null); if ((og?.image || []).length) ok++; }
+      log(`${net.name}: ${again.length} paylaşılmış keçid yenidən oxudildi, ${ok}-də şəkil var`);
+    }
     const ago = Math.round((now / 1000 - (last[net.name] || 0)) / 60);
     // İcmal saatında getməlidir: fasiləni gözləmir (xəbər postları gözləyir).
     const gap = net.gapMin ?? opt.minGapMin, mine = (early => (early ? eds : list).filter(a => !net.wants || net.wants(a)));
@@ -234,6 +262,7 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         let r;
         if (net.post) r = await net.post(a, f);
         else { const [url, init] = net.request(a); r = await f(url, { ...init, signal: AbortSignal.timeout(20000) }); }
+        if (r?.skip) { n--; log(`${net.name}: ötürülür (${r.skip}), növbəti dövrədə yenə yoxlanır — ${clean(a.title)}`); continue; }
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
         done[a.id] = last[net.name] = Math.floor(now / 1000);
         if (!a.digest) done[titleKey(a)] = done[a.id];
