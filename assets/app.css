@@ -50,7 +50,7 @@ html[data-fs="4"]{--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title
 --ticker-bg:#efece4;--ticker-fg:#172b4d;
 --mk-a:#e6ebf2;--mk-b:#e6ebf2;--mk-border:#c5cfdc;
 --mk-label:#203653;--mk-unit:#465773;--mk-flat:#dde4ee;--mk-flat-fg:#203653;--mk-chg:#19385f14;
---fallback:radial-gradient(ellipse at 20% 0%,hsl(43 90% 70% / .35),transparent 55%),radial-gradient(ellipse at 90% 100%,hsl(190 50% 70% / .28),transparent 55%),linear-gradient(135deg,#e7eef6,#f7f4ea);
+--fallback:radial-gradient(ellipse at 20% 0%,hsl(43 90% 70% / .35),#0000 55%),radial-gradient(ellipse at 90% 100%,hsl(190 50% 70% / .28),#0000 55%),linear-gradient(135deg,#e7eef6,#f7f4ea);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-padding-top:110px}
@@ -74,7 +74,7 @@ img{display:block}
 .dot.live{animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.35}}
 .wx{position:relative}
-.wx-btn{display:flex;align-items:center;gap:5px;padding:2px 8px;border-radius:99px;border:1px solid transparent;background:var(--sky-pill);color:var(--sky-on)}
+.wx-btn{display:flex;align-items:center;gap:5px;padding:2px 8px;border-radius:99px;border:1px solid #0000;background:var(--sky-pill);color:var(--sky-on)}
 .wx-btn:hover,.wx.open .wx-btn{filter:brightness(1.08)}
 .wx-btn b{color:var(--sky-on);font-weight:700}
 .wx-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:80;width:min(420px,92vw);background:var(--sky-fill);border:1px solid var(--sky-chip-line);border-radius:14px;box-shadow:0 20px 50px #000a;padding:10px;color:var(--sky-on);font-size:.9286rem}
@@ -87,8 +87,8 @@ img{display:block}
 .wx-now>div>b{font-size:17px;color:var(--sky-on)}
 .wx-temp{margin-left:auto;font-size:28px;color:var(--sky-on);font-weight:700}
 .wx-pop .muted,.wx-pop .empty{color:var(--sky-dim)}
-.wx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-height:300px;overflow:auto;scrollbar-color:hsl(199 80% 85%/.45) transparent}
-.wx-city{text-align:left;padding:6px 8px;border-radius:8px;border:1px solid transparent;color:var(--sky-on)}
+.wx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-height:300px;overflow:auto;scrollbar-color:hsl(199 80% 85%/.45) #0000}
+.wx-city{text-align:left;padding:6px 8px;border-radius:8px;border:1px solid #0000;color:var(--sky-on)}
 .wx-city:hover{background:var(--sky-chip);border-color:var(--sky-chip-line)}
 .wx-city b{display:block;font-size:1.12rem;font-weight:700;color:var(--sky-on)}
 .wx-det{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
@@ -169,7 +169,7 @@ nav.main a{padding:4px 7px;font-size:.82rem}
 .topbar .yenilendi{margin-left:auto}
 }
 @media (max-width:720px){
-.prefs button{height:44px;min-width:44px;padding:0;border-color:transparent;background:transparent;margin:-7px 0;font-size:.9rem}
+.prefs button{height:44px;min-width:44px;padding:0;border-color:#0000;background:#0000;margin:-7px 0;font-size:.9rem}
 .prefs button .face{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:34px;padding:0 7px;border:1px solid var(--border);border-radius:99px}
 .pray,.wx-btn{height:30px;font-size:.8571rem}
 .topbar .wrap{gap:6px 8px;padding-top:4px;padding-bottom:4px;min-height:36px} /* dolu zolaq qədər: atlamır */
@@ -202,7 +202,7 @@ nav.main a{padding:4px 8px;font-size:.8571rem}
 /* Sahib 2026-11-06: 3 rəng — göy, qızılı, qırmızı */
 .mk{--mk-label:var(--fg);--mk-unit:var(--fg);--mk-a:hsl(var(--mh,208) 38% 25%);--mk-b:hsl(var(--mh,208) 32% 18%);--mk-border:hsl(var(--mh,208) 30% 46%);--mk-flat:var(--mk-b)}
 :root[data-theme="light"] .mk{--mk-a:hsl(var(--mh,208) 54% 86%);--mk-b:hsl(var(--mh,208) 46% 77%);--mk-border:hsl(var(--mh,208) 28% 59%)}
-.markets{border-bottom:1px solid var(--border);background:transparent}
+.markets{border-bottom:1px solid var(--border);background:#0000}
 /* Qiymətlər və lent sonra gəlir: yeri əvvəlcədən ayrılır */
 .markets.pending{height:86px;visibility:hidden} /* dolu zolaq hündürlüyü: atlamır */
 @media(min-width:601px){.markets.pending{height:89px}#ticker:empty{min-height:37px}}
@@ -275,8 +275,8 @@ main>.wrap>section{margin-bottom:18px}
 .soc-p time{flex:none;font-size:11px;color:var(--muted);white-space:nowrap}
 .soc-p .via{flex:none;font-size:11px;color:var(--muted);white-space:nowrap;max-width:72px;overflow:hidden;text-overflow:ellipsis}
 .soc-empty{margin:0;font-size:12px}
-.prez .soc-p{border:0;background:transparent;padding:4px 0;border-radius:0;gap:8px}
-.prez .soc-p:hover{border-color:transparent}
+.prez .soc-p{border:0;background:#0000;padding:4px 0;border-radius:0;gap:8px}
+.prez .soc-p:hover{border-color:#0000}
 .prez .soc-p:hover .t{color:var(--primary)}
 #view>.soc{border-left:0;padding-left:0;margin:0 0 12px;max-height:none}
 #view>.soc .soc-links{flex-direction:row;flex-wrap:wrap;gap:4px 14px}
@@ -458,7 +458,7 @@ body{padding-bottom:62px}
 .fx-row{display:flex;gap:6px;align-items:center}
 .fx-row select{flex:1}
 .fx-out{font-size:1.3rem}
-.pray{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;flex:none;padding:1px 8px;border-radius:99px;border:1px solid transparent;background:var(--pray-pill);color:var(--pray-on);font:inherit;font-size:.8214rem;font-weight:700;cursor:pointer;line-height:1.35}
+.pray{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;flex:none;padding:1px 8px;border-radius:99px;border:1px solid #0000;background:var(--pray-pill);color:var(--pray-on);font:inherit;font-size:.8214rem;font-weight:700;cursor:pointer;line-height:1.35}
 .pray .pi,.pray .phij,.pray .caret{color:var(--pray-on)}
 .pray .pt{font-variant-numeric:tabular-nums}
 .pray .pcity{white-space:nowrap}
@@ -516,20 +516,20 @@ body{padding-bottom:62px}
 /* Telefonda karusel yox: 4 kart */
 @media (max-width:520px){
 }
-.strip::after{content:"";position:absolute;top:0;bottom:4px;right:0;width:32px;background:linear-gradient(90deg,transparent,var(--bg));pointer-events:none;transition:opacity .2s}
+.strip::after{content:"";position:absolute;top:0;bottom:4px;right:0;width:32px;background:linear-gradient(90deg,#0000,var(--bg));pointer-events:none;transition:opacity .2s}
 .strip.at-end::after{opacity:0}
 /* Oxlar (Yeni Şafak qaydası): adi halda gizli, siçan */
-.st-btn{display:none;position:absolute;top:36%;z-index:2;width:40px;height:40px;margin-top:-20px;border-radius:50%;border:2px solid #ffffffd9;background:transparent;color:#fff;text-shadow:0 1px 2px #0009;font-size:26px;font-weight:700;line-height:1;box-shadow:0 2px 10px #0006;cursor:pointer;opacity:0;transition:opacity .25s,transform .15s,background .15s}
+.st-btn{display:none;position:absolute;top:36%;z-index:2;width:40px;height:40px;margin-top:-20px;border-radius:50%;border:2px solid #ffffffd9;background:#0000;color:#fff;text-shadow:0 1px 2px #0009;font-size:26px;font-weight:700;line-height:1;box-shadow:0 2px 10px #0006;cursor:pointer;opacity:0;transition:opacity .25s,transform .15s,background .15s}
 .strip:hover .st-btn,.st-btn:focus-visible{opacity:1}
 .st-btn:hover{background:#ffffffeb;color:#111;text-shadow:none;transform:scale(1.06)}
 .st-btn:active{transform:scale(.96)}
 .st-btn.off{opacity:.35!important;cursor:default;transform:none}
-.st-btn.off:hover{background:transparent;color:#fff;text-shadow:0 1px 2px #0009}
+.st-btn.off:hover{background:#0000;color:#fff;text-shadow:0 1px 2px #0009}
 @media (hover:none){.st-btn{display:none!important}}
 .st-prev{left:8px}.st-next{right:8px}
 :root[data-theme="light"] .st-btn{border-color:#141824b3;color:#14181f;text-shadow:0 1px 2px #fff9}
 :root[data-theme="light"] .st-btn:hover{background:#141824eb;color:#fff;text-shadow:none}
-:root[data-theme="light"] .st-btn.off:hover{background:transparent;color:#14181f}
+:root[data-theme="light"] .st-btn.off:hover{background:#0000;color:#14181f}
 .st-dots{display:flex;justify-content:center;gap:5px;padding:6px 0 0}
 .st-dots button{width:6px;height:6px;padding:0;border:0;border-radius:99px;background:var(--muted2);opacity:.55;transition:width .2s,opacity .2s}
 .st-dots button.on{width:18px;background:var(--primary);opacity:1}
@@ -668,7 +668,7 @@ nav.main{flex-wrap:nowrap;min-width:0}
 .top2 .prez{height:auto}
 .hero-main{min-height:300px;height:clamp(280px,28vw,380px)}
 .hero-main>.img img{object-position:center 30%}
-.hero-main::after{pointer-events:none;background:linear-gradient(0deg,#000f,#0008 45%,transparent 85%)}
+.hero-main::after{pointer-events:none;background:linear-gradient(0deg,#000f,#0008 45%,#0000 85%)}
 .hero-main h2{font-size:clamp(1.3rem,2.2vw,2rem);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .hero-main .meta .src{color:#fff}
 .hero-main .body{width:100%}
@@ -724,7 +724,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
 .hero-row::-webkit-scrollbar,.news-row::-webkit-scrollbar{display:none}
 .hero-row{gap:0;align-items:stretch}
 .hero-row>.hero-main{flex:0 0 100%;min-width:0;scroll-snap-align:start}
-.news-row>.card{flex:0 0 calc((100% - 36px)/4);min-width:0;scroll-snap-align:start;align-self:flex-start}
+.news-row>.card{flex:0 0 calc((100% - 36px)/4);min-width:0;scroll-snap-align:start;align-self:stretch}.strip .news-row>.card>.img{flex:1 0 auto}.news-row>.card>.b{flex:none}
 .news-row .card>.img{aspect-ratio:16/9}
 .strip .st-btn{display:grid;place-items:center;opacity:.9}
 .strip .st-btn.off{opacity:.4!important}
@@ -775,7 +775,7 @@ nav.main .nav-more-pop a{white-space:normal;overflow-wrap:anywhere}
 .topbar .wrap{gap:4px}
 .topbar .pray>b:not(.pt),.topbar .pray>.pi,.topbar .pray>.caret{display:none}
 .topbar .pray,.topbar .wx-btn{gap:4px;padding:5px 7px;font-size:11px}
-.topbar .prefs button{flex:none;height:44px;min-width:44px;padding:0;border-color:transparent;background:transparent;margin:-8px 0}
+.topbar .prefs button{flex:none;height:44px;min-width:44px;padding:0;border-color:#0000;background:#0000;margin:-8px 0}
 .topbar .prefs button .face{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:32px;padding:0 6px;border:1px solid var(--border);border-radius:99px}
 }
 @media(max-width:380px){.topbar .pray>.pt{display:none}}
@@ -927,7 +927,7 @@ nav.main>a[href="#/"]{display:none}
 .img>img,.hero-main>.img img,.card .img img,.pcard .img img{object-fit:cover;object-position:center}
 .card>.img,.hero-main>.img{background:var(--card)}
 /* Telefon/planşet slayderi: başlıq tünd örtükdə */
-@media(max-width:900px){.hero-row .hero-main{position:relative;display:block;height:auto;min-height:0;overflow:hidden;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;z-index:0;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:block;z-index:1;pointer-events:none;background:linear-gradient(to top,#000 0%,#000000bf 36%,transparent 68%)}.hero-row .hero-main .body{position:absolute;z-index:2;left:0;right:0;bottom:0;margin:0;padding:32px 14px 12px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:#fff}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:#fff}.hero-strip .st-btn{top:42%}}
+@media(max-width:900px){.hero-row .hero-main{position:relative;display:block;height:auto;min-height:0;overflow:hidden;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;z-index:0;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:block;z-index:1;pointer-events:none;background:linear-gradient(to top,#000 0%,#000000bf 36%,#0000 68%)}.hero-row .hero-main .body{position:absolute;z-index:2;left:0;right:0;bottom:0;margin:0;padding:32px 14px 12px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:#fff}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:#fff}.hero-strip .st-btn{top:42%}}
 /* Kompüterdə slayder: 16:9 şəkil, başlıq sağda */
 @media(min-width:901px){.hero-row .hero-main{background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;height:100%;aspect-ratio:16/9;max-width:min(70%,calc(100% - 250px))}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{flex:1;min-width:0;margin:0;justify-content:center;padding:56px 58px 40px 22px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:var(--fg);font-size:clamp(1.15rem,1.6vw,1.6rem);-webkit-line-clamp:6}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}}
 .card[data-cat],.pcard[data-cat]{border-left-width:1px;border-left-color:var(--border)}
@@ -1025,7 +1025,7 @@ main{padding-top:8px}
 .inst .install-btn{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
 .inst .install-btn:hover{filter:brightness(1.08);color:var(--primary-fg)}
 .qbtn{display:none;width:32px;height:32px;padding:0;border:1px solid var(--border);border-radius:99px;background:var(--card);color:var(--fg);place-items:center;flex:none}
-.follow-btn{display:inline-flex;position:relative;flex:none;isolation:isolate;align-items:center;justify-content:center;min-height:44px;padding:0 9px;border:1px solid transparent;border-radius:11px;background:var(--card);color:var(--fg);font-size:var(--fs-meta);font-weight:var(--fw-bold);line-height:1.2;white-space:nowrap}
+.follow-btn{display:inline-flex;position:relative;flex:none;isolation:isolate;align-items:center;justify-content:center;min-height:44px;padding:0 9px;border:1px solid #0000;border-radius:11px;background:var(--card);color:var(--fg);font-size:var(--fs-meta);font-weight:var(--fw-bold);line-height:1.2;white-space:nowrap}
 .follow-btn::before,.follow-btn::after{content:"";position:absolute;inset:-1px;pointer-events:none;border:2px solid var(--glow);border-radius:inherit;box-shadow:0 0 6px var(--glow),inset 0 0 4px var(--glow);animation:var(--follow-motion,follow-glow 2.4s ease-in-out infinite)}
 .follow-btn::after{--glow:#f3c65c;opacity:1}
 .follow-btn::before{--glow:#4aa7ff;opacity:.08;animation-delay:-1.2s}
