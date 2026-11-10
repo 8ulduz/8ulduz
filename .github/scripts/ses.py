@@ -54,7 +54,7 @@ MARK_AT = datetime.datetime(2026, 11, 10, 16, 0, tzinfo=datetime.timezone.utc).t
 # Söz kimi oxunan qısaltmalar (sahib, 2026-11-10: «kop 31 yerinə co o p deyir»): Babək səsi böyük hərfli sözü hərf-hərf
 # oxuyur. «COP31» → «Kop 31». ABŞ, BMT kimi hərflə oxunanlar dəyişmir. Bu vaxtdan əvvəl yazılmış belə səslər yenidən səslənir.
 SAY = [(re.compile(r"\bCOP\s*-?\s*(\d+)\b"), r"Kop \1"), (re.compile(r"\bCOP\b"), "Kop")]
-SAY_AT = datetime.datetime(2026, 11, 10, 17, 0, tzinfo=datetime.timezone.utc).timestamp()
+SAY_AT = datetime.datetime(2026, 11, 10, 16, 25, tzinfo=datetime.timezone.utc).timestamp()
 
 
 def say(text):
