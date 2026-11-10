@@ -11,6 +11,7 @@ Sahibin «Bəli, başla» qərarı (2026-11-10), 1-ci mərhələ: süni intellek
 - tests/test_oz_sema.py hesablamanı USNO və JPL cədvəlləri ilə yoxlayır (tests/fixtures/oz_sema/).
 """
 import datetime
+import decimal
 import math
 import pathlib
 import sys
@@ -290,7 +291,10 @@ def _range_text(a, b):
 
 
 def _pct(x):
-    return f"{ox.az_num(round(x * 100), 0)}%"
+    """«27%»: ən yaxın tam faiz, yarım yuxarı. round() yarımı cüt ədədə yuvarlayır (86,5 -> 86), NASA-nın üçrəqəmli
+    maqnitudası (0,865) isə faizdə yarım verir."""
+    n = (decimal.Decimal(repr(x)) * 100).quantize(decimal.Decimal(1), rounding=decimal.ROUND_HALF_UP)
+    return f"{ox.az_num(int(n), 0)}%"
 
 
 # --- 1. Ay fazası ------------------------------------------------------------------------------------------------
@@ -550,16 +554,17 @@ SOLAR = (
 )
 # Ay: (tarix, ən böyük faza TD, növ, kölgə maqnitudası, NASA-nın görünmə bölgəsi, görünmə yeri,
 #  ən böyük faza anında Ayın Bakıda hündürlüyü: JPL Horizons, dərəcə).
+# NASA-nın «Americas» sözü Şimali və Cənubi Amerikadır: təkcə «Amerikada» yazılsa, oxucuya ABŞ kimi gələ bilər.
 LUNAR = (
     ("2026-03-03", "11:34:52", "Total", 1.151, "e Asia, Australia, Pacific, Americas",
-     "Asiyanın şərqində, Avstraliyada, Sakit okeanda və Amerikada", -31.0),
+     "Asiyanın şərqində, Avstraliyada, Sakit okeanda, Şimali və Cənubi Amerikada", -31.0),
     ("2026-08-28", "04:14:04", "Partial", 0.930, "e Pacific, Americas, Europe, Africa",
-     "Sakit okeanın şərqində, Amerikada, Avropada və Afrikada", -24.3),
+     "Sakit okeanın şərqində, Şimali və Cənubi Amerikada, Avropada və Afrikada", -24.3),
     ("2027-02-20", "23:14:06", "Penumbral", -0.057, "Americas, Europe, Africa, Asia",
-     "Amerikada, Avropada, Afrikada və Asiyada", 45.6),
+     "Şimali və Cənubi Amerikada, Avropada, Afrikada və Asiyada", 45.6),
     ("2027-07-18", "16:04:09", "Penumbral", -1.068, "e Africa, Asia, Australia, Pacific",
      "Afrikanın şərqində, Asiyada, Avstraliyada və Sakit okeanda", -2.1),
-    ("2027-08-17", "07:14:59", "Penumbral", -0.525, "Pacific, Americas", "Sakit okeanda və Amerikada", -56.4),
+    ("2027-08-17", "07:14:59", "Penumbral", -0.525, "Pacific, Americas", "Sakit okeanda, Şimali və Cənubi Amerikada", -56.4),
 )
 ECLIPSE_NAME = {("gunes", "Total"): "tam Günəş tutulması", ("gunes", "Annular"): "həlqəvi Günəş tutulması",
                 ("gunes", "Partial"): "qismən Günəş tutulması", ("gunes", "Hybrid"): "hibrid Günəş tutulması",
@@ -684,14 +689,20 @@ def eclipse_items(day, now):
     return out
 
 
+TABLE_WARN = (11, 1)  # cədvəlin son ilinin bu günündən xəbərdarlıq: növbəti ilin ilk xəbərləri (Kvadrantidlər) 1-3 yanvardadır
+
+
 def table_items(day):
-    """Meteor və tutulma cədvəli bu ili əhatə etmirsə: dərc olunmayan bir qeyd, səbəbi ilə."""
-    if day.year <= TABLE_YEARS[-1]:
+    """Meteor və tutulma cədvəli bu ili və ya gələn ili əhatə etmirsə: dərc olunmayan bir qeyd, səbəbi ilə. Qeyd cədvəlin son
+    ilinin 1 noyabrından çıxır ki, yeni ilin cədvəlini (IMO calYYYY.pdf, NASA) yanvardan əvvəl əlavə etməyə vaxt qalsın."""
+    last = TABLE_YEARS[-1]
+    if day < datetime.date(last, *TABLE_WARN):
         return []
-    year = ox.ordinal(day.year)
-    return [{"kind": "sema-cedvel", "key": f"sema-cedvel-{day.year}", "title": f"{year} il üçün meteor və tutulma cədvəli yoxdur",
+    missing = max(day.year, last + 1)
+    year = ox.ordinal(missing)
+    return [{"kind": "sema-cedvel", "key": f"sema-cedvel-{missing}", "title": f"{year} il üçün meteor və tutulma cədvəli yoxdur",
              "lead": "Meteor axınlarının (IMO) və tutulmaların (NASA) cədvəli 2026–2027-ci illər üçündür.", "body": [],
-             "credit": CREDIT, "link": IMO_PDF.format(day.year), "topic": TOPIC, "slot": SLOT["ay"], "worth": False,
+             "credit": CREDIT, "link": IMO_PDF.format(missing), "topic": TOPIC, "slot": SLOT["ay"], "worth": False,
              "why": f"cədvəldə {year} il yoxdur: IMO və NASA cədvəllərini əlavə etmək lazımdır"}]
 
 
