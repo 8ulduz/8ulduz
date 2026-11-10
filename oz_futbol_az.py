@@ -9,6 +9,7 @@ Mənbə saytın artıq topladığı data/futbol/*.json-dur, hər rəqəm və ad 
 Xəbərlər (bu moduldan gündə ən çox 5):
 1. Premyer Liqanın tur icmalı: turun əsas günlərinin bütün oyunları oynanandan sonra, son oyunun başlamasından 2 saat
    15 dəqiqə sonra (gecə yarısından sonraya düşürsə, səhər 09:00-da). Sonraya salınmış oyun turu saxlamır, qeyd olunur.
+   Oyunlardan hesablanan yer yalnız xalı tək olan komandaya yazılır: pfl.az bərabər xalda əvvəlcə qarşılıqlı oyunlara baxır.
 2. Premyer Liqanın növbəti turuna baxış: turdan bir gün əvvəl 12:00-da, yalnız bütün oyunların saatı bəllidirsə (00:00 deyil)
    və rəsmi cədvəl oyunların nəticələri ilə uyğundursa.
 3. Bombardirlər: turdan sonrakı gün 10:00-da. pfl.az-dan /bombarders/list (fetch parametri ilə; mövsümün liqa nömrəsi üçün
@@ -213,7 +214,9 @@ def _read(root, name, folder="futbol"):
 
 
 def _games(doc):
-    """Oyunlar vaxt sırası ilə, Bakı vaxtı. tbc: saat 00:00 yer tutucusudur (pfl.az uzaq turlara belə yazır)."""
+    """Oyunlar vaxt sırası ilə, Bakı vaxtı. tbc: saat bəlli deyil — 00:00 yer tutucusudur (pfl.az uzaq turlara, TheSportsDB
+    saatı elan olunmayan oyuna belə yazır), milli.cjs isə saatı elan olunmayan oyunu T12:00 UTC və day=true yazır.
+    off: təxirə salınıb və ya ləğv olunub (milli.cjs, TheSportsDB: state="off")."""
     out = []
     for g in (doc or {}).get("games") or []:
         if not isinstance(g, dict):
@@ -224,7 +227,8 @@ def _games(doc):
         hs, as_ = g.get("hs"), g.get("as")
         played = bool(g.get("played")) and isinstance(hs, int) and isinstance(as_, int)
         out.append({"home": str(g["home"]), "away": str(g["away"]), "hs": hs if played else None,
-                    "as": as_ if played else None, "when": when, "played": played, "tbc": "T00:00" in str(g.get("date")),
+                    "as": as_ if played else None, "when": when, "played": played,
+                    "tbc": "T00:00" in str(g.get("date")) or g.get("day") is True, "off": not played and g.get("state") == "off",
                     "stadium": str(g.get("stadium") or ""), "round": str(g.get("round") or "")})
     out.sort(key=lambda x: x["when"])
     return out
@@ -303,10 +307,12 @@ def _order(table, names):
 
 
 def _pos(table):
-    """Yer: xalı, qol fərqi və qolu ondan tam üstün olanların sayı + 1. Hamısı bərabər olanlar yeri bölüşür (shared)."""
-    keys = {k: _rank_key(r) for k, r in table.items()}
-    pos = {k: 1 + sum(1 for v in keys.values() if v > keys[k]) for k in keys}
-    shared = {k for k in keys if sum(1 for v in keys.values() if v == keys[k]) > 1}
+    """Oyunlardan hesablanan yer: xalı ondan çox olanların sayı + 1. Xalı başqası ilə bərabər olanın yeri bilinmir (shared):
+    pfl.az bərabərlikdə əvvəlcə qarşılıqlı oyunlara baxır (2025-26: «Turan Tovuz» 59 xal, +17 ilə «Neftçi»dən (59, +25)
+    yuxarıdadır), UEFA da belə. Qol fərqi ilə qurulan yer təxmin olardı."""
+    pts = {k: r["pts"] for k, r in table.items()}
+    pos = {k: 1 + sum(1 for v in pts.values() if v > pts[k]) for k in pts}
+    shared = {k for k in pts if sum(1 for v in pts.values() if v == pts[k]) > 1}
     return pos, shared
 
 
@@ -439,11 +445,10 @@ def _league_events(L, past=None):
 
 # --- 1, 4. Tur icmalı ----------------------------------------------------------------------------------------
 
-def _moves(after, before, nm):
-    """Ən çox yer dəyişənlər (qalxan və düşən, ən çoxu ikişər). Yeri bölüşülən komanda sayılmır."""
-    pa, sa = _pos(after)
-    pb, sb = _pos(before)
-    ok = [k for k in after if k in pb and k not in sa and k not in sb]
+def _moves(pa, sa, pb, sb, nm):
+    """Ən çox yer dəyişənlər (qalxan və düşən, ən çoxu ikişər). pa/pb: turdan sonrakı və əvvəlki yerlər, sa/sb: yeri bilinməyənlər
+    (onlar sayılmır)."""
+    ok = [k for k in pa if pa[k] and pb.get(k) and k not in sa and k not in sb]
     up = sorted((k for k in ok if pb[k] > pa[k]), key=lambda k: (pa[k] - pb[k], pa[k]))[:2]
     down = sorted((k for k in ok if pb[k] < pa[k]), key=lambda k: (pb[k] - pa[k], pa[k]))[:2]
 
@@ -470,9 +475,13 @@ def _in_hand(after, order, nm):
     return f"{', '.join(parts)} oyun keçirib, digər komandalar isə {most} oyun."
 
 
-def _same_order(L, order):
-    off = sorted(L["official"], key=lambda k: int(L["official"][k].get("pos") or 99))
-    return off == list(order)
+def _after_places(L, after, current):
+    """Turdan sonrakı yerlər: tur sonuncudursa rəsmi cədvəldən (oyunlarla uyğunluğu _summary yoxlayıb), deyilsə hesablanmış
+    (bərabər xallıların yeri bilinmir)."""
+    if current and L["official"]:
+        pa = {k: int(r.get("pos") or 0) for k, r in L["official"].items()}
+        return pa, {k for k, v in pa.items() if not v}
+    return _pos(after)
 
 
 def _summary(L, rnd, main, early, later, short, fetch=None):
@@ -562,8 +571,8 @@ def _summary(L, rnd, main, early, later, short, fetch=None):
 
     body = [_score(g, nm) for g in games]
     if not short:
-        if had_before and (not current or _same_order(L, order)):
-            moves = _moves(after, before, nm)
+        if had_before:
+            moves = _moves(*_after_places(L, after, current), *_pos(before), nm)
             if moves:
                 body.append(moves)
         hand = _in_hand(after, order, nm)
@@ -805,8 +814,9 @@ def _real_dates(gs):
     return not any(g["tbc"] for g in gs) and not (len(gs) >= 2 and len({g["when"] for g in gs}) == 1)
 
 
-def _cup_events(K, pl_pos):
-    """Hər mərhələ: bitəndə nəticələr; cütlər əvvəlki mərhələ bitəndən 10 gün ərzində (və ya ilk mərhələdən 7 gün əvvəl)."""
+def _cup_events(K, pl_pos, pl_teams=()):
+    """Hər mərhələ: bitəndə nəticələr; cütlər əvvəlki mərhələ bitəndən 10 gün ərzində (və ya ilk mərhələdən 7 gün əvvəl).
+    pl_pos: Premyer Liqa komandalarının bilinən yerləri, pl_teams: Premyer Liqanın bütün komandaları."""
     stages = {}
     for g in K["games"]:
         stages.setdefault(g["round"], []).append(g)
@@ -824,7 +834,7 @@ def _cup_events(K, pl_pos):
             end = min(first, start + 10 * DAY)
             if start < end:
                 evs.append(_ev("kubok-cutler", f"{tag}-cutler", start, end,
-                               functools.partial(_cup_pairs, K, stages, order, i, pl_pos)))
+                               functools.partial(_cup_pairs, K, stages, order, i, pl_pos, set(pl_teams))))
         prev_ready = ready
     return evs
 
@@ -891,8 +901,9 @@ def _cup_results(K, stages, order, i, fetch=None):
     return {"title": title, "lead": lead, "body": body, "list": True, "credit": CREDIT_PFL, "link": LINK_PFL}
 
 
-def _cup_pairs(K, stages, order, i, pl_pos, fetch=None):
-    """Mərhələnin cütləri. Başlıqda Premyer Liqanın ən güclü cütləri (cədvəldəki yerlərin cəmi ən kiçik olan)."""
+def _cup_pairs(K, stages, order, i, pl_pos, pl_teams, fetch=None):
+    """Mərhələnin cütləri. Başlıqda iki Premyer Liqa komandasının cütləri öndə, onların arasında cədvəldəki yerlərin cəmi ən kiçik
+    olan. Kimin Premyer Liqa komandası olduğu yerdən asılı deyil: yer bilinməyəndə də (bərabər xal) sayılır."""
     s = order[i]
     gs = sorted(stages[s], key=lambda g: g["when"])
     nm = functools.partial(_nm, K)
@@ -912,15 +923,16 @@ def _cup_pairs(K, stages, order, i, pl_pos, fetch=None):
         lead = f"{cup} finalının iştirakçıları bəllidir: {_q(nm(g['home']))} və {_q(nm(g['away']))}."
     else:
         def strength(g):
-            ps = [pl_pos[t] for t in (g["home"], g["away"]) if t in pl_pos]
-            return (-len(ps), sum(ps), min(ps) if ps else 99)
+            sides = (g["home"], g["away"])
+            ps = [pl_pos[t] for t in sides if t in pl_pos]
+            return (-sum(1 for t in sides if t in pl_teams), -len(ps), sum(ps), min(ps) if ps else 99)
         ranked = sorted(gs, key=strength)
         hosts = ", ".join(f"{_q(nm(g['home']))} {sx(nm(g['away']), 'acc')}" for g in ranked[:2])
         title = f"{cup} {text}: {hosts} qəbul edəcək"
         if len(title) > TITLE_MAX:
             title = f"{cup} {text}: {_q(nm(ranked[0]['home']))} {sx(nm(ranked[0]['away']), 'acc')} qəbul edəcək"
         lead = f"{sx(cup + ' ' + text, 'gen', False)} cütləri bəllidir."
-        top = [g for g in ranked if g["home"] in pl_pos and g["away"] in pl_pos]
+        top = [g for g in ranked if g["home"] in pl_teams and g["away"] in pl_teams]
         if top:
             lead += f" Premyer Liqa komandaları {len(top)} cütdə bir-biri ilə qarşılaşacaq: {', '.join(_pair(g, nm) for g in top)}."
     if real and len(gs) == 1:
@@ -973,10 +985,16 @@ def _milli_events(root):
                 ready = _ready_after(g["when"], 8)
                 evs.append(_ev("milli-netice", f"{tag}-netice", ready, ready + 36 * HOUR,
                                functools.partial(_milli_result, D, az, g)))
-            elif not g["tbc"]:
+            elif not g["tbc"] and not g["off"]:  # saatı bəlli olmayan və ya təxirə salınan oyuna baxış yazılmır
                 evs.append(_ev("milli-oncesi", f"{tag}-oncesi", _at((g["when"] - DAY).date(), 12), g["when"],
                                functools.partial(_milli_preview, D, az, g)))
     return evs
+
+
+def _next_game(games, team, after):
+    """Komandanın «after»dan sonrakı, saatı bəlli və təxirə salınmamış ilk oyunu."""
+    return next((x for x in games if team in (x["home"], x["away"]) and not x["played"] and x["when"] > after
+                 and not x["tbc"] and not x["off"]), None)
 
 
 def _game_tag(g, team):
@@ -1026,7 +1044,6 @@ def _standing(D, grp, until):
         order = sorted(rows, key=lambda k: int(rows[k].get("pos") or 99))
         return table, order, {k: int(rows[k].get("pos") or 0) for k in order}, set()
     pos, shared = _pos(table)
-    shared |= {k for k in table if sum(1 for j in table if table[j]["pts"] == table[k]["pts"]) > 1}
     return table, _order(table, D["names"]), pos, shared
 
 
@@ -1088,8 +1105,7 @@ def _milli_result(D, az, g, fetch=None):
         got = f"{me['pts']} xal toplayıb" if me["pts"] else "xal qazanmayıb"
         lead += f" Bu nəticədən sonra Azərbaycan {me['p']} oyunda {got}"
         lead += f" və qrupda {_place(pos[az])} yerdədir." if az not in shared and pos.get(az) else "."
-    nxt = next((x for x in D["games"] if az in (x["home"], x["away"]) and not x["played"] and x["when"] > g["when"]
-                and not x["tbc"]), None)
+    nxt = _next_game(D["games"], az, g["when"])
     if nxt:
         o2 = D["names"].get(nxt["away"] if nxt["home"] == az else nxt["home"], "")
         lead += (f" Komanda növbəti oyununu {ox.day_loc(nxt['when'])} Bakı vaxtı ilə {ox.time_loc(nxt['when'])} "
@@ -1119,7 +1135,7 @@ def _euro_events(root, clubs):
                     ready = _ready_after(g["when"], 8)
                     evs.append(_ev("avro-netice", f"{tag}-netice", ready, ready + 36 * HOUR,
                                    functools.partial(_euro_result, E, c, g)))
-                elif not g["tbc"]:
+                elif not g["tbc"] and not g["off"]:
                     evs.append(_ev("avro-oncesi", f"{tag}-oncesi", _at((g["when"] - DAY).date(), 12), g["when"],
                                    functools.partial(_euro_preview, E, c, g)))
     return evs
@@ -1140,9 +1156,10 @@ def _stage(g):
 
 
 def _club(E, c, until):
-    """Klubun «until» anına qədər oyunları, xalları və cədvəldəki yeri (yer yalnız cədvəl oyunlarla uyğundursa)."""
+    """Klubun «until» anına qədər oyunları, liqa mərhələsindəki xalları və cədvəldəki yeri (yer yalnız cədvəl oyunlarla
+    uyğundursa). Pley-off oyunları xal vermir: cədvələ yalnız liqa mərhələsinin (rəqəmli turların) oyunları düşür."""
     mine = [x for x in E["games"] if c in (x["home"], x["away"]) and x["played"] and x["when"] <= until]
-    t = _table(mine, [c])[c]
+    t = _table([x for x in mine if x["round"].isdigit()], [c])[c]
     row = E["official"].get(c)
     later = any(x["played"] and x["when"] > until for x in E["games"] if c in (x["home"], x["away"]))
     ok = row and not later and int(row.get("p") or 0) == t["p"] and int(row.get("pts") or 0) == t["pts"]
@@ -1165,13 +1182,13 @@ def _euro_result(E, c, g, fetch=None):
     lead = (f"{sx(E['name'], 'gen', False)} {_stage(g)} {_q(club)} {'doğma meydanda' if home else 'səfərdə'} "
             f"{sx(opp, 'ins')} qarşılaşıb və {gf}:{ga} hesabı ilə {verb}.")
     mine, t, pos = _club(E, c, g["when"])
-    wdl = ", ".join(x for x in (f"{t['w']} qələbə" if t["w"] else "", f"{t['d']} heç-heçə" if t["d"] else "",
-                                f"{t['l']} məğlubiyyət" if t["l"] else "") if x)
-    got = f"{t['pts']} xal toplayıb ({wdl})" if t["pts"] else "xal qazanmayıb"
-    lead += f" Azərbaycan təmsilçisi {t['p']} oyunda {got}"
-    lead += f" və {len(E['official'])} komanda arasında {ox.ordinal(pos)} yerdədir." if pos else "."
-    nxt = next((x for x in E["games"] if c in (x["home"], x["away"]) and not x["played"] and x["when"] > g["when"]
-                and not x["tbc"]), None)
+    if g["round"].isdigit():  # xal və yer yalnız liqa mərhələsinin oyunundan sonra
+        wdl = ", ".join(x for x in (f"{t['w']} qələbə" if t["w"] else "", f"{t['d']} heç-heçə" if t["d"] else "",
+                                    f"{t['l']} məğlubiyyət" if t["l"] else "") if x)
+        got = f"{t['pts']} xal toplayıb ({wdl})" if t["pts"] else "xal qazanmayıb"
+        lead += f" Azərbaycan təmsilçisi {t['p']} oyunda {got}"
+        lead += f" və {len(E['official'])} komanda arasında {ox.ordinal(pos)} yerdədir." if pos else "."
+    nxt = _next_game(E["games"], c, g["when"])
     if nxt:
         h2 = nxt["home"] == c
         o2 = E["names"].get(nxt["away"] if h2 else nxt["home"], "")
@@ -1193,13 +1210,14 @@ def _euro_preview(E, c, g, fetch=None):
     lead = (f"{sx(E['name'], 'gen', False)} {_stage(g)} {_q(club)} {ox.day_loc(w)} Bakı vaxtı ilə {ox.time_loc(w)} "
             f"{'doğma meydanda' if home else 'səfərdə'} {sx(opp, 'ins')} qarşılaşacaq.")
     mine, t, pos = _club(E, c, w)
-    if t["p"]:
-        got = f"{t['pts']} xal toplayıb" if t["pts"] else "xal qazanmayıb"
-        lead += f" {_q(club)} {t['p']} oyunda {got}"
-        lead += f" və {len(E['official'])} komanda arasında {ox.ordinal(pos)} yerdədir." if pos else "."
-    _, to, po = _club(E, other, w)
-    if to["p"] and po:
-        lead += f" {_q(opp)} {to['p']} oyunda {_pts_with(to['pts'])} {ox.ordinal(po)} yerdədir."
+    if g["round"].isdigit():  # pley-off oyunundan əvvəl liqa mərhələsinin xalı və yeri yazılmır
+        if t["p"]:
+            got = f"{t['pts']} xal toplayıb" if t["pts"] else "xal qazanmayıb"
+            lead += f" {_q(club)} {t['p']} oyunda {got}"
+            lead += f" və {len(E['official'])} komanda arasında {ox.ordinal(pos)} yerdədir." if pos else "."
+        _, to, po = _club(E, other, w)
+        if to["p"] and po:
+            lead += f" {_q(opp)} {to['p']} oyunda {_pts_with(to['pts'])} {ox.ordinal(po)} yerdədir."
     body = [_score(x, functools.partial(_nm, E)) for x in mine]
     return {"title": title, "lead": lead, "body": body, "list": True, "credit": _credit(E), "link": _link(E)}
 
@@ -1231,7 +1249,7 @@ def _events(root):
             evs += run(_league_events, L) or []
     K = run(_league, root, "kubok")
     if K:
-        evs += run(_cup_events, K, pl_pos) or []
+        evs += run(_cup_events, K, pl_pos, clubs) or []
     evs += run(_milli_events, root) or []
     evs += run(_euro_events, root, clubs) or []
     return evs, errors
