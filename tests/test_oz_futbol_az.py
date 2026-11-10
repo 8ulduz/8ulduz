@@ -730,6 +730,27 @@ class SecondReviewTest(unittest.TestCase):
         self.assertEqual(item["lead"], "Çempionlar Liqasının pley-off mərhələsində «Sabah» 17 fevralda Bakı vaxtı ilə saat 21:45-də "
                                        "səfərdə «Arsenal»la qarşılaşacaq.")
 
+    def test_a_game_played_early_is_dated_in_the_summary(self):
+        # Turun bir oyunu 8 gün əvvəl keçirilib (Avropa oyunlarına görə): «turu 8 noyabrda keçirilib» o oyunun tarixini demir.
+        teams = dict(TEAMS, imisli="İmişli", kepez="Kəpəz")
+        r1 = [game(1, "2026-10-25T15:00+04:00", "neftci", "sabah", (1, 0)), game(1, "2026-10-25T17:00+04:00", "qarabag", "zire", (1, 1)),
+              game(1, "2026-10-25T19:00+04:00", "imisli", "kepez", (0, 2))]
+        r2 = [game(2, "2026-10-31T18:00+04:00", "qarabag", "neftci", (2, 0)), game(2, "2026-11-08T15:00+04:00", "sabah", "imisli", (3, 0)),
+              game(2, "2026-11-08T18:00+04:00", "kepez", "zire", (1, 1))]
+        item = self.items_at({"premyer-liqa": league(r1 + r2, teams=teams)}, "2026-11-08T21:00+04:00")["tur-premyer-liqa-2026-t2"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertTrue(item["lead"].startswith("Misli Premyer Liqasının 2-ci turu 8 noyabrda keçirilib."), item["lead"])
+        self.assertIn("Turun 3 oyununda 7 qol vurulub.", item["lead"])
+        self.assertEqual(item["body"][-1], "Turun «Qarabağ» – «Neftçi» oyunu 31 oktyabrda keçirilib.")
+
+    def test_foreign_club_endings_follow_pronunciation(self):
+        # «Hull City»ni (Siti), «Chelsea»ni (Çelsi), «Crystal Palace»i (Pelis), «Sparta Prague»a (Praq), «Red Star Belgrade»i.
+        self.assertEqual([fa.sx(n, c) for n, c in (
+            ("Leicester City", "acc"), ("Hull City", "dat"), ("Chelsea", "acc"), ("Crystal Palace", "acc"), ("Sparta Prague", "dat"),
+            ("TSG Hoffenheim", "ins"), ("Red Star Belgrade", "acc"), ("Union Saint-Gilloise", "acc"))],
+            ["«Leicester City»ni", "«Hull City»yə", "«Chelsea»ni", "«Crystal Palace»i", "«Sparta Prague»a", "«TSG Hoffenheim»la",
+             "«Red Star Belgrade»i", "«Union Saint-Gilloise»ı"])
+
 
 class ContractTest(unittest.TestCase):
     TIMES = ("2026-10-04T20:00+04:00", "2026-10-22T18:00+04:00", "2026-10-29T17:00+04:00", "2026-11-03T18:00+04:00",
