@@ -257,8 +257,10 @@ class RoundTest(unittest.TestCase):
             r["pos"] = n
         lg = fd.prep(doc(games, tr, rows=bad))
         table, official_order = fd.table(lg, self.NOW, self.NOW)
-        self.assertTrue(official_order)
+        self.assertFalse(official_order)          # xala görə səhv düzülmüş cədvəlin bərabər xallı sırasına da etibar yoxdur
         self.assertEqual([r["team"] for r in table[:2]], ["besiktas", "kasimpasa"])
+        self.assertFalse(fd._sure(table, "goztepe", official_order))      # «Galatasaray» ilə 1 xal
+        self.assertTrue(fd._sure(table, "besiktas", official_order))
         lg = fd.prep(doc(games, tr, rows=official(games, tr, deduct={"besiktas": 5})))   # xal çıxılıb: 6 - 5 = 1
         table, official_order = fd.table(lg, self.NOW, self.NOW)
         self.assertTrue(official_order)
@@ -388,7 +390,8 @@ class RealEuropeTest(unittest.TestCase):
         self.assertIn("«Beşiktaş» doğma meydanda «Žalgiris»ə 69:83 hesabı ilə uduzub", item["lead"])
         self.assertNotIn("oyunda", item["lead"])           # faylda turun bütün oyunları yoxdur: say yazılmır
         stale = copy.deepcopy(lg["doc"])
-        stale["groups"][0]["rows"][5]["l"] -= 1
+        for r in stale["groups"][0]["rows"][:12]:       # komandaların çoxu 9 oyunda: cədvəl turu hələ saymayıb
+            r["l"] -= 1
         self.assertEqual(fd.euro_item(fd.prep(stale), "10", baku(2026, 11, 7, 8, 30))[1], "cədvəl bu turu hələ saymayıb (məlumat təzə deyil)")
         old = copy.deepcopy(lg["doc"])
         old["asof"] = "2026-11-05"
@@ -561,6 +564,264 @@ class SafetyTest(unittest.TestCase):
         """Sahib 2026-11-10: faza 1 sınaq budağındadır. Sayt bu modulu çağırmır."""
         self.assertNotIn("oz_futbol_dunya", (ROOT / "updater.py").read_text(encoding="utf-8"))
         self.assertNotIn("oz_futbol_dunya", (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8"))
+
+
+# --- Müstəqil yoxlamada tapılan boşluqlar (2026-11-10) ------------------------------------------------------------
+
+def weekly(r, h=15):
+    """Bazar ertəsi xəbəri üçün: 3 oktyabrdan başlayaraq hər həftə bir tur."""
+    return (datetime.datetime(2026, 10, 3, h, tzinfo=UTC) + datetime.timedelta(days=7 * r)).isoformat()
+
+
+class CupHoleTest(unittest.TestCase):
+    def test_next_stage_must_match_the_winners(self):
+        # italiya-kuboku.json: 1/4 finalın «cütləri» 1/8 final oynanmamış gözlənilən komandalarla yazılıb
+        cup = {"inter-milan": "Inter Milan", "genoa": "Genoa", "como": "Como", "cremonese": "Cremonese"}
+        games = [game(iso(2026, 12, 2, 20), "inter-milan", "genoa", 0, 1, "1/8 final"),
+                 game(iso(2026, 12, 3, 20), "como", "cremonese", 2, 0, "1/8 final"),
+                 game("", "inter-milan", "como", rnd="1/4 final")]
+        item, why = fd.cup_item("italiya-kuboku", fd.prep(doc(games, cup, rows=[])), "1/8 final", baku(2026, 12, 4, 12, 0))
+        self.assertEqual(why, "")
+        self.assertIn("«Inter Milan» doğma meydanda «Genoa»ya 0:1 hesabı ilə uduzub.", item["lead"])
+        self.assertNotIn("yüksəlib", item["lead"])
+        self.assertFalse(any("cütləri" in b for b in item["body"]))
+
+    def test_long_stage_does_not_report_old_results(self):
+        # İtaliya Kubokunun 1/8 finalı 2 dekabrdan 27 yanvaradək sürür: dekabrdakı nəticə yanvarda xəbər deyil
+        cup = {"inter-milan": "Inter Milan", "genoa": "Genoa", "atalanta": "Atalanta", "udinese": "Udinese"}
+        games = [game(iso(2026, 12, 1, 20), "inter-milan", "genoa", 2, 0, "1/8 final"),
+                 game(iso(2027, 1, 26, 20), "atalanta", "udinese", 1, 0, "1/8 final")]
+        item, why = fd.cup_item("italiya-kuboku", fd.prep(doc(games, cup, rows=[])), "1/8 final", baku(2027, 1, 27, 9, 0))
+        self.assertIsNone(item)
+        self.assertIn("köhnədir", why)
+        with site({"italiya-kuboku": doc(games, cup, rows=[])}) as root:
+            ev = next(e for e in fd.events(fd.load(root)) if e["kind"] == "kubok")
+        self.assertIn("köhnədir", ev.get("why", ""))
+
+    def test_final_is_on_neutral_ground(self):
+        cup = {"arsenal": "Arsenal", "chelsea": "Chelsea"}
+        lg = fd.prep(doc([game(iso(2027, 5, 15, 14), "arsenal", "chelsea", 2, 1, "Final")], cup, rows=[]))
+        item, why = fd.cup_item("ingiltere-kuboku", lg, "Final", baku(2027, 5, 16, 9, 0))
+        self.assertEqual(why, "")
+        self.assertEqual(item["title"], "İngiltərə Kubokunun finalı: «Arsenal» «Chelsea»ni 2:1 hesabı ilə məğlub edib")
+        self.assertEqual(item["lead"], "İngiltərə Kubokunun finalı 15 mayda keçirilib. "
+                                       "«Arsenal» «Chelsea»ni 2:1 hesabı ilə məğlub edib və kubokun qalibi olub.")
+        self.assertEqual((fd._stage_poss("Yarımfinal"), fd._stage_gen("Yarımfinal"), fd._stage_dat("Final")),
+                         ("yarımfinalı", "yarımfinalının", "finala"))
+
+
+class RoundHoleTest(unittest.TestCase):
+    def test_game_played_ahead_of_its_round(self):
+        # ispaniya.json, 6-cı tur: bir oyun 3 sentyabrda, 4-cü və 5-ci turlardan əvvəl keçirilib. Turdan əvvəlki cədvəl o oyunun
+        # vaxtına görə götürülsə, ötən turların dəyişikliyi bu tura yazılır («təkbaşına liderdir» və s.).
+        six = {"arsenal": "Arsenal", "chelsea": "Chelsea", "hull-city": "Hull City", "liverpool": "Liverpool",
+               "everton": "Everton", "fulham": "Fulham"}
+        games = [game(iso(2026, 10, 24), "arsenal", "chelsea", 1, 0, "1"), game(iso(2026, 10, 24), "hull-city", "liverpool", 1, 0, "1"),
+                 game(iso(2026, 10, 24), "everton", "fulham", 0, 0, "1"),
+                 game(iso(2026, 10, 27), "arsenal", "fulham", 2, 0, "3"),
+                 game(iso(2026, 10, 31), "arsenal", "hull-city", 1, 0, "2"), game(iso(2026, 10, 31), "chelsea", "everton", 0, 0, "2"),
+                 game(iso(2026, 10, 31), "liverpool", "fulham", 0, 0, "2"),
+                 game(iso(2026, 11, 7), "hull-city", "everton", 1, 0, "3"), game(iso(2026, 11, 7), "chelsea", "liverpool", 0, 0, "3")]
+        item, why = fd.round_item("ingiltere", fd.prep(doc(games, six)), "3", baku(2026, 11, 8, 12, 0))
+        self.assertEqual(why, "")
+        self.assertEqual(item["title"], "İngiltərə Premyer Liqasında 3-cü tur: lider «Arsenal» «Fulham»i 2:0 hesabı ilə məğlub edib")
+        self.assertTrue(item["lead"].startswith("İngiltərə Premyer Liqasının 3-cü turu 7 noyabrda keçirilib. "
+                                                "Turdan sonra «Arsenal» 9 xalla birinci yerdədir."), item["lead"])
+        self.assertIn("«Arsenal» – «Fulham» 2:0 (27 oktyabr)", item["body"])
+
+    def test_shared_official_position_is_not_stated(self):
+        # cl.json: «AEK Athens» və «RB Leipzig» rəsmi cədvəldə ikisi də 29-cu yerdədir
+        games = [game(iso(2026, 10, 31), "arsenal", "chelsea", 1, 0, "1"), game(iso(2026, 10, 31), "hull-city", "liverpool", 1, 0, "1")]
+        rows = official(games, ENG)
+        for r, pos in zip(rows, (1, 1, 3, 3)):
+            r["pos"] = pos
+        lg = fd.prep(doc(games, ENG, rows=rows))
+        table, off = fd.table(lg, RoundTest.NOW, RoundTest.NOW)
+        self.assertTrue(off)
+        self.assertFalse(fd._sure(table, "arsenal", off))
+        self.assertFalse(fd._sure(table, "hull-city", off))
+
+
+STREAK = {"arsenal": "Arsenal", "brentford": "Brentford", "chelsea": "Chelsea", "everton": "Everton", "fulham": "Fulham",
+          "liverpool": "Liverpool", "hull-city": "Hull City", "burnley": "Burnley", "watford": "Watford", "millwall": "Millwall",
+          "stoke-city": "Stoke City", "wrexham": "Wrexham"}
+
+
+class LeadersHoleTest(unittest.TestCase):
+    def test_streak_list_does_not_cut_a_tie(self):
+        # 9 noyabr nümunəsi: 5 oyunluq seriya beş komandadadır, siyahı 5 adda kəsilib «Galatasaray»ı buraxırdı
+        win = ["arsenal", "brentford", "chelsea", "everton", "fulham", "liverpool"]
+        lose = ["hull-city", "burnley", "watford", "millwall", "stoke-city", "wrexham"]
+        games = [game(weekly(r), s, lose[(i + r) % 6], 0 if r == 0 and s != "arsenal" else 1, 0, str(r + 1))
+                 for r in range(6) for i, s in enumerate(win)]
+        with patch.object(fd, "LEADERS_MIN", 1), site({"ingiltere": doc(games, STREAK)}) as root:
+            item, why = fd.leaders_item(fd.load(root), datetime.date(2026, 11, 9), baku(2026, 11, 9, 9, 0))
+        self.assertEqual(why, "")
+        self.assertIn("Çempionatda ardıcıl qələbə seriyaları: «Arsenal» — 6 oyun, «Brentford», «Chelsea», «Everton», «Fulham» "
+                      "və «Liverpool» — 5 oyun.", item["body"])
+
+    def test_more_than_three_leaders_are_counted(self):
+        names = dict(list(STREAK.items())[:8])
+        games = [game(iso(2026, 11, 7), w, l, 1, 0, "1")
+                 for w, l in zip(["arsenal", "brentford", "chelsea", "everton"], ["fulham", "liverpool", "hull-city", "burnley"])]
+        with patch.object(fd, "LEADERS_MIN", 1), site({"ingiltere": doc(games, names)}) as root:
+            item, why = fd.leaders_item(fd.load(root), datetime.date(2026, 11, 9), baku(2026, 11, 9, 9, 0))
+        self.assertEqual(why, "")
+        self.assertIn("İngiltərə: 4 komanda — 3 xal.", item["body"])
+        self.assertIn("İngiltərədə 4 komanda (3 xal)", item["lead"])
+
+
+def nba_doc():
+    teams = {"boston-celtics": "Boston Celtics", "new-york-knicks": "New York Knicks", "miami-heat": "Miami Heat",
+             "chicago-bulls": "Chicago Bulls", "los-angeles-lakers": "Los Angeles Lakers", "denver-nuggets": "Denver Nuggets"}
+    games = []
+
+    def add(day, home, away, hs, as_):
+        games.append({"date": f"2026-11-{day:02d}T12:00:00+00:00", "day": True, "home": home, "away": away,
+                      "played": True, "round": "", "hs": hs, "as": as_})
+    add(1, "boston-celtics", "new-york-knicks", 110, 100)
+    add(1, "los-angeles-lakers", "denver-nuggets", 110, 100)
+    add(1, "chicago-bulls", "miami-heat", 105, 100)
+    for day in (2, 3, 4, 5, 6):
+        add(day, "boston-celtics", "new-york-knicks", 110, 100)
+        if day == 3:
+            add(day, "denver-nuggets", "los-angeles-lakers", 110, 100)
+        else:
+            add(day, "los-angeles-lakers", "denver-nuggets", 120 if day == 6 else 110, 100)
+        add(day, "miami-heat", "chicago-bulls", 110, 100)
+    add(7, "miami-heat", "chicago-bulls", 110, 100)
+    add(7, "los-angeles-lakers", "denver-nuggets", 110, 100)
+    east = ["boston-celtics", "new-york-knicks", "miami-heat", "chicago-bulls"]
+    west = ["los-angeles-lakers", "denver-nuggets"]
+    return {"id": "nba", "name": "NBA", "key": "2026", "season": "2026/27", "asof": "", "source": "Vikipediya",
+            "url": "https://en.wikipedia.org/wiki/2026%E2%80%9327_NBA_season", "teams": {s: {"name": n} for s, n in teams.items()},
+            "groups": [{"name": "Şərq konfransı", "rows": [{"team": t} for t in east]},
+                       {"name": "Qərb konfransı", "rows": [{"team": t} for t in west]}], "games": games}
+
+
+class NbaHoleTest(unittest.TestCase):
+    def setUp(self):
+        self.lg = fd.prep(nba_doc())
+
+    def test_streak_sentence_follows_its_team(self):
+        # «Bu, ... ardıcıl N-ci qələbəsidir» həmin komandanın cümləsindən dərhal sonra gəlməlidir
+        item, why = fd.nba_item(self.lg, datetime.date(2026, 11, 6), baku(2026, 11, 7, 12, 0))
+        self.assertEqual(why, "")
+        self.assertEqual(item["lead"], "NBA-da ABŞ vaxtı ilə 6 noyabrda 3 oyun keçirilib. «Boston Celtics» doğma meydanda "
+                                       "«New York Knicks»i 110:100 hesabı ilə məğlub edib və 6 oyunda 6 qələbə ilə Şərq konfransının "
+                                       "lideridir. Bu, «Boston Celtics»in ardıcıl 6-cı qələbəsidir. «Los Angeles Lakers» doğma "
+                                       "meydanda «Denver Nuggets»i 120:100 hesabı ilə məğlub edib və 5 qələbə, 1 məğlubiyyətlə "
+                                       "Qərb konfransının lideridir.")
+        item, why = fd.nba_item(self.lg, datetime.date(2026, 11, 7), baku(2026, 11, 8, 12, 0))
+        self.assertEqual(item["title"], "NBA-da «Miami Heat» ardıcıl 6-cı qələbəsini qazanıb")
+        self.assertEqual(item["lead"], "NBA-da ABŞ vaxtı ilə 7 noyabrda 2 oyun keçirilib. «Miami Heat» doğma meydanda "
+                                       "«Chicago Bulls»u 110:100 hesabı ilə məğlub edib və ardıcıl 6-cı qələbəsini qazanıb. "
+                                       "«Los Angeles Lakers» doğma meydanda «Denver Nuggets»i 110:100 hesabı ilə məğlub edib və "
+                                       "6 qələbə, 1 məğlubiyyətlə Qərb konfransının lideridir.")
+
+    def test_tied_conference_top(self):
+        item, why = fd.nba_item(self.lg, datetime.date(2026, 11, 1), baku(2026, 11, 2, 12, 0))
+        self.assertEqual(why, "")
+        self.assertIn("Konfransların başında: Qərb konfransında «Los Angeles Lakers» — 1 qələbə, 0 məğlubiyyət; "
+                      "Şərq konfransında «Boston Celtics» və «Chicago Bulls» — 1 qələbə, 0 məğlubiyyət.", item["body"])
+
+
+class EuroHoleTest(unittest.TestCase):
+    NOW = baku(2026, 11, 7, 8, 30)
+
+    def setUp(self):
+        self.doc = fd.load(FIX)["avroliqa"]["doc"]
+
+    def test_postponed_game_and_a_game_in_hand(self):
+        d = copy.deepcopy(self.doc)
+        d["games"].append({"date": "2026-11-27T19:00:00+00:00", "home": "ldlc-asvel", "away": "bayern-munich",
+                           "played": False, "round": "10"})
+        d["groups"][0]["rows"][15]["l"] -= 1           # «LDLC ASVEL»: oyunu təxirə salınıb, 9 oyun
+        item, why = fd.euro_item(fd.prep(d), "10", self.NOW)
+        self.assertEqual(why, "")
+        self.assertIn("«LDLC ASVEL» – «Bayern Munich» oyunu hələ keçirilməyib.", item["body"])
+        with site({"avroliqa": d}) as root:
+            ev = next(e for e in fd.events(fd.load(root)) if e["key"] == "avroliqa-2026-t10")
+        self.assertEqual(ev["slot"], self.NOW)
+
+    def test_table_must_be_at_this_round(self):
+        d = copy.deepcopy(self.doc)
+        for r in d["groups"][0]["rows"]:
+            r["w"] += 1                                 # cədvəl artıq 11-ci turu sayıb
+        self.assertEqual(fd.euro_item(fd.prep(d), "10", self.NOW), (None, "cədvəl artıq növbəti turu sayıb"))
+
+    def test_many_co_leaders_are_counted(self):
+        d = copy.deepcopy(self.doc)
+        for r in d["groups"][0]["rows"][1:4]:
+            r["w"], r["l"] = 8, 2
+        item, _ = fd.euro_item(fd.prep(d), "10", self.NOW)
+        self.assertIn("Avroliqanın 10-cu turundan sonra 4 komanda 8 qələbə, 2 məğlubiyyətlə cədvəlin başındadır.", item["lead"])
+
+
+class EuropeHoleTest(unittest.TestCase):
+    def test_knockout_rounds_have_no_league_table(self):
+        # cl-2025.json: fevraldan «Pley-off», «1/8 final, 1-ci oyun» ... Liqa cədvəli bu oyunlarla hesablanmamalıdır
+        names = {"galatasaray": "Galatasaray", "juventus": "Juventus", "real-madrid": "Real Madrid", "benfica": "Benfica"}
+        games = [game(iso(2027, 1, 28, 20), "galatasaray", "juventus", 1, 0, "8"), game(iso(2027, 1, 28, 20), "real-madrid", "benfica", 2, 0, "8"),
+                 game(iso(2027, 2, 10, 17, 45), "galatasaray", "real-madrid", 2, 1, "1/8 final, 1-ci oyun"),
+                 game(iso(2027, 2, 10, 20), "benfica", "juventus", 1, 1, "1/8 final, 1-ci oyun")]
+        with site({"cl": doc(games, names, rows=official(games[:2], names))}) as root:
+            data = fd.load(root)
+            evs = {e["key"]: e for e in fd.events(data)}
+        self.assertEqual(sorted(k for k in evs if k.startswith("avrokubok")), ["avrokubok-cl-2026-t8"])
+        self.assertNotIn("why", evs["klub-cl-2026-galatasaray-real-madrid"])
+        lg = data["cl"]
+        self.assertIsNone(fd.night_item("cl", lg, "1/8 final, 1-ci oyun", baku(2027, 2, 12, 8, 0))[0])
+        g = next(x for x in lg["games"] if x["home"] == "galatasaray" and x["rnd"].startswith("1/8"))
+        item, _ = fd.club_item("cl", lg, g, baku(2027, 2, 11, 8, 30))
+        self.assertEqual(item["lead"], "Çempionlar Liqasının 1/8 finalının ilk oyununda «Galatasaray» 10 fevralda doğma meydanda "
+                                       "«Real Madrid»i 2:1 hesabı ilə məğlub edib.")
+
+    def test_postponed_game_does_not_block_the_matchday(self):
+        d = copy.deepcopy(fd.load(FIX)["cl"]["doc"])
+        g = next(x for x in d["games"] if x["home"] == "lens" and x["away"] == "como")
+        g.update({"date": "2026-11-26T20:00:00+00:00", "played": False})
+        g.pop("hs", None)
+        g.pop("as", None)
+        item, why = fd.night_item("cl", fd.prep(d), "4", baku(2026, 11, 5, 8, 0))
+        self.assertEqual(why, "")
+        self.assertIn("«Lens» – «Como» oyunu hələ keçirilməyib.", item["body"])
+        self.assertIn("Turda keçirilən 17 oyunda 60 qol vurulub.", item["lead"])
+
+
+class StadiumHoleTest(unittest.TestCase):
+    def test_silent_endings(self):
+        self.assertEqual(fd.locative("Orange Vélodrome"), "«Orange Vélodrome»da")
+        self.assertEqual(fd.locative("Stadium of Light"), "«Stadium of Light»da")
+        self.assertEqual(fd.locative("Stadium de Toulouse"), "«Stadium de Toulouse»da")
+        self.assertEqual(fd.locative("Stade de l'Aube"), "«Stade de l'Aube»da")
+
+
+class ZzDumpTest(unittest.TestCase):
+    """Müvəqqəti (rəyçi): main-in məlumatı ilə 26 oktyabr – 10 noyabr arası hər 30 dəqiqədə istehsal nə dərc edərdi."""
+    def test_dump(self):
+        live = ROOT / "site"
+        if not (live / "data" / "futbol").is_dir():
+            self.skipTest("site/ yoxdur")
+        import oz_xeber as ox
+        evs = fd.events(fd.load(live))
+        start, end = baku(2026, 10, 26), baku(2026, 11, 10, 8, 0)
+        seen, out, t = set(), [], start
+        while t <= end:
+            for day in (t.date() - fd.DAY, t.date()):
+                for e in fd.day_plan(evs, day)[0]:
+                    if e["key"] not in seen and e["slot"] <= t <= e["slot"] + fd.LATE:
+                        item, _ = e["make"](t)
+                        if item:
+                            seen.add(e["key"])
+                            out.append(f"@@ {t:%m-%d %H:%M} {e['key']}")
+                            out += ["@@ " + x for x in ox.render(item) if x]
+            t += datetime.timedelta(minutes=30)
+        for e in sorted(evs, key=lambda e: (e["slot"], e["key"])):
+            if start <= e["slot"] <= end and e["key"] not in seen:
+                _, why = e["make"](e["slot"] + fd.LATE)
+                out.append(f"@@ SKIP {e['slot']:%m-%d %H:%M} {e['key']}: {e.get('why') or fd.cut_reason(evs, e) or why}")
+        print("\n".join(out))
 
 
 if __name__ == "__main__":
