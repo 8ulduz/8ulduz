@@ -403,6 +403,94 @@ class EdgeCaseTest(unittest.TestCase):
         self.assertIn("gündəlik hədd", got["tur-i-liqa-2026-t2"]["why"])
 
 
+class CupNationalEuropeBranchesTest(unittest.TestCase):
+    """Real məlumatda hələ olmayan hallar: iki oyunluq mərhələnin cəmi, final, millinin məğlubiyyəti və heç-heçəsi,
+    avrokubokda qələbə və heç-heçə."""
+
+    def items_at(self, docs, now, menu=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = site(tmp, docs)
+            if menu is not None:
+                (root / "data" / "milli-menyu.json").write_text(json.dumps(menu, ensure_ascii=False), encoding="utf-8")
+            return by_key(fa.items(root, at(now)))
+
+    def cup(self):
+        return {"id": "kubok", "name": "Azərbaycan Kuboku", "short": "Kubok", "source": "pfl.az", "key": "2026", "season": "2026-27",
+                "teams": {k: {"name": v} for k, v in TEAMS.items()}, "groups": [],
+                "games": [game("1/2 ilk", "2027-04-15T18:00+04:00", "sabah", "qarabag", (1, 0)),
+                          game("1/2 ilk", "2027-04-15T20:00+04:00", "zire", "neftci", (2, 2)),
+                          game("1/2 cavab", "2027-04-29T18:00+04:00", "qarabag", "sabah", (2, 1)),
+                          game("1/2 cavab", "2027-04-29T20:00+04:00", "neftci", "zire", (0, 1)),
+                          game("Final", "2027-05-13T20:00+04:00", "sabah", "zire", None, "Bakı Olimpiya Stadionu")]}
+
+    def test_two_legged_stage_and_final_pairs(self):
+        got = self.items_at({"kubok": self.cup()}, "2027-04-29T23:00+04:00")
+        res = got["kubok-2026-1-2-cavab-yekun"]
+        self.assertTrue(res["worth"], res.get("why"))
+        self.assertEqual(res["title"], "Azərbaycan Kubokunun yarımfinalının cavab oyunları: «Qarabağ» «Sabah»ı 2:1 hesabı ilə məğlub edib")
+        self.assertEqual(res["lead"], "Azərbaycan Kubokunun yarımfinalının cavab oyunları 29 apreldə keçirilib. Mərhələnin 2 oyununda "
+                                      "4 qol vurulub.")
+        self.assertEqual(res["body"], ["«Qarabağ» – «Sabah» – 2:1; iki oyunun cəmi 2:2 (növbəti mərhələyə «Sabah» keçib)",
+                                       "«Neftçi» – «Zirə» – 0:1; iki oyunun cəmi 2:3 (növbəti mərhələyə «Zirə» keçib)"])
+        pairs = got["kubok-2026-final-cutler"]
+        self.assertEqual(pairs["title"], "Azərbaycan Kubokunun finalında «Sabah» və «Zirə» qarşılaşacaq")
+        self.assertEqual(pairs["lead"], "Azərbaycan Kubokunun finalının iştirakçıları bəllidir: «Sabah» və «Zirə». Oyun 13 mayda "
+                                        "saat 20:00-də keçiriləcək.")
+        self.assertEqual(pairs["body"], ["«Sabah» – «Zirə» (13 may, 20:00, Bakı Olimpiya Stadionu)"])
+
+    def test_cup_final_winner(self):
+        doc = self.cup()
+        doc["games"][-1].update(played=True, hs=2, **{"as": 1})
+        item = self.items_at({"kubok": doc}, "2027-05-13T23:00+04:00")["kubok-2026-final-yekun"]
+        self.assertEqual(item["title"], "Azərbaycan Kubokunun finalı: «Sabah» «Zirə»ni 2:1 hesabı ilə məğlub edib")
+        self.assertEqual(item["lead"], "Azərbaycan Kubokunun finalı 13 mayda keçirilib. «Sabah» Azərbaycan Kubokunu qazanıb.")
+
+    def test_national_team_loss_and_draws(self):
+        teams = {"azerbaycan": "Azərbaycan", "litva": "Litva", "malta": "Malta", "andorra": "Andorra"}
+        menu = {"comps": [{"id": "ml-d", "name": "Millətlər Liqası D", "teams": list(teams.values())}]}
+
+        def nat(played):
+            """Qrupun üç oyunu; ilk «played» oyunun nəticəsi var, qalanları hələ oynanmayıb."""
+            games = [game("Qrup 2", "2026-09-24T16:00:00+00:00", "azerbaycan", "litva", (0, 1), ""),
+                     game("Qrup 2", "2026-09-27T16:00:00+00:00", "malta", "azerbaycan", (2, 2), "National Stadium"),
+                     game("Qrup 2", "2026-10-01T16:00:00+00:00", "azerbaycan", "andorra", (0, 0), "Neftchi Arena")]
+            for g in games[played:]:
+                g["played"] = False
+                del g["hs"], g["as"]
+            return {"ml-d": {"id": "ml-d", "name": "Millətlər Liqası D", "source": "Vikipediya", "url": "https://en.wikipedia.org/wiki/ML_D",
+                             "key": "2026", "teams": {k: {"name": v} for k, v in teams.items()},
+                             "groups": [{"name": "Qrup 2", "rows": []}], "games": games}}
+        loss = self.items_at(nat(1), "2026-09-24T23:00+04:00", menu)["milli-ml-d-2026-20260924-netice"]
+        self.assertEqual(loss["title"], "Azərbaycan millisi Millətlər Liqasında Litvaya 0:1 hesabı ilə uduzub")
+        self.assertIn("2-ci qrupun oyununda Litva millisinə 0:1 hesabı ilə uduzub.", loss["lead"])
+        self.assertIn("Komanda növbəti oyununu 27 sentyabrda Bakı vaxtı ilə saat 20:00-də Maltaya qarşı keçirəcək.", loss["lead"])
+        draw = self.items_at(nat(2), "2026-09-27T23:00+04:00", menu)["milli-ml-d-2026-20260927-netice"]
+        self.assertEqual(draw["title"], "Azərbaycan millisi Millətlər Liqasında səfərdə Malta ilə 2:2 hesabı ilə heç-heçə edib")
+        self.assertIn("2-ci qrupun oyununda «National Stadium»da Malta millisi ilə 2:2 hesabı ilə heç-heçə edib.", draw["lead"])
+        last = self.items_at(nat(3), "2026-10-01T23:00+04:00", menu)["milli-ml-d-2026-20261001-netice"]
+        self.assertEqual(last["title"], "Azərbaycan millisi Millətlər Liqasında Andorra ilə qolsuz heç-heçə edib")
+        self.assertIn("oyununda Neftçi Arenada Andorra millisi ilə qolsuz heç-heçə edib.", last["lead"])
+        self.assertTrue(last["lead"].endswith("Bu, Azərbaycanın qrupdakı son oyunu idi."), last["lead"])
+
+    def test_club_win_and_draw_in_europe(self):
+        cl = {"id": "cl", "name": "Çempionlar Liqası", "source": "OpenLigaDB (www.openligadb.de)",
+              "source_url": "https://www.openligadb.de/", "key": "2026",
+              "teams": {"sabah": {"name": "Sabah"}, "arsenal": {"name": "Arsenal"}, "napoli": {"name": "Napoli"}},
+              "groups": [{"name": "", "rows": [{"team": "napoli", "pos": 1, "p": 1, "pts": 1}, {"team": "sabah", "pos": 2, "p": 2, "pts": 4},
+                                               {"team": "arsenal", "pos": 3, "p": 1, "pts": 0}]}],
+              "games": [{"date": "2026-10-13T16:45:00+00:00", "home": "sabah", "away": "arsenal", "played": True, "round": "2", "hs": 3, "as": 0},
+                        {"date": "2026-10-20T19:00:00+00:00", "home": "napoli", "away": "sabah", "played": True, "round": "3", "hs": 1, "as": 1}]}
+        docs = {"premyer-liqa": league(R1 + R2), "cl": cl}
+        win = self.items_at(docs, "2026-10-13T23:30+04:00")["avro-cl-2026-sabah-20261013-netice"]
+        self.assertEqual(win["title"], "«Sabah» Çempionlar Liqasında «Arsenal»ı 3:0 hesabı ilə məğlub edib")
+        self.assertIn("«Sabah» doğma meydanda «Arsenal»la qarşılaşıb və 3:0 hesabı ilə qalib gəlib. Azərbaycan təmsilçisi 1 oyunda "
+                      "3 xal toplayıb (1 qələbə).", win["lead"])  # sonra oyun olub: cədvəldəki yer o günə aid deyil, yazılmır
+        draw = self.items_at(docs, "2026-10-21T08:30+04:00")["avro-cl-2026-sabah-20261020-netice"]
+        self.assertEqual(draw["title"], "«Sabah» Çempionlar Liqasında «Napoli»ylə 1:1 hesabı ilə heç-heçə edib")
+        self.assertIn("(1 qələbə, 1 heç-heçə) və 3 komanda arasında 2-ci yerdədir.", draw["lead"])
+        self.assertEqual(draw["slot"], "08:00")
+
+
 class ContractTest(unittest.TestCase):
     TIMES = ("2026-10-04T20:00+04:00", "2026-10-22T18:00+04:00", "2026-10-29T17:00+04:00", "2026-11-03T18:00+04:00",
              "2026-11-05T08:30+04:00", "2026-11-05T18:00+04:00", "2026-11-08T20:00+04:00", "2026-11-09T10:30+04:00",

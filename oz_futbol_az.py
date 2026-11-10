@@ -882,7 +882,9 @@ def _cup_pairs(K, stages, order, i, pl_pos, fetch=None):
         top = [g for g in ranked if g["home"] in pl_pos and g["away"] in pl_pos]
         if top:
             lead += f" Premyer Liqa komandaları {len(top)} cütdə bir-biri ilə qarşılaşacaq: {', '.join(_pair(g, nm) for g in top)}."
-    if real:
+    if real and len(gs) == 1:
+        lead += f" Oyun {ox.day_loc(first)} {ox.time_loc(first)} keçiriləcək."
+    elif real:
         lead += f" Oyunlar {_span_loc(first, last)} keçiriləcək."
     body = []
     for g in gs:
