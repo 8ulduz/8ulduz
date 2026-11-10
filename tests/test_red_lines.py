@@ -222,6 +222,17 @@ class FastCycleTest(unittest.TestCase):
         self.cycle(feed("https://apa.az/sekil.jpg"))
         self.assertEqual(next(a for a in self.news() if a["sourceUrl"] == link)["imageUrl"], "https://apa.az/sekil.jpg")
 
+    def test_president_page_is_read_even_when_every_feed_worker_is_busy(self):
+        # Sahib, 2026-11-10: «niyə prezident.az-dan əvvəldən çəkmirik?» — rəsmi səhifə lentlərin növbəsinin sonunda qalırdı.
+        link = "https://president.az/az/articles/view/74616"
+        def slow(feed, old=None):
+            time.sleep(1)
+            return {"items": [], "url": feed[1], "at": time.time(), "err": None}
+        official = lambda: ([("Prezident.az", "az", "Prezident", "Prezident", self.item(link, "İlham Əliyev Türkiyəyə səfərə getdi"))], [])
+        with patch.object(updater, "FAST_WORKERS", 1):
+            self.cycle(slow, official=official)
+        self.assertTrue(any(a["sourceUrl"] == link for a in self.news()), "president.az xəbəri lentlər gecikəndə də həmin dövrədə gəlir")
+
     def test_a_retitled_story_keeps_one_record(self):
         """Eyni mənbənin eyni nömrəli xəbəri yeni başlıq və slug ilə gələndə ikinci qeyd yaranmır: başlıq yenilənir, keçid və nömrə qalır."""
         def feed_with(link, title):

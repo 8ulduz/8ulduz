@@ -1425,11 +1425,16 @@ def collect_fast():
         if entry.get("at", 0) > (cache.get(name) or {}).get("at", 0):
             cache[name] = entry
     _GNEWS_DECODED.update(_read_json(GNEWS_CACHE, {}))
+    # Rəsmi səhifələr (president.az, birinci xanım) öz işçisində və birinci başlayır (sahib, 2026-11-10: «niyə prezident.az-dan
+    # əvvəldən çəkmirik?»). Əvvəl 204 lentin növbəsinin sonunda idi: dövrə 20 s-ə çatanda çox vaxt bitmirdi, köhnə nüsxə
+    # götürülürdü — Türkiyə səfəri president.az-da 15:10, saytda 15:29; başqa saytların nüsxəsi ondan əvvəl paylaşıldı.
+    off_pool = ThreadPoolExecutor(max_workers=1)
+    official = off_pool.submit(official_items)
     pool = ThreadPoolExecutor(max_workers=FAST_WORKERS)
     futures = [(feed, pool.submit(fetch_feed_fast, feed, cache.get(feed[0]))) for feed in FEEDS]
-    official = pool.submit(official_items)
     wait([future for _, future in futures] + [official], timeout=FAST_BUDGET_S)
     pool.shutdown(wait=False, cancel_futures=True)
+    off_pool.shutdown(wait=False, cancel_futures=True)
     now, results = time.time(), []
     LATE_FEEDS.clear()
     for feed, future in futures:
