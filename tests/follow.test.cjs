@@ -121,3 +121,13 @@ test('a section link outside the popover navigates after its temporary history e
   assert.equal(prevented,true);assert.equal(f.win.location.hash,'#/bolme/sosial');
   assert.equal(f.state().entries,1);assert.equal(f.state().backCount,1);
 });
+
+test('Instagram and other networks open in their own app on Android (owner, 2026-11-10: «Instagramda izləmək olmur»)', async () => {
+  const {appIntent} = await ready;
+  const android = 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile';
+  const ig = appIntent('https://www.instagram.com/8ulduz.az/', 'instagram', android);
+  assert.equal(ig, 'intent://www.instagram.com/8ulduz.az/#Intent;scheme=https;package=com.instagram.android;S.browser_fallback_url=https%3A%2F%2Fwww.instagram.com%2F8ulduz.az%2F;end');
+  assert.match(appIntent('https://www.facebook.com/profile.php?id=1', 'facebook', android), /package=com\.facebook\.katana/);
+  assert.equal(appIntent('https://www.instagram.com/8ulduz.az/', 'instagram', 'iPhone'), '', 'iPhone-da adi keçid (tətbiqi özü açır)');
+  assert.equal(appIntent('https://t.me/x', 'telegram', android), '', 'Telegram keçidi tətbiqi özü açır');
+});

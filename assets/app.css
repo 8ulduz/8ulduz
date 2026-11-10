@@ -205,13 +205,6 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 .ticker .track a{white-space:nowrap;font-size:0.9286rem;color:var(--ticker-fg)}
 .ticker .track a:hover{color:var(--primary)}
 .ticker .track a::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--primary);margin-right:8px;vertical-align:3px}
-@media(max-width:600px){
-  .ticker .lbl{padding:0 5px;gap:3px;font-size:9px;letter-spacing:0}
-  .ticker .run{padding:5px 0}
-  #ticker:empty{min-height:25px} /* lent gələnə qədər yer */
-  .ticker .track{gap:20px;padding-left:8px}
-  .ticker .track a{font-size:12px;line-height:20px}
-}
 @keyframes marquee{to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion:reduce){.ticker .track{animation:none;padding-left:10px}.ticker .run{overflow-x:auto;scrollbar-width:none}.ticker .run::-webkit-scrollbar{display:none}}
 
@@ -223,7 +216,6 @@ nav.main a.on{background:var(--primary);color:var(--primary-fg)}
 .markets{border-bottom:1px solid var(--border);background:transparent}
 /* Qiymətlər və lent sonra gəlir: yeri əvvəlcədən ayrılır */
 .markets.pending{height:86px;visibility:hidden} /* dolu zolaq hündürlüyü: atlamır */
-#ticker:empty{min-height:25px}
 @media(min-width:601px){.markets.pending{height:89px}#ticker:empty{min-height:37px}}
 /* Valyuta kartları: ad / qiymət / dəyişmə */
 .mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}
@@ -1075,11 +1067,8 @@ a.pill.on small{color:inherit}
   .install-btn{min-height:26px;height:26px;font-size:var(--fs-meta);padding:0 10px}
   .prez-n,.prez-h .cnt,.prez-h .btn,.soc-g a i,.source-count{font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-bold)}
   .prez-n b{font-size:var(--fs-body);font-weight:var(--fw-bold)}
-  #ticker:empty{min-height:25px}
   .ticker .lbl{padding:0 8px;gap:4px;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:var(--fw-bold);letter-spacing:0}
   .ticker .lbl .bell{font-size:var(--fs-meta);width:auto;min-height:0;height:22px;padding:0 6px;border-radius:999px}
-  .ticker .run{padding:4px 0}
-  .ticker .track a{font-size:var(--fs-meta);line-height:var(--lh-meta)}
   main{padding-top:8px}
   .hero-row .hero-main h2{font-size:var(--fs-title);line-height:var(--lh-title);-webkit-line-clamp:3}
   .news-row{gap:0;scroll-snap-type:x mandatory}
@@ -1206,4 +1195,16 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 .prez .soc-g b{flex-basis:auto;white-space:nowrap;margin-right:6px;font-size:var(--fs-body)}
 .prez .soc-g a{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;color:var(--primary)}
 .prez .soc-g a svg{width:20px;height:20px}
+}
+/* sahib 2026-11-10: 📲 solda, lent hündür */
+@media (max-width:600px){
+  nav.main .nav-inst{order:-1}
+  #ticker:empty{min-height:39px}
+  .ticker .run{padding:8px 0}
+  .ticker .track{gap:28px;padding-left:8px}
+  .ticker .track a{font-size:var(--fs-body);line-height:var(--lh-body)}
+  .ticker .track a::before{width:6px;height:6px;vertical-align:2px}
+  .ticker .lbl{font-size:18px;padding:0 8px;gap:6px}
+  .ticker .lbl .bell,.ticker .lbl .mo{width:30px;height:30px}
+  .ticker .lbl .bell svg{width:16px;height:16px}
 }
