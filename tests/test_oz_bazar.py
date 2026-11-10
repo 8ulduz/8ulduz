@@ -1,8 +1,10 @@
 """Öz xəbər: bazar şablonları (oz_bazar.py). Şəbəkə yoxdur: cbar.az və GitHub saxtadır.
 Real hal tests/fixtures/oz_bazar-dadır:
 - AMB-nin 30 oktyabr, 5 və 6 noyabr 2026 bülletenləri (cbar.az, yalnız boş sətirlər silinib);
-- main-dəki data/markets.json-un dörd nüsxəsi: e627320de (31.10 06:45Z), d63f6f1ba (05.11 21:55Z, ABŞ seansının
-  bağlanışı), a420b2862 (06.11 05:31Z), 1e493a2b5 (07.11 06:54Z)."""
+- main-dəki data/markets.json-un nüsxələri: 1a36279eb (30.10 21:56Z: şənbə gecəsi, neftin yekun qiyməti hələ yoxdur),
+  e627320de (31.10 06:45Z), d63f6f1ba (05.11 21:55Z: ABŞ seansının bağlanışından 5 dəqiqə əvvəl), 8abcfa871 (05.11
+  22:52Z: bağlanışdan sonrakı fasilə, gold-api dəyişmir), a420b2862 (06.11 05:31Z), 954d85341 (07.11 04:49Z: şənbə
+  səhəri, neftin yekun qiyməti hələ yoxdur), 1e493a2b5 (07.11 06:54Z)."""
 import contextlib
 import datetime
 import io
@@ -24,12 +26,16 @@ SHA31 = "e627320de5ce15a710009425323d334c710345df"
 SHA05 = "d63f6f1ba6a2a1c2f951de6683fec5da54054691"
 SHA06 = "a420b2862a9ba2044258c0eb37ff4c8d167bfc6a"
 SHA07 = "1e493a2b5dad882535a134089de7a066bb3ef082"
+SHA30 = "1a36279eb70e4e1610b2d4b9009a8867bea410ec"
+SHA05C = "8abcfa871532ec567e3107a3b7d4a0aba17c65dc"
+SHA07E = "954d8534133518e2064bd8e3de2a264e97736c7d"
 FRI = datetime.datetime(2026, 11, 6, 9, 40, tzinfo=BAKU)
 SAT = datetime.datetime(2026, 11, 7, 11, 0, tzinfo=BAKU)
 TUE = datetime.datetime(2026, 11, 10, 10, 0, tzinfo=BAKU)  # 10 noyabr: AMB yeni bülleten verməyib
 BULLETINS = {D(2026, 10, 30): "amb-2026-10-30.xml", D(2026, 11, 5): "amb-2026-11-05.xml", D(2026, 11, 6): "amb-2026-11-06.xml"}
 SNAPS = {SHA31: "markets-2026-10-31T0645Z.json", SHA05: "markets-2026-11-05T2155Z.json", SHA06: "markets-2026-11-06T0531Z.json",
-         SHA07: "markets-2026-11-07T0654Z.json"}
+         SHA07: "markets-2026-11-07T0654Z.json", SHA30: "markets-2026-10-30T2156Z.json",
+         SHA05C: "markets-2026-11-05T2252Z.json", SHA07E: "markets-2026-11-07T0449Z.json"}
 
 
 def fx(name):
@@ -91,14 +97,16 @@ def metal_bulletin(day, xau, xag, xpt, xpd):
 DAILY_TITLE = "AMB: qızıl 2,24% ucuzlaşıb, unsiyası 6 877,4350 manat"
 DAILY_LEAD = ("Azərbaycan Mərkəzi Bankının (AMB) 6 noyabr bülleteninə görə qızılın 1 troya unsiyasının (t.u.) rəsmi qiyməti "
               "6 877,4350 manatdır. Bu, 5 noyabr bülletenindəkindən 157,2755 manat (2,24%) azdır.")
-CLOSES = {D(2026, 11, 5): mj("markets-2026-11-05T2155Z.json")}  # 5 noyabr seansının bağlanışı: qızıl 4 088,8, gümüş 51,891
+# 5 noyabr seansının bağlanışı (17:00 New York = 22:00 UTC) və sonrakı fasilə: 22:52 UTC nüsxəsində qızıl 4 089,2, gümüş
+# 51,927. Bağlanışdan 5 dəqiqə əvvəlki 21:55 nüsxəsi (4 088,8 və 51,891) bağlanış deyil.
+CLOSES = {D(2026, 11, 5): mj("markets-2026-11-05T2252Z.json")}
 WORLD_PRICES = "Dünya bazarında Bakı vaxtı ilə saat 09:31-də qızılın unsiyası 4 038,7 dollar, gümüşün unsiyası 51,40 dollar olub"
 BTC_LINE = "Bitkoinin qiyməti 75 314 dollar olub, əvvəlki bağlanışla müqayisədə 669 dollar (0,88%) ucuzlaşıb (Yahoo Finance)."
 DAILY_BODY = [
     "1 t.u. gümüş: 87,6642 manat (2,4923 manat, 2,76% ucuzlaşıb)",
     "1 t.u. platin: 2 580,1750 manat (16,7450 manat, 0,64% ucuzlaşıb)",
     "1 t.u. palladium: 1 741,1145 manat (9,8345 manat, 0,56% ucuzlaşıb)",
-    WORLD_PRICES + " (gold-api.com). Əvvəlki bağlanışla müqayisədə qızıl 50,1 dollar (1,23%), gümüş 0,49 dollar (0,94%) ucuzlaşıb.",
+    WORLD_PRICES + " (gold-api.com). Əvvəlki bağlanışla müqayisədə qızıl 50,5 dollar (1,23%), gümüş 0,53 dollar (1,01%) ucuzlaşıb.",
     BTC_LINE,
 ]
 # Bağlanış nüsxəsi yoxdursa qızıl və gümüşün yalnız qiyməti: markets.json-dakı dəyişmə (−74,8, −1,82%) spotu fyuçersin
@@ -212,7 +220,7 @@ class DailyTest(unittest.TestCase, Rules):
                 row["stale"] = True
         item, _ = ob.daily(make_root(self, markets=markets), FRI, FakeNet(), CLOSES)
         self.assertEqual(item["body"][3], "Dünya bazarında Bakı vaxtı ilə saat 09:31-də gümüşün unsiyası 51,40 dollar olub "
-                                          "(gold-api.com). Əvvəlki bağlanışla müqayisədə gümüş 0,49 dollar (0,94%) ucuzlaşıb.")
+                                          "(gold-api.com). Əvvəlki bağlanışla müqayisədə gümüş 0,53 dollar (1,01%) ucuzlaşıb.")
         self.assertEqual(len(item["body"]), 5)
         late = datetime.datetime(2026, 11, 6, 13, 40, tzinfo=BAKU)  # markets.json 4 saat köhnədir
         item, _ = ob.daily(make_root(self, "markets-2026-11-06T0531Z.json"), late, FakeNet(), CLOSES)
@@ -233,29 +241,53 @@ class DailyTest(unittest.TestCase, Rules):
                 row["src"] = "Yahoo Finance"  # gold-api alınmayanda updater qızılı Yahoo-dan (GC=F) götürür
         item, _ = ob.daily(make_root(self, markets=markets), FRI, FakeNet(), CLOSES)
         self.assertEqual(item["body"][3], WORLD_PRICES + " (Yahoo Finance və gold-api.com). Əvvəlki bağlanışla müqayisədə "
-                                                         "qızıl 74,8 dollar (1,82%), gümüş 0,49 dollar (0,94%) ucuzlaşıb.")
-        closes = {D(2026, 11, 5): mj("markets-2026-11-05T2155Z.json")}
-        for row in closes[D(2026, 11, 5)]["items"]:
+                                                         "qızıl 74,8 dollar (1,82%), gümüş 0,53 dollar (1,01%) ucuzlaşıb.")
+        close = mj("markets-2026-11-05T2252Z.json")
+        for row in close["items"]:
             if row["id"] == "XAU":
                 row["src"] = "Yahoo Finance"  # bağlanış başqa mənbədəndir: spot fyuçersin bağlanışı ilə müqayisə olunmur
             if row["id"] == "XAG":
                 row["stale"] = True
-        item, _ = ob.daily(make_root(self, "markets-2026-11-06T0531Z.json"), FRI, FakeNet(), closes)
+        item, _ = ob.daily(make_root(self, "markets-2026-11-06T0531Z.json"), FRI, FakeNet(), {D(2026, 11, 5): close})
         self.assertEqual(item["body"][3], WORLD_PRICES + " (gold-api.com).")
-        item, _ = ob.daily(make_root(self, "markets-2026-11-06T0531Z.json"), FRI, FakeNet(), {D(2026, 11, 6): CLOSES[D(2026, 11, 5)]})
+        today = {D(2026, 11, 5): mj("markets-2026-11-06T0531Z.json")}  # açar 5 noyabrdır, nüsxə isə bu günün 09:31-idir
+        item, _ = ob.daily(make_root(self, "markets-2026-11-06T0531Z.json"), FRI, FakeNet(), today)
         self.assertEqual(item["body"][3], WORLD_PRICES + " (gold-api.com).", "bu günün nüsxəsi əvvəlki bağlanış deyil")
 
-    def test_previous_close_lookup_and_close_time(self):
-        m = {"items": []}
-        self.assertEqual(ob.prev_close({D(2026, 11, 5): m, D(2026, 11, 6): {"a": 1}}, D(2026, 11, 6)), (D(2026, 11, 5), m))
-        self.assertEqual(ob.prev_close({"2026-11-06": m, D(2026, 11, 3): {"b": 1}}, D(2026, 11, 9)), (D(2026, 11, 6), m))
-        self.assertEqual(ob.prev_close({D(2026, 11, 1): m}, D(2026, 11, 6)), (None, None))  # 5 gün: çox köhnədir
-        self.assertEqual(ob.prev_close(None, D(2026, 11, 6)), (None, None))
+    def test_a_snapshot_before_the_close_or_from_an_older_session_is_not_the_previous_close(self):
+        """Bağlanış nüsxəsi açarına görə yox, öz updatedAt-ına görə seçilir: son seansın bağlanışından sonrakı 1 saat."""
+        root = make_root(self, "markets-2026-11-06T0531Z.json")
+        early = {D(2026, 11, 5): mj("markets-2026-11-05T2155Z.json")}  # 21:55 UTC: bağlanışdan əvvəl (qızıl 4 088,8, bağlanış 4 089,2)
+        older = {D(2026, 11, 5): dict(mj("markets-2026-11-05T2252Z.json"), updatedAt="2026-11-04T22:52:03+00:00")}  # 4 noyabrın
+        for closes in (early, older):
+            item, _ = ob.daily(root, FRI, FakeNet(), closes)
+            self.assertEqual(item["body"], DAILY_BODY_NO_CLOSE)
+            self.assertNotIn("Əvvəlki bağlanışla müqayisədə qızıl", " ".join(item["body"]))
+
+    def test_previous_close_is_the_snapshot_in_the_hour_after_the_last_us_close(self):
+        close = mj("markets-2026-11-05T2252Z.json")  # 22:52 UTC: fasilədədir
+        early = mj("markets-2026-11-05T2155Z.json")
+        self.assertEqual(ob.prev_close({"istənilən açar": close}, FRI), (D(2026, 11, 5), close))
+        self.assertEqual(ob.prev_close({D(2026, 11, 5): early, "b": close}, FRI), (D(2026, 11, 5), close))
+        self.assertEqual(ob.prev_close({D(2026, 11, 5): early}, FRI), (None, None))
+        fri = dict(close, updatedAt="2026-11-06T22:53:29+00:00")
+        mon = datetime.datetime(2026, 11, 9, 9, 40, tzinfo=BAKU)
+        self.assertEqual(ob.prev_close({"c": close, "f": fri}, mon), (D(2026, 11, 6), fri))  # bazar ertəsi: cümənin bağlanışı
+        self.assertEqual(ob.prev_close({"c": close}, mon), (None, None))  # cümənin nüsxəsi yoxdur: 5 noyabrınkı götürülmür
+        self.assertEqual(ob.prev_close({"x": {"items": []}, "y": None}, FRI), (None, None))
+        self.assertEqual(ob.prev_close(None, FRI), (None, None))
+        # 17:00 New York: ABŞ-da yay vaxtı 2026-cı ildə 1 noyabrda bitir (21:00 UTC), 2027-ci ildə 14 martda başlayır
         utc = datetime.timezone.utc
         self.assertEqual(ob.close_time(FRI), datetime.datetime(2026, 11, 5, 22, 0, tzinfo=utc))
         self.assertEqual(ob.close_time(datetime.datetime(2026, 11, 9, 9, 40, tzinfo=BAKU)), datetime.datetime(2026, 11, 6, 22, 0, tzinfo=utc))
         self.assertEqual(ob.close_time(SAT), datetime.datetime(2026, 11, 6, 22, 0, tzinfo=utc))
         self.assertEqual(ob.close_time(datetime.datetime(2026, 11, 6, 23, 0, tzinfo=utc)), datetime.datetime(2026, 11, 6, 22, 0, tzinfo=utc))
+        self.assertEqual(ob.close_time(datetime.datetime(2026, 11, 6, 22, 0, tzinfo=utc)), datetime.datetime(2026, 11, 6, 22, 0, tzinfo=utc))
+        self.assertEqual(ob.close_time(datetime.datetime(2026, 11, 6, 21, 59, tzinfo=utc)), datetime.datetime(2026, 11, 5, 22, 0, tzinfo=utc))
+        self.assertEqual(ob.close_time(datetime.datetime(2026, 10, 31, 11, 0, tzinfo=BAKU)), datetime.datetime(2026, 10, 30, 21, 0, tzinfo=utc))
+        self.assertEqual(ob.close_time(datetime.datetime(2026, 10, 30, 21, 30, tzinfo=utc)), datetime.datetime(2026, 10, 30, 21, 0, tzinfo=utc))
+        self.assertEqual(ob.close_time(datetime.datetime(2027, 3, 15, 9, 40, tzinfo=BAKU)), datetime.datetime(2027, 3, 12, 22, 0, tzinfo=utc))
+        self.assertEqual(ob.close_time(datetime.datetime(2027, 3, 16, 9, 40, tzinfo=BAKU)), datetime.datetime(2027, 3, 15, 21, 0, tzinfo=utc))
 
     def test_title_patterns_and_empty_news(self):
         cur = metal_bulletin(D(2026, 11, 6), 6877.435, 87.6642, 2580.175, 1741.1145)
@@ -300,14 +332,19 @@ class WeeklyTest(unittest.TestCase, Rules):
         return (mj("markets-2026-11-07T0654Z.json"), {D(2026, 10, 31): mj("markets-2026-10-31T0645Z.json")},
                 ob.parse_bulletin(fx("amb-2026-11-06.xml")), ob.parse_bulletin(fx("amb-2026-10-30.xml")))
 
-    def test_week_ago_is_a_pure_tolerant_lookup(self):
-        m = {"items": []}
-        self.assertEqual(ob.week_ago({D(2026, 10, 31): m}, SAT), (D(2026, 10, 31), m))
-        self.assertEqual(ob.week_ago({"2026-10-30": m}, SAT), (D(2026, 10, 30), m))
-        self.assertEqual(ob.week_ago({datetime.datetime(2026, 10, 31, 6, 45, tzinfo=datetime.timezone.utc): m}, SAT), (D(2026, 10, 31), m))
-        self.assertEqual(ob.week_ago({D(2026, 10, 29): m, "x": m, D(2026, 10, 31): "yox"}, SAT), (None, None))
-        self.assertEqual(ob.week_ago({D(2026, 11, 1): {"b": 1}, D(2026, 10, 31): m, D(2026, 10, 30): {"a": 1}}, SAT)[1], m)
-        self.assertEqual(ob.week_ago({D(2026, 11, 1): {"b": 1}, D(2026, 10, 30): {"a": 1}}, SAT)[1], {"a": 1})
+    def test_week_ago_is_last_weekends_snapshot_taken_after_the_final_prices(self):
+        """Açar yox, nüsxənin updatedAt-ı: o şənbə 10:00-dan bazar günü eyni saata qədər, 7 gün əvvələ ən yaxın."""
+        sat = mj("markets-2026-10-31T0645Z.json")    # şənbə 10:45 (Bakı): Brent 113,43, yekun qiymət
+        night = mj("markets-2026-10-30T2156Z.json")  # şənbə 01:56 (Bakı): Brent 112,33, yekun qiymət hələ gəlməyib
+        self.assertEqual(ob.week_ago({D(2026, 10, 30): sat}, SAT), (D(2026, 10, 31), sat))
+        self.assertEqual(ob.week_ago({D(2026, 10, 31): night}, SAT), (None, None))
+        self.assertEqual(ob.week_ago({"a": night, "b": sat}, SAT), (D(2026, 10, 31), sat))
+        sun = dict(sat, updatedAt="2026-11-01T06:45:33+00:00")
+        mon = dict(sat, updatedAt="2026-11-02T06:45:33+00:00")
+        early = dict(sat, updatedAt="2026-10-31T05:30:00+00:00")  # şənbə 09:30 (Bakı)
+        self.assertEqual(ob.week_ago({"s": sun}, SAT), (D(2026, 11, 1), sun))
+        self.assertEqual(ob.week_ago({"s": sun, "b": sat}, SAT)[1], sat)
+        self.assertEqual(ob.week_ago({"m": mon, "e": early, "x": {"items": []}, "y": "yox"}, SAT), (None, None))
         self.assertEqual(ob.week_ago(None, SAT), (None, None))
 
     def test_real_week_31_october_to_7_november(self):
@@ -341,8 +378,10 @@ class WeeklyTest(unittest.TestCase, Rules):
         markets, history, cur, prev = self.real()
         item, _ = ob.weekly_item(markets, {}, cur, prev, SAT)  # 7 gün əvvəlki bazar məlumatı yoxdur: yalnız AMB
         self.assertEqual(item["title"], "Həftənin bazarları: AMB-də 1 Belarus rublu 4,36% bahalaşıb")
+        # 100 Özbək somu 0,0141-dən 0,0142-yə (0,71%) və Türk lirəsi 0,0340-dan 0,0339-a: bir «tik», yuvarlaqlaşdırmadır;
+        # ən çox dəyişənlər sırasına düşmür (cədvəldə qalır)
         self.assertEqual(item["lead"], "Azərbaycan Mərkəzi Bankının (AMB) 6 noyabr bülletenində, 30 oktyabr bülleteni ilə müqayisədə, "
-                                       "1 Belarus rublu 0,0241 manat (4,36%), 100 Özbək somu 0,0001 manat (0,71%) bahalaşıb.")
+                                       "1 Belarus rublu 0,0241 manat (4,36%) bahalaşıb, 100 Rusiya rublu 0,0083 manat (0,40%) ucuzlaşıb.")
         self.assertEqual(item["body"], WEEK_BODY[3:])
         self.assertEqual((item["credit"], item["link"]), ("Azərbaycan Mərkəzi Bankı", "https://www.cbar.az/currency/rates"))
         self.assert_rules(item)
@@ -363,9 +402,31 @@ class WeeklyTest(unittest.TestCase, Rules):
         self.assertEqual(item["body"][:2], [WEEK_BODY[0], WEEK_BODY[2]])
         self.assertNotIn("Qızılın", " ".join(item["body"]))
 
+    def test_prices_before_the_saturday_final_prices_are_not_compared(self):
+        """Yahoo neft fyuçersinin cümə üçün yekun qiymətini şənbə səhəri verir: 31 oktyabr 08:41-də (Brent 112,33 -> 113,43),
+        7 noyabr Brent 09:22-də (97,76 -> 98,32), WTI 09:42-də (90,34 -> 90,83). Ondan əvvəlki nüsxə müqayisə olunmur."""
+        markets, history, cur, prev = self.real()
+        amb_only = "Həftənin bazarları: AMB-də 1 Belarus rublu 4,36% bahalaşıb"
+        night = {D(2026, 10, 31): mj("markets-2026-10-30T2156Z.json")}  # 7 gün əvvəl: şənbə 01:56 (Bakı)
+        item, _ = ob.weekly_item(markets, night, cur, prev, SAT)
+        self.assertEqual(item["title"], amb_only)
+        self.assertNotIn("112,33", "\n".join([item["lead"], *item["body"]]))
+        early = mj("markets-2026-11-07T0449Z.json")  # indi: şənbə 08:49 (Bakı), 11:00-da hələ ən son nüsxədir
+        item, _ = ob.weekly_item(early, history, cur, prev, SAT)
+        self.assertEqual(item["title"], amb_only)
+        self.assertNotIn("97,76", "\n".join([item["lead"], *item["body"]]))
+
+    def test_one_tick_currency_moves_lead_only_when_nothing_else_moved(self):
+        def bulletin(day, try_value):
+            return day, {"USD": {"name": "1 ABŞ dolları", "value": 1.7}, "TRY": {"name": "1 Türk lirəsi", "value": try_value}}
+        item, why = ob.weekly_item({}, {}, bulletin(D(2026, 11, 6), 0.0339), bulletin(D(2026, 10, 30), 0.034), SAT)
+        self.assertEqual((item["title"], item["worth"], why), ("Həftənin bazarları: AMB-də 1 Türk lirəsi 0,29% ucuzlaşıb", True, ""))
+        self.assertEqual(item["lead"], "Azərbaycan Mərkəzi Bankının (AMB) 6 noyabr bülletenində, 30 oktyabr bülleteni ilə müqayisədə, "
+                                       "1 Türk lirəsi 0,0001 manat (0,29%) ucuzlaşıb.")
+
     def test_title_when_everything_moved_the_same_way_and_when_nothing_moved(self):
         markets, history, cur, prev = self.real()
-        old = markets
+        old = dict(markets, updatedAt="2026-10-31T06:54:13+00:00")  # 7 noyabrın qiymətləri, bir həftə əvvəl götürülmüş kimi
         new = json.loads(json.dumps(markets))
         for row in new["items"]:
             if row["id"] in ob.WEEK_IDS:
@@ -373,7 +434,7 @@ class WeeklyTest(unittest.TestCase, Rules):
         item, _ = ob.weekly_item(new, {D(2026, 10, 31): old}, (None, {}), (None, {}), SAT)
         self.assertEqual(item["title"], "Həftənin bazarları: neft, qızıl, gümüş və bitkoin ucuzlaşıb, Brent nefti 10,00% düşüb")
         self.assert_rules(item)
-        item, why = ob.weekly_item(old, {D(2026, 10, 31): old}, cur, (D(2026, 10, 30), cur[1]), SAT)
+        item, why = ob.weekly_item(markets, {D(2026, 10, 31): old}, cur, (D(2026, 10, 30), cur[1]), SAT)
         self.assertEqual((item["worth"], why), (False, "həftə ərzində qiymətlər dəyişməyib"))
         self.assertEqual(item["title"], "Həftənin bazarları: qiymətlər dəyişməyib")
         self.assert_rules(item)
@@ -424,7 +485,7 @@ class SinaqTest(unittest.TestCase):
         self.assertIn("**Bu gün (10 noyabr 2026, 10:00):** ⏭ Dərc olunmazdı: bu gün (10 noyabr 2026) AMB-nin yeni bülleteni "
                       "yoxdur, son bülleten 6 noyabr 2026", md)
         self.assertIn("**Son real hal: 6 noyabr 2026 bülleteni**, xəbər həmin gün saat 09:40-da çıxardı; dünya qiyməti: "
-                      "markets.json-un 6 noyabr 09:31 nüsxəsi (GitHub); əvvəlki bağlanış: markets.json-un 6 noyabr 01:55 "
+                      "markets.json-un 6 noyabr 09:31 nüsxəsi (GitHub); əvvəlki bağlanış: markets.json-un 6 noyabr 02:52 "
                       "nüsxəsi (GitHub).", md)
         self.assertIn("### " + DAILY_TITLE, md)
         for line in DAILY_BODY:
@@ -444,11 +505,20 @@ class SinaqTest(unittest.TestCase):
     def test_working_day_after_the_slot_shows_todays_item_with_the_previous_close(self):
         root = make_root(self, "markets-2026-11-06T0531Z.json")
         md = "\n".join(ob.sinaq(root, FRI, FakeNet()))
-        self.assertIn("**Bu gün (6 noyabr 2026):** əvvəlki bağlanış: markets.json-un 6 noyabr 01:55 nüsxəsi (GitHub).", md)
+        self.assertIn("**Bu gün (6 noyabr 2026):** əvvəlki bağlanış: markets.json-un 6 noyabr 02:52 nüsxəsi (GitHub).", md)
         self.assertIn("### " + DAILY_TITLE, md)
         self.assertIn("- " + DAILY_BODY[3], md)
         self.assertEqual(md.count("✅ Dərc olunardı"), 1)  # 31 oktyabr şənbəsi üçün 7 gün əvvəlki nüsxə yoxdur
         self.assertIn("**Son real hal: 31 oktyabr 2026, şənbə**", md)
+
+    def test_without_a_snapshot_in_the_hour_after_the_close_only_prices_are_shown(self):
+        root = make_root(self, "markets-2026-11-06T0531Z.json")
+        snaps = {s: n for s, n in SNAPS.items() if s != SHA05C}  # fasilədə nüsxə yoxdur: ən yaxını 21:55 UTC, bağlanışdan əvvəl
+        md = "\n".join(ob.sinaq(root, FRI, FakeNet(snaps=snaps)))
+        self.assertIn("**Bu gün (6 noyabr 2026):** əvvəlki bağlanış: markets.json-un 6 noyabr 01:55 nüsxəsi (GitHub), bağlanışdan "
+                      "sonrakı fasilədən deyil: qızıl və gümüşün dəyişməsi yazılmır.", md)
+        self.assertIn("- " + DAILY_BODY_NO_CLOSE[3], md)
+        self.assertNotIn("Əvvəlki bağlanışla müqayisədə qızıl", md)
 
     def test_saturday_after_eleven_shows_todays_weekly_item(self):
         root = make_root(self, "markets-2026-11-07T0654Z.json")
