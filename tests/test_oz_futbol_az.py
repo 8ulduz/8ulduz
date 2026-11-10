@@ -369,8 +369,11 @@ class EdgeCaseTest(unittest.TestCase):
         self.assertFalse(any(b.startswith("Cədvəldə") for b in item["body"]))  # yeri bölüşülənlərin «yer dəyişməsi» yazılmır
 
     def test_table_that_disagrees_with_the_games_gives_no_item(self):
+        # Rəsmi cədvəl games[]-də olmayan bir oyunu sayıb (oyun sayı və xal fərqlidir). Yalnız xal fərqi isə xal düzəlişidir:
+        # SecondReviewTest.test_points_adjustment_in_the_official_table.
         rows = rows_for(R1 + R2)
-        rows[0]["pts"] += 2
+        rows[0]["p"] += 1
+        rows[0]["pts"] += 3
         item = self.items_at({"premyer-liqa": league(R1 + R2, rows=rows)}, "2026-11-08T21:00+04:00")["tur-premyer-liqa-2026-t2"]
         self.assertFalse(item["worth"])
         self.assertTrue(item["why"].startswith("rəsmi cədvəl oyunların nəticələri ilə uyğun gəlmir"), item["why"])
@@ -783,6 +786,16 @@ class SecondReviewTest(unittest.TestCase):
         docs = {"premyer-liqa": league(R1 + R2 + r3 + r4, rows=rows)}
         self.assertFalse(self.items_at(docs, "2026-11-15T21:00+04:00")["tur-premyer-liqa-2026-t3"]["worth"])
         self.assertFalse(self.items_at(docs, "2026-11-21T12:30+04:00")["tur-oncesi-premyer-liqa-2026-t4"]["worth"])
+
+    def test_capped_scorers_do_not_ask_pfl(self):
+        # Gündəlik həddə düşən xəbər dərc olunmur, deməli pfl.az-a sorğu da getməməlidir: əks halda 24 saatlıq pəncərədə hər futbol
+        # dövrəsində (10 dəqiqə) 2 sorğu gedərdi (done-a heç vaxt düşmür).
+        fetch = real_pfl()
+        with patch.object(fa, "DAY_CAP", 0):
+            item = by_key(fa.items(FIX, at("2026-11-09T10:30+04:00"), fetch))["bombardir-premyer-liqa-2026-t11"]
+        self.assertFalse(item["worth"])
+        self.assertIn("gündəlik hədd", item["why"])
+        self.assertEqual(fetch.urls, [])
 
     def test_teams_without_a_game_yet(self):
         # 2025-26: 1-ci turun «Sabah» – «Qarabağ» oyunu dekabra salınıb. «0 oyun keçirib» yox, «hələ oyun keçirməyib».
