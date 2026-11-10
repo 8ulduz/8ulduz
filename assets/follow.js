@@ -10,6 +10,15 @@ const platforms = [
   ['x', 'X', 'x', ['x.com', 'twitter.com']],
 ];
 
+// Sahib, 2026-11-10: «Instagramda izləmək olmur». Android-də Chrome vərəqində Instagram girişsiz izləməyə qoymur:
+// sosial şəbəkə öz tətbiqində açılır (orada hesab açıqdır), tətbiq yoxdursa brauzerdə (browser_fallback_url).
+const APP = {instagram: 'com.instagram.android', facebook: 'com.facebook.katana', x: 'com.twitter.android', youtube: 'com.google.android.youtube', linkedin: 'com.linkedin.android'};
+export function appIntent(href, id, ua = globalThis.navigator?.userAgent || '') {
+  if (!APP[id] || !/Android/.test(ua)) return '';
+  const u = new URL(href);
+  return `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=https;package=${APP[id]};S.browser_fallback_url=${encodeURIComponent(href)};end`;
+}
+
 export function followLinks(config = {}) {
   const links = {telegram: config.telegram, ...config.follow};
   return platforms.flatMap(([id, label, icon, hosts]) => {
@@ -135,7 +144,7 @@ export function openFollow(opener, track = () => {}, chromeLink = () => '') {
     link.addEventListener('click', event => {
       track('follow-' + item.id);
       activeClose?.();
-      const app = chromeLink(item.href);
+      const app = appIntent(item.href, item.id) || chromeLink(item.href);
       if (app) { event.preventDefault(); location.href = app; }
     });
     grid.append(link);
