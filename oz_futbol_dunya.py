@@ -32,6 +32,7 @@ POSTPONED = datetime.timedelta(days=3)   # turun median vaxtından 3 gündən ç
 FOOT_READY = datetime.timedelta(hours=2, minutes=45)    # başlama vaxtından nəticənin fayla düşməsinədək (TheSportsDB ~1 saat gecikir)
 CUP_READY = datetime.timedelta(hours=3, minutes=15)     # kubok: əlavə vaxt və penaltilər seriyası
 BASKET_READY = datetime.timedelta(hours=2, minutes=45)
+MIN_GAME = datetime.timedelta(minutes=105)  # oyun bundan tez bitmir (90 dəqiqə + fasilə)
 LATE = datetime.timedelta(hours=14)      # məlumat gecikəndə xəbər slotdan bu qədər sonraya kimi dərc oluna bilər
 DAILY_CAP = 8
 CLUB_CAP = 3
@@ -507,9 +508,13 @@ def ablative(name):
     return f"«{name}»{'dan' if _back(_snd(name)) else 'dən'}"
 
 
+_POSS = re.compile(r"(?:stadyumu|stadı|stadi|arenası|parkı|stadionu|sahəsi|sahası)$")
+
+
 def locative(name):
-    """Yerlik hal: «Old Trafford»da, «Anfield»də."""
-    return f"«{name}»{'da' if _back(_snd(name)) else 'də'}"
+    """Yerlik hal: «Old Trafford»da, «Anfield»də; mənsubiyyət şəkilçili ad: «Tüpraş Stadyumu»nda."""
+    n = "n" if _POSS.search(ox._low(name)) else ""
+    return f"«{name}»{n}{'da' if _back(_snd(name)) else 'də'}"
 
 
 def num_dat(n):
@@ -636,8 +641,9 @@ def _credit(lg):
 
 
 def _played(g, now):
-    """Oynanıb: bayraq, hər iki hesab və başlama vaxtı now-dan əvvəldir (sınaqda keçmiş an üçün də düz işləyir)."""
-    return g["ok"] and g["t"] is not None and g["t"] <= now
+    """Oynanıb: bayraq, hər iki hesab və oyun now anına qədər bitə bilərdi (başlamadan ən azı 105 dəqiqə keçib).
+    Belə olanda sınaqda keçmiş an üçün qurulan xəbər sonradan gələn nəticəni görmür."""
+    return g["ok"] and g["t"] is not None and g["t"] + MIN_GAME <= now
 
 
 def _nm(lg, slug):
@@ -856,9 +862,10 @@ def story(lg, f):
     x = la[0]["team"]
     s = {"x": x, "pts": la[0]["pts"], "co": [r["team"] for r in la], "gx": _game_of(core, x),
          "gap": la[0]["pts"] - second if len(la) == 1 and second is not None else 0,
-         "second": [r["team"] for r in seconds], "gap_b": None, "prev": None}
+         "second": [r["team"] for r in seconds], "gap_b": None, "prev": None, "lead_b": []}
     started = any(r["p"] for r in before)
     lb, second_b, _ = _leaders(before) if started else ([], None, [])
+    s["lead_b"] = [r["team"] for r in lb]
     if len(la) > 1:
         s["case"] = "co"
     elif not started:
@@ -933,26 +940,27 @@ def _leader_lead(lg, s, f):
 
 
 def _movers(lg, f, skip):
-    """İlk dördlükdə yeri dəyişənlər (yer əvvəl də, sonra da dəqiqdirsə), ən çox üç."""
+    """İlk dördlükdə yeri dəyişənlər, ən çox üç. Turdan sonrakı yer dəqiq olmalıdır; turdan əvvəlki yer xal bərabərliyində
+    bir aralıqdır [lo, hi], hərəkət yalnız yeni yer bu aralıqdan kənardadırsa yazılır (6–7-ci yerdən 4-cü yerə: yüksəlib)."""
     after, before, official, core = f["after"], f["before"], f["official"], f["core"]
     if not any(r["p"] for r in before):
         return [], set()
-    pos_b = {r["team"]: r["pos"] for r in before}
     out, named = [], set()
     cands = [r["team"] for r in after[:4]] + [r["team"] for r in before[:4] if not any(a["team"] == r["team"] for a in after[:4])]
     for t in cands:
-        r = _row(after, t)
-        pb = pos_b.get(t)
-        if t in skip or not r or pb is None or pb == r["pos"]:
+        r, rb = _row(after, t), _row(before, t)
+        if t in skip or not r or not rb or not _sure(after, t, official):
             continue
-        if not _sure(after, t, official) or not _sure(before, t, False):
+        lo = 1 + sum(1 for x in before if x["pts"] > rb["pts"])
+        hi = sum(1 for x in before if x["pts"] >= rb["pts"])
+        if lo <= r["pos"] <= hi:
             continue
         g = _game_of(core, t)
         who = f"«{_nm(lg, t)}»"
         if g:
             op, gm, go, _ = _side(g, t)
             who = _res_adj(_nm(lg, op), gm, go) + " " + who
-        verb = "yüksəlib" if r["pos"] < pb else "düşüb"
+        verb = "yüksəlib" if r["pos"] < lo else "düşüb"
         out.append(f"{who} {r['pts']} xalla {ox.ordinal(r['pos'])} yerə {verb}")
         named.add(t)
         if g:
@@ -1076,10 +1084,18 @@ def other_line(key, lg, rnd, now):
     if s["gap"] > 0 and len(s["second"]) == 1:
         gap = f", ikinci yerdəki {ablative(_nm(lg, s['second'][0]))} {s['gap']} xal öndədir"
     head = None
-    if s["case"] == "co":
-        names = [_nm(lg, t) for t in s["co"]]
-        text = (f"«{names[0]}» və «{names[1]}» {pts} xalla cədvəlin başındadır" if len(names) == 2
-                else f"{len(names)} komanda {pts} xalla cədvəlin başındadır")
+    if s["case"] == "co" and len(s["co"]) == 2:
+        bits = []
+        for t in s["co"]:
+            g = _game_of(core, t)
+            bits.append(f"«{_nm(lg, t)}» {_team_res(lg, g, t)}" if g else f"«{_nm(lg, t)}» bu turda oynamayıb")
+        text = f"{bits[0]}, {bits[1]}; hər iki komandanın {pts} xalı var və onlar cədvəlin başındadır"
+        if len(s["lead_b"]) == 1 and s["lead_b"][0] in s["co"]:     # əvvəlki lider təkbaşına idi, indi ona çatıblar
+            old = s["lead_b"][0]
+            new = next(t for t in s["co"] if t != old)
+            head = (0, f"«{_nm(lg, new)}» {meta['in']} «{_nm(lg, old)}» ilə xalları bərabərləşdirib")
+    elif s["case"] == "co":
+        text = f"{len(s['co'])} komanda {pts} xalla cədvəlin başındadır"
     elif s["case"] == "new":
         text = f"«{x}»{res} və {pts} xalla liderliyə yüksəlib"
         prev = s["prev"]
@@ -1226,7 +1242,7 @@ def leaders_item(data, monday, now):
         k, r = perfect[0]
         lead += f" «{_nm(data[k], r['team'])}» {r['p']} oyunun hamısında qalib gəlib."
     if streaks:
-        body.append("Ardıcıl qələbə seriyaları: " + ", ".join(f"«{_nm(data[key], t)}» — {k} oyun" for k, key, t in streaks[:5]) + ".")
+        body.append("Çempionatda ardıcıl qələbə seriyaları: " + ", ".join(f"«{_nm(data[key], t)}» — {k} oyun" for k, key, t in streaks[:5]) + ".")
     credits = sorted({_credit(lg)[0] for _, lg in leagues})
     link = next((_credit(lg)[1] for _, lg in leagues if _credit(lg)[0] == "TheSportsDB"), _credit(leagues[0][1])[1])
     slot = datetime.datetime.combine(monday, datetime.time(9, 0), BAKU)
@@ -1361,13 +1377,14 @@ def night_item(key, lg, md, now):
     tour = f"{ox.ordinal(md)} tur" if md.isdigit() else md
     sents = [f"{meta['gen']} {stage} başa çatıb."]
     la, _, _ = _leaders(rows) if rows and any(r["p"] for r in rows) else ([], None, [])
+    lnames = _and("«" + _nm(lg, r["team"]) + "»" for r in la[:4]) if la else ""
     if len(la) == 1:
-        sents.append(f"«{_nm(lg, la[0]['team'])}» {la[0]['p']} oyunda {la[0]['pts']} xal toplayıb və cədvəlin başındadır.")
-    elif len(la) == 2:
-        a, b = la
-        same = a["p"] == b["p"] and a["w"] == b["w"] == a["p"]
-        sents.append(f"«{_nm(lg, a['team'])}» və «{_nm(lg, b['team'])}» {a['pts']} xalla cədvəlin başındadır"
-                     + (f": hər iki komanda {a['p']} oyunun hamısında qalib gəlib." if same else "."))
+        sents.append(f"{lnames} {la[0]['p']} oyunda {la[0]['pts']} xal toplayıb və cədvəlin başındadır.")
+    elif 2 <= len(la) <= 4:
+        perfect = all(r["p"] == la[0]["p"] and r["w"] == r["p"] for r in la)
+        every = {2: "hər iki", 3: "hər üç", 4: "hər dörd"}[len(la)]
+        sents.append(f"{lnames} {la[0]['pts']} xalla cədvəlin başındadır"
+                     + (f": {every} komanda {la[0]['p']} oyunun hamısında qalib gəlib." if perfect else "."))
     elif la:
         sents.append(f"{len(la)} komanda {la[0]['pts']} xalla cədvəlin başındadır.")
     named = {r["team"] for r in la}
@@ -1385,6 +1402,8 @@ def night_item(key, lg, md, now):
         ro = _row(rows, op)
         if gm > go:
             heads.append((0, -(ro["pts"] if ro else 0), f"«{_nm(lg, t)}» {acc(_nm(lg, op))} {gm}:{go} hesabı ilə məğlub edib"))
+        else:                            # Türkiyə klubunun heç-heçəsi və ya məğlubiyyəti də oxucu üçün əsas faktdır
+            heads.append((3, -(ro["pts"] if ro else 0), f"«{_nm(lg, t)}» " + _team_res(lg, g, t, where=False)))
     big = _unique_max(games, _margin)
     if big and _margin(big) >= 3 and big["i"] in shown_ids:
         w = big["home"] if big["hs"] > big["as"] else big["away"]
@@ -1400,10 +1419,8 @@ def night_item(key, lg, md, now):
     if high and high["i"] in shown_ids and _total(high) >= 6 and not ({high["home"], high["away"]} & named):
         sents.append(f"Ən məhsuldar oyunda {_game_text(lg, high)}.")
     sents.append(f"Turun {len(games)} oyununda {goals} qol vurulub.")
-    if len(la) == 2:
-        heads.append((3, 0, f"«{_nm(lg, la[0]['team'])}» və «{_nm(lg, la[1]['team'])}» {la[0]['pts']} xalla liderdir"))
-    elif len(la) == 1:
-        heads.append((3, 0, f"«{_nm(lg, la[0]['team'])}» {la[0]['pts']} xalla liderdir"))
+    if 1 <= len(la) <= 4:
+        heads.append((4, 0, f"{lnames} {la[0]['pts']} xalla liderdir"))
     heads.sort(key=lambda h: (h[0], h[1]))
     pre = f"{meta['loc']} {tour}: "
     title = _pick_title([pre + h[2] for h in heads] + [pre + f"{len(games)} oyunda {goals} qol vurulub"],
@@ -1432,12 +1449,12 @@ def club_item(comp, lg, g, now):
     rnd = g["rnd"]
     if comp in TOP:
         c_loc, stage = TOP[comp]["loc"], f"{TOP[comp]['gen']} {ox.ordinal(rnd)} turunda" if rnd.isdigit() else TOP[comp]["loc"]
-        scope = "mövsümdəki"
+        scope = ("çempionatdakı", "çempionatda")
     else:
         c_loc = NIGHTS[comp]["loc"]
         stage = (f"{NIGHTS[comp]['gen']} liqa mərhələsinin {ox.ordinal(rnd)} turunda" if rnd.isdigit()
                  else f"{NIGHTS[comp]['gen']} «{rnd}» mərhələsində")
-        scope = "turnirdəki"
+        scope = ("turnirdəki", "turnirdə")
     when = _bk(g["t"])
     day = ox.day_loc(when)
     if when.hour < 6:
@@ -1449,7 +1466,7 @@ def club_item(comp, lg, g, now):
     if gm > go:
         wins = [_side(x, b)[1] > _side(x, b)[2] for x in prev]
         if prev and not any(wins):
-            lead += f" Bu, {gen(B)} {scope} ilk qələbəsidir."
+            lead += f" Bu, {gen(B)} {scope[0]} ilk qələbəsidir."
         else:
             k = 1
             for w in reversed(wins):
@@ -1457,14 +1474,17 @@ def club_item(comp, lg, g, now):
                     break
                 k += 1
             if k >= 3:
-                lead += f" Bu, {gen(B)} ardıcıl {ox.ordinal(k)} qələbəsidir."
+                lead += f" Bu, {gen(B)} {scope[1]} ardıcıl {ox.ordinal(k)} qələbəsidir."
     rows, official = table(lg, now, now)
     rb, ro = _row(rows, b), _row(rows, op)
     among = f"{len(rows)} komanda arasında " if comp in NIGHTS else ""
-    if rb and rb["p"] and _sure(rows, b, official):
-        lead += f" «{B}» {rb['p']} oyunda {rb['pts']} xal toplayıb və {among}{ox.ordinal(rb['pos'])} yerdədir."
-    if ro and ro["p"] and _sure(rows, op, official):
-        lead += f" «{O}» {ro['pts']} xalla {ox.ordinal(ro['pos'])} yerdədir."
+    if rb and rb["p"]:
+        if _sure(rows, b, official):     # yer dəqiqdirsə yer də, rəqibin yeri də; xal bərabərdirsə yalnız xal
+            lead += f" «{B}» {rb['p']} oyunda {rb['pts']} xal toplayıb və {among}{ox.ordinal(rb['pos'])} yerdədir."
+            if ro and ro["p"] and _sure(rows, op, official):
+                lead += f" «{O}» {ro['pts']} xalla {ox.ordinal(ro['pos'])} yerdədir."
+        else:
+            lead += f" «{B}» {rb['p']} oyunda {rb['pts']} xal toplayıb."
     body = [f"Görüş {locative(g['stadium'])} keçirilib."] if g["stadium"] else []
     slot = _slot_after(g["t"] + FOOT_READY)
     item = _item("klub-oyunu", f"klub-{comp}-{lg['season']}-{g['home']}-{g['away']}", title, lead, body, lg, slot, listed=False)
@@ -1746,6 +1766,19 @@ def day_plan(evs, day):
     return todays[:DAILY_CAP], todays[DAILY_CAP:] + extra
 
 
+def cut_reason(evs, e):
+    """Hadisə günün planından limitə görə çıxıbsa, səbəbi; yoxsa boş sətir."""
+    day = e["slot"].date()
+    if e["key"] not in {c["key"] for c in day_plan(evs, day)[1]}:
+        return ""
+    if e["kind"] == "klub-oyunu":
+        clubs = sorted((x for x in evs if x["kind"] == "klub-oyunu" and x["slot"].date() == day and not x.get("why")),
+                       key=lambda x: x["rank"])
+        if e["key"] in {x["key"] for x in clubs[CLUB_CAP:]}:
+            return f"böyük klub oyunu limiti (gündə {CLUB_CAP})"
+    return f"gündəlik limit ({DAILY_CAP})"
+
+
 def items(root, now, fetch=None):
     """now anında (Bakı) dərc olunacaq xəbərlər: slotu gəlmiş, məlumatı tam və slotdan 14 saatdan çox keçməmiş.
     fetch işlənmir: modul sorğu göndərmir."""
@@ -1809,7 +1842,7 @@ def sinaq(root, now=None, fetch=None):
             status = "✅ hazırdır" if item else f"⏳ {why}"
         md.append(f"- {e['slot']:%H:%M} · {LABEL[e['kind']]} · `{e['key']}` — {status}")
     for e in cut:
-        md.append(f"- {e['slot']:%H:%M} · {LABEL[e['kind']]} · `{e['key']}` — ✂ gündəlik limit")
+        md.append(f"- {e['slot']:%H:%M} · {LABEL[e['kind']]} · `{e['key']}` — ✂ {cut_reason(evs, e)}")
     md += ["", "### Son real hallar (hərəsi öz slot vaxtında qurulub)", ""]
     for e in _latest(evs, now):
         at = e["slot"]
@@ -1817,12 +1850,13 @@ def sinaq(root, now=None, fetch=None):
         item, why = e["make"](at)
         if item:
             md += ox.render(item)
+        cut_why = "" if e.get("why") or not item else cut_reason(evs, e)
         if e.get("why"):
             md += [f"⏭ Dərc olunmazdı: {e['why']}", ""]
         elif not item:
             md += [f"⏭ Dərc olunmazdı: {why}", ""]
-        elif e["key"] in {c["key"] for c in day_plan(evs, at.date())[1]}:
-            md += [f"⏭ Dərc olunmazdı: gündəlik limit ({DAILY_CAP})", ""]
+        elif cut_why:
+            md += [f"⏭ Dərc olunmazdı: {cut_why}", ""]
         else:
             md += ["✅ Dərc olunardı", ""]
     if "kl" in data and not any(g["ok"] for g in data["kl"]["games"]):

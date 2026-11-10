@@ -106,6 +106,12 @@ class SuffixTest(unittest.TestCase):
         self.assertEqual(fd.acc("Crystal Palace"), "«Crystal Palace»i")
         self.assertEqual(fd.ablative("Brighton & Hove Albion"), "«Brighton & Hove Albion»dan")
 
+    def test_stadium_locative(self):
+        self.assertEqual(fd.locative("Emirates Stadium"), "«Emirates Stadium»da")
+        self.assertEqual(fd.locative("Anfield"), "«Anfield»də")
+        self.assertEqual(fd.locative("Tüpraş Stadyumu"), "«Tüpraş Stadyumu»nda")     # mənsubiyyət şəkilçisi: -nda
+        self.assertEqual(fd.locative("Spotify Camp Nou"), "«Spotify Camp Nou»da")
+
     def test_written_letter_fallback(self):
         self.assertNotIn("Hannover 96", fd.PRON)
         self.assertEqual(fd.acc("Hannover 96"), "«Hannover 96»nı")       # «doxsan altı»
@@ -216,6 +222,19 @@ class RoundTest(unittest.TestCase):
         self.assertIn("Hər iki komandanın 4 xalı var və onlar cədvəlin başındadır.", item["lead"])
         self.assertNotIn("fərq", item["title"])
         self.assertNotIn("öndədir", item["lead"])
+
+    def test_movers_with_a_tie_before_the_round(self):
+        # Turdan əvvəl «Chelsea» və «Liverpool» 1 xalla 2–3-cü yerdədir: 4-cü yerə düşmək dəqiqdir, 3-cü yer isə hərəkət deyil.
+        lg = eng([game(iso(2026, 11, 7), "hull-city", "chelsea", 2, 0, "2"),
+                  game(iso(2026, 11, 8, 16, 30), "arsenal", "liverpool", 1, 1, "2")])
+        item, _ = fd.round_item("ingiltere", lg, "2", self.NOW)
+        self.assertEqual(item["title"], "İngiltərə Premyer Liqasında 2-ci tur: «Arsenal» xal itirib, fərq 1 xala enib")
+        self.assertIn("Lider «Arsenal» doğma meydanda «Liverpool» ilə 1:1 hesabı ilə heç-heçə edib və xallarının sayını 4-ə çatdırıb.",
+                      item["lead"])
+        self.assertIn("«Arsenal» ikinci yerdəki «Hull City»dən 1 xal öndədir.", item["lead"])
+        self.assertIn("«Chelsea»ni 2:0 hesabı ilə məğlub edən «Hull City» 3 xalla 2-ci yerə yüksəlib, "
+                      "«Hull City»yə 0:2 hesabı ilə uduzan «Chelsea» 1 xalla 4-cü yerə düşüb.", item["lead"])
+        self.assertNotIn("«Liverpool» 2 xalla", item["lead"])
 
     def test_missing_data_gives_no_item(self):
         with site({}) as root:
@@ -469,7 +488,7 @@ class LeadersTest(unittest.TestCase):
             self.assertEqual(item["lead"], "Cədvəllərin hazırkı vəziyyətinə görə İngiltərədə «Arsenal» (6 xal), İspaniyada isə "
                                            "«Barcelona» (15) cədvəlin başındadır. «Barcelona» hələ məğlub olmayıb.")
             self.assertIn("İngiltərə: «Arsenal» — 6 xal, ikinci yerdəki «Chelsea»dən 2 xal öndədir.", item["body"])
-            self.assertIn("Ardıcıl qələbə seriyaları: «Barcelona» — 5 oyun.", item["body"])
+            self.assertIn("Çempionatda ardıcıl qələbə seriyaları: «Barcelona» — 5 oyun.", item["body"])
             self.assertEqual((item["key"], item["slot"]), ("liqa-liderler-2026-11-09", "09:00"))
             item, why = fd.leaders_item(data, datetime.date(2026, 11, 16), baku(2026, 11, 16, 9, 0))
             self.assertIsNone(item)
