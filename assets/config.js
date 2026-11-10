@@ -12,5 +12,5 @@
 // tgBot: «Telegram-da izlə» botu (.github/scripts/izle.cjs); boş olanda düymə gizlidir.
 // WhatsApp üçün /channel/ keçidi, Google News üçün izlənə bilən /publications/ səhifəsi yazılır.
 window.SITE_CONFIG = { sesServer: "https://dinle.8ulduz-az.workers.dev/ses", sesWorker: "https://dinle.8ulduz-az.workers.dev/", tgBot: "sekkizulduz_xeber_bot", goatcounter: "8ulduz", ga4: "G-NHSDLY61CD", telegram: "https://t.me/sekkizulduz_az", contact: "8ulduz.az@gmail.com", assistant: false, driver: false,
-  follow: { whatsapp: "", facebook: "https://www.facebook.com/profile.php?id=61596264031461", instagram: "https://www.instagram.com/8ulduz.az/", linkedin: "https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/", googleNews: "", x: "https://x.com/8ulduz" }
+  follow: { whatsapp: "", facebook: "https://www.facebook.com/profile.php?id=61596264031461", instagram: "https://www.instagram.com/8ulduz.az/", linkedin: "https://www.linkedin.com/in/s%C9%99kkiz-ulduz-605537449/", googleNews: "", x: "https://x.com/8ulduz", tiktok: "https://www.tiktok.com/@8ulduz.az" }
 };

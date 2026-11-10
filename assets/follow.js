@@ -4,6 +4,7 @@ const platforms = [
   ['whatsapp', 'WhatsApp', 'wa', ['whatsapp.com']],
   ['facebook', 'Facebook', 'fb', ['facebook.com', 'fb.com']],
   ['instagram', 'Instagram', 'ig', ['instagram.com']],
+  ['tiktok', 'TikTok', 'tt', ['tiktok.com']],
   ['googleNews', 'Google News', '', ['news.google.com']],
   ['linkedin', 'LinkedIn', 'in', ['linkedin.com']],
   ['youtube', 'YouTube', 'yt', ['youtube.com']],
@@ -12,7 +13,7 @@ const platforms = [
 
 // Sahib, 2026-11-10: «Instagramda izləmək olmur». Android-də Chrome vərəqində Instagram girişsiz izləməyə qoymur:
 // sosial şəbəkə öz tətbiqində açılır (orada hesab açıqdır), tətbiq yoxdursa brauzerdə (browser_fallback_url).
-const APP = {instagram: 'com.instagram.android', facebook: 'com.facebook.katana', x: 'com.twitter.android', youtube: 'com.google.android.youtube', linkedin: 'com.linkedin.android'};
+const APP = {instagram: 'com.instagram.android', tiktok: 'com.zhiliaoapp.musically', facebook: 'com.facebook.katana', x: 'com.twitter.android', youtube: 'com.google.android.youtube', linkedin: 'com.linkedin.android'};
 export function appIntent(href, id, ua = globalThis.navigator?.userAgent || '') {
   if (!APP[id] || !/Android/.test(ua)) return '';
   const u = new URL(href);

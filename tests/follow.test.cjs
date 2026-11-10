@@ -1,4 +1,5 @@
 const {test} = require('node:test');
+const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const {pathToFileURL} = require('node:url');
 const path = require('node:path');
@@ -130,4 +131,16 @@ test('Instagram and other networks open in their own app on Android (owner, 2026
   assert.match(appIntent('https://www.facebook.com/profile.php?id=1', 'facebook', android), /package=com\.facebook\.katana/);
   assert.equal(appIntent('https://www.instagram.com/8ulduz.az/', 'instagram', 'iPhone'), '', 'iPhone-da adi keçid (tətbiqi özü açır)');
   assert.equal(appIntent('https://t.me/x', 'telegram', android), '', 'Telegram keçidi tətbiqi özü açır');
+});
+
+test('owner 2026-11-10: TikTok account in the follow panel, opened in the TikTok app on Android', async () => {
+  const {followLinks, appIntent} = await ready;
+  const cfg = fs.readFileSync(path.join(__dirname, '../assets/config.js'), 'utf8');
+  assert.ok(cfg.includes('tiktok: "https://www.tiktok.com/@8ulduz.az"'));
+  const links = followLinks({follow:{instagram:'https://www.instagram.com/8ulduz.az/', tiktok:'https://www.tiktok.com/@8ulduz.az', x:'https://x.com/8ulduz'}});
+  assert.deepEqual(links.map(x=>x.id), ['instagram','tiktok','x']);
+  assert.equal(links[1].icon, 'tt');
+  assert.ok(fs.readFileSync(path.join(__dirname, '../assets/sosial.svg'), 'utf8').includes('<symbol id="tt"'));
+  assert.match(appIntent('https://www.tiktok.com/@8ulduz.az', 'tiktok', 'Linux; Android 14'), /package=com\.zhiliaoapp\.musically/);
+  assert.deepEqual(followLinks({follow:{tiktok:'https://evil.example/@8ulduz.az'}}), [], 'yad host qəbul edilmir');
 });
