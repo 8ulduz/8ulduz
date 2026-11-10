@@ -16,6 +16,10 @@
 // Tapılan səhifə Cloudflare keşində 10 dəqiqə qalır (bot bir keçidi bir neçə dəfə soruşur).
 // QIRMIZI XƏTT 2: yalnız lentdə olan sətirlər verilir (onlar content_policy.enforce-dan keçib); lentdə olmayan xəbər uydurulmur.
 // QIRMIZI XƏTT 1: dəqiqəlik kanal sw.js ilə eyni qayda ilə oxunur (45 s güzəşt, yaranmamış dəqiqə soruşulmur: raw 404-ü 55 s keşləyir).
+// ŞƏKİL (2026-11-10, sahib: «Facebook avto paylaşımlarda xəbərin şəkli olmur»): Sharing Debugger — wsrv.nl Facebook robotuna 403 verir,
+//   kart şəkilsiz qalır. Verilən səhifədə og:image bu serverin ünvanıdır: /i/<id>.jpg. Worker şəkli özü gətirir (əvvəl wsrv.nl-dən
+//   1200×630 JPEG, alınmasa mənbənin öz şəkli), 1 gün keşdə saxlayır; şəkil yoxdursa 302 → saytın og-default.png. Səhifə mətni
+//   updater.share_page ilə eyni qalır (pageHtml), yalnız verilərkən og:image dəyişir (ownImage).
 // Yükləmə: bu qovluqda «npx wrangler deploy» və ya Cloudflare panelində kodu yapışdırmaq; addımlar docs/x-worker.md-də.
 
 const SITE = "https://8ulduz.az/";
@@ -26,6 +30,8 @@ const FEEDS = ["data/latest.json", "data/first.json", "data/news.json"];
 const PAGE_MS = 4000, FEED_MS = 6000;                 // bot ~10 s gözləyir; gec gələn cavab 302 ilə əvəz olunur
 const CACHE_S = 600;
 const ID = /^\/([0-9a-f]{16})\/?$/;
+const IMG = /^\/i\/([0-9a-f]{16})\.jpg$/;
+const IMG_CACHE_S = 86400, IMG_MS = 8000, IMG_MAX = 8e6; // Facebook şəkli 8 MB-dək qəbul edir
 const LOCALE = { az: "az_AZ", ru: "ru_RU", en: "en_US", tr: "tr_TR" };
 const ROW_FIELDS = ["id", "title", "summary", "source", "sourceUrl", "imageUrl", "category", "publishedAt", "lang", "video", "author"]; // updater.SHARE_ROW_FIELDS
 const UA = "Mozilla/5.0 (compatible; 8ulduz-x/1.0; +https://8ulduz.az/)";
@@ -38,6 +44,8 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname === "/saglam") return new Response("ok", { headers: { "Cache-Control": "no-store" } });
+    const im = url.pathname.match(IMG);
+    if (im) return cardImage(im[1], ctx).catch(() => Response.redirect(`${SITE}assets/og-default.png`, 302));
     const m = url.pathname.match(ID);
     if (!m) return Response.redirect(SITE, url.hostname === "www.8ulduz.az" && url.pathname === "/" ? 301 : 302); // www kökü sayta daimi yönlənir (əvvəl Pages belə edirdi); qalan yad yollar müvəqqəti
     const id = m[1], h = (url.searchParams.get("h") || "").replace(/\D/g, "").slice(0, 8);
@@ -60,6 +68,7 @@ async function sharePage(id, h, ctx) {
   let html = await staticPage(id);
   if (!html) { const row = await findRow(id); if (row) html = pageHtml(row, h); }
   if (!html) return null;
+  html = ownImage(html, id);
   const res = new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": `public, max-age=${CACHE_S}`, "X-Robots-Tag": "noindex" } });
   if (cache) { const put = cache.put(key, res.clone()); if (ctx?.waitUntil) ctx.waitUntil(put); else await put.catch(() => {}); }
   return res;
@@ -106,6 +115,35 @@ async function rowIn(urls, id) {
 
 // Redaksiyanın çıxardığı xəbər (latest.json «removed»): səhifə verilmir, 302 ilə sayt özü qərar verir.
 const removed = (d, id) => Object.values(d.removed || {}).some(r => r && (r.id === id || (r.ids || []).includes(id)));
+
+// og:image wsrv.nl-dirsə bu serverin /i/<id>.jpg ünvanı olur (Facebook wsrv.nl-dən ala bilmir). Saytın şəkli (og-default) dəyişmir.
+export const ownImage = (html, id) => html.replace(/(<meta property="og:image" content=")https:\/\/wsrv\.nl\/[^"]*(" \/>)/, `$1${HOST}i/${id}.jpg$2`);
+
+// Şəklin mənbəsi: lentdəki sətir, yoxdursa saytın /x/ səhifəsindəki wsrv ünvanının url= parametri.
+async function imageSource(id) {
+  const row = await findRow(id).catch(() => null);
+  if (row) return /^https?:\/\//.test(String(row.imageUrl || "")) ? String(row.imageUrl) : "";
+  const page = await staticPage(id);
+  const m = page.match(/og:image" content="https:\/\/wsrv\.nl\/\?url=([^&"]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
+const isImage = r => r && r.status === 200 && /^image\//.test(r.headers.get("Content-Type") || "") && +(r.headers.get("Content-Length") || 0) <= IMG_MAX;
+
+// /i/<id>.jpg: kart şəkli. Əvvəl wsrv.nl (kiçik JPEG, WhatsApp 600 KB-dan böyüyü göstərmir), alınmasa mənbənin öz şəkli.
+export async function cardImage(id, ctx) {
+  const cache = globalThis.caches?.default, key = new Request(`${HOST}i/${id}.jpg`);
+  if (cache) { const hit = await cache.match(key); if (hit) return hit; }
+  const src = await imageSource(id);
+  if (!src) return Response.redirect(`${SITE}assets/og-default.png`, 302);
+  const ask = (u, extra = {}) => fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept": "image/avif,image/webp,image/jpeg,image/*", ...extra }, signal: AbortSignal.timeout(IMG_MS) }).catch(() => null);
+  let r = await ask(`https://wsrv.nl/?url=${quote(src)}&w=1200&h=630&fit=cover&a=attention&output=jpg&q=78`);
+  if (!isImage(r)) r = await ask(src, { "Referer": new URL(src).origin + "/" });
+  if (!isImage(r)) return Response.redirect(`${SITE}assets/og-default.png`, 302);
+  const res = new Response(r.body, { headers: { "Content-Type": r.headers.get("Content-Type"), "Cache-Control": `public, max-age=${IMG_CACHE_S}` } });
+  if (cache) { const put = cache.put(key, res.clone()); if (ctx?.waitUntil) ctx.waitUntil(put); else await put.catch(() => {}); }
+  return res;
+}
 
 // updater._xml: əvvəl açılır (ikiqat kodlanmış & qalmasın), sonra kodlanır.
 export function xml(s) {
