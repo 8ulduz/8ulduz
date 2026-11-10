@@ -393,7 +393,18 @@ class MeteorItemTest(unittest.TestCase):
         (note,) = _kind(D(2028, 6, 1), "sema-cedvel")
         self.assertEqual((note["worth"], note["key"]), (False, "sema-cedvel-2028"))
         self.assertIn("2028-ci il", note["why"])
-        self.assertEqual(_kind(D(2027, 12, 31), "sema-cedvel"), [])
+
+    def test_missing_table_is_flagged_before_the_year_starts(self):
+        # 2028-in ilk xəbərləri (Kvadrantidlərin önizləməsi və zirvəsi) 1-3 yanvardadır. Qeyd yalnız 1 yanvarda çıxsaydı,
+        # cədvəli əlavə etməyə vaxt qalmazdı: xəbərdarlıq cədvəlin son ilinin 1 noyabrından başlayır.
+        self.assertEqual(_kind(D(2027, 10, 31), "sema-cedvel"), [])
+        (early,) = _kind(D(2027, 11, 1), "sema-cedvel")
+        self.assertEqual((early["worth"], early["key"]), (False, "sema-cedvel-2028"))
+        self.assertEqual(early["title"], "2028-ci il üçün meteor və tutulma cədvəli yoxdur")
+        self.assertIn("2028-ci il yoxdur", early["why"])
+        (late,) = _kind(D(2027, 12, 31), "sema-cedvel")
+        self.assertEqual(late["key"], "sema-cedvel-2028")
+        self.assertEqual([i["kind"] for i in sema.day_items(D(2027, 12, 14)) if i["worth"]], ["meteor"])  # cədvəl hələ işləyir
 
 
 class EclipseItemTest(unittest.TestCase):
@@ -421,6 +432,20 @@ class EclipseItemTest(unittest.TestCase):
         self.assertEqual(part["title"], "Sabah qismən Ay tutulması olacaq: ən böyük fazası Bakıdan görünməyəcək")
         self.assertEqual(part["slot"], "18:30")
         self.assertIn("Ən böyük fazada Ay diametrinin 93%-i Yerin tam kölgəsinə girəcək.", part["body"])
+
+    def test_americas_are_both_continents(self):
+        # NASA-nın «Americas» sözü Şimali və Cənubi Amerikadır; təkcə «Amerikada» oxucuya ABŞ kimi gələ bilər.
+        rows = [(r[4], r[5]) for r in sema.SOLAR] + [(r[4], r[5]) for r in sema.LUNAR]
+        for en, az in rows:
+            if "Americas" in en:
+                self.assertIn("Şimali və Cənubi Amerikada", az, en)
+            self.assertFalse(az.startswith("Amerika"), az)
+            for word in re.findall(r"(\S+) Amerika", az):
+                self.assertIn(word, ("Şimali", "Cənubi"), az)
+        (part,) = _kind(D(2026, 8, 27), "tutulma")
+        self.assertIn("Tutulma Sakit okeanın şərqində, Şimali və Cənubi Amerikada, Avropada və Afrikada görünəcək.", part["body"])
+        (night,) = _kind(D(2027, 2, 20), "tutulma")
+        self.assertIn("Tutulma Şimali və Cənubi Amerikada, Avropada, Afrikada və Asiyada görünəcək.", night["body"])
 
     def test_penumbral_eclipses(self):
         (night,) = _kind(D(2027, 2, 20), "tutulma")
@@ -491,8 +516,9 @@ class DayRulesTest(unittest.TestCase):
             for i in out:
                 for k in ("kind", "key", "title", "lead", "body", "credit", "link", "topic", "slot", "worth"):
                     self.assertIn(k, i, (day, i.get("key")))
-                self.assertNotIn(i["key"], keys)
-                keys.add(i["key"])
+                if i["kind"] != "sema-cedvel":  # dərc olunmayan cədvəl qeydi hər gün eyni açarla təkrarlanır
+                    self.assertNotIn(i["key"], keys)
+                    keys.add(i["key"])
                 self.assertLessEqual(len(i["title"]), 110, i["title"])
                 self.assertFalse(i["title"].endswith("."), i["title"])
                 self.assertTrue(re.fullmatch(r"\d\d:\d\d", i["slot"]), i)
@@ -507,6 +533,12 @@ class DayRulesTest(unittest.TestCase):
         self.assertEqual((counts["fesil"], counts["gun-batimi"], counts["meteor"]), (8, 8, 16))
         self.assertTrue(85 <= counts["ay-faza"] <= 99, counts)
         self.assertEqual(counts["tutulma"], 8)
+
+    def test_percent_rounds_half_up(self):
+        # Python-un round() funksiyası yarımı cüt ədədə yuvarlayır (86,5 -> 86, 12,5 -> 12). NASA maqnitudaları üç rəqəmlidir:
+        # 0,865 kimi dəyər faizdə yarım verir və adi qaydaya görə yuxarı yuvarlanmalıdır.
+        self.assertEqual([sema._pct(x) for x in (0.865, 0.125, 0.269, 0.93, 0.0249, 0.5)],
+                         ["87%", "13%", "27%", "93%", "2%", "50%"])
 
     def test_no_network_and_cli(self):
         def boom(*a, **k):
