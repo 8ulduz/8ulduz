@@ -79,6 +79,17 @@ class HostRedoTest(unittest.TestCase):
 class SpokenTextTest(unittest.TestCase):
     """Sahib, 2026-11-10: «ikincidə ortada video sözü keçir — lazımsız yerlər oxunmasın»."""
 
+    def test_cop_is_read_as_a_word(self):
+        """Sahib, 2026-11-10: «kop 31 yerinə co o p deyir»."""
+        self.assertEqual(ses.spoken_text("ölkənin COP31 hazırlıqlarına və COP-29 irsinə"), "ölkənin Kop 31 hazırlıqlarına və Kop 29 irsinə")
+        self.assertEqual(ses.spoken_title("COP iclası Bakıda"), "Kop iclası Bakıda")
+        self.assertEqual(ses.spoken_text("ABŞ və BMT COPE"), "ABŞ və BMT COPE")
+        feed = [{"id": "a" * 16, "title": "X", "summary": "COP31 hazırlığı"}, {"id": "b" * 16, "title": "Y", "summary": "adi"},
+                {"id": "c" * 16, "title": "COP31", "summary": ""}]
+        have = {"a" * 16: 1, "b" * 16: 1, "c" * 16: 1}
+        born = {"a" * 16: ses.SAY_AT - 60, "b" * 16: ses.SAY_AT - 60, "c" * 16: ses.SAY_AT + 60}
+        self.assertEqual(ses.say_redo(have, born, feed), {"a" * 16})
+
     def test_title_markers_are_not_read(self):
         cases = {
             'Cevdet Yılmaz: "Ərdoğanla Əliyevin görüşü yayılan dezinformasiyalara ən yaxşı cavab oldu" - Video':
