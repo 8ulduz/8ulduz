@@ -456,7 +456,7 @@ class LatePublicationTest(unittest.TestCase):
         self.assertTrue(night["worth"])
 
     def test_morning_solar_eclipse_is_announced_the_evening_before(self):
-        # Cədvələ hər il sətir əlavə olunur. NASA SEdecade2021: 2028 Jul 22 02:56:39 TD, tam, Bakıda 06:56 (görünmür).
+        # Cədvələ hər il sətir əlavə olunur. NASA SEdecade2021: 2028 Jul 22 02:56:39 TD, tam, UT 02:55:30, Bakıda 06:55 (görünmür).
         # Səhər 08:30-da «Bu gün ... olacaq» yazılsaydı, hadisə artıq keçmiş olardı.
         row = ("2028-07-22", "02:56:39", "Total", 1.056, "SE Asia, E. Indies, Australia, N.Z. [Total: Australia, N. Z.]",
                "Cənub-Şərqi Asiyada, Şərqi Hindistan adalarında, Avstraliyada və Yeni Zelandiyada",
@@ -467,7 +467,7 @@ class LatePublicationTest(unittest.TestCase):
             (moon,) = _kind(D(2028, 7, 22), "ay-faza")
         self.assertEqual((eve["slot"], eve["worth"]), ("18:30", True))
         self.assertEqual(eve["title"], "Sabah tam Günəş tutulması olacaq: Bakıdan görünməyəcək")
-        self.assertIn("Bakı vaxtı ilə saat 06:56-da olacaq", eve["lead"])
+        self.assertIn("Bakı vaxtı ilə saat 06:55-də olacaq", eve["lead"])
         self.assertFalse(moon["worth"])  # yeni Ay həmin tutulmadır
 
 
