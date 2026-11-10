@@ -668,6 +668,69 @@ class ReviewTest(unittest.TestCase):
         self.assertEqual([i["key"] for i in got if i["kind"] == "milli-oncesi"], [])
 
 
+class SecondReviewTest(unittest.TestCase):
+    """İkinci müstəqil yoxlama (2026-11-10): hər biri əvvəl uğursuz test kimi yazılıb."""
+
+    def items_at(self, docs, now, fetch=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            return by_key(fa.items(site(tmp, docs), at(now), fetch))
+
+    def test_points_ties_are_never_ranked_in_moves(self):
+        # pfl.az bərabər xalda əvvəlcə qarşılıqlı oyunlara baxır: 2025-26 mövsümünün sonunda «Turan Tovuz» (59 xal, +17)
+        # «Neftçi»dən (59 xal, +25) yuxarıdadır (premyer-liqa-2025.json). Xalı bərabər olanın yeri qol fərqi ilə təxmin edilmir.
+        r1 = [game(1, "2026-11-01T15:00+04:00", "neftci", "sabah", (1, 0)), game(1, "2026-11-01T18:00+04:00", "qarabag", "zire", (0, 0))]
+        r2 = [game(2, "2026-11-08T15:00+04:00", "sabah", "zire", (6, 0)), game(2, "2026-11-08T18:00+04:00", "neftci", "qarabag", (0, 1))]
+        # Turdan əvvəl «Sabah» və «Neftçi» 3 xalla bərabərdir («Neftçi» qarşılıqlı oyunu udub): onların əvvəlki yeri bilinmir.
+        r3 = [game(3, "2026-11-15T15:00+04:00", "neftci", "zire", (2, 0)), game(3, "2026-11-15T18:00+04:00", "sabah", "qarabag", (0, 0))]
+        item = self.items_at({"premyer-liqa": league(r1 + r2 + r3)}, "2026-11-15T21:00+04:00")["tur-premyer-liqa-2026-t3"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual([b for b in item["body"] if b.startswith("Cədvəldə")], ["Cədvəldə «Qarabağ» 1-ci yerdən 2-ci yerə düşüb."])
+        # Turdan sonra yeni oyun oynanıb: rəsmi cədvəl artıq o tura aid deyil, turdan sonra xalı bərabər olanların yeri də yazılmır.
+        r3 = [game(3, "2026-11-15T15:00+04:00", "neftci", "zire", (1, 0)), game(3, "2026-11-15T18:00+04:00", "sabah", "qarabag", (1, 0))]
+        r4 = [game(4, "2026-11-16T12:00+04:00", "zire", "qarabag", (1, 1)), game(4, "2026-11-22T12:00+04:00", "neftci", "sabah")]
+        item = self.items_at({"premyer-liqa": league(r1 + r2 + r3 + r4)}, "2026-11-16T15:00+04:00")["tur-premyer-liqa-2026-t3"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual([b for b in item["body"] if b.startswith("Cədvəldə")], ["Cədvəldə «Qarabağ» 1-ci yerdən 3-cü yerə düşüb."])
+
+    def test_cup_pairs_count_premier_league_teams_even_without_places(self):
+        # Rəsmi cədvəl oyunlarla uyğun gəlmir və xallar bərabərdir: yerlər bilinmir, amma Premyer Liqa komandaları bəllidir.
+        r1 = [game(1, "2026-11-01T15:00+04:00", "neftci", "sabah", (1, 0)), game(1, "2026-11-01T18:00+04:00", "qarabag", "zire", (1, 0))]
+        rows = rows_for(r1)
+        rows[0]["pts"] += 2
+        teams = dict(TEAMS, karvan="Karvan-Yevlax", simal="Şimal")
+        cup = {"id": "kubok", "name": "Azərbaycan Kuboku", "short": "Kubok", "source": "pfl.az", "key": "2026", "season": "2026-27",
+               "teams": {k: {"name": v} for k, v in teams.items()}, "groups": [],
+               "games": [game("1/8 final", "2026-12-02T15:00+04:00", "karvan", "simal"),
+                         game("1/8 final", "2026-12-02T18:00+04:00", "neftci", "qarabag"),
+                         game("1/8 final", "2026-12-03T15:00+04:00", "sabah", "zire")]}
+        item = self.items_at({"premyer-liqa": league(r1, rows=rows), "kubok": cup}, "2026-11-26T12:00+04:00")["kubok-2026-1-8-final-cutler"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Azərbaycan Kubokunun 1/8 final mərhələsi: «Neftçi» «Qarabağ»ı, «Sabah» «Zirə»ni qəbul edəcək")
+        self.assertIn(" Premyer Liqa komandaları 2 cütdə bir-biri ilə qarşılaşacaq: «Neftçi» – «Qarabağ», «Sabah» – «Zirə».", item["lead"])
+
+    def test_postponed_european_game_gets_no_preview(self):
+        # TheSportsDB (al.json, kl.json) təxirə salınan oyunu state="off", saatı bəlli olmayanı 00:00 UTC yazır.
+        al = {"id": "al", "name": "Avropa Liqası", "source": "TheSportsDB", "source_url": "https://www.thesportsdb.com/", "key": "2026",
+              "teams": {"sabah": {"name": "Sabah"}, "roma": {"name": "Roma"}, "porto": {"name": "Porto"}}, "groups": [],
+              "games": [{"date": "2026-11-26T17:45:00+00:00", "home": "sabah", "away": "roma", "played": False, "round": "5", "state": "off"},
+                        {"date": "2026-12-10T00:00:00+00:00", "home": "porto", "away": "sabah", "played": False, "round": "6"}]}
+        docs = {"premyer-liqa": league(R1 + R2), "al": al}
+        for now in ("2026-11-25T12:30+04:00", "2026-12-09T12:30+04:00"):
+            self.assertEqual([k for k, i in self.items_at(docs, now).items() if i["kind"] == "avro-oncesi"], [], now)
+
+    def test_european_knockout_preview_has_no_league_phase_points(self):
+        cl = {"id": "cl", "name": "Çempionlar Liqası", "source": "OpenLigaDB (www.openligadb.de)", "source_url": "https://www.openligadb.de/",
+              "key": "2026", "teams": {"sabah": {"name": "Sabah"}, "arsenal": {"name": "Arsenal"}},
+              "groups": [{"name": "", "rows": [{"team": "arsenal", "pos": 1, "p": 1, "pts": 0}, {"team": "sabah", "pos": 2, "p": 1, "pts": 3}]}],
+              "games": [{"date": "2026-09-16T16:45:00+00:00", "home": "sabah", "away": "arsenal", "played": True, "round": "1", "hs": 1, "as": 0},
+                        {"date": "2027-02-17T17:45:00+00:00", "home": "arsenal", "away": "sabah", "played": False, "round": "Pley-off"}]}
+        item = next(i for i in self.items_at({"premyer-liqa": league(R1 + R2), "cl": cl}, "2027-02-16T12:30+04:00").values()
+                    if i["kind"] == "avro-oncesi")
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["lead"], "Çempionlar Liqasının pley-off mərhələsində «Sabah» 17 fevralda Bakı vaxtı ilə saat 21:45-də "
+                                       "səfərdə «Arsenal»la qarşılaşacaq.")
+
+
 class ContractTest(unittest.TestCase):
     TIMES = ("2026-10-04T20:00+04:00", "2026-10-22T18:00+04:00", "2026-10-29T17:00+04:00", "2026-11-03T18:00+04:00",
              "2026-11-05T08:30+04:00", "2026-11-05T18:00+04:00", "2026-11-08T20:00+04:00", "2026-11-09T10:30+04:00",
