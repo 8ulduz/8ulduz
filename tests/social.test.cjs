@@ -314,3 +314,21 @@ test("social: Facebook gets only stories with a picture, scrapes the link first 
   res = await S.run({ articles: [art("a73", { imageUrl: "https://apa.az/j.jpg" })], env, now: NOW + 3600e3, fetch, state: {}, log: s => logs.push(s) });
   assert.deepEqual(res.posted.map(x => x[0]), ["facebook"], "Facebook şəkli görməsə də post gedir (wsrv.nl Facebook-a 403 verir, ötürsək heç nə getməzdi)");
 });
+
+test("social: the same event under different headlines is posted once per network (owner, 2026-11-10: Facebook got the President's Türkiyə visit 3 times)", async () => {
+  const sum = "Azərbaycan Respublikasının Prezidenti İlham Əliyev Türkiyə Respublikasının Prezidenti Rəcəb Tayyib Ərdoğanın dəvəti ilə BMT-nin İqlim Dəyişmələri üzrə Çərçivə Konvensiyasının Tərəflər Konfransının 31-ci sessiyasının…";
+  const p = (id, title, m, summary = sum) => art(id, { title, summary, category: "prezident", alts: [], publishedAt: ago(m), imageUrl: "https://apa.az/i.jpg" });
+  const visit = [p("b1", "Prezident İlham Əliyev Türkiyəyə səfərə gedib", 70), p("b2", "İlham Əliyev Türkiyəyə səfərə gəlib", 60),
+    p("b3", "Prezident xanımı ilə Türkiyəyə getdi", 50), p("b4", "İlham Əliyev Türkiyədə belə qarşılandı", 40, "")];
+  const other = p("b5", "Prezident Polşa Prezidentinə başsağlığı verib", 30, "Azərbaycan Prezidenti İlham Əliyev Polşa Prezidenti Karol Navrotskiyə başsağlığı məktubu göndərib.");
+  const sent = [];
+  const f = async (url, init = {}) => { if (init.method === "HEAD") return { status: 200 }; if (/sendMessage/.test(url)) sent.push(JSON.parse(init.body).text); return { ok: true, status: 200, json: async () => ({ ok: true }) }; };
+  const state = { _last: { telegram: 0 } }, logs = [];
+  for (let i = 0; i < 5; i++) await S.run({ articles: [...visit, other], env: { TELEGRAM_BOT_TOKEN: "t", TELEGRAM_CHAT: "@k" }, now: NOW + i * 20 * 60e3, fetch: f, state, log: s => logs.push(s) });
+  assert.equal(sent.filter(t => /Türkiy/.test(t)).length, 1, "səfər bir dəfə");
+  assert.equal(sent.filter(t => /Polşa/.test(t)).length, 1, "başqa Prezident xəbəri gedir");
+  assert.ok(logs.some(s => /eyni mövzu artıq paylaşılıb/.test(s)));
+  const T = (a, h = 0) => S.topicOf(a, NOW / 1000 + h * 3600);
+  assert.ok(!S.sameTopic(T(visit[0]), T(p("c1", "Türkiyə Prezidenti Ərdoğan Azərbaycana rəsmi səfərə gəlib", 0, "Türkiyə Respublikasının Prezidenti Rəcəb Tayyib Ərdoğan Azərbaycana rəsmi səfərə gəlib."), -6)), "səhər Ərdoğanın səfəri ≠ axşam Əliyevin səfəri");
+  assert.ok(!S.sameTopic(T(visit[0]), T(art("c2", { title: "COP31 çərçivəsində ÜST ilə dəyirmi masa keçirilib", summary: "Ümumdünya Səhiyyə Təşkilatı ilə birgə dəyirmi masa. " + sum }))), "xülasədəki ortaq COP31 cümləsi tək başına bəs deyil");
+});

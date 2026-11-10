@@ -53,6 +53,31 @@ const digestList = a => a.items.map((x, i) => `${i + 1}. ${cut(x.t, 140)}`).join
 const titleKey = a => "t:" + crypto.createHash("sha1").update(clean(a.title).toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "")).digest("hex").slice(0, 16);
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
+// Eyni hadisə başqa başlıqla (sahib, 2026-11-10: Facebook-da 3 dəfə «Prezident Türkiyəyə səfərə gedib / gəlib / xanımı ilə getdi»;
+// sayt onları birləşdirməmişdi, xülasələri eyni idi). Şəbəkədə son TOPIC_H saatda paylaşılmış xəbərlə eyni mövzudursa getmir:
+// xülasənin əvvəli eynidir, və ya (NEAR_H saat içində) başlıq+xülasə sözlərinin çoxu üst-üstə düşür, və ya iki Prezident xəbəri PREZ_H saat
+// içində eyni ada/ölkəyə aiddir (Türkiyə, Ankara…). Söz kökü = ilk 5 hərf; ümumi sözlər və hər Prezident xəbərində olan adlar sayılmır.
+const TOPIC_H = 24, NEAR_H = 4, PREZ_H = 3;
+const STOP = new Set(("ilə üçün olan olub olaraq edib etdi edən edəcək edir gedib getdi gəlib gəldi bildirib deyib haqqında barədə xəbər " +
+  "sonra daha yeni bütün bəzi onun bunu belə həmin artıq hələ qədər kimi görə üzrə dair bağlı keçirilib keçirildi video foto " +
+  "videoçarx olunub olundu verib verdi alıb aldı").split(" "));
+const GENERIC = new Set(["prezi", "ilham", "əliye", "mehri", "azərb", "respu", "birin"]);
+const stems = s => [...new Set((clean(s).toLocaleLowerCase("az").match(/\p{L}{4,}/gu) || []).filter(w => !STOP.has(w))
+  .map(w => w.slice(0, 5)).filter(w => !GENERIC.has(w)))];
+function topicOf(a, at) {
+  const sum = clean(a.summary).toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "");
+  return { at, prez: a.category === "prezident", key: sum.length >= 60 ? sum.slice(0, 80) : "",
+    words: stems(`${a.title} ${clean(a.summary).slice(0, 300)}`), head: stems(a.title), names: stems((clean(a.title).match(/\p{Lu}\p{L}+/gu) || []).join(" ")) };
+}
+function sameTopic(x, y) {
+  if (x.key && x.key === y.key) return true;
+  if (Math.abs(x.at - y.at) >= NEAR_H * 3600) return false; // eyni hadisənin təkrarları saatlar içində gəlir; səhər Ərdoğanın səfəri ≠ axşam Əliyevin səfəri
+  const shared = x.words.filter(w => y.words.includes(w)).length;
+  // Xülasədəki ümumi cümlə (məs. «COP31 … sessiyası») tək başına bəs deyil: başlıqda da ortaq söz olmalıdır.
+  if (shared >= 4 && shared / Math.min(x.words.length, y.words.length) >= 0.6 && x.head.some(w => y.head.includes(w))) return true;
+  return x.prez && y.prez && Math.abs(x.at - y.at) < PREZ_H * 3600 && x.names.some(w => y.names.includes(w));
+}
+
 // Paylaşmağa layiq xəbərlər, ən vacibi birinci (mənbə sayı, sonra yenilik).
 function candidates(articles, now, opt) {
   const out = [];
@@ -254,9 +279,15 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
     const early = ago < gap;
     if (early && !mine(true).some(a => !done[a.id])) { log(`${net.name}: son post ${ago} dəq əvvəl, növbəti ${gap - ago} dəq sonra`); continue; }
     let n = 0;
+    // Bu şəbəkədə son TOPIC_H saatda paylaşılmış xəbərlərin mövzuları (lentdə olanlar; vaxt — paylaşıldığı an).
+    const sec = Math.floor(now / 1000), byId = new Map((articles || []).map(a => [a.id, a]));
+    const recent = Object.entries(done).filter(([id, t]) => byId.has(id) && sec - t < TOPIC_H * 3600).map(([id]) => topicOf(byId.get(id), Date.parse(byId.get(id).publishedAt) / 1000 || sec));
     for (const a of mine(early)) {
       if (n >= opt.perRun) break;
-      if (done[a.id] || (!a.digest && done[titleKey(a)]) || !(await pageLive(a))) continue;
+      if (done[a.id] || (!a.digest && done[titleKey(a)])) continue;
+      const topic = !a.digest && topicOf(a, Date.parse(a.publishedAt) / 1000 || sec);
+      if (topic && recent.some(t => sameTopic(t, topic))) { done[a.id] = sec; log(`${net.name}: eyni mövzu artıq paylaşılıb, ötürülür — ${clean(a.title)}`); continue; }
+      if (!(await pageLive(a))) continue;
       n++;
       try {
         let r;
@@ -265,7 +296,7 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         if (r?.skip) { n--; log(`${net.name}: ötürülür (${r.skip}), növbəti dövrədə yenə yoxlanır — ${clean(a.title)}`); continue; }
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
         done[a.id] = last[net.name] = Math.floor(now / 1000);
-        if (!a.digest) done[titleKey(a)] = done[a.id];
+        if (!a.digest) { done[titleKey(a)] = done[a.id]; recent.push(topic); }
         result.posted.push([net.name, a.id]);
         log(`${net.name}: paylaşıldı — ${clean(a.title)}`);
       } catch (e) {
@@ -300,5 +331,5 @@ async function main() {
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });
