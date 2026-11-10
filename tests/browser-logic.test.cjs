@@ -281,17 +281,17 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
   // sahib 2026-11-07: İdmanın yanında Zuğulba yox, Bölgələr (Zuğulba aşağıda öz blokunda, bağlı başlıq)
   // sahib 2026-11-07 (sonra): «Gündəm sonra Dünya»; «Son dəqiqə» ☰-də (qırmızı zolaq və «Son xəbərlər» onu təkrarlayırdı)
-  assert.deepEqual(phone, ['gundem', 'idman', 'bolgeler', 'dunya'], 'telefonda sətirdə yalnız 4 bölmə (HTML sırası; masaüstü menyu dəyişmir)');
-  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}'), 'telefonda görünən sıra: Gündəm, Dünya, İdman, Bölgələr');
+  // sahib 2026-11-10: «Ana ekrana» açıq görünsün, yer yoxdursa Gündəm və Dünya ☰-ə keçsin
+  assert.deepEqual(phone, ['idman', 'bolgeler'], 'telefonda sətirdə 2 bölmə + «Ana ekrana» (masaüstü menyu dəyişmir)');
   const list = (rest.split('</details>')[0].match(/<a href="#\/bolme\//g) || []).length;
   assert.equal(list, (h.match(/<a href="#\/bolme\/[a-z]+" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
   assert.ok(rest.includes('<summary aria-label="Bütün bölmələr">☰ Hamısı</summary>'));
   assert.ok(h.includes('<button type="button" class="nav-inst" data-act="install" hidden>'), 'quraşdırma mümkün deyilsə düymə gizlidir');
-  assert.ok(rest.split('</details>')[0].includes('class="nav-inst"'), '«Ana ekrana» ☰ siyahısının içindədir');
+  assert.ok(row.includes('class="nav-inst"') && !rest.split('</details>')[0].includes('class="nav-inst"'), '«Ana ekrana» sətirdədir, ☰-in içində deyil');
   S.installEvt = {};
   h = html();
   assert.ok(h.includes('class="nav-inst" data-act="install">'), 'Chrome təklif verəndə düymə görünür');
-  assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı');
+  assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">📲 Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı');
   assert.ok(h.indexOf('class="nav-tg" href="https://t.me/sekkizulduz_az"') > h.indexOf('</details>'), 'Telegram çağırışı ☰-dan sonra, öz sətrində');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.nav-inst{display:none}nav.main .nav-tg{display:none}'), 'masaüstündə nə düymə, nə çağırış');
@@ -1571,6 +1571,15 @@ test('the rates page names each source and marks the direction', () => {
   assert.ok(html.includes('ExchangeRate-API'));
   assert.ok(html.includes('Rubl &lt;b&gt;'));
 });
+test('install hint module explains the manual way per browser', async () => {
+  const {hint}=await import(require('url').pathToFileURL(path.join(root,'assets/ana-ekran.js')).href);
+  const fb='Mozilla/5.0 (Linux; Android 14; wv) [FBAN/EMA;FBAV/400.0]';
+  assert.match(hint(fb,false,'intent://8ulduz.az/#Intent;end'),/daxili brauzer.*Chrome-da aç/);
+  assert.match(hint('Mozilla/5.0 (Linux; Android 14) SamsungBrowser/26.0',false),/Səhifəni əlavə et/);
+  assert.match(hint('Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile',false),/Ana ekrana əlavə et/);
+  assert.match(hint('iPhone FBAN',true),/Safari-də aç/);
+  assert.ok(!hint(fb,false,'a"b').includes('a"b'),'ünvan qaçırılır');
+});
 test('the install button appears only when installing is possible', () => {
   const ctx=app(),{S,installBtn}=ctx.api;
   assert.equal(installBtn(),'');
@@ -1580,6 +1589,11 @@ test('the install button appears only when installing is possible', () => {
   assert.ok(iphone.api.installBtn().includes('data-act="install"'));
   const home=app({navigator:{onLine:true,userAgent:'iPhone',standalone:true}});
   assert.equal(home.api.installBtn(),'');
+  // sahib 2026-11-10: telefonda həmişə görünsün; brauzer təklif vermirsə yolu göstərir
+  const ua=u=>app({navigator:{onLine:true,userAgent:u},matchMedia:q=>({matches:q==='(hover:none)'})}).api;
+  for(const u of ['Mozilla/5.0 (Linux; Android 14) SamsungBrowser/26.0','Mozilla/5.0 (Linux; Android 14; wv) [FBAN/EMA;FBAV/400.0]','Mozilla/5.0 (Android 14; Mobile) Firefox/130.0'])
+    assert.ok(ua(u).installBtn().includes('data-act="install"'),u);
+
 });
 test('counting a click never breaks the page', () => {
   const ctx=app(),{trackEvent}=ctx.api;
