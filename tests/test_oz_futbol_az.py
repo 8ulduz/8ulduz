@@ -743,6 +743,31 @@ class SecondReviewTest(unittest.TestCase):
         self.assertIn("Turun 3 oyununda 7 qol vurulub.", item["lead"])
         self.assertEqual(item["body"][-1], "Turun «Qarabağ» – «Neftçi» oyunu 31 oktyabrda keçirilib.")
 
+    def test_play_off_game_is_not_a_league_game(self):
+        # 2025-26: «Qəbələ» – «Mingəçevir» (I Liqanın komandası) keçid oyunu «p/o» turudur və «Mingəçevir» teams-dədir. Liqa
+        # cədvəlinə düşməməlidir: ««Mingəçevir» 0 oyun keçirib» yazılmasın, sonuncu yer 4-cüdür, qarşılıqlı oyun sayılmır.
+        teams = dict(TEAMS, mingecevir="Mingəçevir")
+        r3 = [game(3, "2026-11-22T15:00+04:00", "zire", "neftci"), game(3, "2026-11-22T18:00+04:00", "sabah", "qarabag")]
+        games = R1 + R2 + r3 + [game("p/o", "2026-12-20T18:00+04:00", "zire", "mingecevir")]
+        docs = {"premyer-liqa": league(games, rows=rows_for(R1 + R2), teams=teams)}
+        item = self.items_at(docs, "2026-11-08T21:00+04:00")["tur-premyer-liqa-2026-t2"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertFalse([b for b in item["body"] if "Mingəçevir" in b], item["body"])
+        item = self.items_at(docs, "2026-11-21T12:30+04:00")["tur-oncesi-premyer-liqa-2026-t3"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Premyer Liqada 3-cü tur 22 noyabrda başlayır: lider «Neftçi» sonuncu «Zirə»yə qonaq gedəcək")
+        past = [("2025-26", fa._games({"games": [game("10", "2026-03-01T15:00+04:00", "neftci", "sabah", (1, 0)),
+                                                  game("p/o", "2026-05-28T18:00+04:00", "sabah", "neftci", (2, 0))]}))]
+        self.assertEqual(fa._h2h(past, "neftci", "sabah")["n"], 1)
+
+    def test_teams_without_a_game_yet(self):
+        # 2025-26: 1-ci turun «Sabah» – «Qarabağ» oyunu dekabra salınıb. «0 oyun keçirib» yox, «hələ oyun keçirməyib».
+        games = [game(1, "2026-11-01T15:00+04:00", "neftci", "sabah", (2, 0)), game(1, "2026-12-20T18:00+04:00", "qarabag", "zire")]
+        item = self.items_at({"premyer-liqa": league(games)}, "2026-11-01T18:00+04:00")["tur-premyer-liqa-2026-t1"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertIn("«Qarabağ» və «Zirə» hələ oyun keçirməyib, digər komandalar isə 1 oyun.", item["body"])
+        self.assertNotIn(" 0 xal", item["lead"])  # «Qarabağ», «Zirə» və «Sabah» 0 xal toplayıb — yazılmır
+
     def test_foreign_club_endings_follow_pronunciation(self):
         # «Hull City»ni (Siti), «Chelsea»ni (Çelsi), «Crystal Palace»i (Pelis), «Sparta Prague»a (Praq), «Red Star Belgrade»i.
         self.assertEqual([fa.sx(n, c) for n, c in (
@@ -750,6 +775,97 @@ class SecondReviewTest(unittest.TestCase):
             ("TSG Hoffenheim", "ins"), ("Red Star Belgrade", "acc"), ("Union Saint-Gilloise", "acc"))],
             ["«Leicester City»ni", "«Hull City»yə", "«Chelsea»ni", "«Crystal Palace»i", "«Sparta Prague»a", "«TSG Hoffenheim»la",
              "«Red Star Belgrade»i", "«Union Saint-Gilloise»ı"])
+
+
+SITE = ROOT / "site"  # CI main-in məlumatını bura çıxarır (oz-modul.yml); yerli işdə yoxdur və testlər ötürülür
+
+
+def site_copy(tmp, swap=None, drop=()):
+    """main-in data/futbol və milli-menyu.json surəti. swap: {"premyer-liqa": "premyer-liqa-2025"} keçən mövsümü «bu mövsüm»
+    edir (bütöv real mövsüm: təxirə salınan oyunlar, keçid oyunu, cədvəldə xal düzəlişi)."""
+    src, dst = SITE / "data", pathlib.Path(tmp) / "data"
+    (dst / "futbol").mkdir(parents=True)
+    for p in (src / "futbol").glob("*.json"):
+        if p.stem not in drop:
+            (dst / "futbol" / p.name).write_bytes(p.read_bytes())
+    for name, other in (swap or {}).items():
+        (dst / "futbol" / f"{name}.json").write_bytes((src / "futbol" / f"{other}.json").read_bytes())
+    if (src / "milli-menyu.json").exists():
+        (dst / "milli-menyu.json").write_bytes((src / "milli-menyu.json").read_bytes())
+    return pathlib.Path(tmp)
+
+
+SCORE = re.compile(r"«(.+?)» – «(.+?)» – (\d+):(\d+)")
+
+
+@unittest.skipUnless((SITE / "data" / "futbol" / "premyer-liqa-2025.json").exists(), "main-in məlumatı yoxdur (yalnız CI-da)")
+class MainDataSweepTest(unittest.TestCase):
+    """main-in bütün real məlumatı ilə hər hadisənin xəbəri qurulur (pəncərəyə və həddə baxmadan): xəta, boş ad, uzun başlıq
+    olmamalıdır; tur icmallarının nəticələri və qol sayı oyunlardan ayrıca yoxlanır."""
+
+    def sweep(self, root, league_file):
+        evs, errors = fa._events(root)
+        self.assertEqual(errors, [])
+        doc = json.loads((root / "data" / "futbol" / f"{league_file}.json").read_text(encoding="utf-8"))
+        names = {k: (v or {}).get("name") or k for k, v in doc["teams"].items()}
+        built = summaries = 0
+        for e in evs:
+            item = fa._build(e, None)
+            built += 1
+            why = item.get("why") or ""
+            self.assertFalse(why.startswith("xəta"), (e["key"], why))
+            if not item["worth"]:
+                self.assertTrue(why, e["key"])
+                continue
+            text = "\n".join([item["title"], item["lead"]] + item["body"])
+            self.assertLessEqual(len(item["title"]), fa.TITLE_MAX, item["title"])
+            self.assertFalse(item["title"].endswith("."), item["title"])
+            self.assertNotRegex(text, r"«»|None|\{|\}|«[a-z0-9-]+»| 0 oyun keçirib", e["key"])
+            if e["kind"] != "pfl-tur":
+                continue
+            summaries += 1
+            # Hər nəticə sətri həmin turun oynanmış oyunudur; girişdəki oyun və qol sayı sətirlərlə eynidir.
+            rnd = e["key"].rsplit("-t", 1)[1]
+            rg = [g for g in doc["games"] if str(g.get("round")) == rnd and g.get("played")]
+            listed = []
+            for m in (SCORE.fullmatch(b) for b in item["body"]):
+                if m:
+                    hit = [g for g in rg if (names.get(g["home"]), names.get(g["away"]), g["hs"], g["as"]) == (m[1], m[2], int(m[3]), int(m[4]))]
+                    self.assertEqual(len(hit), 1, (e["key"], m[0]))
+                    listed.append(hit[0])
+            n = re.search(r"Turun (\d+) oyununda (?:(\d+) qol vurulub|qol vurulmayıb)\.", item["lead"])
+            self.assertTrue(n, (e["key"], item["lead"]))
+            self.assertEqual(int(n[1]), len(listed), e["key"])
+            self.assertEqual(int(n[2] or 0), sum(g["hs"] + g["as"] for g in listed), e["key"])
+            # Lider: icmaldakı son oyuna qədər yalnız liqa oyunlarından (rəqəmli turlar) hesablanan xal, tək lider.
+            last = max(at(g["date"]) for g in listed)
+            pts = {}
+            for g in doc["games"]:
+                if g.get("played") and str(g.get("round")).isdigit() and at(g["date"]) <= last:
+                    for k, a, b in ((g["home"], g["hs"], g["as"]), (g["away"], g["as"], g["hs"])):
+                        pts[names.get(k)] = pts.get(names.get(k), 0) + (3 if a > b else 1 if a == b else 0)
+            lead = re.search(r"Lider «(.+?)» .*? və (\d+) xal toplayıb\.|«([^»]+)» (\d+) xalla liderdir\.", item["lead"])
+            if lead:
+                who, got = (lead[1], int(lead[2])) if lead[1] else (lead[3], int(lead[4]))
+                self.assertEqual(pts[who], got, e["key"])
+                self.assertLess(sorted(pts.values())[-2], got, (e["key"], "lider tək deyil"))
+        self.assertGreater(built, 50)
+        self.assertGreater(summaries, 5)
+
+    def test_current_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.sweep(site_copy(tmp), "premyer-liqa")
+
+    def test_last_season_as_the_current_one(self):
+        # 2025-26 bütöv: 1-ci, 14-cü, 21-ci turun oyunları aylarla sonraya salınıb, «p/o» keçid oyunu, rəsmi cədvəldə xal düzəlişi.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = site_copy(tmp, {"premyer-liqa": "premyer-liqa-2025", "kubok": "kubok-2025", "cl": "cl-2025"}, drop=("premyer-liqa-2025",))
+            self.sweep(root, "premyer-liqa")
+
+    def test_two_seasons_ago_as_the_current_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = site_copy(tmp, {"premyer-liqa": "premyer-liqa-2024"}, drop=("premyer-liqa-2024", "premyer-liqa-2025"))
+            self.sweep(root, "premyer-liqa")
 
 
 class ContractTest(unittest.TestCase):
