@@ -17,19 +17,17 @@ export function aboutView(d) {
   const srcs = trackedSources();
   const contact = String(config.contact || "").trim();
   const gc = String(config.goatcounter || "").trim();
-  return `<div class="page-h"><div><h1>Haqqımızda</h1><p>8ulduz nədir, necə işləyir və nəyi göstərmir</p></div></div>
+  return `<div class="page-h"><div><h1>Haqqımızda</h1><p>Biz kimik və sayt necə işləyir</p></div></div>
   <div class="about">
-    <section><h2>Sayt nədir</h2><p>8ulduz Azərbaycan və dünya xəbərlərini bir yerə toplayan avtomatik xəbər lentidir. Heç bir xəbər burada yazılmır: başlıq, qısa xülasə və şəkil mənbənin açıq RSS lentindən və ya rəsmi səhifəsindən götürülür, başlığa klikləyəndə xəbər birbaşa mənbənin saytında açılır. Lent hər dəqiqə yenilənir.</p></section>
-    <section><h2>Mənbələr</h2><p>Hazırda ${srcs.length} mənbə izlənilir. Hər lentin vəziyyətini <a href="#/menbeler">Mənbə vəziyyəti</a> səhifəsində görmək olar.</p><div class="srcs">${srcs.map(s => `<span>${sourceName(s)}</span>`).join("")}</div></section>
-    <section><h2>Redaksiya prinsipləri</h2><ul>
-      <li>Eyni hadisə haqqında yaxın başlıqlı xəbərlər bir kartda birləşir; «N mənbə» düyməsi digər mənbələri göstərir.</li>
-      <li>Baş səhifədəki böyük kart və yanındakı siyahı ən yeni xəbəri yox, son saatlarda ən çox mənbədə çıxan xəbərləri göstərir.</li>
-      <li>Bölmələr başlıq və xülasədəki açar sözlərə görə avtomatik təyin olunur; səhv ola bilər.</li>
-      <li>Dil süzgəci standart olaraq Azərbaycan dilindədir; rus, ingilis və türk dilində xəbərlər «Hamısı» və ya müvafiq dil seçiləndə görünür.</li>
-      <li>Ölkə rəhbərliyi haqqında neqativ çağırışlı xəbərlər göstərilmir; bu, sayt sahibinin redaksiya qərarıdır.</li>
-      <li>Azərbaycan dövləti və rəhbərliyi haqqında xəbərlər yalnız Azərbaycan mənbələrindən verilir; xarici mənbələrin bu mövzuda xəbərləri (idman istisna olmaqla) dərc edilmir.</li>
-      <li>Müxalifət mənbələri lentə daxil edilmir; lentdə yalnız «Mənbələr» siyahısındakı saytlar görünür. Bu da sayt sahibinin redaksiya qərarıdır.</li>
-      <li>Bazar məlumatı: valyuta AMB-nin rəsmi məzənnəsi (alınmayanda bazar məzənnəsi, nişanla), neft və bitcoin Yahoo Finance, qızıl və gümüş gold-api.com. Maliyyə məsləhəti deyil.</li>
+    <section><h2>Sayt nədir</h2><p>8ulduz gün ərzində onlarla saytı bir-bir açmamaq üçün qurduğumuz səhifədir. Azərbaycanın və dünyanın xəbər saytlarında nə çıxırsa, başlığı, qısa xülasəsi və şəkli ilə burada görürsünüz. Biz xəbər yazmırıq: başlığa toxunanda xəbər öz saytında açılır, tam mətni də orada oxuyursunuz. Lent hər dəqiqə təzələnir.</p></section>
+    <section><h2>Mənbələr</h2><p>İndi ${srcs.length} sayt izləyirik. Hansının necə işlədiyini <a href="#/menbeler">Mənbə vəziyyəti</a> səhifəsində görə bilərsiniz.</p><div class="srcs">${srcs.map(s => `<span>${sourceName(s)}</span>`).join("")}</div></section>
+    <section><h2>Necə seçirik</h2><ul>
+      <li>Eyni hadisəni bir neçə sayt yazanda onları bir kartda birləşdiririk, «N mənbə» düyməsi hamısını göstərir.</li>
+      <li>Baş səhifədəki böyük kart ən son xəbəri yox, son saatlarda ən çox saytın yazdığı xəbəri göstərir.</li>
+      <li>Bölməni proqram özü seçir, ona görə arada səhv düşə bilər. Görsəniz, bizə yazın.</li>
+      <li>Əvvəlcədən Azərbaycan dilində xəbərlər görünür. Rus, ingilis və türk dilində xəbərlər üçün yuxarıdan dili dəyişin.</li>
+      <li>Ölkəmiz və dövlət rəhbərliyi barədə xəbərləri yalnız Azərbaycan saytlarından götürürük (idmanda xarici saytların klub və idmançı xəbərləri də var). Dövlət rəhbərliyini hədəf alan qərəzli materiallara yer vermirik.</li>
+      <li>Məzənnə Mərkəzi Bankdandır (alınmayanda bazar məzənnəsi, yanında nişan olur), neft və bitcoin Yahoo Finance-dən, qızıl və gümüş gold-api.com-dan. Bunlar məlumat üçündür, maliyyə məsləhəti deyil.</li>
     </ul></section>
     <section><h2>Məxfilik</h2><p>Tam mətn (sayt və Android tətbiqi üçün): <a href="./mexfilik/">Məxfilik siyasəti</a>.</p><ul><li>Paylaşma düyməsi yalnız seçdiyiniz tətbiqi açır. Sayt yalnız kliklərin ümumi sayını görür, kimin nəyi paylaşdığını yox.</li><li>Səslə axtarış mikrofonu yalnız axtarış qutusundakı mikrofon düyməsinə basanda açır. Səsi brauzerinizin öz nitq tanıma xidməti (Chrome-da Google, Safari-də Apple) işləyir; səs bu sayta gəlmir və saxlanmır.</li>${ASSISTANT_ON ? `<li>Səsli köməkçi mikrofonu yalnız “Köməkçi” və ya “Danış” düyməsinə toxunanda açır. Səsin tanınması brauzerin xarici xidmətində işlənə bilər. Köməkçinin yazılı söhbəti yalnız açıq səhifənin yaddaşında qalır və sayt tərəfindən saxlanmır. Hava və namaz sorğuları müvafiq xidmətlərə seçilmiş şəhərin koordinatlarını göndərir.</li>` : ""}
       <li>Sayt kuki qoymur və hesab tələb etmir. Seçilmişlər, bölmə sırası, dil, tema və şəhər seçimi yalnız sizin cihazınızda (brauzerin yaddaşında) saxlanır.</li>
@@ -39,7 +37,7 @@ export function aboutView(d) {
       ${DRIVER_ON ? `<li>Sürücü rejimi sizin seçiminizlə aktivləşir. Mənbə ayrıca vərəqdə açılır; açıq məqalədən alınmış mətn bu saytda göstərilmədən cihazın Azərbaycan səsi ilə oxunur. Səs, mətn və ya fon oxuması əlçatan olmaya bilər. Ayrı mənbənin vərəqi bu sayt tərəfindən idarə olunmur.</li>` : ""}
       <li>${gc ? "Ziyarət statistikası GoatCounter ilə, kukisiz və şəxsi məlumat toplamadan aparılır." : "Ziyarət statistikası hazırda toplanmır."}</li>
     </ul></section>
-    <section><h2>Əlaqə</h2><p>${contact ? `Yazın: <a href="mailto:${esc(contact)}">${esc(contact)}</a>. ` : ""}Səhv, təklif və mənbə əlavəsi üçün <a href="https://github.com/8ulduz/8ulduz/issues" target="_blank" rel="noopener noreferrer">GitHub-da müraciət</a> yaza bilərsiniz. Xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir; mənbə öz xəbərinin göstərilməsini istəmirsə, bildirin, lent siyahıdan çıxarılar.</p></section>
+    <section><h2>Əlaqə</h2><p>${contact ? `Bizə yazın: <a href="mailto:${esc(contact)}">${esc(contact)}</a>. ` : ""}Səhv, təklif və ya yeni sayt əlavə etmək istəsəniz, <a href="https://github.com/8ulduz/8ulduz/issues" target="_blank" rel="noopener noreferrer">GitHub-da</a> da yaza bilərsiniz. Xəbərlərin hüququ onları dərc edən saytlara məxsusdur. Hansısa sayt xəbərlərinin burada görünməsini istəmirsə, yazsın, siyahıdan çıxararıq.</p></section>
   </div>`;
 }
 

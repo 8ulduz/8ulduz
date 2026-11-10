@@ -271,6 +271,17 @@ test('phone headings use short names so they fit three rows, screen readers keep
   assert.ok(label({slug:'heyat',label:'Sağlamlıq və həyat'}).includes('nav-f">Sağlamlıq və həyat<'));
   assert.equal(label({slug:'gundem',label:'Gündəm'}),'Gündəm');
 });
+test('owner 2026-11-10: opened from the home screen, the phone row shows Gündəm and Dünya again instead of «Ana ekrana»', () => {
+  const els = {};
+  const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; }, querySelectorAll() { return []; }, querySelector: s => s === '#nav' ? (els.nav ||= { innerHTML: '' }) : null };
+  const ctx = app({ document: doc, requestAnimationFrame: () => 0, matchMedia: q => ({ matches: /standalone|hover:none/.test(q) }) });
+  vm.runInContext('renderNav()', ctx);
+  const h = els.nav.innerHTML, row = h.split('<details class="nav-more">')[0];
+  const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
+  assert.deepEqual(phone, ['gundem', 'idman', 'bolgeler', 'dunya']);
+  assert.ok(row.includes('class="nav-inst" data-act="install" hidden>'), 'ana ekranda düymə gizlidir');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main .nav-inst,nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}'), 'Gündəm, Dünya qabaqda');
+});
 test('phone nav: one row of four sections and ☰ that opens every section in a list, then the Telegram line (owner, 2026-11-06)', () => {
   const els = {};
   const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; }, querySelectorAll() { return []; }, querySelector: s => s === '#nav' ? (els.nav ||= { innerHTML: '' }) : null };
@@ -2842,12 +2853,14 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
   ctx.location.hash = '#/xeber/1'; sync();
   assert.equal(pill.hidden, true, 'xəbəri oxuyanda düymə yoxdur');
 });
-test('owner 2026-11-07: the bottom bar has six buttons — Video added, Tıxac kept', () => {
+test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   for (const src of [js, html]) {
     assert.ok(src.includes('<a href="#/bolme/video" data-tab="video"><b>▶</b><span>Video</span></a>'), 'aşağı zolaqda Video');
     assert.ok(src.includes('<a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>'), 'Tıxac qalır');
-    assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 6, 'aşağıda 6 düymə');
+    assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 4, 'aşağıda 4 düymə: Əsas, Video, Tıxac, Seçilmişlər');
+    const bar = src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0];
+    assert.ok(!bar.includes('data-tab="sections"') && !bar.includes('data-act="find"'), 'Bölmələr və Axtar aşağıda yoxdur');
   }
   assert.ok(js.includes('r.name === "section" && r.slug === "video" ? "video"'), 'Video səhifəsində düymə seçili');
 });

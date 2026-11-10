@@ -546,13 +546,6 @@ footer .logo img{height:28px}
 
 /* Telefonda karusel yox: 4 kart */
 @media (max-width:520px){
-  .secrow{flex-direction:column;gap:8px;overflow:visible;scroll-snap-type:none;padding:0}
-  .secrow>.card{flex:none;width:100%;flex-direction:row}
-  .secrow>.card:nth-child(n+5){display:none}
-  .secrow .card .img{aspect-ratio:auto;width:104px;height:84px;flex:none;border-radius:var(--radius) 0 0 var(--radius)}
-  .secrow .card h3{font-size:0.9643rem;-webkit-line-clamp:3}
-  .secrow .card .b{padding:7px 9px;gap:3px}
-  .secrow .card:not(.noimg) p{display:none}
 }
 .strip::after{content:"";position:absolute;top:0;bottom:4px;right:0;width:32px;background:linear-gradient(90deg,transparent,var(--bg));pointer-events:none;transition:opacity .2s}
 .strip.at-end::after{opacity:0}
@@ -879,7 +872,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
   #voice-assistant{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
   .assistant-panel{bottom:calc(134px + env(safe-area-inset-bottom,0px));max-height:calc(100dvh - 150px - env(safe-area-inset-bottom,0px))}
   .assistant-head>button,.star{min-width:44px;min-height:44px}
-  .search input,.source-search input,.pray-city,.language-picker select{font-size:16px}
+  .search input,.source-search input,.pray-city{font-size:16px}
 }
 .assistant-tools button[aria-pressed="true"]{background:var(--red);color:#fff;border-color:var(--red)}
 /* Toxunma/dar ekran: Zuğulba lentində snap və addımlama yoxdur */
@@ -1034,7 +1027,7 @@ a.pill.on small{color:inherit}
 .latest-grid .card>.b,.grid .card>.b,.news-row .card>.b,.card>.b{display:flex;flex-direction:column;gap:6px;padding:12px;min-width:0}
 .card .meta{flex-wrap:nowrap;margin:0}
 /* Telefonda TASS siyahısı (sahib, 2026-11-08), bölmədə birinci xəbər böyük */
-@media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>.card:not(:first-child))>.b{display:contents}:is(.latest-grid .card,.grid>.card:not(:first-child))>.img{grid-area:i;align-self:stretch;width:120px;min-height:80px;aspect-ratio:auto;border-radius:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)) .badges{grid-area:b}:is(.latest-grid .card,.grid>.card:not(:first-child)) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>.card:not(:first-child)) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:5}:is(.latest-grid .card,.grid>.card:not(:first-child)) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star:not(.on){color:var(--fg)}}
+@media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>.card:not(:first-child))>.b{display:contents}:is(.latest-grid .card,.grid>.card:not(:first-child))>.img{grid-area:i;align-self:start;width:120px;height:calc(3*var(--lh-body) + 30px);aspect-ratio:auto;border-radius:8px}:is(.latest-grid .card,.grid>.card:not(:first-child)) .badges{grid-area:b}:is(.latest-grid .card,.grid>.card:not(:first-child)) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>.card:not(:first-child)) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:3}:is(.latest-grid .card,.grid>.card:not(:first-child)) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>.card:not(:first-child))>.star:not(.on){color:var(--fg)}}
 .latest-grid .card .badges,.latest-grid .card .card-hit,.latest-grid .card .meta{margin:0}
 .card .meta .src{max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .star{top:8px;right:8px;width:28px;height:28px;min-width:28px;min-height:28px;font-size:var(--fs-body)}
@@ -1196,9 +1189,15 @@ html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:a
 .prez .soc-g a{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;color:var(--primary)}
 .prez .soc-g a svg{width:20px;height:20px}
 }
-/* sahib 2026-11-10: 📲 solda, lent hündür */
+/* sahib 2026-11-10: 📲 solda, lent hündür; ana ekrandan açılanda Gündəm, Dünya; dar/böyük şriftdə sətir sınmır */
 @media (max-width:600px){
-  nav.main .nav-inst{order:-1}
+  nav.main .nav-inst,nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}
+  nav.main>a.ph,nav.main .nav-inst{flex:1 1 0;min-width:0;overflow:hidden}
+  nav.main .nav-inst{flex-grow:1.6}
+}
+@media (max-width:340px){
+  nav.main>a.ph,nav.main .nav-inst{font-size:12px;padding:0 2px}
+  nav.main .nav-more>summary{padding:0 8px}
   #ticker:empty{min-height:39px}
   .ticker .run{padding:8px 0}
   .ticker .track{gap:28px;padding-left:8px}
