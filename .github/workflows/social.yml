@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: "7,27,47 * * * *"
   workflow_dispatch:
+    inputs:
+      fb_yenile:
+        description: 'Bugün www keçidi ilə paylaşılmış Facebook postlarının kartını yenidən oxut (şəkilsiz qalanlar şəkil alır)'
+        type: boolean
+        default: false
   # Skript və ya iş axını main-də dəyişəndə dərhal bir dövrə (cron yeni iş axınını gec qoşur; təkrar post yoxdur, siyahı keşdədir).
   push:
     branches: [main]
@@ -65,6 +70,7 @@ jobs:
           LINKEDIN_AUTHOR: ${{ vars.LINKEDIN_AUTHOR }}
           SOCIAL_MIN_SOURCES: ${{ vars.SOCIAL_MIN_SOURCES }}
           SOCIAL_PER_RUN: ${{ vars.SOCIAL_PER_RUN }}
+          FB_RESCRAPE: ${{ inputs.fb_yenile && '1' || '' }}
         run: node .github/scripts/social.cjs data/news.json
       # Yeni xeber/<id>/ səhifələri Bing və Yandex-ə (IndexNow). Düşsə də paylaşmaya və siyahının saxlanmasına təsir etmir.
       - name: IndexNow

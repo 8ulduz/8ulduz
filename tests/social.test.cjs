@@ -160,9 +160,10 @@ test("social: a Facebook user token in the secret is turned into the page token 
     posts.push([url, new URLSearchParams(init.body)]);
     return { ok: false, status: 400, text: async () => "bad EAApageTOKEN654321 EAAuserTOKEN123456" };
   };
-  await S.run({ articles: [art("fa")], env, now: NOW, fetch, state: {}, log: s => logs.push(s) });
-  assert.equal(posts[0][0], "https://graph.facebook.com/v27.0/1470250006171917/feed");
-  assert.equal(posts[0][1].get("access_token"), "EAApageTOKEN654321", "səhifə açarı ilə yazılır");
+  await S.run({ articles: [art("fa", { imageUrl: "https://apa.az/i.jpg" })], env, now: NOW, fetch, state: {}, log: s => logs.push(s) });
+  const feed = posts.find(p => p[0].endsWith("/feed"));
+  assert.equal(feed[0], "https://graph.facebook.com/v27.0/1470250006171917/feed");
+  assert.equal(feed[1].get("access_token"), "EAApageTOKEN654321", "səhifə açarı ilə yazılır");
   const all = logs.join("\n");
   assert.ok(all.includes("istifadəçi açarından səhifə açarı alındı"));
   assert.ok(!all.includes("EAApageTOKEN654321") && !all.includes("EAAuserTOKEN123456") && all.includes("***"), "açarlar jurnalda görünmür");
@@ -286,4 +287,33 @@ test("social: share links use the share Worker host www.8ulduz.az/<id>?h=, not t
   const text = JSON.parse(x.request(art("h1"))[1].body).text;
   assert.match(text, /\nhttps:\/\/www\.8ulduz\.az\/h100000000000000\?h=\d{8}$/);
   assert.ok(!fs.readFileSync(path.join(__dirname, "../.github/scripts/social.cjs"), "utf8").includes("8ulduz.az/x/"));
+});
+
+test("social: Facebook gets only stories with a picture, scrapes the link first and waits so the card shows the image (owner, 2026-11-10)", async () => {
+  const env = { FB_PAGE_ID: "42", FB_PAGE_TOKEN: "PAGEtok12345", INSTAGRAM: "0", FB_SCRAPE_WAIT_MS: "0" };
+  const noPic = art("a71", { alts: Array(9).fill({}) }), pic = art("a72", { imageUrl: "https://apa.az/i.jpg" });
+  const calls = [];
+  let card = [{ url: "https://wsrv.nl/?url=https%3A%2F%2Fapa.az%2Fi.jpg&w=1200" }];
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("?fields=access_token")) return { json: async () => ({}) };
+    const body = Object.fromEntries(new URLSearchParams(init.body || ""));
+    calls.push([url, body]);
+    if (body.scrape === "true") return { ok: true, json: async () => ({ id: body.id, image: card }) };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    throw new Error("gözlənilməz " + url);
+  };
+  const logs = [];
+  let res = await S.run({ articles: [noPic, pic], env, now: NOW, fetch, state: {}, log: s => logs.push(s) });
+  assert.deepEqual(res.posted, [["facebook", pic.id]], "şəkilsiz xəbər Facebook-a getmir: ");
+  const i = calls.findIndex(c => c[1].scrape === "true"), j = calls.findIndex(c => c[0].endsWith("/feed"));
+  assert.ok(i >= 0 && j > i, "əvvəl keçid oxudulur, sonra post");
+  assert.equal(calls[i][1].id, calls[j][1].link, "eyni keçid");
+  card = [{ url: "https://wsrv.nl/?url=x&default=https%3A%2F%2F8ulduz.az%2Fassets%2Fog-default.png" }].map(x => ({ url: "https://8ulduz.az/assets/og-default.png" }));
+  calls.length = 0;
+  res = await S.run({ articles: [art("a73", { imageUrl: "https://apa.az/j.jpg" })], env, now: NOW + 3600e3, fetch, state: {}, log: s => logs.push(s) });
+  assert.deepEqual(res.posted, [], "Facebook şəkli görmürsə post yoxdur");
+  assert.deepEqual(res.failed, [], "xəta sayılmır, növbəti dövrədə yenidən yoxlanır");
+  assert.ok(!calls.some(c => c[0].endsWith("/feed")));
+  assert.ok(logs.some(s => s.startsWith("facebook: ötürülür (Facebook kartda şəkil görmədi)")));
 });
