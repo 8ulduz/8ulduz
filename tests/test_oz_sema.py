@@ -413,7 +413,7 @@ class EclipseItemTest(unittest.TestCase):
         (part,) = _kind(D(2026, 8, 27), "tutulma")  # 28 avqust 08:13-dəki tutulma: xəbər əvvəlki axşam
         self.assertEqual(part["title"], "Sabah qismən Ay tutulması olacaq: ən böyük fazası Bakıdan görünməyəcək")
         self.assertEqual(part["slot"], "18:30")
-        self.assertIn("Ay diametrinin 93%-i Yerin tam kölgəsinə girəcək.", part["body"])
+        self.assertIn("Ən böyük fazada Ay diametrinin 93%-i Yerin tam kölgəsinə girəcək.", part["body"])
 
     def test_penumbral_eclipses(self):
         (night,) = _kind(D(2027, 2, 20), "tutulma")
