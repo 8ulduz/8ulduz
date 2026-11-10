@@ -51,6 +51,17 @@ _HEAD = re.compile(r"^\s*" + MARK + r"\s*[:|–—-]\s*", re.I)
 _ALONE = re.compile(r"(?:^|(?<=[.!?…]\s))\s*" + MARK + r"\s*[.!:]?(?=\s|$)", re.I)
 _CREDIT = re.compile(r"(?:^|(?<=[.!?…]\s))(?:foto|fotolar|fotoşəkil|şəkil|şəkillər|v[iİIı]deo|mənbə)\s*:\s*[^!?]{1,40}?(?:[.!?](?=\s|$)|$)", re.I)
 MARK_AT = datetime.datetime(2026, 11, 10, 16, 0, tzinfo=datetime.timezone.utc).timestamp()
+# Söz kimi oxunan qısaltmalar (sahib, 2026-11-10: «kop 31 yerinə co o p deyir»): Babək səsi böyük hərfli sözü hərf-hərf
+# oxuyur. «COP31» → «Kop 31». ABŞ, BMT kimi hərflə oxunanlar dəyişmir. Bu vaxtdan əvvəl yazılmış belə səslər yenidən səslənir.
+SAY = [(re.compile(r"\bCOP\s*-?\s*(\d+)\b"), r"Kop \1"), (re.compile(r"\bCOP\b"), "Kop")]
+SAY_AT = datetime.datetime(2026, 11, 10, 17, 0, tzinfo=datetime.timezone.utc).timestamp()
+
+
+def say(text):
+    """Qısaltmalar səsdə necə deyilirsə elə yazılır (SAY)."""
+    for rx, to in SAY:
+        text = rx.sub(to, text)
+    return text
 
 
 def spoken_title(title):
@@ -61,14 +72,21 @@ def spoken_title(title):
         if n == t or not n:
             break
         t = n
-    return t
+    return say(t)
 
 
 def spoken_text(text):
     """Mətn səs üçün: təkcə nişandan ibarət cümlələr və şəkil/video imzaları atılır."""
     t = re.sub(r"\s+", " ", text or "").strip()
     t = _ALONE.sub(" ", _CREDIT.sub(" ", _PAREN.sub("", t)))
-    return re.sub(r"\s+", " ", t).strip()
+    return say(re.sub(r"\s+", " ", t).strip())
+
+
+def say_redo(have, born, feed, at=None):
+    """Başlığında və ya xülasəsində söz kimi oxunan qısaltma olan, səsi düzəlişdən əvvəl yazılmış xəbərlər: yenidən səslənir."""
+    at = SAY_AT if at is None else at
+    return {a.get("id") for a in feed if a.get("id") in have and born.get(a.get("id"), 0) < at
+            and any(rx.search(f"{a.get('title', '')} {a.get('summary', '')}") for rx, _ in SAY)}
 
 
 def marker_redo(have, born, feed, at=None):
@@ -219,7 +237,7 @@ def main(d):
             dropped += 1
     made = 0
     pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
-    redo = stale(have, born) | host_redo(have, born, feed) | marker_redo(have, born, feed)
+    redo = stale(have, born) | host_redo(have, born, feed) | marker_redo(have, born, feed) | say_redo(have, born, feed)
     with tempfile.TemporaryDirectory() as tmp:
         for a in pick(feed, {i: s for i, s in have.items() if i not in redo}, now):
             if made >= PER_RUN:
