@@ -10,7 +10,8 @@ export const AUDIO = "https://raw.githubusercontent.com/8ulduz/ses/main/";
 
 export function textOf(a, decode = s => s) {
   const clean = s => decode(String(s || "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const title = clean(a?.title).replace(/[.!?…]*$/, "");
+  // «- Video», «(FOTO)» kimi nişanlar oxunmur (sahib, 2026-11-10; ses.py spoken_title ilə eyni).
+  const title = clean(a?.title).replace(/\s*[(\[]\s*(?:foto|v[iİı]deo)(?:lar)?(?:\s*[,+/]\s*(?:foto|v[iİı]deo)(?:lar)?)*\s*[)\]]/gi, "").replace(/\s*(?:[-–—|:+]\s*)?(?:foto|v[iİı]deo)(?:lar)?(?:\s*[/+]\s*(?:foto|v[iİı]deo))?\s*$/i, "").replace(/^\s*(?:foto|v[iİı]deo)\s*[:|–—-]\s*/i, "").replace(/[.!?…]*$/, "");
   const summary = clean(a?.summary);
   return summary && !summary.startsWith(title) ? `${title}. ${summary}` : title + ".";
 }

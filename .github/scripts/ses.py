@@ -41,6 +41,41 @@ CLEAN_AT = datetime.datetime(2026, 11, 8, 9, 0, tzinfo=datetime.timezone.utc).ti
 # Mətni əvvəl tapılmayan mənbələr: bu vaxtdan əvvəl yazılmış səsləri yenidən səslənir (yalnız həmin saytın xəbərləri, hamısı yox).
 # Oxu24.com: mətn news-detail blokunda idi, səs yalnız başlıq idi (sahib, 2026-11-09).
 REDO_HOSTS = {"oxu24.com": datetime.datetime(2026, 11, 9, 18, 30, tzinfo=datetime.timezone.utc).timestamp()}
+# Oxunmayan nişanlar (sahib, 2026-11-10: «ortada video sözü keçir — lazımsız yerlər oxunmasın»): başlığın sonundakı
+# «- Video», «(FOTO)», «[VİDEO]», əvvəlindəki «VİDEO:», mətndə təkcə «Video.» cümləsi və «Foto: APA» imzası.
+# Cümlənin içindəki adi söz («videoda görünür») qalır. Bu vaxtdan əvvəl yazılmış nişanlı səslər yenidən səslənir.
+MARK = r"(?:foto\s*/\s*v[iİIı]deo|v[iİIı]deo\s*/\s*foto|foto\s*\+\s*v[iİIı]deo|v[iİIı]deo(?:lar|görüntü)?|foto(?:lar|şəkil(?:lər)?|reportaj)?|şəkillər|yen[iİ]l[əƏ]n[iİ]b|yen[iİ]l[əƏ]nd[iİ]|eksklüz[iİ]v|müsah[iİ]bə)"
+_TAIL = re.compile(r"\s*(?:[-–—|:+]\s*)?[(\[]?\s*" + MARK + r"\s*[)\]]?\s*$", re.I)
+_PAREN = re.compile(r"\s*[(\[]\s*" + MARK + r"(?:\s*[,+/]\s*" + MARK + r")*\s*[)\]]", re.I)
+_HEAD = re.compile(r"^\s*" + MARK + r"\s*[:|–—-]\s*", re.I)
+_ALONE = re.compile(r"(?:^|(?<=[.!?…]\s))\s*" + MARK + r"\s*[.!:]?(?=\s|$)", re.I)
+_CREDIT = re.compile(r"(?:^|(?<=[.!?…]\s))(?:foto|fotolar|fotoşəkil|şəkil|şəkillər|v[iİIı]deo|mənbə)\s*:\s*[^!?]{1,40}?(?:[.!?](?=\s|$)|$)", re.I)
+MARK_AT = datetime.datetime(2026, 11, 10, 16, 0, tzinfo=datetime.timezone.utc).timestamp()
+
+
+def spoken_title(title):
+    """Başlıq səs üçün: «- Video», «(FOTO)», «VİDEO:» nişanları atılır, qalan söz dəyişmir."""
+    t = re.sub(r"\s+", " ", title or "").strip()
+    for _ in range(3):
+        n = _PAREN.sub("", _HEAD.sub("", _TAIL.sub("", t))).strip()
+        if n == t or not n:
+            break
+        t = n
+    return t
+
+
+def spoken_text(text):
+    """Mətn səs üçün: təkcə nişandan ibarət cümlələr və şəkil/video imzaları atılır."""
+    t = re.sub(r"\s+", " ", text or "").strip()
+    t = _ALONE.sub(" ", _CREDIT.sub(" ", _PAREN.sub("", t)))
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def marker_redo(have, born, feed, at=None):
+    """Başlığında nişan olan və səsi düzəlişdən əvvəl yazılmış xəbərlər: yenidən səslənir."""
+    at = MARK_AT if at is None else at
+    return {a.get("id") for a in feed if a.get("id") in have and born.get(a.get("id"), 0) < at
+            and spoken_title(a.get("title", "")) != re.sub(r"\s+", " ", a.get("title", "")).strip()}
 
 
 def host_redo(have, born, feed, hosts=REDO_HOSTS):
@@ -101,10 +136,10 @@ def clip(text, limit=MAX_CHARS):
 
 def script_of(a, body):
     """Oxunan mətn: başlıq, mənbə, tam mətn (alınmayıbsa saytdakı xülasə)."""
-    title = re.sub(r"[.!?…\s]+$", "", re.sub(r"\s+", " ", a.get("title", "")).strip())
+    title = re.sub(r"[.!?…\s]+$", "", spoken_title(a.get("title", "")))
     lead = f"{title}. {a['source']} xəbər verir." if a.get("source") else f"{title}."
     rest = body or re.sub(r"<[^>]+>", " ", a.get("summary") or "")
-    rest = clip(rest)
+    rest = clip(spoken_text(rest))
     if rest.startswith(title):
         rest = rest[len(title):].lstrip(" .")
     return f"{lead} {rest}".strip()
@@ -184,7 +219,7 @@ def main(d):
             dropped += 1
     made = 0
     pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
-    redo = stale(have, born) | host_redo(have, born, feed)
+    redo = stale(have, born) | host_redo(have, born, feed) | marker_redo(have, born, feed)
     with tempfile.TemporaryDirectory() as tmp:
         for a in pick(feed, {i: s for i, s in have.items() if i not in redo}, now):
             if made >= PER_RUN:
