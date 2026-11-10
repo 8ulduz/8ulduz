@@ -1550,16 +1550,16 @@ def nba_item(lg, us_day, now):
     winners = [(g["home"] if g["hs"] > g["as"] else g["away"], g) for g in games]
     st = sorted(((streak(t), n, t, g) for n, (t, g) in enumerate(winners)), key=lambda x: (-x[0], x[1]))
     lead = f"NBA-da ABŞ vaxtı ilə {ox.day_loc(us_day)} {len(games)} oyun keçirilib."
-    heads, named = [], set()
-    if st and st[0][0] >= 5 and (len(st) == 1 or st[0][0] > st[1][0]):
+    heads = []
+    record = bool(st) and st[0][0] >= 5 and (len(st) == 1 or st[0][0] > st[1][0])   # günün tək ən uzun seriyası
+    if record:
         heads.append(f"«{_nm(lg, st[0][2])}» ardıcıl {ox.ordinal(st[0][0])} qələbəsini qazanıb")
     for t, g in winners:
         if t in leaders:
             w, l = rec[t]
             lead += (f" «{_nm(lg, t)}» {_team_res(lg, g, t)} və {w} qələbə, {l} məğlubiyyətlə "
                      f"{_conf_gen(leaders[t])} lideridir.")
-            named.add(t)
-    if st and st[0][0] >= 5 and (len(st) == 1 or st[0][0] > st[1][0]):
+    if record:
         lead += f" Bu, {gen(_nm(lg, st[0][2]))} ardıcıl {ox.ordinal(st[0][0])} qələbəsidir."
     big = _unique_max(games, _margin)
     if big:
