@@ -37,6 +37,9 @@ LATE = datetime.timedelta(hours=14)      # məlumat gecikəndə xəbər slotdan 
 DAILY_CAP = 8
 CLUB_CAP = 3
 LEADERS_MIN = 6                          # bazar ertəsi xəbəri: son həftə ən azı bu qədər çempionatda oyun olmalıdır
+STREAK_NAMES = 8                         # bazar ertəsi: seriya siyahısında ən çox bu qədər komanda
+CUP_RECENT = datetime.timedelta(days=4)  # həftələrlə sürən kubok mərhələsində yalnız son 4 günün böyük klub oyunu xəbərdir
+OLD_CUP = "böyük klubların oyunları mərhələnin son günlərindən xeyli əvvəl olub: nəticə artıq köhnədir"
 TITLE_MAX = 110
 
 TOP = {
@@ -99,6 +102,7 @@ LABEL = {"liqa-tur": "Top liqada tur icmalı", "liqa-diger": "Digər çempionatl
 # «United»: Azərbaycan mətbuatı «Mançester Yunayted» yazır (data/news.json: “Mançester Yunayted”ə), ona görə incə sait:
 # «Manchester United»i, «Manchester United»ə. Xəritədə olmayan ad yazılışına görə dəyişir (_snd).
 # Xəritə altı top liqanın, ÇL, AL və KL-in bütün klublarını, digər çempionatları, NBA və Avroliqanı əhatə edir.
+# Sonu yazılışından fərqli oxunan stadion adları da buradadır: «Orange Vélodrome»da, «Stadium of Light»da.
 _PRON = """
 1. FC Köln|köln
 AC Milan|milan
@@ -444,6 +448,12 @@ LDLC ASVEL|asvel
 Maccabi Rapyd Tel Aviv|aviv
 Armani Olimpia Milan|milan
 Kosner Baskonia|baskoniya
+Orange Vélodrome|velodrom
+Stadium of Light|layt
+Stadium de Toulouse|tuluz
+Stade Océane|osean
+Stade de l'Aube|lob
+Stade du Moustoir|mustuar
 """
 PRON = dict(line.split("|", 1) for line in _PRON.strip().splitlines() if "|" in line)
 
@@ -615,8 +625,14 @@ def prep(doc):
         order.setdefault(r["team"], n)
         if all(isinstance(r.get(k), int) for k in ("pts", "w", "d")):
             adj[r["team"]] = r["pts"] - 3 * r["w"] - r["d"]
+    pts = [r.get("pts") for r in rows]
+    poss = [r.get("pos") for r in rows if isinstance(r.get("pos"), int)]
     return {"doc": doc, "names": names, "games": games, "rounds": rounds, "groups": groups, "rows": rows,
-            "adj": adj, "order": order, "season": str(doc.get("key") or "")}
+            "adj": adj, "order": order, "season": str(doc.get("key") or ""),
+            # rəsmi cədvəl xala görə düzgün düzülübmü (Türkiyə cədvəlində 20 xal 22 xaldan yuxarıdadır: sırasına etibar yoxdur)
+            "ordered": all(isinstance(p, int) for p in pts) and all(a >= b for a, b in zip(pts, pts[1:])),
+            # rəsmi cədvəldə yeri başqası ilə bölüşən komandalar (cl.json: iki komanda 29-cu yerdə)
+            "shared": {r["team"] for r in rows if isinstance(r.get("pos"), int) and poss.count(r["pos"]) > 1}}
 
 
 def load(root):
@@ -673,29 +689,33 @@ def _score_line(lg, g):
 # --- Tur və cədvəl ----------------------------------------------------------------------------------------
 
 def _core(games):
-    """Turun əsas oyunları və gec oyunlar. Median vaxtdan 3 gündən çox sonraya salınan oyun gec sayılır (təxirə salınıb);
-    tarixi olmayan oyun əsas sayılır, yəni turu bitməmiş saxlayır."""
+    """Turun əsas, gec və erkən oyunları. Əsas oyunlar median vaxtdan ən çox 3 gün aralıdadır. Ondan sonraya salınan oyun
+    gec sayılır (təxirə salınıb), ondan əvvəl keçirilən oyun erkən sayılır (tur başlamamış, əvvəlcədən oynanıb).
+    Tarixi olmayan oyun əsas sayılır, yəni turu bitməmiş saxlayır."""
     dated = sorted(g["t"] for g in games if g["t"] is not None)
     if not dated:
-        return list(games), []
-    edge = dated[(len(dated) - 1) // 2] + POSTPONED
-    return ([g for g in games if g["t"] is None or g["t"] <= edge],
-            [g for g in games if g["t"] is not None and g["t"] > edge])
+        return list(games), [], []
+    mid = dated[(len(dated) - 1) // 2]
+    return ([g for g in games if g["t"] is None or abs(g["t"] - mid) <= POSTPONED],
+            [g for g in games if g["t"] is not None and g["t"] - mid > POSTPONED],
+            [g for g in games if g["t"] is not None and mid - g["t"] > POSTPONED])
 
 
 def round_plan(lg, rnd):
-    """Turun vaxta bağlı olmayan planı: əsas və gec oyunlar, ilk və son oyun, slot."""
-    core, late = _core(lg["rounds"].get(rnd) or [])
+    """Turun vaxta bağlı olmayan planı: əsas, gec və erkən oyunlar, əsas oyunların ilki və sonuncusu, slot."""
+    core, late, early = _core(lg["rounds"].get(rnd) or [])
     if not core or any(g["t"] is None for g in core):
         return None
     first, last = min(g["t"] for g in core), max(g["t"] for g in core)
-    return {"core": core, "late": late, "first": first, "last": last, "slot": _slot_after(last + FOOT_READY)}
+    return {"core": core, "late": late, "early": early, "first": first, "last": last,
+            "slot": _slot_after(last + FOOT_READY)}
 
 
 def table(lg, cutoff, now):
     """Cədvəl: cutoff anınadək başlamış və now anında oynanmış oyunlardan, rəsmi xal düzəlişi ilə (Çempionşipdə xal çıxılıb).
-    Rəsmi cədvəl hesablanmışla üst-üstə düşürsə sıra rəsmi cədvəldəndir, yalnız xala görə yenidən düzülür
-    (Türkiyə cədvəli bəzən səhv sıralanır). Düşmürsə: xal, qol fərqi, vurulan qol. Qaytarır: (sətirlər, rəsmi_sıra)."""
+    Rəsmi cədvəl hesablanmışla üst-üstə düşürsə və xala görə düzgün düzülübsə, sıra rəsmi cədvəldəndir (bərabər xalda
+    liqanın öz meyarları). Səhv düzülmüş rəsmi cədvəlin (Türkiyə) bərabər xallı sırasına etibar edilmir.
+    Qalan hallarda: xal, qol fərqi, vurulan qol. Qaytarır: (sətirlər, rəsmi_sıra)."""
     st = {s: [0, 0, 0, 0, 0, 0] for s in lg["order"]}
     for g in lg["games"]:
         if g["t"] is None or g["t"] > cutoff or not _played(g, now):
@@ -709,7 +729,7 @@ def table(lg, cutoff, now):
     rows = [{"team": s, "p": v[0], "w": v[1], "d": v[2], "l": v[3], "gf": v[4], "ga": v[5],
              "pts": 3 * v[1] + v[2] + lg["adj"].get(s, 0)} for s, v in st.items()]
     off = {r["team"]: r for r in lg["rows"]}
-    official = bool(off) and len(off) == len(rows)
+    official = bool(off) and len(off) == len(rows) and lg["ordered"]
     for r in rows:
         o = off.get(r["team"])
         if not o or any(o.get(k) != r[k] for k in ("p", "w", "d", "l", "gf", "ga")):
@@ -721,6 +741,7 @@ def table(lg, cutoff, now):
         rows.sort(key=lambda r: (-r["pts"], r["ga"] - r["gf"], -r["gf"], lg["order"].get(r["team"], 999), r["team"]))
     for n, r in enumerate(rows, 1):
         r["pos"] = n
+        r["tied"] = official and r["team"] in lg["shared"]
     return rows, official
 
 
@@ -729,9 +750,9 @@ def _row(rows, team):
 
 
 def _sure(rows, team, official):
-    """Yer dəqiqdir: sıra rəsmi cədvəldəndir, ya da başqa komandanın eyni xalı yoxdur."""
+    """Yer dəqiqdir: sıra rəsmi cədvəldəndir və o yeri başqası ilə bölüşmür, ya da başqa komandanın eyni xalı yoxdur."""
     r = _row(rows, team)
-    return bool(r) and (official or sum(1 for x in rows if x["pts"] == r["pts"]) == 1)
+    return bool(r) and ((official and not r.get("tied")) or sum(1 for x in rows if x["pts"] == r["pts"]) == 1)
 
 
 def _leaders(rows):
@@ -746,7 +767,9 @@ def _leaders(rows):
 
 def round_facts(lg, rnd, now):
     """Bitmiş turun faktları, ya da (None, səbəb). Tur bitib: əsas oyunların hamısı oynanıb;
-    gec (təxirə salınmış) oyunlar turu saxlamır, mətndə adı çəkilir."""
+    gec (təxirə salınmış) oyunlar turu saxlamır, mətndə adı çəkilir. Erkən oynanmış oyun (ispaniya.json, 6-cı tur:
+    4-cü və 5-ci turlardan əvvəl) turun oyunlarına daxildir, amma belə turda «turdan əvvəlki cədvəl» yoxdur:
+    liderlik və yer dəyişikliyi yazılmır, yalnız turdan sonrakı vəziyyət."""
     if not rnd.isdigit():
         return None, "turun nömrəsi yoxdur"
     plan = round_plan(lg, rnd)
@@ -757,12 +780,14 @@ def round_facts(lg, rnd, now):
         more = f" (daha {len(pending) - 1} oyun)" if len(pending) > 1 else ""
         return None, f"tur başa çatmayıb: {_pair(lg, pending[0])} oyununun nəticəsi yoxdur{more}"
     after, official = table(lg, plan["last"], now)
-    before, _ = table(lg, plan["first"] - SEC, now)
+    early = [g for g in plan["early"] if _played(g, now)]
+    before = [] if early else table(lg, plan["first"] - SEC, now)[0]
     if not after or not any(r["p"] for r in after):
         return None, "cədvəl yoxdur"
-    core = sorted(plan["core"], key=lambda g: (g["t"], g["i"]))
-    skipped = sorted((g for g in plan["late"] if not _played(g, now)), key=lambda g: (g["t"], g["i"]))
-    return {"plan": plan, "core": core, "skipped": skipped, "after": after, "before": before, "official": official}, ""
+    core = sorted(plan["core"] + early, key=lambda g: (g["t"], g["i"]))
+    skipped = sorted((g for g in plan["late"] + plan["early"] if not _played(g, now)), key=lambda g: (g["t"], g["i"]))
+    return {"plan": plan, "core": core, "early": early, "skipped": skipped, "after": after, "before": before,
+            "official": official}, ""
 
 
 def _game_of(core, team):
@@ -898,11 +923,13 @@ def _leader_lead(lg, s, f):
     if gx:
         named |= {gx["home"], gx["away"]}
     if s["case"] == "co":
-        bits = []
+        bits, told = [], set()
         for t in s["co"][:3]:
             g = _game_of(core, t)
-            if g:
-                bits.append(f"«{_nm(lg, t)}» {_team_res(lg, g, t)}")
+            if g and g["i"] not in told:          # liderlər bir-biri ilə oynayıbsa oyun bir dəfə yazılır
+                told.add(g["i"])
+                both = g["home"] in s["co"] and g["away"] in s["co"]
+                bits.append(_game_text(lg, g) if both else f"«{_nm(lg, t)}» {_team_res(lg, g, t)}")
                 named |= {g["home"], g["away"]}
         lead = (", ".join(bits) + ". ") if bits else ""
         who = "Hər iki komandanın" if len(s["co"]) == 2 else f"{len(s['co'])} komandanın"
@@ -1047,7 +1074,7 @@ def round_item(key, lg, rnd, now):
         return None, why
     s = story(lg, f)
     core = f["core"]
-    lead1 = f"{meta['gen']} {ox.ordinal(rnd)} turu {_days_loc([g['t'] for g in core])} keçirilib."
+    lead1 = f"{meta['gen']} {ox.ordinal(rnd)} turu {_days_loc([g['t'] for g in f['plan']['core']])} keçirilib."
     lead2, named = _leader_lead(lg, s, f)
     moves, moved = _movers(lg, f, named)
     named |= moved
@@ -1057,7 +1084,8 @@ def round_item(key, lg, rnd, now):
     if high and _total(high) >= 5 and not ({high["home"], high["away"]} & named):
         lead4 += f", ən məhsuldar görüşdə {_game_text(lg, high)}"
     lead = " ".join(p for p in (lead1, lead2, (", ".join(moves) + ".") if moves else "", lead4 + ".") if p)
-    body = [_score_line(lg, g) for g in core]
+    early = {g["i"] for g in f["early"]}          # əvvəlcədən oynanmış oyunun tarixi ayrıca yazılır
+    body = [_score_line(lg, g) + (f" ({ox.day_text(_bk(g['t']))})" if g["i"] in early else "") for g in core]
     body += [f"{_pair(lg, g)} oyunu hələ keçirilməyib." for g in f["skipped"]]
     body += [_top_line(lg, f["after"]), _hw_line(core)]
     pre, short = f"{meta['loc']} {ox.ordinal(rnd)} tur: ", f"{meta['in']} {ox.ordinal(rnd)} tur: "
@@ -1085,17 +1113,23 @@ def other_line(key, lg, rnd, now):
         gap = f", ikinci yerdəki {ablative(_nm(lg, s['second'][0]))} {s['gap']} xal öndədir"
     head = None
     if s["case"] == "co" and len(s["co"]) == 2:
-        bits = []
-        for t in s["co"]:
-            g = _game_of(core, t)
-            bits.append(f"«{_nm(lg, t)}» {_team_res(lg, g, t)}" if g else f"«{_nm(lg, t)}» bu turda oynamayıb")
-        text = f"{bits[0]}, {bits[1]}; hər iki komandanın {pts} xalı var və onlar cədvəlin başındadır"
+        g = _game_of(core, s["co"][0])
+        if g and s["co"][1] in (g["home"], g["away"]):          # liderlər bir-biri ilə oynayıb: oyun bir dəfə yazılır
+            both = _game_text(lg, g)
+        else:
+            bits = []
+            for t in s["co"]:
+                g = _game_of(core, t)
+                bits.append(f"«{_nm(lg, t)}» {_team_res(lg, g, t)}" if g else f"«{_nm(lg, t)}» bu turda oynamayıb")
+            both = f"{bits[0]}, {bits[1]}"
+        text = f"{both}; hər iki komandanın {pts} xalı var və onlar cədvəlin başındadır"
         if len(s["lead_b"]) == 1 and s["lead_b"][0] in s["co"]:     # əvvəlki lider təkbaşına idi, indi ona çatıblar
             old = s["lead_b"][0]
             new = next(t for t in s["co"] if t != old)
             head = (0, f"«{_nm(lg, new)}» {meta['in']} «{_nm(lg, old)}» ilə xalları bərabərləşdirib")
     elif s["case"] == "co":
-        text = f"{len(s['co'])} komanda {pts} xalla cədvəlin başındadır"
+        who = _and(f"«{_nm(lg, t)}»" for t in s["co"]) if len(s["co"]) == 3 else f"{len(s['co'])} komanda"
+        text = f"{who} {pts} xalla cədvəlin başındadır"
     elif s["case"] == "new":
         text = f"«{x}»{res} və {pts} xalla liderliyə yüksəlib"
         prev = s["prev"]
@@ -1133,7 +1167,10 @@ def other_item(data, day, rounds, now):
     scope = ("Avropa çempionatlarında" if eu else "Xarici çempionatlarda") + (" həftə sonu" if weekend else " tur yekunları")
     heads = sorted((r["head"] for r in lines if r["head"]), key=lambda h: h[0])
     cands = [f"{scope}: {h[1]}" for h in heads]
-    fallback = f"{scope}: {len(lines)} çempionatda turlar başa çatıb"
+    if len(lines) == 1:
+        fallback = f"{scope}: {OTHER[lines[0]['key']]['in']} {ox.ordinal(lines[0]['rnd'])} tur başa çatıb"
+    else:
+        fallback = f"{scope}: {len(lines)} çempionatda turlar başa çatıb"
     title = _pick_title(cands + [fallback], fallback)
     first = next((r for r in lines if r["head"] and r["head"] == heads[0]), lines[0]) if heads else lines[0]
     if len(lines) > 1:
@@ -1196,8 +1233,8 @@ def leaders_item(data, monday, now):
             elif second is not None:
                 line += f", ən yaxın izləyicilərindən {la[0]['pts'] - second} xal öndədir"
             who = f"«{names[0]}»"
-        else:
-            who = _and("«" + n + "»" for n in names[:3])
+        else:      # 3-dən çox lider varsa adları deyil, sayı yazılır (hamısının adı yoxdursa siyahı yanıltır)
+            who = _and("«" + n + "»" for n in names) if len(names) <= 3 else f"{len(names)} komanda"
             line = f"{land}: {who} — {la[0]['pts']} xal"
         body.append(line + ".")
         if key in TOP:
@@ -1236,13 +1273,21 @@ def leaders_item(data, monday, now):
     lead = "Cədvəllərin hazırkı vəziyyətinə görə " + ", ".join(parts) + " cədvəlin başındadır."
     if unbeaten:
         names = ["«" + _nm(data[k], r["team"]) + "»" for k, r in unbeaten[:8]]
-        more = f" və daha {len(unbeaten) - 8} komanda" if len(unbeaten) > 8 else ""
-        lead += f" {_and(names)}{more} hələ məğlub olmayıb."
+        who = f"{', '.join(names)} və daha {len(unbeaten) - 8} komanda" if len(unbeaten) > 8 else _and(names)
+        lead += f" {who} hələ məğlub olmayıb."
     if perfect_text and perfect_text not in title:
         k, r = perfect[0]
         lead += f" «{_nm(data[k], r['team'])}» {r['p']} oyunun hamısında qalib gəlib."
-    if streaks:
-        body.append("Çempionatda ardıcıl qələbə seriyaları: " + ", ".join(f"«{_nm(data[key], t)}» — {k} oyun" for k, key, t in streaks[:5]) + ".")
+    groups, total = [], 0         # seriyalar uzunluğa görə qruplanır; bərabər seriyalı qrup yarıda kəsilmir
+    for k in sorted({s[0] for s in streaks}, reverse=True):
+        same = [s for s in streaks if s[0] == k]
+        if total + len(same) > STREAK_NAMES:
+            break
+        groups.append((k, same))
+        total += len(same)
+    if groups:
+        body.append("Çempionatda ardıcıl qələbə seriyaları: " + ", ".join(
+            _and(f"«{_nm(data[key], t)}»" for _, key, t in same) + f" — {k} oyun" for k, same in groups) + ".")
     credits = sorted({_credit(lg)[0] for _, lg in leagues})
     link = next((_credit(lg)[1] for _, lg in leagues if _credit(lg)[0] == "TheSportsDB"), _credit(leagues[0][1])[1])
     slot = datetime.datetime.combine(monday, datetime.time(9, 0), BAKU)
@@ -1252,42 +1297,69 @@ def leaders_item(data, monday, now):
 
 # --- 4. Xarici kuboklar -------------------------------------------------------------------------------------
 
-def _stage_gen(stage):
-    """«4-cü mərhələ» -> «4-cü mərhələsinin», «1/8 final» -> «1/8 finalının», «Təsnifat» -> «təsnifat mərhələsinin»."""
+def _stage_low(stage):
+    """Mərhələ adı cümlənin ortasında kiçik hərflə: «Yarımfinal» -> «yarımfinal», «Final» -> «final»."""
+    return ox._low(stage[:1]) + stage[1:]
+
+
+def _stage_form(stage, after_merhele, after_final, other):
     low = ox._low(stage)
     if low.endswith("mərhələ"):
-        return stage + "sinin"
+        return _stage_low(stage) + after_merhele
     if low.endswith("final"):
-        return stage + "ının"
-    return stage[:1].lower() + stage[1:] + " mərhələsinin"
+        return _stage_low(stage) + after_final
+    return _stage_low(stage) + other
+
+
+def _stage_gen(stage):
+    """«4-cü mərhələ» -> «4-cü mərhələsinin», «1/8 final» -> «1/8 finalının», «Yarımfinal» -> «yarımfinalının»,
+    «Təsnifat» -> «təsnifat mərhələsinin»."""
+    return _stage_form(stage, "sinin", "ının", " mərhələsinin")
 
 
 def _stage_poss(stage):
-    low = ox._low(stage)
-    if low.endswith("mərhələ"):
-        return stage + "si"
-    if low.endswith("final"):
-        return stage + "ı"
-    return stage[:1].lower() + stage[1:] + " mərhələsi"
+    return _stage_form(stage, "si", "ı", " mərhələsi")
 
 
 def _stage_dat(stage):
-    low = ox._low(stage)
-    if low.endswith("mərhələ"):
-        return stage + "yə"
-    if low.endswith("final"):
-        return stage + "a"
-    return stage[:1].lower() + stage[1:] + " mərhələsinə"
+    return _stage_form(stage, "yə", "a", " mərhələsinə")
 
 
 def _stage_of_gen(stage):
     """«1/4 final» -> «1/4 finalın», «4-cü mərhələ» -> «4-cü mərhələnin»."""
+    return _stage_form(stage, "nin", "ın", " mərhələsinin")
+
+
+def _ko_loc(rnd):
+    """Avrokubokun pley-off mərhələsi yerlik halında: «1/8 final, 1-ci oyun» -> «1/8 finalının ilk oyununda»,
+    «Final» -> «finalında», «Pley-off» -> «pley-off mərhələsində»."""
+    base, _, leg = rnd.partition(", ")
+    if leg:
+        return f"{_stage_gen(base)} {'ilk' if leg.startswith('1') else 'cavab'} oyununda"
+    return _stage_form(base, "sində", "ında", " mərhələsində")
+
+
+def _neutral(stage, cup=True):
+    """Final (kubokda yarımfinal da) neytral meydanda keçirilə bilər: «doğma meydanda/səfərdə» yazılmır."""
     low = ox._low(stage)
-    if low.endswith("mərhələ"):
-        return stage + "nin"
-    if low.endswith("final"):
-        return stage + "ın"
-    return stage[:1].lower() + stage[1:] + " mərhələsinin"
+    return low == "final" or (cup and low.startswith("yarımfinal"))
+
+
+def _winner(g):
+    """Oyunun qalibi; heç-heçədə penaltilər seriyasının qalibi. Bilinmirsə None."""
+    if g["hs"] != g["as"]:
+        return g["home"] if g["hs"] > g["as"] else g["away"]
+    pen = _pen(g)
+    if pen and pen[0] != pen[1]:
+        return g["home"] if pen[0] > pen[1] else g["away"]
+    return None
+
+
+def _cup_bigs(games):
+    """Mərhələnin son 4 gününün böyük klub oyunları: mərhələ həftələrlə sürəndə (İtaliya Kubokunun 1/8 finalı
+    2 dekabr – 27 yanvar) əvvəlki nəticələr artıq xəbər deyil."""
+    last = max(g["t"] for g in games)
+    return [g for g in games if (g["home"] in BIG or g["away"] in BIG) and g["t"] >= last - CUP_RECENT]
 
 
 def _slug(s):
@@ -1309,15 +1381,21 @@ def cup_item(key, lg, stage, now):
     left = [g for g in games if not _played(g, now)]
     if left:
         return None, f"mərhələ başa çatmayıb: {len(left)} oyun qalıb"
-    bigs = [g for g in games if g["home"] in BIG or g["away"] in BIG]
-    if not bigs:
+    if not any(g["home"] in BIG or g["away"] in BIG for g in games):
         return None, "böyük klub oynamayıb"
+    bigs = _cup_bigs(games)
+    if not bigs:
+        return None, OLD_CUP
     stages = list(lg["rounds"])
     nxt = stages[stages.index(stage) + 1] if stages.index(stage) + 1 < len(stages) else None
     nteams = set()
     for g in lg["rounds"].get(nxt) or []:
         nteams |= {g["home"], g["away"]}
-    full = bool(nxt) and len(nteams) == len(games)    # növbəti mərhələnin cütləri bəllidir: hər qalib üçün bir yer
+    # Növbəti mərhələnin cütləri bəllidir: oradakı komandalar məhz bu mərhələnin qalibləridir. Vikipediya cütləri
+    # oyunlardan əvvəl gözlənilən komandalarla yaza bilir (italiya-kuboku.json): onda yüksəlmə barədə heç nə yazılmır.
+    winners = [_winner(g) for g in games]
+    full = bool(nxt) and None not in winners and len(set(winners)) == len(winners) and set(winners) == nteams
+    final, where = ox._low(stage) == "final", not _neutral(stage)
     sents, heads = [], []
     bigs.sort(key=lambda g: (min(BIG.get(g["home"], 9), BIG.get(g["away"], 9)), g["t"], g["i"]))
     for g in bigs:
@@ -1331,13 +1409,15 @@ def cup_item(key, lg, stage, now):
         pm = (pen if b == g["home"] else (pen[1], pen[0])) if pen else None
         won, lost = gm > go or bool(pm and pm[0] > pm[1]), gm < go or bool(pm and pm[0] < pm[1])
         B, O = _nm(lg, b), _nm(lg, op)
-        text = f"«{B}» {_team_res(lg, g, b)}"
+        text = f"«{B}» {_team_res(lg, g, b, where)}"
         if pm:
             text += f", penaltilər seriyasında isə {pm[0]}:{pm[1]} hesabı ilə {'qalib gəlib' if won else 'uduzub'}"
         if full and b in nteams:
             text += f" və {_stage_dat(nxt)} yüksəlib"
         elif full and lost:
             text += " və mübarizədən kənarlaşıb"
+        elif final and won:
+            text += " və kubokun qalibi olub"
         sents.append(text + ".")
         if lost:
             heads.append((0, f"«{B}» {'penaltilər seriyasında ' if pm else ''}{dative(O)} uduzub"))
@@ -1350,10 +1430,13 @@ def cup_item(key, lg, stage, now):
     heads.sort(key=lambda h: h[0])
     prefix = f"{CUPS[key]} {_stage_poss(stage)}: "
     title = _pick_title([prefix + h[1] for h in heads], prefix.rstrip(": ") + " başa çatıb")
-    lead = f"{CUPS[key]} {_stage_gen(stage)} oyunları {_days_loc([g['t'] for g in games])} keçirilib. " + " ".join(sents)
+    days = _days_loc([g['t'] for g in games])
+    what = f"{_stage_poss(stage)} {days}" if len(games) == 1 else f"{_stage_gen(stage)} oyunları {days}"
+    lead = f"{CUPS[key]} {what} keçirilib. " + " ".join(sents)
     body = [_score_line(lg, g) for g in games]
     if full:
-        body.append(f"{_stage_of_gen(nxt)} cütləri: " + ", ".join(_pair(lg, g) for g in lg["rounds"][nxt]) + ".")
+        pairs = _stage_of_gen(nxt)
+        body.append(f"{pairs[:1].upper()}{pairs[1:]} cütləri: " + ", ".join(_pair(lg, g) for g in lg["rounds"][nxt]) + ".")
     slot = _slot_after(max(g["t"] for g in games) + CUP_READY)
     return _finish(_item("kubok", f"kubok-{key}-{lg['season']}-{_slug(stage)}", title, lead, body, lg, slot))
 
@@ -1361,21 +1444,27 @@ def cup_item(key, lg, stage, now):
 # --- 5. Avrokubok turu (ÇL, AL, KL) -------------------------------------------------------------------------
 
 def night_item(key, lg, md, now):
+    """Liqa mərhələsinin turu. Pley-off oyunlarında («Pley-off», «1/8 final, 1-ci oyun») liqa cədvəli yoxdur:
+    o oyunlar böyük klubun oyunu kimi yazılır. Təxirə salınmış oyun turu saxlamır, adı çəkilir."""
     meta = NIGHTS[key]
-    games = _dated(lg["rounds"].get(md) or [])
+    if not md.isdigit():
+        return None, "pley-off mərhələsi: tur icmalı yalnız liqa mərhələsində yazılır"
+    core, late, early = _core(lg["rounds"].get(md) or [])
+    games = _dated(core)
     if not games:
         return None, "turun oyunları və ya tarixləri yoxdur"
     left = [g for g in games if not _played(g, now)]
     if left:
         return None, f"tur başa çatmayıb: {len(left)} oyunun nəticəsi yoxdur"
     last = max(g["t"] for g in games)
+    games = _dated(games + [g for g in early if _played(g, now)])
+    unplayed = [g for g in late + early if not _played(g, now)]
     rows, official = table(lg, last, now)
     shown = [g for g in games if g["home"] not in AZ_CLUBS and g["away"] not in AZ_CLUBS]
     shown_ids = {g["i"] for g in shown}
     goals = sum(_total(g) for g in games)
-    stage = f"liqa mərhələsinin {ox.ordinal(md)} turu" if md.isdigit() else f"«{md}» mərhələsi"
-    tour = f"{ox.ordinal(md)} tur" if md.isdigit() else md
-    sents = [f"{meta['gen']} {stage} başa çatıb."]
+    tour = f"{ox.ordinal(md)} tur"
+    sents = [f"{meta['gen']} liqa mərhələsinin {ox.ordinal(md)} turu başa çatıb."]
     la, _, _ = _leaders(rows) if rows and any(r["p"] for r in rows) else ([], None, [])
     lnames = _and("«" + _nm(lg, r["team"]) + "»" for r in la[:4]) if la else ""
     if len(la) == 1:
@@ -1418,7 +1507,7 @@ def night_item(key, lg, md, now):
     high = _unique_max(games, _total)
     if high and high["i"] in shown_ids and _total(high) >= 6 and not ({high["home"], high["away"]} & named):
         sents.append(f"Ən məhsuldar oyunda {_game_text(lg, high)}.")
-    sents.append(f"Turun {len(games)} oyununda {goals} qol vurulub.")
+    sents.append(f"{'Turda keçirilən' if unplayed else 'Turun'} {len(games)} {'oyunda' if unplayed else 'oyununda'} {goals} qol vurulub.")
     if 1 <= len(la) <= 4:
         heads.append((4, 0, f"{lnames} {la[0]['pts']} xalla liderdir"))
     heads.sort(key=lambda h: (h[0], h[1]))
@@ -1426,6 +1515,8 @@ def night_item(key, lg, md, now):
     title = _pick_title([pre + h[2] for h in heads] + [pre + f"{len(games)} oyunda {goals} qol vurulub"],
                         f"{meta['loc']} {tour} başa çatıb")
     body = [_score_line(lg, g) for g in shown]
+    body += [f"{_pair(lg, g)} oyunu hələ keçirilməyib." for g in _dated(unplayed) or []
+             if g["home"] not in AZ_CLUBS and g["away"] not in AZ_CLUBS]
     if rows and any(r["p"] for r in rows):
         body.append("Cədvəlin ilk səkkizliyi: " + ", ".join(f"«{_nm(lg, r['team'])}» — {r['pts']}" for r in rows[:8]) + " xal.")
     item = _item("avrokubok", f"avrokubok-{key}-{lg['season']}-t{_slug(md)}", title, " ".join(sents), body, lg, _morning(last))
@@ -1453,14 +1544,15 @@ def club_item(comp, lg, g, now):
     else:
         c_loc = NIGHTS[comp]["loc"]
         stage = (f"{NIGHTS[comp]['gen']} liqa mərhələsinin {ox.ordinal(rnd)} turunda" if rnd.isdigit()
-                 else f"{NIGHTS[comp]['gen']} «{rnd}» mərhələsində")
+                 else f"{NIGHTS[comp]['gen']} {_ko_loc(rnd)}")
         scope = ("turnirdəki", "turnirdə")
     when = _bk(g["t"])
     day = ox.day_loc(when)
     if when.hour < 6:
         day += f" Bakı vaxtı ilə {ox.time_loc(when)} başlayan oyunda"
     title = f"«{B}» {c_loc} {_res(O, gm, go)}"
-    lead = f"{stage} «{B}» {day} {_res(O, gm, go, place)}."
+    where = "" if _neutral(rnd, cup=False) else place      # final neytral meydandadır
+    lead = f"{stage} «{B}» {day} {_res(O, gm, go, where)}."
     prev = sorted((x for x in lg["games"] if x["t"] is not None and x["t"] < g["t"] and _played(x, now)
                    and b in (x["home"], x["away"])), key=lambda x: (x["t"], x["i"]))
     if gm > go:
@@ -1475,7 +1567,7 @@ def club_item(comp, lg, g, now):
                 k += 1
             if k >= 3:
                 lead += f" Bu, {gen(B)} {scope[1]} ardıcıl {ox.ordinal(k)} qələbəsidir."
-    rows, official = table(lg, now, now)
+    rows, official = table(lg, now, now) if comp in TOP or rnd.isdigit() else ([], False)   # pley-offda liqa cədvəli yoxdur
     rb, ro = _row(rows, b), _row(rows, op)
     among = f"{len(rows)} komanda arasında " if comp in NIGHTS else ""
     if rb and rb["p"]:
@@ -1537,35 +1629,40 @@ def nba_item(lg, us_day, now):
         return k
 
     conf = _conf(lg)
-    leaders = {}
+    tops = {}                 # konfrans -> qələbə faizi ən yüksək olan komandalar (bərabərlikdə hamısı)
     for c in sorted(set(conf.values())):
         teams = [t for t in conf if conf[t] == c and t in rec]
-        if not teams:
-            continue
-        pct = {t: rec[t][0] / (rec[t][0] + rec[t][1]) for t in teams}
-        best = max(pct.values())
-        top = [t for t in teams if pct[t] == best]
-        if len(top) == 1:
-            leaders[top[0]] = c
+        if teams:
+            pct = {t: rec[t][0] / (rec[t][0] + rec[t][1]) for t in teams}
+            best = max(pct.values())
+            tops[c] = sorted((t for t in teams if pct[t] == best), key=lambda t: (-rec[t][0], t))
+    leaders = {top[0]: c for c, top in tops.items() if len(top) == 1}
     winners = [(g["home"] if g["hs"] > g["as"] else g["away"], g) for g in games]
     st = sorted(((streak(t), n, t, g) for n, (t, g) in enumerate(winners)), key=lambda x: (-x[0], x[1]))
     lead = f"NBA-da ABŞ vaxtı ilə {ox.day_loc(us_day)} {len(games)} oyun keçirilib."
     heads = []
     record = bool(st) and st[0][0] >= 5 and (len(st) == 1 or st[0][0] > st[1][0])   # günün tək ən uzun seriyası
+    rec_t, told = (st[0][2] if record else None), set()       # «Bu, ...» cümləsi öz komandasının cümləsindən dərhal sonra
     if record:
-        heads.append(f"«{_nm(lg, st[0][2])}» ardıcıl {ox.ordinal(st[0][0])} qələbəsini qazanıb")
+        heads.append(f"«{_nm(lg, rec_t)}» ardıcıl {ox.ordinal(st[0][0])} qələbəsini qazanıb")
+        if rec_t not in leaders:
+            g = st[0][3]
+            lead += f" «{_nm(lg, rec_t)}» {_team_res(lg, g, rec_t)} və ardıcıl {ox.ordinal(st[0][0])} qələbəsini qazanıb."
+            told.add(g["i"])
     for t, g in winners:
         if t in leaders:
             w, l = rec[t]
-            lead += (f" «{_nm(lg, t)}» {_team_res(lg, g, t)} və {w} qələbə, {l} məğlubiyyətlə "
-                     f"{_conf_gen(leaders[t])} lideridir.")
-    if record:
-        lead += f" Bu, {gen(_nm(lg, st[0][2]))} ardıcıl {ox.ordinal(st[0][0])} qələbəsidir."
+            score = f"{w} oyunda {w} qələbə ilə" if not l else f"{w} qələbə, {l} məğlubiyyətlə"
+            lead += f" «{_nm(lg, t)}» {_team_res(lg, g, t)} və {score} {_conf_gen(leaders[t])} lideridir."
+            if t == rec_t:
+                lead += f" Bu, {gen(_nm(lg, t))} ardıcıl {ox.ordinal(st[0][0])} qələbəsidir."
+            told.add(g["i"])
     big = _unique_max(games, _margin)
     if big:
         w = big["home"] if big["hs"] > big["as"] else big["away"]
         op, gm, go, place = _side(big, w)
-        lead += f" Günün ən böyük fərqli qələbəsini «{_nm(lg, w)}» qazanıb: komanda {place} {acc(_nm(lg, op))} {gm}:{go} hesabı ilə üstələyib."
+        if big["i"] not in told:          # oyun yuxarıda yazılıbsa təkrarlanmır
+            lead += f" Günün ən böyük fərqli qələbəsini «{_nm(lg, w)}» qazanıb: komanda {place} {acc(_nm(lg, op))} {gm}:{go} hesabı ilə üstələyib."
         if _margin(big) >= 20:
             heads.append(f"«{_nm(lg, w)}» {acc(_nm(lg, op))} {gm}:{go} hesabı ilə məğlub edib")
     for t, g in winners:
@@ -1573,11 +1670,16 @@ def nba_item(lg, us_day, now):
             heads.append(f"lider «{_nm(lg, t)}» " + _team_res(lg, g, t, where=False))
     body = [_score_line(lg, g) for g in games]
     lines = []
-    for c in sorted(set(conf.values())):
-        teams = sorted((t for t in conf if conf[t] == c and t in rec), key=lambda t: (-rec[t][0] / sum(rec[t]), -rec[t][0], t))
-        if teams:
-            t = teams[0]
-            lines.append(f"{_conf_gen(c).replace('konfransının', 'konfransında')} «{_nm(lg, t)}» — {rec[t][0]} qələbə, {rec[t][1]} məğlubiyyət")
+    for c, top in tops.items():
+        where = _conf_gen(c).replace("konfransının", "konfransında")
+        recs = {rec[t] for t in top}
+        if len(top) > 3:
+            lines.append(f"{where} {len(top)} komanda bərabərdir")
+        elif len(recs) == 1:
+            w, l = rec[top[0]]
+            lines.append(f"{where} {_and('«' + _nm(lg, t) + '»' for t in top)} — {w} qələbə, {l} məğlubiyyət")
+        else:
+            lines.append(f"{where} " + _and(f"«{_nm(lg, t)}» ({rec[t][0]} qələbə, {rec[t][1]} məğlubiyyət)" for t in top))
     if lines:
         body.append("Konfransların başında: " + "; ".join(lines) + ".")
     title = _pick_title([f"NBA-da {h}" for h in heads], f"NBA-da ABŞ vaxtı ilə {ox.day_text(us_day)}: {len(games)} oyunun nəticələri")
@@ -1593,10 +1695,13 @@ def _tr_basket(name):
 
 def euro_item(lg, rnd, now):
     """Avroliqa turu. Faylda turun bütün oyunları olmur (bəzi komandaların oyunu yoxdur), ona görə oyun sayı yazılmır;
-    yer və qələbə-məğlubiyyət rəsmi cədvəldəndir."""
+    yer və qələbə-məğlubiyyət rəsmi cədvəldəndir. Rəsmi cədvəl məhz bu turu saymalıdır: komandaların çoxunun oyun sayı
+    turun nömrəsinə bərabərdir (bir-iki komandanın təxirə salınmış oyunu ola bilər; cədvəl artıq növbəti turu sayıbsa,
+    bu turun xəbəri üçün yararsızdır). Təxirə salınmış oyun turu saxlamır, adı çəkilir."""
     if not rnd.isdigit():
         return None, "turun nömrəsi yoxdur"
-    games = _dated(lg["rounds"].get(rnd) or [])
+    core, late, early = _core(lg["rounds"].get(rnd) or [])
+    games = _dated(core)
     if not games:
         return None, "turun oyunları və ya tarixləri yoxdur"
     left = [g for g in games if not _played(g, now)]
@@ -1605,12 +1710,17 @@ def euro_item(lg, rnd, now):
     rows = [r for r in lg["rows"] if isinstance(r.get("w"), int) and isinstance(r.get("l"), int)]
     if not rows:
         return None, "cədvəl yoxdur"
-    if min(r["w"] + r["l"] for r in rows) < int(rnd):
+    counts = sorted(r["w"] + r["l"] for r in rows)
+    if counts[(len(counts) - 1) // 2] < int(rnd):
         return None, "cədvəl bu turu hələ saymayıb (məlumat təzə deyil)"
+    if counts[(len(counts) - 1) // 2] > int(rnd):
+        return None, "cədvəl artıq növbəti turu sayıb"
     last = max(g["t"] for g in games)
     asof = str(lg["doc"].get("asof") or "")
     if asof and asof < last.astimezone(UTC).date().isoformat():
         return None, "məlumat təzə deyil"
+    games = _dated(games + [g for g in early if _played(g, now)])
+    skipped = _dated([g for g in late + early if not _played(g, now)]) or []
     rows = sorted(rows, key=lambda r: (r.get("pos") or 99, -r["w"]))
     lead_r = rows[0]
     co = [r for r in rows if r["w"] == lead_r["w"] and r["l"] == lead_r["l"]]
@@ -1622,7 +1732,7 @@ def euro_item(lg, rnd, now):
         sents.append(f"Basketbol üzrə Avroliqanın {ox.ordinal(rnd)} turunda lider «{L}»{res} {lead_r['w']} qələbə, "
                      f"{lead_r['l']} məğlubiyyətlə birinci yerdədir.")
     else:
-        who = _and("«" + _nm(lg, r["team"]) + "»" for r in co[:3])
+        who = _and("«" + _nm(lg, r["team"]) + "»" for r in co) if len(co) <= 3 else f"{len(co)} komanda"
         sents.append(f"Basketbol üzrə Avroliqanın {ox.ordinal(rnd)} turundan sonra {who} "
                      f"{lead_r['w']} qələbə, {lead_r['l']} məğlubiyyətlə cədvəlin başındadır.")
     heads = []
@@ -1645,7 +1755,7 @@ def euro_item(lg, rnd, now):
     heads.sort(key=lambda h: (h[0], h[1]))
     pre = f"Avroliqada {ox.ordinal(rnd)} tur: "
     title = _pick_title([pre + h[2] for h in heads], f"Avroliqada {ox.ordinal(rnd)} tur başa çatıb")
-    body = [_score_line(lg, g) for g in games]
+    body = [_score_line(lg, g) for g in games] + [f"{_pair(lg, g)} oyunu hələ keçirilməyib." for g in skipped]
     body.append("Cədvəlin başı: " + "; ".join(f"«{_nm(lg, r['team'])}» — {r['w']} qələbə, {r['l']} məğlubiyyət" for r in rows[:4]) + ".")
     slot = _slot_after(last + BASKET_READY)
     return _finish(_item("avroliqa", f"avroliqa-{lg['season']}-t{rnd}", title, " ".join(sents), body, lg, slot))
@@ -1679,10 +1789,13 @@ def events(data):
         if not lg:
             continue
         for md, games in lg["rounds"].items():
-            if not games or any(g["t"] is None for g in games):
+            if not md.isdigit():      # pley-off oyunlarında liqa cədvəli yoxdur: onlar böyük klubun oyunu kimi yazılır
                 continue
-            slot = _morning(max(g["t"] for g in games))
-            for g in games:
+            core = _core(games)[0]
+            if not core or any(g["t"] is None for g in core):
+                continue
+            slot = _morning(max(g["t"] for g in core))
+            for g in core:
                 cover[(key, g["i"])] = slot.date()
             evs.append(_ev("avrokubok", f"avrokubok-{key}-{lg['season']}-t{_slug(md)}", slot,
                            lambda now, key=key, lg=lg, md=md: night_item(key, lg, md, now), prio=NIGHTS[key]["prio"], league=key))
@@ -1719,7 +1832,10 @@ def events(data):
         for stage, games in lg["rounds"].items():
             if not games or any(g["t"] is None for g in games):
                 continue
-            extra = {} if any(g["home"] in BIG or g["away"] in BIG for g in games) else {"why": "böyük klub oynamır"}
+            if not any(g["home"] in BIG or g["away"] in BIG for g in games):
+                extra = {"why": "böyük klub oynamır"}
+            else:
+                extra = {} if _cup_bigs(games) else {"why": OLD_CUP}
             evs.append(_ev("kubok", f"kubok-{key}-{lg['season']}-{_slug(stage)}", _slot_after(max(g["t"] for g in games) + CUP_READY),
                            lambda now, key=key, lg=lg, stage=stage: cup_item(key, lg, stage, now), league=key, **extra))
     for comp in (*TOP, *NIGHTS):
@@ -1749,8 +1865,9 @@ def events(data):
     lg = data.get("avroliqa")
     if lg:
         for rnd, games in lg["rounds"].items():
-            if rnd.isdigit() and games and all(g["t"] is not None for g in games):
-                evs.append(_ev("avroliqa", f"avroliqa-{lg['season']}-t{rnd}", _slot_after(max(g["t"] for g in games) + BASKET_READY),
+            core = _core(games)[0]
+            if rnd.isdigit() and core and all(g["t"] is not None for g in core):
+                evs.append(_ev("avroliqa", f"avroliqa-{lg['season']}-t{rnd}", _slot_after(max(g["t"] for g in core) + BASKET_READY),
                                lambda now, lg=lg, rnd=rnd: euro_item(lg, rnd, now)))
     return evs
 
