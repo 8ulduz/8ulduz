@@ -760,6 +760,30 @@ class SecondReviewTest(unittest.TestCase):
                                                   game("p/o", "2026-05-28T18:00+04:00", "sabah", "neftci", (2, 0))]}))]
         self.assertEqual(fa._h2h(past, "neftci", "sabah")["n"], 1)
 
+    def test_points_adjustment_in_the_official_table(self):
+        # 2025-26 rəsmi cədvəli oyunlardan yalnız xalda fərqlənir («Sumqayıt» +3, «İmişli» və «Qəbələ» −3, oyun sayı eyni):
+        # bu, gecikmə yox, xal düzəlişidir və mövsümün sonunadək qalır. İcmal və baxış dayanmamalı, xal rəsmi cədvəldən yazılmalı,
+        # düzəlişin vaxtı bilinmədiyi üçün turdan əvvəlki vəziyyətlə müqayisə (fərq, yer dəyişməsi) yazılmamalıdır.
+        r3 = [game(3, "2026-11-15T15:00+04:00", "neftci", "qarabag", (1, 0)), game(3, "2026-11-15T18:00+04:00", "sabah", "zire", (2, 0))]
+        r4 = [game(4, "2026-11-22T15:00+04:00", "zire", "neftci"), game(4, "2026-11-22T18:00+04:00", "qarabag", "sabah")]
+        rows = rows_for(R1 + R2 + r3)
+        next(r for r in rows if r["team"] == "sabah")["pts"] -= 3  # hesablanan 6, rəsmi 3
+        docs = {"premyer-liqa": league(R1 + R2 + r3 + r4, rows=rows)}
+        item = self.items_at(docs, "2026-11-15T21:00+04:00")["tur-premyer-liqa-2026-t3"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertEqual(item["title"], "Premyer Liqada 3-cü tur: «Neftçi» 9 xalla liderdir, 2 oyunda 3 qol vurulub")
+        self.assertEqual(item["lead"], "Misli Premyer Liqasının 3-cü turu 15 noyabrda keçirilib. Lider «Neftçi» «Qarabağ»ı 1:0 hesabı ilə "
+                                       "məğlub edib və 9 xal toplayıb. «Sabah» 3 xalla ikinci yerdədir. Turun 2 oyununda 3 qol vurulub.")
+        self.assertFalse([b for b in item["body"] if b.startswith("Cədvəldə")], item["body"])
+        item = self.items_at(docs, "2026-11-21T12:30+04:00")["tur-oncesi-premyer-liqa-2026-t4"]
+        self.assertTrue(item["worth"], item.get("why"))
+        self.assertIn("«Qarabağ» (3-cü yer, 1 xal) – «Sabah» (2-ci yer, 3 xal)", item["body"][1])
+        # Oyun sayı da fərqlənirsə (I Liqanın 7-ci turu kimi), bu gecikmə və ya itən nəticədir: xəbər yoxdur.
+        next(r for r in rows if r["team"] == "zire")["p"] += 1
+        docs = {"premyer-liqa": league(R1 + R2 + r3 + r4, rows=rows)}
+        self.assertFalse(self.items_at(docs, "2026-11-15T21:00+04:00")["tur-premyer-liqa-2026-t3"]["worth"])
+        self.assertFalse(self.items_at(docs, "2026-11-21T12:30+04:00")["tur-oncesi-premyer-liqa-2026-t4"]["worth"])
+
     def test_teams_without_a_game_yet(self):
         # 2025-26: 1-ci turun «Sabah» – «Qarabağ» oyunu dekabra salınıb. «0 oyun keçirib» yox, «hələ oyun keçirməyib».
         games = [game(1, "2026-11-01T15:00+04:00", "neftci", "sabah", (2, 0)), game(1, "2026-12-20T18:00+04:00", "qarabag", "zire")]
@@ -863,9 +887,18 @@ class MainDataSweepTest(unittest.TestCase):
         n = re.search(r"Turun (\d+) oyununda (?:(\d+) qol vurulub|qol vurulmayıb)\.", item["lead"])
         self.assertTrue(n, (e["key"], item["lead"]))
         self.assertEqual((int(n[1]), int(n[2] or 0)), (len(listed), sum(g["hs"] + g["as"] for g in listed)), e["key"])
-        # Lider: icmaldakı son oyuna qədər liqa oyunlarından hesablanan xal, tək lider.
+        # Lider: icmaldakı son oyuna qədər liqa oyunlarından hesablanan xal (tur sonuncudursa və rəsmi cədvəldə xal düzəlişi
+        # varsa, rəsmi xal), tək lider.
         last = max(at(g["date"]) for g in listed)
         after = league_points(d, last)
+        current = not any(g.get("played") and str(g.get("round")).isdigit() and at(g["date"]) > last for g in d["games"])
+        rows = (d.get("groups") or [{}])[0].get("rows") or []
+        official = {names.get(r["team"]): r["pos"] for r in rows}
+        moves = [b for b in item["body"] if b.startswith("Cədvəldə ")]
+        if current and any(after.get(names.get(r["team"])) != r["pts"] for r in rows):
+            after = {names.get(r["team"]): r["pts"] for r in rows}
+            self.assertFalse(moves, (e["key"], "xal düzəlişində yer dəyişməsi yazılmır"))
+            self.assertNotIn("Liderin fərqi", item["lead"], e["key"])
         lead = re.search(r"Lider «(.+?)» .*? və (\d+) xal toplayıb\.|«([^»]+)» (\d+) xalla liderdir\.", item["lead"])
         if lead:
             who, got = (lead[1], int(lead[2])) if lead[1] else (lead[3], int(lead[4]))
@@ -873,14 +906,11 @@ class MainDataSweepTest(unittest.TestCase):
             self.assertLess(sorted(after.values())[-2], got, (e["key"], "lider tək deyil"))
         # Yer dəyişməsi: əvvəlki yer əsas günlərdən əvvəlki xaldan (xalı tək olmalıdır), sonrakı rəsmi cədvəldən (tur sonuncudursa)
         # və ya xaldan (xalı tək olmalıdır).
-        moves = [b for b in item["body"] if b.startswith("Cədvəldə ")]
         if not moves:
             return
         early = {p for b in item["body"] if b.startswith("Turun «") and b.endswith(" keçirilib.") for p in re.findall(r"«(.+?)» – «(.+?)»", b)}
         first = min(at(g["date"]) for g in listed if (names.get(g["home"]), names.get(g["away"])) not in early)
         before = league_points(d, first, strictly_before=True)
-        current = not any(g.get("played") and str(g.get("round")).isdigit() and at(g["date"]) > last for g in d["games"])
-        official = {names.get(r["team"]): r["pos"] for r in ((d.get("groups") or [{}])[0].get("rows") or [])}
         for who, a, b in re.findall(r"«([^»]+)» (\d+)-c\w+ yerdən (\d+)-c\w+ yerə", moves[0]):
             self.assertEqual(list(before.values()).count(before[who]), 1, (e["key"], who, "turdan əvvəl xalı bərabərdir"))
             self.assertEqual(1 + sum(1 for v in before.values() if v > before[who]), int(a), (e["key"], who))
