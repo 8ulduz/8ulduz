@@ -670,7 +670,8 @@ class UefaTest(unittest.TestCase):
         self.assertEqual(item["why"], "Azərbaycanın yeri dəyişməyib və klublar bu həftə xal qazanmayıb")
         self.assertEqual(item["key"], "uefa-emsal-2026-11-06")
         self.assertEqual(item["title"], "UEFA reytinqi: Azərbaycan 24,187 xalla 24-cü yerdədir")
-        self.assertEqual(item["lead"], "UEFA-nın 6 noyabr tarixli ölkə əmsalları cədvəlində Azərbaycan 24,187 xalla 24-cü yeri tutur.")
+        # 2026-11-05T21:57:47Z Bakı vaxtı ilə 6 noyabr 01:57-dir
+        self.assertEqual(item["lead"], "UEFA-nın 6 noyabrda yenilənmiş ölkə əmsalları cədvəlində Azərbaycan 24,187 xalla 24-cü yeri tutur.")
         self.assertEqual(item["body"], [
             "Azərbaycan klubları 2026/27 mövsümündə 5,625 xal toplayıb (mövsüm cədvəlində 15-ci yer).",
             "4 klubdan biri avrokuboklarda mübarizəni davam etdirir.",

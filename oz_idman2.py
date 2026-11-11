@@ -1128,7 +1128,8 @@ def uefa_item(facts, week, slot, year):
     moved = me["trend"] in ("UP", "DOWN")
     az = week.get("az") if week else None
     scored = bool(az and (az["w"] or az["d"]))
-    head = f"UEFA-nın {ox.day_text(upd)} tarixli ölkə əmsalları cədvəlində Azərbaycan {total} xalla"
+    # UEFA cədvəli gecə yeniləyir: 5 noyabr 21:57 UTC Bakıda 6 noyabrdır. «tarixli» yox, «yenilənmiş»: gün Bakı vaxtı ilədir
+    head = f"UEFA-nın {ox.day_loc(upd)} yenilənmiş ölkə əmsalları cədvəlində Azərbaycan {total} xalla"
     if moved:
         verb = "yüksəlib" if me["trend"] == "UP" else "düşüb"
         title = f"UEFA reytinqi: Azərbaycan {pos} pilləyə {verb}"
