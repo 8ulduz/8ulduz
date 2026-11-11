@@ -52,7 +52,8 @@ const encode = s => {
 
 export class GithubEditor {
   #token = '';
-  constructor(fetcher = fetch) { this.fetcher = fetcher; this.user = null; }
+  // Brauzerin fetch-i obyektin metodu kimi çağırılanda «Illegal invocation» atır (sahib, 2026-11-11: panel girişi): ox funksiyası ilə.
+  constructor(fetcher = (...a) => fetch(...a)) { this.fetcher = fetcher; this.user = null; }
   logout() { this.#token = ''; this.user = null; }
   async request(path, options = {}) {
     if (!this.#token) throw new Error('Əvvəlcə giriş edin.');
