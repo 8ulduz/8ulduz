@@ -3,7 +3,8 @@
 1. AMB bank metalları: iş günləri saat 09:40-da, AMB bülleteni çıxandan sonra (09:06–09:20).
    - Mərkəzi Bankın gündəlik bülletenindəki «Bank metalları» bölməsi: qızıl, gümüş, platin və palladium, manatla,
      «1 t.u.» (troya unsiyası) üçün, əvvəlki bülletenlə müqayisədə.
-   - Dünya qiyməti data/markets.json-dan: qızıl və gümüş (gold-api.com), bitkoin (Yahoo Finance), dəyişməsi ilə.
+   - Dünya qiyməti data/markets.json-dan: qızıl və gümüş (gold-api.com), dəyişməsi ilə. Bitkoin burada yazılmır:
+     kripto ayrıca xəbərdir (oz_maliyye.py, mərhələ 2, «Kriptovalyuta bazarı»).
      Qızıl və gümüşün markets.json-dakı dəyişməsi yazılmır (spot qiymət fyuçersin bağlanışı ilə müqayisə olunub):
      dəyişmə öz bağlanış nüsxəmizə görə hesablanır (ABŞ seansının bağlanışından sonrakı 1 saatlıq fasilədə götürülmüş
      markets.json, prev_close), nüsxə yoxdursa yalnız qiymət yazılır.
@@ -323,13 +324,14 @@ def _metals_title(metals, gold):
 
 
 def world_lines(markets, now, closes=None):
-    """Dünya bazarı: qızıl və gümüş bir cümlədə, bitkoin ayrıca. «stale» və ya köhnə sətir yazılmır.
+    """Dünya bazarı: qızıl və gümüş bir cümlədə. «stale» və ya köhnə sətir yazılmır. Bitkoin yazılmır: kripto ayrıca
+    xəbərdir (oz_maliyye.py).
     Diqqət: updater-də qızıl və gümüşün dəyəri gold-api.com spot qiymətidir, «əvvəlki bağlanış» (change) isə Yahoo-nun
     GC=F/SI=F fyuçersinin previousClose-udur. 6 noyabr 09:31-də markets.json qızıl üçün −74,8 dollar (−1,82%) yazırdı,
     spot isə əvvəlki bağlanışda (5 noyabr 22:00 UTC, sonrakı fasilədə 22:52 nüsxəsi) 4 089,2 idi: həqiqi dəyişmə
     −50,5 dollar (−1,23%). Ona görə gold-api sətrinin dəyişməsi öz bağlanış nüsxəmizdən hesablanır (closes: markets.json
     nüsxələri, prev_close); fasilədə götürülmüş nüsxə yoxdursa yazılmır.
-    Yahoo-dan gələn sətirdə (bitkoin, gold-api alınmayanda qızıl) dəyər və bağlanış eyni mənbədəndir: o dəyişmə yazılır."""
+    Yahoo-dan gələn sətirdə (gold-api alınmayanda qızıl) dəyər və bağlanış eyni mənbədəndir: o dəyişmə yazılır."""
     rows = market_rows(markets)
     old_rows = market_rows(prev_close(closes, now)[1])
     out = []
@@ -347,14 +349,6 @@ def world_lines(markets, now, closes=None):
         if parts:
             line += f" Əvvəlki bağlanışla müqayisədə {_moves(parts)}."
         out.append(line)
-    btc = rows.get("BTC")
-    if usable(btc, markets, now):
-        line = f"Bitkoinin qiyməti {_dollar(btc['value'], _dec(btc))} olub"
-        c = _change(btc)
-        if c:
-            since = "son 24 saatda" if btc.get("src") == "CoinGecko" else "əvvəlki bağlanışla müqayisədə"
-            line += f", {since} " + (f"{c[1]} {_verb(c[0])}" if c[0] else "dəyişməyib")
-        out.append(line + (f" ({btc['src']})." if btc.get("src") else "."))
     return out
 
 

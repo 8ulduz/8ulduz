@@ -101,17 +101,16 @@ DAILY_LEAD = ("Azərbaycan Mərkəzi Bankının (AMB) 6 noyabr bülleteninə gö
 # 51,927. Bağlanışdan 5 dəqiqə əvvəlki 21:55 nüsxəsi (4 088,8 və 51,891) bağlanış deyil.
 CLOSES = {D(2026, 11, 5): mj("markets-2026-11-05T2252Z.json")}
 WORLD_PRICES = "Dünya bazarında Bakı vaxtı ilə saat 09:31-də qızılın unsiyası 4 038,7 dollar, gümüşün unsiyası 51,40 dollar olub"
-BTC_LINE = "Bitkoinin qiyməti 75 314 dollar olub, əvvəlki bağlanışla müqayisədə 669 dollar (0,88%) ucuzlaşıb (Yahoo Finance)."
+# Bitkoin sətri metal xəbərində yoxdur (mərhələ 2): kripto ayrıca xəbərdir (oz_maliyye, «Kriptovalyuta bazarı»).
 DAILY_BODY = [
     "1 t.u. gümüş: 87,6642 manat (2,4923 manat, 2,76% ucuzlaşıb)",
     "1 t.u. platin: 2 580,1750 manat (16,7450 manat, 0,64% ucuzlaşıb)",
     "1 t.u. palladium: 1 741,1145 manat (9,8345 manat, 0,56% ucuzlaşıb)",
     WORLD_PRICES + " (gold-api.com). Əvvəlki bağlanışla müqayisədə qızıl 50,5 dollar (1,23%), gümüş 0,53 dollar (1,01%) ucuzlaşıb.",
-    BTC_LINE,
 ]
 # Bağlanış nüsxəsi yoxdursa qızıl və gümüşün yalnız qiyməti: markets.json-dakı dəyişmə (−74,8, −1,82%) spotu fyuçersin
 # bağlanışı ilə müqayisə edir, yazılmır.
-DAILY_BODY_NO_CLOSE = DAILY_BODY[:3] + [WORLD_PRICES + " (gold-api.com).", BTC_LINE]
+DAILY_BODY_NO_CLOSE = DAILY_BODY[:3] + [WORLD_PRICES + " (gold-api.com)."]
 WEEK_TITLE = "Həftənin bazarları: Brent nefti 13,32% ucuzlaşıb, gümüş 5,72% bahalaşıb"
 WEEK_LEAD = ("Son bir həftədə (31 oktyabr – 7 noyabr) dünya bazarında Brent neftinin bareli 113,43 dollardan 98,32 dollara "
              "düşüb (15,11 dollar, 13,32%). Gümüşün unsiyası 49,25 dollardan 52,07 dollara qalxıb (2,82 dollar, 5,72%).")
@@ -221,7 +220,7 @@ class DailyTest(unittest.TestCase, Rules):
         item, _ = ob.daily(make_root(self, markets=markets), FRI, FakeNet(), CLOSES)
         self.assertEqual(item["body"][3], "Dünya bazarında Bakı vaxtı ilə saat 09:31-də gümüşün unsiyası 51,40 dollar olub "
                                           "(gold-api.com). Əvvəlki bağlanışla müqayisədə gümüş 0,53 dollar (1,01%) ucuzlaşıb.")
-        self.assertEqual(len(item["body"]), 5)
+        self.assertEqual(len(item["body"]), 4)
         late = datetime.datetime(2026, 11, 6, 13, 40, tzinfo=BAKU)  # markets.json 4 saat köhnədir
         item, _ = ob.daily(make_root(self, "markets-2026-11-06T0531Z.json"), late, FakeNet(), CLOSES)
         self.assertEqual(item["body"], DAILY_BODY[:3])
@@ -231,7 +230,8 @@ class DailyTest(unittest.TestCase, Rules):
         for row in markets["items"]:
             row["change"] = row["changePct"] = None
         item, _ = ob.daily(make_root(self, markets=markets), FRI, FakeNet())
-        self.assertEqual(item["body"][3:], [WORLD_PRICES + " (gold-api.com).", "Bitkoinin qiyməti 75 314 dollar olub (Yahoo Finance)."])
+        self.assertEqual(item["body"][3:], [WORLD_PRICES + " (gold-api.com)."])
+        self.assertFalse(any("itkoin" in line for line in item["body"]), "bitkoin metal xəbərində yazılmır")
 
     def test_change_basis_for_world_gold_and_silver(self):
         """gold-api spotu öz bağlanışımızla, Yahoo sətri (dəyər və bağlanış eyni mənbədən) markets.json-dakı dəyişmə ilə."""
