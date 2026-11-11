@@ -2101,7 +2101,7 @@ STORY_SITEMAP_MAX = 5000
 # 3: og:image mənbələrin ən enli şəkli (Discover 1200+ px istəyir; 2026-11-07 ölçüsü: əsas şəkillərin 13/40-ı 1200+ idi).
 # 4: xəbərin sətri səhifənin özündədir (#row): paylaşılan/köhnə keçid lentdən çıxsa da açılır (sahib 2026-11-07, paylaşma yoxlaması).
 # 5: səhifə kiçildilmiş app.min.js yükləyir — şablon 2026-11-08-də dəyişmiş, versiya artmamışdı: ~3 400 köhnə səhifə Google-dan gələnə 221 KB-lıq app.js verirdi (sürət, 2026-11-09).
-# 6: eyni bölmədən əlaqəli keçidlər və bir sitat sətri (Google, 2026-11-10).
+# 6: eyni bölmədən əlaqəli keçidlər (Google, 2026-11-10).
 STORY_VER, STORY_REWRITE = 6, 150
 IMG_SIZE_FILE = CACHE_DIR / "img_size.json"
 IMG_SIZE_KEEP, DISCOVER_MIN_W = 4000, 1200
@@ -2235,18 +2235,6 @@ _STORY_HTML = """<!doctype html>
 </html>
 """
 
-def _quote_line(summary, source):
-    """Mənbədən köçürülən xülasə: bir cümlə, dırnaqda, mənbənin adı ilə."""
-    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", str(summary or ""))).strip()
-    if not text:
-        return ""
-    line = re.split(r"(?<=[.!?…])\s+", text, maxsplit=1)[0]
-    if len(line) > 180:
-        cut = line[:177].rsplit(" ", 1)[0]
-        line = (cut or line[:177]).rstrip() + "…"
-    who = re.sub(r"\s+", " ", str(source or "")).strip()
-    return "«" + _xml(line) + "»" + ((" — " + _xml(who)) if who else "")
-
 def _related_block(a, pool, now=None):
     """Eyni bölmənin ən çoxu 8 xəbər səhifəsi. Yalnız səhifəsi qalan xəbərlər."""
     now = now or time.time()
@@ -2289,7 +2277,7 @@ def story_page(a, sizes=None, related=()):
     row["alts"] = [{k: r[k] for k in ("id", "title", "source", "sourceUrl") if r.get(k)} for r in (a.get("alts") or [])][:20]
     row = json.dumps(row, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\u0021--")
     page = (_STORY_HTML.replace("__ROW__", row).replace("__LD__", ld).replace("__SOURCES__", "".join(lis))
-            .replace("__SUMMARY__", _quote_line(a.get("summary"), a.get("source")))
+            .replace("__SUMMARY__", _xml(summary))  # tam xülasə qalır (sahib, 2026-11-11: bir cümləlik sitat qəbul edilmədi)
             .replace("__DESC__", _xml(desc or title)).replace("__TITLE__", _xml(title)).replace("__LABEL__", _xml(label))
             .replace("__IMAGE__", _xml(image)).replace("__WHEN__", _xml(_baku_time(iso))).replace("__ISO__", _xml(iso))
             .replace("__COUNT__", str(len(lis))).replace("__URL__", url).replace("__SITE__", SITE)
@@ -5397,6 +5385,11 @@ def _story_titles(stories, articles):
     """Xəbər səhifəsinin başlığı: lentdən, yoxdursa səhifənin <h1>-indən."""
     by_id = {a.get("id"): a for a in articles if a.get("id")}
     titles = {}
+    # Lentdən çıxmış xəbərin başlığı bir dəfə səhifədən oxunur, sonra keşdən (əvvəl hər dövrədə ~5 000 fayl açılırdı).
+    cache_file = CACHE_DIR / "story_titles.json"
+    saved = _read_json(cache_file, {})
+    saved = saved if isinstance(saved, dict) else {}
+    kept = {}
     for sid, row in (stories or {}).items():
         a = by_id.get(sid)
         if a and str(a.get("title") or "").strip():
@@ -5405,11 +5398,21 @@ def _story_titles(stories, articles):
         if isinstance(row, list) and len(row) > 4 and row[4]:
             titles[sid] = (row[4], "")
             continue
+        if saved.get(sid):
+            titles[sid] = (saved[sid], "")
+            kept[sid] = saved[sid]
+            continue
         try:
             text = (STORY_DIR / sid / "index.html").read_text(encoding="utf-8")[:4000]
             m = re.search(r"<h1>(.*?)</h1>", text)
             if m:
                 titles[sid] = (html.unescape(m.group(1)), "")
+                kept[sid] = titles[sid][0]
+        except Exception:
+            pass
+    if kept != saved:
+        try:
+            _save_cache(cache_file, kept)
         except Exception:
             pass
     return titles
@@ -5453,6 +5456,9 @@ SERVICE_PAGES = [
     ("valyuta", "Valyuta məzənnəsi", "Dollar, avro, rubl və lirənin manatla bugünkü məzənnəsi, neft və qızıl qiyməti"),
     ("cedvel", "Premyer Liqa cədvəli", "Azərbaycan Premyer Liqasının turnir cədvəli"),
     ("tixac", "Tıxac və yollar", "Azərbaycanda yol vəziyyəti, qəza və bağlanan yollar haqqında son xəbərlər"),
+    # Menyudakı «Son dəqiqə» və alt zolaqdakı «Video» həqiqi keçiddir (/bolme/<ad>/): səhifəsi olmasa Google 404 görür (2026-11-11).
+    ("sondeqiqe", "Son dəqiqə", "Son bir saatın xəbərləri"),
+    ("video", "Video xəbərlər", "Azərbaycan mətbuatının videolu xəbərləri"),
 ]
 _ROAD_RX = re.compile(r"tıxac|qəza(?!lı)|yol polisi|nəqliyyatın hərəkət|yol bağlı|avtomobil yol|(?:^|[^\w])(?:BNA|DYP)(?:[^\w]|$)", re.I)
 
@@ -5462,6 +5468,11 @@ def _table(head, rows):
     return "<table><thead><tr>" + cells(head, "th") + "</tr></thead><tbody>" + body + "</tbody></table>"
 
 def service_body(slug, articles):
+    if slug in ("sondeqiqe", "video"):
+        rows = [a for a in articles if (a.get("lang") or "az") == "az" and str(a.get("sourceUrl") or "").startswith("https://") and (slug == "sondeqiqe" or a.get("video"))]
+        rows.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
+        lis = "".join(f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in rows[:30])
+        return f"<ul>{lis}</ul>" if lis else "<p>Hazırda xəbər yoxdur.</p>"
     if slug == "valyuta":
         items = _read_json(MARKETS_FILE, {}).get("items") or []
         rows = [(i.get("label"), f'{float(i["value"]):.{i.get("dec", 2)}f} {i.get("unit") or ""}'.strip(), i.get("src") or "", i.get("asOf") or (i.get("at") or "")[:10])

@@ -225,6 +225,7 @@ const withinHour = a => { const age = Date.now() - new Date(a.publishedAt).getTi
 // Mənbə yeni vərəqədə açılır.
 const TOUCH_UI = typeof matchMedia === "function" && matchMedia("(hover:none)").matches;
 const OUT = `target="_blank" rel="noopener noreferrer"`;
+const netErr = what => `<div class="err" role="alert">${what}. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`;
 function langOf(a) { if (a.lang) return a.lang; const s = a.title + " " + a.summary; return /[а-яА-Я]/.test(s) ? "ru" : /[əƏ]/.test(s) ? "az" : /[ığİ]/.test(s) ? "tr" : "az"; }
 const flText = s => {
   s = lc(s);
@@ -399,7 +400,7 @@ function collapseExact(list) {
     if (!g.items.length) continue;
     let primary = g.items[0];
     for (const a of g.items.slice(1)) primary = preferPrimary(primary, a);
-    primary = {...primary};
+    primary = {...primary}; primary.n = primary.alts?.length; // serverdəki mənbə sayı: xəbərin öz səhifəsi (xeber/<id>/) ona görə yaranır
     const alts = [];
     const urls = new Set([primary.sourceUrl]), sources = new Set([primary.source]);
     const push = (src, url, publishedAt, imageUrl) => {
@@ -422,7 +423,12 @@ function collapseExact(list) {
 }
 const detailUrl = a => `#/xeber/${encodeURIComponent(a.id)}${hourOf(a) && "?h=" + hourOf(a)}`;
 const sourceName = name => `${esc(name)}<small class="source-count" data-source-count="${esc(name)}"></small>`;
-const altBadge = a => a.alts?.length ? `<a class="bd out" href="/xeber/${a.id}/">${1 + a.alts.length} mənbə</a>` : "";
+// Həqiqi keçid yalnız səhifəsi olan xəbərə (updater.story_worthy: Azərbaycan dilində, 3+ mənbə və ya Zuğulba) — qalanı əvvəlki kimi
+// tətbiqin içində: səhifəsiz ünvan Google-a 404 verərdi (sahib, 2026-11-11). Səhifə 10 dəqiqəlik dövrədə yaranır, ona görə xəbər ən azı
+// 20 dəqiqədir layiq olmalıdır: həm kartın əsas xəbəri (nömrə onundur; yeni mənbə əsas olanda nömrə dəyişir), həm 3-cü mənbə
+// 20 dəqiqədən köhnədir (Zuğulbada yalnız əsas xəbər). a.n — serverdəki mənbə sayı.
+const hasPage = a => langOf(a) == "az" && Math.max(Date.parse(a.publishedAt), a.category == "prezident" ? 0 : a.n > 1 ? [a, ...a.alts].map(r => Date.parse(r.publishedAt)).sort()[2] : NaN) < Date.now() - 12e5;
+const altBadge = a => a.alts?.length ? `<a class="bd out" href="${hasPage(a) ? `/xeber/${a.id}/` : detailUrl(a)}">${1 + a.alts.length} mənbə</a>` : "";
 function altPop(a) {
   if (!a.alts?.length) return "";
   const rows = [a, ...a.alts].map(r => `<a href="${safeHref(r.sourceUrl)}" ${OUT}>${sourceName(r.source)}</a>`).join("");
@@ -565,7 +571,8 @@ const S = { sports: null, data: null, error: null, offline: false, lastSync: nul
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 // WARN_RE dar saxlanır. Tıxac səhifəsi aşağıdakı ROAD_RULES ilə süzülür.
-const WARN_RE = /tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
+const HAVA_RE = /hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
+const WARN_RE = RegExp(/tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|/.source + HAVA_RE.source, "iu"); // hava hissəsi bir dəfə yazılır (ölçü)
 const TRAFFIC_AREAS = [
   { id: "merkez", label: "Bakı mərkəz", lat: 40.4093, lon: 49.8671, zoom: 12 },
   { id: "sumqayit", label: "Sumqayıt yolu", lat: 40.482, lon: 49.835, zoom: 13 },
@@ -577,7 +584,7 @@ const ROAD_RULES = [
   { icon: "🚧", kind: "bagli", re: /(?:yol|küçə|prospekt|körpü|tunel|şose)\w{0,6}\s*bağlan|bağlan\w{0,8}\s+(?:yol|küçə|prospekt)|yol bağlı|hərəkət\w{0,4}\s+məhdudlaş|(?:yol|küçə|prospekt|körpü|tunel|şose)\w{0,8}.{0,40}təmir|təmir.{0,32}(?:yol|küçə|prospekt|körpü|tunel|şose)/iu },
   { icon: "🚦", kind: "tixac", re: /tıxac/iu },
   { icon: "🚇", kind: "metro", re: /metro|avtobus/iu },
-  { icon: "🌧", kind: "hava", re: /hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu },
+  { icon: "🌧", kind: "hava", re: HAVA_RE },
 ];
 const ROAD_FALLBACK = /(?:^|[^\p{L}])(?:BNA|DYP)(?:[^\p{L}]|$)|yol polisi|nəqliyyatın hərəkət|avtomobil yol/iu;
 function roadKind(title) {
@@ -1295,7 +1302,7 @@ function renderTopbar() {
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}${syncBad ? ' <button type="button" class="retry" data-act="refresh">Yenilə</button>' : ""}</span>` : ""}
     ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
-    <span class="prefs"><button data-act="refresh" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
+    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
   if (h !== S.topH) S.topH = $("#topbar").innerHTML = h; // dəyişməyən zolaq yenidən yazılmır: hər çəkilişdə (və hər 30 s) yazılırdı — stil işi, çəkilişdən əvvəl çirkli səhifə (D2, 2026-11-09)
   syncTixDot();
 }
@@ -1311,13 +1318,13 @@ const navLabel = c => NAV_SHORT[c.slug] ? `<span class="nav-f">${esc(c.label)}</
 function renderNav() {
   const r = route(), cur = r.name === "section" ? r.slug : r.name === "home" ? "/" : r.name === "team" ? "idman" : ""; // liqa və komanda səhifələri İdmanın altındadır
   const navClass = c => [cur === c.slug && "on", SUB_TABS[c.slug] && "has-sub", (NAV_PHONE.includes(c.slug) || isStandalone() && /^(gundem|dunya)$/.test(c.slug)) && "ph"].filter(Boolean).join(" ");
-  const link = c => `<a href="/bolme/${c.slug}/" class="${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
+  const link = (c, x = "") => `<a href="/bolme/${c.slug}/" class="${x}${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`;
   // Telefon: 2 bölmə (.ph), «Ana ekrana» düyməsi və ☰ (hamısı)
   const primary = NAV_PRIMARY;
-  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => `<a href="/bolme/${c.slug}/" class="nav-x ${navClass(c)}" aria-label="${esc(c.label)}">${navLabel(c)}</a>`).join("");
+  const extra = CATS.filter(c => !primary.includes(c.slug)).map(c => link(c, "nav-x ")).join("");
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">📲 Ana ekrana əlavə et</span></button>` +
-    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(link).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>` +
+    `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(c => link(c)).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>` +
     `<a class="nav-tg" href="${esc(tgDigest())}" ${OUT} title="Hər gün 09:00 və 19:00"><span>📩 Günün 10 əsas xəbəri — Telegram-da</span></a>`;
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;
@@ -2211,7 +2218,7 @@ function teamView(r) {
       requestRender(false);
     }).catch(() => { S.teamLoading = false; S.teamMod = null; S.teamFailedAt = Date.now(); requestRender(false); });
   }
-  return S.teamFailedAt ? `<div class="err" role="alert">Komanda səhifəsi açılmadı. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>` : skeleton();
+  return S.teamFailedAt ? netErr("Komanda səhifəsi açılmadı") : skeleton();
 }
 function trafficView() {
   const area = tixArea(), konum = geoArea();
@@ -2344,7 +2351,7 @@ function renderView() {
     // Hazır ilk ekran: məlumat gələnə qədər durur.
     const pre = !S.data && firstScreen() && !!v.querySelector?.(".pre-skel[data-prerender]");
     if (S.error && (!S.data || onlyFirst) && !shared) {
-      const alert = `<div class="err" role="alert">Xəbər lenti yüklənə bilmədi. İnternet bağlantınızı yoxlayın. <button class="btn" data-act="retry">Yenidən yoxla</button></div>`;
+      const alert = netErr("Xəbər lenti yüklənə bilmədi");
       if (pre) { if (!v.querySelector(".err")) v.insertAdjacentHTML("afterbegin", alert); return; }
       S.viewPage = null; v.innerHTML = alert; return;
     }
@@ -2393,7 +2400,7 @@ function preload(h) {
   else if (p === "bolme") { if (s === "cedvel") wantSports(); else if (s && !SERVICE_ROUTES[s] && S.data && !S.partial) loadArchive(SECTION_ALIAS[s] || s); }
   else if (p) loadPages();
 }
-document.addEventListener("pointerdown", e => { const a = e.target.closest?.("a[href]"); if (!a) return; let h = a.getAttribute("href") || ""; const m = h.match(/^\/bolme\/([^/?#]+)/); if (m) h = "#/bolme/" + m[1]; if (h[0] === "#") preload(h); }, { passive: true, capture: true });
+document.addEventListener("pointerdown", e => { const h = e.target.closest?.("a[href]")?.getAttribute("href").replace(/^\/(bolme\/[^/?#]+).*/, "#/$1"); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });
 const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
 function trackedSources() {
   const rows = S.sources?.sources;
@@ -2425,7 +2432,7 @@ function trackEvent(path) {
   try { window.goatcounter?.count?.({ path, title: path, event: true, no_session: true, referrer: "" }); } catch {}
 }
 addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
-addEventListener("click", e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host) trackEvent("out-" + a.host); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const m = (a.getAttribute("href") || "").match(/^\/(xeber|bolme)\/([^/?#]+)/); if (!m) return; e.preventDefault(); location.hash = "#/" + m[1] + "/" + m[2]; }, true);
+addEventListener("click", e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host) trackEvent("out-" + a.host); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const m = /^\/((xeber|bolme)\/[^/?#]+)/.exec(a.getAttribute("href")); if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
   closeSharePop();

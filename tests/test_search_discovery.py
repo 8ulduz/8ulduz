@@ -104,7 +104,7 @@ class StoryPagesTest(unittest.TestCase):
     def test_related_stories_are_same_category_story_links(self):
         a, b, other = self.story('1' * 16), self.story('2' * 16), self.story('3' * 16, category='idman')
         page = updater.story_page(a, None, [a, b, other])
-        self.assertIn('«Bakının müxtəlif yerlərində hərbi orkestrlər çıxış edəcək.» — APA', page)
+        self.assertIn('<p>Bakının müxtəlif yerlərində hərbi orkestrlər çıxış edəcək.</p>', page, 'xülasə tam qalır (sahib, 2026-11-11)')
         self.assertIn(f'href="../../xeber/{"2" * 16}/"', page)
         self.assertNotIn(f'href="../../xeber/{"3" * 16}/"', page)
 
