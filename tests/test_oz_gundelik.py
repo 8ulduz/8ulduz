@@ -587,7 +587,7 @@ class ItemsTest(unittest.TestCase):
                 self.assertIn("-xeta-", out[0]["key"])
                 self.assertGreaterEqual(len(fake.calls), 1)
 
-    def test_dropped_connection_is_retried_once(self):
+    def test_dropped_connection_is_retried(self):
         class Flaky(Fake):
             def __init__(self, table, errors):
                 super().__init__(table)
@@ -604,9 +604,9 @@ class ItemsTest(unittest.TestCase):
         out = g.items(ROOT, now, fake)
         self.assertEqual([(i["key"], i["worth"]) for i in out], [("dim-gun-2026-11-12", True)])
         self.assertEqual(fake.calls, [g.DIM_URL, g.DIM_URL])
-        fake = Flaky(pages(), [urllib.error.URLError(ConnectionResetError(104, "Connection reset by peer"))] * 3)
+        fake = Flaky(pages(), [urllib.error.URLError(ConnectionResetError(104, "Connection reset by peer"))] * 5)
         out = g.items(ROOT, now, fake)
-        self.assertEqual((out[0]["key"], out[0]["worth"], len(fake.calls)), ("dim-xeta-2026-11-12", False, 2))
+        self.assertEqual((out[0]["key"], out[0]["worth"], len(fake.calls)), ("dim-xeta-2026-11-12", False, g.TRIES))
         for err in (TimeoutError("vaxt bitdi"), urllib.error.URLError(TimeoutError("vaxt bitdi")),
                     urllib.error.HTTPError(g.DIM_URL, 403, "Forbidden", None, None)):
             fake = Flaky(pages(), [err])   # vaxt aşımı və HTTP xətası təkrar yoxlanmır
