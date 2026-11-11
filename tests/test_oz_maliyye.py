@@ -464,7 +464,7 @@ class BankTest(unittest.TestCase):
         self.assertFalse(om.bank_item(one, BANK_DAY)[0]["worth"])
 
     def test_broken_sites_and_garbage(self):
-        net = Net(routes(**{BANK_URL["ABB"]: down(), BANK_URL["Unibank"]: b"<html>texniki işlər</html>"}))
+        net = Net(routes(**{BANK_URL["ABB"]: down(), BANK_URL["Unibank"]: "<html>texniki işlər</html>".encode()}))
         item, _ = om.banks(BANK_NOW, net, set())
         self.assertTrue(item["lead"].startswith("İki bankın (Xalq Bank və AccessBank) saytlarında 6 noyabr üçün"), item["lead"])
         self.assertEqual(item["left_out"], ["ABB: sayt açılmadı (URLError)", "Unibank: məzənnə oxunmadı"])
@@ -616,7 +616,7 @@ class BfbTest(unittest.TestCase):
         self.assertEqual((item["worth"], item["body"]), (False, []))
         self.assertEqual(why, "hərracın səhifəsi oxunmadı: AZ2738024705: səhifə başqa hərracındır (AZ2737024706); "
                               "AZ2736024707: səhifədə hərracın nəticəsi oxunmadı")
-        net = Net(routes(**{om.BFB_HOME: b"<html>texniki işlər</html>"}))
+        net = Net(routes(**{om.BFB_HOME: "<html>texniki işlər</html>".encode()}))
         self.assertFalse(om.bfb(BFB_EVE, net, set())[0]["worth"])
 
 
