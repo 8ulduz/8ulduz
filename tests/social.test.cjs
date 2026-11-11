@@ -109,7 +109,7 @@ test("social: X post is signed with OAuth 1.0a and fits 280 characters", () => {
 });
 
 test("social: Facebook page and LinkedIn requests carry the share link", () => {
-  const [fb, li] = S.networks({ FB_PAGE_ID: "42", FB_PAGE_TOKEN: "p", LINKEDIN_TOKEN: "l", LINKEDIN_AUTHOR: "urn:li:person:abc" });
+  const [fb, li] = S.networks({ FB_PAGE_ID: "42", FB_PAGE_TOKEN: "p", LINKEDIN_TOKEN: "l", LINKEDIN_AUTHOR: "urn:li:organization:42" });
   const a = art("f1");
   const [fu, fi] = fb.request(a);
   assert.equal(fu, "https://graph.facebook.com/v27.0/42/feed");
@@ -118,8 +118,49 @@ test("social: Facebook page and LinkedIn requests carry the share link", () => {
   const [lu, lii] = li.request(a);
   const body = JSON.parse(lii.body);
   assert.equal(lu, "https://api.linkedin.com/rest/posts");
-  assert.equal(body.author, "urn:li:person:abc");
+  assert.equal(body.author, "urn:li:organization:42");
+  assert.equal(lii.headers["linkedin-version"], "202610");
   assert.equal(body.content.article.source, `https://www.8ulduz.az/f100000000000000?h=${a.publishedAt.slice(2, 13).replace(/\D/g, "")}`);
+});
+
+test("social: LinkedIn never sends a post as a personal profile or an invalid Page author", async () => {
+  for (const author of ["urn:li:person:abc", "urn:li:organization:", "urn:li:organization:abc", "urn:li:organization:0", "42"]) {
+    const env = { LINKEDIN_TOKEN: "PRIVATE_LINKEDIN_TOKEN", LINKEDIN_AUTHOR: author };
+    const logs = [];
+    const result = await S.run({ articles: [art("e1")], env, now: NOW, log: text => logs.push(text), fetch: () => { throw new Error("a personal profile must not receive any request"); } });
+    assert.deepEqual(S.networks(env), []);
+    assert.deepEqual(result.posted, []);
+    assert.ok(logs.some(s => s.includes("linkedin:") && s.includes("şəxsi profilə göndərilmir")));
+    assert.ok(!logs.join("\n").includes(env.LINKEDIN_TOKEN));
+  }
+});
+
+test("social: incomplete LinkedIn setup is reported by field name and sends nothing", async () => {
+  for (const env of [{}, { LINKEDIN_TOKEN: "PRIVATE_LINKEDIN_TOKEN" }, { LINKEDIN_AUTHOR: "urn:li:organization:42" }]) {
+    const logs = [];
+    await S.run({ articles: [art("e2")], env, now: NOW, log: text => logs.push(text), fetch: () => { throw new Error("unconfigured LinkedIn must not fetch"); } });
+    const line = logs.find(s => s.startsWith("linkedin:"));
+    assert.ok(line?.includes("sazlama yoxdur"));
+    for (const key of ["LINKEDIN_TOKEN", "LINKEDIN_AUTHOR"].filter(k => !env[k])) assert.ok(line.includes(key));
+    assert.ok(!line.includes("PRIVATE_LINKEDIN_TOKEN"));
+  }
+});
+
+test("social: LinkedIn posts as its Page once, keeps the article link and hides a token echoed by an API error", async () => {
+  const env = { LINKEDIN_TOKEN: "PRIVATE_LINKEDIN_TOKEN", LINKEDIN_AUTHOR: " urn:li:organization:42 ", LINKEDIN_VERSION: "202609" };
+  const state = {}, calls = [], logs = [];
+  const fetch = async (url, init) => { calls.push([url, init]); return { status: 200, ok: true }; };
+  const args = { articles: [art("e3")], env, now: NOW, fetch, state, log: text => logs.push(text) };
+  assert.deepEqual((await S.run(args)).posted, [["linkedin", art("e3").id]]);
+  assert.deepEqual((await S.run(args)).posted, []);
+  const posts = calls.filter(([url]) => url === "https://api.linkedin.com/rest/posts");
+  assert.equal(posts.length, 1);
+  assert.equal(JSON.parse(posts[0][1].body).author, "urn:li:organization:42");
+  assert.equal(posts[0][1].headers["linkedin-version"], "202609");
+  const failed = await S.run({ ...args, state: {}, fetch: async (_url, init) => init.method === "HEAD" ? { status: 200 } : { ok: false, status: 401, text: async () => `expired ${env.LINKEDIN_TOKEN}` } });
+  assert.deepEqual(failed.failed, [["linkedin", art("e3").id]]);
+  assert.ok(logs.some(s => s.includes("HTTP 401 expired ***")));
+  assert.ok(!logs.join("\n").includes(env.LINKEDIN_TOKEN));
 });
 
 test("social: state keeps posted ids for 3 days and survives a broken file", () => {

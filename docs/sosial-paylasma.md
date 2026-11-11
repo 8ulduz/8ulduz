@@ -52,11 +52,15 @@ X API-də yazma ödənişli ola bilər; qiyməti developer portalında yoxlayın
 
 ## LinkedIn
 
-1. linkedin.com/developers → Create app. Products: «Share on LinkedIn» və «Sign In with LinkedIn using OpenID Connect».
-2. OAuth tokeni `w_member_social openid profile` icazəsi ilə alın. Müəllif nömrəsi `/v2/userinfo` cavabındakı `sub`-dır.
-3. Secrets: `LINKEDIN_TOKEN`. Variables: `LINKEDIN_AUTHOR` = `urn:li:person:<sub>`.
+Paylaşımlar yalnız **8ULDUZ şirkət səhifəsi** adından gedir. Şəxsi profil (adı və loqosu 8ULDUZ olsa da) şirkət səhifəsi deyil; `urn:li:person:…` müəllifi ilə heç nə göndərilmir.
 
-LinkedIn şəxsi tokeni 60 gün işləyir, sonra yenilənməlidir.
+1. 8ULDUZ-un `linkedin.com/company/…` səhifəsi olmalıdır. Şəxsi hesab həmin səhifənin adminidir; oxucular postun müəllifi kimi səhifəni görür. Mövcud səhifə varsa yenisi yaradılmır, onun idarəetmə girişi yoxlanır.
+2. linkedin.com/developers → tətbiq 8ULDUZ səhifəsinə bağlanır. **Community Management API** çıxışı, `w_organization_social` icazəsi və səhifədə uyğun admin rolu lazımdır. Təkcə «Share on LinkedIn» / `w_member_social` səhifə adından yazmağa kifayət etmir. LinkedIn tələb olunan məhsul çıxışını təsdiqləməlidir.
+3. GitHub sirri: `LINKEDIN_TOKEN` (dəyər çata və repoya yazılmır). Variable: `LINKEDIN_AUTHOR` = həmin 8ULDUZ səhifəsinin `urn:li:organization:<rəqəmli ID>` müəllifi. Şəxsi profilin `sub` nömrəsi istifadə edilmir. ID səhifənin idarəetmə ünvanı və adı ilə tutuşdurulur.
+4. `LINKEDIN_VERSION` istəyə bağlıdır; standart `202610` rəsmi aktiv versiyadır (2026-11-11 yoxlanıb). Əvvəlki `202510` 15 oktyabr 2026-da bağlanıb. Aktiv versiyanın dəyişməsi rəsmi versiya cədvəli ilə yoxlanır.
+5. Açar və ya müəllif çatmırsa jurnalda sahənin adı göstərilir və LinkedIn ötürülür. Müəllif şəxsi profil və ya səhv formatdadırsa post göndərilmir. Tokenin vaxtı və icazələri LinkedIn portalında yoxlanır; müddəti bitəndə yeni token təhlükəsiz şəkildə GitHub sirrinə yazılmalıdır.
+
+Rəsmi mənbələr: [Posts API və səhifə icazələri](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api), [aktiv versiyalar və bağlanma tarixləri](https://learn.microsoft.com/en-us/linkedin/marketing/integrations/migrations), [səhifələrə admin girişi](https://www.linkedin.com/help/linkedin/answer/a8045027).
 
 ## Tənzimləmə (Variables, istəyə bağlı)
 

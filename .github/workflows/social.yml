@@ -68,6 +68,7 @@ jobs:
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
           LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
           LINKEDIN_AUTHOR: ${{ vars.LINKEDIN_AUTHOR }}
+          LINKEDIN_VERSION: ${{ vars.LINKEDIN_VERSION || '202610' }}
           SOCIAL_MIN_SOURCES: ${{ vars.SOCIAL_MIN_SOURCES }}
           SOCIAL_PER_RUN: ${{ vars.SOCIAL_PER_RUN }}
           FB_RESCRAPE: ${{ inputs.fb_yenile && '1' || '' }}
