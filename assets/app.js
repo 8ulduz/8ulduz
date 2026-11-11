@@ -2427,12 +2427,13 @@ function savedView() {
 }
 
 // Yalnız ümumi say gedir, şəxsi məlumat yoxdur (source-stats.js).
-function trackEvent(path) {
-  gaQ.push([visitPath(), document.title, void 0, path]); gaFlush();
+function trackEvent(path, a) {
+  gaQ.push([visitPath(), document.title, void 0, path, a]); gaFlush();
   try { window.goatcounter?.count?.({ path, title: path, event: true, no_session: true, referrer: "" }); } catch {}
 }
 addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
-addEventListener("click", e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host) trackEvent("out-" + a.host); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const m = /^\/((xeber|bolme)\/[^/?#]+)/.exec(a.getAttribute("href")); if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
+// Orta düymə (auxclick, button 1) də keçiddir; sağ düymə (2) sayılmır. «click» yalnız sol düymədə gəlir: bir klik bir hadisədir.
+for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const m = /^\/((xeber|bolme)\/[^/?#]+)/.exec(a.getAttribute("href")); if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
   closeSharePop();
@@ -2650,7 +2651,7 @@ function setPref(act) {
 }
 let visitSent = "", gaOn = 0;
 const visitQueue = [], gaQ = [];
-const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=2").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
+const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=3").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
 function visitPath() {
   const base = location.pathname || "/";
   const hash = location.hash || "";

@@ -13,7 +13,7 @@ function load({ stored = null, ref = "", host = "8ulduz.az" } = {}) {
     screen: { width: 390, height: 844 },
     localStorage: { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) },
     setTimeout: (f, ms) => timers.push([f, ms]), fetch: async () => {} };
-  const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit, pageUrl })";
+  const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit, pageUrl, news })";
   return { api: vm.runInNewContext(src, ctx), sent, store, timers };
 }
 const params = u => Object.fromEntries(new URL(u).searchParams);
@@ -56,9 +56,9 @@ test("ga4: bad id sends nothing; the site loads the sender only after it is show
   assert.equal(local.api.hit("G-NHSDLY61CD", "/", "x"), null, "yerli sınaq GA4-ə getmir"); assert.equal(local.sent.length, 0);
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8"), cfg = fs.readFileSync(path.join(root, "assets/config.js"), "utf8");
   assert.ok(cfg.includes('ga4: "G-NHSDLY61CD"'));
-  assert.ok(app.includes('import("./ga.js?v=2")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
+  assert.ok(app.includes('import("./ga.js?v=3")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
   for (const f of ["assets/app.js", "index.html", "assets/config.js"]) assert.ok(!/googletagmanager|gtag\/js/.test(fs.readFileSync(path.join(root, f), "utf8")), f + ': Google-un ağır skripti yoxdur');
-  assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4000, 'göndərici kiçik qalır');
+  assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4300, 'göndərici kiçik qalır');
   assert.ok(fs.readFileSync(path.join(root, "mexfilik/index.html"), "utf8").includes("Google Analytics 4"), 'məxfilik səhifəsində yazılıb');
 });
 
@@ -73,6 +73,36 @@ test("ga4: clicks to sources, shares and installs are counted as events (owner 2
   assert.equal(p.en, "share"); assert.equal(p["ep.type"], "wa");
   assert.equal(timers.length, 0, "hadisə fəal sessiya taymerini başlatmır");
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
-  assert.ok(app.includes("gaQ.push([visitPath(), document.title, void 0, path]); gaFlush();"), "trackEvent GA4-ə də gedir");
-  assert.ok(app.includes('trackEvent("out-" + a.host)'), "mənbəyə (başqa sayta) keçid sayılır");
+  assert.ok(app.includes("gaQ.push([visitPath(), document.title, void 0, path, a]); gaFlush();"), "trackEvent GA4-ə də gedir");
+  assert.ok(app.includes('trackEvent("out-" + a.host, a)'), "mənbəyə (başqa sayta) keçid sayılır");
+});
+
+// Sahib 2026-11-11: xəbər keçidi ayrıca hadisədir, domen/keçid/başlıq ilə; hər klik bir hadisə.
+const link = (href, { inner = null, art, list = false, cls = "" } = {}) => { const u = new URL(href); return { href, hostname: u.hostname, matches: s => !!cls && s.includes(cls), textContent: "  Şəkil başlığı ",
+  querySelector: () => inner && { textContent: inner }, closest: s => s === "article" ? (art === undefined ? null : { querySelector: () => art ? { textContent: art } : null }) : list ? {} : null }; };
+
+test("ga4: a news link is one news_outbound_click with domain, full link and headline; other links stay «out»", () => {
+  const t = Date.parse("2026-11-11T12:00:00Z"), { api, sent } = load({ stored: { cid: "1.2", sid: t / 1000 - 60, sct: 1, last: t - 1e3 } });
+  const go = (ev, a) => api.hit("G-NHSDLY61CD", "/", "8ulduz", t, ev, a);
+  go("out-www.apa.az", link("https://www.APA.az/siyasi/xeber-123?x=1", { inner: " Prezident səfərə gedib ", art: "" })); // kart: başlıq keçidin içindədir
+  go("out-report.az", link("https://report.az/a/1", { art: "Xəbər səhifəsinin başlığı" })); // xəbər səhifəsi: «mənbədə oxu» düyməsi
+  go("out-trend.az", link("https://trend.az/p/9", { list: true })); // günün şəkilləri, qaçan sətir: başlıq keçidin öz mətnidir
+  go("out-t.me", link("https://t.me/sekkizulduz_az")); // xəbər deyil
+  go("out-www.facebook.com", link("https://www.facebook.com/p/1", { inner: "Post", art: "", cls: ".soc-p" })); // sosial post xəbər deyil
+  go("share-wa", link("https://www.apa.az/x", { inner: "Başlıq", art: "" })); // paylaşma keçid deyil
+  assert.equal(sent.length, 6, "hər klik bir hadisə");
+  const p = sent.map(params);
+  assert.deepEqual(p.map(x => x.en), ["news_outbound_click", "news_outbound_click", "news_outbound_click", "out", "out", "share"]);
+  assert.equal(p[0]["ep.news_domain"], "apa.az", "www-siz, kiçik hərflə: bir sayt bir sətir");
+  assert.equal(p[0]["ep.news_url"], "https://www.APA.az/siyasi/xeber-123?x=1"); assert.equal(p[0]["ep.news_title"], "Prezident səfərə gedib");
+  assert.equal(p[0]["ep.type"], undefined, "xəbər keçidi «out» kimi ikinci dəfə sayılmır");
+  assert.equal(p[1]["ep.news_title"], "Xəbər səhifəsinin başlığı"); assert.equal(p[2]["ep.news_title"], "Şəkil başlığı"); assert.equal(p[2]["ep.news_domain"], "trend.az");
+  assert.equal(p[3]["ep.type"], "t.me"); assert.equal(p[3]["ep.news_domain"], undefined); assert.equal(p[4]["ep.type"], "www.facebook.com");
+  const long = params(go("out-a.az", link("https://a.az/" + "x".repeat(300), { inner: "b".repeat(300), art: "" })).toString().replace(/^/, "https://x/?"));
+  assert.equal(long["ep.news_url"].length, 100); assert.equal(long["ep.news_title"].length, 100, "GA4 həddi: 100 işarə");
+  assert.equal(api.news(null), null); assert.equal(api.news({}), null);
+  const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  assert.ok(app.includes('for (const t of ["click", "auxclick"]) addEventListener(t, e =>') && app.includes("e.button < 2) trackEvent("), "orta düymə sayılır, sağ düymə yox");
+  for (const c of ["card-hit", "pcard-hit", "source-entry"]) assert.match(app, new RegExp(`<article[^]*?class="${c}"`), c + " <article> içindədir: xəbər keçidi kimi tanınır");
+  for (const c of ["phrow", "track", "alerts", "foot-news"]) assert.ok(app.includes(`class="${c}`), c + ": xəbər keçidi olan siyahı");
 });
