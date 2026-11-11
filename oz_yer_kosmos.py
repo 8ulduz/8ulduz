@@ -289,7 +289,7 @@ CITY_AZ = {
              "Shiraz": "Şiraz", "Urmia": "Urmiya", "Orumiyeh": "Urmiya", "Zanjan": "Zəncan", "Qazvin": "Qəzvin",
              "Hamadan": "Həmədan", "Rasht": "Rəşt", "Ahar": "Əhər", "Khoy": "Xoy", "Marand": "Mərənd",
              "Maragheh": "Marağa", "Sarab": "Sərab", "Meshgin Shahr": "Meşkinşəhr", "Astara": "Astara",
-             "Kermanshah": "Kirmanşah", "Kerman": "Kirman", "Qom": "Qum", "Yazd": "Yəzd"},
+             "Kermanshah": "Kirmanşah", "Kerman": "Kirman", "Qom": "Qum", "Yazd": "Yəzd", "Bushehr": "Buşehr"},
     "Armenia": {"Yerevan": "İrəvan", "Gyumri": "Gümrü", "Kapan": "Qafan", "Goris": "Gorus", "Meghri": "Mehri",
                 "Sisian": "Sisyan", "Dilijan": "Dilican", "Ijevan": "İcevan"},
     "Russia": {"Makhachkala": "Mahaçqala", "Derbent": "Dərbənd", "Khasavyurt": "Xasavyurt", "Grozny": "Qroznı",
@@ -594,7 +594,7 @@ def quake_item(q, now, rest=(), a=None):
         if a["depth"] is not None and a["depth"] >= 0:
             lead += f" Zəlzələnin ocağı {num(a['depth'], 2)} km dərinlikdə olub."
         body = [f"ABŞ Geoloji Xidməti (USGS) zəlzələnin maqnitudasını {mag} kimi qiymətləndirib."] if amag != mag else []
-        lat, lon, credit, link = a["lat"], a["lon"], AFAD_CREDIT, AFAD_EVENT.format(a["id"])
+        lat, lon, credit, link = a["lat"], a["lon"], AFAD_CREDIT, AFAD_EVENT.format(a["id"]) if a["id"] else q["url"]
     else:
         t = q["utc"].astimezone(BAKU)
         title = f"{title_loc} {mag} maqnitudalı zəlzələ {verb}"
@@ -1254,6 +1254,12 @@ def _sinaq_quakes(now, get):
     md += [f"**Son 14 gün:** qutuda {ox.az_num(MIN_MAG, 1)} və daha güclü {len(quakes)} zəlzələ; regionda "
            f"{len(why.get('regionda', []))}. Süzgəcdən keçməyənlər: "
            + "; ".join(f"{k} — {len(v)}" for k, v in sorted(why.items()) if k != "regionda") + ".", ""]
+    try:   # sınaqda hər dəfə: seismology.az-ın GitHub-dan açıldığı görünsün (istehsalda yalnız sərhədə yaxın zəlzələ üçün)
+        seys_rows = ox.seys_list(get(ox.SEYS_LIST, accept="text/html").decode("utf-8", "replace"))
+        md += [f"> seismology.az siyahısı oxundu ({len(seys_rows)} təkan): Azərbaycan sərhədinə {int(NEAR_AZ_KM)} km-dən yaxın "
+               f"zəlzələ onunla tutuşdurulur.", ""]
+    except Exception as e:
+        md += [f"> seismology.az alınmadı: {_err(e)}", ""]
     try:
         afad_rows = parse_afad(get(afad_url(start, now)))
     except Exception as e:

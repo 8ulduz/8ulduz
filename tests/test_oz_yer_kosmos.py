@@ -1,7 +1,7 @@
 """Öz xəbər, mərhələ 2: yer və kosmos şablonları (oz_yer_kosmos.py). Şəbəkə yoxdur: bütün sorğular saxtadır.
 Real hal tests/fixtures/oz_yer_kosmos-dadır (2026-11-10-da götürülmüş cavablar, yalnız lazım olan hissəsi):
 - USGS: 9 noyabr İmamoğlu (Türkiyə) zəlzələsi (1 günlük sorğu) və 10 oktyabr – 10 noyabr, M4+ (67 zəlzələ);
-- AFAD: 2–10 noyabr, M4+ (Kozan/Adana zəlzələsi, dənizdəki iki təkan);
+- AFAD: 2–10 noyabr, M4+ (Kozan/Adana zəlzələsi, dənizdəki iki təkan); cavab 12 noyabrda təzələnib (eventID-lər dəyişmişdi);
 - seismology.az siyahısı; JPL CAD: 1–12 noyabr Aydan yaxın 9 keçid və 2–23 noyabr 0,05 AB-dən yaxın 72 keçid;
 - Launch Library 2: 10 noyabrda qarşıdakı 10 buraxılış, son pilotlu buraxılışlar, son Starship uçuşları."""
 import datetime
@@ -122,6 +122,7 @@ class HelpersTest(unittest.TestCase):
         self.assertEqual(w("93 km ESE of Kyzyl-Eshme, Kyrgyzstan")[1], "Qırğızıstanda, Kyzyl-Eshmenin 93 km şərq-cənub-şərqində")
         self.assertEqual(w("21 km W of Kāzerūn, Iran")[1], "İranda, Kazerunun 21 km qərbində")
         self.assertEqual(w("10 km S of Tabriz, Iran")[1], "İranda, Təbrizin 10 km cənubunda")
+        self.assertEqual(w("115 km SE of Bushehr, Iran")[1], "İranda, Buşehrin 115 km cənub-şərqində")
         self.assertEqual(w("Turkey-Iran border region")[0], "Türkiyə-İran sərhəd bölgəsində")
         self.assertEqual(w("eastern Turkey")[0], "Türkiyənin şərqində")
         self.assertEqual(w("northwestern Iran")[0], "İranın şimal-qərbində")
@@ -174,7 +175,7 @@ class UsgsAfadParseTest(unittest.TestCase):
         self.assertEqual(rows[0]["utc"], utc(2026, 11, 9, 12, 28, 19))
         self.assertEqual([om._afad_place(r) for r in rows], [True, False, True, True, False])   # dənizdəki iki təkan: yox
         q = quakes(*REAL)[0]
-        self.assertEqual(om.afad_match(q, rows)["id"], "598668")
+        self.assertEqual(om.afad_match(q, rows)["id"], "733770")
         self.assertIsNone(om.afad_match(dict(q, utc=q["utc"] + 3 * MIN), rows))
         self.assertIsNone(om.afad_match(dict(q, lat=q["lat"] + 1.0), rows))
         with self.assertRaises(ValueError):
@@ -196,7 +197,7 @@ class QuakePlanTest(unittest.TestCase):
                          "Zəlzələnin ocağı 15,35 km dərinlikdə olub.")
         self.assertEqual(it["body"], ["ABŞ Geoloji Xidməti (USGS) zəlzələnin maqnitudasını 4,7 kimi qiymətləndirib.",
                                       "Episentr Bakıdan 1 270 km aralıdadır."])
-        self.assertEqual((it["credit"], it["link"]), (om.AFAD_CREDIT, "https://deprem.afad.gov.tr/event-detail/598668"))
+        self.assertEqual((it["credit"], it["link"]), (om.AFAD_CREDIT, "https://deprem.afad.gov.tr/event-detail/733770"))
 
     def test_real_quake_usgs_text(self):
         it = om.quake_plan(quakes(*REAL), NOW)[0]
@@ -685,6 +686,7 @@ class BudgetAndSinaqTest(unittest.TestCase):
         self.assertLessEqual(len(net.calls), 20)
         for part in ("## 1. Regionda zəlzələ", "### Türkiyənin Adana ilində 4,6 maqnitudalı zəlzələ olub", "✅ Dərc olunardı",
                      "### Qırğızıstanda 5,2 maqnitudalı zəlzələ", "ardınca gəlib: bir hadisə, bir xəbər",
+                     "> seismology.az siyahısı oxundu (", "İranda, Buşehrin 115 km cənub-şərqində",
                      "### Bu həftə dünyada 8 kosmik buraxılış planlaşdırılır, aralarında Starship var",
                      "### Pilotlu Crew-13 missiyasının buraxılışı bu gün saat 19:10-da planlaşdırılır",
                      "### Növbəti 7 gündə 17 asteroid Yerə 7,5 milyon km-dən yaxın məsafədən keçəcək",
