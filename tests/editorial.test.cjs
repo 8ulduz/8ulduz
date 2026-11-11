@@ -61,3 +61,16 @@ test('a forbidden write is reported as a failure, never as a completed deletion'
   const editor=new GithubEditor(async(url,options)=>response(url.endsWith('/user')?{login:'owner'}:!url.includes('/contents/')?{permissions:{push:true}}:options.method==='PUT'?{}:file(text),options.method==='PUT'?403:200));
   await editor.login('test-only');await assert.rejects(()=>editor.remove({sourceUrl:'https://apa.az/title-12345'}),/icazəsi yoxdur/);
 });
+
+test('editorial: the default fetcher works in a browser — calling window.fetch as a method of the store threw «Illegal invocation» (owner, 2026-11-11)', async () => {
+  const {GithubEditor} = await ready;
+  const real = globalThis.fetch;
+  let seenThis = 'unset';
+  globalThis.fetch = function (url) { 'use strict'; seenThis = this; if (this !== undefined && this !== globalThis) throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation"); return Promise.resolve({ok: false, status: 401, json: async () => ({})}); };
+  try {
+    const store = new GithubEditor();
+    await store.login('github_pat_test').catch(() => {});
+    assert.notEqual(seenThis, 'unset', 'fetch çağırıldı');
+    assert.ok(seenThis === undefined || seenThis === globalThis, 'fetch obyektin metodu kimi çağırılmır');
+  } finally { globalThis.fetch = real; }
+});

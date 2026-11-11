@@ -1,4 +1,4 @@
-import {GithubEditor, removalKey, parsePolicy} from '../assets/editorial-store.js';
+import {GithubEditor, removalKey, parsePolicy} from '../assets/editorial-store.js?v=2';
 
 if (top !== self) { document.documentElement.hidden = true; throw new Error('Panel çərçivədə açılmır.'); }
 
