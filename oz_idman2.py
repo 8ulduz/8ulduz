@@ -21,14 +21,13 @@ Təqvim. F1 2026 və IJF 2026–2027 təqvimləri modulun içindədir (yalnız v
 Testlər onları API-nin saxlanmış cavabları ilə tutuşdurur, sınaq isə canlı API ilə. F1-in 2027 təqvimi API-də hələ yoxdur
 (2026-11-10): o çıxanda F1_CAL-a əlavə olunmalıdır, yoxsa 2027-də F1 xəbəri çıxmır (sınaq bunu xəbərdar edir).
 
-Sorğular. Hamısı yalnız fetch parametri ilə gedir və yalnız xəbərin cəhd pəncərəsində (bir cəhd = 30 dəqiqə; F1-də iki cəhd,
-2 saat ara ilə, cüdo və UEFA-da bir cəhd). done-dakı xəbər üçün sorğu yoxdur. Mövsümdən kənar heç bir sorğu yoxdur.
-Adi gündə (pəncərədəki ilk çağırış xəbəri çıxarır və ya «xəbər deyil» qərarını verir):
-   cümə axşamı (yarış həftəsi) 2: mərhələnin təqvimi + əvvəlki mərhələdən sonrakı cədvəl (Bakı həftəsində +1: pistin tarixçəsi);
-   cümə (avrokubok həftəsindən sonra) 1: UEFA cədvəli (Bakı həftəsində +1: kvalifikasiya);
-   şənbə 1–2: kvalifikasiya, şənbə bitən cüdo turniri; bazar və ya bazar ertəsi 2–3: yarış + cədvəl, cüdo turniri.
-Xəbər çıxmayanda (məlumat gecikir və ya xəbər deyil) pəncərədəki hər çağırış sorğunu təkrarlayır: 30 dəqiqəlik dövrədə
-bir dəfə, 10 dəqiqəlikdə üç dəfə. Ən ağır real gün (medalsız cüdo turniri + F1 yarışı, 10 dəqiqəlik dövrə) 5 sorğudur.
+Sorğular. Hamısı yalnız fetch parametri ilə gedir və yalnız xəbərin cəhd pəncərəsində (bir cəhd = 40 dəqiqə; F1-də iki cəhd,
+2 saat ara ilə, cüdo və UEFA-da bir cəhd). Mövsümdən kənar heç bir sorğu yoxdur.
+Bir pəncərədə bir dəfə sorğu gedir: nəticə xəbər olmasa da (məlumat gecikir, mənbə alınmır, «xəbər deyil») items() onun
+açarını worth=False və «why» ilə qaytarır. F1-in birinci cəhdi alınmayanda açar «…-cehd1»-dir ki, ikinci cəhd bağlanmasın.
+Canlı sistem items()-in qaytardığı HƏR açarı (worth=False olanı da) done-a yazmalıdır: done-dakı açar üçün sorğu yoxdur.
+Bir xəbərin ən çox sorğusu: ön baxış 2 (Bakı həftəsində 3: pistin tarixçəsi), kvalifikasiya 1, yarış 2 (nəticə + cədvəl),
+cüdo 1, UEFA 1; birinci cəhd alınmayanda +1. Təqvimdəki ən ağır gün 4–5 sorğudur (hədd 6; testlər hər planlı günü sayır).
 """
 import datetime
 import json
@@ -45,7 +44,7 @@ BAKU = ox.BAKU
 UTC = datetime.timezone.utc
 DAY = datetime.timedelta(days=1)
 HOUR = datetime.timedelta(hours=1)
-TRY = datetime.timedelta(minutes=30)            # bir cəhdin pəncərəsi: 10–30 dəqiqəlik dövrə onu ən azı bir dəfə görür
+TRY = datetime.timedelta(minutes=40)            # bir cəhdin pəncərəsi: 10–30 dəqiqəlik dövrə gecikəndə də onu bir dəfə görür
 TRY_GAP = datetime.timedelta(hours=2)           # F1-in ikinci cəhdi (Jolpica nəticəni bir neçə saat gec yaza bilir)
 EARLY = datetime.time(9, 30)                    # gecə hazır olan nəticə səhər 09:30-da
 LATE = datetime.time(22, 30)                    # bundan gec slot ertəsi gün 10:00-a keçir
@@ -61,7 +60,9 @@ TIMEOUT = 15
 TITLE_MAX = 110
 MIN_CLASSIFIED = 10                             # yarış və kvalifikasiya cədvəlində ən azı 10 pilot olmalıdır
 JUDO_CATS = 14                                  # Dünya turunun fərdi yarışında 7 kişi + 7 qadın çəkisi
-DAILY_CAP = 4
+DAILY_CAP = 4                                   # bir çağırışda ən çox bu qədər xəbər (təqvimdə bir günə 3-dən çox düşmür)
+STALE = datetime.timedelta(days=2)              # yarışın nəticəsi bundan köhnədirsə xəbər deyil (təqvim dəyişib)
+PREVIEW_AHEAD = datetime.timedelta(days=4)      # ön baxış: yarış cümə axşamından ən çox 4 gün sonra olmalıdır
 SEC_PAUSE = 1.0                                 # sınaqda eyni hosta sorğular arasında fasilə
 
 F1_API = "https://api.jolpi.ca/ergast/f1"
@@ -299,8 +300,25 @@ def _tries(first, n):
     return out
 
 
-def _due(now, tries):
-    return any(t <= now < t + TRY for t in tries)
+def _try_no(now, tries):
+    """now hansı cəhdin pəncərəsindədir (0-dan); heç birində deyilsə None."""
+    for k, t in enumerate(tries):
+        if t <= now < t + TRY:
+            return k
+    return None
+
+
+def _mark(e, k):
+    """Cəhdin açarı: son cəhddə xəbərin öz açarı, əvvəlki cəhd alınmayanda «…-cehd1» (ikinci cəhd açıq qalsın)."""
+    return e["key"] if k >= len(e["tries"]) - 1 else f"{e['key']}-cehd{k + 1}"
+
+
+def _skip(e, key, slot, why):
+    """Sorğudan sonra dərc olunmayan nəticə: açar done-a düşsün, həmin pəncərədə yenə sorğu getməsin."""
+    why = why or "xəbər qurulmadı"
+    return {"kind": e["kind"], "key": key, "title": f"{LABEL[e['kind']]}: {e['label']}", "lead": why[:1].upper() + why[1:] + ".",
+            "body": [], "list": False, "credit": e["credit"], "link": e["link"], "topic": "idman", "slot": f"{slot:%H:%M}",
+            "date": slot.date().isoformat(), "worth": False, "why": why}
 
 
 def _get(fetch, url, headers=None):
@@ -315,7 +333,7 @@ def _finish(item):
     text = "\n".join([item["title"], item["lead"], *item["body"]])
     if not fd.leader_free(text):
         return None, "mətndə rəhbərliyin adı keçir"
-    if len(item["title"]) > TITLE_MAX:
+    if not item["title"] or len(item["title"]) > TITLE_MAX:
         return None, "başlıq çox uzundur"
     return item, ""
 
@@ -412,7 +430,7 @@ def _f1_snd(name):
 
 
 def f1_gen(name):
-    """Yiyəlik hal, oxunuşa görə: «Norris»in, «Antonelli»nin, «Russell»ın."""
+    """Yiyəlik hal, oxunuşa görə: «Norris»in, «Antonelli»nin, «Russell»in (Rassel), «Lawson»un."""
     s = _f1_snd(name)
     return f"«{name}»{'n' if ox._vowel_end(s) else ''}{ox._four(s, ('ın', 'in', 'un', 'ün'))}"
 
@@ -424,7 +442,7 @@ def f1_dat(name):
 
 
 def f1_abl(name):
-    """Çıxışlıq hal: «Verstappen»dən, «Norris»dən, «Russell»dan."""
+    """Çıxışlıq hal: «Verstappen»dən, «Norris»dən, «Hamilton»dan."""
     return f"«{name}»{'dan' if _back(_f1_snd(name)) else 'dən'}"
 
 
@@ -473,8 +491,8 @@ def race_facts(doc, season, rnd):
     rows.sort(key=lambda z: z["pos"])
     if len(rows) < MIN_CLASSIFIED or [z["pos"] for z in rows[:3]] != [1, 2, 3]:
         return None, f"yarışın nəticəsi natamamdır ({len(rows)} pilot)"
-    if not re.fullmatch(r"\d+:\d\d:\d\d(?:\.\d+)?", rows[0]["time"]):
-        return None, "qalibin vaxtı yoxdur"
+    if not re.fullmatch(r"\d+:\d\d:\d\d(?:\.\d+)?", rows[0]["time"]) or not rows[0]["laps"] or not rows[0]["team"]:
+        return None, "qalibin vaxtı, dövrə sayı və ya komandası yoxdur"
     when = _ergast_dt(r.get("date"), r.get("time"))
     if not when:
         return None, "yarışın tarixi yoxdur"
@@ -655,9 +673,8 @@ def quali_item(f, slot):
         if pole["q"][2] and row["q"][2]:
             a, b = _lap_s(pole["q"][2]), _lap_s(row["q"][2])
             gap = round(b - a, 3) if a is not None and b is not None and b >= a else None
-        if gap is not None:
-            ref = f"{f1_abl(pole['family'])} " if place == "ikinci" else ""
-            parts.append(f"{_who(row)} {ref}{ox.az_num(gap, 3)} saniyə geri qalaraq {place}")
+        if gap is not None:      # fərq hər iki pilot üçün birincinin vaxtından sayılır: bunu mətn də deyir
+            parts.append(f"{_who(row)} {f1_abl(pole['family'])} {ox.az_num(gap, 3)} saniyə geri qalaraq {place}")
         else:
             parts.append(f"{_who(row)} {place}")
     lead += f" {parts[0]}, {parts[1]} yeri tutub."
@@ -665,7 +682,7 @@ def quali_item(f, slot):
     rest = [r for r in rows if 4 <= r["pos"] <= 10]
     if rest:
         body.append("İlk onluqdakı digər pilotlar: " + ", ".join(f"{r['pos']}. {_who(r)}" for r in rest) + ".")
-    if f.get("when"):
+    if f.get("when") and f["when"] > slot:
         race = f["when"].astimezone(BAKU)
         body.append(f"Yarış {ox.day_loc(race)} Bakı vaxtı ilə {ox.time_loc(race)} başlayacaq.")
     title = _pick_title([
@@ -678,16 +695,26 @@ def quali_item(f, slot):
     return _finish(_item("f1-siralama", key, title, lead, body, F1_CREDIT, link, slot))
 
 
-def preview_item(doc, table, slot, season, rnd, laps_count=None, last_round=None):
-    """Yarış həftəsinin ön baxışı: mərhələ, pist, Bakı vaxtı ilə sessiyalar, çempionatın ilk üçlüyü."""
+def preview_ready(doc, slot, season, rnd):
+    """Təqvim cavabı ön baxışa yarayır? -> (mərhələ, yarışın vaxtı, "") və ya (None, None, səbəb)."""
     r = _race_of(doc, season, rnd)
     if not r:
-        return None, "mərhələnin təqvimi API-də yoxdur"
+        return None, None, "mərhələnin təqvimi API-də yoxdur"
     race = _ergast_dt(r.get("date"), r.get("time"))
     if not race:
-        return None, "yarışın vaxtı yoxdur"
+        return None, None, "yarışın vaxtı yoxdur"
     if race <= slot:
-        return None, "yarış artıq keçib"
+        return None, None, "yarış artıq keçib"
+    if race - slot > PREVIEW_AHEAD:
+        return None, None, "təqvim dəyişib: yarış bu həftə sonu deyil"
+    return r, race, ""
+
+
+def preview_item(doc, table, slot, season, rnd, laps_count=None, last_round=None):
+    """Yarış həftəsinin ön baxışı: mərhələ, pist, Bakı vaxtı ilə sessiyalar, çempionatın ilk üçlüyü."""
+    r, race, why = preview_ready(doc, slot, season, rnd)
+    if not r:
+        return None, why
     p = _place(r)
     gp, gp_gen, gp_loc = _gp_forms(str(r.get("raceName") or ""))
     rb = race.astimezone(BAKU)
@@ -713,7 +740,8 @@ def preview_item(doc, table, slot, season, rnd, laps_count=None, last_round=None
         gap = lead_row["pts"] - r2["pts"]
         if gap > 0:
             body.append(f"Lider ikinci yerdəki {f1_abl(r2['family'])} {_pts(gap)} xal öndədir.")
-    city_loc = ox.place_loc(p["city"]) if p["city"] else ""
+    # «Las-Veqas Qran-prisi ... Las-Veqasda» təkrarı başlıqda yazılmır
+    city_loc = ox.place_loc(p["city"]) if p["city"] and not gp.startswith(p["city"]) else ""
     title = _pick_title([
         f"Formula 1: {gp} bu həftə sonu Bakıda keçiriləcək" if p["baku"] else "",
         f"Formula 1 mövsümünün son mərhələsi — {gp} bu həftə sonu keçiriləcək" if last_round and rnd == last_round else "",
@@ -739,6 +767,9 @@ def f1_make_preview(season, rnd, last_round):
             sched = _get(fetch, f"{F1_API}/{season}/{rnd}.json")
         except Exception as e:
             return None, f"Jolpica alınmadı: {type(e).__name__}"
+        r, _, why = preview_ready(sched, at, season, rnd)
+        if not r:                 # təqvim yaramırsa əlavə sorğu getmir
+            return None, why
         table = None
         if rnd > 1:
             try:
@@ -746,8 +777,7 @@ def f1_make_preview(season, rnd, last_round):
             except Exception:
                 table = None
         count = None
-        r = _race_of(sched, season, rnd)
-        if r and _place(r)["baku"]:
+        if _place(r)["baku"]:
             try:
                 count = _baku_count(_get(fetch, f"{F1_API}/circuits/baku/races.json?limit=100"), season, rnd)
             except Exception:
@@ -765,6 +795,9 @@ def f1_make_quali(season, rnd):
         f, why = quali_facts(doc, season, rnd)
         if not f:
             return None, why
+        when = f.get("when")
+        if when and not (at - DAY < when < at + PREVIEW_AHEAD):
+            return None, "kvalifikasiyanın nəticəsi bu həftə sonuna aid deyil (təqvim dəyişib)"
         return quali_item(f, at)
     return make
 
@@ -780,7 +813,9 @@ def f1_make_race(season, rnd):
             return None, why
         if f["when"] > at:
             return None, "yarış hələ keçirilməyib (cavab köhnə və ya səhvdir)"
-        teams = {r["id"]: r["team"] for r in f["rows"]}
+        if at - f["when"] > STALE:
+            return None, "yarışın nəticəsi köhnədir (təqvim dəyişib)"
+        teams ={r["id"]: r["team"] for r in f["rows"]}
         try:
             table = standings(_get(fetch, f"{F1_API}/{season}/{rnd}/driverStandings.json"), season, rnd, teams)
         except Exception:
@@ -799,12 +834,13 @@ def f1_events(year):
         thursday = race.date() - DAY * ((race.weekday() - 3) % 7)
         pv = datetime.datetime.combine(thursday, PREVIEW_AT, BAKU)
         label = gp_az(c["name"]) or c["name"]
-        evs.append({"kind": "f1-onbaxis", "key": f"f1-{year}-r{rnd}-onbaxis", "tries": _tries(pv, 2), "label": label,
-                    "make": f1_make_preview(year, rnd, last)})
-        evs.append({"kind": "f1-siralama", "key": f"f1-{year}-r{rnd}-siralama", "tries": _tries(_slot(c["quali"] + QUALI_READY), 2),
-                    "label": label, "make": f1_make_quali(year, rnd)})
-        evs.append({"kind": "f1-yaris", "key": f"f1-{year}-r{rnd}-yaris", "tries": _tries(_slot(race + RACE_READY), 2),
-                    "label": label, "make": f1_make_race(year, rnd)})
+        src = {"label": label, "credit": F1_CREDIT, "link": f"{F1_API}/{year}/{rnd}.json"}
+        evs.append(dict(src, kind="f1-onbaxis", key=f"f1-{year}-r{rnd}-onbaxis", tries=_tries(pv, 2),
+                        make=f1_make_preview(year, rnd, last)))
+        evs.append(dict(src, kind="f1-siralama", key=f"f1-{year}-r{rnd}-siralama",
+                        tries=_tries(_slot(c["quali"] + QUALI_READY), 2), make=f1_make_quali(year, rnd)))
+        evs.append(dict(src, kind="f1-yaris", key=f"f1-{year}-r{rnd}-yaris", tries=_tries(_slot(race + RACE_READY), 2),
+                        make=f1_make_race(year, rnd)))
     return evs
 
 
@@ -931,13 +967,15 @@ def judo_item(ev, cats, slot):
     if low:
         body.append(", ".join(low) + " yeri tutub.")
     rank = medal_rank(medal_table(cats))
+    # dünya çempionatında komanda yarışı da olur: buradakı sıralama yalnız fərdi çəkilərdəndir, mətn də bunu deyir
+    table_name = "fərdi yarışların medal sıralamasında" if worlds else "medal sıralamasında"
     if rank:
-        body.append("Azərbaycan yığması medal sıralamasında " +
+        body.append(f"Azərbaycan yığması {table_name} " +
                     (f"{_PLACE_WORD[rank]} olub." if rank in _PLACE_WORD else f"{ox.ordinal(rank)} yeri tutub."))
     single = next(iter(groups.get(1) or groups.get(2) or groups.get(3) or []), "")
     medal = "qızıl" if gold else "gümüş" if silver else "bürünc"
     title = _pick_title([
-        f"{event}: Azərbaycan yığması medal sıralamasında birinci olub" if rank == 1 and total >= 2 else "",
+        f"{event}: Azərbaycan yığması {table_name} birinci olub" if rank == 1 and total >= 2 else "",
         f"{event}: {single} {medal} medal qazanıb" if total == 1 else "",
         f"{event}: Azərbaycan cüdoçuları {counts} medal qazanıb",
         f"{event}: Azərbaycan cüdoçuları {total} medal qazanıb",
@@ -970,16 +1008,17 @@ def judo_make(ev):
 
 
 def judo_slot(ev):
-    """Son günün yerli 21:00-ı Bakı vaxtı ilə, gecə düşürsə səhərə keçir (Avropa turnirləri: ertəsi gün 10:00)."""
+    """Son günün yerli 21:00-ı Bakı vaxtı ilə, gecəyə düşürsə səhərə keçir (Avropa və Amerika turnirləri: ertəsi gün 09:30)."""
     return _slot(datetime.datetime.combine(ev["to"], JUDO_LOCAL_READY, ev["tz"]))
 
 
 def judo_events(cal=None):
     evs = []
-    for ev in cal or CUDO_CAL:
+    for ev in CUDO_CAL if cal is None else cal:     # boş siyahı boş qalır: «or» bütün təqvimi qaytarırdı
         city = JUDO_CITY.get(ev["city"]) or ev["city"]
         evs.append({"kind": "cudo", "key": f"cudo-ijf-{ev['id']}", "tries": _tries(judo_slot(ev), 1),
-                    "label": f"{city} {JUDO_RANK.get(ev['rank']) or ev['rank']}", "make": judo_make(ev), "event": ev})
+                    "label": f"{city} {JUDO_RANK.get(ev['rank']) or ev['rank']}", "make": judo_make(ev), "event": ev,
+                    "credit": IJF_CREDIT, "link": IJF_PAGE.format(ev["id"])})
     return evs
 
 
@@ -1160,7 +1199,8 @@ def uefa_events(root, year):
             continue
         season = _uefa_year(day)
         evs.append({"kind": "uefa-emsal", "key": f"uefa-emsal-{day.isoformat()}", "tries": [wk["check"]],
-                    "label": "UEFA ölkə əmsalları", "make": uefa_make(wk, season), "week": wk})
+                    "label": "UEFA ölkə əmsalları", "make": uefa_make(wk, season), "week": wk,
+                    "credit": UEFA_CREDIT, "link": UEFA_PAGE.format(season)})
     return evs
 
 
@@ -1186,24 +1226,36 @@ def _default_fetch():
 
 
 def items(root, now, fetch=None, done=None):
-    """now anında (Bakı) dərc olunacaq xəbərlər. Sorğu yalnız cəhd pəncərəsindəki, done-da olmayan xəbər üçün gedir.
+    """now anında (Bakı) dərc olunacaq xəbərlər (worth=True) və sorğusu getmiş, amma dərc olunmayan nəticələr
+    (worth=False, «why» ilə). Sorğu yalnız cəhd pəncərəsindəki, açarı done-da olmayan xəbər üçün gedir; qaytarılan hər
+    açar done-a yazılanda pəncərədə bir dəfə sorğu olur. Xəbər pəncərənin başlanğıc anı üçün qurulur (sınaqdakı kimi).
     Heç vaxt xəta qaldırmır: mənbə alınmayanda həmin xəbər çıxmır."""
     try:
         now = _aware(now)
         fetch = fetch or _default_fetch()
         done = set(done or ())
-        out = []
+        good, rest = [], []
         for e in day_events(root, now.date()):
-            if e["key"] in done or not _due(now, e["tries"]):
+            k = _try_no(now, e["tries"])
+            if k is None or e["key"] in done or _mark(e, k) in done:
                 continue
+            at = e["tries"][k]
             try:
-                item, _ = e["make"](fetch, now)
-            except Exception:
-                item = None
+                item, why = e["make"](fetch, at)
+            except Exception as ex:
+                item, why = None, f"xəta: {type(ex).__name__}"
             if item and item.get("worth"):
-                out.append(item)
-        out.sort(key=lambda i: (PRIO[i["kind"]], i["slot"], i["key"]))
-        return out[:DAILY_CAP]
+                good.append(item)
+            elif item and item.get("key") == _mark(e, k):
+                rest.append(item)                       # tam mətnli, amma xəbər olmayan nəticə (UEFA: dəyişməyib)
+            else:
+                if k < len(e["tries"]) - 1:
+                    why = f"{why or 'xəbər qurulmadı'}; növbəti cəhd {ox.time_loc(e['tries'][k + 1])}"
+                rest.append(_skip(e, _mark(e, k), at, why))
+        good.sort(key=lambda i: (PRIO[i["kind"]], i["slot"], i["key"]))
+        for item in good[DAILY_CAP:]:
+            item["worth"], item["why"] = False, f"bir dəfəyə ən çox {DAILY_CAP} xəbər dərc olunur"
+        return good + rest
     except Exception:
         return []
 
@@ -1298,7 +1350,8 @@ def sinaq(root, now=None, fetch=None):
     fetch = _paced(fetch or _default_fetch(), log)
     md = ["## İdman: Formula 1, cüdo və UEFA ölkə əmsalları (oz_idman2.py)", "",
           f"Sınaq vaxtı: {now:%d.%m.%Y %H:%M} (Bakı). Mənbələr: Jolpica F1 API, IJF data API, UEFA (comp.uefa.com). "
-          f"Canlıda sorğu yalnız xəbərin 30 dəqiqəlik pəncərəsində gedir (adi gündə 0–3, ən çox 6).", ""]
+          f"Canlıda sorğu yalnız xəbərin {int(TRY.total_seconds() // 60)} dəqiqəlik pəncərəsində və pəncərədə bir dəfə gedir "
+          f"(adi gündə 0–3, ən çox 6).", ""]
     try:
         evs = []
         for y in (now.year - 1, now.year):
@@ -1309,7 +1362,8 @@ def sinaq(root, now=None, fetch=None):
     today = [e for e in evs if e["tries"][0].date() == now.date()]
     md += [f"### Bu gün, {ox.day_text(now)}: plan", ""]
     for e in today:
-        state = ("slotu gəlməyib" if now < e["tries"][0] else "pəncərədədir" if _due(now, e["tries"]) else "pəncərə keçib")
+        state = ("slotu gəlməyib" if now < e["tries"][0] else "pəncərədədir" if _try_no(now, e["tries"]) is not None
+                 else "pəncərə keçib")
         md.append(f"- {', '.join(f'{t:%H:%M}' for t in e['tries'])} · {LABEL[e['kind']]} · {e['label']} · `{e['key']}` — {state}")
     if not today:
         md.append("- Bu gün üçün planda xəbər yoxdur.")
