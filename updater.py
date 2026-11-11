@@ -518,6 +518,8 @@ UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chr
 def norm_az(s):
     return s.lower().replace("i̇", "i")
 
+_EN_WORDS = frozenset("the why with from for and says after before in of to has is its between by into his this that are was will be over amid".split())
+
 def detect_lang(title, desc, default):
     """Dil təyini: kiril→ru, 'ə'→az (türkdə yoxdur), ı/ğ/İ→tr, əks halda mənbə dili.
     Azərbaycan mənbələrində ə-siz qısa başlıqlar türkcə sayılmasın deyə default "az" üstündür."""
@@ -531,6 +533,10 @@ def detect_lang(title, desc, default):
     if "ə" in blob or "Ə" in blob:
         return "az"
     if default == "az":
+        # «Erdoğan», «Türkiye», «Özgür Özel» ingilis xəbərini azərbaycanca etmir (2026-11-11: Azernews xəbəri AZ lentə düşdü):
+        # ə-siz mətndə ingilis köməkçi sözləri varsa, ingiliscədir.
+        if len(set(re.findall(r"[a-z]+", blob.lower())) & _EN_WORDS) >= 2:
+            return "en"
         # AZ mənbəsində ə-siz, lakin ı/ş/ç/ğ/ö/ü olan mətn azərbaycancadır; təmiz ASCII isə ingiliscə
         if re.search(r"[ıİşŞçÇğĞöÖüÜ]", blob) or not re.search(r"[A-Za-z]{3}", blob):
             return "az"

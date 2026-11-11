@@ -620,6 +620,14 @@ class QualityTest(unittest.TestCase):
         self.assertEqual(updater.detect_lang("Tehrandan Avropaya", "", "az"), "az")
         self.assertEqual(updater.detect_lang("Zaqatalada qaz olmayacaq", "", "az"), "az")
         self.assertEqual(updater.detect_lang("Azerbaijan, Turkiye discuss solar energy deal", "", "az"), "en")
+        # Türk hərfli ad ingilis xəbərini AZ lentə salmır
+        self.assertEqual(updater.detect_lang("Erdoğan thanks Azerbaijan for sharing COP29 experience at Antalya climate summit", "Turkish President Recep Tayyip Erdoğan has expressed appreciation to Azerbaijan", "az"), "en")
+        self.assertEqual(updater.detect_lang("Yeni Parti leader Özgür Özel makes phone call to President Ilham Aliyev", "Chairman of Türkiye's Yeni Parti Özgür Özel has called President of Azerbaijan Ilham Aliyev.", "az"), "en")
+        self.assertEqual(updater.detect_lang("Azerbaijan advances green energy corridor talks with Bulgaria", "exports to Türkiye and Europe", "az"), "en")
+        self.assertEqual(updater.detect_lang("Özgür Özel Bakıya gedir", "", "az"), "az")
+        self.assertEqual(updater.detect_lang("Türkiye ilk yeri tutdu", "Yarış başa çatdı", "az"), "az")
+        self.assertEqual(updater.detect_lang("Sincere dialogue between President Ilham Aliyev and Recep Tayyip Erdoğan", "", "az"), "en")
+        self.assertEqual(updater.detect_lang("Fulya Öztürk Aygün Kazımovanın mahnısını paylaşdı", "", "az"), "az")
 
     def test_same_site_stories_do_not_merge_by_event_similarity(self):
         at = "2026-10-31T01:00:00+00:00"
