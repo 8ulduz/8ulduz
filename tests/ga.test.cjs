@@ -56,9 +56,9 @@ test("ga4: bad id sends nothing; the site loads the sender only after it is show
   assert.equal(local.api.hit("G-NHSDLY61CD", "/", "x"), null, "yerli sınaq GA4-ə getmir"); assert.equal(local.sent.length, 0);
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8"), cfg = fs.readFileSync(path.join(root, "assets/config.js"), "utf8");
   assert.ok(cfg.includes('ga4: "G-NHSDLY61CD"'));
-  assert.ok(app.includes('import("./ga.js?v=3")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
+  assert.ok(app.includes('import("./ga.js?v=4")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
   for (const f of ["assets/app.js", "index.html", "assets/config.js"]) assert.ok(!/googletagmanager|gtag\/js/.test(fs.readFileSync(path.join(root, f), "utf8")), f + ': Google-un ağır skripti yoxdur');
-  assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4300, 'göndərici kiçik qalır');
+  assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4500, 'göndərici kiçik qalır');
   assert.ok(fs.readFileSync(path.join(root, "mexfilik/index.html"), "utf8").includes("Google Analytics 4"), 'məxfilik səhifəsində yazılıb');
 });
 
@@ -79,7 +79,7 @@ test("ga4: clicks to sources, shares and installs are counted as events (owner 2
 
 // Sahib 2026-11-11: xəbər keçidi ayrıca hadisədir, domen/keçid/başlıq ilə; hər klik bir hadisə.
 const link = (href, { inner = null, art, list = false, cls = "" } = {}) => { const u = new URL(href); return { href, hostname: u.hostname, matches: s => !!cls && s.includes(cls), textContent: "  Şəkil başlığı ",
-  querySelector: () => inner && { textContent: inner }, closest: s => s === "article" ? (art === undefined ? null : { querySelector: () => art ? { textContent: art } : null }) : list ? {} : null }; };
+  querySelector: () => inner && { textContent: inner, querySelector: () => /^Birinci/.test(inner) ? { textContent: "Birinci xanım" } : null }, closest: s => s === "article" ? (art === undefined ? null : { querySelector: () => art ? { textContent: art } : null }) : list ? {} : null }; };
 
 test("ga4: a news link is one news_outbound_click with domain, full link and headline; other links stay «out»", () => {
   const t = Date.parse("2026-11-11T12:00:00Z"), { api, sent } = load({ stored: { cid: "1.2", sid: t / 1000 - 60, sct: 1, last: t - 1e3 } });
@@ -100,6 +100,7 @@ test("ga4: a news link is one news_outbound_click with domain, full link and hea
   assert.equal(p[3]["ep.type"], "t.me"); assert.equal(p[3]["ep.news_domain"], undefined); assert.equal(p[4]["ep.type"], "www.facebook.com");
   const long = params(go("out-a.az", link("https://a.az/" + "x".repeat(300), { inner: "b".repeat(300), art: "" })).toString().replace(/^/, "https://x/?"));
   assert.equal(long["ep.news_url"].length, 100); assert.equal(long["ep.news_title"].length, 100, "GA4 həddi: 100 işarə");
+  assert.equal(api.news(link("https://president.az/az/articles/view/1", { inner: "Birinci xanımPrezident Sammitdə iştirak edib", art: "" }))[2], "Prezident Sammitdə iştirak edib", "kart etiketi başlığa yapışmır");
   assert.equal(api.news(null), null); assert.equal(api.news({}), null);
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
   assert.ok(app.includes('for (const t of ["click", "auxclick"]) addEventListener(t, e =>') && app.includes("e.button < 2) trackEvent("), "orta düymə sayılır, sağ düymə yox");

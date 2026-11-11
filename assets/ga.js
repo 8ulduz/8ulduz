@@ -35,7 +35,8 @@ export function pageUrl(path, loc = location) {
 export function news(a) {
   const art = a?.closest?.("article");
   if (!a?.matches || a.matches(".soc-p") || !(art || a.closest(".phrow,.track,.alerts,.foot-news"))) return null;
-  const t = (a.querySelector("h1,h2,h3,h4,.t") || art?.querySelector("h1,h2,h3,h4") || a).textContent.trim();
+  const el = a.querySelector("h1,h2,h3,h4,.t") || art?.querySelector("h1,h2,h3,h4") || a, tag = el.querySelector?.(".tag")?.textContent || ""; // «Birinci xanım» etiketi başlıq deyil
+  const t = el.textContent.replace(tag, "").trim();
   return t ? [a.hostname.toLowerCase().replace(/^www\./, ""), a.href, t] : null;
 }
 
