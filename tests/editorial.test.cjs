@@ -74,3 +74,8 @@ test('editorial: the default fetcher works in a browser — calling window.fetch
     assert.ok(seenThis === undefined || seenThis === globalThis, 'fetch obyektin metodu kimi çağırılmır');
   } finally { globalThis.fetch = real; }
 });
+
+test('editorial: the panel never comes from the service worker cache — an old copy kept the «Illegal invocation» bug after the fix (owner, 2026-11-11)', () => {
+  const sw = require('node:fs').readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
+  assert.ok(sw.includes('!url.pathname.startsWith(SCOPE_URL.pathname + "idare/") && !url.pathname.endsWith("/editorial-store.js")'));
+});
