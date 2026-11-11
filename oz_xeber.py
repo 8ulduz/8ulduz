@@ -957,7 +957,7 @@ def sinaq(root, limit=10, now=None):
         per = cost(total) / done
         md += ["## Xərc", "", f"{done} xəbər: {total[0]} giriş + {total[1]} çıxış tokeni ≈ ${cost(total):.4f}. "
                f"Bir xəbər orta hesabla ${per:.4f}; gündə 45 xəbər olsa ayda ≈ ${per * 45 * 30:.2f}.", ""]
-    return md + faza1_sinaq(root, now, u.fetch)
+    return md + faza_sinaq(root, now, u.fetch)
 
 
 # Mərhələ 1: saytın öz məlumatından şablon xəbərlər (sahib, 2026-11-10: «Bəli, başla»). Hər modul ayrıca faylda, öz testləri ilə.
@@ -971,20 +971,42 @@ FAZA1 = (
     ("oz_icmal", "İcmal: «Günün bələdçisi» və «Həftənin rəqəmləri»"),
 )
 
+# Mərhələ 2: açarsız açıq mənbələrdən şablon xəbərlər (sahib, 2026-11-10: «Mərhələ 2-ni qur»).
+# Modullar ayrı budaqlarda yazılır; faylı hələ gəlməyən modul sınaqda ötürülür. Bunlar da sayta qoşulmayıb.
+FAZA2 = (
+    ("oz_hava", "Hava və təbiət"),
+    ("oz_yer_kosmos", "Yer və kosmos"),
+    ("oz_maliyye", "Maliyyə"),
+    ("oz_medeniyyet", "Mədəniyyət və bilik"),
+    ("oz_idman2", "İdman: Formula 1, cüdo, UEFA reytinqi"),
+    ("oz_gundelik", "Gündəlik həyat"),
+)
 
-def faza1_sinaq(root, now, fetch):
-    """Mərhələ 1 modullarının nümunələri. Modulun başlıqları iki pillə aşağı salınır ki, bu bölmənin içində qalsın."""
+FAZALAR = (
+    (3, "Mərhələ 1: saytın öz məlumatından (şablon, süni intellektsiz)", FAZA1),
+    (4, "Mərhələ 2: açarsız açıq mənbələrdən (şablon, süni intellektsiz)", FAZA2),
+)
+
+
+def faza_sinaq(root, now, fetch):
+    """Mərhələ modullarının nümunələri. Modulun başlıqları iki pillə aşağı salınır ki, bu bölmənin içində qalsın."""
     import importlib
-    md = ["## 3. Mərhələ 1: saytın öz məlumatından (şablon, süni intellektsiz)", ""]
-    for n, (name, title) in enumerate(FAZA1, 1):
-        md += [f"### 3.{n}. {title} (`{name}.py`)", ""]
-        try:
-            lines = importlib.import_module(name).sinaq(root, now, fetch)
-        except Exception as e:
-            md += [f"> {name} xətası: {type(e).__name__}: {e}"[:300], ""]
+    here = pathlib.Path(__file__).resolve().parent
+    md = []
+    for no, heading, mods in FAZALAR:
+        mods = [(name, title) for name, title in mods if (here / f"{name}.py").exists()]
+        if not mods:
             continue
-        md += [("##" + line) if line.startswith("#") else line for line in lines]
-        md += [""]
+        md += [f"## {no}. {heading}", ""]
+        for n, (name, title) in enumerate(mods, 1):
+            md += [f"### {no}.{n}. {title} (`{name}.py`)", ""]
+            try:
+                lines = importlib.import_module(name).sinaq(root, now, fetch)
+            except Exception as e:
+                md += [f"> {name} xətası: {type(e).__name__}: {e}"[:300], ""]
+                continue
+            md += [("##" + line) if line.startswith("#") else line for line in lines]
+            md += [""]
     return md
 
 
