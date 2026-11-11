@@ -15,7 +15,7 @@
 //   Facebook  FB_PAGE_ID (8ulduz səhifəsi 1470250006171917, social.yml-də), FB_PAGE_TOKEN (Meta tətbiqi «8ulduz paylasma» 1000332509080909,
 //             uzadılmış istifadəçi açarından alınmış müddətsiz səhifə açarı; yalnız SƏHİFƏ, şəxsi profilə API ilə yazmaq olmur)
 //   X         X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (developer.x.com, «Read and write» icazəsi)
-//   LinkedIn  LINKEDIN_TOKEN (w_member_social), LINKEDIN_AUTHOR (urn:li:person:… və ya urn:li:organization:…)
+//   LinkedIn  LINKEDIN_TOKEN (w_organization_social), LINKEDIN_AUTHOR (8ULDUZ səhifəsinin urn:li:organization:… nömrəsi)
 //   Instagram Facebook açarları ilə; səhifəyə bağlı Instagram peşəkar hesabı və açarda instagram_content_publish icazəsi olanda işləyir
 //             (söndürmək: Variables INSTAGRAM=0). Yalnız şəkilli xəbər, 45 dəqiqədən bir.
 // Açarlar heç vaxt jurnala yazılmır. Paylaşılan nömrələr .social/posted.json-dadır (actions/cache), 3 gün saxlanır.
@@ -24,8 +24,10 @@ const fs = require("fs"), path = require("path"), crypto = require("crypto");
 
 const SHARE = "https://www.8ulduz.az/";
 const X_KEYS = ["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"];
+const LINKEDIN_VERSION = "202610"; // rəsmi aktiv versiya, 2026-11-11 yoxlanıb; 202510 artıq bağlanıb
 const KEEP_S = 3 * 86400;
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
+const linkedinAuthor = env => /^urn:li:organization:[1-9]\d*$/.test(String(env.LINKEDIN_AUTHOR || "").trim()) ? env.LINKEDIN_AUTHOR.trim() : "";
 
 function options(env = process.env) {
   return {
@@ -184,10 +186,11 @@ function networks(env = process.env) {
     // Keçid X-də 23 simvol sayılır: başlıq 250-yə qədər, cəmi 280-dən az.
     return [url, { method: "POST", headers: { authorization: header, "content-type": "application/json" }, body: JSON.stringify({ text: `${cut(a.title, 250)}\n${shareUrl(a)}` }) }];
   } });
-  if (env.LINKEDIN_TOKEN && env.LINKEDIN_AUTHOR) list.push({ name: "linkedin", request: a => ["https://api.linkedin.com/rest/posts", {
+  const liAuthor = linkedinAuthor(env);
+  if (env.LINKEDIN_TOKEN && liAuthor) list.push({ name: "linkedin", token: env.LINKEDIN_TOKEN, request: a => ["https://api.linkedin.com/rest/posts", {
     method: "POST",
-    headers: { authorization: `Bearer ${env.LINKEDIN_TOKEN}`, "content-type": "application/json", "linkedin-version": env.LINKEDIN_VERSION || "202510", "x-restli-protocol-version": "2.0.0" },
-    body: JSON.stringify({ author: env.LINKEDIN_AUTHOR, commentary: cut(a.title, 700), visibility: "PUBLIC",
+    headers: { authorization: `Bearer ${env.LINKEDIN_TOKEN}`, "content-type": "application/json", "linkedin-version": env.LINKEDIN_VERSION || LINKEDIN_VERSION, "x-restli-protocol-version": "2.0.0" },
+    body: JSON.stringify({ author: liAuthor, commentary: cut(a.title, 700), visibility: "PUBLIC",
       distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
       content: { article: { source: shareUrl(a), title: cut(a.title, 200) } }, lifecycleState: "PUBLISHED", isReshareDisabledByAuthor: false }) }] });
   // Instagram (sahib 2026-11-06): Facebook səhifəsinə bağlı Instagram peşəkar hesabına şəkilli post. Ayrı açar yoxdur: səhifə açarı
@@ -248,6 +251,9 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
   // X açarları natamamdırsa şəbəkə sakitcə düşürdü (2026-11-10: «X-də xəbər yoxdur»): hansı sirrin çatmadığını jurnala yaz.
   const xMissing = X_KEYS.filter(k => !env[k]);
   if (xMissing.length) log(`x: sirr yoxdur — ${xMissing.join(", ")} (developer.x.com, «Read and write»; repo Settings → Secrets) — ötürülür`);
+  const liMissing = ["LINKEDIN_TOKEN", "LINKEDIN_AUTHOR"].filter(k => !env[k]);
+  if (liMissing.length) log(`linkedin: sazlama yoxdur — ${liMissing.join(", ")} — ötürülür`);
+  else if (!linkedinAuthor(env)) log("linkedin: yalnız 8ULDUZ şirkət səhifəsinin urn:li:organization:<nömrə> müəllifi qəbul edilir; şəxsi profilə göndərilmir — ötürülür");
   if (!nets.length) {
     log(`Açar yoxdur, heç nə göndərilmir. Növbəti seçim: ${list[0] ? `${sources(list[0])} mənbə — ${clean(list[0].title)}` : "yoxdur"}`);
     return result;
