@@ -9,12 +9,12 @@ const root = path.join(__dirname, "..");
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 
 test("homepage static HTML links /xeber/ and /bolme/ before JavaScript", () => {
-  const html = read("index.html");
-  const stories = html.match(/href="\/xeber\/[0-9a-f]{16}\/"/g) || [];
-  assert.ok(stories.length >= 1, "index.html-də /xeber/<id>/ keçidi yoxdur");
-  assert.equal(html.includes('href="#/xeber/'), false);
-  assert.ok(html.includes('href="/bolme/gundem/"'), "bölmə menyusu /bolme/ ünvanıdır");
-  assert.equal(html.includes('href="#/bolme/'), false);
+  // Yalnız sabit qabıq yoxlanır. Hazır ilk ekranı (pre-skel) bot hər 10 dəqiqədən bir yenidən yazır: onun məzmununa bağlı test
+  // (məs. «ən azı bir /xeber/ keçidi») lentdə 20 dəqiqədən köhnə 3 mənbəli xəbər olmayanda bütün PR-ları qırmızı edərdi.
+  const html = read("index.html"), i = html.indexOf('<div class="pre-skel"');
+  const shell = i < 0 ? html : html.slice(0, i) + html.slice(html.indexOf("</main>", i));
+  assert.ok(shell.includes('href="/bolme/gundem/"'), "bölmə menyusu /bolme/ ünvanıdır");
+  assert.equal(shell.includes('href="#/bolme/'), false);
   const app = read("assets/app.js");
   assert.ok(app.includes('href="${hasPage(a) ? `/xeber/${a.id}/` : detailUrl(a)}"'), "N mənbə nişanı yalnız səhifəsi olan xəbərdə həqiqi keçiddir (3+ mənbə və ya Zuğulba), qalanı tətbiqin içində");
   assert.ok(app.includes('safeHref(a.sourceUrl)'), "başlıq yenə mənbəni açır");
