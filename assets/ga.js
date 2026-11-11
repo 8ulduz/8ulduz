@@ -31,16 +31,26 @@ export function pageUrl(path, loc = location) {
   return loc.origin + (route !== "/" ? route : base || "/") + loc.search;
 }
 
+// Xəbər keçidi (sahib 2026-11-11): «news_outbound_click» — news_domain (www-siz), news_url, news_title. «out» kimi ikinci dəfə getmir.
+export function news(a) {
+  const art = a?.closest?.("article");
+  if (!a?.matches || a.matches(".soc-p") || !(art || a.closest(".phrow,.track,.alerts,.foot-news"))) return null;
+  const t = (a.querySelector("h1,h2,h3,h4,.t") || art?.querySelector("h1,h2,h3,h4") || a).textContent.trim();
+  return t ? [a.hostname.toLowerCase().replace(/^www\./, ""), a.href, t] : null;
+}
+
 // ev: hadisə (sahib 2026-11-07: keçidləri ölçmək) — "out-apa.az" (mənbəyə keçid), "share-wa" (paylaşma), "install-…".
 // GA4-də hadisənin adı birinci hissədir (out, share, install), qalanı «type» parametridir.
-export function hit(id, path, title, now = Date.now(), ev = "") {
+export function hit(id, path, title, now = Date.now(), ev = "", a) {
   if (!/^G-[A-Z0-9]+$/.test(String(id || "")) || !/^(www\.)?8ulduz\.az$/.test(location.hostname)) return null; // yerli sınaq statistikaya düşmür
   const { s, first, start } = state(now);
-  const [name, ...type] = String(ev).split("-");
+  const [name, ...type] = String(ev).split("-"), n = name === "out" && news(a);
   const q = new URLSearchParams({ v: "2", tid: id, cid: s.cid, sid: String(s.sid), sct: String(s.sct), _p: String(Math.floor(Math.random() * 1e9)),
-    _s: String(++seq), en: ev ? name.replace(/\W/g, "_").slice(0, 40) || "event" : "page_view", dl: pageUrl(path), dt: String(title || "8ulduz").slice(0, 300),
+    _s: String(++seq), en: n ? "news_outbound_click" : ev ? name.replace(/\W/g, "_").slice(0, 40) || "event" : "page_view", dl: pageUrl(path), dt: String(title || "8ulduz").slice(0, 300),
     ul: String(navigator.language || "").toLowerCase(), sr: `${screen.width || 0}x${screen.height || 0}` });
-  if (ev) { q.set("ep.type", type.join("-").slice(0, 100)); q.set("seg", "1"); send(q); return q; }
+  if (n) ["domain", "url", "title"].forEach((k, i) => q.set("ep.news_" + k, n[i].slice(0, 100))); // GA4 həddi: 100 işarə
+  else if (ev) q.set("ep.type", type.join("-").slice(0, 100));
+  if (ev) { q.set("seg", "1"); send(q); return q; }
   const ref = document.referrer;
   if (seq === 1 && ref && !ref.startsWith(location.origin)) q.set("dr", ref);
   if (first) q.set("_fv", "1");
