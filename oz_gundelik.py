@@ -24,7 +24,7 @@
 
 Sorğular yalnız fetch ilə (15 saniyə), hər mənbəyə öz 30 dəqiqəlik pəncərəsində: DİM 09:00, ASAN 10:00, müraciət 11:00,
 polis 11:45 (icmal adətən 10:30–11:30-da çıxır). Pəncərə başına bir sorğu turu ilə gündə: adi gün 3–4, bazar günü 2–3,
-bazar ertəsi 4–7 sorğu (DİM 1–3 səhifə, ASAN 1, polis 1, müraciət 1–2). done: bu gün dərc olunmuş və ya qurulmuş açarlar. Açar
+bazar ertəsi 4–7 sorğu (DİM 1–3 səhifə, ASAN 1, polis 1, müraciət 1–2); bağlantı qırılanda ünvan bir dəfə təzədən yoxlanır. done: bu gün dərc olunmuş və ya qurulmuş açarlar. Açar
 qabaqcadan bilinir (dim-gun-<gün>, dim-hefte-<bazar ertəsi>, seyyar-asan-<sabah>, asan-muraciet-<həftə>,
 polis-icmal-<dünən>): done-da olan mənbəyə sorğu getmir. «Bu gün xəbər yoxdur» nəticəsi də (müraciət məlumatının bazar
 ertəsi 11:00-da hələ yenilənməməsi daxil) həmin açarla, worth=False qayıdır: canlı onu da done-a yazsa, pəncərədə ikinci
@@ -42,6 +42,7 @@ import pathlib
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 
 import oz_teqvim as tq
@@ -255,8 +256,18 @@ def _item(kind, key, title, lead, body, credit, link, topic, slot, worth=True, w
 
 # --- Şəbəkə -----------------------------------------------------------------------------------------------------------------
 
+def _dropped(e):
+    """Bağlantı qırılıb (sıfırlanıb, rədd edilib): bir dəfə təzədən yoxlamağa dəyər. Vaxt aşımı və HTTP xətası (403, 404) belə
+    deyil: təkrar sorğu eyni cavabı verər və ya dövrəni uzadar."""
+    reason = getattr(e, "reason", None)
+    if isinstance(e, (TimeoutError, urllib.error.HTTPError)) or isinstance(reason, TimeoutError):
+        return False
+    return isinstance(e, (ConnectionError, urllib.error.URLError))
+
+
 class _Net:
     """fetch-in üstündə: bir çağırışda hər ünvana bir sorğu (xəta da yadda qalır), eyni sayta iki sorğu arasında PAUSE saniyə.
+    Bağlantı qırılsa (dim.gov.az GitHub-dan bəzən «Connection reset by peer» verir) ünvan bir dəfə təzədən yoxlanır.
     count göndərilən sorğuları, log hər sorğunun nəticəsini saxlayır (sınaqda GitHub-dan çıxışı göstərmək üçün)."""
 
     def __init__(self, fetch):
@@ -271,17 +282,22 @@ class _Net:
                 wait = self.last.get(host, -1e9) + PAUSE - time.monotonic()
                 if wait > 0:
                     time.sleep(wait)
-            self.count += 1
-            try:
-                kw = {"timeout": TIMEOUT}
-                if headers:
-                    kw["headers"] = headers
-                data = self.fetch(url, **kw)
-                self.cache[url] = (data, None)
-                self.log.append((url, f"{len(data)} bayt"))
-            except Exception as e:
-                self.cache[url] = (None, e)
-                self.log.append((url, f"{type(e).__name__}: {getattr(e, 'reason', '') or e}"[:160]))
+            kw = {"timeout": TIMEOUT}
+            if headers:
+                kw["headers"] = headers
+            for attempt in (1, 2):
+                self.count += 1
+                try:
+                    data = self.fetch(url, **kw)
+                    self.cache[url] = (data, None)
+                    self.log.append((url, f"{len(data)} bayt"))
+                    break
+                except Exception as e:
+                    self.cache[url] = (None, e)
+                    self.log.append((url, f"{type(e).__name__}: {getattr(e, 'reason', '') or e}"[:160]))
+                    if attempt == 2 or isinstance(self.fetch, _Net) or not _dropped(e):
+                        break
+                    time.sleep(PAUSE)
             self.last[host] = time.monotonic()
         data, err = self.cache[url]
         if err is not None:
@@ -1131,10 +1147,10 @@ def _polis_sinaq(now, net, pages=3):
         at = x["when"]
         start = at.replace(hour=POLIS_AT[0], minute=POLIS_AT[1], second=0, microsecond=0)
         if item["worth"] and at >= start + WINDOW:
-            item = dict(item, worth=False, why=f"saat {at:%H:%M}-da dərc olunub: yoxlama pəncərəsindən sonradır")
+            item = dict(item, worth=False, why=f"{ox.time_loc(at)} dərc olunub: yoxlama pəncərəsindən sonradır")
         elif item["worth"] and not polis_day(at.date()):
             item = dict(item, worth=False, why="bazar və ya bayram günü dərc olunub: o gün sorğu getmir")
-        md += _case(f"{_label(at.date(), today)}, saat {at:%H:%M}-da dərc olunub: son real hal", item)
+        md += _case(f"{_label(at.date(), today)}, {ox.time_loc(at)} dərc olunub: son real hal", item)
         shown += 1
         if shown >= 2:
             break

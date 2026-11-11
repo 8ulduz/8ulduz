@@ -5,6 +5,7 @@ import datetime
 import io
 import pathlib
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 import oz_gundelik as g
@@ -577,6 +578,32 @@ class ItemsTest(unittest.TestCase):
                 self.assertTrue(out[0]["why"])
                 self.assertIn("-xeta-", out[0]["key"])
                 self.assertGreaterEqual(len(fake.calls), 1)
+
+    def test_dropped_connection_is_retried_once(self):
+        class Flaky(Fake):
+            def __init__(self, table, errors):
+                super().__init__(table)
+                self.errors = list(errors)
+
+            def __call__(self, url, timeout=None, headers=None):
+                if self.errors:
+                    self.calls.append(url)
+                    raise self.errors.pop(0)
+                return super().__call__(url, timeout, headers)
+
+        now = at(2026, 11, 12, 9, 5)
+        fake = Flaky(pages(), [ConnectionResetError(104, "Connection reset by peer")])
+        out = g.items(ROOT, now, fake)
+        self.assertEqual([(i["key"], i["worth"]) for i in out], [("dim-gun-2026-11-12", True)])
+        self.assertEqual(fake.calls, [g.DIM_URL, g.DIM_URL])
+        fake = Flaky(pages(), [urllib.error.URLError(ConnectionResetError(104, "Connection reset by peer"))] * 3)
+        out = g.items(ROOT, now, fake)
+        self.assertEqual((out[0]["key"], out[0]["worth"], len(fake.calls)), ("dim-xeta-2026-11-12", False, 2))
+        for err in (TimeoutError("vaxt bitdi"), urllib.error.URLError(TimeoutError("vaxt bitdi")),
+                    urllib.error.HTTPError(g.DIM_URL, 403, "Forbidden", None, None)):
+            fake = Flaky(pages(), [err])   # vaxt aşımı və HTTP xətası təkrar yoxlanmır
+            out = g.items(ROOT, now, fake)
+            self.assertEqual((out[0]["worth"], len(fake.calls)), (False, 1), repr(err))
 
     def test_item_shape_determinism_and_naive_time(self):
         seen = []
