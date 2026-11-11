@@ -224,6 +224,14 @@ class DimTest(unittest.TestCase):
         mine = event("Sınaq imtahanı", "İmtahan", D(2026, 11, 25))
         self.assertIsNone(g._exam_of(reg, [reg, other, early]))
         self.assertIs(g._exam_of(reg, [reg, other, early, mine]), mine)
+        name = "Dövlət qulluğunda fəaliyyətin davam etdirilməsi üzrə keçiriləcək imtahan"   # 2026-11-11 təqvimindəki adlar
+        reg = event(name + "a qeydiyyat", "Qeydiyyat", D(2026, 10, 29), D(2026, 11, 19))
+        mine = event(name, "İmtahan", D(2026, 12, 4))
+        self.assertIs(g._exam_of(reg, [reg, other, mine]), mine)
+        self.assertIn("; imtahan: 4 dekabr", g.dim_day_item([reg, other, mine, dict(reg, name="Başqa qeydiyyat")], D(2026, 11, 19))["body"][1])
+        rows, _ = g._dim_rows([event(n, "İmtahan", D(2026, 11, 22)) for n in ("Peşəkar", "Qiymətləndirmə", "Doktorantura")],
+                              D(2026, 11, 16), D(2026, 11, 22))
+        self.assertEqual([r[3]["name"] for r in rows], ["Doktorantura", "Qiymətləndirmə", "Peşəkar"])   # Azərbaycan əlifbası
 
     def test_leadership_event_is_left_out(self):
         bad = event(f"{LEADER}in adına təqaüd müsabiqəsinə qeydiyyat", "Qeydiyyat", D(2026, 11, 1), D(2026, 11, 12))

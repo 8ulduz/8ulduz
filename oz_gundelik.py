@@ -416,7 +416,7 @@ def _dim_rows(events, first, last):
             end = e["end"] or e["start"]
             if e["start"] <= last and end >= first:
                 rows.append((max(e["start"], first), 1, "imtahan", e))
-    rows.sort(key=lambda r: (r[0], r[1], r[3]["name"]))
+    rows.sort(key=lambda r: (r[0], r[1], _az_key(r[3]["name"]), r[3]["name"]))
     return rows, skipped
 
 
@@ -498,7 +498,7 @@ def dim_day_item(events, day, complete=True):
             lead += f" İmtahan {date_loc(exam['start'])} keçiriləcək."
         return _item("dim-gun", key, _deadline_title(e, when), lead, [], DIM_CREDIT, e["link"] or DIM_URL, "təqvim", "09:00")
     body = []
-    for e in sorted(ends, key=lambda x: (x["start"], x["name"])):
+    for e in sorted(ends, key=lambda x: (x["start"], _az_key(x["name"]), x["name"])):
         exam = _exam_of(e, events)
         body.append(f"{e['name']}: {_span(e['start'], e['end'])}" + (f"; imtahan: {ox.day_text(exam['start'])}" if exam else ""))
     return _item("dim-gun", key, f"DİM-in təqvimi: {when} {len(ends)} qeydiyyat başa çatır",
