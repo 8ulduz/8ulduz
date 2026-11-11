@@ -150,6 +150,7 @@ guard_outputs() {
   mkdir -p "$GOOD/data"
   cp -a "$WORK/data/." "$GOOD/data/" 2>/dev/null
   cp -a "$WORK/sitemap.xml" "$WORK/feed.xml" "$GOOD/" 2>/dev/null
+  [ -f "$WORK/sitemap-news.xml" ] && cp -a "$WORK/sitemap-news.xml" "$GOOD/"
   return 0
 }
 
@@ -247,7 +248,7 @@ publish_main() {
     cp -a "$GOOD/data/." "$REPO_DIR/data/"
     rm -f "$REPO_DIR/data/reader.json"   # səsli oxu söndürülüb: tam mətnlər yayımlanmır
     rm -f "$REPO_DIR"/data/latest.??.json   # dil faylları yalnız live budağındadır (push_live): main-in tarixçəsi şişməsin
-    for name in sitemap.xml feed.xml robots.txt; do
+    for name in sitemap.xml sitemap-news.xml feed.xml robots.txt; do
       [ -f "$WORK/$name" ] && cp -a "$WORK/$name" "$REPO_DIR/"
     done
     if [ -d "$WORK/bolme" ]; then rm -rf "$REPO_DIR/bolme"; cp -a "$WORK/bolme" "$REPO_DIR/bolme"; fi
@@ -260,7 +261,7 @@ publish_main() {
     for name in $(py_t 20 "$PY" "$CUR/.github/scripts/check_outputs.py" "$REPO_DIR" || check_lkg "$REPO_DIR"); do
       git -C "$REPO_DIR" checkout -q HEAD -- "$name" 2>/dev/null || rm -f "$REPO_DIR/$name"
     done
-    git -C "$REPO_DIR" add data sitemap.xml feed.xml robots.txt bolme index.html 2>/dev/null
+    git -C "$REPO_DIR" add data sitemap.xml sitemap-news.xml feed.xml robots.txt bolme index.html 2>/dev/null
     if [ -d "$REPO_DIR/x" ]; then git -C "$REPO_DIR" add x 2>/dev/null; fi
     if [ -d "$REPO_DIR/xeber" ]; then git -C "$REPO_DIR" add xeber 2>/dev/null; fi
     if [ -d "$REPO_DIR/icmal" ]; then git -C "$REPO_DIR" add icmal 2>/dev/null; fi   # ayrıca: qovluq yoxdursa yuxarıdakı add pozulmasın
@@ -358,7 +359,7 @@ mkdir -p "$WORK/data"
 cp -a "$REPO_DIR/data/." "$WORK/data/" 2>/dev/null
 rm -f "$WORK/data/reader.json"
 [ -f "$REPO_DIR/CNAME" ] && cp "$REPO_DIR/CNAME" "$WORK/"
-for name in sitemap.xml feed.xml robots.txt; do
+for name in sitemap.xml sitemap-news.xml feed.xml robots.txt; do
   [ -f "$REPO_DIR/$name" ] && cp "$REPO_DIR/$name" "$WORK/"
 done
 [ -d "$REPO_DIR/bolme" ] && cp -a "$REPO_DIR/bolme" "$WORK/bolme"

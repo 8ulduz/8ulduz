@@ -96,6 +96,17 @@ class StoryPagesTest(unittest.TestCase):
         page = updater.section_page('bolgeler', 'Bölgələr', 'x', [self.story(sid), self.story('5' * 16, alts=0)], stories={sid: [0, 4, 'bolgeler']})
         self.assertIn(f'href="../../xeber/{sid}/"', page)
         self.assertIn('href="https://apa.az/news/' + '5' * 16 + '"', page, 'səhifəsi olmayan xəbər mənbəyə aparır')
+        extra = 'ab' * 8
+        linked = updater.section_page('bolgeler', 'Bölgələr', 'x', [self.story(sid)], stories={sid: [1, 4, 'bolgeler'], extra: [2, 4, 'bolgeler']}, titles={extra: ('Köhnə bölgə xəbəri', 'APA')})
+        self.assertIn(f'href="../../xeber/{extra}/"', linked)
+        self.assertIn('Köhnə bölgə xəbəri', linked)
+
+    def test_related_stories_are_same_category_story_links(self):
+        a, b, other = self.story('1' * 16), self.story('2' * 16), self.story('3' * 16, category='idman')
+        page = updater.story_page(a, None, [a, b, other])
+        self.assertIn('<p>Bakının müxtəlif yerlərində hərbi orkestrlər çıxış edəcək.</p>', page, 'xülasə tam qalır (sahib, 2026-11-11)')
+        self.assertIn(f'href="../../xeber/{"2" * 16}/"', page)
+        self.assertNotIn(f'href="../../xeber/{"3" * 16}/"', page)
 
     def test_pipeline_publishes_and_keeps_story_pages(self):
         sh = (ROOT / '.github/scripts/pipeline.sh').read_text(encoding='utf-8')
@@ -251,7 +262,7 @@ class DiscoverImageTest(unittest.TestCase):
 class StoryTemplateVersionTest(unittest.TestCase):
     """xeber/<id>/ şablonu dəyişəndə STORY_VER artmalıdır (sürət, 2026-11-09): 2026-11-08-də şablon app.js → app.min.js keçdi, versiya
     artmadı və ~3 400 köhnə səhifə kiçildilməmiş kodu (+16,5 KB gzip, +56 KB mənbə) yükləməkdə qaldı — index.json onları «cari» sayırdı."""
-    TEMPLATE_SHA = {5: 'ea0b4e59365e'}  # yeni STORY_VER: hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12] sətrini əlavə edin
+    TEMPLATE_SHA = {6: '357ff68c11a7'}  # yeni STORY_VER: hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12] sətrini əlavə edin
 
     def test_story_template_change_bumps_story_ver(self):
         import hashlib
@@ -264,3 +275,46 @@ class StoryTemplateVersionTest(unittest.TestCase):
         scripts = re.findall(r'<script[^>]*\bsrc="[^"]*?([\w.-]+\.js)"', updater._STORY_HTML)
         self.assertEqual(sorted(scripts), ['app.min.js', 'config.js', 'content-policy.js'], 'xəbər səhifəsi ilk açılışın üç faylını yükləyir, başqa heç nə')
         self.assertNotIn('assets/app.js', updater._STORY_HTML, 'oxucuya mənbə kodu getməz')
+
+
+class NewsSitemapTest(unittest.TestCase):
+    def story(self, sid, hours, title='Başlıq'):
+        import datetime
+        at = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours)).isoformat()
+        return {'id': sid, 'title': title, 'category': 'gundem', 'lang': 'az', 'publishedAt': at, 'source': 'APA'}
+
+    def test_news_sitemap_lists_recent_story_pages_only(self):
+        import datetime
+        fresh, old, missing = 'a' * 16, 'b' * 16, 'c' * 16
+        articles = [self.story(fresh, 3, 'Təzə xəbər'), self.story(old, 72, 'Köhnə xəbər'), self.story(missing, 1, 'Səhifəsiz')]
+        stories = {fresh: [1, 3, 'gundem'], old: [1, 3, 'gundem']}
+        with tempfile.TemporaryDirectory() as tmp:
+            target = pathlib.Path(tmp) / 'sitemap-news.xml'
+            sm = pathlib.Path(tmp) / 'sitemap.xml'
+            with patch.object(updater, 'NEWS_SITEMAP_FILE', target), patch.object(updater, 'SITEMAP_FILE', sm):
+                updater.write_news_sitemap(articles, stories)
+                updater.write_sitemap({fresh: [1793950000, 3, 'gundem']})
+            ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9', 'n': 'http://www.google.com/schemas/sitemap-news/0.9'}
+            urls = ET.parse(target).getroot().findall('s:url', ns)
+            self.assertEqual(len(urls), 1)
+            news = urls[0].find('n:news', ns)
+            self.assertEqual(urls[0].find('s:loc', ns).text, f'{updater.SITE}xeber/{fresh}/')
+            self.assertEqual(news.find('n:publication/n:name', ns).text, '8 Ulduz')
+            self.assertEqual(news.find('n:publication/n:language', ns).text, 'az')
+            self.assertEqual(news.find('n:title', ns).text, 'Təzə xəbər')
+            pub = news.find('n:publication_date', ns).text
+            self.assertRegex(pub, r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$')
+            datetime.datetime.fromisoformat(pub)
+            lastmod = ET.parse(sm).getroot().find('s:url/s:lastmod', ns).text
+            self.assertRegex(lastmod, r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$')
+        self.assertIn('Sitemap: https://8ulduz.az/sitemap-news.xml', (ROOT / 'robots.txt').read_text(encoding='utf-8'))
+        self.assertIn('sitemap-movzu.xml', (ROOT / 'robots.txt').read_text(encoding='utf-8'))
+
+    def test_news_sitemap_stops_at_one_thousand(self):
+        articles = [self.story(f'{i:016x}', 1, f'Xəbər {i}') for i in range(1005)]
+        stories = {a['id']: [1, 3, 'gundem'] for a in articles}
+        with tempfile.TemporaryDirectory() as tmp:
+            target = pathlib.Path(tmp) / 'news.xml'
+            with patch.object(updater, 'NEWS_SITEMAP_FILE', target):
+                updater.write_news_sitemap(articles, stories)
+            self.assertEqual(target.read_text(encoding='utf-8').count('<loc>'), 1000)

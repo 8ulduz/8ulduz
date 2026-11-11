@@ -1704,6 +1704,8 @@ class SectionPagesTest(unittest.TestCase):
                 updater.write_sections(articles)
                 read = lambda slug: (root / "bolme" / slug / "index.html").read_text(encoding="utf-8")
                 rates, table, road = read("valyuta"), read("cedvel"), read("tixac")
+                self.assertIn('"../../#/bolme/sondeqiqe"', read("sondeqiqe"), "menyudakı /bolme/sondeqiqe/ keçidinin səhifəsi var")
+                self.assertIn('"../../#/bolme/video"', read("video"), "alt zolaqdakı /bolme/video/ keçidinin səhifəsi var")
         self.assertIn("1.7000 AZN", rates)
         self.assertIn("<td>AMB</td>", rates)
         self.assertNotIn("Boş", rates)

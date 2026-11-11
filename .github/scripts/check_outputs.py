@@ -31,7 +31,7 @@ def bad_outputs(root=pathlib.Path(".")):
             bad.append(path)
         elif re.fullmatch(r"news\.[a-z]{2}\.json", path.name) and not (isinstance(data, dict) and isinstance(data.get("articles"), list)):
             bad.append(path)  # tam lentin dil faylı (updater.write_news): boş ola bilər, amma siyahı olmalıdır
-    for name in ("sitemap.xml", "feed.xml"):
+    for name in ("sitemap.xml", "sitemap-news.xml", "feed.xml"):
         path = root / name
         if not path.exists():
             continue

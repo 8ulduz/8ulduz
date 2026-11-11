@@ -470,7 +470,7 @@ async function browser() {
     const go = async (hash, wait = 400) => { await evaluate(`location.hash = ${JSON.stringify(hash)}`); await sleep(wait); };
 
     // 2) Bölmələr və xidmət səhifələri (tətbiq daxilində keçid).
-    const cats = await evaluate(`[...document.querySelectorAll('#nav a[href^="#/bolme/"], .nav-pop a[href^="#/bolme/"]')].map(a => a.getAttribute("href"))`);
+    const cats = await evaluate(`[...document.querySelectorAll('#nav a[href*="/bolme/"], .nav-pop a[href*="/bolme/"]')].map(a => { const m = (a.getAttribute("href") || "").match(/bolme\\/([^/?#]+)/); return m ? "#/bolme/" + m[1] : ""; }).filter(Boolean)`);
     const sections = [...new Set([...(cats || []), "#/bolme/prezident", "#/bolme/sondeqiqe", "#/bolme/gundem", "#/bolme/siyaset", "#/bolme/cemiyyet", "#/bolme/iqtisadiyyat", "#/bolme/dunya", "#/bolme/idman", "#/bolme/medeniyyet", "#/bolme/heyat", "#/bolme/sosial", "#/bolme/bolgeler", "#/bolme/tehsil", "#/bolme/video"])];
     for (const h of [...sections, "#/bolme/valyuta", "#/bolme/cedvel", "#/tixac", "#/menbeler", "#/videolent", "#/secilmis", "#/bolmeler", "#/haqqinda"]) {
       await go(h === "#/haqqinda" ? "#/bolmeler" : "#/haqqinda", 300);
@@ -478,7 +478,7 @@ async function browser() {
     }
     // 3) Xəbər səhifəsi və axtarış.
     await go("#/", 800);
-    const art = await evaluate(`[...document.querySelectorAll('#view a[href^="#/xeber/"]')].map(a => a.getAttribute("href").replace(/#sources$/, ""))[0] || ""`);
+    const art = await evaluate(`[...document.querySelectorAll('#view a[href*="/xeber/"]')].map(a => { const m = (a.getAttribute("href") || "").match(/xeber\\/([0-9a-f]{16})/); return m ? "#/xeber/" + m[1] : ""; }).find(Boolean) || ""`);
     if (art) { await go("#/haqqinda", 300); await nav("xəbər", art.slice(2, 30), `location.hash = ${JSON.stringify(art)}`, LIMITS.nav); }
     for (const q of ["futbol", "Əliyev", "bakı"]) { await go("#/haqqinda", 300); await nav("axtarış", q, `location.hash = ${JSON.stringify("#/axtar?q=" + q)}`, LIMITS.nav, 600, "#/haqqinda"); }
 

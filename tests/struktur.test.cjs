@@ -63,7 +63,7 @@ test("struktur 5: the site (GitHub Pages) only gets folders with a known bound �
   for (const m of sh.matchAll(/for name in ([a-z .-]+); do \[ -e "\$REPO_DIR\/\$name" \] && git -C "\$REPO_DIR" add/g)) m[1].trim().split(/\s+/).forEach(x => added.add(x));
   // Hər qovluğun həddi (sayı nə qədər xəbər olsa da böyümür) — yenisini əlavə edəndə həddini də burada yazın.
   const BOUND = {
-    data: "sabit adlı fayllar; arxiv bölmə başına 200 xəbər", "sitemap.xml": "bir fayl", "feed.xml": "bir fayl", "robots.txt": "bir fayl", "index.html": "bir fayl",
+    data: "sabit adlı fayllar; arxiv bölmə başına 200 xəbər", "sitemap.xml": "bir fayl", "sitemap-news.xml": "bir fayl", "feed.xml": "bir fayl", "robots.txt": "bir fayl", "index.html": "bir fayl",
     bolme: "bölmə səhifələri + sosial yazı səhifələri (30 gün, ≤ 400)", x: "paylaşma səhifələri, 25 saat (prune_share_pages)", xeber: "3+ mənbəli xəbərlər, 30 gün",
     icmal: "gündə 2 icmal", rayon: "rayon siyahısı qədər", idman: "idman mövzuları qədər", "sitemap-movzu.xml": "bir fayl",
   };

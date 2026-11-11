@@ -159,7 +159,7 @@ test("keçid: touching a link preloads what that page will need (archive, sports
   assert.deepEqual(Array.from(run(ctx, "calls")), ["arxiv:heyat", "arxiv:gundem", "idman", "sehife", "sehife", "sehife", "komanda"], "«bolmeler» «bolme» ilə qarışmır");
   run(ctx, "calls.length = 0; S.partial = true; preload('#/bolme/gundem')");
   assert.deepEqual(Array.from(run(ctx, "calls")), [], "ilk ekran hələ dolmayıbsa arxiv istənmir (tam lentlə yarışmasın)");
-  assert.ok(APP.includes(`document.addEventListener("pointerdown", e => { const a = e.target.closest?.('a[href^="#/"]'); if (a) preload(a.getAttribute("href")); }, { passive: true, capture: true });`), "telefonda barmaq toxunan anda");
+  assert.ok(APP.includes(String.raw`document.addEventListener("pointerdown", e => { const h = e.target.closest?.("a[href]")?.getAttribute("href").replace(/^\/(bolme\/[^/?#]+).*/, "#/$1"); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });`), 'telefonda barmaq toxunan anda');
   assert.ok(APP.includes('preT = setTimeout(() => preload(item.getAttribute("href")), 120);'), "kompüterdə kursor menyuda dayananda");
   assert.ok(APP.includes('if (["sources", "about", "sections"].includes(route().name)) renderView();'), "modul gələndə yalnız həmin səhifədəsə çəkilir");
 });

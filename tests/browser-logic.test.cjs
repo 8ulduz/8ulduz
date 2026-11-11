@@ -277,10 +277,10 @@ test('owner 2026-11-10: opened from the home screen, the phone row shows Gündə
   const ctx = app({ document: doc, requestAnimationFrame: () => 0, matchMedia: q => ({ matches: /standalone|hover:none/.test(q) }) });
   vm.runInContext('renderNav()', ctx);
   const h = els.nav.innerHTML, row = h.split('<details class="nav-more">')[0];
-  const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
+  const phone = [...row.matchAll(/<a href="\/bolme\/([a-z]+)\/" class="[^"]*\bph\b/g)].map(m => m[1]);
   assert.deepEqual(phone, ['gundem', 'idman', 'bolgeler', 'dunya']);
   assert.ok(row.includes('class="nav-inst" data-act="install" hidden>'), 'ana ekranda düymə gizlidir');
-  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main .nav-inst,nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}'), 'Gündəm, Dünya qabaqda');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main .nav-inst,nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}'), 'Gündəm, Dünya qabaqda');
 });
 test('phone nav: one row of four sections and ☰ that opens every section in a list, then the Telegram line (owner, 2026-11-06)', () => {
   const els = {};
@@ -289,13 +289,13 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   const html = () => { vm.runInContext('renderNav()', ctx); return els.nav.innerHTML; };
   let h = html();
   const [row, rest] = h.split('<details class="nav-more">');
-  const phone = [...row.matchAll(/<a href="#\/bolme\/([a-z]+)" class="[^"]*\bph\b/g)].map(m => m[1]);
+  const phone = [...row.matchAll(/<a href="\/bolme\/([a-z]+)\/" class="[^"]*\bph\b/g)].map(m => m[1]);
   // sahib 2026-11-07: İdmanın yanında Zuğulba yox, Bölgələr (Zuğulba aşağıda öz blokunda, bağlı başlıq)
   // sahib 2026-11-07 (sonra): «Gündəm sonra Dünya»; «Son dəqiqə» ☰-də (qırmızı zolaq və «Son xəbərlər» onu təkrarlayırdı)
   // sahib 2026-11-10: «Ana ekrana» açıq görünsün, yer yoxdursa Gündəm və Dünya ☰-ə keçsin
   assert.deepEqual(phone, ['idman', 'bolgeler'], 'telefonda sətirdə 2 bölmə + «Ana ekrana» (masaüstü menyu dəyişmir)');
-  const list = (rest.split('</details>')[0].match(/<a href="#\/bolme\//g) || []).length;
-  assert.equal(list, (h.match(/<a href="#\/bolme\/[a-z]+" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
+  const list = (rest.split('</details>')[0].match(/<a href="\/bolme\//g) || []).length;
+  assert.equal(list, (h.match(/<a href="\/bolme\/[a-z]+\/" class="[^"]*"[^>]*>/g) || []).length - list, '☰ siyahısında bütün bölmələr var');
   assert.ok(rest.includes('<summary aria-label="Bütün bölmələr">☰ Hamısı</summary>'));
   assert.ok(h.includes('<button type="button" class="nav-inst" data-act="install" hidden>'), 'quraşdırma mümkün deyilsə düymə gizlidir');
   assert.ok(row.includes('class="nav-inst"') && !rest.split('</details>')[0].includes('class="nav-inst"'), '«Ana ekrana» sətirdədir, ☰-in içində deyil');
@@ -685,8 +685,8 @@ test('hover menu: one list for the section, a second list only for a tab with it
   const region=navPopHtml('bolgeler','Qarabağ');
   assert.ok(region.includes('pop-col two')&&region.includes('data-club="Xankəndi"'),'bölgələr də eyni cür açılır');
   const more=navPopHtml('more');
-  assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="#/bolme/dunya"'));
-  assert.ok(!more.includes('href="#/bolme/idman"'),'menyuda görünən bölmə təkrarlanmır');
+  assert.ok(more.includes('href="#/secilmis"')&&more.includes('href="/bolme/dunya/"'));
+  assert.ok(!more.includes('href="/bolme/idman/"'),'menyuda görünən bölmə təkrarlanmır');
 });
 test('merged sections: old links, old cached stories and saved stories land in the new section',async()=>{
   const ctx=app(),{S,route,publishNews,sectionView,catSection}=ctx.api;
@@ -2803,15 +2803,15 @@ test('article page lists up to 3 related stories by rare shared title words, not
   S.data={articles:[row('a','Bakıda Xəzər sahilində yeni park açılıb'),row('b','Xəzər sahilində açılan park sakinləri sevindirib'),row('c','Bakı metrosunda qatarlar gecikir'),row('d','Xəzər parkı haqqında yeni qərar: sahilində kafe olmayacaq'),row('e','Xəzər parkı haqqında yeni qərar: sahilində kafe olmayacaq - FOTO'),...filler]};
   const html=articleView('a');
   assert.match(html,/Bu barədə daha çox/);
-  assert.match(html,/href="#\/xeber\/b\?h=\d{8}"/); // h: arxivin saatı (sahib 2026-11-07)
-  assert.equal((html.match(/href="#\/xeber\/[de]\?h=\d{8}"/g)||[]).length,1,'eyni başlığın ikinci nüsxəsi təkrarlanmır');
-  assert.doesNotMatch(html,/xeber\/c"/,'yalnız «Bakı» ortaqdır');
+  assert.match(html,/href="\/xeber\/b\/"/); // kanonik səhifə; klik #/xeber/b olur
+  assert.equal((html.match(/href="\/xeber\/[de]\/"/g)||[]).length,1,'eyni başlığın ikinci nüsxəsi təkrarlanmır');
+  assert.doesNotMatch(html,/xeber\/c\//,'yalnız «Bakı» ortaqdır');
   assert.doesNotMatch(html,/xeber\/f\d/,'İlham Əliyev çox işlənir, əlaqə sayılmır');
   S.data.articles.push(row('g','Şuşa əməliyyatı ilə bağlı mühüm DETAL AÇIQLANDI'),row('h','Nazirdən məktəblərlə bağlı MÜHÜM AÇIQLAMA'));
   S.data.articles.push(row('i','İtkin düşənlərə həsr olunan tədbir keçirilib'),row('j','Zəfər Gününə həsr olunan mini-futbol turniri keçirilib'));
-  assert.doesNotMatch(articleView('i'),/xeber\/j"/,'«həsr olunan tədbir» əlaqə deyil');
-  assert.doesNotMatch(articleView('g'),/xeber\/h"/,'«mühüm açıqlama» kimi ümumi sözlər əlaqə deyil');
-  assert.doesNotMatch(articleView('f0'),/xeber\/f\d+"/,'eyni adlı fərqli görüşlər bir-birinə bağlanmır');
+  assert.doesNotMatch(articleView('i'),/xeber\/j\//,'«həsr olunan tədbir» əlaqə deyil');
+  assert.doesNotMatch(articleView('g'),/xeber\/h\//,'«mühüm açıqlama» kimi ümumi sözlər əlaqə deyil');
+  assert.doesNotMatch(articleView('f0'),/xeber\/f\d+\//,'eyni adlı fərqli görüşlər bir-birinə bağlanmır');
 });
 test('owner 2026-11-07: on a phone the Zuğulba block is a closed header that opens on tap; ☰ is gold', () => {
   const ctx = app(), { S } = ctx.api;
@@ -2821,7 +2821,7 @@ test('owner 2026-11-07: on a phone the Zuğulba block is a closed header that op
   assert.match(block([]), /^<section class="prez open">/, 'açıq qalır (yenidən çəkilişdə bağlanmır)');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(css.includes('.prez-h h2{font-size:clamp(15px,6vw,25px);letter-spacing:0;min-width:0}') && css.includes('.prez:not(.open) .prez-body{display:none}'), 'telefonda bağlı: bir sırada ad, say və ox (kart böyümür)');
-  assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && css.includes('.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}') && js.includes('href="#/bolme/prezident">Hamısı →</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: bağlı halda yalnız «Zuğulba Xronikası», açılanda say və «Hamısı →»');
+  assert.ok(js.includes('<span class="prez-long">Zuğulba Xronikası</span>') && css.includes('.prez:not(.open) .prez-n,.prez:not(.open) .prez-h .btn{display:none}') && js.includes('href="/bolme/prezident/">Hamısı →</a>') && !css.includes('@media(max-width:420px),(min-width:901px){.prez-long'), 'sahib: bağlı halda yalnız «Zuğulba Xronikası», açılanda say və «Hamısı →»');
   assert.ok(js.includes('const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn"))'), 'başlığa basanda açılır, «Hamısı →» bölməyə aparır');
   assert.ok(css.includes('nav.main .nav-more>summary{display:flex;align-items:center;') && css.includes('nav.main .nav-more>summary::before{content:"";width:26px;height:4px;background:currentColor;box-shadow:0 -9px,0 9px;color:var(--primary)}') && css.includes('nav.main{position:relative;padding-right:42px}nav.main .nav-more{display:flex;position:absolute;right:0;top:3px;bottom:3px}'), '☰ fonsuz, sağda iki sətir hündürlüyündə, üstdən-altdan bir az içəri (sahib 2026-11-10)');
 });
@@ -2856,7 +2856,7 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   for (const src of [js, html]) {
-    assert.ok(src.includes('<a href="#/bolme/video" data-tab="video"><b>▶</b><span>Video</span></a>'), 'aşağı zolaqda Video');
+    assert.ok(src.includes('<a href="/bolme/video/" data-tab="video"><b>▶</b><span>Video</span></a>'), 'aşağı zolaqda Video');
     assert.ok(src.includes('<a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>'), 'Tıxac qalır');
     assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 4, 'aşağıda 4 düymə: Əsas, Video, Tıxac, Seçilmişlər');
     const bar = src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0];
