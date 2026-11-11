@@ -1134,7 +1134,7 @@ nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}
 }
 /* sahib 2026-11-10: 📲 solda, lent hündür; ana ekrandan açılanda Gündəm, Dünya; dar/böyük şriftdə sətir sınmır */
 @media (max-width:600px){
-nav.main .nav-inst,nav.main a.ph:is([href$=gundem],[href$=dunya]){order:-1}
+nav.main .nav-inst,nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}
 nav.main>a.ph,nav.main .nav-inst{flex:1 1 0;min-width:0;overflow:hidden}
 nav.main .nav-inst{flex-grow:1.6}
 }
