@@ -2499,7 +2499,7 @@ def update_archive(now=None):
     articles = read_feed()
     missing = any(not (ARCHIVE_DIR / f"{s[0]}.json").exists() for s in SECTIONS if s[0] != "prezident")  # yeni bölmə bir saat boş qalmasın
     stamp = _read_json(ARCHIVE_DIR / "gundem.json", {})
-    if not articles or (not missing and stamp.get("grouped") == 2 and now - stamp.get("at", 0) < ARCHIVE_EVERY_S):
+    if not articles or (not missing and stamp.get("grouped") == 3 and now - stamp.get("at", 0) < ARCHIVE_EVERY_S):
         return
     cutoff = datetime.datetime.fromtimestamp(now - ARCHIVE_DAYS * 86400, datetime.timezone.utc)
     merged = {alt.get("sourceUrl") for a in articles for alt in a.get("alts") or []} | dead_links(len(articles))
@@ -2537,7 +2537,7 @@ def update_archive(now=None):
         if slug in BACKLOG_SECTIONS:
             kept = fill_archive_images(kept, images)
         ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-        _write_atomic(path, json.dumps({"at": now, "grouped": 2, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
+        _write_atomic(path, json.dumps({"at": now, "grouped": 3, "articles": kept}, ensure_ascii=False, separators=(",", ":")))
         for old in aliases:  # köhnə fayl boşalır: növbəti dəfə eyni xəbər yenidən köçürülməsin
             if old.exists():
                 _write_atomic(old, json.dumps({"at": now, "articles": []}, separators=(",", ":")))
@@ -4868,10 +4868,12 @@ def _places(text):
         if len(w) < 5 or not w[0].isupper() or (w.isupper() and len(w) > 3):
             continue
         low = w.lower()
-        if not re.search(r"(?:da|də|dan|dən)$", low) or _concepts(low).strip() != low or _ORG_WORDS.search(_norm_title(w)):
+        if not re.search(r"(?:da|də|dan|dən)$", low) or _concepts(low).strip() != low:
             continue
         out.add(_stem(_norm_title(w)))
     return out
+
+_CONSTRUCTION_PLACE_STEMS = {_stem(_norm_title(w)) for w in PLACE_WORDS | {"bakı"}}
 
 def _entities(text):
     """Böyük hərflə başlayan ardıcıl 2 söz (şəxs və ya qurum adı), sadələşdirilmiş. Tam böyük hərfli uzun sözlər (İŞDƏN) sayılmır."""
@@ -4926,15 +4928,18 @@ def _event_sig(a):
     return sig
 
 def _event_conflict(a, b):
-    """Təməlqoyma və açılış, yaxud açıq fərqli məkanlar ayrı hadisədir — ümumi səfər xülasəsi onları birləşdirmir."""
+    """Açıq tikinti mərhələləri və onların konkret yerli şəhərləri ayrılır; başqa xəbərlərin qaydası dəyişmir."""
     phase_a, phase_b = _opening_phase(a), _opening_phase(b)
     if phase_a and phase_b and phase_a != phase_b:
         return True
+    if not (phase_a and phase_b):
+        return False
     # Sürətli dövrəyə tam hadisə təhlili (şəxs, qurum, bütün köklər) gətirilmir.
     def places(row):
         text = (row.get("title") or "") + ". " + (row.get("summary") or "")[:240]
         if text not in _PLACE_CACHE:
-            _PLACE_CACHE[text] = _places(text) | {_stem(_norm_title(m.group())) for m in _TITLE_PLACE_RX.finditer(row.get("title") or "")}
+            candidates = _places(text) | {_stem(_norm_title(m.group())) for m in _TITLE_PLACE_RX.finditer(row.get("title") or "")}
+            _PLACE_CACHE[text] = candidates & _CONSTRUCTION_PLACE_STEMS  # «Dekabrda», «Dünyada», ölkə adı şəhər deyil
         return _PLACE_CACHE[text]
     places_a, places_b = places(a), places(b)
     return bool(places_a and places_b and not (places_a & places_b))
@@ -4967,6 +4972,8 @@ def _same_event(a, b):
         return 2
     shared = ca & cb
     if not shared:
+        return 0
+    if la and lb and not (la & lb):                   # başqa hadisə növlərinin əvvəlki məkan qaydası qalır
         return 0
     if _ent_match(pa, pb):                             # eyni şəxs + eyni hadisə növü
         return 2

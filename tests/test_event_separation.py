@@ -108,6 +108,30 @@ class EventSeparationTest(unittest.TestCase):
             cards = updater.apply_groups([a, b])
         self.assertEqual(len(cards), 2)
 
+    def test_calendar_headlines_still_combine_the_same_news(self):
+        # Canlı lent: «Dekabrda» şəhər sayılıb Azərbaycandakı 9 qeyri-iş günü xəbərindən ayrılırdı.
+        a = self.row("A", "Azərbaycanda 9 gün iş olmayacaq")
+        b = self.row("B", "Dekabrda 9 qeyri-iş günü olacaq")
+        a["summary"] = b["summary"] = "Azərbaycanda dekabr ayında doqquz qeyri-iş günü olacaq. Dekabrın 31-i Dünya Azərbaycanlılarının Həmrəyliyi Günüdür."
+        self.assertEqual(len(updater.group_duplicates([a, b])), 1)
+
+    def test_month_or_generic_location_is_not_a_different_construction_city(self):
+        for when in ("Yanvarda", "Fevralda", "Martda", "Apreldə", "Mayda", "İyunda", "İyulda", "Avqustda",
+                     "Sentyabrda", "Oktyabrda", "Noyabrda", "Dekabrda", "Dünyada", "Ölkədə", "Universitetində"):
+            with self.subTest(when=when):
+                a = self.row("A", "Azərbaycanda yeni məktəb binası açılıb")
+                b = self.row("B", f"{when} yeni məktəb binası açılıb")
+                a["summary"] = b["summary"] = "Yeni məktəb binası 500 şagird üçün nəzərdə tutulub."
+                self.assertEqual(len(updater.group_duplicates(copy.deepcopy([a, b]))), 1)
+                self.assertEqual(len(updater.attach_fresh([a, b], now=self.NOW)), 1)
+
+    def test_other_news_keeps_exact_title_matching_across_datelines(self):
+        title = "Makron və Zelenski arasında telefon danışığı olub"
+        a = self.row("A", title, "Parisdə Makron Zelenski ilə telefonla danışıb.")
+        b = self.row("B", title, "Kiyevdə Zelenski Makron ilə telefonla danışıb.")
+        self.assertEqual(len(updater.group_duplicates(copy.deepcopy([a, b]))), 1)
+        self.assertEqual(len(updater.attach_fresh([a, b], now=self.NOW)), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
