@@ -2651,7 +2651,7 @@ function setPref(act) {
 }
 let visitSent = "", gaOn = 0;
 const visitQueue = [], gaQ = [];
-const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=3").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
+const gaFlush = () => { const id = window.SITE_CONFIG?.ga4; if (id && gaOn && gaQ.length) import("./ga.js?v=4").then(m => { for (const v of gaQ.splice(0)) m.hit(id, ...v); }).catch(() => {}); };
 function visitPath() {
   const base = location.pathname || "/";
   const hash = location.hash || "";
