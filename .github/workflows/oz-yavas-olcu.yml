@@ -25,6 +25,7 @@ jobs:
           mkdir -p "$UPDATER_ROOT"
           cp -a data "$UPDATER_ROOT/data"
           if [ -d xeber ]; then cp -a xeber "$UPDATER_ROOT/xeber"; fi
+          cp CNAME "$UPDATER_ROOT/"   # pipeline.sh kimi: saytın ünvanı (8ulduz.az) bundan götürülür
           for name in sitemap.xml sitemap-news.xml feed.xml robots.txt; do if [ -f "$name" ]; then cp "$name" "$UPDATER_ROOT/"; fi; done
           ls "$UPDATER_ROOT/xeber" 2>/dev/null | sort > "$RUNNER_TEMP/pages-before.txt" || true
           run() {
@@ -75,15 +76,20 @@ jobs:
           for r in rows:
               print("  ROW", json.dumps(r, ensure_ascii=False)[:700])
           PY
-          echo "=== OZ_DERC=1 ilə sürətli dövrə (nüsxə yoxdur: öz sətir lentə düşməməlidir)"
+          echo "=== OZ_DERC=1 ilə sürətli dövrə, nüsxə YOXDUR (öz sətir lentə düşməməlidir)"
           began=$SECONDS
           timeout 58 python -u updater.py --fast > "$RUNNER_TEMP/fast2.log" 2>&1 || echo "sürətli dövrə kəsildi"
           echo "sürətli dövrə: $((SECONDS - began)) saniyə"
-          python - <<'PY'
-          import json, os, pathlib
-          root = pathlib.Path(os.environ["UPDATER_ROOT"])
-          doc = json.loads((root / "data/news.json").read_text(encoding="utf-8"))
-          print("news.json:", len(doc["articles"]), "sətir, öz sətir:", sum(1 for a in doc["articles"] if a.get("source") == "8ULDUZ"))
-          PY
-          first="$(comm -13 "$RUNNER_TEMP/pages-before.txt" "$RUNNER_TEMP/pages-after.txt" | head -n 1)"
-          if [ -n "$first" ]; then echo "=== ilk yeni səhifə: $first"; head -c 3000 "$UPDATER_ROOT/xeber/$first/index.html"; fi
+          count() { python -c "import json,os,pathlib; d=json.loads((pathlib.Path(os.environ['UPDATER_ROOT'])/'data/news.json').read_text(encoding='utf-8')); own=[a for a in d['articles'] if a.get('source')=='8ULDUZ']; print('news.json:', len(d['articles']), 'sətir, öz sətir:', len(own)); [print('  LENTDƏ', a['publishedAt'], a['category'], '|', a['title']) for a in own]"; }
+          count
+          echo "=== nüsxə VAR (pipeline.sh own_rows_live kimi): öz sətirlər lentə düşməlidir"
+          mkdir -p "$UPDATER_ROOT/.cache"
+          if [ -f "$UPDATER_ROOT/data/oz/xeberler.json" ]; then cp "$UPDATER_ROOT/data/oz/xeberler.json" "$UPDATER_ROOT/.cache/oz-yayimda.json"; fi
+          began=$SECONDS
+          timeout 58 python -u updater.py --fast > "$RUNNER_TEMP/fast3.log" 2>&1 || echo "sürətli dövrə kəsildi"
+          echo "sürətli dövrə: $((SECONDS - began)) saniyə"
+          grep -n "8ULDUZ" "$RUNNER_TEMP/fast3.log" | head -5 || true
+          count
+          python .github/scripts/check_outputs.py "$UPDATER_ROOT" && echo "check_outputs: zədəli fayl yoxdur"
+          first="$(python -c "import json,os,pathlib; r=json.loads((pathlib.Path(os.environ['UPDATER_ROOT'])/'data/oz/xeberler.json').read_text(encoding='utf-8'))['articles']; print(r[0]['id'] if r else '')" 2>/dev/null || true)"
+          if [ -n "$first" ]; then echo "=== ilk öz səhifə: $first ($(wc -c < "$UPDATER_ROOT/xeber/$first/index.html") bayt)"; cat "$UPDATER_ROOT/xeber/$first/index.html"; fi
