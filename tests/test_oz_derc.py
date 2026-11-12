@@ -111,12 +111,12 @@ class FlagTest(Base):
         self.assertEqual([l for l in sh.splitlines() if "oz_derc" in l and not l.startswith("CODE_FILES=")], [], "pipeline faylı yalnız köçürür")
 
     def test_tables_cover_every_module(self):
-        names = [n for n, _ in ox.FAZA1 + ox.FAZA2]
-        self.assertEqual(d.modules()[:12], names)
+        names = [n for n, _ in ox.FAZA1 + ox.FAZA2 + ox.FAZA3]
+        self.assertEqual(d.modules()[:len(names)], names)
         for n in names:
             self.assertIn(n, d.QAYDA)
             self.assertIn(n, d.ONCELIK)
-        for n, _ in ox.FAZA2:
+        for n, _ in ox.FAZA2 + ox.FAZA3:
             self.assertEqual(d.QAYDA[n]["done"], "hamisi", n)
         slugs = {s[0] for s in updater.SECTIONS}
         for slug in list(d.BOLME.values()) + list(d.BOLME_NOV.values()):
@@ -127,7 +127,7 @@ class FlagTest(Base):
         self.assertEqual(d.priority("oz_yer_kosmos", {"kind": "zelzele-region"}), 3)
         self.assertEqual(d.priority("oz_teqvim", {"kind": "gun"}), 1)
         self.assertEqual(d.priority("naməlum", {"kind": "x"}), 2)
-        self.assertEqual(d.modules()[12:], ["oz_xeber"], "baza xəbərləri (oz_xeber.items) də çağırılır")
+        self.assertEqual(d.modules()[len(names):], ["oz_xeber"], "baza xəbərləri (oz_xeber.items) də çağırılır")
         self.assertEqual(d.QAYDA["oz_xeber"]["done"], "hamisi")
         self.assertEqual([d.priority("oz_xeber", {"kind": k}) for k in ("zelzele", "futbol", "amb", "neft", "tarix")], [3, 3, 2, 2, 1])
         self.assertEqual([d.category({"kind": k, "topic": t}) for k, t in (("zelzele", "təbiət"), ("futbol", "idman"), ("amb", "iqtisadiyyat"),
