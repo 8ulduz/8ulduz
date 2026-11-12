@@ -1,7 +1,7 @@
-"""Rəqəmlər (oz_reqem.py, mərhələ 3): hava keyfiyyəti, şahmat reytinqi, Speedtest, StatCounter, CISA KEV, App Store.
+"""Rəqəmlər (oz_reqem.py, mərhələ 3): hava keyfiyyəti, Speedtest, CISA KEV, App Store.
 Şəbəkə yoxdur: tests/fixtures/oz_reqem/ — mənbələrin 2026-11-12 tarixli real cavablarından kəsiklər (Open-Meteo-nun 92 günlük
-cavabından iki dövr; KEV kataloqunun 17 oktyabrdan sonrakı qeydləri, «count» ona uyğunlaşdırılıb; FIDE cədvəllərindən
-doğum ili və «Exp.» sütunları çıxarılıb)."""
+cavabından iki dövr; KEV kataloqunun 17 oktyabrdan sonrakı qeydləri, uzun sahələrsiz, «count» ona uyğunlaşdırılıb; Apple-ın
+lentindən şəkil ünvanları çıxarılıb; Speedtest səhifəsindən başlıq və iki skript dəyişəni)."""
 import contextlib
 import datetime
 import io
@@ -13,14 +13,12 @@ from unittest.mock import patch
 
 import oz_gundelik as og
 import oz_reqem as r
-import oz_xeber as ox
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIX = ROOT / "tests" / "fixtures" / "oz_reqem"
 D = datetime.date
 KEYS = {"kind", "key", "title", "lead", "body", "credit", "link", "topic", "slot", "worth"}
 LEADER = "Prezident İlham Əliyev"
-OKT = D(2026, 10, 1)
 _PAUSE = og.PAUSE
 
 
@@ -53,13 +51,9 @@ def dump(obj):
 
 
 def pages(aq="aq-noyabr.json"):
-    """Bütün mənbələrin real cavabları, istehsalın soruşduğu ünvanlarla (StatCounter: oktyabr, yəni noyabrda soruşulan)."""
-    table = {r.AQ_API.format(1): raw(aq), r.AQ_API.format(r.AQ_PAST): raw(aq), r.FIDE_OPEN: raw("fide-open.html"),
-             r.FIDE_WOMEN: raw("fide-women.html"), r.SPEED_URL: raw("speedtest.html"), r.KEV_URL: raw("kev.json"),
-             r.APP_URL: raw("apps.json")}
-    for spec, name in zip(r.SC, ("sc-brauzer.csv", "sc-mobil-sistem.csv", "sc-telefon.csv")):
-        table[r.sc_url(spec, OKT)] = raw(name)
-    return table
+    """Bütün mənbələrin real cavabları, istehsalın və sınağın soruşduğu ünvanlarla."""
+    return {r.AQ_API.format(1): raw(aq), r.AQ_API.format(r.AQ_PAST): raw(aq), r.SPEED_URL: raw("speedtest.html"),
+            r.KEV_URL: raw("kev.json"), r.APP_URL: raw("apps.json")}
 
 
 class Fake:
@@ -111,26 +105,20 @@ def aq_two(today, yesterday, day=D(2026, 11, 12)):
 
 
 class FormatTest(unittest.TestCase):
-    def test_month_and_number_texts(self):
-        self.assertEqual([r.month_loc(m) for m in (2, 4, 5, 6, 10, 12)],
-                         ["fevralda", "apreldə", "mayda", "iyunda", "oktyabrda", "dekabrda"])
-        self.assertEqual(r.month_in(D(2026, 10, 1)), "2026-cı ilin oktyabrında")
-        self.assertEqual(r.month_in(D(2027, 4, 1)), "2027-ci ilin aprelində")
-        self.assertEqual(r.month_in(D(2026, 6, 1)), "2026-cı ilin iyununda")
-        self.assertEqual([r.pct(v) for v in (78.29, 4.5, 2.0, 0.03)], ["78,29%", "4,5%", "2%", "0,03%"])
+    def test_helpers(self):
         self.assertEqual(r.mbit(92.8), "92,80 Mbit/s")
+        self.assertEqual(r._ug(26.0), "26 mkq/m³")
+        self.assertEqual(r._ug(121.64), "121,6 mkq/m³")
         self.assertEqual(r._prev_month(D(2026, 1, 15)), D(2025, 12, 1))
-        self.assertEqual(r._prev_month(D(2026, 11, 2)), OKT)
+        self.assertEqual(r._prev_month(D(2026, 11, 2)), D(2026, 10, 1))
         self.assertEqual(r._fit("a" * 111, "b" * 110), "b" * 110)
         self.assertEqual(r._fit("a" * 111, "b" * 112), "b" * 112, "heç biri sığmırsa sonuncu qalır, qoruyucu onu dərc etmir")
 
     def test_parts_are_distinct_and_topics_are_known(self):
-        names = [p[0] for p in r.PARTS]
-        self.assertEqual(len(names), len(set(names)))
-        self.assertEqual(len(names), 8)
-        self.assertEqual({p[4] for p in r.PARTS}, {"təbiət", "idman", "texnologiya"})
-        for _, _, credit, link, _, slot in r.PARTS:
-            self.assertTrue(credit and link.startswith("https://"))
+        self.assertEqual([p[0] for p in r.PARTS], ["hava-keyfiyyeti", "internet-sureti", "kev-hefte", "app-store"])
+        self.assertEqual({p[4] for p in r.PARTS}, {"təbiət", "texnologiya"})
+        for _, _, credit, link, _, slot, url in r.PARTS:
+            self.assertTrue(credit and link.startswith("https://") and url.startswith("https://"))
             self.assertRegex(slot, r"^\d\d:\d\d$")
 
 
@@ -265,106 +253,6 @@ class AirTest(unittest.TestCase):
             self.assertEqual(len(fake.calls), 1)
 
 
-class FideTest(unittest.TestCase):
-    def setUp(self):
-        self.month, self.rows = r.fide_parse(text("fide-open.html"), "Players")
-        self.month_w, self.women = r.fide_parse(text("fide-women.html"), "Women")
-
-    def test_parse(self):
-        self.assertEqual((self.month, self.month_w), (D(2026, 11, 1), D(2026, 11, 1)))
-        self.assertEqual(len(self.rows), 100)
-        self.assertEqual(self.rows[0], {"rank": 1, "id": "1503014", "name": "Carlsen, Magnus", "fed": "NOR", "rating": 2823})
-        self.assertEqual([(x["rank"], x["rating"]) for x in self.rows if x["fed"] == "AZE"],
-                         [(27, 2709), (36, 2692), (38, 2689), (54, 2662), (90, 2632)])
-        self.assertEqual(text("fide-women.html").count("rank_span"), 101, "100-cü yerlə eyni reytinqli 101-ci sətir də səhifədədir")
-        self.assertEqual(len(self.women), 100, "yalnız ilk 100 yer")
-        self.assertEqual([(x["rank"], x["rating"]) for x in self.women if x["fed"] == "AZE"], [(59, 2389), (63, 2384), (82, 2363), (99, 2341)])
-        self.assertEqual(r.fide_name({"id": "1", "name": "Abasov, Nijat"}), "Nijat Abasov")
-        self.assertEqual(r.fide_name({"id": "1", "name": "Tək Ad"}), "Tək Ad")
-        self.assertEqual(r.fide_name(self.rows[26]), "Şəhriyar Məmmədyarov")
-
-    def test_item(self):
-        item = r.fide_item(self.month, self.rows, self.women)
-        self.assertTrue(KEYS <= set(item))
-        self.assertTrue(item["worth"] and item["list"])
-        self.assertEqual((item["kind"], item["key"], item["topic"], item["slot"]), ("sahmat-reytinq", "sahmat-reytinq-2026-11", "idman", "11:30"))
-        self.assertEqual(item["title"], "FIDE noyabr reytinqini açıqlayıb: Şəhriyar Məmmədyarov 27-ci, Aydın Süleymanlı 36-cı yerdədir")
-        self.assertEqual(item["lead"], "Beynəlxalq Şahmat Federasiyasının (FIDE) 2026-cı ilin noyabr reytinq siyahısına görə, klassik şahmat "
-                                       "üzrə dünyanın ən yüksək reytinqli 100 şahmatçısı arasında Azərbaycanı 5 nəfər təmsil edir. Onların "
-                                       "arasında ən yüksək yerdə Şəhriyar Məmmədyarov qərarlaşıb: 2709 reytinq xalı ilə 27-ci yer. Qadınların "
-                                       "ilk yüzlüyündə Azərbaycanı 4 şahmatçı təmsil edir.")
-        self.assertEqual(item["body"], ["27-ci yer: Şəhriyar Məmmədyarov — 2709", "36-cı yer: Aydın Süleymanlı — 2692",
-                                        "38-ci yer: Teymur Rəcəbov — 2689", "54-cü yer: Məhəmməd Muradlı — 2662",
-                                        "90-cı yer: Rauf Məmmədov — 2632", "Qadınlar, 59-cu yer: Ülviyyə Fətəliyeva — 2389",
-                                        "Qadınlar, 63-cü yer: Gövhər Beydullayeva — 2384", "Qadınlar, 82-ci yer: Xanım Balacayeva — 2363",
-                                        "Qadınlar, 99-cu yer: Günay Məmmədzadə — 2341"])
-        self.assertEqual(r.fide_item(D(2026, 12, 1), self.rows, self.women)["title"],
-                         "FIDE-nin dekabr reytinqi: dünyanın ilk yüzlüyündə 5 Azərbaycan şahmatçısı var")
-        self.assertEqual(r.fide_item(D(2027, 1, 1), self.rows, self.women)["title"],
-                         "Şəhriyar Məmmədyarov FIDE-nin yanvar reytinqində 27-ci yerdədir, ilk yüzlükdə 5 Azərbaycan şahmatçısı var")
-
-    def test_one_player_and_none(self):
-        solo = [dict(x, fed="XXX") if x["fed"] == "AZE" and x["rank"] != 27 else x for x in self.rows]
-        item = r.fide_item(self.month, solo, [dict(x, fed="XXX") for x in self.women])
-        self.assertTrue(item["worth"])
-        self.assertEqual(item["title"], "FIDE noyabr reytinqini açıqlayıb: Şəhriyar Məmmədyarov 27-ci yerdədir")
-        self.assertIn("Azərbaycanı bir nəfər, Şəhriyar Məmmədyarov təmsil edir: 2709 reytinq xalı ilə 27-ci yer.", item["lead"])
-        self.assertNotIn("Qadınların", item["lead"])
-        self.assertEqual(item["body"], ["27-ci yer: Şəhriyar Məmmədyarov — 2709"])
-        none = r.fide_item(self.month, [dict(x, fed="XXX") for x in self.rows], self.women)
-        self.assertFalse(none["worth"])
-        self.assertEqual(none["key"], "sahmat-reytinq-2026-11")
-
-    def test_gates(self):
-        page = text("fide-open.html")
-        with self.assertRaises(r.Bad):
-            r.fide_parse(page, "Women")
-        with self.assertRaises(r.Bad):
-            r.fide_parse(page.replace("Top 100 Players November 2026", "Top Players"), "Players")
-        cut = page.replace('<td><span class="rank_span">50</span></td>', "<td></td>")
-        with self.assertRaises(r.Bad) as ctx:
-            r.fide_parse(cut, "Players")
-        self.assertIn("100 ardıcıl yer", str(ctx.exception))
-        with self.assertRaises(r.Bad):
-            r.fide_parse(page.split('<span class="rank_span">61</span>')[0], "Players")
-        with self.assertRaises(r.Bad) as ctx:
-            r.fide_parse(page.replace("<td class=rating_column>2709</td>", "<td class=rating_column>2809</td>"), "Players")
-        self.assertIn("sıralanmayıb", str(ctx.exception))
-        with self.assertRaises(r.Bad) as ctx:
-            r.fide_parse(page.replace("<td class=rating_column>2709</td>", "<td class=rating_column>27o9</td>"), "Players")
-        self.assertIn("sətir oxunmadı", str(ctx.exception))
-        tail = text("fide-women.html").replace("<td class=rating_column>2340</td>\n</tr></table>", "<td class=rating_column>2339</td>\n</tr></table>")
-        self.assertNotEqual(tail, text("fide-women.html"))
-        with self.assertRaises(r.Bad):
-            r.fide_parse(tail, "Women")
-
-    def test_window_done_and_stale_list(self):
-        fake = Fake(pages())
-        found = r.items(ROOT, at(2026, 11, 2, 11, 10), fake)
-        self.assertEqual(fake.calls, [r.FIDE_OPEN, r.FIDE_WOMEN])
-        self.assertEqual([(i["key"], i["worth"]) for i in found], [("sahmat-reytinq-2026-11", True)])
-        for now in (at(2026, 11, 2, 10, 59), at(2026, 11, 2, 13, 0), at(2026, 11, 6, 11, 10), at(2026, 11, 30, 11, 10)):
-            fake = Fake({r.FIDE_OPEN: raw("fide-open.html"), r.FIDE_WOMEN: raw("fide-women.html")})
-            self.assertEqual([i for i in r.items(ROOT, now, fake) if i["kind"] == "sahmat-reytinq"], [])
-            self.assertNotIn(r.FIDE_OPEN, fake.calls)
-        for done in ({"sahmat-reytinq-2026-11"}, {"sahmat-reytinq-sorgu-2026-11-02"}, {"sahmat-reytinq-xeta-2026-11-02"}):
-            fake = Fake(pages())
-            self.assertEqual(r.items(ROOT, at(2026, 11, 2, 11, 10), fake, done), [])
-            self.assertEqual(fake.calls, [])
-        # Dekabrın 1-də səhifədə hələ noyabr siyahısıdır: xəbər yoxdur, qadınlar siyahısı soruşulmur, sabah yenə yoxlanır.
-        fake = Fake(pages())
-        early = r.items(ROOT, at(2026, 12, 1, 11, 10), fake)
-        self.assertEqual(fake.calls, [r.FIDE_OPEN])
-        self.assertEqual([(i["key"], i["worth"]) for i in early], [("sahmat-reytinq-sorgu-2026-12-01", False)])
-        self.assertIn("hələ noyabr 2026 siyahısıdır", early[0]["why"])
-        table = pages()
-        table[r.FIDE_WOMEN] = raw("fide-open.html")
-        broken = r.items(ROOT, at(2026, 11, 2, 11, 10), Fake(table))
-        self.assertEqual([(i["key"], i["worth"]) for i in broken], [("sahmat-reytinq-xeta-2026-11-02", False)])
-        del table[r.FIDE_WOMEN]
-        self.assertEqual([i["key"] for i in r.items(ROOT, at(2026, 11, 2, 11, 10), Fake(table))], ["sahmat-reytinq-xeta-2026-11-02"])
-
-
 class SpeedTest(unittest.TestCase):
     def test_parse_and_item(self):
         data = r.speed_parse(text("speedtest.html"))
@@ -402,7 +290,7 @@ class SpeedTest(unittest.TestCase):
                 ("var data = ", "var veri = ", "«data» tapılmadı"),
                 ("var display_data = {", "var display_data = [", "«display_data» oxunmadı"),
                 ("var display_data = {", "var display_data = 5; var x = {", "obyekt deyil"),
-                ('"month":"2026-09","prevMonth":"2026-08"}]\n', '"month":"2026-09","prevMonth":"2026-07"}]\n', "ardıcıl deyil")):
+                ('"month":"2026-09","prevMonth":"2026-08"}', '"month":"2026-09","prevMonth":"2026-07"}', "ardıcıl deyil")):
             self.assertIn(old, page, old)
             with self.assertRaises(r.Bad) as ctx:
                 r.speed_parse(page.replace(old, new))
@@ -430,114 +318,6 @@ class SpeedTest(unittest.TestCase):
         bad = r.items(ROOT, at(2026, 10, 12, 10, 40), Fake({r.SPEED_URL: b"<html><title>Just a moment...</title></html>"}))
         self.assertEqual([(i["key"], i["worth"]) for i in bad], [("internet-sureti-xeta-2026-10-12", False)])
         self.assertIn("Azərbaycanın səhifəsi deyil", bad[0]["why"])
-
-
-class StatCounterTest(unittest.TestCase):
-    def item(self, n, name):
-        names, months = r.sc_parse(raw(name))
-        return r.sc_item(r.SC[n], names, months, OKT)
-
-    def test_url_and_parse(self):
-        self.assertEqual(r.sc_url(r.SC[1], OKT),
-                         "https://gs.statcounter.com/chart.php?device=Mobile&device_hidden=mobile&statType_hidden=os_combined&region_hidden=AZ"
-                         "&granularity=monthly&statType=Operating%20System&region=Azerbaijan&fromInt=202609&toInt=202610"
-                         "&fromMonthYear=2026-09&toMonthYear=2026-10&csv=1")
-        self.assertIn("fromInt=202512&toInt=202601&fromMonthYear=2025-12&toMonthYear=2026-01", r.sc_url(r.SC[0], D(2026, 1, 1)))
-        names, months = r.sc_parse(raw("sc-brauzer.csv"))
-        self.assertEqual(names[:3], ["Chrome", "Safari", "Firefox"])
-        self.assertEqual(sorted(months), [D(2026, 9, 1), OKT])
-        self.assertEqual(months[OKT][:3], [78.29, 9.78, 4.51])
-
-    def test_browsers(self):
-        item = self.item(0, "sc-brauzer.csv")
-        self.assertTrue(KEYS <= set(item))
-        self.assertTrue(item["worth"] and item["list"])
-        self.assertEqual((item["kind"], item["key"], item["topic"], item["slot"]), ("brauzer-payi", "brauzer-payi-2026-10", "texnologiya", "12:30"))
-        self.assertEqual(item["title"], "Azərbaycanda brauzerlərin payı: oktyabrda Chrome 78,29%, Safari 9,78%, Firefox 4,51%")
-        self.assertEqual(item["lead"], "StatCounter-in veb-səhifə baxışlarına əsaslanan statistikasına görə, 2026-cı ilin oktyabrında Azərbaycanda "
-                                       "bütün cihazlardan veb-səhifə baxışlarında brauzerlərin payı belə olub: Chrome 78,29%, Safari 9,78%, "
-                                       "Firefox 4,51%. Bir ay əvvəllə müqayisədə ən böyük dəyişiklik Safari üzrədir: pay 8,49%-dən 9,78%-ə "
-                                       "yüksəlib.")
-        self.assertEqual(item["body"], ["Chrome: 78,29% (sentyabrda 78,33%)", "Safari: 9,78% (sentyabrda 8,49%)",
-                                        "Firefox: 4,51% (sentyabrda 5,47%)", "Samsung Internet: 3,62% (sentyabrda 3,92%)",
-                                        "Edge: 1,92% (sentyabrda 2,09%)", "Opera: 1,13% (sentyabrda 1,07%)", "Qalanları birlikdə: 0,75%"])
-        self.assertEqual(item["link"], "https://gs.statcounter.com/browser-market-share/all/azerbaijan")
-
-    def test_mobile_systems_and_vendors(self):
-        os_item = self.item(1, "sc-mobil-sistem.csv")
-        self.assertTrue(os_item["worth"])
-        self.assertEqual(os_item["key"], "mobil-sistem-payi-2026-10")
-        self.assertEqual(os_item["title"], "Azərbaycanda mobil əməliyyat sistemlərinin payı: oktyabrda Android 82,39%, iOS 17,58%")
-        self.assertIn("ən böyük dəyişiklik Android üzrədir: pay 84,31%-dən 82,39%-ə enib.", os_item["lead"])
-        self.assertEqual(os_item["body"], ["Android: 82,39% (sentyabrda 84,31%)", "iOS: 17,58% (sentyabrda 15,67%)", "Qalanları birlikdə: 0,03%"])
-        tel = self.item(2, "sc-telefon.csv")
-        self.assertTrue(tel["worth"])
-        self.assertEqual(tel["key"], "telefon-payi-2026-10")
-        self.assertEqual(tel["title"], "Azərbaycanda telefon istehsalçılarının payı: oktyabrda Samsung 38,06%, Xiaomi 27,58%, Apple 17,58%")
-        self.assertIn("mobil telefonlardan veb-səhifə baxışlarında cihaz istehsalçılarının payı belə olub: Samsung 38,06%, Xiaomi 27,58%, "
-                      "Apple 17,58%.", tel["lead"])
-        self.assertIn("ən böyük dəyişiklik Samsung üzrədir: pay 40,96%-dən 38,06%-ə enib.", tel["lead"])
-        self.assertEqual(tel["body"], ["Samsung: 38,06% (sentyabrda 40,96%)", "Xiaomi: 27,58% (sentyabrda 28,71%)",
-                                       "Apple: 17,58% (sentyabrda 15,67%)", "Honor: 2,96% (sentyabrda 2,51%)", "Huawei: 2% (sentyabrda 2,2%)",
-                                       "İstehsalçısı müəyyən edilməyən cihazlar: 9,21% (sentyabrda 7,48%)", "Qalanları birlikdə: 2,6%"])
-
-    def test_other_title_form_and_no_change(self):
-        names, months = r.sc_parse(b'"Date","A","B","C","Other"\n2026-10,50,30,15,5\n2026-11,55,27,13,5\n')
-        item = r.sc_item(r.SC[0], names, months, D(2026, 11, 1))
-        self.assertTrue(item["worth"])
-        self.assertEqual(item["title"], "A noyabrda Azərbaycanda veb-trafikin 55%-ni toplayıb, ikinci yerdə B, üçüncü yerdə C")
-        self.assertIn("ən böyük dəyişiklik A üzrədir: pay 50%-dən 55%-ə yüksəlib.", item["lead"])
-        self.assertEqual(item["body"], ["A: 55% (oktyabrda 50%)", "B: 27% (oktyabrda 30%)", "C: 13% (oktyabrda 15%)", "Qalanları birlikdə: 5%"])
-        names, months = r.sc_parse(b'"Date","A","B","C","Other"\n2026-10,50,30,15,5\n2026-11,50.2,29.9,14.9,5\n')
-        same = r.sc_item(r.SC[0], names, months, D(2026, 11, 1))
-        self.assertFalse(same["worth"], "dəyişiklik yoxdursa, yazmırıq")
-        self.assertIn("nəzərəçarpan dəyişiklik yoxdur: ən böyük fərq 0,2 faiz bəndi (A)", same["why"])
-        self.assertEqual(same["key"], "brauzer-payi-2026-11")
-        gone = r.sc_item(r.SC[0], names, months, D(2026, 12, 1))
-        self.assertFalse(gone["worth"])
-        self.assertIn("cədvəldə ötən ay", gone["why"])
-        names, months = r.sc_parse(b'"Date","A","Unknown","Other"\n2026-10,90,9.8,0.2\n2026-11,99.3,0.4,0.3\n')
-        self.assertFalse(r.sc_item(r.SC[2], names, months, D(2026, 11, 1))["worth"], "adı olan iki pay yoxdur")
-
-    def test_gates(self):
-        for raw_csv, why in ((b'"Date","A","B"\n2026-10,50,30\n', "cəmi 100% deyil"), (b'"Date","A","B"\n2026-10,50,x\n', "pay oxunmadı"),
-                             (b'"Date","A","B"\n2026/10,50,50\n', "sətir oxunmadı"), (b'"Date","A","B"\n2026-10,50,25,25\n', "sətir oxunmadı"),
-                             (b'"Ay","A","B"\n2026-10,50,50\n', "gözlənilən şəkildə deyil"), (b'"Date","A","A"\n2026-10,50,50\n', "sütun adları"),
-                             (b"", "gözlənilən şəkildə deyil"), (b"<html>Error</html>", "gözlənilən şəkildə deyil"),
-                             (b'"Date","A","B"\n2026-10,150,-50\n', "pay oxunmadı")):
-            with self.assertRaises(r.Bad) as ctx:
-                r.sc_parse(raw_csv)
-            self.assertIn(why, str(ctx.exception), raw_csv)
-        names, months = r.sc_parse(b'\xef\xbb\xbf"Date","A","B"\r\n2026-10,50.3,49.4\r\n\r\n')
-        self.assertEqual((names, months), (["A", "B"], {OKT: [50.3, 49.4]}))
-
-    def test_days_window_and_done(self):
-        fake = Fake(pages())
-        found = r.items(ROOT, at(2026, 11, 6, 12, 10), fake)
-        self.assertEqual(fake.calls, [r.sc_url(spec, OKT) for spec in r.SC])
-        self.assertEqual([(i["key"], i["worth"]) for i in found],
-                         [("brauzer-payi-2026-10", True), ("mobil-sistem-payi-2026-10", True), ("telefon-payi-2026-10", True)])
-        sc = {r.sc_url(spec, OKT): raw(name) for spec, name in zip(r.SC, ("sc-brauzer.csv", "sc-mobil-sistem.csv", "sc-telefon.csv"))}
-        for day, want in ((1, []), (2, ["brauzer-payi"]), (3, ["brauzer-payi", "mobil-sistem-payi"]),
-                          (4, ["brauzer-payi", "mobil-sistem-payi", "telefon-payi"]), (8, ["brauzer-payi", "mobil-sistem-payi", "telefon-payi"]),
-                          (9, [])):
-            fake = Fake(sc)
-            got = [i["kind"] for i in r.items(ROOT, at(2026, 11, day, 12, 10), fake) if i["kind"].endswith("-payi")]
-            self.assertEqual(got, want, day)
-        for now in (at(2026, 11, 6, 11, 59), at(2026, 11, 6, 14, 0)):
-            fake = Fake(sc)
-            self.assertEqual([i for i in r.items(ROOT, now, fake) if i["kind"].endswith("-payi")], [])
-            self.assertEqual([u for u in fake.calls if u in sc], [])
-        fake = Fake(pages())
-        rest = r.items(ROOT, at(2026, 11, 6, 12, 10), fake, {"brauzer-payi-2026-10", "telefon-payi-xeta-2026-11-06"})
-        self.assertEqual(fake.calls, [r.sc_url(r.SC[1], OKT)])
-        self.assertEqual(kinds(rest), ["mobil-sistem-payi"])
-        table = pages()
-        table[r.sc_url(r.SC[0], OKT)] = b"<html>429</html>"
-        del table[r.sc_url(r.SC[2], OKT)]
-        mixed = r.items(ROOT, at(2026, 11, 6, 12, 10), Fake(table))
-        self.assertEqual([(i["key"], i["worth"]) for i in mixed],
-                         [("brauzer-payi-xeta-2026-11-06", False), ("mobil-sistem-payi-2026-10", True), ("telefon-payi-xeta-2026-11-06", False)])
 
 
 class KevTest(unittest.TestCase):
@@ -733,9 +513,9 @@ class ItemsTest(unittest.TestCase):
         def boom(url, timeout=None, headers=None):
             raise RuntimeError("partladı")
 
-        for now in (at(2026, 11, 2, 12, 10), at(2026, 11, 14, 11, 0), at(2026, 11, 13, 17, 10), at(2026, 11, 12, 8, 40)):
+        for now, n in ((at(2026, 11, 14, 11, 0), 2), (at(2026, 11, 13, 17, 10), 1), (at(2026, 11, 12, 8, 40), 1), (at(2026, 11, 12, 10, 10), 2)):
             found = r.items(ROOT, now, boom)
-            self.assertTrue(found)
+            self.assertEqual(len(found), n, now)
             self.assertTrue(all(not i["worth"] and i["why"] and "-xeta-" in i["key"] and KEYS <= set(i) for i in found))
         with patch.object(og, "_default_fetch", return_value=None):
             lost = r.items(ROOT, at(2026, 11, 12, 8, 40))
@@ -759,8 +539,8 @@ class ItemsTest(unittest.TestCase):
 
     def test_one_request_round_a_day_when_every_key_goes_to_done(self):
         """Canlıda dərc hissəsi qayıdan hər açarı done-a yazır («hamisi»): hər növ gündə bir sorğu turu, uğursuz gündə də."""
-        for day, table, most in ((D(2026, 11, 2), pages(), 4), (D(2026, 11, 6), pages(), 5), (D(2026, 11, 13), pages(), 3),
-                                 (D(2026, 11, 14), pages(), 3), (D(2026, 11, 12), pages(), 2), (D(2026, 11, 3), {}, 4),
+        for day, table, most in ((D(2026, 11, 2), pages(), 1), (D(2026, 11, 6), pages(), 2), (D(2026, 11, 13), pages(), 3),
+                                 (D(2026, 11, 14), pages(), 3), (D(2026, 11, 12), pages(), 2), (D(2026, 11, 3), {}, 1),
                                  (D(2026, 11, 14), {}, 3)):
             fake, done, seen = Fake(table), set(), []
             now = datetime.datetime(day.year, day.month, day.day, 0, 5, tzinfo=r.BAKU)
@@ -782,35 +562,32 @@ class ItemsTest(unittest.TestCase):
 
     def test_real_day_gives_the_expected_items(self):
         fake, done, out = Fake(pages()), set(), []
-        now = at(2026, 11, 6, 0, 5)
-        while now.date() == D(2026, 11, 6):
+        now = at(2026, 11, 13, 0, 5)
+        while now.date() == D(2026, 11, 13):
             for item in r.items(ROOT, now, fake, done):
                 done.add(item["key"])
                 out.append((item["key"], item["worth"]))
             now += datetime.timedelta(minutes=30)
-        self.assertEqual(out, [("hava-keyfiyyeti-2026-11-06", False), ("brauzer-payi-2026-10", True), ("mobil-sistem-payi-2026-10", True),
-                               ("telefon-payi-2026-10", True), ("app-store-2026-11-06", False)])
+        self.assertEqual(out, [("hava-keyfiyyeti-2026-11-13", False), ("internet-sureti-sorgu-2026-11-13", False),
+                               ("app-store-2026-11-13", True)])
 
 
 class SinaqTest(unittest.TestCase):
     def test_sample_page(self):
         fake = Fake(pages())
         md = "\n".join(r.sinaq(ROOT, at(2026, 11, 12, 20, 0), fake))
-        for head in ("## Rəqəmlər: öz xəbərlər (12.11.2026 20:00, Bakı vaxtı)", "## 1. Bakıda havanın keyfiyyəti", "## 2. Şahmat: FIDE",
-                     "## 3. İnternetin sürəti", "## 4. StatCounter", "## 5. İstismar olunan boşluqlar", "## 6. App Store",
+        for head in ("## Rəqəmlər: öz xəbərlər (12.11.2026 20:00, Bakı vaxtı)", "## 1. Bakıda havanın keyfiyyəti",
+                     "## 2. İnternetin sürəti", "## 3. İstismar olunan boşluqlar", "## 4. App Store",
                      "## Mənbələrə çıxış (bu sınaqda)"):
             self.assertIn(head, md)
         self.assertIn("yoxdur (heç bir növün pəncərəsi açıq deyil)", md)
         self.assertIn("### Bakıda hava keyfiyyəti indeksi bu gün 69 olacaq, bu, «pis» kateqoriyasıdır: model proqnozu", md)
-        self.assertIn("### FIDE noyabr reytinqini açıqlayıb: Şəhriyar Məmmədyarov 27-ci, Aydın Süleymanlı 36-cı yerdədir", md)
         self.assertIn("yeni buraxılış hələ yoxdur: bu, sentyabr 2026 buraxılışıdır", md)
-        self.assertIn("### Azərbaycanda brauzerlərin payı: oktyabrda Chrome 78,29%, Safari 9,78%, Firefox 4,51%", md)
         self.assertIn("### Həftənin kibertəhlükəsizlik icmalı: istismar olunan 3 yeni boşluq, siyahıda Apple, SonicWall, WordPress", md)
         self.assertIn("«mygov»", md)
         self.assertIn("✅ Dərc olunardı", md)
         self.assertIn("⏭ Dərc olunmazdı", md)
-        self.assertEqual(len(fake.calls), 9)
-        self.assertEqual(len(set(fake.calls)), 9)
+        self.assertEqual(fake.calls, [r.AQ_API.format(r.AQ_PAST), r.SPEED_URL, r.KEV_URL, r.APP_URL])
 
     def test_sample_page_survives_a_dead_network(self):
         md = "\n".join(r.sinaq(ROOT, at(2026, 11, 14, 11, 0), Fake({})))
@@ -824,7 +601,7 @@ class SinaqTest(unittest.TestCase):
         with patch.object(og, "_default_fetch", return_value=Fake(pages())), contextlib.redirect_stdout(out):
             self.assertEqual(r.main(["--sinaq", "--root", str(ROOT), "--now", "2026-11-12T20:00+04:00"]), 0)
         self.assertIn("## Rəqəmlər: öz xəbərlər (12.11.2026 20:00, Bakı vaxtı)", out.getvalue())
-        self.assertIn("## 6. App Store", out.getvalue())
+        self.assertIn("## 4. App Store", out.getvalue())
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(r.main([]), 0)

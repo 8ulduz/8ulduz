@@ -1,41 +1,43 @@
 """8ulduz-un öz xəbərləri, mərhələ 3: rəqəmlər (sahib, 2026-11-12: «5 qat genişləndir çeşidliliyi»).
-Hava keyfiyyəti, şahmat reytinqi, texnologiya rəqəmləri və həftəlik siyahılar. Şablon xəbərlər, süni intellektsiz: hər
-rəqəm, ad və tarix mənbənin həmin gün oxunan cavabındandır, vaxt Bakı vaxtıdır.
+Hava keyfiyyəti, internetin sürəti, istismar olunan boşluqlar və App Store siyahısı. Şablon xəbərlər, süni intellektsiz:
+hər rəqəm, ad və tarix mənbənin həmin gün oxunan cavabındandır, vaxt Bakı vaxtıdır.
 
-Dəqiqlik (qırmızı xətt 4): hər mənbənin cavabı özü-özünü təsdiqləməlidir (cəmlər, saylar, sıra, tarix); uyğun gəlməyən,
-natamam və ya köhnə cavabdan xəbər yazılmır (worth=False, səbəbi «why»-da).
+Dəqiqlik (qırmızı xətt 4): hər mənbənin cavabı özü-özünü təsdiqləməlidir (saylar, sıra, tarix, səhifənin öz göstərdiyi
+rəqəmlər); uyğun gəlməyən, natamam və ya köhnə cavabdan xəbər yazılmır (worth=False, səbəbi «why»-da).
 
 1. «Bakıda havanın keyfiyyəti» (hava-keyfiyyeti; hər gün 08:30–10:30 yoxlanır, 08:50). Open-Meteo-nun hava keyfiyyəti
    modeli, Bakı. Yalnız diqqətəlayiq gündə xəbər olur: PM2.5 və ya PM10-un orta gündəlik qatılığı ÜST-nin gündəlik
    tövsiyə həddini (15 və 45 mkq/m³) keçən ilk gün (dünən keçməyibsə) və ya Avropa hava keyfiyyəti indeksinin (EAQI)
-   günün ən yüksək qiyməti «pis» (60-dan yuxarı) və daha ağır kateqoriyaya keçəndə. Model məlumatıdır, stansiya ölçməsi
-   və rəsmi xəbərdarlıq deyil: mətn bunu deyir. Sorğu: gündə 1.
-2. «Şahmat reytinqi» (sahmat-reytinq; ayın 1–5-i, 11:00–13:00, 11:30). FIDE-nin aylıq siyahısı: dünyanın ilk yüzlüyündə
-   (açıq siyahı və qadınlar) Azərbaycanı təmsil edənlər. Siyahının başlığındakı ay cari ay olmalıdır. FIDE-nin səhifəsi
-   əvvəlki ayın siyahısını vermir: kimin irəlilədiyi yazılmır. Sorğu: həmin günlərdə 2.
-3. «İnternetin sürəti» (internet-sureti; ayın 10–28-i, 10:00–12:00, 10:30). Ookla-nın Speedtest Global Index səhifəsi:
+   günün ən yüksək qiyməti «pis» (60-dan yuxarı) və daha ağır kateqoriyaya keçəndə. 2026-08-12 – 2026-11-12 dövründə
+   (93 gün) bu qayda ilə 20 gün xəbər olardı; hədd isə 39 gündə (42%) keçilib, ona görə hər keçilən gün yazılmır.
+   Model məlumatıdır, stansiya ölçməsi və rəsmi xəbərdarlıq deyil: mətn bunu deyir. Sorğu: gündə 1.
+2. «İnternetin sürəti» (internet-sureti; ayın 10–28-i, 10:00–12:00, 10:30). Ookla-nın Speedtest Global Index səhifəsi:
    mobil və sabit internetin median sürəti və yeri, əvvəlki buraxılışla müqayisə. Yalnız səhifədəki son buraxılış ötən
-   təqvim ayı olanda (yeni buraxılış); qalan günlər «hələ yoxdur». Sorğu: həmin günlərdə 1.
-4. StatCounter-in aylıq payları (ayın 2-si brauzerlər, 3-ü mobil əməliyyat sistemləri, 4-ü telefon istehsalçıları;
-   alınmasa 8-dək; 12:00–14:00, 12:30): ötən ayın ilk üçlüyü və bir ay əvvəllə ən böyük fərq. Ən böyük fərq 0,5 faiz
-   bəndindən azdırsa xəbər yazılmır («dəyişiklik yoxdursa, yazmırıq»). Sorğu: həmin günlərdə 1–3.
-5. «İstismar olunan boşluqlar» (kev-hefte; şənbə 10:30–12:30, 11:00). CISA-nın KEV kataloqu: ötən həftə (şənbə–cümə)
+   təqvim ayı olanda (yeni buraxılış); qalan günlər «hələ yoxdur». Modulun yaddaşı yoxdur: buraxılış yalnız çıxdığı
+   ayın pəncərəsində (28 gündən qısa) xəbərdir, dərc hissəsi dərc olunmuş açarı 30 gün saxlayır. Sorğu: həmin günlərdə 1.
+3. «İstismar olunan boşluqlar» (kev-hefte; şənbə 10:30–12:30, 11:00). CISA-nın KEV kataloqu: ötən həftə (şənbə–cümə)
    əlavə olunan boşluqlar, istehsalçıları ilə. Əlavə yoxdursa xəbər yoxdur. Sorğu: şənbə 1.
-6. «App Store siyahısı» (app-store; cümə 17:00–19:00, 17:30). Apple-ın açıq lenti: Azərbaycan mağazasında pulsuz
+4. «App Store siyahısı» (app-store; cümə 17:00–19:00, 17:30). Apple-ın açıq lenti: Azərbaycan mağazasında pulsuz
    tətbiqlərin ilk onluğu, adlar mağazadakı kimi. Sorğu: cümə 1.
+
+Modula daxil edilməyənlər (2026-11-12, səbəbi ilə):
+- FIDE-nin aylıq reytinqi: ratings.fide.com GitHub-dan açılmır (iki sınaqda 15 saniyəlik vaxt aşımı).
+- StatCounter-in aylıq payları: eyni ay üçün səhifənin cədvəli ilə qrafikin CSV-si fərqli rəqəm verir (oktyabr 2026,
+  Chrome: 78,37% və 78,29%; Android: 82,5% və 82,39%). Hansının dəqiq olduğu bilinmir: dərc olunmur.
+- «Bu həftə nə gözlənilir» (bazar axşamı): oz_teqvim-in bazar ertəsi 08:30 xəbəri ilə eyni məzmundur.
+- APNIC IPv6 (Azərbaycanda 0,40%, dəyişmir), GitHub Innovation Graph (rüblük), ncert.az statistikası (rəqəmlərin hansı
+  aya aid olduğu səhifədən sübut olunmur).
 
 Sorğular yalnız fetch ilə (15 saniyə), hər növ öz pəncərəsində və gündə bir dəfə: açar qabaqcadan bilinir və done-da
 olan növə sorğu getmir. Sorğudan sonra nəticə nə olursa olsun açar qayıdır (xəbər yoxdursa worth=False): şəbəkə xətası
-«<növ>-xeta-<gün>», «hələ yoxdur» «<növ>-sorgu-<gün>» açarı ilə, növbəti gün yenə yoxlanır. Gündə ən çox 8 sorğu
-(adi gün 1, şənbə və cümə 2, ayın ilk günləri 4–6).
+«<növ>-xeta-<gün>», «hələ yoxdur» «<növ>-sorgu-<gün>» açarı ilə, növbəti gün yenə yoxlanır. Gündə ən çox 3 sorğu
+(adi gün 1, ayın 10–28-i 2, həmin günlərin şənbə və cüməsi 3); bağlantı qırılanda ünvan ən çox 3 dəfə yoxlanır
+(oz_gundelik._Net), vaxt aşımı və HTTP xətası təkrarlanmır.
 Sınaq: python oz_reqem.py --sinaq --root DIR [--now 2026-11-12T09:00+04:00]
 """
-import csv
 import datetime
 import email.utils
-import functools
 import html
-import io
 import json
 import pathlib
 import re
@@ -58,23 +60,6 @@ Bad = oh.Bad
 def _prev_month(d):
     """Əvvəlki ayın ilk günü."""
     return (d.replace(day=1) - DAY).replace(day=1)
-
-
-def month_loc(month):
-    """«oktyabrda», «apreldə», «iyunda»."""
-    name = ox.MONTHS[month - 1]
-    return name + ("da" if og._back(name) else "də")
-
-
-def month_in(d):
-    """«2026-cı ilin oktyabrında»."""
-    name = ox.MONTHS[d.month - 1]
-    return f"{ox.ordinal(d.year)} ilin {name}{ox._four(name, ('ında', 'ində', 'unda', 'ündə'))}"
-
-
-def pct(v):
-    """«78,29%», «4,5%», «2%»."""
-    return oh.num(v, 2) + "%"
 
 
 def _fit(*titles):
@@ -224,113 +209,7 @@ def aq_now(now, net, done):
     return [aq_item(aq_parse(net(AQ_API.format(1))), day)]
 
 
-# --- 2. Şahmat: FIDE-nin aylıq siyahısı -------------------------------------------------------------------------------------
-
-FIDE_OPEN = "https://ratings.fide.com/a_top.php?list=open"
-FIDE_WOMEN = "https://ratings.fide.com/a_top.php?list=women"
-FIDE_PAGE = "https://ratings.fide.com/top_lists.phtml"
-FIDE_CREDIT = "Beynəlxalq Şahmat Federasiyası (FIDE)"
-FIDE_DAYS = (1, 5)
-FIDE_WIN = ("11:00", "13:00")
-FIDE_SLOT = "11:30"
-FIDE_FED = "AZE"
-_EN_MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
-              "November", "December")
-_FIDE_HEAD = re.compile(r"Top 100 (Players|Women) ([A-Z][a-z]+) (\d{4})")
-_FIDE_ROW = re.compile(r'rank_span"?>\s*(\d+)\s*</span>.*?href="?/profile/(\d+)"?>([^<]+)</a>.*?flag-wrapper"?>[^<]*(?:<img[^>]*>)?'
-                       r'\s*([A-Z]{3})\s*</td>.*?rating_column"?>\s*(\d{4})\s*</td>', re.S)
-# FIDE nömrəsi -> adın Azərbaycan yazılışı. Yalnız 2026-11-12-də siyahıda görünən və yazılışı şübhəsiz olanlar;
-# cədvəldə olmayan şahmatçının adı mənbədəki kimi (latın) yazılır.
-AZ_CHESS = {
-    "13401319": "Şəhriyar Məmmədyarov", "13413937": "Aydın Süleymanlı", "13400924": "Teymur Rəcəbov",
-    "13409301": "Məhəmməd Muradlı", "13401653": "Rauf Məmmədov", "13403052": "Ülviyyə Fətəliyeva",
-    "13413015": "Gövhər Beydullayeva", "13406396": "Xanım Balacayeva", "13403729": "Günay Məmmədzadə",
-}
-
-
-def fide_parse(page, kind):
-    """FIDE-nin «Top 100» cədvəli -> (siyahının ayı, [{rank, id, name, fed, rating}]). kind: «Players» və ya «Women».
-    1-dən başlayan ardıcıl yerlər (ən azı 100) və artmayan reytinq tələb olunur: yarımçıq cədvəldən xəbər yazılmır."""
-    head = _FIDE_HEAD.search(page)
-    if not head or head.group(1) != kind or head.group(2) not in _EN_MONTHS:
-        raise Bad("FIDE səhifəsinin başlığı gözlənilən kimi deyil")
-    month = datetime.date(int(head.group(3)), _EN_MONTHS.index(head.group(2)) + 1, 1)
-    rows = []
-    for part in page.split("<tr>")[1:]:
-        if "rank_span" not in part:
-            continue
-        m = _FIDE_ROW.search(part)
-        if not m:
-            raise Bad("FIDE siyahısında sətir oxunmadı")
-        rows.append({"rank": int(m.group(1)), "id": m.group(2), "name": " ".join(html.unescape(m.group(3)).split()),
-                     "fed": m.group(4), "rating": int(m.group(5))})
-    # 100-cü yerlə eyni reytinqi olanlar da cədvəldədir (2026-11: qadınlarda 101 sətir): yalnız ilk 100 yer götürülür.
-    if not 100 <= len(rows) <= 130 or [r["rank"] for r in rows] != list(range(1, len(rows) + 1)):
-        raise Bad("FIDE siyahısında 100 ardıcıl yer yoxdur")
-    if any(a["rating"] < b["rating"] for a, b in zip(rows, rows[1:])) or not all(1800 <= r["rating"] <= 2999 for r in rows) \
-            or any(r["rating"] != rows[99]["rating"] for r in rows[100:]):
-        raise Bad("FIDE siyahısı reytinqə görə sıralanmayıb")
-    return month, rows[:100]
-
-
-def fide_name(row):
-    """Azərbaycan yazılışı (cədvəldə varsa), yoxsa mənbədəki ad: «Mamedov, Rauf» -> «Rauf Mamedov»."""
-    if row["id"] in AZ_CHESS:
-        return AZ_CHESS[row["id"]]
-    last, sep, first = row["name"].partition(",")
-    return f"{first.strip()} {last.strip()}".strip() if sep else row["name"]
-
-
-def fide_item(month, rows, women):
-    """Ayın xəbəri: ilk yüzlükdə Azərbaycanı təmsil edənlər, yer və reytinqləri ilə."""
-    key = f"sahmat-reytinq-{month:%Y-%m}"
-    tail = (FIDE_CREDIT, FIDE_PAGE, "idman", FIDE_SLOT)
-    mname = ox.MONTHS[month.month - 1]
-    az = [r for r in rows if r["fed"] == FIDE_FED]
-    azw = [r for r in women if r["fed"] == FIDE_FED]
-    if not az:
-        return _no("sahmat-reytinq", key, f"FIDE-nin {mname} reytinqi", "açıq siyahının ilk yüzlüyündə Azərbaycan şahmatçısı yoxdur",
-                   *tail)
-    n, best = len(az), az[0]
-    place = lambda r: f"{ox.ordinal(r['rank'])} yer"
-    pair = (f"{fide_name(best)} {ox.ordinal(best['rank'])}, {fide_name(az[1])} {place(az[1])}dədir" if n > 1 else
-            f"{fide_name(best)} {place(best)}dədir")
-    title = _fit((f"FIDE-nin {mname} reytinqi: dünyanın ilk yüzlüyündə {n} Azərbaycan şahmatçısı var",
-                  f"{fide_name(best)} FIDE-nin {mname} reytinqində {place(best)}dədir, ilk yüzlükdə {n} Azərbaycan şahmatçısı var",
-                  f"FIDE {mname} reytinqini açıqlayıb: {pair}")[month.month % 3],
-                 f"FIDE-nin {mname} reytinqi: dünyanın ilk yüzlüyündə {n} Azərbaycan şahmatçısı var")
-    lead = (f"Beynəlxalq Şahmat Federasiyasının (FIDE) {ox.ordinal(month.year)} ilin {mname} reytinq siyahısına görə, klassik şahmat "
-            f"üzrə dünyanın ən yüksək reytinqli 100 şahmatçısı arasında Azərbaycanı ")
-    if n > 1:
-        lead += (f"{n} nəfər təmsil edir. Onların arasında ən yüksək yerdə {fide_name(best)} qərarlaşıb: {best['rating']} reytinq "
-                 f"xalı ilə {place(best)}.")
-    else:
-        lead += f"bir nəfər, {fide_name(best)} təmsil edir: {best['rating']} reytinq xalı ilə {place(best)}."
-    if azw:
-        lead += f" Qadınların ilk yüzlüyündə Azərbaycanı {len(azw)} şahmatçı təmsil edir."
-    body = [f"{place(r)}: {fide_name(r)} — {r['rating']}" for r in az]
-    body += [f"Qadınlar, {place(r)}: {fide_name(r)} — {r['rating']}" for r in azw]
-    return og._item("sahmat-reytinq", key, title, lead, body, *tail, lst=True)
-
-
-def fide_now(now, net, done):
-    day = now.date()
-    month = day.replace(day=1)
-    key = f"sahmat-reytinq-{month:%Y-%m}"
-    if not FIDE_DAYS[0] <= day.day <= FIDE_DAYS[1] or not oh._in(now, FIDE_WIN) or _closed(done, "sahmat-reytinq", day, key):
-        return []
-    got, rows = fide_parse(og._text(net(FIDE_OPEN)), "Players")
-    if got != month:
-        return [_no("sahmat-reytinq", f"sahmat-reytinq-sorgu-{day.isoformat()}", f"FIDE-nin {ox.MONTHS[month.month - 1]} reytinqi",
-                    f"FIDE-nin səhifəsində hələ {ox.MONTHS[got.month - 1]} {got.year} siyahısıdır", FIDE_CREDIT, FIDE_PAGE,
-                    "idman", FIDE_SLOT)]
-    got_w, women = fide_parse(og._text(net(FIDE_WOMEN)), "Women")
-    if got_w != month:
-        raise Bad("FIDE-nin qadınlar siyahısı başqa ayındır")
-    return [fide_item(month, rows, women)]
-
-
-# --- 3. İnternetin sürəti: Speedtest Global Index ---------------------------------------------------------------------------
+# --- 2. İnternetin sürəti: Speedtest Global Index ---------------------------------------------------------------------------
 
 SPEED_URL = "https://www.speedtest.net/global-index/azerbaijan"
 SPEED_CREDIT = "Ookla, Speedtest Global Index"
@@ -436,114 +315,7 @@ def speed_now(now, net, done):
     return [speed_item(data)]
 
 
-# --- 4. StatCounter: brauzerlər, mobil əməliyyat sistemləri, telefon istehsalçıları ---------------------------------------------
-
-SC_BASE = "https://gs.statcounter.com/chart.php?"
-SC_CREDIT = "StatCounter Global Stats"
-SC_WIN = ("12:00", "14:00")
-SC_SLOT = "12:30"
-SC_LAST_DAY = 8                 # ayın bu günündən sonra ötən ayın payları xəbər deyil
-SC_SUM = 0.6                    # sətrin cəmi 100-dən ən çox bu qədər fərqlənə bilər (yuvarlaqlaşdırma)
-SC_MIN = 0.5                    # bundan kiçik pay siyahıda yazılmır
-SC_DELTA = 0.5                  # ən böyük aylıq fərq bundan kiçikdirsə xəbər yoxdur (faiz bəndi)
-SC_OTHER = ("Other", "Unknown")
-SC = (
-    {"kind": "brauzer-payi", "day": 2, "whose": "brauzerlərin", "traffic": "veb-trafikin",
-     "scope": "bütün cihazlardan veb-səhifə baxışlarında brauzerlərin payı", "unknown": "Naməlum brauzer",
-     "page": "https://gs.statcounter.com/browser-market-share/all/azerbaijan",
-     "query": "device=Desktop%20%26%20Mobile%20%26%20Tablet%20%26%20Console&device_hidden=desktop%2Bmobile%2Btablet%2Bconsole"
-              "&multi-device=true&statType_hidden=browser&region_hidden=AZ&granularity=monthly&statType=Browser&region=Azerbaijan"},
-    {"kind": "mobil-sistem-payi", "day": 3, "whose": "mobil əməliyyat sistemlərinin", "traffic": "mobil veb-trafikin",
-     "scope": "mobil telefonlardan veb-səhifə baxışlarında əməliyyat sistemlərinin payı", "unknown": "Naməlum sistem",
-     "page": "https://gs.statcounter.com/os-market-share/mobile/azerbaijan",
-     "query": "device=Mobile&device_hidden=mobile&statType_hidden=os_combined&region_hidden=AZ&granularity=monthly"
-              "&statType=Operating%20System&region=Azerbaijan"},
-    {"kind": "telefon-payi", "day": 4, "whose": "telefon istehsalçılarının", "traffic": "mobil veb-trafikin",
-     "scope": "mobil telefonlardan veb-səhifə baxışlarında cihaz istehsalçılarının payı",
-     "unknown": "İstehsalçısı müəyyən edilməyən cihazlar",
-     "page": "https://gs.statcounter.com/vendor-market-share/mobile/azerbaijan",
-     "query": "device=Mobile&device_hidden=mobile&statType_hidden=vendor&region_hidden=AZ&granularity=monthly"
-              "&statType=Device%20Vendor&region=Azerbaijan"},
-)
-
-
-def sc_url(spec, month):
-    """İki tam ayın (month və ondan əvvəlki) CSV-si. Cari ay istənmir: StatCounter onu yarımçıq verir."""
-    a = _prev_month(month)
-    return (f"{SC_BASE}{spec['query']}&fromInt={a:%Y%m}&toInt={month:%Y%m}&fromMonthYear={a:%Y-%m}"
-            f"&toMonthYear={month:%Y-%m}&csv=1")
-
-
-def sc_parse(raw):
-    """CSV -> (adlar, {ayın ilk günü: paylar}). Hər sətrin payları 0–100 aralığında, cəmi 100% olmalıdır."""
-    table = [row for row in csv.reader(io.StringIO(og._text(raw).lstrip("﻿"))) if row]
-    if not table or table[0][0].strip() != "Date" or len(table[0]) < 3:
-        raise Bad("StatCounter-in cədvəli gözlənilən şəkildə deyil")
-    names = [" ".join(n.split()) for n in table[0][1:]]
-    if any(not n for n in names) or len(set(names)) != len(names):
-        raise Bad("StatCounter-in cədvəlində sütun adları oxunmadı")
-    months = {}
-    for row in table[1:]:
-        m = re.fullmatch(r"(\d{4})-(\d\d)", row[0].strip())
-        if not m or len(row) != len(names) + 1:
-            raise Bad("StatCounter-in cədvəlində sətir oxunmadı")
-        vals = [oh._flt(v) for v in row[1:]]
-        if any(v is None or v < 0 or v > 100 for v in vals):
-            raise Bad("StatCounter-in cədvəlində pay oxunmadı")
-        if abs(sum(vals) - 100) > SC_SUM:
-            raise Bad("StatCounter-in cədvəlində payların cəmi 100% deyil")
-        months[datetime.date(int(m.group(1)), int(m.group(2)), 1)] = vals
-    return names, months
-
-
-def sc_item(spec, names, months, month):
-    """Ötən ayın payları: ilk üçlük və bir ay əvvəllə ən böyük fərq."""
-    prev = _prev_month(month)
-    kind = spec["kind"]
-    key = f"{kind}-{month:%Y-%m}"
-    tail = (SC_CREDIT, spec["page"], "texnologiya", SC_SLOT)
-    when, when_prev = month_loc(month.month), month_loc(prev.month)
-    title0 = f"Azərbaycanda {spec['whose']} payı: {ox.MONTHS[month.month - 1]}"
-    if month not in months or prev not in months:
-        return _no(kind, key, title0, "cədvəldə ötən ay və ya ondan əvvəlki ay yoxdur", *tail)
-    rows = list(zip(names, months[month], months[prev]))
-    named = sorted((r for r in rows if r[0] not in SC_OTHER), key=lambda r: (-r[1], r[0]))
-    top = [r for r in named if r[1] >= SC_MIN][:3]
-    if len(top) < 2:
-        return _no(kind, key, title0, "cədvəldə payı 0,5%-dən böyük iki ad yoxdur", *tail)
-    change = max(named, key=lambda r: (abs(round(r[1] - r[2], 2)), r[1]))
-    delta = round(change[1] - change[2], 2)
-    if abs(delta) < SC_DELTA:
-        return _no(kind, key, title0, f"ay ərzində nəzərəçarpan dəyişiklik yoxdur: ən böyük fərq {oh.num(abs(delta), 2)} faiz bəndi "
-                                      f"({change[0]})", *tail)
-    shares = ", ".join(f"{n} {pct(c)}" for n, c, _ in top)
-    second = f"ikinci yerdə {top[1][0]}" + (f", üçüncü yerdə {top[2][0]}" if len(top) > 2 else "")
-    title = _fit((f"Azərbaycanda {spec['whose']} payı: {when} {shares}",
-                  f"{top[0][0]} {when} Azərbaycanda {spec['traffic']} {pct(top[0][1])}-ni toplayıb, {second}")[month.month % 2],
-                 f"Azərbaycanda {spec['whose']} payı: {when} {shares}", title0)
-    lead = (f"StatCounter-in veb-səhifə baxışlarına əsaslanan statistikasına görə, {month_in(month)} Azərbaycanda {spec['scope']} "
-            f"belə olub: {shares}. Bir ay əvvəllə müqayisədə ən böyük dəyişiklik {change[0]} üzrədir: pay {pct(change[2])}-dən "
-            f"{pct(change[1])}-ə {'yüksəlib' if delta > 0 else 'enib'}.")
-    listed = [r for r in named if r[1] >= SC_MIN]
-    body = [f"{n}: {pct(c)} ({when_prev} {pct(p)})" for n, c, p in listed]
-    body += [f"{spec['unknown']}: {pct(c)} ({when_prev} {pct(p)})" for n, c, p in rows if n == "Unknown" and c >= SC_MIN]
-    rest = round(sum(c for n, c, _ in rows if c < SC_MIN or n == "Other"), 2)
-    if rest > 0:
-        body.append(f"Qalanları birlikdə: {pct(rest)}")
-    return og._item(kind, key, title, lead, body, *tail, lst=True)
-
-
-def sc_now(spec, now, net, done):
-    day = now.date()
-    month = _prev_month(day)
-    key = f"{spec['kind']}-{month:%Y-%m}"
-    if not spec["day"] <= day.day <= SC_LAST_DAY or not oh._in(now, SC_WIN) or _closed(done, spec["kind"], day, key):
-        return []
-    names, months = sc_parse(net(sc_url(spec, month)))
-    return [sc_item(spec, names, months, month)]
-
-
-# --- 5. İstismar olunan boşluqlar: CISA KEV ---------------------------------------------------------------------------------
+# --- 3. İstismar olunan boşluqlar: CISA KEV ---------------------------------------------------------------------------------
 
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 KEV_PAGE = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
@@ -632,10 +404,10 @@ def kev_now(now, net, done):
     return [kev_item(kev_parse(net(KEV_URL)), day, now)]
 
 
-# --- 6. App Store: Azərbaycan mağazasında pulsuz tətbiqlər --------------------------------------------------------------------
+# --- 4. App Store: Azərbaycan mağazasında pulsuz tətbiqlər --------------------------------------------------------------------
 
 APP_URL = "https://rss.marketingtools.apple.com/api/v2/az/apps/top-free/25/apps.json"
-APP_PAGE = "https://rss.marketingtools.apple.com/"
+APP_PAGE = "https://apps.apple.com/az/iphone/charts/36"   # oxucu üçün: eyni siyahı App Store-un öz səhifəsində
 APP_CREDIT = "Apple, App Store"
 APP_WIN = ("17:00", "19:00")
 APP_SLOT = "17:30"
@@ -699,19 +471,18 @@ def app_now(now, net, done):
 
 # --- İstehsal ---------------------------------------------------------------------------------------------------------------
 
+# (növ, qurucu, mənbənin adı, oxucu üçün keçid, mövzu, slot, sorğunun getdiyi ünvan)
 PARTS = (
-    ("hava-keyfiyyeti", aq_now, AQ_CREDIT, AQ_PAGE, "təbiət", AQ_SLOT),
-    ("sahmat-reytinq", fide_now, FIDE_CREDIT, FIDE_PAGE, "idman", FIDE_SLOT),
-    ("internet-sureti", speed_now, SPEED_CREDIT, SPEED_URL, "texnologiya", SPEED_SLOT),
-) + tuple((spec["kind"], functools.partial(sc_now, spec), SC_CREDIT, spec["page"], "texnologiya", SC_SLOT) for spec in SC) + (
-    ("kev-hefte", kev_now, KEV_CREDIT, KEV_PAGE, "texnologiya", KEV_SLOT),
-    ("app-store", app_now, APP_CREDIT, APP_PAGE, "texnologiya", APP_SLOT),
+    ("hava-keyfiyyeti", aq_now, AQ_CREDIT, AQ_PAGE, "təbiət", AQ_SLOT, AQ_API),
+    ("internet-sureti", speed_now, SPEED_CREDIT, SPEED_URL, "texnologiya", SPEED_SLOT, SPEED_URL),
+    ("kev-hefte", kev_now, KEV_CREDIT, KEV_PAGE, "texnologiya", KEV_SLOT, KEV_URL),
+    ("app-store", app_now, APP_CREDIT, APP_PAGE, "texnologiya", APP_SLOT, APP_URL),
 )
 
 
-def _failed(kind, credit, link, topic, slot, day, err):
+def _failed(kind, credit, link, topic, slot, url, day, err):
     """Mənbə alınmadı və ya cavabı özünü təsdiqləmədi: günün xəta açarı ilə, bu gün bir də sorğu getmir."""
-    host = urllib.parse.urlsplit(link).hostname or link
+    host = urllib.parse.urlsplit(url).hostname or url
     why = str(err) if isinstance(err, Bad) else f"{host} alınmadı və ya oxunmadı: {oh._err(err)}"
     return og._item(kind, f"{kind}-xeta-{day.isoformat()}", f"{credit}: məlumat alınmadı", og._cap(why) + ".", [], credit, link,
                     topic, slot, worth=False, why=why)
@@ -719,11 +490,11 @@ def _failed(kind, credit, link, topic, slot, day, err):
 
 def _run(now, net, done):
     out = []
-    for kind, build, credit, link, topic, slot in PARTS:
+    for kind, build, credit, link, topic, slot, url in PARTS:
         try:
             out += build(now, net, done)
         except Exception as e:  # bir mənbənin xətası digərlərini saxlamır
-            out.append(_failed(kind, credit, link, topic, slot, now.date(), e))
+            out.append(_failed(kind, credit, link, topic, slot, url, now.date(), e))
     return out
 
 
@@ -770,22 +541,9 @@ def _aq_sinaq(now, net):
     return md
 
 
-def _fide_sinaq(now, net):
-    today = now.date()
-    md = ["## 2. Şahmat: FIDE-nin aylıq siyahısı (ayın 1–5-i, 11:30)", ""]
-    month, rows = fide_parse(og._text(net(FIDE_OPEN)), "Players")
-    month_w, women = fide_parse(og._text(net(FIDE_WOMEN)), "Women")
-    if month_w != month:
-        return md + ["> Açıq siyahı ilə qadınlar siyahısının ayı fərqlidir: dərc olunmazdı.", ""]
-    item = fide_item(month, rows, women)
-    if item["worth"] and month != today.replace(day=1):
-        item = dict(item, worth=False, why="siyahı cari ayın siyahısı deyil")
-    return md + _case(f"{ox.MONTHS[month.month - 1]} {month.year} siyahısı: son real hal", item)
-
-
 def _speed_sinaq(now, net):
     today = now.date()
-    md = ["## 3. İnternetin sürəti: Speedtest Global Index (ayın 10–28-i, 10:30, yalnız yeni buraxılış)", ""]
+    md = ["## 2. İnternetin sürəti: Speedtest Global Index (ayın 10–28-i, 10:30, yalnız yeni buraxılış)", ""]
     data = speed_parse(og._text(net(SPEED_URL)))
     item = speed_item(data)
     if data["month"] != _prev_month(today):
@@ -794,22 +552,9 @@ def _speed_sinaq(now, net):
     return md + _case(f"{ox.MONTHS[data['month'].month - 1]} {data['month'].year} buraxılışı: son real hal", item)
 
 
-def _sc_sinaq(now, net):
-    month = _prev_month(now.date())
-    md = ["## 4. StatCounter: aylıq paylar (ayın 2-si, 3-ü və 4-ü, 12:30)", ""]
-    for spec in SC:
-        try:
-            names, months = sc_parse(net(sc_url(spec, month)))
-        except Exception as e:
-            md += [f"> {spec['kind']}: {e if isinstance(e, Bad) else oh._err(e)}", ""]
-            continue
-        md += _case(f"{ox.MONTHS[month.month - 1]} {month.year}, {spec['whose']} payı: son real hal", sc_item(spec, names, months, month))
-    return md
-
-
 def _kev_sinaq(now, net):
     today = now.date()
-    md = ["## 5. İstismar olunan boşluqlar: CISA KEV (şənbə 11:00)", ""]
+    md = ["## 3. İstismar olunan boşluqlar: CISA KEV (şənbə 11:00)", ""]
     cat = kev_parse(net(KEV_URL))
     md += [f"_Kataloqda {len(cat['rows'])} qeyd, versiya {cat['version']}._", ""]
     sat = today - DAY * ((today.weekday() - 5) % 7)
@@ -821,13 +566,13 @@ def _kev_sinaq(now, net):
 
 def _app_sinaq(now, net):
     today = now.date()
-    md = ["## 6. App Store: Azərbaycan mağazasında pulsuz tətbiqlər (cümə 17:30)", ""]
+    md = ["## 4. App Store: Azərbaycan mağazasında pulsuz tətbiqlər (cümə 17:30)", ""]
     return md + _case(f"{og._label(today, today)}: bugünkü siyahı (canlıda yalnız cümə günü)", app_item(app_parse(net(APP_URL)), today, now))
 
 
 def sinaq(root, now=None, fetch=None):
     """Nümunələr (Markdown): bu an dərc olunacaqlar və hər növün ən son real halları. Sayta heç nə yazmır.
-    Sorğular: Open-Meteo 1, FIDE 2, Speedtest 1, StatCounter 3, CISA 1, Apple 1."""
+    Sorğular: Open-Meteo 1, Speedtest 1, CISA 1, Apple 1."""
     try:
         now = og._now(now)
         net = og._Net(fetch if fetch is not None else og._default_fetch())
@@ -838,7 +583,7 @@ def sinaq(root, now=None, fetch=None):
         md += [f"- `{i['key']}` ({i['slot']}): {i['title']} — " + ("✅" if i["worth"] else f"⏭ {i.get('why')}")
                for i in live] or ["- yoxdur (heç bir növün pəncərəsi açıq deyil)"]
         md += [""]
-        for part in (_aq_sinaq, _fide_sinaq, _speed_sinaq, _sc_sinaq, _kev_sinaq, _app_sinaq):
+        for part in (_aq_sinaq, _speed_sinaq, _kev_sinaq, _app_sinaq):
             try:
                 md += part(now, net)
             except Exception as e:

@@ -145,7 +145,7 @@ ONCELIK = {
     "oz_medeniyyet": (2, {"vikipediya-gun": 1, "vikipediya-ay": 1, "yubiley": 1}),
     "oz_idman2": (2, {"f1-yaris": 3, "f1-siralama": 3, "cudo": 3}),
     "oz_gundelik": (3, {"dim-hefte": 2, "asan-muraciet": 2}),
-    "oz_reqem": (2, {"brauzer-payi": 1, "mobil-sistem-payi": 1, "telefon-payi": 1, "kev-hefte": 1, "app-store": 1}),
+    "oz_reqem": (2, {"kev-hefte": 1, "app-store": 1}),
     "oz_xeber": (2, {"zelzele": 3, "futbol": 3, "tarix": 1}),   # amb və neft: 2
 }
 
