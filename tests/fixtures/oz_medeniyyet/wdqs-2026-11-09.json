@@ -1,0 +1,340 @@
+{
+ "head": {
+  "vars": [
+   "p",
+   "name",
+   "b",
+   "prec",
+   "sl",
+   "title",
+   "desc",
+   "dead",
+   "occ",
+   "posn"
+  ]
+ },
+ "results": {
+  "bindings": [
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q19787207"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Aleksey İsayev"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1995-11-09T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "10"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Aleksey İsayev"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Rusiya futbolçusu"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "futbolçu"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12838488"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Davud Kazımov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1926-11-09T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "8"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Davud Kazımov"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan rəssamı"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "rəssam"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "dead": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "2015-02-14T00:00:00Z"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q16374775"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Siyavuş Kərimi"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1954-11-09T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "6"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Siyavuş Kərimi"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan bəstəkarı"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "bəstəkar|pianoçu"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12842328"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Musa Qurbanov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1964-11-09T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "5"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Musa Qurbanov"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan futbolçusu"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "futbol məşqçisi|futbolçu"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q13494265"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Sadıq Sadıqov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1965-11-09T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "4"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Sadıq Sadıqov"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "icraçı direktor"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "dead": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "2026-06-05T00:00:00Z"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q16377417"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "İlqar Muradov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1957-11-09T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "3"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "İlqar Muradov"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan müğənnisi"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "müğənni"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12849128"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "İradə Tuncay"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1959-11-09T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "İradə Tuncay"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan yazıçısı"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "yazıçı|publisist"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   }
+  ]
+ }
+}

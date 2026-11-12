@@ -1,0 +1,42 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 12614,
+     "name": "Şahmaran",
+     "event_starts_at": "2026-11-12T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Musiqili Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 1055,
+     "name": "Xanuma",
+     "event_starts_at": "2026-11-12T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 8,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "13+",
+     "venues": [
+      {
+       "name": "Akademik Milli Dram Teatrı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

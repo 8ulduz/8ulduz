@@ -1,0 +1,162 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 8369,
+     "name": "“Uçan xalça” marionet kukla teatr tamaşası",
+     "event_starts_at": "2026-11-10T10:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "7-12",
+     "venues": [
+      {
+       "name": "Azərbaycan Milli Xalça Muzeyi"
+      }
+     ]
+    },
+    {
+     "id": 11756,
+     "name": "Cırtdanın Nağılı",
+     "event_starts_at": "2026-11-10T10:30:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 10,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Eventland Mərkəzi"
+      }
+     ]
+    },
+    {
+     "id": 11760,
+     "name": "Qoğalın Nağılı",
+     "event_starts_at": "2026-11-10T12:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 10,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Eventland Mərkəzi"
+      }
+     ]
+    },
+    {
+     "id": 8365,
+     "name": "“Məlikməmmədin nağılı” marionet kukla teatr tamaşası",
+     "event_starts_at": "2026-11-10T12:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "7-12",
+     "venues": [
+      {
+       "name": "Azərbaycan Milli Xalça Muzeyi"
+      }
+     ]
+    },
+    {
+     "id": 10638,
+     "name": "Cinayət və cəza",
+     "event_starts_at": "2026-11-10T12:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12157,
+     "name": "Operadakı Kabus",
+     "event_starts_at": "2026-11-10T13:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10641,
+     "name": "Paris Notr-Dama - Quasimodo",
+     "event_starts_at": "2026-11-10T14:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 35,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12974,
+     "name": "İNİŞMA",
+     "event_starts_at": "2026-11-10T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 20,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Teatr O2"
+      }
+     ]
+    },
+    {
+     "id": 12610,
+     "name": "Məhşər divanı",
+     "event_starts_at": "2026-11-10T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 115,
+     "public_state": 1,
+     "age_limit": "7+",
+     "venues": [
+      {
+       "name": "Heydər Əliyev Sarayı"
+      }
+     ]
+    },
+    {
+     "id": 11878,
+     "name": "Şirinlər Günü Bakida",
+     "event_starts_at": "2026-11-10T15:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 8,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Eventland Mərkəzi"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

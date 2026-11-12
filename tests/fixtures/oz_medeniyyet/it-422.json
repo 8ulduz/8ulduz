@@ -1,0 +1,1 @@
+{"status":422,"result":"error","type":"Validation failed","error":{"key":"validation_failed","params":{}},"response":[{"field":"start_date","messages":[" start date d.m.Y formatında olmalıdır"]}]}
