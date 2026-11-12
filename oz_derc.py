@@ -299,8 +299,8 @@ def row(item, when):
         image = ""
     return {
         "id": ident,
-        "title": _line(item["title"]),
-        "summary": _short(_line(item["lead"]), int(getattr(u, "SUMMARY_MAX", 220) or 220)),
+        "title": _line(item.get("title")),
+        "summary": _short(_line(item.get("lead")), int(getattr(u, "SUMMARY_MAX", 220) or 220)),
         "category": category(item),
         "source": ox.SOURCE,
         "sourceUrl": f"{site()}xeber/{ident}/",
@@ -439,7 +439,7 @@ def modules():
 
 
 def _rule(name, extra=None):
-    return dict(QAYDA_ADI, **(QAYDA.get(name) or {}), **(extra or {}))
+    return {**QAYDA_ADI, **(QAYDA.get(name) or {}), **(extra or {})}
 
 
 def _mods(mods):
@@ -754,21 +754,27 @@ def _ticks(now):
     return out + [now]
 
 
-def _dry(root, now, start, tape, replay, fetch):
-    """Bu günün quru sınağı müvəqqəti qovluqda: günün əvvəlindən now-a qədər 30 dəqiqəlik addımlar. Keçmiş addımlarda
-    yalnız «novbe» qaydalı (sorğusuz işləyən) modullar çağırılır və sorğu getmir; son addımda bütün modullar, əsl sorğu ilə."""
+def _dry(root, now, start, tape, replay, fetch, net=True):
+    """Bir günün quru sınağı müvəqqəti qovluqda: günün əvvəlindən now-a qədər 30 dəqiqəlik addımlar. Keçmiş addımlarda
+    yalnız «novbe» qaydalı (sorğusuz işləyən) modullar çağırılır və sorğu getmir; son addımda (net) bütün modullar, əsl
+    sorğu ilə. Əvvəlcə bir isinmə dövrəsi (əvvəlki gün 23:59): pəncərəsi dünəndən açıq qalan xəbərlərin açarı done-a
+    düşür ki, canlıda dünən dərc olunmuş xəbər bu günün siyahısında görünməsin; onun nəticəsi sayılmır."""
     out = {"rows": [], "pages": {}, "blocked": [], "held": [], "errors": [], "queue": 0, "bytes": 0, "cut": False}
     ticks = _ticks(now)
+    offline = [name for name in modules() if _rule(name)["done"] == "novbe"]
     t0 = _clock()
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         save(tmp, dict(fresh(), start=start.isoformat()))
+        cycle(tmp, ticks[0] - datetime.timedelta(minutes=1), fetch=_no_net, env={FLAG: "1"},
+              mods=[(name, _Lent(name, root, tape, replay)) for name in offline])
+        save(tmp, dict(fresh(), start=start.isoformat(), done=load(tmp)["done"]))
         for n, t in enumerate(ticks):
             last = n == len(ticks) - 1
             if not last and not replay and _clock() - t0 > SINAQ_S:
                 out["cut"] = True
                 continue
-            mods = [(name, _Lent(name, root, tape, replay)) for name in modules() if last or _rule(name)["done"] == "novbe"]
+            mods = [(name, _Lent(name, root, tape, replay)) for name in (modules() if last and net else offline)]
             res = cycle(tmp, t, fetch=fetch if last else _no_net, env={FLAG: "1"}, mods=mods)
             out["rows"] += res["published"]
             out["blocked"] += res["blocked"]
@@ -837,17 +843,25 @@ def _sinaq(root, now, fetch):
         return real(url, *args, **kwargs)
 
     t0 = _clock()
-    tape = {}
+    tape, tape2 = {}, {}
+    old = datetime.timedelta(days=28)
+    yday = datetime.datetime.combine(now.date(), datetime.time(0, 0), BAKU) - datetime.timedelta(minutes=1)
     with registered():
         first = _dry(root, now, now.date(), tape, False, limited)
-        full = _dry(root, now, now.date() - datetime.timedelta(days=28), tape, True, _no_net)
+        full = _dry(root, now, now.date() - old, tape, True, _no_net)
+        yfirst = _dry(root, yday, yday.date(), tape2, False, _no_net, net=False)
+        yfull = _dry(root, yday, yday.date() - old, tape2, True, _no_net, net=False)
     md += ["## 2. Bu gün nə dərc olunardı", "",
-           f"Günün əvvəlindən {now:%H:%M}-dək 30 dəqiqəlik addımlarla {len(_ticks(now))} dövrə. Keçmiş saatlara sorğu getmir, "
-           f"ona görə sorğu ilə işləyən modulların xəbəri yalnız son dövrədə ola bilər. Sorğu: {box['n']}, vaxt: "
-           f"{_clock() - t0:.0f} saniyə, vəziyyət faylı: {full['bytes']} bayt."
-           + (" Vaxt çatmadı: keçmiş addımların bir hissəsi buraxıldı." if first["cut"] else ""), ""]
+           f"Günün əvvəlindən indiyədək ({now:%H:%M}) 30 dəqiqəlik addımlarla {len(_ticks(now))} dövrə. Keçmiş saatlara sorğu "
+           f"getmir, ona görə sorğu ilə işləyən modulların xəbəri yalnız son dövrədə ola bilər. Sorğu: {box['n']}, vaxt: "
+           f"{_clock() - t0:.0f} saniyə, günün sonunda vəziyyət faylı: {yfull['bytes']} bayt."
+           + (" Vaxt çatmadı: keçmiş addımların bir hissəsi buraxıldı." if first["cut"] or yfirst["cut"] else ""), ""]
     md += _run_md(f"İlk həftənin tavanı ilə (gündə {RAMP[0][1]})", first)
     md += _run_md(f"Tam tavanla (gündə {CEILING})", full)
+    md += ["Müqayisə üçün dünənin tam günü (yalnız sorğusuz işləyən modullar: futbol, təqvim, səma; sorğu ilə işləyən "
+           "modulların xəbərləri bura düşmür, canlıda siyahı bundan uzun olar).", ""]
+    md += _run_md(f"Dünən, ilk həftənin tavanı ilə (gündə {RAMP[0][1]})", yfirst)
+    md += _run_md(f"Dünən, tam tavanla (gündə {CEILING})", yfull)
     rows = full["rows"] or first["rows"]
     md += ["## 3. Əsl qapının bu günkü qərarı", ""]
     clean, dropped = content_policy.enforce(rows)

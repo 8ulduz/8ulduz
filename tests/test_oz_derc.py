@@ -392,7 +392,7 @@ class GateTest(Base):
 
     def test_sinaq_with_fake_modules(self):
         def items(root, now, fetch=None):
-            return [xeber(f"t{i:02d}", MOVZU[i % 6], slot=f"{1 + i // 4:02d}:{15 * (i % 4):02d}") for i in range(20)]
+            return [xeber(f"t{i:02d}-{now:%d}", MOVZU[i % 6], slot=f"{1 + i // 4:02d}:{15 * (i % 4):02d}") for i in range(20)]
 
         with patch.dict(sys.modules, {"oz_saxta": SimpleNamespace(items=items)}), \
                 patch.object(d, "modules", return_value=["oz_saxta"]), patch.dict(d.QAYDA, {"oz_saxta": NOVBE}):
@@ -402,11 +402,16 @@ class GateTest(Base):
         self.assertEqual(md.count("yoxdur. Bağlıdır."), 2)
         self.assertIn("### İlk həftənin tavanı ilə (gündə 15): 15 xəbər", md)
         self.assertIn("### Tam tavanla (gündə 40): 20 xəbər", md)
-        self.assertIn("| 01:00 | İdman | Başlıq t00 |", md)
-        self.assertIn("- Başlıq t15: gündəlik hədd: 15 xəbər", md)
+        self.assertIn("| 01:00 | İdman | Başlıq t00-12 |", md)
+        self.assertIn("- Başlıq t15-12: gündəlik hədd: 15 xəbər", md)
+        self.assertIn("### Dünən, ilk həftənin tavanı ilə (gündə 15): 15 xəbər", md)
+        self.assertIn("### Dünən, tam tavanla (gündə 40): 20 xəbər", md)
+        self.assertIn("| 01:00 | İdman | Başlıq t00-11 |", md)
+        self.assertIn("- Başlıq t15-11: gecikdi", md)
+        self.assertNotIn("t00-10", md, "isinmə dövrəsinin nəticəsi göstərilmir")
         self.assertIn("Rədd edilən: 20 («icazəli siyahıda deyil»: 20)", md)
         self.assertEqual(md.count("```json"), 2)
-        self.assertIn("<!-- OZ-DERC-SEHIFE-BASLADI t00 -->", md)
+        self.assertIn("<!-- OZ-DERC-SEHIFE-BASLADI t00-12 -->", md)
         self.assertEqual(md.count("<!-- OZ-DERC-SEHIFE-BITDI -->"), 2)
         self.assertEqual(list(self.tmp.iterdir()), [], "sınaq root-a heç nə yazmır")
         self.assertNotIn(ox.SOURCE, content_policy.AZ_SOURCES)
