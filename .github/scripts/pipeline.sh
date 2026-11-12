@@ -243,6 +243,17 @@ topic_pages() {
   return 0
 }
 
+# Öz xəbərlər (yalnız açarla yaranır; açarsız fayl yoxdur və bu funksiya heç nə etmir): main-ə çatmış sətir faylının nüsxəsi.
+# Sürətli dövrə lentə yalnız bu nüsxədəki sətirləri qatır (updater.read_own_rows): kart birbaşa xəbərin səhifəsinə aparır, səhifə
+# isə sayta yalnız main yazılışı və Pages yayımı ilə çatır. $1: nüsxənin görünməsinə qədər gözləmə, saniyə (Pages yayımı).
+own_rows_live() {
+  local src="$REPO_DIR/data/oz/xeberler.json" dst="$WORK/.cache/oz-yayimda.json"
+  [ -f "$src" ] || return 0
+  mkdir -p "$WORK/.cache" && cp "$src" "$dst.yeni" || return 0
+  if [ "${1:-0}" -gt 0 ]; then ( sleep "$1"; mv -f "$dst.yeni" "$dst" ) & else mv -f "$dst.yeni" "$dst"; fi
+  return 0
+}
+
 publish_main() {
   local i name
   for i in 1 2 3 4 5; do
@@ -280,6 +291,7 @@ publish_main() {
       # «Profillərdə paylaş» işi: GitHub cron-u saatlarla gecikir, Pages yayımı isə workflow_run başlatmır.
       # Pages yeni /x/ səhifələrini yayımlasın deyə 90 s sonra, arxa planda; xəta nəzərə alınmır, dövrə gözləmir.
       ( sleep 90; gh_t workflow run social.yml --ref "$BRANCH" >/dev/null 2>&1 ) &
+      own_rows_live 90   # öz xəbərlərin təzə səhifələri də həmin yayımla sayta çatır: sətirləri lentə ondan sonra
       return 0
     fi
     echo "main push alınmadı, yenidən cəhd ($i)"
@@ -370,6 +382,7 @@ done
 [ -d "$REPO_DIR/x" ] && cp -a "$REPO_DIR/x" "$WORK/x"   # mövcud paylaşma səhifələri: təzədən yazılmasın, 25 saatdan sonra silinsin
 [ -d "$REPO_DIR/icmal" ] && cp -a "$REPO_DIR/icmal" "$WORK/icmal"   # günün icmalı: yazılmış buraxılış təkrar yazılmır
 [ -d "$REPO_DIR/xeber" ] && cp -a "$REPO_DIR/xeber" "$WORK/xeber"   # Google üçün xəbər səhifələri: 30 gün qalır (updater.write_story_pages)
+own_rows_live 0   # götürülmüş main-dəki öz sətirlərin səhifələri artıq saytdadır
 guard_outputs
 seed_slots
 rm -f "$LKG/.yeni"

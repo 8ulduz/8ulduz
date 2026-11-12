@@ -2586,13 +2586,16 @@ def retire_reader():
 # 8ulduz-un öz xəbərləri (sahib 2026-11-12: «Sayta qoşmağa başla»; mərhələ 2: çağırış və lentə qatılma, açar SÖNDÜRÜLMÜŞ).
 # Açar OZ_DERC=1 mühit dəyişənidir; pipeline.sh onu qoymur. Açarsız aşağıdakı funksiyalar heç nə etmir: dərc modulu import
 # olunmur, fayl oxunmur, yazılan hər fayl əvvəlki ilə bayt-bayt eynidir. Açarla: yavaş dövrə dərc dövrəsini çağırır (sorğu və
-# ağır iş yalnız orada), sürətli dövrə yalnız onun yazdığı data/oz/xeberler.json-u oxuyur (QIRMIZI XƏTT 1: şəbəkə yoxdur) və
-# sətirləri content_policy.enforce-dan ƏVVƏL lentə qatır (QIRMIZI XƏTT 2). Öz sətir lentə olduğu kimi düşür: əvvəlki lentdən
-# yox, hər dövrə öz faylından gəlir (main), ona görə yenidən təsnif edilmir, mənbə və lent limitinə düşmür; qruplaşmır
-# (group_duplicates), linki yoxlanmır (check_links), ümumi xəbər səhifəsi onun səhifəsinin üstünə yazılmır (write_story_pages).
+# ağır iş yalnız orada), sürətli dövrə yalnız onun yazdığı sətir faylının main-ə çatmış nüsxəsini oxuyur (QIRMIZI XƏTT 1:
+# şəbəkə yoxdur) və sətirləri content_policy.enforce-dan ƏVVƏL lentə qatır (QIRMIZI XƏTT 2). Öz sətir lentə olduğu kimi düşür:
+# əvvəlki lentdən yox, hər dövrə öz faylından gəlir (main), ona görə yenidən təsnif edilmir, mənbə və lent limitinə düşmür;
+# qruplaşmır (group_duplicates), linki yoxlanmır (check_links), ümumi xəbər səhifəsi onun səhifəsinin üstünə yazılmır (write_story_pages).
+# Niyə nüsxə (2026-11-12): kart birbaşa xəbərin səhifəsinə aparır. Dərc dövrəsi sətri data/oz/xeberler.json-a yazan kimi lentə
+# qatılsaydı, sətir bir dəqiqəyə oxucuda olardı, səhifəsi isə sayta yalnız növbəti main yazılışı ilə (10–18 dəqiqə) çatardı:
+# arada karta basan «tapılmadı» görərdi. pipeline.sh (own_rows_live) main-ə yazılmış sətir faylını Pages yayımından sonra bura köçürür.
 OWN_SOURCE = "8ULDUZ"
 OWN_FLAG = "OZ_DERC"
-OWN_ROWS_FILE = OUT_DIR / "oz" / "xeberler.json"
+OWN_ROWS_FILE = CACHE_DIR / "oz-yayimda.json"  # səhifəsi saytda olan sətirlər; dərc dövrəsinin öz faylı: data/oz/xeberler.json
 OWN_ROWS_KEEP = datetime.timedelta(days=5)  # lentin ümumi yaş həddi; dərc dövrəsi özü 48 saat saxlayır (dövrə dayansa köhnə sətir lentdə ilişməsin)
 _OWN_ROW_KEYS = ("id", "title", "sourceUrl", "publishedAt", "category")
 
@@ -2613,8 +2616,9 @@ def update_own_news():
 
 
 def read_own_rows(now=None):
-    """Öz xəbərlərin lent sətirləri. Yalnız fayl oxunur. Açar yoxdursa, fayl yoxdursa və ya pozulubsa boş siyahı; forması düz
-    olmayan, mənbəyi «8ULDUZ» olmayan, tarixi oxunmayan və ya 5 gündən köhnə sətir götürülmür. Sətir dəyişdirilmir."""
+    """Öz xəbərlərin lent sətirləri: yalnız səhifəsi artıq saytda olanlar (OWN_ROWS_FILE, pipeline.sh own_rows_live). Yalnız
+    fayl oxunur. Açar yoxdursa, fayl yoxdursa və ya pozulubsa boş siyahı; forması düz olmayan, mənbəyi «8ULDUZ» olmayan,
+    tarixi oxunmayan və ya 5 gündən köhnə sətir götürülmür. Sətir dəyişdirilmir."""
     if not own_news_on():
         return []
     doc = _read_json(OWN_ROWS_FILE, {})

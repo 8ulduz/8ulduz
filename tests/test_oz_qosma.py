@@ -8,6 +8,8 @@ import io
 import json
 import os
 import pathlib
+import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -74,7 +76,7 @@ class Sandbox(unittest.TestCase):
         data, cache = root / "data", root / ".cache"
         names = {"OUT_DIR": data, "OUT_FILE": data / "news.json", "STATUS_FILE": data / "status.json", "SOURCES_FILE": data / "sources.json",
                  "OG_FILE": data / "og.json", "DATES_FILE": data / "dates.json", "LATEST_FILE": data / "latest.json", "FIRST_FILE": data / "first.json",
-                 "OWN_ROWS_FILE": data / "oz" / "xeberler.json", "CACHE_DIR": cache, "LINK_HEALTH_FILE": cache / "link_health.json",
+                 "OWN_ROWS_FILE": cache / "oz-yayimda.json", "CACHE_DIR": cache, "LINK_HEALTH_FILE": cache / "link_health.json",
                  "FEED_CACHE": cache / "feeds.json", "SLOW_FEED_CACHE": cache / "slow.json", "OFFICIAL_CACHE": cache / "official.json",
                  "UNDATED_FILE": cache / "undated.json", "RECENT_FILE": cache / "recent.json", "GNEWS_CACHE": cache / "gnews.json",
                  "GROUPS_FILE": cache / "groups.json", "RELABEL_MARK": cache / "relabeled", "STORY_DIR": root / "xeber",
@@ -110,11 +112,18 @@ class Sandbox(unittest.TestCase):
         return [a for a in self.doc(name)["articles"] if a.get("source") == OWN]
 
     def write_rows(self, rows):
+        """Main-ə çatmış sətirlərin nüsxəsi (pipeline.sh own_rows_live): lent yalnız bunu oxuyur."""
         self.write_raw(json.dumps({"v": 1, "articles": rows}, ensure_ascii=False))
 
     def write_raw(self, text):
         updater.OWN_ROWS_FILE.parent.mkdir(parents=True, exist_ok=True)
         updater.OWN_ROWS_FILE.write_text(text, encoding="utf-8")
+
+    def write_derc(self, text):
+        """Dərc dövrəsinin öz faylı (data/oz/xeberler.json): main-ə çatana qədər lent onu oxumur."""
+        path = self.root / "data" / "oz" / "xeberler.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
 
 
 class SwitchOffFeedTest(Sandbox):
@@ -298,7 +307,7 @@ class OwnRowsElsewhereTest(Sandbox):
         names = ("news.json", "latest.json", "first.json", "latest.az.json", "news.ru.json")
         for name in names:
             (self.root / "data" / name).write_text(json.dumps({"articles": rows, "count": len(rows)}, ensure_ascii=False), encoding="utf-8")
-        self.write_rows([own])
+        self.write_derc(json.dumps({"v": 1, "articles": [own]}, ensure_ascii=False))
         (self.root / "data" / "oz" / "derc.json").write_text(json.dumps({"v": 1}), encoding="utf-8")
         self.assertEqual(bad_outputs(self.root), [])
         removed = enforce_policy(self.root)
@@ -308,8 +317,79 @@ class OwnRowsElsewhereTest(Sandbox):
             self.assertEqual(self.doc(name)["count"], 2)
         self.assertEqual(self.doc("oz/xeberler.json")["articles"], [own], "qapı sətir faylına toxunmur")
         self.assertEqual(enforce_policy(self.root), {}, "təmiz lentdə dəyişiklik yoxdur")
-        self.write_raw("{")
+        self.write_derc("{")
         self.assertEqual(bad_outputs(self.root), ["data/oz/xeberler.json"], "zədəli sətir faylı da tutulur: pipeline son sağlam nüsxəni qaytarır")
+
+
+class PublishedCopyTest(Sandbox):
+    """Sətir lentə yalnız səhifəsi saytda olandan sonra düşür (2026-11-12): kart birbaşa xəbərin səhifəsinə aparır, səhifə isə
+    sayta main yazılışı ilə çatır. Sürətli dövrə dərc dövrəsinin faylını yox, onun main-ə çatmış nüsxəsini oxuyur."""
+
+    def test_a_row_that_is_not_on_main_yet_stays_out_of_the_feed(self):
+        first, second = own_row(1, 30), own_row(2, 3)
+        with env(**ON):
+            self.write_derc(json.dumps({"v": 1, "articles": [second, first]}, ensure_ascii=False))
+            self.assertEqual(self.cycle(self.items())[0], 0)
+            for name in FEED_FILES:
+                self.assertEqual(self.own_in(name), [], f"{name}: dərc dövrəsi yazıb, amma səhifələr hələ saytda deyil")
+            self.write_rows([first])   # main-ə birinci çatıb
+            self.assertEqual(self.cycle(self.items())[0], 0)
+            for name in FEED_FILES:
+                self.assertEqual(self.own_in(name), [first], name)
+            self.write_rows([second, first])
+            self.assertEqual(self.cycle(self.items())[0], 0)
+            for name in FEED_FILES:
+                self.assertEqual(self.own_in(name), [second, first], name)
+            self.assertEqual(json.loads((self.root / "data" / "oz" / "xeberler.json").read_text(encoding="utf-8"))["articles"], [second, first],
+                             "sürətli dövrə dərc dövrəsinin faylına toxunmur")
+
+
+class PipelineCopyTest(unittest.TestCase):
+    """pipeline.sh own_rows_live: main-ə yazılmış sətir faylının nüsxəsi. Başlanğıcda dərhal, main yazılışından sonra Pages yayımını gözləyib."""
+
+    SH = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+
+    def test_reader_points_at_the_copy_not_at_the_publishers_file(self):
+        import oz_derc
+        self.assertEqual(updater.OWN_ROWS_FILE, updater.CACHE_DIR / "oz-yayimda.json")
+        self.assertEqual(oz_derc.ROWS, ("data", "oz", "xeberler.json"))
+        self.assertIn('src="$REPO_DIR/data/oz/xeberler.json" dst="$WORK/.cache/oz-yayimda.json"', self.SH)
+
+    def test_copy_is_made_only_after_a_successful_push_and_at_start(self):
+        body = self.SH[self.SH.index("\npublish_main() {"):]
+        body = body[:body.index("\n}\n")]
+        push = body.index('push -q origin "HEAD:$BRANCH"')
+        self.assertEqual(body.count("own_rows_live"), 1)
+        self.assertLess(push, body.index("own_rows_live 90"), "nüsxə yalnız main-ə yazılandan sonra")
+        self.assertLess(body.index("own_rows_live 90"), body.index("return 0", push), "uğurlu yazılışın qolunda")
+        self.assertLess(self.SH.index("\nown_rows_live 0"), self.SH.index("\nslow_loop &"), "başlanğıc nüsxəsi yavaş dövrədən əvvəl")
+
+    def test_function_copies_at_once_or_after_the_wait(self):
+        found = re.search(r"^own_rows_live\(\) \{\n.*?^\}\n", self.SH, re.M | re.S)
+        self.assertTrue(found, "funksiya tapılmadı")
+        script = found.group(0) + r'''
+set -u
+src="$REPO_DIR/data/oz/xeberler.json"; dst="$WORK/.cache/oz-yayimda.json"
+own_rows_live 0; own_rows_live 90
+[ ! -e "$WORK/.cache" ] || { echo "sətir faylı yoxdursa heç nə yaranmır"; exit 1; }
+mkdir -p "$REPO_DIR/data/oz"; printf A > "$src"
+own_rows_live 0
+[ "$(cat "$dst")" = A ] || { echo "başlanğıcda nüsxə dərhal görünür"; exit 1; }
+printf B > "$src"
+own_rows_live 2
+[ "$(cat "$dst")" = A ] || { echo "yayım gözlənilməmiş təzə nüsxə görünmür"; exit 1; }
+printf C > "$src"
+wait
+[ "$(cat "$dst")" = B ] || { echo "gözləmədən sonra main-ə yazılmış nüsxə görünür (sonrakı dəyişiklik yox)"; exit 1; }
+[ ! -e "$dst.yeni" ] || { echo "müvəqqəti fayl qalmır"; exit 1; }
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, work = pathlib.Path(tmp, "repo"), pathlib.Path(tmp, "work")
+            repo.mkdir()
+            work.mkdir()
+            run = subprocess.run(["bash", "-c", script], env={**os.environ, "REPO_DIR": str(repo), "WORK": str(work)},
+                                 capture_output=True, text=True, timeout=30)
+        self.assertEqual((run.returncode, run.stdout.strip()), (0, ""), run.stderr)
 
 
 class SlowStepTest(unittest.TestCase):

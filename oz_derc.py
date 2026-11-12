@@ -18,7 +18,8 @@ növbə, gündəlik və saatlıq hədlər, mövzu hədləri, vaciblik sırası v
 
 Bir dövrə, cycle(root): vəziyyət faylı -> modullardan xəbərlər -> növbə -> seçim -> qapı -> səhifə, sətir faylı, vəziyyət.
 - data/oz/derc.json: vəziyyət (start, done, queue, out, blocked, errors, closes; üstəlik reqs, shut, next).
-- data/oz/xeberler.json: son 48 saatın öz sətirləri, təzədən köhnəyə. Lent birləşməsi (updater.read_own_rows) bunu oxuyur.
+- data/oz/xeberler.json: son 48 saatın öz sətirləri, təzədən köhnəyə. Lent birləşməsi (updater.read_own_rows) bunun main-ə
+  çatmış nüsxəsini oxuyur (pipeline.sh own_rows_live): sətir lentə yalnız səhifəsi saytda olandan sonra düşür.
 - xeber/<id>/index.html: xəbərin öz səhifəsi, 30 gün. Tam mətn yalnız buradadır: sətirdə 220 hərflik xülasə var
   (qırmızı xətt 1: news.json böyüməsin). Yalnız «out» siyahısındakı səhifələr silinir.
 
@@ -52,7 +53,7 @@ Sayta qoşulma (mərhələ 2, 2026-11-12): nə edilib, nə qalıb.
 1. EDİLİB. assets/content-policy.js: azSources-də «8ULDUZ»: ["8ulduz.az"] (3-cü kilid).
 2. EDİLİB. updater.slow_cycle: update_own_news addımı `oz_derc.cycle(ROOT)` çağırır (1-ci kilid), yalnız bayraqla.
    Yavaş dövrə ən azı 30 dəqiqədən bir işləməlidir: mərhələ 2 modullarının sorğu pəncərəsi 30–45 dəqiqədir.
-3. EDİLİB. updater.main: data/oz/xeberler.json content_policy.enforce-dan ƏVVƏL xəbər siyahısına qatılır (yalnız bayraqla;
+3. EDİLİB. updater.main: data/oz/xeberler.json-un main-ə çatmış nüsxəsi content_policy.enforce-dan ƏVVƏL xəbər siyahısına qatılır (yalnız bayraqla;
    fayl oxunur, sorğu yoxdur). Öz sətir yenidən təsnif edilmir, qruplaşmır, linki yoxlanmır; write_story_pages mənbəyi
    «8ULDUZ» olan sətri buraxır: onun xeber/<id>/ səhifəsini bu fayl yazıb, ümumi şablon üstündən yazmır.
 4. QALIB (mərhələ 3, yalnız sahibin sözü ilə): pipeline.sh-də `export OZ_DERC=1` (2-ci kilid) və onu qoruyan test.
