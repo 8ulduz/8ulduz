@@ -490,9 +490,401 @@ def storm_now(now, get, done):
     return [item]
 
 
-#@NEXT@
+# --- 3–4. Open-Meteo: normadan fərq, təhlükəli hava həddi ----------------------------------------------------------------
+OM_API = "https://api.open-meteo.com/v1/forecast"
+OM_MARINE = "https://marine-api.open-meteo.com/v1/marine"
+OM_PAGE = "https://open-meteo.com/"
+OM_CREDIT = "Open-Meteo (model proqnozu)"
+FC_FIELDS = ("temperature_2m_max", "temperature_2m_min", "wind_gusts_10m_max", "snowfall_sum")
+SEA_FIELDS = ("wave_height_max",)
+LIMITS = {"temperature_2m_max": (-60, 60), "temperature_2m_min": (-60, 60), "wind_gusts_10m_max": (0, 100),
+          "snowfall_sum": (0, 500), "wave_height_max": (0, 20)}
+CITIES = (("Bakı", "Bakıda", "40.4093", "49.8671"), ("Gəncə", "Gəncədə", "40.6828", "46.3606"),
+          ("Sumqayıt", "Sumqayıtda", "40.5897", "49.6686"), ("Lənkəran", "Lənkəranda", "38.7529", "48.85"),
+          ("Şəki", "Şəkidə", "41.1919", "47.1706"), ("Quba", "Qubada", "41.3611", "48.5133"),
+          ("Naxçıvan", "Naxçıvanda", "39.2089", "45.4122"), ("Şuşa", "Şuşada", "39.758", "46.75"))
+SEA = (("Bakı buxtası", "Bakı buxtasında", "40.30", "50.00"), ("Sumqayıt", "Sumqayıt sahilində", "40.62", "49.75"),
+       ("Lənkəran", "Lənkəran sahilində", "38.75", "49.00"), ("Nabran", "Nabran sahilində", "41.80", "48.75"),
+       ("Neft Daşları", "Neft Daşları yaxınlığında", "40.22", "50.85"))
+MOUNTAIN = ("Şəki", "Quba", "Naxçıvan", "Şuşa")     # qar həddi 10 sm; qalan şəhərlərdə 5 sm
+GUST, FROST, FROST_BAKU, HEAT, SNOW, SNOW_LOW, WAVE = 20.0, -10.0, -5.0, 38.0, 10.0, 5.0, 3.0
+ANOM = 5.0                  # Bakıda maksimum temperaturun normadan fərqi, °C
+HZ_KEY = "hava-hedd-"
+NORM_KEY = "norma-ferq-"
+HZ_SLOT = "16:10"
+NORM_SLOT = "16:20"
+SINAQ_PAST = 14
+
+# Bakı (40,4093° şm. e., 49,8671° ş. u.) üçün gündəlik norma, °C: ilin günü üzrə (29 fevral daxil, 366 gün).
+# Bir dəfə hesablanıb (2026-11-12): Open-Meteo arxivi (archive-api, models=era5), 1991–2020-ci illərin gündəlik maksimum və
+# minimumu, ±7 gün üzrə orta; üstünə proqnoz modeli ilə ERA5 arasındakı orta fərq gəlinib (historical-forecast-api,
+# 2022–2025, ±15 gün üzrə orta: maksimumda qışda +0,1…+0,9, yayda +2,9…+3,3; minimumda −1,9…+0,2). Bu düzəliş olmasa
+# proqnoz modelinin şəhər xanası ERA5-in dəniz təsirli xanasından yayda həmişə «isti» görünərdi.
+NORM_MAX = (
+    8.5, 8.5, 8.4, 8.3, 8.2, 8.1, 8.0, 7.9, 7.8, 7.8, 7.7, 7.7, 7.6, 7.5, 7.5, 7.5,
+    7.4, 7.4, 7.3, 7.3, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.2, 7.3, 7.3, 7.3, 7.4, 7.4,
+    7.4, 7.4, 7.4, 7.4, 7.4, 7.4, 7.4, 7.4, 7.4, 7.5, 7.5, 7.5, 7.5, 7.6, 7.6, 7.7,
+    7.9, 8.0, 8.1, 8.2, 8.4, 8.5, 8.6, 8.7, 8.7, 8.9, 9.1, 9.2, 9.2, 9.4, 9.6, 9.6,
+    9.8, 9.9, 9.9, 9.9, 10.0, 10.1, 10.1, 10.3, 10.4, 10.5, 10.5, 10.6, 10.8, 10.8, 11.0, 11.2,
+    11.3, 11.5, 11.7, 11.8, 12.0, 12.1, 12.1, 12.2, 12.4, 12.6, 12.7, 12.9, 13.0, 13.1, 13.2, 13.4,
+    13.6, 13.9, 14.3, 14.6, 14.6, 15.0, 15.3, 15.4, 15.5, 15.7, 15.7, 15.8, 16.0, 16.2, 16.3, 16.5,
+    16.6, 16.6, 16.8, 16.9, 17.1, 17.3, 17.5, 17.7, 17.9, 18.1, 18.4, 18.6, 18.8, 19.1, 19.4, 19.6,
+    19.8, 20.0, 20.3, 20.5, 20.7, 21.0, 21.2, 21.5, 21.7, 21.9, 22.2, 22.5, 22.7, 22.9, 23.1, 23.4,
+    23.7, 24.0, 24.2, 24.4, 24.5, 24.7, 25.0, 25.2, 25.4, 25.7, 25.9, 26.1, 26.1, 26.2, 26.4, 26.7,
+    26.8, 26.9, 27.0, 27.2, 27.3, 27.6, 27.8, 28.0, 28.1, 28.1, 28.3, 28.4, 28.6, 28.7, 28.7, 28.8,
+    28.9, 29.0, 29.2, 29.3, 29.5, 29.5, 29.6, 29.6, 29.8, 29.8, 29.9, 30.0, 30.1, 30.1, 30.3, 30.4,
+    30.5, 30.6, 30.5, 30.6, 30.6, 30.7, 30.7, 30.8, 30.8, 31.0, 31.2, 31.3, 31.3, 31.4, 31.5, 31.5,
+    31.5, 31.5, 31.6, 31.5, 31.5, 31.4, 31.4, 31.4, 31.3, 31.3, 31.3, 31.2, 31.1, 31.0, 31.0, 31.0,
+    31.0, 31.1, 31.1, 31.0, 31.0, 30.9, 30.8, 30.7, 30.6, 30.5, 30.4, 30.3, 30.1, 30.0, 29.8, 29.7,
+    29.5, 29.3, 29.2, 29.1, 28.9, 28.7, 28.5, 28.3, 28.0, 27.7, 27.5, 27.3, 27.1, 26.9, 26.7, 26.5,
+    26.3, 26.1, 25.9, 25.7, 25.5, 25.4, 25.1, 24.9, 24.7, 24.4, 24.2, 24.0, 23.8, 23.6, 23.4, 23.2,
+    23.0, 22.8, 22.6, 22.5, 22.3, 22.2, 22.1, 22.0, 21.9, 21.7, 21.6, 21.3, 21.1, 21.0, 20.8, 20.6,
+    20.4, 20.2, 20.0, 19.9, 19.6, 19.3, 19.0, 18.8, 18.6, 18.4, 18.1, 17.8, 17.6, 17.4, 17.2, 17.0,
+    16.8, 16.6, 16.3, 16.1, 15.9, 15.7, 15.5, 15.2, 15.0, 14.8, 14.7, 14.5, 14.3, 14.1, 13.9, 13.7,
+    13.4, 13.2, 12.9, 12.7, 12.6, 12.4, 12.3, 12.1, 11.9, 11.6, 11.4, 11.2, 11.1, 10.9, 10.7, 10.7,
+    10.6, 10.4, 10.3, 10.1, 10.0, 9.9, 9.8, 9.6, 9.5, 9.4, 9.3, 9.2, 9.1, 9.1, 9.0, 9.0,
+    9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.9, 8.8, 8.8, 8.8, 8.7, 8.6,
+)
+NORM_MIN = (
+    3.9, 3.9, 3.8, 3.7, 3.7, 3.6, 3.4, 3.4, 3.4, 3.3, 3.2, 3.1, 3.0, 3.0, 3.0, 2.9,
+    2.9, 2.9, 2.8, 2.8, 2.7, 2.7, 2.7, 2.6, 2.5, 2.5, 2.4, 2.4, 2.4, 2.4, 2.4, 2.4,
+    2.4, 2.4, 2.4, 2.3, 2.4, 2.5, 2.5, 2.6, 2.6, 2.7, 2.7, 2.7, 2.7, 2.7, 2.8, 2.9,
+    2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.4, 3.6, 3.7, 3.9, 4.0, 3.4, 4.1, 4.2, 4.2, 4.3,
+    4.3, 4.4, 4.5, 4.6, 4.6, 4.6, 4.6, 4.7, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4,
+    5.6, 5.7, 5.8, 5.9, 6.0, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 7.0, 7.2, 7.3, 7.4,
+    7.6, 7.8, 8.1, 8.2, 8.4, 8.6, 8.8, 9.0, 9.2, 9.3, 9.4, 9.5, 9.7, 9.9, 10.0, 10.1,
+    10.2, 10.3, 10.4, 10.6, 10.7, 10.9, 11.1, 11.3, 11.6, 11.8, 12.0, 12.2, 12.4, 12.6, 12.9, 13.0,
+    13.2, 13.4, 13.7, 13.9, 14.1, 14.3, 14.5, 14.7, 15.0, 15.2, 15.4, 15.7, 15.9, 16.1, 16.3, 16.6,
+    16.8, 17.0, 17.2, 17.3, 17.5, 17.6, 17.7, 17.9, 18.1, 18.3, 18.5, 18.7, 18.9, 19.0, 19.2, 19.4,
+    19.7, 19.8, 19.9, 20.1, 20.3, 20.5, 20.7, 20.8, 20.9, 21.0, 21.1, 21.2, 21.4, 21.5, 21.5, 21.5,
+    21.6, 21.7, 21.9, 22.0, 22.1, 22.3, 22.3, 22.4, 22.4, 22.5, 22.6, 22.6, 22.7, 22.8, 23.0, 23.1,
+    23.3, 23.3, 23.4, 23.5, 23.6, 23.7, 23.7, 23.8, 23.8, 23.9, 24.1, 24.2, 24.3, 24.3, 24.4, 24.4,
+    24.4, 24.4, 24.5, 24.5, 24.5, 24.5, 24.4, 24.4, 24.4, 24.3, 24.3, 24.3, 24.3, 24.3, 24.2, 24.2,
+    24.2, 24.2, 24.2, 24.1, 24.0, 24.0, 23.9, 23.8, 23.7, 23.7, 23.6, 23.5, 23.4, 23.2, 23.2, 23.1,
+    23.0, 22.9, 22.8, 22.6, 22.4, 22.3, 22.2, 22.0, 21.8, 21.6, 21.4, 21.2, 21.1, 20.9, 20.7, 20.5,
+    20.3, 20.1, 19.9, 19.7, 19.5, 19.5, 19.3, 19.1, 18.9, 18.7, 18.5, 18.3, 18.2, 18.0, 17.8, 17.6,
+    17.4, 17.2, 17.0, 16.9, 16.8, 16.7, 16.6, 16.5, 16.3, 16.1, 16.0, 15.8, 15.6, 15.4, 15.2, 15.0,
+    14.8, 14.7, 14.6, 14.4, 14.2, 13.9, 13.8, 13.7, 13.5, 13.2, 13.0, 12.7, 12.5, 12.4, 12.2, 12.0,
+    11.8, 11.6, 11.4, 11.1, 11.0, 10.7, 10.5, 10.2, 10.1, 9.9, 9.8, 9.7, 9.6, 9.4, 9.2, 9.1,
+    8.9, 8.7, 8.4, 8.3, 8.1, 7.9, 7.7, 7.5, 7.4, 7.2, 7.1, 6.9, 6.8, 6.6, 6.5, 6.3,
+    6.2, 6.1, 6.0, 5.9, 5.7, 5.6, 5.5, 5.3, 5.2, 5.1, 4.9, 4.8, 4.7, 4.5, 4.4, 4.4,
+    4.3, 4.2, 4.1, 4.1, 4.1, 4.2, 4.1, 4.2, 4.1, 4.0, 4.0, 3.9, 3.9, 3.9,
+)
+
+
+def _points(table):
+    return "latitude=" + ",".join(p[2] for p in table) + "&longitude=" + ",".join(p[3] for p in table)
+
+
+def fc_url(past=0):
+    """8 şəhərin gündəlik proqnozu: bu gün, sabah, birisi gün (bir sorğu)."""
+    return (f"{OM_API}?{_points(CITIES)}&daily={','.join(FC_FIELDS)}&timezone=Asia%2FBaku&wind_speed_unit=ms"
+            f"&forecast_days=3" + (f"&past_days={past}" if past else ""))
+
+
+def marine_url(past=0):
+    return (f"{OM_MARINE}?{_points(SEA)}&daily={','.join(SEA_FIELDS)}&timezone=Asia%2FBaku&forecast_days=3"
+            + (f"&past_days={past}" if past else ""))
+
+
+def _cell(col, i, field):
+    v = _flt(col[i]) if isinstance(col, list) and i < len(col) else None
+    lo, hi = LIMITS[field]
+    return v if v is not None and lo <= v <= hi else None
+
+
+def parse_om(raw, n, fields):
+    """Open-Meteo-nun n nöqtəlik gündəlik cavabı -> [{gün: {sahə: ədəd | None}}], nöqtələrin sırası ilə."""
+    data = _json(raw)
+    if isinstance(data, dict):
+        data = [data]
+    if not isinstance(data, list) or len(data) != n:
+        raise Bad("Open-Meteo cavabı tanınmadı")
+    out = []
+    for o in data:
+        daily = o.get("daily") if isinstance(o, dict) else None
+        times = daily.get("time") if isinstance(daily, dict) else None
+        if not isinstance(times, list) or not times:
+            raise Bad("Open-Meteo cavabında günlər yoxdur")
+        units = o.get("daily_units")
+        if "wind_gusts_10m_max" in fields and (not isinstance(units, dict) or units.get("wind_gusts_10m_max") != "m/s"):
+            raise Bad("Open-Meteo küləyin sürətini m/san ilə verməyib")
+        days = {}
+        for i, t in enumerate(times):
+            try:
+                d = datetime.date.fromisoformat(str(t)[:10])
+            except ValueError:
+                raise Bad("Open-Meteo cavabında tarix tanınmadı")
+            days[d] = {f: _cell(daily.get(f), i, f) for f in fields}
+        out.append(days)
+    return out
+
+
+def hazards(day, cities, sea=None):
+    """Günün hədd keçən göstəriciləri: {növ: [(yerlik, dəyər)]}; hər siyahı ən kəskindən başlayır, boş növ yoxdur.
+    Növlərin sırası xəbərdəki sıradır: külək, qar, şaxta, isti, dalğa."""
+    hit = {"gust": [], "snow": [], "frost": [], "heat": [], "wave": []}
+    for (name, loc, _, _), days in zip(CITIES, cities):
+        row = days.get(day) or {}
+        g, s = row.get("wind_gusts_10m_max"), row.get("snowfall_sum")
+        tn, tx = row.get("temperature_2m_min"), row.get("temperature_2m_max")
+        if g is not None and g >= GUST:
+            hit["gust"].append((loc, g))
+        if s is not None and s >= (SNOW if name in MOUNTAIN else SNOW_LOW):
+            hit["snow"].append((loc, s))
+        if tn is not None and tn <= (FROST_BAKU if name == "Bakı" else FROST):
+            hit["frost"].append((loc, tn))
+        if tx is not None and tx >= HEAT:
+            hit["heat"].append((loc, tx))
+    for (name, loc, _, _), days in zip(SEA, sea or ()):
+        w = (days.get(day) or {}).get("wave_height_max")
+        if w is not None and w >= WAVE:
+            hit["wave"].append((loc, w))
+    for kind, rows in hit.items():
+        rows.sort(key=lambda r: r[1], reverse=(kind != "frost"))
+    return {kind: rows for kind, rows in hit.items() if rows}
+
+
+_HZ_UNIT = {"gust": "m/san", "snow": "sm", "wave": "m"}
+_HZ_TEXT = {"gust": "küləyin ani sürəti {} olacaq", "snow": "{} qar yağacaq", "frost": "minimum temperatur {} olacaq",
+            "heat": "maksimum temperatur {} olacaq", "wave": "Xəzərdə dalğanın maksimum hündürlüyü {} olacaq"}
+_HZ_TITLE = {"gust": "{} küləyin ani sürəti {} ola bilər", "snow": "{} {} qar yağa bilər",
+             "frost": "{} minimum temperatur {} ola bilər", "heat": "{} maksimum temperatur {} ola bilər",
+             "wave": "{} dalğanın hündürlüyü {} ola bilər"}
+
+
+def _hz_val(kind, v):
+    return temp(v) if kind in ("frost", "heat") else f"{num(_r1(v), 1)} {_HZ_UNIT[kind]}"
+
+
+def _hz_line(kind, rows):
+    return _HZ_TEXT[kind].format(", ".join(f"{loc} {_hz_val(kind, v)}" for loc, v in rows))
+
+
+HZ_NOTE = (f"Bu, rəsmi hava proqnozu deyil, Open-Meteo modelinin hesablamasıdır. Xəbər bu hədlər keçiləndə yazılır: "
+           f"küləyin ani sürəti {num(GUST, 1)} m/san, minimum temperatur {temp(FROST)} (Bakıda {temp(FROST_BAKU)}), "
+           f"maksimum temperatur {temp(HEAT)}, qar {num(SNOW, 1)} sm (Bakı, Gəncə, Sumqayıt və Lənkəranda "
+           f"{num(SNOW_LOW, 1)} sm), Xəzərdə dalğa {num(WAVE, 1)} m.")
+NORM_NOTE = ("Norma Open-Meteo arxivindəki ERA5 reanalizinin 1991–2020-ci illər üzrə gündəlik orta göstəricisidir: ±7 gün "
+             "üzrə hamarlanıb və proqnoz modeli ilə reanaliz arasındakı orta fərqə (2022–2025-ci illər) görə "
+             "düzəldilib. Bu, Milli Hidrometeorologiya Xidmətinin stansiya norması deyil.")
+
+
+def hazard_item(day, cities, sea=None, extra=(), notes=()):
+    """«Təhlükəli hava həddi»: day (sabah) üçün keçilən bütün hədlər bir xəbərdə. -> (xəbər | None, səbəb)."""
+    hit = hazards(day, cities, sea)
+    if not hit:
+        return None, "; ".join(["sabah üçün heç bir hədd keçilmir"] + list(notes))
+    kinds = list(hit)
+    loc, v = hit[kinds[0]][0]
+    title = "Model proqnozu: sabah " + _HZ_TITLE[kinds[0]].format(loc, _hz_val(kinds[0], v))
+    lead = f"Open-Meteo-nun model proqnozuna görə, sabah, {ox.day_loc(day)} {_hz_line(kinds[0], hit[kinds[0]])}."
+    body = [f"Model proqnozuna görə, {_hz_line(kind, hit[kind])}." for kind in kinds[1:]]
+    return {"kind": "hava-hedd", "key": HZ_KEY + day.isoformat(), "title": title[:TITLE_MAX], "lead": lead,
+            "body": body + list(extra) + [HZ_NOTE], "credit": OM_CREDIT, "link": OM_PAGE, "topic": TOPIC,
+            "slot": HZ_SLOT, "worth": True}, ""
+
+
+def norm_of(day):
+    """Günün norması: (orta maksimum, orta minimum), °C."""
+    i = datetime.date(2000, day.month, day.day).timetuple().tm_yday - 1
+    return NORM_MAX[i], NORM_MIN[i]
+
+
+def anomaly(day, baku):
+    """Bakıda günün maksimum temperaturunun normadan fərqi (onda birə); proqnoz yoxdursa None."""
+    tx = (baku.get(day) or {}).get("temperature_2m_max")
+    return None if tx is None else _r1(_r1(tx) - norm_of(day)[0])
+
+
+def _norm_cmp(d, nx):
+    return (f"1991–2020-ci illərin həmin günə düşən orta maksimumundan ({temp(nx)}) {num(d, 1)} dərəcə "
+            f"{'yüksəkdir' if d > 0 else 'aşağıdır'}")
+
+
+def norm_item(day, baku):
+    """«Normadan fərq»: day (sabah) Bakıda maksimum temperatur normadan ANOM və daha çox fərqlidirsə, dövrün ilk günü.
+    baku: parse_om-un Bakı üçün verdiyi günlər. -> (xəbər | None, səbəb)."""
+    d = anomaly(day, baku)
+    if d is None:
+        return None, "Bakı üçün sabahın proqnozu yoxdur"
+    if abs(d) < ANOM:
+        return None, f"Bakıda fərq {num(d, 1)} dərəcədir (hədd {num(ANOM, 1)})"
+    p = anomaly(day - DAY, baku)
+    if p is not None and abs(p) >= ANOM and (p > 0) == (d > 0):
+        return None, "isti və ya soyuq dövrün davamıdır: bir hadisə, bir xəbər"
+    tx, tn = baku[day]["temperature_2m_max"], baku[day].get("temperature_2m_min")
+    nx, nn = norm_of(day)
+    title = f"Model proqnozu: sabah Bakıda gündüz hava normadan {num(d, 1)} dərəcə {'isti' if d > 0 else 'soyuq'} olacaq"
+    lead = (f"Open-Meteo-nun model proqnozuna görə, sabah, {ox.day_loc(day)} Bakıda maksimum temperatur {temp(tx)} "
+            f"olacaq. Bu, {_norm_cmp(d, nx)}.")
+    body = []
+    if tn is not None:
+        dn = _r1(_r1(tn) - nn)
+        if dn == 0:
+            tail = f"1991–2020-ci illərin orta minimumuna ({temp(nn)}) bərabərdir"
+        else:
+            tail = (f"1991–2020-ci illərin orta minimumundan ({temp(nn)}) {num(dn, 1)} dərəcə "
+                    f"{'yüksəkdir' if dn > 0 else 'aşağıdır'}")
+        body.append(f"Minimum temperatur {temp(tn)} gözlənilir: bu, {tail}.")
+    return {"kind": "norma-ferq", "key": NORM_KEY + day.isoformat(), "title": title[:TITLE_MAX], "lead": lead,
+            "body": body + [NORM_NOTE], "credit": OM_CREDIT, "link": OM_PAGE, "topic": TOPIC, "slot": NORM_SLOT,
+            "worth": True}, ""
+
+
+def _fc_fail(day, why, now):
+    return [_fail("hava-hedd", HZ_KEY + day.isoformat(), "Təhlükəli hava həddi: xəbər yoxdur", why, OM_CREDIT, OM_PAGE,
+                  TOPIC, now),
+            _fail("norma-ferq", NORM_KEY + day.isoformat(), "Normadan fərq: xəbər yoxdur", why, OM_CREDIT, OM_PAGE,
+                  TOPIC, now)]
+
+
+def forecast_items(day, cities, sea, now, notes=()):
+    """Proqnoz pəncərəsinin iki qeydi (day sabahdır): təhlükəli hava həddi və normadan fərq. Bakıda şaxta və ya isti
+    həddi keçilibsə normadan fərq ayrıca xəbər deyil, hədd xəbərində bir cümlədir (bir hadisə, bir xəbər)."""
+    if day not in cities[0]:
+        return _fc_fail(day, "Open-Meteo proqnozunda sabahkı gün yoxdur", now)
+    fails = _fc_fail(day, "", now)
+    nitem, nwhy = norm_item(day, cities[0])
+    hit = hazards(day, cities, sea)
+    extra = []
+    if nitem and any(loc == CITIES[0][1] for kind in ("frost", "heat") for loc, _ in hit.get(kind, ())):
+        tx = cities[0][day]["temperature_2m_max"]
+        extra = [f"Bakıda maksimum temperatur ({temp(tx)}) {_norm_cmp(anomaly(day, cities[0]), norm_of(day)[0])}."]
+        nitem, nwhy = None, "təhlükəli hava həddi xəbərində yazılır: bir hadisə, bir xəbər"
+    hitem, hwhy = hazard_item(day, cities, sea, extra, notes)
+    return [hitem or dict(fails[0], lead=hwhy, why=hwhy), nitem or dict(fails[1], lead=nwhy, why=nwhy)]
+
+
+def forecast_now(now, get, done):
+    """16:00–18:00 pəncərəsi: Open-Meteo proqnozu (1 sorğu) və dəniz proqnozu (1 sorğu), sabah üçün."""
+    day = now.date() + DAY
+    keys = (HZ_KEY + day.isoformat(), NORM_KEY + day.isoformat())
+    if not _in(now, WIN_FORECAST) or all(k in done for k in keys):
+        return []
+    try:
+        cities = parse_om(get(fc_url()), len(CITIES), FC_FIELDS)
+    except Exception as e:
+        return [i for i in _fc_fail(day, _why(e, "Open-Meteo"), now) if i["key"] not in done]
+    notes, sea = [], None
+    try:
+        sea = parse_om(get(marine_url()), len(SEA), SEA_FIELDS)
+    except Exception as e:
+        notes.append(_why(e, "Open-Meteo dəniz proqnozu"))
+    return [i for i in forecast_items(day, cities, sea, now, notes) if i["key"] not in done]
+
+
+# --- 5. Xəzərin suyu -----------------------------------------------------------------------------------------------------
+SST_BASE = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21NrtAgg_LonPM180"
+SST_PAGE = SST_BASE + ".html"
+SST_CREDIT = "NOAA OISST (peyk məlumatı)"
+SST_KEY = "xezer-su-"
+SST_SLOT = "11:10"
+SST_BACK = 10               # sorğu son 10 günü istəyir: son gün və ondan 7 gün əvvəl
+SST_STALE = 4               # son gün bundan köhnədirsə xəbər yoxdur (OISST adətən 1–2 gün geridədir)
+SST_MIN = 0.5               # mövsümdən kənar bir həftədə bundan az dəyişiklik xəbər deyil
+SEASON = (5, 9)             # çimərlik mövsümü: may–sentyabr, hər gün; digər aylarda şənbə
+SST_NOTE = ("Bu, peyk və ölçmə məlumatlarından hesablanan açıq dəniz səthinin gündəlik orta temperaturudur (0,25 "
+            "dərəcəlik şəbəkə); sahildə, çimərlik zolağında suyun temperaturu fərqlənə bilər.")
+
+
+def sst_url(day):
+    """Abşeron yaxınlığındakı 6 xana (ikisi sahildədir və həmişə boşdur), son SST_BACK gün."""
+    start = (day - SST_BACK * DAY).isoformat()
+    q = f"sst[({start}T12:00:00Z):1:(last)][(0.0)][(40.375):1:(40.625)][(49.625):1:(50.125)]"
+    return SST_BASE + ".json?" + q.replace("[", "%5B").replace("]", "%5D")
+
+
+def parse_sst(raw):
+    """ERDDAP cədvəli -> {gün: {(en, uzunluq): °C}}; boş xanalar yazılmır."""
+    data = _json(raw)
+    table = data.get("table") if isinstance(data, dict) else None
+    names = table.get("columnNames") if isinstance(table, dict) else None
+    if not isinstance(names, list) or any(n not in names for n in ("time", "latitude", "longitude", "sst")):
+        raise Bad("OISST cavabı tanınmadı")
+    it, la, lo, iv = (names.index(n) for n in ("time", "latitude", "longitude", "sst"))
+    out = {}
+    for r in table.get("rows") or []:
+        try:
+            d = datetime.date.fromisoformat(str(r[it])[:10])
+            cell, v = (r[la], r[lo]), _flt(r[iv])
+        except (ValueError, IndexError, TypeError):
+            raise Bad("OISST cavabında sətir tanınmadı")
+        out.setdefault(d, {})
+        if v is not None and -2 <= v <= 40:
+            out[d][cell] = v
+    if not out:
+        raise Bad("OISST cavabı boşdur")
+    return out
+
+
+def _rng(vals):
+    lo, hi = num(vals[0], 1), num(vals[-1], 1)
+    return lo if lo == hi else f"{lo}–{hi}"
+
+
+def sea_item(data, now):
+    """«Xəzərin suyu»: son günün temperaturu və 7 gün əvvəllə müqayisə (eyni xanalar). -> (xəbər | None, səbəb)."""
+    day = now.date()
+    full = sorted(d for d, cells in data.items() if len(cells) >= 2)
+    if not full:
+        return None, "OISST-də Abşeron xanaları boşdur"
+    last = full[-1]
+    if last > day or (day - last).days > SST_STALE:
+        return None, f"OISST məlumatı köhnədir (son gün {ox.day_text(last)})"
+    cur, old = data[last], data.get(last - 7 * DAY) or {}
+    cells = sorted(c for c in cur if c in old)
+    week = len(cells) >= 2
+    if not week:
+        cells = sorted(cur)
+    vals = sorted(_r1(cur[c]) for c in cells)
+    mean = _r1(sum(cur[c] for c in cells) / len(cells))
+    delta, was, mean0 = None, [], 0.0
+    if week:
+        was = sorted(_r1(old[c]) for c in cells)
+        mean0 = _r1(sum(old[c] for c in cells) / len(cells))
+        delta = _r1(mean - mean0)
+    if not SEASON[0] <= day.month <= SEASON[1]:
+        if delta is None:
+            return None, "bir həftə əvvəlin məlumatı yoxdur: müqayisə mümkün deyil"
+        if abs(delta) < SST_MIN:
+            return None, f"bir həftədə dəyişiklik {num(delta, 1)} dərəcədir (hədd {num(SST_MIN, 1)}): xəbər deyil"
+    title = f"Abşeron yaxınlığında Xəzərin səth temperaturu {_rng(vals)} °C"
+    if delta:
+        title += f": bir həftədə {num(delta, 1)} dərəcə {'isinib' if delta > 0 else 'soyuyub'}"
+    lead = (f"ABŞ Milli Okean və Atmosfer Administrasiyasının (NOAA) OISST peyk məlumatına görə, {ox.day_loc(last)} "
+            f"Abşeron yarımadası yaxınlığında Xəzər dənizində suyun səth temperaturu {_rng(vals)} °C olub "
+            f"({len(cells)} nöqtə üzrə orta {num(mean, 1)} °C).")
+    body = []
+    if delta is not None:
+        change = "dəyişməyib" if delta == 0 else f"{num(delta, 1)} dərəcə {'artıb' if delta > 0 else 'azalıb'}"
+        body.append(f"Bir həftə əvvəl, {ox.day_loc(last - 7 * DAY)} eyni nöqtələrdə {_rng(was)} °C (orta "
+                    f"{num(mean0, 1)} °C) idi: orta göstərici {change}.")
+    return {"kind": "xezer-su", "key": SST_KEY + day.isoformat(), "title": title[:TITLE_MAX], "lead": lead,
+            "body": body + [SST_NOTE], "credit": SST_CREDIT, "link": SST_PAGE, "topic": TOPIC, "slot": SST_SLOT,
+            "worth": True}, ""
+
+
+def sea_runs(day):
+    """Sorğu günü: may–sentyabr hər gün, digər aylarda şənbə."""
+    return SEASON[0] <= day.month <= SEASON[1] or day.weekday() == 5
+
+
+def sea_now(now, get, done):
+    """11:00–13:00 pəncərəsi: OISST (1 sorğu)."""
+    day = now.date()
+    key = SST_KEY + day.isoformat()
+    if not _in(now, WIN_SEA) or not sea_runs(day) or key in done:
+        return []
+    try:
+        item, why = sea_item(parse_sst(get(sst_url(day))), now)
+    except Exception as e:
+        item, why = None, _why(e, "OISST")
+    return [item or _fail("xezer-su", key, "Xəzərin suyu: xəbər yoxdur", why, SST_CREDIT, SST_PAGE, TOPIC, now)]
+
+
 # --- İstehsal ------------------------------------------------------------------------------------------------------------
-PARTS = (meteo_now, storm_now)
+PARTS = (meteo_now, storm_now, sea_now, forecast_now)
 
 
 def items(root, now, fetch=None, done=None):
@@ -588,8 +980,47 @@ def _sinaq_storm(now, get):
     return md
 
 
+def _sinaq_forecast(now, get):
+    day = now.date() + DAY
+    cities = parse_om(get(fc_url(SINAQ_PAST)), len(CITIES), FC_FIELDS)
+    notes, sea = [], None
+    try:
+        sea = parse_om(get(marine_url(SINAQ_PAST)), len(SEA), SEA_FIELDS)
+    except Exception as e:
+        notes.append(_why(e, "Open-Meteo dəniz proqnozu"))
+    md = []
+    for item in forecast_items(day, cities, sea, now, notes):
+        md += _show(f"Sabah, {_label_day(day)} (istehsalda 16:00–18:00)", item)
+    past = sorted((d for d in cities[0] if d <= now.date()), reverse=True)
+    tail = "(bir gün əvvəl yazılardı; modelin həmin gün üçün son hesablaması ilə)"
+    for name, build in (("hədd", lambda d: hazard_item(d, cities, sea)),
+                        ("normadan fərq", lambda d: norm_item(d, cities[0]))):
+        for d in past:
+            item = build(d)[0]
+            if item:
+                md += _show(f"Son real hal ({name}): {_label_day(d)} {tail}", item)
+                break
+        else:
+            md += [f"> Son {len(past)} gündə xəbər olmayıb ({name}).", ""]
+    return md
+
+
+def _sinaq_sea(now, get):
+    day = now.date()
+    try:
+        item, why = sea_item(parse_sst(get(sst_url(day))), now)
+    except Exception as e:
+        item, why = None, _why(e, "OISST")
+    label = (f"Bu günün məlumatı ilə, {_label_day(day)} (istehsalda 11:00–13:00: may–sentyabr hər gün, digər aylarda "
+             f"şənbə{'' if sea_runs(day) else '; bu gün sorğu getməzdi'})")
+    return _show(label, item or _fail("xezer-su", SST_KEY + day.isoformat(), "Xəzərin suyu: xəbər yoxdur", why,
+                                      SST_CREDIT, SST_PAGE, TOPIC, now))
+
+
 SINAQ = (("## 1. Meteohəssaslar üçün gün (MHX, NOAA SWPC)", _sinaq_meteo),
-         ("## 2. Maqnit qasırğası (NOAA SWPC)", _sinaq_storm))
+         ("## 2. Maqnit qasırğası (NOAA SWPC)", _sinaq_storm),
+         ("## 3. Təhlükəli hava həddi və normadan fərq (Open-Meteo)", _sinaq_forecast),
+         ("## 4. Xəzərin suyu (NOAA OISST)", _sinaq_sea))
 
 
 def sinaq(root, now=None, fetch=None):
