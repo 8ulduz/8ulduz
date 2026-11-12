@@ -140,3 +140,80 @@ test("ses-worker: the tokenizer skips scripts and comments and survives broken m
   assert.ok(!toks.some(t => t[0] === "t" && /kod|şərh/.test(t[2])));
   assert.equal(extract("<div><p>" + P1 + "</p><p>" + P2 + "</div></span></p><<<"), `${P1} ${P2}`);
 });
+
+// Sahib, 2026-11-12: «Bütün mənbələr tam və düzgün oxunsun!» — rus, ingilis və türk xəbərlərinin də tam mətni (cihazın o dildəki səsi ilə).
+const RU = "Сегодня в городе открыли новый мост через реку. Движение по нему начнётся уже в понедельник, сообщили в мэрии. ";
+const EN = "The city opened a new bridge across the river today. Traffic will start on Monday, the mayor's office said in a statement. ";
+const TR = "Şehirde bugün nehir üzerindeki yeni köprü açıldı. Belediyeden yapılan açıklamaya göre trafik pazartesi günü başlayacak. ";
+
+test("ses-worker: Russian, English and Turkish stories keep their full text when the language is given; junk of that language is dropped", async () => {
+  const { extract } = await load();
+  const page = (p, junk) => `<div class="story"><p>${p.repeat(2)}</p><p>${p}</p><p>${junk}</p></div>`;
+  assert.equal(extract(page(RU, "Подписывайтесь на наш Telegram-канал."), "az"), "", "dil verilməyəndə əvvəlki qayda: Azərbaycan hərfi olmayan abzas oxunmur");
+  const ru = extract(page(RU, "Подписывайтесь на наш Telegram-канал."), "ru");
+  assert.ok(ru.startsWith("Сегодня в городе") && ru.endsWith("сообщили в мэрии.") && !ru.includes("Подписывайтесь"), ru);
+  const en = extract(page(EN, "Subscribe to our newsletter for more stories."), "en");
+  assert.ok(en.startsWith("The city opened") && !/Subscribe/.test(en), en);
+  const tr = extract(page(TR, "Haberin devamı için tıklayın."), "tr");
+  assert.ok(tr.startsWith("Şehirde bugün") && !/tıklayın/.test(tr), tr);
+  assert.equal(extract(`<div class="paywall"><p>${EN.repeat(3)}</p></div>`, "en"), "", "ödənişli blok oxunmur");
+  assert.equal(extract(`<script type="application/ld+json">{"@type":"NewsArticle","isAccessibleForFree":false}</script><div><p>${EN.repeat(3)}</p></div>`, "en"), "", "ödənişli xəbər oxunmur");
+});
+
+test("ses-worker: layout wrappers do not block the whole page, real side blocks still do", async () => {
+  const { extract, skipClass } = await load();
+  for (const c of ["t-content__with-sidebar", "news_in_page with_sidebar_block", "b-header--white b-footer--black--white", "p-default-layout--window-view-x", "a-article-grid a-article-grid--author-right"])
+    assert.equal(skipClass("div", c), false, c);
+  assert.equal(skipClass("body", "single tag-news sidebar"), false, "body sinfinə görə atılmır");
+  for (const c of ["sidebar", "right-sidebar", "post-tags", "news-date", "author-box", "related-news", "social-share", "comments-area", "views"])
+    assert.equal(skipClass("div", c), true, c);
+  const t = extract(`<html class="b-footer--black--white"><body class="u-header-with-tag-list"><div class="t-content__with-sidebar"><div class="t-content__body"><p>${EN.repeat(2)}</p><p>${EN}</p></div><div class="sidebar"><p>${EN.replaceAll("bridge", "tunnel").repeat(4)}</p></div></div></body></html>`, "en");
+  assert.ok(t.includes("bridge") && !t.includes("tunnel"), t);
+});
+
+test("ses-worker: a windows-1251 page is decoded before the text is searched (Sport.ru, Interfax)", async () => {
+  const { decode, extract } = await load();
+  const enc = s => Uint8Array.from([...s].map(ch => { const c = ch.charCodeAt(0); return c < 0x80 ? c : c >= 0x410 && c <= 0x44f ? c - 0x350 : ch === "ё" ? 0xb8 : ch === "Ё" ? 0xa8 : ch === "«" ? 0xab : ch === "»" ? 0xbb : ch === "—" ? 0x97 : 0x3f; }));
+  const html = `<html><head><meta charset="windows-1251"></head><body><div><p>${RU.repeat(2)}</p><p>«Ёлка» — ${RU}</p></div></body></html>`;
+  const viaMeta = decode(enc(html).buffer), viaHeader = decode(enc(html.replace('<meta charset="windows-1251">', "")).buffer, "text/html; charset=windows-1251");
+  assert.ok(viaMeta.includes("Сегодня в городе") && viaMeta.includes("«Ёлка» —"), "kodlaşdırma <meta>-dan");
+  assert.ok(viaHeader.includes("Сегодня в городе"), "kodlaşdırma başlıqdan");
+  assert.ok(extract(viaMeta, "ru").startsWith("Сегодня в городе"));
+  assert.equal(decode(new TextEncoder().encode("Bakıda yağış yağır — şəhər").buffer, "text/html; charset=utf-8"), "Bakıda yağış yağır — şəhər");
+});
+
+test("ses-worker /?u=&l=: the language reaches the extractor and each language is cached on its own", async () => {
+  const { default: w } = await load();
+  const html = `<div class="story"><p>${RU.repeat(2)}</p><p>${RU}</p></div>`;
+  const env = cfEnv([[/lenta\.example/, () => new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } })]]);
+  const ask = l => w.fetch(new Request("https://dinle.example/?u=" + encodeURIComponent("https://lenta.example/1") + (l ? "&l=" + l : ""), { headers: { Referer: "https://8ulduz.az/" } }), {}, env.ctx);
+  try {
+    assert.equal((await (await ask("")).json()).text, "", "dil yoxdursa Azərbaycan qaydası");
+    assert.ok((await (await ask("ru")).json()).text.startsWith("Сегодня в городе"));
+    assert.equal((await (await ask("xx")).json()).text, "", "tanınmayan dil Azərbaycan qaydası ilə");
+    await env.done();
+    const n = env.calls.length;
+    assert.ok((await (await ask("ru")).json()).text.startsWith("Сегодня"));
+    assert.equal(env.calls.length, n, "ikinci sorğu keşdən");
+  } finally { env.restore(); }
+});
+
+test("ses-worker /ses: a story whose prepared voice has no body text (index «q») is read in full from the source first; any failure falls back to the prepared voice", async () => {
+  const { default: w } = await load();
+  const id = "bbbbbbbbbbbbbbbb", mk = (extra = []) => cfEnv([[/main\/index\.json/, () => new Response(JSON.stringify({ ids: [id], q: [id] }))],
+    [/main\/bbbbbbbbbbbbbbbb\.mp3/, () => new Response(new Uint8Array(5000), { status: 200 })], ...extra]);
+  const call = (env, key = "k") => w.fetch(ses("u=" + encodeURIComponent("https://report.example/" + Math.random()) + "&id=" + id + "&t=Yeni%20k%C3%B6rp%C3%BC&s=Report"), key ? { AZURE_KEY: key } : {}, env.ctx);
+  let env = mk([[/report\.example/, () => new Response(page, { headers: { "content-type": "text/html" } })], [/tts\.speech\.microsoft\.com/, () => new Response(new Uint8Array(9000), { status: 200 })]]);
+  try {
+    const r = await call(env);
+    assert.equal((await r.arrayBuffer()).byteLength, 9000, "tam mətn Babək səsi ilə");
+    const az = env.calls.filter(c => /tts\.speech/.test(c.u));
+    assert.equal(az.length, 1); assert.ok(az[0].o.body.includes("Yeni körpü. Report xəbər verir.") && az[0].o.body.includes("Napoli klubunun"));
+  } finally { env.restore(); }
+  env = mk([[/report\.example/, () => new Response("yox", { status: 403 })]]);
+  try { assert.equal((await (await call(env)).arrayBuffer()).byteLength, 5000, "mənbə rədd edir → hazır səs"); assert.ok(!env.calls.some(c => /tts\.speech/.test(c.u))); } finally { env.restore(); }
+  env = mk([[/report\.example/, () => new Response(page, { headers: { "content-type": "text/html" } })], [/tts\.speech/, () => new Response("quota", { status: 429 })]]);
+  try { assert.equal((await (await call(env)).arrayBuffer()).byteLength, 5000, "Azure limiti dolub → hazır səs"); } finally { env.restore(); }
+  env = mk([[/report\.example/, () => new Response(page, { headers: { "content-type": "text/html" } })]]);
+  try { assert.equal((await (await call(env, "")).arrayBuffer()).byteLength, 5000, "Azure açarı yoxdursa siyahı soruşulmur"); assert.ok(!env.calls.some(c => /index\.json/.test(c.u))); } finally { env.restore(); }
+});

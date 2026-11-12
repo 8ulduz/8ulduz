@@ -22,27 +22,45 @@ export default {
     let src;
     try { src = new URL(url.searchParams.get("u") || ""); } catch { return new Response("bad url", { status: 400 }); }
     if (src.protocol !== "https:" || /^[\d.]+$|^\[|(^|\.)(localhost|internal|local)$/.test(src.hostname)) return new Response("bad url", { status: 400 });
-    return url.pathname === "/ses" ? audio(req, env, ctx, src, url.searchParams, cors) : textJson(ctx, src, cors);
+    return url.pathname === "/ses" ? audio(req, env, ctx, src, url.searchParams, cors) : textJson(ctx, src, cors, LETTER[url.searchParams.get("l")] ? url.searchParams.get("l") : "az");
   },
 };
 
-async function sourceText(src) {
+async function sourceText(src, lang = "az") {
   try {
     const r = await fetch(src.href, { headers: { "User-Agent": UA, "Accept": "text/html" }, redirect: "follow" });
-    if (r.ok && /html/.test(r.headers.get("content-type") || "")) return cut(extract((await r.text()).slice(0, 1_500_000)));
+    if (r.ok && /html/.test(r.headers.get("content-type") || "")) return cut(extract(decode(await r.arrayBuffer(), r.headers.get("content-type") || "").slice(0, 1_500_000), lang));
   } catch {}
   return "";
 }
 
-async function textJson(ctx, src, cors) {
-  const cache = caches.default, key = new Request(`https://dinle.cache/t2/${encodeURIComponent(src.href)}`);
+// Səhifənin kodlaşdırması: bəzi rus saytları (Sport.ru, Interfax) windows-1251 ilə yazır — UTF-8 kimi oxunanda hərflər itir,
+// mətn tapılmırdı. Kodlaşdırma başlıqdan və ya <meta charset>-dən götürülür; mühit tanımırsa kiril cədvəli əl ilə açılır.
+const CP1251 = { 0x85: "…", 0x91: "‘", 0x92: "’", 0x93: "“", 0x94: "”", 0x96: "–", 0x97: "—", 0xa0: " ", 0xa8: "Ё", 0xab: "«", 0xb8: "ё", 0xb9: "№", 0xbb: "»" };
+export function decode(buf, contentType = "") {
+  const bytes = new Uint8Array(buf);
+  let head = "";
+  for (let i = 0; i < Math.min(bytes.length, 3000); i++) head += String.fromCharCode(bytes[i]);
+  const cs = ((contentType.match(/charset=["']?([\w-]+)/i) || head.match(/<meta[^>]+charset=["']?([\w-]+)/i) || [])[1] || "utf-8").toLowerCase();
+  if (/^(utf-?8|utf8)$/.test(cs)) return new TextDecoder("utf-8").decode(bytes);
+  try { return new TextDecoder(cs).decode(bytes); } catch {}
+  if (!/1251|cyrillic/.test(cs)) return new TextDecoder("utf-8").decode(bytes);
+  let out = "";
+  for (const b of bytes) out += b < 0x80 ? String.fromCharCode(b) : b >= 0xc0 ? String.fromCharCode(b + 0x350) : CP1251[b] || " ";
+  return out;
+}
+
+async function textJson(ctx, src, cors, lang = "az") {
+  const cache = caches.default, key = new Request(`https://dinle.cache/t3/${lang}/${encodeURIComponent(src.href)}`);
   const hit = await cache.match(key);
   if (hit) return new Response(hit.body, { headers: { "Content-Type": "application/json; charset=utf-8", ...cors } });
-  const text = await sourceText(src), body = JSON.stringify({ text });
+  const text = await sourceText(src, lang), body = JSON.stringify({ text });
   const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=86400" };
   if (text) ctx.waitUntil(cache.put(key, new Response(body, { headers })));
   return new Response(body, { headers: { ...headers, ...cors } });
 }
+
+const shortIds = () => fetch(`${READY}index.json?m=${Math.floor(Date.now() / 6e4)}`, { cf: { cacheTtl: 60 } }).then(r => r.ok ? r.json() : {}).then(j => new Set(j.q || [])).catch(() => new Set());
 
 async function audio(req, env, ctx, src, q, cors) {
   const cache = caches.default, key = new Request(`https://dinle.cache/a2/${encodeURIComponent(src.href)}`, { headers: req.headers.get("Range") ? { Range: req.headers.get("Range") } : {} });
@@ -52,6 +70,13 @@ async function audio(req, env, ctx, src, q, cors) {
   const keep = (res, okP = true) => { const [a, b] = res.body.tee(); ctx.waitUntil(Promise.all([new Response(b).arrayBuffer(), okP]).then(([buf, ok]) => ok && buf.byteLength > 3000 && cache.put(new Request(key.url), new Response(buf, { headers: AUDIO_HEADERS }))).catch(() => {})); return new Response(a, { headers: { ...AUDIO_HEADERS, ...cors } }); };
   const id = q.get("id") || "";
   if (/^[0-9a-f]{16}$/.test(id)) {
+    // Hazır səsi yalnız başlıq və xülasədən ibarət xəbər (index.json «q»: səs işi mənbə səhifəsini ala bilməyib — Report, Oxu.az
+    // GitHub-a cavab vermir): dinləyən basanda əvvəl mənbədən tam mətn sınanır. Alınmasa və ya Azure cavab verməsə hazır səs verilir.
+    if (env.AZURE_KEY && (await shortIds()).has(id)) {
+      const body = await sourceText(src);
+      const r = body ? await tts(env, script(clean(q.get("t") || "").slice(0, 300), clean(q.get("s") || "").slice(0, 80), body)) : null;
+      if (r?.ok) return keep(r);
+    }
     // Dəqiqə nişanı və 404-ün keşlənməməsi: səs hazır olan kimi verilir (əvvəlki «hələ yoxdur» cavabı 5 dəqiqə yadda qalmır).
     const r = await fetch(`${READY}${id}.mp3?m=${Math.floor(Date.now() / 6e4)}`, { cf: { cacheTtlByStatus: { "200-299": 300, "400-599": -1 } } }).catch(() => null);
     if (r?.ok) return keep(r);
@@ -112,21 +137,31 @@ export function clean(s) {
 const JUNK = /sosial şəbəkələrdə paylaş|xəbər (xoşunuza gəldi|maraqlı gəlib)|kanalımız(da|a)? (izləy|abunə)|abunə olun|ctrl\s*\+\s*enter|mətndə (səhv|xəta)|qeydiyyatdan keçin|ödənişli (xəbər|video|foto)|bizi (facebook|[iİ]nstagram|telegram|whatsapp|youtube|tiktok)|xəbəri paylaş|©|bütün (müəllif )?hüquqlar|hüquqları qorunur|[iİ]stinad (mütləqdir|edilməlidir|vacibdir|zəruridir)|(materiallar(ın|dan)|məlumatdan) [iİ]stifadə|cloudflare ray id|[iİ]zləyin @|^(müəllif|foto|video|mənbə|reklam)\s*:/i;
 const STOP = /^((oxşar|digər|əlaqəli|son) xəbərlər|mövzu(ya aid| ilə bağlı)|ən çox oxunan|xəbər lenti|bölmənin digər)( xəbərləri)?\s*:?$/i;
 const AZ = /[əğışçöüƏĞŞÇÖÜİ]/;
-export function tidy(parts, paragraphs = false) {
+// Sahib, 2026-11-12 («bütün mənbələr tam və düzgün oxunsun»): rus, ingilis və türk xəbərlərinin də tam mətni. Əvvəl Azərbaycan
+// hərfi olmayan abzas atılırdı, ona görə xarici xəbərdə yalnız başlıq və xülasə oxunurdu. Hər dilin öz hərfi və öz lazımsız sətirləri var.
+const LETTER = { az: AZ, ru: /[а-яё]/i, en: /[a-z]/i, tr: /[a-zçğıöşü]/i };
+const JUNK_X = {
+  ru: /подпис(ывайтесь|аться|ка на)|читайте (также|нас|ещё|еще)|смотрите также|поделиться|все права защищены|перепечатка|нашли ошибку|ctrl\s*\+\s*enter|реклама|telegram-канал|в telegram|в max\b|в мессенджере|дзен|фото\s*:|видео\s*:|источник\s*:|ранее (сообщалось|мы писали)|материал (подготовлен|дополняется)|\d+\+\s*$/i,
+  en: /subscri|sign up|newsletter|read more|related (articles?|stories|topics)|share this|follow us|all rights reserved|click here|cookies?\b|advertisement|terms of (use|service)|privacy policy|download (the|our) app|listen to this article|min(ute)?s? read|photo(graph)?\s*:|image (source|credit)|getty images|reporting by|editing by|our standards|this article was (originally|amended)|copyright|contact us|join our|whatsapp channel|recommended (for you|stories)|more on this story|you can now|sign in|log in to/i,
+  tr: /abone ol|bültenimize|haberin devamı|ilgili haber|sosyal medyada|paylaş|tüm hakları saklıdır|izinsiz|tıkla|çerez|reklam|google news|whatsapp kanal|bizi takip|uygulamamızı|foto(ğraf)?\s*:|kaynak\s*:|editör\s*:|yorum yap|önerilen|sıradaki haber/i,
+};
+const STOP_X = /^(related|read more|more from|more stories|most read|recommended|you may also like|see also|topics|tags|читайте также|по теме|смотрите также|материалы по теме|новости партнеров|главное|ilgili haberler|diğer haberler|çok okunanlar|önerilen haberler|etiketler)\s*:?$/i;
+export function tidy(parts, paragraphs = false, lang = "az") {
+  const letter = LETTER[lang] || AZ, junk = JUNK_X[lang];
   const out = [];
   for (let p of parts) {
     p = p.replace(/\{\{[^}]*\}\}/g, " ").replace(/\((unikal|eksklüziv)\)/gi, " ").replace(/\s+/g, " ").trim();
     if (!p) continue;
-    if (STOP.test(p)) break;
-    if (JUNK.test(p) || !AZ.test(p)) continue;
+    if (STOP.test(p) || (junk && STOP_X.test(p))) break;
+    if (JUNK.test(p) || !letter.test(p) || (junk && junk.test(p) && p.length < 300)) continue;
     if (paragraphs && p.length < 220 && !/[.!?…]["”»’]?\s/.test(p) && !/[.!?:;"”»)’']$/.test(p.replace(/(\.\.\.|…)$/, ""))) continue;
     out.push(p);
   }
   return out;
 }
-const sentences = text => tidy(text.split(/(?<=[.!?…])\s+(?=[A-ZÇƏĞİÖŞÜ"“«])/)).join(" ");
+const sentences = (text, lang = "az") => tidy(text.split(/(?<=[.!?…])\s+(?=[A-ZÇƏĞİÖŞÜА-ЯЁ"“«„])/), false, lang).join(" ");
 // reader_content.py ilə eyni qayda: əvvəl JSON-LD articleBody, sonra məqalənin abzasları; ödənişli xəbər oxunmur.
-export function extract(html) {
+export function extract(html, lang = "az") {
   for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
     let data; try { data = JSON.parse(m[1]); } catch { continue; }
     const stack = [data];
@@ -135,17 +170,17 @@ export function extract(html) {
       if (Array.isArray(n)) { stack.push(...n); continue; }
       if (!n || typeof n !== "object") continue;
       if (n.isAccessibleForFree === false || n.isAccessibleForFree === "false") return "";
-      if (typeof n.articleBody === "string") { const t = sentences(clean(n.articleBody)); if (t.length >= 200) return t; }
+      if (typeof n.articleBody === "string") { const t = sentences(clean(n.articleBody), lang); if (t.length >= 200) return t; }
       for (const v of Object.values(n)) if (v && typeof v === "object") stack.push(v);
     }
   }
   // Sahib, 2026-11-12 («dinləməni tam düzəlt hər bir saytda»): reader_content.py-nin eyni iki addımı — əvvəl məqalə blokunun
   // abzasları (ArticleParagraphs), tapılmasa səhifədə ən çox nəsr olan blok (DenseBlocks). Hazır səs və anında səs eyni mətni oxuyur.
   const tokens = tokenize(html);
-  const rows = tidy([...new Set(scopedRows(tokens))], true).filter(t => t.length >= 30);
-  let text = sentences(rows.join(" "));
+  const rows = tidy([...new Set(scopedRows(tokens))], true, lang).filter(t => t.length >= 30);
+  let text = sentences(rows.join(" "), lang);
   if (rows.length >= 2 && text.length >= 200 && text.length <= 24000) return text;
-  text = denseText(tokens, html);
+  text = denseText(tokens, html, lang);
   return text.length >= 100 && text.length <= 24000 ? text : "";
 }
 
@@ -191,18 +226,24 @@ function scopedRows(tokens) {
 const VOID = new Set("br img hr meta link input source wbr area base col embed track param".split(" "));
 const INLINE = new Set("a b strong em i u span font small sup sub mark abbr time label s del ins cite q code big strike nobr".split(" "));
 const SKIP = new Set("nav aside footer header script style form noscript button select textarea iframe svg figcaption h1 h2 h3 h4 h5 h6 title head".split(" "));
-const SKIP_CLASS = /related|recommend|advert|comment|social|paywall|share|breadcrumb|sidebar|cookie|popup|modal|(?:^|[\s_-])(?:tags?|teq|menu|footer|banner|widget|date|time|tarix|author|views?|counter)(?:$|[\s_-])/i;
 const PROSE = /[.!?…]["”»’)]?(\s|$)/;
 const STAMP = /^\s*(\d{1,2}[:.]\d{2}(?!\d)|\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}(?!\d)|\d{1,2}\s+(yanvar|fevral|mart|aprel|may|iyun|iyul|avqust|sentyabr|oktyabr|noyabr|dekabr)\s+(\d{4}\s+)?\d{1,2}:\d{2}(?!\d))/i;
 const META = /^\s*(teqlər|etiketlər|açar sözlər|mənbə|müəllif|foto|oxunub|baxış(lar)?( sayı)?|tarix|bölmə|şriftin ölçüsü)\s*:/i;
-function denseText(tokens, html) {
+// Sinif adı sözbəsöz yoxlanır: «t-content__with-sidebar», «b-footer--black--white», «p-default-layout--window» kimi düzən
+// sarğıları bütün səhifəni bloklayırdı (France 24, BBC, Match TV, Vesti.az). html/body/main/article heç vaxt sinfinə görə atılmır.
+const HARD = /related|recommend|advert|comment|social|paywall|share|breadcrumb|cookie|popup|modal/i;
+const SOFT = /^(?:sidebar|menu|footer|banner|widget|date|time|tarix|author|views?|counter)(?:$|[-_])|(?:^|[-_])(?:sidebar|tags?|teq|menu|footer|banner|widget|date|time|tarix|author|views?|counter)$/i;
+const SHELL = /with|beside|above|below|wrap|layout|grid|container|page|body|main|--/i, ROOTS = new Set(["html", "body", "main", "article"]);
+export const skipClass = (tag, marker) => !ROOTS.has(tag) && marker.split(/\s+/).some(t => t && !SHELL.test(t) && (HARD.test(t) || SOFT.test(t)));
+function denseText(tokens, html, lang = "az") {
+  const letter = LETTER[lang] || AZ;
   const root = { buf: [], own: [], seq: [] }, found = [];
   let stack = [["", false, root]];
   const flush = n => { const t = clean(n.buf.join(" ")); n.buf = []; if (t) { n.own.push(t); n.seq.push(t); } };
   const close = n => {
     flush(n);
     let prose = 0;
-    for (const p of n.seq) if (p.length >= 60 && AZ.test(p) && PROSE.test(p) && !STAMP.test(p)) prose += p.length;
+    for (const p of n.seq) if (p.length >= 60 && letter.test(p) && PROSE.test(p) && !STAMP.test(p)) prose += p.length;
     if (prose >= 100) found.push([prose, n.seq]);
   };
   const end = gone => { for (let i = gone.length - 1; i >= 0; i--) if (!INLINE.has(gone[i][0])) { close(gone[i][2]); gone[i][2].up.seq.push(...gone[i][2].own); } };
@@ -211,7 +252,7 @@ function denseText(tokens, html) {
     if (kind === "o") {
       if (VOID.has(tag)) { if (tag === "br") flush(stack.at(-1)[2]); continue; }
       let [, blocked, node] = stack.at(-1);
-      blocked = blocked || SKIP.has(tag) || SKIP_CLASS.test((a.class || "") + " " + (a.id || ""));
+      blocked = blocked || SKIP.has(tag) || skipClass(tag, (a.class || "") + " " + (a.id || ""));
       if (!INLINE.has(tag)) { flush(node); node = { buf: [], own: [], seq: [], up: node }; }
       stack.push([tag, blocked, node]);
       continue;
@@ -231,7 +272,7 @@ function denseText(tokens, html) {
     const score = prose + (hit ? 1e6 : 0);   // təsviri olan blok həmişə öndədir
     if (score > top) { best = seq; top = score; }
   }
-  return sentences(tidy([...new Set(best)].filter(p => !(META.test(p) && p.length < 200) && !STAMP.test(p)), true).filter(t => t.length >= 30).join(" "));
+  return sentences(tidy([...new Set(best)].filter(p => !(META.test(p) && p.length < 200) && !STAMP.test(p)), true, lang).filter(t => t.length >= 30).join(" "), lang);
 }
 export function cut(text, max = MAX_CHARS) {
   return text.length > max ? text.slice(0, max).replace(/[^.!?…]*$/, "") : text;
