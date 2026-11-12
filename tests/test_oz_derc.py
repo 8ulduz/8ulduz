@@ -101,12 +101,13 @@ class FlagTest(Base):
         self.assertEqual(mod.calls, [], "modul çağırılmır")
         self.assertEqual(list(self.tmp.iterdir()), [], "fayl yazılmır")
 
-    def test_site_calls_the_module_but_does_not_set_the_flag(self):
-        """Sahib 2026-11-12: «Sayta qoşmağa başla». Çağırış yerindədir, açar söndürülüdür (tests/test_oz_xeber.py::WiredSwitchedOffTest)."""
+    def test_site_calls_the_module_and_only_the_pipeline_sets_the_flag(self):
+        """Sahib 2026-11-12: «Sayta qoşmağa başla», sonra «Bəli, yandır». Çağırış yerindədir, açarı yalnız pipeline.sh qoyur (tests/test_oz_xeber.py::WiredSwitchedOnTest)."""
         up = (ROOT / "updater.py").read_text(encoding="utf-8")
         sh = (ROOT / ".github/scripts/pipeline.sh").read_text(encoding="utf-8")
         self.assertEqual(up.count("oz_derc.cycle("), 1, "bir çağırış: yavaş addım")
-        self.assertNotIn("OZ_DERC", sh, "pipeline açarı qoymur")
+        self.assertEqual(sh.count("OZ_DERC"), 1, "açar bir yerdə qoyulur")
+        self.assertRegex(sh, r"(?m)^export OZ_DERC=1[ \t]+#", "açarı pipeline qoyur")
         self.assertEqual([l for l in sh.splitlines() if "oz_derc" in l and not l.startswith("CODE_FILES=")], [], "pipeline faylı yalnız köçürür")
 
     def test_tables_cover_every_module(self):
@@ -415,9 +416,10 @@ class GateTest(Base):
                 patch.object(d, "modules", return_value=["oz_saxta"]), patch.dict(d.QAYDA, {"oz_saxta": NOVBE}):
             md = "\n".join(d.sinaq(self.tmp, at(9, 10), fetch=no_net))
         self.assertNotIn("xəta ilə bitdi", md)
-        # Kilidlərin 2026-11-12-dən vəziyyəti: çağırış və mənbə açıqdır, bayraq bağlıdır.
+        # Kilidlərin 2026-11-12-dən vəziyyəti: üçü də açıqdır.
         self.assertIn("- Çağırış: updater.py-ın yavaş dövrəsi bu faylı çağırır (yalnız bayraqla). **AÇIQDIR.**", md)
-        self.assertIn("mühit dəyişənini qoymur. Bağlıdır.", md)
+        self.assertIn("mühit dəyişənini qoyur. **AÇIQDIR.**", md)
+        self.assertNotIn("Bağlıdır.", md)
         self.assertIn("icazəli mənbələr siyahısında (assets/content-policy.js) var. **AÇIQDIR.**", md)
         self.assertNotIn("yoxdur. Bağlıdır.", md)
         self.assertIn("### İlk həftənin tavanı ilə (gündə 15): 15 xəbər", md)

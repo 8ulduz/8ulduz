@@ -1,5 +1,5 @@
-"""Öz xəbərlərin sayta qoşulması, açar söndürülmüş halda (sahib 2026-11-12: «Sayta qoşmağa başla», mərhələ 2).
-Açar OZ_DERC=1 mühit dəyişənidir; pipeline.sh onu qoymur (tests/test_oz_xeber.py::WiredSwitchedOffTest).
+"""Öz xəbərlərin sayta qoşulması (sahib 2026-11-12: «Sayta qoşmağa başla», sonra «Bəli, yandır»).
+Açar OZ_DERC=1 mühit dəyişənidir; onu yalnız pipeline.sh qoyur (tests/test_oz_xeber.py::WiredSwitchedOnTest). Buradakı testlər açarı özləri qoyub götürür.
 Şəbəkə yoxdur: lentlər və dərc modulu saxtadır."""
 import contextlib
 import datetime
@@ -279,6 +279,14 @@ class OwnRowsElsewhereTest(Sandbox):
             updater.check_links()
         self.assertEqual(asked, ["https://apa.az/a-1"])
         self.assertEqual(list(json.loads(updater.LINK_HEALTH_FILE.read_text(encoding="utf-8"))), ["https://apa.az/a-1"])
+
+    def test_image_lookup_never_asks_for_an_own_page(self):
+        asked = []
+        feed = [own_row(1, 5), plain_row("APA", "https://apa.az/a-1", "Bir", 5)]
+        with patch.object(updater, "_fetch_og", lambda url, logos=None: asked.append(url)), quiet():
+            updater.fill_og_images(feed)
+        self.assertEqual(asked, ["https://apa.az/a-1"], "öz səhifənin og:image-i saytın ümumi lövhəsidir: soruşulmur")
+        self.assertIsNone(feed[0]["imageUrl"])
 
     def test_story_pages_leave_an_existing_own_page_untouched(self):
         def alts(sid):

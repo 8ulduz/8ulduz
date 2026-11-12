@@ -1,14 +1,14 @@
 """8ulduz-un öz xəbərlərinin dərc hissəsi (sahib, 2026-11-12: «Dərc hissəsini hazırla», sonra «Sayta qoşmağa başla»).
-Sayta QOŞULUB, amma açarı SÖNDÜRÜLÜDÜR: çağırış və lentə qatılma yerindədir, bayraq qoyulmayıb, ona görə heç nə dərc olunmur.
+Sayta QOŞULUB və açarı YANILIDIR (sahib, 2026-11-12: «Bəli, yandır»): çağırış, lentə qatılma və bayraq yerindədir.
 
 On iki şablon modulu (oz_xeber.FAZA1 + FAZA2) və oz_xeber.items-in baza xəbərləri («Bu gün tarixdə», AMB məzənnələri,
 neft, zəlzələ, Premyer Liqa oyununun hesabatı) xəbər qurur; bu fayl onları lent sətrinə və statik səhifəyə çevirir:
 növbə, gündəlik və saatlıq hədlər, mövzu hədləri, vaciblik sırası və məzmun qapısı ilə.
 
-Üç kilid (üçü də açılmayınca heç nə dərc olunmur). 2026-11-12-dən vəziyyət: 1-ci və 3-cü açıqdır, 2-ci BAĞLIDIR.
+Üç kilid (üçü də açılmayınca heç nə dərc olunmur). 2026-11-12-dən vəziyyət: üçü də AÇIQDIR.
 1. Çağırış (AÇIQ): updater.slow_cycle-ın update_own_news addımı cycle(ROOT)-u çağırır, pipeline.sh bu faylı və modulları kod
    qovluğuna köçürür (CODE_FILES). Addım bayrağı import-dan ƏVVƏL yoxlayır: bayraqsız bu fayl heç yüklənmir.
-2. Bayraq (BAĞLI): OZ_DERC=1 mühit dəyişəni; pipeline.sh onu qoymur (tests/test_oz_xeber.py::WiredSwitchedOffTest yoxlayır,
+2. Bayraq (AÇIQ): OZ_DERC=1 mühit dəyişəni; onu yalnız pipeline.sh qoyur (tests/test_oz_xeber.py::WiredSwitchedOnTest yoxlayır,
    yalnız sahibin sözü ilə dəyişir). Onsuz cycle() dərhal qayıdır: modul çağırılmır, sorğu getmir, fayl yazılmır; updater.py
    də sətir faylını oxumur.
 3. Məzmun qapısı (qırmızı xətt 2; mənbə AÇIQ, qapı həmişə işləyir): «8ULDUZ» assets/content-policy.js-in azSources
@@ -56,7 +56,7 @@ Sayta qoşulma (mərhələ 2, 2026-11-12): nə edilib, nə qalıb.
 3. EDİLİB. updater.main: data/oz/xeberler.json-un main-ə çatmış nüsxəsi content_policy.enforce-dan ƏVVƏL xəbər siyahısına qatılır (yalnız bayraqla;
    fayl oxunur, sorğu yoxdur). Öz sətir yenidən təsnif edilmir, qruplaşmır, linki yoxlanmır; write_story_pages mənbəyi
    «8ULDUZ» olan sətri buraxır: onun xeber/<id>/ səhifəsini bu fayl yazıb, ümumi şablon üstündən yazmır.
-4. QALIB (mərhələ 3, yalnız sahibin sözü ilə): pipeline.sh-də `export OZ_DERC=1` (2-ci kilid) və onu qoruyan test.
+4. EDİLİB (mərhələ 3, sahib 2026-11-12: «Bəli, yandır»): pipeline.sh-də `export OZ_DERC=1` (2-ci kilid) və onu qoruyan test.
 5. QALIB (edilməyib): write_sitemap və write_news_sitemap öz səhifələri yazmır (yalnız ümumi xəbər səhifələrinin siyahısı).
 
 Sınaq: python oz_derc.py --sinaq --root DIR [--now 2026-11-12T09:00+04:00]

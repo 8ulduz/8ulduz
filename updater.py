@@ -2583,8 +2583,8 @@ def retire_reader():
         (OUT_DIR / "reader.json").unlink(missing_ok=True)
 
 
-# 8ulduz-un öz xəbərləri (sahib 2026-11-12: «Sayta qoşmağa başla»; mərhələ 2: çağırış və lentə qatılma, açar SÖNDÜRÜLMÜŞ).
-# Açar OZ_DERC=1 mühit dəyişənidir; pipeline.sh onu qoymur. Açarsız aşağıdakı funksiyalar heç nə etmir: dərc modulu import
+# 8ulduz-un öz xəbərləri (sahib 2026-11-12: «Sayta qoşmağa başla», sonra «Bəli, yandır»: açar pipeline.sh-də qoyulub).
+# Açar OZ_DERC=1 mühit dəyişənidir; onu yalnız pipeline.sh qoyur. Açarsız aşağıdakı funksiyalar heç nə etmir: dərc modulu import
 # olunmur, fayl oxunmur, yazılan hər fayl əvvəlki ilə bayt-bayt eynidir. Açarla: yavaş dövrə dərc dövrəsini çağırır (sorğu və
 # ağır iş yalnız orada), sürətli dövrə yalnız onun yazdığı sətir faylının main-ə çatmış nüsxəsini oxuyur (QIRMIZI XƏTT 1:
 # şəbəkə yoxdur) və sətirləri content_policy.enforce-dan ƏVVƏL lentə qatır (QIRMIZI XƏTT 2). Öz sətir lentə olduğu kimi düşür:
@@ -5954,7 +5954,7 @@ def fill_og_images(articles, limit=120):
     todo = []
     for a in articles:
         url = a.get("sourceUrl") or ""
-        if not url or a.get("imageUrl"):
+        if not url or a.get("imageUrl") or a.get("source") == OWN_SOURCE:  # öz xəbərin şəkli varsa sətrindədir: səhifəsindəki og:image saytın ümumi lövhəsidir
             continue
         if url in cache:
             if cache[url]:

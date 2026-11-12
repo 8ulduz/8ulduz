@@ -11,9 +11,9 @@ Sahibin qərarı: «2 sini də edək amma 2 dollarlıq ilə». Yəni iki yol var
      xəbər dərc olunmur.
    - Prezident və birinci vitse-prezident adı keçən xəbər özü-özünə dərc olunmur, sahibin təsdiqini gözləyir (needs_owner).
 
-Sayta qoşulub, açarı söndürülüdür. Sahibin sözü: «hələ sayta tətbiq etmə baxaq sonra» (2026-11-08), «Sayta qoşmağa başla» (2026-11-12).
-- updater.py yalnız dərc hissəsini (oz_derc.py) və yalnız OZ_DERC=1 açarı ilə çağırır; pipeline açarı qoymur, faylları yalnız kod
-  qovluğuna köçürür. tests/test_oz_xeber.py (WiredSwitchedOffTest) bunu yoxlayır.
+Sayta qoşulub, açarı yanılıdır. Sahibin sözü: «hələ sayta tətbiq etmə baxaq sonra» (2026-11-08), «Sayta qoşmağa başla» və «Bəli, yandır» (2026-11-12).
+- updater.py yalnız dərc hissəsini (oz_derc.py) və yalnız OZ_DERC=1 açarı ilə çağırır; açarı yalnız pipeline qoyur, faylları da kod
+  qovluğuna köçürür. tests/test_oz_xeber.py (WiredSwitchedOnTest) bunu yoxlayır.
 - Nümunələri `python oz_xeber.py --sinaq` çıxarır. .github/workflows/oz-xeber.yml onu GitHub-da işlədir və nəticəni
   yalnız iş səhifəsində göstərir.
 - Relizlər üçün ANTHROPIC_API_KEY lazımdır. Açarı sahib yaradır və GitHub secret kimi özü əlavə edir.
@@ -962,7 +962,7 @@ def sinaq(root, limit=10, now=None):
 
 
 # Mərhələ 1: saytın öz məlumatından şablon xəbərlər (sahib, 2026-11-10: «Bəli, başla»). Hər modul ayrıca faylda, öz testləri ilə.
-# Bu modulları yalnız dərc hissəsi (oz_derc.py) çağırır, o da açarla; açar söndürülüdür (WiredSwitchedOffTest).
+# Bu modulları yalnız dərc hissəsi (oz_derc.py) çağırır, o da açarla; açar yanılıdır (WiredSwitchedOnTest).
 FAZA1 = (
     ("oz_futbol_az", "Azərbaycan futbolu"),
     ("oz_futbol_dunya", "Dünya futbolu və basketbol"),
@@ -973,7 +973,7 @@ FAZA1 = (
 )
 
 # Mərhələ 2: açarsız açıq mənbələrdən şablon xəbərlər (sahib, 2026-11-10: «Mərhələ 2-ni qur»).
-# Altı modulun hamısı yerindədir (2026-11-12); WiredSwitchedOffTest siyahı ilə faylların üst-üstə düşdüyünü yoxlayır.
+# Altı modulun hamısı yerindədir (2026-11-12); WiredSwitchedOnTest siyahı ilə faylların üst-üstə düşdüyünü yoxlayır.
 # Bunları da yalnız dərc hissəsi çağırır.
 FAZA2 = (
     ("oz_hava", "Hava və təbiət"),
@@ -1015,7 +1015,7 @@ def faza_sinaq(root, now, fetch):
 def derc_sinaq(root, now, fetch):
     """5-ci bölmə: dərc hissəsinin (oz_derc.py) sınağı: üç kilid, bu günün quru sınağı, nümunə sətir və səhifə.
     Başlıqları iki pillə aşağı salınır ki, bu bölmənin içində qalsın. oz_derc xəbər modulu deyil: FAZA siyahılarında yoxdur."""
-    md = ["## 5. Dərc hissəsi (`oz_derc.py`): sayta qoşulub, açarı söndürülüdür", ""]
+    md = ["## 5. Dərc hissəsi (`oz_derc.py`): sayta qoşulub, açarı yanılıdır", ""]
     try:
         import oz_derc
         lines = oz_derc.sinaq(root, now, fetch)

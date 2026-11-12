@@ -628,7 +628,7 @@ class ItemsAndSinaqTest(unittest.TestCase):
 
 
 class NotCalledByTheSiteTest(unittest.TestCase):
-    """Sahib 2026-11-12: «Sayta qoşmağa başla» (açar söndürülüdür). updater.py bu faylı tanımır (yalnız dərc hissəsi çağırır),
+    """Sahib 2026-11-12: «Sayta qoşmağa başla», sonra «Bəli, yandır». updater.py bu faylı tanımır (yalnız dərc hissəsi çağırır),
     pipeline onu yalnız kod qovluğuna köçürür (CODE_FILES), işə salmır. Əvvəlki adı: NotOnTheSiteTest."""
     def test_site_pipeline_does_not_run_it(self):
         self.assertNotIn("oz_icmal", (ROOT / "updater.py").read_text(encoding="utf-8"))
