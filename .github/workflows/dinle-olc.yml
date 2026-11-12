@@ -27,3 +27,11 @@ jobs:
         with:
           name: olc
           path: /tmp/olc
+      - name: Diaqnoz
+        if: always()
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
+          for u in https://report.az/rss https://www.report.az/rss https://report.az/ https://oxu.az/feed https://oxu.az/ https://naxcivanxeberleri.az/ https://anews.az/rss https://xezerxeber.az/ https://sosial.gov.az/ https://baku.tv/; do
+            curl -s -m 20 -o /tmp/x -A "$UA" -w "%{http_code} %{size_download} %{time_total}s $u\n" "$u" || echo "XƏTA $u"
+            grep -c "content:encoded" /tmp/x || true
+          done
