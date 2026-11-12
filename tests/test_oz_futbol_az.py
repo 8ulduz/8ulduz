@@ -1055,7 +1055,7 @@ class ContractTest(unittest.TestCase):
         self.assertIn("## Azərbaycan futbolu: öz xəbərlər (10.11.2026 09:00, Bakı vaxtı)", out.getvalue())
 
     def test_not_run_by_the_site(self):
-        """Sahib 2026-11-12: «Sayta qoşmağa başla» (açar söndürülüdür). updater.py bu faylı tanımır (yalnız dərc hissəsi
+        """Sahib 2026-11-12: «Sayta qoşmağa başla», sonra «Bəli, yandır». updater.py bu faylı tanımır (yalnız dərc hissəsi
         çağırır), pipeline onu yalnız kod qovluğuna köçürür (CODE_FILES), işə salmır."""
         self.assertNotIn("oz_futbol_az", (ROOT / "updater.py").read_text(encoding="utf-8"))
         sh = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")

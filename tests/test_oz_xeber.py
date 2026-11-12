@@ -497,11 +497,12 @@ class TarixTest(unittest.TestCase):
         self.assertIsNone(oz.tarix_item(datetime.date(2026, 11, 9), {}))
 
 
-class WiredSwitchedOffTest(unittest.TestCase):
-    """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra»; 2026-11-12: «Sayta qoşmağa başla». Mərhələ 2: dərc hissəsi sayta
-    qoşulub (yavaş dövrədə çağırış, pipeline-ın kod siyahısı, lentə qatılma), amma açar SÖNDÜRÜLÜDÜR. Açarın qoyulması
-    (pipeline.sh-də OZ_DERC=1) mərhələ 3-dür: bu test yalnız sahibin göstərişi ilə dəyişir. Əvvəlki adı: NotOnTheSiteTest."""
-    def test_hook_is_wired_the_switch_is_off_and_trial_writes_nothing(self):
+class WiredSwitchedOnTest(unittest.TestCase):
+    """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra»; 2026-11-12: «Sayta qoşmağa başla», sonra «Bəli, yandır».
+    Dərc hissəsi sayta qoşulub (yavaş dövrədə çağırış, pipeline-ın kod siyahısı, lentə qatılma) və açar YANILIDIR: onu yalnız
+    pipeline.sh qoyur, bir sətirdə. Açarın söndürülməsi və ya başqa yerdə qoyulması yalnız sahibin göstərişi ilə olur.
+    Əvvəlki adları: NotOnTheSiteTest, WiredSwitchedOffTest."""
+    def test_hook_is_wired_the_switch_is_set_only_by_the_pipeline_and_trial_writes_nothing(self):
         up = (ROOT / "updater.py").read_text(encoding="utf-8")
         sh = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
         modules = sorted(p.stem for p in ROOT.glob("oz_*.py"))
@@ -514,8 +515,11 @@ class WiredSwitchedOffTest(unittest.TestCase):
         self.assertEqual(sorted(set(re.findall(r"\boz_[a-z0-9_]+", up))), ["oz_derc"], "updater.py başqa öz modulu çağırmır")
         self.assertEqual(re.findall(r"^(?:import|from)[ \t]+oz_\w+", up, re.M), [], "modul səviyyəsində import yoxdur: açarsız proses onu yükləmir")
         self.assertEqual(up.count("import oz_derc"), 1)
-        # 2. Açar söndürülüdür: nə pipeline.sh, nə də hər hansı iş axını OZ_DERC qoyur.
-        self.assertNotIn("OZ_DERC", sh, "pipeline.sh açarı qoymur (mərhələ 3: yalnız sahibin sözü ilə)")
+        # 2. Açar yanılıdır: onu pipeline.sh bir sətirdə qoyur (o sətir silinəndə dərc dayanır); heç bir iş axını özü qoymur.
+        switch = [l for l in sh.splitlines() if "OZ_DERC" in l]
+        self.assertEqual(len(switch), 1, "açar bir yerdə qoyulur")
+        self.assertRegex(switch[0], r"^export OZ_DERC=1[ \t]+#", "açar: export OZ_DERC=1")
+        self.assertLess(sh.index("export OZ_DERC=1"), sh.index("\nslow_loop &"), "açar dövrələr başlamazdan əvvəl qoyulur")
         for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
             self.assertNotIn("OZ_DERC", wf.read_text(encoding="utf-8"), wf.name)
         # 3. Hər oz_*.py pipeline-ın kod siyahısındadır (adlar hərfi yazılır, glob deyil), pipeline-da başqa heç yerdə adı keçmir.
