@@ -16,6 +16,9 @@ jobs:
         with:
           fetch-depth: 1
           sparse-checkout: |
+            .github/scripts/ses.py
+            content_policy.py
+            assets/content-policy.js
             .github/olc
             reader_content.py
           sparse-checkout-cone-mode: false

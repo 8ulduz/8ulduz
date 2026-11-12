@@ -21,13 +21,15 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, ROOT)
 import content_policy  # noqa: E402
-from reader_content import extract_article  # noqa: E402
+from reader_content import extract_article, feed_article  # noqa: E402
 
 SITE = "https://8ulduz.az/"
 VOICE = "az-AZ-BabekNeural"
@@ -41,6 +43,16 @@ CLEAN_AT = datetime.datetime(2026, 11, 8, 9, 0, tzinfo=datetime.timezone.utc).ti
 # Mətni əvvəl tapılmayan mənbələr: bu vaxtdan əvvəl yazılmış səsləri yenidən səslənir (yalnız həmin saytın xəbərləri, hamısı yox).
 # Oxu24.com: mətn news-detail blokunda idi, səs yalnız başlıq idi (sahib, 2026-11-09).
 REDO_HOSTS = {"oxu24.com": datetime.datetime(2026, 11, 9, 18, 30, tzinfo=datetime.timezone.utc).timestamp()}
+# Sahib, 2026-11-12 («dinləməni tam düzəlt hər bir saytda»): 71 mənbənin hamısı ölçüldü. Mətn bloku tanınmayan saytlar yalnız
+# başlıqla oxunurdu (reader_content.dense_text ilə düzəldi), bəzilərində tarix və baxış sayı oxunurdu (blokun bütün mətni atıldı),
+# AzVision-un ünvanında «–» var idi (fetch), Report GitHub-a səhifəni vermir (mətn öz RSS lentindən). Həmin saytların bu
+# vaxtdan əvvəlki səsləri yenidən yazılır. «.gov.az» nöqtə ilə başlayır: bütün icra hakimiyyəti və nazirlik saytları.
+_DENSE_AT = datetime.datetime(2026, 11, 12, 16, 30, tzinfo=datetime.timezone.utc).timestamp()
+REDO_HOSTS.update({h: _DENSE_AT for h in (
+    "aia.az azerbaijan-news.az azvision.az baku.tv bakupost.az fanat.az gencexeber.az ikisahil.az marja.az modern.az narnews.az ordu.az "
+    "qol.az report.az reyting.az sesqazeti.az sportinfo.az teleqraf.az .gov.az").split()})
+# Səhifəsi serverimizə verilməyən, lakin tam mətni öz RSS lentində (content:encoded) yayan mənbələr.
+FEED_TEXT = {"report.az": ("https://report.az/rss", "https://www.report.az/rss")}
 # Oxunmayan nişanlar (sahib, 2026-11-10: «ortada video sözü keçir — lazımsız yerlər oxunmasın»): başlığın sonundakı
 # «- Video», «(FOTO)», «[VİDEO]», əvvəlindəki «VİDEO:», mətndə təkcə «Video.» cümləsi və «Foto: APA» imzası.
 # Cümlənin içindəki adi söz («videoda görünür») qalır. Bu vaxtdan əvvəl yazılmış nişanlı səslər yenidən səslənir.
@@ -101,7 +113,8 @@ def host_redo(have, born, feed, hosts=REDO_HOSTS):
     out = set()
     for a in feed:
         i, h = a.get("id"), re.sub(r"^www\.", "", urllib.parse.urlparse(str(a.get("sourceUrl", ""))).hostname or "")
-        if i in have and h in hosts and born.get(i, 0) < hosts[h]:
+        at = hosts.get(h) or next((t for s, t in hosts.items() if s.startswith(".") and h.endswith(s)), 0)
+        if i in have and born.get(i, 0) < at:
             out.add(i)
     return out
 
@@ -164,9 +177,39 @@ def script_of(a, body):
 
 
 def fetch(url, timeout=12):
+    # Ünvanda «–», «ə» kimi hərf olanda (AzVision) sorğu UnicodeEncodeError verirdi: ASCII olmayan hissə faizlə yazılır.
+    url = urllib.parse.quote(url, safe=":/?#[]@!$&'()*+,;=%~-._")
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/json,*/*"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read(3_000_000).decode("utf-8", errors="replace")
+
+
+def source_text(a, feeds, get=None, wait=1.5):
+    """Xəbərin tam mətni: mənbə səhifəsi (əlaqə kəsilsə bir təkrar cəhd), alınmasa mənbənin öz RSS lentindəki tam mətn (FEED_TEXT).
+    Sayt rədd edirsə (403, 404, 429) təkrar soruşulmur. Heç biri alınmasa boş: səs başlıq və xülasə ilə yazılır."""
+    get, url = get or fetch, str(a.get("sourceUrl", ""))
+    for attempt in (0, 1):
+        try:
+            body = extract_article(get(url))
+            if body:
+                return body
+            break
+        except urllib.error.HTTPError:
+            break
+        except Exception:
+            if attempt == 0 and wait:
+                time.sleep(wait)
+    host = re.sub(r"^www\.", "", urllib.parse.urlparse(url).hostname or "")
+    for f in FEED_TEXT.get(host, ()):
+        if f not in feeds:
+            try:
+                feeds[f] = get(f)
+            except Exception:
+                feeds[f] = ""
+        body = feed_article(feeds[f], url)
+        if body:
+            return body
+    return ""
 
 
 LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/"
@@ -238,6 +281,7 @@ def main(d):
     made = 0
     pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
     redo = stale(have, born) | host_redo(have, born, feed) | marker_redo(have, born, feed) | say_redo(have, born, feed)
+    feeds = {}
     with tempfile.TemporaryDirectory() as tmp:
         for a in pick(feed, {i: s for i, s in have.items() if i not in redo}, now):
             if made >= PER_RUN:
@@ -246,10 +290,7 @@ def main(d):
             old = evict(have, live, pub, born, parse_time(a["publishedAt"]).timestamp()) if full else None
             if full and not old:
                 continue
-            try:
-                body = extract_article(fetch(a["sourceUrl"]))
-            except Exception:
-                body = ""
+            body = source_text(a, feeds)
             path = os.path.join(tmp, a["id"] + ".mp3")
             try:
                 asyncio.run(speak(script_of(a, body), path))

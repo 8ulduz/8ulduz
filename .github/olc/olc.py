@@ -9,7 +9,10 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.getcwd())
-from reader_content import extract_article  # noqa: E402
+import importlib.util  # noqa: E402
+spec = importlib.util.spec_from_file_location("ses", os.path.join(os.getcwd(), ".github", "scripts", "ses.py"))
+ses = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ses)
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
 OUT = sys.argv[1]
@@ -25,6 +28,7 @@ def fetch(url, timeout=12):
 
 feed = json.loads(fetch("https://8ulduz.az/data/news.json?t=%d" % time.time(), 30))["articles"]
 by = {}
+FEEDS = {}
 for a in feed:
     rows = [a] + [dict(x, id=a["id"] + "-alt") for x in (a.get("alts") or [])]
     for r in rows:
@@ -39,15 +43,9 @@ def one(item):
     for k, a in enumerate(rows[:N]):
         rec = {"source": src, "url": a["sourceUrl"], "title": a.get("title", ""), "summary": len(a.get("summary") or "")}
         try:
-            raw = fetch(a["sourceUrl"])
-            rec["raw"] = len(raw)
-            body = extract_article(raw)
+            body = ses.source_text(a, FEEDS)
             rec["len"] = len(body)
             rec["head"], rec["tail"] = body[:220], body[-160:]
-            name = "%s-%d.html" % ("".join(c if c.isalnum() else "_" for c in src), k)
-            with open(os.path.join(OUT, "raw", name), "w", encoding="utf-8") as f:
-                f.write(raw)
-            rec["file"] = name
         except Exception as e:
             rec["err"] = "%s %s" % (type(e).__name__, str(e)[:100])
         out.append(rec)
