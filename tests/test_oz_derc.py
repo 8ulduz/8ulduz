@@ -124,6 +124,12 @@ class FlagTest(Base):
         self.assertEqual(d.priority("oz_yer_kosmos", {"kind": "zelzele-region"}), 3)
         self.assertEqual(d.priority("oz_teqvim", {"kind": "gun"}), 1)
         self.assertEqual(d.priority("naməlum", {"kind": "x"}), 2)
+        self.assertEqual(d.modules()[12:], ["oz_xeber"], "baza xəbərləri (oz_xeber.items) də çağırılır")
+        self.assertEqual(d.QAYDA["oz_xeber"]["done"], "hamisi")
+        self.assertEqual([d.priority("oz_xeber", {"kind": k}) for k in ("zelzele", "futbol", "amb", "neft", "tarix")], [3, 3, 2, 2, 1])
+        self.assertEqual([d.category({"kind": k, "topic": t}) for k, t in (("zelzele", "təbiət"), ("futbol", "idman"), ("amb", "iqtisadiyyat"),
+                                                                           ("neft", "iqtisadiyyat"), ("tarix", "təqvim"))],
+                         ["gundem", "idman", "iqtisadiyyat", "iqtisadiyyat", "cemiyyet"])
         self.assertEqual(d.category({"topic": "idman", "kind": "liqa-tur"}), "idman")
         self.assertEqual(d.category({"topic": "təqvim", "kind": "dim-gun"}), "tehsil")
         self.assertEqual(d.category({"topic": "mədəniyyət", "kind": "afisa"}), "medeniyyet")
@@ -438,6 +444,7 @@ class GateTest(Base):
         self.assertIn("Yoxlanacaq sətir yoxdur.", out.getvalue())
         self.assertTrue(md.startswith("## 5. Dərc hissəsi"))
         self.assertIn("#### 1. Üç kilid", md)
+        self.assertIn("#### 6. Baza xəbərləri (oz_xeber.items): pəncərə nümunələri", md)
 
 
 class RowPageTest(Base):

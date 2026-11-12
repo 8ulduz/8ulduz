@@ -1,6 +1,7 @@
 """8ulduz-un öz xəbərlərinin dərc hissəsi (sahib, 2026-11-12: «Dərc hissəsini hazırla»). Sayta QOŞULMAYIB və söndürülüdür.
 
-On iki şablon modulu (oz_xeber.FAZA1 + FAZA2) xəbər qurur; bu fayl onları lent sətrinə və statik səhifəyə çevirir:
+On iki şablon modulu (oz_xeber.FAZA1 + FAZA2) və oz_xeber.items-in baza xəbərləri («Bu gün tarixdə», AMB məzənnələri,
+neft, zəlzələ, Premyer Liqa oyununun hesabatı) xəbər qurur; bu fayl onları lent sətrinə və statik səhifəyə çevirir:
 növbə, gündəlik və saatlıq hədlər, mövzu hədləri, vaciblik sırası və məzmun qapısı ilə.
 
 Üç kilid (üçü də açılmayınca heç nə dərc olunmur):
@@ -17,7 +18,7 @@ Bir dövrə, cycle(root): vəziyyət faylı -> modullardan xəbərlər -> növb�
   (qırmızı xətt 1: news.json böyüməsin). Yalnız «out» siyahısındakı səhifələr silinir.
 
 Modulların `done` qaydası iki cürdür (QAYDA cədvəli):
-- «hamisi» (mərhələ 2 və oz_icmal): sorğu pəncərə ilə gedir, qayıdan HƏR açar done-a yazılır (worth=False, «-gozle»,
+- «hamisi» (mərhələ 2, oz_xeber və oz_icmal): sorğu pəncərə ilə gedir, qayıdan HƏR açar done-a yazılır (worth=False, «-gozle»,
   «-cehd1», saatlıq «…-sorgu-…» də), yoxsa modul hər dövrədə yenə sorğu göndərər. Slotu hələ çatmamış dəyərli xəbər
   dərhal növbəyə düşür, vaxtı (due) slotudur.
 - «novbe» (mərhələ 1): modul günün siyahısını slot saatı ilə qaytarır, worth=False olan xəbər sonra eyni açarla dəyərli
@@ -89,7 +90,8 @@ DONE_KEEP = datetime.timedelta(days=8)
 CLOSES_KEEP = datetime.timedelta(days=9)
 OUT_FULL = datetime.timedelta(days=2)   # bundan köhnə «out» sətrində yalnız id, key, ts qalır (fayl kiçik qalsın)
 BUDGET_S = 60                           # bir dövrənin vaxt büdcəsi: bitəndə qalan modullar növbəti dövrəyə keçir
-SINAQ_SORGU = 20                        # sınağın ən çox sorğusu
+SINAQ_SORGU = 20                        # sınağın quru sınaq hissəsinin ən çox sorğusu
+SINAQ_BAZA = 12                         # baza xəbərlərinin pəncərə nümunələri üçün ən çox sorğu
 SINAQ_S = 35                            # sınaqda keçmiş saatların addımlarına ayrılan vaxt
 
 _clock = time.monotonic
@@ -115,7 +117,7 @@ QAYDA = {
     "oz_medeniyyet": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 15},
     "oz_idman2": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 9},
     "oz_gundelik": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 14},
-    "oz_xeber": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 40},
+    "oz_xeber": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 45},
 }
 QAYDA_ADI = {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 20}
 
@@ -135,14 +137,15 @@ ONCELIK = {
     "oz_medeniyyet": (2, {"vikipediya-gun": 1, "vikipediya-ay": 1, "yubiley": 1}),
     "oz_idman2": (2, {"f1-yaris": 3, "f1-siralama": 3, "cudo": 3}),
     "oz_gundelik": (3, {"dim-hefte": 2, "asan-muraciet": 2}),
-    "oz_xeber": (2, {"zelzele": 3, "oyun": 3, "tarix": 1}),
+    "oz_xeber": (2, {"zelzele": 3, "futbol": 3, "tarix": 1}),   # amb və neft: 2
 }
 
 # Bölmə: mövzu -> saytın bölməsi (updater.SECTIONS), mövzu kobud olanda növə görə.
 BOLME = {"idman": "idman", "iqtisadiyyat": "iqtisadiyyat", "mədəniyyət": "medeniyyet", "təbiət": "cemiyyet",
          "kosmos": "tehsil", "təqvim": "cemiyyet", "icmal": "gundem"}
 BOLME_NOV = {"dim-gun": "tehsil", "dim-hefte": "tehsil", "seyyar-asan": "bolgeler", "asan-muraciet": "cemiyyet",
-             "polis-icmal": "cemiyyet", "zelzele-region": "dunya", "meteohessas": "heyat", "maqnit-qasirgasi": "heyat"}
+             "polis-icmal": "cemiyyet", "zelzele-region": "dunya", "meteohessas": "heyat", "maqnit-qasirgasi": "heyat",
+             "zelzele": "gundem"}   # ölkədəki zəlzələ günün hadisəsidir; amb, neft -> iqtisadiyyat, futbol -> idman, tarix -> cemiyyet (mövzudan)
 BOLME_AD = {"gundem": "Gündəm", "cemiyyet": "Cəmiyyət", "iqtisadiyyat": "İqtisadiyyat", "idman": "İdman",
             "medeniyyet": "Mədəniyyət", "tehsil": "Təhsil və elm", "heyat": "Sağlamlıq və həyat", "bolgeler": "Bölgələr",
             "dunya": "Dünya"}
@@ -898,6 +901,22 @@ def _sinaq(root, now, fetch):
         text = pages.get(r["id"]) or ""
         key = str(keys.get(r["id"]) or r["id"]).replace("--", "-")
         md += ["```html", f"<!-- OZ-DERC-SEHIFE-BASLADI {key} -->", text.rstrip("\n"), "<!-- OZ-DERC-SEHIFE-BITDI -->", "```", ""]
+    if callable(getattr(ox, "baza_sinaq", None)):
+        used = {"n": 0}
+
+        def few(url, *args, **kwargs):
+            if used["n"] >= SINAQ_BAZA:
+                raise OSError(f"nümunələrin sorğu həddi ({SINAQ_BAZA})")
+            used["n"] += 1
+            return real(url, *args, **kwargs)
+
+        md += ["## 6. Baza xəbərləri (oz_xeber.items): pəncərə nümunələri", "",
+               "Hər xəbər öz pəncərəsinin anı üçün qurulub; canlıda yuxarıdakı siyahıya öz saatında düşür.", ""]
+        try:
+            md += ox.baza_sinaq(root, now, few)
+        except Exception as e:
+            md += [f"> nümunələr alınmadı: {type(e).__name__}", ""]
+        md += [f"Sorğu: {used['n']}.", ""]
     return md
 
 
