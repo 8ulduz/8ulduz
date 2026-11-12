@@ -54,7 +54,7 @@ CODE_FILES="updater.py reader_content.py content_policy.py assets/content-policy
 # Öz xəbərlərin dərc hissəsi və modulları (sahib 2026-11-12: «Sayta qoşmağa başla»): kod qovluğuna köçürülür ki, updater.py-ın
 # yavaş addımı (update_own_news) onları oradan import edə bilsin; addım yalnız yuxarıdakı açarla işləyir.
 # Köhnə .lkg nüsxəsində bu fayllar olmaya bilər: copy_code olmayan faylı buraxır, same_code «fərqli» deyir.
-CODE_FILES="$CODE_FILES oz_derc.py oz_xeber.py oz_bazar.py oz_futbol_az.py oz_futbol_dunya.py oz_gundelik.py oz_hava.py oz_icmal.py oz_idman2.py oz_maliyye.py oz_medeniyyet.py oz_sema.py oz_teqvim.py oz_yer_kosmos.py"
+CODE_FILES="$CODE_FILES oz_derc.py oz_xeber.py oz_bazar.py oz_futbol_az.py oz_futbol_dunya.py oz_gundelik.py oz_hava.py oz_icmal.py oz_idman2.py oz_maliyye.py oz_medeniyyet.py oz_reqem.py oz_sema.py oz_teqvim.py oz_yer_kosmos.py"
 SLOW_PID=""
 PUBLISH_PID=""
 WATCH_PID=""
