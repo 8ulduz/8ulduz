@@ -96,7 +96,8 @@ NETICE_LAG = 7    # hərracla xəbər arasında ən çox bu qədər gün
 # --- Köməkçilər -------------------------------------------------------------------------------------------------------------
 
 _MONTH_NO = {name: i for i, name in enumerate(ox.MONTHS, 1)}
-_LEADER_RX = re.compile(r"prezident|birinci xanım|vitse-prezident|dövlət başçısı|ölkə başçısı|ali baş komandan|"
+# Python-un lower()-i böyük «I»-nı «i» edir («BAŞÇISI» -> «başçisi»): ı/i hər iki yazılışla axtarılır.
+_LEADER_RX = re.compile(r"prezident|birinci xan[ıi]m|vitse-prezident|dövlət başç[ıi]s[ıi]|ölkə başç[ıi]s[ıi]|ali baş komandan|"
                         r"(?:ilham|mehriban|heydər)\s+əliyev")
 
 

@@ -465,7 +465,7 @@ class GateTest(Base):
         self.assertIn("# Dərc hissəsi (oz_derc.py): sınaq", out.getvalue())
         self.assertIn("12.11.2026 09:00 (Bakı vaxtı)", out.getvalue())
         self.assertIn("Yoxlanacaq sətir yoxdur.", out.getvalue())
-        self.assertTrue(md.startswith("## 5. Dərc hissəsi"))
+        self.assertTrue(md.startswith("## 6. Dərc hissəsi"))
         self.assertIn("#### 1. Üç kilid", md)
         self.assertIn("#### 6. Baza xəbərləri (oz_xeber.items): pəncərə nümunələri", md)
 

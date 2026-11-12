@@ -123,7 +123,8 @@ class FormatTest(unittest.TestCase):
     def test_leadership_filter_is_stricter_than_the_publisher(self):
         decree = ("“Azərbaycan Respublikası Maliyyə Nazirliyinin fəaliyyətinin təkmilləşdirilməsi ilə bağlı əlavə tədbirlər haqqında” "
                   "Azərbaycan Respublikası Prezidentinin 2025-ci il 30 dekabr tarixli 572 nömrəli Fərmanının icrası ilə əlaqədar")
-        for bad in (decree, LEADER, "Birinci vitse-prezident", "Heydər Əliyev adına Azərbaycan Ali Hərbi Məktəbi", "DÖVLƏT BAŞÇISI"):
+        for bad in (decree, LEADER, "Birinci vitse-prezident", "Heydər Əliyev adına Azərbaycan Ali Hərbi Məktəbi", "DÖVLƏT BAŞÇISI",
+                    "BİRİNCİ XANIM", "ALİ BAŞ KOMANDAN", "İLHAM ƏLİYEV"):
             self.assertTrue(r._leader(bad), bad)
         for good in ("Əliyeva Samirə Əmiraslan qızı", "Əliyev Cavad Rasim oğlu", "Nazirlər Kabinetinin 374 nömrəli qərarı", ""):
             self.assertFalse(r._leader(good), good)
@@ -452,7 +453,7 @@ class EmlakTest(unittest.TestCase):
     def test_one_new_announcement(self):
         item = r.elan_item(posts(), 10647, at(2026, 11, 12, 17, 30))
         self.assertEqual(item["title"], "Dekabrın 16-da keçiriləcək hərracla bağlı elan dərc olunub")
-        self.assertEqual(item["lead"], "Əmlak Məsələləri Dövlət Xidmətinin saytında dekabrın 16-da saat 11:00-da keçiriləcək hərracla bağlı elan "
+        self.assertEqual(item["lead"], "Əmlak Məsələləri Dövlət Xidmətinin saytında dekabrın 16-da saat 11:00-də keçiriləcək hərracla bağlı elan "
                                        "yerləşdirilib.")
         self.assertEqual(item["body"], ["16 dekabr, saat 11:00: gömrük hərracına çıxarılan dövlət mülkiyyətinə keçirilmiş malların siyahısı"])
         self.assertEqual(item["link"], r.EMLAK_SITE + posts()[0]["href"])
