@@ -407,6 +407,8 @@ class GateTest(Base):
         self.assertIn("### Dünən, ilk həftənin tavanı ilə (gündə 15): 15 xəbər", md)
         self.assertIn("### Dünən, tam tavanla (gündə 40): 20 xəbər", md)
         self.assertIn("| 01:00 | İdman | Başlıq t00-11 |", md)
+        self.assertIn("### 8 noyabr (bazar), ilk həftənin tavanı ilə (gündə 15): 15 xəbər", md)
+        self.assertIn("### 8 noyabr (bazar), tam tavanla (gündə 40): 20 xəbər", md)
         self.assertIn("- Başlıq t15-11: gecikdi", md)
         self.assertNotIn("t00-10", md, "isinmə dövrəsinin nəticəsi göstərilmir")
         self.assertIn("Rədd edilən: 20 («icazəli siyahıda deyil»: 20)", md)

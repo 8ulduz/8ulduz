@@ -846,22 +846,28 @@ def _sinaq(root, now, fetch):
     tape, tape2 = {}, {}
     old = datetime.timedelta(days=28)
     yday = datetime.datetime.combine(now.date(), datetime.time(0, 0), BAKU) - datetime.timedelta(minutes=1)
+    sunday = yday - datetime.timedelta(days=(yday.weekday() + 1) % 7)   # dünən və ya ondan əvvəlki son bazar günü
+    past = [("Dünən", yday)] + ([(f"{ox.day_text(sunday.date())} (bazar)", sunday)] if sunday != yday else [])
     with registered():
         first = _dry(root, now, now.date(), tape, False, limited)
         full = _dry(root, now, now.date() - old, tape, True, _no_net)
-        yfirst = _dry(root, yday, yday.date(), tape2, False, _no_net, net=False)
-        yfull = _dry(root, yday, yday.date() - old, tape2, True, _no_net, net=False)
+        runs = []
+        for label, end in past:
+            tape2 = {}
+            runs.append((label, _dry(root, end, end.date(), tape2, False, _no_net, net=False),
+                         _dry(root, end, end.date() - old, tape2, True, _no_net, net=False)))
     md += ["## 2. Bu gün nə dərc olunardı", "",
            f"Günün əvvəlindən indiyədək ({now:%H:%M}) 30 dəqiqəlik addımlarla {len(_ticks(now))} dövrə. Keçmiş saatlara sorğu "
            f"getmir, ona görə sorğu ilə işləyən modulların xəbəri yalnız son dövrədə ola bilər. Sorğu: {box['n']}, vaxt: "
-           f"{_clock() - t0:.0f} saniyə, günün sonunda vəziyyət faylı: {yfull['bytes']} bayt."
-           + (" Vaxt çatmadı: keçmiş addımların bir hissəsi buraxıldı." if first["cut"] or yfirst["cut"] else ""), ""]
+           f"{_clock() - t0:.0f} saniyə, tam günün sonunda vəziyyət faylı: {max(r[2]['bytes'] for r in runs)} bayt."
+           + (" Vaxt çatmadı: keçmiş addımların bir hissəsi buraxıldı." if first["cut"] or any(r[1]["cut"] for r in runs) else ""), ""]
     md += _run_md(f"İlk həftənin tavanı ilə (gündə {RAMP[0][1]})", first)
     md += _run_md(f"Tam tavanla (gündə {CEILING})", full)
-    md += ["Müqayisə üçün dünənin tam günü (yalnız sorğusuz işləyən modullar: futbol, təqvim, səma; sorğu ilə işləyən "
+    md += ["Müqayisə üçün keçmiş tam günlər (yalnız sorğusuz işləyən modullar: futbol, təqvim, səma; sorğu ilə işləyən "
            "modulların xəbərləri bura düşmür, canlıda siyahı bundan uzun olar).", ""]
-    md += _run_md(f"Dünən, ilk həftənin tavanı ilə (gündə {RAMP[0][1]})", yfirst)
-    md += _run_md(f"Dünən, tam tavanla (gündə {CEILING})", yfull)
+    for label, one, many in runs:
+        md += _run_md(f"{label}, ilk həftənin tavanı ilə (gündə {RAMP[0][1]})", one)
+        md += _run_md(f"{label}, tam tavanla (gündə {CEILING})", many)
     rows = full["rows"] or first["rows"]
     md += ["## 3. Əsl qapının bu günkü qərarı", ""]
     clean, dropped = content_policy.enforce(rows)
