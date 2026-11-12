@@ -1,0 +1,420 @@
+{
+ "head": {
+  "vars": [
+   "p",
+   "name",
+   "b",
+   "prec",
+   "sl",
+   "title",
+   "desc",
+   "dead",
+   "occ",
+   "posn"
+  ]
+ },
+ "results": {
+  "bindings": [
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q561195"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Natiq Şirinov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1975-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "6"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Natiq Şirinov"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "bəstəkar"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan nağara ifaçısı"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q24053741"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Vəfa Hüseynova"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1988-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "4"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Vəfa Hüseynova"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "bədii gimnast"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan bədii gimnastı"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q28527860"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Kamran Bayramov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1979-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "3"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Kamran Bayramov"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "siyasətçi"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan siyasətçisi"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q55496190"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Rafiq Bayramov (ictimai xadim)"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1972-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "3"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Rafiq Bayramov (siyasətçi)"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "siyasətçi"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q51669424"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Firudin Hüseynov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1937-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "2"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Firudin Hüseynov (dilçi)"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "alim"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan alimi"
+    },
+    "dead": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "2004-11-28T00:00:00Z"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q16373519"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Rəhilə Həsənova"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1951-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "2"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Rəhilə Həsənova"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "bəstəkar"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan bəstəkarı"
+    },
+    "dead": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "2024-08-10T00:00:00Z"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q31299770"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Zakir Cahangirli"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1960-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Zakir Cahangirli"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "alim"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q61122410"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Məhəbbət Dəmirçiyeva"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1957-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Məhəbbət Dəmirçiyeva"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "alim"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q111843026"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Qabil Hüseynli"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1953-11-10T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Qabil Hüseynli"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "siyasətçi"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycanlı siyasətçi"
+    }
+   }
+  ]
+ }
+}

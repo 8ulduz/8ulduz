@@ -1,0 +1,42 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 13043,
+     "name": "“Azərbaycan caz əfsanəsi” Cavanşir Abdullalı Triosu",
+     "event_starts_at": "2026-11-11T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 12,
+     "max_price": 22,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Show Gallery"
+      }
+     ]
+    },
+    {
+     "id": 12348,
+     "name": "Gökhan Türkmen",
+     "event_starts_at": "2026-11-11T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 35,
+     "max_price": 180,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Heydər Əliyev Sarayı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

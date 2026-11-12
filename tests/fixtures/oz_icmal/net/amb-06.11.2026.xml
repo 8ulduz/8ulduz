@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValCurs Date="06.11.2026" Name="AZN məzənnələri" Description="Azərbaycan Respublikası Mərkəzi Bankının 06.11.2026 tarixdən etibarən xarici valyutaların və bank metallarının Azərbaycan manatına qarşı rəsmi məzənnələri bülleteni">
+    <ValType Type="Xarici valyutalar">
+        <Valute Code="USD">
+
+
+
+
+
+                    
+                        <Nominal>1</Nominal>
+
+                        <Name>1 ABŞ dolları</Name>
+
+
+
+                        
+                    <Value>1.7</Value>
+                </Valute>
+        <Valute Code="EUR">
+
+
+
+
+
+                    
+                        <Nominal>1</Nominal>
+
+                        <Name>1 Avro</Name>
+
+
+
+                        
+                    <Value>1.9037</Value>
+                </Valute>
+        <Valute Code="RUB">
+
+
+
+
+
+                    
+                        <Nominal>100</Nominal>
+
+                        <Name>100 Rusiya rublu</Name>
+
+
+
+                        
+                    <Value>2.084</Value>
+                </Valute>
+        <Valute Code="TRY">
+
+
+
+
+
+                    
+                        <Nominal>1</Nominal>
+
+                        <Name>1 Türk lirəsi</Name>
+
+
+
+                        
+                    <Value>0.0339</Value>
+                </Valute>
+    </ValType>
+</ValCurs>

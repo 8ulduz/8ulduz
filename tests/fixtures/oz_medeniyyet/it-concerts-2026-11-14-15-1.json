@@ -1,0 +1,207 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 12628,
+     "name": "Səsimiz səsindir, Humay!",
+     "event_starts_at": "2026-11-14T13:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 15,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "10+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Filarmoniyası"
+      }
+     ]
+    },
+    {
+     "id": 12973,
+     "name": "Royal Musa",
+     "event_starts_at": "2026-11-14T14:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 5,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "14+",
+     "venues": [
+      {
+       "name": "XG Cafe"
+      }
+     ]
+    },
+    {
+     "id": 12944,
+     "name": "Miyazaki kainatı axşamı. Şam nurunda multimediyalı konsert. Ars Caspia Ensemble",
+     "event_starts_at": "2026-11-14T14:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 15,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Kamera və orqan musiqisi zalı"
+      }
+     ]
+    },
+    {
+     "id": 12910,
+     "name": "Şam İşığında: İmamyar Hasanov. Mədəniyyət Elçisi",
+     "event_starts_at": "2026-11-14T14:30:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 20,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "10",
+     "venues": [
+      {
+       "name": "Beynəlxalq Muğam Mərkəzi"
+      }
+     ]
+    },
+    {
+     "id": 11913,
+     "name": "Hans Zimmer, Ludovico Einaudi & Yann Tiersen — Film Musiqiləri Gecəsi | Şamlar Əhatəsində",
+     "event_starts_at": "2026-11-14T14:30:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 20,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Kapellhaus"
+      }
+     ]
+    },
+    {
+     "id": 12832,
+     "name": "Fərda Amin - Komedium 5",
+     "event_starts_at": "2026-11-14T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 15,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "12+",
+     "venues": [
+      {
+       "name": "Nizami Kino Mərkəzi"
+      }
+     ]
+    },
+    {
+     "id": 12255,
+     "name": "DUMAN",
+     "event_starts_at": "2026-11-14T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 40,
+     "max_price": 200,
+     "public_state": 1,
+     "age_limit": "12+",
+     "venues": [
+      {
+       "name": "Bakı İdman Sarayı"
+      }
+     ]
+    },
+    {
+     "id": 9636,
+     "name": "Şam İşığında Baylarlii Konserti",
+     "event_starts_at": "2026-11-14T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 10,
+     "max_price": 25,
+     "public_state": 1,
+     "age_limit": "15+",
+     "venues": [
+      {
+       "name": "Flora Çay Garden"
+      }
+     ]
+    },
+    {
+     "id": 12842,
+     "name": "Bakı əhvalatı - İlqar Sail dostlar əhatəsində",
+     "event_starts_at": "2026-11-15T12:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 20,
+     "max_price": 70,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Bakı Musiqi Akademiyası nəzdində Opera Studiyasının Konsert salonu"
+      }
+     ]
+    },
+    {
+     "id": 13051,
+     "name": "Rus Retro Gecəsi Şamların əhatəsində",
+     "event_starts_at": "2026-11-15T14:30:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 20,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Kapellhaus"
+      }
+     ]
+    },
+    {
+     "id": 12780,
+     "name": "Opera və Gitara Axşamı",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 20,
+     "max_price": 20,
+     "public_state": 5,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Fidan Hacıyevanın vokal musiqi məktəbi"
+      }
+     ]
+    },
+    {
+     "id": 12584,
+     "name": "“Azərbaycan caz əfsanəsi”",
+     "event_starts_at": "2026-11-15T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 12,
+     "max_price": 22,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Show Gallery"
+      }
+     ]
+    },
+    {
+     "id": 11066,
+     "name": "Cavidan Fatihi Solo Band Retro Konserti",
+     "event_starts_at": "2026-11-15T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "10+",
+     "venues": [
+      {
+       "name": "Flora Çay Garden"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

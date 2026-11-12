@@ -1,0 +1,57 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 12911,
+     "name": "Lətif Kərimovun 120 illiyinə həsr olunmuş sərgi",
+     "event_starts_at": "2026-11-14T06:00:00.000000Z",
+     "category_slug": "museum",
+     "min_price": 7,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Muzey Mərkəzi"
+      }
+     ]
+    },
+    {
+     "id": 12484,
+     "name": "Azərbaycan Milli Xalça Muzeyi Zərgərlik fondu",
+     "event_starts_at": "2026-11-14T07:00:00.000000Z",
+     "category_slug": "museum",
+     "min_price": 3,
+     "max_price": 3,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Azərbaycan Milli Xalça Muzeyi"
+      }
+     ]
+    },
+    {
+     "id": 9820,
+     "name": "\"Faiq Əhməd: 2011–2024-cü illər dövrü\" adlı sərgi",
+     "event_starts_at": "2026-11-14T07:00:00.000000Z",
+     "category_slug": "museum",
+     "min_price": 3,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Azərbaycan Milli Xalça Muzeyi"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

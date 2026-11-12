@@ -1,0 +1,313 @@
+{
+ "items": [
+  {
+   "project": "az.wikipedia",
+   "access": "all-access",
+   "year": "2026",
+   "month": "10",
+   "day": "all-days",
+   "articles": [
+    {
+     "article": "Ana_səhifə",
+     "views": 57613,
+     "rank": 1
+    },
+    {
+     "article": "Xüsusi:Axtar",
+     "views": 23331,
+     "rank": 2
+    },
+    {
+     "article": "Seks",
+     "views": 17197,
+     "rank": 3
+    },
+    {
+     "article": "Qız_qalası",
+     "views": 14166,
+     "rank": 4
+    },
+    {
+     "article": "Xüsusi:SonDəyişikliklər",
+     "views": 10993,
+     "rank": 5
+    },
+    {
+     "article": "44_(film)",
+     "views": 9925,
+     "rank": 6
+    },
+    {
+     "article": "Azərbaycan",
+     "views": 9599,
+     "rank": 7
+    },
+    {
+     "article": "Müstəqilliyin_Bərpası_Günü_(Azərbaycan)",
+     "views": 7503,
+     "rank": 8
+    },
+    {
+     "article": "Ramiz_Mehdiyev",
+     "views": 7420,
+     "rank": 9
+    },
+    {
+     "article": "Arzuxan_Əlizadə",
+     "views": 6721,
+     "rank": 10
+    },
+    {
+     "article": "Böyük_ipək_yolu",
+     "views": 6564,
+     "rank": 11
+    },
+    {
+     "article": "Heydər_Əliyev",
+     "views": 6547,
+     "rank": 12
+    },
+    {
+     "article": "Zaur_Rzayev",
+     "views": 5918,
+     "rank": 13
+    },
+    {
+     "article": "Anal_seks",
+     "views": 5548,
+     "rank": 14
+    },
+    {
+     "article": "İlham_Əliyev",
+     "views": 5210,
+     "rank": 15
+    },
+    {
+     "article": "Mirsaleh_Seyidov",
+     "views": 4984,
+     "rank": 16
+    },
+    {
+     "article": "Anar_Bayramov",
+     "views": 4825,
+     "rank": 17
+    },
+    {
+     "article": "İkinci_Qarabağ_müharibəsi",
+     "views": 4392,
+     "rank": 18
+    },
+    {
+     "article": "Zəfər_Günü_(Azərbaycan)",
+     "views": 4311,
+     "rank": 19
+    },
+    {
+     "article": "Bakı",
+     "views": 3862,
+     "rank": 20
+    },
+    {
+     "article": "Teymur_Musayev",
+     "views": 3403,
+     "rank": 21
+    },
+    {
+     "article": "Azərbaycan_bayrağı",
+     "views": 3329,
+     "rank": 22
+    },
+    {
+     "article": "Vilayət_Eyvazov",
+     "views": 3193,
+     "rank": 23
+    },
+    {
+     "article": "Azərbaycan_əlifbası",
+     "views": 3158,
+     "rank": 24
+    },
+    {
+     "article": "Azərbaycan_gerbi",
+     "views": 3018,
+     "rank": 25
+    },
+    {
+     "article": "Alena_Əliyeva",
+     "views": 3002,
+     "rank": 26
+    },
+    {
+     "article": "Anar_Ələkbərov",
+     "views": 2994,
+     "rank": 27
+    },
+    {
+     "article": "Fərhad_Xəlilov",
+     "views": 2930,
+     "rank": 28
+    },
+    {
+     "article": "Mədət_Quliyev",
+     "views": 2911,
+     "rank": 29
+    },
+    {
+     "article": "Səbinə_Əliyeva",
+     "views": 2859,
+     "rank": 30
+    },
+    {
+     "article": "Nizami_Gəncəvi",
+     "views": 2817,
+     "rank": 31
+    },
+    {
+     "article": "Azərbaycanın_dövlət_bayramları_və_xüsusi_günləri",
+     "views": 2779,
+     "rank": 32
+    },
+    {
+     "article": "Uzun_Həsən",
+     "views": 2713,
+     "rank": 33
+    },
+    {
+     "article": "Ramil_Usubov",
+     "views": 2624,
+     "rank": 34
+    },
+    {
+     "article": "Gəncə",
+     "views": 2624,
+     "rank": 34
+    },
+    {
+     "article": "Şirvanşahlar_sarayı",
+     "views": 2428,
+     "rank": 36
+    },
+    {
+     "article": "Üzeyir_Hacıbəyov",
+     "views": 2392,
+     "rank": 37
+    },
+    {
+     "article": "Eyfel_qülləsi",
+     "views": 2346,
+     "rank": 38
+    },
+    {
+     "article": "Hikmət_Mirzəyev",
+     "views": 2343,
+     "rank": 39
+    },
+    {
+     "article": "İnformatika",
+     "views": 2339,
+     "rank": 40
+    },
+    {
+     "article": "Əli_Nağıyev",
+     "views": 2335,
+     "rank": 41
+    },
+    {
+     "article": "Piza_qülləsi",
+     "views": 2292,
+     "rank": 42
+    },
+    {
+     "article": "Fayl:Azerbaijan,_administrative_divisions_-_de_-_colored.svg",
+     "views": 2283,
+     "rank": 43
+    },
+    {
+     "article": "Səməd_Vurğun",
+     "views": 2281,
+     "rank": 44
+    },
+    {
+     "article": "Elçin_Yusubov",
+     "views": 2281,
+     "rank": 44
+    },
+    {
+     "article": "Azərbaycanın_Milli_Qəhrəmanlarının_siyahısı",
+     "views": 2240,
+     "rank": 46
+    },
+    {
+     "article": "Beynəlxalq_Müəllimlər_Günü",
+     "views": 2211,
+     "rank": 47
+    },
+    {
+     "article": "Əli_Əsədov",
+     "views": 2166,
+     "rank": 48
+    },
+    {
+     "article": "2026_U-15_Dünya_Çempionatı_və_Festivalı",
+     "views": 2161,
+     "rank": 49
+    },
+    {
+     "article": "Azərbaycan_generallarının_siyahısı",
+     "views": 2075,
+     "rank": 50
+    },
+    {
+     "article": "Heydər_Əliyev_(İlham_Əliyevin_oğlu)",
+     "views": 2060,
+     "rank": 51
+    },
+    {
+     "article": "Yeni_Azərbaycan_Partiyası",
+     "views": 2045,
+     "rank": 52
+    },
+    {
+     "article": "Mehriban_Əliyeva",
+     "views": 2012,
+     "rank": 53
+    },
+    {
+     "article": "Ganja",
+     "views": 1998,
+     "rank": 54
+    },
+    {
+     "article": "I_İsmayıl",
+     "views": 1961,
+     "rank": 55
+    },
+    {
+     "article": "Orxan_Məmmədov",
+     "views": 1925,
+     "rank": 56
+    },
+    {
+     "article": "Kamboca",
+     "views": 1918,
+     "rank": 57
+    },
+    {
+     "article": "Natiq_Qasımov",
+     "views": 1917,
+     "rank": 58
+    },
+    {
+     "article": "Azərbaycan_Silahlı_Qüvvələri",
+     "views": 1906,
+     "rank": 59
+    },
+    {
+     "article": "Vətən_Müharibəsi_Qəhrəmanlarının_siyahısı",
+     "views": 1896,
+     "rank": 60
+    }
+   ]
+  }
+ ]
+}

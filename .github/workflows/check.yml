@@ -1,10 +1,10 @@
 name: Kodu yoxla
 on:
   pull_request:
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'content_policy.py', 'docs/qirmizi-xetler.md', 'index.html', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
+    paths: ['assets/**', 'updater.py', 'oz_*.py', 'reader_content.py', 'content_policy.py', 'docs/qirmizi-xetler.md', 'index.html', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
   push:
     branches: [main]
-    paths: ['assets/**', 'updater.py', 'reader_content.py', 'content_policy.py', 'docs/qirmizi-xetler.md', 'index.html', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
+    paths: ['assets/**', 'updater.py', 'oz_*.py', 'reader_content.py', 'content_policy.py', 'docs/qirmizi-xetler.md', 'index.html', 'sw.js', 'tests/**', '.github/**', 'manifest.webmanifest', '.well-known/**', 'android/**']
 permissions:
   contents: read
 jobs:

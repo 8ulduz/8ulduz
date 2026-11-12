@@ -1,0 +1,177 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 3,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 5610,
+     "name": "\"Qırmızı Papaq\"",
+     "event_starts_at": "2026-11-15T08:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Kukla Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 2012,
+     "name": "Buratino",
+     "event_starts_at": "2026-11-15T08:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 7,
+     "max_price": 7,
+     "public_state": 1,
+     "age_limit": "+3",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Musiqili Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12839,
+     "name": "“Xəyalpərəstlər. Yeni hekayələr” tamaşası",
+     "event_starts_at": "2026-11-15T10:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 17,
+     "max_price": 17,
+     "public_state": 1,
+     "age_limit": "4+",
+     "venues": [
+      {
+       "name": "TERMİT"
+      }
+     ]
+    },
+    {
+     "id": 11744,
+     "name": "Aldanmış Canavar",
+     "event_starts_at": "2026-11-15T14:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Kukla Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 11676,
+     "name": "Qadınlar danışarsa",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Gəncə Dövlət Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10871,
+     "name": "Vidalaşmadan getməyin",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "7+",
+     "venues": [
+      {
+       "name": "M Teatr"
+      }
+     ]
+    },
+    {
+     "id": 10807,
+     "name": "Кармен история Хосе",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Akademik Rus Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 9429,
+     "name": "Əziz Ata",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Yuğ Teatrı (Kukla Teatrının binasında)"
+      }
+     ]
+    },
+    {
+     "id": 7877,
+     "name": "Əliqulu bu gün evlənir",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 8,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Musiqili Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 7148,
+     "name": "İblis və...",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 25,
+     "public_state": 1,
+     "age_limit": "12+",
+     "venues": [
+      {
+       "name": "Akademik Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 981,
+     "name": "III Riçard",
+     "event_starts_at": "2026-11-15T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Milli Gənc Tamaşaçılar Teatrı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
