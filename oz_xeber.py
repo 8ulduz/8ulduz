@@ -1045,6 +1045,343 @@ def seys_sinaq(u, count=5):
     return md
 
 
+# --- Baza xəbərləri canlı çağırış üçün: items() ------------------------------------------------------------------
+# Yuxarıdakı beş şablon (tarix_item, amb_item, oil_item, seys_item, pfl_item) dərc hissəsi (oz_derc.py) üçün bir
+# funksiyada: items(root, now, fetch, done). Mərhələ 2 modullarının qaydası ilə: sorğu yalnız xəbərin pəncərəsində və bir
+# dəfə gedir; sorğudan sonra, nəticəsi nə olursa olsun, açar qayıdır (xəbər yoxdursa worth=False və «why» ilə), canlı
+# qayıdan hər açarı done-a yazır. Relizlər (Claude Haiku) burada yoxdur: açarı sahib əlavə etməyib. Sayta qoşulmayıb.
+# 1. «Bu gün tarixdə» (hər gün 07:30; alınmasa ikinci cəhd 08:30, birincinin açarı «…-cehd1»): az.wikipedia, 1 sorğu.
+# 2. AMB-nin rəsmi məzənnələri (iş günləri 09:25, bülleten 09:06–09:20-də çıxır; bülleten hələ yoxdursa ikinci cəhd
+#    10:30): cbar.az, cəhd başına 2 sorğu. Həftə sonu və bayramda (oz_teqvim.qeyri_is_gunu) sorğu yoxdur.
+# 3. Neft (iş günləri 17:00–19:00): saytın data/markets.json faylı, sorğu yoxdur. Fayl 1 saatdan köhnədirsə heç nə
+#    qayıtmır (növbəti dövrədə yenə baxılır); qiymət bağlanışdan fərqlənmirsə xəbər deyil.
+# 4. Zəlzələ (saatda bir yoxlama, açar «seys-sorgu-<gün>T<saat>»): seismology.az siyahısı 1 sorğu, son 6 saatın yeni
+#    təkanının səhifəsi 1 sorğu (bir yoxlamada ən çox 2 təkan). Səhifə alınmasa təkanın açarı qayıtmır: gələn saat yenə.
+# 5. Premyer Liqa oyununun hesabatı: oyun saytın data/futbol/premyer-liqa.json faylında bitmiş görünəndə, başlanğıcdan
+#    1 saat 50 dəqiqə ilə 6 saat arasında, oyun başına bir dəfə. pfl.az-dan baş hakim və azarkeş sayı: /seasons və
+#    /tours (bir çağırışda bir dəfə) + oyunun səhifəsi, yəni oyun başına ən çox 3 sorğu; alınmasa hesabat saytın öz
+#    məlumatı ilə çıxır. pfl.az-ın hesabı saytınkından fərqlidirsə xəbər dərc olunmur.
+# Gündə sorğu: adi gün 27 (tarix 1, AMB 2, zəlzələ siyahısı 24), oyun günü üstəgəl oyun başına 3; ən pis halda 45
+# (tarix 2, AMB 4, zəlzələ 24 + 4, üç oyun 9, ehtiyat 2).
+TARIX_TRIES = (datetime.time(7, 30), datetime.time(8, 30))
+AMB_TRIES = (datetime.time(9, 25), datetime.time(10, 30))
+TRY_LEN = datetime.timedelta(minutes=40)
+OIL_WINDOW = (datetime.time(17, 0), datetime.time(19, 0))
+OIL_FRESH = datetime.timedelta(hours=1)
+SEYS_FRESH = datetime.timedelta(hours=6)
+SEYS_ROUND = 2
+PFL_AFTER = datetime.timedelta(hours=1, minutes=50)
+PFL_UNTIL = datetime.timedelta(hours=6)
+PFL_ROUND = 3
+PFL_FILE = ("data", "futbol", "premyer-liqa.json")
+WIKI_UA = {"User-Agent": "8ulduz-bot/1.0 (+https://8ulduz.az)"}
+
+
+def _nap(seconds):
+    time.sleep(seconds)  # eyni sayta ardıcıl sorğular arasında fasilə (testlər time.sleep-i əvəz edir)
+
+
+def _aware(now):
+    return now.astimezone(BAKU) if now.tzinfo else now.replace(tzinfo=BAKU)
+
+
+def _try_no(now, tries):
+    """now hansı cəhd pəncərəsindədir: 0, 1 ... və ya None."""
+    for n, t in enumerate(tries):
+        start = datetime.datetime.combine(now.date(), t, BAKU)
+        if start <= now < start + TRY_LEN:
+            return n
+    return None
+
+
+def _no(kind, key, title, why, credit, link, topic, slot):
+    """Dərc olunmayan nəticə: açarı done-a yazılsın deyə qayıdır."""
+    return {"kind": kind, "key": key, "title": title, "lead": why, "body": [], "credit": credit, "link": link,
+            "topic": topic, "slot": slot, "worth": False, "why": why}
+
+
+def _retry(why, tries, k):
+    return why if k >= len(tries) - 1 else f"{why}; növbəti cəhd {time_loc(tries[k + 1])}"
+
+
+def _holiday(day):
+    try:
+        import oz_teqvim
+        return oz_teqvim.qeyri_is_gunu(day) is True
+    except Exception:
+        return False
+
+
+def tarix_now(now, fetch, done):
+    day = now.date()
+    key, k = f"tarix-{day.isoformat()}", _try_no(now, TARIX_TRIES)
+    if k is None or key in done or f"{key}-cehd{k + 1}" in done:
+        return []
+    page = f"{day.day}_{MONTHS[day.month - 1]}"
+    try:
+        doc = json.loads(fetch(WIKI_API.format(page), timeout=15, headers=WIKI_UA).decode("utf-8"))
+        item = tarix_item(day, tarix_parse((doc.get("parse") or {}).get("wikitext") or ""))
+        why = "" if item else "gün səhifəsində tarix bəndi tapılmadı"
+    except Exception as e:
+        item, why = None, f"Vikipediya alınmadı: {type(e).__name__}"
+    slot = f"{TARIX_TRIES[k]:%H:%M}"
+    if item:
+        return [dict({f: v for f, v in item.items() if f != "skipped"}, topic="təqvim", slot=slot, worth=True)]
+    last = k == len(TARIX_TRIES) - 1
+    return [_no("tarix", key if last else f"{key}-cehd{k + 1}", f"Bu gün tarixdə: {day.day} {MONTHS[day.month - 1]}",
+                _retry(why, TARIX_TRIES, k), "Vikipediya", WIKI_PAGE.format(page), "təqvim", slot)]
+
+
+def amb_now(now, fetch, done):
+    day = now.date()
+    key, k = f"amb-{day.isoformat()}", _try_no(now, AMB_TRIES)
+    if k is None or now.weekday() >= 5 or key in done or f"{key}-cehd{k + 1}" in done or _holiday(day):
+        return []
+    tail = ("Azərbaycan Mərkəzi Bankı", "https://www.cbar.az/", "iqtisadiyyat", f"{AMB_TRIES[k]:%H:%M}")
+    title = f"AMB-nin rəsmi məzənnələri: {day_text(day)}"
+    try:
+        bday, rates, prev = amb_latest(fetch, day)
+    except Exception as e:
+        return [_no("amb", key if k else f"{key}-cehd1", title, _retry(f"AMB bülleteni alınmadı: {type(e).__name__}", AMB_TRIES, k), *tail)]
+    if bday != day:
+        why = f"AMB-nin {day_text(day)} bülleteni yoxdur, son bülleten {day_text(bday)} üçündür"
+        return [_no("amb", key if k else f"{key}-cehd1", title, _retry(why, AMB_TRIES, k), *tail)]
+    item = amb_item(bday, rates, prev)
+    if not item:
+        return [_no("amb", key, title, "bülletendə dollar məzənnəsi yoxdur", *tail)]
+    moved = [c for c in AMB_CODES if c in rates and c in prev and round(rates[c][1] - prev[c][1], 4)]
+    out = dict(item, topic=tail[2], slot=tail[3], worth=bool(moved) or not prev)
+    if not out["worth"]:
+        out["why"] = "məzənnələr əvvəlki bülletendən fərqlənmir"
+    return [out]
+
+
+def oil_now(root, now, done, window=True):
+    """Neft xəbəri saytın öz markets.json faylından: sorğu yoxdur. window=False yalnız sınaq üçündür."""
+    key = f"neft-{now:%Y-%m-%d}"
+    if key in done or now.weekday() >= 5 or (window and not OIL_WINDOW[0] <= now.time() < OIL_WINDOW[1]):
+        return []
+    try:
+        markets = json.loads((pathlib.Path(root) / "data" / "markets.json").read_text(encoding="utf-8"))
+        brent = next(i for i in markets["items"] if isinstance(i, dict) and i.get("id") == "BRENT")
+        at = datetime.datetime.fromisoformat(str(markets["updatedAt"]))
+        row_at = datetime.datetime.fromisoformat(str(brent.get("at") or markets["updatedAt"]))
+        fresh = datetime.timedelta(0) <= now - at <= OIL_FRESH and abs(at - row_at) <= datetime.timedelta(minutes=30)
+    except Exception:  # fayl yoxdur, pozulub, vaxtı oxunmur: xəbər yoxdur
+        return []
+    item = oil_item(markets, now) if fresh else None
+    if not item:
+        return []
+    out = dict(item, topic="iqtisadiyyat", slot=f"{OIL_WINDOW[0]:%H:%M}", worth=bool(brent.get("change")))
+    if not out["worth"]:
+        out["why"] = "qiymət əvvəlki bağlanışdan fərqlənmir"
+    return [out]
+
+
+def seys_now(now, fetch, done, fresh=SEYS_FRESH):
+    """Saatın yoxlaması: siyahı və yeni təkanların səhifəsi. fresh: təkan nə qədər təzə olmalıdır (sınaq uzadır)."""
+    mark = f"seys-sorgu-{now:%Y-%m-%dT%H}"
+    if mark in done:
+        return []
+    tail = (SEYS_CREDIT, SEYS_LIST, "təbiət", f"{now:%H:%M}")
+    title = "Zəlzələ siyahısı: saatın yoxlaması"
+    try:
+        quakes = seys_list(fetch(SEYS_LIST, timeout=15).decode("utf-8", "replace"))
+    except Exception as e:
+        return [_no("seys-sorgu", mark, title, f"seismology.az alınmadı: {type(e).__name__}", *tail)]
+    new = [q for q in quakes if f"zelzele-{q['id']}" not in done and datetime.timedelta(0) <= now - q["utc"] <= fresh]
+    out = [_no("seys-sorgu", mark, title, f"yeni təkan: {len(new)}" if quakes else "siyahı oxunmadı", *tail)]
+    for q in new[:SEYS_ROUND]:
+        _nap(1)
+        try:
+            q = seys_detail(q, fetch(f"https://seismology.az/az/zelzele/{q['id']}", timeout=15).decode("utf-8", "replace"))
+        except Exception:
+            continue  # səhifə alınmadı: açar qayıtmır, gələn saat yenə baxılır
+        item = dict(seys_item(q), topic="təbiət", slot=tail[3])
+        if not item["worth"]:
+            item["why"] = f"{az_num(SEYS_MIN, 1)}-dən zəifdir və «hiss olunub» yazılmayıb"
+        out.append(item)
+    return out
+
+
+def _pfl_local(root):
+    try:
+        doc = json.loads(pathlib.Path(root).joinpath(*PFL_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def _pfl_name(doc, slug):
+    return str(((doc.get("teams") or {}).get(slug) or {}).get("name") or "")
+
+
+def _pfl_stadium(name):
+    """pfl.az bəzi adları qısaldır («Tovuz şəhər st.»): yalnız «st.» açılır, başqa qısaltmalı ad yazılmır."""
+    name = " ".join(str(name or "").split())
+    if name.endswith(" st."):
+        name = name[:-3] + "stadionu"
+    return "" if "." in name else name
+
+
+def pfl_due(doc, now, done):
+    """Saytın faylında bitmiş və hesabat pəncərəsi açıq olan oyunlar: [(açar, hazır olma anı, oyun)]."""
+    out = []
+    for g in doc.get("games") or []:
+        if not isinstance(g, dict) or not g.get("played"):
+            continue
+        try:
+            kick = _aware(datetime.datetime.fromisoformat(str(g.get("date"))))
+            hs, as_ = int(g["hs"]), int(g["as"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        key = f"pfl-{doc.get('key') or kick.year}-t{g.get('round')}-{g.get('home')}-{g.get('away')}"
+        home, away = _pfl_name(doc, g.get("home")), _pfl_name(doc, g.get("away"))
+        if key in done or not home or not away or not kick + PFL_AFTER <= now < kick + PFL_UNTIL:
+            continue
+        out.append((key, kick + PFL_AFTER, {"id": None, "round": str(g.get("round") or ""), "home": home, "away": away,
+                                            "hs": hs, "as": as_, "when": kick, "stadium": _pfl_stadium(g.get("stadium"))}))
+    return out
+
+
+def pfl_local_table(doc):
+    """Saytın faylındakı rəsmi cədvəl: yalnız cədvəl komandanın bütün bitmiş oyunlarını sayıbsa (pfl_table-dakı qayda)."""
+    played = {}
+    for g in doc.get("games") or []:
+        if isinstance(g, dict) and g.get("played"):
+            for slug in (g.get("home"), g.get("away")):
+                played[slug] = played.get(slug, 0) + 1
+    groups = doc.get("groups") or []
+    out = {}
+    for r in (groups[0].get("rows") if groups and isinstance(groups[0], dict) else None) or []:
+        name = _pfl_name(doc, r.get("team")) if isinstance(r, dict) else ""
+        if name and r.get("p") == played.get(r.get("team")) and isinstance(r.get("pos"), int) and isinstance(r.get("pts"), int):
+            out[name] = (r["pos"], r["pts"])
+    return out
+
+
+def pfl_now(root, now, fetch, done):
+    doc = _pfl_local(root)
+    due = pfl_due(doc, now, done)[:PFL_ROUND]
+    if not due:
+        return []
+    get = lambda path: json.loads(fetch(PFL_API + path, timeout=15, headers={"Accept": "application/json"}).decode("utf-8"))
+    try:  # pfl.az-ın son turunun oyunları: bir çağırışda bir dəfə
+        season = (get("/seasons?project_id=1").get("data") or [{}])[0]
+        _nap(1)
+        api = pfl_games(get(f"/tours/get-games?league_id={(season.get('leagues') or [{}])[0]['id']}&withGames=true").get("data") or [])
+    except Exception:
+        api = []
+    table, out = pfl_local_table(doc), []
+    for key, ready, g in due:
+        tail = ("Peşəkar Futbol Liqası", "https://pfl.az/", "idman", f"{ready:%H:%M}")
+        a = next((x for x in api if x["home"] == g["home"] and x["away"] == g["away"] and x["round"] == g["round"]), None)
+        if a and (a["hs"], a["as"]) != (g["hs"], g["as"]):
+            out.append(dict(_no("futbol", key, f"«{g['home']}» – «{g['away']}»", "pfl.az-ın hesabı saytın məlumatından fərqlidir", *tail),
+                            date=ready.date().isoformat()))
+            continue
+        if a:
+            g = dict(g, id=a["id"])
+            try:
+                _nap(1)
+                g = pfl_detail(g, get(f"/games/show/{a['id']}").get("data") or {})
+            except Exception:
+                pass  # hakim və azarkeş sayı alınmadı: hesabat onlarsız çıxır
+        out.append(dict(pfl_item(g, table), key=key, topic=tail[2], slot=tail[3], date=ready.date().isoformat(), worth=True))
+    return out
+
+
+def _owner_guard(item):
+    if item.get("worth"):
+        try:
+            if needs_owner("\n".join([item.get("title") or "", item.get("lead") or "", *(item.get("body") or [])])):
+                return dict(item, worth=False, why="rəhbərliyin adı keçir: avtomatik dərc olunmur")
+        except Exception:
+            pass
+    return item
+
+
+def items(root, now, fetch=None, done=None):
+    """now anında (Bakı vaxtı) dərc olunacaq baza xəbərləri: «Bu gün tarixdə», AMB məzənnələri, neft, zəlzələ, Premyer
+    Liqa oyununun hesabatı. Sorğu yalnız fetch ilə və yalnız xəbərin pəncərəsində; done: artıq qayıtmış açarlar (onların
+    sorğusu getmir). worth=False olanlar «why» ilə qayıdır. Heç vaxt xəta atmır.
+    Gündə sorğu: adi gün 27 (Vikipediya 1, AMB 2, seismology.az siyahısı 24), oyun günü üstəgəl oyun başına 3 (pfl.az),
+    ən pis halda 45; neft sorğusuzdur. Pəncərələr və açarlar yuxarıdakı izahdadır."""
+    try:
+        now = _aware(now)
+        done = set(done or ())
+        fetch = fetch or _u().fetch
+    except Exception:
+        return []
+    parts = (("tarix", lambda: tarix_now(now, fetch, done)), ("amb", lambda: amb_now(now, fetch, done)),
+             ("neft", lambda: oil_now(root, now, done)), ("zelzele", lambda: seys_now(now, fetch, done)),
+             ("futbol", lambda: pfl_now(root, now, fetch, done)))
+    out = []
+    for name, part in parts:
+        try:
+            out += part()
+        except Exception as e:  # bir hissənin xətası digərlərini saxlamır; saatlıq açar təkrar sorğunu dayandırır
+            out.append(_no("xeta", f"baza-xeta-{name}-{now:%Y-%m-%dT%H}", "Modul xətası", f"{name}: {type(e).__name__}: {e}"[:200],
+                           "8ULDUZ", "https://8ulduz.az/", "icmal", f"{now:%H:%M}"))
+    return [_owner_guard(i) for i in out]
+
+
+def baza_sinaq(root, now, fetch):
+    """items()-in pəncərə nümunələri (Markdown): hər xəbər öz pəncərəsinin anı üçün qurulur, sorğular canlıdır.
+    AMB üçün bu günün bülleteni yoxdursa əvvəlki iş günü, zəlzələ üçün son 30 günün ən yeni iki təkanı, futbol üçün
+    saytın faylındakı son bitmiş oyun göstərilir. Heç vaxt xəta atmır."""
+    now = _aware(now)
+    day, md = now.date(), []
+    at = lambda d, t: datetime.datetime.combine(d, t, BAKU)
+
+    def show(label, part):
+        md.extend([f"**{label}**", ""])
+        try:
+            found = part()
+        except Exception as e:
+            found = []
+            md.extend([f"> xəta: {type(e).__name__}", ""])
+        if not found:
+            md.extend(["> Bu an üçün nəticə yoxdur.", ""])
+        for i in map(_owner_guard, found):
+            if i.get("worth"):
+                md.extend(render(i) + [f"✅ Dərc olunardı (`{i['key']}`, mövzu: {i['topic']}, slot: {i['slot']})", ""])
+            else:
+                md.extend([f"⏭ Dərc olunmazdı (`{i['key']}`): {i.get('why')}", ""])
+        return found
+
+    show(f"«Bu gün tarixdə», {day_text(day)}, ikinci cəhdin pəncərəsi (08:30)", lambda: tarix_now(at(day, TARIX_TRIES[1]), fetch, set()))
+    d = day
+    for _ in range(5):  # bu gün bülleten yoxdursa (səhər tezdir, bayramdır) əvvəlki iş günü
+        if d.weekday() < 5 and not _holiday(d):
+            found = show(f"AMB-nin rəsmi məzənnələri, {day_text(d)}, ikinci cəhdin pəncərəsi (10:30)", lambda: amb_now(at(d, AMB_TRIES[1]), fetch, set()))
+            if any(i.get("worth") for i in found):
+                break
+        d -= datetime.timedelta(days=1)
+    try:
+        stamp = _aware(datetime.datetime.fromisoformat(str(json.loads((pathlib.Path(root) / "data" / "markets.json").read_text(encoding="utf-8"))["updatedAt"])))
+    except Exception:
+        stamp = now
+    show(f"Neft, markets.json-un öz vaxtı ilə ({stamp:%d.%m.%Y %H:%M}; canlıda pəncərə iş günləri 17:00–19:00)",
+         lambda: oil_now(root, stamp + datetime.timedelta(minutes=1), set(), window=False))
+    show("Zəlzələ: seismology.az siyahısının ən yeni iki təkanı (canlıda yalnız son 6 saatın təkanı)",
+         lambda: seys_now(now, fetch, set(), fresh=datetime.timedelta(days=30)))
+    doc = _pfl_local(root)
+    kicks = []
+    for g in doc.get("games") or []:
+        try:
+            if g.get("played"):
+                kicks.append(_aware(datetime.datetime.fromisoformat(str(g.get("date")))))
+        except (AttributeError, TypeError, ValueError):
+            continue
+    if kicks:
+        t = max(kicks) + PFL_AFTER + datetime.timedelta(minutes=5)
+        show(f"Premyer Liqa: son bitmiş oyunun hesabatı ({t:%d.%m.%Y %H:%M} anı üçün)", lambda: pfl_now(root, t, fetch, set()))
+    else:
+        md.extend(["**Premyer Liqa**", "", "> Saytın faylında bitmiş oyun yoxdur.", ""])
+    return md
+
+
 def _esc(s):
     return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
