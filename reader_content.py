@@ -84,7 +84,16 @@ class ArticleParagraphs(HTMLParser):
 VOID = frozenset('br img hr meta link input source wbr area base col embed track param'.split())
 INLINE = frozenset('a b strong em i u span font small sup sub mark abbr time label s del ins cite q code big strike nobr'.split())
 SKIP = frozenset('nav aside footer header script style form noscript button select textarea iframe svg figcaption h1 h2 h3 h4 h5 h6 title head'.split())
-SKIP_CLASS = re.compile(r'related|recommend|advert|comment|social|paywall|share|breadcrumb|sidebar|cookie|popup|modal|(?:^|[\s_-])(?:tags?|teq|menu|footer|banner|widget|date|time|tarix|author|views?|counter)(?:$|[\s_-])', re.I)
+# Sinif adı sözbəsöz yoxlanır (ses-worker/worker.js skipClass ilə eyni): «with_sidebar_block», «b-footer--black--white» kimi düzən
+# sarğıları bütün səhifəni bloklayırdı. html/body/main/article heç vaxt sinfinə görə atılmır.
+HARD = re.compile(r'related|recommend|advert|comment|social|paywall|share|breadcrumb|cookie|popup|modal', re.I)
+SOFT = re.compile(r'^(?:sidebar|menu|footer|banner|widget|date|time|tarix|author|views?|counter)(?:$|[-_])|(?:^|[-_])(?:sidebar|tags?|teq|menu|footer|banner|widget|date|time|tarix|author|views?|counter)$', re.I)
+SHELL = re.compile(r'with|beside|above|below|wrap|layout|grid|container|page|body|main|--', re.I)
+ROOTS = frozenset(('html', 'body', 'main', 'article'))
+
+
+def skip_class(tag, marker):
+    return tag not in ROOTS and any(not SHELL.search(t) and (HARD.search(t) or SOFT.search(t)) for t in marker.split())
 PROSE = re.compile(r'[.!?…]["”»’)]?(\s|$)')
 STAMP = re.compile(r'^\s*(\d{1,2}[:.]\d{2}\b|\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\d{1,2}\s+(yanvar|fevral|mart|aprel|may|iyun|iyul|avqust|sentyabr|oktyabr|noyabr|dekabr)\s+(\d{4}\s+)?\d{1,2}:\d{2}\b)', re.I)  # «17:40 Başlıq …»: xəbər lenti sətri, mətn deyil
 META = re.compile(r'^\s*(teqlər|etiketlər|açar sözlər|mənbə|müəllif|foto|oxunub|baxış(lar)?( sayı)?|tarix|bölmə|şriftin ölçüsü)\s*:', re.I)
@@ -117,7 +126,7 @@ class DenseBlocks(HTMLParser):
             return
         attrs = dict(attrs)
         _, blocked, node = self.stack[-1]
-        blocked = blocked or tag in SKIP or bool(SKIP_CLASS.search((attrs.get('class') or '') + ' ' + (attrs.get('id') or '')))
+        blocked = blocked or tag in SKIP or skip_class(tag, (attrs.get('class') or '') + ' ' + (attrs.get('id') or ''))
         if tag not in INLINE:
             self.flush(node)
             node = {'buf': [], 'own': [], 'seq': [], 'up': node}

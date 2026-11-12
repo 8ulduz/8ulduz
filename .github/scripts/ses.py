@@ -52,6 +52,11 @@ REDO_HOSTS.update({h: _DENSE_AT for h in (
     "aia.az azerbaijan-news.az azvision.az baku.tv bakupost.az fanat.az gencexeber.az ikisahil.az marja.az modern.az narnews.az ordu.az "
     "qol.az report.az reyting.az sesqazeti.az sportinfo.az teleqraf.az .gov.az").split()})
 # Səhifəsi serverimizə verilməyən, lakin tam mətni öz RSS lentində (content:encoded) yayan mənbələr.
+# Mətnsiz səs (index.json «q»): səs işi mənbə səhifəsini ala bilməyəndə səs başlıq və xülasə ilə yazılır və xəbər «q» siyahısına
+# düşür. «Dinlə» serveri (ses-worker) belə xəbərdə dinləyən basanda əvvəl mənbədən tam mətni sınayır, alınmasa bu səsi verir.
+# Səhifəni GitHub-a verməyən saytların bu vaxtdan əvvəlki səsləri bir dəfə yenidən yazılır ki, siyahıya düşsün.
+_SHORT_AT = datetime.datetime(2026, 11, 12, 15, 43, tzinfo=datetime.timezone.utc).timestamp()
+REDO_HOSTS.update({h: _SHORT_AT for h in "report.az oxu.az naxcivanxeberleri.az anews.az".split()})
 FEED_TEXT = {"report.az": ("https://report.az/rss", "https://www.report.az/rss")}
 # Oxunmayan nişanlar (sahib, 2026-11-10: «ortada video sözü keçir — lazımsız yerlər oxunmasın»): başlığın sonundakı
 # «- Video», «(FOTO)», «[VİDEO]», əvvəlindəki «VİDEO:», mətndə təkcə «Video.» cümləsi və «Foto: APA» imzası.
@@ -272,6 +277,7 @@ def main(d):
     except subprocess.CalledProcessError:
         pass
     born = dict(index.get("t") or {})
+    short = set(index.get("q") or [])  # səsi mətnsiz (yalnız başlıq və xülasə ilə) yazılmış xəbərlər
     live = {a.get("id") for a in feed}
     dropped = 0
     for i in list(have):
@@ -302,12 +308,13 @@ def main(d):
                 dropped += 1
             have[a["id"]] = git(d, "hash-object", "-w", path)
             born[a["id"]] = int(now.timestamp())
+            (short.discard if body else short.add)(a["id"])
             made += 1
     if not made and not dropped:
         print("ses: yeni səs yoxdur")
         return
     born = {i: t for i, t in born.items() if i in have}
-    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born}, separators=(",", ":")).encode()
+    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born, "q": sorted(short & set(have))}, separators=(",", ":")).encode()
     rows = other + [f"100644 blob {sha}\t{i}.mp3" for i, sha in sorted(have.items())]
     rows.append(f"100644 blob {git(d, 'hash-object', '-w', '--stdin', data=idx)}\tindex.json")
     tree = git(d, "mktree", "--missing", data=("\n".join(rows) + "\n").encode())

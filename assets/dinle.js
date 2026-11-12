@@ -90,7 +90,7 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
   // Server yoxdursa və ya cavab vermirsə saytdakı başlıq + xülasə oxunur.
   const fullText = async a => {
     if (worker && String(a?.sourceUrl).startsWith("https://")) try {
-      const r = await fetchFn(`${worker}?u=${encodeURIComponent(a.sourceUrl)}`, { signal: AbortSignal.timeout(7000) });
+      const r = await fetchFn(`${worker}?u=${encodeURIComponent(a.sourceUrl)}&l=${langOf(a)}`, { signal: AbortSignal.timeout(7000) });
       const t = r.ok ? String((await r.json()).text || "") : "";
       if (t.length > 200) { const title = textOf({ title: a.title }, decode).replace(/[.]$/, ""); return `${title}. ${a.source ? a.source + (SAYS[langOf(a)] || ". ") : ""}${t.startsWith(title) ? t.slice(title.length) : t}`; }
     } catch {}

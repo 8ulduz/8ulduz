@@ -128,3 +128,20 @@ class FeedArticleTest(unittest.TestCase):
         self.assertEqual(feed_article(xml, 'https://report.az/a/3'), '')
         self.assertEqual(feed_article('', 'https://report.az/a/2'), '')
         self.assertEqual(feed_article('<item><link>https://report.az/a/2</link><description>qısa</description></item>', 'https://report.az/a/2'), '')
+
+
+class SkipClassTest(unittest.TestCase):
+    """2026-11-12: düzən sarğıları («with-sidebar», «b-footer--black--white») bütün səhifəni bloklayırdı; ses-worker skipClass ilə eyni."""
+
+    def test_layout_wrappers_are_not_blocked_but_real_side_blocks_are(self):
+        from reader_content import skip_class
+        for c in ('t-content__with-sidebar', 'news_in_page with_sidebar_block', 'b-header--white b-footer--black--white', 'p-default-layout--window-view-x'):
+            self.assertFalse(skip_class('div', c), c)
+        self.assertFalse(skip_class('body', 'single tag-news sidebar'))
+        for c in ('sidebar', 'right-sidebar', 'post-tags', 'news-date', 'author-box', 'related-news', 'social-share', 'comments-area', 'views'):
+            self.assertTrue(skip_class('div', c), c)
+        page = ('<html class="b-footer--black--white"><body class="u-header-with-tag-list"><div class="news_in_page with_sidebar_block"><div class="texts">'
+                '<p>' + DenseTextTest.P1 + '</p><p>' + DenseTextTest.P2 + '</p></div><div class="sidebar"><p>' + BODY + '</p></div></div></body></html>')
+        text = extract_article(page)
+        self.assertTrue(text.startswith('Dövlət Sosial Müdafiə Fondu'))
+        self.assertNotIn('səsli oxuma', text)

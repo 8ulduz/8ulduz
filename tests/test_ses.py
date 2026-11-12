@@ -195,3 +195,24 @@ class SourceTextTest(unittest.TestCase):
         born = {"a" * 16: t - 60, "b" * 16: t - 60, "c" * 16: t - 60, "d" * 16: t - 60, "e" * 16: t + 60}
         self.assertEqual(ses.host_redo(have, born, feed), {"a" * 16, "b" * 16, "d" * 16})
         self.assertLess(t, datetime.datetime.now(datetime.timezone.utc).timestamp() + 3600, "gələcək vaxt səsi dönə-dönə yenidən yazdırar")
+
+
+class ShortVoiceListTest(unittest.TestCase):
+    """Sahib, 2026-11-12: «Bütün mənbələr tam və düzgün oxunsun!» — mətnsiz yazılmış səslər index.json «q» siyahısındadır;
+    «Dinlə» serveri belə xəbərdə dinləyən basanda əvvəl mənbədən tam mətni sınayır (ses-worker)."""
+
+    def test_voices_written_without_body_text_are_listed_for_the_listen_server(self):
+        src = (ROOT / ".github" / "scripts" / "ses.py").read_text(encoding="utf-8")
+        self.assertIn('short = set(index.get("q") or [])', src)
+        self.assertIn('(short.discard if body else short.add)(a["id"])', src)
+        self.assertIn('"q": sorted(short & set(have))', src, "silinmiş səsin nömrəsi siyahıda qalmır")
+        worker = (ROOT / ".github" / "ses-worker" / "worker.js").read_text(encoding="utf-8")
+        self.assertIn("new Set(j.q || [])", worker)
+
+    def test_refusing_sources_are_voiced_once_more_so_they_enter_the_list(self):
+        t = ses.REDO_HOSTS["oxu.az"]
+        self.assertEqual(ses.REDO_HOSTS["report.az"], t)
+        self.assertGreater(t, ses.REDO_HOSTS["teleqraf.az"])
+        self.assertLess(t, datetime.datetime.now(datetime.timezone.utc).timestamp() + 3600, "gələcək vaxt səsi dönə-dönə yenidən yazdırar")
+        feed = [{"id": "a" * 16, "sourceUrl": "https://oxu.az/cemiyyet/1"}, {"id": "b" * 16, "sourceUrl": "https://apa.az/2"}]
+        self.assertEqual(ses.host_redo({"a" * 16: "h", "b" * 16: "h"}, {"a" * 16: t - 60, "b" * 16: t - 60}, feed), {"a" * 16})

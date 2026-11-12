@@ -155,7 +155,7 @@ test("dinlə: without a prepared voice the full text comes from the text server 
   env.fetchFn = async (url, o) => url.startsWith("https://dinle.example/") ? (asked.push(url), { ok: true, json: async () => ({ text: long }) }) : base(url, o);
   const p = createPlayer({ list: () => list, ...env, worker: "https://dinle.example/" });
   await p.play({ ...list[0], title: "Klub prezidenti", source: "Sportinfo", sourceUrl: "https://www.sportinfo.az/1.html" });
-  assert.deepEqual(asked, ["https://dinle.example/?u=" + encodeURIComponent("https://www.sportinfo.az/1.html")]);
+  assert.deepEqual(asked, ["https://dinle.example/?u=" + encodeURIComponent("https://www.sportinfo.az/1.html") + "&l=az"]);
   assert.equal(p.mode, "tts");
   for (let k = 0; k < 50 && env.spoken.at(-1)?.onend; k++) { const u = env.spoken.at(-1), n = env.spoken.length; u.onend(); if (env.spoken.length === n) break; }  // hər hissə bitir, növbəti başlayır
   const said = env.spoken.map(u => u.text).join(" ");
