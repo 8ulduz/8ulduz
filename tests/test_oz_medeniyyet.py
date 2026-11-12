@@ -1,5 +1,5 @@
 """Mədəniyyət və bilik xəbərləri (oz_medeniyyet.py, mərhələ 2): afişa, kino, Vikipediyada ən çox oxunanlar, yubileylər.
-Şəbəkə yoxdur: tests/fixtures/oz_medeniyyet/ — mənbələrin 2026-11-10 tarixli real cavablarından kəsiklər."""
+Şəbəkə yoxdur: tests/fixtures/oz_medeniyyet/ — mənbələrin 2026-11-10 – 2026-11-12 tarixli real cavablarından kəsiklər."""
 import contextlib
 import datetime
 import io
@@ -38,9 +38,10 @@ def info_doc(url, extra=None):
     """action=query cavabı (formatversion=2) istənən adlar üçün: real cavablardan (ext-*.json), yoxdursa lentin öz
     təsviri və girişindən. extra: {ad: (təsvir, giriş)} — testin öz səhifələri."""
     titles = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["titles"][0].split("|")
-    known = {p["title"]: p for name in ("ext-2026-10.json", "ext-leads.json") for p in load(name)["query"]["pages"]}
+    known = {p["title"]: p for name in ("ext-2026-10.json", "ext-leads.json", "ext-2026-11-11.json")
+             for p in load(name)["query"]["pages"]}
     feed = {}
-    for name in ("wiki-feed-2026-11-09.json", "wiki-feed-2026-11-10.json"):
+    for name in ("wiki-feed-2026-11-09.json", "wiki-feed-2026-11-10.json", "wiki-feed-2026-11-11-ready.json"):
         for a in load(name)["mostread"]["articles"]:
             feed[a["titles"]["normalized"]] = a
     pages = []
@@ -336,8 +337,9 @@ class KinoTest(unittest.TestCase):
         self.assertEqual(item["key"], "kino-2026-11-12")
         self.assertEqual(item["title"], "12 noyabrdan kinoteatrlarda: «Gupi ve Gülmeyen Kral», «Dune: 1-ci hissə» və «Ebenezer»")
         self.assertEqual(item["lead"], "CineMastercard kinoteatrlarının «Tezliklə» siyahısına görə, 12 noyabrdan «Gupi ve Gülmeyen Kral» "
-                                       "(türk dilində, 6+), «Dune: 1-ci hissə» (rus dilində, 12+) və «Ebenezer» (rus dilində) "
+                                       "(türk dilində), «Dune: 1-ci hissə» (rus dilində) və «Ebenezer» (rus dilində) "
                                        "filmləri nümayiş olunacaq.")
+        self.assertNotRegex(text(item), r"\d\+")  # yaş həddi yazılmır: kartdakı hədd buraxılış günü dəyişə bilir
         self.assertEqual(item["body"], ["Siyahıya görə, 19 noyabrdan «Aclıq Oyunları: Biçimin Şəfəqi» və "
                                         "«Bankı necə soymaq olar» nümayiş olunacaq."])
         self.assertTrue(KEYS <= set(item))
@@ -351,7 +353,7 @@ class KinoTest(unittest.TestCase):
         one = [f for f in films if f["title"] == "Primat"]
         item, _ = m.kino_item(D(2026, 1, 8), one)
         self.assertEqual(item["title"], "8 yanvardan kinoteatrlarda: «Primat»")
-        self.assertIn("«Primat» (rus dilində, 18+) filmi nümayiş olunacaq.", item["lead"])
+        self.assertIn("«Primat» (rus dilində) filmi nümayiş olunacaq.", item["lead"])
         self.assertEqual(item["body"], [])
 
     def test_sport_broadcasts_and_empty_days_are_not_premieres(self):
@@ -452,13 +454,16 @@ class VikipediyaTest(unittest.TestCase):
     def test_day_item_from_real_feed(self):
         fake = Fake()
         item, why, final = m.gun_day(m._net(fake), D(2026, 11, 10))
-        print("\n".join(["", "[gun 2026-11-09]", why] + (ox.render(item) if item else [])))
         self.assertTrue(final)
         self.assertEqual(item["key"], "vikipediya-gun-2026-11-09")
         self.assertTrue(KEYS <= set(item))
         self.assertTrue(item["worth"], item.get("why"))
-        self.assertEqual(len(item["body"]), 5)
-        self.assertEqual(item["body"][0], "«Dövlət Bayrağı Günü (Azərbaycan)» — 1 199 baxış (Azərbaycan Respublikasının rəsmi dövlət bayramı)")
+        self.assertEqual(item["body"], [
+            "«Dövlət Bayrağı Günü (Azərbaycan)» — 1 199 baxış (Azərbaycan Respublikasının rəsmi dövlət bayramı)",
+            "«44 (film)» — 731 baxış (2026-cı ildə istehsal olunmuş Azərbaycan tammetrajlı bədii müharibə filmi)",
+            "«Azərbaycan bayrağı» — 524 baxış (Azərbaycan Respublikasının Dövlət bayrağı)",
+            "«Rəcəb Tayyib Ərdoğan» — 470 baxış (2014-cü ildən Türkiyə prezidenti)",
+            "«Azərbaycan» — 404 baxış (Cənubi Qafqazda ölkə)"])
         self.assertEqual(item["title"], "Dünən Azərbaycan Vikipediyasında ən çox «Dövlət Bayrağı Günü (Azərbaycan)» məqaləsi oxunub")
         self.assertEqual(item["lead"], "Vikimedia Fondunun məlumatına görə, 9 noyabrda Azərbaycandilli Vikipediyada ən çox "
                                        "«Dövlət Bayrağı Günü (Azərbaycan)» məqaləsi oxunub: 1 199 baxış. Bir gün əvvəl bu məqaləyə "
@@ -474,13 +479,52 @@ class VikipediyaTest(unittest.TestCase):
     def test_first_place_filtered_means_no_superlative(self):
         day, rows = m.gun_rows(load("wiki-feed-2026-11-09.json"))
         item, why = m.gun_item(day, rows, D(2026, 11, 9))
-        print("\n".join(["", "[gun 2026-11-08]", why] + (ox.render(item) if item else [])))
         self.assertEqual(rows[0]["skip"], "rəhbərlik")  # «Zəfər Günü»: girişdə Prezidentin adı var
-        self.assertTrue(item["title"].startswith("Dünən Azərbaycan Vikipediyasında çox oxunanlar: «44 (film)»"))
-        self.assertNotIn("ən çox", item["title"] + item["lead"])
+        self.assertEqual(item["title"], "Dünən Azərbaycan Vikipediyasında çox oxunanlar: «44 (film)», «Rəcəb Tayyib Ərdoğan» və «Murad Əliyev»")
+        self.assertEqual(item["lead"], "Vikimedia Fondunun məlumatına görə, 8 noyabrda Azərbaycandilli Vikipediyada çox oxunan məqalələr "
+                                       "arasında «44 (film)» (1 256 baxış), «Rəcəb Tayyib Ərdoğan» (1 066 baxış) və «Murad Əliyev» "
+                                       "(690 baxış) var. Siyahıdakı məqalələr arasında bir gündə ən çox artım: «Rəcəb Tayyib Ərdoğan» "
+                                       "məqaləsinə baxışların sayı 56-dan 1 066-ya qalxıb.")
+        self.assertEqual(len(item["body"]), 5)
+        self.assertEqual(item["body"][3], "«Dövlət Bayrağı Günü (Azərbaycan)» — 601 baxış (Azərbaycan Respublikasının rəsmi dövlət bayramı)")
+        self.assertNotIn("ən çox «", item["title"] + item["lead"])
         self.assertNotIn("Zəfər Günü", text(item))
         older, _ = m.gun_item(day, m.gun_rows(load("wiki-feed-2026-11-09.json"))[1], D(2026, 11, 12))
         self.assertTrue(older["title"].startswith("8 noyabrda Azərbaycan Vikipediyasında çox oxunanlar"))
+
+    def test_real_list_of_10_november_drops_the_actor_who_died_that_day(self):
+        """Lentdə «Aslan Fətullayev — Azərbaycan aktyoru.» (1 488 baxış, birinci yer) yazılıb, ölüm tarixi yalnız tam
+        girişdədir: «(20 oktyabr 1956, … – 10 noyabr 2026, Moskva)»."""
+        tbl = table(**{m.FEED_URL.format(D(2026, 11, 11)): raw("wiki-feed-2026-11-11-ready.json")})
+        fake = Fake(tbl)
+        item, why, final = m.gun_day(m._net(fake), D(2026, 11, 11))
+        self.assertTrue(item["worth"])
+        self.assertEqual(item["key"], "vikipediya-gun-2026-11-10")
+        self.assertNotIn("Fətullayev", text(item))
+        self.assertEqual(item["title"], "Dünən Azərbaycan Vikipediyasında çox oxunanlar: «44 (film)», «Azərbaycan» və «Uzun Həsən»")
+        self.assertEqual(item["body"], [
+            "«44 (film)» — 533 baxış (2026-cı ildə istehsal olunmuş Azərbaycan tammetrajlı bədii müharibə filmi)",
+            "«Azərbaycan» — 405 baxış (Cənubi Qafqazda ölkə)",
+            "«Uzun Həsən» — 249 baxış (Ağqoyunluların IX hökmdarı və ilk sultanı (padşah))",
+            "«Mustafa Kamal Atatürk» — 248 baxış (Türkiyə Respublikasının qurucusu və ilk prezidenti)",
+            "«Rəcəb Tayyib Ərdoğan» — 223 baxış (2014-cü ildən Türkiyə prezidenti)"])
+        self.assertTrue(item["lead"].endswith("«Uzun Həsən» məqaləsinə baxışların sayı 55-dən 249-a qalxıb."))
+        day, rows = m.gun_rows(load("wiki-feed-2026-11-11-ready.json"))
+        self.assertEqual((rows[0]["title"], rows[0]["views"]), ("Aslan Fətullayev", 1488))
+        self.assertEqual(m.wiki_skip(rows[0]["title"], rows[0]["desc"], rows[0]["extract"], D(2026, 11, 11)), "")  # lent bilmir
+        self.assertEqual(m.gun_check(m._net(Fake(tbl)), rows, D(2026, 11, 11)), "")
+        self.assertEqual(rows[0]["skip"], "son bir ildə vəfat edib")
+
+    def test_death_date_in_a_later_bracket_and_seasons(self):
+        day = D(2026, 11, 12)
+        self.assertTrue(m._died_recently("Filankəs (rus. Иван Иванов) (1 yanvar 1950, Bakı – 8 noyabr 2026, Bakı) — aktyor.", day))
+        self.assertTrue(m._died_recently("Filankəs (1950, Bakı – 2026, Bakı) — aktyor.", day))
+        self.assertFalse(m._died_recently("Filankəs (1 yanvar 1950, Bakı – 8 noyabr 2020, Bakı) — aktyor.", day))
+        self.assertFalse(m._died_recently("Çempionlar Liqası (2025–2026 mövsümü) — futbol turniri.", day))
+        self.assertFalse(m._died_recently("Mustafa Kamal Atatürk (türk. Mustafa Kemal Atatürk) (ən tezi 1879 və ən geci 1881, Saloniki – "
+                                          "10 noyabr 1938, Beşiktaş) — Türkiyə Respublikasının qurucusu.", day))
+        self.assertFalse(m._died_recently("", day))
+        self.assertFalse(m._died_recently(None, day))
 
     def test_jump_line(self):
         rows = [{"title": "A", "views": 1066, "prev": 56}, {"title": "B", "views": 690, "prev": 70},
@@ -542,13 +586,18 @@ class VikipediyaTest(unittest.TestCase):
     def test_month_item_from_real_responses(self):
         fake = Fake()
         item, why = m.ay_month(m._net(fake), 2026, 10, D(2026, 11, 2))
-        print("\n".join(["", "[ay 2026-10]", why] + (ox.render(item) if item else [])))
         self.assertEqual(item["key"], "vikipediya-ay-2026-10")
         self.assertTrue(KEYS <= set(item))
         self.assertTrue(item["worth"], item.get("why"))
-        self.assertEqual(item["body"][0], "«Qız qalası» — 14 166 baxış (Bakıdakı memarlıq abidəsi)")
-        self.assertEqual(item["body"][1], "«44 (film)» — 9 925 baxış (2026-cı ildə istehsal olunmuş Azərbaycan tammetrajlı bədii müharibə filmi)")
-        self.assertTrue(item["title"].startswith("Oktyabrda Azərbaycan Vikipediyasında çox oxunanlar: «Qız qalası», «44 (film)»"))
+        self.assertEqual(item["body"], [
+            "«Qız qalası» — 14 166 baxış (Bakıdakı memarlıq abidəsi)",
+            "«44 (film)» — 9 925 baxış (2026-cı ildə istehsal olunmuş Azərbaycan tammetrajlı bədii müharibə filmi)",
+            "«Azərbaycan» — 9 599 baxış (Cənubi Qafqazda ölkə)",
+            "«Müstəqilliyin Bərpası Günü (Azərbaycan)» — 7 503 baxış",
+            "«Böyük ipək yolu» — 6 564 baxış (Şərqi Asiya ilə Aralıq dənizi arasında dünyanın ən qədim ticarət yollarından biri)"])
+        self.assertEqual(item["title"], "Oktyabrda Azərbaycan Vikipediyasında çox oxunanlar: «Qız qalası», «44 (film)» və «Azərbaycan»")
+        self.assertEqual(item["lead"], "Vikimedia Fondunun məlumatına görə, oktyabrda Azərbaycandilli Vikipediyada çox oxunan məqalələr "
+                                       "arasında «Qız qalası» (14 166 baxış), «44 (film)» (9 925 baxış) və «Azərbaycan» (9 599 baxış) var.")
         self.assertNotIn("ən çox", item["title"] + item["lead"])  # birinci yerdəki məqalə süzgəcdən keçməyib
         self.assertLessEqual(len(item["title"]), m.TITLE_MAX)
         self.assertEqual(len(item["body"]), 5)
@@ -718,6 +767,31 @@ class YubileyTest(unittest.TestCase):
         self.assertIsNone(item)
         self.assertIn("yoxlamasından keçmədi", why)
 
+    def test_living_person_with_a_sensitive_lead_is_left_out(self):
+        for lead in ("İkinci Sınaqov (10 noyabr 1951, Gəncə) — Azərbaycan jurnalisti, müxalifət partiyasının üzvü.",
+                     "İkinci Sınaqov (10 noyabr 1951, Gəncə) — Azərbaycan jurnalisti. 2024-cü ildə həbs edilib.",
+                     "İkinci Sınaqov (10 noyabr 1951, Gəncə) — Azərbaycan alimi, Milli Məclisin deputatı."):
+            item, why, report, _ = self.two({"İkinci Sınaqov": ("", lead)})
+            self.assertEqual(item["body"], [], lead)
+            self.assertIn(("İkinci Sınaqov", 75, "sağ şəxsin girişində siyasət, məhkəmə və ya hadisə mövzusu var"), report)
+        # vəfat etmiş şəxsin tarixi girişi (repressiya, Ali Sovet deputatı) yubileyə mane deyil
+        item, why, report, _ = self.two({"Birinci Sınaqov": ("", "Birinci Sınaqov (10 noyabr 1926, Şuşa – 3 mart 1990, Bakı) — Azərbaycan "
+                                                                 "rəssamı, Ali Sovetin deputatı. 1949-cu ildə həbs edilib.")})
+        self.assertEqual(item["title"], "Azərbaycan rəssamı Birinci Sınaqovun anadan olmasından 100 il keçir")
+
+    def test_real_living_person_of_12_november(self):
+        lead = {p["title"]: p for p in load("ext-2026-11-11.json")["query"]["pages"]}["Seymur Nəsirov"]["extract"]
+        day = D(2026, 11, 12)
+        self.assertTrue(m.lead_ok(lead, day, 1976))
+        self.assertEqual(m._birthplace(lead, day, 1976), "")  # «Şuvi, Astara rayonu»: şəhər siyahısında yoxdur
+        self.assertFalse(m.POLITICAL.search(m._low(lead)) or m.SENSITIVE.search(m._low(lead)))
+        r = {"qid": "Q1", "name": "Seymur Nəsirov", "title": "Seymur Nəsirov", "year": 1976, "years": 50, "sl": 4,
+             "desc": "Azərbaycan alimi və tədqiqatçısı", "occ": ["alim", "ərəbşünas"], "dead": "", "why": "", "extract": lead}
+        item, _ = m.yub_item(day, r)
+        self.assertEqual(item["title"], "Azərbaycan alimi və tədqiqatçısı Seymur Nəsirovun anadan olmasından 50 il keçir")
+        self.assertEqual(item["lead"], "Azərbaycan alimi və tədqiqatçısı Seymur Nəsirov 12 noyabr 1976-cı ildə anadan olub.")
+        self.assertNotIn("Misir", text(item))  # girişin mətni köçürülmür
+
     def test_network_errors_mean_no_item(self):
         day = D(2026, 11, 10)
         down = urllib.error.URLError("x")
@@ -886,7 +960,6 @@ class SinaqTest(unittest.TestCase):
         with patch.object(m.time, "sleep") as sleep:
             md = m.sinaq(ROOT, at(2026, 11, 10, 13, 10), fake)
         out = "\n".join(md)
-        print(out)
         for head in ("## Bu an dərc olunacaqlar", "## 1. «Günün afişası»", "## 2. «Həftəsonu afişası»", "## 3. «Həftənin kino premyeraları»",
                      "## 4. «Dünən Vikipediyada ən çox oxunanlar»", "## 5. «Ayın ən çox oxunanları»", "## 6. «Yubileylər»",
                      "## Sorğular və GitHub-dan əlçatanlıq"):

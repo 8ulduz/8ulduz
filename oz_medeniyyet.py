@@ -9,9 +9,10 @@
 2. «Həftəsonu afişası» (cümə 12:00): şənbə və bazarın tamaşa, konsert və muzey sərgiləri. Cümə günü gündəlik afişa
    verilmir (planın qaydası: gündə bir afişa).
 3. «Həftənin kino premyeraları» (çərşənbə 12:00): CineMastercard-ın «Tezliklə» siyahısından sabah (cümə axşamı)
-   ekrana çıxan filmlər, dili və yaş həddi ilə. Tapşırıqda cümə axşamı 11:00 yazılıb, amma sayt filmi buraxılış günü
+   ekrana çıxan filmlər, dili ilə (yaş həddi yazılmır: kartdakı hədd buraxılış günü dəyişə bilir). Tapşırıqda cümə axşamı 11:00 yazılıb, amma sayt filmi buraxılış günü
    «Tezliklə»dən çıxarır: web.archive.org-un 2026-03-05 11:44 və 2026-09-03 03:13 (cümə axşamı) nüsxələrində həmin
-   günün filmləri yoxdur, 2026-01-07 17:29 (çərşənbə) nüsxəsində sabahkı filmlər tarixləri ilə var. cinemaplus.az
+   günün filmləri yoxdur, 2026-01-07 17:29 (çərşənbə) nüsxəsində sabahkı filmlər tarixləri ilə var; canlı səhifədə də
+   belədir (12.11.2026, cümə axşamı: 12.11 filmləri artıq tarixsiz «SEANSLAR» kartlarıdır). cinemaplus.az
    GitHub-dan 403 qaytarır, cinemastercard.az 200.
 4. «Dünən Vikipediyada ən çox oxunanlar» (13:00; siyahı hazır deyilsə 15:00): az.wikipedia-nın «featured» lentinin
    «mostread» hissəsi, yalnız tarixi dünən olanda. Ana və xüsusi səhifələri lent özü çıxarır. Biz də çıxarırıq:
@@ -28,6 +29,7 @@
    onları «Bu gün tarixdə» xəbəri yazır (ox.WIKI_API + ox.tarix_parse). Doğum tarixi az.wikipedia girişində
    yoxlanır: Wikidata səhv ola bilər (Süleyman Rüstəm: Wikidata 27.11.1906, Vikipediya 12 mart 1906).
    Girişin mətni xəbərə köçürülmür: yalnız ad, peşə (Wikidata təsviri), doğum yeri və tarixlər yazılır.
+   Sağ şəxsin girişində siyasət, müxalifət, məhkəmə və ya hadisə sözləri varsa, yubiley yazılmır.
 
 Şəbəkə: hər sorğu yalnız `fetch` ilə gedir (timeout 15 s), hər xəbərin vaxt pəncərəsində (45 dəqiqə) və `done`-da
 açarı yoxdursa. Sorğudan sonra, nəticəsi nə olursa olsun, xəbərin açarı qayıdır (xəbər yoxdursa worth=False və
@@ -601,13 +603,12 @@ def _lang(word):
 
 
 def _film_info(f):
-    parts = []
-    if f["langs"]:
-        langs = [_lang(x) for x in f["langs"]]
-        parts.append(f"{_join(langs)} {'dilində' if len(langs) == 1 else 'dillərində'}")
-    if f["age"]:
-        parts.append(f["age"])
-    return ", ".join(parts)
+    """Yalnız dil. Yaş həddi yazılmır: «Tezliklə» kartındakı hədd buraxılış günü dəyişə bilir
+    («Dune: 1-ci hissə» 10.11.2026-da 12+, 12.11.2026-da 16+; «Ebenezer» boş, sonra 16+)."""
+    if not f["langs"]:
+        return ""
+    langs = [_lang(x) for x in f["langs"]]
+    return f"{_join(langs)} {'dilində' if len(langs) == 1 else 'dillərində'}"
 
 
 def kino_item(release, films):
@@ -619,7 +620,7 @@ def kino_item(release, films):
     names = [_q(f["title"]) for f in new]
     options = [f"{_day_abl(release)} kinoteatrlarda: {_join(names[:k])}{f' və daha {len(names) - k} film' if k < len(names) else ''}"
                for k in range(len(names), 0, -1)]
-    title = _fit(options + [f"{_day_abl(release)} kinoteatrlarda {len(names)} yeni film"])
+    title = _fit(options + [f"{_day_abl(release)} kinoteatrlarda {len(names)} film nümayiş olunacaq"])
     listed = _join([f"{_q(f['title'])} ({_film_info(f)})" if _film_info(f) else _q(f["title"]) for f in new])
     lead = (f"CineMastercard kinoteatrlarının «Tezliklə» siyahısına görə, {_day_abl(release)} {listed} "
             f"{'filmləri' if len(new) > 1 else 'filmi'} nümayiş olunacaq.")
@@ -697,25 +698,26 @@ def _first(text):
 
 
 def _died_recently(text, day):
-    """Girişin ilk mötərizəsində son bir ildəki ölüm tarixi («– 29 oktyabr 2026») və ya ölüm sözləri ilə bu il."""
-    head = (text or "")[:350]
-    m = re.search(r"\(((?:[^()]|\([^()]*\))*)\)", head)
-    if m:
+    """Girişin mötərizələrində son bir ildəki ölüm tarixi («– 29 oktyabr 2026») və ya ölüm sözləri ilə bu il."""
+    head = (text or "")[:500]
+    for m in re.finditer(r"\(((?:[^()]|\([^()]*\))*)\)", head):  # adın başqa dildə yazılışı da mötərizədə olur
         parts = re.split(r"\s+[-–—]\s*|[–—]|(?<=\d)-(?=\d)", _low(m.group(1)), maxsplit=1)
-        if len(parts) == 2:
-            after = parts[1]
-            dm = _DATE.search(after)
-            if dm:
-                try:
-                    died = datetime.date(int(dm.group(4)), MONTHS.index(dm.group(3)) + 1, int(dm.group(1)))
-                    if day - 365 * DAY <= died <= day + DAY:
-                        return True
-                except ValueError:
-                    pass
-            else:
-                ym = re.search(r"\b(\d{4})\b", after)
-                if ym and int(ym.group(1)) >= day.year - 1:
-                    return True
+        if len(parts) != 2:
+            continue
+        after = parts[1]
+        dm = _DATE.search(after)
+        if dm:
+            try:
+                died = datetime.date(int(dm.group(4)), MONTHS.index(dm.group(3)) + 1, int(dm.group(1)))
+            except ValueError:
+                continue
+            if day - 365 * DAY <= died <= day + DAY:
+                return True
+            continue
+        born = re.search(r"\b(\d{4})\b", parts[0])
+        ym = re.search(r"\b(\d{4})\b", after)
+        if born and ym and int(born.group(1)) <= day.year - 5 and int(ym.group(1)) >= day.year - 1:
+            return True  # «(1952–2026)»; «(2025–2026 mövsümü)» ömür deyil
     low = _low(head)
     return bool(DIED.search(low)) and (str(day.year) in low or str(day.year - 1) in low)
 
@@ -874,10 +876,10 @@ def gun_item(day, rows, today=None):
         shown = [f"{names[i]} ({ox.az_num(top[i]['views'], 0)} baxış)" for i in range(min(3, len(top)))]
         lead = (f"Vikimedia Fondunun məlumatına görə, {ox.day_loc(day)} Azərbaycandilli Vikipediyada çox oxunan məqalələr "
                 f"arasında {_join(shown)} var.")
-    body = [_entry(r) for r in top]
     jump = _jump(top)
     if jump:
-        body.append(jump)
+        lead += " " + jump
+    body = [_entry(r) for r in top]
     item = {"kind": "vikipediya-gun", "key": f"vikipediya-gun-{day.isoformat()}", "topic": "icmal",
             "slot": SLOT["vikipediya"], "list": True, "title": title, "lead": lead, "body": body,
             "credit": WIKI_CREDIT, "link": TOPVIEWS.format(day.isoformat()), "worth": True}
@@ -1066,6 +1068,9 @@ SPARQL_URL = "https://query.wikidata.org/sparql?format=json&query={}"
 YUB_MIN, YUB_CHECK = 50, 5
 POLITICAL = re.compile(r"siyasətçi|siyasi xadim|ictimai-siyasi|dövlət xadimi|dövlət qulluqçusu|diplomat|deputat|nazir|"
                        r"səfir|hakim(?!iyyət)|prokuror|polis|kriminal|qanuni oğru|terror|casus|işgəncə|məmur|bürokrat")
+# Sağ şəxsin (Wikidata-da ölüm tarixi yoxdur) girişində bunlardan biri varsa, yubiley yazılmır (şübhədə yazmırıq).
+SENSITIVE = re.compile(r"müxalif|məhbus|mühacir|sığınacaq|axtarış|dissident|hüquq müdafiəçi|ictimai fəal|siyasi fəal|aktivist|"
+                       r"bloger|partiya|hərəkatı|cəbhəsi|" + CRIME.pattern)
 CITIES = {"bakı", "gəncə", "sumqayıt", "şuşa", "şəki", "naxçıvan", "lənkəran", "quba", "şamaxı", "mingəçevir", "ağdam",
           "tbilisi", "təbriz", "dərbənd", "irəvan", "moskva", "zaqatala", "qazax", "göyçay", "ordubad", "culfa", "füzuli",
           "salyan", "qəbələ", "xankəndi", "ərdəbil", "tiflis"}
@@ -1256,6 +1261,8 @@ def yubiley_day(net, day, report=None):
             report.append((r["name"], r["years"], "az.wikipedia girişində bu doğum tarixi yoxdur"))
         elif _leader(extract) or _family(extract):
             report.append((r["name"], r["years"], "girişdə rəhbərliyin adı keçir"))
+        elif not r.get("dead") and (POLITICAL.search(_low(extract)) or SENSITIVE.search(_low(extract))):
+            report.append((r["name"], r["years"], "sağ şəxsin girişində siyasət, məhkəmə və ya hadisə mövzusu var"))
         else:
             good.append(dict(r, extract=extract))
             report.append((r["name"], r["years"], ""))
