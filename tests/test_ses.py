@@ -126,3 +126,72 @@ class SpokenTextTest(unittest.TestCase):
         have = {"a" * 16: "h", "b" * 16: "h", "c" * 16: "h"}
         born = {"a" * 16: at - 60, "b" * 16: at - 60, "c" * 16: at + 60}
         self.assertEqual(ses.marker_redo(have, born, feed), {"a" * 16}, "yalnız nişanlı və düzəlişdən əvvəlki səs")
+
+
+class SourceTextTest(unittest.TestCase):
+    """Sahib, 2026-11-12: «dinləməni tam düzəlt hər bir saytda»."""
+    BODY = "Bu xəbərin mətni kifayət qədər uzundur və oxucuya hadisə haqqında ətraflı məlumat verir. " * 4
+    PAGE = "<article><p>" + BODY + "</p><p>İkinci abzas: " + BODY + "</p></article>"
+
+    def test_dropped_connection_is_retried_once_but_a_refusal_is_not(self):
+        import urllib.error
+        calls = []
+
+        def flaky(url):
+            calls.append(url)
+            if len(calls) == 1:
+                raise ConnectionResetError("reset")
+            return self.PAGE
+        self.assertIn("İkinci abzas", ses.source_text({"sourceUrl": "https://babek-ih.gov.az/az/news/1"}, {}, flaky, 0))
+        self.assertEqual(len(calls), 2)
+        calls.clear()
+
+        def refused(url):
+            calls.append(url)
+            raise urllib.error.HTTPError(url, 403, "Forbidden", None, None)
+        self.assertEqual(ses.source_text({"sourceUrl": "https://oxu.az/1"}, {}, refused, 0), "")
+        self.assertEqual(calls, ["https://oxu.az/1"], "rədd edən sayt təkrar soruşulmur, başqa yolla da açılmır")
+
+    def test_report_text_comes_from_its_own_feed_when_the_page_is_refused(self):
+        import urllib.error
+        calls = []
+        xml = "<item><link>https://report.az/a/2</link><content:encoded><![CDATA[<p>" + self.BODY + "</p><p>Feed abzası: " + self.BODY + "</p>]]></content:encoded></item>"
+
+        def get(url):
+            calls.append(url)
+            if url.endswith("/rss"):
+                return xml
+            raise urllib.error.HTTPError(url, 403, "Forbidden", None, None)
+        feeds = {}
+        self.assertIn("Feed abzası", ses.source_text({"sourceUrl": "https://report.az/a/2"}, feeds, get, 0))
+        self.assertEqual(ses.source_text({"sourceUrl": "https://report.az/a/9"}, feeds, get, 0), "")
+        self.assertEqual(sum(1 for u in calls if u == "https://report.az/rss"), 1, "lent bir dövrədə bir dəfə alınır")
+
+    def test_non_ascii_address_is_requested_percent_encoded(self):
+        seen = []
+
+        class R:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self, n):
+                return b"ok"
+        orig = ses.urllib.request.urlopen
+        ses.urllib.request.urlopen = lambda req, timeout=0: (seen.append(req.full_url), R())[1]
+        try:
+            self.assertEqual(ses.fetch("https://azvision.az/news/1/prezident–xəbər.html?a=1&b=%20"), "ok")
+        finally:
+            ses.urllib.request.urlopen = orig
+        self.assertEqual(seen, ["https://azvision.az/news/1/prezident%E2%80%93x%C9%99b%C9%99r.html?a=1&b=%20"])
+
+    def test_fixed_sources_audio_from_before_the_fix_is_voiced_again(self):
+        t = ses.REDO_HOSTS["teleqraf.az"]
+        feed = [{"id": "a" * 16, "sourceUrl": "https://teleqraf.az/news/1.html"}, {"id": "b" * 16, "sourceUrl": "https://dashkesen-ih.gov.az/az/news/2"},
+                {"id": "c" * 16, "sourceUrl": "https://apa.az/3"}, {"id": "d" * 16, "sourceUrl": "https://www.report.az/4"}, {"id": "e" * 16, "sourceUrl": "https://ordu.az/5"}]
+        have = {a["id"]: "h" for a in feed}
+        born = {"a" * 16: t - 60, "b" * 16: t - 60, "c" * 16: t - 60, "d" * 16: t - 60, "e" * 16: t + 60}
+        self.assertEqual(ses.host_redo(have, born, feed), {"a" * 16, "b" * 16, "d" * 16})
+        self.assertLess(t, datetime.datetime.now(datetime.timezone.utc).timestamp() + 3600, "gələcək vaxt səsi dönə-dönə yenidən yazdırar")

@@ -78,6 +78,100 @@ class ArticleParagraphs(HTMLParser):
                 break
 
 
+# Ümumi yol (sahib, 2026-11-12: «dinləməni tam düzəlt hər bir saytda»): mətn blokunun sinif adı tanınmayan saytlar (Teleqraf,
+# Reyting, Ordu.az, DSMF, icra hakimiyyətləri, Aia.az …) yalnız başlıqla oxunurdu. Səhifədə ən çox nəsr (cümlə) olan blok tapılır:
+# blokun öz sətirləri (<br> ilə ayrılmış) və birbaşa içindəki abzaslar. Səhifənin öz təsviri (og:description) olan blok önə keçir.
+VOID = frozenset('br img hr meta link input source wbr area base col embed track param'.split())
+INLINE = frozenset('a b strong em i u span font small sup sub mark abbr time label s del ins cite q code big strike nobr'.split())
+SKIP = frozenset('nav aside footer header script style form noscript button select textarea iframe svg figcaption h1 h2 h3 h4 h5 h6 title head'.split())
+SKIP_CLASS = re.compile(r'related|recommend|advert|comment|social|paywall|share|breadcrumb|sidebar|cookie|popup|modal|(?:^|[\s_-])(?:tags?|teq|menu|footer|banner|widget|date|time|tarix|author|views?|counter)(?:$|[\s_-])', re.I)
+PROSE = re.compile(r'[.!?…]["”»’)]?(\s|$)')
+STAMP = re.compile(r'^\s*(\d{1,2}[:.]\d{2}\b|\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\d{1,2}\s+(yanvar|fevral|mart|aprel|may|iyun|iyul|avqust|sentyabr|oktyabr|noyabr|dekabr)\s+(\d{4}\s+)?\d{1,2}:\d{2}\b)', re.I)  # «17:40 Başlıq …»: xəbər lenti sətri, mətn deyil
+META = re.compile(r'^\s*(teqlər|etiketlər|açar sözlər|mənbə|müəllif|foto|oxunub|baxış(lar)?( sayı)?|tarix|bölmə|şriftin ölçüsü)\s*:', re.I)
+
+
+class DenseBlocks(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.root = {'buf': [], 'own': [], 'seq': []}
+        self.stack = [('', False, self.root)]
+        self.found = []  # (nəsr uzunluğu, sətirlər)
+
+    def flush(self, node):
+        text = clean(' '.join(node['buf']))
+        node['buf'] = []
+        if text:
+            node['own'].append(text)
+            node['seq'].append(text)
+
+    def close(self, node):
+        self.flush(node)
+        prose = sum(len(p) for p in node['seq'] if len(p) >= 60 and AZ.search(p) and PROSE.search(p) and not STAMP.search(p))
+        if prose >= 100:
+            self.found.append((prose, node['seq']))
+
+    def handle_starttag(self, tag, attrs):
+        if tag in VOID:
+            if tag == 'br':
+                self.flush(self.stack[-1][2])
+            return
+        attrs = dict(attrs)
+        _, blocked, node = self.stack[-1]
+        blocked = blocked or tag in SKIP or bool(SKIP_CLASS.search((attrs.get('class') or '') + ' ' + (attrs.get('id') or '')))
+        if tag not in INLINE:
+            self.flush(node)
+            node = {'buf': [], 'own': [], 'seq': [], 'up': node}
+        self.stack.append((tag, blocked, node))
+
+    def handle_data(self, data):
+        if not self.stack[-1][1]:
+            self.stack[-1][2]['buf'].append(data)
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, 0, -1):
+            if self.stack[i][0] == tag:
+                gone, self.stack = self.stack[i:], self.stack[:i]
+                for t, _, node in reversed(gone):
+                    if t not in INLINE:
+                        self.close(node)
+                        node['up']['seq'].extend(node['own'])  # valideyn blok yalnız birbaşa abzasları görür
+                break
+
+    def finish(self):
+        for t, _, node in reversed(self.stack[1:]):
+            if t not in INLINE:
+                self.close(node)
+                node['up']['seq'].extend(node['own'])
+        self.close(self.root)
+
+
+def dense_text(raw):
+    """Səhifədə ən çox nəsr olan blokun mətni (sinif adından asılı deyil)."""
+    parser = DenseBlocks()
+    try:
+        parser.feed(raw)
+        parser.finish()
+    except Exception:
+        return ''
+    m = re.search(r'<meta\b[^>]*?(?:property|name)=["\'](?:og:)?description["\'][^>]*?content=["\']([^"\']{40,})', raw, re.I) or \
+        re.search(r'<meta\b[^>]*?content=["\']([^"\']{40,})["\'][^>]*?(?:property|name)=["\'](?:og:)?description["\']', raw, re.I)
+    key = re.sub(r'\W+', '', clean(m.group(1)))[:40].lower() if m else ''
+    # Təsvir başlığın özüdürsə (Naxçıvan TV) mətni göstərmir: «çox oxunan» siyahısındakı başlıq məqalə sayılmasın.
+    head = re.search(r'<title\b[^>]*>(.*?)</title>', raw, re.I | re.S)
+    if key and head and re.sub(r'\W+', '', clean(head.group(1))).lower().startswith(key):
+        key = ''
+    best, top = [], 0
+    for prose, seq in parser.found:
+        hit = bool(key and key in re.sub(r'\W+', '', ' '.join(seq)).lower())
+        if prose < 200 and not hit:  # qısa xəbər (2–3 cümlə) yalnız səhifənin öz təsviri ilə üst-üstə düşəndə
+            continue
+        score = prose + (10 ** 6 if hit else 0)  # təsviri olan blok həmişə öndədir, aralarında ən çox nəsr olan
+        if score > top:
+            best, top = seq, score
+    rows = [row for row in tidy([p for p in dict.fromkeys(best) if not (META.search(p) and len(p) < 200) and not STAMP.search(p)], paragraphs=True) if len(row) >= 30]
+    return sentences(' '.join(rows))
+
+
 def extract_article(raw):
     def nodes(value):
         if isinstance(value, list):
@@ -107,8 +201,29 @@ def extract_article(raw):
     text = sentences(' '.join(rows))
     if len(rows) >= 2 and 200 <= len(text) <= 24000:
         return text
-    text = sentences(clean(' '.join(parser.fragments)))
-    return text if 200 <= len(text) <= 24000 else ''
+    # Əvvəl burada blokun bütün mətni (tarix, baxış sayı, «Google-da izləyin», oxşar xəbərlərin başlıqları ilə birlikdə) götürülürdü:
+    # video səhifəsində səs rəqəm və tarix oxuyurdu (sahib, 2026-11-12). İndi yalnız nəsr bloku; yoxdursa mətn boşdur (xülasə oxunur).
+    text = dense_text(raw)
+    return text if 100 <= len(text) <= 24000 else ''
+
+
+def feed_article(xml, url):
+    """Mənbənin öz RSS lentindəki tam mətn (content:encoded, yandex:full-text): səhifəsi serverimizə verilməyən mənbə (Report) üçün."""
+    def norm(u):
+        return re.sub(r'^https?://(www\.)?', '', html.unescape(re.sub(r'<!\[CDATA\[|\]\]>', '', u or '')).strip()).rstrip('/')
+    want = norm(url)
+    for item in re.split(r'<item\b[^>]*>', xml or '')[1:]:
+        link = re.search(r'<link>(.*?)</link>', item, re.S)
+        if not link or norm(link.group(1)) != want:
+            continue
+        m = re.search(r'<(content:encoded|yandex:full-text|turbo:content)\b[^>]*>(.*?)</\1>', item, re.S)
+        if not m:
+            return ''
+        body = html.unescape(m.group(2)) if '<![CDATA[' not in m.group(2) else re.sub(r'<!\[CDATA\[|\]\]>', '', m.group(2))
+        parts = [clean(p) for p in re.split(r'</p\s*>|<br\s*/?>|</div\s*>', re.sub(r'<(script|style|figure)\b.*?</\1>', ' ', body, flags=re.S | re.I), flags=re.I)]
+        text = sentences(' '.join(row for row in tidy(dict.fromkeys(parts), paragraphs=True) if len(row) >= 30))
+        return text if 100 <= len(text) <= 24000 else ''
+    return ''
 
 
 def update_reader(articles, path, fetcher, limit=24):
