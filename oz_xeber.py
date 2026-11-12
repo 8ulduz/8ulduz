@@ -986,7 +986,7 @@ FAZA2 = (
 
 # Mərhələ 3: yeni növlər (sahib, 2026-11-12: «5 qat genişləndir çeşidliliyi»). Şablon, süni intellektsiz; yalnız dərc hissəsi çağırır.
 FAZA3 = (
-    ("oz_reqem", "Rəqəmlər: hava keyfiyyəti, şahmat, texnologiya və həftənin təqvimi"),
+    ("oz_reqem", "Rəqəmlər: hava keyfiyyəti, şahmat, texnologiya"),
 )
 
 FAZALAR = (

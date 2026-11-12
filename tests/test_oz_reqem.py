@@ -63,7 +63,8 @@ def pages(aq="aq-noyabr.json"):
 
 
 class Fake:
-    """Saxta fetch: ünvan -> bayt; siyahıda olmayan ünvan və Exception dəyəri xəta verir. Çağırışlar calls-dadır."""
+    """Saxta fetch: ünvan -> bayt; siyahıda olmayan ünvan 404 verir (təkrar yoxlanmır), Exception dəyəri özü qalxır.
+    Çağırışlar calls-dadır."""
 
     def __init__(self, table):
         self.table, self.calls = dict(table), []
@@ -72,7 +73,7 @@ class Fake:
         self.calls.append(url)
         value = self.table.get(url)
         if value is None:
-            raise urllib.error.URLError("saxta şəbəkə: ünvan yoxdur")
+            raise urllib.error.HTTPError(url, 404, "saxta şəbəkə: ünvan yoxdur", None, None)
         if isinstance(value, Exception):
             raise value
         return value
@@ -345,7 +346,7 @@ class FideTest(unittest.TestCase):
         for now in (at(2026, 11, 2, 10, 59), at(2026, 11, 2, 13, 0), at(2026, 11, 6, 11, 10), at(2026, 11, 30, 11, 10)):
             fake = Fake({r.FIDE_OPEN: raw("fide-open.html"), r.FIDE_WOMEN: raw("fide-women.html")})
             self.assertEqual([i for i in r.items(ROOT, now, fake) if i["kind"] == "sahmat-reytinq"], [])
-            self.assertEqual(fake.calls, [])
+            self.assertNotIn(r.FIDE_OPEN, fake.calls)
         for done in ({"sahmat-reytinq-2026-11"}, {"sahmat-reytinq-sorgu-2026-11-02"}, {"sahmat-reytinq-xeta-2026-11-02"}):
             fake = Fake(pages())
             self.assertEqual(r.items(ROOT, at(2026, 11, 2, 11, 10), fake, done), [])
@@ -399,7 +400,8 @@ class SpeedTest(unittest.TestCase):
                 ('"currentMonth":1788220800000', '"currentMonth":1785542400000', "cari buraxılışın tarixi"),
                 ("Azerbaijan&#x27;s Mobile", "Armenia&#x27;s Mobile", "Azərbaycanın səhifəsi deyil"),
                 ("var data = ", "var veri = ", "«data» tapılmadı"),
-                ("var display_data = {", "var display_data = [", "obyekt deyil"),
+                ("var display_data = {", "var display_data = [", "«display_data» oxunmadı"),
+                ("var display_data = {", "var display_data = 5; var x = {", "obyekt deyil"),
                 ('"month":"2026-09","prevMonth":"2026-08"}]\n', '"month":"2026-09","prevMonth":"2026-07"}]\n', "ardıcıl deyil")):
             self.assertIn(old, page, old)
             with self.assertRaises(r.Bad) as ctx:
@@ -744,10 +746,21 @@ class ItemsTest(unittest.TestCase):
         utc = r.items(ROOT, datetime.datetime(2026, 11, 3, 4, 40, tzinfo=datetime.timezone.utc), Fake(pages()))
         self.assertEqual(kinds(utc), ["hava-keyfiyyeti"])
 
+    def test_dropped_connection_is_retried_a_few_times_then_the_day_is_closed(self):
+        """Bağlantı qırılanda (oz_gundelik._Net) ünvan ən çox TRIES dəfə yoxlanır; vaxt aşımı və HTTP xətası təkrarlanmır."""
+        fake = Fake({r.AQ_API.format(1): urllib.error.URLError("Connection reset by peer")})
+        lost = r.items(ROOT, at(2026, 11, 12, 8, 40), fake)
+        self.assertEqual(len(fake.calls), og.TRIES)
+        self.assertEqual([(i["key"], i["worth"]) for i in lost], [("hava-keyfiyyeti-xeta-2026-11-12", False)])
+        self.assertIn("URLError", lost[0]["why"])
+        fake = Fake({r.AQ_API.format(1): urllib.error.URLError("Connection reset by peer")})
+        self.assertEqual(r.items(ROOT, at(2026, 11, 12, 8, 50), fake, {i["key"] for i in lost}), [])
+        self.assertEqual(fake.calls, [])
+
     def test_one_request_round_a_day_when_every_key_goes_to_done(self):
         """Canlıda dərc hissəsi qayıdan hər açarı done-a yazır («hamisi»): hər növ gündə bir sorğu turu, uğursuz gündə də."""
         for day, table, most in ((D(2026, 11, 2), pages(), 4), (D(2026, 11, 6), pages(), 5), (D(2026, 11, 13), pages(), 3),
-                                 (D(2026, 11, 14), pages(), 3), (D(2026, 11, 12), pages(), 2), (D(2026, 11, 3), {}, 5),
+                                 (D(2026, 11, 14), pages(), 3), (D(2026, 11, 12), pages(), 2), (D(2026, 11, 3), {}, 4),
                                  (D(2026, 11, 14), {}, 3)):
             fake, done, seen = Fake(table), set(), []
             now = datetime.datetime(day.year, day.month, day.day, 0, 5, tzinfo=r.BAKU)
@@ -802,7 +815,7 @@ class SinaqTest(unittest.TestCase):
     def test_sample_page_survives_a_dead_network(self):
         md = "\n".join(r.sinaq(ROOT, at(2026, 11, 14, 11, 0), Fake({})))
         self.assertIn("## Mənbələrə çıxış (bu sınaqda)", md)
-        self.assertIn("URLError", md)
+        self.assertIn("HTTPError 404", md)
         self.assertNotIn("Traceback", md)
         self.assertNotIn("Sınaq xətası", md)
 
