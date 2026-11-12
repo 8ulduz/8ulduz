@@ -1,0 +1,28 @@
+name: Model sınağı (müvəqqəti)
+
+# Müvəqqəti: GitHub Models iş axınının öz icazəsi ilə açılırmı və Azərbaycan dilində mətni necə yazır.
+# Sayta heç nə yazmır: yalnız oxuyur. Bu budaq birləşdirilmir.
+on:
+  pull_request:
+    paths: ['.github/workflows/model-yoxla.yml', '.github/model_yoxla.py']
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  yoxla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: .github/model_yoxla.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Yoxla
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -u .github/model_yoxla.py
