@@ -124,6 +124,7 @@ QAYDA = {
     "oz_medeniyyet": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 15},
     "oz_idman2": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 9},
     "oz_gundelik": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 14},
+    "oz_dunya": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 0},
     "oz_xeber": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 45},
 }
 QAYDA_ADI = {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 20}
@@ -144,6 +145,7 @@ ONCELIK = {
     "oz_medeniyyet": (2, {"vikipediya-gun": 1, "vikipediya-ay": 1, "yubiley": 1}),
     "oz_idman2": (2, {"f1-yaris": 3, "f1-siralama": 3, "cudo": 3}),
     "oz_gundelik": (3, {"dim-hefte": 2, "asan-muraciet": 2}),
+    "oz_dunya": (2, {}),
     "oz_xeber": (2, {"zelzele": 3, "futbol": 3, "tarix": 1}),   # amb və neft: 2
 }
 
@@ -151,6 +153,7 @@ ONCELIK = {
 BOLME = {"idman": "idman", "iqtisadiyyat": "iqtisadiyyat", "mədəniyyət": "medeniyyet", "təbiət": "cemiyyet",
          "kosmos": "tehsil", "təqvim": "cemiyyet", "icmal": "gundem"}
 BOLME_NOV = {"dim-gun": "tehsil", "dim-hefte": "tehsil", "seyyar-asan": "bolgeler", "asan-muraciet": "cemiyyet",
+             "dunya-elm": "tehsil", "dunya-saglamliq": "heyat", "dunya-tebiet": "dunya", "dunya-texno": "tehsil", "dunya-maraqli": "dunya",   # oz_dunya; dunya-kosmos -> tehsil (mövzudan)
              "polis-icmal": "cemiyyet", "zelzele-region": "dunya", "meteohessas": "heyat", "maqnit-qasirgasi": "heyat",
              "zelzele": "gundem"}   # ölkədəki zəlzələ günün hadisəsidir; amb, neft -> iqtisadiyyat, futbol -> idman, tarix -> cemiyyet (mövzudan)
 BOLME_AD = {"gundem": "Gündəm", "cemiyyet": "Cəmiyyət", "iqtisadiyyat": "İqtisadiyyat", "idman": "İdman",
@@ -442,7 +445,7 @@ def _counted(fetch, counts, name, cap):
 
 
 def modules():
-    names = [n for n, _ in ox.FAZA1 + ox.FAZA2]
+    names = [n for n, _ in ox.FAZA1 + ox.FAZA2 + ox.FAZA3]
     if callable(getattr(ox, "items", None)):
         names.append("oz_xeber")
     return names
