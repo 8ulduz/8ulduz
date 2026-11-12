@@ -185,7 +185,9 @@ class FastCycleTest(unittest.TestCase):
                  "LATEST_FILE": root / "data" / "latest.json", "LINK_HEALTH_FILE": root / ".cache" / "link_health.json", "FIRST_FILE": root / "data" / "first.json", "CACHE_DIR": root / ".cache", "FEED_CACHE": root / ".cache" / "feeds.json",
                  "SLOW_FEED_CACHE": root / ".cache" / "slow.json", "OFFICIAL_CACHE": root / ".cache" / "official.json",
                  "UNDATED_FILE": root / ".cache" / "undated.json", "RECENT_FILE": root / ".cache" / "recent.json", "GNEWS_CACHE": root / ".cache" / "gnews.json",
-                 "GROUPS_FILE": root / ".cache" / "groups.json", "RELABEL_MARK": root / ".cache" / "relabeled"}
+                 "GROUPS_FILE": root / ".cache" / "groups.json", "RELABEL_MARK": root / ".cache" / "relabeled",
+                 # main() hər dövrədə Google News sitemap-ı da yazır: yamaqsız test repodakı əsl sitemap-news.xml-i boşaldırdı
+                 "NEWS_SITEMAP_FILE": root / "sitemap-news.xml"}
         self.patches = [patch.object(updater, key, value) for key, value in names.items()]
         for item in self.patches:
             item.start()

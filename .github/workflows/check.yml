@@ -29,6 +29,14 @@ jobs:
         run: npm ci --prefix .github/kicilt --ignore-scripts --no-audit --no-fund
       - run: node --check assets/content-policy.js && node --check assets/app.js && node --check assets/app.min.js && node --check assets/assistant.js && node --check assets/reader.js && node --check assets/source-stats.js && node --check sw.js
       - run: node --test tests/*.test.cjs
+      # Test yalnız müvəqqəti qovluğa yazmalıdır: 2026-11-12-dək iki test repodakı əsl sitemap-news.xml-i boşaldırdı.
+      - name: Testlər repodakı fayllara toxunmur
+        run: |
+          changed="$(git status --porcelain)"
+          if [ -n "$changed" ]; then
+            echo "$changed" | sed 's/^/::error::Test repodakı faylı dəyişdi: /'
+            exit 1
+          fi
       # Sınıq workflow faylı main-ə düşsə yeniləmə tamamilə dayanır — PR-da tutulsun.
       - name: Workflow fayllarını yoxla (actionlint)
         run: |
