@@ -1,0 +1,89 @@
+# MÜVƏQQƏTİ ölçü işi (birləşdirilmir): yavaş dövrə açarsız və OZ_DERC=1 ilə, müvəqqəti qovluqda. Sayta və repoya heç nə yazmır.
+name: Öz xəbər yavaş dövrə ölçüsü (müvəqqəti)
+on:
+  pull_request:
+    paths: ['.github/workflows/oz-yavas-olcu.yml']
+permissions:
+  contents: read
+jobs:
+  olcu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Yavaş dövrə açarsız və açarla
+        env:
+          UPDATER_ROOT: ${{ runner.temp }}/site
+          LATEST_LANG_FILES: "1"
+          SHARE_PAGES: "1"
+          NEWS_LANG_FILES: "1"
+          SOCIAL_LOOP: "1"
+        run: |
+          mkdir -p "$UPDATER_ROOT"
+          cp -a data "$UPDATER_ROOT/data"
+          if [ -d xeber ]; then cp -a xeber "$UPDATER_ROOT/xeber"; fi
+          for name in sitemap.xml sitemap-news.xml feed.xml robots.txt; do if [ -f "$name" ]; then cp "$name" "$UPDATER_ROOT/"; fi; done
+          ls "$UPDATER_ROOT/xeber" 2>/dev/null | sort > "$RUNNER_TEMP/pages-before.txt" || true
+          run() {
+            local began=$SECONDS code=0
+            timeout -k 5 600 python -u updater.py --slow > "$RUNNER_TEMP/$1.log" 2>&1 || code=$?
+            echo "::notice::$1: çıxış $code, $((SECONDS - began)) saniyə"
+            echo "=== $1: çıxış $code, $((SECONDS - began)) saniyə"
+            grep -n "Öz xəbərlər\|yavaş addım\|Traceback\|Error" "$RUNNER_TEMP/$1.log" | head -20 || true
+            tail -n 14 "$RUNNER_TEMP/$1.log"
+          }
+          began=$SECONDS
+          timeout 58 python -u updater.py --fast > "$RUNNER_TEMP/fast.log" 2>&1 || echo "sürətli dövrə kəsildi"
+          echo "=== sürətli dövrə: $((SECONDS - began)) saniyə"
+          run acarsiz-1
+          run acarsiz-2
+          export OZ_DERC=1
+          run acarli-1
+          run acarli-2
+          run acarli-3
+          echo "=== data/oz"
+          ls -la "$UPDATER_ROOT/data/oz" || true
+          ls "$UPDATER_ROOT/xeber" 2>/dev/null | sort > "$RUNNER_TEMP/pages-after.txt" || true
+          echo "=== yeni səhifələr"
+          comm -13 "$RUNNER_TEMP/pages-before.txt" "$RUNNER_TEMP/pages-after.txt" || true
+          python - <<'PY'
+          import json, os, pathlib
+          root = pathlib.Path(os.environ["UPDATER_ROOT"])
+          def load(p):
+              try:
+                  return json.loads((root / p).read_text(encoding="utf-8"))
+              except Exception as e:
+                  return {"_xeta": repr(e)}
+          st = load("data/oz/derc.json")
+          print("=== derc.json açarları:", sorted(st))
+          for key in ("start", "reqs", "shut", "next"):
+              print(key, "=", json.dumps(st.get(key), ensure_ascii=False)[:600])
+          print("done:", len(st.get("done") or {}), "| queue:", len(st.get("queue") or []), "| out:", len(st.get("out") or []))
+          for o in st.get("out") or []:
+              print("  OUT", o.get("ts"), o.get("topic"), "|", o.get("title"))
+          for q in st.get("queue") or []:
+              print("  QUEUE", q.get("due"), q.get("pri"), q.get("key"), "|", (q.get("item") or {}).get("title"))
+          for b in st.get("blocked") or []:
+              print("  BLOCKED", json.dumps(b, ensure_ascii=False)[:300])
+          for e in st.get("errors") or []:
+              print("  ERROR", json.dumps(e, ensure_ascii=False)[:300])
+          rows = load("data/oz/xeberler.json").get("articles") or []
+          print("=== xeberler.json sətirləri:", len(rows))
+          for r in rows:
+              print("  ROW", json.dumps(r, ensure_ascii=False)[:700])
+          PY
+          echo "=== OZ_DERC=1 ilə sürətli dövrə (nüsxə yoxdur: öz sətir lentə düşməməlidir)"
+          began=$SECONDS
+          timeout 58 python -u updater.py --fast > "$RUNNER_TEMP/fast2.log" 2>&1 || echo "sürətli dövrə kəsildi"
+          echo "sürətli dövrə: $((SECONDS - began)) saniyə"
+          python - <<'PY'
+          import json, os, pathlib
+          root = pathlib.Path(os.environ["UPDATER_ROOT"])
+          doc = json.loads((root / "data/news.json").read_text(encoding="utf-8"))
+          print("news.json:", len(doc["articles"]), "sətir, öz sətir:", sum(1 for a in doc["articles"] if a.get("source") == "8ULDUZ"))
+          PY
+          first="$(comm -13 "$RUNNER_TEMP/pages-before.txt" "$RUNNER_TEMP/pages-after.txt" | head -n 1)"
+          if [ -n "$first" ]; then echo "=== ilk yeni səhifə: $first"; head -c 3000 "$UPDATER_ROOT/xeber/$first/index.html"; fi
