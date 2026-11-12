@@ -8,7 +8,7 @@ natamam və ya köhnə cavabdan xəbər yazılmır: worth=False, səbəbi why-da
 1. «Nazirlər Kabinetinin sənədləri» (nk-sened, 09:30; nk.gov.az/az/senedler/hamisi): DÜNƏN saytda yerləşdirilən qərar və
    sərəncamlar, bir xəbərdə. Səhər yazılır ki, günün siyahısı tam olsun (sənədlər 18:30-dək yerləşdirilir). Siyahıdakı
    tarix yerləşdirmə vaxtıdır, ona görə «yerləşdirilib» yazılır, «qəbul edilib» yox. Adında Prezident keçən sənədin adı
-   yazılmır (sayda qalır); hamısı belədirsə xəbər yoxdur. Sənədin adı mənbədəki kimidir, 300 hərfdən uzunu kəsilir.
+   yazılmır (sayda qalır); hamısı belədirsə xəbər yoxdur. Sənədin adı mənbədəki kimidir, 400 hərfdən uzunu kəsilir.
 2. «Tikinti icazələri» (tikinti-hefte, bazar ertəsi 10:00; tdr.e-tikinti.gov.az API): ötən həftə (bazar ertəsi–bazar)
    Tikintilərin Dövlət Reyestrinə daxil edilən icazələrin sayı, obyekt adı və ərazi üzrə. Say API-nin «count» xanası ilə
    oxunan sətirlərin sayı eyni olanda yazılır. Sifarişçi (fiziki şəxslərin adı) və küçə ünvanı yazılmır: yalnız şəhər,
@@ -54,7 +54,7 @@ NK_SITE = "https://nk.gov.az"
 NK_CREDIT = "Nazirlər Kabineti"
 NK_AT = (9, 30)
 NK_MIN = 10       # siyahıda ən azı bu qədər sənəd olmalıdır (2026-11-12: 38)
-NK_TITLE = 300    # sənədin adı bundan uzundursa kəsilir
+NK_TITLE = 400    # sənədin adı bundan uzundursa kəsilir
 NK_KINDS = {"qerarlar": ("qərar", "Qərarlar"), "serencamlar": ("sərəncam", "Sərəncamlar")}
 
 TIK_API = ("https://tdr.e-tikinti.gov.az/api/search?category=permission&current={page}&pageSize=25"
@@ -99,6 +99,25 @@ _MONTH_NO = {name: i for i, name in enumerate(ox.MONTHS, 1)}
 # Python-un lower()-i böyük «I»-nı «i» edir («BAŞÇISI» -> «başçisi»): ı/i hər iki yazılışla axtarılır.
 _LEADER_RX = re.compile(r"prezident|birinci xan[ıi]m|vitse-prezident|dövlət başç[ıi]s[ıi]|ölkə başç[ıi]s[ıi]|ali baş komandan|"
                         r"(?:ilham|mehriban|heydər)\s+əliyev")
+
+
+_CYR = str.maketrans("аеорсхуАЕОРСХТКМВН", "aeopcxyAEOPCXTKMBH")
+_HAS_LATIN = re.compile(r"[A-Za-zƏəİıÖöÜüĞğŞşÇç]")
+_HAS_CYR = re.compile(r"[Ѐ-ӿ]")
+
+
+def _latin(text):
+    """Latın sözünün içinə düşmüş oxşar kiril hərfi (mənbənin yazı xətası: nk.gov.az-da «haqqınd» + kiril «а») latın hərfi olur.
+    Tam kiril söz dəyişmir."""
+    def fix(m):
+        word = m.group(0)
+        return word.translate(_CYR) if _HAS_LATIN.search(word) and _HAS_CYR.search(word) else word
+    return re.sub(r"[^Wd_]+", fix, text or "")
+
+
+def _txt(markup):
+    """HTML parçası -> təmiz mətn (ox._clean), kiril oxşar hərfləri düzəldilmiş."""
+    return _latin(ox._clean(markup))
 
 
 def _month(word):
@@ -187,7 +206,7 @@ def nk_docs(page):
         word, label = NK_KINDS[m.group(2)]
         head = _NK_HEAD.search(part)
         spans = {k: ox._clean(v) for k, v in _NK_SPAN.findall(part)}
-        title = ox._clean(head.group(1)) if head else ""
+        title = _txt(head.group(1)) if head else ""
         d = _NK_DATE.match(spans.get("date", ""))
         n = _NK_NUM.match(spans.get("num", ""))
         month = _month(d.group(2)) if d else None
@@ -269,11 +288,11 @@ def tik_page(raw):
     for r in doc["data"]:
         if not isinstance(r, dict) or type(r.get("id")) is not int:
             raise ValueError("sətir oxunmadı")
-        name = " ".join(str(r.get("name") or "").split())
+        name = _latin(" ".join(str(r.get("name") or "").split()))
         if not name:
             raise ValueError("obyektin adı boşdur")
         rows.append({"id": r["id"], "status": " ".join(str(r.get("statusName") or "").split()), "name": name,
-                     "address": " ".join(str(r.get("address") or "").split()),
+                     "address": _latin(" ".join(str(r.get("address") or "").split())),
                      "date": datetime.date.fromisoformat(str(r.get("reyestrDate"))[:10])})
     return rows, count
 
@@ -431,7 +450,7 @@ def aak_rows(page):
         raise ValueError("cədvəlin sütunları dəyişib")
     out = []
     for n, tr in enumerate(re.split(r"<tr\b[^>]*>", body.group(1))[1:], 1):
-        cells = [ox._clean(c) for c in _AAK_CELL.findall(tr)]
+        cells = [_txt(c) for c in _AAK_CELL.findall(tr)]
         date = og._dmy(cells[1]) if len(cells) == len(AAK_HEAD) and _AAK_DATE.match(cells[1]) else None
         if not date or cells[0] != str(n) or not (cells[2] and cells[3] and cells[5] and cells[7]):
             raise ValueError(f"cədvəlin {n}-ci sətri oxunmadı")
@@ -510,7 +529,7 @@ def emlak_posts(page):
     m = _EM_BLOCK.search(page)
     out = []
     for inner, href, ident in _EM_POST.findall(m.group(1) if m else ""):
-        title = ox._clean(inner)
+        title = _txt(inner)
         w = _EM_WHEN.match(title)
         when, rest = None, ""
         if w and _month(w.group(2)):
@@ -530,7 +549,7 @@ def emlak_posts(page):
 
 def emlak_news(page):
     """Ana səhifənin «Xəbərlər» bloku -> [{id, href, title, day, month}] (ilsiz tarix: gün və ay)."""
-    return [{"id": int(ident), "href": "/" + html.unescape(href).lstrip("/"), "title": ox._clean(inner), "day": int(d),
+    return [{"id": int(ident), "href": "/" + html.unescape(href).lstrip("/"), "title": _txt(inner), "day": int(d),
              "month": int(mo)} for d, mo, href, ident, inner in _EM_NEWS.findall(page)]
 
 

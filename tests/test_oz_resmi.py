@@ -107,6 +107,9 @@ class FormatTest(unittest.TestCase):
         self.assertEqual([r._month("Noyabr"), r._month("dekabr"), r._month("İyun"), r._month("Noy"), r._month("")], [11, 12, 6, None, None])
         self.assertEqual([r._lower1("İqtisad elmləri"), r._lower1("Kimya"), r._lower1("")], ["iqtisad elmləri", "kimya", ""])
         self.assertEqual(r._cut("bir iki üç", 20), "bir iki üç")
+        self.assertEqual([r._latin("yaradılması haqqındа"), r._latin("Москва şəhəri"), r._latin(""), r._latin(None)],
+                         ["yaradılması haqqında", "Москва şəhəri", "", ""])
+        self.assertEqual(r._txt("<b>Tаrix</b> &amp;  elm"), "Tarix & elm")
         self.assertEqual(r._cut("bir iki, üç dörd", 9), "bir iki…")
         self.assertEqual(r._tally(["b", "a", "b", "ç", "c"]), [("b", 2), ("a", 1), ("c", 1), ("ç", 1)])
         self.assertEqual(r._tally([("x", "b"), ("x", "a"), ("x", "b")]), [(("x", "b"), 2), (("x", "a"), 1)])
@@ -151,6 +154,9 @@ class NkTest(unittest.TestCase):
         self.assertEqual(item["lead"], "Nazirlər Kabinetinin saytında noyabrın 5-də 5 qərar yerləşdirilib. "
                                        "Aşağıda onlardan 4 sənədin adı verilir.")
         self.assertEqual([b.split(":")[0] for b in item["body"]], ["371 nömrəli qərar", "372 nömrəli qərar", "373 nömrəli qərar", "374 nömrəli qərar"])
+        self.assertIn("haqqındа", text("nk-2026-11-12.html"), "mənbədə 373 nömrəli qərarın adı kiril «а» ilə bitir")
+        self.assertTrue(item["body"][2].endswith("Məhdud Məsuliyyətli Cəmiyyətinin yaradılması haqqında"), item["body"][2])
+        self.assertTrue(item["body"][0].endswith("aylıq əməkhaqqı məbləğinin müəyyən edilməsi haqqında"), "400 hərfdən qısa ad kəsilmir")
         self.assertEqual(item["body"][3], "374 nömrəli qərar: Azərbaycan Respublikası Nazirlər Kabinetinin 2024-cü il 1 avqust tarixli 372 "
                                           "nömrəli Qərarı ilə təsdiq edilmiş “Təbii inhisar subyektlərinin Siyahısı”nda dəyişiklik edilməsi haqqında")
         self.assertNotIn("rezident", blob(item))
@@ -252,6 +258,20 @@ class TikTest(unittest.TestCase):
             self.assertNotIn(private, blob(item))
         self.assertEqual((item["topic"], item["slot"], item["link"], item["credit"]), ("gündəlik", "10:00", r.TIK_PAGE, r.TIK_CREDIT))
         self.assertNotIn("Bir həftə əvvəl", r.tik_item(rows, count, W1, W2)["lead"])
+
+    def test_another_real_week(self):
+        rows, count = r.tik_page(raw("tik-2026-10-26-p0.json"))
+        item = r.tik_item(rows, count, D(2026, 10, 26), D(2026, 11, 1))
+        self.assertEqual(item["title"], "Ötən həftə Tikintilərin Dövlət Reyestrinə 25 tikinti icazəsi daxil edilib")
+        self.assertTrue(item["lead"].startswith("Tikintilərin Dövlət Reyestrinin məlumatına görə, 26 oktyabr – 1 noyabr tarixlərində reyestrə 25 "), item["lead"])
+        self.assertEqual(item["body"][:4], [
+            "Yaşayış və qeyri-yaşayış binaları (Bakı şəhəri, Qaradağ rayonu, Lökbatan qəsəbəsi) – 6 icazə",
+            "Yaşayış və qeyri-yaşayış binaları (Bakı şəhəri, Yasamal rayonu) – 5 icazə",
+            "Çoxfunksiyalı qeyri-yaşayış binası (Bakı şəhəri, Binəqədi rayonu) – 4 icazə",
+            "Qeyri-yaşayış (anbar) binaları (Bakı şəhəri, Binəqədi rayonu, M.Ə.Rəsulzadə qəsəbəsi) – 3 icazə"])
+        self.assertEqual(len(item["body"]), 9, "doqquz ad və ərazi: «Digər obyektlər» sətri yoxdur")
+        self.assertEqual(sum(int(re.search(r"– (d+) icazə$", b).group(1)) for b in item["body"]), 25)
+        self.assertNotIn("Filankəs", blob(item))
 
     def test_count_must_confirm_itself(self):
         rows, count = week()
@@ -493,6 +513,16 @@ class EmlakTest(unittest.TestCase):
         self.assertEqual((item["body"], item["link"], item["topic"], item["slot"]), ([], NETICE_URL, "iqtisadiyyat", "17:30"))
         self.assertEqual(r._guard(item), item)
 
+    def test_second_real_result_without_next_dates(self):
+        row = {"id": 10617, "href": "/az/news/view/10617-novbeti-herracda-9-neqliyyat-vasitesi-satilib", "day": 23, "month": 10,
+               "title": "Növbəti hərracda 9 nəqliyyat vasitəsi satılıb"}
+        self.assertIn(row, r.emlak_news(text("emlak-2026-11-12.html")))
+        item = r.netice_item(row, text("emlak-10617.html"), D(2026, 10, 23))
+        self.assertTrue(item["worth"])
+        self.assertEqual(item["title"], "Əmlak Xidmətinin oktyabrın 20-də keçirdiyi hərracda 9 nəqliyyat vasitəsi satılıb")
+        self.assertEqual(item["lead"], "Əmlak Məsələləri Dövlət Xidmətinin məlumatına görə, oktyabrın 20-də keçirilən hərracda 9 nəqliyyat vasitəsi "
+                                       "satılıb.", "mətndə «növbəti hərrac 27 oktyabr» təkdir: cümlə yazılmır")
+
     def test_result_must_confirm_itself(self):
         row, page = netice_row(), text("emlak-10629.html")
         for item, why in ((r.netice_item(dict(row, title="Növbəti hərracda 68 nəqliyyat vasitəsi satılıb"), page, D(2026, 11, 3)), "təsdiqləmir"),
@@ -622,7 +652,7 @@ class ItemsTest(unittest.TestCase):
                 self.assertLessEqual(len(i["title"]), r.TITLE_MAX, i["title"])
                 self.assertFalse(i["title"].endswith("."))
                 self.assertFalse(r._leader(blob(i)), i["key"])
-                self.assertNotRegex(blob(i), r"[А-Яа-яЁё]{2}")
+                self.assertNotRegex(blob(i), r"[Ѐ-ӿ]")
             else:
                 self.assertTrue(i["why"])
 
