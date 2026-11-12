@@ -2258,8 +2258,38 @@ def _related_block(a, pool, now=None):
     lis = "".join(f'<li><a href="../../xeber/{b["id"]}/">{_xml(b.get("title"))}</a></li>' for b in rows)
     return f'<h2>Əlaqəli xəbərlər</h2><ul>{lis}</ul>'
 
-def story_page(a, sizes=None, related=()):
-    """Bir əsas xəbərin axtarış üçün səhifəsi (xeber/<id>/index.html)."""
+_ROW_RX = re.compile(r'<script type="application/json" id="row">(.*?)</script>', re.S)
+_PAGE_LI_RX = re.compile(r'<li><a href="([^"]+)"[^>]*>(.*?)</a>\s*<small>(.*?)</small></li>', re.S)
+
+def story_row_from_page(sid, entry, page):
+    """Yazılmış xeber/<id>/ səhifəsindən xəbərin sətri və og:image (köhnə şablonu yenisi ilə yazmaq üçün; şəbəkə sorğusu yoxdur).
+    4-cü versiyadan sətir səhifənin özündədir (#row); 1–3-cü versiyalarda başlıq, xülasə, vaxt və mənbə siyahısı mətndən oxunur.
+    Oxuna bilməsə (None, "")."""
+    text = lambda s: html.unescape(re.sub(r"<[^>]+>", "", s or "")).strip()
+    image = html.unescape((re.search(r'<meta property="og:image" content="([^"]*)"', page) or ["", ""])[1])
+    if image.endswith("assets/og-default.png"):
+        image = ""
+    m = _ROW_RX.search(page)
+    if m:
+        try:
+            a = json.loads(m.group(1))
+        except ValueError:
+            return None, ""
+        return (a, image) if isinstance(a, dict) and a.get("id") == sid and a.get("title") else (None, "")
+    title = text((re.search(r"<h1>(.*?)</h1>", page, re.S) or ["", ""])[1])
+    iso = (re.search(r'<time datetime="([^"]+)"', page) or ["", ""])[1]
+    body = page.split("<h2>Bu xəbəri yazan mənbələr</h2>", 1)
+    lis = [(html.unescape(u), text(t), text(s)) for u, t, s in _PAGE_LI_RX.findall(body[1].split("</ul>", 1)[0])] if len(body) == 2 else []
+    if not title or not _parse_dt(iso) or not lis:
+        return None, ""
+    summary = text((re.search(r"mənbə</p><p>(.*?)</p>", body[0], re.S) or ["", ""])[1])
+    a = {"id": sid, "title": title, "summary": summary, "source": lis[0][2], "sourceUrl": lis[0][0], "imageUrl": image,
+         "category": entry[2] if len(entry) > 2 else "gundem", "publishedAt": iso, "lang": "az",
+         "alts": [{"title": t, "source": s, "sourceUrl": u} for u, t, s in lis[1:]]}
+    return {k: v for k, v in a.items() if v or k == "alts"}, image
+
+def story_page(a, sizes=None, related=(), image=None):
+    """Bir əsas xəbərin axtarış üçün səhifəsi (xeber/<id>/index.html). image: köhnə səhifə yenidən yazılanda onun öz og:image-i."""
     sid, slug = a["id"], a.get("category") or "gundem"
     label = {s: l for s, l, _d in SECTIONS}.get(slug, "Xəbərlər")
     title = re.sub(r"\s+", " ", str(a.get("title") or "")).strip()
@@ -2273,7 +2303,7 @@ def story_page(a, sizes=None, related=()):
             continue
         seen.add(url)
         lis.append(f'<li><a href="{_xml(url)}" rel="noopener">{_xml(r.get("title") or title)}</a> <small>{_xml(r.get("source"))}</small></li>')
-    image = discover_image(a, sizes or {}) or f"{SITE}assets/og-default.png"
+    image = image or discover_image(a, sizes or {}) or f"{SITE}assets/og-default.png"
     url = f"{SITE}xeber/{sid}/"
     ld = json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "8ulduz", "item": SITE},
@@ -2325,6 +2355,28 @@ def write_story_pages(articles, now=None):
         _write_atomic(d / "index.html", story_page(a, sizes, rows), encoding="utf-8")
         index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem", STORY_VER]
         changed = True
+    # Lentdən çıxmış xəbərin səhifəsi (2026-11-12): yuxarıdakı dövrə yalnız lentdəki xəbəri görür, ona görə 32 saatdan köhnə
+    # ~5 600 səhifə köhnə şablonda qalmışdı (əlaqəli keçidlər yox, 1–4-cü versiyalarda kiçildilməmiş app.js). Belə səhifə öz
+    # içindəki məlumatdan yenidən yazılır: dövrədə qalan STORY_REWRITE payı qədər, hər dövrə siyahının başqa yerindən
+    # (oxunmayan və ya qaydadan keçməyən səhifə növbəni tutmasın). Vaxt, mənbə sayı və og:image dəyişmir.
+    stale = sorted((sid for sid, old in index.items() if (old[3] if len(old) > 3 else 1) < STORY_VER
+                    and now - old[0] <= STORY_KEEP_S and sid not in content_policy._REMOVED_IDS), key=lambda sid: (-index[sid][0], sid))
+    if redo > 0 and stale:
+        at = int(now // 600) * STORY_REWRITE % len(stale)
+        for sid in (stale[at:] + stale[:at])[:STORY_REWRITE * 2]:
+            if redo <= 0:
+                break
+            try:
+                a, image = story_row_from_page(sid, index[sid], (STORY_DIR / sid / "index.html").read_text(encoding="utf-8"))
+            except OSError:
+                continue
+            if (not a or a.get("source") == OWN_SOURCE or removed_source(a) or not content_policy.enforce([a])[0]
+                    or is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))):
+                continue
+            _write_atomic(STORY_DIR / sid / "index.html", story_page(a, None, rows, image), encoding="utf-8")
+            index[sid] = [index[sid][0], index[sid][1], index[sid][2] if len(index[sid]) > 2 else a.get("category") or "gundem", STORY_VER]
+            redo -= 1
+            changed = True
     for sid in list(index):
         if now - index[sid][0] > STORY_KEEP_S or sid in content_policy._REMOVED_IDS:
             for p in (STORY_DIR / sid / "index.html", STORY_DIR / sid):

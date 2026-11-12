@@ -318,3 +318,79 @@ class NewsSitemapTest(unittest.TestCase):
             with patch.object(updater, 'NEWS_SITEMAP_FILE', target):
                 updater.write_news_sitemap(articles, stories)
             self.assertEqual(target.read_text(encoding='utf-8').count('<loc>'), 1000)
+
+
+class OldStoryPagesTest(unittest.TestCase):
+    """2026-11-12: lentdən çıxmış xəbərin səhifəsi köhnə şablonda qalırdı (7 392 səhifədən 5 596-sı): yenidən yazan dövrə yalnız
+    lentdəki xəbəri görürdü. İndi səhifə öz içindəki məlumatdan yeni şablonla yazılır."""
+
+    def story(self, sid, hours=40, **kw):
+        import datetime
+        at = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours)).isoformat()
+        alt = [{'source': n, 'sourceUrl': f'https://{h}/x/{sid}-{i}', 'title': f'Başlıq {i}', 'lang': 'az'} for i, (n, h) in enumerate([('Report', 'report.az'), ('Trend', 'trend.az'), ('Axar.az', 'axar.az')])]
+        return {'id': sid, 'title': 'Zəfər Günü ilə bağlı hərbi yürüşlər olacaq', 'summary': 'Bakının müxtəlif yerlərində hərbi orkestrlər çıxış edəcək.',
+                'category': 'bolgeler', 'source': 'APA', 'sourceUrl': f'https://apa.az/news/{sid}', 'imageUrl': f'https://apa.az/i/{sid}.jpg',
+                'publishedAt': at, 'lang': 'az', 'alts': alt, **kw}
+
+    V1 = ('<!doctype html><html lang="az"><head><title>Köhnə başlıq &amp; xəbər — 8ulduz</title><meta property="og:image" content="https://apa.az/i/kohne.jpg" />'
+          '<script type="module" src="../../assets/app.js"></script></head><body><div id="app"><main class="wrap"><h1>Köhnə başlıq &amp; xəbər</h1>'
+          '<p><time datetime="__ISO__">6 noyabr 2026, 12:09</time> · 2 mənbə</p><p>Köhnə səhifənin xülasəsi buradadır.</p>'
+          '<h2>Bu xəbəri yazan mənbələr</h2><ul><li><a href="https://olke.az/a/1?x=1&amp;y=2" rel="noopener">Köhnə başlıq &amp; xəbər</a> <small>Olke.az</small></li>'
+          '<li><a href="https://sia.az/b/2" rel="noopener">İkinci başlıq</a> <small>Sia.az</small></li></ul><p>son</p></main></div></body></html>')
+
+    def test_pages_of_stories_that_left_the_feed_are_rewritten_from_their_own_data(self):
+        a, b, c, d = '1' * 16, '2' * 16, '3' * 16, '4' * 16
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp) / 'xeber'
+            with patch.object(updater, 'STORY_DIR', root):
+                updater.write_story_pages([self.story(a), self.story(b), self.story(c), self.story(d, hours=1)])
+                idx = updater.json.loads((root / 'index.json').read_text(encoding='utf-8'))
+                # a: 5-ci versiya (sətir səhifədədir, şablon köhnə); b: 1-ci versiya (sətir yoxdur); c: oxunmayan səhifə
+                page_a = (root / a / 'index.html').read_text(encoding='utf-8').replace('<h2>Əlaqəli xəbərlər</h2>', '<h2>KÖHNƏ</h2>').replace('https://apa.az/i/' + a + '.jpg', 'https://trend.az/enli.jpg')
+                (root / a / 'index.html').write_text(page_a, encoding='utf-8')
+                (root / b / 'index.html').write_text(self.V1.replace('__ISO__', self.story(b)['publishedAt']), encoding='utf-8')
+                (root / c / 'index.html').write_text('<html>sınıq</html>', encoding='utf-8')
+                idx[a][3] = 5; idx[b] = idx[b][:3]; idx[c][3] = 2
+                (root / 'index.json').write_text(updater.json.dumps(idx), encoding='utf-8')
+                # a, b, c lentdən çıxıb; yalnız d lentdədir
+                out = updater.write_story_pages([self.story(d, hours=1)])
+                self.assertEqual(out[a], [idx[a][0], idx[a][1], 'bolgeler', updater.STORY_VER], 'vaxt və mənbə sayı dəyişmir')
+                new_a = (root / a / 'index.html').read_text(encoding='utf-8')
+                self.assertNotIn('KÖHNƏ', new_a)
+                self.assertIn(f'href="../../xeber/{d}/"', new_a, 'əlaqəli keçid lentdəki xəbərə')
+                self.assertIn('<meta property="og:image" content="https://trend.az/enli.jpg"', new_a, 'səhifənin öz og:image-i qalır')
+                self.assertIn('https://trend.az/x/' + a + '-1', new_a, 'bütün mənbələr qalır')
+                self.assertEqual(out[b][3], updater.STORY_VER)
+                new_b = (root / b / 'index.html').read_text(encoding='utf-8')
+                self.assertIn('assets/app.min.js', new_b); self.assertNotIn('assets/app.js"', new_b)
+                self.assertIn('<h1>Köhnə başlıq &amp; xəbər</h1>', new_b)
+                self.assertIn('Köhnə səhifənin xülasəsi buradadır.', new_b)
+                self.assertIn('<a href="https://olke.az/a/1?x=1&amp;y=2" rel="noopener">', new_b); self.assertIn('<small>Sia.az</small>', new_b)
+                self.assertIn('content="https://apa.az/i/kohne.jpg"', new_b)
+                row = updater.json.loads(updater._ROW_RX.search(new_b).group(1))
+                self.assertEqual((row['id'], row['source'], row['sourceUrl'], len(row['alts'])), (b, 'Olke.az', 'https://olke.az/a/1?x=1&y=2', 1))
+                self.assertEqual(out[c][3], 2, 'oxunmayan səhifəyə toxunulmur')
+                self.assertEqual((root / c / 'index.html').read_text(encoding='utf-8'), '<html>sınıq</html>')
+                stamp = (root / a / 'index.html').stat().st_mtime_ns
+                updater.write_story_pages([self.story(d, hours=1)])
+                self.assertEqual(stamp, (root / a / 'index.html').stat().st_mtime_ns, 'yenilənmiş səhifə təzədən yazılmır')
+
+    def test_rewrite_budget_is_shared_and_removed_or_rejected_stories_are_left_alone(self):
+        ids = ['%016x' % i for i in range(1, 9)]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp) / 'xeber'
+            with patch.object(updater, 'STORY_DIR', root), patch.object(updater, 'STORY_REWRITE', 3):
+                updater.write_story_pages([self.story(i) for i in ids])
+                idx = updater.json.loads((root / 'index.json').read_text(encoding='utf-8'))
+                for i in ids:
+                    idx[i][3] = 5
+                (root / 'index.json').write_text(updater.json.dumps(idx), encoding='utf-8')
+                with patch.object(updater.content_policy, '_REMOVED_IDS', {ids[0]}):
+                    out = updater.write_story_pages([])
+                    self.assertNotIn(ids[0], out, 'silinmiş xəbərin səhifəsi yenidən yazılmır, götürülür')
+                    self.assertEqual(sum(1 for v in out.values() if v[3] == updater.STORY_VER), 3, 'dövrədə ən çox STORY_REWRITE səhifə')
+                    for _ in range(3):
+                        out = updater.write_story_pages([], now=updater.time.time() + 600 * (_ + 1))
+                    self.assertTrue(all(v[3] == updater.STORY_VER for v in out.values()), 'bir neçə dövrəyə hamısı yenilənir')
+        row, image = updater.story_row_from_page('a' * 16, [1, 2, 'gundem'], '<script type="application/json" id="row">{"id":"' + 'b' * 16 + '","title":"x"}</script>')
+        self.assertIsNone(row, 'başqa xəbərin sətri qəbul edilmir')
