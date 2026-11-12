@@ -855,7 +855,7 @@ def _sinaq(root, now, fetch):
         for label, end in past:
             tape2 = {}
             runs.append((label, _dry(root, end, end.date(), tape2, False, _no_net, net=False),
-                         _dry(root, end, end.date() - old, tape2, True, _no_net, net=False)))
+                         _dry(root, end, end.date() - old, tape2, True, _no_net, net=False), tape2))
     md += ["## 2. Bu gün nə dərc olunardı", "",
            f"Günün əvvəlindən indiyədək ({now:%H:%M}) 30 dəqiqəlik addımlarla {len(_ticks(now))} dövrə. Keçmiş saatlara sorğu "
            f"getmir, ona görə sorğu ilə işləyən modulların xəbəri yalnız son dövrədə ola bilər. Sorğu: {box['n']}, vaxt: "
@@ -865,11 +865,16 @@ def _sinaq(root, now, fetch):
     md += _run_md(f"Tam tavanla (gündə {CEILING})", full)
     md += ["Müqayisə üçün keçmiş tam günlər (yalnız sorğusuz işləyən modullar: futbol, təqvim, səma; sorğu ilə işləyən "
            "modulların xəbərləri bura düşmür, canlıda siyahı bundan uzun olar).", ""]
-    for label, one, many in runs:
+    for label, one, many, _ in runs:
         md += _run_md(f"{label}, ilk həftənin tavanı ilə (gündə {RAMP[0][1]})", one)
         md += _run_md(f"{label}, tam tavanla (gündə {CEILING})", many)
-    rows = full["rows"] or first["rows"]
+    rows, pages, tapes = full["rows"] or first["rows"], dict(first["pages"], **full["pages"]), [tape]
     md += ["## 3. Əsl qapının bu günkü qərarı", ""]
+    if not rows:   # günün əvvəlində bu günün siyahısı boşdur: yoxlama və nümunələr keçmiş günün siyahısındandır
+        label, _, many, tape2 = max(runs, key=lambda r: len(r[2]["rows"]))
+        if many["rows"]:
+            rows, pages, tapes = many["rows"], many["pages"], [tape2]
+            md += [f"Bu gün hələ dərc olunası xəbər yoxdur: yoxlama və nümunələr «{label}» siyahısındandır.", ""]
     clean, dropped = content_policy.enforce(rows)
     if not rows:
         md += ["Yoxlanacaq sətir yoxdur.", ""]
@@ -877,7 +882,7 @@ def _sinaq(root, now, fetch):
         why = ", ".join(f"«{k}»: {v}" for k, v in sorted(dropped.items()))
         md += [f"Yoxlanan sətir: {len(rows)}. Keçən: {len(clean)}. Rədd edilən: {len(rows) - len(clean)}"
                + (f" ({why})." if why else "."), ""]
-    keys = {item_id(i["key"]): i["key"] for found in tape.values() for i in found if isinstance(i.get("key"), str)}
+    keys = {item_id(i["key"]): i["key"] for t in tapes for found in t.values() for i in found if isinstance(i.get("key"), str)}
     pick = []
     for r in rows:   # iki nümunə: mümkünsə başqa-başqa bölmədən
         if len(pick) < 2 and r["category"] not in [p["category"] for p in pick]:
@@ -885,12 +890,12 @@ def _sinaq(root, now, fetch):
     pick += [r for r in rows if r not in pick][:2 - len(pick)]
     md += ["## 4. Nümunə: lentə düşəcək sətirlər", ""]
     if not pick:
-        md += ["Bu saatadək dərc olunası xəbər yoxdur.", ""]
+        md += ["Göstəriləsi xəbər yoxdur.", ""]
     for r in pick:
         md += ["```json", json.dumps(r, ensure_ascii=False, indent=1), "```", ""]
     md += ["## 5. Nümunə: xəbərin səhifəsi", ""]
     for r in pick:
-        text = full["pages"].get(r["id"]) or first["pages"].get(r["id"]) or ""
+        text = pages.get(r["id"]) or ""
         key = str(keys.get(r["id"]) or r["id"]).replace("--", "-")
         md += ["```html", f"<!-- OZ-DERC-SEHIFE-BASLADI {key} -->", text.rstrip("\n"), "<!-- OZ-DERC-SEHIFE-BITDI -->", "```", ""]
     return md
