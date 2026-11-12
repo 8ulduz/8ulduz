@@ -139,10 +139,99 @@ export function extract(html) {
       for (const v of Object.values(n)) if (v && typeof v === "object") stack.push(v);
     }
   }
-  const scope = (html.match(/<article[\s\S]*?<\/article>/i) || [html])[0].replace(/<(script|style|nav|header|footer|aside|form)\b[\s\S]*?<\/\1>/gi, " ");
-  const paras = [...scope.matchAll(/<p\b([^>]*)>([\s\S]*?)<\/p>/gi)].filter(m => !/class=["'][^"']*(title|info|caption|date|share|foot|copyright|author|subscribe|banner)/i.test(m[1])).map(m => clean(m[2]));
-  const text = sentences(tidy([...new Set(paras)], true).filter(t => t.length > 40).join(" "));   // qısa «Oxşar xəbərlər» də tidy-yə çatır (dayanma nöqtəsi)
-  return text.length >= 200 ? text : "";
+  // Sahib, 2026-11-12 («dinləməni tam düzəlt hər bir saytda»): reader_content.py-nin eyni iki addımı — əvvəl məqalə blokunun
+  // abzasları (ArticleParagraphs), tapılmasa səhifədə ən çox nəsr olan blok (DenseBlocks). Hazır səs və anında səs eyni mətni oxuyur.
+  const tokens = tokenize(html);
+  const rows = tidy([...new Set(scopedRows(tokens))], true).filter(t => t.length >= 30);
+  let text = sentences(rows.join(" "));
+  if (rows.length >= 2 && text.length >= 200 && text.length <= 24000) return text;
+  text = denseText(tokens, html);
+  return text.length >= 100 && text.length <= 24000 ? text : "";
+}
+
+// HTML → [növ, teq, atributlar | mətn]: "o" açılış, "c" bağlanış, "t" mətn. script/style məzmunu atılır.
+const ATTR = /\b(class|id|itemprop)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
+export function tokenize(html) {
+  const out = [], re = /<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>|<(\/?)([a-zA-Z][a-zA-Z0-9:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>|([^<]+|<)/g;
+  for (const m of html.matchAll(re)) {
+    if (m[5] !== undefined) { out.push(["t", "", m[5]]); continue; }
+    if (!m[3]) continue;
+    const tag = m[3].toLowerCase();
+    if (m[2]) { out.push(["c", tag, null]); continue; }
+    const a = {};
+    for (const x of m[4].matchAll(ATTR)) a[x[1].toLowerCase()] ??= x[2] ?? x[3] ?? x[4] ?? "";
+    out.push(["o", tag, a]);
+    if (/\/\s*$/.test(m[4])) out.push(["c", tag, null]);
+  }
+  return out;
+}
+
+const VOID_P = new Set("br img hr meta link input source wbr".split(" "));
+const BLOCK_TAGS = new Set("nav aside footer header h1 script style form".split(" "));
+const SCOPE = /(?:article|news|entry|post|detail)[-_ ](?:body|content|text|desc)|fullstory|full-post-article|\btext-one\b|\bzoomtext\b|\bnews-detail\b/i;
+function scopedRows(tokens) {
+  const stack = [], rows = [];
+  let para = null;
+  for (const [kind, tag, a] of tokens) {
+    if (kind === "t") { if (para && stack.length && !stack.at(-1)[2]) para.push(a); continue; }
+    if (kind === "o") {
+      const marker = (a.class || "") + " " + (a.id || ""), parent = stack.at(-1) || ["", false, false];
+      const scoped = parent[1] || tag === "article" || a.itemprop === "articleBody" || a.id === "font_size" || SCOPE.test(marker);
+      const blocked = parent[2] || BLOCK_TAGS.has(tag) || /related|recommend|advert|comment|social|paywall/i.test(marker);
+      if (!VOID_P.has(tag)) stack.push([tag, scoped, blocked]);
+      if (tag === "p" && scoped && !blocked && !/title|info|caption|date|share|foot|copyright|author|subscribe|banner/i.test(a.class || "")) para = [];
+      continue;
+    }
+    if (tag === "p" && para) { const t = clean(para.join(" ")); if (t) rows.push(t); para = null; }
+    for (let i = stack.length - 1; i >= 0; i--) if (stack[i][0] === tag) { stack.length = i; break; }
+  }
+  return rows;
+}
+
+const VOID = new Set("br img hr meta link input source wbr area base col embed track param".split(" "));
+const INLINE = new Set("a b strong em i u span font small sup sub mark abbr time label s del ins cite q code big strike nobr".split(" "));
+const SKIP = new Set("nav aside footer header script style form noscript button select textarea iframe svg figcaption h1 h2 h3 h4 h5 h6 title head".split(" "));
+const SKIP_CLASS = /related|recommend|advert|comment|social|paywall|share|breadcrumb|sidebar|cookie|popup|modal|(?:^|[\s_-])(?:tags?|teq|menu|footer|banner|widget|date|time|tarix|author|views?|counter)(?:$|[\s_-])/i;
+const PROSE = /[.!?…]["”»’)]?(\s|$)/;
+const STAMP = /^\s*(\d{1,2}[:.]\d{2}(?!\d)|\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}(?!\d)|\d{1,2}\s+(yanvar|fevral|mart|aprel|may|iyun|iyul|avqust|sentyabr|oktyabr|noyabr|dekabr)\s+(\d{4}\s+)?\d{1,2}:\d{2}(?!\d))/i;
+const META = /^\s*(teqlər|etiketlər|açar sözlər|mənbə|müəllif|foto|oxunub|baxış(lar)?( sayı)?|tarix|bölmə|şriftin ölçüsü)\s*:/i;
+function denseText(tokens, html) {
+  const root = { buf: [], own: [], seq: [] }, found = [];
+  let stack = [["", false, root]];
+  const flush = n => { const t = clean(n.buf.join(" ")); n.buf = []; if (t) { n.own.push(t); n.seq.push(t); } };
+  const close = n => {
+    flush(n);
+    let prose = 0;
+    for (const p of n.seq) if (p.length >= 60 && AZ.test(p) && PROSE.test(p) && !STAMP.test(p)) prose += p.length;
+    if (prose >= 100) found.push([prose, n.seq]);
+  };
+  const end = gone => { for (let i = gone.length - 1; i >= 0; i--) if (!INLINE.has(gone[i][0])) { close(gone[i][2]); gone[i][2].up.seq.push(...gone[i][2].own); } };
+  for (const [kind, tag, a] of tokens) {
+    if (kind === "t") { if (!stack.at(-1)[1]) stack.at(-1)[2].buf.push(a); continue; }
+    if (kind === "o") {
+      if (VOID.has(tag)) { if (tag === "br") flush(stack.at(-1)[2]); continue; }
+      let [, blocked, node] = stack.at(-1);
+      blocked = blocked || SKIP.has(tag) || SKIP_CLASS.test((a.class || "") + " " + (a.id || ""));
+      if (!INLINE.has(tag)) { flush(node); node = { buf: [], own: [], seq: [], up: node }; }
+      stack.push([tag, blocked, node]);
+      continue;
+    }
+    for (let i = stack.length - 1; i > 0; i--) if (stack[i][0] === tag) { const gone = stack.slice(i); stack = stack.slice(0, i); end(gone); break; }
+  }
+  end(stack.slice(1));
+  close(root);
+  const m = html.match(/<meta\b[^>]*?(?:property|name)=["'](?:og:)?description["'][^>]*?content=["']([^"']{40,})/i) || html.match(/<meta\b[^>]*?content=["']([^"']{40,})["'][^>]*?(?:property|name)=["'](?:og:)?description["']/i);
+  const squash = s => s.replace(/[^\p{L}\p{N}_]+/gu, "").toLowerCase(), head = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  let key = m ? squash(clean(m[1])).slice(0, 40) : "";
+  if (key && head && squash(clean(head[1])).startsWith(key)) key = "";   // təsvir başlığın özüdürsə mətni göstərmir
+  let best = [], top = 0;
+  for (const [prose, seq] of found) {
+    const hit = !!key && squash(seq.join(" ")).includes(key);
+    if (prose < 200 && !hit) continue;   // qısa xəbər yalnız səhifənin öz təsviri ilə üst-üstə düşəndə
+    const score = prose + (hit ? 1e6 : 0);   // təsviri olan blok həmişə öndədir
+    if (score > top) { best = seq; top = score; }
+  }
+  return sentences(tidy([...new Set(best)].filter(p => !(META.test(p) && p.length < 200) && !STAMP.test(p)), true).filter(t => t.length >= 30).join(" "));
 }
 export function cut(text, max = MAX_CHARS) {
   return text.length > max ? text.slice(0, max).replace(/[^.!?…]*$/, "") : text;

@@ -19,7 +19,9 @@ class ReaderContentTest(unittest.TestCase):
         self.assertIn('İkinci abzas',text)
         self.assertNotIn('Reklam',text)
         self.assertEqual(text.count('İkinci abzas'),1)
-        self.assertEqual(extract_article('<p>'+BODY+'</p>'),'')
+        # 2026-11-12: sinifsiz səhifədə də nəsr bloku oxunur (dense_text); menyu və yan panel yenə oxunmur
+        self.assertEqual(extract_article('<p>'+BODY+'</p>'),BODY.strip())
+        self.assertEqual(extract_article('<nav><p>'+BODY+'</p></nav><aside><p>'+BODY+'</p></aside>'),'')
 
     def test_junk_under_the_article_is_not_read(self):
         # Sahib, 2026-11-08: «xəbərin altındakı lazımsız şeyləri də oxuyur».
@@ -67,3 +69,62 @@ class Oxu24Test(unittest.TestCase):
         self.assertIn('saxta profildir', text)
         for junk in ('CƏMİYYƏT', 'Google-da', 'paylaşın', 'Bizə yazın', 'AÇIQLAMA YAYDI'):
             self.assertNotIn(junk, text)
+
+
+class DenseTextTest(unittest.TestCase):
+    """Sahib, 2026-11-12: «dinləməni tam düzəlt hər bir saytda» — mətn blokunun sinif adı tanınmayan saytlar yalnız başlıqla oxunurdu."""
+    P1 = 'Dövlət Sosial Müdafiə Fondu noyabrın 25-də Ucar rayonunda sığortaedənlər üçün təlim keçirəcək. Təlimdə yeni qaydalar izah olunacaq.'
+    P2 = 'Tədbirdə iştirak etmək istəyənlər Fondun qəbul şöbəsinə yaxınlaşa bilərlər. Qeydiyyat noyabrın 24-dək davam edir.'
+    P3 = 'Fonddan bildirilib ki, belə görüşlər digər rayonlarda da keçiriləcək və vətəndaşların sualları yerində cavablandırılacaq.'
+
+    def test_unknown_class_names_are_read_from_the_block_with_most_prose(self):
+        # DSMF, Teleqraf, Reyting, icra hakimiyyətləri: <div class="inner__text"><p>…
+        page = ('<header><p>' + self.P1 + ' menyu.</p></header><div class="tarih">12 NOYABR 2026</div><h1>Başlıq oxunmur</h1>'
+                '<div class="inner__text"><p>' + self.P1 + '</p><p>' + self.P2 + '</p><div class="ads"></div><p>' + self.P3 + '</p>'
+                '<p>Teqlər: DSMF   Ucar   təlim</p></div>'
+                '<div class="widget"><p>' + BODY + '</p></div><div class="related"><p>' + BODY + '</p></div>')
+        text = extract_article(page)
+        self.assertTrue(text.startswith('Dövlət Sosial Müdafiə Fondu'))
+        self.assertTrue(text.endswith('cavablandırılacaq.'))
+        for junk in ('NOYABR 2026', 'Başlıq oxunmur', 'Teqlər', 'menyu', 'səsli oxuma'):
+            self.assertNotIn(junk, text)
+
+    def test_text_separated_by_line_breaks_without_paragraph_tags(self):
+        # Aia.az: <span class="short">mətn<br>mətn</span>
+        page = ('<div class="xeber"><span class="short" style="text-align: justify">' + self.P1 + '<br><br>' + self.P2 + '<br>' + self.P3 + '</span></div>'
+                '<div class="altyazi1">© Copyright 2015. Bütün hüquqlar qorunur.</div>')
+        text = extract_article(page)
+        self.assertIn('yaxınlaşa bilərlər', text)
+        self.assertNotIn('Copyright', text)
+
+    def test_block_matching_the_page_description_beats_a_longer_block(self):
+        # Ordu.az: məqalədən uzun «digər xəbərlər» bloku seçilirdi; səhifənin öz təsviri (og:description) məqaləni göstərir.
+        page = ('<meta property="og:description" content="' + self.P1 + '">'
+                '<div class="other"><p>' + BODY + '</p><p>' + BODY + '</p></div><div class="project_info"><p>' + self.P1 + '</p><p>' + self.P2 + '</p></div>')
+        text = extract_article(page)
+        self.assertTrue(text.startswith('Dövlət Sosial Müdafiə Fondu'))
+        self.assertNotIn('səsli oxuma', text)
+
+    def test_dates_view_counts_and_headline_feeds_are_not_read(self):
+        # Baku TV video səhifəsi, Sportinfo: mətn yoxdur — əvvəl tarix, baxış sayı və digər xəbərlərin başlıqları oxunurdu.
+        feed = ''.join('<li>1%d:40 Premyer Liqanın %d-ci turunda mübahisəli anlar çox olub. Səhv kimdədir?</li>' % (i, i) for i in range(1, 7))
+        self.assertEqual(extract_article('<div class="news-content"><div>12 noyabr 2026 Xəbərlərimizi Google-da izləyin. Abunə ol. 254 baxış.</div><ul>' + feed + '</ul></div>'), '')
+        self.assertEqual(extract_article('<div class="news-content"><ul>' + feed.replace('<li>1', '<li>11 Noyabr 1') + '</ul></div>'), '')
+
+    def test_short_story_is_read_only_when_it_is_the_page_description(self):
+        short = 'Aktyor Natiq Fərzəliyevin səhhətində problem yaranıb. Onun əməliyyat olunduğu və özünü yaxşı hiss etdiyi bildirilib.'
+        self.assertEqual(extract_article('<div class="x"><p>' + short + '</p></div>'), '')
+        self.assertEqual(extract_article('<meta name="description" content="' + short + '"><div class="x"><p>' + short + '</p></div>'), short)
+
+
+class FeedArticleTest(unittest.TestCase):
+    def test_full_text_from_the_source_feed_for_the_matching_link_only(self):
+        from reader_content import feed_article
+        body = '<p>' + DenseTextTest.P1 + '</p><p>' + DenseTextTest.P2 + '</p><p>Xəbər xoşunuza gəldi? Sosial şəbəkələrdə paylaşın</p>'
+        xml = ('<rss><channel><item><title>Başqa</title><link>https://report.az/a/1</link><content:encoded><![CDATA[<p>' + BODY + '</p>]]></content:encoded></item>'
+               '<item><title>Bu</title><link><![CDATA[https://www.report.az/a/2/]]></link><description>qısa</description><content:encoded><![CDATA[' + body + ']]></content:encoded></item></channel></rss>')
+        text = feed_article(xml, 'https://report.az/a/2')
+        self.assertTrue(text.startswith('Dövlət Sosial Müdafiə Fondu') and text.endswith('davam edir.'))
+        self.assertEqual(feed_article(xml, 'https://report.az/a/3'), '')
+        self.assertEqual(feed_article('', 'https://report.az/a/2'), '')
+        self.assertEqual(feed_article('<item><link>https://report.az/a/2</link><description>qısa</description></item>', 'https://report.az/a/2'), '')

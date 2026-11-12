@@ -101,3 +101,42 @@ test("ses-worker /ses: without the Azure key (or when the free limit is used up)
     assert.equal((await w.fetch(ses("u=" + encodeURIComponent("https://apa.az/2"), "https://evil.example/"), { AZURE_KEY: "k" }, env.ctx)).status, 403);
   } finally { env.restore(); }
 });
+
+// Sahib, 2026-11-12: «dinləməni tam düzəlt hər bir saytda» — reader_content.py-nin DenseTextTest sınaqlarının eynisi:
+// hazır səs (ses.py) və anında səs (bu server) eyni mətni oxumalıdır.
+const P1 = "Dövlət Sosial Müdafiə Fondu noyabrın 25-də Ucar rayonunda sığortaedənlər üçün təlim keçirəcək. Təlimdə yeni qaydalar izah olunacaq.";
+const P2 = "Tədbirdə iştirak etmək istəyənlər Fondun qəbul şöbəsinə yaxınlaşa bilərlər. Qeydiyyat noyabrın 24-dək davam edir.";
+const P3 = "Fonddan bildirilib ki, belə görüşlər digər rayonlarda da keçiriləcək və vətəndaşların sualları yerində cavablandırılacaq.";
+
+test("ses-worker: sites with unknown class names are read from the block with most prose (DSMF, Teleqraf, Reyting, Aia.az)", async () => {
+  const { extract } = await load();
+  let t = extract(`<header><p>${P1} menyu.</p></header><div class="tarih">12 NOYABR 2026</div><h1>Başlıq oxunmur</h1>` +
+    `<div class="inner__text"><p>${P1}</p><p>${P2}</p><div class="ads"></div><p>${P3}</p><p>Teqlər: DSMF   Ucar   təlim</p></div>` +
+    `<div class="widget"><p>${para.repeat(5)}</p></div><div class="related"><p>${para.repeat(5)}</p></div>`);
+  assert.ok(t.startsWith("Dövlət Sosial Müdafiə Fondu") && t.endsWith("cavablandırılacaq."), t);
+  for (const junk of ["NOYABR 2026", "Başlıq oxunmur", "Teqlər", "menyu", "ətraflı məlumat"]) assert.ok(!t.includes(junk), junk);
+  t = extract(`<div class="xeber"><span class="short" style="text-align: justify">${P1}<br><br>${P2}<br>${P3}</span></div><div class="altyazi1">© Copyright 2015. Bütün hüquqlar qorunur.</div>`);
+  assert.ok(t.includes("yaxınlaşa bilərlər") && !t.includes("Copyright"), "<br> ilə ayrılmış mətn (Aia.az)");
+});
+
+test("ses-worker: the block matching the page's own description wins; dates, view counts and headline feeds are not read", async () => {
+  const { extract } = await load();
+  const t = extract(`<meta property="og:description" content="${P1}"><div class="other"><p>${para.repeat(5)}</p><p>${para.repeat(6)}</p></div><div class="project_info"><p>${P1}</p><p>${P2}</p></div>`);
+  assert.ok(t.startsWith("Dövlət Sosial Müdafiə Fondu") && !t.includes("ətraflı məlumat"), "Ordu.az: məqalədən uzun «digər xəbərlər» bloku seçilirdi");
+  const feed = [1, 2, 3, 4, 5, 6].map(i => `<li>1${i}:40 Premyer Liqanın ${i}-ci turunda mübahisəli anlar çox olub. Səhv kimdədir?</li>`).join("");
+  assert.equal(extract(`<div class="news-content"><div>12 noyabr 2026 Xəbərlərimizi Google-da izləyin. Abunə ol. 254 baxış.</div><ul>${feed}</ul></div>`), "", "Baku TV video səhifəsi: tarix və baxış sayı oxunmur");
+  assert.equal(extract(`<div class="news-content"><ul>${feed.replaceAll("<li>1", "<li>11 Noyabr 1")}</ul></div>`), "", "Sportinfo: saatlı xəbər lenti mətn deyil");
+  const short = "Aktyor Natiq Fərzəliyevin səhhətində problem yaranıb. Onun əməliyyat olunduğu və özünü yaxşı hiss etdiyi bildirilib.";
+  assert.equal(extract(`<div class="x"><p>${short}</p></div>`), "");
+  assert.equal(extract(`<meta name="description" content="${short}"><div class="x"><p>${short}</p></div>`), short, "qısa xəbər yalnız səhifənin öz təsviridirsə");
+  assert.equal(extract(`<title>${short} - Sayt</title><meta name="description" content="${short}"><div class="x"><p>${short}</p></div>`), "", "təsvir başlığın özüdürsə mətni göstərmir");
+});
+
+test("ses-worker: the tokenizer skips scripts and comments and survives broken markup", async () => {
+  const { tokenize, extract } = await load();
+  const toks = tokenize(`<div class='a b' id=x><!-- <p>şərh</p> --><script>var s = "<p>kod</p>";</script><br/>mətn < 5<p class="t">bir</p></div>`);
+  assert.deepEqual(toks.filter(t => t[0] !== "t").map(t => t[0] + t[1]), ["odiv", "obr", "cbr", "op", "cp", "cdiv"]);
+  assert.deepEqual(toks[0][2], { class: "a b", id: "x" });
+  assert.ok(!toks.some(t => t[0] === "t" && /kod|şərh/.test(t[2])));
+  assert.equal(extract("<div><p>" + P1 + "</p><p>" + P2 + "</div></span></p><<<"), `${P1} ${P2}`);
+});
