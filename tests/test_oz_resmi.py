@@ -270,7 +270,7 @@ class TikTest(unittest.TestCase):
             "Çoxfunksiyalı qeyri-yaşayış binası (Bakı şəhəri, Binəqədi rayonu) – 4 icazə",
             "Qeyri-yaşayış (anbar) binaları (Bakı şəhəri, Binəqədi rayonu, M.Ə.Rəsulzadə qəsəbəsi) – 3 icazə"])
         self.assertEqual(len(item["body"]), 9, "doqquz ad və ərazi: «Digər obyektlər» sətri yoxdur")
-        self.assertEqual(sum(int(re.search(r"– (d+) icazə$", b).group(1)) for b in item["body"]), 25)
+        self.assertEqual(sum(int(re.search(r"– (\d+) icazə$", b).group(1)) for b in item["body"]), 25)
         self.assertNotIn("Filankəs", blob(item))
 
     def test_count_must_confirm_itself(self):

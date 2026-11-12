@@ -112,7 +112,7 @@ def _latin(text):
     def fix(m):
         word = m.group(0)
         return word.translate(_CYR) if _HAS_LATIN.search(word) and _HAS_CYR.search(word) else word
-    return re.sub(r"[^Wd_]+", fix, text or "")
+    return re.sub(r"[^\W\d_]+", fix, text or "")
 
 
 def _txt(markup):
