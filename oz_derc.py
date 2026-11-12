@@ -91,7 +91,7 @@ CLOSES_KEEP = datetime.timedelta(days=9)
 OUT_FULL = datetime.timedelta(days=2)   # bundan köhnə «out» sətrində yalnız id, key, ts qalır (fayl kiçik qalsın)
 BUDGET_S = 60                           # bir dövrənin vaxt büdcəsi: bitəndə qalan modullar növbəti dövrəyə keçir
 SINAQ_SORGU = 20                        # sınağın quru sınaq hissəsinin ən çox sorğusu
-SINAQ_BAZA = 12                         # baza xəbərlərinin pəncərə nümunələri üçün ən çox sorğu
+SINAQ_BAZA = 14                         # baza xəbərlərinin pəncərə nümunələri üçün ən çox sorğu
 SINAQ_S = 35                            # sınaqda keçmiş saatların addımlarına ayrılan vaxt
 
 _clock = time.monotonic

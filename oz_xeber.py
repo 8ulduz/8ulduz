@@ -1304,7 +1304,9 @@ def _owner_guard(item):
 def items(root, now, fetch=None, done=None):
     """now anında (Bakı vaxtı) dərc olunacaq baza xəbərləri: «Bu gün tarixdə», AMB məzənnələri, neft, zəlzələ, Premyer
     Liqa oyununun hesabatı. Sorğu yalnız fetch ilə və yalnız xəbərin pəncərəsində; done: artıq qayıtmış açarlar (onların
-    sorğusu getmir). worth=False olanlar «why» ilə qayıdır. Heç vaxt xəta atmır."""
+    sorğusu getmir). worth=False olanlar «why» ilə qayıdır. Heç vaxt xəta atmır.
+    Gündə sorğu: adi gün 27 (Vikipediya 1, AMB 2, seismology.az siyahısı 24), oyun günü üstəgəl oyun başına 3 (pfl.az),
+    ən pis halda 45; neft sorğusuzdur. Pəncərələr və açarlar yuxarıdakı izahdadır."""
     try:
         now = _aware(now)
         done = set(done or ())
