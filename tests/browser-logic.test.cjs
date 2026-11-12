@@ -2380,6 +2380,10 @@ test('speed red line: the first screen is prerendered from first.json with app.j
   assert.ok((html.match(/class="pcard/g) || []).length <= KEEP.prez && (html.match(/<article class="card/g) || []).length <= KEEP.latest, 'görünən hissə: Zuğulba və son xəbər kartları');
   assert.deepEqual(KEEP, { slides: 2, prez: 4, latest: 2, alts: 2 }, 'telefon ekranına sığan qədər (sürət, 2026-11-05)');
   for (const m of html.matchAll(/data-image-alternatives="\[([^"]*)\]"/g)) assert.ok(m[1].split('&quot;,&quot;').length <= 2, 'hazır nüsxədə ehtiyat şəkil siyahısı 2-yə qədər');
+  // Kəsilmiş siyahı da JSON qalmalıdır (imgFail JSON.parse edir): əvvəl 3+ ünvanlı siyahının son dırnağı itirdi
+  const cut = firstScreen('<img data-image-alternatives="[&quot;https://a/1.jpg&quot;,&quot;https://b/2.jpg&quot;,&quot;https://c/3.jpg&quot;]"><img data-image-alternatives="[&quot;https://a/1.jpg&quot;]"><img data-image-alternatives="[]">');
+  const lists = [...cut.matchAll(/data-image-alternatives="([^"]*)"/g)].map(m => JSON.parse(m[1].replace(/&quot;/g, '"')));
+  assert.deepEqual(lists, [['https://a/1.jpg', 'https://b/2.jpg'], ['https://a/1.jpg'], []], 'kəsilmiş ehtiyat siyahısı düzgün JSON-dur');
   assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('alt="" loading="lazy" fetchpriority="low" decoding="async"'), 'Zuğulba kiçik şəkilləri aşağı prioritetlə: slayder şəkli birinci keçir (fikstürdə şəkil yoxdur, mənbə yoxlanır)');
   assert.ok(html.includes('Neft &amp; qaz'), 'ilk slayd qalır');
   assert.ok(html.includes('<section class="hero">') && html.includes('Son xəbərlər') && html.includes('Zuğulba'), 'slayder, Son xəbərlər, Zuğulba');

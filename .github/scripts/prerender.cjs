@@ -69,7 +69,11 @@ function firstScreen(html, keep = KEEP) {
   out = trim(out, /<article class="pcard[\s\S]*?<\/article>/g, keep.prez);
   const at = out.indexOf('<div class="latest-grid">');
   if (at >= 0) out = out.slice(0, at) + trim(out.slice(at), /<article class="card[\s\S]*?<\/article>/g, keep.latest);
-  if (keep.alts != null) out = out.replace(/data-image-alternatives="\[([^"]*)\]"/g, (_, list) => `data-image-alternatives="[${list.split("&quot;,&quot;").slice(0, keep.alts).join("&quot;,&quot;")}]"`);
+  // Siyahı kəsiləndə son dırnaq da qayıtmalıdır: «["a","b]» JSON deyil, imgFail onu oxuya bilmir və ehtiyat ünvana keçmək əvəzinə şəkli silir.
+  if (keep.alts != null) out = out.replace(/data-image-alternatives="\[([^"]*)\]"/g, (all, list) => {
+    const urls = list.split("&quot;,&quot;");
+    return urls.length <= keep.alts ? all : `data-image-alternatives="[${urls.slice(0, keep.alts).join("&quot;,&quot;")}&quot;]"`;
+  });
   return out;
 }
 
@@ -109,6 +113,7 @@ module.exports = { homeHtml, renderHome, firstScreen, prerender, validate, valid
 
 if (require.main === module) {
   const root = process.argv[2] || process.cwd();
+  process.env.TZ = "Asia/Baku"; // yuxarı zolağın tarixi (app.js today()): runner UTC-dədir, 00:00–04:00 arası hazır nüsxədə dünənki gün yazılırdı
   try {
     const r = prerender(root);
     console.log(`ilk ekran index.html-də: ${r.changed ? "yeniləndi" : "dəyişmədi"}, ${r.view} simvol, fayl ${r.bytes} bayt`);
