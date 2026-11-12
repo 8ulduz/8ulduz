@@ -102,13 +102,12 @@ class FlagTest(Base):
         self.assertEqual(list(self.tmp.iterdir()), [], "fayl yazılmır")
 
     def test_site_calls_the_module_and_only_the_pipeline_sets_the_flag(self):
-        """Sahib 2026-11-12: «Sayta qoşmağa başla». sonra «Bəli, yandır». Çağırış yerindədir, açarı yalnız pipeline.sh qoyur (tests/test_oz_xeber.py::WiredSwitchedOnTest)."""
+        """Sahib 2026-11-12: «Sayta qoşmağa başla», sonra «Bəli, yandır». Çağırış yerindədir, açarı yalnız pipeline.sh qoyur (tests/test_oz_xeber.py::WiredSwitchedOnTest)."""
         up = (ROOT / "updater.py").read_text(encoding="utf-8")
         sh = (ROOT / ".github/scripts/pipeline.sh").read_text(encoding="utf-8")
         self.assertEqual(up.count("oz_derc.cycle("), 1, "bir çağırış: yavaş addım")
         self.assertEqual(sh.count("OZ_DERC"), 1, "açar bir yerdə qoyulur")
-        self.assertIn("
-export OZ_DERC=1 ", sh, "açarı pipeline qoyur")
+        self.assertRegex(sh, r"(?m)^export OZ_DERC=1[ \t]+#", "açarı pipeline qoyur")
         self.assertEqual([l for l in sh.splitlines() if "oz_derc" in l and not l.startswith("CODE_FILES=")], [], "pipeline faylı yalnız köçürür")
 
     def test_tables_cover_every_module(self):
