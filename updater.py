@@ -1716,6 +1716,8 @@ def check_links(now=None):
     state = _read_json(LINK_HEALTH_FILE, {})
     listed = {}
     for a in read_feed():
+        if a.get("source") == OWN_SOURCE:
+            continue  # öz səhifəmiz main yazılışı ilə (10 dəqiqəyədək) yayımlanır: o vaxtadək 404 «ölü link» sayılıb öz sətri gizlətməsin
         for row in [a, *(a.get("alts") or [])]:
             if row.get("sourceUrl"):
                 listed[row["sourceUrl"]] = row.get("publishedAt") or a.get("publishedAt") or ""
@@ -2298,7 +2300,8 @@ def write_story_pages(articles, now=None):
     Siyahını {id: [vaxt, mənbə sayı, bölmə]} qaytarır."""
     now = now or time.time()
     index = {k: v for k, v in read_story_index().items() if isinstance(v, list) and len(v) >= 2}
-    rows = [a for a in articles if story_worthy(a) and not removed_source(a)
+    # Öz xəbərin (mənbə «8ULDUZ») xeber/<id>/ səhifəsini dərc dövrəsi yazıb: ümumi şablon onun üstünə yazmır, siyahıya da salmır.
+    rows = [a for a in articles if story_worthy(a) and a.get("source") != OWN_SOURCE and not removed_source(a)
             and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
     rows, _ = content_policy.enforce(rows)
     try:  # şəkil ölçüsü alınmasa səhifələr əsas şəkillə yazılır
@@ -2580,12 +2583,76 @@ def retire_reader():
         (OUT_DIR / "reader.json").unlink(missing_ok=True)
 
 
+# 8ulduz-un öz xəbərləri (sahib 2026-11-12: «Sayta qoşmağa başla»; mərhələ 2: çağırış və lentə qatılma, açar SÖNDÜRÜLMÜŞ).
+# Açar OZ_DERC=1 mühit dəyişənidir; pipeline.sh onu qoymur. Açarsız aşağıdakı funksiyalar heç nə etmir: dərc modulu import
+# olunmur, fayl oxunmur, yazılan hər fayl əvvəlki ilə bayt-bayt eynidir. Açarla: yavaş dövrə dərc dövrəsini çağırır (sorğu və
+# ağır iş yalnız orada), sürətli dövrə yalnız onun yazdığı data/oz/xeberler.json-u oxuyur (QIRMIZI XƏTT 1: şəbəkə yoxdur) və
+# sətirləri content_policy.enforce-dan ƏVVƏL lentə qatır (QIRMIZI XƏTT 2). Öz sətir lentə olduğu kimi düşür: əvvəlki lentdən
+# yox, hər dövrə öz faylından gəlir (main), ona görə yenidən təsnif edilmir, mənbə və lent limitinə düşmür; qruplaşmır
+# (group_duplicates), linki yoxlanmır (check_links), ümumi xəbər səhifəsi onun səhifəsinin üstünə yazılmır (write_story_pages).
+OWN_SOURCE = "8ULDUZ"
+OWN_FLAG = "OZ_DERC"
+OWN_ROWS_FILE = OUT_DIR / "oz" / "xeberler.json"
+OWN_ROWS_KEEP = datetime.timedelta(days=5)  # lentin ümumi yaş həddi; dərc dövrəsi özü 48 saat saxlayır (dövrə dayansa köhnə sətir lentdə ilişməsin)
+_OWN_ROW_KEYS = ("id", "title", "sourceUrl", "publishedAt", "category")
+
+
+def own_news_on():
+    return os.environ.get(OWN_FLAG) == "1"
+
+
+def update_own_news():
+    """Yavaş addım: öz xəbərlərin dərc dövrəsi. Açar yoxdursa import-dan ƏVVƏL qayıdır: xərci yoxdur, xəta verə bilməz."""
+    if not own_news_on():
+        return None
+    import oz_derc  # tənbəl: açarsız proses bu modulu heç yükləmir (köhnə kod qovluğunda fayl olmaya da bilər)
+    res = oz_derc.cycle(ROOT)
+    print(f"Öz xəbərlər: dərc {len(res.get('published') or [])}, növbədə {res.get('queued', 0)}, saxlanılan {len(res.get('held') or [])}, "
+          f"rədd {len(res.get('blocked') or [])}, xəta {len(res.get('errors') or [])}", flush=True)
+    return res
+
+
+def read_own_rows(now=None):
+    """Öz xəbərlərin lent sətirləri. Yalnız fayl oxunur. Açar yoxdursa, fayl yoxdursa və ya pozulubsa boş siyahı; forması düz
+    olmayan, mənbəyi «8ULDUZ» olmayan, tarixi oxunmayan və ya 5 gündən köhnə sətir götürülmür. Sətir dəyişdirilmir."""
+    if not own_news_on():
+        return []
+    doc = _read_json(OWN_ROWS_FILE, {})
+    rows = doc.get("articles") if isinstance(doc, dict) else None
+    floor = (now or datetime.datetime.now(datetime.timezone.utc)) - OWN_ROWS_KEEP
+    out, seen = [], set()
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict) or r.get("source") != OWN_SOURCE or not all(isinstance(r.get(k), str) and r[k] for k in _OWN_ROW_KEYS):
+            continue
+        dt = _parse_dt(r["publishedAt"])
+        if dt is None or dt < floor or r["sourceUrl"] in seen:
+            continue
+        seen.add(r["sourceUrl"])
+        out.append(r)
+    return out
+
+
+def merge_own_rows(articles, own):
+    """Öz sətirləri lentə tarix sırası ilə qatır (hər biri özündən köhnə ilk sətrin qabağına). Öz sətir yoxdursa lentin özü qayıdır."""
+    if not own:
+        return articles
+    have = {a.get("sourceUrl") for a in articles}
+    rest = sorted((r for r in own if r["sourceUrl"] not in have), key=lambda r: r["publishedAt"])  # ən yenisi sonda: pop() onu verir
+    out = []
+    for a in articles:
+        while rest and rest[-1]["publishedAt"] >= (a.get("publishedAt") or ""):
+            out.append(rest.pop())
+        out.append(a)
+    return out + rest[::-1]
+
+
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = read_feed()
     # SOCIAL_LOOP: rəsmi hesabların yazıları pipeline.sh-in social_loop-unda hər dəqiqə yığılır (--social), burada yox.
     social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
-    steps = [compute_groups, update_markets, resolve_undated, *social, update_video, update_football, update_sports,
+    # update_own_news: yalnız OZ_DERC=1 ilə işləyir (yuxarıda); məzənnədən sonra, çünki təzə data/markets.json-u oxuyur.
+    steps = [compute_groups, update_markets, update_own_news, resolve_undated, *social, update_video, update_football, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
@@ -5074,6 +5141,9 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
     başqa mənbənin uyğun başlığı nüsxəni təsdiqləyirsə həmin qrupa qoşula bilər.
     `same_out` lüğəti verilsə, kartdakı saytın eyni başlıqlı təkrar yazıları ora yazılır (keçid → kartın əsas keçidi).
     """
+    own = [a for a in articles if a.get("source") == OWN_SOURCE]
+    if own:  # öz xəbər qruplaşmır: başqa kartın alt mənbəsi olmur, başqa mənbəni də özünə bağlamır (sətir olduğu kimi qalır)
+        return group_duplicates([a for a in articles if a.get("source") != OWN_SOURCE], same_source_exact, same_out) + own
     remembered = {}
     _SIG_CACHE.clear()
     _PHASE_CACHE.clear()
@@ -6078,6 +6148,7 @@ def main(fast=False):
             print("  ·", name, marks[name], flush=True)
     old = read_feed()  # bölünmüş lent (news.json + dil faylları, write_news) bir siyahıda
     prev_articles = [dict(a) for a in old]
+    old = [a for a in old if a.get("source") != OWN_SOURCE]  # öz sətir əvvəlki lentdən yox, hər dövrə öz faylından gəlir (aşağıda merge_own_rows)
     old = prune_removed_sources(old)
     old = [a for a in old if not is_junk(a.get("sourceUrl", ""))]
     old = [a for a in old if not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
@@ -6337,6 +6408,7 @@ def main(fast=False):
         articles = drop_dead_links(articles, dead_links(len(articles)))
     except Exception as e:  # QIRMIZI XƏTT 1: yoxlama alınmasa xəbər əvvəlki kimi yazılır
         print("  ! ölü link:", type(e).__name__, flush=True)
+    articles = merge_own_rows(articles, read_own_rows())  # öz xəbərlər (yalnız OZ_DERC=1; fayl oxunur): qapıdan əvvəl qatılır, qapıdan onlar da keçir
     articles, dropped = content_policy.enforce(articles)
     stats["articles"], stats["policyDropped"] = len(articles), dropped
     save_sources(source_rows)

@@ -11,8 +11,9 @@ Sahibin qərarı: «2 sini də edək amma 2 dollarlıq ilə». Yəni iki yol var
      xəbər dərc olunmur.
    - Prezident və birinci vitse-prezident adı keçən xəbər özü-özünə dərc olunmur, sahibin təsdiqini gözləyir (needs_owner).
 
-Sayta hələ qoşulmayıb. Sahibin sözü: «hələ sayta tətbiq etmə baxaq sonra».
-- updater.py və pipeline bu faylı çağırmır. tests/test_oz_xeber.py bunu yoxlayır.
+Sayta qoşulub, açarı söndürülüdür. Sahibin sözü: «hələ sayta tətbiq etmə baxaq sonra» (2026-11-08), «Sayta qoşmağa başla» (2026-11-12).
+- updater.py yalnız dərc hissəsini (oz_derc.py) və yalnız OZ_DERC=1 açarı ilə çağırır; pipeline açarı qoymur, faylları yalnız kod
+  qovluğuna köçürür. tests/test_oz_xeber.py (WiredSwitchedOffTest) bunu yoxlayır.
 - Nümunələri `python oz_xeber.py --sinaq` çıxarır. .github/workflows/oz-xeber.yml onu GitHub-da işlədir və nəticəni
   yalnız iş səhifəsində göstərir.
 - Relizlər üçün ANTHROPIC_API_KEY lazımdır. Açarı sahib yaradır və GitHub secret kimi özü əlavə edir.
@@ -961,7 +962,7 @@ def sinaq(root, limit=10, now=None):
 
 
 # Mərhələ 1: saytın öz məlumatından şablon xəbərlər (sahib, 2026-11-10: «Bəli, başla»). Hər modul ayrıca faylda, öz testləri ilə.
-# Sayta qoşulmayıb: updater.py və pipeline bu modulları çağırmır (NotOnTheSiteTest).
+# Bu modulları yalnız dərc hissəsi (oz_derc.py) çağırır, o da açarla; açar söndürülüdür (WiredSwitchedOffTest).
 FAZA1 = (
     ("oz_futbol_az", "Azərbaycan futbolu"),
     ("oz_futbol_dunya", "Dünya futbolu və basketbol"),
@@ -972,8 +973,8 @@ FAZA1 = (
 )
 
 # Mərhələ 2: açarsız açıq mənbələrdən şablon xəbərlər (sahib, 2026-11-10: «Mərhələ 2-ni qur»).
-# Altı modulun hamısı yerindədir (2026-11-12); NotOnTheSiteTest siyahı ilə faylların üst-üstə düşdüyünü yoxlayır.
-# Bunlar da sayta qoşulmayıb.
+# Altı modulun hamısı yerindədir (2026-11-12); WiredSwitchedOffTest siyahı ilə faylların üst-üstə düşdüyünü yoxlayır.
+# Bunları da yalnız dərc hissəsi çağırır.
 FAZA2 = (
     ("oz_hava", "Hava və təbiət"),
     ("oz_yer_kosmos", "Yer və kosmos"),
@@ -1014,7 +1015,7 @@ def faza_sinaq(root, now, fetch):
 def derc_sinaq(root, now, fetch):
     """5-ci bölmə: dərc hissəsinin (oz_derc.py) sınağı: üç kilid, bu günün quru sınağı, nümunə sətir və səhifə.
     Başlıqları iki pillə aşağı salınır ki, bu bölmənin içində qalsın. oz_derc xəbər modulu deyil: FAZA siyahılarında yoxdur."""
-    md = ["## 5. Dərc hissəsi (`oz_derc.py`): söndürülüdür, sayta qoşulmayıb", ""]
+    md = ["## 5. Dərc hissəsi (`oz_derc.py`): sayta qoşulub, açarı söndürülüdür", ""]
     try:
         import oz_derc
         lines = oz_derc.sinaq(root, now, fetch)
@@ -1049,7 +1050,7 @@ def seys_sinaq(u, count=5):
 # Yuxarıdakı beş şablon (tarix_item, amb_item, oil_item, seys_item, pfl_item) dərc hissəsi (oz_derc.py) üçün bir
 # funksiyada: items(root, now, fetch, done). Mərhələ 2 modullarının qaydası ilə: sorğu yalnız xəbərin pəncərəsində və bir
 # dəfə gedir; sorğudan sonra, nəticəsi nə olursa olsun, açar qayıdır (xəbər yoxdursa worth=False və «why» ilə), canlı
-# qayıdan hər açarı done-a yazır. Relizlər (Claude Haiku) burada yoxdur: açarı sahib əlavə etməyib. Sayta qoşulmayıb.
+# qayıdan hər açarı done-a yazır. Relizlər (Claude Haiku) burada yoxdur: açarı sahib əlavə etməyib. Yalnız dərc hissəsi çağırır.
 # 1. «Bu gün tarixdə» (hər gün 07:30; alınmasa ikinci cəhd 08:30, birincinin açarı «…-cehd1»): az.wikipedia, 1 sorğu.
 # 2. AMB-nin rəsmi məzənnələri (iş günləri 09:25, bülleten 09:06–09:20-də çıxır; bülleten hələ yoxdursa ikinci cəhd
 #    10:30): cbar.az, cəhd başına 2 sorğu. Həftə sonu və bayramda (oz_teqvim.qeyri_is_gunu) sorğu yoxdur.

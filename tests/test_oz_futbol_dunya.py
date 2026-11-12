@@ -568,10 +568,12 @@ class SafetyTest(unittest.TestCase):
         self.assertEqual(fd._finish({"title": "Prezident İlham Əliyev stadionda", "lead": "", "body": []}),
                          (None, "mətndə rəhbərliyin adı keçir"))
 
-    def test_not_on_the_site(self):
-        """Sahib 2026-11-10: faza 1 sınaq budağındadır. Sayt bu modulu çağırmır."""
+    def test_not_run_by_the_site(self):
+        """Sahib 2026-11-12: «Sayta qoşmağa başla» (açar söndürülüdür). updater.py bu modulu tanımır (yalnız dərc hissəsi
+        çağırır), pipeline onu yalnız kod qovluğuna köçürür (CODE_FILES), işə salmır."""
         self.assertNotIn("oz_futbol_dunya", (ROOT / "updater.py").read_text(encoding="utf-8"))
-        self.assertNotIn("oz_futbol_dunya", (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8"))
+        sh = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+        self.assertEqual([l for l in sh.splitlines() if "oz_futbol_dunya" in l and not l.startswith("CODE_FILES=")], [])
 
 
 # --- Müstəqil yoxlamada tapılan boşluqlar (2026-11-10) ------------------------------------------------------------
