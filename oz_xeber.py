@@ -957,7 +957,7 @@ def sinaq(root, limit=10, now=None):
         per = cost(total) / done
         md += ["## Xərc", "", f"{done} xəbər: {total[0]} giriş + {total[1]} çıxış tokeni ≈ ${cost(total):.4f}. "
                f"Bir xəbər orta hesabla ${per:.4f}; gündə 45 xəbər olsa ayda ≈ ${per * 45 * 30:.2f}.", ""]
-    return md + faza_sinaq(root, now, u.fetch)
+    return md + faza_sinaq(root, now, u.fetch) + derc_sinaq(root, now, u.fetch)
 
 
 # Mərhələ 1: saytın öz məlumatından şablon xəbərlər (sahib, 2026-11-10: «Bəli, başla»). Hər modul ayrıca faylda, öz testləri ilə.
@@ -1009,6 +1009,18 @@ def faza_sinaq(root, now, fetch):
             md += [("##" + line) if line.startswith("#") else line for line in lines]
             md += [""]
     return md
+
+
+def derc_sinaq(root, now, fetch):
+    """5-ci bölmə: dərc hissəsinin (oz_derc.py) sınağı: üç kilid, bu günün quru sınağı, nümunə sətir və səhifə.
+    Başlıqları iki pillə aşağı salınır ki, bu bölmənin içində qalsın. oz_derc xəbər modulu deyil: FAZA siyahılarında yoxdur."""
+    md = ["## 5. Dərc hissəsi (`oz_derc.py`): söndürülüdür, sayta qoşulmayıb", ""]
+    try:
+        import oz_derc
+        lines = oz_derc.sinaq(root, now, fetch)
+    except Exception as e:
+        return md + [f"> oz_derc xətası: {type(e).__name__}: {e}"[:300], ""]
+    return md + [("##" + line) if line.startswith("#") else line for line in lines] + [""]
 
 
 def seys_sinaq(u, count=5):
