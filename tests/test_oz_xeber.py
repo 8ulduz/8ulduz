@@ -1,9 +1,11 @@
 """8ulduz-un öz xəbərləri (oz_xeber.py, sahib 2026-11-08): şablonlar, fakt qapısı, relizin mətni, Claude çağırışı və sınaq.
 Şəbəkə yoxdur: AMB, pfl.az, rəsmi sayt və Claude saxta cavablarla əvəz olunur."""
 import datetime
+import inspect
 import json
 import os
 import pathlib
+import re
 import tempfile
 import unittest
 from types import SimpleNamespace
@@ -495,19 +497,39 @@ class TarixTest(unittest.TestCase):
         self.assertIsNone(oz.tarix_item(datetime.date(2026, 11, 9), {}))
 
 
-class NotOnTheSiteTest(unittest.TestCase):
-    """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra». Sayta qoşulanda bu test sahibin göstərişi ilə dəyişir."""
-    def test_site_pipeline_does_not_use_it_and_trial_writes_nothing(self):
-        site = (ROOT / "updater.py").read_text(encoding="utf-8") + (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+class WiredSwitchedOffTest(unittest.TestCase):
+    """Sahib 2026-11-08: «hələ sayta tətbiq etmə baxaq sonra»; 2026-11-12: «Sayta qoşmağa başla». Mərhələ 2: dərc hissəsi sayta
+    qoşulub (yavaş dövrədə çağırış, pipeline-ın kod siyahısı, lentə qatılma), amma açar SÖNDÜRÜLÜDÜR. Açarın qoyulması
+    (pipeline.sh-də OZ_DERC=1) mərhələ 3-dür: bu test yalnız sahibin göstərişi ilə dəyişir. Əvvəlki adı: NotOnTheSiteTest."""
+    def test_hook_is_wired_the_switch_is_off_and_trial_writes_nothing(self):
+        up = (ROOT / "updater.py").read_text(encoding="utf-8")
+        sh = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
         modules = sorted(p.stem for p in ROOT.glob("oz_*.py"))
         self.assertIn("oz_futbol_az", modules, "mərhələ 1 modulları yerindədir")
-        for name in modules:
-            self.assertNotIn(name, site, f"{name} sayta qoşulmayıb (sahibin «tətbiq et» deməyini gözləyir)")
+        self.assertIn("oz_derc", modules, "dərc hissəsi yerindədir")
+        # 1. Çağırış: yavaş dövrənin addımı. updater.py öz modullardan yalnız dərc hissəsini tanıyır və onu bayraqdan SONRA import edir.
+        self.assertIn("update_own_news", inspect.getsource(updater.slow_cycle))
+        hook = inspect.getsource(updater.update_own_news)
+        self.assertLess(hook.index("own_news_on()"), hook.index("import oz_derc"), "bayraq import-dan əvvəl yoxlanır")
+        self.assertEqual(sorted(set(re.findall(r"\boz_[a-z0-9_]+", up))), ["oz_derc"], "updater.py başqa öz modulu çağırmır")
+        self.assertEqual(re.findall(r"^(?:import|from)[ \t]+oz_\w+", up, re.M), [], "modul səviyyəsində import yoxdur: açarsız proses onu yükləmir")
+        self.assertEqual(up.count("import oz_derc"), 1)
+        # 2. Açar söndürülüdür: nə pipeline.sh, nə də hər hansı iş axını OZ_DERC qoyur.
+        self.assertNotIn("OZ_DERC", sh, "pipeline.sh açarı qoymur (mərhələ 3: yalnız sahibin sözü ilə)")
+        for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+            self.assertNotIn("OZ_DERC", wf.read_text(encoding="utf-8"), wf.name)
+        # 3. Hər oz_*.py pipeline-ın kod siyahısındadır (adlar hərfi yazılır, glob deyil), pipeline-da başqa heç yerdə adı keçmir.
+        lines = [l for l in sh.splitlines() if re.search(r"\boz_\w+\.py\b", l)]
+        self.assertTrue(lines and all(l.startswith("CODE_FILES=") for l in lines), lines)
+        self.assertEqual(sorted(re.findall(r"\b(oz_\w+)\.py\b", " ".join(lines))), modules, "CODE_FILES bütün oz_*.py fayllarını sayır, hər birini bir dəfə")
+        self.assertEqual([l for l in sh.splitlines() if "oz_" in l], lines, "modul adı yalnız kod siyahısındadır: pipeline onları işə salmır")
+        base = next(l for l in sh.splitlines() if l.startswith("CODE_FILES="))
+        for name in ("updater.py", "reader_content.py", "content_policy.py", "assets/content-policy.js", ".github/scripts/check_outputs.py"):
+            self.assertIn(name, base, "əvvəlki kod faylları siyahıda qalır")
         # Mərhələ 1 və 2-nin on iki modulu: hər fayl siyahıdadır, siyahıdakı hər modulun faylı var.
         listed = [n for n, _ in oz.FAZA1 + oz.FAZA2]
         self.assertEqual(len(oz.FAZA2), 6, "mərhələ 2-nin altı modulu")
-        # oz_derc xəbər modulu deyil (dərc hissəsidir): siyahıda yoxdur, amma yuxarıdakı «sayta qoşulmayıb» yoxlamasındadır.
-        self.assertIn("oz_derc", modules, "dərc hissəsi də sayta qoşulmayıb")
+        # oz_derc xəbər modulu deyil (dərc hissəsidir): modul siyahısında yoxdur.
         self.assertEqual(sorted(listed), sorted(m for m in modules if m not in ("oz_xeber", "oz_derc")), "sınaq bütün modulları göstərir")
         self.assertEqual([n for _, _, mods in oz.FAZALAR for n, _ in mods], listed, "hər mərhələ sınaqda öz bölməsindədir")
         mod_wf = (ROOT / ".github" / "workflows" / "oz-modul.yml").read_text(encoding="utf-8")

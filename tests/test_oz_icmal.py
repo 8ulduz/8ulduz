@@ -627,10 +627,13 @@ class ItemsAndSinaqTest(unittest.TestCase):
                                    r"www\.openligadb\.de|en\.wikipedia\.org)", md), "yalnız mənbə keçidləri")
 
 
-class NotOnTheSiteTest(unittest.TestCase):
-    def test_site_pipeline_does_not_use_it(self):
+class NotCalledByTheSiteTest(unittest.TestCase):
+    """Sahib 2026-11-12: «Sayta qoşmağa başla» (açar söndürülüdür). updater.py bu faylı tanımır (yalnız dərc hissəsi çağırır),
+    pipeline onu yalnız kod qovluğuna köçürür (CODE_FILES), işə salmır. Əvvəlki adı: NotOnTheSiteTest."""
+    def test_site_pipeline_does_not_run_it(self):
         self.assertNotIn("oz_icmal", (ROOT / "updater.py").read_text(encoding="utf-8"))
-        self.assertNotIn("oz_icmal", (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8"))
+        sh = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+        self.assertEqual([l for l in sh.splitlines() if "oz_icmal" in l and not l.startswith("CODE_FILES=")], [])
 
 
 if __name__ == "__main__":

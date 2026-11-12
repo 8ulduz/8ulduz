@@ -1054,9 +1054,12 @@ class ContractTest(unittest.TestCase):
             self.assertEqual(fa.main(["--sinaq", "--root", str(FIX), "--now", "2026-11-10T09:00+04:00"]), 0)
         self.assertIn("## Azərbaycan futbolu: öz xəbərlər (10.11.2026 09:00, Bakı vaxtı)", out.getvalue())
 
-    def test_not_wired_to_the_site(self):
-        for path in (ROOT / "updater.py", ROOT / ".github" / "scripts" / "pipeline.sh"):
-            self.assertNotIn("oz_futbol_az", path.read_text(encoding="utf-8"))
+    def test_not_run_by_the_site(self):
+        """Sahib 2026-11-12: «Sayta qoşmağa başla» (açar söndürülüdür). updater.py bu faylı tanımır (yalnız dərc hissəsi
+        çağırır), pipeline onu yalnız kod qovluğuna köçürür (CODE_FILES), işə salmır."""
+        self.assertNotIn("oz_futbol_az", (ROOT / "updater.py").read_text(encoding="utf-8"))
+        sh = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
+        self.assertEqual([l for l in sh.splitlines() if "oz_futbol_az" in l and not l.startswith("CODE_FILES=")], [])
         self.assertFalse(re.search(r"data/football\.json", (ROOT / "oz_futbol_az.py").read_text(encoding="utf-8").split('"""', 2)[2]))
 
 

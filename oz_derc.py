@@ -1,19 +1,24 @@
-"""8ulduz-un öz xəbərlərinin dərc hissəsi (sahib, 2026-11-12: «Dərc hissəsini hazırla»). Sayta QOŞULMAYIB və söndürülüdür.
+"""8ulduz-un öz xəbərlərinin dərc hissəsi (sahib, 2026-11-12: «Dərc hissəsini hazırla», sonra «Sayta qoşmağa başla»).
+Sayta QOŞULUB, amma açarı SÖNDÜRÜLÜDÜR: çağırış və lentə qatılma yerindədir, bayraq qoyulmayıb, ona görə heç nə dərc olunmur.
 
 On iki şablon modulu (oz_xeber.FAZA1 + FAZA2) və oz_xeber.items-in baza xəbərləri («Bu gün tarixdə», AMB məzənnələri,
 neft, zəlzələ, Premyer Liqa oyununun hesabatı) xəbər qurur; bu fayl onları lent sətrinə və statik səhifəyə çevirir:
 növbə, gündəlik və saatlıq hədlər, mövzu hədləri, vaciblik sırası və məzmun qapısı ilə.
 
-Üç kilid (üçü də açılmayınca heç nə dərc olunmur):
-1. Çağırış: updater.py və pipeline bu faylı çağırmır (tests/test_oz_xeber.py::NotOnTheSiteTest bunu yoxlayır).
-2. Bayraq: OZ_DERC=1 mühit dəyişəni. Onsuz cycle() dərhal qayıdır: modul çağırılmır, sorğu getmir, fayl yazılmır.
-3. Məzmun qapısı (qırmızı xətt 2): hər sətir content_policy.violation-dan keçir. «8ULDUZ» assets/content-policy.js-in
-   azSources siyahısında yoxdur, ona görə bu gün hər sətir «icazəli siyahıda deyil» səbəbi ilə rədd edilir. Üstəlik:
-   ox.needs_owner (başlıq + giriş + mətn), updater.is_negative_about_leadership, mənbə keçidi üçün content_policy.safe_url.
+Üç kilid (üçü də açılmayınca heç nə dərc olunmur). 2026-11-12-dən vəziyyət: 1-ci və 3-cü açıqdır, 2-ci BAĞLIDIR.
+1. Çağırış (AÇIQ): updater.slow_cycle-ın update_own_news addımı cycle(ROOT)-u çağırır, pipeline.sh bu faylı və modulları kod
+   qovluğuna köçürür (CODE_FILES). Addım bayrağı import-dan ƏVVƏL yoxlayır: bayraqsız bu fayl heç yüklənmir.
+2. Bayraq (BAĞLI): OZ_DERC=1 mühit dəyişəni; pipeline.sh onu qoymur (tests/test_oz_xeber.py::WiredSwitchedOffTest yoxlayır,
+   yalnız sahibin sözü ilə dəyişir). Onsuz cycle() dərhal qayıdır: modul çağırılmır, sorğu getmir, fayl yazılmır; updater.py
+   də sətir faylını oxumur.
+3. Məzmun qapısı (qırmızı xətt 2; mənbə AÇIQ, qapı həmişə işləyir): «8ULDUZ» assets/content-policy.js-in azSources
+   siyahısındadır (yalnız 8ulduz.az ünvanı ilə). Hər sətir yenə content_policy.violation-dan keçir, başqa sayta aparan və ya
+   sahibin çıxardığı sətir rədd edilir. Üstəlik: ox.needs_owner (başlıq + giriş + mətn),
+   updater.is_negative_about_leadership, mənbə keçidi üçün content_policy.safe_url.
 
 Bir dövrə, cycle(root): vəziyyət faylı -> modullardan xəbərlər -> növbə -> seçim -> qapı -> səhifə, sətir faylı, vəziyyət.
 - data/oz/derc.json: vəziyyət (start, done, queue, out, blocked, errors, closes; üstəlik reqs, shut, next).
-- data/oz/xeberler.json: son 48 saatın öz sətirləri, təzədən köhnəyə. Lent birləşməsi sonra bunu oxuyacaq.
+- data/oz/xeberler.json: son 48 saatın öz sətirləri, təzədən köhnəyə. Lent birləşməsi (updater.read_own_rows) bunu oxuyur.
 - xeber/<id>/index.html: xəbərin öz səhifəsi, 30 gün. Tam mətn yalnız buradadır: sətirdə 220 hərflik xülasə var
   (qırmızı xətt 1: news.json böyüməsin). Yalnız «out» siyahısındakı səhifələr silinir.
 
@@ -43,14 +48,15 @@ oz_bazar üçün nüsxələr: hər dövrədə data/markets.json oxunur; ABŞ sea
 götürülmüş son nüsxə və şənbə 10:00-dan sonrakı nüsxə (neft, qızıl, gümüş, bitkoin sətirləri) vəziyyətin «closes»
 hissəsində 9 gün saxlanır və oz_bazar.items(history=...) kimi ötürülür.
 
-«Tətbiq et» üçün lazım olanlar (burada YALNIZ təsvir olunur, heç biri edilməyib):
-1. assets/content-policy.js: azSources-ə «8ULDUZ»: ["8ulduz.az"] əlavə olunur (3-cü kilid).
-2. updater.slow_cycle: bir addım `oz_derc.cycle(ROOT)` çağırır; pipeline.sh: `export OZ_DERC=1` (1-ci və 2-ci kilid).
+Sayta qoşulma (mərhələ 2, 2026-11-12): nə edilib, nə qalıb.
+1. EDİLİB. assets/content-policy.js: azSources-də «8ULDUZ»: ["8ulduz.az"] (3-cü kilid).
+2. EDİLİB. updater.slow_cycle: update_own_news addımı `oz_derc.cycle(ROOT)` çağırır (1-ci kilid), yalnız bayraqla.
    Yavaş dövrə ən azı 30 dəqiqədən bir işləməlidir: mərhələ 2 modullarının sorğu pəncərəsi 30–45 dəqiqədir.
-3. updater.main: data/oz/xeberler.json content_policy.enforce-dan ƏVVƏL xəbər siyahısına qatılır (fayl oxunur, sorğu
-   yoxdur). write_sitemap öz səhifələri də yazır. write_story_pages mənbəyi «8ULDUZ» olan sətri buraxmalıdır: onun
-   xeber/<id>/ səhifəsini bu fayl yazıb, ümumi şablon üstündən yazmasın.
-4. tests/test_oz_xeber.py::NotOnTheSiteTest yalnız sahibin sözü ilə dəyişir.
+3. EDİLİB. updater.main: data/oz/xeberler.json content_policy.enforce-dan ƏVVƏL xəbər siyahısına qatılır (yalnız bayraqla;
+   fayl oxunur, sorğu yoxdur). Öz sətir yenidən təsnif edilmir, qruplaşmır, linki yoxlanmır; write_story_pages mənbəyi
+   «8ULDUZ» olan sətri buraxır: onun xeber/<id>/ səhifəsini bu fayl yazıb, ümumi şablon üstündən yazmır.
+4. QALIB (mərhələ 3, yalnız sahibin sözü ilə): pipeline.sh-də `export OZ_DERC=1` (2-ci kilid) və onu qoruyan test.
+5. QALIB (edilməyib): write_sitemap və write_news_sitemap öz səhifələri yazmır (yalnız ümumi xəbər səhifələrinin siyahısı).
 
 Sınaq: python oz_derc.py --sinaq --root DIR [--now 2026-11-12T09:00+04:00]
 """
@@ -820,19 +826,21 @@ def _run_md(title, run):
 
 def _sinaq(root, now, fetch):
     here = pathlib.Path(__file__).resolve().parent
-    hook = ""
-    for p in (here / "updater.py", here / ".github" / "scripts" / "pipeline.sh"):
+    code = {}
+    for name, p in (("updater", here / "updater.py"), ("pipeline", here / ".github" / "scripts" / "pipeline.sh")):
         try:
-            hook += p.read_text(encoding="utf-8")
+            code[name] = p.read_text(encoding="utf-8")
         except OSError:
-            pass
-    wired, flag = "oz_derc" in hook, str(os.environ.get(FLAG) or "") == "1"
+            code[name] = ""
+    # Çağırış: updater.py-ın yavaş addımı; bayraq: saytın pipeline-ı onu qoyurmu (bu prosesin öz mühiti də sayılır).
+    wired = "oz_derc.cycle(" in code["updater"]
+    flag = bool(re.search(rf"^[ \t]*(?:export[ \t]+)?{FLAG}=1\b", code["pipeline"], re.M)) or str(os.environ.get(FLAG) or "") == "1"
     listed = ox.SOURCE in content_policy.AZ_SOURCES
     md = ["# Dərc hissəsi (oz_derc.py): sınaq", "",
           f"{now:%d.%m.%Y %H:%M} (Bakı vaxtı). Sayta və repoya heç nə yazılmır: sınaq müvəqqəti qovluqda işləyir.", "",
           "## 1. Üç kilid", "",
-          "- Çağırış: updater.py və pipeline.sh bu faylı " + ("çağırır. **AÇIQDIR.**" if wired else "çağırmır. Bağlıdır."),
-          f"- Bayraq: `{FLAG}=1` mühit dəyişəni " + ("var. **AÇIQDIR.**" if flag else "yoxdur. Bağlıdır."),
+          "- Çağırış: updater.py-ın yavaş dövrəsi bu faylı " + ("çağırır (yalnız bayraqla). **AÇIQDIR.**" if wired else "çağırmır. Bağlıdır."),
+          f"- Bayraq: pipeline.sh `{FLAG}=1` mühit dəyişənini " + ("qoyur. **AÇIQDIR.**" if flag else "qoymur. Bağlıdır."),
           f"- Məzmun qapısı: «{ox.SOURCE}» icazəli mənbələr siyahısında (assets/content-policy.js) "
           + ("var. **AÇIQDIR.**" if listed else "yoxdur. Bağlıdır."), "",
           "Üçü də açılmayınca heç nə dərc olunmur. Aşağıdakı siyahılar «üçü də açıq olsaydı» sınağıdır.", ""]

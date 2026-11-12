@@ -101,11 +101,13 @@ class FlagTest(Base):
         self.assertEqual(mod.calls, [], "modul çağırılmır")
         self.assertEqual(list(self.tmp.iterdir()), [], "fayl yazılmır")
 
-    def test_site_code_does_not_mention_the_module(self):
-        for rel in ("updater.py", ".github/scripts/pipeline.sh"):
-            text = (ROOT / rel).read_text(encoding="utf-8")
-            self.assertNotIn("oz_derc", text, rel)
-            self.assertNotIn("OZ_DERC", text, rel)
+    def test_site_calls_the_module_but_does_not_set_the_flag(self):
+        """Sahib 2026-11-12: «Sayta qoşmağa başla». Çağırış yerindədir, açar söndürülüdür (tests/test_oz_xeber.py::WiredSwitchedOffTest)."""
+        up = (ROOT / "updater.py").read_text(encoding="utf-8")
+        sh = (ROOT / ".github/scripts/pipeline.sh").read_text(encoding="utf-8")
+        self.assertEqual(up.count("oz_derc.cycle("), 1, "bir çağırış: yavaş addım")
+        self.assertNotIn("OZ_DERC", sh, "pipeline açarı qoymur")
+        self.assertEqual([l for l in sh.splitlines() if "oz_derc" in l and not l.startswith("CODE_FILES=")], [], "pipeline faylı yalnız köçürür")
 
     def test_tables_cover_every_module(self):
         names = [n for n, _ in ox.FAZA1 + ox.FAZA2]
@@ -348,8 +350,14 @@ class GateTest(Base):
     registered = False
 
     def test_unregistered_source_blocks_everything(self):
-        self.assertNotIn(ox.SOURCE, content_policy.AZ_SOURCES, "«8ULDUZ» icazəli siyahıda deyil: üçüncü kilid bağlıdır")
-        res = self.run_cycle(at(10), [("f2", Mod([xeber("g1"), xeber("g2", "iqtisadiyyat")]), HAMISI)])
+        # 2026-11-12-dən «8ULDUZ» icazəli siyahıdadır (yalnız öz ünvanı ilə). Siyahıdan çıxarılsa qapı yenə hər sətri rədd edir.
+        self.assertEqual(content_policy.AZ_SOURCES.get(ox.SOURCE), ["8ulduz.az"])
+        with patch.dict(content_policy.AZ_SOURCES):
+            del content_policy.AZ_SOURCES[ox.SOURCE]
+            res = self.run_cycle(at(10), [("f2", Mod([xeber("g1"), xeber("g2", "iqtisadiyyat")]), HAMISI)])
+            with d.registered():
+                self.assertIn(ox.SOURCE, content_policy.AZ_SOURCES)
+            self.assertNotIn(ox.SOURCE, content_policy.AZ_SOURCES, "sınaq qeydiyyatı olmayan mənbəni siyahıda saxlamır")
         self.assertEqual(res["published"], [])
         self.assertEqual([b["why"] for b in res["blocked"]], ["icazəli siyahıda deyil"] * 2)
         self.assertFalse((self.tmp / "xeber").exists())
@@ -359,7 +367,7 @@ class GateTest(Base):
     def test_registered_source_passes_and_writes_page_and_rows(self):
         with d.registered():
             res = self.run_cycle(at(10), [("f2", Mod([xeber("g1"), xeber("g2", "iqtisadiyyat")]), HAMISI)])
-        self.assertNotIn(ox.SOURCE, content_policy.AZ_SOURCES, "sınaq qeydiyyatı geri götürülür")
+        self.assertEqual(content_policy.AZ_SOURCES.get(ox.SOURCE), ["8ulduz.az"], "sınaq qeydiyyatı siyahını əvvəlki halına qaytarır")
         self.assertEqual(keys(res), ["g1", "g2"])
         ids = [d.item_id("g1"), d.item_id("g2")]
         for i in ids:
@@ -394,7 +402,10 @@ class GateTest(Base):
             self.assertIsNotNone(d.gate(bad, d.row(bad, at(10))))
             good = xeber("r7")
             self.assertIsNone(d.gate(good, d.row(good, at(10))))
-        self.assertEqual(d.gate(good, d.row(good, at(10))), "icazəli siyahıda deyil")
+        self.assertIsNone(d.gate(good, d.row(good, at(10))), "mənbə 2026-11-12-dən siyahıdadır")
+        with patch.dict(content_policy.AZ_SOURCES):
+            del content_policy.AZ_SOURCES[ox.SOURCE]
+            self.assertEqual(d.gate(good, d.row(good, at(10))), "icazəli siyahıda deyil")
 
     def test_sinaq_with_fake_modules(self):
         def items(root, now, fetch=None):
@@ -404,8 +415,11 @@ class GateTest(Base):
                 patch.object(d, "modules", return_value=["oz_saxta"]), patch.dict(d.QAYDA, {"oz_saxta": NOVBE}):
             md = "\n".join(d.sinaq(self.tmp, at(9, 10), fetch=no_net))
         self.assertNotIn("xəta ilə bitdi", md)
-        self.assertIn("çağırmır. Bağlıdır.", md)
-        self.assertEqual(md.count("yoxdur. Bağlıdır."), 2)
+        # Kilidlərin 2026-11-12-dən vəziyyəti: çağırış və mənbə açıqdır, bayraq bağlıdır.
+        self.assertIn("- Çağırış: updater.py-ın yavaş dövrəsi bu faylı çağırır (yalnız bayraqla). **AÇIQDIR.**", md)
+        self.assertIn("mühit dəyişənini qoymur. Bağlıdır.", md)
+        self.assertIn("icazəli mənbələr siyahısında (assets/content-policy.js) var. **AÇIQDIR.**", md)
+        self.assertNotIn("yoxdur. Bağlıdır.", md)
         self.assertIn("### İlk həftənin tavanı ilə (gündə 15): 15 xəbər", md)
         self.assertIn("### Tam tavanla (gündə 40): 20 xəbər", md)
         self.assertIn("| 01:00 | İdman | Başlıq t00-12 |", md)
@@ -417,12 +431,19 @@ class GateTest(Base):
         self.assertIn("### 8 noyabr (bazar), tam tavanla (gündə 40): 20 xəbər", md)
         self.assertIn("- Başlıq t15-11: gecikdi", md)
         self.assertNotIn("t00-10", md, "isinmə dövrəsinin nəticəsi göstərilmir")
-        self.assertIn("Rədd edilən: 20 («icazəli siyahıda deyil»: 20)", md)
+        self.assertIn("Yoxlanan sətir: 20. Keçən: 20. Rədd edilən: 0.", md)
         self.assertEqual(md.count("```json"), 2)
         self.assertIn("<!-- OZ-DERC-SEHIFE-BASLADI t00-12 -->", md)
         self.assertEqual(md.count("<!-- OZ-DERC-SEHIFE-BITDI -->"), 2)
         self.assertEqual(list(self.tmp.iterdir()), [], "sınaq root-a heç nə yazmır")
-        self.assertNotIn(ox.SOURCE, content_policy.AZ_SOURCES)
+        self.assertEqual(content_policy.AZ_SOURCES.get(ox.SOURCE), ["8ulduz.az"])
+        with patch.dict(content_policy.AZ_SOURCES), patch.dict(sys.modules, {"oz_saxta": SimpleNamespace(items=items)}), \
+                patch.object(d, "modules", return_value=["oz_saxta"]), patch.dict(d.QAYDA, {"oz_saxta": NOVBE}):
+            del content_policy.AZ_SOURCES[ox.SOURCE]   # mənbə siyahıdan çıxarılsa əsl qapı hamısını rədd edir
+            md = "\n".join(d.sinaq(self.tmp, at(9, 10), fetch=no_net))
+            self.assertNotIn(ox.SOURCE, content_policy.AZ_SOURCES)
+        self.assertIn("Rədd edilən: 20 («icazəli siyahıda deyil»: 20)", md)
+        self.assertIn("icazəli mənbələr siyahısında (assets/content-policy.js) yoxdur. Bağlıdır.", md)
 
     def test_sinaq_with_the_real_modules_offline(self):
         with patch("time.sleep"), patch("oz_maliyye._sleep"):
@@ -431,7 +452,7 @@ class GateTest(Base):
         for head in ("## 1. Üç kilid", "## 2. Bu gün nə dərc olunardı", "## 3. Əsl qapının bu günkü qərarı", "gündə 15", "gündə 40"):
             self.assertIn(head, md)
         self.assertEqual(list(self.tmp.iterdir()), [])
-        self.assertNotIn(ox.SOURCE, content_policy.AZ_SOURCES)
+        self.assertEqual(content_policy.AZ_SOURCES.get(ox.SOURCE), ["8ulduz.az"])
 
     def test_cli_and_the_section_in_oz_xeber(self):
         out = io.StringIO()
