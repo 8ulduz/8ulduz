@@ -172,6 +172,90 @@ class OilTest(Base):
         self.assertEqual(oz.oil_now(self.root, at(6, 17, 20), set()), [])
 
 
+# «Azərbaycan qəzeti»nin 2026-11-12 xəbəri (saytın lentindən, sözbəsöz): başlıq və xülasə.
+AZERI_TITLE = "Azərbaycan neftinin qiyməti 100 dolları ötüb"
+AZERI_TEXT = ("Dünya bazarında Azərbaycan nefti bahalaşıb. “Azeri Light” markalı neftin bir barelinin qiyməti 1,23 dollar və ya "
+              "1,24 faiz artaraq 100,63 dollar olub.Qeyd edək ki, qiymət ötən həftə enmişdi")
+AZERI_DOWN = ("“Azeri Light” markalı neftin İtaliyanın “Augusta” limanında CIF əsasında bir barelinin qiyməti əvvəlki göstərici ilə "
+              "müqayisədə 2,83 ABŞ dolları və ya 2,5 faiz azalaraq 110,06 ABŞ dolları olub. Türkiyənin Ceyhan limanında qiymət 104,10 dollardır.")
+
+
+class AzeriLightTest(Base):
+    """Sahib 2026-11-12: «neftdə əsas Azərlaytı xəbər ver» və qırmızı xətt 4 («Məlumat dəqiq olmalıdır»): rəqəm lentdəki bu günün
+    xəbərindən yalnız özü-özünü təsdiqləyəndə və Brentdən ağlabatan fərqdə olanda götürülür; əks halda Brent xəbəri qalır."""
+
+    def feed(self, *rows):
+        self.write("data/news.json", {"articles": list(rows)})
+
+    def report(self, when="2026-11-06T04:18:00+00:00", text=AZERI_TEXT, source="Azərbaycan qəzeti", url="https://www.azerbaijan-news.az/az/posts/detail/1", **extra):
+        return {"title": AZERI_TITLE, "summary": text, "source": source, "sourceUrl": url, "publishedAt": when, "lang": "az", **extra}
+
+    def test_parse_takes_only_a_self_consistent_figure(self):
+        self.assertEqual(oz.azeri_parse(f"{AZERI_TITLE}. {AZERI_TEXT}"), {"price": 100.63, "change": 1.23, "pct": 1.24, "dir": 1})
+        self.assertEqual(oz.azeri_parse(AZERI_DOWN), {"price": 110.06, "change": 2.83, "pct": 2.5, "dir": -1}, "adı keçən cümlə: Augusta; Ceyhan rəqəmi qarışmır")
+        self.assertEqual(oz.azeri_parse("Azəri Layt markalı neftin qiyməti 0.85 dollar və ya 0.79% bahalaşaraq 109.10 dollara çatıb."),
+                         {"price": 109.1, "change": 0.85, "pct": 0.79, "dir": 1})
+        for bad, why in (
+                ("“Azeri Light” markalı neftin bir barelinin qiyməti 1,23 dollar və ya 3,10 faiz artaraq 100,63 dollar olub.", "faiz uyğun gəlmir"),
+                ("“Azeri Light” markalı neftin bir barelinin qiyməti 1,23 dollar və ya 1,24 faiz azalaraq 100,63 dollar olub.", "istiqamət faizə uyğun gəlmir"),
+                ("“Azeri Light” neftinin bareli 100,63 dollardır.", "dəyişmə yoxdur: tutuşdurmaq olmur"),
+                ("“Azeri Light”: qiymət 100,00 dollar, dəyişmə 1,00 dollar, 1,00 faiz.", "istiqamət bilinmir, iki cür oxunur"),
+                ("Brent markalı neftin qiyməti 1,23 dollar və ya 1,24 faiz artaraq 100,63 dollar olub.", "«Azeri Light» deyil"),
+                ("“Azeri Light” bahalaşıb. Qiymət 1,23 dollar və ya 1,24 faiz artaraq 100,63 dollar olub.", "rəqəm adı keçən cümlədə deyil"),
+                ("", "boş mətn"), (None, "mətn yoxdur")):
+            self.assertIsNone(oz.azeri_parse(bad), why)
+
+    def test_azeri_light_is_the_main_item_when_the_feed_has_todays_report(self):
+        self.markets(change=-0.5, stamp="2026-11-06T05:10:00+00:00")   # 09:10, Brent 98,32
+        self.feed(self.report())
+        self.assertEqual(oz.oil_now(self.root, at(6, 7, 59), set()), [], "pəncərədən əvvəl")
+        item = oz.oil_now(self.root, at(6, 9, 20), set())[0]
+        self.assertEqual(head(item), ("neft", "neft-2026-11-06", "iqtisadiyyat", "08:18", True))
+        self.assertEqual(item["title"], "«Azeri Light» nefti bahalaşıb: bareli 100,63 dollar")
+        self.assertEqual(item["lead"], "Azərbaycanın «Azeri Light» markalı neftinin bir bareli 1,23 dollar (1,24%) bahalaşaraq 100,63 dollar olub. "
+                                       "Bu barədə «Azərbaycan qəzeti» məlumat yayıb.")
+        self.assertEqual(item["body"], ["Dünya bazarında Brent markalı neftin bir bareli 98,32 dollardır, əvvəlki bağlanışdan 0,50 dollar (0,57%) ucuzdur."])
+        self.assertEqual((item["credit"], item["link"]), ("Azərbaycan qəzeti", "https://www.azerbaijan-news.az/az/posts/detail/1"))
+        self.assertNotIn("why", item)
+        self.assertEqual(oz.oil_now(self.root, at(6, 9, 30), {"neft-2026-11-06"}), [], "gündə bir neft xəbəri")
+        down = self.report(when="2026-11-06T05:00:00+00:00", text=AZERI_DOWN, source="Trend", url="https://az.trend.az/business/energy/1.html")
+        self.markets(change=-0.5, stamp="2026-11-06T05:15:00+00:00")
+        self.feed(self.report(), down)
+        newer = oz.oil_now(self.root, at(6, 9, 20), set())[0]
+        self.assertEqual((newer["title"], newer["credit"], newer["slot"]), ("«Azeri Light» nefti ucuzlaşıb: bareli 110,06 dollar", "Trend", "09:00"), "ən təzə xəbər")
+        self.assertIn("2,83 dollar (2,50%) ucuzlaşaraq 110,06 dollar olub", newer["lead"])
+
+    def test_a_doubtful_figure_is_not_published_and_brent_news_stays(self):
+        stale = ("“Azeri Light” markalı neftin bir barelinin qiyməti 7,99 dollar və ya 5,95 faiz azalaraq 126,22 dollar olub.")
+        self.assertEqual(oz.azeri_parse(stale)["price"], 126.22, "mətn öz içində uyğundur")
+        self.markets(change=-0.5, stamp="2026-11-06T05:10:00+00:00")
+        self.feed(self.report(text=stale))
+        self.assertEqual(oz.oil_now(self.root, at(6, 9, 20), set()), [], "Brent 98,32 ikən 126,22: fərq ağlabatan deyil, rəqəm götürülmür")
+        self.markets(change=0.56)   # 17:10, Brent pəncərəsi
+        self.assertEqual(oz.oil_now(self.root, at(6, 17, 20), set())[0]["title"], "Brent nefti bahalaşıb: bareli 98,32 dollar", "əvvəlki yol qalır")
+        self.feed(self.report())
+        self.markets(change=-0.5, stamp="2026-11-06T03:00:00+00:00")
+        self.assertEqual(oz.oil_now(self.root, at(6, 9, 20), set()), [], "Brent 1 saatdan köhnədir: tutuşdurmaq olmur, növbəti dövrədə yenə baxılır")
+        (self.root / "data" / "markets.json").unlink()
+        self.assertEqual(oz.oil_now(self.root, at(6, 9, 20), set()), [], "Brent yoxdur")
+
+    def test_only_todays_foreign_azerbaijani_rows_count(self):
+        self.markets(change=-0.5, stamp="2026-11-06T05:10:00+00:00")
+        for row, why in ((self.report(when="2026-11-05T14:00:00+00:00"), "dünənki xəbər"),
+                         (self.report(when="2026-11-06T06:00:00+00:00"), "gələcək vaxtlı sətir"),
+                         (self.report(source=oz.SOURCE, url="https://8ulduz.az/xeber/0123456789abcdef/"), "öz xəbərimiz mənbə deyil"),
+                         (self.report(lang="ru"), "azərbaycanca deyil"),
+                         (self.report(url="http://example.az/1"), "keçid https deyil"),
+                         (self.report(source=""), "mənbənin adı yoxdur"),
+                         (self.report(when="dünən"), "vaxtı oxunmur")):
+            self.feed(row, "sətir deyil", {"title": "Başqa xəbər", "summary": "", "source": "APA", "sourceUrl": "https://apa.az/1", "publishedAt": "2026-11-06T04:00:00+00:00"})
+            self.assertIsNone(oz.azeri_light(self.root, at(6, 9, 20)), why)
+            self.assertEqual(oz.oil_now(self.root, at(6, 9, 20), set()), [], why)
+        (self.root / "data" / "news.json").write_text("{", encoding="utf-8")
+        self.assertIsNone(oz.azeri_light(self.root, at(6, 9, 20)), "pozulmuş lent")
+        self.assertIsNone(oz.azeri_light(self.root / "yoxdur", at(6, 9, 20)))
+
+
 class SeysTest(Base):
     def test_hourly_check_details_and_done(self):
         net = Net([("/zelzele/536", base.SEYS_536), ("/zelzeleler", base.SEYS_LIST_PAGE)])
