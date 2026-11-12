@@ -138,14 +138,16 @@ def _fail(kind, key, title, why, credit, link, topic, now):
 
 class _Get:
     """fetch-in üstündə: bir çağırışda hər ünvana ən çox bir sorğu (xəta da yadda qalır), eyni hosta sorğular arasında
-    pause saniyə fasilə. count göndərilən sorğuların sayıdır, hosts hər hosta neçə sorğu getdiyi."""
+    pause saniyə fasilə. count göndərilən sorğuların sayıdır, hosts hər hosta neçə sorğu getdiyi. agent verilərsə
+    User-Agent odur (ERDDAP üçün), yoxsa updater-in öz User-Agent-i."""
 
     def __init__(self, fetch=None, pause=0.0):
         self.fetch, self.pause = fetch, pause
         self.cache, self.last, self.hosts, self.count = {}, {}, {}, 0
 
-    def __call__(self, url, accept="application/json"):
-        if url not in self.cache:
+    def __call__(self, url, accept="application/json", agent=None):
+        key = (url, agent)
+        if key not in self.cache:
             host = urllib.parse.urlsplit(url).netloc
             if self.pause and host in self.last:
                 wait = self.pause - (time.monotonic() - self.last[host])
@@ -156,11 +158,14 @@ class _Get:
             try:
                 if self.fetch is None:
                     self.fetch = ox._u().fetch
-                self.cache[url] = (self.fetch(url, timeout=TIMEOUT, headers={"Accept": accept}), None)
+                headers = {"Accept": accept}
+                if agent:
+                    headers["User-Agent"] = agent
+                self.cache[key] = (self.fetch(url, timeout=TIMEOUT, headers=headers), None)
             except Exception as e:  # şəbəkə xətası yalnız həmin mənbəni saxlayır
-                self.cache[url] = (None, e)
+                self.cache[key] = (None, e)
             self.last[host] = time.monotonic()
-        data, err = self.cache[url]
+        data, err = self.cache[key]
         if err is not None:
             raise err
         return data
@@ -243,18 +248,21 @@ def kp_text(day, kp):
     """NOAA-nın 3 günlük proqnozundan günün Kp cümlələri (qasırğa günü bir cümlə)."""
     vals = [v for _, v in kp]
     top, low = max(vals), min(vals)
-    first = [t for t, v in kp if v == top][0]
+    tops = [_blk(t) for t, v in kp if v == top]
+    when = "" if len(tops) > 3 else tops[0] if len(tops) == 1 else ", ".join(tops[:-1]) + " və " + tops[-1]
     span = "Bakı vaxtı ilə" if len(kp) >= 8 else f"Bakı vaxtı ilə {kp[0][0]:%H:%M}–{kp[-1][0] + 3 * HOUR:%H:%M}"
     head = f"{SWPC_GEN} 3 günlük proqnozuna görə, {ox.day_loc(day)} ({span}, 3 saatlıq dövrlər üzrə) "
     g = g_level(top)
     if g:
-        return [head + f"Kp indeksinin ən yüksək göstəricisi {num(top, 2)} olacaq (saat {_blk(first)} arası); bu, NOAA "
-                f"şkalasında G{g} ({G_NAME[g]}) maqnit qasırğası səviyyəsidir."]
+        at = f" (saat {when} arası)" if when else ""
+        return [head + f"Kp indeksinin ən yüksək göstəricisi {num(top, 2)} olacaq{at}; bu, NOAA şkalasında G{g} "
+                f"({G_NAME[g]}) maqnit qasırğası səviyyəsidir."]
     if low == top:
         rng = f"Kp indeksi {num(top, 2)} olacaq"
     else:
-        rng = (f"Kp indeksi {num(low, 2)}–{num(top, 2)} arasında olacaq; ən yüksək göstərici ({num(top, 2)}) saat "
-               f"{_blk(first)} arasına düşür")
+        rng = f"Kp indeksi {num(low, 2)}–{num(top, 2)} arasında olacaq"
+        if when:
+            rng += f"; ən yüksək göstərici ({num(top, 2)}) saat {when} arasına düşür"
     return [head + rng + ".", "Bu, NOAA şkalasında maqnit qasırğası həddindən (G1, Kp 5) aşağıdır."]
 
 
@@ -778,6 +786,8 @@ def forecast_now(now, get, done):
 SST_BASE = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/ncdcOisst21NrtAgg_LonPM180"
 SST_PAGE = SST_BASE + ".html"
 SST_CREDIT = "NOAA OISST (peyk məlumatı)"
+SST_AGENT = "8ulduz-bot/1.0 (+https://8ulduz.az)"   # ERDDAP GitHub-dan brauzer kimi görünən User-Agent-ə 403 verib
+SST_LAST = SST_BASE + ".json?sst%5B(last)%5D%5B(0.0)%5D%5B(40.375):(40.625)%5D%5B(49.625):(50.125)%5D"   # yoxlama üçün
 SST_KEY = "xezer-su-"
 SST_SLOT = "11:10"
 SST_BACK = 10               # sorğu son 10 günü istəyir: son gün və ondan 7 gün əvvəl
@@ -877,7 +887,7 @@ def sea_now(now, get, done):
     if not _in(now, WIN_SEA) or not sea_runs(day) or key in done:
         return []
     try:
-        item, why = sea_item(parse_sst(get(sst_url(day))), now)
+        item, why = sea_item(parse_sst(get(sst_url(day), agent=SST_AGENT)), now)
     except Exception as e:
         item, why = None, _why(e, "OISST")
     return [item or _fail("xezer-su", key, "Xəzərin suyu: xəbər yoxdur", why, SST_CREDIT, SST_PAGE, TOPIC, now)]
@@ -1007,14 +1017,22 @@ def _sinaq_forecast(now, get):
 
 def _sinaq_sea(now, get):
     day = now.date()
+    md = []
     try:
-        item, why = sea_item(parse_sst(get(sst_url(day))), now)
+        item, why = sea_item(parse_sst(get(sst_url(day), agent=SST_AGENT)), now)
     except Exception as e:
         item, why = None, _why(e, "OISST")
+        for name, url, agent in (("updater-in User-Agent-i ilə", sst_url(day), None),
+                                 ("yalnız son gün", SST_LAST, SST_AGENT), ("yalnız son gün, updater-in User-Agent-i ilə",
+                                                                         SST_LAST, None)):
+            try:
+                md += [f"> Yoxlama ({name}): alındı, {len(get(url, agent=agent))} bayt.", ""]
+            except Exception as e2:
+                md += [f"> Yoxlama ({name}): {_err(e2)}.", ""]
     label = (f"Bu günün məlumatı ilə, {_label_day(day)} (istehsalda 11:00–13:00: may–sentyabr hər gün, digər aylarda "
              f"şənbə{'' if sea_runs(day) else '; bu gün sorğu getməzdi'})")
     return _show(label, item or _fail("xezer-su", SST_KEY + day.isoformat(), "Xəzərin suyu: xəbər yoxdur", why,
-                                      SST_CREDIT, SST_PAGE, TOPIC, now))
+                                      SST_CREDIT, SST_PAGE, TOPIC, now)) + md
 
 
 SINAQ = (("## 1. Meteohəssaslar üçün gün (MHX, NOAA SWPC)", _sinaq_meteo),

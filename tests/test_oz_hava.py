@@ -45,10 +45,11 @@ class Net:
     """Saxta fetch: ünvanın bir hissəsinə görə cavab; çağırışları yadda saxlayır."""
 
     def __init__(self, routes):
-        self.routes, self.calls = list(routes), []
+        self.routes, self.calls, self.agents = list(routes), [], {}
 
     def __call__(self, url, timeout=None, headers=None, **kw):
         self.calls.append(url)
+        self.agents[url] = (headers or {}).get("User-Agent")
         if timeout is None or timeout > 15:
             raise AssertionError("timeout 15 saniyədən çox olmamalıdır")
         for part, reply in self.routes:
@@ -172,6 +173,18 @@ class MeteoItemTest(unittest.TestCase):
         self.assertEqual((item["key"], item["slot"], item["worth"]), ("meteohessas-2026-11-12", "08:30", True))
         self.assertIn("NOAA", item["credit"])
         self.assertEqual(item["link"], oh.MHX_URL)
+
+    def test_every_block_of_the_maximum_is_named(self):
+        two = oh.meteo_item(self.day, self.now, self.mhx, self.with_kp(utc(2026, 11, 12, 18), 3.0))[0]
+        self.assertIn("ən yüksək göstərici (3) saat 04:00–07:00 və 22:00–01:00 arasına düşür.", two["body"][0])
+        blocks = [(t, 2.0 if t.hour < 12 else 1.0) for t, v in self.swpc[1]]
+        many = oh.meteo_item(self.day, self.now, self.mhx, (self.swpc[0], blocks))[0]
+        self.assertTrue(many["body"][0].endswith("Kp indeksi 1–2 arasında olacaq."), many["body"][0])
+        flat = oh.meteo_item(self.day, self.now, self.mhx, (self.swpc[0], [(t, 2.0) for t, v in self.swpc[1]]))[0]
+        self.assertTrue(flat["body"][0].endswith("Kp indeksi 2 olacaq."), flat["body"][0])
+        three = [(t, 5.33 if t.hour in (3, 9, 15) else 1.0) for t, v in self.swpc[1]]
+        storm = oh.meteo_item(self.day, self.now, self.mhx, (self.swpc[0], three))[0]
+        self.assertIn("5,33 olacaq (saat 07:00–10:00, 13:00–16:00 və 19:00–22:00 arası); bu, NOAA", storm["body"][0])
 
     def test_storm_day_is_one_line(self):
         item, why = oh.meteo_item(self.day, self.now, self.mhx, self.with_kp(utc(2026, 11, 12, 15), 5.33))
@@ -311,6 +324,7 @@ class SpaceRoundTest(unittest.TestCase):
         self.assertEqual([(i["key"], i["worth"]) for i in out],
                          [("meteohessas-2026-11-12", True), ("maqnit-sorgu-2026-11-12-seher", False)])
         self.assertEqual((len(net.calls), net.n("alerts")), (3, 0))
+        self.assertEqual(set(net.agents.values()), {None})          # qalan mənbələrə updater-in öz User-Agent-i
         again, net2 = self.run_items(at(2026, 11, 12, 8, 40))
         self.assertEqual(out, again)                                # eyni məlumat, eyni an: eyni nəticə
         naive, net3 = self.run_items(datetime.datetime(2026, 11, 12, 8, 40))
@@ -660,6 +674,7 @@ class SeaTest(unittest.TestCase):
         out, net = go(self, at(2026, 11, 14, 11, 10), routes)       # şənbə
         self.assertEqual([(i["key"], i["worth"]) for i in out], [("xezer-su-2026-11-14", True)])
         self.assertEqual(net.calls, [oh.sst_url(D(2026, 11, 14))])
+        self.assertEqual(net.agents[net.calls[0]], "8ulduz-bot/1.0 (+https://8ulduz.az)")   # ERDDAP: öz User-Agent-imiz
         out, net = go(self, at(2026, 11, 14, 12, 0), routes, {"xezer-su-2026-11-14"})
         self.assertEqual((out, net.calls), ([], []))
         for now in (at(2026, 11, 12, 11, 10), at(2026, 11, 14, 10, 59), at(2026, 11, 14, 13, 0)):
@@ -729,6 +744,7 @@ class SinaqTest(unittest.TestCase):
         with patch.object(oh.time, "sleep"):
             md = "\n".join(oh.sinaq(ROOT, at(2026, 11, 12, 2, 30), fetch=Net([])))
         self.assertIn("# Hava və təbiət", md)
+        self.assertIn("Yoxlama (yalnız son gün): URLError.", md)
         self.assertTrue(re.search(r"Sınaq xətası|Dərc olunmazdı", md))
 
 
