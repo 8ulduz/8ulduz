@@ -1,0 +1,207 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 10638,
+     "name": "Cinayət və cəza",
+     "event_starts_at": "2026-11-13T14:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10641,
+     "name": "Paris Notr-Dama - Quasimodo",
+     "event_starts_at": "2026-11-13T13:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 35,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10640,
+     "name": "Anna Karenina",
+     "event_starts_at": "2026-11-13T16:30:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 8990,
+     "name": "Leylək və Müqəvva",
+     "event_starts_at": "2026-11-13T08:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "5+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Kukla Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10658,
+     "name": "Martin Eden",
+     "event_starts_at": "2026-11-13T12:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 5520,
+     "name": "Qoğal",
+     "event_starts_at": "2026-11-13T12:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Kukla Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 13059,
+     "name": "Ana",
+     "event_starts_at": "2026-11-13T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "12+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Yuğ Teatrı (Kukla Teatrının binasında)"
+      }
+     ]
+    },
+    {
+     "id": 12800,
+     "name": "Əli və Nino – premyera",
+     "event_starts_at": "2026-11-13T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 3,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Gəncə Dövlət Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12014,
+     "name": "В царстве нефти, алчности и миллионов",
+     "event_starts_at": "2026-11-13T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 50,
+     "max_price": 50,
+     "public_state": 5,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Akademik Rus Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 11617,
+     "name": "Kral Lir",
+     "event_starts_at": "2026-11-13T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 25,
+     "public_state": 1,
+     "age_limit": "12+",
+     "venues": [
+      {
+       "name": "Akademik Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 11455,
+     "name": "Polkovnikə məktub",
+     "event_starts_at": "2026-11-13T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Milli Gənc Tamaşaçılar Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 11273,
+     "name": "Sən Kralsan",
+     "event_starts_at": "2026-11-13T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Musiqili Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 13017,
+     "name": "İlham pərisi",
+     "event_starts_at": "2026-11-13T15:30:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": null,
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

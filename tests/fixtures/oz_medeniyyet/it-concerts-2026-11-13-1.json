@@ -1,0 +1,72 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 13064,
+     "name": "Od sınağı",
+     "event_starts_at": "2026-11-13T14:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 30,
+     "max_price": 45,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Show Gallery"
+      }
+     ]
+    },
+    {
+     "id": 12118,
+     "name": "Şamlar Əhatəsində Retro Gecəsi-Azərbaycan klassikləri",
+     "event_starts_at": "2026-11-13T14:30:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 15,
+     "max_price": 45,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Kapellhaus"
+      }
+     ]
+    },
+    {
+     "id": 12753,
+     "name": "EPI",
+     "event_starts_at": "2026-11-13T15:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 20,
+     "max_price": 60,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Hayal Kahvesi"
+      }
+     ]
+    },
+    {
+     "id": 12957,
+     "name": "Vals və tanqo axşamı. Canlı rəqs müşayiəti ilə şam nurunda instrumental konsert. Ars Caspia Ensemble",
+     "event_starts_at": "2026-11-13T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 15,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Kamera və orqan musiqisi zalı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

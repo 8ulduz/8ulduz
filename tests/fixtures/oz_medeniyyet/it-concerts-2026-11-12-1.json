@@ -1,0 +1,72 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 12954,
+     "name": "Şam İşığında Vals axşamı. Klassik Musiqi Axşamı.Candlelight Baku",
+     "event_starts_at": "2026-11-12T15:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 10,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Kamera və orqan musiqisi zalı"
+      }
+     ]
+    },
+    {
+     "id": 12815,
+     "name": "Leyla Noir və musiqi qrupu — Etno-caz",
+     "event_starts_at": "2026-11-12T15:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 15,
+     "max_price": 30,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Beynəlxalq Muğam Mərkəzi"
+      }
+     ]
+    },
+    {
+     "id": 11474,
+     "name": "Qara Qarayev adına Azərbaycan Dövlət Kamera Orkestri",
+     "event_starts_at": "2026-11-12T15:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 4,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Filarmoniyası"
+      }
+     ]
+    },
+    {
+     "id": 12803,
+     "name": "Azərbaycan Kino tarixinə Səyahət",
+     "event_starts_at": "2026-11-12T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Show Gallery"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

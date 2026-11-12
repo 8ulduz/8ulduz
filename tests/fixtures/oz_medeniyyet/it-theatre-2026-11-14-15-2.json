@@ -1,0 +1,237 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 2,
+   "next_page_url": "https://api.iticket.az/az/v6/events?client=web&category_slug=theatre&start_date=14.11.2026&end_date=15.11.2026&page=3",
+   "data": [
+    {
+     "id": 12863,
+     "name": "Nağıllar kitabı",
+     "event_starts_at": "2026-11-14T12:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "5+",
+     "venues": [
+      {
+       "name": "TERMİT"
+      }
+     ]
+    },
+    {
+     "id": 10643,
+     "name": "Xəz Paltolu Madonna",
+     "event_starts_at": "2026-11-14T13:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 5530,
+     "name": "\"Pişiyin evi\"",
+     "event_starts_at": "2026-11-14T14:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Kukla Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 13005,
+     "name": "Stand-up show - Qadınlar üçün",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 35,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Show Gallery"
+      }
+     ]
+    },
+    {
+     "id": 12796,
+     "name": "Qodo həsrətində",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Milli Gənc Tamaşaçılar Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12082,
+     "name": "Ana",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Gəncə Dövlət Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 11168,
+     "name": "Kerri Bacı",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 30,
+     "public_state": 1,
+     "age_limit": "9+",
+     "venues": [
+      {
+       "name": "M Teatr"
+      }
+     ]
+    },
+    {
+     "id": 10537,
+     "name": "Ключ от чемодана с кирпичами",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Akademik Rus Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 9273,
+     "name": "\"ÖLÜLƏR\"",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 3,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Cəlil Məmmədquluzadə adına Naxçıvan Dövlət Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 7072,
+     "name": "P.A.N.D.A.",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Yuğ Teatrı (Kukla Teatrının binasında)"
+      }
+     ]
+    },
+    {
+     "id": 7022,
+     "name": "Dağılan Tifaq",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 7,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "15+",
+     "venues": [
+      {
+       "name": "Şuşa Dövlət Musiqili Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 5863,
+     "name": "Leyli və Məcnun",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 12,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Bakı Musiqi Akademiyası nəzdində Opera Studiyasının Konsert salonu"
+      }
+     ]
+    },
+    {
+     "id": 5741,
+     "name": "Sənsiz",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Akademik Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10417,
+     "name": "Gözəl və Bedheybət",
+     "event_starts_at": "2026-11-15T07:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 8,
+     "max_price": 8,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Akademik Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 7923,
+     "name": "Бременские Музыканты",
+     "event_starts_at": "2026-11-15T08:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 6,
+     "max_price": 6,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Akademik Rus Dram Teatrı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

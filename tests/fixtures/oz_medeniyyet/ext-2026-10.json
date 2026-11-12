@@ -1,0 +1,238 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "normalized": [
+   {
+    "fromencoded": false,
+    "from": "Qız_qalası",
+    "to": "Qız qalası"
+   },
+   {
+    "fromencoded": false,
+    "from": "44_(film)",
+    "to": "44 (film)"
+   },
+   {
+    "fromencoded": false,
+    "from": "Müstəqilliyin_Bərpası_Günü_(Azərbaycan)",
+    "to": "Müstəqilliyin Bərpası Günü (Azərbaycan)"
+   },
+   {
+    "fromencoded": false,
+    "from": "Ramiz_Mehdiyev",
+    "to": "Ramiz Mehdiyev"
+   },
+   {
+    "fromencoded": false,
+    "from": "Arzuxan_Əlizadə",
+    "to": "Arzuxan Əlizadə"
+   },
+   {
+    "fromencoded": false,
+    "from": "Böyük_ipək_yolu",
+    "to": "Böyük ipək yolu"
+   },
+   {
+    "fromencoded": false,
+    "from": "Heydər_Əliyev",
+    "to": "Heydər Əliyev"
+   },
+   {
+    "fromencoded": false,
+    "from": "Zaur_Rzayev",
+    "to": "Zaur Rzayev"
+   },
+   {
+    "fromencoded": false,
+    "from": "Mirsaleh_Seyidov",
+    "to": "Mirsaleh Seyidov"
+   },
+   {
+    "fromencoded": false,
+    "from": "Anar_Bayramov",
+    "to": "Anar Bayramov"
+   },
+   {
+    "fromencoded": false,
+    "from": "İkinci_Qarabağ_müharibəsi",
+    "to": "İkinci Qarabağ müharibəsi"
+   },
+   {
+    "fromencoded": false,
+    "from": "Zəfər_Günü_(Azərbaycan)",
+    "to": "Zəfər Günü (Azərbaycan)"
+   },
+   {
+    "fromencoded": false,
+    "from": "Teymur_Musayev",
+    "to": "Teymur Musayev"
+   },
+   {
+    "fromencoded": false,
+    "from": "Azərbaycan_bayrağı",
+    "to": "Azərbaycan bayrağı"
+   },
+   {
+    "fromencoded": false,
+    "from": "Vilayət_Eyvazov",
+    "to": "Vilayət Eyvazov"
+   },
+   {
+    "fromencoded": false,
+    "from": "Azərbaycan_əlifbası",
+    "to": "Azərbaycan əlifbası"
+   },
+   {
+    "fromencoded": false,
+    "from": "Azərbaycan_gerbi",
+    "to": "Azərbaycan gerbi"
+   },
+   {
+    "fromencoded": false,
+    "from": "Fərhad_Xəlilov",
+    "to": "Fərhad Xəlilov"
+   }
+  ],
+  "pages": [
+   {
+    "pageid": 1088,
+    "ns": 0,
+    "title": "Azərbaycan",
+    "description": "Cənubi Qafqazda ölkə",
+    "extract": "Azərbaycan və ya rəsmi adı ilə Azərbaycan Respublikası — Şərqi Avropa və Qərbi Asiyanın sərhəddində yerləşən transkontinental ölkə. Azərbaycan Xəzər dənizi hövzəsinin qərbində, Cənubi Qafqazda yerləşir. Şimaldan Rusiya (Dağıstan), şimal-qərbdən Gürcüstan, qərbdən Ermənistan, cənub-qərbdən Türkiyə və cənubdan İran ilə həmsərhəddir."
+   },
+   {
+    "pageid": 1150,
+    "ns": 0,
+    "title": "Bakı",
+    "description": "Azərbaycanda Respublika tabeli şəhər, ölkə paytaxtı",
+    "extract": "Bakı — Azərbaycan Respublikasının paytaxtıdır və Abşeron yarımadasında, Xəzər dənizinin qərb sahilində yerləşir. Sahəsi 2140 km², əhalisi, 2018-ci ilin əvvəlinə qədər əhalisinin sayı 2 262 600 nəfər idi. Bakı, Avropa və Asiyanın kəsişməsində yerləşən dünyanın ən cazibədar və kosmopolit şəhərlərindən biridir."
+   },
+   {
+    "pageid": 5133,
+    "ns": 0,
+    "title": "Azərbaycan əlifbası",
+    "description": "Azərbaycan dilində yazmaq üçün istifadə olunan latın qrafikalı əlifba",
+    "extract": "Azərbaycan əlifbası (az.-əski. آذربایجان الفباسی‎, azərb-kiril. Азәрбајҹан әлифбасы) — Azərbaycan dilinin əlifbası."
+   },
+   {
+    "pageid": 5395,
+    "ns": 0,
+    "title": "Azərbaycan gerbi",
+    "description": "Azərbaycanın milli emblemi",
+    "extract": "Azərbaycan Respublikasının Dövlət Gerbi — Azərbaycan Respublikasının Dövlət gerbi Azərbaycan dövlətinin müstəqilliyinin  rəmzidir. Dövlət gerbi palıd budaqlarından və sünbüllərdən ibarət qövsün üzərində yerləşən şərq qalxanının təsvirindən ibarətdir. Qalxanın üstündə Azərbaycan Respublikasının Dövlət bayrağının rəngləri fonunda səkkizguşəli ulduz, ulduzun mərkəzində alov təsviri vardır."
+   },
+   {
+    "pageid": 41580,
+    "ns": 0,
+    "title": "Fərhad Xəlilov",
+    "description": "Azərbaycan rəssamı",
+    "extract": "Fərhad Qurban oğlu Xəlilov (26 oktyabr 1946, Bakı) — Azərbaycan rəssamlıq məktəbinin nümayəndəsi, Azərbaycan Respublikasının xalq rəssamı (2002), Azərbaycan Rəssamlar İttifaqının sədri (1987-ci ildən)."
+   },
+   {
+    "pageid": 42420,
+    "ns": 0,
+    "title": "Qız qalası",
+    "description": "Bakıdakı memarlıq abidəsi",
+    "extract": "Qız qalası — Bakıda yerləşən qədim memarlıq abidəsi.\nQala qədim qala divarlarının cənub-şərq hissəsində, dənizkənarı parkın (bulvar) yaxınlığında yerləşən müdafiə məqsədli tarixi abidədir. Uca qüllə şəkilli bu nadir abidənin açılmamış tarixi-memarlıq problemləri çoxdur."
+   },
+   {
+    "pageid": 42765,
+    "ns": 0,
+    "title": "Ramiz Mehdiyev",
+    "description": "Azərbaycan ictimai-siyasi və elm xadimi (1938 təvəllüdlü)",
+    "extract": "Ramiz Ənvər oğlu Mehdiyev (17 aprel 1938, Bakı) — Azərbaycan ictimai-siyasi və elm xadimi, Azərbaycan Milli Elmlər Akademiyasının prezidenti (2019–2022), Azərbaycan Respublikası Prezidentinin Administrasiyasının rəhbəri (1995–2019), Azərbaycan Fəlsəfə və Sosial-Siyasi Elmlər Assosiasiyasının prezidenti, AMEA-nın həqiqi üzvü (2007-2026); Azərbaycan Respublikasının Həqiqi Dövlət Müşaviri.; Azərbaycan Respublikasının Təhlükəsizlik Şurasının üzvü (2019–2025); Yeni Azərbaycan Partiyasının İdarə Heyətinin (1993–2021) və Veteranlar Şurasının üzvü (2021–2026); Azərbaycan Milli Ensiklopediyasının redak"
+   },
+   {
+    "pageid": 58849,
+    "ns": 0,
+    "title": "Azərbaycan bayrağı",
+    "description": "Azərbaycan Respublikasının Dövlət bayrağı",
+    "extract": "Azərbaycan bayrağı və ya üçrəngli bayraq — Azərbaycanın rəsmi simvollarından (himn və gerblə birlikdə) biri. Bayraq ilk dəfə 9 noyabr 1918-ci ildə Azərbaycan Xalq Cümhuriyyəti Nazirlər Şurası tərəfindən təsdiq edilmişdir. 5 fevral 1991-ci ildə bayraq həmin il müstəqilliyini elan etmiş Azərbaycan Respublikası tərəfindən təsdiq edilmişdir."
+   },
+   {
+    "pageid": 74346,
+    "ns": 0,
+    "title": "Böyük ipək yolu",
+    "description": "Şərqi Asiya ilə Aralıq dənizi arasında dünyanın ən qədim ticarət yollarından biri",
+    "extract": "Böyük ipək yolu və ya İpək yolu — Çini Orta Asiya, Ön Asiya, Qafqaz və Aralıq dənizi vasitəsilə Avropa ilə birləşdirən qədim və orta əsr quru və dəniz ticarət yolları şəbəkəsidir. Vahid bir yol deyil, uzunluğu təxminən 6400 km olan, müxtəlif istiqamətlərdə şaxələnən marşrutlar toplusudur. Yolun yaranması e.ə."
+   },
+   {
+    "pageid": 155822,
+    "ns": 0,
+    "title": "Heydər Əliyev",
+    "description": "Azərbaycan Respublikasının 3-cü prezidenti",
+    "extract": "Heydər Əlirza oğlu Əliyev (10 may 1923[…], Naxçıvan, Naxçıvan Muxtar Diyarı – 12 dekabr 2003, Klivlend, Ohayo) — Azərbaycan siyasətçisi, Azərbaycan Respublikasının üçüncü Prezidenti (1993–2003), Naxçıvan Muxtar Respublikası Ali Məclisinin sədri, Azərbaycan Kommunist Partiyası Mərkəzi Komitəsinin birinci katibi (1969–1982), 2 dəfə Sosialist Əməyi Qəhrəmanı (1979, 1983), Yeni Azərbaycan Partiyasının ilk sədri (1992), Azərbaycanın hazırkı Prezidenti İlham Əliyevin atası."
+   },
+   {
+    "pageid": 265981,
+    "ns": 0,
+    "title": "Müstəqilliyin Bərpası Günü (Azərbaycan)",
+    "extract": "Müstəqilliyin Bərpası Günü və ya köhnə adı ilə Milli Müstəqillik Günü — Azərbaycan tarixinin ən mühüm günlərindən biridir. 2021-ci ildən etibarən yeni adıyla \"Müstəqilliyin Bərpası günü\" (18 oktyabrda) kimi qeyd edilir.\nXX əsrin sonlarında SSRİ-nin dağılması ilə yaranan tarixi şərait nəticəsində Azərbaycan dövləti öz müstəqilliyini ikinci dəfə  bərpa etmişdir."
+   },
+   {
+    "pageid": 594107,
+    "ns": 0,
+    "title": "Vilayət Eyvazov",
+    "description": "Azərbaycan daxili işlər naziri (2019-cu ildən)",
+    "extract": "Vilayət Süleyman oğlu Eyvazov (28 iyun 1968, Əbrəqunis, Naxçıvan MSSR) — Azərbaycanın hərbi və siyasi xadimi, general-polkovnik, Azərbaycan Respublikasının daxili işlər naziri (2019-cu ildən), Azərbaycan Respublikasının daxili işlər nazirinin birinci müavini (2016–2019)."
+   },
+   {
+    "pageid": 609822,
+    "ns": 0,
+    "title": "Zaur Rzayev",
+    "description": "Azərbaycan müğənnisi",
+    "extract": "Zaur Əlihüseyn oğlu Rzayev (28 yanvar 1952, Karrar, Kürdəmir rayonu – 29 oktyabr 2026, Bakı) — Azərbaycan müğənnisi, Azərbaycan Silahlı Qüvvələri Mahnı və Rəqs ansamblının rəhbəri, Azərbaycan Respublikasının xalq artisti (2003). Dağıstan Respublikasının xalq artisti (2008)."
+   },
+   {
+    "pageid": 673893,
+    "ns": 0,
+    "title": "İkinci Qarabağ müharibəsi",
+    "description": "Qarabağda silahlı qarşıdurma",
+    "extract": "İkinci Qarabağ müharibəsi, Vətən müharibəsi, 44 günlük müharibə və ya \"Dəmir Yumruq\" əməliyyatı — Azərbaycan Silahlı Qüvvələri və Ermənistan Silahlı Qüvvələri arasında Dağlıq Qarabağda davam edən silahlı qarşıdurma. Atəşkəsdən sonra müşahidə olunan ən gərgin və uzunmüddətli döyüşdür. Beynəlxalq səviyyədə Azərbaycanın bir hissəsi kimi tanınan, lakin Ermənistan hökumətinin idarəetməsi altında yaradılan Qondarma Dağlıq Qarabağ Respublikası ilə bağlı həll olunmamış münaqişənin son gərginləşməsidir."
+   },
+   {
+    "pageid": 679917,
+    "ns": 0,
+    "title": "Zəfər Günü (Azərbaycan)",
+    "description": "Azərbaycanın 2020-ci il Vətən müharibəsində qazandığı qələbənin şərəfinə qeyd olunan rəsmi bayramdır",
+    "extract": "Zəfər Günü — Azərbaycan Respublikasında İkinci Qarabağ müharibəsində (Vətən müharibəsində) qazanılan qələbənin şərəfinə hər il noyabrın 8-də qeyd edilən dövlət bayramı. Tarix 2020-ci il noyabrın 8-də Şuşa şəhərinin azad edilməsi ilə bağlıdır. Bayram Prezident İlham Əliyevin 2020-ci il dekabrın 3-də imzaladığı \"Azərbaycan Respublikasında Zəfər Gününün təsis edilməsi haqqında\" sərəncamla təsis edilib."
+   },
+   {
+    "pageid": 700076,
+    "ns": 0,
+    "title": "Teymur Musayev",
+    "description": "Azərbaycan dövlət xadimi",
+    "extract": "Teymur Yusif oğlu Musayev (16 sentyabr 1970, Bakı) — Azərbaycan Respublikası Baş nazirinin müavini (2026-cı ildən), Azərbaycan Respublikasının səhiyyə naziri (2022–2026)."
+   },
+   {
+    "pageid": 714657,
+    "ns": 0,
+    "title": "Arzuxan Əlizadə",
+    "description": "Azərbaycan siyasətçisi",
+    "extract": "Arzuxan Əlizadə (18 mart 1965, Bakı) — Azərbaycanlı ictimai-siyasi xadim, Milli Məclisinin deputatı, Azərbaycan Milli İstiqlal Partiyasının V sədri, Azərbaycan Respublikası Mərkəzi Seçki Komissiyasının sabiq üzvü, Azərbaycan Respublikasının Milli Məclisi VII çağırış deputatı."
+   },
+   {
+    "pageid": 802776,
+    "ns": 0,
+    "title": "Mirsaleh Seyidov",
+    "description": "Azərbaycan dövlət xadimi və ədliyyə generalı",
+    "extract": "Mirsaleh Miradil oğlu Seyidov (23 sentyabr 1977, Sumqayıt) — Azərbaycan Respublikası ədliyyə nazirinin müavini — Penitensiar xidmətin rəisi (2023 iyul — 2026 oktyabr), ədliyyə general-mayoru."
+   },
+   {
+    "pageid": 1004094,
+    "ns": 0,
+    "title": "44 (film)",
+    "description": "2026-cı ildə istehsal olunmuş Azərbaycan tammetrajlı bədii müharibə filmi",
+    "extract": "44 — 2026-cı ildə çəkilmiş Azərbaycan tammetrajlı bədii müharibə dramı. Film 2020-ci ildə baş vermiş 44 günlük İkinci Qarabağ müharibəsinə həsr olunub. Rejissorları İsmayıl Səfərəli və Maksim Smetana, ssenari müəllifləri Anar Ələkbərov və İsmayıl İmandır."
+   },
+   {
+    "pageid": 1005300,
+    "ns": 0,
+    "title": "Anar Bayramov",
+    "description": "Azərbaycan Respublikasının səhiyyə naziri",
+    "extract": "Anar Məhərrəm oğlu Bayramov (1975, Bakı) — azərbaycanlı həkim, sığorta sahəsi üzrə menecer və dövlət xadimi, 2026-cı il oktyabrın 19-dan Azərbaycan Respublikasının səhiyyə naziri. Tibb üzrə fəlsəfə doktorudur. Səhiyyə naziri təyin olunmazdan əvvəl Tibbi Ərazi Bölmələrini İdarəetmə Birliyinin (TƏBİB) icraçı direktoru və əmək və əhalinin sosial müdafiəsi nazirinin müavini vəzifələrində çalışıb."
+   }
+  ]
+ }
+}

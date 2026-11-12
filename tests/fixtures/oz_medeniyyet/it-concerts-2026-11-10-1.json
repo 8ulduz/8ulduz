@@ -1,0 +1,27 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 12304,
+     "name": "Caz Muğam Konserti",
+     "event_starts_at": "2026-11-10T16:00:00.000000Z",
+     "category_slug": "concerts",
+     "min_price": 10,
+     "max_price": 30,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Show Gallery"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

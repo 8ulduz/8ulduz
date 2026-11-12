@@ -1,0 +1,237 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": "https://api.iticket.az/az/v6/events?client=web&category_slug=theatre&start_date=14.11.2026&end_date=15.11.2026&page=2",
+   "data": [
+    {
+     "id": 10638,
+     "name": "Cinayət və cəza",
+     "event_starts_at": "2026-11-15T15:30:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12157,
+     "name": "Operadakı Kabus",
+     "event_starts_at": "2026-11-14T14:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12974,
+     "name": "İNİŞMA",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 20,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Teatr O2"
+      }
+     ]
+    },
+    {
+     "id": 10667,
+     "name": "Qraf Monte Kristo",
+     "event_starts_at": "2026-11-14T12:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10929,
+     "name": "Bəyaz Gecələr",
+     "event_starts_at": "2026-11-15T13:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10655,
+     "name": "Paris notr dam kilsəsi: Esmeralda",
+     "event_starts_at": "2026-11-15T12:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 11644,
+     "name": "1984 – Böyük Həbs",
+     "event_starts_at": "2026-11-15T14:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12614,
+     "name": "Şahmaran",
+     "event_starts_at": "2026-11-14T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 10,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Musiqili Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10658,
+     "name": "Martin Eden",
+     "event_starts_at": "2026-11-15T16:30:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12994,
+     "name": "Rəqs et, yoxsa donarsan",
+     "event_starts_at": "2026-11-14T08:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 10,
+     "public_state": 1,
+     "age_limit": "4+",
+     "venues": [
+      {
+       "name": "Gəncə Dövlət Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 6644,
+     "name": "Dovşanın ad günü",
+     "event_starts_at": "2026-11-14T08:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 5,
+     "max_price": 5,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Kukla Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 6440,
+     "name": "İki küpəgirən qarı",
+     "event_starts_at": "2026-11-14T08:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 7,
+     "max_price": 7,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Akademik Musiqili Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 4528,
+     "name": "Qırmızı Papaq",
+     "event_starts_at": "2026-11-14T08:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 7,
+     "max_price": 8,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Şuşa Dövlət Musiqili Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 2818,
+     "name": "Приключения Аладдина, принцессы Жасмин и Джина-духа лампы",
+     "event_starts_at": "2026-11-14T08:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 6,
+     "max_price": 6,
+     "public_state": 1,
+     "age_limit": "0+",
+     "venues": [
+      {
+       "name": "Akademik Rus Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 983,
+     "name": "Çirkin ördək balası",
+     "event_starts_at": "2026-11-14T08:00:00.000000Z",
+     "category_slug": "kids",
+     "min_price": 8,
+     "max_price": 12,
+     "public_state": 1,
+     "age_limit": "3+",
+     "venues": [
+      {
+       "name": "Azərbaycan Dövlət Milli Gənc Tamaşaçılar Teatrı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

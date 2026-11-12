@@ -1,0 +1,132 @@
+{
+ "status": 200,
+ "result": "success",
+ "response": {
+  "events": {
+   "current_page": 1,
+   "next_page_url": null,
+   "data": [
+    {
+     "id": 12974,
+     "name": "İNİŞMA",
+     "event_starts_at": "2026-11-11T16:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 20,
+     "max_price": 50,
+     "public_state": 1,
+     "age_limit": "18+",
+     "venues": [
+      {
+       "name": "Teatr O2"
+      }
+     ]
+    },
+    {
+     "id": 10667,
+     "name": "Qraf Monte Kristo",
+     "event_starts_at": "2026-11-11T13:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10929,
+     "name": "Bəyaz Gecələr",
+     "event_starts_at": "2026-11-11T14:15:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 12318,
+     "name": "Dayının yuxusu",
+     "event_starts_at": "2026-11-11T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 8,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "13+",
+     "venues": [
+      {
+       "name": "Akademik Milli Dram Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 1131,
+     "name": "Arşın mal alan",
+     "event_starts_at": "2026-11-11T15:00:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 12,
+     "max_price": 20,
+     "public_state": 1,
+     "age_limit": "6+",
+     "venues": [
+      {
+       "name": "Bakı Musiqi Akademiyası nəzdində Opera Studiyasının Konsert salonu"
+      }
+     ]
+    },
+    {
+     "id": 10655,
+     "name": "Paris notr dam kilsəsi: Esmeralda",
+     "event_starts_at": "2026-11-11T15:30:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 10640,
+     "name": "Anna Karenina",
+     "event_starts_at": "2026-11-11T15:30:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    },
+    {
+     "id": 11644,
+     "name": "1984 – Böyük Həbs",
+     "event_starts_at": "2026-11-11T16:30:00.000000Z",
+     "category_slug": "theatre",
+     "min_price": 15,
+     "max_price": 15,
+     "public_state": 1,
+     "age_limit": "16+",
+     "venues": [
+      {
+       "name": "Pray Teatrı"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

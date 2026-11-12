@@ -1,0 +1,250 @@
+{
+ "head": {
+  "vars": [
+   "p",
+   "name",
+   "b",
+   "prec",
+   "sl",
+   "title",
+   "desc",
+   "dead",
+   "occ",
+   "posn"
+  ]
+ },
+ "results": {
+  "bindings": [
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q2032185"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Lalə Şövkət"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1951-11-07T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Lalə Şövkət"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "siyasətçi"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan dövlət və siyasi xadimi"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q74404"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Kamal Quliyev"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1976-11-14T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Kamal Quliyev"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "futbol məşqçisi|futbolçu"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan futbolçusu"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q4062335"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Araz Əlizadə"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1951-11-03T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "4"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Araz Əlizadə"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "siyasətçi"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan siyasətçisi"
+    },
+    "dead": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "2022-10-06T00:00:00Z"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q16371378"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Nadir Vəlixanov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1926-11-21T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Nadir Vəlixanov"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "yazıçı"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "0"
+    },
+    "dead": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1994-06-27T00:00:00Z"
+    }
+   },
+   {
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12840184"
+    },
+    "name": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Hacıməmməd Ramazanov"
+    },
+    "b": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "type": "literal",
+     "value": "1951-11-25T00:00:00Z"
+    },
+    "prec": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "11"
+    },
+    "sl": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "title": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Hacıməmməd Ramazanov"
+    },
+    "occ": {
+     "type": "literal",
+     "value": "siyasətçi"
+    },
+    "posn": {
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "type": "literal",
+     "value": "1"
+    },
+    "desc": {
+     "xml:lang": "az",
+     "type": "literal",
+     "value": "Azərbaycan siyasətçisi"
+    }
+   }
+  ]
+ }
+}
