@@ -972,7 +972,8 @@ FAZA1 = (
 )
 
 # Mərhələ 2: açarsız açıq mənbələrdən şablon xəbərlər (sahib, 2026-11-10: «Mərhələ 2-ni qur»).
-# Modullar ayrı budaqlarda yazılır; faylı hələ gəlməyən modul sınaqda ötürülür. Bunlar da sayta qoşulmayıb.
+# Altı modulun hamısı yerindədir (2026-11-12); NotOnTheSiteTest siyahı ilə faylların üst-üstə düşdüyünü yoxlayır.
+# Bunlar da sayta qoşulmayıb.
 FAZA2 = (
     ("oz_hava", "Hava və təbiət"),
     ("oz_yer_kosmos", "Yer və kosmos"),

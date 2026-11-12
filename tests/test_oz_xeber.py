@@ -503,11 +503,10 @@ class NotOnTheSiteTest(unittest.TestCase):
         self.assertIn("oz_futbol_az", modules, "mərhələ 1 modulları yerindədir")
         for name in modules:
             self.assertNotIn(name, site, f"{name} sayta qoşulmayıb (sahibin «tətbiq et» deməyini gözləyir)")
-        # Mərhələ 2 modulları ayrı budaqlarda yazılır: siyahıda hamısı var, faylı gələn sınağa özü düşür.
+        # Mərhələ 1 və 2-nin on iki modulu: hər fayl siyahıdadır, siyahıdakı hər modulun faylı var.
         listed = [n for n, _ in oz.FAZA1 + oz.FAZA2]
-        self.assertEqual(len(listed), len(set(listed)), "modul siyahıda bir dəfədir")
-        self.assertLessEqual({n for n, _ in oz.FAZA1}, set(modules), "mərhələ 1 modullarının hamısı yerindədir")
-        self.assertLessEqual({m for m in modules if m != "oz_xeber"}, set(listed), "sınaq bütün modulları göstərir")
+        self.assertEqual(len(oz.FAZA2), 6, "mərhələ 2-nin altı modulu")
+        self.assertEqual(sorted(listed), sorted(m for m in modules if m != "oz_xeber"), "sınaq bütün modulları göstərir")
         self.assertEqual([n for _, _, mods in oz.FAZALAR for n, _ in mods], listed, "hər mərhələ sınaqda öz bölməsindədir")
         mod_wf = (ROOT / ".github" / "workflows" / "oz-modul.yml").read_text(encoding="utf-8")
         self.assertIn("contents: read", mod_wf)
