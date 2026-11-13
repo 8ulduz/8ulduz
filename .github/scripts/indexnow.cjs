@@ -21,7 +21,18 @@ function pending(index, sent, now) {
     .sort((a, b) => b[1][0] - a[1][0]).map(([id]) => id);
 }
 
-async function run({ index, state, key, now = Date.now(), fetch: f = globalThis.fetch, log = console.log }) {
+// Xəbərdən başqa səhifələr (2026-11-13): namaz, hava, məzənnə (updater.write_subpages), rayon və idman mövzu səhifələri, bölmələr, icmal.
+// Mənbə saytın öz sitemap fayllarıdır: orada olmayan ünvan bildirilmir. Hər ünvan 31 gündə bir dəfə gedir (ayın namaz təqvimi dəyişir).
+function sitemapPages(...xmls) {
+  const out = new Set();
+  for (const xml of xmls) for (const m of String(xml || "").matchAll(/<loc>([^<]+)<\/loc>/g)) {
+    const rel = m[1].startsWith(SITE) ? m[1].slice(SITE.length) : "";
+    if (/^[a-z0-9-]+(?:\/[a-z0-9-]+)*\/$/.test(rel) && !rel.startsWith("xeber/")) out.add(rel);
+  }
+  return [...out];
+}
+
+async function run({ index, state, key, pages = [], now = Date.now(), fetch: f = globalThis.fetch, log = console.log }) {
   let sent = state.sent = Object.fromEntries(Object.entries(state.sent || {}).filter(([, t]) => now / 1000 - t < KEEP_S));
   if (!key) { log("indexnow: açar faylı yoxdur"); return []; }
   if (state.key !== key) {
@@ -29,7 +40,9 @@ async function run({ index, state, key, now = Date.now(), fetch: f = globalThis.
     state.key = key;
   }
   const candidates = pending(index, sent, now).slice(0, MAX);
-  if (!candidates.length) { log("indexnow: yeni səhifə yoxdur"); return []; }
+  // Xəbərlər birinci; qalan yer digər səhifələrə (ilk dəfə bir neçə dövrəyə yayılır).
+  const extra = pages.filter(p => !sent["p:" + p]).slice(0, Math.max(0, MAX - candidates.length));
+  if (!candidates.length && !extra.length) { log("indexnow: yeni səhifə yoxdur"); return []; }
   // Pages açar faylını yayımlamamış göndəriş başlamasın: xəbər səhifələri əvvəlcədən açıq ola bilər.
   const keyLocation = `${SITE}${key}.txt`;
   const proof = await f(keyLocation, { method: "GET", signal: AbortSignal.timeout(10000) });
@@ -42,9 +55,14 @@ async function run({ index, state, key, now = Date.now(), fetch: f = globalThis.
     const ok = await f(`${SITE}xeber/${id}/`, { method: "HEAD", signal: AbortSignal.timeout(10000) }).then(r => r.status === 200, () => false);
     if (ok) ids.push(id);
   }
-  if (!ids.length) { log("indexnow: yeni səhifə yoxdur"); return []; }
+  const live = [];
+  for (const p of extra) {
+    const ok = await f(`${SITE}${p}`, { method: "HEAD", signal: AbortSignal.timeout(10000) }).then(r => r.status === 200, () => false);
+    if (ok) live.push(p);
+  }
+  if (!ids.length && !live.length) { log("indexnow: yeni səhifə yoxdur"); return []; }
   const r = await f("https://api.indexnow.org/indexnow", { method: "POST", headers: { "content-type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ host: "8ulduz.az", key, keyLocation, urlList: ids.map(id => `${SITE}xeber/${id}/`) }),
+    body: JSON.stringify({ host: "8ulduz.az", key, keyLocation, urlList: [...ids.map(id => `${SITE}xeber/${id}/`), ...live.map(p => SITE + p)] }),
     signal: AbortSignal.timeout(20000) });
   if (!(r.status === 200 || r.status === 202)) {
     let code = "";
@@ -55,7 +73,8 @@ async function run({ index, state, key, now = Date.now(), fetch: f = globalThis.
     throw new Error(`indexnow: HTTP ${r.status}${code ? ` (${code})` : ""}`);
   }
   for (const id of ids) sent[id] = Math.floor(now / 1000);
-  log(`indexnow: ${ids.length} səhifə bildirildi`);
+  for (const p of live) sent["p:" + p] = Math.floor(now / 1000);
+  log(`indexnow: ${ids.length + live.length} səhifə bildirildi${live.length ? ` (${live.length} xidmət/mövzu səhifəsi)` : ""}`);
   return ids;
 }
 
@@ -65,10 +84,11 @@ async function main() {
   try { state = JSON.parse(fs.readFileSync(stateFile, "utf8")) || {}; } catch {}
   let index = {};
   try { index = JSON.parse(fs.readFileSync("xeber/index.json", "utf8")); } catch {}
-  await run({ index, state, key: keyOf(".") });
+  const read = f => { try { return fs.readFileSync(f, "utf8"); } catch { return ""; } };
+  await run({ index, state, key: keyOf("."), pages: sitemapPages(read("sitemap.xml"), read("sitemap-movzu.xml")) });
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify(state));
 }
 
-module.exports = { pending, run, keyOf };
+module.exports = { pending, run, keyOf, sitemapPages };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });

@@ -68,3 +68,26 @@ test("indexnow: the key file in the site root holds its own name", () => {
   assert.match(key, /^[0-9a-f]{32}$/);
   assert.equal(fs.readFileSync(path.join(__dirname, "..", `${key}.txt`), "utf8").trim(), key);
 });
+
+test("indexnow: service and topic pages from the sitemaps are sent too, each once a month, after the stories", async () => {
+  const xml = `<urlset><url><loc>https://8ulduz.az/</loc></url><url><loc>https://8ulduz.az/bolme/namaz/baki/</loc></url><url><loc>https://8ulduz.az/bolme/hava/</loc></url>` +
+    `<url><loc>https://8ulduz.az/xeber/${"a".repeat(16)}/</loc></url><url><loc>https://example.com/bolme/x/</loc></url><url><loc>https://8ulduz.az/bolme/A%20b/</loc></url></urlset>`;
+  const pages = I.sitemapPages(xml, `<urlset><url><loc>https://8ulduz.az/rayon/quba/</loc></url><url><loc>https://8ulduz.az/bolme/hava/</loc></url></urlset>`, "");
+  assert.deepEqual(pages, ["bolme/namaz/baki/", "bolme/hava/", "rayon/quba/"], "kök, xəbər (öz siyahısı var), başqa sayt və qəribə ünvan yox; təkrar bir dəfə");
+  const index = { ["a".repeat(16)]: [T - 60, 4, "gundem"] }, posts = [], heads = [];
+  const fetch = async (url, init) => {
+    if (init.method === "GET") return { status: 200, text: async () => "k".repeat(32) };
+    if (init.method === "HEAD") { heads.push(url); return { status: url.endsWith("/bolme/hava/") ? 404 : 200 }; }
+    posts.push(JSON.parse(init.body));
+    return { status: 200 };
+  };
+  const state = {}, logs = [];
+  const run = now => I.run({ index, state, key: "k".repeat(32), pages, now, fetch, log: s => logs.push(s) });
+  assert.deepEqual(await run(NOW), ["a".repeat(16)], "qaytarılan siyahı əvvəlki kimi xəbərlərdir");
+  assert.deepEqual(posts[0].urlList, [`https://8ulduz.az/xeber/${"a".repeat(16)}/`, "https://8ulduz.az/bolme/namaz/baki/", "https://8ulduz.az/rayon/quba/"], "hələ yayımlanmayan (404) səhifə növbəti dövrəyə qalır");
+  assert.ok(logs.at(-1).includes("3 səhifə bildirildi (2 xidmət/mövzu səhifəsi)"));
+  await run(NOW + 60e3);
+  assert.equal(posts.length, 1, "bildirilmiş səhifə təkrar getmir; 404 olan yenə yoxlanır, amma göndəriləcək heç nə yoxdur");
+  await run(NOW + 32 * 86400e3);
+  assert.deepEqual(posts[1].urlList, ["https://8ulduz.az/bolme/namaz/baki/", "https://8ulduz.az/rayon/quba/"], "31 gündən sonra bir dəfə də (ayın təqvimi dəyişib)");
+});
