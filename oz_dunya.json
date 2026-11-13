@@ -3,9 +3,9 @@
   "items": [
     {
       "id": "voyager1-isiq-gunu",
-      "date": "2026-11-13",
+      "date": "2026-11-14",
       "until": "2026-11-15",
-      "slot": "10:20",
+      "slot": "11:20",
       "kind": "dunya-kosmos",
       "title": "Voyager 1 noyabrın 18-də Yerdən bir işıq günü uzaqlıqda olacaq",
       "lead": "NASA-nın 1977-ci ildə buraxdığı Voyager 1 kosmik aparatı noyabrın 18-də Yerdən bir işıq günü, yəni 25,9 milyard kilometrdən çox məsafədə olacaq. Bu barədə NASA məlumat yayıb.",
@@ -28,34 +28,10 @@
       ]
     },
     {
-      "id": "co2-2026-azalma",
-      "date": "2026-11-13",
-      "until": "2026-11-15",
-      "slot": "12:10",
-      "kind": "dunya-tebiet",
-      "title": "Qalıq yanacaqlardan CO2 tullantılarının 2026-cı ildə 0,4 faiz azalacağı gözlənilir",
-      "lead": "Qalıq yanacaqların yandırılmasından yaranan qlobal karbon qazı tullantıları 2026-cı ildə təxminən 0,4 faiz azalacaq. Bu, Global Carbon Project layihəsinin ilkin hesablamasıdır; rəqəmləri Our World in Data yayıb.",
-      "body": [
-        "Azalma əsasən neft istehlakının düşməsi və qaz istifadəsinin bir qədər azalması hesabına olub. Kömür istifadəsi isə bir qədər artıb.",
-        "Böyük tullantı mənbələri arasında Çin, ABŞ, Avropa İttifaqı və Yaponiyada azalma gözlənilir. Hindistanda isə tullantıların təxminən 4 faiz artacağı proqnozlaşdırılır.",
-        "Müəlliflər səbəblər arasında təmiz enerjinin, xüsusən günəş və külək enerjisinin yayılmasını və elektrik avtomobillərinin neftə tələbatı azaltmasını göstərirlər.",
-        "Bu, ümumi artım meyli içində kiçik bir azalmadır: son on ildə tullantılar əvvəlki onilliklərdən yavaş artıb, amma hələ zirvəyə çatmayıb və ardıcıl azalmağa başlamayıb."
-      ],
-      "credit": "Our World in Data",
-      "link": "https://ourworldindata.org/data-insights/global-co2-emissions-from-fossil-fuels-are-set-to-fall-in-2026",
-      "image": "",
-      "src": [
-        "Global carbon dioxide (CO 2 ) emissions from fossil fuels are projected to fall by around 0.4% in 2026.",
-        "This fall mostly came from a reduction in oil consumption and a small decline in gas. Coal use increased slightly.",
-        "But they’re expected to increase by around 4% in India.",
-        "Emissions have grown more slowly over the past decade than in previous decades, but they have not yet peaked or begun a consistent decline."
-      ]
-    },
-    {
       "id": "fda-insult-sunharbo",
-      "date": "2026-11-13",
+      "date": "2026-11-14",
       "until": "2026-11-15",
-      "slot": "14:10",
+      "slot": "15:40",
       "kind": "dunya-saglamliq",
       "title": "ABŞ-da təkrar insult riskini azaldan yeni növ dərman təsdiqlənib",
       "lead": "ABŞ Qida və Dərman Administrasiyası (FDA) noyabrın 9-da Sunharbo (asundexian) adlı dərmanı təsdiqləyib. Bu, XIa amilinin inhibitorları sinfindən təsdiqlənən ilk dərmandır və yüngül, yaxud orta ağırlıqlı işemik insult keçirmiş böyüklərdə insult riskini azaltmaq üçündür.",
@@ -78,10 +54,83 @@
       ]
     },
     {
-      "id": "mars-vulkan-qazi",
-      "date": "2026-11-13",
+      "id": "co2-2026-azalma",
+      "date": "2026-11-14",
       "until": "2026-11-15",
-      "slot": "16:20",
+      "slot": "19:10",
+      "kind": "dunya-tebiet",
+      "title": "Qalıq yanacaqlardan CO2 tullantılarının 2026-cı ildə 0,4 faiz azalacağı gözlənilir",
+      "lead": "Qalıq yanacaqların yandırılmasından yaranan qlobal karbon qazı tullantıları 2026-cı ildə təxminən 0,4 faiz azalacaq. Bu, Global Carbon Project layihəsinin ilkin hesablamasıdır; rəqəmləri Our World in Data yayıb.",
+      "body": [
+        "Azalma əsasən neft istehlakının düşməsi və qaz istifadəsinin bir qədər azalması hesabına olub. Kömür istifadəsi isə bir qədər artıb.",
+        "Böyük tullantı mənbələri arasında Çin, ABŞ, Avropa İttifaqı və Yaponiyada azalma gözlənilir. Hindistanda isə tullantıların təxminən 4 faiz artacağı proqnozlaşdırılır.",
+        "Müəlliflər səbəblər arasında təmiz enerjinin, xüsusən günəş və külək enerjisinin yayılmasını və elektrik avtomobillərinin neftə tələbatı azaltmasını göstərirlər.",
+        "Bu, ümumi artım meyli içində kiçik bir azalmadır: son on ildə tullantılar əvvəlki onilliklərdən yavaş artıb, amma hələ zirvəyə çatmayıb və ardıcıl azalmağa başlamayıb."
+      ],
+      "credit": "Our World in Data",
+      "link": "https://ourworldindata.org/data-insights/global-co2-emissions-from-fossil-fuels-are-set-to-fall-in-2026",
+      "image": "",
+      "src": [
+        "Global carbon dioxide (CO 2 ) emissions from fossil fuels are projected to fall by around 0.4% in 2026.",
+        "This fall mostly came from a reduction in oil consumption and a small decline in gas. Coal use increased slightly.",
+        "But they’re expected to increase by around 4% in India.",
+        "Emissions have grown more slowly over the past decade than in previous decades, but they have not yet peaked or begun a consistent decline."
+      ]
+    },
+    {
+      "id": "hera-didymos-56km",
+      "date": "2026-11-15",
+      "until": "2026-11-16",
+      "slot": "11:20",
+      "kind": "dunya-kosmos",
+      "title": "Hera zondu Didymos asteroidini 56 kilometr məsafədən çəkib",
+      "lead": "Avropa Kosmik Agentliyinin (ESA) planet müdafiəsi üçün göndərdiyi Hera zondu Didymos asteroidinin yeni şəklini 56 kilometr məsafədən çəkib. Şəkildə diametri 780 metr olan asteroidin arxasından onun 151 metrlik peyki Dimorphos da bir qədər görünür.",
+      "body": [
+        "Şəkil asteroidin səthini ətraflı göstərir: iri qayalar, hamar sahələr və ekvator boyunca gözlənilmədən kəskin bir silsilə. Didymos öz oxu ətrafında 2,2 saata bir dövr edir; bu sürət o qədər böyükdür ki, asteroid az qala dağılmaq həddindədir.",
+        "Dimorphos 2022-ci il sentyabrın 26-da planet müdafiəsi sınağının hədəfi olub: NASA-nın 580 kiloqramlıq DART aparatı ona saniyədə 6,1 kilometr sürətlə çırpılıb. Zərbə asteroidin orbitini təxminən 33 dəqiqə dəyişib.",
+        "Hera yaxın aylarda Dimorphos-u yaxından öyrənəcək, iki kiçik peyk buraxacaq və sonda asteroidə enəcək. Hər iki asteroidin ətraflı şəkilləri noyabrın 25-də göstəriləcək."
+      ],
+      "credit": "Avropa Kosmik Agentliyi (ESA)",
+      "link": "https://www.esa.int/articles/about-us/directorates/operations/space-safety/hera/hera-spies-a-half-hidden-asteroid-moonlet",
+      "image": "",
+      "src": [
+        "Acquired from 56 km away, this image shows one face of the main 780-m-diameter Didymos asteroid. A small part of its 151-m-diameter Dimorphos moonlet is also visible",
+        "Didymos rotates every 2.2 hours",
+        "On 26 September 2022 Dimorphos became the subject of a grand-scale planetary defence experiment when NASA’s 580-kg DART spacecraft impacted the smaller asteroid at a velocity of 6.1 km/s.",
+        "slowing the asteroid’s orbit by around 33 minutes",
+        "Detailed images of both asteroids will be unveiled on 25 November."
+      ]
+    },
+    {
+      "id": "ozon-deliyi-2026",
+      "date": "2026-11-15",
+      "until": "2026-11-16",
+      "slot": "15:40",
+      "kind": "dunya-tebiet",
+      "title": "Ozon dəliyi 2026-cı ildə 48 illik müşahidələrin yeddinci ən böyüyü olub",
+      "lead": "Antarktida üzərindəki ozon dəliyi 2026-cı ildə sahəsinə görə 48 illik müşahidələr tarixində yeddinci ən böyük olub, amma dərinliyinə görə əvvəlki böyük dəliklərdən geri qalıb. Bu barədə NASA-nın Earth Observatory xidməti məlumat verib.",
+      "body": [
+        "Dəlik illik ən böyük sahəsinə sentyabrın 18-də çatıb. Alimlər ozon dəliyi dedikdə ozonun miqdarının 220 Dobson vahidindən aşağı düşdüyü ərazini nəzərdə tuturlar; əslində heç bir yer ozonsuz qalmır.",
+        "NASA bunu Antarktida üzərindəki qeyri-adi güclü qütb burulğanı ilə izah edir: o, ozonun geniş ərazidə parçalanması üçün əlverişli şərait yaradıb.",
+        "Ən dərin ozon dəliyi 1994-cü ildə, ən böyüyü isə 2006-cı ildə qeydə alınıb. Ozonu parçalayan maddələrin istehsalını və istifadəsini mərhələlərlə dayandıran Monreal Protokolu 1987-ci ilə aiddir."
+      ],
+      "credit": "NASA",
+      "link": "https://science.nasa.gov/earth/earth-observatory/ozone-hole-reaches-its-2026-maximum/",
+      "image": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/iotd/2026/ozone-hole-reaches-its-2026-maximum/ozone_geos5_20260918_th.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg",
+      "src": [
+        "The ozone hole ranked seventh largest by area in 48 years of monitoring, but it was not as deep as other large holes on record.",
+        "This data visualization shows the area and shape of the ozone hole on September 18, 2026, the day of its annual maximum extent. Scientists define the ozone hole as the area in which ozone concentrations drop below the historical threshold of 220 Dobson units.",
+        "an unusually strong Antarctic polar vortex created ideal conditions for ozone depletion over a large area",
+        "The deepest ozone hole occurred in 1994",
+        "the largest ozone hole occurred in 2006",
+        "led to the 1987 Montreal Protocol"
+      ]
+    },
+    {
+      "id": "mars-vulkan-qazi",
+      "date": "2026-11-15",
+      "until": "2026-11-16",
+      "slot": "19:10",
       "kind": "dunya-kosmos",
       "title": "Marsda vulkan fəallığına işarə edən qaz tapılıb",
       "lead": "Avropa Kosmik Agentliyinin ExoMars Trace Gas Orbiter aparatı Marsın Alba Mons vulkanının yamaclarındakı çatların üstündə hidrogen xlorid qazı aşkar edib. Alimlərin fikrincə, bu, planetin dərinliyində vulkanizmin sönmədiyini, sadəcə yatdığını göstərə bilər.",
@@ -104,9 +153,9 @@
     },
     {
       "id": "kaliforniya-qum-tepeleri",
-      "date": "2026-11-13",
-      "until": "2026-11-15",
-      "slot": "18:40",
+      "date": "2026-11-16",
+      "until": "2026-11-17",
+      "slot": "12:40",
       "kind": "dunya-tebiet",
       "title": "Kaliforniya sahil qum təpələrinin 60 faizini itirib",
       "lead": "ABŞ-ın Kaliforniya ştatı 1800-cü illərin ortalarından bəri sahil qum təpələrinin sahəsinin təxminən 60 faizini itirib. Bu, ABŞ Geoloji Xidmətinin (USGS) iştirak etdiyi yeni tədqiqatın nəticəsidir.",
@@ -126,59 +175,10 @@
       ]
     },
     {
-      "id": "hera-didymos-56km",
-      "date": "2026-11-14",
-      "until": "2026-11-16",
-      "slot": "11:00",
-      "kind": "dunya-kosmos",
-      "title": "Hera zondu Didymos asteroidini 56 kilometr məsafədən çəkib",
-      "lead": "Avropa Kosmik Agentliyinin (ESA) planet müdafiəsi üçün göndərdiyi Hera zondu Didymos asteroidinin yeni şəklini 56 kilometr məsafədən çəkib. Şəkildə diametri 780 metr olan asteroidin arxasından onun 151 metrlik peyki Dimorphos da bir qədər görünür.",
-      "body": [
-        "Şəkil asteroidin səthini ətraflı göstərir: iri qayalar, hamar sahələr və ekvator boyunca gözlənilmədən kəskin bir silsilə. Didymos öz oxu ətrafında 2,2 saata bir dövr edir; bu sürət o qədər böyükdür ki, asteroid az qala dağılmaq həddindədir.",
-        "Dimorphos 2022-ci il sentyabrın 26-da planet müdafiəsi sınağının hədəfi olub: NASA-nın 580 kiloqramlıq DART aparatı ona saniyədə 6,1 kilometr sürətlə çırpılıb. Zərbə asteroidin orbitini təxminən 33 dəqiqə dəyişib.",
-        "Hera yaxın aylarda Dimorphos-u yaxından öyrənəcək, iki kiçik peyk buraxacaq və sonda asteroidə enəcək. Hər iki asteroidin ətraflı şəkilləri noyabrın 25-də göstəriləcək."
-      ],
-      "credit": "Avropa Kosmik Agentliyi (ESA)",
-      "link": "https://www.esa.int/articles/about-us/directorates/operations/space-safety/hera/hera-spies-a-half-hidden-asteroid-moonlet",
-      "image": "",
-      "src": [
-        "Acquired from 56 km away, this image shows one face of the main 780-m-diameter Didymos asteroid. A small part of its 151-m-diameter Dimorphos moonlet is also visible",
-        "Didymos rotates every 2.2 hours",
-        "On 26 September 2022 Dimorphos became the subject of a grand-scale planetary defence experiment when NASA’s 580-kg DART spacecraft impacted the smaller asteroid at a velocity of 6.1 km/s.",
-        "slowing the asteroid’s orbit by around 33 minutes",
-        "Detailed images of both asteroids will be unveiled on 25 November."
-      ]
-    },
-    {
-      "id": "ozon-deliyi-2026",
-      "date": "2026-11-14",
-      "until": "2026-11-16",
-      "slot": "13:30",
-      "kind": "dunya-tebiet",
-      "title": "Ozon dəliyi 2026-cı ildə 48 illik müşahidələrin yeddinci ən böyüyü olub",
-      "lead": "Antarktida üzərindəki ozon dəliyi 2026-cı ildə sahəsinə görə 48 illik müşahidələr tarixində yeddinci ən böyük olub, amma dərinliyinə görə əvvəlki böyük dəliklərdən geri qalıb. Bu barədə NASA-nın Earth Observatory xidməti məlumat verib.",
-      "body": [
-        "Dəlik illik ən böyük sahəsinə sentyabrın 18-də çatıb. Alimlər ozon dəliyi dedikdə ozonun miqdarının 220 Dobson vahidindən aşağı düşdüyü ərazini nəzərdə tuturlar; əslində heç bir yer ozonsuz qalmır.",
-        "NASA bunu Antarktida üzərindəki qeyri-adi güclü qütb burulğanı ilə izah edir: o, ozonun geniş ərazidə parçalanması üçün əlverişli şərait yaradıb.",
-        "Ən dərin ozon dəliyi 1994-cü ildə, ən böyüyü isə 2006-cı ildə qeydə alınıb. Ozonu parçalayan maddələrin istehsalını və istifadəsini mərhələlərlə dayandıran Monreal Protokolu 1987-ci ilə aiddir."
-      ],
-      "credit": "NASA",
-      "link": "https://science.nasa.gov/earth/earth-observatory/ozone-hole-reaches-its-2026-maximum/",
-      "image": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/iotd/2026/ozone-hole-reaches-its-2026-maximum/ozone_geos5_20260918_th.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg",
-      "src": [
-        "The ozone hole ranked seventh largest by area in 48 years of monitoring, but it was not as deep as other large holes on record.",
-        "This data visualization shows the area and shape of the ozone hole on September 18, 2026, the day of its annual maximum extent. Scientists define the ozone hole as the area in which ozone concentrations drop below the historical threshold of 220 Dobson units.",
-        "an unusually strong Antarctic polar vortex created ideal conditions for ozone depletion over a large area",
-        "The deepest ozone hole occurred in 1994",
-        "the largest ozone hole occurred in 2006",
-        "led to the 1987 Montreal Protocol"
-      ]
-    },
-    {
       "id": "sotlandiya-flow-country",
-      "date": "2026-11-14",
-      "until": "2026-11-16",
-      "slot": "17:10",
+      "date": "2026-11-16",
+      "until": "2026-11-17",
+      "slot": "16:40",
       "kind": "dunya-tebiet",
       "title": "Avropanın ən böyük örtük bataqlığı peykdən çəkilib",
       "lead": "NASA-nın Earth Observatory xidməti Şotlandiyanın şimalındakı Flow Country bataqlıqlarının Landsat 8 peykindən çəkilmiş şəklini yayıb. Bu, Avropada bu tipli ən böyük ekosistemdir və YUNESKO-nun Ümumdünya İrs Siyahısına salınmış ilk belə torf bataqlığıdır.",
