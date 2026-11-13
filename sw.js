@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v164"; // hər versiyanın qeydi: docs/sw-versiyalar.md (bu faylı oxucunun brauzeri endirir, tarixçə burada saxlanmır)
+const VERSION = "v165"; // hər versiyanın qeydi: docs/sw-versiyalar.md (bu faylı oxucunun brauzeri endirir, tarixçə burada saxlanmır)
 const STATIC = "8ulduz-static-" + VERSION;
 // Məlumat keşinin adı versiyasızdır (2026-11-09): əvvəl hər yayımda (gündə 20–40 dəfə) silinirdi və yayımdan sonrakı ilk açılış
 // keşsiz başlayırdı — app.js loadCached boş qalır, lent şəbəkəni gözləyirdi (telefonda +0,6–0,9 s). Açarlar sorğusuz yoldur

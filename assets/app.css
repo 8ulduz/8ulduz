@@ -660,7 +660,7 @@ nav.main{flex-wrap:nowrap;min-width:0}
 .hero-main .meta .src{color:#fff}
 .hero-main .body{width:100%}
 .social-details{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
-.social-details summary{cursor:pointer;color:var(--muted)}
+.social-details summary{cursor:pointer;color:var(--muted);list-style:none}
 .social-details .soc-list{max-height:240px;overflow-y:auto}
 .card-hit::after{display:none}
 .card-hit{flex:0 0 auto}
@@ -1081,7 +1081,7 @@ nav.main{order:10}
 .mk[data-d=up] .v{color:var(--up)}.mk[data-d=down] .v{color:var(--down)}
 }
 /* Telefon: Zuğulba kartları bərabər, lent düz 2 kart */
-@media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}}
+@media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 2*var(--lh-meta) + 24px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 4*var(--lh-meta) + 56px)!important}.mk .n{font-size:12px}}
 /* ≤370 px: rejim yalnız işarə */
 @media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}
 /* Telefon: 4 bölmə + ☰, altında Telegram */
