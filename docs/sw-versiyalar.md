@@ -4,6 +4,7 @@ Bu siyahı əvvəl `sw.js`-in `VERSION` sətrində şərh kimi dururdu (7,8 KB) 
 2026-11-13-də (sahib: «hədd artırılmır, artıq olan silinir, yer boşaldılsın») buraya köçürüldü: `sw.js` gzip büdcəsi 9 000 baytdır.
 Yeni versiya artıranda qeydi bu faylın **başına** yazın; `sw.js`-də yalnız `const VERSION = "vNNN";` dəyişir.
 
+- v165: telefonda Zuğulba kartı başlıq + iki meta sətrinə sığır (böyük şriftdə kəsilirdi), məzənnə adları xanaya sığır, «Rəsmi sosial hesablar»da artıq ▶ işarəsi yoxdur
 - v164: standart şrift əvvəlki «A+ iki klik» ölçüsüdür (pillələr 0–6, standart 4); 36 saatdan köhnə saxlanmış nüsxə əvəzinə əvvəl təzəsi (2,5 s gözləmə)
 - v163: «/haqqinda» (sonda «/» yox) açılır
 - v162: Dinlə xarici dilli xəbərin də tam mətnini istəyir

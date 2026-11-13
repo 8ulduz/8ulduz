@@ -660,7 +660,7 @@ nav.main{flex-wrap:nowrap;min-width:0}
 .hero-main .meta .src{color:#fff}
 .hero-main .body{width:100%}
 .social-details{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
-.social-details summary{cursor:pointer;color:var(--muted)}
+.social-details summary{cursor:pointer;color:var(--muted);list-style:none}
 .social-details .soc-list{max-height:240px;overflow-y:auto}
 .card-hit::after{display:none}
 .card-hit{flex:0 0 auto}
@@ -943,7 +943,7 @@ nav.main .nav-s{display:inline}
 .latest-grid .card>.b,.grid .card>.b,.news-row .card>.b,.card>.b{display:flex;flex-direction:column;gap:6px;padding:12px;min-width:0}
 .card .meta{flex-wrap:nowrap;margin:0}
 /* Telefonda TASS siyahısı (sahib, 11-08), bölmədə birinci xəbər böyük */
-@media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>*~.card){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>*~.card)>.img{grid-area:i;align-self:start;width:120px;height:calc(3*var(--lh-body) + 30px);aspect-ratio:auto;border-radius:8px}:is(.latest-grid .card,.grid>*~.card) .badges{grid-area:b}:is(.latest-grid .card,.grid>*~.card) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>*~.card) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:3}:is(.latest-grid .card,.grid>*~.card) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>*~.card)>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>*~.card)>.star:not(.on){color:var(--fg)}.grid>*~.card .card-hit{min-height:calc(4*var(--lh-body))}.grid>*~.card :is(h2,h3){-webkit-line-clamp:4}.grid>*~.card:not(.noimg){grid-template:"b w i" "t t i" 1fr "a a i"/minmax(0,1fr) auto 124px;gap:4px 8px}:is(.latest-grid .card,.grid>*~.card)>.b,.grid>*~.card:not(.noimg) .meta{display:contents}.grid>*~.card:not(.noimg)>.img{align-self:stretch;width:auto;height:auto}.grid>*~.card:not(.noimg) .badges{grid-area:i;z-index:1;place-self:start;flex-wrap:wrap;gap:4px;margin:6px;max-width:112px}.grid>*~.card:not(.noimg) .src{grid-area:b;overflow:hidden;text-overflow:ellipsis}.grid>*~.card:not(.noimg) time{grid-area:w}.grid>*~.card:not(.noimg) :is(.src,time){align-self:center;font-size:13px;line-height:1.3;white-space:nowrap}.grid>*~.card:not(.noimg) .acts{grid-area:a;margin:4px auto 0 0}.grid>*~.card:not(.noimg)>.star{bottom:18px;right:6px;background:#0008;border-color:#0000}.grid>*~.card:not(.noimg)>.star:not(.on){color:#fff}}
+@media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>*~.card){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>*~.card)>.img{grid-area:i;align-self:start;width:min(136px,36vw);height:auto;aspect-ratio:3/2;border-radius:8px}:is(.latest-grid .card,.grid>*~.card) .badges{grid-area:b}:is(.latest-grid .card,.grid>*~.card) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>*~.card) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:3}:is(.latest-grid .card,.grid>*~.card) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>*~.card)>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>*~.card)>.star:not(.on){color:var(--fg)}.grid>*~.card .card-hit{min-height:calc(4*var(--lh-body))}.grid>*~.card :is(h2,h3){-webkit-line-clamp:4}.grid>*~.card:not(.noimg){grid-template:"b w i" "t t i" 1fr "a a i"/minmax(0,1fr) auto 124px;gap:4px 8px}:is(.latest-grid .card,.grid>*~.card)>.b,.grid>*~.card:not(.noimg) .meta{display:contents}.grid>*~.card:not(.noimg)>.img{width:auto}.grid>*~.card:not(.noimg) .badges{grid-area:i;z-index:1;place-self:start;flex-wrap:wrap;gap:4px;margin:6px;max-width:112px}.grid>*~.card:not(.noimg) .src{grid-area:b;overflow:hidden;text-overflow:ellipsis}.grid>*~.card:not(.noimg) time{grid-area:w}.grid>*~.card:not(.noimg) :is(.src,time){align-self:center;font-size:13px;line-height:1.3;white-space:nowrap}.grid>*~.card:not(.noimg) .acts{grid-area:a;margin:4px auto 0 0}.grid>*~.card:not(.noimg)>.star{bottom:18px;right:6px;background:#0008;border-color:#0000}.grid>*~.card:not(.noimg)>.star:not(.on){color:#fff}}
 .latest-grid .card .badges,.latest-grid .card .card-hit,.latest-grid .card .meta{margin:0}
 .card .meta .src{max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .star{top:8px;right:8px;width:28px;height:28px;min-width:28px;min-height:28px;font-size:var(--fs-body)}
@@ -1081,9 +1081,13 @@ nav.main{order:10}
 .mk[data-d=up] .v{color:var(--up)}.mk[data-d=down] .v{color:var(--down)}
 }
 /* Telefon: Zuğulba kartları bərabər, lent düz 2 kart */
-@media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}}
+@media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 2*var(--lh-meta) + 24px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 4*var(--lh-meta) + 56px)!important}.mk .n{font-size:12px}}
 /* ≤370 px: rejim yalnız işarə */
 @media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}
+/* Rejim sözü loqo sətrinə sığmayanda düymələr ikinci sətrə düşürdü (sahib, 2026-11-14): işıqlı rejimdə loqo 18 px enlidir */
+@media(max-width:411px){.topbar .theme-btn span+span{display:none}}
+@media(max-width:440px){:root[data-theme="light"] .topbar .theme-btn span+span{display:none}}
+@media(max-width:392px){.hrow>.logo{zoom:.78}}
 /* Telefon: 4 bölmə + ☰, altında Telegram */
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
