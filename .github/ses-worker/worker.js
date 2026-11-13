@@ -62,19 +62,26 @@ async function textJson(ctx, src, cors, lang = "az") {
 
 const shortIds = () => fetch(`${READY}index.json?m=${Math.floor(Date.now() / 6e4)}`, { cf: { cacheTtl: 60 } }).then(r => r.ok ? r.json() : {}).then(j => new Set(j.q || [])).catch(() => new Set());
 
+// Keş açarı: səsi müəyyən edən hər şey (ünvan, id, başlıq, mənbə adı). Əvvəl açar yalnız ünvan idi: saxta Referer ilə bir sorğu
+// istənilən başlığı (və ya başqa xəbərin hazır səsini) həmin ünvanın bütün sonrakı dinləyicilərinə 24 saatlıq keşləyə bilirdi.
+async function audioKey(src, id, t, s) {
+  const sum = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode([id, t, s].join("\n"))));
+  return `https://dinle.cache/a3/${[...sum.slice(0, 8)].map(b => b.toString(16).padStart(2, "0")).join("")}/${encodeURIComponent(src.href)}`;
+}
+
 async function audio(req, env, ctx, src, q, cors) {
-  const cache = caches.default, key = new Request(`https://dinle.cache/a2/${encodeURIComponent(src.href)}`, { headers: req.headers.get("Range") ? { Range: req.headers.get("Range") } : {} });
+  const id = q.get("id") || "", t = clean(q.get("t") || "").slice(0, 300), s = clean(q.get("s") || "").slice(0, 80);
+  const cache = caches.default, key = new Request(await audioKey(src, id, t, s), { headers: req.headers.get("Range") ? { Range: req.headers.get("Range") } : {} });
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, cors);
   // Səs axınla verilir və eyni vaxtda keşə yazılır (yalnız tam alınıbsa: okP).
   const keep = (res, okP = true) => { const [a, b] = res.body.tee(); ctx.waitUntil(Promise.all([new Response(b).arrayBuffer(), okP]).then(([buf, ok]) => ok && buf.byteLength > 3000 && cache.put(new Request(key.url), new Response(buf, { headers: AUDIO_HEADERS }))).catch(() => {})); return new Response(a, { headers: { ...AUDIO_HEADERS, ...cors } }); };
-  const id = q.get("id") || "";
   if (/^[0-9a-f]{16}$/.test(id)) {
     // Hazır səsi yalnız başlıq və xülasədən ibarət xəbər (index.json «q»: səs işi mənbə səhifəsini ala bilməyib — Report, Oxu.az
     // GitHub-a cavab vermir): dinləyən basanda əvvəl mənbədən tam mətn sınanır. Alınmasa və ya Azure cavab verməsə hazır səs verilir.
     if (env.AZURE_KEY && (await shortIds()).has(id)) {
       const body = await sourceText(src);
-      const r = body ? await tts(env, script(clean(q.get("t") || "").slice(0, 300), clean(q.get("s") || "").slice(0, 80), body)) : null;
+      const r = body ? await tts(env, script(t, s, body)) : null;
       if (r?.ok) return keep(r);
     }
     // Dəqiqə nişanı və 404-ün keşlənməməsi: səs hazır olan kimi verilir (əvvəlki «hələ yoxdur» cavabı 5 dəqiqə yadda qalmır).
@@ -84,7 +91,7 @@ async function audio(req, env, ctx, src, q, cors) {
   if (!env.AZURE_KEY) return new Response("hazır deyil", { status: 503, headers: cors });
   // Basılan anda (sahib: «anında»): başlıq + mənbə dərhal səslənir (ilk səs ~0,5 s); mənbədən tam mətn paralel gəlir
   // və başlıq oxunarkən arxasınca səslənir — bir axın, arada fasilə yoxdur.
-  const t = clean(q.get("t") || "").slice(0, 300), s = clean(q.get("s") || "").slice(0, 80), head = script(t, s, "");
+  const head = script(t, s, "");
   const tailP = sourceText(src).then(b => { const full = script(t, s, b); return full.startsWith(head) ? full.slice(head.length).trim() : full; });
   if (!head) {
     const full = await tailP;
@@ -101,7 +108,7 @@ async function audio(req, env, ctx, src, q, cors) {
     const r2 = await r2P;
     if (r2?.ok) await r2.body.pipeTo(writable, { preventClose: true });
     await writable.close();
-    return !r2 || r2.ok;   // mətnin qalanı alınmayıbsa yalnız başlıq oxunur və keşə yazılmır
+    return !!r2?.ok;   // mətnin qalanı alınmayıbsa yalnız başlıq oxunur və keşə yazılmır (əvvəl mətn heç tapılmayanda yazılırdı: 1-2 dəqiqə sonra hazır olan tam səs 24 saat verilmirdi)
   })().catch(async () => { try { await writable.abort(); } catch {} return false; });
   return keep(new Response(readable), okP);
 }
@@ -204,12 +211,25 @@ export function tokenize(html) {
 const VOID_P = new Set("br img hr meta link input source wbr".split(" "));
 const BLOCK_TAGS = new Set("nav aside footer header h1 script style form".split(" "));
 const SCOPE = /(?:article|news|entry|post|detail)[-_ ](?:body|content|text|desc)|fullstory|full-post-article|\btext-one\b|\bzoomtext\b|\bnews-detail\b/i;
+// HTML-də </p> və </li> yazılmaya bilər: yeni <p>/<li> açıq qalanı özü bağlayır (reader_content.py open_same ilə eyni). Əvvəl
+// bağlanmamış abzaslar iç-içə düşür, mətnin əvvəli itirdi. İç-içə siyahıda (<li><ul><li>) xarici <li> açıq qalır.
+function openSame(stack, tag) {
+  if (tag !== "p" && tag !== "li") return false;
+  for (let i = stack.length - 1; i >= 0; i--) { if (stack[i][0] === tag) return true; if (!INLINE.has(stack[i][0])) return false; }
+  return false;
+}
 function scopedRows(tokens) {
   const stack = [], rows = [];
   let para = null;
+  const endPara = () => { if (para) { const t = clean(para.join(" ")); if (t) rows.push(t); para = null; } };
+  const shut = tag => {
+    if (tag === "p") endPara();
+    for (let i = stack.length - 1; i >= 0; i--) if (stack[i][0] === tag) { if (stack.slice(i).some(r => r[0] === "p")) endPara(); stack.length = i; break; }
+  };
   for (const [kind, tag, a] of tokens) {
     if (kind === "t") { if (para && stack.length && !stack.at(-1)[2]) para.push(a); continue; }
     if (kind === "o") {
+      if (openSame(stack, tag)) shut(tag);
       const marker = (a.class || "") + " " + (a.id || ""), parent = stack.at(-1) || ["", false, false];
       const scoped = parent[1] || tag === "article" || a.itemprop === "articleBody" || a.id === "font_size" || SCOPE.test(marker);
       const blocked = parent[2] || BLOCK_TAGS.has(tag) || /related|recommend|advert|comment|social|paywall/i.test(marker);
@@ -217,9 +237,9 @@ function scopedRows(tokens) {
       if (tag === "p" && scoped && !blocked && !/title|info|caption|date|share|foot|copyright|author|subscribe|banner/i.test(a.class || "")) para = [];
       continue;
     }
-    if (tag === "p" && para) { const t = clean(para.join(" ")); if (t) rows.push(t); para = null; }
-    for (let i = stack.length - 1; i >= 0; i--) if (stack[i][0] === tag) { stack.length = i; break; }
+    shut(tag);
   }
+  endPara();
   return rows;
 }
 
@@ -247,17 +267,19 @@ function denseText(tokens, html, lang = "az") {
     if (prose >= 100) found.push([prose, n.seq]);
   };
   const end = gone => { for (let i = gone.length - 1; i >= 0; i--) if (!INLINE.has(gone[i][0])) { close(gone[i][2]); gone[i][2].up.seq.push(...gone[i][2].own); } };
+  const shut = tag => { for (let i = stack.length - 1; i > 0; i--) if (stack[i][0] === tag) { const gone = stack.slice(i); stack = stack.slice(0, i); end(gone); break; } };
   for (const [kind, tag, a] of tokens) {
     if (kind === "t") { if (!stack.at(-1)[1]) stack.at(-1)[2].buf.push(a); continue; }
     if (kind === "o") {
       if (VOID.has(tag)) { if (tag === "br") flush(stack.at(-1)[2]); continue; }
+      if (openSame(stack, tag)) shut(tag);
       let [, blocked, node] = stack.at(-1);
       blocked = blocked || SKIP.has(tag) || skipClass(tag, (a.class || "") + " " + (a.id || ""));
       if (!INLINE.has(tag)) { flush(node); node = { buf: [], own: [], seq: [], up: node }; }
       stack.push([tag, blocked, node]);
       continue;
     }
-    for (let i = stack.length - 1; i > 0; i--) if (stack[i][0] === tag) { const gone = stack.slice(i); stack = stack.slice(0, i); end(gone); break; }
+    shut(tag);
   }
   end(stack.slice(1));
   close(root);

@@ -28,6 +28,10 @@ const SAME = [
   ["iran", "tehran"], ["israil", "netanyahu"], ["turkiy", "ankara", "erdogan"], ["pensiy", "teqaud"],
   ["hava proqnoz", "hava serait", "havanin", "yagis", "yagint", "qar yag", "sulu qar", "kulek", "kuley", "saxta", "sinoptik", "meteoroloj", "temperatur", "dumanl", "bulud"],
 ];
+// Telegram callback_data ən çoxu 64 baytdır. Sözlə yazılan mövzunun açarı 62 simvola qədərdir («stop:» ilə 67): belə mövzu «izlənir»
+// cavabı alırdı, amma hər xəbər və /list Telegram tərəfindən rədd edilirdi (düymə ilə birlikdə). Uzun açar öz izi ilə göndərilir.
+const keyMark = key => require("node:crypto").createHash("sha1").update(key).digest("hex").slice(0, 16);
+const stopData = key => Buffer.byteLength(`stop:${key}`) <= 64 ? `stop:${key}` : `stop#${keyMark(key)}`;
 const stem = w => w.length > 5 ? w.slice(0, Math.max(5, w.length - 3)) : w;
 function kwTopic(key) {
   if (!/^q_[A-Za-z0-9_-]{2,62}$/.test(key)) return null;
@@ -137,7 +141,7 @@ function digestMessages(state, code, ed, articles, app) {
   const date = new Intl.DateTimeFormat(code, { day: "numeric", month: "long", timeZone: "Asia/Baku" }).format(new Date(ed.end));
   const text = `<b>📰 8ULDUZ · ${L.head}</b>\n${L[ed.key]} · ${date}\n\n` +
     items.map((a, i) => `${i + 1}. <a href="${attr(storyUrl(a))}">${html(a.title).slice(0, 180)}</a>${a.source ? ` — ${html(a.source)}` : ""}`).join("\n");
-  const reply_markup = { inline_keyboard: [[{ text: `📖 ${L.more} · 8ULDUZ`, url: SITE }], [{ text: L.stop, callback_data: `stop:${key}` }]] };
+  const reply_markup = { inline_keyboard: [[{ text: `📖 ${L.more} · 8ULDUZ`, url: SITE }], [{ text: L.stop, callback_data: stopData(key) }]] };
   return chats.map(chat_id => ({ method: "sendMessage", chat_id, text, parse_mode: "HTML", reply_markup, link_preview_options: { is_disabled: true } }));
 }
 
@@ -226,7 +230,7 @@ function handle(state, u, cat, trs = {}) {
   const T = id => TEXT[chatLang(state, id)];
   const name = (id, k) => { const l = cat.get(k)?.label || k; return digestLang(k) ? l : (trs[chatLang(state, id)] || (s => s))(l); };
   const listText = id => list(id).length ? `${T(id).list}\n${list(id).map(k => `• ${name(id, k)}`).join("\n")}` : put(T(id).none, SITE);
-  const stopKb = id => ({ inline_keyboard: list(id).map(k => [{ text: put(T(id).stop, name(id, k)), callback_data: `stop:${k}` }]) });
+  const stopKb = id => ({ inline_keyboard: list(id).map(k => [{ text: put(T(id).stop, name(id, k)), callback_data: stopData(k) }]) });
   if (msg?.chat?.type === "private" && typeof msg.text === "string") {
     const id = String(msg.chat.id), text = msg.text.trim(), [cmd, raw = ""] = text.split(/\s+/, 2);
     const pre = cmd === "/start" ? LANG_PRE.exec(raw) : null, arg = pre ? pre[2] : raw;
@@ -255,8 +259,8 @@ function handle(state, u, cat, trs = {}) {
       delete state.subs[id];
       out.push({ method: "sendMessage", chat_id: id, text: only ? only.off : all });
     }
-  } else if (cb?.data?.startsWith("stop:") && cb.message?.chat?.id) {
-    const id = String(cb.message.chat.id), key = cb.data.slice(5), label = name(id, key), T0 = T(id);
+  } else if (/^stop[:#]/.test(cb?.data || "") && cb.message?.chat?.id) {
+    const id = String(cb.message.chat.id), key = cb.data[4] === "#" ? list(id).find(k => keyMark(k) === cb.data.slice(5)) || "" : cb.data.slice(5), label = name(id, key), T0 = T(id);
     state.subs[id] = list(id).filter(k => k !== key);
     if (!state.subs[id].length) delete state.subs[id];
     out.push({ method: "answerCallbackQuery", callback_query_id: cb.id, text: DIGEST_LANGS[digestLang(key)]?.stopped || put(T0.stopped, label) });
@@ -281,7 +285,7 @@ function deliveries(state, articles, cat, app, trs = {}) {
       if (!key) continue;
       const T = TEXT[lang], url = storyUrl(a), label = (trs[lang] || (s => s))(cat.get(key).label);
       const caption = `<b>${html(a.title).slice(0, 300)}</b>\n${html(a.source || "")} · ${html(label)}`;
-      const reply_markup = { inline_keyboard: [[{ text: T.read, url }], [{ text: put(T.stop, label), callback_data: `stop:${key}` }]] };
+      const reply_markup = { inline_keyboard: [[{ text: T.read, url }], [{ text: put(T.stop, label), callback_data: stopData(key) }]] };
       out.push(/^https:\/\//.test(a.imageUrl || "") ? { method: "sendPhoto", chat_id: chat, photo: a.imageUrl, caption, parse_mode: "HTML", reply_markup, _text: caption }
         : { method: "sendMessage", chat_id: chat, text: caption, parse_mode: "HTML", reply_markup, link_preview_options: { is_disabled: true } });
     }

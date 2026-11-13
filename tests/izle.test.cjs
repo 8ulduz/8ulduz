@@ -186,3 +186,22 @@ test("izlə: a language's full feed read for the first time, or after nobody fol
   assert.deepEqual(I.mergeLangFeeds(s, ["en"], { en: null }), [], "lent alınmadısa: heç nə");
   assert.deepEqual(s.primed, ["en"], "alınmasa da əvvəl hazırlanmış dil qalır");
 });
+
+test("izlə: a long written topic still gets its stories — the stop button fits Telegram's 64-byte callback_data", () => {
+  const topic = "Naxçıvan Muxtar Respublikasının büdcəsi", s = I.newState(), c = I.catalog(app);
+  assert.ok(Buffer.byteLength(topic) > 42 && Buffer.byteLength(topic) < 46, "qəbul olunan ən uzun mövzulardan biri");
+  let out = I.handle(s, msg(9, topic), c);
+  assert.match(out[0].text, /^✅ /);
+  const key = s.subs["9"]?.[0];
+  assert.ok(key && Buffer.byteLength("stop:" + key) > 64, "açar «stop:» ilə 64 baytdan uzundur");
+  out = I.handle(s, msg(9, "/list"), c);
+  const data = out.flatMap(o => o.reply_markup?.inline_keyboard || []).flat().map(b => b.callback_data).filter(Boolean);
+  assert.ok(data.length === 1 && Buffer.byteLength(data[0]) <= 64 && data[0].startsWith("stop#"), "düymənin məlumatı 64 bayta sığır");
+  const sent = I.deliveries(s, [row("n1", "siyaset", "Naxçıvan Muxtar Respublikasının büdcəsi təsdiqləndi")], c, app);
+  assert.ok(sent.length >= 1, "xəbər oxucuya gedir");
+  for (const o of sent) for (const b of (o.reply_markup?.inline_keyboard || []).flat()) if (b.callback_data) assert.ok(Buffer.byteLength(b.callback_data) <= 64);
+  I.handle(s, { update_id: 3, callback_query: { id: "q", data: data[0], message: { chat: { id: 9 } } } }, c);
+  assert.equal(s.subs["9"], undefined, "uzun mövzu düymə ilə dayandırılır");
+  I.handle(s, msg(9, "Pensiya"), c);
+  assert.ok(I.handle(s, msg(9, "/list"), c).flatMap(o => o.reply_markup?.inline_keyboard || []).flat().some(b => /^stop:q_/.test(b.callback_data || "")), "qısa açar əvvəlki kimi göndərilir");
+});

@@ -87,8 +87,17 @@ test("ses-worker /ses: not prepared yet → the full source text in Microsoft's 
     assert.ok(az[0].o.body.includes("az-AZ-BabekNeural") && az[0].o.body.includes("Klub prezidenti. Sportinfo xəbər verir.</voice>"), "əvvəl yalnız başlıq + mənbə — dərhal");
     assert.ok(az[1].o.body.includes(">Napoli klubunun"), "mətnin qalanı arxasınca, başlıq təkrarlanmadan");
     await env.done();
-    const again = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa"), { AZURE_KEY: "k" }, env.ctx);
+    const again = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
     assert.equal(again.status, 200); assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, 2, "ikinci dinləyici keşdən alır");
+    // Keş açarı başlığı, mənbəni və id-ni də əhatə edir: başqa başlıqla (saxta Referer ilə) gələn sorğu bu dinləyicinin keşinə düşmür
+    await env.done();
+    const forged = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=SAXTA%20BA%C5%9ELIQ&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
+    await forged.arrayBuffer(); await env.done();
+    const said = env.calls.filter(c => /tts\.speech/.test(c.u)).map(c => c.o.body);
+    assert.ok(said.length > 2 && said.slice(2).some(b => b.includes("SAXTA BAŞLIQ")), "başqa başlıq öz səsini alır");
+    const reader = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
+    assert.equal(reader.status, 200); await reader.arrayBuffer(); await env.done();
+    assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, said.length, "əsl başlıqlı sorğu yenə öz keşindən (saxta səs ona verilmir)");
   } finally { env.restore(); }
 });
 
@@ -216,4 +225,31 @@ test("ses-worker /ses: a story whose prepared voice has no body text (index «q�
   try { assert.equal((await (await call(env)).arrayBuffer()).byteLength, 5000, "Azure limiti dolub → hazır səs"); } finally { env.restore(); }
   env = mk([[/report\.example/, () => new Response(page, { headers: { "content-type": "text/html" } })]]);
   try { assert.equal((await (await call(env, "")).arrayBuffer()).byteLength, 5000, "Azure açarı yoxdursa siyahı soruşulmur"); assert.ok(!env.calls.some(c => /index\.json/.test(c.u))); } finally { env.restore(); }
+});
+
+test("ses-worker /ses: when the source text cannot be fetched the title-only audio is not cached (the prepared full voice must be served a minute later)", async () => {
+  const { default: w } = await load();
+  const env = cfEnv([[/westeurope\.tts\.speech\.microsoft\.com/, () => new Response(new Uint8Array(8000), { status: 200, headers: { "content-type": "audio/mpeg" } })]]);
+  try {
+    const q = "u=" + encodeURIComponent("https://report.az/qapali") + "&id=bbbbbbbbbbbbbbbb&t=H%C9%99qiqi%20ba%C5%9Fl%C4%B1q&s=Report";
+    const first = await w.fetch(ses(q), { AZURE_KEY: "k" }, env.ctx);
+    assert.equal(first.status, 200); assert.equal((await first.arrayBuffer()).byteLength, 8000, "yalnız başlıq oxunur");
+    await env.done();
+    const before = env.calls.length;
+    const second = await w.fetch(ses(q), { AZURE_KEY: "k" }, env.ctx);
+    await second.arrayBuffer(); await env.done();
+    assert.ok(env.calls.length > before, "ikinci dinləyici keşdən başlıq-səsi almır: hazır səs yenidən soruşulur");
+  } finally { env.restore(); }
+});
+
+test("ses-worker: paragraphs without closing tags are all read (same rule as reader_content.py)", async () => {
+  const { extract } = await load();
+  const names = ["Birinci", "İkinci", "Üçüncü", "Dördüncü"], body = n => `${n} abzas: ${para.repeat(3)}`;
+  for (const html of [`<div class="news-text">${names.map(n => "<p>" + body(n)).join("")}</div>`,
+    `<div class="story"><ul>${names.map(n => "<li>" + body(n)).join("")}</ul></div>`,
+    `<div class="news-text">${names.map(n => "<p><b>Qeyd.</b> " + body(n)).join("")}</div>`]) {
+    const t = extract(html);
+    for (const n of names) assert.equal(t.split(n + " abzas").length - 1, 1, n + ": " + html.slice(0, 40));
+    assert.ok(t.indexOf("Birinci abzas") < t.indexOf("Dördüncü abzas"));
+  }
 });

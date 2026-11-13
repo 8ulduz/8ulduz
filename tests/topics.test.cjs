@@ -73,3 +73,17 @@ test("topics: the site opens the topic from the link; pipeline publishes the pag
   assert.ok(sh.includes('node "$REPO_DIR/.github/scripts/topics.cjs" "$REPO_DIR"') && sh.includes("    prerender_home\n    topic_pages\n") && sh.includes("for name in rayon idman sitemap-movzu.xml"));
   assert.ok(fs.readFileSync(path.join(root, "updater.py"), "utf8").includes(String.raw`"Sitemap: " + SITE + "sitemap-movzu.xml\n"`));
 });
+
+test("topics: «$» in a headline is plain text, not a String.replace pattern", () => {
+  const titles = ["Qubada “Go home pu$$y” plakatı", "Quba üçün 50 milyon $'lık layihə", "Qubada $& və $` işarəli elan", "Quba: __ITEMS__ sözü olan başlıq"];
+  const dir = site(titles.map((t, i) => art("q" + (i + 1), t, "bolgeler", i + 1)));
+  T.run(dir, { now: NOW });
+  const html = read(dir, "rayon/quba/index.html");
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  for (const t of titles) assert.ok(html.includes(esc(t)) || html.includes(t), "başlıq olduğu kimi: " + t);
+  assert.equal(html.split("</script>").length - 1, read(root, ".github/scripts/topics.cjs").match(/const PAGE = [\s\S]*?;\n/)[0].split("</script>").length - 1, "şablonun qalanı səhifəyə ikinci dəfə yapışmır");
+  const data = JSON.parse(html.match(/<script type="application\/json" id="movzu">([\s\S]*?)<\/script>/)[1]);
+  assert.deepEqual(data.items.map(i => i.t).sort(), [...titles].sort(), "saxlanan siyahı oxunur (səhifə hər yayımda yenidən yazılmır)");
+  assert.equal(items(html), titles.length);
+  assert.deepEqual([...new Set(html.match(/__[A-Z0-9_]+?__/g))], ["__ITEMS__"], "doldurulmamış yer qalmır; başlıqdakı «__ITEMS__» mətn kimi qalır");
+});
