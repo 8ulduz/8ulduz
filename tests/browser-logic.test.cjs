@@ -5,6 +5,12 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 
+// Kiçildilmiş kodda yuxarı adlar qısadır (kicilt.cjs, 2026-11-13): eyni funksiyalar ad cədvəli ilə çağırılır. Mənbə üçün heç nə dəyişmir.
+const MIN = 'assets/app.min.js';
+let minNames;
+const namesOf = file => file === MIN ? (minNames ||= require('../.github/kicilt/kicilt.cjs').buildSync(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8')).names) : null;
+// Koddakı yuxarı adları (sətir sabitlərinin içi və «.xassə» istisna) fayldakı adlara çevirir.
+const tr = (code, file) => { const names = namesOf(file); return names ? code.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(?<![.\w$])[A-Za-z_$][\w$]*/g, (w, str) => str ? w : Object.hasOwn(names, w) ? names[w] : w) : code; };
 function app(extra = {}, file = 'assets/app.js') {
   const context = vm.createContext({
     console, Map, Set, URL, Date, AbortController, TextEncoder, btoa, setTimeout, clearTimeout, addEventListener() {},
@@ -16,8 +22,9 @@ function app(extra = {}, file = 'assets/app.js') {
   });
   const source = fs.readFileSync(path.join(root, file), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
-  vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug, loadShared, shareRow, loadCached, loadFirst, heavyImage, cardAt, imgFail, renderView, img};`, context);
+  const API = ["scanArchives", "sized", "img", "subNav", "navPopHtml", "popLeft", "safeHref", "policyViolation", "altForbidden", "publishNews", "savedView", "latestBlock", "homeView", "storage", "applyPrefs", "route", "loadNews", "requestJSON", "pollNews", "resumeNews", "freshUrl", "isFresh", "withinHour", "footballBlock", "S", "heroPick", "searchView", "searchTopics", "sectionView", "languagePicker", "renderNav", "ratesView", "leagueView", "installBtn", "trackEvent", "countVisit", "flushVisits", "enableAnalytics", "savedLang", "LANG_KEY", "tidy", "ordTur", "fold", "searchWords", "hlRegex", "orderedSocialPosts", "socialBlock", "isAppointment", "prezHome", "tickerLabel", "card", "altPop", "catSection", "articleView", "languagePicker", "imageCandidates", "heroBlock", "prezBlock", "localRoadItems", "trackedSources", "sectionView", "clubMatches", "requestRender", "readerBusy", "withArchive", "loadArchive", "showBreaking", "teamSlug", "loadShared", "shareRow", "loadCached", "loadFirst", "heavyImage", "cardAt", "imgFail", "renderView", "img"];
+  vm.runInContext(tr(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
+    checkBreaking = () => {};`, file) + ` globalThis.api = {${[...new Set(API)].map(n => `${n}: ${tr(n, file)}`).join(', ')}};`, context);
   return context;
 }
 
@@ -478,7 +485,7 @@ test('speed red line: the minified code is built from the current app.js and ren
       createElement:()=>({set innerHTML(v){this.value=String(v).replace(/&(amp|lt|gt|quot|#39);/g,(m,e)=>ent[e]);}})};
     const ctx=app({Date:D,document},file),{S}=ctx.api;
     S.lang=null;S.og={};Object.assign(S,JSON.parse(JSON.stringify(files)));
-    const id=S.data.articles[0]?.id,run=code=>{try{return vm.runInContext(code,ctx);}catch(e){return 'xəta: '+e.constructor.name;}};
+    const id=S.data.articles[0]?.id,run=code=>{try{return vm.runInContext(tr(code,file),ctx);}catch(e){return 'xəta: '+e.constructor.name;}};
     const out={home:run('homeView()'),shell:JSON.stringify(shellParts(file)),skel:run('skeleton("")'),saved:run('savedView()'),art:run(`articleView(${JSON.stringify(id)})`),video:run('videosView()'),rates:run('ratesView()')};
     for(const s of ['gundem','siyaset','idman','dunya','iqtisadiyyat','bolgeler','video'])out[s]=run(`sectionView(${JSON.stringify(s)})`);
     S.q='Bakı';run('loadArchive=()=>{}');out.search=run('searchView()');
@@ -487,6 +494,11 @@ test('speed red line: the minified code is built from the current app.js and ren
   const a=pages(SRC),b=pages(OUT);
   assert.ok(a.home.length>20e3&&!a.home.startsWith('xəta'),'mənbə baş səhifəni çəkir');
   for(const k of Object.keys(a))assert.ok(a[k]===b[k],`${k}: kiçildilmiş kod fərqli HTML verir`);
+  for(const k of Object.keys(a))assert.ok(!String(a[k]).startsWith('xəta')&&String(a[k]).length>(k==='skel'?50:200),`${k}: səhifə həqiqətən çəkilir (ad cədvəli səhv olsa hər iki tərəf eyni «xəta» verə bilməz, amma boş müqayisə də olmasın)`);
+  // qısa adlar brauzerin öz adlarını örtmür və «applyPrefs();» sərhədi yerindədir
+  const {names}=require('../.github/kicilt/kicilt.cjs').buildSync(fs.readFileSync(path.join(root,SRC),'utf8'));
+  assert.ok(Object.keys(names).length>400&&names.homeView&&names.homeView.length<=3&&!names.applyPrefs,'yuxarı adlar qısalır, applyPrefs qalır');
+  for(const g of ['document','window','fetch','location','history','navigator','scrollTo','caches','crypto','performance','localStorage','top','name','open','close','event','status','self','parent','origin','length'])assert.ok(!Object.values(names).includes(g),`«${g}» qısa ad kimi işlədilmir`);
 });
 test('speed red line: files arriving together cause one redraw, not one each',async()=>{
   const ctx=app();
@@ -1916,8 +1928,8 @@ function shellParts(file) {
     document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
     requestAnimationFrame: () => 0,
   }, file);
-  vm.runInContext('shell(); renderNav(); renderLangs();', ctx);
-  return { app: els.app.innerHTML, nav: els.nav.innerHTML, inst: els.inst.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
+  vm.runInContext(tr('shell(); renderNav(); renderLangs();', file), ctx);
+  return { app: els.app.innerHTML, nav: els.nav.innerHTML, inst: els.inst.innerHTML, skeleton: vm.runInContext(tr('skeleton()', file), ctx) };
 }
 test('speed red line: index.html carries the same shell app.js builds, with nav and skeleton filled', () => {
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
