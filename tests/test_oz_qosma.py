@@ -28,7 +28,7 @@ OWN = "8ULDUZ"
 ON = {"OZ_DERC": "1", "NEWS_LANG_FILES": "1"}
 FEED_FILES = ("news.json", "latest.json", "latest.az.json", "first.json")
 SLOW_STEPS = ["compute_groups", "update_markets", "resolve_undated", "update_social", "update_video", "update_football", "update_sports",
-              "retire_reader", "refresh_slow_feeds", "write_public", "update_archive", "update_team_pages"]
+              "retire_reader", "refresh_slow_feeds", "update_city_data", "write_public", "update_archive", "update_team_pages"]
 
 
 def iso(minutes_ago):
