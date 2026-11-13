@@ -124,6 +124,8 @@ test('the default typography is the former two-click size and every earlier size
   // Böyük pillələrdə (standart daxil) üst zolaq sətirə sığmır: sarınır. Kiçik pillələr (0–2) əvvəlki kimidir.
   assert.ok(css.includes('html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}'));
   assert.ok(!/data-fs="[34]"\]\) \.hrow/.test(css), 'the wrap rule is not tied to a list of large levels');
+  // Alt zolağın yazısı standartdan böyümür: 320 px ekranda «Seçilmişlər» 18 px-də öz xanasına (80 px) sığmırdı.
+  assert.ok(css.includes('html:is([data-fs="5"],[data-fs="6"]) .tabbar a{font-size:16px}'));
 });
 
 test('every page starts with the same default font level as the app', () => {

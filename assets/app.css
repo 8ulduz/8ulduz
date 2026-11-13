@@ -1028,6 +1028,7 @@ main{padding-top:8px}
 html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar{min-width:0}
 html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
 @media(min-width:721px){html[data-fs="2"] .hrow>.topbar{min-width:0}html[data-fs="2"] .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}}
+html:is([data-fs="5"],[data-fs="6"]) .tabbar a{font-size:16px}
 /* Paylaşma: hər yerdə «Paylaş» düyməsi → panel */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
