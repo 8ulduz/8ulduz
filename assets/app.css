@@ -1084,6 +1084,10 @@ nav.main{order:10}
 @media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 2*var(--lh-meta) + 24px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 4*var(--lh-meta) + 56px)!important}.mk .n{font-size:12px}}
 /* ≤370 px: rejim yalnız işarə */
 @media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}
+/* Rejim sözü loqo sətrinə sığmayanda düymələr ikinci sətrə düşürdü (sahib, 2026-11-14): işıqlı rejimdə loqo 18 px enlidir */
+@media(max-width:411px){.topbar .theme-btn span+span{display:none}}
+@media(max-width:440px){:root[data-theme="light"] .topbar .theme-btn span+span{display:none}}
+@media(max-width:392px){.hrow>.logo{zoom:.78}}
 /* Telefon: 4 bölmə + ☰, altında Telegram */
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
