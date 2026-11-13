@@ -1279,7 +1279,10 @@ function renderTopbar() {
   const w = S.wx, upd = S.status?.checkedAt || (S.partial ? null : S.data?.updatedAt);
   // 11: status təzə olsa da bu ekrana yeni məlumat çatmayıbsa «indicə» yazılmasın.
   const applied = Math.max(S.newsCheckedAt || 0, S.latestAt || 0);
-  const stale = (upd && Date.now() - new Date(upd).getTime() > 5 * 60e3) || (applied && Date.now() - applied > 5 * 60e3);
+  // Qayıdışdan sonrakı 20 s yoxlama gedir: «köhnəlib» sətri çıxıb yeni məlumatla dərhal itirdi, səhifə 22 px aşağı-yuxarı atılırdı.
+  // «Yeniləndi» yazısının yeri vaxt bilinməmiş də ayrılır (görünməz): 721–800 px enində o sonradan çıxanda düymələr ikinci sətrə düşür, səhifə 36 px atılırdı.
+  const now = Date.now(), old = t => t && now - t > 5 * 60e3; // tarix yoxdursa NaN/0: köhnə sayılmır
+  const stale = now - (S.lastResumeAt || 0) > 2e4 && (old(+new Date(upd)) || old(applied));
   const syncBad = S.error || S.offline || S.status?.ok === false || stale;
   const syncText = S.offline ? "Oflayn — saxlanmış xəbərlər" : S.error ? "Xəbərlər yenilənmədi" : S.status?.ok === false ? "Mənbələr yoxlanmadı" : stale ? "Xəbər lenti köhnəlib" : S.status?.degraded ? "Bəzi mənbələr açılmır" : "";
   let pop = "";
@@ -1301,7 +1304,7 @@ function renderTopbar() {
     ${langDD()}
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}${syncBad ? ' <button type="button" class="retry" data-act="refresh">Yenilə</button>' : ""}</span>` : ""}
-    ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
+    <span class="yenilendi"${upd ? "" : ' style="visibility:hidden"'}><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd || now)}</span>
     <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
   if (h !== S.topH) S.topH = $("#topbar").innerHTML = h; // dəyişməyən zolaq yenidən yazılmır: hər çəkilişdə (və hər 30 s) yazılırdı — stil işi, çəkilişdən əvvəl çirkli səhifə (D2, 2026-11-09)
   syncTixDot();
@@ -1807,10 +1810,11 @@ function fbLeagues() {
 // Cədvəl hansı günün oyunlarına qədərdir.
 const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${MONTHS[m - 1]} oyunlarına qədər` : ""; };
 const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
+const FB_HEAD = '<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>'; // futbol cədvəlinin başlığı (iki yerdə)
 function worldTable(l, g) {
   const rows = g.rows || [];
   if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.w)}</td><td>${esc(t.l)}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
-  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  return `${FB_HEAD}${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
 }
 function footballBlock(list) {
   const all = fbLeagues();
@@ -1843,7 +1847,7 @@ function footballBlock(list) {
   let pane = "";
   if (tab === "results") pane = fb.results?.length ? `<ul class="games">${fb.results.map(game).join("")}</ul>` : `<p class="muted foot-note">Nəticə hələ yoxdur.</p>`;
   else if (tab === "fixtures") pane = fb.fixtures?.length ? `<ul class="games">${fb.fixtures.map(game).join("")}</ul>` : `<p class="muted foot-note">Növbəti tur hələ elan olunmayıb.</p>`;
-  else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm"><a href="${teamHref(fb, t.team)}">${esc(clubAz(t.team))}</a></td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  else if (tab === "table") pane = `${FB_HEAD}${fb.table.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm"><a href="${teamHref(fb, t.team)}">${esc(clubAz(t.team))}</a></td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
   else if (tab === "scorers") pane = fb.scorers?.length ? `<ol class="fb-scorers">${fb.scorers.map(s => `<li><b>${esc(s.name)}</b> <span class="muted">${esc(clubAz(s.club))}</span><em>${esc(s.goals)} qol</em></li>`).join("")}</ol>` : `<p class="muted foot-note">Bombardir siyahısı alınmadı.</p>`;
   return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
     ${picker}
@@ -1882,7 +1886,7 @@ function catSection(c, list) {
 }
 
 function skeleton(kind) {
-  if (kind === "article") return `<div class="skel" style="height:30px;margin:14px 0 10px"></div><div class="skel" style="height:200px"></div>`; // başlıq + şəkil yeri: xəbər gələndə səhifə atlamır
+  if (kind === "article") return `<div class="skel" style="height:30px;margin:24px 0 10px"></div><div class="skel" style="height:200px"></div>`; // başlıq + şəkil yeri: xəbər gələndə səhifə atlamır (üst boşluq .article-detail ilə eyni: 24 px)
   return `<section class="prez"><div class="skel" style="height:180px"></div></section>
     <section class="hero"><div class="skel" style="height:340px"></div></section>
     <section><div class="grid">${"<div class='skel' style='height:220px'></div>".repeat(4)}</div></section>`;
@@ -2281,7 +2285,8 @@ function patchChildren(box, fresh, changed) {
     if (was) was.replaceWith(node); else box.insertBefore(node, box.children[i] || null);
     changed.push(node);
   });
-  if (keyed) { old.forEach(n => kept.has(n) || n.remove()); restoreAnchor(box, anchor); } else old.slice(fresh.length).forEach(node => node.remove());
+  // Slayderin oxları və nöqtələri səhifə sətrində yoxdur: silinmir (silinəndə slayd nöqtəsiz qalır, altındakı məzmun 12 px oynayırdı); say dəyişəndə yenidən qurulur.
+  if (keyed) { old.forEach(n => kept.has(n) || n.remove()); restoreAnchor(box, anchor); if (old.length !== fresh.length) changed.push(box); } else old.slice(fresh.length).forEach(node => node.matches(".st-btn,.st-dots") || node.remove());
 }
 function patchView(v, page) {
   const next = document.createElement("template");

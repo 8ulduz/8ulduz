@@ -3212,3 +3212,76 @@ test('service worker: a redirected shell response is never cached or handed to a
   assert.ok(at > 0 && at < sw.indexOf('await cache.put(key, copy)'), 'yönləndirilmiş cavab keşə yazılmazdan əvvəl qaytarılır');
   assert.ok(sw.includes('const id = d.id === "on" ? "" : d.id;') && sw.includes('if (open && id) {'), 'nümunə bildiriş («on») id-siz bildiriş kimi baş səhifəni açır');
 });
+
+// 2026-11-13, sahibin qeydi: «sayta girəndə və içində açılışlar atılma ilə olur» (telefon, paylaşım keçidi). Brauzer ölçüsü dörd mənbə
+// göstərdi: zolağa və valyuta sətrinə ayrılan yer real hündürlükdən az idi (telefonda 49 px, kompüterdə 17 px), slayd nöqtələri yaranıb
+// silinirdi (12 px), qayıdışda «köhnəlib» sətri çıxıb itirdi (22 px), «Yeniləndi» yazısı sonradan çıxırdı (planşetdə 36 px).
+test('no jump on open: the ticker and markets rows reserve their real height at every font size', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // qaydanın hansı @media içində olduğu: mötərizə dərinliyi ilə
+  const where = rule => { const at = css.indexOf(rule); assert.ok(at >= 0, 'qayda yoxdur: ' + rule); let depth = 0, media = ''; for (let i = 0; i < at; i++) { if (css[i] === '{') { if (!depth) media = css.slice(css.lastIndexOf('\n', i) + 1, i).trim(); depth++; } else if (css[i] === '}') { depth--; if (!depth) media = ''; } } return depth ? media : ''; };
+  assert.equal(where('#ticker:empty{min-height:calc(var(--lh-body) + 15px)}'), '', 'zolağın yeri bütün enlərdə ayrılır (əvvəl telefonda yalnız ≤340 px-də idi: 41 px atılma)');
+  assert.equal(where('.markets.pending{height:calc(3*var(--lh-body) + 24px);visibility:hidden}'), '', 'valyuta sətri: üç sətirlik kart + kənarlar');
+  assert.match(where('#ticker:empty{min-height:calc(var(--lh-body) + 17px)}'), /max-width:340px/, 'dar telefonda zolaq 2 px hündürdür');
+  assert.match(where('.markets.pending{height:calc(var(--lh-body) + .9857rem + 14px)}'), /^@media/, 'telefon düzülüşündə kart iki sətirdir');
+  assert.ok(!/\.markets\.pending\{height:\d+px/.test(css) && !/#ticker:empty\{min-height:\d+px/.test(css), 'sabit piksel yoxdur: yer şrift ölçüsü (A−/A+) ilə birgə dəyişir');
+  // düsturun dayaqları: kartın ölçüləri dəyişsə düstur da dəyişməlidir (brauzer ölçüsü: 2026-11-13, 5 şrift × 10 en, fərq 0)
+  for (const k of ['.ticker .run{flex:1;overflow:hidden;padding:7px 0;', '.ticker{display:flex;border-bottom:1px solid var(--border);', '.mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}', '.mk-grid{padding:4px 0}', '.mk .v{font-size:.8571rem}', '.mk .v{padding-bottom:1px;line-height:1.15}'])
+    assert.ok(css.includes(k), 'ayrılan yerin düsturu bu qaydaya söykənir, o dəyişibsə düsturu yenidən ölçün: ' + k);
+  assert.equal(where('.hero-strip:not([data-pages]){padding-bottom:12px}'), '', 'slayd nöqtələrinin yeri (6 + 6 px) JS onları qoyana qədər ayrılır');
+  assert.ok(css.includes('.st-dots{display:flex;justify-content:center;gap:5px;padding:6px 0 0}') && css.includes('.st-dots button{width:6px;height:6px;'), 'nöqtə sırası 12 px-dir');
+  // paylaşılan keçid: skeletin üst boşluğu xəbərin özününkü ilə eynidir (14 px idi: xəbər gələndə #view 10 px aşağı düşürdü, CLS 0,31)
+  const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(css.includes('.article-detail{max-width:860px;margin:24px auto}') && js.includes('<div class="skel" style="height:30px;margin:24px 0 10px"></div>'), 'xəbər skeleti və xəbər eyni yerdən başlayır');
+});
+test('no jump inside: a patched slider keeps its arrows and dots; they are rebuilt only when the slide count changes', () => {
+  const ctx = app();
+  class El {
+    constructor(cls, html, kids = []) { this.className = cls; this.outerHTML = html; this.children = kids; this.style = {}; this.scrollLeft = 0; this.offsetLeft = 0; this.offsetWidth = 100; this.isConnected = true; for (const k of kids) k.parent = this; }
+    matches(sel) { return sel.split(',').some(s => this.className.split(' ').includes(s.trim().slice(1))); }
+    get firstElementChild() { return this.children[0]; }
+    get firstChild() { return this.children[0]; }
+    remove() { const a = this.parent.children; a.splice(a.indexOf(this), 1); this.isConnected = false; }
+    replaceWith(n) { const a = this.parent.children; a[a.indexOf(this)] = n; n.parent = this.parent; }
+    insertBefore(n, ref) { if (n.parent) n.parent.children.splice(n.parent.children.indexOf(n), 1); const a = this.children, i = ref ? a.indexOf(ref) : a.length; a.splice(i, 0, n); n.parent = this; }
+    querySelectorAll() { return []; }
+  }
+  const slide = n => new El('hero-main', `<article>${n}</article>`);
+  const strip = (slides, extra = []) => new El('strip hero-strip', `<div class="strip hero-strip">${slides.map(s => s.outerHTML).join('')}</div>`, [new El('hero-row', '<div class="hero-row">' + slides.map(s => s.outerHTML).join('') + '</div>', slides), ...extra]);
+  ctx.El = El; ctx.t = { slide, strip };
+  const run = code => vm.runInContext(code, ctx);
+  // 1) slaydlar eynidir, yalnız sarğının sətri fərqlidir (tam lent gələndə belə olurdu): oxlar və nöqtələr yerində qalır
+  ctx.old = strip([slide(1), slide(2)], [new El('st-btn st-prev', ''), new El('st-btn st-next', ''), new El('st-dots', ''), new El('qalıq', '')]);
+  run('rememberSrc(old); old.children[0]._src = "köhnə"; changed = []; patchChildren(old, [t.strip([t.slide(1), t.slide(2)]).children[0]], changed)');
+  assert.deepEqual(ctx.old.children.map(n => n.className), ['hero-row', 'st-btn st-prev', 'st-btn st-next', 'st-dots'], 'oxlar və nöqtələr silinmir, başqa artıq düyün silinir');
+  assert.equal(ctx.changed.length, 0, 'slayd sayı dəyişməyib: yenidən qurmağa ehtiyac yoxdur');
+  // 2) bir slayd çıxıb, yenisi yoxdur: zolaq yenidən qurulmalıdır (nöqtə sayı)
+  ctx.old = strip([slide(1), slide(2), slide(3)], [new El('st-dots', '')]);
+  run('rememberSrc(old); old.children[0]._src = "köhnə"; changed = []; patchChildren(old, [t.strip([t.slide(1), t.slide(3)]).children[0]], changed)');
+  assert.deepEqual(ctx.old.children[0].children.map(n => n.outerHTML), ['<article>1</article>', '<article>3</article>']);
+  assert.ok(ctx.changed.includes(ctx.old.children[0]), 'say dəyişəndə sıra «dəyişən»lərə düşür: wire() zolağın nöqtələrini yenidən qurur');
+  assert.equal(ctx.old.children[1].className, 'st-dots', 'nöqtələr yenidən qurulana qədər yerində qalır (altındakı məzmun oynamır)');
+});
+test('no jump on return: the «köhnəlib» line waits 20 s for the refresh, and the «Yeniləndi» slot exists before the time is known', () => {
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, classList: { toggle() {}, add() {}, remove() {} }, dataset: {}, style: {} };
+  const ctx = app({ document: { documentElement: { dataset: {} }, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return {}; } } });
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  vm.runInContext(src.slice(src.indexOf('\nfunction renderTopbar() {'), src.indexOf('\nconst NAV_PRIMARY')), ctx);
+  const { S } = ctx.api, draw = () => { vm.runInContext('renderTopbar()', ctx); return els.topbar.innerHTML; };
+  let html = draw();
+  assert.ok(html.includes('<span class="yenilendi" style="visibility:hidden">') && !html.includes('sync-state'), 'vaxt bilinmir: yazının yeri görünməz ayrılır (hazır HTML də belədir: prerender eyni funksiyanı işlədir)');
+  S.status = { checkedAt: new Date(Date.now() - 60e3).toISOString(), ok: true };
+  html = draw();
+  assert.ok(html.includes('<span class="yenilendi"><span class="dot live"') && html.includes('Yeniləndi: 1 ') && !html.includes('köhnəlib'), 'təzə lent: yazı görünür');
+  // vərəq 7 dəqiqə arxa planda qalıb: status təzədir, bu ekrana son məlumat 7 dəqiqə əvvəl çatıb
+  S.latestAt = Date.now() - 7 * 60e3;
+  S.lastResumeAt = Date.now() - 3e3;
+  html = draw();
+  assert.ok(!html.includes('köhnəlib') && !html.includes('sync-state'), 'qayıdışdan sonra yoxlama gedir: sətir çıxıb-itmir (bütün səhifə 22 px aşağı-yuxarı atılırdı)');
+  S.lastResumeAt = Date.now() - 25e3;
+  html = draw();
+  assert.ok(html.includes('Xəbər lenti köhnəlib') && html.includes('class="retry" data-act="refresh"'), '20 saniyədən sonra hələ köhnədirsə xəbərdarlıq və «Yenilə» düyməsi çıxır');
+  S.lastResumeAt = Date.now(); S.error = 'x';
+  assert.ok(draw().includes('Xəbərlər yenilənmədi'), 'xəta gözləmir: dərhal yazılır');
+});
