@@ -91,3 +91,14 @@ test("indexnow: service and topic pages from the sitemaps are sent too, each onc
   await run(NOW + 32 * 86400e3);
   assert.deepEqual(posts[1].urlList, ["https://8ulduz.az/bolme/namaz/baki/", "https://8ulduz.az/rayon/quba/"], "31 gündən sonra bir dəfə də (ayın təqvimi dəyişib)");
 });
+
+test("indexnow: the workflow checks out every file the script reads (2026-11-13: sitemaps were missing from the sparse checkout, so no service page was ever sent)", () => {
+  const root = path.join(__dirname, "..");
+  const yml = fs.readFileSync(path.join(root, ".github/workflows/social.yml"), "utf8");
+  const sparse = yml.slice(yml.indexOf("sparse-checkout: |"), yml.indexOf("sparse-checkout-cone-mode")).split(/\r?\n/).map(s => s.trim());
+  const src = fs.readFileSync(path.join(root, ".github/scripts/indexnow.cjs"), "utf8");
+  const main = src.slice(src.indexOf("async function main()"));
+  const reads = [...main.matchAll(/read(?:FileSync)?\("([a-z][^"]+\.(?:xml|json))"/g)].map(m => m[1]).filter(f => !f.startsWith(".social/"));
+  assert.deepEqual(reads.sort(), ["sitemap-movzu.xml", "sitemap.xml", "xeber/index.json"]);
+  for (const f of reads) assert.ok(sparse.includes(f), `${f} sparse-checkout siyahısında olmalıdır`);
+});
