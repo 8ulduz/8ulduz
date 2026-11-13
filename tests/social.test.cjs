@@ -136,7 +136,10 @@ test("social: the workflow is separate from the news pipeline, reads only the fe
   const wf = fs.readFileSync(path.join(__dirname, "../.github/workflows/social.yml"), "utf8");
   assert.ok(wf.includes("node .github/scripts/social.cjs data/news.json"));
   assert.ok(wf.includes("workflow_dispatch:") && wf.includes("cron:"), "pipeline dispatch edir, cron ehtiyat");
-  assert.ok(wf.includes("contents: read") && !wf.includes("contents: write"), "repoya yazmır");
+  // Yazma icazəsi yalnız «ig» işindədir (8ulduz.az/ig/ siyahısı ayrıca budağa) və o işə heç bir sirr verilmir.
+  const [head, igJob] = wf.split(/\r?\n  ig:\r?\n/);
+  assert.ok(head.includes("contents: read") && !head.includes("contents: write"), "paylaşan iş repoya yazmır");
+  assert.ok(igJob && igJob.includes("contents: write") && !igJob.includes("secrets.") && igJob.includes("HEAD:refs/heads/ig") && igJob.split("git push").length === 2 && !/HEAD:refs\/heads\/main|git push[^\n]*\bmain\b/.test(igJob), "ig işi yalnız «ig» budağına, sirrsiz");
   for (const s of ["TELEGRAM_BOT_TOKEN", "FB_PAGE_TOKEN", "X_ACCESS_SECRET", "LINKEDIN_TOKEN"]) assert.ok(wf.includes(`\${{ secrets.${s} }}`), s);
   const pipe = fs.readFileSync(path.join(__dirname, "../.github/scripts/pipeline.sh"), "utf8");
   // Qırmızı xətt 1: yalnız main yayımı uğurlu olanda, arxa planda və vaxt limiti ilə; sürətli dövrəyə toxunmur.
@@ -331,4 +334,65 @@ test("social: the same event under different headlines is posted once per networ
   const T = (a, h = 0) => S.topicOf(a, NOW / 1000 + h * 3600);
   assert.ok(!S.sameTopic(T(visit[0]), T(p("c1", "Türkiyə Prezidenti Ərdoğan Azərbaycana rəsmi səfərə gəlib", 0, "Türkiyə Respublikasının Prezidenti Rəcəb Tayyib Ərdoğan Azərbaycana rəsmi səfərə gəlib."), -6)), "səhər Ərdoğanın səfəri ≠ axşam Əliyevin səfəri");
   assert.ok(!S.sameTopic(T(visit[0]), T(art("c2", { title: "COP31 çərçivəsində ÜST ilə dəyirmi masa keçirilib", summary: "Ümumdünya Səhiyyə Təşkilatı ilə birgə dəyirmi masa. " + sum }))), "xülasədəki ortaq COP31 cümləsi tək başına bəs deyil");
+});
+
+test("social: 8ulduz.az/ig/ lists Instagram's own posts in Instagram's order, each linked to its story (owner 2026-11-13)", async () => {
+  const state = {};
+  const a = art("g1", { title: "Bakıda yeni park açıldı", imageUrl: "https://apa.az/p.jpg" });
+  const b = art("g2", { title: "Neftin qiyməti bahalaşıb — təfərrüat", imageUrl: "https://apa.az/n.jpg" });
+  S.igRemember(state, a, 100); S.igRemember(state, b, 200); S.igRemember(state, a, 300);
+  assert.deepEqual(state._ig.map(x => x.id), [a.id, b.id], "eyni xəbər bir dəfə, ən təzəsi önə");
+  assert.equal(state._ig[0].img, "https://www.8ulduz.az/i/" + a.id + ".jpg", "şəkil: xəbərin öz şəkli (Worker), Instagram-a gedənin eynisi");
+  const media = [
+    { caption: "Bakıda yeni park açıldı\n\nPark 5 hektardır.\n\nƏtraflı: 8ulduz.az", timestamp: "2026-11-13T10:00:00+0000", media_url: "https://scontent.cdninstagram.com/1.jpg" },
+    { caption: "Neftin qiyməti bahalaşıb — təfərrüat\n\n…", timestamp: "2026-11-13T09:00:00+0000", media_url: "https://scontent.cdninstagram.com/2.jpg" },
+    { caption: "Lentdə olan, amma yadda saxlanmayan xəbər\n\n…", timestamp: "2026-11-13T08:00:00+0000", media_url: "https://scontent.cdninstagram.com/3.jpg" },
+    { caption: "Çoxdan paylaşılmış köhnə xəbər başlığı\n\n…", timestamp: "2026-11-12T08:00:00+0000", media_url: "https://scontent.cdninstagram.com/4.jpg" },
+    { caption: "", timestamp: "2026-11-12T07:00:00+0000" },
+  ];
+  const c = art("g3", { title: "Lentdə olan, amma yadda saxlanmayan xəbər" });
+  const g = S.igGrid(media, state, [c]);
+  assert.deepEqual(g.map(x => x.title), ["Bakıda yeni park açıldı", "Neftin qiyməti bahalaşıb — təfərrüat", "Lentdə olan, amma yadda saxlanmayan xəbər", "Çoxdan paylaşılmış köhnə xəbər başlığı"], "Instagram-ın sırası; başlıqsız post düşür");
+  assert.ok(g[0].url.startsWith("https://www.8ulduz.az/" + a.id) && g[0].img.endsWith("/i/" + a.id + ".jpg"));
+  assert.ok(g[2].url.startsWith("https://www.8ulduz.az/" + c.id), "yadda saxlanmayan post lentdəki xəbərlə tutuşdurulur");
+  assert.equal(g[3].url, "https://8ulduz.az/#/axtar?q=" + encodeURIComponent("Çoxdan paylaşılmış köhnə xəbər başlığı"), "xəbər tapılmasa axtarış");
+  assert.equal(g[3].img, "https://scontent.cdninstagram.com/4.jpg");
+  assert.equal(g[0].t, Date.parse("2026-11-13T10:00:00Z") / 1000);
+  const d = art("g4", { title: "Ə".repeat(400) });
+  S.igRemember(state, d, 400);
+  assert.ok(S.igGrid([{ caption: S.cut(d.title, 300) + "\n\nx", timestamp: "2026-11-13T11:00:00+0000" }], state, [])[0].url.includes("/" + d.id), "kəsilmiş uzun başlıq da tutulur");
+  assert.deepEqual(S.igGrid([], state, []).map(x => x.title.slice(0, 5)), ["ƏƏƏƏƏ", "Bakıd", "Nefti"], "API cavab verməsə yadda saxlanan siyahı");
+  let asked = "";
+  const got = await S.igMedia({ ig: "1784", root: "https://graph.facebook.com/v27.0/", token: "PAGEtok12345" }, async u => { asked = u; return { json: async () => ({ data: media }) }; });
+  assert.equal(got.length, 5);
+  assert.ok(asked.startsWith("https://graph.facebook.com/v27.0/1784/media?fields=caption,media_url,thumbnail_url,timestamp&limit=36&access_token=PAGEtok12345"));
+  assert.deepEqual(await S.igMedia({ ig: "", root: "x" }, async () => { throw new Error("çağırılmamalı"); }), []);
+  assert.deepEqual(await S.igMedia({ ig: "1", root: "x/", token: "t" }, async () => { throw new Error("şəbəkə"); }), []);
+});
+
+test("social: run hands the prepared Instagram account to the /ig/ list and remembers each Instagram post", async () => {
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", IG_WAIT_MS: "0" };
+  const pic = art("e7", { imageUrl: "https://apa.az/i.jpg", title: "Bakıda yeni körpü açıldı" });
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) return { json: async () => ({ access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } }) };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    if (url.endsWith("/1784/media")) return { ok: true, status: 200, json: async () => ({ id: "C9" }), text: async () => "" };
+    if (url.endsWith("/1784/media_publish")) return { ok: true, status: 200, text: async () => "" };
+    throw new Error("gözlənilməz " + url);
+  };
+  const state = {};
+  const res = await S.run({ articles: [pic], env, now: NOW, fetch, state, log: () => {} });
+  assert.equal(res.ig?.ig, "1784"); assert.equal(res.ig.token, "PAGEtok12345");
+  assert.deepEqual(state._ig.map(x => [x.id, x.title]), [[pic.id, "Bakıda yeni körpü açıldı"]]);
+  assert.ok(!JSON.stringify(state._ig).includes("PAGEtok"), "açar siyahıya düşmür");
+});
+
+test("social: the /ig/ page is a small static page that loads no site app and only links to https", () => {
+  const dir = path.join(__dirname, "../ig"), page = fs.readFileSync(path.join(dir, "index.html"), "utf8"), js = fs.readFileSync(path.join(dir, "ig.js"), "utf8");
+  assert.ok(page.includes(`content="default-src 'none'; script-src 'self';`) && page.includes("connect-src https://raw.githubusercontent.com;"));
+  assert.ok(!/app(\.min)?\.js|config\.js|ga\.js/.test(page), "saytın tətbiqi yüklənmir");
+  assert.ok(js.includes("https://raw.githubusercontent.com/8ulduz/8ulduz/ig/ig.json") && js.includes("s.textContent = x.title"), "başlıq mətn kimi yazılır");
+  assert.ok(js.includes("/^https:\\/\\//.test"), "yalnız https keçid və şəkil");
+  assert.ok(fs.statSync(path.join(dir, "ig.js")).size + fs.statSync(path.join(dir, "ig.css")).size + page.length < 6000);
 });
