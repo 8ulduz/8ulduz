@@ -497,7 +497,9 @@ function shownSource(a) {
   } catch {}
   return a.source || "";
 }
-const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}</span></div>`;
+const plainName = s => String(s ?? "").toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "");
+const ownAuthor = a => { const w = plainName(a.author); return !!w && ![a.source, shownSource(a), hostOf(a.sourceUrl)].some(n => plainName(n) === w); }; // müəllif mənbənin öz adıdırsa təkrar yazılmır
+const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${ownAuthor(a) ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}</span></div>`;
 // Paylaşma keçidi: www.8ulduz.az (Worker) og səhifəni hər dəqiqə verir, oxucunu dərhal sayta keçirir (docs/x-worker.md); b bölmə, h saat (arxiv.cjs hourOf). 2026-11-09-a qədər x.8ulduz.az idi — sahib: saytın adı ilə qarışmasın.
 const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
 const shareUrl = (a, h = hourOf(a)) => /^[0-9a-f]{16}$/.test(a.id) ? `https://www.8ulduz.az/${a.id}${h && "?h=" + h}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${h && "&h=" + h}`;
@@ -607,7 +609,7 @@ function localRoadItems(list) {
     return age >= 0 && age < 2 * HOUR && local.test(t) && !unrelated.test(t);
   });
 }
-const geoArea = () => S.geo ? { id: "konum", label: "📍 Konumum", lat: S.geo.lat, lon: S.geo.lon, zoom: 13 } : null;
+const geoArea = () => S.geo?.lat != null ? { id: "konum", label: "📍 Konumum", lat: S.geo.lat, lon: S.geo.lon, zoom: 13 } : null;
 function tixArea() {
   const konum = geoArea();
   if (konum && (S.tixArea === "konum" || !S.tixUser)) return konum;
@@ -633,8 +635,13 @@ function roadFresh(a) {
   return age >= -5 * 60e3 && age < HOUR;
 }
 function roadHot(list) { return bakuRush() || roadItems(list.filter(a => Date.now() - new Date(a.publishedAt) < HOUR)).some(roadFresh); }
+// Tam lent gələnədək (açılış, yeniləmə: ilk ekranın faylında yol xəbərləri yoxdur) nöqtə sönüb ~1,5 s sonra yenidən yanırdı (sahib 2026-11-13, video):
+// son vəziyyət yaddaşdan, ən çoxu bir saat (yol xəbərinin öz ömrü).
+const TIX_KEY = "8ulduz-tix";
 function syncTixDot() {
-  const hot = roadHot(S.data?.articles || []);
+  let hot = roadHot(S.data?.articles || []);
+  if (!S.data || S.partial) hot ||= Date.now() - storage.getItem(TIX_KEY) < HOUR;
+  else if (hot !== S.tixHot) storage.setItem(TIX_KEY, (S.tixHot = hot) ? Date.now() : 0);
   document.querySelectorAll(".tix-btn").forEach(el => {
     el.classList.toggle("hot", hot);
     el.setAttribute("aria-label", hot ? "Tıxac — pik saat və ya yol hadisəsi" : "Tıxac və yollar");
@@ -859,6 +866,7 @@ async function loadFirst() {
     const {d} = await requestJSON(freshUrl("data/first.json"), {}, 5000);
     if (!Array.isArray(d?.articles) || !d.articles.length) return;
     keepFirst(d);
+    const lat = await S.latestCache; // keşdəki dəqiqəlik lent (loadCached): şəbəkə keşi qabaqlasa da yeni sətirlər itmir
     if (S.rawNews && !S.fromCache) return; // tam lent daha tez gəlib
     // Keşdəki nüsxə ilə eyni yayımdırsa (updatedAt mikrosaniyəyə qədər eynidir) ikinci çəkiliş yoxdur: eyni HTML-i yenidən qurub
     // müqayisə etmək telefonda ~0,7 s uzun iş idi (4×; yayımdan sonra yenidən açılış, 10 dəqiqə içində qayıdış). Tam lent (loadNews) yenə gəlir.
@@ -869,7 +877,9 @@ async function loadFirst() {
     }
     S.partial = true; S.fromCache = false;
     S.og = d.og || S.og || {};
-    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    const has = urlsOf(d.articles), top = S.overlay?.length ? S.overlay.filter(o => !has.has(o.a.sourceUrl)).map(o => o.a) : cachedTop(lat, d); // keşdəki dəqiqəlik sətirlər qalır
+    S.overlay = top.map(a => ({a, at: Date.now()}));
+    S.rawNews = [...top, ...d.articles]; S.rawMeta = {...d, articles: undefined};
     publishNews();
     await heroPainted();
     S.firstRenderAt = Date.now();
@@ -890,31 +900,42 @@ function keepFirst(d) {
     } catch {}
   }, 1500, 5000);
 }
+// Keşdəki dəqiqəlik lent (sahib 2026-11-13, video: yeniləyəndə son xəbərlər ~1,5 s itib köhnə siyahı görünür, sonra qayıdırdı): ilk ekranın
+// faylı 10 dəqiqəlikdir, ondan sonra çıxan sətirlər yalnız latest-dədir. İşçi onu da saxlayır; ilk ekrandan köhnə deyilsə yeni sətirləri üstə qoyulur.
+function cachedTop(lat, d) {
+  const base = Date.parse(d.updatedAt), has = urlsOf(d.articles);
+  return Array.isArray(lat?.articles) && Date.parse(lat.updatedAt) >= base - 60e3 ? lat.articles.filter(a => !has.has(a.sourceUrl) && Date.parse(a.publishedAt) > base - 10 * 60e3).slice(0, 40) : [];
+}
 async function loadCached() {
   if (!partialOk() || typeof caches === "undefined" || S.rawNews) return;
+  let gotLatest; S.latestCache = new Promise(ok => { gotLatest = ok; });
   try {
     const keys = await caches.keys(), key = keys.find(k => k === "8ulduz-data") || keys.find(k => k.startsWith("8ulduz-data-")); // v142-dən versiyasız ad; köhnəsi keçid üçün
     if (!key) return;
     const cache = await caches.open(key);
     const root = new URL(ASSET.replace(/assets\/$/, ""), location.href);
     const hit = (await cache.match(new URL("data/first.json", root).href)) || (await cache.match(new URL("data/news.json", root).href));
+    const lat = hit && await ((await cache.match(new URL("data/latest.az.json", root).href)) || (await cache.match(new URL("data/latest.json", root).href)))?.json().catch(() => null);
+    gotLatest(lat);
     if (!hit || S.rawNews) return;
     const d = await hit.json();
     if (!Array.isArray(d?.articles) || !d.articles.length || S.rawNews) return;
     // Hazır ilk ekran (index.html — təkrar açılışda işçinin saxladığı nüsxə) keşdəki lentlə eyni yayımdandırsa və ya təzədirsə, keşdəkini çəkməyə
     // dəyməz: ekranda artıq o məzmun var, şəbəkə nüsxəsi gəlir (çəkiliş ilk kadrı 1×-də ~50 ms gecikdirirdi, A/B 2026-11-09).
+    const top = cachedTop(lat, d);
     const pre = route().name === "home" && $("#view .pre-skel[data-prerender]")?.dataset?.prerender;
-    if (pre && d.updatedAt && Date.parse(d.updatedAt) <= Date.parse(pre)) return;
+    if (!top.length && pre && d.updatedAt && Date.parse(d.updatedAt) <= Date.parse(pre)) return;
     S.partial = true; S.fromCache = true;
     S.og ||= d.og || {};
-    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    S.overlay = top.map(a => ({a, at: Date.now()}));
+    S.rawNews = [...top, ...d.articles]; S.rawMeta = {...d, articles: undefined};
     publishNews();
     await new Promise(done => afterFrame(done)); // əvvəl hazır ilk ekran boyansın (FCP), keşdəki ondan sonra
-    if (S.rawNews !== d.articles || S.cachedShown) return; // arada şəbəkə nüsxəsi gəlib: onu çəkən var
+    if (S.rawNews?.at(-1) !== d.articles.at(-1) || !S.fromCache || S.cachedShown) return; // arada şəbəkə nüsxəsi gəlib: onu çəkən var
     S.cachedShown = true;
     render();
     S.firstRenderAt = Date.now(); // sonrakı çəkilişlər FIRST_RENDER_HOLD_MS gözləyir (şəbəkədən eyni yayım gəlsə ikinci çəkiliş olmur)
-  } catch {}
+  } catch {} finally { gotLatest(null); }
 }
 
 // Xam sətirdən hazır sətir: bölmə adı, og şəkli, mənbə qaydası (QIRMIZI XƏTT 2: policyViolation), alt mənbələrin süzgəci, ölü keçidin əvəzi —
@@ -1107,7 +1128,14 @@ async function weather(list) {
 const WX_KEY = "8ulduz-wx";
 async function loadWeather() { try { S.wx = (await weather([geoCity()]))[0]; storage.setItem(WX_KEY, JSON.stringify({ ...S.wx, at: Date.now() })); renderTopbar(); } catch {} }
 // Son hava yaddaşdan dərhal; konum icazəsi varsa əvvəl şəhər.
-function restoreLocal() { try { const w = JSON.parse(storage.getItem(WX_KEY) || "null"); if (w && Date.now() - w.at < 3 * HOUR) S.wx = w; } catch {} }
+// Son konum şəhəri və namaz vaxtı da (sahib 2026-11-13, video: hər açılışda «Namaz» vaxtsız çıxır, sonra dolub yanındakıları itələyirdi; konum
+// gecikəndə hava və namaz Bakıya qayıdıb sonra yenə dəyişirdi). Yalnız şəhərin adı saxlanır, nöqtə yox.
+const bakuDay = () => new Date(Date.now() + 144e5).toISOString().slice(0, 10);
+function restoreLocal() {
+  try { const c = storage.getItem(GEO_KEY) === "1" && storage.getItem(GEO_CITY_KEY); if (c && CITIES.some(x => x[0] === c)) S.geo = { city: c }; } catch {}
+  try { const w = JSON.parse(storage.getItem(WX_KEY) || "null"); if (w && Date.now() - w.at < 3 * HOUR && w.city === geoCity()[0]) S.wx = w; } catch {}
+  try { const p = JSON.parse(storage.getItem(PRAY_KEY) || "null"); if (p?.timings && p.day === bakuDay() && p.city === savedPrayCity()) S.pray = p; } catch {}
+}
 async function loadLocal() { if (!(await autoLocate())) { loadWeather(); loadPrayer(savedPrayCity()); loadWarnings(); } }
 async function loadAllWeather() {
   if (S.wxAll) return; renderTopbar();
@@ -1118,7 +1146,7 @@ async function loadAllWeather() {
 /* ---- konum */
 // Konum yalnız «Konumum» düyməsi ilə soruşulur.
 // Xidmətlərə dəqiq nöqtə getmir.
-const GEO_KEY = "8ulduz-geo";
+const GEO_KEY = "8ulduz-geo", GEO_CITY_KEY = "8ulduz-geo-city", PRAY_KEY = "8ulduz-pray";
 function nearestCity(lat, lon) {
   const k = Math.cos(lat * Math.PI / 180);
   let best = null, bd = Infinity;
@@ -1130,7 +1158,7 @@ function applyGeo(pos) {
   const { latitude: lat, longitude: lon } = pos.coords;
   S.geo = { lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, city: nearestCity(lat, lon)?.[0] || null, at: Date.now() };
   S.geoBusy = false; S.geoErr = null;
-  storage.setItem(GEO_KEY, "1");
+  storage.setItem(GEO_KEY, "1"); storage.setItem(GEO_CITY_KEY, S.geo.city || "");
   loadWeather(); loadWarnings();
   loadPrayer(savedPrayCity()); // seçilmiş şəhər qalır
   renderTopbar();
@@ -1441,8 +1469,11 @@ function fitNav() {
 
 function renderTicker() {
   const latest = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === (S.lang || "az")));
-  const breaking = latest.filter(isFresh);
-  const list = (breaking.length ? breaking : latest).slice(0, 12);
+  const breaking = latest.filter(isFresh), lang = S.lang || "az";
+  let list = (breaking.length ? breaking : latest).slice(0, 12), fresh = breaking.length;
+  // Lent hələ gəlməyib (açılış, yeniləmə): zolaq ~0,5 s boş qalırdı (sahib 2026-11-13, video). Son zolağın sətirləri yaddaşdan, mənbə qaydasından
+  // (QIRMIZI XƏTT 2) keçməklə; yarım saatdan köhnəsi göstərilmir.
+  if (!S.data) try { const t = JSON.parse(storage.getItem(TICK_KEY) || 0); if (t.lang === lang && Date.now() - t.at < 30 * 60e3) { list = t.rows.filter(a => !removedSource(a) && !policyViolation(a)); fresh = list.filter(isFresh).length; } } catch {}
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
   // İkinci dövr: zolağın davamı.
   const items = list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("") +
@@ -1452,13 +1483,14 @@ function renderTicker() {
   const bell = "Notification" in window
     ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${shIcon("bell")}${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
     : "";
-  const html = `<div class="ticker"><div class="lbl">⚡<span class="lt"> ${tickerLabel(breaking.length)}</span>${bell}${motionBtn()}</div><div class="run${motionOff() ? " still" : ""}"><div class="track">${items}</div></div></div>`;
+  const html = `<div class="ticker"><div class="lbl">⚡<span class="lt"> ${tickerLabel(fresh)}</span>${bell}${motionBtn()}</div><div class="run${motionOff() ? " still" : ""}"><div class="track">${items}</div></div></div>`;
   if (html === S.tickerHtml && $("#ticker .track")) return;
   S.tickerHtml = html;
+  if (S.data) idle(() => storage.setItem(TICK_KEY, JSON.stringify({ at: Date.now(), lang, rows: list.map(({ title, summary, source, sourceUrl, category, publishedAt }) => ({ title, summary, source, sourceUrl, category, publishedAt })) })), 1500, 5000);
   $("#ticker").innerHTML = html;
   afterPaint(startTicker);
 }
-const TICK_SPEED = 55; // px/s
+const TICK_SPEED = 55, TICK_KEY = "8ulduz-ticker"; // px/s
 let tickAnim = null, tickT = 0, tickMoved = false;
 function startTicker() {
   const run = $("#ticker .run"), track = $("#ticker .track");
@@ -3191,6 +3223,7 @@ async function loadPrayer(city) {
     const d = await (await fetch(u)).json();
     if (token !== S.prayToken || !d?.data?.timings) return;
     S.pray = { city: c[0], timings: d.data.timings, hijri: d.data.date?.hijri };
+    try { storage.setItem(PRAY_KEY, JSON.stringify({ ...S.pray, day: bakuDay() })); } catch {}
     renderTopbar();
   } catch {}
 }
@@ -3331,13 +3364,14 @@ if (uiLang(S.lang)) {
   import("./dil.js").then(m => m.startDil(S, S.lang)).catch(() => {}).finally(show);
 }
 listenWorker();
+restoreLocal();
 shell(); render();
 // Hamısı gələn kimi çəkilir.
 // xeber/<id>/ səhifəsi xəbərin sətrini gətirir (#row).
 { const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || sessionStorage.getItem("x:" + r0.id) || 0); if (w?.id === r0.id && !policyViolation(w)) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { if (S.sharedStory) setTimeout(renderView); else loadShared(r0.id); backHome(); } }
 // Bayram (bayram.js): yalnız günündə.
 { const d = new Date(Date.now() + 144e5).toISOString().slice(5, 10); if (/^11-0[89]$/.test(d) || /[?&]bayram\b/.test(location.search)) setTimeout(() => import(`${ASSET}bayram.js`).then(m => m.show(d === "11-08" ? d : "11-09")).catch(() => {}), 800); }
-loadCached(); restoreLocal();
+loadCached();
 const firstReady = S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
 const afterNews = run => newsReady.finally(() => setTimeout(run));

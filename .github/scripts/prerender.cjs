@@ -77,6 +77,16 @@ function firstScreen(html, keep = KEEP) {
   return out;
 }
 
+// Dəqiqəlik yaş («indicə», «3 dəq əvvəl») hazır nüsxədə saat kimi yazılır (sahib 2026-11-13, video: 16:36-nın xəbəri 16:39-da yeniləyəndə
+// yenə «indicə» görünürdü — nüsxə 10 dəqiqəlikdir, işçi onu bir açılış gec verir). Saat həmişə doğrudur; app.js gələndə yaşı özü yazır.
+const bakuClock = t => new Date(t + 144e5).toISOString().slice(11, 16);
+function fixedTimes(html, now = Date.now()) {
+  return html.replace(/(<time(?: datetime="([^"]*)")?>)(?:indicə|(\d+) dəq(?:iqə)? əvvəl)(<\/time>)/g, (all, open, iso, n, close) => {
+    const t = Date.parse(iso || "") || now - (Number(n) || 0) * 6e4;
+    return Number.isFinite(t) ? open + bakuClock(t) + close : all;
+  });
+}
+
 function validate(html) {
   if (typeof html !== "string" || html.length < 3000) throw Error("ilk ekran qısadır: " + (html && html.length));
   if (html.length > 120000) throw Error("ilk ekran böyükdür: " + html.length);
@@ -97,7 +107,7 @@ function prerender(root, opts = {}) {
   const first = JSON.parse(fs.readFileSync(path.join(root, "data/first.json"), "utf8"));
   if (!Array.isArray(first.articles) || first.articles.length < 10) throw Error("first.json-da xəbər azdır");
   if ((index.match(/id="topbar"/g) || []).length !== 1 || !TOPBAR_RE.test(index)) throw Error('index.html-də #topbar sətri bir dəfə olmalıdır');
-  const home = renderHome(root, first, opts), html = firstScreen(home.view);
+  const home = renderHome(root, first, opts), html = fixedTimes(firstScreen(home.view), opts.now || Date.now());
   validate(html);
   validateTopbar(home.topbar);
   const block = `${m[1]}<div class="pre-skel" data-prerender="${esc(first.updatedAt || "")}">${html}</div>${m[3]}`;
@@ -109,7 +119,7 @@ function prerender(root, opts = {}) {
   return { changed: true, bytes: Buffer.byteLength(out), view: html.length };
 }
 
-module.exports = { homeHtml, renderHome, firstScreen, prerender, validate, validateTopbar, decodeEntities, VIEW_RE, TOPBAR_RE, NOSCRIPT, KEEP };
+module.exports = { homeHtml, renderHome, firstScreen, fixedTimes, prerender, validate, validateTopbar, decodeEntities, VIEW_RE, TOPBAR_RE, NOSCRIPT, KEEP };
 
 if (require.main === module) {
   const root = process.argv[2] || process.cwd();

@@ -2023,13 +2023,48 @@ test('speed red line: the cached feed is shown before the network answers and th
   const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-static-v33', '8ulduz-data-v33'], open: async name => ({ match: async url => { matched.push(name + ' ' + url); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
   const { S, loadCached, loadFirst } = ctx.api;
   await loadCached();
-  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json']);
+  // 2026-11-13: ilk ekranın faylından sonra keşdəki dəqiqəlik lent də oxunur (dilin faylı, yoxdursa ümumi) — eyni keşdən, şəbəkəsiz.
+  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json', '8ulduz-data-v33 https://8ulduz.az/data/latest.az.json', '8ulduz-data-v33 https://8ulduz.az/data/latest.json']);
   assert.equal(S.data.articles[0].title, 'Keşdən xəbər');
   assert.equal(S.partial, true);
   ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: 'new', articles: [{ id: 'n1', title: 'Şəbəkədən xəbər', source: 'APA', sourceUrl: 'https://apa.az/2', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] }) });
   await loadFirst();
   assert.equal(S.data.articles[0].title, 'Şəbəkədən xəbər', 'şəbəkədən gələn ilk ekran keşdəkini əvəz edir');
   assert.equal(S.fromCache, false);
+});
+// Sahib 2026-11-13 (telefon videosu): yeniləyəndə ən yeni xəbərlər ~1,5 s itib köhnə siyahı görünür, sonra qayıdırdı. İlk ekranın faylı
+// 10 dəqiqəlikdir; ondan sonra çıxan sətirlər keşdəki dəqiqəlik lentdən üstə qoyulur və şəbəkədən gələn ilk ekran onları silmir.
+test('owner 2026-11-13: a reload keeps the newest stories — cached minute feed rows sit on top of the cached first screen and survive the network one', async () => {
+  const at = Date.parse('2026-11-13T12:36:30Z'), iso = ms => new Date(at + ms).toISOString();
+  const row = (id, title, ms, source = 'APA') => ({ id, title, source, sourceUrl: 'https://apa.az/' + id, publishedAt: iso(ms), category: 'gundem', lang: 'az' });
+  const first = { updatedAt: iso(0), articles: [row('f1', 'İlk ekrandakı xəbər', -60e3)] };
+  const latest = { updatedAt: iso(120e3), articles: [row('l1', 'Dəqiqəlik lentin yeni xəbəri', 90e3), row('f1', 'İlk ekrandakı xəbər', -60e3), row('l0', 'Çoxdankı xəbər', -3600e3),
+    { ...row('x1', 'Azadlıq xəbəri', 95e3), source: 'Azadlıq', sourceUrl: 'https://www.azadliq.org/a/1.html' }] };
+  const open = files => async () => ({ match: async url => { const f = files[url.split('/data/')[1]]; return f ? { json: async () => f } : undefined; } });
+  const start = files => { const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-data'], open: open(files) } }); vm.runInContext('globalThis.renders = 0; render = () => { renders++; };', ctx); return ctx; };
+  const titles = S => Array.from(S.data.articles, a => a.title);
+
+  let ctx = start({ 'first.json': first, 'latest.az.json': latest });
+  let { S, loadCached, loadFirst } = ctx.api;
+  await loadCached();
+  assert.deepEqual(titles(S), ['Dəqiqəlik lentin yeni xəbəri', 'İlk ekrandakı xəbər'], 'yeni sətir üstdədir; ilk ekranda olan təkrarlanmır, köhnə və qadağan mənbə düşmür');
+  assert.equal(S.partial, true); assert.equal(S.fromCache, true);
+  // Şəbəkədən daha təzə ilk ekran gəlir: keşdən üstə qoyulan sətir qalır, şəbəkə nüsxəsində də varsa bir dəfə görünür.
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: iso(60e3), articles: [row('f2', 'Şəbəkədən xəbər', 30e3), row('f1', 'İlk ekrandakı xəbər', -60e3)] }) });
+  await loadFirst();
+  assert.deepEqual(titles(S), ['Dəqiqəlik lentin yeni xəbəri', 'Şəbəkədən xəbər', 'İlk ekrandakı xəbər']);
+  assert.equal(S.fromCache, false);
+
+  // Dil faylı yoxdursa ümumi dəqiqəlik lent; ilk ekrandan köhnə dəqiqəlik lent işlədilmir.
+  ctx = start({ 'first.json': first, 'latest.json': latest }); await ctx.api.loadCached();
+  assert.equal(titles(ctx.api.S)[0], 'Dəqiqəlik lentin yeni xəbəri');
+  ctx = start({ 'first.json': first, 'latest.az.json': { ...latest, updatedAt: iso(-120e3) } }); await ctx.api.loadCached();
+  assert.deepEqual(titles(ctx.api.S), ['İlk ekrandakı xəbər']);
+  // Şəbəkə keşi qabaqlayır (ilk ekranın faylı keş oxunuşundan tez gəlir): yeni sətirlər yenə üstdədir.
+  ctx = start({ 'first.json': first, 'latest.az.json': latest });
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: iso(60e3), articles: [row('f2', 'Şəbəkədən xəbər', 30e3)] }) });
+  const slow = ctx.api.loadCached(); await ctx.api.loadFirst(); await slow;
+  assert.deepEqual(titles(ctx.api.S), ['Dəqiqəlik lentin yeni xəbəri', 'Şəbəkədən xəbər', 'İlk ekrandakı xəbər'], 'dəqiqəlik lentin son 10 dəqiqəlik sətirləri: şəbəkə nüsxəsində olmayan da');
 });
 test('speed red line: un-proxied originals are still shown, but never with high priority', () => {
   const phone = app({ matchMedia: q => ({ matches: q === '(hover:none)' }) }).api, desktop = app().api;
@@ -3035,7 +3070,7 @@ test('speed: loadCached reads the version-free data cache first, a legacy one on
     const matched = [];
     const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => names, open: async name => ({ match: async url => { matched.push(name); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
     await ctx.api.loadCached();
-    assert.deepEqual(matched, [want]);
+    assert.deepEqual([...new Set(matched)], [want]);
     assert.equal(ctx.api.S.data.articles[0].title, 'Keşdən');
   }
 });

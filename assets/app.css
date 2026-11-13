@@ -434,7 +434,7 @@ footer .logo img{height:28px}
 .tabbar .tix-btn.hot::after{position:absolute;top:9px;left:calc(50% + 7px);margin:0;box-shadow:0 0 0 2px var(--header)}
 body{padding-bottom:62px}
 .totop{bottom:70px}
-.newpill{bottom:calc(66px + env(safe-area-inset-bottom))}
+.newpill{bottom:calc(66px + env(safe-area-inset-bottom));max-width:calc(100vw - 132px);font-size:.8571rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 .mine{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .mine li{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--card);border-radius:8px;padding:4px 8px;min-width:0}
