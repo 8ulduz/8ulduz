@@ -542,6 +542,15 @@ def _summary(L, rnd, main, early, later, short, fetch=None):
     adjusted = current and _pts_only(L["official"], after)
     if adjusted:
         after = _official_pts(L["official"], after)
+    elif not current and _pts_only(L["official"], _table(played, L["lteams"])):
+        # Turdan sonra başqa oyun da oynanıb (təxirə salınmış oyun): rəsmi cədvəl artıq turun cədvəli deyil, amma xal düzəlişi
+        # mövsümün sonunadək qalır — fərq turun cədvəlinə tətbiq olunur. Əvvəl belə halda düzəliş nəzərə alınmırdı:
+        # xalı çıxılmış komanda «lider» və çıxılmamış xalla yazıla bilirdi.
+        full = _table(played, L["lteams"])
+        for k, r in L["official"].items():
+            if k in after:
+                after[k] = dict(after[k], pts=after[k]["pts"] + int(r.get("pts") or 0) - (full.get(k) or _zero())["pts"])
+        adjusted = True
     elif current and L["official"] and not _table_ok(L["official"], after):
         bad = _and([_q(nm(k)) for k in _bad_rows(L["official"], after)])
         return {"title": f"{head}: cədvəl uyğun gəlmir", "lead": f"Rəsmi cədvəl oyunların nəticələri ilə uyğun gəlmir: {bad}.",
@@ -921,7 +930,7 @@ def _cup_results(K, stages, order, i, fetch=None):
         if "cavab" in s:
             if len(went) == 1:  # növbəti mərhələnin cütləri pfl.az-ın öz qərarıdır
                 winners.append(went[0])
-            elif hs != as_:
+            elif g1 and hs != as_:  # ilk oyunun nəticəsi yoxdursa cavab oyununun hesabı mərhələni həll etmir: «yüksəlib» yazılmır
                 winners.append(g["home"] if hs > as_ else g["away"])
         body.append(line)
     title = f"{cup} {text}: {_win(big, nm)}"
@@ -1205,6 +1214,8 @@ def _club(E, c, until):
     row = E["official"].get(c)
     later = any(x["played"] and x["when"] > until for x in E["games"] if c in (x["home"], x["away"]))
     ok = row and not later and int(row.get("p") or 0) == t["p"] and int(row.get("pts") or 0) == t["pts"]
+    if row and not later and int(row.get("p") or 0) > t["p"]:
+        t = dict(t, p=0)  # fayl klubun bütün oyunlarını saxlamır (rəsmi cədvəl daha çox sayır): «N oyunda X xal» yazılmır
     return mine, t, int(row.get("pos") or 0) if ok else 0
 
 
@@ -1224,7 +1235,7 @@ def _euro_result(E, c, g, fetch=None):
     lead = (f"{sx(E['name'], 'gen', False)} {_stage(g)} {_q(club)} {'doğma meydanda' if home else 'səfərdə'} "
             f"{sx(opp, 'ins')} qarşılaşıb və {gf}:{ga} hesabı ilə {verb}.")
     mine, t, pos = _club(E, c, g["when"])
-    if g["round"].isdigit():  # xal və yer yalnız liqa mərhələsinin oyunundan sonra
+    if g["round"].isdigit() and t["p"]:  # xal və yer yalnız liqa mərhələsinin oyunundan sonra
         wdl = ", ".join(x for x in (f"{t['w']} qələbə" if t["w"] else "", f"{t['d']} heç-heçə" if t["d"] else "",
                                     f"{t['l']} məğlubiyyət" if t["l"] else "") if x)
         got = f"{t['pts']} xal toplayıb ({wdl})" if t["pts"] else "xal qazanmayıb"

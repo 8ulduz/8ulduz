@@ -107,3 +107,18 @@ test("ga4: a news link is one news_outbound_click with domain, full link and hea
   for (const c of ["card-hit", "pcard-hit", "source-entry"]) assert.match(app, new RegExp(`<article[^]*?class="${c}"`), c + " <article> içindədir: xəbər keçidi kimi tanınır");
   for (const c of ["phrow", "track", "alerts", "foot-news"]) assert.ok(app.includes(`class="${c}`), c + ": xəbər keçidi olan siyahı");
 });
+
+test("ga4: with storage blocked the reader stays one user and one session for the page's lifetime", () => {
+  const { api, sent } = load();
+  const blocked = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } };
+  const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit })";
+  const out = [], t0 = Date.parse("2026-11-06T16:00:00Z");
+  const g = vm.runInNewContext(src, { URLSearchParams, JSON, Math, String, Date, console, location: { origin: "https://8ulduz.az", hostname: "8ulduz.az", search: "" },
+    document: { referrer: "", visibilityState: "visible" }, navigator: { language: "az-AZ", sendBeacon: u => (out.push(u), true) }, screen: { width: 390, height: 844 },
+    localStorage: blocked, setTimeout() {}, fetch: async () => {} });
+  g.hit("G-NHSDLY61CD", "/", "8ulduz", t0); g.hit("G-NHSDLY61CD", "/#/bolme/gundem", "Gündəm", t0 + 20e3); g.hit("G-NHSDLY61CD", "/#/bolme/idman", "İdman", t0 + 40e3);
+  const p = out.map(params);
+  assert.equal(new Set(p.map(x => x.cid)).size, 1, "eyni oxucu");
+  assert.deepEqual(p.map(x => [x._fv, x._ss]), [["1", "1"], [undefined, undefined], [undefined, undefined]], "yalnız ilk baxış yeni istifadəçi və yeni sessiyadır");
+  assert.ok(api && sent.length === 0);
+});

@@ -5,7 +5,9 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / ".github" / "scripts"))
-from check_outputs import bad_outputs  # noqa: E402
+from check_outputs import bad_outputs, enforce_policy  # noqa: E402
+import content_policy  # noqa: E402
+from unittest.mock import patch  # noqa: E402
 
 
 class CheckOutputsTest(unittest.TestCase):
@@ -19,6 +21,20 @@ class CheckOutputsTest(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_removed_story_leaves_the_social_block_and_its_archive(self):
+        gone = {"id": "a" * 16, "who": "prezident", "text": "Paylaşım", "url": "https://apa.az/siyaset/x-555222", "via": "APA"}
+        kept = {"id": "b" * 16, "who": "prezident", "text": "Başqa", "url": "https://apa.az/siyaset/y-777111", "via": "APA"}
+        own = {"id": "c" * 16, "who": "prezident", "text": "Video", "url": "https://www.youtube.com/watch?v=VIDEO000001"}
+        for name in ("social.json", "social-arxiv.json"):
+            (self.root / "data" / name).write_text(json.dumps({"posts": [gone, kept, own]}), encoding="utf-8")
+        self.assertNotIn("social-arxiv.json", enforce_policy(self.root), "çıxarılma yoxdursa fayla toxunulmur")
+        with patch.object(content_policy, "_REMOVED_URLS", {gone["url"]}):
+            removed = enforce_policy(self.root)
+        for name in ("social.json", "social-arxiv.json"):
+            self.assertIn(name, removed)
+            ids = [p["id"] for p in json.loads((self.root / "data" / name).read_text(encoding="utf-8"))["posts"]]
+            self.assertEqual(ids, [kept["id"], own["id"]], name)
 
     def test_valid_outputs_pass(self):
         self.assertEqual(bad_outputs(self.root), [])

@@ -79,3 +79,17 @@ test('editorial: the panel never comes from the service worker cache — an old 
   const sw = require('node:fs').readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
   assert.ok(sw.includes('!url.pathname.startsWith(SCOPE_URL.pathname + "idare/") && !url.pathname.endsWith("/editorial-store.js")'));
 });
+
+test('a story whose link has no path (azpolitika.info/?p=…) can be withdrawn; one un-keyable alt does not block the withdrawal', async () => {
+  const {removalKey, makeRemoval} = await ready;
+  assert.equal(removalKey('https://azpolitika.info/?p=846712'), 'https://azpolitika.info/?p=846712');
+  assert.throws(() => removalKey('https://azpolitika.info/'), 'baş səhifə xəbər deyil');
+  assert.throws(() => removalKey('http://apa.az/story-12345'), 'yalnız https (editorial_sync.py http ünvanlı siyahını rədd edir)');
+  const record = await makeRemoval({id:'group-id',title:'Başlıq',sourceUrl:'https://nocomment.az/title-555222',alts:[{sourceUrl:'http://apa.az/story-12345'},{sourceUrl:'https://apa.az/story-67890'}]}, 'owner', policy, 'now');
+  assert.deepEqual(record.keys, ['nocomment.az#555222','apa.az#67890']);
+  assert.ok(record.urls.every(u => u.startsWith('https://')), 'http ünvanı siyahıya yazılmır');
+  assert.equal(record.ids.length, 4, 'http keçidli əlavə mənbə id-si ilə çıxarılır');
+  await assert.rejects(makeRemoval({sourceUrl:'http://apa.az/story-12345'}, 'owner', policy, 'now'), 'əsas xəbərin keçidi https olmalıdır');
+  const panel = require('node:fs').readFileSync(path.join(__dirname, '../idare/panel.js'), 'utf8');
+  assert.ok(panel.includes("'../data/paylas/' + parseInt(id.slice(0, 2), 16) + '.json") && !panel.includes('>> 3'), 'paylaşma siyahısı 256 hissədir (updater.share_part)');
+});

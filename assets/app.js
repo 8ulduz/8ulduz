@@ -101,7 +101,7 @@ const SPORT_TABS = [
     { name: "Futbol transferləri", label: "Futbol", ...TRANSFER_WORDS, not: [...TRANSFER_OTHER, ...BASKET_WORDS], skip: BASKET_SITES },
     { name: "Basketbol transferləri", label: "Basketbol", ...TRANSFER_WORDS, not: TRANSFER_OTHER, must: BASKET_WORDS, mustSites: BASKET_SITES },
   ] }] },
-  { name: "Futbol", not: ["euroleague", "avroliqa", "евролиг", "basketbol", "basketball", "баскетбол", "nba", "нба"], stems: ["futbol", "football", "soccer", "футбол"], keys: ["uefa", "fifa", "premyer liqa", "super liqa", "süper lig", "la liga", "bundesliqa", "bundesliga", "premier league", "champions league", "çempionlar liqası", "avropa liqası", "konfrans liqası", "лига чемпионов", "рпл", "апл"], sources: ["BBC Futbol", "Guardian Futbol"], groups: SPORT_TEAMS },
+  { name: "Futbol", not: BASKET_WORDS, stems: ["futbol", "football", "soccer", "футбол"], keys: ["uefa", "fifa", "premyer liqa", "super liqa", "süper lig", "la liga", "bundesliqa", "bundesliga", "premier league", "champions league", "çempionlar liqası", "avropa liqası", "konfrans liqası", "лига чемпионов", "рпл", "апл"], sources: ["BBC Futbol", "Guardian Futbol"], groups: SPORT_TEAMS },
   { name: "Basketbol", stems: ["basketbol", "basketball", "баскетбол"], sources: ["Sportando", "TalkBasket"], groups: [{ group: "", items: [
     { name: "Avroliqa", keys: ["euroleague", "euroliga", "avroliqa", "евролиг"], sources: ["Eurohoops"] },
     { name: "NBA", keys: ["nba", "нба", "lakers", "celtics", "knicks", "warriors", "76ers", "bucks", "nuggets"] },
@@ -570,9 +570,8 @@ function savedLang() { const v = storage.getItem(LANG_KEY); if (v === "") return
 const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez", tixUser: false, geo: null, geoBusy: false, geoErr: null };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
-// WARN_RE dar saxlanır. Tıxac səhifəsi aşağıdakı ROAD_RULES ilə süzülür.
+// Tıxac səhifəsi aşağıdakı ROAD_RULES ilə süzülür.
 const HAVA_RE = /hava xəbərdar|güclü külək|güclü yağış|şaxta|çovğun|dolu yağ|yağış xəbərdar|(?:^|[^\p{L}])sel(?:[^\p{L}]|$)/iu;
-const WARN_RE = RegExp(/tıxac|yol(?:un|lar(?:ın)?)?\s+bağlan|yol bağlı|avtomobil yol|nəqliyyatın hərəkət|(?:ağır |yol )qəza|/.source + HAVA_RE.source, "iu"); // hava hissəsi bir dəfə yazılır (ölçü)
 const TRAFFIC_AREAS = [
   { id: "merkez", label: "Bakı mərkəz", lat: 40.4093, lon: 49.8671, zoom: 12 },
   { id: "sumqayit", label: "Sumqayıt yolu", lat: 40.482, lon: 49.835, zoom: 13 },
@@ -581,14 +580,14 @@ const TRAFFIC_AREAS = [
 ];
 const ROAD_RULES = [
   { icon: "💥", kind: "qeza", re: /qəza(?!lı)/iu },
-  { icon: "🚧", kind: "bagli", re: /(?:yol|küçə|prospekt|körpü|tunel|şose)\w{0,6}\s*bağlan|bağlan\w{0,8}\s+(?:yol|küçə|prospekt)|yol bağlı|hərəkət\w{0,4}\s+məhdudlaş|(?:yol|küçə|prospekt|körpü|tunel|şose)\w{0,8}.{0,40}təmir|təmir.{0,32}(?:yol|küçə|prospekt|körpü|tunel|şose)/iu },
+  { icon: "🚧", kind: "bagli", re: /(?:yol|küçə|prospekt|körpü|tunel|şose)\p{L}{0,6}\s*bağlan|bağlan\p{L}{0,8}\s+(?:yol|küçə|prospekt)|yol bağlı|hərəkət\p{L}{0,4}\s+məhdudlaş|(?:yol|küçə|prospekt|körpü|tunel|şose)\p{L}{0,8}.{0,40}təmir|təmir.{0,32}(?:yol|küçə|prospekt|körpü|tunel|şose)/iu },
   { icon: "🚦", kind: "tixac", re: /tıxac/iu },
   { icon: "🚇", kind: "metro", re: /metro|avtobus/iu },
   { icon: "🌧", kind: "hava", re: HAVA_RE },
 ];
 const ROAD_FALLBACK = /(?:^|[^\p{L}])(?:BNA|DYP)(?:[^\p{L}]|$)|yol polisi|nəqliyyatın hərəkət|avtomobil yol/iu;
 function roadKind(title) {
-  const t = decode(title || "");
+  const t = lc(decode(title || "")); // \w yalnız ASCII-dir, /iu isə I↔ı, İ↔i-ni qatlamır: «küçələr bağlanacaq», «TIXAC» tutulmurdu
   for (const r of ROAD_RULES) if (r.re.test(t)) return r;
   if (ROAD_FALLBACK.test(t)) return { icon: "🚦", kind: "yol" };
   return null;
@@ -604,7 +603,8 @@ function localRoadItems(list) {
   const unrelated = /qatar|dəmir yolu|helikopter|təyyarə|başsağlığı|təbrik/iu;
   return roadItems(list).filter(a => {
     const age = Date.now() - new Date(a.publishedAt).getTime();
-    return age >= 0 && age < 2 * HOUR && local.test(a.title) && !unrelated.test(a.title);
+    const t = lc(a.title);
+    return age >= 0 && age < 2 * HOUR && local.test(t) && !unrelated.test(t);
   });
 }
 const geoArea = () => S.geo ? { id: "konum", label: "📍 Konumum", lat: S.geo.lat, lon: S.geo.lon, zoom: 13 } : null;
@@ -1279,7 +1279,10 @@ function renderTopbar() {
   const w = S.wx, upd = S.status?.checkedAt || (S.partial ? null : S.data?.updatedAt);
   // 11: status təzə olsa da bu ekrana yeni məlumat çatmayıbsa «indicə» yazılmasın.
   const applied = Math.max(S.newsCheckedAt || 0, S.latestAt || 0);
-  const stale = (upd && Date.now() - new Date(upd).getTime() > 5 * 60e3) || (applied && Date.now() - applied > 5 * 60e3);
+  // Qayıdışdan sonrakı 20 s yoxlama gedir: «köhnəlib» sətri çıxıb yeni məlumatla dərhal itirdi, səhifə 22 px aşağı-yuxarı atılırdı.
+  // «Yeniləndi» yazısının yeri vaxt bilinməmiş də ayrılır (görünməz): 721–800 px enində o sonradan çıxanda düymələr ikinci sətrə düşür, səhifə 36 px atılırdı.
+  const now = Date.now(), old = t => t && now - t > 5 * 60e3; // tarix yoxdursa NaN/0: köhnə sayılmır
+  const stale = now - (S.lastResumeAt || 0) > 2e4 && (old(+new Date(upd)) || old(applied));
   const syncBad = S.error || S.offline || S.status?.ok === false || stale;
   const syncText = S.offline ? "Oflayn — saxlanmış xəbərlər" : S.error ? "Xəbərlər yenilənmədi" : S.status?.ok === false ? "Mənbələr yoxlanmadı" : stale ? "Xəbər lenti köhnəlib" : S.status?.degraded ? "Bəzi mənbələr açılmır" : "";
   let pop = "";
@@ -1301,7 +1304,7 @@ function renderTopbar() {
     ${langDD()}
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}${syncBad ? ' <button type="button" class="retry" data-act="refresh">Yenilə</button>' : ""}</span>` : ""}
-    ${upd ? `<span class="yenilendi"><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd)}</span>` : ""}
+    <span class="yenilendi"${upd ? "" : ' style="visibility:hidden"'}><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd || now)}</span>
     <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
   if (h !== S.topH) S.topH = $("#topbar").innerHTML = h; // dəyişməyən zolaq yenidən yazılmır: hər çəkilişdə (və hər 30 s) yazılırdı — stil işi, çəkilişdən əvvəl çirkli səhifə (D2, 2026-11-09)
   syncTixDot();
@@ -1398,8 +1401,9 @@ function bindNavPop() {
     const item = e.target.closest("#nav a, #nav summary");
     clearTimeout(preT); // niyyətlə əvvəlcədən yükləmə: kursor keçiddə 120 ms dayananda
     if (!item) { if (!pop.hidden) later(hide, 220); return; }
-    preT = setTimeout(() => preload(item.getAttribute("href")), 120);
-    const href = item.getAttribute("href")?.match(/^#\/bolme\/(.+)$/)?.[1];
+    const h = hashOf(item); // keçidlər /bolme/<ad>/ olandan bəri bu şərt heç vaxt ödənmirdi: kompüterdə İdman/Bölgələr menyusu açılmırdı
+    preT = setTimeout(() => preload(h), 120);
+    const href = h?.match(/^#\/bolme\/(.+)$/)?.[1];
     const slug = item.matches("summary") ? "more" : SUB_TABS[href] ? href : "";
     if (!pop.hidden && slug && slug === pop.dataset.slug) { clearTimeout(timer); return; }
     if (slug) later(() => show(slug, route().slug === slug ? S.sportTab : null, item), pop.hidden ? 60 : 120);
@@ -1528,8 +1532,7 @@ function prayBit() {
 }
 function nextPrayer(times) {
   if (!times) return { key: "", lab: "Namaz", time: "", mins: null };
-  const now = new Date();
-  const mins = now.getHours() * 60 + now.getMinutes();
+  const b = new Date(Date.now() + 144e5), mins = b.getUTCHours() * 60 + b.getUTCMinutes(); // vaxtlar Bakı saatı ilədir, «indi» də (xaricdəki oxucuda səhv namaz seçilirdi)
   for (const [k, lab] of PRAY_ORDER) {
     const [hh, mm] = String(times[k] || "").split(":").map(Number);
     if (!Number.isFinite(hh)) continue;
@@ -1585,7 +1588,7 @@ function fxPop() {
   if (!S.fxOpen) return "";
   const opts = [`<option value="AZN">AZN</option>`].concat((S.markets || []).map(i => `<option value="${esc(i.id)}">${esc(i.label)}</option>`)).join("");
   const out = convertAmt(Number(S.fxAmt) || 0, S.fxFrom, S.fxTo);
-  const dec = S.fxTo === "AZN" || S.fxTo === "BTC" ? 2 : 4;
+  const dec = S.fxTo === "BTC" ? 6 : 2; // sync() ilə eyni
   return `<div class="fx-pop" role="dialog"><div class="fx-h"><b>Çevirici</b><button type="button" data-act="fx-close" aria-label="Bağla">✕</button></div>
     <label>Məbləğ<input id="fx-amt" type="number" min="0" step="any" value="${esc(S.fxAmt)}"></label>
     <div class="fx-row"><select id="fx-from">${opts}</select><span>→</span><select id="fx-to">${opts}</select></div>
@@ -1669,7 +1672,7 @@ function clubMatches(a, club) {
     TOPIC_TEXT.set(a, seen = {raw, text: ` ${topicKey(raw)} `});
   }
   // Mövzu sözləri bir dəfə normallaşır.
-  if ((topic.notK ||= (topic.not || []).map(topicKey)).some(w => seen.text.includes(w))) return false;
+  if ((topic.notK ||= (topic.not || []).map(w => (w[0] == " " ? " " : "") + topicKey(w))).some(w => seen.text.includes(w))) return false;
   if (topic.must && !topic.mustSites.includes(a.source) && !(topic.mustK ||= topic.must.map(w => ` ${topicKey(w)}`)).some(w => seen.text.includes(w))) return false;
   if (topic.quoted && (topic.quotedRx ||= new RegExp(`["«“'‘„]${topic.quoted}["»”'’]`, "iu")).test(seen.raw)) return true;
   // Word starts allow suffixes (Qarabağın).
@@ -1807,10 +1810,11 @@ function fbLeagues() {
 // Cədvəl hansı günün oyunlarına qədərdir.
 const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${MONTHS[m - 1]} oyunlarına qədər` : ""; };
 const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
+const FB_HEAD = '<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>'; // futbol cədvəlinin başlığı (iki yerdə)
 function worldTable(l, g) {
   const rows = g.rows || [];
   if (l.sport === "basketball") return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>Q</th><th>M</th><th>%</th><th>Geridə</th></tr></thead><tbody>${rows.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.w)}</td><td>${esc(t.l)}</td><td>${(t.pct * 100).toFixed(1)}</td><td>${esc(String(t.gb ?? "-"))}</td></tr>`).join("")}</tbody></table>`;
-  return `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  return `${FB_HEAD}${rows.map(t => `<tr>${t.color ? `<td style="box-shadow:inset 3px 0 0 ${esc(t.color)}" title="${esc(t.note || "")}">` : "<td>"}${esc(t.pos)}</td><td class="nm">${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fail="rm">` : ""}${esc(t.team)}</td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
 }
 function footballBlock(list) {
   const all = fbLeagues();
@@ -1843,7 +1847,7 @@ function footballBlock(list) {
   let pane = "";
   if (tab === "results") pane = fb.results?.length ? `<ul class="games">${fb.results.map(game).join("")}</ul>` : `<p class="muted foot-note">Nəticə hələ yoxdur.</p>`;
   else if (tab === "fixtures") pane = fb.fixtures?.length ? `<ul class="games">${fb.fixtures.map(game).join("")}</ul>` : `<p class="muted foot-note">Növbəti tur hələ elan olunmayıb.</p>`;
-  else if (tab === "table") pane = `<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>${fb.table.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm"><a href="${teamHref(fb, t.team)}">${esc(clubAz(t.team))}</a></td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
+  else if (tab === "table") pane = `${FB_HEAD}${fb.table.map(t => `<tr><td>${esc(t.pos)}</td><td class="nm"><a href="${teamHref(fb, t.team)}">${esc(clubAz(t.team))}</a></td><td>${esc(t.p)}</td><td>${esc(t.w)}</td><td>${esc(t.d)}</td><td>${esc(t.l)}</td><td>${esc(t.gf)}:${esc(t.ga)}</td><td>${t.gd > 0 ? "+" : ""}${esc(t.gd)}</td><td><b>${esc(t.pts)}</b></td></tr>`).join("")}</tbody></table>`;
   else if (tab === "scorers") pane = fb.scorers?.length ? `<ol class="fb-scorers">${fb.scorers.map(s => `<li><b>${esc(s.name)}</b> <span class="muted">${esc(clubAz(s.club))}</span><em>${esc(s.goals)} qol</em></li>`).join("")}</ol>` : `<p class="muted foot-note">Bombardir siyahısı alınmadı.</p>`;
   return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
     ${picker}
@@ -1862,8 +1866,8 @@ function ordTur(n) {
 // "31 okt, 17:30"
 function shortDT(iso) {
   const d = new Date(iso); if (!iso || Number.isNaN(d.getTime())) return "";
-  const hm = /T\d\d:\d\d/.test(iso) && !/T00:00/.test(iso) ? `, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : "";
-  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}${hm}`;
+  if (!/T(?!00:00)\d\d:\d\d/.test(iso)) { const b = new Date(d.getTime() + 144e5); return `${b.getUTCDate()} ${MONTHS[b.getUTCMonth()].slice(0, 3)}`; } // saatsız oyun: gün Bakı təqvimi ilə (İstanbulda bir gün əvvəl görünürdü)
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 // Videoda saytın keçidi paylaşılır (YouTube-un yox); ?v= ilə video birinci (oynadıcı basanda: iframe ekranı saxlayır, ağırdır).
 const ytTile = (v, tag = "") => `<div class="yt" data-yt="${esc(v.videoId)}" role="button" tabindex="0"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}${tag}</b><span>${txt(v.title)}</span></span><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/videolent?v=${encodeURIComponent(v.videoId)}" data-title="${txt(v.title)}">Paylaş</button></div>`;
@@ -1882,7 +1886,7 @@ function catSection(c, list) {
 }
 
 function skeleton(kind) {
-  if (kind === "article") return `<div class="skel" style="height:30px;margin:14px 0 10px"></div><div class="skel" style="height:200px"></div>`; // başlıq + şəkil yeri: xəbər gələndə səhifə atlamır
+  if (kind === "article") return `<div class="skel" style="height:30px;margin:24px 0 10px"></div><div class="skel" style="height:200px"></div>`; // başlıq + şəkil yeri: xəbər gələndə səhifə atlamır (üst boşluq .article-detail ilə eyni: 24 px)
   return `<section class="prez"><div class="skel" style="height:180px"></div></section>
     <section class="hero"><div class="skel" style="height:340px"></div></section>
     <section><div class="grid">${"<div class='skel' style='height:220px'></div>".repeat(4)}</div></section>`;
@@ -2002,6 +2006,8 @@ async function scanArchives(id) {
       await loadArchive(slug);
       if (S.archive?.[slug]?.rows.some(a => String(a.id) === id)) return;
     }
+    const old = /^[0-9a-f]{16}$/.test(id) && await arxRow(id).catch(() => 0); // 5 gündən köhnə keçid açıq səhifədə: arxiv budağı
+    if (old) S.sharedStory = { id, row: old };
   } finally {
     S.archiveScanning = false;
     if (route().name === "article") renderView();
@@ -2043,14 +2049,14 @@ async function loadArchive(slug) {
   S.archive ||= {};
   const had = S.archive[slug];
   if (NO_ARCHIVE.has(slug) || (had && Date.now() - had.at < 30 * 60e3)) return;
-  S.archive[slug] = { at: Date.now(), rows: had?.rows || [] };
+  const cur = S.archive[slug] = { at: Date.now(), rows: had?.rows || [] };
   try {
     const {d} = await requestJSON(freshUrl(`data/arxiv/${slug}.json`), {}, 8000);
-    if (!Array.isArray(d?.articles)) return;
+    if (!Array.isArray(d?.articles)) throw 0;
     S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))})); S.arxV = (S.arxV || 0) + 1;
     const r = route();
     if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search" || (r.name === "home" && S.archiveHome?.has(slug)) || (r.name === "team" && slug === "idman")) requestRender(false);
-  } catch {}
+  } catch { cur.at -= 174e4; } // alınmadı: 30 dəqiqə yox, 1 dəqiqə sonra yenidən
 }
 function allNews() {
   if (S.allD !== S.data || S.allV !== S.arxV) { S.allD = S.data; S.allV = S.arxV; S.all = collapseExact([...S.data.articles, ...CATS.flatMap(c => S.archive?.[c.slug]?.rows || []).filter(a => !removedArticle(a))]); }
@@ -2177,11 +2183,11 @@ function searchView() {
 function highlightSearch() {
   const rx = route().name === "search" ? S.hl : null;
   if (!rx) return;
-  document.querySelectorAll("#view .card h3").forEach(h => {
+  document.querySelectorAll("#view .card h2").forEach(h => { // axtarış kartının başlığı h2-dir (listPage): köhnə h3 seçicisi heç nə tapmırdı
     const text = h.textContent;
     if (!rx.test(text)) return;
     rx.lastIndex = 0;
-    h.innerHTML = esc(text).replace(rx, "<mark>$1</mark>");
+    h.innerHTML = text.split(rx).map((p, i) => i % 2 ? `<mark>${esc(p)}</mark>` : esc(p)).join(""); // əvvəl esc, sonra işarə: «&#39;» içində rəqəm tutulmasın
   });
 }
 
@@ -2279,7 +2285,8 @@ function patchChildren(box, fresh, changed) {
     if (was) was.replaceWith(node); else box.insertBefore(node, box.children[i] || null);
     changed.push(node);
   });
-  if (keyed) { old.forEach(n => kept.has(n) || n.remove()); restoreAnchor(box, anchor); } else old.slice(fresh.length).forEach(node => node.remove());
+  // Slayderin oxları və nöqtələri səhifə sətrində yoxdur: silinmir (silinəndə slayd nöqtəsiz qalır, altındakı məzmun 12 px oynayırdı); say dəyişəndə yenidən qurulur.
+  if (keyed) { old.forEach(n => kept.has(n) || n.remove()); restoreAnchor(box, anchor); if (old.length !== fresh.length) changed.push(box); } else old.slice(fresh.length).forEach(node => node.matches(".st-btn,.st-dots") || node.remove());
 }
 function patchView(v, page) {
   const next = document.createElement("template");
@@ -2400,7 +2407,8 @@ function preload(h) {
   else if (p === "bolme") { if (s === "cedvel") wantSports(); else if (s && !SERVICE_ROUTES[s] && S.data && !S.partial) loadArchive(SECTION_ALIAS[s] || s); }
   else if (p) loadPages();
 }
-document.addEventListener("pointerdown", e => { const h = e.target.closest?.("a[href]")?.getAttribute("href").replace(/^\/(bolme\/[^/?#]+).*/, "#/$1"); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });
+const hashOf = a => a?.getAttribute("href")?.replace(/^\/(bolme\/[^/?#]+).*/, "#/$1");
+document.addEventListener("pointerdown", e => { const h = hashOf(e.target.closest?.("a[href]")); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });
 const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
 function trackedSources() {
   const rows = S.sources?.sources;
@@ -2564,7 +2572,7 @@ function onClick(e) {
   }
   if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
   if (t.dataset.fbtab) { S.fbTab = t.dataset.fbtab; renderView(); return; }
-  if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; const L = fbLeagues()[S.fbLeague]; S.fbTab = L?.world ? 0 : (S.fbTab === "table" && !L?.table?.length) || typeof S.fbTab === "number" ? "results" : S.fbTab; renderView(); return; }
+  if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; const L = fbLeagues()[S.fbLeague]; S.fbTab = L?.world ? 0 : (S.fbTab === "table" && !L?.table?.length) || S.fbTab >= 0 ? "results" : S.fbTab; renderView(); return; }
   if (t.dataset.lang !== undefined) { setLang(t.dataset.lang); return; }
   if (t.dataset.club !== undefined) {
     const pop = t.closest(".nav-pop");

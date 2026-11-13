@@ -609,6 +609,9 @@ def prep(doc):
              "away": str(g["away"]), "rnd": str(g.get("round") or ""), "hs": hs, "as": as_,
              "ok": g.get("played") is True and isinstance(hs, int) and isinstance(as_, int),
              "pen": str(g.get("pen") or ""), "stadium": html.unescape(str(g.get("stadium") or "")).strip()}
+        # Təxirə salınmış oyun: mənbə «off» yazır və köhnə tarixi saxlayır. Bayraqsız belə oyun turun əsas oyunu sayılır və
+        # tur heç vaxt «bitmir» (La Liqa 8-ci, Portuqaliya 11-ci, Şotlandiya 12-ci tur icmalsız qaldı, 2026-11).
+        x["off"] = g.get("state") == "off" and not x["ok"]
         for s in (x["home"], x["away"]):
             if s not in names:
                 names[s] = _team_name(s, None)
@@ -627,7 +630,18 @@ def prep(doc):
             adj[r["team"]] = r["pts"] - 3 * r["w"] - r["d"]
     pts = [r.get("pts") for r in rows]
     poss = [r.get("pos") for r in rows if isinstance(r.get("pos"), int)]
-    return {"doc": doc, "names": names, "games": games, "rounds": rounds, "groups": groups, "rows": rows,
+    # Fayldakı oyunlar rəsmi cədvəlin saydığı oyunları əhatə etmirsə (kl.json: yalnız 4-6-cı turlar, cədvəldə isə 3 oyun var)
+    # oyunlardan yığılan cədvəl yalandır («12 komanda 3 xalla öndədir»): belə liqada cədvəl faktı yazılmır.
+    have = {}
+    for x in games:
+        if x["ok"]:
+            for side in (x["home"], x["away"]):
+                have[side] = have.get(side, 0) + 1
+    # Bir oyunluq fərq tək-tək komandada ola bilər (nəticəsi sonradan ləğv edilmiş oyun): iki və daha çox oyun, ya da komandaların
+    # yarıdan çoxunda fərq — fayl natamamdır.
+    gaps = [r["p"] - have.get(r["team"], 0) for r in rows if isinstance(r.get("p"), int)]
+    partial = any(n >= 2 for n in gaps) or 2 * sum(1 for n in gaps if n > 0) > len(gaps) > 0
+    return {"doc": doc, "names": names, "games": games, "rounds": rounds, "groups": groups, "rows": rows, "partial": partial,
             "adj": adj, "order": order, "season": str(doc.get("key") or ""),
             # rəsmi cədvəl xala görə düzgün düzülübmü (Türkiyə cədvəlində 20 xal 22 xaldan yuxarıdadır: sırasına etibar yoxdur)
             "ordered": all(isinstance(p, int) for p in pts) and all(a >= b for a, b in zip(pts, pts[1:])),
@@ -688,16 +702,21 @@ def _score_line(lg, g):
 
 # --- Tur və cədvəl ----------------------------------------------------------------------------------------
 
+PARTIAL_WHY = "oyun siyahısı natamamdır: rəsmi cədvəl fayldakından çox oyun sayır"
+FAR = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
+
 def _core(games):
     """Turun əsas, gec və erkən oyunları. Əsas oyunlar median vaxtdan ən çox 3 gün aralıdadır. Ondan sonraya salınan oyun
     gec sayılır (təxirə salınıb), ondan əvvəl keçirilən oyun erkən sayılır (tur başlamamış, əvvəlcədən oynanıb).
     Tarixi olmayan oyun əsas sayılır, yəni turu bitməmiş saxlayır."""
+    off = [g for g in games if g.get("off")]   # mənbənin «təxirə salınıb» dediyi oyun: tarixindən asılı olmayaraq gec sayılır
+    games = [g for g in games if not g.get("off")]
     dated = sorted(g["t"] for g in games if g["t"] is not None)
     if not dated:
-        return list(games), [], []
+        return list(games), off, []
     mid = dated[(len(dated) - 1) // 2]
     return ([g for g in games if g["t"] is None or abs(g["t"] - mid) <= POSTPONED],
-            [g for g in games if g["t"] is not None and g["t"] - mid > POSTPONED],
+            [g for g in games if g["t"] is not None and g["t"] - mid > POSTPONED] + off,
             [g for g in games if g["t"] is not None and mid - g["t"] > POSTPONED])
 
 
@@ -716,6 +735,8 @@ def table(lg, cutoff, now):
     Rəsmi cədvəl hesablanmışla üst-üstə düşürsə və xala görə düzgün düzülübsə, sıra rəsmi cədvəldəndir (bərabər xalda
     liqanın öz meyarları). Səhv düzülmüş rəsmi cədvəlin (Türkiyə) bərabər xallı sırasına etibar edilmir.
     Qalan hallarda: xal, qol fərqi, vurulan qol. Qaytarır: (sətirlər, rəsmi_sıra)."""
+    if lg.get("partial"):
+        return [], False
     st = {s: [0, 0, 0, 0, 0, 0] for s in lg["order"]}
     for g in lg["games"]:
         if g["t"] is None or g["t"] > cutoff or not _played(g, now):
@@ -779,13 +800,15 @@ def round_facts(lg, rnd, now):
     if pending:
         more = f" (daha {len(pending) - 1} oyun)" if len(pending) > 1 else ""
         return None, f"tur başa çatmayıb: {_pair(lg, pending[0])} oyununun nəticəsi yoxdur{more}"
+    if lg.get("partial"):
+        return None, PARTIAL_WHY
     after, official = table(lg, plan["last"], now)
     early = [g for g in plan["early"] if _played(g, now)]
     before = [] if early else table(lg, plan["first"] - SEC, now)[0]
     if not after or not any(r["p"] for r in after):
         return None, "cədvəl yoxdur"
     core = sorted(plan["core"] + early, key=lambda g: (g["t"], g["i"]))
-    skipped = sorted((g for g in plan["late"] + plan["early"] if not _played(g, now)), key=lambda g: (g["t"], g["i"]))
+    skipped = sorted((g for g in plan["late"] + plan["early"] if not _played(g, now)), key=lambda g: (g["t"] or FAR, g["i"]))
     return {"plan": plan, "core": core, "early": early, "skipped": skipped, "after": after, "before": before,
             "official": official}, ""
 
@@ -1459,6 +1482,8 @@ def night_item(key, lg, md, now):
     last = max(g["t"] for g in games)
     games = _dated(games + [g for g in early if _played(g, now)])
     unplayed = [g for g in late + early if not _played(g, now)]
+    if lg.get("partial"):
+        return None, PARTIAL_WHY
     rows, official = table(lg, last, now)
     shown = [g for g in games if g["home"] not in AZ_CLUBS and g["away"] not in AZ_CLUBS]
     shown_ids = {g["i"] for g in shown}

@@ -12,14 +12,16 @@ function send(q) {
   fetch(u, { method: "POST", mode: "no-cors", keepalive: true, credentials: "omit" }).catch(() => {});
 }
 
+let mem = null; // yaddaş bağlıdırsa hər baxış yeni oxucu sayılmasın
 function state(now) {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY) || "null"); } catch {}
+  s ||= mem;
   const first = !s?.cid;
   if (first) s = { cid: `${Math.floor(Math.random() * 2147483647)}.${Math.floor(now / 1000)}`, sct: 0 };
   const start = !s.sid || now - (s.last || 0) > SESSION_MS;
   if (start) { s.sid = Math.floor(now / 1000); s.sct = (s.sct || 0) + 1; }
-  s.last = now;
+  s.last = now; mem = s;
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
   return { s, first, start };
 }

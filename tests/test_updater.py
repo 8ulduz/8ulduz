@@ -2190,6 +2190,7 @@ class UpdateHealthTest(unittest.TestCase):
                             "STATUS_FILE": self.root / "status.json", "SOURCES_FILE": self.root / "sources.json",
                             "DATES_FILE": self.root / "dates.json", "LATEST_FILE": self.root / "latest.json", "LINK_HEALTH_FILE": self.root / "link_health.json", "FIRST_FILE": self.root / "first.json",
                             "RECENT_FILE": self.root / "recent.json", "CACHE_DIR": self.root,
+                            "NEWS_SITEMAP_FILE": self.root / "sitemap-news.xml",  # main() onu da yazır: repodakı əsl fayl boşalmasın
                             "FEEDS": [("Test", "https://example.com/rss", "az", None)]}.items():
             p = patch.object(updater, name, value)
             p.start()

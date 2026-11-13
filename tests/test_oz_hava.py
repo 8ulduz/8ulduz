@@ -123,7 +123,7 @@ class SwpcTextTest(unittest.TestCase):
 
     def test_g_level(self):
         for kp, g in ((None, 0), (0, 0), (4.33, 0), (4.67, 1), (5, 1), (5.33, 1), (5.67, 2), (6.33, 2), (7, 3), (8, 4),
-                      (8.67, 5), (9, 5)):
+                      (8.67, 4), (8.99, 5), (9, 5)):  # 9− (8,67) NOAA şkalasında G4-dür: «G4: Kp 8, 9− daxil»
             self.assertEqual(oh.g_level(kp), g, kp)
 
 
