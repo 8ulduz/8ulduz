@@ -40,7 +40,7 @@ Sahibin göstərişi (2026-11-06). Ayrıca açar lazım deyil, Facebook açarı 
 3. developers.facebook.com → «8ulduz paylasma» tətbiqi → istifadə ssenarisi əlavə edin: Instagram məzmununu idarə etmək. İcazələr: `instagram_basic`, `instagram_content_publish`.
 4. Graph API Explorer: əvvəlki icazələr (`pages_show_list`, `pages_read_engagement`, `pages_manage_posts`) üstəgəl yuxarıdakı ikisi ilə yeni açar alın, «Extend» edin. Secrets: `FB_PAGE_TOKEN`-i yeniləyin.
 
-Nə paylaşılır: Facebook-dakı qayda ilə seçilən, **şəkli olan** xəbər, 45 dəqiqədən bir (gündə ən çox 32). Mətn: başlıq, xülasə, «Ətraflı: 8ulduz.az». Instagram postdakı keçidi basılan etmir, ona görə saytın ünvanı profilin «bio» hissəsinə yazılmalıdır. Instagram şəkli qəbul etməsə (format, ölçü), həmin xəbər ötürülür. Söndürmək: Variables `INSTAGRAM` = `0`.
+Nə paylaşılır: Facebook-dakı qayda ilə seçilən, **şəkli olan** xəbər, 3 saatdan bir (gündə ən çox 8; `IG_MIN_GAP_MIN` ilə dəyişir). Əvvəl 45 dəqiqədən bir (gündə 32) idi: hesab iki gündən sonra, 2026-11-13-də Instagram tərəfindən bloklandı («Action blocked», xəta 2207051) və skript hər dövrədə yenidən cəhd edib hər dəfə bir xəbəri «istifadə olunmuş» sayırdı. İndi belə cavabda Instagram 24 saat (`IG_PAUSE_H`) dayanır, sorğu getmir, xəbər yanmır; fasilə `.social/posted.json`-da `_pause` kimi saxlanır. Mətn: başlıq, xülasə, «Ətraflı: 8ulduz.az». Instagram postdakı keçidi basılan etmir, ona görə saytın ünvanı profilin «bio» hissəsinə yazılmalıdır. Instagram şəkli qəbul etməsə (format, ölçü), həmin xəbər ötürülür. Söndürmək: Variables `INSTAGRAM` = `0`.
 
 ## X
 

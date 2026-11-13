@@ -245,7 +245,7 @@ test("social: Instagram posts a picture story to the Instagram account linked to
   assert.ok(logs.some(s => s.startsWith("instagram: səhifəyə bağlı Instagram peşəkar hesabı yoxdur")));
   linked = true; calls.length = 0;
   const net = S.networks(env).find(n => n.name === "instagram");
-  assert.equal(net.gapMin, 45, "gündə ən çox 32 post (Instagram API həddi 50)");
+  assert.equal(net.gapMin, 180, "gündə ən çox 8 post: 45 dəqiqə ilə hesab 2026-11-13-də bloklandı");
   res = await S.run({ articles: [noPic, pic], env: { ...env, IG_WAIT_MS: "0" }, now: NOW + 60 * 60e3, fetch, state: { ...state, _last: {} }, log: () => {} });
   const media = calls.find(c => c[0].endsWith("/1784/media"));
   assert.ok(media, "şəkilli xəbər göndərildi");
@@ -270,6 +270,36 @@ test("social: a picture Instagram refuses is skipped so the next run tries anoth
   const res = await S.run({ articles: [pic], env, now: NOW, fetch, state, log: () => {} });
   assert.deepEqual(res.failed, [["instagram", pic.id]]);
   assert.ok(state.instagram[pic.id], "təkrar yoxlanmır");
+});
+
+test("social: when Instagram blocks the account the network pauses for a day and the story is not burned (2026-11-13: every run retried and marked a story as used)", async () => {
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", INSTAGRAM: "1" };
+  const pic = art("f1", { imageUrl: "https://site.az/a.jpg" });
+  let media = 0, lookups = 0, open = false;
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) { lookups++; return { json: async () => ({ instagram_business_account: { id: "17" } }) }; }
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    if (url.endsWith("/media")) { media++; return open ? { ok: true, status: 200, json: async () => ({ id: "c1" }) }
+      : { ok: false, status: 403, text: async () => '{"error":{"message":"Application request limit reached","type":"OAuthException","is_transient":false,"code":4,"error_subcode":2207051}}' }; }
+    return { ok: true, status: 200, text: async () => "" };
+  };
+  const state = {}, logs = [];
+  const go = now => S.run({ articles: [pic], env, now, fetch, state, log: s => logs.push(s) });
+  let res = await go(NOW);
+  assert.deepEqual(res.failed.filter(x => x[0] === "instagram"), [["instagram", pic.id]], "ilk dəfə görünür (iş qırmızı ola bilər: sahib bilsin)");
+  assert.ok(!state.instagram?.[pic.id], "xəbərin günahı yoxdur: paylaşılmış sayılmır");
+  assert.equal(state._pause.instagram, Math.floor(NOW / 1000) + 24 * 3600);
+  assert.ok(logs.some(s => s.includes("24 saat cəhd edilmir")));
+  const before = [media, lookups];
+  res = await go(NOW + 3 * 3600e3);
+  assert.deepEqual([media, lookups], before, "fasilədə Instagram-a heç bir sorğu getmir");
+  assert.deepEqual(res.failed.filter(x => x[0] === "instagram"), [], "fasilə uğursuzluq deyil: iş qırmızı olmur");
+  assert.ok(logs.some(s => s.startsWith("instagram: fasilədədir") && s.includes("21 saat sonra")));
+  open = true;
+  const later = NOW + 25 * 3600e3, fresh = art("f2", { imageUrl: "https://site.az/b.jpg", publishedAt: new Date(later - 600e3).toISOString() });
+  res = await S.run({ articles: [fresh], env, now: later, fetch, state, log: s => logs.push(s) });
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === fresh.id), "fasilə bitəndə paylaşım davam edir");
 });
 
 test("social: missing X secrets are named in the log (2026-11-10: X got no posts, nothing said why), never their values", async () => {

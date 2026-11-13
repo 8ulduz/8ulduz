@@ -195,7 +195,10 @@ function networks(env = process.env) {
   // Instagram yalnız şəkilli post qəbul edir (JPEG, ictimai URL), keçid postda basılmır: mətnin sonunda «8ulduz.az» yazılır.
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN && env.INSTAGRAM !== "0") {
     const root = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`;
-    list.push({ name: "instagram", token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 45), // gündə ≤32 (API həddi 50)
+    list.push({ name: "instagram", token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 180), // gündə ≤8. 45 dəqiqə (gündə 32) ilə hesab 2 gündən sonra, 2026-11-13-də bloklandı (2207051)
+      // Instagram hesabın paylaşımını məhdudlaşdırıb («Action blocked», spam qoruması): xəbərin günahı yoxdur və hər cəhd bloku uzada bilər.
+      // Belə cavabda şəbəkə pauseH saat dayanır, xəbər «paylaşılmış» sayılmır (run).
+      blocked: /"error_subcode":\s*2207051|"code":\s*368\b|Application request limit reached|Action blocked/i, pauseH: num(env.IG_PAUSE_H, 24),
       wants: a => !a.digest && /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
       async prepare(f, state, log) {
         const r = await f(`${root}${encodeURIComponent(env.FB_PAGE_ID)}?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
@@ -261,6 +264,8 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
   const hide = s => [env.TELEGRAM_BOT_TOKEN, env.FB_PAGE_TOKEN, ...nets.map(n => n.token)].filter(x => x && x.length > 8)
     .reduce((m, k) => m.split(k).join("***"), String(s?.message || s));
   for (const net of nets) {
+    const until = state._pause?.[net.name] || 0;
+    if (until > now / 1000) { log(`${net.name}: fasilədədir (şəbəkə paylaşımı məhdudlaşdırıb), növbəti cəhd ${Math.ceil((until - now / 1000) / 3600)} saat sonra`); continue; }
     if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
     const done = state[net.name] ||= {};
     const last = state._last ||= {};
@@ -302,9 +307,12 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
       } catch (e) {
         const msg = hide(e);
         if (net.name === "telegram" && /chat not found|kicked|not a member|not enough rights|need administrator/i.test(msg)) delete state._telegram; // növbəti dövrə kanalı yenidən axtarır
-        if (net.skipFailed) done[a.id] = Math.floor(now / 1000); // eyni xəbər hər dövrədə təkrar yoxlanmasın
+        const blocked = net.blocked?.test(msg);
+        if (blocked) (state._pause ||= {})[net.name] = Math.floor(now / 1000) + net.pauseH * 3600;
+        else if (net.skipFailed) done[a.id] = Math.floor(now / 1000); // eyni xəbər hər dövrədə təkrar yoxlanmasın
         result.failed.push([net.name, a.id]);
         log(`${net.name}: alınmadı — ${msg}`);
+        if (blocked) log(`${net.name}: şəbəkə hesabın paylaşımını məhdudlaşdırıb — ${net.pauseH} saat cəhd edilmir; xəbər növbəti dəfə yenidən seçilə bilər`);
         break; // şəbəkə imtina edirsə bu dövrədə ona daha yazmırıq
       }
     }
