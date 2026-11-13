@@ -370,7 +370,7 @@ class OfficialYouTubeTest(unittest.TestCase):
     def test_slow_cycle_leaves_social_to_the_minute_loop(self):
         calls = []
         names = ["compute_groups", "update_markets", "resolve_undated", "update_social", "update_video", "update_football", "update_sports",
-                 "retire_reader", "refresh_slow_feeds", "write_public", "update_archive", "update_team_pages"]
+                 "retire_reader", "refresh_slow_feeds", "update_city_data", "write_public", "update_archive", "update_team_pages"]
         fakes = {n: (lambda n=n: calls.append(n)) for n in names}
         with patch.multiple(updater, read_feed=lambda *a, **k: [], fill_og_images=lambda *a, **k: None, drop_dead_images=lambda a: a, **fakes):
             updater.slow_cycle()

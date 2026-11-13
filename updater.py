@@ -2733,7 +2733,7 @@ def slow_cycle():
     social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
     # update_own_news: yalnız OZ_DERC=1 ilə işləyir (yuxarıda); məzənnədən sonra, çünki təzə data/markets.json-u oxuyur.
     steps = [compute_groups, update_markets, update_own_news, resolve_undated, *social, update_video, update_football, update_sports,
-             lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, write_public, update_archive, update_team_pages]
+             lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, update_city_data, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
             step()
@@ -5550,7 +5550,7 @@ _SECTION_HTML = """<!doctype html>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -5652,7 +5652,11 @@ def service_body(slug, articles):
         items = _read_json(MARKETS_FILE, {}).get("items") or []
         rows = [(i.get("label"), f'{float(i["value"]):.{i.get("dec", 2)}f} {i.get("unit") or ""}'.strip(), i.get("src") or "", i.get("asOf") or (i.get("at") or "")[:10])
                 for i in items if i.get("value") is not None]
-        return _table(("Ad", "Qiymət", "Mənbə", "Tarix"), rows) if rows else "<p>Məzənnə məlumatı hazırda yoxdur.</p>"
+        if not rows:
+            return "<p>Məzənnə məlumatı hazırda yoxdur.</p>"
+        ids = {i.get("id") for i in items if i.get("value") is not None}
+        links = " · ".join(f'<a href="../mezenne/{s}/">{_xml(l)} məzənnəsi</a>' for s, mid, l, *_ in CURRENCY_PAGES if mid in ids)
+        return _table(("Ad", "Qiymət", "Mənbə", "Tarix"), rows) + (f"<p>{links}</p>" if links else "")
     if slug == "cedvel":
         fb = _read_json(FOOTBALL_FILE, {})
         rows = [(t.get("pos"), t.get("team"), t.get("p"), t.get("w"), t.get("d"), t.get("l"), t.get("gf"), t.get("ga"), t.get("pts")) for t in fb.get("table") or []]
@@ -5687,6 +5691,385 @@ def write_sections(articles, stories=()):
             print("  ! xidmət səhifəsi:", slug, type(e).__name__, e)
     print(f"Bölmə səhifələri: {len(SECTIONS)}")
 
+# ------------------------------------------- namaz, hava və məzənnə səhifələri ---
+# Sahibin qərarı (2026-11-13, «Bəli, qur»): Google-da hər gün axtarılan sorğuların (namaz vaxtı, hava, dollar məzənnəsi)
+# öz ünvanı olsun. Səhifələr bolme/ altındadır (pipeline.sh main-ə bu qovluğu yazır), tətbiqi yükləmir: bir HTML, daxili CSS.
+# Şəbəkə sorğusu yalnız yavaş dövrədədir (update_city_data); səhifələr write_public-də saxlanmış məlumatdan yazılır.
+# Şəhər siyahısı assets/app.js CITIES ilə eynidir (tests/xidmet-sehifeleri.test.cjs).
+CITIES = [("Bakı", 40.4093, 49.8671), ("Sumqayıt", 40.5897, 49.6686), ("Gəncə", 40.6828, 46.3606), ("Mingəçevir", 40.77, 47.0286),
+          ("Şirvan", 39.937, 48.929), ("Naxçıvan", 39.2089, 45.4122), ("Lənkəran", 38.7529, 48.85), ("Şəki", 41.1919, 47.1706),
+          ("Quba", 41.3611, 48.5133), ("Xaçmaz", 41.459, 48.802), ("Şamaxı", 40.631, 48.641), ("İsmayıllı", 40.785, 48.15),
+          ("Qəbələ", 40.98, 47.86), ("Oğuz", 41.071, 47.465), ("Zaqatala", 41.63, 46.64), ("Balakən", 41.726, 46.404),
+          ("Qax", 41.418, 46.92), ("Şuşa", 39.758, 46.75), ("Ağdam", 39.993, 46.93), ("Füzuli", 39.604, 47.15),
+          ("Cəbrayıl", 39.399, 47.03), ("Kəlbəcər", 40.106, 46.045), ("Laçın", 39.638, 46.546), ("Zəngilan", 39.088, 46.65),
+          ("Qubadlı", 39.344, 46.58), ("Tovuz", 40.992, 45.628), ("Göygöl", 40.585, 46.306), ("Yevlax", 40.617, 47.15),
+          ("Bərdə", 40.375, 47.126), ("Ağsu", 40.57, 48.4), ("Kürdəmir", 40.335, 48.16), ("Ucar", 40.52, 47.65),
+          ("Göyçay", 40.65, 47.74), ("Ağdaş", 40.65, 47.48), ("Zərdab", 40.22, 47.71), ("İmişli", 39.87, 48.06),
+          ("Saatlı", 39.93, 48.37), ("Sabirabad", 40.01, 48.48), ("Salyan", 39.596, 49), ("Neftçala", 39.376, 49.247),
+          ("Hacıqabul", 40.04, 48.94), ("Biləsuvar", 39.46, 48.55), ("Masallı", 39.034, 48.665), ("Astara", 38.501, 48.875),
+          ("Lerik", 38.775, 48.415), ("Yardımlı", 38.908, 48.24)]
+NAMAZ_FILE = OUT_DIR / "namaz.json"   # ayda bir dəfə dəyişir: repoda qalır ki, yeni iş 46 sorğunu təkrar etməsin
+HAVA_CACHE = CACHE_DIR / "hava.json"
+NAMAZ_FETCH_MAX = 8                   # bir yavaş dövrədə ən çoxu bu qədər şəhər; ilk xəta dövrəni saxlayır
+HAVA_EVERY = 55 * 60
+PRAY_LABELS = (("Fajr", "Sübh"), ("Sunrise", "Günəş"), ("Dhuhr", "Zöhr"), ("Asr", "Əsr"), ("Maghrib", "Məğrib"), ("Isha", "İşa"))
+AZ_MONTH_NAMES = ("yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr")
+AZ_WEEKDAYS = ("bazar ertəsi", "çərşənbə axşamı", "çərşənbə", "cümə axşamı", "cümə", "şənbə", "bazar")
+# ünvan, markets.json id-si, ad, tam ad, kod, id-dəki nominal, çevirmə cədvəlinin məbləğləri
+CURRENCY_PAGES = [
+    ("dollar", "USD", "Dollar", "ABŞ dolları", "USD", 1, (1, 5, 10, 50, 100, 500, 1000, 5000)),
+    ("avro", "EUR", "Avro", "avro", "EUR", 1, (1, 5, 10, 50, 100, 500, 1000, 5000)),
+    ("rubl", "RUB100", "Rubl", "Rusiya rublu", "RUB", 100, (100, 500, 1000, 5000, 10000, 50000, 100000)),
+    ("lire", "TRY100", "Lirə", "Türkiyə lirəsi", "TRY", 100, (100, 500, 1000, 5000, 10000, 50000)),
+    ("yuan", "CNY", "Yuan", "Çin yuanı", "CNY", 1, (1, 10, 100, 500, 1000, 5000)),
+]
+SUBPAGE_DIRS = ("namaz", "hava", "mezenne")
+_SLUG_TR = str.maketrans({"ə": "e", "Ə": "e", "ı": "i", "İ": "i", "ö": "o", "Ö": "o", "ü": "u", "Ü": "u",
+                          "ş": "s", "Ş": "s", "ç": "c", "Ç": "c", "ğ": "g", "Ğ": "g"})
+
+def city_slug(name):
+    return re.sub(r"[^a-z0-9]+", "-", str(name).translate(_SLUG_TR).lower()).strip("-")
+
+def _locative(name):
+    """«Bakıda», «Gəncədə»: şəkilçi son saitə uyğunlaşır."""
+    for ch in reversed(str(name).lower()):
+        if ch in "aıou":
+            return name + "da"
+        if ch in "eəiöü":
+            return name + "də"
+    return name + "da"
+
+def _baku_now(now=None):
+    if now is None:
+        return datetime.datetime.now(BAKU)
+    if isinstance(now, (int, float)):
+        return datetime.datetime.fromtimestamp(now, BAKU)
+    return now.astimezone(BAKU) if now.tzinfo else now.replace(tzinfo=BAKU)
+
+def _az_date(d, weekday=True):
+    text = f"{d.day} {AZ_MONTH_NAMES[d.month - 1]} {d.year}"
+    return f"{text}, {AZ_WEEKDAYS[d.weekday()]}" if weekday else text
+
+def _month_days(year, month):
+    nxt = datetime.date(year + month // 12, month % 12 + 1, 1)
+    return (nxt - datetime.date(year, month, 1)).days
+
+def wx_label(code):
+    """assets/app.js wxCode ilə eyni adlar."""
+    c = int(code)
+    if c <= 3:
+        return ("Açıq", "Əsasən açıq", "Qismən buludlu", "Buludlu")[max(c, 0)]
+    if c in (45, 48):
+        return "Duman"
+    if 51 <= c <= 57:
+        return "Çiskin"
+    if 61 <= c <= 67 or 80 <= c <= 82:
+        return "Yağışlı"
+    if 71 <= c <= 77 or c in (85, 86):
+        return "Qarlı"
+    if c >= 95:
+        return "İldırımlı"
+    return "Dəyişkən"
+
+def _deg(v):
+    v = int(v)
+    return f"{'+' if v > 0 else ''}{v}°"
+
+def parse_namaz_month(doc):
+    """Aladhan /calendar cavabı → {gün: [Sübh, Günəş, Zöhr, Əsr, Məğrib, İşa]}; yarımçıq gün atılır."""
+    out = {}
+    for row in (doc or {}).get("data") or []:
+        try:
+            day = int(row["date"]["gregorian"]["day"])
+            out[day] = [re.match(r"\s*(\d{2}:\d{2})", row["timings"][key]).group(1) for key, _ in PRAY_LABELS]
+        except Exception:
+            continue
+    return out
+
+def _namaz_rows(saved, month, slug):
+    """Saxlanmış ayın sətirləri, yalnız tamdırsa (hər gün 6 vaxt)."""
+    year, mon = (int(x) for x in month.split("-"))
+    rows = ((saved or {}).get(month) or {}).get(slug)
+    ok = (isinstance(rows, list) and len(rows) == _month_days(year, mon)
+          and all(isinstance(r, list) and len(r) == 6 and all(re.fullmatch(r"\d{2}:\d{2}", str(t)) for t in r) for r in rows))
+    return rows if ok else None
+
+def update_namaz(now=None, fetcher=None):
+    """Cari ayın (25-dən sonra növbəti ayın da) cədvəli, şəhər başına ayda bir sorğu. Üsul saytdakı vidcetlə eynidir (method=13)."""
+    now = _baku_now(now)
+    months = [f"{now.year}-{now.month:02d}"]
+    if now.day >= 25:
+        nxt = now.date().replace(day=1) + datetime.timedelta(days=32)
+        months.append(f"{nxt.year}-{nxt.month:02d}")
+    doc = _read_json(NAMAZ_FILE, {})
+    saved = doc.get("months") if isinstance(doc, dict) and isinstance(doc.get("months"), dict) else {}
+    data = {m: {slug: rows for slug, rows in (saved.get(m) or {}).items() if _namaz_rows(saved, m, slug)} for m in months}
+    left = NAMAZ_FETCH_MAX
+    for m in months:
+        year, mon = (int(x) for x in m.split("-"))
+        for name, lat, lon in CITIES:
+            slug = city_slug(name)
+            if slug in data[m]:
+                continue
+            if left <= 0:
+                break
+            left -= 1
+            try:
+                raw = (fetcher or fetch_json)(f"https://api.aladhan.com/v1/calendar/{year}/{mon}?latitude={lat}&longitude={lon}&method=13&timezonestring=Asia%2FBaku", timeout=8)
+                rows = parse_namaz_month(raw)
+                if len(rows) != _month_days(year, mon):
+                    raise ValueError("ay yarımçıqdır")
+                data[m][slug] = [rows[d] for d in sorted(rows)]
+            except Exception as e:
+                print("  ! namaz:", name, type(e).__name__, e)
+                left = 0
+                break
+    if data != saved and (saved or any(data.values())):  # heç nə alınmayıbsa boş fayl yazılmır
+        _write_atomic(NAMAZ_FILE, json.dumps({"method": "Aladhan, method=13 (Diyanet)", "months": data}, ensure_ascii=False, separators=(",", ":")))
+    return data
+
+def update_hava(now=None, fetcher=None):
+    """Open-Meteo: 46 şəhər bir sorğuda, saatda bir dəfə. Alınmasa əvvəlki səhifələr qalır."""
+    stamp = time.time() if now is None else float(now)
+    cached = _read_json(HAVA_CACHE, {})
+    if isinstance(cached, dict) and cached.get("cities") and 0 <= stamp - float(cached.get("at") or 0) < HAVA_EVERY:
+        return cached
+    url = ("https://api.open-meteo.com/v1/forecast?latitude=" + ",".join(str(c[1]) for c in CITIES) + "&longitude=" + ",".join(str(c[2]) for c in CITIES)
+           + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weathercode,wind_speed_10m"
+           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
+           "&wind_speed_unit=ms&timezone=Asia%2FBaku&forecast_days=7")
+    raw = (fetcher or fetch_json)(url, timeout=12)
+    raw = [raw] if isinstance(raw, dict) else raw
+    cities = {}
+    for (name, _lat, _lon), x in zip(CITIES, raw or []):
+        try:
+            c, d = x["current"], x["daily"]
+            days = [[str(d["time"][i]), int(d["weather_code"][i]), round(float(d["temperature_2m_max"][i])), round(float(d["temperature_2m_min"][i])),
+                     round(float(d["precipitation_sum"][i] or 0), 1), round(float(d["wind_speed_10m_max"][i]))] for i in range(len(d["time"]))]
+            if not days:
+                continue
+            cities[city_slug(name)] = {"t": round(float(c["temperature_2m"])), "f": round(float(c["apparent_temperature"])), "h": round(float(c["relative_humidity_2m"])),
+                                       "w": round(float(c["wind_speed_10m"])), "c": int(c["weathercode"]), "at": str(c["time"]), "days": days}
+        except Exception:
+            continue
+    if len(cities) < len(CITIES) // 2:
+        raise ValueError(f"hava: yalnız {len(cities)} şəhər gəldi")
+    doc = {"at": stamp, "cities": cities}
+    _save_cache(HAVA_CACHE, doc)
+    return doc
+
+def update_city_data():
+    """Yavaş addım: namaz cədvəli və hava. Biri alınmasa digəri işləyir; səhifələri write_public yazır."""
+    for step in (update_namaz, update_hava):
+        try:
+            step()
+        except Exception as e:
+            print("  ! şəhər məlumatı:", step.__name__, type(e).__name__, e)
+
+_STATIC_CSS = (":root{color-scheme:light dark}*{box-sizing:border-box}body{margin:0;font:16px/1.6 system-ui,sans-serif;background:#15233b;color:#d5deeb}"
+               "main{max-width:760px;margin:auto;padding:20px 16px 48px}a{color:#d6bd80}h1{font-size:1.6rem;line-height:1.25;margin:.7em 0 .2em}h2{font-size:1.15rem;margin-top:28px}"
+               "table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:7px 6px;text-align:left;border-bottom:1px solid #3a4a66}"
+               "tr.bu td{font-weight:700;background:#22365a}.kart{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;margin:14px 0}"
+               ".kart div{border:1px solid #3a4a66;border-radius:10px;padding:10px;text-align:center}.kart b{display:block;font-size:1.35rem}.iri{font-size:2.1rem;font-weight:700;margin:.2em 0}"
+               ".cedvel{overflow-x:auto}.sah a{display:inline-block;margin:0 12px 8px 0}.qeyd{opacity:.78;font-size:.88rem;font-weight:400}:focus-visible{outline:3px solid currentColor;outline-offset:3px}"
+               "@media(prefers-color-scheme:light){body{background:#fff8d8;color:#172b4d}a{color:#19385f}th,td,.kart div{border-color:#d9cf9f}tr.bu td{background:#f3e7a8}}")
+# Xidmət işçisi (sw.js cachedShell) səhifənin saxlanmış nüsxəsini dərhal verir: dünənki nüsxədə «bu gün» köhnə olardı.
+# Skript ayın cədvəlindən Bakı vaxtı ilə bugünkü sətri tapıb yuxarıdakı bloku ona görə düzəldir. Şəbəkə sorğusu yoxdur.
+_NAMAZ_JS = ('(function(){var d=new Date(Date.now()+144e5).toISOString().slice(0,10),r=document.querySelector(\'tr[data-d="\'+d+\'"]\');if(!r)return;'
+             'var o=document.querySelector("tr.bu");if(o)o.className="";r.className="bu";var b=document.querySelectorAll("#bugun b");'
+             'for(var i=0;i<b.length;i++)b[i].textContent=r.cells[i+1].textContent;var g=document.getElementById("gun");if(g)g.textContent=r.getAttribute("data-t")})()')
+
+def _static_page(path, title, desc, h1, body, crumbs=(), script=""):
+    """bolme/<path> üçün tam səhifə. crumbs: [(ad, bolme/ altındakı yol)] — baş səhifə ilə bu səhifə arasındakılar."""
+    url = f"{SITE}bolme/{path}"
+    up = "../" * (path.count("/") + 1)
+    trail = [("8ulduz", SITE)] + [(n, f"{SITE}bolme/{p}") for n, p in crumbs] + [(h1, url)]
+    ld = json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": i, "name": n, "item": u} for i, (n, u) in enumerate(trail, 1)]}, ensure_ascii=False).replace("</", "<\\/")
+    script_src = "script-src 'sha256-" + base64.b64encode(hashlib.sha256(script.encode("utf-8")).digest()).decode() + "'; " if script else ""
+    back = "".join(f' › <a href="{up}bolme/{_xml(p)}">{_xml(n)}</a>' for n, p in crumbs)
+    return ("<!doctype html>\n<html lang=\"az\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+            f"<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; {script_src}img-src 'self'; base-uri 'none'; form-action 'none'\">\n"
+            f"<title>{_xml(title)} — 8ulduz</title>\n<meta name=\"description\" content=\"{_xml(desc)}\">\n<link rel=\"canonical\" href=\"{url}\">\n"
+            "<meta name=\"theme-color\" content=\"#15233b\">\n<meta property=\"og:type\" content=\"website\"><meta property=\"og:site_name\" content=\"8ulduz\">"
+            f"<meta property=\"og:title\" content=\"{_xml(title)}\"><meta property=\"og:description\" content=\"{_xml(desc)}\"><meta property=\"og:url\" content=\"{url}\">"
+            f"<meta property=\"og:locale\" content=\"az_AZ\"><meta property=\"og:image\" content=\"{SITE}assets/og-default.png\"><meta name=\"twitter:card\" content=\"summary_large_image\">\n"
+            f"<link rel=\"icon\" href=\"{up}assets/icon-192.png\" sizes=\"192x192\">\n<script type=\"application/ld+json\">{ld}</script>\n<style>{_STATIC_CSS}</style>\n</head>\n<body><main>\n"
+            f"<nav aria-label=\"Yol\"><a href=\"{up}\">8ulduz — son xəbərlər</a>{back}</nav>\n<h1>{_xml(h1)}</h1>\n{body}\n"
+            f"<h2>8ulduz-da</h2>\n<p class=\"sah\"><a href=\"{up}\">Son xəbərlər</a><a href=\"{up}bolme/namaz/\">Namaz vaxtları</a><a href=\"{up}bolme/hava/\">Hava proqnozu</a>"
+            f"<a href=\"{up}bolme/valyuta/\">Valyuta məzənnəsi</a><a href=\"{up}bolme/cedvel/\">Premyer Liqa cədvəli</a><a href=\"{up}icmal/\">Günün icmalı</a></p>\n"
+            + (f"<script>{script}</script>\n" if script else "") + "</main></body>\n</html>\n")
+
+def _write_page(path, page):
+    """Dəyişməyən səhifə yenidən yazılmır: faylın vaxtı sitemap-də həqiqi dəyişmə tarixidir."""
+    target = SECTIONS_DIR / path / "index.html"
+    try:
+        if target.read_text(encoding="utf-8") == page:
+            return False
+    except Exception:
+        pass
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _write_atomic(target, page, encoding="utf-8")
+    return True
+
+def _city_links(skip=""):
+    return '<p class="sah">' + "".join(f'<a href="../{city_slug(n)}/">{_xml(n)}</a>' for n, _a, _b in CITIES if city_slug(n) != skip) + "</p>"
+
+_NAMAZ_NOTE = ('<p class="qeyd">Vaxtlar Bakı vaxtı ilədir və şəhərin koordinatına görə Diyanət üsulu ilə hesablanır (Aladhan, saytımızdakı namaz göstəricisi ilə eyni mənbə). '
+               "Qafqaz Müsəlmanları İdarəsinin təqvimindən fərqlənə bilər.</p>")
+
+def namaz_city_page(name, rows, today):
+    slug, month = city_slug(name), AZ_MONTH_NAMES[today.month - 1]
+    now = rows[today.day - 1]
+    cards = "".join(f"<div>{_xml(lab)}<b>{t}</b></div>" for (_k, lab), t in zip(PRAY_LABELS, now))
+    lines = []
+    for i, r in enumerate(rows, 1):
+        d = today.replace(day=i)
+        mark = ' class="bu"' if i == today.day else ""
+        lines.append(f'<tr data-d="{d.isoformat()}" data-t="{_xml(_az_date(d))}"{mark}><td>{i} {month}</td>' + "".join(f"<td>{t}</td>" for t in r) + "</tr>")
+    head = "<tr><th>Gün</th>" + "".join(f"<th>{_xml(lab)}</th>" for _k, lab in PRAY_LABELS) + "</tr>"
+    body = (f'<p><b id="gun">{_xml(_az_date(today))}</b></p>\n<div class="kart" id="bugun">{cards}</div>\n'
+            f'<h2>{_xml(name)}: {month} {today.year} namaz təqvimi</h2>\n<div class="cedvel"><table><thead>{head}</thead><tbody>{"".join(lines)}</tbody></table></div>\n'
+            f'{_NAMAZ_NOTE}\n<p><a href="../../hava/{slug}/">{_xml(_locative(name))} hava proqnozu</a></p>\n<h2>Başqa şəhərlər</h2>\n{_city_links(slug)}')
+    desc = f"{_locative(name)} bu gün namaz vaxtları: " + ", ".join(f"{lab} {t}" for (_k, lab), t in zip(PRAY_LABELS, now)) + f". {month.capitalize()} ayının tam təqvimi."
+    return _static_page(f"namaz/{slug}/", f"{name} namaz vaxtları bu gün — {_az_date(today, False)}", desc, f"{name} namaz vaxtları", body,
+                        crumbs=[("Namaz vaxtları", "namaz/")], script=_NAMAZ_JS)
+
+def write_namaz_pages(now=None):
+    today = _baku_now(now).date()
+    month = f"{today.year}-{today.month:02d}"
+    doc = _read_json(NAMAZ_FILE, {})
+    saved = doc.get("months") if isinstance(doc, dict) and isinstance(doc.get("months"), dict) else {}
+    ready = []
+    for name, _lat, _lon in CITIES:
+        rows = _namaz_rows(saved, month, city_slug(name))
+        if rows:
+            _write_page(f"namaz/{city_slug(name)}/", namaz_city_page(name, rows, today))
+            ready.append((name, rows[today.day - 1]))
+    if not ready:
+        return 0
+    head = "<tr><th>Şəhər</th>" + "".join(f"<th>{_xml(lab)}</th>" for _k, lab in PRAY_LABELS) + "</tr>"
+    lines = "".join(f'<tr><td><a href="{city_slug(n)}/">{_xml(n)}</a></td>' + "".join(f"<td>{t}</td>" for t in r) + "</tr>" for n, r in ready)
+    body = (f"<p><b>{_xml(_az_date(today))}</b>. Azərbaycanın şəhər və rayonları üzrə bugünkü namaz vaxtları. Şəhərin adına toxunanda ayın tam təqvimi açılır.</p>\n"
+            f'<div class="cedvel"><table><thead>{head}</thead><tbody>{lines}</tbody></table></div>\n{_NAMAZ_NOTE}')
+    first = ready[0]
+    desc = (f"Bu gün namaz vaxtları, {_az_date(today, False)}: {first[0]} — " + ", ".join(f"{lab} {t}" for (_k, lab), t in zip(PRAY_LABELS, first[1]))
+            + f". {len(ready)} şəhər və rayon üzrə cədvəl.")
+    _write_page("namaz/", _static_page("namaz/", f"Namaz vaxtları bu gün — {_az_date(today, False)}", desc, "Namaz vaxtları", body))
+    return len(ready)
+
+def _hava_fresh(row, today):
+    """Proqnozun bu gündən başlayan günləri; köhnə keşdə dünənki gün atılır."""
+    return [d for d in row.get("days") or [] if isinstance(d, list) and len(d) == 6 and str(d[0]) >= today.isoformat()]
+
+def hava_city_page(name, row, today):
+    slug, loc = city_slug(name), _locative(name)
+    days = _hava_fresh(row, today)
+    stamp = str(row.get("at") or "")
+    try:
+        when = f"{_az_date(datetime.date.fromisoformat(stamp[:10]), False)}, {stamp[11:16]}"
+    except Exception:
+        when = stamp
+    lines = []
+    for d in days:
+        day = datetime.date.fromisoformat(d[0])
+        label = "Bu gün" if day == today else "Sabah" if day == today + datetime.timedelta(days=1) else AZ_WEEKDAYS[day.weekday()].capitalize()
+        lines.append(f"<tr><td>{label}, {day.day} {AZ_MONTH_NAMES[day.month - 1]}</td><td>{wx_label(d[1])}</td><td>{_deg(d[2])}</td><td>{_deg(d[3])}</td><td>{d[4]:g} mm</td><td>{d[5]} m/san</td></tr>")
+    body = (f'<p class="iri">{_deg(row["t"])} <span class="qeyd">{wx_label(row["c"])}</span></p>\n'
+            f'<div class="kart"><div>Hiss olunan<b>{_deg(row["f"])}</b></div><div>Külək<b>{int(row["w"])} m/san</b></div><div>Rütubət<b>{int(row["h"])}%</b></div></div>\n'
+            f'<p class="qeyd">Ölçü vaxtı: {_xml(when)} (Bakı vaxtı). Səhifə saatda bir yenilənir.</p>\n'
+            f"<h2>{_xml(loc)} {len(days)} günlük hava proqnozu</h2>\n"
+            f'<div class="cedvel"><table><thead><tr><th>Gün</th><th>Hava</th><th>Gündüz</th><th>Gecə</th><th>Yağıntı</th><th>Külək</th></tr></thead><tbody>{"".join(lines)}</tbody></table></div>\n'
+            '<p class="qeyd">Mənbə: Open-Meteo model proqnozu. Rəsmi xəbərdarlıq deyil; rəsmi proqnozu Milli Hidrometeorologiya Xidməti verir.</p>\n'
+            f'<p><a href="../../namaz/{slug}/">{_xml(name)} namaz vaxtları</a></p>\n<h2>Başqa şəhərlər</h2>\n{_city_links(slug)}')
+    t0 = days[0]
+    desc = (f"{loc} hava: {_deg(row['t'])}, {wx_label(row['c']).lower()}, külək {int(row['w'])} m/san. Bu gün gündüz {_deg(t0[2])}, gecə {_deg(t0[3])}. "
+            f"{len(days)} günlük proqnoz.")
+    return _static_page(f"hava/{slug}/", f"{loc} hava — bu gün və {len(days)} günlük proqnoz", desc, f"{loc} hava", body, crumbs=[("Hava proqnozu", "hava/")])
+
+def write_hava_pages(now=None):
+    today = _baku_now(now).date()
+    doc = _read_json(HAVA_CACHE, {})
+    cities = doc.get("cities") if isinstance(doc, dict) and isinstance(doc.get("cities"), dict) else {}
+    ready = []
+    for name, _lat, _lon in CITIES:
+        row = cities.get(city_slug(name))
+        try:
+            if not row or not _hava_fresh(row, today):
+                continue
+            _write_page(f"hava/{city_slug(name)}/", hava_city_page(name, row, today))
+            ready.append((name, row, _hava_fresh(row, today)[0]))
+        except Exception as e:
+            print("  ! hava səhifəsi:", name, type(e).__name__, e)
+    if not ready:
+        return 0
+    lines = "".join(f'<tr><td><a href="{city_slug(n)}/">{_xml(n)}</a></td><td>{_deg(r["t"])}</td><td>{wx_label(r["c"])}</td><td>{_deg(d[2])}</td><td>{_deg(d[3])}</td><td>{int(r["w"])} m/san</td></tr>'
+                    for n, r, d in ready)
+    body = (f"<p><b>{_xml(_az_date(today))}</b>. Azərbaycanın şəhər və rayonlarında hava: son ölçülən temperatur və bugünkü proqnoz. Şəhərin adına toxunanda həftəlik proqnoz açılır.</p>\n"
+            f'<div class="cedvel"><table><thead><tr><th>Şəhər</th><th>İndi</th><th>Hava</th><th>Gündüz</th><th>Gecə</th><th>Külək</th></tr></thead><tbody>{lines}</tbody></table></div>\n'
+            '<p class="qeyd">Mənbə: Open-Meteo model proqnozu, saatda bir yenilənir. Rəsmi xəbərdarlıq deyil.</p>')
+    n0, r0, _d0 = ready[0]
+    desc = f"Azərbaycanda hava bu gün, {_az_date(today, False)}: {_locative(n0)} {_deg(r0['t'])}, {wx_label(r0['c']).lower()}. {len(ready)} şəhər və rayon üzrə həftəlik proqnoz."
+    _write_page("hava/", _static_page("hava/", f"Hava proqnozu — Azərbaycan, {_az_date(today, False)}", desc, "Hava proqnozu", body))
+    return len(ready)
+
+def _spaced(value, dec=2):
+    return f"{value:,.{dec}f}".replace(",", " ")
+
+def currency_page(spec, item, others=()):
+    slug, _mid, label, full, code, nominal, amounts = spec
+    rate = float(item["value"]) / nominal               # bir vahidin manatla qiyməti
+    as_of = str(item.get("asOf") or (item.get("at") or "")[:10])
+    try:
+        day_text = _az_date(datetime.date.fromisoformat(as_of), False)
+    except Exception:
+        day_text = as_of
+    change = float(item.get("change") or 0)
+    moved = "dəyişməyib" if not change else f"{abs(change):.4f} AZN {'bahalaşıb' if change > 0 else 'ucuzlaşıb'}"
+    to_azn = "".join(f"<tr><td>{_spaced(a, 0)} {code}</td><td>{_spaced(rate * a)} AZN</td></tr>" for a in amounts)
+    from_azn = "".join(f"<tr><td>{_spaced(a, 0)} AZN</td><td>{_spaced(a / rate)} {code}</td></tr>" for a in (1, 5, 10, 50, 100, 500, 1000, 5000))
+    lead = f"{nominal} {code} = {float(item['value']):.4f} AZN"
+    links = "".join(f'<a href="../{s}/">{_xml(l)} məzənnəsi</a>' for s, l in others if s != slug)
+    body = (f'<p class="iri">{lead}</p>\n<p>Azərbaycan Mərkəzi Bankının <b>{_xml(day_text)}</b> tarixinə rəsmi məzənnəsi. Əvvəlki bülletenlə müqayisədə {nominal} {_xml(full)} {moved}.</p>\n'
+            f'<h2>{code} → AZN</h2>\n<div class="cedvel"><table><thead><tr><th>{_xml(label)}</th><th>Manat</th></tr></thead><tbody>{to_azn}</tbody></table></div>\n'
+            f'<h2>AZN → {code}</h2>\n<div class="cedvel"><table><thead><tr><th>Manat</th><th>{_xml(label)}</th></tr></thead><tbody>{from_azn}</tbody></table></div>\n'
+            '<p class="qeyd">Mənbə: Azərbaycan Mərkəzi Bankı (AMB). Bankların və mübadilə məntəqələrinin alış-satış qiyməti rəsmi məzənnədən fərqlənir.</p>\n'
+            f'<h2>Başqa valyutalar</h2>\n<p class="sah">{links}<a href="../../valyuta/">Bütün məzənnələr, neft və qızıl</a></p>')
+    desc = f"{label} məzənnəsi bu gün: {lead} (AMB, {day_text}). {code}–AZN çevirmə cədvəli."
+    return _static_page(f"mezenne/{slug}/", f"{label} məzənnəsi bu gün — {lead}", desc, f"{label} məzənnəsi", body, crumbs=[("Valyuta məzənnəsi", "valyuta/")])
+
+def write_currency_pages():
+    items = {i.get("id"): i for i in _read_json(MARKETS_FILE, {}).get("items") or [] if isinstance(i, dict)}
+    ready = [spec for spec in CURRENCY_PAGES if (items.get(spec[1]) or {}).get("value")]
+    others = [(spec[0], spec[2]) for spec in ready]
+    for spec in ready:
+        try:
+            _write_page(f"mezenne/{spec[0]}/", currency_page(spec, items[spec[1]], others))
+        except Exception as e:
+            print("  ! məzənnə səhifəsi:", spec[0], type(e).__name__, e)
+    return len(ready)
+
+def write_subpages(now=None):
+    """Namaz, hava və məzənnə səhifələri. Şəbəkə sorğusu yoxdur; biri alınmasa digərləri yazılır."""
+    done = {}
+    for key, step in (("namaz", lambda: write_namaz_pages(now)), ("hava", lambda: write_hava_pages(now)), ("məzənnə", write_currency_pages)):
+        try:
+            done[key] = step()
+        except Exception as e:
+            print("  ! xidmət alt səhifələri:", key, type(e).__name__, e)
+    print("Xidmət alt səhifələri:", ", ".join(f"{k} {v}" for k, v in done.items()))
+    return done
+
+def subpage_locs():
+    """Sitemap üçün: yazılmış alt səhifələr və faylın son dəyişmə vaxtı."""
+    out = []
+    for kind in SUBPAGE_DIRS:
+        base = SECTIONS_DIR / kind
+        for page in sorted(base.glob("index.html")) + sorted(base.glob("*/index.html")):
+            rel = page.parent.relative_to(SECTIONS_DIR).as_posix() + "/"
+            out.append((f"{SITE}bolme/{rel}", _iso_utc(datetime.datetime.fromtimestamp(page.stat().st_mtime, datetime.timezone.utc))))
+    return out
+
 def _iso_utc(dt):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.timezone.utc)
@@ -5708,6 +6091,11 @@ def write_sitemap(stories=None, digests=(), own=()):
     # Sabit məlumat səhifələrinə hər dövrədə saxta dəyişmə tarixi yazılmır.
     for path in ("haqqinda/", "mexfilik/"):
         body.append(f"<url><loc>{_xml(SITE + path)}</loc></url>")
+    try:
+        for loc, when in subpage_locs():
+            body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{when}</lastmod></url>")
+    except Exception as e:
+        print("  ! sitemap alt səhifələri:", type(e).__name__, e)
     if digests:
         body.append(f"<url><loc>{SITE}icmal/</loc><lastmod>{_iso_utc(datetime.datetime.fromtimestamp(digests[0]['at'], datetime.timezone.utc))}</lastmod></url>")
     for e in list(digests)[:60]:
@@ -5786,6 +6174,10 @@ def write_public():
         write_sections(articles, stories)
     except Exception as e:
         print("  ! bölmə səhifələri:", type(e).__name__, e)
+    try:  # namaz, hava, məzənnə: sitemap-dən əvvəl, ünvanları ora düşsün
+        write_subpages()
+    except Exception as e:
+        print("  ! xidmət alt səhifələri:", type(e).__name__, e)
     try:
         write_sitemap(stories, digests, _own_page_rows(articles))
     except Exception as e:
