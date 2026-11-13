@@ -31,5 +31,5 @@ Sahibin qərarı (2026-11-13, «Bəli, qur»): Google-da hər gün axtarılan so
 - Namaz vaxtları Diyanət üsulu ilə hesablanır; Qafqaz Müsəlmanları İdarəsinin təqvimindən fərqlənə bilər (səhifədə yazılıb). QMİ-nin rəsmi cədvəli mənbə kimi qoşulmayıb.
 - Hava model proqnozudur, rəsmi xəbərdarlıq deyil (səhifədə yazılıb). Open-Meteo cavab verməsə səhifə son ölçünü öz tarixi ilə göstərir; proqnozun bütün günləri keçmişdə qalanda səhifə yenilənmir.
 - Hava səhifələri saatda bir dəyişir: main-ə saatda 47 kiçik fayl dəyişikliyi gedir.
-- Baş səhifədən (tətbiqdən) bu səhifələrə keçid hələ yoxdur; `app.js` dəyişməyib. Rayon səhifələri (`rayon/<ad>/`) də hələ keçid vermir.
+- Tətbiqdən keçidlər (2026-11-13, ayrıca PR): namaz pəncərəsində «Ayın təqvimi», hava pəncərəsində «7 günlük proqnoz», çeviricidə «Bütün məzənnələr və cədvəllər», altlığın «Xidmətlər» siyahısında Dollar məzənnəsi, Namaz vaxtları, Hava proqnozu. Keçidlər yalnız pəncərə açılanda çəkilir. `/bolme/namaz|hava|mezenne/...` tətbiqin bölməsi deyil: klik tutucusu və `hashOf` onları `#/bolme/...`-yə çevirmir (əvvəl «Bölmə tapılmadı» çıxırdı; `tests/xidmet-sehifeleri.test.cjs`). Rayon səhifələri (`rayon/<ad>/`) hələ keçid vermir.
 - Ziyarət sayğacı bu səhifələrdə yoxdur (xarici skript yüklənmir); nəticə Search Console-da ünvan üzrə ölçülür.

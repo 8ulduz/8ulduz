@@ -159,7 +159,7 @@ test("keçid: touching a link preloads what that page will need (archive, sports
   assert.deepEqual(Array.from(run(ctx, "calls")), ["arxiv:heyat", "arxiv:gundem", "idman", "sehife", "sehife", "sehife", "komanda"], "«bolmeler» «bolme» ilə qarışmır");
   run(ctx, "calls.length = 0; S.partial = true; preload('#/bolme/gundem')");
   assert.deepEqual(Array.from(run(ctx, "calls")), [], "ilk ekran hələ dolmayıbsa arxiv istənmir (tam lentlə yarışmasın)");
-  assert.ok(APP.includes(String.raw`const hashOf = a => a?.getAttribute("href")?.replace(/^\/(bolme\/[^/?#]+).*/, "#/$1");`), 'əsl keçid (/bolme/<ad>/) daxili ünvana çevrilir: toxunuş və kursor eyni köməkçini işlədir');
+  assert.ok(APP.includes(String.raw`const hashOf = a => a?.getAttribute("href")?.replace(/^\/(bolme\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+).*/, "#/$1");`), 'əsl keçid (/bolme/<ad>/) daxili ünvana çevrilir: toxunuş və kursor eyni köməkçini işlədir');
   assert.ok(APP.includes(String.raw`document.addEventListener("pointerdown", e => { const h = hashOf(e.target.closest?.("a[href]")); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });`), 'telefonda barmaq toxunan anda');
   assert.ok(APP.includes('const h = hashOf(item);') && APP.includes('preT = setTimeout(() => preload(h), 120);'), "kompüterdə kursor menyuda dayananda (keçid /bolme/<ad>/ olsa da)");
   assert.ok(APP.includes('if (["sources", "about", "sections"].includes(route().name)) renderView();'), "modul gələndə yalnız həmin səhifədəsə çəkilir");

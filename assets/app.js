@@ -1291,10 +1291,10 @@ function renderTopbar() {
     pop = `<div class="wx-pop" role="dialog" aria-label="Bölgələr üzrə hava">` + (sel
       ? `<button class="wx-back" data-act="wx-back">← Bölgələrə qayıt</button>
          <div class="wx-now"><span class="wx-emo">${sel.icon}</span><div><b>${esc(sel.city)}</b><div class="muted">${esc(sel.label)}</div></div><b class="wx-temp">${sel.temp}°</b></div>
-         <div class="wx-det">${[["Hiss olunur", `${sel.feels}°`], ["Rütubət", `%${sel.humidity}`], ["Külək", `${sel.wind} km/s`], ["Təzyiq", `${sel.pressure} hPa`], ["Yağıntı", `${sel.precip} mm`]].map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("")}</div>`
+         <div class="wx-det">${[["Hiss olunur", `${sel.feels}°`], ["Rütubət", `%${sel.humidity}`], ["Külək", `${sel.wind} km/s`], ["Təzyiq", `${sel.pressure} hPa`], ["Yağıntı", `${sel.precip} mm`]].map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("")}</div>${popMore(`hava/${citySlug(sel.city)}/`, "7 günlük proqnoz")}`
       : `<div class="wx-head"><span>Bölgələr üzrə hava</span>${geoBtn()}<button data-act="wx-close" aria-label="Bağla">✕</button></div>${S.geoErr ? `<p class="geo-err">${esc(S.geoErr)}</p>` : ""}` +
         (!S.wxAll ? `<div class="empty" style="padding:24px 0">Yüklənir…</div>` :
-          `<div class="wx-grid">${S.wxAll.map(c => `<button class="wx-city" data-city="${esc(c.city)}"><span>${c.icon} ${esc(c.city)}</span><b>${c.temp}°</b></button>`).join("")}</div>`)) + `</div>`;
+          `<div class="wx-grid">${S.wxAll.map(c => `<button class="wx-city" data-city="${esc(c.city)}"><span>${c.icon} ${esc(c.city)}</span><b>${c.temp}°</b></button>`).join("")}</div>${popMore("hava/", "Bütün şəhərlər: 7 günlük proqnoz")}`)) + `</div>`;
   }
   const fs = document.documentElement.dataset.fs || "2";
   const light = document.documentElement.dataset.theme === "light";
@@ -1527,7 +1527,7 @@ function prayBit() {
     const mark = on ? `<span class="pray-when"><em>növbəti</em><small>${esc(prayLeft(next.mins))}</small></span>` : `<span></span>`;
     return `<div class="pray-row${on ? " next" : ""}">${prayIcon(k)}<span class="pn">${esc(lab)}</span>${mark}<b class="pt">${time}</b></div>`;
   }).join("");
-  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>Namaz</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div><label class="pray-pick"><span>Şəhər</span><select class="pray-city" aria-label="Namaz şəhəri">${prayCityOptions(city)}</select></label><div class="pray-geo">${geoBtn(' data-for="pray"')}${S.geoErr ? `<span class="geo-err">${esc(S.geoErr)}</span>` : ""}</div>${rows}</div>` : "";
+  const pop = S.prayOpen ? `<div class="pray-pop" role="dialog" aria-label="Namaz vaxtları"><div class="pray-h"><b>Namaz</b><span>${esc(hijri)} ${esc(String(h.year || ""))}</span></div><label class="pray-pick"><span>Şəhər</span><select class="pray-city" aria-label="Namaz şəhəri">${prayCityOptions(city)}</select></label><div class="pray-geo">${geoBtn(' data-for="pray"')}${S.geoErr ? `<span class="geo-err">${esc(S.geoErr)}</span>` : ""}</div>${rows}${popMore(`namaz/${citySlug(city)}/`, "Ayın təqvimi")}</div>` : "";
   return `<div class="pray-wrap${S.prayOpen ? " open" : ""}"><button class="pray" data-act="pray" type="button" aria-expanded="${S.prayOpen ? "true" : "false"}">${prayIcon(next.key)}<span class="pcity">Namaz<i class="pc"> · ${esc(city)}</i></span><b>${esc(next.lab)}</b><b class="pt">${esc(next.time)}</b><span class="phij">${esc(hijri)}</span><span class="caret" aria-hidden="true">▾</span></button>${pop}</div>`;
 }
 function nextPrayer(times) {
@@ -1592,8 +1592,12 @@ function fxPop() {
   return `<div class="fx-pop" role="dialog"><div class="fx-h"><b>Çevirici</b><button type="button" data-act="fx-close" aria-label="Bağla">✕</button></div>
     <label>Məbləğ<input id="fx-amt" type="number" min="0" step="any" value="${esc(S.fxAmt)}"></label>
     <div class="fx-row"><select id="fx-from">${opts}</select><span>→</span><select id="fx-to">${opts}</select></div>
-    <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b></div>`;
+    <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b>${popMore("valyuta/", "Bütün məzənnələr və cədvəllər")}</div>`;
 }
+// Namaz, hava və məzənnənin öz səhifələri (updater.py write_subpages; sahib 2026-11-13). Keçid yalnız pəncərə açılanda çəkilir.
+// citySlug updater.city_slug ilə eyni ünvanı verməlidir (tests/xidmet-sehifeleri.test.cjs).
+function citySlug(n) { return String(n).toLocaleLowerCase("az").replace(/[əıöüşçğ]/g, c => ({ ə: "e", ı: "i", ö: "o", ü: "u", ş: "s", ç: "c", ğ: "g" })[c]).replace(/[^a-z]+/g, ""); }
+function popMore(path, label) { return `<a class="pop-more" href="/bolme/${path}">${esc(label)} →</a>`; }
 
 // Dil siyahısı: hər dil öz sətrində, bayraq + kod; «Hamısı» sonda.
 function languagePicker() {
@@ -2407,7 +2411,7 @@ function preload(h) {
   else if (p === "bolme") { if (s === "cedvel") wantSports(); else if (s && !SERVICE_ROUTES[s] && S.data && !S.partial) loadArchive(SECTION_ALIAS[s] || s); }
   else if (p) loadPages();
 }
-const hashOf = a => a?.getAttribute("href")?.replace(/^\/(bolme\/[^/?#]+).*/, "#/$1");
+const hashOf = a => a?.getAttribute("href")?.replace(/^\/(bolme\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+).*/, "#/$1"); // namaz, hava, mezenne ayrıca səhifədir, bölmə deyil: arxivi əvvəlcədən istənmir
 document.addEventListener("pointerdown", e => { const h = hashOf(e.target.closest?.("a[href]")); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });
 const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
 function trackedSources() {
@@ -2421,7 +2425,7 @@ function renderFooter() {
   const h = `<div class="wrap fgrid">
     <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="/bolme/${c.slug}/">${esc(c.label)}</a>`).join("")}</div></div>
-    <div><h4>Xidmətlər</h4><div class="fcats"><a href="/bolme/valyuta/">Valyuta məzənnəsi</a><a href="/bolme/cedvel/">Premyer Liqa cədvəli</a><a href="/bolme/tixac/">Tıxac və yollar</a></div></div>
+    <div><h4>Xidmətlər</h4><div class="fcats"><a href="/bolme/valyuta/">Valyuta məzənnəsi</a><a href="/bolme/mezenne/dollar/">Dollar məzənnəsi</a><a href="/bolme/namaz/">Namaz vaxtları</a><a href="/bolme/hava/">Hava proqnozu</a><a href="/bolme/cedvel/">Premyer Liqa cədvəli</a><a href="/bolme/tixac/">Tıxac və yollar</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="./haqqinda/">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
   if (h !== S.footH) S.footH = $("#footer").innerHTML = h;
@@ -2441,7 +2445,7 @@ function trackEvent(path, a) {
 }
 addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
 // Orta düymə (auxclick, button 1) də keçiddir; sağ düymə (2) sayılmır. «click» yalnız sol düymədə gəlir: bir klik bir hadisədir.
-for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const m = /^\/((xeber|bolme)\/[^/?#]+)/.exec(a.getAttribute("href")); if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
+for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
   closeSharePop();
