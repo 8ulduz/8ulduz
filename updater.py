@@ -524,7 +524,7 @@ def detect_lang(title, desc, default):
     """Dil təyini: kiril→ru, 'ə'→az (türkdə yoxdur), ı/ğ/İ→tr, əks halda mənbə dili.
     Azərbaycan mənbələrində ə-siz qısa başlıqlar türkcə sayılmasın deyə default "az" üstündür."""
     # A translated summary must not label an English headline as Azerbaijani.
-    english = set(re.findall(r"[a-z]+", title.lower())) & {"the", "why", "with", "from", "for", "and", "says", "after", "before", "in", "of", "to"}
+    english = set(re.findall(r"[^\W\d_]+", title.lower())) & {"the", "why", "with", "from", "for", "and", "says", "after", "before", "in", "of", "to"}
     if "ə" not in title.lower() and len(english) >= 2:
         return "en"
     blob = title + " " + desc
@@ -535,7 +535,7 @@ def detect_lang(title, desc, default):
     if default == "az":
         # «Erdoğan», «Türkiye», «Özgür Özel» ingilis xəbərini azərbaycanca etmir (2026-11-11: Azernews xəbəri AZ lentə düşdü):
         # ə-siz mətndə ingilis köməkçi sözləri varsa, ingiliscədir.
-        if len(set(re.findall(r"[a-z]+", blob.lower())) & _EN_WORDS) >= 2:
+        if len(set(re.findall(r"[^\W\d_]+", blob.lower())) & _EN_WORDS) >= 2:
             return "en"
         # AZ mənbəsində ə-siz, lakin ı/ş/ç/ğ/ö/ü olan mətn azərbaycancadır; təmiz ASCII isə ingiliscə
         if re.search(r"[ıİşŞçÇğĞöÖüÜ]", blob) or not re.search(r"[A-Za-z]{3}", blob):
@@ -778,7 +778,23 @@ def fix_source_link(link):
     return re.sub(r"^(https?://(?:www\.)?lent\.az/xeber/.+-\d+)/1/?$", r"\1", link)
 
 
-_STORY_ID = re.compile(r"(?:/|[-_])(\d{5,})(?=\.html?|/|$)")  # sonrakı ayırıcı udulmur: ardıcıl nömrələrin hamısı tapılır (skysports /12040/13607905/)
+_STORY_ID = re.compile(r"(?:/|[-_])(\d{5,})(?=\.(?:html?|cms)\b|/|$)")  # sonrakı ayırıcı udulmur: ardıcıl nömrələrin hamısı tapılır (skysports /12040/13607905/); .cms: Times of India-nın əsl nömrəsi
+_DATE_CODES = {}
+
+def _date_codes(today=None):
+    """Son 62 günün (Zuğulba arxivi 60 gündür) və sabahın tarix yazılışları: 111126, 11112026, 91126, 261111, 111126 (ay-gün) …
+    Slugun sonundakı belə rəqəm xəbərin nömrəsi deyil, günün tarixidir (Al Jazeera «…-pinochet-111126», ntv.az «…-12112026»,
+    mia.az «…-91126»): eyni günün iki ayrı xəbəri bir açar alırdı və birinin başlığı o birinin keçidinə yazılırdı (2026-11-12)."""
+    today = today or datetime.datetime.now(BAKU).date()
+    if today not in _DATE_CODES:
+        codes = set()
+        for back in range(-1, 63):
+            d = today - datetime.timedelta(days=back)
+            dd, mm, yy, yyyy = f"{d.day:02d}", f"{d.month:02d}", f"{d.year % 100:02d}", str(d.year)
+            codes.update((dd + mm + yy, dd + mm + yyyy, str(d.day) + mm + yy, str(d.day) + mm + yyyy, yy + mm + dd, mm + dd + yy, mm + dd + yyyy))
+        _DATE_CODES.clear()
+        _DATE_CODES[today] = frozenset(c for c in codes if len(c) >= 5)
+    return _DATE_CODES[today]
 
 def story_key(link):
     """Mənbə domeni + xəbərin sabit nömrəsi («metbuat.az#1566209»). Sayt başlığı dəyişəndə keçidin slug hissəsi də dəyişir
@@ -791,7 +807,8 @@ def story_key(link):
     except ValueError:
         return None
     host = (u.hostname or "").lower().removeprefix("www.")
-    nums = [n for n in _STORY_ID.findall(u.path or "") if not re.fullmatch(r"(?:19|20)\d{6}", n)]
+    dates = _date_codes()
+    nums = [n for n in _STORY_ID.findall(u.path or "") if not re.fullmatch(r"(?:19|20)\d{6}", n) and n not in dates]
     return f"{host}#{nums[-1]}" if host and nums else None
 
 
@@ -813,27 +830,24 @@ def fixed_source_date(link, now=None):
     except (ValueError, OverflowError, OSError):
         return ""
 
-def _to_iso(pub):
-    now = datetime.datetime.now(datetime.timezone.utc)
-    if not pub:
-        return _norm_iso(now)
+def _pub_dt(pub):
+    """Lentin tarix sətri -> datetime; oxunmursa None (RFC 822 və ISO 8601)."""
+    if not pub or not isinstance(pub, str):
+        return None
     pub = re.sub(r"\s+", " ", pub.strip())
     try:
         dt = email.utils.parsedate_to_datetime(pub)
         if dt is None:
             raise ValueError
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=BAKU)  # zonasız tarix: Azərbaycan lentləri Bakı vaxtı yazır
-        return _norm_iso(dt)
     except Exception:
-        pass
-    try:
-        dt = datetime.datetime.fromisoformat(pub.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=BAKU)
-        return _norm_iso(dt)
-    except Exception:
-        return _norm_iso(now)
+        try:
+            dt = datetime.datetime.fromisoformat(pub.replace("Z", "+00:00"))
+        except Exception:
+            return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=BAKU)  # zonasız tarix: Azərbaycan lentləri Bakı vaxtı yazır
+
+def _to_iso(pub):
+    return _norm_iso(_pub_dt(pub) or datetime.datetime.now(datetime.timezone.utc))
 
 _RX = {}
 # Bölgələr siyahısındakı yer adları: söz sonu və ya Azərbaycan hal/mənsubiyyət şəkilçisi ilə bitməlidir
@@ -1016,12 +1030,14 @@ def is_negative_about_leadership(title, desc, source=None):
     Rəsmi mənbələr süzülmür; sözlər söz başlanğıcında axtarılır («qan təzyiqi» tutulmur)."""
     if source in ("Prezident.az", "Mehriban Əliyeva"):
         return False
-    blob = norm_az(title + " " + desc)
-    if any(_rx(w).search(blob) for w in OPPOSITION):
+    # İki oxunuş: «I» ingiliscə «i», azərbaycanca «ı»dır. Birincisi «ILHAM ALIYEV»i, ikincisi «PARTİYASI», «ZORAKILIQ»ı tutur
+    # (əvvəl böyük hərflə yazılmış başlıq süzgəcdən keçirdi). Hər hansı oxunuşda uyğunluq kifayətdir: yalnız sərtləşir.
+    text = title + " " + desc
+    blobs = (norm_az(text), norm_az(text.replace("I", "ı")))
+    hit = lambda words: any(_rx(w).search(b) for b in blobs for w in words)
+    if hit(OPPOSITION):
         return True
-    if not any(_rx(w).search(blob) for w in LEADERSHIP):
-        return False
-    return any(_rx(w).search(blob) for w in NEGATIVE)
+    return hit(LEADERSHIP) and hit(NEGATIVE)
 
 def is_video(it):
     if it.get("video"):  # rəsmi səhifədə video bloku
@@ -1035,6 +1051,8 @@ def label_for(title, summary, lang, hint=None, world=False):
         label = "Siyasət"
     return label
 
+_CTRL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\ufffe\uffff]")  # XML 1.0-da yasaq işarələr: biri feed.xml və sitemap-ı «zədəli» edir, guard_outputs onları 48 saatadək köhnə saxlayırdı
+
 def _plain(s, title=False):
     """HTML entity və etiketləri təmizlə. Başlığın sonundakı boş tire mənbədən gəlir."""
     cur = s or ""
@@ -1044,7 +1062,7 @@ def _plain(s, title=False):
             break
         cur = nxt
     cur = re.sub(r"<[^>]+>", " ", cur).replace("\xa0", " ")
-    cur = re.sub(r"\s+", " ", cur).strip()
+    cur = re.sub(r"\s+", " ", _CTRL.sub("", cur)).strip()
     if title:
         # Telegram lentlərində başlığın sonuna mənbə ünvanı yapışır
         cur = re.sub(r"\s*https?://\S+", "", cur)
@@ -1980,6 +1998,11 @@ SHARE_DIR = OUT_DIR / "paylas"
 SHARE_KEEP_S, SHARE_PARTS = 25 * 3600, 256   # yazı saatda birdir: 25 saat lentdən çıxandan sonra tam 24 saat deməkdir
 SHARE_FIELDS = ("title", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl")
 
+def removed_ids():
+    """Sahibin çıxardığı xəbərlərin id-ləri: qeyddəki id-lər və qeyddəki hər ünvanın id-si (id = sha1(ünvan)[:16]). Qeyddə iki ünvan,
+    bir id ola bilir: yalnız id-yə baxan təmizlik ikinci ünvanın səhifəsini 30 gün saytda və sitemap-da saxlayırdı."""
+    return content_policy._REMOVED_IDS | {hashlib.sha1(u.encode()).hexdigest()[:16] for u in content_policy._REMOVED_URLS}
+
 def share_part(sid):
     return int(sid[:2], 16) if re.fullmatch(r"[0-9a-f]{16}", str(sid or "")) else None
 
@@ -2069,7 +2092,7 @@ def write_share_pages(articles):
     if not os.environ.get("SHARE_PAGES"):
         return 0
     SHARE_PAGES_DIR.mkdir(parents=True, exist_ok=True)
-    for ident in content_policy._REMOVED_IDS:
+    for ident in removed_ids():
         if re.fullmatch(r"[0-9a-f]{16}", ident):
             (SHARE_PAGES_DIR / f"{ident}.html").unlink(missing_ok=True)
     have = {p.name for p in SHARE_PAGES_DIR.glob("*.html")}
@@ -2330,6 +2353,7 @@ def write_story_pages(articles, now=None):
     Siyahını {id: [vaxt, mənbə sayı, bölmə]} qaytarır."""
     now = now or time.time()
     index = {k: v for k, v in read_story_index().items() if isinstance(v, list) and len(v) >= 2}
+    gone = removed_ids()
     # Öz xəbərin (mənbə «8ULDUZ») xeber/<id>/ səhifəsini dərc dövrəsi yazıb: ümumi şablon onun üstünə yazmır, siyahıya da salmır.
     rows = [a for a in articles if story_worthy(a) and a.get("source") != OWN_SOURCE and not removed_source(a)
             and not is_negative_about_leadership(a.get("title", ""), a.get("summary", ""), a.get("source"))]
@@ -2360,7 +2384,7 @@ def write_story_pages(articles, now=None):
     # içindəki məlumatdan yenidən yazılır: dövrədə qalan STORY_REWRITE payı qədər, hər dövrə siyahının başqa yerindən
     # (oxunmayan və ya qaydadan keçməyən səhifə növbəni tutmasın). Vaxt, mənbə sayı və og:image dəyişmir.
     stale = sorted((sid for sid, old in index.items() if (old[3] if len(old) > 3 else 1) < STORY_VER
-                    and now - old[0] <= STORY_KEEP_S and sid not in content_policy._REMOVED_IDS), key=lambda sid: (-index[sid][0], sid))
+                    and now - old[0] <= STORY_KEEP_S and sid not in gone), key=lambda sid: (-index[sid][0], sid))
     if redo > 0 and stale:
         at = int(now // 600) * STORY_REWRITE % len(stale)
         for sid in (stale[at:] + stale[:at])[:STORY_REWRITE * 2]:
@@ -2378,7 +2402,7 @@ def write_story_pages(articles, now=None):
             redo -= 1
             changed = True
     for sid in list(index):
-        if now - index[sid][0] > STORY_KEEP_S or sid in content_policy._REMOVED_IDS:
+        if now - index[sid][0] > STORY_KEEP_S or sid in gone:
             for p in (STORY_DIR / sid / "index.html", STORY_DIR / sid):
                 try:
                     p.unlink() if p.is_file() else p.rmdir()
@@ -2883,7 +2907,7 @@ def _clean_text(s):
 
 def parse_az_date(s):
     """'24.10.2026' və '24 oktyabr 2026, 19:15' — Bakı vaxtı."""
-    raw = _clean_text(s).lower()
+    raw = norm_az(_clean_text(s))  # «İyun».lower() = «i̇yun» (nöqtə ayrı işarə): ay tanınmır, yazı «bu gün» tarixi alırdı
     hm = re.search(r"(\d{1,2}):(\d{2})", raw)
     now_baku = datetime.datetime.now(BAKU)
     hour, minute = (int(hm.group(1)), int(hm.group(2))) if hm else (12, 0)
@@ -3063,7 +3087,7 @@ def _list_date(raw):
         return parse_az_date(f"{iso.group(3)}.{iso.group(2)}.{iso.group(1)} {iso.group(4)}")
     swapped = re.fullmatch(r"([^\d\s]+)\s+(\d{1,2}),\s+(20\d{2})(.*)", raw.strip())
     text = f"{swapped.group(2)} {swapped.group(1)} {swapped.group(3)}{swapped.group(4)}" if swapped else raw
-    return parse_az_date(text.lower())
+    return parse_az_date(text)
 _LIST_ANCHOR = re.compile(r'<a\b([^>]*?)href=["\']([^"\']+)["\']([^>]*)>(.*?)</a>', re.S)
 
 def parse_list_page(page, base, link_rx, limit=20):
@@ -3264,7 +3288,7 @@ def update_social():
     arch = arch.get("posts") if isinstance(arch, dict) and isinstance(arch.get("posts"), list) else []
     known = {_yt_id(p.get("url")) for p in [*old, *arch] if isinstance(p, dict)} - {""}
     pages = yt_account_pages(YT_ACCOUNTS)
-    posts, failed, yt_rows = [], set(), []
+    posts, failed, yt_rows, carried = [], set(), [], []
     for url, who, name in YT_ACCOUNTS:
         got = [pages.get((url, tab)) for tab in ("rss", "videos", "streams", "shorts")]
         rss, videos, streams, shorts = (x if isinstance(x, list) else None for x in got)
@@ -3278,6 +3302,11 @@ def update_social():
             if not items:
                 raise ValueError("boş lent")
             yt_rows.append({"name": f"YouTube · {name}", "url": url, "count": len(items), "error": None})
+            # Yeni Short bir dövrə görünür (merge_yt onu yalnız ilk dəfə «təzə» sayır), sonra RSS-ə düşənədək itirdi: Shorts
+            # səhifəsində hələ duran əvvəlki yazı saxlanır, ilk görüldüyü vaxtla.
+            on_page, got_ids = {_yt_id(x.get("link")) for x in shorts or []} - {""}, {_yt_id(it.get("link")) for it in items}
+            carried.extend(p for p in old if p.get("who") == who and p.get("network") == "YouTube" and not p.get("via")
+                           and _yt_id(p.get("url")) in on_page - got_ids)
             for it in items:
                 posts.append({
                     "id": hashlib.sha1(it["link"].encode()).hexdigest()[:16],
@@ -3293,6 +3322,7 @@ def update_social():
             print(f"  ! sosial {name}: {type(e).__name__}: {str(e)[:80]}")
     # Səhifənin vaxtı təxminidir («5 minutes ago»): ilk qeyd olunan saxlanır ki, sıra sürüşməsin. RSS-in vaxtı dəqiqdir, olduğu kimi.
     _keep_first_seen([p for p in posts if p.pop("_approx")], old)
+    posts.extend(carried)
     if failed:
         posts.extend(p for p in old if p.get("who") in failed and p.get("network") == "YouTube")
     try:
@@ -3374,6 +3404,10 @@ def write_social_archive(posts, now=None):
         pid = p.get("id") if isinstance(p, dict) else None
         dt = _parse_dt(p.get("publishedAt")) if pid else None
         if not pid or pid in seen or not dt or dt.timestamp() < cutoff:
+            continue
+        # QIRMIZI XƏTT 2: xəbərdən çıxan yazı (via) 30 gün burada qalır — sahibin sonradan çıxardığı və ya mənbəsi siyahıdan
+        # çıxan xəbər arxivdə və paylaşma səhifəsində qalmasın (əvvəl arxiv heç vaxt yenidən yoxlanmırdı).
+        if p.get("via") and content_policy.violation({"id": pid, "source": p["via"], "sourceUrl": p.get("url"), "title": p.get("text") or "", "category": "prezident"}):
             continue
         seen.add(pid)
         rows.append(p)
@@ -3538,6 +3572,10 @@ def _keep_first_seen(items, old):
 
 def update_video():
     items, rows = [], []
+    try:  # alınmayan kanalın əvvəlki videoları qalır (sosial, futbol, idman blokları kimi): əvvəl bir uğursuz dövrə bloku boşaldırdı
+        was = [p for p in json.loads(VIDEO_FILE.read_text(encoding="utf-8")).get("items") or [] if isinstance(p, dict)]
+    except Exception:
+        was = []
     for name, url in YT_NEWS:
         try:
             got = yt_items(url, 5)
@@ -3559,8 +3597,10 @@ def update_video():
         except Exception as e:
             rows.append({"name": f"YouTube · {name}", "url": url, "count": 0, "error": f"{type(e).__name__}: {str(e)[:80]}"})
             print(f"  ! video {name}: {type(e).__name__}")
+            items = [p for p in items if p.get("channel") != name]  # yarımçıq oxunan kanal: köhnə siyahısı bütöv qayıdır
+            items.extend(p for p in was if p.get("channel") == name and not is_negative_about_leadership(p.get("title", ""), ""))
     try:
-        _keep_first_seen(items, json.loads(VIDEO_FILE.read_text(encoding="utf-8")).get("items"))
+        _keep_first_seen(items, was)
     except Exception:
         pass
     items.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
@@ -5382,6 +5422,9 @@ def save_sources(rows):
             out.append({"name": r["name"], "url": r["url"], "okAt": now,
                         "count": int(r.get("count") or 0), "error": None})
     # Siyahıdan çıxarılan mənbələr vəziyyət səhifəsində qalmasın (əvvəl köhnə sətirlər həmişə saxlanırdı)
+    # YouTube sətirlərini merge_sources yazır (update_social, update_video): bu siyahıda yoxdurlar, hər sürətli dövrə onları silirdi.
+    have, extra = {r["name"] for r in rows}, {f"YouTube · {n}" for n, _ in YT_NEWS} | {f"YouTube · {n}" for _, _, n in YT_ACCOUNTS}
+    out.extend(s for s in prev_list if isinstance(s, dict) and s.get("name") in extra - have)
     OUT_DIR.mkdir(exist_ok=True)
     _write_atomic(SOURCES_FILE, json.dumps({"updatedAt": now, "sources": out}, ensure_ascii=False,
                                         separators=(",", ":")), encoding="utf-8")
@@ -5426,7 +5469,7 @@ def _xml(s):
         if nxt == cur:
             break
         cur = nxt
-    return html.escape(cur, quote=True)
+    return html.escape(_CTRL.sub("", cur), quote=True)
 
 def write_feed(articles):
     items = sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True)[:100]
@@ -6280,7 +6323,7 @@ def main(fast=False):
             k = story_key(u)
             if k and k not in old_by_key:
                 old_by_key[k] = a
-    new_items, errors, empty, new_keys = [], [], [], set()
+    new_items, errors, empty, new_keys, retired = [], [], [], set(), set()
     # Sürətli dövrə köhnə xəbərlə lenti geri doldurmur: lentdəki ən köhnədən köhnə element emal olunmur.
     regular = [_parse_dt(a.get("publishedAt")) for a in old if a.get("category") != "prezident"]
     floor = min([d for d in regular if d], default=None) if fast and len(regular) >= 300 else None
@@ -6338,12 +6381,31 @@ def main(fast=False):
                 if key and key in old_by_key:
                     # Eyni xəbər yeni başlıq və slug ilə: qeyd birdir, başlığı yenilənir, keçid və nömrə (paylaşma) qalır.
                     known, title = old_by_key[key], _plain(it["title"], title=True)
-                    if title and title != known.get("title"):
+                    seen.add(it["link"])
+                    # Açar qeydin əlavə mənbəsinə (alts) aid ola bilər: onda yeni başlıq o mənbənindir. Əvvəl əsas mənbənin
+                    # (başqa saytın) başlığı və xülasəsi üstünə yazılırdı: kartda X saytının başlığı Y saytının adı və keçidi ilə.
+                    mine = story_key(known.get("sourceUrl")) == key
+                    row = known if mine else next((alt for alt in known.get("alts") or [] if story_key(alt.get("sourceUrl")) == key), None)
+                    if row is None or not title or title == row.get("title"):
+                        if mine and not known.get("imageUrl") and it.get("image"):
+                            known["imageUrl"] = it["image"]
+                        continue
+                    # QIRMIZI XƏTT 2: yeni başlıq da təzə xəbərin keçdiyi süzgəclərdən keçir (əvvəl bu budaq onlardan yan keçirdi və
+                    # sətir bir dövrə lentdə qalırdı). Keçməyən əsas qeyd lentdən çıxır, əlavə mənbə qeyddən çıxır.
+                    if is_negative_about_leadership(it["title"], it["description"], source) or \
+                            foreign_about_azerbaijan(source, known.get("category"), title, it.get("description") or ""):
+                        if mine:
+                            retired.add(id(known))
+                        else:
+                            known["alts"] = [alt for alt in known["alts"] if alt is not row]
+                        continue
+                    if mine:
                         known["title"] = title
                         known["summary"] = _short(_plain(it["description"])) or known.get("summary", "")
-                    if not known.get("imageUrl") and it.get("image"):
-                        known["imageUrl"] = it["image"]
-                    seen.add(it["link"])
+                        if not known.get("imageUrl") and it.get("image"):
+                            known["imageUrl"] = it["image"]
+                    else:  # yeni siyahı: prev_articles köhnə alts siyahısını saxlayır, yerində dəyişsə «dəyişiklik yoxdur» sayılıb yazılmazdı
+                        known["alts"] = [dict(alt, title=title) if alt is row else alt for alt in known["alts"]]
                     continue
                 if key:
                     if key in new_keys:  # eyni dövrədə iki lentdən (əsas və bölmə RSS-i) fərqli slug ilə
@@ -6357,7 +6419,9 @@ def main(fast=False):
                     region_desc[it["link"]] = it.get("description") or ""
                     continue
                 seen.add(it["link"])
-                if not it.get("pubDate"):
+                # Oxunmayan tarix də «tarixsiz»dir. Əvvəl belə sətir hər dövrə «indi» damğası alırdı: mənbə limitinə çatanda
+                # keçən dəqiqənin sətirləri lentdən çıxıb növbəti dövrədə «yeni» kimi qayıdırdı (CNN Türk, NTV Spor, 2026-11-12).
+                if _pub_dt(it.get("pubDate")) is None:
                     iso, lookups = undated_date(it, dates, lookups)
                     if not iso:
                         unresolved.append({"link": it.get("link"), "image": it.get("image")})
@@ -6393,7 +6457,7 @@ def main(fast=False):
         save_dates(dates)
     mark("items")
     new_items.sort(key=lambda a: a["publishedAt"], reverse=True)
-    old = sorted(old, key=lambda a: a.get("publishedAt", ""), reverse=True)
+    old = sorted((a for a in old if id(a) not in retired), key=lambda a: a.get("publishedAt", ""), reverse=True)
     uniq, dseen = [], set()
     per_src, world_count, sport_count = {}, {}, 0  # world_count dil üzrədir (MAX_WORLD_LANG)
     # Tarixə görə birgə sıralama. Əvvəl «yeni» (bu dövrədə ilk dəfə görülən) xəbərlər köhnələrdən qabaq gəlirdi;

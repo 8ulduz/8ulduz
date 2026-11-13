@@ -265,10 +265,14 @@ class QuakePlanTest(unittest.TestCase):
         self.assertEqual((plan[2]["why"], plan[2]["pending"]), ("gündə 2 zəlzələ xəbəri həddi", False))
 
     def test_cap_counts_only_published_keys_in_done(self):
-        one = om.quake_plan(self.three(), NOW, {"zelzele-region-us0000zz"})
-        self.assertEqual([i["key"] for i in worth(one)], ["zelzele-region-us0000q1"])
-        none = om.quake_plan(self.three(), NOW, {"zelzele-region-us0000zz", "zelzele-region-us0000yy"})
+        one = om.quake_plan(self.three(), NOW, {"zelzele-region-us0000q1"})
+        self.assertEqual([i["key"] for i in worth(one)], ["zelzele-region-us0000q2"])
+        none = om.quake_plan(self.three(), NOW, {"zelzele-region-us0000q1", "zelzele-region-us0000q2"})
         self.assertEqual(worth(none), [])
+        # oz_derc «done»u 8 gün saxlayır: əvvəlki günlərin zəlzələ açarları bu günün həddini tutmur (əvvəl 2 xəbərdən sonra 8 gün
+        # heç bir zəlzələ dərc olunmurdu — 2026-11-13 yoxlaması)
+        old_days = om.quake_plan(self.three(), NOW, {"zelzele-region-us0000zz", "zelzele-region-us0000yy"})
+        self.assertEqual([i["key"] for i in worth(old_days)], ["zelzele-region-us0000q1", "zelzele-region-us0000q2"])
         noise = {"zelzele-yox-us0000zz", "zelzele-yox-us0000yy", "zelzele-sorgu-2026-11-09T16", "asteroid-gun-2026-11-09"}
         self.assertEqual(len(worth(om.quake_plan(self.three(), NOW, noise))), 2)
 

@@ -226,3 +226,20 @@ test("dinlə: the button and every message it can show change with the site lang
     for (const m of msgs) assert.notEqual(tr(m), m, `${code}: «${m}» tərcümə olunmayıb`);
   }
 });
+
+test("dinlə: a title with an apostrophe still stops at the end and still falls back (the browser serialises ' as %27 in currentSrc)", async () => {
+  const { createPlayer } = await load();
+  const env = fakeEnv(false), states = [];
+  // Brauzer kimi: currentSrc ünvanın normallaşmış yazılışıdır
+  class RealAudio extends env.AudioCtor { get currentSrc() { try { return new URL(this.src).href; } catch { return this.src; } } }
+  const story = { ...list[0], title: "Türkiye's COP31 leadership", source: "Trend", sourceUrl: "https://trend.az/1.html" };
+  const p = createPlayer({ list: () => list, ...env, AudioCtor: RealAudio, server: "https://dinle.example/ses", onState: s => states.push({ ...s }) });
+  await p.play(story);
+  assert.equal(p.mode, "file");
+  env.els[0].onerror(); await flush();
+  assert.deepEqual([states.at(-1).msg, states.at(-1).playing], ["Səs hazırlanır…", true], "503-də gözləmə yazısı çıxır");
+  await p.play(story);
+  env.els[0].onended(); await flush();
+  assert.equal(states.at(-1).playing, false, "xəbər bitəndə düymə dayanır");
+  p.stop();
+});

@@ -23,6 +23,21 @@ class ReaderContentTest(unittest.TestCase):
         self.assertEqual(extract_article('<p>'+BODY+'</p>'),BODY.strip())
         self.assertEqual(extract_article('<nav><p>'+BODY+'</p></nav><aside><p>'+BODY+'</p></aside>'),'')
 
+    def test_paragraphs_without_closing_tags_are_all_read(self):
+        # HTML-də </p> və </li> yazılmaya bilər: əvvəl belə səhifədə mətnin birinci yarısı itirdi
+        paras = [f'{n} abzas: {BODY}' for n in ('Birinci', 'İkinci', 'Üçüncü', 'Dördüncü')]
+        for page in ('<div class="news-text">' + ''.join('<p>' + p for p in paras) + '</div>',
+                     '<div class="story"><ul>' + ''.join('<li>' + p for p in paras) + '</ul></div>',
+                     '<div class="news-text">' + ''.join('<p><b>Qeyd.</b> ' + p for p in paras) + '</div>'):
+            text = extract_article(page)
+            for n in ('Birinci', 'İkinci', 'Üçüncü', 'Dördüncü'):
+                self.assertEqual(text.count(n + ' abzas'), 1, (n, page[:40]))
+            self.assertLess(text.index('Birinci abzas'), text.index('Dördüncü abzas'))
+        # iç-içə siyahıda (<li><ul><li>) xarici <li> bağlanmır: əvvəlki kimi oxunur, heç nə təkrarlanmır
+        nested = extract_article('<article><p>' + paras[0] + '</p><ul><li>' + paras[1] + '<ul><li>' + paras[2] + '</li></ul></li></ul></article>')
+        self.assertEqual(nested.count('Birinci abzas'), 1)
+        self.assertLessEqual(max(nested.count('İkinci abzas'), nested.count('Üçüncü abzas')), 1)
+
     def test_junk_under_the_article_is_not_read(self):
         # Sahib, 2026-11-08: «xəbərin altındakı lazımsız şeyləri də oxuyur».
         page = ('<article><p>Bakıda bu gün g&amp;uuml;n ərzində yağış yağıb. ' + BODY + '</p><p>İkinci abzas: ' + BODY + '</p>'

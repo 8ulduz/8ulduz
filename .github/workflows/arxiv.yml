@@ -37,8 +37,18 @@ jobs:
       - name: Arxiv budağı
         env:
           URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        # Boş başlanğıc yalnız budaq doğrudan yoxdursa (ls-remote çıxış kodu 2). Klon başqa səbəbdən alınmayanda əvvəl də boş
+        # repodan başlanırdı: arxiv.cjs yalnız lentdəki saatları yazıb budağı məcburi göndərir, 400 günün arxivi və idx/ silinərdi.
         run: |
-          git clone -q --depth 1 --filter=blob:none --no-checkout --branch arxiv "$URL" .arxiv 2>/dev/null \
-            || { rm -rf .arxiv; git init -q .arxiv && git -C .arxiv remote add origin "$URL"; }
+          if ! git clone -q --depth 1 --filter=blob:none --no-checkout --branch arxiv "$URL" .arxiv 2>/dev/null; then
+            rm -rf .arxiv
+            code=0
+            git ls-remote --exit-code --heads "$URL" arxiv >/dev/null 2>&1 || code=$?
+            if [ "$code" != 2 ]; then
+              echo "::error::arxiv budağı klonlanmadı (ls-remote: $code): dövrə ötürülür, budağa toxunulmur"
+              exit 1
+            fi
+            git init -q .arxiv && git -C .arxiv remote add origin "$URL"
+          fi
       - name: Yaz
         run: node .github/scripts/arxiv.cjs . .arxiv

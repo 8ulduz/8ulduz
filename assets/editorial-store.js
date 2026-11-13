@@ -4,7 +4,8 @@ const API = 'https://api.github.com';
 
 export function removalKey(value) {
   const u = new URL(value);
-  if (u.protocol !== 'https:' || u.username || u.password || u.port || u.pathname === '/') throw new Error('Xəbərin tam HTTPS keçidini yazın.');
+  // Yolu «/» olan, amma sorğusu olan ünvan da xəbərdir (azpolitika.info/?p=846712); yalnız saytın baş səhifəsi rədd edilir.
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || (u.pathname === '/' && !u.search)) throw new Error('Xəbərin tam HTTPS keçidini yazın.');
   const nums = [...u.pathname.matchAll(/(?:\/|[-_])(\d{5,})(?=\.html?|\/|$)/g)].map(m => m[1]).filter(n => !/^(?:19|20)\d{6}$/.test(n));
   return nums.length ? u.hostname.toLowerCase().replace(/^www\./, '') + '#' + nums.at(-1) : u.href.split('#')[0];
 }
@@ -22,10 +23,16 @@ export async function makeRemoval(article, user, policy, at = new Date().toISOSt
   const domains = Object.values({...policy.azSources, ...policy.worldSources}).flat();
   for (const row of rows) {
     if (!row.sourceUrl) continue;
-    const key = removalKey(row.sourceUrl), u = new URL(row.sourceUrl), host = u.hostname.toLowerCase().replace(/^www\./, '');
-    if (!domains.some(d => host === d || host.endsWith('.' + d))) throw new Error('Bu keçid saytın xəbər mənbələrinə aid deyil.');
-    urls.push(row.sourceUrl, u.href); keys.push(key);
-    for (const url of new Set([row.sourceUrl, u.href])) {
+    // Əlavə mənbənin keçidi açar verə bilməsə (http://) bütün çıxarılma dayanmırdı: o, yalnız id-si ilə çıxarılır
+    // (editorial_sync.py http ünvanlı siyahını bütöv rədd edir, ona görə ünvanı yazılmır). Əsas xəbər üçün xəta qalır.
+    let key = '', u;
+    try { key = removalKey(row.sourceUrl); u = new URL(row.sourceUrl); } catch (e) { if (row === article) throw e; }
+    if (key) {
+      const host = u.hostname.toLowerCase().replace(/^www\./, '');
+      if (!domains.some(d => host === d || host.endsWith('.' + d))) throw new Error('Bu keçid saytın xəbər mənbələrinə aid deyil.');
+      urls.push(row.sourceUrl, u.href); keys.push(key);
+    }
+    for (const url of new Set([row.sourceUrl, u?.href || row.sourceUrl])) {
       const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(url));
       ids.add([...new Uint8Array(digest)].map(n => n.toString(16).padStart(2, '0')).join('').slice(0, 16));
     }

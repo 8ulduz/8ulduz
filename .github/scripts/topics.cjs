@@ -132,9 +132,12 @@ function page(t, items, all, stories, now, bot = "") {
     breadcrumb: { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "8ULDUZ", item: SITE }, { "@type": "ListItem", position: 2, name: k.label, item: `${SITE}bolme/${k.section}/` },
       ...(t.parent ? [{ "@type": "ListItem", position: 3, name: t.parent.label, item: `${SITE}${t.kind}/${t.parent.slug}/` }] : []), { "@type": "ListItem", position: t.parent ? 4 : 3, name: t.label, item: url }] } };
   const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
-  return PAGE.replace(/__TITLE__/g, esc(title)).replace(/__DESC__/g, esc(desc)).replace(/__URL__/g, url).replace("__ROBOTS__", items.length >= MIN_INDEX ? "" : '<meta name="robots" content="noindex, follow" />\n')
-    .replace("__LD__", json(ld)).replace("__DATA__", json({ name: t.name, at: now, items })).replace("__SECTION__", k.section).replace("__SECTION_LABEL__", k.label)
-    .replace("__CRUMB__", crumb).replace("__H1__", esc(h1)).replace("__INTRO__", intro).replace("__APP__", esc(app)).replace("__TG__", bot ? ` <a class="go" href="https://t.me/${bot}?start=${t.kind === "rayon" ? "r" : "i"}_${t.slug}" rel="noopener">📩 Telegram-da izlə</a>` : "").replace("__ITEMS__", list).replace("__REL__", rel);
+  // Bir keçid, funksiya ilə: String.replace(sətir, sətir) başlıqdakı «$$», «$'», «$&» işarələrini nümunə kimi oxuyur — «pu$$y»
+  // «pu$y» olurdu, «50 milyon $'lık» isə şablonun qalanını JSON blokuna yapışdırıb səhifəni sındırırdı (2026-11-12).
+  const fill = { TITLE: esc(title), DESC: esc(desc), URL: url, ROBOTS: items.length >= MIN_INDEX ? "" : '<meta name="robots" content="noindex, follow" />\n',
+    LD: json(ld), DATA: json({ name: t.name, at: now, items }), SECTION: k.section, SECTION_LABEL: k.label,
+    CRUMB: crumb, H1: esc(h1), INTRO: intro, APP: esc(app), TG: bot ? ` <a class="go" href="https://t.me/${bot}?start=${t.kind === "rayon" ? "r" : "i"}_${t.slug}" rel="noopener">📩 Telegram-da izlə</a>` : "", ITEMS: list, REL: rel };
+  return PAGE.replace(/__([A-Z0-9]+(?:_[A-Z0-9]+)*)__/g, (all, name) => Object.hasOwn(fill, name) ? fill[name] : all);
 }
 
 function run(root, { now = Date.now(), app = loadApp(root) } = {}) {

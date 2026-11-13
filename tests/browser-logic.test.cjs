@@ -5,6 +5,12 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 
+// Kiçildilmiş kodda yuxarı adlar qısadır (kicilt.cjs, 2026-11-13): eyni funksiyalar ad cədvəli ilə çağırılır. Mənbə üçün heç nə dəyişmir.
+const MIN = 'assets/app.min.js';
+let minNames;
+const namesOf = file => file === MIN ? (minNames ||= require('../.github/kicilt/kicilt.cjs').buildSync(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8')).names) : null;
+// Koddakı yuxarı adları (sətir sabitlərinin içi və «.xassə» istisna) fayldakı adlara çevirir.
+const tr = (code, file) => { const names = namesOf(file); return names ? code.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(?<![.\w$])[A-Za-z_$][\w$]*/g, (w, str) => str ? w : Object.hasOwn(names, w) ? names[w] : w) : code; };
 function app(extra = {}, file = 'assets/app.js') {
   const context = vm.createContext({
     console, Map, Set, URL, Date, AbortController, TextEncoder, btoa, setTimeout, clearTimeout, addEventListener() {},
@@ -16,8 +22,9 @@ function app(extra = {}, file = 'assets/app.js') {
   });
   const source = fs.readFileSync(path.join(root, file), 'utf8').split(/\r?\napplyPrefs\(\);\r?\n/)[0];
   vm.runInContext(source, context);
-  vm.runInContext(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
-    checkBreaking = () => {}; globalThis.api = {scanArchives, sized, img, subNav, navPopHtml, popLeft, safeHref, policyViolation, altForbidden, publishNews, savedView, latestBlock, homeView, storage, applyPrefs, route, loadNews, requestJSON, pollNews, resumeNews, freshUrl, isFresh, withinHour, footballBlock, S, heroPick, searchView, searchTopics, sectionView, languagePicker, renderNav, ratesView, leagueView, installBtn, trackEvent, countVisit, flushVisits, enableAnalytics, savedLang, LANG_KEY, tidy, ordTur, fold, searchWords, hlRegex, orderedSocialPosts, socialBlock, isAppointment, prezHome, tickerLabel, card, altPop, catSection, articleView, languagePicker, imageCandidates, heroBlock, prezBlock, localRoadItems, trackedSources, sectionView, clubMatches, requestRender, readerBusy, withArchive, loadArchive, showBreaking, teamSlug, loadShared, shareRow, loadCached, loadFirst, heavyImage, cardAt, imgFail, renderView, img};`, context);
+  const API = ["scanArchives", "sized", "img", "subNav", "navPopHtml", "popLeft", "safeHref", "policyViolation", "altForbidden", "publishNews", "savedView", "latestBlock", "homeView", "storage", "applyPrefs", "route", "loadNews", "requestJSON", "pollNews", "resumeNews", "freshUrl", "isFresh", "withinHour", "footballBlock", "S", "heroPick", "searchView", "searchTopics", "sectionView", "languagePicker", "renderNav", "ratesView", "leagueView", "installBtn", "trackEvent", "countVisit", "flushVisits", "enableAnalytics", "savedLang", "LANG_KEY", "tidy", "ordTur", "fold", "searchWords", "hlRegex", "orderedSocialPosts", "socialBlock", "isAppointment", "prezHome", "tickerLabel", "card", "altPop", "catSection", "articleView", "languagePicker", "imageCandidates", "heroBlock", "prezBlock", "localRoadItems", "trackedSources", "sectionView", "clubMatches", "requestRender", "readerBusy", "withArchive", "loadArchive", "showBreaking", "teamSlug", "loadShared", "shareRow", "loadCached", "loadFirst", "heavyImage", "cardAt", "imgFail", "renderView", "img"];
+  vm.runInContext(tr(`render = () => {}; renderTopbar = () => {}; loadOg = async () => { S.og = {}; };
+    checkBreaking = () => {};`, file) + ` globalThis.api = {${[...new Set(API)].map(n => `${n}: ${tr(n, file)}`).join(', ')}};`, context);
   return context;
 }
 
@@ -478,7 +485,7 @@ test('speed red line: the minified code is built from the current app.js and ren
       createElement:()=>({set innerHTML(v){this.value=String(v).replace(/&(amp|lt|gt|quot|#39);/g,(m,e)=>ent[e]);}})};
     const ctx=app({Date:D,document},file),{S}=ctx.api;
     S.lang=null;S.og={};Object.assign(S,JSON.parse(JSON.stringify(files)));
-    const id=S.data.articles[0]?.id,run=code=>{try{return vm.runInContext(code,ctx);}catch(e){return 'xəta: '+e.constructor.name;}};
+    const id=S.data.articles[0]?.id,run=code=>{try{return vm.runInContext(tr(code,file),ctx);}catch(e){return 'xəta: '+e.constructor.name;}};
     const out={home:run('homeView()'),shell:JSON.stringify(shellParts(file)),skel:run('skeleton("")'),saved:run('savedView()'),art:run(`articleView(${JSON.stringify(id)})`),video:run('videosView()'),rates:run('ratesView()')};
     for(const s of ['gundem','siyaset','idman','dunya','iqtisadiyyat','bolgeler','video'])out[s]=run(`sectionView(${JSON.stringify(s)})`);
     S.q='Bakı';run('loadArchive=()=>{}');out.search=run('searchView()');
@@ -487,6 +494,11 @@ test('speed red line: the minified code is built from the current app.js and ren
   const a=pages(SRC),b=pages(OUT);
   assert.ok(a.home.length>20e3&&!a.home.startsWith('xəta'),'mənbə baş səhifəni çəkir');
   for(const k of Object.keys(a))assert.ok(a[k]===b[k],`${k}: kiçildilmiş kod fərqli HTML verir`);
+  for(const k of Object.keys(a))assert.ok(!String(a[k]).startsWith('xəta')&&String(a[k]).length>(k==='skel'?50:200),`${k}: səhifə həqiqətən çəkilir (ad cədvəli səhv olsa hər iki tərəf eyni «xəta» verə bilməz, amma boş müqayisə də olmasın)`);
+  // qısa adlar brauzerin öz adlarını örtmür və «applyPrefs();» sərhədi yerindədir
+  const {names}=require('../.github/kicilt/kicilt.cjs').buildSync(fs.readFileSync(path.join(root,SRC),'utf8'));
+  assert.ok(Object.keys(names).length>400&&names.homeView&&names.homeView.length<=3&&!names.applyPrefs,'yuxarı adlar qısalır, applyPrefs qalır');
+  for(const g of ['document','window','fetch','location','history','navigator','scrollTo','caches','crypto','performance','localStorage','top','name','open','close','event','status','self','parent','origin','length'])assert.ok(!Object.values(names).includes(g),`«${g}» qısa ad kimi işlədilmir`);
 });
 test('speed red line: files arriving together cause one redraw, not one each',async()=>{
   const ctx=app();
@@ -741,6 +753,9 @@ test('a notification click opens the story on the site, in the open page when th
   assert.equal(JSON.stringify(messages),JSON.stringify([{type:'open-story',id:'8'}]),'açıq səhifəyə xəbərin id-si göndərilir'); // obyekt başqa vm kontekstindəndir
   await click({});
   assert.equal(opened[1],'https://example.com/8ulduz/','id-siz bildiriş baş səhifəni açır');
+  await click({id:'on',cat:'',url:'https://example.com/8ulduz/#/xeber/on'});
+  assert.equal(opened[2],'https://example.com/8ulduz/','«Bildiriş aktivdir…» nümunəsi xəbər deyil: baş səhifə açılır, «xəbər tapılmadı» səhifəsi yox');
+  assert.equal(messages.length,1,'nümunə üçün açıq səhifəyə open-story göndərilmir');
   const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
   assert.ok(src.includes('e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; }'),'səhifə open-story mesajı ilə xəbər səhifəsinə keçir');
   assert.ok(src.includes('n.onclick = () => { window.focus(); location.hash = detailUrl(a); };'),'səhifə bildirişinin kliki də saytın xəbər səhifəsinə aparır');
@@ -1882,6 +1897,17 @@ test('site language: a section without news in that language is hidden, sports n
   assert.deepEqual([...emptySections(list, 'ru')].sort(), ['bolgeler', 'gundem']);
   assert.deepEqual([...emptySections(list, 'en')].sort(), ['bolgeler', 'dunya', 'gundem']);
   assert.deepEqual([...emptySections(null, 'ru')], []);
+  // Bölmə keçidləri /bolme/<ad>/ ünvanıdır: köhnə «#/bolme/» seçicisi heç nə tapmırdı və boş bölmə gizlənmirdi
+  const dil = fs.readFileSync(path.join(root, 'assets/dil.js'), 'utf8'), shell = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(dil.includes(`querySelectorAll('a[href^="/bolme/"]')`) && dil.includes('.slice(7).split(/[/?#]/)[0]'), 'gizlətmə əsl keçidləri seçir');
+  assert.ok(/<a href="\/bolme\/[a-z-]+\/"/.test(shell) && !shell.includes('href="#/bolme/'), 'saytın bölmə keçidləri həmin şəkildədir');
+});
+test('site language: a headline word that is also an Object.prototype name is not «translated»', () => {
+  const mod = dilModule('assets/dil.js');
+  for (const code of ['en', 'ru', 'tr']) {
+    const tr = mod.makeTr(dilModule(`assets/dil-${code}.js`).__d, code);
+    for (const s of ['F1: constructor', 'X, valueOf', 'constructor', 'toString', '__proto__', 'hasOwnProperty 2026', 'toString A']) assert.equal(tr(s), s, code + ': ' + s);
+  }
 });
 test('site language: Azerbaijani visitors do not load the translation', () => {
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -1902,8 +1928,8 @@ function shellParts(file) {
     document: { documentElement: { dataset: {}, style: {} }, hidden: false, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return { set innerHTML(v) { this._v = v; }, content: {}, children: [] }; } },
     requestAnimationFrame: () => 0,
   }, file);
-  vm.runInContext('shell(); renderNav(); renderLangs();', ctx);
-  return { app: els.app.innerHTML, nav: els.nav.innerHTML, inst: els.inst.innerHTML, skeleton: vm.runInContext('skeleton()', ctx) };
+  vm.runInContext(tr('shell(); renderNav(); renderLangs();', file), ctx);
+  return { app: els.app.innerHTML, nav: els.nav.innerHTML, inst: els.inst.innerHTML, skeleton: vm.runInContext(tr('skeleton()', file), ctx) };
 }
 test('speed red line: index.html carries the same shell app.js builds, with nav and skeleton filled', () => {
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
@@ -1997,13 +2023,48 @@ test('speed red line: the cached feed is shown before the network answers and th
   const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-static-v33', '8ulduz-data-v33'], open: async name => ({ match: async url => { matched.push(name + ' ' + url); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
   const { S, loadCached, loadFirst } = ctx.api;
   await loadCached();
-  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json']);
+  // 2026-11-13: ilk ekranın faylından sonra keşdəki dəqiqəlik lent də oxunur (dilin faylı, yoxdursa ümumi) — eyni keşdən, şəbəkəsiz.
+  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json', '8ulduz-data-v33 https://8ulduz.az/data/latest.az.json', '8ulduz-data-v33 https://8ulduz.az/data/latest.json']);
   assert.equal(S.data.articles[0].title, 'Keşdən xəbər');
   assert.equal(S.partial, true);
   ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: 'new', articles: [{ id: 'n1', title: 'Şəbəkədən xəbər', source: 'APA', sourceUrl: 'https://apa.az/2', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] }) });
   await loadFirst();
   assert.equal(S.data.articles[0].title, 'Şəbəkədən xəbər', 'şəbəkədən gələn ilk ekran keşdəkini əvəz edir');
   assert.equal(S.fromCache, false);
+});
+// Sahib 2026-11-13 (telefon videosu): yeniləyəndə ən yeni xəbərlər ~1,5 s itib köhnə siyahı görünür, sonra qayıdırdı. İlk ekranın faylı
+// 10 dəqiqəlikdir; ondan sonra çıxan sətirlər keşdəki dəqiqəlik lentdən üstə qoyulur və şəbəkədən gələn ilk ekran onları silmir.
+test('owner 2026-11-13: a reload keeps the newest stories — cached minute feed rows sit on top of the cached first screen and survive the network one', async () => {
+  const at = Date.parse('2026-11-13T12:36:30Z'), iso = ms => new Date(at + ms).toISOString();
+  const row = (id, title, ms, source = 'APA') => ({ id, title, source, sourceUrl: 'https://apa.az/' + id, publishedAt: iso(ms), category: 'gundem', lang: 'az' });
+  const first = { updatedAt: iso(0), articles: [row('f1', 'İlk ekrandakı xəbər', -60e3)] };
+  const latest = { updatedAt: iso(120e3), articles: [row('l1', 'Dəqiqəlik lentin yeni xəbəri', 90e3), row('f1', 'İlk ekrandakı xəbər', -60e3), row('l0', 'Çoxdankı xəbər', -3600e3),
+    { ...row('x1', 'Azadlıq xəbəri', 95e3), source: 'Azadlıq', sourceUrl: 'https://www.azadliq.org/a/1.html' }] };
+  const open = files => async () => ({ match: async url => { const f = files[url.split('/data/')[1]]; return f ? { json: async () => f } : undefined; } });
+  const start = files => { const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-data'], open: open(files) } }); vm.runInContext('globalThis.renders = 0; render = () => { renders++; };', ctx); return ctx; };
+  const titles = S => Array.from(S.data.articles, a => a.title);
+
+  let ctx = start({ 'first.json': first, 'latest.az.json': latest });
+  let { S, loadCached, loadFirst } = ctx.api;
+  await loadCached();
+  assert.deepEqual(titles(S), ['Dəqiqəlik lentin yeni xəbəri', 'İlk ekrandakı xəbər'], 'yeni sətir üstdədir; ilk ekranda olan təkrarlanmır, köhnə və qadağan mənbə düşmür');
+  assert.equal(S.partial, true); assert.equal(S.fromCache, true);
+  // Şəbəkədən daha təzə ilk ekran gəlir: keşdən üstə qoyulan sətir qalır, şəbəkə nüsxəsində də varsa bir dəfə görünür.
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: iso(60e3), articles: [row('f2', 'Şəbəkədən xəbər', 30e3), row('f1', 'İlk ekrandakı xəbər', -60e3)] }) });
+  await loadFirst();
+  assert.deepEqual(titles(S), ['Dəqiqəlik lentin yeni xəbəri', 'Şəbəkədən xəbər', 'İlk ekrandakı xəbər']);
+  assert.equal(S.fromCache, false);
+
+  // Dil faylı yoxdursa ümumi dəqiqəlik lent; ilk ekrandan köhnə dəqiqəlik lent işlədilmir.
+  ctx = start({ 'first.json': first, 'latest.json': latest }); await ctx.api.loadCached();
+  assert.equal(titles(ctx.api.S)[0], 'Dəqiqəlik lentin yeni xəbəri');
+  ctx = start({ 'first.json': first, 'latest.az.json': { ...latest, updatedAt: iso(-120e3) } }); await ctx.api.loadCached();
+  assert.deepEqual(titles(ctx.api.S), ['İlk ekrandakı xəbər']);
+  // Şəbəkə keşi qabaqlayır (ilk ekranın faylı keş oxunuşundan tez gəlir): yeni sətirlər yenə üstdədir.
+  ctx = start({ 'first.json': first, 'latest.az.json': latest });
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: iso(60e3), articles: [row('f2', 'Şəbəkədən xəbər', 30e3)] }) });
+  const slow = ctx.api.loadCached(); await ctx.api.loadFirst(); await slow;
+  assert.deepEqual(titles(ctx.api.S), ['Dəqiqəlik lentin yeni xəbəri', 'Şəbəkədən xəbər', 'İlk ekrandakı xəbər'], 'dəqiqəlik lentin son 10 dəqiqəlik sətirləri: şəbəkə nüsxəsində olmayan da');
 });
 test('speed red line: un-proxied originals are still shown, but never with high priority', () => {
   const phone = app({ matchMedia: q => ({ matches: q === '(hover:none)' }) }).api, desktop = app().api;
@@ -2150,6 +2211,12 @@ test('team page helpers: form, next games, standing line and zones', () => {
   const split = run('splitGames(gamesOf(doc, "qarabag"))');
   assert.equal(split.played.length, 2);
   assert.equal(split.next.length, 1, 'təxirə salınmış oyun növbəti sayılmır');
+  // Saatı bilinməyən oyun (day: true) 12:00 UTC ilə yazılır: o an başlanğıc deyil, oyun günü 16:00-da (Bakı) siyahıdan çıxmamalıdır
+  ctx.dayGames = [{ home: 'a', away: 'b', date: '2026-12-05T12:00:00+00:00', day: true }, { home: 'a', away: 'c', date: '2026-12-05T12:00:00+00:00' }];
+  const nextAt = iso => Array.from(run(`splitGames(dayGames, Date.parse("${iso}")).next`)).map(g => g.away);
+  assert.deepEqual(nextAt('2026-12-05T11:59:00Z'), ['b', 'c']);
+  assert.deepEqual(nextAt('2026-12-05T12:01:00Z'), ['b'], 'saatı məlum oyun başlayıb, saatsız oyun hələ qarşıdadır');
+  assert.deepEqual(nextAt('2026-12-06T12:01:00Z'), [], 'ertəsi gün o da keçmiş sayılır');
   ctx.rows = TURKIYE.groups[0].rows;
   assert.deepEqual(JSON.parse(run('JSON.stringify(zonesOf(rows))')), [{ note: 'Çempionlar Liqası', color: '#81D6AC' }, { note: 'Aşağı liqaya düşmə', color: 'red;background:url(x)' }]);
   ctx.index = TEAM_INDEX;
@@ -2380,6 +2447,10 @@ test('speed red line: the first screen is prerendered from first.json with app.j
   assert.ok((html.match(/class="pcard/g) || []).length <= KEEP.prez && (html.match(/<article class="card/g) || []).length <= KEEP.latest, 'görünən hissə: Zuğulba və son xəbər kartları');
   assert.deepEqual(KEEP, { slides: 2, prez: 4, latest: 2, alts: 2 }, 'telefon ekranına sığan qədər (sürət, 2026-11-05)');
   for (const m of html.matchAll(/data-image-alternatives="\[([^"]*)\]"/g)) assert.ok(m[1].split('&quot;,&quot;').length <= 2, 'hazır nüsxədə ehtiyat şəkil siyahısı 2-yə qədər');
+  // Kəsilmiş siyahı da JSON qalmalıdır (imgFail JSON.parse edir): əvvəl 3+ ünvanlı siyahının son dırnağı itirdi
+  const cut = firstScreen('<img data-image-alternatives="[&quot;https://a/1.jpg&quot;,&quot;https://b/2.jpg&quot;,&quot;https://c/3.jpg&quot;]"><img data-image-alternatives="[&quot;https://a/1.jpg&quot;]"><img data-image-alternatives="[]">');
+  const lists = [...cut.matchAll(/data-image-alternatives="([^"]*)"/g)].map(m => JSON.parse(m[1].replace(/&quot;/g, '"')));
+  assert.deepEqual(lists, [['https://a/1.jpg', 'https://b/2.jpg'], ['https://a/1.jpg'], []], 'kəsilmiş ehtiyat siyahısı düzgün JSON-dur');
   assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('alt="" loading="lazy" fetchpriority="low" decoding="async"'), 'Zuğulba kiçik şəkilləri aşağı prioritetlə: slayder şəkli birinci keçir (fikstürdə şəkil yoxdur, mənbə yoxlanır)');
   assert.ok(html.includes('Neft &amp; qaz'), 'ilk slayd qalır');
   assert.ok(html.includes('<section class="hero">') && html.includes('Son xəbərlər') && html.includes('Zuğulba'), 'slayder, Son xəbərlər, Zuğulba');
@@ -2999,7 +3070,7 @@ test('speed: loadCached reads the version-free data cache first, a legacy one on
     const matched = [];
     const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => names, open: async name => ({ match: async url => { matched.push(name); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
     await ctx.api.loadCached();
-    assert.deepEqual(matched, [want]);
+    assert.deepEqual([...new Set(matched)], [want]);
     assert.equal(ctx.api.S.data.articles[0].title, 'Keşdən');
   }
 });
@@ -3087,4 +3158,194 @@ test('speed: site data is asked without a per-minute key (CDN copy; forced refre
   assert.match(freshUrl('data/news.json', true), /^data\/news\.json\?r=\d+-\d+$/, 'əllə yeniləmə təzəsini istəyir');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(!/\?t=/.test(html.match(/<script>([\s\S]*?)<\/script>/)[1]), 'erkən sorğular da açarsız');
+});
+
+// 2026-11-13 yoxlaması: aşağıdakı xətaların hər biri canlı kodda idi.
+test('road rules see Azerbaijani suffixes and upper-case headlines (\\w is ASCII-only, /iu does not fold I↔ı)', () => {
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  ctx.titles = ['Sabah Bakıda bu küçələr bağlanacaq', 'Bakıda bəzi yolları bağlanıb', 'Bakıda körpüsü bağlandı', 'Bakı-Sumqayıt yolunda BÖYÜK TIXAC', 'BAKIDA TƏMİR: prospektdə hərəkət məhdudlaşır'];
+  assert.deepEqual(Array.from(run('titles.map(t => roadKind(t)?.kind)')), ['bagli', 'bagli', 'bagli', 'tixac', 'bagli']);
+  assert.equal(run('roadKind("Qəzalı binada sakinlər köçürülür")'), null, '«qəzalı» yol hadisəsi deyil');
+  ctx.rows = ctx.titles.map((title, i) => ({ id: 'r' + i, title, lang: 'az', publishedAt: new Date(Date.now() - 6e5).toISOString() }));
+  assert.equal(run('S.lang = null; localRoadItems(rows).length'), 5, 'böyük hərflə yazılmış «BAKIDA» da yerli sayılır');
+  assert.ok(!fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('WARN_RE ='), 'işlənməyən qayda oxucuya getmir');
+});
+test('next prayer and day-only fixture dates use Baku time for a reader abroad', () => {
+  const tz = process.env.TZ;
+  try {
+    for (const zone of ['Asia/Baku', 'Europe/Istanbul', 'Europe/Berlin', 'America/New_York']) {
+      process.env.TZ = zone;
+      const now = Date.parse('2026-11-27T11:45:00Z'); // Bakıda 15:45
+      const D = class extends Date { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } };
+      const ctx = app({ Date: D }), run = code => vm.runInContext(code, ctx);
+      const next = run('nextPrayer({ Fajr: "05:50", Dhuhr: "12:30", Asr: "15:15", Maghrib: "17:40", Isha: "19:00" })');
+      assert.deepEqual([next.key, next.time, next.mins], ['Maghrib', '17:40', 115], zone);
+      assert.equal(run('shortDT("2026-11-27T00:00+04:00")'), '27 noy', zone + ': saatsız oyunun günü');
+      assert.equal(run('shortDT("2026-11-27")'), '27 noy', zone);
+    }
+    process.env.TZ = 'Asia/Baku';
+    assert.equal(vm.runInContext('shortDT("2026-11-27T17:30:00+04:00")', app()), '27 noy, 17:30', 'saatı olan oyun əvvəlki kimi');
+  } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; }
+});
+test('Futbol tab is not emptied by a surname that contains «nba»; the converter keeps one precision', () => {
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  const row = (title, summary = '') => ({ id: title, title, summary, source: 'Sports.kz', lang: 'ru' });
+  ctx.a = row('Футбол: сборная вызвала новичка', 'Главный тренер Аманбаева рассказала о составе');
+  ctx.b = row('Футбол и НБА: итоги недели');
+  ctx.c = row('Donbass derbisində futbol oyunu təxirə salındı');
+  assert.deepEqual(Array.from(run('[a, b, c].map(x => clubMatches(x, "Futbol"))')), [true, false, true]);
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.equal(src.split('S.fxTo === "BTC" ? 6 : 2').length - 1, 2, 'çeviricinin iki yeri eyni dəqiqliklə yazır (5 dəqiqəlik yeniləmədə BTC «0.00» olurdu)');
+});
+test('desktop nav hover reads the real /bolme/ links; a world-league group tab does not blank the local league', () => {
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  ctx.link = href => ({ getAttribute: () => href });
+  assert.equal(run('hashOf(link("/bolme/idman/"))'), '#/bolme/idman');
+  assert.equal(run('hashOf(link("#/komanda/pl/arsenal"))'), '#/komanda/pl/arsenal');
+  assert.equal(run('hashOf(null)'), undefined);
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('const h = hashOf(item);') && src.includes('const href = h?.match(/^#\\/bolme\\/(.+)$/)?.[1];'), 'mouseover /bolme/<ad>/ keçidini tanıyır');
+  // qrup nişanı sətirdir ("1"): yerli liqaya qayıdanda «results» olmalıdır
+  assert.ok(src.includes('|| S.fbTab >= 0 ? "results" : S.fbTab;') && !src.includes('typeof S.fbTab === "number"'));
+  for (const [v, want] of [[0, true], ['1', true], ['results', false], ['table', false], [undefined, false]]) assert.equal(v >= 0, want, String(v));
+});
+test('search highlight marks the h2 headings and never matches inside an escaped entity', () => {
+  const heads = [{ textContent: "O'zbekiston 39 & 39" }, { textContent: 'Başqa başlıq' }];
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  ctx.asked = [];
+  ctx.document.querySelectorAll = sel => { ctx.asked.push(sel); return heads; };
+  run('route = () => ({ name: "search" }); S.hl = hlRegex(["39"]); highlightSearch();');
+  assert.deepEqual(Array.from(ctx.asked), ['#view .card h2']);
+  assert.equal(heads[0].innerHTML, 'O&#39;zbekiston <mark>39</mark> &amp; <mark>39</mark>');
+  assert.equal(heads[1].innerHTML, undefined, 'uyğun gəlməyən başlığa toxunulmur');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('.card h2 mark{'));
+});
+test('a failed archive request is retried after a minute, not after thirty', async () => {
+  const ctx = app(), { S, loadArchive } = ctx.api;
+  let calls = 0;
+  S.data = { articles: [] };
+  ctx.fetch = async () => { calls++; throw new Error('şəbəkə'); };
+  await loadArchive('tehsil');
+  assert.equal(calls >= 1, true);
+  const asked = calls, age = Date.now() - S.archive.tehsil.at;
+  assert.ok(age > 28 * 60e3 && age < 30 * 60e3, 'bir dəqiqə sonra yenidən soruşula bilər');
+  await loadArchive('tehsil');
+  assert.equal(calls, asked, 'dərhal təkrar sorğu yoxdur (sectionView hər çəkilişdə çağırır)');
+  S.archive.tehsil.at -= 61e3;
+  ctx.fetch = async () => { calls++; return { ok: true, headers: new Headers(), json: async () => ({ articles: 'yox' }) }; };
+  await loadArchive('tehsil');
+  assert.ok(calls > asked && Date.now() - S.archive.tehsil.at > 28 * 60e3, 'zədəli cavab da uğursuzluq sayılır');
+});
+test('an old story link opened in a running tab is looked up on the arxiv branch', async () => {
+  const id = 'abcdef0123456789', ctx = policyApp(), { S, scanArchives } = ctx.api, urls = [];
+  const old = { id, title: 'Köhnə xəbər', category: 'gundem', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/kohne', publishedAt: '2026-10-01T10:00:00+00:00' };
+  S.data = { articles: [] };
+  ctx.fetch = async url => {
+    urls.push(String(url));
+    const json = String(url).includes('/arxiv/idx/ab.json') ? { [id]: '26100110' } : String(url).includes('/arxiv/saat/26100110.json') ? { articles: [old] } : String(url).includes('data/paylas/') ? { parts: 256, articles: [] } : { articles: [] };
+    return { ok: true, headers: new Headers(), json: async () => json };
+  };
+  await scanArchives(id);
+  assert.equal(S.sharedStory?.row?.sourceUrl, 'https://apa.az/kohne');
+  assert.ok(urls.some(u => u.includes('raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/26100110.json')));
+  S.sharedStory = null; urls.length = 0;
+  await scanArchives('on');
+  assert.ok(!urls.some(u => u.includes('/arxiv/')), 'xəbər id-si olmayan ünvan üçün arxiv budağı soruşulmur');
+});
+test('service worker: a redirected shell response is never cached or handed to a navigation; the sample notification is not a story', () => {
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(sw.includes('if (saved?.redirected) saved = undefined;'), 'keşdəki yönləndirilmiş nüsxə işlədilmir');
+  const at = sw.indexOf('if (fresh.redirected) return req.mode === "navigate" ? Response.redirect(fresh.url, 302) : fresh;');
+  assert.ok(at > 0 && at < sw.indexOf('await cache.put(key, copy)'), 'yönləndirilmiş cavab keşə yazılmazdan əvvəl qaytarılır');
+  assert.ok(sw.includes('const id = d.id === "on" ? "" : d.id;') && sw.includes('if (open && id) {'), 'nümunə bildiriş («on») id-siz bildiriş kimi baş səhifəni açır');
+});
+
+// 2026-11-13, sahibin qeydi: «sayta girəndə və içində açılışlar atılma ilə olur» (telefon, paylaşım keçidi). Brauzer ölçüsü dörd mənbə
+// göstərdi: zolağa və valyuta sətrinə ayrılan yer real hündürlükdən az idi (telefonda 49 px, kompüterdə 17 px), slayd nöqtələri yaranıb
+// silinirdi (12 px), qayıdışda «köhnəlib» sətri çıxıb itirdi (22 px), «Yeniləndi» yazısı sonradan çıxırdı (planşetdə 36 px).
+test('no jump on open: the ticker and markets rows reserve their real height at every font size', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // qaydanın hansı @media içində olduğu: mötərizə dərinliyi ilə
+  const where = rule => { const at = css.indexOf(rule); assert.ok(at >= 0, 'qayda yoxdur: ' + rule); let depth = 0, media = ''; for (let i = 0; i < at; i++) { if (css[i] === '{') { if (!depth) media = css.slice(css.lastIndexOf('\n', i) + 1, i).trim(); depth++; } else if (css[i] === '}') { depth--; if (!depth) media = ''; } } return depth ? media : ''; };
+  assert.equal(where('#ticker:empty{min-height:calc(var(--lh-body) + 15px)}'), '', 'zolağın yeri bütün enlərdə ayrılır (əvvəl telefonda yalnız ≤340 px-də idi: 41 px atılma)');
+  assert.equal(where('.markets.pending{height:calc(3*var(--lh-body) + 24px);visibility:hidden}'), '', 'valyuta sətri: üç sətirlik kart + kənarlar');
+  assert.match(where('#ticker:empty{min-height:calc(var(--lh-body) + 17px)}'), /max-width:340px/, 'dar telefonda zolaq 2 px hündürdür');
+  assert.match(where('.markets.pending{height:calc(var(--lh-body) + .9857rem + 14px)}'), /^@media/, 'telefon düzülüşündə kart iki sətirdir');
+  assert.ok(!/\.markets\.pending\{height:\d+px/.test(css) && !/#ticker:empty\{min-height:\d+px/.test(css), 'sabit piksel yoxdur: yer şrift ölçüsü (A−/A+) ilə birgə dəyişir');
+  // düsturun dayaqları: kartın ölçüləri dəyişsə düstur da dəyişməlidir (brauzer ölçüsü: 2026-11-13, 5 şrift × 10 en, fərq 0)
+  for (const k of ['.ticker .run{flex:1;overflow:hidden;padding:7px 0;', '.ticker{display:flex;border-bottom:1px solid var(--border);', '.mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}', '.mk-grid{padding:4px 0}', '.mk .v{font-size:.8571rem}', '.mk .v{padding-bottom:1px;line-height:1.15}'])
+    assert.ok(css.includes(k), 'ayrılan yerin düsturu bu qaydaya söykənir, o dəyişibsə düsturu yenidən ölçün: ' + k);
+  assert.equal(where('.hero-strip:not([data-pages]){padding-bottom:12px}'), '', 'slayd nöqtələrinin yeri (6 + 6 px) JS onları qoyana qədər ayrılır');
+  assert.ok(css.includes('.st-dots{display:flex;justify-content:center;gap:5px;padding:6px 0 0}') && css.includes('.st-dots button{width:6px;height:6px;'), 'nöqtə sırası 12 px-dir');
+  // telefonda naviqasiya JS-dən əvvəl də son düzülüşdədir: hazır HTML-də «Ana ekrana» düyməsi gizlidir (qabıq telefonu tanımır), JS onu ~0,4 s
+  // sonra açanda «İdman» və «Bölgələr» yana atılırdı; ana ekrandan açılanda Gündəm və Dünya sonradan çıxırdı (brauzer ölçüsü: 330/360/412 px)
+  assert.match(where('@media(hover:none) and (display-mode:browser){nav.main .nav-inst[hidden]{display:inline-flex!important}}'), /max-width:600px/, 'toxunma ekranında, brauzer vərəqində düymə JS-siz də görünür (app.js installBtn ilə eyni şərt)');
+  assert.match(where('@media(display-mode:standalone){nav.main>a:is([href$="gundem/"],[href$="dunya/"]){display:flex;order:-1;flex:1 1 0;min-width:0;overflow:hidden}}'), /max-width:600px/, 'ana ekrandan açılanda Gündəm və Dünya JS-siz də yerindədir (.ph ilə eyni ölçü)');
+  assert.ok(css.indexOf('nav.main .nav-inst[hidden]{display:inline-flex!important}') > css.indexOf('nav.main>a:not(.ph,.nav-tg){display:none}'), 'bu qaydalar gizlədən qaydalardan sonra gəlir');
+  assert.ok(css.includes('[hidden]{display:none!important}'), 'ümumi [hidden] qaydası !important-dır: düymənin qaydası da elə olmalıdır');
+  const appJs = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(appJs.includes('const isPhone = () => isIOS() || matchMedia("(hover:none)").matches;') && appJs.includes('if (isStandalone() || (!S.installEvt && !isPhone())) return "";'), 'CSS şərti bu JS şərtinin əksidir: biri dəyişsə o biri də dəyişməlidir');
+  // planşet (≥601 px, toxunma): «Ana ekrana əlavə et» düyməsi #inst-ə JS ilə düşür; yeri eyni ölçülü görünməz qutu ilə əvvəlcədən ayrılır
+  // (brauzer ölçüsü: 601–1100 px × 3 şrift, başlıq JS-dən əvvəl və sonra eyni; əvvəl 5–36 px böyüyür, axtarış qutusu 173 px sola sürüşürdü)
+  const instRule = '.inst:empty::before{content:"Ana ekrana əlavə et";visibility:hidden;min-height:28px;padding:0 12px;border:1px solid;font-size:.82rem;font-weight:700;white-space:nowrap}';
+  assert.equal(where(instRule).replace(/\s/g, ''), '@media(min-width:601px)and(hover:none)and(display-mode:browser)', 'yer yalnız düymənin çıxacağı halda ayrılır (kompüterdə brauzer təklif verməyincə düymə yoxdur)');
+  assert.ok(css.includes('.install-btn{min-height:30px;padding:0 12px;border:1px solid var(--border);') && css.includes('font:inherit;font-size:.82rem;font-weight:700;white-space:nowrap;cursor:pointer}'), 'görünməz qutu düymənin ölçülərini təkrarlayır (28 + 2 px kənar = 30): düymə dəyişsə o da dəyişməlidir');
+  assert.ok(appJs.includes('return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;'), 'yazı eynidir');
+  assert.match(where('.inst:has(>.install-btn:only-child){display:none}'), /max-width:600px/, 'telefonda içində yalnız gizli düymə olan qutu yer tutmur («8ULDUZ-u izlə» 4 px sürüşürdü)');
+  // namaz vaxtı gələndə düymə .pray-wrap içinə düşür: blok sarğı sətir hündürlüyü qədər (26,9 px) olurdu, düymə 25 px — bütün səhifə 2 px (A+ ilə 7 px) atılırdı
+  assert.ok(css.includes('.pray-wrap{position:relative;display:flex}'), 'sarğı düymənin öz hündürlüyündədir');
+  // paylaşılan keçid: skeletin üst boşluğu xəbərin özününkü ilə eynidir (14 px idi: xəbər gələndə #view 10 px aşağı düşürdü, CLS 0,31)
+  const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(css.includes('.article-detail{max-width:860px;margin:24px auto}') && js.includes('<div class="skel" style="height:30px;margin:24px 0 10px"></div>'), 'xəbər skeleti və xəbər eyni yerdən başlayır');
+});
+test('no jump inside: a patched slider keeps its arrows and dots; they are rebuilt only when the slide count changes', () => {
+  const ctx = app();
+  class El {
+    constructor(cls, html, kids = []) { this.className = cls; this.outerHTML = html; this.children = kids; this.style = {}; this.scrollLeft = 0; this.offsetLeft = 0; this.offsetWidth = 100; this.isConnected = true; for (const k of kids) k.parent = this; }
+    matches(sel) { return sel.split(',').some(s => this.className.split(' ').includes(s.trim().slice(1))); }
+    get firstElementChild() { return this.children[0]; }
+    get firstChild() { return this.children[0]; }
+    remove() { const a = this.parent.children; a.splice(a.indexOf(this), 1); this.isConnected = false; }
+    replaceWith(n) { const a = this.parent.children; a[a.indexOf(this)] = n; n.parent = this.parent; }
+    insertBefore(n, ref) { if (n.parent) n.parent.children.splice(n.parent.children.indexOf(n), 1); const a = this.children, i = ref ? a.indexOf(ref) : a.length; a.splice(i, 0, n); n.parent = this; }
+    querySelectorAll() { return []; }
+  }
+  const slide = n => new El('hero-main', `<article>${n}</article>`);
+  const strip = (slides, extra = []) => new El('strip hero-strip', `<div class="strip hero-strip">${slides.map(s => s.outerHTML).join('')}</div>`, [new El('hero-row', '<div class="hero-row">' + slides.map(s => s.outerHTML).join('') + '</div>', slides), ...extra]);
+  ctx.El = El; ctx.t = { slide, strip };
+  const run = code => vm.runInContext(code, ctx);
+  // 1) slaydlar eynidir, yalnız sarğının sətri fərqlidir (tam lent gələndə belə olurdu): oxlar və nöqtələr yerində qalır
+  ctx.old = strip([slide(1), slide(2)], [new El('st-btn st-prev', ''), new El('st-btn st-next', ''), new El('st-dots', ''), new El('qalıq', '')]);
+  run('rememberSrc(old); old.children[0]._src = "köhnə"; changed = []; patchChildren(old, [t.strip([t.slide(1), t.slide(2)]).children[0]], changed)');
+  assert.deepEqual(ctx.old.children.map(n => n.className), ['hero-row', 'st-btn st-prev', 'st-btn st-next', 'st-dots'], 'oxlar və nöqtələr silinmir, başqa artıq düyün silinir');
+  assert.equal(ctx.changed.length, 0, 'slayd sayı dəyişməyib: yenidən qurmağa ehtiyac yoxdur');
+  // 2) bir slayd çıxıb, yenisi yoxdur: zolaq yenidən qurulmalıdır (nöqtə sayı)
+  ctx.old = strip([slide(1), slide(2), slide(3)], [new El('st-dots', '')]);
+  run('rememberSrc(old); old.children[0]._src = "köhnə"; changed = []; patchChildren(old, [t.strip([t.slide(1), t.slide(3)]).children[0]], changed)');
+  assert.deepEqual(ctx.old.children[0].children.map(n => n.outerHTML), ['<article>1</article>', '<article>3</article>']);
+  assert.ok(ctx.changed.includes(ctx.old.children[0]), 'say dəyişəndə sıra «dəyişən»lərə düşür: wire() zolağın nöqtələrini yenidən qurur');
+  assert.equal(ctx.old.children[1].className, 'st-dots', 'nöqtələr yenidən qurulana qədər yerində qalır (altındakı məzmun oynamır)');
+});
+test('no jump on return: the «köhnəlib» line waits 20 s for the refresh, and the «Yeniləndi» slot exists before the time is known', () => {
+  const els = {};
+  const el = id => els[id] ||= { id, _html: '', set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, classList: { toggle() {}, add() {}, remove() {} }, dataset: {}, style: {} };
+  const ctx = app({ document: { documentElement: { dataset: {} }, activeElement: null, addEventListener() {}, querySelector(s) { const m = s.match(/^#([\w-]+)$/); return m ? el(m[1]) : null; }, querySelectorAll() { return []; }, createElement() { return {}; } } });
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  vm.runInContext(src.slice(src.indexOf('\nfunction renderTopbar() {'), src.indexOf('\nconst NAV_PRIMARY')), ctx);
+  const { S } = ctx.api, draw = () => { vm.runInContext('renderTopbar()', ctx); return els.topbar.innerHTML; };
+  let html = draw();
+  assert.ok(html.includes('<span class="yenilendi" style="visibility:hidden">') && !html.includes('sync-state'), 'vaxt bilinmir: yazının yeri görünməz ayrılır (hazır HTML də belədir: prerender eyni funksiyanı işlədir)');
+  S.status = { checkedAt: new Date(Date.now() - 60e3).toISOString(), ok: true };
+  html = draw();
+  assert.ok(html.includes('<span class="yenilendi"><span class="dot live"') && html.includes('Yeniləndi: 1 ') && !html.includes('köhnəlib'), 'təzə lent: yazı görünür');
+  // vərəq 7 dəqiqə arxa planda qalıb: status təzədir, bu ekrana son məlumat 7 dəqiqə əvvəl çatıb
+  S.latestAt = Date.now() - 7 * 60e3;
+  S.lastResumeAt = Date.now() - 3e3;
+  html = draw();
+  assert.ok(!html.includes('köhnəlib') && !html.includes('sync-state'), 'qayıdışdan sonra yoxlama gedir: sətir çıxıb-itmir (bütün səhifə 22 px aşağı-yuxarı atılırdı)');
+  S.lastResumeAt = Date.now() - 25e3;
+  html = draw();
+  assert.ok(html.includes('Xəbər lenti köhnəlib') && html.includes('class="retry" data-act="refresh"'), '20 saniyədən sonra hələ köhnədirsə xəbərdarlıq və «Yenilə» düyməsi çıxır');
+  S.lastResumeAt = Date.now(); S.error = 'x';
+  assert.ok(draw().includes('Xəbərlər yenilənmədi'), 'xəta gözləmir: dərhal yazılır');
 });

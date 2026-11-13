@@ -467,7 +467,8 @@ def afisa_item(day, events):
                 f"{_cap(ox.day_loc(day))} Bakı səhnələrində: {', '.join(names)}{tail}",
                 f"Günün afişası: {', '.join(names)}{tail}"]
     start = day.toordinal() % len(variants)
-    title = _fit(variants[start:] + variants[:start] + [f"Bu gün Bakı səhnələrində {len(show)} tədbir"])
+    # Seçilən adların hamısı uzundursa (45+ simvol) siyahı boş qalır: «Günün afişası:  və daha 3 tədbir» çıxırdı
+    title = _fit((variants[start:] + variants[:start] if names else []) + [f"Bu gün Bakı səhnələrində {len(show)} tədbir"])
     lead = f"iTicket-in afişasına görə, bu gün, {ox.day_loc(day)}, Bakının dövlət teatrlarında və konsert salonlarında {_what(show)}."
     prem = [_event_name(e["name"]) for e in show if _premiere(e["name"])]
     if prem:
@@ -494,9 +495,9 @@ def hefte_item(sat, events, exhibitions):
     names = _title_names(shows)
     rest = len(shows) + len(ex) - len(names)
     tail = f" və daha {rest} tədbir" if rest else ""
-    title = _fit([f"Həftəsonu Bakı səhnələrində: {', '.join(names)}{tail}",
-                  f"Həftəsonu afişası: {', '.join(names)}{tail}",
-                  f"Həftəsonu Bakı səhnələrində {len(shows)} tədbir"])
+    title = _fit(([f"Həftəsonu Bakı səhnələrində: {', '.join(names)}{tail}",
+                   f"Həftəsonu afişası: {', '.join(names)}{tail}"] if names else [])
+                 + [f"Həftəsonu Bakı səhnələrində {len(shows)} tədbir"])
     lead = (f"iTicket-in afişasına görə, {_days_loc(sat, sun)} Bakının dövlət teatrlarında və konsert salonlarında "
             f"{_what(shows)}.")
     if ex:

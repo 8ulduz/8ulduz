@@ -74,10 +74,13 @@ export function formOf(games, slug, n = 5) {
 }
 const byKick = (x, y) => (x.date || "9999").localeCompare(y.date || "9999");
 // Oynanmış və qarşıdakı oyunlar.
+// Saatı bilinməyən oyun (day: true) 12:00 UTC ilə yazılır (updater.py): o saat başlanğıc deyil. Belə oyun növbəti günün həmin saatınadək
+// «qarşıdakı» sayılır (NBA oyunu Bakı vaxtı ilə ertəsi gün səhər olur); əvvəl oyun günü 16:00-da siyahıdan çıxırdı.
+export const kickPassed = (g, now = Date.now()) => !!g.date && new Date(g.date).getTime() + (g.day ? 864e5 : 0) <= now;
 export function splitGames(games, now = Date.now()) {
   const sorted = [...games].sort(byKick);
   const played = sorted.filter(g => g.played);
-  const next = sorted.filter(g => !g.played && g.state !== "off" && (!g.date || new Date(g.date).getTime() > now));
+  const next = sorted.filter(g => !g.played && g.state !== "off" && !kickPassed(g, now));
   return { played, next };
 }
 export function rowOf(doc, slug) {
@@ -142,7 +145,7 @@ export function mountTeam(d) {
   function gameCard(g, doc, slug) {
     const side = (who, score) => { const t = doc.teams[who] || {}; return `<span class="tm-side${who === slug ? " me" : ""}">${logo(t.logo, 20, t.short || t.name)}<span class="nm">${esc(t.short || t.name || who)}</span>${g.played ? `<b>${esc(score)}</b>` : ""}</span>`; };
     const res = resultOf(g, slug), other = g.home === slug ? g.away : g.home;
-    const state = g.played ? (g.pen ? `Pen. ${esc(g.pen)}` : "Bitib") : g.state === "live" ? "Oyun gedir" : g.state === "off" ? "Təxirə salınıb" : g.date && new Date(g.date).getTime() < Date.now() ? "Nəticə gözlənilir" : "";
+    const state = g.played ? (g.pen ? `Pen. ${esc(g.pen)}` : "Bitib") : g.state === "live" ? "Oyun gedir" : g.state === "off" ? "Təxirə salınıb" : kickPassed(g) ? "Nəticə gözlənilir" : "";
     return `<a class="tm-game" href="${href(doc.id, other)}" title="${esc(g.stadium || "")}">
       <span class="tm-comp">${esc(doc.name)}${g.round ? ` · ${esc(/^\d+$/.test(g.round) ? `${ordinal(g.round)} tur` : g.round)}` : ""}</span>
       ${side(g.home, g.hs)}${side(g.away, g.as)}

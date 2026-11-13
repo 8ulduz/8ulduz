@@ -624,7 +624,11 @@ def quake_plan(quakes, now, done=(), afad=None, seys=None):
     for q in pool:
         q["prim"] = _secondary(q, pool)
     cands = [q for q in pool if q["utc"].astimezone(BAKU).date() == now.date() and q["utc"] <= now and not _done(q, done)]
-    slots = max(0, QUAKE_CAP - sum(1 for k in done if k.startswith(QUAKE_KEY)))
+    # Hədd bu günün dərc olunmuş zəlzələlərinə görədir. oz_derc «done»u 8 gün saxlayır və açarda tarix yoxdur: əvvəl bütün
+    # «zelzele-region-» açarları sayılırdı, iki xəbərdən sonra 8 gün heç bir zəlzələ (7,1 maqnitudalı da) dərc olunmurdu.
+    # Sorğu son 24 saatı əhatə edir: bu günün dərc olunmuşları hovuzdadır.
+    used = sum(1 for q in pool if q["utc"].astimezone(BAKU).date() == now.date() and any(QUAKE_KEY + i in done for i in q["ids"]))
+    slots = max(0, QUAKE_CAP - used)
     ready = []
     for q in sorted(cands, key=lambda x: (-x["mag"], x["utc"], x["id"])):
         root = _root(q)

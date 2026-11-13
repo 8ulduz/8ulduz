@@ -131,7 +131,8 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
     // Babək serveri və hazır səslər yalnız Azərbaycan dilindədir: başqa dildə xəbəri cihazın o dildəki səsi oxuyur.
     const az = langOf(a) === "az";
     if (az && server && tries >= 0 && String(a?.sourceUrl).startsWith("https://")) {
-      const e = encodeURIComponent, src = `${server}?u=${e(a.sourceUrl)}&id=${e(a.id || "")}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`;
+      // Brauzerin yazdığı şəkildə (URL.href): başlıqdakı «'» currentSrc-də %27 olur, bərabərlik pozulanda səs bitəndə düymə dayanmır, 503-də ehtiyat səs işə düşmürdü.
+      const e = encodeURIComponent, src = new URL(`${server}?u=${e(a.sourceUrl)}&id=${e(a.id || "")}&t=${e(decode(a.title || ""))}&s=${e(a.source || "")}`, globalThis.location?.href).href;
       mode = "file"; aud.src = src; media(a);
       const mine = () => id === gen && aud.currentSrc === src;
       aud.onended = () => { if (mine()) stop(); };   // xəbər bitdi: dayanır, növbətiyə keçmir

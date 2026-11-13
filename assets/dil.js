@@ -11,7 +11,8 @@ const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA"]);
 const REGION = Object.fromEntries("Meksika:MX|Çexiya:CZ|İsveçrə:CH|Kanada:CA|Bosniya və Herseqovina:BA|Qətər:QA|Mərakeş:MA|Haiti:HT|Avstraliya:AU|Paraqvay:PY|Ekvador:EC|Kürasao:CW|Yaponiya:JP|İsveç:SE|Tunis:TN|Misir:EG|İran:IR|Yeni Zelandiya:NZ|Kabo-Verde:CV|Uruqvay:UY|Səudiyyə Ərəbistanı:SA|Norveç:NO|Seneqal:SN|İraq:IQ|Argentina:AR|Avstriya:AT|Əlcəzair:DZ|İordaniya:JO|Kolumbiya:CO|Özbəkistan:UZ|Xorvatiya:HR|Qana:GH|Panama:PA|Yunanıstan:GR|Serbiya:RS|Danimarka:DK|Sloveniya:SI|Şimali Makedoniya:MK|Macarıstan:HU|Ukrayna:UA|Gürcüstan:GE|Kosovo:XK|İrlandiya:IE|İsrail:IL|Polşa:PL|Rumıniya:RO|Albaniya:AL|Belarus:BY|Finlandiya:FI|San-Marino:SM|Monteneqro:ME|Kipr:CY|Ermənistan:AM|Latviya:LV|Slovakiya:SK|Farer adaları:FO|Moldova:MD|Qazaxıstan:KZ|İslandiya:IS|Estoniya:EE|Bolqarıstan:BG|Lüksemburq:LU|Malta:MT|Cəbəllütariq:GI|Andorra:AD|Litva:LT|Lixtenşteyn:LI|Küveyt:KW|Oman:OM|Bəhreyn:BH|Şimali Koreya:KP|Suriya:SY|Qırğızıstan:KG|Çin:CN|Tacikistan:TJ|Sinqapur:SG|BƏƏ:AE|Vyetnam:VN|Yəmən:YE|Tailand:TH|İndoneziya:ID|Qabon:GA|Niger:NE|Lesoto:LS|Anqola:AO|Malavi:MW|Cənubi Sudan:SS|Qambiya:GM|Somali:SO|Qvineya:GN|Keniya:KE|Eritreya:ER|Zimbabve:ZW|Ekvatorial Qvineya:GQ|Syerra-Leone:SL|Benin:BJ|Burkina-Faso:BF|Mavritaniya:MR|Mərkəzi Afrika Respublikası:CF|Kamerun:CM|Komor adaları:KM|Namibiya:NA|Uqanda:UG|Botsvana:BW|Liviya:LY|Zambiya:ZM|Toqo:TG|Burundi:BI|Mozambik:MZ|Sudan:SD|Efiopiya:ET|Ruanda:RW|Mali:ML|Liberiya:LR|Qvineya-Bisau:GW|Nigeriya:NG|Madaqaskar:MG|Tanzaniya:TZ|Çad:TD|Dominikan Respublikası:DO|Kosta-Rika:CR|Trinidad və Tobaqo:TT|Nikaraqua:NI|Qvatemala:GT|Yamayka:JM|Surinam:SR|Honduras:HN|Martinika:MQ|Salvador:SV|Qayana:GY|Puerto-Riko:PR|Kayman adaları:KY|Dominika:DM|Barbados:BB|Kuba:CU|Sent-Lüsiya:LC|Qvadelupa:GP|Bermud adaları:BM|Sent-Kits və Nevis:KN|Qrenada:GD|Sent-Vinsent və Qrenadinlər:VC|Fransız Qvianası:GF|Beliz:BZ|Sint-Marten:SX|Monserrat:MS|Törks və Kaykos adaları:TC|Britaniya Virgin adaları:VG|Antiqua və Barbuda:AG|Aruba:AW|Angilya:AI|Sen-Marten:MF|ABŞ Virgin adaları:VI|Baham adaları:BS".split("|").map(x => x.split(":")));
 
 export function makeTr(lang, code) {
-  const { w, t, mon, monN, mon3, days } = lang;
+  // Lüğət prototipsiz: «constructor», «valueOf» kimi söz Object.prototype-dən «tərcümə» tapırdı («F1: constructor» → «F1: function Object() {…}»).
+  const { t, mon, monN, mon3, days } = lang, w = Object.assign(Object.create(null), lang.w);
   let names = null;
   try { if (code && globalThis.Intl?.DisplayNames) names = new Intl.DisplayNames([code], { type: "region" }); } catch {}
   const out = new Set(Object.values(w));
@@ -43,7 +44,7 @@ export function makeTr(lang, code) {
     [/^yoxlanıb (.+)$/, m => put(t.checked, tr(m[1]))],
     [/^(.+) oyunları hələ əlavə olunmayıb$/, m => put(t.noGames, tr(m[1]))],
     [/^(\d{1,2}) (\p{L}+) oyunlarına qədər$/u, m => monthOf(m[2]) < 0 ? null : put(t.until, `${m[1]} ${mon[monthOf(m[2])]}`)],
-    [/^(\p{L}+(?: \p{L}+)?), (\d{1,2}) (\p{L}+) (\d{4})$/u, m => { const d = DAYS[m[1].toLowerCase()], i = monthOf(m[3]); return d === undefined || i < 0 ? null : `${days[d]}, ${m[2]} ${mon[i]} ${m[4]}`; }],
+    [/^(\p{L}+(?: \p{L}+)?), (\d{1,2}) (\p{L}+) (\d{4})$/u, m => { const k = m[1].toLowerCase(), d = Object.hasOwn(DAYS, k) ? DAYS[k] : undefined, i = monthOf(m[3]); return d === undefined || i < 0 ? null : `${days[d]}, ${m[2]} ${mon[i]} ${m[4]}`; }],
     [/^(\d{1,2}) (\p{L}+)( \d{4})?$/u, m => monthOf(m[2]) < 0 ? null : `${m[1]} ${mon[monthOf(m[2])]}${m[3] || ""}`],
     [/^(\d{1,2}) (\p{L}{3})(, \d{1,2}:\d{2})?$/u, m => shortOf(m[2]) < 0 ? null : `${m[1]} ${mon3[shortOf(m[2])]}${m[3] || ""}`],
     [/^(\p{L}+) (\d{4})$/u, m => monthOf(m[1]) < 0 ? null : `${monN[monthOf(m[1])]} ${m[2]}`],
@@ -55,7 +56,7 @@ export function makeTr(lang, code) {
   ];
   const core = s => {
     if (w[s] !== undefined) return w[s];
-    if (names && REGION[s]) { const r = names.of(REGION[s]); if (r && r !== REGION[s]) return r; }
+    if (names && Object.hasOwn(REGION, s)) { const r = names.of(REGION[s]); if (r && r !== REGION[s]) return r; }
     for (const [rx, fn] of RULES) {
       const m = s.match(rx);
       const r = m && fn(m);
@@ -122,7 +123,8 @@ export async function startDil(S, code) {
   let from, empty = [];
   const hide = () => {
     if (from !== S.data?.articles) { from = S.data?.articles; empty = emptySections(from, code); }
-    document.querySelectorAll('a[href^="#/bolme/"]').forEach(a => { a.style.display = empty.includes(a.getAttribute("href").slice(8).split(/[/?]/)[0]) ? "none" : ""; });
+    // Bölmə keçidləri əsl ünvandır (/bolme/<ad>/); köhnə «#/bolme/» seçicisi heç nə tapmırdı və boş bölmələr gizlənmirdi.
+    document.querySelectorAll('a[href^="/bolme/"]').forEach(a => { a.style.display = empty.includes(a.getAttribute("href").slice(7).split(/[/?#]/)[0]) ? "none" : ""; });
   };
   document.documentElement.lang = code;
   S.tr = root => translateTree(root, tr);

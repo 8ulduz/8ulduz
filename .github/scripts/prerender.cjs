@@ -69,8 +69,22 @@ function firstScreen(html, keep = KEEP) {
   out = trim(out, /<article class="pcard[\s\S]*?<\/article>/g, keep.prez);
   const at = out.indexOf('<div class="latest-grid">');
   if (at >= 0) out = out.slice(0, at) + trim(out.slice(at), /<article class="card[\s\S]*?<\/article>/g, keep.latest);
-  if (keep.alts != null) out = out.replace(/data-image-alternatives="\[([^"]*)\]"/g, (_, list) => `data-image-alternatives="[${list.split("&quot;,&quot;").slice(0, keep.alts).join("&quot;,&quot;")}]"`);
+  // Siyahı kəsiləndə son dırnaq da qayıtmalıdır: «["a","b]» JSON deyil, imgFail onu oxuya bilmir və ehtiyat ünvana keçmək əvəzinə şəkli silir.
+  if (keep.alts != null) out = out.replace(/data-image-alternatives="\[([^"]*)\]"/g, (all, list) => {
+    const urls = list.split("&quot;,&quot;");
+    return urls.length <= keep.alts ? all : `data-image-alternatives="[${urls.slice(0, keep.alts).join("&quot;,&quot;")}&quot;]"`;
+  });
   return out;
+}
+
+// Dəqiqəlik yaş («indicə», «3 dəq əvvəl») hazır nüsxədə saat kimi yazılır (sahib 2026-11-13, video: 16:36-nın xəbəri 16:39-da yeniləyəndə
+// yenə «indicə» görünürdü — nüsxə 10 dəqiqəlikdir, işçi onu bir açılış gec verir). Saat həmişə doğrudur; app.js gələndə yaşı özü yazır.
+const bakuClock = t => new Date(t + 144e5).toISOString().slice(11, 16);
+function fixedTimes(html, now = Date.now()) {
+  return html.replace(/(<time(?: datetime="([^"]*)")?>)(?:indicə|(\d+) dəq(?:iqə)? əvvəl)(<\/time>)/g, (all, open, iso, n, close) => {
+    const t = Date.parse(iso || "") || now - (Number(n) || 0) * 6e4;
+    return Number.isFinite(t) ? open + bakuClock(t) + close : all;
+  });
 }
 
 function validate(html) {
@@ -93,7 +107,7 @@ function prerender(root, opts = {}) {
   const first = JSON.parse(fs.readFileSync(path.join(root, "data/first.json"), "utf8"));
   if (!Array.isArray(first.articles) || first.articles.length < 10) throw Error("first.json-da xəbər azdır");
   if ((index.match(/id="topbar"/g) || []).length !== 1 || !TOPBAR_RE.test(index)) throw Error('index.html-də #topbar sətri bir dəfə olmalıdır');
-  const home = renderHome(root, first, opts), html = firstScreen(home.view);
+  const home = renderHome(root, first, opts), html = fixedTimes(firstScreen(home.view), opts.now || Date.now());
   validate(html);
   validateTopbar(home.topbar);
   const block = `${m[1]}<div class="pre-skel" data-prerender="${esc(first.updatedAt || "")}">${html}</div>${m[3]}`;
@@ -105,10 +119,11 @@ function prerender(root, opts = {}) {
   return { changed: true, bytes: Buffer.byteLength(out), view: html.length };
 }
 
-module.exports = { homeHtml, renderHome, firstScreen, prerender, validate, validateTopbar, decodeEntities, VIEW_RE, TOPBAR_RE, NOSCRIPT, KEEP };
+module.exports = { homeHtml, renderHome, firstScreen, fixedTimes, prerender, validate, validateTopbar, decodeEntities, VIEW_RE, TOPBAR_RE, NOSCRIPT, KEEP };
 
 if (require.main === module) {
   const root = process.argv[2] || process.cwd();
+  process.env.TZ = "Asia/Baku"; // yuxarı zolağın tarixi (app.js today()): runner UTC-dədir, 00:00–04:00 arası hazır nüsxədə dünənki gün yazılırdı
   try {
     const r = prerender(root);
     console.log(`ilk ekran index.html-də: ${r.changed ? "yeniləndi" : "dəyişmədi"}, ${r.view} simvol, fayl ${r.bytes} bayt`);

@@ -66,9 +66,13 @@ def enforce_policy(root=pathlib.Path(".")):
         tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         os.replace(tmp, path)
         removed[name] = dropped
-    # Video və sosial bloklar da: kanal icazəli olmalıdır, xəbərdən çıxarılan paylaşımın mənbəsi siyahıda olmalıdır.
+    # Video və sosial bloklar da: kanal icazəli olmalıdır, xəbərdən çıxarılan paylaşımın mənbəsi siyahıda olmalıdır və xəbəri
+    # sahib çıxarmamış olmalıdır. Sosial arxiv (30 gün) də yoxlanır: əvvəl ona heç kim baxmırdı.
+    def post_ok(p):
+        return not p.get("via") or (content_policy.source_registered(p["via"])
+                                    and not content_policy.removed_article({"id": p.get("id"), "sourceUrl": p.get("url")}))
     for name, key, allowed in (("video.json", "items", lambda v: v.get("channel") in content_policy.VIDEO_CHANNELS),
-                               ("social.json", "posts", lambda p: not p.get("via") or content_policy.source_registered(p["via"]))):
+                               ("social.json", "posts", post_ok), ("social-arxiv.json", "posts", post_ok)):
         path = root / "data" / name
         try:
             data = json.loads(path.read_text(encoding="utf-8"))

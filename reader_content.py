@@ -41,6 +41,23 @@ def sentences(text):
     return ' '.join(tidy(re.split(r'(?<=[.!?…])\s+(?=[A-ZÇƏĞİÖŞÜ"“«])', text)))
 
 
+# HTML-də </p> və </li> yazılmaya bilər: yeni <p>/<li> açıq qalanı özü bağlayır. HTMLParser bunu etmir — bağlanmamış abzaslar
+# iç-içə düşürdü və mətnin əvvəli itirdi (4 abzasdan yalnız son ikisi oxunurdu). Yalnız sətiriçi teqlərin arxasındakı açıq
+# eyni teq bağlanır; iç-içə siyahıda (<li><ul><li>) xarici <li> açıq qalır.
+INLINE = frozenset('a b strong em i u span font small sup sub mark abbr time label s del ins cite q code big strike nobr'.split())
+
+
+def open_same(stack, tag):
+    if tag not in ('p', 'li'):
+        return False
+    for row in reversed(stack):
+        if row[0] == tag:
+            return True
+        if row[0] not in INLINE:
+            return False
+    return False
+
+
 class ArticleParagraphs(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -50,6 +67,8 @@ class ArticleParagraphs(HTMLParser):
         self.fragments = []
 
     def handle_starttag(self, tag, attrs):
+        if open_same(self.stack, tag):
+            self.handle_endtag(tag)
         attrs = dict(attrs)
         marker = attrs.get('class', '') + ' ' + attrs.get('id', '')
         parent = self.stack[-1] if self.stack else ('', False, False)
@@ -66,14 +85,20 @@ class ArticleParagraphs(HTMLParser):
         if self.paragraph is not None and self.stack and not self.stack[-1][2]:
             self.paragraph.append(data)
 
-    def handle_endtag(self, tag):
-        if tag == 'p' and self.paragraph is not None:
+    def end_paragraph(self):
+        if self.paragraph is not None:
             text = clean(' '.join(self.paragraph))
             if text:  # qısa sətir də saxlanır: «Oxşar xəbərlər» başlığı tidy-də dayanma nöqtəsidir; uzunluq sonra yoxlanır
                 self.rows.append(text)
             self.paragraph = None
+
+    def handle_endtag(self, tag):
+        if tag == 'p':
+            self.end_paragraph()
         for i in range(len(self.stack) - 1, -1, -1):
             if self.stack[i][0] == tag:
+                if any(row[0] == 'p' for row in self.stack[i:]):  # </p> yazılmayıb: abzası onu saxlayan blok bağlayır
+                    self.end_paragraph()
                 self.stack = self.stack[:i]
                 break
 
@@ -82,7 +107,6 @@ class ArticleParagraphs(HTMLParser):
 # Reyting, Ordu.az, DSMF, icra hakimiyyətləri, Aia.az …) yalnız başlıqla oxunurdu. Səhifədə ən çox nəsr (cümlə) olan blok tapılır:
 # blokun öz sətirləri (<br> ilə ayrılmış) və birbaşa içindəki abzaslar. Səhifənin öz təsviri (og:description) olan blok önə keçir.
 VOID = frozenset('br img hr meta link input source wbr area base col embed track param'.split())
-INLINE = frozenset('a b strong em i u span font small sup sub mark abbr time label s del ins cite q code big strike nobr'.split())
 SKIP = frozenset('nav aside footer header script style form noscript button select textarea iframe svg figcaption h1 h2 h3 h4 h5 h6 title head'.split())
 # Sinif adı sözbəsöz yoxlanır (ses-worker/worker.js skipClass ilə eyni): «with_sidebar_block», «b-footer--black--white» kimi düzən
 # sarğıları bütün səhifəni bloklayırdı. html/body/main/article heç vaxt sinfinə görə atılmır.
@@ -124,6 +148,8 @@ class DenseBlocks(HTMLParser):
             if tag == 'br':
                 self.flush(self.stack[-1][2])
             return
+        if open_same(self.stack, tag):
+            self.handle_endtag(tag)
         attrs = dict(attrs)
         _, blocked, node = self.stack[-1]
         blocked = blocked or tag in SKIP or skip_class(tag, (attrs.get('class') or '') + ' ' + (attrs.get('id') or ''))
@@ -206,6 +232,7 @@ def extract_article(raw):
             return text
     parser = ArticleParagraphs()
     parser.feed(raw)
+    parser.end_paragraph()  # sənəd bağlanmamış abzasla bitə bilər
     rows = [row for row in tidy(dict.fromkeys(parser.rows), paragraphs=True) if len(row) >= 30]
     text = sentences(' '.join(rows))
     if len(rows) >= 2 and 200 <= len(text) <= 24000:
