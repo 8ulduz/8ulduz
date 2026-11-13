@@ -358,7 +358,7 @@ main>.wrap>section{margin-bottom:18px}
 .card .b{display:flex;flex-direction:column;gap:5px;padding:9px 11px 10px;flex:1;min-width:0}
 .card-hit{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;color:inherit}
 .card-hit::after{content:"";position:absolute;inset:0;z-index:1}
-.card h3 mark{background:hsl(43 96% 56%/.35);color:inherit;border-radius:2px;padding:0 1px}
+.card h2 mark{background:hsl(43 96% 56%/.35);color:inherit;border-radius:2px;padding:0 1px}
 .card :is(h2,h3){margin:0;font-size:1.0357rem;line-height:1.33;font-weight:700;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .card:hover h3{color:var(--primary)}
 .card .meta{margin-top:auto}

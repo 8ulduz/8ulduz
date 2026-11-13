@@ -741,6 +741,9 @@ test('a notification click opens the story on the site, in the open page when th
   assert.equal(JSON.stringify(messages),JSON.stringify([{type:'open-story',id:'8'}]),'açıq səhifəyə xəbərin id-si göndərilir'); // obyekt başqa vm kontekstindəndir
   await click({});
   assert.equal(opened[1],'https://example.com/8ulduz/','id-siz bildiriş baş səhifəni açır');
+  await click({id:'on',cat:'',url:'https://example.com/8ulduz/#/xeber/on'});
+  assert.equal(opened[2],'https://example.com/8ulduz/','«Bildiriş aktivdir…» nümunəsi xəbər deyil: baş səhifə açılır, «xəbər tapılmadı» səhifəsi yox');
+  assert.equal(messages.length,1,'nümunə üçün açıq səhifəyə open-story göndərilmir');
   const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
   assert.ok(src.includes('e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; }'),'səhifə open-story mesajı ilə xəbər səhifəsinə keçir');
   assert.ok(src.includes('n.onclick = () => { window.focus(); location.hash = detailUrl(a); };'),'səhifə bildirişinin kliki də saytın xəbər səhifəsinə aparır');
@@ -3108,4 +3111,104 @@ test('speed: site data is asked without a per-minute key (CDN copy; forced refre
   assert.match(freshUrl('data/news.json', true), /^data\/news\.json\?r=\d+-\d+$/, 'əllə yeniləmə təzəsini istəyir');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(!/\?t=/.test(html.match(/<script>([\s\S]*?)<\/script>/)[1]), 'erkən sorğular da açarsız');
+});
+
+// 2026-11-13 yoxlaması: aşağıdakı xətaların hər biri canlı kodda idi.
+test('road rules see Azerbaijani suffixes and upper-case headlines (\\w is ASCII-only, /iu does not fold I↔ı)', () => {
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  ctx.titles = ['Sabah Bakıda bu küçələr bağlanacaq', 'Bakıda bəzi yolları bağlanıb', 'Bakıda körpüsü bağlandı', 'Bakı-Sumqayıt yolunda BÖYÜK TIXAC', 'BAKIDA TƏMİR: prospektdə hərəkət məhdudlaşır'];
+  assert.deepEqual(Array.from(run('titles.map(t => roadKind(t)?.kind)')), ['bagli', 'bagli', 'bagli', 'tixac', 'bagli']);
+  assert.equal(run('roadKind("Qəzalı binada sakinlər köçürülür")'), null, '«qəzalı» yol hadisəsi deyil');
+  ctx.rows = ctx.titles.map((title, i) => ({ id: 'r' + i, title, lang: 'az', publishedAt: new Date(Date.now() - 6e5).toISOString() }));
+  assert.equal(run('S.lang = null; localRoadItems(rows).length'), 5, 'böyük hərflə yazılmış «BAKIDA» da yerli sayılır');
+  assert.ok(!fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('WARN_RE ='), 'işlənməyən qayda oxucuya getmir');
+});
+test('next prayer and day-only fixture dates use Baku time for a reader abroad', () => {
+  const tz = process.env.TZ;
+  try {
+    for (const zone of ['Asia/Baku', 'Europe/Istanbul', 'Europe/Berlin', 'America/New_York']) {
+      process.env.TZ = zone;
+      const now = Date.parse('2026-11-27T11:45:00Z'); // Bakıda 15:45
+      const D = class extends Date { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } };
+      const ctx = app({ Date: D }), run = code => vm.runInContext(code, ctx);
+      const next = run('nextPrayer({ Fajr: "05:50", Dhuhr: "12:30", Asr: "15:15", Maghrib: "17:40", Isha: "19:00" })');
+      assert.deepEqual([next.key, next.time, next.mins], ['Maghrib', '17:40', 115], zone);
+      assert.equal(run('shortDT("2026-11-27T00:00+04:00")'), '27 noy', zone + ': saatsız oyunun günü');
+      assert.equal(run('shortDT("2026-11-27")'), '27 noy', zone);
+    }
+    process.env.TZ = 'Asia/Baku';
+    assert.equal(vm.runInContext('shortDT("2026-11-27T17:30:00+04:00")', app()), '27 noy, 17:30', 'saatı olan oyun əvvəlki kimi');
+  } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; }
+});
+test('Futbol tab is not emptied by a surname that contains «nba»; the converter keeps one precision', () => {
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  const row = (title, summary = '') => ({ id: title, title, summary, source: 'Sports.kz', lang: 'ru' });
+  ctx.a = row('Футбол: сборная вызвала новичка', 'Главный тренер Аманбаева рассказала о составе');
+  ctx.b = row('Футбол и НБА: итоги недели');
+  ctx.c = row('Donbass derbisində futbol oyunu təxirə salındı');
+  assert.deepEqual(Array.from(run('[a, b, c].map(x => clubMatches(x, "Futbol"))')), [true, false, true]);
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.equal(src.split('S.fxTo === "BTC" ? 6 : 2').length - 1, 2, 'çeviricinin iki yeri eyni dəqiqliklə yazır (5 dəqiqəlik yeniləmədə BTC «0.00» olurdu)');
+});
+test('desktop nav hover reads the real /bolme/ links; a world-league group tab does not blank the local league', () => {
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  ctx.link = href => ({ getAttribute: () => href });
+  assert.equal(run('hashOf(link("/bolme/idman/"))'), '#/bolme/idman');
+  assert.equal(run('hashOf(link("#/komanda/pl/arsenal"))'), '#/komanda/pl/arsenal');
+  assert.equal(run('hashOf(null)'), undefined);
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('const h = hashOf(item);') && src.includes('const href = h?.match(/^#\\/bolme\\/(.+)$/)?.[1];'), 'mouseover /bolme/<ad>/ keçidini tanıyır');
+  // qrup nişanı sətirdir ("1"): yerli liqaya qayıdanda «results» olmalıdır
+  assert.ok(src.includes('|| S.fbTab >= 0 ? "results" : S.fbTab;') && !src.includes('typeof S.fbTab === "number"'));
+  for (const [v, want] of [[0, true], ['1', true], ['results', false], ['table', false], [undefined, false]]) assert.equal(v >= 0, want, String(v));
+});
+test('search highlight marks the h2 headings and never matches inside an escaped entity', () => {
+  const heads = [{ textContent: "O'zbekiston 39 & 39" }, { textContent: 'Başqa başlıq' }];
+  const ctx = app(), run = code => vm.runInContext(code, ctx);
+  ctx.asked = [];
+  ctx.document.querySelectorAll = sel => { ctx.asked.push(sel); return heads; };
+  run('route = () => ({ name: "search" }); S.hl = hlRegex(["39"]); highlightSearch();');
+  assert.deepEqual(Array.from(ctx.asked), ['#view .card h2']);
+  assert.equal(heads[0].innerHTML, 'O&#39;zbekiston <mark>39</mark> &amp; <mark>39</mark>');
+  assert.equal(heads[1].innerHTML, undefined, 'uyğun gəlməyən başlığa toxunulmur');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('.card h2 mark{'));
+});
+test('a failed archive request is retried after a minute, not after thirty', async () => {
+  const ctx = app(), { S, loadArchive } = ctx.api;
+  let calls = 0;
+  S.data = { articles: [] };
+  ctx.fetch = async () => { calls++; throw new Error('şəbəkə'); };
+  await loadArchive('tehsil');
+  assert.equal(calls >= 1, true);
+  const asked = calls, age = Date.now() - S.archive.tehsil.at;
+  assert.ok(age > 28 * 60e3 && age < 30 * 60e3, 'bir dəqiqə sonra yenidən soruşula bilər');
+  await loadArchive('tehsil');
+  assert.equal(calls, asked, 'dərhal təkrar sorğu yoxdur (sectionView hər çəkilişdə çağırır)');
+  S.archive.tehsil.at -= 61e3;
+  ctx.fetch = async () => { calls++; return { ok: true, headers: new Headers(), json: async () => ({ articles: 'yox' }) }; };
+  await loadArchive('tehsil');
+  assert.ok(calls > asked && Date.now() - S.archive.tehsil.at > 28 * 60e3, 'zədəli cavab da uğursuzluq sayılır');
+});
+test('an old story link opened in a running tab is looked up on the arxiv branch', async () => {
+  const id = 'abcdef0123456789', ctx = policyApp(), { S, scanArchives } = ctx.api, urls = [];
+  const old = { id, title: 'Köhnə xəbər', category: 'gundem', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/kohne', publishedAt: '2026-10-01T10:00:00+00:00' };
+  S.data = { articles: [] };
+  ctx.fetch = async url => {
+    urls.push(String(url));
+    const json = String(url).includes('/arxiv/idx/ab.json') ? { [id]: '26100110' } : String(url).includes('/arxiv/saat/26100110.json') ? { articles: [old] } : String(url).includes('data/paylas/') ? { parts: 256, articles: [] } : { articles: [] };
+    return { ok: true, headers: new Headers(), json: async () => json };
+  };
+  await scanArchives(id);
+  assert.equal(S.sharedStory?.row?.sourceUrl, 'https://apa.az/kohne');
+  assert.ok(urls.some(u => u.includes('raw.githubusercontent.com/8ulduz/8ulduz/arxiv/saat/26100110.json')));
+  S.sharedStory = null; urls.length = 0;
+  await scanArchives('on');
+  assert.ok(!urls.some(u => u.includes('/arxiv/')), 'xəbər id-si olmayan ünvan üçün arxiv budağı soruşulmur');
+});
+test('service worker: a redirected shell response is never cached or handed to a navigation; the sample notification is not a story', () => {
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.ok(sw.includes('if (saved?.redirected) saved = undefined;'), 'keşdəki yönləndirilmiş nüsxə işlədilmir');
+  const at = sw.indexOf('if (fresh.redirected) return req.mode === "navigate" ? Response.redirect(fresh.url, 302) : fresh;');
+  assert.ok(at > 0 && at < sw.indexOf('await cache.put(key, copy)'), 'yönləndirilmiş cavab keşə yazılmazdan əvvəl qaytarılır');
+  assert.ok(sw.includes('const id = d.id === "on" ? "" : d.id;') && sw.includes('if (open && id) {'), 'nümunə bildiriş («on») id-siz bildiriş kimi baş səhifəni açır');
 });
