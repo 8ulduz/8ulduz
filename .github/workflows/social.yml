@@ -48,6 +48,8 @@ jobs:
             data/news.json
             xeber/index.json
             icmal/index.json
+            sitemap.xml
+            sitemap-movzu.xml
             data/arxiv
             /*.txt
           sparse-checkout-cone-mode: false
