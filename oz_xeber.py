@@ -731,7 +731,8 @@ def cost(tokens):
 _NUM = re.compile(r"\d{1,3}(?:[   .]\d{3})+(?:,\d+)?(?!\d)|\d+(?:[.,]\d+)?")
 _WORD = re.compile(r"[^\W\d_]+")
 _CAP = re.compile(r"(?<![^\W\d_])[A-ZÇƏĞİÖŞÜ][^\W\d_]*")
-_QUOTE = re.compile(r"[«“\"„]([^«»“”\"„]{12,})[»”\"“]")
+_QUOTE = re.compile(r"[«“\"„‘‹]([^«»“”\"„‘’‹›]{12,})[»”\"“’›]")
+_SCALE = re.compile(r"(" + _NUM.pattern + r")\s*(min|milyon|milyard|trilyon)")  # «5 min» və «5 milyon» ayrı faktdır
 _SUFFIX = set("aəıiuüdnlrsykc")  # hal, mənsubiyyət, cəm, xəbərlik şəkilçilərinin hərfləri
 _ALT = {"q": "ğ", "k": "y"}       # Bayraq -> Bayrağı
 # Cümlənin əvvəlində böyük hərflə yazılan, fakt olmayan sözlər.
@@ -792,8 +793,13 @@ def fact_gate(text, corpus):
             missing.append(w)
     low_text, low_corpus = _low(text), _low(corpus)
     for m in MONTHS:
-        if re.search(r"(?<![^\W\d_])" + m, low_text) and m not in low_corpus:
+        # Relizdə də söz başında axtarılır: «may» hər «olmayıb», «qalmayıb» sözünün içindədir və may tarixi həmişə keçirdi
+        if re.search(r"(?<![^\W\d_])" + m, low_text) and not re.search(r"(?<![^\W\d_])" + m, low_corpus):
             missing.append(m)
+    # Miqyas sözü rəqəmin bir hissəsidir: relizdə «5 min manat», mətndə «5 milyon manat» əvvəl keçirdi (rəqəm eynidir)
+    scales = lambda t: {(next(iter(_nums(n)), n), unit) for n, unit in _SCALE.findall(t)}
+    for n, unit in sorted(scales(low_text) - scales(low_corpus)):
+        missing.append(f"{n} {unit}")
     squashed = _squash(corpus)
     for q in _QUOTE.findall(text):
         if _squash(q) not in squashed:
@@ -801,10 +807,21 @@ def fact_gate(text, corpus):
     return missing
 
 
+# updater.president_score xarici xəbəri təsnif etmək üçündür: «İlham Əliyev» cütünü və bir neçə sabit vəzifə adını tanıyır, mətndə
+# xarici ölkə adı varsa 0 qaytarır. «Sahibi gözlə» qaydası üçün bu azdır: «Azərbaycan Respublikası Prezidentinin sərəncamı ilə»,
+# «Prezident İ. Əliyev», «M. Əliyeva», «Dövlətimizin başçısı», «Prezident Əliyev Rusiya Prezidenti ilə görüşüb» keçirdi və
+# «Bu gün tarixdə» xəbəri ilə təsdiqsiz dərc olunurdu (2026-11-13). Aşağıdakı yazılışlar da saxlayır; saxlamaq təhlükəsiz tərəfdir.
+_OWNER = re.compile(
+    r"(?<![^\W\d_])(?:azərbaycan(?: respublikası(?:nın)?)? prezident|ölkə prezident|prezident\w* (?:sərəncam|fərman)|prezident (?:i\. ?)?əliyev"
+    r"|birinci vitse-?\s?prezident|birinci xanım|dövlət(?:imizin)? başçı|ölkə başçı|ali baş komandan"
+    r"|i\. ?əliyev|m\. ?əliyeva|ilham (?:\w+ ){0,2}əliyev|mehriban (?:\w+ ){0,2}əliyeva)")
+
+
 def needs_owner(blob):
-    """Prezident və ya birinci vitse-prezident adı, vəzifəsi keçirsə (updater.president_score) xəbər sahibin təsdiqini gözləyir."""
+    """Prezident və ya birinci vitse-prezident adı, vəzifəsi keçirsə xəbər sahibin təsdiqini gözləyir."""
     u = _u()
-    return u.president_score(u.norm_az(blob), "az") > 0
+    low = re.sub(r"\s+", " ", u.norm_az(str(blob or "").replace("I", "ı").replace("İ", "i")))
+    return u.president_score(re.sub(r"\s+", " ", u.norm_az(str(blob or ""))), "az") > 0 or bool(_OWNER.search(low))
 
 
 def release_item(rel, data):

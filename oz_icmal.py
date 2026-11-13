@@ -828,6 +828,8 @@ def reqemler_item(root, day, get):
     return item, item.get("why", "")
 
 
+BELEDCI_GEC = datetime.time(14, 0)   # slot 08:00 + oz_derc-in 6 saatlıq «gecikdi» həddi
+
 # --- İstehsal və sınaq --------------------------------------------------------------------------------------------------
 
 def items(root, now, fetch=None, done=()):
@@ -840,7 +842,14 @@ def items(root, now, fetch=None, done=()):
     done = set(done or ())
     out = []
     if f"beledci-{day.isoformat()}" not in done:
-        out.append(beledci_item(root, day, get)[0])
+        if now.time() >= BELEDCI_GEC:
+            # Səhər 08:00-ın xəbəri ilk dəfə günün ikinci yarısında qurulursa dərc olunmur: mətn «bu gün … keçiriləcək, oynayacaq»
+            # deyir, oyunların bir hissəsi isə artıq oynanıb (yavaş dövrə saatlarla dayananda axşam 22:30-da çıxa bilirdi). Sorğu getmir.
+            why = f"səhər bələdçisi üçün gecdir: ilk dəfə saat {now:%H:%M}-də qurulur"
+            out.append({"kind": "beledci", "key": f"beledci-{day.isoformat()}", "title": "Günün bələdçisi: gecikdi", "lead": why, "body": [],
+                        "credit": OM_CREDIT, "link": OM_LINK, "topic": "icmal", "slot": "08:00", "worth": False, "why": why})
+        else:
+            out.append(beledci_item(root, day, get)[0])
     if day.weekday() == 6 and f"reqemler-{day.isoformat()}" not in done:
         item, _ = reqemler_item(root, day, get)
         if item:

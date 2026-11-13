@@ -521,12 +521,15 @@ def kripto_item(coins, now):
     t = btc["at"]
     if not now - KRIPTO_FRESH <= t <= now + datetime.timedelta(minutes=15):
         return None, f"CoinGecko-da bitkoinin qiyməti köhnədir ({_date_text(t)} {t:%H:%M})"
+    # Efir də başlığa və «dəyərli» qərarına düşür: onun da vaxtı yoxlanır (əvvəl 3 günlük qiymət təzə kimi yazıla bilirdi)
+    if not now - KRIPTO_FRESH <= eth["at"] <= now + datetime.timedelta(minutes=15):
+        return None, f"CoinGecko-da efirin qiyməti köhnədir ({_date_text(eth['at'])} {eth['at']:%H:%M})"
     b_move = f"qiyməti {_pct(btc['pct'])} {'artıb' if btc['pct'] > 0 else 'azalıb'}" if btc["pct"] else "qiyməti dəyişməyib"
     e_move = f"{_pct(eth['pct'])} {_cheap(eth['pct'])}" if eth["pct"] else "qiyməti dəyişməyib"
     lead = (f"CoinGecko saytının məlumatına görə, {ox.day_loc(t)} Bakı vaxtı ilə {ox.time_loc(t)} 1 bitkoin "
             f"{_price(btc['usd'])} dollar ({_price(btc['azn'])} manat) olub, son 24 saatda {b_move}. "
             f"1 efir {_price(eth['usd'])} dollar ({_price(eth['azn'])} manat) olub, {e_move}.")
-    body = [_coin_line(name, coins[cid]) for cid, name in COINS[2:] if cid in coins and now - KRIPTO_FRESH <= coins[cid]["at"]]
+    body = [_coin_line(name, coins[cid]) for cid, name in COINS[2:] if cid in coins and now - KRIPTO_FRESH <= coins[cid]["at"] <= now + datetime.timedelta(minutes=15)]
     weekend = now.weekday() >= 5
     moved = abs(btc["pct"]) >= KRIPTO_MOVE or abs(eth["pct"]) >= KRIPTO_MOVE
     item = {"kind": "kripto", "key": key, "topic": TOPIC, "slot": f"{KRIPTO_SLOT:%H:%M}", "list": True,
@@ -975,8 +978,12 @@ def _az0(v):
 
 
 def _mln(v):
+    """Başlıq üçün məbləğ: «12,5 milyon», «300 milyon»; 50 min manatdan az məbləğ tam rəqəmlə («30 000») — əvvəl «0 milyon
+    manatlıq» çıxırdı."""
     s = ox.az_num(v / 1e6, 1)
-    return s[:-2] if s.endswith(",0") else s
+    if s in ("0,0", "0"):
+        return _az0(v)
+    return (s[:-2] if s.endswith(",0") else s) + " milyon"
 
 
 def _trim(v):
@@ -1022,20 +1029,20 @@ def _amb_title(amb):
         return f"Mərkəzi Bankın {_join(str(d['term']) for d in amb)} günlük notlarının hərracında notlar yerləşdirilməyib"
     if len(amb) == 1:
         d = amb[0]
-        return (f"Mərkəzi Bank {_mln(d['placed'])} milyon manatlıq {d['term']} günlük notları {_pct(d['wavg'][1])} "
+        return (f"Mərkəzi Bank {_mln(d['placed'])} manatlıq {d['term']} günlük notları {_pct(d['wavg'][1])} "
                 f"orta gəlirliliklə yerləşdirib")
-    title = (f"Mərkəzi Bank {_mln(placed)} milyon manatlıq notlar yerləşdirib: "
+    title = (f"Mərkəzi Bank {_mln(placed)} manatlıq notlar yerləşdirib: "
              + ", ".join(f"{d['term']} günlük {_pct(d['wavg'][1])}" for d in amb) + " orta gəlirliliklə")
-    return title if len(title) <= 110 else f"Mərkəzi Bank {_mln(placed)} milyon manatlıq notlar yerləşdirib"
+    return title if len(title) <= 110 else f"Mərkəzi Bank {_mln(placed)} manatlıq notlar yerləşdirib"
 
 
 def _mn_title(d):
     if not d["placed"]:
         return f"Maliyyə Nazirliyinin {d['term']} günlük istiqrazlarının hərracında istiqraz yerləşdirilməyib"
     if d["offered"] and d["placed"] < d["offered"]:
-        return (f"Maliyyə Nazirliyi {d['term']} günlük istiqrazların {_mln(d['placed'])} milyon manatlığını "
+        return (f"Maliyyə Nazirliyi {d['term']} günlük istiqrazların {_mln(d['placed'])} manatlığını "
                 f"{_pct(d['wavg'][1])} orta gəlirliliklə yerləşdirib")
-    return (f"Maliyyə Nazirliyi {_mln(d['placed'])} milyon manatlıq {d['term']} günlük istiqrazları {_pct(d['wavg'][1])} "
+    return (f"Maliyyə Nazirliyi {_mln(d['placed'])} manatlıq {d['term']} günlük istiqrazları {_pct(d['wavg'][1])} "
             f"orta gəlirliliklə yerləşdirib")
 
 

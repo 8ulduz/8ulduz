@@ -192,10 +192,11 @@ _KP_VAL = re.compile(r"(\d+(?:\.\d+)?)(?:[ \t]*\(G\d\))?")
 
 
 def g_level(kp):
-    """NOAA-nın G şkalası: Kp 5 -> G1 … Kp 9 -> G5; 5-dən aşağı 0. NOAA 4,67-ni (5−) də G1 yazır."""
+    """NOAA-nın G şkalası: Kp 5 -> G1 … Kp 9 -> G5; 5-dən aşağı 0. NOAA 4,67-ni (5−) də G1 yazır.
+    G4 «Kp 8, 9− daxil», G5 yalnız Kp 9-dur: 8,67 (9−) G4-dür (NOAA özü «8.67 (G4)» yazır), əvvəl «İfrat güclü (G5)» çıxırdı."""
     if kp is None or kp < 4.5:
         return 0
-    return max(0, min(5, int(math.floor(kp + 0.5)) - 4))
+    return 5 if kp >= 8.85 else min(4, int(math.floor(kp + 0.5)) - 4)
 
 
 def parse_swpc_text(raw):
@@ -430,15 +431,19 @@ def _blk_list(rs):
     return ", ".join(_blk_text(r) for r in pick)
 
 
-def storm_item(day, rows, now, alerts=(), slot="08:40"):
-    """Günün maqnit qasırğası xəbəri. rows: parse_kp, alerts: parse_alerts. -> (xəbər | None, səbəb)."""
+STORM_CONT = "dünənki qasırğanın davamıdır: bir hadisə, bir xəbər"
+
+def storm_item(day, rows, now, alerts=(), slot="08:40", told=True):
+    """Günün maqnit qasırğası xəbəri. rows: parse_kp, alerts: parse_alerts. -> (xəbər | None, səbəb).
+    told: dünənki qasırğa haqqında xəbər çıxıb (və ya o özü davam sayılıb). Çıxmayıbsa bu günkü «davam» deyil, ilk xəbərdir:
+    axşam sorğusundan sonra başlayan qasırğa əvvəl heç vaxt yazılmırdı (dünən hələ bitməmişdi, bu gün «davam» idi)."""
     today = [r for r in storm_day(rows, day) if g_level(r[1])]
     if not today:
         return None, "bu günün dövrlərində Kp 5-ə (G1) çatmır"
     prev = [r for r in storm_day(rows, day - DAY) if g_level(r[1])]
-    if prev and today[0][0] - prev[-1][0] <= STORM_GAP and \
+    if told and prev and today[0][0] - prev[-1][0] <= STORM_GAP and \
             max(g_level(r[1]) for r in today) <= max(g_level(r[1]) for r in prev):
-        return None, "dünənki qasırğanın davamıdır: bir hadisə, bir xəbər"
+        return None, STORM_CONT
     seen = [r for r in today if r[2] != "predicted"]
     ahead = [r for r in today if r[2] == "predicted"]
     main = seen or ahead
@@ -481,18 +486,22 @@ def storm_now(now, get, done):
         return []
     if mark in done:
         return []
+    chain = lambda d: f"{STORM_TICK}{d.isoformat()}-davam"
+    told = STORM_KEY + (day - DAY).isoformat() in done or chain(day - DAY) in done
     try:
         rows = parse_kp(get(SWPC_KP))
         if rows[-1][0] < now:
             raise Bad("NOAA-nın Kp cədvəli köhnədir")
-        item, why = storm_item(day, rows, now, (), slot)
+        item, why = storm_item(day, rows, now, (), slot, told)
     except Exception as e:
         item, why = None, _why(e, "NOAA")
     if item is None:
-        return [_fail("maqnit-qasirgasi", mark, "Maqnit qasırğası: xəbər yoxdur", why, SWPC_CREDIT, SWPC_KP_PAGE,
-                      "kosmos", now)]
+        fails = [_fail("maqnit-qasirgasi", mark, "Maqnit qasırğası: xəbər yoxdur", why, SWPC_CREDIT, SWPC_KP_PAGE, "kosmos", now)]
+        if why == STORM_CONT and chain(day) not in done:  # üç günlük qasırğa: sabah da «davam» sayılsın
+            fails.append(_fail("maqnit-qasirgasi", chain(day), "Maqnit qasırğası: davam edir", why, SWPC_CREDIT, SWPC_KP_PAGE, "kosmos", now))
+        return fails
     try:
-        item = storm_item(day, rows, now, parse_alerts(get(SWPC_ALERTS)), slot)[0]
+        item = storm_item(day, rows, now, parse_alerts(get(SWPC_ALERTS)), slot, told)[0]
     except Exception:
         pass    # bildirişlər alınmasa xəbər onlarsız çıxır
     return [item]
@@ -557,7 +566,7 @@ NORM_MIN = (
     3.9, 3.9, 3.8, 3.7, 3.7, 3.6, 3.4, 3.4, 3.4, 3.3, 3.2, 3.1, 3.0, 3.0, 3.0, 2.9,
     2.9, 2.9, 2.8, 2.8, 2.7, 2.7, 2.7, 2.6, 2.5, 2.5, 2.4, 2.4, 2.4, 2.4, 2.4, 2.4,
     2.4, 2.4, 2.4, 2.3, 2.4, 2.5, 2.5, 2.6, 2.6, 2.7, 2.7, 2.7, 2.7, 2.7, 2.8, 2.9,
-    2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.4, 3.6, 3.7, 3.9, 4.0, 3.4, 4.1, 4.2, 4.2, 4.3,
+    2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.4, 3.6, 3.7, 3.9, 4.0, 4.0, 4.1, 4.2, 4.2, 4.3,
     4.3, 4.4, 4.5, 4.6, 4.6, 4.6, 4.6, 4.7, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4,
     5.6, 5.7, 5.8, 5.9, 6.0, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 7.0, 7.2, 7.3, 7.4,
     7.6, 7.8, 8.1, 8.2, 8.4, 8.6, 8.8, 9.0, 9.2, 9.3, 9.4, 9.5, 9.7, 9.9, 10.0, 10.1,
