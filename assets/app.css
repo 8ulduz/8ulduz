@@ -993,6 +993,8 @@ main{padding-top:8px}
 .inst:empty{display:none}
 .inst .install-btn{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
 .inst .install-btn:hover{filter:brightness(1.08);color:var(--primary-fg)}
+/* Toxunma ekranı, brauzer vərəqi (app.js installBtn ilə eyni şərt): düymənin yeri JS-dən əvvəl ayrılır, başlıq atılmır */
+@media(min-width:601px) and (hover:none) and (display-mode:browser){.inst:empty{display:inline-flex}.inst:empty::before{content:"Ana ekrana əlavə et";visibility:hidden;min-height:28px;padding:0 12px;border:1px solid;font-size:.82rem;font-weight:700;white-space:nowrap}}
 .qbtn{display:none;width:32px;height:32px;padding:0;border:1px solid var(--border);border-radius:99px;background:var(--card);color:var(--fg);place-items:center;flex:none}
 .follow-btn{display:inline-flex;position:relative;flex:none;isolation:isolate;align-items:center;justify-content:center;min-height:44px;padding:0 9px;border:1px solid #0000;border-radius:11px;background:var(--card);color:var(--fg);font-size:var(--fs-meta);font-weight:700;line-height:1.2;white-space:nowrap}
 .follow-btn::before,.follow-btn::after{content:"";position:absolute;inset:-1px;pointer-events:none;border:2px solid var(--glow);border-radius:inherit;box-shadow:0 0 6px var(--glow),inset 0 0 4px var(--glow);animation:var(--follow-motion,follow-glow 2.4s ease-in-out infinite)}
@@ -1090,6 +1092,7 @@ nav.main .nav-more-pop{position:fixed;inset:auto 0 0;max-width:none;max-height:7
 nav.main .nav-more-pop a{font-size:var(--fs-body);line-height:var(--lh-body);font-weight:700;color:var(--fg);padding:9px 12px}
 nav.main .nav-inst{display:inline-flex;align-items:center;min-height:28px;border:0;border-radius:99px;background:var(--primary);color:var(--primary-fg);font:inherit;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:700;white-space:nowrap;cursor:pointer}
 nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}
+.inst:has(>.install-btn:only-child){display:none}
 }
 @media(min-width:400px) and (max-width:600px){.nav-inst .ni-s{display:none}.nav-inst .ni-f{display:inline}}
 .soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}

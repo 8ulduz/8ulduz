@@ -3238,6 +3238,13 @@ test('no jump on open: the ticker and markets rows reserve their real height at 
   assert.ok(css.includes('[hidden]{display:none!important}'), 'ümumi [hidden] qaydası !important-dır: düymənin qaydası da elə olmalıdır');
   const appJs = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(appJs.includes('const isPhone = () => isIOS() || matchMedia("(hover:none)").matches;') && appJs.includes('if (isStandalone() || (!S.installEvt && !isPhone())) return "";'), 'CSS şərti bu JS şərtinin əksidir: biri dəyişsə o biri də dəyişməlidir');
+  // planşet (≥601 px, toxunma): «Ana ekrana əlavə et» düyməsi #inst-ə JS ilə düşür; yeri eyni ölçülü görünməz qutu ilə əvvəlcədən ayrılır
+  // (brauzer ölçüsü: 601–1100 px × 3 şrift, başlıq JS-dən əvvəl və sonra eyni; əvvəl 5–36 px böyüyür, axtarış qutusu 173 px sola sürüşürdü)
+  const instRule = '.inst:empty::before{content:"Ana ekrana əlavə et";visibility:hidden;min-height:28px;padding:0 12px;border:1px solid;font-size:.82rem;font-weight:700;white-space:nowrap}';
+  assert.equal(where(instRule).replace(/\s/g, ''), '@media(min-width:601px)and(hover:none)and(display-mode:browser)', 'yer yalnız düymənin çıxacağı halda ayrılır (kompüterdə brauzer təklif verməyincə düymə yoxdur)');
+  assert.ok(css.includes('.install-btn{min-height:30px;padding:0 12px;border:1px solid var(--border);') && css.includes('font:inherit;font-size:.82rem;font-weight:700;white-space:nowrap;cursor:pointer}'), 'görünməz qutu düymənin ölçülərini təkrarlayır (28 + 2 px kənar = 30): düymə dəyişsə o da dəyişməlidir');
+  assert.ok(appJs.includes('return `<button type="button" class="install-btn" data-act="install">Ana ekrana əlavə et</button>`;'), 'yazı eynidir');
+  assert.match(where('.inst:has(>.install-btn:only-child){display:none}'), /max-width:600px/, 'telefonda içində yalnız gizli düymə olan qutu yer tutmur («8ULDUZ-u izlə» 4 px sürüşürdü)');
   // namaz vaxtı gələndə düymə .pray-wrap içinə düşür: blok sarğı sətir hündürlüyü qədər (26,9 px) olurdu, düymə 25 px — bütün səhifə 2 px (A+ ilə 7 px) atılırdı
   assert.ok(css.includes('.pray-wrap{position:relative;display:flex}'), 'sarğı düymənin öz hündürlüyündədir');
   // paylaşılan keçid: skeletin üst boşluğu xəbərin özününkü ilə eynidir (14 px idi: xəbər gələndə #view 10 px aşağı düşürdü, CLS 0,31)
