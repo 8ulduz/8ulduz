@@ -1882,6 +1882,17 @@ test('site language: a section without news in that language is hidden, sports n
   assert.deepEqual([...emptySections(list, 'ru')].sort(), ['bolgeler', 'gundem']);
   assert.deepEqual([...emptySections(list, 'en')].sort(), ['bolgeler', 'dunya', 'gundem']);
   assert.deepEqual([...emptySections(null, 'ru')], []);
+  // Bölmə keçidləri /bolme/<ad>/ ünvanıdır: köhnə «#/bolme/» seçicisi heç nə tapmırdı və boş bölmə gizlənmirdi
+  const dil = fs.readFileSync(path.join(root, 'assets/dil.js'), 'utf8'), shell = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.ok(dil.includes(`querySelectorAll('a[href^="/bolme/"]')`) && dil.includes('.slice(7).split(/[/?#]/)[0]'), 'gizlətmə əsl keçidləri seçir');
+  assert.ok(/<a href="\/bolme\/[a-z-]+\/"/.test(shell) && !shell.includes('href="#/bolme/'), 'saytın bölmə keçidləri həmin şəkildədir');
+});
+test('site language: a headline word that is also an Object.prototype name is not «translated»', () => {
+  const mod = dilModule('assets/dil.js');
+  for (const code of ['en', 'ru', 'tr']) {
+    const tr = mod.makeTr(dilModule(`assets/dil-${code}.js`).__d, code);
+    for (const s of ['F1: constructor', 'X, valueOf', 'constructor', 'toString', '__proto__', 'hasOwnProperty 2026', 'toString A']) assert.equal(tr(s), s, code + ': ' + s);
+  }
 });
 test('site language: Azerbaijani visitors do not load the translation', () => {
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -2150,6 +2161,12 @@ test('team page helpers: form, next games, standing line and zones', () => {
   const split = run('splitGames(gamesOf(doc, "qarabag"))');
   assert.equal(split.played.length, 2);
   assert.equal(split.next.length, 1, 'təxirə salınmış oyun növbəti sayılmır');
+  // Saatı bilinməyən oyun (day: true) 12:00 UTC ilə yazılır: o an başlanğıc deyil, oyun günü 16:00-da (Bakı) siyahıdan çıxmamalıdır
+  ctx.dayGames = [{ home: 'a', away: 'b', date: '2026-12-05T12:00:00+00:00', day: true }, { home: 'a', away: 'c', date: '2026-12-05T12:00:00+00:00' }];
+  const nextAt = iso => Array.from(run(`splitGames(dayGames, Date.parse("${iso}")).next`)).map(g => g.away);
+  assert.deepEqual(nextAt('2026-12-05T11:59:00Z'), ['b', 'c']);
+  assert.deepEqual(nextAt('2026-12-05T12:01:00Z'), ['b'], 'saatı məlum oyun başlayıb, saatsız oyun hələ qarşıdadır');
+  assert.deepEqual(nextAt('2026-12-06T12:01:00Z'), [], 'ertəsi gün o da keçmiş sayılır');
   ctx.rows = TURKIYE.groups[0].rows;
   assert.deepEqual(JSON.parse(run('JSON.stringify(zonesOf(rows))')), [{ note: 'Çempionlar Liqası', color: '#81D6AC' }, { note: 'Aşağı liqaya düşmə', color: 'red;background:url(x)' }]);
   ctx.index = TEAM_INDEX;

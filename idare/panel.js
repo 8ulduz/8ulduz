@@ -63,7 +63,7 @@ $('#url-form').addEventListener('submit', async event => {
       const id = u.hash.match(/^#\/xeber\/([0-9a-f]{16})$/)?.[1] || u.pathname.match(/\/x\/([0-9a-f]{16})(?:\.html)?\/?$/)?.[1];
       if (!id) throw new Error('8ULDUZ-da xəbərin öz keçidini daxil edin.');
       a = articles.find(a => a.id === id);
-      if (!a) { const d = await json('../data/paylas/' + (parseInt(id.slice(0, 2), 16) >> 3) + '.json?t=' + Date.now()); a = d.articles?.find(a => a.id === id); if (a?.of) a = articles.find(row => row.id === a.of); }
+      if (!a) { const d = await json('../data/paylas/' + parseInt(id.slice(0, 2), 16) + '.json?t=' + Date.now()); a = d.articles?.find(a => a.id === id); if (a?.of) a = articles.find(row => row.id === a.of); }
       if (!a?.sourceUrl) throw new Error('Bu xəbər tapılmadı. Mənbədəki keçidi daxil edin.');
     } else { const key = removalKey(u.href); a = articles.find(a => removalKey(a.sourceUrl) === key) || {sourceUrl: u.href, title: u.href}; }
     if (matches(a)) throw new Error('Bu xəbər artıq çıxarılma siyahısındadır.');
