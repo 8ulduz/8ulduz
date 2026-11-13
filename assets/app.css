@@ -1123,3 +1123,4 @@ nav.main .nav-more>summary{padding:0 8px}
 .ticker .lbl .bell,.ticker .lbl .mo{width:30px;height:30px}
 .ticker .lbl .bell svg{width:16px;height:16px}
 }
+.pop-more{display:block;margin-top:6px;padding:6px 8px;border-radius:8px;font-size:.8571rem;font-weight:700;color:inherit;text-decoration:underline}
