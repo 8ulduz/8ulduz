@@ -128,14 +128,20 @@ test('the default typography is the former two-click size and every earlier size
   assert.ok(css.includes('html:is([data-fs="5"],[data-fs="6"]) .tabbar a{font-size:16px}'));
 });
 
-test('every page starts with the same default font level as the app', () => {
-  const read = p => fs.readFileSync(path.join(root, p), 'utf8');
-  const std = read('assets/app.js').match(/const FS_STD = "(\d)";/)[1];
+test('the first paint and the app agree on the default font level', () => {
+  const read = p => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
+  const app = read('assets/app.js');
+  const std = app.match(/const FS_STD = "(\d)";/)[1];
   assert.equal(std, '4');
-  assert.ok(read('index.html').includes('document.documentElement.dataset.fs = /^[0-6]$/.test(f || "") ? f : "' + std + '";'));
-  assert.equal(read('updater.py').split('document.documentElement.dataset.fs=/^[0-6]$/.test(f||"")?f:"' + std + '";').length - 1, 2, 'xəbər və bölmə səhifələrinin şablonları');
-  assert.ok(!/dataset\.fs ?= ?\/\^\[0-4\]/.test(read('index.html') + read('updater.py')), 'köhnə hədd qalmayıb');
+  assert.ok(read('index.html').includes('document.documentElement.dataset.fs = /^[0-6]$/.test(f || "") ? f : "' + std + '";'), 'baş səhifənin ilk skripti');
   assert.ok(read('assets/app.min.js').includes('/^[0-6]$/'), 'kiçildilmiş nüsxə yenidən qurulub');
+  // xeber/<id>/ və bolme/<ad>/ səhifələrinin (updater.py şablonları) ilk skripti əvvəlki «2»-ni qoyur və qəsdən dəyişdirilməyib:
+  // şablon dəyişsə minlərlə səhifə yenidən yazılmalıdır (STORY_VER). O səhifələrdə pilləni tətbiq düzəldir, ona görə applyPrefs()
+  // ilk çəkilişlə (shell(); render()) eyni sinxron blokda və ondan əvvəl qalmalıdır: arada boya olsa statik mətn 18 → 22 px sıçrayar.
+  const prefs = app.indexOf('\napplyPrefs();\n'), draw = app.indexOf('\nshell(); render();\n');
+  assert.ok(prefs > 0 && draw > prefs, 'applyPrefs() ilk çəkilişdən əvvəldir');
+  const between = app.slice(prefs, draw).split('\n').filter(l => /^\S/.test(l) && !/^(?:async )?function /.test(l));
+  assert.ok(!between.some(l => /\bawait\b/.test(l)), 'arada üst səviyyədə gözləmə (await) yoxdur');
 });
 
 test('invalid JSON response does not poison ETag; same response can recover', async () => {

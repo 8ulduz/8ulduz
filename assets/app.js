@@ -125,7 +125,7 @@ let freshSequence = 0;
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
-const FS_STD = "4"; // standart şrift pilləsi (0–6): 4 = əvvəlki «A+ iki klik» (sahib, 2026-11-13); index.html və updater.py şablonlarındakı ilə eyni
+const FS_STD = "4"; // standart şrift pilləsi (0–6): 4 = əvvəlki «A+ iki klik» (sahib, 2026-11-13); index.html-in ilk skriptindəki ilə eyni. xeber/ və bolme/ şablonları köhnə «2»-ni qoyur: orada pilləni applyPrefs() ilk çəkilişdən əvvəl düzəldir (test var)
 async function liveDirect(url, signal, any) {
   if (!any && (navigator.serviceWorker?.controller || !LIVE_FILE.test(url)) || Date.now() < liveSkipUntil) return null;
   const name = url.split("?")[0].split("/").pop(), slot = Math.floor((Date.now() / 1000 - 45) / 60);
