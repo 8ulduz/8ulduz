@@ -203,10 +203,13 @@ def pub_text(iso):
     return f"{day_text(d)} {d.year}, {d:%H:%M}"
 
 
-def oil_item(markets, now=None, force=False):
+def oil_item(markets, now=None, force=False, azeri=None):
     """Brent və WTI: markets.json-dakı son qiymət və əvvəlki bağlanışa görə dəyişmə (onu update_markets yazır).
-    Həftə sonu birja bağlıdır, qiymət cümənindir: xəbər yalnız iş günü (force: sınaq üçün)."""
+    Həftə sonu birja bağlıdır, qiymət cümənindir: xəbər yalnız iş günü (force: sınaq üçün).
+    azeri (azeri_light-ın cavabı) verilsə əsas xəbər «Azeri Light»dır, Brent və WTI mətnin davamındadır."""
     now = now or datetime.datetime.now(BAKU)
+    if azeri:
+        return _azeri_item(azeri, markets, now)
     items = {i.get("id"): i for i in markets.get("items") or []}
     brent = items.get("BRENT") or {}
     if not brent.get("value") or brent.get("stale") or (now.weekday() >= 5 and not force):
@@ -233,6 +236,97 @@ def oil_item(markets, now=None, force=False):
     src = brent.get("src") or "Yahoo Finance"
     return {"kind": "neft", "key": f"neft-{now:%Y-%m-%d}", "title": title, "lead": lead, "body": body,
             "credit": src, "link": _OIL_LINKS.get(src, "https://finance.yahoo.com/")}
+
+
+# «Azeri Light» (sahib 2026-11-12: «neftdə əsas Azərlaytı xəbər ver»). Pulsuz rəsmi mənbə yoxdur: qiyməti agentliklər bazar
+# iştirakçılarına istinadla hər iş günü yayır və o xəbərlər saytın öz lentindədir (data/news.json). Rəqəm bu günün ən təzə
+# xəbərindən götürülür və yalnız öz-özünü təsdiqləyəndə işlədilir: dəyişmə, faiz və qiymət bir-birinə uyğun olmalıdır
+# (dünənki qiymət = bugünkü ∓ dəyişmə; dəyişmə / dünənki = faiz). Uyğun gəlməyən, yarımçıq və ya iki cür oxunan mətn rədd
+# edilir və xəbər əvvəlki kimi Brent üzərində qurulur. Mənbə mətndə adı ilə göstərilir, keçid onun xəbərinədir.
+AZERI_RX = re.compile(r"az[eə]r[iı]?\s*[-–]?\s*l(?:ight|ayt)", re.I)
+AZERI_WINDOW = (datetime.time(8, 0), datetime.time(19, 0))
+AZERI_GAP = (-8.0, 20.0)   # «Azeri Light» − Brent, dollar: adətən bir neçə dollar bahadır; bu aralıqdan kənar rəqəm köhnə və ya səhvdir
+_AZ_DOLLAR = re.compile(r"(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:ABŞ\s+)?dollar", re.I)
+_AZ_FAIZ = re.compile(r"(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:faiz|%)", re.I)
+_AZ_UP = re.compile(r"\bart(?:ıb|araq|mış)|bahalaş|bahalan|yüksəl|qalx", re.I)
+_AZ_DOWN = re.compile(r"\bazal|ucuzlaş|ucuzlan|\bdüş(?:üb|ərək)|\ben(?:ib|ərək)", re.I)
+
+
+def azeri_parse(text):
+    """Mətndən «Azeri Light»ın qiyməti: {"price", "change", "pct", "dir"} və ya None. Yalnız adı keçən ilk cümləyə baxılır."""
+    for sentence in re.split(r"(?<=[.!?])\s+", str(text or "").replace("\xa0", " ")):
+        if not AZERI_RX.search(sentence):
+            continue
+        dollars = [float(m.group(1).replace(",", ".")) for m in _AZ_DOLLAR.finditer(sentence)]
+        # Faizin yazılış dəqiqliyi yoxlamanın dözümünü verir: «1,24» üçün 0,011 (yuvarlaqlaşdırma xətası), «2,5» üçün 0,06;
+        # onluqsuz faizlə («1 faiz») tutuşdurmaq olmur.
+        pcts = [(float(m.group(1).replace(",", ".")), 0.011 if len(re.split(r"[.,]", m.group(1))[-1]) == 2 else 0.06)
+                for m in _AZ_FAIZ.finditer(sentence) if re.search(r"[.,]", m.group(1))]
+        up, down = bool(_AZ_UP.search(sentence)), bool(_AZ_DOWN.search(sentence))
+        signs = (1,) if up and not down else (-1,) if down and not up else (1, -1)
+        found = set()
+        for price in dollars:
+            for change in dollars:
+                for pct, tol in pcts:
+                    for sign in signs:
+                        prev = price - sign * change
+                        if 20 <= price <= 300 and 0 < change < 20 and 0 < pct < 20 and prev > 0 and abs(change / prev * 100 - pct) <= tol:
+                            found.add((price, change, pct, sign))
+        if len(found) != 1:
+            return None   # adı keçən cümlə aydın deyil (rəqəm yoxdur, uyğun gəlmir və ya iki cür oxunur): götürülmür
+        price, change, pct, sign = found.pop()
+        return {"price": price, "change": change, "pct": pct, "dir": sign}
+    return None
+
+
+def azeri_light(root, now):
+    """Saytın lentindəki bu günün (Bakı vaxtı) ən təzə «Azeri Light» xəbəri və ondan oxunan qiymət; yoxdursa None.
+    Sorğu yoxdur: data/news.json oxunur. Öz xəbərimiz (mənbə «8ULDUZ») və azərbaycanca olmayan sətir sayılmır."""
+    try:
+        rows = json.loads((pathlib.Path(root) / "data" / "news.json").read_text(encoding="utf-8")).get("articles") or []
+    except Exception:  # fayl yoxdur və ya pozulub
+        return None
+    best = None
+    for a in rows:
+        if not isinstance(a, dict) or (a.get("lang") or "az") != "az" or a.get("source") == SOURCE:
+            continue
+        text = f"{a.get('title') or ''}. {a.get('summary') or ''}"
+        if not AZERI_RX.search(text):
+            continue
+        try:
+            at = datetime.datetime.fromisoformat(str(a.get("publishedAt"))).astimezone(BAKU)
+        except (TypeError, ValueError):
+            continue
+        source, url = str(a.get("source") or "").strip(), str(a.get("sourceUrl") or "")
+        if at.date() != now.date() or at > now or not source or not url.startswith("https://"):
+            continue
+        got = azeri_parse(text)
+        if got and (best is None or at > best["at"]):
+            best = dict(got, at=at, source=source, url=url)
+    return best
+
+
+def _oil_line(row, name):
+    """«Brent markalı neftin bir bareli 92,26 dollardır, əvvəlki bağlanışdan 0,50 dollar (0,54%) ucuzdur.»"""
+    if not row.get("value") or row.get("stale"):
+        return ""
+    change, pct = row.get("change") or 0, row.get("changePct") or 0
+    line = f"{name} markalı neftin bir bareli {az_num(row['value'], 2)} dollardır"
+    if change:
+        line += f", əvvəlki bağlanışdan {az_num(change, 2)} dollar ({az_num(pct, 2)}%) {'bahadır' if change > 0 else 'ucuzdur'}"
+    return line + "."
+
+
+def _azeri_item(az, markets, now):
+    up = az["dir"] > 0
+    price = az_num(az["price"], 2)
+    title = f"«Azeri Light» nefti {'bahalaşıb' if up else 'ucuzlaşıb'}: bareli {price} dollar"
+    lead = (f"Azərbaycanın «Azeri Light» markalı neftinin bir bareli {az_num(az['change'], 2)} dollar ({az_num(az['pct'], 2)}%) "
+            f"{'bahalaşaraq' if up else 'ucuzlaşaraq'} {price} dollar olub. Bu barədə «{az['source']}» məlumat yayıb.")
+    items = {i.get("id"): i for i in (markets or {}).get("items") or [] if isinstance(i, dict)}
+    body = [line for line in (_oil_line(items.get("BRENT") or {}, "Dünya bazarında Brent"), _oil_line(items.get("WTI") or {}, "WTI")) if line]
+    return {"kind": "neft", "key": f"neft-{now:%Y-%m-%d}", "title": title, "lead": lead, "body": body,
+            "credit": az["source"], "link": az["url"]}
 
 
 PFL_API = "https://pfl.az/api/v1"
@@ -1054,8 +1148,10 @@ def seys_sinaq(u, count=5):
 # 1. «Bu gün tarixdə» (hər gün 07:30; alınmasa ikinci cəhd 08:30, birincinin açarı «…-cehd1»): az.wikipedia, 1 sorğu.
 # 2. AMB-nin rəsmi məzənnələri (iş günləri 09:25, bülleten 09:06–09:20-də çıxır; bülleten hələ yoxdursa ikinci cəhd
 #    10:30): cbar.az, cəhd başına 2 sorğu. Həftə sonu və bayramda (oz_teqvim.qeyri_is_gunu) sorğu yoxdur.
-# 3. Neft (iş günləri 17:00–19:00): saytın data/markets.json faylı, sorğu yoxdur. Fayl 1 saatdan köhnədirsə heç nə
-#    qayıtmır (növbəti dövrədə yenə baxılır); qiymət bağlanışdan fərqlənmirsə xəbər deyil.
+# 3. Neft, sorğu yoxdur. Əsas: «Azeri Light» (hər gün 08:00–19:00), saytın lentindəki (data/news.json) bu günün agentlik
+#    xəbərindən; rəqəm yalnız dəyişmə, faiz və qiymət bir-birinə uyğun olanda götürülür, Brent və WTI davamındadır.
+#    Belə xəbər yoxdursa əvvəlki yol (iş günləri 17:00–19:00): saytın data/markets.json faylından Brent. Fayl 1 saatdan
+#    köhnədirsə heç nə qayıtmır (növbəti dövrədə yenə baxılır); qiymət bağlanışdan fərqlənmirsə xəbər deyil.
 # 4. Zəlzələ (saatda bir yoxlama, açar «seys-sorgu-<gün>T<saat>»): seismology.az siyahısı 1 sorğu, son 6 saatın yeni
 #    təkanının səhifəsi 1 sorğu (bir yoxlamada ən çox 2 təkan). Səhifə alınmasa təkanın açarı qayıtmır: gələn saat yenə.
 # 5. Premyer Liqa oyununun hesabatı: oyun saytın data/futbol/premyer-liqa.json faylında bitmiş görünəndə, başlanğıcdan
@@ -1158,9 +1254,27 @@ def amb_now(now, fetch, done):
 
 
 def oil_now(root, now, done, window=True):
-    """Neft xəbəri saytın öz markets.json faylından: sorğu yoxdur. window=False yalnız sınaq üçündür."""
+    """Neft xəbəri saytın öz fayllarından: sorğu yoxdur. window=False yalnız sınaq üçündür.
+    Əsas xəbər «Azeri Light»dır (sahib 2026-11-12): lentdə bu günün aydın oxunan xəbəri varsa (08:00–19:00, hər gün) onun
+    rəqəmi ilə, Brent və WTI davamında. Yoxdursa əvvəlki kimi: iş günü 17:00–19:00, Brent üzərində."""
     key = f"neft-{now:%Y-%m-%d}"
-    if key in done or now.weekday() >= 5 or (window and not OIL_WINDOW[0] <= now.time() < OIL_WINDOW[1]):
+    if key in done:
+        return []
+    azeri = azeri_light(root, now) if not window or AZERI_WINDOW[0] <= now.time() < AZERI_WINDOW[1] else None
+    if azeri:
+        # QIRMIZI XƏTT 4 (məlumat dəqiqdir): rəqəm Brentlə tutuşdurulur. Brent təzə deyilsə və ya fərq ağlabatan deyilsə
+        # «Azeri Light» xəbəri bu dövrədə çıxmır (açar qayıtmır: növbəti dövrədə yenə baxılır), aşağıdakı Brent yolu qalır.
+        try:
+            markets = json.loads((pathlib.Path(root) / "data" / "markets.json").read_text(encoding="utf-8"))
+            brent = next(i for i in markets["items"] if isinstance(i, dict) and i.get("id") == "BRENT")
+            fresh = datetime.timedelta(0) <= now - datetime.datetime.fromisoformat(str(markets["updatedAt"])) <= OIL_FRESH
+            near = fresh and not brent.get("stale") and AZERI_GAP[0] <= azeri["price"] - float(brent["value"]) <= AZERI_GAP[1]
+        except Exception:
+            near = False
+        if near:
+            item = oil_item(markets, now, azeri=azeri)
+            return [dict(item, topic="iqtisadiyyat", slot=f"{azeri['at']:%H:%M}", worth=True)]
+    if now.weekday() >= 5 or (window and not OIL_WINDOW[0] <= now.time() < OIL_WINDOW[1]):
         return []
     try:
         markets = json.loads((pathlib.Path(root) / "data" / "markets.json").read_text(encoding="utf-8"))
