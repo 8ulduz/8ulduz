@@ -25,6 +25,7 @@ Sahibin qərarı (2026-11-13, «Bəli, qur»): Google-da hər gün axtarılan so
 - Səhifə tətbiqi yükləmir: bir HTML, daxili CSS, xarici sorğu yoxdur (CSP `default-src 'none'`). Baş səhifənin ilk açılışına heç nə əlavə olunmur.
 - Namaz səhifəsində bir kiçik daxili skript var (CSP-də hash ilə): xidmət işçisi səhifənin saxlanmış nüsxəsini dərhal verdiyi üçün dünənki nüsxədə «bu gün» köhnə qalardı; skript ayın cədvəlindən Bakı vaxtı ilə bugünkü sətri seçir. Şəbəkəyə getmir.
 - Keçidlər: bölmə səhifələrinin altlığı, `/bolme/valyuta/` (valyuta səhifələrinə), şəhərin namaz və hava səhifələri bir-birinə.
+- Rayon səhifələri (`rayon/<ad>/`, `.github/scripts/topics.cjs`) öz şəhərinin namaz və hava səhifəsinə «Xidmətlər» sətri ilə keçid verir — yalnız həmin səhifə artıq yazılıbsa. Keçid yarananda rayon səhifəsi bir dəfə, bir saatlıq fasiləni gözləmədən yazılır (`svc` səhifənin içindəki JSON-da saxlanır).
 
 ## Məlum hədlər
 

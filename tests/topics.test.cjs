@@ -87,3 +87,24 @@ test("topics: «$» in a headline is plain text, not a String.replace pattern", 
   assert.equal(items(html), titles.length);
   assert.deepEqual([...new Set(html.match(/__[A-Z0-9_]+?__/g))], ["__ITEMS__"], "doldurulmamış yer qalmır; başlıqdakı «__ITEMS__» mətn kimi qalır");
 });
+
+test("topics: a region page links to its prayer-time and weather pages only when those pages exist, and is rewritten once when they appear", () => {
+  const dir = site([art("q1", "Qubada qar yağıb", "bolgeler", 1), art("q2", "Quba rayonunda yeni məktəb açıldı", "gundem", 2), art("q3", "Qubanın dağ kəndlərinə qaz verildi", "cemiyyet", 3)]);
+  T.run(dir, { now: NOW });
+  let quba = read(dir, "rayon/quba/index.html");
+  assert.ok(!quba.includes("Xidmətlər") && !quba.includes("__SVC__"), "səhifəsi olmayan xidmətə keçid yoxdur");
+  const mk = p => { fs.mkdirSync(path.join(dir, p), { recursive: true }); fs.writeFileSync(path.join(dir, p, "index.html"), "x"); };
+  mk("bolme/hava/quba"); mk("bolme/hava/abseron"); fs.rmSync(path.join(dir, "bolme/hava/abseron/index.html")); // qovluq var, səhifə yoxdur
+  assert.equal(T.run(dir, { now: NOW + 60e3 }).written, 1, "yalnız keçidi dəyişən səhifə, bir saatı gözləmədən");
+  quba = read(dir, "rayon/quba/index.html");
+  assert.ok(quba.includes('<b>Xidmətlər:</b> <a href="https://8ulduz.az/bolme/hava/quba/">Quba: hava proqnozu</a></p>'));
+  assert.ok(!quba.includes("bolme/namaz/"));
+  assert.equal(items(quba), 3, "xəbər siyahısı yerində qalır");
+  mk("bolme/namaz/quba");
+  T.run(dir, { now: NOW + 120e3 });
+  quba = read(dir, "rayon/quba/index.html");
+  assert.ok(quba.includes('<a href="https://8ulduz.az/bolme/namaz/quba/">Quba: namaz vaxtları</a> <a href="https://8ulduz.az/bolme/hava/quba/">Quba: hava proqnozu</a>'));
+  assert.equal(T.run(dir, { now: NOW + 180e3 }).written, 0, "dəyişməyəndə yenidən yazılmır");
+  assert.ok(read(dir, "sitemap-movzu.xml").includes("rayon/quba/"), "sitemap-də qalır");
+  assert.ok(!fs.readdirSync(path.join(dir, "idman")).some(s => read(dir, `idman/${s}/index.html`).includes("Xidmətlər")), "idman səhifələrinə aid deyil");
+});
