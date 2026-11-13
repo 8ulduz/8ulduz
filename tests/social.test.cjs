@@ -361,7 +361,12 @@ test("social: 8ulduz.az/ig/ lists Instagram's own posts in Instagram's order, ea
   const d = art("g4", { title: "Ə".repeat(400) });
   S.igRemember(state, d, 400);
   assert.ok(S.igGrid([{ caption: S.cut(d.title, 300) + "\n\nx", timestamp: "2026-11-13T11:00:00+0000" }], state, [])[0].url.includes("/" + d.id), "kəsilmiş uzun başlıq da tutulur");
-  assert.deepEqual(S.igGrid([], state, []).map(x => x.title.slice(0, 5)), ["ƏƏƏƏƏ", "Bakıd", "Nefti"], "API cavab verməsə yadda saxlanan siyahı");
+  assert.deepEqual(S.igGrid([], state, []), [], "API cavab verməsə siyahı yazılmır: budaqdakı köhnə siyahı qalır");
+  // Əsas mənbə dəyişəndə başlıq da dəyişir: post alternativ başlıqla və arxivlə də tutulur, lent arxivdən üstündür.
+  const cur = art("g5", { title: "Yeni əsas başlıq", alts: [{ title: "Tovuzda hamilə qadın bıçaqlanıb" }] });
+  const old = art("g6", { title: "Arxivdəki köhnə xəbər" }), dup = art("g7", { title: "Yeni əsas başlıq" });
+  const m2 = ["Tovuzda hamilə qadın bıçaqlanıb", "Arxivdəki köhnə xəbər", "Yeni əsas başlıq"].map(c => ({ caption: c + "\n\nx", timestamp: "2026-11-13T12:00:00+0000" }));
+  assert.deepEqual(S.igGrid(m2, {}, [cur], [old, dup]).map(x => x.url.slice(22, 38)), [cur.id, old.id, cur.id]);
   let asked = "";
   const got = await S.igMedia({ ig: "1784", root: "https://graph.facebook.com/v27.0/", token: "PAGEtok12345" }, async u => { asked = u; return { json: async () => ({ data: media }) }; });
   assert.equal(got.length, 5);
@@ -395,4 +400,43 @@ test("social: the /ig/ page is a small static page that loads no site app and on
   assert.ok(js.includes("https://raw.githubusercontent.com/8ulduz/8ulduz/ig/ig.json") && js.includes("s.textContent = x.title"), "başlıq mətn kimi yazılır");
   assert.ok(js.includes("/^https:\\/\\//.test"), "yalnız https keçid və şəkil");
   assert.ok(fs.statSync(path.join(dir, "ig.js")).size + fs.statSync(path.join(dir, "ig.css")).size + page.length < 6000);
+});
+
+// 2026-11-13: Instagram dərc cavabında «Application request limit reached» (2207051) qaytarırdı, amma post çıxırdı. Fasilə və mövzu
+// yadda qalmırdı: 6,5 saatda 36 post, eyni hadisə 5 dəfə — Instagram spam kimi məhdudlaşdırdı.
+test("social: an Instagram publish error still counts as a post (gap, topic, /ig/ list) and a spam limit pauses Instagram for hours", async () => {
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", IG_WAIT_MS: "0", SOCIAL_PER_RUN: "1" };
+  const one = art("e8", { imageUrl: "https://apa.az/1.jpg", title: "Tovuzda hamilə qadın bıçaqlanıb", summary: "Tovuz rayonunda hamilə qadın bıçaqlanıb, şübhəli saxlanılıb." });
+  const two = art("e9", { imageUrl: "https://apa.az/2.jpg", title: "Tovuzda hamilə bıçaqlandı", summary: "Tovuz rayonunda hamilə qadın bıçaqlanıb, şübhəli saxlanılıb." });
+  let published = 0;
+  const limit = '{"error":{"message":"Application request limit reached","type":"OAuthException","code":4,"error_subcode":2207051}}';
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) return { json: async () => ({ access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } }) };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    if (url.endsWith("/1784/media")) return { ok: true, status: 200, json: async () => ({ id: "C" + published }), text: async () => "" };
+    if (url.endsWith("/1784/media_publish")) { published++; return { ok: false, status: 403, text: async () => limit }; }
+    throw new Error("gözlənilməz " + url);
+  };
+  const state = {}, logs = [];
+  let res = await S.run({ articles: [one, two], env, now: NOW, fetch, state, log: s => logs.push(s) });
+  assert.equal(published, 1);
+  assert.deepEqual(res.failed, [["instagram", one.id]]);
+  assert.equal(state._last.instagram, NOW / 1000, "fasilə sayılır");
+  assert.deepEqual(state._ig.map(x => x.id), [one.id], "/ig/ siyahısına düşür");
+  assert.equal(state._pause.instagram, NOW / 1000 + 6 * 3600, "6 saat fasilə");
+  assert.ok(logs.some(s => s === "instagram: məhdudiyyət — 6 saat fasilə"));
+  for (const h of [1, 3, 5.9]) await S.run({ articles: [one, two], env, now: NOW + h * 3600e3, fetch, state, log: () => {} });
+  assert.equal(published, 1, "fasilədə Instagram-a heç nə getmir");
+  res = await S.run({ articles: [one, two], env, now: NOW + 6.1 * 3600e3, fetch, state: { ...state, _pause: {} }, log: () => {} });
+  assert.equal(published, 1, "eyni hadisənin ikinci başlığı getmir (mövzu yadda qalıb)");
+  // Şəkil qəbul edilmədi (konteyner yaranmadı): post çıxmayıb, fasilə yoxdur
+  const st2 = {}, pic = art("ea", { imageUrl: "https://site.az/a.webp" });
+  await S.run({ articles: [pic], env, now: NOW, state: st2, log: () => {}, fetch: async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) return { json: async () => ({ instagram_business_account: { id: "17" } }) };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    return { ok: false, status: 400, text: async () => '{"error":{"message":"The aspect ratio is not supported."}}' };
+  } });
+  assert.equal(st2._last?.instagram, undefined); assert.equal(st2._pause, undefined); assert.equal(st2._ig, undefined);
 });

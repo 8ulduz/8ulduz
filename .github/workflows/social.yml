@@ -48,6 +48,7 @@ jobs:
             data/news.json
             xeber/index.json
             icmal/index.json
+            data/arxiv
             /*.txt
           sparse-checkout-cone-mode: false
       - name: Paylaşılanların siyahısı

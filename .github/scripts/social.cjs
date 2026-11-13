@@ -58,6 +58,8 @@ const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
 // xülasənin əvvəli eynidir, və ya (NEAR_H saat içində) başlıq+xülasə sözlərinin çoxu üst-üstə düşür, və ya iki Prezident xəbəri PREZ_H saat
 // içində eyni ada/ölkəyə aiddir (Türkiyə, Ankara…). Söz kökü = ilk 5 hərf; ümumi sözlər və hər Prezident xəbərində olan adlar sayılmır.
 const TOPIC_H = 24, NEAR_H = 4, PREZ_H = 3;
+// Şəbəkə spam qorunması ilə məhdudlaşdıranda (Instagram 2207051, 2026-11-13) neçə saat ona yazılmır.
+const PAUSE_H = 6;
 const STOP = new Set(("ilə üçün olan olub olaraq edib etdi edən edəcək edir gedib getdi gəlib gəldi bildirib deyib haqqında barədə xəbər " +
   "sonra daha yeni bütün bəzi onun bunu belə həmin artıq hələ qədər kimi görə üzrə dair bağlı keçirilib keçirildi video foto " +
   "videoçarx olunub olundu verib verdi alıb aldı").split(" "));
@@ -217,9 +219,12 @@ function networks(env = process.env) {
         const { id } = await c.json();
         for (let i = 0; ; i++) {
           const p = await call(`${this.ig}/media_publish`, { creation_id: id });
-          if (p.ok || i >= 4) return p;
+          if (p.ok) return p;
           const t = await p.text().catch(() => "");
-          if (!/9007|not ready|not available/i.test(t)) return { ok: false, status: p.status, text: async () => t };
+          // 2026-11-13: dərc cavabı xəta («Application request limit reached», 2207051) olsa da post Instagram-da çıxırdı. Fasilə və
+          // mövzu yadda qalmırdı: hər dövrə yenə göndərirdi — 6,5 saatda 36 post, eyni hadisə 5 dəfə. Belə cavab «bəlkə dərc olunub» sayılır.
+          const busy = /9007|not ready|not available/i.test(t);
+          if (!busy || i >= 4) return { ok: false, status: p.status, text: async () => t, maybePosted: !busy };
           await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
         }
       },
@@ -263,6 +268,8 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
   for (const net of nets) {
     if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
     if (net.name === "instagram") result.ig = net;   // /ig/ səhifəsinin siyahısı üçün (main → igMedia)
+    const until = state._pause?.[net.name] || 0;
+    if (until > now / 1000) { log(`${net.name}: məhdudiyyətə görə fasilə, ${Math.ceil((until - now / 1000) / 60)} dəq qalıb`); continue; }
     const done = state[net.name] ||= {};
     const last = state._last ||= {};
     // Bir dəfəlik (iş axınında «fb_yenile»): www keçidi ilə artıq paylaşılmış xəbərlər Facebook-a yenidən oxudulur — kartı şəkilsiz
@@ -295,6 +302,11 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         if (net.post) r = await net.post(a, f);
         else { const [url, init] = net.request(a); r = await f(url, { ...init, signal: AbortSignal.timeout(20000) }); }
         if (r?.skip) { n--; log(`${net.name}: ötürülür (${r.skip}), növbəti dövrədə yenə yoxlanır — ${clean(a.title)}`); continue; }
+        if (!r.ok && r.maybePosted) {   // xəta cavabı, amma post çıxmış ola bilər: fasilə, mövzu və /ig/ siyahısı yenə yazılır
+          done[a.id] = last[net.name] = sec;
+          if (!a.digest) { done[titleKey(a)] = sec; recent.push(topic); }
+          if (net.name === "instagram") igRemember(state, a, sec);
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
         done[a.id] = last[net.name] = Math.floor(now / 1000);
         if (!a.digest) { done[titleKey(a)] = done[a.id]; recent.push(topic); }
@@ -305,6 +317,8 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         const msg = hide(e);
         if (net.name === "telegram" && /chat not found|kicked|not a member|not enough rights|need administrator/i.test(msg)) delete state._telegram; // növbəti dövrə kanalı yenidən axtarır
         if (net.skipFailed) done[a.id] = Math.floor(now / 1000); // eyni xəbər hər dövrədə təkrar yoxlanmasın
+        // Şəbəkə spam qorunması ilə məhdudlaşdırıb («request limit», Instagram 2207051): PAUSE_H saat bu şəbəkəyə yazılmır.
+        if (/request limit|2207051|limit how often|ограничиваем/i.test(msg)) { (state._pause ||= {})[net.name] = sec + PAUSE_H * 3600; log(`${net.name}: məhdudiyyət — ${PAUSE_H} saat fasilə`); }
         result.failed.push([net.name, a.id]);
         log(`${net.name}: alınmadı — ${msg}`);
         break; // şəbəkə imtina edirsə bu dövrədə ona daha yazmırıq
@@ -326,11 +340,17 @@ function igRemember(state, a, t) {
   list.unshift({ id: a.id, title: clean(a.title), url: shareUrl(a), img: `${SHARE}i/${a.id}.jpg`, t });
   state._ig = list.slice(0, IG_KEEP);
 }
-function igGrid(media, state = {}, articles = []) {
-  const known = new Map();
-  for (const a of articles || []) if (a?.id && a.title) known.set(igKey(a.title), { id: a.id, title: clean(a.title), url: shareUrl(a), img: `${SHARE}i/${a.id}.jpg` });
+// Tutuşdurma sırası (sonrakı üstündür): arxivdəki xəbərin alternativ başlıqları, arxiv, lentin alternativ başlıqları, lent,
+// paylaşanda yadda saxlanan. Alternativ başlıq lazımdır: xəbərin əsas mənbəyi dəyişəndə başlığı da dəyişir (2026-11-13 ölçüsü:
+// tapılmayan 22 postdan 11-i alternativ başlıqda və ya arxivdə idi). API cavab verməsə siyahı boşdur: budaqdakı köhnə siyahı qalır.
+function igGrid(media, state = {}, articles = [], archive = []) {
+  const known = new Map(), put = (t, a) => { if (a?.id && t) known.set(igKey(t), { id: a.id, title: clean(a.title), url: shareUrl(a), img: `${SHARE}i/${a.id}.jpg` }); };
+  for (const list of [archive, articles]) {
+    for (const a of list || []) for (const x of a?.alts || []) put(x.title, a);
+    for (const a of list || []) put(a?.title, a);
+  }
   for (const x of [...(state._ig || [])].reverse()) known.set(igKey(x.title), x);
-  if (!Array.isArray(media) || !media.length) return (state._ig || []).slice(0, IG_SHOW).map(({ title, url, img, t }) => ({ title, url, img, t }));
+  if (!Array.isArray(media) || !media.length) return [];
   return media.slice(0, IG_SHOW).map(m => {
     const title = clean(String(m.caption || "").split("\n")[0]).replace(/…$/, "");
     const hit = title && known.get(igKey(title));
@@ -360,8 +380,13 @@ async function main() {
   try { digestIndex = JSON.parse(fs.readFileSync("icmal/index.json", "utf8")); } catch {}
   const res = await run({ articles, digestIndex, now, state });
   // /ig/ səhifəsinin siyahısı (social.yml «ig» işi budağa yazır). Instagram qoşulu deyilsə və ya siyahı boşdursa fayl yazılmır.
-  try {
-    const grid = igGrid(await igMedia(res.ig, globalThis.fetch), state, articles);
+  // Instagram-dan siyahı saatda bir dəfə və ya bu dövrədə post çıxanda soruşulur (Meta sorğu həddi; iş ~10 dəqiqədən bir işləyir).
+  const lastAsk = state._igAsked || 0, posted = res.posted.some(x => x[0] === "instagram") || (state._last?.instagram || 0) > lastAsk;
+  if (res.ig && (posted || now / 1000 - lastAsk >= 3600)) try {
+    state._igAsked = Math.floor(now / 1000);
+    let archive = [];
+    try { archive = fs.readdirSync("data/arxiv").filter(f => f.endsWith(".json")).flatMap(f => JSON.parse(fs.readFileSync(path.join("data/arxiv", f), "utf8")).articles || []).filter(a => !app.policyViolation(a)); } catch {}
+    const grid = igGrid(await igMedia(res.ig, globalThis.fetch), state, articles, archive);
     if (grid.length) { fs.mkdirSync("ig-out", { recursive: true }); fs.writeFileSync("ig-out/ig.json", JSON.stringify({ at: Math.floor(now / 1000), items: grid })); }
   } catch (e) { console.log(`ig: siyahı yazılmadı — ${String(e?.message || e).slice(0, 120)}`); }
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
