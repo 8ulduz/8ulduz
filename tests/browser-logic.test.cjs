@@ -3230,6 +3230,16 @@ test('no jump on open: the ticker and markets rows reserve their real height at 
     assert.ok(css.includes(k), 'ayrılan yerin düsturu bu qaydaya söykənir, o dəyişibsə düsturu yenidən ölçün: ' + k);
   assert.equal(where('.hero-strip:not([data-pages]){padding-bottom:12px}'), '', 'slayd nöqtələrinin yeri (6 + 6 px) JS onları qoyana qədər ayrılır');
   assert.ok(css.includes('.st-dots{display:flex;justify-content:center;gap:5px;padding:6px 0 0}') && css.includes('.st-dots button{width:6px;height:6px;'), 'nöqtə sırası 12 px-dir');
+  // telefonda naviqasiya JS-dən əvvəl də son düzülüşdədir: hazır HTML-də «Ana ekrana» düyməsi gizlidir (qabıq telefonu tanımır), JS onu ~0,4 s
+  // sonra açanda «İdman» və «Bölgələr» yana atılırdı; ana ekrandan açılanda Gündəm və Dünya sonradan çıxırdı (brauzer ölçüsü: 330/360/412 px)
+  assert.match(where('@media(hover:none) and (display-mode:browser){nav.main .nav-inst[hidden]{display:inline-flex!important}}'), /max-width:600px/, 'toxunma ekranında, brauzer vərəqində düymə JS-siz də görünür (app.js installBtn ilə eyni şərt)');
+  assert.match(where('@media(display-mode:standalone){nav.main>a:is([href$="gundem/"],[href$="dunya/"]){display:flex;order:-1;flex:1 1 0;min-width:0;overflow:hidden}}'), /max-width:600px/, 'ana ekrandan açılanda Gündəm və Dünya JS-siz də yerindədir (.ph ilə eyni ölçü)');
+  assert.ok(css.indexOf('nav.main .nav-inst[hidden]{display:inline-flex!important}') > css.indexOf('nav.main>a:not(.ph,.nav-tg){display:none}'), 'bu qaydalar gizlədən qaydalardan sonra gəlir');
+  assert.ok(css.includes('[hidden]{display:none!important}'), 'ümumi [hidden] qaydası !important-dır: düymənin qaydası da elə olmalıdır');
+  const appJs = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(appJs.includes('const isPhone = () => isIOS() || matchMedia("(hover:none)").matches;') && appJs.includes('if (isStandalone() || (!S.installEvt && !isPhone())) return "";'), 'CSS şərti bu JS şərtinin əksidir: biri dəyişsə o biri də dəyişməlidir');
+  // namaz vaxtı gələndə düymə .pray-wrap içinə düşür: blok sarğı sətir hündürlüyü qədər (26,9 px) olurdu, düymə 25 px — bütün səhifə 2 px (A+ ilə 7 px) atılırdı
+  assert.ok(css.includes('.pray-wrap{position:relative;display:flex}'), 'sarğı düymənin öz hündürlüyündədir');
   // paylaşılan keçid: skeletin üst boşluğu xəbərin özününkü ilə eynidir (14 px idi: xəbər gələndə #view 10 px aşağı düşürdü, CLS 0,31)
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(css.includes('.article-detail{max-width:860px;margin:24px auto}') && js.includes('<div class="skel" style="height:30px;margin:24px 0 10px"></div>'), 'xəbər skeleti və xəbər eyni yerdən başlayır');
