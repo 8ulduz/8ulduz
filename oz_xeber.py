@@ -984,9 +984,15 @@ FAZA2 = (
     ("oz_gundelik", "Gündəlik həyat"),
 )
 
+# Mərhələ 3: yeni növlər (sahib, 2026-11-12: «5 qat genişləndir çeşidliliyi»). Bunları da yalnız dərc hissəsi çağırır.
+FAZA3 = (
+    ("oz_resmi", "Rəsmi məlumat: elanlar və reyestrlər"),
+)
+
 FAZALAR = (
     (3, "Mərhələ 1: saytın öz məlumatından (şablon, süni intellektsiz)", FAZA1),
     (4, "Mərhələ 2: açarsız açıq mənbələrdən (şablon, süni intellektsiz)", FAZA2),
+    (5, "Mərhələ 3: yeni növlər (şablon)", FAZA3),
 )
 
 
@@ -1013,9 +1019,9 @@ def faza_sinaq(root, now, fetch):
 
 
 def derc_sinaq(root, now, fetch):
-    """5-ci bölmə: dərc hissəsinin (oz_derc.py) sınağı: üç kilid, bu günün quru sınağı, nümunə sətir və səhifə.
+    """6-cı bölmə: dərc hissəsinin (oz_derc.py) sınağı: üç kilid, bu günün quru sınağı, nümunə sətir və səhifə.
     Başlıqları iki pillə aşağı salınır ki, bu bölmənin içində qalsın. oz_derc xəbər modulu deyil: FAZA siyahılarında yoxdur."""
-    md = ["## 5. Dərc hissəsi (`oz_derc.py`): sayta qoşulub, açarı yanılıdır", ""]
+    md = ["## 6. Dərc hissəsi (`oz_derc.py`): sayta qoşulub, açarı yanılıdır", ""]
     try:
         import oz_derc
         lines = oz_derc.sinaq(root, now, fetch)
