@@ -125,6 +125,7 @@ let freshSequence = 0;
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
+const FS_STD = "4"; // standart şrift pilləsi (0–6): 4 = əvvəlki «A+ iki klik» (sahib, 2026-11-13); index.html-in ilk skriptindəki ilə eyni. xeber/ və bolme/ şablonları köhnə «2»-ni qoyur: orada pilləni applyPrefs() ilk çəkilişdən əvvəl düzəldir (test var)
 async function liveDirect(url, signal, any) {
   if (!any && (navigator.serviceWorker?.controller || !LIVE_FILE.test(url)) || Date.now() < liveSkipUntil) return null;
   const name = url.split("?")[0].split("/").pop(), slot = Math.floor((Date.now() / 1000 - 45) / 60);
@@ -1324,7 +1325,7 @@ function renderTopbar() {
         (!S.wxAll ? `<div class="empty" style="padding:24px 0">Yüklənir…</div>` :
           `<div class="wx-grid">${S.wxAll.map(c => `<button class="wx-city" data-city="${esc(c.city)}"><span>${c.icon} ${esc(c.city)}</span><b>${c.temp}°</b></button>`).join("")}</div>`)) + `</div>`;
   }
-  const fs = document.documentElement.dataset.fs || "2";
+  const fs = document.documentElement.dataset.fs || FS_STD;
   const light = document.documentElement.dataset.theme === "light";
   const h = `    <span>${today()}</span>
     ${optional(prayBit)}
@@ -1333,7 +1334,7 @@ function renderTopbar() {
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}${syncBad ? ' <button type="button" class="retry" data-act="refresh">Yenilə</button>' : ""}</span>` : ""}
     <span class="yenilendi"${upd ? "" : ' style="visibility:hidden"'}><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd || now)}</span>
-    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
+    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "6" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
   if (h !== S.topH) S.topH = $("#topbar").innerHTML = h; // dəyişməyən zolaq yenidən yazılmır: hər çəkilişdə (və hər 30 s) yazılırdı — stil işi, çəkilişdən əvvəl çirkli səhifə (D2, 2026-11-09)
   syncTixDot();
 }
@@ -2671,7 +2672,7 @@ function applyPrefs() {
   const theme = saved === "light" || saved === "dark" ? saved : SYS_LIGHT?.matches ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
   let fs = storage.getItem(FS_KEY);
-  if (!/^[0-4]$/.test(fs || "")) fs = "2";
+  if (!/^[0-6]$/.test(fs || "")) fs = FS_STD;
   document.documentElement.dataset.fs = fs;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = theme === "light" ? "#f6f4ee" : "#15233b";
@@ -2681,7 +2682,7 @@ function setPref(act) {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     storage.setItem(THEME_KEY, next);
   } else {
-    const n = Math.max(0, Math.min(4, Number(document.documentElement.dataset.fs || "2") + (act === "fs-up" ? 1 : -1)));
+    const n = Math.max(0, Math.min(6, Number(document.documentElement.dataset.fs || FS_STD) + (act === "fs-up" ? 1 : -1)));
     storage.setItem(FS_KEY, String(n));
   }
   applyPrefs();

@@ -16,8 +16,8 @@
 --sky-chip:hsl(215 70% 100%/.12);--sky-chip-line:hsl(215 60% 100%/.28);
 --navy:#2c4a75;--up:#34d399;--down:#f87171;
 --radius:12px;--gap:16px;--gutter:16px;
---fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;
---fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px;
+--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title:34px;
+--fs-headline:25px;--lh-headline:34px;--fs-body:22px;--lh-body:32px;--fs-meta:16px;--lh-meta:23px;
 --fw-regular:400;--fw-semibold:600;--fw-bold:700;
 --header:#15233b;--surface:#1a2a43;--soc-chip:#1a2a43;--chip:#c9d4e5;--src-fg:#c9d4e5;--modal-fg:#d5deeb;
 --footer:#1a2a43;--ad:#1a2a43;--ad-border:#4c627f;
@@ -29,8 +29,10 @@
 html{font-size:var(--fs-body)}
 html[data-fs="0"]{--fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;--fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px}
 html[data-fs="1"]{--fs-display:24px;--lh-display:30px;--fs-title:20px;--lh-title:26px;--fs-headline:19px;--lh-headline:26px;--fs-body:17px;--lh-body:25px;--fs-meta:13px;--lh-meta:18px}
+html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;--fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px}
 html[data-fs="3"]{--fs-display:28px;--lh-display:35px;--fs-title:24px;--lh-title:31px;--fs-headline:23px;--lh-headline:31px;--fs-body:20px;--lh-body:29px;--fs-meta:15px;--lh-meta:22px}
-html[data-fs="4"]{--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title:34px;--fs-headline:25px;--lh-headline:34px;--fs-body:22px;--lh-body:32px;--fs-meta:16px;--lh-meta:23px}
+html[data-fs="5"]{--fs-display:32px;--lh-display:41px;--fs-title:28px;--lh-title:37px;--fs-headline:27px;--lh-headline:37px;--fs-body:24px;--lh-body:35px;--fs-meta:17px;--lh-meta:25px}
+html[data-fs="6"]{--fs-display:34px;--lh-display:44px;--fs-title:30px;--lh-title:40px;--fs-headline:29px;--lh-headline:40px;--fs-body:26px;--lh-body:38px;--fs-meta:18px;--lh-meta:26px}
 :root[data-theme="light"]{
 --bg:#f6f4ee;--fg:#172b4d;--card:#fff;--card2:#e6ebf2;
 --primary:#19385f;--primary-fg:#fff;--muted:#465773;--muted2:#52617b;
@@ -1023,9 +1025,10 @@ main{padding-top:8px}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: */
 .hrow{flex-wrap:wrap}
 .hrow>.topbar{flex:1 0 100%;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
-html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar{min-width:0}
-html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
+html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar{min-width:0}
+html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
 @media(min-width:721px){html[data-fs="2"] .hrow>.topbar{min-width:0}html[data-fs="2"] .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}}
+html:is([data-fs="5"],[data-fs="6"]) .tabbar a{font-size:16px}
 /* Paylaşma: hər yerdə «Paylaş» düyməsi → panel */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}

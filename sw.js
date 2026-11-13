@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v163"; // hər versiyanın qeydi: docs/sw-versiyalar.md (bu faylı oxucunun brauzeri endirir, tarixçə burada saxlanmır)
+const VERSION = "v164"; // hər versiyanın qeydi: docs/sw-versiyalar.md (bu faylı oxucunun brauzeri endirir, tarixçə burada saxlanmır)
 const STATIC = "8ulduz-static-" + VERSION;
 // Məlumat keşinin adı versiyasızdır (2026-11-09): əvvəl hər yayımda (gündə 20–40 dəfə) silinirdi və yayımdan sonrakı ilk açılış
 // keşsiz başlayırdı — app.js loadCached boş qalır, lent şəbəkəni gözləyirdi (telefonda +0,6–0,9 s). Açarlar sorğusuz yoldur
@@ -170,6 +170,14 @@ async function cacheFirst(req) {
 // index.html hər yayımda dəyişə bilər, ona görə o müqayisə olunmur. Nüsxə yoxdursa (ilk açılış, başqa yol) şəbəkə gözlənilir.
 // Yalnız bu ünvanın öz nüsxəsi: başqa yolda index.html açılsa ./assets/ yolları sınır. O hal şəbəkə alınmayanda cacheFirst-dədir.
 const CODE_FILE = /\.(?:js|css)$/;
+// Çoxdan gəlməyən oxucu (sahib, 2026-11-13: Facebook-un daxili brauzeri saytın 3 gün əvvəlki nüsxəsini göstərdi): saxlanmış nüsxə
+// SHELL_MAX_AGE_MS-dən köhnədirsə əvvəl təzəsi gözlənilir, SHELL_WAIT_MS-də gəlməsə saxlanmış verilir. Hər gün gələn oxucunun
+// nüsxəsi hər açılışda arxada təzələnir, ona görə ona toxunmur: təkrar açılış əvvəlki kimi şəbəkəni gözləmir.
+const SHELL_MAX_AGE_MS = 36 * 3600e3, SHELL_WAIT_MS = 2500;
+function tooOld(res) {
+  const at = Date.parse(res.headers.get("date") || "");
+  return at > 0 && Date.now() - at > SHELL_MAX_AGE_MS;
+}
 async function cachedShell(req, event) {
   const cache = await caches.open(STATIC);
   // Açar həmişə yalnız yoldur (naviqasiya da, kod faylı da): ?utm_source=… və ya app.js?c=… kimi sorğu öz nüsxəsini
@@ -181,18 +189,26 @@ async function cachedShell(req, event) {
   // Müqayisə üçün mətn saxlanmış cavab səhifəyə verilməzdən ƏVVƏL götürülür: gövdə oxunandan sonra clone() xəta atır
   // və keş heç vaxt yenilənmirdi (v33-də belə idi: köhnə app.js telefonda qalırdı).
   const savedText = saved && CODE_FILE.test(new URL(req.url).pathname) ? saved.clone().text().catch(() => null) : null;
-  const network = fetch(new Request(key, { cache: "no-cache" })).then(async (fresh) => {
+  const old = !!saved && tooOld(saved);
+  let tell = !old; // səhifəyə saxlanmış nüsxə verilirsə təzə kod barədə xəbər gedir; təzəsi verilibsə ehtiyac yoxdur
+  const net = fetch(new Request(key, { cache: "no-cache" }));
+  const network = net.then(async (fresh) => {
     if (fresh.redirected) return req.mode === "navigate" ? Response.redirect(fresh.url, 302) : fresh;
     if (!fresh.ok) return fresh;
-    const copy = fresh.clone();
-    const changed = !!savedText && (await savedText) !== (await fresh.clone().text());
+    const copy = fresh.clone(), text = savedText ? fresh.clone().text() : null; // surətlər gövdə səhifəyə verilməzdən əvvəl
+    const changed = !!text && (await savedText) !== (await text);
     await cache.put(key, copy).catch(() => {});
-    if (changed) for (const client of await self.clients.matchAll({ type: "window" })) client.postMessage({ type: "shell-updated" });
+    if (changed && tell) for (const client of await self.clients.matchAll({ type: "window" })) client.postMessage({ type: "shell-updated" });
     return fresh;
   });
   if (!saved) return network.catch(() => cacheFirst(req));
   event?.waitUntil?.(network.catch(() => {}));
   network.catch(() => {});
+  if (old) {
+    const fresh = await Promise.race([net.catch(() => null), new Promise((r) => setTimeout(() => { tell = true; r(null); }, SHELL_WAIT_MS))]);
+    if (fresh?.ok && !fresh.redirected) return fresh;
+    tell = true;
+  }
   return saved;
 }
 
