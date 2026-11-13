@@ -99,6 +99,15 @@ function cut(s, n) {
   return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…";
 }
 const html = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Telegram mətndəki sayt adını («Modern.az xəbər verir ki…») özü keçidə çevirir və o, bizim keçiddən yuxarıda durur: oxucu mənbəyə
+// gedirdi. Nöqtədən sonra boşluq olmayanda («edilib.Metbuat.az») keçid olmayan ünvana (edilib.metbuat.az) aparırdı (2026-11-14).
+// Əvvəl cümlə sonuna boşluq, sonra sayt adının son nöqtəsindən sonra görünməz boşluq (U+200B): ad oxunur, keçid yaranmır.
+const SITE_TLD = "az|com|ru|org|net|info|tv|ws|media|news|io|me|biz|tr|ge|eu|uk";
+// Böyük-kiçik hərf burada fərqlidir (cümlə sonu: kiçik hərf, nöqtə, böyük hərf), ona görə sonluğun «Media», «AZ» yazılışları ayrıca sayılır.
+const TLD_ANY_CASE = SITE_TLD.split("|").flatMap(t => [t, t[0].toUpperCase() + t.slice(1), t.toUpperCase()]).join("|");
+const NAME_AFTER_DOT = new RegExp(`(\\p{Ll})\\.(?=\\p{Lu}[\\p{L}\\d-]*\\.(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))`, "gu");
+const SITE_NAME = new RegExp(`(?<![\\p{L}\\d@/.-])((?:[\\p{L}\\d-]+\\.)+)(${SITE_TLD})(?![\\p{L}\\d])`, "giu");
+const noLinks = s => String(s).replace(NAME_AFTER_DOT, "$1. ").replace(SITE_NAME, "$1\u200B$2");
 
 // RFC 5849 (OAuth 1.0a), X API v2 üçün. JSON gövdəsi imzaya daxil deyil.
 const pct = s => encodeURIComponent(s).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
@@ -143,8 +152,8 @@ function networks(env = process.env) {
     },
     request(a) {
       const url = shareUrl(a), sum = cut(a.summary, 300);
-      const text = a.digest ? `<b>${html(a.title)}</b>\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${html(digestList(a))}\n\n${url}`
-        : `<b>${html(cut(a.title, 250))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(sum)}` : ""}\n\n${url}`;
+      const text = a.digest ? `<b>${html(a.title)}</b>\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${html(noLinks(digestList(a)))}\n\n${url}`
+        : `<b>${html(noLinks(cut(a.title, 250)))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(noLinks(sum))}` : ""}\n\n${url}`;
       return [`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
     } });
@@ -395,5 +404,5 @@ async function main() {
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic, igGrid, igRemember, igMedia };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });

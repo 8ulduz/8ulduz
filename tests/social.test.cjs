@@ -440,3 +440,23 @@ test("social: an Instagram publish error still counts as a post (gap, topic, /ig
   } });
   assert.equal(st2._last?.instagram, undefined); assert.equal(st2._pause, undefined); assert.equal(st2._ig, undefined);
 });
+
+test("social: site names in the Telegram text do not become links above ours (2026-11-14: «edilib.Metbuat.az» linked to a dead host, «Modern.az» to the source)", () => {
+  const Z = String.fromCharCode(0x200B);
+  const cases = [
+    ["vəzifəsindən azad edilib.Metbuat.az xəbər verir ki, bu barədə", `vəzifəsindən azad edilib. Metbuat.${Z}az xəbər verir ki, bu barədə`],
+    ["təsdiq edilib. Modern.az yerli mediaya istinadən", `təsdiq edilib. Modern.${Z}az yerli mediaya istinadən`],
+    ["Bunu Bizim.Media-ya açıqlamasında deyib.Bizim.Media xəbər verir", `Bunu Bizim.${Z}Media-ya açıqlamasında deyib. Bizim.${Z}Media xəbər verir`],
+    ["www.apa.az və Baku.ws yazır", `www.apa.${Z}az və Baku.${Z}ws yazır`],
+    ["Qiymət 3.5 faiz artıb. Azərbaycan 2.az yox", `Qiymət 3.5 faiz artıb. Azərbaycan 2.${Z}az yox`],
+    ["Sadə cümlə. Başqa cümlə, A.Əliyev və ABŞ-nin 1.2 milyardı.", "Sadə cümlə. Başqa cümlə, A.Əliyev və ABŞ-nin 1.2 milyardı."],
+  ];
+  for (const [input, want] of cases) assert.equal(S.noLinks(input), want);
+  const net = S.networks({ TELEGRAM_BOT_TOKEN: "123:SECRET", TELEGRAM_CHAT: "-1002" }).find(n => n.name === "telegram");
+  const [, init] = net.request(art("t1", { title: "Oxu.az: yeni qərar", summary: "Vəzifədən azad edilib.Metbuat.az xəbər verir ki, qərar imzalanıb." }));
+  const text = JSON.parse(init.body).text;
+  assert.ok(text.startsWith(`<b>Oxu.${Z}az: yeni qərar</b>`) && text.includes(`edilib. Metbuat.${Z}az xəbər`));
+  const url = text.split("\n").pop();
+  assert.ok(url.startsWith("https://www.8ulduz.az/") && !url.includes(Z), "öz keçidimizə toxunulmur");
+  assert.equal(text.split("8ulduz.az").length, 2, "mətndə yeganə işlək ünvan bizimkidir");
+});
