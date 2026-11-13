@@ -4,7 +4,7 @@ name: Öz xəbər modulu
 
 on:
   push:
-    branches: ['oz-f1-**', 'oz-f2-**']
+    branches: ['oz-f1-**', 'oz-f2-**', 'oz-f3-**']
 
 permissions:
   contents: read

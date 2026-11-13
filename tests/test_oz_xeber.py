@@ -531,7 +531,7 @@ class WiredSwitchedOnTest(unittest.TestCase):
         for name in ("updater.py", "reader_content.py", "content_policy.py", "assets/content-policy.js", ".github/scripts/check_outputs.py"):
             self.assertIn(name, base, "əvvəlki kod faylları siyahıda qalır")
         # Mərhələ 1 və 2-nin on iki modulu: hər fayl siyahıdadır, siyahıdakı hər modulun faylı var.
-        listed = [n for n, _ in oz.FAZA1 + oz.FAZA2]
+        listed = [n for n, _ in oz.FAZA1 + oz.FAZA2 + oz.FAZA3]
         self.assertEqual(len(oz.FAZA2), 6, "mərhələ 2-nin altı modulu")
         # oz_derc xəbər modulu deyil (dərc hissəsidir): modul siyahısında yoxdur.
         self.assertEqual(sorted(listed), sorted(m for m in modules if m not in ("oz_xeber", "oz_derc")), "sınaq bütün modulları göstərir")
