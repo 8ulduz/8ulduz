@@ -184,6 +184,20 @@ class SwitchOnFeedTest(Sandbox):
                     self.assertNotIn("alts", a, "başqa mənbə öz xəbərə bağlanmır")
         self.assertEqual(content_policy.enforce(rows), (rows, {}), "öz sətirlər qapıdan keçir")
 
+    def test_own_pages_are_in_the_news_sitemap_only_when_switched_on(self):
+        """Sahib, 2026-11-13: «Bəli, əlavə et». Lentdəki öz xəbərin səhifəsi saytdadır, Google News xəritəsinə də yazılır."""
+        rows = [own_row(1, 5), own_row(2, 20)]
+        self.write_rows(rows)
+        with env(**ON):
+            self.assertEqual(self.cycle(self.items())[0], 0)
+            xml = (self.root / "sitemap-news.xml").read_text(encoding="utf-8")
+            for r in rows:
+                self.assertEqual(xml.count(f"<loc>{r['sourceUrl']}</loc>"), 1, r["id"])
+            self.assertIn("<news:title>Öz xəbər 1</news:title>", xml)
+        with env():
+            self.assertEqual(self.cycle(self.items())[0], 0)
+            self.assertNotIn("/xeber/000000000000000", (self.root / "sitemap-news.xml").read_text(encoding="utf-8"), "açarsız öz səhifə yazılmır")
+
     def test_own_rows_reach_every_written_file_unchanged(self):
         # 1: lentdəki xəbərlə eyni başlıq, bölməsi başlığın «təbii» bölməsindən fərqli; 3: 30 saat əvvəlki sətir.
         rows = [own_row(1, 5, "tehsil", self.SAME), own_row(2, 45, "iqtisadiyyat"), own_row(3, 30 * 60, "cemiyyet")]

@@ -57,7 +57,8 @@ Sayta qoşulma (mərhələ 2, 2026-11-12): nə edilib, nə qalıb.
    fayl oxunur, sorğu yoxdur). Öz sətir yenidən təsnif edilmir, qruplaşmır, linki yoxlanmır; write_story_pages mənbəyi
    «8ULDUZ» olan sətri buraxır: onun xeber/<id>/ səhifəsini bu fayl yazıb, ümumi şablon üstündən yazmır.
 4. EDİLİB (mərhələ 3, sahib 2026-11-12: «Bəli, yandır»): pipeline.sh-də `export OZ_DERC=1` (2-ci kilid) və onu qoruyan test.
-5. QALIB (edilməyib): write_sitemap və write_news_sitemap öz səhifələri yazmır (yalnız ümumi xəbər səhifələrinin siyahısı).
+5. EDİLİB (sahib 2026-11-13: «Bəli, əlavə et»): updater.write_sitemap və write_news_sitemap lentdəki öz xəbərlərin səhifələrini də
+   yazır (updater._own_page_rows). Yalnız lentdə olan (səhifəsi saytda olan) sətirlər; lentdən çıxan səhifə xəritədən də çıxır.
 
 Sınaq: python oz_derc.py --sinaq --root DIR [--now 2026-11-12T09:00+04:00]
 """

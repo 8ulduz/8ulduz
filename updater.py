@@ -5692,7 +5692,13 @@ def _iso_utc(dt):
         dt = dt.replace(tzinfo=datetime.timezone.utc)
     return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
 
-def write_sitemap(stories=None, digests=()):
+def _own_page_rows(articles):
+    """Lentdəki öz xəbərlər (mənbə «8ULDUZ»), ünvanı saytın öz xeber/<id>/ səhifəsi olanlar. Öz sətir lentə yalnız səhifəsi
+    saytda olandan sonra düşür (read_own_rows), ona görə sayt xəritəsinə yazıla bilər: Google onu oradan tapır."""
+    return [a for a in articles or [] if a.get("source") == OWN_SOURCE and a.get("id")
+            and a.get("sourceUrl") == f"{SITE}xeber/{a['id']}/"]
+
+def write_sitemap(stories=None, digests=(), own=()):
     now = _iso_utc(datetime.datetime.now(datetime.timezone.utc))
     locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
@@ -5711,11 +5717,18 @@ def write_sitemap(stories=None, digests=()):
     for sid, row in newest:
         day = _iso_utc(datetime.datetime.fromtimestamp(row[0], datetime.timezone.utc))
         body.append(f"<url><loc>{SITE}xeber/{sid}/</loc><lastmod>{day}</lastmod></url>")
+    listed = {sid for sid, _row in newest}
+    for a in own or ():  # öz xəbərlərin səhifələri (_own_page_rows): ümumi səhifə siyahısında yoxdur, onları dərc hissəsi yazır
+        dt = _parse_dt(a.get("publishedAt"))
+        if dt and a["id"] not in listed:
+            listed.add(a["id"])
+            body.append(f"<url><loc>{_xml(a['sourceUrl'])}</loc><lastmod>{_iso_utc(dt)}</lastmod></url>")
     body.append("</urlset>\n")
     _write_atomic(SITEMAP_FILE, "".join(body), encoding="utf-8")
 
 def write_news_sitemap(articles, stories=None, now=None):
-    """Google News sitemap: son 48 saat, ən çoxu 1000 ünvan. Səhifəsi olan xəbərlər."""
+    """Google News sitemap: son 48 saat, ən çoxu 1000 ünvan. Səhifəsi olan xəbərlər: ümumi xəbər səhifələri (stories) və
+    lentdəki öz xəbərlər (_own_page_rows; onların səhifəsini dərc hissəsi yazır)."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     if isinstance(now, (int, float)):
         now = datetime.datetime.fromtimestamp(now, datetime.timezone.utc)
@@ -5724,10 +5737,11 @@ def write_news_sitemap(articles, stories=None, now=None):
     if stories is None:
         stories = read_story_index()
     cutoff = now - datetime.timedelta(hours=48)
+    own = {a["id"] for a in _own_page_rows(articles)}
     rows = []
     for a in articles or []:
         sid = str(a.get("id") or "")
-        if sid not in (stories or {}):
+        if sid not in (stories or {}) and sid not in own:
             continue
         dt = _parse_dt(a.get("publishedAt"))
         if not dt or dt < cutoff or dt > now + datetime.timedelta(minutes=15):
@@ -5773,7 +5787,7 @@ def write_public():
     except Exception as e:
         print("  ! bölmə səhifələri:", type(e).__name__, e)
     try:
-        write_sitemap(stories, digests)
+        write_sitemap(stories, digests, _own_page_rows(articles))
     except Exception as e:
         print("  ! sitemap:", type(e).__name__, e)
     try:  # alınmasa xəbər faylı artıq yazılıb
