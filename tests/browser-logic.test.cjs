@@ -80,37 +80,60 @@ test('broken percent-encoded route does not break the page', () => {
   assert.equal(ctx.api.route().q, 'İlham');
 });
 
+// Sahib, 2026-11-13: «Saytda standart şrifti indiki A+-ın 2 kliki boyda et». Standart pillə 2-dən 4-ə keçdi (ölçülər yerində
+// qaldı: saxlanmış seçim eyni ölçünü göstərir), üstünə iki yeni pillə (5, 6) əlavə olundu ki, A+ standartdan da böyütsün.
 test('reader font starts at the former two-click size and adjusts in both directions without losing saved sizes', () => {
   const ctx = app({requestAnimationFrame() {}});
   vm.runInContext('setupMarquees = () => {};', ctx);
   ctx.api.applyPrefs();
-  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+  assert.equal(ctx.document.documentElement.dataset.fs, '4');
   vm.runInContext('setPref("fs-up"); setPref("fs-up"); setPref("fs-up");', ctx);
-  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'upper bound');
-  assert.equal(ctx.api.storage.getItem('8ulduz-fs'), '4');
+  assert.equal(ctx.document.documentElement.dataset.fs, '6', 'upper bound');
+  assert.equal(ctx.api.storage.getItem('8ulduz-fs'), '6');
   ctx.document.documentElement.dataset.fs = '';
   ctx.api.applyPrefs();
-  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'saved size restored');
-  vm.runInContext('for(let i=0;i<6;i++) setPref("fs-down");', ctx);
+  assert.equal(ctx.document.documentElement.dataset.fs, '6', 'saved size restored');
+  vm.runInContext('for(let i=0;i<8;i++) setPref("fs-down");', ctx);
   assert.equal(ctx.document.documentElement.dataset.fs, '0', 'lower bound');
-  for (const saved of ['0','1','2','3','4']) {
+  for (const saved of ['0','1','2','3','4','5','6']) {
     ctx.api.storage.setItem('8ulduz-fs', saved);
     ctx.api.applyPrefs();
     assert.equal(ctx.document.documentElement.dataset.fs, saved, 'existing choice kept');
   }
-  ctx.api.storage.setItem('8ulduz-fs', 'broken');
-  ctx.api.applyPrefs();
-  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+  for (const bad of ['broken', '7', '-1', '']) {
+    ctx.api.storage.setItem('8ulduz-fs', bad);
+    ctx.api.applyPrefs();
+    assert.equal(ctx.document.documentElement.dataset.fs, '4');
+  }
 });
 
-test('the default typography keeps every token of the original two-click size', () => {
+test('the default typography is the former two-click size and every earlier size keeps its level', () => {
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
-  const defaults = css.match(/:root\{([^}]+)\}/)[1];
-  const values = Object.fromEntries([...defaults.matchAll(/--((?:fs|lh)-[\w-]+):([^;]+);/g)].map(m=>[m[1],m[2]]));
-  assert.deepEqual(values, {
-    'fs-display':'26px','lh-display':'32px','fs-title':'22px','lh-title':'28px',
-    'fs-headline':'21px','lh-headline':'28px','fs-body':'18px','lh-body':'26px','fs-meta':'14px','lh-meta':'20px'
-  }, 'reference: original html[data-fs="2"] before this change');
+  const tokens = block => Object.fromEntries([...block.matchAll(/--((?:fs|lh)-[\w-]+):([^;}]+)/g)].map(m=>[m[1],m[2]]));
+  const level = n => tokens(css.match(new RegExp('html\\[data-fs="' + n + '"\\]\\{([^}]+)\\}'))[1]);
+  const row = (a,b,c,d,e,f,g,h,i,j) => ({'fs-display':a+'px','lh-display':b+'px','fs-title':c+'px','lh-title':d+'px',
+    'fs-headline':e+'px','lh-headline':f+'px','fs-body':g+'px','lh-body':h+'px','fs-meta':i+'px','lh-meta':j+'px'});
+  assert.deepEqual(tokens(css.match(/:root\{([^}]+)\}/)[1]), row(30,38,26,34,25,34,22,32,16,23), 'reference: html[data-fs="4"] before this change');
+  assert.deepEqual(level(0), row(22,27,18,24,17,23,15,22,12,16));
+  assert.deepEqual(level(1), row(24,30,20,26,19,26,17,25,13,18));
+  assert.deepEqual(level(2), row(26,32,22,28,21,28,18,26,14,20), 'reference: the default before this change');
+  assert.deepEqual(level(3), row(28,35,24,31,23,31,20,29,15,22));
+  assert.ok(!css.includes('html[data-fs="4"]{'), 'level 4 is the default: it has no block of its own');
+  const five = level(5), six = level(6);
+  for (const k of Object.keys(five)) assert.ok(parseInt(six[k]) > parseInt(five[k]) && parseInt(five[k]) > parseInt(row(30,38,26,34,25,34,22,32,16,23)[k]), k + ' grows with the level');
+  // Böyük pillələrdə (standart daxil) üst zolaq sətirə sığmır: sarınır. Kiçik pillələr (0–2) əvvəlki kimidir.
+  assert.ok(css.includes('html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}'));
+  assert.ok(!/data-fs="[34]"\]\) \.hrow/.test(css), 'the wrap rule is not tied to a list of large levels');
+});
+
+test('every page starts with the same default font level as the app', () => {
+  const read = p => fs.readFileSync(path.join(root, p), 'utf8');
+  const std = read('assets/app.js').match(/const FS_STD = "(\d)";/)[1];
+  assert.equal(std, '4');
+  assert.ok(read('index.html').includes('document.documentElement.dataset.fs = /^[0-6]$/.test(f || "") ? f : "' + std + '";'));
+  assert.equal(read('updater.py').split('document.documentElement.dataset.fs=/^[0-6]$/.test(f||"")?f:"' + std + '";').length - 1, 2, 'xəbər və bölmə səhifələrinin şablonları');
+  assert.ok(!/dataset\.fs ?= ?\/\^\[0-4\]/.test(read('index.html') + read('updater.py')), 'köhnə hədd qalmayıb');
+  assert.ok(read('assets/app.min.js').includes('/^[0-6]$/'), 'kiçildilmiş nüsxə yenidən qurulub');
 });
 
 test('invalid JSON response does not poison ETag; same response can recover', async () => {
@@ -1393,6 +1416,63 @@ test('unchanged code and a changed index.html are stored quietly', async () => {
     assert.equal(stored, fresh);
     assert.deepEqual(messages, []);
   }
+});
+
+// Çoxdan gəlməyən oxucu (sahib, 2026-11-13): Facebook-un daxili brauzeri saytın 3 gün əvvəl saxlanmış nüsxəsini göstərdi
+// (10 noyabrda çıxarılmış 6 düyməli alt zolaqla). Saxlanmış nüsxə 36 saatdan köhnədirsə əvvəl təzəsi gözlənilir.
+const savedAt = (text, hoursAgo) => new Response(text, {headers: {date: new Date(Date.now() - hoursAgo * 3600e3).toUTCString()}});
+test('a saved shell older than a day and a half gives way to the fresh one, quietly', async () => {
+  for (const url of ['assets/app.js', 'assets/app.css', '']) {
+    const {context} = worker();
+    let stored, messages = [];
+    context.fetch = () => new Promise(r => setTimeout(() => r(new Response('fresh')), 5));
+    context.caches.open = async () => ({match: async () => savedAt('three days old', 72), put: async (_key, response) => { stored = await response.text(); }});
+    context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/" + url + "'))", context);
+    assert.equal(await res.text(), 'fresh', url + ': oxucu təzə nüsxəni görür');
+    for (let i = 0; i < 20 && stored === undefined; i++) await new Promise(r => setImmediate(r));
+    assert.equal(stored, 'fresh', 'təzə nüsxə növbəti açılış üçün saxlanır');
+    await new Promise(r => setTimeout(r, 10));
+    assert.deepEqual(messages, [], 'səhifə artıq təzə kodu alıb: yenidən açılma xəbəri getmir');
+  }
+});
+test('red line 1: a saved shell from the last day and a half still answers at once', async () => {
+  for (const hours of [0, 1, 24, 35]) {
+    const {context} = worker();
+    let answer, messages = [];
+    context.fetch = () => new Promise(r => { answer = r; });
+    context.caches.open = async () => ({match: async () => savedAt('saved code', hours), put: async () => {}});
+    context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+    assert.equal(await res.text(), 'saved code', hours + ' saat: şəbəkə gözlənilmir');
+    answer(new Response('new code'));
+    for (let i = 0; i < 20 && !messages.length; i++) await new Promise(r => setImmediate(r));
+    assert.deepEqual(messages.map(m => m.type), ['shell-updated'], 'təzə kod əvvəlki kimi bildirilir');
+  }
+});
+test('an old saved shell is still shown when the network is slow, failing or answers with an error', async () => {
+  // Yavaş şəbəkə: gözləmə bitir, saxlanmış nüsxə verilir; təzəsi sonra gələndə səhifəyə bildirilir.
+  const slow = worker().context;
+  let answer, messages = [];
+  slow.fetch = () => new Promise(r => { answer = r; });
+  slow.caches.open = async () => ({match: async () => savedAt('old code', 72), put: async () => {}});
+  slow.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+  vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', slow);
+  const late = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", slow);
+  assert.equal(await late.text(), 'old code');
+  answer(new Response('new code'));
+  for (let i = 0; i < 20 && !messages.length; i++) await new Promise(r => setImmediate(r));
+  assert.deepEqual(messages.map(m => m.type), ['shell-updated']);
+  // Şəbəkə yoxdur və ya server xəta verir: boş səhifə yox, saxlanmış nüsxə.
+  for (const fetch of [async () => { throw new TypeError('offline'); }, async () => new Response('Server Error', {status: 500})]) {
+    const {context} = worker();
+    context.fetch = fetch;
+    context.caches.open = async () => ({match: async () => savedAt('old code', 72), put: async () => { throw Error('xətalı cavab saxlanmamalıdır'); }});
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+    assert.equal(await res.text(), 'old code');
+  }
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.match(sw, /const SHELL_MAX_AGE_MS = 36 \* 3600e3, SHELL_WAIT_MS = 2500;/, 'hədlər: 36 saat, ən çox 2,5 s gözləmə');
 });
 
 test('a navigation with a query string reads and stores the shell under the path only', async () => {

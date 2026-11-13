@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-/g/dIW5iISNvfN64KG+js/R6wXvMneRbwFSujpkO6zw=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-v3nVpuh748IkDImm+/DQ2XbkPztCFexuOwhA0p/C20U=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.min.js" />
     <script>
@@ -20,7 +20,7 @@
         // Sahib (2026-11-06): ilk açılış telefonun rejimi ilə; oxucunun öz seçimi üstündür; bilinməsə tünd
         document.documentElement.dataset.theme = t === "light" || t === "dark" ? t : matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
         var f = localStorage.getItem("8ulduz-fs");
-        document.documentElement.dataset.fs = /^[0-4]$/.test(f || "") ? f : "2";
+        document.documentElement.dataset.fs = /^[0-6]$/.test(f || "") ? f : "4";
       } catch (e) {}
       // Xəbər və şəkil keşini app.js yüklənməsini gözləmədən soruş (telefonda ilk göstərilmə tezləşir).
       // app.js eyni ünvanı (freshUrl) birinci dəfə bu cavabdan götürür.
