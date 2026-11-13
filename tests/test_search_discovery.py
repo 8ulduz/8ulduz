@@ -319,6 +319,38 @@ class NewsSitemapTest(unittest.TestCase):
                 updater.write_news_sitemap(articles, stories)
             self.assertEqual(target.read_text(encoding='utf-8').count('<loc>'), 1000)
 
+    def test_own_news_pages_are_listed_in_both_sitemaps(self):
+        """Sahib, 2026-11-13: «Bəli, əlavə et». Öz xəbərin səhifəsini dərc hissəsi yazır, ümumi səhifə siyahısında (stories) yoxdur:
+        əvvəl lentdəki 20 öz xəbərdən heç biri sayt xəritələrində deyildi."""
+        own, far, old, page = 'd' * 16, 'e' * 16, 'f' * 16, 'a' * 16
+
+        def row(sid, hours, url=None):
+            a = self.story(sid, hours, f'Öz xəbər {sid[0]}')
+            a.update(source=updater.OWN_SOURCE, sourceUrl=url or f'{updater.SITE}xeber/{sid}/')
+            return a
+
+        articles = [row(own, 2), row(far, 2, 'https://example.org/x'), row(old, 72), self.story(page, 1, 'Səhifəli xəbər'),
+                    self.story('b' * 16, 1, 'Səhifəsiz xəbər')]
+        stories = {page: [1793950000, 3, 'gundem']}
+        self.assertEqual([a['id'] for a in updater._own_page_rows(articles)], [own, old], 'yalnız saytın öz xeber/<id>/ ünvanı')
+        self.assertEqual(updater._own_page_rows(None), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            news, sm = pathlib.Path(tmp) / 'sitemap-news.xml', pathlib.Path(tmp) / 'sitemap.xml'
+            with patch.object(updater, 'NEWS_SITEMAP_FILE', news), patch.object(updater, 'SITEMAP_FILE', sm):
+                updater.write_news_sitemap(articles, stories)
+                updater.write_sitemap(stories, (), updater._own_page_rows(articles) + [row(page, 1)])
+            ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9', 'n': 'http://www.google.com/schemas/sitemap-news/0.9'}
+            fresh = {u.find('s:loc', ns).text: u.find('n:news/n:title', ns).text for u in ET.parse(news).getroot().findall('s:url', ns)}
+            self.assertEqual(fresh, {f'{updater.SITE}xeber/{own}/': 'Öz xəbər d', f'{updater.SITE}xeber/{page}/': 'Səhifəli xəbər'},
+                             'Google News: son 48 saatın öz xəbəri və səhifəli xəbər; başqa ünvan, köhnə və səhifəsiz xəbər yoxdur')
+            urls = {u.find('s:loc', ns).text: u for u in ET.parse(sm).getroot().findall('s:url', ns)}
+            for sid in (own, old, page):
+                self.assertIn(f'{updater.SITE}xeber/{sid}/', urls)
+            self.assertNotIn('https://example.org/x', urls)
+            self.assertNotIn(f'{updater.SITE}xeber/{far}/', urls)
+            self.assertRegex(urls[f'{updater.SITE}xeber/{own}/'].find('s:lastmod', ns).text, r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$')
+            self.assertEqual(sm.read_text(encoding='utf-8').count(f'xeber/{page}/'), 1, 'eyni səhifə iki dəfə yazılmır')
+
 
 class OldStoryPagesTest(unittest.TestCase):
     """2026-11-12: lentdən çıxmış xəbərin səhifəsi köhnə şablonda qalırdı (7 392 səhifədən 5 596-sı): yenidən yazan dövrə yalnız
