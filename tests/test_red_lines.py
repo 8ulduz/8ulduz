@@ -255,6 +255,59 @@ class FastCycleTest(unittest.TestCase):
         self.cycle(feed_with("https://report.az/az/hadise/basliq-1011019", "Bakıda yol qəzası olub"))
         self.assertEqual(len([a for a in self.news() if a["sourceUrl"].endswith("1011019")]), 2)
 
+    def feed_of(self, source, rows):
+        def fetcher(feed, old=None):
+            return {"items": rows if feed[0] == source else [], "url": feed[1], "at": time.time(), "err": None}
+        return fetcher
+
+    def test_a_retitled_alt_source_does_not_overwrite_another_outlets_card(self):
+        """Açar qeydin əlavə mənbəsinə aiddirsə yeni başlıq o mənbəyə yazılır: əsas mənbənin (başqa saytın) başlığı dəyişmir."""
+        when = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        alt = {"source": "Report", "sourceUrl": "https://report.az/az/hadise/kohne-basliq-528168", "title": "Bakıda yeni məktəb açıldı", "publishedAt": when, "lang": "az"}
+        row = {"id": "a" * 16, "source": "APA", "sourceUrl": "https://apa.az/sosial/bakida-mekteb-1234567", "title": "Bakıda yeni məktəb binası istifadəyə verildi",
+               "summary": "APA-nın xülasəsi", "category": "tehsil", "lang": "az", "publishedAt": when, "alts": [alt]}
+        updater.OUT_FILE.write_text(json.dumps({"articles": [row]}), encoding="utf-8")
+        self.cycle(self.feed_of("Report", [dict(self.item("https://report.az/az/hadise/yeni-basliq-528168", "Nazir yeni məktəbdəki çatışmazlıqları tənqid etdi"), description="Report-un xülasəsi")]))
+        got = [a for a in self.news() if a["sourceUrl"] == row["sourceUrl"]]
+        self.assertEqual(len(got), 1)
+        self.assertEqual((got[0]["title"], got[0]["summary"]), (row["title"], row["summary"]), "APA kartı Report-un başlığını almamalıdır")
+        self.assertEqual([x["title"] for x in got[0].get("alts") or []], ["Nazir yeni məktəbdəki çatışmazlıqları tənqid etdi"])
+        self.assertFalse([a for a in self.news() if "report.az" in a["sourceUrl"]], "eyni nömrəli xəbər ayrıca qeyd kimi qayıtmır")
+
+    def test_a_retitle_passes_the_same_filters_as_a_new_story(self):
+        """QIRMIZI XƏTT 2: məlum xəbər süzgəcdən keçməyən başlıqla yenilənəndə həmin dövrədə lentdən çıxır (əvvəl bir dövrə qalırdı)."""
+        self.cycle(self.feed_of("APA", [self.item("https://apa.az/siyaset/iclas-kecirilib-528169", "Milli Məclisdə iclas keçirilib"), self.item("https://apa.az/hava-528100", "Bakıda hava şəraiti dəyişəcək")]))
+        self.assertEqual(len(self.news()), 2)
+        self.cycle(self.feed_of("APA", [self.item("https://apa.az/siyaset/qalmaqal-528169", "Milli Məclisdə korrupsiya qalmaqalı"), self.item("https://apa.az/hava-528100", "Bakıda hava şəraiti dəyişəcək")]))
+        self.assertTrue(updater.is_negative_about_leadership("Milli Məclisdə korrupsiya qalmaqalı", ""))
+        for name in ("news.json", "latest.json", "first.json"):
+            self.assertEqual([a["sourceUrl"] for a in self.news(name)], ["https://apa.az/hava-528100"], name)
+
+    def test_two_stories_with_the_same_date_code_keep_their_own_titles(self):
+        """Slugun sonundakı gün kodu (Al Jazeera «…-111126») xəbər nömrəsi deyil: eyni günün iki xəbəri bir-birinin başlığını almır."""
+        code = datetime.datetime.now(updater.BAKU).strftime("%d%m%y")
+        feeds = [("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "en", None)]
+        guard = self.item(f"https://www.aljazeera.com/video/newsfeed/2026/11/12/guard-collapses-{code}", "French guard collapses as Macron rushes to help")
+        mother = self.item(f"https://www.aljazeera.com/video/newsfeed/2026/11/12/mother-reunites-{code}", "Mother reunites with sons taken 40 years ago")
+        self.assertIsNone(updater.story_key(guard["link"]))
+        self.cycle(self.feed_of("Al Jazeera", [guard]), feeds=feeds)
+        self.cycle(self.feed_of("Al Jazeera", [mother, guard]), feeds=feeds)
+        self.cycle(self.feed_of("Al Jazeera", [mother, guard]), feeds=feeds)
+        self.assertEqual({a["sourceUrl"]: a["title"] for a in self.news()}, {guard["link"]: guard["title"], mother["link"]: mother["title"]})
+
+    def test_an_unreadable_date_is_an_undated_item_not_a_new_story_every_minute(self):
+        """Oxunmayan pubDate «indi» damğası almır: tarix yavaş prosesdən (dates.json) gəlir və sonra dəyişmir."""
+        link = "https://apa.az/tarixi-oxunmayan-1"
+        row = dict(self.item(link, "Tarixi oxunmayan lentin xəbəri"), pubDate="13/11/2026 saat 10:00")
+        self.assertIsNone(updater._pub_dt(row["pubDate"]))
+        self.cycle(self.feed_of("APA", [row]))
+        self.assertFalse(self.news() if (self.root / "data" / "news.json").exists() else [], "tarix tapılana qədər lentə düşmür")
+        stamp = updater._norm_iso(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=3))
+        updater.DATES_FILE.write_text(json.dumps({link: stamp}), encoding="utf-8")
+        self.cycle(self.feed_of("APA", [row]))
+        self.cycle(self.feed_of("APA", [row]))
+        self.assertEqual([(a["sourceUrl"], a["publishedAt"]) for a in self.news()], [(link, stamp)])
+
     def first_screen_feed(self, feed, old=None):
         rows = [self.item("https://apa.az/ilk-1", "Avropada güclü fırtına başladı")] if feed[0] == "APA" else []
         return {"items": rows, "url": feed[1], "at": time.time(), "err": None}
