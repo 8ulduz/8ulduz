@@ -195,7 +195,7 @@ function networks(env = process.env) {
   // Instagram yalnız şəkilli post qəbul edir (JPEG, ictimai URL), keçid postda basılmır: mətnin sonunda «8ulduz.az» yazılır.
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN && env.INSTAGRAM !== "0") {
     const root = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`;
-    list.push({ name: "instagram", token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 45), // gündə ≤32 (API həddi 50)
+    list.push({ name: "instagram", root, token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 45), // gündə ≤32 (API həddi 50)
       wants: a => !a.digest && /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
       async prepare(f, state, log) {
         const r = await f(`${root}${encodeURIComponent(env.FB_PAGE_ID)}?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
@@ -262,6 +262,7 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
     .reduce((m, k) => m.split(k).join("***"), String(s?.message || s));
   for (const net of nets) {
     if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
+    if (net.name === "instagram") result.ig = net;   // /ig/ səhifəsinin siyahısı üçün (main → igMedia)
     const done = state[net.name] ||= {};
     const last = state._last ||= {};
     // Bir dəfəlik (iş axınında «fb_yenile»): www keçidi ilə artıq paylaşılmış xəbərlər Facebook-a yenidən oxudulur — kartı şəkilsiz
@@ -298,6 +299,7 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         done[a.id] = last[net.name] = Math.floor(now / 1000);
         if (!a.digest) { done[titleKey(a)] = done[a.id]; recent.push(topic); }
         result.posted.push([net.name, a.id]);
+        if (net.name === "instagram") igRemember(state, a, done[a.id]);
         log(`${net.name}: paylaşıldı — ${clean(a.title)}`);
       } catch (e) {
         const msg = hide(e);
@@ -310,6 +312,38 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
     }
   }
   return result;
+}
+
+// 8ulduz.az/ig/ (sahib, 2026-11-13): Instagram postunda keçid basılmır, profildəki keçid bu səhifəyə aparır. Səhifədə Instagram-dakı
+// postlar eyni sıra ilə və eyni şəkillə durur; oxucu postda gördüyü şəklə toxunub xəbəri açır. Sıra və tərkib Instagram-ın özündən
+// (API: son 36 post); hər postun xəbəri paylaşanda yadda saxlanan siyahıdan (state._ig), olmasa başlığı lentdəki xəbərlə tutuşdurulur.
+// Xəbər tapılmasa keçid saytın axtarışına (başlıqla) gedir. Şəkil: xəbərin öz şəkli (paylaşma Worker-i /i/<id>.jpg — Instagram-a
+// göndərilən şəklin eynisi); xəbər tapılmasa Instagram-ın şəkli. Fayl ayrıca işdə «ig» budağına yazılır (social.yml), sayta toxunmur.
+const IG_KEEP = 60, IG_SHOW = 36;
+const igKey = s => clean(s).replace(/…$/, "").toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 60);
+function igRemember(state, a, t) {
+  const list = (state._ig ||= []).filter(x => x.id !== a.id);
+  list.unshift({ id: a.id, title: clean(a.title), url: shareUrl(a), img: `${SHARE}i/${a.id}.jpg`, t });
+  state._ig = list.slice(0, IG_KEEP);
+}
+function igGrid(media, state = {}, articles = []) {
+  const known = new Map();
+  for (const a of articles || []) if (a?.id && a.title) known.set(igKey(a.title), { id: a.id, title: clean(a.title), url: shareUrl(a), img: `${SHARE}i/${a.id}.jpg` });
+  for (const x of [...(state._ig || [])].reverse()) known.set(igKey(x.title), x);
+  if (!Array.isArray(media) || !media.length) return (state._ig || []).slice(0, IG_SHOW).map(({ title, url, img, t }) => ({ title, url, img, t }));
+  return media.slice(0, IG_SHOW).map(m => {
+    const title = clean(String(m.caption || "").split("\n")[0]).replace(/…$/, "");
+    const hit = title && known.get(igKey(title));
+    const t = Math.floor(Date.parse(m.timestamp) / 1000) || 0;
+    if (hit) return { title: hit.title, url: hit.url, img: hit.img, t };
+    return { title, url: title ? `https://8ulduz.az/#/axtar?q=${encodeURIComponent(title.slice(0, 120))}` : "https://8ulduz.az/", img: String(m.media_url || m.thumbnail_url || ""), t };
+  }).filter(x => x.title);
+}
+async function igMedia(net, f) {
+  if (!net?.ig || !net.root) return [];
+  const u = `${net.root}${encodeURIComponent(net.ig)}/media?fields=caption,media_url,thumbnail_url,timestamp&limit=${IG_SHOW}&access_token=${encodeURIComponent(net.token)}`;
+  const r = await f(u, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
+  return Array.isArray(r?.data) ? r.data : [];
 }
 
 async function main() {
@@ -325,11 +359,16 @@ async function main() {
   let digestIndex = [];
   try { digestIndex = JSON.parse(fs.readFileSync("icmal/index.json", "utf8")); } catch {}
   const res = await run({ articles, digestIndex, now, state });
+  // /ig/ səhifəsinin siyahısı (social.yml «ig» işi budağa yazır). Instagram qoşulu deyilsə və ya siyahı boşdursa fayl yazılmır.
+  try {
+    const grid = igGrid(await igMedia(res.ig, globalThis.fetch), state, articles);
+    if (grid.length) { fs.mkdirSync("ig-out", { recursive: true }); fs.writeFileSync("ig-out/ig.json", JSON.stringify({ at: Math.floor(now / 1000), items: grid })); }
+  } catch (e) { console.log(`ig: siyahı yazılmadı — ${String(e?.message || e).slice(0, 120)}`); }
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify(state));
   // Hamısı alınmayıbsa iş qırmızı olsun (sahib görsün); qismən uğur yaşıl.
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic, igGrid, igRemember, igMedia };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });

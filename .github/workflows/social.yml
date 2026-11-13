@@ -1,6 +1,7 @@
 name: Profillərdə paylaş
 # Saytın ən vacib xəbərləri öz profillərimizdə (Telegram, Facebook səhifəsi, X, LinkedIn). Qayda və açarlar: .github/scripts/social.cjs.
-# Xəbər axınından (update.yml) ayrıdır: bu iş düşsə də, gecikse də lent yenilənməyə davam edir. Repoya yazmır.
+# Xəbər axınından (update.yml) ayrıdır: bu iş düşsə də, gecikse də lent yenilənməyə davam edir. main-ə yazmır; «ig» işi yalnız
+# 8ulduz.az/ig/ siyahısını ayrıca «ig» budağına yazır.
 
 on:
   # Əsas tətik: xəbər pipeline-ı main-ə yazandan 90 s sonra bu işi dispatch edir (pipeline.sh publish_main, ~10 dəqiqədə bir).
@@ -84,3 +85,40 @@ jobs:
         with:
           path: .social
           key: social-state-${{ github.run_id }}
+      # 8ulduz.az/ig/ səhifəsinin siyahısı (social.cjs igGrid): yalnız Instagram qoşulu olanda yaranır; açar faylda yoxdur.
+      - name: Instagram siyahısı
+        if: ${{ !cancelled() && hashFiles('ig-out/ig.json') != '' }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ig
+          path: ig-out/ig.json
+          retention-days: 1
+
+  # Siyahını «ig» budağına yazır (tarixçəsiz, bir fayl; 8ulduz.az/ig/ oradan oxuyur). Ayrıca iş: yazma icazəsi yalnız buradadır,
+  # sosial şəbəkə açarları bu işə verilmir. main-ə və saytın xəbər axınına toxunmur.
+  ig:
+    needs: post
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: write
+    steps:
+      - name: Siyahını al
+        id: al
+        continue-on-error: true
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: ig
+          path: ig
+      - name: «ig» budağına yaz
+        if: ${{ steps.al.outcome == 'success' && hashFiles('ig/ig.json') != '' }}
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          cd ig
+          node -e 'const d=JSON.parse(require("fs").readFileSync("ig.json","utf8")); if(!Array.isArray(d.items)||!d.items.length) process.exit(1)'
+          git init -q
+          git add ig.json
+          git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit -q -m "Instagram siyahısı"
+          git push -q --force "$URL" HEAD:refs/heads/ig
