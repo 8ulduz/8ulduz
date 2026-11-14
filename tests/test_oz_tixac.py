@@ -144,6 +144,114 @@ class BulletinTest(unittest.TestCase):
             self.assertIn(f'"{name}"', js, "bülletenin səkkiz yolu ölçünün WATCH siyahısındadır")
 
 
+class WeeklyTest(unittest.TestCase):
+    """Şənbə 10:00: «Həftənin ən tıxaclı küçəsi» (hafta.json, iş günləri)."""
+    SAT = datetime.date(2026, 11, 21)
+
+    def doc(self, days=5, n=78):
+        out = {}
+        for i in range(days):
+            d = datetime.date(2026, 11, 16 + i)
+            out[d.isoformat()] = {"n": n, "s": {}, "m": {"Təbriz küçəsi": 120 + 10 * i, "Moskva prospekti": 90, "Dalan": 20 if i == 0 else 0},
+                                  "k": {"Təbriz küçəsi": 3.2, "Moskva prospekti": 2.4}, "z": {"Nərimanov": 3 * n, "Xəzər": n // 2}}
+        out["2026-11-16"]["m"]["Moskva prospekti"] = 300   # bazar ertəsi ən ağır gün
+        out["2026-11-15"] = {"n": 70, "s": {}, "m": {"Bazar küçəsi": 999}, "k": {}, "z": {}}  # bazar günü sayılmır
+        return {"days": out}
+
+    def fetch(self, doc):
+        calls = []
+
+        def f(url, *a, **k):
+            calls.append(url)
+            assert url.startswith(ot.HAFTA_URL) or url.startswith(ot.TARIX_URL)
+            return json.dumps(doc if url.startswith(ot.HAFTA_URL) else {"snaps": []}).encode("utf-8")
+        return f, calls
+
+    def test_saturday_story(self):
+        f, calls = self.fetch(self.doc())
+        got = [i for i in ot.items(None, at(self.SAT, 10, 5), fetch=f) if i["key"].startswith("tixac-hefte")]
+        self.assertEqual(len(got), 1)
+        b = got[0]
+        self.assertTrue(b["worth"], b.get("why")); self.assertEqual(b["key"], "tixac-hefte-2026-11-21"); self.assertEqual(b["slot"], "10:00")
+        self.assertEqual(b["title"], "Həftənin ən tıxaclı küçəsi: Təbriz küçəsi, təxminən 11 saat 40 dəq tıxac")   # 120+130+…+160 = 700 dəq
+        self.assertIn("16–20 noyabr iş günlərində Bakıda ən uzun tıxac Təbriz küçəsi üzərində olub: 5 gündə ümumilikdə təxminən 11 saat 40 dəq, ən uzun tıxac 3,2 km.", b["lead"])
+        body = "\n".join(b["body"])
+        self.assertIn("1. Təbriz küçəsi — təxminən 11 saat 40 dəq, ən uzunu 3,2 km.\n2. Moskva prospekti — təxminən 11 saat, ən uzunu 2,4 km.", body)
+        self.assertNotIn("Dalan", body, "30 dəqiqədən az tıxac siyahıya düşmür"); self.assertNotIn("Bazar küçəsi", body, "bazar günü həftəyə daxil deyil")
+        self.assertIn("Rayonlar üzrə orta tıxac balı (0–10): Nərimanov 3,0, Xəzər 0,5.", body)
+        self.assertIn("Ən ağır gün bazar ertəsi olub (16 noyabr), ən yüngülü", body)
+        self.assertEqual(oz_derc.BOLME_NOV[b["kind"]], "cemiyyet")
+        self.assertEqual(sum(u.startswith(ot.HAFTA_URL) for u in calls), 1)
+
+    def test_only_saturday_window_once_and_needs_four_full_days(self):
+        f, calls = self.fetch(self.doc())
+        self.assertFalse([i for i in ot.items(None, at(self.SAT, 9, 55), fetch=f) if i["key"].startswith("tixac-hefte")])
+        self.assertFalse([i for i in ot.items(None, at(self.SAT, 10, 5), fetch=f, done={"tixac-hefte-2026-11-21"}) if i["key"].startswith("tixac-hefte")])
+        self.assertFalse([i for i in ot.items(None, at(datetime.date(2026, 11, 20), 10, 5), fetch=f) if i["key"].startswith("tixac-hefte")])
+        self.assertFalse(any(u.startswith(ot.HAFTA_URL) for u in calls))
+        thin = ot.weekly(self.doc(days=3), self.SAT)
+        self.assertFalse(thin["worth"]); self.assertIn("3 iş günü", thin["why"])
+        half = ot.weekly(self.doc(n=20), self.SAT)
+        self.assertFalse(half["worth"], "yarımçıq günlər sayılmır")
+        self.assertIsNone(ot.weekly(self.doc(), datetime.date(2026, 11, 22)))
+
+
+class AlertTest(unittest.TestCase):
+    """Pik saatdan kənar gözlənilməz böyük tıxac."""
+    TUE = datetime.date(2026, 11, 17)
+
+    def snaps(self, today, yesterday=()):
+        """today/yesterday: [(saat, dəq, [küçə sətirləri])]."""
+        out = []
+        for d, rows in ((self.TUE - datetime.timedelta(days=1), yesterday), (self.TUE, today)):
+            for h, m, s in rows:
+                out.append({"t": int(at(d, h, m).timestamp() * 1000), "r": [], "w": [], "s": s,
+                            "i": ["Qəza: Babək prospekti."] if s and h == 12 and m == 30 else []})
+        return out
+
+    def run_at(self, snaps, h, m, done=()):
+        return ot.items(None, at(self.TUE, h, m), fetch=Fetch(snaps), done=set(done))
+
+    BIG = ["Babək prospekti", "şəhərdən çıxış", "sixtixac", "2,6"]
+
+    def base(self, now_rows=None, y_rows=None):
+        today = [(11, 30, []), (12, 0, [self.BIG]), (12, 30, now_rows if now_rows is not None else [self.BIG, ["Təbriz küçəsi", "şəhərə doğru", "tixac", "1,1"]])]
+        yesterday = [(12, 0, y_rows or []), (12, 30, y_rows or [])]
+        return self.snaps(today, yesterday)
+
+    def test_alert_for_an_unexpected_big_jam(self):
+        got = self.run_at(self.base(), 12, 40)
+        keys = [i["key"] for i in got]
+        self.assertIn("tixac-ani-sorgu-2026-11-17-1230", keys)
+        a = [i for i in got if i.get("worth")]
+        self.assertEqual(len(a), 1)
+        a = a[0]
+        self.assertEqual(a["title"], "Bakıda gözlənilməz tıxac: Babək prospekti, 2,6 km")
+        self.assertIn("saat 12:30 ölçüsündə Babək prospekti üzərində (şəhərdən çıxış) 2,6 km hissədə sıx tıxac var. Dünən bu saatlarda burada tıxac olmayıb.", a["lead"])
+        body = "\n".join(a["body"])
+        self.assertIn("Tıxac ən azı 30 dəqiqədir davam edir (saat 12:00 ölçüsündən bəri).", body)
+        self.assertIn("Bu yolda qeydə alınan hadisə: Qəza: Babək prospekti.", body)
+        self.assertIn("Hazırda tıxac olan digər küçələr: Təbriz küçəsi (1,1 km).", body)
+        self.assertTrue(a["key"].startswith("tixac-ani-2026-11-17-x")); self.assertEqual(oz_derc.BOLME_NOV[a["kind"]], "cemiyyet")
+
+    def test_no_alert_when_expected_small_new_or_peak(self):
+        self.assertFalse([i for i in self.run_at(self.base(y_rows=[self.BIG]), 12, 40) if i.get("worth")], "dünən də var idi: gözlənilməz deyil")
+        small = ["Babək prospekti", "şəhərdən çıxış", "tixac", "2,6"]
+        self.assertFalse([i for i in self.run_at(self.base(now_rows=[small]), 12, 40) if i.get("worth")], "adi tıxac 3 km-dən qısa")
+        once = self.snaps([(12, 0, []), (12, 30, [self.BIG])], [(12, 30, [])])
+        self.assertFalse([i for i in self.run_at(once, 12, 40) if i.get("worth")], "bir ölçü azdır")
+        self.assertEqual(self.run_at(self.base(), 18, 10), [], "pik saatda bülleten var, xəbərdarlıq yox")
+        self.assertEqual(self.run_at(self.base(), 12, 35), [], "ölçüdən 8 dəqiqə keçməyib: sorğu yoxdur")
+        self.assertEqual(self.run_at(self.base(), 12, 40, done={"tixac-ani-sorgu-2026-11-17-1230"}), [], "yarım saatda bir sorğu")
+        self.assertFalse(self.run_at(self.snaps([(12, 0, [self.BIG]), (12, 30, [self.BIG])]), 12, 40)[1:], "dünənin ölçüsü yoxdur: «gözlənilməz» demirik")
+
+    def test_daily_limit_and_once_per_street(self):
+        day = "tixac-ani-2026-11-17-x"
+        self.assertFalse([i for i in self.run_at(self.base(), 12, 40, done={day + "a", day + "b"}) if i.get("worth")], "gündə ən çoxu 2")
+        first = [i for i in self.run_at(self.base(), 12, 40) if i.get("worth")][0]
+        self.assertFalse([i for i in self.run_at(self.base(), 12, 40, done={first["key"]}) if i.get("worth")], "eyni küçə gündə bir dəfə")
+
+
 class StaticPageTest(unittest.TestCase):
     """«Bakıda tıxac indi» (bolme/tixac/): Google-un oxuduğu mətn — səkkiz yol və avtomatik xəbərlər; köhnə ölçü yazılmır."""
 
