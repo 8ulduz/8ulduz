@@ -98,6 +98,8 @@ async function run({ key, prev = {}, now = Date.now(), fetchFn = fetch, withInci
 }
 
 async function probe(key) {
+  // Açarın özü yox, yalnız forması (401 gələndə yapışdırılan mətnin açar olub-olmadığını bilmək üçün).
+  console.log(`açar: ${key.length} simvol, ${/^[A-Za-z0-9]+$/.test(key) ? "yalnız hərf və rəqəm" : "boşluq və ya başqa işarə var"}, ${/\s/.test(key) ? "boşluqlu" : "boşluqsuz"}`);
   for (const road of ROADS) {
     try { const f = await flow(road, key); console.log(`${road.id}: frc=${f.frc} sürət=${f.speed}/${f.free} etibar=${f.conf} bağlı=${f.closed} hissə ${f.first?.latitude?.toFixed(4)},${f.first?.longitude?.toFixed(4)} → ${f.last?.latitude?.toFixed(4)},${f.last?.longitude?.toFixed(4)}`); }
     catch (e) { console.log(`${road.id}: ${e.message}`); }
