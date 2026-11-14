@@ -3,6 +3,7 @@
 Bu siyahı əvvəl `sw.js`-in `VERSION` sətrində şərh kimi dururdu (7,8 KB) və hər oxucunun brauzeri onu faylla birlikdə endirirdi.
 2026-11-13-də (sahib: «hədd artırılmır, artıq olan silinir, yer boşaldılsın») buraya köçürüldü: `sw.js` gzip büdcəsi 9 000 baytdır.
 Yeni versiya artıranda qeydi bu faylın **başına** yazın; `sw.js`-də yalnız `const VERSION = "vNNN";` dəyişir.
+- v176: Tıxac səhifəsində bütün Bakı: 35 marşrut, rayonlar üzrə tıxac balı, tıxaclı küçələrin sayı
 
 - v175: «Bakıda tıxac indi»: səkkiz əsas yol, rəsmi elanlar (NİİM, BNA, DYP), pik saat bülletenləri
 - v174: Tıxac səhifəsində avtomatik ölçü (Mapbox): tıxaclı küçələr və avtomatik xəbərlər, pik saatlarda 5 dəqiqədən bir

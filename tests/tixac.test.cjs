@@ -85,6 +85,8 @@ test("tixac: the Tıxac page shows the measurement only when it is fresh, with e
   assert.ok(src.includes("if (!d || !(Date.now() - at < 3 * 3600e3)) return \"\";"), "köhnə ölçü göstərilmir");
   assert.ok(src.includes("<b>${esc(s.name)}</b>") && src.includes("${esc(e.text)}"), "küçə adı və xəbər mətn kimi");
   assert.ok(src.includes("Avtomatik ölçü: Mapbox tıxac məlumatı"), "mənbə göstərilir");
+  assert.ok(src.includes("<h3>Rayonlar üzrə tıxac balı</h3>") && src.includes("<b>${esc(n)}</b> — ${b | 0}/10"), "rayon balı: ad mətn kimi, bal rəqəm kimi");
+  assert.ok(src.includes("Bakıda tıxaclı küçə: ${d.jammed | 0}") && src.includes("ölçülən ${d.counted | 0} küçədən"), "şəhər xülasəsi rəqəm kimi");
 });
 
 test("tixac: routes cover every district, a lost route is rejected, district scores and the weekly tally", async () => {
