@@ -1295,7 +1295,7 @@ function pageMeta() {
   } else if (r.name === "search") {
     name = S.q ? `Axtarış: ${S.q}` : "Axtarış";
     desc = "Başlıq, xülasə və mənbə adına görə axtarış.";
-  } else if (r.name === "traffic") { name = "Bakıda tıxac indi"; desc = "Bakının səkkiz əsas yolunun canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar."; }
+  } else if (r.name === "traffic") { name = "Tıxac-İndi"; desc = "Bakının bütün rayonlarında yolların canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar."; }
   else if (r.name === "rates") { name = "Valyuta məzənnəsi"; desc = "Dollar, avro, rubl və lirənin manatla məzənnəsi, neft və qızıl qiyməti."; }
   else if (r.name === "league") { name = "Premyer Liqa cədvəli"; desc = "Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar."; }
   else if (r.name === "saved") { name = "Seçilmişlər"; desc = "Bu cihazda saxlanan xəbərlər."; }
@@ -2312,7 +2312,7 @@ function trafficView() {
   const rows = items.length
     ? `<ul class="tix-list">${items.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
-  return `<div class="page-h"><div><h1>Bakıda tıxac indi</h1><p class="sec-desc">Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
+  return `<div class="page-h"><div><h1>Tıxac-İndi</h1><p class="sec-desc">Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
     ${rush}
     <div class="tix-jumps">${jumps}</div>
     <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<button type="button" class="tix-alt" data-act="tix-yandex">${S.tixYandex ? "Waze xəritəsinə qayıt" : "Xəritə görünmür? Yandex xəritəsi"}</button><a href="${esc(wazeApp(area))}" ${OUT}>Waze tətbiqində aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
@@ -2360,8 +2360,8 @@ function tixMeasure() {
   const city = d.counted ? `<h3>Bakıda tıxaclı küçə: ${d.jammed | 0} <span class="muted">(ölçülən ${d.counted | 0} küçədən)</span></h3>` : "";
   const ray = zl.length ? `<h3>Rayonlar üzrə tıxac balı</h3><ul class="tix-now">${zl.map(([n, b, k]) => `<li><span aria-hidden="true">${zc(b)}</span><b>${esc(n)}</b> — ${b | 0}/10${k !== "0,0" ? `, ${esc(k)} km tıxac` : ""}</li>`).join("")}</ul>` : "";
   const ev = (d.events || []).slice(0, 10);
-  const feed = ev.length ? `<h3>Avtomatik xəbərlər</h3><ul class="tix-ev">${ev.map(e => `<li class="${esc(e.kind || "")}"><time>${clock(e.t)}</time> ${esc(e.text)}</li>`).join("")}</ul>` : "";
-  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${city}${list}${ray}${eight}${feed}<p class="tix-src">Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6, qalan vaxt 30 dəqiqədən bir yenilənir.</p></section>`;
+  const feed = ev.length ? `<h3>Son dəyişikliklər</h3><ul class="tix-ev">${ev.map(e => `<li class="${esc(e.kind || "")}"><time>${clock(e.t)}</time> ${esc(e.text)}</li>`).join("")}</ul>` : "";
+  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${city}${list}${ray}${eight}${feed}<p class="tix-src">Mənbə: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6, qalan vaxt 30 dəqiqədən bir yenilənir.</p></section>`;
 }
 
 // Yalnız dəyişən blok yenilənir.
@@ -2549,7 +2549,7 @@ function renderFooter() {
   const h = `<div class="wrap fgrid">
     <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="/bolme/${c.slug}/">${esc(c.label)}</a>`).join("")}</div></div>
-    <div><h4>Xidmətlər</h4><div class="fcats"><a href="/bolme/valyuta/">Valyuta məzənnəsi</a><a href="/bolme/cedvel/">Premyer Liqa cədvəli</a><a href="/bolme/tixac/">Tıxac və yollar</a></div></div>
+    <div><h4>Xidmətlər</h4><div class="fcats"><a href="/bolme/valyuta/">Valyuta məzənnəsi</a><a href="/bolme/cedvel/">Premyer Liqa cədvəli</a><a href="/bolme/tixac/">Tıxac-İndi</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="./haqqinda/">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
   if (h !== S.footH) S.footH = $("#footer").innerHTML = h;

@@ -5561,7 +5561,7 @@ _SECTION_HTML = """<!doctype html>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Bakıda tıxac indi</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac-İndi</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -5642,7 +5642,7 @@ SERVICE_PAGES = [
     ("valyuta", "Valyuta məzənnəsi", "Dollar, avro, rubl və lirənin manatla bugünkü məzənnəsi, neft və qızıl qiyməti"),
     ("cedvel", "Premyer Liqa cədvəli", "Azərbaycan Premyer Liqasının turnir cədvəli"),
     # Sahib 2026-11-14: «Bakıda tıxac indi» səhifəsi — avtomatik ölçü (tixac.yml, Mapbox), pik saat bülletenləri (öz xəbər modulu), yol xəbərləri.
-    ("tixac", "Bakıda tıxac indi", "Bakının səkkiz əsas yolunun canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar haqqında son xəbərlər"),
+    ("tixac", "Tıxac-İndi", "Bakının bütün rayonlarında yolların canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar haqqında son xəbərlər"),
     # Menyudakı «Son dəqiqə» və alt zolaqdakı «Video» həqiqi keçiddir (/bolme/<ad>/): səhifəsi olmasa Google 404 görür (2026-11-11).
     ("sondeqiqe", "Son dəqiqə", "Son bir saatın xəbərləri"),
     ("video", "Video xəbərlər", "Azərbaycan mətbuatının videolu xəbərləri"),
@@ -5716,8 +5716,8 @@ def tixac_status(doc=None, now=None):
             out += (f"<h2>Rayonlar üzrə tıxac balı ({clock})</h2><p>{head}Bal 0–10: rayonun ölçülən yollarında tıxaclı hissənin payı.</p>"
                     + _table(("Rayon", "Bal", "Tıxac"), [(z[0], f"{z[1]}/10", (z[2] + " km") if z[2] != "0,0" else "") for z in zl]))
         out += f"<h2>Səkkiz əsas yolun vəziyyəti ({clock})</h2>" + (_table(("Yol", "Vəziyyət", "Tıxac"), rows) if rows else "")
-        out += f"<h2>Avtomatik xəbərlər</h2><ul>{ev}</ul>" if ev else ""
-        return out + "<p><small>Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6 dəqiqədən bir yenilənir.</small></p>"
+        out += f"<h2>Son dəyişikliklər</h2><ul>{ev}</ul>" if ev else ""
+        return out + "<p><small>Mənbə: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6 dəqiqədən bir yenilənir.</small></p>"
     except Exception as e:
         print("  ! tıxac səhifəsi:", type(e).__name__)
         return ""

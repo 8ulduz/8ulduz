@@ -76,6 +76,7 @@ class BulletinTest(unittest.TestCase):
         self.assertIn("Qəza: Babək prospekti.", body)
         self.assertIn("Dünənin eyni saatları ilə müqayisədə marşrutlar orta hesabla", body)
         self.assertIn("rəsmi məlumat deyil", body)
+        self.assertNotIn("vtomatik", "\n".join([b["title"], b["lead"], b["credit"], body]), "sahib 2026-11-14: «avtomatik» sözü yazılmır")
         self.assertEqual(b["link"], ot.PAGE); self.assertEqual(oz_derc.BOLME_NOV[b["kind"]], "cemiyyet")
         self.assertFalse(ox.needs_owner("\n".join([b["title"], b["lead"], *b["body"]])), "«Heydər Əliyev prospekti» küçə adıdır, rəhbərlik qaydasına düşmür")
 
@@ -253,7 +254,7 @@ class AlertTest(unittest.TestCase):
 
 
 class StaticPageTest(unittest.TestCase):
-    """«Bakıda tıxac indi» (bolme/tixac/): Google-un oxuduğu mətn — səkkiz yol və avtomatik xəbərlər; köhnə ölçü yazılmır."""
+    """«Tıxac-İndi» (bolme/tixac/): Google-un oxuduğu mətn — səkkiz yol və avtomatik xəbərlər; köhnə ölçü yazılmır."""
 
     def test_status_block(self):
         import updater
@@ -267,7 +268,8 @@ class StaticPageTest(unittest.TestCase):
         self.assertIn("08:50 — Moskva prospekti (şəhərə doğru): tıxac, &lt;b&gt;2,4&lt;/b&gt; km.", html, "mətn qaçırılır")
         self.assertEqual(updater.tixac_status(doc, now + 4 * 3600), "", "3 saatdan köhnə ölçü yazılmır")
         self.assertEqual(updater.tixac_status({}, now), "")
-        self.assertIn(("tixac", "Bakıda tıxac indi"), [(s, l) for s, l, _ in updater.SERVICE_PAGES])
+        self.assertIn(("tixac", "Tıxac-İndi"), [(s, l) for s, l, _ in updater.SERVICE_PAGES])
+        self.assertNotIn("vtomatik", html, "sahib 2026-11-14: məlumatla bağlı «avtomatik» sözü yazılmır")
         self.assertNotIn("Rayonlar", html, "rayon balı yoxdursa cədvəl də yoxdur")
         city = updater.tixac_status({**doc, "rayons": [["Nərimanov", 7, "3,1"], ["Xəzər", 0, "0,0"]], "counted": 173, "jammed": 17}, now)
         self.assertIn("<h2>Rayonlar üzrə tıxac balı (08:54)</h2><p>Bakıda tıxaclı küçə: 17 (ölçülən 173 küçədən). ", city)
