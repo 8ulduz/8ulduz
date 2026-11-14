@@ -116,11 +116,9 @@ class BulletinTest(unittest.TestCase):
         self.assertTrue(b["worth"], b.get("why"))
         self.assertEqual(b["title"], "Səhər pik saatı: Bakıda 2 küçədə tıxac olub, ən uzunu Təbriz küçəsi")
         self.assertIn("ölçülən 173 küçədən 2 küçədə tıxac olub. Ən uzun tıxac Təbriz küçəsi üzərindədir: 3,2 km, təxminən", b["lead"])
-        body = "
-".join(b["body"])
+        body = "\n".join(b["body"])
         self.assertIn("Rayonlar üzrə tıxac balı (pik ərzində orta, 0–10): Nərimanov 7, Xəzər 1.", body)
-        self.assertIn("Ən uzun tıxaclar:
-Təbriz küçəsi: 3,2 km, təxminən 114 dəq.", body, "iki istiqamət bir dəfə sayılır: 19 ölçü × 6 dəq")
+        self.assertIn("Ən uzun tıxaclar:\nTəbriz küçəsi: 3,2 km, təxminən 114 dəq.", body, "iki istiqamət bir dəfə sayılır: 19 ölçü × 6 dəq")
         self.assertIn("Mətbuat prospekti: 1,4 km, təxminən 30 dəq.", body)
         self.assertNotIn("Füzuli küçəsi", body, "ləng küçə tıxac sayılmır")
         self.assertIn("Səkkiz əsas yolun vəziyyəti", body, "səkkiz yol da qalır")
