@@ -98,9 +98,12 @@ test("tixac: routes cover every district, a lost route is rejected, district sco
   assert.equal(d.routes.length, 0); assert.equal(d.errors, 35);
   assert.deepEqual(T.rayonScores([{ rayon: "Nəsimi", jam: 1000, mod: 0, known: 2500 }, { rayon: "Yasamal", jam: 0, mod: 1000, known: 5000 }, { rayon: "Qaradağ", jam: 1000, mod: 0, known: 1500 }]),
     [["Nəsimi", 10, "1,0"], ["Yasamal", 3, "0,0"]], "40% ağır = 10; orta yarım sayılır; 2 km-dən az məlumat bal almır");
-  const snap = { day: "2026-11-16", updatedAt: "x", rayons: [["Nəsimi", 6, "1,0"]], streets: [{ name: "Təbriz küçəsi", level: "tixac" }, { name: "Füzuli küçəsi", level: "leng" }] };
-  let w = T.week({}, snap); w = T.week(w, snap);
-  assert.deepEqual(w.days["2026-11-16"], { n: 2, s: { "Təbriz küçəsi": 2 }, z: { "Nəsimi": 12 } });
+  const snap = { day: "2026-11-16", updatedAt: "2026-11-16T04:00:00Z", rayons: [["Nəsimi", 6, "1,0"]],
+    streets: [{ name: "Təbriz küçəsi", level: "tixac", jamKm: "1,2" }, { name: "Təbriz küçəsi", level: "sixtixac", jamKm: "2,5" }, { name: "Füzuli küçəsi", level: "leng", jamKm: "0,0" }] };
+  let w = T.week({ days: { "2026-11-16": { n: 1, s: {}, z: {} } } }, snap); // köhnə formatlı gün (m, k yoxdur)
+  w = T.week(w, { ...snap, updatedAt: "2026-11-16T08:00:00Z" });
+  assert.deepEqual(w.days["2026-11-16"], { n: 3, s: { "Təbriz küçəsi": 2 }, m: { "Təbriz küçəsi": 36 }, k: { "Təbriz küçəsi": 2.5 }, z: { "Nəsimi": 12 } },
+    "Bakı 08:00 pik (6 dəq), 12:00 adi (30 dəq); iki istiqamət bir dəfə; ən uzun tıxac km");
   for (let i = 1; i <= 9; i++) w = T.week(w, { ...snap, day: `2026-11-${16 + i}` });
   assert.equal(Object.keys(w.days).length, 8, "8 gün saxlanır"); assert.ok(!w.days["2026-11-16"]);
 });

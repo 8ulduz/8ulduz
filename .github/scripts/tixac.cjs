@@ -274,14 +274,27 @@ function history(prev, d, now) {
   return [...(Array.isArray(prev) ? prev : []).filter(x => x && now - x.t < HIST_MS), ...(d.routes.length ? [snapshot(d, now)] : [])];
 }
 
-// Həftəlik yığım (hafta.json): hər gün üçün ölçü sayı, hər küçənin neçə ölçüdə tıxaclı olduğu və hər rayonun bal cəmi.
-// «Bu həftənin ən tıxaclı küçələri» xəbəri bundan yazılacaq; 8 gün saxlanır.
+// Həftəlik yığım (hafta.json): hər gün üçün ölçü sayı (n), hər küçənin neçə ölçüdə (s) və təxminən neçə dəqiqə (m) tıxaclı
+// olduğu (iki istiqamət bir dəfə), ən uzun tıxacı km ilə (k) və hər rayonun bal cəmi (z). Bir ölçü pik saatda (07–10, 17–20)
+// 6, qalan vaxt 30 dəqiqəni təmsil edir (cron belədir). oz_tixac.py şənbə günü «Həftənin ən tıxaclı küçələri» xəbərini bundan
+// yazır; 8 gün saxlanır.
 const WEEK_DAYS = 8;
-function week(prev, d) {
+const stepMin = t => { const h = bakuHour(t); return h >= 7 && h < 10 || h >= 17 && h < 20 ? 6 : 30; };
+function week(prev, d, now = Date.parse(d.updatedAt)) {
   const days = { ...(prev && typeof prev.days === "object" ? prev.days : {}) };
-  const today = days[d.day] = { n: 0, s: {}, z: {}, ...(days[d.day] || {}) };
+  const today = days[d.day] = { n: 0, s: {}, m: {}, k: {}, z: {}, ...(days[d.day] || {}) };
+  for (const x of ["m", "k"]) today[x] = today[x] || {};
   today.n++;
-  for (const st of d.streets) if (bad(st.level)) today.s[st.name] = (today.s[st.name] || 0) + 1;
+  const step = stepMin(now), seen = new Set();
+  for (const st of d.streets) {
+    if (!bad(st.level)) continue;
+    const kmv = parseFloat(String(st.jamKm).replace(",", ".")) || 0;
+    today.k[st.name] = Math.max(today.k[st.name] || 0, kmv);
+    if (seen.has(st.name)) continue;
+    seen.add(st.name);
+    today.s[st.name] = (today.s[st.name] || 0) + 1;
+    today.m[st.name] = (today.m[st.name] || 0) + step;
+  }
   for (const [name, score] of d.rayons || []) today.z[name] = (today.z[name] || 0) + score;
   const keep = Object.keys(days).sort().slice(-WEEK_DAYS);
   return { updatedAt: d.updatedAt, days: Object.fromEntries(keep.map(k => [k, days[k]])) };
