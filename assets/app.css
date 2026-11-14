@@ -1149,3 +1149,10 @@ nav.main .nav-more>summary{padding:0 8px}
 .tix-bar{gap:12px;align-items:center}
 .tix-alt{margin-right:auto;padding:0;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
 @media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:max(420px,calc(100svh - 230px))}}
+/* Sahib 2026-11-14: telefonda bölmə və Tıxac başlığının altındakı izah lazım deyil (yer tutur), başlıq bir sətirdə.
+   Yalnız siyahı səhifələrinin başlığı (xəbər səhifəsinin uzun başlığı .page-h>h1-dir, ona toxunulmur). */
+@media (max-width:600px){
+.page-h .sec-desc{display:none}
+.page-h>div{min-width:0}
+.page-h>div>h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,5.6vw,1.5714rem);line-height:1.2}
+}

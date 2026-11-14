@@ -2102,7 +2102,7 @@ const tgPre = () => uiLang(S.lang) ? S.lang + "-" : "";
 const tgIzle = (k, who) => { const bot = window.SITE_CONFIG?.tgBot; return bot ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=${tgPre()}${k}" ${OUT}>📩 ${who ? esc(who) + ": " : ""}Telegram-da izlə</a>` : ""; };
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
-  return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
+  return `<div class="page-h"><div><h1>${esc(title)}</h1><p class="sec-desc">${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
     (list.length ? `<div class="grid">${late(shown.map(a => cardAt(a, "h2")), LATE_LIST)}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
       : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : S.club ? "Bu mövzuda son 5 gündə xəbər tapılmadı." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
@@ -2306,7 +2306,7 @@ function trafficView() {
   const rows = items.length
     ? `<ul class="tix-list">${items.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
-  return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
+  return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p class="sec-desc">Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
     ${rush}
     <div class="tix-jumps">${jumps}</div>
     <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<button type="button" class="tix-alt" data-act="tix-yandex">${S.tixYandex ? "Waze xəritəsinə qayıt" : "Xəritə görünmür? Yandex xəritəsi"}</button><a href="${esc(wazeApp(area))}" ${OUT}>Waze tətbiqində aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
@@ -2474,6 +2474,16 @@ function preload(h) {
 }
 const hashOf = a => a?.getAttribute("href")?.replace(/^\/(bolme\/[^/?#]+).*/, "#/$1");
 document.addEventListener("pointerdown", e => { const h = hashOf(e.target.closest?.("a[href]")); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });
+// Sahib 2026-11-14: «namazı açandan sonra bir də üstünə basmayınca bağlanmır». Kənara «click» telefonda çox vaxt gəlmir (iPhone adi mətnə
+// və boş yerə toxunuşda click göndərmir; karta və ya düyməyə basanda isə click o düymənin işidir). İndi pəncərədən kənara istənilən
+// toxunuş (sürüşdürmə də) Namaz və hava pəncərəsini bağlayır.
+document.addEventListener("pointerdown", e => {
+  if (!(S.prayOpen || S.wxOpen) || !(e.target instanceof Element)) return;
+  let dirty = false;
+  if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }
+  if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }
+  if (dirty) renderTopbar();
+}, { passive: true, capture: true });
 const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
 function trackedSources() {
   const rows = S.sources?.sources;
