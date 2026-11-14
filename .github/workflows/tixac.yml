@@ -42,7 +42,8 @@ jobs:
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: |
           curl -fsS --max-time 10 -o /tmp/prev.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/tixac.json?t=$(date +%s)" || echo '{}' > /tmp/prev.json
-          node .github/scripts/tixac.cjs out /tmp/prev.json
+          curl -fsS --max-time 10 -o /tmp/tarix.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/tarix.json?t=$(date +%s)" || echo '{}' > /tmp/tarix.json
+          node .github/scripts/tixac.cjs out /tmp/prev.json /tmp/tarix.json
       - name: «tixac» budağına yaz
         if: github.event_name != 'push' && github.ref == 'refs/heads/main'
         env:
@@ -50,6 +51,6 @@ jobs:
         run: |
           cd out
           git init -q
-          git add tixac.json
+          git add tixac.json tarix.json
           git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit -q -m "Tıxac ölçüsü"
           git push -q --force "$URL" HEAD:refs/heads/tixac

@@ -18,9 +18,10 @@ const fs = require("node:fs"), path = require("node:path");
 
 // [en, enlik] cütləri (Mapbox sırası). Ad oxucu üçündür; küçə adları Mapbox-dan gəlir.
 const ROUTES = [
-  { id: "simal", name: "Sumqayıt yolu — 20 Yanvar — mərkəz", pts: [[49.7660, 40.4880], [49.8105, 40.4045], [49.8370, 40.3700]] },
-  { id: "aeroport", name: "Aeroport yolu — Koroğlu — Gənclik", pts: [[50.0300, 40.4400], [49.9180, 40.4180], [49.8513, 40.4006]] },
-  { id: "merkez", name: "Elmlər — 28 May — Xətai", pts: [[49.8135, 40.3755], [49.8490, 40.3790], [49.8720, 40.3830]] },
+  { id: "simal", name: "Bakı–Sumqayıt yolu — 20 Yanvar — Tbilisi prospekti", pts: [[49.7050, 40.5360], [49.8090, 40.4040], [49.8140, 40.3760]] },
+  { id: "qerb", name: "Binəqədi — Moskva prospekti — Ziya Bünyadov prospekti", pts: [[49.8150, 40.4500], [49.8460, 40.4150], [49.8700, 40.4240]] },
+  { id: "aeroport", name: "Aeroport yolu — Heydər Əliyev prospekti — Gənclik", pts: [[50.0300, 40.4400], [49.9180, 40.4180], [49.8513, 40.4006]] },
+  { id: "cenub", name: "Zığ şossesi — Babək prospekti — Neftçilər prospekti", pts: [[49.9600, 40.3700], [49.8900, 40.3940], [49.8400, 40.3660]] },
 ];
 const DAILY_CAP = 330;
 const KEEP_MS = 12 * 3600e3;
@@ -161,19 +162,33 @@ async function probe(token) {
   }
 }
 
-module.exports = { ROUTES, DAILY_CAP, directed, streets, levelOf, streetRow, eventFor, incidentEvents, run, bakuClock };
+// Günün tarixçəsi (tarix.json): hər ölçünün qısa nüsxəsi, 30 saat. oz_tixac.py səhər/axşam pik saatı xəbərini bundan yazır
+// (marşrutun ən uzun vaxtı, tıxacın neçə dəqiqə sürdüyü, dünənlə müqayisə). Sayt bu faylı oxumur.
+const HIST_MS = 30 * 3600e3;
+function snapshot(d, now) {
+  return { t: now, r: d.routes.map(r => [r.id, r.min, r.typ]), s: d.streets.map(s => [s.name, s.dir, s.level, s.jamKm]),
+    i: d.events.filter(e => e.t === now && e.kind === hadise).map(e => e.text) };
+}
+function history(prev, d, now) {
+  return [...(Array.isArray(prev) ? prev : []).filter(x => x && now - x.t < HIST_MS), ...(d.routes.length ? [snapshot(d, now)] : [])];
+}
+
+module.exports = { HIST_MS, snapshot, history, ROUTES, DAILY_CAP, directed, streets, levelOf, streetRow, eventFor, incidentEvents, run, bakuClock };
 
 if (require.main === module) {
   const token = process.env.MAPBOX_TOKEN;
   if (!token) { console.error("MAPBOX_TOKEN yoxdur"); process.exit(1); }
-  const [a, b] = process.argv.slice(2);
+  const [a, b, c] = process.argv.slice(2);
   if (a === "--yoxla") probe(token).catch(e => { console.error(e.message); process.exit(1); });
   else {
     let prev = {}; try { prev = JSON.parse(fs.readFileSync(b, "utf8")); } catch {}
-    run({ token, prev }).then(d => {
+    let prevHist = []; try { prevHist = JSON.parse(fs.readFileSync(c, 'utf8')).snaps; } catch {}
+    const now = Date.now();
+    run({ token, prev, now }).then(d => {
       if (!d.routes.length) { console.error("heç bir marşrut ölçülmədi"); process.exit(1); }
       fs.mkdirSync(a, { recursive: true });
       fs.writeFileSync(path.join(a, "tixac.json"), JSON.stringify(d));
+      fs.writeFileSync(path.join(a, "tarix.json"), JSON.stringify({ updatedAt: d.updatedAt, snaps: history(prevHist, d, now) }));
       console.log(`tixac.json: ${d.routes.length} marşrut, ${d.streets.length} tıxaclı küçə, ${d.events.length} xəbər, bu gün ${d.used} sorğu`);
     }).catch(e => { console.error(e.message); process.exit(1); });
   }
