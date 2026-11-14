@@ -3064,6 +3064,19 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
   ctx.location.hash = '#/xeber/1'; sync();
   assert.equal(pill.hidden, true, 'xəbəri oxuyanda düymə yoxdur');
 });
+test('owner 2026-11-14: on a phone the bottom «Tıxac» button opens the Waze app; on a computer it stays the site page', () => {
+  const btn = (bar) => ({ href: '#/tixac', target: '', rel: '', title: '', classList: { toggle() {} }, setAttribute() {}, closest: s => (s === '.tabbar' && bar ? {} : null) });
+  for (const touch of [true, false]) {
+    const tab = btn(true), inPage = btn(false);
+    const ctx = app({ matchMedia: q => ({ matches: touch && q === '(hover:none)' }), document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, querySelectorAll: s => (s === '.tix-btn' ? [tab, inPage] : []), createElement() { return {}; } } });
+    vm.runInContext('syncTixDot', ctx)();
+    if (touch) {
+      assert.equal(tab.href, 'https://www.waze.com/ul?ll=40.4093%2C49.8671&zoom=12', 'telefonda alt düymə Waze keçididir (konum yoxdursa Bakı mərkəz)');
+      assert.ok(/^https:\/\/www\.waze\.com\/ul\?ll=[\d.]+%2C[\d.]+&zoom=\d+$/.test(tab.href) && tab.target === '_blank' && tab.rel === 'noopener', 'Waze tətbiq keçidi, yeni pəncərədə');
+      assert.equal(inPage.href, '#/tixac', 'alt zolaqdan kənardakı düymələr dəyişmir');
+    } else assert.equal(tab.href, '#/tixac', 'kompüterdə tıxac səhifəsi qalır');
+  }
+});
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   for (const src of [js, html]) {

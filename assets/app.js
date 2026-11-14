@@ -643,7 +643,12 @@ function syncTixDot() {
   let hot = roadHot(S.data?.articles || []);
   if (!S.data || S.partial) hot ||= Date.now() - storage.getItem(TIX_KEY) < HOUR;
   else if (hot !== S.tixHot) storage.setItem(TIX_KEY, (S.tixHot = hot) ? Date.now() : 0);
+  // Sahib 2026-11-14: «tıxacı telefonda elə et Waze-in tətbiqdəki variantı açılsın». Telefonda alt düymə birbaşa Waze keçididir
+  // (waze.com/ul: tətbiq varsa tətbiq açılır, yoxsa Waze-in öz səhifəsi); həqiqi keçid olduğu üçün iPhone/Android onu tətbiqə verir.
+  // Bölgə tıxac səhifəsindəki ilə eynidir (konum icazəsi varsa oxucunun yeri). Kompüterdə səhifənin özü (xəritə və yol xəbərləri) qalır.
+  const waze = TOUCH_UI ? wazeApp(tixArea()) : "";
   document.querySelectorAll(".tix-btn").forEach(el => {
+    if (waze && el.closest?.(".tabbar")) { el.href = waze; el.target = "_blank"; el.rel = "noopener"; }
     el.classList.toggle("hot", hot);
     el.setAttribute("aria-label", hot ? "Tıxac — pik saat və ya yol hadisəsi" : "Tıxac və yollar");
     el.title = hot ? "Pik saat və ya təzə yol hadisəsi — xəritəyə baxın" : "Tıxac və yollar";
