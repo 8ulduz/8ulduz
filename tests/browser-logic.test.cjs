@@ -3545,6 +3545,6 @@ test('phone list and Zuğulba pictures are as tall as three lines of text', () =
 test('owner 2026-11-14: page titles fit one line on a phone without the description; prayer and weather popups close on any outside touch', () => {
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(css.includes('.page-h .sec-desc{display:none}') && css.includes('.page-h>div>h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,5.6vw,1.5714rem);line-height:1.2}'), 'telefonda başlıq bir sətir, izah gizli (375 px-də «Sağlamlıq və həyat», «Tıxac və yollar» sığır)');
-  assert.ok(src.includes('<p class="sec-desc">${esc(desc)}</p>') && src.includes('<h1>Bakıda tıxac indi</h1><p class="sec-desc">'), 'izah bölmə və Tıxac səhifəsindədir (xəbər başlığına toxunulmur)');
+  assert.ok(src.includes('<p class="sec-desc">${esc(desc)}</p>') && src.includes('<h1>Tıxac-İndi</h1><p class="sec-desc">'), 'izah bölmə və Tıxac səhifəsindədir (xəbər başlığına toxunulmur)');
   assert.ok(src.includes('if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }\n  if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }\n  if (dirty) renderTopbar();\n}, { passive: true, capture: true });'), 'pointerdown ilə: iPhone boş yerə toxunuşda click göndərmir');
 });

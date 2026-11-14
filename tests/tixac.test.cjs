@@ -84,7 +84,10 @@ test("tixac: the Tıxac page shows the measurement only when it is fresh, with e
   assert.ok(src.includes('const TIX_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tixac.json";'));
   assert.ok(src.includes("if (!d || !(Date.now() - at < 3 * 3600e3)) return \"\";"), "köhnə ölçü göstərilmir");
   assert.ok(src.includes("<b>${esc(s.name)}</b>") && src.includes("${esc(e.text)}"), "küçə adı və xəbər mətn kimi");
-  assert.ok(src.includes("Avtomatik ölçü: Mapbox tıxac məlumatı"), "mənbə göstərilir");
+  assert.ok(src.includes("Mənbə: Mapbox tıxac məlumatı"), "mənbə göstərilir");
+  const tix = src.slice(src.indexOf("function trafficView"), src.indexOf("function officialRoad"));
+  assert.ok(tix.length > 500 && !/vtomatik/.test(tix) && !/vtomatik/.test(src.slice(src.indexOf("const TIX_URL"), src.indexOf("const TIX_URL") + 4000)), "sahib 2026-11-14: «avtomatik» sözü yoxdur");
+  assert.ok(src.includes("<h1>Tıxac-İndi</h1>") && src.includes("name = \"Tıxac-İndi\""), "başlıq «Tıxac-İndi»");
   assert.ok(src.includes("<h3>Rayonlar üzrə tıxac balı</h3>") && src.includes("<b>${esc(n)}</b> — ${b | 0}/10"), "rayon balı: ad mətn kimi, bal rəqəm kimi");
   assert.ok(src.includes("Bakıda tıxaclı küçə: ${d.jammed | 0}") && src.includes("ölçülən ${d.counted | 0} küçədən"), "şəhər xülasəsi rəqəm kimi");
 });

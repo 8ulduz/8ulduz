@@ -32,7 +32,7 @@ import oz_xeber as ox
 BAKU = ox.BAKU
 TARIX_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tarix.json"
 PAGE = "https://8ulduz.az/#/tixac"
-CREDIT = "8ulduz.az avtomatik ölçüsü (Mapbox tıxac məlumatı)"
+CREDIT = "8ulduz.az ölçüsü (Mapbox tıxac məlumatı)"
 TITLE_MAX = 110
 MIN_SNAPS = 6                       # pəncərədə bundan az ölçü varsa bülleten yazılmır
 FRESH = datetime.timedelta(minutes=25)
@@ -170,7 +170,7 @@ def bulletin(b, day, snaps, now):
     if city and measured:
         top = city[0]
         title = f"{ad} pik saatı: Bakıda {len(city)} küçədə tıxac olub, ən uzunu {top['name']}"
-        lead = (f"8ulduz.az-ın avtomatik ölçüsünə görə bu gün saat {b['start']}–{slot:%H:%M} arası {b['dir']} hərəkətdə ölçülən "
+        lead = (f"8ulduz.az-ın ölçüsünə görə bu gün saat {b['start']}–{slot:%H:%M} arası {b['dir']} hərəkətdə ölçülən "
                 f"{measured} küçədən {len(city)} küçədə tıxac olub. Ən uzun tıxac {top['name']} üzərindədir: "
                 f"{_kmt(top['max_km'])} km, təxminən {round(top['jam_min'])} dəqiqə.")
         if len(title) > TITLE_MAX:
@@ -179,11 +179,11 @@ def bulletin(b, day, snaps, now):
         top = jams[0]
         title = f"{ad} pik saatı: Bakıda {len(jams)} əsas yolda tıxac, ən sıxı {top['name']}" if len(jams) > 1 else \
             f"{ad} pik saatı: Bakıda {top['name']} tıxacdadır"
-        lead = (f"8ulduz.az-ın avtomatik ölçüsünə görə bu gün saat {b['start']}–{slot:%H:%M} arası {b['dir']} hərəkətdə ən uzun tıxac "
+        lead = (f"8ulduz.az-ın ölçüsünə görə bu gün saat {b['start']}–{slot:%H:%M} arası {b['dir']} hərəkətdə ən uzun tıxac "
                 f"{top['name']} üzərində olub: {_kmt(top['max_km'])} km, təxminən {round(top['jam_min'])} dəqiqə.")
     else:
         title = f"{ad} pik saatı: Bakının səkkiz əsas yolunda ciddi tıxac yoxdur"
-        lead = (f"8ulduz.az-ın avtomatik ölçüsünə görə bu gün saat {b['start']}–{slot:%H:%M} arası {b['dir']} hərəkətdə ölçülən səkkiz "
+        lead = (f"8ulduz.az-ın ölçüsünə görə bu gün saat {b['start']}–{slot:%H:%M} arası {b['dir']} hərəkətdə ölçülən səkkiz "
                 f"əsas yolun heç birində ciddi tıxac olmayıb.")
     body = []
     lines = []
@@ -231,7 +231,7 @@ def bulletin(b, day, snaps, now):
             body.append("Dünənin eyni saatları ilə müqayisədə marşrutlar orta hesabla " +
                         (f"{abs(diff)} dəqiqə {'çox' if diff > 0 else 'az'} vaxt aparıb." if diff else "eyni vaxt aparıb."))
     body.append("Canlı vəziyyət 8ulduz.az-ın «Tıxac» bölməsində pik saatlarda 6 dəqiqədən bir yenilənir.")
-    body.append("Ölçü Mapbox-un tıxac məlumatı əsasında avtomatik aparılır, rəsmi məlumat deyil.")
+    body.append("Ölçü Mapbox-un tıxac məlumatı əsasında aparılır, rəsmi məlumat deyil.")
     item = {"kind": f"tixac-{b['id']}", "key": key, "title": title, "lead": lead, "body": body, "credit": CREDIT, "link": PAGE,
             "topic": "yol", "slot": b["slot"], "worth": True, "list": False}
     if weekend and not jams and len(city) < 5:
@@ -320,7 +320,7 @@ def weekly(doc, sat):
     title = f"Həftənin ən tıxaclı küçəsi: {name}, təxminən {_hm(m)} tıxac"
     if len(title) > TITLE_MAX:
         title = f"Həftənin ən tıxaclı küçəsi: {name}"
-    lead = (f"8ulduz.az-ın avtomatik ölçüsünə görə {span} iş günlərində Bakıda ən uzun tıxac {name} üzərində olub: "
+    lead = (f"8ulduz.az-ın ölçüsünə görə {span} iş günlərində Bakıda ən uzun tıxac {name} üzərində olub: "
             f"{len(work)} gündə ümumilikdə təxminən {_hm(m)}, ən uzun tıxac {_kmt(kms.get(name, 0))} km.")
     body = ["Həftənin ən tıxaclı küçələri (iş günlərində tıxacın ümumi müddəti):"]
     body += [f"{i}. {n} — təxminən {_hm(v)}" + (f", ən uzunu {_kmt(kms[n])} km" if kms.get(n) else "") + "."
@@ -334,7 +334,7 @@ def weekly(doc, sat):
         body.append(f"Ən ağır gün {GUNLER[hard[0].weekday()]} olub ({hard[0].day} {ox.MONTHS[hard[0].month - 1]}), "
                     f"ən yüngülü {GUNLER[easy[0].weekday()]} ({easy[0].day} {ox.MONTHS[easy[0].month - 1]}).")
     body.append("Ölçü Bakının 12 rayonunda 35 marşrut üzrə pik saatlarda 6, qalan vaxt 30 dəqiqədən bir aparılır.")
-    body.append("Ölçü Mapbox-un tıxac məlumatı əsasında avtomatik aparılır, rəsmi məlumat deyil.")
+    body.append("Ölçü Mapbox-un tıxac məlumatı əsasında aparılır, rəsmi məlumat deyil.")
     item = {**base, "title": title, "lead": lead, "body": body, "credit": CREDIT, "link": PAGE, "worth": True, "list": False}
     return _owner_gate(item)
 
@@ -404,7 +404,7 @@ def alerts(snaps, now, done):
             break
     since = round((t_last - start).total_seconds() / 60)
     title = f"Bakıda gözlənilməz tıxac: {name}, {_kmt(km)} km"
-    lead = (f"8ulduz.az-ın avtomatik ölçüsünə görə saat {t_last:%H:%M} ölçüsündə {name} üzərində ({row[1]}) {_kmt(km)} km "
+    lead = (f"8ulduz.az-ın ölçüsünə görə saat {t_last:%H:%M} ölçüsündə {name} üzərində ({row[1]}) {_kmt(km)} km "
             f"hissədə {LEVEL[row[2]]} var. Dünən bu saatlarda burada tıxac olmayıb.")
     body = [f"Tıxac ən azı {since} dəqiqədir davam edir (saat {start:%H:%M} ölçüsündən bəri)."]
     inc = [x for s in snaps[-3:] for x in (s.get("i") or []) if name in x]
@@ -414,7 +414,7 @@ def alerts(snaps, now, done):
     if others:
         body.append("Hazırda tıxac olan digər küçələr: " + ", ".join(f"{n} ({_kmt(k)} km)" for k, n in others) + ".")
     body.append("Canlı vəziyyət 8ulduz.az-ın «Tıxac» bölməsindədir.")
-    body.append("Ölçü Mapbox-un tıxac məlumatı əsasında avtomatik aparılır, rəsmi məlumat deyil.")
+    body.append("Ölçü Mapbox-un tıxac məlumatı əsasında aparılır, rəsmi məlumat deyil.")
     item = {"kind": "tixac-ani", "key": f"tixac-ani-{day}-x{_slug(name)}", "title": title, "lead": lead, "body": body,
             "credit": CREDIT, "link": PAGE, "topic": "yol", "slot": f"{now:%H:%M}", "worth": True, "list": False}
     if len(title) > TITLE_MAX:
