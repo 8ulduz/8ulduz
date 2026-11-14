@@ -2635,7 +2635,7 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   assert.ok(src.includes('r.slug === S.clubSlug') && src.includes('r.name === "team" ? "idman"'), 'liqadan geri qayıdanda Futbol sırası qalır, nav İdmanı göstərir');
   assert.ok(src.includes('function jumpToLatest()') && src.includes('S.latestOrder = "latest"; S.latestCount = 8; } render(); jumpToLatest();'), '«yeni xəbər» düyməsi Son xəbərlər → Ən yeni');
   assert.ok(src.includes('navigator.permissions?.query?.({ name: "geolocation" })') && src.includes('data-act="geo"') && !src.includes('getCurrentPosition(applyGeo, undefined'), 'konum yalnız düymə ilə və ya əvvəl verilmiş icazə ilə');
-  assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)'), 'telefonda canlı xəritə Yandex, Waze tətbiqdə açılır');
+  assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)') && src.includes('data-act="tix-yandex"'), 'telefonda Waze xəritəsi, ehtiyat Yandex, «Waze tətbiqində aç»');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   // Sahib, 2026-11-06: üç kart + › sınandı, əvvəlki dörd kartlı format qaytarıldı.
   assert.ok(css.includes('.mk:nth-child(-n+4){flex:0 0 calc((100% - 18px)/4)') && css.includes('.mk:nth-child(-n+4) .c span:last-child{display:none}'), 'dörd valyuta bir ekranda');
@@ -3064,18 +3064,24 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
   ctx.location.hash = '#/xeber/1'; sync();
   assert.equal(pill.hidden, true, 'xəbəri oxuyanda düymə yoxdur');
 });
-test('owner 2026-11-14: on a phone the bottom «Tıxac» button opens the Waze app; on a computer it stays the site page', () => {
-  const btn = (bar) => ({ href: '#/tixac', target: '', rel: '', title: '', classList: { toggle() {} }, setAttribute() {}, closest: s => (s === '.tabbar' && bar ? {} : null) });
+test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once — on a phone too, with Yandex only as a fallback', () => {
   for (const touch of [true, false]) {
-    const tab = btn(true), inPage = btn(false);
-    const ctx = app({ matchMedia: q => ({ matches: touch && q === '(hover:none)' }), document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, querySelectorAll: s => (s === '.tix-btn' ? [tab, inPage] : []), createElement() { return {}; } } });
+    const tab = { href: '#/tixac', classList: { toggle() {} }, setAttribute() {}, closest: () => ({}) };
+    const ctx = app({ matchMedia: q => ({ matches: touch && q === '(hover:none)' }), document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, querySelectorAll: s => (s === '.tix-btn' ? [tab] : []), createElement() { return {}; } } });
     vm.runInContext('syncTixDot', ctx)();
+    assert.equal(tab.href, '#/tixac', 'alt düymə saytın tıxac səhifəsidir (oxucu saytdan çıxmır)');
+    const view = vm.runInContext('trafficView', ctx), S = ctx.api.S;
+    let html = view();
+    assert.ok(html.includes('src="https://embed.waze.com/iframe?zoom=12&amp;lat=40.4093&amp;lon=49.8671"') || html.includes('src="https://embed.waze.com/iframe?zoom=12&lat=40.4093&lon=49.8671"'), 'Waze xəritəsi düyməsiz, dərhal');
+    assert.ok(!html.includes('data-act="tix-open"') && !html.includes('yandex.com'), 'əvvəlki «Xəritəni aç» addımı və Yandex yoxdur');
     if (touch) {
-      assert.equal(tab.href, 'https://www.waze.com/ul?ll=40.4093%2C49.8671&zoom=12', 'telefonda alt düymə Waze keçididir (konum yoxdursa Bakı mərkəz)');
-      assert.ok(/^https:\/\/www\.waze\.com\/ul\?ll=[\d.]+%2C[\d.]+&zoom=\d+$/.test(tab.href) && tab.target === '_blank' && tab.rel === 'noopener', 'Waze tətbiq keçidi, yeni pəncərədə');
-      assert.equal(inPage.href, '#/tixac', 'alt zolaqdan kənardakı düymələr dəyişmir');
-    } else assert.equal(tab.href, '#/tixac', 'kompüterdə tıxac səhifəsi qalır');
+      assert.ok(html.includes('data-act="tix-yandex"') && html.includes('Waze tətbiqində aç'), 'telefonda ehtiyat Yandex və tətbiq düyməsi');
+      S.tixYandex = true; html = view();
+      assert.ok(html.includes('yandex.com/map-widget') && !html.includes('embed.waze.com') && html.includes('Waze xəritəsinə qayıt'), 'oxucu istəsə Yandex, geri qayıtmaq olur');
+    } else assert.ok(!html.includes('data-act="tix-yandex"'), 'kompüterdə Yandex düyməsi yoxdur');
   }
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.tix-map iframe{height:max(420px,calc(100svh - 230px))}'), 'telefonda xəritə ekran boyu');
 });
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
