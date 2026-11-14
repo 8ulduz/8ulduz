@@ -2316,8 +2316,36 @@ function trafficView() {
     ${rush}
     <div class="tix-jumps">${jumps}</div>
     <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<button type="button" class="tix-alt" data-act="tix-yandex">${S.tixYandex ? "Waze xəritəsinə qayıt" : "Xəritə görünmür? Yandex xəritəsi"}</button><a href="${esc(wazeApp(area))}" ${OUT}>Waze tətbiqində aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
-    <p class="tix-note">${TOUCH_UI && S.tixYandex ? "Xəritə Yandex Xəritələrdəndir." : "Xəritə Waze-dəndir."} Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
+    ${tixMeasure()}
+    <p class="tix-note">${TOUCH_UI && S.tixYandex ? "Xəritə Yandex Xəritələrdəndir." : "Xəritə Waze-dəndir."} Aşağıda son 2 saatın Bakı və Abşeron üzrə yol xəbərləri.</p>
     ${rows}`;
+}
+// Avtomatik tıxac ölçüsü (sahib 2026-11-14): .github/scripts/tixac.cjs Mapbox ilə pik saatlarda 5, qalan vaxt 20 dəqiqədən bir ölçür,
+// nəticə «tixac» budağındadır. Yalnız Tıxac səhifəsində və yalnız açıq ikən 5 dəqiqədən bir oxunur (başqa səhifələrə yük yoxdur).
+const TIX_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tixac.json";
+function loadTixac() {
+  if (S.tixLoading || Date.now() - (S.tixAt || 0) < 5 * 60e3) return;
+  if (typeof fetch !== "function") return;
+  S.tixLoading = true;
+  globalThis.fetch(`${TIX_URL}?t=${Date.now() / 3e5 | 0}`).then(r => r.ok ? r.json() : null).then(d => {
+    S.tixAt = Date.now();
+    if (d && Array.isArray(d.events)) { S.tix = d; if (route().name === "traffic") renderView(); }
+  }).catch(() => { S.tixAt = Date.now(); }).finally(() => { S.tixLoading = false; });
+}
+const TIX_LVL = { sixtixac: "🔴", tixac: "🟠", leng: "🟡", bagli: "⛔" };
+function tixMeasure() {
+  loadTixac();
+  const d = S.tix, at = d && Date.parse(d.updatedAt);
+  if (!d || !(Date.now() - at < 3 * 3600e3)) return ""; // 3 saatdan köhnə ölçü göstərilmir (gecə ölçü yoxdur)
+  const clock = t => new Date(t + 144e5).toISOString().slice(11, 16);
+  const order = { sixtixac: 0, bagli: 1, tixac: 2, leng: 3 };
+  const now = [...(d.streets || [])].sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9)).slice(0, 12);
+  const list = now.length
+    ? `<ul class="tix-now">${now.map(s => `<li><span aria-hidden="true">${TIX_LVL[s.level] || "•"}</span><b>${esc(s.name)}</b> <span class="muted">(${esc(s.dir)})</span> — ${esc(s.text)}${s.jamKm && s.jamKm !== "0,0" && s.level !== "leng" ? `, ${esc(s.jamKm)} km` : ""}</li>`).join("")}</ul>`
+    : `<p class="tix-ok">Ölçülən marşrutlarda ciddi tıxac yoxdur.</p>`;
+  const ev = (d.events || []).slice(0, 10);
+  const feed = ev.length ? `<h3>Avtomatik xəbərlər</h3><ul class="tix-ev">${ev.map(e => `<li class="${esc(e.kind || "")}"><time>${clock(e.t)}</time> ${esc(e.text)}</li>`).join("")}</ul>` : "";
+  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${list}${feed}<p class="tix-src">Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 5, qalan vaxt 20 dəqiqədən bir yenilənir.</p></section>`;
 }
 
 // Yalnız dəyişən blok yenilənir.
