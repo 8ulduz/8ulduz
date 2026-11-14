@@ -1,0 +1,53 @@
+name: Tıxac ölçüsü
+# Sahib (2026-11-14): «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur». TomTom Traffic API, pulsuz plan (kartsız).
+# Bakı vaxtı 07:00–22:00 arası hər 15 dəqiqə (UTC 03–17). Nəticə yalnız «tixac» budağına yazılır (tarixçəsiz, bir fayl):
+# main-ə, xəbər lentinə və saytın qalan hissəsinə heç nə yazılmır. Açar (TOMTOM_KEY) yalnız ölçü addımındadır.
+# feat/tixac-* budaqlarında: yalnız yoxlama (nöqtələrin hansı yola düşdüyü), heç nə yazılmır.
+
+on:
+  schedule:
+    - cron: '7,22,37,52 3-17 * * *'
+  workflow_dispatch:
+  push:
+    branches: ['feat/tixac-**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tixac
+  cancel-in-progress: false
+
+jobs:
+  olc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: .github/scripts/tixac.cjs
+          sparse-checkout-cone-mode: false
+      - name: Yoxlama (sınaq budağı)
+        if: github.event_name == 'push'
+        env:
+          TOMTOM_KEY: ${{ secrets.TOMTOM_KEY }}
+        run: node .github/scripts/tixac.cjs --yoxla
+      - name: Ölç
+        if: github.event_name != 'push' && github.ref == 'refs/heads/main'
+        env:
+          TOMTOM_KEY: ${{ secrets.TOMTOM_KEY }}
+        run: |
+          curl -fsS --max-time 10 -o /tmp/prev.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/tixac.json?t=$(date +%s)" || echo '{}' > /tmp/prev.json
+          node .github/scripts/tixac.cjs out /tmp/prev.json
+      - name: «tixac» budağına yaz
+        if: github.event_name != 'push' && github.ref == 'refs/heads/main'
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          cd out
+          git init -q
+          git add tixac.json
+          git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit -q -m "Tıxac ölçüsü"
+          git push -q --force "$URL" HEAD:refs/heads/tixac
