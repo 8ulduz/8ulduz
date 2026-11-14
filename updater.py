@@ -418,7 +418,9 @@ CATEGORIES = {
                     "robot", "peyk", "chatgpt", "openai", "google", "apple", "iphone", "android", "windows", "microsoft",
                     "yapay zeka", "teknoloji", "akıllı telefon", "uygulama", "siber", "uzay", "yazılım",
                     "искусственн", "смартфон", "астроном", "космос", "технолог", "приложени", "хакер", "нейросет", "гаджет",
-                    "artificial intelligence", " ai ", "space", "smartphone", "tech", "software", "app ", "cyber", "chip", "nasa", "spacex", "rocket"],
+                    "artificial intelligence", " ai ", "space", "smartphone", "tech", "software", "app ", "cyber", "chip", "nasa", "spacex", "rocket",
+                    # 2026-11-14: «WhatsApp ve Telegram sesli aramalarını kaydetme özelliği geliyor» (CNN Türk) texnologiya sözü tapmayıb İdmana düşmüşdü.
+                    "whatsapp", "samsung", "xiaomi", "huawei", "mesajlaşma", "voip", "мессенджер"],
     "Dünya": ["bmt", "nato", "rusiya", "çin", "fransa", "almaniya", "iran", "israil", "ukrayna",
               "dəməşq", "suriya", "livan", "ərəb", "abş", "ingiltərə", "pakistan", "hindistan",
               "qüds", "beynəlxalq", "ermənistan", "gürcüstan", "avropa ittifaqı",
@@ -905,7 +907,16 @@ def president_score(blob, lang):
 SPORT_SITE_RX = re.compile(r"(?<!\w)(?:fənərba[ğx]ça|\w+spor(?!\w)|[\"“«](?:sabah|qarabağ|kəpəz|neftçi|zirə|inter|göztəpə)|legioner|heç-heçə|stadion|avrokubok|"
                            r"komandası|klub|meydan[aı]|uduzdu|oyunu|millinin|heyətim|ehtiyatda qaldı|şans aldı|texniki məğlubiyyət|böyük dəbilqə|federasiya)")
 
+# «Transfer» idman sözüdür, amma «ses transferi», «para transferi», «məlumat transferi», «hava limanı transferi» futbol deyil:
+# CNN Türk-ün WhatsApp xəbəri «(IP üzerinden ses transferi)» ifadəsinə görə İdmana düşmüşdü (sahib, 2026-11-14).
+_NOT_SPORT_TRANSFER = re.compile(r"(?<!\w)((?:ses|səs|veri|data|bilgi|dosya|fayl|para|pul|məlumat|melumat|bilet|enerji|elektrik|ödəniş|ödeme|"
+                                 r"texnologiya|teknoloji|technology|bank|money|wire|file|limanı|havalimanı|otel|hotel|kripto|crypto)\w{0,4}\s+)transfer")
+
+def _sport_free(text):
+    return _NOT_SPORT_TRANSFER.sub(r"\1trans-fer", text)
+
 def categorize(title, desc, lang="az", hint=None, world=False):
+    title, desc = _sport_free(norm_az(title)), _sport_free(norm_az(desc))
     # A clear title topic takes precedence over incidental location words.
     title_text = norm_az(title)
     if president_score(title_text, lang) < 6:

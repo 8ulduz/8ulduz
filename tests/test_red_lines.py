@@ -671,6 +671,20 @@ class QualityTest(unittest.TestCase):
         self.assertNotEqual(self.label("Kiyevin doqquz rayonunda su təchizatı pozulub"), "Bölgələr")
         self.assertEqual(self.label("Tovuzda avtomobil kanala aşdı"), "Bölgələr")
 
+    def test_phone_and_money_transfers_are_not_sport(self):
+        # 2026-11-14, sahib: «idmana telefon xəbəri düşür» — «ses transferi» futbol transferi sayılırdı.
+        t = "WhatsApp ve Telegram sesli aramalarını kaydetme özelliği geliyor"
+        d = ("Samsung, kat hücresel şebeke aramalarında sunduğu dâhili ses kaydı yeteneğini, üçüncü taraf mesajlaşma ve VoIP "
+             "(IP üzerinden ses transferi) uygulamalarına genişletmeye hazırlanıyor.")
+        self.assertEqual(updater.categorize(t, d, "tr"), "Texnologiya")
+        self.assertEqual(updater.categorize(t, d, "tr", world=True), "Texnologiya")
+        self.assertNotEqual(self.label("Bankdan pul transferi zamanı komissiya artırılır"), "İdman")
+        self.assertNotEqual(updater.categorize("Havalimanı transferi ücretleri arttı", "", "tr"), "İdman")
+        # Futbol transferi əvvəlki kimi idmandır
+        self.assertEqual(updater.categorize("Galatasaray'ın yeni transferi İstanbul'a geldi", "", "tr"), "İdman")
+        self.assertEqual(self.label("Neftçi qış transfer pəncərəsində iki futbolçu alacaq"), "İdman")
+        self.assertEqual(self.label("Futbolçunun transferi baş tutmadı"), "İdman")
+
     def test_ascii_azerbaijani_title_is_not_english(self):
         self.assertEqual(updater.detect_lang("Tehrandan Avropaya", "", "az"), "az")
         self.assertEqual(updater.detect_lang("Zaqatalada qaz olmayacaq", "", "az"), "az")
