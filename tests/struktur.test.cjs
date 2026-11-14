@@ -75,7 +75,7 @@ test("struktur 5: the site (GitHub Pages) only gets folders with a known bound �
 test("struktur 6: every Node script that sends or publishes stories applies the site's source rule (red line 2)", () => {
   const writers = ["topics.cjs", "izle.cjs", "arxiv.cjs", "social.cjs", "prerender.cjs"];
   for (const f of writers) assert.ok(/policyViolation|content-policy/.test(read(".github/scripts/" + f)), `${f} mənbə qaydasını (policyViolation) işlətmir`);
-  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs"]);
+  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs"]); // tixac.cjs: öz ölçüsü (Mapbox), başqa saytın xəbərini yazmır
   const all = fs.readdirSync(path.join(root, ".github/scripts")).filter(f => f.endsWith(".cjs"));
   assert.deepEqual(all.filter(f => !known.has(f)), [], "yeni Node skripti: xəbər yazırsa policyViolation işlətsin və bu siyahıya əlavə olunsun");
 });

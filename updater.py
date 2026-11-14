@@ -418,7 +418,9 @@ CATEGORIES = {
                     "robot", "peyk", "chatgpt", "openai", "google", "apple", "iphone", "android", "windows", "microsoft",
                     "yapay zeka", "teknoloji", "akıllı telefon", "uygulama", "siber", "uzay", "yazılım",
                     "искусственн", "смартфон", "астроном", "космос", "технолог", "приложени", "хакер", "нейросет", "гаджет",
-                    "artificial intelligence", " ai ", "space", "smartphone", "tech", "software", "app ", "cyber", "chip", "nasa", "spacex", "rocket"],
+                    "artificial intelligence", " ai ", "space", "smartphone", "tech", "software", "app ", "cyber", "chip", "nasa", "spacex", "rocket",
+                    # 2026-11-14: «WhatsApp ve Telegram sesli aramalarını kaydetme özelliği geliyor» (CNN Türk) texnologiya sözü tapmayıb İdmana düşmüşdü.
+                    "whatsapp", "samsung", "xiaomi", "huawei", "mesajlaşma", "voip", "мессенджер"],
     "Dünya": ["bmt", "nato", "rusiya", "çin", "fransa", "almaniya", "iran", "israil", "ukrayna",
               "dəməşq", "suriya", "livan", "ərəb", "abş", "ingiltərə", "pakistan", "hindistan",
               "qüds", "beynəlxalq", "ermənistan", "gürcüstan", "avropa ittifaqı",
@@ -905,7 +907,16 @@ def president_score(blob, lang):
 SPORT_SITE_RX = re.compile(r"(?<!\w)(?:fənərba[ğx]ça|\w+spor(?!\w)|[\"“«](?:sabah|qarabağ|kəpəz|neftçi|zirə|inter|göztəpə)|legioner|heç-heçə|stadion|avrokubok|"
                            r"komandası|klub|meydan[aı]|uduzdu|oyunu|millinin|heyətim|ehtiyatda qaldı|şans aldı|texniki məğlubiyyət|böyük dəbilqə|federasiya)")
 
+# «Transfer» idman sözüdür, amma «ses transferi», «para transferi», «məlumat transferi», «hava limanı transferi» futbol deyil:
+# CNN Türk-ün WhatsApp xəbəri «(IP üzerinden ses transferi)» ifadəsinə görə İdmana düşmüşdü (sahib, 2026-11-14).
+_NOT_SPORT_TRANSFER = re.compile(r"(?<!\w)((?:ses|səs|veri|data|bilgi|dosya|fayl|para|pul|məlumat|melumat|bilet|enerji|elektrik|ödəniş|ödeme|"
+                                 r"texnologiya|teknoloji|technology|bank|money|wire|file|limanı|havalimanı|otel|hotel|kripto|crypto)\w{0,4}\s+)transfer")
+
+def _sport_free(text):
+    return _NOT_SPORT_TRANSFER.sub(r"\1trans-fer", text)
+
 def categorize(title, desc, lang="az", hint=None, world=False):
+    title, desc = _sport_free(norm_az(title)), _sport_free(norm_az(desc))
     # A clear title topic takes precedence over incidental location words.
     title_text = norm_az(title)
     if president_score(title_text, lang) < 6:
@@ -5550,7 +5561,7 @@ _SECTION_HTML = """<!doctype html>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac-İndi</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -5630,7 +5641,8 @@ def _page_html(slug, label, desc, items):
 SERVICE_PAGES = [
     ("valyuta", "Valyuta məzənnəsi", "Dollar, avro, rubl və lirənin manatla bugünkü məzənnəsi, neft və qızıl qiyməti"),
     ("cedvel", "Premyer Liqa cədvəli", "Azərbaycan Premyer Liqasının turnir cədvəli"),
-    ("tixac", "Tıxac və yollar", "Azərbaycanda yol vəziyyəti, qəza və bağlanan yollar haqqında son xəbərlər"),
+    # Sahib 2026-11-14: «Bakıda tıxac indi» səhifəsi — avtomatik ölçü (tixac.yml, Mapbox), pik saat bülletenləri (öz xəbər modulu), yol xəbərləri.
+    ("tixac", "Tıxac-İndi", "Bakının bütün rayonlarında yolların canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar haqqında son xəbərlər"),
     # Menyudakı «Son dəqiqə» və alt zolaqdakı «Video» həqiqi keçiddir (/bolme/<ad>/): səhifəsi olmasa Google 404 görür (2026-11-11).
     ("sondeqiqe", "Son dəqiqə", "Son bir saatın xəbərləri"),
     ("video", "Video xəbərlər", "Azərbaycan mətbuatının videolu xəbərləri"),
@@ -5665,7 +5677,50 @@ def service_body(slug, articles):
     road = [a for a in articles if (a.get("lang") or "az") == "az" and _ROAD_RX.search(a.get("title") or "")]
     road.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
     lis = "".join(f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in road[:20])
-    return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p><ul>{lis}</ul>'
+    return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p>{tixac_status()}<h2>Yol xəbərləri</h2><ul>{lis}</ul>'
+
+# «Bakıda tıxac indi» səhifəsinin Google-un oxuduğu hissəsi: avtomatik ölçünün son nəticəsi (tixac.yml → «tixac» budağı).
+# QIRMIZI XƏTT 1: xəbər axını gözləmir — fayl ən çoxu 5 dəqiqədə bir, 3 saniyəlik sorğu ilə alınır, xəta və gecikmə səhifəni
+# ölçüsüz yazır. 3 saatdan köhnə ölçü (gecə) yazılmır.
+TIXAC_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tixac.json"
+TIXAC_CACHE = CACHE_DIR / "tixac.json"
+TIXAC_LEVEL = {"sixtixac": "sıx tıxac", "tixac": "tıxac", "leng": "hərəkət ləngdir", "serbest": "hərəkət sərbəstdir", "?": "ölçülməyib"}
+
+def _tixac_doc(now=None):
+    now = now or time.time()
+    try:
+        if not TIXAC_CACHE.exists() or now - TIXAC_CACHE.stat().st_mtime > 300:
+            CACHE_DIR.mkdir(exist_ok=True)
+            raw = fetch(f"{TIXAC_URL}?t={int(now) // 300}", timeout=3)
+            json.loads(raw)
+            _write_atomic(TIXAC_CACHE, raw.decode("utf-8"), encoding="utf-8")
+    except Exception as e:
+        print("  ! tıxac ölçüsü:", type(e).__name__)
+    return _read_json(TIXAC_CACHE, {})
+
+def tixac_status(doc=None, now=None):
+    try:
+        d = _tixac_doc(now) if doc is None else doc
+        at = datetime.datetime.fromisoformat(str(d.get("updatedAt") or "").replace("Z", "+00:00"))
+        now_dt = datetime.datetime.fromtimestamp(now or time.time(), datetime.timezone.utc)
+        if not (datetime.timedelta(0) <= now_dt - at < datetime.timedelta(hours=3)):
+            return ""
+        clock = at.astimezone(BAKU).strftime("%H:%M")
+        rows = [(w[0], TIXAC_LEVEL.get(w[1], w[1]), (w[2] + " km") if w[1] in ("tixac", "sixtixac") else "") for w in d.get("watch") or [] if len(w) >= 3]
+        ev = "".join(f'<li>{_xml(datetime.datetime.fromtimestamp(e["t"] / 1000, BAKU).strftime("%H:%M"))} — {_xml(e.get("text"))}</li>'
+                     for e in (d.get("events") or [])[:10] if isinstance(e.get("t"), (int, float)))
+        out = ""
+        zl = [z for z in d.get("rayons") or [] if len(z) >= 3 and isinstance(z[1], int)]
+        if zl:  # 35 marşrut, bütün rayonlar (2026-11-14)
+            head = f"Bakıda tıxaclı küçə: {int(d.get('jammed') or 0)} (ölçülən {int(d.get('counted') or 0)} küçədən). " if d.get("counted") else ""
+            out += (f"<h2>Rayonlar üzrə tıxac balı ({clock})</h2><p>{head}Bal 0–10: rayonun ölçülən yollarında tıxaclı hissənin payı.</p>"
+                    + _table(("Rayon", "Bal", "Tıxac"), [(z[0], f"{z[1]}/10", (z[2] + " km") if z[2] != "0,0" else "") for z in zl]))
+        out += f"<h2>Səkkiz əsas yolun vəziyyəti ({clock})</h2>" + (_table(("Yol", "Vəziyyət", "Tıxac"), rows) if rows else "")
+        out += f"<h2>Son dəyişikliklər</h2><ul>{ev}</ul>" if ev else ""
+        return out + "<p><small>Mənbə: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6 dəqiqədən bir yenilənir.</small></p>"
+    except Exception as e:
+        print("  ! tıxac səhifəsi:", type(e).__name__)
+        return ""
 
 def write_sections(articles, stories=()):
     try:
@@ -6075,7 +6130,13 @@ def _iso_utc(dt):
         dt = dt.replace(tzinfo=datetime.timezone.utc)
     return dt.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
 
-def write_sitemap(stories=None, digests=()):
+def _own_page_rows(articles):
+    """Lentdəki öz xəbərlər (mənbə «8ULDUZ»), ünvanı saytın öz xeber/<id>/ səhifəsi olanlar. Öz sətir lentə yalnız səhifəsi
+    saytda olandan sonra düşür (read_own_rows), ona görə sayt xəritəsinə yazıla bilər: Google onu oradan tapır."""
+    return [a for a in articles or [] if a.get("source") == OWN_SOURCE and a.get("id")
+            and a.get("sourceUrl") == f"{SITE}xeber/{a['id']}/"]
+
+def write_sitemap(stories=None, digests=(), own=()):
     now = _iso_utc(datetime.datetime.now(datetime.timezone.utc))
     locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
@@ -6099,11 +6160,18 @@ def write_sitemap(stories=None, digests=()):
     for sid, row in newest:
         day = _iso_utc(datetime.datetime.fromtimestamp(row[0], datetime.timezone.utc))
         body.append(f"<url><loc>{SITE}xeber/{sid}/</loc><lastmod>{day}</lastmod></url>")
+    listed = {sid for sid, _row in newest}
+    for a in own or ():  # öz xəbərlərin səhifələri (_own_page_rows): ümumi səhifə siyahısında yoxdur, onları dərc hissəsi yazır
+        dt = _parse_dt(a.get("publishedAt"))
+        if dt and a["id"] not in listed:
+            listed.add(a["id"])
+            body.append(f"<url><loc>{_xml(a['sourceUrl'])}</loc><lastmod>{_iso_utc(dt)}</lastmod></url>")
     body.append("</urlset>\n")
     _write_atomic(SITEMAP_FILE, "".join(body), encoding="utf-8")
 
 def write_news_sitemap(articles, stories=None, now=None):
-    """Google News sitemap: son 48 saat, ən çoxu 1000 ünvan. Səhifəsi olan xəbərlər."""
+    """Google News sitemap: son 48 saat, ən çoxu 1000 ünvan. Səhifəsi olan xəbərlər: ümumi xəbər səhifələri (stories) və
+    lentdəki öz xəbərlər (_own_page_rows; onların səhifəsini dərc hissəsi yazır)."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     if isinstance(now, (int, float)):
         now = datetime.datetime.fromtimestamp(now, datetime.timezone.utc)
@@ -6112,10 +6180,11 @@ def write_news_sitemap(articles, stories=None, now=None):
     if stories is None:
         stories = read_story_index()
     cutoff = now - datetime.timedelta(hours=48)
+    own = {a["id"] for a in _own_page_rows(articles)}
     rows = []
     for a in articles or []:
         sid = str(a.get("id") or "")
-        if sid not in (stories or {}):
+        if sid not in (stories or {}) and sid not in own:
             continue
         dt = _parse_dt(a.get("publishedAt"))
         if not dt or dt < cutoff or dt > now + datetime.timedelta(minutes=15):
@@ -6165,7 +6234,7 @@ def write_public():
     except Exception as e:
         print("  ! xidmət alt səhifələri:", type(e).__name__, e)
     try:
-        write_sitemap(stories, digests)
+        write_sitemap(stories, digests, _own_page_rows(articles))
     except Exception as e:
         print("  ! sitemap:", type(e).__name__, e)
     try:  # alınmasa xəbər faylı artıq yazılıb

@@ -125,6 +125,7 @@ let freshSequence = 0;
 const LIVE_BASE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 const LIVE_FILE = /^data\/(?:status|latest(?:\.[a-z]{2})?|markets)\.json/;
 let liveSkipUntil = 0;
+const FS_STD = "4"; // standart şrift pilləsi (0–6): 4 = əvvəlki «A+ iki klik» (sahib, 2026-11-13); index.html-in ilk skriptindəki ilə eyni. xeber/ və bolme/ şablonları köhnə «2»-ni qoyur: orada pilləni applyPrefs() ilk çəkilişdən əvvəl düzəldir (test var)
 async function liveDirect(url, signal, any) {
   if (!any && (navigator.serviceWorker?.controller || !LIVE_FILE.test(url)) || Date.now() < liveSkipUntil) return null;
   const name = url.split("?")[0].split("/").pop(), slot = Math.floor((Date.now() / 1000 - 45) / 60);
@@ -497,7 +498,9 @@ function shownSource(a) {
   } catch {}
   return a.source || "";
 }
-const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${a.author ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}</span></div>`;
+const plainName = s => String(s ?? "").toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "");
+const ownAuthor = a => { const w = plainName(a.author); return !!w && ![a.source, shownSource(a), hostOf(a.sourceUrl)].some(n => plainName(n) === w); }; // müəllif mənbənin öz adıdırsa təkrar yazılmır
+const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${ownAuthor(a) ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}</span></div>`;
 // Paylaşma keçidi: www.8ulduz.az (Worker) og səhifəni hər dəqiqə verir, oxucunu dərhal sayta keçirir (docs/x-worker.md); b bölmə, h saat (arxiv.cjs hourOf). 2026-11-09-a qədər x.8ulduz.az idi — sahib: saytın adı ilə qarışmasın.
 const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
 const shareUrl = (a, h = hourOf(a)) => /^[0-9a-f]{16}$/.test(a.id) ? `https://www.8ulduz.az/${a.id}${h && "?h=" + h}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${h && "&h=" + h}`;
@@ -567,7 +570,7 @@ document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.
 /* ---- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
 function savedLang() { const v = storage.getItem(LANG_KEY); if (v === "") return null; return LANGS.some(l => l.code === v) ? v : "az"; }
-const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez", tixUser: false, geo: null, geoBusy: false, geoErr: null };
+const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixArea: "merkez", tixUser: false, geo: null, geoBusy: false, geoErr: null };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 // Tıxac səhifəsi aşağıdakı ROAD_RULES ilə süzülür.
@@ -607,7 +610,7 @@ function localRoadItems(list) {
     return age >= 0 && age < 2 * HOUR && local.test(t) && !unrelated.test(t);
   });
 }
-const geoArea = () => S.geo ? { id: "konum", label: "📍 Konumum", lat: S.geo.lat, lon: S.geo.lon, zoom: 13 } : null;
+const geoArea = () => S.geo?.lat != null ? { id: "konum", label: "📍 Konumum", lat: S.geo.lat, lon: S.geo.lon, zoom: 13 } : null;
 function tixArea() {
   const konum = geoArea();
   if (konum && (S.tixArea === "konum" || !S.tixUser)) return konum;
@@ -633,13 +636,47 @@ function roadFresh(a) {
   return age >= -5 * 60e3 && age < HOUR;
 }
 function roadHot(list) { return bakuRush() || roadItems(list.filter(a => Date.now() - new Date(a.publishedAt) < HOUR)).some(roadFresh); }
+// Tam lent gələnədək (açılış, yeniləmə: ilk ekranın faylında yol xəbərləri yoxdur) nöqtə sönüb ~1,5 s sonra yenidən yanırdı (sahib 2026-11-13, video):
+// son vəziyyət yaddaşdan, ən çoxu bir saat (yol xəbərinin öz ömrü).
+const TIX_KEY = "8ulduz-tix";
 function syncTixDot() {
-  const hot = roadHot(S.data?.articles || []);
+  renderTixAlert(tixAlert());
+  let hot = roadHot(S.data?.articles || []);
+  if (!S.data || S.partial) hot ||= Date.now() - storage.getItem(TIX_KEY) < HOUR;
+  else if (hot !== S.tixHot) storage.setItem(TIX_KEY, (S.tixHot = hot) ? Date.now() : 0);
   document.querySelectorAll(".tix-btn").forEach(el => {
     el.classList.toggle("hot", hot);
     el.setAttribute("aria-label", hot ? "Tıxac — pik saat və ya yol hadisəsi" : "Tıxac və yollar");
     el.title = hot ? "Pik saat və ya təzə yol hadisəsi — xəritəyə baxın" : "Tıxac və yollar";
   });
+}
+// Ani tıxac zolağı (sahib 2026-11-14: «ani tıxac xəbəri axtarmadan görünsün»): oz_tixac.alerts xəbəri (mənbə 8ULDUZ, başlıq «Bakıda
+// gözlənilməz tıxac: küçə, N km») 2 saat son dəqiqə zolağının altında, Tıxac-İndi səhifəsindən başqa hər yerdə. Daha təzə ölçü həmin
+// küçədə tıxac göstərmirsə zolaq tez itir; ✕ ilə bağlanan xəbər o oxucuya bir daha göstərilmir. Adi vaxtda zolaq yoxdur, sorğu da yoxdur.
+const ANI_RE = /^Bakıda gözlənilməz tıxac: (.+), ([\d,]+) km$/u, ANI_KEY = "8ulduz-tix-ani";
+function aniOff() { try { const v = JSON.parse(storage.getItem(ANI_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+function tixAlert(list = S.data?.articles || []) {
+  if ((S.lang || "az") !== "az") return null;
+  const off = aniOff(), now = Date.now();
+  const a = byDate(list.filter(x => x.source === "8ULDUZ" && ANI_RE.test(decode(x.title || "")))).find(x => {
+    const age = now - Date.parse(x.publishedAt);
+    return age >= -5 * 60e3 && age < 2 * HOUR && !off.includes(x.id);
+  });
+  if (!a) return null;
+  const [, street, km] = decode(a.title).match(ANI_RE), d = S.tix;
+  if (d && Date.parse(d.updatedAt) > Date.parse(a.publishedAt) && !(d.streets || []).some(s => s.name === street && (s.level === "tixac" || s.level === "sixtixac"))) return null; // tıxac açılıb
+  return { a, street, km };
+}
+function renderTixAlert(x) {
+  if (route().name === "traffic") x = null;
+  if (x) loadTixac(); // tıxacın açıldığını bilmək üçün: yalnız zolaq görünəndə, 5 dəqiqədən bir
+  const clock = x ? new Date(Date.parse(x.a.publishedAt) + 144e5).toISOString().slice(11, 16) : "";
+  const html = x ? `<div class="wrap"><a href="#/tixac"><span aria-hidden="true">🚗</span> <b>Tıxac:</b> ${esc(x.street)} — ${esc(x.km)} km · ${clock} <u>Tıxac-İndi ›</u></a><button type="button" data-act="tix-ani-off" data-ani="${esc(x.a.id)}" aria-label="Zolağı bağla">✕</button></div>` : "";
+  if (html === (S.aniHtml || "")) return;
+  let box = $("#tix-ani");
+  if (!box) { const t = $("#ticker"); if (!t || !html) return; box = document.createElement("div"); box.id = "tix-ani"; box.setAttribute("role", "status"); t.after(box); }
+  S.aniHtml = box.innerHTML = html;
+  box.hidden = !html;
 }
 const SAVE_KEY = "8ulduz-saved";
 // Hər kartın ☆ düyməsi (isSaved) bu siyahını istəyir: tam lentdə 1000+ dəfə JSON açmaq əvəzinə mətn və silinmə siyahısı dəyişməyibsə eyni nəticə qaytarılır. Çağıranlar siyahını dəyişmir (filter/some).
@@ -859,6 +896,7 @@ async function loadFirst() {
     const {d} = await requestJSON(freshUrl("data/first.json"), {}, 5000);
     if (!Array.isArray(d?.articles) || !d.articles.length) return;
     keepFirst(d);
+    const lat = await S.latestCache; // keşdəki dəqiqəlik lent (loadCached): şəbəkə keşi qabaqlasa da yeni sətirlər itmir
     if (S.rawNews && !S.fromCache) return; // tam lent daha tez gəlib
     // Keşdəki nüsxə ilə eyni yayımdırsa (updatedAt mikrosaniyəyə qədər eynidir) ikinci çəkiliş yoxdur: eyni HTML-i yenidən qurub
     // müqayisə etmək telefonda ~0,7 s uzun iş idi (4×; yayımdan sonra yenidən açılış, 10 dəqiqə içində qayıdış). Tam lent (loadNews) yenə gəlir.
@@ -869,7 +907,9 @@ async function loadFirst() {
     }
     S.partial = true; S.fromCache = false;
     S.og = d.og || S.og || {};
-    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    const has = urlsOf(d.articles), top = S.overlay?.length ? S.overlay.filter(o => !has.has(o.a.sourceUrl)).map(o => o.a) : cachedTop(lat, d); // keşdəki dəqiqəlik sətirlər qalır
+    S.overlay = top.map(a => ({a, at: Date.now()}));
+    S.rawNews = [...top, ...d.articles]; S.rawMeta = {...d, articles: undefined};
     publishNews();
     await heroPainted();
     S.firstRenderAt = Date.now();
@@ -890,31 +930,42 @@ function keepFirst(d) {
     } catch {}
   }, 1500, 5000);
 }
+// Keşdəki dəqiqəlik lent (sahib 2026-11-13, video: yeniləyəndə son xəbərlər ~1,5 s itib köhnə siyahı görünür, sonra qayıdırdı): ilk ekranın
+// faylı 10 dəqiqəlikdir, ondan sonra çıxan sətirlər yalnız latest-dədir. İşçi onu da saxlayır; ilk ekrandan köhnə deyilsə yeni sətirləri üstə qoyulur.
+function cachedTop(lat, d) {
+  const base = Date.parse(d.updatedAt), has = urlsOf(d.articles);
+  return Array.isArray(lat?.articles) && Date.parse(lat.updatedAt) >= base - 60e3 ? lat.articles.filter(a => !has.has(a.sourceUrl) && Date.parse(a.publishedAt) > base - 10 * 60e3).slice(0, 40) : [];
+}
 async function loadCached() {
   if (!partialOk() || typeof caches === "undefined" || S.rawNews) return;
+  let gotLatest; S.latestCache = new Promise(ok => { gotLatest = ok; });
   try {
     const keys = await caches.keys(), key = keys.find(k => k === "8ulduz-data") || keys.find(k => k.startsWith("8ulduz-data-")); // v142-dən versiyasız ad; köhnəsi keçid üçün
     if (!key) return;
     const cache = await caches.open(key);
     const root = new URL(ASSET.replace(/assets\/$/, ""), location.href);
     const hit = (await cache.match(new URL("data/first.json", root).href)) || (await cache.match(new URL("data/news.json", root).href));
+    const lat = hit && await ((await cache.match(new URL("data/latest.az.json", root).href)) || (await cache.match(new URL("data/latest.json", root).href)))?.json().catch(() => null);
+    gotLatest(lat);
     if (!hit || S.rawNews) return;
     const d = await hit.json();
     if (!Array.isArray(d?.articles) || !d.articles.length || S.rawNews) return;
     // Hazır ilk ekran (index.html — təkrar açılışda işçinin saxladığı nüsxə) keşdəki lentlə eyni yayımdandırsa və ya təzədirsə, keşdəkini çəkməyə
     // dəyməz: ekranda artıq o məzmun var, şəbəkə nüsxəsi gəlir (çəkiliş ilk kadrı 1×-də ~50 ms gecikdirirdi, A/B 2026-11-09).
+    const top = cachedTop(lat, d);
     const pre = route().name === "home" && $("#view .pre-skel[data-prerender]")?.dataset?.prerender;
-    if (pre && d.updatedAt && Date.parse(d.updatedAt) <= Date.parse(pre)) return;
+    if (!top.length && pre && d.updatedAt && Date.parse(d.updatedAt) <= Date.parse(pre)) return;
     S.partial = true; S.fromCache = true;
     S.og ||= d.og || {};
-    S.rawNews = d.articles; S.rawMeta = {...d, articles: undefined};
+    S.overlay = top.map(a => ({a, at: Date.now()}));
+    S.rawNews = [...top, ...d.articles]; S.rawMeta = {...d, articles: undefined};
     publishNews();
     await new Promise(done => afterFrame(done)); // əvvəl hazır ilk ekran boyansın (FCP), keşdəki ondan sonra
-    if (S.rawNews !== d.articles || S.cachedShown) return; // arada şəbəkə nüsxəsi gəlib: onu çəkən var
+    if (S.rawNews?.at(-1) !== d.articles.at(-1) || !S.fromCache || S.cachedShown) return; // arada şəbəkə nüsxəsi gəlib: onu çəkən var
     S.cachedShown = true;
     render();
     S.firstRenderAt = Date.now(); // sonrakı çəkilişlər FIRST_RENDER_HOLD_MS gözləyir (şəbəkədən eyni yayım gəlsə ikinci çəkiliş olmur)
-  } catch {}
+  } catch {} finally { gotLatest(null); }
 }
 
 // Xam sətirdən hazır sətir: bölmə adı, og şəkli, mənbə qaydası (QIRMIZI XƏTT 2: policyViolation), alt mənbələrin süzgəci, ölü keçidin əvəzi —
@@ -996,7 +1047,10 @@ function syncNewPill() {
   const pill = $("#newpill");
   if (!pill) return;
   // Sahib 2026-11-07: yalnız olduğun bölmənin (alt düymənin) xəbərləri.
-  const r = route(), c = r.name === "section" && CATS.find(c => c.slug === r.slug), rows = S.pendingNew || [];
+  // Sahib 2026-11-14: «az dilində 29 yeni xəbər yazır, klik edirsən 2 xəbər çıxır». Say yalnız seçilmiş dilin, lentdə ayrıca kart olan
+  // (başqa xəbərə mənbə kimi qoşulmamış, süzgəcdən keçmiş) xəbərləridir — siyahıda görünən qədər.
+  const cards = new Set((S.data?.articles || []).map(a => a.sourceUrl));
+  const r = route(), c = r.name === "section" && CATS.find(c => c.slug === r.slug), rows = filtered(S.pendingNew || []).filter(a => cards.has(a.sourceUrl));
   const mine = r.name === "home" ? rows : c ? rows.filter(a => (r.slug === "sondeqiqe" || (r.slug === "video" ? a.video : a.category === r.slug)) && (!S.club || clubMatches(a, S.club))) : [];
   pill.hidden = !mine.length;
   pill.textContent = `↑ ${mine.length} yeni ${c ? (S.club || c.label) + " xəbəri" : "xəbər"}`;
@@ -1037,8 +1091,14 @@ async function loadLatest(force = false) {
     const dead = new Set(d.dead || []), deadChanged = dead.size !== (S.deadLinks?.size || 0) || [...dead].some(u => !S.deadLinks.has(u));
     S.deadLinks = dead;
     if (deadChanged) PREP = new WeakMap(); // ölü keçidin əvəzi hazır sətirdədir
-    const known = urlsOf(S.rawNews);
-    const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
+    // Sahib 2026-11-14: «20 yeni xəbər yazısı gəldi, son xəbərlərə baxırdım, elə həmin xəbərlər idi». Yeni sayılan iki hal köhnə idi:
+    // 1) xəbərə yeni mənbə qoşulanda dəqiqəlik faylda onun əsas keçidi dəyişir (köhnə keçid alts-a keçir) — eyni xəbər «yeni» görünürdü;
+    // 2) yarım saatdan sonra üst qatdan çıxan, tam lentdə olmayan sətir dəqiqəlik faylda hələ durur — hər dəfə yenidən «yeni» sayılırdı.
+    // İndi xəbər öz id-si, əsas keçidi və ya istənilən mənbəsinin keçidi ilə tanınır; bu açılışda görülmüş keçidlər bir daha yeni sayılmır.
+    const known = urlsOf(S.rawNews), ids = new Set(S.rawNews.map(a => a.id)), seen = S.seenUrls ||= new Set();
+    const old = u => known.has(u) || seen.has(u);
+    const fresh = d.articles.filter(a => !((a.id && ids.has(a.id)) || old(a.sourceUrl) || (a.alts || []).some(x => old(x.sourceUrl))));
+    for (const a of [...S.rawNews, ...d.articles]) seen.add(a.sourceUrl);
     // Xəbər şəkilsiz gəlib, şəkli yavaş prosesdən sonra tapılıb.
     const byUrl = new Map(S.rawNews.map(a => [a.sourceUrl, a]));
     let gotImage = false;
@@ -1107,7 +1167,14 @@ async function weather(list) {
 const WX_KEY = "8ulduz-wx";
 async function loadWeather() { try { S.wx = (await weather([geoCity()]))[0]; storage.setItem(WX_KEY, JSON.stringify({ ...S.wx, at: Date.now() })); renderTopbar(); } catch {} }
 // Son hava yaddaşdan dərhal; konum icazəsi varsa əvvəl şəhər.
-function restoreLocal() { try { const w = JSON.parse(storage.getItem(WX_KEY) || "null"); if (w && Date.now() - w.at < 3 * HOUR) S.wx = w; } catch {} }
+// Son konum şəhəri və namaz vaxtı da (sahib 2026-11-13, video: hər açılışda «Namaz» vaxtsız çıxır, sonra dolub yanındakıları itələyirdi; konum
+// gecikəndə hava və namaz Bakıya qayıdıb sonra yenə dəyişirdi). Yalnız şəhərin adı saxlanır, nöqtə yox.
+const bakuDay = () => new Date(Date.now() + 144e5).toISOString().slice(0, 10);
+function restoreLocal() {
+  try { const c = storage.getItem(GEO_KEY) === "1" && storage.getItem(GEO_CITY_KEY); if (c && CITIES.some(x => x[0] === c)) S.geo = { city: c }; } catch {}
+  try { const w = JSON.parse(storage.getItem(WX_KEY) || "null"); if (w && Date.now() - w.at < 3 * HOUR && w.city === geoCity()[0]) S.wx = w; } catch {}
+  try { const p = JSON.parse(storage.getItem(PRAY_KEY) || "null"); if (p?.timings && p.day === bakuDay() && p.city === savedPrayCity()) S.pray = p; } catch {}
+}
 async function loadLocal() { if (!(await autoLocate())) { loadWeather(); loadPrayer(savedPrayCity()); loadWarnings(); } }
 async function loadAllWeather() {
   if (S.wxAll) return; renderTopbar();
@@ -1118,7 +1185,7 @@ async function loadAllWeather() {
 /* ---- konum */
 // Konum yalnız «Konumum» düyməsi ilə soruşulur.
 // Xidmətlərə dəqiq nöqtə getmir.
-const GEO_KEY = "8ulduz-geo";
+const GEO_KEY = "8ulduz-geo", GEO_CITY_KEY = "8ulduz-geo-city", PRAY_KEY = "8ulduz-pray";
 function nearestCity(lat, lon) {
   const k = Math.cos(lat * Math.PI / 180);
   let best = null, bd = Infinity;
@@ -1130,7 +1197,7 @@ function applyGeo(pos) {
   const { latitude: lat, longitude: lon } = pos.coords;
   S.geo = { lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, city: nearestCity(lat, lon)?.[0] || null, at: Date.now() };
   S.geoBusy = false; S.geoErr = null;
-  storage.setItem(GEO_KEY, "1");
+  storage.setItem(GEO_KEY, "1"); storage.setItem(GEO_CITY_KEY, S.geo.city || "");
   loadWeather(); loadWarnings();
   loadPrayer(savedPrayCity()); // seçilmiş şəhər qalır
   renderTopbar();
@@ -1257,7 +1324,7 @@ function pageMeta() {
   } else if (r.name === "search") {
     name = S.q ? `Axtarış: ${S.q}` : "Axtarış";
     desc = "Başlıq, xülasə və mənbə adına görə axtarış.";
-  } else if (r.name === "traffic") { name = "Tıxac və yollar"; desc = "Bakı və Abşeronun canlı yol vəziyyəti."; }
+  } else if (r.name === "traffic") { name = "Tıxac-İndi"; desc = "Bakının bütün rayonlarında yolların canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar."; }
   else if (r.name === "rates") { name = "Valyuta məzənnəsi"; desc = "Dollar, avro, rubl və lirənin manatla məzənnəsi, neft və qızıl qiyməti."; }
   else if (r.name === "league") { name = "Premyer Liqa cədvəli"; desc = "Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar."; }
   else if (r.name === "saved") { name = "Seçilmişlər"; desc = "Bu cihazda saxlanan xəbərlər."; }
@@ -1296,7 +1363,7 @@ function renderTopbar() {
         (!S.wxAll ? `<div class="empty" style="padding:24px 0">Yüklənir…</div>` :
           `<div class="wx-grid">${S.wxAll.map(c => `<button class="wx-city" data-city="${esc(c.city)}"><span>${c.icon} ${esc(c.city)}</span><b>${c.temp}°</b></button>`).join("")}</div>${popMore("hava/", "Bütün şəhərlər: 7 günlük proqnoz")}`)) + `</div>`;
   }
-  const fs = document.documentElement.dataset.fs || "2";
+  const fs = document.documentElement.dataset.fs || FS_STD;
   const light = document.documentElement.dataset.theme === "light";
   const h = `    <span>${today()}</span>
     ${optional(prayBit)}
@@ -1305,7 +1372,7 @@ function renderTopbar() {
     <span class="sp sync">${S.lastSync ? `Son əlaqə: ${S.lastSync.toLocaleTimeString("az-AZ")}` : ""}</span>
     ${syncText ? `<span class="sync-state${syncBad ? " bad" : ""}" role="status">${syncText}${syncBad ? ' <button type="button" class="retry" data-act="refresh">Yenilə</button>' : ""}</span>` : ""}
     <span class="yenilendi"${upd ? "" : ' style="visibility:hidden"'}><span class="dot${syncBad ? "" : " live"}" style="background:${syncBad ? "var(--red)" : "#34d399"}"></span>Yeniləndi: ${ago(upd || now)}</span>
-    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "4" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
+    <span class="prefs"><button data-act="refresh" title="Xəbərləri yenilə" aria-label="Xəbərləri yenilə" aria-busy="${!!S.newsLoading}" ${S.newsLoading ? "disabled" : ""}><span class="face" aria-hidden="true">↻</span></button><button data-act="theme" class="theme-btn" title="${light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"}"><span class="face"><span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span></span></button><button data-act="fs-down" aria-label="Şrifti kiçilt" ${fs === "0" ? "disabled" : ""}><span class="face" aria-hidden="true">A−</span></button><button data-act="fs-up" aria-label="Şrifti böyüt" ${fs === "6" ? "disabled" : ""}><span class="face" aria-hidden="true">A+</span></button></span>`;
   if (h !== S.topH) S.topH = $("#topbar").innerHTML = h; // dəyişməyən zolaq yenidən yazılmır: hər çəkilişdə (və hər 30 s) yazılırdı — stil işi, çəkilişdən əvvəl çirkli səhifə (D2, 2026-11-09)
   syncTixDot();
 }
@@ -1441,8 +1508,11 @@ function fitNav() {
 
 function renderTicker() {
   const latest = byDate((S.data?.articles ?? []).filter(a => (a.lang ?? "az") === (S.lang || "az")));
-  const breaking = latest.filter(isFresh);
-  const list = (breaking.length ? breaking : latest).slice(0, 12);
+  const breaking = latest.filter(isFresh), lang = S.lang || "az";
+  let list = (breaking.length ? breaking : latest).slice(0, 12), fresh = breaking.length;
+  // Lent hələ gəlməyib (açılış, yeniləmə): zolaq ~0,5 s boş qalırdı (sahib 2026-11-13, video). Son zolağın sətirləri yaddaşdan, mənbə qaydasından
+  // (QIRMIZI XƏTT 2) keçməklə; yarım saatdan köhnəsi göstərilmir.
+  if (!S.data) try { const t = JSON.parse(storage.getItem(TICK_KEY) || 0); if (t.lang === lang && Date.now() - t.at < 30 * 60e3) { list = t.rows.filter(a => !removedSource(a) && !policyViolation(a)); fresh = list.filter(isFresh).length; } } catch {}
   if (!list.length) { $("#ticker").innerHTML = ""; return; }
   // İkinci dövr: zolağın davamı.
   const items = list.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("") +
@@ -1452,14 +1522,32 @@ function renderTicker() {
   const bell = "Notification" in window
     ? `<button type="button" class="bell${on ? " on" : ""}" data-act="notify" aria-pressed="${on ? "true" : "false"}" title="${on ? "Bildirişi söndür" : "Yeni son-dəqiqə xəbəri çıxanda brauzer bildirişi"}">${shIcon("bell")}${on ? "Bildiriş aktiv" : "Bildiriş"}</button>`
     : "";
-  const html = `<div class="ticker"><div class="lbl">⚡<span class="lt"> ${tickerLabel(breaking.length)}</span>${bell}${motionBtn()}</div><div class="run${motionOff() ? " still" : ""}"><div class="track">${items}</div></div></div>`;
+  const html = `<div class="ticker"><div class="lbl">⚡<span class="lt"> ${tickerLabel(fresh)}</span>${bell}${motionBtn()}</div><div class="run${motionOff() ? " still" : ""}"><div class="track">${items}</div></div></div>`;
   if (html === S.tickerHtml && $("#ticker .track")) return;
+  // Oxucu zolağı barmaqla saxlayıb və ya kursoru üstündədir: oxuduğu sətir dəyişməsin, yenilik buraxanda gəlir (sahib 2026-11-14).
+  if (tickAnim?.playState === "paused" && !motionOff()) { S.tickerLater = true; return; }
+  S.tickerLater = false;
   S.tickerHtml = html;
+  S.tickAnchor = tickerAnchor();
+  if (S.data) idle(() => storage.setItem(TICK_KEY, JSON.stringify({ at: Date.now(), lang, rows: list.map(({ title, summary, source, sourceUrl, category, publishedAt }) => ({ title, summary, source, sourceUrl, category, publishedAt })) })), 1500, 5000);
   $("#ticker").innerHTML = html;
   afterPaint(startTicker);
 }
-const TICK_SPEED = 55; // px/s
-let tickAnim = null, tickT = 0, tickMoved = false;
+const TICK_SPEED = 55, TICK_KEY = "8ulduz-ticker"; // px/s
+let tickAnim = null, tickT = 0, tickMoved = false, tickMap = null;
+// Zolaqda indi oxunan xəbər: zolağın sol hissəsində (60 px) duran keçid və onun yeri. Yeni xəbər gələndə zolaq yenidən qurulur;
+// köhnə «faza» ilə başqa başlıq gəlirdi və oxuduğun xəbər itirdi (sahib 2026-11-14). Yerləşdirmə oxunmur (çəkilişin içindədir):
+// keçidlərin yeri zolaq qurulanda, kadrdan sonra bir dəfə ölçülür (startTicker → tickMap), indiki sürüşmə animasiyanın vaxtındandır.
+function tickerAnchor() {
+  const m = tickMap, t = Number(tickAnim?.currentTime);
+  if (!m || !Number.isFinite(t)) return null;
+  const shift = (t % m.dur) / m.dur * m.half;
+  for (let i = 0; i < m.items.length; i++) {
+    const [href, left] = m.items[i], right = m.items[i + 1]?.[1] ?? left + m.half, x = left - shift;
+    if (x <= 60 && right - shift > 60) return { href, x };
+  }
+  return null;
+}
 function startTicker() {
   const run = $("#ticker .run"), track = $("#ticker .track");
   if (!run || !track || typeof track.animate !== "function") return;
@@ -1474,8 +1562,14 @@ function startTicker() {
   const dur = half / TICK_SPEED * 1000;
   const anim = tickAnim = track.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-half}px)` }], { duration: dur, iterations: Infinity });
   anim.currentTime = phase % dur;
+  // Oxunan xəbər yeni zolaqda da eyni yerdə qalsın (xəbər çıxıbsa köhnə faza ilə davam).
+  const links = [...track.children], lefts = links.map(a => a.offsetLeft);
+  tickMap = { half, dur, items: links.map((a, i) => [a.getAttribute("href"), lefts[i] - lefts[0]]) };
+  const pin = S.tickAnchor; S.tickAnchor = null;
+  const same = pin && tickMap.items.find(([href]) => href === pin.href);
+  if (same) anim.currentTime = (((same[1] - pin.x) % half + half) % half) / half * dur;
   let drag = null;
-  const resume = ms => { clearTimeout(tickT); tickT = setTimeout(() => { if (!drag && tickAnim === anim) anim.play(); }, ms); };
+  const resume = ms => { clearTimeout(tickT); tickT = setTimeout(() => { if (!drag && tickAnim === anim) { anim.play(); if (S.tickerLater) renderTicker(); } }, ms); };
   run.onpointerdown = e => { if (e.button) return; drag = { x: e.clientX, t: Number(anim.currentTime) || 0 }; tickMoved = false; clearTimeout(tickT); anim.pause(); };
   run.onpointermove = e => {
     if (!drag) return;
@@ -1559,7 +1653,7 @@ function convertAmt(amount, fromId, toId) {
 function renderMarkets() {
   const m = S.markets; if (!m?.length) return;
   $("#markets").classList.remove("pending");
-  $("#mk").innerHTML = m.map(i => {
+  const grid = $("#mk"), html = m.map(i => {
     const unofficial = i.unit === "AZN" && i.src && i.src !== "AMB";
     const has = !unofficial && i.changePct != null && i.change != null;
     const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
@@ -1570,9 +1664,14 @@ function renderMarkets() {
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
     return `<button type="button" class="mk" data-fx="${esc(i.id)}" data-d="${cls}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v" data-ar="${has ? (i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "") : ""}">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
+  // Telefonda zolaq yana sürüşür: hər dəqiqəlik yeniləmədə başa qayıdırdı (sahib 2026-11-14). Eyni məlumat yenidən yazılmır,
+  // dəyişəndə də oxucunun sürüşdürdüyü yer saxlanır. Hazır nüsxədəki (index.html) kartlar eynidirsə toxunulmur.
+  // Yer yalnız oxucu zolağı sürüşdürübsə oxunur (çəkilişin içində boş yerə yerləşdirmə hesablanmasın).
+  grid.onscroll ??= () => { S.mkMoved = true; };
+  if (S.mkHtml !== html) { S.mkHtml = html; const x = S.mkMoved ? grid.scrollLeft : 0; grid.innerHTML = html; if (x) grid.scrollLeft = x; }
   const note = $("#mk-note");
   if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
-  const slot = $("#fx-slot"); if (slot) slot.innerHTML = fxPop();
+  const slot = $("#fx-slot"); if (slot && !(S.fxOpen && slot.contains?.(document.activeElement))) slot.innerHTML = fxPop();
   const from = $("#fx-from"), to = $("#fx-to"), amt = $("#fx-amt");
   if (from && to && amt) {
     from.value = S.fxFrom; to.value = S.fxTo;
@@ -2042,7 +2141,7 @@ const tgPre = () => uiLang(S.lang) ? S.lang + "-" : "";
 const tgIzle = (k, who) => { const bot = window.SITE_CONFIG?.tgBot; return bot ? `<a class="pill tg-izle" href="https://t.me/${bot}?start=${tgPre()}${k}" ${OUT}>📩 ${who ? esc(who) + ": " : ""}Telegram-da izlə</a>` : ""; };
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
-  return `<div class="page-h"><div><h1>${esc(title)}</h1><p>${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
+  return `<div class="page-h"><div><h1>${esc(title)}</h1><p class="sec-desc">${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
     (list.length ? `<div class="grid">${late(shown.map(a => cardAt(a, "h2")), LATE_LIST)}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
       : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : S.club ? "Bu mövzuda son 5 gündə xəbər tapılmadı." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
@@ -2236,21 +2335,66 @@ function trafficView() {
   const jump = a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`;
   const jumps = (konum ? jump(konum) : `<button type="button" class="pill" data-act="geo"${S.geoBusy ? " disabled" : ""}>${S.geoBusy ? "Konum axtarılır…" : "📍 Konumum"}</button>`) + TRAFFIC_AREAS.map(jump).join("") + (S.geoErr && !konum ? `<span class="geo-err">${esc(S.geoErr)}</span>` : "");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  // Telefonda tıxac Yandex-dən.
-  const map = S.tixOn
-    ? TOUCH_UI
-      ? `<iframe title="Canlı tıxac xəritəsi (Yandex)" src="${esc(yandexSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
-      : `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
-    : `<div class="tix-open"><p>Xəritə yalnız açanda yüklənir.</p><button type="button" class="btn" data-act="tix-open">Xəritəni aç</button></div>`;
+  // Sahib 2026-11-14: «Waze-in mobil tətbiq xəritəsi açılsın bizdə». Telefonda da Waze-in öz xəritəsi (embed.waze.com: axtarış, tıxac
+  // rəngləri, «yerim» düyməsi), səhifə açılan kimi və ekran boyu. 2026-11-04-də telefonda Waze xəritə əvəzinə «tətbiqi yüklə» göstərirdi və
+  // Yandex-ə keçilmişdi; 2026-11-14-də telefon brauzerində (375 px, Android) xəritə açılır. Ehtiyat: oxucu bir toxunuşla Yandex-ə keçə bilər.
+  // Xəritə yalnız bu səhifədə yüklənir (sürət: başqa səhifələrdə yoxdur).
+  const map = TOUCH_UI && S.tixYandex
+    ? `<iframe title="Canlı tıxac xəritəsi (Yandex)" src="${esc(yandexSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
+    : `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" allow="geolocation" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`;
   const rows = items.length
     ? `<ul class="tix-list">${items.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
-  return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
-    <p class="tix-note">${TOUCH_UI ? "Telefonda canlı xəritə Yandex Xəritələrdən açılır; Waze telefonda xəritəni yalnız öz tətbiqində göstərir, aşağıdakı düymə onu açır." : "Xəritə Waze-dən açılır."} Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
+  return `<div class="page-h"><div><h1>Tıxac-İndi</h1><p class="sec-desc">Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
     ${rush}
     <div class="tix-jumps">${jumps}</div>
-    <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<a href="${esc(wazeApp(area))}" ${OUT}>Waze-də aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
+    <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<button type="button" class="tix-alt" data-act="tix-yandex">${S.tixYandex ? "Waze xəritəsinə qayıt" : "Xəritə görünmür? Yandex xəritəsi"}</button><a href="${esc(wazeApp(area))}" ${OUT}>Waze tətbiqində aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
+    ${tixMeasure()}
+    ${officialRoad()}
+    <p class="tix-note">${TOUCH_UI && S.tixYandex ? "Xəritə Yandex Xəritələrdəndir." : "Xəritə Waze-dəndir."} Aşağıda son 2 saatın Bakı və Abşeron üzrə yol xəbərləri.</p>
     ${rows}`;
+}
+// Rəsmi elanlar (sahib 2026-11-14: «rəsmi kanallardan yol bağlanması və təmir elanları»): son 12 saatın yol xəbərlərindən NİİM, BNA,
+// DYP/Yol polisi və nazirliklərin elanları — mənbə qaydasından keçmiş lentdən, ayrıca sorğu yoxdur.
+const OFFICIAL_ROAD = /NİİM|İntellektual İdarəetmə|Nəqliyyat Agentliyi|\bBNA\b|\bDYP\b|yol polisi|Daxili İşlər Nazirliyi|Avtomobil Yolları/iu;
+function officialRoad() {
+  const rows = roadItems(S.data?.articles || []).filter(a => Date.now() - new Date(a.publishedAt) < 12 * HOUR && OFFICIAL_ROAD.test(`${a.title} ${a.summary || ""}`)).slice(0, 6);
+  if (!rows.length) return "";
+  return `<section class="tix-olcu" aria-label="Rəsmi elanlar"><h2>Rəsmi elanlar</h2><ul>${rows.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}>${txt(a.title)}</a> <span class="muted">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></li>`).join("")}</ul></section>`;
+}
+// Avtomatik tıxac ölçüsü (sahib 2026-11-14): .github/scripts/tixac.cjs Mapbox ilə pik saatlarda 6, qalan vaxt 30 dəqiqədən bir ölçür,
+// nəticə «tixac» budağındadır (pik saatlarda 6, qalan vaxt 30 dəqiqədən bir). Yalnız Tıxac səhifəsində və yalnız açıq ikən 5 dəqiqədən bir oxunur (başqa səhifələrə yük yoxdur).
+const TIX_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tixac.json";
+function loadTixac() {
+  if (S.tixLoading || Date.now() - (S.tixAt || 0) < 5 * 60e3) return;
+  if (typeof fetch !== "function") return;
+  S.tixLoading = true;
+  globalThis.fetch(`${TIX_URL}?t=${Date.now() / 3e5 | 0}`).then(r => r.ok ? r.json() : null).then(d => {
+    S.tixAt = Date.now();
+    if (d && Array.isArray(d.events)) { S.tix = d; if (route().name === "traffic") renderView(); else syncTixDot(); }
+  }).catch(() => { S.tixAt = Date.now(); }).finally(() => { S.tixLoading = false; });
+}
+const TIX_LVL = { sixtixac: "🔴", tixac: "🟠", leng: "🟡", bagli: "⛔" };
+function tixMeasure() {
+  loadTixac();
+  const d = S.tix, at = d && Date.parse(d.updatedAt);
+  if (!d || !(Date.now() - at < 3 * 3600e3)) return ""; // 3 saatdan köhnə ölçü göstərilmir (gecə ölçü yoxdur)
+  const clock = t => new Date(t + 144e5).toISOString().slice(11, 16);
+  const order = { sixtixac: 0, bagli: 1, tixac: 2, leng: 3 };
+  const now = [...(d.streets || [])].sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9)).slice(0, 12);
+  const list = now.length
+    ? `<ul class="tix-now">${now.map(s => `<li><span aria-hidden="true">${TIX_LVL[s.level] || "•"}</span><b>${esc(s.name)}</b> <span class="muted">(${esc(s.dir)})</span> — ${esc(s.text)}${s.jamKm && s.jamKm !== "0,0" && s.level !== "leng" ? `, ${esc(s.jamKm)} km` : ""}</li>`).join("")}</ul>`
+    : `<p class="tix-ok">Ölçülən marşrutlarda ciddi tıxac yoxdur.</p>`;
+  // Səkkiz əsas yol: hər biri, sərbəst olsa da (sahib 2026-11-14: «səkkiz əsas yol üzrə»)
+  const W_TEXT = { sixtixac: "sıx tıxac", tixac: "tıxac", leng: "ləng", serbest: "sərbəst", "?": "ölçülməyib" };
+  const eight = Array.isArray(d.watch) && d.watch.length ? `<h3>Səkkiz əsas yol</h3><ul class="tix-now">${d.watch.map(([n, l, k]) => `<li><span aria-hidden="true">${TIX_LVL[l] || (l === "serbest" ? "🟢" : "⚪")}</span><b>${esc(n)}</b> — ${esc(W_TEXT[l] || l)}${(l === "tixac" || l === "sixtixac") && k !== "0,0" ? `, ${esc(k)} km` : ""}</li>`).join("")}</ul>` : "";
+  // Rayon balı 0–10 (35 marşrut, 2026-11-14) və bütün şəhər üzrə xülasə
+  const zl = Array.isArray(d.rayons) ? d.rayons : [], zc = b => b >= 7 ? "🔴" : b >= 4 ? "🟠" : b >= 2 ? "🟡" : "🟢";
+  const city = d.counted ? `<h3>Bakıda tıxaclı küçə: ${d.jammed | 0} <span class="muted">(ölçülən ${d.counted | 0} küçədən)</span></h3>` : "";
+  const ray = zl.length ? `<h3>Rayonlar üzrə tıxac balı</h3><ul class="tix-now">${zl.map(([n, b, k]) => `<li><span aria-hidden="true">${zc(b)}</span><b>${esc(n)}</b> — ${b | 0}/10${k !== "0,0" ? `, ${esc(k)} km tıxac` : ""}</li>`).join("")}</ul>` : "";
+  const ev = (d.events || []).slice(0, 10);
+  const feed = ev.length ? `<h3>Son dəyişikliklər</h3><ul class="tix-ev">${ev.map(e => `<li class="${esc(e.kind || "")}"><time>${clock(e.t)}</time> ${esc(e.text)}</li>`).join("")}</ul>` : "";
+  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${city}${list}${ray}${eight}${feed}<p class="tix-src">Mənbə: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6, qalan vaxt 30 dəqiqədən bir yenilənir.</p></section>`;
 }
 
 // Yalnız dəyişən blok yenilənir.
@@ -2353,6 +2497,9 @@ function restoreHome(v) {
 function renderView() {
   syncQuery();
   pageMeta();
+  // Səhifə hansı yolla çəkilirsə çəkilsin (düymə, «Dinlə», sekmə…), gözləyən yeni xəbərlər artıq ekrandadır: «N yeni xəbər» düyməsi
+  // qalırdı və basanda «elə həmin xəbərlər» çıxırdı, səhifə də bir az sürüşürdü (sahib 2026-11-14).
+  if (S.pendingNew?.length && S.data) { S.pendingNew = 0; syncNewPill(); }
   try {
     const v = $("#view");
     const onlyFirst = S.partial && !partialOk();
@@ -2413,6 +2560,16 @@ function preload(h) {
 }
 const hashOf = a => a?.getAttribute("href")?.replace(/^\/(bolme\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+).*/, "#/$1"); // namaz, hava, mezenne ayrıca səhifədir, bölmə deyil: arxivi əvvəlcədən istənmir
 document.addEventListener("pointerdown", e => { const h = hashOf(e.target.closest?.("a[href]")); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });
+// Sahib 2026-11-14: «namazı açandan sonra bir də üstünə basmayınca bağlanmır». Kənara «click» telefonda çox vaxt gəlmir (iPhone adi mətnə
+// və boş yerə toxunuşda click göndərmir; karta və ya düyməyə basanda isə click o düymənin işidir). İndi pəncərədən kənara istənilən
+// toxunuş (sürüşdürmə də) Namaz və hava pəncərəsini bağlayır.
+document.addEventListener("pointerdown", e => {
+  if (!(S.prayOpen || S.wxOpen) || !(e.target instanceof Element)) return;
+  let dirty = false;
+  if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }
+  if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }
+  if (dirty) renderTopbar();
+}, { passive: true, capture: true });
 const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
 function trackedSources() {
   const rows = S.sources?.sources;
@@ -2425,7 +2582,7 @@ function renderFooter() {
   const h = `<div class="wrap fgrid">
     <div><div class="logo">${LOGO}</div><p style="margin:0">Azərbaycan və dünyadan son xəbərlər — hər dəqiqə avtomatik yenilənən xəbər lenti. Xəbərləri və eyni hadisə üzrə mənbələri bir yerdə izləyin.</p>${contact ? `<p class="fcontact">Əlaqə: <a href="mailto:${esc(contact)}">${esc(contact)}</a></p>` : ""}</div>
     <div><h4>Bölmələr</h4><div class="fcats">${CATS.map(c => `<a href="/bolme/${c.slug}/">${esc(c.label)}</a>`).join("")}</div></div>
-    <div><h4>Xidmətlər</h4><div class="fcats"><a href="/bolme/valyuta/">Valyuta məzənnəsi</a><a href="/bolme/mezenne/dollar/">Dollar məzənnəsi</a><a href="/bolme/namaz/">Namaz vaxtları</a><a href="/bolme/hava/">Hava proqnozu</a><a href="/bolme/cedvel/">Premyer Liqa cədvəli</a><a href="/bolme/tixac/">Tıxac və yollar</a></div></div>
+    <div><h4>Xidmətlər</h4><div class="fcats"><a href="/bolme/valyuta/">Valyuta məzənnəsi</a><a href="/bolme/mezenne/dollar/">Dollar məzənnəsi</a><a href="/bolme/namaz/">Namaz vaxtları</a><a href="/bolme/hava/">Hava proqnozu</a><a href="/bolme/cedvel/">Premyer Liqa cədvəli</a><a href="/bolme/tixac/">Tıxac-İndi</a></div></div>
     <div><h4>İzlənilən mənbələr</h4><div class="srcs">${srcs.slice(0, 12).map(s => `<span>${sourceName(s)}</span>`).join("")}</div><a class="more" href="#/menbeler">Bütün mənbələr (${srcs.length}) →</a></div>
   </div><div class="copy">© ${new Date().getFullYear()} 8ulduz. Bütün xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir. <a href="./haqqinda/">Haqqımızda</a> · <a href="#/menbeler">Mənbə vəziyyəti</a> · <a href="./mexfilik/">Məxfilik siyasəti</a></div>`;
   if (h !== S.footH) S.footH = $("#footer").innerHTML = h;
@@ -2602,10 +2759,11 @@ function onClick(e) {
   else if (act === "follow") import("./follow.js?v=7").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();
-  else if (act === "tix-open") { S.tixOn = true; renderView(); }
+  else if (act === "tix-ani-off") { storage.setItem(ANI_KEY, JSON.stringify([...aniOff(), t.dataset.ani].slice(-10))); renderTixAlert(null); }
+  else if (act === "tix-yandex") { S.tixYandex = !S.tixYandex; renderView(); }
   else if (act === "tix-area") {
     const id = t.dataset.area || "merkez";
-    if (id === tixArea().id && S.tixOn) return;
+    if (id === tixArea().id) return;
     S.tixArea = id; S.tixUser = true;
     renderView();
   }
@@ -2643,7 +2801,7 @@ function applyPrefs() {
   const theme = saved === "light" || saved === "dark" ? saved : SYS_LIGHT?.matches ? "light" : "dark";
   document.documentElement.dataset.theme = theme;
   let fs = storage.getItem(FS_KEY);
-  if (!/^[0-4]$/.test(fs || "")) fs = "2";
+  if (!/^[0-6]$/.test(fs || "")) fs = FS_STD;
   document.documentElement.dataset.fs = fs;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = theme === "light" ? "#f6f4ee" : "#15233b";
@@ -2653,7 +2811,7 @@ function setPref(act) {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     storage.setItem(THEME_KEY, next);
   } else {
-    const n = Math.max(0, Math.min(4, Number(document.documentElement.dataset.fs || "2") + (act === "fs-up" ? 1 : -1)));
+    const n = Math.max(0, Math.min(6, Number(document.documentElement.dataset.fs || FS_STD) + (act === "fs-up" ? 1 : -1)));
     storage.setItem(FS_KEY, String(n));
   }
   applyPrefs();
@@ -3195,6 +3353,7 @@ async function loadPrayer(city) {
     const d = await (await fetch(u)).json();
     if (token !== S.prayToken || !d?.data?.timings) return;
     S.pray = { city: c[0], timings: d.data.timings, hijri: d.data.date?.hijri };
+    try { storage.setItem(PRAY_KEY, JSON.stringify({ ...S.pray, day: bakuDay() })); } catch {}
     renderTopbar();
   } catch {}
 }
@@ -3335,13 +3494,14 @@ if (uiLang(S.lang)) {
   import("./dil.js").then(m => m.startDil(S, S.lang)).catch(() => {}).finally(show);
 }
 listenWorker();
+restoreLocal();
 shell(); render();
 // Hamısı gələn kimi çəkilir.
 // xeber/<id>/ səhifəsi xəbərin sətrini gətirir (#row).
 { const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || sessionStorage.getItem("x:" + r0.id) || 0); if (w?.id === r0.id && !policyViolation(w)) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { if (S.sharedStory) setTimeout(renderView); else loadShared(r0.id); backHome(); } }
 // Bayram (bayram.js): yalnız günündə.
 { const d = new Date(Date.now() + 144e5).toISOString().slice(5, 10); if (/^11-0[89]$/.test(d) || /[?&]bayram\b/.test(location.search)) setTimeout(() => import(`${ASSET}bayram.js`).then(m => m.show(d === "11-08" ? d : "11-09")).catch(() => {}), 800); }
-loadCached(); restoreLocal();
+loadCached();
 const firstReady = S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
 const afterNews = run => newsReady.finally(() => setTimeout(run));

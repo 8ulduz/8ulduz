@@ -16,8 +16,8 @@
 --sky-chip:hsl(215 70% 100%/.12);--sky-chip-line:hsl(215 60% 100%/.28);
 --navy:#2c4a75;--up:#34d399;--down:#f87171;
 --radius:12px;--gap:16px;--gutter:16px;
---fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;
---fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px;
+--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title:34px;
+--fs-headline:25px;--lh-headline:34px;--fs-body:22px;--lh-body:32px;--fs-meta:16px;--lh-meta:23px;
 --fw-regular:400;--fw-semibold:600;--fw-bold:700;
 --header:#15233b;--surface:#1a2a43;--soc-chip:#1a2a43;--chip:#c9d4e5;--src-fg:#c9d4e5;--modal-fg:#d5deeb;
 --footer:#1a2a43;--ad:#1a2a43;--ad-border:#4c627f;
@@ -29,8 +29,10 @@
 html{font-size:var(--fs-body)}
 html[data-fs="0"]{--fs-display:22px;--lh-display:27px;--fs-title:18px;--lh-title:24px;--fs-headline:17px;--lh-headline:23px;--fs-body:15px;--lh-body:22px;--fs-meta:12px;--lh-meta:16px}
 html[data-fs="1"]{--fs-display:24px;--lh-display:30px;--fs-title:20px;--lh-title:26px;--fs-headline:19px;--lh-headline:26px;--fs-body:17px;--lh-body:25px;--fs-meta:13px;--lh-meta:18px}
+html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title:28px;--fs-headline:21px;--lh-headline:28px;--fs-body:18px;--lh-body:26px;--fs-meta:14px;--lh-meta:20px}
 html[data-fs="3"]{--fs-display:28px;--lh-display:35px;--fs-title:24px;--lh-title:31px;--fs-headline:23px;--lh-headline:31px;--fs-body:20px;--lh-body:29px;--fs-meta:15px;--lh-meta:22px}
-html[data-fs="4"]{--fs-display:30px;--lh-display:38px;--fs-title:26px;--lh-title:34px;--fs-headline:25px;--lh-headline:34px;--fs-body:22px;--lh-body:32px;--fs-meta:16px;--lh-meta:23px}
+html[data-fs="5"]{--fs-display:32px;--lh-display:41px;--fs-title:28px;--lh-title:37px;--fs-headline:27px;--lh-headline:37px;--fs-body:24px;--lh-body:35px;--fs-meta:17px;--lh-meta:25px}
+html[data-fs="6"]{--fs-display:34px;--lh-display:44px;--fs-title:30px;--lh-title:40px;--fs-headline:29px;--lh-headline:40px;--fs-body:26px;--lh-body:38px;--fs-meta:18px;--lh-meta:26px}
 :root[data-theme="light"]{
 --bg:#f6f4ee;--fg:#172b4d;--card:#fff;--card2:#e6ebf2;
 --primary:#19385f;--primary-fg:#fff;--muted:#465773;--muted2:#52617b;
@@ -434,7 +436,7 @@ footer .logo img{height:28px}
 .tabbar .tix-btn.hot::after{position:absolute;top:9px;left:calc(50% + 7px);margin:0;box-shadow:0 0 0 2px var(--header)}
 body{padding-bottom:62px}
 .totop{bottom:70px}
-.newpill{bottom:calc(66px + env(safe-area-inset-bottom))}
+.newpill{bottom:calc(66px + env(safe-area-inset-bottom));max-width:calc(100vw - 132px);font-size:.8571rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 .mine{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .mine li{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--card);border-radius:8px;padding:4px 8px;min-width:0}
@@ -484,12 +486,11 @@ body{padding-bottom:62px}
 .alerts a,.alerts .wxn{flex:none;font-size:12px;font-weight:600;white-space:nowrap}
 .alerts .tix-go{display:inline-flex;align-items:center;border-radius:99px;padding:2px 10px;border:1px solid var(--border);background:var(--card)}
 .rush{display:inline-flex;align-items:center;flex:none;background:linear-gradient(90deg,#d97706,#b91c1c);color:#fff;font-weight:700;font-size:12px;line-height:1.3;border-radius:99px;padding:3px 8px;white-space:nowrap}
+#tix-ani{background:linear-gradient(90deg,#d97706,#b91c1c);color:#fff;font-size:var(--fs-meta)}#tix-ani .wrap{display:flex;align-items:center;gap:8px;padding-block:6px}#tix-ani a{flex:1;color:#fff}#tix-ani button{flex:none;width:28px;height:28px;border:0;border-radius:99px;background:#fff3;color:#fff}
 .tix-note{margin:0 0 8px;color:var(--muted);font-size:13px}
 .tix-jumps{display:flex;gap:6px;overflow:auto;margin:0 0 8px;padding-bottom:2px}
 .tix-map{border:1px solid var(--border);background:var(--card);border-radius:12px;overflow:hidden;margin:0 0 12px}
 .tix-map iframe{display:block;width:100%;height:420px;border:0;background:#0b1220}
-.tix-open{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:220px;padding:16px;text-align:center}
-.tix-open p{margin:0;color:var(--muted);font-size:13px}
 .tix-bar{display:flex;justify-content:flex-end;padding:6px 8px;border-top:1px solid var(--border)}
 .tix-bar a{font-size:12px;font-weight:700;color:var(--primary)}
 .tix-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
@@ -658,7 +659,7 @@ nav.main{flex-wrap:nowrap;min-width:0}
 .hero-main .meta .src{color:#fff}
 .hero-main .body{width:100%}
 .social-details{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
-.social-details summary{cursor:pointer;color:var(--muted)}
+.social-details summary{cursor:pointer;color:var(--muted);list-style:none}
 .social-details .soc-list{max-height:240px;overflow-y:auto}
 .card-hit::after{display:none}
 .card-hit{flex:0 0 auto}
@@ -941,7 +942,7 @@ nav.main .nav-s{display:inline}
 .latest-grid .card>.b,.grid .card>.b,.news-row .card>.b,.card>.b{display:flex;flex-direction:column;gap:6px;padding:12px;min-width:0}
 .card .meta{flex-wrap:nowrap;margin:0}
 /* Telefonda TASS siyahısı (sahib, 11-08), bölmədə birinci xəbər böyük */
-@media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>*~.card){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>*~.card)>.img{grid-area:i;align-self:start;width:120px;height:calc(3*var(--lh-body) + 30px);aspect-ratio:auto;border-radius:8px}:is(.latest-grid .card,.grid>*~.card) .badges{grid-area:b}:is(.latest-grid .card,.grid>*~.card) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>*~.card) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:3}:is(.latest-grid .card,.grid>*~.card) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>*~.card)>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>*~.card)>.star:not(.on){color:var(--fg)}.grid>*~.card .card-hit{min-height:calc(4*var(--lh-body))}.grid>*~.card :is(h2,h3){-webkit-line-clamp:4}.grid>*~.card:not(.noimg){grid-template:"b w i" "t t i" 1fr "a a i"/minmax(0,1fr) auto 124px;gap:4px 8px}:is(.latest-grid .card,.grid>*~.card)>.b,.grid>*~.card:not(.noimg) .meta{display:contents}.grid>*~.card:not(.noimg)>.img{align-self:stretch;width:auto;height:auto}.grid>*~.card:not(.noimg) .badges{grid-area:i;z-index:1;place-self:start;flex-wrap:wrap;gap:4px;margin:6px;max-width:112px}.grid>*~.card:not(.noimg) .src{grid-area:b;overflow:hidden;text-overflow:ellipsis}.grid>*~.card:not(.noimg) time{grid-area:w}.grid>*~.card:not(.noimg) :is(.src,time){align-self:center;font-size:13px;line-height:1.3;white-space:nowrap}.grid>*~.card:not(.noimg) .acts{grid-area:a;margin:4px auto 0 0}.grid>*~.card:not(.noimg)>.star{bottom:18px;right:6px;background:#0008;border-color:#0000}.grid>*~.card:not(.noimg)>.star:not(.on){color:#fff}}
+@media(max-width:600px){.latest-grid,.grid{gap:0}.grid>.card:first-child{margin-bottom:8px}:is(.latest-grid .card,.grid>*~.card){display:grid;grid-template:"b i" "t i" 1fr "m m"/minmax(0,1fr) auto;gap:4px 12px;padding:12px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:none}:is(.latest-grid .card,.grid>*~.card)>.img{grid-area:i;align-self:start;width:min(38vw,calc(4*var(--lh-body) + 40px));height:calc(3*var(--lh-body) + 30px);aspect-ratio:auto;border-radius:8px}:is(.latest-grid .card,.grid>*~.card) .badges{grid-area:b}:is(.latest-grid .card,.grid>*~.card) .card-hit{grid-area:t}:is(.latest-grid .card,.grid>*~.card) :is(h2,h3){font-size:var(--fs-body);line-height:var(--lh-body);-webkit-line-clamp:3}:is(.latest-grid .card,.grid>*~.card) .meta{grid-area:m;margin-top:4px;padding-right:40px}:is(.latest-grid .card,.grid>*~.card)>.star{top:auto;bottom:11px;right:0;background:none;border:1px solid var(--border)}:is(.latest-grid .card,.grid>*~.card)>.star:not(.on){color:var(--fg)}.grid>*~.card .card-hit{min-height:calc(4*var(--lh-body))}.grid>*~.card :is(h2,h3){-webkit-line-clamp:4}.grid>*~.card:not(.noimg){grid-template:"b w i" "t t i" 1fr "a a i"/minmax(0,1fr) auto 124px;gap:4px 8px}:is(.latest-grid .card,.grid>*~.card)>.b,.grid>*~.card:not(.noimg) .meta{display:contents}.grid>*~.card:not(.noimg)>.img{align-self:stretch;width:auto;height:auto}.grid>*~.card:not(.noimg) .badges{grid-area:i;z-index:1;place-self:start;flex-wrap:wrap;gap:4px;margin:6px;max-width:112px}.grid>*~.card:not(.noimg) .src{grid-area:b;overflow:hidden;text-overflow:ellipsis}.grid>*~.card:not(.noimg) time{grid-area:w}.grid>*~.card:not(.noimg) :is(.src,time){align-self:center;font-size:13px;line-height:1.3;white-space:nowrap}.grid>*~.card:not(.noimg) .acts{grid-area:a;margin:4px auto 0 0}.grid>*~.card:not(.noimg)>.star{bottom:18px;right:6px;background:#0008;border-color:#0000}.grid>*~.card:not(.noimg)>.star:not(.on){color:#fff}}
 .latest-grid .card .badges,.latest-grid .card .card-hit,.latest-grid .card .meta{margin:0}
 .card .meta .src{max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .star{top:8px;right:8px;width:28px;height:28px;min-width:28px;min-height:28px;font-size:var(--fs-body)}
@@ -993,7 +994,7 @@ main{padding-top:8px}
 .inst:empty{display:none}
 .inst .install-btn{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
 .inst .install-btn:hover{filter:brightness(1.08);color:var(--primary-fg)}
-/* Toxunma ekranı, brauzer vərəqi (app.js installBtn ilə eyni şərt): düymənin yeri JS-dən əvvəl ayrılır, başlıq atılmır */
+/* Toxunma ekranı (app.js installBtn şərti): düymə yeri JS-dən əvvəl */
 @media(min-width:601px) and (hover:none) and (display-mode:browser){.inst:empty{display:inline-flex}.inst:empty::before{content:"Ana ekrana əlavə et";visibility:hidden;min-height:28px;padding:0 12px;border:1px solid;font-size:.82rem;font-weight:700;white-space:nowrap}}
 .qbtn{display:none;width:32px;height:32px;padding:0;border:1px solid var(--border);border-radius:99px;background:var(--card);color:var(--fg);place-items:center;flex:none}
 .follow-btn{display:inline-flex;position:relative;flex:none;isolation:isolate;align-items:center;justify-content:center;min-height:44px;padding:0 9px;border:1px solid #0000;border-radius:11px;background:var(--card);color:var(--fg);font-size:var(--fs-meta);font-weight:700;line-height:1.2;white-space:nowrap}
@@ -1023,9 +1024,10 @@ main{padding-top:8px}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: */
 .hrow{flex-wrap:wrap}
 .hrow>.topbar{flex:1 0 100%;order:9;margin:0 calc(-1 * var(--gutter)) -8px;border-top:1px solid var(--border);border-bottom:0}
-html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar{min-width:0}
-html:is([data-fs="3"],[data-fs="4"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
+html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar{min-width:0}
+html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}
 @media(min-width:721px){html[data-fs="2"] .hrow>.topbar{min-width:0}html[data-fs="2"] .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}}
+html:is([data-fs="5"],[data-fs="6"]) .tabbar a{font-size:16px}
 /* Paylaşma: hər yerdə «Paylaş» düyməsi → panel */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
@@ -1078,9 +1080,25 @@ nav.main{order:10}
 .mk[data-d=up] .v{color:var(--up)}.mk[data-d=down] .v{color:var(--down)}
 }
 /* Telefon: Zuğulba kartları bərabər, lent düz 2 kart */
-@media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}}
-/* ≤370 px: rejim yalnız işarə */
-@media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}
+@media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 2*var(--lh-meta) + 24px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 4*var(--lh-meta) + 56px)!important}.mk .n{font-size:12px}.prez-lent>.pcard.has-img:not(.noimg) .img{width:min(28vw,calc(3.5*var(--lh-body)));height:calc(3*var(--lh-body))}.prez-lent>.pcard.has-img:not(.noimg) [data-act=dinle]{min-width:min(28vw,calc(3.5*var(--lh-body)))}.prez-lent>.pcard .meta .src{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+/* Telefon loqo sətri (sahib 11-14) */
+@media(max-width:720px){
+.hrow .ldd{display:flex}
+.hrow .ldd-btn{height:28px;padding:0 6px;gap:3px}
+.hrow .ldd-btn .flag{width:20px;height:20px}
+.topbar .prefs{gap:2px}
+.topbar .prefs button{height:40px;min-width:0;margin:-6px 0}
+.topbar .prefs button .face{height:28px;box-sizing:border-box}
+.topbar .prefs [data-act^="fs-"] .face{min-width:26px;padding:0 3px;font-size:.74rem}
+.topbar .prefs .theme-btn .face{gap:3px;padding:0 7px;font-size:.74rem}
+.topbar .prefs .theme-btn span{font-size:inherit}
+:root[data-theme="light"] .hrow>.logo{padding:3px 6px}
+}
+/* işıqlı loqo lövhəsi enlidir */
+@media(max-width:440px){:root[data-theme="light"] .hrow>.logo{zoom:.9}}
+@media(max-width:392px){.hrow>.logo{zoom:.78}:root[data-theme="light"] .hrow>.logo{zoom:.72}}
+@media(max-width:350px){.hrow>.logo,:root[data-theme="light"] .hrow>.logo{zoom:.62}.hrow .ldd-btn .caret{display:none}}
+@media(max-width:335px){.topbar .theme-btn span+span{display:none}} /* çox köhnə 320 px telefon: rejim yalnız işarə */
 /* Telefon: 4 bölmə + ☰, altında Telegram */
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
@@ -1123,4 +1141,17 @@ nav.main .nav-more>summary{padding:0 8px}
 .ticker .lbl .bell,.ticker .lbl .mo{width:30px;height:30px}
 .ticker .lbl .bell svg{width:16px;height:16px}
 }
-.pop-more{display:block;margin-top:6px;padding:6px 8px;border-radius:8px;font-size:.8571rem;font-weight:700;color:inherit;text-decoration:underline}
+.pop-more{display:block;margin-top:6px;padding:6px 8px;font-size:.8571rem;font-weight:700;color:inherit;text-decoration:underline}
+/* sahib 11-14: telefonda vaxt, mənbə, «N mənbə» 13px; düymələr olduğu kimi */
+@media (max-width:600px){.meta,.hero-main .meta,.card .meta,.bd,.source-count,.prez-h .source-count{font-size:max(11px,calc(var(--fs-meta) - 3px));line-height:max(15px,calc(var(--lh-meta) - 4px))}}
+/* Tıxac (sahib 11-14): telefonda xəritə ekranın yarısı */
+.tix-bar{gap:12px;align-items:center}
+.tix-alt{margin-right:auto;padding:0;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
+@media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:clamp(300px,48svh,400px)}}
+/* sahib 11-14: telefonda başlıq bir sətir, izah gizli (xəbər başlığı .page-h>h1 toxunulmur) */
+@media (max-width:600px){
+.page-h .sec-desc{display:none}
+.page-h>div{min-width:0}
+.page-h>div>h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,5.6vw,1.5714rem);line-height:1.2}
+}
+.tix-olcu{border:1px solid var(--border);background:var(--card);border-radius:12px;padding:10px 12px;margin:0 0 12px}.tix-olcu h2{margin:0 0 6px;font-size:1rem}.tix-olcu h3{margin:8px 0 2px;font-size:.9rem}.tix-olcu ul{list-style:none;margin:0;padding:0;font-size:.9rem}.tix-olcu li{margin:3px 0}.tix-olcu time{font-weight:700}.tix-olcu .yaxsi,.tix-olcu p{color:var(--muted)}.tix-olcu p{margin:6px 0 0;font-size:.75rem}

@@ -66,8 +66,8 @@
       "cardBytes": 2700, "cardTags": 32, "use": 12
     },
     "layoutReads": {
-      "getBoundingClientRect": 13, "offsetTop": 11, "offsetLeft": 2, "offsetWidth": 2, "offsetHeight": 3, "clientWidth": 8, "clientHeight": 8,
-      "scrollTop": 22, "scrollLeft": 13, "getComputedStyle": 3, "innerWidth": 7, "innerHeight": 2, "scrollY": 11
+      "getBoundingClientRect": 13, "offsetTop": 11, "offsetLeft": 3, "offsetWidth": 2, "offsetHeight": 3, "clientWidth": 8, "clientHeight": 8,
+      "scrollTop": 22, "scrollLeft": 15, "getComputedStyle": 3, "innerWidth": 7, "innerHeight": 2, "scrollY": 11
     }
   }
 }

@@ -96,6 +96,7 @@ __ROBOTS__<link rel="canonical" href="__URL__" />
 <p>__INTRO__</p>
 <a class="go" href="__APP__">Son xəbərləri saytda aç</a>__TG__
 __ITEMS__
+__SVC__
 __REL__
 <p><a href="${SITE}icmal/">Günün icmalı</a> · <a href="https://t.me/sekkizulduz_az">Telegram kanalımız</a> · <a href="${SITE}">8ULDUZ — bütün xəbərlər</a></p>
 </main></body>
@@ -112,11 +113,20 @@ function oldItems(file) {
   try {
     const m = fs.readFileSync(file, "utf8").match(/<script type="application\/json" id="movzu">([\s\S]*?)<\/script>/);
     const d = JSON.parse(m[1].replace(/\\u003c/g, "<"));
-    return { items: Array.isArray(d.items) ? d.items : [], at: Number(d.at) || 0 };
-  } catch { return { items: [], at: 0 }; }
+    return { items: Array.isArray(d.items) ? d.items : [], at: Number(d.at) || 0, svc: String(d.svc || "") };
+  } catch { return { items: [], at: 0, svc: "" }; }
 }
 
-function page(t, items, all, stories, now, bot = "") {
+// Rayonun namaz və hava səhifələri (updater.py write_subpages; sahib 2026-11-13): yalnız səhifəsi yazılmış olanlara keçid verilir.
+// Şəhər ünvanı defissizdir (updater.city_slug); «abseron-xizi» kimi bölgənin öz səhifəsi yoxdur, keçid də çıxmır.
+const SERVICES = [["namaz", t => `${t.label}: namaz vaxtları`], ["hava", t => `${t.label}: hava proqnozu`]];
+function services(root, t) {
+  if (t.kind !== "rayon") return "";
+  const slug = t.slug.replace(/-/g, "");
+  return SERVICES.filter(([dir]) => fs.existsSync(path.join(root, "bolme", dir, slug, "index.html"))).map(([dir]) => dir).join(",");
+}
+
+function page(t, items, all, stories, now, bot = "", svc = "") {
   const { h1, title, desc } = heading(t);
   const url = `${SITE}${t.kind}/${t.slug}/`, k = KINDS[t.kind];
   const app = `${SITE}#/bolme/${k.section}?m=${encodeURIComponent(t.name)}`;
@@ -126,6 +136,8 @@ function page(t, items, all, stories, now, bot = "") {
     : `<p>Son ${KEEP_DAYS} gündə bu mövzuda xəbər yoxdur. Yeni xəbər çıxan kimi burada görünəcək.</p>`;
   const kin = all.filter(x => x.kind === t.kind && x !== t && (t.parent ? x.parent === t.parent || x === t.parent : x.parent === t));
   const rel = kin.length ? `<p class="rel"><b>${t.parent ? "Digər" : "Daxilində"}:</b> ${kin.map(x => `<a href="${SITE}${x.kind}/${x.slug}/">${esc(x.label)}</a>`).join(" ")}</p>` : "";
+  const city = t.slug.replace(/-/g, ""), has = svc ? svc.split(",") : [];
+  const svcLinks = has.length ? `<p class="rel"><b>Xidmətlər:</b> ${SERVICES.filter(([dir]) => has.includes(dir)).map(([dir, text]) => `<a href="${SITE}bolme/${dir}/${city}/">${esc(text(t))}</a>`).join(" ")}</p>` : "";
   const crumb = t.parent ? ` › <a href="${SITE}${t.kind}/${t.parent.slug}/">${esc(t.parent.label)}</a>` : "";
   const intro = items.length ? `Son ${KEEP_DAYS} gündə ${esc(t.label)} haqqında ${items.length} xəbər. Siyahı avtomatik yenilənir.` : esc(desc);
   const ld = { "@context": "https://schema.org", "@type": "CollectionPage", name: h1, url, inLanguage: "az",
@@ -135,7 +147,7 @@ function page(t, items, all, stories, now, bot = "") {
   // Bir keçid, funksiya ilə: String.replace(sətir, sətir) başlıqdakı «$$», «$'», «$&» işarələrini nümunə kimi oxuyur — «pu$$y»
   // «pu$y» olurdu, «50 milyon $'lık» isə şablonun qalanını JSON blokuna yapışdırıb səhifəni sındırırdı (2026-11-12).
   const fill = { TITLE: esc(title), DESC: esc(desc), URL: url, ROBOTS: items.length >= MIN_INDEX ? "" : '<meta name="robots" content="noindex, follow" />\n',
-    LD: json(ld), DATA: json({ name: t.name, at: now, items }), SECTION: k.section, SECTION_LABEL: k.label,
+    LD: json(ld), DATA: json(svc ? { name: t.name, at: now, svc, items } : { name: t.name, at: now, items }), SVC: svcLinks, SECTION: k.section, SECTION_LABEL: k.label,
     CRUMB: crumb, H1: esc(h1), INTRO: intro, APP: esc(app), TG: bot ? ` <a class="go" href="https://t.me/${bot}?start=${t.kind === "rayon" ? "r" : "i"}_${t.slug}" rel="noopener">📩 Telegram-da izlə</a>` : "", ITEMS: list, REL: rel };
   return PAGE.replace(/__([A-Z0-9]+(?:_[A-Z0-9]+)*)__/g, (all, name) => Object.hasOwn(fill, name) ? fill[name] : all);
 }
@@ -154,13 +166,14 @@ function run(root, { now = Date.now(), app = loadApp(root) } = {}) {
     for (const i of [...fresh, ...old.items]) if (i?.u && i.t && !byUrl.has(i.u) && (Date.parse(i.d) || now) >= cutoff) byUrl.set(i.u, i);
     const items = [...byUrl.values()].sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, KEEP);
     const same = JSON.stringify(items) === JSON.stringify(old.items);
-    const exists = fs.existsSync(file);
-    if (!exists || (!same && now - old.at >= REWRITE_MS)) {
+    const exists = fs.existsSync(file), svc = services(root, t);
+    // Xidmət keçidi yarananda (və ya itəndə) səhifə bir dəfə gözləmədən yazılır: yoxsa xəbəri dəyişməyən rayon keçidsiz qalardı.
+    if (!exists || svc !== old.svc || (!same && now - old.at >= REWRITE_MS)) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, page(t, items, all, stories, now, bot));
+      fs.writeFileSync(file, page(t, items, all, stories, now, bot, svc));
       written++;
     }
-    const kept = exists && (same || now - old.at < REWRITE_MS) ? old.items : items;
+    const kept = exists && svc === old.svc && (same || now - old.at < REWRITE_MS) ? old.items : items;
     if (kept.length >= MIN_INDEX) map.push({ loc: `${SITE}${t.kind}/${t.slug}/`, last: String(kept[0]?.d || "").slice(0, 10) });
   }
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +

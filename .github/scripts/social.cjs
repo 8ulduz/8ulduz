@@ -58,6 +58,8 @@ const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
 // xülasənin əvvəli eynidir, və ya (NEAR_H saat içində) başlıq+xülasə sözlərinin çoxu üst-üstə düşür, və ya iki Prezident xəbəri PREZ_H saat
 // içində eyni ada/ölkəyə aiddir (Türkiyə, Ankara…). Söz kökü = ilk 5 hərf; ümumi sözlər və hər Prezident xəbərində olan adlar sayılmır.
 const TOPIC_H = 24, NEAR_H = 4, PREZ_H = 3;
+// Şəbəkə spam qorunması ilə məhdudlaşdıranda (Instagram 2207051, 2026-11-13) neçə saat ona yazılmır.
+const PAUSE_H = 6;
 const STOP = new Set(("ilə üçün olan olub olaraq edib etdi edən edəcək edir gedib getdi gəlib gəldi bildirib deyib haqqında barədə xəbər " +
   "sonra daha yeni bütün bəzi onun bunu belə həmin artıq hələ qədər kimi görə üzrə dair bağlı keçirilib keçirildi video foto " +
   "videoçarx olunub olundu verib verdi alıb aldı").split(" "));
@@ -97,6 +99,15 @@ function cut(s, n) {
   return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…";
 }
 const html = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Telegram mətndəki sayt adını («Modern.az xəbər verir ki…») özü keçidə çevirir və o, bizim keçiddən yuxarıda durur: oxucu mənbəyə
+// gedirdi. Nöqtədən sonra boşluq olmayanda («edilib.Metbuat.az») keçid olmayan ünvana (edilib.metbuat.az) aparırdı (2026-11-14).
+// Əvvəl cümlə sonuna boşluq, sonra sayt adının son nöqtəsindən sonra görünməz boşluq (U+200B): ad oxunur, keçid yaranmır.
+const SITE_TLD = "az|com|ru|org|net|info|tv|ws|media|news|io|me|biz|tr|ge|eu|uk";
+// Böyük-kiçik hərf burada fərqlidir (cümlə sonu: kiçik hərf, nöqtə, böyük hərf), ona görə sonluğun «Media», «AZ» yazılışları ayrıca sayılır.
+const TLD_ANY_CASE = SITE_TLD.split("|").flatMap(t => [t, t[0].toUpperCase() + t.slice(1), t.toUpperCase()]).join("|");
+const NAME_AFTER_DOT = new RegExp(`(\\p{Ll})\\.(?=\\p{Lu}[\\p{L}\\d-]*\\.(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))`, "gu");
+const SITE_NAME = new RegExp(`(?<![\\p{L}\\d@/.-])((?:[\\p{L}\\d-]+\\.)+)(${SITE_TLD})(?![\\p{L}\\d])`, "giu");
+const noLinks = s => String(s).replace(NAME_AFTER_DOT, "$1. ").replace(SITE_NAME, "$1\u200B$2");
 
 // RFC 5849 (OAuth 1.0a), X API v2 üçün. JSON gövdəsi imzaya daxil deyil.
 const pct = s => encodeURIComponent(s).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
@@ -141,8 +152,8 @@ function networks(env = process.env) {
     },
     request(a) {
       const url = shareUrl(a), sum = cut(a.summary, 300);
-      const text = a.digest ? `<b>${html(a.title)}</b>\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${html(digestList(a))}\n\n${url}`
-        : `<b>${html(cut(a.title, 250))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(sum)}` : ""}\n\n${url}`;
+      const text = a.digest ? `<b>${html(a.title)}</b>\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${html(noLinks(digestList(a)))}\n\n${url}`
+        : `<b>${html(noLinks(cut(a.title, 250)))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(noLinks(sum))}` : ""}\n\n${url}`;
       return [`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
     } });
@@ -195,7 +206,7 @@ function networks(env = process.env) {
   // Instagram yalnız şəkilli post qəbul edir (JPEG, ictimai URL), keçid postda basılmır: mətnin sonunda «8ulduz.az» yazılır.
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN && env.INSTAGRAM !== "0") {
     const root = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`;
-    list.push({ name: "instagram", token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 45), // gündə ≤32 (API həddi 50)
+    list.push({ name: "instagram", root, token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 45), // gündə ≤32 (API həddi 50)
       wants: a => !a.digest && /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
       async prepare(f, state, log) {
         const r = await f(`${root}${encodeURIComponent(env.FB_PAGE_ID)}?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
@@ -217,9 +228,12 @@ function networks(env = process.env) {
         const { id } = await c.json();
         for (let i = 0; ; i++) {
           const p = await call(`${this.ig}/media_publish`, { creation_id: id });
-          if (p.ok || i >= 4) return p;
+          if (p.ok) return p;
           const t = await p.text().catch(() => "");
-          if (!/9007|not ready|not available/i.test(t)) return { ok: false, status: p.status, text: async () => t };
+          // 2026-11-13: dərc cavabı xəta («Application request limit reached», 2207051) olsa da post Instagram-da çıxırdı. Fasilə və
+          // mövzu yadda qalmırdı: hər dövrə yenə göndərirdi — 6,5 saatda 36 post, eyni hadisə 5 dəfə. Belə cavab «bəlkə dərc olunub» sayılır.
+          const busy = /9007|not ready|not available/i.test(t);
+          if (!busy || i >= 4) return { ok: false, status: p.status, text: async () => t, maybePosted: !busy };
           await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
         }
       },
@@ -262,6 +276,9 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
     .reduce((m, k) => m.split(k).join("***"), String(s?.message || s));
   for (const net of nets) {
     if (net.prepare && !(await net.prepare(f, state, log).catch(e => { log(`${net.name}: hazırlıq alınmadı — ${hide(e)}`); return false; }))) continue;
+    if (net.name === "instagram") result.ig = net;   // /ig/ səhifəsinin siyahısı üçün (main → igMedia)
+    const until = state._pause?.[net.name] || 0;
+    if (until > now / 1000) { log(`${net.name}: məhdudiyyətə görə fasilə, ${Math.ceil((until - now / 1000) / 60)} dəq qalıb`); continue; }
     const done = state[net.name] ||= {};
     const last = state._last ||= {};
     // Bir dəfəlik (iş axınında «fb_yenile»): www keçidi ilə artıq paylaşılmış xəbərlər Facebook-a yenidən oxudulur — kartı şəkilsiz
@@ -294,15 +311,23 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         if (net.post) r = await net.post(a, f);
         else { const [url, init] = net.request(a); r = await f(url, { ...init, signal: AbortSignal.timeout(20000) }); }
         if (r?.skip) { n--; log(`${net.name}: ötürülür (${r.skip}), növbəti dövrədə yenə yoxlanır — ${clean(a.title)}`); continue; }
+        if (!r.ok && r.maybePosted) {   // xəta cavabı, amma post çıxmış ola bilər: fasilə, mövzu və /ig/ siyahısı yenə yazılır
+          done[a.id] = last[net.name] = sec;
+          if (!a.digest) { done[titleKey(a)] = sec; recent.push(topic); }
+          if (net.name === "instagram") igRemember(state, a, sec);
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status} ${String(await r.text().catch(() => "")).slice(0, 300)}`);
         done[a.id] = last[net.name] = Math.floor(now / 1000);
         if (!a.digest) { done[titleKey(a)] = done[a.id]; recent.push(topic); }
         result.posted.push([net.name, a.id]);
+        if (net.name === "instagram") igRemember(state, a, done[a.id]);
         log(`${net.name}: paylaşıldı — ${clean(a.title)}`);
       } catch (e) {
         const msg = hide(e);
         if (net.name === "telegram" && /chat not found|kicked|not a member|not enough rights|need administrator/i.test(msg)) delete state._telegram; // növbəti dövrə kanalı yenidən axtarır
         if (net.skipFailed) done[a.id] = Math.floor(now / 1000); // eyni xəbər hər dövrədə təkrar yoxlanmasın
+        // Şəbəkə spam qorunması ilə məhdudlaşdırıb («request limit», Instagram 2207051): PAUSE_H saat bu şəbəkəyə yazılmır.
+        if (/request limit|2207051|limit how often|ограничиваем/i.test(msg)) { (state._pause ||= {})[net.name] = sec + PAUSE_H * 3600; log(`${net.name}: məhdudiyyət — ${PAUSE_H} saat fasilə`); }
         result.failed.push([net.name, a.id]);
         log(`${net.name}: alınmadı — ${msg}`);
         break; // şəbəkə imtina edirsə bu dövrədə ona daha yazmırıq
@@ -310,6 +335,44 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
     }
   }
   return result;
+}
+
+// 8ulduz.az/ig/ (sahib, 2026-11-13): Instagram postunda keçid basılmır, profildəki keçid bu səhifəyə aparır. Səhifədə Instagram-dakı
+// postlar eyni sıra ilə və eyni şəkillə durur; oxucu postda gördüyü şəklə toxunub xəbəri açır. Sıra və tərkib Instagram-ın özündən
+// (API: son 36 post); hər postun xəbəri paylaşanda yadda saxlanan siyahıdan (state._ig), olmasa başlığı lentdəki xəbərlə tutuşdurulur.
+// Xəbər tapılmasa keçid saytın axtarışına (başlıqla) gedir. Şəkil: xəbərin öz şəkli (paylaşma Worker-i /i/<id>.jpg — Instagram-a
+// göndərilən şəklin eynisi); xəbər tapılmasa Instagram-ın şəkli. Fayl ayrıca işdə «ig» budağına yazılır (social.yml), sayta toxunmur.
+const IG_KEEP = 60, IG_SHOW = 36;
+const igKey = s => clean(s).replace(/…$/, "").toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 60);
+function igRemember(state, a, t) {
+  const list = (state._ig ||= []).filter(x => x.id !== a.id);
+  list.unshift({ id: a.id, title: clean(a.title), url: shareUrl(a), img: `${SHARE}i/${a.id}.jpg`, t });
+  state._ig = list.slice(0, IG_KEEP);
+}
+// Tutuşdurma sırası (sonrakı üstündür): arxivdəki xəbərin alternativ başlıqları, arxiv, lentin alternativ başlıqları, lent,
+// paylaşanda yadda saxlanan. Alternativ başlıq lazımdır: xəbərin əsas mənbəyi dəyişəndə başlığı da dəyişir (2026-11-13 ölçüsü:
+// tapılmayan 22 postdan 11-i alternativ başlıqda və ya arxivdə idi). API cavab verməsə siyahı boşdur: budaqdakı köhnə siyahı qalır.
+function igGrid(media, state = {}, articles = [], archive = []) {
+  const known = new Map(), put = (t, a) => { if (a?.id && t) known.set(igKey(t), { id: a.id, title: clean(a.title), url: shareUrl(a), img: `${SHARE}i/${a.id}.jpg` }); };
+  for (const list of [archive, articles]) {
+    for (const a of list || []) for (const x of a?.alts || []) put(x.title, a);
+    for (const a of list || []) put(a?.title, a);
+  }
+  for (const x of [...(state._ig || [])].reverse()) known.set(igKey(x.title), x);
+  if (!Array.isArray(media) || !media.length) return [];
+  return media.slice(0, IG_SHOW).map(m => {
+    const title = clean(String(m.caption || "").split("\n")[0]).replace(/…$/, "");
+    const hit = title && known.get(igKey(title));
+    const t = Math.floor(Date.parse(m.timestamp) / 1000) || 0;
+    if (hit) return { title: hit.title, url: hit.url, img: hit.img, t };
+    return { title, url: title ? `https://8ulduz.az/#/axtar?q=${encodeURIComponent(title.slice(0, 120))}` : "https://8ulduz.az/", img: String(m.media_url || m.thumbnail_url || ""), t };
+  }).filter(x => x.title);
+}
+async function igMedia(net, f) {
+  if (!net?.ig || !net.root) return [];
+  const u = `${net.root}${encodeURIComponent(net.ig)}/media?fields=caption,media_url,thumbnail_url,timestamp&limit=${IG_SHOW}&access_token=${encodeURIComponent(net.token)}`;
+  const r = await f(u, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
+  return Array.isArray(r?.data) ? r.data : [];
 }
 
 async function main() {
@@ -325,11 +388,21 @@ async function main() {
   let digestIndex = [];
   try { digestIndex = JSON.parse(fs.readFileSync("icmal/index.json", "utf8")); } catch {}
   const res = await run({ articles, digestIndex, now, state });
+  // /ig/ səhifəsinin siyahısı (social.yml «ig» işi budağa yazır). Instagram qoşulu deyilsə və ya siyahı boşdursa fayl yazılmır.
+  // Instagram-dan siyahı saatda bir dəfə və ya bu dövrədə post çıxanda soruşulur (Meta sorğu həddi; iş ~10 dəqiqədən bir işləyir).
+  const lastAsk = state._igAsked || 0, posted = res.posted.some(x => x[0] === "instagram") || (state._last?.instagram || 0) > lastAsk;
+  if (res.ig && (posted || now / 1000 - lastAsk >= 3600)) try {
+    state._igAsked = Math.floor(now / 1000);
+    let archive = [];
+    try { archive = fs.readdirSync("data/arxiv").filter(f => f.endsWith(".json")).flatMap(f => JSON.parse(fs.readFileSync(path.join("data/arxiv", f), "utf8")).articles || []).filter(a => !app.policyViolation(a)); } catch {}
+    const grid = igGrid(await igMedia(res.ig, globalThis.fetch), state, articles, archive);
+    if (grid.length) { fs.mkdirSync("ig-out", { recursive: true }); fs.writeFileSync("ig-out/ig.json", JSON.stringify({ at: Math.floor(now / 1000), items: grid })); }
+  } catch (e) { console.log(`ig: siyahı yazılmadı — ${String(e?.message || e).slice(0, 120)}`); }
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify(state));
   // Hamısı alınmayıbsa iş qırmızı olsun (sahib görsün); qismən uğur yaşıl.
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });

@@ -80,37 +80,68 @@ test('broken percent-encoded route does not break the page', () => {
   assert.equal(ctx.api.route().q, 'İlham');
 });
 
+// Sahib, 2026-11-13: «Saytda standart şrifti indiki A+-ın 2 kliki boyda et». Standart pillə 2-dən 4-ə keçdi (ölçülər yerində
+// qaldı: saxlanmış seçim eyni ölçünü göstərir), üstünə iki yeni pillə (5, 6) əlavə olundu ki, A+ standartdan da böyütsün.
 test('reader font starts at the former two-click size and adjusts in both directions without losing saved sizes', () => {
   const ctx = app({requestAnimationFrame() {}});
   vm.runInContext('setupMarquees = () => {};', ctx);
   ctx.api.applyPrefs();
-  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+  assert.equal(ctx.document.documentElement.dataset.fs, '4');
   vm.runInContext('setPref("fs-up"); setPref("fs-up"); setPref("fs-up");', ctx);
-  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'upper bound');
-  assert.equal(ctx.api.storage.getItem('8ulduz-fs'), '4');
+  assert.equal(ctx.document.documentElement.dataset.fs, '6', 'upper bound');
+  assert.equal(ctx.api.storage.getItem('8ulduz-fs'), '6');
   ctx.document.documentElement.dataset.fs = '';
   ctx.api.applyPrefs();
-  assert.equal(ctx.document.documentElement.dataset.fs, '4', 'saved size restored');
-  vm.runInContext('for(let i=0;i<6;i++) setPref("fs-down");', ctx);
+  assert.equal(ctx.document.documentElement.dataset.fs, '6', 'saved size restored');
+  vm.runInContext('for(let i=0;i<8;i++) setPref("fs-down");', ctx);
   assert.equal(ctx.document.documentElement.dataset.fs, '0', 'lower bound');
-  for (const saved of ['0','1','2','3','4']) {
+  for (const saved of ['0','1','2','3','4','5','6']) {
     ctx.api.storage.setItem('8ulduz-fs', saved);
     ctx.api.applyPrefs();
     assert.equal(ctx.document.documentElement.dataset.fs, saved, 'existing choice kept');
   }
-  ctx.api.storage.setItem('8ulduz-fs', 'broken');
-  ctx.api.applyPrefs();
-  assert.equal(ctx.document.documentElement.dataset.fs, '2');
+  for (const bad of ['broken', '7', '-1', '']) {
+    ctx.api.storage.setItem('8ulduz-fs', bad);
+    ctx.api.applyPrefs();
+    assert.equal(ctx.document.documentElement.dataset.fs, '4');
+  }
 });
 
-test('the default typography keeps every token of the original two-click size', () => {
+test('the default typography is the former two-click size and every earlier size keeps its level', () => {
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
-  const defaults = css.match(/:root\{([^}]+)\}/)[1];
-  const values = Object.fromEntries([...defaults.matchAll(/--((?:fs|lh)-[\w-]+):([^;]+);/g)].map(m=>[m[1],m[2]]));
-  assert.deepEqual(values, {
-    'fs-display':'26px','lh-display':'32px','fs-title':'22px','lh-title':'28px',
-    'fs-headline':'21px','lh-headline':'28px','fs-body':'18px','lh-body':'26px','fs-meta':'14px','lh-meta':'20px'
-  }, 'reference: original html[data-fs="2"] before this change');
+  const tokens = block => Object.fromEntries([...block.matchAll(/--((?:fs|lh)-[\w-]+):([^;}]+)/g)].map(m=>[m[1],m[2]]));
+  const level = n => tokens(css.match(new RegExp('html\\[data-fs="' + n + '"\\]\\{([^}]+)\\}'))[1]);
+  const row = (a,b,c,d,e,f,g,h,i,j) => ({'fs-display':a+'px','lh-display':b+'px','fs-title':c+'px','lh-title':d+'px',
+    'fs-headline':e+'px','lh-headline':f+'px','fs-body':g+'px','lh-body':h+'px','fs-meta':i+'px','lh-meta':j+'px'});
+  assert.deepEqual(tokens(css.match(/:root\{([^}]+)\}/)[1]), row(30,38,26,34,25,34,22,32,16,23), 'reference: html[data-fs="4"] before this change');
+  assert.deepEqual(level(0), row(22,27,18,24,17,23,15,22,12,16));
+  assert.deepEqual(level(1), row(24,30,20,26,19,26,17,25,13,18));
+  assert.deepEqual(level(2), row(26,32,22,28,21,28,18,26,14,20), 'reference: the default before this change');
+  assert.deepEqual(level(3), row(28,35,24,31,23,31,20,29,15,22));
+  assert.ok(!css.includes('html[data-fs="4"]{'), 'level 4 is the default: it has no block of its own');
+  const five = level(5), six = level(6);
+  for (const k of Object.keys(five)) assert.ok(parseInt(six[k]) > parseInt(five[k]) && parseInt(five[k]) > parseInt(row(30,38,26,34,25,34,22,32,16,23)[k]), k + ' grows with the level');
+  // Böyük pillələrdə (standart daxil) üst zolaq sətirə sığmır: sarınır. Kiçik pillələr (0–2) əvvəlki kimidir.
+  assert.ok(css.includes('html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}'));
+  assert.ok(!/data-fs="[34]"\]\) \.hrow/.test(css), 'the wrap rule is not tied to a list of large levels');
+  // Alt zolağın yazısı standartdan böyümür: 320 px ekranda «Seçilmişlər» 18 px-də öz xanasına (80 px) sığmırdı.
+  assert.ok(css.includes('html:is([data-fs="5"],[data-fs="6"]) .tabbar a{font-size:16px}'));
+});
+
+test('the first paint and the app agree on the default font level', () => {
+  const read = p => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
+  const app = read('assets/app.js');
+  const std = app.match(/const FS_STD = "(\d)";/)[1];
+  assert.equal(std, '4');
+  assert.ok(read('index.html').includes('document.documentElement.dataset.fs = /^[0-6]$/.test(f || "") ? f : "' + std + '";'), 'baş səhifənin ilk skripti');
+  assert.ok(read('assets/app.min.js').includes('/^[0-6]$/'), 'kiçildilmiş nüsxə yenidən qurulub');
+  // xeber/<id>/ və bolme/<ad>/ səhifələrinin (updater.py şablonları) ilk skripti əvvəlki «2»-ni qoyur və qəsdən dəyişdirilməyib:
+  // şablon dəyişsə minlərlə səhifə yenidən yazılmalıdır (STORY_VER). O səhifələrdə pilləni tətbiq düzəldir, ona görə applyPrefs()
+  // ilk çəkilişlə (shell(); render()) eyni sinxron blokda və ondan əvvəl qalmalıdır: arada boya olsa statik mətn 18 → 22 px sıçrayar.
+  const prefs = app.indexOf('\napplyPrefs();\n'), draw = app.indexOf('\nshell(); render();\n');
+  assert.ok(prefs > 0 && draw > prefs, 'applyPrefs() ilk çəkilişdən əvvəldir');
+  const between = app.slice(prefs, draw).split('\n').filter(l => /^\S/.test(l) && !/^(?:async )?function /.test(l));
+  assert.ok(!between.some(l => /\bawait\b/.test(l)), 'arada üst səviyyədə gözləmə (await) yoxdur');
 });
 
 test('invalid JSON response does not poison ETag; same response can recover', async () => {
@@ -436,6 +467,29 @@ test('a story whose link is dead leaves the screen within a minute, moves to ano
   dead=[];
   await ctx.loadLatest();
   assert.deepEqual(urls(),['https://apa.az/a','https://apa.az/b','https://apa.az/c']);
+});
+test('owner 2026-11-14: a story already on screen is not «new» again — not when its main link changes, not after it leaves the overlay',async()=>{
+  const ctx=app(),{S}=ctx.api;
+  let rows=[];
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'x',articles:rows,dead:[]})});
+  vm.runInContext('requestRender = () => {}; readerBusy = () => true;',ctx);
+  const a=firstRow('a'),b=firstRow('b');
+  S.rawNews=[a,b];S.rawMeta={};S.lang='az';ctx.api.publishNews();
+  // 1) «a»-ya yeni mənbə qoşuldu: dəqiqəlik faylda əsas keçid başqadır, köhnəsi alts-dadır
+  rows=[{...firstRow('a2'),alts:[{source:'APA',sourceUrl:a.sourceUrl,title:a.title,publishedAt:a.publishedAt}]},b];
+  await ctx.loadLatest();
+  assert.equal((S.pendingNew||[]).length,0,'əsas keçidi dəyişən köhnə xəbər yeni sayılmır');
+  // 2) həqiqətən yeni xəbər sayılır
+  rows=[firstRow('c'),...rows];
+  await ctx.loadLatest();
+  assert.deepEqual(Array.from(S.pendingNew||[],x=>x.sourceUrl),[firstRow('c').sourceUrl]);
+  // 3) tam lent gəldi, «c» üst qatdan çıxdı (yarım saat), dəqiqəlik faylda isə hələ durur: yenidən yeni sayılmır
+  S.pendingNew=0;S.rawNews=[a,b];S.overlay=[];
+  await ctx.loadLatest();
+  assert.equal((S.pendingNew||[]).length,0,'bu açılışda görülmüş xəbər yenidən «yeni» olmur');
+  // 4) səhifə başqa yolla çəkildi (düymə, «Dinlə»…): gözləyən xəbərlər ekrandadır, «N yeni xəbər» qalmır
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  assert.ok(/function renderView\(\) \{\n  syncQuery\(\);\n  pageMeta\(\);\n[^\n]*\n[^\n]*\n  if \(S\.pendingNew\?\.length && S\.data\) \{ S\.pendingNew = 0; syncNewPill\(\); \}/.test(src),'renderView gözləyən sayğacı sıfırlayır');
 });
 test('language order: Azerbaijani, Turkish, Russian, English',()=>{
   const ctx=app();
@@ -1395,6 +1449,63 @@ test('unchanged code and a changed index.html are stored quietly', async () => {
   }
 });
 
+// Çoxdan gəlməyən oxucu (sahib, 2026-11-13): Facebook-un daxili brauzeri saytın 3 gün əvvəl saxlanmış nüsxəsini göstərdi
+// (10 noyabrda çıxarılmış 6 düyməli alt zolaqla). Saxlanmış nüsxə 36 saatdan köhnədirsə əvvəl təzəsi gözlənilir.
+const savedAt = (text, hoursAgo) => new Response(text, {headers: {date: new Date(Date.now() - hoursAgo * 3600e3).toUTCString()}});
+test('a saved shell older than a day and a half gives way to the fresh one, quietly', async () => {
+  for (const url of ['assets/app.js', 'assets/app.css', '']) {
+    const {context} = worker();
+    let stored, messages = [];
+    context.fetch = () => new Promise(r => setTimeout(() => r(new Response('fresh')), 5));
+    context.caches.open = async () => ({match: async () => savedAt('three days old', 72), put: async (_key, response) => { stored = await response.text(); }});
+    context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/" + url + "'))", context);
+    assert.equal(await res.text(), 'fresh', url + ': oxucu təzə nüsxəni görür');
+    for (let i = 0; i < 20 && stored === undefined; i++) await new Promise(r => setImmediate(r));
+    assert.equal(stored, 'fresh', 'təzə nüsxə növbəti açılış üçün saxlanır');
+    await new Promise(r => setTimeout(r, 10));
+    assert.deepEqual(messages, [], 'səhifə artıq təzə kodu alıb: yenidən açılma xəbəri getmir');
+  }
+});
+test('red line 1: a saved shell from the last day and a half still answers at once', async () => {
+  for (const hours of [0, 1, 24, 35]) {
+    const {context} = worker();
+    let answer, messages = [];
+    context.fetch = () => new Promise(r => { answer = r; });
+    context.caches.open = async () => ({match: async () => savedAt('saved code', hours), put: async () => {}});
+    context.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+    assert.equal(await res.text(), 'saved code', hours + ' saat: şəbəkə gözlənilmir');
+    answer(new Response('new code'));
+    for (let i = 0; i < 20 && !messages.length; i++) await new Promise(r => setImmediate(r));
+    assert.deepEqual(messages.map(m => m.type), ['shell-updated'], 'təzə kod əvvəlki kimi bildirilir');
+  }
+});
+test('an old saved shell is still shown when the network is slow, failing or answers with an error', async () => {
+  // Yavaş şəbəkə: gözləmə bitir, saxlanmış nüsxə verilir; təzəsi sonra gələndə səhifəyə bildirilir.
+  const slow = worker().context;
+  let answer, messages = [];
+  slow.fetch = () => new Promise(r => { answer = r; });
+  slow.caches.open = async () => ({match: async () => savedAt('old code', 72), put: async () => {}});
+  slow.self.clients.matchAll = async () => [{postMessage: m => messages.push(m)}];
+  vm.runInContext('globalThis.setTimeout = (fn) => { fn(); return 0; };', slow);
+  const late = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", slow);
+  assert.equal(await late.text(), 'old code');
+  answer(new Response('new code'));
+  for (let i = 0; i < 20 && !messages.length; i++) await new Promise(r => setImmediate(r));
+  assert.deepEqual(messages.map(m => m.type), ['shell-updated']);
+  // Şəbəkə yoxdur və ya server xəta verir: boş səhifə yox, saxlanmış nüsxə.
+  for (const fetch of [async () => { throw new TypeError('offline'); }, async () => new Response('Server Error', {status: 500})]) {
+    const {context} = worker();
+    context.fetch = fetch;
+    context.caches.open = async () => ({match: async () => savedAt('old code', 72), put: async () => { throw Error('xətalı cavab saxlanmamalıdır'); }});
+    const res = await vm.runInContext("cachedShell(new Request('https://example.com/8ulduz/assets/app.js'))", context);
+    assert.equal(await res.text(), 'old code');
+  }
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.match(sw, /const SHELL_MAX_AGE_MS = 36 \* 3600e3, SHELL_WAIT_MS = 2500;/, 'hədlər: 36 saat, ən çox 2,5 s gözləmə');
+});
+
 test('a navigation with a query string reads and stores the shell under the path only', async () => {
   const {context} = worker();
   const seen = {match: [], put: []};
@@ -1948,7 +2059,11 @@ test('speed red line: index.html carries the same shell app.js builds, with nav 
   // #topbar: ya boş, ya da pipeline-ın hazır yuxarı zolağı (lupa düyməsi JS gələndə sıçramasın); qabığın qalanı eyni olmalıdır.
   const tb = m[1].match(/<div class="wrap" id="topbar">([^\n]*)<\/div><\/div>$/m);
   assert.ok(tb && (tb[1] === '' || (tb[1].includes('data-act="theme"') && tb[1].includes('class="wx'))), '#topbar boş və ya hazır zolaq olmalıdır');
-  assert.equal(m[1].replace(tb[0], '<div class="wrap" id="topbar"></div></div>'), want, 'index.html qabığı app.js shell() ilə eyni deyil');
+  // #mk: ya boş («pending»), ya da pipeline-ın hazır valyuta kartları (sahib 2026-11-14: açılışda sıçramasın).
+  const mk = m[1].match(/<div class="markets( pending)?" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk">([^\n]*?)<\/div><p class="mk-note"/);
+  assert.ok(mk && (mk[1] ? mk[2] === '' : mk[2].includes('class="mk"')), '#mk boş (pending) və ya hazır valyuta kartları olmalıdır');
+  const shellOf = s => s.replace(tb[0], '<div class="wrap" id="topbar"></div></div>').replace(mk[0], '<div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note"');
+  assert.equal(shellOf(m[1]), want, 'index.html qabığı app.js shell() ilə eyni deyil');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(src.includes('if (!$("#app").dataset?.shell) $("#app").innerHTML'), 'shell() statik qabığı silməməlidir');
 });
@@ -2023,13 +2138,48 @@ test('speed red line: the cached feed is shown before the network answers and th
   const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-static-v33', '8ulduz-data-v33'], open: async name => ({ match: async url => { matched.push(name + ' ' + url); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
   const { S, loadCached, loadFirst } = ctx.api;
   await loadCached();
-  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json']);
+  // 2026-11-13: ilk ekranın faylından sonra keşdəki dəqiqəlik lent də oxunur (dilin faylı, yoxdursa ümumi) — eyni keşdən, şəbəkəsiz.
+  assert.deepEqual(matched, ['8ulduz-data-v33 https://8ulduz.az/data/first.json', '8ulduz-data-v33 https://8ulduz.az/data/latest.az.json', '8ulduz-data-v33 https://8ulduz.az/data/latest.json']);
   assert.equal(S.data.articles[0].title, 'Keşdən xəbər');
   assert.equal(S.partial, true);
   ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: 'new', articles: [{ id: 'n1', title: 'Şəbəkədən xəbər', source: 'APA', sourceUrl: 'https://apa.az/2', publishedAt: new Date().toISOString(), category: 'gundem', lang: 'az' }] }) });
   await loadFirst();
   assert.equal(S.data.articles[0].title, 'Şəbəkədən xəbər', 'şəbəkədən gələn ilk ekran keşdəkini əvəz edir');
   assert.equal(S.fromCache, false);
+});
+// Sahib 2026-11-13 (telefon videosu): yeniləyəndə ən yeni xəbərlər ~1,5 s itib köhnə siyahı görünür, sonra qayıdırdı. İlk ekranın faylı
+// 10 dəqiqəlikdir; ondan sonra çıxan sətirlər keşdəki dəqiqəlik lentdən üstə qoyulur və şəbəkədən gələn ilk ekran onları silmir.
+test('owner 2026-11-13: a reload keeps the newest stories — cached minute feed rows sit on top of the cached first screen and survive the network one', async () => {
+  const at = Date.parse('2026-11-13T12:36:30Z'), iso = ms => new Date(at + ms).toISOString();
+  const row = (id, title, ms, source = 'APA') => ({ id, title, source, sourceUrl: 'https://apa.az/' + id, publishedAt: iso(ms), category: 'gundem', lang: 'az' });
+  const first = { updatedAt: iso(0), articles: [row('f1', 'İlk ekrandakı xəbər', -60e3)] };
+  const latest = { updatedAt: iso(120e3), articles: [row('l1', 'Dəqiqəlik lentin yeni xəbəri', 90e3), row('f1', 'İlk ekrandakı xəbər', -60e3), row('l0', 'Çoxdankı xəbər', -3600e3),
+    { ...row('x1', 'Azadlıq xəbəri', 95e3), source: 'Azadlıq', sourceUrl: 'https://www.azadliq.org/a/1.html' }] };
+  const open = files => async () => ({ match: async url => { const f = files[url.split('/data/')[1]]; return f ? { json: async () => f } : undefined; } });
+  const start = files => { const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => ['8ulduz-data'], open: open(files) } }); vm.runInContext('globalThis.renders = 0; render = () => { renders++; };', ctx); return ctx; };
+  const titles = S => Array.from(S.data.articles, a => a.title);
+
+  let ctx = start({ 'first.json': first, 'latest.az.json': latest });
+  let { S, loadCached, loadFirst } = ctx.api;
+  await loadCached();
+  assert.deepEqual(titles(S), ['Dəqiqəlik lentin yeni xəbəri', 'İlk ekrandakı xəbər'], 'yeni sətir üstdədir; ilk ekranda olan təkrarlanmır, köhnə və qadağan mənbə düşmür');
+  assert.equal(S.partial, true); assert.equal(S.fromCache, true);
+  // Şəbəkədən daha təzə ilk ekran gəlir: keşdən üstə qoyulan sətir qalır, şəbəkə nüsxəsində də varsa bir dəfə görünür.
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: iso(60e3), articles: [row('f2', 'Şəbəkədən xəbər', 30e3), row('f1', 'İlk ekrandakı xəbər', -60e3)] }) });
+  await loadFirst();
+  assert.deepEqual(titles(S), ['Dəqiqəlik lentin yeni xəbəri', 'Şəbəkədən xəbər', 'İlk ekrandakı xəbər']);
+  assert.equal(S.fromCache, false);
+
+  // Dil faylı yoxdursa ümumi dəqiqəlik lent; ilk ekrandan köhnə dəqiqəlik lent işlədilmir.
+  ctx = start({ 'first.json': first, 'latest.json': latest }); await ctx.api.loadCached();
+  assert.equal(titles(ctx.api.S)[0], 'Dəqiqəlik lentin yeni xəbəri');
+  ctx = start({ 'first.json': first, 'latest.az.json': { ...latest, updatedAt: iso(-120e3) } }); await ctx.api.loadCached();
+  assert.deepEqual(titles(ctx.api.S), ['İlk ekrandakı xəbər']);
+  // Şəbəkə keşi qabaqlayır (ilk ekranın faylı keş oxunuşundan tez gəlir): yeni sətirlər yenə üstdədir.
+  ctx = start({ 'first.json': first, 'latest.az.json': latest });
+  ctx.fetch = async () => ({ ok: true, headers: new Headers(), json: async () => ({ updatedAt: iso(60e3), articles: [row('f2', 'Şəbəkədən xəbər', 30e3)] }) });
+  const slow = ctx.api.loadCached(); await ctx.api.loadFirst(); await slow;
+  assert.deepEqual(titles(ctx.api.S), ['Dəqiqəlik lentin yeni xəbəri', 'Şəbəkədən xəbər', 'İlk ekrandakı xəbər'], 'dəqiqəlik lentin son 10 dəqiqəlik sətirləri: şəbəkə nüsxəsində olmayan da');
 });
 test('speed red line: un-proxied originals are still shown, but never with high priority', () => {
   const phone = app({ matchMedia: q => ({ matches: q === '(hover:none)' }) }).api, desktop = app().api;
@@ -2508,7 +2658,7 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   assert.ok(src.includes('r.slug === S.clubSlug') && src.includes('r.name === "team" ? "idman"'), 'liqadan geri qayıdanda Futbol sırası qalır, nav İdmanı göstərir');
   assert.ok(src.includes('function jumpToLatest()') && src.includes('S.latestOrder = "latest"; S.latestCount = 8; } render(); jumpToLatest();'), '«yeni xəbər» düyməsi Son xəbərlər → Ən yeni');
   assert.ok(src.includes('navigator.permissions?.query?.({ name: "geolocation" })') && src.includes('data-act="geo"') && !src.includes('getCurrentPosition(applyGeo, undefined'), 'konum yalnız düymə ilə və ya əvvəl verilmiş icazə ilə');
-  assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)'), 'telefonda canlı xəritə Yandex, Waze tətbiqdə açılır');
+  assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)') && src.includes('data-act="tix-yandex"'), 'telefonda Waze xəritəsi, ehtiyat Yandex, «Waze tətbiqində aç»');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   // Sahib, 2026-11-06: üç kart + › sınandı, əvvəlki dörd kartlı format qaytarıldı.
   assert.ok(css.includes('.mk:nth-child(-n+4){flex:0 0 calc((100% - 18px)/4)') && css.includes('.mk:nth-child(-n+4) .c span:last-child{display:none}'), 'dörd valyuta bir ekranda');
@@ -2549,7 +2699,15 @@ test('owner notes: the logo row comes first with the install slot and a search b
   assert.ok(!app_.includes('langstick') && !app_.includes('id="langs"') && !app_.includes('class="filters"'), 'köhnə dil və süzgəc sətirləri yoxdur');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.inst .install-btn{background:var(--primary)'), '«Ana ekrana əlavə et» seçilən rəngdədir');
-  assert.ok(css.includes('.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 32px);overflow:hidden}') && css.includes('.prez-lent{height:calc(6*var(--lh-body) + 72px)!important}'), 'telefonda Zuğulba kartları bərabər, lent düz iki kart + ara (üçüncü kartın kəsiyi görünmür)');
+  // 2026-11-14 (sahibin ekran şəkli): kartın hündürlüyü yalnız 3 başlıq sətrini sayırdı; mənbə və vaxt iki sətirə düşəndə başlığın üstü
+  // və vaxt kəsilirdi (standart şriftdə 150 px məzmun 114 px yerə). İndi 3 başlıq + 2 meta sətri; lent = 2 kart + 8 px ara.
+  assert.ok(css.includes('.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 2*var(--lh-meta) + 24px);overflow:hidden}') && css.includes('.prez-lent{height:calc(6*var(--lh-body) + 4*var(--lh-meta) + 56px)!important}'), 'telefonda Zuğulba kartları bərabər, lent düz iki kart + ara (üçüncü kartın kəsiyi görünmür)');
+  assert.ok(/@media\(max-width:600px\)\{[^@]*\.mk \.n\{font-size:12px\}/.test(css), 'telefonda məzənnə adı («100 Rubl») xanaya sığır');
+  // 2026-11-14 (sahibin ekran şəkli, 412 px, işıqlı rejim): «Tünd» sözü sığmır, rejim və A−/A+ düymələri loqonun altına düşürdü.
+  // Sonra (sahib, eyni gün): «A− A+ az kiçilt, əvvəlki kimi İşıqlı/Tünd yazıları olsun» — söz qayıdır, A−/A+ və dil düyməsi kiçilir,
+  // işıqlı rejimin loqo lövhəsi dar ekranda bir az kiçik; 340–440 px-də hər iki rejimdə bir sətir (brauzerdə ölçülüb). Söz yalnız ≤335 px-də gizlidir.
+  assert.ok(!css.includes('@media(max-width:411px){.topbar .theme-btn span+span{display:none}}') && !css.includes('@media(max-width:440px){:root[data-theme="light"] .topbar .theme-btn span+span{display:none}}'), 'telefonda rejim düyməsində «İşıqlı»/«Tünd» sözü var');
+  assert.ok(css.includes('.topbar .prefs [data-act^="fs-"] .face{min-width:26px;padding:0 3px;font-size:.74rem}') && css.includes('@media(max-width:392px){.hrow>.logo{zoom:.78}') && css.includes('@media(max-width:335px){.topbar .theme-btn span+span{display:none}}'), 'A−/A+ kiçik, loqo dar ekranda kiçilir: düymələr loqo sətrindədir');
   assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir (yalnız ≤370 px-də böyük işarə)');
   assert.ok(css.includes('#son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}'), '«Son xəbərlər» aydın xətlə ayrılır');
   assert.ok(!css.includes('.shr .sh{display:grid') && !css.includes('.sh{display:none'), 'telefonda da «Paylaş» düyməsi, yerində işarə yoxdur (sahib, 2026-11-05)');
@@ -2872,14 +3030,54 @@ test('owner 2026-11-07: a shared social post opens hours/days later (archive, se
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(js.includes('!S.social.posts.some(p => p.id === s) && (await requestJSON(freshUrl("data/social-arxiv.json"))).d?.posts?.find(p => p.id === s)'), 'social.json-da yoxdursa arxivdən, yalnız onda');
 });
+test('owner 2026-11-14: a new story does not move the ticker line being read; a held ticker is not rebuilt until released', () => {
+  // Zolaq: hər keçid 200 px; yeni xəbər əvvələ düşəndə köhnə keçidlər 200 px sağa gedir. Oxunan xəbər ekranda eyni yerdə qalmalıdır.
+  let anim = null;
+  const build = hrefs => { const all = [...hrefs, ...hrefs]; return { children: all.map((h, i) => ({ offsetLeft: 8 + i * 200, getAttribute: () => h })), scrollWidth: all.length * 200, style: {}, animate: (k, o) => (anim = { currentTime: 0, playState: 'running', cancel() {}, play() { this.playState = 'running'; }, pause() { this.playState = 'paused'; }, o }) }; };
+  let track = build(['a', 'b', 'c', 'd']);
+  const run = {};
+  const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '#ticker .run' ? run : s === '#ticker .track' ? track : null, createElement() { return {}; } } });
+  const start = vm.runInContext('startTicker', ctx), anchor = vm.runInContext('tickerAnchor', ctx), S = ctx.api.S;
+  start();
+  const dur = anim.o.duration, half = 800;
+  anim.currentTime = 350 / half * dur; // «c» (400–600) zolağın sol hissəsində, x = 50
+  const pin = anchor();
+  assert.deepEqual({ ...pin }, { href: 'c', x: 50 });
+  track = build(['n', 'a', 'b', 'c', 'd']); S.tickAnchor = pin; start();
+  const shift = anim.currentTime / anim.o.duration * 1000;
+  assert.ok(Math.abs(600 - shift - 50) < 0.01, 'yeni zolaqda «c» yenə x = 50-dədir');
+  track = build(['x', 'y']); S.tickAnchor = { href: 'c', x: 50 }; start();
+  assert.ok(Number.isFinite(anim.currentTime), 'oxunan xəbər çıxıbsa zolaq köhnə fazadan davam edir');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (tickAnim?.playState === "paused" && !motionOff()) { S.tickerLater = true; return; }') && src.includes('if (S.tickerLater) renderTicker();'), 'barmaqla saxlanan zolaq buraxılanda yenilənir');
+});
+test('owner 2026-11-14: the currency strip keeps its scroll on refresh and is prerendered like prayer and weather', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), pre = require(path.join(root, '.github/scripts/prerender.cjs'));
+  assert.ok(src.includes('if (S.mkHtml !== html) { S.mkHtml = html; const x = S.mkMoved ? grid.scrollLeft : 0; grid.innerHTML = html; if (x) grid.scrollLeft = x; }'), 'eyni qiymət yenidən yazılmır, sürüşdürülən yer saxlanır');
+  const first = JSON.parse(fs.readFileSync(path.join(root, 'data/first.json'), 'utf8'));
+  const items = [{ id: 'USD', label: 'Dollar', value: 1.7, unit: 'AZN', src: 'AMB', change: 0, changePct: 0 }, { id: 'EUR', label: 'Avro', value: 1.88, unit: 'AZN', src: 'AMB', change: -0.01, changePct: -0.5 }];
+  const home = pre.renderHome(root, first, { now: Date.parse(first.updatedAt) || Date.now(), markets: items });
+  assert.equal((home.markets.match(/class="mk"/g) || []).length, 2); assert.ok(home.markets.includes('1.88'));
+  pre.validateMarkets(home.markets);
+  const shell = '<div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p>';
+  const out = shell.replace(pre.MARKETS_RE, (_, a, b, c, d) => a + b + home.markets + d);
+  assert.ok(out.startsWith('<div class="markets" id="markets">') && out.includes('1.88'), 'hazır nüsxədə «pending» yoxdur, kartlar var');
+  assert.equal(out.replace(pre.MARKETS_RE, (_, a, b, c, d) => a + b + home.markets + d), out, 'ikinci dəfə eyni');
+});
 test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you are on', () => {
   const pill = { hidden: true, textContent: '' };
   const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '#newpill' ? pill : null, createElement() { return {}; } } });
   const { S } = ctx.api, sync = vm.runInContext('syncNewPill', ctx);
   const row = (id, category, title = 'Xəbər ' + id) => ({ id, category, title, source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: new Date().toISOString(), lang: 'az' });
   S.pendingNew = [row('1', 'idman', 'Qarabağ qələbə qazandı'), row('2', 'idman', 'Neftçi məğlub oldu'), row('3', 'siyaset'), row('4', 'dunya')];
+  // 2026-11-14 (sahib: «az dilində 29 yeni xəbər yazır, klik edirsən 2 xəbər çıxır»): başqa dilin xəbəri və başqa xəbərə mənbə kimi
+  // qoşulan (ayrıca kartı olmayan) sətir sayılmır.
+  S.pendingNew.push({ ...row('5', 'dunya', 'Breaking news from London'), lang: 'en' }, { ...row('6', 'dunya', 'Новости дня'), lang: 'ru' }, row('7', 'idman', 'Qarabağ qələbə qazandı — təfərrüat'));
+  S.lang = 'az'; S.data = { articles: ['1', '2', '3', '4', '5', '6'].map(id => ({ id, sourceUrl: 'https://apa.az/' + id })) };
   ctx.location.hash = '#/'; sync();
-  assert.equal(pill.hidden, false); assert.equal(pill.textContent, '↑ 4 yeni xəbər', 'baş səhifədə hamısı');
+  assert.equal(pill.hidden, false); assert.equal(pill.textContent, '↑ 4 yeni xəbər', 'baş səhifədə seçilmiş dilin ayrıca kartları');
+  S.lang = null; sync();
+  assert.equal(pill.textContent, '↑ 6 yeni xəbər', '«Hamısı» seçiləndə bütün dillər'); S.lang = 'az';
   ctx.location.hash = '#/bolme/idman'; S.club = null; sync();
   assert.equal(pill.textContent, '↑ 2 yeni İdman xəbəri', 'İdmanda yalnız idman');
   S.club = 'Qarabağ'; sync();
@@ -2888,6 +3086,25 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
   assert.equal(pill.hidden, true, 'bölmədə yeni xəbər yoxdursa düymə görünmür');
   ctx.location.hash = '#/xeber/1'; sync();
   assert.equal(pill.hidden, true, 'xəbəri oxuyanda düymə yoxdur');
+});
+test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once — on a phone too, with Yandex only as a fallback', () => {
+  for (const touch of [true, false]) {
+    const tab = { href: '#/tixac', classList: { toggle() {} }, setAttribute() {}, closest: () => ({}) };
+    const ctx = app({ matchMedia: q => ({ matches: touch && q === '(hover:none)' }), document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, querySelectorAll: s => (s === '.tix-btn' ? [tab] : []), createElement() { return {}; } } });
+    vm.runInContext('syncTixDot', ctx)();
+    assert.equal(tab.href, '#/tixac', 'alt düymə saytın tıxac səhifəsidir (oxucu saytdan çıxmır)');
+    const view = vm.runInContext('trafficView', ctx), S = ctx.api.S;
+    let html = view();
+    assert.ok(html.includes('src="https://embed.waze.com/iframe?zoom=12&amp;lat=40.4093&amp;lon=49.8671"') || html.includes('src="https://embed.waze.com/iframe?zoom=12&lat=40.4093&lon=49.8671"'), 'Waze xəritəsi düyməsiz, dərhal');
+    assert.ok(!html.includes('data-act="tix-open"') && !html.includes('yandex.com'), 'əvvəlki «Xəritəni aç» addımı və Yandex yoxdur');
+    if (touch) {
+      assert.ok(html.includes('data-act="tix-yandex"') && html.includes('Waze tətbiqində aç'), 'telefonda ehtiyat Yandex və tətbiq düyməsi');
+      S.tixYandex = true; html = view();
+      assert.ok(html.includes('yandex.com/map-widget') && !html.includes('embed.waze.com') && html.includes('Waze xəritəsinə qayıt'), 'oxucu istəsə Yandex, geri qayıtmaq olur');
+    } else assert.ok(!html.includes('data-act="tix-yandex"'), 'kompüterdə Yandex düyməsi yoxdur');
+  }
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('.tix-map iframe{height:clamp(300px,48svh,400px)}'), 'telefonda xəritə ekranın təxminən yarısı (sahib: hündürlüyü azalt), 300–400 px');
 });
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -3035,7 +3252,7 @@ test('speed: loadCached reads the version-free data cache first, a legacy one on
     const matched = [];
     const ctx = app({ location: { hash: '#/', href: 'https://8ulduz.az/' }, caches: { keys: async () => names, open: async name => ({ match: async url => { matched.push(name); return url.endsWith('/data/first.json') ? { json: async () => first } : undefined; } }) } });
     await ctx.api.loadCached();
-    assert.deepEqual(matched, [want]);
+    assert.deepEqual([...new Set(matched)], [want]);
     assert.equal(ctx.api.S.data.articles[0].title, 'Keşdən');
   }
 });
@@ -3313,4 +3530,48 @@ test('no jump on return: the «köhnəlib» line waits 20 s for the refresh, and
   assert.ok(html.includes('Xəbər lenti köhnəlib') && html.includes('class="retry" data-act="refresh"'), '20 saniyədən sonra hələ köhnədirsə xəbərdarlıq və «Yenilə» düyməsi çıxır');
   S.lastResumeAt = Date.now(); S.error = 'x';
   assert.ok(draw().includes('Xəbərlər yenilənmədi'), 'xəta gözləmir: dərhal yazılır');
+});
+
+// Sahib, 2026-11-14: «son xəbərlər və zuğulbada şəkillər yazılara uyğun hündürlükdə olurdu. indi standart ölçüdədir. düzəlt.»
+// Şəklin hündürlüyü mətn sətirlərinə bağlıdır (3 sətir); eni də onunla böyüyür ki, eninə çəkilmiş şəkil yanlardan az kəsilsin.
+test('phone list and Zuğulba pictures are as tall as three lines of text', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('grid-area:i;align-self:start;width:min(38vw,calc(4*var(--lh-body) + 40px));height:calc(3*var(--lh-body) + 30px);aspect-ratio:auto;border-radius:8px}'), 'siyahı şəkli');
+  assert.ok(css.includes('.grid>*~.card:not(.noimg)>.img{align-self:stretch;width:auto;height:auto}'), 'bölmə siyahısında şəkil kartın boyundadır');
+  assert.ok(css.includes('.prez-lent>.pcard.has-img:not(.noimg) .img{width:min(28vw,calc(3.5*var(--lh-body)));height:calc(3*var(--lh-body))}'), 'Zuğulba şəkli');
+  assert.ok(css.includes('.prez-lent>.pcard .meta .src{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'), 'mənbə adı bir sətirdədir: kart daşmır');
+  assert.ok(!css.includes('aspect-ratio:3/2;border-radius:8px'), 'sabit 3:2 qutu qalmayıb');
+});
+test('owner 2026-11-14: page titles fit one line on a phone without the description; prayer and weather popups close on any outside touch', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(css.includes('.page-h .sec-desc{display:none}') && css.includes('.page-h>div>h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,5.6vw,1.5714rem);line-height:1.2}'), 'telefonda başlıq bir sətir, izah gizli (375 px-də «Sağlamlıq və həyat», «Tıxac və yollar» sığır)');
+  assert.ok(src.includes('<p class="sec-desc">${esc(desc)}</p>') && src.includes('<h1>Tıxac-İndi</h1><p class="sec-desc">'), 'izah bölmə və Tıxac səhifəsindədir (xəbər başlığına toxunulmur)');
+  assert.ok(src.includes('if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }\n  if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }\n  if (dirty) renderTopbar();\n}, { passive: true, capture: true });'), 'pointerdown ilə: iPhone boş yerə toxunuşda click göndərmir');
+});
+test('owner 2026-11-14: an unexpected-jam alert shows as a strip under the ticker without searching, and leaves when it is over', () => {
+  const box = { id: '', hidden: true, innerHTML: '', setAttribute() {} };
+  let placed = null;
+  const ticker = { after(el) { placed = el; } };
+  const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '#ticker' ? ticker : s === '#tix-ani' ? placed : null, querySelectorAll: () => [], createElement: () => box } });
+  const { S } = ctx.api, sync = vm.runInContext('syncTixDot', ctx);
+  const at = new Date(Date.now() - 20 * 60e3).toISOString();
+  const alert = { id: 'a1', title: 'Bakıda gözlənilməz tıxac: Babək prospekti, 3,2 km', source: '8ULDUZ', publishedAt: at, lang: 'az', category: 'cemiyyet' };
+  S.lang = 'az'; S.data = { articles: [alert, { ...alert, id: 'x', source: 'APA' }] };
+  sync();
+  assert.equal(placed, box, 'zolaq son dəqiqə zolağının altına qoyulur');
+  assert.ok(!box.hidden && box.innerHTML.includes('Babək prospekti') && box.innerHTML.includes('3,2 km') && box.innerHTML.includes('href="#/tixac"') && box.innerHTML.includes('data-act="tix-ani-off"'), 'küçə, km, Tıxac-İndi keçidi və ✕');
+  ctx.location.hash = '#/tixac'; sync();
+  assert.ok(box.hidden, 'Tıxac-İndi səhifəsinin özündə zolaq yoxdur');
+  ctx.location.hash = '#/';
+  S.tix = { updatedAt: new Date().toISOString(), events: [], streets: [{ name: 'Babək prospekti', level: 'sixtixac' }] }; sync();
+  assert.ok(!box.hidden, 'tıxac davam edirsə zolaq qalır');
+  S.tix = { updatedAt: new Date().toISOString(), events: [], streets: [{ name: 'Babək prospekti', level: 'leng' }] }; sync();
+  assert.ok(box.hidden, 'daha təzə ölçüdə tıxac açılıbsa zolaq tez itir');
+  S.tix = null;
+  S.data = { articles: [{ ...alert, publishedAt: new Date(Date.now() - 2.1 * 3600e3).toISOString() }] }; sync();
+  assert.ok(box.hidden, '2 saatdan köhnə xəbər üçün zolaq yoxdur');
+  S.data = { articles: [alert] }; ctx.api.storage.setItem('8ulduz-tix-ani', JSON.stringify(['a1'])); sync();
+  assert.ok(box.hidden, '✕ ilə bağlanan xəbər bir daha göstərilmir');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('#tix-ani{'), 'zolağın stili var');
 });

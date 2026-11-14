@@ -3,8 +3,23 @@
 Bu siyahı əvvəl `sw.js`-in `VERSION` sətrində şərh kimi dururdu (7,8 KB) və hər oxucunun brauzeri onu faylla birlikdə endirirdi.
 2026-11-13-də (sahib: «hədd artırılmır, artıq olan silinir, yer boşaldılsın») buraya köçürüldü: `sw.js` gzip büdcəsi 9 000 baytdır.
 Yeni versiya artıranda qeydi bu faylın **başına** yazın; `sw.js`-də yalnız `const VERSION = "vNNN";` dəyişir.
+- v179: namaz, hava və çevirici pəncərələrindən və altlıqdan /bolme/namaz/, /bolme/hava/, /bolme/mezenne/ səhifələrinə keçid (PR #205)
+- v178: ani tıxac xəbəri son dəqiqə zolağının altında narıncı-qırmızı zolaqla görünür (2 saat, ✕ ilə bağlanır)
+- v177: Tıxac səhifəsinin adı «Tıxac-İndi»; ölçü mətnlərindən «avtomatik» sözü çıxdı
+- v176: Tıxac səhifəsində bütün Bakı: 35 marşrut, rayonlar üzrə tıxac balı, tıxaclı küçələrin sayı
 
-- v164: namaz, hava və çevirici pəncərələrindən və altlıqdan /bolme/namaz/, /bolme/hava/, /bolme/mezenne/ səhifələrinə keçid
+- v175: «Bakıda tıxac indi»: səkkiz əsas yol, rəsmi elanlar (NİİM, BNA, DYP), pik saat bülletenləri
+- v174: Tıxac səhifəsində avtomatik ölçü (Mapbox): tıxaclı küçələr və avtomatik xəbərlər, pik saatlarda 5 dəqiqədən bir
+- v173: telefonda Waze xəritəsi alçaq (300–400 px, əvvəl ekran boyu)
+- v172: «N yeni xəbər» artıq ekranda olan xəbəri saymır (əsas keçidi dəyişən xəbər, üst qatdan çıxan sətir; səhifə başqa yolla çəkiləndə sayğac sıfırlanır)
+- v171: telefonda bölmə və Tıxac başlığı bir sətirdə, altındakı izah gizli; Namaz və hava pəncərəsi kənara toxunanda bağlanır
+- v170: «Tıxac» yenə saytın səhifəsidir; telefonda da Waze xəritəsi dərhal və ekran boyu (ehtiyat: Yandex), «Waze tətbiqində aç» düyməsi
+- v169: telefonda alt zolaqdakı «Tıxac» düyməsi birbaşa Waze tətbiqini açır (tətbiq yoxdursa Waze səhifəsi); kompüterdə tıxac səhifəsi qalır
+- v168: telefonda yuxarı sətirdə yenə «İşıqlı/Tünd» yazısı (A−/A+ kiçik), valyuta zolağı açılışda hazır və yeniləmədə yerində qalır, «Son dəqiqə» lentində oxunan xəbər itmir, «N yeni xəbər» yalnız seçilmiş dili sayır
+- v167: telefonda xəbərin vaxtı, mənbə adı və «N mənbə» yazısı 13px (əvvəl 16px); düymələr dəyişmir
+- v166: telefonda siyahı və Zuğulba şəkillərinin hündürlüyü yenə yazıya bağlıdır (3 sətir), eni də onunla böyüyür ki, şəkil yanlardan az kəsilsin
+- v165: telefonda Zuğulba kartı başlıq + iki meta sətrinə sığır (böyük şriftdə kəsilirdi), məzənnə adları xanaya sığır, «Rəsmi sosial hesablar»da artıq ▶ işarəsi yoxdur
+- v164: standart şrift əvvəlki «A+ iki klik» ölçüsüdür (pillələr 0–6, standart 4); 36 saatdan köhnə saxlanmış nüsxə əvəzinə əvvəl təzəsi (2,5 s gözləmə)
 - v163: «/haqqinda» (sonda «/» yox) açılır
 - v162: Dinlə xarici dilli xəbərin də tam mətnini istəyir
 - v161: ölçmədə başlıq etiketsiz
