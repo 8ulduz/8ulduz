@@ -3,7 +3,7 @@
 [hidden]{display:none!important}
 :root{
 --bg:#15233b;--fg:#d5deeb;--card:#1c2c46;--card2:#263952;
---primary:#d6bd80;--primary-fg:#15233b;--muted:#aabbd2;--muted2:#a0b1c9;
+--primary:#d6bd80;--tab:#2a4a78;--primary-fg:#15233b;--muted:#aabbd2;--muted2:#a0b1c9;
 --border:#3e5370;--red:hsl(0 84% 60%);--green:#10b981;
 --pray-on:#edf2f9;--pray-dim:#c5d2e3;
 --pray-fill:linear-gradient(180deg,#2c4468,#1c2c46);
@@ -35,7 +35,7 @@ html[data-fs="5"]{--fs-display:32px;--lh-display:41px;--fs-title:28px;--lh-title
 html[data-fs="6"]{--fs-display:34px;--lh-display:44px;--fs-title:30px;--lh-title:40px;--fs-headline:29px;--lh-headline:40px;--fs-body:26px;--lh-body:38px;--fs-meta:18px;--lh-meta:26px}
 :root[data-theme="light"]{
 --bg:#f6f4ee;--fg:#172b4d;--card:#fff;--card2:#e6ebf2;
---primary:#19385f;--primary-fg:#fff;--muted:#465773;--muted2:#52617b;
+--primary:#19385f;--tab:#19385f;--primary-fg:#fff;--muted:#465773;--muted2:#52617b;
 --border:#e2ddd0;
 --pray-on:#19385f;--pray-dim:#33507a;
 --pray-fill:linear-gradient(180deg,#f3f6fa,#dde4ee);
@@ -429,11 +429,11 @@ footer .logo img{height:28px}
 @media (max-width:860px){.chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}.chips::-webkit-scrollbar{display:none}.chips .pill{flex:none}}
 .tabbar{display:none}
 @media (max-width:860px){
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:70;display:flex;height:54px;padding-bottom:env(safe-area-inset-bottom);background:var(--primary);box-shadow:0 -2px 8px #0004}
-.tabbar a,.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--primary-fg);font-size:10px;font-weight:700}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:70;display:flex;height:54px;padding-bottom:env(safe-area-inset-bottom);background:var(--tab);box-shadow:0 -2px 8px #0004}
+.tabbar a,.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:#fff;font-size:10px;font-weight:700}
 .tabbar b{font-size:16px;line-height:1}
 .tabbar .on{background:#0003}
-.tabbar .tix-btn.hot::after{position:absolute;top:9px;left:calc(50% + 7px);margin:0;box-shadow:0 0 0 2px var(--primary)}
+.tabbar .tix-btn.hot::after{position:absolute;top:9px;left:calc(50% + 7px);margin:0;box-shadow:0 0 0 2px var(--tab)}
 body{padding-bottom:62px}
 .totop{bottom:70px}
 .newpill{bottom:calc(66px + env(safe-area-inset-bottom));max-width:calc(100vw - 132px);font-size:.8571rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
