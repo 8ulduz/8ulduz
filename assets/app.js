@@ -640,6 +640,7 @@ function roadHot(list) { return bakuRush() || roadItems(list.filter(a => Date.no
 // son vəziyyət yaddaşdan, ən çoxu bir saat (yol xəbərinin öz ömrü).
 const TIX_KEY = "8ulduz-tix";
 function syncTixDot() {
+  renderTixAlert(tixAlert());
   let hot = roadHot(S.data?.articles || []);
   if (!S.data || S.partial) hot ||= Date.now() - storage.getItem(TIX_KEY) < HOUR;
   else if (hot !== S.tixHot) storage.setItem(TIX_KEY, (S.tixHot = hot) ? Date.now() : 0);
@@ -648,6 +649,34 @@ function syncTixDot() {
     el.setAttribute("aria-label", hot ? "Tıxac — pik saat və ya yol hadisəsi" : "Tıxac və yollar");
     el.title = hot ? "Pik saat və ya təzə yol hadisəsi — xəritəyə baxın" : "Tıxac və yollar";
   });
+}
+// Ani tıxac zolağı (sahib 2026-11-14: «ani tıxac xəbəri axtarmadan görünsün»): oz_tixac.alerts xəbəri (mənbə 8ULDUZ, başlıq «Bakıda
+// gözlənilməz tıxac: küçə, N km») 2 saat son dəqiqə zolağının altında, Tıxac-İndi səhifəsindən başqa hər yerdə. Daha təzə ölçü həmin
+// küçədə tıxac göstərmirsə zolaq tez itir; ✕ ilə bağlanan xəbər o oxucuya bir daha göstərilmir. Adi vaxtda zolaq yoxdur, sorğu da yoxdur.
+const ANI_RE = /^Bakıda gözlənilməz tıxac: (.+), ([\d,]+) km$/u, ANI_KEY = "8ulduz-tix-ani";
+function aniOff() { try { const v = JSON.parse(storage.getItem(ANI_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+function tixAlert(list = S.data?.articles || []) {
+  if ((S.lang || "az") !== "az") return null;
+  const off = aniOff(), now = Date.now();
+  const a = byDate(list.filter(x => x.source === "8ULDUZ" && ANI_RE.test(decode(x.title || "")))).find(x => {
+    const age = now - Date.parse(x.publishedAt);
+    return age >= -5 * 60e3 && age < 2 * HOUR && !off.includes(x.id);
+  });
+  if (!a) return null;
+  const [, street, km] = decode(a.title).match(ANI_RE), d = S.tix;
+  if (d && Date.parse(d.updatedAt) > Date.parse(a.publishedAt) && !(d.streets || []).some(s => s.name === street && (s.level === "tixac" || s.level === "sixtixac"))) return null; // tıxac açılıb
+  return { a, street, km };
+}
+function renderTixAlert(x) {
+  if (route().name === "traffic") x = null;
+  if (x) loadTixac(); // tıxacın açıldığını bilmək üçün: yalnız zolaq görünəndə, 5 dəqiqədən bir
+  const clock = x ? new Date(Date.parse(x.a.publishedAt) + 144e5).toISOString().slice(11, 16) : "";
+  const html = x ? `<div class="wrap"><a href="#/tixac"><span aria-hidden="true">🚗</span> <b>Tıxac:</b> ${esc(x.street)} — ${esc(x.km)} km · ${clock} <u>Tıxac-İndi ›</u></a><button type="button" data-act="tix-ani-off" data-ani="${esc(x.a.id)}" aria-label="Zolağı bağla">✕</button></div>` : "";
+  if (html === (S.aniHtml || "")) return;
+  let box = $("#tix-ani");
+  if (!box) { const t = $("#ticker"); if (!t || !html) return; box = document.createElement("div"); box.id = "tix-ani"; box.setAttribute("role", "status"); t.after(box); }
+  S.aniHtml = box.innerHTML = html;
+  box.hidden = !html;
 }
 const SAVE_KEY = "8ulduz-saved";
 // Hər kartın ☆ düyməsi (isSaved) bu siyahını istəyir: tam lentdə 1000+ dəfə JSON açmaq əvəzinə mətn və silinmə siyahısı dəyişməyibsə eyni nəticə qaytarılır. Çağıranlar siyahını dəyişmir (filter/some).
@@ -2338,7 +2367,7 @@ function loadTixac() {
   S.tixLoading = true;
   globalThis.fetch(`${TIX_URL}?t=${Date.now() / 3e5 | 0}`).then(r => r.ok ? r.json() : null).then(d => {
     S.tixAt = Date.now();
-    if (d && Array.isArray(d.events)) { S.tix = d; if (route().name === "traffic") renderView(); }
+    if (d && Array.isArray(d.events)) { S.tix = d; if (route().name === "traffic") renderView(); else syncTixDot(); }
   }).catch(() => { S.tixAt = Date.now(); }).finally(() => { S.tixLoading = false; });
 }
 const TIX_LVL = { sixtixac: "🔴", tixac: "🟠", leng: "🟡", bagli: "⛔" };
@@ -2726,6 +2755,7 @@ function onClick(e) {
   else if (act === "follow") import("./follow.js?v=7").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();
+  else if (act === "tix-ani-off") { storage.setItem(ANI_KEY, JSON.stringify([...aniOff(), t.dataset.ani].slice(-10))); renderTixAlert(null); }
   else if (act === "tix-yandex") { S.tixYandex = !S.tixYandex; renderView(); }
   else if (act === "tix-area") {
     const id = t.dataset.area || "merkez";
