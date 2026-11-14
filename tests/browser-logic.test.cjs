@@ -3442,3 +3442,14 @@ test('no jump on return: the «köhnəlib» line waits 20 s for the refresh, and
   S.lastResumeAt = Date.now(); S.error = 'x';
   assert.ok(draw().includes('Xəbərlər yenilənmədi'), 'xəta gözləmir: dərhal yazılır');
 });
+
+// Sahib, 2026-11-14: «son xəbərlər və zuğulbada şəkillər yazılara uyğun hündürlükdə olurdu. indi standart ölçüdədir. düzəlt.»
+// Şəklin hündürlüyü mətn sətirlərinə bağlıdır (3 sətir); eni də onunla böyüyür ki, eninə çəkilmiş şəkil yanlardan az kəsilsin.
+test('phone list and Zuğulba pictures are as tall as three lines of text', () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.ok(css.includes('grid-area:i;align-self:start;width:min(38vw,calc(4*var(--lh-body) + 40px));height:calc(3*var(--lh-body) + 30px);aspect-ratio:auto;border-radius:8px}'), 'siyahı şəkli');
+  assert.ok(css.includes('.grid>*~.card:not(.noimg)>.img{align-self:stretch;width:auto;height:auto}'), 'bölmə siyahısında şəkil kartın boyundadır');
+  assert.ok(css.includes('.prez-lent>.pcard.has-img:not(.noimg) .img{width:min(28vw,calc(3.5*var(--lh-body)));height:calc(3*var(--lh-body))}'), 'Zuğulba şəkli');
+  assert.ok(css.includes('.prez-lent>.pcard .meta .src{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'), 'mənbə adı bir sətirdədir: kart daşmır');
+  assert.ok(!css.includes('aspect-ratio:3/2;border-radius:8px'), 'sabit 3:2 qutu qalmayıb');
+});
