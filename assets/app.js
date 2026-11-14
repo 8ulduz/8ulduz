@@ -1062,8 +1062,14 @@ async function loadLatest(force = false) {
     const dead = new Set(d.dead || []), deadChanged = dead.size !== (S.deadLinks?.size || 0) || [...dead].some(u => !S.deadLinks.has(u));
     S.deadLinks = dead;
     if (deadChanged) PREP = new WeakMap(); // ölü keçidin əvəzi hazır sətirdədir
-    const known = urlsOf(S.rawNews);
-    const fresh = d.articles.filter(a => !known.has(a.sourceUrl));
+    // Sahib 2026-11-14: «20 yeni xəbər yazısı gəldi, son xəbərlərə baxırdım, elə həmin xəbərlər idi». Yeni sayılan iki hal köhnə idi:
+    // 1) xəbərə yeni mənbə qoşulanda dəqiqəlik faylda onun əsas keçidi dəyişir (köhnə keçid alts-a keçir) — eyni xəbər «yeni» görünürdü;
+    // 2) yarım saatdan sonra üst qatdan çıxan, tam lentdə olmayan sətir dəqiqəlik faylda hələ durur — hər dəfə yenidən «yeni» sayılırdı.
+    // İndi xəbər öz id-si, əsas keçidi və ya istənilən mənbəsinin keçidi ilə tanınır; bu açılışda görülmüş keçidlər bir daha yeni sayılmır.
+    const known = urlsOf(S.rawNews), ids = new Set(S.rawNews.map(a => a.id)), seen = S.seenUrls ||= new Set();
+    const old = u => known.has(u) || seen.has(u);
+    const fresh = d.articles.filter(a => !((a.id && ids.has(a.id)) || old(a.sourceUrl) || (a.alts || []).some(x => old(x.sourceUrl))));
+    for (const a of [...S.rawNews, ...d.articles]) seen.add(a.sourceUrl);
     // Xəbər şəkilsiz gəlib, şəkli yavaş prosesdən sonra tapılıb.
     const byUrl = new Map(S.rawNews.map(a => [a.sourceUrl, a]));
     let gotImage = false;
@@ -2414,6 +2420,9 @@ function restoreHome(v) {
 function renderView() {
   syncQuery();
   pageMeta();
+  // Səhifə hansı yolla çəkilirsə çəkilsin (düymə, «Dinlə», sekmə…), gözləyən yeni xəbərlər artıq ekrandadır: «N yeni xəbər» düyməsi
+  // qalırdı və basanda «elə həmin xəbərlər» çıxırdı, səhifə də bir az sürüşürdü (sahib 2026-11-14).
+  if (S.pendingNew?.length && S.data) { S.pendingNew = 0; syncNewPill(); }
   try {
     const v = $("#view");
     const onlyFirst = S.partial && !partialOk();
