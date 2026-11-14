@@ -29,7 +29,8 @@ const decodeEntities = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (
 // bölmələr 4 px aşağı sürüşürdü (Lighthouse CLS 0,118, 2026-11-05 izi); hazır zolaq açılışdakı ilə eyni quruluşdadır (hava «—», dil «Hamısı»).
 function homeHtml(root, first, opts) { return renderHome(root, first, opts).view; }
 const oneLine = s => String(s).replace(/\s*\n\s*/g, " ").trim();
-function renderHome(root, first, { now = 0, width = 390 } = {}) {
+function renderHome(root, first, opts = {}) {
+  const { now = 0, width = 390 } = opts;
   const els = {};
   const el = id => els[id] ||= { id, _html: "", set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; }, addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, focus() {}, dataset: {}, style: {}, setAttribute() {}, set onclick(f) {}, hidden: false };
   // Sabit vaxt (testlər üçün): «5 dəqiqə əvvəl» və slayder pəncərəsi həmin ana görə hesablanır.
@@ -52,7 +53,16 @@ function renderHome(root, first, { now = 0, width = 390 } = {}) {
   context.__first = first;
   const view = vm.runInContext("S.og = __first.og || {}; S.rawNews = __first.articles; S.rawMeta = { ...__first, articles: undefined }; S.partial = true; publishNews(); homeView();", context);
   const topbar = oneLine(vm.runInContext("__topbar(); document.querySelector('#topbar').innerHTML", context));
-  return { view, topbar };
+  // Valyuta zolağı: namaz və hava kimi açılışda hazır olsun (sahib 2026-11-14: «valyuta … sıçramadan stabil olsun»). Boş zolaq JS gələnə
+  // qədər bomboz qalırdı, sonra kartlar birdən çıxırdı. Kartlar app.js-in öz renderMarkets()-indən; JS gələndə təzə qiymətlə əvəz edir.
+  let markets = "";
+  if (Array.isArray(opts.markets) && opts.markets.length) { context.__mk = opts.markets; markets = oneLine(vm.runInContext("S.markets = __mk; renderMarkets(); document.querySelector('#mk').innerHTML", context)); }
+  return { view, topbar, markets };
+}
+const MARKETS_RE = /(<div class="markets)(?: pending)?(" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk">)([^\n]*?)(<\/div><p class="mk-note")/;
+function validateMarkets(html) {
+  if (!html) return;
+  if (html.length > 8000 || /<script\b|\n/i.test(html) || !html.includes('class="mk"')) throw Error("valyuta zolağı yararsızdır: " + html.length);
 }
 const TOPBAR_RE = /(<div class="topbar"><div class="wrap" id="topbar">)([^\n]*)(<\/div><\/div>\r?)$/m;
 function validateTopbar(html) {
@@ -107,11 +117,15 @@ function prerender(root, opts = {}) {
   const first = JSON.parse(fs.readFileSync(path.join(root, "data/first.json"), "utf8"));
   if (!Array.isArray(first.articles) || first.articles.length < 10) throw Error("first.json-da xəbər azdır");
   if ((index.match(/id="topbar"/g) || []).length !== 1 || !TOPBAR_RE.test(index)) throw Error('index.html-də #topbar sətri bir dəfə olmalıdır');
-  const home = renderHome(root, first, opts), html = fixedTimes(firstScreen(home.view), opts.now || Date.now());
+  let markets = opts.markets;
+  if (markets === undefined) try { markets = JSON.parse(fs.readFileSync(path.join(root, "data/markets.json"), "utf8")).items; } catch { markets = null; } // valyuta faylı yoxdursa zolaq əvvəlki kimi JS ilə dolur
+  const home = renderHome(root, first, { ...opts, markets }), html = fixedTimes(firstScreen(home.view), opts.now || Date.now());
   validate(html);
   validateTopbar(home.topbar);
+  validateMarkets(home.markets);
   const block = `${m[1]}<div class="pre-skel" data-prerender="${esc(first.updatedAt || "")}">${html}</div>${m[3]}`;
-  const out = (index.slice(0, m.index) + block + index.slice(m.index + m[0].length)).replace(TOPBAR_RE, (_, a, b, c) => a + home.topbar + c);
+  let out = (index.slice(0, m.index) + block + index.slice(m.index + m[0].length)).replace(TOPBAR_RE, (_, a, b, c) => a + home.topbar + c);
+  if (home.markets && MARKETS_RE.test(out)) out = out.replace(MARKETS_RE, (_, a, b, c, d) => a + b + home.markets + d);
   if (out === index) return { changed: false, bytes: Buffer.byteLength(out), view: html.length };
   const tmp = file + ".tmp";
   fs.writeFileSync(tmp, out); // yarımçıq fayl qalmasın: əvvəl kənara, sonra yerinə
@@ -119,7 +133,7 @@ function prerender(root, opts = {}) {
   return { changed: true, bytes: Buffer.byteLength(out), view: html.length };
 }
 
-module.exports = { homeHtml, renderHome, firstScreen, fixedTimes, prerender, validate, validateTopbar, decodeEntities, VIEW_RE, TOPBAR_RE, NOSCRIPT, KEEP };
+module.exports = { homeHtml, renderHome, firstScreen, fixedTimes, prerender, validate, validateTopbar, validateMarkets, decodeEntities, VIEW_RE, TOPBAR_RE, MARKETS_RE, NOSCRIPT, KEEP };
 
 if (require.main === module) {
   const root = process.argv[2] || process.cwd();

@@ -2036,7 +2036,11 @@ test('speed red line: index.html carries the same shell app.js builds, with nav 
   // #topbar: ya boş, ya da pipeline-ın hazır yuxarı zolağı (lupa düyməsi JS gələndə sıçramasın); qabığın qalanı eyni olmalıdır.
   const tb = m[1].match(/<div class="wrap" id="topbar">([^\n]*)<\/div><\/div>$/m);
   assert.ok(tb && (tb[1] === '' || (tb[1].includes('data-act="theme"') && tb[1].includes('class="wx'))), '#topbar boş və ya hazır zolaq olmalıdır');
-  assert.equal(m[1].replace(tb[0], '<div class="wrap" id="topbar"></div></div>'), want, 'index.html qabığı app.js shell() ilə eyni deyil');
+  // #mk: ya boş («pending»), ya da pipeline-ın hazır valyuta kartları (sahib 2026-11-14: açılışda sıçramasın).
+  const mk = m[1].match(/<div class="markets( pending)?" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk">([^\n]*?)<\/div><p class="mk-note"/);
+  assert.ok(mk && (mk[1] ? mk[2] === '' : mk[2].includes('class="mk"')), '#mk boş (pending) və ya hazır valyuta kartları olmalıdır');
+  const shellOf = s => s.replace(tb[0], '<div class="wrap" id="topbar"></div></div>').replace(mk[0], '<div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note"');
+  assert.equal(shellOf(m[1]), want, 'index.html qabığı app.js shell() ilə eyni deyil');
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(src.includes('if (!$("#app").dataset?.shell) $("#app").innerHTML'), 'shell() statik qabığı silməməlidir');
 });
@@ -2677,7 +2681,10 @@ test('owner notes: the logo row comes first with the install slot and a search b
   assert.ok(css.includes('.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 2*var(--lh-meta) + 24px);overflow:hidden}') && css.includes('.prez-lent{height:calc(6*var(--lh-body) + 4*var(--lh-meta) + 56px)!important}'), 'telefonda Zuğulba kartları bərabər, lent düz iki kart + ara (üçüncü kartın kəsiyi görünmür)');
   assert.ok(/@media\(max-width:600px\)\{[^@]*\.mk \.n\{font-size:12px\}/.test(css), 'telefonda məzənnə adı («100 Rubl») xanaya sığır');
   // 2026-11-14 (sahibin ekran şəkli, 412 px, işıqlı rejim): «Tünd» sözü sığmır, rejim və A−/A+ düymələri loqonun altına düşürdü.
-  assert.ok(css.includes('@media(max-width:411px){.topbar .theme-btn span+span{display:none}}') && css.includes('@media(max-width:440px){:root[data-theme="light"] .topbar .theme-btn span+span{display:none}}') && css.includes('@media(max-width:392px){.hrow>.logo{zoom:.78}}'), 'dar ekranda rejim düyməsi yalnız işarədir, loqo kiçilir: düymələr loqo sətrindədir');
+  // Sonra (sahib, eyni gün): «A− A+ az kiçilt, əvvəlki kimi İşıqlı/Tünd yazıları olsun» — söz qayıdır, A−/A+ və dil düyməsi kiçilir,
+  // işıqlı rejimin loqo lövhəsi dar ekranda bir az kiçik; 340–440 px-də hər iki rejimdə bir sətir (brauzerdə ölçülüb). Söz yalnız ≤335 px-də gizlidir.
+  assert.ok(!css.includes('@media(max-width:411px){.topbar .theme-btn span+span{display:none}}') && !css.includes('@media(max-width:440px){:root[data-theme="light"] .topbar .theme-btn span+span{display:none}}'), 'telefonda rejim düyməsində «İşıqlı»/«Tünd» sözü var');
+  assert.ok(css.includes('.topbar .prefs [data-act^="fs-"] .face{min-width:26px;padding:0 3px;font-size:.74rem}') && css.includes('@media(max-width:392px){.hrow>.logo{zoom:.78}') && css.includes('@media(max-width:335px){.topbar .theme-btn span+span{display:none}}'), 'A−/A+ kiçik, loqo dar ekranda kiçilir: düymələr loqo sətrindədir');
   assert.ok(!css.includes('.theme-btn .face>span:last-child{display:none}'), 'rejim düyməsinin «İşıqlı»/«Tünd» sözü gizlədilmir (yalnız ≤370 px-də böyük işarə)');
   assert.ok(css.includes('#son-xeberler{padding-bottom:16px;border-bottom:3px solid var(--primary)}'), '«Son xəbərlər» aydın xətlə ayrılır');
   assert.ok(!css.includes('.shr .sh{display:grid') && !css.includes('.sh{display:none'), 'telefonda da «Paylaş» düyməsi, yerində işarə yoxdur (sahib, 2026-11-05)');
@@ -3000,14 +3007,54 @@ test('owner 2026-11-07: a shared social post opens hours/days later (archive, se
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(js.includes('!S.social.posts.some(p => p.id === s) && (await requestJSON(freshUrl("data/social-arxiv.json"))).d?.posts?.find(p => p.id === s)'), 'social.json-da yoxdursa arxivdən, yalnız onda');
 });
+test('owner 2026-11-14: a new story does not move the ticker line being read; a held ticker is not rebuilt until released', () => {
+  // Zolaq: hər keçid 200 px; yeni xəbər əvvələ düşəndə köhnə keçidlər 200 px sağa gedir. Oxunan xəbər ekranda eyni yerdə qalmalıdır.
+  let anim = null;
+  const build = hrefs => { const all = [...hrefs, ...hrefs]; return { children: all.map((h, i) => ({ offsetLeft: 8 + i * 200, getAttribute: () => h })), scrollWidth: all.length * 200, style: {}, animate: (k, o) => (anim = { currentTime: 0, playState: 'running', cancel() {}, play() { this.playState = 'running'; }, pause() { this.playState = 'paused'; }, o }) }; };
+  let track = build(['a', 'b', 'c', 'd']);
+  const run = {};
+  const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '#ticker .run' ? run : s === '#ticker .track' ? track : null, createElement() { return {}; } } });
+  const start = vm.runInContext('startTicker', ctx), anchor = vm.runInContext('tickerAnchor', ctx), S = ctx.api.S;
+  start();
+  const dur = anim.o.duration, half = 800;
+  anim.currentTime = 350 / half * dur; // «c» (400–600) zolağın sol hissəsində, x = 50
+  const pin = anchor();
+  assert.deepEqual({ ...pin }, { href: 'c', x: 50 });
+  track = build(['n', 'a', 'b', 'c', 'd']); S.tickAnchor = pin; start();
+  const shift = anim.currentTime / anim.o.duration * 1000;
+  assert.ok(Math.abs(600 - shift - 50) < 0.01, 'yeni zolaqda «c» yenə x = 50-dədir');
+  track = build(['x', 'y']); S.tickAnchor = { href: 'c', x: 50 }; start();
+  assert.ok(Number.isFinite(anim.currentTime), 'oxunan xəbər çıxıbsa zolaq köhnə fazadan davam edir');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(src.includes('if (tickAnim?.playState === "paused" && !motionOff()) { S.tickerLater = true; return; }') && src.includes('if (S.tickerLater) renderTicker();'), 'barmaqla saxlanan zolaq buraxılanda yenilənir');
+});
+test('owner 2026-11-14: the currency strip keeps its scroll on refresh and is prerendered like prayer and weather', () => {
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), pre = require(path.join(root, '.github/scripts/prerender.cjs'));
+  assert.ok(src.includes('if (S.mkHtml !== html) { S.mkHtml = html; const x = S.mkMoved ? grid.scrollLeft : 0; grid.innerHTML = html; if (x) grid.scrollLeft = x; }'), 'eyni qiymət yenidən yazılmır, sürüşdürülən yer saxlanır');
+  const first = JSON.parse(fs.readFileSync(path.join(root, 'data/first.json'), 'utf8'));
+  const items = [{ id: 'USD', label: 'Dollar', value: 1.7, unit: 'AZN', src: 'AMB', change: 0, changePct: 0 }, { id: 'EUR', label: 'Avro', value: 1.88, unit: 'AZN', src: 'AMB', change: -0.01, changePct: -0.5 }];
+  const home = pre.renderHome(root, first, { now: Date.parse(first.updatedAt) || Date.now(), markets: items });
+  assert.equal((home.markets.match(/class="mk"/g) || []).length, 2); assert.ok(home.markets.includes('1.88'));
+  pre.validateMarkets(home.markets);
+  const shell = '<div class="markets pending" id="markets"><div class="wrap mk-wrap"><div class="mk-grid" id="mk"></div><p class="mk-note" id="mk-note" hidden></p>';
+  const out = shell.replace(pre.MARKETS_RE, (_, a, b, c, d) => a + b + home.markets + d);
+  assert.ok(out.startsWith('<div class="markets" id="markets">') && out.includes('1.88'), 'hazır nüsxədə «pending» yoxdur, kartlar var');
+  assert.equal(out.replace(pre.MARKETS_RE, (_, a, b, c, d) => a + b + home.markets + d), out, 'ikinci dəfə eyni');
+});
 test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you are on', () => {
   const pill = { hidden: true, textContent: '' };
   const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '#newpill' ? pill : null, createElement() { return {}; } } });
   const { S } = ctx.api, sync = vm.runInContext('syncNewPill', ctx);
   const row = (id, category, title = 'Xəbər ' + id) => ({ id, category, title, source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: new Date().toISOString(), lang: 'az' });
   S.pendingNew = [row('1', 'idman', 'Qarabağ qələbə qazandı'), row('2', 'idman', 'Neftçi məğlub oldu'), row('3', 'siyaset'), row('4', 'dunya')];
+  // 2026-11-14 (sahib: «az dilində 29 yeni xəbər yazır, klik edirsən 2 xəbər çıxır»): başqa dilin xəbəri və başqa xəbərə mənbə kimi
+  // qoşulan (ayrıca kartı olmayan) sətir sayılmır.
+  S.pendingNew.push({ ...row('5', 'dunya', 'Breaking news from London'), lang: 'en' }, { ...row('6', 'dunya', 'Новости дня'), lang: 'ru' }, row('7', 'idman', 'Qarabağ qələbə qazandı — təfərrüat'));
+  S.lang = 'az'; S.data = { articles: ['1', '2', '3', '4', '5', '6'].map(id => ({ id, sourceUrl: 'https://apa.az/' + id })) };
   ctx.location.hash = '#/'; sync();
-  assert.equal(pill.hidden, false); assert.equal(pill.textContent, '↑ 4 yeni xəbər', 'baş səhifədə hamısı');
+  assert.equal(pill.hidden, false); assert.equal(pill.textContent, '↑ 4 yeni xəbər', 'baş səhifədə seçilmiş dilin ayrıca kartları');
+  S.lang = null; sync();
+  assert.equal(pill.textContent, '↑ 6 yeni xəbər', '«Hamısı» seçiləndə bütün dillər'); S.lang = 'az';
   ctx.location.hash = '#/bolme/idman'; S.club = null; sync();
   assert.equal(pill.textContent, '↑ 2 yeni İdman xəbəri', 'İdmanda yalnız idman');
   S.club = 'Qarabağ'; sync();

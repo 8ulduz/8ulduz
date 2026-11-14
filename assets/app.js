@@ -1018,7 +1018,10 @@ function syncNewPill() {
   const pill = $("#newpill");
   if (!pill) return;
   // Sahib 2026-11-07: yalnız olduğun bölmənin (alt düymənin) xəbərləri.
-  const r = route(), c = r.name === "section" && CATS.find(c => c.slug === r.slug), rows = S.pendingNew || [];
+  // Sahib 2026-11-14: «az dilində 29 yeni xəbər yazır, klik edirsən 2 xəbər çıxır». Say yalnız seçilmiş dilin, lentdə ayrıca kart olan
+  // (başqa xəbərə mənbə kimi qoşulmamış, süzgəcdən keçmiş) xəbərləridir — siyahıda görünən qədər.
+  const cards = new Set((S.data?.articles || []).map(a => a.sourceUrl));
+  const r = route(), c = r.name === "section" && CATS.find(c => c.slug === r.slug), rows = filtered(S.pendingNew || []).filter(a => cards.has(a.sourceUrl));
   const mine = r.name === "home" ? rows : c ? rows.filter(a => (r.slug === "sondeqiqe" || (r.slug === "video" ? a.video : a.category === r.slug)) && (!S.club || clubMatches(a, S.club))) : [];
   pill.hidden = !mine.length;
   pill.textContent = `↑ ${mine.length} yeni ${c ? (S.club || c.label) + " xəbəri" : "xəbər"}`;
@@ -1486,13 +1489,30 @@ function renderTicker() {
     : "";
   const html = `<div class="ticker"><div class="lbl">⚡<span class="lt"> ${tickerLabel(fresh)}</span>${bell}${motionBtn()}</div><div class="run${motionOff() ? " still" : ""}"><div class="track">${items}</div></div></div>`;
   if (html === S.tickerHtml && $("#ticker .track")) return;
+  // Oxucu zolağı barmaqla saxlayıb və ya kursoru üstündədir: oxuduğu sətir dəyişməsin, yenilik buraxanda gəlir (sahib 2026-11-14).
+  if (tickAnim?.playState === "paused" && !motionOff()) { S.tickerLater = true; return; }
+  S.tickerLater = false;
   S.tickerHtml = html;
+  S.tickAnchor = tickerAnchor();
   if (S.data) idle(() => storage.setItem(TICK_KEY, JSON.stringify({ at: Date.now(), lang, rows: list.map(({ title, summary, source, sourceUrl, category, publishedAt }) => ({ title, summary, source, sourceUrl, category, publishedAt })) })), 1500, 5000);
   $("#ticker").innerHTML = html;
   afterPaint(startTicker);
 }
 const TICK_SPEED = 55, TICK_KEY = "8ulduz-ticker"; // px/s
-let tickAnim = null, tickT = 0, tickMoved = false;
+let tickAnim = null, tickT = 0, tickMoved = false, tickMap = null;
+// Zolaqda indi oxunan xəbər: zolağın sol hissəsində (60 px) duran keçid və onun yeri. Yeni xəbər gələndə zolaq yenidən qurulur;
+// köhnə «faza» ilə başqa başlıq gəlirdi və oxuduğun xəbər itirdi (sahib 2026-11-14). Yerləşdirmə oxunmur (çəkilişin içindədir):
+// keçidlərin yeri zolaq qurulanda, kadrdan sonra bir dəfə ölçülür (startTicker → tickMap), indiki sürüşmə animasiyanın vaxtındandır.
+function tickerAnchor() {
+  const m = tickMap, t = Number(tickAnim?.currentTime);
+  if (!m || !Number.isFinite(t)) return null;
+  const shift = (t % m.dur) / m.dur * m.half;
+  for (let i = 0; i < m.items.length; i++) {
+    const [href, left] = m.items[i], right = m.items[i + 1]?.[1] ?? left + m.half, x = left - shift;
+    if (x <= 60 && right - shift > 60) return { href, x };
+  }
+  return null;
+}
 function startTicker() {
   const run = $("#ticker .run"), track = $("#ticker .track");
   if (!run || !track || typeof track.animate !== "function") return;
@@ -1507,8 +1527,14 @@ function startTicker() {
   const dur = half / TICK_SPEED * 1000;
   const anim = tickAnim = track.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-half}px)` }], { duration: dur, iterations: Infinity });
   anim.currentTime = phase % dur;
+  // Oxunan xəbər yeni zolaqda da eyni yerdə qalsın (xəbər çıxıbsa köhnə faza ilə davam).
+  const links = [...track.children], lefts = links.map(a => a.offsetLeft);
+  tickMap = { half, dur, items: links.map((a, i) => [a.getAttribute("href"), lefts[i] - lefts[0]]) };
+  const pin = S.tickAnchor; S.tickAnchor = null;
+  const same = pin && tickMap.items.find(([href]) => href === pin.href);
+  if (same) anim.currentTime = (((same[1] - pin.x) % half + half) % half) / half * dur;
   let drag = null;
-  const resume = ms => { clearTimeout(tickT); tickT = setTimeout(() => { if (!drag && tickAnim === anim) anim.play(); }, ms); };
+  const resume = ms => { clearTimeout(tickT); tickT = setTimeout(() => { if (!drag && tickAnim === anim) { anim.play(); if (S.tickerLater) renderTicker(); } }, ms); };
   run.onpointerdown = e => { if (e.button) return; drag = { x: e.clientX, t: Number(anim.currentTime) || 0 }; tickMoved = false; clearTimeout(tickT); anim.pause(); };
   run.onpointermove = e => {
     if (!drag) return;
@@ -1592,7 +1618,7 @@ function convertAmt(amount, fromId, toId) {
 function renderMarkets() {
   const m = S.markets; if (!m?.length) return;
   $("#markets").classList.remove("pending");
-  $("#mk").innerHTML = m.map(i => {
+  const grid = $("#mk"), html = m.map(i => {
     const unofficial = i.unit === "AZN" && i.src && i.src !== "AMB";
     const has = !unofficial && i.changePct != null && i.change != null;
     const cls = !has ? "flat" : i.changePct > 0 ? "up" : i.changePct < 0 ? "down" : "flat";
@@ -1603,9 +1629,14 @@ function renderMarkets() {
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
     return `<button type="button" class="mk" data-fx="${esc(i.id)}" data-d="${cls}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v" data-ar="${has ? (i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "") : ""}">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
+  // Telefonda zolaq yana sürüşür: hər dəqiqəlik yeniləmədə başa qayıdırdı (sahib 2026-11-14). Eyni məlumat yenidən yazılmır,
+  // dəyişəndə də oxucunun sürüşdürdüyü yer saxlanır. Hazır nüsxədəki (index.html) kartlar eynidirsə toxunulmur.
+  // Yer yalnız oxucu zolağı sürüşdürübsə oxunur (çəkilişin içində boş yerə yerləşdirmə hesablanmasın).
+  grid.onscroll ??= () => { S.mkMoved = true; };
+  if (S.mkHtml !== html) { S.mkHtml = html; const x = S.mkMoved ? grid.scrollLeft : 0; grid.innerHTML = html; if (x) grid.scrollLeft = x; }
   const note = $("#mk-note");
   if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
-  const slot = $("#fx-slot"); if (slot) slot.innerHTML = fxPop();
+  const slot = $("#fx-slot"); if (slot && !(S.fxOpen && slot.contains?.(document.activeElement))) slot.innerHTML = fxPop();
   const from = $("#fx-from"), to = $("#fx-to"), amt = $("#fx-amt");
   if (from && to && amt) {
     from.value = S.fxFrom; to.value = S.fxTo;
