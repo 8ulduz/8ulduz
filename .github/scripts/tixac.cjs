@@ -23,7 +23,7 @@ const ROUTES = [
   { id: "qerb", rayon: "Nərimanov", name: "Binəqədi — Moskva prospekti — Ziya Bünyadov prospekti", pts: [[49.8150, 40.4500], [49.8460, 40.4150], [49.8700, 40.4240]] },
   { id: "aeroport", rayon: "Nizami", name: "Aeroport yolu — Heydər Əliyev prospekti — Gənclik", pts: [[50.0300, 40.4400], [49.9180, 40.4180], [49.8513, 40.4006]] },
   { id: "cenub", rayon: "Xətai", name: "Zığ şossesi — Babək prospekti — Neftçilər prospekti", pts: [[49.9600, 40.3700], [49.8900, 40.3940], [49.8400, 40.3660]] },
-  { id: "sebail", rayon: "Səbail", name: "Bayıl — Neftçilər prospekti — Azneft", pts: [[49.8250, 40.3480], [49.8400, 40.3640], [49.8600, 40.3700]] },
+  { id: "sebail", rayon: "Səbail", name: "Fəvvarələr — Azneft — Neftçilər prospekti", pts: [[49.8375, 40.3720], [49.8480, 40.3620], [49.8680, 40.3770]] },
   { id: "bayil", rayon: "Səbail", name: "Badamdar — Bayıl", pts: [[49.8000, 40.3400], [49.8300, 40.3450], [49.8470, 40.3600]] },
   { id: "qaradag", rayon: "Qaradağ", name: "Lökbatan — Şıx — Bayıl", pts: [[49.7250, 40.3300], [49.7900, 40.3150], [49.8250, 40.3300]] },
   { id: "yasamal", rayon: "Yasamal", name: "Yasamal — İnşaatçılar — Hüsü Hacıyev", pts: [[49.7900, 40.3900], [49.8150, 40.3800], [49.8350, 40.3780]] },
@@ -65,6 +65,10 @@ const KEEP_MS = 12 * 3600e3;
 const MIN_M = 600;            // bundan qısa küçə hissəsi xəbər vermir (kəsişmə, döngə)
 const INCIDENT = { accident: "Qəza", road_closure: "Yol bağlıdır", construction: "Təmir işləri", disabled_vehicle: "Nasaz maşın", lane_restriction: "Zolaq bağlıdır", road_hazard: "Yolda təhlükə", planned_event: "Tədbir səbəbilə məhdudiyyət" };
 
+const meters = ([x1, y1], [x2, y2]) => { // iki nöqtə arası düz məsafə (m)
+  const r = Math.PI / 180, a = Math.sin((y2 - y1) * r / 2) ** 2 + Math.cos(y1 * r) * Math.cos(y2 * r) * Math.sin((x2 - x1) * r / 2) ** 2;
+  return 12742e3 * Math.asin(Math.sqrt(a));
+};
 const bakuClock = t => new Date(t + 4 * 3600e3).toISOString().slice(11, 16);
 const bakuHour = t => new Date(t + 4 * 3600e3).getUTCHours();
 const km = m => (m / 1000).toFixed(1).replace(".", ",");
@@ -89,6 +93,10 @@ async function directions(route, token, fetchFn) {
   const coords = route.pts.map(p => p.join(",")).join(";");
   const d = await getJson(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coords}?annotations=congestion,distance&overview=full&geometries=geojson&steps=true&language=en`, token, fetchFn);
   if (d.code !== "Ok" || !d.routes?.length) throw new Error("marşrut yoxdur: " + (d.code || "?"));
+  // Nöqtə dənizə və ya yolsuz yerə düşəndə Mapbox çox uzaq yol tapır (2026-11-14 sınağı: Bayıl → bərə → İran, 1 830 km).
+  // Düz xətdən 3 dəfədən çox uzun marşrut ölçülmür.
+  const line = route.pts.slice(1).reduce((a, p, i) => a + meters(route.pts[i], p), 0);
+  if (d.routes[0].distance > line * 3 + 5000) throw new Error(`marşrut yolunu azıb: ${km(d.routes[0].distance)} km`);
   return d.routes[0];
 }
 

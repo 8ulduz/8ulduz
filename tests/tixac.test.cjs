@@ -31,27 +31,31 @@ test("tixac: news only when a street changes — jam starts, gets worse, clears;
   assert.equal(T.eventFor(row("leng", "hərəkət ləngdir"), undefined), null);
 });
 
-test("tixac: a run makes four requests (8 main roads), keeps the token out of logs, respects the daily cap and keeps 12 hours of news", async () => {
+test("tixac: a run makes one request per route (35 routes, all districts), keeps the token out of logs, respects the daily cap and keeps 12 hours of news", async () => {
   const urls = [], logs = [], token = "pk.SIRRITOKEN123";
   const jam = route([["Ziya Bünyadov prospekti", ["heavy", "heavy", "heavy", "low"]]], [{ id: "i1", type: "accident", affected_road_names: ["Ziya Bünyadov prospekti"], impact: "major" }]);
   const fetchFn = async url => { urls.push(url); return { ok: true, json: async () => jam }; };
   const now = Date.parse("2026-11-16T05:00:00Z"); // Bakı 09:00, şəhərə doğru
   const d = await T.run({ token, prev: { events: [{ t: now - 13 * 3600e3, text: "köhnə" }, { t: now - 3600e3, text: "təzə" }] }, now, fetchFn, log: s => logs.push(s) });
-  assert.equal(urls.length, T.ROUTES.length); assert.equal(T.ROUTES.length, 4); assert.ok(urls.every(u => u.includes("/driving-traffic/") && u.includes("annotations=congestion,distance")));
+  assert.equal(urls.length, T.ROUTES.length); assert.equal(T.ROUTES.length, 35); assert.ok(urls.every(u => u.includes("/driving-traffic/") && u.includes("annotations=congestion,distance")));
   assert.ok(!logs.join("\n").includes(token), "açar jurnala düşmür");
-  assert.equal(d.used, 4); assert.equal(d.routes[0].dir, "şəhərə doğru"); assert.equal(d.routes[0].typ, 10); assert.equal(d.routes[0].min, 15);
-  assert.deepEqual(d.streets.map(s => s.level), ["sixtixac"], "eyni küçə dörd marşrutda: bir sətir");
+  assert.equal(d.used, 35); assert.ok(!("jam" in d.routes[0]), "ara ölçü sayları fayla düşmür"); assert.equal(d.routes[0].rayon, "Binəqədi"); assert.equal(d.routes[0].dir, "şəhərə doğru"); assert.equal(d.routes[0].typ, 10); assert.equal(d.routes[0].min, 15);
+  assert.deepEqual(d.streets.map(s => s.level), ["sixtixac"], "eyni küçə 35 marşrutda: bir sətir");
+  assert.equal(d.counted, 1); assert.equal(d.jammed, 1);
+  assert.equal(d.rayons.length, 11, "bir marşrutlu Qaradağ (1,2 km məlumat) bal almır"); assert.ok(d.rayons.every(z => z[1] === 10));
   assert.deepEqual(Array.from(d.watch[2]), ["Ziya Bünyadov prospekti", "sixtixac", "0,9"], "səkkiz yoldan biri"); assert.equal(d.watch.length, 8); assert.equal(d.watch[0][1], "?", "ölçülməyən yol «?»");
   const h = T.history([{ t: now - 31 * 3600e3 }, { t: now - 3600e3, r: [] }], d, now);
   assert.equal(h.length, 2, "30 saatdan köhnə nüsxə düşür"); assert.deepEqual(h[1].w, d.watch); assert.deepEqual(h[1].i, ["Qəza: Ziya Bünyadov prospekti. Təsiri böyükdür."]); assert.deepEqual(h[1].r[0], ["simal", 15, 10]);
   assert.ok(d.events.some(e => e.text.startsWith("Qəza: Ziya Bünyadov")) && d.events.some(e => e.text.startsWith("Ziya Bünyadov prospekti (şəhərə doğru): sıx tıxac")) && d.events.some(e => e.text === "təzə") && !d.events.some(e => e.text === "köhnə"), "12 saatdan köhnə xəbər çıxır");
   // ikinci dövrə: dəyişiklik yoxdur → yeni xəbər yoxdur, eyni hadisə təkrarlanmır
   const again = await T.run({ token, prev: d, now: now + 300e3, fetchFn, log: () => {} });
-  assert.equal(again.events.length, d.events.length); assert.equal(again.used, 8);
+  assert.equal(again.events.length, d.events.length); assert.equal(again.used, 70);
   // gündəlik hədd
   urls.length = 0;
-  const capped = await T.run({ token, prev: { ...d, used: T.DAILY_CAP }, now: now + 600e3, fetchFn, log: () => {} });
-  assert.equal(urls.length, 0, "hədd dolanda sorğu getmir"); assert.equal(capped.routes.length, 0);
+  const capped = await T.run({ token, prev: { ...d, used: T.DAILY_CAP - T.ROUTES.length + 1 }, now: now + 600e3, fetchFn, log: () => {} });
+  assert.equal(urls.length, 0, "dövrə həddi keçəcəksə heç bir sorğu getmir (yarımçıq ölçü yoxdur)"); assert.equal(capped.capped, true);
+  const nextDay = await T.run({ token, prev: { ...d, used: T.DAILY_CAP }, now: now + 86400e3, fetchFn, log: () => {} });
+  assert.equal(nextDay.used, 35, "yeni gündə say sıfırdan başlayır"); urls.length = 0;
   // axşam: şəhərdən çıxış (marşrut tərsinə)
   urls.length = 0;
   const eve = await T.run({ token, prev: {}, now: Date.parse("2026-11-16T14:00:00Z"), fetchFn, log: () => {} });
@@ -70,7 +74,9 @@ test("tixac: the workflow only writes the «tixac» branch, the token is only in
   assert.ok(/git push -q --force "\$URL" HEAD:refs\/heads\/tixac\n/.test(y) && !/refs\/heads\/main\b(?!')/.test(y.replace("github.ref == 'refs/heads/main'", "")));
   assert.ok(y.includes("- cron: '*/6 3-5,13-15 * * *'") && y.includes("- cron: '0,30 6-12,16-17 * * *'"));
   const perDay = (3 * 10 * 2) + (7 * 2 + 2 * 2); // pik: 6 saat × 10; qalan: 9 saat × 2
-  assert.equal(perDay, 78); assert.ok(perDay * T.ROUTES.length * 31 < 10000, "31 günlük ayda 10 000-dən az"); assert.ok(T.DAILY_CAP >= perDay * T.ROUTES.length && T.DAILY_CAP * 30 < 10000);
+  assert.equal(perDay, 78); assert.ok(perDay * T.ROUTES.length * 31 < 90000, "31 günlük ayda 90 000-dən az (pulsuz hədd 100 000)");
+  assert.ok(T.DAILY_CAP >= perDay * T.ROUTES.length && T.DAILY_CAP * 31 <= 93000, "gündəlik hədd ayı 100 000-dən aşağı saxlayır");
+  assert.ok(y.includes("[ -f out/tixac.json ] || {") && y.includes("git add tixac.json tarix.json hafta.json"), "hədd günü heç nə yazılmır");
 });
 
 test("tixac: the Tıxac page shows the measurement only when it is fresh, with escaped street names", () => {
@@ -79,4 +85,20 @@ test("tixac: the Tıxac page shows the measurement only when it is fresh, with e
   assert.ok(src.includes("if (!d || !(Date.now() - at < 3 * 3600e3)) return \"\";"), "köhnə ölçü göstərilmir");
   assert.ok(src.includes("<b>${esc(s.name)}</b>") && src.includes("${esc(e.text)}"), "küçə adı və xəbər mətn kimi");
   assert.ok(src.includes("Avtomatik ölçü: Mapbox tıxac məlumatı"), "mənbə göstərilir");
+});
+
+test("tixac: routes cover every district, a lost route is rejected, district scores and the weekly tally", async () => {
+  assert.deepEqual([...new Set(T.ROUTES.map(r => r.rayon))].sort(), ["Abşeron", "Binəqədi", "Nərimanov", "Nəsimi", "Nizami", "Qaradağ", "Sabunçu", "Suraxanı", "Səbail", "Xətai", "Xəzər", "Yasamal"].sort());
+  assert.equal(new Set(T.ROUTES.map(r => r.id)).size, 35);
+  // 2026-11-14 sınağı: dənizə düşən nöqtə bərə ilə İrana gedən 1 830 km-lik marşrut verdi
+  const far = route([["Bakı - Türkmənbaşı Bərəsi", ["unknown"]]]); far.routes[0].distance = 1829700;
+  const d = await T.run({ token: "pk.x", prev: {}, now: Date.parse("2026-11-16T05:00:00Z"), fetchFn: async () => ({ ok: true, json: async () => far }), log: () => {} });
+  assert.equal(d.routes.length, 0); assert.equal(d.errors, 35);
+  assert.deepEqual(T.rayonScores([{ rayon: "Nəsimi", jam: 1000, mod: 0, known: 2500 }, { rayon: "Yasamal", jam: 0, mod: 1000, known: 5000 }, { rayon: "Qaradağ", jam: 1000, mod: 0, known: 1500 }]),
+    [["Nəsimi", 10, "1,0"], ["Yasamal", 3, "0,0"]], "40% ağır = 10; orta yarım sayılır; 2 km-dən az məlumat bal almır");
+  const snap = { day: "2026-11-16", updatedAt: "x", rayons: [["Nəsimi", 6, "1,0"]], streets: [{ name: "Təbriz küçəsi", level: "tixac" }, { name: "Füzuli küçəsi", level: "leng" }] };
+  let w = T.week({}, snap); w = T.week(w, snap);
+  assert.deepEqual(w.days["2026-11-16"], { n: 2, s: { "Təbriz küçəsi": 2 }, z: { "Nəsimi": 12 } });
+  for (let i = 1; i <= 9; i++) w = T.week(w, { ...snap, day: `2026-11-${16 + i}` });
+  assert.equal(Object.keys(w.days).length, 8, "8 gün saxlanır"); assert.ok(!w.days["2026-11-16"]);
 });
