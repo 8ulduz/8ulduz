@@ -4,6 +4,7 @@ Bu siyahı əvvəl `sw.js`-in `VERSION` sətrində şərh kimi dururdu (7,8 KB) 
 2026-11-13-də (sahib: «hədd artırılmır, artıq olan silinir, yer boşaldılsın») buraya köçürüldü: `sw.js` gzip büdcəsi 9 000 baytdır.
 Yeni versiya artıranda qeydi bu faylın **başına** yazın; `sw.js`-də yalnız `const VERSION = "vNNN";` dəyişir.
 
+- v171: telefonda bölmə və Tıxac başlığı bir sətirdə, altındakı izah gizli; Namaz və hava pəncərəsi kənara toxunanda bağlanır
 - v170: «Tıxac» yenə saytın səhifəsidir; telefonda da Waze xəritəsi dərhal və ekran boyu (ehtiyat: Yandex), «Waze tətbiqində aç» düyməsi
 - v169: telefonda alt zolaqdakı «Tıxac» düyməsi birbaşa Waze tətbiqini açır (tətbiq yoxdursa Waze səhifəsi); kompüterdə tıxac səhifəsi qalır
 - v168: telefonda yuxarı sətirdə yenə «İşıqlı/Tünd» yazısı (A−/A+ kiçik), valyuta zolağı açılışda hazır və yeniləmədə yerində qalır, «Son dəqiqə» lentində oxunan xəbər itmir, «N yeni xəbər» yalnız seçilmiş dili sayır
