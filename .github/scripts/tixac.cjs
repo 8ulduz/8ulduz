@@ -8,8 +8,9 @@
 // Bir dövrə = 3 sorğu: 3 uzun marşrut (hər biri 3 nöqtə). Mapbox marşrutu hissələrə bölüb hər hissənin tıxac dərəcəsini verir
 // (low/moderate/heavy/severe); hissələr addımların (küçələrin) adı ilə toplanır, beləcə marşrut boyu tıxac olan hər küçə adı ilə
 // çıxır. Səhər (Bakı 14:00-dək) marşrut şəhərə doğru, sonra şəhərdən çıxışa doğrudur.
-// Büdcə: pik saatlarda (07–10, 17–20) hər 5 dəq = 72 dövrə, qalan vaxt (10–17, 20–22) hər 20 dəq = 27 dövrə; 99 × 3 = 297/gün,
-// 31 günlük ayda ≈ 9 200 < 10 000. Gündə 330 sorğudan çox getmir (DAILY_CAP, vəziyyət faylında sayılır).
+// Büdcə (4 marşrut, 8 əsas yol): pik saatlarda (07–10, 17–20) hər 6 dəq = 60 dövrə, qalan vaxt (10–17, 20–22) hər 30 dəq = 18 dövrə;
+// 78 × 4 = 312/gün,
+// 31 günlük ayda ≈ 9 700 < 10 000. Gündə 330 sorğudan çox getmir (DAILY_CAP, vəziyyət faylında sayılır).
 // Açar yalnız MAPBOX_TOKEN mühit dəyişənindədir; heç vaxt çap olunmur, xətada yalnız HTTP kodu və açarsız səbəb yazılır.
 // Nəticə: tixac.json (marşrutlar, tıxaclı küçələr, son 12 saatın avtomatik xəbərləri) → «tixac» budağı → saytın Tıxac səhifəsi.
 // İstifadə: node tixac.cjs <çıxış qovluğu> [əvvəlki tixac.json]   |   node tixac.cjs --yoxla
@@ -24,6 +25,10 @@ const ROUTES = [
   { id: "cenub", name: "Zığ şossesi — Babək prospekti — Neftçilər prospekti", pts: [[49.9600, 40.3700], [49.8900, 40.3940], [49.8400, 40.3660]] },
 ];
 const DAILY_CAP = 330;
+// Səkkiz əsas yol (sahib 2026-11-14: «pik saat bülletenləri səkkiz əsas yol üzrə»): adlar Mapbox-un küçə adlarıdır, marşrutlar
+// bunların hamısından keçir (2026-11-14 yoxlaması). Bülletendə hər biri, sərbəst olsa da, yazılır.
+const WATCH = ["Moskva prospekti", "Heydər Əliyev prospekti", "Ziya Bünyadov prospekti", "Tbilisi prospekti", "Babək prospekti",
+  "Neftçilər prospekti", "Binəqədi şosesi", "Koroğlu Rəhimov küçəsi"];
 const KEEP_MS = 12 * 3600e3;
 const MIN_M = 600;            // bundan qısa küçə hissəsi xəbər vermir (kəsişmə, döngə)
 const INCIDENT = { accident: "Qəza", road_closure: "Yol bağlıdır", construction: "Təmir işləri", disabled_vehicle: "Nasaz maşın", lane_restriction: "Zolaq bağlıdır", road_hazard: "Yolda təhlükə", planned_event: "Tədbir səbəbilə məhdudiyyət" };
@@ -79,10 +84,11 @@ function streets(route) {
 
 function levelOf(st) {
   if (st.m < MIN_M || st.known < st.m * 0.5) return null; // qısa və ya məlumatı azdır
-  const heavy = (st.heavy + st.severe) / st.m, severe = st.severe / st.m, slow = (st.heavy + st.severe + st.moderate) / st.m;
-  if (severe >= 0.3 || heavy >= 0.5) return { id: "sixtixac", text: "sıx tıxac" };
-  if (heavy >= 0.25) return { id: "tixac", text: "tıxac" };
-  if (slow >= 0.4) return { id: "leng", text: "hərəkət ləngdir" };
+  // Pay və uzunluq birlikdə: 16 km-lik yolda 3 km ağır tıxac payla 18%-dir, amma sürücü üçün tıxacdır (2026-11-14, Moskva prospekti).
+  const jam = st.heavy + st.severe, heavy = jam / st.m, severe = st.severe / st.m, slow = (jam + st.moderate) / st.m;
+  if (severe >= 0.3 || heavy >= 0.5 || st.severe >= 1000 || jam >= 4000) return { id: "sixtixac", text: "sıx tıxac" };
+  if (heavy >= 0.25 && jam >= 400 || jam >= 1500) return { id: "tixac", text: "tıxac" };
+  if (slow >= 0.4 || jam + st.moderate >= 2500) return { id: "leng", text: "hərəkət ləngdir" };
   return { id: "serbest", text: "hərəkət sərbəstdir" };
 }
 
@@ -145,7 +151,15 @@ async function run({ token, prev = {}, now = Date.now(), fetchFn = fetch, log = 
   const all = [...events.reverse(), ...(prev.events || [])].filter(e => now - e.t < KEEP_MS).slice(0, 80);
   for (const e of events) log(`  + ${bakuClock(e.t)} ${e.text}`);
   if (errors.length) log("  ! " + errors.join("; "));
-  return { updatedAt: new Date(now).toISOString(), source: "Mapbox", day, used, routes, streets: rows.filter(r => r.level !== "serbest"), events: all, incIds: [...seen].slice(-200), errors: errors.length };
+  return { updatedAt: new Date(now).toISOString(), source: "Mapbox", day, used, routes, streets: rows.filter(r => r.level !== "serbest"), watch: watchOf(rows), events: all, incIds: [...seen].slice(-200), errors: errors.length };
+}
+
+// Səkkiz yolun vəziyyəti: hər yol üçün ən pis istiqamət; bu dövrədə ölçülməyibsə «?».
+function watchOf(rows) {
+  return WATCH.map(name => {
+    const mine = rows.filter(r => r.name === name).sort((a, b) => RANK[b.level] - RANK[a.level])[0];
+    return mine ? [name, mine.level, mine.jamKm] : [name, "?", "0,0"];
+  });
 }
 
 async function probe(token) {
@@ -166,14 +180,14 @@ async function probe(token) {
 // (marşrutun ən uzun vaxtı, tıxacın neçə dəqiqə sürdüyü, dünənlə müqayisə). Sayt bu faylı oxumur.
 const HIST_MS = 30 * 3600e3;
 function snapshot(d, now) {
-  return { t: now, r: d.routes.map(r => [r.id, r.min, r.typ]), s: d.streets.map(s => [s.name, s.dir, s.level, s.jamKm]),
-    i: d.events.filter(e => e.t === now && e.kind === hadise).map(e => e.text) };
+  return { t: now, r: d.routes.map(r => [r.id, r.min, r.typ]), s: d.streets.map(s => [s.name, s.dir, s.level, s.jamKm]), w: d.watch || [],
+    i: d.events.filter(e => e.t === now && e.kind === "hadise").map(e => e.text) };
 }
 function history(prev, d, now) {
   return [...(Array.isArray(prev) ? prev : []).filter(x => x && now - x.t < HIST_MS), ...(d.routes.length ? [snapshot(d, now)] : [])];
 }
 
-module.exports = { HIST_MS, snapshot, history, ROUTES, DAILY_CAP, directed, streets, levelOf, streetRow, eventFor, incidentEvents, run, bakuClock };
+module.exports = { WATCH, watchOf, HIST_MS, snapshot, history, ROUTES, DAILY_CAP, directed, streets, levelOf, streetRow, eventFor, incidentEvents, run, bakuClock };
 
 if (require.main === module) {
   const token = process.env.MAPBOX_TOKEN;

@@ -1004,6 +1004,7 @@ FAZA2 = (
 # Mərhələ 3: yeni növlər (sahib, 2026-11-12: «5 qat genişləndir çeşidliliyi»). Bunları da yalnız dərc hissəsi çağırır.
 FAZA3 = (
     ("oz_dunya", "Dünyadan: əvvəlcədən yazılmış xəbərlərin növbəsi"),
+    ("oz_tixac", "Tıxac: səhər və axşam pik saatı bülletenləri (sahib, 2026-11-14)"),
 )
 
 FAZALAR = (
