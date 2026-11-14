@@ -1082,12 +1082,25 @@ nav.main{order:10}
 }
 /* Telefon: Zuğulba kartları bərabər, lent düz 2 kart */
 @media(max-width:600px){.prez-lent>.pcard{box-sizing:border-box;height:calc(3*var(--lh-body) + 2*var(--lh-meta) + 24px);overflow:hidden}.prez-lent{height:calc(6*var(--lh-body) + 4*var(--lh-meta) + 56px)!important}.mk .n{font-size:12px}.prez-lent>.pcard.has-img:not(.noimg) .img{width:min(28vw,calc(3.5*var(--lh-body)));height:calc(3*var(--lh-body))}.prez-lent>.pcard.has-img:not(.noimg) [data-act=dinle]{min-width:min(28vw,calc(3.5*var(--lh-body)))}.prez-lent>.pcard .meta .src{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
-/* ≤370 px: rejim yalnız işarə */
-@media(max-width:370px){.topbar .theme-btn span+span{display:none}.topbar .theme-btn .face{font-size:1.2rem;padding:0 5px}}
-/* Rejim sözü loqo sətrinə sığmayanda düymələr ikinci sətrə düşürdü (sahib, 2026-11-14): işıqlı rejimdə loqo 18 px enlidir */
-@media(max-width:411px){.topbar .theme-btn span+span{display:none}}
-@media(max-width:440px){:root[data-theme="light"] .topbar .theme-btn span+span{display:none}}
-@media(max-width:392px){.hrow>.logo{zoom:.78}}
+/* Telefon, loqo sətri (sahib, 2026-11-14): rejim düyməsində yenə «İşıqlı/Tünd» yazısı, yer üçün A−/A+ kiçik;
+   dil, rejim və A−/A+ eyni hündürlükdə (28 px) bir xətdə. Toxunma sahəsi düymənin özündə 40 px qalır. */
+@media(max-width:720px){
+.hrow .ldd{display:flex}
+.hrow .ldd-btn{height:28px;padding:0 6px;gap:3px}
+.hrow .ldd-btn .flag{width:20px;height:20px}
+.topbar .prefs{gap:2px}
+.topbar .prefs button{height:40px;min-width:0;margin:-6px 0}
+.topbar .prefs button .face{height:28px;box-sizing:border-box}
+.topbar .prefs [data-act^="fs-"] .face{min-width:26px;padding:0 3px;font-size:.74rem}
+.topbar .prefs .theme-btn .face{gap:3px;padding:0 7px;font-size:.74rem}
+.topbar .prefs .theme-btn span{font-size:inherit}
+:root[data-theme="light"] .hrow>.logo{padding:3px 6px}
+}
+/* İşıqlı rejimdə loqo tünd fonlu lövhədir (12 px enli): o da sətrə sığsın */
+@media(max-width:440px){:root[data-theme="light"] .hrow>.logo{zoom:.9}}
+@media(max-width:392px){.hrow>.logo{zoom:.78}:root[data-theme="light"] .hrow>.logo{zoom:.72}}
+@media(max-width:350px){.hrow>.logo,:root[data-theme="light"] .hrow>.logo{zoom:.62}.hrow .ldd-btn .caret{display:none}}
+@media(max-width:335px){.topbar .theme-btn span+span{display:none}} /* çox köhnə 320 px telefon: rejim yalnız işarə */
 /* Telefon: 4 bölmə + ☰, altında Telegram */
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
