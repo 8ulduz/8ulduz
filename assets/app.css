@@ -1145,10 +1145,10 @@ nav.main .nav-more>summary{padding:0 8px}
 }
 /* sahib 2026-11-14: telefonda vaxt, mənbə adı və «N mənbə» yazısı 3 ölçü kiçik (16→13px); düymələr (Dinlə, Paylaş) olduğu kimi. A−/A+ yenə işləyir. */
 @media (max-width:600px){.meta,.hero-main .meta,.card .meta,.bd,.source-count,.prez-h .source-count{font-size:max(11px,calc(var(--fs-meta) - 3px));line-height:max(15px,calc(var(--lh-meta) - 4px))}}
-/* Tıxac (sahib 2026-11-14): telefonda Waze xəritəsi tətbiqdəki kimi ekran boyu — yuxarı sətirlər və alt zolaq çıxılmaqla */
+/* Tıxac (sahib 2026-11-14): telefonda Waze xəritəsi ekranın eni boyu; hündürlüyü ekranın təxminən yarısı (əvvəl ekran boyu idi, sahib: «azalt») */
 .tix-bar{gap:12px;align-items:center}
 .tix-alt{margin-right:auto;padding:0;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
-@media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:max(420px,calc(100svh - 230px))}}
+@media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:clamp(300px,48svh,400px)}}
 /* Sahib 2026-11-14: telefonda bölmə və Tıxac başlığının altındakı izah lazım deyil (yer tutur), başlıq bir sətirdə.
    Yalnız siyahı səhifələrinin başlığı (xəbər səhifəsinin uzun başlığı .page-h>h1-dir, ona toxunulmur). */
 @media (max-width:600px){

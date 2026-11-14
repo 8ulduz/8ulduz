@@ -3104,7 +3104,7 @@ test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once
     } else assert.ok(!html.includes('data-act="tix-yandex"'), 'kompüterdə Yandex düyməsi yoxdur');
   }
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
-  assert.ok(css.includes('.tix-map iframe{height:max(420px,calc(100svh - 230px))}'), 'telefonda xəritə ekran boyu');
+  assert.ok(css.includes('.tix-map iframe{height:clamp(300px,48svh,400px)}'), 'telefonda xəritə ekranın təxminən yarısı (sahib: hündürlüyü azalt), 300–400 px');
 });
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
