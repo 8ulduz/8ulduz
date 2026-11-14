@@ -1130,3 +1130,5 @@ nav.main .nav-more>summary{padding:0 8px}
 .ticker .lbl .bell,.ticker .lbl .mo{width:30px;height:30px}
 .ticker .lbl .bell svg{width:16px;height:16px}
 }
+/* sahib 2026-11-14: telefonda vaxt, mənbə adı və «N mənbə» yazısı 3 ölçü kiçik (16→13px); düymələr (Dinlə, Paylaş) olduğu kimi. A−/A+ yenə işləyir. */
+@media (max-width:600px){.meta,.hero-main .meta,.card .meta,.bd,.source-count,.prez-h .source-count{font-size:max(11px,calc(var(--fs-meta) - 3px));line-height:max(15px,calc(var(--lh-meta) - 4px))}}
