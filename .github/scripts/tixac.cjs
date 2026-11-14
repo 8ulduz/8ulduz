@@ -1,135 +1,180 @@
 #!/usr/bin/env node
-// Avtomatik tıxac ölçüsü (sahib, 2026-11-14: «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur»).
-// Mənbə: TomTom Traffic API (pulsuz plan, kartsız: həddi keçəndə sorğu sadəcə rədd olunur, pul tutulmur).
-//   Flow Segment Data: ayda 20 000 pulsuz sorğu. 8 nöqtə × hər 15 dəq × 07:00–22:00 (64 dövrə) ≈ 512/gün ≈ 15 900/ay.
-//   Incident Details: ayda 2 500 pulsuz sorğu. Yarım saatda bir (dəqiqə < 15 olan dövrə) ≈ 32/gün ≈ 1 000/ay.
-// Açar yalnız TOMTOM_KEY mühit dəyişənindədir; heç vaxt çap olunmur, xətada yalnız HTTP kodu yazılır.
-// Nəticə: tixac.json (yolların indiki vəziyyəti + son 12 saatın avtomatik xəbərləri). İş onu «tixac» budağına yazır,
-// sayt Tıxac səhifəsində raw.githubusercontent.com-dan oxuyur (xəbər lentinə və main-ə heç nə yazılmır).
-// İstifadə: node tixac.cjs <çıxış qovluğu> [əvvəlki tixac.json]   |   node tixac.cjs --yoxla  (nöqtələrin hansı yola düşdüyü)
+// Avtomatik tıxac ölçüsü (sahib, 2026-11-14: «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur», sonra «Bəli, Mapbox»).
+// Mənbə: Mapbox Directions API, «driving-traffic» profili (Azərbaycan Mapbox-un tıxac örtüyündədir). Kartsız hesab:
+// ayda 10 000 sorğu pulsuz, həddi keçəndə sorğu sadəcə rədd olunur, pul tutulmur.
+// TomTom yoxlanıb (2026-11-14): açar işləyir, amma Bakıda (və Tbilisidə) yol məlumatı yoxdur — «Point too far from nearest
+// existing segment»; İstanbulda var. Waze-in xəritəsindən məlumat çəkmək onun şərtlərinə ziddir: qurulmur.
+//
+// Bir dövrə = 3 sorğu: 3 uzun marşrut (hər biri 3 nöqtə). Mapbox marşrutu hissələrə bölüb hər hissənin tıxac dərəcəsini verir
+// (low/moderate/heavy/severe); hissələr addımların (küçələrin) adı ilə toplanır, beləcə marşrut boyu tıxac olan hər küçə adı ilə
+// çıxır. Səhər (Bakı 14:00-dək) marşrut şəhərə doğru, sonra şəhərdən çıxışa doğrudur.
+// Büdcə: pik saatlarda (07–10, 17–20) hər 5 dəq = 72 dövrə, qalan vaxt (10–17, 20–22) hər 20 dəq = 27 dövrə; 99 × 3 = 297/gün,
+// 31 günlük ayda ≈ 9 200 < 10 000. Gündə 330 sorğudan çox getmir (DAILY_CAP, vəziyyət faylında sayılır).
+// Açar yalnız MAPBOX_TOKEN mühit dəyişənindədir; heç vaxt çap olunmur, xətada yalnız HTTP kodu və açarsız səbəb yazılır.
+// Nəticə: tixac.json (marşrutlar, tıxaclı küçələr, son 12 saatın avtomatik xəbərləri) → «tixac» budağı → saytın Tıxac səhifəsi.
+// İstifadə: node tixac.cjs <çıxış qovluğu> [əvvəlki tixac.json]   |   node tixac.cjs --yoxla
 "use strict";
 const fs = require("node:fs"), path = require("node:path");
 
-// Ölçü nöqtələri: yolun ortasında bir nöqtə. TomTom ən yaxın yol hissəsini götürür (frc: 0 magistral … 2 əsas küçə).
-const ROADS = [
-  { id: "heyder-eliyev", name: "Heydər Əliyev prospekti", where: "Koroğlu — Gənclik", lat: 40.4166, lon: 49.9198 },
-  { id: "ziya-bunyadov", name: "Ziya Bünyadov prospekti", where: "Gənclik — 8-ci km", lat: 40.4237, lon: 49.8846 },
-  { id: "sumqayit-yolu", name: "Bakı–Sumqayıt yolu", where: "Masazır dairəsi", lat: 40.4870, lon: 49.7676 },
-  { id: "tbilisi", name: "Tbilisi prospekti", where: "20 Yanvar — Elmlər", lat: 40.3929, lon: 49.8131 },
-  { id: "babek", name: "Babək prospekti", where: "Xətai — Gənclik", lat: 40.3955, lon: 49.8885 },
-  { id: "neftciler", name: "Neftçilər prospekti", where: "Dənizkənarı bulvar", lat: 40.3668, lon: 49.8432 },
-  { id: "hava-limani", name: "Hava limanı yolu", where: "Zığ dairəsi — aeroport", lat: 40.4290, lon: 50.0050 },
-  { id: "mətbuat", name: "Mətbuat prospekti", where: "Elmlər — Bayıl", lat: 40.3802, lon: 49.8117 },
+// [en, enlik] cütləri (Mapbox sırası). Ad oxucu üçündür; küçə adları Mapbox-dan gəlir.
+const ROUTES = [
+  { id: "simal", name: "Sumqayıt yolu — 20 Yanvar — mərkəz", pts: [[49.7660, 40.4880], [49.8105, 40.4045], [49.8370, 40.3700]] },
+  { id: "aeroport", name: "Aeroport yolu — Koroğlu — Gənclik", pts: [[50.0300, 40.4400], [49.9180, 40.4180], [49.8513, 40.4006]] },
+  { id: "merkez", name: "Elmlər — 28 May — Xətai", pts: [[49.8135, 40.3755], [49.8490, 40.3790], [49.8720, 40.3830]] },
 ];
-const BBOX = "49.70,40.30,50.15,40.62"; // Bakı və Abşeron (hadisələr)
+const DAILY_CAP = 330;
 const KEEP_MS = 12 * 3600e3;
-const LEVELS = [ // cari sürət / sərbəst sürət
-  { id: "sixtixac", max: 0.4, text: "sıx tıxac" },
-  { id: "tixac", max: 0.6, text: "tıxac" },
-  { id: "leng", max: 0.8, text: "hərəkət ləngdir" },
-  { id: "serbest", max: Infinity, text: "hərəkət sərbəstdir" },
-];
-const ICON = { 1: "Qəza", 6: "Tıxac", 7: "Zolaq bağlıdır", 8: "Yol bağlıdır", 9: "Təmir işləri", 11: "Su basıb", 14: "Nasaz maşın" };
+const MIN_M = 600;            // bundan qısa küçə hissəsi xəbər vermir (kəsişmə, döngə)
+const INCIDENT = { accident: "Qəza", road_closure: "Yol bağlıdır", construction: "Təmir işləri", disabled_vehicle: "Nasaz maşın", lane_restriction: "Zolaq bağlıdır", road_hazard: "Yolda təhlükə", planned_event: "Tədbir səbəbilə məhdudiyyət" };
 
 const bakuClock = t => new Date(t + 4 * 3600e3).toISOString().slice(11, 16);
-const levelOf = r => LEVELS.find(l => r < l.max);
+const bakuHour = t => new Date(t + 4 * 3600e3).getUTCHours();
+const km = m => (m / 1000).toFixed(1).replace(".", ",");
 const bad = id => id === "tixac" || id === "sixtixac";
+const RANK = { serbest: 0, leng: 1, tixac: 2, sixtixac: 3 };
 
-async function getJson(url, key, fetchFn = fetch) {
-  const r = await fetchFn(url + (url.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key), { headers: { "User-Agent": "8ulduz-tixac" }, signal: AbortSignal.timeout?.(15000) });
-  if (!r.ok) { // ünvan (açarla) heç vaxt xətaya düşmür; cavabın mətni açar silinərək qısa yazılır
-    let why = ""; try { why = (await r.text()).split(key).join("***").replace(/\s+/g, " ").slice(0, 160); } catch {}
+async function getJson(url, token, fetchFn = fetch) {
+  const r = await fetchFn(url + (url.includes("?") ? "&" : "?") + "access_token=" + encodeURIComponent(token), { headers: { "User-Agent": "8ulduz-tixac" }, signal: AbortSignal.timeout?.(15000) });
+  if (!r.ok) {
+    let why = ""; try { why = (await r.text()).split(token).join("***").replace(/\s+/g, " ").slice(0, 160); } catch {}
     throw new Error("HTTP " + r.status + (why ? " " + why : ""));
   }
   return r.json();
 }
 
-async function flow(road, key, fetchFn) {
-  const d = (await getJson(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point=${road.lat},${road.lon}&unit=KMPH`, key, fetchFn)).flowSegmentData || {};
-  const c = d.coordinates?.coordinate || [];
-  return { frc: d.frc, speed: d.currentSpeed, free: d.freeFlowSpeed, conf: d.confidence, closed: !!d.roadClosure, first: c[0], last: c[c.length - 1] };
+function directed(route, now) { // səhər şəhərə doğru, günorta və axşam şəhərdən çıxış
+  const out = bakuHour(now) >= 14;
+  return { ...route, pts: out ? [...route.pts].reverse() : route.pts, dir: out ? "şəhərdən çıxış" : "şəhərə doğru" };
 }
 
-async function incidents(key, fetchFn) {
-  const fields = "{incidents{type,geometry{type,coordinates},properties{id,iconCategory,magnitudeOfDelay,startTime,from,to,length,delay,roadNumbers}}}";
-  const d = await getJson(`https://api.tomtom.com/traffic/services/5/incidentDetails?bbox=${BBOX}&fields=${encodeURIComponent(fields)}&language=en-GB&categoryFilter=1,6,7,8,9,11,14&timeValidityFilter=present`, key, fetchFn);
-  return (d.incidents || []).map(i => i.properties || {}).filter(p => ICON[p.iconCategory]);
+async function directions(route, token, fetchFn) {
+  const coords = route.pts.map(p => p.join(",")).join(";");
+  const d = await getJson(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coords}?annotations=congestion,distance&overview=full&geometries=geojson&steps=true&language=en`, token, fetchFn);
+  if (d.code !== "Ok" || !d.routes?.length) throw new Error("marşrut yoxdur: " + (d.code || "?"));
+  return d.routes[0];
 }
 
-// Yolun vəziyyəti və əvvəlkinə görə xəbər (yalnız dəyişəndə; etibarlılığı aşağı ölçü xəbər vermir).
-function roadState(road, f, prev, now) {
-  if (!f || !(f.free > 0) || !(f.speed >= 0)) return null;
-  const ratio = Math.round(f.speed / f.free * 100) / 100, lvl = f.closed ? { id: "bagli", text: "yol bağlıdır" } : levelOf(ratio);
-  const row = { id: road.id, name: road.name, where: road.where, level: lvl.id, text: lvl.text, speed: Math.round(f.speed), free: Math.round(f.free), ratio, conf: f.conf, at: now };
-  let event = null;
-  const was = prev?.level, sure = (f.conf ?? 1) >= 0.7;
-  if (sure && lvl.id !== was) {
-    if (lvl.id === "bagli") event = `${road.name} (${road.where}): yol bağlıdır.`;
-    else if (bad(lvl.id) && !bad(was) || lvl.id === "sixtixac" && was === "tixac") event = `${road.name} (${road.where}): ${lvl.text}. Maşınlar saatda ${row.speed} km sürətlə gedir (adi halda ${row.free} km).`;
-    else if ((bad(was) || was === "bagli") && !bad(lvl.id)) event = `${road.name} (${road.where}): tıxac azalıb, ${lvl.id === "serbest" ? "hərəkət sərbəstdir" : "hərəkət hələ ləngdir"} (saatda ${row.speed} km).`;
+// Marşrutun hissələrini küçə adlarına görə toplayır: məsafə, ağır/çox ağır tıxac məsafəsi, vaxt və adi vaxt.
+function streets(route) {
+  const by = new Map();
+  for (const leg of route.legs || []) {
+    const cong = leg.annotation?.congestion || [], dist = leg.annotation?.distance || [];
+    let i = 0;
+    for (const s of leg.steps || []) {
+      const n = Math.max(0, (s.geometry?.coordinates?.length || 1) - 1), name = (s.name || s.ref || "").trim();
+      const row = name && (by.get(name) || by.set(name, { name, m: 0, heavy: 0, severe: 0, moderate: 0, known: 0, dur: 0, typ: 0 }).get(name));
+      for (let k = 0; k < n && i < cong.length; k++, i++) {
+        if (!row) continue;
+        const m = dist[i] || 0, c = cong[i];
+        row.m += m;
+        if (c !== "unknown") row.known += m;
+        if (c === "heavy") row.heavy += m; else if (c === "severe") row.severe += m; else if (c === "moderate") row.moderate += m;
+      }
+      if (row) { row.dur += s.duration || 0; row.typ += s.duration_typical ?? s.duration ?? 0; }
+    }
   }
-  return { row, event: event && { t: now, kind: bad(lvl.id) || lvl.id === "bagli" ? "pis" : "yaxsi", road: road.id, text: event } };
+  return [...by.values()];
 }
 
-function incidentEvents(list, prevIds, now) {
+function levelOf(st) {
+  if (st.m < MIN_M || st.known < st.m * 0.5) return null; // qısa və ya məlumatı azdır
+  const heavy = (st.heavy + st.severe) / st.m, severe = st.severe / st.m, slow = (st.heavy + st.severe + st.moderate) / st.m;
+  if (severe >= 0.3 || heavy >= 0.5) return { id: "sixtixac", text: "sıx tıxac" };
+  if (heavy >= 0.25) return { id: "tixac", text: "tıxac" };
+  if (slow >= 0.4) return { id: "leng", text: "hərəkət ləngdir" };
+  return { id: "serbest", text: "hərəkət sərbəstdir" };
+}
+
+function streetRow(st, dir, now) {
+  const lvl = levelOf(st);
+  if (!lvl) return null;
+  const extra = Math.round((st.dur - st.typ) / 60);
+  return { id: `${st.name}|${dir}`, name: st.name, dir, level: lvl.id, text: lvl.text, km: km(st.m), jamKm: km(st.heavy + st.severe), extra: extra > 0 ? extra : 0, at: now };
+}
+
+function eventFor(row, was) {
+  if (!row || row.level === was) return null;
+  const where = `${row.name} (${row.dir})`;
+  if (bad(row.level) && (!bad(was) || row.level === "sixtixac" && was === "tixac"))
+    return `${where}: ${row.text}, ${row.jamKm} km hissədə hərəkət çətindir${row.extra >= 2 ? `, yol adi haldan təxminən ${row.extra} dəq çox çəkir` : ""}.`;
+  if (bad(was) && !bad(row.level)) return `${where}: tıxac azalıb, ${row.level === "serbest" ? "hərəkət sərbəstdir" : "hərəkət hələ ləngdir"}.`;
+  return null;
+}
+
+function incidentEvents(route, seen, now) {
   const out = [];
-  for (const p of list) {
-    if (!p.id || prevIds.has(p.id)) continue;
-    if (p.iconCategory === 6 && (p.magnitudeOfDelay || 0) < 3) continue; // adi tıxac yollardan gəlir; yalnız «böyük» tıxac hadisəsi
-    const where = [p.from, p.to].filter(Boolean).join(" — "), km = p.length ? ` (${(p.length / 1000).toFixed(1).replace(".", ",")} km)` : "", late = p.delay >= 120 ? `, gecikmə təxminən ${Math.round(p.delay / 60)} dəq` : "";
-    out.push({ t: now, kind: "hadise", id: p.id, text: `${ICON[p.iconCategory]}: ${where || "Bakı"}${km}${late}.` });
+  for (const leg of route.legs || []) for (const inc of leg.incidents || []) {
+    const kind = INCIDENT[inc.type];
+    if (!kind || !inc.id || seen.has(inc.id)) continue;
+    seen.add(inc.id);
+    const street = (inc.affected_road_names || [])[0] || "", impact = inc.impact === "critical" || inc.impact === "major" ? " Təsiri böyükdür." : "";
+    out.push({ t: now, kind: "hadise", id: inc.id, text: `${kind}${street ? `: ${street}` : ""}.${impact}` });
   }
   return out;
 }
 
-async function run({ key, prev = {}, now = Date.now(), fetchFn = fetch, withIncidents = true, log = console.log }) {
-  const old = new Map((prev.roads || []).map(r => [r.id, r]));
-  const roads = [], events = [], errors = [];
-  for (const road of ROADS) {
-    try { const s = roadState(road, await flow(road, key, fetchFn), old.get(road.id), now); if (s) { roads.push(s.row); if (s.event) events.push(s.event); } }
-    catch (e) { errors.push(road.id + ": " + e.message); const o = old.get(road.id); if (o) roads.push(o); }
+async function run({ token, prev = {}, now = Date.now(), fetchFn = fetch, log = console.log }) {
+  const day = new Date(now + 4 * 3600e3).toISOString().slice(0, 10);
+  let used = prev.day === day ? prev.used || 0 : 0;
+  const old = new Map((prev.streets || []).map(r => [r.id, r])), seen = new Set(prev.incIds || []);
+  const rows = [], events = [], routes = [], errors = [];
+  for (const base of ROUTES) {
+    if (used >= DAILY_CAP) { errors.push("gündəlik hədd"); break; }
+    const route = directed(base, now);
+    try {
+      used++;
+      const r = await directions(route, token, fetchFn);
+      routes.push({ id: route.id, name: route.name, dir: route.dir, min: Math.round(r.duration / 60), typ: Math.round((r.duration_typical ?? r.duration) / 60), km: km(r.distance) });
+      for (const st of streets(r)) { // eyni küçə iki marşrutda: pis vəziyyət qalır
+        const row = streetRow(st, route.dir, now), i = row ? rows.findIndex(x => x.id === row.id) : -1;
+        if (!row || i >= 0 && RANK[rows[i].level] >= RANK[row.level]) continue;
+        if (i >= 0) rows.splice(i, 1);
+        rows.push(row);
+      }
+      events.push(...incidentEvents(r, seen, now));
+    } catch (e) { errors.push(route.id + ": " + e.message); }
   }
-  let incIds = prev.incIds || [];
-  if (withIncidents) {
-    try { const list = await incidents(key, fetchFn); events.push(...incidentEvents(list, new Set(incIds), now)); incIds = list.map(p => p.id).filter(Boolean); }
-    catch (e) { errors.push("hadisələr: " + e.message); }
+  for (const row of rows) {
+    const text = eventFor(row, old.get(row.id)?.level);
+    if (text) events.push({ t: now, kind: bad(row.level) ? "pis" : "yaxsi", road: row.id, text });
   }
-  const all = [...events.reverse(), ...(prev.events || [])].filter(e => now - e.t < KEEP_MS).slice(0, 60);
+  // tıxac olan küçə bu dəfə heç ölçülmədisə (marşrut dəyişdi), «açıldı» deyilmir: sadəcə siyahıdan çıxır
+  // ölçülməyən marşrutun küçələri əvvəlki vəziyyətində qalır (bir xəta «tıxac açıldı» xəbəri yaratmasın)
+  for (const [id, r] of old) if (!rows.some(x => x.id === id) && errors.some(e => !e.startsWith("gündəlik")) && now - r.at < 3600e3) rows.push(r);
+  const all = [...events.reverse(), ...(prev.events || [])].filter(e => now - e.t < KEEP_MS).slice(0, 80);
   for (const e of events) log(`  + ${bakuClock(e.t)} ${e.text}`);
   if (errors.length) log("  ! " + errors.join("; "));
-  return { updatedAt: new Date(now).toISOString(), source: "TomTom", roads, events: all, incIds, errors: errors.length };
+  return { updatedAt: new Date(now).toISOString(), source: "Mapbox", day, used, routes, streets: rows.filter(r => r.level !== "serbest"), events: all, incIds: [...seen].slice(-200), errors: errors.length };
 }
 
-async function probe(key) {
-  // Açarın özü yox, yalnız forması (401 gələndə yapışdırılan mətnin açar olub-olmadığını bilmək üçün).
-  console.log(`açar: ${key.length} simvol, ${/^[A-Za-z0-9]+$/.test(key) ? "yalnız hərf və rəqəm" : "boşluq və ya başqa işarə var"}, ${/\s/.test(key) ? "boşluqlu" : "boşluqsuz"}`);
-  const extra = [ // müqayisə: TomTom-un örtüyü olan şəhər və Bakıda yolun düz üstündə nöqtələr
-    { id: "istanbul-e5", lat: 41.0662, lon: 28.9870 }, { id: "tbilisi-ge", lat: 41.7151, lon: 44.7930 },
-    { id: "baki-azadliq", lat: 40.3923, lon: 49.8460 }, { id: "baki-nizami", lat: 40.3775, lon: 49.8366 },
-  ];
-  for (const road of [...extra, ...ROADS]) {
-    try { const f = await flow(road, key); console.log(`${road.id}: frc=${f.frc} sürət=${f.speed}/${f.free} etibar=${f.conf} bağlı=${f.closed} hissə ${f.first?.latitude?.toFixed(4)},${f.first?.longitude?.toFixed(4)} → ${f.last?.latitude?.toFixed(4)},${f.last?.longitude?.toFixed(4)}`); }
-    catch (e) { console.log(`${road.id}: ${e.message}`); }
+async function probe(token) {
+  console.log(`açar: ${token.length} simvol, ${token.startsWith("pk.") ? "«pk.» ilə başlayır" : "«pk.» ilə başlamır"}`);
+  for (const base of ROUTES) {
+    const route = directed(base, Date.now());
+    try {
+      const r = await directions(route, token);
+      const list = streets(r).filter(s => s.m >= MIN_M);
+      const known = list.reduce((a, s) => a + s.known, 0), all = list.reduce((a, s) => a + s.m, 0);
+      console.log(`${route.id} (${route.dir}): ${km(r.distance)} km, ${Math.round(r.duration / 60)} dəq (adi ${Math.round((r.duration_typical ?? r.duration) / 60)} dəq), tıxac məlumatı olan hissə ${all ? Math.round(known / all * 100) : 0}%, hadisə ${(r.legs || []).reduce((a, l) => a + (l.incidents || []).length, 0)}`);
+      for (const s of list) console.log(`   ${s.name}: ${km(s.m)} km | ağır ${km(s.heavy)} | çox ağır ${km(s.severe)} | orta ${km(s.moderate)} | məlum ${Math.round(s.known / s.m * 100)}% → ${levelOf(s)?.text || "-"}`);
+    } catch (e) { console.log(`${route.id}: ${e.message}`); }
   }
-  try { const l = await incidents(key); console.log(`hadisələr: ${l.length}`); for (const p of l.slice(0, 8)) console.log(`  ${ICON[p.iconCategory]} | ${p.from || ""} — ${p.to || ""} | ${p.length || 0} m | gecikmə ${p.delay || 0} s`); }
-  catch (e) { console.log("hadisələr: " + e.message); }
 }
 
-module.exports = { ROADS, LEVELS, levelOf, roadState, incidentEvents, run, bakuClock };
+module.exports = { ROUTES, DAILY_CAP, directed, streets, levelOf, streetRow, eventFor, incidentEvents, run, bakuClock };
 
 if (require.main === module) {
-  const key = process.env.TOMTOM_KEY;
-  if (!key) { console.error("TOMTOM_KEY yoxdur"); process.exit(1); }
+  const token = process.env.MAPBOX_TOKEN;
+  if (!token) { console.error("MAPBOX_TOKEN yoxdur"); process.exit(1); }
   const [a, b] = process.argv.slice(2);
-  if (a === "--yoxla") probe(key).catch(e => { console.error(e.message); process.exit(1); });
+  if (a === "--yoxla") probe(token).catch(e => { console.error(e.message); process.exit(1); });
   else {
     let prev = {}; try { prev = JSON.parse(fs.readFileSync(b, "utf8")); } catch {}
-    const now = Date.now(), minute = new Date(now).getUTCMinutes();
-    run({ key, prev, now, withIncidents: minute < 15 || !prev.updatedAt }).then(d => {
-      if (!d.roads.length) { console.error("heç bir yol ölçülmədi"); process.exit(1); }
+    run({ token, prev }).then(d => {
+      if (!d.routes.length) { console.error("heç bir marşrut ölçülmədi"); process.exit(1); }
       fs.mkdirSync(a, { recursive: true });
       fs.writeFileSync(path.join(a, "tixac.json"), JSON.stringify(d));
-      console.log(`tixac.json: ${d.roads.length} yol, ${d.events.length} xəbər, ${d.errors} xəta`);
+      console.log(`tixac.json: ${d.routes.length} marşrut, ${d.streets.length} tıxaclı küçə, ${d.events.length} xəbər, bu gün ${d.used} sorğu`);
     }).catch(e => { console.error(e.message); process.exit(1); });
   }
 }

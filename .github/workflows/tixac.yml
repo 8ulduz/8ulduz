@@ -1,12 +1,14 @@
 name: Tıxac ölçüsü
-# Sahib (2026-11-14): «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur». TomTom Traffic API, pulsuz plan (kartsız).
-# Bakı vaxtı 07:00–22:00 arası hər 15 dəqiqə (UTC 03–17). Nəticə yalnız «tixac» budağına yazılır (tarixçəsiz, bir fayl):
-# main-ə, xəbər lentinə və saytın qalan hissəsinə heç nə yazılmır. Açar (TOMTOM_KEY) yalnız ölçü addımındadır.
+# Sahib (2026-11-14): «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur», «Bəli, Mapbox». Mapbox Directions (driving-traffic), kartsız plan.
+# Pik saatlar (Bakı 07–10, 17–20 = UTC 03–05, 13–15) hər 5 dəq, qalan vaxt (Bakı 10–17, 20–22) hər 20 dəq: ayda ≈ 9 200 sorğu < 10 000.
+# GitHub planlı işləri bəzən bir neçə dəqiqə gecikdirir; skript gündə 330 sorğudan çox göndərmir. Nəticə yalnız «tixac» budağına yazılır
+# (tarixçəsiz, bir fayl); main-ə və xəbər lentinə heç nə yazılmır. Açar (MAPBOX_TOKEN) yalnız ölçü addımındadır.
 # feat/tixac-* budaqlarında: yalnız yoxlama (nöqtələrin hansı yola düşdüyü), heç nə yazılmır.
 
 on:
   schedule:
-    - cron: '7,22,37,52 3-17 * * *'
+    - cron: '*/5 3-5,13-15 * * *'
+    - cron: '*/20 6-12,16-17 * * *'
   workflow_dispatch:
   push:
     branches: ['feat/tixac-**']
@@ -32,12 +34,12 @@ jobs:
       - name: Yoxlama (sınaq budağı)
         if: github.event_name == 'push'
         env:
-          TOMTOM_KEY: ${{ secrets.TOMTOM_KEY }}
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: node .github/scripts/tixac.cjs --yoxla
       - name: Ölç
         if: github.event_name != 'push' && github.ref == 'refs/heads/main'
         env:
-          TOMTOM_KEY: ${{ secrets.TOMTOM_KEY }}
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: |
           curl -fsS --max-time 10 -o /tmp/prev.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/tixac.json?t=$(date +%s)" || echo '{}' > /tmp/prev.json
           node .github/scripts/tixac.cjs out /tmp/prev.json
