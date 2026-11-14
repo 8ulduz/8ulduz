@@ -37,7 +37,10 @@ const bad = id => id === "tixac" || id === "sixtixac";
 
 async function getJson(url, key, fetchFn = fetch) {
   const r = await fetchFn(url + (url.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key), { headers: { "User-Agent": "8ulduz-tixac" }, signal: AbortSignal.timeout?.(15000) });
-  if (!r.ok) throw new Error("HTTP " + r.status); // ünvan (açarla) heç vaxt xətaya düşmür
+  if (!r.ok) { // ünvan (açarla) heç vaxt xətaya düşmür; cavabın mətni açar silinərək qısa yazılır
+    let why = ""; try { why = (await r.text()).split(key).join("***").replace(/\s+/g, " ").slice(0, 160); } catch {}
+    throw new Error("HTTP " + r.status + (why ? " " + why : ""));
+  }
   return r.json();
 }
 
