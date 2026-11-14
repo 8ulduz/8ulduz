@@ -8,7 +8,8 @@ nüsxəsi (30 saat): marşrutların vaxtı [id, dəqiqə, adi dəqiqə], tıxacl
 İki bülleten:
 - «Səhər pik saatı» (açar tixac-seher-<gün>): 07:00–08:45 ölçüləri, 08:45-dən 10:00-dək dərc olunur (şəhərə doğru).
 - «Axşam pik saatı» (açar tixac-axsam-<gün>): 17:00–18:45 ölçüləri, 18:45-dən 20:00-dək (şəhərdən çıxış).
-Hər bülletendə: başlıq (ən sıx yol), giriş, səkkiz əsas yolun vəziyyəti (indi və pik ərzində ən pis), marşrutlarda gediş vaxtı
+Hər bülletendə: başlıq (neçə küçədə tıxac olub, ən uzunu harada — 35 marşrutun ölçüsü), giriş, rayonlar üzrə tıxac balı,
+ən uzun tıxaclar, səkkiz əsas yolun vəziyyəti (indi və pik ərzində ən pis), marşrutlarda gediş vaxtı
 (indi, adi halda, pik ərzində ən uzun və saatı), tıxacın təxminən neçə dəqiqə sürdüyü, yol hadisələri, dünənin eyni saatları ilə
 müqayisə və canlı səhifəyə keçid.
 Dərc olunmur (worth=False): pəncərənin sonunadək ölçü azdır və ya təzə deyil; həftə sonu heç bir tıxac yoxdur (boş xəbər olmasın).
@@ -96,7 +97,24 @@ def summarize(snaps):
     """Pəncərənin ölçülərindən: yollar (indi, ən pis, tıxac dəqiqəsi, ən uzun tıxac km), marşrutlar və hadisələr."""
     mins = _durations(snaps)
     roads, routes, incidents = {}, {}, []
+    streets, rayons = {}, {}
     for s, dur in zip(snaps, mins):
+        # bütün şəhər (35 marşrut, 2026-11-14): tıxaclı küçələr (istiqamətdən asılı olmayaraq bir dəfə) və rayon balı
+        seen = set()
+        for row in s.get("s") or []:
+            if len(row) < 4 or row[2] not in BAD:
+                continue
+            st = streets.setdefault(row[0], {"name": row[0], "jam_min": 0.0, "max_km": 0.0, "worst": "tixac"})
+            st["max_km"] = max(st["max_km"], _km(row[3]))
+            if RANK[row[2]] > RANK[st["worst"]]:
+                st["worst"] = row[2]
+            if row[0] not in seen:
+                seen.add(row[0])
+                st["jam_min"] += dur
+        for row in s.get("z") or []:
+            z = rayons.setdefault(row[0], [0, 0])
+            z[0] += row[1]
+            z[1] += 1
         for row in s.get("w") or []:
             name, level, km = row[0], row[1], _km(row[2])
             r = roads.setdefault(name, {"name": name, "worst": "?", "jam_min": 0.0, "max_km": 0.0, "now": "?", "now_km": 0.0})
@@ -121,7 +139,7 @@ def summarize(snaps):
     for rid, m, typ in last.get("r") or []:
         if rid in routes:
             routes[rid]["now"], routes[rid]["typ"] = m, typ
-    return roads, routes, incidents
+    return roads, routes, incidents, streets, rayons
 
 
 def _avg_extra(routes):
@@ -135,13 +153,23 @@ def bulletin(b, day, snaps, now):
     win = _window(snaps, start, now)
     if len(win) < MIN_SNAPS or now - _t(win[-1]["t"]) > FRESH:
         return None
-    roads, routes, incidents = summarize(win)
+    roads, routes, incidents, streets, rayons = summarize(win)
+    city = sorted(streets.values(), key=lambda r: (-r["jam_min"], -r["max_km"]))
+    measured = max([(s.get("n") or [0])[0] for s in win] or [0])
     order = [n for n in (win[-1].get("w") or [])]
     jams = sorted((r for r in roads.values() if r["jam_min"] > 0), key=lambda r: (-RANK[r["worst"]], -r["jam_min"], -r["max_km"]))
     key = f"tixac-{b['id']}-{day.isoformat()}"
     weekend = day.weekday() >= 5
     ad = b["ad"]
-    if jams:
+    if city and measured:
+        top = city[0]
+        title = f"{ad} pik saatı: Bakıda {len(city)} küçədə tıxac olub, ən uzunu {top['name']}"
+        lead = (f"8ulduz.az-ın avtomatik ölçüsünə görə bu gün saat {b['start']}–{slot:%H:%M} arası {b['dir']} hərəkətdə ölçülən "
+                f"{measured} küçədən {len(city)} küçədə tıxac olub. Ən uzun tıxac {top['name']} üzərindədir: "
+                f"{_kmt(top['max_km'])} km, təxminən {round(top['jam_min'])} dəqiqə.")
+        if len(title) > TITLE_MAX:
+            title = f"{ad} pik saatı: Bakıda {len(city)} küçədə tıxac olub"
+    elif jams:
         top = jams[0]
         title = f"{ad} pik saatı: Bakıda {len(jams)} əsas yolda tıxac, ən sıxı {top['name']}" if len(jams) > 1 else \
             f"{ad} pik saatı: Bakıda {top['name']} tıxacdadır"
@@ -168,6 +196,12 @@ def bulletin(b, day, snaps, now):
     if lines:
         body.append("Səkkiz əsas yolun vəziyyəti (" + b["dir"] + "):")
         body += lines
+    if rayons:
+        avg = sorted(((n, round(v[0] / v[1])) for n, v in rayons.items() if v[1]), key=lambda x: (-x[1], x[0]))
+        body.append("Rayonlar üzrə tıxac balı (pik ərzində orta, 0–10): " + ", ".join(f"{n} {v}" for n, v in avg) + ".")
+    if len(city) > 1:
+        body.append("Ən uzun tıxaclar:")
+        body += [f"{r['name']}: {_kmt(r['max_km'])} km, təxminən {round(r['jam_min'])} dəq." for r in city[:6]]
     names = ROUTE_AD[b["id"]]
     times = []
     for rid, r in routes.items():
@@ -184,7 +218,7 @@ def bulletin(b, day, snaps, now):
         body.append("Pik ərzində qeydə alınan yol hadisələri: " + " ".join(incidents[:5]))
     y = _window(snaps, start - datetime.timedelta(days=1), slot - datetime.timedelta(days=1))
     if len(y) >= MIN_SNAPS:
-        _, y_routes, _ = summarize(y)
+        y_routes = summarize(y)[1]
         a, b2 = _avg_extra(routes), _avg_extra(y_routes)
         if a is not None and b2 is not None:
             diff = round(a - b2)
@@ -194,7 +228,7 @@ def bulletin(b, day, snaps, now):
     body.append("Ölçü Mapbox-un tıxac məlumatı əsasında avtomatik aparılır, rəsmi məlumat deyil.")
     item = {"kind": f"tixac-{b['id']}", "key": key, "title": title, "lead": lead, "body": body, "credit": CREDIT, "link": PAGE,
             "topic": "yol", "slot": b["slot"], "worth": True, "list": False}
-    if weekend and not jams:
+    if weekend and not jams and len(city) < 5:
         item.update(worth=False, why="həftə sonu, tıxac yoxdur")
     elif len(title) > TITLE_MAX:
         item.update(worth=False, why=f"başlıq {TITLE_MAX} hərfdən uzundur")

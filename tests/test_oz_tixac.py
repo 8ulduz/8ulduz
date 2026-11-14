@@ -105,6 +105,30 @@ class BulletinTest(unittest.TestCase):
         weekday_quiet = ot.items(None, at(self.MON, 8, 50), fetch=Fetch(snaps_for(self.MON, 7, 9)))[0]
         self.assertTrue(weekday_quiet["worth"], "iş günü «tıxac yoxdur» da xəbərdir")
 
+    def test_citywide_bulletin_counts_streets_scores_districts_and_lists_the_longest_jams(self):
+        snaps = snaps_for(self.MON, 7, 9, jam=("Moskva prospekti", 30, 90, "2,4"))
+        for i, s in enumerate(snaps):
+            s["n"] = [170 + i % 4, 0]
+            s["z"] = [["Nərimanov", 6 if i < 10 else 8], ["Xəzər", 1]]
+            s["s"] = [["Təbriz küçəsi", "şəhərə doğru", "sixtixac", "3,2"], ["Təbriz küçəsi", "şəhərdən çıxış", "tixac", "1,0"],
+                      ["Füzuli küçəsi", "şəhərə doğru", "leng", "0,0"]] + ([["Mətbuat prospekti", "şəhərə doğru", "tixac", "1,4"]] if i < 5 else [])
+        b = ot.items(None, at(self.MON, 8, 50), fetch=Fetch(snaps))[0]
+        self.assertTrue(b["worth"], b.get("why"))
+        self.assertEqual(b["title"], "Səhər pik saatı: Bakıda 2 küçədə tıxac olub, ən uzunu Təbriz küçəsi")
+        self.assertIn("ölçülən 173 küçədən 2 küçədə tıxac olub. Ən uzun tıxac Təbriz küçəsi üzərindədir: 3,2 km, təxminən", b["lead"])
+        body = "\n".join(b["body"])
+        self.assertIn("Rayonlar üzrə tıxac balı (pik ərzində orta, 0–10): Nərimanov 7, Xəzər 1.", body)
+        self.assertIn("Ən uzun tıxaclar:\nTəbriz küçəsi: 3,2 km, təxminən 114 dəq.", body, "iki istiqamət bir dəfə sayılır: 19 ölçü × 6 dəq")
+        self.assertIn("Mətbuat prospekti: 1,4 km, təxminən 30 dəq.", body)
+        self.assertNotIn("Füzuli küçəsi", body, "ləng küçə tıxac sayılmır")
+        self.assertIn("Səkkiz əsas yolun vəziyyəti", body, "səkkiz yol da qalır")
+        sat = datetime.date(2026, 11, 21)
+        few = snaps_for(sat, 7, 9)
+        for s in few:
+            s["n"], s["s"] = [170, 1], [["Təbriz küçəsi", "şəhərə doğru", "tixac", "0,8"]]
+        q = ot.items(None, at(sat, 8, 50), fetch=Fetch(few))[0]
+        self.assertFalse(q["worth"], "həftə sonu 5-dən az küçədə tıxac: dərc olunmur")
+
     def test_network_error_returns_nothing(self):
         def broken(url, *a, **k):
             raise OSError("şəbəkə")
@@ -136,6 +160,11 @@ class StaticPageTest(unittest.TestCase):
         self.assertEqual(updater.tixac_status(doc, now + 4 * 3600), "", "3 saatdan köhnə ölçü yazılmır")
         self.assertEqual(updater.tixac_status({}, now), "")
         self.assertIn(("tixac", "Bakıda tıxac indi"), [(s, l) for s, l, _ in updater.SERVICE_PAGES])
+        self.assertNotIn("Rayonlar", html, "rayon balı yoxdursa cədvəl də yoxdur")
+        city = updater.tixac_status({**doc, "rayons": [["Nərimanov", 7, "3,1"], ["Xəzər", 0, "0,0"]], "counted": 173, "jammed": 17}, now)
+        self.assertIn("<h2>Rayonlar üzrə tıxac balı (08:54)</h2><p>Bakıda tıxaclı küçə: 17 (ölçülən 173 küçədən). ", city)
+        self.assertIn("<td>Nərimanov</td><td>7/10</td><td>3,1 km</td>", city); self.assertIn("<td>Xəzər</td><td>0/10</td><td></td>", city)
+        self.assertLess(city.index("Rayonlar"), city.index("Səkkiz"))
 
 
 if __name__ == "__main__":

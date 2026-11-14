@@ -2355,9 +2355,13 @@ function tixMeasure() {
   // Səkkiz əsas yol: hər biri, sərbəst olsa da (sahib 2026-11-14: «səkkiz əsas yol üzrə»)
   const W_TEXT = { sixtixac: "sıx tıxac", tixac: "tıxac", leng: "ləng", serbest: "sərbəst", "?": "ölçülməyib" };
   const eight = Array.isArray(d.watch) && d.watch.length ? `<h3>Səkkiz əsas yol</h3><ul class="tix-now">${d.watch.map(([n, l, k]) => `<li><span aria-hidden="true">${TIX_LVL[l] || (l === "serbest" ? "🟢" : "⚪")}</span><b>${esc(n)}</b> — ${esc(W_TEXT[l] || l)}${(l === "tixac" || l === "sixtixac") && k !== "0,0" ? `, ${esc(k)} km` : ""}</li>`).join("")}</ul>` : "";
+  // Rayon balı 0–10 (35 marşrut, 2026-11-14) və bütün şəhər üzrə xülasə
+  const zl = Array.isArray(d.rayons) ? d.rayons : [], zc = b => b >= 7 ? "🔴" : b >= 4 ? "🟠" : b >= 2 ? "🟡" : "🟢";
+  const city = d.counted ? `<h3>Bakıda tıxaclı küçə: ${d.jammed | 0} <span class="muted">(ölçülən ${d.counted | 0} küçədən)</span></h3>` : "";
+  const ray = zl.length ? `<h3>Rayonlar üzrə tıxac balı</h3><ul class="tix-now">${zl.map(([n, b, k]) => `<li><span aria-hidden="true">${zc(b)}</span><b>${esc(n)}</b> — ${b | 0}/10${k !== "0,0" ? `, ${esc(k)} km tıxac` : ""}</li>`).join("")}</ul>` : "";
   const ev = (d.events || []).slice(0, 10);
   const feed = ev.length ? `<h3>Avtomatik xəbərlər</h3><ul class="tix-ev">${ev.map(e => `<li class="${esc(e.kind || "")}"><time>${clock(e.t)}</time> ${esc(e.text)}</li>`).join("")}</ul>` : "";
-  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${list}${eight}${feed}<p class="tix-src">Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6, qalan vaxt 30 dəqiqədən bir yenilənir.</p></section>`;
+  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${city}${list}${ray}${eight}${feed}<p class="tix-src">Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6, qalan vaxt 30 dəqiqədən bir yenilənir.</p></section>`;
 }
 
 // Yalnız dəyişən blok yenilənir.

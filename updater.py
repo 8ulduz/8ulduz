@@ -5709,7 +5709,13 @@ def tixac_status(doc=None, now=None):
         rows = [(w[0], TIXAC_LEVEL.get(w[1], w[1]), (w[2] + " km") if w[1] in ("tixac", "sixtixac") else "") for w in d.get("watch") or [] if len(w) >= 3]
         ev = "".join(f'<li>{_xml(datetime.datetime.fromtimestamp(e["t"] / 1000, BAKU).strftime("%H:%M"))} — {_xml(e.get("text"))}</li>'
                      for e in (d.get("events") or [])[:10] if isinstance(e.get("t"), (int, float)))
-        out = f"<h2>Səkkiz əsas yolun vəziyyəti ({clock})</h2>" + (_table(("Yol", "Vəziyyət", "Tıxac"), rows) if rows else "")
+        out = ""
+        zl = [z for z in d.get("rayons") or [] if len(z) >= 3 and isinstance(z[1], int)]
+        if zl:  # 35 marşrut, bütün rayonlar (2026-11-14)
+            head = f"Bakıda tıxaclı küçə: {int(d.get('jammed') or 0)} (ölçülən {int(d.get('counted') or 0)} küçədən). " if d.get("counted") else ""
+            out += (f"<h2>Rayonlar üzrə tıxac balı ({clock})</h2><p>{head}Bal 0–10: rayonun ölçülən yollarında tıxaclı hissənin payı.</p>"
+                    + _table(("Rayon", "Bal", "Tıxac"), [(z[0], f"{z[1]}/10", (z[2] + " km") if z[2] != "0,0" else "") for z in zl]))
+        out += f"<h2>Səkkiz əsas yolun vəziyyəti ({clock})</h2>" + (_table(("Yol", "Vəziyyət", "Tıxac"), rows) if rows else "")
         out += f"<h2>Avtomatik xəbərlər</h2><ul>{ev}</ul>" if ev else ""
         return out + "<p><small>Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6 dəqiqədən bir yenilənir.</small></p>"
     except Exception as e:

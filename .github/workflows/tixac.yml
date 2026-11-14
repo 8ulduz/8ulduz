@@ -1,8 +1,8 @@
 name: Tıxac ölçüsü
-# Sahib (2026-11-14): «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur», «Bəli, Mapbox». Mapbox Directions (driving-traffic), kartsız plan.
-# 4 marşrut (8 əsas yol). Pik saatlar (Bakı 07–10, 17–20 = UTC 03–05, 13–15) hər 6 dəq, qalan vaxt (Bakı 10–17, 20–22) hər 30 dəq: ayda ≈ 9 700 sorğu < 10 000.
-# GitHub planlı işləri bəzən bir neçə dəqiqə gecikdirir; skript gündə 330 sorğudan çox göndərmir. Nəticə yalnız «tixac» budağına yazılır
-# (tarixçəsiz, bir fayl); main-ə və xəbər lentinə heç nə yazılmır. Açar (MAPBOX_TOKEN) yalnız ölçü addımındadır.
+# Sahib (2026-11-14): «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur», «Bəli, Mapbox»; sonra kart bağladı. Mapbox Directions (driving-traffic).
+# 35 marşrut (bütün rayonlar). Pik saatlar (Bakı 07–10, 17–20 = UTC 03–05, 13–15) hər 6 dəq, qalan vaxt (Bakı 10–17, 20–22) hər 30 dəq:
+# 78 × 35 = 2 730/gün, ayda ≈ 84 600 < 100 000 (pulsuz hədd). Skript gündə 3 000 sorğudan çox göndərmir (dövrə bütöv buraxılır). Nəticə yalnız «tixac» budağına yazılır
+# (tarixçəsiz: tixac.json, tarix.json, hafta.json); main-ə və xəbər lentinə heç nə yazılmır. Açar (MAPBOX_TOKEN) yalnız ölçü addımındadır.
 # feat/tixac-* budaqlarında: yalnız yoxlama (nöqtələrin hansı yola düşdüyü), heç nə yazılmır.
 
 on:
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   olc:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 6
     permissions:
       contents: write
     steps:
@@ -43,14 +43,16 @@ jobs:
         run: |
           curl -fsS --max-time 10 -o /tmp/prev.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/tixac.json?t=$(date +%s)" || echo '{}' > /tmp/prev.json
           curl -fsS --max-time 10 -o /tmp/tarix.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/tarix.json?t=$(date +%s)" || echo '{}' > /tmp/tarix.json
-          node .github/scripts/tixac.cjs out /tmp/prev.json /tmp/tarix.json
+          curl -fsS --max-time 10 -o /tmp/hafta.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/hafta.json?t=$(date +%s)" || echo '{}' > /tmp/hafta.json
+          node .github/scripts/tixac.cjs out /tmp/prev.json /tmp/tarix.json /tmp/hafta.json
       - name: «tixac» budağına yaz
         if: github.event_name != 'push' && github.ref == 'refs/heads/main'
         env:
           URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
         run: |
+          [ -f out/tixac.json ] || { echo "gündəlik hədd: yazılmır"; exit 0; }
           cd out
           git init -q
-          git add tixac.json tarix.json
+          git add tixac.json tarix.json hafta.json
           git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit -q -m "Tıxac ölçüsü"
           git push -q --force "$URL" HEAD:refs/heads/tixac
