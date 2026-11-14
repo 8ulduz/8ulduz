@@ -28,6 +28,7 @@ test("every real /bolme/ link has a page the updater writes; the «N mənbə» b
   const block = name => { const i = py.indexOf(`\n${name} = [`); assert.ok(i > 0, name); return py.slice(i, py.indexOf("\n]", i)); };
   const pages = new Set([...(block("SECTIONS") + block("SERVICE_PAGES")).matchAll(/^\s+\("([a-z]+)",/gm)].map(m => m[1]));
   for (const m of py.slice(py.indexOf("\nSECTION_ALIASES = {")).split("}")[0].matchAll(/"([a-z]+)":/g)) pages.add(m[1]);
+  for (const m of py.matchAll(/_write_page\("([a-z]+)\/", /g)) pages.add(m[1]); // namaz, hava: write_subpages öz baş səhifəsini yazır
   const cats = [...app.slice(app.indexOf("const CATS = ["), app.indexOf("];", app.indexOf("const CATS = ["))).matchAll(/slug: "([a-z]+)"/g)].map(m => m[1]);
   assert.ok(cats.length >= 12, "CATS oxundu");
   const linked = new Set([...cats, ...[...(html + app).matchAll(/href="\/bolme\/([a-z]+)\/"/g)].map(m => m[1])]);
