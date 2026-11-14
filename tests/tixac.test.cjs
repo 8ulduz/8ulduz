@@ -31,20 +31,23 @@ test("tixac: news only when a street changes — jam starts, gets worse, clears;
   assert.equal(T.eventFor(row("leng", "hərəkət ləngdir"), undefined), null);
 });
 
-test("tixac: a run makes three requests, keeps the token out of logs, respects the daily cap and keeps 12 hours of news", async () => {
+test("tixac: a run makes four requests (8 main roads), keeps the token out of logs, respects the daily cap and keeps 12 hours of news", async () => {
   const urls = [], logs = [], token = "pk.SIRRITOKEN123";
   const jam = route([["Ziya Bünyadov prospekti", ["heavy", "heavy", "heavy", "low"]]], [{ id: "i1", type: "accident", affected_road_names: ["Ziya Bünyadov prospekti"], impact: "major" }]);
   const fetchFn = async url => { urls.push(url); return { ok: true, json: async () => jam }; };
   const now = Date.parse("2026-11-16T05:00:00Z"); // Bakı 09:00, şəhərə doğru
   const d = await T.run({ token, prev: { events: [{ t: now - 13 * 3600e3, text: "köhnə" }, { t: now - 3600e3, text: "təzə" }] }, now, fetchFn, log: s => logs.push(s) });
-  assert.equal(urls.length, 3); assert.ok(urls.every(u => u.includes("/driving-traffic/") && u.includes("annotations=congestion,distance")));
+  assert.equal(urls.length, T.ROUTES.length); assert.equal(T.ROUTES.length, 4); assert.ok(urls.every(u => u.includes("/driving-traffic/") && u.includes("annotations=congestion,distance")));
   assert.ok(!logs.join("\n").includes(token), "açar jurnala düşmür");
-  assert.equal(d.used, 3); assert.equal(d.routes[0].dir, "şəhərə doğru"); assert.equal(d.routes[0].typ, 10); assert.equal(d.routes[0].min, 15);
-  assert.deepEqual(d.streets.map(s => s.level), ["sixtixac"], "eyni küçə üç marşrutda: bir sətir");
+  assert.equal(d.used, 4); assert.equal(d.routes[0].dir, "şəhərə doğru"); assert.equal(d.routes[0].typ, 10); assert.equal(d.routes[0].min, 15);
+  assert.deepEqual(d.streets.map(s => s.level), ["sixtixac"], "eyni küçə dörd marşrutda: bir sətir");
+  assert.deepEqual(Array.from(d.watch[2]), ["Ziya Bünyadov prospekti", "sixtixac", "0,9"], "səkkiz yoldan biri"); assert.equal(d.watch.length, 8); assert.equal(d.watch[0][1], "?", "ölçülməyən yol «?»");
+  const h = T.history([{ t: now - 31 * 3600e3 }, { t: now - 3600e3, r: [] }], d, now);
+  assert.equal(h.length, 2, "30 saatdan köhnə nüsxə düşür"); assert.deepEqual(h[1].w, d.watch); assert.deepEqual(h[1].i, ["Qəza: Ziya Bünyadov prospekti. Təsiri böyükdür."]); assert.deepEqual(h[1].r[0], ["simal", 15, 10]);
   assert.ok(d.events.some(e => e.text.startsWith("Qəza: Ziya Bünyadov")) && d.events.some(e => e.text.startsWith("Ziya Bünyadov prospekti (şəhərə doğru): sıx tıxac")) && d.events.some(e => e.text === "təzə") && !d.events.some(e => e.text === "köhnə"), "12 saatdan köhnə xəbər çıxır");
   // ikinci dövrə: dəyişiklik yoxdur → yeni xəbər yoxdur, eyni hadisə təkrarlanmır
   const again = await T.run({ token, prev: d, now: now + 300e3, fetchFn, log: () => {} });
-  assert.equal(again.events.length, d.events.length); assert.equal(again.used, 6);
+  assert.equal(again.events.length, d.events.length); assert.equal(again.used, 8);
   // gündəlik hədd
   urls.length = 0;
   const capped = await T.run({ token, prev: { ...d, used: T.DAILY_CAP }, now: now + 600e3, fetchFn, log: () => {} });
@@ -65,9 +68,9 @@ test("tixac: the workflow only writes the «tixac» branch, the token is only in
   const y = fs.readFileSync(path.join(root, ".github/workflows/tixac.yml"), "utf8");
   assert.equal((y.match(/secrets\.MAPBOX_TOKEN/g) || []).length, 2);
   assert.ok(/git push -q --force "\$URL" HEAD:refs\/heads\/tixac\n/.test(y) && !/refs\/heads\/main\b(?!')/.test(y.replace("github.ref == 'refs/heads/main'", "")));
-  assert.ok(y.includes("- cron: '*/5 3-5,13-15 * * *'") && y.includes("- cron: '*/20 6-12,16-17 * * *'"));
-  const perDay = (3 * 12 * 2) + (7 * 3 + 2 * 3); // pik: 6 saat × 12; qalan: 9 saat × 3
-  assert.equal(perDay, 99); assert.ok(perDay * T.ROUTES.length * 31 < 10000, "31 günlük ayda 10 000-dən az"); assert.ok(T.DAILY_CAP * 31 > perDay * 3 * 31 && T.DAILY_CAP * 30 < 10000 + 100);
+  assert.ok(y.includes("- cron: '*/6 3-5,13-15 * * *'") && y.includes("- cron: '0,30 6-12,16-17 * * *'"));
+  const perDay = (3 * 10 * 2) + (7 * 2 + 2 * 2); // pik: 6 saat × 10; qalan: 9 saat × 2
+  assert.equal(perDay, 78); assert.ok(perDay * T.ROUTES.length * 31 < 10000, "31 günlük ayda 10 000-dən az"); assert.ok(T.DAILY_CAP >= perDay * T.ROUTES.length && T.DAILY_CAP * 30 < 10000);
 });
 
 test("tixac: the Tıxac page shows the measurement only when it is fresh, with escaped street names", () => {

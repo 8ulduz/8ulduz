@@ -4,6 +4,7 @@ Bu siyahı əvvəl `sw.js`-in `VERSION` sətrində şərh kimi dururdu (7,8 KB) 
 2026-11-13-də (sahib: «hədd artırılmır, artıq olan silinir, yer boşaldılsın») buraya köçürüldü: `sw.js` gzip büdcəsi 9 000 baytdır.
 Yeni versiya artıranda qeydi bu faylın **başına** yazın; `sw.js`-də yalnız `const VERSION = "vNNN";` dəyişir.
 
+- v175: «Bakıda tıxac indi»: səkkiz əsas yol, rəsmi elanlar (NİİM, BNA, DYP), pik saat bülletenləri
 - v174: Tıxac səhifəsində avtomatik ölçü (Mapbox): tıxaclı küçələr və avtomatik xəbərlər, pik saatlarda 5 dəqiqədən bir
 - v173: telefonda Waze xəritəsi alçaq (300–400 px, əvvəl ekran boyu)
 - v172: «N yeni xəbər» artıq ekranda olan xəbəri saymır (əsas keçidi dəyişən xəbər, üst qatdan çıxan sətir; səhifə başqa yolla çəkiləndə sayğac sıfırlanır)

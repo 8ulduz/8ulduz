@@ -5561,7 +5561,7 @@ _SECTION_HTML = """<!doctype html>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac və yollar</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Bakıda tıxac indi</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -5641,7 +5641,8 @@ def _page_html(slug, label, desc, items):
 SERVICE_PAGES = [
     ("valyuta", "Valyuta məzənnəsi", "Dollar, avro, rubl və lirənin manatla bugünkü məzənnəsi, neft və qızıl qiyməti"),
     ("cedvel", "Premyer Liqa cədvəli", "Azərbaycan Premyer Liqasının turnir cədvəli"),
-    ("tixac", "Tıxac və yollar", "Azərbaycanda yol vəziyyəti, qəza və bağlanan yollar haqqında son xəbərlər"),
+    # Sahib 2026-11-14: «Bakıda tıxac indi» səhifəsi — avtomatik ölçü (tixac.yml, Mapbox), pik saat bülletenləri (öz xəbər modulu), yol xəbərləri.
+    ("tixac", "Bakıda tıxac indi", "Bakının səkkiz əsas yolunun canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar haqqında son xəbərlər"),
     # Menyudakı «Son dəqiqə» və alt zolaqdakı «Video» həqiqi keçiddir (/bolme/<ad>/): səhifəsi olmasa Google 404 görür (2026-11-11).
     ("sondeqiqe", "Son dəqiqə", "Son bir saatın xəbərləri"),
     ("video", "Video xəbərlər", "Azərbaycan mətbuatının videolu xəbərləri"),
@@ -5676,7 +5677,44 @@ def service_body(slug, articles):
     road = [a for a in articles if (a.get("lang") or "az") == "az" and _ROAD_RX.search(a.get("title") or "")]
     road.sort(key=lambda a: a.get("publishedAt") or "", reverse=True)
     lis = "".join(f'<li><a href="{_xml(a.get("sourceUrl"))}" rel="noopener">{_xml(a.get("title"))}</a> <small>{_xml(a.get("source"))}</small></li>' for a in road[:20])
-    return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p><ul>{lis}</ul>'
+    return f'<p><a href="../../#/tixac">Canlı tıxac xəritəsi</a></p>{tixac_status()}<h2>Yol xəbərləri</h2><ul>{lis}</ul>'
+
+# «Bakıda tıxac indi» səhifəsinin Google-un oxuduğu hissəsi: avtomatik ölçünün son nəticəsi (tixac.yml → «tixac» budağı).
+# QIRMIZI XƏTT 1: xəbər axını gözləmir — fayl ən çoxu 5 dəqiqədə bir, 3 saniyəlik sorğu ilə alınır, xəta və gecikmə səhifəni
+# ölçüsüz yazır. 3 saatdan köhnə ölçü (gecə) yazılmır.
+TIXAC_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tixac.json"
+TIXAC_CACHE = CACHE_DIR / "tixac.json"
+TIXAC_LEVEL = {"sixtixac": "sıx tıxac", "tixac": "tıxac", "leng": "hərəkət ləngdir", "serbest": "hərəkət sərbəstdir", "?": "ölçülməyib"}
+
+def _tixac_doc(now=None):
+    now = now or time.time()
+    try:
+        if not TIXAC_CACHE.exists() or now - TIXAC_CACHE.stat().st_mtime > 300:
+            CACHE_DIR.mkdir(exist_ok=True)
+            raw = fetch(f"{TIXAC_URL}?t={int(now) // 300}", timeout=3)
+            json.loads(raw)
+            _write_atomic(TIXAC_CACHE, raw.decode("utf-8"), encoding="utf-8")
+    except Exception as e:
+        print("  ! tıxac ölçüsü:", type(e).__name__)
+    return _read_json(TIXAC_CACHE, {})
+
+def tixac_status(doc=None, now=None):
+    try:
+        d = _tixac_doc(now) if doc is None else doc
+        at = datetime.datetime.fromisoformat(str(d.get("updatedAt") or "").replace("Z", "+00:00"))
+        now_dt = datetime.datetime.fromtimestamp(now or time.time(), datetime.timezone.utc)
+        if not (datetime.timedelta(0) <= now_dt - at < datetime.timedelta(hours=3)):
+            return ""
+        clock = at.astimezone(BAKU).strftime("%H:%M")
+        rows = [(w[0], TIXAC_LEVEL.get(w[1], w[1]), (w[2] + " km") if w[1] in ("tixac", "sixtixac") else "") for w in d.get("watch") or [] if len(w) >= 3]
+        ev = "".join(f'<li>{_xml(datetime.datetime.fromtimestamp(e["t"] / 1000, BAKU).strftime("%H:%M"))} — {_xml(e.get("text"))}</li>'
+                     for e in (d.get("events") or [])[:10] if isinstance(e.get("t"), (int, float)))
+        out = f"<h2>Səkkiz əsas yolun vəziyyəti ({clock})</h2>" + (_table(("Yol", "Vəziyyət", "Tıxac"), rows) if rows else "")
+        out += f"<h2>Avtomatik xəbərlər</h2><ul>{ev}</ul>" if ev else ""
+        return out + "<p><small>Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6 dəqiqədən bir yenilənir.</small></p>"
+    except Exception as e:
+        print("  ! tıxac səhifəsi:", type(e).__name__)
+        return ""
 
 def write_sections(articles, stories=()):
     try:

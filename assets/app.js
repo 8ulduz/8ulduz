@@ -1295,7 +1295,7 @@ function pageMeta() {
   } else if (r.name === "search") {
     name = S.q ? `Axtarış: ${S.q}` : "Axtarış";
     desc = "Başlıq, xülasə və mənbə adına görə axtarış.";
-  } else if (r.name === "traffic") { name = "Tıxac və yollar"; desc = "Bakı və Abşeronun canlı yol vəziyyəti."; }
+  } else if (r.name === "traffic") { name = "Bakıda tıxac indi"; desc = "Bakının səkkiz əsas yolunun canlı vəziyyəti, pik saat bülletenləri, qəza və bağlanan yollar."; }
   else if (r.name === "rates") { name = "Valyuta məzənnəsi"; desc = "Dollar, avro, rubl və lirənin manatla məzənnəsi, neft və qızıl qiyməti."; }
   else if (r.name === "league") { name = "Premyer Liqa cədvəli"; desc = "Azərbaycan Premyer Liqasının turnir cədvəli və digər liqalar."; }
   else if (r.name === "saved") { name = "Seçilmişlər"; desc = "Bu cihazda saxlanan xəbərlər."; }
@@ -2312,16 +2312,25 @@ function trafficView() {
   const rows = items.length
     ? `<ul class="tix-list">${items.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
-  return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p class="sec-desc">Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
+  return `<div class="page-h"><div><h1>Bakıda tıxac indi</h1><p class="sec-desc">Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
     ${rush}
     <div class="tix-jumps">${jumps}</div>
     <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<button type="button" class="tix-alt" data-act="tix-yandex">${S.tixYandex ? "Waze xəritəsinə qayıt" : "Xəritə görünmür? Yandex xəritəsi"}</button><a href="${esc(wazeApp(area))}" ${OUT}>Waze tətbiqində aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
     ${tixMeasure()}
+    ${officialRoad()}
     <p class="tix-note">${TOUCH_UI && S.tixYandex ? "Xəritə Yandex Xəritələrdəndir." : "Xəritə Waze-dəndir."} Aşağıda son 2 saatın Bakı və Abşeron üzrə yol xəbərləri.</p>
     ${rows}`;
 }
-// Avtomatik tıxac ölçüsü (sahib 2026-11-14): .github/scripts/tixac.cjs Mapbox ilə pik saatlarda 5, qalan vaxt 20 dəqiqədən bir ölçür,
-// nəticə «tixac» budağındadır. Yalnız Tıxac səhifəsində və yalnız açıq ikən 5 dəqiqədən bir oxunur (başqa səhifələrə yük yoxdur).
+// Rəsmi elanlar (sahib 2026-11-14: «rəsmi kanallardan yol bağlanması və təmir elanları»): son 12 saatın yol xəbərlərindən NİİM, BNA,
+// DYP/Yol polisi və nazirliklərin elanları — mənbə qaydasından keçmiş lentdən, ayrıca sorğu yoxdur.
+const OFFICIAL_ROAD = /NİİM|İntellektual İdarəetmə|Nəqliyyat Agentliyi|\bBNA\b|\bDYP\b|yol polisi|Daxili İşlər Nazirliyi|Avtomobil Yolları/iu;
+function officialRoad() {
+  const rows = roadItems(S.data?.articles || []).filter(a => Date.now() - new Date(a.publishedAt) < 12 * HOUR && OFFICIAL_ROAD.test(`${a.title} ${a.summary || ""}`)).slice(0, 6);
+  if (!rows.length) return "";
+  return `<section class="tix-olcu" aria-label="Rəsmi elanlar"><h2>Rəsmi elanlar</h2><ul>${rows.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}>${txt(a.title)}</a> <span class="muted">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></li>`).join("")}</ul></section>`;
+}
+// Avtomatik tıxac ölçüsü (sahib 2026-11-14): .github/scripts/tixac.cjs Mapbox ilə pik saatlarda 6, qalan vaxt 30 dəqiqədən bir ölçür,
+// nəticə «tixac» budağındadır (pik saatlarda 6, qalan vaxt 30 dəqiqədən bir). Yalnız Tıxac səhifəsində və yalnız açıq ikən 5 dəqiqədən bir oxunur (başqa səhifələrə yük yoxdur).
 const TIX_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tixac.json";
 function loadTixac() {
   if (S.tixLoading || Date.now() - (S.tixAt || 0) < 5 * 60e3) return;
@@ -2343,9 +2352,12 @@ function tixMeasure() {
   const list = now.length
     ? `<ul class="tix-now">${now.map(s => `<li><span aria-hidden="true">${TIX_LVL[s.level] || "•"}</span><b>${esc(s.name)}</b> <span class="muted">(${esc(s.dir)})</span> — ${esc(s.text)}${s.jamKm && s.jamKm !== "0,0" && s.level !== "leng" ? `, ${esc(s.jamKm)} km` : ""}</li>`).join("")}</ul>`
     : `<p class="tix-ok">Ölçülən marşrutlarda ciddi tıxac yoxdur.</p>`;
+  // Səkkiz əsas yol: hər biri, sərbəst olsa da (sahib 2026-11-14: «səkkiz əsas yol üzrə»)
+  const W_TEXT = { sixtixac: "sıx tıxac", tixac: "tıxac", leng: "ləng", serbest: "sərbəst", "?": "ölçülməyib" };
+  const eight = Array.isArray(d.watch) && d.watch.length ? `<h3>Səkkiz əsas yol</h3><ul class="tix-now">${d.watch.map(([n, l, k]) => `<li><span aria-hidden="true">${TIX_LVL[l] || (l === "serbest" ? "🟢" : "⚪")}</span><b>${esc(n)}</b> — ${esc(W_TEXT[l] || l)}${(l === "tixac" || l === "sixtixac") && k !== "0,0" ? `, ${esc(k)} km` : ""}</li>`).join("")}</ul>` : "";
   const ev = (d.events || []).slice(0, 10);
   const feed = ev.length ? `<h3>Avtomatik xəbərlər</h3><ul class="tix-ev">${ev.map(e => `<li class="${esc(e.kind || "")}"><time>${clock(e.t)}</time> ${esc(e.text)}</li>`).join("")}</ul>` : "";
-  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${list}${feed}<p class="tix-src">Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 5, qalan vaxt 20 dəqiqədən bir yenilənir.</p></section>`;
+  return `<section class="tix-olcu" aria-label="Yolların vəziyyəti"><h2>Yolların vəziyyəti <span class="muted">· ${clock(at)} ölçüsü</span></h2>${list}${eight}${feed}<p class="tix-src">Avtomatik ölçü: Mapbox tıxac məlumatı, 8ulduz.az hesablaması. Pik saatlarda 6, qalan vaxt 30 dəqiqədən bir yenilənir.</p></section>`;
 }
 
 // Yalnız dəyişən blok yenilənir.
