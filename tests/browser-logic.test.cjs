@@ -468,6 +468,29 @@ test('a story whose link is dead leaves the screen within a minute, moves to ano
   await ctx.loadLatest();
   assert.deepEqual(urls(),['https://apa.az/a','https://apa.az/b','https://apa.az/c']);
 });
+test('owner 2026-11-14: a story already on screen is not «new» again — not when its main link changes, not after it leaves the overlay',async()=>{
+  const ctx=app(),{S}=ctx.api;
+  let rows=[];
+  ctx.fetch=async()=>({ok:true,headers:new Headers(),json:async()=>({updatedAt:'x',articles:rows,dead:[]})});
+  vm.runInContext('requestRender = () => {}; readerBusy = () => true;',ctx);
+  const a=firstRow('a'),b=firstRow('b');
+  S.rawNews=[a,b];S.rawMeta={};S.lang='az';ctx.api.publishNews();
+  // 1) «a»-ya yeni mənbə qoşuldu: dəqiqəlik faylda əsas keçid başqadır, köhnəsi alts-dadır
+  rows=[{...firstRow('a2'),alts:[{source:'APA',sourceUrl:a.sourceUrl,title:a.title,publishedAt:a.publishedAt}]},b];
+  await ctx.loadLatest();
+  assert.equal((S.pendingNew||[]).length,0,'əsas keçidi dəyişən köhnə xəbər yeni sayılmır');
+  // 2) həqiqətən yeni xəbər sayılır
+  rows=[firstRow('c'),...rows];
+  await ctx.loadLatest();
+  assert.deepEqual(Array.from(S.pendingNew||[],x=>x.sourceUrl),[firstRow('c').sourceUrl]);
+  // 3) tam lent gəldi, «c» üst qatdan çıxdı (yarım saat), dəqiqəlik faylda isə hələ durur: yenidən yeni sayılmır
+  S.pendingNew=0;S.rawNews=[a,b];S.overlay=[];
+  await ctx.loadLatest();
+  assert.equal((S.pendingNew||[]).length,0,'bu açılışda görülmüş xəbər yenidən «yeni» olmur');
+  // 4) səhifə başqa yolla çəkildi (düymə, «Dinlə»…): gözləyən xəbərlər ekrandadır, «N yeni xəbər» qalmır
+  const src=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  assert.ok(/function renderView\(\) \{\n  syncQuery\(\);\n  pageMeta\(\);\n[^\n]*\n[^\n]*\n  if \(S\.pendingNew\?\.length && S\.data\) \{ S\.pendingNew = 0; syncNewPill\(\); \}/.test(src),'renderView gözləyən sayğacı sıfırlayır');
+});
 test('language order: Azerbaijani, Turkish, Russian, English',()=>{
   const ctx=app();
   assert.deepEqual(Array.from(vm.runInContext('LANGS.map(l=>l.code)',ctx)),['az','tr','ru','en']);
