@@ -1,0 +1,55 @@
+name: Tıxac ölçüsü
+# Sahib (2026-11-14): «avtomatik tıxac xəbərləri hazırlayıb verən sistem qur», «Bəli, Mapbox». Mapbox Directions (driving-traffic), kartsız plan.
+# Pik saatlar (Bakı 07–10, 17–20 = UTC 03–05, 13–15) hər 5 dəq, qalan vaxt (Bakı 10–17, 20–22) hər 20 dəq: ayda ≈ 9 200 sorğu < 10 000.
+# GitHub planlı işləri bəzən bir neçə dəqiqə gecikdirir; skript gündə 330 sorğudan çox göndərmir. Nəticə yalnız «tixac» budağına yazılır
+# (tarixçəsiz, bir fayl); main-ə və xəbər lentinə heç nə yazılmır. Açar (MAPBOX_TOKEN) yalnız ölçü addımındadır.
+# feat/tixac-* budaqlarında: yalnız yoxlama (nöqtələrin hansı yola düşdüyü), heç nə yazılmır.
+
+on:
+  schedule:
+    - cron: '*/5 3-5,13-15 * * *'
+    - cron: '*/20 6-12,16-17 * * *'
+  workflow_dispatch:
+  push:
+    branches: ['feat/tixac-**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tixac
+  cancel-in-progress: false
+
+jobs:
+  olc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: .github/scripts/tixac.cjs
+          sparse-checkout-cone-mode: false
+      - name: Yoxlama (sınaq budağı)
+        if: github.event_name == 'push'
+        env:
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+        run: node .github/scripts/tixac.cjs --yoxla
+      - name: Ölç
+        if: github.event_name != 'push' && github.ref == 'refs/heads/main'
+        env:
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+        run: |
+          curl -fsS --max-time 10 -o /tmp/prev.json "https://raw.githubusercontent.com/${{ github.repository }}/tixac/tixac.json?t=$(date +%s)" || echo '{}' > /tmp/prev.json
+          node .github/scripts/tixac.cjs out /tmp/prev.json
+      - name: «tixac» budağına yaz
+        if: github.event_name != 'push' && github.ref == 'refs/heads/main'
+        env:
+          URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          cd out
+          git init -q
+          git add tixac.json
+          git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit -q -m "Tıxac ölçüsü"
+          git push -q --force "$URL" HEAD:refs/heads/tixac
