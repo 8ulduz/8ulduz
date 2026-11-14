@@ -570,7 +570,7 @@ document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.
 /* ---- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
 function savedLang() { const v = storage.getItem(LANG_KEY); if (v === "") return null; return LANGS.some(l => l.code === v) ? v : "az"; }
-const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixOn: false, tixArea: "merkez", tixUser: false, geo: null, geoBusy: false, geoErr: null };
+const S = { sports: null, data: null, error: null, offline: false, lastSync: null, lang: savedLang(), club: null, q: "", shown: PAGE, etag: null, markets: null, social: null, status: null, og: null, video: null, football: null, pray: null, prayOpen: false, warn: [], fxOpen: false, fxFrom: "USD", fxTo: "AZN", fxAmt: 100, wx: null, wxAll: null, wxSel: null, wxOpen: false, ads: null, tixArea: "merkez", tixUser: false, geo: null, geoBusy: false, geoErr: null };
 const HIJRI_AZ = ["", "Məhərrəm", "Səfər", "Rəbiüləvvəl", "Rəbiülaxır", "Cümadəl-ula", "Cümadəl-axır", "Rəcəb", "Şaban", "Ramazan", "Şəvval", "Zilqədə", "Zilhiccə"];
 const PRAY_ORDER = [["Fajr", "Sübh"], ["Sunrise", "Günəş"], ["Dhuhr", "Zöhr"], ["Asr", "Əsr"], ["Maghrib", "Məğrib"], ["Isha", "İşa"]];
 // Tıxac səhifəsi aşağıdakı ROAD_RULES ilə süzülür.
@@ -643,12 +643,7 @@ function syncTixDot() {
   let hot = roadHot(S.data?.articles || []);
   if (!S.data || S.partial) hot ||= Date.now() - storage.getItem(TIX_KEY) < HOUR;
   else if (hot !== S.tixHot) storage.setItem(TIX_KEY, (S.tixHot = hot) ? Date.now() : 0);
-  // Sahib 2026-11-14: «tıxacı telefonda elə et Waze-in tətbiqdəki variantı açılsın». Telefonda alt düymə birbaşa Waze keçididir
-  // (waze.com/ul: tətbiq varsa tətbiq açılır, yoxsa Waze-in öz səhifəsi); həqiqi keçid olduğu üçün iPhone/Android onu tətbiqə verir.
-  // Bölgə tıxac səhifəsindəki ilə eynidir (konum icazəsi varsa oxucunun yeri). Kompüterdə səhifənin özü (xəritə və yol xəbərləri) qalır.
-  const waze = TOUCH_UI ? wazeApp(tixArea()) : "";
   document.querySelectorAll(".tix-btn").forEach(el => {
-    if (waze && el.closest?.(".tabbar")) { el.href = waze; el.target = "_blank"; el.rel = "noopener"; }
     el.classList.toggle("hot", hot);
     el.setAttribute("aria-label", hot ? "Tıxac — pik saat və ya yol hadisəsi" : "Tıxac və yollar");
     el.title = hot ? "Pik saat və ya təzə yol hadisəsi — xəritəyə baxın" : "Tıxac və yollar";
@@ -2301,20 +2296,21 @@ function trafficView() {
   const jump = a => `<button type="button" class="pill${a.id === area.id ? " on" : ""}" data-act="tix-area" data-area="${a.id}" aria-pressed="${a.id === area.id ? "true" : "false"}">${esc(a.label)}</button>`;
   const jumps = (konum ? jump(konum) : `<button type="button" class="pill" data-act="geo"${S.geoBusy ? " disabled" : ""}>${S.geoBusy ? "Konum axtarılır…" : "📍 Konumum"}</button>`) + TRAFFIC_AREAS.map(jump).join("") + (S.geoErr && !konum ? `<span class="geo-err">${esc(S.geoErr)}</span>` : "");
   const rush = bakuRush() ? `<a class="rush" href="#/tixac">Pik saat — xəritəyə baxın</a>` : "";
-  // Telefonda tıxac Yandex-dən.
-  const map = S.tixOn
-    ? TOUCH_UI
-      ? `<iframe title="Canlı tıxac xəritəsi (Yandex)" src="${esc(yandexSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
-      : `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
-    : `<div class="tix-open"><p>Xəritə yalnız açanda yüklənir.</p><button type="button" class="btn" data-act="tix-open">Xəritəni aç</button></div>`;
+  // Sahib 2026-11-14: «Waze-in mobil tətbiq xəritəsi açılsın bizdə». Telefonda da Waze-in öz xəritəsi (embed.waze.com: axtarış, tıxac
+  // rəngləri, «yerim» düyməsi), səhifə açılan kimi və ekran boyu. 2026-11-04-də telefonda Waze xəritə əvəzinə «tətbiqi yüklə» göstərirdi və
+  // Yandex-ə keçilmişdi; 2026-11-14-də telefon brauzerində (375 px, Android) xəritə açılır. Ehtiyat: oxucu bir toxunuşla Yandex-ə keçə bilər.
+  // Xəritə yalnız bu səhifədə yüklənir (sürət: başqa səhifələrdə yoxdur).
+  const map = TOUCH_UI && S.tixYandex
+    ? `<iframe title="Canlı tıxac xəritəsi (Yandex)" src="${esc(yandexSrc(area))}" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
+    : `<iframe title="Waze canlı xəritə" src="${esc(wazeSrc(area))}" allow="geolocation" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`;
   const rows = items.length
     ? `<ul class="tix-list">${items.map(a => `<li><a href="${safeHref(a.sourceUrl || "#")}" ${OUT}><span class="ic" aria-hidden="true">${a.icon}</span><span class="tt">${txt(a.title)}</span><span class="meta">${sourceName(shownSource(a))} · ${ago(a.publishedAt)}</span></a></li>`).join("")}</ul>`
     : `<p class="empty">Son 2 saatda Bakı və Abşeron üzrə uyğun yol xəbəri tapılmadı. Bu, yollarda tıxac olmadığı demək deyil. Cari vəziyyəti xəritədə yoxlayın.</p>`;
   return `<div class="page-h"><div><h1>Tıxac və yollar</h1><p>Bakı və Abşeronun canlı yol vəziyyəti.</p></div><span class="cnt">${items.length} xəbər</span></div>
-    <p class="tix-note">${TOUCH_UI ? "Telefonda canlı xəritə Yandex Xəritələrdən açılır; Waze telefonda xəritəni yalnız öz tətbiqində göstərir, aşağıdakı düymə onu açır." : "Xəritə Waze-dən açılır."} Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
     ${rush}
     <div class="tix-jumps">${jumps}</div>
-    <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<a href="${esc(wazeApp(area))}" ${OUT}>Waze-də aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
+    <div class="tix-map" id="tix-map">${map}<div class="tix-bar">${TOUCH_UI ? `<button type="button" class="tix-alt" data-act="tix-yandex">${S.tixYandex ? "Waze xəritəsinə qayıt" : "Xəritə görünmür? Yandex xəritəsi"}</button><a href="${esc(wazeApp(area))}" ${OUT}>Waze tətbiqində aç</a>` : `<a href="${esc(wazeLive(area))}" ${OUT}>Xəritəni tam ekranda aç</a>`}</div></div>
+    <p class="tix-note">${TOUCH_UI && S.tixYandex ? "Xəritə Yandex Xəritələrdəndir." : "Xəritə Waze-dəndir."} Aşağıda yalnız son 2 saatın Bakı və Abşeron üzrə yol xəbərləri göstərilir; bunlar canlı tıxac ölçüləri deyil.</p>
     ${rows}`;
 }
 
@@ -2667,10 +2663,10 @@ function onClick(e) {
   else if (act === "follow") import("./follow.js?v=7").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();
-  else if (act === "tix-open") { S.tixOn = true; renderView(); }
+  else if (act === "tix-yandex") { S.tixYandex = !S.tixYandex; renderView(); }
   else if (act === "tix-area") {
     const id = t.dataset.area || "merkez";
-    if (id === tixArea().id && S.tixOn) return;
+    if (id === tixArea().id) return;
     S.tixArea = id; S.tixUser = true;
     renderView();
   }
