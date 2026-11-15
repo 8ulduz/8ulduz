@@ -124,8 +124,8 @@ test('the default typography is the former two-click size and every earlier size
   // Böyük pillələrdə (standart daxil) üst zolaq sətirə sığmır: sarınır. Kiçik pillələr (0–2) əvvəlki kimidir.
   assert.ok(css.includes('html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wrap:wrap;height:auto}'));
   assert.ok(!/data-fs="[34]"\]\) \.hrow/.test(css), 'the wrap rule is not tied to a list of large levels');
-  // Alt zolağın yazısı standartdan böyümür: 320 px ekranda «Seçilmişlər» 18 px-də öz xanasına (80 px) sığmırdı.
-  assert.ok(css.includes('html:is([data-fs="5"],[data-fs="6"]) .tabbar a{font-size:16px}'));
+  // Alt zolağın yazısı şrift pilləsi ilə böyümür (sahib 2026-11-15: «işarə və yazı düzgün və balanslı»): hər telefonda 12 px yazı, 22 px işarə.
+  assert.ok(css.includes('color:#fff;font-size:12px;line-height:14px;font-weight:600;white-space:nowrap}') && css.includes('.tabbar svg{width:22px;height:22px;') && !/\.tabbar (a|b)\{font-size:var/.test(css));
 });
 
 test('the first paint and the app agree on the default font level', () => {
@@ -3109,8 +3109,9 @@ test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   for (const src of [js, html]) {
-    assert.ok(src.includes('<a href="/bolme/video/" data-tab="video"><b>▶</b><span>Video</span></a>'), 'aşağı zolaqda Video');
-    assert.ok(src.includes('<a href="#/tixac" data-tab="traffic" class="tix-btn"><b>⛗</b><span>Tıxac</span></a>'), 'Tıxac qalır');
+    assert.ok(/<a href="\/bolme\/video\/" data-tab="video"><svg viewBox="0 0 24 24" aria-hidden="true">[^]*?<\/svg><span>Video<\/span><\/a>/.test(src), 'aşağı zolaqda Video');
+    assert.ok(/<a href="#\/tixac" data-tab="traffic" class="tix-btn"><svg viewBox="0 0 24 24" aria-hidden="true">[^]*?<\/svg><span>Tıxac<\/span><\/a>/.test(src), 'Tıxac qalır');
+    assert.ok(!/<b>[⌂▶⛗☆]<\/b>/.test(src), 'işarələr simvol deyil, çəkilmiş SVG-dir: hər telefonda eyni ölçü');
     assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 4, 'aşağıda 4 düymə: Əsas, Video, Tıxac, Seçilmişlər');
     const bar = src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0];
     assert.ok(!bar.includes('data-tab="sections"') && !bar.includes('data-act="find"'), 'Bölmələr və Axtar aşağıda yoxdur');
@@ -3452,7 +3453,7 @@ test('no jump on open: the ticker and markets rows reserve their real height at 
   assert.equal(where('#ticker:empty{min-height:calc(var(--lh-body) + 15px)}'), '', 'zolağın yeri bütün enlərdə ayrılır (əvvəl telefonda yalnız ≤340 px-də idi: 41 px atılma)');
   assert.equal(where('.markets.pending{height:calc(3*var(--lh-body) + 24px);visibility:hidden}'), '', 'valyuta sətri: üç sətirlik kart + kənarlar');
   assert.match(where('#ticker:empty{min-height:calc(var(--lh-body) + 17px)}'), /max-width:340px/, 'dar telefonda zolaq 2 px hündürdür');
-  assert.match(where('.markets.pending{height:calc(var(--lh-body) + .9857rem + 14px)}'), /^@media/, 'telefon düzülüşündə kart iki sətirdir');
+  assert.match(where('.markets.pending{height:calc(.9857rem + 31px)}'), /^@media/, 'telefon düzülüşündə kart iki sətirdir');
   assert.ok(!/\.markets\.pending\{height:\d+px/.test(css) && !/#ticker:empty\{min-height:\d+px/.test(css), 'sabit piksel yoxdur: yer şrift ölçüsü (A−/A+) ilə birgə dəyişir');
   // düsturun dayaqları: kartın ölçüləri dəyişsə düstur da dəyişməlidir (brauzer ölçüsü: 2026-11-13, 5 şrift × 10 en, fərq 0)
   for (const k of ['.ticker .run{flex:1;overflow:hidden;padding:7px 0;', '.ticker{display:flex;border-bottom:1px solid var(--border);', '.mk-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:920px;margin:0 auto;padding:6px 0}', '.mk-grid{padding:4px 0}', '.mk .v{font-size:.8571rem}', '.mk .v{padding-bottom:1px;line-height:1.15}'])
