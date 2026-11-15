@@ -1506,6 +1506,81 @@ def collect_fast():
     return results, off_items, off_errors
 
 
+# ---- Rəsmi xəbərin ilk cümləsi: görüşdə vəzifə ilə adı bağlayan yeganə etibarlı mənbə ----
+# «Antonio Koşta ilə görüşü olub» (13 mənbə) və «Avropa İttifaqı Şurasının Prezidenti ilə görüşü olub» (11 mənbə) eyni görüşdür,
+# «Paşinyanla görüşdü» və «Ermənistanın Baş naziri ilə görüşü olub» da. Başlıqdan bunu bilmək olmur, təxmin isə ayrı görüşləri
+# birləşdirərdi. president.az-ın öz xəbəri bunu açıq yazır: «…Dublində Avropa İttifaqı Şurasının Prezidenti Antonio Koşta ilə
+# görüşü olub». Siyahı səhifəsində bu cümlə yoxdur (xülasə «Azərbaycan Prezidentinin rəsmi səhifəsindən.» qalır), ona görə yavaş
+# proses xəbərin öz səhifəsini oxuyur və cümləni yadda saxlayır. Yalnız qruplamada işlənir: lentdəki sətir və oxucunun gördüyü
+# xülasə dəyişmir, sürətli dövrəyə sorğu əlavə olunmur (qırmızı xətt 1).
+OFFICIAL_LEAD_FILE = CACHE_DIR / "official_leads.json"  # {keçid: {"title": başlıq, "lead": ilk cümlə və ya "", "at": vaxt}}
+OFFICIAL_LEAD_BATCH, OFFICIAL_LEAD_TIMEOUT = 4, 8   # bir yavaş dövrədə ən çox 4 səhifə, hərəsi 8 saniyə
+OFFICIAL_LEAD_RETRY = datetime.timedelta(minutes=30)  # oxunmayan və ya cümləsi tapılmayan səhifə yarım saatdan sonra
+_OFFICIAL_LEAD = {}  # keçid → ilk cümlə (compute_groups doldurur)
+
+
+def parse_official_lead(page, title):
+    """president.az xəbər səhifəsinin mətninin ilk cümləsi; əmin deyiliksə boş sətir.
+    Səhifənin quruluşu dəyişsə və ya ilk abzas başqa şeydirsə (bildiriş, başqa xəbər) yanlış cümlə görüşləri səhv bağlayardı:
+    cümlə yalnız xəbərin öz mətn blokundan götürülür və başlığın sözlərinin ən azı yarısını (ən azı 2 söz) təkrarlamalıdır."""
+    parts = (page or "").split('class="news_paragraph-block"', 1)
+    if len(parts) < 2:
+        return ""
+    first = re.search(r"<p[^>]*>(.*?)</p>", parts[1], re.S)
+    lead = _LEAD_END.split(_clean_text(first.group(1)) if first else "", maxsplit=1)[0].strip()
+    if not 40 <= len(lead) <= 600:
+        return ""
+    words = _norm_title(lead).split()
+    toks = [t for t in _title_tokens(title or "") if len(t) > 3]
+    found = sum(1 for t in toks if any(o[:5] == t[:5] for o in words))
+    if found < 2 or found * 2 < len(toks):
+        return ""
+    # Şablon başlıqlar bir-birinə oxşayır («…Dublində X ilə görüşüb»): başlıqdakı hər ad cümlədə də olmalıdır
+    # («Çexiyanın» / «Çex Respublikasının»: cümlədəki söz adın əvvəli ola bilər).
+    for name in _title_names({"title": title or ""})[0]:
+        if not any(o[:5] == name[:5] or (len(o) >= 3 and o not in _GROUP_STOP and name.startswith(o)) for o in words):
+            return ""
+    return lead
+
+
+def update_official_leads(now=None):
+    """Lentdəki Prezident.az xəbərlərinin ilk cümləsini yığır (yavaş proses). Bir dövrədə ən çox OFFICIAL_LEAD_BATCH səhifə."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    rows = [a for a in read_feed() if a.get("source") == "Prezident.az" and (a.get("sourceUrl") or "").startswith("https://president.az/")]
+    cache = _read_json(OFFICIAL_LEAD_FILE, {})
+    cache = {u: e for u, e in (cache if isinstance(cache, dict) else {}).items() if isinstance(e, dict)}
+    kept = {a["sourceUrl"]: cache[a["sourceUrl"]] for a in rows if a["sourceUrl"] in cache}
+    fetched = 0
+    for a in sorted(rows, key=lambda a: a.get("publishedAt") or "", reverse=True):
+        url, entry = a["sourceUrl"], kept.get(a["sourceUrl"])
+        if entry and entry.get("title") == a.get("title"):
+            at = _parse_dt(entry.get("at"))
+            if entry.get("lead") or (at and now - at < OFFICIAL_LEAD_RETRY):
+                continue
+        if fetched >= OFFICIAL_LEAD_BATCH:
+            break
+        fetched += 1
+        try:
+            lead = parse_official_lead(fetch(url, timeout=OFFICIAL_LEAD_TIMEOUT).decode("utf-8", "replace"), a.get("title"))
+        except Exception:
+            lead = ""
+        kept[url] = {"title": a.get("title") or "", "lead": lead, "at": now.isoformat(timespec="seconds")}
+    if kept != cache:
+        _save_cache(OFFICIAL_LEAD_FILE, kept)
+    return fetched
+
+
+def load_official_leads(rows):
+    """Qruplama üçün: yalnız sətrin indiki başlığı ilə yoxlanmış cümlə (başlıq sonradan dəyişibsə cümlə işlənmir)."""
+    cache = _read_json(OFFICIAL_LEAD_FILE, {})
+    cache = cache if isinstance(cache, dict) else {}
+    _OFFICIAL_LEAD.clear()
+    for a in rows:
+        entry = cache.get(a.get("sourceUrl"))
+        if a.get("source") == "Prezident.az" and isinstance(entry, dict) and entry.get("lead") and entry.get("title") == a.get("title"):
+            _OFFICIAL_LEAD[a["sourceUrl"]] = entry["lead"]
+
+
 _GROUP_ROW_FIELDS = ("source", "sourceUrl", "publishedAt", "title", "summary", "category", "lang", "imageUrl")
 
 
@@ -1520,6 +1595,7 @@ def compute_groups():
     articles = read_feed()
     if not articles:
         return
+    load_official_leads(articles)
     known = _read_json(GROUPS_FILE.with_name("group_rows.json"), {})
     known = known if isinstance(known, dict) else {}
     present = {a.get("sourceUrl") for a in articles if a.get("sourceUrl")}
@@ -1588,7 +1664,9 @@ def apply_groups(articles):
     # Qrup faylı dəyişiklikdən əvvəl yazılıb ola bilər: köhnə keçid buradan lentə qayıtmasın.
     groups = {fix_source_link(url): [{**alt, "sourceUrl": fix_source_link(alt.get("sourceUrl"))} for alt in alts] for url, alts in _read_json(GROUPS_FILE, {}).items()}
     present = {a.get("sourceUrl"): a for a in articles}
-    groups = {url: [alt for alt in alts if not _event_conflict(present.get(url, {}), alt)] for url, alts in groups.items()}
+    # Qarşı tərəfin adı burada yoxlanmır: «Endi Börnhemlə görüşdü» ilə «Britaniyanın Baş naziri ilə görüşüb» yavaş prosesdə
+    # üçüncü xəbərin xülasəsi ilə bağlanır, kartın əsas sətri tək bunu bilməyə bilər.
+    groups = {url: [alt for alt in alts if not _event_conflict(present.get(url, {}), alt, False)] for url, alts in groups.items()}
     absorbed = {alt.get("sourceUrl") for url, alts in groups.items() if url in present for alt in alts}
     # Saytın eyni xəbəri təkrar dərci: kart lentdədirsə təkrar ayrıca göstərilmir.
     same = _read_json(GROUPS_FILE.with_name("group_same.json"), {}) if groups else {}
@@ -1605,7 +1683,7 @@ def apply_groups(articles):
             alts = [alt for alt in groups.get(url, []) if alt.get("sourceUrl") != url]
             a = {**a, "alts": alts} if alts else {k: v for k, v in a.items() if k != "alts"}
         elif a.get("alts"):
-            a = {**a, "alts": [alt for alt in a["alts"] if not _event_conflict(a, alt)]}
+            a = {**a, "alts": [alt for alt in a["alts"] if not _event_conflict(a, alt, False)]}
         out.append(a)
     try:
         return attach_fresh(out)
@@ -2743,7 +2821,7 @@ def slow_cycle():
     # SOCIAL_LOOP: rəsmi hesabların yazıları pipeline.sh-in social_loop-unda hər dəqiqə yığılır (--social), burada yox.
     social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
     # update_own_news: yalnız OZ_DERC=1 ilə işləyir (yuxarıda); məzənnədən sonra, çünki təzə data/markets.json-u oxuyur.
-    steps = [compute_groups, update_markets, update_own_news, resolve_undated, *social, update_video, update_football, update_sports,
+    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, *social, update_video, update_football, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, update_city_data, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
@@ -5124,7 +5202,7 @@ def _event_sig(a):
         sig = _SIG_CACHE[key] = (classes, persons, orgs, stems, _anchors(text), _places(text))
     return sig
 
-def _event_conflict(a, b):
+def _event_conflict(a, b, counterpart=True):
     """Təməlqoyma və açılış, yaxud açıq fərqli məkanlar ayrı hadisədir — ümumi səfər xülasəsi onları birləşdirmir."""
     phase_a, phase_b = _opening_phase(a), _opening_phase(b)
     if phase_a and phase_b and phase_a != phase_b:
@@ -5136,7 +5214,168 @@ def _event_conflict(a, b):
             _PLACE_CACHE[text] = _places(text) | {_stem(_norm_title(m.group())) for m in _TITLE_PLACE_RX.finditer(row.get("title") or "")}
         return _PLACE_CACHE[text]
     places_a, places_b = places(a), places(b)
-    return bool(places_a and places_b and not (places_a & places_b))
+    return bool(places_a and places_b and not (places_a & places_b)) or (counterpart and _other_counterpart(a, b))
+
+
+_NAME_CACHE = {}
+MEETING_MERGE_MAX = 80  # birləşən iki Zuğulba kartının üzv sayı: zəncirvari böyümənin həddi
+_DEMONYM_RX = re.compile(r"(?<!\w)([^\W\d_]{4,}(?:lı|li|lu|lü))\s+(?=həmkar|lider|prezident|baş nazir|dövlət başçı)")
+_DEMONYM_SKIP = {"hormetli", "deyerli", "ezemetli", "yerli", "milli", "evvelki"}
+# Başlığın birinci sözü qarşı tərəfdir: «İtaliyanın baş naziri İlham Əliyevlə məsləhətləşdi».
+_LEAD_COUNTRY_RX = re.compile(r"[^\W\d_]{3,}(?:nın|nin|nun|nün)\s+(?:baş nazir|prezident|lider|xarici işlər|dövlət başçı)")
+# Adın tərkibində gələn, təklikdə heç nə bildirməyən sözlər: «Böyük Britaniya», «Yeni Zelandiya», «Cənubi Koreya».
+_NAME_FILLER = {"boyuk", "yeni", "simali", "cenubi", "serqi", "qerbi", "birlesmis", "merkezi", "ali"}
+# Görüş xəbəri: görüşüb, məsləhətləşdi, söhbətləşdi, danışdı, müzakirə etdi.
+_CONTACT_WORD = re.compile(r"gorus|meslehetles|sohbetles|danis|muzakire")
+# Görüş başlığının şablon sözləri: feil, vəzifə, «keçirilib», «apardı», format nişanı.
+_MEETING_WORD = re.compile(r"gorus|meslehetles|sohbetles|danis|muzakire|hemkar|lider|nazir|sedr|kral|kansler|kecir|apar|foto|video|yenilen")
+# Bir səfərin ayrı rəsmi xəbərləri: «təkbətək görüş», «geniş tərkibdə görüş».
+_MEETING_PART = re.compile(r"tekbetek|genis|terkib")
+_VENUE_KI = re.compile(r"(?:da|de)ki$")  # «Dublindəki», «Bakıdakı»
+# Qitə və tərəf adı qarşı tərəf deyil: «Avropa ilə əməkdaşlığı müzakirə edir» hər Avropa görüşünə bağlanardı.
+_REGION_WORD = re.compile(r"avropa|asiya|afrika|amerika|qerb|serq|dunya")
+# Xülasənin ilk cümləsinin sonu: «…ilə görüşüb.AZƏRTAC xəbər verir ki…», «…səfər edib. Anews.az xəbər verir ki…».
+_LEAD_END = re.compile(r"(?<=[a-zəıöüçşğ)])[.!?](?=\s|[A-ZƏİÖÜÇŞĞ])")
+
+
+def _title_names(row):
+    """(başlıqdakı adlar, başlıq + xülasənin ilk cümləsinin sözləri, görüş başlığının əlavə sözləri və ya None, görüşün hissəsi).
+    Ad: cümlə ortasında böyük hərflə başlayan ardıcıl sözlərin sonuncusu («Endi Börnhem» → börnhem, «Corciya Meloni» /
+    «Ciorcia Meloni» → meloni, «Böyük Britaniyanın» → britaniyanın); rəhbərin adı, ümumi ad (Azərbaycan, Prezidenti, Şurasının)
+    və yerlik haldakı məkan (Dublində) sayılmır. Xülasədən yalnız ilk cümlə oxunur: sonrakılar çox vaxt səfərin başqa
+    görüşlərini sadalayır («…yaxın saatlarda Böyük Britaniyanın Baş naziri ilə də görüşü gözlənilir») və ayrı görüşləri bir
+    karta bağlayardı."""
+    title = row.get("title") or ""
+    # Rəsmi xəbərin öz səhifəsindən oxunmuş ilk cümlə (update_official_leads) lentdəki xülasədən üstündür.
+    lead = _OFFICIAL_LEAD.get(row.get("sourceUrl")) or (row.get("summary") or "")[:240]
+    key = (title, _LEAD_END.split(lead, maxsplit=1)[0])
+    hit = _NAME_CACHE.get(key)
+    if hit is None:
+        if len(_NAME_CACHE) > 20000:
+            _NAME_CACHE.clear()
+        # « - Baku TV», « – Yenilənəcək», « | ikinci mövzu» sonluqları ad deyil.
+        head = re.split(r"\s[-–—|]\s", title, maxsplit=1)[0]
+        # Məkan ad deyil: «Dublində», «Dublindəki», eyni xəbərdə «Dublin sammiti».
+        venue = _places(head) | _places(key[1])
+        # _places kökü qaytarır («dublində» → «dubl»): söz o köklə başlayırsa məkandır.
+        venue5, names, taken = {v for v in venue if len(v) >= 4}, set(), set()
+        venue5 |= {tok[:5] for tok in _norm_title(head).split() if _VENUE_KI.search(tok)}
+        def local(tok, st):
+            return st in venue or tok.startswith(tuple(venue5)) or bool(_VENUE_KI.search(tok))
+        for n, sent in enumerate(re.split(r"[.!?:;«»“”\"]+", head)):
+            words = re.findall(r"[^\W\d_]+", sent)
+            toks = [_norm_title(w) for w in words]
+            # Birinci söz yalnız açıq-aşkar qarşı tərəfdirsə addır: «Meloni İlham Əliyevlə…», «İtaliyanın baş naziri…».
+            lead = n == 0 and len(toks) > 1 and (toks[1] == "ilham" or toks[1].startswith("eliyev")
+                                                 or bool(_LEAD_COUNTRY_RX.match(sent.strip().lower().replace("i̇", "i"))))
+            last = None
+            for i, (w, tok) in enumerate([*zip(words, toks), ("", "")]):
+                named = bool(w) and w[0].isupper() and not (w.isupper() and len(w) > 3) and (i > 0 or lead)
+                st = _stem(tok)
+                if named and not (st in _GENERIC_ANCHOR or st in _LEADER_STEMS or local(tok, st) or _ORG_WORDS.search(tok)):
+                    taken.add(tok)
+                    if len(tok) >= 4 and tok not in _NAME_FILLER and not _REGION_WORD.match(tok):
+                        last = tok
+                    continue  # qısa söz («Dan») və «Böyük» adı kəsmir, amma təklikdə ad deyil
+                if last:
+                    names.add(last)
+                    last = None
+        # «rumıniyalı həmkarı», «polşalı lider»: ölkə kiçik hərflə gəlir, amma qarşı tərəfi o bildirir.
+        for m in _DEMONYM_RX.finditer(head.lower().replace("i̇", "i")):
+            tok = _norm_title(m.group(1))
+            if tok not in _DEMONYM_SKIP:
+                names.add(tok)
+                taken.add(tok)
+        # Görüş başlığının addan və şablondan artıq sözləri: boşdursa başlıq yalnız «X ilə görüşüb» deyir.
+        rest, parts = None, set()
+        words = re.findall(r"[^\W\d_]+", head)
+        toks = [_norm_title(w) for w in words]
+        if any(_CONTACT_WORD.match(tok) for tok in toks):
+            rest = set()
+            for i, (w, tok) in enumerate(zip(words, toks)):
+                if _MEETING_PART.match(tok):
+                    parts.add(tok[:5])
+                if (i and w[0].isupper()) or len(tok) < 3 or tok in taken or tok in _GROUP_STOP or tok in _EVENT_STOP:
+                    continue
+                st = _stem(tok)
+                if st in _GENERIC_ANCHOR or st in _LEADER_STEMS or local(tok, st) or _AUX_VERB.fullmatch(tok) or _MEETING_WORD.match(tok):
+                    continue
+                rest.add(tok)
+        # Adın daxili sözü («Avropa İttifaqı»nda «Avropa», «Kiriakos Miçotakis»də «Kiriakos») başqa xəbərin adını təsdiqləmir.
+        seen_words = (set(_norm_title(title).split()) - (taken - names)) | set(_norm_title(key[1]).split())
+        hit = _NAME_CACHE[key] = (names, seen_words, rest, parts, venue5)
+    return hit
+
+
+def _names_missing(names, words):
+    return any(not any(o[:min(5, len(n))] == n[:5] for o in words) for n in names)
+
+
+def _other_counterpart(a, b):
+    """Zuğulba xronikasının başlıqları şablondur: «Azərbaycan Prezidenti İlham Əliyev Dublində Rumıniya Prezidenti ilə görüşüb» /
+    «…Böyük Britaniyanın Baş naziri ilə görüşüb» 6 ortaq kökə görə eyni hadisə sayılırdı (kart agentlik surəti ilə başlayanda
+    rəsmi mənbənin sərt qaydası işləmir). 2026-11-12 Dublin: Britaniya kartında Rumıniya, Çexiya kartında Litva xəbərləri idi,
+    öz kartları isə mənbəsiz qalmışdı (sahib: «zuğulba xronikasında mənbələr birləşdirilmir»). Qayda: hər iki başlıqda
+    o birinin başlığında və xülasəsində olmayan xüsusi ad varsa (Rumıniya / Britaniya) görüşlər ayrıdır."""
+    cats = {a.get("category"), b.get("category")} - {None, ""}
+    if cats != {"prezident"}:
+        return False
+    names_a, words_a = _title_names(a)[:2]
+    names_b, words_b = _title_names(b)[:2]
+    return bool(names_a and names_b) and _names_missing(names_a, words_b) and _names_missing(names_b, words_a)
+
+
+def _same_meeting(a, b):
+    """Zuğulba: eyni görüş müxtəlif başlıqla gəlir — «Azərbaycan Prezidenti Dublində rumıniyalı həmkarı ilə görüşdü»,
+    «İlham Əliyev Dublində Rumıniya Prezidenti ilə görüşüb», «Prezident Dublində Kiriakos Miçotakislə görüşüb» /
+    «…Yunanıstanın Baş naziri ilə görüşü olub», «Meloni İlham Əliyevlə məsləhətləşdi» / «İlham Əliyev Corciya Meloni ilə
+    söhbətləşdi». Başlıq oxşarlığı bunu tutmur, rəsmi mənbəli kartda isə yalnız demək olar eyni başlıq qəbul olunurdu: hər görüş
+    3–5 kart idi. Qayda dardır: hər iki başlıq görüş başlığıdır və qarşı tərəfin adını çəkir, birinin adları o birinin
+    başlığında və ya xülasəsində var, ən azı biri yalnız «X ilə görüşüb» deyir (əlavə məzmunu yoxdur). Fərqli adlar
+    _other_counterpart ilə əvvəlcədən ayrılır."""
+    if a.get("category") != "prezident" or b.get("category") != "prezident":
+        return False
+    names_a, words_a, rest_a, _parts, venue_a = _title_names(a)
+    names_b, words_b, rest_b, _parts, venue_b = _title_names(b)
+    # O biri xəbərin məkanı bu xəbərdə ad kimi keçə bilər («Dublin görüşləri»): məkan qarşı tərəf deyil, kartları bağlamır.
+    names_a, names_b = {n for n in names_a if not n.startswith(tuple(venue_b))}, {n for n in names_b if not n.startswith(tuple(venue_a))}
+    if not names_a or not names_b or rest_a is None or rest_b is None or (rest_a and rest_b):
+        return False
+    return not _names_missing(names_a, words_b) or not _names_missing(names_b, words_a)
+
+
+def _names_known(a, m):
+    """a xəbəri m ilə eyni görüşdür və m-in çəkdiyi adı özü də çəkir (başlıqda və ya xülasənin ilk cümləsində)."""
+    return _same_meeting(a, m) and not _names_missing(_title_names(m)[0], _title_names(a)[1])
+
+
+def _bridges(a, m1, m2):
+    """a xəbəri m1 və m2-nin eyni görüş olduğunu sübut edir: hər ikisinin adını çəkir və etibarlı dəlildir — rəsmi mənbənin öz
+    xəbəri, ya da adları başlığında yanaşı çəkən xəbər («Böyük Britaniyanın Baş naziri Endi Börnhem ilə görüşüb»). Başlıqda
+    sadalama varsa («Paşinyan və Miçotakislə görüşüb», vergül) dəlil deyil: iki ayrı görüş ola bilər."""
+    if not (_names_known(a, m1) and _names_known(a, m2)):
+        return False
+    if a.get("source") in OFFICIAL_SOURCES:
+        return True
+    head = re.split(r"\s[-–—|]\s", a.get("title") or "", maxsplit=1)[0]
+    if re.search(r",|\svə\s", head):
+        return False
+    words = set(_norm_title(head).split())
+    return not _names_missing(_title_names(m1)[0], words) and not _names_missing(_title_names(m2)[0], words)
+
+
+def _meeting_fits(a, rows):
+    """a kartdakı görüşün xəbəridir: üzvlərdən biri ilə eyni görüşdür (_same_meeting) və səfərin başqa hissəsi deyil.
+    «Ərdoğanla görüşüb» kartına «təkbətək görüş» qoşulubsa, «geniş tərkibdə görüş» ora düşmür."""
+    if not any(_same_meeting(a, m) for m in rows):
+        return False
+    parts = _title_names(a)[3]
+    if parts:
+        for m in rows:
+            other = _title_names(m)[3] if m.get("category") == "prezident" else None
+            if other and not parts & other:
+                return False
+    return True
 
 
 def _same_event(a, b):
@@ -5255,6 +5494,7 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
     _SIG_CACHE.clear()
     _PHASE_CACHE.clear()
     _PLACE_CACHE.clear()
+    _NAME_CACHE.clear()
     for a in articles:
         for alt in a.get("alts") or []:
             if alt.get("sourceUrl"):
@@ -5271,18 +5511,31 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
     prepared.sort(key=lambda x: x[0] or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc), reverse=True)
     clusters = []
     title_index, stem_index, event_index, exact_index = (collections.defaultdict(set) for _ in range(4))
+    merged_into = {}  # Zuğulba: iki kartı bir görüşə bağlayan xəbər gələndə kartlar birləşir (boşalan klaster → qalan)
+    def root(ci):
+        while ci in merged_into:
+            ci = merged_into[ci]
+        return ci
     for dt, toks, sh, a in prepared:
         best, best_score, best_i = None, 0, None
+        linked = []
         if dt is not None and len(toks) >= 3:
             key = _norm_title(a.get("title") or "")
             src = a.get("source")
-            for ci in sorted(_group_candidates(a, toks, title_index, stem_index, event_index, exact_index)):
+            for ci in sorted({root(c) for c in _group_candidates(a, toks, title_index, stem_index, event_index, exact_index)}):
                 members = clusters[ci]
                 head = members[0][0]
                 if head is None or abs(dt - head) > GROUP_WINDOW:
                     continue
                 near = [(mt, mtks, msh, ma) for mt, mtks, msh, ma in members if mt is not None and abs(dt - mt) <= GROUP_WINDOW]
-                if any(_event_conflict(a, ma) for _mt, _k, _s, ma in near):
+                # Eyni görüşün üzvü qarşı tərəfi tanıdırsa («…Böyük Britaniyanın Baş naziri Endi Börnhem ilə görüşüb»), kartdakı
+                # xülasəsiz «Endi Börnhemlə görüşdü» və «Britaniyanın Baş naziri ilə görüşüb» bir-birinə zidd sayılmır.
+                near_rows = [ma for _mt, _k, _s, ma in near]
+                meeting = _meeting_fits(a, near_rows)
+                # Ad ziddiyyəti yalnız dəlillə götürülür: kartdakı rəsmi xəbər və ya hər iki adı başlığında çəkən xəbər (_bridges).
+                # «Paşinyan və Miçotakislə görüşüb» kimi sadalayan başlıq iki ayrı görüşün xəbərlərini bir karta yığmır.
+                if any(_event_conflict(a, ma, False) or (_other_counterpart(a, ma) and not (meeting and any(_bridges(m, a, ma) for m in near_rows)))
+                       for ma in near_rows):
                     continue  # ümumi başlıqlı vasitəçi iki ayrı hadisəni zəncirlə birləşdirməsin
                 if not near:
                     continue
@@ -5290,6 +5543,8 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
                 official = src in OFFICIAL_SOURCES or any(ma.get("source") in OFFICIAL_SOURCES for _mt, _k, _s, ma in members)
                 same_src = src in {ma.get("source") for _mt, _k, _s, ma in members}
                 score = 0
+                if meeting and not same_src:
+                    linked.append(ci)
                 if exact and (same_source_exact or not same_src):
                     score = 4
                 elif official:
@@ -5311,10 +5566,27 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
                             score = 2
                         elif strength == 1:
                             score = 1
+                if score < 3 and meeting and not same_src:
+                    score = 2.5  # eyni görüş: başlığı uyğun gələn kart (3, 4) varsa o üstündür
                 if score > best_score:
                     best, best_score, best_i = members, score, ci
         if best is not None:
             best.append((dt, toks, sh, a))
+            # Bu xəbər iki kartın eyni görüş olduğunu göstərir (rəsmi xülasədə həm ölkə, həm ad var): kartlar birləşir.
+            # Yalnız adına görə ayrı düşmüş kartlar («Endi Börnhemlə» / «Britaniyanın Baş naziri ilə»): eyni adlı iki kart
+            # («Ərdoğanla təkbətək görüş» / «geniş tərkibdə görüş») başqa səbəbdən ayrıdır, ümumi başlıqlı xəbər onları yığmır.
+            # Körpü yalnız rəsmi xəbər (ilk cümləsi vəzifəni də, adı da çəkir) və ya hər iki adı başlığında yanaşı çəkən xəbərdir
+            # (_bridges); agentlik xülasəsi səfərin başqa görüşünü də sadalaya bilər, o, kart birləşdirmir.
+            for _again in (1, 2):  # birləşmədən sonra əvvəl uyğun gəlməyən kart uyğun gələ bilər
+                for ci in linked if best_i in linked else ():
+                    other = clusters[ci]
+                    if (ci != best_i and other and len(best) + len(other) <= MEETING_MERGE_MAX
+                            and any(_bridges(a, x[3], y[3]) for x in best if x[3] is not a for y in other)
+                            and any(_other_counterpart(x[3], y[3]) for x in best for y in other)):
+                        best.extend(other)
+                        other.clear()
+                        merged_into[ci] = best_i
+                        best.sort(key=lambda m: m[0], reverse=True)  # toxum ən yeni üzvdür
         else:
             best_i = len(clusters)
             clusters.append([(dt, toks, sh, a)])
@@ -5328,6 +5600,8 @@ def group_duplicates(articles, same_source_exact=True, same_out=None):
         exact_index[_norm_title(a.get("title") or "")].add(best_i)
     out = []
     for members in clusters:
+        if not members:
+            continue  # başqa karta birləşib
         urls = {m[3].get("sourceUrl") for m in members}
         extra = []
         for _dt, _toks, _sh, member in members:
@@ -6674,6 +6948,19 @@ def prune_removed_sources(articles):
             for a in articles if not removed_source(a)]
 
 
+def restore_official_row(known, it, source):
+    """Rəsmi səhifə (president.az, mehriban-aliyeva.az) öz sətrinin başlığını geri alır; dəyişiklik olubsa True.
+    Yalnız həmin mənbənin, həmin keçidli sətrinə toxunur; yeni başlıq təzə xəbərin süzgəcindən keçir (qırmızı xətt 2)."""
+    if source not in OFFICIAL_SOURCES or not known or known.get("source") != source or known.get("sourceUrl") != it.get("link"):
+        return False
+    title = _plain(it.get("title") or "", title=True)
+    if not title or title == known.get("title") or is_negative_about_leadership(it.get("title") or "", it.get("description") or "", source):
+        return False
+    known["title"] = title
+    known["summary"] = _short(_plain(it.get("description") or "")) or known.get("summary", "")
+    return True
+
+
 PREZ_KEEP, PREZ_TODAY_MAX = 120, 90
 
 def select_prez(rows, now):
@@ -6903,6 +7190,12 @@ def main(fast=False):
     for source, dlang, hint, force, it in off_items:
         try:
             if it["link"] in seen or is_junk(it["link"]):
+                # Rəsmi sətrin başlığının sahibi rəsmi səhifədir. 2026-11-12: əlavə mənbənin başlığı əsas sətrin üstünə yazılırdı
+                # (#201-də düzəldi), 7 Prezident.az sətri agentlik başlığı və xülasəsi ilə qaldı — «Yunanıstanın Baş naziri
+                # ilə görüşü olub» keçidi əslində Ermənistan görüşüdür, Litva görüşü «Antonio Koşta» adlanırdı. Belə sətir
+                # özü düzəlmirdi: keçid tanışdır deyə ötürülürdü. İndi səhifədəki başlıq fərqlidirsə sətir ona qayıdır
+                # (şəbəkə sorğusu yoxdur: səhifə artıq oxunub).
+                restore_official_row(old_by_url.get(it["link"]), it, source)
                 continue
             seen.add(it["link"])
             if is_negative_about_leadership(it["title"], it["description"], source):
