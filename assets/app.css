@@ -1140,10 +1140,11 @@ nav.main .nav-more>summary{padding:0 8px}
 .pop-more{display:block;margin-top:6px;padding:6px 8px;font-size:.8571rem;font-weight:700;color:inherit;text-decoration:underline}
 /* sahib 11-14: telefonda vaxt, mənbə, «N mənbə» 13px; düymələr olduğu kimi */
 @media (max-width:600px){.meta,.hero-main .meta,.card .meta,.bd,.source-count,.prez-h .source-count{font-size:max(11px,calc(var(--fs-meta) - 3px));line-height:max(15px,calc(var(--lh-meta) - 4px))}}
-/* Tıxac (sahib 11-16): telefonda xəritənin altındakı başlıq ilk ekranda görünür */
+/* Tıxac (sahib 11-16): zolaq və valyuta gizli; telefonda xəritənin altı ilk ekranda görünür */
+.r-tix :is(#ticker,#markets,#tix-ani){display:none}
 .tix-bar{gap:12px;align-items:center}
 .tix-alt{margin-right:auto;padding:0;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
-@media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:clamp(160px,calc(100svh - 500px),400px)}}
+@media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:clamp(160px,calc(100svh - 440px),400px)}}
 /* sahib 11-14: telefonda başlıq bir sətir, izah gizli (xəbər başlığı .page-h>h1 toxunulmur) */
 @media (max-width:600px){
 .page-h .sec-desc{display:none}

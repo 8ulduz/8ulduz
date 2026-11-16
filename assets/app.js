@@ -2527,6 +2527,7 @@ function renderView() {
     S.viewHome = home && !S.partial;
     const tab = r.name === "saved" ? "saved" : r.name === "traffic" ? "traffic" : r.name === "section" && r.slug === "video" ? "video" : r.name === "home" && !S.q ? "home" : "";
     document.querySelectorAll(".tabbar [data-tab]").forEach(el => el.classList.toggle("on", el.dataset.tab === tab));
+    document.documentElement.classList.toggle("r-tix", r.name === "traffic"); // sahib 2026-11-16: Tıxac-İndi-də son dəqiqə zolağı və valyuta sətri gizlidir (app.css .r-tix)
     highlightSearch();
   } finally { countVisit(); }
 }
