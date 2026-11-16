@@ -3501,11 +3501,37 @@ shell(); render();
 { const r0 = route(); try { const w = JSON.parse(document.getElementById("row")?.textContent || sessionStorage.getItem("x:" + r0.id) || 0); if (w?.id === r0.id && !policyViolation(w)) S.sharedStory = { id: w.id, row: w }; } catch {} if (r0.name === "article") { if (S.sharedStory) setTimeout(renderView); else loadShared(r0.id); backHome(); } }
 // Bayram (bayram.js): yalnız günündə.
 { const d = new Date(Date.now() + 144e5).toISOString().slice(5, 10); if (/^11-0[89]$/.test(d) || /[?&]bayram\b/.test(location.search)) setTimeout(() => import(`${ASSET}bayram.js`).then(m => m.show(d === "11-08" ? d : "11-09")).catch(() => {}), 800); }
+// Mətn böyütməsi (sahib 2026-11-16, Facebook-dan açılan səhifə: mətnlər qutulara sığmırdı). Android-də Facebook, Instagram və başqa
+// tətbiqlərin daxili brauzeri telefonun «şrift ölçüsü» ayarını (məs. 130%) bütün mətnlərə vurur, qutular isə yerində qalır; CSS bunu
+// söndürə bilmir (Chrome-da text-size-adjust:100% söndürür, ona görə orada görünmür). Çarə: əmsal ölçülür və səhifə o qədər enli
+// çəkilib kiçildilir — mətn Chrome-dakı ölçüsünə qayıdır və qutusuna sığır. Ölçü kadrdan sonra, ResizeObserver ilə (məcburi
+// yerləşdirmə yoxdur); əmsal yadda qalır ki, növbəti açılışda dərhal tətbiq olunsun. 1,5-dən böyük əmsal 1,5 sayılır (telefon düzümü qalsın).
+const TZ_KEY = "8ulduz-tz";
+function fitTextZoom(k) {
+  const m = document.querySelector('meta[name="viewport"]');
+  if (m) m.content = `width=device-width, initial-scale=${k > 1.07 ? (1 / Math.min(k, 1.5)).toFixed(3) : "1.0"}, viewport-fit=cover`;
+}
+{ const k = +storage.getItem(TZ_KEY); if (k > 1.07) fitTextZoom(k); }
+function probeTextZoom() {
+  if (!globalThis.ResizeObserver || !document.body) return;
+  const el = document.createElement("div");
+  el.style.cssText = "position:absolute;top:0;left:0;visibility:hidden;pointer-events:none;font:100px/1 serif";
+  el.textContent = "M";
+  new ResizeObserver(([e], ro) => {
+    ro.disconnect(); el.remove();
+    const k = Math.round(e.contentRect.height) / 100, was = +storage.getItem(TZ_KEY) || 1;
+    if (!(k > 0.5 && k < 4) || Math.abs(k - was) < 0.03) return;
+    if (k > 1.07) storage.setItem(TZ_KEY, String(k)); else storage.removeItem(TZ_KEY);
+    fitTextZoom(k);
+  }).observe(el);
+  document.body.append(el);
+}
 loadCached();
 const firstReady = S.firstReady = loadFirst();
 const newsReady = loadNews().then(() => loadLatest());
 const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(enableAnalytics);
+firstReady.finally(() => afterFrame(probeTextZoom));
 // İşçi (sw.js) ilk ekran çəkiləndən sonra ilk boş anda qurulur (2026-11-09). Əvvəl tam lentdən sonra idi (telefonda 10–12 s):
 // paylaşılan xəbəri oxuyub çıxan oxucuda heç qurulmurdu, hər açılışı soyuq qalırdı; bu ziyarətin lenti də köhnə keşə yazılırdı.
 // İlkin keş kiçikdir (yalnız ilk açılış faylları), lentlə yarışmır.
