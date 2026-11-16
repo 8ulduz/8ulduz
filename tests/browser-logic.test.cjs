@@ -3577,3 +3577,13 @@ test('owner 2026-11-14: an unexpected-jam alert shows as a strip under the ticke
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('#tix-ani{'), 'zolağın stili var');
 });
+test('owner 2026-11-16: in-app browsers (Facebook, Instagram…) that enlarge text get a wider, scaled-down page so text fits its boxes', () => {
+  const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  const src = js.slice(js.indexOf('const TZ_KEY'), js.indexOf('function probeTextZoom'));
+  const meta = { content: '' };
+  const fit = new Function('document', 'storage', src + '; return fitTextZoom;')({ querySelector: () => meta }, { getItem: () => null });
+  fit(1.3); assert.equal(meta.content, 'width=device-width, initial-scale=0.769, viewport-fit=cover', '130% mətn → səhifə 1,3 dəfə enli çəkilir');
+  fit(2); assert.equal(meta.content, 'width=device-width, initial-scale=0.667, viewport-fit=cover', 'əmsal 1,5-lə məhdudlanır (telefon düzümü qalır)');
+  fit(1); assert.equal(meta.content, 'width=device-width, initial-scale=1.0, viewport-fit=cover', 'böyütmə yoxdursa adi görünüş');
+  assert.ok(js.includes('firstReady.finally(() => afterFrame(probeTextZoom));') && js.includes('new ResizeObserver('), 'ölçü ilk ekrandan və kadrdan sonra, məcburi yerləşdirməsiz');
+});
