@@ -340,7 +340,8 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   S.installEvt = {};
   h = html();
   assert.ok(h.includes('class="nav-inst" data-act="install">'), 'Chrome təklif verəndə düymə görünür');
-  assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">📲 Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı');
+  assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı (işarəsiz: «et» kəsilirdi, sahib 2026-11-16)');
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main>a.ph,nav.main .nav-inst{flex:1 1 auto;min-width:0;overflow:hidden}'), 'düymə və bölmələr yeri mətnə görə bölür, heç biri kəsilmir');
   assert.ok(h.indexOf('class="nav-tg" href="https://t.me/sekkizulduz_az"') > h.indexOf('</details>'), 'Telegram çağırışı ☰-dan sonra, öz sətrində');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.nav-inst{display:none}nav.main .nav-tg{display:none}'), 'masaüstündə nə düymə, nə çağırış');
@@ -3464,7 +3465,7 @@ test('no jump on open: the ticker and markets rows reserve their real height at 
   // telefonda naviqasiya JS-dən əvvəl də son düzülüşdədir: hazır HTML-də «Ana ekrana» düyməsi gizlidir (qabıq telefonu tanımır), JS onu ~0,4 s
   // sonra açanda «İdman» və «Bölgələr» yana atılırdı; ana ekrandan açılanda Gündəm və Dünya sonradan çıxırdı (brauzer ölçüsü: 330/360/412 px)
   assert.match(where('@media(hover:none) and (display-mode:browser){nav.main .nav-inst[hidden]{display:inline-flex!important}}'), /max-width:600px/, 'toxunma ekranında, brauzer vərəqində düymə JS-siz də görünür (app.js installBtn ilə eyni şərt)');
-  assert.match(where('@media(display-mode:standalone){nav.main>a:is([href$="gundem/"],[href$="dunya/"]){display:flex;order:-1;flex:1 1 0;min-width:0;overflow:hidden}}'), /max-width:600px/, 'ana ekrandan açılanda Gündəm və Dünya JS-siz də yerindədir (.ph ilə eyni ölçü)');
+  assert.match(where('@media(display-mode:standalone){nav.main>a:is([href$="gundem/"],[href$="dunya/"]){display:flex;order:-1;flex:1 1 auto;min-width:0;overflow:hidden}}'), /max-width:600px/, 'ana ekrandan açılanda Gündəm və Dünya JS-siz də yerindədir (.ph ilə eyni ölçü)');
   assert.ok(css.indexOf('nav.main .nav-inst[hidden]{display:inline-flex!important}') > css.indexOf('nav.main>a:not(.ph,.nav-tg){display:none}'), 'bu qaydalar gizlədən qaydalardan sonra gəlir');
   assert.ok(css.includes('[hidden]{display:none!important}'), 'ümumi [hidden] qaydası !important-dır: düymənin qaydası da elə olmalıdır');
   const appJs = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
