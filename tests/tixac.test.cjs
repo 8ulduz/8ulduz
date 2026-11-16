@@ -89,7 +89,7 @@ test("tixac: the Tıxac page shows the measurement only when it is fresh, with e
   assert.ok(tix.length > 500 && !/vtomatik/.test(tix) && !/vtomatik/.test(src.slice(src.indexOf("const TIX_URL"), src.indexOf("const TIX_URL") + 4000)), "sahib 2026-11-14: «avtomatik» sözü yoxdur");
   assert.ok(src.includes("<h1>Tıxac-İndi</h1>") && src.includes("name = \"Tıxac-İndi\""), "başlıq «Tıxac-İndi»");
   assert.ok(src.includes("<h3>Rayonlar üzrə tıxac balı</h3>") && src.includes("<b>${esc(n)}</b> — ${b | 0}/10"), "rayon balı: ad mətn kimi, bal rəqəm kimi");
-  assert.ok(src.includes("Bakıda tıxaclı küçə: ${d.jammed | 0}") && src.includes("ölçülən ${d.counted | 0} küçədən"), "şəhər xülasəsi rəqəm kimi");
+  assert.ok(!src.includes("Bakıda tıxaclı küçə"), "sahib 2026-11-16: «Bakıda tıxaclı küçə: N (ölçülən M küçədən)» sətri silinib");
 });
 
 test("tixac: routes cover every district, a lost route is rejected, district scores and the weekly tally", async () => {

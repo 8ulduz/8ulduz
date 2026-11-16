@@ -3104,7 +3104,7 @@ test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once
     } else assert.ok(!html.includes('data-act="tix-yandex"'), 'kompüterdə Yandex düyməsi yoxdur');
   }
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
-  assert.ok(css.includes('.tix-map iframe{height:clamp(160px,calc(100svh - 440px),400px)}'), 'telefonda xəritə ilk ekrana sığır, altdakı yol məlumatı görünür (sahib 2026-11-16: hündürlüyü bütün telefonlarda azalt), 160–400 px');
+  assert.ok(css.includes('.tix-map iframe{height:max(120px,calc(100svh - 545px))}'), 'telefonda xəritə ilk ekrana sığır, altdakı yol məlumatı görünür (sahib 2026-11-16: hündürlüyü bütün telefonlarda azalt, hər ölçüdə eyni), ən azı 120 px');
   assert.ok(css.includes('.r-tix :is(#ticker,#markets,#tix-ani){display:none}') && fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('classList.toggle("r-tix", r.name === "traffic")'), 'sahib 2026-11-16: Tıxac-İndi-də son dəqiqə zolağı və valyuta sətri görünmür');
 });
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {

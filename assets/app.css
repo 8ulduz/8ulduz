@@ -1144,7 +1144,7 @@ nav.main .nav-more>summary{padding:0 8px}
 .r-tix :is(#ticker,#markets,#tix-ani){display:none}
 .tix-bar{gap:12px;align-items:center}
 .tix-alt{margin-right:auto;padding:0;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
-@media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:clamp(160px,calc(100svh - 440px),400px)}}
+@media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:max(120px,calc(100svh - 545px))}}
 /* sahib 11-14: telefonda başlıq bir sətir, izah gizli (xəbər başlığı .page-h>h1 toxunulmur) */
 @media (max-width:600px){
 .page-h .sec-desc{display:none}
