@@ -1120,10 +1120,9 @@ nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}
 /* sahib 11-10: 📲 solda; ana ekranda Gündəm, Dünya; JS-dən əvvəl də belə */
 @media (max-width:600px){
 nav.main .nav-inst,nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}
-nav.main>a.ph,nav.main .nav-inst{flex:1 1 0;min-width:0;overflow:hidden}
-nav.main .nav-inst{flex-grow:1.6}
+nav.main>a.ph,nav.main .nav-inst{flex:1 1 auto;min-width:0;overflow:hidden}
 @media(hover:none) and (display-mode:browser){nav.main .nav-inst[hidden]{display:inline-flex!important}}
-@media(display-mode:standalone){nav.main>a:is([href$="gundem/"],[href$="dunya/"]){display:flex;order:-1;flex:1 1 0;min-width:0;overflow:hidden}}
+@media(display-mode:standalone){nav.main>a:is([href$="gundem/"],[href$="dunya/"]){display:flex;order:-1;flex:1 1 auto;min-width:0;overflow:hidden}}
 }
 @media (max-width:340px){
 nav.main>a.ph,nav.main .nav-inst{font-size:12px;padding:0 2px}
