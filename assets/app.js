@@ -2616,7 +2616,21 @@ function showPop(btn, html) {
   return box;
 }
 const shareTitle = el => el.dataset?.title || el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || ""; // sosial yazı: «İlham Əliyev: …»
+// «Instagram hekayəsi» (sahib, 2026-11-17): Instagram keçidi yalnız mesajla qəbul edir, lent/hekayə şəkil istəyir. Fayl paylaşa bilən
+// telefonda «Paylaş» kiçik menyu açır; menyu açılan an assets/hekaye.js hekayə şəklini çəkməyə başlayır ki, düymə ani işləsin.
+const canStory = () => { try { return !!navigator.canShare?.({ files: [new File([""], "x.jpg", { type: "image/jpeg" })] }); } catch { return false; } };
+function storyInfo(btn) {
+  const id = (/^https:\/\/www\.8ulduz\.az\/([0-9a-f]{16})/.exec(btn.dataset.share || "") || [])[1] || btn.parentNode?.querySelector?.('[data-act="dinle"]')?.dataset.id;
+  const a = id && (byId.get(id) || savedList().find(x => x.id === id));
+  return { title: decode(a?.title || shareTitle(btn)), imageUrl: a?.imageUrl || "", source: a?.source || "" };
+}
 function shareStory(btn) {
+  if (navigator.share && globalThis.matchMedia?.("(hover:none)").matches && canStory()) {
+    const box = showPop(btn, `<button type="button" data-to="sys">${shIcon("sh")}Paylaş…</button><button type="button" data-to="igs">${shIcon("ig")}<span>Instagram hekayəsi<small>keçid kopyalanır</small></span></button><button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>`);
+    box.dataset.share = btn.dataset.share; box.dataset.title = shareTitle(btn);
+    box._story = import("./hekaye.js").then(m => m.storyFile(storyInfo(btn))).then(f => (box._file = f), () => null);
+    return;
+  }
   if (navigator.share && globalThis.matchMedia?.("(hover:none)").matches) { trackEvent("share-sys"); const title = shareTitle(btn), url = btn.dataset.share; navigator.share({ title, text: title, url }).catch(() => {}); return; }
   const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${shIcon(k)}${v[0]}</button>`).join("") + `<button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
   box.dataset.share = btn.dataset.share; box.dataset.title = shareTitle(btn);
@@ -2627,6 +2641,18 @@ async function shareTo(t) {
   if (to === "cp") { // başlıq + keçid: yapışdırılanda hansı xəbər olduğu görünür
     try { await navigator.clipboard.writeText(title ? `${title}\n${url}` : url); t.textContent = "Kopyalandı"; } catch { t.textContent = "Kopyalanmadı"; }
     setTimeout(closeSharePop, 1400);
+    return;
+  }
+  if (to === "igs") { // keçid kopyalanır (Instagram şəkildəki keçidi basılan etmir), sonra şəkil faylı paylaşılır
+    navigator.clipboard?.writeText(url).catch(() => {});
+    if (!box?._file) { // şəkil hələ hazır deyil: gözləyib ikinci toxunuşa saxlayır (brauzer gec paylaşıma icazə vermir)
+      const lab = t.querySelector("span") || t; lab.textContent = "Hazırlanır…";
+      lab.textContent = (await box?._story) ? "Hazırdır — hekayəni aç" : "Şəkil alınmadı";
+      if (!box?._file) setTimeout(closeSharePop, 1400);
+      return;
+    }
+    closeSharePop();
+    try { await navigator.share({ files: [box._file] }); } catch {}
     return;
   }
   closeSharePop();
