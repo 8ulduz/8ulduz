@@ -233,7 +233,17 @@ function networks(env = process.env) {
           // 2026-11-13: dərc cavabı xəta («Application request limit reached», 2207051) olsa da post Instagram-da çıxırdı. Fasilə və
           // mövzu yadda qalmırdı: hər dövrə yenə göndərirdi — 6,5 saatda 36 post, eyni hadisə 5 dəfə. Belə cavab «bəlkə dərc olunub» sayılır.
           const busy = /9007|not ready|not available/i.test(t);
-          if (!busy || i >= 4) return { ok: false, status: p.status, text: async () => t, maybePosted: !busy };
+          if (!busy) {
+            // 2026-11-17: 13 noyabrdan bəri HƏR dərc bu xəta ilə qayıdırdı, post isə çıxırdı (ig.json: 6 saatdan bir post). Xəta cavabı
+            // fasilə qoyduğu üçün Instagram-a gündə 4 post gedirdi, Facebook-a ~53. Konteynerin öz statusu soruşulur: PUBLISHED isə
+            // post çıxıb — adi uğur, fasilə yoxdur. Başqa status: post çıxmayıb, məhdudiyyət həqiqidir (fasilə qalır).
+            // Status alınmasa əvvəlki kimi «bəlkə dərc olunub».
+            const st = await f(`${root}${encodeURIComponent(id)}?fields=status_code&access_token=${encodeURIComponent(this.token)}`, { signal: AbortSignal.timeout(15000) })
+              .then(x => x.json()).then(j => j?.status_code || "").catch(() => "");
+            if (st === "PUBLISHED") return { ok: true, status: 200, text: async () => "" };
+            return { ok: false, status: p.status, text: async () => t, maybePosted: !st };
+          }
+          if (i >= 4) return { ok: false, status: p.status, text: async () => t, maybePosted: false };
           await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
         }
       },
