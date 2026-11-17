@@ -110,3 +110,18 @@ test("tixac: routes cover every district, a lost route is rejected, district sco
   for (let i = 1; i <= 9; i++) w = T.week(w, { ...snap, day: `2026-11-${16 + i}` });
   assert.equal(Object.keys(w.days).length, 8, "8 gün saxlanır"); assert.ok(!w.days["2026-11-16"]);
 });
+
+test("tixac: the news job starts the measurement every 6 minutes at peak (GitHub cron ran it hourly, 2026-11-17: bulletins got 2 of 6 measurements), a double start is skipped", () => {
+  const sh = fs.readFileSync(path.join(root, ".github/scripts/pipeline.sh"), "utf8");
+  const loop = sh.slice(sh.indexOf("tixac_loop() {"), sh.indexOf("\n}\n", sh.indexOf("tixac_loop() {")));
+  assert.ok(loop.includes("3|4|5|13|14|15) every=360") && loop.includes("6|7|8|9|10|11|12|16|17) every=1800"), "pik 6 dəq, qalan 30 dəq");
+  assert.ok(loop.includes('gh_t workflow run tixac.yml --ref "$BRANCH"') && !/MAPBOX|node |curl /.test(loop), "yalnız dispatch, açar və sorğu yoxdur");
+  assert.ok(sh.includes("tixac_loop &\nTIXAC_PID=$!") && sh.includes('kill "$TIXAC_PID"'));
+  const y = fs.readFileSync(path.join(root, ".github/workflows/tixac.yml"), "utf8");
+  assert.ok(y.includes("workflow_dispatch:") && y.includes("git fetch -q --depth=1 origin tixac"), "əvvəlki ölçü budağın özündən");
+  const peak = Date.parse("2026-11-17T04:00:00Z"), day = Date.parse("2026-11-17T09:00:00Z");
+  const at = (t, min) => ({ updatedAt: new Date(t - min * 60e3).toISOString() });
+  assert.equal(T.tooSoon(at(peak, 3), peak), true); assert.equal(T.tooSoon(at(peak, 5), peak), false);
+  assert.equal(T.tooSoon(at(day, 15), day), true); assert.equal(T.tooSoon(at(day, 25), day), false);
+  assert.equal(T.tooSoon({}, peak), false); assert.equal(T.tooSoon({ updatedAt: "pozuq" }, peak), false);
+});

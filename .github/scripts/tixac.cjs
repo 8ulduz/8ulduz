@@ -69,6 +69,11 @@ const meters = ([x1, y1], [x2, y2]) => { // iki nöqtə arası düz məsafə (m)
   const r = Math.PI / 180, a = Math.sin((y2 - y1) * r / 2) ** 2 + Math.cos(y1 * r) * Math.cos(y2 * r) * Math.sin((x2 - x1) * r / 2) ** 2;
   return 12742e3 * Math.asin(Math.sqrt(a));
 };
+// Sahib 2026-11-17 («tıxac xəbərlərimiz niyə Googla getmir»): GitHub cron-u «*/6»-nı saatda bir işlədirdi, pik saat bülleteninə
+// 6 ölçü əvəzinə 2 çatırdı. İndi ölçünü xəbər işi də başladır (pipeline.sh tixac_loop). İki başladan eyni vaxta düşsə Mapbox sorğusu
+// ikiqat getməsin: son ölçüdən pik saatda (Bakı 07–10, 17–20) 4, qalan vaxt 20 dəqiqə keçməyibsə ölçü buraxılır.
+const peakHour = t => [3, 4, 5, 13, 14, 15].includes(new Date(t).getUTCHours());
+const tooSoon = (prev, now) => { const t = Date.parse(prev?.updatedAt || ""); return t > 0 && now - t >= 0 && now - t < (peakHour(now) ? 4 : 20) * 60e3; };
 const bakuClock = t => new Date(t + 4 * 3600e3).toISOString().slice(11, 16);
 const bakuHour = t => new Date(t + 4 * 3600e3).getUTCHours();
 const km = m => (m / 1000).toFixed(1).replace(".", ",");
@@ -300,7 +305,7 @@ function week(prev, d, now = Date.parse(d.updatedAt)) {
   return { updatedAt: d.updatedAt, days: Object.fromEntries(keep.map(k => [k, days[k]])) };
 }
 
-module.exports = { week, rayonScores, loadOf, pool, WATCH, watchOf, HIST_MS, snapshot, history, ROUTES, DAILY_CAP, directed, streets, levelOf, streetRow, eventFor, incidentEvents, run, bakuClock };
+module.exports = { week, rayonScores, loadOf, pool, WATCH, watchOf, HIST_MS, snapshot, history, ROUTES, DAILY_CAP, directed, streets, levelOf, streetRow, eventFor, incidentEvents, run, bakuClock, tooSoon, peakHour };
 
 if (require.main === module) {
   const token = process.env.MAPBOX_TOKEN;
@@ -312,6 +317,7 @@ if (require.main === module) {
     let prevHist = []; try { prevHist = JSON.parse(fs.readFileSync(c, 'utf8')).snaps; } catch {}
     let prevWeek = {}; try { prevWeek = JSON.parse(fs.readFileSync(process.argv[5], "utf8")); } catch {}
     const now = Date.now();
+    if (tooSoon(prev, now)) { console.log(`son ölçü təzədir (${prev.updatedAt}), buraxıldı`); process.exit(0); }
     run({ token, prev, now }).then(d => {
       if (d.capped) return; // gündəlik hədd: heç nə yazılmır, iş uğurla bitir
       if (!d.routes.length) { console.error("heç bir marşrut ölçülmədi"); process.exit(1); }

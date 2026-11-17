@@ -62,6 +62,7 @@ LINKS_PID=""
 SOCIAL_PID=""
 EDITORIAL_PID=""
 ROLLOUT_PID=""
+TIXAC_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
@@ -70,6 +71,7 @@ cleanup() {
   [ -n "$SOCIAL_PID" ] && kill "$SOCIAL_PID" 2>/dev/null
   [ -n "$EDITORIAL_PID" ] && kill "$EDITORIAL_PID" 2>/dev/null
   [ -n "$ROLLOUT_PID" ] && kill "$ROLLOUT_PID" 2>/dev/null
+  [ -n "$TIXAC_PID" ] && kill "$TIXAC_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -346,6 +348,22 @@ social_loop() {
   done
 }
 
+# Tıxac ölçüsü (sahib 2026-11-17: «tıxac xəbərlərimiz niyə Googla getmir»): GitHub cron-u tixac.yml-in «*/6»-nı saatda bir işlədirdi,
+# öz pik saat bülletenimizə 6 ölçü lazımdır, 2 gəlirdi — bülleten heç dərc olunmurdu. Ölçünü bu iş başladır: pik saatda
+# (Bakı 07–10, 17–20) 6 dəqiqədən, qalan vaxt (10–17, 20–22) 30 dəqiqədən bir. Yalnız dispatch: Mapbox açarı bu işə gəlmir, şəbəkə
+# sorğusu xəbər dövrəsində deyil; cron ehtiyat qalır, təkrarı tixac.cjs (tooSoon) buraxır.
+tixac_loop() {
+  local last=-99999 every h
+  while :; do
+    h=$((10#$(date -u +%H)))
+    case "$h" in 3|4|5|13|14|15) every=360 ;; 6|7|8|9|10|11|12|16|17) every=1800 ;; *) every=0 ;; esac
+    if [ "$every" -gt 0 ] && [ $((SECONDS - last)) -ge "$every" ]; then
+      gh_t workflow run tixac.yml --ref "$BRANCH" >/dev/null 2>&1 && last=$SECONDS
+    fi
+    sleep 30
+  done
+}
+
 # Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
 # GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
 self_watch() { # $1 əsas proses
@@ -394,6 +412,8 @@ links_loop &
 LINKS_PID=$!
 social_loop &
 SOCIAL_PID=$!
+tixac_loop &
+TIXAC_PID=$!
 # Etibarlı köməkçi yalnız sabit GitHub API ünvanından qayda faylını oxuyur. Mənbə/lent prosesləri açarı görmür.
 UPDATER_ROOT="$WORK" "$PY" "$REPO_DIR/.github/scripts/editorial_sync.py" --watch &
 EDITORIAL_PID=$!
