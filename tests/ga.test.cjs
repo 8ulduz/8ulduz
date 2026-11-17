@@ -14,7 +14,8 @@ function load({ stored = null, ref = "", host = "8ulduz.az" } = {}) {
     localStorage: { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) },
     setTimeout: (f, ms) => timers.push([f, ms]), fetch: async () => {} };
   const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit, pageUrl, news })";
-  return { api: vm.runInNewContext(src, ctx), sent, store, timers };
+  const api = vm.runInNewContext(src, ctx); api.ctx = ctx;
+  return { api, sent, store, timers };
 }
 const params = u => Object.fromEntries(new URL(u).searchParams);
 
@@ -56,7 +57,7 @@ test("ga4: bad id sends nothing; the site loads the sender only after it is show
   assert.equal(local.api.hit("G-NHSDLY61CD", "/", "x"), null, "yerli sınaq GA4-ə getmir"); assert.equal(local.sent.length, 0);
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8"), cfg = fs.readFileSync(path.join(root, "assets/config.js"), "utf8");
   assert.ok(cfg.includes('ga4: "G-NHSDLY61CD"'));
-  assert.ok(app.includes('import("./ga.js?v=4")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
+  assert.ok(app.includes('import("./ga.js?v=5")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
   for (const f of ["assets/app.js", "index.html", "assets/config.js"]) assert.ok(!/googletagmanager|gtag\/js/.test(fs.readFileSync(path.join(root, f), "utf8")), f + ': Google-un ağır skripti yoxdur');
   assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4500, 'göndərici kiçik qalır');
   assert.ok(fs.readFileSync(path.join(root, "mexfilik/index.html"), "utf8").includes("Google Analytics 4"), 'məxfilik səhifəsində yazılıb');
@@ -121,4 +122,20 @@ test("ga4: with storage blocked the reader stays one user and one session for th
   assert.equal(new Set(p.map(x => x.cid)).size, 1, "eyni oxucu");
   assert.deepEqual(p.map(x => [x._fv, x._ss]), [["1", "1"], [undefined, undefined], [undefined, undefined]], "yalnız ilk baxış yeni istifadəçi və yeni sessiyadır");
   assert.ok(api && sent.length === 0);
+});
+
+test("ga4 (2026-11-17): robots, automated browsers (nightly speed check) and never-shown prefetched pages are not counted", () => {
+  for (const nav of [{ webdriver: true }, { userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/130.0 Safari/537.36" },
+    { userAgent: "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" }, { userAgent: "meta-externalagent/1.1" }, { userAgent: "Mozilla/5.0 (compatible; Googlebot/2.1)" }]) {
+    const { api, sent } = load();
+    api.ctx.navigator = { ...api.ctx.navigator, ...nav };
+    assert.equal(api.hit("G-NHSDLY61CD", "/", "8ulduz"), null, JSON.stringify(nav)); assert.equal(sent.length, 0);
+  }
+  const phone = load(); phone.api.ctx.navigator.userAgent = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36";
+  phone.api.hit("G-NHSDLY61CD", "/", "8ulduz"); assert.equal(phone.sent.length, 1, "adi telefon brauzeri sayılır");
+  const hid = load(); const doc = hid.api.ctx.document, on = [];
+  doc.visibilityState = "hidden"; doc.addEventListener = (t, f) => on.push(f); doc.removeEventListener = () => {};
+  assert.equal(hid.api.hit("G-NHSDLY61CD", "/#/bolme/idman", "İdman"), null); assert.equal(hid.sent.length, 0, "gizli açılan səhifə hələ sayılmır");
+  doc.visibilityState = "visible"; on[0]();
+  assert.equal(hid.sent.length, 1, "oxucu görəndə sayılır"); assert.equal(params(hid.sent[0]).dl, "https://8ulduz.az/bolme/idman?utm_source=telegram");
 });
