@@ -441,6 +441,48 @@ test("social: an Instagram publish error still counts as a post (gap, topic, /ig
   assert.equal(st2._last?.instagram, undefined); assert.equal(st2._pause, undefined); assert.equal(st2._ig, undefined);
 });
 
+// 2026-11-17: 13 noyabrdan bəri hər dərc 2207051 ilə qayıdırdı, post isə çıxırdı; fasilə ucbatından Instagram-a gündə 4 post gedirdi.
+test("social: an Instagram publish error whose container is PUBLISHED is a normal post, no pause; an unpublished one still pauses", async () => {
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", IG_WAIT_MS: "0", SOCIAL_PER_RUN: "1" };
+  const one = art("f1", { imageUrl: "https://apa.az/1.jpg", title: "Gəncədə yeni körpü açıldı", summary: "Körpü 200 metrdir." });
+  const two = art("f2", { imageUrl: "https://apa.az/2.jpg", title: "Neftin qiyməti ucuzlaşıb", summary: "Brent 1 dollar ucuzlaşıb." });
+  const limit = '{"error":{"message":"Application request limit reached","type":"OAuthException","code":4,"error_subcode":2207051}}';
+  const mk = status => {
+    const calls = { publish: 0, status: [] };
+    const fetch = async (url, init = {}) => {
+      if (init.method === "HEAD") return { status: 200 };
+      if (url.includes("fields=instagram_business_account")) return { json: async () => ({ access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } }) };
+      if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+      if (url.endsWith("/1784/media")) return { ok: true, status: 200, json: async () => ({ id: "C" + calls.publish }), text: async () => "" };
+      if (url.endsWith("/1784/media_publish")) { calls.publish++; return { ok: false, status: 403, text: async () => limit }; }
+      if (url.includes("fields=status_code")) { calls.status.push(url); return { json: async () => ({ status_code: status }) }; }
+      throw new Error("gözlənilməz " + url);
+    };
+    return { calls, fetch };
+  };
+  const ok = mk("PUBLISHED"), state = {}, logs = [];
+  let res = await S.run({ articles: [one, two], env, now: NOW, fetch: ok.fetch, state, log: s => logs.push(s) });
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === one.id), "uğurlu post");
+  assert.deepEqual(res.failed, []);
+  assert.equal(state._pause?.instagram, undefined, "fasilə yoxdur");
+  assert.ok(ok.calls.status[0].includes("/C0?fields=status_code") && !ok.calls.status[0].includes("EAAuserTOKEN"), "konteynerin statusu səhifə açarı ilə soruşulur");
+  assert.deepEqual(state._ig.map(x => x.id), [one.id]);
+  assert.ok(logs.includes(`instagram: paylaşıldı — ${one.title}`));
+  await S.run({ articles: [one, two], env, now: NOW + 30 * 60e3, fetch: ok.fetch, state, log: () => {} });
+  assert.equal(ok.calls.publish, 1, "45 dəqiqəlik ara saxlanır");
+  res = await S.run({ articles: [one, two], env, now: NOW + 46 * 60e3, fetch: ok.fetch, state, log: () => {} });
+  assert.equal(ok.calls.publish, 2, "aradan sonra növbəti xəbər gedir — 6 saat gözləmədən");
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === two.id));
+  for (const status of ["ERROR", "EXPIRED"]) {
+    const bad = mk(status), st = {};
+    res = await S.run({ articles: [one], env, now: NOW, fetch: bad.fetch, state: st, log: () => {} });
+    assert.deepEqual(res.failed, [["instagram", one.id]], `${status}: post çıxmayıb`);
+    assert.equal(st._pause.instagram, NOW / 1000 + 6 * 3600, `${status}: məhdudiyyət həqiqidir, fasilə qalır`);
+    assert.equal(st._last?.instagram, undefined, `${status}: çıxmayan post ara saymır`);
+    assert.equal(st._ig, undefined, `${status}: /ig/ siyahısına düşmür`);
+  }
+});
+
 test("social: site names in the Telegram text do not become links above ours (2026-11-14: «edilib.Metbuat.az» linked to a dead host, «Modern.az» to the source)", () => {
   const Z = String.fromCharCode(0x200B);
   const cases = [
