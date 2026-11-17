@@ -1,7 +1,5 @@
-// Google Analytics 4, yüngül göndərici (sahib, 2026-11-06: əsas statistika GA4 olsun, sürət qorunsun).
-// Google-un gtag.js-i (153 KB sıxılmış, 444 KB kod) yüklənmir: baxış birbaşa GA4-ün /g/collect ünvanına gedir.
-// Yalnız ümumi say: təsadüfi cihaz nömrəsi (cid), sessiya nömrəsi, səhifə, başlıq, dil, ekran ölçüsü. Ad, e-poçt, konum yoxdur.
-// Fayl app.js-dən ayrıdır və yalnız sayt açılandan sonra (enableAnalytics) yüklənir: ilk ekrana təsiri yoxdur.
+// GA4 yüngül göndərici (sahib 2026-11-06: əsas statistika GA4, sürət qorunsun): gtag.js yüklənmir, baxış birbaşa /g/collect-ə gedir.
+// Yalnız ümumi say (təsadüfi cid, sessiya, səhifə, başlıq, dil, ekran); ad, e-poçt, konum yoxdur. Açılışdan sonra yüklənir.
 const KEY = "8ulduz-ga", SESSION_MS = 30 * 60e3, ENGAGED_MS = 10e3;
 const GA = "https://www.google-analytics.com/g/collect?";
 let seq = 0, engaged = false;
@@ -26,32 +24,39 @@ function state(now) {
   return { s, first, start };
 }
 
-// Hash marşrutu (#/bolme/gundem) GA4 hesabatında ayrıca səhifə kimi görünsün: /bolme/gundem
+// #/bolme/gundem hesabatda /bolme/gundem səhifəsidir
 export function pageUrl(path, loc = location) {
   const [base, hash = ""] = String(path || "/").split("#");
   const route = hash.replace(/^\/?/, "/").split("?")[0];
   return loc.origin + (route !== "/" ? route : base || "/") + loc.search;
 }
 
-// Xəbər keçidi (sahib 2026-11-11): «news_outbound_click» — news_domain (www-siz), news_url, news_title. «out» kimi ikinci dəfə getmir.
+// Xəbər keçidi (sahib 2026-11-11): «news_outbound_click» (news_domain, news_url, news_title), «out» ikinci dəfə getmir.
 export function news(a) {
   const art = a?.closest?.("article");
   if (!a?.matches || a.matches(".soc-p") || !(art || a.closest(".phrow,.track,.alerts,.foot-news"))) return null;
-  const el = a.querySelector("h1,h2,h3,h4,.t") || art?.querySelector("h1,h2,h3,h4") || a, tag = el.querySelector?.(".tag")?.textContent || ""; // «Birinci xanım» etiketi başlıq deyil
+  const el = a.querySelector("h1,h2,h3,h4,.t") || art?.querySelector("h1,h2,h3,h4") || a, tag = el.querySelector?.(".tag")?.textContent || ""; // etiket başlıq deyil
   const t = el.textContent.replace(tag, "").trim();
   return t ? [a.hostname.toLowerCase().replace(/^www\./, ""), a.href, t] : null;
 }
 
-// ev: hadisə (sahib 2026-11-07: keçidləri ölçmək) — "out-apa.az" (mənbəyə keçid), "share-wa" (paylaşma), "install-…".
-// GA4-də hadisənin adı birinci hissədir (out, share, install), qalanı «type» parametridir.
+// ev (sahib 2026-11-07): "out-apa.az", "share-wa", "install-…": ad birinci hissədir, qalanı «type».
+// Robot, gecə sürət yoxlaması (2026-11-17: ~96% idi), yerli sınaq sayılmır.
+const BOT = /bot\b|crawl|spider|facebookexternalhit|meta-external|HeadlessChrome|Lighthouse/i;
+export const robot = (n = navigator) => !!n.webdriver || BOT.test(n.userAgent || "");
 export function hit(id, path, title, now = Date.now(), ev = "", a) {
-  if (!/^G-[A-Z0-9]+$/.test(String(id || "")) || !/^(www\.)?8ulduz\.az$/.test(location.hostname)) return null; // yerli sınaq statistikaya düşmür
+  if (!/^G-[A-Z0-9]+$/.test(String(id || "")) || !/^(www\.)?8ulduz\.az$/.test(location.hostname) || robot()) return null;
+  if (!ev && document.visibilityState === "hidden") { // gizli səhifə: görünəndə
+    const go = () => document.visibilityState === "visible" && (document.removeEventListener("visibilitychange", go), hit(id, path, title));
+    document.addEventListener?.("visibilitychange", go);
+    return null;
+  }
   const { s, first, start } = state(now);
   const [name, ...type] = String(ev).split("-"), n = name === "out" && news(a);
   const q = new URLSearchParams({ v: "2", tid: id, cid: s.cid, sid: String(s.sid), sct: String(s.sct), _p: String(Math.floor(Math.random() * 1e9)),
     _s: String(++seq), en: n ? "news_outbound_click" : ev ? name.replace(/\W/g, "_").slice(0, 40) || "event" : "page_view", dl: pageUrl(path), dt: String(title || "8ulduz").slice(0, 300),
     ul: String(navigator.language || "").toLowerCase(), sr: `${screen.width || 0}x${screen.height || 0}` });
-  if (n) ["domain", "url", "title"].forEach((k, i) => q.set("ep.news_" + k, n[i].slice(0, 100))); // GA4 həddi: 100 işarə
+  if (n) ["domain", "url", "title"].forEach((k, i) => q.set("ep.news_" + k, n[i].slice(0, 100)));
   else if (ev) q.set("ep.type", type.join("-").slice(0, 100));
   if (ev) { q.set("seg", "1"); send(q); return q; }
   const ref = document.referrer;
@@ -60,7 +65,7 @@ export function hit(id, path, title, now = Date.now(), ev = "", a) {
   if (start) { q.set("_ss", "1"); q.set("_nsi", "1"); }
   if (engaged) q.set("seg", "1");
   send(q);
-  // 10 saniyə açıq qalan səhifə: «fəal sessiya» (GA4-də bounce/engagement düzgün çıxsın)
+  // 10 saniyə açıq qalan səhifə: «fəal sessiya»
   if (!engaged) setTimeout(() => {
     if (engaged || document.visibilityState !== "visible") return;
     engaged = true;
