@@ -447,8 +447,8 @@ test("social: an Instagram publish error whose container is PUBLISHED is a norma
   const one = art("f1", { imageUrl: "https://apa.az/1.jpg", title: "Gəncədə yeni körpü açıldı", summary: "Körpü 200 metrdir." });
   const two = art("f2", { imageUrl: "https://apa.az/2.jpg", title: "Neftin qiyməti ucuzlaşıb", summary: "Brent 1 dollar ucuzlaşıb." });
   const limit = '{"error":{"message":"Application request limit reached","type":"OAuthException","code":4,"error_subcode":2207051}}';
-  const mk = status => {
-    const calls = { publish: 0, status: [] };
+  const mk = (status, media = []) => {
+    const calls = { publish: 0, status: [], media: 0 };
     const fetch = async (url, init = {}) => {
       if (init.method === "HEAD") return { status: 200 };
       if (url.includes("fields=instagram_business_account")) return { json: async () => ({ access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } }) };
@@ -456,6 +456,7 @@ test("social: an Instagram publish error whose container is PUBLISHED is a norma
       if (url.endsWith("/1784/media")) return { ok: true, status: 200, json: async () => ({ id: "C" + calls.publish }), text: async () => "" };
       if (url.endsWith("/1784/media_publish")) { calls.publish++; return { ok: false, status: 403, text: async () => limit }; }
       if (url.includes("fields=status_code")) { calls.status.push(url); return { json: async () => ({ status_code: status }) }; }
+      if (url.includes("/1784/media?fields=timestamp,caption&limit=1")) { calls.media++; return { json: async () => ({ data: media }) }; }
       throw new Error("gözlənilməz " + url);
     };
     return { calls, fetch };
@@ -480,6 +481,27 @@ test("social: an Instagram publish error whose container is PUBLISHED is a norma
     assert.equal(st._pause.instagram, NOW / 1000 + 6 * 3600, `${status}: məhdudiyyət həqiqidir, fasilə qalır`);
     assert.equal(st._last?.instagram, undefined, `${status}: çıxmayan post ara saymır`);
     assert.equal(st._ig, undefined, `${status}: /ig/ siyahısına düşmür`);
+  }
+  // 2026-11-17 ölçüsü: status hələ «PUBLISHED» deyil (və ya sorğu cavabsız), post isə hesabda var — adi uğur, fasilə yoxdur.
+  const iso = t => new Date(t).toISOString().replace(".000Z", "+0000");
+  const fresh = [{ timestamp: iso(Date.now() + 5e3), caption: `${one.title}
+
+Körpü 200 metrdir.` }];
+  for (const status of ["FINISHED", ""]) {
+    const late = mk(status, fresh), st = {};
+    res = await S.run({ articles: [one], env, now: NOW, fetch: late.fetch, state: st, log: () => {} });
+    assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === one.id), `«${status}»: hesabdakı son post bu xəbərdir — paylaşılıb`);
+    assert.equal(st._pause?.instagram, undefined, `«${status}»: fasilə yoxdur`);
+  }
+  // Son post köhnədir və ya başqa xəbərdir: üç yoxlamadan sonra «bəlkə dərc olunub» (əvvəlki kimi fasilə, ara yazılır).
+  for (const media of [[{ timestamp: iso(Date.now() - 6 * 3600e3), caption: one.title }], [{ timestamp: iso(Date.now()), caption: two.title }], []]) {
+    const no = mk("IN_PROGRESS", media), st = {};
+    res = await S.run({ articles: [one], env, now: NOW, fetch: no.fetch, state: st, log: () => {} });
+    assert.deepEqual(res.failed, [["instagram", one.id]]);
+    assert.equal(no.calls.status.length, 3, "status üç dəfə soruşulur");
+    assert.equal(no.calls.media, 3);
+    assert.equal(st._pause.instagram, NOW / 1000 + 6 * 3600);
+    assert.equal(st._last.instagram, NOW / 1000, "bilinmir: ara yenə yazılır");
   }
 });
 
