@@ -500,7 +500,7 @@ function shownSource(a) {
 }
 const plainName = s => String(s ?? "").toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "");
 const ownAuthor = a => { const w = plainName(a.author); return !!w && ![a.source, shownSource(a), hostOf(a.sourceUrl)].some(n => plainName(n) === w); }; // müəllif mənbənin öz adıdırsa təkrar yazılmır
-const meta = a => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${ownAuthor(a) ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}</span></div>`;
+const meta = (a, story) => `<div class="meta"><a class="src" href="${safeHref(a.sourceUrl)}" ${OUT}>${sourceName(shownSource(a))}${ownAuthor(a) ? `<span class="muted"> · ${txt(a.author)}</span>` : ""}</a><time datetime="${esc(a.publishedAt)}">${ago(a.publishedAt)}</time><span class="acts">${shareBtn(a)}${story && storyOk() && shareBtn(a) ? `<button type="button" class="share" data-act="igs" data-id="${esc(a.id)}" title="Instagram hekayəsi (keçid kopyalanır)">Hekayə</button>` : ""}</span></div>`;
 // Paylaşma keçidi: www.8ulduz.az (Worker) og səhifəni hər dəqiqə verir, oxucunu dərhal sayta keçirir (docs/x-worker.md); b bölmə, h saat (arxiv.cjs hourOf). 2026-11-09-a qədər x.8ulduz.az idi — sahib: saytın adı ilə qarışmasın.
 const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
 const shareUrl = (a, h = hourOf(a)) => /^[0-9a-f]{16}$/.test(a.id) ? `https://www.8ulduz.az/${a.id}${h && "?h=" + h}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${h && "&h=" + h}`;
@@ -2132,7 +2132,7 @@ function articleView(id) {
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz"; S.art = a;
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a, true)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
 // «Telegram-da izlə» (izle.cjs).
@@ -2616,6 +2616,23 @@ function showPop(btn, html) {
   return box;
 }
 const shareTitle = el => el.dataset?.title || el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || ""; // sosial yazı: «İlham Əliyev: …»
+// «Instagram hekayəsi» (sahib, 2026-11-17): Instagram keçidi yalnız mesajla qəbul edir, lent/hekayə şəkil istəyir. «Paylaş» dəyişmir
+// (paylaşım uzanmasın); fayl paylaşa bilən telefonda xəbər səhifəsində ayrıca «Hekayə» düyməsi var. Basılanda keçid kopyalanır
+// (Instagram şəkildəki keçidi basılan etmir — stikerə yapışdırılır), assets/hekaye.js hekayə şəklini çəkir, şəkil faylı paylaşılır.
+const storyOk = () => S.storyOk ??= (() => { try { return !!(navigator.share && globalThis.matchMedia?.("(hover:none)").matches && navigator.canShare?.({ files: [new File([""], "x.jpg", { type: "image/jpeg" })] })); } catch { return false; } })();
+async function igStory(t) {
+  const a = S.art; if (!a || String(a.id) !== t.dataset.id) return;
+  trackEvent("share-igs");
+  navigator.clipboard?.writeText(shareUrl(a)).catch(() => {});
+  if (!t._file) {
+    t.textContent = "Hazırlanır…";
+    t._file = await import("./hekaye.js").then(m => m.storyFile({ title: decode(a.title), imageUrl: a.imageUrl || "", source: a.source || "" })).catch(() => null);
+    t.textContent = t._file ? "Hekayə" : "Alınmadı";
+    if (!t._file) return;
+  }
+  // Şəkil gec hazırlansa brauzer paylaşıma icazə verməyə bilər: fayl hazırdır, ikinci toxunuş dərhal paylaşır.
+  try { await navigator.share({ files: [t._file] }); } catch (e) { if (e?.name === "NotAllowedError") t.textContent = "Hazırdır — bas"; }
+}
 function shareStory(btn) {
   if (navigator.share && globalThis.matchMedia?.("(hover:none)").matches) { trackEvent("share-sys"); const title = shareTitle(btn), url = btn.dataset.share; navigator.share({ title, text: title, url }).catch(() => {}); return; }
   const box = showPop(btn, Object.entries(SHARE_TO).map(([k, v]) => `<button type="button" data-to="${k}">${shIcon(k)}${v[0]}</button>`).join("") + `<button type="button" data-to="cp">${shIcon("cp")}Keçidi kopyala</button>` + (navigator.share ? `<button type="button" data-to="sys">Başqa…</button>` : ""));
@@ -2689,6 +2706,7 @@ function onClick(e) {
     if (dirty) { renderTopbar(); renderMarkets(); }
     return;
   }
+  if (t.dataset.act === "igs") { e.preventDefault(); e.stopPropagation(); igStory(t); return; }
   if (t.dataset.act === "share" || t.dataset.to) {
     e.preventDefault();
     e.stopPropagation();

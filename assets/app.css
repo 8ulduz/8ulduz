@@ -303,6 +303,7 @@ main>.wrap>section{margin-bottom:18px}
 .tag{font-style:normal;text-transform:uppercase;letter-spacing:.04em;margin-right:4px}
 .meta{display:flex;gap:6px;align-items:center;color:var(--muted);margin-top:0;min-width:0}
 .meta .src{font-weight:700}
+.article-detail .meta{flex-wrap:wrap}
 .meta time{white-space:nowrap;margin-left:auto}
 @media (max-width:560px){.prez-h .links{display:none}}
 /* --- reklam yeri (yığcam) --- */
