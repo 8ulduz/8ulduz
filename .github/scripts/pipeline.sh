@@ -349,7 +349,7 @@ social_loop() {
 }
 
 # Tıxac ölçüsü (sahib 2026-11-17: «tıxac xəbərlərimiz niyə Googla getmir»): GitHub cron-u tixac.yml-in «*/6»-nı saatda bir işlədirdi,
-# pik saat bülleteninə (oz_tixac.py) 6 ölçü lazımdır, 2 gəlirdi — bülleten heç dərc olunmurdu. Ölçünü bu iş başladır: pik saatda
+# öz pik saat bülletenimizə 6 ölçü lazımdır, 2 gəlirdi — bülleten heç dərc olunmurdu. Ölçünü bu iş başladır: pik saatda
 # (Bakı 07–10, 17–20) 6 dəqiqədən, qalan vaxt (10–17, 20–22) 30 dəqiqədən bir. Yalnız dispatch: Mapbox açarı bu işə gəlmir, şəbəkə
 # sorğusu xəbər dövrəsində deyil; cron ehtiyat qalır, təkrarı tixac.cjs (tooSoon) buraxır.
 tixac_loop() {
