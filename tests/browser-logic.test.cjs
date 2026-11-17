@@ -2671,7 +2671,7 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   assert.ok(css.includes('.topbar{position:relative}') && css.includes('.topbar .wrap{position:static}'), 'namaz və hava pəncərələri zolağın içində kəsilmir');
   assert.ok(css.includes('.pcard .share{position:absolute'), 'Zuğulba paylaş düyməsi kartın küncündədir');
   assert.ok(!/\.pcard \[data-act=dinle\]\{[^}]*left:6px/.test(css) && css.includes('.pcard [data-act=dinle]{right:calc(10px + 4.2em)}'), 'Zuğulba kartında «Dinlə» enə uzanmır, «Paylaş»ın solundadır (sahib, 2026-11-08 telefon şəkli)');
-  assert.ok(src.includes('</time><span class="acts">${shareBtn(a)}</span></div>') && css.includes('.acts{display:inline-flex;flex:none;margin-left:auto}') && css.includes('.hero-main .meta,.pcard .meta{flex-wrap:wrap}') && css.includes('.pcard.has-img:not(.noimg) .pcard-hit{align-self:stretch}'), 'dar yerdə «Dinlə» + «Paylaş» birlikdə növbəti sətrə keçir, mənbə adı sıxılmır; Zuğulba şəkli yuxarıda');
+  assert.ok(src.includes('</time><span class="acts">${shareBtn(a)}${story && storyOk()') && css.includes('.acts{display:inline-flex;flex:none;margin-left:auto}') && css.includes('.hero-main .meta,.pcard .meta{flex-wrap:wrap}') && css.includes('.pcard.has-img:not(.noimg) .pcard-hit{align-self:stretch}'), 'dar yerdə «Dinlə» + «Paylaş» birlikdə növbəti sətrə keçir, mənbə adı sıxılmır; Zuğulba şəkli yuxarıda');
   const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(/frame-src [^"]*https:\/\/yandex\.com/.test(index), 'CSP Yandex xəritəsinə icazə verir');
 });
@@ -3588,21 +3588,28 @@ test('owner 2026-11-16: in-app browsers (Facebook, Instagram…) that enlarge te
   fit(1); assert.equal(meta.content, 'width=device-width, initial-scale=1.0, viewport-fit=cover', 'böyütmə yoxdursa adi görünüş');
   assert.ok(js.includes('firstReady.finally(() => afterFrame(probeTextZoom));') && js.includes('new ResizeObserver('), 'ölçü ilk ekrandan və kadrdan sonra, məcburi yerləşdirməsiz');
 });
-test("owner 2026-11-17: on a phone that can share files «Paylaş» offers an Instagram story — the picture is prepared when the menu opens, the link is copied, Instagram gets an image file", async () => {
-  const shared = [], copied = [], pops = [];
+test("owner 2026-11-17: «Paylaş» stays one tap; on a phone that can share files the story page has a «Hekayə» button that copies the link and shares only a picture file", async () => {
+  const shared = [], copied = [];
   const nav = { onLine: true, userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile', share: o => { shared.push(o); return Promise.resolve(); }, canShare: o => Array.isArray(o.files), clipboard: { writeText: s => { copied.push(s); return Promise.resolve(); } } };
   const ctx = app({ File, navigator: nav, matchMedia: q => ({ matches: q === '(hover:none)' }) });
-  const box = { dataset: {}, closest: () => box, querySelector: () => null };
-  vm.runInContext('showPop = (b, h) => { __pops.push(h); return __box; }; closeSharePop = () => {}', Object.assign(ctx, { __pops: pops, __box: box }));
-  const btn = { dataset: { share: 'https://www.8ulduz.az/0123456789abcdef?h=26111708' }, closest: () => null, parentNode: null };
+  const btn = { dataset: { share: 'https://www.8ulduz.az/0123456789abcdef?h=26111708' }, closest: sel => sel === 'article' ? { querySelector: () => ({ textContent: 'Neft bahalaşdı' }) } : null };
   vm.runInContext('shareStory', ctx)(btn);
-  assert.equal(shared.length, 0, 'sistem pəncərəsi dərhal açılmır, menyu açılır');
-  assert.ok(pops[0].includes('data-to="sys"') && pops[0].includes('data-to="igs"') && pops[0].includes('Instagram hekayəsi') && pops[0].includes('data-to="cp"'), 'menyu: Paylaş…, Instagram hekayəsi, Keçidi kopyala');
-  assert.ok(box._story && typeof box._story.then === 'function', 'hekayə şəkli menyu açılan an hazırlanır');
+  assert.equal(shared.length, 1, '«Paylaş» telefonun siyahısını dərhal açır (menyu yoxdur)');
+  const { S, articleView } = ctx.api, t0 = new Date().toISOString();
+  const row = { id: '0123456789abcdef', title: 'Neft bahalaşdı', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: t0, category: 'iqtisadiyyat', imageUrl: 'https://apa.az/1.jpg' };
+  S.data = { articles: [row] };
+  const html = articleView(row.id);
+  assert.ok(html.includes('data-act="igs"') && html.includes('>Hekayə</button>'), 'xəbər səhifəsində «Hekayə» düyməsi');
+  const cardHtml = vm.runInContext('meta', ctx)(row);
+  assert.ok(!cardHtml.includes('data-act="igs"'), 'kartlarda yoxdur');
+  const desk = app({ File, navigator: { onLine: true, share: () => Promise.resolve(), canShare: () => true }, matchMedia: () => ({ matches: false }) });
+  desk.api.S.data = { articles: [row] };
+  assert.ok(!desk.api.articleView(row.id).includes('data-act="igs"'), 'kompüterdə yoxdur');
   const file = new File(['x'], '8ulduz-hekaye.jpg', { type: 'image/jpeg' });
-  box._file = file; box.dataset.share = btn.dataset.share;
-  await vm.runInContext('shareTo', ctx)({ dataset: { to: 'igs' }, closest: () => box, querySelector: () => null });
-  assert.deepEqual(copied, ['https://www.8ulduz.az/0123456789abcdef?h=26111708'], 'keçid kopyalanır (stikerə yapışdırmaq üçün)');
+  const b = { dataset: { id: row.id }, _file: file, textContent: 'Hekayə' };
+  shared.length = 0;
+  await vm.runInContext('igStory', ctx)(b);
+  assert.equal(copied.length, 1); assert.ok(copied[0].startsWith('https://www.8ulduz.az/0123456789abcdef'), 'keçid kopyalanır (stikerə yapışdırmaq üçün)');
   assert.equal(shared.length, 1); assert.deepEqual(Object.keys(shared[0]), ['files']); assert.equal(shared[0].files[0], file, 'Instagram-a yalnız şəkil faylı gedir: «Hekayə»/«Lent» seçimləri görünür');
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   assert.ok(js.includes('import("./hekaye.js")') && !/^import .*hekaye/m.test(js), 'hekayə kodu tənbəl moduldur');

@@ -303,6 +303,7 @@ main>.wrap>section{margin-bottom:18px}
 .tag{font-style:normal;text-transform:uppercase;letter-spacing:.04em;margin-right:4px}
 .meta{display:flex;gap:6px;align-items:center;color:var(--muted);margin-top:0;min-width:0}
 .meta .src{font-weight:700}
+.article-detail .meta{flex-wrap:wrap}
 .meta time{white-space:nowrap;margin-left:auto}
 @media (max-width:560px){.prez-h .links{display:none}}
 /* --- reklam yeri (yığcam) --- */
@@ -1027,7 +1028,6 @@ html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wra
 /* Paylaşma: hər yerdə «Paylaş» düyməsi → panel */
 .sharepop button{display:flex;align-items:center;gap:9px}
 .sharepop svg{flex:none;width:18px;height:18px;fill:currentColor}
-.sharepop small{display:block;font-size:.74rem;font-weight:500;opacity:.75}
 /* Hərəkət düymələri; dayanıq lent barmaqla sürüşür */
 .ticker .lbl .mo{flex:none;width:22px;height:22px;padding:0;border-radius:99px;background:#ffffff22;color:#fff;font-size:11px;line-height:1}
 .ticker .run.still .track{animation:none}
