@@ -223,6 +223,7 @@ function networks(env = process.env) {
       async post(a, f) {
         const call = (p, body) => f(`${root}${p}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({ ...body, access_token: this.token }).toString(), signal: AbortSignal.timeout(30000) });
+        const t0 = Date.now();
         const c = await call(`${this.ig}/media`, { image_url: a.imageUrl, caption: this.caption(a) });
         if (!c.ok) return c;
         const { id } = await c.json();
@@ -236,12 +237,22 @@ function networks(env = process.env) {
           if (!busy) {
             // 2026-11-17: 13 noyabrdan bəri HƏR dərc bu xəta ilə qayıdırdı, post isə çıxırdı (ig.json: 6 saatdan bir post). Xəta cavabı
             // fasilə qoyduğu üçün Instagram-a gündə 4 post gedirdi, Facebook-a ~53. Konteynerin öz statusu soruşulur: PUBLISHED isə
-            // post çıxıb — adi uğur, fasilə yoxdur. Başqa status: post çıxmayıb, məhdudiyyət həqiqidir (fasilə qalır).
-            // Status alınmasa əvvəlki kimi «bəlkə dərc olunub».
-            const st = await f(`${root}${encodeURIComponent(id)}?fields=status_code&access_token=${encodeURIComponent(this.token)}`, { signal: AbortSignal.timeout(15000) })
-              .then(x => x.json()).then(j => j?.status_code || "").catch(() => "");
-            if (st === "PUBLISHED") return { ok: true, status: 200, text: async () => "" };
-            return { ok: false, status: p.status, text: async () => t, maybePosted: !st };
+            // post çıxıb — adi uğur, fasilə yoxdur.
+            // 2026-11-17 (2): ilk gün status «PUBLISHED» deyildi (dərc hələ bitməmişdi və ya sorğu cavabsız qaldı), post isə çıxmışdı.
+            // Ona görə bir neçə dəfə yoxlanır və status bilinmirsə hesabın son postuna baxılır (eyni işdə /ig/ siyahısı bu sorğunu
+            // problemsiz oxuyur): cəhddən sonra çıxmış və başlığı bu xəbərinki olan post — dərc olunub. ERROR/EXPIRED — çıxmayıb.
+            const q = `access_token=${encodeURIComponent(this.token)}`, get = u => f(u, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
+            const head = s => clean(String(s || "").split("\n")[0]).replace(/…$/, "").slice(0, 60);
+            let known = false;
+            for (let k = 0; k < 3; k++) {
+              if (k) await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
+              const st = (await get(`${root}${encodeURIComponent(id)}?fields=status_code&${q}`))?.status_code || "";
+              if (st === "PUBLISHED") return { ok: true, status: 200, text: async () => "" };
+              if (st === "ERROR" || st === "EXPIRED") { known = true; break; }
+              const m = (await get(`${root}${encodeURIComponent(this.ig)}/media?fields=timestamp,caption&limit=1&${q}`))?.data?.[0];
+              if (m && Date.parse(m.timestamp) >= t0 - 60e3 && head(m.caption) === head(cut(a.title, 300))) return { ok: true, status: 200, text: async () => "" };
+            }
+            return { ok: false, status: p.status, text: async () => t, maybePosted: !known };
           }
           if (i >= 4) return { ok: false, status: p.status, text: async () => t, maybePosted: false };
           await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
