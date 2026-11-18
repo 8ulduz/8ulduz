@@ -17,6 +17,7 @@
   "embed.waze.com": { "vaxt": "klik", "yonlendirir": null, "qeyd": "tıxac xəritəsi iframe (Tıxac səhifəsi)" },
   "yandex.com": { "vaxt": "klik", "yonlendirir": null, "qeyd": "tıxac xəritəsi iframe (ehtiyat)" },
   "www.youtube-nocookie.com": { "vaxt": "klik", "yonlendirir": null, "qeyd": "video iframe (oxucu basanda)" },
+  "video.twimg.com": { "vaxt": "klik", "yonlendirir": false, "qeyd": "X videosu (oz_x): referrer göndərməyən srcdoc çərçivədə, oxucu basanda; referrer ilə 403, referrersiz 206 (curl, 2026-11-18)" },
   "www.waze.com": { "vaxt": "keçid", "yonlendirir": null, "qeyd": "Waze tətbiqi/canlı xəritə keçidi" },
   "www.youtube.com": { "vaxt": "keçid", "yonlendirir": null, "qeyd": "video keçidi" },
   "t.me": { "vaxt": "keçid", "yonlendirir": null, "qeyd": "Telegram kanalı və bot (follow.js, komanda.js, config.js)" },

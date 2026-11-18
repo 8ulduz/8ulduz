@@ -1005,6 +1005,7 @@ FAZA2 = (
 FAZA3 = (
     ("oz_dunya", "Dünyadan: əvvəlcədən yazılmış xəbərlərin növbəsi"),
     ("oz_tixac", "Tıxac: səhər və axşam pik saatı bülletenləri (sahib, 2026-11-14)"),
+    ("oz_x", "X-dən videolu xəbərlər: türk dilli rəsmi hesablar, əvvəlcədən yazılmış növbə (sahib, 2026-11-18)"),
 )
 
 FAZALAR = (
