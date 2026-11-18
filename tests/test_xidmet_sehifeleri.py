@@ -187,7 +187,7 @@ class CurrencyTest(Sandbox):
     def test_rates_page_links_to_currency_pages(self):
         self.markets()
         body = updater.service_body("valyuta", [])
-        self.assertIn('<a href="../mezenne/dollar/">Dollar məzənnəsi</a>', body)
+        self.assertIn('<a href="bolme/mezenne/dollar/">Dollar məzənnəsi</a>', body)
         self.assertNotIn("mezenne/avro", body)
 
 

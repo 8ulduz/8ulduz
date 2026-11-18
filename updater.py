@@ -2222,7 +2222,7 @@ STORY_SITEMAP_MAX = 5000
 # 4: xəbərin sətri səhifənin özündədir (#row): paylaşılan/köhnə keçid lentdən çıxsa da açılır (sahib 2026-11-07, paylaşma yoxlaması).
 # 5: səhifə kiçildilmiş app.min.js yükləyir — şablon 2026-11-08-də dəyişmiş, versiya artmamışdı: ~3 400 köhnə səhifə Google-dan gələnə 221 KB-lıq app.js verirdi (sürət, 2026-11-09).
 # 6: eyni bölmədən əlaqəli keçidlər (Google, 2026-11-10).
-STORY_VER, STORY_REWRITE = 6, 150
+STORY_VER, STORY_REWRITE = 7, 150
 IMG_SIZE_FILE = CACHE_DIR / "img_size.json"
 IMG_SIZE_KEEP, DISCOVER_MIN_W = 4000, 1200
 
@@ -2316,6 +2316,7 @@ _STORY_HTML = """<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
+    <base href="../../" />
     <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__TITLE__ — 8ulduz</title>
     <script type="application/json" id="row">__ROW__</script>
@@ -2341,7 +2342,8 @@ _STORY_HTML = """<!doctype html>
     <script src="../../assets/config.js" defer></script>
     <script src="../../assets/content-policy.js" defer></script>
     <script type="module" src="../../assets/app.min.js"></script>
-    <script>history.replaceState(null, "", new URL("../../#/xeber/__ID__?b=__SLUG__", location.href));</script>
+    <!-- Köhnə kod (işçinin keşi) marşrutu yalnız hash-dan oxuyur: ünvan yolu qalır, yeni kod hash-ı dərhal silir -->
+    <script>location.hash||history.replaceState(null,"",location.pathname+location.search+"#/xeber/__ID__?b=__SLUG__")</script>
   </head>
   <body>
     <div id="app">
@@ -5807,6 +5809,7 @@ _SECTION_HTML = """<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
+    <base href="../../" />
     <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__LABEL__ — 8ulduz</title>
     <meta name="description" content="__DESC__ — 8ulduz, Azərbaycan və dünyadan son xəbərlər." />
@@ -5829,13 +5832,13 @@ _SECTION_HTML = """<!doctype html>
     <script src="../../assets/config.js" defer></script>
     <script src="../../assets/content-policy.js" defer></script>
     <script type="module" src="../../assets/app.min.js"></script>
-    <!-- Resurslar yuxarıda nisbi yolla yükləndi; tətbiq kök ünvanda işləyir, ona görə ünvan kökə keçirilir -->
-    <script>history.replaceState(null, "", new URL("../../#/bolme/__SLUG__", location.href));</script>
+    <!-- Köhnə kod (işçinin keşi) marşrutu yalnız hash-dan oxuyur: ünvan yolu qalır, yeni kod hash-ı dərhal silir -->
+    <script>location.hash||history.replaceState(null,"",location.pathname+location.search+"#/bolme/__SLUG__")</script>
   </head>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac-İndi</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="bolme/valyuta/">Valyuta məzənnəsi</a> · <a href="bolme/cedvel/">Premyer Liqa cədvəli</a> · <a href="bolme/tixac/">Tıxac-İndi</a> · <a href="bolme/namaz/">Namaz vaxtları</a> · <a href="bolme/hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -5941,7 +5944,7 @@ def service_body(slug, articles):
         if not rows:
             return "<p>Məzənnə məlumatı hazırda yoxdur.</p>"
         ids = {i.get("id") for i in items if i.get("value") is not None}
-        links = " · ".join(f'<a href="../mezenne/{s}/">{_xml(l)} məzənnəsi</a>' for s, mid, l, *_ in CURRENCY_PAGES if mid in ids)
+        links = " · ".join(f'<a href="bolme/mezenne/{s}/">{_xml(l)} məzənnəsi</a>' for s, mid, l, *_ in CURRENCY_PAGES if mid in ids)
         return _table(("Ad", "Qiymət", "Mənbə", "Tarix"), rows) + (f"<p>{links}</p>" if links else "")
     if slug == "cedvel":
         fb = _read_json(FOOTBALL_FILE, {})

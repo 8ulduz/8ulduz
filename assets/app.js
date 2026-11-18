@@ -1221,8 +1221,14 @@ function autoLocate() { // icazə varsa soruşmadan; alınmasa false (Bakı qal�
 const geoBtn = (attrs = "") => `<button type="button" class="geo-btn${S.geo?.city ? " on" : ""}" data-act="geo"${attrs}${S.geoBusy ? " disabled" : ""} title="Konumunuza ən yaxın şəhər">${S.geoBusy ? "Axtarılır…" : S.geo?.city ? `📍 ${esc(S.geo.city)}` : "📍 Konumum"}</button>`;
 
 /* ---- marşrut */
+// Statik xəbər/bölmə səhifəsi (xeber/ID/, bolme/SLUG/) öz ünvanında qalır (sahib, 2026-11-18: köçürülən və paylaşılan ünvan Google üçün
+// ana səhifə yox, o səhifə olsun). Orada <base> köküdür: marşrut ünvandan oxunur, «#/…» keçidləri tətbiqin içində qalıb kök ünvana keçir.
+const offRoot = () => !!document.baseURI && document.baseURI.split("#")[0] !== String(location.href).split("#")[0];
+// Şablonun uyğunluq hash-ı (işçinin keşindəki köhnə kod yalnız hash oxuyur, updater.py): yeni kod onu silir, ünvan təmiz qalır.
+if (offRoot() && location.hash.split("?")[0] === "#" + location.pathname.replace(/\/$/, "")) history.replaceState(null, "", location.pathname + location.search);
+const OWN_HASH = location.hash, here = () => location.hash || location.pathname;
 function route() {
-  let h = location.hash.replace(/^#/, "") || "/";
+  let h = location.hash.replace(/^#/, "") || (offRoot() && location.pathname.replace(/\/$/, "")) || "/";
   try { h = decodeURIComponent(h); } catch {} // natamam %-kod səhifəni dayandırmasın
   const article = h.match(/^\/xeber\/([^#?]+)/); if (article) return { name: "article", id: article[1] };
   const team = h.match(/^\/komanda\/([^/?]+)(?:\/([^/?]+))?(?:\/([^/?]+))?(?:\?s=(\d{4}))?$/); if (team) return { name: "team", liga: team[1], team: team[2] || "", tab: team[3] || "", season: team[4] || "" };
@@ -1279,7 +1285,10 @@ function shell() {
   if (globalThis.matchMedia?.("(hover:hover) and (pointer:fine)").matches) bindNavPop();
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { setLang(e.target.value); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
-  window.addEventListener("hashchange", () => {
+  let at = location.href;
+  const moved = () => {
+    if (location.hash !== OWN_HASH && offRoot()) history.replaceState(null, "", location.hash); // statik səhifədən çıxdı: <base> ilə kök ünvan
+    at = location.href;
     // Alt başlıq qalır (menyudan seçiləndə, liqa səhifəsindən qayıdanda).
     const r = route(), kept = S.keepClub || r.name === "team" || (S.prevRoute?.name === "team" && r.name === "section" && r.slug === S.clubSlug);
     S.prevRoute = r;
@@ -1287,8 +1296,11 @@ function shell() {
     S.renderPending = false; S.pendingNew = 0; syncNewPill(); syncQuery(); render(); window.scrollTo(0, 0); $("#view")?.focus({ preventScroll: true });
     if ($("#navpop")) $("#navpop").hidden = true;
     if (kept) scrollToClub();
-  });
-  addEventListener("pagehide", () => { try { sessionStorage.setItem("8y:" + location.hash, scrollY | 0); } catch {} });
+  };
+  window.addEventListener("hashchange", moved);
+  // Geri/irəli statik səhifənin öz ünvanı ilə kök #/… arasında: ünvan yolu dəyişəndə brauzer hashchange vermir.
+  window.addEventListener("popstate", () => setTimeout(() => { if (at !== location.href) moved(); }));
+  addEventListener("pagehide", () => { try { sessionStorage.setItem("8y:" + here(), scrollY | 0); } catch {} });
   window.addEventListener("scroll", () => { S.sy = scrollY; closeSharePop(); $("#totop").classList.toggle("show", scrollY > 600); }, { passive: true });
   $("#totop").onclick = () => scrollTo({ top: 0, behavior: "smooth" });
   syncQuery();
@@ -1832,7 +1844,7 @@ function socialBlock(side = false, sel = "") {
 }
 // DOM 1600 → 800), boş vaxtda açılır (lateFill). Kartların HTML-i yaddaşdadır (LATE_HTML, açar keyOf: eyni məzmun eyni açar), səhifə sətrində yalnız
 // açarlı boş şablon: patchView 42 kartı təhlil etmir, rememberSrc onları seriallaşdırmır (2026-11-09).
-const LATE_HERO = 3, LATE_LIST = 6, lateKey = () => location.hash + "|" + (S.club || ""), LATE_HTML = new Map();
+const LATE_HERO = 3, LATE_LIST = 6, lateKey = () => here() + "|" + (S.club || ""), LATE_HTML = new Map();
 const recent = (m, k, v, max) => { m.delete(k); m.set(k, v); while (m.size > max) m.delete(m.keys().next().value); }; // son N giriş qalır
 const late = (parts, n) => {
   if (!TOUCH_UI || parts.length <= n) return parts.join("");
@@ -2082,11 +2094,11 @@ async function arxRow(id) {
   return r && !removedSource(r) && !policyViolation(r) ? r : null;
 }
 // Paylaşılan keçid.
-function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.hash; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
+function backHome() { try { if (history.length <= 1 && route().name === "article") { const h = location.href; history.replaceState(null, "", "#/"); history.pushState(null, "", h); } } catch {} }
 // Geri qayıdış: oxucu mənbədən qayıdanda qaldığı yer.
 function backY() {
   if (S.backY) return; S.backY = 1;
-  try { const y = +sessionStorage.getItem("8y:" + location.hash); if (y > 0 && performance.getEntriesByType("navigation")[0]?.type === "back_forward" && scrollY < 50) requestAnimationFrame(() => scrollTo(0, y)); } catch {}
+  try { const y = +sessionStorage.getItem("8y:" + here()); if (y > 0 && performance.getEntriesByType("navigation")[0]?.type === "back_forward" && scrollY < 50) requestAnimationFrame(() => scrollTo(0, y)); } catch {}
 }
 async function loadShared(id) {
   if (S.data || S.sharedStory?.id === id || !/^[0-9a-f]{16}$/.test(id)) return;
@@ -2602,7 +2614,7 @@ function trackEvent(path, a) {
 }
 addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
 // Orta düymə (auxclick, button 1) də keçiddir; sağ düymə (2) sayılmır. «click» yalnız sol düymədə gəlir: bir klik bir hadisədir.
-for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
+for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const h = a.getAttribute("href") || ""; if (h.startsWith("#") && offRoot()) { e.preventDefault(); if (h.startsWith("#/")) location.hash = h; else document.getElementById(h.slice(1))?.focus(); return; } /* <base> kökdür: «#…» səhifədən çıxarmasın («Məzmuna keç» də) */ const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
   closeSharePop();
