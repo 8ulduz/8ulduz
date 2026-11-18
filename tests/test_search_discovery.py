@@ -27,7 +27,7 @@ class SearchDiscoveryTest(unittest.TestCase):
         self.assertIn('href="https://8ulduz.az/haqqinda/"', page)
         for text in ('xəbər aqreqatorudur', 'orijinal xəbərlərin müəllifi deyil',
                      'Düzəliş və hüquq müraciətləri',
-                     'mailto:8ulduz.az@gmail.com', '../feed.xml'):
+                     'mailto:info@8ulduz.az', '../feed.xml'):
             self.assertIn(text, page)
         # Sahib, 2026-11-10: mətn insan dilində, müxalifət mövzusu səhifədə yoxdur (qayda docs/qirmizi-xetler.md-də qalır).
         for forbidden in ('<script', 'NewsArticle', 'noindex', 'vm6666', 'v.z.muradov', 'üxalifət'):

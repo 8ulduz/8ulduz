@@ -131,7 +131,7 @@ The interface is in Azerbaijani and follows the chosen news language (Turkish, R
 
 Notifications are optional, created on the device and off by default (Services > Settings). Delivery time is decided by iOS background refresh.
 
-Contact: 8ulduz.az@gmail.com
+Contact: info@8ulduz.az
 ```
 
 **Contact Information:** yoxlayıcı üçün ad, telefon və e-poçt sahibin özününkü olmalıdır.
