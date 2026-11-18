@@ -6,7 +6,7 @@ enum AppLinks {
     static let privacy = URL(string: "https://8ulduz.az/mexfilik/")!
     static let site = URL(string: "https://8ulduz.az/")!
     static let issues = URL(string: "https://github.com/8ulduz/8ulduz/issues")!
-    static let email = URL(string: "mailto:8ulduz.az@gmail.com")!
+    static let email = URL(string: "mailto:info@8ulduz.az")!
 }
 
 struct SettingsView: View {
@@ -143,7 +143,7 @@ struct AboutView: View {
                 block("Əlaqə") {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Səhv, təklif və mənbə əlavəsi üçün yazın. Xəbər mətnlərinin hüququ müvafiq mənbələrə aiddir; mənbə öz xəbərinin göstərilməsini istəmirsə, bildirin, lent siyahıdan çıxarılar.")
-                        Link("8ulduz.az@gmail.com", destination: AppLinks.email)
+                        Link("info@8ulduz.az", destination: AppLinks.email)
                             .foregroundStyle(Theme.gold)
                         Button("GitHub-da müraciət") { Browser.open(AppLinks.issues) }
                             .foregroundStyle(Theme.gold)

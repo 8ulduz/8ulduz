@@ -62,7 +62,7 @@ Ekran şəkilləri canlı saytdan çəkilib, ona görə xəbərlər çəkiliş a
 
 - **Tətbiq və ya oyun:** Tətbiq · **Kateqoriya:** Xəbərlər və jurnallar
 - **Teqlər:** Xəbərlər, Yerli xəbərlər
-- **E-poçt:** 8ulduz.az@gmail.com
+- **E-poçt:** info@8ulduz.az
 - **Vebsayt:** `https://8ulduz.az`
 - **Məxfilik siyasəti:** `https://8ulduz.az/mexfilik/`
 
