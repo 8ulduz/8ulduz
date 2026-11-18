@@ -4,12 +4,12 @@ bağlama»). İş axını: .github/workflows/x-yazici.yml. Təlimat və qaydalar
 1. oz_x.HESABLAR-ın hər hesabının son paylaşımları: api.fxtwitter.com (açarsız, API-siz).
 2. Namizəd: son 6 saat, videolu, repost və cavab deyil, növbədə yoxdur, mətnində Azərbaycan mövzusu yoxdur
    (oz_x.about_azerbaijan: qırmızı xətt 2), bitrate-i ≤ 1 Mbit/s olan mp4 variantı var.
-3. Claude (oz_xeber.MODEL) namizədlərdən ən çoxu PER_RUN xəbər seçib Azərbaycan dilində yazır: yalnız id, kind, title, lead,
+3. Gemini (GEMINI_API_KEY, pulsuz səviyyə; Claude açarı varsa və Gemini-ninki yoxdursa Claude) namizədlərdən ən çoxu PER_RUN xəbər seçib Azərbaycan dilində yazır: yalnız id, kind, title, lead,
    body. Ünvanlar, ölçü, tarix, slot və mənbə mətni (src) modeldən yox, X-in cavabından götürülür.
 4. Hər sətir oz_x.check-dən keçir; keçməyən yazılmır. MAX_AGE_DAYS gündən köhnə sətirlər silinir.
 5. Yalnız oz_x.json dəyişir; commit və push iş axınındadır (sahibin icazəsi, 2026-11-18: yalnız bu fayl, birbaşa main).
 
-ANTHROPIC_API_KEY yoxdursa: X-dən oxuyur, namizədləri sayır, heç nə yazmır (FxTwitter-in GitHub-dan işlədiyinin yoxlaması).
+Açar yoxdursa: X-dən oxuyur, namizədləri sayır, heç nə yazmır (FxTwitter-in GitHub-dan işlədiyinin yoxlaması).
 """
 import datetime
 import json
@@ -17,6 +17,7 @@ import os
 import pathlib
 import re
 import sys
+import urllib.error
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -33,6 +34,8 @@ MAX_BITRATE = 1_000_000
 MAX_CANDIDATES = 25
 PER_RUN = 3
 MAX_AGE_DAYS = 4
+GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
 
 PROMPT = """Sən 8ulduz.az xəbər saytının redaktorusan. Aşağıda türk dilli rəsmi X hesablarının videolu paylaşımları var.
 Onlardan oxucunun ən çox izləmək istəyəcəyi ən çox {n} paylaşımı seç (idman, dünya, elm). Reklam, sponsor, bilet, mağaza,
@@ -114,13 +117,55 @@ def collect(known, now):
     return out[:MAX_CANDIDATES], failed
 
 
+def _gemini_models(key):
+    """Açarın görə bildiyi, generateContent edən «flash» modelləri, ən yenisi birinci (ad dəyişəndə iş dayanmasın)."""
+    req = urllib.request.Request(GEMINI + "?pageSize=200", headers={"x-goog-api-key": key})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        models = json.loads(r.read().decode("utf-8")).get("models") or []
+    names = [m["name"].split("/", 1)[-1] for m in models if "generateContent" in (m.get("supportedGenerationMethods") or [])
+             and "flash" in m.get("name", "") and not re.search(r"lite|image|tts|audio|live|exp|preview|thinking", m.get("name", ""))]
+    return sorted(names, key=lambda s: [int(x) if x.isdigit() else 0 for x in re.findall(r"\d+", s)], reverse=True)
+
+
+def ask_gemini(prompt, key):
+    """Gemini API (pulsuz səviyyə, açar başlıqda; ünvanda yox). Model: GEMINI_MODEL, alınmasa siyahıdakı ən yeni flash."""
+    body = json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                       "generationConfig": {"temperature": 0.4, "maxOutputTokens": 4000, "responseMimeType": "application/json"}}).encode("utf-8")
+    tried = []
+    for model in [GEMINI_MODEL] + [m for m in _safe_models(key) if m != GEMINI_MODEL][:2]:
+        req = urllib.request.Request(f"{GEMINI}/{model}:generateContent", data=body, method="POST",
+                                     headers={"x-goog-api-key": key, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                doc = json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            tried.append(f"{model}: {e.code}")
+            continue
+        parts = ((doc.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+        print(f"Model: {model}", flush=True)
+        return "".join(p.get("text", "") for p in parts)
+    print("Gemini cavab vermədi: " + ", ".join(tried), flush=True)
+    return ""
+
+
+def _safe_models(key):
+    try:
+        return _gemini_models(key)
+    except Exception as e:
+        print(f"Model siyahısı alınmadı: {type(e).__name__}", flush=True)
+        return []
+
+
 def write(cands, n):
-    import anthropic  # yalnız açar olanda quraşdırılır
     items = "\n".join(f"- id {c['id']}, hesab {xm.HESABLAR[c['handle']]} (@{c['handle']}): {c['src'][0]}" for c in cands)
-    client = anthropic.Anthropic(max_retries=2, timeout=90.0)
-    msg = client.messages.create(model=ox.MODEL, max_tokens=4000,
-                                 messages=[{"role": "user", "content": PROMPT.format(n=n, items=items)}])
-    text = "".join(getattr(b, "text", "") for b in msg.content)
+    prompt = PROMPT.format(n=n, items=items)
+    if os.environ.get("GEMINI_API_KEY"):
+        text = ask_gemini(prompt, os.environ["GEMINI_API_KEY"])
+    else:
+        import anthropic  # yalnız açar olanda quraşdırılır
+        client = anthropic.Anthropic(max_retries=2, timeout=90.0)
+        msg = client.messages.create(model=ox.MODEL, max_tokens=4000, messages=[{"role": "user", "content": prompt}])
+        text = "".join(getattr(b, "text", "") for b in msg.content)
     start, end = text.find("["), text.rfind("]")
     if start < 0 or end < start:
         return []
@@ -143,8 +188,8 @@ def main():
     print(f"Namizəd: {len(cands)}; açılmayan hesab: {len(failed)} {failed if failed else ''}", flush=True)
     added, rejected = [], []
     slot = (baku + datetime.timedelta(minutes=5)).strftime("%H:%M")
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("ANTHROPIC_API_KEY yoxdur: xəbər yazılmır (yalnız X-in oxunuşu yoxlandı).")
+    if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
+        print("GEMINI_API_KEY (və ANTHROPIC_API_KEY) yoxdur: xəbər yazılmır (yalnız X-in oxunuşu yoxlandı).")
     elif cands and xm.SLOT_FROM <= slot <= xm.SLOT_TO:
         by_id = {c["id"]: c for c in cands}
         for w in write(cands, PER_RUN)[:PER_RUN]:

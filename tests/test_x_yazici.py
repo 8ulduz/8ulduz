@@ -52,6 +52,10 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("git push -q origin HEAD:main", wf)
         self.assertNotIn("OZ_DERC", wf)
         self.assertNotIn("echo \"$ANTHROPIC_API_KEY", wf)
+        self.assertIn("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}", wf)
+        src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
+        self.assertIn('"x-goog-api-key": key', src, "açar başlıqda gedir")
+        self.assertNotIn("?key=", src, "açar ünvana (loqa) düşmür")
 
 
 if __name__ == "__main__":
