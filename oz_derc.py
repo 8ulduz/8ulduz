@@ -75,6 +75,7 @@ import re
 import sys
 import tempfile
 import time
+import urllib.parse
 
 import content_policy
 import oz_xeber as ox
@@ -106,7 +107,8 @@ _clock = time.monotonic
 
 # Mövzu hədləri, Bakı günü üçün: (iş günü, həftə sonu).
 MOVZU_HEDD = {"idman": (10, 10), "iqtisadiyyat": (8, 5), "təbiət": (5, 5), "kosmos": (2, 2), "təqvim": (3, 3),
-              "mədəniyyət": (3, 3), "icmal": (3, 5), "yol": (5, 5)}
+              "mədəniyyət": (3, 3), "icmal": (3, 5), "yol": (5, 5),
+              "video": (8, 8)}   # oz_x: X-dən videolu xəbərlər
 BASQA_HEDD = (4, 3)
 
 # Modul qaydaları. done: «hamisi» / «novbe»; gelecek (slotu hələ çatmamış dəyərli xəbər): «gozle» toxunulmur,
@@ -126,6 +128,7 @@ QAYDA = {
     "oz_idman2": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 9},
     "oz_gundelik": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 14},
     "oz_dunya": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 0},
+    "oz_x": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 0},
     "oz_tixac": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 70},   # bülleten pəncərəsində dövrədə bir, ani xəbərdarlıq yarım saatda bir, şənbə həftəlik
     "oz_xeber": {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 45},
 }
@@ -148,6 +151,7 @@ ONCELIK = {
     "oz_idman2": (2, {"f1-yaris": 3, "f1-siralama": 3, "cudo": 3}),
     "oz_gundelik": (3, {"dim-hefte": 2, "asan-muraciet": 2}),
     "oz_dunya": (2, {}),
+    "oz_x": (2, {}),
     "oz_tixac": (3, {}),   # xidmət: pik saat bülleteni
     "oz_xeber": (2, {"zelzele": 3, "futbol": 3, "tarix": 1}),   # amb və neft: 2
 }
@@ -157,6 +161,7 @@ BOLME = {"idman": "idman", "iqtisadiyyat": "iqtisadiyyat", "mədəniyyət": "med
          "kosmos": "tehsil", "təqvim": "cemiyyet", "icmal": "gundem"}
 BOLME_NOV = {"dim-gun": "tehsil", "dim-hefte": "tehsil", "seyyar-asan": "bolgeler", "asan-muraciet": "cemiyyet",
              "dunya-elm": "tehsil", "dunya-saglamliq": "heyat", "dunya-tebiet": "dunya", "dunya-texno": "tehsil", "dunya-maraqli": "dunya",   # oz_dunya; dunya-kosmos -> tehsil (mövzudan)
+             "x-idman": "idman", "x-dunya": "dunya", "x-elm": "tehsil", "x-maraqli": "dunya",   # oz_x
              "polis-icmal": "cemiyyet", "tixac-seher": "cemiyyet", "tixac-axsam": "cemiyyet", "tixac-hefte": "cemiyyet", "tixac-ani": "cemiyyet", "zelzele-region": "dunya", "meteohessas": "heyat", "maqnit-qasirgasi": "heyat",
              "zelzele": "gundem"}   # ölkədəki zəlzələ günün hadisəsidir; amb, neft -> iqtisadiyyat, futbol -> idman, tarix -> cemiyyet (mövzudan)
 BOLME_AD = {"gundem": "Gündəm", "cemiyyet": "Cəmiyyət", "iqtisadiyyat": "İqtisadiyyat", "idman": "İdman",
@@ -306,14 +311,35 @@ def _short(text, n):
     return text[:n].rsplit(" ", 1)[0] + "…"
 
 
+_UNSAFE = set(" \"'<>\\`")
+
+
+def video(item):
+    """X videosu (oz_x): {"u": mp4, "w", "h"} və ya None. Yalnız video.twimg.com-un https mp4 ünvanı; ölçü 120–4096."""
+    url = str(item.get("video") or "").strip()
+    try:
+        w, h = int(item.get("vw") or 0), int(item.get("vh") or 0)
+        parts = urllib.parse.urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return None
+    if not (url.isascii() and parts.scheme == "https" and parts.hostname == "video.twimg.com" and port is None
+            and parts.path.lower().endswith(".mp4") and not _UNSAFE.intersection(url) and content_policy.safe_url(url)):
+        return None
+    if not (120 <= w <= 4096 and 120 <= h <= 4096):
+        return None
+    return {"u": url, "w": w, "h": h}
+
+
 def row(item, when):
-    """Lent sətri: updater.make_article-in açarları ilə. Tam mətn sətirdə yoxdur, yalnız xəbərin öz səhifəsində."""
+    """Lent sətri: updater.make_article-in açarları ilə. Tam mətn sətirdə yoxdur, yalnız xəbərin öz səhifəsində.
+    X videosu varsa (oz_x) «video» True-dur (Video bölməsi və «▶ Video» nişanı), «xv» oynadıcının ünvanı və ölçüsüdür."""
     u = ox._u()
     ident = item_id(item["key"])
     image = str(item.get("image") or "").strip()
     if not (image.lower().startswith("https://") and content_policy.safe_url(image)):
         image = ""
-    return {
+    out = {
         "id": ident,
         "title": _line(item.get("title")),
         "summary": _short(_line(item.get("lead")), int(getattr(u, "SUMMARY_MAX", 220) or 220)),
@@ -326,6 +352,10 @@ def row(item, when):
         "author": "",
         "video": False,
     }
+    vid = video(item)
+    if vid:
+        out["video"], out["xv"] = True, vid
+    return out
 
 
 def _body(item):
@@ -363,13 +393,13 @@ _PAGE = """<!doctype html>
 <meta name="robots" content="max-image-preview:large" />
 <link rel="canonical" href="__URL__" />
 <meta name="theme-color" content="#0a1120" />
-<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="__TITLE__" />
+__REFERRER__<meta property="og:type" content="article" /><meta property="og:site_name" content="8ulduz" /><meta property="og:title" content="__TITLE__" />
 <meta property="og:description" content="__DESC__" /><meta property="og:url" content="__URL__" /><meta property="og:image" content="__IMAGE__" />
 <meta property="og:locale" content="az_AZ" /><meta property="article:published_time" content="__ISO__" /><meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
 <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
 <script type="application/ld+json">__LD__</script>
-<style>body{margin:0;font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#0a1120;color:#e8edf5}main{max-width:720px;margin:0 auto;padding:16px}a{color:#7cc4ff}h1{font-size:1.5em;line-height:1.25;margin:.4em 0 .2em}time,.qeyd{color:#9fb0c6;font-size:.9em}.giris{font-weight:600}ul{padding-left:1.2em}li{margin:0 0 .5em}img{display:block;max-width:100%;height:auto;border-radius:12px;margin:.8em 0}.cta{background:#13203a;border-radius:12px;padding:12px 14px;margin:1.4em 0}@media(prefers-color-scheme:light){body{background:#fff;color:#111}time,.qeyd{color:#555}.cta{background:#eef4fb}a{color:#0b5cad}}</style>
+<style>body{margin:0;font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#0a1120;color:#e8edf5}main{max-width:720px;margin:0 auto;padding:16px}a{color:#7cc4ff}h1{font-size:1.5em;line-height:1.25;margin:.4em 0 .2em}time,.qeyd{color:#9fb0c6;font-size:.9em}.giris{font-weight:600}ul{padding-left:1.2em}li{margin:0 0 .5em}img,video{display:block;max-width:100%;height:auto;border-radius:12px;margin:.8em 0}video{max-height:80vh;background:#000}.cta{background:#13203a;border-radius:12px;padding:12px 14px;margin:1.4em 0}@media(prefers-color-scheme:light){body{background:#fff;color:#111}time,.qeyd{color:#555}.cta{background:#eef4fb}a{color:#0b5cad}}</style>
 </head>
 <body><main>
 <p><a href="__SITE__">8ULDUZ</a> › <a href="__SECURL__">__SECTION__</a></p>
@@ -399,6 +429,12 @@ def page(item, r):
     else:
         text = "\n".join(f"<p>{e(p)}</p>" for p in body)
     image = r.get("imageUrl") or f"{base}assets/og-default.png"
+    vid = r.get("xv")
+    if vid:   # video yalnız basanda yüklənir (preload="none"); şəkli videonun öz şəklidir
+        figure = (f'<video controls playsinline preload="none" width="{int(vid["w"])}" height="{int(vid["h"])}" src="{e(vid["u"])}"'
+                  + (f' poster="{e(r["imageUrl"])}"' if r.get("imageUrl") else "") + "></video>\n")
+    else:
+        figure = f'<img src="{e(r["imageUrl"])}" alt="{e(r["title"])}" />\n' if r.get("imageUrl") else ""
     ld = {"@context": "https://schema.org", "@type": "NewsArticle", "headline": r["title"][:110],
           "datePublished": r["publishedAt"], "dateModified": r["publishedAt"], "image": [image],
           "mainEntityOfPage": r["sourceUrl"], "inLanguage": "az", "description": r["summary"],
@@ -409,7 +445,9 @@ def page(item, r):
         "TITLE": e(r["title"]), "DESC": e(r["summary"]), "URL": e(r["sourceUrl"]), "IMAGE": e(image), "ISO": e(r["publishedAt"]),
         "SITE": e(base), "SECURL": e(f"{base}bolme/{r['category']}/"), "SECTION": e(section_name(r["category"])),
         "WHEN": e(f"{when.day} {ox.MONTHS[when.month - 1]} {when.year}, {when:%H:%M}"),
-        "FIGURE": f'<img src="{e(r["imageUrl"])}" alt="{e(r["title"])}" />\n' if r.get("imageUrl") else "",
+        "FIGURE": figure,
+        # X videosu başqa saytdan gələn sorğuya verilmir (403): videolu səhifə mənbə ünvanı göndərmir.
+        "REFERRER": '<meta name="referrer" content="no-referrer" />\n' if vid else "",
         "LEAD": e(_line(item.get("lead"))), "BODY": text, "LINK": e(str(item.get("link") or "").strip()),
         "CREDIT": e(_line(item.get("credit")) or "mənbə"), "TG": TELEGRAM,
         "LD": json.dumps(ld, ensure_ascii=False).replace("<", "\\u003c"),
@@ -483,7 +521,7 @@ def _call(obj, root, now, fetch, done, history):
     return fn(root, now, **kwargs)
 
 
-_KEEP = ("kind", "key", "title", "lead", "credit", "link", "topic", "slot", "date", "image")
+_KEEP = ("kind", "key", "title", "lead", "credit", "link", "topic", "slot", "date", "image", "video", "vw", "vh")
 
 
 def _clean(item):

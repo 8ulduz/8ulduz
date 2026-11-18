@@ -1984,6 +1984,13 @@ function shortDT(iso) {
   if (!/T(?!00:00)\d\d:\d\d/.test(iso)) { const b = new Date(d.getTime() + 144e5); return `${b.getUTCDate()} ${MONTHS[b.getUTCMonth()].slice(0, 3)}`; } // saatsız oyun: gün Bakı təqvimi ilə (İstanbulda bir gün əvvəl görünürdü)
   return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
+// X videosu (oz_x, sahib 2026-11-18): şəkil, basanda referrer göndərməyən çərçivədə (srcdoc) oynayır — X videonu başqa saytın
+// sorğusuna vermir (403). X-in skripti yüklənmir, video saytda saxlanmır.
+const XV_AT = "https://video.twimg.com/", XV = { test: u => typeof u === "string" && u.startsWith(XV_AT) && /^[\w/.-]+\.mp4(\?[\w=&.-]*)?$/.test(u.slice(XV_AT.length)) };
+const xvTile = a => {
+  const v = a.xv, w = v?.w | 0, h = v?.h | 0;
+  return XV.test(v?.u) && w > 0 && h > 0 ? `<div class="yt xv" data-xv="${esc(v.u)}" role="button" tabindex="0" aria-label="Videonu oynat"><span class="thumb" style="aspect-ratio:${w}/${h};width:min(100%,calc(78vh*${w}/${h}));margin:0 auto">${imgUrl(a) ? `<img src="${esc(sized(imgUrl(a), 640))}" alt="" decoding="async" data-fail="rm">` : ""}<i>▶ Video</i></span></div>` : "";
+};
 // Videoda saytın keçidi paylaşılır (YouTube-un yox); ?v= ilə video birinci (oynadıcı basanda: iframe ekranı saxlayır, ağırdır).
 const ytTile = (v, tag = "") => `<div class="yt" data-yt="${esc(v.videoId)}" role="button" tabindex="0"><span class="thumb">${v.imageUrl ? `<img src="${esc(v.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<i>▶</i></span><span class="cap"><b>${esc(v.channel)}${tag}</b><span>${txt(v.title)}</span></span><button type="button" class="share" data-act="share" data-share="https://8ulduz.az/#/videolent?v=${encodeURIComponent(v.videoId)}" data-title="${txt(v.title)}">Paylaş</button></div>`;
 function videosView() {
@@ -2144,7 +2151,7 @@ function articleView(id) {
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz"; S.art = a;
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a, true)}${imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a, true)}${a.xv ? xvTile(a) : imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
 // «Telegram-da izlə» (izle.cjs).
@@ -2705,7 +2712,7 @@ function onClick(e) {
   const soc = e.target.closest(".soc-g a"), app = soc && chromeLink(soc.href); // rəsmi hesab: Android-də Chrome vərəqində, geri sayta
   if (app) { e.preventDefault(); location.href = app; return; }
   if (S.langOpen && !e.target.closest(".ldd")) { S.langOpen = false; renderTopbar(); } // dil siyahısı kənara hər toxunuşda bağlanır
-  const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-fbtab],[data-fbleague]");
+  const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-xv],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) shut("details.altpop[open]");
   if (!e.target.closest(".nav-more")) shut(".nav-more[open]");
   // Açılan bölmələr kənara basanda bağlanır
@@ -2756,6 +2763,11 @@ function onClick(e) {
     return;
   }
   if (t.dataset.feed) { S.latestOrder = t.dataset.feed; S.latestCount = 8; renderView(); return; }
+  if (t.dataset.xv) {
+    const box = t.querySelector(".thumb");
+    if (box && !box.querySelector("iframe") && XV.test(t.dataset.xv)) box.innerHTML = `<iframe srcdoc="${esc(`<meta name="referrer" content="no-referrer"><style>html,body{margin:0;height:100%;background:#000}video{width:100%;height:100%}</style><video src="${esc(t.dataset.xv)}" controls autoplay playsinline></video>`)}" allow="autoplay; fullscreen" allowfullscreen title="Video"></iframe>`;
+    return;
+  }
   if (t.dataset.yt) {
     const box = t.querySelector(".thumb");
     if (box && !box.querySelector("iframe")) box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.dataset.yt)}?autoplay=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Video"></iframe>`;
