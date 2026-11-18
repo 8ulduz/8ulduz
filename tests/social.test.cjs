@@ -377,7 +377,7 @@ test("social: 8ulduz.az/ig/ lists Instagram's own posts in Instagram's order, ea
 
 test("social: run hands the prepared Instagram account to the /ig/ list and remembers each Instagram post", async () => {
   const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", IG_WAIT_MS: "0" };
-  const pic = art("e7", { imageUrl: "https://apa.az/i.jpg", title: "Bakıda yeni körpü açıldı" });
+  const pic = art("e7", { imageUrl: "https://apa.az/i.jpg", title: "Bakıda yeni körpü açıldı", summary: "Körpü Bakının mərkəzində tikilib." });
   const fetch = async (url, init = {}) => {
     if (init.method === "HEAD") return { status: 200 };
     if (url.includes("fields=instagram_business_account")) return { json: async () => ({ access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } }) };
@@ -553,4 +553,56 @@ test("social: the Instagram caption keeps only whole sentences of the summary, n
   const cap = ig.caption(art("c1", { title: "DİM test imtahanı keçirib", summary: cases[0][0] }));
   assert.ok(cap.startsWith(`DİM test imtahanı keçirib\n\n${cases[0][1]}\n\nƏtraflı: 8ulduz.az`), cap);
   assert.ok(!/…/.test(ig.caption(art("c2", { title: "Başlıq", summary: cases[4][0] }))), "yarımçıq xülasə yazılmır");
+});
+
+// Sahib, 2026-11-18: «başlığın altında mütləq xəbərin açıqlaması olsun — anlaşılan şərh», «izah uzun olsa yaxşıdır».
+test("social: every Instagram post has an explanation under the title — the longest whole-sentence text from the summary or the source page, else it is not posted", async () => {
+  const title = "Mərdəkanda yataqxana yandı";
+  const page = `<html><head><meta name="description" content="Son xəbərlər, ən son yeniliklər. Azərbaycanın xəbər portalı.">
+    <meta content="Mərdəkan qəsəbəsində yataqxanada yanğın baş verib. Yanğın söndürülüb, xəsarət alan yoxdur. Hadisə yerində ara&#351;d&#305;rma aparılır və" property="og:description"></head></html>`;
+  assert.equal(S.describe({ title, summary: "" }, page), "Mərdəkan qəsəbəsində yataqxanada yanğın baş verib. Yanğın söndürülüb, xəsarət alan yoxdur.",
+    "saytın ümumi təsviri (başlıqla ortaq söz yoxdur) götürülmür, səhifə təsvirinin sonundakı yarımçıq cümlə düşür");
+  assert.equal(S.describe({ title, summary: "Mərdəkanda yataqxanada güclü yanğın olub. Ətraflı…" }, ""), "Mərdəkanda yataqxanada güclü yanğın olub.", "səhifə yoxdursa xülasə");
+  assert.equal(S.describe({ title, summary: "Mərdəkanda yataqxanada güclü yanğın olub. Ətraflı…" }, page),
+    "Mərdəkan qəsəbəsində yataqxanada yanğın baş verib. Yanğın söndürülüb, xəsarət alan yoxdur.", "ən uzun izah seçilir");
+  assert.equal(S.describe({ title, summary: "" }, page, a => /xəsarət/.test(a.summary)), "", "saytın qaydasından keçməyən izah yazılmır");
+  assert.equal(S.describe({ title, summary: "" }, "<html></html>"), "");
+
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", IG_WAIT_MS: "0", INSTAGRAM: "1" };
+  const bare = art("d1", { title, summary: "", imageUrl: "https://apa.az/1.jpg", sourceUrl: "https://apa.az/x/1", alts: Array(5).fill({}) });
+  const none = art("d2", { title: "Neftin qiyməti ucuzlaşıb", summary: "", imageUrl: "https://apa.az/2.jpg", sourceUrl: "https://apa.az/x/2" });
+  const caps = [], asked = [];
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) return { json: async () => ({ instagram_business_account: { id: "1784" } }) };
+    if (url.endsWith("/feed") || url === "https://graph.facebook.com/v27.0/") return { ok: true, status: 200, json: async () => ({}), text: async () => "" };
+    if (url.startsWith("https://apa.az/x/")) { asked.push(url); return { ok: true, text: async () => (url.endsWith("/1") ? page : "<html></html>") }; }
+    if (url.endsWith("/1784/media")) { caps.push(new URLSearchParams(init.body).get("caption")); return { ok: true, status: 200, json: async () => ({ id: "C1" }), text: async () => "" }; }
+    if (url.endsWith("/1784/media_publish")) return { ok: true, status: 200, text: async () => "" };
+    throw new Error("gözlənilməz " + url);
+  };
+  const state = {}, logs = [];
+  const res = await S.run({ articles: [none, bare], env: { ...env, FB_PAGE_ID: "1", FB_SCRAPE_WAIT_MS: "0", SOCIAL_PER_RUN: "2" }, now: NOW, fetch, state, log: s => logs.push(s) });
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === bare.id));
+  assert.equal(caps.length, 1);
+  assert.ok(caps[0].startsWith(`${title}\n\nMərdəkan qəsəbəsində yataqxanada yanğın baş verib. Yanğın söndürülüb, xəsarət alan yoxdur.\n\nƏtraflı`), caps[0]);
+  assert.ok(state.instagram[none.id], "izahsız xəbər qeyd olunur, hər dövrədə yenə oxunmur");
+  assert.ok(logs.includes(`instagram: ötürülür (izah tapılmadı) — ${none.title}`));
+  await S.run({ articles: [none], env: { ...env, FB_SCRAPE_WAIT_MS: "0" }, now: NOW + 3600e3, fetch, state, log: () => {} });
+  assert.equal(asked.filter(u => u.endsWith("/2")).length, 1);
+  assert.equal(caps.length, 1, "izahsız post getmir");
+});
+
+test("social: with no usable description the explanation comes from the story's first paragraphs; menus and the site's own blurb are not used", () => {
+  const page = `<html><head><meta name="description" content="Ən son futbol, transfer xəbərləri Sportinfo.Az saytında. Bizi izləməkdə davam edin!">
+    <script>var p = "<p>Skriptdəki mətn heç vaxt götürülmür, çünki səhifənin hissəsi deyil.</p>";</script></head><body>
+    <p>Turkic.World İdman.biz Azernews.Az Trend.Az Day.Az bütün saytlar</p>
+    <p>Bizi sosial şəbəkələrdə izləyin və xəbərləri paylaşın, dostlarınız da bilsin.</p>
+    <p>Naringinin qabığını soyarkən &uuml;zərində qalan ağ lifləri təmizləyənlər az deyil.</p>
+    <p>Lakin m&uuml;təxəssislər bu hissəni atmağı məsləhət g&ouml;rm&uuml;rlər. Çünki həmin liflər</p></body></html>`;
+  assert.equal(S.describe({ title: "Naringinin ağ liflərini niyə atmamalısınız", source: "Sportinfo", summary: "" }, page),
+    "Naringinin qabığını soyarkən üzərində qalan ağ lifləri təmizləyənlər az deyil. Lakin mütəxəssislər bu hissəni atmağı məsləhət görmürlər.");
+  assert.equal(S.describe({ title: "Sportinfo TV-də GÜNDƏM", source: "Sportinfo", summary: "" }, page), "", "saytın adı başlıqla «ortaq söz» sayılmır");
+  const long = S.sentences("Bir neçə cümlə burada yazılıb, uzun bir cümlə. ".repeat(40), 1200);
+  assert.ok(long.length > 1000 && long.length <= 1200 && long.endsWith("."), "uzun, amma Instagram həddinə (2200) sığır və tam cümlə ilə bitir");
 });

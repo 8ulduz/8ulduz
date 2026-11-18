@@ -98,6 +98,57 @@ function cut(s, n) {
   s = clean(s);
   return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…";
 }
+// Sahib, 2026-11-18: «başlığın altında mütləq xəbərin açıqlaması olsun — anlaşılan şərh», «izah uzun olsa yaxşıdır». Lentin xülasəsi
+// qısadır (mənbədə ~220 simvolda kəsilir, çox xəbərdə boşdur), ona görə mənbə səhifəsi də oxunur. Namizədlər: xəbərin ilk abzasları,
+// naşirin öz paylaşım təsviri (og:description, description), lentin xülasəsi; hamısından yalnız tam cümlələr (≤1200 simvol), ən uzunu
+// seçilir. Saytın ümumi təsviri («operativ xəbərləri fasiləsiz çatdırır») götürülmür: təsvir ya başlıqla ortaq söz daşımalı, ya da
+// səhifənin öz abzaslarında olmalıdır; abzaslar başlıqla ortaq sözü olan ilk abzasdan başlayır (menyu, reklam, oxşar xəbər düşür). Hər
+// izah saytın qaydasından (app.js policyViolation) keçir. Heç biri yoxdursa xəbər Instagram-a getmir — izahsız post olmur.
+const DESC_MAX = 1200;
+const ENT = { quot: '"', amp: "&", apos: "'", lt: "<", gt: ">", nbsp: " ", laquo: "«", raquo: "»", ndash: "–", mdash: "—", hellip: "…",
+  rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", uuml: "ü", Uuml: "Ü", ouml: "ö", Ouml: "Ö", ccedil: "ç", Ccedil: "Ç" };
+const unent = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+  if (e[0] === "#") { const c = /^#x/i.test(e) ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return c > 0 && c < 0x110000 ? String.fromCodePoint(c) : " "; }
+  return ENT[e] ?? ENT[e.toLowerCase()] ?? m;
+});
+const AZ_LETTER = /[əğışçöüƏĞŞÇÖÜİ]/;
+function pageDescriptions(page) {
+  const out = [];
+  for (const m of String(page).slice(0, 400000).matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = m[0], key = (tag.match(/\b(?:property|name)\s*=\s*["']?([^"'\s>]+)/i) || [])[1] || "";
+    if (!/^(og:description|description|twitter:description)$/i.test(key)) continue;
+    const c = (tag.match(/\bcontent\s*=\s*"([^"]*)"/i) || tag.match(/\bcontent\s*=\s*'([^']*)'/i) || [])[1];
+    const d = c && clean(unent(unent(c)));
+    if (d && !out.includes(d)) out.push(d);
+  }
+  return out;
+}
+function pageParagraphs(page) {
+  const body = String(page).slice(0, 600000).replace(/<(script|style|noscript)\b[\s\S]*?<\/\1>/gi, " ");
+  return [...body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => clean(unent(unent(m[1].replace(/<[^>]+>/g, " ")))))
+    .filter(t => t.length >= 40 && AZ_LETTER.test(t) && !/©|abunə ol|paylaş|bütün hüquqlar|istinad (mütləq|edilməlidir)/i.test(t));
+}
+function describe(a, page, policy = () => false) {
+  const site = stems(a.source), head = stems(a.title).filter(w => !site.includes(w)), title = clean(a.title);   // «Sportinfo TV» ≠ saytın təsviri
+  const near = d => !head.length || stems(d).some(w => head.includes(w));
+  const ok = d => d && d !== title && AZ_LETTER.test(d) && !policy({ ...a, summary: d });
+  const found = [];
+  const own = sentences(a.summary, DESC_MAX);
+  if (ok(own) && near(own)) found.push(own);
+  if (page) {
+    const paras = pageParagraphs(page), text = paras.join(" ");
+    for (const d of pageDescriptions(page)) {
+      const t = sentences(d, DESC_MAX, true);
+      if (ok(t) && (near(t) || text.includes(t.slice(0, 60)))) found.push(t);
+    }
+    const lead = paras.slice(0, 6).findIndex(near);
+    if (lead >= 0) {
+      const t = sentences(paras.slice(lead, lead + 8).join(" "), DESC_MAX, true);
+      if (ok(t)) found.push(t);
+    }
+  }
+  return found.reduce((x, y) => (y.length > x.length ? y : x), "");
+}
 const html = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 // Telegram mətndəki sayt adını («Modern.az xəbər verir ki…») özü keçidə çevirir və o, bizim keçiddən yuxarıda durur: oxucu mənbəyə
 // gedirdi. Nöqtədən sonra boşluq olmayanda («edilib.Metbuat.az») keçid olmayan ünvana (edilib.metbuat.az) aparırdı (2026-11-14).
@@ -108,18 +159,19 @@ const TLD_ANY_CASE = SITE_TLD.split("|").flatMap(t => [t, t[0].toUpperCase() + t
 const NAME_AFTER_DOT = new RegExp(`(\\p{Ll})\\.(?=\\p{Lu}[\\p{L}\\d-]*\\.(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))`, "gu");
 const SITE_NAME = new RegExp(`(?<![\\p{L}\\d@/.-])((?:[\\p{L}\\d-]+\\.)+)(${SITE_TLD})(?![\\p{L}\\d])`, "giu");
 const noLinks = s => String(s).replace(NAME_AFTER_DOT, "$1. ").replace(SITE_NAME, "$1\u200B$2");
-// Sahib, 2026-11-18: Instagram izah\u0131nda c\u00FCml\u0259 yar\u0131m\u00E7\u0131q qalmas\u0131n. Lentin x\u00FClas\u0259si m\u0259nb\u0259d\u0259 ~220 simvolda k\u0259silir (\u00AB\u2026bildirilib.\u0130mtahan\u2026\u00BB):
-// k\u0259silibs\u0259 (sonda \u00AB\u2026\u00BB) yaln\u0131z tam c\u00FCml\u0259l\u0259r saxlan\u0131l\u0131r \u2014 sonu . ! ? (d\u0131rnaq/m\u00F6t\u0259riz\u0259 ola bil\u0259r), ard\u0131nca bo\u015Fluq, son v\u0259 ya b\u00F6y\u00FCk h\u0259rf.
-// N\u00F6qt\u0259d\u0259n \u0259vv\u0259l t\u0259k b\u00F6y\u00FCk h\u0259rf (A.\u018Fliyev), r\u0259q\u0259m aras\u0131 (3.5) v\u0259 sayt ad\u0131 (Bizim.Media) c\u00FCml\u0259 sonu deyil. Tam c\u00FCml\u0259 yoxdursa (v\u0259 ya
-// \u00E7ox q\u0131sad\u0131rsa) x\u00FClas\u0259 yaz\u0131lm\u0131r, ba\u015Fl\u0131q kifay\u0259tdir.
-const SENT_END = new RegExp(`(?<!(?:^|[\\s.(])\\p{Lu})[.!?]["\u00BB\u201D')]*(?=\\s|$|(?!(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))\\p{Lu})`, "gu");
-function sentences(s, n) {
+// Sahib, 2026-11-18: Instagram izahında cümlə yarımçıq qalmasın. Lentin xülasəsi mənbədə ~220 simvolda kəsilir («…bildirilib.İmtahan…»):
+// kəsilibsə (sonda «…») yalnız tam cümlələr saxlanılır — sonu . ! ? (dırnaq/mötərizə ola bilər), ardınca boşluq, son və ya böyük hərf.
+// Nöqtədən əvvəl tək böyük hərf (A.Əliyev), rəqəm arası (3.5) və sayt adı (Bizim.Media) cümlə sonu deyil. Tam cümlə yoxdursa (və ya
+// çox qısadırsa) xülasə yazılmır, başlıq kifayətdir.
+const SENT_END = new RegExp(`(?<!(?:^|[\\s.(])\\p{Lu})[.!?]["»”')]*(?=\\s|$|(?!(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))\\p{Lu})`, "gu");
+const SENT_GAP = new RegExp(`(?<=\\p{Ll}[.!?]["»”')]*)(?=(?!(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))\\p{Lu})`, "gu");   // «edib.Sonra» → «edib. Sonra», «Milli.Az» olduğu kimi
+function sentences(s, n, cutAlways = false) {
   s = clean(s);
-  if (!/(\u2026|\.\.\.)$/.test(s) && s.length <= n) return s;   // m\u0259nb\u0259 k\u0259sm\u0259yib: x\u00FClas\u0259 tamd\u0131r
-  s = s.replace(/\s*(\u2026|\.\.\.)$/, "");
+  if (!cutAlways && !/(…|\.\.\.)$/.test(s) && s.length <= n) return s;   // mənbə kəsməyib: xülasə tamdır
+  s = s.replace(/\s*(…|\.\.\.)$/, "");
   let end = 0;
   for (const m of s.matchAll(SENT_END)) { const e = m.index + m[0].length; if (e > n) break; end = e; }
-  const out = s.slice(0, end).replace(/(?<=\p{Ll}[.!?]["\u00BB\u201D')]*)(?=\p{Lu})/gu, " ").trim();
+  const out = s.slice(0, end).replace(SENT_GAP, " ").trim();
   return out.length >= 30 ? out : "";
 }
 
@@ -229,16 +281,19 @@ function networks(env = process.env) {
         if (!this.ig) { log(`instagram: səhifəyə bağlı Instagram peşəkar hesabı yoxdur və ya açarda instagram_basic icazəsi yoxdur${r?.error?.message ? ` (${r.error.message})` : ""} — ötürülür`); return false; }
         return true;
       },
-      caption(a) {
-        const sum = sentences(a.summary, 1500);   // Instagram həddi 2200 simvol
-        return `${cut(a.title, 300)}${sum && sum !== clean(a.title) ? `\n\n${sum}` : ""}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n#8ulduz #xəbərlər #Azərbaycan`;
+      caption(a, desc = describe(a, "")) {
+        return `${cut(a.title, 300)}${desc ? `\n\n${desc}` : ""}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n#8ulduz #xəbərlər #Azərbaycan`;
       },
       // Konteyner → (hazır olanda) dərc. Cavab fetch Response kimidir: run eyni yoxlamanı edir.
-      async post(a, f) {
+      async post(a, f, policy) {
+        const page = /^https?:\/\//.test(String(a.sourceUrl || "")) ? await f(a.sourceUrl, { headers: { "user-agent": "Mozilla/5.0 (compatible; 8ulduz-bot; +https://8ulduz.az/)" }, signal: AbortSignal.timeout(10000) })
+          .then(r => (r?.ok && r.text ? r.text() : ""), () => "").catch(() => "") : "";
+        const desc = describe(a, page, policy);
+        if (!desc) return { skip: "izah tapılmadı", drop: true };
         const call = (p, body) => f(`${root}${p}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({ ...body, access_token: this.token }).toString(), signal: AbortSignal.timeout(30000) });
         const t0 = Date.now();
-        const c = await call(`${this.ig}/media`, { image_url: a.imageUrl, caption: this.caption(a) });
+        const c = await call(`${this.ig}/media`, { image_url: a.imageUrl, caption: this.caption(a, desc) });
         if (!c.ok) return c;
         const { id } = await c.json();
         for (let i = 0; ; i++) {
@@ -292,7 +347,7 @@ function readState(file, now) {
 }
 
 // Bir dövrə: hər şəbəkəyə ən vacib, hələ paylaşılmamış xəbər(lər). Paylaşma səhifəsi saytda yoxdursa (main hələ yayımlanmayıb) növbəti.
-async function run({ articles, digestIndex = [], env = process.env, now = Date.now(), fetch: f = globalThis.fetch, state = {}, log = console.log }) {
+async function run({ articles, digestIndex = [], env = process.env, now = Date.now(), fetch: f = globalThis.fetch, state = {}, log = console.log, policy = () => false }) {
   const opt = options(env), nets = networks(env), eds = digests(digestIndex, now), list = [...eds, ...candidates(articles, now, opt)];
   const result = { posted: [], failed: [] };
   // X açarları natamamdırsa şəbəkə sakitcə düşürdü (2026-11-10: «X-də xəbər yoxdur»): hansı sirrin çatmadığını jurnala yaz.
@@ -345,9 +400,13 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
       let maybe = false;
       try {
         let r;
-        if (net.post) r = await net.post(a, f);
+        if (net.post) r = await net.post(a, f, policy);
         else { const [url, init] = net.request(a); r = await f(url, { ...init, signal: AbortSignal.timeout(20000) }); }
-        if (r?.skip) { n--; log(`${net.name}: ötürülür (${r.skip}), növbəti dövrədə yenə yoxlanır — ${clean(a.title)}`); continue; }
+        if (r?.skip) {
+          n--;
+          if (r.drop) { done[a.id] = sec; log(`${net.name}: ötürülür (${r.skip}) — ${clean(a.title)}`); continue; }   // hər dövrədə yenə oxunmasın
+          log(`${net.name}: ötürülür (${r.skip}), növbəti dövrədə yenə yoxlanır — ${clean(a.title)}`); continue;
+        }
         if (!r.ok && r.maybePosted) {
           maybe = true;   // xəta cavabı, amma post çıxmış ola bilər: fasilə, mövzu və /ig/ siyahısı yenə yazılır
           done[a.id] = last[net.name] = sec;
@@ -428,7 +487,7 @@ async function main() {
   const state = readState(stateFile, now);
   let digestIndex = [];
   try { digestIndex = JSON.parse(fs.readFileSync("icmal/index.json", "utf8")); } catch {}
-  const res = await run({ articles, digestIndex, now, state });
+  const res = await run({ articles, digestIndex, now, state, policy: a => app.policyViolation(a) });
   // /ig/ səhifəsinin siyahısı (social.yml «ig» işi budağa yazır). Instagram qoşulu deyilsə və ya siyahı boşdursa fayl yazılmır.
   // Instagram-dan siyahı saatda bir dəfə və ya bu dövrədə post çıxanda soruşulur (Meta sorğu həddi; iş ~10 dəqiqədən bir işləyir).
   const lastAsk = state._igAsked || 0, posted = res.posted.some(x => x[0] === "instagram") || (state._last?.instagram || 0) > lastAsk;
@@ -445,5 +504,5 @@ async function main() {
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, sentences, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, sentences, describe, pageDescriptions, pageParagraphs, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });
