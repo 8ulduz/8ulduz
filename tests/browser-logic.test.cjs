@@ -2948,9 +2948,9 @@ test("owner's share notes: on Android share targets open the app in place, offic
 
 test("owner's share notes: a story opened from a shared link gets the home page under it so Back returns to the site", () => {
   const calls = [];
-  const ctx = app({ location: { hash: '#/xeber/0123456789abcdef?b=gundem' }, history: { length: 1, replaceState: (s, t, u) => calls.push(['replace', u]), pushState: (s, t, u) => calls.push(['push', u]) } });
+  const ctx = app({ location: { hash: '#/xeber/0123456789abcdef?b=gundem', href: 'https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem' }, history: { length: 1, replaceState: (s, t, u) => calls.push(['replace', u]), pushState: (s, t, u) => calls.push(['push', u]) } });
   vm.runInContext('backHome()', ctx);
-  assert.deepEqual(calls, [['replace', '#/'], ['push', '#/xeber/0123456789abcdef?b=gundem']]);
+  assert.deepEqual(calls, [['replace', '#/'], ['push', 'https://8ulduz.az/#/xeber/0123456789abcdef?b=gundem']], 'tam ünvan: statik xeber/ID/ səhifəsi öz ünvanında qalır');
   calls.length = 0; ctx.history.length = 3;
   vm.runInContext('backHome()', ctx);
   assert.deepEqual(calls, [], 'saytın içindən açılan xəbərdə tarixçə dəyişmir');
@@ -3620,4 +3620,20 @@ test("hekaye.js wraps a long headline into the given number of lines and ends it
   assert.deepEqual(lines(m, 'bir iki üç dörd', 100, 3), ['bir iki üç', 'dörd']);
   const out = lines(m, 'a1 b2 c3 d4 e5 f6 g7 h8 i9', 50, 2);
   assert.equal(out.length, 2); assert.ok(out[1].endsWith('…') && m(out[1]) <= 50);
+});
+
+test("owner, 2026-11-18: static xeber/ID/ and bolme/SLUG/ pages keep their own address (Google and shared copies see that page, not the home page)", () => {
+  const doc = (href, base) => app({ location: { hash: '', href, pathname: new URL(href).pathname }, document: { baseURI: base, documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, createElement() { return {}; } } }).api.route();
+  assert.equal(JSON.stringify(doc('https://8ulduz.az/xeber/0123456789abcdef/', 'https://8ulduz.az/')), '{"name":"article","id":"0123456789abcdef"}');
+  assert.equal(doc('https://8ulduz.az/bolme/idman/', 'https://8ulduz.az/').slug, 'idman');
+  assert.equal(doc('https://8ulduz.az/', 'https://8ulduz.az/').name, 'home', 'kök səhifə: ünvan yolu marşrut deyil');
+  const src = fs.readFileSync(path.join(root, 'updater.py'), 'utf8');
+  for (const t of ['_STORY_HTML', '_SECTION_HTML']) {
+    const page = src.slice(src.indexOf(t + ' = """'), src.indexOf('"""', src.indexOf(t + ' = """') + t.length + 6));
+    assert.ok(page.includes('<base href="../../" />'), t + ': nisbi sorğular (data/…) kökdən');
+    assert.ok(!page.includes('replaceState'), t + ': ünvan ana səhifənin #/ ünvanına çevrilmir');
+  }
+  const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  assert.ok(js.includes('if (h.startsWith("#/") && offRoot()) { e.preventDefault(); location.hash = h; return; }'), '«#/…» keçidi statik səhifədən yeni yükləmə etmir');
+  assert.ok(js.includes('if (location.hash !== OWN_HASH && offRoot()) history.replaceState(null, "", location.hash);'), 'başqa marşruta keçəndə ünvan kökə');
 });

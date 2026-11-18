@@ -7,7 +7,7 @@ const js = fs.readFileSync(path.join(__dirname, "..", "assets/app.js"), "utf8").
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
 test("qayıdış: the scroll position is saved on leaving and restored only on a back navigation", () => {
-  assert.ok(js.includes(`addEventListener("pagehide", () => { try { sessionStorage.setItem("8y:" + location.hash, scrollY | 0); } catch {} });`));
+  assert.ok(js.includes(`addEventListener("pagehide", () => { try { sessionStorage.setItem("8y:" + here(), scrollY | 0); } catch {} });`), "açar: hash, statik səhifədə ünvan yolu");
   assert.ok(/function backY\(\) \{[\s\S]*?type === "back_forward" && scrollY < 50\) requestAnimationFrame\(\(\) => scrollTo\(0, y\)\)/.test(js));
   assert.ok(js.includes("    if (!partial) backY();\n"), "tam lent göstəriləndən sonra");
 });
