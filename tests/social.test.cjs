@@ -424,12 +424,24 @@ test("social: an Instagram publish error still counts as a post (gap, topic, /ig
   assert.deepEqual(res.failed, [["instagram", one.id]]);
   assert.equal(state._last.instagram, NOW / 1000, "fasilə sayılır");
   assert.deepEqual(state._ig.map(x => x.id), [one.id], "/ig/ siyahısına düşür");
-  assert.equal(state._pause.instagram, NOW / 1000 + 6 * 3600, "6 saat fasilə");
-  assert.ok(logs.some(s => s === "instagram: məhdudiyyət — 6 saat fasilə"));
-  for (const h of [1, 3, 5.9]) await S.run({ articles: [one, two], env, now: NOW + h * 3600e3, fetch, state, log: () => {} });
-  assert.equal(published, 1, "fasilədə Instagram-a heç nə getmir");
-  res = await S.run({ articles: [one, two], env, now: NOW + 6.1 * 3600e3, fetch, state: { ...state, _pause: {} }, log: () => {} });
+  // 2026-11-18: post çıxmış ola bilər — 6 saat fasilə yoxdur (hər post fasilə qoyurdu: gündə 4 post), adi 45 dəqiqəlik ara var.
+  assert.equal(state._pause?.instagram, undefined, "bəlkə dərc olunub: fasilə yoxdur");
+  assert.ok(!logs.some(s => s.includes("saat fasilə")));
+  await S.run({ articles: [one, two], env, now: NOW + 30 * 60e3, fetch, state, log: () => {} });
+  assert.equal(published, 1, "45 dəqiqəlik ara");
+  for (const h of [1, 3]) await S.run({ articles: [one, two], env, now: NOW + h * 3600e3, fetch, state, log: () => {} });
   assert.equal(published, 1, "eyni hadisənin ikinci başlığı getmir (mövzu yadda qalıb)");
+  // Konteyner yaranmadı (ilk sorğu məhdudiyyətlə imtina etdi): post çıxmayıb — məhdudiyyət həqiqidir, 6 saat fasilə.
+  const st3 = {}, logs3 = [];
+  res = await S.run({ articles: [one], env, now: NOW, state: st3, log: s => logs3.push(s), fetch: async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) return { json: async () => ({ instagram_business_account: { id: "1784" } }) };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    return { ok: false, status: 403, text: async () => limit };
+  } });
+  assert.equal(st3._pause.instagram, NOW / 1000 + 6 * 3600, "6 saat fasilə");
+  assert.ok(logs3.includes("instagram: məhdudiyyət — 6 saat fasilə"));
+  assert.equal(st3._last?.instagram, undefined);
   // Şəkil qəbul edilmədi (konteyner yaranmadı): post çıxmayıb, fasilə yoxdur
   const st2 = {}, pic = art("ea", { imageUrl: "https://site.az/a.webp" });
   await S.run({ articles: [pic], env, now: NOW, state: st2, log: () => {}, fetch: async (url, init = {}) => {
@@ -493,14 +505,15 @@ Körpü 200 metrdir.` }];
     assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === one.id), `«${status}»: hesabdakı son post bu xəbərdir — paylaşılıb`);
     assert.equal(st._pause?.instagram, undefined, `«${status}»: fasilə yoxdur`);
   }
-  // Son post köhnədir və ya başqa xəbərdir: üç yoxlamadan sonra «bəlkə dərc olunub» (əvvəlki kimi fasilə, ara yazılır).
+  // Son post köhnədir və ya başqa xəbərdir: üç yoxlamadan sonra «bəlkə dərc olunub» — ara yazılır, fasilə yoxdur (2026-11-18: real
+  // işdə bu yoxlamalar çıxmış postu tapmırdı, hər post 6 saat fasilə qoyurdu).
   for (const media of [[{ timestamp: iso(Date.now() - 6 * 3600e3), caption: one.title }], [{ timestamp: iso(Date.now()), caption: two.title }], []]) {
     const no = mk("IN_PROGRESS", media), st = {};
     res = await S.run({ articles: [one], env, now: NOW, fetch: no.fetch, state: st, log: () => {} });
     assert.deepEqual(res.failed, [["instagram", one.id]]);
     assert.equal(no.calls.status.length, 3, "status üç dəfə soruşulur");
     assert.equal(no.calls.media, 3);
-    assert.equal(st._pause.instagram, NOW / 1000 + 6 * 3600);
+    assert.equal(st._pause?.instagram, undefined, "bilinmir: fasilə yoxdur");
     assert.equal(st._last.instagram, NOW / 1000, "bilinmir: ara yenə yazılır");
   }
 });
@@ -523,4 +536,21 @@ test("social: site names in the Telegram text do not become links above ours (20
   const url = text.split("\n").pop();
   assert.ok(url.startsWith("https://www.8ulduz.az/") && !url.includes(Z), "öz keçidimizə toxunulmur");
   assert.equal(text.split("8ulduz.az").length, 2, "mətndə yeganə işlək ünvan bizimkidir");
+});
+
+// Sahib, 2026-11-18: «Instagram-da paylaşılan xəbərin izahı tam olsun, cümlə və ya fikir yarımçıq qalmasın». Lentin xülasəsi mənbədə kəsilir.
+test("social: the Instagram caption keeps only whole sentences of the summary, never a cut-off one", () => {
+  const cases = [
+    ["Test imtahanı keçirilib. Bu barədə AZƏRTAC-a DİM-dən bildirilib.İmtahan…", "Test imtahanı keçirilib. Bu barədə AZƏRTAC-a DİM-dən bildirilib."],
+    ["Prezident İ.Əliyev çıxış edib. Qiymət 3.5 faiz artıb. Sonra isə nazir dedi ki…", "Prezident İ.Əliyev çıxış edib. Qiymət 3.5 faiz artıb."],
+    ["Zavod lif materialı çatışmazlığı ilə qarşılaşıb. Bizim.Media…", "Zavod lif materialı çatışmazlığı ilə qarşılaşıb."],
+    ["“Bu bizim qələbəmizdir,” – nazir belə dedi! Sonra…", "“Bu bizim qələbəmizdir,” – nazir belə dedi!"],
+    ["Yalnız bir yarımçıq cümlə burada kəsilir…", ""],
+    ["Mənbə kəsməyib, nöqtəsiz də olsa tam fikirdir", "Mənbə kəsməyib, nöqtəsiz də olsa tam fikirdir"],
+  ];
+  for (const [input, want] of cases) assert.equal(S.sentences(input, 1500), want, input);
+  const ig = S.networks({ FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456" }).find(n => n.name === "instagram");
+  const cap = ig.caption(art("c1", { title: "DİM test imtahanı keçirib", summary: cases[0][0] }));
+  assert.ok(cap.startsWith(`DİM test imtahanı keçirib\n\n${cases[0][1]}\n\nƏtraflı: 8ulduz.az`), cap);
+  assert.ok(!/…/.test(ig.caption(art("c2", { title: "Başlıq", summary: cases[4][0] }))), "yarımçıq xülasə yazılmır");
 });

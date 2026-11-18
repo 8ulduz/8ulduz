@@ -108,6 +108,20 @@ const TLD_ANY_CASE = SITE_TLD.split("|").flatMap(t => [t, t[0].toUpperCase() + t
 const NAME_AFTER_DOT = new RegExp(`(\\p{Ll})\\.(?=\\p{Lu}[\\p{L}\\d-]*\\.(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))`, "gu");
 const SITE_NAME = new RegExp(`(?<![\\p{L}\\d@/.-])((?:[\\p{L}\\d-]+\\.)+)(${SITE_TLD})(?![\\p{L}\\d])`, "giu");
 const noLinks = s => String(s).replace(NAME_AFTER_DOT, "$1. ").replace(SITE_NAME, "$1\u200B$2");
+// Sahib, 2026-11-18: Instagram izah\u0131nda c\u00FCml\u0259 yar\u0131m\u00E7\u0131q qalmas\u0131n. Lentin x\u00FClas\u0259si m\u0259nb\u0259d\u0259 ~220 simvolda k\u0259silir (\u00AB\u2026bildirilib.\u0130mtahan\u2026\u00BB):
+// k\u0259silibs\u0259 (sonda \u00AB\u2026\u00BB) yaln\u0131z tam c\u00FCml\u0259l\u0259r saxlan\u0131l\u0131r \u2014 sonu . ! ? (d\u0131rnaq/m\u00F6t\u0259riz\u0259 ola bil\u0259r), ard\u0131nca bo\u015Fluq, son v\u0259 ya b\u00F6y\u00FCk h\u0259rf.
+// N\u00F6qt\u0259d\u0259n \u0259vv\u0259l t\u0259k b\u00F6y\u00FCk h\u0259rf (A.\u018Fliyev), r\u0259q\u0259m aras\u0131 (3.5) v\u0259 sayt ad\u0131 (Bizim.Media) c\u00FCml\u0259 sonu deyil. Tam c\u00FCml\u0259 yoxdursa (v\u0259 ya
+// \u00E7ox q\u0131sad\u0131rsa) x\u00FClas\u0259 yaz\u0131lm\u0131r, ba\u015Fl\u0131q kifay\u0259tdir.
+const SENT_END = new RegExp(`(?<!(?:^|[\\s.(])\\p{Lu})[.!?]["\u00BB\u201D')]*(?=\\s|$|(?!(?:${TLD_ANY_CASE})(?![\\p{L}\\d]))\\p{Lu})`, "gu");
+function sentences(s, n) {
+  s = clean(s);
+  if (!/(\u2026|\.\.\.)$/.test(s) && s.length <= n) return s;   // m\u0259nb\u0259 k\u0259sm\u0259yib: x\u00FClas\u0259 tamd\u0131r
+  s = s.replace(/\s*(\u2026|\.\.\.)$/, "");
+  let end = 0;
+  for (const m of s.matchAll(SENT_END)) { const e = m.index + m[0].length; if (e > n) break; end = e; }
+  const out = s.slice(0, end).replace(/(?<=\p{Ll}[.!?]["\u00BB\u201D')]*)(?=\p{Lu})/gu, " ").trim();
+  return out.length >= 30 ? out : "";
+}
 
 // RFC 5849 (OAuth 1.0a), X API v2 üçün. JSON gövdəsi imzaya daxil deyil.
 const pct = s => encodeURIComponent(s).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
@@ -216,7 +230,7 @@ function networks(env = process.env) {
         return true;
       },
       caption(a) {
-        const sum = cut(a.summary, 600);
+        const sum = sentences(a.summary, 1500);   // Instagram həddi 2200 simvol
         return `${cut(a.title, 300)}${sum && sum !== clean(a.title) ? `\n\n${sum}` : ""}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n#8ulduz #xəbərlər #Azərbaycan`;
       },
       // Konteyner → (hazır olanda) dərc. Cavab fetch Response kimidir: run eyni yoxlamanı edir.
@@ -243,16 +257,17 @@ function networks(env = process.env) {
             // problemsiz oxuyur): cəhddən sonra çıxmış və başlığı bu xəbərinki olan post — dərc olunub. ERROR/EXPIRED — çıxmayıb.
             const q = `access_token=${encodeURIComponent(this.token)}`, get = u => f(u, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
             const head = s => clean(String(s || "").split("\n")[0]).replace(/…$/, "").slice(0, 60);
-            let known = false;
+            let known = false; const seen = [];
             for (let k = 0; k < 3; k++) {
               if (k) await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
-              const st = (await get(`${root}${encodeURIComponent(id)}?fields=status_code&${q}`))?.status_code || "";
+              const sr = await get(`${root}${encodeURIComponent(id)}?fields=status_code&${q}`), st = sr?.status_code || "";
+              seen.push(st || sr?.error?.code || "?");
               if (st === "PUBLISHED") return { ok: true, status: 200, text: async () => "" };
               if (st === "ERROR" || st === "EXPIRED") { known = true; break; }
               const m = (await get(`${root}${encodeURIComponent(this.ig)}/media?fields=timestamp,caption&limit=1&${q}`))?.data?.[0];
               if (m && Date.parse(m.timestamp) >= t0 - 60e3 && head(m.caption) === head(cut(a.title, 300))) return { ok: true, status: 200, text: async () => "" };
             }
-            return { ok: false, status: p.status, text: async () => t, maybePosted: !known };
+            return { ok: false, status: p.status, text: async () => `${t} (status: ${seen.join(",")})`, maybePosted: !known };
           }
           if (i >= 4) return { ok: false, status: p.status, text: async () => t, maybePosted: false };
           await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
@@ -327,12 +342,14 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
       if (topic && recent.some(t => sameTopic(t, topic))) { done[a.id] = sec; log(`${net.name}: eyni mövzu artıq paylaşılıb, ötürülür — ${clean(a.title)}`); continue; }
       if (!(await pageLive(a))) continue;
       n++;
+      let maybe = false;
       try {
         let r;
         if (net.post) r = await net.post(a, f);
         else { const [url, init] = net.request(a); r = await f(url, { ...init, signal: AbortSignal.timeout(20000) }); }
         if (r?.skip) { n--; log(`${net.name}: ötürülür (${r.skip}), növbəti dövrədə yenə yoxlanır — ${clean(a.title)}`); continue; }
-        if (!r.ok && r.maybePosted) {   // xəta cavabı, amma post çıxmış ola bilər: fasilə, mövzu və /ig/ siyahısı yenə yazılır
+        if (!r.ok && r.maybePosted) {
+          maybe = true;   // xəta cavabı, amma post çıxmış ola bilər: fasilə, mövzu və /ig/ siyahısı yenə yazılır
           done[a.id] = last[net.name] = sec;
           if (!a.digest) { done[titleKey(a)] = sec; recent.push(topic); }
           if (net.name === "instagram") igRemember(state, a, sec);
@@ -348,7 +365,10 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         if (net.name === "telegram" && /chat not found|kicked|not a member|not enough rights|need administrator/i.test(msg)) delete state._telegram; // növbəti dövrə kanalı yenidən axtarır
         if (net.skipFailed) done[a.id] = Math.floor(now / 1000); // eyni xəbər hər dövrədə təkrar yoxlanmasın
         // Şəbəkə spam qorunması ilə məhdudlaşdırıb («request limit», Instagram 2207051): PAUSE_H saat bu şəbəkəyə yazılmır.
-        if (/request limit|2207051|limit how often|ограничиваем/i.test(msg)) { (state._pause ||= {})[net.name] = sec + PAUSE_H * 3600; log(`${net.name}: məhdudiyyət — ${PAUSE_H} saat fasilə`); }
+        // 2026-11-18: dərc cavabı bu xəta olub post çıxanda (maybePosted) fasilə yoxdur — 17 noyabr düzəlişindən sonra da status və son post
+        // sorğuları postu tapmırdı, hər post 6 saat fasilə qoyurdu (Instagram-a gündə 4 post). Ara (45 dəq) və mövzu yuxarıda yazılıb, spam yoxdur.
+        // Fasilə yalnız post çıxmadığı bilinəndə: konteyner yaranmadı (ilk sorğu imtina etdi) və ya status ERROR/EXPIRED.
+        if (!maybe && /request limit|2207051|limit how often|ограничиваем/i.test(msg)) { (state._pause ||= {})[net.name] = sec + PAUSE_H * 3600; log(`${net.name}: məhdudiyyət — ${PAUSE_H} saat fasilə`); }
         result.failed.push([net.name, a.id]);
         log(`${net.name}: alınmadı — ${msg}`);
         break; // şəbəkə imtina edirsə bu dövrədə ona daha yazmırıq
@@ -425,5 +445,5 @@ async function main() {
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, sentences, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });
