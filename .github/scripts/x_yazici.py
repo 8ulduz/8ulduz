@@ -17,6 +17,7 @@ import os
 import pathlib
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -35,7 +36,7 @@ MAX_CANDIDATES = 25
 PER_RUN = 3
 MAX_AGE_DAYS = 4
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or ""   # boşdursa: açarın siyahısındakı ən yeni «flash» (2.5 artıq 404 verir)
 
 PROMPT = """Sən 8ulduz.az xəbər saytının redaktorusan. Aşağıda türk dilli rəsmi X hesablarının videolu paylaşımları var.
 Onlardan oxucunun ən çox izləmək istəyəcəyi ən çox {n} paylaşımı seç (idman, dünya, elm). Reklam, sponsor, bilet, mağaza,
@@ -104,10 +105,17 @@ def candidate(handle, post, known, now):
 def collect(known, now):
     out, failed = [], []
     for handle in xm.HESABLAR:
-        try:
-            doc = fetch_json(FX.format(handle))
-        except Exception as e:  # bir hesab düşsə digərləri işləyir
-            failed.append(f"{handle}: {type(e).__name__}")
+        doc, err = None, ""
+        for attempt in range(2):   # FxTwitter ara-sıra 429/5xx verir: bir dəfə gözləyib təkrar
+            try:
+                doc = fetch_json(FX.format(handle))
+                break
+            except Exception as e:  # bir hesab düşsə digərləri işləyir
+                err = f"{handle}: {getattr(e, 'code', '') or type(e).__name__}"
+                time.sleep(4 + attempt * 6)
+        time.sleep(1)
+        if doc is None:
+            failed.append(err)
             continue
         for post in doc.get("results") or []:
             c = candidate(handle, post, known, now)
@@ -131,15 +139,23 @@ def ask_gemini(prompt, key):
     """Gemini API (pulsuz səviyyə, açar başlıqda; ünvanda yox). Model: GEMINI_MODEL, alınmasa siyahıdakı ən yeni flash."""
     body = json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 4000, "responseMimeType": "application/json"}}).encode("utf-8")
-    tried = []
-    for model in [GEMINI_MODEL] + [m for m in _safe_models(key) if m != GEMINI_MODEL][:2]:
-        req = urllib.request.Request(f"{GEMINI}/{model}:generateContent", data=body, method="POST",
-                                     headers={"x-goog-api-key": key, "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=120) as r:
-                doc = json.loads(r.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            tried.append(f"{model}: {e.code}")
+    tried, listed = [], _safe_models(key)
+    order = ([GEMINI_MODEL] if GEMINI_MODEL else []) + [m for m in listed if m != GEMINI_MODEL]
+    for model in order[:4]:
+        doc = None
+        for attempt in range(3):   # 503 (yüklüdür) və 429 keçicidir: gözləyib təkrar; 404 (model yoxdur) — növbəti model
+            req = urllib.request.Request(f"{GEMINI}/{model}:generateContent", data=body, method="POST",
+                                         headers={"x-goog-api-key": key, "Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    doc = json.loads(r.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as e:
+                tried.append(f"{model}: {e.code}")
+                if e.code not in (429, 500, 503):
+                    break
+                time.sleep(15 * (attempt + 1))
+        if doc is None:
             continue
         parts = ((doc.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
         print(f"Model: {model}", flush=True)
