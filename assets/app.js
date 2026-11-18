@@ -1224,6 +1224,8 @@ const geoBtn = (attrs = "") => `<button type="button" class="geo-btn${S.geo?.cit
 // Statik xəbər/bölmə səhifəsi (xeber/ID/, bolme/SLUG/) öz ünvanında qalır (sahib, 2026-11-18: köçürülən və paylaşılan ünvan Google üçün
 // ana səhifə yox, o səhifə olsun). Orada <base> köküdür: marşrut ünvandan oxunur, «#/…» keçidləri tətbiqin içində qalıb kök ünvana keçir.
 const offRoot = () => !!document.baseURI && document.baseURI.split("#")[0] !== String(location.href).split("#")[0];
+// Şablonun uyğunluq hash-ı (işçinin keşindəki köhnə kod yalnız hash oxuyur, updater.py): yeni kod onu silir, ünvan təmiz qalır.
+if (offRoot() && location.hash.split("?")[0] === "#" + location.pathname.replace(/\/$/, "")) history.replaceState(null, "", location.pathname + location.search);
 const OWN_HASH = location.hash, here = () => location.hash || location.pathname;
 function route() {
   let h = location.hash.replace(/^#/, "") || (offRoot() && location.pathname.replace(/\/$/, "")) || "/";
@@ -2612,7 +2614,7 @@ function trackEvent(path, a) {
 }
 addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
 // Orta düymə (auxclick, button 1) də keçiddir; sağ düymə (2) sayılmır. «click» yalnız sol düymədə gəlir: bir klik bir hadisədir.
-for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const h = a.getAttribute("href") || ""; if (h.startsWith("#/") && offRoot()) { e.preventDefault(); location.hash = h; return; } const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
+for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const h = a.getAttribute("href") || ""; if (h.startsWith("#") && offRoot()) { e.preventDefault(); if (h.startsWith("#/")) location.hash = h; else document.getElementById(h.slice(1))?.focus(); return; } /* <base> kökdür: «#…» səhifədən çıxarmasın («Məzmuna keç» də) */ const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
   closeSharePop();

@@ -2342,6 +2342,8 @@ _STORY_HTML = """<!doctype html>
     <script src="../../assets/config.js" defer></script>
     <script src="../../assets/content-policy.js" defer></script>
     <script type="module" src="../../assets/app.min.js"></script>
+    <!-- Köhnə kod (işçinin keşi) marşrutu yalnız hash-dan oxuyur: ünvan yolu qalır, yeni kod hash-ı dərhal silir -->
+    <script>location.hash||history.replaceState(null,"",location.pathname+location.search+"#/xeber/__ID__?b=__SLUG__")</script>
   </head>
   <body>
     <div id="app">
@@ -5830,11 +5832,13 @@ _SECTION_HTML = """<!doctype html>
     <script src="../../assets/config.js" defer></script>
     <script src="../../assets/content-policy.js" defer></script>
     <script type="module" src="../../assets/app.min.js"></script>
+    <!-- Köhnə kod (işçinin keşi) marşrutu yalnız hash-dan oxuyur: ünvan yolu qalır, yeni kod hash-ı dərhal silir -->
+    <script>location.hash||history.replaceState(null,"",location.pathname+location.search+"#/bolme/__SLUG__")</script>
   </head>
   <body>
     <div id="app">
       <main class="wrap"><h1>__LABEL__</h1><p>__DESC__</p>__ITEMS__
-      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="../valyuta/">Valyuta məzənnəsi</a> · <a href="../cedvel/">Premyer Liqa cədvəli</a> · <a href="../tixac/">Tıxac-İndi</a> · <a href="../namaz/">Namaz vaxtları</a> · <a href="../hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
+      <p><a href="../../">8ulduz — baş səhifə</a> · <a href="bolme/valyuta/">Valyuta məzənnəsi</a> · <a href="bolme/cedvel/">Premyer Liqa cədvəli</a> · <a href="bolme/tixac/">Tıxac-İndi</a> · <a href="bolme/namaz/">Namaz vaxtları</a> · <a href="bolme/hava/">Hava proqnozu</a> · <a href="../../icmal/">Günün icmalı</a></p><noscript>Tam sayt üçün JavaScript-i aktiv edin.</noscript></main>
     </div>
   </body>
 </html>
@@ -5940,7 +5944,7 @@ def service_body(slug, articles):
         if not rows:
             return "<p>Məzənnə məlumatı hazırda yoxdur.</p>"
         ids = {i.get("id") for i in items if i.get("value") is not None}
-        links = " · ".join(f'<a href="../mezenne/{s}/">{_xml(l)} məzənnəsi</a>' for s, mid, l, *_ in CURRENCY_PAGES if mid in ids)
+        links = " · ".join(f'<a href="bolme/mezenne/{s}/">{_xml(l)} məzənnəsi</a>' for s, mid, l, *_ in CURRENCY_PAGES if mid in ids)
         return _table(("Ad", "Qiymət", "Mənbə", "Tarix"), rows) + (f"<p>{links}</p>" if links else "")
     if slug == "cedvel":
         fb = _read_json(FOOTBALL_FILE, {})

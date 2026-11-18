@@ -3631,9 +3631,12 @@ test("owner, 2026-11-18: static xeber/ID/ and bolme/SLUG/ pages keep their own a
   for (const t of ['_STORY_HTML', '_SECTION_HTML']) {
     const page = src.slice(src.indexOf(t + ' = """'), src.indexOf('"""', src.indexOf(t + ' = """') + t.length + 6));
     assert.ok(page.includes('<base href="../../" />'), t + ': nisbi sorğular (data/…) kökdən');
-    assert.ok(!page.includes('replaceState'), t + ': ünvan ana səhifənin #/ ünvanına çevrilmir');
+    assert.ok(page.includes('location.hash||history.replaceState(null,"",location.pathname+location.search+"#/'), t + ': ünvan yolu qalır (ana səhifənin #/ ünvanına çevrilmir); hash yalnız köhnə kod üçün');
+    assert.ok(!/href="\.\.\/[a-z]/.test(page), t + ': <base> kökdür, «../x/» keçidi kökə gedərdi');
   }
+  assert.ok(!src.includes('href="../mezenne/'), 'valyuta səhifəsində məzənnə keçidləri bolme/mezenne/');
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
-  assert.ok(js.includes('if (h.startsWith("#/") && offRoot()) { e.preventDefault(); location.hash = h; return; }'), '«#/…» keçidi statik səhifədən yeni yükləmə etmir');
+  assert.ok(js.includes('if (h.startsWith("#") && offRoot()) { e.preventDefault(); if (h.startsWith("#/")) location.hash = h; else document.getElementById(h.slice(1))?.focus(); return; }'), '«#/…» keçidi yeni yükləmə etmir, «#view» səhifədə qalır');
+  assert.ok(js.includes('if (offRoot() && location.hash.split("?")[0] === "#" + location.pathname.replace(/\\/$/, "")) history.replaceState(null, "", location.pathname + location.search);'), 'uyğunluq hash-ı silinir');
   assert.ok(js.includes('if (location.hash !== OWN_HASH && offRoot()) history.replaceState(null, "", location.hash);'), 'başqa marşruta keçəndə ünvan kökə');
 });

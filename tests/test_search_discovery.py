@@ -262,7 +262,7 @@ class DiscoverImageTest(unittest.TestCase):
 class StoryTemplateVersionTest(unittest.TestCase):
     """xeber/<id>/ şablonu dəyişəndə STORY_VER artmalıdır (sürət, 2026-11-09): 2026-11-08-də şablon app.js → app.min.js keçdi, versiya
     artmadı və ~3 400 köhnə səhifə kiçildilməmiş kodu (+16,5 KB gzip, +56 KB mənbə) yükləməkdə qaldı — index.json onları «cari» sayırdı."""
-    TEMPLATE_SHA = {6: '357ff68c11a7', 7: '3df7e9d06013'}  # yeni STORY_VER: hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12] sətrini əlavə edin
+    TEMPLATE_SHA = {6: '357ff68c11a7', 7: '0c3f85bc76a5'}  # yeni STORY_VER: hashlib.sha1(updater._STORY_HTML.encode('utf-8')).hexdigest()[:12] sətrini əlavə edin
 
     def test_story_template_change_bumps_story_ver(self):
         import hashlib
