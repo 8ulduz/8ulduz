@@ -1,4 +1,18 @@
 // assets/ga.js: GA4 yüngül göndərici (sahib, 2026-11-06: əsas statistika GA4, sürət qorunsun).
+// ga.js-in izahları burada durur (sahib, 2026-11-18: fayl 4500 bayta sığsın deyə şərhlər oradan çıxarıldı):
+// - gtag.js yüklənmir, baxış birbaşa /g/collect-ə gedir. Yalnız ümumi say (təsadüfi cid, sessiya, səhifə, başlıq, dil, ekran);
+//   ad, e-poçt, konum yoxdur. Açılışdan sonra yüklənir (afterNews → enableAnalytics → gaFlush).
+// - Yaddaş (localStorage) bağlıdırsa vəziyyət yaddaşda (mem) qalır: hər baxış yeni oxucu sayılmasın.
+// - #/bolme/gundem hesabatda /bolme/gundem səhifəsidir (pageUrl).
+// - Xəbər keçidi (sahib 2026-11-11): «news_outbound_click» (news_domain, news_url, news_title), «out» ikinci dəfə getmir;
+//   kartdakı etiket (.tag) başlığa qatılmır.
+// - ev (sahib 2026-11-07): "out-apa.az", "share-wa", "install-…": ad birinci hissədir, qalanı «type».
+// - Robot, gecə sürət yoxlaması (2026-11-17: ~96% idi), yerli sınaq sayılmır; gizli açılan səhifə görünəndə sayılır.
+// - Canlı oxucu (sahib, 2026-11-18): PR 242-dən sonra da gündə ~300 «istifadəçi» Meta-nın ABŞ/İsveç/İrlandiya serverlərindən,
+//   facebook.com keçidi ilə, adi Chrome adı ilə, 0 saniyə gəlirdi. İlk hit səhifədə insan olanda gedir: toxunma, klik, düymə,
+//   təkər (və ya brauzerin userActivation əlaməti), ya da Bakı vaxtında 3 saniyə görünən səhifə. scroll sayılmır (səhifə özü də
+//   sürüşdürür). Gözləyən hitlər yaddaşda növbədədir, şəbəkə sorğusu yoxdur.
+// - 10 saniyə açıq qalan səhifə: «fəal sessiya» (user_engagement).
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path"), vm = require("vm");
@@ -9,7 +23,7 @@ function load({ stored = null, ref = "", host = "8ulduz.az" } = {}) {
   const ctx = { URLSearchParams, JSON, Math, String, Date, console,
     location: { origin: "https://" + host, hostname: host, search: "?utm_source=telegram" },
     document: { referrer: ref, visibilityState: "visible" },
-    navigator: { language: "az-AZ", sendBeacon: u => (sent.push(u), true) },
+    navigator: { language: "az-AZ", sendBeacon: u => (sent.push(u), true), userActivation: { hasBeenActive: true } },
     screen: { width: 390, height: 844 },
     localStorage: { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) },
     setTimeout: (f, ms) => timers.push([f, ms]), fetch: async () => {} };
@@ -57,7 +71,7 @@ test("ga4: bad id sends nothing; the site loads the sender only after it is show
   assert.equal(local.api.hit("G-NHSDLY61CD", "/", "x"), null, "yerli sınaq GA4-ə getmir"); assert.equal(local.sent.length, 0);
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8"), cfg = fs.readFileSync(path.join(root, "assets/config.js"), "utf8");
   assert.ok(cfg.includes('ga4: "G-NHSDLY61CD"'));
-  assert.ok(app.includes('import("./ga.js?v=5")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
+  assert.ok(app.includes('import("./ga.js?v=6")') && app.includes("gaOn = 1; gaFlush();"), 'ga.js yalnız enableAnalytics-dən sonra (afterNews)');
   for (const f of ["assets/app.js", "index.html", "assets/config.js"]) assert.ok(!/googletagmanager|gtag\/js/.test(fs.readFileSync(path.join(root, f), "utf8")), f + ': Google-un ağır skripti yoxdur');
   assert.ok(fs.statSync(path.join(root, "assets/ga.js")).size < 4500, 'göndərici kiçik qalır');
   assert.ok(fs.readFileSync(path.join(root, "mexfilik/index.html"), "utf8").includes("Google Analytics 4"), 'məxfilik səhifəsində yazılıb');
@@ -115,7 +129,7 @@ test("ga4: with storage blocked the reader stays one user and one session for th
   const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit })";
   const out = [], t0 = Date.parse("2026-11-06T16:00:00Z");
   const g = vm.runInNewContext(src, { URLSearchParams, JSON, Math, String, Date, console, location: { origin: "https://8ulduz.az", hostname: "8ulduz.az", search: "" },
-    document: { referrer: "", visibilityState: "visible" }, navigator: { language: "az-AZ", sendBeacon: u => (out.push(u), true) }, screen: { width: 390, height: 844 },
+    document: { referrer: "", visibilityState: "visible" }, navigator: { language: "az-AZ", sendBeacon: u => (out.push(u), true), userActivation: { hasBeenActive: true } }, screen: { width: 390, height: 844 },
     localStorage: blocked, setTimeout() {}, fetch: async () => {} });
   g.hit("G-NHSDLY61CD", "/", "8ulduz", t0); g.hit("G-NHSDLY61CD", "/#/bolme/gundem", "Gündəm", t0 + 20e3); g.hit("G-NHSDLY61CD", "/#/bolme/idman", "İdman", t0 + 40e3);
   const p = out.map(params);
@@ -138,4 +152,49 @@ test("ga4 (2026-11-17): robots, automated browsers (nightly speed check) and nev
   assert.equal(hid.api.hit("G-NHSDLY61CD", "/#/bolme/idman", "İdman"), null); assert.equal(hid.sent.length, 0, "gizli açılan səhifə hələ sayılmır");
   doc.visibilityState = "visible"; on[0]();
   assert.equal(hid.sent.length, 1, "oxucu görəndə sayılır"); assert.equal(params(hid.sent[0]).dl, "https://8ulduz.az/bolme/idman?utm_source=telegram");
+});
+
+// Sahib, 2026-11-18: «sayğac robot və test baxışlarını göndərməsin». PR 242-dən sonra da Meta serverləri (Prineville, Boardman, Luleå,
+// Dublin; facebook.com keçidi, adi Chrome adı, 0 saniyə) gündə ~300 «istifadəçi» idi.
+function live({ tz = "UTC", active = false } = {}) {
+  const sent = [], timers = [], on = new Map();
+  const ctx = { URLSearchParams, JSON, Math, String, Date, console,
+    Intl: { DateTimeFormat: () => ({ resolvedOptions: () => ({ timeZone: tz }) }) },
+    location: { origin: "https://8ulduz.az", hostname: "8ulduz.az", search: "" },
+    document: { referrer: "https://m.facebook.com/", visibilityState: "visible", addEventListener() {}, removeEventListener() {} },
+    navigator: { language: "en-US", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
+      sendBeacon: u => (sent.push(u), true), userActivation: { hasBeenActive: active } },
+    screen: { width: 1280, height: 720 }, localStorage: { getItem: () => null, setItem() {} },
+    addEventListener: (t, f) => on.set(t, f), removeEventListener: t => on.delete(t),
+    setTimeout: (f, ms) => (timers.push([f, ms]), timers.length), clearTimeout() {}, fetch: async () => {} };
+  const src = fs.readFileSync(path.join(root, "assets/ga.js"), "utf8").replace(/^export /gm, "") + "\n;({ hit })";
+  return { api: vm.runInNewContext(src, ctx), sent, timers, on };
+}
+test("ga4 (2026-11-18): a page nobody touches is not counted (Meta's servers open shared links in an ordinary Chrome); a real reader is", () => {
+  const bot = live();
+  assert.equal(bot.api.hit("G-NHSDLY61CD", "/a1b2c3d4e5f60718", "Xəbər"), null);
+  for (const [f] of bot.timers.splice(0)) f();
+  assert.equal(bot.sent.length, 0, "toxunmayan, Bakı vaxtında olmayan səhifə sayılmır");
+  assert.deepEqual([...bot.on.keys()].sort(), ["keydown", "pointerdown", "touchstart", "wheel"], "yalnız insan hərəkəti gözlənilir (scroll yox: səhifə özü də sürüşdürür)");
+
+  const reader = live();
+  reader.api.hit("G-NHSDLY61CD", "/", "8ulduz"); reader.api.hit("G-NHSDLY61CD", "/#/bolme/idman", "İdman");
+  assert.equal(reader.sent.length, 0);
+  reader.on.get("touchstart")();
+  assert.deepEqual(reader.sent.map(u => new URL(u).searchParams.get("dl")), ["https://8ulduz.az/", "https://8ulduz.az/bolme/idman"], "toxunanda növbədəki baxışlar sırayla gedir");
+  assert.equal(reader.on.size, 0, "dinləyicilər götürülür");
+  reader.api.hit("G-NHSDLY61CD", "/#/bolme/gundem", "Gündəm");
+  assert.equal(reader.sent.length, 3, "sonrakı baxışlar dərhal");
+
+  const touched = live({ active: true });
+  touched.api.hit("G-NHSDLY61CD", "/", "8ulduz");
+  assert.equal(touched.sent.length, 1, "sayğac yüklənməzdən əvvəl toxunub (userActivation)");
+
+  const baku = live({ tz: "Asia/Baku" });
+  baku.api.hit("G-NHSDLY61CD", "/", "8ulduz");
+  assert.equal(baku.sent.length, 0);
+  const t = baku.timers.find(x => x[1] === 3000);
+  assert.ok(t, "Bakı vaxtında 3 saniyə görünən səhifə");
+  t[0]();
+  assert.equal(baku.sent.length, 1);
 });

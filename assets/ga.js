@@ -1,5 +1,4 @@
-// GA4 yüngül göndərici (sahib 2026-11-06: əsas statistika GA4, sürət qorunsun): gtag.js yüklənmir, baxış birbaşa /g/collect-ə gedir.
-// Yalnız ümumi say (təsadüfi cid, sessiya, səhifə, başlıq, dil, ekran); ad, e-poçt, konum yoxdur. Açılışdan sonra yüklənir.
+// GA4 yüngül göndərici; izah: tests/ga.test.cjs.
 const KEY = "8ulduz-ga", SESSION_MS = 30 * 60e3, ENGAGED_MS = 10e3;
 const GA = "https://www.google-analytics.com/g/collect?";
 let seq = 0, engaged = false;
@@ -10,7 +9,7 @@ function send(q) {
   fetch(u, { method: "POST", mode: "no-cors", keepalive: true, credentials: "omit" }).catch(() => {});
 }
 
-let mem = null; // yaddaş bağlıdırsa hər baxış yeni oxucu sayılmasın
+let mem = null;
 function state(now) {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY) || "null"); } catch {}
@@ -24,33 +23,35 @@ function state(now) {
   return { s, first, start };
 }
 
-// #/bolme/gundem hesabatda /bolme/gundem səhifəsidir
 export function pageUrl(path, loc = location) {
   const [base, hash = ""] = String(path || "/").split("#");
   const route = hash.replace(/^\/?/, "/").split("?")[0];
   return loc.origin + (route !== "/" ? route : base || "/") + loc.search;
 }
 
-// Xəbər keçidi (sahib 2026-11-11): «news_outbound_click» (news_domain, news_url, news_title), «out» ikinci dəfə getmir.
 export function news(a) {
   const art = a?.closest?.("article");
   if (!a?.matches || a.matches(".soc-p") || !(art || a.closest(".phrow,.track,.alerts,.foot-news"))) return null;
-  const el = a.querySelector("h1,h2,h3,h4,.t") || art?.querySelector("h1,h2,h3,h4") || a, tag = el.querySelector?.(".tag")?.textContent || ""; // etiket başlıq deyil
+  const el = a.querySelector("h1,h2,h3,h4,.t") || art?.querySelector("h1,h2,h3,h4") || a, tag = el.querySelector?.(".tag")?.textContent || "";
   const t = el.textContent.replace(tag, "").trim();
   return t ? [a.hostname.toLowerCase().replace(/^www\./, ""), a.href, t] : null;
 }
 
-// ev (sahib 2026-11-07): "out-apa.az", "share-wa", "install-…": ad birinci hissədir, qalanı «type».
-// Robot, gecə sürət yoxlaması (2026-11-17: ~96% idi), yerli sınaq sayılmır.
 const BOT = /bot\b|crawl|spider|facebookexternalhit|meta-external|HeadlessChrome|Lighthouse/i;
 export const robot = (n = navigator) => !!n.webdriver || BOT.test(n.userAgent || "");
+const LIVE = ["pointerdown", "touchstart", "keydown", "wheel"], wait = [];
+let live = false, lt = 0;
+const go = () => { live = true; if (lt) clearTimeout(lt); for (const e of LIVE) globalThis.removeEventListener?.(e, go, true); for (const f of wait.splice(0)) f(); };
+for (const e of LIVE) globalThis.addEventListener?.(e, go, { capture: true, passive: true });
+try { if (Intl.DateTimeFormat().resolvedOptions().timeZone == "Asia/Baku" && document.visibilityState == "visible") lt = setTimeout(go, 3e3); } catch {}
 export function hit(id, path, title, now = Date.now(), ev = "", a) {
   if (!/^G-[A-Z0-9]+$/.test(String(id || "")) || !/^(www\.)?8ulduz\.az$/.test(location.hostname) || robot()) return null;
-  if (!ev && document.visibilityState === "hidden") { // gizli səhifə: görünəndə
+  if (!ev && document.visibilityState === "hidden") {
     const go = () => document.visibilityState === "visible" && (document.removeEventListener("visibilitychange", go), hit(id, path, title));
     document.addEventListener?.("visibilitychange", go);
     return null;
   }
+  if (!(live ||= !!navigator.userActivation?.hasBeenActive)) { wait.push(() => hit(id, path, title, Date.now(), ev, a)); return null; }
   const { s, first, start } = state(now);
   const [name, ...type] = String(ev).split("-"), n = name === "out" && news(a);
   const q = new URLSearchParams({ v: "2", tid: id, cid: s.cid, sid: String(s.sid), sct: String(s.sct), _p: String(Math.floor(Math.random() * 1e9)),
@@ -65,7 +66,6 @@ export function hit(id, path, title, now = Date.now(), ev = "", a) {
   if (start) { q.set("_ss", "1"); q.set("_nsi", "1"); }
   if (engaged) q.set("seg", "1");
   send(q);
-  // 10 saniyə açıq qalan səhifə: «fəal sessiya»
   if (!engaged) setTimeout(() => {
     if (engaged || document.visibilityState !== "visible") return;
     engaged = true;
