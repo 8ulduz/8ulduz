@@ -1,0 +1,58 @@
+"""X yazıcısı (.github/scripts/x_yazici.py): namizəd süzgəci, mp4 seçimi, iş axınının icazələri. Şəbəkə və Claude yoxdur."""
+import datetime
+import importlib.util
+import pathlib
+import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+_spec = importlib.util.spec_from_file_location("x_yazici", ROOT / ".github" / "scripts" / "x_yazici.py")
+xy = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(xy)
+
+NOW = datetime.datetime(2026, 11, 19, 10, 0, tzinfo=datetime.timezone.utc)
+
+
+def post(**kw):
+    base = {"id": "2123096874748186946", "text": "Yeni transferlerimiz ilk antrenmanına çıktı. 3 grup halinde çalışma yapıldı.",
+            "author": {"screen_name": "GalatasaraySK"}, "created_timestamp": NOW.timestamp() - 3600,
+            "reposted_by": None, "replying_to": None, "likes": 100, "reposts": 10,
+            "media": {"videos": [{"thumbnail_url": "https://pbs.twimg.com/amplify_video_thumb/1/img/a.jpg", "width": 720, "height": 1280,
+                                  "formats": [{"url": "https://video.twimg.com/a/pl/x.m3u8", "container": "m3u8"},
+                                              {"url": "https://video.twimg.com/a/vid/320x568/a.mp4?tag=29", "bitrate": 632000, "container": "mp4"},
+                                              {"url": "https://video.twimg.com/a/vid/480x852/b.mp4?tag=29", "bitrate": 950000, "container": "mp4"},
+                                              {"url": "https://video.twimg.com/a/vid/720x1280/c.mp4?tag=29", "bitrate": 2176000, "container": "mp4"}]}]}}
+    base.update(kw)
+    return base
+
+
+class CandidateTest(unittest.TestCase):
+    def test_good_post_becomes_a_row_without_text(self):
+        c = xy.candidate("GalatasaraySK", post(), set(), NOW)
+        self.assertEqual(c["video"], "https://video.twimg.com/a/vid/480x852/b.mp4?tag=29", "≤ 1 Mbit/s olanların ən yaxşısı")
+        self.assertEqual((c["w"], c["h"], c["handle"]), (720, 1280, "GalatasaraySK"))
+        self.assertEqual(c["post"], "https://x.com/GalatasaraySK/status/2123096874748186946")
+        self.assertNotIn("title", c)
+
+    def test_filtered_posts(self):
+        cases = [post(reposted_by={"screen_name": "x"}), post(replying_to="a"), post(created_timestamp=NOW.timestamp() - 7 * 3600),
+                 post(media={}), post(author={"screen_name": "thshaber"}),
+                 post(text="Bakü'de oynanacak Karabağ maçı öncesi son antrenman."), post(text="Azerbaycan ile 2 anlaşma imzalandı."),
+                 post(media={"videos": [{**post()["media"]["videos"][0], "formats": [{"url": "https://video.twimg.com/a.mp4", "bitrate": 5000000, "container": "mp4"}]}]})]
+        for p in cases:
+            self.assertIsNone(xy.candidate("GalatasaraySK", p, set(), NOW), p)
+        self.assertIsNone(xy.candidate("GalatasaraySK", post(), {"2123096874748186946"}, NOW), "növbədə olan təkrar götürülmür")
+
+
+class WorkflowTest(unittest.TestCase):
+    def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
+        wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
+        self.assertIn("contents: write", wf)
+        self.assertEqual(wf.count("git add"), 1)
+        self.assertIn("git add oz_x.json\n", wf)
+        self.assertIn("git push -q origin HEAD:main", wf)
+        self.assertNotIn("OZ_DERC", wf)
+        self.assertNotIn("echo \"$ANTHROPIC_API_KEY", wf)
+
+
+if __name__ == "__main__":
+    unittest.main()
