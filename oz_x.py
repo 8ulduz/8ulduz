@@ -77,6 +77,18 @@ HESABLAR = {
     "Besiktas": "Beşiktaş",
     "Trabzonspor": "Trabzonspor",
     "TUBITAK": "TÜBİTAK",
+    # Sahib, 2026-11-19 («Bəli, 10-u əlavə et»): videosu çox olan xəbər və maraqlı hesablar. Münaqişə hesabları ağır kadr
+    # verə bilər: yazıcının təlimatı (x_yazici.PROMPT) onları seçmir, təsdiqlənməmiş iddianı hesabın adı ilə verir.
+    "TamirveTadilat": "Tamir & Tadilat",
+    "clashreport": "Clash Report",
+    "ConflictTR": "Conflict",
+    "gusholderhaber": "Gusholder Haber",
+    "Pars_Pluss": "Pars Plus",
+    "avionot": "Avionot",
+    "Derinkuvvet": "Derin Kuvvetler",
+    "gdhdijital": "GDH",
+    "ozetgechaber": "Özet Geç",
+    "VoiceOfLevant": "Voice of Levant",
 }
 _HANDLE = {h.lower(): h for h in HESABLAR}
 

@@ -90,6 +90,21 @@ class LateEveningTest(unittest.TestCase):
         self.assertLessEqual(xy.LAST_SLOT, "22:00")
 
 
+class SourcesTest(unittest.TestCase):
+    def test_owner_added_accounts_and_prompt_guards(self):
+        for h in ("TamirveTadilat", "clashreport", "ConflictTR", "gusholderhaber", "Pars_Pluss", "avionot",
+                  "Derinkuvvet", "gdhdijital", "ozetgechaber", "VoiceOfLevant"):
+            self.assertIn(h, xy.xm.HESABLAR)
+        for h in ("misvakcaps", "temmuz1919", "huseyinkanturk"):   # yumor və şəxsi şərh hesabları: sahib əlavə etmədi
+            self.assertNotIn(h, xy.xm.HESABLAR)
+        self.assertIn("Qan, meyit", xy.PROMPT, "ağır müharibə kadrı seçilmir")
+        self.assertIn("fakt kimi yox", xy.PROMPT, "rəsmi olmayan hesabın xəbəri onun məlumatı kimi yazılır")
+        c = xy.candidate("clashreport", post(author={"screen_name": "clashreport"}, text="Azerbaijan and Türkiye signed 2 deals."), set(), NOW)
+        self.assertIsNone(c, "yeni hesabda da Azərbaycan mövzusu düşmür")
+        PROMPT_OK = xy.PROMPT.format(n=3, items="- x")
+        self.assertIn("ən çox 3", PROMPT_OK)
+
+
 class WorkflowTest(unittest.TestCase):
     def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
