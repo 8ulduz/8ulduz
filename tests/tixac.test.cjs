@@ -80,12 +80,13 @@ test("tixac: the workflow only writes the «tixac» branch, the token is only in
 });
 
 test("tixac: the Tıxac page shows the measurement only when it is fresh, with escaped street names", () => {
-  const src = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
+  const mod = fs.readFileSync(path.join(root, "assets/tixac-sehife.js"), "utf8"); // Tıxac səhifəsi tənbəl modulda (2026-11-19)
+  const src = fs.readFileSync(path.join(root, "assets/app.js"), "utf8") + mod;
   assert.ok(src.includes('const TIX_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/tixac/tixac.json";'));
   assert.ok(src.includes("if (!d || !(Date.now() - at < 3 * 3600e3)) return \"\";"), "köhnə ölçü göstərilmir");
   assert.ok(src.includes("<b>${esc(s.name)}</b>") && src.includes("${esc(e.text)}"), "küçə adı və xəbər mətn kimi");
   assert.ok(src.includes("Mənbə: Mapbox tıxac məlumatı"), "mənbə göstərilir");
-  const tix = src.slice(src.indexOf("function trafficView"), src.indexOf("function officialRoad"));
+  const tix = mod.slice(mod.indexOf("function trafficView"), mod.indexOf("function officialRoad"));
   assert.ok(tix.length > 500 && !/vtomatik/.test(tix) && !/vtomatik/.test(src.slice(src.indexOf("const TIX_URL"), src.indexOf("const TIX_URL") + 4000)), "sahib 2026-11-14: «avtomatik» sözü yoxdur");
   assert.ok(src.includes("<h1>Tıxac-İndi</h1>") && src.includes("name = \"Tıxac-İndi\""), "başlıq «Tıxac-İndi»");
   assert.ok(src.includes("<h3>Rayonlar üzrə tıxac balı</h3>") && src.includes("<b>${esc(n)}</b> — ${b | 0}/10"), "rayon balı: ad mətn kimi, bal rəqəm kimi");
