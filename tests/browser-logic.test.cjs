@@ -1994,7 +1994,7 @@ test('site language: sports sub-sections read like the Azerbaijani ones — nati
 test('Videolent button replaces the Telegram top-10 header line and the video tab opens the feed (owner 2026-11-19: «teleqramda 10 əsas xəbər düyməsi … yerinə videolent izlə düyməsi», «VideoLent İZLƏ düyməsi aşağıda»)', () => {
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  const btn = '<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>▶ Videolentə bax</span></a>';
+  const btn = '<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>Videolentə bax</span></a>';
   const tab = '<a href="/bolme/video/" data-tab="video" data-act="reels">';
   for (const [name, text] of [['app.js', src], ['index.html (hazır qabıq)', html]]) {
     assert.ok(text.includes(btn), name + ': başlıqda Videolent düyməsi');

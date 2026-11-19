@@ -1099,7 +1099,6 @@ nav.main{order:10}
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
 nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}
-nav.main .nav-tg{display:flex;flex:1 0 100%;min-width:0;justify-content:center;align-items:center;min-height:24px;background:none;color:#fff;font-weight:700}nav.main .nav-tg>span{padding:2px 8px;border-radius:99px;background:var(--red);outline:1.5px solid var(--red);outline-offset:2px;font-size:min(14px,3.6vw);overflow:hidden;text-overflow:ellipsis}
 nav.main>a:not(.ph,.nav-tg){display:none}
 nav.main{position:relative;padding-right:42px}nav.main .nav-more{display:flex;position:absolute;right:0;top:3px;bottom:3px}nav.main .nav-more>summary{display:flex;align-items:center;font-size:0;padding:0 4px 0 8px;background:none}nav.main .nav-more>summary::before{content:"";width:26px;height:4px;background:currentColor;box-shadow:0 -9px,0 9px;color:var(--primary)}
 nav.main .nav-more-pop{position:fixed;inset:auto 0 0;max-width:none;max-height:75dvh;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 12px 70px;border-radius:16px 16px 0 0;z-index:1000}
@@ -1110,6 +1109,25 @@ nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}
 }
 @media(min-width:400px) and (max-width:600px){.nav-inst .ni-s{display:none}.nav-inst .ni-f{display:inline}}
 .soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}
+/* Telefon başlığı (sahib, 2026-11-19): 1) ☰ · 8ULDUZ · axtar · rejim  2) dil · hava · namaz · İzlə  3) bölmələr  4) Videolentə bax */
+@media(max-width:600px){
+.hrow{display:grid;grid-template-columns:auto auto auto 1fr auto;grid-template-rows:50px 46px;gap:0 6px;align-items:center;position:relative;padding:0 var(--gutter);background:linear-gradient(var(--border),var(--border)) 0 50px/100% 1px no-repeat,linear-gradient(var(--border),var(--border)) 0 96px/100% 1px no-repeat}
+.hrow>*,.topbar .sync-state{grid-column:1/-1}.hrow::after{display:none}
+.hrow>.logo{grid-row:1;justify-self:center}
+.hrow>.qbtn{grid-area:1/4;justify-self:end}
+.topbar .prefs{grid-area:1/5;margin:0}
+.topbar .prefs [data-act^=fs-],.topbar .theme-btn span+span{display:none}
+.hrow .ldd{grid-area:2/1}.hrow .wx{grid-area:2/2}.hrow .pray-wrap{grid-area:2/3}.hrow>.follow-btn{grid-area:2/5}
+.follow-btn .nav-f{display:none}.follow-btn .nav-s{display:inline}
+.hrow>.qbtn,.topbar .theme-btn .face{width:34px;height:34px;min-width:0;padding:0;justify-content:center;border:1px solid var(--border);border-radius:11px;background:var(--card);font-size:18px}
+.hrow .ldd-btn,.topbar .pray,.topbar .wx-btn{height:32px;padding:0 9px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--fg);font-size:14px}
+.topbar .pray :is(.pcity,.pt){color:var(--fg)}
+nav.main{grid-row:3;position:static;padding-right:0}
+nav.main .nav-more{left:var(--gutter);right:auto;top:0;bottom:auto;height:50px}nav.main .nav-more>summary{padding:0}nav.main .nav-more>summary::before{height:3px;box-shadow:0 -8px,0 8px;color:var(--fg)}
+nav.main .nav-tg{display:flex;flex:1 0 100%;padding:4px 2px 8px}
+nav.main .nav-tg>span{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:40px;box-sizing:border-box;background:#1c1c23;border:2px solid #e8372f;border-radius:99px;color:#fff;font-size:18px;font-weight:800;box-shadow:0 0 6px #ff2d28bf,0 0 14px #ff2d2859,inset 0 0 9px #ff2d2873;text-shadow:0 0 2px #ff3b30,0 0 7px #ff281e,0 0 12px #ff281e99}
+nav.main .nav-tg>span::before{content:"";border:8px solid #0000;border-width:8px 0 8px 13px;border-left-color:#fff;filter:drop-shadow(0 0 3px #ff3b30)}
+}
 @media(max-width:600px){/* Rəsmi hesablar (sahibin qeydi 2026-11-04): işarələr */
 .prez .soc-links{flex-direction:column;flex-wrap:nowrap;overflow:visible;align-items:stretch;gap:6px;margin:4px 0 8px}
 .prez .soc-g{flex-direction:row;flex-wrap:wrap;align-items:center;width:100%;gap:6px}
