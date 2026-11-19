@@ -147,7 +147,7 @@ def ask_gemini(prompt, key):
             req = urllib.request.Request(f"{GEMINI}/{model}:generateContent", data=body, method="POST",
                                          headers={"x-goog-api-key": key, "Content-Type": "application/json"})
             try:
-                with urllib.request.urlopen(req, timeout=120) as r:
+                with urllib.request.urlopen(req, timeout=150) as r:
                     doc = json.loads(r.read().decode("utf-8"))
                 break
             except urllib.error.HTTPError as e:
@@ -155,6 +155,9 @@ def ask_gemini(prompt, key):
                 if e.code not in (429, 500, 503):
                     break
                 time.sleep(15 * (attempt + 1))
+            except (TimeoutError, OSError, ValueError) as e:   # cavab gecikdi, bağlantı qırıldı, JSON pozuq: növbəti model
+                tried.append(f"{model}: {type(e).__name__}")
+                break
         if doc is None:
             continue
         parts = ((doc.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []

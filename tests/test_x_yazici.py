@@ -43,6 +43,26 @@ class CandidateTest(unittest.TestCase):
         self.assertIsNone(xy.candidate("GalatasaraySK", post(), {"2123096874748186946"}, NOW), "növbədə olan təkrar götürülmür")
 
 
+class GeminiTest(unittest.TestCase):
+    def test_timeout_moves_to_next_model_instead_of_crashing(self):
+        import io
+        import json
+        from unittest import mock
+        calls = []
+
+        def fake_urlopen(req, timeout=None):
+            calls.append(req.full_url)
+            if "slow" in req.full_url:
+                raise TimeoutError("The read operation timed out")
+            return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": "[]"}]}}]}).encode("utf-8"))
+
+        with mock.patch.object(xy, "_safe_models", return_value=["slow-flash", "ok-flash"]), \
+             mock.patch.object(xy.urllib.request, "urlopen", fake_urlopen), mock.patch.object(xy.time, "sleep"):
+            self.assertEqual(xy.ask_gemini("p", "k"), "[]")
+        self.assertEqual(len(calls), 2, "gecikən model bir dəfə soruşulur, sonra növbəti")
+        self.assertIn("ok-flash", calls[1])
+
+
 class WorkflowTest(unittest.TestCase):
     def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
