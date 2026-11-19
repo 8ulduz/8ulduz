@@ -237,7 +237,7 @@ class ReelsTest(unittest.TestCase):
         try:
             xm.NOVBE = path
             with unittest.mock.patch.object(updater, "OUT_DIR", out_dir), unittest.mock.patch.object(updater, "REELS_FILE", out_dir / "reels.json"),                  unittest.mock.patch.object(updater.content_policy, "enforce", wraps=updater.content_policy.enforce) as gate:
-                updater.update_reels()
+                updater.write_reels(xm.reels(datetime.datetime.now(datetime.timezone.utc)))
             self.assertTrue(gate.called, "qırmızı xətt 2: sətirlər content_policy.enforce-dan keçir")
         finally:
             xm.NOVBE = orig

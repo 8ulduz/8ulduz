@@ -2777,6 +2777,10 @@ def update_own_news():
         return None
     import oz_derc  # tənbəl: açarsız proses bu modulu heç yükləmir (köhnə kod qovluğunda fayl olmaya da bilər)
     res = oz_derc.cycle(ROOT)
+    try:
+        write_reels(oz_derc.reels(datetime.datetime.now(datetime.timezone.utc)))
+    except Exception as e:
+        print("  ! qısa video:", type(e).__name__)
     print(f"Öz xəbərlər: dərc {len(res.get('published') or [])}, növbədə {res.get('queued', 0)}, saxlanılan {len(res.get('held') or [])}, "
           f"rədd {len(res.get('blocked') or [])}, xəta {len(res.get('errors') or [])}", flush=True)
     return res
@@ -3706,13 +3710,11 @@ def update_video():
 REELS_FILE = OUT_DIR / "reels.json"
 
 
-def update_reels():
+def write_reels(rows):
     """Qısa videolar (sahib, 2026-11-19: tiktok üslubunda lent, gündə ~40): X növbə faylının yazısız videoları data/reels.json-a.
-    Şəbəkə yoxdur; sətirləri oz_derc.reels verir (öz modullar yalnız oz_derc ilə çağırılır). QIRMIZI XƏTT 2: Azərbaycan mövzusu
+    Şəbəkə yoxdur; sətirləri öz xəbərlər addımı (update_own_news) oz_derc.reels ilə verir. QIRMIZI XƏTT 2: Azərbaycan mövzusu
     orada düşür, sonra hər sətir content_policy.enforce-dan keçir (8ULDUZ-un öz sətri kimi; sahibin çıxardığı ünvan da düşür).
     Sayt faylı yalnız «Qısa videolar» açılanda oxuyur."""
-    import oz_derc  # tənbəl, oz_derc.cycle kimi
-    rows = oz_derc.reels(datetime.datetime.now(datetime.timezone.utc))
     probe = [{"source": OWN_SOURCE, "sourceUrl": f"https://8ulduz.az/qisa/{r['id']}", "title": "", "summary": "", "category": "dunya"} for r in rows]
     kept = {a["sourceUrl"].rsplit("/", 1)[1] for a in content_policy.enforce(probe)[0]}
     rows = [r for r in rows if r["id"] in kept]
@@ -7406,10 +7408,6 @@ def run():
                 update_video()
             except Exception as e:
                 print("  ! video:", type(e).__name__)
-            try:
-                update_reels()
-            except Exception as e:
-                print("  ! qısa video:", type(e).__name__)
             try:
                 update_football()
             except Exception as e:
