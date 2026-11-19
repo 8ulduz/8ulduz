@@ -28,6 +28,9 @@ function app(extra = {}, file = 'assets/app.js') {
   return context;
 }
 
+// Futbol bloku tənbəl modulda (assets/futbol.js, 2026-11-19): testlər modulu yükləyib tətbiqin S.fbView-una qoyur.
+const withFb = async S => { S.fbView = (await import(require('url').pathToFileURL(path.join(root, 'assets/futbol.js')).href)).view; };
+
 test('rush hour uses Baku time (UTC+4) without Intl',()=>{
   const rush=vm.runInContext('bakuRush',app());
   assert.equal(rush(new Date('2026-11-03T05:30:00Z')),true,'çərşənbə axşamı 09:30');
@@ -1051,8 +1054,9 @@ test('unchanged news still acknowledges a new successful check',async()=>{
   assert.equal(S.newsStamp,'new-check');
 });
 
-test('basketball national team does not appear in football block', () => {
+test('basketball national team does not appear in football block', async () => {
   const ctx = app();
+  await withFb(ctx.api.S);
   ctx.api.S.football = { table: [{ pos: 1, team: 'Qarabağ', pts: 30, p: 10, w: 9, d: 3, l: 0, gf: 20, ga: 5, gd: 15 }], results: [] };
   const html = ctx.api.footballBlock([
     {title: "A Milli Kadın Basketbol Takımı", category: 'idman', publishedAt: '2026-10-26T12:00:00Z'},
@@ -1062,8 +1066,9 @@ test('basketball national team does not appear in football block', () => {
   assert.ok(!html.includes('Basketbol'));
 });
 
-test('football block renders results, fixtures and the ordinal round suffix', () => {
+test('football block renders results, fixtures and the ordinal round suffix', async () => {
   const ctx = app();
+  await withFb(ctx.api.S);
   ctx.api.S.football = {
     league: 'Misli Premyer Liqası', season: '2026-2027', roundPlayed: '9', roundNext: '10',
     table: [{ pos: 1, team: 'Qarabağ', pts: 22, p: 9, w: 7, d: 1, l: 1, gf: 18, ga: 6, gd: 12 }],
@@ -1085,8 +1090,9 @@ test('football block renders results, fixtures and the ordinal round suffix', ()
   assert.equal(ctx.api.ordTur(20), '20-ci');
 });
 
-test('world leagues appear after the Azerbaijani ones with their own tables', () => {
+test('world leagues appear after the Azerbaijani ones with their own tables', async () => {
   const ctx = app();
+  await withFb(ctx.api.S);
   ctx.api.S.football = { leagues: [{ project: 1, short: 'Premyer Liqa', league: 'Misli Premyer Liqası', table: [{ pos: 1, team: 'Sabah', pts: 20, p: 9, w: 6, d: 2, l: 1, gf: 15, ga: 7, gd: 8 }], results: [], fixtures: [] }] };
   ctx.api.S.sports = { leagues: [
     { id: 'eng.1', sport: 'football', name: 'Premyer Liqa (İngiltərə)', short: 'İngiltərə', season: '2026/27', asof: '2026-10-31', url: 'https://en.wikipedia.org/wiki/2026%E2%80%9327_Premier_League', groups: [{ name: 'Premier League', rows: [{ pos: 1, team: 'Man City', full: 'Manchester City', logo: '', p: 8, w: 7, d: 0, l: 1, gf: 20, ga: 9, gd: 11, pts: 21, note: 'Champions League', color: '#81D6AC' }] }] },
@@ -1102,8 +1108,9 @@ test('world leagues appear after the Azerbaijani ones with their own tables', ()
   assert.ok(html.includes('<h2>Basketbol</h2>') && html.includes('Qərb') && html.includes('Lakers') && !html.includes('Celtics'));
 });
 
-test('football block offers every league and keeps the cup without a table', () => {
+test('football block offers every league and keeps the cup without a table', async () => {
   const ctx = app();
+  await withFb(ctx.api.S);
   ctx.api.S.football = { leagues: [
     { project: 1, short: 'Premyer Liqa', league: 'Misli Premyer Liqası', table: [{ pos: 1, team: 'Sabah', pts: 20, p: 9, w: 6, d: 2, l: 1, gf: 15, ga: 7, gd: 8 }], results: [], fixtures: [] },
     { project: 5, short: 'Kubok', league: 'Azərbaycan Kuboku', elimination: true, table: [], results: [], fixtures: [{ home: 'Şəki', away: 'Qarabağ', hs: 0, as: 0, date: '2026-11-05T15:00+04:00', played: false }] },
@@ -1119,8 +1126,9 @@ test('football block offers every league and keeps the cup without a table', () 
   assert.ok(ctx.api.footballBlock([]).includes('Şəki'));
 });
 
-test('football block is hidden while the league table is unavailable', () => {
+test('football block is hidden while the league table is unavailable', async () => {
   const ctx = app();
+  await withFb(ctx.api.S);
   ctx.api.S.football = { table: [], events: [{ home: 'Sabah Baku', away: 'Qarabag', hs: '0', as: '0', date: '2026-10-25' }], note: 'yoxdur' };
   assert.equal(ctx.api.footballBlock([{ title: 'Futbol: Qarabağ qalib gəldi', category: 'idman', publishedAt: '2026-10-26T12:00:00Z' }]), '');
 });
@@ -2464,8 +2472,9 @@ test('team page: the league name above the club opens the league with all its cl
   assert.ok(cup.includes('class="tm-clubs"') && cup.includes('href="#/komanda/kubok/sumqayit"'), 'cədvəli olmayan yarışda klub siyahısı');
   assert.ok(!cup.includes('tm-table'));
 });
-test('football tables link only to the team pages that exist: Azerbaijani leagues', () => {
+test('football tables link only to the team pages that exist: Azerbaijani leagues', async () => {
   const { S, footballBlock } = app().api;
+  await withFb(S);
   S.football = { leagues: [{ league: 'Misli Premyer Liqası', short: 'Premyer Liqa', table: [{ pos: 1, team: 'Qarabağ', p: 1, w: 1, d: 0, l: 0, gf: 1, ga: 0, gd: 1, pts: 3 }], results: [], fixtures: [] }] };
   S.fbLeague = 0; S.fbTab = 'table';
   const az = footballBlock([]);

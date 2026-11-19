@@ -120,7 +120,8 @@ test("ga4: a news link is one news_outbound_click with domain, full link and hea
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
   assert.ok(app.includes('for (const t of ["click", "auxclick"]) addEventListener(t, e =>') && app.includes("e.button < 2) trackEvent("), "orta düymə sayılır, sağ düymə yox");
   for (const c of ["card-hit", "pcard-hit", "source-entry"]) assert.match(app, new RegExp(`<article[^]*?class="${c}"`), c + " <article> içindədir: xəbər keçidi kimi tanınır");
-  for (const c of ["phrow", "track", "alerts", "foot-news"]) assert.ok(app.includes(`class="${c}`), c + ": xəbər keçidi olan siyahı");
+  const lazy = app + fs.readFileSync(path.join(root, "assets/futbol.js"), "utf8"); // futbol bloku tənbəl modulda (2026-11-19)
+  for (const c of ["phrow", "track", "alerts", "foot-news"]) assert.ok(lazy.includes(`class="${c}`), c + ": xəbər keçidi olan siyahı");
 });
 
 test("ga4: with storage blocked the reader stays one user and one session for the page's lifetime", () => {
