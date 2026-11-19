@@ -1259,7 +1259,7 @@ function shell() {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Xəbər axtar…" autocomplete="off" aria-label="Xəbər axtar" enterkeyhint="search">
       <button type="button" id="mic" class="mic" aria-label="Səslə axtar" title="Səslə axtar" aria-pressed="false" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></label>
-    <button type="button" class="qbtn" data-act="find" aria-label="Xəbər axtar" title="Xəbər axtar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button><button type="button" class="follow-btn" data-act="follow" aria-haspopup="dialog">8ULDUZ-u izlə</button><span class="inst" id="inst"></span>
+    <button type="button" class="qbtn" data-act="find" aria-label="Xəbər axtar" title="Xəbər axtar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button><button type="button" class="follow-btn" data-act="follow" aria-haspopup="dialog"><span class="nav-f">8ULDUZ-u izlə</span><span class="nav-s">İzlə</span></button><span class="inst" id="inst"></span>
     <div class="topbar"><div class="wrap" id="topbar"></div></div>
   </div><div class="nav-pop" id="navpop" hidden></div></header>
   <div id="ticker"></div>
@@ -1409,7 +1409,7 @@ function renderNav() {
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button>` +
     `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(c => link(c)).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>` +
-    `<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>▶ Videolent</span></a>`; // sahib 2026-11-19: Telegram sətrinin yerinə (Telegram «8ULDUZ-u izlə»dədir)
+    `<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>Videolentə bax</span></a>`; // sahib 2026-11-19: Telegram sətrinin yerinə (Telegram «8ULDUZ-u izlə»dədir)
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;
   afterPaint(fitNav);
