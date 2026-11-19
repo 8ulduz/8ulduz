@@ -1,5 +1,5 @@
-// Qısa videolar: şaquli, tam ekran, barmaqla sürüşdürülən video lenti (sahib, 2026-11-19: «tiktok stilini düzəlt.
-// videoların bəzilərinə yazı tərcümə ehtiyac olmaya bilər… gündə 40»). Tənbəl modul: yalnız «Qısa videolar» basılanda
+// Videolent: şaquli, tam ekran, barmaqla sürüşdürülən video lenti (sahib, 2026-11-19: «tiktok stilini düzəlt.
+// videoların bəzilərinə yazı tərcümə ehtiyac olmaya bilər… gündə 40»). Tənbəl modul: yalnız «Videolent» basılanda
 // yüklənir, ilk açılışa heç nə gətirmir.
 //
 // Videolar: data/reels.json (X-in yazısız videoları, yeniləyici oz_x.reels + content_policy.enforce ilə yazır) və lentdəki
@@ -50,7 +50,7 @@ export async function open(S) {
   } catch {}
   const items = list(S, Array.isArray(reels) ? reels : []);
   const f = document.createElement("iframe");
-  f.title = "Qısa videolar";
+  f.title = "Videolent";
   f.allow = "autoplay; fullscreen";
   f.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483000;background:#000";
   f.srcdoc = `<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>${CSS}</style><body></body>`;

@@ -342,7 +342,7 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   assert.ok(h.includes('class="nav-inst" data-act="install">'), 'Chrome təklif verəndə düymə görünür');
   assert.ok(h.includes('<span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span>'), 'dar ekranda qısa, 400 px-dən enli ekranda tam yazı (işarəsiz: «et» kəsilirdi, sahib 2026-11-16)');
   assert.ok(fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').includes('nav.main>a.ph,nav.main .nav-inst{flex:1 1 auto;min-width:0;overflow:hidden}'), 'düymə və bölmələr yeri mətnə görə bölür, heç biri kəsilmir');
-  assert.ok(h.indexOf('class="nav-tg" href="https://t.me/sekkizulduz_az"') > h.indexOf('</details>'), 'Telegram çağırışı ☰-dan sonra, öz sətrində');
+  assert.ok(h.indexOf('class="nav-tg" href="/bolme/video/" data-act="reels"') > h.indexOf('</details>'), 'Videolent düyməsi ☰-dan sonra, öz sətrində (sahib 2026-11-19: Telegram sətrinin yerinə)');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.nav-inst{display:none}nav.main .nav-tg{display:none}'), 'masaüstündə nə düymə, nə çağırış');
   assert.ok(css.includes('nav.main>a:not(.ph,.nav-tg){display:none}'), 'telefonda qalan bölmələr ☰-dadır');
@@ -1983,25 +1983,20 @@ test('site language: sports sub-sections read like the Azerbaijani ones — nati
   assert.deepEqual(['Afrika Millətlər Kuboku 2027: seçmə', 'Cənubi Koreya'].map(ru), ['Кубок африканских наций 2027: отбор', 'Южная Корея']);
   assert.deepEqual(['Milli komandalar', 'Uels', 'Bosniya və Herseqovina'].map(tr), ['Milli takımlar', 'Galler', 'Bosna-Hersek']);
 });
-test('Telegram top 10: the header link and words follow the site language; other languages go to the bot in their own language (owner 2026-11-08: «günün 10 əsas xəbəri teleqramda digər dillərə dəyişmir»)', () => {
-  const ctx = app({ window: { addEventListener() {}, SITE_CONFIG: { tgBot: 'sekkizulduz_xeber_bot', telegram: 'https://t.me/sekkizulduz_az' } } });
-  const link = vm.runInContext('tgDigest', ctx), { S } = ctx.api;
-  S.lang = 'az'; assert.equal(link(), 'https://t.me/sekkizulduz_az', 'Azərbaycan dili: kanal');
-  S.lang = null; assert.equal(link(), 'https://t.me/sekkizulduz_az', '«Hamısı»: kanal');
-  const bot = require('../.github/scripts/izle.cjs');
-  for (const l of ['en', 'ru', 'tr']) {
-    S.lang = l; assert.equal(link(), `https://t.me/sekkizulduz_xeber_bot?start=g_${l}`);
-    assert.ok(bot.DIGEST_LANGS[l] && bot.catalog(bot.loadApp ? bot.loadApp(root) : require('../.github/scripts/topics.cjs').loadApp(root)).has(`g_${l}`), `bot g_${l} açarını tanıyır`);
-  }
+test('Videolent button replaces the Telegram top-10 header line and the video tab opens the feed (owner 2026-11-19: «teleqramda 10 əsas xəbər düyməsi … yerinə videolent izlə düyməsi», «VideoLent İZLƏ düyməsi aşağıda»)', () => {
   const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
-  assert.ok(src.includes('<a class="nav-tg" href="${esc(tgDigest())}"'), 'başlıqdakı keçid dilə görə');
-  const mod = dilModule('assets/dil.js');
-  const want = { en: 'Top 10 stories of the day — on Telegram', ru: '10 главных новостей дня — в Telegram', tr: "Günün en önemli 10 haberi — Telegram'da" };
-  for (const l of ['en', 'ru', 'tr']) {
-    const tr = mod.makeTr(dilModule(`assets/dil-${l}.js`).__d, l);
-    assert.equal(tr('📩 Günün 10 əsas xəbəri — Telegram-da'), '📩 ' + want[l]);
-    assert.ok(!/ə/.test(tr('Hər gün 09:00 və 19:00')), l + ': düymənin izahı');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const btn = '<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>▶ Videolent</span></a>';
+  const tab = '<a href="/bolme/video/" data-tab="video" data-act="reels">';
+  for (const [name, text] of [['app.js', src], ['index.html (hazır qabıq)', html]]) {
+    assert.ok(text.includes(btn), name + ': başlıqda Videolent düyməsi');
+    assert.ok(text.includes(tab) && text.includes('<span>Videolent</span></a>'), name + ': aşağı menyuda Videolent');
+    assert.ok(!text.includes('Günün 10 əsas xəbəri — Telegram-da'), name + ': köhnə Telegram sətri yoxdur');
   }
+  assert.ok(src.includes('act === "reels") { e.preventDefault(); import("./lent.js'), 'keçid yox, lent açılır (tənbəl modul)');
+  const mod = dilModule('assets/dil.js');
+  const want = { en: 'Video feed', ru: 'Видеолента', tr: 'Video akışı' };
+  for (const l of ['en', 'ru', 'tr']) assert.equal(mod.makeTr(dilModule(`assets/dil-${l}.js`).__d, l)('Videolent'), want[l]);
 });
 test('site language: a section without news in that language is hidden, sports never', () => {
   const { emptySections } = dilModule('assets/dil.js');
@@ -3111,7 +3106,7 @@ test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once
 test('owner 2026-11-10: the bottom bar has four buttons — Bölmələr and Axtar removed (☰ and 🔍 stay above)', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   for (const src of [js, html]) {
-    assert.ok(/<a href="\/bolme\/video\/" data-tab="video"><svg viewBox="0 0 24 24" aria-hidden="true">[^]*?<\/svg><span>Video<\/span><\/a>/.test(src), 'aşağı zolaqda Video');
+    assert.ok(/<a href="\/bolme\/video\/" data-tab="video" data-act="reels"><svg viewBox="0 0 24 24" aria-hidden="true">[^]*?<\/svg><span>Videolent<\/span><\/a>/.test(src), 'aşağı zolaqda Videolent (sahib 2026-11-19), lenti açır');
     assert.ok(/<a href="#\/tixac" data-tab="traffic" class="tix-btn"><svg viewBox="0 0 24 24" aria-hidden="true">[^]*?<\/svg><span>Tıxac<\/span><\/a>/.test(src), 'Tıxac qalır');
     assert.ok(!/<b>[⌂▶⛗☆]<\/b>/.test(src), 'işarələr simvol deyil, çəkilmiş SVG-dir: hər telefonda eyni ölçü');
     assert.equal((src.match(/<nav class="tabbar"[\s\S]*?<\/nav>/)[0].match(/<(?:a|button)\b/g) || []).length, 4, 'aşağıda 4 düymə: Əsas, Video, Tıxac, Seçilmişlər');
