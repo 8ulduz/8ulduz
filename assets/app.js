@@ -1227,6 +1227,9 @@ const offRoot = () => !!document.baseURI && document.baseURI.split("#")[0] !== S
 // Şablonun uyğunluq hash-ı (işçinin keşindəki köhnə kod yalnız hash oxuyur, updater.py): yeni kod onu silir, ünvan təmiz qalır.
 if (offRoot() && location.hash.split("?")[0] === "#" + location.pathname.replace(/\/$/, "")) history.replaceState(null, "", location.pathname + location.search);
 const OWN_HASH = location.hash, here = () => location.hash || location.pathname;
+// Statik xəbər səhifəsinin məzmunu (sahib 2026-11-19: «Statik HTML qalsın»): qabıq #app-i əvəz etməzdən əvvəl götürülür,
+// articleView mənbə başlıqlarını, xülasəni və əlaqəli xəbərləri ondan göstərir — oxucu və Google eyni məzmunu görür.
+const STATIC_ART = offRoot() && /^\/xeber\/([0-9a-f]{16})\/?$/.exec(location.pathname), STATIC_HTML = STATIC_ART && $("#app main")?.innerHTML;
 function route() {
   let h = location.hash.replace(/^#/, "") || (offRoot() && location.pathname.replace(/\/$/, "")) || "/";
   try { h = decodeURIComponent(h); } catch {} // natamam %-kod səhifəni dayandırmasın
@@ -2147,13 +2150,15 @@ function relatedOf(a) {
 }
 function articleView(id) {
   const a = (S.data?.articles || []).find(a => String(a.id) === id) || (S.sharedStory?.id === id && S.sharedStory.row) || Object.values(S.archive || {}).flatMap(x => x.rows).find(a => String(a.id) === id) || savedList().find(a => String(a.id) === id);
+  const st = STATIC_ART?.[1] === id && STATIC_HTML;
+  if (!a && st) return `<article class="article-detail"><a href="#/">← Baş səhifə</a>${st}</article>`;
   if (!a || removedArticle(a)) {
     if (S.data && S.archiveScan !== id) { S.archiveScan = id; scanArchives(id); }
     if (S.archiveScanning) return '<p class="empty">Xəbər axtarılır…</p>';
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz"; S.art = a;
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a, true)}${a.xv ? xvTile(a) : imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a><section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a, true)}${a.xv ? xvTile(a) : imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a>${st ? st.replace(/^[\s\S]*?<\/h1>\s*<p>[\s\S]*?<\/p>/, "") : `<section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}`}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
 // «Telegram-da izlə» (izle.cjs).
