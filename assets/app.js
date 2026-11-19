@@ -1479,7 +1479,7 @@ function bindNavPop() {
       if (name !== undefined && name !== pop.dataset.tab && (!name || SUB_TABS[slug]?.some(t => t.name === name))) later(() => show(slug, name), wait);
       return;
     }
-    const item = e.target.closest("#nav a, #nav summary");
+    const item = e.target.closest("#nav a:not(.nav-tg), #nav summary"); // Videolent düyməsi bölmə deyil: alt panel açılmır
     clearTimeout(preT); // niyyətlə əvvəlcədən yükləmə: kursor keçiddə 120 ms dayananda
     if (!item) { if (!pop.hidden) later(hide, 220); return; }
     const h = hashOf(item); // keçidlər /bolme/<ad>/ olandan bəri bu şərt heç vaxt ödənmirdi: kompüterdə İdman/Bölgələr menyusu açılmırdı
@@ -1989,8 +1989,8 @@ function shortDT(iso) {
 // X videosu (oz_x, sahib 2026-11-18): şəkil, basanda referrer göndərməyən çərçivədə (srcdoc) oynayır — X videonu başqa saytın
 // sorğusuna vermir (403). X-in skripti yüklənmir, video saytda saxlanmır.
 const XV_AT = "https://video.twimg.com/", XV = { test: u => typeof u === "string" && u.startsWith(XV_AT) && /^[\w/.-]+\.mp4(\?[\w=&.-]*)?$/.test(u.slice(XV_AT.length)) };
-// Qısa videolar (sahib, 2026-11-19: «tiktok stilini düzəlt»): şaquli lent tənbəl modulda (lent.js), yalnız basanda yüklənir
-const REELS = `<button type="button" class="btn" data-act="reels">▶ Qısa videolar</button>`;
+// Videolent (sahib, 2026-11-19: «tiktok stilini düzəlt», «qısa videoları dəyişib videolent yaz»): şaquli lent tənbəl modulda (lent.js), yalnız basanda yüklənir
+const REELS = `<button type="button" class="btn" data-act="reels" style="background:var(--red);color:#fff">▶ Videolent</button>`; // rəng yuxarıdakı Videolent düyməsi ilə eyni (sahib 2026-11-19)
 const xvTile = a => {
   const v = a.xv, w = v?.w | 0, h = v?.h | 0;
   return XV.test(v?.u) && w > 0 && h > 0 ? `<div class="yt xv" data-xv="${esc(v.u)}" role="button" tabindex="0" aria-label="Videonu oynat"><span class="thumb" style="aspect-ratio:${w}/${h};width:min(100%,calc(78vh*${w}/${h}));margin:0 auto">${imgUrl(a) ? `<img src="${esc(sized(imgUrl(a), 640))}" alt="" decoding="async" data-fail="rm">` : ""}<i>▶ Video</i></span></div>` : "";
