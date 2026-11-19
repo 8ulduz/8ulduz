@@ -3709,9 +3709,6 @@ def update_video():
     print(f"Video: {min(24, len(items))} yazı")
 
 
-REELS_FILE = OUT_DIR / "reels.json"
-
-
 def write_reels(rows):
     """Qısa videolar (sahib, 2026-11-19: tiktok üslubunda lent, gündə ~40): X növbə faylının yazısız videoları data/reels.json-a.
     Şəbəkə yoxdur; sətirləri öz xəbərlər addımı (update_own_news) oz_derc.reels ilə verir. QIRMIZI XƏTT 2: Azərbaycan mövzusu
@@ -3721,8 +3718,9 @@ def write_reels(rows):
     kept = {a["sourceUrl"].rsplit("/", 1)[1] for a in content_policy.enforce(probe)[0]}
     rows = [r for r in rows if r["id"] in kept]
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
-    OUT_DIR.mkdir(exist_ok=True)
-    _write_atomic(REELS_FILE, json.dumps({"updatedAt": now, "items": rows}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    out = ROOT / "data"   # dərc dövrəsi kimi ROOT-a (sınaqda müvəqqəti qovluq)
+    out.mkdir(exist_ok=True)
+    _write_atomic(out / "reels.json", json.dumps({"updatedAt": now, "items": rows}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Qısa video: {len(rows)}")
 
 # Misli Premyer Liqası: pfl.az saytının öz tətbiqinin istifadə etdiyi açıq JSON API (açar tələb etmir).

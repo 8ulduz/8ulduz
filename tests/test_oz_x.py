@@ -236,12 +236,12 @@ class ReelsTest(unittest.TestCase):
         orig = xm.NOVBE
         try:
             xm.NOVBE = path
-            with unittest.mock.patch.object(updater, "OUT_DIR", out_dir), unittest.mock.patch.object(updater, "REELS_FILE", out_dir / "reels.json"),                  unittest.mock.patch.object(updater.content_policy, "enforce", wraps=updater.content_policy.enforce) as gate:
+            with unittest.mock.patch.object(updater, "ROOT", out_dir), unittest.mock.patch.object(updater.content_policy, "enforce", wraps=updater.content_policy.enforce) as gate:
                 updater.write_reels(xm.reels(datetime.datetime.now(datetime.timezone.utc)))
             self.assertTrue(gate.called, "qırmızı xətt 2: sətirlər content_policy.enforce-dan keçir")
         finally:
             xm.NOVBE = orig
-        doc = json.loads((out_dir / "reels.json").read_text(encoding="utf-8"))
+        doc = json.loads((out_dir / "data" / "reels.json").read_text(encoding="utf-8"))
         self.assertEqual([r["id"] for r in doc["items"]], ["2123096874748186946"])
 
     def test_repo_reels_are_valid(self):
