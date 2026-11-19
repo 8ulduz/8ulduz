@@ -35,6 +35,7 @@ MAX_BITRATE = 1_000_000
 MAX_CANDIDATES = 25
 PER_RUN = 3
 MAX_AGE_DAYS = 4
+LAST_SLOT = "22:00"   # daha gec yazılan xəbər gün bitənədək dərc olunmağa çatmır və «gecikdi» deyə düşür (2026-11-18 gecəsi 4 xəbər)
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or ""   # boşdursa: açarın siyahısındakı ən yeni «flash» (2.5 artıq 404 verir)
 
@@ -209,7 +210,9 @@ def main():
     slot = (baku + datetime.timedelta(minutes=5)).strftime("%H:%M")
     if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
         print("GEMINI_API_KEY (və ANTHROPIC_API_KEY) yoxdur: xəbər yazılmır (yalnız X-in oxunuşu yoxlandı).")
-    elif cands and xm.SLOT_FROM <= slot <= xm.SLOT_TO:
+    elif not xm.SLOT_FROM <= slot <= LAST_SLOT:
+        print(f"Bakı vaxtı {slot}: {xm.SLOT_FROM}–{LAST_SLOT} xaricində xəbər yazılmır (gec yazılan gün bitənədək dərc olunmur).")
+    elif cands:
         by_id = {c["id"]: c for c in cands}
         for w in write(cands, PER_RUN)[:PER_RUN]:
             c = by_id.get(str(w.get("id")))

@@ -63,6 +63,33 @@ class GeminiTest(unittest.TestCase):
         self.assertIn("ok-flash", calls[1])
 
 
+class LateEveningTest(unittest.TestCase):
+    def test_no_writing_after_the_last_slot(self):
+        import tempfile
+        from unittest import mock
+        late = datetime.datetime(2026, 11, 19, 19, 30, tzinfo=datetime.timezone.utc)   # Bakı 23:30
+
+        class FakeDT(datetime.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return late
+
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            (root / "oz_x.json").write_text('{"v": 1, "items": []}\n', encoding="utf-8")
+            with mock.patch.object(xy, "ROOT", root), mock.patch.object(xy.datetime, "datetime", FakeDT), \
+                 mock.patch.object(xy, "collect", return_value=([xy.candidate("GalatasaraySK", post(), set(), NOW)], [])), \
+                 mock.patch.object(xy, "write", side_effect=AssertionError("gec saatda Gemini soruşulmamalıdır")), \
+                 mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}):
+                self.assertEqual(xy.main(), 0)
+            self.assertEqual((root / "oz_x.json").read_text(encoding="utf-8"), '{"v": 1, "items": []}\n')
+
+    def test_cron_ends_before_the_last_slot(self):
+        wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
+        self.assertIn('cron: "5 3-17/2 * * *"', wf, "son iş Bakı 21:05")
+        self.assertLessEqual(xy.LAST_SLOT, "22:00")
+
+
 class WorkflowTest(unittest.TestCase):
     def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
