@@ -1270,7 +1270,7 @@ function shell() {
   <button class="totop" id="totop" aria-label="Yuxarı qayıt">↑</button>
   <nav class="tabbar" aria-label="Sürətli keçid">
     <a href="#/" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z"/></svg><span>Əsas</span></a>
-    <a href="/bolme/video/" data-tab="video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg><span>Video</span></a>
+    <a href="/bolme/video/" data-tab="video" data-act="reels"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg><span>Videolent</span></a>
     <a href="#/tixac" data-tab="traffic" class="tix-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2.5" width="8" height="19" rx="3"/><circle cx="12" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="16.5" r="1.4"/></svg><span>Tıxac</span></a>
     <a href="#/secilmis" data-tab="saved"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg><span>Seçilmişlər</span></a>
   </nav>`;
@@ -1354,7 +1354,6 @@ function pageMeta() {
 }
 
 // Günün 10 xəbəri: Azərbaycan dilində kanal; ingilis/rus/türk oxucu bota yazılır və öz dilində alır (izle.cjs, start=g_<dil>).
-const tgDigest = () => { const bot = window.SITE_CONFIG?.tgBot; return uiLang(S.lang) && bot ? `https://t.me/${bot}?start=g_${S.lang}` : window.SITE_CONFIG?.telegram || "https://t.me/sekkizulduz_az"; };
 function renderTopbar() {
   if (document.activeElement?.matches?.("#topbar select")) return; // açıq şəhər siyahısı bağlanmasın; seçimdən sonra yenilənir
   // İlk ekranın faylı 10 dəqiqəyədək köhnə ola bilər.
@@ -1410,7 +1409,7 @@ function renderNav() {
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button>` +
     `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(c => link(c)).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>` +
-    `<a class="nav-tg" href="${esc(tgDigest())}" ${OUT} title="Hər gün 09:00 və 19:00"><span>📩 Günün 10 əsas xəbəri — Telegram-da</span></a>`;
+    `<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>▶ Videolent</span></a>`; // sahib 2026-11-19: Telegram sətrinin yerinə (Telegram «8ULDUZ-u izlə»dədir)
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;
   afterPaint(fitNav);
@@ -2628,7 +2627,7 @@ function trackEvent(path, a) {
 }
 addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
 // Orta düymə (auxclick, button 1) də keçiddir; sağ düymə (2) sayılmır. «click» yalnız sol düymədə gəlir: bir klik bir hadisədir.
-for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a) return; if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const h = a.getAttribute("href") || ""; if (h.startsWith("#") && offRoot()) { e.preventDefault(); if (h.startsWith("#/")) location.hash = h; else document.getElementById(h.slice(1))?.focus(); return; } /* <base> kökdür: «#…» səhifədən çıxarmasın («Məzmuna keç» də) */ const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
+for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a || a.dataset.act) return; /* data-act: keçidi onClick idarə edir (Videolent) */ if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const h = a.getAttribute("href") || ""; if (h.startsWith("#") && offRoot()) { e.preventDefault(); if (h.startsWith("#/")) location.hash = h; else document.getElementById(h.slice(1))?.focus(); return; } /* <base> kökdür: «#…» səhifədən çıxarmasın («Məzmuna keç» də) */ const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
 function showPop(btn, html) {
   closeSharePop();
@@ -2805,7 +2804,7 @@ function onClick(e) {
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
-  else if (act === "reels") import("./lent.js?v=1").then(m => m.open(S)).catch(() => {});
+  else if (act === "reels") { e.preventDefault(); import("./lent.js?v=1").then(m => m.open(S)).catch(() => {}); }
   else if (act === "follow") import("./follow.js?v=7").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();
