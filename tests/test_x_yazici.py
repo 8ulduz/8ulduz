@@ -181,7 +181,8 @@ class VideolentTenfoldTest(unittest.TestCase):
         self.assertFalse(set(hs) & set(xy.xm.HESABLAR), "Videolent hesabları xəbər hesablarından ayrıdır")
         seen = set()
         t0 = datetime.datetime(2026, 11, 20, tzinfo=datetime.timezone.utc)
-        for k in range(len(hs) // xy.VL_PER_RUN + 2):
+        per = xy.VL_PER_RUN // len(xy.xm.VIDEOLENT_QRUPLAR)
+        for k in range(max(map(len, xy.xm.VIDEOLENT_QRUPLAR.values())) // per + 2):
             part = xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k))
             self.assertLessEqual(len(part), xy.VL_PER_RUN)
             seen.update(part)

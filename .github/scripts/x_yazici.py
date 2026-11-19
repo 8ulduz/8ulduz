@@ -149,12 +149,14 @@ REEL_WINDOW = datetime.timedelta(hours=24)   # Videolent hesabı bir neçə saat
 
 def videolent_slice(now):
     """Bu işdə yoxlanacaq Videolent hesabları: siyahı 20 dəqiqəlik növbələrlə dövr edir (hər hesab bir neçə saatdan bir)."""
-    groups = [list(q) for q in xm.VIDEOLENT_QRUPLAR.values()]   # mövzular növbə ilə: hər iş bütün mövzulardan hesab yoxlayır
-    hs = [g[i] for i in range(max(map(len, groups), default=0)) for g in groups if i < len(g)]
-    if not hs:
+    groups = [list(q) for q in xm.VIDEOLENT_QRUPLAR.values() if q]   # hər mövzunun öz növbəsi: hər iş bütün mövzulardan bərabər
+    if not groups:
         return []
-    start = (int(now.timestamp()) // 1200 * VL_PER_RUN) % len(hs)
-    return (hs + hs)[start:start + min(VL_PER_RUN, len(hs))]
+    per, run, out = max(1, VL_PER_RUN // len(groups)), int(now.timestamp()) // 1200, []
+    for g in groups:
+        start = (run * per) % len(g)
+        out += (g + g)[start:start + min(per, len(g))]
+    return out
 
 
 def collect(known, now):
