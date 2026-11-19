@@ -409,7 +409,7 @@ __REFERRER__<meta property="og:type" content="article" /><meta property="og:site
 __FIGURE__<p class="giris">__LEAD__</p>
 __BODY__
 <p>Mənbə: <a href="__LINK__" rel="noopener">__CREDIT__</a></p>
-<p class="qeyd">Bu xəbəri 8ULDUZ mənbənin məlumatı əsasında hazırlayıb.</p>
+<p class="qeyd">Bu xəbəri 8ulduz.az mənbənin məlumatı əsasında hazırlayıb.</p>
 </article>
 <p class="cta">8ULDUZ-un xəbərləri Telegram kanalımızda: <a href="__TG__">t.me/sekkizulduz_az</a></p>
 <p><a href="__SECURL__">__SECTION__ bölməsi</a> · <a href="__SITE__">8ULDUZ — bütün xəbərlər</a> · <a href="__TG__">Telegram kanalı</a></p>

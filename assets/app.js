@@ -423,7 +423,7 @@ function collapseExact(list) {
   return out.sort(newest);
 }
 const detailUrl = a => `#/xeber/${encodeURIComponent(a.id)}${hourOf(a) && "?h=" + hourOf(a)}`;
-const sourceName = name => `${esc(name)}<small class="source-count" data-source-count="${esc(name)}"></small>`;
+const sourceName = name => `${name === "8ULDUZ" ? "8ulduz.az" : esc(name)}<small class="source-count" data-source-count="${esc(name)}"></small>`; // öz xəbərlərimizdə mənbə «8ulduz.az» yazılır (sahib, 2026-11-19); məlumatda ad «8ULDUZ» qalır
 // Həqiqi keçid yalnız səhifəsi olan xəbərə (updater.story_worthy: Azərbaycan dilində, 3+ mənbə və ya Zuğulba) — qalanı əvvəlki kimi
 // tətbiqin içində: səhifəsiz ünvan Google-a 404 verərdi (sahib, 2026-11-11). Səhifə 10 dəqiqəlik dövrədə yaranır, ona görə xəbər ən azı
 // 20 dəqiqədir layiq olmalıdır: həm kartın əsas xəbəri (nömrə onundur; yeni mənbə əsas olanda nömrə dəyişir), həm 3-cü mənbə
@@ -518,7 +518,7 @@ const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.cust
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">${S.dinOn === a.id ? "■ Bitir" : "Dinlə"}</button><button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
-function cardAt(a, hx, cls = "") { const pic = img(a, "", false, true, 360); return `<article class="card${cls}${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
+function cardAt(a, hx, cls = "") { const xv = XV.test(a.xv?.u), pic = xv ? img(a, "", false, false, 360).replace('<div class="img ', `<div data-xv="${esc(a.xv.u)}" role="button" tabindex="0" aria-label="Videonu oynat" class="img `) : img(a, "", false, true, 360); return `<article class="card${cls}${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
 // Şəkli sınan slayd çıxarılır.
 function dropHeroSlide(slide) {
@@ -2764,8 +2764,8 @@ function onClick(e) {
   }
   if (t.dataset.feed) { S.latestOrder = t.dataset.feed; S.latestCount = 8; renderView(); return; }
   if (t.dataset.xv) {
-    const box = t.querySelector(".thumb");
-    if (box && !box.querySelector("iframe") && XV.test(t.dataset.xv)) box.innerHTML = `<iframe srcdoc="${esc(`<meta name="referrer" content="no-referrer"><style>html,body{margin:0;height:100%;background:#000}video{width:100%;height:100%}</style><video src="${esc(t.dataset.xv)}" controls autoplay playsinline></video>`)}" allow="autoplay; fullscreen" allowfullscreen title="Video"></iframe>`;
+    const box = t.querySelector(".thumb") || t;   // məqalədə .thumb, kartda şəklin özü: basan kimi yerindəcə oynayır
+    if (!box.querySelector("iframe") && XV.test(t.dataset.xv)) t.classList.add("on"), box.innerHTML = `<iframe srcdoc="${esc(`<meta name="referrer" content="no-referrer"><style>html,body{margin:0;height:100%;background:#000}video{width:100%;height:100%}</style><video src="${esc(t.dataset.xv)}" controls autoplay playsinline></video>`)}" allow="autoplay; fullscreen" allowfullscreen title="Video"></iframe>`;
     return;
   }
   if (t.dataset.yt) {

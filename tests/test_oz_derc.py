@@ -517,7 +517,7 @@ class RowPageTest(Base):
         self.assertIn('<time datetime="2026-11-12T06:00:00+00:00">12 noyabr 2026, 10:00</time>', p)
         self.assertIn(f'<a href="{updater.SITE}">8ULDUZ</a> › <a href="{updater.SITE}bolme/idman/">İdman</a>', p)
         self.assertIn("https://t.me/sekkizulduz_az", p)
-        self.assertIn("Bu xəbəri 8ULDUZ mənbənin məlumatı əsasında hazırlayıb.", p)
+        self.assertIn("Bu xəbəri 8ulduz.az mənbənin məlumatı əsasında hazırlayıb.", p)
         ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', p, re.S).group(1))
         self.assertEqual((ld["@type"], ld["headline"], ld["datePublished"]), ("NewsArticle", r["title"], r["publishedAt"]))
         self.assertEqual(ld["image"], ["https://example.org/s.jpg"])
