@@ -2647,7 +2647,7 @@ test('a home section never vanishes: shown stories stay in it, an empty category
   assert.ok(!homeView().includes('lazy-sec'), 'ilk ekran dəyişmir');
 });
 test('phone fixes are in place: slider does not stop for good, panels close on outside click, four currencies fit, popups are not clipped', () => {
-  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  const src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8') + fs.readFileSync(path.join(root, 'assets/tixac-sehife.js'), 'utf8'); // Tıxac səhifəsi tənbəl modulda (2026-11-19)
   assert.ok(!src.includes('_userStop') && src.includes('hoverUI && node.matches(":hover")') && src.includes('hero._holdUntil = Date.now() + 12000'), 'toxunuş slayderi 12 saniyə saxlayır, həmişəlik yox');
   assert.ok(src.includes('row.children[at + 2], row.children[0]') && src.includes('row._near?.(to)'), 'növbəti slaydların şəkli əvvəlcədən yüklənir');
   assert.ok(src.includes('details.service-panel[open], details.social-details[open]') && src.includes('S.svcOpen = false; if (!kept)'), 'açılan bölmələr kənara basanda və səhifə dəyişəndə bağlanır');
@@ -3083,13 +3083,15 @@ test('owner 2026-11-07: «N yeni xəbər» counts only the news of the page you 
   ctx.location.hash = '#/xeber/1'; sync();
   assert.equal(pill.hidden, true, 'xəbəri oxuyanda düymə yoxdur');
 });
-test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once — on a phone too, with Yandex only as a fallback', () => {
+test('owner 2026-11-14: «Tıxac» stays our page and shows the Waze map at once — on a phone too, with Yandex only as a fallback', async () => {
+  const { view: tixView } = await import(require('url').pathToFileURL(path.join(root, 'assets/tixac-sehife.js')).href); // tənbəl modul (2026-11-19)
   for (const touch of [true, false]) {
     const tab = { href: '#/tixac', classList: { toggle() {} }, setAttribute() {}, closest: () => ({}) };
     const ctx = app({ matchMedia: q => ({ matches: touch && q === '(hover:none)' }), document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector() { return null; }, querySelectorAll: s => (s === '.tix-btn' ? [tab] : []), createElement() { return {}; } } });
     vm.runInContext('syncTixDot', ctx)();
     assert.equal(tab.href, '#/tixac', 'alt düymə saytın tıxac səhifəsidir (oxucu saytdan çıxmır)');
-    const view = vm.runInContext('trafficView', ctx), S = ctx.api.S;
+    const view = () => tixView(vm.runInContext('tixHelpers', ctx)()), S = ctx.api.S;
+    assert.ok(vm.runInContext('trafficView', ctx)().length > 0, 'modul yüklənənə qədər skelet');
     let html = view();
     assert.ok(html.includes('src="https://embed.waze.com/iframe?zoom=12&amp;lat=40.4093&amp;lon=49.8671"') || html.includes('src="https://embed.waze.com/iframe?zoom=12&lat=40.4093&lon=49.8671"'), 'Waze xəritəsi düyməsiz, dərhal');
     assert.ok(!html.includes('data-act="tix-open"') && !html.includes('yandex.com'), 'əvvəlki «Xəritəni aç» addımı və Yandex yoxdur');
@@ -3541,7 +3543,7 @@ test('phone list and Zuğulba pictures are as tall as three lines of text', () =
   assert.ok(!css.includes('aspect-ratio:3/2;border-radius:8px'), 'sabit 3:2 qutu qalmayıb');
 });
 test('owner 2026-11-14: page titles fit one line on a phone without the description; prayer and weather popups close on any outside touch', () => {
-  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8'), src = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8') + fs.readFileSync(path.join(root, 'assets/tixac-sehife.js'), 'utf8');
   assert.ok(css.includes('.page-h .sec-desc{display:none}') && css.includes('.page-h>div>h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,5.6vw,1.5714rem);line-height:1.2}'), 'telefonda başlıq bir sətir, izah gizli (375 px-də «Sağlamlıq və həyat», «Tıxac və yollar» sığır)');
   assert.ok(src.includes('<p class="sec-desc">${esc(desc)}</p>') && src.includes('<h1>Tıxac-İndi</h1><p class="sec-desc">'), 'izah bölmə və Tıxac səhifəsindədir (xəbər başlığına toxunulmur)');
   assert.ok(src.includes('if (S.prayOpen && !e.target.closest(".pray-wrap")) { S.prayOpen = false; dirty = true; }\n  if (S.wxOpen && !e.target.closest(".wx")) { S.wxOpen = false; dirty = true; }\n  if (dirty) renderTopbar();\n}, { passive: true, capture: true });'), 'pointerdown ilə: iPhone boş yerə toxunuşda click göndərmir');
