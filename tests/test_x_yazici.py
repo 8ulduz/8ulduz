@@ -117,8 +117,8 @@ class ReelsPickTest(unittest.TestCase):
         with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), \
              mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942", "999", "2123096874748186942"]'):
             self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
-        self.assertGreaterEqual(xy.REELS_PER_RUN * 15, 100, "15 iş × 8 ≈ gündə 120: lentdə daim ~100 (sahib)")
-        self.assertEqual(xy.xm.REELS_MAX, 100)
+        self.assertGreaterEqual(xy.REELS_PER_RUN * 15, 150, "15 iş × 10: gündə 100 yeni video üçün ehtiyatla (sahib)")
+        self.assertGreaterEqual(xy.xm.REELS_MAX, 200, "gündə ~100 gəlir: lent ən azı 2 günü tutur")
         self.assertIn("YAZISIZ", xy.REELS_PROMPT)
 
 
