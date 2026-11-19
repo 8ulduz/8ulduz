@@ -108,7 +108,8 @@ _clock = time.monotonic
 # Mövzu hədləri, Bakı günü üçün: (iş günü, həftə sonu).
 MOVZU_HEDD = {"idman": (10, 10), "iqtisadiyyat": (8, 5), "təbiət": (5, 5), "kosmos": (2, 2), "təqvim": (3, 3),
               "mədəniyyət": (3, 3), "icmal": (3, 5), "yol": (5, 5),
-              "video": (8, 8)}   # oz_x: X-dən videolu xəbərlər
+              "video": (8, 8),   # oz_x: X-dən videolu xəbərlər
+              "transfer": (10, 10)}   # oz_x: X-in transfer xəbərləri (sahib 2026-11-19)
 BASQA_HEDD = (4, 3)
 
 # Modul qaydaları. done: «hamisi» / «novbe»; gelecek (slotu hələ çatmamış dəyərli xəbər): «gozle» toxunulmur,
@@ -161,7 +162,7 @@ BOLME = {"idman": "idman", "iqtisadiyyat": "iqtisadiyyat", "mədəniyyət": "med
          "kosmos": "tehsil", "təqvim": "cemiyyet", "icmal": "gundem"}
 BOLME_NOV = {"dim-gun": "tehsil", "dim-hefte": "tehsil", "seyyar-asan": "bolgeler", "asan-muraciet": "cemiyyet",
              "dunya-elm": "tehsil", "dunya-saglamliq": "heyat", "dunya-tebiet": "dunya", "dunya-texno": "tehsil", "dunya-maraqli": "dunya",   # oz_dunya; dunya-kosmos -> tehsil (mövzudan)
-             "x-idman": "idman", "x-dunya": "dunya", "x-elm": "tehsil", "x-maraqli": "dunya",   # oz_x
+             "x-idman": "idman", "x-dunya": "dunya", "x-elm": "tehsil", "x-maraqli": "dunya", "x-transfer": "idman",   # oz_x
              "polis-icmal": "cemiyyet", "tixac-seher": "cemiyyet", "tixac-axsam": "cemiyyet", "tixac-hefte": "cemiyyet", "tixac-ani": "cemiyyet", "zelzele-region": "dunya", "meteohessas": "heyat", "maqnit-qasirgasi": "heyat",
              "zelzele": "gundem"}   # ölkədəki zəlzələ günün hadisəsidir; amb, neft -> iqtisadiyyat, futbol -> idman, tarix -> cemiyyet (mövzudan)
 BOLME_AD = {"gundem": "Gündəm", "cemiyyet": "Cəmiyyət", "iqtisadiyyat": "İqtisadiyyat", "idman": "İdman",

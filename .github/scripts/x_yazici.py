@@ -112,8 +112,40 @@ def candidate(handle, post, known, now):
             "w": w, "h": h, "src": [text[:xm.SRC_LEN[1]]], "at": datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat(timespec="seconds"), "_score": int(post.get("likes") or 0) + int(post.get("reposts") or 0) * 3}
 
 
+# Transfer xəbərləri (sahib 2026-11-19: «x da olan transfer xəbərləri fabrisio və matteo dan və digər x transfer xəbərləri bizim
+# transfer xəbərlərinə düşsün»): oz_x.TRANSFER_HESABLAR-ın mətn/şəkil paylaşımları, video tələb olunmur. collect() onları TRANSFERS-ə yığır.
+TRANSFER_RX = re.compile(r"here we go|transfer|agreement|\bdeal\b|medical|\bbid\b|\bloan\b|\bsign(?:s|ed|ing)?\b|contract|release clause|"
+                         r"anlaşma|imza|teklif|kiral|bonservis|fichaje|acuerdo|cesi[oó]n|oferta", re.I)
+TRANSFER_PER_RUN = 3
+TRANSFERS = []
+
+
+def transfer_candidate(handle, post, known, now):
+    """Transfer hesabının paylaşımından namizəd (mətnsiz) və ya None. Şəkil varsa (pbs.twimg.com) poster olur."""
+    if handle not in xm.TRANSFER_HESABLAR:
+        return None
+    pid = str(post.get("id") or "")
+    if not re.fullmatch(r"[1-9]\d{5,24}", pid) or pid in known or post.get("reposted_by") or post.get("replying_to"):
+        return None
+    ts = post.get("created_timestamp")
+    if not isinstance(ts, (int, float)) or now - datetime.datetime.fromtimestamp(ts, datetime.timezone.utc) > WINDOW:
+        return None
+    if str((post.get("author") or {}).get("screen_name") or "").lower() != handle.lower():
+        return None
+    text = " ".join(str(post.get("text") or "").split())
+    if len(text) < xm.SRC_LEN[0] or not TRANSFER_RX.search(text) or xm.about_azerbaijan(text):
+        return None
+    photo = str((((post.get("media") or {}).get("photos") or [{}])[0] or {}).get("url") or "")
+    out = {"id": pid, "handle": handle, "post": f"https://x.com/{handle}/status/{pid}", "src": [text[:xm.SRC_LEN[1]]],
+           "_score": int(post.get("likes") or 0) + int(post.get("reposts") or 0) * 3}
+    if photo.startswith("https://pbs.twimg.com/"):
+        out["poster"] = photo
+    return out
+
+
 def collect(known, now):
     out, failed = [], []
+    TRANSFERS.clear()
     for handle in xm.HESABLAR:
         doc, err = None, ""
         for attempt in range(2):   # FxTwitter ara-sıra 429/5xx verir: bir dəfə gözləyib təkrar
@@ -131,7 +163,11 @@ def collect(known, now):
             c = candidate(handle, post, known, now)
             if c:
                 out.append(c)
+            t = transfer_candidate(handle, post, known, now)
+            if t:
+                TRANSFERS.append(t)
     out.sort(key=lambda c: -c["_score"])
+    TRANSFERS.sort(key=lambda c: -c["_score"])
     return out, failed   # hamısı: xəbərə ilk MAX_CANDIDATES, qısa videolara qalanı da
 
 
@@ -185,9 +221,9 @@ def _safe_models(key):
         return []
 
 
-def write(cands, n):
+def write(cands, n, template=None):
     items = "\n".join(f"- id {c['id']}, hesab {xm.HESABLAR[c['handle']]} (@{c['handle']}): {c['src'][0]}" for c in cands)
-    prompt = PROMPT.format(n=n, items=items)
+    prompt = (template or PROMPT).format(n=n, items=items)
     if os.environ.get("GEMINI_API_KEY"):
         text = ask_gemini(prompt, os.environ["GEMINI_API_KEY"])
     else:
@@ -203,6 +239,27 @@ def write(cands, n):
     except ValueError:
         return []
     return [r for r in rows if isinstance(r, dict)]
+
+
+TRANSFER_PROMPT = """Sən 8ulduz.az xəbər saytının idman redaktorusan. Aşağıda futbol transfer jurnalistlərinin X paylaşımları var.
+Onlardan ən vacib ən çox {n} transfer xəbərini seç: tanınmış klublar və oyunçular, türk klubları üstün. Eyni transferi bir dəfə yaz.
+Konkret məlumatı olanları seç (razılaşma, müqavilə, təklif, tibbi müayinə, icarə); boş şayiə, reklam, «daha çox oxu» çağırışı SEÇMƏ.
+Uyğun paylaşım yoxdursa boş siyahı qaytar.
+
+Hər seçilən üçün Azərbaycan ədəbi dilində qısa xəbər yaz:
+- title: 25–110 hərf, içində «transfer» sözü MÜTLƏQ olsun (məsələn «Transfer: Real Madrid Çuameni ilə müqaviləni uzadıb»), sonunda nöqtə, sual, nida yoxdur.
+- lead: 60–420 hərf. Mənbəni adı ilə de: «Fabrizio Romano-nun məlumatına görə…».
+- body: 1–3 abzas, hər biri 40–800 hərf.
+- Təsdiqlənmiş fakt kimi yazma: «bildirilir», «məlumata görə». «Here we go» — «razılaşma əldə olunub».
+- Türkcə söz və şəkilçi işlətmə. Nida işarəsi, keçid, kiril hərfi YOXDUR. «bu gün», «dünən», «sabah» kimi sözlər YOXDUR.
+- Mətndəki hər rəqəm paylaşımın mətnində olmalıdır. Paylaşımda olmayan fakt əlavə etmə.
+- Azərbaycan mövzusu, prezident və dövlət rəhbərlərinin adları YOXDUR.
+
+Yalnız JSON siyahısı qaytar, başqa heç nə:
+[{{"id": "<paylaşımın id-si>", "title": "...", "lead": "...", "body": ["..."]}}]
+
+Paylaşımlar:
+{items}"""
 
 
 REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var.
@@ -267,6 +324,19 @@ def main():
                    "title": " ".join(str(w.get("title") or "").split()), "lead": " ".join(str(w.get("lead") or "").split()),
                    "body": [" ".join(str(p).split()) for p in (w.get("body") or []) if str(p).strip()],
                    **{k: c[k] for k in ("handle", "post", "video", "poster", "w", "h", "src")}}
+            why = xm.check(row)
+            (rejected if why else added).append((row, why))
+    if TRANSFERS and baku.hour % 2 and xm.SLOT_FROM <= slot <= LAST_SLOT and (os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
+        pool = [t for t in TRANSFERS if t["id"] not in known][:MAX_CANDIDATES]
+        by_t = {t["id"]: t for t in pool}
+        for w in (write(pool, TRANSFER_PER_RUN, TRANSFER_PROMPT) if pool else [])[:TRANSFER_PER_RUN]:
+            t = by_t.get(str(w.get("id")))
+            if not t:
+                continue
+            row = {"id": t["id"], "date": baku.date().isoformat(), "slot": slot, "kind": "x-transfer",
+                   "title": " ".join(str(w.get("title") or "").split()), "lead": " ".join(str(w.get("lead") or "").split()),
+                   "body": [" ".join(str(p).split()) for p in (w.get("body") or []) if str(p).strip()],
+                   "handle": t["handle"], "post": t["post"], "src": t["src"], **({"poster": t["poster"]} if t.get("poster") else {})}
             why = xm.check(row)
             (rejected if why else added).append((row, why))
     new_reels = []

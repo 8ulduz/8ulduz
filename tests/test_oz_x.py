@@ -249,5 +249,40 @@ class ReelsTest(unittest.TestCase):
             self.assertIsNone(xm.reel_check(row), row.get("id"))
 
 
+
+def transfer_row(**kw):
+    base = {"id": "2123096874748186950", "date": "2026-11-19", "slot": "15:10", "kind": "x-transfer",
+            "title": "Transfer: Real Madrid Çuameni ilə müqaviləni 2030-cu ilədək uzadıb",
+            "lead": "Fabrizio Romano-nun məlumatına görə, Real Madrid Orelyen Çuameni ilə yeni uzunmüddətli müqavilə imzalayıb.",
+            "body": ["Bildirilir ki, yeni müqavilə 2030-cu ilin iyununadək qüvvədə olacaq."],
+            "handle": "FabrizioRomano", "post": "https://x.com/FabrizioRomano/status/2123096874748186950",
+            "src": ["Aurelien Tchouameni has signed new long term deal at Real Madrid until June 2030."]}
+    base.update(kw)
+    return base
+
+
+class TransferTest(unittest.TestCase):
+    """Sahib, 2026-11-19: X-in transfer xəbərləri (Romano, Moretto …) Transfer bölməsinə: videosuz, başlıqda «transfer»."""
+
+    def test_text_only_transfer_row_is_valid_and_lands_in_sport(self):
+        self.assertIsNone(xm.check(transfer_row()))
+        self.assertIsNone(xm.check(transfer_row(poster=POSTER)), "şəkil varsa pbs.twimg.com")
+        it = xm.item(transfer_row(), at(19).date())
+        self.assertEqual((it["video"], it["image"], it["topic"]), ("", "", "transfer"))
+        self.assertIn("x-transfer", d.BOLME_NOV)
+        self.assertEqual(d.BOLME_NOV["x-transfer"], "idman")
+        self.assertIn("transfer", d.MOVZU_HEDD)
+
+    def test_gates(self):
+        bad = {"başlıqda transfer yoxdur": transfer_row(title="Real Madrid Çuameni ilə müqaviləni 2030-cu ilədək uzadıb"),
+               "yad şəkil": transfer_row(poster="https://evil.example/a.jpg"),
+               "Azərbaycan mövzusu": transfer_row(src=["Qarabağ signs a new striker until June 2030."]),
+               "mənbədə olmayan rəqəm": transfer_row(body=["Bildirilir ki, müqavilə 2031-ci ilədək qüvvədə olacaq."]),
+               "video hesabı videosuz": transfer_row(kind="x-idman")}
+        for name, r in bad.items():
+            self.assertIsNotNone(xm.check(r), name)
+        self.assertEqual(xm.credit("FabrizioRomano"), "Fabrizio Romano (X, @FabrizioRomano)")
+
+
 if __name__ == "__main__":
     unittest.main()

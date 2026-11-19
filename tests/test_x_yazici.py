@@ -132,6 +132,21 @@ class VideolentSourcesTest(unittest.TestCase):
         self.assertIn("Rainmaker1973", xy.REELS_SAFE, "Gemini cavab verməyəndə vizual hesablar")
 
 
+class TransferCandidateTest(unittest.TestCase):
+    def test_transfer_posts_without_video(self):
+        p = post(id="2123096874748186951", author={"screen_name": "FabrizioRomano"}, media={"photos": [{"url": "https://pbs.twimg.com/media/x.jpg"}]},
+                 text="Here we go! Tchouameni signs new deal at Real Madrid until June 2030.")
+        c = xy.transfer_candidate("FabrizioRomano", p, set(), NOW)
+        self.assertEqual((c["poster"], c["handle"]), ("https://pbs.twimg.com/media/x.jpg", "FabrizioRomano"))
+        self.assertNotIn("video", c, "video tələb olunmur")
+        for bad in (post(id="2123096874748186952", author={"screen_name": "FabrizioRomano"}, text="Great atmosphere at the stadium tonight with fans."),
+                    post(id="2123096874748186953", author={"screen_name": "FabrizioRomano"}, text="Qarabağ signs a new striker, here we go."),
+                    post(id="2123096874748186954", author={"screen_name": "FabrizioRomano"}, text="Here we go deal done.", reposted_by={"screen_name": "x"})):
+            self.assertIsNone(xy.transfer_candidate("FabrizioRomano", bad, set(), NOW), bad["text"])
+        self.assertIsNone(xy.transfer_candidate("GalatasaraySK", post(text="Transfer deal agreed with new striker."), set(), NOW), "yalnız transfer hesabları")
+        self.assertIn("transfer", xy.TRANSFER_PROMPT.format(n=3, items="- x"))
+
+
 class WorkflowTest(unittest.TestCase):
     def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
