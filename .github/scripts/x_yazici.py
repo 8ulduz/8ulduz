@@ -143,7 +143,7 @@ def transfer_candidate(handle, post, known, now):
     return out
 
 
-VL_PER_RUN = 70   # Videolent hesablarından hər işdə bu qədəri (növbə ilə): ~1000 hesab ~15 işdə (~5 saat) dövr edir, iş 20 dəqiqəyə sığır
+VL_PER_RUN = 70   # Videolent hesablarından hər işdə bu qədəri (hər mövzudan ~8, növbə ilə): kiçik mövzular ~4 saatda, idman ~12 saatda dövr edir; video 24 saatadək götürülür
 REEL_WINDOW = datetime.timedelta(hours=24)   # Videolent hesabı bir neçə saatdan bir yoxlanır: videosu 24 saatadək götürülür
 
 
