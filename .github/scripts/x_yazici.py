@@ -39,9 +39,11 @@ LAST_SLOT = "22:00"   # daha gec yazılan xəbər gün bitənədək dərc olunma
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or ""   # boşdursa: açarın siyahısındakı ən yeni «flash» (2.5 artıq 404 verir)
 
-PROMPT = """Sən 8ulduz.az xəbər saytının redaktorusan. Aşağıda türk dilli rəsmi X hesablarının videolu paylaşımları var.
-Onlardan oxucunun ən çox izləmək istəyəcəyi ən çox {n} paylaşımı seç (idman, dünya, elm). Reklam, sponsor, bilet, mağaza,
-mərc, qəza və zorakılıq görüntüsü olanları SEÇMƏ. Uyğun paylaşım yoxdursa boş siyahı qaytar.
+PROMPT = """Sən 8ulduz.az xəbər saytının redaktorusan. Aşağıda türk və ingilis dilli X hesablarının videolu paylaşımları var.
+Onlardan oxucunun ən çox izləmək istəyəcəyi ən çox {n} paylaşımı seç (idman, dünya, elm, maraqlı). Reklam, sponsor, bilet, mağaza,
+mərc, qəza və zorakılıq görüntüsü olanları SEÇMƏ. Qan, meyit, yaralı, edam, işgəncə, hücum anı və ya zərbə nəticəsində insan
+görünə biləcək müharibə və terror videolarını SEÇMƏ; müharibə mövzusunda yalnız texnika, sərgi, sınaq, görüş və bəyanat videoları
+olar. Şərh, söz atışması, təhqir və siyasi təbliğat olan paylaşımları SEÇMƏ. Uyğun paylaşım yoxdursa boş siyahı qaytar.
 
 Hər seçilən üçün Azərbaycan ədəbi dilində qısa xəbər yaz:
 - Türkcə söz və şəkilçi işlətmə («yapıldı» yox, «edildi»; «maç» yox, «oyun»; «antrenman» yox, «məşq»).
@@ -50,6 +52,9 @@ Hər seçilən üçün Azərbaycan ədəbi dilində qısa xəbər yaz:
 - body: 1–3 abzas, hər biri 40–800 hərf.
 - Nida işarəsi, keçid, kiril hərfi YOXDUR. «bu gün», «dünən», «sabah», «bu axşam», «bu gecə» kimi sözlər YOXDUR.
 - Mətndəki hər rəqəm paylaşımın mətnində olmalıdır. Paylaşımda olmayan fakt əlavə etmə, videonu təxmin edib təsvir etmə.
+- Rəsmi qurum olmayan hesabın (Clash Report, Conflict, Pars Plus, Derin Kuvvetler, Voice of Levant, Gusholder Haber, GDH,
+  Özet Geç, Avionot) xəbərini fakt kimi yox, onun məlumatı kimi yaz: «Clash Report-un yaydığı məlumata görə…», «…bildirilir».
+  Tərəf tutma, qiymət vermə.
 - Prezident və dövlət rəhbərlərinin adlarını yazma.
 - kind: x-idman, x-dunya, x-elm və ya x-maraqli.
 
