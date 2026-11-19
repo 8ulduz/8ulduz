@@ -158,6 +158,8 @@ Sahibin göstərişi: «strukturu elə qur ki, nə əlavə etsək, dəyişsək b
 
 Bütün sürət büdcələri bir faylda — `tests/budce.json`; testlər (`struktur`, `browser-logic`, `budce`, `cpu-guard`) və ölçü aləti (`.github/scripts/speed.cjs`, «speed» qrupu) oradan oxuyur. Rəqəm yalnız sahibin qərarı ilə dəyişir: eyni PR-da kodla birlikdə, bu cədvəldə tarix və səbəb, əvvəl/sonra ölçü ilə. Cədvəl fayldan fərqlənsə `tests/budce.test.cjs` qırmızı olur. Məlumat tavanları 2026-11-05…09 müşahidəsinin ən böyüyü + 20–25%-dir (2026-11-09: first.json 64 186, latest.json 70 378, og.json 55 327, news.json 214 303, paylaş ən böyüyü 57 633 bayt gzip). Sətir sahələri də pinlənir (`setir.saheler`, `paylas.saheler`): yeni sahə hər sətirə baytdır, yalnız sahibin qərarı ilə.
 
+2026-11-19, sahib («Bəli, əlavə et»): `setir.saheler`-ə `xv` əlavə edildi. Bu, X-dən videolu öz xəbərin oynadıcısıdır (`{u, w, h}`: video.twimg.com mp4 ünvanı və ölçü; oz_derc.video). Video lentdə və kartda yerindəcə oynasın deyə lazımdır. Sahə yalnız videolu öz sətirlərdə olur, hər biri ~135 bayt xam. Ölçmə (2026-11-19, 2 belə sətir): news.json gzip 234 308 → 234 441 bayt (+133), hədd 260 000.
+
 | Açar | Hədd | Nə ölçülür | Tarix |
 |---|---|---|---|
 | `app.min.js` | 170 000 | oxucuya gedən kiçildilmiş kod, bayt (LF) | 2026-11-08 |

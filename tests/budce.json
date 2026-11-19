@@ -25,7 +25,7 @@
     "markets.json.gz": 2000
   },
   "setir": {
-    "saheler": ["id", "title", "summary", "category", "source", "sourceUrl", "publishedAt", "imageUrl", "lang", "author", "video", "alts"],
+    "saheler": ["id", "title", "summary", "category", "source", "sourceUrl", "publishedAt", "imageUrl", "lang", "author", "video", "alts", "xv"],
     "xulase.max": 600,
     "paylas.saheler": ["id", "of", "title", "source", "sourceUrl", "publishedAt", "category", "lang", "imageUrl", "alts", "at"]
   },
