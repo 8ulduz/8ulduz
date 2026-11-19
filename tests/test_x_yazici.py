@@ -86,7 +86,7 @@ class LateEveningTest(unittest.TestCase):
 
     def test_cron_ends_before_the_last_slot(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
-        self.assertIn('cron: "5 3-17/2 * * *"', wf, "son iş Bakı 21:05")
+        self.assertIn('cron: "5 3-17 * * *"', wf, "saatda bir, son iş Bakı 21:05")
         self.assertLessEqual(xy.LAST_SLOT, "22:00")
 
 
@@ -117,7 +117,8 @@ class ReelsPickTest(unittest.TestCase):
         with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), \
              mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942", "999", "2123096874748186942"]'):
             self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
-        self.assertEqual(xy.REELS_PER_RUN * 7, 42, "7 iş × 6 ≈ gündə 40 (sahib)")
+        self.assertGreaterEqual(xy.REELS_PER_RUN * 15, 100, "15 iş × 8 ≈ gündə 120: lentdə daim ~100 (sahib)")
+        self.assertEqual(xy.xm.REELS_MAX, 100)
         self.assertIn("YAZISIZ", xy.REELS_PROMPT)
 
 

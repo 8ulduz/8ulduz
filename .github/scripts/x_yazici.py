@@ -34,7 +34,7 @@ WINDOW = datetime.timedelta(hours=6)
 MAX_BITRATE = 1_000_000
 MAX_CANDIDATES = 25
 PER_RUN = 3
-REELS_PER_RUN = 6   # qısa videolar: 7 iş × 6 ≈ gündə 40 (sahib, 2026-11-19)
+REELS_PER_RUN = 8   # qısa videolar: saatda bir, 15 iş × 8 ≈ gündə 120 (sahib, 2026-11-19: «sayı daima 100 ətrafında»)
 REELS_ASK = 40     # Gemini-yə seçim üçün göstərilən ən çox namizəd
 # Gemini işləməyəndə qısa videoya yalnız bu hesablar düşür: müharibə və qəza görüntüsü vermirlər
 REELS_SAFE = {"TamirveTadilat", "TUBITAK", "avionot", "TFF_Org", "MilliTakimlar", "GalatasaraySK", "Fenerbahce", "Besiktas", "Trabzonspor", "trtspor", "aa_spor", "ntvspor", "beINSPORTS_TR"}
@@ -257,7 +257,7 @@ def main():
         print("GEMINI_API_KEY (və ANTHROPIC_API_KEY) yoxdur: xəbər yazılmır (yalnız X-in oxunuşu yoxlandı).")
     elif not xm.SLOT_FROM <= slot <= LAST_SLOT:
         print(f"Bakı vaxtı {slot}: {xm.SLOT_FROM}–{LAST_SLOT} xaricində xəbər yazılmır (gec yazılan gün bitənədək dərc olunmur).")
-    elif cands:
+    elif cands and baku.hour % 2:   # xəbər iki saatdan bir (07, 09 … 21): dərc hissəsi gündə 8 video xəbər buraxır, artığı «gecikdi» olur
         by_id = {c["id"]: c for c in cands}
         for w in write(cands, PER_RUN)[:PER_RUN]:
             c = by_id.get(str(w.get("id")))
