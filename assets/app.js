@@ -1684,7 +1684,7 @@ function renderMarkets() {
   grid.onscroll ??= () => { S.mkMoved = true; };
   if (S.mkHtml !== html) { S.mkHtml = html; const x = S.mkMoved ? grid.scrollLeft : 0; grid.innerHTML = html; if (x) grid.scrollLeft = x; }
   const note = $("#mk-note");
-  if (note) { const un = m.some(i => i.unit === "AZN" && i.src && i.src !== "AMB"); note.hidden = !un; note.textContent = un ? "Valyuta: AMB rəsmi məzənnəsi hazırda alınmır, bazar məzənnəsi göstərilir." : ""; }
+  if (note) { note.hidden = true; note.textContent = ""; } // sahib 2026-11-19: «yazı çıxmasın» — AMB alınmayanda bazar məzənnəsi səssiz göstərilir (mənbə kartın title-ındadır)
   const slot = $("#fx-slot"); if (slot && !(S.fxOpen && slot.contains?.(document.activeElement))) slot.innerHTML = fxPop();
   const from = $("#fx-from"), to = $("#fx-to"), amt = $("#fx-amt");
   if (from && to && amt) {

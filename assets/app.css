@@ -1125,7 +1125,7 @@ nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}
 nav.main{grid-row:3;position:static;padding-right:0}
 nav.main .nav-more{left:var(--gutter);right:auto;top:0;bottom:auto;height:50px}nav.main .nav-more>summary{padding:0}nav.main .nav-more>summary::before{height:3px;box-shadow:0 -8px,0 8px;color:var(--fg)}
 nav.main .nav-tg{display:flex;flex:1 0 100%;padding:4px 2px 8px}
-nav.main .nav-tg>span{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:40px;box-sizing:border-box;background:#1c1c23;border:2px solid #e8372f;border-radius:99px;color:#fff;font-size:18px;font-weight:800;box-shadow:0 0 6px #ff2d28bf,0 0 14px #ff2d2859,inset 0 0 9px #ff2d2873;text-shadow:0 0 2px #ff3b30,0 0 7px #ff281e,0 0 12px #ff281e99}
+nav.main .nav-tg>span{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:40px;box-sizing:border-box;background:#1c1c2359;border:2px solid #e8372f;border-radius:99px;color:#fff;font-size:18px;font-weight:800;box-shadow:0 0 6px #ff2d28bf,0 0 14px #ff2d2859,inset 0 0 9px #ff2d2873;text-shadow:0 0 2px #ff3b30,0 0 7px #ff281e,0 0 12px #ff281e99}
 nav.main .nav-tg>span::before{content:"";border:8px solid #0000;border-width:8px 0 8px 13px;border-left-color:#fff;filter:drop-shadow(0 0 3px #ff3b30)}
 }
 @media(max-width:600px){/* Rəsmi hesablar (sahibin qeydi 2026-11-04): işarələr */
