@@ -170,7 +170,7 @@ class TablesTest(unittest.TestCase):
         self.assertIn("oz_x", d.modules())
         self.assertEqual(d.QAYDA["oz_x"], {"done": "hamisi", "gelecek": "vaxtinda", "sorgu": 0})
         self.assertEqual(d.MOVZU_HEDD["video"], (8, 8))
-        want = {"x-idman": "idman", "x-dunya": "dunya", "x-elm": "tehsil", "x-maraqli": "dunya"}
+        want = {"x-idman": "idman", "x-dunya": "dunya", "x-elm": "tehsil", "x-maraqli": "dunya", "x-transfer": "idman"}   # x-transfer: sahib 2026-11-19
         self.assertEqual({k: d.category({"kind": k, "topic": t}) for k, t in xm.NOVLER.items()}, want)
         sh = (ROOT / ".github" / "scripts" / "pipeline.sh").read_text(encoding="utf-8")
         line = [l for l in sh.splitlines() if "oz_x.py" in l]
