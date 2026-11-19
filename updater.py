@@ -2823,13 +2823,86 @@ def merge_own_rows(articles, own):
     return out + rest[::-1]
 
 
+# --- Vaxtın mənşəyi (mənbə xronologiyası sınağı, PR 1; sahib 2026-11-19: «Bəli, başla») ----------------------------------
+# Xəbərin publishedAt-ı make_article-də yazılır və mənşəyi itir: oxunmayan və gələcəyə düşən vaxt (to_iso) səssizcə «indi»
+# olur, zonasız vaxt Bakı vaxtı sayılır. Xronologiya yalnız etibarlı vaxtları sıralamalıdır, ona görə yavaş dövrə lentlərin
+# keşindəki xam vaxtdan hər ünvanın mənşəyini və ilk görüldüyü anı ayrıca saxlayır. Şəbəkə yoxdur, sayta heç nə yazılmır
+# (.cache/vaxt.json), sürətli dövrəyə toxunulmur. Mənşə: lent | lent-zonasız | url-möhürü | gələcək | oxunmadı | tarixsiz.
+VAXT_FILE = CACHE_DIR / "vaxt.json"
+VAXT_KEEP_S = 3 * 86400
+VAXT_TOL_S = 600
+VAXT_OK = ("lent", "lent-zonasız", "url-möhürü")
+
+
+def _pub_zoneless(pub):
+    """Lentin tarix sətrində saat qurşağı yoxdur (_pub_dt onu Bakı vaxtı sayır)."""
+    pub = re.sub(r"\s+", " ", str(pub or "").strip())
+    try:
+        dt = email.utils.parsedate_to_datetime(pub)
+    except Exception:
+        try:
+            dt = datetime.datetime.fromisoformat(pub.replace("Z", "+00:00"))
+        except Exception:
+            return False
+    return dt is not None and dt.tzinfo is None
+
+
+def time_origin(it, now):
+    """Lent elementinin vaxtı (ISO UTC və ya "") və mənşəyi. make_article-in seçdiyi vaxtla eyni sıra: əvvəl URL möhürü."""
+    fixed = fixed_source_date(it.get("link") or "")
+    if fixed:
+        return fixed, "url-möhürü"
+    pub = it.get("pubDate") or ""
+    if not pub:
+        return "", "tarixsiz"
+    dt = _pub_dt(pub)
+    if dt is None:
+        return "", "oxunmadı"
+    if dt > now + datetime.timedelta(minutes=5):
+        return _norm_iso(dt), "gələcək"   # to_iso bunu «indi» edir: əslində saat qurşağı səhvidir
+    return _norm_iso(dt), "lent-zonasız" if _pub_zoneless(pub) else "lent"
+
+
+def time_ok(row):
+    """Xronologiyada sıralana bilər: mənşə etibarlıdır və lentin vaxtı ilk görülmədən sonra deyil (ağlabatanlıq)."""
+    t, f = _parse_dt(row.get("t") or ""), _parse_dt(row.get("f") or "")
+    return bool(row.get("o") in VAXT_OK and t and f and t <= f + datetime.timedelta(seconds=VAXT_TOL_S))
+
+
+def record_time_origins(now=None):
+    """Yavaş addım: lentlərin keşindəki hər ünvan üçün {t: lentin vaxtı, o: mənşə, f: ilk görülmə, ok} (.cache/vaxt.json).
+    İlk görülmə yavaş dövrənin anıdır (ən çox SLOW_EVERY gecikmə ilə): mənbənin vaxtı ondan sonra ola bilməz."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    seen = _read_json(VAXT_FILE, {})
+    seen = seen if isinstance(seen, dict) else {}
+    stamp = _norm_iso(now)
+    for entry in _feed_cache().values():
+        for it in (entry or {}).get("items") or []:
+            if not isinstance(it, dict) or not it.get("link"):
+                continue
+            link = fix_source_link(it["link"])
+            if link in seen:
+                continue
+            iso, origin = time_origin(it, now)
+            seen[link] = {"t": iso, "o": origin, "f": stamp}
+    floor = now - datetime.timedelta(seconds=VAXT_KEEP_S)
+    keep = {}
+    for link, row in seen.items():
+        f = _parse_dt(row.get("f") or "") if isinstance(row, dict) else None
+        if f and f >= floor:
+            row["ok"] = time_ok(row)
+            keep[link] = row
+    _save_cache(VAXT_FILE, keep)
+    return keep
+
+
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = read_feed()
     # SOCIAL_LOOP: rəsmi hesabların yazıları pipeline.sh-in social_loop-unda hər dəqiqə yığılır (--social), burada yox.
     social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
     # update_own_news: yalnız OZ_DERC=1 ilə işləyir (yuxarıda); məzənnədən sonra, çünki təzə data/markets.json-u oxuyur.
-    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, *social, update_video, update_football, update_sports,
+    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, record_time_origins, *social, update_video, update_football, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, update_city_data, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
