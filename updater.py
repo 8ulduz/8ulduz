@@ -2402,7 +2402,7 @@ def story_row_from_page(sid, entry, page):
          "alts": [{"title": t, "source": s, "sourceUrl": u} for u, t, s in lis[1:]]}
     return {k: v for k, v in a.items() if v or k == "alts"}, image
 
-def story_page(a, sizes=None, related=(), image=None):
+def story_page(a, sizes=None, related=(), image=None, xron=None):
     """Bir əsas xəbərin axtarış üçün səhifəsi (xeber/<id>/index.html). image: köhnə səhifə yenidən yazılanda onun öz og:image-i."""
     sid, slug = a["id"], a.get("category") or "gundem"
     label = {s: l for s, l, _d in SECTIONS}.get(slug, "Xəbərlər")
@@ -2427,13 +2427,16 @@ def story_page(a, sizes=None, related=(), image=None):
     keep = ("id", "title", "summary", "source", "sourceUrl", "imageUrl", "category", "publishedAt", "lang", "video")
     row = {k: a[k] for k in keep if a.get(k)}
     row["alts"] = [{k: r[k] for k in ("id", "title", "source", "sourceUrl") if r.get(k)} for r in (a.get("alts") or [])][:20]
+    times = xron_times(a, xron) if xron_on(a) else {}   # mənbə xronologiyası sınağı (B qrupu): təsdiqlənmiş vaxtlar səhifədə qalır
+    if times:
+        row["xr"] = dict(list(times.items())[:40])
     row = json.dumps(row, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\u0021--")
     page = (_STORY_HTML.replace("__ROW__", row).replace("__LD__", ld).replace("__SOURCES__", "".join(lis))
             .replace("__SUMMARY__", _xml(summary))  # tam xülasə qalır (sahib, 2026-11-11: bir cümləlik sitat qəbul edilmədi)
             .replace("__DESC__", _xml(desc or title)).replace("__TITLE__", _xml(title)).replace("__LABEL__", _xml(label))
             .replace("__IMAGE__", _xml(image)).replace("__WHEN__", _xml(_baku_time(iso))).replace("__ISO__", _xml(iso))
             .replace("__COUNT__", str(len(lis))).replace("__URL__", url).replace("__SITE__", SITE)
-            .replace("__ID__", sid).replace("__SLUG__", slug).replace("__RELATED__", _related_block(a, related)))
+            .replace("__ID__", sid).replace("__SLUG__", slug).replace("__RELATED__", (xron_block(a, times) if times else "") + _related_block(a, related)))
     return _with_csp(page)
 
 def read_story_index():
@@ -2455,20 +2458,27 @@ def write_story_pages(articles, now=None):
         print("  ! şəkil ölçüsü:", type(e).__name__, e)
         sizes = {}
     changed, redo = False, STORY_REWRITE
+    xc = _read_json(XRON_FILE, {})   # mənbə xronologiyası sınağı: yoxlama keşi (verify_source_times)
+    xc = xc if isinstance(xc, dict) else {}
     for a in rows:
         dt = _parse_dt(a.get("publishedAt"))
         if not dt or now - dt.timestamp() > STORY_KEEP_S:
             continue
         n = 1 + len(a.get("alts") or [])
         old = index.get(a["id"])
+        xs = xron_checked(a, xc) if xron_on(a) else 0
         if old and old[1] == n and (STORY_DIR / a["id"] / "index.html").exists():
-            if (old[3] if len(old) > 3 else 1) >= STORY_VER or redo <= 0:
-                continue
-            redo -= 1  # köhnə şablon: yenidən yazılır
+            current = (old[3] if len(old) > 3 else 1) >= STORY_VER
+            if current and (old[4] if len(old) > 4 else 0) >= xs:
+                continue   # B səhifəsi yeni təsdiq gələndə də yenidən yazılır (xronologiya tamamlanır)
+            if not current:
+                if redo <= 0:
+                    continue
+                redo -= 1  # köhnə şablon: yenidən yazılır
         d = STORY_DIR / a["id"]
         d.mkdir(parents=True, exist_ok=True)
-        _write_atomic(d / "index.html", story_page(a, sizes, rows), encoding="utf-8")
-        index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem", STORY_VER]
+        _write_atomic(d / "index.html", story_page(a, sizes, rows, xron=xc), encoding="utf-8")
+        index[a["id"]] = [int(dt.timestamp()), n, a.get("category") or "gundem", STORY_VER] + ([xs] if xs else [])
         changed = True
     # Lentdən çıxmış xəbərin səhifəsi (2026-11-12): yuxarıdakı dövrə yalnız lentdəki xəbəri görür, ona görə 32 saatdan köhnə
     # ~5 600 səhifə köhnə şablonda qalmışdı (əlaqəli keçidlər yox, 1–4-cü versiyalarda kiçildilməmiş app.js). Belə səhifə öz
@@ -2980,6 +2990,67 @@ def _fetch_page_times(url):
         return type(e).__name__, {}
 
 
+XRON_START = "2026-11-20T00:00:00+04:00"   # sınağın 0-cı günü (sahib, 2026-11-19): yalnız bu andan sonra dərc olunan B xəbərləri
+
+
+def xron_on(a):
+    """Xəbər sınağın B qrupundadır və sınaq başlayandan sonra dərc olunub: mənbələri yoxlanır, səhifəsində xronologiya olur."""
+    dt, start = _parse_dt(a.get("publishedAt") or ""), _parse_dt(XRON_START)
+    return xron_group(a.get("id")) == "B" and bool(dt and start and dt >= start)
+
+
+def xron_sources(a):
+    """Xəbərin mənbələri [(ünvan, ad)]: story_page-in mənbə siyahısı ilə eyni sıra və süzgəc."""
+    seen, out = set(), []
+    for r in [a, *(a.get("alts") or [])]:
+        url = fix_source_link(r.get("sourceUrl"))
+        if url and url not in seen and str(url).startswith(("https://", "http://")):
+            seen.add(url)
+            out.append((url, str(r.get("source") or "")))
+    return out
+
+
+def xron_times(a, cache=None):
+    """{ünvan: təsdiqlənmiş vaxt}: yoxlama keşindən və səhifənin öz sətrindən («xr»; keş 3 gündən sonra silinir, səhifə qalır)."""
+    keep = dict(a["xr"]) if isinstance(a.get("xr"), dict) else {}
+    for url, _ in xron_sources(a):
+        row = (cache or {}).get(url)
+        if isinstance(row, dict) and row.get("t"):
+            keep[url] = row["t"]
+    return {u: t for u, t in keep.items() if isinstance(t, str) and _parse_dt(t)}
+
+
+def xron_checked(a, cache=None):
+    """Yoxlanmış mənbə sayı (hökm verilmiş və ya səhifədə saxlanmış): artanda səhifə yenidən yazılır."""
+    xr = a.get("xr") if isinstance(a.get("xr"), dict) else {}
+    return sum(1 for url, _ in xron_sources(a) if url in (cache or {}) or url in xr)
+
+
+def xron_block(a, times):
+    """«Xəbərin yayılma xronologiyası» (statik HTML): yalnız təsdiqlənmiş vaxtlar sıralanır, qalanı ayrıca siyahıdadır.
+    2-dən az təsdiqlənmiş vaxt varsa bölmə yoxdur."""
+    srcs = xron_sources(a)
+    ok = sorted(((_parse_dt(times[u]), s, u) for u, s in srcs if u in times), key=lambda x: (x[0], x[1]))
+    if len(ok) < 2:
+        return ""
+    first, last = ok[0][0], ok[-1][0]
+    local = lambda dt: dt.astimezone(BAKU)
+    multi = local(first).date() != local(last).date()
+    span = int((last - first).total_seconds() // 60)
+    span_text = f"{span // 60} saat {span % 60} dəq" if span >= 120 else f"{span} dəq"
+    items = []
+    for i, (dt, name, url) in enumerate(ok):
+        day = f"{local(dt).day} {_AZ_MONTH_NAMES[local(dt).month - 1]}, " if multi else ""
+        note = "— izlənilən mənbələr arasında ilk dərc edən" if i == 0 else "+" + str(int((dt - first).total_seconds() // 60)) + " dəq"
+        items.append(f'<li><time datetime="{_norm_iso(dt)}">{day}{local(dt):%H:%M}</time> <a href="{_xml(url)}" rel="noopener">{_xml(name)}</a> <small>{note}</small></li>')
+    out = (f'<h2>Xəbərin yayılma xronologiyası</h2><p>{len(ok)} mənbənin dərc vaxtı mənbənin öz səhifəsi ilə təsdiqlənib · '
+           f'ilk və son dərc arasında {span_text}. Vaxtlar Bakı vaxtıdır.</p><ol class="xron">{"".join(items)}</ol>')
+    rest = [(u, s) for u, s in srcs if u not in times]
+    if rest:
+        out += "<h3>Dərc vaxtı dəqiqləşdirilməyib</h3><ul>" + "".join(f'<li><a href="{_xml(u)}" rel="noopener">{_xml(s)}</a></li>' for u, s in rest) + "</ul>"
+    return out + "\n      "
+
+
 def verify_source_times(articles=None, now=None, fetch=None):
     """Yavaş addım: B qrupunun mənbələrini öz səhifəsi ilə təsdiq (.cache/xron.json: ünvan -> {v, t, s, at}). Ən təzə xəbər əvvəl."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
@@ -2991,7 +3062,7 @@ def verify_source_times(articles=None, now=None, fetch=None):
     articles = articles if articles is not None else read_feed()
     todo, queued = [], set()
     for a in sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True):
-        if not story_worthy(a) or xron_group(a.get("id")) != "B" or 1 + len(a.get("alts") or []) < STORY_MIN_SOURCES:
+        if not story_worthy(a) or not xron_on(a) or 1 + len(a.get("alts") or []) < STORY_MIN_SOURCES:
             continue
         for r in [a, *(a.get("alts") or [])]:
             url = fix_source_link(r.get("sourceUrl") or "")

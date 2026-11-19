@@ -80,7 +80,7 @@ class VerifyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = pathlib.Path(d)
             with mock.patch.object(updater, "XRON_FILE", root / "xron.json"), mock.patch.object(updater, "VAXT_FILE", root / "vaxt.json"), \
-                 mock.patch.object(updater, "CACHE_DIR", root):
+                 mock.patch.object(updater, "CACHE_DIR", root), mock.patch.object(updater, "XRON_START", "2026-11-01T00:00:00+04:00"):
                 done = updater.verify_source_times(arts, NOW, fetch)
                 self.assertEqual(sorted(calls), sorted(f"https://s{i}.az/0{'a' * 15}" for i in range(3)), "yalnız B qrupu, 3+ mənbə")
                 self.assertEqual(done[f"https://s0.az/0{'a' * 15}"]["v"], "təsdiq")
