@@ -2896,13 +2896,134 @@ def record_time_origins(now=None):
     return keep
 
 
+# --- Səhifə ilə təsdiq (mənbə xronologiyası sınağı, PR 2; sahib 2026-11-19: «Bəli, başla») ------------------------------
+# Yarıbayarı sınaq: id-si cüt hərflə (0 2 4 6 8 a c e) başlayan, 3+ mənbəli xəbərlər B qrupudur. Onların hər mənbəyinin
+# səhifəsi BİR DƏFƏ açılır, dərc və yeniləmə vaxtı ayrıca oxunur və lentin vaxtı ilə tutuşdurulur (pilotun qaydaları:
+# research_notes/xronologiya-pilot). Yavaş dövrədə, dövrədə ən çox XRON_BUDGET sorğu, paralel; sayta yazılmır (.cache/xron.json).
+# Bota bağlı (403) sayt keçilmir: hökmü «açılmadı», yenidən soruşulmur.
+XRON_FILE = CACHE_DIR / "xron.json"
+XRON_BUDGET, XRON_WORKERS, XRON_TIMEOUT = 60, 8, 6
+XRON_KEEP_S = 3 * 86400
+XRON_B = frozenset("02468ace")
+_LD_MOD = re.compile(r'"dateModified"\s*:\s*"([^"]+)"')
+_MOD_META = {"article:modified_time", "og:updated_time"}
+_ZONED = re.compile(r"(?:Z|[+-]\d\d:?\d\d|GMT|UT)\s*$", re.I)
+
+
+def xron_group(sid):
+    """A/B bölgüsü: «B» (xronologiya) və ya «A» (nəzarət). id SHA-1-dən gəlir, bölgü təsadüfidir."""
+    return "B" if str(sid or "")[:1] in XRON_B else "A"
+
+
+def page_times(raw, now=None):
+    """Səhifənin öz vaxtları: {"pub": ISO, "zoned": saat qurşağı yazılıb, "mod": ISO}; tapılmayan "" (və False)."""
+    text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw or "")
+    metas = []
+    for tag in _OG_META.findall(text):
+        km, cm = _OG_KEY.search(tag), _OG_CONTENT.search(tag)
+        if km and cm:
+            metas.append((km.group(1).lower(), cm.group(1)))
+    pubs = [m.group(1) for m in _LD_DATE.finditer(text)] + [v for k, v in metas if k in _DATE_META] + [m.group(1) for m in _TIME_TAG.finditer(text)]
+    mods = [m.group(1) for m in _LD_MOD.finditer(text)] + [v for k, v in metas if k in _MOD_META]
+    out = {"pub": "", "zoned": False, "mod": ""}
+    for c in pubs:
+        iso = _page_dt(c, now)   # 2000-dən əvvəl (1970) və gələcək tarix burada düşür
+        if iso:
+            out["pub"], out["zoned"] = iso, bool(_ZONED.search(html.unescape(c).strip()))
+            break
+    for c in mods:
+        iso = _page_dt(c, now)
+        if iso:
+            out["mod"] = iso
+            break
+    return out
+
+
+def xron_verdict(feed_iso, page, first_seen=""):
+    """Lentin vaxtı + səhifənin vaxtları -> (hökm, sıralanacaq vaxt və ya ""). Yalnız «təsdiq», «qurşaq», «yeniləmə» sıralanır.
+    Pilotun qaydaları: ±10 dəq uyğun; 4 saat fərq və səhifədə qurşaq var — lentdə qurşaq səhvi; lent yeniləmə vaxtını verib;
+    səhifə tarixi lentdən 48 saat əvvəl və ya 10 dəq sonradırsa yararsız. Sıralanan vaxt ilk görülmədən sonra ola bilməz."""
+    feed, pub, mod = _parse_dt(feed_iso or ""), _parse_dt(page.get("pub") or ""), _parse_dt(page.get("mod") or "")
+    tol = datetime.timedelta(seconds=VAXT_TOL_S)
+    if not pub:
+        return "səhifədə vaxt yoxdur", ""
+    if not feed:
+        return "lentdə vaxt yoxdur", ""
+    shift = abs(abs(pub - feed) - datetime.timedelta(hours=4)) <= tol
+    if feed - pub > datetime.timedelta(hours=48) or (pub - feed > tol and not shift):
+        return "yararsız", ""
+    if abs(pub - feed) <= tol:
+        verdict = "təsdiq"
+    elif shift and page.get("zoned"):
+        verdict = "qurşaq"
+    elif mod and abs(mod - feed) <= tol:
+        verdict = "yeniləmə"
+    else:
+        return "uyğunsuz", ""
+    seen = _parse_dt(first_seen or "")
+    if seen and pub > seen + tol:
+        return "ilk görülmədən sonra", ""
+    return verdict, _norm_iso(pub)
+
+
+def _fetch_page_times(url):
+    """(status, page_times) — status: 200, HTTP kodu və ya «xəta». Sorğu 150 KB-dan çox oxumur."""
+    if not content_policy.safe_url(url) or content_policy.is_blocked(url):
+        return "keçilmir", {}
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"})
+        with urllib.request.urlopen(req, timeout=XRON_TIMEOUT) as r:
+            return r.status, page_times(r.read(150000))
+    except urllib.error.HTTPError as e:
+        return e.code, {}
+    except Exception as e:
+        return type(e).__name__, {}
+
+
+def verify_source_times(articles=None, now=None, fetch=None):
+    """Yavaş addım: B qrupunun mənbələrini öz səhifəsi ilə təsdiq (.cache/xron.json: ünvan -> {v, t, s, at}). Ən təzə xəbər əvvəl."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    fetch = fetch or _fetch_page_times
+    done = _read_json(XRON_FILE, {})
+    done = done if isinstance(done, dict) else {}
+    times = _read_json(VAXT_FILE, {})
+    times = times if isinstance(times, dict) else {}
+    articles = articles if articles is not None else read_feed()
+    todo, queued = [], set()
+    for a in sorted(articles, key=lambda a: a.get("publishedAt") or "", reverse=True):
+        if not story_worthy(a) or xron_group(a.get("id")) != "B" or 1 + len(a.get("alts") or []) < STORY_MIN_SOURCES:
+            continue
+        for r in [a, *(a.get("alts") or [])]:
+            url = fix_source_link(r.get("sourceUrl") or "")
+            if url and url not in done and url not in queued:
+                queued.add(url)
+                todo.append((url, r.get("publishedAt") or ""))
+    todo = todo[:XRON_BUDGET]
+    stamp = _norm_iso(now)
+    if todo:
+        with ThreadPoolExecutor(max_workers=XRON_WORKERS) as ex:
+            results = list(ex.map(lambda job: fetch(job[0]), todo))
+        for (url, feed_iso), (status, page) in zip(todo, results):
+            row = times.get(url) or {}
+            if status != 200:
+                verdict, at = "açılmadı", ""
+            else:
+                verdict, at = xron_verdict(row.get("t") or feed_iso, page, row.get("f") or "")
+            done[url] = {"v": verdict, "t": at, "s": status, "at": stamp}
+    floor = now - datetime.timedelta(seconds=XRON_KEEP_S)
+    done = {u: v for u, v in done.items() if isinstance(v, dict) and (_parse_dt(v.get("at") or "") or floor) > floor}
+    _save_cache(XRON_FILE, done)
+    print(f"Mənbə vaxtı: {len(todo)} səhifə yoxlandı, {sum(1 for v in done.values() if v.get('t'))}/{len(done)} təsdiqli", flush=True)
+    return done
+
+
 def slow_cycle():
     """Xəbər axınını gözlətməməli olan hər şey. Hər addım müstəqildir: biri düşsə digərləri işləyir."""
     articles = read_feed()
     # SOCIAL_LOOP: rəsmi hesabların yazıları pipeline.sh-in social_loop-unda hər dəqiqə yığılır (--social), burada yox.
     social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
     # update_own_news: yalnız OZ_DERC=1 ilə işləyir (yuxarıda); məzənnədən sonra, çünki təzə data/markets.json-u oxuyur.
-    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, record_time_origins, *social, update_video, update_football, update_sports,
+    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, record_time_origins, verify_source_times, *social, update_video, update_football, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, update_city_data, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
