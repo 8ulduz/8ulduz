@@ -214,8 +214,8 @@ def rows(path=None):
 # yeniləyici (updater.update_reels) reels() ilə data/reels.json-a yazır, sayt yalnız «Qısa videolar» açılanda oxuyur.
 # Sətir: id, handle, post, video, poster, w, h (xəbər sətri ilə eyni qaydalar), at (paylaşımın vaxtı, ISO UTC),
 # src (orijinal mətn: yalnız Azərbaycan süzgəci üçün, sayta çıxmır).
-REELS_DAYS = 3
-REELS_MAX = 140
+REELS_DAYS = 7    # sahib, 2026-11-19: «günə 100 yeni video et» — lentdə ən təzə 200 video (~2 gün), ən çox 7 günlük
+REELS_MAX = 200
 
 
 def _at(value):

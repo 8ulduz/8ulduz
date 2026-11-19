@@ -13,6 +13,11 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const plain = s => { const t = document.createElement("textarea"); t.innerHTML = String(s ?? ""); return t.value; };
 const px = (u, w) => /^https:\/\/pbs\.twimg\.com\//.test(u || "") ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&we&output=webp&q=70` : "";
 const SOUND_KEY = "8u-reels-sound";
+// İzlənmiş videolar (sahib 2026-11-19: «videolar davamlı təzələnməlidir»): lent hər açılışda əvvəl görülməyənləri göstərir,
+// izlənmişlər sona keçir. Telefonda saxlanır (ən çox 400 ünvan), heç yerə göndərilmir.
+const SEEN_KEY = "8u-reels-seen", SEEN_MAX = 400;
+const seenSet = () => { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]")); } catch { return new Set(); } };
+const markSeen = u => { try { const a = [...seenSet()].filter(x => x !== u); a.push(u); localStorage.setItem(SEEN_KEY, JSON.stringify(a.slice(-SEEN_MAX))); } catch {} };
 
 const CSS = `html,body{margin:0;height:100%;background:#000;color:#fff;font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 .feed{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none}
@@ -36,8 +41,9 @@ function list(S, reels) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
     u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl }));
   const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, t: r.t, link: `https://x.com/${r.a}/status/${r.id}` }));
-  const seen = new Set();
-  return [...own, ...x].sort((a, b) => String(b.t).localeCompare(String(a.t))).filter(v => !seen.has(v.u) && seen.add(v.u));
+  const seen = new Set(), watched = seenSet();
+  const all = [...own, ...x].sort((a, b) => String(b.t).localeCompare(String(a.t))).filter(v => !seen.has(v.u) && seen.add(v.u));
+  return [...all.filter(v => !watched.has(v.u)), ...all.filter(v => watched.has(v.u))];   // əvvəl görülməyənlər, ən təzəsi önə
 }
 
 export async function open(S) {
@@ -81,6 +87,7 @@ function build(f, items, back) {
   const vid = s => s.querySelector("video");
   const near = i => { for (const s of slides.slice(Math.max(0, i - 1), i + 3)) { const v = vid(s); if (!v.poster && v.dataset.poster) v.poster = v.dataset.poster; } };
   const play = s => {
+    markSeen(vid(s).dataset.src);
     const v = vid(s);
     if (!v.src) v.src = v.dataset.src;
     v.muted = !sound;
