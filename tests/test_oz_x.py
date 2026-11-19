@@ -6,6 +6,7 @@ import json
 import pathlib
 import tempfile
 import unittest
+import unittest.mock
 
 import oz_derc as d
 import oz_xeber as ox
@@ -185,6 +186,67 @@ class TablesTest(unittest.TestCase):
         xm.items(ROOT, at(19), fetch=lambda *a, **k: calls.append(a))
         self.assertEqual(calls, [])
         self.assertNotIn("thshaber", {h.lower() for h in xm.HESABLAR}, "başqasının videosunu paylaşan hesab yoxdur")
+
+
+
+def reel(**kw):
+    base = {"id": "2123096874748186946", "handle": "TamirveTadilat", "post": "https://x.com/TamirveTadilat/status/2123096874748186946",
+            "video": VIDEO, "poster": POSTER, "w": 720, "h": 1280, "at": "2026-11-19T08:00:00+00:00",
+            "src": ["Pvc borulardan yapabilecekleriniz sınırlı değildir."]}
+    base.update(kw)
+    return base
+
+
+class ReelsTest(unittest.TestCase):
+    """Qısa videolar (sahib, 2026-11-19): yazısız video lenti. Qırmızı xətt 2: Azərbaycan mövzusu düşür."""
+    NOW = datetime.datetime(2026, 11, 19, 10, 0, tzinfo=datetime.timezone.utc)
+
+    def write(self, rows):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = pathlib.Path(tmp.name) / "oz_x.json"
+        path.write_text(json.dumps({"v": 1, "items": [], "reels": rows}), encoding="utf-8")
+        return path
+
+    def test_good_reel_and_gates(self):
+        self.assertIsNone(xm.reel_check(reel()))
+        bad = {"hesab": reel(handle="thshaber", post="https://x.com/thshaber/status/2123096874748186946"),
+               "post": reel(post="https://x.com/TamirveTadilat/status/1"),
+               "video": reel(video="https://evil.example/a.mp4"), "poster": reel(poster="https://evil.example/a.jpg"),
+               "ölçü": reel(w=True), "vaxt": reel(at="2026-11-19 08:00"),
+               "Azərbaycan": reel(src=["Bakü'de çekilen görüntüler"]), "Azərbaycan 2": reel(src=["Azerbaijan team arrives"])}
+        for name, row in bad.items():
+            self.assertIsNotNone(xm.reel_check(row), name)
+
+    def test_reels_output_is_text_free_newest_first_and_recent(self):
+        rows = [reel(), reel(id="2123096874748186947", post="https://x.com/TamirveTadilat/status/2123096874748186947", at="2026-11-19T09:00:00+00:00"),
+                reel(id="2123096874748186948", post="https://x.com/TamirveTadilat/status/2123096874748186948", at="2026-11-10T09:00:00+00:00"),
+                reel(id="2123096874748186949", post="https://x.com/TamirveTadilat/status/2123096874748186949", src=["Karabağ maçı"]), reel()]
+        out = xm.reels(self.NOW, path=self.write(rows))
+        self.assertEqual([r["id"] for r in out], ["2123096874748186947", "2123096874748186946"], "köhnə, Azərbaycan mövzulu və təkrar düşür")
+        self.assertEqual(set(out[0]), {"id", "a", "n", "u", "i", "w", "h", "t"}, "mətn (src) sayta çıxmır")
+        self.assertEqual(out[0]["n"], "Tamir & Tadilat")
+
+    def test_updater_writes_reels_through_the_policy_gate(self):
+        import updater
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        out_dir = pathlib.Path(tmp.name)
+        path = self.write([reel(at=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"))])
+        orig = xm.NOVBE
+        try:
+            xm.NOVBE = path
+            with unittest.mock.patch.object(updater, "OUT_DIR", out_dir), unittest.mock.patch.object(updater, "REELS_FILE", out_dir / "reels.json"),                  unittest.mock.patch.object(updater.content_policy, "enforce", wraps=updater.content_policy.enforce) as gate:
+                updater.update_reels()
+            self.assertTrue(gate.called, "qırmızı xətt 2: sətirlər content_policy.enforce-dan keçir")
+        finally:
+            xm.NOVBE = orig
+        doc = json.loads((out_dir / "reels.json").read_text(encoding="utf-8"))
+        self.assertEqual([r["id"] for r in doc["items"]], ["2123096874748186946"])
+
+    def test_repo_reels_are_valid(self):
+        for row in xm.load_reels():
+            self.assertIsNone(xm.reel_check(row), row.get("id"))
 
 
 if __name__ == "__main__":

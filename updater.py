@@ -3702,6 +3702,24 @@ def update_video():
         merge_sources(rows)
     print(f"Video: {min(24, len(items))} yazı")
 
+
+REELS_FILE = OUT_DIR / "reels.json"
+
+
+def update_reels():
+    """Qısa videolar (sahib, 2026-11-19: tiktok üslubunda lent, gündə ~40): oz_x.json-un "reels" siyahısı data/reels.json-a.
+    Şəbəkə yoxdur. QIRMIZI XƏTT 2: oz_x.reel_check Azərbaycan mövzusunu atır, sonra hər sətir content_policy.enforce-dan
+    keçir (8ULDUZ-un öz sətri kimi; sahibin çıxardığı ünvan da düşür). Sayt faylı yalnız «Qısa videolar» açılanda oxuyur."""
+    import oz_x
+    rows = oz_x.reels(datetime.datetime.now(datetime.timezone.utc))
+    probe = [{"source": OWN_SOURCE, "sourceUrl": f"https://8ulduz.az/qisa/{r['id']}", "title": "", "summary": "", "category": "dunya"} for r in rows]
+    kept = {a["sourceUrl"].rsplit("/", 1)[1] for a in content_policy.enforce(probe)[0]}
+    rows = [r for r in rows if r["id"] in kept]
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    OUT_DIR.mkdir(exist_ok=True)
+    _write_atomic(REELS_FILE, json.dumps({"updatedAt": now, "items": rows}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Qısa video: {len(rows)}")
+
 # Misli Premyer Liqası: pfl.az saytının öz tətbiqinin istifadə etdiyi açıq JSON API (açar tələb etmir).
 PFL_API = "https://pfl.az/api/v1"
 
@@ -7387,6 +7405,10 @@ def run():
                 update_video()
             except Exception as e:
                 print("  ! video:", type(e).__name__)
+            try:
+                update_reels()
+            except Exception as e:
+                print("  ! qısa video:", type(e).__name__)
             try:
                 update_football()
             except Exception as e:

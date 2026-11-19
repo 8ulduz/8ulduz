@@ -105,6 +105,22 @@ class SourcesTest(unittest.TestCase):
         self.assertIn("ən çox 3", PROMPT_OK)
 
 
+class ReelsPickTest(unittest.TestCase):
+    def test_without_gemini_only_safe_accounts_and_known_ids(self):
+        from unittest import mock
+        tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
+        clash = xy.candidate("clashreport", post(author={"screen_name": "clashreport"}, id="2123096874748186942"), set(), NOW)
+        self.assertTrue(tamir and clash)
+        self.assertIn("at", tamir, "qısa video üçün paylaşımın vaxtı")
+        with mock.patch.dict(xy.os.environ, {}, clear=True):
+            self.assertEqual(xy.pick_reels([tamir, clash], 6), [tamir["id"]], "açar yoxdursa müharibə hesabı düşmür")
+        with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942", "999", "2123096874748186942"]'):
+            self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
+        self.assertEqual(xy.REELS_PER_RUN * 7, 42, "7 iş × 6 ≈ gündə 40 (sahib)")
+        self.assertIn("YAZISIZ", xy.REELS_PROMPT)
+
+
 class WorkflowTest(unittest.TestCase):
     def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")

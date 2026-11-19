@@ -208,6 +208,77 @@ def rows(path=None):
     return out
 
 
+# --- Qısa videolar ---------------------------------------------------------------------------------------------------
+# Sahib, 2026-11-19: «tiktok stilini düzəlt. videoların bəzilərinə yazı tərcümə ehtiyac olmaya bilər… gündə 40».
+# Növbə faylının "reels" siyahısı: yazısız videolar (mətn yazılmır, tərcümə yoxdur). Yazıcı (x_yazici.py) doldurur,
+# yeniləyici (updater.update_reels) reels() ilə data/reels.json-a yazır, sayt yalnız «Qısa videolar» açılanda oxuyur.
+# Sətir: id, handle, post, video, poster, w, h (xəbər sətri ilə eyni qaydalar), at (paylaşımın vaxtı, ISO UTC),
+# src (orijinal mətn: yalnız Azərbaycan süzgəci üçün, sayta çıxmır).
+REELS_DAYS = 3
+REELS_MAX = 140
+
+
+def _at(value):
+    try:
+        at = datetime.datetime.fromisoformat(str(value or ""))
+    except ValueError:
+        return None
+    return at if at.tzinfo else None
+
+
+def reel_check(row):
+    """Qısa video sətri göstərilə bilməzsə səbəbi, yoxsa None (qırmızı xətt 2: Azərbaycan mövzusu düşür)."""
+    if not isinstance(row, dict):
+        return "sətir lüğət deyil"
+    ident = row.get("id")
+    if not isinstance(ident, str) or not _ID.fullmatch(ident):
+        return "id yararsızdır (paylaşımın nömrəsi)"
+    handle = _HANDLE.get(str(row.get("handle") or "").lower())
+    if not handle:
+        return "hesab cədvəldə yoxdur"
+    m = _POST.fullmatch(str(row.get("post") or ""))
+    if not m or m.group(1).lower() != handle.lower() or m.group(2) != ident:
+        return "post ünvanı https://x.com/<hesab>/status/<id> olmalıdır"
+    if not _url_ok(row.get("video"), "video.twimg.com", ".mp4"):
+        return "video ünvanı video.twimg.com-da mp4 olmalıdır"
+    if not _url_ok(row.get("poster"), "pbs.twimg.com"):
+        return "poster ünvanı pbs.twimg.com-da olmalıdır"
+    if not (_size(row.get("w")) and _size(row.get("h"))):
+        return f"w və h {SIZE[0]}–{SIZE[1]} arası tam ədəd olmalıdır"
+    if _at(row.get("at")) is None:
+        return "at: paylaşımın vaxtı (ISO, saat qurşağı ilə)"
+    src = row.get("src")
+    if not isinstance(src, list) or not 1 <= len(src) <= SRC_MAX or any(not isinstance(s, str) or len(s) > SRC_LEN[1] for s in src):
+        return f"src: 1–{SRC_MAX} çıxarış"
+    if about_azerbaijan("\n".join(src)):
+        return "xarici mənbə, Azərbaycan mövzusu"
+    return None
+
+
+def load_reels(path=None):
+    try:
+        doc = json.loads(pathlib.Path(path or NOVBE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    rows = doc.get("reels") if isinstance(doc, dict) and doc.get("v") == 1 else None
+    return rows if isinstance(rows, list) else []
+
+
+def reels(now, path=None):
+    """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün videoları, ən yenisi əvvəl. Mətn çıxmır.
+    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt)."""
+    floor, out, seen = now - datetime.timedelta(days=REELS_DAYS), [], set()
+    for row in load_reels(path):
+        if reel_check(row) or row["id"] in seen or _at(row["at"]) < floor or _at(row["at"]) > now + datetime.timedelta(hours=1):
+            continue
+        seen.add(row["id"])
+        h = _HANDLE[row["handle"].lower()]
+        out.append({"id": row["id"], "a": h, "n": HESABLAR[h], "u": row["video"], "i": row["poster"],
+                    "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds")})
+    out.sort(key=lambda r: r["t"], reverse=True)
+    return out[:REELS_MAX]
+
+
 def credit(handle):
     h = _HANDLE[str(handle).lower()]
     return f"{HESABLAR[h]} (X, @{h})"
