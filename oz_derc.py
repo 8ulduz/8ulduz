@@ -314,6 +314,16 @@ def _short(text, n):
 _UNSAFE = set(" \"'<>\\`")
 
 
+def reels(now):
+    """Qısa videolar (sahib, 2026-11-19): oz_x növbə faylının yazısız videoları, yoxlamadan keçənlər (oz_x.reels).
+    updater.update_reels bunu çağırır: öz modullar yeniləyicidən yalnız bu fayl ilə çağırılır. Fayl yoxdursa boş siyahı."""
+    try:
+        import oz_x
+    except Exception:
+        return []
+    return oz_x.reels(now)
+
+
 def video(item):
     """X videosu (oz_x): {"u": mp4, "w", "h"} və ya None. Yalnız video.twimg.com-un https mp4 ünvanı; ölçü 120–4096."""
     url = str(item.get("video") or "").strip()

@@ -223,8 +223,7 @@ def pick_reels(cands, n):
         return []
     text = ""
     if os.environ.get("GEMINI_API_KEY"):
-        items = "
-".join(f"- id {c['id']}, hesab {xm.HESABLAR[c['handle']]} (@{c['handle']}): {c['src'][0][:300]}" for c in cands)
+        items = "\n".join(f"- id {c['id']}, hesab {xm.HESABLAR[c['handle']]} (@{c['handle']}): {c['src'][0][:300]}" for c in cands)
         text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"])
     start, end = text.find("["), text.rfind("]")
     try:

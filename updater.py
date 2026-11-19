@@ -3707,11 +3707,12 @@ REELS_FILE = OUT_DIR / "reels.json"
 
 
 def update_reels():
-    """Qısa videolar (sahib, 2026-11-19: tiktok üslubunda lent, gündə ~40): oz_x.json-un "reels" siyahısı data/reels.json-a.
-    Şəbəkə yoxdur. QIRMIZI XƏTT 2: oz_x.reel_check Azərbaycan mövzusunu atır, sonra hər sətir content_policy.enforce-dan
-    keçir (8ULDUZ-un öz sətri kimi; sahibin çıxardığı ünvan da düşür). Sayt faylı yalnız «Qısa videolar» açılanda oxuyur."""
-    import oz_x
-    rows = oz_x.reels(datetime.datetime.now(datetime.timezone.utc))
+    """Qısa videolar (sahib, 2026-11-19: tiktok üslubunda lent, gündə ~40): X növbə faylının yazısız videoları data/reels.json-a.
+    Şəbəkə yoxdur; sətirləri oz_derc.reels verir (öz modullar yalnız oz_derc ilə çağırılır). QIRMIZI XƏTT 2: Azərbaycan mövzusu
+    orada düşür, sonra hər sətir content_policy.enforce-dan keçir (8ULDUZ-un öz sətri kimi; sahibin çıxardığı ünvan da düşür).
+    Sayt faylı yalnız «Qısa videolar» açılanda oxuyur."""
+    import oz_derc  # tənbəl, oz_derc.cycle kimi
+    rows = oz_derc.reels(datetime.datetime.now(datetime.timezone.utc))
     probe = [{"source": OWN_SOURCE, "sourceUrl": f"https://8ulduz.az/qisa/{r['id']}", "title": "", "summary": "", "category": "dunya"} for r in rows]
     kept = {a["sourceUrl"].rsplit("/", 1)[1] for a in content_policy.enforce(probe)[0]}
     rows = [r for r in rows if r["id"] in kept]
