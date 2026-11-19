@@ -1409,7 +1409,7 @@ function renderNav() {
   const h = `<a href="#/" class="${cur === "/" ? "on" : ""}">Baş səhifə</a>` + primary.map(slug => link(CATS.find(c => c.slug === slug))).join("") + extra +
     `<button type="button" class="nav-inst" data-act="install"${installBtn() ? "" : " hidden"}><span class="ni-s">📲 Ana ekrana</span><span class="ni-f">Ana ekrana əlavə et</span></button>` +
     `<details class="nav-more"><summary aria-label="Bütün bölmələr">☰ Hamısı</summary><div class="nav-more-pop">${CATS.map(c => link(c)).join("")}<a href="#/secilmis">☆ Saxlanmış xəbərlər</a><a href="#/bolmeler">Bölmələri tənzimlə</a></div></details>` +
-    `<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>▶ Videolent</span></a>`; // sahib 2026-11-19: Telegram sətrinin yerinə (Telegram «8ULDUZ-u izlə»dədir)
+    `<a class="nav-tg" href="/bolme/video/" data-act="reels"><span>▶ Videolentə bax</span></a>`; // sahib 2026-11-19: Telegram sətrinin yerinə (Telegram «8ULDUZ-u izlə»dədir)
   if (h === S.navH) return;
   S.navH = $("#nav").innerHTML = h;
   afterPaint(fitNav);

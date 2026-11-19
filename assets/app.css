@@ -1096,11 +1096,10 @@ nav.main{order:10}
 @media(max-width:392px){.hrow>.logo{zoom:.78}:root[data-theme="light"] .hrow>.logo{zoom:.72}}
 @media(max-width:350px){.hrow>.logo,:root[data-theme="light"] .hrow>.logo{zoom:.62}.hrow .ldd-btn .caret{display:none}}
 @media(max-width:335px){.topbar .theme-btn span+span{display:none}} /* çox köhnə 320 px telefon: rejim yalnız işarə */
-/* Telefon: 4 bölmə + ☰, altında Telegram */
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){
 nav.main>a,nav.main a.nav-x,nav.main .nav-inst{flex:1 1 auto;justify-content:center;padding:0 3px}
-nav.main .nav-tg{display:flex;flex:1 0 100%;min-width:0;justify-content:center;align-items:center;min-height:24px;background:none;color:#fff;font-weight:700}nav.main .nav-tg>span{padding:2px 8px;border-radius:99px;background:var(--red);font-size:min(14px,3.6vw);overflow:hidden;text-overflow:ellipsis}
+nav.main .nav-tg{display:flex;flex:1 0 100%;min-width:0;justify-content:center;align-items:center;min-height:24px;background:none;color:#fff;font-weight:700}nav.main .nav-tg>span{padding:2px 8px;border-radius:99px;background:var(--red);outline:1.5px solid var(--red);outline-offset:2px;font-size:min(14px,3.6vw);overflow:hidden;text-overflow:ellipsis}
 nav.main>a:not(.ph,.nav-tg){display:none}
 nav.main{position:relative;padding-right:42px}nav.main .nav-more{display:flex;position:absolute;right:0;top:3px;bottom:3px}nav.main .nav-more>summary{display:flex;align-items:center;font-size:0;padding:0 4px 0 8px;background:none}nav.main .nav-more>summary::before{content:"";width:26px;height:4px;background:currentColor;box-shadow:0 -9px,0 9px;color:var(--primary)}
 nav.main .nav-more-pop{position:fixed;inset:auto 0 0;max-width:none;max-height:75dvh;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 12px 70px;border-radius:16px 16px 0 0;z-index:1000}
