@@ -128,6 +128,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(wf.count("git add"), 1)
         self.assertIn("git add oz_x.json\n", wf)
         self.assertIn("git push -q origin HEAD:main", wf)
+        self.assertIn("git config user.name 8ulduz-bot", wf, "pull --rebase üçün də ad: main irəli gedəndə iş düşməsin")
         self.assertNotIn("OZ_DERC", wf)
         self.assertNotIn("echo \"$ANTHROPIC_API_KEY", wf)
         self.assertIn("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}", wf)

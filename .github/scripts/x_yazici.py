@@ -123,7 +123,7 @@ def collect(known, now):
             except Exception as e:  # bir hesab düşsə digərləri işləyir
                 err = f"{handle}: {getattr(e, 'code', '') or type(e).__name__}"
                 time.sleep(4 + attempt * 6)
-        time.sleep(1)
+        time.sleep(2)   # 26 hesab: tez-tez soruşanda FxTwitter 404 qaytarır
         if doc is None:
             failed.append(err)
             continue

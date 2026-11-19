@@ -41,8 +41,10 @@ jobs:
       - name: Növbəni main-ə göndər (yalnız oz_x.json)
         run: |
           if git diff --quiet -- oz_x.json; then echo "dəyişiklik yoxdur"; exit 0; fi
+          git config user.name 8ulduz-bot   # pull --rebase da commit qurur: ad olmasa main irəli gedəndə iş düşür (2026-11-19)
+          git config user.email bot@8ulduz.az
           git add oz_x.json
-          git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit -q -m "X xəbərləri növbəyə əlavə edildi"
+          git commit -q -m "X xəbərləri növbəyə əlavə edildi"
           for i in 1 2 3 4 5; do
             git pull --rebase -q origin main && git push -q origin HEAD:main && exit 0
             sleep $((i * 5))
