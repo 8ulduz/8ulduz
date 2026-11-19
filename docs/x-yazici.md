@@ -20,7 +20,7 @@ dərc edir (gündə ən çox 8, saatda ən çox 4 öz xəbər). Bu sənəd tapş
 4. Ən maraqlı 1–4 paylaşımı seçin (idman, dünya, elm; oxucunun izləmək istəyəcəyi video). Hər biri üçün sətir:
 
 ```json
-{"id": "<paylaşımın id-si>", "date": "<Bakı günü, YYYY-MM-DD>", "slot": "<Bakı vaxtı indi + 5 dəq, SS:DD, 07:00–23:59>",
+{"id": "<paylaşımın id-si>", "date": "<Bakı günü, YYYY-MM-DD>", "slot": "<Bakı vaxtı indi + 5 dəq, SS:DD, 07:00–22:00; sonra yazılan gün bitənədək dərc olunmur>",
  "kind": "x-idman | x-dunya | x-elm | x-maraqli", "handle": "<hesab, cədvəldəki kimi>",
  "post": "https://x.com/<hesab>/status/<id>",
  "video": "<formats-dan mp4, bitrate ≤ 1 000 000 olanların ən yaxşısı (adətən 480x852 və ya 640x360)>",

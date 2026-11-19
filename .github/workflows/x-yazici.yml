@@ -6,7 +6,7 @@ name: X xəbərləri yazıcısı
 
 on:
   schedule:
-    - cron: "5 3-19/2 * * *"   # UTC; Bakı vaxtı 07:05–23:05, iki saatdan bir (GitHub cron-u gecikə bilər)
+    - cron: "5 3-17/2 * * *"   # UTC; Bakı vaxtı 07:05–21:05 (sonrakı xəbər gün bitənədək dərc olunmağa çatmır), iki saatdan bir (GitHub cron-u gecikə bilər)
   workflow_dispatch:
 
 permissions:
