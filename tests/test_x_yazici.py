@@ -122,6 +122,16 @@ class ReelsPickTest(unittest.TestCase):
         self.assertIn("YAZISIZ", xy.REELS_PROMPT)
 
 
+class VideolentSourcesTest(unittest.TestCase):
+    def test_visual_accounts_added_and_risky_ones_left_out(self):
+        for h in ("Rainmaker1973", "LaLiga", "premierleague", "aspor", "buitengebieden", "IGN", "NBA", "F1", "wonderofscience", "Olympics"):
+            self.assertIn(h, xy.xm.HESABLAR)
+        for h in ("TheFigen_", "Pirat_Nation", "ufc", "ClutchPoints", "CrazyClipsOnly", "FootballFunnys", "theScore", "NBATV", "Onedio"):
+            self.assertNotIn(h, xy.xm.HESABLAR, "siyasət, mərc/kazino, qan riski və ya danışıq videosu")
+        self.assertTrue(xy.REELS_SAFE <= set(xy.xm.HESABLAR), "ehtiyat siyahının hər hesabı cədvəldədir")
+        self.assertIn("Rainmaker1973", xy.REELS_SAFE, "Gemini cavab verməyəndə vizual hesablar")
+
+
 class WorkflowTest(unittest.TestCase):
     def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")

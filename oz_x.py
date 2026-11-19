@@ -89,6 +89,37 @@ HESABLAR = {
     "gdhdijital": "GDH",
     "ozetgechaber": "Özet Geç",
     "VoiceOfLevant": "Voice of Levant",
+    # Sahib, 2026-11-19: «Azərbaycanda ən çox hansı tip qısa videolara baxıldığını araşdırıb x da o mənbələri tap» — Videolent üçün
+    # vizual hesablar (idman, elm/maraqlı, oyun); FxTwitter ilə yoxlanıb, gündə 3+ video (research_notes/qisa-video-menbeleri.md).
+    # Əlavə olunmayıb: siyasi şərh (TheFigen_, Pirat_Nation), mərc/kazino reklamı, qan riski (ufc), danışıq videoları (ClutchPoints).
+    "Rainmaker1973": "Massimo (Rainmaker1973)",
+    "LaLiga": "LaLiga",
+    "premierleague": "Premyer Liqa",
+    "aspor": "A Spor",
+    "buitengebieden": "Buitengebieden",
+    "IGN": "IGN",
+    "ChampionsLeague": "UEFA Çempionlar Liqası",
+    "Ballislife": "Ballislife",
+    "Fotomac": "Fotomaç",
+    "Yoda4ever": "Yoda4ever",
+    "wonderofscience": "Wonder of Science",
+    "DAZNFootball": "DAZN Football",
+    "atptour": "ATP Tour",
+    "F1": "Formula 1",
+    "NBA": "NBA",
+    "TivibuSpor": "Tivibu Spor",
+    "ESPNUK": "ESPN UK",
+    "TansuYegen": "Tansu Yegen",
+    "ESPNNBA": "ESPN NBA",
+    "WWE": "WWE",
+    "EuropaLeague": "UEFA Avropa Liqası",
+    "LFC": "Liverpul",
+    "GameSpot": "GameSpot",
+    "Discovery": "Discovery",
+    "ajansspor": "Ajansspor",
+    "MLS": "MLS",
+    "Olympics": "Olimpiya Oyunları",
+    "overtime": "Overtime",
 }
 _HANDLE = {h.lower(): h for h in HESABLAR}
 
