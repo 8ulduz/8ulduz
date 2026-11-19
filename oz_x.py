@@ -56,7 +56,12 @@ TEKRAR = "id təkrarlanır"
 
 # Növ -> mövzu. Hamısı bir mövzudur («video»): dərc hissəsində X xəbərlərinin öz gündəlik həddi var (oz_derc.MOVZU_HEDD),
 # futbol modullarının «idman» yerini tutmur. Bölmə oz_derc.BOLME_NOV-dadır.
-NOVLER = {"x-idman": "video", "x-dunya": "video", "x-elm": "video", "x-maraqli": "video"}
+NOVLER = {"x-idman": "video", "x-dunya": "video", "x-elm": "video", "x-maraqli": "video",
+          "x-transfer": "transfer"}   # sahib 2026-11-19: X-in transfer xəbərləri (Romano, Moretto …) — videosuz ola bilər
+# Transfer hesabları: əsasən mətn və şəkil paylaşır, video tələb olunmur (kind="x-transfer"). Başlıqda «transfer» sözü olur:
+# saytın «Transfer xəbərləri» bölməsi (app.js TRANSFER_WORDS) xəbəri bu sözlə tanıyır.
+TRANSFER_HESABLAR = {"FabrizioRomano": "Fabrizio Romano", "MatteMoretto": "Matteo Moretto", "DeadlineDayLive": "Transfer News Live",
+                     "ekremkonur": "Ekrem Konur", "David_Ornstein": "David Ornstein"}
 
 # Hesab -> xəbərdə göstərilən ad. Yalnız ilkin mənbələr: agentliklər, yayımçılar, klublar, federasiya, qurumlar.
 # Başqasının videosunu yenidən paylaşan «xəbər» hesabları (məsələn THS Haber) yoxdur: video ilə başlıq çox vaxt uyğun gəlmir.
@@ -121,6 +126,7 @@ HESABLAR = {
     "Olympics": "Olimpiya Oyunları",
     "overtime": "Overtime",
 }
+HESABLAR.update(TRANSFER_HESABLAR)
 _HANDLE = {h.lower(): h for h in HESABLAR}
 
 _ID = re.compile(r"[1-9]\d{5,24}")
@@ -172,13 +178,16 @@ def check(row):
     m = _POST.fullmatch(str(row.get("post") or ""))
     if not m or m.group(1).lower() != handle.lower() or m.group(2) != ident:
         return "post ünvanı https://x.com/<hesab>/status/<id> olmalıdır"
-    if not _url_ok(row.get("video"), "video.twimg.com", ".mp4"):
+    transfer = row.get("kind") == "x-transfer"   # videosuz ola bilər; şəkil varsa yenə pbs.twimg.com
+    if (not transfer or row.get("video")) and not _url_ok(row.get("video"), "video.twimg.com", ".mp4"):
         return "video ünvanı video.twimg.com-da mp4 olmalıdır"
-    if not _url_ok(row.get("poster"), "pbs.twimg.com"):
+    if (not transfer or row.get("poster")) and not _url_ok(row.get("poster"), "pbs.twimg.com"):
         return "poster ünvanı pbs.twimg.com-da olmalıdır"
-    if not (_size(row.get("w")) and _size(row.get("h"))):
+    if (not transfer or row.get("video")) and not (_size(row.get("w")) and _size(row.get("h"))):
         return f"w və h {SIZE[0]}–{SIZE[1]} arası tam ədəd olmalıdır"
     title, lead, body = _line(row.get("title")), _line(row.get("lead")), dn._body(row)
+    if transfer and "transfer" not in title.lower():
+        return "transfer xəbərinin başlığında «transfer» sözü olmalıdır (Transfer bölməsi onu belə tanıyır)"
     if not dn.TITLE_LEN[0] <= len(title) <= dn.TITLE_LEN[1]:
         return f"başlığın uzunluğu {dn.TITLE_LEN[0]}–{dn.TITLE_LEN[1]} hərf olmalıdır"
     if title[-1] in ".?!…":
@@ -319,7 +328,7 @@ def item(row, day):
     """Yoxlamadan keçmiş sətirdən dərc hissəsinin xəbəri (bu günün tarixi ilə)."""
     return {"kind": row["kind"], "key": KEY + row["id"], "title": _line(row["title"]), "lead": _line(row["lead"]),
             "body": dn._body(row), "credit": credit(row["handle"]), "link": row["post"],
-            "image": row["poster"], "video": row["video"], "vw": str(row["w"]), "vh": str(row["h"]),
+            "image": row.get("poster") or "", "video": row.get("video") or "", "vw": str(row.get("w") or ""), "vh": str(row.get("h") or ""),
             "topic": NOVLER[row["kind"]], "slot": row["slot"], "date": day.isoformat(), "worth": True}
 
 
