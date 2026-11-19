@@ -2777,6 +2777,12 @@ def update_own_news():
         return None
     import oz_derc  # tənbəl: açarsız proses bu modulu heç yükləmir (köhnə kod qovluğunda fayl olmaya da bilər)
     res = oz_derc.cycle(ROOT)
+    reels = getattr(oz_derc, "reels", None)   # köhnə kod qovluğunda funksiya olmaya bilər
+    if reels:
+        try:
+            write_reels(reels(datetime.datetime.now(datetime.timezone.utc)))
+        except Exception as e:
+            print("  ! qısa video:", type(e).__name__)
     print(f"Öz xəbərlər: dərc {len(res.get('published') or [])}, növbədə {res.get('queued', 0)}, saxlanılan {len(res.get('held') or [])}, "
           f"rədd {len(res.get('blocked') or [])}, xəta {len(res.get('errors') or [])}", flush=True)
     return res
@@ -3701,6 +3707,21 @@ def update_video():
     if rows:
         merge_sources(rows)
     print(f"Video: {min(24, len(items))} yazı")
+
+
+def write_reels(rows):
+    """Qısa videolar (sahib, 2026-11-19: tiktok üslubunda lent, gündə ~40): X növbə faylının yazısız videoları data/reels.json-a.
+    Şəbəkə yoxdur; sətirləri öz xəbərlər addımı (update_own_news) oz_derc.reels ilə verir. QIRMIZI XƏTT 2: Azərbaycan mövzusu
+    orada düşür, sonra hər sətir content_policy.enforce-dan keçir (8ULDUZ-un öz sətri kimi; sahibin çıxardığı ünvan da düşür).
+    Sayt faylı yalnız «Qısa videolar» açılanda oxuyur."""
+    probe = [{"source": OWN_SOURCE, "sourceUrl": f"https://8ulduz.az/qisa/{r['id']}", "title": "", "summary": "", "category": "dunya"} for r in rows]
+    kept = {a["sourceUrl"].rsplit("/", 1)[1] for a in content_policy.enforce(probe)[0]}
+    rows = [r for r in rows if r["id"] in kept]
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    out = ROOT / "data"   # dərc dövrəsi kimi ROOT-a (sınaqda müvəqqəti qovluq)
+    out.mkdir(exist_ok=True)
+    _write_atomic(out / "reels.json", json.dumps({"updatedAt": now, "items": rows}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Qısa video: {len(rows)}")
 
 # Misli Premyer Liqası: pfl.az saytının öz tətbiqinin istifadə etdiyi açıq JSON API (açar tələb etmir).
 PFL_API = "https://pfl.az/api/v1"

@@ -1987,6 +1987,8 @@ function shortDT(iso) {
 // X videosu (oz_x, sahib 2026-11-18): şəkil, basanda referrer göndərməyən çərçivədə (srcdoc) oynayır — X videonu başqa saytın
 // sorğusuna vermir (403). X-in skripti yüklənmir, video saytda saxlanmır.
 const XV_AT = "https://video.twimg.com/", XV = { test: u => typeof u === "string" && u.startsWith(XV_AT) && /^[\w/.-]+\.mp4(\?[\w=&.-]*)?$/.test(u.slice(XV_AT.length)) };
+// Qısa videolar (sahib, 2026-11-19: «tiktok stilini düzəlt»): şaquli lent tənbəl modulda (lent.js), yalnız basanda yüklənir
+const REELS = `<button type="button" class="btn" data-act="reels">▶ Qısa videolar</button>`;
 const xvTile = a => {
   const v = a.xv, w = v?.w | 0, h = v?.h | 0;
   return XV.test(v?.u) && w > 0 && h > 0 ? `<div class="yt xv" data-xv="${esc(v.u)}" role="button" tabindex="0" aria-label="Videonu oynat"><span class="thumb" style="aspect-ratio:${w}/${h};width:min(100%,calc(78vh*${w}/${h}));margin:0 auto">${imgUrl(a) ? `<img src="${esc(sized(imgUrl(a), 640))}" alt="" decoding="async" data-fail="rm">` : ""}<i>▶ Video</i></span></div>` : "";
@@ -2052,7 +2054,7 @@ function latestBlock(list) {
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
   if (!hosted.length && !list.length) return "";
-  return `<section><div class="sec-h"><h2>Video</h2><a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => ytTile(v, " · Saytda izlə")).join("")}${list.slice(0, 4).map(a => cardAt(a, "h3", " vcard")).join("")}</div></div></section>`;
+  return `<section><div class="sec-h"><h2>Video</h2>${REELS}<a class="more" href="#/videolent">Bütün videolar →</a></div><div class="strip"><div class="ytrow">${hosted.map(v => ytTile(v, " · Saytda izlə")).join("")}${list.slice(0, 4).map(a => cardAt(a, "h3", " vcard")).join("")}</div></div></section>`;
 }
 function homeArchive(slug) {
   if (NO_ARCHIVE.has(slug)) return [];
@@ -2223,7 +2225,7 @@ function sectionView(slug) {
   // ?m=Quba: topics.cjs səhifəsindən gələn keçid mövzunu seçir
   const um = route().m, tabs = SUB_TABS[slug] || [];
   if (um && sportTopic(um) && S.clubUrl !== location.hash) { S.club = um; S.clubUrl = location.hash; S.sportTab = tabs.find(x => x.name === um || x.groups?.some(g => g.items.some(i => i.name === um)))?.name || null; }
-  let extra = SUB_TABS[slug] ? `<div class="sub-rows">${subNav(slug)}</div>` : "";
+  let extra = SUB_TABS[slug] ? `<div class="sub-rows">${subNav(slug)}</div>` : slug === "video" ? REELS : "";
   if (slug === "idman") {
     if (S.club) list = list.filter(a => clubMatches(a, S.club));
   }
@@ -2798,6 +2800,7 @@ function onClick(e) {
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
+  else if (act === "reels") import("./lent.js?v=1").then(m => m.open(S)).catch(() => {});
   else if (act === "follow") import("./follow.js?v=7").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();

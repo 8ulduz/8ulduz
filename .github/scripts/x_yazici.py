@@ -34,6 +34,10 @@ WINDOW = datetime.timedelta(hours=6)
 MAX_BITRATE = 1_000_000
 MAX_CANDIDATES = 25
 PER_RUN = 3
+REELS_PER_RUN = 6   # qısa videolar: 7 iş × 6 ≈ gündə 40 (sahib, 2026-11-19)
+REELS_ASK = 40     # Gemini-yə seçim üçün göstərilən ən çox namizəd
+# Gemini işləməyəndə qısa videoya yalnız bu hesablar düşür: müharibə və qəza görüntüsü vermirlər
+REELS_SAFE = {"TamirveTadilat", "TUBITAK", "avionot", "TFF_Org", "MilliTakimlar", "GalatasaraySK", "Fenerbahce", "Besiktas", "Trabzonspor", "trtspor", "aa_spor", "ntvspor", "beINSPORTS_TR"}
 MAX_AGE_DAYS = 4
 LAST_SLOT = "22:00"   # daha gec yazılan xəbər gün bitənədək dərc olunmağa çatmır və «gecikdi» deyə düşür (2026-11-18 gecəsi 4 xəbər)
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -105,7 +109,7 @@ def candidate(handle, post, known, now):
     if len(text) < xm.SRC_LEN[0] or xm.about_azerbaijan(text):
         return None
     return {"id": pid, "handle": handle, "post": f"https://x.com/{handle}/status/{pid}", "video": url, "poster": poster,
-            "w": w, "h": h, "src": [text[:xm.SRC_LEN[1]]], "_score": int(post.get("likes") or 0) + int(post.get("reposts") or 0) * 3}
+            "w": w, "h": h, "src": [text[:xm.SRC_LEN[1]]], "at": datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat(timespec="seconds"), "_score": int(post.get("likes") or 0) + int(post.get("reposts") or 0) * 3}
 
 
 def collect(known, now):
@@ -128,7 +132,7 @@ def collect(known, now):
             if c:
                 out.append(c)
     out.sort(key=lambda c: -c["_score"])
-    return out[:MAX_CANDIDATES], failed
+    return out, failed   # hamısı: xəbərə ilk MAX_CANDIDATES, qısa videolara qalanı da
 
 
 def _gemini_models(key):
@@ -201,15 +205,51 @@ def write(cands, n):
     return [r for r in rows if isinstance(r, dict)]
 
 
+REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var.
+Videolar YAZISIZ göstəriləcək (yalnız hesabın adı). Geniş auditoriya üçün ən maraqlı ən çox {n} videonu seç: ustalıq, texnika,
+idman anları, təbiət, elm, maraqlı hadisələr. SEÇMƏ: qan, meyit, yaralı, edam, işgəncə, hücum və ya partlayış anı, qəza,
+heyvana zülm, müharibə və terror səhnələri, reklam, mərc, təhqir, siyasi təbliğat, Azərbaycan mövzusu, mətni olmadan anlaşılmayan
+xəbər videoları (müsahibə, bəyanat, studiya söhbəti). Uyğun video yoxdursa boş siyahı qaytar.
+
+Yalnız JSON siyahısı qaytar, başqa heç nə: ["<id>", ...]
+
+Paylaşımlar:
+{items}"""
+
+
+def pick_reels(cands, n):
+    """Qısa video üçün id-lər. Gemini seçir (yalnız id, mətn yox); açar yoxdursa və ya cavab gəlmirsə REELS_SAFE hesabları."""
+    if not cands:
+        return []
+    text = ""
+    if os.environ.get("GEMINI_API_KEY"):
+        items = "\n".join(f"- id {c['id']}, hesab {xm.HESABLAR[c['handle']]} (@{c['handle']}): {c['src'][0][:300]}" for c in cands)
+        text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"])
+    start, end = text.find("["), text.rfind("]")
+    try:
+        ids = [str(i) for i in json.loads(text[start:end + 1])] if 0 <= start < end else None
+    except ValueError:
+        ids = None
+    if ids is None:
+        print("Qısa video: Gemini seçmədi, yalnız təhlükəsiz hesablar", flush=True)
+        ids = [c["id"] for c in cands if c["handle"] in REELS_SAFE]
+    allowed = {c["id"] for c in cands}
+    return [i for i in dict.fromkeys(ids) if i in allowed][:n]
+
+
 def main():
     now = datetime.datetime.now(datetime.timezone.utc)
     baku = now.astimezone(BAKU)
     doc = json.loads((ROOT / "oz_x.json").read_text(encoding="utf-8"))
     rows = doc.get("items") or []
+    reels = [r for r in doc.get("reels") or [] if isinstance(r, dict)]
+    reel_floor = now - datetime.timedelta(days=xm.REELS_DAYS)
+    reels = [r for r in reels if (xm._at(r.get("at")) or reel_floor) > reel_floor][-xm.REELS_MAX:]
     floor = baku.date() - datetime.timedelta(days=MAX_AGE_DAYS)
     kept = [r for r in rows if isinstance(r, dict) and str(r.get("date") or "") >= floor.isoformat()]
     known = {str(r.get("id")) for r in kept}
     cands, failed = collect(known, now)
+    cands, more = cands[:MAX_CANDIDATES], cands
     print(f"Namizəd: {len(cands)}; açılmayan hesab: {len(failed)} {failed if failed else ''}", flush=True)
     added, rejected = [], []
     slot = (baku + datetime.timedelta(minutes=5)).strftime("%H:%M")
@@ -229,17 +269,33 @@ def main():
                    **{k: c[k] for k in ("handle", "post", "video", "poster", "w", "h", "src")}}
             why = xm.check(row)
             (rejected if why else added).append((row, why))
+    new_reels = []
+    if xm.SLOT_FROM <= slot <= LAST_SLOT:
+        taken = {str(r.get("id")) for r in reels} | {r["id"] for r, _ in added}
+        pool = [c for c in more if c["id"] not in taken][:REELS_ASK]
+        by_id = {c["id"]: c for c in pool}
+        for pid in pick_reels(pool, REELS_PER_RUN):
+            c = by_id[pid]
+            row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]]}   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
+            why = xm.reel_check(row)
+            if why:
+                print(f"Qısa video rədd: {pid} — {why}")
+            else:
+                new_reels.append(row)
+                print(f"Qısa video: {pid} @{c['handle']}")
     for row, why in rejected:
         print(f"Rədd: {row['id']} — {why}")
     for row, _ in added:
         print(f"Növbəyə: {row['id']} @{row['handle']} — {row['title']}")
     new = kept + [r for r, _ in added]
-    if new != rows:
-        (ROOT / "oz_x.json").write_text(json.dumps({"v": 1, "items": new}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    all_reels = reels + new_reels
+    if new != rows or all_reels != (doc.get("reels") or []):
+        new_doc = {"v": 1, "items": new, **({"reels": all_reels} if all_reels else {})}
+        (ROOT / "oz_x.json").write_text(json.dumps(new_doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
-            f.write(f"Namizəd {len(cands)}, növbəyə {len(added)}, rədd {len(rejected)}, açılmayan hesab {len(failed)}\n")
+            f.write(f"Namizəd {len(more)}, növbəyə {len(added)}, qısa video {len(new_reels)}, rədd {len(rejected)}, açılmayan hesab {len(failed)}\n")
     return 0
 
 

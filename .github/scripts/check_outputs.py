@@ -71,8 +71,13 @@ def enforce_policy(root=pathlib.Path(".")):
     def post_ok(p):
         return not p.get("via") or (content_policy.source_registered(p["via"])
                                     and not content_policy.removed_article({"id": p.get("id"), "sourceUrl": p.get("url")}))
+    def reel_ok(v):   # qısa videolar (oz_x.reels): hesab cədvəldə, ünvan X-in video serveri, sahib çıxarmayıb
+        import oz_x
+        return (str(v.get("a") or "") in oz_x.HESABLAR and str(v.get("u") or "").startswith("https://video.twimg.com/")
+                and not content_policy.removed_article({"id": v.get("id"), "sourceUrl": f"https://8ulduz.az/qisa/{v.get('id')}"}))
     for name, key, allowed in (("video.json", "items", lambda v: v.get("channel") in content_policy.VIDEO_CHANNELS),
-                               ("social.json", "posts", post_ok), ("social-arxiv.json", "posts", post_ok)):
+                               ("social.json", "posts", post_ok), ("social-arxiv.json", "posts", post_ok),
+                               ("reels.json", "items", reel_ok)):
         path = root / "data" / name
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
