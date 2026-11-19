@@ -2777,10 +2777,12 @@ def update_own_news():
         return None
     import oz_derc  # tənbəl: açarsız proses bu modulu heç yükləmir (köhnə kod qovluğunda fayl olmaya da bilər)
     res = oz_derc.cycle(ROOT)
-    try:
-        write_reels(oz_derc.reels(datetime.datetime.now(datetime.timezone.utc)))
-    except Exception as e:
-        print("  ! qısa video:", type(e).__name__)
+    reels = getattr(oz_derc, "reels", None)   # köhnə kod qovluğunda funksiya olmaya bilər
+    if reels:
+        try:
+            write_reels(reels(datetime.datetime.now(datetime.timezone.utc)))
+        except Exception as e:
+            print("  ! qısa video:", type(e).__name__)
     print(f"Öz xəbərlər: dərc {len(res.get('published') or [])}, növbədə {res.get('queued', 0)}, saxlanılan {len(res.get('held') or [])}, "
           f"rədd {len(res.get('blocked') or [])}, xəta {len(res.get('errors') or [])}", flush=True)
     return res
