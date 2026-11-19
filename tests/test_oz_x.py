@@ -224,7 +224,7 @@ class ReelsTest(unittest.TestCase):
                 reel(id="2123096874748186949", post="https://x.com/TamirveTadilat/status/2123096874748186949", src=["Karabağ maçı"]), reel()]
         out = xm.reels(self.NOW, path=self.write(rows))
         self.assertEqual([r["id"] for r in out], ["2123096874748186947", "2123096874748186946"], "köhnə, Azərbaycan mövzulu və təkrar düşür")
-        self.assertEqual(set(out[0]), {"id", "a", "n", "u", "i", "w", "h", "t"}, "mətn (src) sayta çıxmır")
+        self.assertEqual(set(out[0]), {"id", "a", "n", "m", "u", "i", "w", "h", "t"}, "mətn (src) sayta çıxmır; m: mövzu")
         self.assertEqual(out[0]["n"], "Tamir & Tadilat")
 
     def test_updater_writes_reels_through_the_policy_gate(self):

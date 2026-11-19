@@ -33,28 +33,52 @@ video{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cont
 button{position:fixed;right:12px;z-index:2;width:44px;height:44px;border-radius:50%;border:0;background:#0009;color:#fff;font-size:20px;line-height:44px;padding:0;cursor:pointer}
 .x{top:calc(12px + env(safe-area-inset-top))}
 .snd{bottom:calc(96px + env(safe-area-inset-bottom))}
-.end{display:grid;place-items:center;text-align:center;padding:24px;color:#ccc}`;
+.sh{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));font-size:22px}
+.end{display:grid;place-items:center;text-align:center;padding:24px;color:#ccc}
+.new{position:fixed;z-index:2;left:50%;top:calc(16px + env(safe-area-inset-top));transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:#e11d48;color:#fff;font-weight:700;font-size:14px;pointer-events:none}
+.new[hidden]{display:none}`;
 
 let live = null;
 
 function list(S, reels) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
-    u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl }));
-  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, t: r.t, link: `https://x.com/${r.a}/status/${r.id}` }));
+    u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl }));
+  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}` }));
   const seen = new Set(), watched = seenSet();
   const all = [...own, ...x].sort((a, b) => String(b.t).localeCompare(String(a.t))).filter(v => !seen.has(v.u) && seen.add(v.u));
-  return [...all.filter(v => !watched.has(v.u)), ...all.filter(v => watched.has(v.u))];   // əvvəl görülməyənlər, ən təzəsi önə
+  return [...mix(all.filter(v => !watched.has(v.u))), ...mix(all.filter(v => watched.has(v.u)))];   // əvvəl görülməyənlər
+}
+
+// TikTok kimi qarışıq axın (sahib 2026-11-19: «video axını tiktok kimi olsun», «əksəriyyəti futboldur … proporsional olsun
+// müxtəlif mövzular»): mövzular növbə ilə gəlir (idman, təbiət, elm, kino …; hər açılışda başqa sıra), hər mövzunun içində ən
+// təzəsi önə; eyni hesabdan iki video ardıcıl gəlmir.
+export function mix(list) {
+  const groups = new Map();
+  for (const v of list) { const k = v.m || "idman"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(v); }
+  const order = [...groups.values()].sort(() => Math.random() - 0.5), rr = [];
+  while (order.some(g => g.length)) for (const g of order) if (g.length) rr.push(g.shift());
+  const out = [];
+  while (rr.length) {
+    const last = out[out.length - 1]?.n, i = rr.findIndex(v => v.n !== last);
+    out.push(rr.splice(i < 0 ? 0 : i, 1)[0]);
+  }
+  return out;
+}
+
+// Lent açıq ikən yeni videolar (sahib 2026-11-19: «tiktok kimi videolar daima təzələnsin»): 2 dəqiqədən bir, yalnız vərəq görünəndə.
+const FRESH_MS = 120e3;
+async function load() {
+  try {
+    const r = await fetch(`${FILE}?t=${Math.floor(Date.now() / 6e4)}`);
+    if (r.ok) { const d = (await r.json()).items; return Array.isArray(d) ? d : []; }
+  } catch {}
+  return [];
 }
 
 export async function open(S) {
   if (live) return;
   live = {};
-  let reels = [];
-  try {
-    const r = await fetch(`${FILE}?t=${Math.floor(Date.now() / 6e4)}`);
-    if (r.ok) reels = (await r.json()).items || [];
-  } catch {}
-  const items = list(S, Array.isArray(reels) ? reels : []);
+  const items = list(S, await load());
   const f = document.createElement("iframe");
   f.title = "Videolent";
   f.allow = "autoplay; fullscreen";
@@ -63,6 +87,7 @@ export async function open(S) {
   const close = () => {
     if (!live) return;
     removeEventListener("popstate", onPop);
+    clearInterval(live.fresh);
     live.io?.disconnect();
     f.remove();
     document.documentElement.style.overflow = live.overflow || "";
@@ -73,19 +98,27 @@ export async function open(S) {
   document.documentElement.style.overflow = "hidden";
   history.pushState({ reels: 1 }, "");
   addEventListener("popstate", onPop);
-  f.addEventListener("load", () => build(f, items, () => history.back()), { once: true });
+  f.addEventListener("load", () => build(f, items, () => history.back(), async () => list(S, await load())), { once: true });
   document.body.append(f);
 }
 
-function build(f, items, back) {
+const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title ? `<span>${esc(v.title)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(v.link)}">↗</button></section>`;
+
+function build(f, items, back, more) {
   const doc = f.contentDocument, win = f.contentWindow;
   if (!doc || !live) return;
   let sound = false;
   try { sound = sessionStorage.getItem(SOUND_KEY) === "1"; } catch {}
-  doc.body.innerHTML = `<div class="feed">${items.map((v, i) => `<section data-i="${i}"><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title ? `<span>${esc(v.title)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div></section>`).join("")}<section class="end"><p>${items.length ? "Hamısını izlədiniz. Yeni videolar gün ərzində əlavə olunur." : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button>`;
-  const feed = doc.querySelector(".feed"), slides = [...doc.querySelectorAll("section[data-i]")], sndBtn = doc.querySelector(".snd");
+  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Hamısını izlədiniz. Yeni videolar gün ərzində əlavə olunur." : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
+  const feed = doc.querySelector(".feed"), slides = [...feed.querySelectorAll("section:not(.end)")], sndBtn = doc.querySelector(".snd");
+  const pos = s => slides.indexOf(s);
   const vid = s => s.querySelector("video");
-  const near = i => { for (const s of slides.slice(Math.max(0, i - 1), i + 3)) { const v = vid(s); if (!v.poster && v.dataset.poster) v.poster = v.dataset.poster; } };
+  const near = i => {
+    for (const s of slides.slice(Math.max(0, i - 1), i + 3)) { const v = vid(s); if (!v.poster && v.dataset.poster) v.poster = v.dataset.poster; }
+    // növbəti video əvvəlcədən yüklənir: sürüşdürəndə dərhal başlayır (TikTok kimi); yalnız biri — internet paketi qorunur
+    const n = slides[i + 1] && vid(slides[i + 1]);
+    if (n && !n.src) { n.preload = "auto"; n.src = n.dataset.src; }
+  };
   const play = s => {
     markSeen(vid(s).dataset.src);
     const v = vid(s);
@@ -98,25 +131,51 @@ function build(f, items, back) {
     if (!v.src) return;
     v.pause();
     // uzaqdakı slaydın videosu yaddaşdan çıxır: yüzlərlə video açıq qalmasın
-    if (Math.abs(+s.dataset.i - live.at) > 2) { v.removeAttribute("src"); v.load(); }
+    if (Math.abs(pos(s) - live.at) > 2) { v.removeAttribute("src"); v.load(); }
   };
   live.at = 0;
   live.io = new win.IntersectionObserver(es => {
     for (const e of es) {
       const s = e.target;
-      if (e.isIntersecting && e.intersectionRatio >= 0.6) { live.at = +s.dataset.i; near(live.at); play(s); }
+      if (e.isIntersecting && e.intersectionRatio >= 0.6) { live.at = pos(s); near(live.at); play(s); }
       else stop(s);
     }
   }, { root: feed, threshold: [0, 0.6] });
-  slides.forEach(s => live.io.observe(s));
-  near(0);
-  for (const s of slides) {
+  const wire = s => {
+    live.io.observe(s);
     const v = vid(s), bar = s.querySelector(".bar");
     v.addEventListener("timeupdate", () => { if (v.duration) bar.style.width = `${(v.currentTime / v.duration) * 100}%`; });
-  }
+  };
+  slides.forEach(wire);
+  near(0);
+  // Yeni videolar izlənən videonun ardınca girir: barmaqla bir sürüşdürmə — təzə video. Görülənlər təkrar gəlmir.
+  const have = new Set(items.map(v => v.u)), note = doc.querySelector(".new");
+  live.fresh = setInterval(async () => {
+    if (document.visibilityState !== "visible" || !live) return;
+    const add = (await more()).filter(v => !have.has(v.u) && !seenSet().has(v.u));
+    if (!add.length || !live) return;
+    const after = slides[live.at] || null, tpl = doc.createElement("template");
+    tpl.innerHTML = add.map(slide).join("");
+    const fresh = [...tpl.content.children];
+    for (const v of add) have.add(v.u);
+    if (after) after.after(...fresh); else feed.querySelector(".end").before(...fresh);
+    slides.splice(live.at + 1, 0, ...fresh);
+    fresh.forEach(wire);
+    near(live.at);
+    note.textContent = `+${add.length} yeni video ↓`;
+    note.hidden = false;
+    setTimeout(() => { note.hidden = true; }, 4000);
+  }, FRESH_MS);
   feed.addEventListener("click", e => {
     if (e.target.closest("a")) return;
-    const s = e.target.closest("section[data-i]");
+    const sh = e.target.closest(".sh");
+    if (sh) {
+      const url = sh.dataset.link;
+      if (navigator.share) navigator.share({ url }).catch(() => {});
+      else navigator.clipboard?.writeText(url).then(() => { sh.textContent = "✓"; setTimeout(() => { sh.textContent = "↗"; }, 1500); }).catch(() => {});
+      return;
+    }
+    const s = e.target.closest("section:not(.end)");
     if (!s) return;
     const v = vid(s);
     if (v.paused) { v.muted = !sound; v.play().then(() => s.classList.remove("p")).catch(() => {}); } else { v.pause(); s.classList.add("p"); }
