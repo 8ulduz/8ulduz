@@ -85,6 +85,7 @@ export function view(h, list) {
       const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<a href="${teamHref(fb, t.full || t.team)}" class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></a>`).join("");
       return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.asof ? ` · ${esc(asofLabel(fb.asof))}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link)}" target="_blank" rel="noopener noreferrer">Vikipediya ↗</a></div>
         ${picker}
+        ${fb.sport === "basketball" ? "" : leagueLive(fb)}
         <div class="strip"><div class="fb-teams">${wteams}</div></div>
         ${gtabs}
         <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div></section>`;
@@ -118,15 +119,35 @@ export function view(h, list) {
   const LIVE_FL = { PL: "eng", ELC: "eng", PD: "esp", SA: "ita", BL1: "ger", FL1: "fra", DED: "ned", PPL: "por", BSA: "bra", TSL: "tur", RPL: "rus", AZE: "az" };
   const LIVE_COMP = { PL: "Premyer Liqa", ELC: "Çempionşip", PD: "La Liqa", SA: "Seriya A", BL1: "Bundesliqa", FL1: "Liqa 1", DED: "Eredivizie",
     PPL: "Primeyra Liqa", CL: "Çempionlar Liqası", BSA: "Braziliya", CLI: "Libertadores", WC: "Dünya çempionatı", EC: "Avropa çempionatı", TSL: "Süper Liq", RPL: "Rusiya", AZE: "Premyer Liqa" };
-  function liveBlock() {
-    const on = (live?.matches || []).some(m => m.s === "live" || m.s === "ht");
+  const bakuDay = d => { const x = new Date(d); return Number.isNaN(+x) ? "" : x.toLocaleDateString("en-CA", { timeZone: "Asia/Baku" }); };
+  const isLive = m => m.s === "live" || m.s === "ht";
+  function liveTick() {
+    const on = (live?.matches || []).some(isLive);
     if (globalThis.document?.visibilityState === "visible" && Date.now() - liveAt > (on ? 60e3 : 5 * 60e3)) liveLoad(h.requestRender);
-    const rows = (live?.matches || []).slice(0, 14);
+    return on;
+  }
+  const tm = d => { const x = new Date(d); if (Number.isNaN(+x)) return ""; const t = x.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Baku" });
+    const [, mo, dd] = bakuDay(x).split("-").map(Number); return bakuDay(x) === bakuDay(Date.now()) ? t : `${dd} ${String(MONTHS[mo - 1] || "").slice(0, 3)}, ${t}`; };
+  // Seçilmiş liqanın oyunları (sahib 2026-11-20: «ispanya italiya almanya ingiltərə portuqalya fransa … liqaların canlı hesabını»):
+  // canlılar, sonra növbəti 6 oyun, sonra son 6 nəticə — canli.json-dan (bir həftəlik pəncərə).
+  const LIVE_OF = { "eng.1": "PL", "eng.2": "ELC", "esp.1": "PD", "ita.1": "SA", "ger.1": "BL1", "fra.1": "FL1", "por.1": "PPL", "ned.1": "DED",
+    "bra.1": "BSA", "uefa.champions": "CL", "tur.1": "TSL", "rus.1": "RPL" };
+  function leagueLive(l) {
+    const code = LIVE_OF[l.id];
+    if (!code) return "";
+    const on = liveTick(), now = Date.now(), all = (live?.matches || []).filter(m => m.c === code);
+    const rows = [...all.filter(isLive), ...all.filter(m => m.s === "ns" && Date.parse(m.t) > now - 3 * 3600e3).sort((a, b) => a.t.localeCompare(b.t)).slice(0, 6),
+      ...all.filter(m => m.s === "ft").sort((a, b) => b.t.localeCompare(a.t)).slice(0, 6)];
     if (!rows.length) return "";
-    const tm = d => { const x = new Date(d); return Number.isNaN(+x) ? "" : x.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Baku" }); };
-    const st = m => m.s === "live" ? `<b style="color:#e11d48">● ${m.min ? esc(m.min) + "'" : "Canlı"}</b>` : m.s === "ht" ? '<b style="color:#e11d48">Fasilə</b>' : m.s === "ft" ? "Bitdi" : m.s === "pp" ? "Təxirə salınıb" : esc(tm(m.t));
-    const sc = m => m.hs == null ? "–" : `${esc(m.hs)} : ${esc(m.as)}`;
-    const li = m => `<li style="display:grid;grid-template-columns:92px 1fr auto 1fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)"><small style="display:flex;flex-direction:column;line-height:1.2"><span style="display:inline-flex;gap:4px;align-items:center">${FL[LIVE_FL[m.c]] || ""}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(LIVE_COMP[m.c] || m.c)}</span></span>${st(m)}</small><b style="text-align:right">${esc(m.h)}</b><span style="font-weight:800;min-width:44px;text-align:center">${sc(m)}</span><b>${esc(m.a)}</b></li>`;
+    return `<div style="margin:0 0 12px"><h3 style="margin:4px 0 2px;font-size:15px">${on && all.some(isLive) ? '<span style="color:#e11d48">● </span>Canlı və ' : ""}Oyunlar</h3><ul style="list-style:none;margin:0;padding:0;font-size:14px">${rows.map(li).join("")}</ul></div>`;
+  }
+  const st = m => m.s === "live" ? `<b style="color:#e11d48">● ${m.min ? esc(m.min) + "'" : "Canlı"}</b>` : m.s === "ht" ? '<b style="color:#e11d48">Fasilə</b>' : m.s === "ft" ? "Bitdi" : m.s === "pp" ? "Təxirə salınıb" : esc(tm(m.t));
+  const sc = m => m.hs == null ? "–" : `${esc(m.hs)} : ${esc(m.as)}`;
+  const li = m => `<li style="display:grid;grid-template-columns:92px 1fr auto 1fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)"><small style="display:flex;flex-direction:column;line-height:1.2"><span style="display:inline-flex;gap:4px;align-items:center">${FL[LIVE_FL[m.c]] || ""}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(LIVE_COMP[m.c] || m.c)}</span></span>${st(m)}</small><b style="text-align:right">${esc(m.h)}</b><span style="font-weight:800;min-width:44px;text-align:center">${sc(m)}</span><b>${esc(m.a)}</b></li>`;
+  function liveBlock() {
+    const on = liveTick(), today = bakuDay(Date.now());
+    const rows = (live?.matches || []).filter(m => bakuDay(m.t) === today).slice(0, 14);
+    if (!rows.length) return "";
     return `<section class="foot"><div class="sec-h"><h2>Bu gün</h2><span class="cnt">${on ? "canlı hesab" : "oyunlar və nəticələr"}</span><a class="more" href="https://www.football-data.org/" target="_blank" rel="noopener noreferrer" title="football-data.org, OpenLigaDB, API-Football">Mənbə ↗</a></div><ul style="list-style:none;margin:0;padding:0;font-size:14px">${rows.map(li).join("")}</ul></section>`;
   }
   // Liqa seçimi (sahib 2026-11-19: «liqaların adları səliqəli … ölkənin adı qalın, liqa adı nazik, ölkə bayrağı»; 2026-11-20:
