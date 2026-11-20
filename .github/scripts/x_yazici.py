@@ -397,19 +397,19 @@ def main():
             why = xm.check(row)
             (rejected if why else added).append((row, why))
     new_reels = []
-    if True:   # qısa videolar gecə də (sahib 2026-11-19: «daima təzələnsin»); dərc saatı yoxdur, lent hər açılışda təzəsini göstərir
-        taken = {str(r.get("id")) for r in reels} | {r["id"] for r, _ in added}
-        pool = by_topic([c for c in more if c["id"] not in taken], lambda c: c["handle"], REELS_ASK)   # Gemini-yə hər mövzudan
-        by_id = {c["id"]: c for c in pool}
-        for pid in by_topic(pick_reels(pool, REELS_PER_RUN * 3), lambda i: by_id[i]["handle"], REELS_PER_RUN):   # bir işdə mövzu təkrarlanmır
-            c = by_id[pid]
-            row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]]}   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
-            why = xm.reel_check(row)
-            if why:
-                print(f"Qısa video rədd: {pid} — {why}")
-            else:
-                new_reels.append(row)
-                print(f"Qısa video: {pid} @{c['handle']}")
+    # qısa videolar gecə də (sahib 2026-11-19: «daima təzələnsin»); dərc saatı yoxdur, lent hər açılışda təzəsini göstərir
+    taken = {str(r.get("id")) for r in reels} | {r["id"] for r, _ in added}
+    pool = by_topic([c for c in more if c["id"] not in taken], lambda c: c["handle"], REELS_ASK)   # Gemini-yə hər mövzudan
+    by_id = {c["id"]: c for c in pool}
+    for pid in by_topic(pick_reels(pool, REELS_PER_RUN * 3), lambda i: by_id[i]["handle"], REELS_PER_RUN):   # bir işdə mövzu təkrarlanmır
+        c = by_id[pid]
+        row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]]}   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
+        why = xm.reel_check(row)
+        if why:
+            print(f"Qısa video rədd: {pid} — {why}")
+        else:
+            new_reels.append(row)
+            print(f"Qısa video: {pid} @{c['handle']}")
     for row, why in rejected:
         print(f"Rədd: {row['id']} — {why}")
     for row, _ in added:

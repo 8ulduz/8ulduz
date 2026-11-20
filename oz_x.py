@@ -134,9 +134,7 @@ _HANDLE = {h.lower(): h for h in HESABLAR}
 # FxTwitter ilə 2026-11-19-da yoxlanıb: hesab var və son 3 gündə video paylaşıb. Siyasi, müharibə, mərc, qan və böyüklər
 # üçün məzmun hesabları yoxdur; Azərbaycan mövzusu hər videoda ayrıca süzülür (about_azerbaijan).
 # Mövzular (sahib, 2026-11-19: «videoların əksəriyyəti futboldur. belə olmasın proporsional olsun müxtəlif mövzular»): yazıcı hər
-# işdə və lent axında videoları mövzulara bərabər paylayır (x_yazici.balance, lent.js mix).
-MOVZULAR = {"idman": "İdman", "tebiet": "Heyvan və təbiət", "elm": "Elm, kosmos, tarix", "texnika": "Texnika və avtomobil",
-            "yemek": "Yemək, səyahət, ev", "oyun": "Oyun", "kino": "Kino və musiqi", "maraqli": "Maraqlı", "xeber": "Xəbər"}
+# işdə və lent axında videoları mövzulara bərabər paylayır (x_yazici.by_topic, lent.js mix).
 VIDEOLENT_QRUPLAR = {
     "tebiet": {   # Heyvan və təbiət (110)
         "AMAZlNGNATURE": "Nature is Amazing", "AnimalBeingBros": "AnimalBeingBros", "AnimalPlanet": "Animal Planet",
@@ -509,7 +507,7 @@ _MOVZU = {h: m for m, q in VIDEOLENT_QRUPLAR.items() for h in q}
 
 
 def movzu(handle):
-    """Hesabın mövzusu (MOVZULAR açarı)."""
+    """Hesabın mövzusu (VIDEOLENT_QRUPLAR açarı; xəbər hesablarında _XEBER_MOVZU, yoxdursa «idman»)."""
     h = _REEL_HANDLE.get(str(handle or "").lower(), "")
     return _MOVZU.get(h) or _XEBER_MOVZU.get(h) or "idman"
 

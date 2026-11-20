@@ -273,7 +273,7 @@ function networks(env = process.env) {
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN && env.INSTAGRAM !== "0") {
     const root = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`;
     list.push({ name: "instagram", root, token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", // 2026-11-20: ara Facebook-unku ilə eynidir (18 dəq, gündə ≤80). Rəsmi hədd 24 saatda 100 API postudur
-      // (content_publishing_limit): dərcdən əvvəl hesabın öz sayğacı soruşulur, dolubsa post getmir (quotaFull).
+      // (content_publishing_limit): dərcdən əvvəl hesabın öz sayğacı soruşulur, dolubsa post getmir (skip: «24 saatlıq hədd dolub»).
       gapMin: num(env.IG_MIN_GAP_MIN, num(env.SOCIAL_MIN_GAP_MIN, 18)),
       wants: a => !a.digest && /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
       async prepare(f, state, log) {
