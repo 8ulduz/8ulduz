@@ -159,22 +159,17 @@ def videolent_slice(now):
     return out
 
 
+RETRY_PAUSE = 45   # saniyə: keçidin sonunda sorğu həddi açılsın deyə gözləmə
+RETRY_GAP = 5      # saniyə: təkrar keçiddə sorğular arası (ilk keçiddə 2)
+RETRY_BUDGET = 9 * 60   # saniyə: təkrar keçid yalnız toplama bu vaxtdan az çəkibsə (iş 20 dəqiqəyə sığsın, Gemini-yə vaxt qalsın)
+
+
 def collect(known, now):
-    out, failed = [], []
+    out, failed, later = [], [], []
     TRANSFERS.clear()
-    for handle in [*xm.HESABLAR, *videolent_slice(now)]:
-        doc, err = None, ""
-        for attempt in range(2 if handle in xm.HESABLAR else 1):   # FxTwitter ara-sıra 429/5xx verir: xəbər hesabında bir dəfə gözləyib təkrar; Videolent hesabı növbəti dövrəni gözləyir
-            try:
-                doc = fetch_json(FX.format(handle))
-                break
-            except Exception as e:  # bir hesab düşsə digərləri işləyir
-                err = f"{handle}: {getattr(e, 'code', '') or type(e).__name__}"
-                time.sleep(4 + attempt * 6)
-        time.sleep(2)   # 26 hesab: tez-tez soruşanda FxTwitter 404 qaytarır
-        if doc is None:
-            failed.append(err)
-            continue
+    began = time.monotonic()
+
+    def take(handle, doc):
         reel_only = handle not in xm.HESABLAR   # yalnız Videolent: xəbər yazılmır
         for post in doc.get("results") or []:
             c = candidate(handle, post, known, now, REEL_WINDOW if reel_only else WINDOW)
@@ -184,6 +179,36 @@ def collect(known, now):
             t = transfer_candidate(handle, post, known, now)
             if t:
                 TRANSFERS.append(t)
+
+    for handle in [*xm.HESABLAR, *videolent_slice(now)]:
+        doc, err = None, ""
+        for attempt in range(2 if handle in xm.HESABLAR else 1):   # FxTwitter ara-sıra 429/5xx verir: xəbər hesabında bir dəfə gözləyib təkrar
+            try:
+                doc = fetch_json(FX.format(handle))
+                break
+            except Exception as e:  # bir hesab düşsə digərləri işləyir
+                err = f"{handle}: {getattr(e, 'code', '') or type(e).__name__}"
+                time.sleep(4 + attempt * 6)
+        time.sleep(2)   # tez-tez soruşanda FxTwitter 404 qaytarır
+        if doc is None:
+            (later if handle not in xm.HESABLAR else failed).append((handle, err))
+            continue
+        take(handle, doc)
+    # Sahib 2026-11-20 («videolentin yenilənməsini elə et ki, tiktokdan geri qalmasın»): 03:57 işində 80 hesabdan 46-sı sorğu
+    # həddinə düşdü. Həddə hörmət edərək: düşən Videolent hesabları fasilədən sonra, yavaş tempdə bir dəfə də soruşulur.
+    if later and time.monotonic() - began < RETRY_BUDGET:
+        time.sleep(RETRY_PAUSE)
+        retry, later = later, []
+        for handle, err in retry:
+            if time.monotonic() - began >= RETRY_BUDGET:
+                later.append((handle, err))
+                continue
+            try:
+                take(handle, fetch_json(FX.format(handle)))
+            except Exception as e:
+                later.append((handle, f"{handle}: {getattr(e, 'code', '') or type(e).__name__}"))
+            time.sleep(RETRY_GAP)
+    failed = [e for _, e in failed + later]
     out.sort(key=lambda c: -c["_score"])
     TRANSFERS.sort(key=lambda c: -c["_score"])
     return out, failed   # hamısı: xəbərə ilk MAX_CANDIDATES, qısa videolara qalanı da
