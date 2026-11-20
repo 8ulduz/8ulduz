@@ -248,7 +248,7 @@ test("social: Instagram posts a picture story to the Instagram account linked to
   assert.ok(logs.some(s => s.startsWith("instagram: səhifəyə bağlı Instagram peşəkar hesabı yoxdur")));
   linked = true; calls.length = 0;
   const net = S.networks(env).find(n => n.name === "instagram");
-  assert.equal(net.gapMin, 45, "gündə ən çox 32 post (Instagram API həddi 50)");
+  assert.equal(net.gapMin, 18, "Facebook-la eyni ara: gündə ən çox 80 post (Instagram API həddi 24 saatda 100)");
   res = await S.run({ articles: [noPic, pic], env: { ...env, IG_WAIT_MS: "0" }, now: NOW + 60 * 60e3, fetch, state: { ...state, _last: {} }, log: () => {} });
   const media = calls.find(c => c[0].endsWith("/1784/media"));
   assert.ok(media, "şəkilli xəbər göndərildi");
@@ -481,9 +481,9 @@ test("social: an Instagram publish error whose container is PUBLISHED is a norma
   assert.ok(ok.calls.status[0].includes("/C0?fields=status_code") && !ok.calls.status[0].includes("EAAuserTOKEN"), "konteynerin statusu səhifə açarı ilə soruşulur");
   assert.deepEqual(state._ig.map(x => x.id), [one.id]);
   assert.ok(logs.includes(`instagram: paylaşıldı — ${one.title}`));
-  await S.run({ articles: [one, two], env, now: NOW + 30 * 60e3, fetch: ok.fetch, state, log: () => {} });
-  assert.equal(ok.calls.publish, 1, "45 dəqiqəlik ara saxlanır");
-  res = await S.run({ articles: [one, two], env, now: NOW + 46 * 60e3, fetch: ok.fetch, state, log: () => {} });
+  await S.run({ articles: [one, two], env, now: NOW + 10 * 60e3, fetch: ok.fetch, state, log: () => {} });
+  assert.equal(ok.calls.publish, 1, "18 dəqiqəlik ara saxlanır");
+  res = await S.run({ articles: [one, two], env, now: NOW + 19 * 60e3, fetch: ok.fetch, state, log: () => {} });
   assert.equal(ok.calls.publish, 2, "aradan sonra növbəti xəbər gedir — 6 saat gözləmədən");
   assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === two.id));
   for (const status of ["ERROR", "EXPIRED"]) {
@@ -493,6 +493,7 @@ test("social: an Instagram publish error whose container is PUBLISHED is a norma
     assert.equal(st._pause.instagram, NOW / 1000 + 6 * 3600, `${status}: məhdudiyyət həqiqidir, fasilə qalır`);
     assert.equal(st._last?.instagram, undefined, `${status}: çıxmayan post ara saymır`);
     assert.equal(st._ig, undefined, `${status}: /ig/ siyahısına düşmür`);
+    assert.equal(bad.calls.media, 1, `${status}: fasilədən əvvəl hesabın son postuna baxılır`);
   }
   // 2026-11-17 ölçüsü: status hələ «PUBLISHED» deyil (və ya sorğu cavabsız), post isə hesabda var — adi uğur, fasilə yoxdur.
   const iso = t => new Date(t).toISOString().replace(".000Z", "+0000");
@@ -605,4 +606,76 @@ test("social: with no usable description the explanation comes from the story's 
   assert.equal(S.describe({ title: "Sportinfo TV-də GÜNDƏM", source: "Sportinfo", summary: "" }, page), "", "saytın adı başlıqla «ortaq söz» sayılmır");
   const long = S.sentences("Bir neçə cümlə burada yazılıb, uzun bir cümlə. ".repeat(40), 1200);
   assert.ok(long.length > 1000 && long.length <= 1200 && long.endsWith("."), "uzun, amma Instagram həddinə (2200) sığır və tam cümlə ilə bitir");
+});
+
+// 2026-11-20 ölçüsü (17–20 noyabr, 400 iş): Facebook-a gündə 49–52 post, Instagram-a düz 4 — 6 saatdan bir (13:44, 19:46, 01:49, 08:00 UTC).
+// Fasilədən sonrakı ilk dərc post çıxarırdı (Instagram-ın vaxtı xəta jurnalından 3–9 s əvvəl), cavab 2207051, konteyner statusu ERROR:
+// status ERROR görəndə hesabın son postuna baxılmırdı, 6 saat fasilə yazılırdı.
+test("social: an Instagram publish error with container status ERROR but the post on the account is a normal post, no 6 h pause", async () => {
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", IG_WAIT_MS: "0", SOCIAL_PER_RUN: "1" };
+  const one = art("a7", { imageUrl: "https://apa.az/1.jpg", title: "İlham Əliyev Hanoyda Vyetnam Milli Assambleyasının sədri ilə görüşüb", summary: "Görüşdə əməkdaşlıq müzakirə olunub." });
+  const two = art("b7", { imageUrl: "https://apa.az/2.jpg", title: "Bakıda yeni metro stansiyası açılıb", summary: "Stansiya Xətai rayonundadır." });
+  const limit = '{"error":{"message":"Application request limit reached","type":"OAuthException","code":4,"error_subcode":2207051,"is_transient":false}}';
+  const iso = t => new Date(t).toISOString().replace(".000Z", "+0000");
+  let onAccount = [], publish = 0;
+  const fetch = async (url, init = {}) => {
+    if (init.method === "HEAD") return { status: 200 };
+    if (url.includes("fields=instagram_business_account")) return { json: async () => ({ access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } }) };
+    if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+    if (url.includes("/content_publishing_limit")) return { json: async () => ({ data: [{ quota_usage: publish, config: { quota_total: 100, quota_duration: 86400 } }] }) };
+    if (url.endsWith("/1784/media")) return { ok: true, status: 200, json: async () => ({ id: "C" + publish }), text: async () => "" };
+    if (url.endsWith("/1784/media_publish")) {
+      const a = [one, two][publish++];
+      onAccount = [{ timestamp: iso(Date.now()), caption: `${a.title}\n\n${a.summary}` }];
+      return { ok: false, status: 403, text: async () => limit };
+    }
+    if (url.includes("fields=status_code")) return { json: async () => ({ status_code: "ERROR" }) };
+    if (url.includes("/1784/media?fields=timestamp,caption&limit=1")) return { json: async () => ({ data: onAccount }) };
+    throw new Error("gözlənilməz " + url);
+  };
+  const state = {};
+  let res = await S.run({ articles: [one, two], env, now: NOW, fetch, state, log: () => {} });
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === one.id), "post hesabdadır: paylaşılıb");
+  assert.deepEqual(res.failed, []);
+  assert.equal(state._pause?.instagram, undefined, "6 saat fasilə yoxdur");
+  res = await S.run({ articles: [one, two], env, now: NOW + 19 * 60e3, fetch, state, log: () => {} });
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === two.id), "növbəti xəbər Facebook arası ilə (18 dəq) gedir, 6 saat sonra yox");
+  assert.equal(publish, 2);
+});
+
+test("social: Instagram respects the official 24 h publishing limit (content_publishing_limit) and logs the container status first", async () => {
+  const env = { FB_PAGE_ID: "1", FB_PAGE_TOKEN: "EAAuserTOKEN123456", IG_WAIT_MS: "0" };
+  const one = art("c8", { imageUrl: "https://apa.az/1.jpg", title: "Gəncədə yeni körpü açıldı", summary: "Körpü 200 metrdir." });
+  const two = art("d8", { imageUrl: "https://apa.az/2.jpg", title: "Neftin qiyməti ucuzlaşıb", summary: "Brent 1 dollar ucuzlaşıb." });
+  const mk = (usage, publish = () => ({ ok: true, status: 200, text: async () => "" })) => {
+    const calls = { quota: 0, media: 0, publish: 0 };
+    const fetch = async (url, init = {}) => {
+      if (init.method === "HEAD") return { status: 200 };
+      if (url.includes("fields=instagram_business_account")) return { json: async () => ({ access_token: "PAGEtok12345", instagram_business_account: { id: "1784" } }) };
+      if (url.endsWith("/feed")) return { ok: true, status: 200, text: async () => "" };
+      if (url.includes("/1784/content_publishing_limit?fields=quota_usage,config")) { calls.quota++; assert.ok(!url.includes("EAAuserTOKEN"), "səhifə açarı ilə"); return { json: async () => usage }; }
+      if (url.endsWith("/1784/media")) { calls.media++; return { ok: true, status: 200, json: async () => ({ id: "C1" }), text: async () => "" }; }
+      if (url.endsWith("/1784/media_publish")) { calls.publish++; return publish(); }
+      if (url.includes("fields=status_code")) return { json: async () => ({ status_code: "IN_PROGRESS" }) };
+      if (url.includes("/1784/media?fields=timestamp,caption&limit=1")) return { json: async () => ({ data: [] }) };
+      throw new Error("gözlənilməz " + url);
+    };
+    return { calls, fetch };
+  };
+  const full = mk({ data: [{ quota_usage: 100, config: { quota_total: 100, quota_duration: 86400 } }] }), logs = [], st = {};
+  let res = await S.run({ articles: [one, two], env, now: NOW, fetch: full.fetch, state: st, log: s => logs.push(s) });
+  assert.ok(!res.posted.some(x => x[0] === "instagram") && !res.failed.some(x => x[0] === "instagram"), "hədd dolub: Instagram-a post yoxdur");
+  assert.equal(full.calls.media, 0, "konteyner də yaradılmır");
+  assert.equal(full.calls.quota, 1, "sayğac dövrədə bir dəfə soruşulur");
+  assert.ok(logs.some(s => s.startsWith("instagram: ötürülür (24 saatlıq hədd dolub: 100/100)")));
+  assert.equal(st.instagram?.[one.id], undefined, "xəbər atılmır: hədd açılanda yenə namizəddir");
+  for (const usage of [{ data: [{ quota_usage: 99, config: { quota_total: 100 } }] }, {}, { error: { code: 4 } }]) {
+    const okc = mk(usage);
+    res = await S.run({ articles: [one], env, now: NOW, fetch: okc.fetch, state: {}, log: () => {} });
+    assert.ok(res.posted.some(x => x[0] === "instagram"), `hədd dolmayıb və ya bilinmir (${JSON.stringify(usage)}): post gedir`);
+  }
+  const limit = '{"error":{"message":"Application request limit reached","type":"OAuthException","code":4,"error_subcode":2207051,"error_user_msg":"' + "x".repeat(400) + '"}}';
+  const bad = mk({}, () => ({ ok: false, status: 403, text: async () => limit })), l2 = [];
+  await S.run({ articles: [one], env, now: NOW, fetch: bad.fetch, state: {}, log: s => l2.push(s) });
+  assert.ok(l2.some(s => s.startsWith("instagram: alınmadı — HTTP 403 (status: IN_PROGRESS,IN_PROGRESS,IN_PROGRESS) {")), "status jurnalda kəsilmir");
 });
