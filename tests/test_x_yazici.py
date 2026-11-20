@@ -182,7 +182,7 @@ class VideolentTenfoldTest(unittest.TestCase):
         seen = set()
         t0 = datetime.datetime(2026, 11, 20, tzinfo=datetime.timezone.utc)
         per = xy.VL_PER_RUN // len(xy.xm.VIDEOLENT_QRUPLAR)
-        for k in range(max(map(len, xy.xm.VIDEOLENT_QRUPLAR.values())) // per + 2):
+        for k in range(2 * (max(map(len, xy.xm.VIDEOLENT_QRUPLAR.values())) // per + 2)):   # birinci dərəcəli mənbələr hər işdə, qalanı bir az yavaş dövr edir
             part = xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k))
             self.assertLessEqual(len(part), xy.VL_PER_RUN)
             seen.update(part)
@@ -239,3 +239,27 @@ class RetryPassTest(unittest.TestCase):
         self.assertIn(xy.RETRY_PAUSE, sleeps)
         self.assertFalse(any(f.startswith(("SmithsonianZoo", "VisitNorway")) for f in failed), "ikinci cəhddə alınan düşmüş sayılmır")
         self.assertLessEqual(xy.RETRY_BUDGET, 10 * 60, "iş 20 dəqiqəlik limitə sığır")
+
+
+class VideolentOndeTest(unittest.TestCase):
+    """Sahib 2026-11-20: «1-ci dərəcədə maraqlı hadisələr olan videoları olan mənbələr tap, onlara üstünlük ver»."""
+
+    def test_first_degree_sources_are_known_checked_every_run_and_ranked_first(self):
+        onde = xy.xm.VIDEOLENT_ONDE
+        self.assertGreaterEqual(len(onde), 15)
+        for h in onde:
+            self.assertIn(h, xy.xm.ADLAR, f"{h}: hesab cədvəldədir")
+            self.assertTrue(xy.xm.onde(h.lower()))
+        self.assertFalse(xy.xm.onde("UMG"))
+        reel_only = [h for h in onde if h in xy.xm.VIDEOLENT_HESABLAR]
+        t0 = datetime.datetime(2026, 11, 20, tzinfo=datetime.timezone.utc)
+        for k in range(5):
+            part = xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k))
+            self.assertTrue(set(reel_only) <= set(part), "birinci dərəcəli mənbələr hər işdə yoxlanır")
+            self.assertEqual(len(part), len(set(part)), "hesab bir işdə iki dəfə soruşulmur")
+            self.assertLessEqual(len(part), xy.VL_PER_RUN)
+        self.assertIn("birinci dərəcəli", xy.REELS_PROMPT)
+        self.assertIn("baxış", xy.REELS_PROMPT)
+        src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
+        self.assertIn('key=lambda c: (not xm.onde(c["handle"]), -c["_score"])', src, "hər mövzuda əvvəl birinci dərəcəli, sonra çox baxılan")
+        self.assertIn('int(post.get("views") or 0) // 100', src, "baxış sayı xala daxildir")

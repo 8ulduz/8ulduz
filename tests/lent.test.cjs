@@ -116,3 +116,18 @@ test('Videolent: #/videolent?r=<id> is read from the address (the shared link re
   assert.equal(('/videolent?x=1&r=ab_c-9'.match(rx) || [])[1], 'ab_c-9');
   assert.equal('/videolent'.match(rx), null);
 });
+
+test('Videolent: first-degree sources (reels «p») lead each topic, topics still alternate (owner 2026-11-20)', async () => {
+  const { mix } = await import(pathToFileURL(file).href);
+  const list = [
+    { u: 's1', n: 'A', m: 'idman' }, { u: 's2', n: 'B', m: 'idman' }, { u: 'sp', n: 'nocontextfooty', m: 'idman', p: true },
+    { u: 't1', n: 'C', m: 'tebiet' }, { u: 'tp', n: 'buitengebieden', m: 'tebiet', p: true },
+  ];
+  for (let i = 0; i < 10; i++) {
+    const out = mix(list).map(v => v.u);
+    assert.deepEqual(new Set(out.slice(0, 2)), new Set(['sp', 'tp']), 'hər mövzunun ilk videosu birinci dərəcəli mənbədəndir');
+    assert.equal(out.length, 5);
+  }
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('p: r.p === 1'), 'reels.json-dakı «p» lentə keçir');
+});
