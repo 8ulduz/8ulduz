@@ -3,7 +3,7 @@
 // əsas koddakı köməkçilər app.js-in fbHelpers() funksiyası ilə verilir.
 
 // «Bu gün» (sahib 2026-11-20: canlı hesab, «pulsuz həll»): data/canli.json — yeniləyici football-data.org-un pulsuz planından yazır
-// (12 turnir, vəziyyət və hesab, dəqiqəsiz). Fayl əvvəl dəqiqəlik canlı kanaldan, alınmasa saytdan; panel açıq və canlı oyun
+// (13 turnir, vəziyyət və hesab), alınmayanda OpenLigaDB; Türkiyə, Rusiya, Azərbaycan API-Football-dan dəqiqə ilə. Fayl əvvəl dəqiqəlik canlı kanaldan, alınmasa saytdan; panel açıq və canlı oyun
 // varsa dəqiqədə bir yenidən oxunur. Açar yoxdursa fayl yoxdur, blok çıxmır.
 const LIVE_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
 let live = null, liveAt = 0, liveBusy = false;
@@ -107,19 +107,19 @@ export function view(h, list) {
     return `<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap">${FL[fl] || ""}${country ? `<b style="font-weight:800">${esc(country)}</b>` : ""}<span style="font-weight:400">${esc(name)}</span></span>`;
   };
   // Bu günün oyunları: canlılar əvvəl, sonra başlayacaqlar, sonra bitənlər (sıranı yeniləyici qoyur)
-  const LIVE_FL = { PL: "eng", ELC: "eng", PD: "esp", SA: "ita", BL1: "ger", FL1: "fra", DED: "ned", PPL: "por", BSA: "bra" };
+  const LIVE_FL = { PL: "eng", ELC: "eng", PD: "esp", SA: "ita", BL1: "ger", FL1: "fra", DED: "ned", PPL: "por", BSA: "bra", TSL: "tur", RPL: "rus", AZE: "az" };
   const LIVE_COMP = { PL: "Premyer Liqa", ELC: "Çempionşip", PD: "La Liqa", SA: "Seriya A", BL1: "Bundesliqa", FL1: "Liqa 1", DED: "Eredivizie",
-    PPL: "Primeyra Liqa", CL: "Çempionlar Liqası", BSA: "Braziliya", CLI: "Libertadores", WC: "Dünya çempionatı", EC: "Avropa çempionatı" };
+    PPL: "Primeyra Liqa", CL: "Çempionlar Liqası", BSA: "Braziliya", CLI: "Libertadores", WC: "Dünya çempionatı", EC: "Avropa çempionatı", TSL: "Süper Liq", RPL: "Rusiya", AZE: "Premyer Liqa" };
   function liveBlock() {
     const on = (live?.matches || []).some(m => m.s === "live" || m.s === "ht");
     if (globalThis.document?.visibilityState === "visible" && Date.now() - liveAt > (on ? 60e3 : 5 * 60e3)) liveLoad(h.requestRender);
     const rows = (live?.matches || []).slice(0, 14);
     if (!rows.length) return "";
     const tm = d => { const x = new Date(d); return Number.isNaN(+x) ? "" : x.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Baku" }); };
-    const st = m => m.s === "live" ? '<b style="color:#e11d48">● Canlı</b>' : m.s === "ht" ? '<b style="color:#e11d48">Fasilə</b>' : m.s === "ft" ? "Bitdi" : m.s === "pp" ? "Təxirə salınıb" : esc(tm(m.t));
+    const st = m => m.s === "live" ? `<b style="color:#e11d48">● ${m.min ? esc(m.min) + "'" : "Canlı"}</b>` : m.s === "ht" ? '<b style="color:#e11d48">Fasilə</b>' : m.s === "ft" ? "Bitdi" : m.s === "pp" ? "Təxirə salınıb" : esc(tm(m.t));
     const sc = m => m.hs == null ? "–" : `${esc(m.hs)} : ${esc(m.as)}`;
     const li = m => `<li style="display:grid;grid-template-columns:92px 1fr auto 1fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)"><small style="display:flex;flex-direction:column;line-height:1.2"><span style="display:inline-flex;gap:4px;align-items:center">${FL[LIVE_FL[m.c]] || ""}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(LIVE_COMP[m.c] || m.c)}</span></span>${st(m)}</small><b style="text-align:right">${esc(m.h)}</b><span style="font-weight:800;min-width:44px;text-align:center">${sc(m)}</span><b>${esc(m.a)}</b></li>`;
-    return `<section class="foot"><div class="sec-h"><h2>Bu gün</h2><span class="cnt">${on ? "canlı hesab" : "oyunlar və nəticələr"}</span><a class="more" href="https://www.football-data.org/" target="_blank" rel="noopener noreferrer">football-data.org ↗</a></div><ul style="list-style:none;margin:0;padding:0;font-size:14px">${rows.map(li).join("")}</ul></section>`;
+    return `<section class="foot"><div class="sec-h"><h2>Bu gün</h2><span class="cnt">${on ? "canlı hesab" : "oyunlar və nəticələr"}</span><a class="more" href="https://www.football-data.org/" target="_blank" rel="noopener noreferrer" title="football-data.org, OpenLigaDB, API-Football">Mənbə ↗</a></div><ul style="list-style:none;margin:0;padding:0;font-size:14px">${rows.map(li).join("")}</ul></section>`;
   }
   return liveBlock() + footballBlock(list);
 }

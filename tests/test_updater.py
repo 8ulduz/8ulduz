@@ -2619,3 +2619,27 @@ class LiveScoresTest(unittest.TestCase):
         self.assertIn('headers={"X-Auth-Token": key', src)
         self.assertNotIn("print(key", src)
         self.assertIn("update_live_scores", inspect.getsource(updater.slow_cycle))
+
+    def test_api_football_rows_have_minute_and_known_leagues_only(self):
+        doc = {"response": [
+            {"fixture": {"date": "2026-11-20T16:00:00+00:00", "status": {"short": "2H", "elapsed": 67}}, "league": {"id": 419},
+             "teams": {"home": {"name": "Qarabağ"}, "away": {"name": "Neftçi"}}, "goals": {"home": 2, "away": 1}},
+            {"fixture": {"date": "2026-11-20T17:00:00+00:00", "status": {"short": "NS", "elapsed": None}}, "league": {"id": 203},
+             "teams": {"home": {"name": "Galatasaray"}, "away": {"name": "Fenerbahçe"}}, "goals": {"home": None, "away": None}},
+            {"fixture": {"date": "2026-11-20T17:00:00+00:00", "status": {"short": "1H", "elapsed": 10}}, "league": {"id": 39},
+             "teams": {"home": {"name": "Arsenal"}, "away": {"name": "Chelsea"}}, "goals": {"home": 0, "away": 0}}]}
+        rows = updater.parse_af(doc, "2026-11-20")
+        self.assertEqual([(r["c"], r["s"], r.get("min")) for r in rows], [("AZE", "live", 67), ("TSL", "ns", None)])
+        self.assertEqual((rows[0]["hs"], rows[0]["as"]), (2, 1))
+
+    def test_api_football_budget_spreads_over_the_match_hours(self):
+        now = datetime.datetime(2026, 11, 20, 12, 0, tzinfo=datetime.timezone.utc)
+        self.assertEqual(updater._af_due({"used": 0}, [], now), "plan", "günün cədvəli birinci")
+        self.assertIsNone(updater._af_due({"used": updater.AF_DAILY}, [], now), "limit bitib: sorğu yoxdur")
+        plan = {"used": 1, "plan": now.isoformat(), "at": now.isoformat()}
+        later = [{"s": "ns", "t": (now + datetime.timedelta(hours=5)).isoformat()}]
+        self.assertIsNone(updater._af_due(plan, later, now + datetime.timedelta(minutes=10)), "oyun yoxdur: canlı sorğu yoxdur")
+        live = [{"s": "live", "t": now.isoformat()}]
+        self.assertEqual(updater._af_due(plan, live, now + datetime.timedelta(minutes=5)), "live")
+        self.assertIsNone(updater._af_due(plan, live, now + datetime.timedelta(minutes=2)), "4 dəqiqədən tez yox")
+        self.assertLessEqual(updater.AF_DAILY, 100)
