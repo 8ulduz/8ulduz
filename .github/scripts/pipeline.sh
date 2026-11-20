@@ -190,7 +190,10 @@ push_live() {
   # (publish_main onları silir). Sayt onları status.json-dakı "langs" ilə tanıyır, alınmasa ümumi latest.json-a qayıdır.
   # social: rəsmi hesabların yazıları (social_loop) dəqiqəlik kanalda; main-də də qalır (publish_main data/-nı köçürür).
   # reels: Videolent (sahib 2026-11-20: «tiktokdan geri qalmasın») — yeni video 10 dəqiqəlik main yayımını və Pages-i gözləməsin.
-  for name in status latest latest.az latest.en latest.ru latest.tr markets social reels; do
+  for name in status latest latest.az latest.en latest.ru latest.tr markets social; do
+    [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
+  done
+  for name in reels; do
     [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
   done
   for old in $(ls "$SLOTS" | sort -n | head -n -"$KEEP_SLOTS"); do
@@ -371,13 +374,15 @@ tixac_loop() {
 # x-yazici.yml-in «20 dəqiqədən bir»ini 2026-11-19 17:26 – 11-20 03:57 arası heç işlətmədi, lent 11 saat dayandı. İşi bu döngü
 # başladır: hər 20 dəqiqəlik pəncərədə (UTC dəqiqə 5, 25, 45-dən sonra) bir dəfə; əvvəlki iş hələ gedirsə və ya növbədədirsə yox.
 # Yalnız dispatch: açar və X sorğusu bu işə gəlmir, xəbər dövrəsində şəbəkə sorğusu yoxdur; cron ehtiyat qalır.
-# Yazıcının main-ə göndərdiyi oz_x.json 10 dəqiqəlik main yayımını gözləməsin: fayl API ilə gəlir (git deyil: publish_main ilə
+# Yazıcının main-ə göndərdiyi X növbə faylı (kod siyahısındakı *_x.json) 10 dəqiqəlik main yayımını gözləməsin: fayl API ilə gəlir (git deyil: publish_main ilə
 # toqquşmur), JSON yoxlanır, əsas döngü onu növbəti dövrənin əvvəlində koda qoyur (yerli fayl işi, şəbəkə yoxdur).
-pull_oz_x() {
-  local tmp="$STATE/oz_x.json.tmp"
-  gh_t api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY:-8ulduz/8ulduz}/contents/oz_x.json?ref=main" > "$tmp" 2>/dev/null \
+pull_reel_src() {
+  local tmp="$STATE/reel-src.tmp" src="" f
+  for f in $CODE_FILES; do case "$f" in *_x.json) src="$f" ;; esac; done
+  [ -n "$src" ] || return 0
+  gh_t api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY:-8ulduz/8ulduz}/contents/$src?ref=main" > "$tmp" 2>/dev/null \
     && py_t 10 "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); assert isinstance(d.get("reels", []), list)' "$tmp" \
-    && ! cmp -s "$tmp" "$CUR/oz_x.json" && mv -f "$tmp" "$STATE/oz_x.json.new"
+    && ! cmp -s "$tmp" "$CUR/$src" && printf '%s' "$src" > "$STATE/reel-src.name" && mv -f "$tmp" "$STATE/reel-src.new"
   rm -f "$tmp"
   return 0
 }
@@ -386,11 +391,11 @@ xyazici_loop() {
   local last=-1 slot busy was=1
   while :; do
     slot=$(( ($(date +%s) - 300) / 1200 ))
-    # yeni pəncərə gəlibsə və ya iş gedirsə (bitəndə oz_x.json dərhal götürülsün) dəqiqədə bir soruşulur
+    # yeni pəncərə gəlibsə və ya iş gedirsə (bitəndə növbə faylı dərhal götürülsün) dəqiqədə bir soruşulur
     if [ "$slot" != "$last" ] || [ "$was" = 1 ]; then
       busy="$(gh_t run list --workflow x-yazici.yml --limit 5 --json status --jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo "")"
       if [ "$busy" = 0 ]; then
-        [ "$was" = 1 ] && pull_oz_x
+        [ "$was" = 1 ] && pull_reel_src
         was=0
         if [ "$slot" != "$last" ]; then
           gh_t workflow run x-yazici.yml --ref main >/dev/null 2>&1 && { last=$slot; was=1; }
@@ -473,7 +478,7 @@ while :; do
     rm -f "$STATE/code-sync"
     copy_code "$REPO_DIR" "$CUR"
   fi
-  [ -f "$STATE/oz_x.json.new" ] && mv -f "$STATE/oz_x.json.new" "$CUR/oz_x.json"   # xyazici_loop: Videolentin təzə videoları
+  [ -f "$STATE/reel-src.new" ] && mv -f "$STATE/reel-src.new" "$CUR/$(cat "$STATE/reel-src.name")"   # xyazici_loop: Videolentin təzə videoları
   run_py --fast "$FAST_LIMIT" || echo "sürətli dövrə xəta verdi"
   touch "$STATE/heartbeat"
   guard_outputs
