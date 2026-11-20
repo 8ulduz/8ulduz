@@ -4246,7 +4246,7 @@ def _wiki_league(spec, prev, now_dt):
     # Eyni mövsümdə ikidən çox yeni ad gəlibsə kimsə cədvəli pozub: əvvəlki qalır.
     if prev.get("season") == season and known_rows and len({r["full"] for r in rows} - {r.get("full") or r.get("team") for r in known_rows}) > 2:
         raise ValueError("komanda adları dəyişib")
-    logos = {r.get("full") or r.get("team"): r.get("logo") for r in known_rows if "espncdn" not in (r.get("logo") or "")}
+    logos = {r.get("full") or r.get("team"): r.get("logo") for r in known_rows}
     for r in rows:
         r["logo"] = logos.get(r["full"]) or ""
     missing = [r["_page"] for r in rows if not r["logo"]]

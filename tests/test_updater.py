@@ -1018,13 +1018,13 @@ class WikiTablesTest(unittest.TestCase):
                 return {"query": {"pages": [{"title": "Arsenal (C)", "thumbnail": {"source": "https://upload.wikimedia.org/a.png?utm=1"}}]}}
             return {"parse": {"text": self.page()}}
         prev = {"sec": 7, "groups": [{"rows": [{"team": "Man City", "full": "Manchester City", "logo": "https://upload.wikimedia.org/mc.png"},
-                                               {"team": "Klub 3", "logo": "https://a.espncdn.com/k.png"}]}]}
+                                               {"team": "Klub 3", "logo": ""}]}]}
         with patch.object(updater, "_wiki_api", side_effect=api):
             league = updater._wiki_league(updater.WIKI_LEAGUES[0], prev, self.NOW)
         rows = league["groups"][0]["rows"]
         self.assertEqual(rows[0]["logo"], "https://upload.wikimedia.org/mc.png")
         self.assertEqual(rows[1]["logo"], "https://upload.wikimedia.org/a.png")
-        self.assertEqual(rows[2]["logo"], "")  # ESPN loqosu saxlanmır
+        self.assertEqual(rows[2]["logo"], "")  # şəkli tapılmayan klub boş qalır
         self.assertNotIn("_page", rows[0])
         self.assertNotIn("full", rows[1])
         self.assertEqual((league["asof"], league["season"]), ("2026-10-31", "2026/27"))
