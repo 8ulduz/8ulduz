@@ -2646,3 +2646,10 @@ class LiveScoresTest(unittest.TestCase):
         self.assertEqual(updater._af_due(plan, live, now + datetime.timedelta(minutes=5)), "live")
         self.assertIsNone(updater._af_due(plan, live, now + datetime.timedelta(minutes=2)), "4 dəqiqədən tez yox")
         self.assertLessEqual(updater.AF_DAILY, 100)
+
+    def test_week_window_keeps_recent_results_and_next_games(self):
+        days = {"2026-11-19", "2026-11-20"}
+        rows = updater.parse_live(self.DOC, days)
+        self.assertIn(("SA", "ft"), [(r["c"], r["s"]) for r in rows], "dünənki nəticə liqa görünüşü üçün qalır")
+        self.assertGreaterEqual(updater.LIVE_BACK + updater.LIVE_AHEAD + 1, 7, "bir həftəlik pəncərə")
+        self.assertLessEqual(updater.LIVE_BACK + updater.LIVE_AHEAD, 10, "football-data.org pulsuz planı ən çox 10 gün")

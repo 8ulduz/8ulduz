@@ -4350,12 +4350,16 @@ LIVE_FILE = OUT_DIR / "canli.json"
 LIVE_API = "https://api.football-data.org/v4/matches"
 LIVE_EVERY = datetime.timedelta(minutes=15)          # canlı oyun yoxdursa
 LIVE_SOON = datetime.timedelta(minutes=20)           # oyuna bu qədər qalıb və ya oyun gedir: hər yavaş dövrədə (~4 dəq)
+LIVE_STALE = datetime.timedelta(hours=3)            # başlaması 3 saatdan çox keçmiş, vəziyyəti dəyişməyən oyun tez-tez soruşulmur
 LIVE_COMP = {"PL": "İngiltərə · Premyer Liqa", "ELC": "İngiltərə · Çempionşip", "PD": "İspaniya · La Liqa", "SA": "İtaliya · Seriya A",
              "BL1": "Almaniya · Bundesliqa", "FL1": "Fransa · Liqa 1", "DED": "Niderland · Eredivizie", "PPL": "Portuqaliya · Primeyra Liqa",
              "CL": "Çempionlar Liqası", "BSA": "Braziliya · Seriya A", "CLI": "Kopa Libertadores", "WC": "Dünya çempionatı", "EC": "Avropa çempionatı"}
 LIVE_STATUS = {"IN_PLAY": "live", "PAUSED": "ht", "FINISHED": "ft", "AWARDED": "ft", "SCHEDULED": "ns", "TIMED": "ns",
                "POSTPONED": "pp", "SUSPENDED": "pp", "CANCELLED": "pp"}
 _LIVE_NAME = re.compile(r"[\w .'’&/\-]{2,40}", re.U)
+
+
+LIVE_BACK, LIVE_AHEAD = 3, 4   # sahib 2026-11-20 («liqaların canlı hesabını»): liqa seçiləndə son nəticələr və növbəti oyunlar da
 
 
 def parse_live(doc, today):
@@ -4370,7 +4374,7 @@ def parse_live(doc, today):
         except ValueError:
             continue
         names = [((m.get(k) or {}).get("shortName") or (m.get(k) or {}).get("name") or "").strip() for k in ("homeTeam", "awayTeam")]
-        if comp not in LIVE_COMP or not status or day != today or not all(_LIVE_NAME.fullmatch(n) for n in names):
+        if comp not in LIVE_COMP or not status or day not in ({today} if isinstance(today, str) else today) or not all(_LIVE_NAME.fullmatch(n) for n in names):
             continue
         full = ((m.get("score") or {}).get("fullTime") or {})
         row = {"c": comp, "t": when.replace("Z", "+00:00"), "s": status, "h": names[0], "a": names[1]}
@@ -4393,7 +4397,7 @@ def _live_due(old, now_dt):
         if r.get("s") in ("live", "ht"):
             return True
         try:
-            if r.get("s") == "ns" and datetime.datetime.fromisoformat(r["t"]) - now_dt <= LIVE_SOON:
+            if r.get("s") == "ns" and -LIVE_STALE <= datetime.datetime.fromisoformat(r["t"]) - now_dt <= LIVE_SOON:
                 return True
         except (KeyError, ValueError):
             pass
@@ -4419,10 +4423,11 @@ def update_live_scores():
     af_rows = [r for r in old_rows if r.get("c") in AF_LEAGUES.values()]
     touched = False
     if fd_key and _live_due({"checkedAt": old.get("checkedAt"), "matches": main_rows} if old.get("day") == today.isoformat() else {}, now_dt):
-        span = f"?dateFrom={(today - datetime.timedelta(days=1)).isoformat()}&dateTo={(today + datetime.timedelta(days=1)).isoformat()}"
+        span = f"?dateFrom={(today - datetime.timedelta(days=LIVE_BACK)).isoformat()}&dateTo={(today + datetime.timedelta(days=LIVE_AHEAD)).isoformat()}"
+        days = {(today + datetime.timedelta(days=d)).isoformat() for d in range(-LIVE_BACK, LIVE_AHEAD + 1)}
         try:
             doc = json.loads(fetch(LIVE_API + span, timeout=15, headers={"X-Auth-Token": fd_key, "Accept": "application/json"}).decode("utf-8"))
-            main_rows, touched = parse_live(doc, today.isoformat()), True
+            main_rows, touched = parse_live(doc, days), True
         except Exception as e:  # açar ünvana və loga düşmür: yalnız xətanın növü
             print("  ! canlı hesab:", getattr(e, "code", "") or type(e).__name__)
             try:
