@@ -1810,8 +1810,13 @@ function navLeagues(slug, tab) {
   // Milli komandalar (sahib 2026-11-19: «Milli liqaları bölməsini təkmilləşdir»): Azərbaycan millisi başda — bayraqla, öz yarışındakı
   // komanda səhifəsinə; yarışlar qitələrə görə: Dünya, Avropa, digər qitələr.
   const azc = nat.find(c => c.az), region = c => /^dc-/.test(c.short) ? 0 : /^(ml-|avro)/.test(c.short) ? 1 : 2;
+  // Böyük millilər (sahib 2026-11-20: «ispanya italiya almanya ingiltərə portuqalya fransa»): birbaşa komanda səhifəsinə, cari
+  // yarışda (Millətlər Liqası və ya seçmə; bitmiş Dünya Çempionatı sonuncu seçimdir).
+  const BIG = [["İspaniya", "esp"], ["İtaliya", "ita"], ["Almaniya", "ger"], ["İngiltərə", "eng"], ["Portuqaliya", "por"], ["Fransa", "fra"]];
+  const big = BIG.map(([n, k]) => { const c = [...nat].sort((x, y) => (region(x) || 9) - (region(y) || 9)).find(c => c.clubs.some(([t]) => t === n));
+    return c && { short: c.short, label: n, clubs: [], href: teamHref(c, n), html: `${S.fbFlag?.(k) || ""}<b>${esc(n)}</b>` }; }).filter(Boolean);
   const natRows = [
-    { label: "Milli komandalar", items: [...(azc ? [{ short: azc.short, label: "Azərbaycan millisi", clubs: [], href: teamHref(azc, "Azərbaycan"), html: `${FLAGS.az}<b>Azərbaycan millisi</b>` }] : []), ...nat.filter(c => !region(c))] },
+    { label: "Milli komandalar", items: [...(azc ? [{ short: azc.short, label: "Azərbaycan millisi", clubs: [], href: teamHref(azc, "Azərbaycan"), html: `${FLAGS.az}<b>Azərbaycan millisi</b>` }] : []), ...big, ...nat.filter(c => !region(c))] },
     { group: "Avropa", label: "Avropa", items: nat.filter(c => region(c) === 1) },
     { label: "Digər qitələr", items: nat.filter(c => region(c) === 2) }].filter(g => g.items.length);
   return [{ group: "Azərbaycan", label: "Azərbaycan liqaları", items: az }, ...(items.length ? [{ label: "Dünya liqaları", items }] : []), ...(nat.length ? natRows : [])];
@@ -1936,7 +1941,7 @@ function fbLeagues() {
 }
 // Cədvəl hansı günün oyunlarına qədərdir.
 // Futbol bloku tənbəl modulda (futbol.js): yalnız blok çəkiləndə — panel açıq ikən və ya liqa səhifəsində — yüklənir, əsas kod ~5,6 KB yüngülləşir
-const loadFb = () => S.fbMod ||= import("./futbol.js").then(m => { S.fbView = m.view; S.fbNav = m.navLabel; requestRender(false); S.navRefresh?.(); }).catch(() => { S.fbMod = null; });
+const loadFb = () => S.fbMod ||= import("./futbol.js").then(m => { S.fbView = m.view; S.fbNav = m.navLabel; S.fbFlag = m.flag; requestRender(false); S.navRefresh?.(); }).catch(() => { S.fbMod = null; });
 const fbHelpers = () => ({ S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, requestRender });
 function footballBlock(list) {
   wantSports();
