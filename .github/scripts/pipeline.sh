@@ -63,6 +63,7 @@ SOCIAL_PID=""
 EDITORIAL_PID=""
 ROLLOUT_PID=""
 TIXAC_PID=""
+XYAZICI_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
@@ -72,6 +73,7 @@ cleanup() {
   [ -n "$EDITORIAL_PID" ] && kill "$EDITORIAL_PID" 2>/dev/null
   [ -n "$ROLLOUT_PID" ] && kill "$ROLLOUT_PID" 2>/dev/null
   [ -n "$TIXAC_PID" ] && kill "$TIXAC_PID" 2>/dev/null
+  [ -n "$XYAZICI_PID" ] && kill "$XYAZICI_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -364,6 +366,26 @@ tixac_loop() {
   done
 }
 
+# Videolent (sahib 2026-11-20: «ən önəmli olan videoların daima yenilənməsidir», «çox sayda olmasıdır»): GitHub cron-u
+# x-yazici.yml-in «20 dəqiqədən bir»ini 2026-11-19 17:26 – 11-20 03:57 arası heç işlətmədi, lent 11 saat dayandı. İşi bu döngü
+# başladır: hər 20 dəqiqəlik pəncərədə (UTC dəqiqə 5, 25, 45-dən sonra) bir dəfə; əvvəlki iş hələ gedirsə və ya növbədədirsə yox.
+# Yalnız dispatch: açar və X sorğusu bu işə gəlmir, xəbər dövrəsində şəbəkə sorğusu yoxdur; cron ehtiyat qalır.
+xyazici_loop() {
+  local last=-1 slot busy
+  while :; do
+    slot=$(( ($(date +%s) - 300) / 1200 ))
+    if [ "$slot" != "$last" ]; then
+      busy="$(gh_t run list --workflow x-yazici.yml --limit 5 --json status --jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo "")"
+      if [ "$busy" = 0 ]; then
+        gh_t workflow run x-yazici.yml --ref main >/dev/null 2>&1 && last=$slot
+      elif [ -n "$busy" ]; then
+        last=$slot
+      fi
+    fi
+    sleep 30
+  done
+}
+
 # Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
 # GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
 self_watch() { # $1 əsas proses
@@ -414,6 +436,8 @@ social_loop &
 SOCIAL_PID=$!
 tixac_loop &
 TIXAC_PID=$!
+xyazici_loop &
+XYAZICI_PID=$!
 # Etibarlı köməkçi yalnız sabit GitHub API ünvanından qayda faylını oxuyur. Mənbə/lent prosesləri açarı görmür.
 UPDATER_ROOT="$WORK" "$PY" "$REPO_DIR/.github/scripts/editorial_sync.py" --watch &
 EDITORIAL_PID=$!

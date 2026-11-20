@@ -39,3 +39,17 @@ test('Videolent: topics take turns, football cannot fill the feed (owner 2026-11
   assert.ok(first10 <= 3, `ilk 10 videoda idman ${first10}: mövzular növbə ilə`);
   assert.equal(out.length, list.length);
 });
+
+test('Videolent: the news job starts the video writer every 20 minutes (GitHub cron skipped it for 11 hours, 2026-11-19/20), never twice at once, many videos per run', () => {
+  const root = path.join(__dirname, '..');
+  const sh = fs.readFileSync(path.join(root, '.github/scripts/pipeline.sh'), 'utf8');
+  const at = sh.indexOf('xyazici_loop() {'), loop = sh.slice(at, sh.indexOf('\n}\n', at));
+  assert.ok(at > 0 && loop.includes('/ 1200 ))'), '20 dəqiqəlik pəncərə');
+  assert.ok(loop.includes('gh_t workflow run x-yazici.yml --ref main') && loop.includes('select(.status != "completed")'), 'yalnız dispatch, gedən iş varsa yox');
+  assert.ok(!/GEMINI|fxtwitter|curl |python/.test(loop), 'açar və X sorğusu bu döngüdə yoxdur');
+  assert.ok(sh.includes('xyazici_loop &\nXYAZICI_PID=$!') && sh.includes('kill "$XYAZICI_PID"'));
+  const xy = fs.readFileSync(path.join(root, '.github/scripts/x_yazici.py'), 'utf8');
+  const oz = fs.readFileSync(path.join(root, 'oz_x.py'), 'utf8');
+  assert.ok(+xy.match(/^REELS_PER_RUN = (\d+)/m)[1] >= 12, 'bir işdə ən azı 12 video (sahib: «çox sayda»)');
+  assert.ok(+oz.match(/^REELS_MAX = (\d+)/m)[1] >= 72 * 12 / 2 * 1.5, 'lent ən azı 1,5 günlük axını tutur');
+});
