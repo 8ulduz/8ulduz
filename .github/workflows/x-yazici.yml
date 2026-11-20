@@ -6,7 +6,7 @@ name: X xəbərləri yazıcısı
 
 on:
   schedule:
-    - cron: "5 3-17 * * *"   # UTC; Bakı vaxtı 07:05–21:05 saatda bir: qısa videolar hər saat, xəbər iki saatdan bir (x_yazici.py); sonrakı xəbər gün bitənədək dərc olunmağa çatmır (GitHub cron-u gecikə bilər)
+    - cron: "5,25,45 * * * *"   # UTC; gecə-gündüz 20 dəqiqədən bir: qısa videolar hər işdə (sahib 2026-11-19: «daima təzələnsin»); xəbər yalnız Bakı 07–21 arası, tək saatların ilk işində (x_yazici.py)
   workflow_dispatch:
 
 permissions:

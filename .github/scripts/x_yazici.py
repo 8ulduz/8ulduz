@@ -34,7 +34,7 @@ WINDOW = datetime.timedelta(hours=6)
 MAX_BITRATE = 1_000_000
 MAX_CANDIDATES = 25
 PER_RUN = 3
-REELS_PER_RUN = 10  # qısa videolar: saatda bir, 15 iş × 10 = gündə ən çox 150 (sahib, 2026-11-19: «günə 100 yeni video et»)
+REELS_PER_RUN = 4   # qısa videolar gecə-gündüz 20 dəqiqədən bir: 72 iş × 4 (GitHub cron-u işlərin ~yarısını buraxır) ≈ gündə 100–150 (sahib, 2026-11-19: «günə 100 yeni video et», «tiktok kimi videolar daima təzələnsin»)
 REELS_ASK = 60     # Gemini-yə seçim üçün göstərilən ən çox namizəd
 # Gemini işləməyəndə qısa videoya yalnız bu hesablar düşür: müharibə və qəza görüntüsü vermirlər
 REELS_SAFE = {"TamirveTadilat", "TUBITAK", "avionot", "TFF_Org", "MilliTakimlar", "GalatasaraySK", "Fenerbahce", "Besiktas", "Trabzonspor", "trtspor", "aa_spor", "ntvspor", "beINSPORTS_TR", "Rainmaker1973", "buitengebieden", "wonderofscience", "Yoda4ever", "IGN", "GameSpot", "LaLiga", "premierleague", "ChampionsLeague", "EuropaLeague", "NBA", "ESPNNBA", "F1", "atptour", "Olympics", "Discovery", "LFC", "MLS", "Ballislife", "overtime"}
@@ -86,13 +86,13 @@ def best_mp4(video):
     return best[1] if best else None
 
 
-def candidate(handle, post, known, now):
+def candidate(handle, post, known, now, window=WINDOW):
     """X-in paylaşımından növbə sətrinin X hissəsi (mətnsiz) və ya None."""
     pid = str(post.get("id") or "")
     if not re.fullmatch(r"[1-9]\d{5,24}", pid) or pid in known or post.get("reposted_by") or post.get("replying_to"):
         return None
     ts = post.get("created_timestamp")
-    if not isinstance(ts, (int, float)) or now - datetime.datetime.fromtimestamp(ts, datetime.timezone.utc) > WINDOW:
+    if not isinstance(ts, (int, float)) or now - datetime.datetime.fromtimestamp(ts, datetime.timezone.utc) > window:
         return None
     author = str((post.get("author") or {}).get("screen_name") or "")
     if author.lower() != handle.lower():
@@ -143,12 +143,28 @@ def transfer_candidate(handle, post, known, now):
     return out
 
 
+VL_PER_RUN = 70   # Videolent hesablarından hər işdə bu qədəri (hər mövzudan ~8, növbə ilə): kiçik mövzular ~4 saatda, idman ~12 saatda dövr edir; video 24 saatadək götürülür
+REEL_WINDOW = datetime.timedelta(hours=24)   # Videolent hesabı bir neçə saatdan bir yoxlanır: videosu 24 saatadək götürülür
+
+
+def videolent_slice(now):
+    """Bu işdə yoxlanacaq Videolent hesabları: siyahı 20 dəqiqəlik növbələrlə dövr edir (hər hesab bir neçə saatdan bir)."""
+    groups = [list(q) for q in xm.VIDEOLENT_QRUPLAR.values() if q]   # hər mövzunun öz növbəsi: hər iş bütün mövzulardan bərabər
+    if not groups:
+        return []
+    per, run, out = max(1, VL_PER_RUN // len(groups)), int(now.timestamp()) // 1200, []
+    for g in groups:
+        start = (run * per) % len(g)
+        out += (g + g)[start:start + min(per, len(g))]
+    return out
+
+
 def collect(known, now):
     out, failed = [], []
     TRANSFERS.clear()
-    for handle in xm.HESABLAR:
+    for handle in [*xm.HESABLAR, *videolent_slice(now)]:
         doc, err = None, ""
-        for attempt in range(2):   # FxTwitter ara-sıra 429/5xx verir: bir dəfə gözləyib təkrar
+        for attempt in range(2 if handle in xm.HESABLAR else 1):   # FxTwitter ara-sıra 429/5xx verir: xəbər hesabında bir dəfə gözləyib təkrar; Videolent hesabı növbəti dövrəni gözləyir
             try:
                 doc = fetch_json(FX.format(handle))
                 break
@@ -159,9 +175,11 @@ def collect(known, now):
         if doc is None:
             failed.append(err)
             continue
+        reel_only = handle not in xm.HESABLAR   # yalnız Videolent: xəbər yazılmır
         for post in doc.get("results") or []:
-            c = candidate(handle, post, known, now)
+            c = candidate(handle, post, known, now, REEL_WINDOW if reel_only else WINDOW)
             if c:
+                c["reel_only"] = reel_only
                 out.append(c)
             t = transfer_candidate(handle, post, known, now)
             if t:
@@ -222,7 +240,7 @@ def _safe_models(key):
 
 
 def write(cands, n, template=None):
-    items = "\n".join(f"- id {c['id']}, hesab {xm.HESABLAR[c['handle']]} (@{c['handle']}): {c['src'][0]}" for c in cands)
+    items = "\n".join(f"- id {c['id']}, hesab {xm.ADLAR[c['handle']]} (@{c['handle']}): {c['src'][0]}" for c in cands)
     prompt = (template or PROMPT).format(n=n, items=items)
     if os.environ.get("GEMINI_API_KEY"):
         text = ask_gemini(prompt, os.environ["GEMINI_API_KEY"])
@@ -264,7 +282,8 @@ Paylaşımlar:
 
 REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var.
 Videolar YAZISIZ göstəriləcək (yalnız hesabın adı). Geniş auditoriya üçün ən maraqlı ən çox {n} videonu seç: ustalıq, texnika,
-idman anları, təbiət, elm, maraqlı hadisələr. SEÇMƏ: qan, meyit, yaralı, edam, işgəncə, hücum və ya partlayış anı, qəza,
+idman anları, təbiət, heyvanlar, elm, kosmos, yemək, səyahət, oyun, kino, musiqi, maraqlı hadisələr. Mövzular MÜXTƏLİF olsun: eyni
+mövzudan (məsələn futbol) bir neçə video seçmə. Ən maraqlısını əvvələ yaz. SEÇMƏ: açıq-saçıq və erotik görüntü, qan, meyit, yaralı, edam, işgəncə, hücum və ya partlayış anı, qəza,
 heyvana zülm, müharibə və terror səhnələri, reklam, mərc, təhqir, siyasi təbliğat, Azərbaycan mövzusu, mətni olmadan anlaşılmayan
 xəbər videoları (müsahibə, bəyanat, studiya söhbəti). Uyğun video yoxdursa boş siyahı qaytar.
 
@@ -274,13 +293,26 @@ Paylaşımlar:
 {items}"""
 
 
+def by_topic(items, key, n):
+    """Mövzulara bərabər: hər mövzunun öz sırası qalır, mövzular növbə ilə (idman, təbiət, elm, idman, təbiət …)."""
+    groups = {}
+    for x in items:
+        groups.setdefault(xm.movzu(key(x)), []).append(x)
+    out, lists = [], list(groups.values())
+    while len(out) < n and any(lists):
+        for g in lists:
+            if g and len(out) < n:
+                out.append(g.pop(0))
+    return out
+
+
 def pick_reels(cands, n):
     """Qısa video üçün id-lər. Gemini seçir (yalnız id, mətn yox); açar yoxdursa və ya cavab gəlmirsə REELS_SAFE hesabları."""
     if not cands:
         return []
     text = ""
     if os.environ.get("GEMINI_API_KEY"):
-        items = "\n".join(f"- id {c['id']}, hesab {xm.HESABLAR[c['handle']]} (@{c['handle']}): {c['src'][0][:300]}" for c in cands)
+        items = "\n".join(f"- id {c['id']}, hesab {xm.ADLAR[c['handle']]} (@{c['handle']}): {c['src'][0][:300]}" for c in cands)
         text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"])
     start, end = text.find("["), text.rfind("]")
     try:
@@ -289,7 +321,7 @@ def pick_reels(cands, n):
         ids = None
     if ids is None:
         print("Qısa video: Gemini seçmədi, yalnız təhlükəsiz hesablar", flush=True)
-        ids = [c["id"] for c in cands if c["handle"] in REELS_SAFE]
+        ids = [c["id"] for c in cands if c["handle"] in REELS_SAFE or c.get("reel_only")]   # Videolent hesabları seçilmiş vizual hesablardır
     allowed = {c["id"] for c in cands}
     return [i for i in dict.fromkeys(ids) if i in allowed][:n]
 
@@ -306,7 +338,7 @@ def main():
     kept = [r for r in rows if isinstance(r, dict) and str(r.get("date") or "") >= floor.isoformat()]
     known = {str(r.get("id")) for r in kept}
     cands, failed = collect(known, now)
-    cands, more = cands[:MAX_CANDIDATES], cands
+    cands, more = [c for c in cands if not c.get("reel_only")][:MAX_CANDIDATES], cands
     print(f"Namizəd: {len(cands)}; açılmayan hesab: {len(failed)} {failed if failed else ''}", flush=True)
     added, rejected = [], []
     slot = (baku + datetime.timedelta(minutes=5)).strftime("%H:%M")
@@ -314,7 +346,7 @@ def main():
         print("GEMINI_API_KEY (və ANTHROPIC_API_KEY) yoxdur: xəbər yazılmır (yalnız X-in oxunuşu yoxlandı).")
     elif not xm.SLOT_FROM <= slot <= LAST_SLOT:
         print(f"Bakı vaxtı {slot}: {xm.SLOT_FROM}–{LAST_SLOT} xaricində xəbər yazılmır (gec yazılan gün bitənədək dərc olunmur).")
-    elif cands and baku.hour % 2:   # xəbər iki saatdan bir (07, 09 … 21): dərc hissəsi gündə 8 video xəbər buraxır, artığı «gecikdi» olur
+    elif cands and baku.hour % 2 and baku.minute < 20:   # saatın yalnız ilk işi (iş 20 dəqiqədən bir); xəbər iki saatdan bir (07, 09 … 21): dərc hissəsi gündə 8 video xəbər buraxır, artığı «gecikdi» olur
         by_id = {c["id"]: c for c in cands}
         for w in write(cands, PER_RUN)[:PER_RUN]:
             c = by_id.get(str(w.get("id")))
@@ -326,7 +358,7 @@ def main():
                    **{k: c[k] for k in ("handle", "post", "video", "poster", "w", "h", "src")}}
             why = xm.check(row)
             (rejected if why else added).append((row, why))
-    if TRANSFERS and baku.hour % 2 and xm.SLOT_FROM <= slot <= LAST_SLOT and (os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
+    if TRANSFERS and baku.hour % 2 and baku.minute < 20 and xm.SLOT_FROM <= slot <= LAST_SLOT and (os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
         pool = [t for t in TRANSFERS if t["id"] not in known][:MAX_CANDIDATES]
         by_t = {t["id"]: t for t in pool}
         for w in (write(pool, TRANSFER_PER_RUN, TRANSFER_PROMPT) if pool else [])[:TRANSFER_PER_RUN]:
@@ -340,11 +372,11 @@ def main():
             why = xm.check(row)
             (rejected if why else added).append((row, why))
     new_reels = []
-    if xm.SLOT_FROM <= slot <= LAST_SLOT:
+    if True:   # qısa videolar gecə də (sahib 2026-11-19: «daima təzələnsin»); dərc saatı yoxdur, lent hər açılışda təzəsini göstərir
         taken = {str(r.get("id")) for r in reels} | {r["id"] for r, _ in added}
-        pool = [c for c in more if c["id"] not in taken][:REELS_ASK]
+        pool = by_topic([c for c in more if c["id"] not in taken], lambda c: c["handle"], REELS_ASK)   # Gemini-yə hər mövzudan
         by_id = {c["id"]: c for c in pool}
-        for pid in pick_reels(pool, REELS_PER_RUN):
+        for pid in by_topic(pick_reels(pool, REELS_PER_RUN * 3), lambda i: by_id[i]["handle"], REELS_PER_RUN):   # bir işdə mövzu təkrarlanmır
             c = by_id[pid]
             row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]]}   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
             why = xm.reel_check(row)

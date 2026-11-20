@@ -73,7 +73,7 @@ def enforce_policy(root=pathlib.Path(".")):
                                     and not content_policy.removed_article({"id": p.get("id"), "sourceUrl": p.get("url")}))
     def reel_ok(v):   # qısa videolar (oz_x.reels): hesab cədvəldə, ünvan X-in video serveri, sahib çıxarmayıb
         import oz_x
-        return (str(v.get("a") or "") in oz_x.HESABLAR and str(v.get("u") or "").startswith("https://video.twimg.com/")
+        return (str(v.get("a") or "") in oz_x.ADLAR and str(v.get("u") or "").startswith("https://video.twimg.com/")
                 and not content_policy.removed_article({"id": v.get("id"), "sourceUrl": f"https://8ulduz.az/qisa/{v.get('id')}"}))
     for name, key, allowed in (("video.json", "items", lambda v: v.get("channel") in content_policy.VIDEO_CHANNELS),
                                ("social.json", "posts", post_ok), ("social-arxiv.json", "posts", post_ok),

@@ -1,4 +1,5 @@
 """X yazıcısı (.github/scripts/x_yazici.py): namizəd süzgəci, mp4 seçimi, iş axınının icazələri. Şəbəkə və Claude yoxdur."""
+import json
 import datetime
 import importlib.util
 import pathlib
@@ -79,14 +80,18 @@ class LateEveningTest(unittest.TestCase):
             (root / "oz_x.json").write_text('{"v": 1, "items": []}\n', encoding="utf-8")
             with mock.patch.object(xy, "ROOT", root), mock.patch.object(xy.datetime, "datetime", FakeDT), \
                  mock.patch.object(xy, "collect", return_value=([xy.candidate("GalatasaraySK", post(), set(), NOW)], [])), \
-                 mock.patch.object(xy, "write", side_effect=AssertionError("gec saatda Gemini soruşulmamalıdır")), \
+                 mock.patch.object(xy, "write", side_effect=AssertionError("gec saatda xəbər yazılmamalıdır")), \
+                 mock.patch.object(xy, "ask_gemini", return_value="[]"), \
                  mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}):
                 self.assertEqual(xy.main(), 0)
-            self.assertEqual((root / "oz_x.json").read_text(encoding="utf-8"), '{"v": 1, "items": []}\n')
+            doc = json.loads((root / "oz_x.json").read_text(encoding="utf-8"))
+            self.assertEqual(doc["items"], [], "gec saatda xəbər yoxdur; qısa video gecə də yığılır")
 
-    def test_cron_ends_before_the_last_slot(self):
+    def test_cron_every_20_minutes_news_only_in_the_day(self):
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
-        self.assertIn('cron: "5 3-17 * * *"', wf, "saatda bir, son iş Bakı 21:05")
+        self.assertIn('cron: "5,25,45 * * * *"', wf, "qısa videolar gecə-gündüz 20 dəqiqədən bir (sahib: «daima təzələnsin»)")
+        src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("baku.hour % 2 and baku.minute < 20"), 2, "xəbər və transfer saatda bir dəfə, 3 dəfə yox")
         self.assertLessEqual(xy.LAST_SLOT, "22:00")
 
 
@@ -117,7 +122,7 @@ class ReelsPickTest(unittest.TestCase):
         with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), \
              mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942", "999", "2123096874748186942"]'):
             self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
-        self.assertGreaterEqual(xy.REELS_PER_RUN * 15, 150, "15 iş × 10: gündə 100 yeni video üçün ehtiyatla (sahib)")
+        self.assertGreaterEqual(xy.REELS_PER_RUN * 72 // 2, 100, "72 işin yarısı belə işləsə gündə ≥100 yeni video (sahib)")
         self.assertGreaterEqual(xy.xm.REELS_MAX, 200, "gündə ~100 gəlir: lent ən azı 2 günü tutur")
         self.assertIn("YAZISIZ", xy.REELS_PROMPT)
 
@@ -165,3 +170,47 @@ class WorkflowTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VideolentTenfoldTest(unittest.TestCase):
+    """Sahib, 2026-11-19: «maraqlı video mənbəyini 10 qat artır. video axını tiktok kimi olsun»."""
+
+    def test_many_reel_only_sources_rotate_through_runs(self):
+        hs = list(xy.xm.VIDEOLENT_HESABLAR)
+        self.assertGreaterEqual(len(hs), 150, "Videolent mənbələri əvvəlkinin (~30) bir neçə qatı")
+        self.assertFalse(set(hs) & set(xy.xm.HESABLAR), "Videolent hesabları xəbər hesablarından ayrıdır")
+        seen = set()
+        t0 = datetime.datetime(2026, 11, 20, tzinfo=datetime.timezone.utc)
+        per = xy.VL_PER_RUN // len(xy.xm.VIDEOLENT_QRUPLAR)
+        for k in range(max(map(len, xy.xm.VIDEOLENT_QRUPLAR.values())) // per + 2):
+            part = xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k))
+            self.assertLessEqual(len(part), xy.VL_PER_RUN)
+            seen.update(part)
+        self.assertEqual(seen, set(hs), "bir neçə saatda hər hesab yoxlanır")
+
+    def test_reel_only_rows_pass_the_reel_check_but_never_become_news(self):
+        h = next(iter(xy.xm.VIDEOLENT_HESABLAR))
+        row = {"id": "2123096874748186941", "handle": h, "post": f"https://x.com/{h}/status/2123096874748186941",
+               "video": "https://video.twimg.com/ext_tw_video/1/pu/vid/720x1280/a.mp4", "poster": "https://pbs.twimg.com/a.jpg",
+               "w": 720, "h": 1280, "at": "2026-11-19T10:00:00+00:00", "src": ["Amazing goal from the halfway line"]}
+        self.assertIsNone(xy.xm.reel_check(row))
+        news = {**row, "kind": "x-maraqli", "date": "2026-11-19", "slot": "12:00", "title": "Başlıq", "lead": "Giriş", "body": ["Mətn"]}
+        self.assertTrue(xy.xm.check(news), "Videolent hesabından xəbər keçmir")
+        src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
+        self.assertIn('[c for c in cands if not c.get("reel_only")][:MAX_CANDIDATES]', src)
+
+    def test_each_run_spreads_videos_over_topics(self):
+        """Sahib: «videoların əksəriyyəti futboldur. belə olmasın proporsional olsun müxtəlif mövzular»."""
+        q = xy.xm.VIDEOLENT_QRUPLAR
+        for m in ("idman", "tebiet", "elm", "texnika", "yemek", "oyun", "kino", "maraqli"):
+            self.assertGreaterEqual(len(q[m]), 40, f"{m}: hər mövzuda çoxlu mənbə")
+        self.assertLess(len(q["idman"]) / len(xy.xm.VIDEOLENT_HESABLAR), 0.35, "idman mənbələrin üçdə birindən azdır")
+        self.assertGreaterEqual(len(xy.xm.VIDEOLENT_HESABLAR), 1000, "sahib: «1000 olsun»")
+        sport = [{"id": str(i), "handle": h} for i, h in enumerate(list(q["idman"])[:10])]
+        other = [{"id": f"9{i}", "handle": h} for i, h in enumerate([next(iter(q["tebiet"])), next(iter(q["elm"])), next(iter(q["kino"]))])]
+        got = xy.by_topic(sport + other, lambda c: c["handle"], 4)
+        self.assertEqual([xy.xm.movzu(c["handle"]) for c in got], ["idman", "tebiet", "elm", "kino"], "bir işdə mövzular növbə ilə")
+        part = xy.videolent_slice(datetime.datetime(2026, 11, 20, tzinfo=datetime.timezone.utc))
+        self.assertGreaterEqual(len({xy.xm.movzu(h) for h in part}), 8, "hər iş bütün mövzulardan hesab yoxlayır")
+        self.assertIn("MÜXTƏLİF", xy.REELS_PROMPT)
+        self.assertIn("erotik", xy.REELS_PROMPT)
