@@ -25,7 +25,6 @@ import datetime
 import hashlib
 import json
 import sys
-import time
 
 import oz_xeber as ox
 

@@ -224,7 +224,6 @@ UEFA_AZ = {
     "NIR": "Şimali İrlandiya", "LUX": "Lüksemburq", "MNE": "Monteneqro", "WAL": "Uels", "SMR": "San-Marino",
 }
 EURO_FILES = ("cl", "al", "kl")
-CUP_AZ = {"cl": "Çempionlar Liqası", "al": "Avropa Liqası", "kl": "Konfrans Liqası"}
 
 
 # --- Ümumi köməkçilər -------------------------------------------------------------------------------------------------
@@ -433,12 +432,6 @@ def f1_gen(name):
     """Yiyəlik hal, oxunuşa görə: «Norris»in, «Antonelli»nin, «Russell»in (Rassel), «Lawson»un."""
     s = _f1_snd(name)
     return f"«{name}»{'n' if ox._vowel_end(s) else ''}{ox._four(s, ('ın', 'in', 'un', 'ün'))}"
-
-
-def f1_dat(name):
-    """Yönlük hal: «Verstappen»ə, «Leclerc»ə (Leklerk samitlə bitir), «Antonelli»yə, «Hamilton»a."""
-    s = _f1_snd(name)
-    return f"«{name}»{'y' if ox._vowel_end(s) else ''}{'a' if _back(s) else 'ə'}"
 
 
 def f1_abl(name):

@@ -765,7 +765,7 @@ def bank_fetch(fetch, banks=BANKS):
             continue
         try:
             data = parse(raw)
-        except Exception as e:
+        except Exception:
             data = None
         out.append((name, url, data, "" if data else "məzənnə oxunmadı", len(raw or b"")))
     return out

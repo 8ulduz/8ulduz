@@ -118,11 +118,7 @@ def judo_ev(cid):
 class GrammarTest(unittest.TestCase):
     def test_driver_suffixes_follow_pronunciation(self):
         self.assertEqual(m.f1_gen("Norris"), "«Norris»in")
-        self.assertEqual(m.f1_dat("Verstappen"), "«Verstappen»ə")
-        self.assertEqual(m.f1_dat("Leclerc"), "«Leclerc»ə")          # Leklerk: samitlə bitir
         self.assertEqual(m.f1_gen("Antonelli"), "«Antonelli»nin")
-        self.assertEqual(m.f1_dat("Antonelli"), "«Antonelli»yə")
-        self.assertEqual(m.f1_dat("Hamilton"), "«Hamilton»a")
         self.assertEqual(m.f1_abl("Hamilton"), "«Hamilton»dan")
         self.assertEqual(m.f1_abl("Russell"), "«Russell»dən")        # Rassel
         self.assertEqual(m.f1_gen("Lawson"), "«Lawson»un")
@@ -131,7 +127,6 @@ class GrammarTest(unittest.TestCase):
     def test_unknown_driver_falls_back_to_spelling(self):
         self.assertEqual(m.f1_gen("Rossi"), "«Rossi»nin")
         self.assertEqual(m.f1_abl("Smith"), "«Smith»dən")
-        self.assertEqual(m.f1_dat("Kowal"), "«Kowal»a")
 
     def test_every_driver_in_the_saved_results_has_a_pronunciation(self):
         for name in ("f1-2026-20-results.json", "f1-2026-15-results.json"):
