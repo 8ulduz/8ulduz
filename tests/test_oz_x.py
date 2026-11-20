@@ -227,6 +227,13 @@ class ReelsTest(unittest.TestCase):
         self.assertEqual(set(out[0]), {"id", "a", "n", "m", "u", "i", "w", "h", "t"}, "mətn (src) sayta çıxmır; m: mövzu")
         self.assertEqual(out[0]["n"], "Tamir & Tadilat")
 
+    def test_first_degree_sources_are_marked_in_the_reels(self):
+        """Sahib 2026-11-20: birinci dərəcəli maraqlı hadisə mənbələri lentdə «p» ilə (lent.js hər mövzuda əvvəl göstərir)."""
+        row = reel(id="2123096874748186950", handle="TheFigen_", post="https://x.com/TheFigen_/status/2123096874748186950", src=["Silky smooth turn."])
+        out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([reel(), row]))}
+        self.assertEqual(out["2123096874748186950"].get("p"), 1)
+        self.assertNotIn("p", out["2123096874748186946"])
+
     def test_updater_writes_reels_through_the_policy_gate(self):
         import updater
         tmp = tempfile.TemporaryDirectory()

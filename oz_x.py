@@ -183,7 +183,7 @@ VIDEOLENT_QRUPLAR = {
         "blueorigin": "Blue Origin", "BrianRoemmele": "Brian Roemmele", "britishmuseum": "britishmuseum",
         "calacademy": "calacademy", "Caltech": "Caltech", "Cambridge_Uni": "Cambridge_Uni",
         "CERN": "CERN", "chandraxray": "chandraxray", "CNES": "CNES",
-        "DLR_en": "DLR_en", "engineers_feed": "World of Engineering", "Erdayastronaut": "Erdayastronaut",
+        "DLR_en": "DLR_en", "engineers_feed": "World of Engineering", "HowThingsWork_": "How Things Work", "sciencegirl": "Science girl", "Erdayastronaut": "Erdayastronaut",
         "esa": "European Space Agency", "esaoperations": "esaoperations", "esaspaceflight": "esaspaceflight",
         "ESA_EO": "ESA_EO", "ESA_ES": "ESA_ES", "ESA_Italia": "ESA_Italia",
         "ESA_Webb": "ESA_Webb", "ESO": "ESO", "Exploratorium": "Exploratorium",
@@ -303,7 +303,7 @@ VIDEOLENT_QRUPLAR = {
         "Visit_Thailand": "Visit_Thailand", "Woodworking": "Woodworking",
     },
     "oyun": {   # Oyun və e-idman (93)
-        "100Thieves": "100Thieves", "2K": "2K", "Activision": "Activision",
+        "100Thieves": "100Thieves", "2K": "2K", "VidsThatGoHard": "vids that go hard", "Activision": "Activision",
         "assetto_corsa": "assetto_corsa", "BandaiNamcoUS": "BandaiNamcoUS", "Battlefield": "Battlefield",
         "Bethesda": "Fallout 76", "BLASTPremier": "BLASTPremier", "Blizzard_Ent": "Diablo Immortal",
         "BrawlStars": "BrawlStars", "CallofDuty": "Call of Duty", "CapcomUSA_": "CapcomUSA_",
@@ -389,7 +389,7 @@ VIDEOLENT_QRUPLAR = {
     },
     "maraqli": {   # Maraqlı və gülməli (42)
         "9GAG": "9GAG", "AFV": "JH", "AFVofficial": "AFVofficial",
-        "AFV_Official": "AFV_Official", "boredpanda": "boredpanda", "CrazyClips_": "Crazy Clips",
+        "AFV_Official": "AFV_Official", "boredpanda": "boredpanda", "CrazyClips_": "Crazy Clips", "TheFigen_": "The Figen",
         "DudePerfect": "DudePerfect", "FailArmy": "FailArmy", "Fascinatingpics": "Fascinatingpics",
         "FreeRunning": "FreeRunning", "FunnyOrDie": "FunnyOrDie", "GWR": "GWR",
         "HumansNoContext": "HumansNoContext", "InternetH0F": "internet hall of fame", "Jukinmedia": "Jukinmedia",
@@ -404,7 +404,7 @@ VIDEOLENT_QRUPLAR = {
         "weirdlilguys": "cats being weird little guys", "wowterrifying": "wowterrifying", "XGames": "X Games",
     },
     "idman": {   # İdman (264)
-        "10Ronaldinho": "10Ronaldinho", "433": "433", "acmilan": "AC Milan",
+        "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "acmilan": "AC Milan",
         "AFCAjax": "AFC Ajax", "AFCBournemouth": "AFC Bournemouth", "Alanyaspor": "Alanyaspor",
         "AlanyasporKlb": "AlanyasporKlb", "AlHilal_EN": "AlHilal_EN", "AlNassrFC": "AlNassrFC",
         "AlpineF1Team": "BWT Alpine Formula One Team", "Al_Ittihad": "Al_Ittihad", "AnadoluEfesSK": "AnadoluEfesSK",
@@ -504,6 +504,19 @@ _XEBER_MOVZU = {"TUBITAK": "elm", "wonderofscience": "elm", "Rainmaker1973": "ma
                 "ihacomtr": "xeber", "euronews_tr": "xeber", "clashreport": "xeber", "ConflictTR": "xeber", "gusholderhaber": "xeber",
                 "Pars_Pluss": "xeber", "Derinkuvvet": "xeber", "gdhdijital": "xeber", "ozetgechaber": "xeber", "VoiceOfLevant": "xeber"}
 _MOVZU = {h: m for m, q in VIDEOLENT_QRUPLAR.items() for h in q}
+# Birinci dərəcəli maraqlı hadisə videoları (sahib 2026-11-20: «1-ci dərəcədə maraqlı hadisələr olan videoları olan mənbələr tap, onlara
+# üstünlük ver»). FxTwitter ölçüsü, 2026-11-20: son 3 gündə tez-tez video, video başına median 15–200 min baxış (heyrətamiz anlar,
+# rekordlar, ixtiralar, heyvanlar, kadr arxası). Yazıcı bu hesabları hər işdə yoxlayır (x_yazici.videolent_slice), seçimdə öz mövzusunun
+# başında durur; lent görülməmiş videolar arasında hər mövzuda onları əvvəl göstərir (reels «p»). Mövzu bölgüsü dəyişmir.
+VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "CrazyClips_", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
+                  "buitengebieden", "nocontextfooty", "wonderofscience", "Yoda4ever", "NoContextHumans", "9GAG", "Rainmaker1973",
+                  "GWR", "redbull", "VidsThatGoHard", "InternetH0F")
+_ONDE = {h.lower() for h in VIDEOLENT_ONDE}
+
+
+def onde(handle):
+    """Hesab birinci dərəcəli (VIDEOLENT_ONDE) mənbədirmi."""
+    return str(handle or "").lower() in _ONDE
 
 
 def movzu(handle):
@@ -688,7 +701,7 @@ def load_reels(path=None):
 
 def reels(now, path=None):
     """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün videoları, ən yenisi əvvəl. Mətn çıxmır.
-    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt)."""
+    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt); p: 1 — birinci dərəcəli mənbə (VIDEOLENT_ONDE)."""
     floor, out, seen = now - datetime.timedelta(days=REELS_DAYS), [], set()
     for row in load_reels(path):
         if reel_check(row) or row["id"] in seen or _at(row["at"]) < floor or _at(row["at"]) > now + datetime.timedelta(hours=1):
@@ -696,7 +709,8 @@ def reels(now, path=None):
         seen.add(row["id"])
         h = _REEL_HANDLE[row["handle"].lower()]
         out.append({"id": row["id"], "a": h, "n": ADLAR[h], "m": movzu(h), "u": row["video"], "i": row["poster"],
-                    "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds")})
+                    "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds"),
+                    **({"p": 1} if onde(h) else {})})
     out.sort(key=lambda r: r["t"], reverse=True)
     return out[:REELS_MAX]
 

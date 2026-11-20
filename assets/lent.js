@@ -56,7 +56,7 @@ let live = null;
 function list(S, reels) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
     u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id }));
-  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || "") }));
+  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || ""), p: r.p === 1 }));
   const seen = new Set(), watched = seenSet();
   const all = [...own, ...x].sort((a, b) => String(b.t).localeCompare(String(a.t))).filter(v => !seen.has(v.u) && seen.add(v.u));
   return [...mix(all.filter(v => !watched.has(v.u))), ...mix(all.filter(v => watched.has(v.u)))];   // əvvəl görülməyənlər
@@ -68,6 +68,8 @@ function list(S, reels) {
 export function mix(list) {
   const groups = new Map();
   for (const v of list) { const k = v.m || "idman"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(v); }
+  // Birinci dərəcəli mənbələr (sahib 2026-11-20, oz_x.VIDEOLENT_ONDE; reels «p») hər mövzuda əvvəl, öz sırası ilə
+  for (const g of groups.values()) g.sort((a, b) => (b.p ? 1 : 0) - (a.p ? 1 : 0));
   const order = [...groups.values()].sort(() => Math.random() - 0.5), rr = [];
   while (order.some(g => g.length)) for (const g of order) if (g.length) rr.push(g.shift());
   const out = [];

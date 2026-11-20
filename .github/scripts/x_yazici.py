@@ -109,7 +109,8 @@ def candidate(handle, post, known, now, window=WINDOW):
     if len(text) < xm.SRC_LEN[0] or xm.about_azerbaijan(text):
         return None
     return {"id": pid, "handle": handle, "post": f"https://x.com/{handle}/status/{pid}", "video": url, "poster": poster,
-            "w": w, "h": h, "src": [text[:xm.SRC_LEN[1]]], "at": datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat(timespec="seconds"), "_score": int(post.get("likes") or 0) + int(post.get("reposts") or 0) * 3}
+            "w": w, "h": h, "src": [text[:xm.SRC_LEN[1]]], "at": datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat(timespec="seconds"),
+            "_views": int(post.get("views") or 0), "_score": int(post.get("likes") or 0) + int(post.get("reposts") or 0) * 3 + int(post.get("views") or 0) // 100}
 
 
 # Transfer xəbərləri (sahib 2026-11-19: «x da olan transfer xəbərləri fabrisio və matteo dan və digər x transfer xəbərləri bizim
@@ -152,10 +153,13 @@ def videolent_slice(now):
     groups = [list(q) for q in xm.VIDEOLENT_QRUPLAR.values() if q]   # hər mövzunun öz növbəsi: hər iş bütün mövzulardan bərabər
     if not groups:
         return []
-    per, run, out = max(1, VL_PER_RUN // len(groups)), int(now.timestamp()) // 1200, []
+    # Birinci dərəcəli mənbələr (oz_x.VIDEOLENT_ONDE) hər işdə; xəbər hesabı olanlar onsuz da hər işdə yoxlanır
+    out = [h for h in xm.VIDEOLENT_ONDE if h in xm.VIDEOLENT_HESABLAR]
+    per, run = max(1, (VL_PER_RUN - len(out)) // len(groups)), int(now.timestamp()) // 1200   # cəmi VL_PER_RUN-dan çox deyil
     for g in groups:
+        g = [h for h in g if h not in out]
         start = (run * per) % len(g)
-        out += (g + g)[start:start + min(per, len(g))]
+        out += (g + g)[start:start + min(per, len(g))] if g else []
     return out
 
 
@@ -306,7 +310,9 @@ Paylaşımlar:
 
 
 REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var.
-Videolar YAZISIZ göstəriləcək (yalnız hesabın adı). Geniş auditoriya üçün ən maraqlı ən çox {n} videonu seç: ustalıq, texnika,
+Videolar YAZISIZ göstəriləcək (yalnız hesabın adı). Geniş auditoriya üçün ən maraqlı ən çox {n} videonu seç. ƏN BİRİNCİ birinci dərəcəli
+maraqlı hadisələr: nadir, heyrətamiz, gözlənilməz anlar, rekordlar, «bunu görmək lazımdır» videoları; çox baxılan (baxış sayı) və
+«seçilmiş mənbə» videoları üstündür. Sonra: ustalıq, texnika,
 idman anları, təbiət, heyvanlar, elm, kosmos, yemək, səyahət, oyun, kino, musiqi, maraqlı hadisələr. Mövzular MÜXTƏLİF olsun: eyni
 mövzudan (məsələn futbol) bir neçə video seçmə. Ən maraqlısını əvvələ yaz. SEÇMƏ: açıq-saçıq və erotik görüntü, qan, meyit, yaralı, edam, işgəncə, hücum və ya partlayış anı, qəza,
 heyvana zülm, müharibə və terror səhnələri, reklam, mərc, təhqir, siyasi təbliğat, Azərbaycan mövzusu, mətni olmadan anlaşılmayan
@@ -337,7 +343,8 @@ def pick_reels(cands, n):
         return []
     text = ""
     if os.environ.get("GEMINI_API_KEY"):
-        items = "\n".join(f"- id {c['id']}, hesab {xm.ADLAR[c['handle']]} (@{c['handle']}): {c['src'][0][:300]}" for c in cands)
+        items = "\n".join(f"- id {c['id']}, hesab {xm.ADLAR[c['handle']]} (@{c['handle']}{', seçilmiş mənbə' if xm.onde(c['handle']) else ''}), "
+                          f"baxış {c.get('_views', 0)}: {c['src'][0][:300]}" for c in cands)
         text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"])
     start, end = text.find("["), text.rfind("]")
     try:
@@ -399,7 +406,8 @@ def main():
     new_reels = []
     # qısa videolar gecə də (sahib 2026-11-19: «daima təzələnsin»); dərc saatı yoxdur, lent hər açılışda təzəsini göstərir
     taken = {str(r.get("id")) for r in reels} | {r["id"] for r, _ in added}
-    pool = by_topic([c for c in more if c["id"] not in taken], lambda c: c["handle"], REELS_ASK)   # Gemini-yə hər mövzudan
+    first = sorted((c for c in more if c["id"] not in taken), key=lambda c: (not xm.onde(c["handle"]), -c["_score"]))   # hər mövzuda əvvəl birinci dərəcəli mənbələr, sonra çox baxılanlar
+    pool = by_topic(first, lambda c: c["handle"], REELS_ASK)   # Gemini-yə hər mövzudan
     by_id = {c["id"]: c for c in pool}
     for pid in by_topic(pick_reels(pool, REELS_PER_RUN * 3), lambda i: by_id[i]["handle"], REELS_PER_RUN):   # bir işdə mövzu təkrarlanmır
         c = by_id[pid]
