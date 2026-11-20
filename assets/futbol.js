@@ -6,7 +6,7 @@
 // (13 turnir, vəziyyət və hesab), alınmayanda OpenLigaDB; Türkiyə, Rusiya, Azərbaycan API-Football-dan dəqiqə ilə. Fayl əvvəl dəqiqəlik canlı kanaldan, alınmasa saytdan; panel açıq və canlı oyun
 // varsa dəqiqədə bir yenidən oxunur. Açar yoxdursa fayl yoxdur, blok çıxmır.
 const LIVE_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
-let live = null, liveAt = 0, liveBusy = false;
+let live = null, liveAt = 0, liveBusy = false, pickWired = false;
 async function liveGet(url, opt) {
   try { const r = await fetch(url, opt); if (r.ok) { const d = await r.json(); if (Array.isArray(d?.matches)) return d; } } catch {}
   return null;
@@ -42,7 +42,7 @@ export function view(h, list) {
     // Liqa məlumatı yoxdursa blok yoxdur.
     if (!fb) return "";
     const tab = (S.fbTab === "table" && !fb.table?.length) ? "results" : (S.fbTab || "results");
-    const picker = all.length > 1 ? `<div class="fb-leagues" role="tablist" aria-label="Liqalar">${all.map((l, i) => `${i > 0 && (l.world !== all[i - 1].world || l.sport !== all[i - 1].sport) ? `<i class="sep" aria-hidden="true"></i>` : ""}<button type="button" class="pill${l === fb ? " on" : ""}${l.sport === "basketball" ? " bb" : ""}" data-fbleague="${i}" role="tab" aria-selected="${l === fb}">${leagueLabel(l)}</button>`).join("")}</div>` : "";
+    const picker = leaguePicker(all, fb);
     if (fb.world) {
       const groups = fb.groups || [];
       const gi = Math.min(Number(S.fbTab) || 0, groups.length - 1);
@@ -120,6 +120,29 @@ export function view(h, list) {
     const sc = m => m.hs == null ? "–" : `${esc(m.hs)} : ${esc(m.as)}`;
     const li = m => `<li style="display:grid;grid-template-columns:92px 1fr auto 1fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)"><small style="display:flex;flex-direction:column;line-height:1.2"><span style="display:inline-flex;gap:4px;align-items:center">${FL[LIVE_FL[m.c]] || ""}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(LIVE_COMP[m.c] || m.c)}</span></span>${st(m)}</small><b style="text-align:right">${esc(m.h)}</b><span style="font-weight:800;min-width:44px;text-align:center">${sc(m)}</span><b>${esc(m.a)}</b></li>`;
     return `<section class="foot"><div class="sec-h"><h2>Bu gün</h2><span class="cnt">${on ? "canlı hesab" : "oyunlar və nəticələr"}</span><a class="more" href="https://www.football-data.org/" target="_blank" rel="noopener noreferrer" title="football-data.org, OpenLigaDB, API-Football">Mənbə ↗</a></div><ul style="list-style:none;margin:0;padding:0;font-size:14px">${rows.map(li).join("")}</ul></section>`;
+  }
+  // Liqa seçimi (sahib 2026-11-19: «liqaların adları səliqəli … ölkənin adı qalın, liqa adı nazik, ölkə bayrağı»; 2026-11-20:
+  // «liqaların adları olan yeri nizamlamaq»): 27 liqa telefonda bir uzun sürüşən sətirdə idi, 1,5-i görünürdü. İndi seçilmiş liqa bir
+  // düymədir; açanda ölkələr sətir-sətir: bayraq və qalın ölkə adı bir dəfə, liqalar nazik düymələr. Azərbaycan və UEFA əvvəl,
+  // basketbol sonda. Stil burada (app.css büdcəsi doludur); <details> açılıb-bağlanmanı JS-siz edir, seçim mövcud data-fbleague ilə.
+  function leaguePicker(all, fb) {
+    if (all.length < 2) return "";
+    // Açıq siyahı təkrar çəkilişdə (dəqiqəlik yenilənmə) bağlanmasın; liqa seçiləndə bağlanır
+    if (!pickWired && globalThis.document) {
+      pickWired = true;
+      document.addEventListener("toggle", e => { if (e.target.classList?.contains("fbp")) S.fbPick = e.target.open; }, true);
+      document.addEventListener("click", e => { if (e.target.closest?.(".fbp [data-fbleague]")) S.fbPick = false; }, true);
+    }
+    const groups = new Map();
+    all.forEach((l, i) => {
+      const [fl, country, name] = l.world ? (LIQA[l.id] || ["", "", l.league || l.short || ""]) : ["az", "Azərbaycan", l.short || l.league || ""];
+      const bb = l.sport === "basketball", key = bb ? "bb" : country;
+      if (!groups.has(key)) groups.set(key, { fl: bb ? "" : fl, country: bb ? "Basketbol" : country, rank: bb ? 3 : country === "Azərbaycan" ? 0 : country === "UEFA" ? 1 : 2, at: i, items: [] });
+      groups.get(key).items.push(`<button type="button" class="pill${l === fb ? " on" : ""}" data-fbleague="${i}" aria-pressed="${l === fb}">${esc(bb ? `${name}` : name)}</button>`);
+    });
+    const rows = [...groups.values()].sort((a, b) => a.rank - b.rank || a.at - b.at)
+      .map(g => `<div class="fbp-row"><b>${FL[g.fl] || ""}${esc(g.country)}</b><span>${g.items.join("")}</span></div>`).join("");
+    return `<style>.fbp{margin:0 0 10px}.fbp>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 14px;border:1px solid var(--border);border-radius:12px;font-size:15px}.fbp>summary::-webkit-details-marker{display:none}.fbp>summary small{color:var(--muted);white-space:nowrap}.fbp[open]>summary small i{display:inline-block;transform:rotate(180deg)}.fbp-list{margin-top:6px;border:1px solid var(--border);border-radius:12px;padding:2px 12px}.fbp-row{display:grid;grid-template-columns:minmax(118px,max-content) 1fr;gap:6px 10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}.fbp-row:last-child{border:0}.fbp-row>b{display:flex;align-items:center;gap:6px;font-weight:800;font-size:14px}.fbp-row>span{display:flex;flex-wrap:wrap;gap:6px}.fbp-row .pill{font-weight:400;font-size:13px;padding:4px 11px}@media(max-width:420px){.fbp-row{grid-template-columns:104px 1fr}.fbp-row>b{font-size:13px;line-height:1.2}}</style><details class="fbp"${S.fbPick ? " open" : ""}><summary>${leagueLabel(fb)}<small>${all.length} liqa <i>▾</i></small></summary><div class="fbp-list">${rows}</div></details>`;
   }
   return liveBlock() + footballBlock(list);
 }
