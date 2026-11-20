@@ -1,0 +1,40 @@
+name: Futbol açar sınağı (müvəqqəti)
+on:
+  pull_request:
+    paths: [".github/workflows/futbol-sinaq.yml"]
+permissions:
+  contents: read
+jobs:
+  sinaq:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: football-data.org (açar göstərilmir)
+        env:
+          K: ${{ secrets.FOOTBALL_DATA_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          k = os.environ.get("K", "")
+          print("açar uzunluğu:", len(k))
+          def get(p):
+              req = urllib.request.Request("https://api.football-data.org/v4/" + p, headers={"X-Auth-Token": k, "User-Agent": "8ulduz.az/1.0"})
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      return r.status, dict(r.headers), json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, dict(e.headers), {}
+          s, h, d = get("competitions")
+          print("competitions", s, {x: h.get(x) for x in h if x.lower().startswith("x-")})
+          print([(c["code"], c["name"], c.get("plan")) for c in d.get("competitions", [])])
+          s, h, d = get("matches")
+          ms = d.get("matches", [])
+          print("matches", s, len(ms), d.get("filters"), d.get("resultSet"))
+          if ms:
+              m = ms[0]
+              print("açarlar:", sorted(m.keys()))
+              print("nümunə:", {x: m.get(x) for x in ("utcDate", "status", "minute", "injuryTime", "score", "lastUpdated")}, m["homeTeam"].get("name"), m["awayTeam"].get("name"), m["competition"].get("code"))
+          for code in ("PL", "CL", "TSL", "RPL"):
+              s, h, d = get(f"competitions/{code}/standings")
+              print("standings", code, s)
+          PY
