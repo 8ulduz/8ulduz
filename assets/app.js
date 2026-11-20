@@ -1801,15 +1801,25 @@ const AZ_LEAGUES = ["Premyer Liqa", "I Liqa", "II Liqa", "Kubok", "Əvəzedicil�
 function navLeagues(slug, tab) {
   if (slug !== "idman") return [];
   wantSports();
-  const world = sport => (S.sports?.leagues || []).filter(l => l.sport === sport && l.groups?.length).map(l => ({ short: l.short, label: l.name.replace(/ \(.*/, ""), place: l.short === "ÇL" || l.short === "AL" || l.short === "KL" || l.short === l.name ? "" : l.short, clubs: l.groups.flatMap(g => g.rows).map(t => [t.team, t.full || t.team]) }));
+  const world = sport => (S.sports?.leagues || []).filter(l => l.sport === sport && l.groups?.length).map(l => ({ id: l.id, short: l.short, label: l.name.replace(/ \(.*/, ""), place: l.short === "ÇL" || l.short === "AL" || l.short === "KL" || l.short === l.name ? "" : l.short, clubs: l.groups.flatMap(g => g.rows).map(t => [t.team, t.full || t.team]) }));
+  if (tab === "Futbol" || tab === "Basketbol") loadFb();   // menyudakı bayraq və ölkə adları futbol.js-dən
   if (tab === "Basketbol") { const items = world("basketball"); return items.length ? [{ label: "Liqalar", items }] : []; }
   if (tab !== "Futbol") return [];
   const az = AZ_LEAGUES.map(short => ({ short, label: short, place: "", clubs: ((S.football?.leagues || []).find(l => l.short === short)?.table || []).map(t => [clubAz(t.team), t.team]) }));
-  const items = world("football"), nat = (S.milli || []).map(c => ({ short: c.id, label: c.name, place: "", nat: 1, clubs: c.teams.map(n => [n, n]) }));
-  return [{ group: "Azərbaycan", label: "Azərbaycan liqaları", items: az }, ...(items.length ? [{ label: "Dünya liqaları", items }] : []), ...(nat.length ? [{ label: "Milli komandalar", items: nat }] : [])];
+  const items = world("football"), nat = (S.milli || []).map(c => ({ short: c.id, label: c.name, place: "", nat: 1, clubs: c.teams.map(n => [n, n]), az: c.teams.includes("Azərbaycan") }));
+  // Milli komandalar (sahib 2026-11-19: «Milli liqaları bölməsini təkmilləşdir»): Azərbaycan millisi başda — bayraqla, öz yarışındakı
+  // komanda səhifəsinə; yarışlar qitələrə görə: Dünya, Avropa, digər qitələr.
+  const azc = nat.find(c => c.az), region = c => /^dc-/.test(c.short) ? 0 : /^(ml-|avro)/.test(c.short) ? 1 : 2;
+  const natRows = [
+    { label: "Milli komandalar", items: [...(azc ? [{ short: azc.short, label: "Azərbaycan millisi", clubs: [], href: teamHref(azc, "Azərbaycan"), html: `${FLAGS.az}<b>Azərbaycan millisi</b>` }] : []), ...nat.filter(c => !region(c))] },
+    { group: "Avropa", label: "Avropa", items: nat.filter(c => region(c) === 1) },
+    { label: "Digər qitələr", items: nat.filter(c => region(c) === 2) }].filter(g => g.items.length);
+  return [{ group: "Azərbaycan", label: "Azərbaycan liqaları", items: az }, ...(items.length ? [{ label: "Dünya liqaları", items }] : []), ...(nat.length ? natRows : [])];
 }
 const leagueHead = g => `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.label)}</span>`;
-const leagueLink = (l, on) => `<a class="pill${on ? " on" : ""}" href="#/komanda/${teamSlug(l.short)}" data-liga="${esc(l.short)}"><span>${esc(l.label)}</span>${l.place ? `<small>${esc(l.place)}</small>` : ""}</a>`;
+const LINE = '<span style="display:inline-flex;align-items:center;gap:5px">';
+const leagueLink = (l, on) => l.href ? `<a class="pill" href="${l.href}">${LINE}${l.html}</span></a>`
+  : `<a class="pill${on ? " on" : ""}" href="#/komanda/${teamSlug(l.short)}" data-liga="${esc(l.short)}">${l.id && S.fbNav ? `${LINE}${S.fbNav(l.id, l.label, esc)}</span>` : `<span>${esc(l.label)}</span>${l.place ? `<small>${esc(l.place)}</small>` : ""}`}</a>`;
 function navGroups(tabs, open) {
   const groups = tabs.find(t => t.name === open)?.groups || [];
   if (open === "Transfer xəbərləri") return groups.map(g => ({ ...g, items: g.items.filter(t => t.label !== "Basketbol" || withArchive("idman", S.data?.articles || []).some(a => a.category === "idman" && clubMatches(a, t.name))) }));
@@ -1926,10 +1936,11 @@ function fbLeagues() {
 }
 // Cədvəl hansı günün oyunlarına qədərdir.
 // Futbol bloku tənbəl modulda (futbol.js): yalnız blok çəkiləndə — panel açıq ikən və ya liqa səhifəsində — yüklənir, əsas kod ~5,6 KB yüngülləşir
+const loadFb = () => S.fbMod ||= import("./futbol.js").then(m => { S.fbView = m.view; S.fbNav = m.navLabel; requestRender(false); S.navRefresh?.(); }).catch(() => { S.fbMod = null; });
 const fbHelpers = () => ({ S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, requestRender });
 function footballBlock(list) {
   wantSports();
-  S.fbMod ||= import("./futbol.js").then(m => { S.fbView = m.view; requestRender(false); }).catch(() => { S.fbMod = null; });
+  loadFb();
   return S.fbView ? S.fbView(fbHelpers(), list) : '<p class="empty">Yüklənir…</p>';
 }
 function ordTur(n) {

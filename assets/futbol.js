@@ -21,6 +21,41 @@ async function liveLoad(rerender) {
   liveBusy = false;
   if (d && JSON.stringify(d.matches) !== JSON.stringify(live?.matches)) { live = d; rerender?.(false); }
 }
+const SV = (inner, title) => `<svg viewBox="0 0 30 20" width="18" height="12" aria-hidden="true" style="flex:none;border-radius:2px;box-shadow:0 0 0 1px #0003;vertical-align:-1px">${inner}</svg>`;
+const H3 = (a, b, c) => SV(`<rect width="30" height="20" fill="${b}"/><rect width="30" height="6.67" fill="${a}"/><rect y="13.33" width="30" height="6.67" fill="${c}"/>`);
+const V3 = (a, b, c) => SV(`<rect width="30" height="20" fill="${b}"/><rect width="10" height="20" fill="${a}"/><rect x="20" width="10" height="20" fill="${c}"/>`);
+const FL = {
+  az: H3("#00b5e2", "#ef3340", "#509e2f"),
+  eng: SV('<rect width="30" height="20" fill="#fff"/><path d="M15 0v20M0 10h30" stroke="#ce1124" stroke-width="4"/>'),
+  sco: SV('<rect width="30" height="20" fill="#0065bd"/><path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="3"/>'),
+  esp: SV('<rect width="30" height="20" fill="#aa151b"/><rect y="5" width="30" height="10" fill="#f1bf00"/>'),
+  ita: V3("#009246", "#fff", "#ce2b37"), fra: V3("#0055a4", "#fff", "#ef4135"), bel: V3("#000", "#fdda24", "#ef3340"),
+  ger: H3("#000", "#dd0000", "#ffce00"), ned: H3("#ae1c28", "#fff", "#21468b"), rus: H3("#fff", "#0039a6", "#d52b1e"),
+  tur: SV('<rect width="30" height="20" fill="#e30a17"/><circle cx="11.5" cy="10" r="5" fill="#fff"/><circle cx="12.8" cy="10" r="4" fill="#e30a17"/><circle cx="18.5" cy="10" r="1.6" fill="#fff"/>'),
+  por: SV('<rect width="30" height="20" fill="#da291c"/><rect width="12" height="20" fill="#046a38"/><circle cx="12" cy="10" r="3.5" fill="#ffe900"/>'),
+  ksa: SV('<rect width="30" height="20" fill="#006c35"/><rect x="7" y="12" width="16" height="1.6" fill="#fff"/>'),
+  bra: SV('<rect width="30" height="20" fill="#009c3b"/><path d="M15 3l11 7-11 7-11-7z" fill="#ffdf00"/><circle cx="15" cy="10" r="3.6" fill="#002776"/>'),
+  usa: SV('<rect width="30" height="20" fill="#fff"/><path d="M0 1.5h30M0 4.6h30M0 7.7h30M0 10.8h30M0 13.9h30M0 17h30" stroke="#b22234" stroke-width="1.55"/><rect width="13" height="10.8" fill="#3c3b6e"/>'),
+  eu: SV('<rect width="30" height="20" fill="#003399"/><circle cx="15" cy="10" r="5" fill="none" stroke="#ffcc00" stroke-width="1.4" stroke-dasharray="1.2 1.4"/>'),
+};
+// id -> [bayraq, ölkə, liqa]; Azərbaycan liqaları (football.json) dünya siyahısında deyil
+const LIQA = {
+  "eng.1": ["eng", "İngiltərə", "Premyer Liqa"], "eng.2": ["eng", "İngiltərə", "Çempionşip"], "esp.1": ["esp", "İspaniya", "La Liga"],
+  "ita.1": ["ita", "İtaliya", "Seriya A"], "ger.1": ["ger", "Almaniya", "Bundesliqa"], "fra.1": ["fra", "Fransa", "Liqa 1"],
+  "tur.1": ["tur", "Türkiyə", "Süper Liq"], "por.1": ["por", "Portuqaliya", "Primeyra Liqa"], "ned.1": ["ned", "Hollandiya", "Eredivizie"],
+  "bel.1": ["bel", "Belçika", "Pro Liqa"], "sco.1": ["sco", "Şotlandiya", "Premyership"], "rus.1": ["rus", "Rusiya", "Premyer Liqa"],
+  "ksa.1": ["ksa", "Səudiyyə Ərəbistanı", "Pro Liqa"], "bra.1": ["bra", "Braziliya", "Seriya A"], "usa.1": ["usa", "ABŞ", "MLS"],
+  "uefa.champions": ["", "UEFA", "Çempionlar Liqası"], "uefa.europa": ["", "UEFA", "Avropa Liqası"], "uefa.conference": ["", "UEFA", "Konfrans Liqası"],
+  nba: ["usa", "ABŞ", "NBA"], euroleague: ["eu", "Avropa", "Avroliqa"],
+};
+// Menyunun liqa düyməsi (app.js navLeagues; sahib 2026-11-19: «ölkənin adı qalın, liqa adı nazik, ölkə bayrağı»): bayraq, qalın ölkə,
+// nazik liqa. id sports.json-dakı liqa id-sidir; tanınmayan liqa adı ilə qalır.
+export function navLabel(id, label, esc) {
+  const [fl, country, name] = LIQA[id] || ["", "", label];
+  return `${FL[fl] || ""}${country ? `<b>${esc(country)}</b>` : ""}<span${country ? ' style="font-weight:400"' : ""}>${esc(name)}</span>`;
+}
+export const flag = k => FL[k] || "";
+
 export function view(h, list) {
   const { S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues } = h;
   const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${MONTHS[m - 1]} oyunlarına qədər` : ""; };
@@ -75,33 +110,6 @@ export function view(h, list) {
 
   // Liqa düyməsi (sahib 2026-11-19: «liqaların adları səliqəli yazılsın: ölkənin adı qalın, liqa adı nazik, ölkə bayrağı olsun»).
   // Bayraq SVG-dir (Windows-da bayraq emojisi hərf kimi görünür); app.css-də yer olmadığı üçün stil burada.
-  const SV = (inner, title) => `<svg viewBox="0 0 30 20" width="18" height="12" aria-hidden="true" style="flex:none;border-radius:2px;box-shadow:0 0 0 1px #0003;vertical-align:-1px">${inner}</svg>`;
-  const H3 = (a, b, c) => SV(`<rect width="30" height="20" fill="${b}"/><rect width="30" height="6.67" fill="${a}"/><rect y="13.33" width="30" height="6.67" fill="${c}"/>`);
-  const V3 = (a, b, c) => SV(`<rect width="30" height="20" fill="${b}"/><rect width="10" height="20" fill="${a}"/><rect x="20" width="10" height="20" fill="${c}"/>`);
-  const FL = {
-    az: H3("#00b5e2", "#ef3340", "#509e2f"),
-    eng: SV('<rect width="30" height="20" fill="#fff"/><path d="M15 0v20M0 10h30" stroke="#ce1124" stroke-width="4"/>'),
-    sco: SV('<rect width="30" height="20" fill="#0065bd"/><path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="3"/>'),
-    esp: SV('<rect width="30" height="20" fill="#aa151b"/><rect y="5" width="30" height="10" fill="#f1bf00"/>'),
-    ita: V3("#009246", "#fff", "#ce2b37"), fra: V3("#0055a4", "#fff", "#ef4135"), bel: V3("#000", "#fdda24", "#ef3340"),
-    ger: H3("#000", "#dd0000", "#ffce00"), ned: H3("#ae1c28", "#fff", "#21468b"), rus: H3("#fff", "#0039a6", "#d52b1e"),
-    tur: SV('<rect width="30" height="20" fill="#e30a17"/><circle cx="11.5" cy="10" r="5" fill="#fff"/><circle cx="12.8" cy="10" r="4" fill="#e30a17"/><circle cx="18.5" cy="10" r="1.6" fill="#fff"/>'),
-    por: SV('<rect width="30" height="20" fill="#da291c"/><rect width="12" height="20" fill="#046a38"/><circle cx="12" cy="10" r="3.5" fill="#ffe900"/>'),
-    ksa: SV('<rect width="30" height="20" fill="#006c35"/><rect x="7" y="12" width="16" height="1.6" fill="#fff"/>'),
-    bra: SV('<rect width="30" height="20" fill="#009c3b"/><path d="M15 3l11 7-11 7-11-7z" fill="#ffdf00"/><circle cx="15" cy="10" r="3.6" fill="#002776"/>'),
-    usa: SV('<rect width="30" height="20" fill="#fff"/><path d="M0 1.5h30M0 4.6h30M0 7.7h30M0 10.8h30M0 13.9h30M0 17h30" stroke="#b22234" stroke-width="1.55"/><rect width="13" height="10.8" fill="#3c3b6e"/>'),
-    eu: SV('<rect width="30" height="20" fill="#003399"/><circle cx="15" cy="10" r="5" fill="none" stroke="#ffcc00" stroke-width="1.4" stroke-dasharray="1.2 1.4"/>'),
-  };
-  // id -> [bayraq, ölkə, liqa]; Azərbaycan liqaları (football.json) dünya siyahısında deyil
-  const LIQA = {
-    "eng.1": ["eng", "İngiltərə", "Premyer Liqa"], "eng.2": ["eng", "İngiltərə", "Çempionşip"], "esp.1": ["esp", "İspaniya", "La Liga"],
-    "ita.1": ["ita", "İtaliya", "Seriya A"], "ger.1": ["ger", "Almaniya", "Bundesliqa"], "fra.1": ["fra", "Fransa", "Liqa 1"],
-    "tur.1": ["tur", "Türkiyə", "Süper Liq"], "por.1": ["por", "Portuqaliya", "Primeyra Liqa"], "ned.1": ["ned", "Hollandiya", "Eredivizie"],
-    "bel.1": ["bel", "Belçika", "Pro Liqa"], "sco.1": ["sco", "Şotlandiya", "Premyership"], "rus.1": ["rus", "Rusiya", "Premyer Liqa"],
-    "ksa.1": ["ksa", "Səudiyyə Ərəbistanı", "Pro Liqa"], "bra.1": ["bra", "Braziliya", "Seriya A"], "usa.1": ["usa", "ABŞ", "MLS"],
-    "uefa.champions": ["", "UEFA", "Çempionlar Liqası"], "uefa.europa": ["", "UEFA", "Avropa Liqası"], "uefa.conference": ["", "UEFA", "Konfrans Liqası"],
-    nba: ["usa", "ABŞ", "NBA"], euroleague: ["eu", "Avropa", "Avroliqa"],
-  };
   const leagueLabel = l => {
     const [fl, country, name] = l.world ? (LIQA[l.id] || ["", "", l.league || l.short || ""]) : ["az", "Azərbaycan", l.short || l.league || ""];
     return `<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap">${FL[fl] || ""}${country ? `<b style="font-weight:800">${esc(country)}</b>` : ""}<span style="font-weight:400">${esc(name)}</span></span>`;
