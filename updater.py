@@ -3094,7 +3094,7 @@ def slow_cycle():
     # SOCIAL_LOOP: rəsmi hesabların yazıları pipeline.sh-in social_loop-unda hər dəqiqə yığılır (--social), burada yox.
     social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
     # update_own_news: yalnız OZ_DERC=1 ilə işləyir (yuxarıda); məzənnədən sonra, çünki təzə data/markets.json-u oxuyur.
-    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, record_time_origins, verify_source_times, *social, update_video, update_football, update_sports,
+    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, record_time_origins, verify_source_times, *social, update_video, update_football, update_live_scores, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, update_city_data, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
@@ -4342,6 +4342,225 @@ def update_football():
     data["updatedAt"] = now
     _write_atomic(FOOTBALL_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Futbol: {fresh}/{len(PFL_PROJECTS)} liqa təzə, Premyer: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}")
+
+# Bu günün oyunları və canlı hesab (sahib 2026-11-20: «pulsuz həll lazımdır»). Mənbə football-data.org-un pulsuz planı
+# (FOOTBALL_DATA_KEY; açarı sahib əlavə edir): 12 turnir, oyunun vəziyyəti və hesabı, dəqiqəsiz; dəqiqədə ən çox 10 sorğu.
+# Bir dövrədə bir sorğu, yalnız yavaş dövrədə. Açar yoxdursa addım heç nə etmir və fayl yazılmır (sayt bloku göstərmir).
+LIVE_FILE = OUT_DIR / "canli.json"
+LIVE_API = "https://api.football-data.org/v4/matches"
+LIVE_EVERY = datetime.timedelta(minutes=15)          # canlı oyun yoxdursa
+LIVE_SOON = datetime.timedelta(minutes=20)           # oyuna bu qədər qalıb və ya oyun gedir: hər yavaş dövrədə (~4 dəq)
+LIVE_COMP = {"PL": "İngiltərə · Premyer Liqa", "ELC": "İngiltərə · Çempionşip", "PD": "İspaniya · La Liqa", "SA": "İtaliya · Seriya A",
+             "BL1": "Almaniya · Bundesliqa", "FL1": "Fransa · Liqa 1", "DED": "Niderland · Eredivizie", "PPL": "Portuqaliya · Primeyra Liqa",
+             "CL": "Çempionlar Liqası", "BSA": "Braziliya · Seriya A", "CLI": "Kopa Libertadores", "WC": "Dünya çempionatı", "EC": "Avropa çempionatı"}
+LIVE_STATUS = {"IN_PLAY": "live", "PAUSED": "ht", "FINISHED": "ft", "AWARDED": "ft", "SCHEDULED": "ns", "TIMED": "ns",
+               "POSTPONED": "pp", "SUSPENDED": "pp", "CANCELLED": "pp"}
+_LIVE_NAME = re.compile(r"[\w .'’&/\-]{2,40}", re.U)
+
+
+def parse_live(doc, today):
+    """football-data.org /v4/matches -> saytın sətirləri. Yalnız tanınan turnir və vəziyyət, ad uzunluğu yoxlanır; mətn
+    sahəsi yoxdur (komanda adı və hesab), ona görə xəbər süzgəcinə ehtiyac yoxdur. today: Bakı günü (YYYY-MM-DD)."""
+    rows = []
+    for m in doc.get("matches") or []:
+        comp, status = (m.get("competition") or {}).get("code"), LIVE_STATUS.get(m.get("status"))
+        when = str(m.get("utcDate") or "")
+        try:
+            day = datetime.datetime.fromisoformat(when.replace("Z", "+00:00")).astimezone(BAKU).date().isoformat()
+        except ValueError:
+            continue
+        names = [((m.get(k) or {}).get("shortName") or (m.get(k) or {}).get("name") or "").strip() for k in ("homeTeam", "awayTeam")]
+        if comp not in LIVE_COMP or not status or day != today or not all(_LIVE_NAME.fullmatch(n) for n in names):
+            continue
+        full = ((m.get("score") or {}).get("fullTime") or {})
+        row = {"c": comp, "t": when.replace("Z", "+00:00"), "s": status, "h": names[0], "a": names[1]}
+        if status in ("live", "ht", "ft") and isinstance(full.get("home"), int) and isinstance(full.get("away"), int):
+            row.update(hs=full["home"], **{"as": full["away"]})
+        rows.append(row)
+    order = {"live": 0, "ht": 0, "ns": 1, "pp": 2, "ft": 3}
+    rows.sort(key=lambda r: (order[r["s"]], r["t"] if r["s"] != "ft" else "", list(LIVE_COMP).index(r["c"])))
+    return rows
+
+
+def _live_due(old, now_dt):
+    try:
+        last = datetime.datetime.fromisoformat(old.get("checkedAt", ""))
+    except (TypeError, ValueError):
+        return True
+    if now_dt - last >= LIVE_EVERY:
+        return True
+    for r in old.get("matches") or []:
+        if r.get("s") in ("live", "ht"):
+            return True
+        try:
+            if r.get("s") == "ns" and datetime.datetime.fromisoformat(r["t"]) - now_dt <= LIVE_SOON:
+                return True
+        except (KeyError, ValueError):
+            pass
+    return False
+
+
+def update_live_scores():
+    """Üç pulsuz mənbə, bir fayl (data/canli.json). football-data.org — 13 turnir (FOOTBALL_DATA_KEY); o alınmayanda
+    Bundesliqa və ÇL OpenLigaDB-dən (açarsız); Türkiyə, Rusiya, Azərbaycan API-Football-dan dəqiqə ilə (API_FOOTBALL_KEY,
+    gündə 100 sorğu). Açar yoxdursa həmin mənbə heç nə etmir; heç bir mənbə yoxdursa fayl yazılmır."""
+    fd_key = os.environ.get("FOOTBALL_DATA_KEY", "").strip()
+    af_key = os.environ.get("API_FOOTBALL_KEY", "").strip()
+    if not fd_key and not af_key:
+        return
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        old = json.loads(LIVE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        old = {}
+    today = now_dt.astimezone(BAKU).date()
+    old_rows = (old.get("matches") or []) if old.get("day") == today.isoformat() else []
+    main_rows = [r for r in old_rows if r.get("c") not in AF_LEAGUES.values()]
+    af_rows = [r for r in old_rows if r.get("c") in AF_LEAGUES.values()]
+    touched = False
+    if fd_key and _live_due({"checkedAt": old.get("checkedAt"), "matches": main_rows} if old.get("day") == today.isoformat() else {}, now_dt):
+        span = f"?dateFrom={(today - datetime.timedelta(days=1)).isoformat()}&dateTo={(today + datetime.timedelta(days=1)).isoformat()}"
+        try:
+            doc = json.loads(fetch(LIVE_API + span, timeout=15, headers={"X-Auth-Token": fd_key, "Accept": "application/json"}).decode("utf-8"))
+            main_rows, touched = parse_live(doc, today.isoformat()), True
+        except Exception as e:  # açar ünvana və loga düşmür: yalnız xətanın növü
+            print("  ! canlı hesab:", getattr(e, "code", "") or type(e).__name__)
+            try:
+                main_rows, touched = openliga_live(today.isoformat(), now_dt), True
+            except Exception as e2:
+                print("  ! canlı hesab (OpenLigaDB):", type(e2).__name__)
+    af = old.get("af") if (old.get("af") or {}).get("day") == today.isoformat() else {"day": today.isoformat(), "used": 0}
+    if af_key:
+        kind = _af_due(af, af_rows, now_dt)
+        if kind:
+            url = AF_API + (f"?date={today.isoformat()}&timezone=Asia/Baku" if kind == "plan" else "?live=" + "-".join(map(str, AF_LEAGUES)))
+            af["used"] = af.get("used", 0) + 1
+            af["at"] = now_dt.isoformat(timespec="seconds")
+            touched = True   # sorğu sayı alınmasa da yazılır: xəta zamanı hər dövrədə yenidən soruşmasın
+            try:
+                doc = json.loads(fetch(url, timeout=20, headers={"x-apisports-key": af_key, "Accept": "application/json"}).decode("utf-8"))
+                if doc.get("errors"):
+                    raise ValueError("API-Football: " + ",".join(map(str, doc["errors"]))[:80] if isinstance(doc["errors"], list) else "API-Football xətası")
+                got = parse_af(doc, today.isoformat())
+                if kind == "plan":
+                    af_rows, af["plan"] = got, af["at"]
+                else:   # canlı cavabda olmayan, əvvəl canlı olan oyun bitib: növbəti dəfə gün cədvəli (yekun hesab)
+                    live_ids = {(r["h"], r["a"]) for r in got}
+                    if any(r["s"] in ("live", "ht") and (r["h"], r["a"]) not in live_ids for r in af_rows):
+                        af["replan"] = True
+                    af_rows = [next((g for g in got if (g["h"], g["a"]) == (r["h"], r["a"])), r) for r in af_rows] + \
+                              [g for g in got if (g["h"], g["a"]) not in {(r["h"], r["a"]) for r in af_rows}]
+                if kind == "plan":
+                    af.pop("replan", None)
+                touched = True
+            except Exception as e:
+                print("  ! canlı hesab (API-Football):", getattr(e, "code", "") or type(e).__name__)
+    if not touched:
+        return
+    rows = main_rows + af_rows
+    order = {"live": 0, "ht": 0, "ns": 1, "pp": 2, "ft": 3}
+    comps = list(LIVE_COMP)
+    rows.sort(key=lambda r: (order.get(r["s"], 9), r["t"] if r["s"] != "ft" else "", comps.index(r["c"]) if r["c"] in comps else 99))
+    now = now_dt.isoformat(timespec="seconds")
+    changed = rows != old.get("matches")
+    OUT_DIR.mkdir(exist_ok=True)
+    doc = {"updatedAt": now if changed else old.get("updatedAt", now), "checkedAt": now, "day": today.isoformat(),
+           "source": "football-data.org, OpenLigaDB, API-Football", "matches": rows}
+    if af_key:
+        doc["af"] = af
+    _write_atomic(LIVE_FILE, json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Canlı hesab: {len(rows)} oyun, {sum(r['s'] in ('live', 'ht') for r in rows)} canlı" + (f", API-Football {af.get('used', 0)}/{AF_DAILY}" if af_key else ""))
+
+
+# API-Football (pulsuz: gündə 100 sorğu). Türkiyə Süper Liqası, Rusiya Premyer Liqası, Azərbaycan Premyer Liqası — dəqiqə ilə.
+AF_API = "https://v3.football.api-sports.io/fixtures"
+AF_LEAGUES = {203: "TSL", 235: "RPL", 419: "AZE"}
+AF_DAILY = 90            # 100-dən 10 ehtiyat (əllə sınaq, saat fərqi)
+AF_REPLAN = datetime.timedelta(hours=6)
+AF_MIN_GAP = datetime.timedelta(minutes=4)
+AF_MATCH = datetime.timedelta(hours=2)
+AF_STATUS = {"1H": "live", "2H": "live", "ET": "live", "P": "live", "LIVE": "live", "BT": "ht", "HT": "ht", "FT": "ft", "AET": "ft", "PEN": "ft",
+             "AWD": "ft", "WO": "ft", "NS": "ns", "TBD": "ns", "PST": "pp", "SUSP": "pp", "INT": "pp", "CANC": "pp", "ABD": "pp"}
+LIVE_COMP.update({"TSL": "Türkiyə · Süper Liq", "RPL": "Rusiya · Premyer Liqa", "AZE": "Azərbaycan · Premyer Liqa"})
+
+
+def parse_af(doc, today):
+    rows = []
+    for x in doc.get("response") or []:
+        fx, lg, tm, gl = x.get("fixture") or {}, x.get("league") or {}, x.get("teams") or {}, x.get("goals") or {}
+        comp, status = AF_LEAGUES.get(lg.get("id")), AF_STATUS.get((fx.get("status") or {}).get("short"))
+        try:
+            when = datetime.datetime.fromisoformat(str(fx.get("date") or "").replace("Z", "+00:00")).astimezone(datetime.timezone.utc)
+        except ValueError:
+            continue
+        names = [str((tm.get(k) or {}).get("name") or "").strip() for k in ("home", "away")]
+        if not comp or not status or when.astimezone(BAKU).date().isoformat() != today or not all(_LIVE_NAME.fullmatch(n) for n in names):
+            continue
+        row = {"c": comp, "t": when.isoformat(timespec="seconds"), "s": status, "h": names[0], "a": names[1]}
+        if status in ("live", "ht", "ft") and isinstance(gl.get("home"), int) and isinstance(gl.get("away"), int):
+            row.update(hs=gl["home"], **{"as": gl["away"]})
+        el = (fx.get("status") or {}).get("elapsed")
+        if status == "live" and isinstance(el, int) and 0 < el < 200:
+            row["min"] = el
+        rows.append(row)
+    return rows
+
+
+def _af_due(af, rows, now_dt):
+    """None, "plan" (günün cədvəli) və ya "live". Gündəlik sorğular oyun saatlarına bərabər bölünür."""
+    left = AF_DAILY - af.get("used", 0)
+    if left <= 0:
+        return None
+    def at(key):
+        try:
+            return datetime.datetime.fromisoformat(af[key])
+        except (KeyError, TypeError, ValueError):
+            return None
+    plan, last = at("plan"), at("at")
+    if plan is None or af.get("replan") or now_dt - plan >= AF_REPLAN:
+        return "plan" if last is None or now_dt - last >= AF_MIN_GAP else None
+    starts = []
+    for r in rows:
+        try:
+            starts.append((r, datetime.datetime.fromisoformat(r["t"])))
+        except (KeyError, ValueError):
+            pass
+    active = [t for r, t in starts if r["s"] in ("live", "ht") or (r["s"] == "ns" and t - LIVE_SOON <= now_dt <= t + AF_MATCH)]
+    if not active:
+        return None
+    pending = [t for r, t in starts if r["s"] != "ft"]
+    end = max(pending) + AF_MATCH if pending else now_dt
+    gap = max(AF_MIN_GAP, (end - now_dt) / left)
+    return "live" if last is None or now_dt - last >= gap else None
+
+
+def openliga_live(today, now_dt):
+    """football-data.org alınmayanda Bundesliqa və ÇL-in bu günkü oyunları OpenLigaDB-dən (açarsız, ODbL)."""
+    rows = []
+    for code, league in (("BL1", "bl1"), ("CL", "ucl")):
+        for m in _openliga_json(f"getmatchdata/{league}"):
+            try:
+                when = datetime.datetime.fromisoformat(str(m.get("matchDateTimeUTC") or "").replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if when.astimezone(BAKU).date().isoformat() != today:
+                continue
+            names = [_OPENLIGA_CLUBS.get((m.get(k) or {}).get("teamId"), (str((m.get(k) or {}).get("teamName") or "").strip(),))[0] for k in ("team1", "team2")]
+            if not all(_LIVE_NAME.fullmatch(n) for n in names):
+                continue
+            status = "ft" if m.get("matchIsFinished") else "live" if when <= now_dt else "ns"
+            row = {"c": code, "t": when.isoformat(timespec="seconds"), "s": status, "h": names[0], "a": names[1]}
+            goals = m.get("goals") or []
+            if status == "ft" and _openliga_score(m):
+                hs, aw, _ = _openliga_score(m)
+                row.update(hs=hs, **{"as": aw})
+            elif status == "live":
+                last = goals[-1] if goals else {"scoreTeam1": 0, "scoreTeam2": 0}
+                if isinstance(last.get("scoreTeam1"), int) and isinstance(last.get("scoreTeam2"), int):
+                    row.update(hs=last["scoreTeam1"], **{"as": last["scoreTeam2"]})
+            rows.append(row)
+    return rows
+
 
 # Komanda səhifələri (#/komanda/<liga>/<ad>). Məlumat ayrı fayllardadır (data/futbol/), yalnız o səhifə açılanda yüklənir və
 # yalnız slow_cycle-da yazılır: baş səhifəyə də, 60 saniyəlik dövrəyə də ağırlıq gətirmir.

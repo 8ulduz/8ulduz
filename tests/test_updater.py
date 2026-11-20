@@ -3,6 +3,7 @@ import datetime
 import inspect
 import io
 import json
+import os
 import pathlib
 import re
 import tempfile
@@ -2585,3 +2586,63 @@ class FirstScreenOgMapTest(unittest.TestCase):
                          "alt mənbənin şəkli və fərqli ehtiyat qalır; eyni ünvan, boş dəyər və lentdə olmayan giriş düşür")
         self.assertEqual(out["count"], 3)
         self.assertEqual([a["id"] for a in out["articles"]], ["a" * 16, "b" * 16, "c" * 16])
+
+
+class LiveScoresTest(unittest.TestCase):
+    """Bu günün oyunları (sahib 2026-11-20: «pulsuz həll»): football-data.org pulsuz planı, açar yoxdursa heç nə."""
+    DOC = {"matches": [
+        {"competition": {"code": "PL"}, "status": "IN_PLAY", "utcDate": "2026-11-20T15:00:00Z", "homeTeam": {"shortName": "Arsenal"},
+         "awayTeam": {"shortName": "Chelsea"}, "score": {"fullTime": {"home": 1, "away": 0}}},
+        {"competition": {"code": "PD"}, "status": "TIMED", "utcDate": "2026-11-20T18:00:00Z", "homeTeam": {"shortName": "Barça"},
+         "awayTeam": {"shortName": "Sevilla"}, "score": {"fullTime": {"home": None, "away": None}}},
+        {"competition": {"code": "XX"}, "status": "IN_PLAY", "utcDate": "2026-11-20T15:00:00Z", "homeTeam": {"name": "A"}, "awayTeam": {"name": "B"}, "score": {}},
+        {"competition": {"code": "SA"}, "status": "FINISHED", "utcDate": "2026-11-19T15:00:00Z", "homeTeam": {"shortName": "Roma"},
+         "awayTeam": {"shortName": "Lazio"}, "score": {"fullTime": {"home": 2, "away": 2}}},
+        {"competition": {"code": "FL1"}, "status": "FINISHED", "utcDate": "2026-11-20T12:00:00Z", "homeTeam": {"shortName": "<script>"},
+         "awayTeam": {"shortName": "PSG"}, "score": {"fullTime": {"home": 1, "away": 1}}}]}
+
+    def test_rows_are_today_known_competitions_live_first(self):
+        rows = updater.parse_live(self.DOC, "2026-11-20")
+        self.assertEqual([(r["c"], r["s"]) for r in rows], [("PL", "live"), ("PD", "ns")])
+        self.assertEqual((rows[0]["hs"], rows[0]["as"]), (1, 0))
+        self.assertNotIn("hs", rows[1], "başlamayan oyunun hesabı yoxdur")
+
+    def test_no_key_no_request_no_file(self):
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"FOOTBALL_DATA_KEY": "", "API_FOOTBALL_KEY": ""}), \
+             patch.object(updater, "LIVE_FILE", pathlib.Path(d) / "canli.json"), patch.object(updater, "fetch") as f:
+            updater.update_live_scores()
+            f.assert_not_called()
+            self.assertFalse((pathlib.Path(d) / "canli.json").exists())
+
+    def test_key_goes_only_in_header_and_step_is_slow(self):
+        src = inspect.getsource(updater.update_live_scores)
+        self.assertIn('headers={"X-Auth-Token": fd_key', src)
+        self.assertIn('headers={"x-apisports-key": af_key', src)
+        self.assertNotIn("print(fd_key", src)
+        self.assertNotIn("print(af_key", src)
+        self.assertNotIn("print(key", src)
+        self.assertIn("update_live_scores", inspect.getsource(updater.slow_cycle))
+
+    def test_api_football_rows_have_minute_and_known_leagues_only(self):
+        doc = {"response": [
+            {"fixture": {"date": "2026-11-20T16:00:00+00:00", "status": {"short": "2H", "elapsed": 67}}, "league": {"id": 419},
+             "teams": {"home": {"name": "Qarabağ"}, "away": {"name": "Neftçi"}}, "goals": {"home": 2, "away": 1}},
+            {"fixture": {"date": "2026-11-20T17:00:00+00:00", "status": {"short": "NS", "elapsed": None}}, "league": {"id": 203},
+             "teams": {"home": {"name": "Galatasaray"}, "away": {"name": "Fenerbahçe"}}, "goals": {"home": None, "away": None}},
+            {"fixture": {"date": "2026-11-20T17:00:00+00:00", "status": {"short": "1H", "elapsed": 10}}, "league": {"id": 39},
+             "teams": {"home": {"name": "Arsenal"}, "away": {"name": "Chelsea"}}, "goals": {"home": 0, "away": 0}}]}
+        rows = updater.parse_af(doc, "2026-11-20")
+        self.assertEqual([(r["c"], r["s"], r.get("min")) for r in rows], [("AZE", "live", 67), ("TSL", "ns", None)])
+        self.assertEqual((rows[0]["hs"], rows[0]["as"]), (2, 1))
+
+    def test_api_football_budget_spreads_over_the_match_hours(self):
+        now = datetime.datetime(2026, 11, 20, 12, 0, tzinfo=datetime.timezone.utc)
+        self.assertEqual(updater._af_due({"used": 0}, [], now), "plan", "günün cədvəli birinci")
+        self.assertIsNone(updater._af_due({"used": updater.AF_DAILY}, [], now), "limit bitib: sorğu yoxdur")
+        plan = {"used": 1, "plan": now.isoformat(), "at": now.isoformat()}
+        later = [{"s": "ns", "t": (now + datetime.timedelta(hours=5)).isoformat()}]
+        self.assertIsNone(updater._af_due(plan, later, now + datetime.timedelta(minutes=10)), "oyun yoxdur: canlı sorğu yoxdur")
+        live = [{"s": "live", "t": now.isoformat()}]
+        self.assertEqual(updater._af_due(plan, live, now + datetime.timedelta(minutes=5)), "live")
+        self.assertIsNone(updater._af_due(plan, live, now + datetime.timedelta(minutes=2)), "4 dəqiqədən tez yox")
+        self.assertLessEqual(updater.AF_DAILY, 100)

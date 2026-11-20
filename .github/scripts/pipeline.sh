@@ -193,7 +193,7 @@ push_live() {
   for name in status latest latest.az latest.en latest.ru latest.tr markets social; do
     [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
   done
-  for name in reels; do
+  for name in reels canli; do   # canli: bu günün oyunları və canlı hesab (update_live_scores)
     [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
   done
   for old in $(ls "$SLOTS" | sort -n | head -n -"$KEEP_SLOTS"); do

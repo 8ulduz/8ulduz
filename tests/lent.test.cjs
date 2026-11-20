@@ -74,7 +74,7 @@ test('Videolent: videos come from the minute live channel (writer → site ~5 mi
   assert.ok(src.includes('"https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/"') && src.includes('/reels.json`'), 'canlı kanal');
   assert.ok(src.includes('credentials: "omit"'), 'kuki göndərilmir');
   const sh = fs.readFileSync(path.join(__dirname, '..', '.github/scripts/pipeline.sh'), 'utf8');
-  assert.ok(sh.includes('markets social; do') && sh.includes('  for name in reels; do'), 'push_live reels.json-u da göndərir');
+  assert.ok(sh.includes('markets social; do') && sh.includes('  for name in reels canli; do'), 'push_live reels.json-u da göndərir');
   const pull = sh.slice(sh.indexOf('pull_reel_src() {'), sh.indexOf('\n}\n', sh.indexOf('pull_reel_src() {')));
   assert.ok(pull.includes('contents/$src?ref=main') && pull.includes('*_x.json)') && pull.includes('json.load') && !pull.includes('git '), 'yalnız oz_x.json, yoxlanır, git toqquşması yoxdur');
   assert.ok(sh.includes('[ -f "$STATE/reel-src.new" ] && mv -f "$STATE/reel-src.new" "$CUR/$(cat "$STATE/reel-src.name")"'), 'əsas döngü yerli faylı qoyur, şəbəkə yox');
