@@ -122,7 +122,7 @@ test("keçid: the home DOM is kept when leaving and put back on return; a change
   ctx.v = { childNodes: kids, firstChild: kids[0], children: kids, got: null, replaceChildren(f) { this.got = f; }, querySelector: () => null, querySelectorAll: () => [] };
   run(ctx, 'S.data = { articles: [] }; S.partial = false; S.viewPage = "<p>ev</p>"; S.lang = "az";');
   assert.deepEqual(Array.from(run(ctx, "[keyDiff([1, 2, 3, 4], [1, 2, 3, 4]), keyDiff([9, 2, 3, 4], [1, 2, 3, 4]), keyDiff([1, 2, 3, 9], [1, 2, 3, 4]), keyDiff([9, 2, 3, 9], [1, 2, 3, 4])]")), [0, 1, 2, 2], "ilk üç sahə (lent, arxiv, dəqiqə) yumşaq, qalanı sərt");
-  assert.equal(run(ctx, "homeKey().length"), 20);
+  assert.equal(run(ctx, "homeKey().length"), 19);
   run(ctx, 'globalThis.__k = homeKey(); S.error = "şəbəkə"');
   assert.equal(run(ctx, "keyDiff(homeKey(), __k)"), 2, "xəta zolağı yaranıb: saxlanan DOM-da yoxdur, yenidən qurulur");
   run(ctx, "S.error = null");

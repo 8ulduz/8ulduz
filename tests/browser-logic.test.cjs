@@ -1229,13 +1229,13 @@ test('Zuğulba stays newest first even though both groups keep their place', () 
   ];
   assert.deepEqual([...ctx.api.prezHome(prez).map(a => a.id)], ['p2', 'p1', 'lady']);
 });
-test('the "most sources" tab keeps its own order on purpose', () => {
-  const ctx = app(), {S} = ctx.api;
+test('Son xəbərlər is always newest first: the «Ən yeni / Ən çox mənbə» switch is gone (owner 2026-11-20)', () => {
+  const ctx = app();
   const at = h => new Date(Date.now() - h * 3600e3).toISOString();
   const row = (id, h, alts) => ({ id, title: 'Başlıq ' + id, category: 'gundem', lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: at(h), alts });
-  S.latestOrder = 'sources';
   const html = ctx.api.latestBlock([row('fresh', 0.1, []), row('wide', 3, [{source: 'Report', sourceUrl: 'https://report.az/1'}, {source: 'Trend', sourceUrl: 'https://trend.az/1'}])]);
-  assert.ok(html.indexOf('apa.az/wide') < html.indexOf('apa.az/fresh'));
+  assert.ok(html.indexOf('apa.az/fresh') < html.indexOf('apa.az/wide'));
+  assert.ok(!html.includes('data-feed') && !html.includes('Ən çox mənbə'));
 });
 test('one state site cannot fill the Zuğulba block: at most 3 cards per non-official source when the block is full', () => {
   const ctx = app();
@@ -2528,9 +2528,10 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
   ] };
   for (const html of [navPopHtml('idman', 'Futbol'), (S.sportTab = 'Futbol', subNav('idman'))]) {
     for (const liga of ['premyer-liqa', 'i-liqa', 'ii-liqa', 'kubok', 'evezediciler', 'ingiltere', 'turkiye', 'cl']) assert.ok(html.includes('href="#/komanda/' + liga + '"'), liga);
-    assert.ok(html.includes('<span>Süper Liq</span><small>Türkiyə</small>'), 'liqanın adı, yanında ölkəsi');
-    assert.ok(html.includes('<span>Premyer Liqa</span><small>İngiltərə</small>'));
-    assert.ok(html.includes('<span>Çempionlar Liqası</span></a>'));
+    // sahib 2026-11-20: menyu futbol.js-i gözləmir — bayraq, qalın ölkə, nazik liqa ilk çəkilişdən
+    assert.ok(html.includes('<b>Türkiyə</b><span style="font-weight:400">Süper Liq</span>'), 'bayraq, qalın ölkə, nazik liqa');
+    assert.ok(html.includes('<b>İngiltərə</b><span style="font-weight:400">Premyer Liqa</span>'));
+    assert.ok(html.includes('<b>UEFA</b><span style="font-weight:400">Çempionlar Liqası</span>'));
     for (const club of ['Neftçi', 'Galatasaray', 'Real Madrid']) assert.ok(!html.includes('data-club="' + club + '"'), club);
     assert.ok(!html.includes('Milli komandalar') && !html.includes('data-club="Milli komanda"'), 'yarışların siyahısı gəlməyibsə başlıq da yoxdur');
   }
@@ -2634,7 +2635,6 @@ test('Zuğulba card is a link with a share button outside the link; the latest l
   assert.ok(html.includes('<article class="pcard has-img" data-cat="prezident"><a class="pcard-hit" href="https://president.az/1"'), 'kart keçiddir');
   assert.ok(/<\/a><button type="button" class="share" data-act="dinle" data-id="p1">Dinlə<\/button><button type="button" class="share" data-act="share" data-share="https:\/\/8ulduz\.az\/#\/xeber\/p1[^"]*"[^>]*>Paylaş<\/button><\/article>/.test(html), 'Paylaş düyməsi keçidin kənarındadır');
   assert.ok(!html.match(/<a class="pcard-hit"[^>]*>([\s\S]*?)<\/a>/)[1].includes('<button'), 'keçidin içində düymə yoxdur');
-  ctx.api.S.latestOrder = 'latest';
   assert.ok(latestBlock([]).startsWith('<section id="son-xeberler">'), '«N yeni xəbər» düyməsi bura sürüşdürür');
 });
 test('a home section never vanishes: shown stories stay in it, an empty category falls back to its archive', () => {
@@ -2661,7 +2661,7 @@ test('phone fixes are in place: slider does not stop for good, panels close on o
   assert.ok(src.includes('row.children[at + 2], row.children[0]') && src.includes('row._near?.(to)'), 'növbəti slaydların şəkli əvvəlcədən yüklənir');
   assert.ok(src.includes('details.service-panel[open], details.social-details[open]') && src.includes('S.svcOpen = false; if (!kept)'), 'açılan bölmələr kənara basanda və səhifə dəyişəndə bağlanır');
   assert.ok(src.includes('r.slug === S.clubSlug') && src.includes('r.name === "team" ? "idman"'), 'liqadan geri qayıdanda Futbol sırası qalır, nav İdmanı göstərir');
-  assert.ok(src.includes('function jumpToLatest()') && src.includes('S.latestOrder = "latest"; S.latestCount = 8; } render(); jumpToLatest();'), '«yeni xəbər» düyməsi Son xəbərlər → Ən yeni');
+  assert.ok(src.includes('function jumpToLatest()') && src.includes('S.latestCount = 8; render(); jumpToLatest();'), '«yeni xəbər» düyməsi Son xəbərlərə');
   assert.ok(src.includes('navigator.permissions?.query?.({ name: "geolocation" })') && src.includes('data-act="geo"') && !src.includes('getCurrentPosition(applyGeo, undefined'), 'konum yalnız düymə ilə və ya əvvəl verilmiş icazə ilə');
   assert.ok(src.includes('yandexSrc(area)') && src.includes('wazeApp(area)') && src.includes('data-act="tix-yandex"'), 'telefonda Waze xəritəsi, ehtiyat Yandex, «Waze tətbiqində aç»');
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
