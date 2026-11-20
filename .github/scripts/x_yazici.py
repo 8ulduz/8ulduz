@@ -34,8 +34,8 @@ WINDOW = datetime.timedelta(hours=6)
 MAX_BITRATE = 1_000_000
 MAX_CANDIDATES = 25
 PER_RUN = 3
-REELS_PER_RUN = 4   # qısa videolar gecə-gündüz 20 dəqiqədən bir: 72 iş × 4 (GitHub cron-u işlərin ~yarısını buraxır) ≈ gündə 100–150 (sahib, 2026-11-19: «günə 100 yeni video et», «tiktok kimi videolar daima təzələnsin»)
-REELS_ASK = 60     # Gemini-yə seçim üçün göstərilən ən çox namizəd
+REELS_PER_RUN = 12  # qısa videolar gecə-gündüz 20 dəqiqədən bir (iş xəbər axınından başladılır, pipeline.sh xyazici_loop): 72 iş × 12 ≈ gündə 300–800 (sahib, 2026-11-20: «ən önəmli olan videoların daima yenilənməsidir», «çox sayda olmasıdır»)
+REELS_ASK = 90     # Gemini-yə seçim üçün göstərilən ən çox namizəd
 # Gemini işləməyəndə qısa videoya yalnız bu hesablar düşür: müharibə və qəza görüntüsü vermirlər
 REELS_SAFE = {"TamirveTadilat", "TUBITAK", "avionot", "TFF_Org", "MilliTakimlar", "GalatasaraySK", "Fenerbahce", "Besiktas", "Trabzonspor", "trtspor", "aa_spor", "ntvspor", "beINSPORTS_TR", "Rainmaker1973", "buitengebieden", "wonderofscience", "Yoda4ever", "IGN", "GameSpot", "LaLiga", "premierleague", "ChampionsLeague", "EuropaLeague", "NBA", "ESPNNBA", "F1", "atptour", "Olympics", "Discovery", "LFC", "MLS", "Ballislife", "overtime"}
 MAX_AGE_DAYS = 4

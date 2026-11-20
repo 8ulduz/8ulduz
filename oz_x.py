@@ -639,7 +639,7 @@ def rows(path=None):
 # Sətir: id, handle, post, video, poster, w, h (xəbər sətri ilə eyni qaydalar), at (paylaşımın vaxtı, ISO UTC),
 # src (orijinal mətn: yalnız Azərbaycan süzgəci üçün, sayta çıxmır).
 REELS_DAYS = 7    # sahib, 2026-11-19: «günə 100 yeni video et» — lentdə ən təzə 200 video (~2 gün), ən çox 7 günlük
-REELS_MAX = 300   # 10 qat mənbə (2026-11-19): gündə 100–250 video, lent ~1,5 günü tutur
+REELS_MAX = 800   # sahib 2026-11-20: «çox sayda olmasıdır» — gündə 300–800 video, lent ən azı 1 günü tutur
 
 
 def _at(value):
