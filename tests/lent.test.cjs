@@ -79,3 +79,10 @@ test('Videolent: videos come from the minute live channel (writer → site ~5 mi
   assert.ok(pull.includes('contents/$src?ref=main') && pull.includes('*_x.json)') && pull.includes('json.load') && !pull.includes('git '), 'yalnız oz_x.json, yoxlanır, git toqquşması yoxdur');
   assert.ok(sh.includes('[ -f "$STATE/reel-src.new" ] && mv -f "$STATE/reel-src.new" "$CUR/$(cat "$STATE/reel-src.name")"'), 'əsas döngü yerli faylı qoyur, şəbəkə yox');
 });
+
+test('Videolent: a big swipe-up arrow shows on the first open only (owner 2026-11-20)', () => {
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('const HINT_KEY = "8u-reels-hint"'));
+  assert.ok(/hinted = !!localStorage\.getItem\(HINT_KEY\)/.test(src) && src.includes('localStorage.setItem(HINT_KEY, "1")'), 'bir dəfə göstərilir, telefonda yadda qalır');
+  assert.ok(src.includes('feed.addEventListener("scroll", off, { once: true, passive: true })') && src.includes('setTimeout(off, 4500)'), 'sürüşdürəndə və ya 4,5 s sonra çəkilir');
+});

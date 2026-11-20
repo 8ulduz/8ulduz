@@ -39,6 +39,32 @@ const FLAGS = {
 };
 const MARKET_ICON = { USD: FLAGS.us, EUR: FLAGS.eu, RUB100: FLAGS.ru, TRY100: FLAGS.tr, CNY: FLAGS.cn, BRENT: "🛢", WTI: "🛢", XAU: "🥇", XAG: "🥈", BTC: "₿" };
 const marketIcon = id => MARKET_ICON[id] ? `<span class="mk-ic">${MARKET_ICON[id]}</span>` : "";
+const sv = (a, b, c, v) => flag(`<rect width="30" height="20" fill="${b}"/><rect ${v ? 'width="10" height="20"' : 'width="30" height="6.67"'} fill="${a}"/><rect ${v ? 'x="20" width="10" height="20"' : 'y="13.33" width="30" height="6.67"'} fill="${c}"/>`);
+// Futbol menyusunun bayraqları və liqa adları (sahib 2026-11-20: «futbol bölməsi belə açılır, 5-10 saniyə sonra yeni şəklə düşür»): əsas koddadır,
+// menyu futbol.js-i gözləmədən ilk dəfədən bayraq + qalın ölkə + nazik liqa ilə çıxır. futbol.js bunları fbHelpers ilə alır.
+const FL = {
+  az: FLAGS.az, tur: FLAGS.tr, rus: FLAGS.ru, usa: FLAGS.us, eu: FLAGS.eu,
+  eng: flag('<rect width="30" height="20" fill="#fff"/><path d="M15 0v20M0 10h30" stroke="#ce1124" stroke-width="4"/>'),
+  sco: flag('<rect width="30" height="20" fill="#0065bd"/><path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="3"/>'),
+  esp: flag('<rect width="30" height="20" fill="#aa151b"/><rect y="5" width="30" height="10" fill="#f1bf00"/>'),
+  ita: sv("#009246", "#fff", "#ce2b37", 1), fra: sv("#0055a4", "#fff", "#ef4135", 1), bel: sv("#000", "#fdda24", "#ef3340", 1),
+  ger: sv("#000", "#dd0000", "#ffce00"), ned: sv("#ae1c28", "#fff", "#21468b"),
+  por: flag('<rect width="30" height="20" fill="#da291c"/><rect width="12" height="20" fill="#046a38"/><circle cx="12" cy="10" r="3.5" fill="#ffe900"/>'),
+  ksa: flag('<rect width="30" height="20" fill="#006c35"/><rect x="7" y="12" width="16" height="1.6" fill="#fff"/>'),
+  bra: flag('<rect width="30" height="20" fill="#009c3b"/><path d="M15 3l11 7-11 7-11-7z" fill="#ffdf00"/><circle cx="15" cy="10" r="3.6" fill="#002776"/>'),
+};
+// sports.json liqa id -> [bayraq, ölkə, liqa]; Azərbaycan liqaları (football.json) dünya siyahısında deyil
+const LIQA = {
+  "eng.1": ["eng", "İngiltərə", "Premyer Liqa"], "eng.2": ["eng", "İngiltərə", "Çempionşip"], "esp.1": ["esp", "İspaniya", "La Liga"],
+  "ita.1": ["ita", "İtaliya", "Seriya A"], "ger.1": ["ger", "Almaniya", "Bundesliqa"], "fra.1": ["fra", "Fransa", "Liqa 1"],
+  "tur.1": ["tur", "Türkiyə", "Süper Liq"], "por.1": ["por", "Portuqaliya", "Primeyra Liqa"], "ned.1": ["ned", "Hollandiya", "Eredivizie"],
+  "bel.1": ["bel", "Belçika", "Pro Liqa"], "sco.1": ["sco", "Şotlandiya", "Premyership"], "rus.1": ["rus", "Rusiya", "Premyer Liqa"],
+  "ksa.1": ["ksa", "Səudiyyə Ərəbistanı", "Pro Liqa"], "bra.1": ["bra", "Braziliya", "Seriya A"], "usa.1": ["usa", "ABŞ", "MLS"],
+  "uefa.champions": ["", "UEFA", "Çempionlar Liqası"], "uefa.europa": ["", "UEFA", "Avropa Liqası"], "uefa.conference": ["", "UEFA", "Konfrans Liqası"],
+  nba: ["usa", "ABŞ", "NBA"], euroleague: ["eu", "Avropa", "Avroliqa"],
+};
+// Menyunun liqa düyməsi (sahib 2026-11-19: «ölkənin adı qalın, liqa adı nazik, ölkə bayrağı»); tanınmayan liqa adı ilə qalır.
+const leagueLabel = (id, label) => { const [fl, country, name] = LIQA[id] || ["", "", label]; return `${FL[fl] || ""}${country ? `<b>${esc(country)}</b>` : ""}<span${country ? ' style="font-weight:400"' : ""}>${esc(name)}</span>`; };
 const GROUP_FLAG = { "Azərbaycan": FLAGS.az, "Türkiyə": FLAGS.tr, "Avropa": FLAGS.eu };
 const PREZ_LINKS = [
   { name: "president.az", url: "https://president.az/az" },
@@ -1802,7 +1828,7 @@ function navLeagues(slug, tab) {
   if (slug !== "idman") return [];
   wantSports();
   const world = sport => (S.sports?.leagues || []).filter(l => l.sport === sport && l.groups?.length).map(l => ({ id: l.id, short: l.short, label: l.name.replace(/ \(.*/, ""), place: l.short === "ÇL" || l.short === "AL" || l.short === "KL" || l.short === l.name ? "" : l.short, clubs: l.groups.flatMap(g => g.rows).map(t => [t.team, t.full || t.team]) }));
-  if (tab === "Futbol" || tab === "Basketbol") loadFb();   // menyudakı bayraq və ölkə adları futbol.js-dən
+  if (tab === "Futbol" || tab === "Basketbol") loadFb();   // futbol səhifəsi menyu açıq ikən əvvəlcədən yüklənir
   if (tab === "Basketbol") { const items = world("basketball"); return items.length ? [{ label: "Liqalar", items }] : []; }
   if (tab !== "Futbol") return [];
   const az = AZ_LEAGUES.map(short => ({ short, label: short, place: "", clubs: ((S.football?.leagues || []).find(l => l.short === short)?.table || []).map(t => [clubAz(t.team), t.team]) }));
@@ -1819,7 +1845,7 @@ function navLeagues(slug, tab) {
 const leagueHead = g => `<span class="chip-h">${GROUP_FLAG[g.group] || ""}${esc(g.label)}</span>`;
 const LINE = '<span style="display:inline-flex;align-items:center;gap:5px">';
 const leagueLink = (l, on) => l.href ? `<a class="pill" href="${l.href}">${LINE}${l.html}</span></a>`
-  : `<a class="pill${on ? " on" : ""}" href="#/komanda/${teamSlug(l.short)}" data-liga="${esc(l.short)}">${l.id && S.fbNav ? `${LINE}${S.fbNav(l.id, l.label, esc)}</span>` : `<span>${esc(l.label)}</span>${l.place ? `<small>${esc(l.place)}</small>` : ""}`}</a>`;
+  : `<a class="pill${on ? " on" : ""}" href="#/komanda/${teamSlug(l.short)}" data-liga="${esc(l.short)}">${l.id ? `${LINE}${leagueLabel(l.id, l.label)}</span>` : `<span>${esc(l.label)}</span>${l.place ? `<small>${esc(l.place)}</small>` : ""}`}</a>`;
 function navGroups(tabs, open) {
   const groups = tabs.find(t => t.name === open)?.groups || [];
   if (open === "Transfer xəbərləri") return groups.map(g => ({ ...g, items: g.items.filter(t => t.label !== "Basketbol" || withArchive("idman", S.data?.articles || []).some(a => a.category === "idman" && clubMatches(a, t.name))) }));
@@ -1936,8 +1962,8 @@ function fbLeagues() {
 }
 // Cədvəl hansı günün oyunlarına qədərdir.
 // Futbol bloku tənbəl modulda (futbol.js): yalnız blok çəkiləndə — panel açıq ikən və ya liqa səhifəsində — yüklənir, əsas kod ~5,6 KB yüngülləşir
-const loadFb = () => S.fbMod ||= import("./futbol.js").then(m => { S.fbView = m.view; S.fbNav = m.navLabel; requestRender(false); S.navRefresh?.(); }).catch(() => { S.fbMod = null; });
-const fbHelpers = () => ({ S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, requestRender });
+const loadFb = () => S.fbMod ||= import("./futbol.js").then(m => { S.fbView = m.view; requestRender(false); }).catch(() => { S.fbMod = null; });
+const fbHelpers = () => ({ S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, requestRender, FL, LIQA });
 function footballBlock(list) {
   wantSports();
   loadFb();
@@ -2019,9 +2045,9 @@ function heroPick(list, need = 9) {
 
 const picFirst = l => [...l.filter(imgUrl), ...l.filter(a => !imgUrl(a))]; // şəkilsiz xəbər ana səhifədə sona
 function latestBlock(list) {
-  const ranked = picFirst(S.latestOrder === "sources" ? rankBySources(list) : byDate(list));
+  const ranked = picFirst(byDate(list));   // sahib 2026-11-20: «Ən yeni / Ən çox mənbə» seçimi silindi — həmişə ən yeni
   const count = S.latestCount || 8;
-  return `<section id="son-xeberler"><div class="sec-h"><h2>Son xəbərlər</h2><div class="feed-tabs"><button data-feed="latest" class="pill${S.latestOrder !== "sources" ? " on" : ""}" aria-pressed="${S.latestOrder !== "sources"}">Ən yeni</button><button data-feed="sources" class="pill${S.latestOrder === "sources" ? " on" : ""}" aria-pressed="${S.latestOrder === "sources"}">Ən çox mənbə</button></div></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
+  return `<section id="son-xeberler"><div class="sec-h"><h2>Son xəbərlər</h2></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
@@ -2040,7 +2066,7 @@ function homeView() {
   const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining);
   if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
   // Yuxarıda görünən xəbər təkrarlanmır.
-  const seen = new Set([...hero, ...picFirst(S.latestOrder === "sources" ? rankBySources(remaining) : byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
+  const seen = new Set([...hero, ...picFirst(byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
   // Slayderdəki xəbər bölmədə də qalır; lentdə yoxdursa arxiv.
   const secs = homeCats().map(c => {
     const all = (c.slug === "idman" ? S.data.articles : remaining).filter(a => a.category === c.slug), own = all.filter(fresh);
@@ -2416,7 +2442,7 @@ const idle = (fn, ms = 200, max = 1500) => (globalThis.requestIdleCallback || (f
 // Ana səhifənin DOM-u kənara çıxanda saxlanır, qayıdışda geri qoyulur (2026-11-09). Hər qayıdış homeView()-u yenidən qururdu: ~150 KB
 // sətir, şablon təhlili, rememberSrc, telefonda (4×) görünən kadr 336–576 ms. Açarın ilk üç sahəsi (lent, arxiv, dəqiqə) yumşaqdır:
 // saxlanan DOM dərhal qayıdır, boş anda adi çəkiliş onu təzələyir; başqa sahə (dil, sıra, seçilmişlər…) fərqlənirsə atılır, köhnə yol.
-const homeKey = () => [S.data, S.arxV, Date.now() / 6e4 | 0, S.og, S.lang, S.latestOrder, S.latestCount, S.prezOpen, S.fbTab, S.fbLeague, S.video, S.football, S.sports, S.social, S.warn, S.ads, S.dinOn, S.error, storage.getItem(SAVE_KEY), storage.getItem(SECT_KEY)];
+const homeKey = () => [S.data, S.arxV, Date.now() / 6e4 | 0, S.og, S.lang, S.latestCount, S.prezOpen, S.fbTab, S.fbLeague, S.video, S.football, S.sports, S.social, S.warn, S.ads, S.dinOn, S.error, storage.getItem(SAVE_KEY), storage.getItem(SECT_KEY)];
 const keyDiff = (a, b) => a.reduce((d, x, i) => x === b[i] ? d : i < 3 ? d || 1 : 2, 0); // 0 eyni, 1 yumşaq, 2 atılır
 function keepHome(v) {
   S.homeKeep = null;
@@ -2640,7 +2666,7 @@ function onClick(e) {
   const soc = e.target.closest(".soc-g a"), app = soc && chromeLink(soc.href); // rəsmi hesab: Android-də Chrome vərəqində, geri sayta
   if (app) { e.preventDefault(); location.href = app; return; }
   if (S.langOpen && !e.target.closest(".ldd")) { S.langOpen = false; renderTopbar(); } // dil siyahısı kənara hər toxunuşda bağlanır
-  const t = e.target.closest("[data-feed],[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-xv],[data-fbtab],[data-fbleague]");
+  const t = e.target.closest("[data-id],[data-act],[data-lang],[data-to],[data-club],[data-city],[data-fx],[data-yt],[data-xv],[data-fbtab],[data-fbleague]");
   if (!e.target.closest(".altpop")) shut("details.altpop[open]");
   if (!e.target.closest(".nav-more")) shut(".nav-more[open]");
   // Açılan bölmələr kənara basanda bağlanır
@@ -2690,7 +2716,6 @@ function onClick(e) {
     }
     return;
   }
-  if (t.dataset.feed) { S.latestOrder = t.dataset.feed; S.latestCount = 8; renderView(); return; }
   if (t.dataset.xv) {
     const box = t.querySelector(".thumb") || t;   // məqalədə .thumb, kartda şəklin özü: basan kimi yerindəcə oynayır
     if (!box.querySelector("iframe") && XV.test(t.dataset.xv)) t.classList.add("on"), box.innerHTML = `<iframe srcdoc="${esc(`<meta name="referrer" content="no-referrer"><style>html,body{margin:0;height:100%;background:#000}video{width:100%;height:100%}</style><video src="${esc(t.dataset.xv)}" controls autoplay playsinline></video>`)}" allow="autoplay; fullscreen" allowfullscreen title="Video"></iframe>`;
@@ -2722,7 +2747,7 @@ function onClick(e) {
   else if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
   else if (act === "wx-back") { S.wxSel = null; renderTopbar(); }
-  else if (act === "apply-new") { S.renderPending = false; S.pendingNew = 0; syncNewPill(); if (route().name === "home") { S.latestOrder = "latest"; S.latestCount = 8; } render(); jumpToLatest(); }
+  else if (act === "apply-new") { S.renderPending = false; S.pendingNew = 0; syncNewPill(); if (route().name === "home") S.latestCount = 8; render(); jumpToLatest(); }
   else if (act === "more") { S.shown += PAGE; renderView(); }
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }

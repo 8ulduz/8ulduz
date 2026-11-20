@@ -17,6 +17,8 @@ const SOUND_KEY = "8u-reels-sound";
 // izlənmişlər sona keçir. Telefonda saxlanır, heç yerə göndərilmir. 2000 (sahib 2026-11-20: «heç təkrar olmayan»): lentdəki
 // bütün videolardan (oz_x.REELS_MAX 800 + öz xəbərlərimiz) çox — görülən video yaddaşdan düşüb yenidən «təzə» olmur.
 const SEEN_KEY = "8u-reels-seen", SEEN_MAX = 2000;
+// İlk açılışda böyük ox (sahib 2026-11-20: «videoların jestlə dəyişdiyini göstərən (ilk dəfə yalnız) böyük ox»): bir dəfə göstərilir.
+const HINT_KEY = "8u-reels-hint";
 const seenOrder = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"); } catch { return []; } };
 const seenSet = () => new Set(seenOrder());
 const markSeen = u => { try { const a = seenOrder().filter(x => x !== u); a.push(u); localStorage.setItem(SEEN_KEY, JSON.stringify(a.slice(-SEEN_MAX))); } catch {} };
@@ -38,7 +40,11 @@ button{position:fixed;right:12px;z-index:2;width:44px;height:44px;border-radius:
 .sh{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));font-size:22px}
 .end{display:grid;place-items:center;text-align:center;padding:24px;color:#ccc}
 .new{position:fixed;z-index:2;left:50%;top:calc(16px + env(safe-area-inset-top));transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:#e11d48;color:#fff;font-weight:700;font-size:14px;pointer-events:none}
-.new[hidden]{display:none}`;
+.new[hidden]{display:none}
+.hint{position:fixed;z-index:3;inset:0;display:grid;place-content:center;justify-items:center;gap:14px;background:#0008;font-size:19px;font-weight:800;text-align:center;text-shadow:0 2px 8px #000;transition:opacity .4s}
+.hint i{line-height:0;filter:drop-shadow(0 2px 8px #000);animation:up 1.2s ease-in-out infinite}
+.hint.off{opacity:0;pointer-events:none}
+@keyframes up{0%,100%{transform:translateY(24px);opacity:.5}50%{transform:translateY(-24px);opacity:1}}`;
 
 let live = null;
 
@@ -235,6 +241,19 @@ function build(f, items, back, more) {
     if (e.key === "Escape") back();
     else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); feed.scrollBy({ top: (e.key === "ArrowDown" ? 1 : -1) * feed.clientHeight, behavior: "smooth" }); }
   });
+  let hinted = true;
+  try { hinted = !!localStorage.getItem(HINT_KEY); } catch {}
+  if (!hinted && slides.length > 1) {
+    try { localStorage.setItem(HINT_KEY, "1"); } catch {}
+    const hint = doc.createElement("div");
+    hint.className = "hint";
+    hint.innerHTML = '<i><svg width="66" height="88" viewBox="0 0 24 32" aria-hidden="true"><path d="M12 1 1 13h7v18h8V13h7z" fill="#fff"/></svg></i><p>Növbəti video üçün<br>yuxarı sürüşdürün</p>';
+    const off = () => { hint.classList.add("off"); setTimeout(() => hint.remove(), 500); };
+    hint.addEventListener("pointerdown", off, { once: true });
+    feed.addEventListener("scroll", off, { once: true, passive: true });
+    setTimeout(off, 4500);
+    doc.body.append(hint);
+  }
   f.focus();
   win.focus();
 }
