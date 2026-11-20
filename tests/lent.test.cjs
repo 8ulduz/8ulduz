@@ -22,7 +22,7 @@ test('Videolent: the same account never plays twice in a row while others remain
 
 test('Videolent: new videos arrive while the feed is open, the next video is preloaded, every slide can be shared', () => {
   const src = fs.readFileSync(file, 'utf8');
-  assert.match(src, /const FRESH_MS = 120e3/, '2 dəqiqədən bir yeni video yoxlanır');
+  assert.match(src, /const FRESH_MS = 60e3/, 'dəqiqədə bir yeni video yoxlanır');
   assert.ok(src.includes('document.visibilityState !== "visible"'), 'vərəq gizlidirsə sorğu yoxdur');
   assert.ok(src.includes('clearInterval(live.fresh)'), 'bağlananda yoxlama dayanır');
   assert.ok(src.includes('n.preload = "auto"; n.src = n.dataset.src'), 'yalnız növbəti video əvvəlcədən yüklənir');
@@ -52,4 +52,30 @@ test('Videolent: the news job starts the video writer every 20 minutes (GitHub c
   const oz = fs.readFileSync(path.join(root, 'oz_x.py'), 'utf8');
   assert.ok(+xy.match(/^REELS_PER_RUN = (\d+)/m)[1] >= 12, 'bir işdə ən azı 12 video (sahib: «çox sayda»)');
   assert.ok(+oz.match(/^REELS_MAX = (\d+)/m)[1] >= 72 * 12 / 2 * 1.5, 'lent ən azı 1,5 günlük axını tutur');
+});
+
+test('Videolent: the feed never ends — when unseen videos run out, the longest-ago seen come back, never the last ones (owner 2026-11-20)', async () => {
+  const { replay } = await import(pathToFileURL(file).href);
+  const pool = Array.from({ length: 40 }, (_, i) => ({ u: `v${i}`, n: `a${i % 7}`, m: ['idman', 'elm', 'kino'][i % 3] }));
+  const order = pool.map(v => v.u);   // v0 ən çoxdan, v39 ən son görülüb
+  const out = replay(pool, order);
+  assert.ok(out.length >= 20, 'lentin sonuna yeni dəstə gəlir');
+  assert.ok(!out.some(v => order.slice(-15).includes(v.u)), 'son baxılan 15 video dərhal təkrar gəlmir');
+  assert.ok(out.some(v => v.u === 'v0'), 'ən çoxdan görülən qayıdır');
+  assert.ok(replay(pool.slice(0, 6), order.slice(0, 6)).length >= 3, 'az video olanda da lent dövr edir');
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('if (live.at >= slides.length - 3) refill()'), 'sona 3 video qalanda doldurulur');
+  assert.ok(!src.includes('Hamısını izlədiniz'), 'lent «bitdi» demir');
+  assert.ok(+src.match(/SEEN_MAX = (\d+)/)[1] >= 2000, 'görülənlərin yaddaşı lentdən böyükdür: təkrar «təzə» kimi gəlmir');
+});
+
+test('Videolent: videos come from the minute live channel (writer → site ~5 min, not 25–30), the site file is the fallback', () => {
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('"https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/"') && src.includes('/reels.json`'), 'canlı kanal');
+  assert.ok(src.includes('credentials: "omit"'), 'kuki göndərilmir');
+  const sh = fs.readFileSync(path.join(__dirname, '..', '.github/scripts/pipeline.sh'), 'utf8');
+  assert.ok(sh.includes('markets social; do') && sh.includes('  for name in reels; do'), 'push_live reels.json-u da göndərir');
+  const pull = sh.slice(sh.indexOf('pull_reel_src() {'), sh.indexOf('\n}\n', sh.indexOf('pull_reel_src() {')));
+  assert.ok(pull.includes('contents/$src?ref=main') && pull.includes('*_x.json)') && pull.includes('json.load') && !pull.includes('git '), 'yalnız oz_x.json, yoxlanır, git toqquşması yoxdur');
+  assert.ok(sh.includes('[ -f "$STATE/reel-src.new" ] && mv -f "$STATE/reel-src.new" "$CUR/$(cat "$STATE/reel-src.name")"'), 'əsas döngü yerli faylı qoyur, şəbəkə yox');
 });

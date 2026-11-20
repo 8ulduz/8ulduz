@@ -14,10 +14,12 @@ const plain = s => { const t = document.createElement("textarea"); t.innerHTML =
 const px = (u, w) => /^https:\/\/pbs\.twimg\.com\//.test(u || "") ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&we&output=webp&q=70` : "";
 const SOUND_KEY = "8u-reels-sound";
 // İzlənmiş videolar (sahib 2026-11-19: «videolar davamlı təzələnməlidir»): lent hər açılışda əvvəl görülməyənləri göstərir,
-// izlənmişlər sona keçir. Telefonda saxlanır (ən çox 400 ünvan), heç yerə göndərilmir.
-const SEEN_KEY = "8u-reels-seen", SEEN_MAX = 400;
-const seenSet = () => { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]")); } catch { return new Set(); } };
-const markSeen = u => { try { const a = [...seenSet()].filter(x => x !== u); a.push(u); localStorage.setItem(SEEN_KEY, JSON.stringify(a.slice(-SEEN_MAX))); } catch {} };
+// izlənmişlər sona keçir. Telefonda saxlanır, heç yerə göndərilmir. 2000 (sahib 2026-11-20: «heç təkrar olmayan»): lentdəki
+// bütün videolardan (oz_x.REELS_MAX 800 + öz xəbərlərimiz) çox — görülən video yaddaşdan düşüb yenidən «təzə» olmur.
+const SEEN_KEY = "8u-reels-seen", SEEN_MAX = 2000;
+const seenOrder = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"); } catch { return []; } };
+const seenSet = () => new Set(seenOrder());
+const markSeen = u => { try { const a = seenOrder().filter(x => x !== u); a.push(u); localStorage.setItem(SEEN_KEY, JSON.stringify(a.slice(-SEEN_MAX))); } catch {} };
 
 const CSS = `html,body{margin:0;height:100%;background:#000;color:#fff;font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 .feed{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none}
@@ -65,14 +67,34 @@ export function mix(list) {
   return out;
 }
 
-// Lent açıq ikən yeni videolar (sahib 2026-11-19: «tiktok kimi videolar daima təzələnsin»): 2 dəqiqədən bir, yalnız vərəq görünəndə.
-const FRESH_MS = 120e3;
-async function load() {
+// Bitməyən lent (sahib 2026-11-20: «bitməyən lent … ən yüksək səviyyədə»): görülməyənlər qurtaranda lent dayanmır — əvvəl
+// görülmüşlər, ən çoxdan görülən birinci, ən son baxılan REPLAY_GAP video istisna, mövzu növbəsi ilə yenidən gəlir.
+export function replay(pool, order, gap = REPLAY_GAP) {
+  gap = Math.min(gap, Math.floor(pool.length / 2));   // az video olanda da lent dövr edir
+  const recent = new Set(gap ? order.slice(-gap) : []), at = new Map(order.map((u, i) => [u, i]));
+  const old = pool.filter(v => !recent.has(v.u)).sort((a, b) => (at.get(a.u) ?? -1) - (at.get(b.u) ?? -1));
+  return mix(old.slice(0, REPLAY_BATCH));
+}
+const REPLAY_GAP = 15, REPLAY_BATCH = 30;
+
+// Lent açıq ikən yeni videolar (sahib 2026-11-19: «tiktok kimi videolar daima təzələnsin»; 2026-11-20: «tiktokdan geri qalmasın»):
+// dəqiqədə bir, yalnız vərəq görünəndə. Fayl əvvəl dəqiqəlik canlı kanaldan (live budağı: yazıcıdan ~5 dəq), alınmasa saytdan.
+const FRESH_MS = 60e3;
+const LIVE = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
+async function items(url, opt) {
   try {
-    const r = await fetch(`${FILE}?t=${Math.floor(Date.now() / 6e4)}`);
-    if (r.ok) { const d = (await r.json()).items; return Array.isArray(d) ? d : []; }
+    const r = await fetch(url, opt);
+    if (r.ok) { const d = (await r.json()).items; if (Array.isArray(d)) return d; }
   } catch {}
-  return [];
+  return null;
+}
+async function load() {
+  const slot = Math.floor((Date.now() / 1000 - 45) / 60);
+  for (const m of [slot, slot - 1]) {
+    const d = await items(`${LIVE}${m}/reels.json`, { cache: "no-store", mode: "cors", credentials: "omit" });
+    if (d) return d;
+  }
+  return (await items(`${FILE}?t=${Math.floor(Date.now() / 6e4)}`)) || [];
 }
 
 export async function open(S) {
@@ -109,7 +131,7 @@ function build(f, items, back, more) {
   if (!doc || !live) return;
   let sound = false;
   try { sound = sessionStorage.getItem(SOUND_KEY) === "1"; } catch {}
-  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Hamısını izlədiniz. Yeni videolar gün ərzində əlavə olunur." : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
+  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
   const feed = doc.querySelector(".feed"), slides = [...feed.querySelectorAll("section:not(.end)")], sndBtn = doc.querySelector(".snd");
   const pos = s => slides.indexOf(s);
   const vid = s => s.querySelector("video");
@@ -137,7 +159,7 @@ function build(f, items, back, more) {
   live.io = new win.IntersectionObserver(es => {
     for (const e of es) {
       const s = e.target;
-      if (e.isIntersecting && e.intersectionRatio >= 0.6) { live.at = pos(s); near(live.at); play(s); }
+      if (e.isIntersecting && e.intersectionRatio >= 0.6) { live.at = pos(s); near(live.at); play(s); if (live.at >= slides.length - 3) refill(); }
       else stop(s);
     }
   }, { root: feed, threshold: [0, 0.6] });
@@ -149,23 +171,44 @@ function build(f, items, back, more) {
   slides.forEach(wire);
   near(0);
   // Yeni videolar izlənən videonun ardınca girir: barmaqla bir sürüşdürmə — təzə video. Görülənlər təkrar gəlmir.
-  const have = new Set(items.map(v => v.u)), note = doc.querySelector(".new");
-  live.fresh = setInterval(async () => {
-    if (document.visibilityState !== "visible" || !live) return;
-    const add = (await more()).filter(v => !have.has(v.u) && !seenSet().has(v.u));
-    if (!add.length || !live) return;
-    const after = slides[live.at] || null, tpl = doc.createElement("template");
-    tpl.innerHTML = add.map(slide).join("");
+  const have = new Set(items.map(v => v.u)), pool = new Map(items.map(v => [v.u, v])), note = doc.querySelector(".new");
+  const put = (list, at) => {   // at: bu slayddan sonra; yoxdursa lentin sonuna
+    const tpl = doc.createElement("template");
+    tpl.innerHTML = list.map(slide).join("");
     const fresh = [...tpl.content.children];
-    for (const v of add) have.add(v.u);
-    if (after) after.after(...fresh); else feed.querySelector(".end").before(...fresh);
-    slides.splice(live.at + 1, 0, ...fresh);
+    if (at) at.after(...fresh); else feed.querySelector(".end").before(...fresh);
+    slides.splice(at ? pos(at) + 1 : slides.length, 0, ...fresh);
     fresh.forEach(wire);
     near(live.at);
+  };
+  const fetchNew = async () => {
+    const all = await more();
+    for (const v of all) if (!pool.has(v.u)) pool.set(v.u, v);
+    const add = all.filter(v => !have.has(v.u) && !seenSet().has(v.u));
+    for (const v of add) have.add(v.u);
+    return add;
+  };
+  const freshTick = async () => {
+    if (document.visibilityState !== "visible" || !live) return;
+    const add = await fetchNew();
+    if (!add.length || !live) return;
+    put(add, slides[live.at] || null);
     note.textContent = `+${add.length} yeni video ↓`;
     note.hidden = false;
     setTimeout(() => { note.hidden = true; }, 4000);
-  }, FRESH_MS);
+  };
+  let filling = false;
+  const refill = async () => {   // lentin sonuna 3 video qalıb: əvvəl təzələr, yoxdursa çoxdan görülənlər — lent bitmir
+    if (filling || !live) return;
+    filling = true;
+    try {
+      const add = await fetchNew();
+      if (!live) return;
+      const next = add.length ? add : replay([...pool.values()], seenOrder());
+      if (next.length) put(next, null);
+    } finally { filling = false; }
+  };
+  live.fresh = setInterval(freshTick, FRESH_MS);
   feed.addEventListener("click", e => {
     if (e.target.closest("a")) return;
     const sh = e.target.closest(".sh");
