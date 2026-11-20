@@ -2608,7 +2608,7 @@ class LiveScoresTest(unittest.TestCase):
         self.assertNotIn("hs", rows[1], "başlamayan oyunun hesabı yoxdur")
 
     def test_no_key_no_request_no_file(self):
-        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"FOOTBALL_DATA_KEY": ""}), \
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"FOOTBALL_DATA_KEY": "", "API_FOOTBALL_KEY": ""}), \
              patch.object(updater, "LIVE_FILE", pathlib.Path(d) / "canli.json"), patch.object(updater, "fetch") as f:
             updater.update_live_scores()
             f.assert_not_called()
@@ -2616,7 +2616,10 @@ class LiveScoresTest(unittest.TestCase):
 
     def test_key_goes_only_in_header_and_step_is_slow(self):
         src = inspect.getsource(updater.update_live_scores)
-        self.assertIn('headers={"X-Auth-Token": key', src)
+        self.assertIn('headers={"X-Auth-Token": fd_key', src)
+        self.assertIn('headers={"x-apisports-key": af_key', src)
+        self.assertNotIn("print(fd_key", src)
+        self.assertNotIn("print(af_key", src)
         self.assertNotIn("print(key", src)
         self.assertIn("update_live_scores", inspect.getsource(updater.slow_cycle))
 
