@@ -1,6 +1,26 @@
 // Futbol bloku (ana səhifənin «İdman nəticələri və cədvəllər» paneli, liqa səhifəsi): tənbəl modul — yalnız panel açılanda və ya
 // liqa səhifəsində yüklənir (sahib 2026-11-19: «kodu … təmizləyib yer açmaq»). Kod app.js-dən olduğu kimi köçürülüb;
 // əsas koddakı köməkçilər app.js-in fbHelpers() funksiyası ilə verilir.
+
+// «Bu gün» (sahib 2026-11-20: canlı hesab, «pulsuz həll»): data/canli.json — yeniləyici football-data.org-un pulsuz planından yazır
+// (12 turnir, vəziyyət və hesab, dəqiqəsiz). Fayl əvvəl dəqiqəlik canlı kanaldan, alınmasa saytdan; panel açıq və canlı oyun
+// varsa dəqiqədə bir yenidən oxunur. Açar yoxdursa fayl yoxdur, blok çıxmır.
+const LIVE_URL = "https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/";
+let live = null, liveAt = 0, liveBusy = false;
+async function liveGet(url, opt) {
+  try { const r = await fetch(url, opt); if (r.ok) { const d = await r.json(); if (Array.isArray(d?.matches)) return d; } } catch {}
+  return null;
+}
+async function liveLoad(rerender) {
+  if (liveBusy) return;
+  liveBusy = true; liveAt = Date.now();
+  const slot = Math.floor((Date.now() / 1000 - 45) / 60);
+  let d = null;
+  for (const m of [slot, slot - 1]) if (!d) d = await liveGet(`${LIVE_URL}${m}/canli.json`, { cache: "no-store", mode: "cors", credentials: "omit" });
+  d ||= await liveGet(`${new URL("../data/canli.json", import.meta.url).href}?t=${Math.floor(Date.now() / 6e4)}`);
+  liveBusy = false;
+  if (d && JSON.stringify(d.matches) !== JSON.stringify(live?.matches)) { live = d; rerender?.(false); }
+}
 export function view(h, list) {
   const { S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues } = h;
   const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${MONTHS[m - 1]} oyunlarına qədər` : ""; };
@@ -86,5 +106,20 @@ export function view(h, list) {
     const [fl, country, name] = l.world ? (LIQA[l.id] || ["", "", l.league || l.short || ""]) : ["az", "Azərbaycan", l.short || l.league || ""];
     return `<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap">${FL[fl] || ""}${country ? `<b style="font-weight:800">${esc(country)}</b>` : ""}<span style="font-weight:400">${esc(name)}</span></span>`;
   };
-  return footballBlock(list);
+  // Bu günün oyunları: canlılar əvvəl, sonra başlayacaqlar, sonra bitənlər (sıranı yeniləyici qoyur)
+  const LIVE_FL = { PL: "eng", ELC: "eng", PD: "esp", SA: "ita", BL1: "ger", FL1: "fra", DED: "ned", PPL: "por", BSA: "bra" };
+  const LIVE_COMP = { PL: "Premyer Liqa", ELC: "Çempionşip", PD: "La Liqa", SA: "Seriya A", BL1: "Bundesliqa", FL1: "Liqa 1", DED: "Eredivizie",
+    PPL: "Primeyra Liqa", CL: "Çempionlar Liqası", BSA: "Braziliya", CLI: "Libertadores", WC: "Dünya çempionatı", EC: "Avropa çempionatı" };
+  function liveBlock() {
+    const on = (live?.matches || []).some(m => m.s === "live" || m.s === "ht");
+    if (globalThis.document?.visibilityState === "visible" && Date.now() - liveAt > (on ? 60e3 : 5 * 60e3)) liveLoad(h.requestRender);
+    const rows = (live?.matches || []).slice(0, 14);
+    if (!rows.length) return "";
+    const tm = d => { const x = new Date(d); return Number.isNaN(+x) ? "" : x.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Baku" }); };
+    const st = m => m.s === "live" ? '<b style="color:#e11d48">● Canlı</b>' : m.s === "ht" ? '<b style="color:#e11d48">Fasilə</b>' : m.s === "ft" ? "Bitdi" : m.s === "pp" ? "Təxirə salınıb" : esc(tm(m.t));
+    const sc = m => m.hs == null ? "–" : `${esc(m.hs)} : ${esc(m.as)}`;
+    const li = m => `<li style="display:grid;grid-template-columns:92px 1fr auto 1fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)"><small style="display:flex;flex-direction:column;line-height:1.2"><span style="display:inline-flex;gap:4px;align-items:center">${FL[LIVE_FL[m.c]] || ""}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(LIVE_COMP[m.c] || m.c)}</span></span>${st(m)}</small><b style="text-align:right">${esc(m.h)}</b><span style="font-weight:800;min-width:44px;text-align:center">${sc(m)}</span><b>${esc(m.a)}</b></li>`;
+    return `<section class="foot"><div class="sec-h"><h2>Bu gün</h2><span class="cnt">${on ? "canlı hesab" : "oyunlar və nəticələr"}</span><a class="more" href="https://www.football-data.org/" target="_blank" rel="noopener noreferrer">football-data.org ↗</a></div><ul style="list-style:none;margin:0;padding:0;font-size:14px">${rows.map(li).join("")}</ul></section>`;
+  }
+  return liveBlock() + footballBlock(list);
 }

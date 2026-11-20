@@ -3094,7 +3094,7 @@ def slow_cycle():
     # SOCIAL_LOOP: rəsmi hesabların yazıları pipeline.sh-in social_loop-unda hər dəqiqə yığılır (--social), burada yox.
     social = [] if os.environ.get("SOCIAL_LOOP") else [update_social]
     # update_own_news: yalnız OZ_DERC=1 ilə işləyir (yuxarıda); məzənnədən sonra, çünki təzə data/markets.json-u oxuyur.
-    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, record_time_origins, verify_source_times, *social, update_video, update_football, update_sports,
+    steps = [update_official_leads, compute_groups, update_markets, update_own_news, resolve_undated, record_time_origins, verify_source_times, *social, update_video, update_football, update_live_scores, update_sports,
              lambda: fill_og_images(drop_dead_images(articles)), retire_reader, refresh_slow_feeds, update_city_data, write_public, update_archive, update_team_pages]
     for step in steps:
         try:
@@ -4342,6 +4342,90 @@ def update_football():
     data["updatedAt"] = now
     _write_atomic(FOOTBALL_FILE, json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Futbol: {fresh}/{len(PFL_PROJECTS)} liqa təzə, Premyer: {len(data['table'])} komanda, son tur {data.get('roundPlayed') or '-'}")
+
+# Bu günün oyunları və canlı hesab (sahib 2026-11-20: «pulsuz həll lazımdır»). Mənbə football-data.org-un pulsuz planı
+# (FOOTBALL_DATA_KEY; açarı sahib əlavə edir): 12 turnir, oyunun vəziyyəti və hesabı, dəqiqəsiz; dəqiqədə ən çox 10 sorğu.
+# Bir dövrədə bir sorğu, yalnız yavaş dövrədə. Açar yoxdursa addım heç nə etmir və fayl yazılmır (sayt bloku göstərmir).
+LIVE_FILE = OUT_DIR / "canli.json"
+LIVE_API = "https://api.football-data.org/v4/matches"
+LIVE_EVERY = datetime.timedelta(minutes=15)          # canlı oyun yoxdursa
+LIVE_SOON = datetime.timedelta(minutes=20)           # oyuna bu qədər qalıb və ya oyun gedir: hər yavaş dövrədə (~4 dəq)
+LIVE_COMP = {"PL": "İngiltərə · Premyer Liqa", "ELC": "İngiltərə · Çempionşip", "PD": "İspaniya · La Liqa", "SA": "İtaliya · Seriya A",
+             "BL1": "Almaniya · Bundesliqa", "FL1": "Fransa · Liqa 1", "DED": "Niderland · Eredivizie", "PPL": "Portuqaliya · Primeyra Liqa",
+             "CL": "Çempionlar Liqası", "BSA": "Braziliya · Seriya A", "CLI": "Kopa Libertadores", "WC": "Dünya çempionatı", "EC": "Avropa çempionatı"}
+LIVE_STATUS = {"IN_PLAY": "live", "PAUSED": "ht", "FINISHED": "ft", "AWARDED": "ft", "SCHEDULED": "ns", "TIMED": "ns",
+               "POSTPONED": "pp", "SUSPENDED": "pp", "CANCELLED": "pp"}
+_LIVE_NAME = re.compile(r"[\w .'’&/\-]{2,40}", re.U)
+
+
+def parse_live(doc, today):
+    """football-data.org /v4/matches -> saytın sətirləri. Yalnız tanınan turnir və vəziyyət, ad uzunluğu yoxlanır; mətn
+    sahəsi yoxdur (komanda adı və hesab), ona görə xəbər süzgəcinə ehtiyac yoxdur. today: Bakı günü (YYYY-MM-DD)."""
+    rows = []
+    for m in doc.get("matches") or []:
+        comp, status = (m.get("competition") or {}).get("code"), LIVE_STATUS.get(m.get("status"))
+        when = str(m.get("utcDate") or "")
+        try:
+            day = datetime.datetime.fromisoformat(when.replace("Z", "+00:00")).astimezone(BAKU).date().isoformat()
+        except ValueError:
+            continue
+        names = [((m.get(k) or {}).get("shortName") or (m.get(k) or {}).get("name") or "").strip() for k in ("homeTeam", "awayTeam")]
+        if comp not in LIVE_COMP or not status or day != today or not all(_LIVE_NAME.fullmatch(n) for n in names):
+            continue
+        full = ((m.get("score") or {}).get("fullTime") or {})
+        row = {"c": comp, "t": when.replace("Z", "+00:00"), "s": status, "h": names[0], "a": names[1]}
+        if status in ("live", "ht", "ft") and isinstance(full.get("home"), int) and isinstance(full.get("away"), int):
+            row.update(hs=full["home"], **{"as": full["away"]})
+        rows.append(row)
+    order = {"live": 0, "ht": 0, "ns": 1, "pp": 2, "ft": 3}
+    rows.sort(key=lambda r: (order[r["s"]], r["t"] if r["s"] != "ft" else "", list(LIVE_COMP).index(r["c"])))
+    return rows
+
+
+def _live_due(old, now_dt):
+    try:
+        last = datetime.datetime.fromisoformat(old.get("checkedAt", ""))
+    except (TypeError, ValueError):
+        return True
+    if now_dt - last >= LIVE_EVERY:
+        return True
+    for r in old.get("matches") or []:
+        if r.get("s") in ("live", "ht"):
+            return True
+        try:
+            if r.get("s") == "ns" and datetime.datetime.fromisoformat(r["t"]) - now_dt <= LIVE_SOON:
+                return True
+        except (KeyError, ValueError):
+            pass
+    return False
+
+
+def update_live_scores():
+    key = os.environ.get("FOOTBALL_DATA_KEY", "").strip()
+    if not key:
+        return
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        old = json.loads(LIVE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        old = {}
+    if not _live_due(old, now_dt):
+        return
+    today = now_dt.astimezone(BAKU).date()
+    span = f"?dateFrom={(today - datetime.timedelta(days=1)).isoformat()}&dateTo={(today + datetime.timedelta(days=1)).isoformat()}"
+    try:
+        doc = json.loads(fetch(LIVE_API + span, timeout=15, headers={"X-Auth-Token": key, "Accept": "application/json"}).decode("utf-8"))
+        rows = parse_live(doc, today.isoformat())
+    except Exception as e:  # açar ünvana və loga düşmür: yalnız xətanın növü
+        print("  ! canlı hesab:", getattr(e, "code", "") or type(e).__name__)
+        return
+    now = now_dt.isoformat(timespec="seconds")
+    changed = rows != old.get("matches")
+    OUT_DIR.mkdir(exist_ok=True)
+    _write_atomic(LIVE_FILE, json.dumps({"updatedAt": now if changed else old.get("updatedAt", now), "checkedAt": now, "day": today.isoformat(),
+                                         "source": "football-data.org", "matches": rows}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Canlı hesab: {len(rows)} oyun, {sum(r['s'] in ('live', 'ht') for r in rows)} canlı")
+
 
 # Komanda səhifələri (#/komanda/<liga>/<ad>). Məlumat ayrı fayllardadır (data/futbol/), yalnız o səhifə açılanda yüklənir və
 # yalnız slow_cycle-da yazılır: baş səhifəyə də, 60 saniyəlik dövrəyə də ağırlıq gətirmir.
