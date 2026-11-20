@@ -17,7 +17,7 @@
 //   X         X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (developer.x.com, «Read and write» icazəsi)
 //   LinkedIn  LINKEDIN_TOKEN (w_member_social), LINKEDIN_AUTHOR (urn:li:person:… və ya urn:li:organization:…)
 //   Instagram Facebook açarları ilə; səhifəyə bağlı Instagram peşəkar hesabı və açarda instagram_content_publish icazəsi olanda işləyir
-//             (söndürmək: Variables INSTAGRAM=0). Yalnız şəkilli xəbər, 45 dəqiqədən bir.
+//             (söndürmək: Variables INSTAGRAM=0). Yalnız şəkilli xəbər, Facebook kimi 18 dəqiqədən bir, 24 saatda ≤100 (rəsmi hədd).
 // Açarlar heç vaxt jurnala yazılmır. Paylaşılan nömrələr .social/posted.json-dadır (actions/cache), 3 gün saxlanır.
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
@@ -272,7 +272,9 @@ function networks(env = process.env) {
   // Instagram yalnız şəkilli post qəbul edir (JPEG, ictimai URL), keçid postda basılmır: mətnin sonunda «8ulduz.az» yazılır.
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN && env.INSTAGRAM !== "0") {
     const root = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`;
-    list.push({ name: "instagram", root, token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", gapMin: num(env.IG_MIN_GAP_MIN, 45), // gündə ≤32 (API həddi 50)
+    list.push({ name: "instagram", root, token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", // 2026-11-20: ara Facebook-unku ilə eynidir (18 dəq, gündə ≤80). Rəsmi hədd 24 saatda 100 API postudur
+      // (content_publishing_limit): dərcdən əvvəl hesabın öz sayğacı soruşulur, dolubsa post getmir (quotaFull).
+      gapMin: num(env.IG_MIN_GAP_MIN, num(env.SOCIAL_MIN_GAP_MIN, 18)),
       wants: a => !a.digest && /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
       async prepare(f, state, log) {
         const r = await f(`${root}${encodeURIComponent(env.FB_PAGE_ID)}?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
@@ -286,6 +288,13 @@ function networks(env = process.env) {
       },
       // Konteyner → (hazır olanda) dərc. Cavab fetch Response kimidir: run eyni yoxlamanı edir.
       async post(a, f, policy) {
+        // Rəsmi hədd (Instagram Graph API, content_publishing_limit): son 24 saatda API ilə dərc olunmuş postların sayı. Dolubsa bu
+        // dövrədə Instagram-a heç nə getmir; cavab yoxdursa (sorğu alınmadı) post adi qaydada gedir — ara onsuz da ≤80/gün saxlayır.
+        // Sayğac dövrədə bir dəfə soruşulur (namizəd ötürüləndə növbəti üçün yenə sorğu yoxdur).
+        const lim = (this.limit ??= await f(`${root}${encodeURIComponent(this.ig)}/content_publishing_limit?fields=quota_usage,config&access_token=${encodeURIComponent(this.token)}`, { signal: AbortSignal.timeout(15000) })
+          .then(x => x.json()).catch(() => ({})))?.data?.[0];
+        const used = Number(lim?.quota_usage), total = Number(lim?.config?.quota_total) || 100;
+        if (lim?.quota_usage != null && Number.isFinite(used) && used >= total) return { skip: `24 saatlıq hədd dolub: ${used}/${total}` };
         const page = /^https?:\/\//.test(String(a.sourceUrl || "")) ? await f(a.sourceUrl, { headers: { "user-agent": "Mozilla/5.0 (compatible; 8ulduz-bot; +https://8ulduz.az/)" }, signal: AbortSignal.timeout(10000) })
           .then(r => (r?.ok && r.text ? r.text() : ""), () => "").catch(() => "") : "";
         const desc = describe(a, page, policy);
@@ -309,7 +318,11 @@ function networks(env = process.env) {
             // post çıxıb — adi uğur, fasilə yoxdur.
             // 2026-11-17 (2): ilk gün status «PUBLISHED» deyildi (dərc hələ bitməmişdi və ya sorğu cavabsız qaldı), post isə çıxmışdı.
             // Ona görə bir neçə dəfə yoxlanır və status bilinmirsə hesabın son postuna baxılır (eyni işdə /ig/ siyahısı bu sorğunu
-            // problemsiz oxuyur): cəhddən sonra çıxmış və başlığı bu xəbərinki olan post — dərc olunub. ERROR/EXPIRED — çıxmayıb.
+            // problemsiz oxuyur): cəhddən sonra çıxmış və başlığı bu xəbərinki olan post — dərc olunub.
+            // 2026-11-20 ölçüsü: 18 noyabr düzəlişindən sonra da Instagram-a gündə düz 4 post gedirdi (13:44, 19:46, 01:49, 08:00 UTC; Facebook-a
+            // 49–52). Hər 6 saatlıq fasilənin ilk dərci post çıxarırdı (Instagram-ın öz vaxtı xəta jurnalından 3–9 s əvvəl), cavab isə 2207051
+            // və konteyner statusu ERROR idi: status ERROR görəndə hesabın son postuna baxmadan «çıxmayıb» deyib 6 saat fasilə qoyurdu.
+            // Status yalançı ola bilər: ERROR/EXPIRED-də də hesabın son postu yoxlanır; post yoxdursa — həqiqətən çıxmayıb (fasilə).
             const q = `access_token=${encodeURIComponent(this.token)}`, get = u => f(u, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
             const head = s => clean(String(s || "").split("\n")[0]).replace(/…$/, "").slice(0, 60);
             let known = false; const seen = [];
@@ -318,11 +331,12 @@ function networks(env = process.env) {
               const sr = await get(`${root}${encodeURIComponent(id)}?fields=status_code&${q}`), st = sr?.status_code || "";
               seen.push(st || sr?.error?.code || "?");
               if (st === "PUBLISHED") return { ok: true, status: 200, text: async () => "" };
-              if (st === "ERROR" || st === "EXPIRED") { known = true; break; }
               const m = (await get(`${root}${encodeURIComponent(this.ig)}/media?fields=timestamp,caption&limit=1&${q}`))?.data?.[0];
               if (m && Date.parse(m.timestamp) >= t0 - 60e3 && head(m.caption) === head(cut(a.title, 300))) return { ok: true, status: 200, text: async () => "" };
+              if (st === "ERROR" || st === "EXPIRED") { known = true; break; }
             }
-            return { ok: false, status: p.status, text: async () => `${t} (status: ${seen.join(",")})`, maybePosted: !known };
+            // Status əvvəldə: jurnal xətanı 300 simvolda kəsir, status ondan sonra görünmürdü.
+            return { ok: false, status: p.status, text: async () => `(status: ${seen.join(",")}) ${t}`, maybePosted: !known };
           }
           if (i >= 4) return { ok: false, status: p.status, text: async () => t, maybePosted: false };
           await new Promise(res => setTimeout(res, num(env.IG_WAIT_MS, 3000)));
@@ -425,7 +439,7 @@ async function run({ articles, digestIndex = [], env = process.env, now = Date.n
         if (net.skipFailed) done[a.id] = Math.floor(now / 1000); // eyni xəbər hər dövrədə təkrar yoxlanmasın
         // Şəbəkə spam qorunması ilə məhdudlaşdırıb («request limit», Instagram 2207051): PAUSE_H saat bu şəbəkəyə yazılmır.
         // 2026-11-18: dərc cavabı bu xəta olub post çıxanda (maybePosted) fasilə yoxdur — 17 noyabr düzəlişindən sonra da status və son post
-        // sorğuları postu tapmırdı, hər post 6 saat fasilə qoyurdu (Instagram-a gündə 4 post). Ara (45 dəq) və mövzu yuxarıda yazılıb, spam yoxdur.
+        // sorğuları postu tapmırdı, hər post 6 saat fasilə qoyurdu (Instagram-a gündə 4 post). Ara və mövzu yuxarıda yazılıb, spam yoxdur.
         // Fasilə yalnız post çıxmadığı bilinəndə: konteyner yaranmadı (ilk sorğu imtina etdi) və ya status ERROR/EXPIRED.
         if (!maybe && /request limit|2207051|limit how often|ограничиваем/i.test(msg)) { (state._pause ||= {})[net.name] = sec + PAUSE_H * 3600; log(`${net.name}: məhdudiyyət — ${PAUSE_H} saat fasilə`); }
         result.failed.push([net.name, a.id]);
