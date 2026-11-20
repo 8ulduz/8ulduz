@@ -1262,7 +1262,7 @@ function route() {
   const article = h.match(/^\/xeber\/([^#?]+)/); if (article) return { name: "article", id: article[1] };
   const team = h.match(/^\/komanda\/([^/?]+)(?:\/([^/?]+))?(?:\/([^/?]+))?(?:\?s=(\d{4}))?$/); if (team) return { name: "team", liga: team[1], team: team[2] || "", tab: team[3] || "", season: team[4] || "" };
   if (h === "/menbeler" || h.startsWith("/menbeler?")) return { name: "sources" };
-  if (h === "/videolent" || h.startsWith("/videolent?")) return { name: "videos" };
+  if (h === "/videolent" || h.startsWith("/videolent?")) return { name: "videos", reel: (h.match(/[?&]r=([0-9A-Za-z_-]{1,40})/) || [])[1] || "" };
   if (h === "/secilmis" || h.startsWith("/secilmis?")) return { name: "saved" };
   if (h === "/bolmeler" || h.startsWith("/bolmeler?")) return { name: "sections" };
   if (h === "/haqqinda" || h.startsWith("/haqqinda?")) return { name: "about" };
@@ -2466,12 +2466,22 @@ function restoreHome(v) {
   if (d) idle(renderView, 500, 2000); // lent və ya dəqiqə dəyişib: boş anda adi çəkiliş (eyni səhifədirsə DOM-a toxunmur)
   return true;
 }
+// Paylaşılmış video (lent.js shareLink): xəbərlər gələndən sonra lent bir dəfə həmin videodan açılır; bağlayan ana səhifəyə düşür.
+function sharedReel() {
+  const r = route();
+  if (!r.reel || !S.data || S.reelAt === r.reel) return;
+  S.reelAt = r.reel;
+  history.replaceState(history.state, "", "#/");   // lenti bağlayan ana səhifəyə düşür
+  setTimeout(render);
+  import("./lent.js?v=1").then(m => m.open(S, r.reel)).catch(() => {});
+}
 function renderView() {
   syncQuery();
   pageMeta();
   // Səhifə hansı yolla çəkilirsə çəkilsin (düymə, «Dinlə», sekmə…), gözləyən yeni xəbərlər artıq ekrandadır: «N yeni xəbər» düyməsi
   // qalırdı və basanda «elə həmin xəbərlər» çıxırdı, səhifə də bir az sürüşürdü (sahib 2026-11-14).
   if (S.pendingNew?.length && S.data) { S.pendingNew = 0; syncNewPill(); }
+  sharedReel();
   try {
     const v = $("#view");
     const onlyFirst = S.partial && !partialOk();
