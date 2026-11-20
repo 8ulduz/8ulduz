@@ -214,3 +214,28 @@ class VideolentTenfoldTest(unittest.TestCase):
         self.assertGreaterEqual(len({xy.xm.movzu(h) for h in part}), 8, "hər iş bütün mövzulardan hesab yoxlayır")
         self.assertIn("MÜXTƏLİF", xy.REELS_PROMPT)
         self.assertIn("erotik", xy.REELS_PROMPT)
+
+
+class RetryPassTest(unittest.TestCase):
+    def test_rate_limited_videolent_accounts_are_asked_once_more_slowly(self):
+        """Sahib 2026-11-20 («tiktokdan geri qalmasın»): həddə düşən Videolent hesabı keçidin sonunda bir dəfə də soruşulur."""
+        from unittest import mock
+        vl = ["SmithsonianZoo", "VisitNorway", "visitlondon"]
+        seen = {}
+
+        def fake(url):
+            h = url.split("/profile/")[1].split("/")[0]
+            seen[h] = seen.get(h, 0) + 1
+            if h in xy.xm.HESABLAR or (h != "visitlondon" and seen[h] == 1):
+                raise OSError("404")
+            return {"results": []}
+
+        sleeps = []
+        with mock.patch.object(xy, "videolent_slice", return_value=vl), mock.patch.object(xy, "fetch_json", fake), \
+             mock.patch.object(xy.time, "sleep", sleeps.append):
+            _, failed = xy.collect(set(), NOW)
+        self.assertEqual([seen[h] for h in vl], [2, 2, 1], "düşən Videolent hesabı ikinci dəfə, alınan bir dəfə")
+        self.assertTrue(all(seen[h] == 2 for h in xy.xm.HESABLAR), "xəbər hesabı əvvəlki kimi iki cəhd")
+        self.assertIn(xy.RETRY_PAUSE, sleeps)
+        self.assertFalse(any(f.startswith(("SmithsonianZoo", "VisitNorway")) for f in failed), "ikinci cəhddə alınan düşmüş sayılmır")
+        self.assertLessEqual(xy.RETRY_BUDGET, 10 * 60, "iş 20 dəqiqəlik limitə sığır")
