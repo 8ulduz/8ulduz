@@ -8,6 +8,9 @@
 // Eyni anda bir video yüklənir və oynayır; poster yalnız yaxındakı slaydlara qoyulur (internet paketi və batareya).
 
 const FILE = new URL("../data/reels.json", import.meta.url).href;
+// Hər videonun üstündə saytın loqosu (sahib 2026-11-20: «bütün videoların üstündə başda 8ulduz yazısı … basanda sayt açılsın»): basanda
+// lent bağlanır və oxucu sayta qayıdır — ✕ ilə eyni.
+const LOGO = new URL("./logo-80.png", import.meta.url).href;
 const MP4 = /^https:\/\/video\.twimg\.com\/[\w/.-]+\.mp4(\?[\w=&.-]*)?$/;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const plain = s => { const t = document.createElement("textarea"); t.innerHTML = String(s ?? ""); return t.value; };
@@ -36,6 +39,8 @@ video{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cont
 .bar{position:absolute;z-index:1;left:0;bottom:0;height:3px;background:#e11d48;width:0;pointer-events:none}
 button{position:fixed;right:12px;z-index:2;width:44px;height:44px;border-radius:50%;border:0;background:#0009;color:#fff;font-size:20px;line-height:44px;padding:0;cursor:pointer}
 .x{top:calc(12px + env(safe-area-inset-top))}
+.lg{left:12px;right:auto;top:calc(12px + env(safe-area-inset-top));width:auto;height:auto;padding:7px 10px;border-radius:12px;background:#0007;line-height:0}
+.lg img{height:24px;width:auto;filter:drop-shadow(0 1px 2px #000)}
 .snd{bottom:calc(96px + env(safe-area-inset-bottom))}
 .sh{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));font-size:22px}
 .end{display:grid;place-items:center;text-align:center;padding:24px;color:#ccc}
@@ -50,8 +55,8 @@ let live = null;
 
 function list(S, reels) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
-    u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl }));
-  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}` }));
+    u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id }));
+  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || "") }));
   const seen = new Set(), watched = seenSet();
   const all = [...own, ...x].sort((a, b) => String(b.t).localeCompare(String(a.t))).filter(v => !seen.has(v.u) && seen.add(v.u));
   return [...mix(all.filter(v => !watched.has(v.u))), ...mix(all.filter(v => watched.has(v.u)))];   // əvvəl görülməyənlər
@@ -103,10 +108,17 @@ async function load() {
   return (await items(`${FILE}?t=${Math.floor(Date.now() / 6e4)}`)) || [];
 }
 
-export async function open(S) {
+// Paylaşım keçidi (sahib 2026-11-20: «videolentdəki paylaşım x-a aparır. bizim sayta olsun, istəyən keçər mənbəyə»): saytın öz ünvanı,
+// açan adam lentə həmin videodan başlayır; mənbəyə keçid videonun altındakı düymədədir.
+export const shareLink = v => `https://8ulduz.az/#/videolent?r=${encodeURIComponent(v.k || "")}`;
+export function first(items, k) {
+  const i = k ? items.findIndex(v => v.k === k) : -1;
+  return i > 0 ? [items[i], ...items.slice(0, i), ...items.slice(i + 1)] : items;
+}
+export async function open(S, k = "") {
   if (live) return;
   live = {};
-  const items = list(S, await load());
+  const items = first(list(S, await load()), k);
   const f = document.createElement("iframe");
   f.title = "Videolent";
   f.allow = "autoplay; fullscreen";
@@ -130,14 +142,14 @@ export async function open(S) {
   document.body.append(f);
 }
 
-const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title ? `<span>${esc(v.title)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(v.link)}">↗</button></section>`;
+const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title ? `<span>${esc(v.title)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.n)}">↗</button></section>`;
 
 function build(f, items, back, more) {
   const doc = f.contentDocument, win = f.contentWindow;
   if (!doc || !live) return;
   let sound = false;
   try { sound = sessionStorage.getItem(SOUND_KEY) === "1"; } catch {}
-  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
+  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt"><img src="${LOGO}" alt="8ULDUZ" width="106" height="24"></button><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
   const feed = doc.querySelector(".feed"), slides = [...feed.querySelectorAll("section:not(.end)")], sndBtn = doc.querySelector(".snd");
   const pos = s => slides.indexOf(s);
   const vid = s => s.querySelector("video");
@@ -220,7 +232,7 @@ function build(f, items, back, more) {
     const sh = e.target.closest(".sh");
     if (sh) {
       const url = sh.dataset.link;
-      if (navigator.share) navigator.share({ url }).catch(() => {});
+      if (navigator.share) navigator.share({ url, title: sh.dataset.title }).catch(() => {});
       else navigator.clipboard?.writeText(url).then(() => { sh.textContent = "✓"; setTimeout(() => { sh.textContent = "↗"; }, 1500); }).catch(() => {});
       return;
     }
@@ -237,6 +249,7 @@ function build(f, items, back, more) {
     if (s) { const v = vid(s); v.muted = !sound; if (v.paused) play(s); }
   });
   doc.querySelector(".x").addEventListener("click", back);
+  doc.querySelector(".lg").addEventListener("click", back);
   doc.addEventListener("keydown", e => {
     if (e.key === "Escape") back();
     else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); feed.scrollBy({ top: (e.key === "ArrowDown" ? 1 : -1) * feed.clientHeight, behavior: "smooth" }); }

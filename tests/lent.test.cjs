@@ -86,3 +86,33 @@ test('Videolent: a big swipe-up arrow shows on the first open only (owner 2026-1
   assert.ok(/hinted = !!localStorage\.getItem\(HINT_KEY\)/.test(src) && src.includes('localStorage.setItem(HINT_KEY, "1")'), 'bir dəfə göstərilir, telefonda yadda qalır');
   assert.ok(src.includes('feed.addEventListener("scroll", off, { once: true, passive: true })') && src.includes('setTimeout(off, 4500)'), 'sürüşdürəndə və ya 4,5 s sonra çəkilir');
 });
+
+test('Videolent: share opens our site at the same video, the source stays one tap away (owner 2026-11-20)', async () => {
+  const { shareLink, first } = await import(pathToFileURL(file).href);
+  assert.equal(shareLink({ k: '2123793500739404215', link: 'https://x.com/a/status/2123793500739404215' }), 'https://8ulduz.az/#/videolent?r=2123793500739404215');
+  const items = [{ k: 'a' }, { k: 'b' }, { k: 'c' }];
+  assert.deepEqual(first(items, 'c').map(v => v.k), ['c', 'a', 'b'], 'paylaşılan video birinci');
+  assert.deepEqual(first(items, 'yox').map(v => v.k), ['a', 'b', 'c'], 'video artıq yoxdursa lent adi qaydada');
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('data-link="${esc(shareLink(v))}"') && !src.includes('data-link="${esc(v.link)}"'), 'paylaş düyməsi X-ə yox, sayta aparır');
+  assert.ok(src.includes('"X-də bax ↗"'), 'mənbəyə keçid qalır');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'assets', 'app.js'), 'utf8');
+  assert.ok(app.includes('import("./lent.js?v=1").then(m => m.open(S, r.reel))'), '#/videolent?r= lenti həmin videodan açır');
+});
+
+test('Videolent: the 8ulduz logo sits over every video and takes the reader back to the site, like ✕ (owner 2026-11-20)', () => {
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('<button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt"><img src="${LOGO}"'));
+  assert.ok(src.includes('doc.querySelector(".lg").addEventListener("click", back);'));
+  assert.ok(/\.lg\{left:12px;right:auto;top:calc\(12px/.test(src), 'yuxarıda solda, hər videonun üstündə (sabit)');
+});
+
+test('Videolent: #/videolent?r=<id> is read from the address (the shared link really opens that video)', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'assets', 'app.js'), 'utf8');
+  const m = app.match(/name: "videos", reel: \(h\.match\((\/.*?\/)\) \|\| \[\]\)\[1\]/);
+  assert.ok(m, 'videolent marşrutu r= oxuyur');
+  const rx = eval(m[1]);
+  assert.equal(('/videolent?r=2123748200729210898'.match(rx) || [])[1], '2123748200729210898');
+  assert.equal(('/videolent?x=1&r=ab_c-9'.match(rx) || [])[1], 'ab_c-9');
+  assert.equal('/videolent'.match(rx), null);
+});
