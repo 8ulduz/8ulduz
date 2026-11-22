@@ -130,9 +130,9 @@ test("goruntu: Pexels clips matching the story — portrait first, landscape if 
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("goruntu: Pixabay (Pexels stopped issuing keys, 2026-11-22) — vertical first, ≥1080 renditions, the key never reaches the log", async () => {
+test("goruntu: Pixabay (Pexels stopped issuing keys, 2026-11-22) — relevant clips only, vertical first among equals, ≥1080 renditions, the key never reaches the log", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-px-"));
-  const hit = (id, w, h, extra = {}) => ({ id, duration: 15, user: `pxu${id}`, videos: {
+  const hit = (id, w, h, extra = {}) => ({ id, duration: 15, user: `pxu${id}`, tags: "school, building, education", pageURL: `https://pixabay.com/videos/school-building-${id}/`, videos: {
     large: { url: `https://cdn.pixabay.com/${id}_large.mp4`, width: w * 2, height: h * 2, size: 90e6 },
     medium: { url: `https://cdn.pixabay.com/${id}_medium.mp4`, width: w, height: h, size: 8e6 },
     small: { url: `https://cdn.pixabay.com/${id}_small.mp4`, width: w / 1.5, height: h / 1.5, size: 3e6 } }, ...extra });
@@ -140,18 +140,30 @@ test("goruntu: Pixabay (Pexels stopped issuing keys, 2026-11-22) — vertical fi
   const f = async (u) => {
     urls.push(u);
     if (u.startsWith("https://pixabay.com/api/videos/")) return { ok: true, json: async () => ({ hits: [
+      hit(9, 1080, 1920, { tags: "squirrel, animal, nature", pageURL: "https://pixabay.com/videos/squirrel-animal-nature-9/" }),
       hit(1, 1920, 1080), hit(2, 1080, 1920), hit(3, 1280, 720, { videos: { medium: { url: "https://cdn.pixabay.com/3_medium.mp4", width: 1280, height: 720, size: 2e6 } } })] }) };
     return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
   };
   const got = await VS.goruntu(["school building"], dir, { env: { PIXABAY_API_KEY: "pxb-acar" }, fetch: f, log: s => logs.push(s), say: 2, category: "cemiyyet" });
   assert.deepEqual(got.map(g => [g.p, g.id, g.w, g.h]), [["Pixabay", 2, 1080, 1920], ["Pixabay", 1, 1920, 1080]],
-    "şaquli klip əvvəl; 1920×1080 medium (90 MB-lıq 4K yox); 720p götürülmür");
+    "uyğunsuz şaquli klip (dələ) atılır; uyğunlar arasında şaquli əvvəl; 1920×1080 medium (90 MB-lıq 4K yox); 720p götürülmür");
   const api = new URL(urls.find(u => u.startsWith("https://pixabay.com/api/videos/")));
   assert.equal(api.searchParams.get("safesearch"), "true");
   assert.equal(api.searchParams.get("q"), "school building");
   assert.ok(!logs.join("\n").includes("pxb-acar"), "açar jurnalda yoxdur");
   assert.equal(VS.pixabayFile({ videos: { medium: { url: "x", width: 1280, height: 720 } } }), null);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("goruntu: a clip must match the query — the third sample showed a squirrel for a border wall and a Japanese castle for the Capitol", () => {
+  assert.equal(VS.relevance("us mexico border wall", "squirrel, animal, nature squirrel-animal-nature-310086"), 0);
+  assert.equal(VS.relevance("washington dc capitol building", "castle, japan, osaka, building, night"), 0, "yalnız ümumi «building» bəs etmir");
+  assert.equal(VS.relevance("us mexico border wall", "wall, brick, texture"), 0, "3+ sözdə bir təsadüfi söz bəs etmir");
+  assert.ok(VS.relevance("us mexico border wall", "border, wall, fence, mexico") > 0);
+  assert.ok(VS.relevance("washington dc capitol building", "capitol, washington, dome") > 0);
+  assert.ok(VS.relevance("baku city skyline", "baku, azerbaijan, flame towers") > 0, "ilk konkret söz (yer adı) bəs edir");
+  assert.ok(VS.relevance("police lights at night", "police, siren, lights") > 0, "cəm və tək eyni sözdür");
+  assert.equal(VS.relevance("city street traffic", "street, cars"), 0);
 });
 
 test("goruntu: negative stories get people-free fallback scenes; the prompt forbids identifiable people (Pexels license)", () => {

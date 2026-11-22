@@ -201,23 +201,44 @@ function pixabayFile(v) {
   return [s.medium, s.large, s.small].find(x => x?.url && x.width > 0 && x.height > 0 && Math.min(x.width, x.height) >= 1080
     && !(x.size > KLIP_MAX_BYTES)) || null;
 }
+// Klipin axtarışa uyğunluğu: klipin təsviri (Pixabay etiketləri, səhifə ünvanının sözləri) axtarış sözləri ilə tutuşdurulur.
+// 2026-11-22 üçüncü nümunə: «us mexico border wall» → dələ, «washington dc capitol building» → Yaponiya qalası çıxdı (şaquli klipi
+// uyğunluqdan üstün tutmuşdum). 3+ mənalı sözdə ən az 2-si, az sözdə 1-i üst-üstə düşməlidir; düşməsə 0 — klip götürülmür.
+const STOP = new Set(["the", "and", "with", "for", "from", "into", "over", "near"]);
+const stem = w => (w.length > 4 ? w.replace(/ies$/, "y").replace(/(?<!s)s$/, "") : w);
+const words = s => String(s || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 2 && !STOP.has(w)).map(stem);
+// İstisna: ifadənin ilk sözü (Gemini-də adətən yer və ya əsas əşya: «baku», «mexico», «oil») ümumi söz deyilsə və klipdə varsa, bəs edir.
+const UMUMI = new Set(["city", "building", "street", "road", "night", "view", "aerial", "people", "traffic", "light", "sky", "skyline",
+  "background", "office", "outdoor", "water", "landscape", "modern", "old", "new", "urban", "center", "exterior", "interior", "drone"]);
+function relevance(q, desc) {
+  const want = [...new Set(words(q))], have = new Set(words(desc));
+  if (!want.length) return 1;
+  const n = want.filter(w => have.has(w)).length, first = have.has(want[0]) && !UMUMI.has(want[0]);
+  return n >= (want.length >= 3 ? 2 : 1) || first ? n + (first ? 1 : 0) : 0;
+}
+const slug = u => String(u || "").split("?")[0].split("/").filter(Boolean).pop() || "";
+// Uyğunluğa görə (ən uyğun əvvəl), bərabər olanda şaquli əvvəl; uyğun olmayan atılır.
+const rank = list => list.filter(x => x.score > 0).sort((a, b) => b.score - a.score || (b.h > b.w) - (a.h > a.w));
+
 // Mənbələr: açarı olan hər biri, sıra ilə. Pexels (2026-11-22: yeni açar verilmir, köhnə açar işləyir) və Pixabay
 // (https://pixabay.com/service/license-summary/: pulsuz, kommersiya istifadəsi; API: «nəticənin haradan olduğunu göstərin»).
 const MENBELER = [
   { name: "Pexels", env: "PEXELS_API_KEY", async find(q, key, f) {
-    for (const orient of ["portrait", "landscape"]) {   // əvvəl şaquli; yoxdursa üfüqi (ortadan 9:16 kəsilir)
+    for (const orient of ["portrait", "landscape"]) {   // əvvəl şaquli; yoxdursa üfüqi (video modulu tam enində göstərir)
       const j = await getJson(`https://api.pexels.com/videos/search?query=${enc(q)}&orientation=${orient}&size=medium&per_page=15`, { authorization: key }, f);
-      const out = (j?.videos || []).filter(v => v.duration >= 4).map(v => ({ v, file: bestFile(v, orient === "portrait") })).filter(x => x.file)
-        .map(({ v, file }) => ({ id: v.id, user: clean(v.user?.name || ""), link: file.link, w: file.width, h: file.height }));
+      // Pexels etiket vermir: təsvir səhifə ünvanındadır (…/video/drone-view-of-baku-123/); ünvan yoxdursa axtarışın sırasına güvənilir.
+      const out = rank((j?.videos || []).filter(v => v.duration >= 4).map(v => ({ v, file: bestFile(v, orient === "portrait") })).filter(x => x.file)
+        .map(({ v, file }) => ({ id: v.id, user: clean(v.user?.name || ""), link: file.link, w: file.width, h: file.height,
+          score: words(slug(v.url)).length ? relevance(q, slug(v.url)) : 1 })));
       if (out.length) return out;
     }
     return [];
   } },
   { name: "Pixabay", env: "PIXABAY_API_KEY", async find(q, key, f) {
     const j = await getJson(`https://pixabay.com/api/videos/?key=${enc(key)}&q=${enc(q.slice(0, 100))}&video_type=film&safesearch=true&per_page=20`, {}, f);
-    return (j?.hits || []).filter(v => v.duration >= 4).map(v => ({ v, file: pixabayFile(v) })).filter(x => x.file)
-      .map(({ v, file }) => ({ id: v.id, user: clean(v.user || ""), link: file.url, w: file.width, h: file.height }))
-      .sort((a, b) => (b.h > b.w) - (a.h > a.w));   // şaquli klip əvvəl
+    return rank((j?.hits || []).filter(v => v.duration >= 4).map(v => ({ v, file: pixabayFile(v) })).filter(x => x.file)
+      .map(({ v, file }) => ({ id: v.id, user: clean(v.user || ""), link: file.url, w: file.width, h: file.height,
+        score: relevance(q, `${v.tags || ""} ${slug(v.pageURL)}`), tags: clean(v.tags || "") })));
   } },
 ];
 
@@ -225,9 +246,11 @@ const MENBELER = [
 async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "" } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
   if (!menbeler.length) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
-  const list = [...queries(axtar), ...ehtiyat({ category })].filter((q, i, all) => all.indexOf(q) === i);
+  // Əvvəl Gemini-nin ifadələri (hər birindən bir klip, çatmırsa ikinci), sonra bölmənin ümumi səhnələri.
+  const own = queries(axtar), spare = ehtiyat({ category }).filter(q => !own.includes(q));
+  const rounds = own.length ? [own, own, spare] : [spare, spare];
   const got = [], seen = new Set();
-  for (const pass of [1, 2]) {   // birinci keçid: hər ifadədən bir klip; ikinci: çatmırsa ikinci klip
+  for (const list of rounds) {
     for (const q of list) {
       if (got.length >= say) break;
       for (const m of menbeler) {
@@ -242,15 +265,15 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
           fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(path.join(dir, name), buf);
           got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h });
-          log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user})`);
+          log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
           break;
         } catch {}
       }
     }
-    if (got.length >= say || pass === 2 && got.length) break;
+    if (got.length >= say) break;
   }
   if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən klip alınmadı — görüntüsüz (köhnə fon)`);
   return got;
 }
 
-module.exports = { ssenari, goruntu, protokol, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, goruntu, protokol, relevance, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
