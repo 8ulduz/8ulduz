@@ -274,7 +274,8 @@ async function run({ videos = [], env = process.env, now = Date.now(), fetch: f 
 
   if (!list.length) return res;
   const pause = state.pause || 0;
-  if (pause > sec) { ctx.log(`tiktok: TikTok həddinə görə fasilə, ${Math.ceil((pause - sec) / 60)} dəq qalıb`); return res; }
+  // Əl ilə sınaq (sinaq) fasiləni gözləmir: hesabı gizli edəndən sonra dərhal yoxlamaq olur; adi videolar gözləyir.
+  if (pause > sec && !list[0].m.sinaq) { ctx.log(`tiktok: TikTok həddinə görə fasilə, ${Math.ceil((pause - sec) / 60)} dəq qalıb`); return res; }
   const day = live(state, sec), lastAgo = Math.round((sec - (state.last || 0)) / 60), v = list[0];
   if (day.length >= opt.maxDay) { ctx.log(`tiktok: 24 saatda ${day.length} video getdi (hədd ${opt.maxDay}) — növbəti sonra`); return res; }
   if (!v.m.sinaq && lastAgo < opt.minGapMin) { ctx.log(`tiktok: son video ${lastAgo} dəq əvvəl, növbəti ${opt.minGapMin - lastAgo} dəq sonra`); return res; }
