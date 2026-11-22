@@ -22,6 +22,9 @@ test("ssenari: the narration is checked — every number from the source, no Cyr
   assert.equal(VS.checkText(GOOD, SOURCE, a), "");
   assert.match(VS.checkText(GOOD.replace("3600", "4200"), SOURCE, a), /mənbədə olmayan rəqəm: 4200/);
   assert.match(VS.checkText(GOOD + " Это тест.", SOURCE, a), /kiril/);
+  // Lite modellər «ə» yerinə kiril «ә» yazır: oxşar hərflər latına çevrilir, əsl kiril sözü qalır və düşür.
+  assert.equal(VS.latin("Bakıda yeni mәktәb binası, Әliyev"), "Bakıda yeni məktəb binası, Əliyev");
+  assert.match(VS.checkText(VS.latin(GOOD + " Это тест."), SOURCE, a), /kiril/);
   assert.match(VS.checkText(GOOD.replace("ayrılıb.", "ayrılıb!"), SOURCE, a), /nida/);
   assert.match(VS.checkText(GOOD.replace("Bakıda", "Bu gün Bakıda"), SOURCE, a), /nisbi gün/);
   assert.match(VS.checkText("Qısa mətn.", SOURCE, a), /uzunluq/);
@@ -43,7 +46,8 @@ test("video: protocol news (receptions, meetings, phone calls, congratulations) 
   assert.ok(VS.protokol({ title: "Bakıda yeni yol açılıb", category: "prezident" }), "Prezident bölməsi");
   assert.ok(!VS.protokol({ title: "Bakıda 12 yeni məktəb açılıb", category: "cemiyyet" }));
   assert.ok(!VS.protokol({ title: "Rusiya Ukraynanın enerji obyektlərinə dron hücumu edib", category: "dunya" }));
-  assert.match(VS.PROMPT, /"uygun"/, "Gemini də yoxlayır");
+  assert.match(VS.PROMPT, /"uygun": false YALNIZ xəbər protokol/, "Gemini də yoxlayır, yalnız protokolu rədd edir (lite model cinayət xəbərini də rədd edirdi)");
+  assert.match(VS.PROMPT, /Şübhə olanda true/);
   assert.doesNotMatch(VS.PROMPT, /məsələn[^\n]*national flags/, "adsız bayraqlar yad ölkəni göstərə bilər");
   assert.ok(!Object.values(VS.EHTIYAT).flat().some(q => /national flags/.test(q)));
 });

@@ -97,17 +97,22 @@ Yer adı varsa onu yaz ("Istanbul Bosphorus", "Baku boulevard"). Bayraq yalnız 
 İnsanların xəbərdəki hərəkətini (görüş, əl sıxma, imza, çıxış) göstərən səhnə yazma: tamaşaçı onları xəbərin qəhrəmanı sanar.
 Konkret tanınan insanların adını yazma. Xəbər cinayət, qəza, ölüm, xəstəlik, fəlakət, məhkəmə və ya münaqişə haqqındadırsa, yalnız
 insansız səhnələr seç (bina, yol, polis maşınının işıqları, şəhər, təbiət, texnika).
-"uygun": video bankının ümumi kadrları bu xəbəri yanıltmadan göstərə bilərmi? Xəbərin mahiyyəti konkret adamların görüşü, qəbulu,
-telefon danışığı, təbriki, təyinatı və ya məktubudursa — false (kadr həmin adamları göstərirmiş kimi görünər).
-Bəyanat və müsahibədə söhbət gedən mövzu (sərhəd, qiymət, müharibə, tikinti) səhnə ilə göstərilə bilirsə — true: səhnə mövzunu
-göstərsin, danışanı yox ("US Mexico border wall"). Mövzu yalnız şəxslər arası söz-söhbətdirsə — false.
-Hadisə, qəza, hava, təbiət, iqtisadiyyat, qiymət, nəqliyyat, tikinti, texnologiya, elm, idman, şəhər həyatı, müharibənin gedişi — true.
+"uygun": false YALNIZ xəbər protokol hadisəsidirsə: rəsmi görüş, qəbul, danışıqlar, telefon danışığı, təbrik, başsağlığı, təyinat, məktub
+(ümumi kadr həmin adamları göstərirmiş kimi görünər). Qalan hər xəbər — true: cinayət, qəza, ölüm, yanğın, hadisə, idman, bəyanat, müsahibə,
+iqtisadiyyat, qiymət, hava, təbiət, nəqliyyat, tikinti, texnologiya, müharibənin gedişi. Xəbər konkret bir adam haqqında olsa belə, səhnə
+onu yox, mövzunu göstərir (atışma — "police car lights night", bəyanat sərhəd haqqında — "US Mexico border wall"). Şübhə olanda true.
 Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."]}
 
 Başlıq: {title}
 Bölmə: {bolme}
 Mənbə mətni:
 {source}`;
+
+// Kiril hərfinin latın oxşarı (lite modellər «ə» yerinə kiril «ә» yazır, 2026-11-22 beşinci nümunə). Qalan kiril hərfi yoxlamada düşür.
+const LATIN = { "ә": "ə", "Ә": "Ə", "ө": "ö", "Ө": "Ö", "ү": "ü", "Ү": "Ü", "һ": "h", "Һ": "H", "ғ": "ğ", "Ғ": "Ğ", "а": "a", "е": "e", "о": "o",
+  "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P",
+  "С": "C", "Т": "T", "Х": "X", "І": "I", "Ј": "J" };
+const latin = s => String(s).replace(/[әӘөӨүҮһҺғҒаеорсухіјАВЕКМНОРСТХІЈ]/g, ch => LATIN[ch]);
 
 // Diktor mətninin yoxlanması. Səbəb (sətir) və ya "" — keçdi.
 const NUM = /\d+(?:[.,]\d+)*/g;
@@ -173,7 +178,7 @@ async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch
   let j = null;
   try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
   if (j?.uygun === false) { log("video: Gemini — xəbəri ümumi kadrla yanıltmadan göstərmək olmur (görüş, qəbul), başqa xəbər"); return { uygun: false, sebeb: "kadrla göstərilmir" }; }
-  const text = clean(j?.text);
+  const text = latin(clean(j?.text));
   const why = text ? checkText(text, `${source}\n${clean(a.title)}`, a, policy) : "cavab boşdur və ya JSON deyil";
   if (why) { log(`video: Gemini mətni qəbul olunmadı (${why}) — başqa xəbər`); return { uygun: false, sebeb: why }; }
   return { text, axtar: queries(j?.axtar), uygun: true };
@@ -281,4 +286,4 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
   return got;
 }
 
-module.exports = { ssenari, goruntu, protokol, relevance, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, goruntu, protokol, relevance, latin, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

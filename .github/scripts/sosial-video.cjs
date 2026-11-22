@@ -208,6 +208,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     // Gemini işləmir (gündəlik limit və s.): mənbənin cümlələri və ümumi kadrla video olmur — növbəti dövrədə yenidən.
     if (!sc) { log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return null; }
     if (sc.uygun !== false) break;
+    log(`video: ötürülür (${sc.sebeb || "uyğun deyil"}) — ${S.clean(got.a.title)}`);
     state.skip[got.a.id] = Math.floor(now / 1000);
     got = null;
   }
