@@ -327,3 +327,30 @@ class SixtyFortyTest(unittest.TestCase):
         src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
         self.assertIn("split_reels(pick_reels(pool, REELS_PER_RUN * 3)", src)
         self.assertIn('if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"])', src, "biçimi pis izah düşür, video qalır")
+
+
+class GeminiDownTest(unittest.TestCase):
+    """2026-11-22: 04:25 UTC-dən model siyahısı HTTP xətası verirdi, Gemini heç çağırılmırdı; ehtiyat yolu xəbər hesablarının
+    videolarını yoxlamadan, izahsız lentə saldı."""
+
+    def test_known_models_are_tried_when_the_list_fails(self):
+        from unittest import mock
+        asked = []
+
+        def fake(req, timeout=0):
+            asked.append(req.full_url)
+            raise OSError("şəbəkə")
+        with mock.patch.object(xy, "_safe_models", return_value=[]), mock.patch.object(xy, "GEMINI_MODEL", ""), \
+             mock.patch.object(xy.urllib.request, "urlopen", fake):
+            self.assertEqual(xy.ask_gemini("x", "k"), "")
+        self.assertTrue(asked, "siyahı boş olsa da Gemini çağırılır")
+        self.assertIn(xy.FALLBACK_MODELS[0] + ":generateContent", asked[0])
+
+    def test_news_videos_never_go_without_gemini(self):
+        from unittest import mock
+        h = next(iter(xy.xm.VIDEOLENT_QRUPLAR["xeber"]))
+        news = xy.candidate(h, post(author={"screen_name": h}, id="2123096874748186943"), set(), NOW, xy.REEL_WINDOW)
+        news["reel_only"] = True
+        tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
+        with mock.patch.dict(xy.os.environ, {}, clear=True):
+            self.assertEqual(xy.pick_reels([news, tamir], 6), [tamir["id"]], "xəbər videosu Gemini-nin seçimi və izahı olmadan getmir")

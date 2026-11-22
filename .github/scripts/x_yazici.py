@@ -233,7 +233,9 @@ def ask_gemini(prompt, key):
     body = json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 4000, "responseMimeType": "application/json"}}).encode("utf-8")
     tried, listed = [], _safe_models(key)
-    order = ([GEMINI_MODEL] if GEMINI_MODEL else []) + [m for m in listed if m != GEMINI_MODEL]
+    # 2026-11-22: 04:25 UTC-dən model siyahısı HTTP xətası verirdi, siyahı boş qalırdı və Gemini heç çağırılmırdı (videolar izahsız,
+    # sinifsiz, X xəbəri yazılmırdı). Siyahı alınmasa son işlək modellər birbaşa sınanır.
+    order = list(dict.fromkeys(([GEMINI_MODEL] if GEMINI_MODEL else []) + (listed or list(FALLBACK_MODELS))))
     for model in order[:4]:
         doc = None
         for attempt in range(3):   # 503 (yüklüdür) və 429 keçicidir: gözləyib təkrar; 404 (model yoxdur) — növbəti model
@@ -244,7 +246,7 @@ def ask_gemini(prompt, key):
                     doc = json.loads(r.read().decode("utf-8"))
                 break
             except urllib.error.HTTPError as e:
-                tried.append(f"{model}: {e.code}")
+                tried.append(f"{model}: {e.code} {_why(e)}")
                 if e.code not in (429, 500, 503):
                     break
                 time.sleep(15 * (attempt + 1))
@@ -260,9 +262,24 @@ def ask_gemini(prompt, key):
     return ""
 
 
+FALLBACK_MODELS = ("gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest")   # 2026-11-21-də işləyən modellər
+
+
+def _why(e):
+    """HTTP xətasının qısa səbəbi (Google-un «message» sahəsi; açar başlıqdadır, cavabda olmur)."""
+    try:
+        msg = json.loads(e.read().decode("utf-8", "replace")).get("error", {}).get("message", "")
+    except Exception:
+        msg = ""
+    return " ".join(str(msg).split())[:160]
+
+
 def _safe_models(key):
     try:
         return _gemini_models(key)
+    except urllib.error.HTTPError as e:
+        print(f"Model siyahısı alınmadı: HTTP {e.code} {_why(e)}", flush=True)
+        return []
     except Exception as e:
         print(f"Model siyahısı alınmadı: {type(e).__name__}", flush=True)
         return []
@@ -405,7 +422,9 @@ def pick_reels(cands, n):
                 ids.append(str(g))
     if ids is None:
         print("Qısa video: Gemini seçmədi, yalnız təhlükəsiz hesablar", flush=True)
-        ids = [c["id"] for c in cands if c["handle"] in REELS_SAFE or c.get("reel_only")]   # Videolent hesabları seçilmiş vizual hesablardır
+        # Videolent hesabları seçilmiş vizual hesablardır; xəbər qrupu (xəbər, kadr arxası) Gemini-nin seçimi və izahı olmadan getmir
+        # (2026-11-22: Gemini düşəndə Breaking911, Fox News videoları yoxlanmadan, izahsız lentə düşdü)
+        ids = [c["id"] for c in cands if (c["handle"] in REELS_SAFE or c.get("reel_only")) and xm.movzu(c["handle"]) != "xeber"]
     allowed = {c["id"] for c in cands}
     return [i for i in dict.fromkeys(ids) if i in allowed][:n]
 

@@ -254,6 +254,15 @@ class ReelsTest(unittest.TestCase):
             self.assertIsNotNone(xm.reel_check(row), name)
         self.assertIsNone(xm.reel_check(reel(sinif="h", c="Yeni elektromobil ilk dəfə yolda sınaqdan keçirilir")))
 
+    def test_news_videos_without_a_caption_stay_off_the_site(self):
+        """Sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın» — xəbər videosu izahsız lentə çıxmır."""
+        bare = reel(id="2123096874748186953", handle="FoxNews", post="https://x.com/FoxNews/status/2123096874748186953",
+                    src=["Storm hits the coast, thousands without power."])
+        told = reel(id="2123096874748186954", handle="FoxNews", post="https://x.com/FoxNews/status/2123096874748186954",
+                    src=["Storm hits the coast, thousands without power."], c="Sahilə güclü fırtına çatıb, minlərlə ev işıqsız qalıb")
+        ids = [r["id"] for r in xm.reels(self.NOW, path=self.write([bare, told]))]
+        self.assertEqual(ids, ["2123096874748186954"])
+
     def test_updater_writes_reels_through_the_policy_gate(self):
         import updater
         tmp = tempfile.TemporaryDirectory()
