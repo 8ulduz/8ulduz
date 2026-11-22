@@ -762,6 +762,8 @@ def reels(now, path=None):
             continue
         seen.add(row["id"])
         h = _REEL_HANDLE[row["handle"].lower()]
+        if movzu(h) == "xeber" and not row.get("c"):
+            continue   # xəbər videosu izahsız başa düşülmür (sahib 2026-11-22); Gemini düşəndə izahsız qalanlar lentə çıxmır
         out.append({"id": row["id"], "a": h, "n": ADLAR[h], "m": movzu(h), "u": row["video"], "i": row["poster"],
                     "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds"),
                     "q": sinif(row), **({"p": 1} if onde(h) else {}), **({"c": row["c"]} if row.get("c") else {})})
