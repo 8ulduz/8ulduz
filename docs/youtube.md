@@ -10,7 +10,7 @@ Google-un video nəticələrinə ən real yol öz, orijinal videolarımızın Yo
 
 | Nə | Kim | Harada |
 |---|---|---|
-| Videonu hazırlamaq, yuxarıda «8ulduz.az» yazısı | video modulu (ayrı iş: «Facebook və Instagram-da video xəbərlər») | onun öz faylları |
+| Videonu hazırlamaq, yuxarıda «8ulduz.az» yazısı | video modulu | `.github/scripts/video-xeber.cjs`, `.github/workflows/sosial-video.yml` |
 | Videonu YouTube-a yükləmək, başlıq, təsvir, teqlər, təkrarın qarşısı | hazırdır | `.github/scripts/youtube.cjs`, `.github/workflows/youtube.yml`, `tests/youtube.test.cjs` |
 | Kanal, Google Cloud layihəsi, açarlar | **siz** | aşağıdakı addımlar |
 
@@ -126,29 +126,36 @@ gh secret set YOUTUBE_REFRESH_TOKEN --repo 8ulduz/8ulduz
 1. GitHub → Actions → **YouTube Shorts** → **Run workflow** → `əmr: yoxla`. Jurnalda «kanal — 8ulduz.az (https://www.youtube.com/channel/…)» yazılmalıdır. Kvotaya dəymir, heç nə yüklənmir.
 2. Yenə **Run workflow** → `əmr: sinaq`. 6 saniyəlik sınaq videosu (yuxarıda «8ulduz.az») **gizli** (private) yüklənir. Jurnalda ünvan yazılır. YouTube Studio → Məzmun bölməsində görünəcək, baxandan sonra silin.
 
-Hər şey qaydasındadırsa, video modulu qoşulan kimi videolar özü gedəcək.
+Hər şey qaydasındadırsa, videolar özü gedəcək: video modulu hər 30 dəqiqədən bir yoxlayır, vaxtı çatanda (2 saatdan bir, Bakı vaxtı 8:00–23:59) video hazırlayır, hazır video YouTube-a da yüklənir.
 
 ## 8. Video modulu ilə qoşulma
 
-Bu PR-da yükləyici sınaq videosu ilə qurulub. Video modulu («Facebook və Instagram-da video xəbərlər», PR #292) hələ main-də deyil. Modul birləşəndən sonra onun iş axınına bu iş əlavə olunur:
+Qoşulub. Video modulu (`.github/scripts/video-xeber.cjs`, `.github/workflows/sosial-video.yml`) videonu hazırlayıb yoxlayır, sonra `youtube` işi `youtube.yml`-i çağırır:
 
 ```yaml
-  # video işində: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5, name: youtube-video, path: <qovluq>
   youtube:
     needs: video
-    if: github.event_name != 'pull_request'
+    if: ${{ !cancelled() && github.ref == refs/heads/main && needs.video.outputs.paylas == 1 && needs.video.outputs.yoxlandi == 1 }}
     uses: ./.github/workflows/youtube.yml
-    with: { artifact: youtube-video }
-    secrets: inherit
+    with:
+      artifact: video-xeber
+    secrets:
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
 ```
 
-Modul hər video üçün eyni adlı iki fayl yazır. Bu müqavilə TikTok yükləyicisi (PR #293) ilə eynidir, bir JSON hər ikisinə gedir:
+- Bu iş TikTok işi ilə eyni şərtlərlə işləyir: yalnız `main`-də, əsl paylaşım dövrəsində (`paylas == 1`: PR nümunəsi və `paylas=false` önizləməsi getmir) və video «Videonu yoxla» addımından keçəndə (`yoxlandi == 1`).
+- Facebook və ya Instagram alınmasa da hazır video YouTube-a gedir. Bu işə yalnız YouTube sirləri verilir.
+- «Xəbər seç» addımı (`VIDEO_ACAR`) Facebook, TikTok **və ya YouTube** açarı olanda video hazırlayır. YouTube Facebook-dan asılı deyil.
+- Modul ən çox 59 saniyəlik video hazırlayır (`MAX_S = 59`), YouTube həddi 60 saniyədir.
+
+Artefaktda `video.mp4` və `video.json` var. `xeber.json` kimi cütü olmayan fayllar oxunmur. Müqavilə TikTok yükləyicisi ilə eynidir, bir JSON hər ikisinə gedir:
 
 - `<ad>.mp4`: şaquli (1080×1920), H.264 + AAC, `-movflags +faststart -metadata comment=8ulduz.az`. Konteynerin müddəti **≤ 60,0 s** olmalıdır: 60,02 s da qəbul edilmir.
-- `<ad>.json`:
+- `<ad>.json`: video modulunun yazdığı sahələr `{ id, own: true, title, summary, text, source, sourceUrl, category, lang, publishedAt, duration, … }`. Təsvirdə `summary` gedir; o boşdursa, videodakı izahın (`text`) əvvəli. Gələcək video növləri üçün istəyə bağlı sahələr:
   ```json
-  { "id": "…", "own": true, "title": "…", "summary": "…", "kind": "xeber", "url": "https://www.8ulduz.az/<nömrə>?h=<saat>",
-    "publishedAt": "ISO", "createdAt": "ISO", "hashtags": ["…"], "source": "…", "sourceUrl": "…", "category": "…", "lang": "az",
+  { "kind": "icmal", "url": "https://8ulduz.az/…", "createdAt": "ISO", "hashtags": ["…"],
     "items": [{ "title": "…", "source": "…", "sourceUrl": "…" }], "aigc": false }
   ```
 
@@ -160,10 +167,7 @@ Məzmun növləri (`kind`):
 | `icmal` | «Günün icmalı», 09:00 və 19:00 (`updater.write_digest`); `id`: `icmal-<tarix>-seher` / `-axsam` | `https://8ulduz.az/icmal/<tarix>-seher/` | hər `items` sətrində `source` + `sourceUrl` **olmalıdır**, yoxdursa yüklənmir |
 | `hava`, `valyuta`, `bazar` | hava və valyuta (`data/markets.json`) | `url` (saytın səhifəsi), yoxdursa ana səhifə | xəbər yoxdur, yoxlanmır |
 
-Diqqət:
-
-- Video modulunun iş axınında indi «Xəbər seç» addımı yalnız Facebook açarı (`FB_PAGE_TOKEN`) olanda video hazırlayır. YouTube-u Facebook-dan asılı etməmək üçün bu şərtə YouTube açarı da əlavə olunmalıdır.
-- Keçid yalnız 8ulduz.az-a ola bilər. Başqa saytın ünvanı verilsə, ana səhifə yazılır.
+İndi video modulu yalnız əsas xəbərdən video hazırlayır (`xeber`). İcmal və hava/valyuta videoları modula əlavə olunanda yükləyici onları `kind`-ə görə tanıyır. Keçid yalnız 8ulduz.az-a ola bilər: başqa saytın ünvanı verilsə, ana səhifə yazılır.
 
 ## 9. Tənzimləmə (Variables, istəyə bağlı)
 

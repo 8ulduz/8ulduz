@@ -367,6 +367,43 @@ test("youtube: the workflow only reads the repo, uploads only from main and neve
   assert.ok(!/console\.log\([^)]*(SECRET|REFRESH)/.test(js), "açar jurnala yazılmır");
 });
 
+test("youtube: hooked to the video module — main only, real posting runs only, checked video only, YouTube secrets only", () => {
+  const wf = fs.readFileSync(path.join(root, ".github/workflows/sosial-video.yml"), "utf8").replace(/\r\n/g, "\n");
+  const job = wf.slice(wf.indexOf("\n  youtube:"));
+  assert.ok(wf.includes("\n  youtube:") && job.length > 20, "sosial-video.yml-də youtube işi var");
+  assert.match(job, /needs: video\n/);
+  assert.match(job, /if: \$\{\{ !cancelled\(\) && github\.ref == 'refs\/heads\/main' && needs\.video\.outputs\.paylas == '1' && needs\.video\.outputs\.yoxlandi == '1' \}\}/);
+  assert.match(job, /uses: \.\/\.github\/workflows\/youtube\.yml\n\s+with:\n\s+artifact: video-xeber\n/);
+  assert.ok(!/secrets: inherit|FB_PAGE_TOKEN|TIKTOK_/.test(job), "Facebook və TikTok açarı YouTube işinə getmir");
+  assert.deepEqual([...job.matchAll(/(YOUTUBE_\w+): \$\{\{ secrets\.(YOUTUBE_\w+) \}\}/g)].map(m => m[1] === m[2] && m[1]), ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"]);
+  // Seçim YouTube açarı ilə də işləyir (Facebook və TikTok şərtləri olduğu kimi qalır).
+  const acar = (wf.match(/VIDEO_ACAR: (.*)/) || [])[1] || "";
+  assert.ok(acar.includes("secrets.FB_PAGE_TOKEN != ''") && acar.includes("(secrets.TIKTOK_CLIENT_KEY != '' && secrets.TIKTOK_CLIENT_SECRET != '')"), acar);
+  assert.ok(acar.includes("(secrets.YOUTUBE_CLIENT_ID != '' && secrets.YOUTUBE_CLIENT_SECRET != '' && secrets.YOUTUBE_REFRESH_TOKEN != '')"), acar);
+  const yt = fs.readFileSync(path.join(root, ".github/workflows/youtube.yml"), "utf8").replace(/\r\n/g, "\n");
+  const call = yt.slice(yt.indexOf("workflow_call:"), yt.indexOf("workflow_dispatch:"));
+  for (const s of ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"]) assert.match(call, new RegExp(`${s}:\\n\\s+required: false`), `${s} workflow_call-da elan olunub`);
+  // Video modulu 60 saniyədən uzun video hazırlamır (Content ID qaydası).
+  assert.ok(require("../.github/scripts/video-xeber.cjs").MAX_S <= 60);
+});
+
+test("youtube: the video module's artifact (video.mp4 + video.json, next to xeber.json) goes up with the story's share link", async () => {
+  const dir = tmp(), id = "9fa597ae98cb32a9";
+  fs.writeFileSync(path.join(dir, "video.mp4"), mp4({ dur: 27.4, salt: id }));
+  // video-xeber.cjs-in yazdığı video.json: xəbərin sahələri + texniki sahələr (createdAt yoxdur, publishedAt var).
+  fs.writeFileSync(path.join(dir, "video.json"), JSON.stringify({ id, own: true, title: "Bakıda yeni park açıldı", summary: "", text: "Parkda 500 ağac əkilib. Giriş pulsuzdur.",
+    source: "APA", sourceUrl: "https://apa.az/xeber/park", category: "gundem", lang: "az", publishedAt: new Date(NOW - 90 * 60e3).toISOString(),
+    duration: 27.4, width: 1080, height: 1920, bytes: 1500000, cover_s: 1.5, kadrlar: [1.5, 6, 20], voice: true, parts: 4 }));
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify({ id, title: "Bakıda yeni park açıldı" }));   // cütü yoxdur: oxunmur
+  const videos = Y.readVideos(dir);
+  assert.equal(videos.length, 1);
+  const yt = youtube(), logs = [];
+  const res = await Y.run({ videos, env: KEYS, now: NOW, fetch: yt.fetch, state: {}, log: s => logs.push(s), policy: a => loadApp(root).policyViolation(a) });
+  assert.deepEqual(res.posted, [[id, "vid123"]], logs.join("\n"));
+  const d = initBody(yt).snippet.description;
+  assert.ok(d.startsWith("Parkda 500 ağac əkilib. Giriş pulsuzdur.\n\nƏtraflı: https://www.8ulduz.az/9fa597ae98cb32a9?h=26112210"), d);
+});
+
 // youtube.yml «sinaq-video» işi: ffmpeg ilə hazırlanmış əsl 9:16 video oxunur və saxta YouTube-a tam göndərilir.
 test("youtube: a real ffmpeg video passes the Shorts checks and is sent whole", { skip: !process.env.YOUTUBE_TEST_DIR && "YOUTUBE_TEST_DIR yoxdur (yalnız youtube.yml-də)" }, async () => {
   const dir = process.env.YOUTUBE_TEST_DIR, videos = Y.readVideos(dir);

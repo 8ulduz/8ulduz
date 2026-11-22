@@ -5,13 +5,14 @@
 // .github/workflows/youtube.yml işə salır:
 //   node .github/scripts/youtube.cjs post <qovluq>    qovluqdakı <ad>.mp4 + <ad>.json cütlərindən birini yükləyir (Data API v3 videos.insert)
 //   node .github/scripts/youtube.cjs yoxla           açarları yoxlayır: token alınır, kanalın adı jurnala yazılır (heç nə yüklənmir)
-//   node .github/scripts/youtube.cjs sinaq <qovluq>   ffmpeg ilə 9:16 sınaq videosu (yuxarıda «8ulduz.az»), video modulu qoşulana qədər
+//   node .github/scripts/youtube.cjs sinaq <qovluq>   ffmpeg ilə 9:16 sınaq videosu (yuxarıda «8ulduz.az»): qurulumu yoxlamaq üçün
 //
-// Video faylını bu skript hazırlamır: onu video modulu (ayrı sessiya, «Facebook və Instagram-da video xəbərlər») qurur, yuxarıya
+// Video faylını bu skript hazırlamır: onu video modulu (.github/scripts/video-xeber.cjs, sosial-video.yml) qurur, yuxarıya
 // «8ulduz.az» yazısını o yandırır. Müqavilə TikTok yükləyicisi ilə eynidir (docs/youtube.md «Video modulu ilə qoşulma»):
 //   <ad>.mp4  — şaquli (hündürlük ≥ en), ≤ YOUTUBE_MAX_S (60) saniyə, metadatasında «8ulduz.az» nişanı (ffmpeg -metadata comment=8ulduz.az)
 //   <ad>.json — { "id", "own": true, "title", "summary"?, "kind"? (xeber | icmal | hava | valyuta | bazar), "url"?, "publishedAt"?,
-//                 "createdAt"?, "hashtags"?, "source"?, "sourceUrl"?, "category"?, "lang"?, "items"?: [{ title, source, sourceUrl }], "aigc"? }
+//                 "createdAt"?, "hashtags"?, "source"?, "sourceUrl"?, "category"?, "lang"?, "items"?: [{ title, source, sourceUrl }], "aigc"?, "text"? }
+// Qoşulma: sosial-video.yml «youtube» işi «video-xeber» artefaktını verir (video.mp4 + video.json, video-xeber.cjs, ≤ 59 s).
 //
 // Yalnız öz videolarımız (müəllif hüququ): own: true, faylda «8ulduz.az» nişanı, başqa saytın video ünvanı yoxdur, data/reels.json-dakı
 // X videosu deyil. X-dəki F1, NBA, Fox News, klub videoları YouTube-a heç vaxt getmir: 1 dəqiqədən uzun Shorts-a müəllif hüququ
@@ -174,7 +175,9 @@ function hashtagsOf(m) {
   return [...new Set([...own, "#8ulduz", "#xəbərlər", "#Shorts"])].join(" ");
 }
 function descriptionOf(m, link = linkOf(m)) {
-  const k = kindOf(m), title = clean(m.title), sum = clean(m.summary) && clean(m.summary) !== title ? cut(m.summary, 1500) : "";
+  // Xülasə; yoxdursa videodakı izahın (text) əvvəli.
+  const k = kindOf(m), title = clean(m.title), pick = [m.summary, m.text].map(clean).find(x => x && x !== title) || "";
+  const sum = pick ? cut(pick, pick === clean(m.summary) ? 1500 : 600) : "";
   const items = (Array.isArray(m.items) ? m.items : []).filter(x => clean(x?.title)).slice(0, 10);
   const list = k === "icmal" && items.length ? items.map((x, i) => `${i + 1}. ${cut(x.title, 140)}`).join("\n") : "";
   const src = k === "icmal" ? [] : [...new Set([m.source, ...items.map(x => x.source)].map(clean).filter(Boolean))].slice(0, 5);

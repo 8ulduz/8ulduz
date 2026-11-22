@@ -366,8 +366,8 @@ test("tiktok: hooked to the video module — main only, real posting runs only, 
   assert.match(wf, /paylas: \$\{\{ steps\.sec\.outputs\.hazir == '1' && github\.event_name != 'pull_request' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.paylas\) && '1' \|\| '0' \}\}/);
   assert.match(wf, /yoxlandi: \$\{\{ steps\.yoxla\.outcome == 'success' && '1' \|\| '0' \}\}/);
   assert.match(wf, /- name: Videonu yoxla\n\s+id: yoxla\n/);
-  // Seçim TikTok açarı ilə də işləyir; FB/IG addımı açarı əvvəlki kimi alır.
-  assert.match(wf, /VIDEO_ACAR: \$\{\{ \(secrets\.FB_PAGE_TOKEN != '' \|\| \(secrets\.TIKTOK_CLIENT_KEY != '' && secrets\.TIKTOK_CLIENT_SECRET != ''\)\) && '1' \|\| '0' \}\}/);
+  // Seçim TikTok açarı ilə də işləyir (YouTube açarı ilə də: youtube.yml); FB/IG addımı açarı əvvəlki kimi alır.
+  assert.match(wf, /VIDEO_ACAR: \$\{\{ \(secrets\.FB_PAGE_TOKEN != '' \|\| \(secrets\.TIKTOK_CLIENT_KEY != '' && secrets\.TIKTOK_CLIENT_SECRET != ''\) \|\| \(secrets\.YOUTUBE_CLIENT_ID != '' && secrets\.YOUTUBE_CLIENT_SECRET != '' && secrets\.YOUTUBE_REFRESH_TOKEN != ''\)\) && '1' \|\| '0' \}\}/);
   const tk = fs.readFileSync(path.join(__dirname, "../.github/workflows/tiktok.yml"), "utf8");
   const call = tk.slice(tk.indexOf("workflow_call:"), tk.indexOf("workflow_dispatch:"));
   for (const s of ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"]) assert.match(call, new RegExp(`${s}:\\n\\s+required: false`), `${s} workflow_call-da elan olunub`);

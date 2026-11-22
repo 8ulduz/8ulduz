@@ -70,7 +70,7 @@ Tətbiq edilməyən variantlar — **qərar sahibindir**:
 
 ## Video modulu: `.github/scripts/video-xeber.cjs`
 
-TikTok paylaşımı da eyni modulun hazırladığı faylı yükləyir (PR [8ulduz/8ulduz#293](https://github.com/8ulduz/8ulduz/pull/293), `docs/tiktok.md` §7). Qoşulma: `sosial-video.yml`-in `tiktok` işi `tiktok.yml`-i çağırır (`artifact: video-xeber`, yalnız TikTok sirləri). Bu iş yalnız `main`-də, əsl paylaşım dövrəsində (`paylas == '1'`) və video yoxlamadan keçəndə (`yoxlandi == '1'`) işləyir. Seçim (`VIDEO_ACAR`) Facebook və ya TikTok açarı olanda işləyir. «8ulduz.az» zolağı yuxarıdan 15,6%-dədir (TikTok-un üst yazıları ~8–10%-i örtür).
+TikTok paylaşımı da eyni modulun hazırladığı faylı yükləyir (PR [8ulduz/8ulduz#293](https://github.com/8ulduz/8ulduz/pull/293), `docs/tiktok.md` §7). Qoşulma: `sosial-video.yml`-in `tiktok` işi `tiktok.yml`-i çağırır (`artifact: video-xeber`, yalnız TikTok sirləri). Bu iş yalnız `main`-də, əsl paylaşım dövrəsində (`paylas == '1'`) və video yoxlamadan keçəndə (`yoxlandi == '1'`) işləyir. Seçim (`VIDEO_ACAR`) Facebook, TikTok və ya YouTube açarı olanda işləyir. YouTube Shorts da eyni faylı yükləyir: `youtube` işi eyni şərtlərlə `youtube.yml`-i çağırır (`artifact: video-xeber`, yalnız YouTube sirləri, [youtube.md](youtube.md)). «8ulduz.az» zolağı yuxarıdan 15,6%-dədir (TikTok-un üst yazıları ~8–10%-i örtür).
 
 İşlədilmə:
 

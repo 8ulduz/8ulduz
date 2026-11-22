@@ -5,13 +5,21 @@ name: YouTube Shorts
 # (docs/youtube.md «Video modulu ilə qoşulma»). X videoları (data/reels.json) buraya heç vaxt gəlmir.
 
 on:
-  # Video modulu videonu artifact kimi yükləyib bu işi çağırır: uses: ./.github/workflows/youtube.yml, with: artifact: <ad>, secrets: inherit.
+  # Video modulu (sosial-video.yml «youtube» işi) videonu «video-xeber» artefaktı kimi yükləyib bu işi çağırır.
   workflow_call:
     inputs:
       artifact:
         description: 'Videoların artifact adı (<ad>.mp4 + <ad>.json cütləri)'
         type: string
         required: true
+    # Çağıran (sosial-video.yml) yalnız YouTube sirlərini verir: Facebook və TikTok açarı bu işə getmir.
+    secrets:
+      YOUTUBE_CLIENT_ID:
+        required: false
+      YOUTUBE_CLIENT_SECRET:
+        required: false
+      YOUTUBE_REFRESH_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       emr:
