@@ -217,6 +217,13 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   assert.match(mf, /\[1:v\][^;]*crop=1080:1920,setsar=1\[c1\]/);
   assert.match(mf, /\[2:v\][^;]*crop=1080:1920,setsar=1\[c2\]/, "ölçü bilinmirsə əvvəlki kimi doldurulur");
   assert.ok(V.KLIP_Y + 608 <= 1920 && V.KLIP_Y >= 732, "klip başlıq zolağının altından başlayır");
+  // 3 sətirlik başlıqda zolaq uzanır: klip onun altından (2026-11-23 nümunəsində klipin üstü zolağın altında qalmışdı).
+  const p3 = V.prepare({ ...fixture, title: "Qurban Qurbanov: \"Gəncədə özümüzü Avropa stadionunda hiss edirdik\"" }, { cats, footage: true });
+  assert.equal(p3.head.lines.length, 3);
+  const low = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", w: 1920, h: 1080 }], clipY: Math.max(V.KLIP_Y, V.bandBottom(p3)) });
+  assert.match(low[low.indexOf("-filter_complex") + 1], new RegExp(`overlay=0:${V.bandBottom(p3)},`));
+  assert.ok(V.bandBottom(p3) > V.KLIP_Y && V.bandBottom(p3) + 608 <= V.LF.srcY, "klip mənbə sətrinə çatmır");
+  assert.ok(V.bandBottom(V.prepare(fixture, { cats, footage: true })) <= V.KLIP_Y, "2 sətirdə əvvəlki yer");
   assert.match(fc, /\[5:v\]scale=-1:80/, "loqo kadrlardan sonrakı girişdir");
   assert.match(fc, /\[6:a\]/, "səs loqodan sonrakı girişdir");
   // Kliplər olmadan əvvəlki kimi: rəngli fon, loqo [1], səs [2].

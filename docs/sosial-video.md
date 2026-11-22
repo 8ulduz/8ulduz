@@ -78,6 +78,16 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   Axtarış ifadəsində insanların xəbərdəki hərəkəti (görüş, imza, çıxış) və adsız bayraqlar yoxdur; inisiallar («Cey. Di.») tam yazılır.
 - **Dizayn:** görüntü bütün ekranı tutur; yuxarıda brend zolağı, altında yarımşəffaf tünd zolaqda bölmə və başlıq, aşağıda altyazılar
   (səslə eyni anda), altda mənbə və «Görüntü: Pixabay», sonda tündləşən ekranda «Ətraflı: 8ulduz.az».
+
+### Montaj, altyazı və etiketlər (sahib, 2026-11-23: «tam professional kimi işlə»)
+
+- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunanda bir kadr gedir, sonra hər altyazı hissəsi bir kadrdır. Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
+  Kliplər montaj planının sırası ilə gedir. Klip təkrarlananda onun işlənməmiş yerindən götürülür (`-ss`).
+- **Görüntü sırası** (`video-ssenari.cjs` `goruntu`): Gemini 6–8 sadə ifadə verir: əvvəl əsas səhnə, sonra hər cümləyə bir səhnə, cümlələrin sırası ilə. 8 klip yüklənir, sonra eyni ifadələrin ikinci klipləri.
+  Tapılmayan ifadənin yerinə ümumi səhnə qoyulmur, çünki yanlış yerin kadrı uyğun klipin təkrarından pisdir. Bölmənin ümumi səhnələri (yer adı yoxdur) yalnız uyğun klip 3-dən az olanda işlənir.
+  Son 3 günün videolarında işlənmiş kliplər götürülmür (`.sosial-video/state.json` → `klip`).
+- **Altyazı:** deyilən söz narıncı yanır, sonra yenə ağ olur. Söz vaxtı səs modelinin hissə vaxtından bölünür (`wordTimes`): hərf sayı, rəqəm (sözlə oxunur), qısaltma (hərf-hərf) və durğu fasiləsi nəzərə alınır.
+- **Etiketlər:** Gemini 3 mövzu etiketi verir. Etiketdən «#», boşluq və kiril atılır, ümumi etiketin təkrarı da atılır. Etiketlər Facebook, Instagram, YouTube (`video.json` `hashtags`) və TikTok mətnlərinə gedir, ümumilərdən (`#8ulduz #xəbərlər #Azərbaycan`) əvvəl.
 - **Yoxlama:** PR-da süni kliplərlə (şaquli və üfüqi) görüntülü video hazırlanır; əl ilə önizləmə (`paylas` söndürülüb) istənilən budaqda işləyir.
 
 ## Müəllif hüququ (sərt qayda)

@@ -242,7 +242,7 @@ function ass(p, tl) {
   const headY = p.footage ? LF.headY : L.headY;
   if (p.footage) {
     // Görüntülü: bölmə və başlığın arxasında yarımşəffaf tünd zolaq (görüntü ortada açıq qalır), sonluqda bütün ekran tündləşir.
-    const top = L.barY + L.barH, bandH = headY + p.head.lines.length * p.head.size + 40 - top;
+    const top = L.barY + L.barH, bandH = bandBottom(p) - top;
     dlg(0, 0, out + 0.3, "Shape", `{\\an7\\pos(0,${top})\\p1\\bord0\\shad0\\1c${assColor(COLOR.bar)}\\1a&H50&\\fad(0,300)}${rect(W, bandH)}`);
     dlg(0, out, D, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${assColor(COLOR.bg)}\\1a&H28&\\fad(300,0)}${rect(W, H)}`);
   } else {
@@ -335,16 +335,19 @@ function shotPlan(clips, tl) {
   });
 }
 const fitsWide = c => c.w > 0 && c.h > 0 && c.w / c.h > KLIP_SAQULI;
-function clipFilter(c, i) {
+// Başlıq zolağının alt kənarı (görüntülü video). Üfüqi klip ondan aşağı başlayır: 3 sətirlik başlıqda zolaq KLIP_Y-dən aşağı düşür,
+// klipin üstü zolağın altında qalırdı (2026-11-23 nümunəsi).
+const bandBottom = p => LF.headY + p.head.lines.length * p.head.size + 40;
+function clipFilter(c, i, clipY = KLIP_Y) {
   const head = `[${i}:v]fps=${FPS},trim=duration=${c.d.toFixed(2)},setpts=PTS-STARTPTS`;
   if (!fitsWide(c)) return `${head},scale=${W}:${H}:force_original_aspect_ratio=increase:flags=bicubic,crop=${W}:${H},setsar=1[c${i}]`;
-  const fh = Math.round(W * c.h / c.w / 2) * 2, y = Math.max(0, Math.min(KLIP_Y, H - fh));
+  const fh = Math.round(W * c.h / c.w / 2) * 2, y = Math.max(0, Math.min(clipY, H - fh));
   // Bulanıq fon kiçik ölçüdə hazırlanır (ucuzdur), sonra böyüdülür və tündləşdirilir.
   return `${head},split=2[b${i}][f${i}];[b${i}]scale=${W / 4}:${H / 4}:force_original_aspect_ratio=increase,crop=${W / 4}:${H / 4},boxblur=12:2,`
     + `scale=${W}:${H},eq=brightness=-0.14:saturation=0.8[g${i}];[f${i}]scale=${W}:${fh}:flags=bicubic[h${i}];[g${i}][h${i}]overlay=0:${y},setsar=1[c${i}]`;
 }
 
-function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [] }) {
+function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], clipY = KLIP_Y }) {
   const D = tl.duration.toFixed(2);
   const plan = shotPlan(clips, tl);
   const args = ["-hide_banner", "-loglevel", "error", "-y"];
@@ -352,7 +355,7 @@ function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [] }) {
   if (plan.length) {
     // Şaquli klip 9:16-ya doldurulur, üfüqi tam enində sığdırılır (clipFilter); 30 kadr/s, bir az tündləşdirilir (yazı oxunsun).
     plan.forEach(c => args.push("-stream_loop", "-1", ...(c.ss > 0 ? ["-ss", c.ss.toFixed(2)] : []), "-t", c.d.toFixed(2), "-i", c.file));
-    bg = plan.map(clipFilter).join(";")
+    bg = plan.map((c, i) => clipFilter(c, i, clipY)).join(";")
       + `;${plan.map((_, i) => `[c${i}]`).join("")}concat=n=${plan.length}:v=1:a=0,eq=brightness=-0.04:saturation=0.95,trim=duration=${D},format=rgb24`;
   } else {
     args.push("-f", "lavfi", "-i", `color=c=0x${COLOR.bg}:s=${W}x${H}:r=${FPS}:d=${D}`);
@@ -446,7 +449,7 @@ async function render(a, out, opt = {}) {
     const tl = timeline(p, v);
     fs.writeFileSync(path.join(dir, "video.ass"), ass(p, tl));
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips }), { cwd: dir, timeout: 900000 });
+    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips, clipY: Math.max(KLIP_Y, bandBottom(p)) }), { cwd: dir, timeout: 900000 });
     const cover_s = 1.5;
     const jpg = out.replace(/\.mp4$/i, "") + ".jpg";
     run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", jpg]);
@@ -469,7 +472,7 @@ async function render(a, out, opt = {}) {
   }
 }
 
-module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, KLIP_Y, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
+module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, bandBottom, KLIP_Y, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR };
 
 if (require.main === module) {
