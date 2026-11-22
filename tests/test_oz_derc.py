@@ -535,6 +535,28 @@ class RowPageTest(Base):
         self.assertIn(f'<meta property="og:image" content="{updater.SITE}assets/og-default.png" />', p)
         self.assertNotRegex(p.replace("__SITE__ və __LD__ sözləri", ""), r"__[A-Z]+__")
 
+    def test_x_video_page_carries_a_video_object_except_rights_holders(self):
+        """Sahib 2026-11-22 («Yes, do it»): Google video — X videolu öz səhifədə VideoObject; liqa, telekanal və klub videosu işarəsiz."""
+        mp4 = "https://video.twimg.com/amplify_video/2113713055204831233/vid/avc1/720x1280/F4uJ5K30z0ONv8ck.mp4?tag=29"
+        poster = "https://pbs.twimg.com/amplify_video_thumb/2113713055204831233/img/a.jpg"
+        ld_of = lambda p: json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', p, re.S).group(1))
+
+        it = xeber("v1", video=mp4, vw="720", vh="1280", image=poster, link="https://x.com/anadoluajansi/status/2113713055204831233")
+        r = d.row(it, at(10))
+        ld = ld_of(d.page(it, r))
+        self.assertEqual(ld["@type"], "NewsArticle", "xəbər işarəsi qalır")
+        self.assertEqual(ld["video"], {"@type": "VideoObject", "name": r["title"], "description": r["summary"], "thumbnailUrl": [poster],
+                                       "uploadDate": r["publishedAt"], "contentUrl": mp4, "inLanguage": "az"})
+        for link in ("https://x.com/NBA/status/1", "https://x.com/premierleague/status/1", "https://twitter.com/galatasaraysk/status/1"):
+            it = xeber("v2", video=mp4, vw="720", vh="1280", image=poster, link=link)
+            self.assertNotIn("video", ld_of(d.page(it, d.row(it, at(10)))), link)
+        it = xeber("v3", video=mp4, vw="720", vh="1280", link="https://x.com/anadoluajansi/status/1")
+        self.assertNotIn("video", ld_of(d.page(it, d.row(it, at(10)))), "şəkilsiz VideoObject keçərsizdir")
+        it = xeber("v4", image=poster, link="https://x.com/anadoluajansi/status/1")
+        self.assertNotIn("video", ld_of(d.page(it, d.row(it, at(10)))), "videosuz xəbər")
+        it = xeber("v5", video=mp4, vw="720", vh="1280", image=poster, link="https://example.org/x")
+        self.assertIsNone(d.video_ld(it, d.row(it, at(10))), "hesab bilinməyəndə işarə yoxdur")
+
 
 class StateTest(Base):
     def test_round_trip_and_corrupt_file(self):

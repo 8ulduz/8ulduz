@@ -8,9 +8,9 @@
 // Eyni anda bir video yüklənir və oynayır; poster yalnız yaxındakı slaydlara qoyulur (internet paketi və batareya).
 
 const FILE = new URL("../data/reels.json", import.meta.url).href;
-// Hər videonun üstündə saytın loqosu (sahib 2026-11-20: «bütün videoların üstündə başda 8ulduz yazısı … basanda sayt açılsın»): basanda
-// lent bağlanır və oxucu sayta qayıdır — ✕ ilə eyni.
-const LOGO = new URL("./logo-80.png", import.meta.url).href;
+// Hər videonun üstündə «8ulduz.az» yazısı (sahib 2026-11-20: «bütün videoların üstündə başda 8ulduz yazısı … basanda sayt açılsın»;
+// 2026-11-22: «videolarda başda 8ulduz.az yazılsın»): basanda lent bağlanır və oxucu sayta qayıdır — ✕ ilə eyni. Şəkil deyil, yazı:
+// əlavə sorğu yoxdur, ünvan oxunur.
 const MP4 = /^https:\/\/video\.twimg\.com\/[\w/.-]+\.mp4(\?[\w=&.-]*)?$/;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const plain = s => { const t = document.createElement("textarea"); t.innerHTML = String(s ?? ""); return t.value; };
@@ -39,10 +39,12 @@ video{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cont
 .bar{position:absolute;z-index:1;left:0;bottom:0;height:3px;background:#e11d48;width:0;pointer-events:none}
 button{position:fixed;right:12px;z-index:2;width:44px;height:44px;border-radius:50%;border:0;background:#0009;color:#fff;font-size:20px;line-height:44px;padding:0;cursor:pointer}
 .x{top:calc(12px + env(safe-area-inset-top))}
-.lg{left:12px;right:auto;top:calc(12px + env(safe-area-inset-top));width:auto;height:auto;padding:7px 10px;border-radius:12px;background:#0007;line-height:0}
-.lg img{height:24px;width:auto;filter:drop-shadow(0 1px 2px #000)}
+.lg{left:12px;right:auto;top:calc(12px + env(safe-area-inset-top));width:auto;height:auto;padding:7px 12px;border-radius:12px;background:#0007;font-size:18px;font-weight:800;line-height:1.2;letter-spacing:.2px;text-shadow:0 1px 2px #000}
+.lg i{font-style:normal;color:#e11d48}
 .snd{bottom:calc(96px + env(safe-area-inset-bottom))}
-.sh{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));font-size:22px}
+.sh{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));width:auto;padding:0 14px;border-radius:22px;font-size:14px;font-weight:700}
+.wait{position:fixed;inset:0;margin:auto;width:36px;height:36px;border:3px solid #fff3;border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .end{display:grid;place-items:center;text-align:center;padding:24px;color:#ccc}
 .new{position:fixed;z-index:2;left:50%;top:calc(16px + env(safe-area-inset-top));transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:#e11d48;color:#fff;font-weight:700;font-size:14px;pointer-events:none}
 .new[hidden]{display:none}
@@ -132,12 +134,11 @@ export function first(items, k) {
 export async function open(S, k = "") {
   if (live) return;
   live = {};
-  const items = first(list(S, await load()), k);
   const f = document.createElement("iframe");
   f.title = "Videolent";
   f.allow = "autoplay; fullscreen";
   f.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483000;background:#000";
-  f.srcdoc = `<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>${CSS}</style><body></body>`;
+  f.srcdoc = `<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>${CSS}</style><body><div class="wait"></div></body>`;
   const close = () => {
     if (!live) return;
     removeEventListener("popstate", onPop);
@@ -152,18 +153,23 @@ export async function open(S, k = "") {
   document.documentElement.style.overflow = "hidden";
   history.pushState({ reels: 1 }, "");
   addEventListener("popstate", onPop);
-  f.addEventListener("load", () => build(f, items, () => history.back(), async () => list(S, await load())), { once: true });
+  // Lent dərhal (sahib 2026-11-22: «paylaşımlardan videoları açanda sıçrayış olmadan ani keçid»): qara çərçivə videoların siyahısını
+  // gözləmədən açılır, siyahı gələndə dolur — arada ana səhifə görünüb itmir.
+  const ready = new Promise(res => f.addEventListener("load", res, { once: true }));
   document.body.append(f);
+  const items = first(list(S, await load()), k);
+  await ready;
+  build(f, items, () => history.back(), async () => list(S, await load()));
 }
 
-const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">↗</button></section>`;
+const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
 
 function build(f, items, back, more) {
   const doc = f.contentDocument, win = f.contentWindow;
   if (!doc || !live) return;
   let sound = false;
   try { sound = sessionStorage.getItem(SOUND_KEY) === "1"; } catch {}
-  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt"><img src="${LOGO}" alt="8ULDUZ" width="106" height="24"></button><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
+  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt">8ulduz<i>.az</i></button><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
   const feed = doc.querySelector(".feed"), slides = [...feed.querySelectorAll("section:not(.end)")], sndBtn = doc.querySelector(".snd");
   const pos = s => slides.indexOf(s);
   const vid = s => s.querySelector("video");
@@ -247,7 +253,7 @@ function build(f, items, back, more) {
     if (sh) {
       const url = sh.dataset.link;
       if (navigator.share) navigator.share({ url, title: sh.dataset.title }).catch(() => {});
-      else navigator.clipboard?.writeText(url).then(() => { sh.textContent = "✓"; setTimeout(() => { sh.textContent = "↗"; }, 1500); }).catch(() => {});
+      else navigator.clipboard?.writeText(url).then(() => { sh.textContent = "Kopyalandı ✓"; setTimeout(() => { sh.textContent = "Paylaş"; }, 1500); }).catch(() => {});
       return;
     }
     const s = e.target.closest("section:not(.end)");

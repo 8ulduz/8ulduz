@@ -228,10 +228,10 @@ def _gemini_models(key):
     return sorted(names, key=lambda s: [int(x) if x.isdigit() else 0 for x in re.findall(r"\d+", s)], reverse=True)
 
 
-def ask_gemini(prompt, key):
+def ask_gemini(prompt, key, max_tokens=4000):
     """Gemini API (pulsuz səviyyə, açar başlıqda; ünvanda yox). Model: GEMINI_MODEL, alınmasa siyahıdakı ən yeni flash."""
     body = json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                       "generationConfig": {"temperature": 0.4, "maxOutputTokens": 4000, "responseMimeType": "application/json"}}).encode("utf-8")
+                       "generationConfig": {"temperature": 0.4, "maxOutputTokens": max_tokens, "responseMimeType": "application/json"}}).encode("utf-8")
     tried, listed = [], _safe_models(key)
     # 2026-11-22: 04:25 UTC-dən model siyahısı HTTP xətası verirdi, siyahı boş qalırdı və Gemini heç çağırılmırdı (videolar izahsız,
     # sinifsiz, X xəbəri yazılmırdı). Siyahı alınmasa son işlək modellər birbaşa sınanır.
@@ -255,9 +255,11 @@ def ask_gemini(prompt, key):
                 break
         if doc is None:
             continue
-        parts = ((doc.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
-        print(f"Model: {model}", flush=True)
-        return "".join(p.get("text", "") for p in parts)
+        cand = (doc.get("candidates") or [{}])[0]
+        parts = (cand.get("content") or {}).get("parts") or []
+        end = cand.get("finishReason") or ""   # MAX_TOKENS: cavab həddə dəyib kəsilib (düşünmə də həddən yeyir)
+        print(f"Model: {model}" + (f" (cavab sonu: {end})" if end not in ("", "STOP") else ""), flush=True)
+        return "".join(p.get("text", "") for p in parts if not p.get("thought"))
     print("Gemini cavab vermədi: " + ", ".join(tried), flush=True)
     return ""
 
@@ -356,6 +358,27 @@ Yalnız JSON siyahısı qaytar, başqa heç nə: [{{"id": "<id>", "s": "hadise" 
 Paylaşımlar:
 {items}"""
 REEL_META = {}   # id -> {"sinif": "h"/"u", "c": izah}: pick_reels Gemini-nin cavabından doldurur
+# 2026-11-22: yeni açarla ilk işdə Gemini cavab verdi, amma siyahı oxunmadı — 36 video × izah 4000 token həddinə sığmır
+# (Azərbaycan mətni çox token tutur, model düşünməyə də həddən xərcləyir). Videoya geniş hədd; kəsilsə tam elementlər götürülür.
+REELS_TOKENS = 16000
+
+
+def json_list(text):
+    """Cavabdakı JSON siyahısı. Cavab yarımçıq kəsilibsə (sonu yoxdur) tam yazılmış {…} elementləri; heç nə yoxdursa None."""
+    start, end = text.find("["), text.rfind("]")
+    try:
+        got = json.loads(text[start:end + 1]) if 0 <= start < end else None
+    except ValueError:
+        got = None
+    if isinstance(got, list) or start < 0:
+        return got if isinstance(got, list) else None
+    whole = []
+    for m in re.finditer(r"\{[^{}]*\}", text[start:]):
+        try:
+            whole.append(json.loads(m.group(0)))
+        except ValueError:
+            pass
+    return whole or None
 
 
 def by_topic(items, key, n):
@@ -400,12 +423,8 @@ def pick_reels(cands, n):
     if os.environ.get("GEMINI_API_KEY"):
         items = "\n".join(f"- id {c['id']}, hesab {xm.ADLAR[c['handle']]} (@{c['handle']}{', seçilmiş mənbə' if xm.onde(c['handle']) else ''}), "
                           f"baxış {c.get('_views', 0)}: {c['src'][0][:300]}" for c in cands)
-        text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"])
-    start, end = text.find("["), text.rfind("]")
-    try:
-        got = json.loads(text[start:end + 1]) if 0 <= start < end else None
-    except ValueError:
-        got = None
+        text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"], REELS_TOKENS)
+    got = json_list(text)
     ids = None
     if isinstance(got, list):
         ids = []
@@ -421,7 +440,8 @@ def pick_reels(cands, n):
             elif isinstance(g, (str, int)):
                 ids.append(str(g))
     if ids is None:
-        print("Qısa video: Gemini seçmədi, yalnız təhlükəsiz hesablar", flush=True)
+        told = f" (cavab oxunmadı: {len(text)} simvol, sonu {' '.join(text[-80:].split())!r})" if text else ""
+        print(f"Qısa video: Gemini seçmədi{told}, yalnız təhlükəsiz hesablar", flush=True)
         # Videolent hesabları seçilmiş vizual hesablardır; xəbər qrupu (xəbər, kadr arxası) Gemini-nin seçimi və izahı olmadan getmir
         # (2026-11-22: Gemini düşəndə Breaking911, Fox News videoları yoxlanmadan, izahsız lentə düşdü)
         ids = [c["id"] for c in cands if (c["handle"] in REELS_SAFE or c.get("reel_only")) and xm.movzu(c["handle"]) != "xeber"]
