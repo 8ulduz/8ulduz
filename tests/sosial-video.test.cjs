@@ -298,6 +298,16 @@ test("sosial-video: one network failing does not stop the other; tokens never re
   assert.deepEqual(SV.networks({ FB_PAGE_ID: "1", FB_PAGE_TOKEN: "t", INSTAGRAM: "0" }).map(n => n.name), ["facebook"], "INSTAGRAM=0 videonu da söndürür");
 });
 
+test("sosial-video: the news job starts the video workflow every 30 minutes (its cron never fired, 2026-11-22), never twice at once, dispatch only", () => {
+  const sh = read(".github/scripts/pipeline.sh");
+  const at = sh.indexOf("video_loop() {"), loop = sh.slice(at, sh.indexOf("\n}\n", at));
+  assert.ok(at > 0 && loop.includes("- 1020) / 1800 ))"), "30 dəqiqəlik pəncərə, :17 və :47");
+  assert.ok(loop.includes("gh_t workflow run sosial-video.yml --ref main") && loop.includes('select(.status != "completed")') && loop.includes("--branch main"),
+    "yalnız dispatch, main-də gedən iş varsa yox");
+  assert.ok(!/GEMINI|PIXABAY|FB_PAGE|curl |node |python/.test(loop), "açar və şəbəkə işi bu döngüdə yoxdur");
+  assert.ok(sh.includes("video_loop &\nVIDEO_PID=$!") && sh.includes('kill "$VIDEO_PID"'));
+});
+
 test("sosial-video.yml: separate, read-only workflow; secrets only in the posting step; PR runs render a sample and never post", () => {
   const wf = read(".github/workflows/sosial-video.yml");
   assert.match(wf, /^permissions:\n  contents: read$/m);
@@ -311,7 +321,11 @@ test("sosial-video.yml: separate, read-only workflow; secrets only in the postin
   assert.match(wf, /retention-days: 3/);
   assert.match(wf, /timeout-minutes: 25/);
   assert.match(wf, /moov əvvəldə deyil/, "faststart yoxlanır");
-  // Sürətli dövrəyə (update.yml/pipeline.sh) toxunmur: video işi oradan çağırılmır.
-  assert.ok(!/sosial-video|video-xeber/.test(read(".github/scripts/pipeline.sh") + read(".github/workflows/update.yml")));
+  // Sürətli dövrəyə (update.yml/pipeline.sh) toxunmur: video işi oradan çağırılmır. Yeganə istisna — ayrıca fon döngüsü video_loop,
+  // o yalnız iş axınını dispatch edir (cron işləmədi, 2026-11-22; yuxarıdakı test). Ondan başqa heç bir yerdə ad çəkilmir.
+  const sh = read(".github/scripts/pipeline.sh"), at = sh.indexOf("video_loop() {"), note = sh.lastIndexOf("\n# Video xəbər (sosial-video.yml", at);
+  assert.ok(note > 0 && at - note < 1200, "döngünün şərhi düz onun üstündədir");
+  const rest = sh.slice(0, note) + sh.slice(sh.indexOf("\n}\n", at)).replace("video_loop &\nVIDEO_PID=$!", "");
+  assert.ok(!/sosial-video|video-xeber|video_ses|ffmpeg/.test(rest + read(".github/workflows/update.yml")));
   assert.match(read("docs/sosial-video.md"), /## Sahibin əlavə etməli olduğu icazələr/);
 });
