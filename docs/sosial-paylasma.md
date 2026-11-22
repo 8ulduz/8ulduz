@@ -58,6 +58,14 @@ X API-də yazma ödənişli ola bilər; qiyməti developer portalında yoxlayın
 
 LinkedIn şəxsi tokeni 60 gün işləyir, sonra yenilənməlidir.
 
+## Video xəbərlər (Reels)
+
+Facebook səhifəsinə və Instagram-a öz hazırladığımız video xəbərlər ayrıca iş axını ilə gedir (`.github/workflows/sosial-video.yml`, 2 saatdan bir, eyni `FB_PAGE_TOKEN`). Araşdırma, video modulu, icazələr və tənzimləmə: [sosial-video.md](sosial-video.md).
+
+## TikTok
+
+Ayrıca iş axınıdır (`tiktok.yml`, `tiktok.cjs`): öz video xəbərlərimiz, açarlar, audit və qoşulma — [tiktok.md](tiktok.md).
+
 ## YouTube
 
 Ayrıca iş axınıdır (`youtube.yml`, `youtube.cjs`): öz video xəbərlərimiz YouTube Shorts-da, kanal, açarlar və qoşulma — [youtube.md](youtube.md).

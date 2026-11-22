@@ -429,6 +429,25 @@ __BODY__
 """
 
 
+# Google video (sahib 2026-11-22): X videolu öz xəbər səhifəsində VideoObject — video səhifənin əsas məzmunudur, Google onu video
+# kimi tanıya bilər. Liqa, telekanal, klub və əyləncə şirkətlərinin videoları işarələnmir: hüquq sahibləri videolarını axtarışda
+# izləyir, çoxlu şikayət saytın başqa səhifələrini də aşağı salır. Belə səhifə yenə videoludur, sadəcə işarəsiz.
+_LD_VIDEO_SKIP = frozenset(h.lower() for h in (
+    "LaLiga", "premierleague", "ChampionsLeague", "EuropaLeague", "MLS", "F1", "NBA", "ESPNNBA", "ESPNUK", "WWE", "Olympics",
+    "atptour", "ufc", "beINSPORTS_TR", "DAZNFootball", "TivibuSpor", "aspor", "ntvspor", "trtspor", "TFF_Org", "MilliTakimlar",
+    "GalatasaraySK", "Fenerbahce", "Besiktas", "Trabzonspor", "LFC", "Ballislife", "overtime", "IGN", "GameSpot", "Discovery"))
+_X_POST = re.compile(r"^https://(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})/status/\d+")
+
+
+def video_ld(item, r):
+    """Səhifənin VideoObject-i və ya None: X videosu, şəkli (thumbnailUrl məcburidir) və hüquq sahibi olmayan hesab."""
+    vid, m = r.get("xv"), _X_POST.match(str(item.get("link") or "").strip())
+    if not (vid and r.get("imageUrl") and m) or m.group(1).lower() in _LD_VIDEO_SKIP:
+        return None
+    return {"@type": "VideoObject", "name": r["title"][:110], "description": r["summary"] or r["title"],
+            "thumbnailUrl": [r["imageUrl"]], "uploadDate": r["publishedAt"], "contentUrl": vid["u"], "inLanguage": "az"}
+
+
 def page(item, r):
     """Xəbərin statik, skriptsiz səhifəsi (updater._DIGEST_HTML üslubunda). Yeganə <script> JSON-LD-dir."""
     e = lambda s: html.escape(str(s or ""), quote=True)
@@ -452,6 +471,9 @@ def page(item, r):
           "author": {"@type": "Organization", "name": "8ulduz", "url": base},
           "publisher": {"@type": "Organization", "name": "8ulduz", "url": base,
                         "logo": {"@type": "ImageObject", "url": f"{base}assets/icon-192.png"}}}
+    video_obj = video_ld(item, r)
+    if video_obj:
+        ld["video"] = video_obj
     vals = {
         "TITLE": e(r["title"]), "DESC": e(r["summary"]), "URL": e(r["sourceUrl"]), "IMAGE": e(image), "ISO": e(r["publishedAt"]),
         "SITE": e(base), "SECURL": e(f"{base}bolme/{r['category']}/"), "SECTION": e(section_name(r["category"])),

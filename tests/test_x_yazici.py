@@ -354,3 +354,57 @@ class GeminiDownTest(unittest.TestCase):
         tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
         with mock.patch.dict(xy.os.environ, {}, clear=True):
             self.assertEqual(xy.pick_reels([news, tamir], 6), [tamir["id"]], "xəbər videosu Gemini-nin seçimi və izahı olmadan getmir")
+
+
+class ReelAnswerTest(unittest.TestCase):
+    """2026-11-22: yeni açarla ilk işdə Gemini cavab verdi, amma video siyahısı oxunmadı — 36 video × izah 4000 token həddinə sığmadı."""
+
+    def setUp(self):
+        xy.REEL_META.clear()
+        self.addCleanup(xy.REEL_META.clear)
+
+    def test_reel_choice_asks_with_a_wide_limit_and_the_limit_is_sent(self):
+        import contextlib
+        import io
+        from unittest import mock
+        seen = {}
+        tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
+
+        def fake_ask(prompt, key, max_tokens=4000):
+            seen["max"] = max_tokens
+            return "[]"
+        with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), mock.patch.object(xy, "ask_gemini", fake_ask):
+            self.assertEqual(xy.pick_reels([tamir], 36), [])
+        self.assertGreaterEqual(seen["max"], 12000, "36 video × Azərbaycanca izah")
+
+        sent = {}
+
+        def fake_urlopen(req, timeout=None):
+            sent.update(json.loads(req.data))
+            return io.BytesIO(json.dumps({"candidates": [{"finishReason": "MAX_TOKENS",
+                                                          "content": {"parts": [{"text": '[{"id": "1"}'}]}}]}).encode("utf-8"))
+        out = io.StringIO()
+        with mock.patch.object(xy, "_safe_models", return_value=["ok-flash"]), mock.patch.object(xy, "GEMINI_MODEL", ""), \
+             mock.patch.object(xy.urllib.request, "urlopen", fake_urlopen), contextlib.redirect_stdout(out):
+            self.assertEqual(xy.ask_gemini("p", "k", xy.REELS_TOKENS), '[{"id": "1"}')
+        self.assertEqual(sent["generationConfig"]["maxOutputTokens"], xy.REELS_TOKENS)
+        self.assertIn("MAX_TOKENS", out.getvalue(), "kəsilmiş cavab jurnalda görünür")
+
+    def test_cut_answer_keeps_the_whole_items(self):
+        whole = {"id": "1", "s": "usta", "c": "Usta qırılmış borunu lehimlə bərpa edir"}
+        cut = "[" + json.dumps(whole, ensure_ascii=False) + ', {"id": "2", "s": "hadise", "c": "Sürücü son anda'
+        self.assertEqual(xy.json_list(cut), [whole])
+        self.assertIsNone(xy.json_list('[{"id": "1", "s": "us'), "heç bir tam element yoxdur")
+        self.assertIsNone(xy.json_list(""))
+        self.assertEqual(xy.json_list("[]"), [], "boş seçim — boş siyahı, ehtiyat yolu yox")
+        self.assertEqual(xy.json_list('```json\n["5"]\n```'), ["5"])
+
+    def test_cut_reel_answer_still_gives_captioned_videos(self):
+        from unittest import mock
+        tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
+        gs = xy.candidate("GalatasaraySK", post(id="2123096874748186942"), set(), NOW)
+        cut = ('[{"id": "2123096874748186941", "s": "usta", "c": "Usta qırılmış plastik borunu lehimlə bərpa edir"}, '
+               '{"id": "2123096874748186942", "s": "hadise", "c": "Qalatasaray futbolçu')
+        with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), mock.patch.object(xy, "ask_gemini", return_value=cut):
+            self.assertEqual(xy.pick_reels([tamir, gs], 6), [tamir["id"]], "kəsik cavabda ehtiyat yoluna keçilmir")
+        self.assertEqual(xy.REEL_META[tamir["id"]], {"sinif": "u", "c": "Usta qırılmış plastik borunu lehimlə bərpa edir"})

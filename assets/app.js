@@ -2466,10 +2466,12 @@ function restoreHome(v) {
   if (d) idle(renderView, 500, 2000); // lent və ya dəqiqə dəyişib: boş anda adi çəkiliş (eyni səhifədirsə DOM-a toxunmur)
   return true;
 }
-// Paylaşılmış video (lent.js shareLink): xəbərlər gələndən sonra lent bir dəfə həmin videodan açılır; bağlayan ana səhifəyə düşür.
+// Paylaşılmış video (lent.js shareLink): lent bir dəfə həmin videodan açılır; bağlayan ana səhifəyə düşür. X videosu (açarı uzun
+// rəqəmdir) xəbərləri gözləmədən, ilk çəkilişdə açılır (sahib 2026-11-22: «paylaşımlardan videoları açanda sıçrayış olmadan ani
+// keçid»); öz video xəbərimizin açarı xəbər nömrəsidir və o, lentdən gəlir — xəbərlər gələndən sonra.
 function sharedReel() {
   const r = route();
-  if (!r.reel || !S.data || S.reelAt === r.reel) return;
+  if (!r.reel || S.reelAt === r.reel || !S.data && !/^\d{17,}$/.test(r.reel)) return;
   S.reelAt = r.reel;
   history.replaceState(history.state, "", "#/");   // lenti bağlayan ana səhifəyə düşür
   setTimeout(render);
