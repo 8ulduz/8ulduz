@@ -89,6 +89,9 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 - **Əsl yer** (sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə»): Gemini xəbərin konkret yerlərini verir (`yer`: «Ganja City Stadium», «Ganja», «Azerbaijan»).
   Axtarış əvvəlcə bu yerlərlə aparılır. Şəhər həmişə ölkə ilə axtarılır («ganja azerbaijan»: «ganja» ingiliscədə həm də kənafdır). Tapılan əsl yer görüntüsü başlıq kadrına düşür.
   Etiketində xəbərə aid olmayan ölkə və ya şəhər olan klip götürülmür (`yadYer`; nümunədə Gəncə xəbərinə Batumi stadionu, Gürcüstan xəbərinə Bakı düşmüşdü). Xəbərdə yalnız ölkə varsa, onun paytaxtı da olar.
+  **Montaj redaktoru** (`redaktor`). Hər ifadədən 3 namizəd toplanır. Gemini xəbəri, yeri və hər namizədin etiketlərini oxuyub ən çox 8 klipi montaj sırası ilə seçir.
+  Söz uyğunluğu bunları buraxırdı: siyahıda olmayan yad şəhəri («lech poznan») və mənası başqa klipi («empty stadium seats» axtarışına köhnə divan). Yalnız seçilən klip yüklənir. Gemini cavab verməsə, ifadə sırası işləyir.
+  **Keyfiyyət həddi:** 2-dən az uyğun klip tapılan xəbər ötürülür, növbəti xəbər götürülür (`KLIP_MIN`).
   Qanuni hədd:
   - oyunların və tədbirlərin öz kadrları telekanalların və təşkilatçıların hüququdur;
   - president.az «müəllif hüquqları qorunur» yazır (2026-11-23), Commons-dakı köhnə «CC BY 4.0» qeydinə güvənilmir;

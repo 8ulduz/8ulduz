@@ -97,7 +97,7 @@ const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtrafl�
 const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag(x)} #video`;
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
-const SECIM_MAX = 4;
+const SECIM_MAX = 4, KLIP_MIN = 2;
 const json = r => (r?.json ? r.json().catch(() => ({})) : {});
 
 // Hər şəbəkə: { name, prepare(f, log), post(x, video, f, log) → { ok, id } | { skip } }. Açar yoxdursa siyahı boşdur.
@@ -206,24 +206,31 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   // diktor mətni yazır, Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
   // Xəbər kadrla göstərilmirsə və ya mətn yoxlamadan keçmirsə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
   // Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
-  let got = null, sc = null;
+  // Keyfiyyət həddi: görüntü mənbəyi varsa, KLIP_MIN-dən az uyğun klip tapılan xəbər ötürülür (yanlış və ya boş görüntülü video yox).
+  const footage = VS.MENBELER.some(m => env[m.env]);
+  let got = null, sc = null, klip = [];
   for (let i = 0; i < SECIM_MAX; i++) {
     got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
     if (!got) break;
     const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
     sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
-    if (only) break;
     // Gemini işləmir (gündəlik limit və s.): mənbənin cümlələri və ümumi kadrla video olmur — növbəti dövrədə yenidən.
-    if (!sc) { log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return null; }
-    if (sc.uygun !== false) break;
+    if (!only && !sc) { log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return null; }
+    if (only || sc.uygun !== false) {
+      fs.mkdirSync(dir, { recursive: true });
+      // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
+      klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
+        yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null });
+      if (only || !footage || klip.length >= KLIP_MIN) break;
+      for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
+      sc = { uygun: false, sebeb: `uyğun görüntü ${klip.length} klip, ən az ${KLIP_MIN}` };
+      klip = [];
+    }
     log(`video: ötürülür (${sc.sebeb || "uyğun deyil"}) — ${S.clean(got.a.title)}`);
     state.skip[got.a.id] = Math.floor(now / 1000);
     got = null;
   }
   if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
-  fs.mkdirSync(dir, { recursive: true });
-  // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
-  const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})), yer: sc?.yer || [] });
   const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
     ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
       goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };

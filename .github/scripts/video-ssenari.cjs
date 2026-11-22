@@ -340,42 +340,87 @@ const MENBELER = [
 // Gürcüstan xəbərinin başlığında Bakı) uyğun klipin təkrarından pisdir — montaj klipin başqa hissəsini göstərir. Bölmənin ümumi
 // səhnələri yalnız uyğun klip SPARE_MIN-dən azdırsa.
 // istifade: son günlərin videolarında işlənmiş kliplər («Pixabay:123») — eyni kadr hər gün təkrarlanmasın (sosial-video.cjs state.klip).
-async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [] } = {}) {
+// xeber: { title, text, yer } — varsa namizədləri montaj redaktoru (Gemini, redaktor()) seçir; yoxdursa və ya Gemini cavab vermirsə
+// ifadə sırası ilə (hər ifadədən birinci, sonra ikinci…).
+const NAMIZED_MAX = 3;
+async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
   if (!menbeler.length) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
   // Əvvəl xəbərin yerləri (əsl yer görüntüsü başlıq kadrına), sonra Gemini-nin montaj ifadələri.
   const Y = yerPlan(yer), own = [...new Set([...Y.axtar, ...queries(axtar)])], spare = ehtiyat({ category }).filter(q => !own.includes(q));
   if (Y.axtar.length) log(`video: yer — ${Y.axtar.join("; ")}`);
-  const found = new Map(), seen = new Set(istifade);
-  let n = 0;
-  const take = async q => {
-    for (const m of menbeler) {
-      const key = `${m.name}|${q}`;
-      if (!found.has(key)) found.set(key, await m.find(q, env[m.env], f));   // ifadə bir dəfə soruşulur
-      for (const c of found.get(key)) {
-        if (seen.has(`${m.name}:${c.id}`)) continue;
-        seen.add(`${m.name}:${c.id}`);
+  // 1) Namizədlər: hər ifadədən ən uyğun NAMIZED_MAX klip; işlənmiş və yad yerin klipi atılır. Ifadə bir dəfə soruşulur.
+  const cand = [], seen = new Set(istifade);
+  const collect = async (list, per) => {
+    for (const q of list) for (const m of menbeler) {
+      let k = 0;
+      for (const c of await m.find(q, env[m.env], f)) {
+        if (k >= per) break;
+        const id = `${m.name}:${c.id}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
         const yad = yadYer(c.tags || "", Y.icaze);
         if (yad) { log(`video: klip ötürüldü — «${q}» ${m.name} ${c.id}: başqa yer (${yad})`); continue; }
-        try {
-          const r = await f(c.link, { signal: AbortSignal.timeout(90000) });
-          const buf = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
-          if (!buf || buf.length < 10000 || buf.length > KLIP_MAX_BYTES) continue;
-          const name = `klip-${++n}.mp4`;
-          fs.mkdirSync(dir, { recursive: true });
-          fs.writeFileSync(path.join(dir, name), buf);
-          log(`video: görüntü ${n} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
-          return { file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h };
-        } catch {}
+        cand.push({ m, c, q, sira: k++ });
       }
     }
-    return null;
   };
+  await collect(own, NAMIZED_MAX);
+  if (cand.length < SPARE_MIN) await collect(spare, 2);   // ümumi səhnə yalnız uyğun klip azdırsa
+  // 2) Seçim: montaj redaktoru və ya ifadə sırası.
+  let pick = xeber && env.GEMINI_API_KEY && cand.length ? await redaktor(cand, xeber, say, { env, fetch: f, log }) : null;
+  if (!pick) pick = [...cand].sort((a, b) => a.sira - b.sira || cand.indexOf(a) - cand.indexOf(b)).slice(0, say);
+  // 3) Yükləmə, seçim sırası ilə.
   const got = [];
-  for (const q of [...own, ...own]) { if (got.length >= say) break; const c = await take(q); if (c) got.push(c); }
-  for (const q of [...spare, ...spare]) { if (got.length >= SPARE_MIN) break; const c = await take(q); if (c) got.push(c); }
-  if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən klip alınmadı — görüntüsüz (köhnə fon)`);
+  for (const { m, c, q } of pick) {
+    if (got.length >= say) break;
+    try {
+      const r = await f(c.link, { signal: AbortSignal.timeout(90000) });
+      const buf = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
+      if (!buf || buf.length < 10000 || buf.length > KLIP_MAX_BYTES) continue;
+      const name = `klip-${got.length + 1}.mp4`;
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, name), buf);
+      got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h });
+      log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
+    } catch {}
+  }
+  if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən uyğun klip alınmadı`);
   return got;
 }
 
-module.exports = { ssenari, goruntu, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+// Montaj redaktoru (2026-11-23): söz uyğunluğu yad şəhəri (siyahıda olmayan «lech poznan»), mənası başqa klipi («empty stadium seats»
+// → köhnə divan) buraxırdı. Gemini xəbəri və hər namizədin etiketlərini oxuyub montaj sırası ilə seçir; uyğun deyilsə az seçir.
+// Nəticə: seçilmiş namizədlər (bəlkə boş) və ya null — Gemini cavab vermədi, sadə qayda işləsin.
+const REDAKTOR = `Sən 8ulduz.az xəbər videosunun montaj redaktorusan. Aşağıda xəbər və video bankında tapılmış kliplər var: nömrə, axtarış
+ifadəsi və bankın klipə yazdığı etiketlər. Videonun kadrları üçün ən çox {n} klip seç, MONTAJ SIRASI İLƏ: əvvəl xəbərin yerini və ya
+əsas səhnəsini göstərən, sonra diktor mətninin cümlələrinin sırası ilə.
+Qaydalar:
+- Klip etiketlərinə görə həqiqətən lazım olan səhnəni göstərməlidir. Mənası başqa olan klipi SEÇMƏ (stadion oturacağı əvəzinə divan,
+  güllə izi əvəzinə tikinti, futbol əvəzinə uşaq oyunu).
+- Xəbərin yeri olmayan konkret yeri — başqa şəhəri, ölkəni, stadionu, klubu, komandanı, brendi — göstərən klipi SEÇMƏ
+  (məsələn Gəncə xəbərinə "lech poznan", "batumi", "barcelona"). Etiketində heç bir yer olmayan ümumi klip olar.
+- Cinayət, qəza, ölüm xəbərində tanınan insan üzü olan klipi seçmə.
+- Uyğun klip azdırsa az seç: yanlış kadr qoymaqdansa klipin təkrarı yaxşıdır. Heç biri uyğun deyilsə boş siyahı.
+Yalnız JSON qaytar: {"klip": [nömrələr]}
+
+Xəbər: {title}
+Yer: {yer}
+Diktor mətni: {text}
+Kliplər:
+{list}`;
+async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.fetch, log = console.log } = {}) {
+  const list = cand.map((k, i) => `${i + 1}. «${k.q}» — ${clean(k.c.tags || "etiket yoxdur").slice(0, 160)}`).join("\n");
+  const prompt = REDAKTOR.replace("{n}", () => String(n)).replace("{title}", () => clean(x.title)).replace("{yer}", () => places(x.yer).join(", ") || "—")
+    .replace("{text}", () => clean(x.text).slice(0, 900)).replace("{list}", () => list);
+  const raw = await gemini(prompt, env.GEMINI_API_KEY, f, log, env);
+  if (raw == null) return null;
+  let j = null;
+  try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
+  if (!Array.isArray(j?.klip)) { log("video: montaj redaktorunun cavabı JSON deyil — sadə qayda"); return null; }
+  const idx = [...new Set(j.klip.map(Number).filter(k => Number.isInteger(k) && k >= 1 && k <= cand.length))].slice(0, n);
+  log(`video: montaj redaktoru ${cand.length} namizəddən ${idx.length} klip seçdi`);
+  return idx.map(k => cand[k - 1]);
+}
+
+module.exports = { ssenari, goruntu, redaktor, REDAKTOR, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

@@ -285,6 +285,72 @@ test("goruntu: the story's real place comes first (city always with its country)
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("goruntu: the picture editor (Gemini) reads the story and every candidate's tags, picks in edit order; bad answers fall back to query order", async () => {
+  const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1920, height: 1080, size: 5e6 } } });
+  const db = { "football fans stadium": [hit(1, "fans, stadium, football, lech poznan, poznan"), hit(2, "fans, stadium, football, crowd")],
+    "empty stadium seats": [hit(3, "sofa, couch, seat, empty, old, furniture"), hit(4, "stadium, seats, empty, arena")] };
+  let answer = "", prompt = "";
+  const downloads = [];
+  const f = async (u, o = {}) => {
+    if (u.startsWith("https://pixabay.com/api/videos/")) return { ok: true, json: async () => ({ hits: db[new URL(u).searchParams.get("q")] || [] }) };
+    if (/models\?pageSize/.test(u)) return { ok: true, json: async () => ({ models: [] }) };
+    if (/generateContent/.test(u)) { prompt = JSON.parse(o.body).contents[0].parts[0].text; return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: answer }] } }] }) }; }
+    downloads.push(u);
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-redaktor-"));
+  const xeber = { title: "Qurbanov: Gəncədə özümüzü Avropa stadionunda hiss edirdik", text: "Gəncə stadionunda azarkeşlər çox idi.", yer: ["Ganja", "Azerbaijan"] };
+  const opt = { env: { PIXABAY_API_KEY: "k", GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" }, fetch: f, log: quiet, say: 8, category: "idman", xeber };
+  // Namizədlər: 1, 2 (birinci ifadə), 4, 3 (ikinci ifadə, uyğunluğa görə: «stadium seats» divandan yuxarı) → 3-cü namizəd = klip 4.
+  answer = JSON.stringify({ klip: [3, 2, 99, 3] });
+  const got = await VS.goruntu(["football fans stadium", "empty stadium seats"], dir, opt);
+  assert.deepEqual(got.map(g => g.id), [4, 2], "redaktorun sırası; 99 (yoxdur) və təkrar atılır; Poznan və divan seçilmir");
+  assert.deepEqual(downloads, ["https://cdn.pixabay.com/4.mp4", "https://cdn.pixabay.com/2.mp4"], "yalnız seçilən klip yüklənir");
+  assert.match(prompt, /montaj redaktorusan/);
+  assert.match(prompt, /1\. «football fans stadium» — fans, stadium, football, lech poznan, poznan/, "Gemini etiketləri görür");
+  assert.match(prompt, /Yer: Ganja, Azerbaijan/);
+  assert.match(prompt, /Diktor mətni: Gəncə stadionunda/);
+  answer = "bağışlayın";
+  downloads.length = 0;
+  const plain = await VS.goruntu(["football fans stadium", "empty stadium seats"], dir, opt);
+  assert.deepEqual(plain.map(g => g.id), [1, 4, 2, 3], "cavab JSON deyilsə ifadə sırası (hər ifadədən birinci, sonra ikinci)");
+  answer = JSON.stringify({ klip: [] });
+  assert.deepEqual(await VS.goruntu(["football fans stadium", "empty stadium seats"], dir, opt), [], "heç biri uyğun deyilsə klip yoxdur");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("sosial-video: a story with fewer than 2 fitting clips is skipped for the next one (no video with wrong or empty footage)", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-klipmin-"));
+  const NOW = Date.parse("2026-11-22T10:00:00Z");
+  const art = (c, title, min) => ({ id: c.repeat(16), title, summary: SOURCE, category: "cemiyyet", lang: "az", source: "APA", sourceUrl: `https://apa.az/${c}`,
+    publishedAt: new Date(NOW - min * 60e3).toISOString(), alts: [{ source: "Report" }, { source: "Oxu.az" }, { source: "Trend" }] });
+  const az = art("a", "Bakıda 12 yeni məktəb açılıb", 5), cox = art("b", "Bakıda 12 yeni məktəb binası istifadəyə verilib", 10);
+  const page = `<html><body>${SOURCE.split(". ").map(s => `<p>${s}. Bakıda yeni məktəblər haqqında ətraflı məlumat.</p>`).join("")}</body></html>`;
+  const hit = id => ({ id, duration: 15, user: `u${id}`, tags: "school, building, classroom", pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1080, height: 1920, size: 5e6 } } });
+  let story = "";
+  const f = async (u, o = {}) => {
+    if (/^https:\/\/apa\.az\//.test(u)) return { ok: true, text: async () => page };
+    if (/models\?pageSize/.test(u)) return { ok: true, json: async () => ({ models: [] }) };
+    if (/generateContent/.test(u)) {
+      const pr = JSON.parse(o.body).contents[0].parts[0].text;
+      if (!/montaj redaktorusan/.test(pr)) story = /Başlıq: Bakıda 12 yeni məktəb binası/.test(pr) ? "b" : "a";
+      const out = /montaj redaktorusan/.test(pr) ? { klip: [1, 2] } : { uygun: true, text: GOOD, axtar: ["school building"], yer: ["Baku", "Azerbaijan"] };
+      return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] }) };
+    }
+    if (u.startsWith("https://pixabay.com/api/videos/")) return { ok: true, json: async () => ({ hits: story === "a" ? [hit(1)] : [hit(2), hit(3)] }) };
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const logs = [], state = SV.readState(path.join(dir, "yox.json"), NOW);
+  const x = await SV.sec({ articles: [az, cox], env: { VIDEO_ACAR: "1", VIDEO_PAYLAS: "0", GEMINI_API_KEY: "g", PIXABAY_API_KEY: "p", VIDEO_GEMINI_WAIT_MS: "0" },
+    now: NOW, state, fetch: f, cats, dir, log: s => logs.push(s) });
+  assert.equal(x.id, cox.id, "1 klipli xəbər ötürülür, növbəti xəbər");
+  assert.equal(x.klipler.length, 2);
+  assert.ok(state.skip[az.id] && logs.some(s => /uyğun görüntü 1 klip, ən az 2/.test(s)));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("hashtags: Gemini's topic tags are cleaned (no «#», spaces, Cyrillic, duplicates of the house tags) and reach every post text and video.json", () => {
   assert.deepEqual(VS.hashtags(["#futbol", "Premyer Liqa", "#Qarabağ", "8ulduz", "Футбол", "#Futbol", "x"]), ["futbol", "PremyerLiqa", "Qarabağ"]);
   assert.deepEqual(VS.hashtags("futbol"), [], "siyahı deyilsə boş");
