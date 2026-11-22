@@ -357,6 +357,9 @@ test("social: 8ulduz.az/ig/ lists Instagram's own posts in Instagram's order, ea
   assert.ok(g[2].url.startsWith("https://www.8ulduz.az/" + c.id), "yadda saxlanmayan post lentdəki xəbərlə tutuşdurulur");
   assert.equal(g[3].url, "https://8ulduz.az/#/axtar?q=" + encodeURIComponent("Çoxdan paylaşılmış köhnə xəbər başlığı"), "xəbər tapılmasa axtarış");
   assert.equal(g[3].img, "https://scontent.cdninstagram.com/4.jpg");
+  // Video (sosial-video.cjs Reels): media_url mp4-dür, <img> onu göstərə bilməz — örtük kadrı (thumbnail_url).
+  const reel = S.igGrid([{ caption: "Tapılmayan video xəbər\n\nx", media_type: "VIDEO", media_url: "https://scontent.cdninstagram.com/v.mp4", thumbnail_url: "https://scontent.cdninstagram.com/v.jpg", timestamp: "2026-11-13T07:00:00+0000" }], {}, []);
+  assert.equal(reel[0].img, "https://scontent.cdninstagram.com/v.jpg");
   assert.equal(g[0].t, Date.parse("2026-11-13T10:00:00Z") / 1000);
   const d = art("g4", { title: "Ə".repeat(400) });
   S.igRemember(state, d, 400);
@@ -370,7 +373,7 @@ test("social: 8ulduz.az/ig/ lists Instagram's own posts in Instagram's order, ea
   let asked = "";
   const got = await S.igMedia({ ig: "1784", root: "https://graph.facebook.com/v27.0/", token: "PAGEtok12345" }, async u => { asked = u; return { json: async () => ({ data: media }) }; });
   assert.equal(got.length, 5);
-  assert.ok(asked.startsWith("https://graph.facebook.com/v27.0/1784/media?fields=caption,media_url,thumbnail_url,timestamp&limit=36&access_token=PAGEtok12345"));
+  assert.ok(asked.startsWith("https://graph.facebook.com/v27.0/1784/media?fields=caption,media_type,media_url,thumbnail_url,timestamp&limit=36&access_token=PAGEtok12345"), "media_type: Reels-in şəkli örtük kadrıdır");
   assert.deepEqual(await S.igMedia({ ig: "", root: "x" }, async () => { throw new Error("çağırılmamalı"); }), []);
   assert.deepEqual(await S.igMedia({ ig: "1", root: "x/", token: "t" }, async () => { throw new Error("şəbəkə"); }), []);
 });
