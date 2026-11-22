@@ -74,3 +74,22 @@ Hər gün Bakı vaxtı ilə **09:00**-da və **19:00**-da `updater.write_digest`
 - `social.cjs` buraxılışı Telegram-a və Facebook-a nömrəli siyahı və icmal linki ilə göndərir.
 - 18 dəqiqəlik fasiləni gözləmir.
 - 4 saatdan köhnə buraxılış göndərilmir.
+
+## Videolent və Google (2026-11-22)
+
+**Yoxlamanın nəticəsi.** Videolent Google-da görünə bilmir:
+
+- `#/videolent?r=…` ünvanlarını Google ana səhifə sayır, çünki `#`-dan sonrası ayrıca səhifə deyil.
+- Google videonu yalnız o videoya ayrılmış səhifədə göstərir. Lent və siyahı səhifələri video nəticəsinə düşmür.
+- Başqa saytların videolarından avtomatik səhifə yaratmaq Google-un spam qaydalarına düşür. Bunlar «scaled content abuse» və başqa saytların məzmununu toplamaqdır. Müəllif hüququ şikayətləri isə saytın başqa səhifələrini də aşağı salır.
+
+Ona görə X videoları üçün ayrıca səhifə açılmır.
+
+**Nə edildi:**
+
+- **Sitemap.** Öz xəbər səhifələri (`oz_derc.page`) sitemap-də 30 gün qalır, səhifənin ömrü qədər. Əvvəl öz sətir lentdən təxminən 48 saata çıxanda səhifə sitemap-dən də çıxırdı: 181 səhifədən 42-si xəritədə idi. `updater._own_pages_on_disk` `xeber/` qovluğunda ümumi siyahıda (`xeber/index.json`) olmayan, `NewsArticle` işarəli səhifələri tapır. Tarixi `article:published_time`-dan götürür. 30 gündən köhnə və sahibin çıxardığı xəbəri ötürür. Yalnız fayl oxunur, iş yavaş dövrədədir (`write_public`).
+- **Video işarələməsi.** X videolu öz səhifədə `NewsArticle`-in içində `VideoObject` var: ad, təsvir, poster, tarix, mp4 ünvanı. Liqa, telekanal, klub və əyləncə şirkətlərinin videoları işarələnmir (`oz_derc._LD_VIDEO_SKIP`), çünki hüquq sahibləri axtarışı izləyir. İşarə yalnız yeni yazılan səhifələrə düşür.
+
+**Videoların axtarışa düşməsinin real yolu:** öz hazırladığımız brendli qısa videolar YouTube Shorts-da. Bu, ayrıca işdir.
+
+Nəticəni Search Console-da «Video səhifələri» hesabatında yoxlayın.

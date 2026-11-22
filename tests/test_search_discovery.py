@@ -351,6 +351,44 @@ class NewsSitemapTest(unittest.TestCase):
             self.assertRegex(urls[f'{updater.SITE}xeber/{own}/'].find('s:lastmod', ns).text, r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$')
             self.assertEqual(sm.read_text(encoding='utf-8').count(f'xeber/{page}/'), 1, 'eyni səhifə iki dəfə yazılmır')
 
+    def test_own_pages_stay_in_the_sitemap_for_thirty_days_after_leaving_the_feed(self):
+        """Sahib 2026-11-22 («Yes, do it»): öz sətir lentdə ~48 saat qalır, səhifə 30 gün; əvvəl lentdən çıxan səhifə sayt
+        xəritəsindən də çıxırdı (181 öz səhifədən 42-si xəritədə idi)."""
+        import datetime
+        import inspect
+        now = datetime.datetime(2026, 11, 22, 12, 0, tzinfo=datetime.timezone.utc)
+
+        def own_html(iso):
+            return ('<!doctype html><html lang="az"><head><meta property="og:type" content="article" />'
+                    f'<meta property="article:published_time" content="{iso}" />'
+                    '<script type="application/ld+json">{"@context": "https://schema.org", "@type": "NewsArticle"}</script></head></html>')
+
+        fresh, old, story, plain, gone, odd = '1' * 16, '2' * 16, '3' * 16, '4' * 16, '5' * 16, 'not-an-id'
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            pages = {fresh: own_html('2026-11-10T08:00:00+00:00'), old: own_html('2026-10-20T08:00:00+00:00'),
+                     story: own_html('2026-11-21T08:00:00+00:00'), gone: own_html('2026-11-21T08:00:00+00:00'),
+                     odd: own_html('2026-11-21T08:00:00+00:00'),
+                     plain: '<!doctype html><head><meta property="article:published_time" content="2026-11-21T08:00:00+00:00" /></head>'}
+            for sid, text in pages.items():
+                (base / sid).mkdir()
+                (base / sid / 'index.html').write_text(text, encoding='utf-8')
+            (base / ('6' * 16)).mkdir()   # səhifəsiz qovluq
+            (base / 'index.json').write_text('{}', encoding='utf-8')
+            with patch.object(updater, 'STORY_DIR', base), patch.object(updater, 'removed_ids', return_value={gone}):
+                rows = updater._own_pages_on_disk({story: [1, 3, 'gundem']}, now=now)
+            self.assertEqual(rows, [{'id': fresh, 'sourceUrl': f'{updater.SITE}xeber/{fresh}/', 'publishedAt': '2026-11-10T08:00:00+00:00'}],
+                             '30 gündən köhnə, ümumi səhifə, NewsArticle-siz, çıxarılmış və adı pozuq qovluq düşmür')
+            sm = base / 'sitemap.xml'
+            with patch.object(updater, 'SITEMAP_FILE', sm):
+                updater.write_sitemap({}, (), rows)
+            self.assertIn(f'<loc>{updater.SITE}xeber/{fresh}/</loc><lastmod>2026-11-10T08:00:00+00:00</lastmod>', sm.read_text(encoding='utf-8'))
+        with patch.object(updater, 'STORY_DIR', pathlib.Path(tmp) / 'yoxdur'):
+            self.assertEqual(updater._own_pages_on_disk({}, now=now), [], 'qovluq yoxdursa boş')
+        src = inspect.getsource(updater.write_public)
+        self.assertIn('own = own + _own_pages_on_disk(stories or read_story_index())', src, 'lentdəkilər + diskdəkilər')
+        self.assertIn('write_sitemap(stories, digests, own)', src)
+
 
 class OldStoryPagesTest(unittest.TestCase):
     """2026-11-12: lentdən çıxmış xəbərin səhifəsi köhnə şablonda qalırdı (7 392 səhifədən 5 596-sı): yenidən yazan dövrə yalnız

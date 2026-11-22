@@ -6924,6 +6924,33 @@ def _own_page_rows(articles):
     return [a for a in articles or [] if a.get("source") == OWN_SOURCE and a.get("id")
             and a.get("sourceUrl") == f"{SITE}xeber/{a['id']}/"]
 
+_OWN_PAGE_ISO = re.compile(r'<meta property="article:published_time" content="([^"]+)"')
+
+def _own_pages_on_disk(stories=None, now=None):
+    """Lentdən çıxmış öz xəbər səhifələri də sayt xəritəsində qalsın (sahib 2026-11-22, Google): öz sətir lentdə ~48 saat qalır,
+    səhifəsi isə 30 gün yaşayır və Google onu sayt xəritəsindən tapır. Öz səhifə: xeber/<id>/ qovluğunda, ümumi səhifə siyahısında
+    (stories) olmayan, NewsArticle işarəli səhifə (ümumi səhifədə NewsArticle yoxdur). Tarix səhifənin article:published_time-ı;
+    30 gündən köhnə və sahibin çıxardığı xəbər yazılmır. Yalnız faylın başı oxunur, şəbəkə yoxdur."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    floor, gone, out = now - datetime.timedelta(seconds=STORY_KEEP_S), removed_ids(), []
+    try:
+        names = [e.name for e in os.scandir(STORY_DIR) if e.is_dir()]
+    except OSError:
+        return out
+    for sid in names:
+        if sid in (stories or {}) or sid in gone or not re.fullmatch(r"[0-9a-f]{16}", sid):
+            continue
+        try:
+            with open(STORY_DIR / sid / "index.html", encoding="utf-8", errors="replace") as f:
+                head = f.read(8192)
+        except OSError:
+            continue
+        m = _OWN_PAGE_ISO.search(head)
+        dt = _parse_dt(m.group(1)) if m and '"@type": "NewsArticle"' in head else None
+        if dt and floor <= dt <= now + datetime.timedelta(minutes=15):
+            out.append({"id": sid, "sourceUrl": f"{SITE}xeber/{sid}/", "publishedAt": _iso_utc(dt)})
+    return sorted(out, key=lambda a: a["publishedAt"], reverse=True)
+
 def write_sitemap(stories=None, digests=(), own=()):
     now = _iso_utc(datetime.datetime.now(datetime.timezone.utc))
     locs = [SITE] + [f"{SITE}bolme/{slug}/" for slug, _l, _d in [*SECTIONS, *SERVICE_PAGES]]
@@ -7022,7 +7049,12 @@ def write_public():
     except Exception as e:
         print("  ! xidmət alt səhifələri:", type(e).__name__, e)
     try:
-        write_sitemap(stories, digests, _own_page_rows(articles))
+        own = _own_page_rows(articles)
+        try:  # lentdən çıxmış öz səhifələr: 30 gün (alınmasa yalnız lentdəkilər)
+            own = own + _own_pages_on_disk(stories or read_story_index())
+        except Exception as e:
+            print("  ! öz səhifələr:", type(e).__name__, e)
+        write_sitemap(stories, digests, own)
     except Exception as e:
         print("  ! sitemap:", type(e).__name__, e)
     try:  # alınmasa xəbər faylı artıq yazılıb
