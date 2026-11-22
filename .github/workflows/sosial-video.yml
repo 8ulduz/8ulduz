@@ -91,6 +91,7 @@ jobs:
           # həmin hissə ötürülür: mətn mənbənin öz cümlələrindən, fon tünd göy.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           VIDEO_MIN_GAP_MIN: ${{ vars.VIDEO_MIN_GAP_MIN }}
           VIDEO_SAAT: ${{ vars.VIDEO_SAAT }}
           VIDEO_GUNDE: ${{ vars.VIDEO_GUNDE }}
@@ -144,7 +145,7 @@ jobs:
             ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=s=720x1280:r=25:d=5 -pix_fmt yuv420p video-out/klip-1.mp4
             ffmpeg -hide_banner -loglevel error -y -f lavfi -i mandelbrot=s=1920x1080:r=30 -t 7 -pix_fmt yuv420p video-out/klip-2.mp4
             ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc=s=1080x1920:r=30:d=4 -pix_fmt yuv420p video-out/klip-3.mp4
-            node -e 'const fs=require("fs"),f="video-out/xeber.json",x=JSON.parse(fs.readFileSync(f,"utf8"));x.klipler=["klip-1.mp4","klip-2.mp4","klip-3.mp4"];x.goruntu=[{id:0,user:"sınaq"}];fs.writeFileSync(f,JSON.stringify(x,null,1))'
+            node -e 'const fs=require("fs"),f="video-out/xeber.json",x=JSON.parse(fs.readFileSync(f,"utf8"));x.klipler=["klip-1.mp4","klip-2.mp4","klip-3.mp4"];x.goruntu=[{id:0,user:"sınaq"}];x.goruntuMenbe="Pixabay";fs.writeFileSync(f,JSON.stringify(x,null,1))'
           fi
           node .github/scripts/video-xeber.cjs video-out/xeber.json video-out/video.mp4
           # Kliplər artefakta getmir (ölçü; TikTok/YouTube yalnız video.mp4 + video.json götürür).

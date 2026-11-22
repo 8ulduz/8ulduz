@@ -63,12 +63,12 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 - **Mətn:** Gemini (`GEMINI_API_KEY`) mənbə səhifəsinin mətnindən 5–7 cümləlik (ən az 4) diktor mətni yazır (450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun»).
   Yoxlama: hər rəqəm mənbədə olmalıdır, kiril, keçid, nida, «bu gün/dünən/sabah» yoxdur, saytın qaydasından keçir. Keçməsə mənbənin öz
   cümlələri gedir (əvvəlki kimi, indi 750 simvola qədər).
-- **Görüntü:** Gemini 4–6 ingiliscə axtarış ifadəsi də verir; [Pexels](https://www.pexels.com/api/) video bankından (`PEXELS_API_KEY`)
-  4–5 klip yüklənir — əvvəl şaquli, yoxdursa üfüqi (ortadan 9:16 kəsilir). Pexels lisenziyası pulsuzdur, kommersiya istifadəsinə və
-  dəyişdirməyə icazə verir, istinad xahiş edir: videoda və post mətnində «Görüntü: Pexels». Lisenziya tanınan insanı pis işıqda göstərməyi
+- **Görüntü:** Gemini 4–6 ingiliscə axtarış ifadəsi də verir; [Pixabay](https://pixabay.com/api/docs/) (`PIXABAY_API_KEY`) və ya
+  [Pexels](https://www.pexels.com/api/) (`PEXELS_API_KEY`; 2026-11-22-də Pexels yeni açar vermirdi) video bankından 4–5 klip yüklənir — əvvəl şaquli, yoxdursa üfüqi (ortadan 9:16 kəsilir). Hər iki lisenziya pulsuzdur, kommersiya istifadəsinə və
+  dəyişdirməyə icazə verir, mənbəni göstərməyi xahiş edir: videoda və post mətnində «Görüntü: Pixabay» (və ya Pexels). Lisenziyalar tanınan insanı pis işıqda göstərməyi
   qadağan edir: mənfi xəbərdə (cinayət, qəza, ölüm) ifadələr insansız səhnələrdir. Açar yoxdursa və ya klip tapılmasa fon tünd göy qalır.
 - **Dizayn:** görüntü bütün ekranı tutur; yuxarıda brend zolağı, altında yarımşəffaf tünd zolaqda bölmə və başlıq, aşağıda altyazılar
-  (səslə eyni anda), altda mənbə və «Görüntü: Pexels», sonda tündləşən ekranda «Ətraflı: 8ulduz.az».
+  (səslə eyni anda), altda mənbə və «Görüntü: Pixabay», sonda tündləşən ekranda «Ətraflı: 8ulduz.az».
 - **Yoxlama:** PR-da süni kliplərlə (şaquli və üfüqi) görüntülü video hazırlanır; əl ilə önizləmə (`paylas` söndürülüb) istənilən budaqda işləyir.
 
 ## Müəllif hüququ (sərt qayda)

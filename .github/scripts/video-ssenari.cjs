@@ -4,12 +4,13 @@
 //   ssenari()  Gemini mənbə səhifəsinin mətnindən 5–7 cümləlik diktor mətni (ən az 4 cümlə, 450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun») və Pexels üçün 4–6 ingiliscə
 //              axtarış ifadəsi yazır. Mətn yoxlanır: hər rəqəm mənbədə olmalıdır, kiril/keçid/nida yoxdur, saytın qaydasından
 //              (policyViolation) keçir. Alınmasa null — video köhnə qayda ilə mənbənin öz cümlələrindən hazırlanır.
-//   goruntu()  Pexels video bankından (pulsuz lisenziya: kommersiya istifadəsi, dəyişdirmə, sosial şəbəkə — https://www.pexels.com/license/)
-//              ifadələrə uyğun 4–5 klip yükləyir. Əvvəl şaquli (portrait), yoxdursa üfüqi klip (video modulu ortadan 9:16 kəsir).
+//   goruntu()  Pexels və ya Pixabay video bankından (pulsuz lisenziya: kommersiya istifadəsi, dəyişdirmə, sosial şəbəkə —
+//              https://www.pexels.com/license/, https://pixabay.com/service/license-summary/) ifadələrə uyğun 4–5 klip yükləyir.
+//              2026-11-22: Pexels yeni API açarı vermir, ona görə Pixabay da var (açarı olan mənbə işləyir). Əvvəl şaquli (portrait), yoxdursa üfüqi klip (video modulu ortadan 9:16 kəsir).
 //              Pexels lisenziyası tanınan insanı pis işıqda göstərməyi qadağan edir: mənfi xəbərdə (cinayət, qəza, ölüm) ifadələr
-//              insansız səhnələrdir (Gemini-yə tapşırıq + kateqoriya ehtiyatı). Videoda «Görüntü: Pexels» yazılır.
-// Açarlar: GEMINI_API_KEY (x_yazici.py ilə eyni), PEXELS_API_KEY. Biri yoxdursa həmin hissə ötürülür, video yenə hazırlanır.
-// Açar başlıqda gedir (ünvanda yox), jurnala düşmür.
+//              insansız səhnələrdir (Gemini-yə tapşırıq + kateqoriya ehtiyatı). Videoda «Görüntü: Pixabay» (və ya Pexels) yazılır.
+// Açarlar: GEMINI_API_KEY (x_yazici.py ilə eyni), PIXABAY_API_KEY və/və ya PEXELS_API_KEY. Biri yoxdursa həmin hissə ötürülür, video yenə hazırlanır.
+// Gemini və Pexels açarı başlıqda gedir; Pixabay yalnız ünvanda qəbul edir — ünvan heç vaxt jurnala yazılmır.
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
@@ -141,7 +142,7 @@ async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch
   return { text, axtar: queries(j?.axtar) };
 }
 
-// --- Pexels ------------------------------------------------------------------------------------------------------------------
+// --- Görüntü: Pexels və Pixabay ------------------------------------------------------------------------------------------------------------------
 // Klipin ən uyğun faylı: şaquli klipdə hündürlüyü 1920-yə ən yaxın (≥1280), üfüqidə hündürlüyü ≥1080 olan ən kiçiyi.
 function bestFile(v, portrait) {
   const files = (v?.video_files || []).filter(x => x?.link && /mp4/.test(x.file_type || "") && x.width > 0 && x.height > 0);
@@ -150,46 +151,69 @@ function bestFile(v, portrait) {
   return ok[0] || null;
 }
 
-async function search(q, key, f, orientation) {
-  const u = `https://api.pexels.com/videos/search?query=${encodeURIComponent(q)}&orientation=${orientation}&size=medium&per_page=15`;
+const enc = encodeURIComponent;
+async function getJson(u, headers, f) {
   try {
-    const r = await f(u, { headers: { authorization: key }, signal: AbortSignal.timeout(20000) });
-    return r?.ok ? ((await r.json())?.videos || []) : [];
-  } catch { return []; }
+    const r = await f(u, { headers, signal: AbortSignal.timeout(20000) });
+    return r?.ok ? await r.json() : null;
+  } catch { return null; }   // ünvan jurnala yazılmır: Pixabay açarı ünvandadır
 }
+// Pixabay faylı: hər iki ölçüsü ən azı 1080 olan ilk nüsxə (medium adətən 1920×1080, large 3840×2160), ≤ KLIP_MAX_BYTES.
+function pixabayFile(v) {
+  const s = v?.videos || {};
+  return [s.medium, s.large, s.small].find(x => x?.url && x.width > 0 && x.height > 0 && Math.min(x.width, x.height) >= 1080
+    && !(x.size > KLIP_MAX_BYTES)) || null;
+}
+// Mənbələr: açarı olan hər biri, sıra ilə. Pexels (2026-11-22: yeni açar verilmir, köhnə açar işləyir) və Pixabay
+// (https://pixabay.com/service/license-summary/: pulsuz, kommersiya istifadəsi; API: «nəticənin haradan olduğunu göstərin»).
+const MENBELER = [
+  { name: "Pexels", env: "PEXELS_API_KEY", async find(q, key, f) {
+    for (const orient of ["portrait", "landscape"]) {   // əvvəl şaquli; yoxdursa üfüqi (ortadan 9:16 kəsilir)
+      const j = await getJson(`https://api.pexels.com/videos/search?query=${enc(q)}&orientation=${orient}&size=medium&per_page=15`, { authorization: key }, f);
+      const out = (j?.videos || []).filter(v => v.duration >= 4).map(v => ({ v, file: bestFile(v, orient === "portrait") })).filter(x => x.file)
+        .map(({ v, file }) => ({ id: v.id, user: clean(v.user?.name || ""), link: file.link, w: file.width, h: file.height }));
+      if (out.length) return out;
+    }
+    return [];
+  } },
+  { name: "Pixabay", env: "PIXABAY_API_KEY", async find(q, key, f) {
+    const j = await getJson(`https://pixabay.com/api/videos/?key=${enc(key)}&q=${enc(q.slice(0, 100))}&video_type=film&safesearch=true&per_page=20`, {}, f);
+    return (j?.hits || []).filter(v => v.duration >= 4).map(v => ({ v, file: pixabayFile(v) })).filter(x => x.file)
+      .map(({ v, file }) => ({ id: v.id, user: clean(v.user || ""), link: file.url, w: file.width, h: file.height }))
+      .sort((a, b) => (b.h > b.w) - (a.h > a.w));   // şaquli klip əvvəl
+  } },
+];
 
-// Klipləri <qovluq>/klip-N.mp4-ə yükləyir. Nəticə: [{ file, id, user, q }] (bəlkə boş).
+// Klipləri <qovluq>/klip-N.mp4-ə yükləyir. Nəticə: [{ file, id, user, q, p (mənbə), w, h }] (bəlkə boş).
 async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "" } = {}) {
-  const key = env.PEXELS_API_KEY;
-  if (!key) { log("video: PEXELS_API_KEY yoxdur — görüntüsüz (köhnə fon)"); return []; }
+  const menbeler = MENBELER.filter(m => env[m.env]);
+  if (!menbeler.length) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
   const list = [...queries(axtar), ...ehtiyat({ category })].filter((q, i, all) => all.indexOf(q) === i);
   const got = [], seen = new Set();
   for (const pass of [1, 2]) {   // birinci keçid: hər ifadədən bir klip; ikinci: çatmırsa ikinci klip
     for (const q of list) {
       if (got.length >= say) break;
-      for (const orient of ["portrait", "landscape"]) {
-        const vids = (await search(q, key, f, orient)).filter(v => !seen.has(v.id) && v.duration >= 4);
-        const v = vids.find(x => bestFile(x, orient === "portrait"));
-        if (!v) continue;
-        const file = bestFile(v, orient === "portrait");
-        seen.add(v.id);
+      for (const m of menbeler) {
+        const c = (await m.find(q, env[m.env], f)).find(x => !seen.has(`${m.name}:${x.id}`));
+        if (!c) continue;
+        seen.add(`${m.name}:${c.id}`);
         try {
-          const r = await f(file.link, { signal: AbortSignal.timeout(90000) });
+          const r = await f(c.link, { signal: AbortSignal.timeout(90000) });
           const buf = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
           if (!buf || buf.length < 10000 || buf.length > KLIP_MAX_BYTES) continue;
           const name = `klip-${got.length + 1}.mp4`;
           fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(path.join(dir, name), buf);
-          got.push({ file: name, id: v.id, user: clean(v.user?.name || ""), q, w: file.width, h: file.height });
-          log(`video: görüntü ${got.length} — «${q}» (Pexels ${v.id}, ${file.width}×${file.height}, ${clean(v.user?.name || "")})`);
+          got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h });
+          log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user})`);
+          break;
         } catch {}
-        break;
       }
     }
     if (got.length >= say || pass === 2 && got.length) break;
   }
-  if (!got.length) log("video: Pexels-dən klip alınmadı — görüntüsüz (köhnə fon)");
+  if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən klip alınmadı — görüntüsüz (köhnə fon)`);
   return got;
 }
 
-module.exports = { ssenari, goruntu, checkText, queries, bestFile, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, goruntu, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

@@ -88,7 +88,8 @@ function entry(a, text, cats = []) {
 
 const tag = "#8ulduz #xəbərlər #Azərbaycan";
 // Facebook: keçid basılır — postun mətnində saytdakı xəbər (paylaşma səhifəsi: önizləmə + saytda açılır).
-const credit = x => (x.goruntu?.length ? "\n\nGörüntü: Pexels" : "");   // Pexels xahişi: müəllifi/Pexels-i göstərin
+// Pexels və Pixabay xahişi: görüntünün haradan olduğunu göstərin.
+const credit = x => (x.goruntu?.length ? `\n\nGörüntü: ${x.goruntuMenbe || "Pexels"}` : "");
 const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag}`;
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
 const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag} #video`;
@@ -195,12 +196,13 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
   fs.mkdirSync(dir, { recursive: true });
   // Sahib, 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun». Gemini mənbənin mətnindən 4–7 cümləlik
-  // diktor mətni yazır (alınmasa mənbənin öz cümlələri), Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
+  // diktor mətni yazır (alınmasa mənbənin öz cümlələri), Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
   const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
   const sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
   const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category });
   const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc ? { ssenari: "gemini" } : {}),
-    ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ id: k.id, user: k.user, q: k.q })) } : {}) };
+    ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
+      goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
   if (post) { const t = Math.floor(now / 1000); state.v[x.id] = t; state._last = t; }
   log(`video: seçildi — ${x.title} (${x.link})`);

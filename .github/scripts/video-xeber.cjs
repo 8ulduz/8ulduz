@@ -159,7 +159,7 @@ function prepare(a, opt = {}) {
   const head = footage ? fitHeadline(title, LF.sizes, LF.headMaxH) : fitHeadline(title);
   const chunks = captionChunks(bodyText(a));
   const label = clean(a.bolme || opt.cats?.find(c => c.slug === a.category)?.label || "Xəbər").toLocaleUpperCase("az");
-  const source = [sourceLine(a), footage ? "Görüntü: Pexels" : ""].filter(Boolean).join(" · ");
+  const source = [sourceLine(a), footage ? `Görüntü: ${clean(a.goruntuMenbe) || "Pexels"}` : ""].filter(Boolean).join(" · ");
   return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source, footage,
     say: [title, ...chunks, OUTRO_SAY] };
 }
