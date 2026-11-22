@@ -18,7 +18,7 @@ const S = require("./social.cjs");
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];   // siyahı alınmasa
 const TEXT_MIN = 350, TEXT_MAX = 750, SOURCE_MAX = 5000, SENT_MIN = 4, SENT_MAX = 8;
-const KLIP_SAY = 8, KLIP_MAX_BYTES = 60e6;   // 8 klip: ~45 s-lik videoda kadr 3–6 s-dən bir dəyişir (video-xeber.cjs shotPlan)
+const KLIP_SAY = 8, SPARE_MIN = 3, KLIP_MAX_BYTES = 60e6;   // 8 klip: ~45 s-lik videoda kadr 3–6 s-dən bir dəyişir (video-xeber.cjs shotPlan)
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -93,7 +93,8 @@ Qaydalar:
 - Adları inisialsız yaz: «Cey. Di. Vens» yox, «ABŞ vitse-prezidenti Vens»; «İ. Əliyev» yox, «İlham Əliyev».
 Videonun görüntüsü üçün 6–8 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz) — montaj planı kimi, SIRA İLƏ: birinci
 ifadə xəbərin əsas səhnəsidir (başlıq oxunanda görünür), sonra diktor mətninin hər cümləsinə bir səhnə, cümlələrin sırası ilə.
-Hər ifadə xəbərin məkanını, mövzusunu, əşyalarını göstərən konkret səhnədir, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
+Video bankında çox olan sadə səhnə yaz: 2–3 söz, adi isimlər ("police car lights", "crime scene tape", "night village road") —
+çox xüsusi ifadə ("bullet holes car window") tapılmır, onda yanlış kadr gəlir. Hər ifadə xəbərin məkanını, mövzusunu, əşyalarını göstərən səhnədir, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
 Yer adı varsa onu yaz ("Istanbul Bosphorus", "Baku boulevard"). Bayraq yalnız ölkə adı ilə ("Azerbaijan flag"), "national flags" yox.
 İnsanların xəbərdəki hərəkətini (görüş, əl sıxma, imza, çıxış) göstərən səhnə yazma: tamaşaçı onları xəbərin qəhrəmanı sanar.
 Konkret tanınan insanların adını yazma. Xəbər cinayət, qəza, ölüm, xəstəlik, fəlakət, məhkəmə və ya münaqişə haqqındadırsa, yalnız
@@ -161,18 +162,19 @@ function queries(list) {
 }
 // Gemini olmayanda bölməyə görə ümumi səhnələr (insansız; Pexels-də çox klip olanlar).
 const EHTIYAT = {
-  siyaset: ["baku city skyline", "azerbaijan flag", "government building", "baku boulevard"],
-  prezident: ["baku city skyline", "azerbaijan flag", "government building", "baku boulevard"],
+  // Yer adı yoxdur: ehtiyat səhnə xəbərin harada olduğunu bilmir (2026-11-23: Gürcüstan xəbərinin başlığında Bakı göründü).
+  siyaset: ["government building", "parliament building", "city skyline night", "conference microphones"],
+  prezident: ["government building", "parliament building", "city skyline night", "conference microphones"],
   iqtisadiyyat: ["business district skyline", "cargo ship port", "stock market screen", "factory production line"],
   idman: ["football stadium", "sports stadium lights", "running track", "football ball grass"],
   dunya: ["world globe", "city skyline night", "airport airplane", "world map"],
   texnologiya: ["technology circuit", "data center servers", "smartphone screen", "code on screen"],
   elm: ["science laboratory", "microscope laboratory", "space stars", "technology circuit"],
   hadise: ["police car lights night", "city street night", "emergency lights", "road traffic night"],
-  cemiyyet: ["baku city street", "city street people walking", "school building", "hospital corridor"],
+  cemiyyet: ["city street people walking", "city lights night", "residential buildings", "city street traffic"],
   medeniyyet: ["theater stage lights", "museum hall", "old city architecture", "concert stage lights"],
 };
-const ehtiyat = a => EHTIYAT[a.category] || ["baku city skyline", "city street traffic", "baku boulevard", "city skyline night"];
+const ehtiyat = a => EHTIYAT[a.category] || ["city skyline night", "city street traffic", "city lights night", "clouds timelapse"];
 
 // Protokol xəbəri (görüş, qəbul, telefon danışığı, təbrik, başsağlığı): ümumi kadr həmin adamları göstərirmiş kimi görünər —
 // belə xəbərdən video hazırlanmır (2026-11-22 nümunə videosu: Prezidentin qəbulu, fonda yad əl sıxma və göy). Gemini də yoxlayır («uygun»).
@@ -229,7 +231,7 @@ const STOP = new Set(["the", "and", "with", "for", "from", "into", "over", "near
 const stem = w => (w.length > 4 ? w.replace(/ies$/, "y").replace(/(?<!s)s$/, "") : w);
 const words = s => String(s || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 2 && !STOP.has(w)).map(stem);
 // Qayda: ifadənin əsas sözü — sonuncu konkret (ümumi olmayan) söz, ingiliscədə ad birləşməsinin özəyi («border WALL», «capitol»,
-// «baku city skyline»-da «baku») — klipin təsvirində olmalıdır və konkret sözlərin ən az 2-si (1-dirsə o) üst-üstə düşməlidir.
+// «baku city skyline»-da «baku») — klipin təsvirində olmalıdır və konkret sözlərin ən az 60%-i (1→1, 2–3→2, 4→3) üst-üstə düşməlidir; 2026-11-23: «bullet holes car window» 2 sözlə tikinti işçisinə keçmişdi.
 // Dördüncü nümunə: «Mexico City» etiketli dələ «us mexico border wall»-a, Empire State «united states capitol»-a keçmişdi.
 const UMUMI = new Set(["city", "building", "street", "road", "night", "view", "aerial", "people", "traffic", "light", "sky", "skyline",
   "background", "office", "outdoor", "water", "landscape", "modern", "old", "new", "urban", "center", "exterior", "interior", "drone",
@@ -240,7 +242,7 @@ function relevance(q, desc) {
   const n = want.filter(w => have.has(w)).length, spec = want.filter(w => !UMUMI.has(w));
   if (!spec.length) return n >= Math.min(2, want.length) ? n : 0;   // yalnız ümumi sözlər («city street traffic»)
   const m = spec.filter(w => have.has(w)).length;
-  return have.has(spec[spec.length - 1]) && m >= Math.min(2, spec.length) ? n + m : 0;
+  return have.has(spec[spec.length - 1]) && m >= Math.ceil(spec.length * 0.6) ? n + m : 0;   // 1→1, 2–3→2, 4→3
 }
 const slug = u => String(u || "").split("?")[0].split("/").filter(Boolean).pop() || "";
 // Uyğunluğa görə (ən uyğun əvvəl), bərabər olanda şaquli əvvəl; uyğun olmayan atılır.
@@ -269,8 +271,10 @@ const MENBELER = [
 ];
 
 // Klipləri <qovluq>/klip-N.mp4-ə yükləyir. Nəticə montaj sırasıdır: [{ file, id, user, q, p (mənbə), w, h }] (bəlkə boş).
-// i-ci yer Gemini-nin i-ci ifadəsidir (başlıq, sonra cümlələr; video-xeber.cjs shotPlan kadrları bu sıra ilə götürür). İfadəyə
-// uyğun klip tapılmasa yer boş qalmır, sonrakılar sürüşmür: əvvəl ifadələrin ikinci klipi, sonra bölmənin ümumi səhnələri.
+// Sıra Gemini-nin ifadələrinin sırasıdır (başlıq, sonra cümlələr; video-xeber.cjs shotPlan kadrları bu sıra ilə götürür), sonra
+// eyni ifadələrin ikinci klipləri. Uyğun klip tapılmayan ifadənin yeri ümumi səhnə ilə DOLDURULMUR: yanlış yerin kadrı (2026-11-23:
+// Gürcüstan xəbərinin başlığında Bakı) uyğun klipin təkrarından pisdir — montaj klipin başqa hissəsini göstərir. Bölmənin ümumi
+// səhnələri yalnız uyğun klip SPARE_MIN-dən azdırsa.
 // istifade: son günlərin videolarında işlənmiş kliplər («Pixabay:123») — eyni kadr hər gün təkrarlanmasın (sosial-video.cjs state.klip).
 async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set() } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
@@ -299,15 +303,9 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
     }
     return null;
   };
-  const slots = [];
-  for (const q of (own.length ? own : spare).slice(0, say)) slots.push(await take(q));
-  for (const q of [...own, ...spare, ...spare]) {
-    const free = slots.indexOf(null);
-    if (free < 0 && slots.length >= say) break;
-    const c = await take(q);
-    if (c) { if (free >= 0) slots[free] = c; else slots.push(c); }
-  }
-  const got = slots.filter(Boolean);
+  const got = [];
+  for (const q of [...own, ...own]) { if (got.length >= say) break; const c = await take(q); if (c) got.push(c); }
+  for (const q of [...spare, ...spare]) { if (got.length >= SPARE_MIN) break; const c = await take(q); if (c) got.push(c); }
   if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən klip alınmadı — görüntüsüz (köhnə fon)`);
   return got;
 }

@@ -452,7 +452,12 @@ async function render(a, out, opt = {}) {
     run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", jpg]);
     // kadrlar: önizləmə üçün anlar — başlıq, ilk iki altyazının ortası, sonluq (sosial-video.yml şəkil düzəldir).
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100;
-    const kadrlar = [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
+    // Görüntülü videoda hər kadrın (montaj) ortası — montajı və sözbəsöz altyazını bir baxışda yoxlamaq üçün (ən çox 7).
+    let t0 = 0;
+    const shotMids = shotPlan(clips, tl).map(c => { const m = mid([t0, t0 + c.d]); t0 += c.d; return m; });
+    const kadrlar = clips.length
+      ? [cover_s, ...shotMids.slice(1, 8).filter(x => x < tl.outro[0]), mid([tl.outro[0], tl.duration])]
+      : [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
     const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title,
       ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, sigdirilan: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));

@@ -173,6 +173,9 @@ test("goruntu: a clip must match the query — the samples showed a squirrel for
   assert.equal(VS.relevance("united states capitol", "empire state, skyline, manhattan, new york, the usa, building, america, united states"), 0);
   assert.ok(VS.relevance("united states capitol", "capitol, washington, dome") > 0, "«united states» ümumi sözdür, «capitol» bəs edir");
   assert.equal(VS.relevance("white house washington", "washington, forest, trees"), 0);
+  // 2026-11-23: güllə izləri axtarışına tikinti işçisi keçmişdi (4 sözdən 2-si) — indi 3-ü lazımdır.
+  assert.equal(VS.relevance("bullet holes car window", "construction, remodeling, hammer, brick, window, hole, worker, building"), 0);
+  assert.ok(VS.relevance("bullet holes car window", "car, window, bullet, hole, crime") > 0);
 });
 
 test("goruntu: negative stories get people-free fallback scenes; the prompt forbids identifiable people (Pexels license)", () => {
@@ -221,7 +224,7 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   assert.match(plain[plain.indexOf("-filter_complex") + 1], /^\[0:v\]format=rgb24,ass=v\.ass\[t\];\[1:v\]scale[\s\S]*\[2:a\]aformat/);
 });
 
-test("goruntu: clips keep the edit order (query i → shot i); a query with no clip is filled in place; clips used in recent videos are skipped", async () => {
+test("goruntu: clips keep the edit order; a query with no clip is never filled with a generic scene unless fewer than 3 clips; recent clips are skipped", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-sira-"));
   const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
     videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1080, height: 1920, size: 5e6 } } });
@@ -234,9 +237,14 @@ test("goruntu: clips keep the edit order (query i → shot i); a query with no c
   };
   const got = await VS.goruntu(["oil pump jack", "gas price board", "tanker ship sea"], dir,
     { env: { PIXABAY_API_KEY: "k" }, fetch: f, log: quiet, say: 3, category: "iqtisadiyyat", istifade: new Set(["Pixabay:1"]) });
-  assert.deepEqual(got.map(g => [g.q, g.id]), [["oil pump jack", 2], ["business district skyline", 9], ["tanker ship sea", 3]],
-    "işlənmiş klip (1) atılır; «gas price board»-un yeri ehtiyat səhnə ilə dolur, «tanker» öz yerində qalır");
+  assert.deepEqual(got.map(g => [g.q, g.id]), [["oil pump jack", 2], ["tanker ship sea", 3], ["business district skyline", 9]],
+    "işlənmiş klip (1) atılır; ifadələrin klipləri sıra ilə; cəmi 2 uyğun klip olduğuna görə sonda bir ümumi səhnə");
   assert.equal(asked.filter(q => q === "oil pump jack").length, 1, "ifadə bir dəfə soruşulur");
+  // 3 uyğun klip varsa ümumi səhnə işlənmir (2026-11-23: Gürcüstan xəbərinin başlığına Bakı düşmüşdü), boş yer doldurulmur.
+  db["oil pump jack"].push(hit(4, "oil, pump, jack, sunset"));
+  const enough = await VS.goruntu(["oil pump jack", "gas price board", "tanker ship sea"], dir,
+    { env: { PIXABAY_API_KEY: "k" }, fetch: f, log: quiet, say: 8, category: "iqtisadiyyat", istifade: new Set(["Pixabay:1"]) });
+  assert.deepEqual(enough.map(g => g.id), [2, 3, 4], "əsas səhnənin ikinci klipi əlavə olunur, ümumi səhnə yox");
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
