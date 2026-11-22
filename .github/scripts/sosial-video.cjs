@@ -21,6 +21,7 @@
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
+const VS = require("./video-ssenari.cjs");
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const KEEP_S = 3 * 86400;
@@ -71,9 +72,10 @@ async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "
     if (!only && (state.v[a.id] || state.skip[a.id] || state.t[S.titleKey(a)])) continue;
     const topic = S.topicOf(a, Date.parse(a.publishedAt) / 1000 || sec);
     if (!only && state.topics.some(t => S.sameTopic(t, topic))) { state.skip[a.id] = sec; log(`video: eyni mövzuda video var, ötürülür — ${S.clean(a.title)}`); continue; }
-    const text = S.describe(a, await sourcePage(a, f), policy);
+    const page = await sourcePage(a, f);
+    const text = S.describe(a, page, policy);
     if (!text) { state.skip[a.id] = sec; log(`video: izah tapılmadı, ötürülür — ${S.clean(a.title)}`); continue; }
-    return { a, text, topic };
+    return { a, text, topic, page };
   }
   return null;
 }
@@ -86,9 +88,10 @@ function entry(a, text, cats = []) {
 
 const tag = "#8ulduz #xəbərlər #Azərbaycan";
 // Facebook: keçid basılır — postun mətnində saytdakı xəbər (paylaşma səhifəsi: önizləmə + saytda açılır).
-const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}\n\n${tag}`;
+const credit = x => (x.goruntu?.length ? "\n\nGörüntü: Pexels" : "");   // Pexels xahişi: müəllifi/Pexels-i göstərin
+const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag}`;
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
-const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${tag} #video`;
+const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag} #video`;
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const json = r => (r?.json ? r.json().catch(() => ({})) : {});
@@ -190,8 +193,14 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   }
   const got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
   if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
-  const x = entry(got.a, got.text, cats);
   fs.mkdirSync(dir, { recursive: true });
+  // Sahib, 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun». Gemini mənbənin mətnindən 4–7 cümləlik
+  // diktor mətni yazır (alınmasa mənbənin öz cümlələri), Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
+  const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
+  const sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
+  const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category });
+  const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc ? { ssenari: "gemini" } : {}),
+    ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ id: k.id, user: k.user, q: k.q })) } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
   if (post) { const t = Math.floor(now / 1000); state.v[x.id] = t; state._last = t; }
   log(`video: seçildi — ${x.title} (${x.link})`);

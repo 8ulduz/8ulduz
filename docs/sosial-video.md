@@ -55,9 +55,26 @@ Meta və tədqiqatlardan:
 
 Götürmədiklərimiz: başqasının kadrları (aşağıda), musiqi (Meta-nın lisenziyalı musiqisi API ilə əlçatan deyil, başqa musiqi müəllif hüququ riskidir), «❗️⚡️» kimi təcili işarələr (hər xəbərdə olsa mənasını itirir; istəsəniz Prezident və ya 10+ mənbəli xəbərə əlavə etmək olar).
 
+## Görüntü və uzun mətn (sahib, 2026-11-22)
+
+Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun.»
+Əvvəlki video tünd fonda başlıq və bir cümlə idi (~15 s). İndi (`.github/scripts/video-ssenari.cjs`):
+
+- **Mətn:** Gemini (`GEMINI_API_KEY`) mənbə səhifəsinin mətnindən 4–7 cümləlik diktor mətni yazır (350–650 simvol, ~35–50 s).
+  Yoxlama: hər rəqəm mənbədə olmalıdır, kiril, keçid, nida, «bu gün/dünən/sabah» yoxdur, saytın qaydasından keçir. Keçməsə mənbənin öz
+  cümlələri gedir (əvvəlki kimi, indi 650 simvola qədər).
+- **Görüntü:** Gemini 4–6 ingiliscə axtarış ifadəsi də verir; [Pexels](https://www.pexels.com/api/) video bankından (`PEXELS_API_KEY`)
+  4–5 klip yüklənir — əvvəl şaquli, yoxdursa üfüqi (ortadan 9:16 kəsilir). Pexels lisenziyası pulsuzdur, kommersiya istifadəsinə və
+  dəyişdirməyə icazə verir, istinad xahiş edir: videoda və post mətnində «Görüntü: Pexels». Lisenziya tanınan insanı pis işıqda göstərməyi
+  qadağan edir: mənfi xəbərdə (cinayət, qəza, ölüm) ifadələr insansız səhnələrdir. Açar yoxdursa və ya klip tapılmasa fon tünd göy qalır.
+- **Dizayn:** görüntü bütün ekranı tutur; yuxarıda brend zolağı, altında yarımşəffaf tünd zolaqda bölmə və başlıq, aşağıda altyazılar
+  (səslə eyni anda), altda mənbə və «Görüntü: Pexels», sonda tündləşən ekranda «Ətraflı: 8ulduz.az».
+- **Yoxlama:** PR-da süni kliplərlə (şaquli və üfüqi) görüntülü video hazırlanır; əl ilə önizləmə (`paylas` söndürülüb) istənilən budaqda işləyir.
+
 ## Müəllif hüququ (sərt qayda)
 
-Videoya yalnız hüququmuz olan şey düşür: xəbərin başlığı və qısa izahı (mənbə göstərilir), saytın dizaynı və loqosu, SARA səsi. Kod bunu testlə qoruyur (`tests/sosial-video.test.cjs`: video modulu xəbərin şəklini və videosunu, `reels.json`/`oz_x.json` videolarını işlətmir; ffmpeg-in girişləri yalnız rəngli fon, loqo və səsdir).
+Videoya yalnız hüququmuz olan şey düşür: xəbərin başlığı və izahı (mənbə göstərilir), saytın dizaynı və loqosu, SARA səsi və Pexels-in
+pulsuz lisenziyalı klipləri (yuxarıda). Kod bunu testlə qoruyur (`tests/sosial-video.test.cjs`: video modulu xəbərin şəklini və videosunu, `reels.json`/`oz_x.json` videolarını işlətmir; ffmpeg-in girişləri yalnız rəngli fon, loqo və səsdir).
 
 Tətbiq edilməyən variantlar — **qərar sahibindir**:
 
