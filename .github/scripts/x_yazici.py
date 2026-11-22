@@ -45,9 +45,10 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or ""   # boşdursa: açarın siya
 
 PROMPT = """Sən 8ulduz.az xəbər saytının redaktorusan. Aşağıda türk və ingilis dilli X hesablarının videolu paylaşımları var.
 Onlardan oxucunun ən çox izləmək istəyəcəyi ən çox {n} paylaşımı seç (idman, dünya, elm, maraqlı). Reklam, sponsor, bilet, mağaza,
-mərc, qəza və zorakılıq görüntüsü olanları SEÇMƏ. Qan, meyit, yaralı, edam, işgəncə, hücum anı və ya zərbə nəticəsində insan
-görünə biləcək müharibə və terror videolarını SEÇMƏ; müharibə mövzusunda yalnız texnika, sərgi, sınaq, görüş və bəyanat videoları
-olar. Şərh, söz atışması, təhqir və siyasi təbliğat olan paylaşımları SEÇMƏ. Uyğun paylaşım yoxdursa boş siyahı qaytar.
+mərc reklamı və qəza anı olanları SEÇMƏ. Müharibə xəbərlərinin videoları olar (Rusiya–Ukrayna və başqa münaqişələr: cəbhə, dron,
+texnika, hava hücumundan müdafiə, dağıntı, təxliyə). Qan, meyit, yaralı, edam, işgəncə, əsir görüntüsü, insanın vurulduğu və ya
+öldürüldüyü an olan videoları və terror təbliğatını SEÇMƏ. Şərh, söz atışması, təhqir və siyasi təbliğat olan paylaşımları SEÇMƏ.
+Uyğun paylaşım yoxdursa boş siyahı qaytar.
 
 Hər seçilən üçün Azərbaycan ədəbi dilində qısa xəbər yaz:
 - Türkcə söz və şəkilçi işlətmə («yapıldı» yox, «edildi»; «maç» yox, «oyun»; «antrenman» yox, «məşq»).
@@ -335,12 +336,15 @@ Paylaşımlar:
 # görə Azərbaycanda ən populyar kateqoriyalar yumor və əyləncə, təhsil, yemək bişirmə, oyunlar, idman, həyat tərzi və cəmiyyətdir
 # (Trend.az, 2024-10); üstəlik avtomobil, Türkiyə futbolu, döyüş idmanı və güləş, Türkiyə müdafiə sənayesi, texnika yenilikləri.
 # Özünə qəsd və ölüm anı göstərilmir: belə hadisədən yalnız xilasetmə anı (sahibin «körpüdən atmaq istəyir» nümunəsi).
+# Sahib 2026-11-22: «maraqlı videolar x də olur-müharibələrə aid (rusiya ukrayna və sair) x də yayımlanır. deməli olar.» Müharibə
+# videoları lentə düşür; qan, meyit, yaralı, insanın vurulduğu an və əsir görüntüsü düşmür (Gemini düşəndə REELS_SAFE: müharibə yoxdur).
 REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var (baxış sayı ilə).
 Azərbaycan oxucusu üçün ən maraqlı ən çox {n} videonu seç və hər birini iki sinifdən birinə ayır:
 «hadise» (lentin 60%-i): təzə və maraqlı hadisələr — ekstremal və gözlənilməz anlar (xilasetmə, son anda qurtulma, təhlükəli an,
 təbiət hadisəsi, rekord); yeniliklər (ən son avtomobil modeli, təqdimat, reklam çarxı, telefon və texnika, robot, təyyarə, Türkiyə
 müdafiə sənayesinin yenilikləri); avtoyarış, drift, yolsuzluq (off-road); sürətli çəkilmiş yemək hazırlanması; xəbər mahiyyətli videolar
-(dünyada baş verən hadisənin anı); siyasətin kadr arxası (xarici liderlərin gözlənilməz, maraqlı anları); futbolun, döyüş idmanının və
+(dünyada baş verən hadisənin anı); müharibələrin görüntüləri (Rusiya–Ukrayna və başqa münaqişələr: cəbhə, dron, texnika, hava hücumundan
+müdafiə, dağıntı, təxliyə); siyasətin kadr arxası (xarici liderlərin gözlənilməz, maraqlı anları); futbolun, döyüş idmanının və
 güləşin yaddaqalan anları; yumor, heyvanlar — Azərbaycan insanlarının maraqla baxdığı nə varsa.
 «usta» (lentin 40%-i): «Tamir & Tadilat» kimi — bir işin necə görüldüyü: təmir, tikinti, bərpa, dülgərlik, dəmirçilik, zavodda istehsal,
 sənətkarlıq, maşın və mexanizm işi, kənd təsərrüfatı, təmizlik, aşpazın texnikası, faydalı ev ixtiraları; sahələr çox müxtəlif olsun.
@@ -349,8 +353,8 @@ videoları üstündür. Mövzular MÜXTƏLİF olsun: eyni mövzudan (məsələn 
 Hər video üçün Azərbaycan dilində bir qısa cümlə izah yaz («c», 20–100 simvol): videoda nə baş verir, kim, harada — yalnız paylaşımın
 mətnindən, uydurma yox. İzahla da mənası başa düşülməyən, ancaq danışıqdan ibarət (müsahibə, çıxış, studiya söhbəti), dil bilmədən
 anlaşılmayan videoları SEÇMƏ.
-SEÇMƏ: açıq-saçıq və erotik görüntü, qan, meyit, yaralı, ölüm və ya özünə qəsd anı, edam, işgəncə, heyvana zülm, müharibə və terror
-döyüş səhnələri, mərc və qumar reklamı, təhqir, nifrət, siyasi təbliğat və çağırış, Azərbaycan, Ermənistan və Qarabağ mövzusu, uşağın
+SEÇMƏ: açıq-saçıq və erotik görüntü, qan, meyit, yaralı, ölüm və ya özünə qəsd anı, edam, işgəncə, heyvana zülm, insanın vurulduğu
+döyüş anı, əsir görüntüsü, terror təbliğatı, mərc və qumar reklamı, təhqir, nifrət, siyasi təbliğat və çağırış, Azərbaycan, Ermənistan və Qarabağ mövzusu, uşağın
 təhlükədə olduğu görüntü. Uyğun video yoxdursa boş siyahı qaytar.
 
 Yalnız JSON siyahısı qaytar, başqa heç nə: [{{"id": "<id>", "s": "hadise" və ya "usta", "c": "<izah>"}}, ...]

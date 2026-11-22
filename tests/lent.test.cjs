@@ -51,7 +51,9 @@ test('Videolent: the news job starts the video writer every 20 minutes (GitHub c
   const xy = fs.readFileSync(path.join(root, '.github/scripts/x_yazici.py'), 'utf8');
   const oz = fs.readFileSync(path.join(root, 'oz_x.py'), 'utf8');
   assert.ok(+xy.match(/^REELS_PER_RUN = (\d+)/m)[1] >= 12, 'bir işdə ən azı 12 video (sahib: «çox sayda»)');
-  assert.ok(+oz.match(/^REELS_MAX = (\d+)/m)[1] >= 72 * 12 / 2 * 1.5, 'lent ən azı 1,5 günlük axını tutur');
+  assert.ok(+oz.match(/^REELS_MAX = (\d+)/m)[1] >= 1000, 'sahib 2026-11-22: «video sayı 1000 olsun»');
+  const seen = fs.readFileSync(path.join(root, 'assets/lent.js'), 'utf8').match(/SEEN_MAX = (\d+)/);
+  assert.ok(+seen[1] > +oz.match(/^REELS_MAX = (\d+)/m)[1], 'izlənmiş yaddaşı lentdən böyükdür: video təkrar «təzə» olmur');
 });
 
 test('Videolent: the feed never ends — when unseen videos run out, the longest-ago seen come back, never the last ones (owner 2026-11-20)', async () => {

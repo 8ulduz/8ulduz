@@ -18,7 +18,7 @@ const px = (u, w) => /^https:\/\/pbs\.twimg\.com\//.test(u || "") ? `https://wsr
 const SOUND_KEY = "8u-reels-sound";
 // İzlənmiş videolar (sahib 2026-11-19: «videolar davamlı təzələnməlidir»): lent hər açılışda əvvəl görülməyənləri göstərir,
 // izlənmişlər sona keçir. Telefonda saxlanır, heç yerə göndərilmir. 2000 (sahib 2026-11-20: «heç təkrar olmayan»): lentdəki
-// bütün videolardan (oz_x.REELS_MAX 800 + öz xəbərlərimiz) çox — görülən video yaddaşdan düşüb yenidən «təzə» olmur.
+// bütün videolardan (oz_x.REELS_MAX 1000 + öz xəbərlərimiz) çox — görülən video yaddaşdan düşüb yenidən «təzə» olmur.
 const SEEN_KEY = "8u-reels-seen", SEEN_MAX = 2000;
 // İlk açılışda böyük ox (sahib 2026-11-20: «videoların jestlə dəyişdiyini göstərən (ilk dəfə yalnız) böyük ox»): bir dəfə göstərilir.
 const HINT_KEY = "8u-reels-hint";
