@@ -210,12 +210,30 @@ jobs:
 
 JSON-da başqa saytın video keçidi (`video`, `videoUrl`, `src`, `clips`) olmamalıdır. Belə video getmir.
 
-**Video modulu (`video-xeber.cjs`, FB/IG video sessiyası).** O, `node .github/scripts/video-xeber.cjs <giriş.json> <çıxış.mp4>` ilə işləyir. Çıxışda `<çıxış>.mp4`, `<çıxış>.json` (`duration`, `width`, `height`, `bytes`, `cover_s`, `voice`) və `<çıxış>.jpg` yaranır. Yükləyici bu `<çıxış>.json`-u oxuyur: `text`, `cover_s` və `duration`-u tanıyır. Videonun TikTok-a getməsi üçün modulda iki əlavə lazımdır:
+**Video modulu (`video-xeber.cjs`, `sosial-video.yml`; PR 8ulduz/8ulduz#292).** Modul müqaviləyə uyğundur:
+- `video-out/video.json` xəbərin sahələrini (`id`, `title`, `summary`, `text`, `source`, `sourceUrl`, `category`, `lang`, `publishedAt`) və `"own": true` daşıyır. Texniki sahələr də var: `duration`, `cover_s` və s.
+- ffmpeg mp4-ə `comment=8ulduz.az` nişanı yazır.
+- Biri çatışmasa modulun öz yoxlaması qırmızı olur.
+- Brend zolağı y=300/1920 (15,6%) səviyyəsindədir: TikTok-un üst yazılarından aşağıdadır.
+- Artifact `video-xeber` adlanır (`video-out/`). Qovluqda başqa fayllar da var (`xeber.json`, kadrlar), amma cüt yalnız `video.mp4` + `video.json`-dur, qalanını yükləyici ötürür.
 
-1. `<çıxış>.json`-a giriş xəbərinin sahələri yazılmalıdır: `id`, `title`, `summary`, `text`, `source`, `sourceUrl`, `category`, `lang`, `publishedAt`, üstəgəl `"own": true`.
-2. ffmpeg əmrinə `-metadata comment=8ulduz.az` əlavə edilməlidir.
+Qoşulma: iki PR-dan hansı **ikinci** birləşirsə, `sosial-video.yml`-ə bu işi o əlavə edir. tiktok.yml main-də olmayana qədər bu sətirlər `sosial-video.yml`-i sındırar.
 
-Bunlar olmasa video «öz videomuz» sayılmır və ötürülür. Bunu test yoxlayır.
+```yaml
+  tiktok:
+    needs: video
+    if: ${{ !cancelled() && needs.video.outputs.paylas == '1' }}
+    uses: ./.github/workflows/tiktok.yml
+    with:
+      artifact: video-xeber
+    secrets: inherit
+```
+
+`paylas` yalnız əsl paylaşım dövrəsində `1` olur. PR nümunəsi və `paylas=false` önizləməsi TikTok-a getmir. Facebook və ya Instagram alınmasa da (iş qırmızı), video hazırdırsa TikTok-a gedir.
+
+Modul ən vacib xəbəri yalnız `FB_PAGE_TOKEN` olanda seçir (`VIDEO_ACAR`). Facebook açarı olmasa TikTok üçün də video hazırlanmır. Bu açar artıq yazılıb.
+
+Tezlik: modul 2 saatdan bir, Bakı vaxtı ilə 08–23 arası, gündə ən çox 8 video hazırlayır. Yükləyicinin həddi (60 dəq ara, gündə ≤10) buna mane olmur.
 
 `<ad>.mp4`:
 - **Format:** MP4, H.264 (+AAC), 1080×1920, 23–60 kadr/s.
