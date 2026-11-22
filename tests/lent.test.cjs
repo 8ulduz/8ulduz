@@ -100,11 +100,31 @@ test('Videolent: share opens our site at the same video, the source stays one ta
   assert.ok(app.includes('import("./lent.js?v=1").then(m => m.open(S, r.reel))'), '#/videolent?r= lenti həmin videodan açır');
 });
 
-test('Videolent: the 8ulduz logo sits over every video and takes the reader back to the site, like ✕ (owner 2026-11-20)', () => {
+test('Videolent: «8ulduz.az» sits over every video and takes the reader back to the site, like ✕ (owner 2026-11-20, 2026-11-22)', () => {
   const src = fs.readFileSync(file, 'utf8');
-  assert.ok(src.includes('<button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt"><img src="${LOGO}"'));
+  assert.ok(src.includes('<button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt">8ulduz<i>.az</i></button>'), 'yazı: 8ulduz.az');
+  assert.ok(!src.includes('logo-80.png'), 'şəkil yox, yazı: əlavə sorğu yoxdur');
   assert.ok(src.includes('doc.querySelector(".lg").addEventListener("click", back);'));
   assert.ok(/\.lg\{left:12px;right:auto;top:calc\(12px/.test(src), 'yuxarıda solda, hər videonun üstündə (sabit)');
+});
+
+test('Videolent: the share button says «Paylaş» like the site (owner 2026-11-22)', () => {
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>'), 'düymədə «Paylaş» yazısı');
+  assert.ok(src.includes('sh.textContent = "Paylaş"'), 'kopyalanandan sonra yenə «Paylaş»');
+});
+
+test('Videolent: a shared video opens at once — the black frame does not wait for the video list or the news (owner 2026-11-22)', async () => {
+  const src = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+  const at = s => { const i = src.indexOf(s); assert.ok(i > 0, s); return i; };
+  assert.ok(at('document.body.append(f);\n  const items = first(list(S, await load()), k);') < at('build(f, items, () => history.back()'),
+    'çərçivə siyahıdan əvvəl açılır, siyahı gələndə dolur');
+  assert.ok(src.includes('<body><div class="wait"></div></body>'), 'arada fırlanan işarə');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'assets', 'app.js'), 'utf8');
+  assert.ok(app.includes('if (!r.reel || S.reelAt === r.reel || !S.data && !/^\\d{17,}$/.test(r.reel)) return;'), 'X videosu xəbərləri gözləmir');
+  const rx = /^\d{17,}$/;
+  assert.ok(rx.test('2123875512364024026'), 'X açarı');
+  assert.ok(!rx.test('d1361f50c15d6e00') && !rx.test('1234567890123456'), 'öz xəbərimizin 16 simvolluq açarı xəbərləri gözləyir');
 });
 
 test('Videolent: #/videolent?r=<id> is read from the address (the shared link really opens that video)', () => {
