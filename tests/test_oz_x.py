@@ -224,7 +224,7 @@ class ReelsTest(unittest.TestCase):
                 reel(id="2123096874748186949", post="https://x.com/TamirveTadilat/status/2123096874748186949", src=["Karabağ maçı"]), reel()]
         out = xm.reels(self.NOW, path=self.write(rows))
         self.assertEqual([r["id"] for r in out], ["2123096874748186947", "2123096874748186946"], "köhnə, Azərbaycan mövzulu və təkrar düşür")
-        self.assertEqual(set(out[0]), {"id", "a", "n", "m", "u", "i", "w", "h", "t"}, "mətn (src) sayta çıxmır; m: mövzu")
+        self.assertEqual(set(out[0]), {"id", "a", "n", "m", "u", "i", "w", "h", "t", "q"}, "mətn (src) sayta çıxmır; m: mövzu, q: sinif")
         self.assertEqual(out[0]["n"], "Tamir & Tadilat")
 
     def test_first_degree_sources_are_marked_in_the_reels(self):
@@ -233,6 +233,26 @@ class ReelsTest(unittest.TestCase):
         out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([reel(), row]))}
         self.assertEqual(out["2123096874748186950"].get("p"), 1)
         self.assertNotIn("p", out["2123096874748186946"])
+
+    def test_class_and_caption_reach_the_site_azerbaijan_and_armenia_never(self):
+        """Sahib 2026-11-22: 60% hadisə, 40% usta işi; «mənası başa düşülməyən videolar olmasın» — qısa izah."""
+        cap = reel(id="2123096874748186951", post="https://x.com/TamirveTadilat/status/2123096874748186951", sinif="u",
+                   c="Usta qırılmış plastik borunu lehimlə bərpa edir")
+        old = reel(id="2123096874748186952", post="https://x.com/TamirveTadilat/status/2123096874748186952")
+        out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([cap, old]))}
+        self.assertEqual(out["2123096874748186951"]["c"], "Usta qırılmış plastik borunu lehimlə bərpa edir")
+        self.assertEqual(out["2123096874748186951"]["q"], "u")
+        self.assertEqual(out["2123096874748186952"]["q"], "u", "sinifsiz köhnə sətir: hesabın əsas sinfi")
+        self.assertNotIn("c", out["2123096874748186952"])
+        self.assertNotIn("src", out["2123096874748186951"], "paylaşımın mətni sayta çıxmır")
+        bad = {"Azərbaycan izahda": reel(c="Bakıda çəkilmiş maraqlı görüntülər"),
+               "Ermənistan izahda": reel(c="Yerevanda keçirilən paraddan görüntülər"),
+               "Ermənistan mətndə": reel(src=["Armenian army parade footage"]),
+               "qısa izah": reel(c="Bax"), "keçid": reel(c="Ətraflı: https://example.com/a burada"),
+               "sinif": reel(sinif="x")}
+        for name, row in bad.items():
+            self.assertIsNotNone(xm.reel_check(row), name)
+        self.assertIsNone(xm.reel_check(reel(sinif="h", c="Yeni elektromobil ilk dəfə yolda sınaqdan keçirilir")))
 
     def test_updater_writes_reels_through_the_policy_gate(self):
         import updater

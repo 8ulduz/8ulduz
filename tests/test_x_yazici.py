@@ -124,7 +124,7 @@ class ReelsPickTest(unittest.TestCase):
             self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
         self.assertGreaterEqual(xy.REELS_PER_RUN * 72 // 2, 100, "72 işin yarısı belə işləsə gündə ≥100 yeni video (sahib)")
         self.assertGreaterEqual(xy.xm.REELS_MAX, 200, "gündə ~100 gəlir: lent ən azı 2 günü tutur")
-        self.assertIn("YAZISIZ", xy.REELS_PROMPT)
+        self.assertIn("izah", xy.REELS_PROMPT, "sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın» — qısa izah")
 
 
 class VideolentSourcesTest(unittest.TestCase):
@@ -263,3 +263,67 @@ class VideolentOndeTest(unittest.TestCase):
         src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
         self.assertIn('key=lambda c: (not xm.onde(c["handle"]), -c["_score"])', src, "hər mövzuda əvvəl birinci dərəcəli, sonra çox baxılan")
         self.assertIn('int(post.get("views") or 0) // 100', src, "baxış sayı xala daxildir")
+
+
+class SixtyFortyTest(unittest.TestCase):
+    """Sahib 2026-11-22: «videoların 60%-i … hadisələr …, Təmir-tadilatdakı videolar bənzəri videolar (çox fərqli mövzularda) təşkil
+    etsin. Mənası başa düşülməyən videolar olmasın»."""
+
+    def setUp(self):
+        xy.REEL_META.clear()
+        self.addCleanup(xy.REEL_META.clear)
+
+    def test_gemini_gives_class_and_caption_old_answers_still_work(self):
+        from unittest import mock
+        tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
+        gs = xy.candidate("GalatasaraySK", post(id="2123096874748186942"), set(), NOW)
+        answer = json.dumps([{"id": "2123096874748186941", "s": "usta", "c": "  Usta qırılmış plastik borunu   lehimlə bərpa edir  "},
+                             {"id": "2123096874748186942", "s": "hadise", "c": "Qalatasaray futbolçuları yeni mövsümün ilk məşqində"},
+                             {"id": "999", "s": "usta", "c": "Namizəd deyil"}], ensure_ascii=False)
+        with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), mock.patch.object(xy, "ask_gemini", return_value=answer):
+            self.assertEqual(xy.pick_reels([tamir, gs], 6), [tamir["id"], gs["id"]])
+        self.assertEqual(xy.REEL_META[tamir["id"]], {"sinif": "u", "c": "Usta qırılmış plastik borunu lehimlə bərpa edir"})
+        self.assertEqual(xy.REEL_META[gs["id"]]["sinif"], "h")
+        with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942"]'):
+            self.assertEqual(xy.pick_reels([tamir, gs], 6), [gs["id"]], "köhnə biçim (yalnız id) də oxunur")
+        for word in ("hadise", "usta", "60%", "40%", "Tamir & Tadilat", "xilasetmə", "yolsuzluq", "kadr arxası", "Ermənistan", "özünə qəsd"):
+            self.assertIn(word, xy.REELS_PROMPT, word)
+        self.assertIn('[{"id": "<id>"', xy.REELS_PROMPT.format(n=3, items="- x"), "JSON nümunəsi format-dan sağ çıxır")
+
+    def test_caption_is_one_short_line(self):
+        self.assertEqual(xy.izah('«Robot  itin\nyeni modeli»'), "Robot itin yeni modeli")
+        long = xy.izah("söz " * 60)
+        self.assertLessEqual(len(long), xy.xm.IZAH_LEN[1])
+        self.assertTrue(long.endswith("…"))
+        self.assertEqual(xy.izah(None), "")
+
+    def test_each_run_takes_sixty_percent_events_forty_percent_craft(self):
+        q = xy.xm.VIDEOLENT_QRUPLAR
+        hs = [list(q[m])[:6] for m in ("tebiet", "elm", "texnika", "yemek", "kino", "maraqli")]
+        ids, handle = [], {}
+        for k, group in enumerate(hs):
+            for j, h in enumerate(group):
+                pid = f"{k}{j}"
+                ids.append(pid)
+                handle[pid] = h
+                xy.REEL_META[pid] = {"sinif": "u" if j % 2 else "h"}
+        got = xy.split_reels(ids, handle.get, 12)
+        self.assertEqual(len(got), 12)
+        self.assertEqual(sum(xy.REEL_META[i]["sinif"] == "u" for i in got), round(12 * xy.xm.USTA_PAY), "12-dən 5-i usta işi")
+        self.assertEqual(xy.xm.USTA_PAY, 0.4)
+        only_h = [i for i in ids if xy.REEL_META[i]["sinif"] == "h"]
+        self.assertEqual(len(xy.split_reels(only_h, handle.get, 12)), 12, "usta işi çatmasa yer hadisə ilə dolur")
+        self.assertEqual(xy.xm.sinif({"handle": "TamirveTadilat"}), "u", "Gemini sinif verməyibsə hesabın əsas sinfi")
+        self.assertEqual(xy.xm.sinif({"handle": "CollinRugg"}), "h")
+
+    def test_news_and_backstage_sources_exist_and_stay_apart_from_news_writing(self):
+        q = xy.xm.VIDEOLENT_QRUPLAR
+        self.assertIn("xeber", q)
+        for h in ("CollinRugg", "FoxNews", "AP", "Breaking911", "EmmanuelMacron"):
+            self.assertIn(h, q["xeber"])
+            self.assertNotIn(h, xy.xm.HESABLAR, "bu hesablardan xəbər yazılmır, yalnız video")
+        for h in ("ufc", "baykartech", "TUSAS_TR"):
+            self.assertIn(h, xy.xm.VIDEOLENT_HESABLAR)
+        src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
+        self.assertIn("split_reels(pick_reels(pool, REELS_PER_RUN * 3)", src)
+        self.assertIn('if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"])', src, "biçimi pis izah düşür, video qalır")

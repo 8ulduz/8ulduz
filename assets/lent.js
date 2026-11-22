@@ -56,7 +56,8 @@ let live = null;
 function list(S, reels) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
     u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id }));
-  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || ""), p: r.p === 1 }));
+  const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || ""), p: r.p === 1,
+    q: r.q === "u" ? "u" : "h", c: typeof r.c === "string" ? r.c.slice(0, 140) : "" }));
   const seen = new Set(), watched = seenSet();
   const all = [...own, ...x].sort((a, b) => String(b.t).localeCompare(String(a.t))).filter(v => !seen.has(v.u) && seen.add(v.u));
   return [...mix(all.filter(v => !watched.has(v.u))), ...mix(all.filter(v => watched.has(v.u)))];   // əvvəl görülməyənlər
@@ -65,13 +66,24 @@ function list(S, reels) {
 // TikTok kimi qarışıq axın (sahib 2026-11-19: «video axını tiktok kimi olsun», «əksəriyyəti futboldur … proporsional olsun
 // müxtəlif mövzular»): mövzular növbə ilə gəlir (idman, təbiət, elm, kino …; hər açılışda başqa sıra), hər mövzunun içində ən
 // təzəsi önə; eyni hesabdan iki video ardıcıl gəlmir.
-export function mix(list) {
+// İki sinif (sahib 2026-11-22: «videoların 60%-i … hadisələr …, Təmir-tadilatdakı videolar bənzəri videolar (çox fərqli mövzularda)»):
+// hadisə və yeniliklər («h») ilə usta işi («u») 3:2 növbə ilə — h h u h u; bir sinif qurtaranda o biri davam edir.
+const PATTERN = [0, 0, 1, 0, 1];   // 1 — usta işi
+function lane(list) {
   const groups = new Map();
   for (const v of list) { const k = v.m || "idman"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(v); }
   // Birinci dərəcəli mənbələr (sahib 2026-11-20, oz_x.VIDEOLENT_ONDE; reels «p») hər mövzuda əvvəl, öz sırası ilə
   for (const g of groups.values()) g.sort((a, b) => (b.p ? 1 : 0) - (a.p ? 1 : 0));
   const order = [...groups.values()].sort(() => Math.random() - 0.5), rr = [];
   while (order.some(g => g.length)) for (const g of order) if (g.length) rr.push(g.shift());
+  return rr;
+}
+export function mix(list) {
+  const h = lane(list.filter(v => v.q !== "u")), u = lane(list.filter(v => v.q === "u")), rr = [];
+  for (let i = 0; h.length || u.length; i++) {
+    const want = PATTERN[i % PATTERN.length] ? u : h;
+    rr.push((want.length ? want : want === u ? h : u).shift());
+  }
   const out = [];
   while (rr.length) {
     const last = out[out.length - 1]?.n, i = rr.findIndex(v => v.n !== last);
@@ -144,7 +156,7 @@ export async function open(S, k = "") {
   document.body.append(f);
 }
 
-const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title ? `<span>${esc(v.title)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.n)}">↗</button></section>`;
+const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">↗</button></section>`;
 
 function build(f, items, back, more) {
   const doc = f.contentDocument, win = f.contentWindow;

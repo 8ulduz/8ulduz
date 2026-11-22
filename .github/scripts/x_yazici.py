@@ -35,7 +35,7 @@ MAX_BITRATE = 1_000_000
 MAX_CANDIDATES = 25
 PER_RUN = 3
 REELS_PER_RUN = 12  # qısa videolar gecə-gündüz 20 dəqiqədən bir (iş xəbər axınından başladılır, pipeline.sh xyazici_loop): 72 iş × 12 ≈ gündə 300–800 (sahib, 2026-11-20: «ən önəmli olan videoların daima yenilənməsidir», «çox sayda olmasıdır»)
-REELS_ASK = 90     # Gemini-yə seçim üçün göstərilən ən çox namizəd
+REELS_ASK = 110    # Gemini-yə seçim üçün göstərilən ən çox namizəd (9 mövzu; 2026-11-22: xəbər qrupu əlavə olundu)
 # Gemini işləməyəndə qısa videoya yalnız bu hesablar düşür: müharibə və qəza görüntüsü vermirlər
 REELS_SAFE = {"TamirveTadilat", "TUBITAK", "avionot", "TFF_Org", "MilliTakimlar", "GalatasaraySK", "Fenerbahce", "Besiktas", "Trabzonspor", "trtspor", "aa_spor", "ntvspor", "beINSPORTS_TR", "Rainmaker1973", "buitengebieden", "wonderofscience", "Yoda4ever", "IGN", "GameSpot", "LaLiga", "premierleague", "ChampionsLeague", "EuropaLeague", "NBA", "ESPNNBA", "F1", "atptour", "Olympics", "Discovery", "LFC", "MLS", "Ballislife", "overtime"}
 MAX_AGE_DAYS = 4
@@ -309,19 +309,36 @@ Paylaşımlar:
 {items}"""
 
 
-REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var.
-Videolar YAZISIZ göstəriləcək (yalnız hesabın adı). Geniş auditoriya üçün ən maraqlı ən çox {n} videonu seç. ƏN BİRİNCİ birinci dərəcəli
-maraqlı hadisələr: nadir, heyrətamiz, gözlənilməz anlar, rekordlar, «bunu görmək lazımdır» videoları; çox baxılan (baxış sayı) və
-«seçilmiş mənbə» videoları üstündür. Sonra: ustalıq, texnika,
-idman anları, təbiət, heyvanlar, elm, kosmos, yemək, səyahət, oyun, kino, musiqi, maraqlı hadisələr. Mövzular MÜXTƏLİF olsun: eyni
-mövzudan (məsələn futbol) bir neçə video seçmə. Ən maraqlısını əvvələ yaz. SEÇMƏ: açıq-saçıq və erotik görüntü, qan, meyit, yaralı, edam, işgəncə, hücum və ya partlayış anı, qəza,
-heyvana zülm, müharibə və terror səhnələri, reklam, mərc, təhqir, siyasi təbliğat, Azərbaycan mövzusu, mətni olmadan anlaşılmayan
-xəbər videoları (müsahibə, bəyanat, studiya söhbəti). Uyğun video yoxdursa boş siyahı qaytar.
+# Sahib 2026-11-22: «videoların 60%-i həm yeni, həm maraqlı hadisələr, ekstremal hadisələr, işlər, yeniliklər (ən son model avtomobil,
+# təqdimat, reklam videoları, avto yarışlar, avto yolsuzluq …), qısa sürətli çəkiliş yemək hazırlama videoları, xəbər mahiyyətli videolar,
+# siyasi kontekstdə arxa qapı videoları və Azərbaycan insanlarının maraqla baxdığı digər videolar … Təmir-tadilatdakı videolar bənzəri
+# videolar (çox fərqli mövzularda) təşkil etsin. Mənası başa düşülməyən videolar olmasın.» Maraq dairələri: TikTok-un regional rəhbərinə
+# görə Azərbaycanda ən populyar kateqoriyalar yumor və əyləncə, təhsil, yemək bişirmə, oyunlar, idman, həyat tərzi və cəmiyyətdir
+# (Trend.az, 2024-10); üstəlik avtomobil, Türkiyə futbolu, döyüş idmanı və güləş, Türkiyə müdafiə sənayesi, texnika yenilikləri.
+# Özünə qəsd və ölüm anı göstərilmir: belə hadisədən yalnız xilasetmə anı (sahibin «körpüdən atmaq istəyir» nümunəsi).
+REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var (baxış sayı ilə).
+Azərbaycan oxucusu üçün ən maraqlı ən çox {n} videonu seç və hər birini iki sinifdən birinə ayır:
+«hadise» (lentin 60%-i): təzə və maraqlı hadisələr — ekstremal və gözlənilməz anlar (xilasetmə, son anda qurtulma, təhlükəli an,
+təbiət hadisəsi, rekord); yeniliklər (ən son avtomobil modeli, təqdimat, reklam çarxı, telefon və texnika, robot, təyyarə, Türkiyə
+müdafiə sənayesinin yenilikləri); avtoyarış, drift, yolsuzluq (off-road); sürətli çəkilmiş yemək hazırlanması; xəbər mahiyyətli videolar
+(dünyada baş verən hadisənin anı); siyasətin kadr arxası (xarici liderlərin gözlənilməz, maraqlı anları); futbolun, döyüş idmanının və
+güləşin yaddaqalan anları; yumor, heyvanlar — Azərbaycan insanlarının maraqla baxdığı nə varsa.
+«usta» (lentin 40%-i): «Tamir & Tadilat» kimi — bir işin necə görüldüyü: təmir, tikinti, bərpa, dülgərlik, dəmirçilik, zavodda istehsal,
+sənətkarlıq, maşın və mexanizm işi, kənd təsərrüfatı, təmizlik, aşpazın texnikası, faydalı ev ixtiraları; sahələr çox müxtəlif olsun.
+ƏN BİRİNCİ birinci dərəcəli maraqlı hadisələr: nadir, heyrətamiz, gözlənilməz anlar; çox baxılan (baxış sayı) və «seçilmiş mənbə»
+videoları üstündür. Mövzular MÜXTƏLİF olsun: eyni mövzudan (məsələn futbol) bir neçə video seçmə. Ən maraqlısını əvvələ yaz.
+Hər video üçün Azərbaycan dilində bir qısa cümlə izah yaz («c», 20–100 simvol): videoda nə baş verir, kim, harada — yalnız paylaşımın
+mətnindən, uydurma yox. İzahla da mənası başa düşülməyən, ancaq danışıqdan ibarət (müsahibə, çıxış, studiya söhbəti), dil bilmədən
+anlaşılmayan videoları SEÇMƏ.
+SEÇMƏ: açıq-saçıq və erotik görüntü, qan, meyit, yaralı, ölüm və ya özünə qəsd anı, edam, işgəncə, heyvana zülm, müharibə və terror
+döyüş səhnələri, mərc və qumar reklamı, təhqir, nifrət, siyasi təbliğat və çağırış, Azərbaycan, Ermənistan və Qarabağ mövzusu, uşağın
+təhlükədə olduğu görüntü. Uyğun video yoxdursa boş siyahı qaytar.
 
-Yalnız JSON siyahısı qaytar, başqa heç nə: ["<id>", ...]
+Yalnız JSON siyahısı qaytar, başqa heç nə: [{{"id": "<id>", "s": "hadise" və ya "usta", "c": "<izah>"}}, ...]
 
 Paylaşımlar:
 {items}"""
+REEL_META = {}   # id -> {"sinif": "h"/"u", "c": izah}: pick_reels Gemini-nin cavabından doldurur
 
 
 def by_topic(items, key, n):
@@ -337,6 +354,27 @@ def by_topic(items, key, n):
     return out
 
 
+def izah(c):
+    """Gemini-nin izahı: bir sətir, artıq boşluqsuz, ən çox oz_x.IZAH_LEN[1] simvol (söz sərhədində). Boşdursa ""."""
+    c = " ".join(str(c or "").split()).strip(" \"'«»")
+    if len(c) > xm.IZAH_LEN[1]:
+        c = c[:xm.IZAH_LEN[1] - 1].rsplit(" ", 1)[0].rstrip(",;:—- ") + "…"
+    return c
+
+
+def split_reels(ids, handle_of, n):
+    """Seçilmiş id-lərdən n video: USTA_PAY qədəri «usta», qalanı «hadise», hər sinifdə mövzular növbə ilə. Bir sinif çatmasa
+    yer o birindən dolur (lent onsuz da 3:2 qarışdırır)."""
+    cls = lambda i: REEL_META.get(i, {}).get("sinif") or xm.sinif({"handle": handle_of(i)})
+    usta, hadise = [i for i in ids if cls(i) == "u"], [i for i in ids if cls(i) != "u"]
+    want_u = round(n * xm.USTA_PAY)
+    u = by_topic(usta, handle_of, want_u)
+    h = by_topic(hadise, handle_of, n - len(u))
+    if len(u) + len(h) < n:
+        u += by_topic([i for i in usta if i not in u], handle_of, n - len(u) - len(h))
+    return h + u
+
+
 def pick_reels(cands, n):
     """Qısa video üçün id-lər. Gemini seçir (yalnız id, mətn yox); açar yoxdursa və ya cavab gəlmirsə REELS_SAFE hesabları."""
     if not cands:
@@ -348,9 +386,23 @@ def pick_reels(cands, n):
         text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"])
     start, end = text.find("["), text.rfind("]")
     try:
-        ids = [str(i) for i in json.loads(text[start:end + 1])] if 0 <= start < end else None
+        got = json.loads(text[start:end + 1]) if 0 <= start < end else None
     except ValueError:
-        ids = None
+        got = None
+    ids = None
+    if isinstance(got, list):
+        ids = []
+        for g in got:   # yeni cavab: {"id", "s", "c"}; köhnə cavab: yalnız id
+            if isinstance(g, dict):
+                pid = str(g.get("id") or "")
+                meta = {"sinif": "u" if str(g.get("s") or "").strip().lower() == "usta" else "h"}
+                c = izah(g.get("c"))
+                if c:
+                    meta["c"] = c
+                REEL_META[pid] = meta
+                ids.append(pid)
+            elif isinstance(g, (str, int)):
+                ids.append(str(g))
     if ids is None:
         print("Qısa video: Gemini seçmədi, yalnız təhlükəsiz hesablar", flush=True)
         ids = [c["id"] for c in cands if c["handle"] in REELS_SAFE or c.get("reel_only")]   # Videolent hesabları seçilmiş vizual hesablardır
@@ -409,10 +461,15 @@ def main():
     first = sorted((c for c in more if c["id"] not in taken), key=lambda c: (not xm.onde(c["handle"]), -c["_score"]))   # hər mövzuda əvvəl birinci dərəcəli mənbələr, sonra çox baxılanlar
     pool = by_topic(first, lambda c: c["handle"], REELS_ASK)   # Gemini-yə hər mövzudan
     by_id = {c["id"]: c for c in pool}
-    for pid in by_topic(pick_reels(pool, REELS_PER_RUN * 3), lambda i: by_id[i]["handle"], REELS_PER_RUN):   # bir işdə mövzu təkrarlanmır
+    # 60% hadisə, 40% usta işi (sahib 2026-11-22); bir işdə hər sinifdə mövzu təkrarlanmır
+    for pid in split_reels(pick_reels(pool, REELS_PER_RUN * 3), lambda i: by_id[i]["handle"], REELS_PER_RUN):
         c = by_id[pid]
-        row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]]}   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
-        why = xm.reel_check(row)
+        meta = REEL_META.get(pid, {})
+        row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]],   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
+               "sinif": meta.get("sinif") or xm.sinif(c), **({"c": meta["c"]} if meta.get("c") else {})}
+        if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"]):
+            print(f"Qısa video: {pid} izahsız — {xm.izah_check(row.pop('c'))}")   # biçim xətası: video qalır, izah düşür
+        why = xm.reel_check(row)   # izahda Azərbaycan/Ermənistan mövzusu varsa video düşür
         if why:
             print(f"Qısa video rədd: {pid} — {why}")
         else:
