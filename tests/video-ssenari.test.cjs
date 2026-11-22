@@ -255,6 +255,36 @@ test("goruntu: clips keep the edit order; a query with no clip is never filled w
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("goruntu: the story's real place comes first (city always with its country), clips tagged with another country or city are never used", async () => {
+  // Sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə».
+  const P = VS.yerPlan(["Ganja City Stadium", "Ganja", "Azerbaijan"]);
+  assert.deepEqual(P.axtar, ["ganja city stadium azerbaijan", "ganja azerbaijan"], "«ganja» tək axtarılmır (ingiliscədə kənafdır)");
+  assert.equal(VS.yadYer("stadium, field, football, city, architecture, batumi, georgia", P.icaze), "batumi", "nümunədə Gəncə xəbərinə Batumi stadionu düşmüşdü");
+  assert.equal(VS.yadYer("architecture, azerbaijan, baku, boulevard", P.icaze), "baku", "Gəncə xəbərində Bakı yox");
+  assert.equal(VS.yadYer("ganja, azerbaijan, city", P.icaze), "");
+  assert.equal(VS.yadYer("soccer, football, goal, stadium", P.icaze), "", "yersiz ümumi klip olar");
+  assert.equal(VS.yadYer("kaohsiung city, school hall", VS.yerPlan([]).icaze), "kaohsiung", "yer bilinməsə də tanınan yad şəhər olmaz");
+  assert.equal(VS.yadYer("the usa, flag, america, american", VS.yerPlan(["White House", "Washington", "United States"]).icaze), "", "eyni ölkənin adları");
+  assert.ok(VS.yerPlan(["Azerbaijan"]).icaze.has("baku"), "yalnız ölkə varsa paytaxt olar");
+  assert.ok(!VS.yerPlan(["Qardabani", "Georgia"]).icaze.has("tbilisi"), "kənd xəbərində paytaxt olmaz");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-yer-"));
+  const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1920, height: 1080, size: 5e6 } } });
+  const db = { "ganja azerbaijan": [hit(5, "ganja, azerbaijan, city, park")], "football stadium lights": [hit(7, "stadium, football, lights, night, batumi, georgia"), hit(8, "stadium, football, lights")] };
+  const asked = [];
+  const f = async (u) => {
+    if (u.startsWith("https://pixabay.com/api/videos/")) { const q = new URL(u).searchParams.get("q"); asked.push(q); return { ok: true, json: async () => ({ hits: db[q] || [] }) }; }
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const logs = [];
+  const got = await VS.goruntu(["football stadium lights"], dir, { env: { PIXABAY_API_KEY: "k" }, fetch: f, log: s => logs.push(s), say: 2, category: "idman",
+    yer: ["Ganja City Stadium", "Ganja", "Azerbaijan"] });
+  assert.deepEqual(got.map(g => g.id), [5, 8], "əvvəl Gəncənin özü, sonra ümumi klip; Batumi atılır");
+  assert.equal(asked[0], "ganja city stadium azerbaijan", "əvvəl ən dəqiq yer");
+  assert.ok(logs.some(s => /başqa yer \(batumi\)/.test(s)));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("hashtags: Gemini's topic tags are cleaned (no «#», spaces, Cyrillic, duplicates of the house tags) and reach every post text and video.json", () => {
   assert.deepEqual(VS.hashtags(["#futbol", "Premyer Liqa", "#Qarabağ", "8ulduz", "Футбол", "#Futbol", "x"]), ["futbol", "PremyerLiqa", "Qarabağ"]);
   assert.deepEqual(VS.hashtags("futbol"), [], "siyahı deyilsə boş");

@@ -223,7 +223,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
   fs.mkdirSync(dir, { recursive: true });
   // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
-  const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})) });
+  const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})), yer: sc?.yer || [] });
   const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
     ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
       goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };

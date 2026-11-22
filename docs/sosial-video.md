@@ -86,6 +86,13 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 - **Görüntü sırası** (`video-ssenari.cjs` `goruntu`): Gemini 6–8 sadə ifadə verir: əvvəl əsas səhnə, sonra hər cümləyə bir səhnə, cümlələrin sırası ilə. 8 klip yüklənir, sonra eyni ifadələrin ikinci klipləri.
   Tapılmayan ifadənin yerinə ümumi səhnə qoyulmur, çünki yanlış yerin kadrı uyğun klipin təkrarından pisdir. Bölmənin ümumi səhnələri (yer adı yoxdur) yalnız uyğun klip 3-dən az olanda işlənir.
   Son 3 günün videolarında işlənmiş kliplər götürülmür (`.sosial-video/state.json` → `klip`).
+- **Əsl yer** (sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə»): Gemini xəbərin konkret yerlərini verir (`yer`: «Ganja City Stadium», «Ganja», «Azerbaijan»).
+  Axtarış əvvəlcə bu yerlərlə aparılır. Şəhər həmişə ölkə ilə axtarılır («ganja azerbaijan»: «ganja» ingiliscədə həm də kənafdır). Tapılan əsl yer görüntüsü başlıq kadrına düşür.
+  Etiketində xəbərə aid olmayan ölkə və ya şəhər olan klip götürülmür (`yadYer`; nümunədə Gəncə xəbərinə Batumi stadionu, Gürcüstan xəbərinə Bakı düşmüşdü). Xəbərdə yalnız ölkə varsa, onun paytaxtı da olar.
+  Qanuni hədd:
+  - oyunların və tədbirlərin öz kadrları telekanalların və təşkilatçıların hüququdur;
+  - president.az «müəllif hüquqları qorunur» yazır (2026-11-23), Commons-dakı köhnə «CC BY 4.0» qeydinə güvənilmir;
+  - əsl yer görüntüsü yalnız sərbəst lisenziya ilə yayılıbsa (Pixabay, Pexels) götürülür.
 - **Altyazı:** deyilən söz narıncı yanır, sonra yenə ağ olur. Söz vaxtı səs modelinin hissə vaxtından bölünür (`wordTimes`): hərf sayı, rəqəm (sözlə oxunur), qısaltma (hərf-hərf) və durğu fasiləsi nəzərə alınır.
 - **Etiketlər:** Gemini 3 mövzu etiketi verir. Etiketdən «#», boşluq və kiril atılır, ümumi etiketin təkrarı da atılır. Etiketlər Facebook, Instagram, YouTube (`video.json` `hashtags`) və TikTok mətnlərinə gedir, ümumilərdən (`#8ulduz #xəbərlər #Azərbaycan`) əvvəl.
 - **Yoxlama:** PR-da süni kliplərlə (şaquli və üfüqi) görüntülü video hazırlanır; əl ilə önizləmə (`paylas` söndürülüb) istənilən budaqda işləyir.
