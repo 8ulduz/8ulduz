@@ -141,14 +141,17 @@ jobs:
             console.log(JSON.stringify(m));
             if (bad.length) { console.log("::error::Video tələbə uyğun deyil: " + bad.join("; ")); process.exit(1); }
           '
-          d=$(node -p 'JSON.parse(require("fs").readFileSync("video-out/video.json","utf8")).duration')
-          last=$(node -p "Math.max(1, $d - 1).toFixed(2)")
-          for t in 0.15 1.5 6 10 "$last"; do
-            ffmpeg -hide_banner -loglevel error -y -ss "$t" -i video-out/video.mp4 -frames:v 1 "video-out/kadr-$t.png"
+          # Kadrlar: ilk kadr (lentdə avtomatik oynayanda görünən) və video.json-dakı anlar (başlıq, iki altyazının ortası, sonluq).
+          ffmpeg -hide_banner -loglevel error -y -ss 0.15 -i video-out/video.mp4 -frames:v 1 video-out/kadr-ilk.png
+          i=0
+          for t in $(node -p 'JSON.parse(require("fs").readFileSync("video-out/video.json","utf8")).kadrlar.join(" ")'); do
+            i=$((i + 1))
+            ffmpeg -hide_banner -loglevel error -y -ss "$t" -i video-out/video.mp4 -frames:v 1 "video-out/kadr-$i.png"
           done
-          # Önizləmə: 4 kadr yan-yana (başlıq, iki altyazı, sonluq), 1080×480.
-          ffmpeg -hide_banner -loglevel error -y -i video-out/kadr-1.5.png -i video-out/kadr-6.png -i video-out/kadr-10.png -i "video-out/kadr-$last.png" \
-            -filter_complex "[0]scale=270:480[a];[1]scale=270:480[b];[2]scale=270:480[c];[3]scale=270:480[d];[a][b][c][d]hstack=4" -q:v 4 video-out/onizleme.jpg
+          # Önizləmə: kadrlar yan-yana, hər biri 270×480.
+          args=() ; f=""
+          for k in $(seq 1 "$i"); do args+=(-i "video-out/kadr-$k.png"); f="$f[$((k - 1))]scale=270:480[k$k];"; done
+          ffmpeg -hide_banner -loglevel error -y "${args[@]}" -filter_complex "$f$(for k in $(seq 1 "$i"); do printf '[k%s]' "$k"; done)hstack=$i" -q:v 4 video-out/onizleme.jpg
           {
             echo "### Video xəbər"
             node -p 'const m=JSON.parse(require("fs").readFileSync("video-out/video.json","utf8")); `${m.title}\n\n${m.width}×${m.height}, ${m.duration.toFixed(1)} s, ${(m.bytes/1e6).toFixed(1)} MB, ${m.voice ? "səsli (SARA)" : "səssiz"}, ${m.parts} hissə`'

@@ -84,7 +84,7 @@ function fitHeadline(title) {
 // İzah cümlələrə bölünür; sığmayan cümlə bərabərə yaxın hissələrə — imkan olsa vergüldən, sonra bağlayıcıdan əvvəl, ən son
 // istənilən sözdən («Ərçivan | qəsəbəsindən» kimi ad birləşməsi az parçalansın). Hər altyazı ən çox CAP_LINES sətir.
 const CAP_SIZE = 62, CAP_LINES = 3, CAP_PAD = 16, CAP_W = TEXT_W - 2 * CAP_PAD;
-const SENT_SPLIT = /(?<=[.!?…]["»”)]?)\s+(?=["«“(]?[\p{Lu}\d])/u;
+const SENT_SPLIT = /(?<!(?:^|[\s(])\p{Lu}\.)(?<=[.!?…]["»”)]?)\s+(?=["«“(]?[\p{Lu}\d])/u;   // «İ. Əliyev» inisialı cümlə sonu deyil
 const CONJ = /^(və|amma|lakin|ancaq|çünki|həmçinin|habelə|eləcə|bununla|həm|yaxud|ya|ki)$/u;
 const capLines = s => wrap(s, CAP_SIZE, "medium", CAP_W).length;
 function splitSentence(words, k) {
@@ -333,7 +333,10 @@ async function render(a, out, opt = {}) {
     const cover_s = 1.5;
     const jpg = out.replace(/\.mp4$/i, "") + ".jpg";
     run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", jpg]);
-    const meta = { ...probe(out), cover_s, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title };
+    // kadrlar: önizləmə üçün anlar — başlıq, ilk iki altyazının ortası, sonluq (sosial-video.yml şəkil düzəldir).
+    const mid = ([s, e]) => Math.round((s + e) * 50) / 100;
+    const kadrlar = [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
+    const meta = { ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
     log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"} — ${p.title}`);

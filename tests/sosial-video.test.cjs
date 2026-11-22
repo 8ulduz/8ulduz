@@ -44,6 +44,7 @@ test("video: the explanation is cut at whole sentences; a source's «…» tail 
   assert.ok(b.length <= 360 && b.length > 200 && /\.$/.test(b), "izah ≤ 360 simvol, tam cümlə ilə bitir");
   assert.equal(V.bodyText({ title: "Eyni mətn.", summary: "Eyni mətn." }), "", "başlığın təkrarı izah deyil");
   assert.equal(V.bodyText({ title: "B", text: "İzah  <b>var</b>." }), "İzah var.", "HTML təmizlənir");
+  assert.deepEqual(V.captionChunks("Prezident İ. Əliyev qəbul edib. Görüş Bakıda olub."), ["Prezident İ. Əliyev qəbul edib.", "Görüş Bakıda olub."], "inisial cümləni bölmür");
 });
 
 test("video: timing — reading speed without voice, the voice's own timing with it, never longer than 59 s", () => {
