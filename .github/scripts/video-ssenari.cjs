@@ -18,7 +18,7 @@ const S = require("./social.cjs");
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];   // siyahı alınmasa
 const TEXT_MIN = 350, TEXT_MAX = 750, SOURCE_MAX = 5000, SENT_MIN = 4, SENT_MAX = 8;
-const KLIP_SAY = 5, KLIP_MAX_BYTES = 60e6;
+const KLIP_SAY = 8, KLIP_MAX_BYTES = 60e6;   // 8 klip: ~45 s-lik videoda kadr 3–6 s-dən bir dəyişir (video-xeber.cjs shotPlan)
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -91,8 +91,9 @@ Qaydalar:
 - Rəqəmləri mənbədəki kimi rəqəmlə yaz. Keçid, emoji, nida və sual işarəsi, kiril hərfi yoxdur. «bu gün», «dünən», «sabah» yoxdur.
 - Neytral xəbər dili. Ən vacib fakt birinci cümlədə. Şərh və qiymətləndirmə yoxdur.
 - Adları inisialsız yaz: «Cey. Di. Vens» yox, «ABŞ vitse-prezidenti Vens»; «İ. Əliyev» yox, «İlham Əliyev».
-Videonun fonu üçün 4–6 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz): xəbərin məkanını, mövzusunu, əşyalarını
-göstərən konkret səhnələr, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
+Videonun görüntüsü üçün 6–8 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz) — montaj planı kimi, SIRA İLƏ: birinci
+ifadə xəbərin əsas səhnəsidir (başlıq oxunanda görünür), sonra diktor mətninin hər cümləsinə bir səhnə, cümlələrin sırası ilə.
+Hər ifadə xəbərin məkanını, mövzusunu, əşyalarını göstərən konkret səhnədir, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
 Yer adı varsa onu yaz ("Istanbul Bosphorus", "Baku boulevard"). Bayraq yalnız ölkə adı ilə ("Azerbaijan flag"), "national flags" yox.
 İnsanların xəbərdəki hərəkətini (görüş, əl sıxma, imza, çıxış) göstərən səhnə yazma: tamaşaçı onları xəbərin qəhrəmanı sanar.
 Konkret tanınan insanların adını yazma. Xəbər cinayət, qəza, ölüm, xəstəlik, fəlakət, məhkəmə və ya münaqişə haqqındadırsa, yalnız
@@ -101,7 +102,9 @@ insansız səhnələr seç (bina, yol, polis maşınının işıqları, şəhər
 (ümumi kadr həmin adamları göstərirmiş kimi görünər). Qalan hər xəbər — true: cinayət, qəza, ölüm, yanğın, hadisə, idman, bəyanat, müsahibə,
 iqtisadiyyat, qiymət, hava, təbiət, nəqliyyat, tikinti, texnologiya, müharibənin gedişi. Xəbər konkret bir adam haqqında olsa belə, səhnə
 onu yox, mövzunu göstərir (atışma — "police car lights night", bəyanat sərhəd haqqında — "US Mexico border wall"). Şübhə olanda true.
-Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."]}
+"etiket": postun 3 mövzu etiketi (hashtag), Azərbaycan dilində və ya xəbərdəki xüsusi adla, boşluqsuz, məsələn "futbol", "PremyerLiqa",
+"Qarabağ", "neft", "hava". Partiya, siyasi şüar və təhqir yoxdur.
+Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."], "etiket": ["...", "...", "..."]}
 
 Başlıq: {title}
 Bölmə: {bolme}
@@ -134,7 +137,19 @@ function checkText(text, source, a, policy = () => false) {
   return "";
 }
 
-// Axtarış ifadələri: yalnız latın hərfi, 2–5 söz, ən çox 6, təkrarsız.
+// Mövzu etiketləri (sahib 2026-11-23: «tam professional»; kəşf üçün): «#» atılır, yalnız hərf, rəqəm, «_», 2–30 simvol, ən çox 3,
+// təkrarsız; ümumi etiketlər (#8ulduz #xəbərlər #Azərbaycan) postda onsuz da var. Kiril oxşarı latına çevrilir, qalan kiril atılır.
+function hashtags(list) {
+  const base = new Set(["8ulduz", "xəbərlər", "azərbaycan", "shorts", "video"]), out = [];
+  for (const x of Array.isArray(list) ? list : []) {
+    const t = latin(String(x ?? "")).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "");
+    if (t.length < 2 || t.length > 30 || /[Ѐ-ӿ]/.test(t) || base.has(t.toLocaleLowerCase("az"))) continue;
+    if (!out.some(o => o.toLocaleLowerCase("az") === t.toLocaleLowerCase("az"))) out.push(t);
+  }
+  return out.slice(0, 3);
+}
+
+// Axtarış ifadələri: yalnız latın hərfi, 2–5 söz, ən çox 8 (montaj planı: başlıq + hər cümlə), sıra saxlanır, təkrarsız.
 function queries(list) {
   const out = [];
   for (const q of Array.isArray(list) ? list : []) {
@@ -142,7 +157,7 @@ function queries(list) {
     const n = s.split(" ").length;
     if (s.length >= 3 && s.length <= 60 && n <= 5 && !out.includes(s)) out.push(s);
   }
-  return out.slice(0, 6);
+  return out.slice(0, 8);
 }
 // Gemini olmayanda bölməyə görə ümumi səhnələr (insansız; Pexels-də çox klip olanlar).
 const EHTIYAT = {
@@ -181,7 +196,8 @@ async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch
   const text = latin(clean(j?.text));
   const why = text ? checkText(text, `${source}\n${clean(a.title)}`, a, policy) : "cavab boşdur və ya JSON deyil";
   if (why) { log(`video: Gemini mətni qəbul olunmadı (${why}) — başqa xəbər`); return { uygun: false, sebeb: why }; }
-  return { text, axtar: queries(j?.axtar), uygun: true };
+  const etiket = hashtags(j?.etiket);
+  return { text, axtar: queries(j?.axtar), uygun: true, ...(etiket.length && !policy({ ...a, summary: etiket.join(" ") }) ? { etiket } : {}) };
 }
 
 // --- Görüntü: Pexels və Pixabay ------------------------------------------------------------------------------------------------------------------
@@ -252,38 +268,48 @@ const MENBELER = [
   } },
 ];
 
-// Klipləri <qovluq>/klip-N.mp4-ə yükləyir. Nəticə: [{ file, id, user, q, p (mənbə), w, h }] (bəlkə boş).
-async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "" } = {}) {
+// Klipləri <qovluq>/klip-N.mp4-ə yükləyir. Nəticə montaj sırasıdır: [{ file, id, user, q, p (mənbə), w, h }] (bəlkə boş).
+// i-ci yer Gemini-nin i-ci ifadəsidir (başlıq, sonra cümlələr; video-xeber.cjs shotPlan kadrları bu sıra ilə götürür). İfadəyə
+// uyğun klip tapılmasa yer boş qalmır, sonrakılar sürüşmür: əvvəl ifadələrin ikinci klipi, sonra bölmənin ümumi səhnələri.
+// istifade: son günlərin videolarında işlənmiş kliplər («Pixabay:123») — eyni kadr hər gün təkrarlanmasın (sosial-video.cjs state.klip).
+async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set() } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
   if (!menbeler.length) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
-  // Əvvəl Gemini-nin ifadələri (hər birindən bir klip, çatmırsa ikinci), sonra bölmənin ümumi səhnələri.
   const own = queries(axtar), spare = ehtiyat({ category }).filter(q => !own.includes(q));
-  const rounds = own.length ? [own, own, spare] : [spare, spare];
-  const got = [], seen = new Set();
-  for (const list of rounds) {
-    for (const q of list) {
-      if (got.length >= say) break;
-      for (const m of menbeler) {
-        const c = (await m.find(q, env[m.env], f)).find(x => !seen.has(`${m.name}:${x.id}`));
-        if (!c) continue;
+  const found = new Map(), seen = new Set(istifade);
+  let n = 0;
+  const take = async q => {
+    for (const m of menbeler) {
+      const key = `${m.name}|${q}`;
+      if (!found.has(key)) found.set(key, await m.find(q, env[m.env], f));   // ifadə bir dəfə soruşulur
+      for (const c of found.get(key)) {
+        if (seen.has(`${m.name}:${c.id}`)) continue;
         seen.add(`${m.name}:${c.id}`);
         try {
           const r = await f(c.link, { signal: AbortSignal.timeout(90000) });
           const buf = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
           if (!buf || buf.length < 10000 || buf.length > KLIP_MAX_BYTES) continue;
-          const name = `klip-${got.length + 1}.mp4`;
+          const name = `klip-${++n}.mp4`;
           fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(path.join(dir, name), buf);
-          got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h });
-          log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
-          break;
+          log(`video: görüntü ${n} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
+          return { file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h };
         } catch {}
       }
     }
-    if (got.length >= say) break;
+    return null;
+  };
+  const slots = [];
+  for (const q of (own.length ? own : spare).slice(0, say)) slots.push(await take(q));
+  for (const q of [...own, ...spare, ...spare]) {
+    const free = slots.indexOf(null);
+    if (free < 0 && slots.length >= say) break;
+    const c = await take(q);
+    if (c) { if (free >= 0) slots[free] = c; else slots.push(c); }
   }
+  const got = slots.filter(Boolean);
   if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən klip alınmadı — görüntüsüz (köhnə fon)`);
   return got;
 }
 
-module.exports = { ssenari, goruntu, protokol, relevance, latin, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, goruntu, protokol, relevance, latin, hashtags, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

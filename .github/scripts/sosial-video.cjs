@@ -42,7 +42,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -87,13 +87,14 @@ function entry(a, text, cats = []) {
     source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt, alts: (a.alts || []).map(x => ({ source: x?.source })), link: S.shareUrl(a) };
 }
 
-const tag = "#8ulduz #xəbərlər #Azərbaycan";
+// Mövzu etiketləri (Gemini, video-ssenari.cjs hashtags) əvvəl, sonra ümumilər.
+const tag = x => [...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#xəbərlər", "#Azərbaycan"].join(" ");
 // Facebook: keçid basılır — postun mətnində saytdakı xəbər (paylaşma səhifəsi: önizləmə + saytda açılır).
 // Pexels və Pixabay xahişi: görüntünün haradan olduğunu göstərin.
 const credit = x => (x.goruntu?.length ? `\n\nGörüntü: ${x.goruntuMenbe || "Pexels"}` : "");
-const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag}`;
+const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag(x)}`;
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
-const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag} #video`;
+const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag(x)} #video`;
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const SECIM_MAX = 4;
@@ -221,12 +222,17 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   }
   if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
   fs.mkdirSync(dir, { recursive: true });
-  const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category });
-  const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}),
+  // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
+  const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})) });
+  const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
     ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
       goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
-  if (post) { const t = Math.floor(now / 1000); state.v[x.id] = t; state._last = t; }
+  if (post) {
+    const t = Math.floor(now / 1000);
+    state.v[x.id] = t; state._last = t;
+    for (const k of klip) (state.klip ||= {})[`${k.p}:${k.id}`] = t;
+  }
   log(`video: seçildi — ${x.title} (${x.link})`);
   output("hazir", "1");
   return x;

@@ -120,6 +120,21 @@ function captionChunks(body) {
   });
 }
 
+// Sözlərin səsdəki vaxtı [söz, başlanğıc, son]: səs modeli hissənin [s, e] vaxtını verir, hissənin içində söz vaxtı tələffüzün
+// uzunluğu ilə bölünür — hərf sayı; rəqəm sözlə oxunur («2026» → «iki min iyirmi altı», hər rəqəm ~4 hərf); «ABŞ» kimi qısaltma
+// hərf-hərf oxunur (ikiqat); vergüldən və nöqtədən sonrakı fasilə həmin sözün payıdır (söz fasilədə seçili qalır).
+function wordTimes(text, s, e) {
+  const words = clean(text).split(" ").filter(Boolean);
+  const wt = words.map(w => {
+    const letters = (w.match(/\p{L}/gu) || []).length, digits = (w.match(/\d/g) || []).length;
+    const caps = /^\p{Lu}{2,}/u.test(w.replace(/[^\p{L}]/gu, "")) ? letters : 0;
+    return 1 + letters + caps + digits * 4 + (/[,;:–]$/.test(w) ? 3 : /[.!?…]["»”)]?$/.test(w) ? 4 : 0);
+  });
+  const total = wt.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0;
+  return words.map((w, i) => { const a = s + (e - s) * acc / total; acc += wt[i]; return [w, a, s + (e - s) * acc / total]; });
+}
+
 // İzah: yalnız tam cümlələr, BODY_MAX simvola qədər (ən azı bir cümlə). Mənbənin kəsdiyi xülasə («…») sona qədər getmir.
 function bodyText(a) {
   const src = clean(a.text || "") || clean(a.summary || "");
@@ -252,9 +267,17 @@ function ass(p, tl) {
   // Altyazılar: tünd fonda başlığın altında (başlığın hündürlüyünə görə), görüntülü videoda aşağıda; səslə eyni anda.
   const capY = p.footage ? LF.capY : Math.min(L.capMaxY, Math.max(L.capMinY, L.headY + p.head.lines.length * p.head.size + 64));
   // Hər altyazı növbətisi başlayanda (sonuncu — sonluq başlayanda) çəkilir: səsli videoda hissələr bitişikdir, üst-üstə düşməsinlər.
+  // Deyilən söz narıncı yanır, deyilmiş söz yenə ağ olur (Reels/Shorts altyazısı; sahib 2026-11-23: «tam professional»):
+  // hər sözün öz \t keçidi var, vaxt sətrin başlanğıcından ms ilə (wordTimes). Qutunun ölçüsü dəyişmir: yalnız rəng.
+  const white = assColor(COLOR.white), lit = assColor(COLOR.orange), ms = x => Math.max(0, Math.round(x * 1000));
   tl.chunks.forEach((c, i) => {
-    const lines = wrap(c.text, CAP_SIZE, "medium", CAP_W).map(assText);
     const until = i + 1 < tl.chunks.length ? tl.chunks[i + 1].at[0] : out;
+    const times = wordTimes(c.text, c.at[0], c.at[1]);
+    let k = 0;
+    const lines = wrap(c.text, CAP_SIZE, "medium", CAP_W).map(line => line.split(" ").filter(Boolean).map(w => {
+      const [, a, b] = times[k++] || [w, c.at[0], c.at[1]], t1 = ms(a - c.at[0]), t2 = ms(b - c.at[0]);
+      return `{\\1c${white}\\t(${t1},${t1 + 60},\\1c${lit})\\t(${t2},${t2 + 60},\\1c${white})}${assText(w)}`;
+    }).join(" "));
     dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + CAP_PAD},${capY + CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
   });
   // Sonluq.
@@ -273,17 +296,43 @@ const logoY = () => L.barY + Math.round((L.barH - L.logoH) / 2);
 const logoW = () => Math.round(LOGO.w * L.logoH / LOGO.h);
 
 // ffmpeg arqumentləri. Yazılar RGB-də çəkilir (narıncı-göy kənarları yuv420-də yayılmasın), sonda yuv420p.
-// Fon klipləri bərabər hissələrə bölünür (hər biri ən azı KLIP_MIN_S); qısa klip dövrə vurur (-stream_loop), uzunu kəsilir.
-// Klip: fayl yolu və ya { file, w, h }. Ölçü məlumdursa və klip şaquli deyilsə (en/hündürlük > KLIP_SAQULI) — «sığdırma»: klip
+// Kadr planı (sahib, 2026-11-23: «tam professional kimi işlə»): kəsim danışığın sərhədindədir — başlıq oxunanda bir kadr, sonra hər
+// altyazı hissəsi bir kadr, sonluq sonuncunun davamı. Xəbər montajında kadr 3–6 s-dir; əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
+// SHOT_MIN-dən qısa hissə qonşusuna birləşir, SHOT_MAX-dan uzunu bərabər bölünür. Kliplər sıra ilə gedir (Gemini-nin ifadələri
+// diktor mətninin cümlə sırasındadır): çatmasa təkrarlanır, təkrarda klipin işlənməmiş yerindən (ss) — eyni kadr iki dəfə görünməsin.
+// Klip: fayl yolu və ya { file, w, h, dur }. Ölçü məlumdursa və klip şaquli deyilsə (en/hündürlük > KLIP_SAQULI) — «sığdırma»: klip
 // tam enində ortada, arxada onun bulanıq nüsxəsi. Üfüqi 1920×1080 klipi 9:16-ya kəsmək həm mövzunu atır (sarayın yerinə göy
 // qalır), həm də 1,8 dəfə böyüdüb bulanıqlaşdırır (2026-11-22 nümunə videosu).
-const KLIP_MIN_S = 4, KLIP_SAQULI = 0.8, KLIP_Y = 740;
-function clipPlan(clips, duration) {
-  const n = Math.max(0, Math.min(clips.length, Math.floor(duration / KLIP_MIN_S)));
-  if (!n) return [];
-  const seg = Math.round(duration / n * 100) / 100;
-  return clips.slice(0, n).map((c, i) => ({ ...(typeof c === "string" ? { file: c } : c),
-    d: i < n - 1 ? seg : Math.round((duration - seg * (n - 1)) * 100) / 100 }));
+const SHOT_MIN = 2.6, SHOT_MAX = 6.5, KLIP_SAQULI = 0.8, KLIP_Y = 740;
+const r2 = x => Math.round(x * 100) / 100;
+function shotBounds(tl) {
+  const D = tl.duration, b = [0];
+  for (const c of tl.chunks || []) if (c.at[0] > b[b.length - 1] + 0.01 && c.at[0] < D - 0.01) b.push(c.at[0]);
+  b.push(D);
+  let seg = b.slice(1).map((e, i) => [b[i], e]);
+  // Qısa hissə: əvvəlkinə (birincidirsə növbətiyə) birləşir.
+  for (let i = 0; i < seg.length && seg.length > 1;) {
+    if (seg[i][1] - seg[i][0] >= SHOT_MIN) { i++; continue; }
+    if (i > 0) { seg[i - 1][1] = seg[i][1]; seg.splice(i, 1); } else { seg[1][0] = seg[0][0]; seg.splice(0, 1); }
+  }
+  // Uzun hissə: bərabər bölünür (altyazısız fasilə, sonluq).
+  seg = seg.flatMap(([s, e]) => { const n = Math.ceil((e - s) / SHOT_MAX - 1e-9); return Array.from({ length: n }, (_, k) => [s + (e - s) * k / n, s + (e - s) * (k + 1) / n]); });
+  return seg;
+}
+function shotPlan(clips, tl) {
+  const list = clips.map(c => (typeof c === "string" ? { file: c } : c));
+  if (!list.length) return [];
+  const seg = shotBounds(tl), used = list.map(() => 0);
+  let t = 0;
+  return seg.map(([s, e], k) => {
+    const d = k === seg.length - 1 ? r2(tl.duration - t) : r2(e - s);
+    t = r2(t + d);
+    const i = k % list.length, c = list[i];
+    // Təkrarda klipin işlənməmiş yerindən; uzunluğu bilinmirsə və ya qalan yer çatmırsa — əvvəldən (-stream_loop dövrə vurur).
+    const ss = c.dur > 0 && used[i] + d <= c.dur - 0.2 ? r2(used[i]) : 0;
+    used[i] = ss + d;
+    return { ...c, d, ss };
+  });
 }
 const fitsWide = c => c.w > 0 && c.h > 0 && c.w / c.h > KLIP_SAQULI;
 function clipFilter(c, i) {
@@ -297,12 +346,12 @@ function clipFilter(c, i) {
 
 function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [] }) {
   const D = tl.duration.toFixed(2);
-  const plan = clipPlan(clips, tl.duration);
+  const plan = shotPlan(clips, tl);
   const args = ["-hide_banner", "-loglevel", "error", "-y"];
   let bg;
   if (plan.length) {
     // Şaquli klip 9:16-ya doldurulur, üfüqi tam enində sığdırılır (clipFilter); 30 kadr/s, bir az tündləşdirilir (yazı oxunsun).
-    plan.forEach(c => args.push("-stream_loop", "-1", "-t", c.d.toFixed(2), "-i", c.file));
+    plan.forEach(c => args.push("-stream_loop", "-1", ...(c.ss > 0 ? ["-ss", c.ss.toFixed(2)] : []), "-t", c.d.toFixed(2), "-i", c.file));
     bg = plan.map(clipFilter).join(";")
       + `;${plan.map((_, i) => `[c${i}]`).join("")}concat=n=${plan.length}:v=1:a=0,eq=brightness=-0.04:saturation=0.95,trim=duration=${D},format=rgb24`;
   } else {
@@ -362,7 +411,8 @@ function voice(p, dir, log) {
 function storyFields(a) {
   const text = clean(a.text || "") || clean(a.summary || "");
   return { id: a.id, own: true, title: clean(a.title), summary: clean(a.summary || ""), text, source: a.source || "", sourceUrl: a.sourceUrl || "",
-    category: a.category || "", lang: a.lang || "az", publishedAt: a.publishedAt || "" };
+    category: a.category || "", lang: a.lang || "az", publishedAt: a.publishedAt || "",
+    ...(Array.isArray(a.hashtags) && a.hashtags.length ? { hashtags: a.hashtags.slice(0, 3) } : {}) };   // YouTube/TikTok yükləyicisi oxuyur
 }
 
 function probe(file) {
@@ -386,7 +436,7 @@ async function render(a, out, opt = {}) {
   // Fon klipləri (video-ssenari.cjs goruntu()): çıxış qovluğuna görə yol; olmayan fayl atılır.
   // Ölçü ffprobe ilə oxunur (üfüqi klip sığdırılır, clipFilter); oxunmasa klip doldurulur.
   const clips = (Array.isArray(a.klipler) ? a.klipler : []).map(f => path.resolve(opt.base || path.dirname(out), String(f))).filter(f => fs.existsSync(f))
-    .map(file => { try { const m = probe(file); return { file, w: m.width || 0, h: m.height || 0 }; } catch { return { file }; } });
+    .map(file => { try { const m = probe(file); return { file, w: m.width || 0, h: m.height || 0, dur: m.duration || 0 }; } catch { return { file }; } });
   const menbe = clean(a.goruntuMenbe) || "Pexels";
   const p = prepare(a, { cats, footage: clips.length > 0 });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-xeber-"));
@@ -404,17 +454,17 @@ async function render(a, out, opt = {}) {
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100;
     const kadrlar = [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
     const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title,
-      ...(clips.length ? { goruntu: menbe, klip: clipPlan(clips, tl.duration).length, sigdirilan: clipPlan(clips, tl.duration).filter(fitsWide).length } : {}) };
+      ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, sigdirilan: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
-    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"}, ${clips.length ? `${meta.klip} görüntü (${menbe}; ${meta.sigdirilan} üfüqi sığdırıldı)` : "görüntüsüz"} — ${p.title}`);
+    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.sigdirilan} kadr üfüqi, sığdırıldı)` : "görüntüsüz"} — ${p.title}`);
     return meta;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 
-module.exports = { render, prepare, timeline, ass, ffmpegArgs, clipPlan, clipFilter, KLIP_Y, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
+module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, KLIP_Y, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR };
 
 if (require.main === module) {

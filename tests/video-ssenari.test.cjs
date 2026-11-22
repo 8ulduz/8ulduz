@@ -198,11 +198,12 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   }
   const args = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: "ses.wav", out: "o.mp4", clips: ["a.mp4", "b.mp4", "c.mp4"] });
   const inputs = args.filter((x, i) => args[i - 1] === "-i");
-  assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "L.png", "ses.wav"]);
-  assert.equal(args.filter(x => x === "-stream_loop").length, 3, "qısa klip dövrə vurur");
+  // 25 s-lik nümunədə 5 kadr (başlıq + altyazılar), 3 klip: sıra ilə, sonra təkrar.
+  assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "a.mp4", "b.mp4", "L.png", "ses.wav"]);
+  assert.equal(args.filter(x => x === "-stream_loop").length, 5, "qısa klip dövrə vurur");
   const fc = args[args.indexOf("-filter_complex") + 1];
   assert.match(fc, /\[0:v\][^;]*scale=1080:1920:force_original_aspect_ratio=increase[^;]*crop=1080:1920/);
-  assert.match(fc, /\[c0\]\[c1\]\[c2\]concat=n=3:v=1:a=0/);
+  assert.match(fc, /\[c0\]\[c1\]\[c2\]\[c3\]\[c4\]concat=n=5:v=1:a=0/);
   // Ölçüsü məlum üfüqi klip kəsilmir: tam enində (1080×608) KLIP_Y-də, arxada bulanıq nüsxəsi; şaquli klip ekranı doldurur.
   const mixed = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
     clips: [{ file: "a.mp4", w: 1920, h: 1080 }, { file: "b.mp4", w: 1080, h: 1920 }, "c.mp4"] });
@@ -213,14 +214,78 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   assert.match(mf, /\[1:v\][^;]*crop=1080:1920,setsar=1\[c1\]/);
   assert.match(mf, /\[2:v\][^;]*crop=1080:1920,setsar=1\[c2\]/, "ölçü bilinmirsə əvvəlki kimi doldurulur");
   assert.ok(V.KLIP_Y + 608 <= 1920 && V.KLIP_Y >= 732, "klip başlıq zolağının altından başlayır");
-  assert.match(fc, /\[3:v\]scale=-1:80/, "loqo klipdən sonrakı girişdir");
-  assert.match(fc, /\[4:a\]/, "səs loqodan sonrakı girişdir");
-  const plan = V.clipPlan(["a", "b", "c", "d", "e"], 14);
-  assert.equal(plan.length, 3, "hər klip ən azı 4 s");
-  assert.ok(Math.abs(plan.reduce((s, c) => s + c.d, 0) - 14) < 0.02, "hissələr videonun uzunluğunu tam örtür");
+  assert.match(fc, /\[5:v\]scale=-1:80/, "loqo kadrlardan sonrakı girişdir");
+  assert.match(fc, /\[6:a\]/, "səs loqodan sonrakı girişdir");
   // Kliplər olmadan əvvəlki kimi: rəngli fon, loqo [1], səs [2].
   const plain = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4" });
   assert.match(plain[plain.indexOf("-filter_complex") + 1], /^\[0:v\]format=rgb24,ass=v\.ass\[t\];\[1:v\]scale[\s\S]*\[2:a\]aformat/);
+});
+
+test("goruntu: clips keep the edit order (query i → shot i); a query with no clip is filled in place; clips used in recent videos are skipped", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-sira-"));
+  const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1080, height: 1920, size: 5e6 } } });
+  const db = { "oil pump jack": [hit(1, "oil, pump, jack"), hit(2, "oil, pump, jack, field")], "gas price board": [],
+    "tanker ship sea": [hit(3, "tanker, ship, sea")], "business district skyline": [hit(9, "business, district, skyline")] };
+  const asked = [];
+  const f = async (u) => {
+    if (u.startsWith("https://pixabay.com/api/videos/")) { const q = new URL(u).searchParams.get("q"); asked.push(q); return { ok: true, json: async () => ({ hits: db[q] || [] }) }; }
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const got = await VS.goruntu(["oil pump jack", "gas price board", "tanker ship sea"], dir,
+    { env: { PIXABAY_API_KEY: "k" }, fetch: f, log: quiet, say: 3, category: "iqtisadiyyat", istifade: new Set(["Pixabay:1"]) });
+  assert.deepEqual(got.map(g => [g.q, g.id]), [["oil pump jack", 2], ["business district skyline", 9], ["tanker ship sea", 3]],
+    "işlənmiş klip (1) atılır; «gas price board»-un yeri ehtiyat səhnə ilə dolur, «tanker» öz yerində qalır");
+  assert.equal(asked.filter(q => q === "oil pump jack").length, 1, "ifadə bir dəfə soruşulur");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("hashtags: Gemini's topic tags are cleaned (no «#», spaces, Cyrillic, duplicates of the house tags) and reach every post text and video.json", () => {
+  assert.deepEqual(VS.hashtags(["#futbol", "Premyer Liqa", "#Qarabağ", "8ulduz", "Футбол", "#Futbol", "x"]), ["futbol", "PremyerLiqa", "Qarabağ"]);
+  assert.deepEqual(VS.hashtags("futbol"), [], "siyahı deyilsə boş");
+  const x = { title: "Başlıq", text: "Mətn.", link: "https://www.8ulduz.az/a?h=1", hashtags: ["futbol", "Qarabağ"] };
+  assert.match(SV.fbText(x), /#futbol #Qarabağ #8ulduz #xəbərlər #Azərbaycan$/);
+  assert.match(SV.igText(x), /#futbol #Qarabağ #8ulduz #xəbərlər #Azərbaycan #video$/);
+  assert.match(SV.fbText({ ...x, hashtags: undefined }), /\n\n#8ulduz #xəbərlər #Azərbaycan$/, "etiket yoxdursa əvvəlki kimi");
+  assert.deepEqual(V.storyFields({ ...fixture, hashtags: ["futbol", "Qarabağ"] }).hashtags, ["futbol", "Qarabağ"], "YouTube/TikTok video.json-dan oxuyur");
+  assert.equal(V.storyFields(fixture).hashtags, undefined);
+  assert.match(VS.PROMPT, /"etiket"/);
+});
+
+test("video: shots cut where the narration moves on (headline, then each caption), 2.6–6.5 s each; reused clips continue from an unused part", () => {
+  const t = { duration: 40, chunks: [[4, 8.5], [8.7, 10], [10.2, 16], [16.2, 25.5], [25.7, 35]].map(at => ({ text: "x", at })), outro: [35.3, 40] };
+  const b = V.shotBounds(t);
+  assert.ok(b.every(([s, e]) => e - s >= 2.6 - 1e-9 && e - s <= 6.5 + 1e-9), JSON.stringify(b));
+  assert.deepEqual(b.slice(0, 2).map(x => x.map(v => Math.round(v * 10) / 10)), [[0, 4], [4, 10.2]], "kəsim danışığın sərhədində; 1,3 s-lik hissə əvvəlkinə birləşir");
+  assert.ok(b.some(([s]) => Math.abs(s - 16.2) < 1e-6) && b.some(([s]) => Math.abs(s - 25.7) < 1e-6), "hər yeni altyazıda yeni kadr");
+  const plan = V.shotPlan([{ file: "a", dur: 30 }, { file: "b", dur: 5 }, { file: "c" }], t);
+  assert.ok(Math.abs(plan.reduce((x, c) => x + c.d, 0) - 40) < 0.011, "kadrlar videonu tam örtür");
+  assert.deepEqual(plan.slice(0, 4).map(c => c.file), ["a", "b", "c", "a"], "kliplər sıra ilə (montaj planı)");
+  assert.equal(plan[3].ss, plan[0].d, "a ikinci dəfə işlənməmiş yerindən");
+  assert.equal(plan.filter(c => c.file === "b")[1]?.ss ?? 0, 0, "qısa klipdə yer qalmayıbsa əvvəldən");
+  assert.equal(plan.find(c => c.file === "c").ss, 0, "uzunluğu bilinməyən klip əvvəldən");
+  const args = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", dur: 30 }] });
+  const p1 = V.shotPlan([{ file: "a.mp4", dur: 30 }], t);
+  assert.ok(args.join(" ").includes(`-stream_loop -1 -ss ${p1[1].ss.toFixed(2)} -t ${p1[1].d.toFixed(2)} -i a.mp4`), "ikinci kadr klipin davamından");
+});
+
+test("video: the spoken word lights up orange in the caption, then turns white again; timing follows letters, numbers and pauses", () => {
+  const w = V.wordTimes("ABŞ 2026-cı ildə, Bakıda.", 1, 5);
+  assert.deepEqual(w.map(x => x[0]), ["ABŞ", "2026-cı", "ildə,", "Bakıda."]);
+  assert.equal(w[0][1], 1);
+  assert.ok(Math.abs(w[3][2] - 5) < 1e-9, "hissənin vaxtını tam örtür");
+  const len = i => w[i][2] - w[i][1];
+  assert.ok(len(1) > len(3), "rəqəm sözlə oxunur, uzun çəkir");
+  assert.ok(len(0) > len(2) * 0.8, "qısaltma hərf-hərf oxunur");
+  const p = V.prepare(fixture, { cats, footage: true }), t = V.timeline(p, null);
+  const caps = V.ass(p, t).split("\n").filter(l => l.startsWith("Dialogue: 4,"));
+  assert.equal(caps.length, t.chunks.length);
+  for (const [i, l] of caps.entries()) {
+    const words = t.chunks[i].text.split(" ").filter(Boolean).length;
+    assert.equal((l.match(/\\t\(\d+,\d+,\\1c&H0AA3F5&\)/g) || []).length, words, "hər söz bir dəfə narıncı olur");
+    assert.equal((l.match(/\\t\(\d+,\d+,\\1c&HFFFFFF&\)/g) || []).length, words, "və yenə ağ olur");
+  }
+  assert.equal(caps[0].match(/\\t\((\d+),/)[1], "0", "ilk söz hissə başlayanda yanır");
 });
 
 test("sosial-video: the chosen story gets the Gemini script and Pexels clips in xeber.json; post texts credit Pexels", async () => {
