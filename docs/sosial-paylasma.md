@@ -58,6 +58,10 @@ X API-də yazma ödənişli ola bilər; qiyməti developer portalında yoxlayın
 
 LinkedIn şəxsi tokeni 60 gün işləyir, sonra yenilənməlidir.
 
+## YouTube
+
+Ayrıca iş axınıdır (`youtube.yml`, `youtube.cjs`): öz video xəbərlərimiz YouTube Shorts-da, kanal, açarlar və qoşulma — [youtube.md](youtube.md).
+
 ## Tənzimləmə (Variables, istəyə bağlı)
 
 - `SOCIAL_MIN_SOURCES`: neçə mənbə yazanda paylaşılsın (standart 4). Az yazsanız, post çoxalır.

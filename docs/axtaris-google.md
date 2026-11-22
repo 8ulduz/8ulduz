@@ -74,3 +74,7 @@ Hər gün Bakı vaxtı ilə **09:00**-da və **19:00**-da `updater.write_digest`
 - `social.cjs` buraxılışı Telegram-a və Facebook-a nömrəli siyahı və icmal linki ilə göndərir.
 - 18 dəqiqəlik fasiləni gözləmir.
 - 4 saatdan köhnə buraxılış göndərilmir.
+
+## Video: YouTube Shorts (2026-11-22)
+
+Videolent Google-da indekslənmir: `#/videolent?r=` ayrıca səhifə deyil, başqasının X videosundan qurulan səhifələr isə spam qaydasına düşür. Video nəticələrinə yol öz videolarımızın YouTube Shorts-da olmasıdır. Yükləyici, qaydalar və sahibin addımları: [youtube.md](youtube.md).
