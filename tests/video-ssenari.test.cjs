@@ -34,6 +34,10 @@ test("ssenari: the narration is checked — every number from the source, no Cyr
   assert.match(VS.checkText(three, SOURCE, a), /cümlə sayı 3/);
   assert.match(VS.checkText(GOOD, SOURCE, a, () => "qadağan"), /qaydasından keçmir/);
   assert.equal(VS.checkText(GOOD.replace("3600", "3 600").replace("45,5", "45.5"), SOURCE.replace("3600", "3 600"), a), "", "minlik boşluğu və onluq vergül/nöqtə eyni rəqəmdir");
+  // 2026-11-23: mənbədə «XII turunda», mətndə «12-ci tur» — eyni rəqəmdir.
+  assert.equal(VS.checkText(GOOD.replace("Məktəblər yeni", "Bu, 17-ci layihədir. Məktəblər yeni"), SOURCE + " Layihə XVII mərhələdir.", a), "");
+  assert.match(VS.checkText(GOOD.replace("Məktəblər yeni", "Bu, 17-ci layihədir. Məktəblər yeni"), SOURCE, a), /mənbədə olmayan rəqəm: 17/);
+  assert.deepEqual(["XII", "IV", "XL", "IIII", "VX"].map(VS.roman), [12, 4, 40, 0, 0]);
   // 2026-11-22 nümunə videosu: «Cey. Di. Vensin» altyazıda üç hissəyə bölündü, «Di.» ekranda tək qaldı.
   assert.match(VS.checkText(GOOD.replace("Məktəblər yeni", "Cey. Di. Vens bildirib ki, məktəblər yeni"), SOURCE, a), /inisial/);
   assert.equal(VS.checkText(GOOD.replace("Məktəblər yeni", "ABŞ vitse-prezidenti Vens bildirib ki, məktəblər yeni"), SOURCE, a), "");
@@ -309,6 +313,7 @@ test("goruntu: the picture editor (Gemini) reads the story and every candidate's
   assert.deepEqual(got.map(g => g.id), [4, 2], "redaktorun sırası; 99 (yoxdur) və təkrar atılır; Poznan və divan seçilmir");
   assert.deepEqual(downloads, ["https://cdn.pixabay.com/4.mp4", "https://cdn.pixabay.com/2.mp4"], "yalnız seçilən klip yüklənir");
   assert.match(prompt, /montaj redaktorusan/);
+  assert.match(VS.REDAKTOR, /əhvalı xəbərə uyğun/, "partlayış xəbərinə yelkənli qayıq, gün batımı düşmüşdü");
   assert.match(prompt, /1\. «football fans stadium» — fans, stadium, football, lech poznan, poznan/, "Gemini etiketləri görür");
   assert.match(prompt, /Yer: Ganja, Azerbaijan/);
   assert.match(prompt, /Diktor mətni: Gəncə stadionunda/);

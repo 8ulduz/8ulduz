@@ -124,6 +124,14 @@ const latin = s => String(s).replace(/[әӘөӨүҮһҺғҒаеорсухіјА�
 // Diktor mətninin yoxlanması. Səbəb (sətir) və ya "" — keçdi.
 const NUM = /\d+(?:[.,]\d+)*/g;
 const normNum = s => s.replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".");
+// Rum rəqəmi (I–LXXXIX) → ədəd; düzgün yazılmayıbsa 0.
+function roman(s) {
+  const v = { I: 1, V: 5, X: 10, L: 50 };
+  let n = 0;
+  for (let i = 0; i < s.length; i++) n += v[s[i]] < (v[s[i + 1]] || 0) ? -v[s[i]] : v[s[i]];
+  const back = x => [["L", 50], ["XL", 40], ["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1]].reduce((acc, [r, k]) => { while (x >= k) { acc += r; x -= k; } return acc; }, "");
+  return n > 0 && back(n) === s ? n : 0;
+}
 function checkText(text, source, a, policy = () => false) {
   if (text.length < TEXT_MIN || text.length > TEXT_MAX) return `uzunluq ${text.length} (${TEXT_MIN}–${TEXT_MAX})`;
   // «Cey. Di. Vens»: altyazı hər nöqtədə bölünür, «Di.» ekranda tək qalır (2026-11-22 nümunə videosu).
@@ -134,7 +142,8 @@ function checkText(text, source, a, policy = () => false) {
   if (/https?:|www\.|[!?]/.test(text)) return "keçid, nida və ya sual";
   if (/\b(bu gün|dünən|sabah)\b/i.test(text)) return "nisbi gün sözü";
   if (!/[əğışçöüƏĞŞÇÖÜİ]/.test(text)) return "Azərbaycan dilində deyil";
-  const have = new Set((source.match(NUM) || []).map(normNum));
+  // Mənbədəki rum rəqəmi də rəqəmdir: «XII turunda» → «12-ci tur» (2026-11-23: lite model belə yazdı, mətn rədd olunmuşdu).
+  const have = new Set([...(source.match(NUM) || []).map(normNum), ...(source.match(/\b[IVXL]{1,7}\b/g) || []).map(roman).filter(Boolean).map(String)]);
   const extra = (text.match(NUM) || []).map(normNum).filter(n => !have.has(n));
   if (extra.length) return `mənbədə olmayan rəqəm: ${extra.slice(0, 3).join(", ")}`;
   if (policy({ ...a, summary: text })) return "saytın qaydasından keçmir";
@@ -404,6 +413,8 @@ Qaydalar:
   güllə izi əvəzinə tikinti, futbol əvəzinə uşaq oyunu).
 - Xəbərin yeri olmayan konkret yeri — başqa şəhəri, ölkəni, stadionu, klubu, komandanı, brendi — göstərən klipi SEÇMƏ
   (məsələn Gəncə xəbərinə "lech poznan", "batumi", "barcelona"). Etiketində heç bir yer olmayan ümumi klip olar.
+- Klipin əhvalı xəbərə uyğun olmalıdır: partlayış, qəza, müharibə, cinayət, ölüm, fəlakət xəbərində istirahət, turizm, bayram,
+  romantika klipini (yelkənli qayıq, çimərlik, gün batımı, "holiday", "peaceful", "tropical") SEÇMƏ.
 - Cinayət, qəza, ölüm xəbərində tanınan insan üzü olan klipi seçmə.
 - Uyğun klip azdırsa az seç: yanlış kadr qoymaqdansa klipin təkrarı yaxşıdır. Heç biri uyğun deyilsə boş siyahı.
 Yalnız JSON qaytar: {"klip": [nömrələr]}
@@ -427,4 +438,4 @@ async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.f
   return idx.map(k => cand[k - 1]);
 }
 
-module.exports = { ssenari, goruntu, redaktor, REDAKTOR, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, goruntu, redaktor, REDAKTOR, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
