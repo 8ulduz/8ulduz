@@ -1,0 +1,126 @@
+name: YouTube Shorts
+# Öz hazırladığımız video xəbərlər 8ulduz-un YouTube kanalına (2026-11-22): məqsəd Google axtarışının video nəticələri.
+# Qaydalar: .github/scripts/youtube.cjs, qurulum: docs/youtube.md. Xəbər axınından (update.yml) ayrıdır: main-ə yazmır, sayta heç nə
+# əlavə etmir; düşsə də lent yenilənir. Açar yoxdursa iş sakitcə ötürür. Video faylını bu iş hazırlamır — video modulu
+# (docs/youtube.md «Video modulu ilə qoşulma»). X videoları (data/reels.json) buraya heç vaxt gəlmir.
+
+on:
+  # Video modulu (sosial-video.yml «youtube» işi) videonu «video-xeber» artefaktı kimi yükləyib bu işi çağırır.
+  workflow_call:
+    inputs:
+      artifact:
+        description: 'Videoların artifact adı (<ad>.mp4 + <ad>.json cütləri)'
+        type: string
+        required: true
+    # Çağıran (sosial-video.yml) yalnız YouTube sirlərini verir: Facebook və TikTok açarı bu işə getmir.
+    secrets:
+      YOUTUBE_CLIENT_ID:
+        required: false
+      YOUTUBE_CLIENT_SECRET:
+        required: false
+      YOUTUBE_REFRESH_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      emr:
+        description: 'yoxla — açarlar və kanal (heç nə yüklənmir); sinaq — 6 saniyəlik sınaq videosu gizli (private) yüklənir'
+        type: choice
+        options: [yoxla, sinaq]
+        default: yoxla
+  # PR yoxlaması: ffmpeg ilə əsl 9:16 video hazırlanır, yükləyici onu testdəki saxta YouTube-a göndərir. Açar və şəbəkə yoxdur.
+  pull_request:
+    paths:
+      - .github/scripts/youtube.cjs
+      - .github/workflows/youtube.yml
+      - tests/youtube.test.cjs
+
+permissions:
+  contents: read
+
+jobs:
+  sinaq-video:
+    if: github.event_name == 'pull_request' && inputs.artifact == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+      - name: ffmpeg
+        run: command -v ffmpeg >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg fonts-dejavu-core; }
+      - name: Sınaq videosu (1080×1920, yuxarıda «8ulduz.az»)
+        run: |
+          node .github/scripts/youtube.cjs sinaq "$RUNNER_TEMP/video"
+          ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate:format=duration,size:format_tags=comment -of compact "$RUNNER_TEMP"/video/*.mp4
+      - name: Yükləyici əsl videonu göndərir (saxta YouTube)
+        env:
+          YOUTUBE_TEST_DIR: ${{ runner.temp }}/video
+        run: node --test tests/youtube.test.cjs
+
+  post:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Eyni video iki dəfə getməsin: iki iş eyni anda siyahını oxuyub yazmasın.
+    concurrency:
+      group: youtube
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/youtube.cjs
+            .github/scripts/topics.cjs
+            assets/app.js
+            assets/content-policy.js
+            data/reels.json
+          sparse-checkout-cone-mode: false
+      - name: Yüklənənlərin siyahısı
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .youtube
+          key: youtube-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: youtube-state-
+      - name: Açarları yoxla
+        if: inputs.emr == 'yoxla'
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: node .github/scripts/youtube.cjs yoxla
+      - name: Sınaq videosu
+        if: inputs.emr == 'sinaq'
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg fonts-dejavu-core; }
+          node .github/scripts/youtube.cjs sinaq youtube-in
+      - name: Videonu al
+        if: inputs.artifact != ''
+        continue-on-error: true
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: ${{ inputs.artifact }}
+          path: youtube-in
+      - name: Yüklə
+        # Çağıran iş (video modulu) əl ilə başladılsa da github.event_name workflow_dispatch olur: ayırd edən inputs-dur.
+        if: ${{ !cancelled() && (inputs.artifact != '' || inputs.emr == 'sinaq') }}
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE: ${{ vars.YOUTUBE }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          YOUTUBE_MAX_DAY: ${{ vars.YOUTUBE_MAX_DAY }}
+          YOUTUBE_MIN_GAP_MIN: ${{ vars.YOUTUBE_MIN_GAP_MIN }}
+          YOUTUBE_MAX_AGE_H: ${{ vars.YOUTUBE_MAX_AGE_H }}
+          YOUTUBE_MAX_S: ${{ vars.YOUTUBE_MAX_S }}
+          YOUTUBE_NOTIFY: ${{ vars.YOUTUBE_NOTIFY }}
+        run: node .github/scripts/youtube.cjs post youtube-in
+      - name: Saxla
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .youtube
+          key: youtube-state-${{ github.run_id }}-${{ github.run_attempt }}

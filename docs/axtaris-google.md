@@ -93,3 +93,7 @@ Ona görə X videoları üçün ayrıca səhifə açılmır.
 **Videoların axtarışa düşməsinin real yolu:** öz hazırladığımız brendli qısa videolar YouTube Shorts-da. Bu, ayrıca işdir.
 
 Nəticəni Search Console-da «Video səhifələri» hesabatında yoxlayın.
+
+## Video: YouTube Shorts (2026-11-22)
+
+Yuxarıdakı «real yol»: öz hazırladığımız video xəbərlər (video modulu, `sosial-video.yml`) avtomatik YouTube Shorts kanalına da yüklənir. Yükləyici, qaydalar və sahibin addımları: [youtube.md](youtube.md).

@@ -66,6 +66,10 @@ Facebook səhifəsinə və Instagram-a öz hazırladığımız video xəbərlər
 
 Ayrıca iş axınıdır (`tiktok.yml`, `tiktok.cjs`): öz video xəbərlərimiz, açarlar, audit və qoşulma — [tiktok.md](tiktok.md).
 
+## YouTube
+
+Ayrıca iş axınıdır (`youtube.yml`, `youtube.cjs`): öz video xəbərlərimiz YouTube Shorts-da, kanal, açarlar və qoşulma — [youtube.md](youtube.md).
+
 ## Tənzimləmə (Variables, istəyə bağlı)
 
 - `SOCIAL_MIN_SOURCES`: neçə mənbə yazanda paylaşılsın (standart 4). Az yazsanız, post çoxalır.
