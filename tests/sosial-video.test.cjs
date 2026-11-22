@@ -125,6 +125,12 @@ test("video: encoder settings match Facebook/Instagram Reels and TikTok (9:16, H
   assert.match(a[a.indexOf("-filter_complex") + 1], /adelay=350:all=1/, "səs 0,35 s sonra başlayır (başlıq görünəndə)");
   assert.match(a[a.indexOf("-filter_complex") + 1], /loudnorm=I=-16/, "səs səviyyəsi sosial şəbəkə normasında");
   assert.equal(a.at(-1), "o.mp4");
+  assert.equal(at("-metadata"), "comment=8ulduz.az", "öz videomuzun nişanı (TikTok yükləyicisi yalnız bunu göndərir)");
+  // <çıxış>.json-da xəbərin sahələri (TikTok yükləyicisi oxuyur): own yalnız bu modulun videosunda.
+  const s = V.storyFields({ ...fixture, text: "İzah <b>tam</b>." });
+  assert.deepEqual(s, { id: fixture.id, own: true, title: fixture.title, summary: fixture.summary, text: "İzah tam.", source: "Day.Az",
+    sourceUrl: fixture.sourceUrl, category: "cemiyyet", lang: "az", publishedAt: fixture.publishedAt });
+  assert.equal(V.storyFields({ ...fixture, text: "" }).text, fixture.summary, "izah yoxdursa xülasə");
 });
 
 test("video: a story that breaks the site's source rule (red line 2) never becomes a video", async () => {

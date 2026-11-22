@@ -11,7 +11,8 @@
 //            ses   false → səssiz (boş səs izi)
 //   çıxış  — <çıxış>.mp4: MP4 (moov əvvəldə), H.264 High 4.1, yuv420p, 1080×1920 (9:16), 30 kadr/s, GOP 2 s, CRF 21 (≤8 Mbit/s),
 //            AAC-LC 48 kHz stereo 128 kbit/s; MIN_S…MAX_S saniyə. Facebook Reels (3–90 s), Instagram Reels və TikTok qəbul edir.
-//            <çıxış>.json: { duration, width, height, bytes, …, cover_s, kadrlar, voice, parts, title }
+//            <çıxış>.json: xəbərin sahələri (id, own: true, title, summary, text, source, sourceUrl, category, lang, publishedAt) +
+//            { duration, width, height, bytes, …, cover_s, kadrlar, voice, parts }; mp4-də nişan comment=8ulduz.az (TikTok yükləyicisi)
 //            <çıxış>.jpg: örtük kadrı (başlıq tam görünən an, cover_s)
 //   require: const { render } = require("./video-xeber.cjs"); await render(sətir, "video.mp4")
 // Lazımdır: ffmpeg (libass ilə; Ubuntu paketi belədir), Roboto şrifti (fonts-roboto-unhinted; yoxdursa sistem şrifti).
@@ -277,7 +278,9 @@ function ffmpegArgs({ tl, assFile, logo, voiceFile, out }) {
     "-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-level:v", "4.1", "-crf", "21", "-maxrate", "8M", "-bufsize", "16M",
     "-r", String(FPS), "-g", String(2 * FPS), "-keyint_min", String(2 * FPS), "-sc_threshold", "0", "-pix_fmt", "yuv420p",
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
-    "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2", "-movflags", "+faststart", out);
+    "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2", "-movflags", "+faststart",
+    // Öz videomuzun nişanı: TikTok yükləyicisi (tiktok.cjs) yalnız bu nişanlı faylı göndərir — X/reels videoları getməsin.
+    "-metadata", "comment=8ulduz.az", out);
   return args;
 }
 
@@ -301,6 +304,14 @@ function voice(p, dir, log) {
     log(`video: səs alınmadı, səssiz hazırlanır — ${String(e.message || e).slice(0, 300)}`);
     return null;
   }
+}
+
+// <çıxış>.json-dakı xəbər sahələri (TikTok yükləyicisi, PR 8ulduz/8ulduz#293, bunları oxuyur: text — mətn, own — öz videomuzdur).
+// own yalnız bu modulun hazırladığı videoda olur: içində xəbərin mətni və saytın dizaynı var, başqasının görüntüsü yoxdur.
+function storyFields(a) {
+  const text = clean(a.text || "") || clean(a.summary || "");
+  return { id: a.id, own: true, title: clean(a.title), summary: clean(a.summary || ""), text, source: a.source || "", sourceUrl: a.sourceUrl || "",
+    category: a.category || "", lang: a.lang || "az", publishedAt: a.publishedAt || "" };
 }
 
 function probe(file) {
@@ -336,7 +347,7 @@ async function render(a, out, opt = {}) {
     // kadrlar: önizləmə üçün anlar — başlıq, ilk iki altyazının ortası, sonluq (sosial-video.yml şəkil düzəldir).
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100;
     const kadrlar = [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
-    const meta = { ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title };
+    const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
     log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"} — ${p.title}`);
@@ -346,7 +357,7 @@ async function render(a, out, opt = {}) {
   }
 }
 
-module.exports = { render, prepare, timeline, ass, ffmpegArgs, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe,
+module.exports = { render, prepare, timeline, ass, ffmpegArgs, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR };
 
 if (require.main === module) {
