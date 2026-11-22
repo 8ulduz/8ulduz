@@ -152,11 +152,18 @@ function networks(env = process.env) {
       const q = `access_token=${encodeURIComponent(this.token)}`, get = u => f(u, { signal: AbortSignal.timeout(15000) }).then(json).catch(() => ({}));
       const lim = (await get(`${root}${encodeURIComponent(this.ig)}/content_publishing_limit?fields=quota_usage,config&${q}`))?.data?.[0];
       if (lim?.quota_usage != null && Number(lim.quota_usage) >= (Number(lim?.config?.quota_total) || 100)) return { skip: `24 saatlıq hədd dolub: ${lim.quota_usage}` };
-      const init = await form(f, `${root}${encodeURIComponent(this.ig)}/media`, { media_type: "REELS", upload_type: "resumable", caption: igText(x),
-        thumb_offset: String(Math.round((x.cover_s || 1.5) * 1000)) }, this.token).then(json);
-      if (!init?.id) return { ok: false, error: `konteyner: ${JSON.stringify(init?.error || init).slice(0, 300)}` };
-      const up = await upload(f, init.uri || `https://rupload.facebook.com/ig-api-upload/${ver}/${init.id}`, this.token, video);
-      const upj = await json(up);
+      // 2026-11-22: ilk görüntülü videoda (16,8 MB) rupload «ProcessingFailedError» verdi (retriable: false; Facebook eyni faylı qəbul etdi).
+      // Eyni sorğunun təkrarı kömək etmir: bir dəfə yeni konteynerlə, VIDEO_IG_RETRY_MS sonra. Yüklənməmiş konteyner dərc olunmur.
+      let init, up, upj;
+      for (let t = 0; t < 2; t++) {
+        if (t) { log(`instagram: yükləmə alınmadı (HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 200)}) — yeni konteynerlə təkrar`); await wait(num(env.VIDEO_IG_RETRY_MS, 60000)); }
+        init = await form(f, `${root}${encodeURIComponent(this.ig)}/media`, { media_type: "REELS", upload_type: "resumable", caption: igText(x),
+          thumb_offset: String(Math.round((x.cover_s || 1.5) * 1000)) }, this.token).then(json);
+        if (!init?.id) return { ok: false, error: `konteyner: ${JSON.stringify(init?.error || init).slice(0, 300)}` };
+        up = await upload(f, init.uri || `https://rupload.facebook.com/ig-api-upload/${ver}/${init.id}`, this.token, video);
+        upj = await json(up);
+        if (up.ok && upj?.success !== false) break;
+      }
       if (!up.ok || upj?.success === false) return { ok: false, error: `yükləmə: HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 300)}` };
       // Meta tövsiyəsi: statusu dəqiqədə bir, 5 dəqiqədən çox olmayaraq; qısa video adətən 20–60 s-də hazır olur.
       let st = "";

@@ -214,7 +214,7 @@ test("sosial-video: picks the biggest story with an explanation, never twice, ne
 // Meta Graph API-nin saxta cavabları: hər sorğu yazılır.
 function meta({ fail = {}, quota = 10, igAccount = "1784" } = {}) {
   const calls = [];
-  let published = false;
+  let published = false, igUploads = 0;
   const res = (status, body) => ({ ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) });
   const f = async (url, init = {}) => {
     const body = typeof init.body === "string" ? Object.fromEntries(new URLSearchParams(init.body)) : init.body;
@@ -227,7 +227,8 @@ function meta({ fail = {}, quota = 10, igAccount = "1784" } = {}) {
     if (/\/777\/comments$/.test(url)) return fail.comment ? res(403, { error: { message: "(#200) requires pages_manage_engagement" } }) : res(200, { id: "c1" });
     if (/\/1784\/content_publishing_limit/.test(url)) return res(200, { data: [{ quota_usage: quota, config: { quota_total: 100 } }] });
     if (/\/1784\/media$/.test(url)) return res(200, { id: "555", uri: "https://rupload.facebook.com/ig-api-upload/v27.0/555" });
-    if (url === "https://rupload.facebook.com/ig-api-upload/v27.0/555") return res(200, { success: true, message: "Upload successful." });
+    if (url === "https://rupload.facebook.com/ig-api-upload/v27.0/555") return (fail.igUpload > igUploads++)
+      ? res(400, { debug_info: { retriable: false, type: "ProcessingFailedError", message: "Request processing failed" } }) : res(200, { success: true, message: "Upload successful." });
     if (/\/555\?fields=status_code/.test(url)) return res(200, { status_code: published ? "PUBLISHED" : "FINISHED" });
     if (/\/1784\/media_publish$/.test(url) && (published = true)) return fail.igPublish ? res(400, { error: { code: 2207051, message: "Application request limit reached" } }) : res(200, { id: "IG1" });
     return res(404, { error: { message: "gözlənilməz " + url } });
@@ -284,6 +285,14 @@ test("sosial-video: Instagram Reels — resumable upload, waits for FINISHED, ca
   const m3 = meta({ quota: 100 }), logs = [];
   assert.deepEqual(await SV.paylas({ dir, env: { ...ENV, VIDEO_FACEBOOK: "0" }, now: NOW, state: SV.readState("/yoxdur", NOW), fetch: m3.f, log: s => logs.push(s) }), { posted: [], failed: [] });
   assert.ok(logs.some(s => /hədd dolub/.test(s)) && !m3.calls.some(c => /\/media$/.test(c.url)));
+  // 2026-11-22: rupload «ProcessingFailedError» (retriable: false) — yeni konteyner, bir dəfə təkrar; iki dəfə alınmasa xəta.
+  const m5 = meta({ fail: { igUpload: 1 } }), logs5 = [];
+  assert.deepEqual((await SV.paylas({ dir, env: { ...ENV, VIDEO_FACEBOOK: "0", VIDEO_IG_RETRY_MS: "0" }, now: NOW, state: SV.readState("/yoxdur", NOW), fetch: m5.f, log: s => logs5.push(s) })).posted, ["instagram"]);
+  assert.equal(m5.calls.filter(c => /\/1784\/media$/.test(c.url)).length, 2, "ikinci cəhd yeni konteynerlə");
+  assert.ok(logs5.some(s => /yeni konteynerlə təkrar/.test(s)));
+  const m6 = meta({ fail: { igUpload: 2 } });
+  assert.deepEqual(await SV.paylas({ dir, env: { ...ENV, VIDEO_FACEBOOK: "0", VIDEO_IG_RETRY_MS: "0" }, now: NOW, state: SV.readState("/yoxdur", NOW), fetch: m6.f, log: () => {} }), { posted: [], failed: ["instagram"] });
+  assert.equal(m6.calls.filter(c => c.url.includes("/ig-api-upload/")).length, 2, "ən çox iki cəhd");
   const m4 = meta({ igAccount: "" });
   assert.deepEqual(await SV.paylas({ dir, env: { ...ENV, VIDEO_FACEBOOK: "0" }, now: NOW, state: SV.readState("/yoxdur", NOW), fetch: m4.f, log: () => {} }), { posted: [], failed: [] });
 });

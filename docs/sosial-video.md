@@ -142,7 +142,7 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 3. **Video** (`video-xeber.cjs`), sonra yoxlama: ölçü, kodek, kadr sürəti, səs, müddət, moov əvvəldə. Uyğun deyilsə iş qırmızıdır, heç nə paylaşılmır.
 4. **Paylaşma** (`sosial-video.cjs paylas`): fayl hər iki şəbəkəyə **birbaşa** yüklənir (Meta-nın `rupload.facebook.com` serverinə, «resumable upload»). İctimai ünvan və saxlama yeri lazım deyil, repoya video yazılmır (repo ölçüsü, `repo-olcu.yml`). Video yalnız iş səhifəsində 3 günlük artefakt kimi qalır.
    - Facebook: `POST /{səhifə}/video_reels` (start) → fayl → `finish` (`video_state=PUBLISHED`, `description` keçidlə) → emal bitəndə ilk şərh «Ətraflı: keçid».
-   - Instagram: `POST /{ig}/media` (`media_type=REELS`, `upload_type=resumable`, `caption`, `thumb_offset=1500`) → fayl → status `FINISHED` (15 s-dən bir, ən çox 5 dəq) → `media_publish`. Əvvəl 24 saatlıq hədd (`content_publishing_limit`) yoxlanır.
+   - Instagram: `POST /{ig}/media` (`media_type=REELS`, `upload_type=resumable`, `caption`, `thumb_offset=1500`) → fayl → status `FINISHED` (15 s-dən bir, ən çox 5 dəq) → `media_publish`. Əvvəl 24 saatlıq hədd (`content_publishing_limit`) yoxlanır. Yükləmə alınmasa (2026-11-22, 16,8 MB: `ProcessingFailedError`, «retriable: false») 1 dəqiqə sonra yeni konteynerlə bir dəfə təkrar olunur.
 5. Siyahı (`.sosial-video/state.json`, actions/cache) 3 gün saxlanır: eyni xəbər iki dəfə getmir.
 
 Bu iş xəbər axınından (`update.yml`) və şəkilli paylaşmadan (`social.yml`) ayrıdır: düşsə də, gecikse də onlara təsir etmir; sayta heç nə yazmır (qırmızı xətt 1 və 3).
