@@ -6959,7 +6959,7 @@ def write_sitemap(stories=None, digests=(), own=()):
     for loc in locs:
         body.append(f"<url><loc>{_xml(loc)}</loc><lastmod>{now}</lastmod><changefreq>hourly</changefreq></url>")
     # Sabit məlumat səhifələrinə hər dövrədə saxta dəyişmə tarixi yazılmır.
-    for path in ("haqqinda/", "mexfilik/"):
+    for path in ("haqqinda/", "mexfilik/", "sertler/"):
         body.append(f"<url><loc>{_xml(SITE + path)}</loc></url>")
     try:
         for loc, when in subpage_locs():

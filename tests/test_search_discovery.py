@@ -18,7 +18,7 @@ class SearchDiscoveryTest(unittest.TestCase):
                 updater.write_sitemap()
             ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
             rows = ET.parse(target).getroot().findall('s:url', ns)
-            for path in ('haqqinda/', 'mexfilik/'):
+            for path in ('haqqinda/', 'mexfilik/', 'sertler/'):
                 row = next(r for r in rows if r.find('s:loc', ns).text == updater.SITE + path)
                 self.assertIsNone(row.find('s:lastmod', ns))
 
