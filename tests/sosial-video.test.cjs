@@ -39,9 +39,10 @@ test("video: the plan — big headline that fits, full sentences only, captions 
 test("video: the explanation is cut at whole sentences; a source's «…» tail never reaches the video", () => {
   assert.equal(V.bodyText({ title: "B", summary: "Birinci cümlə tamdır. İkinci cümlə yarımçıq qal..." }), "Birinci cümlə tamdır.");
   assert.equal(V.bodyText({ title: "B", summary: "Yarımçıq…" }), "");
-  const many = Array.from({ length: 12 }, (_, i) => `Bu, ${i + 1}-ci tam cümlədir və bir az uzundur.`).join(" ");
+  const many = Array.from({ length: 24 }, (_, i) => `Bu, ${i + 1}-ci tam cümlədir və bir az uzundur.`).join(" ");
   const b = V.bodyText({ title: "B", text: many });
-  assert.ok(b.length <= 360 && b.length > 200 && /\.$/.test(b), "izah ≤ 360 simvol, tam cümlə ilə bitir");
+  // Sahib 2026-11-22: «Xəbər uzun olsun biraz», «4-7 cümlədə olsun. uzun da olsun» — 360 → 750 simvol (≈ 5–7 cümlə, 35–45 s).
+  assert.ok(b.length <= 750 && b.length > 600 && /\.$/.test(b), `izah ≤ 750 simvol, tam cümlə ilə bitir: ${b.length}`);
   assert.equal(V.bodyText({ title: "Eyni mətn.", summary: "Eyni mətn." }), "", "başlığın təkrarı izah deyil");
   assert.equal(V.bodyText({ title: "B", text: "İzah  <b>var</b>." }), "İzah var.", "HTML təmizlənir");
   assert.deepEqual(V.captionChunks("Prezident İ. Əliyev qəbul edib. Görüş Bakıda olub."), ["Prezident İ. Əliyev qəbul edib.", "Görüş Bakıda olub."], "inisial cümləni bölmür");
@@ -151,7 +152,18 @@ test("sosial-video: when a video goes — Baku day hours, 2 hours apart, at most
 });
 
 const page = body => `<html><head><meta property="og:description" content="${body}"></head><body><p>${body}</p></body></html>`;
-const pageFetch = map => async url => (map[url] ? { ok: true, text: async () => map[url] } : { ok: false, text: async () => "" });
+// Saxta Gemini (video-ssenari.cjs): rəqəmsiz 6 cümlə + mənbənin son cümləsi. Gemini-siz video hazırlanmır (sahib, 2026-11-22).
+const FILLER = ["Layihə sakinlərin rahatlığı üçün nəzərdə tutulub və uzun müddət xidmət göstərəcək.", "Tikinti işləri müasir standartlara uyğun aparılıb.",
+  "Ərazidə abadlıq işləri də görülüb və yaşıllıq zolaqları salınıb.", "Yeni obyekt ətraf məhəllələrin sakinləri üçün də əlçatan olacaq.",
+  "Rəsmilər bildirib ki, oxşar layihələr digər bölgələrdə də davam etdiriləcək.", "Sakinlər yeni obyektin açılışını müsbət qarşılayıblar."];
+const gemini = (url, o) => {
+  if (/models\?pageSize/.test(url)) return { ok: true, json: async () => ({ models: [] }) };
+  const src = (JSON.parse(o.body).contents[0].parts[0].text.split("Mənbə mətni:\n")[1] || "").trim();
+  const text = `${FILLER.join(" ")} ${src.split(/(?<=\.)\s+/).pop()}`;
+  return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ uygun: true, text, axtar: [] }) }] } }] }) };
+};
+const pageFetch = map => async (url, o = {}) => (/generativelanguage\.googleapis\.com/.test(url) ? gemini(url, o)
+  : map[url] ? { ok: true, text: async () => map[url] } : { ok: false, text: async () => "" });
 
 test("sosial-video: picks the biggest story with an explanation, never twice, never the same topic; no key — nothing is made", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sv-"));
@@ -162,13 +174,13 @@ test("sosial-video: picks the biggest story with an explanation, never twice, ne
     const a = art("a1", { title: "Bakıda yeni metro stansiyası açılıb", alts: Array(8).fill({ source: "X" }) });
     const b = art("b1", { title: "Gəncədə yeni park salınıb" });
     const c = art("c1", { title: "Sumqayıtda yeni məktəb tikilib", alts: Array(5).fill({ source: "Y" }) });
-    const f = pageFetch({ [a.sourceUrl]: page("Bakıda yeni metro stansiyası sərnişinlərin istifadəsinə verilib. Stansiya Xətai rayonundadır."),
-      [b.sourceUrl]: page("Gəncədə yeni park salınıb və sakinlərin istifadəsinə verilib. Parkda uşaq meydançası var.") });
+    const f = pageFetch({ [a.sourceUrl]: page("Bakıda yeni metro stansiyası sərnişinlərin istifadəsinə verilib. Stansiyanın tikintisində müasir texnologiyalardan istifadə olunub, platformalar geniş salınıb. Stansiya Xətai rayonundadır."),
+      [b.sourceUrl]: page("Gəncədə yeni park salınıb və sakinlərin istifadəsinə verilib. Parkda gəzinti yolları, fəvvarə və oturacaqlar quraşdırılıb, ağaclar əkilib. Parkda uşaq meydançası var.") });
     const logs = [];
     let st = SV.readState("/yoxdur", NOW);
     assert.equal(await SV.sec({ articles: [a], env: {}, now: NOW, state: st, fetch: f, cats, dir, log: s => logs.push(s) }), null);
     assert.ok(logs.some(s => /açar yoxdur/.test(s)) && !fs.existsSync(path.join(dir, "xeber.json")), "açar yoxdursa video hazırlanmır");
-    const env = { VIDEO_ACAR: "1" };
+    const env = { VIDEO_ACAR: "1", GEMINI_API_KEY: "g" };
     const x = await SV.sec({ articles: [b, c, a], env, now: NOW, state: st, fetch: f, cats, dir, log: s => logs.push(s) });
     assert.equal(x.id, a.id, "ən çox mənbəli");
     const saved = JSON.parse(fs.readFileSync(path.join(dir, "xeber.json"), "utf8"));
@@ -191,7 +203,7 @@ test("sosial-video: picks the biggest story with an explanation, never twice, ne
     assert.ok(logs.some(s => /eyni mövzuda video var/.test(s)));
     // Əl ilə önizləmə (paylaşmadan): fasilə gözləmir, siyahıya yazmır.
     const st3 = { ...SV.readState("/yoxdur", NOW), _last: NOW / 1000 - 60 };
-    const z = await SV.sec({ articles: [a], env: { VIDEO_PAYLAS: "0" }, now: NOW, state: st3, fetch: f, cats, dir, log: () => {} });
+    const z = await SV.sec({ articles: [a], env: { VIDEO_PAYLAS: "0", GEMINI_API_KEY: "g" }, now: NOW, state: st3, fetch: f, cats, dir, log: () => {} });
     assert.equal(z.id, a.id);
     assert.equal(st3.v[a.id], undefined);
   } finally {

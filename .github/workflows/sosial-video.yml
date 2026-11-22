@@ -24,6 +24,7 @@ on:
   pull_request:
     paths:
       - .github/scripts/video-xeber.cjs
+      - .github/scripts/video-ssenari.cjs
       - .github/scripts/video_ses.py
       - .github/scripts/sosial-video.cjs
       - .github/workflows/sosial-video.yml
@@ -39,7 +40,9 @@ concurrency:
 
 jobs:
   video:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    # Əl ilə önizləmə (paylas söndürülüb) istənilən budaqda işləyə bilər: yeni dizaynı main-dən əvvəl görmək üçün. Paylaşma
+    # (FB/IG addımı, TikTok, YouTube) yalnız main-dədir.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.paylas)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # Növbəti iş (TikTok, tiktok.yml — PR 8ulduz/8ulduz#293 ilə) yalnız paylas == '1' olanda işləsin: PR nümunəsi və önizləmə getmir;
@@ -57,6 +60,7 @@ jobs:
             .github/scripts/social.cjs
             .github/scripts/topics.cjs
             .github/scripts/sosial-video.cjs
+            .github/scripts/video-ssenari.cjs
             .github/scripts/video-xeber.cjs
             .github/scripts/video_ses.py
             .github/ses-server/az_text.py
@@ -83,6 +87,11 @@ jobs:
           VIDEO_ACAR: ${{ (secrets.FB_PAGE_TOKEN != '' || (secrets.TIKTOK_CLIENT_KEY != '' && secrets.TIKTOK_CLIENT_SECRET != '') || (secrets.YOUTUBE_CLIENT_ID != '' && secrets.YOUTUBE_CLIENT_SECRET != '' && secrets.YOUTUBE_REFRESH_TOKEN != '')) && '1' || '0' }}
           VIDEO_PAYLAS: ${{ (github.event_name == 'workflow_dispatch' && !inputs.paylas) && '0' || '1' }}
           VIDEO_XEBER: ${{ inputs.xeber }}
+          # Sahib 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun» (video-ssenari.cjs). Biri yoxdursa
+          # həmin hissə ötürülür: mətn mənbənin öz cümlələrindən, fon tünd göy.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           VIDEO_MIN_GAP_MIN: ${{ vars.VIDEO_MIN_GAP_MIN }}
           VIDEO_SAAT: ${{ vars.VIDEO_SAAT }}
           VIDEO_GUNDE: ${{ vars.VIDEO_GUNDE }}
@@ -129,7 +138,18 @@ jobs:
         env:
           VIDEO_SES: ${{ vars.VIDEO_SES }}
           VIDEO_ASS: '1'
-        run: node .github/scripts/video-xeber.cjs video-out/xeber.json video-out/video.mp4
+          EVENT: ${{ github.event_name }}
+        run: |
+          # PR: görüntülü rejim süni kliplərlə yoxlanır (şaquli və üfüqi — ortadan kəsilir); açar və Pexels yoxdur.
+          if [ "$EVENT" = pull_request ]; then
+            ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=s=720x1280:r=25:d=5 -pix_fmt yuv420p video-out/klip-1.mp4
+            ffmpeg -hide_banner -loglevel error -y -f lavfi -i mandelbrot=s=1920x1080:r=30 -t 7 -pix_fmt yuv420p video-out/klip-2.mp4
+            ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc=s=1080x1920:r=30:d=4 -pix_fmt yuv420p video-out/klip-3.mp4
+            node -e 'const fs=require("fs"),f="video-out/xeber.json",x=JSON.parse(fs.readFileSync(f,"utf8"));x.klipler=["klip-1.mp4","klip-2.mp4","klip-3.mp4"];x.goruntu=[{id:0,user:"sınaq"}];x.goruntuMenbe="Pixabay";fs.writeFileSync(f,JSON.stringify(x,null,1))'
+          fi
+          node .github/scripts/video-xeber.cjs video-out/xeber.json video-out/video.mp4
+          # Kliplər artefakta getmir (ölçü; TikTok/YouTube yalnız video.mp4 + video.json götürür).
+          rm -f video-out/klip-*.mp4
       # Şəbəkələrin tələbi: 9:16, H.264 yuv420p, AAC 48 kHz, 3–90 s, moov əvvəldə (Instagram yükləməni oxuyarkən emal edir).
       - name: Videonu yoxla
         id: yoxla

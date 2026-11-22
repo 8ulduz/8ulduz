@@ -1,13 +1,17 @@
 // Video xəbər (sahib, 2026-11-22: «Facebook-da video xəbərlər verilsin… İnstagramda videolar verilsin. Videolarda başda 8ulduz.az
 // yazılsın»). Bir xəbərdən şaquli qısa video (Reels): saytın rəngləri, yuxarıda başdan sona loqo + «8ulduz.az», böyük başlıq,
 // izah cümlə-cümlə altyazı kimi, istəyə görə Azərbaycan səsi (SARA, «Dinlə» serverinin modeli), sonda «Ətraflı: 8ulduz.az».
-// Videoda yalnız bizim hazırladığımız şey var: xəbərin başlığı və izahı (mətn), brend dizaynı, səs. Üçüncü tərəfin videosu,
-// fotosu, musiqisi yoxdur (Meta Rights Manager riski; docs/sosial-video.md).
+// Videoda yalnız bizim hazırladığımız və istifadə hüququmuz olan şey var: xəbərin başlığı və izahı (mətn), brend dizaynı, səs və
+// (sahib, 2026-11-22: «videogörüntü olsun o xəbərə uyğun») Pixabay/Pexels video bankının pulsuz lisenziyalı klipləri (video-ssenari.cjs).
+// Xəbər saytlarının və X-in video/fotosu, musiqi yoxdur (Meta Rights Manager, Content ID riski; docs/sosial-video.md).
 //
 // İşlədilmə:  node .github/scripts/video-xeber.cjs <giriş.json> <çıxış.mp4>
 //   giriş  — data/news.json sətri (id, title, summary, category, source, alts, publishedAt) + istəyə bağlı:
 //            text  ekranda və səsdə gedən izah (social.cjs describe(): yalnız tam cümlələr); yoxdursa summary-nin tam cümlələri
 //            bolme bölmənin adı (yoxdursa saytın CATS siyahısından)
+//            klipler  fon klipləri (çıxış qovluğuna görə yol; video-ssenari.cjs goruntu()). Varsa fon görüntüdür, yoxdursa tünd göy
+//                     fon; şaquli klip ekranı doldurur, üfüqi tam enində ortada (arxada bulanıq nüsxəsi)
+//            goruntuMenbe  videoda «Görüntü: …» (Pixabay və ya Pexels)
 //            ses   false → səssiz (boş səs izi)
 //   çıxış  — <çıxış>.mp4: MP4 (moov əvvəldə), H.264 High 4.1, yuv420p, 1080×1920 (9:16), 30 kadr/s, GOP 2 s, CRF 21 (≤8 Mbit/s),
 //            AAC-LC 48 kHz stereo 128 kbit/s; MIN_S…MAX_S saniyə. Facebook Reels (3–90 s), Instagram Reels və TikTok qəbul edir.
@@ -27,13 +31,15 @@ const ROOT = path.resolve(__dirname, "../..");
 const W = 1080, H = 1920, FPS = 30;
 const X0 = 72, TEXT_W = W - 2 * X0;            // sağda Reels düymələri, aşağıda Reels izahı: mətn bu sahədə qalır
 const MIN_S = 8, MAX_S = 59;                   // Facebook Reels API 3–90 s; qısa video daha çox sona qədər baxılır
-const BODY_MAX = 360;                          // izahın ekranda/səsdə ən çox simvolu (≈ 3 cümlə, 20–25 s)
+const BODY_MAX = 750;                          // izahın ekranda/səsdə ən çox simvolu (≈ 5–7 cümlə, 35–45 s; sahib 2026-11-22: «4-7 cümlədə olsun. uzun da olsun»)
 const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
 const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", gray: "AFC0D8", box: "1A3563", blue: "1E4D8C", blue2: "2563EB" };
 // Yerləşmə (piksel, 1080×1920). Lentdə Reels ortadan 4:5-ə kəsilir (y 285…1635), tam ekranda yuxarıda ~170 px, aşağıda ~420 px,
 // sağda ~130 px şəbəkənin öz düymələridir: brend və bütün yazılar y 300…1480 arasındadır — loqo lentdə də, tam ekranda da görünür.
 const L = { barY: 300, barH: 120, logoH: 80, chipY: 466, headY: 556, headMaxH: 470, capMinY: 860, capMaxY: 1110, srcY: 1404, outroY: 900 };
+// Görüntülü video: başlıq yuxarıda yarımşəffaf tünd zolaqda (görüntü ortada açıq qalır), altyazılar aşağıda, mənbə və «Görüntü: Pixabay» altda.
+const LF = { headY: 540, headMaxH: 290, sizes: [76, 70, 64, 58, 52], capY: 1150, srcY: 1420 };
 const FONT = "Roboto";
 
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").replace(/ ([.,!?;:…])/g, "$1").trim();
@@ -71,12 +77,12 @@ function wrap(text, size, weight, maxW) {
 }
 
 // Başlıq: sahəyə sığan ən böyük ölçü. Çox uzun başlıq (nadir) son sətirdə «…» ilə kəsilir.
-function fitHeadline(title) {
-  for (const size of [96, 88, 80, 72, 66, 60]) {
+function fitHeadline(title, sizes = [96, 88, 80, 72, 66, 60], maxH = L.headMaxH) {
+  for (const size of sizes) {
     const lines = wrap(title, size, "black", TEXT_W);
-    if (lines.length * size <= L.headMaxH) return { size, lines };
+    if (lines.length * size <= maxH) return { size, lines };
   }
-  const size = 60, max = Math.floor(L.headMaxH / size), lines = wrap(title, size, "black", TEXT_W);
+  const size = sizes[sizes.length - 1], max = Math.floor(maxH / size), lines = wrap(title, size, "black", TEXT_W);
   const kept = lines.slice(0, max);
   kept[max - 1] = kept[max - 1].replace(/[\s,.;:–-]*$/, "") + "…";
   return { size, lines: kept };
@@ -150,10 +156,12 @@ const OUTRO_SAY = "Ətraflı məlumat səkkiz ulduz nöqtə az saytında.";
 function prepare(a, opt = {}) {
   const title = clean(a.title);
   if (!title) throw new Error("başlıq yoxdur");
-  const head = fitHeadline(title);
+  const footage = Boolean(opt.footage);
+  const head = footage ? fitHeadline(title, LF.sizes, LF.headMaxH) : fitHeadline(title);
   const chunks = captionChunks(bodyText(a));
   const label = clean(a.bolme || opt.cats?.find(c => c.slug === a.category)?.label || "Xəbər").toLocaleUpperCase("az");
-  return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source: sourceLine(a),
+  const source = [sourceLine(a), footage ? `Görüntü: ${clean(a.goruntuMenbe) || "Pexels"}` : ""].filter(Boolean).join(" · ");
+  return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source, footage,
     say: [title, ...chunks, OUTRO_SAY] };
 }
 
@@ -216,9 +224,17 @@ function ass(p, tl) {
   ];
   const ev = [];
   const dlg = (layer, from, to, style, text) => ev.push(`Dialogue: ${layer},${assTime(from)},${assTime(to)},${style},,0,0,0,,${text}`);
-  // Fon: tünd göy üstündə yavaş hərəkət edən iki yumşaq işıq (videonun canlı görünməsi üçün; şəkil deyil, forma).
-  dlg(0, 0, D, "Shape", `{\\an5\\move(180,640,280,760)\\p1\\bord0\\shad0\\1c${assColor(COLOR.blue)}\\1a&HA8&\\blur90}${circle(520)}`);
-  dlg(0, 0, D, "Shape", `{\\an5\\move(960,1560,880,1460)\\p1\\bord0\\shad0\\1c${assColor(COLOR.blue2)}\\1a&HDC&\\blur90}${circle(440)}`);
+  const headY = p.footage ? LF.headY : L.headY;
+  if (p.footage) {
+    // Görüntülü: bölmə və başlığın arxasında yarımşəffaf tünd zolaq (görüntü ortada açıq qalır), sonluqda bütün ekran tündləşir.
+    const top = L.barY + L.barH, bandH = headY + p.head.lines.length * p.head.size + 40 - top;
+    dlg(0, 0, out + 0.3, "Shape", `{\\an7\\pos(0,${top})\\p1\\bord0\\shad0\\1c${assColor(COLOR.bar)}\\1a&H50&\\fad(0,300)}${rect(W, bandH)}`);
+    dlg(0, out, D, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${assColor(COLOR.bg)}\\1a&H28&\\fad(300,0)}${rect(W, H)}`);
+  } else {
+    // Fon: tünd göy üstündə yavaş hərəkət edən iki yumşaq işıq (videonun canlı görünməsi üçün; şəkil deyil, forma).
+    dlg(0, 0, D, "Shape", `{\\an5\\move(180,640,280,760)\\p1\\bord0\\shad0\\1c${assColor(COLOR.blue)}\\1a&HA8&\\blur90}${circle(520)}`);
+    dlg(0, 0, D, "Shape", `{\\an5\\move(960,1560,880,1460)\\p1\\bord0\\shad0\\1c${assColor(COLOR.blue2)}\\1a&HDC&\\blur90}${circle(440)}`);
+  }
   // Yuxarı zolaq: başdan sona. Loqo şəkli ffmpeg-də bu zolağın üstünə qoyulur, yanında «.az» — birlikdə «8ULDUZ.az».
   dlg(1, 0, D, "Shape", `{\\an7\\pos(0,${L.barY})\\p1\\bord0\\shad0\\1c${assColor(COLOR.bar)}}${rect(W, L.barH)}`);
   dlg(2, 0, D, "Brand", `{\\an1\\pos(${logoX() + logoW() - 4},${logoY() + L.logoH + 4})\\fs72}.az`);
@@ -229,10 +245,12 @@ function ass(p, tl) {
   const fade = `\\fad(250,300)`;
   dlg(3, 0, out + 0.3, "Chip", `{\\an4\\pos(${X0 + 12},${L.chipY + 30})${fade}}${assText(p.label)}`);
   if (p.when) dlg(3, 0, out + 0.3, "When", `{\\an4\\pos(${Math.round(X0 + textWidth(p.label, 40, "black") + 64)},${L.chipY + 30})${fade}}${assText(p.when)}`);
-  dlg(3, 0, out + 0.3, "Head", `{\\an7\\move(${X0},${L.headY + 24},${X0},${L.headY},0,300)\\fad(120,300)}${p.head.lines.map(assText).join("\\N")}`);
-  if (p.source) dlg(3, 0, out + 0.3, "Small", `{\\an7\\pos(${X0},${L.srcY})${fade}}${assText(p.source)}`);
-  // Altyazılar başlığın altında (başlığın hündürlüyünə görə), səslə eyni anda.
-  const capY = Math.min(L.capMaxY, Math.max(L.capMinY, L.headY + p.head.lines.length * p.head.size + 64));
+  // Görüntünün üstündə yazı kölgə və kənar xətlə oxunur.
+  const onVideo = p.footage ? "\\bord3\\3c&H000000&\\shad2\\4a&H40&" : "";
+  dlg(3, 0, out + 0.3, "Head", `{\\an7\\move(${X0},${headY + 24},${X0},${headY},0,300)\\fad(120,300)${onVideo}}${p.head.lines.map(assText).join("\\N")}`);
+  if (p.source) dlg(3, 0, out + 0.3, "Small", `{\\an7\\pos(${X0},${p.footage ? LF.srcY : L.srcY})${fade}${p.footage ? `\\1c${assColor(COLOR.white)}${onVideo}` : ""}}${assText(p.source)}`);
+  // Altyazılar: tünd fonda başlığın altında (başlığın hündürlüyünə görə), görüntülü videoda aşağıda; səslə eyni anda.
+  const capY = p.footage ? LF.capY : Math.min(L.capMaxY, Math.max(L.capMinY, L.headY + p.head.lines.length * p.head.size + 64));
   // Hər altyazı növbətisi başlayanda (sonuncu — sonluq başlayanda) çəkilir: səsli videoda hissələr bitişikdir, üst-üstə düşməsinlər.
   tl.chunks.forEach((c, i) => {
     const lines = wrap(c.text, CAP_SIZE, "medium", CAP_W).map(assText);
@@ -255,25 +273,58 @@ const logoY = () => L.barY + Math.round((L.barH - L.logoH) / 2);
 const logoW = () => Math.round(LOGO.w * L.logoH / LOGO.h);
 
 // ffmpeg arqumentləri. Yazılar RGB-də çəkilir (narıncı-göy kənarları yuv420-də yayılmasın), sonda yuv420p.
-function ffmpegArgs({ tl, assFile, logo, voiceFile, out }) {
+// Fon klipləri bərabər hissələrə bölünür (hər biri ən azı KLIP_MIN_S); qısa klip dövrə vurur (-stream_loop), uzunu kəsilir.
+// Klip: fayl yolu və ya { file, w, h }. Ölçü məlumdursa və klip şaquli deyilsə (en/hündürlük > KLIP_SAQULI) — «sığdırma»: klip
+// tam enində ortada, arxada onun bulanıq nüsxəsi. Üfüqi 1920×1080 klipi 9:16-ya kəsmək həm mövzunu atır (sarayın yerinə göy
+// qalır), həm də 1,8 dəfə böyüdüb bulanıqlaşdırır (2026-11-22 nümunə videosu).
+const KLIP_MIN_S = 4, KLIP_SAQULI = 0.8, KLIP_Y = 740;
+function clipPlan(clips, duration) {
+  const n = Math.max(0, Math.min(clips.length, Math.floor(duration / KLIP_MIN_S)));
+  if (!n) return [];
+  const seg = Math.round(duration / n * 100) / 100;
+  return clips.slice(0, n).map((c, i) => ({ ...(typeof c === "string" ? { file: c } : c),
+    d: i < n - 1 ? seg : Math.round((duration - seg * (n - 1)) * 100) / 100 }));
+}
+const fitsWide = c => c.w > 0 && c.h > 0 && c.w / c.h > KLIP_SAQULI;
+function clipFilter(c, i) {
+  const head = `[${i}:v]fps=${FPS},trim=duration=${c.d.toFixed(2)},setpts=PTS-STARTPTS`;
+  if (!fitsWide(c)) return `${head},scale=${W}:${H}:force_original_aspect_ratio=increase:flags=bicubic,crop=${W}:${H},setsar=1[c${i}]`;
+  const fh = Math.round(W * c.h / c.w / 2) * 2, y = Math.max(0, Math.min(KLIP_Y, H - fh));
+  // Bulanıq fon kiçik ölçüdə hazırlanır (ucuzdur), sonra böyüdülür və tündləşdirilir.
+  return `${head},split=2[b${i}][f${i}];[b${i}]scale=${W / 4}:${H / 4}:force_original_aspect_ratio=increase,crop=${W / 4}:${H / 4},boxblur=12:2,`
+    + `scale=${W}:${H},eq=brightness=-0.14:saturation=0.8[g${i}];[f${i}]scale=${W}:${fh}:flags=bicubic[h${i}];[g${i}][h${i}]overlay=0:${y},setsar=1[c${i}]`;
+}
+
+function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [] }) {
   const D = tl.duration.toFixed(2);
-  const args = ["-hide_banner", "-loglevel", "error", "-y",
-    "-f", "lavfi", "-i", `color=c=0x${COLOR.bg}:s=${W}x${H}:r=${FPS}:d=${D}`,
-    "-i", logo];
+  const plan = clipPlan(clips, tl.duration);
+  const args = ["-hide_banner", "-loglevel", "error", "-y"];
+  let bg;
+  if (plan.length) {
+    // Şaquli klip 9:16-ya doldurulur, üfüqi tam enində sığdırılır (clipFilter); 30 kadr/s, bir az tündləşdirilir (yazı oxunsun).
+    plan.forEach(c => args.push("-stream_loop", "-1", "-t", c.d.toFixed(2), "-i", c.file));
+    bg = plan.map(clipFilter).join(";")
+      + `;${plan.map((_, i) => `[c${i}]`).join("")}concat=n=${plan.length}:v=1:a=0,eq=brightness=-0.04:saturation=0.95,trim=duration=${D},format=rgb24`;
+  } else {
+    args.push("-f", "lavfi", "-i", `color=c=0x${COLOR.bg}:s=${W}x${H}:r=${FPS}:d=${D}`);
+    bg = "[0:v]format=rgb24";
+  }
+  const li = plan.length || 1, ai = li + 1;
+  args.push("-i", logo);
   let audio;
   if (voiceFile) {
     args.push("-i", voiceFile);
     const c = tl.voiceCut, ms = s => Math.round(s * 1000);
     // Əsas hissə + (altyazı düşübsə, sürüşdürülmüş) sonluq səsi; LEAD_S qədər gecikmə.
     audio = c && c.outroAt + 0.01 < c.outroFrom
-      ? `[2:a]asplit=2[m][o];[m]atrim=0:${(c.keepUntil - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS[m1];[o]atrim=${(c.outroFrom - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS,adelay=${ms(c.outroAt - c.keepUntil)}:all=1[o1];[m1][o1]concat=n=2:v=0:a=1,adelay=${ms(LEAD_S)}:all=1,`
-      : `[2:a]adelay=${ms(LEAD_S)}:all=1,`;
+      ? `[${ai}:a]asplit=2[m][o];[m]atrim=0:${(c.keepUntil - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS[m1];[o]atrim=${(c.outroFrom - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS,adelay=${ms(c.outroAt - c.keepUntil)}:all=1[o1];[m1][o1]concat=n=2:v=0:a=1,adelay=${ms(LEAD_S)}:all=1,`
+      : `[${ai}:a]adelay=${ms(LEAD_S)}:all=1,`;
     audio += `apad,atrim=0:${D},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[a]`;
   } else {
     args.push("-f", "lavfi", "-t", D, "-i", "anullsrc=channel_layout=stereo:sample_rate=48000");
-    audio = "[2:a]aformat=sample_fmts=fltp:channel_layouts=stereo[a]";
+    audio = `[${ai}:a]aformat=sample_fmts=fltp:channel_layouts=stereo[a]`;
   }
-  const video = `[0:v]format=rgb24,ass=${assFile}[t];[1:v]scale=-1:${L.logoH}:flags=lanczos,format=rgba[lg];[t][lg]overlay=${logoX()}:${logoY()}:format=rgb,format=yuv420p[v]`;
+  const video = `${bg},ass=${assFile}[t];[${li}:v]scale=-1:${L.logoH}:flags=lanczos,format=rgba[lg];[t][lg]overlay=${logoX()}:${logoY()}:format=rgb,format=yuv420p[v]`;
   args.push("-filter_complex", `${video};${audio}`, "-map", "[v]", "-map", "[a]", "-t", D,
     "-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-level:v", "4.1", "-crf", "21", "-maxrate", "8M", "-bufsize", "16M",
     "-r", String(FPS), "-g", String(2 * FPS), "-keyint_min", String(2 * FPS), "-sc_threshold", "0", "-pix_fmt", "yuv420p",
@@ -331,8 +382,13 @@ async function render(a, out, opt = {}) {
   }
   if (policy(a)) throw new Error(`xəbər saytın qaydasından keçmir: ${clean(a.title)}`);
   if (a.text && policy({ ...a, summary: a.text })) throw new Error("izah saytın qaydasından keçmir");
-  const p = prepare(a, { cats });
   out = path.resolve(out);
+  // Fon klipləri (video-ssenari.cjs goruntu()): çıxış qovluğuna görə yol; olmayan fayl atılır.
+  // Ölçü ffprobe ilə oxunur (üfüqi klip sığdırılır, clipFilter); oxunmasa klip doldurulur.
+  const clips = (Array.isArray(a.klipler) ? a.klipler : []).map(f => path.resolve(opt.base || path.dirname(out), String(f))).filter(f => fs.existsSync(f))
+    .map(file => { try { const m = probe(file); return { file, w: m.width || 0, h: m.height || 0 }; } catch { return { file }; } });
+  const menbe = clean(a.goruntuMenbe) || "Pexels";
+  const p = prepare(a, { cats, footage: clips.length > 0 });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-xeber-"));
   try {
     const wantVoice = opt.voice ?? (a.ses !== false && process.env.VIDEO_SES !== "0");
@@ -340,24 +396,25 @@ async function render(a, out, opt = {}) {
     const tl = timeline(p, v);
     fs.writeFileSync(path.join(dir, "video.ass"), ass(p, tl));
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out }), { cwd: dir, timeout: 600000 });
+    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips }), { cwd: dir, timeout: 900000 });
     const cover_s = 1.5;
     const jpg = out.replace(/\.mp4$/i, "") + ".jpg";
     run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", jpg]);
     // kadrlar: önizləmə üçün anlar — başlıq, ilk iki altyazının ortası, sonluq (sosial-video.yml şəkil düzəldir).
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100;
     const kadrlar = [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
-    const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title };
+    const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title,
+      ...(clips.length ? { goruntu: menbe, klip: clipPlan(clips, tl.duration).length, sigdirilan: clipPlan(clips, tl.duration).filter(fitsWide).length } : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
-    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"} — ${p.title}`);
+    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"}, ${clips.length ? `${meta.klip} görüntü (${menbe}; ${meta.sigdirilan} üfüqi sığdırıldı)` : "görüntüsüz"} — ${p.title}`);
     return meta;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 
-module.exports = { render, prepare, timeline, ass, ffmpegArgs, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
+module.exports = { render, prepare, timeline, ass, ffmpegArgs, clipPlan, clipFilter, KLIP_Y, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR };
 
 if (require.main === module) {
