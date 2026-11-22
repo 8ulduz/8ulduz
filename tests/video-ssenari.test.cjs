@@ -15,7 +15,7 @@ const SOURCE = "Bakıda 12 yeni məktəb binası istifadəyə verilib. Layihəy�
   + "Binalarda idman zalı, kitabxana və laboratoriyalar var. Tikinti işləri 2025-ci ildə başlayıb və plana uyğun bitib.";
 const GOOD = "Bakıda 12 yeni məktəb binası istifadəyə verilib. Layihəyə 45,5 milyon manat vəsait ayrılıb. Yeni məktəblərdə 3600 şagird "
   + "təhsil alacaq. Hər binada idman zalı, kitabxana və laboratoriyalar yaradılıb. Tikinti işlərinə 2025-ci ildə başlanılıb və işlər plana uyğun "
-  + "başa çatdırılıb. Məktəblər yeni tədris ilindən fəaliyyət göstərəcək.";
+  + "başa çatdırılıb. Məktəblərin həyətləri də abadlaşdırılıb və yaşıllıq zolaqları salınıb. Məktəblər yeni tədris ilindən fəaliyyət göstərəcək.";
 
 test("ssenari: the narration is checked — every number from the source, no Cyrillic, links, exclamations, relative days, site rule", () => {
   const a = { title: "Bakıda yeni məktəblər açılıb", category: "cemiyyet" };
@@ -25,6 +25,10 @@ test("ssenari: the narration is checked — every number from the source, no Cyr
   assert.match(VS.checkText(GOOD.replace("ayrılıb.", "ayrılıb!"), SOURCE, a), /nida/);
   assert.match(VS.checkText(GOOD.replace("Bakıda", "Bu gün Bakıda"), SOURCE, a), /nisbi gün/);
   assert.match(VS.checkText("Qısa mətn.", SOURCE, a), /uzunluq/);
+  // Sahib: «4-7 cümlədə olsun. uzun da olsun» — 3 uzun cümlə qəbul olunmur.
+  const long = "Bakıda yeni məktəb binaları istifadəyə verilib və binalarda idman zalı, kitabxana, laboratoriyalar, geniş sinif otaqları yaradılıb";
+  const three = `${long}. ${long}, həyətlər də abadlaşdırılıb və yaşıllıq zolaqları salınıb. ${long}, məktəblər yeni tədris ilindən fəaliyyət göstərəcək.`;
+  assert.match(VS.checkText(three, SOURCE, a), /cümlə sayı 3/);
   assert.match(VS.checkText(GOOD, SOURCE, a, () => "qadağan"), /qaydasından keçmir/);
   assert.equal(VS.checkText(GOOD.replace("3600", "3 600").replace("45,5", "45.5"), SOURCE.replace("3600", "3 600"), a), "", "minlik boşluğu və onluq vergül/nöqtə eyni rəqəmdir");
 });

@@ -41,8 +41,8 @@ test("video: the explanation is cut at whole sentences; a source's «…» tail 
   assert.equal(V.bodyText({ title: "B", summary: "Yarımçıq…" }), "");
   const many = Array.from({ length: 24 }, (_, i) => `Bu, ${i + 1}-ci tam cümlədir və bir az uzundur.`).join(" ");
   const b = V.bodyText({ title: "B", text: many });
-  // Sahib 2026-11-22: «Xəbər uzun olsun biraz» — 360 → 650 simvol (≈ 5–7 cümlə, 35–45 s).
-  assert.ok(b.length <= 650 && b.length > 500 && /\.$/.test(b), `izah ≤ 650 simvol, tam cümlə ilə bitir: ${b.length}`);
+  // Sahib 2026-11-22: «Xəbər uzun olsun biraz», «4-7 cümlədə olsun. uzun da olsun» — 360 → 750 simvol (≈ 5–7 cümlə, 35–45 s).
+  assert.ok(b.length <= 750 && b.length > 600 && /\.$/.test(b), `izah ≤ 750 simvol, tam cümlə ilə bitir: ${b.length}`);
   assert.equal(V.bodyText({ title: "Eyni mətn.", summary: "Eyni mətn." }), "", "başlığın təkrarı izah deyil");
   assert.equal(V.bodyText({ title: "B", text: "İzah  <b>var</b>." }), "İzah var.", "HTML təmizlənir");
   assert.deepEqual(V.captionChunks("Prezident İ. Əliyev qəbul edib. Görüş Bakıda olub."), ["Prezident İ. Əliyev qəbul edib.", "Görüş Bakıda olub."], "inisial cümləni bölmür");

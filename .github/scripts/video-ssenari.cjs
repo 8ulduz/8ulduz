@@ -1,7 +1,7 @@
 // Video xəbərin ssenarisi və görüntüsü. Sahib, 2026-11-22: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. Xəbər uzun
 // olsun biraz və videogörüntü olsun o xəbərə uyğun.» Əvvəl video tünd fonda başlıq və bir cümlə idi (~15 s).
 //
-//   ssenari()  Gemini mənbə səhifəsinin mətnindən 4–7 cümləlik diktor mətni (350–650 simvol, ~35–50 s) və Pexels üçün 4–6 ingiliscə
+//   ssenari()  Gemini mənbə səhifəsinin mətnindən 5–7 cümləlik diktor mətni (ən az 4 cümlə, 450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun») və Pexels üçün 4–6 ingiliscə
 //              axtarış ifadəsi yazır. Mətn yoxlanır: hər rəqəm mənbədə olmalıdır, kiril/keçid/nida yoxdur, saytın qaydasından
 //              (policyViolation) keçir. Alınmasa null — video köhnə qayda ilə mənbənin öz cümlələrindən hazırlanır.
 //   goruntu()  Pexels video bankından (pulsuz lisenziya: kommersiya istifadəsi, dəyişdirmə, sosial şəbəkə — https://www.pexels.com/license/)
@@ -16,7 +16,7 @@ const S = require("./social.cjs");
 
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];   // x_yazici.py ilə eyni
-const TEXT_MIN = 250, TEXT_MAX = 700, SOURCE_MAX = 5000;
+const TEXT_MIN = 350, TEXT_MAX = 750, SOURCE_MAX = 5000, SENT_MIN = 4, SENT_MAX = 8;
 const KLIP_SAY = 5, KLIP_MAX_BYTES = 60e6;
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -67,7 +67,7 @@ function sourceText(a, page, fallback = "") {
 
 const PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Aşağıdakı xəbərdən qısa video xəbər (Reels, Shorts) üçün diktor mətni yaz.
 Qaydalar:
-- Azərbaycan ədəbi dilində, 4–7 qısa və aydın cümlə, cəmi 350–600 simvol. Başlığı təkrarlama: başlıq videoda ayrıca oxunur.
+- Azərbaycan ədəbi dilində, 5–7 aydın cümlə (ən az 4), cəmi 450–700 simvol: xəbərin əsas faktları, təfərrüatları və nəticəsi. Başlığı təkrarlama: başlıq videoda ayrıca oxunur.
 - Yalnız aşağıdakı mənbə mətnindəki faktlar. Mətndə olmayan ad, rəqəm, tarix, səbəb, qiymət və ya rəy ƏLAVƏ ETMƏ.
 - Rəqəmləri mənbədəki kimi rəqəmlə yaz. Keçid, emoji, nida və sual işarəsi, kiril hərfi yoxdur. «bu gün», «dünən», «sabah» yoxdur.
 - Neytral xəbər dili. Ən vacib fakt birinci cümlədə. Şərh və qiymətləndirmə yoxdur.
@@ -87,6 +87,8 @@ const NUM = /\d+(?:[.,]\d+)*/g;
 const normNum = s => s.replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".");
 function checkText(text, source, a, policy = () => false) {
   if (text.length < TEXT_MIN || text.length > TEXT_MAX) return `uzunluq ${text.length} (${TEXT_MIN}–${TEXT_MAX})`;
+  const sent = text.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"])/u).filter(Boolean).length;
+  if (sent < SENT_MIN || sent > SENT_MAX) return `cümlə sayı ${sent} (${SENT_MIN}–${SENT_MAX})`;
   if (/[Ѐ-ӿ]/.test(text)) return "kiril hərfi";
   if (/https?:|www\.|[!?]/.test(text)) return "keçid, nida və ya sual";
   if (/\b(bu gün|dünən|sabah)\b/i.test(text)) return "nisbi gün sözü";

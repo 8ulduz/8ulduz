@@ -30,7 +30,7 @@ const ROOT = path.resolve(__dirname, "../..");
 const W = 1080, H = 1920, FPS = 30;
 const X0 = 72, TEXT_W = W - 2 * X0;            // sağda Reels düymələri, aşağıda Reels izahı: mətn bu sahədə qalır
 const MIN_S = 8, MAX_S = 59;                   // Facebook Reels API 3–90 s; qısa video daha çox sona qədər baxılır
-const BODY_MAX = 650;                          // izahın ekranda/səsdə ən çox simvolu (≈ 5–7 cümlə, 35–45 s; sahib 2026-11-22: «uzun olsun biraz»)
+const BODY_MAX = 750;                          // izahın ekranda/səsdə ən çox simvolu (≈ 5–7 cümlə, 35–45 s; sahib 2026-11-22: «4-7 cümlədə olsun. uzun da olsun»)
 const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
 const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", gray: "AFC0D8", box: "1A3563", blue: "1E4D8C", blue2: "2563EB" };
