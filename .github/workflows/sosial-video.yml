@@ -48,6 +48,7 @@ jobs:
     outputs:
       hazir: ${{ steps.sec.outputs.hazir }}
       paylas: ${{ steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas) && '1' || '0' }}
+      yoxlandi: ${{ steps.yoxla.outcome == 'success' && '1' || '0' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -77,8 +78,9 @@ jobs:
         id: sec
         env:
           EVENT: ${{ github.event_name }}
-          # Seçim açarı işlətmir, yalnız onun olub-olmadığını bilir (yoxdursa heç nə hazırlanmır).
-          VIDEO_ACAR: ${{ secrets.FB_PAGE_TOKEN != '' && '1' || '0' }}
+          # Seçim açarı işlətmir, yalnız onun olub-olmadığını bilir (yoxdursa heç nə hazırlanmır). Facebook və ya TikTok açarı
+          # (tiktok.yml) olanda video hazırlanır; FB açarı olmayanda «Paylaş» addımı şəbəkəsiz qalır, heç nə göndərmir.
+          VIDEO_ACAR: ${{ (secrets.FB_PAGE_TOKEN != '' || (secrets.TIKTOK_CLIENT_KEY != '' && secrets.TIKTOK_CLIENT_SECRET != '')) && '1' || '0' }}
           VIDEO_PAYLAS: ${{ (github.event_name == 'workflow_dispatch' && !inputs.paylas) && '0' || '1' }}
           VIDEO_XEBER: ${{ inputs.xeber }}
           VIDEO_MIN_GAP_MIN: ${{ vars.VIDEO_MIN_GAP_MIN }}
@@ -130,6 +132,7 @@ jobs:
         run: node .github/scripts/video-xeber.cjs video-out/xeber.json video-out/video.mp4
       # Şəbəkələrin tələbi: 9:16, H.264 yuv420p, AAC 48 kHz, 3–90 s, moov əvvəldə (Instagram yükləməni oxuyarkən emal edir).
       - name: Videonu yoxla
+        id: yoxla
         if: steps.sec.outputs.hazir == '1'
         run: |
           node -e '
@@ -189,3 +192,17 @@ jobs:
           name: video-xeber
           path: video-out/
           retention-days: 3
+
+  # TikTok (tiktok.yml, docs/tiktok.md §7): yalnız main-də, əsl paylaşım dövrəsində (paylas == '1': PR nümunəsi və paylas=false
+  # önizləməsi getmir) və video yoxlamadan keçəndə. Facebook/Instagram alınmasa da (video işi qırmızı) hazır video TikTok-a gedir.
+  # Yalnız TikTok sirləri verilir (Facebook açarı bu işə getmir).
+  tiktok:
+    needs: video
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.video.outputs.paylas == '1' && needs.video.outputs.yoxlandi == '1' }}
+    uses: ./.github/workflows/tiktok.yml
+    with:
+      artifact: video-xeber
+    secrets:
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}

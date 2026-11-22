@@ -4,13 +4,21 @@ name: TikTok-da paylaş
 # Açar yoxdursa iş sakitcə ötürür. Video faylını bu iş hazırlamır — video modulu (docs/tiktok.md «Video modulu ilə qoşulma»).
 
 on:
-  # Video modulu videonu artifact kimi yükləyib bu işi çağırır: uses: ./.github/workflows/tiktok.yml, with: artifact: <ad>, secrets: inherit.
+  # Video modulu (sosial-video.yml «tiktok» işi) videonu artifact kimi yükləyib bu işi çağırır: with: artifact, secrets: TIKTOK_*.
   workflow_call:
     inputs:
       artifact:
         description: 'Videoların artifact adı (<ad>.mp4 + <ad>.json cütləri)'
         type: string
         required: true
+    # Çağıran yalnız TikTok sirlərini verir (secrets: inherit lazım deyil, Facebook açarı bu işə getmir).
+    secrets:
+      TIKTOK_CLIENT_KEY:
+        required: false
+      TIKTOK_CLIENT_SECRET:
+        required: false
+      TIKTOK_REFRESH_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       kod:

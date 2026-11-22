@@ -188,7 +188,10 @@ jobs:
     uses: ./.github/workflows/tiktok.yml
     with:
       artifact: tiktok-video
-    secrets: inherit
+    secrets:          # yalnız TikTok sirləri; secrets: inherit də işləyir, amma başqa açarları da verir
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
 ```
 
 `<ad>.json`:
@@ -217,21 +220,25 @@ JSON-da başqa saytın video keçidi (`video`, `videoUrl`, `src`, `clips`) olmam
 - Brend zolağı y=300/1920 (15,6%) səviyyəsindədir: TikTok-un üst yazılarından aşağıdadır.
 - Artifact `video-xeber` adlanır (`video-out/`). Qovluqda başqa fayllar da var (`xeber.json`, kadrlar), amma cüt yalnız `video.mp4` + `video.json`-dur, qalanını yükləyici ötürür.
 
-Qoşulma: iki PR-dan hansı **ikinci** birləşirsə, `sosial-video.yml`-ə bu işi o əlavə edir. tiktok.yml main-də olmayana qədər bu sətirlər `sosial-video.yml`-i sındırar.
+Qoşulma bu PR-dadır: `sosial-video.yml`-in sonunda `tiktok` işi.
 
 ```yaml
   tiktok:
     needs: video
-    if: ${{ !cancelled() && needs.video.outputs.paylas == '1' }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.video.outputs.paylas == '1' && needs.video.outputs.yoxlandi == '1' }}
     uses: ./.github/workflows/tiktok.yml
     with:
       artifact: video-xeber
-    secrets: inherit
+    secrets:
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
 ```
 
-`paylas` yalnız əsl paylaşım dövrəsində `1` olur. PR nümunəsi və `paylas=false` önizləməsi TikTok-a getmir. Facebook və ya Instagram alınmasa da (iş qırmızı), video hazırdırsa TikTok-a gedir.
-
-Modul ən vacib xəbəri yalnız `FB_PAGE_TOKEN` olanda seçir (`VIDEO_ACAR`). Facebook açarı olmasa TikTok üçün də video hazırlanmır. Bu açar artıq yazılıb.
+- **Nə vaxt gedir.** Yalnız `main`-də və əsl paylaşım dövrəsində: `paylas` `1` olmalıdır. PR nümunəsi və `paylas=false` önizləməsi TikTok-a getmir.
+- **Yoxlama.** Video modulun öz yoxlamasından («Videonu yoxla», çıxış `yoxlandi`) keçməlidir. Facebook və ya Instagram alınmasa da (iş qırmızı), yoxlanmış video TikTok-a gedir.
+- **Sirlər.** TikTok işinə yalnız üç TikTok sirri verilir, Facebook açarı ora getmir.
+- **Seçim.** Modul ən vacib xəbəri Facebook (`FB_PAGE_TOKEN`) və ya TikTok (`TIKTOK_CLIENT_KEY` + `TIKTOK_CLIENT_SECRET`) açarı olanda seçir (`VIDEO_ACAR`). Facebook açarı olmasa video yenə hazırlanır, amma FB/IG addımı heç nə göndərmir və qırmızı olmur.
 
 Tezlik: modul 2 saatdan bir, Bakı vaxtı ilə 08–23 arası, gündə ən çox 8 video hazırlayır. Yükləyicinin həddi (60 dəq ara, gündə ≤10) buna mane olmur.
 

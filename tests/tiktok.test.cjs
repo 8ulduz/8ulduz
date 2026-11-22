@@ -353,6 +353,28 @@ test("tiktok: workflow — own job, no write access, the code never sits in env,
   assert.match(wf, /if: github\.event_name != 'pull_request' && github\.ref == 'refs\/heads\/main'/);
 });
 
+test("tiktok: hooked to the video module — main only, real posting runs only, checked video only, TikTok secrets only", () => {
+  const wf = fs.readFileSync(path.join(__dirname, "../.github/workflows/sosial-video.yml"), "utf8");
+  const job = wf.slice(wf.indexOf("\n  tiktok:"));
+  assert.ok(job.length > 20, "sosial-video.yml-də tiktok işi var");
+  assert.match(job, /needs: video\n/);
+  assert.match(job, /if: \$\{\{ !cancelled\(\) && github\.ref == 'refs\/heads\/main' && needs\.video\.outputs\.paylas == '1' && needs\.video\.outputs\.yoxlandi == '1' \}\}/);
+  assert.match(job, /uses: \.\/\.github\/workflows\/tiktok\.yml\n\s+with:\n\s+artifact: video-xeber\n/);
+  assert.ok(!/secrets: inherit|FB_PAGE_TOKEN/.test(job), "Facebook açarı TikTok işinə getmir");
+  assert.deepEqual([...job.matchAll(/(TIKTOK_\w+): \$\{\{ secrets\.(TIKTOK_\w+) \}\}/g)].map(m => m[1] === m[2] && m[1]), ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"]);
+  // paylas: PR və paylas=false önizləməsində 0; yoxlandi: «Videonu yoxla» addımı keçəndə 1.
+  assert.match(wf, /paylas: \$\{\{ steps\.sec\.outputs\.hazir == '1' && github\.event_name != 'pull_request' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.paylas\) && '1' \|\| '0' \}\}/);
+  assert.match(wf, /yoxlandi: \$\{\{ steps\.yoxla\.outcome == 'success' && '1' \|\| '0' \}\}/);
+  assert.match(wf, /- name: Videonu yoxla\n\s+id: yoxla\n/);
+  // Seçim TikTok açarı ilə də işləyir; FB/IG addımı açarı əvvəlki kimi alır.
+  assert.match(wf, /VIDEO_ACAR: \$\{\{ \(secrets\.FB_PAGE_TOKEN != '' \|\| \(secrets\.TIKTOK_CLIENT_KEY != '' && secrets\.TIKTOK_CLIENT_SECRET != ''\)\) && '1' \|\| '0' \}\}/);
+  const tk = fs.readFileSync(path.join(__dirname, "../.github/workflows/tiktok.yml"), "utf8");
+  const call = tk.slice(tk.indexOf("workflow_call:"), tk.indexOf("workflow_dispatch:"));
+  for (const s of ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"]) assert.match(call, new RegExp(`${s}:\\n\\s+required: false`), `${s} workflow_call-da elan olunub`);
+  // Facebook açarı olmayanda FB/IG addımı heç nə göndərmir (şəbəkə siyahısı boşdur), iş qırmızı olmur.
+  assert.deepEqual(require("../.github/scripts/sosial-video.cjs").networks({ FB_PAGE_ID: "1" }), []);
+});
+
 // tiktok.yml «sinaq-video»: ffmpeg-in hazırladığı əsl 9:16 video eyni yoldan keçir (yerdə ffmpeg yoxdursa ötürülür).
 test("tiktok: a real ffmpeg test video passes the own-video check and is uploaded byte for byte", { skip: !process.env.TIKTOK_TEST_DIR && "TIKTOK_TEST_DIR yoxdur (ffmpeg yalnız tiktok.yml-də)" }, async () => {
   const dir = process.env.TIKTOK_TEST_DIR, vids = T.readVideos(dir);
