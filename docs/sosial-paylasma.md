@@ -58,6 +58,10 @@ X API-də yazma ödənişli ola bilər; qiyməti developer portalında yoxlayın
 
 LinkedIn şəxsi tokeni 60 gün işləyir, sonra yenilənməlidir.
 
+## TikTok
+
+Ayrıca iş axınıdır (`tiktok.yml`, `tiktok.cjs`): öz video xəbərlərimiz, açarlar, audit və qoşulma — [tiktok.md](tiktok.md).
+
 ## Tənzimləmə (Variables, istəyə bağlı)
 
 - `SOCIAL_MIN_SOURCES`: neçə mənbə yazanda paylaşılsın (standart 4). Az yazsanız, post çoxalır.

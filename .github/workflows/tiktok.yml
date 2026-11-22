@@ -1,0 +1,128 @@
+name: TikTok-da paylaş
+# Öz hazırladığımız video xəbərlər 8ulduz-un TikTok hesabına (sahib, 2026-11-22). Qaydalar: .github/scripts/tiktok.cjs, qurulum və
+# audit: docs/tiktok.md. Xəbər axınından (update.yml) ayrıdır: main-ə yazmır, sayta heç nə əlavə etmir; düşsə də lent yenilənir.
+# Açar yoxdursa iş sakitcə ötürür. Video faylını bu iş hazırlamır — video modulu (docs/tiktok.md «Video modulu ilə qoşulma»).
+
+on:
+  # Video modulu videonu artifact kimi yükləyib bu işi çağırır: uses: ./.github/workflows/tiktok.yml, with: artifact: <ad>, secrets: inherit.
+  workflow_call:
+    inputs:
+      artifact:
+        description: 'Videoların artifact adı (<ad>.mp4 + <ad>.json cütləri)'
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      kod:
+        description: 'Qoşulma: TikTok icazədən sonra açdığı ünvanı (https://8ulduz.az/haqqinda/?code=…) tam yapışdırın'
+        type: string
+        default: ''
+      sinaq:
+        description: 'ffmpeg ilə sınaq videosu hazırlayıb yalnız sizə görünən (SELF_ONLY) kimi paylaş'
+        type: boolean
+        default: false
+  # PR yoxlaması: ffmpeg ilə əsl 9:16 video hazırlanır, yükləyici onu testdəki saxta TikTok-a göndərir. Açar və şəbəkə yoxdur.
+  pull_request:
+    paths:
+      - .github/scripts/tiktok.cjs
+      - .github/workflows/tiktok.yml
+      - tests/tiktok.test.cjs
+
+permissions:
+  contents: read
+
+jobs:
+  sinaq-video:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+      - name: ffmpeg
+        run: command -v ffmpeg >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg fonts-dejavu-core; }
+      - name: Sınaq videosu (1080×1920, yuxarıda «8ulduz.az»)
+        run: |
+          node .github/scripts/tiktok.cjs sinaq "$RUNNER_TEMP/video"
+          ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate:format=duration,size:format_tags=comment -of compact "$RUNNER_TEMP"/video/*.mp4
+      - name: Yükləyici əsl videonu göndərir (saxta TikTok)
+        env:
+          TIKTOK_TEST_DIR: ${{ runner.temp }}/video
+        run: node --test tests/tiktok.test.cjs
+      - name: Sınaq videosu (baxmaq üçün)
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: tiktok-sinaq
+          path: ${{ runner.temp }}/video/*.mp4
+          retention-days: 3
+
+  post:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Token yeniləməsi yeni refresh token qaytarır: iki iş eyni anda yeniləməsin.
+    concurrency:
+      group: tiktok
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/tiktok.cjs
+            .github/scripts/topics.cjs
+            assets/app.js
+            assets/content-policy.js
+            data/reels.json
+          sparse-checkout-cone-mode: false
+      - name: Token və paylaşılanlar (şifrəli)
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .tiktok
+          key: tiktok-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: tiktok-state-
+      # Kod env-ə qoyulmur (addımın env siyahısı jurnalda görünür): skript onu hadisə faylından oxuyur və gizlədir.
+      - name: Qoşul
+        if: github.event_name == 'workflow_dispatch' && inputs.kod != ''
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          TIKTOK_MODE: ${{ vars.TIKTOK_MODE }}
+          TIKTOK_REDIRECT_URI: ${{ vars.TIKTOK_REDIRECT_URI }}
+        run: node .github/scripts/tiktok.cjs qosul
+      - name: Sınaq videosu
+        if: github.event_name == 'workflow_dispatch' && inputs.sinaq
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg fonts-dejavu-core; }
+          node .github/scripts/tiktok.cjs sinaq tiktok-in
+      - name: Videonu al
+        if: inputs.artifact != ''
+        continue-on-error: true
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: ${{ inputs.artifact }}
+          path: tiktok-in
+      - name: Paylaş
+        if: ${{ !cancelled() }}
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          TIKTOK: ${{ vars.TIKTOK }}
+          TIKTOK_MODE: ${{ vars.TIKTOK_MODE }}
+          TIKTOK_PRIVACY: ${{ vars.TIKTOK_PRIVACY }}
+          TIKTOK_MAX_DAY: ${{ vars.TIKTOK_MAX_DAY }}
+          TIKTOK_MIN_GAP_MIN: ${{ vars.TIKTOK_MIN_GAP_MIN }}
+          TIKTOK_MAX_AGE_H: ${{ vars.TIKTOK_MAX_AGE_H }}
+          TIKTOK_BRAND_ORGANIC: ${{ vars.TIKTOK_BRAND_ORGANIC }}
+        run: node .github/scripts/tiktok.cjs post tiktok-in
+      - name: Saxla
+        if: always()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        continue-on-error: true
+        with:
+          path: .tiktok
+          key: tiktok-state-${{ github.run_id }}-${{ github.run_attempt }}
