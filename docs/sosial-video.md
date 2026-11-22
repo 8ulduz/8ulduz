@@ -67,8 +67,9 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   Model sırası: ən yeni 3 flash, sonra 2 flash-lite (X yazıcısı lite işlətmir, onun limiti video üçün qalır); gündəlik limit 429-u gələn model təkrar soruşulmur.
 - **Görüntü:** Gemini 4–6 ingiliscə axtarış ifadəsi də verir; [Pixabay](https://pixabay.com/api/docs/) (`PIXABAY_API_KEY`) və ya
   [Pexels](https://www.pexels.com/api/) (`PEXELS_API_KEY`; 2026-11-22-də Pexels yeni açar vermirdi) video bankından 4–5 klip yüklənir — əvvəl şaquli (ekranı doldurur), yoxdursa üfüqi: tam enində ortada, arxada bulanıq nüsxəsi (9:16-ya kəsilmir: 2026-11-22 nümunəsində kəsilmiş 1080p klip bulanıq çıxdı, sarayın yerinə göy qaldı).
-  Klipin təsviri (Pixabay etiketləri, səhifə ünvanı) axtarış sözləri ilə tutuşdurulur: 3+ sözdə ən az 2-si, ya da ilk konkret söz (yer, əşya)
-  üst-üstə düşməlidir, yoxsa klip götürülmür (2026-11-22 üçüncü nümunə: «sərhəd divarı» axtarışına dələ, «Kapitoli»yə Yaponiya qalası gəlmişdi).
+  Klipin təsviri (Pixabay etiketləri, səhifə ünvanı) axtarış sözləri ilə tutuşdurulur: ifadənin əsas sözü (sonuncu konkret söz: «border wall»-da
+  «wall», «united states capitol»-da «capitol») klipdə olmalıdır və konkret sözlərin ən az 2-si üst-üstə düşməlidir, yoxsa klip götürülmür
+  (2026-11-22 nümunələri: «sərhəd divarı» axtarışına «Mexico City» etiketli dələ, «Kapitoli»yə Yaponiya qalası və Empire State gəlmişdi).
   Əvvəl Gemini-nin ifadələri, klip çatmırsa bölmənin ümumi səhnələri. Hər iki lisenziya pulsuzdur, kommersiya istifadəsinə və
   dəyişdirməyə icazə verir, mənbəni göstərməyi xahiş edir: videoda və post mətnində «Görüntü: Pixabay» (və ya Pexels). Lisenziyalar tanınan insanı pis işıqda göstərməyi
   qadağan edir: mənfi xəbərdə (cinayət, qəza, ölüm) ifadələr insansız səhnələrdir. Açar yoxdursa və ya klip tapılmasa fon tünd göy qalır.

@@ -155,7 +155,7 @@ test("goruntu: Pixabay (Pexels stopped issuing keys, 2026-11-22) — relevant cl
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("goruntu: a clip must match the query — the third sample showed a squirrel for a border wall and a Japanese castle for the Capitol", () => {
+test("goruntu: a clip must match the query — the samples showed a squirrel for a border wall, a Japanese castle and the Empire State for the Capitol", () => {
   assert.equal(VS.relevance("us mexico border wall", "squirrel, animal, nature squirrel-animal-nature-310086"), 0);
   assert.equal(VS.relevance("washington dc capitol building", "castle, japan, osaka, building, night"), 0, "yalnız ümumi «building» bəs etmir");
   assert.equal(VS.relevance("us mexico border wall", "wall, brick, texture"), 0, "3+ sözdə bir təsadüfi söz bəs etmir");
@@ -164,6 +164,11 @@ test("goruntu: a clip must match the query — the third sample showed a squirre
   assert.ok(VS.relevance("baku city skyline", "baku, azerbaijan, flame towers") > 0, "ilk konkret söz (yer adı) bəs edir");
   assert.ok(VS.relevance("police lights at night", "police, siren, lights") > 0, "cəm və tək eyni sözdür");
   assert.equal(VS.relevance("city street traffic", "street, cars"), 0);
+  // Dördüncü nümunə: «Mexico City» etiketli dələ və Empire State binası keçmişdi — ifadənin əsas sözü («wall», «capitol») olmalıdır.
+  assert.equal(VS.relevance("us mexico border wall", "nature, green, chipmunk, city, tree, animal, mammal, country, Mexico City, Mexico"), 0);
+  assert.equal(VS.relevance("united states capitol", "empire state, skyline, manhattan, new york, the usa, building, america, united states"), 0);
+  assert.ok(VS.relevance("united states capitol", "capitol, washington, dome") > 0, "«united states» ümumi sözdür, «capitol» bəs edir");
+  assert.equal(VS.relevance("white house washington", "washington, forest, trees"), 0);
 });
 
 test("goruntu: negative stories get people-free fallback scenes; the prompt forbids identifiable people (Pexels license)", () => {

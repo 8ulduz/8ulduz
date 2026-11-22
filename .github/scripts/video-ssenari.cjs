@@ -207,14 +207,19 @@ function pixabayFile(v) {
 const STOP = new Set(["the", "and", "with", "for", "from", "into", "over", "near"]);
 const stem = w => (w.length > 4 ? w.replace(/ies$/, "y").replace(/(?<!s)s$/, "") : w);
 const words = s => String(s || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 2 && !STOP.has(w)).map(stem);
-// İstisna: ifadənin ilk sözü (Gemini-də adətən yer və ya əsas əşya: «baku», «mexico», «oil») ümumi söz deyilsə və klipdə varsa, bəs edir.
+// Qayda: ifadənin əsas sözü — sonuncu konkret (ümumi olmayan) söz, ingiliscədə ad birləşməsinin özəyi («border WALL», «capitol»,
+// «baku city skyline»-da «baku») — klipin təsvirində olmalıdır və konkret sözlərin ən az 2-si (1-dirsə o) üst-üstə düşməlidir.
+// Dördüncü nümunə: «Mexico City» etiketli dələ «us mexico border wall»-a, Empire State «united states capitol»-a keçmişdi.
 const UMUMI = new Set(["city", "building", "street", "road", "night", "view", "aerial", "people", "traffic", "light", "sky", "skyline",
-  "background", "office", "outdoor", "water", "landscape", "modern", "old", "new", "urban", "center", "exterior", "interior", "drone"]);
+  "background", "office", "outdoor", "water", "landscape", "modern", "old", "new", "urban", "center", "exterior", "interior", "drone",
+  "united", "state", "usa", "america", "american", "world", "international", "national", "country", "global"]);
 function relevance(q, desc) {
   const want = [...new Set(words(q))], have = new Set(words(desc));
   if (!want.length) return 1;
-  const n = want.filter(w => have.has(w)).length, first = have.has(want[0]) && !UMUMI.has(want[0]);
-  return n >= (want.length >= 3 ? 2 : 1) || first ? n + (first ? 1 : 0) : 0;
+  const n = want.filter(w => have.has(w)).length, spec = want.filter(w => !UMUMI.has(w));
+  if (!spec.length) return n >= Math.min(2, want.length) ? n : 0;   // yalnız ümumi sözlər («city street traffic»)
+  const m = spec.filter(w => have.has(w)).length;
+  return have.has(spec[spec.length - 1]) && m >= Math.min(2, spec.length) ? n + m : 0;
 }
 const slug = u => String(u || "").split("?")[0].split("/").filter(Boolean).pop() || "";
 // Uyğunluğa görə (ən uyğun əvvəl), bərabər olanda şaquli əvvəl; uyğun olmayan atılır.
