@@ -479,12 +479,14 @@ function igGrid(media, state = {}, articles = [], archive = []) {
     const hit = title && known.get(igKey(title));
     const t = Math.floor(Date.parse(m.timestamp) / 1000) || 0;
     if (hit) return { title: hit.title, url: hit.url, img: hit.img, t };
-    return { title, url: title ? `https://8ulduz.az/#/axtar?q=${encodeURIComponent(title.slice(0, 120))}` : "https://8ulduz.az/", img: String(m.media_url || m.thumbnail_url || ""), t };
+    // Video (Reels, sosial-video.cjs): media_url mp4 faylıdır, şəkil deyil — örtük kadrı (thumbnail_url) götürülür.
+    const img = m.media_type === "VIDEO" ? m.thumbnail_url : m.media_url || m.thumbnail_url;
+    return { title, url: title ? `https://8ulduz.az/#/axtar?q=${encodeURIComponent(title.slice(0, 120))}` : "https://8ulduz.az/", img: String(img || ""), t };
   }).filter(x => x.title);
 }
 async function igMedia(net, f) {
   if (!net?.ig || !net.root) return [];
-  const u = `${net.root}${encodeURIComponent(net.ig)}/media?fields=caption,media_url,thumbnail_url,timestamp&limit=${IG_SHOW}&access_token=${encodeURIComponent(net.token)}`;
+  const u = `${net.root}${encodeURIComponent(net.ig)}/media?fields=caption,media_type,media_url,thumbnail_url,timestamp&limit=${IG_SHOW}&access_token=${encodeURIComponent(net.token)}`;
   const r = await f(u, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
   return Array.isArray(r?.data) ? r.data : [];
 }
@@ -518,5 +520,6 @@ async function main() {
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, sentences, describe, pageDescriptions, pageParagraphs, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks };
+module.exports = { digests, candidates, networks, oauthHeader, readState, run, options, cut, sentences, describe, pageDescriptions, pageParagraphs, topicOf, sameTopic, igGrid, igRemember, igMedia, noLinks,
+  titleKey, shareUrl, clean, TOPIC_H };   // sosial-video.cjs eyni seçim və mövzu qaydasını işlədir
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e)); process.exitCode = 1; });
