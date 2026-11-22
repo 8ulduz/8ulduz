@@ -1,0 +1,163 @@
+# Video xəbərlər: Facebook və Instagram (Reels)
+
+Sahibin göstərişi (2026-11-22): «Facebook-da video xəbərlər verilsin. Bunun üçün oxu.az və crossmedia.az və digər saytların təcrübəsini incələ, yararlı olanlardan istifadə et. İnstagramda videolar verilsin. Videolarda başda 8ulduz.az yazılsın.»
+
+![Nümunə video: başlıq, iki altyazı, sonluq](sosial-video-numune.jpg)
+
+## Qısa
+
+- Ən vacib xəbərdən (social.cjs-in seçimi: son 3 saatda 4+ mənbə və ya Prezident bölməsi) **öz hazırladığımız** şaquli video düzəlir: brend fonu, yuxarıda başdan sona loqo və «8ulduz.az», böyük başlıq, izah altyazı kimi, istəyə görə Azərbaycan səsi (SARA), sonda «Ətraflı: 8ulduz.az».
+- Video Facebook səhifəsinə Reels, Instagram-a Reels kimi gedir. Facebook mətnində saytdakı həmin xəbərin keçidi var, Instagram-da «Ətraflı: 8ulduz.az (keçid profildədir)».
+- 2 saatdan bir, Bakı vaxtı ilə 08:00–23:59 arası, gündə ən çox 8 video. Hamısı GitHub Actions-da işləyir, kompüterdən asılı deyil.
+- Üçüncü tərəfin videosu, fotosu, musiqisi videoya düşmür (aşağıda «Müəllif hüququ»).
+
+## Araşdırma: Azərbaycan mediası necə edir (2026-11-22)
+
+Facebook, Instagram və TikTok səhifələrinə giriş etmədən baxılıb. Instagram girişsiz baxış sayını göstərmir, ona görə orada populyarlıq bəyənmə ilə ölçülüb. «Göründü» — birbaşa baxılıb, qalanı nəticədir.
+
+| Sayt | Format, uzunluq | Videodakı yazı | Loqo və ünvan | Post mətni, keçid | Tezlik, baxış |
+|---|---|---|---|---|---|
+| Oxu.az ([IG](https://www.instagram.com/oxuaz/) 296 min, [FB](https://www.facebook.com/oxu.azz/reels/) 222 min) | IG Reels 4:5 (1080×1350), nümunə 75 s; FB-də ən çox baxılan 24 s | Başlıq 3 sətir, ağ qalın şrift, aşağı üçdə birdə, tünd keçidin üstündə; videonun ətrafında nazik çərçivə | Küncdə loqo yoxdur; aşağıda bütün hesabların adı zolaqda (oxu.az, Telegram) | 3–4 cümlə xülasə + 1–2 heşteq, keçid yoxdur; IG bio-da oxu.az. FB mətni xəbərin girişi kimi | IG-də son 12 postun 6-sı Reels, 11-i bir gündə. FB Reels: adətən 1–3 min, ən çox 17 min baxış (futbol hadisəsi) |
+| Report.az ([IG](https://www.instagram.com/report.az/) 240 min, [FB](https://www.facebook.com/www.report.az/reels/) 215 min) | 9:16 (1080×1920), hava proqnozu 67 s; FB-də ən çox baxılan 17 s | Sol tərəfdə şaquli rəngli xətt yanında qalın başlıq, açar söz sarı rənglə | Ortada sağda yarımşəffaf «REPORT» | Yalnız başlıq + 4 heşteq; keçid bio-da. FB-də «❗️⚠️» ilə təcili xəbər | IG-də son 12 postun 4-ü Reels. FB: 58–2 400 baxış; ən çoxu öz bürosunun çəkdiyi yanğın |
+| APA ([IG](https://www.instagram.com/apaazerbaijan/) 41 min, [FB](https://www.facebook.com/apaxeber/reels/) 99 min) | 9:16, nümunə 10 s; FB-də ən çox baxılan 14 s | Hərəkətli aşağı zolaq, narıncı vurğu | Sağ yuxarı küncdə dairəvi loqo | «⚡️» + başlıq + bir sətir, keçid yoxdur; IG bio Telegram-a aparır | Gündə ~12 post. FB: 410–9 600 baxış (dron hadisəsi) |
+| Qafqazinfo ([IG](https://www.instagram.com/qafqazinfo_az/) 650 min) | 4:5, nümunə 39 s | Aşağıda tünd qırmızı zolaqda 2 sətir başlıq | Sol aşağıda kiçik «qafqazinfo.az» | Bir neçə abzas xülasə + mənbə; keçid bio-da | Son 12 postun 6-sı Reels. Ən çox bəyənilən: maraqlı/insan hekayəsi (1 688), idman və məşhurlar (~1 000) |
+| Crossmedia.az ([TikTok](https://www.tiktok.com/@crossmedia_azerbaijan) 17 min izləyici) | 9:16 | Aşağıda göy dairəvi qutuda ağ başlıq | Yuxarıda «CROSSMEDIA» | Bio: «Ətraflı Crossmedia.az saytında»; mətndə bəzən xəbərin tam mətni və keçid | Adi videolar 30–216 baxış; ən çox baxılanlar 0,4–1,1 milyon: qəribə/sirli, siyasi şəxs, kamera görüntüsü, şəhər şikayəti, məşhurlar |
+
+Yoxlanmayanlar (vaxt çatmadı və ya giriş tələb etdi): Axar, Modern, Publika, Baku TV, İTV, AZƏRTAC, Milli.az, Caliber; Qafqazinfo və Crossmedia-nın Facebook Reels-i; Oxu, Report, APA və Qafqazinfo-nun TikTok hesabları.
+
+Ümumi müşahidə: hamı başlığı videonun üstünə böyük ağ qalın şriftlə yazır, loqo və ya sayt adı videoda görünür (Reels-də keçid basılmır), post mətnində keçid demək olar ki, yoxdur (bio-da və ya ilk şərhdə). Rəqiblərin çoxu başqasının videosunu (TV, digər hesablar, su nişanı ilə) təkrar yükləyir.
+
+Meta və tədqiqatlardan:
+
+- Facebook Reels API: 9:16, 1080×1920 tövsiyə (ən az 540×960), 24–60 kadr/s, 3–90 s, H.264, AAC 48 kHz; səhifəyə 24 saatda ən çox 30 API Reels ([Meta](https://developers.facebook.com/docs/video-api/guides/reels-publishing)).
+- Instagram API: Reels 3 s – 15 dəq, 24 saatda 100 API postu (şəkilli postlarla birlikdə) ([Meta](https://developers.facebook.com/docs/instagram-platform/content-publishing/)).
+- Instagram: «ilk 3 saniyə maraqlı olsun»; başqasının su nişanı yayılmanı azaldır; ayda 10+ Reels paylaşan hesablar tez böyüyür ([Instagram Creators](https://creators.instagram.com/faq)).
+- Meta-nın «orijinal olmayan məzmun» qaydası (14 iyul 2025): başqasının məzmununu təkrar-təkrar yükləyən səhifələrin bütün postlarının yayılması azalır, pul qazanma bağlanır; öz montajı, səs, şərh «əhəmiyyətli əlavə» sayılır; ən yaxşı mətn keçidsiz, ən çox 5 heşteqlidir ([Meta](https://creators.facebook.com/blog/combating-unoriginal-content)). Instagram 2026-cı ilin aprelində eyni qaydanı bütün post növlərinə yayıb ([PetaPixel](https://petapixel.com/2026/04/30/new-instagram-policies-target-reposted-content/)).
+- Tamaşaçıların 69%-i ictimai yerdə videoya səssiz baxır, 80%-i altyazı olanda videonu sona qədər izləməyə daha meyillidir ([Verizon Media/Publicis, 2019](https://www.3playmedia.com/blog/verizon-media-and-publicis-media-find-viewers-want-captions/)).
+- Sosial şəbəkədə həftəlik video xəbər istifadəsi 2020-də 52%, 2025-də 65% olub ([Reuters İnstitutu, 2025](https://reutersinstitute.politics.ox.ac.uk/digital-news-report/2025/dnr-executive-summary); Azərbaycan hesabatda yoxdur).
+
+## Seçimlərimiz
+
+| Nə | Nə etdik | Niyə |
+|---|---|---|
+| Format | 1080×1920, 9:16, 30 kadr/s, 15–35 s (ən çox 59 s) | Hər üç şəbəkənin tövsiyəsi; ən çox baxılan xəbər Reels-ləri 14–24 s idi |
+| İlk saniyə | Başlıq 0,12 s-də görünür, səs 0,35 s-də başlıqla başlayır | «İlk 3 saniyə»; lentdə səssiz avtomatik oynayanda da xəbər oxunur |
+| Yazı | Böyük ağ qalın başlıq (Roboto Black), altında izah cümlə-cümlə altyazı (göy qutuda), səslə eyni anda | Rəqiblərin hamısı belə edir; səssiz izləyənlər çoxdur |
+| Brend | Yuxarıda zolaq: saytın loqosu (8ULDUZ) + «.az» — başdan sona, videoya yandırılıb; gediş xətti narıncı; sonda böyük «8ulduz.az» | Sahibin göstərişi; Reels-də keçid basılmır — ünvan videoda yazılmalıdır |
+| Yer | Bütün yazılar y 300…1480 arasında | Lentdə Reels ortadan 4:5-ə kəsilir (Oxu, Qafqazinfo 4:5 yükləyir), tam ekranda yuxarıda və aşağıda şəbəkənin düymələri var |
+| Rəng | Saytın tünd göyü və loqonun narıncısı | Brend tanınsın |
+| Mənbə | Videoda «Mənbə: Day.Az, Azpolitika.info və daha 11 sayt» | Aqreqatoruq: mənbəni göstərmək həm dürüstdür, həm də başqasının xəbərini öz adımıza çıxarmırıq |
+| Səs | SARA (sahibin «Dinlə» üçün seçdiyi açıq model), pulsuz, GitHub-da | Səs «əhəmiyyətli əlavə»dir (Meta), səslə izləyən də anlayır |
+| Facebook mətni | Başlıq, izah (≤900 simvol), «Ətraflı: https://www.8ulduz.az/<nömrə>?h=<saat>», 3 heşteq; eyni keçid ilk şərhdə də | Sahibin göstərişi (keçid basılan olsun). Meta keçidsiz mətni üstün tutur — ona görə keçid ilk şərhdə də var; yayılma zəif olarsa mətndəki keçidi götürmək bir sətirlik dəyişiklikdir |
+| Instagram mətni | Başlıq, izah, «Ətraflı: 8ulduz.az (keçid profildədir)», 4 heşteq | Instagram keçidi basılan etmir; profildəki keçid 8ulduz.az/ig/ səhifəsinə aparır |
+| Tezlik | 2 saatdan bir, 08–23 Bakı vaxtı, gündə ≤8 | Rəqiblər gündə ~6 Reels; Facebook API həddi 30; Instagram həddi 100 (şəkilli postlar gündə ≤80, həddi kod hər videodan əvvəl yoxlayır) |
+| Mövzu | social.cjs seçimi: ən çox mənbəli xəbər, Prezident bölməsi; eyni mövzu 24 saatda bir dəfə | Ən çox yazılan xəbər ən maraqlısıdır; qəza, hava, qiymət, idman da 4+ mənbə ilə bura düşür |
+
+Götürmədiklərimiz: başqasının kadrları (aşağıda), musiqi (Meta-nın lisenziyalı musiqisi API ilə əlçatan deyil, başqa musiqi müəllif hüququ riskidir), «❗️⚡️» kimi təcili işarələr (hər xəbərdə olsa mənasını itirir; istəsəniz Prezident və ya 10+ mənbəli xəbərə əlavə etmək olar).
+
+## Müəllif hüququ (sərt qayda)
+
+Videoya yalnız hüququmuz olan şey düşür: xəbərin başlığı və qısa izahı (mənbə göstərilir), saytın dizaynı və loqosu, SARA səsi. Kod bunu testlə qoruyur (`tests/sosial-video.test.cjs`: video modulu xəbərin şəklini və videosunu, `reels.json`/`oz_x.json` videolarını işlətmir; ffmpeg-in girişləri yalnız rəngli fon, loqo və səsdir).
+
+Tətbiq edilməyən variantlar — **qərar sahibindir**:
+
+| Variant | Fayda | Risk |
+|---|---|---|
+| X-dəki videolar (F1, NBA, Fox News, klublar; `data/reels.json`, `oz_x.json`) öz səhifəmizə yüklənsin | Hazır, hərəkətli, maraqlı görüntü | Meta Rights Manager avtomatik tutur: video silinir, səhifəyə «xəbərdarlıq», təkrar olanda səhifənin yayılması kəsilir və ya səhifə bağlanır. Meta-nın 2025 qaydası ilə «orijinal olmayan» səhifə sayılırıq — **bütün** postların yayılması azalır |
+| Mənbə saytların videoları və TV kadrları (rəqiblərin çoxu belə edir, su nişanı ilə) | Rəqiblərin ən çox baxılan Reels-ləri belədir | Eyni Rights Manager riski, üstəlik mənbə saytla münasibət; su nişanlı video Instagram-da yayılmır |
+| Xəbərin fotosu (mənbənin şəkli) videoda fon kimi | Video daha canlı görünür, lentdə şəkil diqqət çəkir | Foto da müəllif əsəridir; Rights Manager şəkilləri də tutur. Instagram-dakı şəkilli postlarımız artıq mənbənin şəklini işlədir (sahibin əvvəlki qərarı) — videoya da əlavə etmək asandır (bir dəyişən), amma riski artırır |
+| Rəsmi mənbələrin (president.az, AZƏRTAC) foto və videoları | Prezident xəbərlərində rəsmi görüntü | Saytların istifadə şərtləri ayrıca yoxlanmalıdır (adətən istinadla icazə); yalnız açıq icazə olanda |
+
+## Video modulu: `.github/scripts/video-xeber.cjs`
+
+TikTok paylaşımı da eyni modulun hazırladığı faylı yükləyir.
+
+İşlədilmə:
+
+```
+node .github/scripts/video-xeber.cjs <giriş.json> <çıxış.mp4>
+```
+
+və ya Node-dan: `const { render } = require("./video-xeber.cjs"); await render(sətir, "video.mp4")`.
+
+**Giriş** — `data/news.json` sətri:
+
+| Sahə | Nə üçün |
+|---|---|
+| `id`, `title` | başlıq (məcburi) |
+| `text` | ekranda və səsdə izah: social.cjs `describe()` nəticəsi (mənbə səhifəsinin tam cümlələri); yoxdursa `summary`-nin tam cümlələri. Ən çox 360 simvol (≈3 cümlə) |
+| `category` və ya `bolme` | yuxarıdakı bölmə nişanı (saytın `CATS` adları, böyük hərflə) |
+| `source`, `alts[].source` | «Mənbə: A, B və daha N sayt» |
+| `publishedAt` | Bakı vaxtı ilə tarix və saat |
+| `ses: false` | səssiz (və ya mühitdə `VIDEO_SES=0`) |
+
+Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə video olmur (xəta). İzah da ayrıca yoxlanır.
+
+**Çıxış:**
+
+| Fayl | Nə |
+|---|---|
+| `<çıxış>.mp4` | MP4, moov əvvəldə (`+faststart`); H.264 High 4.1, yuv420p, BT.709, 1080×1920, 30 kadr/s, GOP 2 s (qapalı), CRF 21, ≤8 Mbit/s; AAC-LC 48 kHz stereo 128 kbit/s, səs −16 LUFS; 8–59 s (adətən 20–30 s, ~1,5 MB) |
+| `<çıxış>.json` | `{ duration, bytes, width, height, vcodec, pix, fps, acodec, rate, channels, cover_s, voice, parts, title }` |
+| `<çıxış>.jpg` | örtük kadrı (`cover_s` = 1,5 s, başlıq tam görünür) |
+
+**Ekran planı (1080×1920):** y 300–420 brend zolağı (loqo + «.az», başdan sona), y 420 narıncı gediş xətti, y ~466 bölmə nişanı və vaxt, y 556-dan başlıq (96→60 px, ən çox 470 px hündürlük), altında altyazı (62 px, ən çox 3 sətir, göy qutuda), y 1404 mənbə, sonda 2,8 s «Ətraflı: 8ulduz.az». Fon: tünd göy, iki yumşaq hərəkətli işıq.
+
+**Zaman:** səs varsa hər hissənin vaxtı səsdən (`video_ses.py`), yoxsa oxuma sürətindən (~13 simvol/s, hər altyazı ≥2,4 s). 59 s-ni keçərsə sondakı altyazılar düşür.
+
+**Lazımdır:** ffmpeg (libass ilə) və Roboto şrifti — ubuntu-latest-də `sudo apt-get install -y ffmpeg fonts-roboto-unhinted`. Səs üçün Python + `torch` (CPU) + `transformers` (`.github/scripts/video_ses.py`, model `BHOSAI/SARA_TTS`, mətn «Dinlə» serverinin `az_text.py` qaydası ilə). Səs alınmasa video səssiz hazırlanır, iş dayanmır.
+
+## Paylaşım: `.github/workflows/sosial-video.yml` + `.github/scripts/sosial-video.cjs`
+
+1. Hər 30 dəqiqədən bir (:17, :47) iş başlayır. Vaxtı deyilsə (gecə, fasilə, gündəlik hədd) ~20 saniyədə bitir: ffmpeg və model quraşdırılmır.
+2. **Seçim** (`sosial-video.cjs sec`): lent saytın qaydasından keçir; social.cjs-in namizədləri; əvvəl video olmuş xəbər, başlıq və mövzu (24 saat) ötürülür; mənbə səhifəsindən izah tapılmayan xəbər video olmur.
+3. **Video** (`video-xeber.cjs`), sonra yoxlama: ölçü, kodek, kadr sürəti, səs, müddət, moov əvvəldə. Uyğun deyilsə iş qırmızıdır, heç nə paylaşılmır.
+4. **Paylaşma** (`sosial-video.cjs paylas`): fayl hər iki şəbəkəyə **birbaşa** yüklənir (Meta-nın `rupload.facebook.com` serverinə, «resumable upload»). İctimai ünvan və saxlama yeri lazım deyil, repoya video yazılmır (repo ölçüsü, `repo-olcu.yml`). Video yalnız iş səhifəsində 3 günlük artefakt kimi qalır.
+   - Facebook: `POST /{səhifə}/video_reels` (start) → fayl → `finish` (`video_state=PUBLISHED`, `description` keçidlə) → emal bitəndə ilk şərh «Ətraflı: keçid».
+   - Instagram: `POST /{ig}/media` (`media_type=REELS`, `upload_type=resumable`, `caption`, `thumb_offset=1500`) → fayl → status `FINISHED` (15 s-dən bir, ən çox 5 dəq) → `media_publish`. Əvvəl 24 saatlıq hədd (`content_publishing_limit`) yoxlanır.
+5. Siyahı (`.sosial-video/state.json`, actions/cache) 3 gün saxlanır: eyni xəbər iki dəfə getmir.
+
+Bu iş xəbər axınından (`update.yml`) və şəkilli paylaşmadan (`social.yml`) ayrıdır: düşsə də, gecikse də onlara təsir etmir; sayta heç nə yazmır (qırmızı xətt 1 və 3).
+
+PR-da (`pull_request`) nümunə xəbərdən (`tests/fixtures/video-xeber.json`) video hazırlanır və yoxlanır, paylaşılmır; kadrlar və video artefaktdadır.
+
+## Sahibin əlavə etməli olduğu icazələr
+
+Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş heç nə hazırlamadan ötürülür.
+
+1. **Facebook Reels — yeni icazə lazım deyil.** Lazım olanlar: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts` — bunlar sosial-paylasma.md-dəki açarda var. (`publish_video` lazım deyil: o, canlı yayım üçündür.)
+2. **Facebook ilk şərh (istəyə bağlı): `pages_manage_engagement`.** Olmasa video yenə gedir, keçid yalnız post mətnində olur, jurnalda «keçidli şərh yazılmadı» yazılır.
+3. **Instagram Reels:** `instagram_basic`, `instagram_content_publish` (artıq var). Faylın birbaşa yüklənməsi Meta-nın sənədinə görə yalnız **Facebook Login for Business** işlədən tətbiqlər üçündür. «8ulduz paylasma» tətbiqi «Business» növündədir, onda bu standartdır; ilk Instagram videosunda jurnalda «konteyner: …» xətası çıxsa, developers.facebook.com → «8ulduz paylasma» → Products-da «Facebook Login for Business» olduğunu yoxlayın.
+
+Açarı yeniləmək lazım gəlsə (2-ci bənd üçün):
+
+1. developers.facebook.com → «8ulduz paylasma» → Tools → Graph API Explorer.
+2. «8ulduz» səhifəsini seçin; icazələr: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `instagram_basic`, `instagram_content_publish` → Generate Access Token.
+3. Access Token Debugger → «Extend Access Token» (uzunmüddətli), sonra səhifə açarını alın (sosial-paylasma.md-dəki kimi).
+4. GitHub → 8ulduz/8ulduz → Settings → Secrets and variables → Actions → `FB_PAGE_TOKEN`-i yeniləyin. Eyni açar şəkilli paylaşmada da işləyir.
+
+İlk yoxlama: Actions → «Video xəbər (Facebook, Instagram)» → Run workflow → «Paylaş» işarəsini götürün → iş bitəndə Artifacts-da `video-xeber` (video və kadrlar). Bəyənsəniz heç nə etmək lazım deyil — iş 08:00-dan özü paylaşır.
+
+## Tənzimləmə (Variables, istəyə bağlı)
+
+| Dəyişən | Standart | Nə |
+|---|---|---|
+| `VIDEO_MIN_GAP_MIN` | 120 | iki video arasında dəqiqə |
+| `VIDEO_SAAT` | 8-23 | Bakı vaxtı ilə hansı saatlarda (daxil) |
+| `VIDEO_GUNDE` | 8 | 24 saatda ən çox video (Facebook həddi 30) |
+| `VIDEO_MIN_SOURCES` | `SOCIAL_MIN_SOURCES` və ya 4 | neçə mənbə yazanda |
+| `VIDEO_SES` | (açıq) | `0` — səssiz video (model quraşdırılmır) |
+| `VIDEO_FACEBOOK`, `VIDEO_INSTAGRAM` | (açıq) | `0` — həmin şəbəkəyə video getmir. `INSTAGRAM=0` Instagram-ı hər iki işdə söndürür |
+| `VIDEO_FB_SERH` | (açıq) | `0` — Facebook-da keçidli ilk şərh yazılmır |
+
+Əl ilə: Run workflow → «Xəbər nömrəsi» (16 simvol) — həmin xəbərin videosu fasiləni gözləmədən hazırlanır.
+
+## Yoxlama
+
+GitHub → Actions → «Video xəbər (Facebook, Instagram)» → son iş. Jurnalda: «video: seçildi — …», «video: 1080×1920, 24.3 s, 1.6 MB, 4 altyazı, səsli — …», hər şəbəkə üçün «video paylaşıldı» və ya «video alınmadı — səbəb». Açar heç vaxt jurnala düşmür. İşin xülasəsində videonun başlığı və ölçüsü, Artifacts-da video və kadrlar.
+
+## Qərar gözləyən məsələlər
+
+- Üçüncü tərəf görüntüsü (yuxarıdakı cədvəl) — indi heç biri tətbiq edilmir.
+- Tezlik: 8/gün başlanğıcdır; bir həftədən sonra baxış sayına görə artırmaq (Facebook həddi 30) və ya saatları dəyişmək olar.
+- Facebook mətnində keçid: sahibin göstərişi ilə qoyulub; Meta keçidsiz mətni üstün tutduğuna görə yayılma zəif olarsa keçidi yalnız ilk şərhdə saxlamaq olar.

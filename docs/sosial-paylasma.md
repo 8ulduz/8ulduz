@@ -58,6 +58,10 @@ X API-də yazma ödənişli ola bilər; qiyməti developer portalında yoxlayın
 
 LinkedIn şəxsi tokeni 60 gün işləyir, sonra yenilənməlidir.
 
+## Video xəbərlər (Reels)
+
+Facebook səhifəsinə və Instagram-a öz hazırladığımız video xəbərlər ayrıca iş axını ilə gedir (`.github/workflows/sosial-video.yml`, 2 saatdan bir, eyni `FB_PAGE_TOKEN`). Araşdırma, video modulu, icazələr və tənzimləmə: [sosial-video.md](sosial-video.md).
+
 ## Tənzimləmə (Variables, istəyə bağlı)
 
 - `SOCIAL_MIN_SOURCES`: neçə mənbə yazanda paylaşılsın (standart 4). Az yazsanız, post çoxalır.

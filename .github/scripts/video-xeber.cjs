@@ -232,10 +232,12 @@ function ass(p, tl) {
   if (p.source) dlg(3, 0, out + 0.3, "Small", `{\\an7\\pos(${X0},${L.srcY})${fade}}${assText(p.source)}`);
   // Altyazılar başlığın altında (başlığın hündürlüyünə görə), səslə eyni anda.
   const capY = Math.min(L.capMaxY, Math.max(L.capMinY, L.headY + p.head.lines.length * p.head.size + 64));
-  for (const c of tl.chunks) {
+  // Hər altyazı növbətisi başlayanda (sonuncu — sonluq başlayanda) çəkilir: səsli videoda hissələr bitişikdir, üst-üstə düşməsinlər.
+  tl.chunks.forEach((c, i) => {
     const lines = wrap(c.text, CAP_SIZE, "medium", CAP_W).map(assText);
-    dlg(4, c.at[0], c.at[1] + GAP_S, "Cap", `{\\an7\\pos(${X0 + CAP_PAD},${capY + CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
-  }
+    const until = i + 1 < tl.chunks.length ? tl.chunks[i + 1].at[0] : out;
+    dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + CAP_PAD},${capY + CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
+  });
   // Sonluq.
   dlg(3, out, D, "Outro", `{\\pos(540,${L.outroY - 140})\\fad(300,0)}Ətraflı:`);
   dlg(3, out, D, "OutroBig", `{\\pos(540,${L.outroY})\\fad(300,0)\\t(0,400,\\fscx104\\fscy104)\\t(400,800,\\fscx100\\fscy100)}8ulduz{\\1c${assColor(COLOR.white)}}.az`);

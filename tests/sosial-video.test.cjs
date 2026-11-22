@@ -65,6 +65,14 @@ test("video: timing — reading speed without voice, the voice's own timing with
   assert.ok(slow.duration <= V.MAX_S && slow.chunks.length < p.chunks.length && slow.chunks.length > 0);
   assert.ok(slow.outro[0] < slow.voiceCut.outroFrom, "sonluq səsi sonluğun başlanğıcına sürüşür");
   assert.equal(V.timeline(p, { parts: [[0, 1]] }).voiceCut, null, "hissə sayı uyğun deyilsə səs işlənmir (səssiz plan)");
+  // ASS-də altyazılar heç vaxt eyni anda görünmür (2026-11-22, CI kadrı: səsli videoda 0,25 s iki altyazı üst-üstə idi).
+  const sec = s => { const [h, m, x] = s.split(":"); return +h * 3600 + +m * 60 + +x; };
+  for (const plan of [t, tv]) {
+    const caps = V.ass(p, plan).split("\n").filter(l => /^Dialogue: 4,/.test(l)).map(l => l.split(",").slice(1, 3).map(sec));
+    assert.equal(caps.length, p.chunks.length);
+    for (let i = 1; i < caps.length; i++) assert.ok(caps[i][0] >= caps[i - 1][1], `altyazı ${i}: ${caps[i - 1]} / ${caps[i]}`);
+    assert.ok(caps.at(-1)[1] <= plan.outro[0] + 0.01, "sonuncu altyazı sonluqdan əvvəl çəkilir");
+  }
 });
 
 test("video: «8ulduz.az» is burned in at the top from the first to the last frame, inside the feed's 4:5 crop", () => {
