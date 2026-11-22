@@ -11,7 +11,7 @@
 //            ses   false → səssiz (boş səs izi)
 //   çıxış  — <çıxış>.mp4: MP4 (moov əvvəldə), H.264 High 4.1, yuv420p, 1080×1920 (9:16), 30 kadr/s, GOP 2 s, CRF 21 (≤8 Mbit/s),
 //            AAC-LC 48 kHz stereo 128 kbit/s; MIN_S…MAX_S saniyə. Facebook Reels (3–90 s), Instagram Reels və TikTok qəbul edir.
-//            <çıxış>.json: { duration, width, height, bytes, cover_s, voice, parts }
+//            <çıxış>.json: { duration, width, height, bytes, …, cover_s, kadrlar, voice, parts, title }
 //            <çıxış>.jpg: örtük kadrı (başlıq tam görünən an, cover_s)
 //   require: const { render } = require("./video-xeber.cjs"); await render(sətir, "video.mp4")
 // Lazımdır: ffmpeg (libass ilə; Ubuntu paketi belədir), Roboto şrifti (fonts-roboto-unhinted; yoxdursa sistem şrifti).

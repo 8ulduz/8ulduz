@@ -98,7 +98,7 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 | Fayl | Nə |
 |---|---|
 | `<çıxış>.mp4` | MP4, moov əvvəldə (`+faststart`); H.264 High 4.1, yuv420p, BT.709, 1080×1920, 30 kadr/s, GOP 2 s (qapalı), CRF 21, ≤8 Mbit/s; AAC-LC 48 kHz stereo 128 kbit/s, səs −16 LUFS; 8–59 s (adətən 20–30 s, ~1,5 MB) |
-| `<çıxış>.json` | `{ duration, bytes, width, height, vcodec, pix, fps, acodec, rate, channels, cover_s, voice, parts, title }` |
+| `<çıxış>.json` | `{ duration, bytes, width, height, vcodec, pix, fps, acodec, rate, channels, cover_s, kadrlar, voice, parts, title }` (kadrlar: önizləmə üçün anlar, saniyə) |
 | `<çıxış>.jpg` | örtük kadrı (`cover_s` = 1,5 s, başlıq tam görünür) |
 
 **Ekran planı (1080×1920):** y 300–420 brend zolağı (loqo + «.az», başdan sona), y 420 narıncı gediş xətti, y ~466 bölmə nişanı və vaxt, y 556-dan başlıq (96→60 px, ən çox 470 px hündürlük), altında altyazı (62 px, ən çox 3 sətir, göy qutuda), y 1404 mənbə, sonda 2,8 s «Ətraflı: 8ulduz.az». Fon: tünd göy, iki yumşaq hərəkətli işıq.
