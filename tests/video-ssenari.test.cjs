@@ -270,7 +270,7 @@ test("goruntu: the story's real place comes first (city always with its country)
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-yer-"));
   const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
     videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1920, height: 1080, size: 5e6 } } });
-  const db = { "ganja azerbaijan": [hit(5, "ganja, azerbaijan, city, park")], "football stadium lights": [hit(7, "stadium, football, lights, night, batumi, georgia"), hit(8, "stadium, football, lights")] };
+  const db = { "ganja azerbaijan": [hit(5, "ganja, azerbaijan, city, park")], "football stadium lights": [hit(7, "stadium, football, lights, night, batumi, georgia"), { ...hit(40, "stadium, football, lights, night, drone"), user: "u7" }, hit(8, "stadium, football, lights")] };
   const asked = [];
   const f = async (u) => {
     if (u.startsWith("https://pixabay.com/api/videos/")) { const q = new URL(u).searchParams.get("q"); asked.push(q); return { ok: true, json: async () => ({ hits: db[q] || [] }) }; }
@@ -282,6 +282,7 @@ test("goruntu: the story's real place comes first (city always with its country)
   assert.deepEqual(got.map(g => g.id), [5, 8], "əvvəl Gəncənin özü, sonra ümumi klip; Batumi atılır");
   assert.equal(asked[0], "ganja city stadium azerbaijan", "əvvəl ən dəqiq yer");
   assert.ok(logs.some(s => /başqa yer \(batumi\)/.test(s)));
+  assert.ok(logs.some(s => /Pixabay 40: yad yerin seriyası/.test(s)), "Batumi klipinin müəllifinin eyni seriyadan klipi (etiketsiz) də atılır");
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

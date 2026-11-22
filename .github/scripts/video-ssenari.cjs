@@ -342,7 +342,7 @@ const MENBELER = [
 // istifade: son günlərin videolarında işlənmiş kliplər («Pixabay:123») — eyni kadr hər gün təkrarlanmasın (sosial-video.cjs state.klip).
 // xeber: { title, text, yer } — varsa namizədləri montaj redaktoru (Gemini, redaktor()) seçir; yoxdursa və ya Gemini cavab vermirsə
 // ifadə sırası ilə (hər ifadədən birinci, sonra ikinci…).
-const NAMIZED_MAX = 3;
+const NAMIZED_MAX = 3, SERIYA = 60;
 async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
   if (!menbeler.length) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
@@ -350,7 +350,7 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
   const Y = yerPlan(yer), own = [...new Set([...Y.axtar, ...queries(axtar)])], spare = ehtiyat({ category }).filter(q => !own.includes(q));
   if (Y.axtar.length) log(`video: yer — ${Y.axtar.join("; ")}`);
   // 1) Namizədlər: hər ifadədən ən uyğun NAMIZED_MAX klip; işlənmiş və yad yerin klipi atılır. Ifadə bir dəfə soruşulur.
-  const cand = [], seen = new Set(istifade);
+  const cand = [], seen = new Set(istifade), yadlar = [];
   const collect = async (list, per) => {
     for (const q of list) for (const m of menbeler) {
       let k = 0;
@@ -360,13 +360,17 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
         if (seen.has(id)) continue;
         seen.add(id);
         const yad = yadYer(c.tags || "", Y.icaze);
-        if (yad) { log(`video: klip ötürüldü — «${q}» ${m.name} ${c.id}: başqa yer (${yad})`); continue; }
+        if (yad) { yadlar.push({ p: m.name, user: c.user, id: Number(c.id) }); log(`video: klip ötürüldü — «${q}» ${m.name} ${c.id}: başqa yer (${yad})`); continue; }
         cand.push({ m, c, q, sira: k++ });
       }
     }
   };
   await collect(own, NAMIZED_MAX);
   if (cand.length < SPARE_MIN) await collect(spare, 2);   // ümumi səhnə yalnız uyğun klip azdırsa
+  // Yad yerin klipi ilə eyni çəkilişdən olan klip (eyni müəllif, yaxın nömrə — bir seriya kimi yüklənib): etiketində yer adı
+  // olmasa da həmin yeri göstərir (2026-11-23: Batumi stadionu 239973 rədd edildi, eyni seriyadan 239964 keçdi).
+  const eyniSeriya = x => yadlar.some(y => y.p === x.m.name && y.user && y.user === x.c.user && Math.abs(y.id - Number(x.c.id)) <= SERIYA);
+  for (let i = cand.length - 1; i >= 0; i--) if (eyniSeriya(cand[i])) { log(`video: klip ötürüldü — «${cand[i].q}» ${cand[i].m.name} ${cand[i].c.id}: yad yerin seriyası`); cand.splice(i, 1); }
   // 2) Seçim: montaj redaktoru və ya ifadə sırası.
   let pick = xeber && env.GEMINI_API_KEY && cand.length ? await redaktor(cand, xeber, say, { env, fetch: f, log }) : null;
   if (!pick) pick = [...cand].sort((a, b) => a.sira - b.sira || cand.indexOf(a) - cand.indexOf(b)).slice(0, say);
