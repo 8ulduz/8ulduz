@@ -2,87 +2,6 @@
   "v": 1,
   "items": [
     {
-      "id": "2123129110612320403",
-      "date": "2026-11-18",
-      "slot": "23:28",
-      "kind": "x-idman",
-      "handle": "trtspor",
-      "post": "https://x.com/trtspor/status/2123129110612320403",
-      "video": "https://video.twimg.com/amplify_video/2122815463084232705/vid/avc1/480x600/HA-B1ZmB6Y8qELpN.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2122815463084232705/img/QpN0idDAbM45Ru6e.jpg",
-      "w": 1080,
-      "h": 1350,
-      "title": "Norveç futbolçuları Danimarka üzərində qələbəni ənənəvi avar çəkmə ilə qeyd etdi",
-      "lead": "TRT Spor kanalının paylaşdığı videoda Norveç futbolçuları Danimarka üzərində qazandıqları qələbəni ənənəvi avar çəkmə hərəkəti ilə qeyd edirlər.",
-      "body": [
-        "Kanalın məlumatına görə, futbolçular qələbədən sonra sevinclərini ənənəvi avar çəkmə səhnəsi ilə bölüşüblər."
-      ],
-      "src": [
-        "🇳🇴🚣‍♂️ Norveçli futbolcular, Danimarka galibiyetini geleneksel kürek çekme sevinciyle kutladı!\n\n"
-      ]
-    },
-    {
-      "id": "2123077593939194337",
-      "date": "2026-11-18",
-      "slot": "23:28",
-      "kind": "x-maraqli",
-      "handle": "dhainternet",
-      "post": "https://x.com/dhainternet/status/2123077593939194337",
-      "video": "https://video.twimg.com/amplify_video/2123075145514266625/vid/avc1/540x540/vR35S_02FHOp8WvF.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2123075145514266625/img/yI0Sw1Z19BFsq5km.jpg",
-      "w": 1440,
-      "h": 1440,
-      "title": "Bursa səmasında linzavari buludlar görüntüləndi",
-      "lead": "Demirören Xəbər Agentliyinin (DHA) paylaşdığı videoda Bursa səmasında yaranmış linzavari buludlar görünür.",
-      "body": [
-        "Agentliyin məlumatına görə, bu buludlar orta səviyyəli bulud növüdür və dağ, təpə kimi yüksək relyef üzərində küləyin dalğavari hərəkəti nəticəsində yaranır.",
-        "Buludlar lodos küləyinin təsir göstərdiyi Bursa səmasında axşam saatlarından etibarən müşahidə edilib."
-      ],
-      "src": [
-        "📌 Bursa semalarında mercek bulutları görüntülendi\n\n▪️ Dağ ve tepe gibi yüksek engebelerin üzerinde, rüzgarın dalga hareketleri yapması sonucu oluşan orta seviyeli bir bulut türü olan merceksi bulutlar, dün akşam saatlerinden itibaren lodosun etkisini gösterdiği Bursa semalarında görüntülendi."
-      ]
-    },
-    {
-      "id": "2123099762320986168",
-      "date": "2026-11-18",
-      "slot": "23:28",
-      "kind": "x-maraqli",
-      "handle": "trthaber",
-      "post": "https://x.com/trthaber/status/2123099762320986168",
-      "video": "https://video.twimg.com/amplify_video/2123099638152458240/vid/avc1/480x852/7AGr6F-XtGmslAWh.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/media/HXbIvyJWwAEmtot.jpg",
-      "w": 1080,
-      "h": 1920,
-      "title": "Ayasofya məscidində minarələrdən günbəzə qədər bərpa işləri davam edir",
-      "lead": "TRT Haber kanalının paylaşdığı videoda minlərlə illik tarixə şahidlik edən Ayasofya məscidində aparılan bərpa işləri göstərilir.",
-      "body": [
-        "Kanalın məlumatına görə, məsciddə bərpa işləri davam edir. Videoda minarələrdən günbəzə qədər uzanan bərpa prosesinin təfərrüatları təqdim olunur."
-      ],
-      "src": [
-        "Binlerce yıllık tarihe tanıklık eden Ayasofya Camii'nde restorasyon çalışmaları sürüyor.\n\nİşte, minarelerden kubbeye uzanan restorasyon sürecinin ayrıntıları..."
-      ]
-    },
-    {
-      "id": "2123098526414520665",
-      "date": "2026-11-18",
-      "slot": "23:28",
-      "kind": "x-idman",
-      "handle": "beINSPORTS_TR",
-      "post": "https://x.com/beINSPORTS_TR/status/2123098526414520665",
-      "video": "https://video.twimg.com/amplify_video/2123097891514261505/vid/avc1/640x360/M5AuwZXVpRIrGaSq.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2123097891514261505/img/4MJIC3KE2cOTZ3qt.jpg",
-      "w": 1280,
-      "h": 720,
-      "title": "Real Madrid Arda Gülerin müqaviləsini 2032-ci ilədək uzatdı",
-      "lead": "beIN SPORTS Türkiyə kanalının paylaşdığı videoda jurnalistlər Real Madridin Arda Gülerlə müqaviləni 2032-ci ilədək uzatdığını açıqlamasını müzakirə edirlər.",
-      "body": [
-        "Verilişdə iştirak edən Nezih Akşener, Erdem Şen, Murat Türker və Berke Gayretli futbolçunun gələcəyini qiymətləndiriblər. Onlardan biri futbolçunun gələcək illərdə «Qızıl top» reytinqində yer alacağına inandığını deyib."
-      ],
-      "src": [
-        "✨ Real Madrid, Arda Güler'in sözleşmesinin 2032'ye kadar uzatıldığını açıkladı\n\n💬 \"İlerleyen yıllarda Ballon d'Or sıralamasında yer alacağına inanıyorum.\"\n\n🗣️ Nezih Akşener, Erdem Şen, Murat Türker & Berke Gayretli | #MuhabirMasası"
-      ]
-    },
-    {
       "id": "2123166860552347654",
       "date": "2026-11-19",
       "slot": "07:27",
@@ -14155,6 +14074,186 @@
       ],
       "sinif": "u",
       "c": "Somali xüsusi təyinatlı qüvvələri tərk edilmiş hərbi bölgələri nəzarətə götürür."
+    },
+    {
+      "id": "2124578528289276278",
+      "handle": "Breaking911",
+      "post": "https://x.com/Breaking911/status/2124578528289276278",
+      "video": "https://video.twimg.com/amplify_video/2124553548935348224/vid/avc1/370x360/fkUfQmYhWbUIRQVs.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124553548935348224/img/8LR51j8Meds_N8FK.jpg",
+      "w": 740,
+      "h": 720,
+      "at": "2026-11-22T18:59:28+00:00",
+      "src": [
+        "WATCH: Footage shows a Ukrainian naval drone slamming into a Russian cargo ship and exploding off the coast of Benghazi, Libya, this evening."
+      ],
+      "sinif": "h",
+      "c": "Ukrayna dəniz dronu Benqazidə Rusiya gəmisinə çırpılaraq partlayır."
+    },
+    {
+      "id": "2124592801182835135",
+      "handle": "NBA",
+      "post": "https://x.com/NBA/status/2124592801182835135",
+      "video": "https://video.twimg.com/amplify_video/2124588479241723904/vid/avc1/480x600/WmfFUwTJrD_902Nb.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124588479241723904/img/eafLGS7CJTFFfRRn.jpg",
+      "w": 864,
+      "h": 1080,
+      "at": "2026-11-22T19:56:11+00:00",
+      "src": [
+        "Wemby made sure he found Selena Gomez in the crowd after his corner 3 last night 😅"
+      ],
+      "sinif": "h",
+      "c": "Vembanyama dəqiq atışdan sonra tribunalarda Selena Qomezi salamlayır."
+    },
+    {
+      "id": "2124591243996921887",
+      "handle": "MarioNawfal",
+      "post": "https://x.com/MarioNawfal/status/2124591243996921887",
+      "video": "https://video.twimg.com/amplify_video/2124405308680212480/vid/avc1/480x852/gLM7b_4uP69VDnXR.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124405308680212480/img/ZIScu1zPAcud0x4s.jpg",
+      "w": 720,
+      "h": 1280,
+      "at": "2026-11-22T19:50:00+00:00",
+      "src": [
+        "🇹🇿 WATCH: Tanzania’s newly commissioned passenger vessel PLOWS BOULDERS The $45.34 million MV New Mwanza drove headfirst into Bismarck Rock. Oh captain, my captain. Are you drunk? Writer: Marie"
+      ],
+      "sinif": "h",
+      "c": "Tanzaniyanın yeni sərnişin gəmisi Bismark qayalığına çırpılıb."
+    },
+    {
+      "id": "2124561145025757665",
+      "handle": "WWE",
+      "post": "https://x.com/WWE/status/2124561145025757665",
+      "video": "https://video.twimg.com/amplify_video/2124561039958396928/vid/avc1/480x852/jhYzQX4wAVvn602v.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124561039958396928/img/3wComzs0HSdnQlXw.jpg",
+      "w": 1080,
+      "h": 1920,
+      "at": "2026-11-22T17:50:24+00:00",
+      "src": [
+        ".@ArcherOfInfamy went TOO FAR 😳"
+      ],
+      "sinif": "h",
+      "c": "Dəmian Arçer WWE rinqində rəqibinə qarşı sert mübarizə aparır."
+    },
+    {
+      "id": "2124581177516503132",
+      "handle": "MarioNawfal",
+      "post": "https://x.com/MarioNawfal/status/2124581177516503132",
+      "video": "https://video.twimg.com/amplify_video/2124145212192612352/vid/avc1/480x506/JMBQaoyY2JpE8ygU.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124145212192612352/img/r1aFrnZPq7ycoTdC.jpg",
+      "w": 1020,
+      "h": 1078,
+      "at": "2026-11-22T19:10:00+00:00",
+      "src": [
+        "🇺🇸 Poor mother took her son's phone away for misbehaving, and he ended up destroying half of their home. The algorithms may be getting way too good at keeping kids hooked. Writer: Mhedi"
+      ],
+      "sinif": "h",
+      "c": "Telefonu əlindən alınan uşaq qəzəblənərək evin yarısını dağıdıb."
+    },
+    {
+      "id": "2124534904620831046",
+      "handle": "Trabzonspor",
+      "post": "https://x.com/Trabzonspor/status/2124534904620831046",
+      "video": "https://video.twimg.com/amplify_video/2124534675271974912/vid/avc1/540x540/VxZ__ay9QNCmQQxC.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124534675271974912/img/JzV7iifNAL917npT.jpg",
+      "w": 1080,
+      "h": 1080,
+      "at": "2026-11-22T16:06:07+00:00",
+      "src": [
+        "⚽ GOOOOOOOOOOOOOOOLLL!!! #OZANTUFAN ⏱ 5’ Trabzonspor 1-0 Eyüpspor"
+      ],
+      "sinif": "h",
+      "c": "Ozan Tufan Eyüpspor ilə matçın 5-ci dəqiqəsində hesabı açır."
+    },
+    {
+      "id": "2124575490933493976",
+      "handle": "ihacomtr",
+      "post": "https://x.com/ihacomtr/status/2124575490933493976",
+      "video": "https://video.twimg.com/amplify_video/2124575350986326016/vid/avc1/640x360/-oSYhzfmTXINelg2.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124575350986326016/img/EPzPw6YlAjLEZlS8.jpg",
+      "w": 1920,
+      "h": 1080,
+      "at": "2026-11-22T18:47:24+00:00",
+      "src": [
+        "Muğla’da batan teknedeki 4 kişi kurtarıldı https://www.iha.com.tr/ankara-haberleri/muglada-batan-teknedeki-4-kisi-kurtarildi-520230784"
+      ],
+      "sinif": "h",
+      "c": "Muğla sahillərində batan gəmidəki 4 nəfər xilas edilib."
+    },
+    {
+      "id": "2124588765448638486",
+      "handle": "atptour",
+      "post": "https://x.com/atptour/status/2124588765448638486",
+      "video": "https://video.twimg.com/amplify_video/2124588617758576640/vid/avc1/640x360/OILuHeEMx706bBI2.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124588617758576640/img/BB-EdLnChiYN0ksp.jpg",
+      "w": 1280,
+      "h": 720,
+      "at": "2026-11-22T19:40:09+00:00",
+      "src": [
+        "Going home with some 🆕 hardware. Lift it high, @carlosalcaraz 🏆🙌 #NittoATPFinals"
+      ],
+      "sinif": "h",
+      "c": "Karlos Alkaras turnirdə qazandığı çempionluq kubokunu qaldırır."
+    },
+    {
+      "id": "2124527901005451601",
+      "handle": "dhainternet",
+      "post": "https://x.com/dhainternet/status/2124527901005451601",
+      "video": "https://video.twimg.com/amplify_video/2124525113559203840/vid/avc1/540x540/PtJ3YgxBHMMhxTNA.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124525113559203840/img/qvFaglujr4ych5Kq.jpg",
+      "w": 1440,
+      "h": 1440,
+      "at": "2026-11-22T15:38:18+00:00",
+      "src": [
+        "📌 Bingöl'de sağanak; ev ve iş yerlerini su bastı ▪️ Solhan ilçesinde etkili olan sağanak, günlük yaşamı olumsuz etkiledi. Yağış nedeniyle ilçeden geçen derenin debisi yükseldi. Zemin katlardaki bazı ev ve iş yerleri sular altında kaldı. Belediye ve Kaymakamlık ekipleri, yaşanan mağduriyetlerin gider"
+      ],
+      "sinif": "h",
+      "c": "Bingöldə güclü yağış nəticəsində evləri və iş yerlərini su basıb."
+    },
+    {
+      "id": "2124587565680378301",
+      "handle": "DAZN_ES",
+      "post": "https://x.com/DAZN_ES/status/2124587565680378301",
+      "video": "https://video.twimg.com/amplify_video/2124587537750466561/vid/avc1/640x360/Woob6fzO6R6JFqLG.mp4?tag=16",
+      "poster": "https://pbs.twimg.com/media/HXwNG2JWYAAXdkE.jpg",
+      "w": 1280,
+      "h": 720,
+      "at": "2026-11-22T19:35:23+00:00",
+      "src": [
+        "TOUCHDOWN DE TRAVIS KELCE, LO CELEBRA TAYLOR SWIFT 🔥🎤 #NFLenDAZN 🏈🇺🇸"
+      ],
+      "sinif": "h",
+      "c": "Travis Kelsinin taçdaununu Teylor Svift tribunalarda qeyd edir."
+    },
+    {
+      "id": "2124554052684128431",
+      "handle": "ihacomtr",
+      "post": "https://x.com/ihacomtr/status/2124554052684128431",
+      "video": "https://video.twimg.com/amplify_video/2124554001966374912/vid/avc1/640x360/A2sY2p709I6veLzJ.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124554001966374912/img/08L3hlsb7VxhZDp9.jpg",
+      "w": 1920,
+      "h": 1080,
+      "at": "2026-11-22T17:22:13+00:00",
+      "src": [
+        "Mardin’de maskeli kişi çöp bidonlarını çalarken kameraya yakalandı https://www.iha.com.tr/mardin-haberleri/mardinde-maskeli-kisi-cop-bidonlarini-calarken-kameraya-yakalandi-520197608"
+      ],
+      "sinif": "h",
+      "c": "Mardində maskalı şəxs küçədəki zibil qutusunu oğurlayır."
+    },
+    {
+      "id": "2124593761598709817",
+      "handle": "CrazyClips_",
+      "post": "https://x.com/CrazyClips_/status/2124593761598709817",
+      "video": "https://video.twimg.com/amplify_video/2124516881604182016/vid/avc1/480x852/EIch8njAVTD1-H-8.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2124516881604182016/img/Buau4dSN726Yey5a.jpg",
+      "w": 720,
+      "h": 1280,
+      "at": "2026-11-22T20:00:00+00:00",
+      "src": [
+        "Why work harder when you can work smarter 💀"
+      ],
+      "sinif": "u",
+      "c": "Ağır işi daha asan və tez görmək üçün istifadə olunan praktiki üsul."
     }
   ]
 }
