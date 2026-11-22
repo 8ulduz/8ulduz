@@ -96,12 +96,12 @@ jobs:
           ffmpeg -hide_banner -filters | grep -qw ass
           fc-list : family style | grep -i roboto | sort | head -12
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        if: steps.sec.outputs.hazir == '1' && vars.VIDEO_SES != '0'
+        if: steps.sec.outputs.hazir == '1' && (vars.VIDEO_SES || '1') != '0'
         with:
           python-version: '3.12'
       # SARA modeli (~1 GB torch + model) hər dəfə yüklənməsin: pip və Hugging Face keşi.
       - name: Səs modelinin keşi
-        if: steps.sec.outputs.hazir == '1' && vars.VIDEO_SES != '0'
+        if: steps.sec.outputs.hazir == '1' && (vars.VIDEO_SES || '1') != '0'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         continue-on-error: true
         with:
@@ -111,7 +111,7 @@ jobs:
           key: video-ses-sara-v1
       # Səs alınmasa (quraşdırma, model) video səssiz hazırlanır: bu addım işi dayandırmır.
       - name: Səs modeli
-        if: steps.sec.outputs.hazir == '1' && vars.VIDEO_SES != '0'
+        if: steps.sec.outputs.hazir == '1' && (vars.VIDEO_SES || '1') != '0'
         continue-on-error: true
         run: |
           pip install -q torch --index-url https://download.pytorch.org/whl/cpu
@@ -142,9 +142,13 @@ jobs:
             if (bad.length) { console.log("::error::Video tələbə uyğun deyil: " + bad.join("; ")); process.exit(1); }
           '
           d=$(node -p 'JSON.parse(require("fs").readFileSync("video-out/video.json","utf8")).duration')
-          for t in 0.15 1.5 6 10 $(node -p "Math.max(1, $d - 1).toFixed(2)"); do
+          last=$(node -p "Math.max(1, $d - 1).toFixed(2)")
+          for t in 0.15 1.5 6 10 "$last"; do
             ffmpeg -hide_banner -loglevel error -y -ss "$t" -i video-out/video.mp4 -frames:v 1 "video-out/kadr-$t.png"
           done
+          # Önizləmə: 4 kadr yan-yana (başlıq, iki altyazı, sonluq), 1080×480.
+          ffmpeg -hide_banner -loglevel error -y -i video-out/kadr-1.5.png -i video-out/kadr-6.png -i video-out/kadr-10.png -i "video-out/kadr-$last.png" \
+            -filter_complex "[0]scale=270:480[a];[1]scale=270:480[b];[2]scale=270:480[c];[3]scale=270:480[d];[a][b][c][d]hstack=4" -q:v 4 video-out/onizleme.jpg
           {
             echo "### Video xəbər"
             node -p 'const m=JSON.parse(require("fs").readFileSync("video-out/video.json","utf8")); `${m.title}\n\n${m.width}×${m.height}, ${m.duration.toFixed(1)} s, ${(m.bytes/1e6).toFixed(1)} MB, ${m.voice ? "səsli (SARA)" : "səssiz"}, ${m.parts} hissə`'

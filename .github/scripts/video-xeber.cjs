@@ -29,17 +29,18 @@ const MIN_S = 8, MAX_S = 59;                   // Facebook Reels API 3–90 s; q
 const BODY_MAX = 360;                          // izahın ekranda/səsdə ən çox simvolu (≈ 3 cümlə, 20–25 s)
 const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
-const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", gray: "AFC0D8", box: "14284A", blue: "1E4D8C" };
+const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", gray: "AFC0D8", box: "1A3563", blue: "1E4D8C", blue2: "2563EB" };
 // Yerləşmə (piksel, 1080×1920). Lentdə Reels ortadan 4:5-ə kəsilir (y 285…1635), tam ekranda yuxarıda ~170 px, aşağıda ~420 px,
 // sağda ~130 px şəbəkənin öz düymələridir: brend və bütün yazılar y 300…1480 arasındadır — loqo lentdə də, tam ekranda da görünür.
 const L = { barY: 300, barH: 120, logoH: 80, chipY: 466, headY: 556, headMaxH: 470, capMinY: 860, capMaxY: 1110, srcY: 1404, outroY: 900 };
 const FONT = "Roboto";
 
-const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").replace(/ ([.,!?;:…])/g, "$1").trim();
 const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 
-// Mətnin təxmini eni (piksel). ASS-də şrift ölçüsü sətir hündürlüyüdür (Roboto-da em ≈ ölçü/1.17…1.32); en burada qəsdən bir az
-// böyük sayılır: sətri özümüz bölürük (\N), libass sətri əlavə bölməsin — bölsə, başlıq altyazının üstünə düşər.
+// Mətnin təxmini eni (piksel). ASS-də şrift ölçüsü sətir hündürlüyüdür: Roboto Black və Medium-da ölçülmüş en ≈ 0,71 × ölçü ×
+// cədvəl (2026-11-22, CI kadrı: «nəticəsində 5 kəndin» 96-lıq başlıqda 676 px). En ~4% artıq sayılır: sətri özümüz bölürük (\N),
+// libass sətri əlavə bölməsin — bölsə, başlıq altyazının üstünə düşər.
 function charEm(ch) {
   if (ch === " ") return 0.26;
   if (/[iljıIİ|!.,:;'’]/.test(ch)) return 0.29;
@@ -49,8 +50,8 @@ function charEm(ch) {
   if (ch !== ch.toLocaleLowerCase("az")) return 0.7;
   return 0.58;
 }
-const WEIGHT = { black: 1.13, bold: 1.07, medium: 1.04, regular: 1 };
-const EM_OF_SIZE = 1 / 1.17;
+const WEIGHT = { black: 1, bold: 1, medium: 1, regular: 0.97 };
+const EM_OF_SIZE = 0.74;
 function textWidth(s, size, weight = "regular") {
   let w = 0;
   for (const ch of String(s)) w += charEm(ch);
@@ -160,7 +161,8 @@ function prepare(a, opt = {}) {
 function timeline(p, voice = null) {
   const n = p.say.length;
   let spans;
-  if (voice && Array.isArray(voice.parts) && voice.parts.length === n) {
+  const used = Boolean(voice && Array.isArray(voice.parts) && voice.parts.length === n);
+  if (used) {
     spans = voice.parts.map(([s, e]) => [LEAD_S + s, LEAD_S + e]);
   } else {
     spans = [];
@@ -177,12 +179,12 @@ function timeline(p, voice = null) {
   const outroLen = spans[n - 1][1] - spans[n - 1][0];
   const fullEnd = (last) => last + GAP_S + Math.max(OUTRO_S, outroLen + 0.5);
   while (chunks.length && fullEnd(parts[parts.length - 1][1]) > MAX_S) { chunks.pop(); parts.pop(); }
-  const mainEnd = (parts.length ? parts[parts.length - 1][1] : spans[0][1]) + GAP_S;
+  const keepUntil = parts.length ? parts[parts.length - 1][1] : spans[0][1], mainEnd = keepUntil + GAP_S;
   const outro = [mainEnd, mainEnd + Math.max(OUTRO_S, outroLen + 0.5)];
   const duration = Math.round(Math.max(MIN_S, Math.min(MAX_S, outro[1] + 0.3)) * 100) / 100;
-  // Səs hissələri ekranla eyni: outro səsi outro-nun başlanğıcına sürüşür (düşən altyazıların səsi kəsilir).
+  // Səs ekranla eyni: altyazı düşübsə onun səsi kəsilir, sonluq səsi sonluğun başlanğıcına sürüşür (hamısı video vaxtı ilə).
   return { duration, head: spans[0], chunks: chunks.map((text, i) => ({ text, at: parts[i] })), outro,
-    voiceCut: voice ? { mainEnd, outroFrom: spans[n - 1][0], outroAt: outro[0] } : null };
+    voiceCut: used ? { keepUntil, outroFrom: spans[n - 1][0], outroAt: outro[0] } : null };
 }
 
 // ASS (libass) — bütün yazılar və formalar. Rəng: &HBBGGRR&, şəffaflıq: &HAA& (00 tam görünür, FF görünmür).
@@ -215,10 +217,10 @@ function ass(p, tl) {
   const dlg = (layer, from, to, style, text) => ev.push(`Dialogue: ${layer},${assTime(from)},${assTime(to)},${style},,0,0,0,,${text}`);
   // Fon: tünd göy üstündə yavaş hərəkət edən iki yumşaq işıq (videonun canlı görünməsi üçün; şəkil deyil, forma).
   dlg(0, 0, D, "Shape", `{\\an5\\move(180,640,280,760)\\p1\\bord0\\shad0\\1c${assColor(COLOR.blue)}\\1a&HA8&\\blur90}${circle(520)}`);
-  dlg(0, 0, D, "Shape", `{\\an5\\move(960,1560,880,1460)\\p1\\bord0\\shad0\\1c${assColor(COLOR.orange)}\\1a&HD8&\\blur90}${circle(440)}`);
+  dlg(0, 0, D, "Shape", `{\\an5\\move(960,1560,880,1460)\\p1\\bord0\\shad0\\1c${assColor(COLOR.blue2)}\\1a&HDC&\\blur90}${circle(440)}`);
   // Yuxarı zolaq: başdan sona. Loqo şəkli ffmpeg-də bu zolağın üstünə qoyulur, yanında «.az» — birlikdə «8ULDUZ.az».
   dlg(1, 0, D, "Shape", `{\\an7\\pos(0,${L.barY})\\p1\\bord0\\shad0\\1c${assColor(COLOR.bar)}}${rect(W, L.barH)}`);
-  dlg(2, 0, D, "Brand", `{\\an1\\pos(${logoX() + logoW() + 4},${logoY() + L.logoH + 4})\\fs72}.az`);
+  dlg(2, 0, D, "Brand", `{\\an1\\pos(${logoX() + logoW() - 4},${logoY() + L.logoH + 4})\\fs72}.az`);
   // Gediş xətti: videonun nə qədəri qalıb (xəbər Reels-lərində adət).
   const py = L.barY + L.barH;
   dlg(2, 0, D, "Shape", `{\\an7\\pos(0,${py})\\p1\\bord0\\shad0\\1c${assColor(COLOR.orange)}\\clip(0,${py},1,${py + 8})\\t(0,${Math.round(D * 1000)},\\clip(0,${py},${W},${py + 8}))}${rect(W, 8)}`);
@@ -226,7 +228,7 @@ function ass(p, tl) {
   const fade = `\\fad(250,300)`;
   dlg(3, 0, out + 0.3, "Chip", `{\\an4\\pos(${X0 + 12},${L.chipY + 30})${fade}}${assText(p.label)}`);
   if (p.when) dlg(3, 0, out + 0.3, "When", `{\\an4\\pos(${Math.round(X0 + textWidth(p.label, 40, "black") + 64)},${L.chipY + 30})${fade}}${assText(p.when)}`);
-  dlg(3, 0, out + 0.3, "Head", `{\\an7\\move(${X0},${L.headY + 28},${X0},${L.headY},0,350)${fade}}${p.head.lines.map(assText).join("\\N")}`);
+  dlg(3, 0, out + 0.3, "Head", `{\\an7\\move(${X0},${L.headY + 24},${X0},${L.headY},0,300)\\fad(120,300)}${p.head.lines.map(assText).join("\\N")}`);
   if (p.source) dlg(3, 0, out + 0.3, "Small", `{\\an7\\pos(${X0},${L.srcY})${fade}}${assText(p.source)}`);
   // Altyazılar başlığın altında (başlığın hündürlüyünə görə), səslə eyni anda.
   const capY = Math.min(L.capMaxY, Math.max(L.capMinY, L.headY + p.head.lines.length * p.head.size + 64));
@@ -261,7 +263,7 @@ function ffmpegArgs({ tl, assFile, logo, voiceFile, out }) {
     const c = tl.voiceCut, ms = s => Math.round(s * 1000);
     // Əsas hissə + (altyazı düşübsə, sürüşdürülmüş) sonluq səsi; LEAD_S qədər gecikmə.
     audio = c && c.outroAt + 0.01 < c.outroFrom
-      ? `[2:a]asplit=2[m][o];[m]atrim=0:${(c.mainEnd - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS[m1];[o]atrim=${(c.outroFrom - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS,adelay=${ms(c.outroAt - c.mainEnd)}:all=1[o1];[m1][o1]concat=n=2:v=0:a=1,adelay=${ms(LEAD_S)}:all=1,`
+      ? `[2:a]asplit=2[m][o];[m]atrim=0:${(c.keepUntil - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS[m1];[o]atrim=${(c.outroFrom - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS,adelay=${ms(c.outroAt - c.keepUntil)}:all=1[o1];[m1][o1]concat=n=2:v=0:a=1,adelay=${ms(LEAD_S)}:all=1,`
       : `[2:a]adelay=${ms(LEAD_S)}:all=1,`;
     audio += `apad,atrim=0:${D},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[a]`;
   } else {
