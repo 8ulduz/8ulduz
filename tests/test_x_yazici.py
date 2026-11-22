@@ -123,8 +123,17 @@ class ReelsPickTest(unittest.TestCase):
              mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942", "999", "2123096874748186942"]'):
             self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
         self.assertGreaterEqual(xy.REELS_PER_RUN * 72 // 2, 100, "72 işin yarısı belə işləsə gündə ≥100 yeni video (sahib)")
-        self.assertGreaterEqual(xy.xm.REELS_MAX, 200, "gündə ~100 gəlir: lent ən azı 2 günü tutur")
+        self.assertGreaterEqual(xy.xm.REELS_MAX, 1000, "sahib 2026-11-22: «video sayı 1000 olsun»")
         self.assertIn("izah", xy.REELS_PROMPT, "sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın» — qısa izah")
+
+    def test_war_videos_are_picked_but_never_gore(self):
+        # Sahib 2026-11-22: «müharibələrə aid (rusiya ukrayna və sair) x də yayımlanır. deməli olar.»
+        for prompt in (xy.REELS_PROMPT, xy.PROMPT):
+            self.assertIn("Rusiya–Ukrayna", prompt, "müharibə videoları seçilir")
+            for bad in ("meyit", "yaralı", "edam", "işgəncə", "əsir görüntüsü", "insanın vurulduğu", "terror təbliğatı"):
+                self.assertIn(bad, prompt.lower(), f"ağır kadr yenə seçilmir: {bad}")
+        self.assertNotIn("müharibə və terror\ndöyüş səhnələri", xy.REELS_PROMPT)
+        self.assertNotIn("clashreport", xy.REELS_SAFE, "Gemini düşəndə müharibə hesabı lentə düşmür (kadrı yoxlayan yoxdur)")
 
 
 class VideolentSourcesTest(unittest.TestCase):
