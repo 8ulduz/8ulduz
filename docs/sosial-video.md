@@ -64,9 +64,12 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   Yoxlama: hər rəqəm mənbədə olmalıdır, kiril, keçid, nida, «bu gün/dünən/sabah» yoxdur, saytın qaydasından keçir. Keçməsə mənbənin öz
   cümlələri gedir (əvvəlki kimi, indi 750 simvola qədər).
 - **Görüntü:** Gemini 4–6 ingiliscə axtarış ifadəsi də verir; [Pixabay](https://pixabay.com/api/docs/) (`PIXABAY_API_KEY`) və ya
-  [Pexels](https://www.pexels.com/api/) (`PEXELS_API_KEY`; 2026-11-22-də Pexels yeni açar vermirdi) video bankından 4–5 klip yüklənir — əvvəl şaquli, yoxdursa üfüqi (ortadan 9:16 kəsilir). Hər iki lisenziya pulsuzdur, kommersiya istifadəsinə və
+  [Pexels](https://www.pexels.com/api/) (`PEXELS_API_KEY`; 2026-11-22-də Pexels yeni açar vermirdi) video bankından 4–5 klip yüklənir — əvvəl şaquli (ekranı doldurur), yoxdursa üfüqi: tam enində ortada, arxada bulanıq nüsxəsi (9:16-ya kəsilmir: 2026-11-22 nümunəsində kəsilmiş 1080p klip bulanıq çıxdı, sarayın yerinə göy qaldı). Hər iki lisenziya pulsuzdur, kommersiya istifadəsinə və
   dəyişdirməyə icazə verir, mənbəni göstərməyi xahiş edir: videoda və post mətnində «Görüntü: Pixabay» (və ya Pexels). Lisenziyalar tanınan insanı pis işıqda göstərməyi
   qadağan edir: mənfi xəbərdə (cinayət, qəza, ölüm) ifadələr insansız səhnələrdir. Açar yoxdursa və ya klip tapılmasa fon tünd göy qalır.
+- **Hansı xəbər:** protokol xəbərindən (görüş, qəbul, telefon danışığı, təbrik, başsağlığı; Prezident bölməsi) video hazırlanmır — ümumi kadr
+  (yad əl sıxma, yad saray) həmin adamları göstərirmiş kimi görünər. Gemini də hər xəbəri yoxlayır («uygun»: false — növbəti xəbər).
+  Axtarış ifadəsində insanların xəbərdəki hərəkəti (görüş, imza, çıxış) və adsız bayraqlar yoxdur; inisiallar («Cey. Di.») tam yazılır.
 - **Dizayn:** görüntü bütün ekranı tutur; yuxarıda brend zolağı, altında yarımşəffaf tünd zolaqda bölmə və başlıq, aşağıda altyazılar
   (səslə eyni anda), altda mənbə və «Görüntü: Pixabay», sonda tündləşən ekranda «Ətraflı: 8ulduz.az».
 - **Yoxlama:** PR-da süni kliplərlə (şaquli və üfüqi) görüntülü video hazırlanır; əl ilə önizləmə (`paylas` söndürülüb) istənilən budaqda işləyir.

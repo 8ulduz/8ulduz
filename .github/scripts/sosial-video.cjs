@@ -72,6 +72,7 @@ async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "
     if (!only && (state.v[a.id] || state.skip[a.id] || state.t[S.titleKey(a)])) continue;
     const topic = S.topicOf(a, Date.parse(a.publishedAt) / 1000 || sec);
     if (!only && state.topics.some(t => S.sameTopic(t, topic))) { state.skip[a.id] = sec; log(`video: eyni mövzuda video var, ötürülür — ${S.clean(a.title)}`); continue; }
+    if (!only && VS.protokol(a)) { state.skip[a.id] = sec; log(`video: protokol xəbəri (görüş, qəbul, təbrik) — kadrla göstərilmir, ötürülür — ${S.clean(a.title)}`); continue; }
     const page = await sourcePage(a, f);
     const text = S.describe(a, page, policy);
     if (!text) { state.skip[a.id] = sec; log(`video: izah tapılmadı, ötürülür — ${S.clean(a.title)}`); continue; }
@@ -95,6 +96,7 @@ const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtrafl�
 const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag} #video`;
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
+const SECIM_MAX = 4;
 const json = r => (r?.json ? r.json().catch(() => ({})) : {});
 
 // Hər şəbəkə: { name, prepare(f, log), post(x, video, f, log) → { ok, id } | { skip } }. Açar yoxdursa siyahı boşdur.
@@ -192,15 +194,23 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     const why = due(state, now, opt);
     if (why) { log(`video: ${why}`); return null; }
   }
-  const got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
-  if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
-  fs.mkdirSync(dir, { recursive: true });
   // Sahib, 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun». Gemini mənbənin mətnindən 4–7 cümləlik
   // diktor mətni yazır (alınmasa mənbənin öz cümlələri), Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
-  const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
-  const sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
+  // Gemini xəbəri ümumi kadrla göstərmək olmur desə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
+  let got = null, sc = null;
+  for (let i = 0; i < SECIM_MAX; i++) {
+    got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
+    if (!got) break;
+    const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
+    sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
+    if (only || sc?.uygun !== false) break;
+    state.skip[got.a.id] = Math.floor(now / 1000);
+    got = null;
+  }
+  if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
+  fs.mkdirSync(dir, { recursive: true });
   const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category });
-  const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc ? { ssenari: "gemini" } : {}),
+  const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}),
     ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
       goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));

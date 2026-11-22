@@ -31,6 +31,21 @@ test("ssenari: the narration is checked — every number from the source, no Cyr
   assert.match(VS.checkText(three, SOURCE, a), /cümlə sayı 3/);
   assert.match(VS.checkText(GOOD, SOURCE, a, () => "qadağan"), /qaydasından keçmir/);
   assert.equal(VS.checkText(GOOD.replace("3600", "3 600").replace("45,5", "45.5"), SOURCE.replace("3600", "3 600"), a), "", "minlik boşluğu və onluq vergül/nöqtə eyni rəqəmdir");
+  // 2026-11-22 nümunə videosu: «Cey. Di. Vensin» altyazıda üç hissəyə bölündü, «Di.» ekranda tək qaldı.
+  assert.match(VS.checkText(GOOD.replace("Məktəblər yeni", "Cey. Di. Vens bildirib ki, məktəblər yeni"), SOURCE, a), /inisial/);
+  assert.equal(VS.checkText(GOOD.replace("Məktəblər yeni", "ABŞ vitse-prezidenti Vens bildirib ki, məktəblər yeni"), SOURCE, a), "");
+});
+
+test("video: protocol news (receptions, meetings, phone calls, congratulations) never becomes a stock-footage video", () => {
+  assert.ok(VS.protokol({ title: "İlham Əliyev ABŞ-nin daxili təhlükəsizlik nazirini qəbul edib", category: "siyaset" }));
+  assert.ok(VS.protokol({ title: "Ceyhun Bayramov fransalı həmkarı ilə telefon danışığı aparıb", category: "siyaset" }));
+  assert.ok(VS.protokol({ title: "Dövlət başçısı Türkiyə Prezidentini təbrik edib", category: "dunya" }));
+  assert.ok(VS.protokol({ title: "Bakıda yeni yol açılıb", category: "prezident" }), "Prezident bölməsi");
+  assert.ok(!VS.protokol({ title: "Bakıda 12 yeni məktəb açılıb", category: "cemiyyet" }));
+  assert.ok(!VS.protokol({ title: "Rusiya Ukraynanın enerji obyektlərinə dron hücumu edib", category: "dunya" }));
+  assert.match(VS.PROMPT, /"uygun"/, "Gemini də yoxlayır");
+  assert.doesNotMatch(VS.PROMPT, /məsələn[^\n]*national flags/, "adsız bayraqlar yad ölkəni göstərə bilər");
+  assert.ok(!Object.values(VS.EHTIYAT).flat().some(q => /national flags/.test(q)));
 });
 
 test("ssenari: Gemini writes the script (key in a header, never in the URL); bad or missing answers fall back to the source's own sentences", async () => {
@@ -138,8 +153,18 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "L.png", "ses.wav"]);
   assert.equal(args.filter(x => x === "-stream_loop").length, 3, "qısa klip dövrə vurur");
   const fc = args[args.indexOf("-filter_complex") + 1];
-  assert.match(fc, /\[0:v\]scale=1080:1920:force_original_aspect_ratio=increase[^;]*crop=1080:1920/);
+  assert.match(fc, /\[0:v\][^;]*scale=1080:1920:force_original_aspect_ratio=increase[^;]*crop=1080:1920/);
   assert.match(fc, /\[c0\]\[c1\]\[c2\]concat=n=3:v=1:a=0/);
+  // Ölçüsü məlum üfüqi klip kəsilmir: tam enində (1080×608) KLIP_Y-də, arxada bulanıq nüsxəsi; şaquli klip ekranı doldurur.
+  const mixed = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
+    clips: [{ file: "a.mp4", w: 1920, h: 1080 }, { file: "b.mp4", w: 1080, h: 1920 }, "c.mp4"] });
+  const mf = mixed[mixed.indexOf("-filter_complex") + 1];
+  assert.deepEqual(mixed.filter((x, i) => mixed[i - 1] === "-i").slice(0, 3), ["a.mp4", "b.mp4", "c.mp4"]);
+  assert.match(mf, /\[0:v\][^;]*split=2\[b0\]\[f0\];\[b0\][^;]*boxblur[^;]*\[g0\];\[f0\]scale=1080:608[^;]*\[h0\];\[g0\]\[h0\]overlay=0:740/);
+  assert.ok(!/\[0:v\][^;]*crop=1080:1920/.test(mf), "üfüqi klip 9:16-ya kəsilmir");
+  assert.match(mf, /\[1:v\][^;]*crop=1080:1920,setsar=1\[c1\]/);
+  assert.match(mf, /\[2:v\][^;]*crop=1080:1920,setsar=1\[c2\]/, "ölçü bilinmirsə əvvəlki kimi doldurulur");
+  assert.ok(V.KLIP_Y + 608 <= 1920 && V.KLIP_Y >= 732, "klip başlıq zolağının altından başlayır");
   assert.match(fc, /\[3:v\]scale=-1:80/, "loqo klipdən sonrakı girişdir");
   assert.match(fc, /\[4:a\]/, "səs loqodan sonrakı girişdir");
   const plan = V.clipPlan(["a", "b", "c", "d", "e"], 14);
@@ -174,5 +199,32 @@ test("sosial-video: the chosen story gets the Gemini script and Pexels clips in 
   assert.match(SV.fbText(x), /Görüntü: Pexels/);
   assert.match(SV.igText(x), /Görüntü: Pexels/);
   assert.doesNotMatch(SV.fbText({ ...x, goruntu: [] }), /Pexels/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("sosial-video: protocol news is skipped, and when Gemini says stock footage would mislead («uygun»: false) the next story is used", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-uygun-"));
+  const NOW = Date.parse("2026-11-22T10:00:00Z");
+  const art = (c, title, min) => ({ id: c.repeat(16), title, summary: SOURCE, category: "cemiyyet", lang: "az", source: "APA", sourceUrl: `https://apa.az/${c}`,
+    publishedAt: new Date(NOW - min * 60e3).toISOString(), alts: [{ source: "Report" }, { source: "Oxu.az" }, { source: "Trend" }] });
+  const qebul = art("a", "Nazir Fransa səfirini qəbul edib", 5), bayanat = art("b", "Deputat Bakıda 12 yeni məktəbin açılışında çıxış edib", 10), mekteb = art("c", "Bakıda 12 yeni məktəb açılıb", 15);
+  const page = `<html><body>${SOURCE.split(". ").map(s => `<p>${s}. Bakıda yeni məktəblər haqqında ətraflı məlumat.</p>`).join("")}</body></html>`;
+  const asked = [];
+  const f = async (u, o = {}) => {
+    if (/^https:\/\/apa\.az\//.test(u)) return { ok: true, text: async () => page };
+    if (/models\?pageSize/.test(u)) return { ok: true, json: async () => ({ models: [{ name: "models/gemini-3.6-flash", supportedGenerationMethods: ["generateContent"] }] }) };
+    if (/generateContent/.test(u)) {
+      const prompt = JSON.parse(o.body).contents[0].parts[0].text, deputat = /Deputat/.test(prompt);
+      asked.push(deputat ? "b" : /məktəb/.test(prompt) ? "c" : "?");
+      return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(deputat ? { uygun: false } : { uygun: true, text: GOOD, axtar: ["school building"] }) }] } }] }) };
+    }
+    return { ok: false, status: 404 };
+  };
+  const state = SV.readState(path.join(dir, "yox.json"), NOW);
+  const x = await SV.sec({ articles: [qebul, bayanat, mekteb], env: { VIDEO_ACAR: "1", VIDEO_PAYLAS: "0", GEMINI_API_KEY: "g" }, now: NOW, state, fetch: f, cats, dir, log: quiet });
+  assert.equal(x.id, mekteb.id);
+  assert.equal(x.text, GOOD);
+  assert.deepEqual(asked, ["b", "c"], "qəbul xəbəri Gemini-yə getmir; Gemini rədd etdiyi xəbərdən sonra növbətisi");
+  assert.ok(state.skip[qebul.id] && state.skip[bayanat.id], "rədd olunanlar yenidən yoxlanmır");
   fs.rmSync(dir, { recursive: true, force: true });
 });

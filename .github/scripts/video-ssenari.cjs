@@ -1,12 +1,12 @@
 // Video xəbərin ssenarisi və görüntüsü. Sahib, 2026-11-22: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. Xəbər uzun
 // olsun biraz və videogörüntü olsun o xəbərə uyğun.» Əvvəl video tünd fonda başlıq və bir cümlə idi (~15 s).
 //
-//   ssenari()  Gemini mənbə səhifəsinin mətnindən 5–7 cümləlik diktor mətni (ən az 4 cümlə, 450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun») və Pexels üçün 4–6 ingiliscə
-//              axtarış ifadəsi yazır. Mətn yoxlanır: hər rəqəm mənbədə olmalıdır, kiril/keçid/nida yoxdur, saytın qaydasından
+//   ssenari()  Gemini mənbə səhifəsinin mətnindən 5–7 cümləlik diktor mətni (ən az 4 cümlə, 450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun») və video bankı üçün 4–6 ingiliscə
+//              axtarış ifadəsi yazır; «uygun: false» — xəbəri ümumi kadrla göstərmək olmur (görüş, qəbul), başqa xəbər seçilir. Mətn yoxlanır: hər rəqəm mənbədə olmalıdır, kiril/keçid/nida yoxdur, saytın qaydasından
 //              (policyViolation) keçir. Alınmasa null — video köhnə qayda ilə mənbənin öz cümlələrindən hazırlanır.
 //   goruntu()  Pexels və ya Pixabay video bankından (pulsuz lisenziya: kommersiya istifadəsi, dəyişdirmə, sosial şəbəkə —
 //              https://www.pexels.com/license/, https://pixabay.com/service/license-summary/) ifadələrə uyğun 4–5 klip yükləyir.
-//              2026-11-22: Pexels yeni API açarı vermir, ona görə Pixabay da var (açarı olan mənbə işləyir). Əvvəl şaquli (portrait), yoxdursa üfüqi klip (video modulu ortadan 9:16 kəsir).
+//              2026-11-22: Pexels yeni API açarı vermir, ona görə Pixabay da var (açarı olan mənbə işləyir). Əvvəl şaquli (portrait), yoxdursa üfüqi klip (video modulu onu tam enində ortada göstərir).
 //              Pexels lisenziyası tanınan insanı pis işıqda göstərməyi qadağan edir: mənfi xəbərdə (cinayət, qəza, ölüm) ifadələr
 //              insansız səhnələrdir (Gemini-yə tapşırıq + kateqoriya ehtiyatı). Videoda «Görüntü: Pixabay» (və ya Pexels) yazılır.
 // Açarlar: GEMINI_API_KEY (x_yazici.py ilə eyni), PIXABAY_API_KEY və/və ya PEXELS_API_KEY. Biri yoxdursa həmin hissə ötürülür, video yenə hazırlanır.
@@ -72,11 +72,17 @@ Qaydalar:
 - Yalnız aşağıdakı mənbə mətnindəki faktlar. Mətndə olmayan ad, rəqəm, tarix, səbəb, qiymət və ya rəy ƏLAVƏ ETMƏ.
 - Rəqəmləri mənbədəki kimi rəqəmlə yaz. Keçid, emoji, nida və sual işarəsi, kiril hərfi yoxdur. «bu gün», «dünən», «sabah» yoxdur.
 - Neytral xəbər dili. Ən vacib fakt birinci cümlədə. Şərh və qiymətləndirmə yoxdur.
-Videonun fonu üçün 4–6 ingiliscə axtarış ifadəsi də yaz (Pexels video bankı, 2–4 söz): xəbərin məkanını, mövzusunu, əşyalarını
-göstərən ümumi səhnələr, məsələn "Baku city skyline", "Hanoi street traffic", "national flags waving", "conference hall", "cargo ship port".
+- Adları inisialsız yaz: «Cey. Di. Vens» yox, «ABŞ vitse-prezidenti Vens»; «İ. Əliyev» yox, «İlham Əliyev».
+Videonun fonu üçün 4–6 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz): xəbərin məkanını, mövzusunu, əşyalarını
+göstərən konkret səhnələr, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
+Yer adı varsa onu yaz ("Istanbul Bosphorus", "Baku boulevard"). Bayraq yalnız ölkə adı ilə ("Azerbaijan flag"), "national flags" yox.
+İnsanların xəbərdəki hərəkətini (görüş, əl sıxma, imza, çıxış) göstərən səhnə yazma: tamaşaçı onları xəbərin qəhrəmanı sanar.
 Konkret tanınan insanların adını yazma. Xəbər cinayət, qəza, ölüm, xəstəlik, fəlakət, məhkəmə və ya münaqişə haqqındadırsa, yalnız
 insansız səhnələr seç (bina, yol, polis maşınının işıqları, şəhər, təbiət, texnika).
-Yalnız JSON qaytar, başqa heç nə: {"text": "<diktor mətni>", "axtar": ["...", "..."]}
+"uygun": video bankının ümumi kadrları bu xəbəri yanıltmadan göstərə bilərmi? Xəbərin mahiyyəti konkret adamların görüşü, qəbulu,
+telefon danışığı, bəyanatı, təbriki, müsahibəsi, təyinatı və ya məktubudursa — false (kadr həmin adamları göstərirmiş kimi görünər).
+Hadisə, qəza, hava, təbiət, iqtisadiyyat, qiymət, nəqliyyat, tikinti, texnologiya, elm, idman, şəhər həyatı, müharibənin gedişi — true.
+Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."]}
 
 Başlıq: {title}
 Bölmə: {bolme}
@@ -88,6 +94,8 @@ const NUM = /\d+(?:[.,]\d+)*/g;
 const normNum = s => s.replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".");
 function checkText(text, source, a, policy = () => false) {
   if (text.length < TEXT_MIN || text.length > TEXT_MAX) return `uzunluq ${text.length} (${TEXT_MIN}–${TEXT_MAX})`;
+  // «Cey. Di. Vens»: altyazı hər nöqtədə bölünür, «Di.» ekranda tək qalır (2026-11-22 nümunə videosu).
+  if (/(?:^|[\s(])\p{Lu}\p{Ll}{0,2}\.\s+\p{Lu}\p{Ll}{0,2}\./u.test(text)) return "inisial";
   const sent = text.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"])/u).filter(Boolean).length;
   if (sent < SENT_MIN || sent > SENT_MAX) return `cümlə sayı ${sent} (${SENT_MIN}–${SENT_MAX})`;
   if (/[Ѐ-ӿ]/.test(text)) return "kiril hərfi";
@@ -113,18 +121,23 @@ function queries(list) {
 }
 // Gemini olmayanda bölməyə görə ümumi səhnələr (insansız; Pexels-də çox klip olanlar).
 const EHTIYAT = {
-  siyaset: ["baku city skyline", "national flags waving", "government building", "conference hall"],
-  prezident: ["baku city skyline", "national flags waving", "government building", "conference hall"],
+  siyaset: ["baku city skyline", "azerbaijan flag", "government building", "baku boulevard"],
+  prezident: ["baku city skyline", "azerbaijan flag", "government building", "baku boulevard"],
   iqtisadiyyat: ["business district skyline", "cargo ship port", "stock market screen", "factory production line"],
   idman: ["football stadium", "sports stadium lights", "running track", "football ball grass"],
-  dunya: ["world globe", "city skyline night", "airport airplane", "national flags waving"],
+  dunya: ["world globe", "city skyline night", "airport airplane", "world map"],
   texnologiya: ["technology circuit", "data center servers", "smartphone screen", "code on screen"],
   elm: ["science laboratory", "microscope laboratory", "space stars", "technology circuit"],
   hadise: ["police car lights night", "city street night", "emergency lights", "road traffic night"],
   cemiyyet: ["baku city street", "city street people walking", "school building", "hospital corridor"],
   medeniyyet: ["theater stage lights", "museum hall", "old city architecture", "concert stage lights"],
 };
-const ehtiyat = a => EHTIYAT[a.category] || ["baku city skyline", "city street traffic", "national flags waving", "news studio lights"];
+const ehtiyat = a => EHTIYAT[a.category] || ["baku city skyline", "city street traffic", "baku boulevard", "city skyline night"];
+
+// Protokol xəbəri (görüş, qəbul, telefon danışığı, təbrik, başsağlığı): ümumi kadr həmin adamları göstərirmiş kimi görünər —
+// belə xəbərdən video hazırlanmır (2026-11-22 nümunə videosu: Prezidentin qəbulu, fonda yad əl sıxma və göy). Gemini də yoxlayır («uygun»).
+const PROTOKOL = /(qəbul edib|qəbul etdi|görüşüb|görüşdü|görüşəcək|telefon danışığı|telefonla danışıb|təbrik edib|təbrik məktubu|təbrik etdi|başsağlığı|məktub ünvanlayıb|danışıqlar aparıb)/iu;
+const protokol = a => a?.category === "prezident" || PROTOKOL.test(clean(a?.title));
 
 // Ssenari: { text, axtar, model: "gemini" } və ya null.
 async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch, policy = () => false, log = console.log, fallback = "" } = {}) {
@@ -136,10 +149,11 @@ async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch
   const raw = await gemini(prompt, key, f, log, env);
   let j = null;
   try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
+  if (j?.uygun === false) { log("video: Gemini — xəbəri ümumi kadrla yanıltmadan göstərmək olmur (görüş, qəbul, bəyanat), başqa xəbər"); return { uygun: false, text: "", axtar: [] }; }
   const text = clean(j?.text);
   const why = text ? checkText(text, `${source}\n${clean(a.title)}`, a, policy) : "cavab boşdur və ya JSON deyil";
   if (why) { log(`video: Gemini mətni qəbul olunmadı (${why}) — mənbənin öz cümlələri`); return null; }
-  return { text, axtar: queries(j?.axtar) };
+  return { text, axtar: queries(j?.axtar), uygun: j?.uygun !== false };
 }
 
 // --- Görüntü: Pexels və Pixabay ------------------------------------------------------------------------------------------------------------------
@@ -216,4 +230,4 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
   return got;
 }
 
-module.exports = { ssenari, goruntu, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, goruntu, protokol, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
