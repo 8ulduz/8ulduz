@@ -283,7 +283,11 @@ const SEHERLER = ["new york", "manhattan", "brooklyn", "los angeles", "hollywood
   "buenos aires", "mexico city", "cancun", "havana", "bogota", "mumbai", "delhi", "kolkata", "kathmandu", "cape town", "johannesburg",
   "nairobi", "marrakech", "oslo", "stockholm", "copenhagen", "helsinki", "reykjavik", "dublin", "edinburgh", "zurich", "geneva",
   "salzburg", "athens", "santorini", "dubrovnik", "belgrade", "bucharest", "sofia", "almaty", "astana", "tashkent", "samarkand",
-  "bishkek", "ashgabat", "dushanbe"];
+  "bishkek", "ashgabat", "dushanbe",
+  // ABŞ ştatları: «washington» axtarışına Vaşinqton ştatının (Oreqon sərhədi) mənzərəsi gəlmişdi (2026-11-23).
+  "oregon", "california", "texas", "florida", "alaska", "hawaii", "colorado", "arizona", "utah", "nevada", "montana", "idaho"];
+// Adı başqa yerlə eyni olan yer: axtarışda dəqiq adı (Vaşinqton şəhəri, ştat yox).
+const DEQIQ = { washington: "washington dc" };
 // Eyni yerin başqa adları; ölkə yeganə yerdirsə (şəhər yoxdur) paytaxtının görüntüsü də uyğundur.
 const LAQEB = { "united states": ["usa", "america", "american", "united states"], usa: ["usa", "america", "american", "united states"],
   "united kingdom": ["united kingdom", "britain", "england", "uk"], turkiye: ["turkey", "turkiye"], turkey: ["turkey", "turkiye"],
@@ -310,7 +314,7 @@ function yerPlan(yer) {
   const icaze = new Set();
   for (const n of names) for (const g of YERLER) if (hasName(n, g)) { icaze.add(g); (LAQEB[g] || []).forEach(x => icaze.add(x)); }
   if (names.length && names.every(n => OLKELER.includes(n))) for (const n of names) (PAYTAXT[n] || []).forEach(x => icaze.add(x));
-  const axtar = names.filter(n => !OLKELER.includes(n)).map(n => (country && !n.includes(country) ? `${n} ${country}` : n));
+  const axtar = names.filter(n => !OLKELER.includes(n)).map(n => DEQIQ[n] || (country && !n.includes(country) ? `${n} ${country}` : n));
   return { axtar: queries(axtar), icaze };
 }
 // Klipin təsvirində xəbərə aid olmayan ölkə və ya şəhər varmı.
@@ -411,6 +415,8 @@ ifadəsi və bankın klipə yazdığı etiketlər. Videonun kadrları üçün ə
 Qaydalar:
 - Klip etiketlərinə görə həqiqətən lazım olan səhnəni göstərməlidir. Mənası başqa olan klipi SEÇMƏ (stadion oturacağı əvəzinə divan,
   güllə izi əvəzinə tikinti, futbol əvəzinə uşaq oyunu).
+- Yer klipini yalnız etiketləri məhz xəbərin yerini göstərirsə seç: ad eyni olsa da yer başqa ola bilər (Vaşinqton şəhəri xəbərinə
+  "washington, oregon, columbia river" — ştatın təbiəti — SEÇMƏ). Şübhə olanda yer klipi əvəzinə mövzu klipini seç.
 - Xəbərin yeri olmayan konkret yeri — başqa şəhəri, ölkəni, stadionu, klubu, komandanı, brendi — göstərən klipi SEÇMƏ
   (məsələn Gəncə xəbərinə "lech poznan", "batumi", "barcelona"). Etiketində heç bir yer olmayan ümumi klip olar.
 - Klipin əhvalı xəbərə uyğun olmalıdır: partlayış, qəza, müharibə, cinayət, ölüm, fəlakət xəbərində istirahət, turizm, bayram,

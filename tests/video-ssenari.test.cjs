@@ -270,6 +270,11 @@ test("goruntu: the story's real place comes first (city always with its country)
   assert.equal(VS.yadYer("kaohsiung city, school hall", VS.yerPlan([]).icaze), "kaohsiung", "yer bilinməsə də tanınan yad şəhər olmaz");
   assert.equal(VS.yadYer("the usa, flag, america, american", VS.yerPlan(["White House", "Washington", "United States"]).icaze), "", "eyni ölkənin adları");
   assert.ok(VS.yerPlan(["Azerbaijan"]).icaze.has("baku"), "yalnız ölkə varsa paytaxt olar");
+  // «washington» axtarışına Vaşinqton ştatının mənzərəsi (Kolumbiya dərəsi, Oreqon) gəlmişdi.
+  const W = VS.yerPlan(["Washington", "United States"]);
+  assert.deepEqual(W.axtar, ["washington dc"]);
+  assert.equal(VS.yadYer("columbia gorge, washington, nature, columbia river, oregon", W.icaze), "oregon");
+  assert.match(VS.REDAKTOR, /ad eyni olsa da yer başqa ola bilər/);
   assert.ok(!VS.yerPlan(["Qardabani", "Georgia"]).icaze.has("tbilisi"), "kənd xəbərində paytaxt olmaz");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-yer-"));
   const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
