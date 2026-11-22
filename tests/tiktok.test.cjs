@@ -149,6 +149,33 @@ test("tiktok: token errors — a revoked token asks to reconnect (red); a TikTok
   assert.match(r2.logs.join("\n"), /müvəqqəti xəta/);
 });
 
+// Video modulunun çıxışı (video-xeber.cjs, FB/IG video sessiyası): <çıxış>.json = { duration, width, height, bytes, cover_s, voice }
+// + xəbərin sahələri və own: true (müqavilə, docs/tiktok.md §7).
+test("tiktok: the video module's output — its text is the caption, cover_s the cover, too-long videos are not sent", async () => {
+  const dir = tmp();
+  const row = { id: "0123456789abcdef", title: "Bakıda yeni metro stansiyası açılır", summary: "Qısa.", category: "gundem", lang: "az", source: "APA", sourceUrl: "https://apa.az/1",
+    publishedAt: new Date(NOW - 20 * 60e3).toISOString(), text: "Stansiya sabah sərnişin qəbul edəcək. Açılışda nazir iştirak edəcək." };
+  video(dir, "v1", { ...row, own: true, duration: 42.5, width: 1080, height: 1920, bytes: 4000, cover_s: 2.4, voice: true });
+  const tk = tiktok();
+  const { res } = await go(dir, tk, { env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.deepEqual(res.posted.map(x => x[1]), ["0123456789abcdef"], "videonun adı xəbərin nömrəsidir");
+  const init = JSON.parse(tk.calls.find(c => c.url.endsWith("/video/init/")).body);
+  assert.match(init.post_info.title, /^Bakıda yeni metro stansiyası açılır\n\nStansiya sabah sərnişin qəbul edəcək\. Açılışda nazir iştirak edəcək\.\n\nƏtraflı: 8ulduz\.az/);
+  assert.equal(init.post_info.video_cover_timestamp_ms, 2400);
+
+  const long = tmp(); video(long, "v2", { ...row, id: "v2", title: "Uzun video", own: true, duration: 700 });
+  const tk2 = tiktok(), state = {};
+  const r2 = await go(long, tk2, { state, env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.ok(!tk2.calls.some(c => c.url.endsWith("/video/init/")), "hesabın həddi 600 s");
+  assert.match(r2.logs.join("\n"), /video 700 s, hesabın həddi 600 s/);
+  assert.equal(state.posted.v2.s, "FAILED:duration", "hər dövrədə yenə cəhd edilmir");
+
+  // Modulun xəbər sahələri və own olmayan çıxışı (yalnız texniki sahələr) getmir.
+  const bare = tmp(); video(bare, "v3", { id: undefined, title: undefined, own: undefined, duration: 30, bytes: 4000, cover_s: 2 });
+  const r3 = await go(bare, tiktok(), { env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.deepEqual(r3.res.skipped.map(x => x[1]), ["id/başlıq yoxdur"]);
+});
+
 test("tiktok: a network error after the token refresh does not crash the run; the new token is kept", async () => {
   const dir = tmp(); video(dir, "n1");
   const state = {};

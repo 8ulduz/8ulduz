@@ -10,6 +10,7 @@
 // «8ulduz.az» yazısını o yandırır. Hər video üçün <ad>.json (müqavilə, docs/tiktok.md «Video modulu ilə qoşulma»):
 //   { "id": "…", "own": true, "title": "…", "summary": "…", "createdAt": "ISO", "hashtags": ["…"],
 //     "source": "…", "sourceUrl": "…", "category": "…", "lang": "az", "items": [{ title, source, sourceUrl, category }], "aigc": false }
+// video-xeber.cjs-in öz sahələri də oxunur: text (izah, mətndə xülasənin yerinə), cover_s (üz qabığı), duration (hesabın həddi ilə).
 //
 // Yalnız öz videolarımız (sahib, 2026-11-22; müəllif hüququ): JSON-da own: true, faylın metadatasında «8ulduz.az» nişanı
 // (ffmpeg -metadata comment=8ulduz.az), başqa saytın video ünvanı yoxdur, data/reels.json-dakı X videosu deyil. X-dəki F1, NBA,
@@ -164,7 +165,9 @@ async function api(f, token, p, body) {
 function caption(meta) {
   const own = (Array.isArray(meta.hashtags) ? meta.hashtags : []).map(t => "#" + String(t).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "")).filter(t => t.length > 1);
   const tags = [...new Set([...own, "#8ulduz", "#xəbərlər", "#Azərbaycan"])].slice(0, 8).join(" ");
-  const title = cut(meta.title, 300), sum = clean(meta.summary) && clean(meta.summary) !== clean(meta.title) ? cut(meta.summary, 1200) : "";
+  // video-xeber.cjs-in «text» sahəsi ekranda və səsdə gedən izahdır: varsa o, yoxsa xəbərin xülasəsi.
+  const desc = clean(meta.text) || clean(meta.summary);
+  const title = cut(meta.title, 300), sum = desc && desc !== clean(meta.title) ? cut(desc, 1200) : "";
   return `${title}${sum ? `\n\n${sum}` : ""}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${tags}`.slice(0, TITLE_MAX);
 }
 
@@ -184,7 +187,7 @@ function foreignReason(meta, buf, reels = new Set()) {
 function policyReason(meta, policy) {
   const stories = [...(meta.source || meta.sourceUrl ? [meta] : []), ...(Array.isArray(meta.items) ? meta.items : [])];
   for (const s of stories) {
-    const a = { title: s.title ?? meta.title, summary: s.summary ?? (s === meta ? meta.summary : ""), source: s.source, sourceUrl: s.sourceUrl, category: s.category ?? meta.category, lang: s.lang ?? meta.lang };
+    const a = { title: s.title ?? meta.title, summary: s.summary ?? (s === meta ? [meta.summary, meta.text].filter(Boolean).join(" ") : ""), source: s.source, sourceUrl: s.sourceUrl, category: s.category ?? meta.category, lang: s.lang ?? meta.lang };
     if (policy(a)) return `mənbə qaydası (${clean(a.source) || hostOf(a.sourceUrl) || "?"})`;
   }
   return "";
@@ -305,13 +308,20 @@ async function run({ videos = [], env = process.env, now = Date.now(), fetch: f 
     if (privacy !== want) ctx.log(`tiktok: ${want} bu hesabda seçilə bilmir (${opts.join(", ") || "siyahı boş"}) — ${privacy} ilə göndərilir`);
     const max = num(creator.max_video_post_duration_sec, 0);
     if (max) ctx.log(`tiktok: hesab — ${clean(creator.creator_nickname)} (@${ctx.user}), video ən çox ${max} s, görünmə: ${privacy}`);
+    const dur = num(v.m.duration, 0);
+    if (max && dur > max) {
+      posted[v.id] = { t: sec, s: "FAILED:duration", n: v.name, a: 2 };
+      ctx.log(`tiktok: ötürülür (video ${Math.round(dur)} s, hesabın həddi ${max} s) — ${v.name}`);
+      res.skipped.push([v.id, "uzundur"]);
+      return res;
+    }
   }
 
   const plan = chunks(v.buf.length);
   const source_info = { source: "FILE_UPLOAD", video_size: v.buf.length, chunk_size: plan.chunk_size, total_chunk_count: plan.total_chunk_count };
   const body = opt.mode === "inbox" ? { source_info } : {
     post_info: { title: caption(v.m), privacy_level: privacy, disable_comment: !!creator.comment_disabled, disable_duet: !!creator.duet_disabled,
-      disable_stitch: !!creator.stitch_disabled, video_cover_timestamp_ms: Math.max(0, Math.floor(num(v.m.coverMs, 1000))),
+      disable_stitch: !!creator.stitch_disabled, video_cover_timestamp_ms: Math.max(0, Math.floor(num(v.m.coverMs, num(v.m.cover_s, 1) * 1000))),
       brand_content_toggle: false, brand_organic_toggle: opt.brandOrganic, is_aigc: v.m.aigc === true },
     source_info };
   const init = await api(f, auth.access, opt.mode === "inbox" ? "post/publish/inbox/video/init/" : "post/publish/video/init/", body);

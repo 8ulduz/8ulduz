@@ -204,9 +204,18 @@ jobs:
 | `source`, `sourceUrl`, `category`, `lang` | xəbərdən video olanda bəli | Lentdəki xəbərin sahələri, mənbə qaydası üçün. |
 | `items` | yox | Bir neçə xəbərdən video: `[{ title, source, sourceUrl, category }]`, hər biri qaydadan keçir. |
 | `aigc` | yox | Realistik AI səhnə və ya insan varsa `true` (TikTok etiketi). |
-| `coverMs` | yox | Üz qabığının anı, millisaniyə (standart 1000). |
+| `text` | yox | Videoda gedən izah. Varsa mətndə `summary`-nin yerinə o yazılır. |
+| `coverMs` və ya `cover_s` | yox | Üz qabığının anı: millisaniyə və ya saniyə (standart 1 s). |
+| `duration` | yox | Saniyə. Hesabın həddindən uzundursa göndərilmir. |
 
 JSON-da başqa saytın video keçidi (`video`, `videoUrl`, `src`, `clips`) olmamalıdır. Belə video getmir.
+
+**Video modulu (`video-xeber.cjs`, FB/IG video sessiyası).** O, `node .github/scripts/video-xeber.cjs <giriş.json> <çıxış.mp4>` ilə işləyir. Çıxışda `<çıxış>.mp4`, `<çıxış>.json` (`duration`, `width`, `height`, `bytes`, `cover_s`, `voice`) və `<çıxış>.jpg` yaranır. Yükləyici bu `<çıxış>.json`-u oxuyur: `text`, `cover_s` və `duration`-u tanıyır. Videonun TikTok-a getməsi üçün modulda iki əlavə lazımdır:
+
+1. `<çıxış>.json`-a giriş xəbərinin sahələri yazılmalıdır: `id`, `title`, `summary`, `text`, `source`, `sourceUrl`, `category`, `lang`, `publishedAt`, üstəgəl `"own": true`.
+2. ffmpeg əmrinə `-metadata comment=8ulduz.az` əlavə edilməlidir.
+
+Bunlar olmasa video «öz videomuz» sayılmır və ötürülür. Bunu test yoxlayır.
 
 `<ad>.mp4`:
 - **Format:** MP4, H.264 (+AAC), 1080×1920, 23–60 kadr/s.
