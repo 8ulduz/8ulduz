@@ -3979,7 +3979,8 @@ def write_reels(rows):
     Şəbəkə yoxdur; sətirləri öz xəbərlər addımı (update_own_news) oz_derc.reels ilə verir. QIRMIZI XƏTT 2: Azərbaycan mövzusu
     orada düşür, sonra hər sətir content_policy.enforce-dan keçir (8ULDUZ-un öz sətri kimi; sahibin çıxardığı ünvan da düşür).
     Sayt faylı yalnız «Qısa videolar» açılanda oxuyur."""
-    probe = [{"source": OWN_SOURCE, "sourceUrl": f"https://8ulduz.az/qisa/{r['id']}", "title": "", "summary": "", "category": "dunya"} for r in rows]
+    # İzah (sahib 2026-11-22, qısa video sətrinin «c» sahəsi) başlıq kimi yoxlanır: siyasətin düşürdüyü izahlı video lentə çıxmır
+    probe = [{"source": OWN_SOURCE, "sourceUrl": f"https://8ulduz.az/qisa/{r['id']}", "title": r.get("c") or "", "summary": "", "category": "dunya"} for r in rows]
     kept = {a["sourceUrl"].rsplit("/", 1)[1] for a in content_policy.enforce(probe)[0]}
     rows = [r for r in rows if r["id"] in kept]
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")

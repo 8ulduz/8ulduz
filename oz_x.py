@@ -131,8 +131,9 @@ _HANDLE = {h.lower(): h for h in HESABLAR}
 
 # Videolent mənbələri (sahib, 2026-11-19: «maraqlı video mənbəyini 10 qat artır. video axını tiktok kimi olsun»): yalnız qısa video
 # lenti üçün, bunlardan xəbər yazılmır. Yazıcı hər işdə siyahının bir hissəsini növbə ilə yoxlayır (x_yazici.VL_PER_RUN).
-# FxTwitter ilə 2026-11-19-da yoxlanıb: hesab var və son 3 gündə video paylaşıb. Siyasi, müharibə, mərc, qan və böyüklər
-# üçün məzmun hesabları yoxdur; Azərbaycan mövzusu hər videoda ayrıca süzülür (about_azerbaijan).
+# FxTwitter ilə 2026-11-19-da yoxlanıb: hesab var və son 3 gündə video paylaşıb. Mərc, qan və böyüklər üçün məzmun hesabları
+# yoxdur; Azərbaycan və Ermənistan mövzusu hər videoda ayrıca süzülür (reel_check). Xəbər və siyasətin kadr arxası hesabları
+# sahibin 2026-11-22 göstərişi ilədir («xəbər mahiyyətli videolar, siyasi kontekstdə arxa qapı videoları»; qrup «xeber»).
 # Mövzular (sahib, 2026-11-19: «videoların əksəriyyəti futboldur. belə olmasın proporsional olsun müxtəlif mövzular»): yazıcı hər
 # işdə və lent axında videoları mövzulara bərabər paylayır (x_yazici.by_topic, lent.js mix).
 VIDEOLENT_QRUPLAR = {
@@ -262,7 +263,7 @@ VIDEOLENT_QRUPLAR = {
         "SingaporeAir": "SingaporeAir", "Skoda": "Skoda", "Snapdragon": "Snapdragon",
         "sonyalpha": "sonyalpha", "SonyElectronics": "SonyElectronics", "SonyXperia": "SonyXperia",
         "SouthwestAir": "SouthwestAir", "subaru_usa": "subaru_usa", "supercarblondie": "supercarblondie",
-        "techradar": "techradar", "TEKNOFESTTR": "TEKNOFESTTR", "Tesla": "Tesla",
+        "techradar": "techradar", "TEKNOFESTTR": "TEKNOFESTTR", "baykartech": "BAYKAR", "TUSAS_TR": "TUSAŞ", "ROKETSAN": "ROKETSAN", "Tesla": "Tesla",
         "Tesla_Optimus": "Tesla_Optimus", "Togg": "Togg", "tomshardware": "tomshardware",
         "TopGear": "TopGear", "Toyota": "Toyota", "ToyotaGR": "ToyotaGR",
         "TurkishAirlines": "TurkishAirlines", "united": "united", "UnitreeRobotics": "Unitree",
@@ -403,8 +404,15 @@ VIDEOLENT_QRUPLAR = {
         "UNILAD": "UNILAD", "upworthy": "upworthy", "ViralHog": "ViralHog",
         "weirdlilguys": "cats being weird little guys", "wowterrifying": "wowterrifying", "XGames": "X Games",
     },
+    "xeber": {   # Xəbər, hadisə anı və siyasətin kadr arxası (10; sahib 2026-11-22). Median baxış: Collin Rugg 747 min, Fox News 193 min,
+        # Macron 390 min, AP 82 min, Disclose.tv 74 min, Breaking911 59 min, Al Jazeera 54 min, Sky News 36 min, CBS 23 min, Nawfal 22 min
+        "AP": "The Associated Press", "AJEnglish": "Al Jazeera English", "Breaking911": "Breaking911",
+        "CBSNews": "CBS News", "CollinRugg": "Collin Rugg", "disclosetv": "Disclose.tv",
+        "EmmanuelMacron": "Emmanuel Macron", "FoxNews": "Fox News", "MarioNawfal": "Mario Nawfal",
+        "SkyNews": "Sky News",
+    },
     "idman": {   # İdman (264)
-        "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "acmilan": "AC Milan",
+        "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "ufc": "UFC", "ringmagazine": "Ring Magazine", "acmilan": "AC Milan",
         "AFCAjax": "AFC Ajax", "AFCBournemouth": "AFC Bournemouth", "Alanyaspor": "Alanyaspor",
         "AlanyasporKlb": "AlanyasporKlb", "AlHilal_EN": "AlHilal_EN", "AlNassrFC": "AlNassrFC",
         "AlpineF1Team": "BWT Alpine Formula One Team", "Al_Ittihad": "Al_Ittihad", "AnadoluEfesSK": "AnadoluEfesSK",
@@ -510,13 +518,52 @@ _MOVZU = {h: m for m, q in VIDEOLENT_QRUPLAR.items() for h in q}
 # başında durur; lent görülməmiş videolar arasında hər mövzuda onları əvvəl göstərir (reels «p»). Mövzu bölgüsü dəyişmir.
 VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "CrazyClips_", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
                   "buitengebieden", "nocontextfooty", "wonderofscience", "Yoda4ever", "NoContextHumans", "9GAG", "Rainmaker1973",
-                  "GWR", "redbull", "VidsThatGoHard", "InternetH0F")
+                  "GWR", "redbull", "VidsThatGoHard", "InternetH0F", "CollinRugg", "FoxNews", "Breaking911", "ufc")
 _ONDE = {h.lower() for h in VIDEOLENT_ONDE}
 
 
 def onde(handle):
     """Hesab birinci dərəcəli (VIDEOLENT_ONDE) mənbədirmi."""
     return str(handle or "").lower() in _ONDE
+
+
+# Lentin iki sinfi (sahib 2026-11-22): «h» — təzə və maraqlı hadisələr, yeniliklər, xəbər, kadr arxası, sürətli yemək və s. (60%);
+# «u» — «Tamir & Tadilat» kimi bir işin necə görüldüyünü göstərən videolar, çox fərqli sahələrdə (40%). Sinfi hər video üçün Gemini
+# verir (x_yazici.pick_reels); verilməyibsə (köhnə sətir, açarsız iş) hesabın əsas sinfi: aşağıdakılar «u», qalanı «h».
+USTA_PAY = 0.4
+USTA_HESABLAR = {"TamirveTadilat", "Woodworking", "instructables", "ThisOldHouse", "DIYcrafts", "5MinuteCrafts", "TroomTroom",
+                 "Homestead", "HowThingsWork_", "engineers_feed", "HGTV"}
+_USTA = {h.lower() for h in USTA_HESABLAR}
+
+
+def sinif(row):
+    """Videonun sinfi: «u» (usta işi) və ya «h» (hadisə). Sətirdəki «sinif», yoxdursa hesabın əsas sinfi."""
+    s = row.get("sinif") if isinstance(row, dict) else None
+    if s in ("h", "u"):
+        return s
+    return "u" if str((row or {}).get("handle") or "").lower() in _USTA else "h"
+
+
+# Videonun izahı (sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın»): Azərbaycan dilində bir qısa cümlə, lentdə hesabın
+# adının altında. Gemini paylaşımın mətnindən yazır; yoxlamadan keçməyən izahlı video lentə düşmür.
+IZAH_LEN = (10, 120)
+_ARMENIA = re.compile(r"armeni|ermeni|erməni|армян|армени|pashinyan|paşinyan|пашинян|yerevan|ереван|irəvan", re.I)
+
+
+def forbidden_topic(text):
+    """Qısa videoda olmayan mövzu: Azərbaycan və rəhbərliyi (qırmızı xətt 2) və ya Ermənistan."""
+    return about_azerbaijan(text) or bool(_ARMENIA.search(text))
+
+
+def izah_check(c):
+    """İzah yararsızdırsa səbəbi, yoxsa None."""
+    if not isinstance(c, str) or not IZAH_LEN[0] <= len(c) <= IZAH_LEN[1]:
+        return f"izah {IZAH_LEN[0]}–{IZAH_LEN[1]} simvol olmalıdır"
+    if re.search(r"https?:|www\.|[@#<>]", c):
+        return "izahda keçid, @ və ya # olmaz"
+    if forbidden_topic(c):
+        return "izahda Azərbaycan və ya Ermənistan mövzusu"
+    return None
 
 
 def movzu(handle):
@@ -687,6 +734,12 @@ def reel_check(row):
         return f"src: 1–{SRC_MAX} çıxarış"
     if about_azerbaijan("\n".join(src)):
         return "xarici mənbə, Azərbaycan mövzusu"
+    if _ARMENIA.search("\n".join(src)):
+        return "xarici mənbə, Ermənistan mövzusu"
+    if "sinif" in row and row["sinif"] not in ("h", "u"):
+        return "sinif «h» və ya «u» olmalıdır"
+    if "c" in row and izah_check(row["c"]):
+        return izah_check(row["c"])
     return None
 
 
@@ -700,8 +753,9 @@ def load_reels(path=None):
 
 
 def reels(now, path=None):
-    """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün videoları, ən yenisi əvvəl. Mətn çıxmır.
-    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt); p: 1 — birinci dərəcəli mənbə (VIDEOLENT_ONDE)."""
+    """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün videoları, ən yenisi əvvəl. Paylaşımın mətni (src) çıxmır.
+    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt), q (sinif: h/u); p: 1 — birinci dərəcəli mənbə
+    (VIDEOLENT_ONDE); c — Azərbaycan dilində izah (varsa)."""
     floor, out, seen = now - datetime.timedelta(days=REELS_DAYS), [], set()
     for row in load_reels(path):
         if reel_check(row) or row["id"] in seen or _at(row["at"]) < floor or _at(row["at"]) > now + datetime.timedelta(hours=1):
@@ -710,7 +764,7 @@ def reels(now, path=None):
         h = _REEL_HANDLE[row["handle"].lower()]
         out.append({"id": row["id"], "a": h, "n": ADLAR[h], "m": movzu(h), "u": row["video"], "i": row["poster"],
                     "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds"),
-                    **({"p": 1} if onde(h) else {})})
+                    "q": sinif(row), **({"p": 1} if onde(h) else {}), **({"c": row["c"]} if row.get("c") else {})})
     out.sort(key=lambda r: r["t"], reverse=True)
     return out[:REELS_MAX]
 

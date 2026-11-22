@@ -131,3 +131,24 @@ test('Videolent: first-degree sources (reels «p») lead each topic, topics stil
   const src = fs.readFileSync(file, 'utf8');
   assert.ok(src.includes('p: r.p === 1'), 'reels.json-dakı «p» lentə keçir');
 });
+
+test('Videolent: events and craft videos come 3:2 — 60% / 40% (owner 2026-11-22), the caption explains each video', async () => {
+  const { mix } = await import(pathToFileURL(file).href);
+  const list = [];
+  for (let i = 0; i < 30; i++) list.push({ u: `h${i}`, n: `H${i % 6}`, m: ['idman', 'xeber', 'texnika'][i % 3], q: 'h' });
+  for (let i = 0; i < 20; i++) list.push({ u: `u${i}`, n: `U${i % 5}`, m: ['yemek', 'elm'][i % 2], q: 'u' });
+  for (let k = 0; k < 10; k++) {
+    const out = mix(list);
+    assert.equal(out.length, 50);
+    const first10 = out.slice(0, 10).filter(v => v.q === 'u').length;
+    assert.ok(first10 >= 3 && first10 <= 5, `ilk 10 videoda usta işi ${first10}: təxminən 4`);
+    const all = out.filter(v => v.q === 'u').length;
+    assert.equal(all, 20);
+  }
+  const onlyH = mix(list.filter(v => v.q === 'h'));
+  assert.equal(onlyH.length, 30, 'bir sinif yoxdursa o biri tam gəlir');
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('const PATTERN = [0, 0, 1, 0, 1];'), 'h h u h u');
+  assert.ok(src.includes('q: r.q === "u" ? "u" : "h"') && src.includes('${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}'), 'izah hesabın adının altında');
+  assert.ok(src.includes('data-title="${esc(v.title || v.c || v.n)}"'), 'paylaşımda da izah');
+});
