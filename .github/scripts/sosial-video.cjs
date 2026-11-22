@@ -195,15 +195,19 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     if (why) { log(`video: ${why}`); return null; }
   }
   // Sahib, 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun». Gemini mənbənin mətnindən 4–7 cümləlik
-  // diktor mətni yazır (alınmasa mənbənin öz cümlələri), Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
-  // Gemini xəbəri ümumi kadrla göstərmək olmur desə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
+  // diktor mətni yazır, Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
+  // Xəbər kadrla göstərilmirsə və ya mətn yoxlamadan keçmirsə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
+  // Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
   let got = null, sc = null;
   for (let i = 0; i < SECIM_MAX; i++) {
     got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
     if (!got) break;
     const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
     sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
-    if (only || sc?.uygun !== false) break;
+    if (only) break;
+    // Gemini işləmir (gündəlik limit və s.): mənbənin cümlələri və ümumi kadrla video olmur — növbəti dövrədə yenidən.
+    if (!sc) { log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return null; }
+    if (sc.uygun !== false) break;
     state.skip[got.a.id] = Math.floor(now / 1000);
     got = null;
   }

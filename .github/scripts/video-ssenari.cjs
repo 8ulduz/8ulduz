@@ -3,7 +3,7 @@
 //
 //   ssenari()  Gemini mənbə səhifəsinin mətnindən 5–7 cümləlik diktor mətni (ən az 4 cümlə, 450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun») və video bankı üçün 4–6 ingiliscə
 //              axtarış ifadəsi yazır; «uygun: false» — xəbəri ümumi kadrla göstərmək olmur (görüş, qəbul), başqa xəbər seçilir. Mətn yoxlanır: hər rəqəm mənbədə olmalıdır, kiril/keçid/nida yoxdur, saytın qaydasından
-//              (policyViolation) keçir. Alınmasa null — video köhnə qayda ilə mənbənin öz cümlələrindən hazırlanır.
+//              (policyViolation) keçir. Keçməsə başqa xəbər; Gemini işləməsə (limit) bu dövrədə video hazırlanmır.
 //   goruntu()  Pexels və ya Pixabay video bankından (pulsuz lisenziya: kommersiya istifadəsi, dəyişdirmə, sosial şəbəkə —
 //              https://www.pexels.com/license/, https://pixabay.com/service/license-summary/) ifadələrə uyğun 4–5 klip yükləyir.
 //              2026-11-22: Pexels yeni API açarı vermir, ona görə Pixabay da var (açarı olan mənbə işləyir). Əvvəl şaquli (portrait), yoxdursa üfüqi klip (video modulu onu tam enində ortada göstərir).
@@ -16,7 +16,7 @@ const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
 
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
-const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];   // x_yazici.py ilə eyni
+const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];   // siyahı alınmasa
 const TEXT_MIN = 350, TEXT_MAX = 750, SOURCE_MAX = 5000, SENT_MIN = 4, SENT_MAX = 8;
 const KLIP_SAY = 5, KLIP_MAX_BYTES = 60e6;
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
@@ -28,15 +28,27 @@ async function models(key, f) {
     const r = await f(`${GEMINI}?pageSize=200`, { headers: { "x-goog-api-key": key }, signal: AbortSignal.timeout(20000) });
     const j = r?.ok ? await r.json() : {};
     const nums = s => (s.match(/\d+/g) || []).map(Number);
-    return (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent") && /flash/.test(m.name || "")
-      && !/lite|image|tts|audio|live|exp|preview|thinking/.test(m.name)).map(m => m.name.split("/").pop())
+    const names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent") && /flash/.test(m.name || "")
+      && !/image|tts|audio|live|exp|preview|thinking/.test(m.name)).map(m => m.name.split("/").pop())
       .sort((a, b) => { const x = nums(a), y = nums(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (y[i] || 0) - (x[i] || 0); if (d) return d; } return 0; });
+    // Əvvəl ən yeni 3 flash, sonra 2 flash-lite. 2026-11-22: pulsuz səviyyənin gündəlik limitini X yazıcısı (hər 20 dəqiqə, lite
+    // işlətmir) axşama qədər bitirir — lite modellərin limiti ayrıdır, video üçün qalır.
+    return [...names.filter(n => !/lite/.test(n)).slice(0, 3), ...names.filter(n => /lite/.test(n)).slice(0, 2)];
   } catch { return []; }
 }
 
+// 429-un səbəbi: gündəlik limit (o model bu gün daha cavab verməz — dərhal növbəti model) və ya dəqiqəlik (gözləyib təkrar).
+async function quota(r) {
+  const e = await r.json().catch(() => ({}));
+  const det = e?.error?.details || [];
+  const v = det.flatMap(d => d?.violations || []);
+  return { daily: v.some(x => /PerDay/i.test(x?.quotaId || "")), limit: v.map(x => x?.quotaValue).find(Boolean) || "" };
+}
+
+// Mətn və ya null (heç bir model cavab vermədi: açar, limit, şəbəkə). Boş sətir — model cavab verdi, amma mətn yoxdur.
 async function gemini(prompt, key, f, log, env = process.env) {
   const listed = await models(key, f);
-  const order = [...new Set([env.GEMINI_MODEL, ...(listed.length ? listed : FALLBACK_MODELS)].filter(Boolean))].slice(0, 3);
+  const order = [...new Set([env.GEMINI_MODEL, ...(listed.length ? listed : FALLBACK_MODELS)].filter(Boolean))].slice(0, 6);
   const body = JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.3, maxOutputTokens: 8000, responseMimeType: "application/json" } });
   const tried = [];
@@ -47,7 +59,13 @@ async function gemini(prompt, key, f, log, env = process.env) {
         r = await f(`${GEMINI}/${model}:generateContent`, { method: "POST", body, signal: AbortSignal.timeout(120000),
           headers: { "x-goog-api-key": key, "content-type": "application/json" } });
       } catch (e) { tried.push(`${model}: ${e?.name || "xəta"}`); break; }
-      if (r.status === 429 || r.status >= 500) { tried.push(`${model}: ${r.status}`); await wait(Number(env.VIDEO_GEMINI_WAIT_MS ?? 10000) * (attempt + 1)); continue; }
+      if (r.status === 429) {
+        const q = await quota(r);
+        tried.push(`${model}: 429${q.daily ? ` günlük limit${q.limit ? ` ${q.limit}` : ""}` : ""}`);
+        if (q.daily) break;
+        await wait(Number(env.VIDEO_GEMINI_WAIT_MS ?? 10000) * (attempt + 1)); continue;
+      }
+      if (r.status >= 500) { tried.push(`${model}: ${r.status}`); await wait(Number(env.VIDEO_GEMINI_WAIT_MS ?? 10000) * (attempt + 1)); continue; }
       if (!r.ok) { tried.push(`${model}: ${r.status}`); break; }
       const j = await r.json().catch(() => ({}));
       const parts = j?.candidates?.[0]?.content?.parts || [];
@@ -56,7 +74,7 @@ async function gemini(prompt, key, f, log, env = process.env) {
     }
   }
   log(`video: Gemini cavab vermədi (${tried.join(", ") || "model yoxdur"})`);
-  return "";
+  return null;
 }
 
 // Mənbə səhifəsinin xəbər mətni: abzaslar (social.cjs pageParagraphs), başlığa yaxın yerdən; yoxdursa xülasə + izah.
@@ -80,7 +98,9 @@ Yer adı varsa onu yaz ("Istanbul Bosphorus", "Baku boulevard"). Bayraq yalnız 
 Konkret tanınan insanların adını yazma. Xəbər cinayət, qəza, ölüm, xəstəlik, fəlakət, məhkəmə və ya münaqişə haqqındadırsa, yalnız
 insansız səhnələr seç (bina, yol, polis maşınının işıqları, şəhər, təbiət, texnika).
 "uygun": video bankının ümumi kadrları bu xəbəri yanıltmadan göstərə bilərmi? Xəbərin mahiyyəti konkret adamların görüşü, qəbulu,
-telefon danışığı, bəyanatı, təbriki, müsahibəsi, təyinatı və ya məktubudursa — false (kadr həmin adamları göstərirmiş kimi görünər).
+telefon danışığı, təbriki, təyinatı və ya məktubudursa — false (kadr həmin adamları göstərirmiş kimi görünər).
+Bəyanat və müsahibədə söhbət gedən mövzu (sərhəd, qiymət, müharibə, tikinti) səhnə ilə göstərilə bilirsə — true: səhnə mövzunu
+göstərsin, danışanı yox ("US Mexico border wall"). Mövzu yalnız şəxslər arası söz-söhbətdirsə — false.
 Hadisə, qəza, hava, təbiət, iqtisadiyyat, qiymət, nəqliyyat, tikinti, texnologiya, elm, idman, şəhər həyatı, müharibənin gedişi — true.
 Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."]}
 
@@ -139,21 +159,24 @@ const ehtiyat = a => EHTIYAT[a.category] || ["baku city skyline", "city street t
 const PROTOKOL = /(qəbul edib|qəbul etdi|görüşüb|görüşdü|görüşəcək|telefon danışığı|telefonla danışıb|təbrik edib|təbrik məktubu|təbrik etdi|başsağlığı|məktub ünvanlayıb|danışıqlar aparıb)/iu;
 const protokol = a => a?.category === "prezident" || PROTOKOL.test(clean(a?.title));
 
-// Ssenari: { text, axtar, model: "gemini" } və ya null.
+// Ssenari: { text, axtar, uygun: true } — mətn hazırdır; { uygun: false, sebeb } — bu xəbərdən video olmur (kadrla göstərilmir,
+// mənbə qısadır, mətn yoxlamadan keçmədi), başqa xəbər seçilir; null — Gemini işləmir (açar yoxdur, limit bitib): bu dövrədə video yoxdur.
+// Sahib, 2026-11-22: mənbənin öz cümlələri və ümumi kadrla video «biabırçılıqdır» — Gemini-siz video paylaşılmır.
 async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch, policy = () => false, log = console.log, fallback = "" } = {}) {
   const key = env.GEMINI_API_KEY;
-  if (!key) { log("video: GEMINI_API_KEY yoxdur — ssenari mənbənin öz cümlələrindən"); return null; }
+  if (!key) { log("video: GEMINI_API_KEY yoxdur — ssenari yazılmır"); return null; }
   const source = sourceText(a, page, fallback);
-  if (source.length < 120) { log("video: mənbə mətni qısadır — ssenari yazılmır"); return null; }
+  if (source.length < 120) { log("video: mənbə mətni qısadır — başqa xəbər"); return { uygun: false, sebeb: "mənbə qısadır" }; }
   const prompt = PROMPT.replace("{title}", clean(a.title)).replace("{bolme}", clean(a.bolme || a.category || "")).replace("{source}", source);
   const raw = await gemini(prompt, key, f, log, env);
+  if (raw == null) return null;
   let j = null;
   try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
-  if (j?.uygun === false) { log("video: Gemini — xəbəri ümumi kadrla yanıltmadan göstərmək olmur (görüş, qəbul, bəyanat), başqa xəbər"); return { uygun: false, text: "", axtar: [] }; }
+  if (j?.uygun === false) { log("video: Gemini — xəbəri ümumi kadrla yanıltmadan göstərmək olmur (görüş, qəbul), başqa xəbər"); return { uygun: false, sebeb: "kadrla göstərilmir" }; }
   const text = clean(j?.text);
   const why = text ? checkText(text, `${source}\n${clean(a.title)}`, a, policy) : "cavab boşdur və ya JSON deyil";
-  if (why) { log(`video: Gemini mətni qəbul olunmadı (${why}) — mənbənin öz cümlələri`); return null; }
-  return { text, axtar: queries(j?.axtar), uygun: j?.uygun !== false };
+  if (why) { log(`video: Gemini mətni qəbul olunmadı (${why}) — başqa xəbər`); return { uygun: false, sebeb: why }; }
+  return { text, axtar: queries(j?.axtar), uygun: true };
 }
 
 // --- Görüntü: Pexels və Pixabay ------------------------------------------------------------------------------------------------------------------

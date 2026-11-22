@@ -61,8 +61,10 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 Əvvəlki video tünd fonda başlıq və bir cümlə idi (~15 s). İndi (`.github/scripts/video-ssenari.cjs`):
 
 - **Mətn:** Gemini (`GEMINI_API_KEY`) mənbə səhifəsinin mətnindən 5–7 cümləlik (ən az 4) diktor mətni yazır (450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun»).
-  Yoxlama: hər rəqəm mənbədə olmalıdır, kiril, keçid, nida, «bu gün/dünən/sabah» yoxdur, saytın qaydasından keçir. Keçməsə mənbənin öz
-  cümlələri gedir (əvvəlki kimi, indi 750 simvola qədər).
+  Yoxlama: hər rəqəm mənbədə olmalıdır, kiril, keçid, nida, «bu gün/dünən/sabah», inisial yoxdur, saytın qaydasından keçir. Keçməsə başqa xəbər seçilir.
+  **Gemini-siz video yoxdur:** Gemini cavab vermirsə (pulsuz səviyyənin gündəlik limiti), bu dövrədə video hazırlanmır, növbəti dövrədə yenidən
+  sınanır — mənbənin öz cümlələri və ümumi kadrla video (2026-11-22 ikinci nümunə) paylaşılmır. Yalnız əl ilə seçilən xəbərdə (`VIDEO_XEBER`) köhnə qayda qalır.
+  Model sırası: ən yeni 3 flash, sonra 2 flash-lite (X yazıcısı lite işlətmir, onun limiti video üçün qalır); gündəlik limit 429-u gələn model təkrar soruşulmur.
 - **Görüntü:** Gemini 4–6 ingiliscə axtarış ifadəsi də verir; [Pixabay](https://pixabay.com/api/docs/) (`PIXABAY_API_KEY`) və ya
   [Pexels](https://www.pexels.com/api/) (`PEXELS_API_KEY`; 2026-11-22-də Pexels yeni açar vermirdi) video bankından 4–5 klip yüklənir — əvvəl şaquli (ekranı doldurur), yoxdursa üfüqi: tam enində ortada, arxada bulanıq nüsxəsi (9:16-ya kəsilmir: 2026-11-22 nümunəsində kəsilmiş 1080p klip bulanıq çıxdı, sarayın yerinə göy qaldı). Hər iki lisenziya pulsuzdur, kommersiya istifadəsinə və
   dəyişdirməyə icazə verir, mənbəni göstərməyi xahiş edir: videoda və post mətnində «Görüntü: Pixabay» (və ya Pexels). Lisenziyalar tanınan insanı pis işıqda göstərməyi

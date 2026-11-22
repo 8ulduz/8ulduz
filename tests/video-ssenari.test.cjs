@@ -48,7 +48,7 @@ test("video: protocol news (receptions, meetings, phone calls, congratulations) 
   assert.ok(!Object.values(VS.EHTIYAT).flat().some(q => /national flags/.test(q)));
 });
 
-test("ssenari: Gemini writes the script (key in a header, never in the URL); bad or missing answers fall back to the source's own sentences", async () => {
+test("ssenari: Gemini writes the script (key in a header, never in the URL); a bad answer skips the story, no key → null", async () => {
   const calls = [];
   const fake = answer => async (u, o = {}) => {
     calls.push({ u, o });
@@ -69,10 +69,37 @@ test("ssenari: Gemini writes the script (key in a header, never in the URL); bad
   assert.equal(gen.o.headers["x-goog-api-key"], "gizli-acar-123");
   assert.ok(!calls.some(c => c.u.includes("gizli-acar-123")), "açar ünvanda yoxdur");
   assert.match(JSON.parse(gen.o.body).contents[0].parts[0].text, /Mənbə mətni:\n[\s\S]*3600 şagird/, "Gemini-yə mənbənin mətni gedir");
-  // Uydurma rəqəm, boş cavab, JSON olmayan cavab, açarsız: null (köhnə qayda).
-  assert.equal(await VS.ssenari(a, page, { env, fetch: fake(JSON.stringify({ text: GOOD.replace("3600", "9999") })), log: quiet }), null);
-  assert.equal(await VS.ssenari(a, page, { env, fetch: fake("bağışlayın"), log: quiet }), null);
+  // Uydurma rəqəm, JSON olmayan cavab: bu xəbərdən video olmur (başqa xəbər). Açarsız: null (Gemini yoxdur).
+  const bad = await VS.ssenari(a, page, { env, fetch: fake(JSON.stringify({ text: GOOD.replace("3600", "9999") })), log: quiet });
+  assert.equal(bad.uygun, false);
+  assert.match(bad.sebeb, /9999/);
+  assert.equal((await VS.ssenari(a, page, { env, fetch: fake("bağışlayın"), log: quiet })).uygun, false);
   assert.equal(await VS.ssenari(a, page, { env: {}, fetch: () => { throw new Error("şəbəkə olmamalı idi"); }, log: quiet }), null);
+});
+
+test("ssenari: a daily-quota 429 moves on to the next model at once; flash-lite models are the reserve; no answer at all → null", async () => {
+  const daily = { error: { code: 429, status: "RESOURCE_EXHAUSTED", details: [{ "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+    violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue: "20" }] }] } };
+  const calls = [], logs = [];
+  const fake = liteWorks => async (u) => {
+    if (/models\?pageSize/.test(u)) return { ok: true, status: 200, json: async () => ({ models: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash",
+      "gemini-3.8-flash-lite", "gemini-3.6-flash-lite", "gemini-3.5-flash-lite"].map(n => ({ name: `models/${n}`, supportedGenerationMethods: ["generateContent"] })) }) };
+    const model = u.match(/models\/([^:]+):/)[1];
+    calls.push(model);
+    if (!/lite/.test(model) || !liteWorks) return { ok: false, status: 429, json: async () => daily };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ uygun: true, text: GOOD, axtar: ["school building"] }) }] } }] }) };
+  };
+  const a = { title: "Bakıda yeni məktəblər açılıb", category: "cemiyyet", summary: SOURCE };
+  const page = `<html><body>${SOURCE.split(". ").map(s => `<p>${s}. Bu abzas mənbənin tam mətnidir.</p>`).join("")}</body></html>`;
+  const env = { GEMINI_API_KEY: "k", VIDEO_GEMINI_WAIT_MS: "0" };
+  const ok = await VS.ssenari(a, page, { env, fetch: fake(true), log: quiet });
+  assert.equal(ok.text, GOOD);
+  assert.deepEqual(calls, ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.8-flash-lite"],
+    "gündəlik limitdə eyni model təkrar soruşulmur; 3 flash, sonra lite");
+  calls.length = 0;
+  assert.equal(await VS.ssenari(a, page, { env, fetch: fake(false), log: s => logs.push(s) }), null, "heç bir model cavab vermədi");
+  assert.equal(calls.length, 5, "3 flash + 2 lite, hərəsinə bir sorğu");
+  assert.match(logs.join("\n"), /429 günlük limit 20/);
 });
 
 test("goruntu: Pexels clips matching the story — portrait first, landscape if none, one clip per query, files saved, key in a header", async () => {
@@ -226,5 +253,16 @@ test("sosial-video: protocol news is skipped, and when Gemini says stock footage
   assert.equal(x.text, GOOD);
   assert.deepEqual(asked, ["b", "c"], "qəbul xəbəri Gemini-yə getmir; Gemini rədd etdiyi xəbərdən sonra növbətisi");
   assert.ok(state.skip[qebul.id] && state.skip[bayanat.id], "rədd olunanlar yenidən yoxlanmır");
+  // Gemini ümumiyyətlə cavab vermirsə (limit): mənbənin cümlələri ilə video hazırlanmır, xəbər «görülmüş» sayılmır.
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), "video-limit-"));
+  const state2 = SV.readState(path.join(dir2, "yox.json"), NOW);
+  const limit = async (u) => (/^https:\/\/apa\.az\//.test(u) ? { ok: true, text: async () => page }
+    : /models\?pageSize/.test(u) ? { ok: true, json: async () => ({ models: [] }) } : { ok: false, status: 429, json: async () => ({}) });
+  const none = await SV.sec({ articles: [mekteb], env: { VIDEO_ACAR: "1", VIDEO_PAYLAS: "0", GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" },
+    now: NOW, state: state2, fetch: limit, cats, dir: dir2, log: quiet });
+  assert.equal(none, null);
+  assert.ok(!fs.existsSync(path.join(dir2, "xeber.json")));
+  assert.ok(!state2.skip[mekteb.id] && !state2.v[mekteb.id], "növbəti dövrədə eyni xəbər yenidən sınanır");
   fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(dir2, { recursive: true, force: true });
 });
