@@ -1,0 +1,104 @@
+# Saranın oxunuş lüğəti (sahib, 2026-11-23: «tam normal insan kimi oxunsun», «lüğət yolu»).
+# .github/scripts/ses-lugat.cjs; docs/sosial-video.md «Saranın oxunuşu».
+#   yenile — həftədə bir və əl ilə: xəbərlərdə çıxan yeni qısaltma və xarici adlar Gemini ilə oxunuşa çevrilir, qaydalarla
+#            yoxlanır, tarixçəsiz «ses-lugat» budağına yazılır (lugat.json; main-ə yazılmır). Video işi (sosial-video.yml) və
+#            «Dinlə» serveri (server.py, 12 saatdan bir) oradan götürür. Repodakı baxılmış ses-lugat.json üstündür.
+#   qur    — bütün arxivdən baza lüğəti; nəticə artefaktdadır, baxılıb PR ilə .github/ses-server/ses-lugat.json-a gəlir.
+# Xəbər axınından ayrıdır: düşsə də saytın və videonun işinə təsir etmir (səs köhnə lüğətlə oxuyur).
+name: Səs lüğəti (SARA)
+
+on:
+  schedule:
+    # Çərşənbə axşamı 13:11 Bakı: Gemini-nin gündəlik limiti 08:00 UTC-də yenilənib; video arxivi (B.e., C.a.) ilə eyni gün deyil.
+    - cron: "11 9 * * 2"
+  workflow_dispatch:
+    inputs:
+      rejim:
+        description: 'yenile — yeni sözlər budağa; qur — bütün arxivdən baza lüğəti (artefakt, PR üçün)'
+        type: choice
+        options: [yenile, qur]
+        default: yenile
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ses-lugat-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lugat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REJIM: ${{ inputs.rejim || 'yenile' }}
+      YAZ: ${{ github.ref == 'refs/heads/main' && (inputs.rejim || 'yenile') == 'yenile' }}
+      BUDAQ_FAYL: .ses-lugat/lugat.json
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/ses-lugat.cjs
+            .github/scripts/video-ssenari.cjs
+            .github/scripts/social.cjs
+            .github/ses-server/ses-lugat.json
+            data/news.json
+            data/arxiv/
+            data/oz/
+          sparse-checkout-cone-mode: false
+      # Budaq yoxdursa (ls-remote çıxış kodu 2) boş lüğətdən başlanır; başqa xəta olanda iş dayanır, budağa toxunulmur.
+      - name: Budağın son nüsxəsi (ses-lugat)
+        if: env.REJIM == 'yenile'
+        run: |
+          mkdir -p .ses-lugat
+          code=0
+          git ls-remote --exit-code --heads origin ses-lugat >/dev/null 2>&1 || code=$?
+          if [ "$code" = 0 ]; then
+            git fetch -q --depth 1 origin ses-lugat
+            git rev-parse FETCH_HEAD > .ses-lugat/base
+            git show FETCH_HEAD:lugat.json > "$BUDAQ_FAYL"
+          elif [ "$code" = 2 ]; then
+            echo "ses-lugat budağı hələ yoxdur — boş lüğətdən"
+          else
+            echo "::error::ses-lugat budağı oxunmadı (ls-remote: $code): budağa toxunulmur"; exit 1
+          fi
+      - name: Baza lüğəti (bütün arxiv)
+        if: env.REJIM == 'qur'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          mkdir -p out
+          node .github/scripts/ses-lugat.cjs qur out/ses-lugat.json
+          node -e '
+            const x = JSON.parse(require("fs").readFileSync("out/ses-lugat.json", "utf8"));
+            const s = Object.entries(x.sozler);
+            console.log(`### Səs lüğəti: ${s.length} söz, ${x.yoxlanib.length} yoxlanıb, ${x.redd.length} rədd\n`);
+            console.log(s.slice(0, 400).map(([k, v]) => `- ${k} → ${v}`).join("\n"));
+          ' >> "$GITHUB_STEP_SUMMARY"
+      - name: Yeni sözlər
+        if: env.REJIM == 'yenile'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node .github/scripts/ses-lugat.cjs yenile .github/ses-server/ses-lugat.json "$BUDAQ_FAYL"
+      # Tarixçəsiz yazı (video-arxiv.yml kimi): bir fayllı ağac, valideynsiz commit. Dəyişiklik yoxdursa yazılmır.
+      - name: ses-lugat budağına yaz
+        if: env.YAZ == 'true'
+        run: |
+          [ -f "$BUDAQ_FAYL" ] || { echo "lüğət faylı yoxdur"; exit 0; }
+          if [ -f .ses-lugat/base ] && git show "$(cat .ses-lugat/base):lugat.json" | cmp -s - "$BUDAQ_FAYL"; then echo "dəyişiklik yoxdur"; exit 0; fi
+          blob=$(git hash-object -w "$BUDAQ_FAYL")
+          tree=$(printf '100644 blob %s\tlugat.json\n' "$blob" | git mktree)
+          commit=$(git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit-tree "$tree" -m "Səs lüğəti")
+          git push -q --force origin "$commit:refs/heads/ses-lugat"
+          echo "ses-lugat budağı yeniləndi: $(node -p 'Object.keys(JSON.parse(require("fs").readFileSync(process.env.BUDAQ_FAYL,"utf8")).sozler).length') söz" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Nəticə (artefakt, 7 gün)
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ses-lugat
+          path: |
+            out/
+            .ses-lugat/lugat.json
+          if-no-files-found: ignore
+          retention-days: 7

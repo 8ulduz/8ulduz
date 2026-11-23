@@ -1,0 +1,131 @@
+# SARA səsinin anlaşıqlığı (sahib, 2026-11-23: «dəfələrlə dinlə… tam normal insan kimi oxunsun»).
+# Korpus (tests/fixtures/ses-korpus.json) hər ayarla səsləndirilir, Whisper onu «dinləyib» yazır, yazılan gözlənən oxunuşla
+# müqayisə olunur (.github/scripts/ses_yoxla.py). Hər ayar ayrıca paralel işdir; «hesabat» cədvəli və nümunə mp3-ləri toplayır.
+# Yalnız oxuyur: heç nə paylaşmır, repoya yazmır. Səs və hesabat artefaktdadır (7 gün).
+name: Səs yoxlaması (SARA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      variantlar:
+        description: 'Ayarlar, JSON siyahı ([{"ad":"x","metn":"yeni","noise_scale":0.5}]); boş — standart dəst'
+        required: false
+        default: ''
+      muqayise:
+        description: 'Köhnə mətn qaydası (metn=kohne) hansı budaq/commitdən götürülsün'
+        required: false
+        default: 'main'
+  push:
+    branches: ['claude/sara-**']
+    paths:
+      - .github/ses-server/az_text.py
+      - .github/scripts/ses_yoxla.py
+      - .github/workflows/ses-yoxla.yml
+      - tests/fixtures/ses-korpus.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ses-yoxla-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.p.outputs.matrix }}
+    steps:
+      - id: p
+        env:
+          V: ${{ inputs.variantlar }}
+        run: |
+          if [ -z "$V" ]; then
+            # 2026-11-23 ölçmələri (hərf xətası, CER): köhnə 15,2%; yeni + lüğət + VOICE 0,45/0,6: vergüldə bölünəndə 11,4%,
+            # bölünməyəndə 10,0% (seçildi); 0,33/0,5 — 11,4%; sürət 0,96 — 11,6%; 0,92 — 12,4%. Standart: köhnə ↔ indiki.
+            V='[{"ad":"kohne","metn":"kohne","noise_scale":0.667,"noise_scale_duration":0.8},{"ad":"yeni","metn":"yeni"}]'
+          fi
+          echo "matrix=$(printf '%s' "$V" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  dinle:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        v: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: dinlə (${{ matrix.v.ad }})
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Köhnə mətn qaydası
+        if: matrix.v.metn == 'kohne'
+        env:
+          REF: ${{ inputs.muqayise || 'main' }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$REF"
+          git show FETCH_HEAD:.github/ses-server/az_text.py > /tmp/az_text_kohne.py
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      # SARA (~150 MB) və Whisper large-v3 (~3 GB) hər dəfə yüklənməsin.
+      - name: Modellərin keşi
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: ses-yoxla-v1
+      - name: Paketlər
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q transformers numpy faster-whisper
+      - name: Səsləndir və dinlə
+        env:
+          VARIANTS: '[${{ toJSON(matrix.v) }}]'
+        run: python .github/scripts/ses_yoxla.py dinle tests/fixtures/ses-korpus.json out /tmp/az_text_kohne.py
+      # ubuntu-latest-də ffmpeg həmişə olmur (2026-11-23): yoxdursa quraşdırılır; alınmasa wav qalır, nəticə yenə yüklənir.
+      - name: Nümunə (mp3)
+        continue-on-error: true
+        env:
+          AD: ${{ matrix.v.ad }}
+        run: |
+          [ -f "out/$AD-numune.wav" ] || exit 0
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg >/dev/null; }
+          ffmpeg -hide_banner -loglevel error -y -i "out/$AD-numune.wav" -codec:a libmp3lame -q:a 3 "out/$AD-numune.mp3"
+          rm -f "out/$AD-numune.wav"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ses-${{ matrix.v.ad }}
+          path: out/
+          retention-days: 7
+
+  hesabat:
+    needs: dinle
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: .github/scripts/ses_yoxla.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: ses-*
+          path: hamisi
+      - name: Hesabat
+        run: |
+          mkdir -p hesabat
+          python3 .github/scripts/ses_yoxla.py hesabat hamisi > hesabat/hesabat.md
+          cp hamisi/*/*-numune.mp3 hamisi/*/*-numune.wav hesabat/ 2>/dev/null || true
+          cat hesabat/hesabat.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: hesabat
+          path: hesabat/
+          retention-days: 7
