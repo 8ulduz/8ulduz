@@ -463,10 +463,10 @@ function ass(p, tl, { footage = false } = {}) {
     dlg(3, from, to, "Num", `{\\an7\\move(${X0},${Y.head + 22},${X0},${Y.head},0,300)\\fs${head.size}\\fad(160,200)${s.key === "diqqet" ? `\\1c${col(C.warn)}` : ""}${shade}}${head.lines.map(txt).join("\\N")}`);
     if (s.key === "baki") {
       const b = p.baki, top = Y.body, h = Y.bodyEnd - top;
-      shapes(1, from, to, [cardBg(X0 - 24, top, TEXT_W + 48, h)], { alpha: "50", lift: 0 });
+      shapes(1, from, to, [cardBg(X0 - 24, top, TEXT_W + 48, h)], { alpha: "48", lift: 0 });
       const ic = icon(b.kind, X0 + 8, top + 22, 236);
       shapes(2, from, to, ic, { lift: 16, delay: 0.1, spin: b.kind === "acik" ? [X0 + 126, top + 140] : null });
-      text(2, from, to, 372, top + 24, "Txt", `Bakı · ${b.label}`, `\\fs46\\1c${col(C.gray)}`, 0.12);
+      text(2, from, to, 372, top + 24, "Txt", `Bakı · ${b.label}`, "\\fs46", 0.12);
       text(2, from, to, 362, top + 64, "Num", deg(b.tmax), "\\fs170", 0.18);
       text(2, from, to, 372 + Math.round(V.textWidth(deg(b.tmax), 170, "black")) + 18, top + 155, "Txt", `gecə ${deg(b.tmin)}`, `\\fs54\\1c${col(C.gray)}`, 0.24);
       // Göstəricilər: külək (istiqamət oxu ilə), ani külək, yağıntı (və ehtimal) və ya qar.
@@ -485,20 +485,22 @@ function ass(p, tl, { footage = false } = {}) {
         text(2, from, to, vx, my + 38, "Num", c.value, "\\fs50", d);
       });
     } else if (s.key === "diqqet") {
-      const top = Y.body, lines = (p.xeberdarliq || []).map(w => w.line), h = Math.min(Y.bodyEnd - top, 150 + lines.length * 120);
+      // Xəbərdarlıq kartı: hündürlük məzmuna görədir (sətirlər üçbucağa görə ortalanır), şrift sığan ən böyüyüdür (54 → 38).
+      const top = Y.body, lines = (p.xeberdarliq || []).map(w => w.line), tw = TEXT_W - 190;
+      const fits = [54, 48, 42, 38].map(sz => { const w = lines.map(l => V.wrap(l, sz, "bold", tw)); return { fs: sz, w, h: Math.round(w.flat().length * sz * 1.15) + (lines.length - 1) * 22 }; });
+      const fit = fits.find(o => o.h <= Y.bodyEnd - top - 120) || fits[fits.length - 1];
+      const y0 = top + Math.max(34, Math.round(96 - fit.h / 2)), noteY = Math.max(y0 + fit.h + 18, top + 150);
+      const h = Math.min(Y.bodyEnd - top, Math.max(200, noteY - top + 64));
       shapes(1, from, to, [cardBg(X0 - 24, top, TEXT_W + 48, h)], { alpha: "30", lift: 0 });
       shapes(2, from, to, [{ sh: rrect(X0 - 24, top, 12, h, 6), c: C.warn }], { lift: 0 });
       shapes(2, from, to, [{ sh: poly([[X0 + 70, top + 36], [X0 + 140, top + 156], [X0, top + 156]]), c: C.warn }], { delay: 0.08 });
       text(2, from, to, X0 + 62, top + 74, "Num", "!", `\\fs80\\1c${col(C.bar)}`, 0.08);
-      // Ölçü: bütün sətirlər kartın içinə sığan ən böyük şrift (50 → 38).
-      const wr = sz => lines.map(l => V.wrap(l, sz, "bold", TEXT_W - 190));
-      const fit = [50, 44, 38].map(sz => ({ fs: sz, w: wr(sz) })).find(o => o.w.flat().length * o.fs * 1.15 + (lines.length - 1) * 24 <= h - 110) || { fs: 38, w: wr(38) };
-      let y = top + 34;
+      let y = y0;
       for (const [i, w] of fit.w.entries()) {
         text(2, from, to, X0 + 180, y, "Num", w, `\\fs${fit.fs}`, 0.14 + i * 0.1);
-        y += Math.round(w.length * fit.fs * 1.15) + 24;
+        y += Math.round(w.length * fit.fs * 1.15) + 22;
       }
-      text(2, from, to, X0 + 180, Math.max(y, top + h - 60), "Reg", "Model proqnozu, rəsmi xəbərdarlıq deyil", "\\fs30", 0.3);
+      text(2, from, to, X0 + 180, noteY, "Reg", "Model proqnozu, rəsmi xəbərdarlıq deyil", "\\fs30", 0.3);
     } else {
       // Bölgələr: 2×2 kart — şəhər, ikon, gündüz (böyük) və gecə temperaturu.
       const pg = p.bolgeler[Number(s.key.slice(5))] || [], gap = 24, cw = (TEXT_W - gap) / 2, ch = (Y.bodyEnd - Y.body - gap) / 2;
