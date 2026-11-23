@@ -27,6 +27,12 @@ const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== 
 // Açar və ondan alınan səhifə açarı heç bir mətnə düşməsin.
 const masker = keys => s => keys.filter(k => k && k.length > 8).reduce((m, k) => m.split(k).join("***"), String(s ?? ""));
 
+// Metrika adları dəyişir: Meta post_impressions_unique-i 2026-cı ilin iyununda Video Insights-dan götürdü (Graph API v25
+// changelog), əvəzi post_total_media_views_unique-dir. Hər ad ayrıca soruşulur, ilk alınan götürülür.
+const FB_PLAYS = ["blue_reels_play_count", "fb_reels_total_plays", "total_video_views"];
+const FB_REACH = ["post_total_media_views_unique", "post_video_views_unique", "post_impressions_unique"];
+const IG_PLAYS = ["views", "plays"], IG_REACH = ["reach"];
+
 function insightValue(res, name) {
   const m = (res?.data || []).find(x => x?.name === name);
   const v = m?.values?.[0]?.value ?? m?.total_value?.value;
@@ -49,6 +55,18 @@ async function check({ env = process.env, f = fetch, now = Date.now() } = {}) {
     catch (e) { return { error: { message: String(e?.message || e) } }; }
   };
   const err = r => (r?.error ? String(r.error.message || JSON.stringify(r.error)).slice(0, 200) : "");
+  // Adları bir-bir sınayır. İcazə xətası (#10, #200) olsa qalanları da alınmayacaq: dayanır.
+  const metric = async (p, names, tok) => {
+    let e = "";
+    for (const m of names) {
+      const r = await get(p, { metric: m }, tok);
+      const v = insightValue(r, m);
+      if (v != null) return { v, e: "" };
+      e = err(r) || e;
+      if (/\(#(10|200)\)/.test(err(r))) break;
+    }
+    return { v: null, e };
+  };
 
   // 1. Açar
   const dbg = await get("debug_token", { input_token: T });
@@ -93,11 +111,12 @@ async function check({ env = process.env, f = fetch, now = Date.now() } = {}) {
   const reels = await get(`${encodeURIComponent(P)}/video_reels`, { fields: "id,created_time,description,permalink_url", limit: String(n) }, PT);
   if (reels?.error) out.warn.push(`Facebook Reels siyahısı oxunmadı: ${err(reels)}`);
   for (const r of (reels?.data || []).slice(0, n)) {
-    const ins = await get(`${encodeURIComponent(r.id)}/video_insights`, { metric: "blue_reels_play_count,post_impressions_unique" }, PT);
+    const p = `${encodeURIComponent(r.id)}/video_insights`;
+    const plays = await metric(p, FB_PLAYS, PT), reach = plays.e && /\(#(10|200)\)/.test(plays.e) ? plays : await metric(p, FB_REACH, PT);
     const soc = await get(encodeURIComponent(r.id), { fields: "likes.summary(true).limit(0),comments.summary(true).limit(0)" }, PT);
     out.fb.push({ id: r.id, time: r.created_time || "", title: String(r.description || "").split("\n")[0].slice(0, 80), link: r.permalink_url || "",
-      plays: insightValue(ins, "blue_reels_play_count"), reach: insightValue(ins, "post_impressions_unique"),
-      likes: soc?.likes?.summary?.total_count ?? null, comments: soc?.comments?.summary?.total_count ?? null, error: err(ins) });
+      plays: plays.v, reach: reach.v, likes: soc?.likes?.summary?.total_count ?? null, comments: soc?.comments?.summary?.total_count ?? null,
+      error: plays.v == null && reach.v == null ? plays.e || reach.e : "" });
   }
 
   // 4. Instagram: son videolar, baxış və əhatə (insights), bəyənmə
@@ -106,10 +125,11 @@ async function check({ env = process.env, f = fetch, now = Date.now() } = {}) {
     const media = await get(`${encodeURIComponent(ig)}/media`, { fields: "id,caption,media_product_type,permalink,timestamp,like_count,comments_count", limit: String(n * 2) }, PT);
     if (media?.error) out.warn.push(`Instagram siyahısı oxunmadı: ${err(media)}`);
     for (const m of (media?.data || []).filter(x => x.media_product_type === "REELS").slice(0, n)) {
-      let ins = await get(`${encodeURIComponent(m.id)}/insights`, { metric: "views,reach" }, PT);
-      if (ins?.error) ins = await get(`${encodeURIComponent(m.id)}/insights`, { metric: "reach" }, PT);
+      const p = `${encodeURIComponent(m.id)}/insights`;
+      const plays = await metric(p, IG_PLAYS, PT), reach = plays.e && /\(#(10|200)\)/.test(plays.e) ? plays : await metric(p, IG_REACH, PT);
       out.ig.push({ id: m.id, time: m.timestamp || "", title: String(m.caption || "").split("\n")[0].slice(0, 80), link: m.permalink || "",
-        plays: insightValue(ins, "views"), reach: insightValue(ins, "reach"), likes: m.like_count ?? null, comments: m.comments_count ?? null, error: err(ins) });
+        plays: plays.v, reach: reach.v, likes: m.like_count ?? null, comments: m.comments_count ?? null,
+        error: plays.v == null && reach.v == null ? plays.e || reach.e : "" });
     }
   }
 
@@ -182,5 +202,5 @@ async function main() {
   if (out.fail.length) process.exitCode = 1;
 }
 
-module.exports = { check, report, masker, insightValue, REQUIRED, COMMENT, STATS };
+module.exports = { check, report, masker, insightValue, REQUIRED, COMMENT, STATS, FB_PLAYS, FB_REACH, IG_PLAYS, IG_REACH };
 if (require.main === module) main().catch(e => { console.error(`meta: ${String(e?.message || e).slice(0, 300)}`); process.exitCode = 1; });

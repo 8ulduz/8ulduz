@@ -10,7 +10,7 @@ const ago = h => new Date(NOW - h * 3600e3).toISOString().replace(/\.\d+Z$/, "+0
 
 // Saxta Graph API: yol → cavab. Hər sorğu yadda qalır (açar hansı sorğuya getdi).
 function graph({ scopes = ALL, valid = true, type = "USER", expires = 0, dataAccess = NOW / 1000 + 80 * 86400, tasks = ["ADVERTISE", "ANALYZE", "CREATE_CONTENT", "MESSAGING", "MODERATE", "MANAGE"],
-  fb = [[30, 120, 95], [20, 60, 40], [1, 2, 1]], ig = [[30, 400, 300], [20, 200, 150]], insightsError = false } = {}) {
+  fb = [[30, 120, 95], [20, 60, 40], [1, 2, 1]], ig = [[30, 400, 300], [20, 200, 150]], insightsError = false, fbPlays = "blue_reels_play_count" } = {}) {
   const calls = [];
   const f = async url => {
     const u = new URL(url), p = u.pathname.replace(/^\/v[\d.]+\//, ""), q = Object.fromEntries(u.searchParams);
@@ -21,14 +21,19 @@ function graph({ scopes = ALL, valid = true, type = "USER", expires = 0, dataAcc
     if (p === "me/accounts") return ok({ data: [{ id: "1470250006171917", name: "8ulduz", tasks }] });
     if (p === "1470250006171917") return ok({ id: "1470250006171917", name: "8ulduz", followers_count: 812, access_token: PAGE, instagram_business_account: { id: "1784" } });
     if (p === "1470250006171917/video_reels") return ok({ data: fb.map(([h], i) => ({ id: `v${i}`, created_time: ago(h), description: `Başlıq ${i}\n\nmətn`, permalink_url: `/reel/v${i}` })) });
+    // Bir sorğuda bir metrika. Köhnəlmiş ad (#100), icazə yoxdursa (#10) qaytarır.
     const v = p.match(/^v(\d+)\/video_insights$/);
-    if (v) return ok(insightsError ? { error: { message: "(#10) read_insights lazımdır" } }
-      : { data: [{ name: "blue_reels_play_count", values: [{ value: fb[v[1]][1] }] }, { name: "post_impressions_unique", values: [{ value: fb[v[1]][2] }] }] });
+    if (v) {
+      if (insightsError) return ok({ error: { message: "(#10) Application does not have permission for this action" } });
+      const val = q.metric === fbPlays ? fb[v[1]][1] : q.metric === "post_total_media_views_unique" ? fb[v[1]][2] : null;
+      return ok(val == null ? { error: { message: "(#100) The value must be a valid insights metric" } } : { data: [{ name: q.metric, period: "lifetime", values: [{ value: val }] }] });
+    }
     const s = p.match(/^v(\d+)$/);
     if (s) return ok({ likes: { summary: { total_count: 3 } }, comments: { summary: { total_count: 0 } } });
     if (p === "1784/media") return ok({ data: ig.map(([h], i) => ({ id: `m${i}`, caption: `IG ${i}`, media_product_type: "REELS", permalink: `https://instagram.com/reel/m${i}`, timestamp: ago(h), like_count: 5, comments_count: 1 })) });
     const m = p.match(/^m(\d+)\/insights$/);
-    if (m) return ok({ data: [{ name: "views", values: [{ value: ig[m[1]][1] }] }, { name: "reach", values: [{ value: ig[m[1]][2] }] }] });
+    if (m) return ok(q.metric === "views" ? { data: [{ name: "views", values: [{ value: ig[m[1]][1] }] }] }
+      : q.metric === "reach" ? { data: [{ name: "reach", values: [{ value: ig[m[1]][2] }] }] } : { error: { message: "(#100) invalid metric" } });
     return ok({ error: { message: `naməlum: ${p}` } });
   };
   return { f, calls };
@@ -102,4 +107,18 @@ test("a page token (not a user token) is checked without the user-only page list
   const out = await M.check({ env: { ...env, FB_PAGE_TOKEN: PAGE }, f: g.f, now: NOW });
   assert.deepEqual(out.fail, []);
   assert.ok(!g.calls.some(c => c.p === "me/accounts"));
+});
+
+test("insight names Meta retired are skipped one by one; a permission error stops the search", async () => {
+  let g = graph({ fbPlays: "total_video_views" });
+  let out = await M.check({ env, f: g.f, now: NOW });
+  assert.equal(out.fb[0].plays, 120);
+  assert.equal(out.fb[0].reach, 95);
+  assert.equal(out.fb[0].error, "");
+  const asked = g.calls.filter(c => c.p === "v0/video_insights").map(c => c.q.metric);
+  assert.deepEqual(asked, ["blue_reels_play_count", "fb_reels_total_plays", "total_video_views", "post_total_media_views_unique"]);
+  g = graph({ insightsError: true });
+  out = await M.check({ env, f: g.f, now: NOW });
+  assert.equal(g.calls.filter(c => c.p === "v0/video_insights").length, 1, "icazə yoxdursa bir sorğu");
+  assert.match(out.fb[0].error, /\(#10\)/);
 });
