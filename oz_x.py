@@ -579,8 +579,15 @@ def unsafe_text(text):
 
 
 # Ən çox baxılan (sahib 2026-11-23): bu qədər baxışı olmayan video «boş» sayılır və lentə düşmür. Paylaşım 24 saat namizəddir
-# (x_yazici.REEL_WINDOW), hesab yenidən yoxlananda baxış sayı yenilənir: təzə video həddi keçəndə götürülür.
-REEL_MIN_VIEWS = 20000
+# (x_yazici.REEL_WINDOW), hesab yenidən yoxlananda baxış sayı yenilənir: təzə video həddi keçəndə götürülür. Ölçü (2026-11-23,
+# növbənin ən təzə 256 videosu): median 35 min, 25%-i 17 mindən az. Usta işi az baxılır (TamirveTadilat median 6,7 min) — sahibin
+# özü nümunə göstərdiyi videolardır, həddi aşağıdır. Lentin başına ən çox baxılanı sıralama gətirir (lent.js rank).
+REEL_MIN_VIEWS = {"h": 10000, "u": 3000}
+
+
+def empty(row):
+    """Baxış sayı bilinir və sinfinin həddindən azdır: «boş» video."""
+    return "v" in row and row["v"] < REEL_MIN_VIEWS[sinif(row)]
 _COUNT = ("v", "l", "rp")   # sətirdə: baxış, bəyənmə, paylaşma (vt — sayların vaxtı)
 
 
@@ -853,7 +860,7 @@ def reels(now, path=None):
         # İzah məcburi deyil (sahib 2026-11-23: «Alınmırsa izah lazım deyil»). Baxış sayı bilinən və REEL_MIN_VIEWS-dan az olan video
         # «boş»dur; sayı hələ bilinməyən köhnə sətir qalır, lent onu ən sona qoyur (yazıcı sayları yeniləyir).
         key = video_key(row["video"])
-        if stale_event(row, now) or row["id"] in seen or key in seen or row["handle"].lower() in _CIXAN                 or "v" in row and row["v"] < REEL_MIN_VIEWS:
+        if stale_event(row, now) or empty(row) or row["id"] in seen or key in seen or row["handle"].lower() in _CIXAN:
             continue
         seen.update((row["id"], key))
         h = _REEL_HANDLE[row["handle"].lower()]

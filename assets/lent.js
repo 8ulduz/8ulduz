@@ -84,26 +84,30 @@ export function list(S, reels, order = seenOrder()) {
 }
 
 // TikTok kimi qarışıq axın (sahib 2026-11-19: «video axını tiktok kimi olsun», «əksəriyyəti futboldur … proporsional olsun
-// müxtəlif mövzular»): mövzular növbə ilə gəlir (idman, təbiət, elm, kino …; hər açılışda başqa sıra), hər mövzunun içində ən
-// çox baxılan və təzəsi önə (rank); eyni hesabdan iki video ardıcıl gəlmir.
+// müxtəlif mövzular»): ən çox baxılan əvvəl (rank), amma eyni mövzu son SPREAD videoda varsa növbəti mövzu gəlir — futbol lenti
+// doldurmur; eyni hesabdan iki video ardıcıl gəlmir.
 // İki sinif (sahib 2026-11-22: «videoların 60%-i … hadisələr …, Təmir-tadilatdakı videolar bənzəri videolar (çox fərqli mövzularda)»):
 // hadisə və yeniliklər («h») ilə usta işi («u») 3:2 növbə ilə — h h u h u; bir sinif qurtaranda o biri davam edir.
-// Lent təzə xəbər anı ilə açılır (sahib 2026-11-23: «hadisə və xəbər xarakterli videolarla bağlı da vəziyyət düzgün deyil»): hadisə
-// sinfində «xeber» mövzusu növbənin başındadır, qalan mövzuların sırası hər açılışda başqadır.
+// Lent xəbər anı ilə açılır (sahib 2026-11-23: «hadisə və xəbər xarakterli videolarla bağlı da vəziyyət düzgün deyil»): hadisə
+// sinfində «xeber» mövzusunun ən çox baxılanı birincidir.
 const PATTERN = [0, 0, 1, 0, 1];   // 1 — usta işi
-// Hər mövzunun içində ən çox baxılan və təzə əvvəl (sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun. boş boş
-// videolardır indi əksəriyyəti»): reels «v» — X-in baxış sayı; hər 12 saat yaş baxışın bir onluq dərəcəsinə bərabərdir (12 saatlıq
-// 1 milyon ≈ təzə 100 min). Birinci dərəcəli mənbə (sahib 2026-11-20, reels «p») yarım dərəcə önədir — əvvəl yaşına baxmadan önə
-// keçirdi. Sayı bilinməyən video ən sonda; öz video xəbərimizin sayı yoxdur, orta populyar video kimi sayılır (OWN_V).
-const AGE_PER_DECADE = 12 * 3600e3, P_BONUS = 0.5, OWN_V = 1e5, LEAD = "xeber";
+// Ən çox baxılan və təzə əvvəl (sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun. boş boş videolardır indi
+// əksəriyyəti»): reels «v» — X-in baxış sayı; hər 12 saat yaş baxışın bir onluq dərəcəsinə bərabərdir (12 saatlıq 1 milyon ≈ təzə
+// 100 min). Birinci dərəcəli mənbə (sahib 2026-11-20, reels «p») yarım dərəcə önədir — əvvəl yaşına baxmadan önə keçirdi. Sayı
+// bilinməyən video ən sonda; öz video xəbərimizin sayı yoxdur, orta populyar video kimi sayılır (OWN_V). Əvvəl mövzular ciddi növbə
+// ilə gəlirdi və hər mövzunun başı — 6 min baxışlı da olsa — lentin əvvəlinə düşürdü.
+const AGE_PER_DECADE = 12 * 3600e3, P_BONUS = 0.5, OWN_V = 1e5, LEAD = "xeber", SPREAD = 3;
 const rank = v => Math.log10(Math.max(v.v ?? 0, 0) + 1) - (Date.now() - (Date.parse(v.t) || 0)) / AGE_PER_DECADE + (v.p ? P_BONUS : 0);
 function lane(list) {
-  const groups = new Map();
-  for (const v of list) { const k = v.m || "idman"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(v); }
-  for (const g of groups.values()) g.sort((a, b) => rank(b) - rank(a));
-  const order = [...groups.entries()].sort(() => Math.random() - 0.5).sort(([a], [b]) => (b === LEAD) - (a === LEAD)).map(([, g]) => g), rr = [];
-  while (order.some(g => g.length)) for (const g of order) if (g.length) rr.push(g.shift());
-  return rr;
+  const rest = list.map(v => [rank(v), v]).sort((a, b) => b[0] - a[0]).map(([, v]) => v), out = [];
+  const lead = rest.findIndex(v => v.m === LEAD);
+  if (lead > 0) rest.unshift(rest.splice(lead, 1)[0]);
+  while (rest.length) {   // son SPREAD videoda olmayan mövzu; yoxdursa son SPREAD−1, … ; heç biri yoxdursa ən çox baxılan
+    let i = -1;
+    for (let k = SPREAD; k > 0 && i < 0; k--) { const recent = out.slice(-k).map(v => v.m || "idman"); i = rest.findIndex(v => !recent.includes(v.m || "idman")); }
+    out.push(rest.splice(i < 0 ? 0 : i, 1)[0]);
+  }
+  return out;
 }
 export function mix(list) {
   const h = lane(list.filter(v => v.q !== "u")), u = lane(list.filter(v => v.q === "u")), rr = [];

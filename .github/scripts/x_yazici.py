@@ -572,7 +572,8 @@ def main():
     # ən çox baxılan əvvəl (heat); birinci dərəcəli mənbəyə 1,5 qat üstünlük; REEL_MIN_VIEWS-dan az baxılan «boş»dur; köhnə klipin
     # təzə paylaşımı hadisə deyil (oz_x.stale_event, sinif Gemini-siz guess-dən)
     for c in sorted(more, key=lambda c: -heat(c, now) * (1.5 if xm.onde(c["handle"]) else 1)):
-        if c["id"] in taken or c["_views"] < xm.REEL_MIN_VIEWS or xm.video_key(c["video"]) in media                 or xm.stale_event({"video": c["video"], "sinif": guess(c)}, now):
+        cls = {"video": c["video"], "v": c["_views"], "sinif": guess(c)}
+        if c["id"] in taken or xm.empty(cls) or xm.stale_event(cls, now) or xm.video_key(c["video"]) in media:
             continue
         media.add(xm.video_key(c["video"]))
         first.append(c)

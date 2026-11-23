@@ -271,7 +271,7 @@ test('Videolent: the feed opens with the freshest news moment, keeps 60/40 and f
   assert.ok(out.indexOf('fresh') < out.indexOf('old-p'), '30 saatlıq birinci dərəcəli video 1 saatlıq videonun önünə keçmir');
   assert.ok(out.indexOf('p2') < out.indexOf('n3'), 'yaşı yaxındırsa birinci dərəcəli mənbə önədir');
   const src = fs.readFileSync(file, 'utf8');
-  assert.ok(src.includes('const AGE_PER_DECADE = 12 * 3600e3, P_BONUS = 0.5, OWN_V = 1e5, LEAD = "xeber";'));
+  assert.ok(src.includes('const AGE_PER_DECADE = 12 * 3600e3, P_BONUS = 0.5, OWN_V = 1e5, LEAD = "xeber", SPREAD = 3;'));
   assert.ok(!src.includes('(b.p ? 1 : 0) - (a.p ? 1 : 0)'), 'birinci dərəcəli mənbə yaşına baxmadan önə keçmir');
 });
 
@@ -287,4 +287,19 @@ test('Videolent: the most watched come first, empty low-view clips sink, unknown
   reels.find(r => r.n === 'X2').v = 5e6;
   assert.equal(list({}, reels)[0].n, 'X2', 'xəbərlərin ən çox baxılanı lenti açır');
   assert.equal(list({ data: { articles: [] } }, [{ ...reels[0], v: 'çox' }])[0].v, -1, 'rəqəm olmayan say bilinmir sayılır');
+});
+
+test('Videolent: a topic head with few views does not jump the queue — most watched first, a topic never three times in a row (owner 2026-11-19, 2026-11-23)', async () => {
+  const { mix } = await import(pathToFileURL(file).href);
+  const t = new Date().toISOString(), list = [];
+  for (let i = 0; i < 12; i++) list.push({ u: 'f' + i, n: 'club' + i, m: 'idman', t, v: 900000 - i * 1000 });
+  for (let i = 0; i < 4; i++) list.push({ u: 'x' + i, n: 'news' + i, m: 'xeber', t, v: 500000 });
+  list.push({ u: 'bos', n: 'brand', m: 'yemek', t, v: 6000 }, { u: 'elm', n: 'sci', m: 'elm', t, v: 300000 });
+  const out = mix(list).map(v => v.u);
+  assert.equal(out[0], 'x0', 'xəbər anı birinci');
+  assert.ok(out.indexOf('bos') > out.indexOf('elm'), '6 min baxışlı mövzu başı 300 minlikdən sonra gəlir');
+  const ms = mix(list).map(v => v.m);
+  assert.ok(!ms.some((m, i) => i && m === 'idman' && ms[i - 1] === 'idman' && ms.slice(i + 1).some(x => x !== 'idman')),
+    'başqa mövzu qaldıqca futbol ardıcıl gəlmir');
+  assert.deepEqual(ms.slice(0, 4), ['xeber', 'idman', 'elm', 'yemek'], 'ilk 4 videoda 4 mövzu');
 });

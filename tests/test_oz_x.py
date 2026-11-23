@@ -284,7 +284,7 @@ class ReelsTest(unittest.TestCase):
     def test_the_most_watched_reach_the_site_with_their_count_empty_ones_do_not(self):
         """Sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun. boş boş videolardır indi əksəriyyəti»."""
         when = self.NOW - datetime.timedelta(hours=1)
-        hot, empty, unknown = event(91, when, v=1500000, l=40000, rp=9000, vt=when.isoformat()), event(92, when, v=xm.REEL_MIN_VIEWS - 1), event(93, when)
+        hot, empty, unknown = event(91, when, v=1500000, l=40000, rp=9000, vt=when.isoformat()), event(92, when, v=xm.REEL_MIN_VIEWS["h"] - 1), event(93, when)
         out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([hot, empty, unknown]))}
         self.assertEqual(out["2123096874748186091"]["v"], 1500000, "baxış sayı sayta çıxır (lent.js sıralayır)")
         self.assertNotIn("2123096874748186092", out, "az baxılan «boş» video düşür")
@@ -292,7 +292,11 @@ class ReelsTest(unittest.TestCase):
         self.assertGreater(xm.popularity({"v": 100, "l": 10, "rp": 1}), xm.popularity({"v": 300}), "bəyənən və paylaşan baxandan ağırdır")
         for k, bad in (("v", -1), ("l", "çox"), ("rp", True), ("vt", "dünən")):
             self.assertIsNotNone(xm.reel_check(reel(**{k: bad})), k)
-        self.assertGreaterEqual(xm.REEL_MIN_VIEWS, 10000)
+        self.assertGreaterEqual(xm.REEL_MIN_VIEWS["h"], 10000)
+        craft = reel(id="2123096874748186094", post="https://x.com/TamirveTadilat/status/2123096874748186094", at=when.isoformat(), v=6700)
+        self.assertEqual([r["id"] for r in xm.reels(self.NOW, path=self.write([craft]))], ["2123096874748186094"],
+                         "usta işi az baxılır (TamirveTadilat median 6,7 min): onun həddi aşağıdır")
+        self.assertTrue(xm.empty({"handle": "TamirveTadilat", "v": 2000}))
 
     def test_rules_without_gemini_safety_and_craft_from_the_text(self):
         for t in ("Big win at Roobet casino tonight", "WARNING: graphic content", "Canlı bahis için tıkla", "OnlyFans link in bio"):
