@@ -9,7 +9,8 @@ böyük hərf və durğu işarələri modelə çatmazdan əvvəl sözə çevrilm
   - rəqəmin şəkilçisi rəqəmə yapışır: «21-də» → «iyirmi birdə», «18:00-dək» → «on səkkizədək», «29-na» → «iyirmi doqquza»;
   - sayt adı və inisial cümləni bölmür: «Modern.az» → «modern nöqtə az», «S.Orucov» → «es orucov»;
   - rum rəqəmi sıra sayıdır: «XII əsr» → «on ikinci əsr»; «+12°…+17°» → «on iki-on yeddi dərəcə»;
-  - vergül, nöqtəli vergül, iki nöqtə və tire fasilədir (insan nəfəs alır): hissə ayrıca səslənir, arada qısa sükut.
+  - cümlə bütöv səslənir (vergüldə bölmək aydınlığı azaldır — Whisper ölçməsi); çox uzun cümlə vergüldə bölünür;
+  - qısaltma, xarici ad: əvvəl oxunuş lüğəti (ses-lugat.json), sonra qaydalar.
 """
 import json
 import os
@@ -408,9 +409,10 @@ PAUSE_CLAUSE = 0.16
 PAUSE_SENTENCE = 0.38
 
 
-def phrases(text, max_len=220, commas=True):
-    """Mətn səsləndirmə hissələrinə bölünür: cümlə sonu uzun, vergül/iki nöqtə/tire qısa fasilə.
-    commas=False: cümlə içi yalnız max_len-dən uzun cümlədə bölünür (köhnə qayda).
+def phrases(text, max_len=220, commas=False):
+    """Mətn səsləndirmə hissələrinə bölünür: cümlə sonu uzun fasilə; max_len-dən uzun cümlə vergül/iki nöqtə/tiredə bölünür.
+    commas=True: hər vergüldə bölünür. Whisper ölçməsi (2026-11-23, iki dəfə) göstərdi ki, bu aydınlığı azaldır: hərf xətası
+    11,4% (bölünəndə) / 10,0% (bölünməyəndə). Model vergülü tanımır, hər qısa parçanı ayrıca cümlə kimi bitirir.
     Qaytarır: [(model mətni, fasilə saniyəsi)]."""
     out = []
     for sentence in SENT_END.split(verbalize(text).strip()):

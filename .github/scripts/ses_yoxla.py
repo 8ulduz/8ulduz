@@ -127,7 +127,7 @@ def main(corpus_path, out, old_path=None):
         for i, text in enumerate(items):
             torch.manual_seed(8)
             t0 = time.time()
-            parts = mod.phrases(text) if mod is old else mod.phrases(text, commas=v.get("commas", True))
+            parts = mod.phrases(text) if mod is old else mod.phrases(text, commas=v.get("commas", False))
             pcm = synth(tok, model, parts, sr)
             t_synth += time.time() - t0
             path = os.path.join(out, name, f"{i:03d}.wav")

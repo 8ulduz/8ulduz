@@ -168,7 +168,7 @@ SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.githu
 | `XII tur`, `+12°…+17°`, `−5°` | on ikinci tur, on iki-on yeddi dərəcə, mənfi beş dərəcə |
 | `Google`, `Washington-da` | qugl, vaşinqtonda |
 
-Vergül, nöqtəli vergül, iki nöqtə, tire və mötərizə nəfəs yeridir: hissə ayrıca səslənir, arada 0,16 s sükut olur. Cümlə sonunda 0,38 s. Altyazı uzun cümləni iki hissəyə bölürsə, ortada cümlə fasiləsi verilmir, 0,1 s nəfəs qədər dayanır (`video_ses.breath`). Modelin oxuma ayarları (`VOICE`: aydınlıq, ritm, sürət) da `az_text.py`-dədir.
+Cümlə bütöv səslənir, cümlə sonunda 0,38 s fasilə olur. 220 simvoldan uzun cümlə vergüldə bölünür, arada 0,16 s olur. Hər vergüldə bölmək Whisper ölçməsində aydınlığı azaltdı, ona görə bölünmür: model vergülü tanımır, hər parçanı cümlə kimi bitirir. Altyazı cümləni iki hissəyə bölürsə, ortada cümlə fasiləsi verilmir: vergüldən sonra 0,16 s, vergülsüz yerdə 0,1 s olur (`video_ses.breath`). Modelin oxuma ayarları (`VOICE`) da `az_text.py`-dədir. Seçilmiş ayar 0,45/0,6, sürət 1-dir. 2026-11-23-də 81 cümlə üzərində ölçülüb: hərf xətası 15,2%-dən 10,0%-ə düşüb.
 
 **Oxunuş lüğəti (yüzlərlə qısaltma və xarici ad üçün).** Azərbaycan yazısı fonetikdir. Səhv yalnız qısaltmalardan (ABŞ, FHN) və orijinal yazılışda qalan xarici adlardan (Google, «Celta Vigo») gəlir. Bunlar əl ilə deyil, lüğətlə həll olunur (`.github/scripts/ses-lugat.cjs`):
 1. Xəbər arxivində (`data/news.json`, `data/arxiv`, `data/oz`) heç vaxt kiçik hərflə yazılmayan hər söz və hər qısaltma namizəddir.

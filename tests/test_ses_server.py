@@ -51,8 +51,8 @@ class VerbalizeTest(unittest.TestCase):
 
 
 def said(text):
-    """Modelə gedən mətn (hissələr « | » ilə)."""
-    return " | ".join(s for s, _ in az_text.phrases(text))
+    """Modelə gedən mətn (vergüldə bölünmüş hissələr « | » ilə — burada oxunuş yoxlanır, bölünmə yox)."""
+    return " | ".join(s for s, _ in az_text.phrases(text, commas=True))
 
 
 class HumanReadingTest(unittest.TestCase):
@@ -103,11 +103,15 @@ class HumanReadingTest(unittest.TestCase):
         self.assertEqual(said("Google, WhatsApp və YouTube; Washington-da Trump’ın çıxışı"), "qugl | vatsap və yutub | vaşinqtonda trampın çıxışı")
         self.assertEqual(said("KVAN Group şirkəti"), "kvan qrup şirkəti")
 
-    def test_commas_are_breaths(self):
+    def test_sentence_is_read_whole_long_one_breathes_at_commas(self):
+        # Whisper ölçməsi (2026-11-23): vergüldə bölmək aydınlığı azaldır — qısa cümlə bütöv səslənir.
         out = az_text.phrases("Gündüz Sumqayıtda 21, Gəncədə 16 dərəcə isti olacaq. Sabah yağış yoxdur.")
-        self.assertEqual([s for s, _ in out], ["gündüz sumqayıtda iyirmi bir", "gəncədə on altı dərəcə isti olacaq", "sabah yağış yoxdur"])
-        self.assertLess(out[0][1], out[1][1])
-        self.assertEqual(len(az_text.phrases("Bir, iki, üç.", commas=False)), 1)
+        self.assertEqual([s for s, _ in out], ["gündüz sumqayıtda iyirmi bir gəncədə on altı dərəcə isti olacaq", "sabah yağış yoxdur"])
+        long = ", ".join(["Bakıda və Abşeron yarımadasında hava dəyişkən buludlu olacaq"] * 4) + "."
+        parts = az_text.phrases(long)
+        self.assertEqual(len(parts), 4)
+        self.assertLess(parts[0][1], parts[-1][1])
+        self.assertEqual(len(az_text.phrases("Bir, iki, üç.", commas=True)), 3)
 
     def test_everything_reaches_the_model_alphabet(self):
         text = "ABŞ-ın 2026-cı il «Real Madrid» 2:1, 5,54% artıb (COP31) – XII tur; FHN-in məlumatı: 58 822 dollar!"

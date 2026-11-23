@@ -41,8 +41,9 @@ jobs:
           V: ${{ inputs.variantlar }}
         run: |
           if [ -z "$V" ]; then
-            # 2026-11-23 ilk ölçmə (CER): köhnə 15,1%, yeni 14,2%, yeni vergülsüz 11,6%, yeni sakit (0,45/0,6) 11,1%, +yavaş 12,4%.
-            V='[{"ad":"kohne","metn":"kohne","noise_scale":0.667,"noise_scale_duration":0.8},{"ad":"yeni","metn":"yeni"},{"ad":"yeni-vergulsuz","metn":"yeni","commas":false},{"ad":"yeni-daha-sakit","metn":"yeni","noise_scale":0.33,"noise_scale_duration":0.5},{"ad":"yeni-96","metn":"yeni","speaking_rate":0.96}]'
+            # 2026-11-23 ölçmələri (hərf xətası, CER): köhnə 15,2%; yeni + lüğət + VOICE 0,45/0,6: vergüldə bölünəndə 11,4%,
+            # bölünməyəndə 10,0% (seçildi); 0,33/0,5 — 11,4%; sürət 0,96 — 11,6%; 0,92 — 12,4%. Standart: köhnə ↔ indiki.
+            V='[{"ad":"kohne","metn":"kohne","noise_scale":0.667,"noise_scale_duration":0.8},{"ad":"yeni","metn":"yeni"}]'
           fi
           echo "matrix=$(printf '%s' "$V" | jq -c .)" >> "$GITHUB_OUTPUT"
 
