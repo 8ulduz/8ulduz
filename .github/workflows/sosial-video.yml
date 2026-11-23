@@ -44,8 +44,10 @@ on:
 permissions:
   contents: read
 
+# Paylaşan işlər bir növbədədir (siyahı keşi). PR və önizləmə (paylas söndürülüb) öz budağının növbəsindədir: paylaşmanı gözlətmir, onun
+# növbəsində ləğv olunmur və siyahını yazmır («Siyahını saxla»).
 concurrency:
-  group: sosial-video-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  group: sosial-video-${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.paylas)) && github.ref || 'main' }}
   cancel-in-progress: false
 
 jobs:
@@ -234,7 +236,8 @@ jobs:
           VIDEO_FB_SERH: ${{ vars.VIDEO_FB_SERH }}
         run: node .github/scripts/sosial-video.cjs paylas video-out
       - name: Siyahını saxla
-        if: always() && github.event_name != 'pull_request'
+        # Önizləmə siyahını dəyişmir: onun köhnə nüsxəsi paralel paylaşmanın yazdığını üstələməsin (eyni xəbər iki dəfə getməsin).
+        if: always() && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas)
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         continue-on-error: true
         with:
