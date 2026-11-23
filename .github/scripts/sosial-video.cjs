@@ -26,6 +26,7 @@ const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
 const VS = require("./video-ssenari.cjs");
 const VH = require("./video-hava.cjs");
+const VA = require("./video-arxiv.cjs");
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const KEEP_S = 3 * 86400;
@@ -82,7 +83,7 @@ function havaDue(state, now, ho) {
   return "";
 }
 // Plan + görüntü → <qovluq>/xeber.json (tur: "hava"). Məlumat və rəqəm yoxlaması video-hava.cjs-dədir; keçməsə video yoxdur.
-async function havaHazirla({ raw, app, now, state, env = process.env, fetch: f = globalThis.fetch, policy = () => false, dir, log = console.log, post = true, footage = true }) {
+async function havaHazirla({ raw, app, now, state, env = process.env, fetch: f = globalThis.fetch, policy = () => false, dir, log = console.log, post = true, footage = true, arxiv = [] }) {
   const list = VH.cities(app), today = bakuClock(now).day, day = bakuClock(now + 86400e3).day;
   const { rows, why } = VH.parse(raw, list, day);
   if (why.length) log(`hava videosu: ötürülən şəhər — ${why.join("; ")}`);
@@ -94,15 +95,16 @@ async function havaHazirla({ raw, app, now, state, env = process.env, fetch: f =
   // Görüntü: hava şəraitinə uyğun səhnə, əvvəl Bakının özü (video-hava.cjs sahneler). Yer icazəsi: Azərbaycan və Bakı — yad yerin
   // etiketli klipi atılır, kadrı montaj redaktoru yoxlayır. KLIP_MIN-dən az uyğun klip varsa görüntüsüz (brend fonu): hava videosu
   // gündəlikdir, rəqəmlər əsasdır — xəbər videosundakı kimi ötürülmür.
-  let klip = footage && VS.MENBELER.some(m => env[m.env]) ? await VS.goruntu(VH.sahneler(p), dir, { env, fetch: f, log, say: 6, category: "hava",
-    istifade: new Set(Object.keys(state.klip || {})), yer: ["Azerbaijan"], xeber: { title: p.headline, text: p.text, yer: ["Baku", "Azerbaijan"] } }) : [];
+  // Arxiv (video-arxiv.cjs, seçim video-hava.cjs arxivSecim): əvvəl Bakının yeri yoxlanmış, sabahkı havada çəkilmiş klipi — başlıq kadrı.
+  const ax = VH.arxivSecim(p);
+  let klip = footage && (VS.MENBELER.some(m => env[m.env]) || arxiv.some(e => e.menbe === "Sahib")) ? await VS.goruntu(VH.sahneler(p), dir, { env, fetch: f, log, say: 6, category: "hava",
+    istifade: new Set(Object.keys(state.klip || {})), yer: ["Azerbaijan"], xeber: { title: p.headline, text: p.text, yer: ax.yer }, arxiv, hava: ax.hava }) : [];
   if (klip.length && klip.length < KLIP_MIN) {
     for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
     log(`hava videosu: uyğun görüntü ${klip.length} klip (ən az ${KLIP_MIN}) — brend fonu ilə`);
     klip = [];
   }
-  const x = { ...p, ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
-    goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };
+  const x = { ...p, ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(goruntuSetir), goruntuMenbe: VS.kredit(klip) } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
   if (post) {
     const t = Math.floor(now / 1000);
@@ -114,10 +116,10 @@ async function havaHazirla({ raw, app, now, state, env = process.env, fetch: f =
   output("tur", "hava");
   return x;
 }
-async function havaSec({ app, now, state, env, fetch: f, policy, dir, log, post }) {
+async function havaSec({ app, now, state, env, fetch: f, policy, dir, log, post, arxiv }) {
   try {
     const raw = await VH.fetchData(VH.cities(app), { fetch: f, env, wait: num(env.HAVA_WAIT_MS, 5000) });
-    return await havaHazirla({ raw, app, now, state, env, fetch: f, policy, dir, log, post });
+    return await havaHazirla({ raw, app, now, state, env, fetch: f, policy, dir, log, post, arxiv });
   } catch (e) {
     log(`::warning::hava videosu alınmadı — ${String(e?.message || e).slice(0, 300)}; növbəti pəncərədə yenidən`);
     return null;
@@ -153,6 +155,8 @@ function entry(a, text, cats = []) {
     source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt, alts: (a.alts || []).map(x => ({ source: x?.source })), link: S.shareUrl(a) };
 }
 
+// xeber.json-da hər klip: mənbə, nömrə, müəllif (krediti), axtarış; arxivdən gələnin arxiv nömrəsi və yoxlanmış yeri (jurnal və önizləmə).
+const goruntuSetir = k => ({ p: k.p, id: k.id, user: k.user, q: k.q, ...(k.kredit ? { kredit: k.kredit } : {}), ...(k.arxiv ? { arxiv: k.arxiv, yer: k.yer, level: k.level } : {}) });
 // Mövzu etiketləri (Gemini, video-ssenari.cjs hashtags) əvvəl, sonra ümumilər.
 const tag = x => [...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#xəbərlər", "#Azərbaycan"].join(" ");
 // Facebook: keçid basılır — postun mətnində saytdakı xəbər (paylaşma səhifəsi: önizləmə + saytda açılır).
@@ -266,7 +270,8 @@ function output(key, value) {
 
 // sec: vaxtıdırsa xəbəri seçir. Paylaşma rejimində seçim dərhal «video» sayılır (_last): video alınmasa da eyni xəbər hər
 // 30 dəqiqədə yenidən hazırlanmasın.
-async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null }) {
+// arxiv: öz video arxivi (VA.kitabxana(): «video-arxiv» budağı, oxunmasa data/video-arxiv.json) — xəbərin yeri məlum olanda əvvəl oradan.
+async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [] }) {
   const opt = options(env), post = env.VIDEO_PAYLAS !== "0";
   // İş axını seçimə açarın özünü vermir, yalnız VIDEO_ACAR=1/0 (açar var/yox).
   const hasKey = env.VIDEO_ACAR ? env.VIDEO_ACAR === "1" : networks(env).length > 0;
@@ -279,7 +284,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     const why = tur === "hava" ? (post && state.hava?.[bakuClock(now).day] ? "bu günün hava videosu artıq paylaşılıb (önizləmə üçün «Paylaş»-ı söndürün)" : "")
       : havaDue(state, now, havaOptions(env));
     if (!why) {
-      const x = await havaSec({ app, now, state, env, fetch: f, policy, dir, log, post });
+      const x = await havaSec({ app, now, state, env, fetch: f, policy, dir, log, post, arxiv });
       if (x || tur === "hava") return x;
     } else {
       log(`video: ${why}`);
@@ -295,7 +300,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   // Xəbər kadrla göstərilmirsə və ya mətn yoxlamadan keçmirsə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
   // Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
   // Keyfiyyət həddi: görüntü mənbəyi varsa, KLIP_MIN-dən az uyğun klip tapılan xəbər ötürülür (yanlış və ya boş görüntülü video yox).
-  const footage = VS.MENBELER.some(m => env[m.env]);
+  const footage = VS.MENBELER.some(m => env[m.env]) || arxiv.some(e => e.menbe === "Sahib");
   let got = null, sc = null, klip = [];
   for (let i = 0; i < SECIM_MAX; i++) {
     got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
@@ -308,7 +313,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
       fs.mkdirSync(dir, { recursive: true });
       // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
       klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
-        yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null });
+        yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null, arxiv });
       if (only || !footage || klip.length >= KLIP_MIN) break;
       for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
       sc = { uygun: false, sebeb: `uyğun görüntü ${klip.length} klip, ən az ${KLIP_MIN}` };
@@ -320,8 +325,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   }
   if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
   const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
-    ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
-      goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };
+    ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(goruntuSetir), goruntuMenbe: VS.kredit(klip) } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
   if (post) {
     const t = Math.floor(now / 1000);
@@ -384,7 +388,7 @@ async function main() {
     // Qırmızı xətt 2, ikinci qapı: lent saytın öz qaydasından keçir; qayda faylı oxunmasa xəta ilə dayanır (heç nə seçilmir).
     const app = require("./topics.cjs").loadApp(path.resolve("."));
     const articles = (JSON.parse(fs.readFileSync(a1, "utf8")).articles || []).filter(a => !app.policyViolation(a));
-    await sec({ articles, state, now, policy: a => app.policyViolation(a), cats: app.CATS, dir: a2, app });
+    await sec({ articles, state, now, policy: a => app.policyViolation(a), cats: app.CATS, dir: a2, app, arxiv: VA.kitabxana(process.env, console.log) });
     writeState(stateFile, state);
     return;
   }

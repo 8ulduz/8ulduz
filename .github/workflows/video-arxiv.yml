@@ -1,0 +1,137 @@
+name: Video arxivi
+# Öz video arxivi (sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə»).
+# Yeri kadrlarla yoxlanmış kliplərin metadatası, video fayl yoxdur (.github/scripts/video-arxiv.cjs, docs/sosial-video.md «Video arxivi»).
+# Kitabxana main-də deyil: tarixçəsiz «video-arxiv» budağında video-arxiv.json (hər yazı valideynsiz bir commit, arxiv.yml kimi).
+# Repodakı data/video-arxiv.json yalnız PR ilə gələn başlanğıc nüsxədir: budaq ilk dəfə ondan yaranır, montaj (sosial-video.yml)
+# budağı oxuya bilməsə ona düşür. main-ə heç nə yazılmır.
+#   boyut — bazar ertəsi və cümə axşamı: planın yerləri üzrə Pixabay-də yeni klip axtarır, 4 kadrını Gemini ilə yoxlayır, uyğununu
+#           əlavə edir; köhnə kliplərin bankda qaldığını yoxlayır (müəllif silibsə arxivdən də çıxır).
+#   sahib — Release «video-arxiv»-ə fayl yüklənəndə, təsviri dəyişəndə və hər gün: sahibin öz görüntüsünü yoxlayıb qeyd edir.
+# Xəbər axınından ayrıdır: düşsə də saytın və lentin işinə təsir etmir (qırmızı xətt 1). PR-da: sxem yoxlaması; «arxiv-yoxla»
+# etiketi ilə əsl axtarış və yoxlama (budağa yazmır, nəticə və kadrlar artefaktdadır).
+
+on:
+  schedule:
+    # 13:02 Bakı: Gemini-nin gündəlik limiti 08:00 UTC-də yenilənib; iş video işinin (:17, :47) pəncərəsindən əvvəl başlayır.
+    - cron: "2 9 * * 1,4"
+    # Hər gün 10:40 Bakı: yalnız sahibin görüntüsü (Release-də yeni fayl yoxdursa Gemini-yə sorğu getmir).
+    - cron: "40 6 * * *"
+  workflow_dispatch:
+    inputs:
+      is:
+        description: 'boyut — bankdan yeni kliplər, sahib — saytın öz görüntüləri (Release), hamisi — ikisi də'
+        type: choice
+        options: [hamisi, boyut, sahib]
+        default: hamisi
+      say:
+        description: 'Bir işdə ən çox neçə namizəd yoxlansın (Gemini pulsuz səviyyəsi: 20)'
+        default: '20'
+  release:
+    types: [published, edited]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - .github/scripts/video-arxiv.cjs
+      - .github/workflows/video-arxiv.yml
+      - data/video-arxiv.json
+
+permissions:
+  contents: write   # yalnız «video-arxiv» budağı (kitabxana) və bir dəfə «video-arxiv» Release-i; main-ə yazılmır
+
+concurrency:
+  group: video-arxiv-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  arxiv:
+    # Release yalnız «video-arxiv» olanda. PR-da etiketsiz — yalnız sxem.
+    if: github.event_name != 'release' || github.event.release.tag_name == 'video-arxiv'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ESL: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'arxiv-yoxla') }}
+      BOYUT: ${{ (github.event_name == 'schedule' && github.event.schedule == '2 9 * * 1,4') || (github.event_name == 'workflow_dispatch' && inputs.is != 'sahib') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'arxiv-yoxla')) }}
+      SAHIB: ${{ github.event_name == 'release' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.is != 'boyut') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'arxiv-yoxla')) }}
+      # Budağa yalnız main-in planlı və əl ilə işi və Release hadisəsi yazır (PR yox).
+      YAZ: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'release') }}
+      LIB: .video-arxiv/video-arxiv.json
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Release hadisəsində ref teqdir (köhnə commit): kod main-in son halındandır.
+          ref: ${{ github.event_name == 'release' && 'main' || '' }}
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/video-arxiv.cjs
+            .github/scripts/video-ssenari.cjs
+            .github/scripts/social.cjs
+            data/video-arxiv.json
+          sparse-checkout-cone-mode: false
+      # Budağın son nüsxəsi. Budaq yoxdursa (ls-remote çıxış kodu 2) başlanğıc nüsxədən başlanır; başqa xəta olanda iş dayanır,
+      # budağa toxunulmur (arxiv.yml-in dərsi: klon alınmayanda boş başlanğıc kitabxananı silərdi).
+      - name: Kitabxana (video-arxiv budağı)
+        run: |
+          mkdir -p .video-arxiv
+          code=0
+          git ls-remote --exit-code --heads origin video-arxiv >/dev/null 2>&1 || code=$?
+          if [ "$code" = 0 ]; then
+            git fetch -q --depth 1 origin video-arxiv
+            git rev-parse FETCH_HEAD > .video-arxiv/base
+            git show FETCH_HEAD:video-arxiv.json > "$LIB"
+            node .github/scripts/video-arxiv.cjs yoxla "$LIB"
+          elif [ "$code" = 2 ]; then
+            echo "video-arxiv budağı hələ yoxdur — başlanğıc nüsxədən (data/video-arxiv.json)"
+          else
+            echo "::error::video-arxiv budağı oxunmadı (ls-remote: $code): budağa toxunulmur"; exit 1
+          fi
+          node .github/scripts/video-arxiv.cjs yoxla
+      - name: ffmpeg və şrift
+        if: env.ESL == 'true'
+        run: |
+          command -v ffmpeg >/dev/null && fc-list | grep -q Roboto || {
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg fonts-roboto-unhinted >/dev/null
+          }
+      - name: Bankdan yeni kliplər
+        if: env.BOYUT == 'true'
+        env:
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # PR-da (etiketlə) ilk doldurma: 40 yoxlama, 60 axtarış; nəticə başlanğıc nüsxə kimi PR-a əlavə olunur, növbəti iş ondan davam edir.
+          SAY: ${{ inputs.say || (github.event_name == 'pull_request' && '40') || '20' }}
+          SORGU: ${{ github.event_name == 'pull_request' && '60' || '25' }}
+        run: node .github/scripts/video-arxiv.cjs boyut "$LIB" --say "$SAY" --sorgu "$SORGU" --kadr arxiv-kadr
+      - name: Saytın öz görüntüləri (Release)
+        if: env.SAHIB == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Release yoxdursa main-də bir dəfə yaradılır (sahib faylı ora yükləyir); PR-da yaradılmır.
+          ARXIV_RELEASE_YARAT: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '0' }}
+        run: node .github/scripts/video-arxiv.cjs sahib "$LIB" --kadr arxiv-kadr
+      - name: Sxem (sonra)
+        if: env.ESL == 'true'
+        run: node .github/scripts/video-arxiv.cjs yoxla "$LIB"
+      # Tarixçəsiz yazı: bir fayllı ağac, valideynsiz commit, budaq onunla əvəzlənir (repo şişmir). Dəyişiklik yoxdursa yazılmır.
+      - name: video-arxiv budağına yaz
+        if: env.YAZ == 'true'
+        run: |
+          [ -f "$LIB" ] || { echo "kitabxana faylı yoxdur"; exit 0; }
+          if [ -f .video-arxiv/base ] && git show "$(cat .video-arxiv/base):video-arxiv.json" | cmp -s - "$LIB"; then echo "dəyişiklik yoxdur"; exit 0; fi
+          blob=$(git hash-object -w "$LIB")
+          tree=$(printf '100644 blob %s\tvideo-arxiv.json\n' "$blob" | git mktree)
+          commit=$(git -c user.name=8ulduz-bot -c user.email=bot@8ulduz.az commit-tree "$tree" -m "Video arxivi")
+          git push -q --force origin "$commit:refs/heads/video-arxiv"
+          echo "video-arxiv budağı yeniləndi: $(node -p 'JSON.parse(require("fs").readFileSync(process.env.LIB,"utf8")).klipler.length') klip" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Nəticə və kadrlar (artefakt, 7 gün)
+        if: always() && env.ESL == 'true'
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: video-arxiv
+          path: |
+            .video-arxiv/video-arxiv.json
+            arxiv-kadr/
+          retention-days: 7
+          if-no-files-found: ignore
+          include-hidden-files: true

@@ -34,6 +34,7 @@ on:
       - .github/scripts/video-xeber.cjs
       - .github/scripts/video-hava.cjs
       - .github/scripts/video-ssenari.cjs
+      - .github/scripts/video-arxiv.cjs
       - .github/scripts/video_ses.py
       - .github/scripts/sosial-video.cjs
       - .github/workflows/sosial-video.yml
@@ -81,15 +82,29 @@ jobs:
             .github/scripts/video-ssenari.cjs
             .github/scripts/video-xeber.cjs
             .github/scripts/video-hava.cjs
+            .github/scripts/video-arxiv.cjs
             .github/scripts/video_ses.py
             .github/ses-server/az_text.py
             assets/app.js
             assets/content-policy.js
             assets/logo.png
             data/news.json
+            data/video-arxiv.json
             tests/fixtures/video-xeber.json
             tests/fixtures/video-hava.json
           sparse-checkout-cone-mode: false
+      # Öz video arxivi (video-arxiv.cjs): kitabxana tarixçəsiz «video-arxiv» budağındadır (video-arxiv.yml yazır, main-ə yox).
+      # Oxunmasa montaj repodakı başlanğıc nüsxəyə (data/video-arxiv.json) düşür; video bu addımdan asılı deyil.
+      - name: Video arxivi (video-arxiv budağı)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          if git fetch -q --depth 1 origin video-arxiv 2>/dev/null && git show FETCH_HEAD:video-arxiv.json > "$RUNNER_TEMP/video-arxiv.json"; then
+            echo "VIDEO_ARXIV_FAYL=$RUNNER_TEMP/video-arxiv.json" >> "$GITHUB_ENV"
+            echo "arxiv: video-arxiv budağından"
+          else
+            echo "arxiv: budaq oxunmadı — repodakı başlanğıc nüsxə (data/video-arxiv.json)"
+          fi
       - name: Videoların siyahısı
         if: github.event_name != 'pull_request'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -223,6 +238,8 @@ jobs:
           {
             if [ "$TUR" = hava ]; then echo "### Hava videosu"; else echo "### Video xəbər"; fi
             node -p 'const m=JSON.parse(require("fs").readFileSync("video-out/video.json","utf8")); `${m.title}\n\n${m.width}×${m.height}, ${m.duration.toFixed(1)} s, ${(m.bytes/1e6).toFixed(1)} MB, ${m.voice ? "səsli (SARA)" : "səssiz"}, ${m.parts} hissə`'
+            # Kliplər montaj sırası ilə; öz video arxivindən (data/video-arxiv.json) gələnin arxiv nömrəsi və yoxlanmış yeri.
+            node -p 'const g=JSON.parse(require("fs").readFileSync("video-out/xeber.json","utf8")).goruntu||[]; g.length ? "\nGörüntü: " + g.map((k,i)=>`${i+1}) ${k.arxiv ? `ARXİV ${k.arxiv} — ${k.yer}` : `${k.p || "klip"} ${k.id ?? ""}${k.q ? ` «${k.q}»` : ""}`}`).join("; ") : ""'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Paylaş
         if: steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas)

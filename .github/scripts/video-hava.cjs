@@ -319,6 +319,15 @@ const SAHNE = {
 SAHNE.dondurucu = SAHNE.yagis; SAHNE.arabir = SAHNE.yagis; SAHNE.gucluyagis = SAHNE.yagis; SAHNE.leysan = SAHNE.yagis;
 SAHNE.arabirqar = SAHNE.qar; SAHNE.gucluqar = SAHNE.qar; SAHNE.dolu = SAHNE.ildirim; SAHNE.deyisken = SAHNE.qismen;
 const KULEK_SAHNE = ["caspian sea waves", "sea waves wind", "trees wind"];
+// Öz video arxivi (video-arxiv.cjs; sahib, 2026-11-23: «həqiqi … videolardan istifadə etmək lazımdır»): əvvəl Bakının yeri kadrlarla
+// yoxlanmış, sabahkı havada çəkilmiş klipi (başlıq kadrı), sonra yuxarıdakı səhnələr. Arxiv klipinin havası (yoxlamada Gemini yazır)
+// sabahkı Bakı halına uyğun olmalıdır: yağışda yağış, qarda qar; gecə klipi gündüz proqnozuna getmir.
+const ARXIV_HAVA = { acik: ["gunesli"], esasen: ["gunesli"], qismen: ["gunesli", "buludlu"], deyisken: ["gunesli", "buludlu"], bulud: ["buludlu"],
+  duman: ["dumanli"], ciskin: ["yagisli"], yagis: ["yagisli"], arabir: ["yagisli"], gucluyagis: ["yagisli"], leysan: ["yagisli"], dondurucu: ["yagisli"],
+  ildirim: ["yagisli"], dolu: ["yagisli"], qar: ["qarli"], arabirqar: ["qarli"], gucluqar: ["qarli"] };
+const ARXIV_YER = ["Baku", "Azerbaijan"];
+// goruntu() üçün arxiv seçimi: { yer, hava } — hava: arxiv klipinin icazəli havaları.
+const arxivSecim = p => ({ yer: ARXIV_YER, hava: ARXIV_HAVA[p?.baki?.kind] || ["gunesli", "buludlu"] });
 function sahneler(p) {
   const list = [...(SAHNE[p.baki.kind] || SAHNE.qismen)];
   // Dalğa yalnız güclü küləkdə (≥ 14 m/san — Bofort 7, və ya ani külək xəbərdarlığı): adi 10 m/san-da fırtınalı dəniz şişirtmədir.
@@ -589,7 +598,7 @@ async function render(p, out, opt = {}) {
   }
 }
 
-module.exports = { cities, url, fetchData, parse, plan, yoxla, rnd, deg, mmText, nums, kind, loc, siyahi, geceGunduz, kulekCumle, xeberdarliq, sahneler,
+module.exports = { cities, url, fetchData, parse, plan, yoxla, rnd, deg, mmText, nums, kind, loc, siyahi, geceGunduz, kulekCumle, xeberdarliq, sahneler, arxivSecim, ARXIV_HAVA,
   scenes, prepare, ass, icon, arrow, storyFields, policyRow, render, SEHERLER, LINK, OM_SITE, DAILY, GUST, FROST, FROST_BAKU, HEAT, SNOW, SNOW_LOW, RAIN_HEAVY, MOUNTAIN, Y };
 
 if (require.main === module) {
