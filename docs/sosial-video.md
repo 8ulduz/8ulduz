@@ -157,7 +157,7 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 
 ### Saranın oxunuşu (sahib, 2026-11-23: «tam normal insan kimi oxunsun»)
 
-SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.github/ses-server/az_text.py` insanın oxuyacağı kimi sözə çevirir. Video və «Dinlə» serveri bu qaydanı eyni cür işlədir.
+SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.github/ses-server/az_text.py` insanın oxuyacağı kimi sözə çevirir. Video, SARA serveri və saytın «Dinlə» səsi (Babək, aşağıda) bu qaydanı eyni cür işlədir.
 
 | Yazı | Oxunuş |
 |---|---|
@@ -167,6 +167,7 @@ SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.githu
 | `Modern.az`, `8ulduz.az-ın`, `S.Orucov` | modern nöqtə az, səkkiz ulduz nöqtə azın, es orucov (cümlə bölünmür) |
 | `XII tur`, `+12°…+17°`, `−5°` | on ikinci tur, on iki-on yeddi dərəcə, mənfi beş dərəcə |
 | `Google`, `Washington-da` | qugl, vaşinqtonda |
+| `8ULDUZ`, `Baku.ws`, `Bizim.Media`, `Sesqazeti.az` | səkkiz ulduz, baku nöqtə ve-es, bizim nöqtə media, səs qəzeti nöqtə az (mənbə adı) |
 
 Cümlə bütöv səslənir, cümlə sonunda 0,38 s fasilə olur. 220 simvoldan uzun cümlə vergüldə bölünür, arada 0,16 s olur. Hər vergüldə bölmək Whisper ölçməsində aydınlığı azaltdı, ona görə bölünmür: model vergülü tanımır, hər parçanı cümlə kimi bitirir. Altyazı cümləni iki hissəyə bölürsə, ortada cümlə fasiləsi verilmir: vergüldən sonra 0,16 s, vergülsüz yerdə 0,1 s olur (`video_ses.breath`). Modelin oxuma ayarları (`VOICE`) da `az_text.py`-dədir. Seçilmiş ayar 0,45/0,6, sürət 1-dir. 2026-11-23-də 81 cümlə üzərində ölçülüb: hərf xətası 15,2%-dən 10,0%-ə düşüb.
 
