@@ -679,6 +679,10 @@ function syncTixDot() {
 // Ani tıxac zolağı (sahib 2026-11-14: «ani tıxac xəbəri axtarmadan görünsün»): oz_tixac.alerts xəbəri (mənbə 8ULDUZ, başlıq «Bakıda
 // gözlənilməz tıxac: küçə, N km») 2 saat son dəqiqə zolağının altında, Tıxac-İndi səhifəsindən başqa hər yerdə. Daha təzə ölçü həmin
 // küçədə tıxac göstərmirsə zolaq tez itir; ✕ ilə bağlanan xəbər o oxucuya bir daha göstərilmir. Adi vaxtda zolaq yoxdur, sorğu da yoxdur.
+// CLS (2026-11-23): zolaq tam lentlə, ilk boyadan sonra gəlir. Axında olanda bütün səhifəni 44 px aşağı itələyirdi, tixac.json «açılıb»
+// deyəndə 0,15 s sonra geri çəkirdi (CLS 0 → 0,123, paylaşılan xəbərdə 0,365; yalnız tıxaclı saatlarda). İndi zolaq axından kənardır
+// (app.css: position:absolute, valyuta sətrinin üstünə düşür) və ilk dəfə tıxacın davam etdiyi yoxlanandan sonra çıxır. Ölçü:
+// speed.cjs «ani tıxac zolağı» sətri zolağı hər dövrədə özü yaradır (saatdan asılı deyil).
 const ANI_RE = /^Bakıda gözlənilməz tıxac: (.+), ([\d,]+) km$/u, ANI_KEY = "8ulduz-tix-ani";
 function aniOff() { try { const v = JSON.parse(storage.getItem(ANI_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
 function tixAlert(list = S.data?.articles || []) {
@@ -696,6 +700,7 @@ function tixAlert(list = S.data?.articles || []) {
 function renderTixAlert(x) {
   if (route().name === "traffic") x = null;
   if (x) loadTixac(); // tıxacın açıldığını bilmək üçün: yalnız zolaq görünəndə, 5 dəqiqədən bir
+  if (x && S.tixLoading && !S.tixAt) return; // ilk yoxlama gedir: zolaq çıxıb dərhal itməsin, cavabdan sonra loadTixac yenidən çağırır
   const clock = x ? new Date(Date.parse(x.a.publishedAt) + 144e5).toISOString().slice(11, 16) : "";
   const html = x ? `<div class="wrap"><a href="#/tixac"><span aria-hidden="true">🚗</span> <b>Tıxac:</b> ${esc(x.street)} — ${esc(x.km)} km · ${clock} <u>Tıxac-İndi ›</u></a><button type="button" data-act="tix-ani-off" data-ani="${esc(x.a.id)}" aria-label="Zolağı bağla">✕</button></div>` : "";
   if (html === (S.aniHtml || "")) return;
@@ -2364,10 +2369,12 @@ function loadTixac() {
   if (S.tixLoading || Date.now() - (S.tixAt || 0) < 5 * 60e3) return;
   if (typeof fetch !== "function") return;
   S.tixLoading = true;
-  globalThis.fetch(`${TIX_URL}?t=${Date.now() / 3e5 | 0}`).then(r => r.ok ? r.json() : null).then(d => {
-    S.tixAt = Date.now();
-    if (d && Array.isArray(d.events)) { S.tix = d; if (route().name === "traffic") renderView(); else syncTixDot(); }
-  }).catch(() => { S.tixAt = Date.now(); }).finally(() => { S.tixLoading = false; });
+  globalThis.fetch(`${TIX_URL}?t=${Date.now() / 3e5 | 0}`).then(r => r.ok ? r.json() : null).catch(() => null).then(d => {
+    const ok = !!(d && Array.isArray(d.events));
+    if (ok) S.tix = d;
+    S.tixAt = Date.now(); S.tixLoading = false;
+    if (route().name === "traffic") { if (ok) renderView(); } else syncTixDot(); // alınmasa da: ilk yoxlamanı gözləyən ani zolaq çıxsın
+  }).catch(() => {});
 }
 // Yalnız dəyişən blok yenilənir.
 const PATCH_INSIDE = ".top2,.hero,.hero-strip,.hero-row,.prez,.prez-body,.prez-lent";

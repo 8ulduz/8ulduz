@@ -3584,6 +3584,29 @@ test('owner 2026-11-14: an unexpected-jam alert shows as a strip under the ticke
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('#tix-ani{'), 'zolağın stili var');
 });
+// CLS 2026-11-23: zolaq tam lentlə, ilk boyadan sonra gəlir. Axında olanda bütün səhifəni aşağı itələyirdi, tixac.json «açılıb» deyəndə
+// 0,15 s sonra geri çəkirdi: tıxaclı saatlarda CLS 0 → 0,123 (paylaşılan xəbərdə 0,365). Ölçü: speed.cjs «ani tıxac zolağı» sətirləri.
+test('CLS 2026-11-23: the jam strip is out of flow (showing or hiding it moves nothing) and first appears only after the jam check, so it never flashes', async () => {
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+  assert.match(css, /#tix-ani\{position:absolute;left:0;right:0;z-index:40;/, 'zolaq axından kənardır (valyuta sətrinin üstünə düşür), yapışqan başlıqdan (z-index 50) aşağıdadır');
+  const at = new Date(Date.now() - 20 * 60e3).toISOString();
+  const alert = { id: 'a1', title: 'Bakıda gözlənilməz tıxac: Babək prospekti, 3,2 km', source: '8ULDUZ', publishedAt: at, lang: 'az', category: 'cemiyyet' };
+  const tix = level => ({ updatedAt: new Date().toISOString(), events: [], streets: [{ name: 'Babək prospekti', level }] });
+  for (const [name, reply, shown] of [['tıxac açılıb', tix('leng'), false], ['tıxac davam edir', tix('tixac'), true], ['tixac.json alınmadı', null, true]]) {
+    const box = { id: '', hidden: true, innerHTML: '', setAttribute() {} };
+    let placed = null, settle = null, asked = 0;
+    const ticker = { after(el) { placed = el; } };
+    const fetch = () => { asked++; return new Promise((ok, no) => { settle = () => reply ? ok({ ok: true, json: async () => reply }) : no(new Error('şəbəkə yoxdur')); }); };
+    const ctx = app({ fetch, document: { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '#ticker' ? ticker : s === '#tix-ani' ? placed : null, querySelectorAll: () => [], createElement: () => box } });
+    const { S } = ctx.api, sync = vm.runInContext('syncTixDot', ctx);
+    S.lang = 'az'; S.data = { articles: [alert] };
+    sync(); sync();
+    assert.equal(asked, 1, `${name}: tixac.json bir dəfə soruşulur`);
+    assert.equal(placed, null, `${name}: yoxlama bitənədək zolaq yoxdur (əvvəl çıxıb 0,15 s sonra itirdi)`);
+    settle(); await new Promise(r => setTimeout(r, 0));
+    assert.equal(!!placed && !box.hidden, shown, shown ? `${name}: cavabdan sonra zolaq çıxır` : `${name}: zolaq heç görünmür`);
+  }
+});
 test('owner 2026-11-16: in-app browsers (Facebook, Instagram…) that enlarge text get a wider, scaled-down page so text fits its boxes', () => {
   const js = fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8');
   const src = js.slice(js.indexOf('const TZ_KEY'), js.indexOf('function probeTextZoom'));
