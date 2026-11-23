@@ -233,6 +233,30 @@ class VideolentSourcesTest(unittest.TestCase):
         self.assertNotIn("REELS_SAFE", (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8"), "izahsız ehtiyat yolu yoxdur")
 
 
+class CraftSourcesTest(unittest.TestCase):
+    """2026-11-23: lentin 11%-i usta işi idi (qayda 40%). FxTwitter yoxlaması: köhnə 11 usta hesabından 7 gündə yalnız 2-si video verirdi."""
+
+    def test_live_craft_accounts_are_checked_every_run_dead_and_gambling_ones_are_gone(self):
+        for h in ("Brand_Anuj", "pratikdunya", "muhendisIiktr"):
+            self.assertIn(h, xy.xm.VIDEOLENT_HESABLAR)
+            self.assertEqual(xy.xm.sinif({"handle": h}), "u")
+        t0 = datetime.datetime(2026, 11, 23, tzinfo=datetime.timezone.utc)
+        for k in range(4):
+            part = xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k))
+            for h in xy.xm.USTA_HESABLAR & set(xy.xm.VIDEOLENT_HESABLAR):
+                self.assertIn(h, part, f"{h}: usta işi hesabı hər işdə yoxlanır")
+            self.assertLessEqual(len(part), xy.VL_PER_RUN)
+        for h in ("DIYcrafts", "5MinuteCrafts", "TroomTroom", "Homestead", "Woodworking"):
+            self.assertNotIn(h, xy.xm.ADLAR, f"{h}: hesab yoxdur, yazmır və ya başqa işə keçib")
+        self.assertNotIn("CrazyClips_", xy.xm.VIDEOLENT_HESABLAR, "öz videolarında kazino (Roobet) reklamı, 2026-11-20–22: yeni videosu götürülmür")
+        self.assertFalse(xy.xm.onde("CrazyClips_"))
+        row = {"id": "2124216277753287001", "handle": "CrazyClips_", "post": "https://x.com/CrazyClips_/status/2124216277753287001",
+               "video": "https://video.twimg.com/amplify_video/2124216277753287001/vid/avc1/480x852/a.mp4", "poster": "https://pbs.twimg.com/a.jpg",
+               "w": 720, "h": 1280, "at": "2026-11-22T23:00:00+00:00", "src": ["Wild clip"], "c": "Gözlənilməz və maraqlı an", "sinif": "h"}
+        self.assertIsNone(xy.xm.reel_check(row), "növbədəki köhnə sətir yoxlamadan keçir")
+        self.assertEqual(xy.xm.keep_reels([row], t0), [], "yazıcı onu növbədən silir")
+
+
 class TransferCandidateTest(unittest.TestCase):
     def test_transfer_posts_without_video(self):
         p = post(id="2123096874748186951", author={"screen_name": "FabrizioRomano"}, media={"photos": [{"url": "https://pbs.twimg.com/media/x.jpg"}]},

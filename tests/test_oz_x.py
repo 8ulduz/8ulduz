@@ -289,6 +289,15 @@ class ReelsTest(unittest.TestCase):
             row.pop("c")
             self.assertEqual(xm.reels(self.NOW, path=self.write([row])), [], h)
 
+    def test_a_retired_account_never_reaches_the_feed(self):
+        """2026-11-23: CrazyClips_ öz videolarında kazino reklamı verirdi. Növbədə qalan sətirləri lentə çıxmır."""
+        when = self.NOW - datetime.timedelta(hours=1)
+        row = reel(id="2123096874748186980", handle="CrazyClips_", post="https://x.com/CrazyClips_/status/2123096874748186980",
+                   video=media(when, 80), at=when.isoformat(), c="Gözlənilməz və maraqlı an")
+        self.assertIsNone(xm.reel_check(row))
+        self.assertEqual(xm.reels(self.NOW, path=self.write([row])), [])
+        self.assertIn("CrazyClips_", xm.CIXAN)
+
     def test_an_old_clip_reposted_today_is_not_a_fresh_event(self):
         """Sahib 2026-11-22: «həm yeni, həm maraqlı hadisələr». X media nömrəsi videonun yüklənmə vaxtıdır: 2026-11-23 lentində
         videoların 9%-i illər əvvəlki klipin təzə paylaşımı idi (wonderofscience, 2022-07-13). Usta işinə bu hədd yoxdur."""

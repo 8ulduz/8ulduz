@@ -155,8 +155,9 @@ def videolent_slice(now):
     groups = [list(q) for q in xm.VIDEOLENT_QRUPLAR.values() if q]   # hər mövzunun öz növbəsi: hər iş bütün mövzulardan bərabər
     if not groups:
         return []
-    # Birinci dərəcəli mənbələr (oz_x.VIDEOLENT_ONDE) hər işdə; xəbər hesabı olanlar onsuz da hər işdə yoxlanır
-    out = [h for h in xm.VIDEOLENT_ONDE if h in xm.VIDEOLENT_HESABLAR]
+    # Birinci dərəcəli mənbələr (oz_x.VIDEOLENT_ONDE) və usta işi hesabları (oz_x.USTA_HESABLAR: lentin 40%-i, mənbəyi az) hər işdə;
+    # xəbər hesabı olanlar onsuz da hər işdə yoxlanır
+    out = list(dict.fromkeys(h for h in (*xm.VIDEOLENT_ONDE, *sorted(xm.USTA_HESABLAR)) if h in xm.VIDEOLENT_HESABLAR))
     per, run = max(1, (VL_PER_RUN - len(out)) // len(groups)), int(now.timestamp()) // 1200   # cəmi VL_PER_RUN-dan çox deyil
     for g in groups:
         g = [h for h in g if h not in out]

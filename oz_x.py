@@ -270,21 +270,23 @@ VIDEOLENT_QRUPLAR = {
         "verge": "verge", "Vespa": "Vespa", "VirginGalactic": "VirginGalactic",
         "vivo_global": "vivo_global", "Volvo": "Volvo", "VW": "VW",
         "WIRED": "WIRED", "Xiaomi": "Xiaomi", "XPengMotors": "XPengMotors",
+        # usta işi (FxTwitter, 2026-11-23: 72 saatda 21–25 video): zavod istehsalı, bərpa, mühəndislik
+        "Brand_Anuj": "Global Brand", "muhendisIiktr": "Mühendislik Harikası",
     },
     "yemek": {   # Yemək, səyahət, ev (89)
-        "5MinuteCrafts": "5MinuteCrafts", "Airbnb": "Airbnb", "Allrecipes": "Allrecipes",
+        "pratikdunya": "Pratik Dünya", "Airbnb": "Airbnb", "Allrecipes": "Allrecipes",
         "archdaily": "archdaily", "ArchDigest": "ArchDigest", "Australia": "Australia",
         "BBCFood": "BBCFood", "BBCGoodFood": "BBCGoodFood", "BettyCrocker": "BettyCrocker",
         "BHG": "BHG", "bonappetit": "bonappetit", "BonAppetitMag": "BonAppetitMag",
         "bookingcom": "bookingcom", "BrightSide": "BrightSide", "BuzzFeedTasty": "BuzzFeedTasty",
         "CNTraveler": "Condé Nast Traveler", "CookingLight": "CookingLight", "Delish": "Delish",
-        "designboom": "designboom", "dezeen": "dezeen", "DIYcrafts": "DIYcrafts",
+        "designboom": "designboom", "dezeen": "dezeen",
         "easyJet": "easyJet", "Eater": "Eater", "epicurious": "epicurious",
         "Expedia": "Expedia", "feelgoodfoodie": "Yumna Jawad Feel Good Foodie", "Food52": "Food52",
         "foodandwine": "foodandwine", "FoodBeast": "FoodBeast", "foodnetwork": "foodnetwork",
         "FoodNetworkUK": "FoodNetworkUK", "Food_Network": "Food_Network", "GBBO": "GBBO",
         "GermanyTourism": "GermanyTourism", "GordonRamsay": "Gordon Ramsay", "GoTurkiye": "Go Türkiye",
-        "HGTV": "HGTV", "Homestead": "Homestead", "IKEAUSA": "IKEAUSA",
+        "HGTV": "HGTV", "IKEAUSA": "IKEAUSA",
         "insiderfood": "insiderfood", "instructables": "instructables", "jamieoliver": "jamieoliver",
         "LonelyPlanet": "LonelyPlanet", "MarthaBakes": "MarthaBakes", "MarthaStewart": "MarthaStewart",
         "MasterChefAU": "MasterChefAU", "MasterChefUK": "MasterChefUK", "michelinguide": "michelinguide",
@@ -296,12 +298,12 @@ VIDEOLENT_QRUPLAR = {
         "TastyRecetas": "TastyRecetas", "TastyUK": "TastyUK", "Tasty_UK": "Tasty_UK",
         "thekitchn": "thekitchn", "ThisOldHouse": "ThisOldHouse", "tourismnz": "tourismnz",
         "TravelChannel": "TravelChannel", "TravelLeisure": "Travel + Leisure", "Tripadvisor": "Tripadvisor",
-        "TroomTroom": "TroomTroom", "VisitBritain": "VisitBritain", "VisitCalifornia": "VisitCalifornia",
+        "VisitBritain": "VisitBritain", "VisitCalifornia": "VisitCalifornia",
         "visitdubai": "visitdubai", "VisitFinland": "VisitFinland", "visitgreecegr": "visitgreecegr",
         "VisitIceland_": "VisitIceland_", "visitlondon": "visitlondon", "VisitMaldives": "VisitMaldives",
         "VisitNorway": "VisitNorway", "visitscotland": "visitscotland", "VisitSpain": "VisitSpain",
         "VisitTheUSA": "VisitTheUSA", "VisitTurkiye": "VisitTurkiye", "Visit_Japan": "Visit_Japan",
-        "Visit_Thailand": "Visit_Thailand", "Woodworking": "Woodworking",
+        "Visit_Thailand": "Visit_Thailand",
     },
     "oyun": {   # Oyun və e-idman (93)
         "100Thieves": "100Thieves", "2K": "2K", "VidsThatGoHard": "vids that go hard", "Activision": "Activision",
@@ -390,7 +392,7 @@ VIDEOLENT_QRUPLAR = {
     },
     "maraqli": {   # Maraqlı və gülməli (42)
         "9GAG": "9GAG", "AFV": "JH", "AFVofficial": "AFVofficial",
-        "AFV_Official": "AFV_Official", "boredpanda": "boredpanda", "CrazyClips_": "Crazy Clips", "TheFigen_": "The Figen",
+        "AFV_Official": "AFV_Official", "boredpanda": "boredpanda", "TheFigen_": "The Figen",
         "DudePerfect": "DudePerfect", "FailArmy": "FailArmy", "Fascinatingpics": "Fascinatingpics",
         "FreeRunning": "FreeRunning", "FunnyOrDie": "FunnyOrDie", "GWR": "GWR",
         "HumansNoContext": "HumansNoContext", "InternetH0F": "internet hall of fame", "Jukinmedia": "Jukinmedia",
@@ -503,7 +505,11 @@ VIDEOLENT_QRUPLAR = {
     },
 }
 VIDEOLENT_HESABLAR = {h: ad for q in VIDEOLENT_QRUPLAR.values() for h, ad in q.items()}
-ADLAR = {**HESABLAR, **VIDEOLENT_HESABLAR}
+# Çıxarılmış Videolent hesabları: yeni videosu götürülmür, növbədə qalan sətirləri lentə çıxmır (reels, keep_reels). Adı cədvəldə qalır
+# ki, növbə faylındakı köhnə sətirlər yoxlamadan keçsin; REELS_DAYS-dan sonra buradan da silmək olar.
+CIXAN = {"CrazyClips_": "Crazy Clips"}   # 2026-11-20–22: öz videolarında kazino (Roobet) reklamı — mərc və qumar qadağandır
+_CIXAN = {h.lower() for h in CIXAN}
+ADLAR = {**HESABLAR, **VIDEOLENT_HESABLAR, **CIXAN}
 _REEL_HANDLE = {h.lower(): h for h in ADLAR}
 # Xəbər hesablarının mövzusu (idman olmayanlar); qalanı idmandır.
 _XEBER_MOVZU = {"TUBITAK": "elm", "wonderofscience": "elm", "Rainmaker1973": "maraqli", "buitengebieden": "tebiet",
@@ -516,7 +522,7 @@ _MOVZU = {h: m for m, q in VIDEOLENT_QRUPLAR.items() for h in q}
 # üstünlük ver»). FxTwitter ölçüsü, 2026-11-20: son 3 gündə tez-tez video, video başına median 15–200 min baxış (heyrətamiz anlar,
 # rekordlar, ixtiralar, heyvanlar, kadr arxası). Yazıcı bu hesabları hər işdə yoxlayır (x_yazici.videolent_slice), seçimdə öz mövzusunun
 # başında durur; lent görülməmiş videolar arasında hər mövzuda onları əvvəl göstərir (reels «p»). Mövzu bölgüsü dəyişmir.
-VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "CrazyClips_", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
+VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
                   "buitengebieden", "nocontextfooty", "wonderofscience", "Yoda4ever", "NoContextHumans", "9GAG", "Rainmaker1973",
                   "GWR", "redbull", "VidsThatGoHard", "InternetH0F", "CollinRugg", "FoxNews", "Breaking911", "ufc")
 _ONDE = {h.lower() for h in VIDEOLENT_ONDE}
@@ -531,8 +537,11 @@ def onde(handle):
 # «u» — «Tamir & Tadilat» kimi bir işin necə görüldüyünü göstərən videolar, çox fərqli sahələrdə (40%). Sinfi hər video üçün Gemini
 # verir (x_yazici.pick_reels); verilməyibsə (köhnə sətir, açarsız iş) hesabın əsas sinfi: aşağıdakılar «u», qalanı «h».
 USTA_PAY = 0.4
-USTA_HESABLAR = {"TamirveTadilat", "Woodworking", "instructables", "ThisOldHouse", "DIYcrafts", "5MinuteCrafts", "TroomTroom",
-                 "Homestead", "HowThingsWork_", "engineers_feed", "HGTV"}
+# 2026-11-23 (FxTwitter, 72 saat): əvvəlki 11 hesabdan 7 gündə yalnız TamirveTadilat və HowThingsWork_ video vermişdi — DIYcrafts və
+# 5MinuteCrafts yoxdur (404), TroomTroom 2017-dən yazmır, Homestead başqasının boş hesabıdır, Woodworking reklama keçib (çıxarıldı);
+# engineers_feed, HGTV, instructables demək olar video vermir. Yeni: Brand_Anuj (25 video), pratikdunya (22), muhendisIiktr (21).
+# Bu hesablar hər işdə yoxlanır (x_yazici.videolent_slice): usta işinin mənbəyi azdır.
+USTA_HESABLAR = {"TamirveTadilat", "HowThingsWork_", "ThisOldHouse", "Brand_Anuj", "pratikdunya", "muhendisIiktr"}
 _USTA = {h.lower() for h in USTA_HESABLAR}
 
 
@@ -803,7 +812,7 @@ def reels(now, path=None):
         # Hər videoya izah (sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın»): Gemini düşəndə izahsız qalan video lentə
         # çıxmır (2026-11-23: kvota bitəndə yazıcı izahsız idman videoları yığırdı, lentin ilk 10 videosunun 7-si izahsız idi)
         key = video_key(row["video"])
-        if not row.get("c") or stale_event(row, now) or row["id"] in seen or key in seen:
+        if not row.get("c") or stale_event(row, now) or row["id"] in seen or key in seen or row["handle"].lower() in _CIXAN:
             continue
         seen.update((row["id"], key))
         h = _REEL_HANDLE[row["handle"].lower()]
@@ -819,7 +828,8 @@ def keep_reels(rows, now):
     sətri saxlayırdı və usta işi 2 gündən sonra silinirdi (2026-11-23 lentində 11%). İzahsız sətir saxlanmır: həmin paylaşım
     növbəti işdə yenə namizəd olur və Gemini izah yazır."""
     floor = now - datetime.timedelta(days=REELS_DAYS)
-    ok = [r for r in rows if isinstance(r, dict) and r.get("c") and (_at(r.get("at")) or floor) > floor]
+    ok = [r for r in rows if isinstance(r, dict) and r.get("c") and (_at(r.get("at")) or floor) > floor
+          and str(r.get("handle") or "").lower() not in _CIXAN]
     newest = sorted(ok, key=lambda r: _at(r.get("at")), reverse=True)
     keep = {id(r) for r in balance(newest, REELS_KEEP, sinif)}
     return [r for r in ok if id(r) in keep]
