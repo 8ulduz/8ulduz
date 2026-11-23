@@ -311,8 +311,11 @@ test("sosial-video: the news job starts the video workflow every 30 minutes (its
   const sh = read(".github/scripts/pipeline.sh");
   const at = sh.indexOf("video_loop() {"), loop = sh.slice(at, sh.indexOf("\n}\n", at));
   assert.ok(at > 0 && loop.includes("- 1020) / 1800 ))"), "30 dəqiqəlik pəncərə, :17 və :47");
-  assert.ok(loop.includes("gh_t workflow run sosial-video.yml --ref main") && loop.includes('select(.status != "completed")') && loop.includes("--branch main"),
+  assert.ok(loop.includes("gh_t workflow run sosial-video.yml --ref main") && loop.includes('select(.status != "completed"') && loop.includes("--branch main"),
     "yalnız dispatch, main-də gedən iş varsa yox");
+  // Dövrə hər saat yenidən başlayır (yaddaşı sıfır): pəncərədə artıq başlamış iş də sayılır (2026-11-23: 04:17 və 04:36).
+  assert.ok(loop.includes("start=$(( slot * 1800 + 1020 ))") && loop.includes("(.createdAt | fromdateiso8601) >= '\"$start\"'"),
+    "eyni pəncərədə ikinci iş yoxdur");
   assert.ok(!/GEMINI|PIXABAY|FB_PAGE|curl |node |python/.test(loop), "açar və şəbəkə işi bu döngüdə yoxdur");
   assert.ok(sh.includes("video_loop &\nVIDEO_PID=$!") && sh.includes('kill "$VIDEO_PID"'));
 });

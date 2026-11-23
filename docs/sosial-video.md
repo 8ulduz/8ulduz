@@ -91,6 +91,8 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   Etiketində xəbərə aid olmayan ölkə və ya şəhər olan klip götürülmür (`yadYer`; nümunədə Gəncə xəbərinə Batumi stadionu, Gürcüstan xəbərinə Bakı düşmüşdü). Xəbərdə yalnız ölkə varsa, onun paytaxtı da olar.
   **Montaj redaktoru** (`redaktor`). Hər ifadədən 3 namizəd toplanır. Gemini xəbəri, yeri və hər namizədin etiketlərini oxuyub ən çox 8 klipi montaj sırası ilə seçir.
   Söz uyğunluğu bunları buraxırdı: siyahıda olmayan yad şəhəri («lech poznan») və mənası başqa klipi («empty stadium seats» axtarışına köhnə divan). Yalnız seçilən klip yüklənir. Gemini cavab verməsə, ifadə sırası işləyir.
+  Redaktor hər namizədin bir kadrını da görür (bankın önizləmə şəkli) və əvvəlcə hər klipin yerini adlandırır (`yerler`: yer, xəbərin yeridirmi). Lövhə və yazının dili, brend, bayraq, nömrə nişanı, hərəkət tərəfi də sayılır.
+  Xəbərin yeri olmayan yer görünən klip redaktor seçsə də kodla atılır (`yerUygun`). İlk canlı videoda (2026-11-23, Bakının tıxacları) etiketində «kettering» (İngiltərə) olan dairəvi yol seçilmişdi; Petrobras məntəqəli (Braziliya) və Asiya yazılı şose kliplərinin etiketində yer yox idi. Şəkilli sorğu alınmasa redaktor yalnız etiketlərlə işləyir.
   **Keyfiyyət həddi:** 2-dən az uyğun klip tapılan xəbər ötürülür, növbəti xəbər götürülür (`KLIP_MIN`).
   Qanuni hədd:
   - oyunların və tədbirlərin öz kadrları telekanalların və təşkilatçıların hüququdur;
@@ -156,8 +158,8 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 ## Paylaşım: `.github/workflows/sosial-video.yml` + `.github/scripts/sosial-video.cjs`
 
 1. Hər 30 dəqiqədən bir (:17, :47) iş başlayır. Vaxtı deyilsə (gecə, fasilə, gündəlik hədd) ~20 saniyədə bitir: ffmpeg və model quraşdırılmır.
-   İşi xəbər axını başladır (`pipeline.sh` `video_loop`, yalnız dispatch; main-də video işi gedirsə yox): iş axınının cron-u 2026-11-22-də
-   bir dəfə də işləmədi (X yazıcısında da belə olmuşdu). Cron ehtiyat qalır.
+   İşi xəbər axını başladır (`pipeline.sh` `video_loop`, yalnız dispatch; main-də video işi gedirsə və ya bu pəncərədə artıq başlayıbsa yox): iş axınının cron-u 2026-11-22-də
+   bir dəfə də işləmədi (X yazıcısında da belə olmuşdu). Cron ehtiyat qalır. Xəbər axını hər saat yenidən başlayır: pəncərə yoxlanmasa, 04:17 pəncərəsində 04:36-da ikinci iş gedirdi (2026-11-23).
 2. **Seçim** (`sosial-video.cjs sec`): lent saytın qaydasından keçir; social.cjs-in namizədləri; əvvəl video olmuş xəbər, başlıq və mövzu (24 saat) ötürülür; mənbə səhifəsindən izah tapılmayan xəbər video olmur.
 3. **Video** (`video-xeber.cjs`), sonra yoxlama: ölçü, kodek, kadr sürəti, səs, müddət, moov əvvəldə. Uyğun deyilsə iş qırmızıdır, heç nə paylaşılmır.
 4. **Paylaşma** (`sosial-video.cjs paylas`): fayl hər iki şəbəkəyə **birbaşa** yüklənir (Meta-nın `rupload.facebook.com` serverinə, «resumable upload»). İctimai ünvan və saxlama yeri lazım deyil, repoya video yazılmır (repo ölçüsü, `repo-olcu.yml`). Video yalnız iş səhifəsində 3 günlük artefakt kimi qalır.

@@ -331,6 +331,64 @@ test("goruntu: the picture editor (Gemini) reads the story and every candidate's
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("goruntu: the editor also sees one frame of every candidate and names each clip's place; code drops clips from another place even if picked", async () => {
+  // İlk canlı video (2026-11-23, Bakının tıxacları): etiketində «kettering» olan İngiltərə dairəvi yolu, şəklində Petrobras (Braziliya)
+  // və Asiya yazıları görünən şose kliplərini redaktor seçmişdi.
+  const hit = (id, tags, thumb = `https://cdn.pixabay.com/video/${id}_tiny.jpg`) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1920, height: 1080, size: 5e6 }, tiny: { url: "x", width: 640, height: 360, thumbnail: thumb } } });
+  const db = { "baku azerbaijan": [hit(1, "baku, azerbaijan, flame towers, caspian sea")],
+    "city street traffic": [hit(2, "road, roundabout, traffic, cars, city, kettering, drone"), hit(3, "city, avenue, traffic, buildings"),
+      hit(5, "city, traffic, cars, london, bus"), hit(4, "highway, traffic jam, cars, night, city", "https://cdn.pixabay.com/video/4_tiny.html")],
+    "sea boulevard street": [hit(6, "boulevard, street, traffic, sea")] };
+  let answer = "", body = null, imagesOk = true;
+  const downloads = [];
+  const f = async (u, o = {}) => {
+    if (u.startsWith("https://pixabay.com/api/videos/")) return { ok: true, json: async () => ({ hits: db[new URL(u).searchParams.get("q")] || [] }) };
+    if (/models\?pageSize/.test(u)) return { ok: true, json: async () => ({ models: [] }) };
+    if (/generateContent/.test(u)) {
+      body = JSON.parse(o.body);
+      if (!imagesOk && body.contents[0].parts.length > 1) return { ok: false, status: 400, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: answer }] } }] }) };
+    }
+    if (/_tiny\.jpg$/.test(u)) return { ok: true, headers: new Map([["content-type", "image/jpeg"]]), arrayBuffer: async () => new Uint8Array(2000).fill(7).buffer };
+    if (/_tiny\.html$/.test(u)) return { ok: true, headers: new Map([["content-type", "text/html"]]), arrayBuffer: async () => new Uint8Array(2000).buffer };
+    downloads.push(u);
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-goz-"));
+  const xeber = { title: "Bakıda bu yollarda sıxlıq var", text: "Bakıda sıxlıq olan küçə və prospektlər açıqlanıb.", yer: ["Baku", "Azerbaijan"] };
+  const logs = [];
+  const opt = { env: { PIXABAY_API_KEY: "k", GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" }, fetch: f, log: s => logs.push(s), say: 8, category: "cemiyyet", xeber, yer: xeber.yer };
+  // yadYer «london»-u namizədlərdən əvvəlcədən atır: namizədlər 1 (Bakı), 2 (Kettering), 3, 4, 6.
+  answer = JSON.stringify({ yerler: [{ klip: 1, yer: "baku", xeberin_yeri: true }, { klip: 2, yer: "kettering", xeberin_yeri: false },
+    { klip: 3, yer: "brazil", xeberin_yeri: false }, { klip: 5, yer: "caspian sea boulevard", xeberin_yeri: true }],
+  klip: [1, 2, 3, 4, 5] });
+  const got = await VS.goruntu(["city street traffic", "sea boulevard street"], dir, opt);
+  assert.deepEqual(got.map(g => g.id), [1, 4, 6], "redaktor seçsə də Kettering və Braziliya kadrı atılır; Xəzər bulvarı Bakının içindədir");
+  assert.ok(logs.some(s => /Pixabay 2: redaktor başqa yer gördü \(kettering\)/.test(s)));
+  assert.ok(logs.some(s => /Pixabay 3: redaktor başqa yer gördü \(brazil\)/.test(s)));
+  const parts = body.contents[0].parts;
+  assert.match(parts[0].text, /"xeberin_yeri"/);
+  assert.match(parts[0].text, /lövhə və yazının dili/);
+  assert.deepEqual(parts.slice(1).filter(p => p.text).map(p => p.text), ["Klip 1:", "Klip 2:", "Klip 3:", "Klip 5:"], "şəkil olmayan (html) kadr göndərilmir");
+  assert.deepEqual(parts.filter(p => p.inline_data).map(p => p.inline_data.mime_type), Array(4).fill("image/jpeg"));
+  assert.ok(logs.some(s => /5 namizəddən \(4 kadr\) 3 klip seçdi/.test(s)));
+  // Şəkilli sorğu alınmasa (model şəkil qəbul etmir) redaktor yalnız etiketlərlə işləyir, sadə qaydaya düşmür.
+  imagesOk = false;
+  logs.length = 0;
+  const again = await VS.goruntu(["city street traffic", "sea boulevard street"], dir, opt);
+  assert.deepEqual(again.map(g => g.id), [1, 4, 6]);
+  assert.equal(body.contents[0].parts.length, 1);
+  assert.ok(logs.some(s => /şəkilli sorğuya cavab vermədi — yalnız etiketlərlə/.test(s)));
+  // Kod qaydası: tanınan yad yer redaktor «bəli» desə də atılır; xəbərin yeri və ya etiketində xəbərin yeri olan klip qalır.
+  assert.equal(VS.yerUygun({ yer: "london", xeberin_yeri: true }, "traffic", xeber), false);
+  assert.equal(VS.yerUygun({ yer: "caspian sea", xeberin_yeri: false }, "baku, sea", xeber), true, "etiketində Bakı var");
+  assert.equal(VS.yerUygun({ yer: "unknown", xeberin_yeri: false }, "traffic", xeber), true, "yer adı yoxdursa ümumi klip");
+  assert.equal(VS.yerUygun({ yer: "ganja", xeberin_yeri: false }, "stadium", { yer: ["Ganja City Stadium", "Ganja", "Azerbaijan"] }), true);
+  assert.equal(await VS.sekil("http://insecure/x.jpg", f), null, "yalnız https");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("sosial-video: a story with fewer than 2 fitting clips is skipped for the next one (no video with wrong or empty footage)", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-klipmin-"));
   const NOW = Date.parse("2026-11-22T10:00:00Z");
