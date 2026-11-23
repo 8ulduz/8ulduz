@@ -462,8 +462,6 @@ copy_code "$REPO_DIR" "$CUR"
 mkdir -p "$WORK/data"
 cp -a "$REPO_DIR/data/." "$WORK/data/" 2>/dev/null
 rm -f "$WORK/data/reader.json"
-# Video arxivini başqa iş yazır (video-arxiv.yml): axın onu öz köhnə nüsxəsi ilə main-də üstələməsin (publish_main data/-nı köçürür).
-rm -f "$WORK/data/video-arxiv.json"
 [ -f "$REPO_DIR/CNAME" ] && cp "$REPO_DIR/CNAME" "$WORK/"
 for name in sitemap.xml sitemap-news.xml feed.xml robots.txt; do
   [ -f "$REPO_DIR/$name" ] && cp "$REPO_DIR/$name" "$WORK/"

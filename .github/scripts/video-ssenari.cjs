@@ -374,8 +374,8 @@ const MENBELER = [
 const NAMIZED_MAX = 3, SERIYA = 60;
 // Öz video arxivi (video-arxiv.cjs, data/video-arxiv.json): yeri kadrlarla yoxlanmış kliplər və sahibin öz görüntüsü. Xəbərin yeri
 // məlumdursa əvvəl arxiv, sonra adi axtarış. Yer qaydası (yadYer) arxivə də şamildir. arxiv: kitabxananın klipləri (VA.yukle()),
-// hava: hava videosunun Bakı halı (p.baki.kind) — arxivdən yalnız o havada çəkilmiş Bakı klipi.
-async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null, arxiv = [], hava = "" } = {}) {
+// hava: arxiv klipinin icazəli havaları (video-hava.cjs arxivSecim) — hava videosunda yalnız sabahkı havada çəkilmiş Bakı klipi.
+async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null, arxiv = [], hava = null } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
   if (!menbeler.length && !(arxiv || []).some(e => e?.menbe === "Sahib")) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
   // Əvvəl xəbərin yerləri (əsl yer görüntüsü başlıq kadrına), sonra Gemini-nin montaj ifadələri.

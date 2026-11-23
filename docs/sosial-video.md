@@ -266,7 +266,8 @@ Niyə 20:47 (araşdırma, 2026-11-23):
 Sahibin sözü: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə». Bankda adi axtarış yeri təsadüfən tapır: etiket yanlış ola bilər, «baku» axtarışına Batumi gəlir. Ona görə yeri əvvəlcədən yoxlanmış öz kitabxanamız var.
 
 **Qısa.**
-- Kitabxana: `data/video-arxiv.json`. Burada yalnız metadata saxlanır, video fayl yoxdur (repo ölçüsü, `repo-olcu.yml`).
+- Kitabxana main-də deyil: tarixçəsiz `video-arxiv` budağında `video-arxiv.json`. Hər yazı valideynsiz bir commitdir, `arxiv` budağı kimi, ona görə repo şişmir. Sahibin birbaşa main-ə yazma icazəsi yalnız X yazıcısının növbə faylı üçündür (2026-11-18).
+- Repodakı `data/video-arxiv.json` yalnız PR ilə gələn başlanğıc nüsxədir: budaq ilk dəfə ondan yaranır, montaj budağı oxuya bilməsə ona düşür. Kitabxanada yalnız metadata saxlanır, video fayl yoxdur.
 - Kod: `.github/scripts/video-arxiv.cjs`. İş: `.github/workflows/video-arxiv.yml`.
 - Montaj xəbərin yeri məlum olanda əvvəl arxivə baxır, sonra adi axtarışa keçir (`video-ssenari.cjs` `goruntu`). Sıra belədir:
   1. sahibin öz görüntüsü;
@@ -274,7 +275,7 @@ Sahibin sözü: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə et
   3. həmin şəhərin yoxlanmış klipi.
 - Dəqiq obyekt klipi redaktordan asılı olmadan başlıq kadrına düşür (ən çox 2). Obyekt yoxdursa, şəhərin ən yaxşı klipi düşür. Mənfi xəbərdə (qəza, ölüm) şəhər klipi başlığa məcburi qoyulmur, yaxın planda insan olan klip götürülmür. Qalan arxiv klipləri montaj redaktorunun siyahısında «ARXİV: yeri yoxlanıb» işarəsi ilə birincidir.
 - Yad yer qaydası arxivə də şamildir (`yadYer`). Gəncə xəbərinə Bakının, Bakı xəbərinə Şəkinin klipi getmir. Yeri bilinməyən xəbərdə arxiv işlənmir.
-- Hava videosu Bakının sabahkı havasında çəkilmiş klipi götürür: yağışda yağış, qarda qar. Gecə klipi gündüz proqnozuna getmir.
+- Hava videosu Bakının sabahkı havasında çəkilmiş klipi götürür: yağışda yağış, qarda qar. Gecə klipi gündüz proqnozuna getmir. Seçim `video-hava.cjs`-dədir (`arxivSecim`, `ARXIV_HAVA`).
 - Son 3 günün videolarında işlənmiş arxiv klipi yenidən götürülmür (`state.klip`, adi kliplərlə eyni açar: «Pixabay:123»).
 - Jurnalda arxiv klipi belə görünür: «video: arxiv — …» və «görüntü 1 — ARXİV obyekt «Ganja City Stadium» (…)». İşin xülasəsində «Görüntü: 1) ARXİV sahib-gence-stadion — Ganja City Stadium, Ganja, Azerbaijan; …».
 - Kredit əvvəl saytın öz görüntüsünü, sonra bankı göstərir: videoda və post mətnində «Görüntü: 8ulduz.az, Pixabay» (`kredit`).
@@ -301,7 +302,7 @@ Obyekt adı ayrıca yoxlanır. Klip obyekt kimi yalnız iki halda qeyd olunur: e
 | `lisenziya` | «Pixabay Content License — …» (Pexels: «Pexels License — …»; sahib: «Saytın öz çəkilişi» və ya «Müəllifin yazılı icazəsi: Ad, tarix») |
 | `muellifId` | bankdakı istifadəçi nömrəsi (eyni çəkiliş seriyası üçün). **Ad saxlanmır**: Pixabay və Pexels şərtləri (§8) üzv adlarını toplamağı qadağan edir. Ad montajda API-dən təzə gəlir, jurnala və kreditə oradan yazılır |
 | `yer`, `seher`, `obyekt`, `adlar` | dəqiqdən ümumiyə («Flame Towers», «Baku», «Azerbaijan»), şəhərin açarı, tanınan obyekt, başqa adları (azərbaycanca da) |
-| `movzu`, `hava`, `insan` | səhnə sözləri, hava, yaxın planda insan |
+| `movzu`, `hava`, `insan`, `rengli` | səhnə sözləri, hava, yaxın planda insan, rənglidir (ağ-qara deyil) |
 | `olcu`, `muddet`, `keyfiyyet` | istifadə olunan nüsxənin ölçüsü (≥1080 p), saniyə, 1–5 |
 | `yoxlama` | tarix, model, kadr sayı, etiket sübutu, əminlik, Gemini-nin gördüyü yer və bir cümləlik izahı, su nişanı yoxlamasının nəticəsi |
 | `baxildi` | klipin bankda son yoxlandığı gün |
@@ -318,10 +319,11 @@ Bankın faylının ünvanı saxlanmır. Montaj klipi ID ilə bankdan təzə soru
 - Bakıda ən çox 120 klip, başqa şəhərdə 30, cəmi 400.
 - Hər işdə 15 köhnə klipin bankda qaldığı yoxlanır.
 - Əl ilə: Actions → «Video arxivi» → Run workflow («say» — neçə namizəd).
-- İş yalnız `data/video-arxiv.json`-u main-ə yazır (`git pull --rebase`, force push yoxdur).
-- Xəbər axını bu faylı öz köhnə nüsxəsi ilə üstələmir: `pipeline.sh` onu iş qovluğuna köçürmür. Əvvəl `publish_main` bütün `data/`-nı köçürürdü və başqa işin yazdığı fayl 10 dəqiqədə geri qayıdırdı.
+- İş yalnız `video-arxiv` budağına yazır, main-ə heç nə yazmır. Budaq oxunmasa (yox deyil, xəta) iş dayanır və budağa toxunmur.
+- Montaj işi (`sosial-video.yml`) kitabxananı həmin budaqdan endirir (`VIDEO_ARXIV_FAYL`). Başlanğıc nüsxənin yeni klipləri ona qoşulur, budaqda rədd edilən klip qayıtmır.
 - Xülasədə əlavə olunan və rədd edilən kliplər səbəbi ilə yazılır. Artefaktda (7 gün) hər namizədin 4 kadrı var, üstündə qərar yazılıb (`_qebul-N.jpg`, `_redd-N.jpg`).
-- PR-da iş yalnız sxemi yoxlayır. `arxiv-yoxla` etiketi ilə əsl axtarış və yoxlama gedir, main-ə yazılmır, nəticə artefaktda qalır.
+- PR-da iş yalnız sxemi yoxlayır. `arxiv-yoxla` etiketi ilə əsl axtarış və yoxlama gedir, budağa yazılmır, nəticə artefaktda qalır.
+- Gemini-yə şəhər və obyekt ayrıca soruşulur. Obyekt adı yalnız Gemini onu kadrda görəndə yazılır. Başqa tanınan obyekt görürsə, klip o obyektlə qeyd olunur. Obyekt görünmürsə klip şəhər səviyyəsində qalır. Ağ-qara klip (`rengli: false`) montajda rəngli klipdən sonra gəlir.
 
 **Mənbə qaydaları (araşdırma, 2026-11-23) və bizim etdiyimiz:**
 

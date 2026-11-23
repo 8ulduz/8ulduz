@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path"), os = require("os");
 const VA = require("../.github/scripts/video-arxiv.cjs");
 const VS = require("../.github/scripts/video-ssenari.cjs");
+const VH = require("../.github/scripts/video-hava.cjs");
 const root = path.join(__dirname, "..");
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const quiet = () => {};
@@ -106,9 +107,12 @@ test("arxiv: the montage gets the story's own place — owner's clip and exact l
   assert.deepEqual(VA.namizedler(LIB, { yer: [], icaze: VS.yerPlan([]).icaze }), []);
   // İşlənmiş klip (son 3 gün, state.klip) yenidən götürülmür.
   assert.ok(!VA.namizedler(LIB, { yer: ["Flame Towers", "Baku", "Azerbaijan"], icaze: B.icaze, istifade: new Set(["Pixabay:102"]) }).some(x => x.e.id === "pixabay-102"));
-  // Hava videosu: sabah Bakıda yağış — yalnız yağışda çəkilmiş Bakı klipi, başlıq kadrı.
-  assert.deepEqual(ids(VA.namizedler(LIB, { yer: ["Baku", "Azerbaijan"], icaze: VS.yerPlan(["Azerbaijan"]).icaze, hava: "yagis" })), ["pixabay-103:seher*"]);
-  assert.ok(VA.namizedler(LIB, { yer: ["Baku", "Azerbaijan"], icaze: VS.yerPlan(["Azerbaijan"]).icaze, hava: "acik" }).every(x => x.e.hava === "gunesli"));
+  // Hava videosu (video-hava.cjs arxivSecim): sabah Bakıda yağış — yalnız yağışda çəkilmiş Bakı klipi, başlıq kadrı.
+  const yagis = VH.arxivSecim({ baki: { kind: "yagis" } }), acik = VH.arxivSecim({ baki: { kind: "acik" } });
+  assert.deepEqual(yagis, { yer: ["Baku", "Azerbaijan"], hava: ["yagisli"] });
+  assert.deepEqual(ids(VA.namizedler(LIB, { yer: yagis.yer, icaze: VS.yerPlan(["Azerbaijan"]).icaze, hava: yagis.hava })), ["pixabay-103:seher*"]);
+  assert.ok(VA.namizedler(LIB, { yer: acik.yer, icaze: VS.yerPlan(["Azerbaijan"]).icaze, hava: acik.hava }).every(x => x.e.hava === "gunesli"));
+  for (const k of Object.keys(VH.ARXIV_HAVA)) assert.ok(VH.ARXIV_HAVA[k].every(h => VA.HAVA.includes(h) && h !== "gece"), k);
   // Mənfi xəbər: şəhər klipi başlığa məcburi qoyulmur, yaxın planda insan olan klip yoxdur.
   assert.ok(VA.menfi({ category: "hadise" }) && VA.menfi({ title: "Bakıda yol qəzası: 2 nəfər həlak olub" }) && !VA.menfi({ title: "Bakıda yeni park açılıb" }));
   const N = VA.namizedler(LIB, { yer: ["Baku", "Azerbaijan"], icaze: VS.yerPlan(["Baku", "Azerbaijan"]).icaze, menfi: true });
@@ -190,53 +194,65 @@ function fakeBank(db) {
 }
 const phit = (id, tags, extra = {}) => ({ id, duration: 20, user: `u${id}`, user_id: 500 + id, tags, pageURL: `https://pixabay.com/videos/${tags.split(",")[0].replace(/\s+/g, "-")}-${id}/`,
   videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1920, height: 1080, size: 6e6 }, tiny: { url: `https://cdn.pixabay.com/${id}-tiny.mp4`, width: 960, height: 540, size: 1e6 } }, ...extra });
-const OK = (o = {}) => ({ gorunen_yer: "Baku, Azerbaijan", yer_dogru: true, obyekt: "", eminlik: 0.92, su_nisani: false, siyasi: false, insan: false, hava: "gunesli",
+const OK = (o = {}) => ({ gorunen_yer: "Baku, Azerbaijan", seher_dogru: true, obyekt: "", obyekt_gorunur: true, eminlik: 0.92, rengli: true, su_nisani: false, siyasi: false, insan: false, hava: "gunesli",
   movzu: ["skyline", "towers"], keyfiyyet: 4, izah: "Bakının panoraması, Alov qüllələri görünür.", _model: "gemini-sinaq", ...o });
 
-test("arxiv boyut: tag evidence + Gemini's own look at 4 frames; wrong place, watermark, separatist tags rejected and remembered; searches cached 30 days", async () => {
+test("arxiv boyut: tag evidence + Gemini's own look at 4 frames; city and landmark asked apart; wrong place, watermark, separatist tags rejected and remembered; searches cached 30 days", async () => {
   const db = {
     "flame towers baku": [phit(1, "flame towers, baku, azerbaijan, night"), phit(2, "towers, city, night"), phit(3, "flame towers, baku, batumi, georgia")],
     "baku boulevard": [phit(4, "boulevard, baku, sea"), phit(5, "baku, boulevard, people")],
-    "baku old city": [phit(6, "old city, baku, architecture")],
-    "baku azerbaijan": [phit(8, "baku, azerbaijan, city")],
+    "baku old city": [phit(6, "old city, baku, architecture"), phit(9, "old city, baku, museum"), phit(10, "old city, baku, panorama")],
+    "baku azerbaijan": [phit(8, "baku, azerbaijan, city"), phit(11, "dubai, city, skyline")],
     "shusha azerbaijan": [phit(7, "shushi, artsakh, mountains")],
   };
   const { f, asked } = fakeBank(db);
-  const looks = { 1: OK({ obyekt: "Flame Towers" }), 4: OK({ yer_dogru: false, gorunen_yer: "Batumi, Georgia", eminlik: 0.8 }), 5: OK({ su_nisani: true }),
-    6: OK({ gorunen_yer: "Baku, Azerbaijan", obyekt: "Maiden Tower", eminlik: 0.95, movzu: ["old town"] }), 8: OK({ obyekt: "Flame Towers", eminlik: 0.95 }) };
-  const order = [];
+  // 6: Gemini «İçərişəhər» axtarışında Qız qalasını görür (planın başqa obyekti); 9: Heydər Əliyev Mərkəzini (2026-11-23 ilk işdə belə
+  // klip «yer təsdiqlənmədi» ilə rədd olunmuşdu); 10: obyekt görünmür — Bakının klipi kimi qalır; 1: etiket və kadr eyni obyekt.
+  const looks = { 1: OK({ obyekt: "Flame Towers" }), 4: OK({ seher_dogru: false, gorunen_yer: "Batumi, Georgia", eminlik: 0.8 }), 5: OK({ su_nisani: true }),
+    6: OK({ obyekt: "Maiden Tower", obyekt_gorunur: false, eminlik: 0.95, movzu: ["old town"] }), 8: OK({ obyekt: "Flame Towers", eminlik: 0.95, rengli: false }),
+    9: OK({ obyekt: "Heydar Aliyev Center", obyekt_gorunur: false, eminlik: 0.95 }), 10: OK({ obyekt: "", obyekt_gorunur: false, eminlik: 0.9 }) };
+  const order = [], prompts = [];
   const deps = {
     kadrlar: async url => { const id = Number(url.match(/(\d+)-tiny/)[1]); order.push(id); return { jpg: [Buffer.from(`k${id}`)], gray: { w: 160, h: 90, frames: frames() }, id }; },
-    baxis: async (prompt, jpg) => { assert.ok(!/flame towers, baku, azerbaijan, night/.test(prompt), "Gemini-yə bankın etiketi verilmir (müstəqil sübut)"); return looks[String(jpg[0]).slice(1)] || OK({ yer_dogru: false, gorunen_yer: "unknown" }); },
+    baxis: async (prompt, jpg) => { prompts.push(prompt); assert.ok(!/flame towers, baku, azerbaijan, night/.test(prompt), "Gemini-yə bankın etiketi verilmir (müstəqil sübut)"); return looks[String(jpg[0]).slice(1)] || OK({ seher_dogru: false, gorunen_yer: "unknown" }); },
     zolaq: () => true,
   };
   const lib = VA.oxu("/yoxdur");
   const rep = await VA.boyut(lib, { env: { PIXABAY_API_KEY: "k", ARXIV_ARA_MS: "0" }, fetch: f, log: quiet, say: 10, now: NOW, deps });
   const byId = Object.fromEntries(lib.klipler.map(e => [e.id, e]));
-  assert.deepEqual(Object.keys(byId).sort(), ["pixabay-1", "pixabay-6", "pixabay-8"]);
+  assert.deepEqual(Object.keys(byId).sort(), ["pixabay-1", "pixabay-10", "pixabay-6", "pixabay-8", "pixabay-9"]);
   assert.deepEqual(byId["pixabay-1"].yer, ["Flame Towers", "Baku", "Azerbaijan"], "etiket və Gemini obyekti təsdiqlədi");
   assert.deepEqual(byId["pixabay-1"].yoxlama.teq, ["flame towers", "baku"]);
   assert.equal(byId["pixabay-1"].yoxlama.model, "gemini-sinaq");
   assert.equal(byId["pixabay-1"].muellifId, 501);
   assert.ok(!("user" in byId["pixabay-1"]) && !JSON.stringify(byId["pixabay-1"]).includes("u1"), "müəllifin adı saxlanmır");
   assert.equal(VA.kecerli(byId["pixabay-1"]), "");
-  assert.deepEqual(byId["pixabay-6"].yer, ["Icherisheher", "Baku", "Azerbaijan"], "etiket «old city» — planın obyekti qalır");
+  assert.deepEqual(byId["pixabay-6"].yer, ["Maiden Tower", "Baku", "Azerbaijan"], "etiket «old city», kadrda Qız qalası — planın o obyekti");
+  assert.deepEqual(byId["pixabay-9"].yer, ["Heydar Aliyev Center", "Baku", "Azerbaijan"]);
+  assert.deepEqual(byId["pixabay-10"].yer, ["Baku", "Azerbaijan"], "obyekt görünmür: etiketə baxmayaraq şəhər səviyyəsində");
   assert.deepEqual(byId["pixabay-8"].yer, ["Flame Towers", "Baku", "Azerbaijan"], "«baku azerbaijan» axtarışında Gemini Alov qüllələrini çox əmin tanıdı — planın obyekti");
+  assert.equal(byId["pixabay-8"].rengli, false);
+  assert.ok(prompts.some(p => /Gözlənilən şəhər: Baku, Azerbaijan\. Gözlənilən obyekt: Icherisheher/.test(p)) && prompts.some(p => /Gözlənilən obyekt: —/.test(p)));
   assert.ok(!order.includes(2), "etiketində yer olmayan klip yoxlanmır (sübut yoxdur)");
+  assert.ok(!lib.redd["pixabay-11"] && !lib.redd["pixabay-2"], "axtarışa təsadüfən düşən yad klip rədd siyahısına yazılmır (fayl şişmir)");
   assert.match(lib.redd["pixabay-3"], /başqa yer etiketdə \(batumi\)/);
   assert.match(lib.redd["pixabay-4"], /yer təsdiqlənmədi \(Batumi, Georgia\)/);
   assert.match(lib.redd["pixabay-5"], /su nişanı/);
   assert.match(lib.redd["pixabay-7"], /siyasi/);
   assert.ok(lib.axtaris["pixabay:flame towers baku"] === DAY);
+  // Montajda ağ-qara klip rənglidən sonra gəlir.
+  const N = VA.namizedler(lib.klipler, { yer: ["Flame Towers", "Baku", "Azerbaijan"], icaze: VS.yerPlan(["Flame Towers", "Baku", "Azerbaijan"]).icaze });
+  assert.deepEqual(N.filter(x => x.level === "obyekt").map(x => x.e.id), ["pixabay-1", "pixabay-8"]);
   // İkinci iş: eyni gün eyni axtarış təkrarlanmır, rədd edilən klip yenidən yoxlanmır, köhnə klip bankda yoxlanır.
   asked.length = 0; order.length = 0;
   db.byId = { 1: phit(1, "flame towers, baku"), 8: phit(8, "baku") };
   const rep2 = await VA.boyut(lib, { env: { PIXABAY_API_KEY: "k", ARXIV_ARA_MS: "0" }, fetch: f, log: quiet, say: 10, now: NOW + 86400e3, deps });
   assert.ok(!asked.includes("flame towers baku") && !asked.includes("baku boulevard"), "axtarış 30 gündə bir (Pixabay: ≥24 saat keş)");
   assert.ok(asked.includes("id:1") && asked.includes("id:6"));
-  assert.deepEqual(rep2.silindi, ["pixabay-6"], "bankda silinmiş klip arxivdən çıxır");
+  assert.deepEqual(rep2.silindi, ["pixabay-6", "pixabay-9", "pixabay-10"], "bankda silinmiş klip arxivdən çıxır");
+  assert.match(lib.redd["pixabay-6"], /bankda silinib/, "başlanğıc nüsxədən geri qayıtmasın");
   assert.equal(order.length, 0);
-  assert.ok(rep.axtaris <= 25 && rep.elave.length === 3);
+  assert.ok(rep.axtaris <= 25 && rep.elave.length === 5);
   // Gemini cavab vermirsə (limit) dayanır, rədd yazılmır — növbəti işdə yenidən.
   const lib3 = VA.oxu("/yoxdur");
   const rep3 = await VA.boyut(lib3, { env: { PIXABAY_API_KEY: "k", ARXIV_ARA_MS: "0" }, fetch: fakeBank(db).f, log: quiet, say: 10, now: NOW, deps: { ...deps, baxis: async () => null } });
@@ -319,21 +335,38 @@ test("arxiv sahib: the owner's release lines — own footage or written permissi
   assert.match(VA.xulase("Video arxivi", rep, lib.klipler), /tiktok\.mp4 \| faylda platformanın izi/);
 });
 
-test("arxiv: the news feed never overwrites the library on main; the workflow writes only that file and touches no X/TV video", () => {
-  const sh = read(".github/scripts/pipeline.sh");
-  const copy = sh.indexOf('cp -a "$REPO_DIR/data/." "$WORK/data/"'), rm = sh.indexOf('rm -f "$WORK/data/video-arxiv.json"');
-  assert.ok(copy > 0 && rm > copy && rm - copy < 400, "pipeline.sh arxivi WORK-dan çıxarır: publish_main onu köhnə nüsxə ilə üstələmir");
+test("arxiv: the library lives outside main — history-less video-arxiv branch; montage reads it and falls back to the PR seed; nothing pushes main", () => {
+  // Sahibin birbaşa main-ə yazma icazəsi yalnız X yazıcısının növbə faylı üçündür (2026-11-18).
   const wf = read(".github/workflows/video-arxiv.yml");
-  const adds = [...wf.matchAll(/git add ([^\n]+)/g)].map(m => m[1].trim());
-  assert.deepEqual(adds, ["data/video-arxiv.json"], "main-ə yalnız arxiv faylı yazılır");
+  assert.ok(!/git add|HEAD:main|refs\/heads\/main"|pull --rebase/.test(wf), "arxiv işi main-ə yazmır");
+  const pushes = [...wf.matchAll(/git push[^\n]*/g)].map(m => m[0]);
+  assert.deepEqual(pushes, ['git push -q --force origin "$commit:refs/heads/video-arxiv"'], "yalnız öz tarixçəsiz budağı");
+  assert.match(wf, /commit-tree "\$tree" -m/, "valideynsiz commit (repo şişmir)");
+  assert.match(wf, /YAZ: \$\{\{ github\.event_name != 'pull_request'/, "PR budağa yazmır");
+  assert.match(wf, /ls-remote --exit-code --heads origin video-arxiv[\s\S]*"\$code" = 2[\s\S]*exit 1/, "budaq oxunmasa (yox deyil, xəta) iş dayanır, budağa toxunmur");
   assert.match(wf, /cron: "2 9 \* \* 1,4"/);
-  assert.ok(!/--force|push -f/.test(wf), "force push yoxdur");
-  assert.ok(/github\.ref == 'refs\/heads\/main' \|\| github\.event_name == 'release'\) && github\.event_name != 'pull_request'/.test(wf), "PR-da main-ə yazılmır");
-  const src = read(".github/scripts/video-arxiv.cjs");
-  for (const bad of ["reels.json", "oz_x.json", "video.twimg.com", "youtube.com/watch"]) assert.ok(!src.includes(bad), `arxiv X/TV videosu oxumur: ${bad}`);
+  assert.ok(!read(".github/scripts/pipeline.sh").includes("video-arxiv"), "xəbər axınına toxunulmur");
   const sv = read(".github/workflows/sosial-video.yml");
+  assert.match(sv, /git fetch -q --depth 1 origin video-arxiv/);
+  assert.match(sv, /VIDEO_ARXIV_FAYL=/);
   assert.match(sv, /data\/video-arxiv\.json/);
   assert.match(sv, /\.github\/scripts\/video-arxiv\.cjs/);
-  assert.match(read(".github/scripts/sosial-video.cjs"), /arxiv: VA\.yukle\(VA\.FAYL/);
+  assert.match(read(".github/scripts/sosial-video.cjs"), /arxiv: VA\.kitabxana\(process\.env, console\.log\)/);
+  const src = read(".github/scripts/video-arxiv.cjs");
+  for (const bad of ["reels.json", "oz_x.json", "video.twimg.com", "youtube.com/watch"]) assert.ok(!src.includes(bad), `arxiv X/TV videosu oxumur: ${bad}`);
   assert.match(read("docs/sosial-video.md"), /## Video arxivi/);
+  // Kitabxana: budağın nüsxəsi + başlanğıc nüsxənin yeni klipləri; budaqda rədd/silinmiş klip geri qayıtmır; budaq oxunmasa başlanğıc nüsxə.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "arxiv-budaq-")), file = path.join(dir, "video-arxiv.json");
+  fs.writeFileSync(file, JSON.stringify({ klipler: [LIB[2], LIB[0]], redd: { "pixabay-103": "2026-11-23 bankda silinib" } }));
+  const seed = VA.oxu(VA.FAYL), logs = [];
+  const got = VA.kitabxana({ VIDEO_ARXIV_FAYL: file }, x => logs.push(x)).map(e => e.id);
+  assert.ok(got.includes("pixabay-102") && got.includes("sahib-gence-stadion"));
+  for (const e of seed.klipler) assert.ok(got.includes(e.id) || e.id === "pixabay-103", `başlanğıc nüsxənin klipi ${e.id}`);
+  const lib = VA.birlesdir(VA.oxu(file), { klipler: [LIB[3], LIB[4], sahibE("x.mp4", ["Baku", "Azerbaijan"])], redd: {} });
+  assert.deepEqual(lib.klipler.map(e => e.id), ["pixabay-102", "sahib-gence-stadion", "pixabay-104"], "rədd edilən və sahibin (Release-siz) klipi qoşulmur");
+  fs.writeFileSync(file, "{pozulub");
+  assert.deepEqual(VA.kitabxana({ VIDEO_ARXIV_FAYL: file }, x => logs.push(x)).map(e => e.id), VA.yukle(VA.FAYL).map(e => e.id));
+  assert.ok(logs.some(x => /budağının nüsxəsi oxunmadı/.test(x)));
+  assert.deepEqual(VA.kitabxana({}).map(e => e.id), VA.yukle(VA.FAYL).map(e => e.id));
+  fs.rmSync(dir, { recursive: true, force: true });
 });

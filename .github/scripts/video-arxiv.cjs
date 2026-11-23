@@ -1,7 +1,8 @@
 // 8ulduz.az-ın öz video arxivi. Sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır.
 // digərləri də belə». Xəbər və hava videosunda görüntü xəbərin həqiqi yerindən olsun.
 //
-// Kitabxana: data/video-arxiv.json — yalnız metadata (klip faylı repoya yazılmır, repo-olcu.yml). Hər klipin yeri iki ayrı sübutla
+// Kitabxana: tarixçəsiz «video-arxiv» budağında video-arxiv.json (başlanğıc nüsxə: data/video-arxiv.json, PR ilə) — yalnız metadata
+// (klip faylı repoya yazılmır, repo-olcu.yml). Hər klipin yeri iki ayrı sübutla
 // təsdiqlənib: (1) bankın etiketində yerin adı, (2) klipin 4 kadrına Gemini-nin multimodal baxışı (etiketsiz: «kadrda nə görürsən»).
 // Su nişanı, telekanal nişanı, titr və başqa ölkənin bayrağı olan klip, separatçı adla etiketlənmiş klip qəbul olunmur.
 // İki növ klip:
@@ -19,7 +20,7 @@
 // eyni axtarış 30 gündə bir, bir işdə ≤25 axtarış və ≤20 yoxlama, kitabxana ≤400 klip (redaktə seçimidir, bankın nüsxəsi deyil),
 // yoxlama üçün yalnız ən kiçik nüsxə (tiny, ~1–3 MB) bir dəfə yüklənir və silinir.
 //
-//   node video-arxiv.cjs yoxla [fayl]                     kitabxananın sxemi (CI)
+//   node video-arxiv.cjs yoxla [fayl]                     kitabxananın sxemi (CI); fayl — budağın nüsxəsi, yoxdursa data/video-arxiv.json
 //   node video-arxiv.cjs boyut [fayl] [--say N] [--kadr qovluq]   yeni klip axtarır, yoxlayır, əlavə edir; köhnələrin bankda olduğunu yoxlayır
 //   node video-arxiv.cjs sahib [fayl] [--kadr qovluq]     Release «video-arxiv»-dəki sahib görüntülərini qeyd edir / silir
 // Açarlar: PIXABAY_API_KEY (ünvanda; ünvan jurnala yazılmır), PEXELS_API_KEY (başlıqda), GEMINI_API_KEY, GITHUB_TOKEN (Release).
@@ -29,21 +30,23 @@ const fs = require("fs"), path = require("path"), os = require("os"), cp = requi
 const VS = require("./video-ssenari.cjs");
 
 const ROOT = path.resolve(__dirname, "../..");
+// Kitabxana main-dən kənardadır: tarixçəsiz «video-arxiv» budağında video-arxiv.json (video-arxiv.yml yazır, hər yazı valideynsiz bir
+// commit — .github/scripts/arxiv.cjs kimi). Repodakı data/video-arxiv.json yalnız PR ilə gələn başlanğıc nüsxədir: budaq ilk dəfə ondan
+// yaranır, budaq oxunmasa montaj ona düşür. Sahibin birbaşa main-ə yazma icazəsi yalnız X yazıcısının növbə faylı üçündür.
 const FAYL = path.join(ROOT, "data/video-arxiv.json");
+const BUDAQ = "video-arxiv", BUDAQ_FAYL = "video-arxiv.json";
 const REPO = "8ulduz/8ulduz", RELEASE = "video-arxiv";
 const SAHIB_URL = `https://github.com/${REPO}/releases/download/${RELEASE}/`;
-const ARXIV_MAX = 400, BOYUT_SAY = 20, SORGU_MAX = 25, SORGU_KLIP = 3, AXTARIS_GUN = 30, REDD_GUN = 180, REDD_MAX = 3000, BAXIS_SAY = 15;
+// SORGU_TAVAN: əl ilə ilk doldurmada (--sorgu) belə bir işdə ən çox 60 axtarış (Pixabay: dəqiqədə 100, «çoxlu avtomatik sorğu» yox).
+const ARXIV_MAX = 400, BOYUT_SAY = 20, SORGU_MAX = 25, SORGU_TAVAN = 60, SORGU_KLIP = 5, AXTARIS_GUN = 30, REDD_GUN = 180, REDD_MAX = 3000, BAXIS_SAY = 15;
 const SEHER_MAX = { baku: 120 }, SEHER_MAX_DIGER = 30;
 const ARXIV_NAMIZED = 6;   // montajda bir videoya ən çox 6 arxiv namizədi (hər biri bankda bir ID sorğusu)
 const EMINLIK_MIN = 0.75, OBYEKT_EMINLIK = 0.85, KEYFIYYET_MIN = 3, SAHIB_KEYFIYYET_MIN = 2, MUDDET_MIN = 5, SAHIB_MUDDET_MIN = 3, SAHIB_OLCU_MIN = 720;
 const KICIK_MAX_BYTES = 30e6, SAHIB_MAX_BYTES = 300e6;
 const LISENZIYA = { Pixabay: "Pixabay Content License — https://pixabay.com/service/license-summary/", Pexels: "Pexels License — https://www.pexels.com/license/" };
 const ICAZE = { "oz-cekilis": "Saytın öz çəkilişi", "yazili-icaze": "Müəllifin yazılı icazəsi" };
+// Klipin havası (yoxlamada Gemini yazır). Hava videosu sabahkı Bakı halına uyğun havaları verir (video-hava.cjs arxivSecim).
 const HAVA = ["gunesli", "buludlu", "yagisli", "qarli", "dumanli", "gece", "qapali", "bilinmir"];
-// Hava videosu (video-hava.cjs p.baki.kind) → arxiv klipinin havası. Gecə klipi sabahkı gündüz proqnozuna getmir.
-const HAVA_UYGUN = { acik: ["gunesli"], esasen: ["gunesli"], qismen: ["gunesli", "buludlu"], deyisken: ["gunesli", "buludlu"], bulud: ["buludlu"],
-  duman: ["dumanli"], ciskin: ["yagisli"], yagis: ["yagisli"], arabir: ["yagisli"], gucluyagis: ["yagisli"], leysan: ["yagisli"], dondurucu: ["yagisli"],
-  ildirim: ["yagisli"], dolu: ["yagisli"], qar: ["qarli"], arabirqar: ["qarli"], gucluqar: ["qarli"] };
 const clean = s => String(s ?? "").replace(/\s+/g, " ").trim();
 const gun = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
 const yasGun = (d, now = Date.now()) => (Date.parse(d) ? (now - Date.parse(d)) / 86400e3 : Infinity);
@@ -161,17 +164,38 @@ function oxu(file = FAYL) {
   return { haqqinda: j.haqqinda || HAQQINDA, v: 1, yenilendi: j.yenilendi || "", klipler: Array.isArray(j.klipler) ? j.klipler : [],
     redd: j.redd && typeof j.redd === "object" ? j.redd : {}, axtaris: j.axtaris && typeof j.axtaris === "object" ? j.axtaris : {} };
 }
-// Montaj üçün: yalnız sxemdən keçən kliplər (fayl yoxdursa və ya pozulubsa boş siyahı — video adi axtarışla davam edir).
-function yukle(file = FAYL, log = () => {}) {
-  const lib = oxu(file), ids = new Set(), out = [];
-  for (const e of lib.klipler) {
-    const why = kecerli(e) || (ids.has(e.id) ? "təkrar id" : "");
+// Başlanğıc nüsxənin budaqda olmayan bank klipləri budağa qoşulur (PR ilə gələn yeni əl seçimi). Budağın rədd siyahısındakı (bankda
+// silinib, yoxlamadan keçmədi) klip qoşulmur. Sahibin klipləri yalnız Release-dən gəlir (başlanğıc nüsxədən götürülmür).
+function birlesdir(lib, seed) {
+  const ids = new Set(lib.klipler.map(e => e?.id));
+  for (const e of seed.klipler || []) if (e?.id && e.menbe !== "Sahib" && !ids.has(e.id) && !lib.redd[e.id]) { lib.klipler.push(e); ids.add(e.id); }
+  for (const [k, v] of Object.entries(seed.redd || {})) if (!lib.redd[k]) lib.redd[k] = v;
+  return lib;
+}
+// Sxemdən keçən kliplər (pozulmuş və təkrar sətir jurnala yazılıb atılır).
+function gecerliler(list, log = () => {}) {
+  const ids = new Set(), out = [];
+  for (const e of list) {
+    const why = kecerli(e) || (ids.has(e?.id) ? "təkrar id" : "");
     if (why) { log(`video: arxiv sətri atıldı — ${e?.id || "?"}: ${why}`); continue; }
     ids.add(e.id); out.push(e);
   }
   return out;
 }
-const HAQQINDA = "8ulduz.az video arxivi: yeri kadrlarla yoxlanmış kliplərin metadatası (fayl yoxdur). Yazan: .github/workflows/video-arxiv.yml. Qaydalar: docs/sosial-video.md «Video arxivi».";
+// Bir faylın klipləri (fayl yoxdursa və ya pozulubsa boş siyahı — video adi axtarışla davam edir).
+const yukle = (file = FAYL, log = () => {}) => gecerliler(oxu(file).klipler, log);
+// Montajın kitabxanası: budağın nüsxəsi (VIDEO_ARXIV_FAYL — sosial-video.yml «video-arxiv» budağından endirir) + başlanğıc nüsxə;
+// budaq oxunmasa yalnız başlanğıc nüsxə (data/video-arxiv.json).
+function kitabxana(env = process.env, log = () => {}) {
+  const p = clean(env.VIDEO_ARXIV_FAYL);
+  let lib = null;
+  if (p) { try { if (Array.isArray(JSON.parse(fs.readFileSync(p, "utf8"))?.klipler)) lib = oxu(p); } catch {} }
+  if (p && !lib) log("video: video-arxiv budağının nüsxəsi oxunmadı — repodakı başlanğıc nüsxə");
+  const list = gecerliler((lib ? birlesdir(lib, oxu(FAYL)) : oxu(FAYL)).klipler, log);
+  log(`video: arxivdə ${list.length} klip (${lib ? "video-arxiv budağı" : "başlanğıc nüsxə"})`);
+  return list;
+}
+const HAQQINDA = "8ulduz.az video arxivi: yeri kadrlarla yoxlanmış kliplərin metadatası (fayl yoxdur). Yazan: .github/workflows/video-arxiv.yml («video-arxiv» budağı; data/video-arxiv.json — başlanğıc nüsxə). Qaydalar: docs/sosial-video.md «Video arxivi».";
 // Sabit sıra (şəhər, obyekt, id) və bir klip bir sətir: fərq oxunaqlı olsun.
 function yaz(lib, file = FAYL, now = Date.now()) {
   const sira = (a, b) => (a.menbe === "Sahib") - (b.menbe === "Sahib") || String(a.seher).localeCompare(String(b.seher)) || String(a.obyekt).localeCompare(String(b.obyekt)) || a.id.localeCompare(b.id);
@@ -187,11 +211,11 @@ function yaz(lib, file = FAYL, now = Date.now()) {
 
 // --- Montaj: xəbərin yerinə uyğun arxiv klipləri -----------------------------------------------------------------------------------
 // yer: xəbərin yerləri (Gemini, dəqiqdən ümumiyə), icaze: xəbərə aid yer adları (yerPlan), axtar: montaj ifadələri (mövzu üçün),
-// istifade: son günlərdə işlənmiş kliplər («Pixabay:123», «Sahib:sahib-…»), hava: hava videosunun halı, menfi: mənfi xəbər.
+// istifade: son günlərdə işlənmiş kliplər («Pixabay:123», «Sahib:sahib-…»), hava: icazəli havalar (hava videosu), menfi: mənfi xəbər.
 // Nəticə: [{ e, level: obyekt | seher | olke, score, ilk }] — ilk: redaktordan asılı olmadan başlıq kadrı (dəqiq obyekt, ən çox 2; yoxdursa
 // şəhərin ən yaxşı klipi, mənfi xəbər deyilsə).
 const acar = e => `${e.menbe}:${e.menbe === "Sahib" ? e.id : e.menbeId}`;
-function namizedler(lib, { yer = [], icaze = null, axtar = [], istifade = new Set(), hava = "", menfi: neg = false } = {}) {
+function namizedler(lib, { yer = [], icaze = null, axtar = [], istifade = new Set(), hava = null, menfi: neg = false } = {}) {
   const names = VS.places(yer).map(n => clean(n)), P = VS.yerPlan(names);
   const ic = icaze && icaze.size ? icaze : P.icaze;
   if (!ic.size || !(lib || []).length) return [];
@@ -199,7 +223,7 @@ function namizedler(lib, { yer = [], icaze = null, axtar = [], istifade = new Se
   for (const n of names.map(x => VS.lat(norm(x)))) if (VS.SEHERLER.includes(n)) { seherler.add(n); (VS.LAQEB[n] || []).forEach(x => seherler.add(x)); }
   const obj = names.filter(n => !isYerAdi(norm(n)));
   const want = new Set(VS.queries(axtar).flatMap(q => q.split(" ")).filter(w => w.length > 2 && !YER_ADI.has(w)));
-  const hv = hava ? (HAVA_UYGUN[hava] || ["gunesli", "buludlu"]) : null;
+  const hv = Array.isArray(hava) && hava.length ? hava : null;
   const out = [];
   for (const e of lib || []) {
     if (istifade.has(acar(e))) continue;
@@ -214,7 +238,8 @@ function namizedler(lib, { yer = [], icaze = null, axtar = [], istifade = new Se
       : umumi || (!seherler.size && e.seher && ic.has(e.seher)) ? "olke" : "";
     if (!level) continue;
     const movzu = new Set([...(e.movzu || []), ...obySoz(e.obyekt || "")].flatMap(m => VS.lat(m).split(" ")));
-    const score = { obyekt: 100, seher: 50, olke: 10 }[level] + (e.menbe === "Sahib" ? 40 : 0) + 4 * [...want].filter(w => movzu.has(w)).length + Number(e.keyfiyyet || 3);
+    const score = { obyekt: 100, seher: 50, olke: 10 }[level] + (e.menbe === "Sahib" ? 40 : 0) + 4 * [...want].filter(w => movzu.has(w)).length + Number(e.keyfiyyet || 3)
+      - (e.rengli === false ? 15 : 0);   // ağ-qara klip arxada qalır: rəngli uyğun klip yoxdursa seçilir
     out.push({ e, level, score, ilk: false });
   }
   out.sort((a, b) => b.score - a.score || a.e.id.localeCompare(b.e.id));
@@ -386,13 +411,17 @@ function vereq(files, out) {
 
 // --- Gemini: kadrlara baxış ---------------------------------------------------------------------------------------------------------
 // Etiket verilmir: model yalnız kadrda gördüyünü deyir (etiket ayrıca, kodla yoxlanır — iki müstəqil sübut). gorunen_yer əvvəl gəlir.
+// Şəhər və obyekt ayrıca soruşulur (2026-11-23 ilk iş: «İçərişəhər» axtarışında Heydər Əliyev Mərkəzinin klipi «yer təsdiqlənmədi» ilə
+// rədd olunmuşdu, bulvarın gecə panoraması isə etiketə görə «İçərişəhər» yazılmışdı).
 const YOXLA = `Sən 8ulduz.az xəbər saytının video arxivinin yoxlayıcısısan. Aşağıda video bankından bir klipin {n} kadrı var (klipin
-əvvəlindən sonuna). Gözlənilən yer: {yer}{adlar}. Yalnız kadrlarda GÖRDÜYÜNƏ əsaslan. Əmin deyilsənsə yer_dogru: false.
+əvvəlindən sonuna). Gözlənilən şəhər: {seher}. Gözlənilən obyekt: {obyekt}. Yalnız kadrlarda GÖRDÜYÜNƏ əsaslan, əmin deyilsənsə false.
 - gorunen_yer: kadrda gördüyün yer ingiliscə ("Baku, Azerbaijan", "Batumi, Georgia", "Dubai, UAE"); tanınmırsa "unknown".
-- yer_dogru: kadrda məhz gözlənilən yer görünür (tanınan bina, panorama, abidə, küçə, lövhə və yazının dili). Ümumi dağ, meşə, yol,
-  göy, dəniz — yer tanınmır: false. Gözlənilən yer obyektdirsə (bina, stadion, qala), həmin obyekt kadrda görünməlidir.
-- obyekt: kadrda tanınan bina və ya yer ingiliscə ("Flame Towers", "Baku Boulevard", "Maiden Tower", "Sheki Khan Palace"); yoxdursa "".
-- eminlik: 0..1.
+- seher_dogru: kadrda məhz {seher} görünür (tanınan panorama, bina, abidə, küçə, sahil, lövhə və yazının dili). Ümumi dağ, meşə, yol,
+  göy, dəniz — yer tanınmır: false.
+- obyekt: kadrda tanınan bina və ya yer ingiliscə ("Flame Towers", "Baku Boulevard", "Heydar Aliyev Center", "Maiden Tower"); yoxdursa "".
+- obyekt_gorunur: gözlənilən obyekt kadrda aydın görünür (obyekt «—»-dirsə false).
+- eminlik: seher_dogru-ya əminlik, 0..1.
+- rengli: kadr adi rənglidir (ağ-qara və ya bir rəngə boyanmış deyil).
 - su_nisani: kadrın üstündə loqo, su nişanı, telekanal nişanı, titr, ekran yazısı, sosial şəbəkə adı, tarix və ya saat yazısı varmı
   (binadakı adi lövhə və reklam sayılmır).
 - siyasi: başqa ölkənin dövlət bayrağı, separatçı simvol, partiya plakatı, siyasi şüar varmı (Azərbaycan bayrağı sayılmır).
@@ -401,8 +430,8 @@ const YOXLA = `Sən 8ulduz.az xəbər saytının video arxivinin yoxlayıcısıs
 - movzu: 2–5 ingiliscə səhnə sözü (skyline, boulevard, sea, traffic, old town, stadium, mountains, aerial, night, metro, park).
 - keyfiyyet: 1–5 (kəskinlik, sabitlik, işıq; 3 — adi, 5 — əla).
 - izah: bir cümlə azərbaycanca: kadrda nə görünür və yer hansı əlamətdən tanınır.
-Yalnız JSON qaytar: {"gorunen_yer": "...", "yer_dogru": true, "obyekt": "...", "eminlik": 0.9, "su_nisani": false, "siyasi": false,
-"insan": false, "hava": "...", "movzu": ["..."], "keyfiyyet": 4, "izah": "..."}`;
+Yalnız JSON qaytar: {"gorunen_yer": "...", "seher_dogru": true, "obyekt": "...", "obyekt_gorunur": false, "eminlik": 0.9, "rengli": true,
+"su_nisani": false, "siyasi": false, "insan": false, "hava": "...", "movzu": ["..."], "keyfiyyet": 4, "izah": "..."}`;
 // Sahibin görüntüsü: yer sahibin sözüdür; yoxlanan — başqasının görüntüsünün əlaməti (nişan, titr, ekran yazısı) və yerin açıq ziddiyyəti.
 const SAHIB_YOXLA = `Sən 8ulduz.az xəbər saytının video arxivinin yoxlayıcısısan. Saytın sahibi bu klipi öz çəkilişi və ya icazəli
 görüntü kimi əlavə edib, yeri belə yazıb: «{yer}». Aşağıda klipin {n} kadrı var. Yalnız kadrlarda GÖRDÜYÜNƏ əsaslan.
@@ -487,7 +516,7 @@ const sehifeId = (menbe, id) => `${menbe.toLowerCase()}-${id}`;
 
 // --- Böyütmə: yeni klip axtarışı və yoxlanması --------------------------------------------------------------------------------------
 // deps (testdə saxta): kadrlar(url) → { jpg, gray }, baxis(prompt, jpg) → Gemini cavabı | null, zolaq(jpg, out, label).
-async function boyut(lib, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = BOYUT_SAY, now = Date.now(), kadrDir = "", deps = {} } = {}) {
+async function boyut(lib, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = BOYUT_SAY, sorgu = SORGU_MAX, now = Date.now(), kadrDir = "", deps = {} } = {}) {
   const rep = { elave: [], redd: [], silindi: [], axtaris: 0, yoxlandi: 0, dayandi: "" };
   const banks = Object.entries(BANK).filter(([, b]) => env[b.env]);
   if (!banks.length) { log("arxiv: bank açarı yoxdur (PIXABAY_API_KEY, PEXELS_API_KEY) — heç nə edilmir"); rep.dayandi = "açar yoxdur"; return rep; }
@@ -504,7 +533,7 @@ async function boyut(lib, { env = process.env, fetch: f = globalThis.fetch, log 
   const banka = lib.klipler.filter(e => e.menbe !== "Sahib" && env[BANK[e.menbe]?.env]).sort((a, b) => String(a.baxildi || "").localeCompare(String(b.baxildi || ""))).slice(0, BAXIS_SAY);
   for (const e of banka) {
     const r = await BANK[e.menbe].byId(e.menbeId, env[BANK[e.menbe].env], f).catch(() => null);
-    if (r?.yox) { lib.klipler = lib.klipler.filter(x => x !== e); rep.silindi.push(e.id); log(`arxiv: ${e.id} bankda yoxdur — arxivdən çıxdı`); }
+    if (r?.yox) { lib.klipler = lib.klipler.filter(x => x !== e); lib.redd[e.id] = `${today} bankda silinib`; rep.silindi.push(e.id); log(`arxiv: ${e.id} bankda yoxdur — arxivdən çıxdı`); }
     else if (r?.hit) e.baxildi = today;
   }
   // 2) Axtarış: planın 30 gündə soruşulmamış ifadələri, əvvəl heç soruşulmamışlar; yerlər növbə ilə (hər yerdən bir ifadə).
@@ -517,14 +546,14 @@ async function boyut(lib, { env = process.env, fetch: f = globalThis.fetch, log 
   queue.sort((a, b) => (lib.axtaris[a.k] ? 1 : 0) - (lib.axtaris[b.k] ? 1 : 0));
   const cand = [];
   for (const it of queue) {
-    if (rep.axtaris >= SORGU_MAX || cand.length >= say || lib.klipler.length + cand.length >= ARXIV_MAX) break;
+    if (rep.axtaris >= Math.min(sorgu, SORGU_TAVAN) || cand.length >= say || lib.klipler.length + cand.length >= ARXIV_MAX) break;
     const s = seherOf(it.p.yer);
     if (s && seherSay(s) >= (SEHER_MAX[s] || SEHER_MAX_DIGER)) continue;
     const b = BANK[it.bn], hits = await b.search(it.q, env[b.env], f);
     rep.axtaris++;
     if (!hits) { log(`arxiv: «${it.q}» ${it.bn} axtarışı alınmadı`); continue; }
     lib.axtaris[it.k] = today;
-    const ic = VS.yerPlan(it.p.yer).icaze, teq = planTeq(it.p);
+    const ic = VS.yerPlan(it.p.yer).icaze, teq = planTeq(it.p), sayac = { sub: 0 };
     let k = 0;
     for (const v of hits) {
       if (k >= SORGU_KLIP || cand.length >= say) break;
@@ -535,15 +564,18 @@ async function boyut(lib, { env = process.env, fetch: f = globalThis.fetch, log 
       if (SES_KUY.test(desc)) continue;
       if (SIYASI.test(desc)) { red("siyasi/separatçı etiket"); continue; }
       if (!(Number(v.duration) >= MUDDET_MIN) || !b.olcu(v)) continue;
+      // Etiketdə yer yoxdursa sübut yoxdur: bankın axtarışı uyğun olmayanda başqa ölkənin klipini də qaytarır — belələri yazılmır.
+      const sub = teq.filter(t => VS.hasName(desc, t));
+      if (!sub.length) continue;
+      sayac.sub++;
       const yad = VS.yadYer(desc, ic);
       if (yad) { red(`başqa yer etiketdə (${yad})`); continue; }
-      const sub = teq.filter(t => VS.hasName(desc, t));
-      if (!sub.length) continue;   // etiketdə yer yoxdur: sübut yoxdur (rədd yazılmır — başqa yerin axtarışında çıxa bilər)
       const url = b.kicik(v);
       if (!url) continue;
       cand.push({ id, v, b, bn: it.bn, plan: it.p, q: it.q, sub, url, ic });
       k++;
     }
+    log(`arxiv: «${it.q}» ${it.bn} — ${hits.length} nəticə, ${sayac.sub} yer sübutlu, ${k} yeni namizəd`);
   }
   log(`arxiv: ${rep.axtaris} axtarış, ${cand.length} namizəd yoxlanacaq`);
   // 3) Yoxlama: kadrlar → statik üst qat → Gemini (etiketsiz). Gemini cavab vermirsə dayanır (növbəti iş davam edir).
@@ -553,8 +585,9 @@ async function boyut(lib, { env = process.env, fetch: f = globalThis.fetch, log 
     try { kd = await getKadr(c.url, c.v.duration, ...(c.b.olcu(c.v) || [])); } catch (e) { log(`arxiv: ${c.id} kadrlar alınmadı — ${String(e?.message || e).slice(0, 120)}`); continue; }
     if (!kd?.jpg?.length) continue;
     const st = kd.gray ? statikQat(kd.gray.frames, kd.gray.w, kd.gray.h) : { qerar: "bilinmir" };
-    const obyekt = obyektOf(c.plan.yer);
-    const prompt = YOXLA.replace("{n}", String(kd.jpg.length)).replace("{yer}", c.plan.yer.join(", ")).replace("{adlar}", c.plan.adlar?.length ? ` (${c.plan.adlar.join(", ")})` : "");
+    const obyekt = obyektOf(c.plan.yer), sAd = c.plan.yer.slice(obyekt ? 1 : 0).join(", ");
+    const prompt = YOXLA.replace("{n}", String(kd.jpg.length)).replace(/\{seher\}/g, sAd)
+      .replace("{obyekt}", obyekt ? `${obyekt}${c.plan.adlar?.length ? ` (${c.plan.adlar.join(", ")})` : ""}` : "—");
     let v = null;
     if (st.qerar !== "nisan") {
       v = await look(prompt, kd.jpg);
@@ -565,21 +598,21 @@ async function boyut(lib, { env = process.env, fetch: f = globalThis.fetch, log 
     const label = `${why ? "RƏDD" : "QƏBUL"} ${c.id} · ${c.plan.yer[0]} · ${why || `${v.obyekt || v.gorunen_yer} ${v.eminlik}`}`;
     if (kadrDir) { fs.mkdirSync(kadrDir, { recursive: true }); strip(kd.jpg, path.join(kadrDir, `${why ? "redd" : "qebul"}-${c.id}.jpg`), label); }
     if (why) { lib.redd[c.id] = `${today} ${why}`; rep.redd.push({ id: c.id, q: c.q, why, izah: clean(v?.izah).slice(0, 200) }); log(`arxiv: rədd — ${c.id} «${c.q}»: ${why}`); continue; }
-    // Obyekt: plan obyekt axtarırdısa və etiket obyekti adlandırırsa, ya da Gemini obyekti çox əmin tanıyırsa. Şəhər ifadəsində Gemini
-    // planın başqa obyektini tanıyıbsa (məsələn «baku skyline»-da Alov qüllələri) — həmin obyekt.
+    // Obyekt yalnız Gemini onu kadrda görəndə: planın obyekti görünür (adı başqa deyil) və etiket də onu adlandırır və ya Gemini çox
+    // əmindir (≥ 0,9). Yoxsa Gemini planın başqa obyektini tanıyıbsa (≥ 0,85: «İçərişəhər» axtarışında Heydər Əliyev Mərkəzi) — o obyekt;
+    // heç biri deyilsə klip şəhər səviyyəsində qalır.
     let yer = c.plan.yer, adlar = c.plan.adlar || [];
     const objTeq = (c.plan.teq || []).some(t => VS.hasName(VS.lat(c.b.teqler(c.v)), VS.lat(t)));
-    const gObj = clean(v.obyekt);
-    if (obyekt && !(objTeq || (gObj && obyektUygun(gObj, obyekt) && Number(v.eminlik) >= OBYEKT_EMINLIK))) {
-      yer = c.plan.yer.slice(1); adlar = [];   // obyekt təsdiqlənmədi: klip şəhər səviyyəsində qalır
-    } else if (!obyekt && gObj && Number(v.eminlik) >= OBYEKT_EMINLIK) {
-      const p2 = PLAN.find(p => obyektOf(p.yer) && seherOf(p.yer) === seherOf(c.plan.yer) && [obyektOf(p.yer), ...(p.adlar || [])].some(a => obyektUygun(a, gObj)));
-      if (p2) { yer = p2.yer; adlar = p2.adlar || []; }
-    }
+    const gObj = clean(v.obyekt), em = Number(v.eminlik) || 0;
+    const p2 = gObj && em >= OBYEKT_EMINLIK ? PLAN.find(p => obyektOf(p.yer) && seherOf(p.yer) === seherOf(c.plan.yer)
+      && [obyektOf(p.yer), ...(p.adlar || [])].some(a => obyektUygun(a, gObj))) : null;
+    const planObj = obyekt && v.obyekt_gorunur === true && (!gObj || [obyekt, ...(c.plan.adlar || [])].some(a => obyektUygun(a, gObj))) && (objTeq || em >= 0.9);
+    if (obyekt && !planObj) { yer = p2 ? p2.yer : c.plan.yer.slice(1); adlar = p2 ? p2.adlar || [] : []; }
+    else if (!obyekt && p2) { yer = p2.yer; adlar = p2.adlar || []; }
     const [w, h] = c.b.olcu(c.v);
     const e = { id: c.id, menbe: c.bn, menbeId: Number(c.v.id), sehife: c.b.sehife(c.v), muellifId: c.b.muellif(c.v), lisenziya: LISENZIYA[c.bn],
       yer, seher: seherOf(yer), obyekt: obyektOf(yer), adlar, movzu: (Array.isArray(v.movzu) ? v.movzu : []).map(x => VS.lat(x)).filter(Boolean).slice(0, 5),
-      hava: HAVA.includes(v.hava) ? v.hava : "bilinmir", insan: v.insan === true, olcu: [w, h], muddet: Math.round(Number(c.v.duration) || 0),
+      hava: HAVA.includes(v.hava) ? v.hava : "bilinmir", insan: v.insan === true, rengli: v.rengli !== false, olcu: [w, h], muddet: Math.round(Number(c.v.duration) || 0),
       keyfiyyet: Math.max(1, Math.min(5, Math.round(Number(v.keyfiyyet) || 3))),
       yoxlama: { tarix: today, model: v._model || "gemini", kadr: kd.jpg.length, teq: c.sub, eminlik: r2(Number(v.eminlik) || 0), gorunen: clean(v.gorunen_yer).slice(0, 80),
         ...(gObj ? { obyekt: gObj.slice(0, 80) } : {}), izah: clean(v.izah).slice(0, 240), statik: st.qerar }, baxildi: today };
@@ -597,7 +630,7 @@ function qerar(v, ic) {
   if (!v || v._xeta) return `cavab ${v?._xeta || "yoxdur"}`;
   if (v.su_nisani === true) return "su nişanı və ya ekran yazısı";
   if (v.siyasi === true) return "siyasi simvol";
-  if (v.yer_dogru !== true) return `yer təsdiqlənmədi (${clean(v.gorunen_yer) || "?"})`;
+  if (v.seher_dogru !== true) return `yer təsdiqlənmədi (${clean(v.gorunen_yer) || "?"})`;
   if (!(Number(v.eminlik) >= EMINLIK_MIN)) return `əminlik ${v.eminlik}`;
   const yad = VS.yadYer(`${clean(v.gorunen_yer)} ${clean(v.obyekt)}`, ic);
   if (yad) return `kadrda başqa yer (${yad})`;
@@ -765,8 +798,9 @@ async function main() {
     return;
   }
   if (cmd === "boyut" || cmd === "sahib") {
-    const lib = oxu(file);
-    const rep = cmd === "boyut" ? await boyut(lib, { say: Number(opt("--say", BOYUT_SAY)) || BOYUT_SAY, kadrDir }) : await sahib(lib, { kadrDir });
+    // Budağın nüsxəsi yoxdursa (ilk iş) başlanğıc nüsxədən başlanır; varsa başlanğıc nüsxənin yeni klipləri qoşulur.
+    const lib = file === FAYL ? oxu(FAYL) : fs.existsSync(file) ? birlesdir(oxu(file), oxu(FAYL)) : oxu(FAYL);
+    const rep = cmd === "boyut" ? await boyut(lib, { say: Math.min(60, Number(opt("--say", BOYUT_SAY)) || BOYUT_SAY), sorgu: Number(opt("--sorgu", SORGU_MAX)) || SORGU_MAX, kadrDir }) : await sahib(lib, { kadrDir });
     yaz(lib, file);
     sheets(kadrDir);
     summary(xulase(cmd === "boyut" ? "Video arxivi: yeni kliplər" : "Video arxivi: saytın öz görüntüləri", rep, lib.klipler));
@@ -777,7 +811,7 @@ async function main() {
   process.exitCode = 2;
 }
 
-module.exports = { FAYL, PLAN, BANK, LISENZIYA, ICAZE, HAVA_UYGUN, SAHIB_URL, ARXIV_MAX, ARXIV_NAMIZED, QADAGAN, SIYASI, PLATFORMA,
+module.exports = { FAYL, BUDAQ, BUDAQ_FAYL, kitabxana, birlesdir, PLAN, BANK, LISENZIYA, ICAZE, HAVA, SAHIB_URL, ARXIV_MAX, ARXIV_NAMIZED, QADAGAN, SIYASI, PLATFORMA,
   norm, obyektUygun, menfi, kecerli, oxu, yukle, yaz, namizedler, hazirla, statikQat, boyut, qerar, sahib, sahibSetirleri, sahibId, planTeq,
   seherOf, obyektOf, xulase, YOXLA, SAHIB_YOXLA };
 if (require.main === module) main().catch(e => { console.error(`arxiv: ${String(e?.message || e)}`); process.exitCode = 1; });

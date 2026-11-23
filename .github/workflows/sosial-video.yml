@@ -93,6 +93,18 @@ jobs:
             tests/fixtures/video-xeber.json
             tests/fixtures/video-hava.json
           sparse-checkout-cone-mode: false
+      # Öz video arxivi (video-arxiv.cjs): kitabxana tarixçəsiz «video-arxiv» budağındadır (video-arxiv.yml yazır, main-ə yox).
+      # Oxunmasa montaj repodakı başlanğıc nüsxəyə (data/video-arxiv.json) düşür; video bu addımdan asılı deyil.
+      - name: Video arxivi (video-arxiv budağı)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          if git fetch -q --depth 1 origin video-arxiv 2>/dev/null && git show FETCH_HEAD:video-arxiv.json > "$RUNNER_TEMP/video-arxiv.json"; then
+            echo "VIDEO_ARXIV_FAYL=$RUNNER_TEMP/video-arxiv.json" >> "$GITHUB_ENV"
+            echo "arxiv: video-arxiv budağından"
+          else
+            echo "arxiv: budaq oxunmadı — repodakı başlanğıc nüsxə (data/video-arxiv.json)"
+          fi
       - name: Videoların siyahısı
         if: github.event_name != 'pull_request'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
