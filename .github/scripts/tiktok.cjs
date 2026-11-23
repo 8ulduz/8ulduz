@@ -18,6 +18,16 @@
 // Qırmızı xətt 2: videonun xəbəri (source/sourceUrl, items) saytın öz qaydasından (app.js policyViolation) keçir.
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
 //
+// Yol (docs/tiktok.md «Qərar», 2026-11-23): TikTok yalnız öz hesabına paylaşan tətbiqə Direct Post auditi vermir, ona görə əsas yol
+// qaralamadır (B, video.upload): video TikTok tətbiqinə bildiriş kimi gəlir, sahib görünməni özü seçib dərc edir. TIKTOK_MODE:
+//   auto (standart)  tokendə video.upload varsa və sahibin seçdiyi görünmə (TIKTOK_PRIVACY) birbaşa paylaşımda alınmırsa qaralama;
+//                    yalnız video.publish varsa birbaşa (audit yoxdursa SELF_ONLY); audit keçsə və hesab ictimai olsa birbaşa ictimai
+//   inbox            həmişə qaralama (B)          direct   həmişə birbaşa (A)
+// Birbaşa paylaşımda TikTok-un UX qaydası (Content Sharing Guidelines) serverdə belə gözlənilir: hər videodan əvvəl creator_info;
+// görünmənin standart dəyəri yoxdur (sahib Variables-da özü seçir, seçməyibsə SELF_ONLY və ya qaralama); şərh/duet/stitch yalnız
+// sahib açıb (TIKTOK_INTERACTIONS) və hesab bağlamayıbsa; brend məzmunu bayraqları (Branded content gizli ola bilməz);
+// max_video_post_duration_sec faylın öz uzunluğu ilə; status sorğusu.
+//
 // Açarlar (GitHub Secrets): TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET; istəyə bağlı TIKTOK_REFRESH_TOKEN. Açar yoxdursa sakitcə ötürülür.
 // Token: TikTok sənədində access 24 saat / refresh 365 gün (başqa səhifədə 2 saat / 180 gün) — kod cavabdakı expires_in və
 // refresh_expires_in-i işlədir. Yeniləmə cavabı göndərilənin YERİNƏ yeni refresh token qaytarır: köhnəsinə güvənmək olmaz. Ona görə
@@ -31,7 +41,10 @@ const API = "https://open.tiktokapis.com/v2/";
 const AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
 // Qeydiyyatdakı Redirect URI ilə hərfbəhərf eyni olmalıdır. Skriptsiz statik səhifə: kod ünvan sətrində qalır, statistikaya getmir.
 const REDIRECT = "https://8ulduz.az/haqqinda/";
-const SCOPES = { direct: "user.info.basic,video.publish", inbox: "user.info.basic,video.upload" };
+// auto: tövsiyə olunan B yolunun icazəsi. Tətbiqdə hər iki icazə varsa TIKTOK_SCOPES=user.info.basic,video.publish,video.upload.
+const SCOPES = { direct: "user.info.basic,video.publish", inbox: "user.info.basic,video.upload", auto: "user.info.basic,video.upload" };
+const PRIVACY = ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY"];
+const INTERACTIONS = ["comment", "duet", "stitch"];
 // Media transfer guide: 5–64 MB hissə (sonuncu ≤128 MB), 64 MB-a qədər fayl bir hissədə; hissə sayı = floor(ölçü / hissə).
 const MB = 1e6, SINGLE_MAX = 64 * MB, CHUNK = 10 * MB, MAX_SIZE = 4e9;
 const TITLE_MAX = 2200;            // post_info.title: 2200 UTF-16 simvol
@@ -42,6 +55,13 @@ const MARK = Buffer.from("8ulduz.az");
 const FOREIGN_VIDEO = /(^|\.)(twimg\.com|twitter\.com|x\.com|youtube\.com|youtu\.be|tiktok\.com|tiktokcdn\.com|instagram\.com|cdninstagram\.com|facebook\.com|fbcdn\.net|fb\.watch|vk\.com|ok\.ru|rutube\.ru|dailymotion\.com|vimeo\.com)$/i;
 const RETRY = new Set(["upload_failed", "internal", "video_pull_failed"]);
 const PENDING = new Set(["init", "uploaded", "PROCESSING_UPLOAD", "PROCESSING_DOWNLOAD"]);
+// Qaralama sahibin tətbiqdə dərc etməsini gözləyir: 24 saat ərzində yenə soruşulur (dərc olunubsa jurnalda görünür).
+const INBOX_WAIT = "SEND_TO_USER_INBOX";
+// Get Post Status «fail_reason»-ları (sahib üçün izah).
+const FAIL = { auth_removed: "hesab tətbiqin icazəsini geri götürüb — yenidən qoşulun", spam_risk_too_many_posts: "hesabın 24 saatlıq API həddi dolub",
+  spam_risk_user_banned_from_posting: "TikTok bu hesaba API ilə paylaşmağı bağlayıb", spam_risk_text: "TikTok mətni spam sayıb", spam_risk: "TikTok spam riski görüb",
+  file_format_check_failed: "video formatı uyğun deyil", duration_check_failed: "uzunluq uyğun deyil", frame_rate_check_failed: "kadr sürəti uyğun deyil",
+  picture_size_check_failed: "kadr ölçüsü uyğun deyil", internal: "TikTok-un daxili xətası, bir dəfə yenə cəhd edilir", publish_cancelled: "paylaşım ləğv edilib" };
 const TRANSIENT = /^(http_5\d\d|http_429|server_error|temporarily_unavailable|rate_limit_exceeded|internal_error)$/;
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
@@ -53,16 +73,25 @@ const sha = b => crypto.createHash("sha256").update(b).digest("hex").slice(0, 16
 const titleKey = t => "t:" + sha(clean(t).toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, ""));
 
 function options(env = process.env) {
-  const mode = env.TIKTOK_MODE === "inbox" ? "inbox" : "direct";
+  const mode = ["inbox", "direct"].includes(env.TIKTOK_MODE) ? env.TIKTOK_MODE : "auto";
+  const raw = clean(env.TIKTOK_PRIVACY).toUpperCase();
   return {
     mode,
-    // Audit keçənə qədər TikTok yalnız SELF_ONLY qəbul edir: hesabın seçimlərində (creator_info) yoxdursa SELF_ONLY seçilir.
-    privacy: env.TIKTOK_PRIVACY || "PUBLIC_TO_EVERYONE",
-    // TikTok: hesaba gündə ~15 API postu (bütün tətbiqlər birlikdə); qaralama (inbox) 24 saatda ən çox 5.
+    // TikTok UX qaydası: görünmənin standart dəyəri olmamalıdır. Sahib Variables-da TIKTOK_PRIVACY-ni özü seçir; seçməyibsə (və ya
+    // hesabın creator_info seçimlərində yoxdursa) birbaşa paylaşım SELF_ONLY gedir, auto rejimdə isə qaralama (görünməni tətbiqdə seçir).
+    privacy: PRIVACY.includes(raw) ? raw : "",
+    privacyBad: raw && !PRIVACY.includes(raw) ? raw : "",
+    // Şərh/duet/stitch: heç biri öz-özünə açılmır (UX qaydası), yalnız sahibin açdığı və hesabın bağlamadığı.
+    allow: new Set(String(env.TIKTOK_INTERACTIONS || "").toLowerCase().split(/[\s,;]+/).filter(x => INTERACTIONS.includes(x))),
+    // TikTok: hesaba gündə ~15 API postu (bütün tətbiqlər birlikdə); qaralama (inbox) 24 saatda ən çox 5 (gözləyən).
     maxDay: Math.min(num(env.TIKTOK_MAX_DAY, mode === "inbox" ? 5 : 10), mode === "inbox" ? 5 : 15),
+    maxInbox: Math.min(num(env.TIKTOK_MAX_DAY, 5), 5),
     minGapMin: num(env.TIKTOK_MIN_GAP_MIN, 60),
     maxAgeH: num(env.TIKTOK_MAX_AGE_H, 12),
+    // Kommersiya məzmunu açıqlaması: «Your brand» (öz biznesinin reklamı) və «Branded content» (pullu əməkdaşlıq). Videonun
+    // JSON-u da verə bilər: brandOrganic / brandedContent: true.
     brandOrganic: env.TIKTOK_BRAND_ORGANIC === "1",
+    brandedContent: env.TIKTOK_BRANDED_CONTENT === "1",
     redirect: env.TIKTOK_REDIRECT_URI || REDIRECT,
     pollMs: num(env.TIKTOK_POLL_MS, 6000),   // status: 30 sorğu/dəq
     polls: num(env.TIKTOK_POLLS, 20),
@@ -71,7 +100,7 @@ function options(env = process.env) {
 
 // Sahibin brauzerdə açacağı icazə ünvanı (docs/tiktok.md «Qoşulma»). client_key gizli deyil: TikTok onu ünvanda özü göstərir.
 function authUrl(env = process.env, mode = options(env).mode) {
-  const q = new URLSearchParams({ client_key: env.TIKTOK_CLIENT_KEY || "<CLIENT_KEY>", scope: SCOPES[mode], response_type: "code",
+  const q = new URLSearchParams({ client_key: env.TIKTOK_CLIENT_KEY || "<CLIENT_KEY>", scope: clean(env.TIKTOK_SCOPES).replace(/\s+/g, "") || SCOPES[mode], response_type: "code",
     redirect_uri: options(env).redirect, state: "8ulduz" });
   return `${AUTH_URL}?${q}`;
 }
@@ -148,8 +177,8 @@ async function access(f, env, state, now, ctx, force = false) {
   throw Object.assign(new Error(`${err.message}. TikTok yenidən qoşulmalıdır: docs/tiktok.md «Qoşulma»`), { code: err.code, auth: true });
 }
 
-async function api(f, token, p, body) {
-  const init = { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json; charset=UTF-8" }, signal: AbortSignal.timeout(30000) };
+async function api(f, token, p, body, method = "POST") {
+  const init = { method, headers: { authorization: `Bearer ${token}`, "content-type": "application/json; charset=UTF-8" }, signal: AbortSignal.timeout(30000) };
   if (body !== undefined) init.body = JSON.stringify(body);
   // Şəbəkə xətası atılmır, kod kimi qayıdır: yenilənmiş token (state.auth) hər halda saxlanmalıdır.
   const r = await f(`${API}${p}`, init).catch(e => ({ ok: false, status: 0, text: async () => "", err: e }));
@@ -193,6 +222,20 @@ function policyReason(meta, policy) {
   return "";
 }
 
+// Videonun uzunluğu faylın özündən (mp4 «mvhd» qutusu: timescale + duration): JSON-da duration olmasa da hesabın həddi
+// (max_video_post_duration_sec) yoxlanır. faststart ilə qutu faylın əvvəlindədir, olmasa sonunda axtarılır. Tapılmasa 0.
+function mp4Duration(buf) {
+  for (const part of [buf.subarray(0, 4 * MB), buf.subarray(Math.max(0, buf.length - 4 * MB))]) {
+    const i = part.indexOf("mvhd");
+    if (i < 4) continue;
+    const v1 = part[i + 4] === 1, o = i + (v1 ? 24 : 16);
+    if (o + (v1 ? 12 : 8) > part.length) continue;
+    const scale = part.readUInt32BE(o), d = v1 ? Number(part.readBigUInt64BE(o + 4)) : part.readUInt32BE(o + 4);
+    if (scale > 0 && d > 0) return d / scale;
+  }
+  return 0;
+}
+
 function readVideos(dir) {
   let names = [];
   try { names = fs.readdirSync(dir, { recursive: true }).map(String); } catch { return []; }
@@ -213,6 +256,7 @@ const live = (state, sec) => Object.entries(state.posted || {}).filter(([k, v]) 
 // Status sorğusu: son vəziyyəti state-ə yazır, jurnala bir sətir.
 async function checkStatus(f, token, key, entry, opt, ctx, wait) {
   let st = "", d = {}, raw = "";
+  const old = entry.s;
   for (let i = 0; i < (wait ? opt.polls : 1); i++) {
     if (i) await sleep(opt.pollMs);
     const r = await api(f, token, "post/publish/status/fetch/", { publish_id: entry.p });
@@ -225,9 +269,11 @@ async function checkStatus(f, token, key, entry, opt, ctx, wait) {
   // Post nömrəsi int64-dür (19 rəqəm): JSON.parse onu yuvarlaqlaşdırır, ona görə xam cavabdan oxunur. Sahə adı TikTok-da belədir (sic).
   const id = (String(raw).match(/"publicaly_available_post_id"\s*:\s*\[\s*"?(\d+)/) || [])[1];
   if (id) entry.id = id;
+  // Sonrakı dövrələrdə dərc olunmamış qaralama üçün eyni sətir hər dəfə yazılmır.
+  if (!wait && st === old && st === INBOX_WAIT) return entry.s;
   if (st === "PUBLISH_COMPLETE") ctx.log(`tiktok: paylaşıldı — ${entry.n}${entry.id ? ` (ictimai: https://www.tiktok.com/@${ctx.user || "8ulduz.az"}/video/${entry.id})` : entry.v === "SELF_ONLY" ? " (yalnız hesab sahibinə görünür: SELF_ONLY)" : entry.v === "inbox" ? " (tətbiqdə dərc olundu)" : " (moderasiyadan sonra ictimai olacaq)"}`);
-  else if (st === "SEND_TO_USER_INBOX") ctx.log(`tiktok: qaralama göndərildi — TikTok tətbiqində bildirişə toxunub dərc edin: ${entry.n}`);
-  else if (st === "FAILED") ctx.log(`tiktok: TikTok qəbul etmədi (${reason}) — ${entry.n}`);
+  else if (st === INBOX_WAIT) ctx.log(`tiktok: qaralama göndərildi — TikTok tətbiqində bildirişə toxunun, görünməni («Hamı») seçib dərc edin: ${entry.n}`);
+  else if (st === "FAILED") ctx.log(`tiktok: TikTok qəbul etmədi (${reason}${FAIL[reason] ? ` — ${FAIL[reason]}` : ""}) — ${entry.n}`);
   else ctx.log(`tiktok: hələ emal olunur (${st || "?"}), növbəti dövrədə yoxlanır — ${entry.n}`);
   return entry.s;
 }
@@ -261,7 +307,9 @@ async function run({ videos = [], env = process.env, now = Date.now(), fetch: f 
     list.push({ id, m, buf, at, h, t, name });
   }
   list.sort((x, y) => (y.m.sinaq ? 1 : 0) - (x.m.sinaq ? 1 : 0) || y.at - x.at);
-  const waiting = Object.entries(posted).filter(([k, v]) => !/^[th]:/.test(k) && PENDING.has(v.s) && v.p && sec - v.t < 86400).slice(0, 3);
+  // Emalda olanlar əvvəl, sonra dərc gözləyən ən təzə qaralamalar; dövrədə ən çox 3 status sorğusu.
+  const waiting = Object.entries(posted).filter(([k, v]) => !/^[th]:/.test(k) && (PENDING.has(v.s) || v.s === INBOX_WAIT) && v.p && sec - v.t < 86400)
+    .sort(([, x], [, y]) => (PENDING.has(y.s) - PENDING.has(x.s)) || y.t - x.t).slice(0, 3);
   if (!list.length && !waiting.length) { ctx.log(`tiktok: paylaşılacaq yeni video yoxdur${videos.length ? ` (${videos.length} fayl baxıldı)` : ""}`); return res; }
 
   let auth;
@@ -279,55 +327,101 @@ async function run({ videos = [], env = process.env, now = Date.now(), fetch: f 
   const day = live(state, sec), lastAgo = Math.round((sec - (state.last || 0)) / 60), v = list[0];
   if (day.length >= opt.maxDay) { ctx.log(`tiktok: 24 saatda ${day.length} video getdi (hədd ${opt.maxDay}) — növbəti sonra`); return res; }
   if (!v.m.sinaq && lastAgo < opt.minGapMin) { ctx.log(`tiktok: son video ${lastAgo} dəq əvvəl, növbəti ${opt.minGapMin - lastAgo} dəq sonra`); return res; }
-  if (opt.mode === "direct" && !String(auth.scope).includes("video.publish")) { ctx.log("tiktok: tokendə video.publish icazəsi yoxdur — yenidən qoşulun (docs/tiktok.md)"); res.failed.push([v.id, "scope"]); return res; }
-  if (opt.mode === "inbox" && !String(auth.scope).includes("video.upload")) { ctx.log("tiktok: tokendə video.upload icazəsi yoxdur — yenidən qoşulun (docs/tiktok.md)"); res.failed.push([v.id, "scope"]); return res; }
+  const scope = String(auth.scope), canPublish = scope.includes("video.publish"), canUpload = scope.includes("video.upload");
+  if (opt.mode === "direct" && !canPublish) { ctx.log("tiktok: tokendə video.publish icazəsi yoxdur — yenidən qoşulun (docs/tiktok.md)"); res.failed.push([v.id, "scope"]); return res; }
+  if (opt.mode === "inbox" && !canUpload) { ctx.log("tiktok: tokendə video.upload icazəsi yoxdur — yenidən qoşulun (docs/tiktok.md)"); res.failed.push([v.id, "scope"]); return res; }
+  if (!canPublish && !canUpload) { ctx.log("tiktok: tokendə video.upload və video.publish icazəsi yoxdur — yenidən qoşulun (docs/tiktok.md «Qoşulma»)"); res.failed.push([v.id, "scope"]); return res; }
+  // B yolu (qaralama) hazırdır: auto rejim birbaşa paylaşım sahibin seçimini ödəyə bilməyəndə ona keçir.
+  const fallback = opt.mode === "auto" && canUpload;
+  let mode = opt.mode === "auto" ? (canPublish ? "direct" : "inbox") : opt.mode;
+  const toInbox = why => { mode = "inbox"; ctx.log(`tiktok: ${why} — video qaralama kimi gedir, TikTok tətbiqində görünməni özünüz seçib dərc edirsiniz`); };
+  const inboxFull = () => {
+    const n = live(state, sec).filter(([, e]) => e.v === "inbox").length;
+    if (n < opt.maxInbox) return false;
+    ctx.log(`tiktok: 24 saatda ${n} qaralama göndərilib (TikTok-un həddi ${opt.maxInbox}) — tətbiqdə dərc edin, növbəti sonra`);
+    return true;
+  };
 
   // TikTok-un cavab kodları (Direct Post / Upload reference).
   const stop = r => {
     const why = `${r.code}${r.message ? `: ${r.message}` : ""}`;
     if (r.code === "spam_risk_too_many_posts") { state.pause = sec + PAUSE_H * 3600; ctx.log(`tiktok: hesabın gündəlik API həddi dolub — ${PAUSE_H} saat fasilə`); }
+    else if (r.code === "spam_risk_too_many_pending_share") { state.pause = sec + PAUSE_H * 3600; ctx.log(`tiktok: TikTok-da dərc gözləyən qaralama həddi (24 saatda 5) dolub — tətbiqdə dərc edin, ${PAUSE_H} saat fasilə`); }
     else if (r.code === "reached_active_user_cap") { state.pause = sec + 24 * 3600; ctx.log("tiktok: tətbiqin gündəlik istifadəçi həddi dolub — 24 saat fasilə"); }
-    else if (r.code === "unaudited_client_can_only_post_to_private_accounts") { state.pause = sec + 12 * 3600; ctx.log("tiktok: tətbiq hələ auditdən keçməyib — TikTok yalnız GİZLİ hesaba və yalnız SELF_ONLY qəbul edir. Hesabı gizli edin və ya auditi gözləyin (docs/tiktok.md). 12 saat fasilə"); }
+    else if (r.code === "unaudited_client_can_only_post_to_private_accounts") { state.pause = sec + 12 * 3600; ctx.log("tiktok: tətbiq hələ auditdən keçməyib — birbaşa paylaşımı TikTok yalnız GİZLİ hesaba və yalnız SELF_ONLY qəbul edir. B yolu: video.upload icazəsi ilə qoşulun (docs/tiktok.md). 12 saat fasilə"); }
     else if (r.code === "spam_risk_user_banned_from_posting") { state.pause = sec + 24 * 3600; ctx.log("tiktok: TikTok bu hesaba API ilə paylaşmağı bağlayıb — 24 saat fasilə, hesabı tətbiqdə yoxlayın"); }
+    else if (r.code === "scope_not_authorized") ctx.log("tiktok: token bu əməliyyata icazə vermir — tətbiqdə icazəni (scope) yoxlayıb yenidən qoşulun (docs/tiktok.md)");
+    else if (r.code === "privacy_level_option_mismatch") ctx.log("tiktok: görünmə hesabın creator_info seçimlərinə uyğun gəlmədi");
     ctx.log(`tiktok: alınmadı (${why}) — ${v.name}`);
     res.failed.push([v.id, r.code]);
   };
 
+  const commercial = { organic: opt.brandOrganic || v.m.brandOrganic === true, branded: opt.brandedContent || v.m.brandedContent === true };
   let creator = {}, privacy = "";
-  if (opt.mode === "direct") {
+  if (mode === "direct") {
+    // UX qaydası 1: hər paylaşımdan əvvəl hesabın təzə məlumatı (ad, görünmə seçimləri, şərh/duet/stitch, ən uzun video).
     let ci = await api(f, auth.access, "post/publish/creator_info/query/");
     if (ci.code === "access_token_invalid") {
       try { auth = await access(f, env, state, now, ctx, true); } catch (e) { ctx.log(`tiktok: ${e.message}`); res.failed.push(["token", e.code || "?"]); return res; }
       ci = await api(f, auth.access, "post/publish/creator_info/query/");
     }
-    if (ci.code !== "ok") { stop(ci); return res; }
-    creator = ci.data;
-    ctx.user = clean(creator.creator_username);
-    const opts = Array.isArray(creator.privacy_level_options) ? creator.privacy_level_options : [];
-    const want = v.m.sinaq ? "SELF_ONLY" : opt.privacy;
-    privacy = opts.includes(want) ? want : opts.includes("SELF_ONLY") ? "SELF_ONLY" : opts[0] || "SELF_ONLY";
-    if (privacy !== want) ctx.log(`tiktok: ${want} bu hesabda seçilə bilmir (${opts.join(", ") || "siyahı boş"}) — ${privacy} ilə göndərilir`);
-    const max = num(creator.max_video_post_duration_sec, 0);
-    if (max) ctx.log(`tiktok: hesab — ${clean(creator.creator_nickname)} (@${ctx.user}), video ən çox ${max} s, görünmə: ${privacy}`);
-    const dur = num(v.m.duration, 0);
-    if (max && dur > max) {
-      posted[v.id] = { t: sec, s: "FAILED:duration", n: v.name, a: 2 };
-      ctx.log(`tiktok: ötürülür (video ${Math.round(dur)} s, hesabın həddi ${max} s) — ${v.name}`);
-      res.skipped.push([v.id, "uzundur"]);
-      return res;
+    if (ci.code === "scope_not_authorized" && fallback) toInbox("tokendə video.publish işləmir");
+    else if (ci.code !== "ok") { stop(ci); return res; }
+    else {
+      creator = ci.data;
+      ctx.user = clean(creator.creator_username);
+      const opts = Array.isArray(creator.privacy_level_options) ? creator.privacy_level_options : [];
+      const want = v.m.sinaq ? "SELF_ONLY" : opt.privacy;
+      if (opt.privacyBad && !v.m.sinaq) ctx.log(`tiktok: TIKTOK_PRIVACY=${opt.privacyBad} tanınmır (${PRIVACY.join(", ")}) — seçilməmiş sayılır`);
+      // Brend məzmunu (Branded content) «yalnız mən» ola bilməz (Content Sharing Guidelines 3b).
+      const okWant = want && opts.includes(want) && !(commercial.branded && want === "SELF_ONLY");
+      const whyNot = !want ? "görünmə seçilməyib (Variables TIKTOK_PRIVACY)" : !opts.includes(want) ? `${want} bu hesabda seçilə bilmir (${opts.join(", ") || "siyahı boş"})` : "brend məzmunu gizli ola bilməz";
+      if (okWant) privacy = want;
+      else if (fallback) toInbox(whyNot);
+      else {
+        privacy = opts.includes("SELF_ONLY") ? "SELF_ONLY" : opts[0] || "SELF_ONLY";
+        ctx.log(`tiktok: ${whyNot} — ${privacy} ilə göndərilir`);
+      }
+      if (mode === "direct" && commercial.branded && privacy === "SELF_ONLY") {
+        posted[v.id] = { t: sec, s: "FAILED:branded_private", n: v.name, a: 2 };
+        ctx.log(`tiktok: ötürülür (brend məzmunu gizli — SELF_ONLY — paylaşıla bilməz; TIKTOK_PRIVACY ictimai və ya dostlar olmalıdır) — ${v.name}`);
+        res.skipped.push([v.id, "brend məzmunu gizli ola bilməz"]);
+        return res;
+      }
+      const max = num(creator.max_video_post_duration_sec, 0);
+      ctx.log(`tiktok: hesab — ${clean(creator.creator_nickname)} (@${ctx.user})${max ? `, video ən çox ${max} s` : ""}, görünmə: ${mode === "inbox" ? "sahib tətbiqdə seçir" : privacy}`);
+      // Uzunluq: JSON-dakı duration, yoxdursa faylın öz uzunluğu (mvhd).
+      const dur = num(v.m.duration, 0) || mp4Duration(v.buf);
+      if (max && dur > max) {
+        posted[v.id] = { t: sec, s: "FAILED:duration", n: v.name, a: 2 };
+        ctx.log(`tiktok: ötürülür (video ${Math.round(dur)} s, hesabın həddi ${max} s) — ${v.name}`);
+        res.skipped.push([v.id, "uzundur"]);
+        return res;
+      }
     }
   }
+  if (mode === "inbox" && inboxFull()) return res;
 
   const plan = chunks(v.buf.length);
   const source_info = { source: "FILE_UPLOAD", video_size: v.buf.length, chunk_size: plan.chunk_size, total_chunk_count: plan.total_chunk_count };
-  const body = opt.mode === "inbox" ? { source_info } : {
-    post_info: { title: caption(v.m), privacy_level: privacy, disable_comment: !!creator.comment_disabled, disable_duet: !!creator.duet_disabled,
-      disable_stitch: !!creator.stitch_disabled, video_cover_timestamp_ms: Math.max(0, Math.floor(num(v.m.coverMs, num(v.m.cover_s, 1) * 1000))),
-      brand_content_toggle: false, brand_organic_toggle: opt.brandOrganic, is_aigc: v.m.aigc === true },
-    source_info };
-  const init = await api(f, auth.access, opt.mode === "inbox" ? "post/publish/inbox/video/init/" : "post/publish/video/init/", body);
+  // Şərh/duet/stitch: sahib açıbsa (TIKTOK_INTERACTIONS) və hesab bağlamayıbsa (creator_info *_disabled) açıqdır, qalan hallarda bağlı.
+  const body = m => (m === "inbox" ? { source_info } : {
+    post_info: { title: caption(v.m), privacy_level: privacy,
+      disable_comment: !!creator.comment_disabled || !opt.allow.has("comment"), disable_duet: !!creator.duet_disabled || !opt.allow.has("duet"),
+      disable_stitch: !!creator.stitch_disabled || !opt.allow.has("stitch"), video_cover_timestamp_ms: Math.max(0, Math.floor(num(v.m.coverMs, num(v.m.cover_s, 1) * 1000))),
+      // AI etiketi: modul özü deyirsə, yoxsa videoda süni səs (SARA TTS, meta.voice) varsa; modul aigc: false yazıbsa yox.
+      brand_content_toggle: commercial.branded, brand_organic_toggle: commercial.organic, is_aigc: v.m.aigc === true || (v.m.aigc !== false && !!v.m.voice) },
+    source_info });
+  const endpoint = m => (m === "inbox" ? "post/publish/inbox/video/init/" : "post/publish/video/init/");
+  let init = await api(f, auth.access, endpoint(mode), body(mode));
+  // Hesab ictimaidir, tətbiq auditsizdir: birbaşa paylaşım alınmır — B yolu eyni dövrədə.
+  if (mode === "direct" && init.code === "unaudited_client_can_only_post_to_private_accounts" && fallback) {
+    toInbox("tətbiq auditdən keçməyib, hesab ictimaidir");
+    if (inboxFull()) return res;
+    init = await api(f, auth.access, endpoint(mode), body(mode));
+  }
   if (init.code !== "ok" || !init.data.publish_id || !init.data.upload_url) { stop(init.code === "ok" ? { ...init, code: "cavab_natamam" } : init); return res; }
-  const entry = posted[v.id] = { t: sec, s: "init", p: String(init.data.publish_id), n: v.name, v: privacy || "inbox", a: (posted[v.id]?.a || 0) + 1 };
+  const entry = posted[v.id] = { t: sec, s: "init", p: String(init.data.publish_id), n: v.name, v: mode === "inbox" ? "inbox" : privacy, a: (posted[v.id]?.a || 0) + 1 };
   posted[v.h] = posted[v.t] = { t: sec };
   state.last = sec;
   try {
@@ -351,7 +445,11 @@ async function run({ videos = [], env = process.env, now = Date.now(), fetch: f 
     if (/^spam_risk_too_many_posts$/.test(reason)) state.pause = sec + PAUSE_H * 3600;
     if (RETRY.has(reason) && entry.a < 2) { delete posted[v.h]; delete posted[v.t]; }
     res.failed.push([v.id, reason]);
-  } else res.posted.push([opt.mode, v.id, st]);
+  } else {
+    res.posted.push([mode, v.id, st]);
+    // Qaralamada mətn TikTok-a getmir (Upload API-də sahə yoxdur): iş xülasəsində verilir, sahib tətbiqdə yapışdırır.
+    if (mode === "inbox") res.caption = caption(v.m);
+  }
   return res;
 }
 
@@ -376,9 +474,15 @@ async function connect({ code, env = process.env, now = Date.now(), fetch: f = g
     const ci = await api(f, auth.access, "post/publish/creator_info/query/").catch(() => ({ data: {} }));
     if (ci.data?.creator_username) who = `${clean(ci.data.creator_nickname)} (@${clean(ci.data.creator_username)}), görünmə seçimləri: ${(ci.data.privacy_level_options || []).join(", ")}`;
   }
+  // Yalnız video.upload (B yolu): hesabın adı user.info.basic ilə.
+  if (!who) {
+    const u = await api(f, auth.access, "user/info/?fields=open_id,display_name", undefined, "GET").catch(() => ({ data: {} }));
+    if (u.data?.user?.display_name) who = clean(u.data.user.display_name);
+  }
   const days = Math.floor((auth.refreshUntil - Math.floor(now / 1000)) / 86400);
   log(hide(`tiktok: qoşuldu${who ? ` — ${who}` : ""}; icazələr: ${auth.scope || "?"}; token ${days} gün işləyir (yeniləmə avtomatikdir)`));
   if (!/video\.(publish|upload)/.test(auth.scope)) log("tiktok: DİQQƏT — video icazəsi verilməyib (video.publish və ya video.upload): tətbiqdə scope əlavə edib yenidən qoşulun");
+  else if (String(auth.scope).includes("video.upload") && opt.mode !== "direct") log("tiktok: B yolu hazırdır — videolar TikTok tətbiqinə qaralama kimi gələcək (bildirişə toxunub dərc edin)");
   return auth;
 }
 
@@ -416,7 +520,12 @@ async function main() {
   // Actions jurnalı alınmış tokenləri də gizlətsin (sirlər onsuz da gizlədilir).
   const mask = t => { if (process.env.GITHUB_ACTIONS === "true") process.stdout.write(`::add-mask::${t}\n`); };
   const save = state => { fs.mkdirSync(path.dirname(stateFile), { recursive: true }); fs.writeFileSync(stateFile, JSON.stringify(state)); };
-  const summary = () => { if (process.env.GITHUB_STEP_SUMMARY && lines.length) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### TikTok\n\n${lines.map(l => `- ${l.replace(/^tiktok: /, "")}`).join("\n")}\n`); };
+  // Qaralamanın mətni xülasədə ayrıca blokdadır: sahib telefonda kopyalayıb TikTok-da yapışdırır.
+  const summary = (res = {}) => {
+    if (!process.env.GITHUB_STEP_SUMMARY || !lines.length) return;
+    const cap = res.caption ? `\n**TikTok-da yapışdırılacaq mətn:**\n\n\`\`\`text\n${res.caption.replace(/`{3,}/g, "``")}\n\`\`\`\n` : "";
+    fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### TikTok\n\n${lines.map(l => `- ${l.replace(/^tiktok: /, "")}`).join("\n")}\n${cap}`);
+  };
   if (cmd === "sinaq") { log(`tiktok: sınaq videosu — ${makeTestVideo(arg || "tiktok-in", now)}`); return; }
   if (cmd === "link") { console.log(authUrl()); return; }
   const state = readState(stateFile);
@@ -438,10 +547,10 @@ async function main() {
   let res;
   // Gözlənilməz xətada da state (yenilənmiş token zənciri) saxlanır: köhnə refresh token artıq işləməyə bilər.
   try { res = await run({ videos: readVideos(arg || "tiktok-in"), now, state, log, mask, reels, policy: a => app.policyViolation(a) }); }
-  finally { save(state); summary(); }
+  finally { save(state); summary(res); }
   // Heç nə alınmayıbsa iş qırmızı olsun (sahib görsün); ötürmə və fasilə yaşıl.
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { options, authUrl, codeFrom, chunks, seal, unseal, access, caption, foreignReason, policyReason, readVideos, run, connect, makeTestVideo, SCOPES, REDIRECT };
+module.exports = { options, authUrl, codeFrom, chunks, seal, unseal, access, caption, foreignReason, policyReason, readVideos, mp4Duration, run, connect, makeTestVideo, SCOPES, REDIRECT, PRIVACY };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e).slice(0, 300)); process.exitCode = 1; });
