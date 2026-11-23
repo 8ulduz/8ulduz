@@ -473,7 +473,9 @@ async function render(a, out, opt = {}) {
 }
 
 module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, bandBottom, KLIP_Y, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
-  W, H, FPS, MIN_S, MAX_S, L, COLOR };
+  W, H, FPS, MIN_S, MAX_S, L, COLOR,
+  // Hava videosu (video-hava.cjs) eyni brendi, səsi, altyazını və kodlaşdırmanı işlədir: qayda iki yerdə yazılmır.
+  clean, voice, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W, OUTRO_SAY };
 
 if (require.main === module) {
   const [src, out] = process.argv.slice(2);

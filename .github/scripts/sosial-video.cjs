@@ -18,10 +18,14 @@
 //             Keçid basılmır: mətnin sonunda «Ətraflı: 8ulduz.az», keçid profildədir. 24 saatda 100 post (şəkilli postlarla birlikdə).
 // Qırmızı xətt 2: lent və izah saytın policyViolation qaydasından keçir; qayda faylı oxunmasa heç nə seçilmir.
 // Qırmızı xətt 1 və 3: ayrıca iş axınıdır, main-ə və sayta heç nə yazmır.
+// Gündəlik hava videosu (video-hava.cjs; sahib, 2026-11-23): ayrıca qayda ilə — Bakı vaxtı HAVA_VAXT-dan (20:45) sonrakı ilk pəncərədə,
+// gündə bir dəfə (state.hava). Xəbər videosunun 120 dəqiqəlik fasiləsinə və gündəlik həddinə sayılmır (_last, v), mövzu siyahısına düşmür;
+// həmin 30 dəqiqəlik pəncərədə xəbər videosu növbəti pəncərəyə qalır (bir pəncərədə bir iş, pipeline.sh video_loop).
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
 const VS = require("./video-ssenari.cjs");
+const VH = require("./video-hava.cjs");
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const KEEP_S = 3 * 86400;
@@ -42,7 +46,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -56,6 +60,68 @@ function due(state, now, opt) {
   const day = Object.values(state.v || {}).filter(t => sec - t < 86400).length;
   if (day >= opt.perDay) return `24 saatda ${day} video (hədd ${opt.perDay})`;
   return "";
+}
+
+// --- Hava videosu: vaxt qaydası ---------------------------------------------------------------------------------------------
+// Bakı vaxtı (UTC+4, yay vaxtı yoxdur): gün («2026-11-24») və gecə yarısından dəqiqə.
+const bakuClock = now => { const d = new Date(now + 4 * 3600e3); return { day: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes(), h: d.getUTCHours() }; };
+const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+// HAVA_VAXT (20:45): sabahkı proqnoz axşam — ICON modelinin günorta buraxılışı (12 UTC) Open-Meteo-da ~20:25-də olur, adamlar sabahı
+// axşam planlayır; MHX-in proqnozu günortadır, rəqiblərin videosu ~17:30 (docs/sosial-video.md «Hava videosu»). Pəncərə xəbər videosunun
+// saatlarının sonuna qədərdir (VIDEO_SAAT, 23:59): bir dövrə alınmasa növbəti 30 dəqiqədə yenidən.
+function havaOptions(env = process.env) {
+  const [h, m] = String(env.HAVA_VAXT || "20:45").split(":").map(Number);
+  const ok = Number.isInteger(h) && h >= 0 && h < 24 && Number.isInteger(m) && m >= 0 && m < 60;
+  return { on: env.HAVA_VIDEO !== "0", from: ok ? h * 60 + m : 20 * 60 + 45, to: options(env).to };
+}
+function havaDue(state, now, ho) {
+  if (!ho.on) return "hava videosu söndürülüb (HAVA_VIDEO=0)";
+  const c = bakuClock(now);
+  if (c.min < ho.from || c.h > ho.to) return `hava videosu Bakı vaxtı ${hhmm(ho.from)}–${ho.to}:59 arası`;
+  if (state.hava?.[c.day]) return "bu günün hava videosu hazırlanıb";
+  return "";
+}
+// Plan + görüntü → <qovluq>/xeber.json (tur: "hava"). Məlumat və rəqəm yoxlaması video-hava.cjs-dədir; keçməsə video yoxdur.
+async function havaHazirla({ raw, app, now, state, env = process.env, fetch: f = globalThis.fetch, policy = () => false, dir, log = console.log, post = true, footage = true }) {
+  const list = VH.cities(app), today = bakuClock(now).day, day = bakuClock(now + 86400e3).day;
+  const { rows, why } = VH.parse(raw, list, day);
+  if (why.length) log(`hava videosu: ötürülən şəhər — ${why.join("; ")}`);
+  const p = VH.plan(rows, day, { label: c => app.wxCode(c)[0], now });
+  const bad = VH.yoxla(p, rows);
+  if (bad) throw new Error(`rəqəm yoxlaması — ${bad}`);
+  if (policy(VH.policyRow(p))) throw new Error("mətn saytın qaydasından keçmir");
+  fs.mkdirSync(dir, { recursive: true });
+  // Görüntü: hava şəraitinə uyğun səhnə, əvvəl Bakının özü (video-hava.cjs sahneler). Yer icazəsi: Azərbaycan və Bakı — yad yerin
+  // etiketli klipi atılır, kadrı montaj redaktoru yoxlayır. KLIP_MIN-dən az uyğun klip varsa görüntüsüz (brend fonu): hava videosu
+  // gündəlikdir, rəqəmlər əsasdır — xəbər videosundakı kimi ötürülmür.
+  let klip = footage && VS.MENBELER.some(m => env[m.env]) ? await VS.goruntu(VH.sahneler(p), dir, { env, fetch: f, log, say: 6, category: "hava",
+    istifade: new Set(Object.keys(state.klip || {})), yer: ["Azerbaijan"], xeber: { title: p.headline, text: p.text, yer: ["Baku", "Azerbaijan"] } }) : [];
+  if (klip.length && klip.length < KLIP_MIN) {
+    for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
+    log(`hava videosu: uyğun görüntü ${klip.length} klip (ən az ${KLIP_MIN}) — brend fonu ilə`);
+    klip = [];
+  }
+  const x = { ...p, ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
+    goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
+  if (post) {
+    const t = Math.floor(now / 1000);
+    (state.hava ||= {})[today] = t;   // seçim günü sayır: video alınmasa da eyni gün hər 30 dəqiqədə təkrar hazırlanmır
+    for (const k of klip) (state.klip ||= {})[`${k.p}:${k.id}`] = t;
+  }
+  log(`hava videosu: hazırlanır — ${p.title} (${p.link})`);
+  output("hazir", "1");
+  output("tur", "hava");
+  return x;
+}
+async function havaSec({ app, now, state, env, fetch: f, policy, dir, log, post }) {
+  try {
+    const raw = await VH.fetchData(VH.cities(app), { fetch: f, env, wait: num(env.HAVA_WAIT_MS, 5000) });
+    return await havaHazirla({ raw, app, now, state, env, fetch: f, policy, dir, log, post });
+  } catch (e) {
+    log(`::warning::hava videosu alınmadı — ${String(e?.message || e).slice(0, 300)}; növbəti pəncərədə yenidən`);
+    return null;
+  }
 }
 
 async function sourcePage(a, f) {
@@ -92,9 +158,17 @@ const tag = x => [...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#xəbərl
 // Facebook: keçid basılır — postun mətnində saytdakı xəbər (paylaşma səhifəsi: önizləmə + saytda açılır).
 // Pexels və Pixabay xahişi: görüntünün haradan olduğunu göstərin.
 const credit = x => (x.goruntu?.length ? `\n\nGörüntü: ${x.goruntuMenbe || "Pexels"}` : "");
-const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag(x)}`;
+// Hava videosu: Open-Meteo-nun CC BY 4.0 atribusiyası (kredit və lisenziya), «model proqnozu, rəsmi xəbərdarlıq deyil» (saytın hava səhifəsi
+// kimi), görüntü bankı. Etiketlər hava etiketləridir (#xəbərlər yox).
+const havaKredit = x => `Hava məlumatı: Open-Meteo.com, model proqnozu (CC BY 4.0). Rəsmi proqnozu Milli Hidrometeorologiya Xidməti verir.${x.goruntu?.length ? `\nGörüntü: ${x.goruntuMenbe || "Pixabay"}` : ""}`;
+const havaTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#Azərbaycan"])].join(" ");
+const fbText = x => (x.tur === "hava"
+  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: ${x.link}\n\n${havaKredit(x)}\n\n${havaTag(x)}`
+  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag(x)}`);
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
-const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag(x)} #video`;
+const igText = x => (x.tur === "hava"
+  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${havaKredit(x)}\n\n${havaTag(x)} #video`
+  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag(x)} #video`);
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const SECIM_MAX = 4, KLIP_MIN = 2;
@@ -192,12 +266,26 @@ function output(key, value) {
 
 // sec: vaxtıdırsa xəbəri seçir. Paylaşma rejimində seçim dərhal «video» sayılır (_last): video alınmasa da eyni xəbər hər
 // 30 dəqiqədə yenidən hazırlanmasın.
-async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log }) {
+async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null }) {
   const opt = options(env), post = env.VIDEO_PAYLAS !== "0";
   // İş axını seçimə açarın özünü vermir, yalnız VIDEO_ACAR=1/0 (açar var/yox).
   const hasKey = env.VIDEO_ACAR ? env.VIDEO_ACAR === "1" : networks(env).length > 0;
   if (post && !hasKey) { log("video: açar yoxdur (FB_PAGE_TOKEN) — heç nə hazırlanmır"); return null; }
   const only = String(env.VIDEO_XEBER || "").trim();
+  // Hava videosu (VIDEO_TUR: avtomatik — vaxtıdırsa; hava — dərhal, önizləmə və əl ilə; xeber — yalnız xəbər). Alınmasa (Open-Meteo cavab
+  // vermədi) bu pəncərədə xəbər videosu gedir, hava növbəti pəncərədə yenidən sınanır. Paylaşma rejimində gündə bir dəfə.
+  const tur = String(env.VIDEO_TUR || "").trim();
+  if (!only && tur !== "xeber" && app?.CITIES) {
+    const why = tur === "hava" ? (post && state.hava?.[bakuClock(now).day] ? "bu günün hava videosu artıq paylaşılıb (önizləmə üçün «Paylaş»-ı söndürün)" : "")
+      : havaDue(state, now, havaOptions(env));
+    if (!why) {
+      const x = await havaSec({ app, now, state, env, fetch: f, policy, dir, log, post });
+      if (x || tur === "hava") return x;
+    } else {
+      log(`video: ${why}`);
+      if (tur === "hava") return null;
+    }
+  }
   if (!only && post) {   // yalnız hazırlama (önizləmə) fasilə gözləmir
     const why = due(state, now, opt);
     if (why) { log(`video: ${why}`); return null; }
@@ -267,6 +355,8 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
       log(`${net.name}: video alınmadı — ${hide(e)}`);
     }
   }
+  // Hava videosu ayrıca qaydadır: xəbər videosunun siyahısına (fasilə, gündəlik hədd, mövzu) düşmür.
+  if (x.tur === "hava") { const d = bakuClock(now).day; (state.hava ||= {})[d] = state.hava[d] || t; return res; }
   state.v[x.id] = state.v[x.id] || t;
   state.t[S.titleKey(x)] = t;
   state.topics.push({ ...S.topicOf(x, Date.parse(x.publishedAt) / 1000 || t), posted: t });
@@ -284,11 +374,17 @@ async function main() {
     output("hazir", "1");
     return;
   }
+  if (cmd === "numune-hava") {
+    // PR yoxlaması: Open-Meteo-nun saxlanmış cavabından (tests/fixtures/video-hava.json) hava videosu — şəbəkə və paylaşma yoxdur.
+    const fx = JSON.parse(fs.readFileSync(a1, "utf8")), app = require("./topics.cjs").loadApp(path.resolve("."));
+    await havaHazirla({ raw: fx.response, app, now: Date.parse(fx.now), state, env: {}, policy: a => app.policyViolation(a), dir: a2, post: false, footage: false });
+    return;
+  }
   if (cmd === "sec") {
     // Qırmızı xətt 2, ikinci qapı: lent saytın öz qaydasından keçir; qayda faylı oxunmasa xəta ilə dayanır (heç nə seçilmir).
     const app = require("./topics.cjs").loadApp(path.resolve("."));
     const articles = (JSON.parse(fs.readFileSync(a1, "utf8")).articles || []).filter(a => !app.policyViolation(a));
-    await sec({ articles, state, now, policy: a => app.policyViolation(a), cats: app.CATS, dir: a2 });
+    await sec({ articles, state, now, policy: a => app.policyViolation(a), cats: app.CATS, dir: a2, app });
     writeState(stateFile, state);
     return;
   }
@@ -298,9 +394,9 @@ async function main() {
     if (res.failed.length && !res.posted.length) process.exitCode = 1;
     return;
   }
-  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | paylas <qovluq>");
+  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | paylas <qovluq>");
   process.exitCode = 2;
 }
 
-module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText };
+module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });
