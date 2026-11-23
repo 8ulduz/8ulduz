@@ -30,11 +30,14 @@ function wrap(text, n = 95) {
 // Səhnələr: { at, caption } — yazı başlayandan saniyə. Çəkilişdən sonra ffmpeg drawtext ilə zolağa yazılır.
 function captionFilter(caps, dir, total, { font, preview }) {
   const parts = [`drawbox=x=0:y=${WIN_H}:w=${W}:h=${BAND}:color=0x0b1f3a:t=fill`];
+  // Hər sətir ayrıca drawtext: ffmpeg 7-də çoxsətirli mətndə sətir sonu boş qutu (tofu) kimi çıxır.
   caps.forEach((c, i) => {
-    const file = path.join(dir, `cap${i}.txt`);
-    fs.writeFileSync(file, wrap(c.caption));
     const end = i + 1 < caps.length ? caps[i + 1].at : total;
-    parts.push(`drawtext=fontfile='${font}':textfile='${file}':expansion=none:fontcolor=white:fontsize=21:line_spacing=7:x=22:y=${WIN_H + 12}:enable='between(t,${c.at.toFixed(2)},${end.toFixed(2)})'`);
+    wrap(c.caption).split("\n").forEach((line, j) => {
+      const file = path.join(dir, `cap${i}_${j}.txt`);
+      fs.writeFileSync(file, line);
+      parts.push(`drawtext=fontfile='${font}':textfile='${file}':expansion=none:fontcolor=white:fontsize=21:x=22:y=${WIN_H + 12 + j * 28}:enable='between(t,${c.at.toFixed(2)},${end.toFixed(2)})'`);
+    });
   });
   const tag = path.join(dir, "tag.txt");
   fs.writeFileSync(tag, preview ? "PREVIEW — not for submission" : "8ulduz.az · TikTok app review demo");
@@ -67,9 +70,13 @@ function videoServer(file) {
 
 async function launchChrome() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "demo-chrome-"));
+  // Səhifəni örtən pəncərələr olmasın: tərcümə təklifi (az dili qəbul edilən dillərdədir), «Sign in to Chrome», parol.
+  fs.mkdirSync(path.join(dir, "Default"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "Default", "Preferences"), JSON.stringify({ translate: { enabled: false }, intl: { accept_languages: "en-US,en,az" },
+    signin: { allowed: false }, credentials_enable_service: false, browser: { has_seen_welcome_page: true } }));
   const proc = spawn(chromePath(), [`--window-size=${W},${WIN_H}`, "--window-position=0,0", "--remote-debugging-port=0", `--user-data-dir=${dir}`,
-    "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--test-type", "--no-sandbox", "--disable-dev-shm-usage",
-    "--disable-features=Translate,MediaRouter,OptimizationGuideModelDownloading,PrivacySandboxSettings4", "--disable-search-engine-choice-screen",
+    "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--test-type", "--no-sandbox", "--disable-dev-shm-usage", "--disable-sync",
+    "--disable-features=Translate,TranslateUI,MediaRouter,OptimizationGuideModelDownloading,PrivacySandboxSettings4,ChromeSigninIntercept,SigninPromo,DesktopPWAsAppHomePage", "--disable-search-engine-choice-screen",
     "--password-store=basic", "--autoplay-policy=no-user-gesture-required", "--force-device-scale-factor=1", "--lang=en-US", "--mute-audio", "about:blank"], { stdio: "ignore" });
   const portFile = path.join(dir, "DevToolsActivePort");
   for (let i = 0; i < 300 && !fs.existsSync(portFile) && proc.exitCode === null; i++) await sleep(100);
@@ -137,32 +144,34 @@ async function main() {
   cap("Privacy Policy and Terms of Service links are in the footer of every page, without opening a menu.");
   await sleep(4500);
 
-  await go(`${base}haqqinda/#tiktok`);
+  // Altyazı keçiddən əvvəl dəyişir: yeni səhifə ilə izah eyni anda görünür.
   step("About page, also the Login Kit Redirect URI: what our TikTok app does. It sends 8ulduz's own news videos to the 8ulduz TikTok account.");
-  await sleep(8000);
-
-  await go(`${base}sertler/#en`);
-  step("Terms of Service (English summary): only videos produced by 8ulduz, only to 8ulduz's own accounts; TikTok's own terms apply on TikTok.");
+  await go(`${base}haqqinda/#tiktok`);
   await sleep(7000);
 
-  await go(`${base}mexfilik/#tiktok`);
+  step("Terms of Service (English summary): only videos produced by 8ulduz, only to 8ulduz's own accounts; TikTok's own terms apply on TikTok.");
+  await go(`${base}sertler/#en`);
+  await sleep(6500);
+
   step("Privacy Policy, TikTok section: the TikTok data we receive (open ID, display name, tokens, posting options, upload status), storage and revocation.");
-  await sleep(6000);
+  await go(`${base}mexfilik/#tiktok`);
+  await sleep(5500);
   await scroll("window.scrollBy({ top: 260, behavior: 'smooth' })", 4000);
 
   if (vsrv) {
+    step("The content: a vertical news video made by 8ulduz itself (our text, text-to-speech voice-over, licensed stock footage, 8ulduz.az branding).");
     await go(vsrv.url, 800);
     await js("(() => { const v = document.querySelector('video'); if (v) { v.muted = true; v.play().catch(() => {}); } return !!v; })()");
-    step("The content: a vertical news video made by 8ulduz itself (our text, text-to-speech voice-over, licensed stock footage, 8ulduz.az branding).");
     const dur = Number(await js("(document.querySelector('video') || {}).duration || 0")) || 12;
     await sleep(Math.min(16, Math.max(8, dur)) * 1000);
   }
 
   if (runUrl) {
+    // Girişsiz baxışda GitHub jurnalı göstərmir, işlərin siyahısı və vəziyyəti görünür.
+    step("Our server pipeline on GitHub Actions: the video job renders the video, then the 'tiktok / post' job uploads it with the Content Posting API (FILE_UPLOAD) and checks its status. Keys stay in encrypted secrets.");
     await go(runUrl, 4000);
-    step("Our server job (GitHub Actions, public log): refreshes the TikTok token, uploads the file (FILE_UPLOAD) and polls the post status. No keys appear.");
-    await sleep(5000);
-    await scroll("(() => { const h = [...document.querySelectorAll('h3, h2')].find(e => /TikTok/.test(e.textContent)); (h || document.body).scrollIntoView({ behavior: 'smooth', block: h ? 'start' : 'center' }); return !!h; })()", 8000);
+    await sleep(6000);
+    await scroll("(() => { const h = [...document.querySelectorAll('h2, h3')].find(e => /TikTok/.test(e.textContent)); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' }); else window.scrollBy({ top: 420, behavior: 'smooth' }); return !!h; })()", 6000);
   }
 
   step("In the TikTok app the account owner taps the inbox notification, edits the caption, chooses who can view the video and posts it (demo video 2).");
