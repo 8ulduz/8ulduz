@@ -402,10 +402,10 @@ def verbalize(text):
     return t
 
 
-def for_voice(text, hyphens=True):
+def for_voice(text, hyphens=False):
     """Saytın «Dinlə» səsi (Babək: .github/scripts/ses.py və ses-worker) üçün mətn: verbalize qaydaları (rəqəm, qısaltma,
-    sayt, lüğət), amma durğu və böyük hərf qalır — o səs intonasiyanı onlardan qurur. hyphens=False: sözün içindəki tire
-    boşluq olur («a-be-şenin» → «a be şenin»)."""
+    sayt, lüğət), amma durğu və böyük hərf qalır — o səs intonasiyanı onlardan qurur. Sözün içindəki tire boşluq olur
+    («a-be-şenin» → «a be şenin»): Whisper ölçməsi (2026-11-23, 81 cümlə) — tiresiz hərf xətası 2,1%, tireli 2,3%."""
     t = verbalize(text)
     if not hyphens:
         t = re.sub(rf"(?<=[{LO}])-(?=[{LO}])", " ", t)

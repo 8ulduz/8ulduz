@@ -163,7 +163,7 @@ def main(corpus_path, out, old_path=None):
             if is_babek:
                 # Babək bütöv mətni alır (durğu və böyük hərf intonasiya üçün qalır): köhnə — ses.py-nin indiki yolu, yeni — az_text.for_voice
                 said = (old_ses.spoken_text(text) if v.get("metn") == "kohne"
-                        else new.for_voice(cur_ses.spoken_text(text), hyphens=v.get("tire", True)))
+                        else new.for_voice(cur_ses.spoken_text(text), hyphens=v.get("tire", False)))
                 pcm = babek(said, sr)
             else:
                 import torch

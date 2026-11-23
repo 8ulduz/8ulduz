@@ -270,8 +270,9 @@ export function verbalize(text) {
   return t;
 }
 
-// Saytın «Dinlə» səsi (Babək) üçün mətn (az_text.for_voice): durğu və böyük hərf intonasiya üçün qalır.
-export function forVoice(text, hyphens = true) {
+// Saytın «Dinlə» səsi (Babək) üçün mətn (az_text.for_voice): durğu və böyük hərf intonasiya üçün qalır, sözün içindəki tire
+// boşluq olur («a be şenin» — Whisper ölçməsində «a-be-şenin»-dən aydın).
+export function forVoice(text, hyphens = false) {
   let t = verbalize(text);
   if (!hyphens) t = t.replace(rx(String.raw`(?<=[${LO}])-(?=[${LO}])`), " ");
   return t.replace(/\s+/gu, " ").trim();

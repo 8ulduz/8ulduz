@@ -276,8 +276,8 @@ test("ses-worker /ses: the live Babək voice gets the human reading (acronyms, n
     const r = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/9") + "&id=bbbbbbbbbbbbbbbb&t=BMT-nin%20hesabat%C4%B1&s=8ULDUZ"), { AZURE_KEY: "k" }, env.ctx);
     assert.equal(r.status, 200); await r.arrayBuffer(); await env.done();
     const said = env.calls.filter(c => /tts\.speech/.test(c.u)).map(c => c.o.body);
-    assert.ok(said[0].includes(">be-em-tenin hesabatı. səkkiz ulduz xəbər verir.</voice>"), said[0]);
-    assert.ok(said[1].includes(">a-be-şedə on doqquzda Napoli klubunun"), said[1].slice(0, 200));
+    assert.ok(said[0].includes(">be em tenin hesabatı. səkkiz ulduz xəbər verir.</voice>"), said[0]);
+    assert.ok(said[1].includes(">a be şedə on doqquzda Napoli klubunun"), said[1].slice(0, 200));
   } finally { env.restore(); }
 });
 

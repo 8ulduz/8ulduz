@@ -210,8 +210,8 @@ class VoiceTextTest(unittest.TestCase):
         az_text.LEXICON.update(self.saved)
 
     def test_voice_text_keeps_punctuation_and_case(self):
-        self.assertEqual(az_text.for_voice("ABŞ-da 19-da seçki. Gündüz +17° olacaq!"), "a-be-şedə on doqquzda seçki. Gündüz on yeddi dərəcə olacaq!")
-        self.assertEqual(az_text.for_voice("ABŞ-da seçki", hyphens=False), "a be şedə seçki")
+        self.assertEqual(az_text.for_voice("ABŞ-da 19-da seçki. Gündüz +17° olacaq!"), "a be şedə on doqquzda seçki. Gündüz on yeddi dərəcə olacaq!")
+        self.assertEqual(az_text.for_voice("ABŞ-da seçki", hyphens=True), "a-be-şedə seçki")
 
     def test_javascript_copy_gives_the_same_text(self):
         cases = [[x, az_text.for_voice(x)] for x in voice_inputs()]

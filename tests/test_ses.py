@@ -32,7 +32,7 @@ class SesTest(unittest.TestCase):
         rəqəm şəkilçisi ilə, qısaltma, mənbə adı, dərəcə; durğu qalır. Qaydalardan əvvəlki səslər bir dəfə yenidən yazılır."""
         a = {"title": "ABŞ-da 19-da seçki", "source": "8ULDUZ", "summary": ""}
         self.assertEqual(ses.spoken(a, "Gündüz +17° olacaq, BMT-nin hesabatı Modern.az-da."),
-                         "a-be-şedə on doqquzda seçki. səkkiz ulduz xəbər verir. Gündüz on yeddi dərəcə olacaq, be-em-tenin hesabatı Modern nöqtə azda.")
+                         "a be şedə on doqquzda seçki. səkkiz ulduz xəbər verir. Gündüz on yeddi dərəcə olacaq, be em tenin hesabatı Modern nöqtə azda.")
         have, born = {"a" * 16: 1, "b" * 16: 1}, {"a" * 16: ses.VOICE_AT - 60, "b" * 16: ses.VOICE_AT + 60}
         self.assertEqual(ses.voice_redo(have, born), {"a" * 16})
 
