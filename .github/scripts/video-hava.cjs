@@ -68,8 +68,8 @@ async function fetchData(list, { fetch: f = globalThis.fetch, env = process.env,
       if (r?.ok) return await r.json();
       last = `HTTP ${r?.status}`;
       if (r?.status && r.status < 500 && r.status !== 429) break;
-    } catch (e) { last = e?.name || "xəta"; }
-    if (i < 2) await new Promise(ok => setTimeout(ok, wait * (i + 1)));
+    } catch (e) { last = `${e?.name || "xəta"}${e?.cause?.code ? ` ${e.cause.code}` : ""}`; }   // «TypeError ECONNRESET»: səbəb jurnalda görünsün
+    if (i < 2) await new Promise(ok => setTimeout(ok, wait * 3 * (i + 1)));   // 15 s, 30 s
   }
   throw new Error(`Open-Meteo cavab vermədi (${last})`);
 }
