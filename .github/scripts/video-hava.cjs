@@ -321,7 +321,8 @@ SAHNE.arabirqar = SAHNE.qar; SAHNE.gucluqar = SAHNE.qar; SAHNE.dolu = SAHNE.ildi
 const KULEK_SAHNE = ["caspian sea waves", "sea waves wind", "trees wind"];
 function sahneler(p) {
   const list = [...(SAHNE[p.baki.kind] || SAHNE.qismen)];
-  if ((p.baki.wind ?? 0) >= 10 || p.xeberdarliq?.some(w => w.k === "kulek")) list.splice(2, 0, ...KULEK_SAHNE.slice(0, 2));
+  // Dalğa yalnız güclü küləkdə (≥ 14 m/san — Bofort 7, və ya ani külək xəbərdarlığı): adi 10 m/san-da fırtınalı dəniz şişirtmədir.
+  if ((p.baki.wind ?? 0) >= 14 || p.xeberdarliq?.some(w => w.k === "kulek")) list.splice(2, 0, ...KULEK_SAHNE.slice(0, 2));
   return [...new Set(list)].slice(0, 7);
 }
 
@@ -462,7 +463,7 @@ function ass(p, tl, { footage = false } = {}) {
     dlg(3, from, to, "Num", `{\\an7\\move(${X0},${Y.head + 22},${X0},${Y.head},0,300)\\fs${head.size}\\fad(160,200)${s.key === "diqqet" ? `\\1c${col(C.warn)}` : ""}${shade}}${head.lines.map(txt).join("\\N")}`);
     if (s.key === "baki") {
       const b = p.baki, top = Y.body, h = Y.bodyEnd - top;
-      shapes(1, from, to, [cardBg(X0 - 24, top, TEXT_W + 48, h)], { alpha: "38", lift: 0 });
+      shapes(1, from, to, [cardBg(X0 - 24, top, TEXT_W + 48, h)], { alpha: "50", lift: 0 });
       const ic = icon(b.kind, X0 + 8, top + 22, 236);
       shapes(2, from, to, ic, { lift: 16, delay: 0.1, spin: b.kind === "acik" ? [X0 + 126, top + 140] : null });
       text(2, from, to, 372, top + 24, "Txt", `Bakı · ${b.label}`, `\\fs46\\1c${col(C.gray)}`, 0.12);
@@ -504,7 +505,7 @@ function ass(p, tl, { footage = false } = {}) {
       text(3, from, to, X0, Y.head + 108, "Reg", "Gündüz / gecə temperaturu", `\\fs36\\1c${col(C.white)}${shade}`, 0.05);
       pg.forEach((c, i) => {
         const x = X0 + (i % 2) * (cw + gap), y = Y.body + Math.floor(i / 2) * (ch + gap), d = 0.06 + i * 0.08;
-        shapes(1, from, to, [cardBg(x, y, cw, ch, 24)], { alpha: "38", lift: 0, delay: d });
+        shapes(1, from, to, [cardBg(x, y, cw, ch, 24)], { alpha: "50", lift: 0, delay: d });
         shapes(2, from, to, [{ sh: rrect(x, y + 22, 8, ch - 44, 4), c: C.orange }], { lift: 0, delay: d });
         text(2, from, to, x + 28, y + 16, "Txt", c.name, "\\fs46", d);
         shapes(2, from, to, icon(c.kind, x + cw - 150, y + (ch - 136) / 2, 136), { lift: 12, delay: d + 0.04 });
@@ -566,8 +567,11 @@ async function render(p, out, opt = {}) {
     const tl = V.timeline(pr, v);
     fs.writeFileSync(path.join(dir, "video.ass"), ass(p, tl, { footage: clips.length > 0 }));
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    // Üfüqi klip ekranın ortasında (kartların arxasında), arxada bulanıq nüsxəsi.
-    V.run("ffmpeg", V.ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, V.LOGO.file), voiceFile: v?.file, out, clips, clipY: Math.round((H - W * 9 / 16) / 2) }), { cwd: dir, timeout: 900000 });
+    // Hava görüntüsü (göy, bulud, yağış, şəhər panoraması) bütün ekranı doldurur: üfüqi klip ortadan 9:16 kəsilir (ölçü verilmir —
+    // video-xeber.cjs clipFilter «doldurma» rejimi). Xəbər videosundakı «ortada kəskin zolaq + bulanıq fon» burada kartların arxasında qalır,
+    // zolağın sərt kənarı görünürdü (2026-11-23 ilk önizləmə).
+    const fill = clips.map(({ file, dur }) => ({ file, dur }));
+    V.run("ffmpeg", V.ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, V.LOGO.file), voiceFile: v?.file, out, clips: fill }), { cwd: dir, timeout: 900000 });
     const cover_s = 1.5, base = out.replace(/\.mp4$/i, "");
     V.run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", `${base}.jpg`]);
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100, sc = scenes(p, tl);
