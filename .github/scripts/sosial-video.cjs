@@ -42,7 +42,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -87,16 +87,17 @@ function entry(a, text, cats = []) {
     source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt, alts: (a.alts || []).map(x => ({ source: x?.source })), link: S.shareUrl(a) };
 }
 
-const tag = "#8ulduz #xəbərlər #Azərbaycan";
+// Mövzu etiketləri (Gemini, video-ssenari.cjs hashtags) əvvəl, sonra ümumilər.
+const tag = x => [...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#xəbərlər", "#Azərbaycan"].join(" ");
 // Facebook: keçid basılır — postun mətnində saytdakı xəbər (paylaşma səhifəsi: önizləmə + saytda açılır).
 // Pexels və Pixabay xahişi: görüntünün haradan olduğunu göstərin.
 const credit = x => (x.goruntu?.length ? `\n\nGörüntü: ${x.goruntuMenbe || "Pexels"}` : "");
-const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag}`;
+const fbText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag(x)}`;
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
-const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag} #video`;
+const igText = x => `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag(x)} #video`;
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
-const SECIM_MAX = 4;
+const SECIM_MAX = 4, KLIP_MIN = 2;
 const json = r => (r?.json ? r.json().catch(() => ({})) : {});
 
 // Hər şəbəkə: { name, prepare(f, log), post(x, video, f, log) → { ok, id } | { skip } }. Açar yoxdursa siyahı boşdur.
@@ -152,11 +153,18 @@ function networks(env = process.env) {
       const q = `access_token=${encodeURIComponent(this.token)}`, get = u => f(u, { signal: AbortSignal.timeout(15000) }).then(json).catch(() => ({}));
       const lim = (await get(`${root}${encodeURIComponent(this.ig)}/content_publishing_limit?fields=quota_usage,config&${q}`))?.data?.[0];
       if (lim?.quota_usage != null && Number(lim.quota_usage) >= (Number(lim?.config?.quota_total) || 100)) return { skip: `24 saatlıq hədd dolub: ${lim.quota_usage}` };
-      const init = await form(f, `${root}${encodeURIComponent(this.ig)}/media`, { media_type: "REELS", upload_type: "resumable", caption: igText(x),
-        thumb_offset: String(Math.round((x.cover_s || 1.5) * 1000)) }, this.token).then(json);
-      if (!init?.id) return { ok: false, error: `konteyner: ${JSON.stringify(init?.error || init).slice(0, 300)}` };
-      const up = await upload(f, init.uri || `https://rupload.facebook.com/ig-api-upload/${ver}/${init.id}`, this.token, video);
-      const upj = await json(up);
+      // 2026-11-22: ilk görüntülü videoda (16,8 MB) rupload «ProcessingFailedError» verdi (retriable: false; Facebook eyni faylı qəbul etdi).
+      // Eyni sorğunun təkrarı kömək etmir: bir dəfə yeni konteynerlə, VIDEO_IG_RETRY_MS sonra. Yüklənməmiş konteyner dərc olunmur.
+      let init, up, upj;
+      for (let t = 0; t < 2; t++) {
+        if (t) { log(`instagram: yükləmə alınmadı (HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 200)}) — yeni konteynerlə təkrar`); await wait(num(env.VIDEO_IG_RETRY_MS, 60000)); }
+        init = await form(f, `${root}${encodeURIComponent(this.ig)}/media`, { media_type: "REELS", upload_type: "resumable", caption: igText(x),
+          thumb_offset: String(Math.round((x.cover_s || 1.5) * 1000)) }, this.token).then(json);
+        if (!init?.id) return { ok: false, error: `konteyner: ${JSON.stringify(init?.error || init).slice(0, 300)}` };
+        up = await upload(f, init.uri || `https://rupload.facebook.com/ig-api-upload/${ver}/${init.id}`, this.token, video);
+        upj = await json(up);
+        if (up.ok && upj?.success !== false) break;
+      }
       if (!up.ok || upj?.success === false) return { ok: false, error: `yükləmə: HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 300)}` };
       // Meta tövsiyəsi: statusu dəqiqədə bir, 5 dəqiqədən çox olmayaraq; qısa video adətən 20–60 s-də hazır olur.
       let st = "";
@@ -198,28 +206,40 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   // diktor mətni yazır, Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
   // Xəbər kadrla göstərilmirsə və ya mətn yoxlamadan keçmirsə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
   // Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
-  let got = null, sc = null;
+  // Keyfiyyət həddi: görüntü mənbəyi varsa, KLIP_MIN-dən az uyğun klip tapılan xəbər ötürülür (yanlış və ya boş görüntülü video yox).
+  const footage = VS.MENBELER.some(m => env[m.env]);
+  let got = null, sc = null, klip = [];
   for (let i = 0; i < SECIM_MAX; i++) {
     got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
     if (!got) break;
     const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
     sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
-    if (only) break;
     // Gemini işləmir (gündəlik limit və s.): mənbənin cümlələri və ümumi kadrla video olmur — növbəti dövrədə yenidən.
-    if (!sc) { log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return null; }
-    if (sc.uygun !== false) break;
+    if (!only && !sc) { log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return null; }
+    if (only || sc.uygun !== false) {
+      fs.mkdirSync(dir, { recursive: true });
+      // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
+      klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
+        yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null });
+      if (only || !footage || klip.length >= KLIP_MIN) break;
+      for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
+      sc = { uygun: false, sebeb: `uyğun görüntü ${klip.length} klip, ən az ${KLIP_MIN}` };
+      klip = [];
+    }
     log(`video: ötürülür (${sc.sebeb || "uyğun deyil"}) — ${S.clean(got.a.title)}`);
     state.skip[got.a.id] = Math.floor(now / 1000);
     got = null;
   }
   if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
-  fs.mkdirSync(dir, { recursive: true });
-  const klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category });
-  const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}),
+  const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
     ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(k => ({ p: k.p, id: k.id, user: k.user, q: k.q })),
       goruntuMenbe: [...new Set(klip.map(k => k.p))].join(", ") } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
-  if (post) { const t = Math.floor(now / 1000); state.v[x.id] = t; state._last = t; }
+  if (post) {
+    const t = Math.floor(now / 1000);
+    state.v[x.id] = t; state._last = t;
+    for (const k of klip) (state.klip ||= {})[`${k.p}:${k.id}`] = t;
+  }
   log(`video: seçildi — ${x.title} (${x.link})`);
   output("hazir", "1");
   return x;

@@ -34,6 +34,10 @@ test("ssenari: the narration is checked — every number from the source, no Cyr
   assert.match(VS.checkText(three, SOURCE, a), /cümlə sayı 3/);
   assert.match(VS.checkText(GOOD, SOURCE, a, () => "qadağan"), /qaydasından keçmir/);
   assert.equal(VS.checkText(GOOD.replace("3600", "3 600").replace("45,5", "45.5"), SOURCE.replace("3600", "3 600"), a), "", "minlik boşluğu və onluq vergül/nöqtə eyni rəqəmdir");
+  // 2026-11-23: mənbədə «XII turunda», mətndə «12-ci tur» — eyni rəqəmdir.
+  assert.equal(VS.checkText(GOOD.replace("Məktəblər yeni", "Bu, 17-ci layihədir. Məktəblər yeni"), SOURCE + " Layihə XVII mərhələdir.", a), "");
+  assert.match(VS.checkText(GOOD.replace("Məktəblər yeni", "Bu, 17-ci layihədir. Məktəblər yeni"), SOURCE, a), /mənbədə olmayan rəqəm: 17/);
+  assert.deepEqual(["XII", "IV", "XL", "IIII", "VX"].map(VS.roman), [12, 4, 40, 0, 0]);
   // 2026-11-22 nümunə videosu: «Cey. Di. Vensin» altyazıda üç hissəyə bölündü, «Di.» ekranda tək qaldı.
   assert.match(VS.checkText(GOOD.replace("Məktəblər yeni", "Cey. Di. Vens bildirib ki, məktəblər yeni"), SOURCE, a), /inisial/);
   assert.equal(VS.checkText(GOOD.replace("Məktəblər yeni", "ABŞ vitse-prezidenti Vens bildirib ki, məktəblər yeni"), SOURCE, a), "");
@@ -173,6 +177,9 @@ test("goruntu: a clip must match the query — the samples showed a squirrel for
   assert.equal(VS.relevance("united states capitol", "empire state, skyline, manhattan, new york, the usa, building, america, united states"), 0);
   assert.ok(VS.relevance("united states capitol", "capitol, washington, dome") > 0, "«united states» ümumi sözdür, «capitol» bəs edir");
   assert.equal(VS.relevance("white house washington", "washington, forest, trees"), 0);
+  // 2026-11-23: güllə izləri axtarışına tikinti işçisi keçmişdi (4 sözdən 2-si) — indi 3-ü lazımdır.
+  assert.equal(VS.relevance("bullet holes car window", "construction, remodeling, hammer, brick, window, hole, worker, building"), 0);
+  assert.ok(VS.relevance("bullet holes car window", "car, window, bullet, hole, crime") > 0);
 });
 
 test("goruntu: negative stories get people-free fallback scenes; the prompt forbids identifiable people (Pexels license)", () => {
@@ -198,11 +205,12 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   }
   const args = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: "ses.wav", out: "o.mp4", clips: ["a.mp4", "b.mp4", "c.mp4"] });
   const inputs = args.filter((x, i) => args[i - 1] === "-i");
-  assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "L.png", "ses.wav"]);
-  assert.equal(args.filter(x => x === "-stream_loop").length, 3, "qısa klip dövrə vurur");
+  // 25 s-lik nümunədə 5 kadr (başlıq + altyazılar), 3 klip: sıra ilə, sonra təkrar.
+  assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "a.mp4", "b.mp4", "L.png", "ses.wav"]);
+  assert.equal(args.filter(x => x === "-stream_loop").length, 5, "qısa klip dövrə vurur");
   const fc = args[args.indexOf("-filter_complex") + 1];
   assert.match(fc, /\[0:v\][^;]*scale=1080:1920:force_original_aspect_ratio=increase[^;]*crop=1080:1920/);
-  assert.match(fc, /\[c0\]\[c1\]\[c2\]concat=n=3:v=1:a=0/);
+  assert.match(fc, /\[c0\]\[c1\]\[c2\]\[c3\]\[c4\]concat=n=5:v=1:a=0/);
   // Ölçüsü məlum üfüqi klip kəsilmir: tam enində (1080×608) KLIP_Y-də, arxada bulanıq nüsxəsi; şaquli klip ekranı doldurur.
   const mixed = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
     clips: [{ file: "a.mp4", w: 1920, h: 1080 }, { file: "b.mp4", w: 1080, h: 1920 }, "c.mp4"] });
@@ -213,14 +221,193 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   assert.match(mf, /\[1:v\][^;]*crop=1080:1920,setsar=1\[c1\]/);
   assert.match(mf, /\[2:v\][^;]*crop=1080:1920,setsar=1\[c2\]/, "ölçü bilinmirsə əvvəlki kimi doldurulur");
   assert.ok(V.KLIP_Y + 608 <= 1920 && V.KLIP_Y >= 732, "klip başlıq zolağının altından başlayır");
-  assert.match(fc, /\[3:v\]scale=-1:80/, "loqo klipdən sonrakı girişdir");
-  assert.match(fc, /\[4:a\]/, "səs loqodan sonrakı girişdir");
-  const plan = V.clipPlan(["a", "b", "c", "d", "e"], 14);
-  assert.equal(plan.length, 3, "hər klip ən azı 4 s");
-  assert.ok(Math.abs(plan.reduce((s, c) => s + c.d, 0) - 14) < 0.02, "hissələr videonun uzunluğunu tam örtür");
+  // 3 sətirlik başlıqda zolaq uzanır: klip onun altından (2026-11-23 nümunəsində klipin üstü zolağın altında qalmışdı).
+  const p3 = V.prepare({ ...fixture, title: "Qurban Qurbanov: \"Gəncədə özümüzü Avropa stadionunda hiss edirdik\"" }, { cats, footage: true });
+  assert.equal(p3.head.lines.length, 3);
+  const low = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", w: 1920, h: 1080 }], clipY: Math.max(V.KLIP_Y, V.bandBottom(p3)) });
+  assert.match(low[low.indexOf("-filter_complex") + 1], new RegExp(`overlay=0:${V.bandBottom(p3)},`));
+  assert.ok(V.bandBottom(p3) > V.KLIP_Y && V.bandBottom(p3) + 608 <= V.LF.srcY, "klip mənbə sətrinə çatmır");
+  assert.ok(V.bandBottom(V.prepare(fixture, { cats, footage: true })) <= V.KLIP_Y, "2 sətirdə əvvəlki yer");
+  assert.match(fc, /\[5:v\]scale=-1:80/, "loqo kadrlardan sonrakı girişdir");
+  assert.match(fc, /\[6:a\]/, "səs loqodan sonrakı girişdir");
   // Kliplər olmadan əvvəlki kimi: rəngli fon, loqo [1], səs [2].
   const plain = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4" });
   assert.match(plain[plain.indexOf("-filter_complex") + 1], /^\[0:v\]format=rgb24,ass=v\.ass\[t\];\[1:v\]scale[\s\S]*\[2:a\]aformat/);
+});
+
+test("goruntu: clips keep the edit order; a query with no clip is never filled with a generic scene unless fewer than 3 clips; recent clips are skipped", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-sira-"));
+  const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1080, height: 1920, size: 5e6 } } });
+  const db = { "oil pump jack": [hit(1, "oil, pump, jack"), hit(2, "oil, pump, jack, field")], "gas price board": [],
+    "tanker ship sea": [hit(3, "tanker, ship, sea")], "business district skyline": [hit(9, "business, district, skyline")] };
+  const asked = [];
+  const f = async (u) => {
+    if (u.startsWith("https://pixabay.com/api/videos/")) { const q = new URL(u).searchParams.get("q"); asked.push(q); return { ok: true, json: async () => ({ hits: db[q] || [] }) }; }
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const got = await VS.goruntu(["oil pump jack", "gas price board", "tanker ship sea"], dir,
+    { env: { PIXABAY_API_KEY: "k" }, fetch: f, log: quiet, say: 3, category: "iqtisadiyyat", istifade: new Set(["Pixabay:1"]) });
+  assert.deepEqual(got.map(g => [g.q, g.id]), [["oil pump jack", 2], ["tanker ship sea", 3], ["business district skyline", 9]],
+    "işlənmiş klip (1) atılır; ifadələrin klipləri sıra ilə; cəmi 2 uyğun klip olduğuna görə sonda bir ümumi səhnə");
+  assert.equal(asked.filter(q => q === "oil pump jack").length, 1, "ifadə bir dəfə soruşulur");
+  // 3 uyğun klip varsa ümumi səhnə işlənmir (2026-11-23: Gürcüstan xəbərinin başlığına Bakı düşmüşdü), boş yer doldurulmur.
+  db["oil pump jack"].push(hit(4, "oil, pump, jack, sunset"));
+  const enough = await VS.goruntu(["oil pump jack", "gas price board", "tanker ship sea"], dir,
+    { env: { PIXABAY_API_KEY: "k" }, fetch: f, log: quiet, say: 8, category: "iqtisadiyyat", istifade: new Set(["Pixabay:1"]) });
+  assert.deepEqual(enough.map(g => g.id), [2, 3, 4], "əsas səhnənin ikinci klipi əlavə olunur, ümumi səhnə yox");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("goruntu: the story's real place comes first (city always with its country), clips tagged with another country or city are never used", async () => {
+  // Sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə».
+  const P = VS.yerPlan(["Ganja City Stadium", "Ganja", "Azerbaijan"]);
+  assert.deepEqual(P.axtar, ["ganja city stadium azerbaijan", "ganja azerbaijan"], "«ganja» tək axtarılmır (ingiliscədə kənafdır)");
+  assert.equal(VS.yadYer("stadium, field, football, city, architecture, batumi, georgia", P.icaze), "batumi", "nümunədə Gəncə xəbərinə Batumi stadionu düşmüşdü");
+  assert.equal(VS.yadYer("architecture, azerbaijan, baku, boulevard", P.icaze), "baku", "Gəncə xəbərində Bakı yox");
+  assert.equal(VS.yadYer("ganja, azerbaijan, city", P.icaze), "");
+  assert.equal(VS.yadYer("soccer, football, goal, stadium", P.icaze), "", "yersiz ümumi klip olar");
+  assert.equal(VS.yadYer("kaohsiung city, school hall", VS.yerPlan([]).icaze), "kaohsiung", "yer bilinməsə də tanınan yad şəhər olmaz");
+  assert.equal(VS.yadYer("the usa, flag, america, american", VS.yerPlan(["White House", "Washington", "United States"]).icaze), "", "eyni ölkənin adları");
+  assert.ok(VS.yerPlan(["Azerbaijan"]).icaze.has("baku"), "yalnız ölkə varsa paytaxt olar");
+  // «washington» axtarışına Vaşinqton ştatının mənzərəsi (Kolumbiya dərəsi, Oreqon) gəlmişdi.
+  const W = VS.yerPlan(["Washington", "United States"]);
+  assert.deepEqual(W.axtar, ["washington dc"]);
+  assert.equal(VS.yadYer("columbia gorge, washington, nature, columbia river, oregon", W.icaze), "oregon");
+  assert.match(VS.REDAKTOR, /ad eyni olsa da yer başqa ola bilər/);
+  assert.ok(!VS.yerPlan(["Qardabani", "Georgia"]).icaze.has("tbilisi"), "kənd xəbərində paytaxt olmaz");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-yer-"));
+  const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1920, height: 1080, size: 5e6 } } });
+  const db = { "ganja azerbaijan": [hit(5, "ganja, azerbaijan, city, park")], "football stadium lights": [hit(7, "stadium, football, lights, night, batumi, georgia"), { ...hit(40, "stadium, football, lights, night, drone"), user: "u7" }, hit(8, "stadium, football, lights")] };
+  const asked = [];
+  const f = async (u) => {
+    if (u.startsWith("https://pixabay.com/api/videos/")) { const q = new URL(u).searchParams.get("q"); asked.push(q); return { ok: true, json: async () => ({ hits: db[q] || [] }) }; }
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const logs = [];
+  const got = await VS.goruntu(["football stadium lights"], dir, { env: { PIXABAY_API_KEY: "k" }, fetch: f, log: s => logs.push(s), say: 2, category: "idman",
+    yer: ["Ganja City Stadium", "Ganja", "Azerbaijan"] });
+  assert.deepEqual(got.map(g => g.id), [5, 8], "əvvəl Gəncənin özü, sonra ümumi klip; Batumi atılır");
+  assert.equal(asked[0], "ganja city stadium azerbaijan", "əvvəl ən dəqiq yer");
+  assert.ok(logs.some(s => /başqa yer \(batumi\)/.test(s)));
+  assert.ok(logs.some(s => /Pixabay 40: yad yerin seriyası/.test(s)), "Batumi klipinin müəllifinin eyni seriyadan klipi (etiketsiz) də atılır");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("goruntu: the picture editor (Gemini) reads the story and every candidate's tags, picks in edit order; bad answers fall back to query order", async () => {
+  const hit = (id, tags) => ({ id, duration: 15, user: `u${id}`, tags, pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1920, height: 1080, size: 5e6 } } });
+  const db = { "football fans stadium": [hit(1, "fans, stadium, football, lech poznan, poznan"), hit(2, "fans, stadium, football, crowd")],
+    "empty stadium seats": [hit(3, "sofa, couch, seat, empty, old, furniture"), hit(4, "stadium, seats, empty, arena")] };
+  let answer = "", prompt = "";
+  const downloads = [];
+  const f = async (u, o = {}) => {
+    if (u.startsWith("https://pixabay.com/api/videos/")) return { ok: true, json: async () => ({ hits: db[new URL(u).searchParams.get("q")] || [] }) };
+    if (/models\?pageSize/.test(u)) return { ok: true, json: async () => ({ models: [] }) };
+    if (/generateContent/.test(u)) { prompt = JSON.parse(o.body).contents[0].parts[0].text; return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: answer }] } }] }) }; }
+    downloads.push(u);
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "klip-redaktor-"));
+  const xeber = { title: "Qurbanov: Gəncədə özümüzü Avropa stadionunda hiss edirdik", text: "Gəncə stadionunda azarkeşlər çox idi.", yer: ["Ganja", "Azerbaijan"] };
+  const opt = { env: { PIXABAY_API_KEY: "k", GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" }, fetch: f, log: quiet, say: 8, category: "idman", xeber };
+  // Namizədlər: 1, 2 (birinci ifadə), 4, 3 (ikinci ifadə, uyğunluğa görə: «stadium seats» divandan yuxarı) → 3-cü namizəd = klip 4.
+  answer = JSON.stringify({ klip: [3, 2, 99, 3] });
+  const got = await VS.goruntu(["football fans stadium", "empty stadium seats"], dir, opt);
+  assert.deepEqual(got.map(g => g.id), [4, 2], "redaktorun sırası; 99 (yoxdur) və təkrar atılır; Poznan və divan seçilmir");
+  assert.deepEqual(downloads, ["https://cdn.pixabay.com/4.mp4", "https://cdn.pixabay.com/2.mp4"], "yalnız seçilən klip yüklənir");
+  assert.match(prompt, /montaj redaktorusan/);
+  assert.match(VS.REDAKTOR, /əhvalı xəbərə uyğun/, "partlayış xəbərinə yelkənli qayıq, gün batımı düşmüşdü");
+  assert.match(prompt, /1\. «football fans stadium» — fans, stadium, football, lech poznan, poznan/, "Gemini etiketləri görür");
+  assert.match(prompt, /Yer: Ganja, Azerbaijan/);
+  assert.match(prompt, /Diktor mətni: Gəncə stadionunda/);
+  answer = "bağışlayın";
+  downloads.length = 0;
+  const plain = await VS.goruntu(["football fans stadium", "empty stadium seats"], dir, opt);
+  assert.deepEqual(plain.map(g => g.id), [1, 4, 2, 3], "cavab JSON deyilsə ifadə sırası (hər ifadədən birinci, sonra ikinci)");
+  answer = JSON.stringify({ klip: [] });
+  assert.deepEqual(await VS.goruntu(["football fans stadium", "empty stadium seats"], dir, opt), [], "heç biri uyğun deyilsə klip yoxdur");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("sosial-video: a story with fewer than 2 fitting clips is skipped for the next one (no video with wrong or empty footage)", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-klipmin-"));
+  const NOW = Date.parse("2026-11-22T10:00:00Z");
+  const art = (c, title, min) => ({ id: c.repeat(16), title, summary: SOURCE, category: "cemiyyet", lang: "az", source: "APA", sourceUrl: `https://apa.az/${c}`,
+    publishedAt: new Date(NOW - min * 60e3).toISOString(), alts: [{ source: "Report" }, { source: "Oxu.az" }, { source: "Trend" }] });
+  const az = art("a", "Bakıda 12 yeni məktəb açılıb", 5), cox = art("b", "Bakıda 12 yeni məktəb binası istifadəyə verilib", 10);
+  const page = `<html><body>${SOURCE.split(". ").map(s => `<p>${s}. Bakıda yeni məktəblər haqqında ətraflı məlumat.</p>`).join("")}</body></html>`;
+  const hit = id => ({ id, duration: 15, user: `u${id}`, tags: "school, building, classroom", pageURL: `https://pixabay.com/videos/x-${id}/`,
+    videos: { medium: { url: `https://cdn.pixabay.com/${id}.mp4`, width: 1080, height: 1920, size: 5e6 } } });
+  let story = "";
+  const f = async (u, o = {}) => {
+    if (/^https:\/\/apa\.az\//.test(u)) return { ok: true, text: async () => page };
+    if (/models\?pageSize/.test(u)) return { ok: true, json: async () => ({ models: [] }) };
+    if (/generateContent/.test(u)) {
+      const pr = JSON.parse(o.body).contents[0].parts[0].text;
+      if (!/montaj redaktorusan/.test(pr)) story = /Başlıq: Bakıda 12 yeni məktəb binası/.test(pr) ? "b" : "a";
+      const out = /montaj redaktorusan/.test(pr) ? { klip: [1, 2] } : { uygun: true, text: GOOD, axtar: ["school building"], yer: ["Baku", "Azerbaijan"] };
+      return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] }) };
+    }
+    if (u.startsWith("https://pixabay.com/api/videos/")) return { ok: true, json: async () => ({ hits: story === "a" ? [hit(1)] : [hit(2), hit(3)] }) };
+    return { ok: true, arrayBuffer: async () => new Uint8Array(15000).buffer };
+  };
+  const logs = [], state = SV.readState(path.join(dir, "yox.json"), NOW);
+  const x = await SV.sec({ articles: [az, cox], env: { VIDEO_ACAR: "1", VIDEO_PAYLAS: "0", GEMINI_API_KEY: "g", PIXABAY_API_KEY: "p", VIDEO_GEMINI_WAIT_MS: "0" },
+    now: NOW, state, fetch: f, cats, dir, log: s => logs.push(s) });
+  assert.equal(x.id, cox.id, "1 klipli xəbər ötürülür, növbəti xəbər");
+  assert.equal(x.klipler.length, 2);
+  assert.ok(state.skip[az.id] && logs.some(s => /uyğun görüntü 1 klip, ən az 2/.test(s)));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("hashtags: Gemini's topic tags are cleaned (no «#», spaces, Cyrillic, duplicates of the house tags) and reach every post text and video.json", () => {
+  assert.deepEqual(VS.hashtags(["#futbol", "Premyer Liqa", "#Qarabağ", "8ulduz", "Футбол", "#Futbol", "x"]), ["futbol", "PremyerLiqa", "Qarabağ"]);
+  assert.deepEqual(VS.hashtags("futbol"), [], "siyahı deyilsə boş");
+  const x = { title: "Başlıq", text: "Mətn.", link: "https://www.8ulduz.az/a?h=1", hashtags: ["futbol", "Qarabağ"] };
+  assert.match(SV.fbText(x), /#futbol #Qarabağ #8ulduz #xəbərlər #Azərbaycan$/);
+  assert.match(SV.igText(x), /#futbol #Qarabağ #8ulduz #xəbərlər #Azərbaycan #video$/);
+  assert.match(SV.fbText({ ...x, hashtags: undefined }), /\n\n#8ulduz #xəbərlər #Azərbaycan$/, "etiket yoxdursa əvvəlki kimi");
+  assert.deepEqual(V.storyFields({ ...fixture, hashtags: ["futbol", "Qarabağ"] }).hashtags, ["futbol", "Qarabağ"], "YouTube/TikTok video.json-dan oxuyur");
+  assert.equal(V.storyFields(fixture).hashtags, undefined);
+  assert.match(VS.PROMPT, /"etiket"/);
+});
+
+test("video: shots cut where the narration moves on (headline, then each caption), 2.6–6.5 s each; reused clips continue from an unused part", () => {
+  const t = { duration: 40, chunks: [[4, 8.5], [8.7, 10], [10.2, 16], [16.2, 25.5], [25.7, 35]].map(at => ({ text: "x", at })), outro: [35.3, 40] };
+  const b = V.shotBounds(t);
+  assert.ok(b.every(([s, e]) => e - s >= 2.6 - 1e-9 && e - s <= 6.5 + 1e-9), JSON.stringify(b));
+  assert.deepEqual(b.slice(0, 2).map(x => x.map(v => Math.round(v * 10) / 10)), [[0, 4], [4, 10.2]], "kəsim danışığın sərhədində; 1,3 s-lik hissə əvvəlkinə birləşir");
+  assert.ok(b.some(([s]) => Math.abs(s - 16.2) < 1e-6) && b.some(([s]) => Math.abs(s - 25.7) < 1e-6), "hər yeni altyazıda yeni kadr");
+  const plan = V.shotPlan([{ file: "a", dur: 30 }, { file: "b", dur: 5 }, { file: "c" }], t);
+  assert.ok(Math.abs(plan.reduce((x, c) => x + c.d, 0) - 40) < 0.011, "kadrlar videonu tam örtür");
+  assert.deepEqual(plan.slice(0, 4).map(c => c.file), ["a", "b", "c", "a"], "kliplər sıra ilə (montaj planı)");
+  assert.equal(plan[3].ss, plan[0].d, "a ikinci dəfə işlənməmiş yerindən");
+  assert.equal(plan.filter(c => c.file === "b")[1]?.ss ?? 0, 0, "qısa klipdə yer qalmayıbsa əvvəldən");
+  assert.equal(plan.find(c => c.file === "c").ss, 0, "uzunluğu bilinməyən klip əvvəldən");
+  const args = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", dur: 30 }] });
+  const p1 = V.shotPlan([{ file: "a.mp4", dur: 30 }], t);
+  assert.ok(args.join(" ").includes(`-stream_loop -1 -ss ${p1[1].ss.toFixed(2)} -t ${p1[1].d.toFixed(2)} -i a.mp4`), "ikinci kadr klipin davamından");
+});
+
+test("video: the spoken word lights up orange in the caption, then turns white again; timing follows letters, numbers and pauses", () => {
+  const w = V.wordTimes("ABŞ 2026-cı ildə, Bakıda.", 1, 5);
+  assert.deepEqual(w.map(x => x[0]), ["ABŞ", "2026-cı", "ildə,", "Bakıda."]);
+  assert.equal(w[0][1], 1);
+  assert.ok(Math.abs(w[3][2] - 5) < 1e-9, "hissənin vaxtını tam örtür");
+  const len = i => w[i][2] - w[i][1];
+  assert.ok(len(1) > len(3), "rəqəm sözlə oxunur, uzun çəkir");
+  assert.ok(len(0) > len(2) * 0.8, "qısaltma hərf-hərf oxunur");
+  const p = V.prepare(fixture, { cats, footage: true }), t = V.timeline(p, null);
+  const caps = V.ass(p, t).split("\n").filter(l => l.startsWith("Dialogue: 4,"));
+  assert.equal(caps.length, t.chunks.length);
+  for (const [i, l] of caps.entries()) {
+    const words = t.chunks[i].text.split(" ").filter(Boolean).length;
+    assert.equal((l.match(/\\t\(\d+,\d+,\\1c&H0AA3F5&\)/g) || []).length, words, "hər söz bir dəfə narıncı olur");
+    assert.equal((l.match(/\\t\(\d+,\d+,\\1c&HFFFFFF&\)/g) || []).length, words, "və yenə ağ olur");
+  }
+  assert.equal(caps[0].match(/\\t\((\d+),/)[1], "0", "ilk söz hissə başlayanda yanır");
 });
 
 test("sosial-video: the chosen story gets the Gemini script and Pexels clips in xeber.json; post texts credit Pexels", async () => {

@@ -18,7 +18,7 @@ const S = require("./social.cjs");
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];   // siyahı alınmasa
 const TEXT_MIN = 350, TEXT_MAX = 750, SOURCE_MAX = 5000, SENT_MIN = 4, SENT_MAX = 8;
-const KLIP_SAY = 5, KLIP_MAX_BYTES = 60e6;
+const KLIP_SAY = 8, SPARE_MIN = 3, KLIP_MAX_BYTES = 60e6;   // 8 klip: ~45 s-lik videoda kadr 3–6 s-dən bir dəyişir (video-xeber.cjs shotPlan)
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -91,8 +91,10 @@ Qaydalar:
 - Rəqəmləri mənbədəki kimi rəqəmlə yaz. Keçid, emoji, nida və sual işarəsi, kiril hərfi yoxdur. «bu gün», «dünən», «sabah» yoxdur.
 - Neytral xəbər dili. Ən vacib fakt birinci cümlədə. Şərh və qiymətləndirmə yoxdur.
 - Adları inisialsız yaz: «Cey. Di. Vens» yox, «ABŞ vitse-prezidenti Vens»; «İ. Əliyev» yox, «İlham Əliyev».
-Videonun fonu üçün 4–6 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz): xəbərin məkanını, mövzusunu, əşyalarını
-göstərən konkret səhnələr, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
+Videonun görüntüsü üçün 6–8 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz) — montaj planı kimi, SIRA İLƏ: birinci
+ifadə xəbərin əsas səhnəsidir (başlıq oxunanda görünür), sonra diktor mətninin hər cümləsinə bir səhnə, cümlələrin sırası ilə.
+Video bankında çox olan sadə səhnə yaz: 2–3 söz, adi isimlər ("police car lights", "crime scene tape", "night village road") —
+çox xüsusi ifadə ("bullet holes car window") tapılmır, onda yanlış kadr gəlir. Hər ifadə xəbərin məkanını, mövzusunu, əşyalarını göstərən səhnədir, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
 Yer adı varsa onu yaz ("Istanbul Bosphorus", "Baku boulevard"). Bayraq yalnız ölkə adı ilə ("Azerbaijan flag"), "national flags" yox.
 İnsanların xəbərdəki hərəkətini (görüş, əl sıxma, imza, çıxış) göstərən səhnə yazma: tamaşaçı onları xəbərin qəhrəmanı sanar.
 Konkret tanınan insanların adını yazma. Xəbər cinayət, qəza, ölüm, xəstəlik, fəlakət, məhkəmə və ya münaqişə haqqındadırsa, yalnız
@@ -101,7 +103,12 @@ insansız səhnələr seç (bina, yol, polis maşınının işıqları, şəhər
 (ümumi kadr həmin adamları göstərirmiş kimi görünər). Qalan hər xəbər — true: cinayət, qəza, ölüm, yanğın, hadisə, idman, bəyanat, müsahibə,
 iqtisadiyyat, qiymət, hava, təbiət, nəqliyyat, tikinti, texnologiya, müharibənin gedişi. Xəbər konkret bir adam haqqında olsa belə, səhnə
 onu yox, mövzunu göstərir (atışma — "police car lights night", bəyanat sərhəd haqqında — "US Mexico border wall"). Şübhə olanda true.
-Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."]}
+"yer": xəbərin baş verdiyi və mətndə adı çəkilən konkret yerlər ingiliscə, Pixabay/Wikipedia yazılışı ilə, dəqiqdən ümumiyə:
+məsələn ["Ganja City Stadium", "Ganja", "Azerbaijan"], ["Qardabani", "Georgia"], ["White House", "Washington", "United States"].
+Yer yoxdursa []. Video əvvəlcə bu yerlərin əsl görüntüsü ilə axtarılır, başqa ölkənin və şəhərin tanınan görüntüsü götürülmür.
+"etiket": postun 3 mövzu etiketi (hashtag), Azərbaycan dilində və ya xəbərdəki xüsusi adla, boşluqsuz, məsələn "futbol", "PremyerLiqa",
+"Qarabağ", "neft", "hava". Partiya, siyasi şüar və təhqir yoxdur.
+Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."], "yer": ["...", "..."], "etiket": ["...", "...", "..."]}
 
 Başlıq: {title}
 Bölmə: {bolme}
@@ -117,6 +124,14 @@ const latin = s => String(s).replace(/[әӘөӨүҮһҺғҒаеорсухіјА�
 // Diktor mətninin yoxlanması. Səbəb (sətir) və ya "" — keçdi.
 const NUM = /\d+(?:[.,]\d+)*/g;
 const normNum = s => s.replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".");
+// Rum rəqəmi (I–LXXXIX) → ədəd; düzgün yazılmayıbsa 0.
+function roman(s) {
+  const v = { I: 1, V: 5, X: 10, L: 50 };
+  let n = 0;
+  for (let i = 0; i < s.length; i++) n += v[s[i]] < (v[s[i + 1]] || 0) ? -v[s[i]] : v[s[i]];
+  const back = x => [["L", 50], ["XL", 40], ["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1]].reduce((acc, [r, k]) => { while (x >= k) { acc += r; x -= k; } return acc; }, "");
+  return n > 0 && back(n) === s ? n : 0;
+}
 function checkText(text, source, a, policy = () => false) {
   if (text.length < TEXT_MIN || text.length > TEXT_MAX) return `uzunluq ${text.length} (${TEXT_MIN}–${TEXT_MAX})`;
   // «Cey. Di. Vens»: altyazı hər nöqtədə bölünür, «Di.» ekranda tək qalır (2026-11-22 nümunə videosu).
@@ -127,14 +142,27 @@ function checkText(text, source, a, policy = () => false) {
   if (/https?:|www\.|[!?]/.test(text)) return "keçid, nida və ya sual";
   if (/\b(bu gün|dünən|sabah)\b/i.test(text)) return "nisbi gün sözü";
   if (!/[əğışçöüƏĞŞÇÖÜİ]/.test(text)) return "Azərbaycan dilində deyil";
-  const have = new Set((source.match(NUM) || []).map(normNum));
+  // Mənbədəki rum rəqəmi də rəqəmdir: «XII turunda» → «12-ci tur» (2026-11-23: lite model belə yazdı, mətn rədd olunmuşdu).
+  const have = new Set([...(source.match(NUM) || []).map(normNum), ...(source.match(/\b[IVXL]{1,7}\b/g) || []).map(roman).filter(Boolean).map(String)]);
   const extra = (text.match(NUM) || []).map(normNum).filter(n => !have.has(n));
   if (extra.length) return `mənbədə olmayan rəqəm: ${extra.slice(0, 3).join(", ")}`;
   if (policy({ ...a, summary: text })) return "saytın qaydasından keçmir";
   return "";
 }
 
-// Axtarış ifadələri: yalnız latın hərfi, 2–5 söz, ən çox 6, təkrarsız.
+// Mövzu etiketləri (sahib 2026-11-23: «tam professional»; kəşf üçün): «#» atılır, yalnız hərf, rəqəm, «_», 2–30 simvol, ən çox 3,
+// təkrarsız; ümumi etiketlər (#8ulduz #xəbərlər #Azərbaycan) postda onsuz da var. Kiril oxşarı latına çevrilir, qalan kiril atılır.
+function hashtags(list) {
+  const base = new Set(["8ulduz", "xəbərlər", "azərbaycan", "shorts", "video"]), out = [];
+  for (const x of Array.isArray(list) ? list : []) {
+    const t = latin(String(x ?? "")).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "");
+    if (t.length < 2 || t.length > 30 || /[Ѐ-ӿ]/.test(t) || base.has(t.toLocaleLowerCase("az"))) continue;
+    if (!out.some(o => o.toLocaleLowerCase("az") === t.toLocaleLowerCase("az"))) out.push(t);
+  }
+  return out.slice(0, 3);
+}
+
+// Axtarış ifadələri: yalnız latın hərfi, 2–5 söz, ən çox 8 (montaj planı: başlıq + hər cümlə), sıra saxlanır, təkrarsız.
 function queries(list) {
   const out = [];
   for (const q of Array.isArray(list) ? list : []) {
@@ -142,22 +170,23 @@ function queries(list) {
     const n = s.split(" ").length;
     if (s.length >= 3 && s.length <= 60 && n <= 5 && !out.includes(s)) out.push(s);
   }
-  return out.slice(0, 6);
+  return out.slice(0, 8);
 }
 // Gemini olmayanda bölməyə görə ümumi səhnələr (insansız; Pexels-də çox klip olanlar).
 const EHTIYAT = {
-  siyaset: ["baku city skyline", "azerbaijan flag", "government building", "baku boulevard"],
-  prezident: ["baku city skyline", "azerbaijan flag", "government building", "baku boulevard"],
+  // Yer adı yoxdur: ehtiyat səhnə xəbərin harada olduğunu bilmir (2026-11-23: Gürcüstan xəbərinin başlığında Bakı göründü).
+  siyaset: ["government building", "parliament building", "city skyline night", "conference microphones"],
+  prezident: ["government building", "parliament building", "city skyline night", "conference microphones"],
   iqtisadiyyat: ["business district skyline", "cargo ship port", "stock market screen", "factory production line"],
   idman: ["football stadium", "sports stadium lights", "running track", "football ball grass"],
   dunya: ["world globe", "city skyline night", "airport airplane", "world map"],
   texnologiya: ["technology circuit", "data center servers", "smartphone screen", "code on screen"],
   elm: ["science laboratory", "microscope laboratory", "space stars", "technology circuit"],
   hadise: ["police car lights night", "city street night", "emergency lights", "road traffic night"],
-  cemiyyet: ["baku city street", "city street people walking", "school building", "hospital corridor"],
+  cemiyyet: ["city street people walking", "city lights night", "residential buildings", "city street traffic"],
   medeniyyet: ["theater stage lights", "museum hall", "old city architecture", "concert stage lights"],
 };
-const ehtiyat = a => EHTIYAT[a.category] || ["baku city skyline", "city street traffic", "baku boulevard", "city skyline night"];
+const ehtiyat = a => EHTIYAT[a.category] || ["city skyline night", "city street traffic", "city lights night", "clouds timelapse"];
 
 // Protokol xəbəri (görüş, qəbul, telefon danışığı, təbrik, başsağlığı): ümumi kadr həmin adamları göstərirmiş kimi görünər —
 // belə xəbərdən video hazırlanmır (2026-11-22 nümunə videosu: Prezidentin qəbulu, fonda yad əl sıxma və göy). Gemini də yoxlayır («uygun»).
@@ -181,7 +210,8 @@ async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch
   const text = latin(clean(j?.text));
   const why = text ? checkText(text, `${source}\n${clean(a.title)}`, a, policy) : "cavab boşdur və ya JSON deyil";
   if (why) { log(`video: Gemini mətni qəbul olunmadı (${why}) — başqa xəbər`); return { uygun: false, sebeb: why }; }
-  return { text, axtar: queries(j?.axtar), uygun: true };
+  const etiket = hashtags(j?.etiket);
+  return { text, axtar: queries(j?.axtar), yer: places(j?.yer), uygun: true, ...(etiket.length && !policy({ ...a, summary: etiket.join(" ") }) ? { etiket } : {}) };
 }
 
 // --- Görüntü: Pexels və Pixabay ------------------------------------------------------------------------------------------------------------------
@@ -213,7 +243,7 @@ const STOP = new Set(["the", "and", "with", "for", "from", "into", "over", "near
 const stem = w => (w.length > 4 ? w.replace(/ies$/, "y").replace(/(?<!s)s$/, "") : w);
 const words = s => String(s || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 2 && !STOP.has(w)).map(stem);
 // Qayda: ifadənin əsas sözü — sonuncu konkret (ümumi olmayan) söz, ingiliscədə ad birləşməsinin özəyi («border WALL», «capitol»,
-// «baku city skyline»-da «baku») — klipin təsvirində olmalıdır və konkret sözlərin ən az 2-si (1-dirsə o) üst-üstə düşməlidir.
+// «baku city skyline»-da «baku») — klipin təsvirində olmalıdır və konkret sözlərin ən az 60%-i (1→1, 2–3→2, 4→3) üst-üstə düşməlidir; 2026-11-23: «bullet holes car window» 2 sözlə tikinti işçisinə keçmişdi.
 // Dördüncü nümunə: «Mexico City» etiketli dələ «us mexico border wall»-a, Empire State «united states capitol»-a keçmişdi.
 const UMUMI = new Set(["city", "building", "street", "road", "night", "view", "aerial", "people", "traffic", "light", "sky", "skyline",
   "background", "office", "outdoor", "water", "landscape", "modern", "old", "new", "urban", "center", "exterior", "interior", "drone",
@@ -224,9 +254,74 @@ function relevance(q, desc) {
   const n = want.filter(w => have.has(w)).length, spec = want.filter(w => !UMUMI.has(w));
   if (!spec.length) return n >= Math.min(2, want.length) ? n : 0;   // yalnız ümumi sözlər («city street traffic»)
   const m = spec.filter(w => have.has(w)).length;
-  return have.has(spec[spec.length - 1]) && m >= Math.min(2, spec.length) ? n + m : 0;
+  return have.has(spec[spec.length - 1]) && m >= Math.ceil(spec.length * 0.6) ? n + m : 0;   // 1→1, 2–3→2, 4→3
 }
 const slug = u => String(u || "").split("?")[0].split("/").filter(Boolean).pop() || "";
+
+// --- Yer (sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə») --------
+// Gemini xəbərin konkret yerlərini verir (yer: dəqiqdən ümumiyə). Axtarış əvvəlcə bu yerlərlə aparılır (şəhər həmişə ölkə ilə:
+// «ganja» ingiliscədə həm də kənafdır), tapılan əsl yer görüntüsü başlıq kadrına düşür. Etiketində xəbərə aid olmayan ölkə və
+// ya şəhər olan klip götürülmür (2026-11-23: Gəncə xəbərində Batumi stadionu, Gürcüstan xəbərində Bakı göründü).
+const OLKELER = ["afghanistan", "albania", "algeria", "argentina", "armenia", "australia", "austria", "azerbaijan", "bahrain", "bangladesh",
+  "belarus", "belgium", "bolivia", "bosnia", "brazil", "bulgaria", "cambodia", "canada", "chile", "china", "colombia", "croatia", "cuba",
+  "cyprus", "czech", "denmark", "egypt", "england", "estonia", "ethiopia", "finland", "france", "georgia", "germany", "greece", "hungary",
+  "iceland", "india", "indonesia", "iran", "iraq", "ireland", "israel", "italy", "jamaica", "japan", "jordan", "kazakhstan", "kenya",
+  "kosovo", "kuwait", "kyrgyzstan", "latvia", "lebanon", "libya", "lithuania", "luxembourg", "malaysia", "maldives", "malta", "mexico",
+  "moldova", "monaco", "mongolia", "montenegro", "morocco", "nepal", "netherlands", "holland", "new zealand", "nigeria", "norway", "oman",
+  "pakistan", "palestine", "panama", "peru", "philippines", "poland", "portugal", "qatar", "romania", "russia", "saudi arabia", "scotland",
+  "serbia", "slovakia", "slovenia", "somalia", "spain", "sri lanka", "sudan", "sweden", "switzerland", "syria", "taiwan", "tajikistan",
+  "tanzania", "thailand", "tunisia", "turkey", "turkiye", "turkmenistan", "uganda", "ukraine", "united arab emirates", "uae", "usa",
+  "united states", "america", "american", "united kingdom", "britain", "uruguay", "uzbekistan", "venezuela", "vietnam", "wales", "yemen"];
+const SEHERLER = ["new york", "manhattan", "brooklyn", "los angeles", "hollywood", "san francisco", "chicago", "las vegas", "miami", "seattle",
+  "boston", "washington", "london", "paris", "rome", "venice", "florence", "milan", "naples", "berlin", "munich", "hamburg", "frankfurt",
+  "amsterdam", "rotterdam", "brussels", "barcelona", "madrid", "seville", "lisbon", "porto", "prague", "vienna", "budapest", "warsaw",
+  "krakow", "istanbul", "ankara", "antalya", "izmir", "dubai", "abu dhabi", "doha", "riyadh", "mecca", "jerusalem", "tel aviv", "cairo",
+  "moscow", "saint petersburg", "kyiv", "kiev", "odesa", "odessa", "kharkiv", "minsk", "tbilisi", "batumi", "yerevan", "tehran", "tabriz",
+  "baku", "ganja", "sheki", "shusha", "lankaran", "sumgait", "sumqayit", "nakhchivan", "gabala", "beijing", "shanghai", "hong kong",
+  "shenzhen", "tokyo", "osaka", "kyoto", "seoul", "busan", "taipei", "kaohsiung", "bangkok", "phuket", "hanoi", "ho chi minh", "saigon",
+  "bali", "jakarta", "manila", "kuala lumpur", "sydney", "melbourne", "toronto", "vancouver", "montreal", "rio de janeiro", "sao paulo",
+  "buenos aires", "mexico city", "cancun", "havana", "bogota", "mumbai", "delhi", "kolkata", "kathmandu", "cape town", "johannesburg",
+  "nairobi", "marrakech", "oslo", "stockholm", "copenhagen", "helsinki", "reykjavik", "dublin", "edinburgh", "zurich", "geneva",
+  "salzburg", "athens", "santorini", "dubrovnik", "belgrade", "bucharest", "sofia", "almaty", "astana", "tashkent", "samarkand",
+  "bishkek", "ashgabat", "dushanbe",
+  // ABŞ ştatları: «washington» axtarışına Vaşinqton ştatının (Oreqon sərhədi) mənzərəsi gəlmişdi (2026-11-23).
+  "oregon", "california", "texas", "florida", "alaska", "hawaii", "colorado", "arizona", "utah", "nevada", "montana", "idaho"];
+// Adı başqa yerlə eyni olan yer: axtarışda dəqiq adı (Vaşinqton şəhəri, ştat yox).
+const DEQIQ = { washington: "washington dc" };
+// Eyni yerin başqa adları; ölkə yeganə yerdirsə (şəhər yoxdur) paytaxtının görüntüsü də uyğundur.
+const LAQEB = { "united states": ["usa", "america", "american", "united states"], usa: ["usa", "america", "american", "united states"],
+  "united kingdom": ["united kingdom", "britain", "england", "uk"], turkiye: ["turkey", "turkiye"], turkey: ["turkey", "turkiye"],
+  ukraine: ["ukraine"], kyiv: ["kyiv", "kiev"], sumqayit: ["sumqayit", "sumgait"] };
+const PAYTAXT = { azerbaijan: ["baku"], turkey: ["istanbul", "ankara"], turkiye: ["istanbul", "ankara"], russia: ["moscow"], georgia: ["tbilisi"],
+  ukraine: ["kyiv", "kiev"], "united states": ["washington", "new york"], usa: ["washington", "new york"], france: ["paris"],
+  "united kingdom": ["london"], germany: ["berlin"], iran: ["tehran"], china: ["beijing"], japan: ["tokyo"], italy: ["rome"], israel: ["jerusalem", "tel aviv"] };
+const YERLER = [...SEHERLER, ...OLKELER];   // əvvəl şəhər: jurnalda dəqiq ad
+const lat = s => clean(s).toLowerCase().replace(/[^a-z\s'-]/g, " ").replace(/\s+/g, " ").trim();
+const hasName = (text, name) => new RegExp(`(^|[^a-z])${name.replace(/ /g, "[\\s-]")}([^a-z]|$)`).test(text);
+// Gemini-nin yer siyahısı: yalnız latın, 1–5 söz, ən çox 5, sıra saxlanır.
+function places(list) {
+  const out = [];
+  for (const x of Array.isArray(list) ? list : []) {
+    const s = clean(x).replace(/[^A-Za-z \-']/g, " ").replace(/\s+/g, " ").trim();
+    if (s.length >= 3 && s.length <= 60 && s.split(" ").length <= 5 && !out.some(o => o.toLowerCase() === s.toLowerCase())) out.push(s);
+  }
+  return out.slice(0, 5);
+}
+// { axtar: yer ifadələri (şəhər + ölkə), icaze: Set(xəbərə aid yer adları) }.
+function yerPlan(yer) {
+  const names = places(yer).map(lat);
+  const country = names.find(n => OLKELER.includes(n)) || "";
+  const icaze = new Set();
+  for (const n of names) for (const g of YERLER) if (hasName(n, g)) { icaze.add(g); (LAQEB[g] || []).forEach(x => icaze.add(x)); }
+  if (names.length && names.every(n => OLKELER.includes(n))) for (const n of names) (PAYTAXT[n] || []).forEach(x => icaze.add(x));
+  const axtar = names.filter(n => !OLKELER.includes(n)).map(n => DEQIQ[n] || (country && !n.includes(country) ? `${n} ${country}` : n));
+  return { axtar: queries(axtar), icaze };
+}
+// Klipin təsvirində xəbərə aid olmayan ölkə və ya şəhər varmı.
+function yadYer(desc, icaze) {
+  const t = lat(desc);
+  return YERLER.find(g => !icaze.has(g) && hasName(t, g)) || "";
+}
 // Uyğunluğa görə (ən uyğun əvvəl), bərabər olanda şaquli əvvəl; uyğun olmayan atılır.
 const rank = list => list.filter(x => x.score > 0).sort((a, b) => b.score - a.score || (b.h > b.w) - (a.h > a.w));
 
@@ -239,7 +334,7 @@ const MENBELER = [
       // Pexels etiket vermir: təsvir səhifə ünvanındadır (…/video/drone-view-of-baku-123/); ünvan yoxdursa axtarışın sırasına güvənilir.
       const out = rank((j?.videos || []).filter(v => v.duration >= 4).map(v => ({ v, file: bestFile(v, orient === "portrait") })).filter(x => x.file)
         .map(({ v, file }) => ({ id: v.id, user: clean(v.user?.name || ""), link: file.link, w: file.width, h: file.height,
-          score: words(slug(v.url)).length ? relevance(q, slug(v.url)) : 1 })));
+          score: words(slug(v.url)).length ? relevance(q, slug(v.url)) : 1, tags: slug(v.url).replace(/-\d+$/, "").replace(/-/g, ", ") })));
       if (out.length) return out;
     }
     return [];
@@ -252,38 +347,101 @@ const MENBELER = [
   } },
 ];
 
-// Klipləri <qovluq>/klip-N.mp4-ə yükləyir. Nəticə: [{ file, id, user, q, p (mənbə), w, h }] (bəlkə boş).
-async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "" } = {}) {
+// Klipləri <qovluq>/klip-N.mp4-ə yükləyir. Nəticə montaj sırasıdır: [{ file, id, user, q, p (mənbə), w, h }] (bəlkə boş).
+// Sıra Gemini-nin ifadələrinin sırasıdır (başlıq, sonra cümlələr; video-xeber.cjs shotPlan kadrları bu sıra ilə götürür), sonra
+// eyni ifadələrin ikinci klipləri. Uyğun klip tapılmayan ifadənin yeri ümumi səhnə ilə DOLDURULMUR: yanlış yerin kadrı (2026-11-23:
+// Gürcüstan xəbərinin başlığında Bakı) uyğun klipin təkrarından pisdir — montaj klipin başqa hissəsini göstərir. Bölmənin ümumi
+// səhnələri yalnız uyğun klip SPARE_MIN-dən azdırsa.
+// istifade: son günlərin videolarında işlənmiş kliplər («Pixabay:123») — eyni kadr hər gün təkrarlanmasın (sosial-video.cjs state.klip).
+// xeber: { title, text, yer } — varsa namizədləri montaj redaktoru (Gemini, redaktor()) seçir; yoxdursa və ya Gemini cavab vermirsə
+// ifadə sırası ilə (hər ifadədən birinci, sonra ikinci…).
+const NAMIZED_MAX = 3, SERIYA = 60;
+async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
   if (!menbeler.length) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
-  // Əvvəl Gemini-nin ifadələri (hər birindən bir klip, çatmırsa ikinci), sonra bölmənin ümumi səhnələri.
-  const own = queries(axtar), spare = ehtiyat({ category }).filter(q => !own.includes(q));
-  const rounds = own.length ? [own, own, spare] : [spare, spare];
-  const got = [], seen = new Set();
-  for (const list of rounds) {
-    for (const q of list) {
-      if (got.length >= say) break;
-      for (const m of menbeler) {
-        const c = (await m.find(q, env[m.env], f)).find(x => !seen.has(`${m.name}:${x.id}`));
-        if (!c) continue;
-        seen.add(`${m.name}:${c.id}`);
-        try {
-          const r = await f(c.link, { signal: AbortSignal.timeout(90000) });
-          const buf = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
-          if (!buf || buf.length < 10000 || buf.length > KLIP_MAX_BYTES) continue;
-          const name = `klip-${got.length + 1}.mp4`;
-          fs.mkdirSync(dir, { recursive: true });
-          fs.writeFileSync(path.join(dir, name), buf);
-          got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h });
-          log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
-          break;
-        } catch {}
+  // Əvvəl xəbərin yerləri (əsl yer görüntüsü başlıq kadrına), sonra Gemini-nin montaj ifadələri.
+  const Y = yerPlan(yer), own = [...new Set([...Y.axtar, ...queries(axtar)])], spare = ehtiyat({ category }).filter(q => !own.includes(q));
+  if (Y.axtar.length) log(`video: yer — ${Y.axtar.join("; ")}`);
+  // 1) Namizədlər: hər ifadədən ən uyğun NAMIZED_MAX klip; işlənmiş və yad yerin klipi atılır. Ifadə bir dəfə soruşulur.
+  const cand = [], seen = new Set(istifade), yadlar = [];
+  const collect = async (list, per) => {
+    for (const q of list) for (const m of menbeler) {
+      let k = 0;
+      for (const c of await m.find(q, env[m.env], f)) {
+        if (k >= per) break;
+        const id = `${m.name}:${c.id}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const yad = yadYer(c.tags || "", Y.icaze);
+        if (yad) { yadlar.push({ p: m.name, user: c.user, id: Number(c.id) }); log(`video: klip ötürüldü — «${q}» ${m.name} ${c.id}: başqa yer (${yad})`); continue; }
+        cand.push({ m, c, q, sira: k++ });
       }
     }
+  };
+  await collect(own, NAMIZED_MAX);
+  if (cand.length < SPARE_MIN) await collect(spare, 2);   // ümumi səhnə yalnız uyğun klip azdırsa
+  // Yad yerin klipi ilə eyni çəkilişdən olan klip (eyni müəllif, yaxın nömrə — bir seriya kimi yüklənib): etiketində yer adı
+  // olmasa da həmin yeri göstərir (2026-11-23: Batumi stadionu 239973 rədd edildi, eyni seriyadan 239964 keçdi).
+  const eyniSeriya = x => yadlar.some(y => y.p === x.m.name && y.user && y.user === x.c.user && Math.abs(y.id - Number(x.c.id)) <= SERIYA);
+  for (let i = cand.length - 1; i >= 0; i--) if (eyniSeriya(cand[i])) { log(`video: klip ötürüldü — «${cand[i].q}» ${cand[i].m.name} ${cand[i].c.id}: yad yerin seriyası`); cand.splice(i, 1); }
+  // 2) Seçim: montaj redaktoru və ya ifadə sırası.
+  let pick = xeber && env.GEMINI_API_KEY && cand.length ? await redaktor(cand, xeber, say, { env, fetch: f, log }) : null;
+  if (!pick) pick = [...cand].sort((a, b) => a.sira - b.sira || cand.indexOf(a) - cand.indexOf(b)).slice(0, say);
+  // 3) Yükləmə, seçim sırası ilə.
+  const got = [];
+  for (const { m, c, q } of pick) {
     if (got.length >= say) break;
+    try {
+      const r = await f(c.link, { signal: AbortSignal.timeout(90000) });
+      const buf = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
+      if (!buf || buf.length < 10000 || buf.length > KLIP_MAX_BYTES) continue;
+      const name = `klip-${got.length + 1}.mp4`;
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, name), buf);
+      got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h });
+      log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
+    } catch {}
   }
-  if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən klip alınmadı — görüntüsüz (köhnə fon)`);
+  if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən uyğun klip alınmadı`);
   return got;
 }
 
-module.exports = { ssenari, goruntu, protokol, relevance, latin, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+// Montaj redaktoru (2026-11-23): söz uyğunluğu yad şəhəri (siyahıda olmayan «lech poznan»), mənası başqa klipi («empty stadium seats»
+// → köhnə divan) buraxırdı. Gemini xəbəri və hər namizədin etiketlərini oxuyub montaj sırası ilə seçir; uyğun deyilsə az seçir.
+// Nəticə: seçilmiş namizədlər (bəlkə boş) və ya null — Gemini cavab vermədi, sadə qayda işləsin.
+const REDAKTOR = `Sən 8ulduz.az xəbər videosunun montaj redaktorusan. Aşağıda xəbər və video bankında tapılmış kliplər var: nömrə, axtarış
+ifadəsi və bankın klipə yazdığı etiketlər. Videonun kadrları üçün ən çox {n} klip seç, MONTAJ SIRASI İLƏ: əvvəl xəbərin yerini və ya
+əsas səhnəsini göstərən, sonra diktor mətninin cümlələrinin sırası ilə.
+Qaydalar:
+- Klip etiketlərinə görə həqiqətən lazım olan səhnəni göstərməlidir. Mənası başqa olan klipi SEÇMƏ (stadion oturacağı əvəzinə divan,
+  güllə izi əvəzinə tikinti, futbol əvəzinə uşaq oyunu).
+- Yer klipini yalnız etiketləri məhz xəbərin yerini göstərirsə seç: ad eyni olsa da yer başqa ola bilər (Vaşinqton şəhəri xəbərinə
+  "washington, oregon, columbia river" — ştatın təbiəti — SEÇMƏ). Şübhə olanda yer klipi əvəzinə mövzu klipini seç.
+- Xəbərin yeri olmayan konkret yeri — başqa şəhəri, ölkəni, stadionu, klubu, komandanı, brendi — göstərən klipi SEÇMƏ
+  (məsələn Gəncə xəbərinə "lech poznan", "batumi", "barcelona"). Etiketində heç bir yer olmayan ümumi klip olar.
+- Klipin əhvalı xəbərə uyğun olmalıdır: partlayış, qəza, müharibə, cinayət, ölüm, fəlakət xəbərində istirahət, turizm, bayram,
+  romantika klipini (yelkənli qayıq, çimərlik, gün batımı, "holiday", "peaceful", "tropical") SEÇMƏ.
+- Cinayət, qəza, ölüm xəbərində tanınan insan üzü olan klipi seçmə.
+- Uyğun klip azdırsa az seç: yanlış kadr qoymaqdansa klipin təkrarı yaxşıdır. Heç biri uyğun deyilsə boş siyahı.
+Yalnız JSON qaytar: {"klip": [nömrələr]}
+
+Xəbər: {title}
+Yer: {yer}
+Diktor mətni: {text}
+Kliplər:
+{list}`;
+async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.fetch, log = console.log } = {}) {
+  const list = cand.map((k, i) => `${i + 1}. «${k.q}» — ${clean(k.c.tags || "etiket yoxdur").slice(0, 160)}`).join("\n");
+  const prompt = REDAKTOR.replace("{n}", () => String(n)).replace("{title}", () => clean(x.title)).replace("{yer}", () => places(x.yer).join(", ") || "—")
+    .replace("{text}", () => clean(x.text).slice(0, 900)).replace("{list}", () => list);
+  const raw = await gemini(prompt, env.GEMINI_API_KEY, f, log, env);
+  if (raw == null) return null;
+  let j = null;
+  try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
+  if (!Array.isArray(j?.klip)) { log("video: montaj redaktorunun cavabı JSON deyil — sadə qayda"); return null; }
+  const idx = [...new Set(j.klip.map(Number).filter(k => Number.isInteger(k) && k >= 1 && k <= cand.length))].slice(0, n);
+  log(`video: montaj redaktoru ${cand.length} namizəddən ${idx.length} klip seçdi`);
+  return idx.map(k => cand[k - 1]);
+}
+
+module.exports = { ssenari, goruntu, redaktor, REDAKTOR, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

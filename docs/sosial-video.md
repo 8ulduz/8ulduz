@@ -78,6 +78,26 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   Axtarış ifadəsində insanların xəbərdəki hərəkəti (görüş, imza, çıxış) və adsız bayraqlar yoxdur; inisiallar («Cey. Di.») tam yazılır.
 - **Dizayn:** görüntü bütün ekranı tutur; yuxarıda brend zolağı, altında yarımşəffaf tünd zolaqda bölmə və başlıq, aşağıda altyazılar
   (səslə eyni anda), altda mənbə və «Görüntü: Pixabay», sonda tündləşən ekranda «Ətraflı: 8ulduz.az».
+
+### Montaj, altyazı və etiketlər (sahib, 2026-11-23: «tam professional kimi işlə»)
+
+- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunanda bir kadr gedir, sonra hər altyazı hissəsi bir kadrdır. Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
+  Kliplər montaj planının sırası ilə gedir. Klip təkrarlananda onun işlənməmiş yerindən götürülür (`-ss`).
+- **Görüntü sırası** (`video-ssenari.cjs` `goruntu`): Gemini 6–8 sadə ifadə verir: əvvəl əsas səhnə, sonra hər cümləyə bir səhnə, cümlələrin sırası ilə. 8 klip yüklənir, sonra eyni ifadələrin ikinci klipləri.
+  Tapılmayan ifadənin yerinə ümumi səhnə qoyulmur, çünki yanlış yerin kadrı uyğun klipin təkrarından pisdir. Bölmənin ümumi səhnələri (yer adı yoxdur) yalnız uyğun klip 3-dən az olanda işlənir.
+  Son 3 günün videolarında işlənmiş kliplər götürülmür (`.sosial-video/state.json` → `klip`).
+- **Əsl yer** (sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə»): Gemini xəbərin konkret yerlərini verir (`yer`: «Ganja City Stadium», «Ganja», «Azerbaijan»).
+  Axtarış əvvəlcə bu yerlərlə aparılır. Şəhər həmişə ölkə ilə axtarılır («ganja azerbaijan»: «ganja» ingiliscədə həm də kənafdır). Tapılan əsl yer görüntüsü başlıq kadrına düşür.
+  Etiketində xəbərə aid olmayan ölkə və ya şəhər olan klip götürülmür (`yadYer`; nümunədə Gəncə xəbərinə Batumi stadionu, Gürcüstan xəbərinə Bakı düşmüşdü). Xəbərdə yalnız ölkə varsa, onun paytaxtı da olar.
+  **Montaj redaktoru** (`redaktor`). Hər ifadədən 3 namizəd toplanır. Gemini xəbəri, yeri və hər namizədin etiketlərini oxuyub ən çox 8 klipi montaj sırası ilə seçir.
+  Söz uyğunluğu bunları buraxırdı: siyahıda olmayan yad şəhəri («lech poznan») və mənası başqa klipi («empty stadium seats» axtarışına köhnə divan). Yalnız seçilən klip yüklənir. Gemini cavab verməsə, ifadə sırası işləyir.
+  **Keyfiyyət həddi:** 2-dən az uyğun klip tapılan xəbər ötürülür, növbəti xəbər götürülür (`KLIP_MIN`).
+  Qanuni hədd:
+  - oyunların və tədbirlərin öz kadrları telekanalların və təşkilatçıların hüququdur;
+  - president.az «müəllif hüquqları qorunur» yazır (2026-11-23), Commons-dakı köhnə «CC BY 4.0» qeydinə güvənilmir;
+  - əsl yer görüntüsü yalnız sərbəst lisenziya ilə yayılıbsa (Pixabay, Pexels) götürülür.
+- **Altyazı:** deyilən söz narıncı yanır, sonra yenə ağ olur. Söz vaxtı səs modelinin hissə vaxtından bölünür (`wordTimes`): hərf sayı, rəqəm (sözlə oxunur), qısaltma (hərf-hərf) və durğu fasiləsi nəzərə alınır.
+- **Etiketlər:** Gemini 3 mövzu etiketi verir. Etiketdən «#», boşluq və kiril atılır, ümumi etiketin təkrarı da atılır. Etiketlər Facebook, Instagram, YouTube (`video.json` `hashtags`) və TikTok mətnlərinə gedir, ümumilərdən (`#8ulduz #xəbərlər #Azərbaycan`) əvvəl.
 - **Yoxlama:** PR-da süni kliplərlə (şaquli və üfüqi) görüntülü video hazırlanır; əl ilə önizləmə (`paylas` söndürülüb) istənilən budaqda işləyir.
 
 ## Müəllif hüququ (sərt qayda)
@@ -136,11 +156,13 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 ## Paylaşım: `.github/workflows/sosial-video.yml` + `.github/scripts/sosial-video.cjs`
 
 1. Hər 30 dəqiqədən bir (:17, :47) iş başlayır. Vaxtı deyilsə (gecə, fasilə, gündəlik hədd) ~20 saniyədə bitir: ffmpeg və model quraşdırılmır.
+   İşi xəbər axını başladır (`pipeline.sh` `video_loop`, yalnız dispatch; main-də video işi gedirsə yox): iş axınının cron-u 2026-11-22-də
+   bir dəfə də işləmədi (X yazıcısında da belə olmuşdu). Cron ehtiyat qalır.
 2. **Seçim** (`sosial-video.cjs sec`): lent saytın qaydasından keçir; social.cjs-in namizədləri; əvvəl video olmuş xəbər, başlıq və mövzu (24 saat) ötürülür; mənbə səhifəsindən izah tapılmayan xəbər video olmur.
 3. **Video** (`video-xeber.cjs`), sonra yoxlama: ölçü, kodek, kadr sürəti, səs, müddət, moov əvvəldə. Uyğun deyilsə iş qırmızıdır, heç nə paylaşılmır.
 4. **Paylaşma** (`sosial-video.cjs paylas`): fayl hər iki şəbəkəyə **birbaşa** yüklənir (Meta-nın `rupload.facebook.com` serverinə, «resumable upload»). İctimai ünvan və saxlama yeri lazım deyil, repoya video yazılmır (repo ölçüsü, `repo-olcu.yml`). Video yalnız iş səhifəsində 3 günlük artefakt kimi qalır.
    - Facebook: `POST /{səhifə}/video_reels` (start) → fayl → `finish` (`video_state=PUBLISHED`, `description` keçidlə) → emal bitəndə ilk şərh «Ətraflı: keçid».
-   - Instagram: `POST /{ig}/media` (`media_type=REELS`, `upload_type=resumable`, `caption`, `thumb_offset=1500`) → fayl → status `FINISHED` (15 s-dən bir, ən çox 5 dəq) → `media_publish`. Əvvəl 24 saatlıq hədd (`content_publishing_limit`) yoxlanır.
+   - Instagram: `POST /{ig}/media` (`media_type=REELS`, `upload_type=resumable`, `caption`, `thumb_offset=1500`) → fayl → status `FINISHED` (15 s-dən bir, ən çox 5 dəq) → `media_publish`. Əvvəl 24 saatlıq hədd (`content_publishing_limit`) yoxlanır. Yükləmə alınmasa (2026-11-22, 16,8 MB: `ProcessingFailedError`, «retriable: false») 1 dəqiqə sonra yeni konteynerlə bir dəfə təkrar olunur.
 5. Siyahı (`.sosial-video/state.json`, actions/cache) 3 gün saxlanır: eyni xəbər iki dəfə getmir.
 
 Bu iş xəbər axınından (`update.yml`) və şəkilli paylaşmadan (`social.yml`) ayrıdır: düşsə də, gecikse də onlara təsir etmir; sayta heç nə yazmır (qırmızı xətt 1 və 3).

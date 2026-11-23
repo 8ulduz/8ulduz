@@ -64,6 +64,7 @@ EDITORIAL_PID=""
 ROLLOUT_PID=""
 TIXAC_PID=""
 XYAZICI_PID=""
+VIDEO_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
@@ -74,6 +75,7 @@ cleanup() {
   [ -n "$ROLLOUT_PID" ] && kill "$ROLLOUT_PID" 2>/dev/null
   [ -n "$TIXAC_PID" ] && kill "$TIXAC_PID" 2>/dev/null
   [ -n "$XYAZICI_PID" ] && kill "$XYAZICI_PID" 2>/dev/null
+  [ -n "$VIDEO_PID" ] && kill "$VIDEO_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -408,6 +410,27 @@ xyazici_loop() {
   done
 }
 
+# Video xəbər (sosial-video.yml; sahib 2026-11-22: «Facebook-da video xəbərlər verilsin… İnstagramda videolar verilsin»): iş
+# axınının cron-u («17,47») 2026-11-22-də bir dəfə də işləmədi — bütün işlər əl ilə və ya PR-dan idi. İşi bu döngü başladır: hər
+# 30 dəqiqəlik pəncərədə (UTC dəqiqə 17 və 47-dən sonra) bir dəfə; main-də gedən və ya növbədə olan video işi varsa yox.
+# Yalnız dispatch: açar, Gemini, video bankı bu döngüyə gəlmir. Vaxt (Bakı 08–23), 120 dəqiqəlik fasilə və gündəlik hədd
+# sosial-video.cjs-dədir: vaxtı deyilsə iş ~20 saniyədə bitir. Cron ehtiyat qalır.
+video_loop() {
+  local last=-1 slot busy
+  while :; do
+    slot=$(( ($(date +%s) - 1020) / 1800 ))
+    if [ "$slot" != "$last" ]; then
+      busy="$(gh_t run list --workflow sosial-video.yml --branch main --limit 5 --json status --jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo "")"
+      if [ "$busy" = 0 ]; then
+        gh_t workflow run sosial-video.yml --ref main >/dev/null 2>&1 && last=$slot
+      elif [ -n "$busy" ]; then
+        last=$slot   # bu pəncərənin işi artıq gedir (cron və ya əl ilə)
+      fi
+    fi
+    sleep 60
+  done
+}
+
 # Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
 # GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
 self_watch() { # $1 əsas proses
@@ -460,6 +483,8 @@ tixac_loop &
 TIXAC_PID=$!
 xyazici_loop &
 XYAZICI_PID=$!
+video_loop &
+VIDEO_PID=$!
 # Etibarlı köməkçi yalnız sabit GitHub API ünvanından qayda faylını oxuyur. Mənbə/lent prosesləri açarı görmür.
 UPDATER_ROOT="$WORK" "$PY" "$REPO_DIR/.github/scripts/editorial_sync.py" --watch &
 EDITORIAL_PID=$!
