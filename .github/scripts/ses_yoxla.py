@@ -9,7 +9,9 @@ Whisper özü də səhv edir, ona görə rəqəmin özü yox, ayarlar arasındak
   python3 ses_yoxla.py dinle <korpus.json> <çıxış qovluğu> [köhnə az_text.py]
   python3 ses_yoxla.py hesabat <netice-*.json olan qovluq>
   korpus.json  {"items": ["mətn", …], "numune": [indekslər]} — «numune» hissələri hər ayar üçün bir faylda dinlənir
-  VARIANTS     JSON siyahı: [{"ad", "metn": "yeni"|"kohne", "noise_scale", "noise_scale_duration", "speaking_rate", "commas"}]
+  VARIANTS     JSON siyahı: [{"ad", "motor": "sara"|"babek", "metn": "yeni"|"kohne", "noise_scale", "noise_scale_duration",
+               "speaking_rate", "commas", "tire"}]; babek — saytın «Dinlə» səsi (edge-tts), kohne üçün OLD_SES=köhnə ses.py
+  OLD_SES      köhnə .github/scripts/ses.py (Babək üçün indiki mətn yolu: spoken_text)
   ASR_MODEL    Whisper modeli (default large-v3)
 Nəticə: <çıxış>/netice-<ad>.json, <ad>/NNN.wav, <ad>-numune.wav; hesabat — markdown (stdout).
 """
@@ -24,6 +26,7 @@ from collections import Counter
 HERE = os.path.dirname(os.path.abspath(__file__))
 SES = os.path.join(os.path.dirname(HERE), "ses-server")
 MODEL = os.environ.get("SES_MODEL", "BHOSAI/SARA_TTS")
+BABEK = "az-AZ-BabekNeural"
 DEFAULT_VARIANTS = [
     {"ad": "kohne", "metn": "kohne"},
     {"ad": "yeni", "metn": "yeni"},
@@ -93,24 +96,48 @@ def write_wav(path, pcm, sr):
         w.writeframes(pcm)
 
 
+def babek(text, sr=16000, tries=3):
+    """Saytın «Dinlə» səsi (Babək, edge-tts — .github/scripts/ses.py ilə eyni yol) → 16 bit PCM."""
+    import asyncio
+    import subprocess
+    import tempfile
+    import edge_tts
+    with tempfile.TemporaryDirectory() as d:
+        mp3 = os.path.join(d, "s.mp3")
+        for attempt in range(tries):
+            try:
+                asyncio.run(edge_tts.Communicate(text, BABEK).save(mp3))
+                break
+            except Exception:
+                if attempt == tries - 1:
+                    raise
+                time.sleep(5 * (attempt + 1))
+        return subprocess.run(["ffmpeg", "-loglevel", "error", "-i", mp3, "-f", "s16le", "-ac", "1", "-ar", str(sr), "pipe:1"],
+                              capture_output=True, check=True).stdout
+
+
 def main(corpus_path, out, old_path=None):
     import numpy as np
-    import torch
     from faster_whisper import WhisperModel
-    from transformers import AutoTokenizer, VitsModel
 
     new = load(os.path.join(SES, "az_text.py"), "az_text_yeni")
     old = load(old_path, "az_text_kohne") if old_path and os.path.exists(old_path) else None
+    old_ses = os.environ.get("OLD_SES")
+    old_ses = load(old_ses, "ses_kohne") if old_ses and os.path.exists(old_ses) else None
     with open(corpus_path, encoding="utf-8") as f:
         corpus = json.load(f)
     items, sample = corpus["items"], corpus.get("numune", [])
     variants = json.loads(os.environ.get("VARIANTS") or "null") or DEFAULT_VARIANTS
-    if old is None:
-        variants = [v for v in variants if v.get("metn") != "kohne"]
+    variants = [v for v in variants if v.get("metn") != "kohne" or (old_ses if v.get("motor") == "babek" else old)]
 
-    torch.set_num_threads(max(1, os.cpu_count() or 1))
-    tok, model = AutoTokenizer.from_pretrained(MODEL), VitsModel.from_pretrained(MODEL).eval()
-    sr = model.config.sampling_rate
+    tok = model = None
+    sr = 16000
+    if any(v.get("motor", "sara") == "sara" for v in variants):
+        import torch
+        from transformers import AutoTokenizer, VitsModel
+        torch.set_num_threads(max(1, os.cpu_count() or 1))
+        tok, model = AutoTokenizer.from_pretrained(MODEL), VitsModel.from_pretrained(MODEL).eval()
+        sr = model.config.sampling_rate
     base = dict(new.VOICE)   # ayarı verilməyən variant az_text.VOICE ilə oxuyur (video və server kimi)
     asr = WhisperModel(os.environ.get("ASR_MODEL", "large-v3"), device="cpu", compute_type="int8", cpu_threads=os.cpu_count() or 2)
     os.makedirs(out, exist_ok=True)
@@ -119,16 +146,25 @@ def main(corpus_path, out, old_path=None):
     for v in variants:
         name = v["ad"]
         os.makedirs(os.path.join(out, name), exist_ok=True)
-        for k, default in base.items():
-            setattr(model, k, v.get(k, default))
+        is_babek = v.get("motor") == "babek"
+        if not is_babek:
+            for k, default in base.items():
+                setattr(model, k, v.get(k, default))
         mod = old if v.get("metn") == "kohne" else new
         rows, t_synth, t_asr, audio = [], 0.0, 0.0, 0.0
         sample_pcm = []
         for i, text in enumerate(items):
-            torch.manual_seed(8)
             t0 = time.time()
-            parts = mod.phrases(text) if mod is old else mod.phrases(text, commas=v.get("commas", False))
-            pcm = synth(tok, model, parts, sr)
+            if is_babek:
+                # Babək bütöv mətni alır (durğu və böyük hərf intonasiya üçün qalır): köhnə — ses.py-nin indiki yolu, yeni — az_text.for_voice
+                said = old_ses.spoken_text(text) if v.get("metn") == "kohne" else new.for_voice(text, hyphens=v.get("tire", True))
+                pcm = babek(said, sr)
+            else:
+                import torch
+                torch.manual_seed(8)
+                parts = mod.phrases(text) if mod is old else mod.phrases(text, commas=v.get("commas", False))
+                said = " | ".join(s for s, _ in parts)
+                pcm = synth(tok, model, parts, sr)
             t_synth += time.time() - t0
             path = os.path.join(out, name, f"{i:03d}.wav")
             write_wav(path, pcm, sr)
@@ -148,7 +184,7 @@ def main(corpus_path, out, old_path=None):
             ref, hyp = expected_words(new, text), expected_words(new, heard)
             wd, ops = edits(ref, hyp)
             cd, _ = edits(list("".join(ref)), list("".join(hyp)))
-            rows.append({"i": i, "text": text, "ref": " ".join(ref), "heard": heard, "hyp": " ".join(hyp),
+            rows.append({"i": i, "text": text, "said": said, "ref": " ".join(ref), "heard": heard, "hyp": " ".join(hyp),
                          "words": len(ref), "werr": wd, "chars": len("".join(ref)), "cerr": cd, "dur": round(dur, 2),
                          "ops": ops})
             print(f"[{name}] {i:03d} WER {wd}/{len(ref)}  «{heard}»", flush=True)

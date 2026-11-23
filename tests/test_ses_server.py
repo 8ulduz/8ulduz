@@ -97,6 +97,8 @@ class HumanReadingTest(unittest.TestCase):
     def test_weather_and_money(self):
         self.assertEqual(said("Bakıda buludlu hava, +12°…+17°"), "bakıda buludlu hava | on iki-on yeddi dərəcə")
         self.assertEqual(said("Gecə -5°, gündüz 3 °C"), "gecə mənfi beş dərəcə | gündüz üç dərəcə")
+        # 2026-11-23: dərəcədən sonrakı söz yapışırdı («dərəcəolacaq»)
+        self.assertEqual(said("Gündüz +12°…+17° olacaq, gecə -2° şaxta"), "gündüz on iki-on yeddi dərəcə olacaq | gecə mənfi iki dərəcə şaxta")
         self.assertEqual(said("1 654,23 dollar"), "min altı yüz əlli dörd tam yüzdə iyirmi üç dollar")
 
     def test_foreign_names(self):

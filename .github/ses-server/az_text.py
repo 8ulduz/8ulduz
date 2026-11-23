@@ -371,11 +371,12 @@ def verbalize(text):
     t = re.sub(rf"(?<=[{LO}])(?=[{UP}])", " ", t)
     # Qısaltma + şəkilçi (rəqəmlərdən əvvəl: «COVID-19»-da rəqəm sözü şəkilçi sayılmasın): ABŞ-nin → a-be-şenin, NATO-ya → natoya
     t = re.sub(rf"\b([{UP}]{{2,7}}){SUFFIX}", lambda m: glue(acronym(m.group(1)), m.group(2), True), t)
-    # Temperatur: +12°…+17° → 12-17 dərəcə; −5° → mənfi 5 dərəcə
-    t = re.sub(r"([+−-]?)(\d+)\s*°\s*(?:C\b)?\s*(?:…|\.\.\.|–|—|-)\s*([+−-]?)(\d+)\s*°\s*(?:C\b)?",
+    # Temperatur: +12°…+17° → 12-17 dərəcə; −5° → mənfi 5 dərəcə. «°»-dən sonrakı boşluq yalnız «C» gələndə udulur
+    # (2026-11-23: «+17° olacaq» → «dərəcəolacaq» idi).
+    t = re.sub(r"([+−-]?)(\d+)\s*°(?:\s*C\b)?\s*(?:…|\.\.\.|–|—|-)\s*([+−-]?)(\d+)\s*°(?:\s*C\b)?",
                lambda m: f"{'mənfi ' if m.group(1) in '−-' and m.group(1) else ''}{m.group(2)}-{'mənfi ' if m.group(3) in '−-' and m.group(3) else ''}{m.group(4)} dərəcə", t)
-    t = re.sub(r"(?<![\w\d])[−-](\d+)\s*°\s*(?:C\b)?", r"mənfi \1 dərəcə", t)
-    t = re.sub(r"\+?(\d+)\s*°\s*(?:C\b)?", r"\1 dərəcə", t)
+    t = re.sub(r"(?<![\w\d])[−-](\d+)\s*°(?:\s*C\b)?", r"mənfi \1 dərəcə", t)
+    t = re.sub(r"\+?(\d+)\s*°(?:\s*C\b)?", r"\1 dərəcə", t)
     # %15, 15% → on beş faiz; 15%-ə → on beş faizə
     t = re.sub(r"%\s?(\d+(?:[.,]\d+)?)", r"\1%", t)
     t = re.sub(rf"(\d+(?:[.,]\d+)?)\s?%(?:{SUFFIX})?", lambda m: attach(_say_number(m.group(1)) + " faiz", m.group(2) or ""), t)
@@ -399,6 +400,16 @@ def verbalize(text):
     # Tək böyük hərfli sözlər (ABŞ, FHN, XII, VİDEO)
     t = re.sub(rf"\b[{UP}]{{2,}}\b", lambda m: acronym(m.group(0)), t)
     return t
+
+
+def for_voice(text, hyphens=True):
+    """Saytın «Dinlə» səsi (Babək: .github/scripts/ses.py və ses-worker) üçün mətn: verbalize qaydaları (rəqəm, qısaltma,
+    sayt, lüğət), amma durğu və böyük hərf qalır — o səs intonasiyanı onlardan qurur. hyphens=False: sözün içindəki tire
+    boşluq olur («a-be-şenin» → «a be şenin»)."""
+    t = verbalize(text)
+    if not hyphens:
+        t = re.sub(rf"(?<=[{LO}])-(?=[{LO}])", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 # Cümlə sonu: nöqtə/nida/sual/üç nöqtə, sonra (dırnaq/mötərizə ola bilər) boşluq və ya mətn sonu.
