@@ -94,6 +94,7 @@ def write_wav(path, pcm, sr):
 
 
 def main(corpus_path, out, old_path=None):
+    import numpy as np
     import torch
     from faster_whisper import WhisperModel
     from transformers import AutoTokenizer, VitsModel
@@ -136,7 +137,11 @@ def main(corpus_path, out, old_path=None):
             if i in sample:
                 sample_pcm += [pcm, b"\x00\x00" * int(sr * 0.7)]
             t0 = time.time()
-            segs, _ = asr.transcribe(path, language="az", beam_size=5, temperature=0.0, condition_on_previous_text=False,
+            # Səs birbaşa massiv kimi verilir (faylı oxuyan PyAV-ın yeni versiyası faster-whisper ilə uyğun gəlmir).
+            pcm16k = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0
+            if sr != 16000:
+                pcm16k = np.interp(np.arange(0, len(pcm16k), sr / 16000), np.arange(len(pcm16k)), pcm16k).astype(np.float32)
+            segs, _ = asr.transcribe(pcm16k, language="az", beam_size=5, temperature=0.0, condition_on_previous_text=False,
                                      vad_filter=False, without_timestamps=True)
             heard = " ".join(s.text.strip() for s in segs).strip()
             t_asr += time.time() - t0
