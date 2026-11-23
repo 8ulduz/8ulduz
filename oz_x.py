@@ -412,6 +412,14 @@ VIDEOLENT_QRUPLAR = {
         "CBSNews": "CBS News", "CollinRugg": "Collin Rugg", "disclosetv": "Disclose.tv",
         "EmmanuelMacron": "Emmanuel Macron", "FoxNews": "Fox News", "MarioNawfal": "Mario Nawfal",
         "SkyNews": "Sky News",
+        # Sahib 2026-11-23: «siyasət arxa qapı videoları maraqlı hadisə videoları yoxdur … ən çox baxılan videolar olsun». FxTwitter,
+        # 2026-11-23 17:35–18:15 UTC, 72 saat, öz videoları: median baxış ≥ 50 min, ≥ 5 video. Hadisə anı: Pusholder 175 min, BPT 157 min
+        # (Türkiyə); müharibə kadrı, ağır kadr görünmədi: OSINTdefender 153 min, OSINTtechnical 240 min; siyasətin pərdəarxası:
+        # Zelenskiy 237 min, Aaron Rupar 91 min, Acyn 59 min, BBC Politics 56 min, Visegrád 24 53 min, Ağ Ev 170 min. Çıxarılan:
+        # DailyLoud (öz videolarında Rainbet mərc reklamı), Megatron_ron, dom_lucre, WallStreetApes (təbliğat, icma qeydi, nifrət).
+        "pusholder": "Pusholder", "bpthaber": "BPT", "sentdefender": "OSINTdefender", "OSINTtechnical": "OSINTtechnical",
+        "ZelenskyyUa": "Volodymyr Zelenskyy", "atrupar": "Aaron Rupar", "Acyn": "Acyn", "BBCPolitics": "BBC Politics",
+        "visegrad24": "Visegrád 24", "WhiteHouse": "The White House",
     },
     "idman": {   # İdman (264)
         "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "ufc": "UFC", "ringmagazine": "Ring Magazine", "acmilan": "AC Milan",
@@ -524,7 +532,8 @@ _MOVZU = {h: m for m, q in VIDEOLENT_QRUPLAR.items() for h in q}
 # başında durur; lent görülməmiş videolar arasında hər mövzuda onları əvvəl göstərir (reels «p»). Mövzu bölgüsü dəyişmir.
 VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
                   "buitengebieden", "nocontextfooty", "wonderofscience", "Yoda4ever", "NoContextHumans", "9GAG", "Rainmaker1973",
-                  "GWR", "redbull", "VidsThatGoHard", "InternetH0F", "CollinRugg", "FoxNews", "Breaking911", "ufc")
+                  "GWR", "redbull", "VidsThatGoHard", "InternetH0F", "CollinRugg", "FoxNews", "Breaking911", "ufc",
+                  "pusholder", "bpthaber", "sentdefender")   # 2026-11-23: hadisə anı, median 150–175 min baxış
 _ONDE = {h.lower() for h in VIDEOLENT_ONDE}
 
 
@@ -561,11 +570,13 @@ _USTA_TEXT = re.compile(r"how (?:it'?s|they'?re|it is|are) made|how to (?:make|b
                         r"\bfactory\b|manufactur|production line|craftsm|handmade|woodwork|blacksmith|welding|\bforg(?:e|ing)\b|carpent|"
                         r"\bdiy\b|nasıl yapılır|nasıl üretilir|yapımı|üretim|restorasyon|onarım|\btamir|usta(?:lık)?\b|fabrika|el yapımı|"
                         r"как делают|производств|реставрац|ремонт", re.I)
-# Lentə düşməyən mətn (Gemini-siz də): mərc və qumar, açıq-saçıq, ağır kadr xəbərdarlığı, edam. X-in öz «possibly_sensitive»
-# nişanı və icma qeydi (community note) x_yazici.candidate-də ayrıca yoxlanır.
-_UNSAFE_TEXT = re.compile(r"casino|kazino|roobet|stake\.com|1xbet|betting|sportsbook|\bbahis|iddaa|kumar|jackpot|"
-                          r"onlyfans|\bnsfw\b|porn|\bxxx\b|\+18\b|\b18\+|\bgraphic\b|viewer discretion|sensitive content|"
-                          r"\bgore\b|behead|dead bod|corpse|ceset|infaz|\bexecution of\b|kafa kes|казино|ставк|порн", re.I)
+# Lentə düşməyən mətn (Gemini-siz də): mərc və qumar, açıq-saçıq, ağır kadr xəbərdarlığı, edam, uşaq istismarı və zorlama. X-in
+# öz «possibly_sensitive» nişanı və icma qeydi (community note) x_yazici.candidate-də ayrıca yoxlanır, amma 2026-11-23 ölçüsündə
+# nişan 10 486 paylaşımın yalnız birində idi — ağır kadrı mətn tutur (BPT belə videoları «HASSAS» yazır).
+_UNSAFE_TEXT = re.compile(r"casino|kazino|roobet|rainbet|stake\.com|1xbet|polymarket|betting|sportsbook|\bbahis|iddaa|kumar|jackpot|"
+                          r"onlyfans|\bnsfw\b|porn|\bxxx\b|\+18\b|\b18\+|\bgraphic\b|disturbing|viewer discretion|sensitive content|"
+                          r"\bhassas\b|rahatsız edici|\bgore\b|behead|dead bod|corpse|ceset|infaz|\bexecution of\b|kafa kes|"
+                          r"child abuse|molest|\brape[ds]?\b|istismar|taciz|tecavüz|казино|ставк|порн", re.I)
 
 
 def usta_text(text):
@@ -578,16 +589,28 @@ def unsafe_text(text):
     return bool(_UNSAFE_TEXT.search(str(text or "")))
 
 
-# Ən çox baxılan (sahib 2026-11-23): bu qədər baxışı olmayan video «boş» sayılır və lentə düşmür. Paylaşım 24 saat namizəddir
-# (x_yazici.REEL_WINDOW), hesab yenidən yoxlananda baxış sayı yenilənir: təzə video həddi keçəndə götürülür. Ölçü (2026-11-23,
-# növbənin ən təzə 256 videosu): median 35 min, 25%-i 17 mindən az. Usta işi az baxılır (TamirveTadilat median 6,7 min) — sahibin
-# özü nümunə göstərdiyi videolardır, həddi aşağıdır. Lentin başına ən çox baxılanı sıralama gətirir (lent.js rank).
-REEL_MIN_VIEWS = {"h": 10000, "u": 3000}
+# Ən çox baxılan (sahib 2026-11-23): yaşına görə həddən az baxılan hadisə videosu «boş» sayılır və lentə düşmür. Ölçü (FxTwitter,
+# 2026-11-23, 118 hesab, 3 705 video): baxış yaşla artır — median 3 saatdan təzədə 8 min, 3–12 saatda 15 min, 12 saatdan sonra
+# ~45 min (son sayın ~90%-i). Hədd hər yaşda medianın təxminən özüdür: hadisə videolarının yuxarı yarısı. Paylaşım 24 saat
+# namizəddir (x_yazici.REEL_WINDOW) və sayı yenilənir: təzə video sonra həddi keçə bilər. Usta işi az baxılır (TamirveTadilat
+# median 6,7 min) — sahibin özü nümunə göstərdiyi videolardır, həddi aşağıdır. Lentin başına ən çox baxılanı sıralama gətirir.
+REEL_MIN_VIEWS = {"u": 3000, "h": ((3, 8000), (12, 15000), (None, 40000))}   # h: (saatadək, baxış)
+
+
+def min_views(row):
+    """Sinfin və sayın ölçüldüyü yaşın həddi (vt yoxdursa video köhnə sayılır)."""
+    if sinif(row) == "u":
+        return REEL_MIN_VIEWS["u"]
+    at, vt = _at(row.get("at")), _at(row.get("vt"))
+    hours = (vt - at).total_seconds() / 3600 if at and vt else 24
+    return next(n for limit, n in REEL_MIN_VIEWS["h"] if limit is None or hours < limit)
 
 
 def empty(row):
-    """Baxış sayı bilinir və sinfinin həddindən azdır: «boş» video."""
-    return "v" in row and row["v"] < REEL_MIN_VIEWS[sinif(row)]
+    """Baxış sayı bilinir və həddən azdır: «boş» video."""
+    return "v" in row and row["v"] < min_views(row)
+
+
 _COUNT = ("v", "l", "rp")   # sətirdə: baxış, bəyənmə, paylaşma (vt — sayların vaxtı)
 
 

@@ -301,6 +301,18 @@ class CraftSourcesTest(unittest.TestCase):
         self.assertIsNone(xy.xm.reel_check(row), "növbədəki köhnə sətir yoxlamadan keçir")
         self.assertEqual(xy.xm.keep_reels([row], t0), [], "yazıcı onu növbədən silir")
 
+    def test_event_and_political_backstage_sources_with_the_most_views(self):
+        """Sahib 2026-11-23: «siyasət arxa qapı videoları maraqlı hadisə videoları yoxdur … ən çox baxılan videolar olsun»."""
+        q = xy.xm.VIDEOLENT_QRUPLAR["xeber"]
+        for h in ("pusholder", "bpthaber", "sentdefender", "OSINTtechnical", "ZelenskyyUa", "atrupar", "Acyn", "BBCPolitics", "visegrad24", "WhiteHouse"):
+            self.assertIn(h, q)
+            self.assertEqual(xy.xm.movzu(h), "xeber")
+        part = xy.videolent_slice(datetime.datetime(2026, 11, 23, tzinfo=datetime.timezone.utc))
+        for h in ("pusholder", "bpthaber", "sentdefender"):
+            self.assertIn(h, part, f"{h}: hadisə anı, hər işdə yoxlanır")
+        for h in ("DailyLoud", "Megatron_ron", "dom_lucre", "WallStreetApes", "RT_com", "SputnikInt"):
+            self.assertNotIn(h, xy.xm.ADLAR, f"{h}: mərc reklamı, təbliğat və ya nifrət")
+
 
 class TransferCandidateTest(unittest.TestCase):
     def test_transfer_posts_without_video(self):

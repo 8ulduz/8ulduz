@@ -284,22 +284,29 @@ class ReelsTest(unittest.TestCase):
     def test_the_most_watched_reach_the_site_with_their_count_empty_ones_do_not(self):
         """Sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun. boş boş videolardır indi əksəriyyəti»."""
         when = self.NOW - datetime.timedelta(hours=1)
-        hot, empty, unknown = event(91, when, v=1500000, l=40000, rp=9000, vt=when.isoformat()), event(92, when, v=xm.REEL_MIN_VIEWS["h"] - 1), event(93, when)
-        out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([hot, empty, unknown]))}
+        later = (when + datetime.timedelta(minutes=30)).isoformat()
+        hot, empty, unknown = event(91, when, v=1500000, l=40000, rp=9000, vt=later), event(92, when, v=9000), event(93, when)
+        young = event(95, when, v=9000, vt=later)
+        out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([hot, empty, unknown, young]))}
         self.assertEqual(out["2123096874748186091"]["v"], 1500000, "baxış sayı sayta çıxır (lent.js sıralayır)")
-        self.assertNotIn("2123096874748186092", out, "az baxılan «boş» video düşür")
+        self.assertNotIn("2123096874748186092", out, "sayı vaxtı bilinmir, köhnə sayılır: 9 min «boş»dur")
+        self.assertIn("2123096874748186095", out, "yarım saatlıq videonun 9 mini həddi keçir: baxış yaşla artır")
         self.assertNotIn("v", out["2123096874748186093"], "sayı hələ bilinməyən köhnə sətir qalır, lent onu sona qoyur")
         self.assertGreater(xm.popularity({"v": 100, "l": 10, "rp": 1}), xm.popularity({"v": 300}), "bəyənən və paylaşan baxandan ağırdır")
         for k, bad in (("v", -1), ("l", "çox"), ("rp", True), ("vt", "dünən")):
             self.assertIsNotNone(xm.reel_check(reel(**{k: bad})), k)
-        self.assertGreaterEqual(xm.REEL_MIN_VIEWS["h"], 10000)
+        steps = [n for _, n in xm.REEL_MIN_VIEWS["h"]]
+        self.assertEqual(steps, sorted(steps), "hədd yaşla artır")
+        self.assertGreaterEqual(steps[-1], 30000, "12 saatdan sonra hadisə videolarının yuxarı yarısı (median ~45 min)")
+        self.assertEqual(xm.min_views({"handle": "FoxNews", "at": "2026-11-19T00:00:00+00:00", "vt": "2026-11-19T05:00:00+00:00"}), 15000)
         craft = reel(id="2123096874748186094", post="https://x.com/TamirveTadilat/status/2123096874748186094", at=when.isoformat(), v=6700)
         self.assertEqual([r["id"] for r in xm.reels(self.NOW, path=self.write([craft]))], ["2123096874748186094"],
                          "usta işi az baxılır (TamirveTadilat median 6,7 min): onun həddi aşağıdır")
         self.assertTrue(xm.empty({"handle": "TamirveTadilat", "v": 2000}))
 
     def test_rules_without_gemini_safety_and_craft_from_the_text(self):
-        for t in ("Big win at Roobet casino tonight", "WARNING: graphic content", "Canlı bahis için tıkla", "OnlyFans link in bio"):
+        for t in ("Big win at Roobet casino tonight", "WARNING: graphic content", "Canlı bahis için tıkla", "OnlyFans link in bio",
+                  "HASSAS: Kavgada bıçaklanan genç", "Rainbet code DAILY", "Çocuğa istismar şüphelisi tutuklandı"):
             self.assertTrue(xm.unsafe_text(t), t)
         for t in ("Drone strike hits a tank near the front line", "Macron and Trump share an awkward handshake", "Rescuers pull a dog from the flood"):
             self.assertFalse(xm.unsafe_text(t), t)
