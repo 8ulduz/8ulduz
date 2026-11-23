@@ -188,7 +188,7 @@ async function main() {
     "-c:v", "libx264", "-preset", "medium", "-crf", "27", "-pix_fmt", "yuv420p", "-r", String(FPS), "-movflags", "+faststart", "-an", final], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`ffmpeg (altyazı) alınmadı: ${String(r.stderr || r.error?.message).slice(0, 400)}`);
   fs.unlinkSync(raw);
-  for (const f of fs.readdirSync(out)) if (/^cap\d+\.txt$|^tag\.txt$/.test(f)) fs.unlinkSync(path.join(out, f));
+  for (const f of fs.readdirSync(out)) if (/^cap\d+_\d+\.txt$|^tag\.txt$/.test(f)) fs.unlinkSync(path.join(out, f));
   const size = fs.statSync(final).size;
   fs.writeFileSync(path.join(out, "ssenari.txt"), [`Sayt: ${base}${preview ? " (PREVIEW)" : ""}`, `Uzunluq: ${total.toFixed(1)} s, ölçü: ${(size / 1e6).toFixed(1)} MB`, "",
     ...caps.map(x => `${x.at.toFixed(1).padStart(5)} s  ${x.caption}`)].join("\n") + "\n");
