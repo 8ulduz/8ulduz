@@ -176,15 +176,27 @@ PR-da (`pull_request`) nümunə xəbərdən (`tests/fixtures/video-xeber.json`) 
 Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş heç nə hazırlamadan ötürülür.
 
 1. **Facebook Reels — yeni icazə lazım deyil.** Lazım olanlar: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts` — bunlar sosial-paylasma.md-dəki açarda var. (`publish_video` lazım deyil: o, canlı yayım üçündür.)
-2. **Facebook ilk şərh (istəyə bağlı): `pages_manage_engagement`.** Olmasa video yenə gedir, keçid yalnız post mətnində olur, jurnalda «keçidli şərh yazılmadı» yazılır.
+2. **Facebook ilk şərh (istəyə bağlı): `pages_manage_engagement` və `pages_read_user_content`.** Olmasa video yenə gedir, keçid yalnız post mətnində olur, jurnalda «keçidli şərh yazılmadı» yazılır. 2026-11-23-də Meta videoya şərhi «(#200) The permission(s) pages_read_user_content,pages_manage_engagement are not available» ilə qaytardı: hər ikisi lazımdır. Səhifədə hüquq: MODERATE ([Meta, şərhlər](https://developers.facebook.com/docs/pages-api/comments-mentions)).
 3. **Instagram Reels:** `instagram_basic`, `instagram_content_publish` (artıq var). Faylın birbaşa yüklənməsi Meta-nın sənədinə görə yalnız **Facebook Login for Business** işlədən tətbiqlər üçündür. «8ulduz paylasma» tətbiqi «Business» növündədir, onda bu standartdır; ilk Instagram videosunda jurnalda «konteyner: …» xətası çıxsa, developers.facebook.com → «8ulduz paylasma» → Products-da «Facebook Login for Business» olduğunu yoxlayın.
+4. **Baxış statistikası (istəyə bağlı):** `read_insights`, `instagram_manage_insights`. Olmasa «Meta açarı və görünmə» işi baxışı ölçə bilmir.
 
-Açarı yeniləmək lazım gəlsə (2-ci bənd üçün):
+### Meta açarı: yoxlama və yeniləmə
 
-1. developers.facebook.com → «8ulduz paylasma» → Tools → Graph API Explorer.
-2. «8ulduz» səhifəsini seçin; icazələr: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `instagram_basic`, `instagram_content_publish` → Generate Access Token.
-3. Access Token Debugger → «Extend Access Token» (uzunmüddətli), sonra səhifə açarını alın (sosial-paylasma.md-dəki kimi).
-4. GitHub → 8ulduz/8ulduz → Settings → Secrets and variables → Actions → `FB_PAGE_TOKEN`-i yeniləyin. Eyni açar şəkilli paylaşmada da işləyir.
+**Yoxlama.** Actions → «Meta açarı və görünmə» (`meta-yoxla.yml`) → Run workflow. İş həftədə bir dəfə, bazar ertəsi 09:23-də özü də işləyir. Heç nə paylaşmır. Xülasədə bunlar var: açarın növü, müddəti, məlumat girişinin bitmə tarixi, icazələr, səhifədəki hüquqlar, son 10 Facebook və Instagram videosunun baxışı, əhatəsi və bəyənməsi. Paylaşım icazəsi yoxdursa, açarın müddəti bitibsə və ya Facebook videolarını heç kim görmürsə, iş qırmızı olur. Keçidli şərh icazəsi yoxdursa, yalnız xəbərdarlıq verir.
+
+**Tətbiqin rejimi (Development / Live).** Meta yazır: «Any data generated while an app is in Development mode, such as test posts, can only be seen by role users» ([App modes](https://developers.facebook.com/docs/development/build-and-test/app-modes/)). «8ulduz paylasma» Development rejimində qalsa, Facebook paylaşımlarını yalnız tətbiqin rol sahibləri görür. Yoxlama bunu belə tutur: 6 saatdan köhnə Facebook videolarının hamısını ən çox 2 nəfər görübsə (`META_ROLE_MAX`), iş qırmızı olur. Düzəliş:
+
+1. developers.facebook.com → My Apps → «8ulduz paylasma» → App settings → Basic. Burada **Privacy Policy URL** `https://www.8ulduz.az/mexfilik/`, **Terms of Service URL** `https://www.8ulduz.az/sertler/` və **User data deletion** (məlumatların silinməsi qaydası: `https://www.8ulduz.az/mexfilik/`), kateqoriya və ikon doldurulur → Save.
+2. Səhifənin yuxarısında **App Mode: Development** → **Live**. Yeni paneldə bu, **Publish** düyməsidir.
+3. Actions → «Meta açarı və görünmə» → Run workflow. İcazələr yerindədirsə, növbəti Facebook videolarının baxışı artmalıdır.
+
+**Keçidli şərh üçün açarı yeniləmək** (yuxarıdakı 2-ci bənd):
+
+1. developers.facebook.com → My Apps → «8ulduz paylasma» → **Use cases** → «Manage everything on your Page» → **Customize** → Permissions. `pages_manage_engagement` və `pages_read_user_content` yanında **Add** düyməsini basın. İstəyə görə `read_insights` də. Meta yazır: «Click Add next to each additional features or permissions that your app needs» ([Meta, tətbiq qurulumu](https://developers.facebook.com/docs/pages-api/create-an-app)). Instagram ssenarisində də istəyə görə `instagram_manage_insights` əlavə edin.
+2. Tools → **Graph API Explorer** → Meta App: «8ulduz paylasma» → User or Page: **Get User Access Token**. Bu icazələri seçin: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `pages_read_user_content`, `instagram_basic`, `instagram_content_publish`. İstəyə görə `read_insights` və `instagram_manage_insights` də. Sonra **Generate Access Token** basın. Açılan Facebook pəncərəsində «8ulduz» səhifəsini və Instagram hesabını seçib icazə verin.
+3. Tools → **Access Token Debugger** → açarı yapışdırın → **Debug** → aşağıda **Extend Access Token**. Uzunmüddətli açarı kopyalayın.
+4. GitHub → 8ulduz/8ulduz → Settings → Secrets and variables → Actions → `FB_PAGE_TOKEN` → **Update secret** → açarı özünüz yapışdırın. Eyni açar şəkilli paylaşmada da işləyir. Açarı heç kimə göndərməyin.
+5. Actions → «Meta açarı və görünmə» → Run workflow. «Keçidli şərh üçün icazə yoxdur» xəbərdarlığı itməlidir. Növbəti videonun jurnalında «keçidli şərh yazılmadı» olmamalıdır.
 
 İlk yoxlama: Actions → «Video xəbər (Facebook, Instagram)» → Run workflow → «Paylaş» işarəsini götürün → iş bitəndə Artifacts-da `video-xeber` (video və kadrlar). Bəyənsəniz heç nə etmək lazım deyil — iş 08:00-dan özü paylaşır.
 
