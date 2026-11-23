@@ -126,14 +126,14 @@ def main(corpus_path, out, old_path=None):
     old = load(old_path, "az_text_kohne") if old_path and os.path.exists(old_path) else None
     old_ses = os.environ.get("OLD_SES")
     old_ses = load(old_ses, "ses_kohne") if old_ses and os.path.exists(old_ses) else None
-    cur_ses = None   # Babək üçün indiki yol: ses.py-nin spoken_text-i, sonra az_text.for_voice (hazır səsdəki kimi)
-    if any(v.get("motor") == "babek" for v in variants):
-        cur_ses = load(os.path.join(HERE, "ses.py"), "ses_yeni")
     with open(corpus_path, encoding="utf-8") as f:
         corpus = json.load(f)
     items, sample = corpus["items"], corpus.get("numune", [])
     variants = json.loads(os.environ.get("VARIANTS") or "null") or DEFAULT_VARIANTS
     variants = [v for v in variants if v.get("metn") != "kohne" or (old_ses if v.get("motor") == "babek" else old)]
+    cur_ses = None   # Babək üçün indiki yol: ses.py-nin spoken_text-i, sonra az_text.for_voice (hazır səsdəki kimi)
+    if any(v.get("motor") == "babek" for v in variants):
+        cur_ses = load(os.path.join(HERE, "ses.py"), "ses_yeni")
 
     tok = model = None
     sr = 16000
