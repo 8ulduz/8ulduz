@@ -150,6 +150,29 @@ test('speed: the measuring tool emulates a phone (touch media, 4× slower CPU), 
   assert.ok(!/const LIMITS = \{/.test(tool), 'büdcə rəqəmləri alətin içində deyil (tests/budce.json)');
 });
 
+// 2026-11-23: ani tıxac zolağı lentdə yalnız tıxaclı saatlarda olur — CI həmin saatlarda qırmızı (CLS 0,123), qalan vaxt yaşıl idi.
+// İndi alət zolağı hər dövrədə özü yaradır; tətbiq alətin sınaq xəbərini tanımasa ölçü yalançı yaşıl olardı — bu test onu tutur.
+test('speed 2026-11-23: data-driven strips are measured on every run (not only in jam hours), the app accepts the tool\'s test strip, and a CLS failure names what moved', () => {
+  const tool = fs.readFileSync(path.join(root, '.github/scripts/speed.cjs'), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(tool.includes('send("Fetch.enable", { patterns: ZOLAQ_FETCH })') && tool.includes('"Fetch.requestPaused"') && tool.includes('Fetch.fulfillRequest'), 'tam lent və tixac.json ölçü zamanı dəyişdirilir (datadan və saatdan asılı deyil)');
+  assert.ok(tool.includes('coldRow("ana səhifə (ani tıxac zolağı)", "", { zolaq: true') && tool.includes('coldRow("paylaşılan xəbər (ani tıxac zolağı)", story.hash, { key: "h1", zolaq: true'), 'ana səhifə və paylaşılan xəbər zolaqla ölçülür');
+  assert.ok(tool.indexOf('(ani tıxac zolağı)') < tool.indexOf('if (COLD_ONLY) return;'), 'qısa (PR) və soyuq dövrədə də');
+  assert.ok(tool.includes('if (o.zolaq && !r.zolaq) over.push('), 'zolaq görünməsə sətir qırmızıdır');
+  assert.ok(tool.includes('obs("layout-shift"') && tool.includes('currentRect.y - s.previousRect.y') && tool.includes('(sürüşən: ${r.shifts.join("; ")})'), 'CLS xətası sürüşən elementi və px-i göstərir');
+  const src = tool.slice(tool.indexOf('const ZOLAQ_KUCE'), tool.indexOf('\n', tool.indexOf('const zolaqTix')));
+  const { zolaqNews, zolaqTix } = vm.runInNewContext(src + '\n({ zolaqNews, zolaqTix })', { JSON, Date });
+  const real = story(1, { title: 'Bakıda gözlənilməz tıxac: M1, 6,8 km', source: '8ULDUZ', publishedAt: new Date(Date.now() - 5 * 60e3).toISOString() });
+  const out = JSON.parse(zolaqNews(JSON.stringify({ updatedAt: at, articles: [real, story(2)] })));
+  assert.equal(zolaqNews('<html>'), null, 'JSON olmayan cavaba toxunulmur');
+  assert.deepEqual(out.articles.filter(a => a.title.startsWith('Bakıda gözlənilməz tıxac')).map(a => a.source), ['8ULDUZ'], 'lentdəki həqiqi ani tıxac xəbəri çıxarılır, sınaq xəbəri tək qalır');
+  assert.ok(out.articles.some(a => a.id === 'id2'), 'qalan lent dəyişmir');
+  const ctx = app();
+  vm.runInContext('S.lang = "az";', ctx);
+  ctx.feed = out; ctx.tix = JSON.parse(zolaqTix());
+  const x = vm.runInContext('S.data = feed; S.tix = tix; tixAlert()', ctx);
+  assert.ok(x && x.a.id === out.articles[0].id, 'tətbiq sınaq xəbərini ani tıxac zolağı kimi göstərir, tixac.json-a görə tıxac davam edir');
+});
+
 test('speed 2026-11-09: the first slide picture is 640 px on every screen, so the prerendered image is not fetched again at 800 on a computer', () => {
   const list = [story(1, { imageUrl: 'https://apa.az/1.jpg' }), story(2, { imageUrl: 'https://apa.az/2.jpg' })];
   const desk = app(), phone = app({ innerWidth: 390 });

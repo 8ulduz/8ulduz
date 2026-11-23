@@ -126,12 +126,19 @@ function cdp(url) {
 // geri-irəli keşindən qayıdış (pageshow.persisted) və görünən ilk məzmun: #view-da ilk xəbər kartı / slayd / cədvəl (xəbər səhifəsində
 // h1) ekrana düşən an — IntersectionObserver ilə, məcburi yerləşdirməsiz (köhnə alət hər 50 ms checkVisibility() soruşurdu və
 // yüklənmənin içində yerləşdirmə məcbur edirdi). CSS gəlməmiş səhifə boyanmır: ondan əvvəl heç nə görünən sayılmır.
+// Sürüşmənin mənbəyi də yazılır (2026-11-23): CI yalnız «CLS 0.123» deyirdi, səbəbi tapmaq üçün yerli ölçü lazım idi — indi xəta
+// sətrində ən böyük üç sürüşmə: vaxt, pay, sürüşən element və neçə px.
 const MON = `(() => {
-  const m = window.__m = { lt: [], fcp: null, lcp: null, cls: 0, visible: null, h1: null, persisted: false, cssAt: null };
+  const m = window.__m = { lt: [], fcp: null, lcp: null, cls: 0, ls: [], visible: null, h1: null, persisted: false, cssAt: null };
   const obs = (type, fn) => { try { new PerformanceObserver(l => l.getEntries().forEach(fn)).observe({ type, buffered: true }); } catch (e) {} };
   obs("longtask", e => m.lt.push([Math.round(e.startTime), Math.round(e.duration)]));
   obs("paint", e => { if (e.name === "first-contentful-paint") m.fcp = Math.round(e.startTime); });
-  obs("layout-shift", e => { if (!e.hadRecentInput) m.cls += e.value; });
+  const who = n => !n ? "?" : n.nodeType !== 1 ? who(n.parentElement) : n.tagName.toLowerCase() + (n.id ? "#" + n.id : typeof n.className === "string" && n.className.trim() ? "." + n.className.trim().split(/\\s+/)[0] : "");
+  obs("layout-shift", e => {
+    if (e.hadRecentInput) return;
+    m.cls += e.value;
+    if (m.ls.length < 40) m.ls.push({ t: Math.round(e.startTime), v: e.value, src: (e.sources || []).slice(0, 3).map(s => who(s.node) + " " + (s.currentRect.y - s.previousRect.y > 0 ? "+" : "") + Math.round(s.currentRect.y - s.previousRect.y) + "px") });
+  });
   obs("largest-contentful-paint", e => { m.lcp = Math.round(e.startTime); });
   addEventListener("pageshow", e => { if (e.persisted) m.persisted = true; });
   const SEL = "article,.card,.hero-main,.tm-sec,.tm-table,table,h1", pending = [];
@@ -168,8 +175,25 @@ const READ = `(() => {
   return { fcp: m.fcp, lcp: m.lcp, cls: Math.round((m.cls || 0) * 1000) / 1000, visible: m.visible, h1: m.h1, cssEnd: css ? Math.round(css.responseEnd) : null,
     preFcpLongTaskMax: Math.max(0, ...pre), preFcpLongTaskSum: pre.reduce((a, b) => a + b, 0),
     lt: lt.reduce((a, x) => a + x[1], 0), ltMax: Math.max(0, ...lt.map(x => x[1])), dom: document.querySelectorAll("#view *").length,
-    navType: (performance.getEntriesByType("navigation")[0] || {}).type, persisted: !!m.persisted };
+    navType: (performance.getEntriesByType("navigation")[0] || {}).type, persisted: !!m.persisted,
+    shifts: (m.ls || []).slice().sort((a, b) => b.v - a.v).slice(0, 3).map(x => x.t + " ms " + Math.round(x.v * 1000) / 1000 + ": " + x.src.join(", ")),
+    zolaq: !!document.querySelector("#tix-ani:not([hidden])") };
 })()`;
+// Data ilə gələn zolaqlar (2026-11-23): ani tıxac zolağı lentdə yalnız tıxaclı saatlarda olur — CI həmin saatlarda qırmızı (CLS 0,123),
+// qalan vaxt yaşıl idi; geriləmə 2026-11-14-dən bəri yalnız o saatlarda görünürdü. «zolaq» sətirlərində alət zolağı özü yaradır: tam lentə (data/news*.json)
+// 90 dəqiqə əvvəlki 8ULDUZ ani tıxac xəbəri qoyulur (lentdəki həqiqi ani tıxac xəbərləri çıxarılır ki, nəticə datadan asılı olmasın),
+// tixac.json tıxacın davam etdiyini deyir. Zolaq görünməlidir (görünməsə ölçü yalançıdır — qırmızı) və səhifə sürüşməməlidir.
+const ZOLAQ_KUCE = "Sürət ölçüsünün sınaq küçəsi", ZOLAQ_RE = /^Bakıda gözlənilməz tıxac: /u;
+const ZOLAQ_FETCH = [{ urlPattern: "*/data/news*.json*", requestStage: "Response" }, { urlPattern: "*tixac.json*", requestStage: "Request" }];
+function zolaqNews(text) {
+  let d; try { d = JSON.parse(text); } catch { return null; }
+  if (!d || !Array.isArray(d.articles)) return null;
+  const at = new Date(Date.now() - 90 * 60e3).toISOString().replace(/\.\d+Z$/, "+00:00");
+  d.articles = d.articles.filter(a => !ZOLAQ_RE.test(a.title || ""));
+  d.articles.unshift({ id: "5e1d5e1d5e1d0001", title: `Bakıda gözlənilməz tıxac: ${ZOLAQ_KUCE}, 1,0 km`, summary: "Sürət ölçüsünün sınaq zolağı.", category: "cemiyyet", source: "8ULDUZ", sourceUrl: "https://8ulduz.az/xeber/5e1d5e1d5e1d0001/", publishedAt: at, imageUrl: null, lang: "az", author: "", video: false });
+  return JSON.stringify(d);
+}
+const zolaqTix = () => JSON.stringify({ updatedAt: new Date().toISOString(), events: [], streets: [{ name: ZOLAQ_KUCE, level: "tixac" }] });
 // Köhnə görünmə yoxlaması (ehtiyat: IntersectionObserver 3 s görmədisə, saniyədə bir): ekranda görünən ilk məzmun — xəbər kartı, slayd
 // və ya cədvəl (gizli hazır HTML və skelet sayılmır), yalnız app.css yüklənəndən sonra.
 const OLD_VISIBLE = `(() => { const v = document.querySelector("#view"), css = (document.querySelector('link[href*="app.css"]') || {}).sheet; return !!v && !!css && [...v.querySelectorAll("article,.card,.hero-main,.tm-sec,.tm-table,table")].some(e => e.checkVisibility() && !e.closest(".skel,.skeleton")) && Math.round(performance.now()); })()`;
@@ -322,7 +346,19 @@ async function browser() {
       else if (m.method === "Network.loadingFinished") { const r = net.reqs.get(m.params.requestId); if (r) { r.bytes = m.params.encodedDataLength || 0; if (!r.bytes) r.cached = true; } }
       else if (m.method === "Page.backForwardCacheNotUsed") bf.push(m.params);
       else if (m.method === "Page.frameNavigated" && !m.params.frame.parentId) navs.push({ url: m.params.frame.url, type: m.params.type, at: Date.now() });
+      else if (m.method === "Fetch.requestPaused") zolaqPaused(m.params);
     });
+    // «zolaq» sətirləri: tixac.json sorğuya cavab verilir (şəbəkəyə getmir), data/news*.json serverdən gəlib dəyişdirilir.
+    const zolaqPaused = async p => {
+      const body = s => Buffer.from(s).toString("base64");
+      try {
+        if (/tixac\.json/.test(p.request.url)) return await send("Fetch.fulfillRequest", { requestId: p.requestId, responseCode: 200, responseHeaders: [{ name: "content-type", value: "application/json" }, { name: "access-control-allow-origin", value: "*" }], body: body(zolaqTix()) });
+        const r = p.responseStatusCode === 200 ? await send("Fetch.getResponseBody", { requestId: p.requestId }) : null;
+        const out = r && zolaqNews(r.base64Encoded ? Buffer.from(r.body, "base64").toString("utf8") : r.body);
+        if (!out) return await send("Fetch.continueRequest", { requestId: p.requestId });
+        await send("Fetch.fulfillRequest", { requestId: p.requestId, responseCode: 200, responseHeaders: (p.responseHeaders || []).filter(h => !/^content-(encoding|length)$/i.test(h.name)), body: body(out) });
+      } catch { await send("Fetch.continueRequest", { requestId: p.requestId }).catch(() => {}); }
+    };
     await send("Page.enable"); await send("Runtime.enable"); await send("Network.enable");
     await send("Page.addScriptToEvaluateOnNewDocument", { source: MON });
     await send("Emulation.setDeviceMetricsOverride", { width: 412, height: 915, deviceScaleFactor: 2.625, mobile: true });
@@ -341,10 +377,14 @@ async function browser() {
     // Əvvəl 404.html (proses isti: şrift, GPU, JIT; sayğac bloklu), sonra ilk ziyarət kimi: brauzer keşi, xidmət işçisi və yaddaş silinir
     // (yoxsa ikinci «soyuq» açılış əslində isti olur).
     const park = async base => { await send("Network.setBlockedURLs", { urls: ANALYTICS }); await send("Page.navigate", { url: base + "404.html" }); await sleep(600); await send("Network.setBlockedURLs", { urls: [] }); };
-    const cold = async (base, hash, { warm = false, key = "visible", hero = null } = {}) => {
+    const cold = async (base, hash, { warm = false, key = "visible", hero = null, zolaq = false } = {}) => {
       await park(base);
       if (!warm) { await send("Network.clearBrowserCache"); await send("Storage.clearDataForOrigin", { origin: new URL(base).origin, storageTypes: "all" }).catch(() => {}); }
       net.reset(); bf.length = 0;
+      if (zolaq) await send("Fetch.enable", { patterns: ZOLAQ_FETCH });
+      try { return await coldLoad(base, hash, key, hero); } finally { if (zolaq) await send("Fetch.disable").catch(() => {}); }
+    };
+    const coldLoad = async (base, hash, key, hero) => {
       const t0 = Date.now();
       await send("Page.navigate", { url: base + hash });
       let shown = null, fallback = false;
@@ -364,11 +404,12 @@ async function browser() {
     // Büdcə yoxlaması (soyuq sətir). only: yalnız bu açarlar (kompüter keçidi: cls, heroLoads).
     const coldOver = (r, o) => {
       const over = [], soft = [], want = k => !o.only || o.only.includes(k);
-      const chk = (key, val, lim, label) => { if (!num(val) || !num(lim) || val <= lim) return; (WARN_ONLY.has(key) ? soft : over).push(`${label} ${fmt(val)} > ${fmt(lim)}`); };
+      const chk = (key, val, lim, label, why = "") => { if (!num(val) || !num(lim) || val <= lim) return; (WARN_ONLY.has(key) ? soft : over).push(`${label} ${fmt(val)} > ${fmt(lim)}${why}`); };
       const storyRow = o.key === "h1", coldKey = storyRow ? "storyCold" : "cold";
       if (want("cold")) { chk(coldKey, r.first, o.limit ?? LIMITS[coldKey], "ekrana çıxma"); if (r.first == null) (WARN_ONLY.has(coldKey) ? soft : over).push("məzmun görünmədi"); }
       if (want("fcp")) { chk("fcp", r.fcp, LIMITS.fcp, "ilk boya"); chk("fcpAfterCss", r.fcpAfterCss, LIMITS.fcpAfterCss, "CSS-dən ilk boyaya"); chk("preFcpLongTaskMax", r.preFcpLongTaskMax, LIMITS.preFcpLongTaskMax, "boyadan əvvəl ən uzun iş"); chk("preFcpLongTaskSum", r.preFcpLongTaskSum, LIMITS.preFcpLongTaskSum, "boyadan əvvəl uzun işlər"); }
-      if (want("cls")) chk("cls", r.cls, o.cls ?? LIMITS.cls, "CLS");
+      if (want("cls")) chk("cls", r.cls, o.cls ?? LIMITS.cls, "CLS", (r.shifts || []).length ? ` (sürüşən: ${r.shifts.join("; ")})` : "");
+      if (o.zolaq && !r.zolaq) over.push("ani tıxac zolağı görünmədi — ölçü yalançıdır (speed.cjs zolaqNews/zolaqTix tətbiqə uyğun deyil)");
       if (want("heroLoads") && o.hero) chk("heroLoads", r.heroLoads, LIMITS.heroLoads, "slayd şəkli yükləmə");
       if (want("requests")) chk("requests", r.requests, LIMITS.requests, "sorğu");
       if (want("dom")) chk("dom", r.dom, LIMITS.dom, "DOM");
@@ -443,6 +484,9 @@ async function browser() {
     await bfcache(); // səhifə bu nüsxənin ana səhifəsidir (A/B-də sonuncu B ölçüsü)
     for (const [h, name] of [["#/bolme/idman", "idman (birbaşa keçid)"], ["#/bolme/gundem", "gündəm (birbaşa keçid)"], ["#/komanda/premyer-liqa", "liqa (birbaşa keçid)"]]) await coldRow(name, h);
     if (story) await coldRow("paylaşılan xəbər", story.hash, { key: "h1" }); else add("cold", "paylaşılan xəbər", { first: null }, [], ["data/first.json-dan xəbər tapılmadı"]);
+    // Data ilə gələn zolaq hər dövrədə (ZOLAQ_FETCH): ana səhifə və paylaşılan xəbər — 2026-11-23-də ən çox bunlar sürüşürdü.
+    await coldRow("ana səhifə (ani tıxac zolağı)", "", { zolaq: true, reps: 1, only: ["cls"] });
+    if (story) await coldRow("paylaşılan xəbər (ani tıxac zolağı)", story.hash, { key: "h1", zolaq: true, reps: 1, only: ["cls"] });
 
     if (COLD_ONLY) return;
     // Təkrar ziyarət (tətbiq quraşdırılıb, xidmət işçisi keşi ilə): telefon sahibinin hər gün gördüyü açılış. Əvvəl işçi tam qurulsun.
