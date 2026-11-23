@@ -11,6 +11,8 @@ böyük hərf və durğu işarələri modelə çatmazdan əvvəl sözə çevrilm
   - rum rəqəmi sıra sayıdır: «XII əsr» → «on ikinci əsr»; «+12°…+17°» → «on iki-on yeddi dərəcə»;
   - vergül, nöqtəli vergül, iki nöqtə və tire fasilədir (insan nəfəs alır): hissə ayrıca səslənir, arada qısa sükut.
 """
+import json
+import os
 import re
 import unicodedata
 
@@ -66,6 +68,43 @@ FOREIGN = {
 }
 DOMAIN_TLD = {"com": "kom", "gov": "qov", "org": "orq", "edu": "edu", "net": "net", "info": "info", "io": "ay-o"}
 ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
+
+# Oxunuş lüğəti (.github/scripts/ses-lugat.cjs): qısaltmalar və orijinal yazılışlı xarici adlar, söz → oxunuş. Repodakı baxılmış
+# ses-lugat.json üstündür; ses-lugat-elave.json — «ses-lugat» budağından həftəlik əlavələr (video işi və server özü gətirir),
+# yalnız yeni söz verir. Lüğət qaydalardan (ACRONYMS, FOREIGN, hərf-hərf) əvvəl yoxlanır.
+LEXICON_FILES = ("ses-lugat.json", "ses-lugat-elave.json")
+LEXICON = {}
+
+
+def load_lexicon(folder=None):
+    folder = folder or os.path.dirname(os.path.abspath(__file__))
+    words = {}
+    for name in reversed(LEXICON_FILES):                      # əlavə əvvəl, baza onun üstünə yazılır
+        try:
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            continue
+        for k, v in (data.get("sozler") or {}).items() if isinstance(data, dict) else []:
+            if isinstance(k, str) and isinstance(v, str) and v.strip() and set(v) <= ALLOWED:
+                words[k] = v.strip()
+    LEXICON.clear()
+    LEXICON.update(words)
+    return len(words)
+
+
+def upper_az(text):
+    return text.replace("i", "İ").replace("ı", "I").upper()
+
+
+def lexicon_word(token):
+    """Lüğətdəki oxunuş: dəqiq forma (ABŞ, Google) və başlıqdakı böyük yazılış (GOOGLE → Google). Əksinə axtarılmır:
+    cümlə başındakı «Din» sözü «DİN» qısaltması sayılmasın."""
+    if token in LEXICON:
+        return LEXICON[token]
+    if len(token) > 1 and token == upper_az(token) and token != lower_az(token):
+        return LEXICON.get(token[0] + lower_az(token[1:]))
+    return None
 
 
 def under_thousand(n):
@@ -277,6 +316,16 @@ def is_foreign(word):
     return low in FOREIGN or low.replace("ı", "i") in FOREIGN or "w" in low
 
 
+def known_word(word, suffix):
+    """Lüğət və ya xarici söz qaydası: oxunuş (şəkilçisi ilə) və ya None."""
+    said = lexicon_word(word)
+    if said is None and is_foreign(word):
+        said = foreign(word)
+    if said is None:
+        return None
+    return glue(said, suffix, True) if suffix else said
+
+
 def _say_number(s):
     """Rəqəm yazısı sözlə: «21:45» → saat, «1,5» → kəsr, «2 500» / «2.500» → min, qalan → tam ədəd."""
     m = re.fullmatch(r"(\d{1,2}):(\d{2})", s)
@@ -295,6 +344,9 @@ def verbalize(text):
     """Rəqəmlər, tarixlər, saat, faiz, valyuta, sıra sayları, qısaltma, sayt adı və inisiallar sözə çevrilir;
     nəticə hələ böyük hərf və durğu saxlayır."""
     t = re.sub(f"[{SP}]", " ", text)
+    # Mənbə saytlarının qalığı: «[…]» və xülasə sonundakı «Source» oxunmur.
+    t = re.sub(r"\s*\[(?:…|\.\.\.)\]", " ", t)
+    t = re.sub(r"(?:^|\s)Source\s*$", "", t)
     # 07.11.2026 → 7 noyabr 2026
     t = re.sub(r"\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b",
                lambda m: f"{int(m.group(1))} {MONTHS[int(m.group(2)) - 1]} {m.group(3)}" if 1 <= int(m.group(2)) <= 12 else m.group(0), t)
@@ -312,10 +364,8 @@ def verbalize(text):
     t = re.sub(rf"\b(\d+)([{LO}]{{3,}})\b", lambda m: m.group(0) if re.fullmatch(r"(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)", m.group(2)) else f"{m.group(1)} {m.group(2)}", t)
     # 1 654,23 → bir min altı yüz əlli dörd tam yüzdə iyirmi üç (qruplu tam hissə + kəsr)
     t = re.sub(rf"\b(\d{{1,3}}(?:[ {SP}]\d{{3}})+),(\d{{1,3}})\b", lambda m: decimal_words(re.sub(rf"[ {SP}]", "", m.group(1)), m.group(2)), t)
-    # Xarici sözlər (lüğət və «w»-lu sözlər) şəkilçisi ilə: Washington-da → vaşinqtonda, Trump’ın → trampın
-    t = re.sub(rf"\b([{UP}{LO}A-Za-z]+)(?:{SUFFIX})?",
-               lambda m: m.group(0) if not is_foreign(m.group(1)) else
-               glue(foreign(m.group(1)), m.group(2), True) if m.group(2) else foreign(m.group(1)), t)
+    # Oxunuş lüğəti və xarici sözlər, şəkilçisi ilə: Washington-da → vaşinqtonda, Trump’ın → trampın, ABŞ-nin → a-be-şenin
+    t = re.sub(rf"\b([{UP}{LO}A-Za-z]+)(?:{SUFFIX})?", lambda m: known_word(m.group(1), m.group(2)) or m.group(0), t)
     # CamelCase: AzTV → Az TV, İnterPress → İnter Press
     t = re.sub(rf"(?<=[{LO}])(?=[{UP}])", " ", t)
     # Qısaltma + şəkilçi (rəqəmlərdən əvvəl: «COVID-19»-da rəqəm sözü şəkilçi sayılmasın): ABŞ-nin → a-be-şenin, NATO-ya → natoya
@@ -378,8 +428,9 @@ def phrases(text, max_len=220, commas=True):
 
 
 # Səs modelinin oxuma ayarları (VITS): noise_scale — tələffüzün dəyişkənliyi (az → aydın, çox az → robot kimi),
-# noise_scale_duration — ritmin dəyişkənliyi, speaking_rate — sürət (1 — modelin öz sürəti). ses_yoxla.py ilə seçilib.
-VOICE = {"noise_scale": 0.667, "noise_scale_duration": 0.8, "speaking_rate": 1.0}
+# noise_scale_duration — ritmin dəyişkənliyi, speaking_rate — sürət (1 — modelin öz sürəti). ses_yoxla.py ilə seçilib:
+# 2026-11-23, 81 cümlə, Whisper large-v3 hərf xətası — modelin öz ayarı (0,667/0,8) 14,2%, 0,45/0,6 — 11,1%, 0,92 sürət — 12,4%.
+VOICE = {"noise_scale": 0.45, "noise_scale_duration": 0.6, "speaking_rate": 1.0}
 
 
 def tune(model, **over):
@@ -387,3 +438,6 @@ def tune(model, **over):
     for k, v in {**VOICE, **over}.items():
         setattr(model, k, v)
     return model
+
+
+load_lexicon()

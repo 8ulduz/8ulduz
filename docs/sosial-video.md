@@ -155,6 +155,31 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 
 **Lazımdır:** ffmpeg (libass ilə) və Roboto şrifti — ubuntu-latest-də `sudo apt-get install -y ffmpeg fonts-roboto-unhinted`. Səs üçün Python + `torch` (CPU) + `transformers` (`.github/scripts/video_ses.py`, model `BHOSAI/SARA_TTS`, mətn «Dinlə» serverinin `az_text.py` qaydası ilə). Səs alınmasa video səssiz hazırlanır, iş dayanmır.
 
+### Saranın oxunuşu (sahib, 2026-11-23: «tam normal insan kimi oxunsun»)
+
+SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.github/ses-server/az_text.py` insanın oxuyacağı kimi sözə çevirir. Video və «Dinlə» serveri bu qaydanı eyni cür işlədir.
+
+| Yazı | Oxunuş |
+|---|---|
+| `ABŞ-nin`, `ABŞ-da`, `FHN`, `MMA` | a-be-şenin, a-be-şedə, fe-he-en, em-em-a (hərf-hərf, şəkilçi ahəngə uyğun) |
+| `NATO-ya`, `UEFA`, `VİDEO`, `QƏZA OLDU` | natoya, uefa, video, qəza oldu (oxunaqlı söz kimi) |
+| `21-də`, `900-dən`, `18:00-dək`, `29-na` | iyirmi birdə, doqquz yüzdən, on səkkizədək, iyirmi doqquza |
+| `Modern.az`, `8ulduz.az-ın`, `S.Orucov` | modern nöqtə az, səkkiz ulduz nöqtə azın, es orucov (cümlə bölünmür) |
+| `XII tur`, `+12°…+17°`, `−5°` | on ikinci tur, on iki-on yeddi dərəcə, mənfi beş dərəcə |
+| `Google`, `Washington-da` | qugl, vaşinqtonda |
+
+Vergül, nöqtəli vergül, iki nöqtə, tire və mötərizə nəfəs yeridir: hissə ayrıca səslənir, arada 0,16 s sükut olur. Cümlə sonunda 0,38 s. Altyazı uzun cümləni iki hissəyə bölürsə, ortada cümlə fasiləsi verilmir, 0,1 s nəfəs qədər dayanır (`video_ses.breath`). Modelin oxuma ayarları (`VOICE`: aydınlıq, ritm, sürət) da `az_text.py`-dədir.
+
+**Oxunuş lüğəti (yüzlərlə qısaltma və xarici ad üçün).** Azərbaycan yazısı fonetikdir. Səhv yalnız qısaltmalardan (ABŞ, FHN) və orijinal yazılışda qalan xarici adlardan (Google, «Celta Vigo») gəlir. Bunlar əl ilə deyil, lüğətlə həll olunur (`.github/scripts/ses-lugat.cjs`):
+1. Xəbər arxivində (`data/news.json`, `data/arxiv`, `data/oz`) heç vaxt kiçik hərflə yazılmayan hər söz və hər qısaltma namizəddir.
+2. Gemini-dən paketlərlə soruşulur: «diktor necə oxuyar?». Söz onsuz da düz oxunursa, cavab boş qalır.
+3. Hər cavabı qaydalar yoxlayır: yalnız Azərbaycan hərfləri, ağlabatan uzunluq. Azərbaycan yazılışlı ad (Xankəndi) ən çox 2 hərf dəyişə bilər, Gemini adı «düzəldə» bilməz.
+4. Baza lüğəti `.github/ses-server/ses-lugat.json`-dur: baxılıb, PR ilə gəlir. Həftəlik əlavələri `ses-lugat.yml` (çərşənbə axşamı) tarixçəsiz `ses-lugat` budağına yazır, main-ə toxunmur. Video işi və «Dinlə» serveri (12 saatdan bir) əlavəni oradan götürür. Repodakı söz üstündür.
+
+Bir söz səhv oxunursa, `ses-lugat.json`-a `"Söz": "oxunuş"` sətri əlavə edin (kiçik Azərbaycan hərfləri, hərf-hərf oxunuşda tire). Bütün arxivdən yenidən qurmaq: Actions → «Səs lüğəti (SARA)» → `qur`, nəticə artefaktdadır.
+
+**Dinləmə yoxlaması:** `ses-yoxla.yml` (Actions → «Səs yoxlaması (SARA)» → Run workflow). Korpusu (`tests/fixtures/ses-korpus.json`: son videoların hissələri, xəbərlərdən çətin cümlələr) hər ayarla səsləndirir. Whisper large-v3 onu dinləyib yazır, yazılan gözlənən oxunuşla müqayisə olunur. Söz xətası (WER) və hərf xətası (CER) nə qədər azdırsa, səs o qədər aydındır. Hesabat işin xülasəsindədir. Hər ayarın nümunə mp3-i «hesabat» artefaktındadır, qulaqla da müqayisə edin. `az_text.py`-ni dəyişəndən sonra işə salın.
+
 ## Paylaşım: `.github/workflows/sosial-video.yml` + `.github/scripts/sosial-video.cjs`
 
 1. Hər 30 dəqiqədən bir (:17, :47) iş başlayır. Vaxtı deyilsə (gecə, fasilə, gündəlik hədd) ~20 saniyədə bitir: ffmpeg və model quraşdırılmır.

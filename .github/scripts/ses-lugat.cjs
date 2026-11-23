@@ -85,20 +85,52 @@ function distance(a, b) {
 // Azərbaycan yazılışlı söz: bütün hərflər əlifbadandır, xarici əlamət yoxdur, qısaltma deyil.
 const azLooking = t => [...lowerAz(t)].every(c => AZ.includes(c)) && !FOREIGN_SIGN.test(t) && !/^\p{Lu}{2,}$/u.test(t);
 
+// Azərbaycan yazılışlı xarici addakı tipik oxunuş fərqləri (Sacramento → sakramento, Vigo → viqo, Lazio → latsio,
+// Gundelik → gündəlik, Bull → bul, Nice → nis). Başqa dəyişiklik (Yamal → lamal) rədd olunur.
+const SUBST = { c: "ksç", g: "qcj", z: "s", s: "zş", e: "əi", a: "əe", u: "üa", o: "ö", ı: "i", i: "ı", j: "cy", ö: "o", ü: "u", x: "k" };
+function typicalChange(from, to) {
+  const n = from.length, m = to.length;
+  const INF = 99, d = Array.from({ length: n + 1 }, () => Array(m + 1).fill(INF));
+  d[0][0] = 0;
+  for (let i = 0; i <= n; i++)
+    for (let j = 0; j <= m; j++) {
+      if (d[i][j] === INF) continue;
+      if (i < n && j < m && from[i] === to[j]) d[i + 1][j + 1] = Math.min(d[i + 1][j + 1], d[i][j]);
+      if (i < n && j < m && (SUBST[from[i]] || "").includes(to[j])) d[i + 1][j + 1] = Math.min(d[i + 1][j + 1], d[i][j] + 1);
+      // qoşa hərf təkləşir (ll → l) və ya sondakı «e» oxunmur (Nice → nis)
+      if (i < n && ((i > 0 && from[i] === from[i - 1]) || (from[i] === "e" && i === n - 1))) d[i + 1][j] = Math.min(d[i + 1][j], d[i][j] + 1);
+      if (j < m && "tys".includes(to[j])) d[i][j + 1] = Math.min(d[i][j + 1], d[i][j] + 1);   // latsio, borussiya, ekspo
+    }
+  return d[n][m] <= 3;
+}
+
+const AZ_LETTER_NAMES = new Set([...Object.values(LETTER_NAMES), "dubl ve"]);
+
 // Gemini cavabının yoxlanması. Qaytarır: oxunuş (lüğətə), "" (dəyişmir) və ya null (rədd).
+//   - yalnız kiçik Azərbaycan hərfləri, boşluq, tire; ağlabatan uzunluq;
+//   - qısaltma hərf-hərf oxunursa (tire ilə): hissə sayı hərf sayına bərabər, hər hissə Azərbaycan hərf adı (a-be-şe) —
+//     kontekstdən şəkilçi (xin-in), uydurma hərf adı (a-re-be) keçmir; söz kimi oxunursa yazılışa yaxın olmalıdır (SOCAR → sokar);
+//   - adi addakı tire yalnız CamelCase sözdə (GreenTech → qrin-tek): «Banker → banker-az» keçmir;
+//   - Azərbaycan yazılışlı ad yalnız tipik fərqlə dəyişir (typicalChange).
 function yoxla(token, said) {
   if (typeof said !== "string") return null;
   const s = lowerAz(said).replace(/\s+/g, " ").replace(/\s*-\s*/g, "-").trim();
   if (!s) return "";
   if (!ALLOWED.test(s) || s.length > token.length * 6 + 12) return null;
-  if (s.replace(/[- ]/g, "") === lowerAz(token)) return "";        // NATO → nato: qayda onsuz da belə oxuyur
-  if (azLooking(token) && distance(s.replace(/[- ]/g, ""), lowerAz(token)) > 2) return null;
-  // Hərf-hərf oxunuş (a-be-şe) yalnız hərf adlarından ibarət olmalıdır və sırası sözə uyğun gəlməlidir.
-  if (/^\p{Lu}{2,8}$/u.test(token) && /-/.test(s) && !/ /.test(s)) {
-    const parts = s.split("-");
-    const spelled = parts.every(p => Object.values(LETTER_NAMES).includes(p) || /^[a-zəıöüçşğ]+$/.test(p));
-    if (!spelled) return null;
+  const plain = lowerAz(token);
+  if (s.replace(/[- ]/g, "") === plain) return "";                 // NATO → nato: qayda onsuz da belə oxuyur
+  if (/^\p{Lu}{2,8}$/u.test(token)) {
+    if (s.includes("-")) {
+      const parts = s.split("-");
+      return parts.length === [...token].length && parts.every(p => AZ_LETTER_NAMES.has(p)) ? s : null;
+    }
+    const word = plain.replace(/ı/g, "i");
+    if (/ /.test(s) || Math.abs(s.length - word.length) > 1 || distance(s, word) > 2) return null;
+    if (s[0] === s[1] && word[0] !== word[1]) return null;           // UEFA → uuefa
+    return s;
   }
+  if (s.includes("-") && !/\p{Ll}\p{Lu}/u.test(token)) return null;
+  if (azLooking(token) && !typicalChange(plain, s.replace(/[- ]/g, ""))) return null;
   return s;
 }
 
@@ -106,11 +138,11 @@ const PROMPT = `Sən Azərbaycan televiziyasının xəbər diktorusan. Aşağıd
 Hər söz üçün onu efirdə necə oxuyacağını yaz: yalnız kiçik Azərbaycan hərfləri (${AZ}), boşluq və tire.
 
 Qaydalar:
-- Hərf-hərf oxunan qısaltma: Azərbaycan hərf adları, tire ilə. Hərf adları: a, be, ce, çe, de, e, ə, fe, ge, ğe, he, xe, ı, i, je, ka, qe, el, em, en, o, ö, pe, er, es, şe, te, u, ü, ve, ye, ze. Nümunə: ABŞ → a-be-şe, FHN → fe-he-en, BMT → be-em-te.
-- Söz kimi oxunan qısaltma söz kimi: NATO → "", UEFA → "", SOCAR → sokar. Beynəlxalq ingilis qısaltmasını azərbaycanlıların dediyi kimi yaz (CNN → si-en-en, BBC → bi-bi-si).
-- Orijinal (ingilis, fransız, alman, ispan…) yazılışda qalan ad: azərbaycanlı diktorun tələffüzü ilə. Nümunə: Washington → vaşinqton, Google → qugl, Bloomberg → blumberq, Celta → selta, Sacramento → sakramento.
-- Söz Azərbaycan hərflərinin səsi ilə onsuz da düzgün oxunursa (Xankəndi, Sumqayıt, Makron, Tramp), boş sətir "" qaytar. Azərbaycan adlarını dəyişmə.
-- Sözə şəkilçi qoşulubsa (Vaşinqtonun), şəkilçini də oxunuşa daxil et.
+- Yalnız verilən sözün özünü oxu. Kontekstdəki şəkilçini, sayt sonluğunu (.az) əlavə etmə: «XİN-in» kontekstində XİN → "xin", «Banker.az» kontekstində Banker → "".
+- Hərf-hərf oxunan qısaltma: hər hərf üçün bir Azərbaycan hərf adı, tire ilə, hərf sayı qədər. Hərf adları: a, be, ce, çe, de, e, ə, fe, ge, ğe, he, xe, ı, i, je, ka, qe, el, em, en, o, ö, pe, er, es, şe, te, u, ü, ve, ye, ze. Nümunə: ABŞ → a-be-şe, FHN → fe-he-en, BMT → be-em-te, TV → te-ve, MMC → em-em-ce.
+- Azərbaycanda söz kimi deyilən qısaltma söz kimi: NATO → "", UEFA → "", FIFA → "", AZAL → "", AFFA → "", APA → "", TƏBİB → "", XİN → "", DİN → "", SEPAH → "", SOCAR → sokar, UNEC → unek, COVID → kovid.
+- Orijinal (ingilis, fransız, alman, ispan…) yazılışda qalan ad: azərbaycanlı diktorun tələffüzü ilə. Nümunə: Washington → vaşinqton, Google → qugl, Bloomberg → blumberq, Celta → selta, Sacramento → sakramento, Saint → sen.
+- Söz Azərbaycan hərflərinin səsi ilə onsuz da düzgün oxunursa (Xankəndi, Sumqayıt, Makron, Tramp, Yamal), boş sətir "" qaytar. Azərbaycan adlarını dəyişmə.
 - Mənasını dəyişmə, tərcümə etmə, açılışını yazma (ABŞ → "amerika birləşmiş ştatları" YOX, a-be-şe).
 
 Cavab: yalnız JSON obyekt {"söz": "oxunuş və ya boş"}, hər verilən söz üçün bir açar.

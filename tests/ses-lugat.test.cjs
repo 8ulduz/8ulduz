@@ -34,6 +34,17 @@ test("ses-lugat: Gemini cavabı yoxlanır — yalnız Azərbaycan hərfləri, Az
   assert.equal(L.yoxla("Google", 5), null);
 });
 
+test("ses-lugat: 2026-11-23 bazasında Gemini-nin (lite) həqiqi səhvləri rədd olunur, düzgünləri keçir", () => {
+  const bad = { XİN: "xis-in", MMC: "mmc-nin", ADY: "a-de-jı-nin", AZAL: "a-zel", TƏBİB: "te-ə-bi-bi", ARB: "a-re-be",
+    QSC: "qe-se-çe", MHX: "em-ha-iks", PFL: "pe-fel", UEFA: "uuefa", PUA: "pe-u-a-larla", Banker: "banker-az",
+    Yenicag: "yenicag-az", Yamal: "lamal", TRİPP: "ti-ar-pi-pi", AMEA: "a-mə-a", SSRİ: "эс-эс-эр-и" };
+  for (const [t, v] of Object.entries(bad)) assert.equal(L.yoxla(t, v), null, `${t} → ${v}`);
+  const good = { ABŞ: "a-be-şe", BMT: "be-em-te", TV: "te-ve", SOCAR: "sokar", COVID: "kovid", Celta: "selta", Vigo: "viqo",
+    Lazio: "latsio", Gundelik: "gündəlik", Bull: "bul", Nice: "nis", Borussia: "borussiya", Iveco: "iveko", Mullin: "mallin",
+    Washington: "vaşinqton", GreenTech: "qrin-tek", Bitcoin: "bitkoin", Hitachi: "hitaçi" };
+  for (const [t, v] of Object.entries(good)) assert.equal(L.yoxla(t, v), v, `${t} → ${v}`);
+});
+
 test("ses-lugat: paketlərlə qurulur; cavabsız söz yoxlanmış sayılmır, rədd ayrıca", async () => {
   const cands = L.candidates(TEXTS);
   const answers = { ABŞ: "a-be-şe", FHN: "fe-he-en", Google: "qugl", Bloomberg: "blumberq", Xankəndidə: "", Celta: "selta", Kings: "kinqs", Vigo: "", Sacramento: "sakramento!" };

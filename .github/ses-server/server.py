@@ -26,6 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.dirname(os.path.dirname(HERE)))  # repodan işə salınanda reader_content.py kökdədir
+import az_text  # noqa: E402
 from az_text import phrases, tune  # noqa: E402
 from reader_content import extract_article  # noqa: E402
 
@@ -294,10 +295,32 @@ def cleanup():
             pass
 
 
+LUGAT_URL = os.environ.get("SES_LUGAT_URL", "https://raw.githubusercontent.com/8ulduz/8ulduz/ses-lugat/lugat.json")
+
+
+def lexicon_loop():
+    """Oxunuş lüğətinin həftəlik əlavələri (ses-lugat.yml, «ses-lugat» budağı) 12 saatdan bir götürülür; repodakı əsas lüğət
+    (ses-lugat.json) install.sh ilə gəlir. Alınmasa köhnə lüğətlə davam edir."""
+    while True:
+        try:
+            data = fetch(LUGAT_URL, timeout=20)
+            json.loads(data)
+            tmp = os.path.join(HERE, "ses-lugat-elave.json.tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(data)
+            os.replace(tmp, os.path.join(HERE, "ses-lugat-elave.json"))
+            print("lüğət:", az_text.load_lexicon(HERE), "söz", flush=True)
+        except Exception as e:
+            print("lüğət:", type(e).__name__, e, flush=True)
+        time.sleep(12 * 3600)
+
+
 def main():
     model()   # model açılışda yüklənir: ilk dinləyici gözləməsin
     if os.environ.get("SES_PREFETCH", "1") == "1":
         threading.Thread(target=prefetch_loop, daemon=True).start()
+    if os.environ.get("SES_LUGAT", "1") == "1":
+        threading.Thread(target=lexicon_loop, daemon=True).start()
     print(f"8ulduz ses: 127.0.0.1:{PORT}, keş {CACHE}", flush=True)
     ThreadingHTTPServer((os.environ.get("SES_HOST", "127.0.0.1"), PORT), Handler).serve_forever()
 

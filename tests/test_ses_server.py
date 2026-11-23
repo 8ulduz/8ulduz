@@ -56,7 +56,19 @@ def said(text):
 
 
 class HumanReadingTest(unittest.TestCase):
-    """Sahib, 2026-11-23: «tam normal insan kimi oxunsun» — xəbər mətnində tez-tez gələn və anlaşılmaz oxunan hallar."""
+    """Sahib, 2026-11-23: «tam normal insan kimi oxunsun» — xəbər mətnində tez-tez gələn və anlaşılmaz oxunan hallar.
+    Burada lüğətsiz qaydalar yoxlanır (lüğət Gemini-dən gəlir və dəyişə bilər): LEXICON test vaxtı boşalır."""
+
+    def setUp(self):
+        self.saved = dict(az_text.LEXICON)
+        az_text.LEXICON.clear()
+
+    def tearDown(self):
+        az_text.LEXICON.clear()
+        az_text.LEXICON.update(self.saved)
+
+    def test_source_leftovers_are_not_read(self):
+        self.assertEqual(said("Milli Hidrometeorologiya Xidmətindən bildirilib […] Source"), "milli hidrometeorologiya xidmətindən bildirilib")
 
     def test_acronyms_are_spelled_with_their_suffix(self):
         self.assertEqual(said("ABŞ-nin, ABŞ-da, ABŞ-ın, ABŞ-a"), "a-be-şenin | a-be-şedə | a-be-şenin | a-be-şeyə")
@@ -107,6 +119,41 @@ class HumanReadingTest(unittest.TestCase):
         m = az_text.tune(M(), speaking_rate=0.9)
         self.assertEqual(m.speaking_rate, 0.9)
         self.assertEqual(m.noise_scale, az_text.VOICE["noise_scale"])
+
+
+class LexiconTest(unittest.TestCase):
+    """Oxunuş lüğəti (ses-lugat.json + budaqdan əlavə): qaydalardan əvvəl gəlir, şəkilçini ahəngə uyğun yapışdırır."""
+
+    def setUp(self):
+        self.saved = dict(az_text.LEXICON)
+        az_text.LEXICON.clear()
+        az_text.LEXICON.update({"Celta": "selta", "Sacramento": "sakramento", "DİN": "de-i-en", "Bloomberg": "blumberq"})
+
+    def tearDown(self):
+        az_text.LEXICON.clear()
+        az_text.LEXICON.update(self.saved)
+
+    def test_lexicon_words_with_suffix_and_headline_caps(self):
+        self.assertEqual(said("«Celta Vigo»nu, Sacramento-nun, BLOOMBERG xəbər verir"), "selta vigonu | sakramentonun | blumberq xəbər verir")
+        self.assertEqual(said("DİN-in açıqlaması"), "de-i-enin açıqlaması")
+
+    def test_ordinary_words_are_not_taken_for_acronyms(self):
+        self.assertEqual(said("Din və dövlət, din xadimi"), "din və dövlət | din xadimi")
+
+    def test_files_merge_base_over_branch(self):
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "ses-lugat.json"), "w", encoding="utf-8") as f:
+            f.write('{"sozler": {"Google": "qugl", "Bad": "B@d"}}')
+        with open(os.path.join(d, "ses-lugat-elave.json"), "w", encoding="utf-8") as f:
+            f.write('{"sozler": {"Google": "quqıl", "Axios": "aksios"}}')
+        self.assertEqual(az_text.load_lexicon(d), 2)
+        self.assertEqual(az_text.LEXICON, {"Google": "qugl", "Axios": "aksios"})
+
+    def test_repository_lexicon_is_valid(self):
+        with open(SRV / "ses-lugat.json", encoding="utf-8") as f:
+            data = __import__("json").load(f)
+        for k, v in data["sozler"].items():
+            self.assertTrue(v and set(v) <= az_text.ALLOWED, (k, v))
 
 
 class ScriptTest(unittest.TestCase):

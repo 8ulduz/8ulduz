@@ -39,6 +39,7 @@ on:
       - .github/scripts/sosial-video.cjs
       - .github/workflows/sosial-video.yml
       - .github/ses-server/az_text.py
+      - .github/ses-server/ses-lugat.json
       - tests/fixtures/video-xeber.json
       - tests/fixtures/video-hava.json
 
@@ -85,6 +86,7 @@ jobs:
             .github/scripts/video-arxiv.cjs
             .github/scripts/video_ses.py
             .github/ses-server/az_text.py
+            .github/ses-server/ses-lugat.json
             assets/app.js
             assets/content-policy.js
             assets/logo.png
@@ -104,6 +106,17 @@ jobs:
             echo "arxiv: video-arxiv budağından"
           else
             echo "arxiv: budaq oxunmadı — repodakı başlanğıc nüsxə (data/video-arxiv.json)"
+          fi
+      # Saranın oxunuş lüğətinə həftəlik əlavələr (ses-lugat.yml, tarixçəsiz «ses-lugat» budağı). az_text.py repodakı
+      # ses-lugat.json ilə birləşdirir; budaq oxunmasa səs yalnız repodakı lüğətlə oxuyur.
+      - name: Səs lüğəti (ses-lugat budağı)
+        continue-on-error: true
+        run: |
+          if git fetch -q --depth 1 origin ses-lugat 2>/dev/null && git show FETCH_HEAD:lugat.json > .github/ses-server/ses-lugat-elave.json; then
+            echo "lüğət: ses-lugat budağından əlavə"
+          else
+            rm -f .github/ses-server/ses-lugat-elave.json
+            echo "lüğət: yalnız repodakı ses-lugat.json"
           fi
       - name: Videoların siyahısı
         if: github.event_name != 'pull_request'

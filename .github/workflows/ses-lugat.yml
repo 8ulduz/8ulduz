@@ -18,11 +18,6 @@ on:
         type: choice
         options: [yenile, qur]
         default: yenile
-  push:
-    branches: ['claude/sara-**']
-    paths:
-      - .github/scripts/ses-lugat.cjs
-      - .github/workflows/ses-lugat.yml
 
 permissions:
   contents: write
@@ -36,8 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      REJIM: ${{ inputs.rejim || (github.event_name == 'push' && 'qur') || 'yenile' }}
-      YAZ: ${{ github.ref == 'refs/heads/main' && github.event_name != 'push' && (inputs.rejim || 'yenile') == 'yenile' }}
+      REJIM: ${{ inputs.rejim || 'yenile' }}
+      YAZ: ${{ github.ref == 'refs/heads/main' && (inputs.rejim || 'yenile') == 'yenile' }}
       BUDAQ_FAYL: .ses-lugat/lugat.json
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

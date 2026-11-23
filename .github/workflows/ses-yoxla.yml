@@ -41,7 +41,8 @@ jobs:
           V: ${{ inputs.variantlar }}
         run: |
           if [ -z "$V" ]; then
-            V='[{"ad":"kohne","metn":"kohne"},{"ad":"yeni","metn":"yeni"},{"ad":"yeni-vergulsuz","metn":"yeni","commas":false},{"ad":"yeni-sakit","metn":"yeni","noise_scale":0.45,"noise_scale_duration":0.6},{"ad":"yeni-sakit-yavas","metn":"yeni","noise_scale":0.45,"noise_scale_duration":0.6,"speaking_rate":0.92}]'
+            # 2026-11-23 ilk ölçmə (CER): köhnə 15,1%, yeni 14,2%, yeni vergülsüz 11,6%, yeni sakit (0,45/0,6) 11,1%, +yavaş 12,4%.
+            V='[{"ad":"kohne","metn":"kohne","noise_scale":0.667,"noise_scale_duration":0.8},{"ad":"yeni","metn":"yeni"},{"ad":"yeni-vergulsuz","metn":"yeni","commas":false},{"ad":"yeni-daha-sakit","metn":"yeni","noise_scale":0.33,"noise_scale_duration":0.5},{"ad":"yeni-96","metn":"yeni","speaking_rate":0.96}]'
           fi
           echo "matrix=$(printf '%s' "$V" | jq -c .)" >> "$GITHUB_OUTPUT"
 
@@ -85,15 +86,18 @@ jobs:
         env:
           VARIANTS: '[${{ toJSON(matrix.v) }}]'
         run: python .github/scripts/ses_yoxla.py dinle tests/fixtures/ses-korpus.json out /tmp/az_text_kohne.py
+      # ubuntu-latest-də ffmpeg həmişə olmur (2026-11-23): yoxdursa quraşdırılır; alınmasa wav qalır, nəticə yenə yüklənir.
       - name: Nümunə (mp3)
+        continue-on-error: true
         env:
           AD: ${{ matrix.v.ad }}
         run: |
-          if [ -f "out/$AD-numune.wav" ]; then
-            ffmpeg -hide_banner -loglevel error -y -i "out/$AD-numune.wav" -codec:a libmp3lame -q:a 3 "out/$AD-numune.mp3"
-            rm -f "out/$AD-numune.wav"
-          fi
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+          [ -f "out/$AD-numune.wav" ] || exit 0
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg >/dev/null; }
+          ffmpeg -hide_banner -loglevel error -y -i "out/$AD-numune.wav" -codec:a libmp3lame -q:a 3 "out/$AD-numune.mp3"
+          rm -f "out/$AD-numune.wav"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ses-${{ matrix.v.ad }}
           path: out/
@@ -117,7 +121,7 @@ jobs:
         run: |
           mkdir -p hesabat
           python3 .github/scripts/ses_yoxla.py hesabat hamisi > hesabat/hesabat.md
-          cp hamisi/*/*-numune.mp3 hesabat/ 2>/dev/null || true
+          cp hamisi/*/*-numune.mp3 hamisi/*/*-numune.wav hesabat/ 2>/dev/null || true
           cat hesabat/hesabat.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:

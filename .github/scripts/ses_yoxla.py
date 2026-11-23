@@ -111,7 +111,7 @@ def main(corpus_path, out, old_path=None):
     torch.set_num_threads(max(1, os.cpu_count() or 1))
     tok, model = AutoTokenizer.from_pretrained(MODEL), VitsModel.from_pretrained(MODEL).eval()
     sr = model.config.sampling_rate
-    base = {k: getattr(model, k) for k in ("noise_scale", "noise_scale_duration", "speaking_rate")}
+    base = dict(new.VOICE)   # ayarı verilməyən variant az_text.VOICE ilə oxuyur (video və server kimi)
     asr = WhisperModel(os.environ.get("ASR_MODEL", "large-v3"), device="cpu", compute_type="int8", cpu_threads=os.cpu_count() or 2)
     os.makedirs(out, exist_ok=True)
 

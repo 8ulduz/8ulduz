@@ -18,7 +18,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-venv ffmpe
 id ses >/dev/null 2>&1 || useradd --system --home "$DIR" --shell /usr/sbin/nologin ses
 mkdir -p "$DIR" "$CACHE"
 echo "== Kod"
-for f in .github/ses-server/server.py .github/ses-server/az_text.py reader_content.py; do
+for f in .github/ses-server/server.py .github/ses-server/az_text.py .github/ses-server/ses-lugat.json reader_content.py; do
   curl -fsSL "$RAW/$f?t=$(date +%s)" -o "$DIR/$(basename "$f")"
 done
 
