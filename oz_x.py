@@ -553,6 +553,42 @@ def sinif(row):
     return "u" if str((row or {}).get("handle") or "").lower() in _USTA else "h"
 
 
+# Gemini-siz qaydalar (sahib 2026-11-23: «Geminidən başqa daha dayanıqlı bir yol tap pulsuz. … Alınmırsa izah lazım deyil. 20-80 yaş
+# arası ən çox baxılan videolar olsun»). Seçim X-in öz saylarına (baxış, bəyənmə, paylaşma) və bu süzgəclərə əsaslanır; Gemini
+# işləyəndə yalnız izah və sinif əlavə edir.
+# Usta işi mətndən: bir işin necə görüldüyünü deyən sözlər (ingilis, türk, rus).
+_USTA_TEXT = re.compile(r"how (?:it'?s|they'?re|it is|are) made|how to (?:make|build|fix|repair)|restor(?:e|ed|ing|ation)|\brepair(?:ing|ed)?\b|"
+                        r"\bfactory\b|manufactur|production line|craftsm|handmade|woodwork|blacksmith|welding|\bforg(?:e|ing)\b|carpent|"
+                        r"\bdiy\b|nasıl yapılır|nasıl üretilir|yapımı|üretim|restorasyon|onarım|\btamir|usta(?:lık)?\b|fabrika|el yapımı|"
+                        r"как делают|производств|реставрац|ремонт", re.I)
+# Lentə düşməyən mətn (Gemini-siz də): mərc və qumar, açıq-saçıq, ağır kadr xəbərdarlığı, edam. X-in öz «possibly_sensitive»
+# nişanı və icma qeydi (community note) x_yazici.candidate-də ayrıca yoxlanır.
+_UNSAFE_TEXT = re.compile(r"casino|kazino|roobet|stake\.com|1xbet|betting|sportsbook|\bbahis|iddaa|kumar|jackpot|"
+                          r"onlyfans|\bnsfw\b|porn|\bxxx\b|\+18\b|\b18\+|\bgraphic\b|viewer discretion|sensitive content|"
+                          r"\bgore\b|behead|dead bod|corpse|ceset|infaz|\bexecution of\b|kafa kes|казино|ставк|порн", re.I)
+
+
+def usta_text(text):
+    """Mətn bir işin necə görüldüyündən danışırmı (Gemini-siz sinif)."""
+    return bool(_USTA_TEXT.search(str(text or "")))
+
+
+def unsafe_text(text):
+    """Mətndə lentə düşməyən mövzu (mərc, açıq-saçıq, ağır kadr) varmı."""
+    return bool(_UNSAFE_TEXT.search(str(text or "")))
+
+
+# Ən çox baxılan (sahib 2026-11-23): bu qədər baxışı olmayan video «boş» sayılır və lentə düşmür. Paylaşım 24 saat namizəddir
+# (x_yazici.REEL_WINDOW), hesab yenidən yoxlananda baxış sayı yenilənir: təzə video həddi keçəndə götürülür.
+REEL_MIN_VIEWS = 20000
+_COUNT = ("v", "l", "rp")   # sətirdə: baxış, bəyənmə, paylaşma (vt — sayların vaxtı)
+
+
+def popularity(row):
+    """Populyarlıq: baxış + bəyənmə və paylaşmanın çəkisi (bəyənən və paylaşan baxandan çox maraqlanıb). Say yoxdursa 0."""
+    return int(row.get("v") or 0) + 20 * int(row.get("l") or 0) + 60 * int(row.get("rp") or 0)
+
+
 # Videonun izahı (sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın»): Azərbaycan dilində bir qısa cümlə, lentdə hesabın
 # adının altında. Gemini paylaşımın mətnindən yazır; yoxlamadan keçməyən izahlı video lentə düşmür.
 IZAH_LEN = (10, 120)
@@ -750,6 +786,11 @@ def reel_check(row):
         return "sinif «h» və ya «u» olmalıdır"
     if "c" in row and izah_check(row["c"]):
         return izah_check(row["c"])
+    for k in _COUNT:
+        if k in row and (type(row[k]) is not int or row[k] < 0):
+            return f"{k}: mənfi olmayan tam ədəd (X-in sayı)"
+    if "vt" in row and _at(row["vt"]) is None:
+        return "vt: sayların vaxtı (ISO, saat qurşağı ilə)"
     return None
 
 
@@ -802,33 +843,33 @@ def balance(rows, n=REELS_MAX, cls=lambda r: r["q"]):
 
 
 def reels(now, path=None):
-    """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün izahlı videoları, ən yenisi əvvəl. Paylaşımın mətni (src) çıxmır.
-    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt), q (sinif: h/u), c (Azərbaycan dilində izah);
-    p: 1 — birinci dərəcəli mənbə (VIDEOLENT_ONDE). Eyni video (media nömrəsi) bir dəfə; köhnə klipin təzə paylaşımı hadisə deyil;
-    usta işi USTA_PAY qədər (balance)."""
+    """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün videoları, ən yenisi əvvəl. Paylaşımın mətni (src) çıxmır.
+    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt), q (sinif: h/u); v — baxış sayı (lent.js ən çox
+    baxılanı önə qoyur); c — Azərbaycan dilində izah (varsa); p: 1 — birinci dərəcəli mənbə (VIDEOLENT_ONDE). Eyni video (media
+    nömrəsi) bir dəfə; köhnə klipin təzə paylaşımı hadisə deyil; REEL_MIN_VIEWS-dan az baxılan video yoxdur; usta işi USTA_PAY qədər."""
     floor, out, seen = now - datetime.timedelta(days=REELS_DAYS), [], set()
     rows = [r for r in load_reels(path) if not reel_check(r) and floor <= _at(r["at"]) <= now + datetime.timedelta(hours=1)]
     for row in sorted(rows, key=lambda r: _at(r["at"]), reverse=True):
-        # Hər videoya izah (sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın»): Gemini düşəndə izahsız qalan video lentə
-        # çıxmır (2026-11-23: kvota bitəndə yazıcı izahsız idman videoları yığırdı, lentin ilk 10 videosunun 7-si izahsız idi)
+        # İzah məcburi deyil (sahib 2026-11-23: «Alınmırsa izah lazım deyil»). Baxış sayı bilinən və REEL_MIN_VIEWS-dan az olan video
+        # «boş»dur; sayı hələ bilinməyən köhnə sətir qalır, lent onu ən sona qoyur (yazıcı sayları yeniləyir).
         key = video_key(row["video"])
-        if not row.get("c") or stale_event(row, now) or row["id"] in seen or key in seen or row["handle"].lower() in _CIXAN:
+        if stale_event(row, now) or row["id"] in seen or key in seen or row["handle"].lower() in _CIXAN                 or "v" in row and row["v"] < REEL_MIN_VIEWS:
             continue
         seen.update((row["id"], key))
         h = _REEL_HANDLE[row["handle"].lower()]
         out.append({"id": row["id"], "a": h, "n": ADLAR[h], "m": movzu(h), "u": row["video"], "i": row["poster"],
                     "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds"),
-                    "q": sinif(row), **({"p": 1} if onde(h) else {}), "c": row["c"]})
+                    "q": sinif(row), **({"v": row["v"]} if "v" in row else {}), **({"p": 1} if onde(h) else {}),
+                    **({"c": row["c"]} if row.get("c") else {})})
     return balance(out)
 
 
 def keep_reels(rows, now):
-    """Növbə faylında saxlanan qısa video sətirləri (x_yazici): son REELS_DAYS günün izahlıları, ən çox REELS_KEEP. Sıra qorunur.
+    """Növbə faylında saxlanan qısa video sətirləri (x_yazici): son REELS_DAYS günün videoları, ən çox REELS_KEEP. Sıra qorunur.
     Çox olanda əvvəl ən köhnə hadisə videoları düşür, usta işi (REELS_KEEP × USTA_PAY) bütün həftə qalır — əvvəl fayl son 1000
-    sətri saxlayırdı və usta işi 2 gündən sonra silinirdi (2026-11-23 lentində 11%). İzahsız sətir saxlanmır: həmin paylaşım
-    növbəti işdə yenə namizəd olur və Gemini izah yazır."""
+    sətri saxlayırdı və usta işi 2 gündən sonra silinirdi (2026-11-23 lentində 11%). Çıxarılmış hesabın (CIXAN) sətri silinir."""
     floor = now - datetime.timedelta(days=REELS_DAYS)
-    ok = [r for r in rows if isinstance(r, dict) and r.get("c") and (_at(r.get("at")) or floor) > floor
+    ok = [r for r in rows if isinstance(r, dict) and (_at(r.get("at")) or floor) > floor
           and str(r.get("handle") or "").lower() not in _CIXAN]
     newest = sorted(ok, key=lambda r: _at(r.get("at")), reverse=True)
     keep = {id(r) for r in balance(newest, REELS_KEEP, sinif)}

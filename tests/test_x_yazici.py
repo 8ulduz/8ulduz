@@ -94,7 +94,8 @@ class QuotaTest(unittest.TestCase):
 
 
 class ReelQueueTest(unittest.TestCase):
-    """main(): növbə faylına yalnız izahlı, təzə və təkrarsız videolar yazılır; usta işi bütün həftə qalır."""
+    """main(): sahib 2026-11-23 — «Geminidən başqa daha dayanıqlı bir yol tap pulsuz. … Alınmırsa izah lazım deyil. 20-80 yaş arası ən çox
+    baxılan videolar olsun». Növbəyə ən çox baxılan, təzə, təkrarsız videolar yazılır (Gemini olsa da, olmasa da); usta işi həftə qalır."""
 
     def run_main(self, reels, cands, answer):
         import tempfile
@@ -112,29 +113,40 @@ class ReelQueueTest(unittest.TestCase):
             (root / "oz_x.json").write_text(json.dumps({"v": 1, "items": [], "reels": reels}), encoding="utf-8")
             with mock.patch.object(xy, "ROOT", root), mock.patch.object(xy.datetime, "datetime", FakeDT), \
                  mock.patch.object(xy, "collect", return_value=(cands, [])), mock.patch.object(xy, "ask_gemini", return_value=answer), \
+                 mock.patch.object(xy, "fetch_json", side_effect=OSError("şəbəkə yoxdur")), mock.patch.object(xy.time, "sleep"), \
                  mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}):
                 self.assertEqual(xy.main(), 0)
             return json.loads((root / "oz_x.json").read_text(encoding="utf-8")).get("reels", [])
 
-    def cand(self, h, pid, mid=None, hours=1):
+    def cand(self, h, pid, mid=None, hours=1, views=250000, **kw):
         at = datetime.datetime(2026, 11, 19, 12, 30, tzinfo=datetime.timezone.utc)
-        c = xy.candidate(h, post(author={"screen_name": h}, id=pid, created_timestamp=at.timestamp() - hours * 3600), set(), at, xy.REEL_WINDOW)
+        c = xy.candidate(h, post(author={"screen_name": h}, id=pid, created_timestamp=at.timestamp() - hours * 3600, views=views, **kw),
+                         set(), at, xy.REEL_WINDOW)
         when = at - datetime.timedelta(hours=hours)
         mid = mid or ((int(when.timestamp() * 1000) - 1288834974657) << 22) + int(pid[-3:])   # X media nömrəsi: yüklənmə vaxtı
         c["video"] = f"https://video.twimg.com/amplify_video/{mid}/vid/avc1/480x852/b.mp4?tag=29"
         c["reel_only"] = h not in xy.xm.HESABLAR
         return c
 
-    def test_gemini_down_writes_nothing_and_uncaptioned_rows_leave_the_queue(self):
+    def test_gemini_down_still_writes_the_most_watched_videos_without_a_caption(self):
         fresh = self.cand("LFC", "2123096874748187001", None)
         bare = {k: fresh[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")} | {"src": fresh["src"], "sinif": "h"}
         craft = {**bare, "id": "2123096874748187002", "post": "https://x.com/LFC/status/2123096874748187002", "c": "Usta köhnə stulu bərpa edir",
                  "sinif": "u", "at": "2026-11-14T12:00:00+00:00",
                  "video": "https://video.twimg.com/amplify_video/2113713055204831233/vid/avc1/480x852/b.mp4?tag=29"}
-        out = self.run_main([bare, craft], [self.cand("LFC", "2123096874748187003", None)], "")
-        self.assertEqual([r["id"] for r in out], ["2123096874748187002"], "Gemini düşəndə yeni video yoxdur, izahsız sətir silinir, 5 günlük usta işi qalır")
+        news = self.cand("CollinRugg", "2123096874748187004", None, views=2000000, text="Trump whispers to Macron during the summit photo")
+        low = self.cand("LFC", "2123096874748187005", None, views=900)
+        out = self.run_main([bare, craft], [self.cand("LFC", "2123096874748187003", None), news, low], "")
+        ids = [r["id"] for r in out]
+        self.assertEqual(ids[:2], ["2123096874748187001", "2123096874748187002"], "növbədəki izahsız sətir də, 5 günlük usta işi də qalır")
+        self.assertEqual(set(ids[2:]), {"2123096874748187003", "2123096874748187004"}, "Gemini düşəndə də ən çox baxılan yeni videolar yazılır")
+        self.assertNotIn("2123096874748187005", ids, "900 baxış — «boş» video yazılmır")
+        row = next(r for r in out if r["id"] == "2123096874748187004")
+        self.assertNotIn("c", row, "izah alınmırsa izahsız (sahib: «Alınmırsa izah lazım deyil»)")
+        self.assertEqual((row["v"], row["sinif"]), (2000000, "h"), "X-in baxış sayı saxlanır")
+        self.assertIsNone(xy.xm.reel_check(row))
 
-    def test_only_captioned_fresh_videos_and_one_copy_of_each(self):
+    def test_fresh_videos_and_one_copy_of_each_caption_when_gemini_gives_one(self):
         a = self.cand("LFC", "2123096874748187011", None)
         same = self.cand("NBA", "2123096874748187012", None)
         same["video"] = a["video"].replace("480x852", "720x1280")   # eyni video başqa paylaşımda
@@ -145,8 +157,36 @@ class ReelQueueTest(unittest.TestCase):
                              {"id": bare["id"], "s": "hadise"},
                              {"id": old["id"], "s": "hadise", "c": "Köhnə klip yenidən paylaşılıb"}], ensure_ascii=False)
         out = self.run_main([], [a, same, bare, old], answer)
-        self.assertEqual([r["id"] for r in out], [a["id"]], "izahsız, köhnə klip və eyni videonun ikinci nüsxəsi yazılmır")
-        self.assertEqual(out[0]["c"], "Futbolçu meydanın ortasından qol vurur")
+        self.assertEqual(sorted(r["id"] for r in out), [a["id"], bare["id"]], "köhnə klip və eyni videonun ikinci nüsxəsi yazılmır")
+        self.assertEqual(next(r for r in out if r["id"] == a["id"])["c"], "Futbolçu meydanın ortasından qol vurur")
+        self.assertNotIn("c", next(r for r in out if r["id"] == bare["id"]), "Gemini izah verməsə video izahsız qalır")
+
+    def test_sensitive_noted_and_gambling_posts_never_become_candidates(self):
+        """Gemini-siz süzgəc: X-in «possibly_sensitive» nişanı (ağır və açıq-saçıq kadr), icma qeydi (yanlış məlumat), mərc və qumar."""
+        self.assertIsNotNone(self.cand("CollinRugg", "2123096874748187021"))
+        for kw in ({"possibly_sensitive": True}, {"community_note": {"text": "Bu video 2019-cu ilə aiddir"}},
+                   {"text": "Win big tonight at Roobet casino with our code"}, {"text": "WARNING: graphic footage from the scene"},
+                   {"text": "Canlı bahis fırsatı burada, hemen üye ol"}):
+            p = post(author={"screen_name": "CollinRugg"}, id="2123096874748187022", views=900000, **kw)
+            self.assertIsNone(xy.candidate("CollinRugg", p, set(), NOW, xy.REEL_WINDOW), kw)
+
+    def test_queued_counts_are_refreshed_and_flagged_posts_leave(self):
+        now = datetime.datetime(2026, 11, 19, 12, 30, tzinfo=datetime.timezone.utc)
+        rows = [{"id": "1", "handle": "LFC", "at": "2026-11-19T10:00:00+00:00", "v": 5, "vt": "2026-11-19T10:30:00+00:00"},
+                {"id": "2", "handle": "LFC", "at": "2026-11-19T09:00:00+00:00"},
+                {"id": "3", "handle": "FoxNews", "at": "2026-11-19T08:00:00+00:00"}]
+        asked = []
+
+        def fake(url):
+            asked.append(url)
+            return {"tweet": {"views": 777000, "likes": 9000, "retweets": 800, "possibly_sensitive": url.endswith("/3")}}
+        from unittest import mock
+        with mock.patch.object(xy.time, "sleep"):
+            out = xy.refresh(rows, now, fake)
+        self.assertEqual(asked[0], "https://api.fxtwitter.com/LFC/status/2", "sayı olmayan sətir əvvəl")
+        self.assertEqual([r["id"] for r in out], ["1", "2"], "X sonradan ağır kadr nişanı qoyubsa sətir silinir")
+        self.assertEqual((out[1]["v"], out[1]["l"], out[1]["rp"]), (777000, 9000, 800))
+        self.assertLessEqual(xy.REFRESH_PER_RUN, 60, "iş 30 dəqiqəyə sığır")
 
 
 class LateEveningTest(unittest.TestCase):
@@ -196,17 +236,22 @@ class SourcesTest(unittest.TestCase):
 
 
 class ReelsPickTest(unittest.TestCase):
-    def test_without_gemini_no_video_is_written_every_video_needs_a_caption(self):
-        """Sahib 2026-11-22: hər videoya izah. 2026-11-23: kvota bitəndə «təhlükəsiz hesabların» izahsız idman videoları lentə düşürdü."""
+    def test_without_gemini_the_most_watched_go_without_a_caption(self):
+        """Sahib 2026-11-23: «Geminidən başqa daha dayanıqlı bir yol tap pulsuz. … Alınmırsa izah lazım deyil.» Seçim namizədlərin
+        sırasıdır (ən çox baxılan əvvəl, süzgəc candidate-də); sinfi hesabdan və mətndən."""
         from unittest import mock
         tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
         clash = xy.candidate("clashreport", post(author={"screen_name": "clashreport"}, id="2123096874748186942"), set(), NOW)
         self.assertTrue(tamir and clash)
         self.assertIn("at", tamir, "qısa video üçün paylaşımın vaxtı")
         with mock.patch.dict(xy.os.environ, {}, clear=True):
-            self.assertEqual(xy.pick_reels([tamir, clash], 6), [], "açar yoxdursa video yoxdur: izahı və kadrın yoxlanışı yoxdur")
+            self.assertEqual(xy.pick_reels([tamir, clash], 6), [tamir["id"], clash["id"]], "açar yoxdursa da seçim var")
+        self.assertEqual((xy.REEL_META[tamir["id"]]["sinif"], xy.REEL_META[clash["id"]]["sinif"]), ("u", "h"))
+        self.assertNotIn("c", xy.REEL_META[clash["id"]])
         with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), mock.patch.object(xy, "ask_gemini", return_value=""):
-            self.assertEqual(xy.pick_reels([tamir, clash], 6), [], "Gemini cavab verməyəndə də")
+            self.assertEqual(xy.pick_reels([tamir, clash], 1), [tamir["id"]], "Gemini cavab verməyəndə də, sıra ilə")
+        restore = xy.candidate("GalatasaraySK", post(id="2123096874748186943", text="How it's made: restoring a 1950s wooden boat by hand"), set(), NOW)
+        self.assertEqual(xy.guess(restore), "u", "mətndən usta işi")
         with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), \
              mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942", "999", "2123096874748186942"]'):
             self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
@@ -381,8 +426,13 @@ class VideolentOndeTest(unittest.TestCase):
         self.assertIn("birinci dərəcəli", xy.REELS_PROMPT)
         self.assertIn("baxış", xy.REELS_PROMPT)
         src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
-        self.assertIn('key=lambda c: (not xm.onde(c["handle"]), -c["_score"])', src, "hər mövzuda əvvəl birinci dərəcəli, sonra çox baxılan")
-        self.assertIn('int(post.get("views") or 0) // 100', src, "baxış sayı xala daxildir")
+        # sahib 2026-11-23: «ən çox baxılan videolar olsun» — sıra baxış sürətidir, birinci dərəcəli mənbə 1,5 qat önədir
+        self.assertIn('key=lambda c: -heat(c, now) * (1.5 if xm.onde(c["handle"]) else 1)', src)
+        self.assertIn('"_score": likes + reposts * 3 + views // 100', src, "baxış sayı xəbər seçiminin xalına da daxildir")
+        now = datetime.datetime(2026, 11, 19, 12, 0, tzinfo=datetime.timezone.utc)
+        c = lambda v, h: {"_views": v, "_likes": 0, "_reposts": 0, "at": (now - datetime.timedelta(hours=h)).isoformat()}
+        self.assertGreater(xy.heat(c(200000, 2), now), xy.heat(c(300000, 20), now), "2 saatda 200 min 20 saatda 300 mindən isti")
+        self.assertGreater(xy.heat(c(2000000, 20), now), xy.heat(c(100000, 1), now), "amma 2 milyon 100 mindən")
 
 
 class SixtyFortyTest(unittest.TestCase):
@@ -445,9 +495,9 @@ class SixtyFortyTest(unittest.TestCase):
         for h in ("ufc", "baykartech", "TUSAS_TR"):
             self.assertIn(h, xy.xm.VIDEOLENT_HESABLAR)
         src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
-        self.assertIn("pick_reels(pool, REELS_PER_RUN * 3) if REEL_META.get(i, {}).get(\"c\")", src, "yalnız izahlı seçimlər")
+        self.assertIn("picked = [i for i in pick_reels(pool, REELS_PER_RUN * 3)", src)
         self.assertIn("split_reels(picked, lambda i: by_id[i][\"handle\"], REELS_PER_RUN)", src)
-        self.assertIn('if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"])', src, "biçimi pis izah düşür, video da yazılmır")
+        self.assertIn('if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"])', src, "biçimi pis izah düşür, video qalır")
 
 
 class GeminiDownTest(unittest.TestCase):
@@ -474,7 +524,7 @@ class GeminiDownTest(unittest.TestCase):
         news["reel_only"] = True
         tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
         with mock.patch.dict(xy.os.environ, {}, clear=True):
-            self.assertEqual(xy.pick_reels([news, tamir], 6), [], "heç bir video Gemini-nin seçimi və izahı olmadan getmir")
+            self.assertEqual(xy.pick_reels([news, tamir], 6), [news["id"], tamir["id"]], "xəbər və hadisə videosu Gemini-siz də gedir (sahib 2026-11-23)")
 
 
 class ReelAnswerTest(unittest.TestCase):

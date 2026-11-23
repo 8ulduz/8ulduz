@@ -271,6 +271,20 @@ test('Videolent: the feed opens with the freshest news moment, keeps 60/40 and f
   assert.ok(out.indexOf('fresh') < out.indexOf('old-p'), '30 saatlıq birinci dərəcəli video 1 saatlıq videonun önünə keçmir');
   assert.ok(out.indexOf('p2') < out.indexOf('n3'), 'yaşı yaxındırsa birinci dərəcəli mənbə önədir');
   const src = fs.readFileSync(file, 'utf8');
-  assert.ok(src.includes('const P_LEAD = 6 * 3600e3, LEAD = "xeber";'));
+  assert.ok(src.includes('const AGE_PER_DECADE = 12 * 3600e3, P_BONUS = 0.5, OWN_V = 1e5, LEAD = "xeber";'));
   assert.ok(!src.includes('(b.p ? 1 : 0) - (a.p ? 1 : 0)'), 'birinci dərəcəli mənbə yaşına baxmadan önə keçmir');
+});
+
+test('Videolent: the most watched come first, empty low-view clips sink, unknown counts go last (owner 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun»)', async () => {
+  const { list, mix } = await import(pathToFileURL(file).href);
+  store();
+  const t = h => new Date(Date.now() - h * HOUR).toISOString();
+  const lane = [{ u: 'az', n: 'A', m: 'idman', t: t(1), v: 3000 }, { u: 'cox', n: 'B', m: 'idman', t: t(5), v: 900000 },
+    { u: 'kohne-cox', n: 'C', m: 'idman', t: t(40), v: 2000000 }, { u: 'bilinmir', n: 'D', m: 'idman', t: t(0.5) }];
+  assert.deepEqual(mix(lane).map(v => v.u), ['cox', 'az', 'kohne-cox', 'bilinmir'],
+    '5 saatlıq 900 min baxış 1 saatlıq 3 mindən önə; 40 saatlıq 2 milyon təzələrin arxasında; sayı bilinməyən sonda');
+  const reels = feed().map((r, i) => ({ ...r, v: r.m === 'xeber' ? 1000 * (i + 1) : 50000 }));
+  reels.find(r => r.n === 'X2').v = 5e6;
+  assert.equal(list({}, reels)[0].n, 'X2', 'xəbərlərin ən çox baxılanı lenti açır');
+  assert.equal(list({ data: { articles: [] } }, [{ ...reels[0], v: 'çox' }])[0].v, -1, 'rəqəm olmayan say bilinmir sayılır');
 });

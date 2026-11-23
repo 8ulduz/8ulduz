@@ -74,9 +74,9 @@ let live = null;
 // 2026-11-23: hər açılışda əvvəl baxılan video birinci çıxırdı). order: izlənmiş açarlar, ən köhnəsi əvvəl.
 export function list(S, reels, order = seenOrder()) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
-    u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id }));
+    u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id, v: OWN_V }));
   const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || ""), p: r.p === 1,
-    q: r.q === "u" ? "u" : "h", c: typeof r.c === "string" ? r.c.slice(0, 140) : "" }));
+    v: Number.isInteger(r.v) ? r.v : -1, q: r.q === "u" ? "u" : "h", c: typeof r.c === "string" ? r.c.slice(0, 140) : "" }));
   const keys = new Set(), all = [];
   for (const v of [...own, ...x]) { v.key = vkey(v.u); if (!keys.has(v.key) && keys.add(v.key)) all.push(v); }   // eyni video bir dəfə; öz xəbərimiz X nüsxəsindən üstündür
   const at = new Map(order.map((k, i) => [k, i]));
@@ -85,20 +85,22 @@ export function list(S, reels, order = seenOrder()) {
 
 // TikTok kimi qarışıq axın (sahib 2026-11-19: «video axını tiktok kimi olsun», «əksəriyyəti futboldur … proporsional olsun
 // müxtəlif mövzular»): mövzular növbə ilə gəlir (idman, təbiət, elm, kino …; hər açılışda başqa sıra), hər mövzunun içində ən
-// təzəsi önə; eyni hesabdan iki video ardıcıl gəlmir.
+// çox baxılan və təzəsi önə (rank); eyni hesabdan iki video ardıcıl gəlmir.
 // İki sinif (sahib 2026-11-22: «videoların 60%-i … hadisələr …, Təmir-tadilatdakı videolar bənzəri videolar (çox fərqli mövzularda)»):
 // hadisə və yeniliklər («h») ilə usta işi («u») 3:2 növbə ilə — h h u h u; bir sinif qurtaranda o biri davam edir.
 // Lent təzə xəbər anı ilə açılır (sahib 2026-11-23: «hadisə və xəbər xarakterli videolarla bağlı da vəziyyət düzgün deyil»): hadisə
 // sinfində «xeber» mövzusu növbənin başındadır, qalan mövzuların sırası hər açılışda başqadır.
 const PATTERN = [0, 0, 1, 0, 1];   // 1 — usta işi
-// Birinci dərəcəli mənbə (sahib 2026-11-20, oz_x.VIDEOLENT_ONDE; reels «p») mövzusunda P_LEAD qədər «təzə» sayılır: əvvəl hər mövzuda
-// yaşına baxmadan önə keçirdi və lentin başında 1–2 günlük videolar dururdu (2026-11-23 ölçüsü).
-const P_LEAD = 6 * 3600e3, LEAD = "xeber";
-const recency = v => (Date.parse(v.t) || 0) + (v.p ? P_LEAD : 0);
+// Hər mövzunun içində ən çox baxılan və təzə əvvəl (sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun. boş boş
+// videolardır indi əksəriyyəti»): reels «v» — X-in baxış sayı; hər 12 saat yaş baxışın bir onluq dərəcəsinə bərabərdir (12 saatlıq
+// 1 milyon ≈ təzə 100 min). Birinci dərəcəli mənbə (sahib 2026-11-20, reels «p») yarım dərəcə önədir — əvvəl yaşına baxmadan önə
+// keçirdi. Sayı bilinməyən video ən sonda; öz video xəbərimizin sayı yoxdur, orta populyar video kimi sayılır (OWN_V).
+const AGE_PER_DECADE = 12 * 3600e3, P_BONUS = 0.5, OWN_V = 1e5, LEAD = "xeber";
+const rank = v => Math.log10(Math.max(v.v ?? 0, 0) + 1) - (Date.now() - (Date.parse(v.t) || 0)) / AGE_PER_DECADE + (v.p ? P_BONUS : 0);
 function lane(list) {
   const groups = new Map();
   for (const v of list) { const k = v.m || "idman"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(v); }
-  for (const g of groups.values()) g.sort((a, b) => recency(b) - recency(a));
+  for (const g of groups.values()) g.sort((a, b) => rank(b) - rank(a));
   const order = [...groups.entries()].sort(() => Math.random() - 0.5).sort(([a], [b]) => (b === LEAD) - (a === LEAD)).map(([, g]) => g), rr = [];
   while (order.some(g => g.length)) for (const g of order) if (g.length) rr.push(g.shift());
   return rr;

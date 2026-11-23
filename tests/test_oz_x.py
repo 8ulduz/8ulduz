@@ -272,22 +272,36 @@ class ReelsTest(unittest.TestCase):
             self.assertIsNotNone(xm.reel_check(row), name)
         self.assertIsNone(xm.reel_check(reel(sinif="h", c="Yeni elektromobil ilk dəfə yolda sınaqdan keçirilir")))
 
-    def test_news_videos_without_a_caption_stay_off_the_site(self):
-        """Sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın» — xəbər videosu izahsız lentə çıxmır."""
+    def test_news_videos_go_without_a_caption_when_none_was_written(self):
+        """Sahib 2026-11-23: «İzah olmasa belə … siyasət arxa qapı videoları maraqlı hadisə videoları yoxdur. Alınmırsa izah lazım deyil.»"""
         fresh = self.NOW - datetime.timedelta(hours=2)
         bare = event(53, fresh)
         bare.pop("c")
-        ids = [r["id"] for r in xm.reels(self.NOW, path=self.write([bare, event(54, fresh)]))]
-        self.assertEqual(ids, ["2123096874748186054"])
+        out = xm.reels(self.NOW, path=self.write([bare, event(54, fresh)]))
+        self.assertEqual(sorted(r["id"] for r in out), ["2123096874748186053", "2123096874748186054"])
+        self.assertNotIn("c", next(r for r in out if r["id"] == "2123096874748186053"))
 
-    def test_every_video_has_a_caption(self):
-        """Sahib 2026-11-22: hər videoya izah. 2026-11-23: Gemini kvotası bitəndə yazıcı izahsız idman videoları yığırdı və lentin ilk
-        10 videosunun 7-si izahsız idi — izahsız video heç bir mövzuda sayta çıxmır."""
-        for h in ("GalatasaraySK", "LFC", "Rainmaker1973", "TamirveTadilat"):
-            row = reel(id="2123096874748186960", handle=h, post=f"https://x.com/{h}/status/2123096874748186960",
-                       video=media(self.NOW - datetime.timedelta(hours=1)), at=(self.NOW - datetime.timedelta(hours=1)).isoformat())
-            row.pop("c")
-            self.assertEqual(xm.reels(self.NOW, path=self.write([row])), [], h)
+    def test_the_most_watched_reach_the_site_with_their_count_empty_ones_do_not(self):
+        """Sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun. boş boş videolardır indi əksəriyyəti»."""
+        when = self.NOW - datetime.timedelta(hours=1)
+        hot, empty, unknown = event(91, when, v=1500000, l=40000, rp=9000, vt=when.isoformat()), event(92, when, v=xm.REEL_MIN_VIEWS - 1), event(93, when)
+        out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([hot, empty, unknown]))}
+        self.assertEqual(out["2123096874748186091"]["v"], 1500000, "baxış sayı sayta çıxır (lent.js sıralayır)")
+        self.assertNotIn("2123096874748186092", out, "az baxılan «boş» video düşür")
+        self.assertNotIn("v", out["2123096874748186093"], "sayı hələ bilinməyən köhnə sətir qalır, lent onu sona qoyur")
+        self.assertGreater(xm.popularity({"v": 100, "l": 10, "rp": 1}), xm.popularity({"v": 300}), "bəyənən və paylaşan baxandan ağırdır")
+        for k, bad in (("v", -1), ("l", "çox"), ("rp", True), ("vt", "dünən")):
+            self.assertIsNotNone(xm.reel_check(reel(**{k: bad})), k)
+        self.assertGreaterEqual(xm.REEL_MIN_VIEWS, 10000)
+
+    def test_rules_without_gemini_safety_and_craft_from_the_text(self):
+        for t in ("Big win at Roobet casino tonight", "WARNING: graphic content", "Canlı bahis için tıkla", "OnlyFans link in bio"):
+            self.assertTrue(xm.unsafe_text(t), t)
+        for t in ("Drone strike hits a tank near the front line", "Macron and Trump share an awkward handshake", "Rescuers pull a dog from the flood"):
+            self.assertFalse(xm.unsafe_text(t), t)
+        for t in ("How it's made: copper pots", "Restoring a rusty 1950s lathe", "Ahşap masa yapımı", "Fabrikada cam üretimi"):
+            self.assertTrue(xm.usta_text(t), t)
+        self.assertFalse(xm.usta_text("Fans celebrate the late winner"))
 
     def test_a_retired_account_never_reaches_the_feed(self):
         """2026-11-23: CrazyClips_ öz videolarında kazino reklamı verirdi. Növbədə qalan sətirləri lentə çıxmır."""
@@ -339,7 +353,7 @@ class ReelsTest(unittest.TestCase):
         self.assertEqual([r["t"] for r in out], sorted((r["t"] for r in out), reverse=True), "ən yenisi əvvəl")
         self.assertEqual(len(xm.reels(now, path=self.write(crafts))), 150, "hadisə yoxdursa usta işi tək qalır")
 
-    def test_the_queue_keeps_craft_for_the_whole_week_and_drops_uncaptioned_rows(self):
+    def test_the_queue_keeps_craft_for_the_whole_week(self):
         """x_yazici növbə faylını keep_reels ilə kəsir: əvvəl son 1000 sətir qalırdı və usta işi 2 günə silinirdi."""
         now = self.NOW
         events = [event(i, now - datetime.timedelta(minutes=i)) for i in range(1, 1501)]
@@ -350,11 +364,11 @@ class ReelsTest(unittest.TestCase):
         old = event(1502, now - datetime.timedelta(days=xm.REELS_DAYS, hours=1))
         kept = xm.keep_reels([craft, old, bare] + events, now)
         self.assertIn(craft, kept, "6 günlük usta işi qalır")
-        self.assertNotIn(bare, kept, "izahsız sətir saxlanmır: paylaşım yenə namizəd olur")
+        self.assertIn(bare, kept, "izahsız sətir də qalır (sahib 2026-11-23: «Alınmırsa izah lazım deyil»)")
         self.assertNotIn(old, kept)
         self.assertEqual(len(kept), xm.REELS_KEEP)
-        self.assertEqual(kept[0], craft, "sıra qorunur")
-        self.assertEqual(kept[1:], events[:xm.REELS_KEEP - 1], "ən köhnə hadisələr düşür")
+        self.assertEqual(kept[:2], [craft, bare], "sıra qorunur")
+        self.assertEqual(kept[2:], events[:xm.REELS_KEEP - 2], "ən köhnə hadisələr düşür")
 
     def test_updater_writes_reels_through_the_policy_gate(self):
         import updater
