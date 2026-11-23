@@ -37,7 +37,8 @@ function tiktok(o = {}) {
       return json({ access_token: `act.access-${n}-${"a".repeat(20)}`, expires_in: 86400, open_id: "open-1", refresh_token: `rft.rotated-${n}-${"r".repeat(20)}`, refresh_expires_in: 31536000, scope: o.scope || "user.info.basic,video.publish", token_type: "Bearer" });
     }
     if (url.endsWith("/creator_info/query/")) return o.creator ? o.creator() : json({ data: { creator_username: "8ulduz.az", creator_nickname: "8ulduz", privacy_level_options: ["FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"], comment_disabled: false, duet_disabled: true, stitch_disabled: false, max_video_post_duration_sec: 600 }, error: { code: "ok" } });
-    if (url.endsWith("/video/init/")) return o.init ? o.init(JSON.parse(body)) : json({ data: { publish_id: "v_pub_file~1", upload_url: "https://open-upload.tiktokapis.com/video/?upload_id=1&upload_token=t" }, error: { code: "ok" } });
+    if (url.includes("/v2/user/info/")) return json({ data: { user: { open_id: "open-1", display_name: "8ulduz.az" } }, error: { code: "ok" } });
+    if (url.endsWith("/video/init/")) return o.init ? o.init(JSON.parse(body), url) : json({ data: { publish_id: "v_pub_file~1", upload_url: "https://open-upload.tiktokapis.com/video/?upload_id=1&upload_token=t" }, error: { code: "ok" } });
     if (url.startsWith("https://open-upload.tiktokapis.com/")) return o.put ? o.put(init) : { ok: true, status: 201 };
     if (url.endsWith("/status/fetch/")) return o.status ? o.status(JSON.parse(body)) : json({ data: { status: "PUBLISH_COMPLETE" }, error: { code: "ok" } });
     throw new Error(`gözlənilməyən sorğu ${url}`);
@@ -87,6 +88,9 @@ test("tiktok: Direct Post — refresh, creator info, FILE_UPLOAD, status; unaudi
   const init = JSON.parse(tk.calls.find(c => c.url.endsWith("/video/init/")).body);
   assert.equal(init.post_info.privacy_level, "SELF_ONLY", "PUBLIC_TO_EVERYONE hesabın seçimlərində yoxdur (audit/gizli hesab)");
   assert.equal(init.post_info.disable_duet, true, "hesabın öz ayarı saxlanır");
+  assert.equal(init.post_info.disable_comment, true, "UX qaydası: şərh öz-özünə açılmır (sahib TIKTOK_INTERACTIONS ilə açır)");
+  assert.equal(init.post_info.disable_stitch, true);
+  assert.match(logs.join("\n"), /görünmə seçilməyib \(Variables TIKTOK_PRIVACY\) — SELF_ONLY ilə göndərilir/, "standart görünmə yoxdur");
   assert.equal(init.post_info.brand_content_toggle, false);
   assert.equal(init.post_info.is_aigc, false);
   assert.match(init.post_info.title, /^Bakıda yeni metro stansiyası b1\n\nStansiya sabah açılır\.\n\nƏtraflı: 8ulduz\.az \(keçid profildədir\)\n\n#Metro #Bakı #8ulduz #xəbərlər #Azərbaycan$/);
@@ -162,6 +166,7 @@ test("tiktok: the video module's output — its text is the caption, cover_s the
   const init = JSON.parse(tk.calls.find(c => c.url.endsWith("/video/init/")).body);
   assert.match(init.post_info.title, /^Bakıda yeni metro stansiyası açılır\n\nStansiya sabah sərnişin qəbul edəcək\. Açılışda nazir iştirak edəcək\.\n\nƏtraflı: 8ulduz\.az/);
   assert.equal(init.post_info.video_cover_timestamp_ms, 2400);
+  assert.equal(init.post_info.is_aigc, true, "süni səs (TTS) var: TikTok-un AI etiketi");
 
   const long = tmp(); video(long, "v2", { ...row, id: "v2", title: "Uzun video", own: true, duration: 700 });
   const tk2 = tiktok(), state = {};
@@ -259,7 +264,7 @@ test("tiktok: pacing — one video per run, gap, daily cap, stale videos, TikTok
 
   const una = tiktok({ init: () => una.json({ data: {}, error: { code: "unaudited_client_can_only_post_to_private_accounts", message: "" } }, 403) });
   const ru = await go(dirS, una, { state: {}, env: { TIKTOK_REFRESH_TOKEN: SEED } });
-  assert.match(ru.logs.join("\n"), /auditdən keçməyib — TikTok yalnız GİZLİ hesaba/);
+  assert.match(ru.logs.join("\n"), /auditdən keçməyib — birbaşa paylaşımı TikTok yalnız GİZLİ hesaba.*B yolu: video\.upload/);
 });
 
 test("tiktok: big files go in 5–64 MB chunks (last ≤128 MB), small ones in one piece", () => {
@@ -311,8 +316,154 @@ test("tiktok: inbox (draft) mode uses video.upload, sends no caption, tells the 
   assert.deepEqual(Object.keys(JSON.parse(init.body)), ["source_info"]);
   assert.ok(!tk.calls.some(c => c.url.endsWith("/creator_info/query/")));
   assert.deepEqual(res.posted, [["inbox", "i1", "SEND_TO_USER_INBOX"]]);
-  assert.match(logs.join("\n"), /TikTok tətbiqində bildirişə toxunub dərc edin/);
+  assert.match(logs.join("\n"), /TikTok tətbiqində bildirişə toxunun, görünməni/);
+  assert.match(res.caption, /^Bakıda yeni metro stansiyası i1\n\nStansiya sabah açılır\./, "mətn iş xülasəsində sahibə verilir");
   assert.match(T.authUrl({ TIKTOK_CLIENT_KEY: "k", TIKTOK_MODE: "inbox" }), /scope=user\.info\.basic%2Cvideo\.upload/);
+});
+
+// B yolu (docs/tiktok.md «Qərar»): TikTok öz hesabına paylaşan tətbiqə Direct Post auditi vermir. auto rejim (standart) qaralamaya
+// özü keçir: bir Variables dəyişikliyi və ya video.upload icazəsi kifayətdir.
+const PUBLIC = ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"];
+const creatorJson = (tk, extra = {}) => () => tk.json({ data: { creator_username: "8ulduz.az", creator_nickname: "8ulduz", privacy_level_options: PUBLIC, comment_disabled: false, duet_disabled: false, stitch_disabled: false, max_video_post_duration_sec: 600, ...extra }, error: { code: "ok" } });
+const BOTH = "user.info.basic,video.publish,video.upload";
+
+test("tiktok: auto mode — no privacy chosen or no public option → the video goes as a draft (B), never silently SELF_ONLY", async () => {
+  assert.equal(T.options({}).mode, "auto", "standart rejim");
+  assert.equal(T.options({}).privacy, "", "görünmənin standart dəyəri yoxdur");
+  const dir = tmp(); video(dir, "j1");
+  const tk = tiktok({ scope: BOTH, status: () => tk.json({ data: { status: "SEND_TO_USER_INBOX" }, error: { code: "ok" } }) });
+  const { res, logs } = await go(dir, tk, { env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.ok(tk.calls.some(c => c.url.endsWith("/creator_info/query/")), "əvvəl hesabın təzə məlumatı");
+  assert.deepEqual(tk.calls.filter(c => c.url.endsWith("/video/init/")).map(c => c.url), ["https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"]);
+  assert.deepEqual(res.posted, [["inbox", "j1", "SEND_TO_USER_INBOX"]]);
+  assert.match(logs.join("\n"), /görünmə seçilməyib \(Variables TIKTOK_PRIVACY\) — video qaralama kimi gedir/);
+  assert.ok(res.caption.includes("8ulduz.az"));
+
+  // Sahib PUBLIC seçib, amma hesab gizlidir (seçimlərdə yoxdur): yenə qaralama.
+  const dir2 = tmp(); video(dir2, "j2");
+  const tk2 = tiktok({ scope: BOTH, status: () => tk2.json({ data: { status: "SEND_TO_USER_INBOX" }, error: { code: "ok" } }) });
+  const r2 = await go(dir2, tk2, { env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_PRIVACY: "public_to_everyone" } });
+  assert.deepEqual(r2.res.posted.map(x => x[0]), ["inbox"]);
+  assert.match(r2.logs.join("\n"), /PUBLIC_TO_EVERYONE bu hesabda seçilə bilmir \(FOLLOWER_OF_CREATOR, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY\) — video qaralama/);
+
+  // Yalnız video.upload icazəsi: creator_info soruşulmur, birbaşa qaralama.
+  const dir3 = tmp(); video(dir3, "j3");
+  const tk3 = tiktok({ scope: "user.info.basic,video.upload", status: () => tk3.json({ data: { status: "SEND_TO_USER_INBOX" }, error: { code: "ok" } }) });
+  const r3 = await go(dir3, tk3, { env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.ok(!tk3.calls.some(c => c.url.endsWith("/creator_info/query/")));
+  assert.deepEqual(r3.res.posted.map(x => x[0]), ["inbox"]);
+});
+
+test("tiktok: Direct Post follows the owner's explicit choices — privacy, interactions (account settings win), commercial disclosure", async () => {
+  const dir = tmp(); video(dir, "k1");
+  const tkc = tiktok({ scope: BOTH, creator: () => creatorJson(tkc, { duet_disabled: true })() });
+  const { res, logs } = await go(dir, tkc, { env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_PRIVACY: "PUBLIC_TO_EVERYONE", TIKTOK_INTERACTIONS: "comment, duet" } });
+  assert.deepEqual(res.posted.map(x => x[0]), ["direct"]);
+  const p = JSON.parse(tkc.calls.find(c => c.url.endsWith("/video/init/")).body).post_info;
+  assert.equal(p.privacy_level, "PUBLIC_TO_EVERYONE");
+  assert.deepEqual([p.disable_comment, p.disable_duet, p.disable_stitch], [false, true, true], "şərh açıq (sahib), duet hesabda bağlı, stitch seçilməyib");
+  assert.deepEqual([p.brand_content_toggle, p.brand_organic_toggle, p.is_aigc], [false, false, false]);
+  assert.match(logs.join("\n"), /hesab — 8ulduz \(@8ulduz\.az\), video ən çox 600 s, görünmə: PUBLIC_TO_EVERYONE/);
+
+  // Pullu əməkdaşlıq (Branded content): ictimai olar; gizli (SELF_ONLY) olmaz.
+  const dir2 = tmp(); video(dir2, "k2", { brandedContent: true });
+  const tk2 = tiktok({ scope: BOTH, creator: () => creatorJson(tk2)() });
+  await go(dir2, tk2, { env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_PRIVACY: "PUBLIC_TO_EVERYONE", TIKTOK_BRAND_ORGANIC: "1" } });
+  const p2 = JSON.parse(tk2.calls.find(c => c.url.endsWith("/video/init/")).body).post_info;
+  assert.deepEqual([p2.brand_content_toggle, p2.brand_organic_toggle], [true, true]);
+  const dir3 = tmp(); video(dir3, "k3");
+  const tk3 = tiktok();
+  const state = {};
+  const r3 = await go(dir3, tk3, { state, env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_BRANDED_CONTENT: "1" } });
+  assert.ok(!tk3.calls.some(c => c.url.endsWith("/video/init/")), "yalnız video.publish, gizli hesab: brend məzmunu göndərilmir");
+  assert.deepEqual(r3.res.skipped.map(x => x[1]), ["brend məzmunu gizli ola bilməz"]);
+  assert.equal(state.posted.k3.s, "FAILED:branded_private");
+  const dir4 = tmp(); video(dir4, "k4");
+  const tk4 = tiktok({ scope: BOTH, status: () => tk4.json({ data: { status: "SEND_TO_USER_INBOX" }, error: { code: "ok" } }) });
+  const r4 = await go(dir4, tk4, { env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_BRANDED_CONTENT: "1", TIKTOK_PRIVACY: "SELF_ONLY" } });
+  assert.deepEqual(r4.res.posted.map(x => x[0]), ["inbox"], "B yolu hazırdırsa qaralama (açıqlamanı sahib tətbiqdə seçir)");
+  assert.match(r4.logs.join("\n"), /brend məzmunu gizli ola bilməz — video qaralama/);
+
+  // Tanınmayan dəyər seçilməmiş sayılır.
+  const dir5 = tmp(); video(dir5, "k5");
+  const r5 = await go(dir5, tiktok(), { env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_PRIVACY: "everyone" } });
+  assert.match(r5.logs.join("\n"), /TIKTOK_PRIVACY=EVERYONE tanınmır/);
+  assert.match(r5.logs.join("\n"), /SELF_ONLY ilə göndərilir/);
+});
+
+test("tiktok: public account, unaudited app — Direct Post is refused, the same run sends the draft instead", async () => {
+  const dir = tmp(); video(dir, "l1");
+  const urls = [];
+  const tk = tiktok({ scope: BOTH, creator: () => creatorJson(tk)(), status: () => tk.json({ data: { status: "SEND_TO_USER_INBOX" }, error: { code: "ok" } }),
+    init: (b, url) => { urls.push(url); return b.post_info ? tk.json({ data: {}, error: { code: "unaudited_client_can_only_post_to_private_accounts", message: "" } }, 403) : tk.json({ data: { publish_id: "v_inbox~1", upload_url: "https://open-upload.tiktokapis.com/video/?upload_id=2" }, error: { code: "ok" } }); } });
+  const state = {};
+  const { res, logs } = await go(dir, tk, { state, env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_PRIVACY: "PUBLIC_TO_EVERYONE" } });
+  assert.deepEqual(urls, ["https://open.tiktokapis.com/v2/post/publish/video/init/", "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"]);
+  assert.deepEqual(res.posted, [["inbox", "l1", "SEND_TO_USER_INBOX"]]);
+  assert.equal(state.pause, undefined, "fasilə yoxdur: B yolu işlədi");
+  assert.match(logs.join("\n"), /tətbiq auditdən keçməyib, hesab ictimaidir — video qaralama/);
+  // TIKTOK_MODE=direct: qaralamaya keçmir, fasilə verir.
+  const dir2 = tmp(); video(dir2, "l2");
+  const s2 = {};
+  const r2 = await go(dir2, tk, { state: s2, env: { TIKTOK_REFRESH_TOKEN: SEED, TIKTOK_PRIVACY: "PUBLIC_TO_EVERYONE", TIKTOK_MODE: "direct" } });
+  assert.deepEqual(r2.res.failed, [["l2", "unaudited_client_can_only_post_to_private_accounts"]]);
+  assert.ok(s2.pause > NOW / 1000);
+});
+
+test("tiktok: drafts — TikTok's 5 pending per 24 h, the pending-share error pauses, a published draft is reported once", async () => {
+  const sec = NOW / 1000, state = { posted: {} };
+  for (let i = 0; i < 5; i++) state.posted[`old${i}`] = { t: sec - 3 * 3600 - i * 60, s: "SEND_TO_USER_INBOX", p: `v_inbox~${i}`, n: `köhnə ${i}`, v: "inbox", a: 1 };
+  state.last = sec - 3 * 3600;
+  const dir = tmp(); video(dir, "m1");
+  let polls = 0;
+  const tk = tiktok({ scope: "user.info.basic,video.upload", status: () => tk.json({ data: { status: ++polls === 1 ? "PUBLISH_COMPLETE" : "SEND_TO_USER_INBOX" }, error: { code: "ok" } }) });
+  const { res, logs } = await go(dir, tk, { state, env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.ok(!tk.calls.some(c => c.url.endsWith("/video/init/")), "5 qaralama gözləyir: altıncı getmir");
+  assert.match(logs.join("\n"), /24 saatda 5 qaralama göndərilib \(TikTok-un həddi 5\)/);
+  assert.equal(tk.calls.filter(c => c.url.endsWith("/status/fetch/")).length, 3, "dövrədə ən çox 3 status sorğusu");
+  assert.equal(logs.filter(l => /tətbiqdə dərc olundu/.test(l)).length, 1, "dərc olunan qaralama bir dəfə yazılır");
+  assert.ok(!logs.some(l => /qaralama göndərildi/.test(l)), "dəyişməyən qaralama hər dövrədə təkrar yazılmır");
+  assert.deepEqual(res.posted, []);
+
+  const dir2 = tmp(); video(dir2, "m2");
+  const full = tiktok({ scope: "user.info.basic,video.upload", init: () => full.json({ data: {}, error: { code: "spam_risk_too_many_pending_share", message: "" } }, 403) });
+  const s2 = {};
+  const r2 = await go(dir2, full, { state: s2, env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.deepEqual(r2.res.failed, [["m2", "spam_risk_too_many_pending_share"]]);
+  assert.equal(s2.pause, sec + 6 * 3600);
+  assert.match(r2.logs.join("\n"), /qaralama həddi \(24 saatda 5\) dolub/);
+});
+
+// mp4: ftyp + moov/mvhd (versiya 0 və 1) + «8ulduz.az» nişanı.
+const mvhd = (seconds, v1 = false, scale = 1000) => {
+  const body = Buffer.alloc(v1 ? 32 : 20);
+  body[0] = v1 ? 1 : 0;
+  if (v1) { body.writeUInt32BE(scale, 20); body.writeBigUInt64BE(BigInt(seconds * scale), 24); }
+  else { body.writeUInt32BE(scale, 12); body.writeUInt32BE(seconds * scale, 16); }
+  const box = Buffer.concat([Buffer.alloc(4), Buffer.from("mvhd"), body]); box.writeUInt32BE(box.length, 0);
+  const moov = Buffer.concat([Buffer.alloc(4), Buffer.from("moov"), box]); moov.writeUInt32BE(moov.length, 0);
+  return moov;
+};
+test("tiktok: the account's max duration is checked against the file itself when the JSON has no duration", async () => {
+  assert.equal(T.mp4Duration(Buffer.concat([mp4(200), mvhd(42)])), 42);
+  assert.equal(T.mp4Duration(Buffer.concat([mvhd(3700, true, 90000), mp4(200)])), 3700);
+  assert.equal(T.mp4Duration(mp4(200)), 0, "mvhd yoxdur");
+  const dir = tmp(); video(dir, "o1", {}, Buffer.concat([mp4(4000, true, "o1"), mvhd(700)]));
+  const tk = tiktok(), state = {};
+  const { res, logs } = await go(dir, tk, { state, env: { TIKTOK_REFRESH_TOKEN: SEED } });
+  assert.ok(!tk.calls.some(c => c.url.endsWith("/video/init/")));
+  assert.deepEqual(res.skipped.map(x => x[1]), ["uzundur"]);
+  assert.match(logs.join("\n"), /video 700 s, hesabın həddi 600 s/);
+});
+
+test("tiktok: connecting with only video.upload (B) names the account via user.info.basic", async () => {
+  const tk = tiktok({ scope: "user.info.basic,video.upload" }), logs = [];
+  await T.connect({ code: "C0de*abc_DEF!", env: KEYS, now: NOW, fetch: tk.fetch, state: {}, log: s => logs.push(s) });
+  assert.ok(!tk.calls.some(c => c.url.endsWith("/creator_info/query/")));
+  const info = tk.calls.find(c => c.url.includes("/v2/user/info/"));
+  assert.equal(info.method, "GET");
+  assert.match(logs.join("\n"), /qoşuldu — 8ulduz\.az; icazələr: user\.info\.basic,video\.upload/);
+  assert.match(logs.join("\n"), /B yolu hazırdır/);
 });
 
 test("tiktok: connecting — the code from the redirect address becomes an encrypted token chain; nothing secret is logged", async () => {
@@ -321,7 +472,9 @@ test("tiktok: connecting — the code from the redirect address becomes an encry
   assert.equal(T.codeFrom("salam"), "");
   const url = new URL(T.authUrl({ TIKTOK_CLIENT_KEY: "awkey" }));
   assert.deepEqual([url.origin + url.pathname, url.searchParams.get("redirect_uri"), url.searchParams.get("scope"), url.searchParams.get("response_type")],
-    ["https://www.tiktok.com/v2/auth/authorize/", "https://8ulduz.az/haqqinda/", "user.info.basic,video.publish", "code"]);
+    ["https://www.tiktok.com/v2/auth/authorize/", "https://8ulduz.az/haqqinda/", "user.info.basic,video.upload", "code"], "standart: B yolunun icazəsi");
+  assert.equal(new URL(T.authUrl({ TIKTOK_CLIENT_KEY: "k", TIKTOK_MODE: "direct" })).searchParams.get("scope"), "user.info.basic,video.publish");
+  assert.equal(new URL(T.authUrl({ TIKTOK_CLIENT_KEY: "k", TIKTOK_SCOPES: "user.info.basic, video.publish,video.upload" })).searchParams.get("scope"), "user.info.basic,video.publish,video.upload");
   const tk = tiktok(), state = {}, logs = [], masked = [];
   await T.connect({ code: "https://8ulduz.az/haqqinda/?code=C0de%2Aabc_DEF%21&state=8ulduz", env: KEYS, now: NOW, fetch: tk.fetch, state, log: s => logs.push(s), mask: t => masked.push(t) });
   const p = new URLSearchParams(tk.calls[0].body);
@@ -351,6 +504,9 @@ test("tiktok: workflow — own job, no write access, the code never sits in env,
   const pr = wf.slice(wf.indexOf("  sinaq-video:"), wf.indexOf("  post:"));
   assert.ok(!/secrets\./.test(pr), "PR yoxlamasına açar verilmir");
   assert.match(wf, /if: github\.event_name != 'pull_request' && github\.ref == 'refs\/heads\/main'/);
+  // Sahibin seçimləri (Variables) paylaşım addımına çatır.
+  const post = wf.slice(wf.indexOf("- name: Paylaş"), wf.indexOf("- name: Saxla"));
+  for (const v of ["TIKTOK_MODE", "TIKTOK_PRIVACY", "TIKTOK_INTERACTIONS", "TIKTOK_BRAND_ORGANIC", "TIKTOK_BRANDED_CONTENT"]) assert.match(post, new RegExp(`${v}: \\$\\{\\{ vars\\.${v} \\}\\}`), v);
 });
 
 test("tiktok: hooked to the video module — main only, real posting runs only, checked video only, TikTok secrets only", () => {
@@ -373,6 +529,25 @@ test("tiktok: hooked to the video module — main only, real posting runs only, 
   for (const s of ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"]) assert.match(call, new RegExp(`${s}:\\n\\s+required: false`), `${s} workflow_call-da elan olunub`);
   // Facebook açarı olmayanda FB/IG addımı heç nə göndərmir (şəbəkə siyahısı boşdur), iş qırmızı olmur.
   assert.deepEqual(require("../.github/scripts/sosial-video.cjs").networks({ FB_PAGE_ID: "1" }), []);
+});
+
+// TikTok App review demo videosu (tiktok-demo.yml): sirr almır, yazmır, artifact ≤50 MB; altyazı 3 sətrə qədər.
+test("tiktok: the review demo job gets no secrets, writes nothing and records the real site with English captions", () => {
+  const wf = fs.readFileSync(path.join(__dirname, "../.github/workflows/tiktok-demo.yml"), "utf8");
+  assert.ok(!/secrets\./.test(wf), "demo işinə açar verilmir");
+  assert.ok(!/contents: write|git push|gh secret/.test(wf));
+  assert.match(wf, /permissions:\n\s+contents: read\n\s+actions: read\n/);
+  assert.match(wf, /name: tiktok-demo\n/);
+  assert.match(wf, /xvfb-run -a -s "-screen 0 1280x860x24" node \.github\/scripts\/tiktok-demo\.cjs/);
+  const D = require("../.github/scripts/tiktok-demo.cjs");
+  const w = D.wrap("word ".repeat(80));
+  assert.ok(w.split("\n").length <= 3 && w.split("\n").every(l => l.length <= 95));
+  const dir = tmp();
+  const f = D.captionFilter([{ at: 0, caption: "1/2 A" }, { at: 4.5, caption: "2/2 B: 50% done" }], dir, 9, { font: "/f.ttf", preview: true });
+  assert.match(f, /^drawbox=x=0:y=760:w=1280:h=100/);
+  assert.match(f, /enable='between\(t,0\.00,4\.50\)'.*enable='between\(t,4\.50,9\.00\)'/);
+  assert.ok((f.match(/expansion=none/g) || []).length === 3, "% kimi simvollar açılmır");
+  assert.equal(fs.readFileSync(path.join(dir, "tag.txt"), "utf8"), "PREVIEW — not for submission");
 });
 
 // tiktok.yml «sinaq-video»: ffmpeg-in hazırladığı əsl 9:16 video eyni yoldan keçir (yerdə ffmpeg yoxdursa ötürülür).

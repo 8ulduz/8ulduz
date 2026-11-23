@@ -1,0 +1,76 @@
+name: TikTok demo videosu
+# TikTok tətbiq yoxlaması (App review) üçün demo: saytın əsl səhifələri, TikTok üçün ingiliscə bölmələr, video modulunun son videosu
+# və TikTok işinin ictimai jurnalı ekran yazısı kimi (Chrome + Xvfb + ffmpeg, ünvan sətri görünür). Skript: tiktok-demo.cjs.
+# Sirr verilmir, heç yerə yazmır: yalnız artifact «tiktok-demo». Bələdçi: docs/tiktok.md «Demo video».
+# PR-da budağın yerli nüsxəsi yazılır (küncündə «PREVIEW», TikTok-a göndərilmir). Göndəriləcək nüsxə: merge-dən sonra
+# Actions → «TikTok demo videosu» → Run workflow (main) — https://8ulduz.az/ yazılır.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/scripts/tiktok-demo.cjs
+      - .github/workflows/tiktok-demo.yml
+      - haqqinda/index.html
+      - mexfilik/index.html
+      - sertler/index.html
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+      - name: Alətlər (Chrome, Xvfb, ffmpeg, şrift)
+        run: |
+          need=""
+          command -v ffmpeg >/dev/null || need="$need ffmpeg"
+          command -v xvfb-run >/dev/null || need="$need xvfb"
+          fc-list | grep -qi dejavu || need="$need fonts-dejavu-core"
+          if [ -n "$need" ]; then sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends $need; fi
+          google-chrome --version
+      # Video modulunun son uğurlu işi (main): video-xeber artifact-ı və «tiktok / post» işi olan səhifə. Tapılmasa sınaq videosu.
+      - name: Nümunə video və TikTok işinin səhifəsi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/v"
+          run=""
+          for id in $(gh run list -R "$GITHUB_REPOSITORY" -w sosial-video.yml -b main -s success -L 20 --json databaseId -q '.[].databaseId'); do
+            if [ -z "$run" ] && gh run view "$id" -R "$GITHUB_REPOSITORY" --json jobs -q '.jobs[] | select(.name == "tiktok / post" and .conclusion == "success") | .name' | grep -q .; then run="$id"; fi
+            if [ ! -f "$RUNNER_TEMP/v/video.mp4" ]; then gh run download "$id" -R "$GITHUB_REPOSITORY" -n video-xeber -D "$RUNNER_TEMP/v" >/dev/null 2>&1 || true; fi
+            if [ -n "$run" ] && [ -f "$RUNNER_TEMP/v/video.mp4" ]; then break; fi
+          done
+          if [ ! -f "$RUNNER_TEMP/v/video.mp4" ]; then
+            node .github/scripts/tiktok.cjs sinaq "$RUNNER_TEMP/s"
+            cp "$RUNNER_TEMP"/s/*.mp4 "$RUNNER_TEMP/v/video.mp4"
+          fi
+          echo "DEMO_VIDEO=$RUNNER_TEMP/v/video.mp4" >> "$GITHUB_ENV"
+          if [ -n "$run" ]; then echo "DEMO_RUN_URL=https://github.com/$GITHUB_REPOSITORY/actions/runs/$run" >> "$GITHUB_ENV"; fi
+          echo "nümunə: $(du -h "$RUNNER_TEMP/v/video.mp4" | cut -f1), iş: ${run:-yoxdur}"
+      - name: Saytın bu budaqdakı nüsxəsi (PR önizləməsi)
+        if: github.event_name == 'pull_request'
+        run: |
+          nohup node .github/scripts/serve.cjs . 8080 >/dev/null 2>&1 &
+          for _ in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8080/haqqinda/ && break; sleep 1; done
+          echo "DEMO_BASE=http://127.0.0.1:8080/" >> "$GITHUB_ENV"
+          echo "DEMO_PREVIEW=1" >> "$GITHUB_ENV"
+      - name: Ekran yazısı
+        run: |
+          xvfb-run -a -s "-screen 0 1280x860x24" node .github/scripts/tiktok-demo.cjs "$RUNNER_TEMP/demo"
+          ffprobe -v error -show_entries stream=codec_name,width,height:format=duration,size -of compact "$RUNNER_TEMP/demo/tiktok-demo.mp4"
+          { echo "### TikTok demo videosu"; echo; echo '```text'; cat "$RUNNER_TEMP/demo/ssenari.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Demo video (artifact)
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: tiktok-demo
+          path: |
+            ${{ runner.temp }}/demo/tiktok-demo.mp4
+            ${{ runner.temp }}/demo/ssenari.txt
+          retention-days: 30
