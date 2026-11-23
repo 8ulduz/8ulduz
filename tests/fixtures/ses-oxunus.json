@@ -1,0 +1,1769 @@
+{
+"izah": "az_text.for_voice girişi → nəticəsi (repodakı lüğətlə). JavaScript nüsxəsi (.github/ses-worker/az-text.js) eyni nəticəni verməlidir (tests/ses-worker.test.cjs). Yeniləmə: SES_OXUNUS_YENILE=1 python3 -m unittest tests.test_ses_server",
+"hallar": [
+[
+"FHN ötən həftə 34 nəfəri xilas edib, 4 nəfər xəsarət alıb",
+"fe-he-en ötən həftə otuz dörd nəfəri xilas edib, dörd nəfər xəsarət alıb"
+],
+[
+"Ötən həftə Azərbaycanda 172 yanğın, 29 köməksiz vəziyyətdə qalma və 3 avtoqəza qeydə alınıb.",
+"Ötən həftə Azərbaycanda yüz yetmiş iki yanğın, iyirmi doqquz köməksiz vəziyyətdə qalma və üç avtoqəza qeydə alınıb."
+],
+[
+"Fövqəladə Hallar Nazirliyinin qüvvələri tərəfindən həyata keçirilən",
+"Fövqəladə Hallar Nazirliyinin qüvvələri tərəfindən həyata keçirilən"
+],
+[
+"təcili tədbirlər nəticəsində yanğınlar operativ söndürülüb.",
+"təcili tədbirlər nəticəsində yanğınlar operativ söndürülüb."
+],
+[
+"Həftə ərzində nazirliyin əməkdaşları 9 azyaşlı olmaqla ümumilikdə 34 nəfəri xilas ediblər.",
+"Həftə ərzində nazirliyin əməkdaşları doqquz azyaşlı olmaqla ümumilikdə otuz dörd nəfəri xilas ediblər."
+],
+[
+"Hadisələr nəticəsində 4 nəfər xəsarət alıb və yanğın zamanı 4 nəfər təxliyə olunub.",
+"Hadisələr nəticəsində dörd nəfər xəsarət alıb və yanğın zamanı dörd nəfər təxliyə olunub."
+],
+[
+"Müxtəlif hadisələr və avtoqəzalar səbəbindən 8 nəfərin meyiti aidiyyəti üzrə təhvil verilib.",
+"Müxtəlif hadisələr və avtoqəzalar səbəbindən səkkiz nəfərin meyiti aidiyyəti üzrə təhvil verilib."
+],
+[
+"Ətraflı məlumat səkkiz ulduz nöqtə az saytında.",
+"Ətraflı məlumat səkkiz ulduz nöqtə az saytında."
+],
+[
+"Sabah Azərbaycanda 20 dərəcə isti olacaq",
+"Sabah Azərbaycanda iyirmi dərəcə isti olacaq"
+],
+[
+"Bakıda və Abşeron yarımadasında hava şəraitinin dəyişkən buludlu olacağı,",
+"Bakıda və Abşeron yarımadasında hava şəraitinin dəyişkən buludlu olacağı,"
+],
+[
+"arabir tutulacağı və əsasən yağmursuz keçəcəyi gözlənilir.",
+"arabir tutulacağı və əsasən yağmursuz keçəcəyi gözlənilir."
+],
+[
+"Arabir güclənən cənub-qərb küləyi axşam mülayim şimal-qərb küləyi ilə əvəz olunacaq.",
+"Arabir güclənən cənub-qərb küləyi axşam mülayim şimal-qərb küləyi ilə əvəz olunacaq."
+],
+[
+"Havanın temperaturu gecə 9-13, gündüz isə 15-20 dərəcə isti olacaq.",
+"Havanın temperaturu gecə doqquz-on üç, gündüz isə on beş-iyirmi dərəcə isti olacaq."
+],
+[
+"Azərbaycanın rayonlarında da havanın əsasən yağmursuz keçəcəyi,",
+"Azərbaycanın rayonlarında da havanın əsasən yağmursuz keçəcəyi,"
+],
+[
+"lakin gecə və səhər bəzi yerlərdə arabir duman olacağı proqnozlaşdırılır.",
+"lakin gecə və səhər bəzi yerlərdə arabir duman olacağı proqnozlaşdırılır."
+],
+[
+"Rayonlarda havanın temperaturu gecə 4-8, gündüz 15-20 dərəcə isti,",
+"Rayonlarda havanın temperaturu gecə dörd-səkkiz, gündüz on beş-iyirmi dərəcə isti,"
+],
+[
+"dağlarda isə gecə 0-5 dərəcə şaxta, gündüz 8-13 dərəcə isti təşkil edəcək.",
+"dağlarda isə gecə sıfır-beş dərəcə şaxta, gündüz səkkiz-on üç dərəcə isti təşkil edəcək."
+],
+[
+"Bakıda 1 yaşlı uşaq 11-ci mərtəbədən yıxılaraq həyatını itirdi",
+"Bakıda bir yaşlı uşaq on birinci mərtəbədən yıxılaraq həyatını itirdi"
+],
+[
+"Bakı şəhərinin Qaradağ rayonu ərazisində azyaşlı uşağın ölümü ilə nəticələnən bədbəxt hadisə baş verib.",
+"Bakı şəhərinin Qaradağ rayonu ərazisində azyaşlı uşağın ölümü ilə nəticələnən bədbəxt hadisə baş verib."
+],
+[
+"Qeydə alınan bədbəxt hadisə Qaradağ rayonunun S.Orucov küçəsində yerləşən yaşayış binasında meydana gəlib.",
+"Qeydə alınan bədbəxt hadisə Qaradağ rayonunun es Orucov küçəsində yerləşən yaşayış binasında meydana gəlib."
+],
+[
+"2025-ci il təvəllüdlü 1 yaşlı uşaq binanın 11-ci mərtəbəsində yerləşən mənzilin eyvanından yıxılıb.",
+"iki min iyirmi beşinci il təvəllüdlü bir yaşlı uşaq binanın on birinci mərtəbəsində yerləşən mənzilin eyvanından yıxılıb."
+],
+[
+"Mənzilin eyvanından yıxılan 1 yaşlı azyaşlı hadisə zamanı həyatını itirib.",
+"Mənzilin eyvanından yıxılan bir yaşlı azyaşlı hadisə zamanı həyatını itirib."
+],
+[
+"Hadisənin baş verdiyi mənzil yaşayış binasının 11-ci mərtəbəsində yerləşir.",
+"Hadisənin baş verdiyi mənzil yaşayış binasının on birinci mərtəbəsində yerləşir."
+],
+[
+"Hazırda baş vermiş faktla bağlı müvafiq araşdırmalar aparılır.",
+"Hazırda baş vermiş faktla bağlı müvafiq araşdırmalar aparılır."
+],
+[
+"Hava proqnozu, 24 noyabr: Bakıda buludlu hava, +12°…+17°",
+"Hava proqnozu, iyirmi dörd noyabr: Bakıda buludlu hava, on iki-on yeddi dərəcə"
+],
+[
+"Sabah, 24 noyabr, çərşənbə axşamı, hava belə olacaq.",
+"Sabah, iyirmi dörd noyabr, çərşənbə axşamı, hava belə olacaq."
+],
+[
+"Bakıda hava buludlu olacaq, yağıntı gözlənilmir.",
+"Bakıda hava buludlu olacaq, yağıntı gözlənilmir."
+],
+[
+"Gecə 12, gündüz 17 dərəcə isti olacaq.",
+"Gecə on iki, gündüz on yeddi dərəcə isti olacaq."
+],
+[
+"Cənub-qərb küləyi əsəcək, sürəti saniyədə 10 metrə, ani küləklərdə 18 metrə çatacaq.",
+"Cənub-qərb küləyi əsəcək, sürəti saniyədə on metrə, ani küləklərdə on səkkiz metrə çatacaq."
+],
+[
+"Gündüz Sumqayıtda 21, Gəncədə 16, Mingəçevirdə 18, Şəkidə 17 dərəcə isti olacaq.",
+"Gündüz Sumqayıtda iyirmi bir, Gəncədə on altı, Mingəçevirdə on səkkiz, Şəkidə on yeddi dərəcə isti olacaq."
+],
+[
+"Qubada 24, Lənkəranda 16, Naxçıvanda 12, Şuşada 15 dərəcə isti gözlənilir.",
+"Qubada iyirmi dörd, Lənkəranda on altı, Naxçıvanda on iki, Şuşada on beş dərəcə isti gözlənilir."
+],
+[
+"Media və Yayım Şurası çap mediasına dəstək müsabiqəsi elan edib",
+"Media və Yayım Şurası çap mediasına dəstək müsabiqəsi elan edib"
+],
+[
+"Müsabiqədə Media Reyestrinə daxil edilmiş ictimai-siyasi qəzetlər iştirak edə bilərlər.",
+"Müsabiqədə Media Reyestrinə daxil edilmiş ictimai-siyasi qəzetlər iştirak edə bilərlər."
+],
+[
+"Müraciət və sənədlər elektron formada mib.media.gov.az portalı vasitəsilə",
+"Müraciət və sənədlər elektron formada mib nöqtə media nöqtə qov nöqtə az portalı vasitəsilə"
+],
+[
+"Azərbaycan Respublikası Media və Yayım Şurasına təqdim edilməlidir.",
+"Azərbaycan Respublikası Media və Yayım Şurasına təqdim edilməlidir."
+],
+[
+"Qalib elan edilmiş qəzet redaksiyaları ilə Şura arasında maliyyə yardımına dair 6 ay müddətinə müqavilə imzalanacaq.",
+"Qalib elan edilmiş qəzet redaksiyaları ilə Şura arasında maliyyə yardımına dair altı ay müddətinə müqavilə imzalanacaq."
+],
+[
+"Qəzetlərin həftədə bir nömrəsinin çapına dəstək məqsədilə aylıq 5000 manat, veb-saytlara isə aylıq 3000 manat ayrılır.",
+"Qəzetlərin həftədə bir nömrəsinin çapına dəstək məqsədilə aylıq beş min manat, veb-saytlara isə aylıq üç min manat ayrılır."
+],
+[
+"Veb-saytın əsaslı yenilənməsi nəzərdə tutulduğu halda ilk ay üçün maliyyə yardımı 5000 manat təşkil edir.",
+"Veb-saytın əsaslı yenilənməsi nəzərdə tutulduğu halda ilk ay üçün maliyyə yardımı beş min manat təşkil edir."
+],
+[
+"Müsabiqəyə 30 noyabr 2026-cı il saat 18:00-dək müraciət etmək mümkündür.",
+"Müsabiqəyə otuz noyabr iki min iyirmi altıncı il saat on səkkizədək müraciət etmək mümkündür."
+],
+[
+"Bakıda üç döyüş növü üzrə dünya çempionatı keçiriləcək",
+"Bakıda üç döyüş növü üzrə dünya çempionatı keçiriləcək"
+],
+[
+"Yarışlar 23–29 noyabr tarixlərində Dünya Güləş Birliyinin himayəsi altında baş tutacaq.",
+"Yarışlar iyirmi üç–iyirmi doqquz noyabr tarixlərində Dünya Güləş Birliyinin himayəsi altında baş tutacaq."
+],
+[
+"Yeddi gün davam edəcək turnirdə 35 ölkədən 900-dən çox idmançının iştirakı gözlənilir.",
+"Yeddi gün davam edəcək turnirdə otuz beş ölkədən doqquz yüzdən çox idmançının iştirakı gözlənilir."
+],
+[
+"Proqrama əsasən, qrepplinq, pankration və həvəskar MMA növləri üzrə mübarizə aparılacaq.",
+"Proqrama əsasən, qrepplinq, pankration və həvəskar em-em-a növləri üzrə mübarizə aparılacaq."
+],
+[
+"Builki çempionatın yeniliklərindən biri qaliblərə ilk dəfə çempionluq kəmərlərinin təqdim olunmasıdır.",
+"Builki çempionatın yeniliklərindən biri qaliblərə ilk dəfə çempionluq kəmərlərinin təqdim olunmasıdır."
+],
+[
+"Çempionatın baş tərəfdaşı KVAN Group şirkətidir.",
+"Çempionatın baş tərəfdaşı kvan qrup şirkətidir."
+],
+[
+"Hava proqnozu, 24 noyabr: Bakıda buludlu hava, +13°…+17°",
+"Hava proqnozu, iyirmi dörd noyabr: Bakıda buludlu hava, on üç-on yeddi dərəcə"
+],
+[
+"Gecə 13, gündüz 17 dərəcə isti olacaq.",
+"Gecə on üç, gündüz on yeddi dərəcə isti olacaq."
+],
+[
+"Gündüz Sumqayıtda 21, Gəncədə 16, Mingəçevirdə 17, Şəkidə 17 dərəcə isti olacaq.",
+"Gündüz Sumqayıtda iyirmi bir, Gəncədə on altı, Mingəçevirdə on yeddi, Şəkidə on yeddi dərəcə isti olacaq."
+],
+[
+"Qubada 25, Lənkəranda 16, Naxçıvanda 13, Şuşada 15 dərəcə isti gözlənilir.",
+"Qubada iyirmi beş, Lənkəranda on altı, Naxçıvanda on üç, Şuşada on beş dərəcə isti gözlənilir."
+],
+[
+"ABŞ-nin dövlət katibi, ABŞ-da, ABŞ-ın, ABŞ-a, BMT-nin Baş Assambleyası NATO-ya üzv olacaq.",
+"a-be-şenin dövlət katibi, a-be-şedə, a-be-şenin, a-be-şeyə, be-em-tenin Baş Assambleyası natoya üzv olacaq."
+],
+[
+"Qaradağ rayonunun S.Orucov küçəsində yerləşən binada F.Məmmədov yaşayır.",
+"Qaradağ rayonunun es Orucov küçəsində yerləşən binada fe Məmmədov yaşayır."
+],
+[
+"Müraciət və sənədlər elektron formada mib.media.gov.az portalı vasitəsilə təqdim edilməlidir.",
+"Müraciət və sənədlər elektron formada mib nöqtə media nöqtə qov nöqtə az portalı vasitəsilə təqdim edilməlidir."
+],
+[
+"Gecə -5°, gündüz 3 °C şaxta. Noyabrın 29-na qədər, 10-nun, 22-si, 3-ü, 42-yə, 300-ə, 160-la.",
+"Gecə mənfi beş dərəcə, gündüz üç dərəcə şaxta. Noyabrın iyirmi doqquza qədər, onun, iyirmi ikisi, üçü, qırx ikiyə, üç yüzə, yüz altmışla."
+],
+[
+"XII Qış Olimpiya Oyunları, II Dünya müharibəsi, XV əsr.",
+"on ikinci Qış Olimpiya Oyunları, ikinci Dünya müharibəsi, on beşinci əsr."
+],
+[
+"Modern.az xəbər verir ki, COVID-19 və COP31 barədə AzTV-də, İctimai TV-nin efirində danışıldı.",
+"Modern nöqtə az xəbər verir ki, kovid-on doqquz və kop otuz bir barədə Az te-vedə, İctimai te-venin efirində danışıldı."
+],
+[
+"Çempionatın baş tərəfdaşı KVAN Group şirkətidir. Proqrama əsasən, qrepplinq, pankration və MMA növləri.",
+"Çempionatın baş tərəfdaşı kvan qrup şirkətidir. Proqrama əsasən, qrepplinq, pankration və em-em-a növləri."
+],
+[
+"VİDEO: Bakıda QƏZA OLDU - FOTOLAR",
+"video: Bakıda qəza oldu - fotolar"
+],
+[
+"Google, WhatsApp və YouTube; Washington-da Trump’ın çıxışı. Widzew klubu.",
+"qugl, vatsap və yutub; vaşinqtonda trampın çıxışı. vidzev klubu."
+],
+[
+"Hesab 2-1 oldu. 3-otaqlı mənzil, 5-mərtəbəli bina, 10-illik plan, 15%-ə qədər, 4:4-lük heç-heçə.",
+"Hesab iki-bir oldu. üç-otaqlı mənzil, beş-mərtəbəli bina, onillik plan, on beş faizə qədər, dörd:dördlük heç-heçə."
+],
+[
+"Saat 19:30-da, 10:00-da, 21:45-də başlayacaq. 2 500 nəfər, 1,5-ə yüksəldi.",
+"Saat on doqquz otuzda, onda, iyirmi bir qırx beşdə başlayacaq. iki min beş yüz nəfər, bir tam onda beşə yüksəldi."
+],
+[
+"edib.Gundelik.az yazır. 8ulduz.az saytında.",
+"edib. gündəlik nöqtə az yazır. səkkiz ulduz nöqtə az saytında."
+],
+[
+"ABŞ-ın Demokratlar Partiyası aralıq seçkilərin nəticələrinə əsasən, Nümayəndələr Palatasında ən azı 258 yer qazanaraq son bir neçə onilliyin ən yüksək göstəricisinə nail olub.",
+"a-be-şenin Demokratlar Partiyası aralıq seçkilərin nəticələrinə əsasən, Nümayəndələr Palatasında ən azı iki yüz əlli səkkiz yer qazanaraq son bir neçə onilliyin ən yüksək göstəricisinə nail olub."
+],
+[
+"ABŞ-nin ilk prezidenti Corc Vaşinqtonun iki əsrdən artıq müddət ərzində çərçivədə saxlanılan saç teli hərracda 4 min dollara satılıb.",
+"a-be-şenin ilk prezidenti Corc Vaşinqtonun iki əsrdən artıq müddət ərzində çərçivədə saxlanılan saç teli hərracda dörd min dollara satılıb."
+],
+[
+"\"ABŞ-də hər il təxminən bir milyon kiberinsident qeydə alınır\".",
+"\"a-be-şedə hər il təxminən bir milyon kiberinsident qeydə alınır\"."
+],
+[
+"İnterpress.az xəbər verir ki, bu barədə xarici KİV məlumat yayıb.",
+"İnterpress nöqtə az xəbər verir ki, bu barədə xarici ka-i-ve məlumat yayıb."
+],
+[
+"Futbol üzrə Azərbaycan milli komandası UEFA Millətlər Liqasının cari mövsümündə çıxışını başa vurdu.",
+"Futbol üzrə Azərbaycan milli komandası uefa Millətlər Liqasının cari mövsümündə çıxışını başa vurdu."
+],
+[
+"Türkiyə BMT-nin İqlim Dəyişikliyi üzrə Çərçivə Konvensiyasının Tərəflər Konfransının (COP31) Antalyada keçirilən 31-ci sessiyasında kompromisə nail olmaq üçün bütün imkanlardan istifadə edib.",
+"Türkiyə be-em-tenin İqlim Dəyişikliyi üzrə Çərçivə Konvensiyasının Tərəflər Konfransının (kop otuz bir) Antalyada keçirilən otuz birinci sessiyasında kompromisə nail olmaq üçün bütün imkanlardan istifadə edib."
+],
+[
+"Noyabrın 19-da ABŞ, Çin və Rusiya liderləri tarixdə ilk dəfə eyni masa arxasında bir araya gəldilər.",
+"Noyabrın on doqquzda a-be-şe, Çin və Rusiya liderləri tarixdə ilk dəfə eyni masa arxasında bir araya gəldilər."
+],
+[
+"Bu gündən – noyabrın 23-dən ümumi təhsil müəssisələrində 2026-2027-ci tədris ili üzrə payız tətili başa çatıb.",
+"Bu gündən – noyabrın iyirmi üçdən ümumi təhsil müəssisələrində iki min iyirmi altı-iki min iyirmi yeddinci tədris ili üzrə payız tətili başa çatıb."
+],
+[
+"Noyabrın 22-si Ukraynanın beş bölgəsində vətəndaşlar Rusiyanın hava zərbələri səbəbindən elektrik enerjisiz qalıblar.",
+"Noyabrın iyirmi ikisi Ukraynanın beş bölgəsində vətəndaşlar Rusiyanın hava zərbələri səbəbindən elektrik enerjisiz qalıblar."
+],
+[
+"CoinGecko saytının məlumatına görə, 22 noyabrda Bakı vaxtı ilə saat 10:00-da 1 bitkoin 58 822 dollar (99 997 manat) olub, son 24 saatda qiyməti 5,54% artıb.",
+"koin-geko saytının məlumatına görə, iyirmi iki noyabrda Bakı vaxtı ilə saat onda bir bitkoin əlli səkkiz min səkkiz yüz iyirmi iki dollar (doxsan doqquz min doqquz yüz doxsan yeddi manat) olub, son iyirmi dörd saatda qiyməti beş tam yüzdə əlli dörd faiz artıb."
+],
+[
+"İspaniya La Liqasının 13-cü turunda «Real Madrid» 22 noyabrda Bakı vaxtı ilə saat 00:00-da başlayan oyunda doğma meydanda «Celta Vigo»nu 2:1 hesabı ilə məğlub edib.",
+"İspaniya La Liqasının on üçüncü turunda «Real Madrid» iyirmi iki noyabrda Bakı vaxtı ilə saat sıfırda başlayan oyunda doğma meydanda «selta viqo»nu iki:bir hesabı ilə məğlub edib."
+],
+[
+"Sumqayıtda 24 yaşlı qız dəm qazından boğularaq ölüb.News24.az xəbər verir ki, hadisə şəhərin 3-cü mikrorayon ərazisində qeydə alınıb.",
+"Sumqayıtda iyirmi dörd yaşlı qız dəm qazından boğularaq ölüb. nyus iyirmi dörd nöqtə az xəbər verir ki, hadisə şəhərin üçüncü mikrorayon ərazisində qeydə alınıb."
+],
+[
+"\"Kəpəz\"in baş məşqçisi Azər Məmmədov Misli Premyer Liqasının XII turunda \"Qarabağ\"a qarşı keçirilən oyundan sonra (0:0) mətbuat konfransında iştirak edib.",
+"\"Kəpəz\"in baş məşqçisi Azər Məmmədov Misli Premyer Liqasının on ikinci turunda \"Qarabağ\"a qarşı keçirilən oyundan sonra (sıfır:sıfır) mətbuat konfransında iştirak edib."
+],
+[
+"8ulduz.az-ın ölçüsünə görə bu gün saat 07:00–08:45 arası şəhərə doğru hərəkətdə ölçülən 99 küçədən 10 küçədə tıxac olub.",
+"səkkiz ulduz nöqtə azın ölçüsünə görə bu gün saat yeddi–səkkiz qırx beş arası şəhərə doğru hərəkətdə ölçülən doxsan doqquz küçədən on küçədə tıxac olub."
+],
+[
+"ABŞ Geoloji Xidmətinin (USGS) məlumatına görə, 22 noyabrda Bakı vaxtı ilə saat 19:05-də İranda, Kuh Sefidin 55 km cənubunda 4,6 maqnitudalı zəlzələ baş verib.",
+"a-be-şe Geoloji Xidmətinin (u-es-ge-es) məlumatına görə, iyirmi iki noyabrda Bakı vaxtı ilə saat on doqquz beşdə İranda, Kuh Sefidin əlli beş kilometr cənubunda dörd tam onda altı maqnitudalı zəlzələ baş verib."
+],
+[
+"«Philadelphia 76ers» doğma meydanda «Milwaukee Bucks»ı 132:129 hesabı ilə məğlub edib və 14 qələbə, 3 məğlubiyyətlə Şərq konfransının lideridir.",
+"«filadelfiya yetmiş altı ers» doğma meydanda «miluoki baks»ı yüz otuz iki:yüz iyirmi doqquz hesabı ilə məğlub edib və on dörd qələbə, üç məğlubiyyətlə Şərq konfransının lideridir."
+],
+[
+"Azərbaycanın kitab satışı üzrə ixtisaslaşmış “Libraff” MMC-nin nizamnamə kapitalı 256 min manat və ya 127.9% artırılaraq 456.2 min manata çatdırılıb.",
+"Azərbaycanın kitab satışı üzrə ixtisaslaşmış “Libraff” em-em-cenin nizamnamə kapitalı iki yüz əlli altı min manat və ya yüz iyirmi yeddi tam onda doqquz faiz artırılaraq dörd yüz əlli altı tam onda iki min manata çatdırılıb."
+],
+[
+"1 efir 1 654,23 dollar (2 812,19 manat) olub, 6,05% bahalaşıb.",
+"bir efir min altı yüz əlli dörd tam yüzdə iyirmi üç dollar (iki min səkkiz yüz on iki tam yüzdə on doqquz manat) olub, altı tam yüzdə beş faiz bahalaşıb."
+],
+[
+"Niderland 2030-cu ilədək müdafiə sənayesi və texnologiya bazasını 40 faiz genişləndirməyi, illik gəlirlərini isə 15 milyard avroya çatdırmağı hədəfləyir.",
+"Niderland iki min otuzuncu ilədək müdafiə sənayesi və texnologiya bazasını qırx faiz genişləndirməyi, illik gəlirlərini isə on beş milyard avroya çatdırmağı hədəfləyir."
+],
+[
+"Open-Meteo-nun proqnozuna görə, bu gün Bakıda arabir zəif yağış gözlənilir, temperatur 11,2–14,1 dərəcə arasında olacaq.",
+"Open-Meteo-nun proqnozuna görə, bu gün Bakıda arabir zəif yağış gözlənilir, temperatur on bir tam onda iki–on dörd tam onda bir dərəcə arasında olacaq."
+],
+[
+"ABŞ-nin, ABŞ-da, ABŞ-ın, ABŞ-a, BMT-nin və NATO-ya, MMA, KİV, USGS.",
+"a-be-şenin, a-be-şedə, a-be-şenin, a-be-şeyə, be-em-tenin və natoya, em-em-a, ka-i-ve, u-es-ge-es."
+],
+[
+"COVID-19 və COP31, AzTV-də, İctimai TV-nin.",
+"kovid-on doqquz və kop otuz bir, Az te-vedə, İctimai te-venin."
+],
+[
+"VİDEO: Bakıda QƏZA OLDU - FOTOLAR",
+"video: Bakıda qəza oldu - fotolar"
+],
+[
+"XII turda, II Dünya müharibəsi, XV əsr.",
+"on ikinci turda, ikinci Dünya müharibəsi, on beşinci əsr."
+],
+[
+"Saat 19:30-da, 18:00-dək, 10:00-da, 21:45-də.",
+"Saat on doqquz otuzda, on səkkizədək, onda, iyirmi bir qırx beşdə."
+],
+[
+"Noyabrın 19-da, 900-dən çox, 29-na qədər, 10-nun, 22-si, 3-ü, 42-yə, 300-ə, 160-la.",
+"Noyabrın on doqquzda, doqquz yüzdən çox, iyirmi doqquza qədər, onun, iyirmi ikisi, üçü, qırx ikiyə, üç yüzə, yüz altmışla."
+],
+[
+"15%-ə, 10-illik, 3-otaqlı, 2026-2027-ci.",
+"on beş faizə, onillik, üç-otaqlı, iki min iyirmi altı-iki min iyirmi yeddinci."
+],
+[
+"Modern.az xəbər verir. 8ulduz.az-ın ölçüsünə görə portal mib.media.gov.az vasitəsilə.",
+"Modern nöqtə az xəbər verir. səkkiz ulduz nöqtə azın ölçüsünə görə portal mib nöqtə media nöqtə qov nöqtə az vasitəsilə."
+],
+[
+"S.Orucov küçəsi, ölüb.News24.az xəbər verir.",
+"es Orucov küçəsi, ölüb. nyus iyirmi dörd nöqtə az xəbər verir."
+],
+[
+"Şəkil: https://ordu.az/photos/2026/11/1.jpg və www.Report.az",
+"Şəkil: və Report nöqtə az"
+],
+[
+"Bakıda +12°…+17° olacaq, gecə -5°, gündüz 3 °C, 1 654,23 dollar.",
+"Bakıda on iki-on yeddi dərəcə olacaq, gecə mənfi beş dərəcə, gündüz üç dərəcə, min altı yüz əlli dörd tam yüzdə iyirmi üç dollar."
+],
+[
+"Hesab 2-1 oldu, qiymət 15% artdı, 07.11.2026 tarixində, 11-ci tur, dollar 1.70 manat, 2 500 nəfər, $100 və 50 AZN.",
+"Hesab iki-bir oldu, qiymət on beş faiz artdı, yeddi noyabr iki min iyirmi altı tarixində, on birinci tur, dollar bir tam yüzdə yetmiş manat, iki min beş yüz nəfər, yüz dollar və əlli manat."
+],
+[
+"Google, WhatsApp və YouTube; Washington-da Trump’ın çıxışı, KVAN Group şirkəti.",
+"qugl, vatsap və yutub; vaşinqtonda trampın çıxışı, kvan qrup şirkəti."
+],
+[
+"Milli Hidrometeorologiya Xidmətindən bildirilib […] Source",
+"Milli Hidrometeorologiya Xidmətindən bildirilib"
+],
+[
+"«Napoli»nin prezidenti Aurelio De Laurentis görüşüb. 2026-cı ildə 15% artım! Necə?",
+"«Napoli»nin prezidenti Aurelio De Laurentis görüşüb. iki min iyirmi altıncı ildə on beş faiz artım! Necə?"
+],
+[
+"№5 məktəb, Tom & Jerry, 2 km, 5 kq, 3 mln, 7 mlrd.",
+"nömrə beş məktəb, Tom və Jerry, iki kilometr, beş kiloqram, üç milyon, yeddi milyard."
+],
+[
+"Din və dövlət, DİN-in açıqlaması, BLOOMBERG xəbər verir.",
+"Din və dövlət, dinin açıqlaması, blumberq xəbər verir."
+],
+[
+"Gündüz Sumqayıtda 21, Gəncədə 16 dərəcə isti olacaq.",
+"Gündüz Sumqayıtda iyirmi bir, Gəncədə on altı dərəcə isti olacaq."
+],
+[
+"8ULDUZ xəbər verir. Bizim.Media, Baku.ws, Day.Az, Oxu24.com, 525.az, AzVision.az, Ordubad RİH.",
+"səkkiz ulduz xəbər verir. Bizim nöqtə Media, Baku nöqtə ve-es, dey nöqtə Az, Oxu iyirmi dörd nöqtə kom, beş yüz iyirmi beş nöqtə az, Az Vision nöqtə az, Ordubad er-i-he."
+],
+[
+"Qiymət 1 000 000 manat, 1.500 nəfər, 12,5 faiz, 0,75 bal, 1234567890123456 nömrəli hesab.",
+"Qiymət bir milyon manat, min beş yüz nəfər, on iki tam onda beş faiz, sıfır tam yüzdə yetmiş beş bal, bir iki üç dörd beş altı yeddi səkkiz doqquz sıfır bir iki üç dörd beş altı nömrəli hesab."
+],
+[
+"edib.Gundelik.az xəbər verir.",
+"edib. gündəlik nöqtə az xəbər verir."
+],
+[
+"NATO-da və NATO",
+"natoda və nato"
+],
+[
+"UEFA-da və UEFA",
+"uefada və uefa"
+],
+[
+"FİFA-da və FİFA",
+"fifada və fifa"
+],
+[
+"SOCAR-da və SOCAR",
+"sokarda və sokar"
+],
+[
+"AZAL-da və AZAL",
+"azalda və azal"
+],
+[
+"OPEC-da və OPEC",
+"opekdə və opek"
+],
+[
+"TASS-da və TASS",
+"tassda və tass"
+],
+[
+"APA-da və APA",
+"apada və apa"
+],
+[
+"YAP-da və YAP",
+"yapda və yap"
+],
+[
+"COVİD-da və COVİD",
+"koviddə və kovid"
+],
+[
+"UNESCO-da və UNESCO",
+"yuneskoda və yunesko"
+],
+[
+"UNİCEF-da və UNİCEF",
+"yunisefdə və yunisef"
+],
+[
+"NASA-da və NASA",
+"nasada və nasa"
+],
+[
+"XİN-da və XİN",
+"xində və xin"
+],
+[
+"DİN-da və DİN",
+"dində və din"
+],
+[
+"COP-da və COP",
+"kopda və kop"
+],
+[
+"ASAN-da və ASAN",
+"asanda və asan"
+],
+[
+"KVAN-da və KVAN",
+"kvanda və kvan"
+],
+[
+"SİMA-da və SİMA",
+"simada və sima"
+],
+[
+"AZƏRTAC-da və AZƏRTAC",
+"azərtacda və azərtac"
+],
+[
+"AZERTAC-da və AZERTAC",
+"azərtacda və azərtac"
+],
+[
+"CNN-da və CNN",
+"si-en-endə və si-en-en"
+],
+[
+"BBC-da və BBC",
+"bi-bi-sidə və bi-bi-si"
+],
+[
+"AİİB-da və AİİB",
+"a-i-i-bedə və a-i-i-be"
+],
+[
+"NOAA-da və NOAA",
+"en-o-a-ada və en-o-a-a"
+],
+[
+"EEVZA-da və EEVZA",
+"e-e-ve-ze-ada və e-e-ve-ze-a"
+],
+[
+"USA-da və USA",
+"yu-es-eydə və yu-es-ey"
+],
+[
+"OK-da və OK",
+"okeydə və okey"
+],
+[
+"PR-da və PR",
+"piarda və piar"
+],
+[
+"İT-da və İT",
+"ay-tidə və ay-ti"
+],
+[
+"SMS-da və SMS",
+"es-em-esdə və es-em-es"
+],
+[
+"GPS-da və GPS",
+"ci-pi-esdə və ci-pi-es"
+],
+[
+"VİP-da və VİP",
+"vipdə və vip"
+],
+[
+"DJ-da və DJ",
+"di-ceydə və di-cey"
+],
+[
+"Google-da, GOOGLE",
+"quglda, qugl"
+],
+[
+"Youtube-da, YOUTUBE",
+"yutubda, yutub"
+],
+[
+"Whatsapp-da, WHATSAPP",
+"vatsapda, vatsap"
+],
+[
+"Instagram-da, INSTAGRAM",
+"instaqramda, instaqram"
+],
+[
+"Facebook-da, FACEBOOK",
+"feysbukda, feysbuk"
+],
+[
+"Iphone-da, IPHONE",
+"ayfonda, ayfon"
+],
+[
+"Ipad-da, IPAD",
+"aypadda, aypad"
+],
+[
+"Apple-da, APPLE",
+"eppldə, eppl"
+],
+[
+"Microsoft-da, MICROSOFT",
+"maykrosoftda, maykrosoft"
+],
+[
+"Windows-da, WINDOWS",
+"vindovsda, vindovs"
+],
+[
+"Washington-da, WASHINGTON",
+"vaşinqtonda, vaşinqton"
+],
+[
+"Trump-da, TRUMP",
+"trampda, tramp"
+],
+[
+"News-da, NEWS",
+"nyusda, nyus"
+],
+[
+"Bloomberg-da, BLOOMBERG",
+"blumberqdə, blumberq"
+],
+[
+"Wall-da, WALL",
+"uolda, uol"
+],
+[
+"Street-da, STREET",
+"stritdə, strit"
+],
+[
+"Reels-da, REELS",
+"rilsdə, rils"
+],
+[
+"Photos-da, PHOTOS",
+"fotosda, fotos"
+],
+[
+"Group-da, GROUP",
+"qrupda, qrup"
+],
+[
+"Steel-da, STEEL",
+"stildə, stil"
+],
+[
+"Philadelphia-da, PHILADELPHIA",
+"filadelfiyada, filadelfiya"
+],
+[
+"Milwaukee-da, MILWAUKEE",
+"miluokidə, miluoki"
+],
+[
+"Bucks-da, BUCKS",
+"baksda, baks"
+],
+[
+"Anthropic-da, ANTHROPIC",
+"antropikdə, entropik"
+],
+[
+"Telegram-da, TELEGRAM",
+"teleqramda, teleqram"
+],
+[
+"Twitter-da, TWITTER",
+"tvitterdə, tvitter"
+],
+[
+"Tiktok-da, TIKTOK",
+"tiktokda, tiktok"
+],
+[
+"Openai-da, OPENAI",
+"open ay ayda, open ay ay"
+],
+[
+"Chatgpt-da, CHATGPT",
+"çat ci-pi-tidə, çat ci-pi-ti"
+],
+[
+"Samsung-da, SAMSUNG",
+"samsunqda, samsunq"
+],
+[
+"Huawei-da, HUAWEI",
+"huaveydə, huavey"
+],
+[
+"Playstation-da, PLAYSTATION",
+"pleysteyşndə, pleysteyşn"
+],
+[
+"Netflix-da, NETFLIX",
+"netfliksdə, netfliks"
+],
+[
+"Nvidia-da, NVIDIA",
+"nvidiyada, nvidiya"
+],
+[
+"Manchester-da, MANCHESTER",
+"mançesterdə, mançester"
+],
+[
+"Chelsea-da, CHELSEA",
+"çelsidə, çelsi"
+],
+[
+"Liverpool-da, LIVERPOOL",
+"liverpulda, liverpul"
+],
+[
+"Barcelona-da, BARCELONA",
+"barselonada, barselona"
+],
+[
+"Juventus-da, JUVENTUS",
+"yuventusda, yuventus"
+],
+[
+"Psj-da, PSJ",
+"pe-es-jedə, pe-es-je"
+],
+[
+"Airways-da, AIRWAYS",
+"eyrveyzdə, eyrveyz"
+],
+[
+"Online-da, ONLINE",
+"onlaynda, onlayn"
+],
+[
+"Show-da, SHOW",
+"şouda, şou"
+],
+[
+"A oldu",
+"A oldu"
+],
+[
+"AD oldu",
+"ad oldu"
+],
+[
+"AH oldu",
+"ah oldu"
+],
+[
+"ANA oldu",
+"ana oldu"
+],
+[
+"ATA oldu",
+"ata oldu"
+],
+[
+"AY oldu",
+"ay oldu"
+],
+[
+"AYAQ oldu",
+"ayaq oldu"
+],
+[
+"AZ oldu",
+"az oldu"
+],
+[
+"AĞ oldu",
+"ağ oldu"
+],
+[
+"BAĞ oldu",
+"bağ oldu"
+],
+[
+"BAŞ oldu",
+"baş oldu"
+],
+[
+"BEŞ oldu",
+"beş oldu"
+],
+[
+"BİR oldu",
+"bir oldu"
+],
+[
+"BİZ oldu",
+"biz oldu"
+],
+[
+"BOZ oldu",
+"boz oldu"
+],
+[
+"BU oldu",
+"bu oldu"
+],
+[
+"BUZ oldu",
+"buz oldu"
+],
+[
+"BƏS oldu",
+"bəs oldu"
+],
+[
+"CAN oldu",
+"can oldu"
+],
+[
+"DA oldu",
+"da oldu"
+],
+[
+"DAĞ oldu",
+"dağ oldu"
+],
+[
+"DAŞ oldu",
+"daş oldu"
+],
+[
+"DİL oldu",
+"dil oldu"
+],
+[
+"DƏ oldu",
+"də oldu"
+],
+[
+"DƏM oldu",
+"dəm oldu"
+],
+[
+"EGE oldu",
+"ege oldu"
+],
+[
+"EV oldu",
+"ev oldu"
+],
+[
+"GÖY oldu",
+"göy oldu"
+],
+[
+"GÖZ oldu",
+"göz oldu"
+],
+[
+"GÜN oldu",
+"gün oldu"
+],
+[
+"HƏ oldu",
+"hə oldu"
+],
+[
+"HƏR oldu",
+"hər oldu"
+],
+[
+"İKİ oldu",
+"iki oldu"
+],
+[
+"İL oldu",
+"il oldu"
+],
+[
+"İLK oldu",
+"ilk oldu"
+],
+[
+"İLƏ oldu",
+"ilə oldu"
+],
+[
+"İSTİ oldu",
+"isti oldu"
+],
+[
+"İŞ oldu",
+"iş oldu"
+],
+[
+"Kİ oldu",
+"ki oldu"
+],
+[
+"KİM oldu",
+"kim oldu"
+],
+[
+"MƏN oldu",
+"mən oldu"
+],
+[
+"NƏ oldu",
+"nə oldu"
+],
+[
+"O oldu",
+"O oldu"
+],
+[
+"OD oldu",
+"od oldu"
+],
+[
+"OH oldu",
+"oh oldu"
+],
+[
+"OLA oldu",
+"ola oldu"
+],
+[
+"OLDU oldu",
+"oldu oldu"
+],
+[
+"ON oldu",
+"on oldu"
+],
+[
+"ONA oldu",
+"ona oldu"
+],
+[
+"ONU oldu",
+"onu oldu"
+],
+[
+"PİS oldu",
+"pis oldu"
+],
+[
+"QAN oldu",
+"qan oldu"
+],
+[
+"QAR oldu",
+"qar oldu"
+],
+[
+"QAZ oldu",
+"qaz oldu"
+],
+[
+"QOL oldu",
+"qol oldu"
+],
+[
+"QIZ oldu",
+"qız oldu"
+],
+[
+"QIŞ oldu",
+"qış oldu"
+],
+[
+"QƏM oldu",
+"qəm oldu"
+],
+[
+"RAM oldu",
+"ram oldu"
+],
+[
+"SAĞ oldu",
+"sağ oldu"
+],
+[
+"SİZ oldu",
+"siz oldu"
+],
+[
+"SOL oldu",
+"sol oldu"
+],
+[
+"SON oldu",
+"son oldu"
+],
+[
+"SU oldu",
+"su oldu"
+],
+[
+"SƏN oldu",
+"sən oldu"
+],
+[
+"TEZ oldu",
+"tez oldu"
+],
+[
+"U oldu",
+"U oldu"
+],
+[
+"VAR oldu",
+"var oldu"
+],
+[
+"VAY oldu",
+"vay oldu"
+],
+[
+"VAZ oldu",
+"vaz oldu"
+],
+[
+"VƏ oldu",
+"və oldu"
+],
+[
+"XOŞ oldu",
+"xoş oldu"
+],
+[
+"YA oldu",
+"ya oldu"
+],
+[
+"YAZ oldu",
+"yaz oldu"
+],
+[
+"YAĞ oldu",
+"yağ oldu"
+],
+[
+"YAŞ oldu",
+"yaş oldu"
+],
+[
+"YENİ oldu",
+"yeni oldu"
+],
+[
+"YOL oldu",
+"yol oldu"
+],
+[
+"YOX oldu",
+"yox oldu"
+],
+[
+"ÇOX oldu",
+"çox oldu"
+],
+[
+"ÖLÜ oldu",
+"ölü oldu"
+],
+[
+"ÜÇ oldu",
+"üç oldu"
+],
+[
+"ŞƏR oldu",
+"şər oldu"
+],
+[
+"Ə oldu",
+"Ə oldu"
+],
+[
+"ƏL oldu",
+"əl oldu"
+],
+[
+"ƏR oldu",
+"ər oldu"
+],
+[
+"ABB-da və ABB",
+"a-be-bedə və a-be-be"
+],
+[
+"ABŞ-da və ABŞ",
+"a-be-şedə və a-be-şe"
+],
+[
+"ADAU-da və ADAU",
+"a-de-a-uda və a-de-a-u"
+],
+[
+"ADB-da və ADB",
+"a-de-bedə və a-de-be"
+],
+[
+"ADPU-da və ADPU",
+"a-de-pe-uda və a-de-pe-u"
+],
+[
+"ADY-da və ADY",
+"a-de-yedə və a-de-ye"
+],
+[
+"ADİ-da və ADİ",
+"a-de-idə və a-de-i"
+],
+[
+"AFFA-da və AFFA",
+"affada və affa"
+],
+[
+"AKİA-da və AKİA",
+"a-ka-i-ada və a-ka-i-a"
+],
+[
+"AMB-da və AMB",
+"a-em-bedə və a-em-be"
+],
+[
+"AMEA-da və AMEA",
+"a-me-ada və a-me-a"
+],
+[
+"APEC-da və APEC",
+"apekdə və apek"
+],
+[
+"ASF-da və ASF",
+"a-es-efdə və a-es-ef"
+],
+[
+"ATB-da və ATB",
+"a-te-bedə və a-te-be"
+],
+[
+"ATP-da və ATP",
+"a-te-pedə və a-te-pe"
+],
+[
+"Alzheimer-da və Alzheimer",
+"altsheymerdə və altsheymer"
+],
+[
+"Anews-da və Anews",
+"a-nyusda və a-nyus"
+],
+[
+"Angara-da və Angara",
+"anqarada və anqara"
+],
+[
+"Anthropic-da və Anthropic",
+"antropikdə və antropik"
+],
+[
+"Azerbaijan-da və Azerbaijan",
+"azərbaycanda və azərbaycan"
+],
+[
+"Aznews-da və Aznews",
+"aznyusda və aznyus"
+],
+[
+"Azərbycan-da və Azərbycan",
+"azərbaycanda və azərbaycan"
+],
+[
+"AİB-da və AİB",
+"a-i-bedə və a-i-be"
+],
+[
+"AİPA-da və AİPA",
+"a-i-pe-ada və a-i-pe-a"
+],
+[
+"BCM-da və BCM",
+"be-ce-emdə və be-ce-em"
+],
+[
+"BDU-da və BDU",
+"be-de-uda və be-de-u"
+],
+[
+"BMT-da və BMT",
+"be-em-tedə və be-em-te"
+],
+[
+"BMW-da və BMW",
+"be-em-vedə və be-em-ve"
+],
+[
+"BSTA-da və BSTA",
+"be-es-te-ada və be-es-te-a"
+],
+[
+"Barcelona-da və Barcelona",
+"barselonada və barselona"
+],
+[
+"Benz-da və Benz",
+"bensdə və bens"
+],
+[
+"Bitcoin-da və Bitcoin",
+"bitkoində və bitkoin"
+],
+[
+"Borussia-da və Borussia",
+"borussiyada və borussiya"
+],
+[
+"Bridge-da və Bridge",
+"bricdə və bric"
+],
+[
+"Bucks-da və Bucks",
+"baksda və baks"
+],
+[
+"Bull-da və Bull",
+"bulda və bul"
+],
+[
+"BŞTİ-da və BŞTİ",
+"be-şe-te-idə və be-şe-te-i"
+],
+[
+"BƏƏ-da və BƏƏ",
+"be-ə-ədə və be-ə-ə"
+],
+[
+"COP-da və COP",
+"kopda və kop"
+],
+[
+"COVID-da və COVID",
+"koviddə və kovid"
+],
+[
+"Celta-da və Celta",
+"seltada və selta"
+],
+[
+"Celtic-da və Celtic",
+"seltikdə və seltik"
+],
+[
+"Charlotte-da və Charlotte",
+"şarlotda və şarlot"
+],
+[
+"Cinema-da və Cinema",
+"sinemada və sinema"
+],
+[
+"Cinemada-da və Cinemada",
+"sinemadada və sinemada"
+],
+[
+"City-da və City",
+"sitidə və siti"
+],
+[
+"CoinGecko-da və CoinGecko",
+"koin-gekoda və koin-geko"
+],
+[
+"Cup-da və Cup",
+"kapda və kap"
+],
+[
+"DMA-da və DMA",
+"de-em-ada və de-em-a"
+],
+[
+"DSK-da və DSK",
+"de-es-kada və de-es-ka"
+],
+[
+"DSMF-da və DSMF",
+"de-es-em-efdə və de-es-em-ef"
+],
+[
+"DYP-da və DYP",
+"de-ye-pedə və de-ye-pe"
+],
+[
+"Dahl-da və Dahl",
+"dalda və dal"
+],
+[
+"Day-da və Day",
+"deydə və dey"
+],
+[
+"Deluxe-da və Deluxe",
+"deluksda və deluks"
+],
+[
+"Desir-da və Desir",
+"dezirdə və dezir"
+],
+[
+"Doctor-da və Doctor",
+"doktorda və doktor"
+],
+[
+"Dr-da və Dr",
+"doktorda və doktor"
+],
+[
+"Dubai-da və Dubai",
+"dubayda və dubay"
+],
+[
+"DİM-da və DİM",
+"dimdə və dim"
+],
+[
+"DİN-da və DİN",
+"dində və din"
+],
+[
+"EBRD-da və EBRD",
+"e-be-er-dedə və e-be-er-de"
+],
+[
+"EKTİS-da və EKTİS",
+"e-ka-te-i-esdə və e-ka-te-i-es"
+],
+[
+"EXPO-da və EXPO",
+"ekspoda və ekspo"
+],
+[
+"Early-da və Early",
+"erlidə və erli"
+],
+[
+"Enactus-da və Enactus",
+"enaktusda və enaktus"
+],
+[
+"Engineering-da və Engineering",
+"injinirinqdə və injinirinq"
+],
+[
+"Expo-da və Expo",
+"ekspoda və ekspo"
+],
+[
+"FHN-da və FHN",
+"fe-he-endə və fe-he-en"
+],
+[
+"Fabrizio-da və Fabrizio",
+"fabritsioda və fabritsio"
+],
+[
+"Flame-da və Flame",
+"fleymdə və fleym"
+],
+[
+"Freedom-da və Freedom",
+"fridomda və fridom"
+],
+[
+"Frosinone-da və Frosinone",
+"frozinonedə və frozinone"
+],
+[
+"GDU-da və GDU",
+"ge-de-uda və ge-de-u"
+],
+[
+"Germain-da və Germain",
+"jermendə və jermen"
+],
+[
+"Global-da və Global",
+"qlobalda və qlobal"
+],
+[
+"Globalinfo-da və Globalinfo",
+"qlobalinfoda və qlobalinfo"
+],
+[
+"Goal-da və Goal",
+"qolda və qol"
+],
+[
+"Green-da və Green",
+"qrində və qrin"
+],
+[
+"GreenTech-da və GreenTech",
+"qrin-tekdə və qrin-tek"
+],
+[
+"Group-da və Group",
+"qrupda və qrup"
+],
+[
+"Gundelik-da və Gundelik",
+"gündəlikdə və gündəlik"
+],
+[
+"Hall-da və Hall",
+"holda və hol"
+],
+[
+"Hills-da və Hills",
+"hilsdə və hils"
+],
+[
+"Hitachi-da və Hitachi",
+"hitaçidə və hitaçi"
+],
+[
+"Hoffman-da və Hoffman",
+"hofmanda və hofman"
+],
+[
+"Holding-da və Holding",
+"holdinqdə və holdinq"
+],
+[
+"Hour-da və Hour",
+"aurda və aur"
+],
+[
+"IPO-da və IPO",
+"i-pe-oda və i-pe-o"
+],
+[
+"IRD-da və IRD",
+"i-er-dedə və i-er-de"
+],
+[
+"Instagram-da və Instagram",
+"instaqramda və instaqram"
+],
+[
+"Inter-da və Inter",
+"interdə və inter"
+],
+[
+"InvestAZ-da və InvestAZ",
+"invest-a-zedə və invest-a-ze"
+],
+[
+"Iveco-da və Iveco",
+"ivekoda və iveko"
+],
+[
+"KTMT-da və KTMT",
+"ka-te-em-tedə və ka-te-em-te"
+],
+[
+"KİV-da və KİV",
+"ka-i-vedə və ka-i-ve"
+],
+[
+"LUKOIL-da və LUKOIL",
+"lukoylda və lukoyl"
+],
+[
+"Lazio-da və Lazio",
+"latsioda və latsio"
+],
+[
+"Leica-da və Leica",
+"laykada və layka"
+],
+[
+"MHX-da və MHX",
+"em-he-xedə və em-he-xe"
+],
+[
+"MLS-da və MLS",
+"em-el-esdə və em-el-es"
+],
+[
+"MSK-da və MSK",
+"em-es-kada və em-es-ka"
+],
+[
+"MTK-da və MTK",
+"em-te-kada və em-te-ka"
+],
+[
+"Macmillan-da və Macmillan",
+"makmillanda və makmillan"
+],
+[
+"Manset-da və Manset",
+"manşetdə və manşet"
+],
+[
+"Mderator-da və Mderator",
+"moderatorda və moderator"
+],
+[
+"Mercedes-da və Mercedes",
+"mersedesdə və mersedes"
+],
+[
+"Mercury-da və Mercury",
+"merküridə və merküri"
+],
+[
+"Metbuat-da və Metbuat",
+"mətbuatda və mətbuat"
+],
+[
+"Millennium-da və Millennium",
+"milleniumda və millenium"
+],
+[
+"Milwaukee-da və Milwaukee",
+"miluokidə və miluoki"
+],
+[
+"Mullini-da və Mullini",
+"mallinidə və mallini"
+],
+[
+"Mullinin-da və Mullinin",
+"mallinində və mallinin"
+],
+[
+"Music-da və Music",
+"myuzikdə və myuzik"
+],
+[
+"Müsiala-da və Müsiala",
+"musialada və musiala"
+],
+[
+"Müsialanın-da və Müsialanın",
+"musialanında və musialanın"
+],
+[
+"NKA-da və NKA",
+"en-ka-ada və en-ka-a"
+],
+[
+"News-da və News",
+"nyusda və nyus"
+],
+[
+"Nice-da və Nice",
+"nisdə və nis"
+],
+[
+"NİİM-da və NİİM",
+"en-i-i-emdə və en-i-i-em"
+],
+[
+"Olise-da və Olise",
+"olizdə və oliz"
+],
+[
+"Olke-da və Olke",
+"ölkədə və ölkə"
+],
+[
+"PFL-da və PFL",
+"pe-fe-eldə və pe-fe-el"
+],
+[
+"PHS-da və PHS",
+"pe-he-esdə və pe-he-es"
+],
+[
+"PKK-da və PKK",
+"pe-ka-kada və pe-ka-ka"
+],
+[
+"PSJ-da və PSJ",
+"pe-es-jedə və pe-es-je"
+],
+[
+"PSV-da və PSV",
+"pe-es-vedə və pe-es-ve"
+],
+[
+"PUA-da və PUA",
+"pe-u-ada və pe-u-a"
+],
+[
+"Palgrave-da və Palgrave",
+"pelqreyvdə və pelqreyv"
+],
+[
+"Philadelphia-da və Philadelphia",
+"filadelfiyada və filadelfiya"
+],
+[
+"QMİ-da və QMİ",
+"qe-em-idə və qe-em-i"
+],
+[
+"QSC-da və QSC",
+"qe-es-cedə və qe-es-ce"
+],
+[
+"Rail-da və Rail",
+"reyldə və reyl"
+],
+[
+"Rangers-da və Rangers",
+"reyncersdə və reyncers"
+],
+[
+"Ratings-da və Ratings",
+"reytinqsdə və reytinqs"
+],
+[
+"Resort-da və Resort",
+"rizortda və rizort"
+],
+[
+"Ring-da və Ring",
+"rinqdə və rinq"
+],
+[
+"Rush-da və Rush",
+"raşda və raş"
+],
+[
+"SOCAR-da və SOCAR",
+"sokarda və sokar"
+],
+[
+"Saint-da və Saint",
+"sendə və sen"
+],
+[
+"Sesqazeti-da və Sesqazeti",
+"səs qəzetidə və səs qəzeti"
+],
+[
+"Shield-da və Shield",
+"şilddə və şild"
+],
+[
+"Sloan-da və Sloan",
+"slounda və sloun"
+],
+[
+"St-da və St",
+"sentdə və sent"
+],
+[
+"Stage-da və Stage",
+"steycdə və steyc"
+],
+[
+"Starshield-da və Starshield",
+"starşilddə və starşild"
+],
+[
+"Store-da və Store",
+"storda və stor"
+],
+[
+"Street-da və Street",
+"stritdə və strit"
+],
+[
+"Streisand-da və Streisand",
+"streyzandda və streyzand"
+],
+[
+"TIR-da və TIR",
+"tirdə və tir"
+],
+[
+"TRIPP-da və TRIPP",
+"trippdə və tripp"
+],
+[
+"TRİPP-da və TRİPP",
+"trippdə və tripp"
+],
+[
+"TV-da və TV",
+"te-vedə və te-ve"
+],
+[
+"Tee-da və Tee",
+"tidə və ti"
+],
+[
+"Towers-da və Towers",
+"tauərsdə və tauərs"
+],
+[
+"UNEC-da və UNEC",
+"unekdə və unek"
+],
+[
+"UNN-da və UNN",
+"u-en-endə və u-en-en"
+],
+[
+"USGS-da və USGS",
+"u-es-ge-esdə və u-es-ge-es"
+],
+[
+"VTB-da və VTB",
+"ve-te-bedə və ve-te-be"
+],
+[
+"Vigo-da və Vigo",
+"viqoda və viqo"
+],
+[
+"Wall-da və Wall",
+"uolda və uol"
+],
+[
+"Washington-da və Washington",
+"vaşinqtonda və vaşinqton"
+],
+[
+"Webuild-da və Webuild",
+"uibilddə və uibild"
+],
+[
+"Winner-da və Winner",
+"vinnerdə və vinner"
+],
+[
+"World-da və World",
+"vörlddə və vörld"
+],
+[
+"Xezerxeber-da və Xezerxeber",
+"xəzər xəbərdə və xəzər xəbər"
+],
+[
+"Xiaomi-da və Xiaomi",
+"şaomidə və şaomi"
+],
+[
+"XİN-da və XİN",
+"xində və xin"
+],
+[
+"Yandex-da və Yandex",
+"yandeksdə və yandeks"
+],
+[
+"Yenicag-da və Yenicag",
+"yeniçağda və yeniçağ"
+],
+[
+"Youtube-da və Youtube",
+"yutubda və yutub"
+],
+[
+"İSF-da və İSF",
+"i-es-fedə və i-es-fe"
+],
+[
+"İTM-da və İTM",
+"i-te-emdə və i-te-em"
+],
+[
+"ŞİH-da və ŞİH",
+"şe-i-hedə və şe-i-he"
+],
+[
+"ƏMTQ-da və ƏMTQ",
+"ə-em-te-qedə və ə-em-te-qe"
+],
+[
+"ƏƏSMN-da və ƏƏSMN",
+"ə-ə-es-em-endə və ə-ə-es-em-en"
+]
+]
+}

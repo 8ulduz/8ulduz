@@ -102,6 +102,8 @@ def babek(text, sr=16000, tries=3):
     import subprocess
     import tempfile
     import edge_tts
+    if not text.strip():   # mətndən heç nə qalmayıb (məs. ses.py imzanı atıb): səssizlik, iş dayanmasın
+        return b"\x00\x00" * int(sr * 0.3)
     with tempfile.TemporaryDirectory() as d:
         mp3 = os.path.join(d, "s.mp3")
         for attempt in range(tries):
@@ -124,6 +126,9 @@ def main(corpus_path, out, old_path=None):
     old = load(old_path, "az_text_kohne") if old_path and os.path.exists(old_path) else None
     old_ses = os.environ.get("OLD_SES")
     old_ses = load(old_ses, "ses_kohne") if old_ses and os.path.exists(old_ses) else None
+    cur_ses = None   # Babək üçün indiki yol: ses.py-nin spoken_text-i, sonra az_text.for_voice (hazır səsdəki kimi)
+    if any(v.get("motor") == "babek" for v in variants):
+        cur_ses = load(os.path.join(HERE, "ses.py"), "ses_yeni")
     with open(corpus_path, encoding="utf-8") as f:
         corpus = json.load(f)
     items, sample = corpus["items"], corpus.get("numune", [])
@@ -157,7 +162,8 @@ def main(corpus_path, out, old_path=None):
             t0 = time.time()
             if is_babek:
                 # Babək bütöv mətni alır (durğu və böyük hərf intonasiya üçün qalır): köhnə — ses.py-nin indiki yolu, yeni — az_text.for_voice
-                said = old_ses.spoken_text(text) if v.get("metn") == "kohne" else new.for_voice(text, hyphens=v.get("tire", True))
+                said = (old_ses.spoken_text(text) if v.get("metn") == "kohne"
+                        else new.for_voice(cur_ses.spoken_text(text), hyphens=v.get("tire", True)))
                 pcm = babek(said, sr)
             else:
                 import torch

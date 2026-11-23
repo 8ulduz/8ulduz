@@ -94,7 +94,8 @@ test("ses-worker /ses: not prepared yet → the full source text in Microsoft's 
     const forged = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=SAXTA%20BA%C5%9ELIQ&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
     await forged.arrayBuffer(); await env.done();
     const said = env.calls.filter(c => /tts\.speech/.test(c.u)).map(c => c.o.body);
-    assert.ok(said.length > 2 && said.slice(2).some(b => b.includes("SAXTA BAŞLIQ")), "başqa başlıq öz səsini alır");
+    // (2026-11-23: böyük hərfli söz Babəkə söz kimi gedir — «SAXTA BAŞLIQ» → «saxta başlıq», az-text.js)
+    assert.ok(said.length > 2 && said.slice(2).some(b => b.includes("saxta başlıq")), "başqa başlıq öz səsini alır");
     const reader = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
     assert.equal(reader.status, 200); await reader.arrayBuffer(); await env.done();
     assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, said.length, "əsl başlıqlı sorğu yenə öz keşindən (saxta səs ona verilmir)");
@@ -252,4 +253,48 @@ test("ses-worker: paragraphs without closing tags are all read (same rule as rea
     for (const n of names) assert.equal(t.split(n + " abzas").length - 1, 1, n + ": " + html.slice(0, 40));
     assert.ok(t.indexOf("Birinci abzas") < t.indexOf("Dördüncü abzas"));
   }
+});
+
+// Sahib, 2026-11-23: «saytda da düzgün oxunsun» — canlı Babək səsi də Saranın oxunuş qaydaları ilə (az-text.js = az_text.for_voice).
+const azText = () => import(pathToFileURL(path.join(__dirname, "..", ".github/ses-worker/az-text.js")).href);
+
+test("ses-worker: reading rules give exactly the Python text (tests/fixtures/ses-oxunus.json, az_text.for_voice)", async () => {
+  const { forVoice, setLexicon } = await azText();
+  assert.ok(setLexicon(JSON.parse(fs.readFileSync(path.join(__dirname, "..", ".github/ses-server/ses-lugat.json"), "utf8"))) > 100);
+  const { hallar } = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/ses-oxunus.json"), "utf8"));
+  assert.ok(hallar.length > 400);
+  const diff = hallar.filter(([x, want]) => forVoice(x) !== want).slice(0, 5).map(([x, want]) => ({ x, want, got: forVoice(x) }));
+  assert.deepEqual(diff, [], "az-text.js az_text.py-dən fərqlənir");
+  setLexicon();
+});
+
+test("ses-worker /ses: the live Babək voice gets the human reading (acronyms, numbers with suffix, source names)", async () => {
+  const { default: w } = await load();
+  const env = cfEnv([[/sportinfo\.az/, () => new Response(page.replace("Napoli klubunun", "ABŞ-da 19-da Napoli klubunun"), { headers: { "content-type": "text/html" } })],
+    [/westeurope\.tts\.speech\.microsoft\.com/, () => new Response(new Uint8Array(8000), { status: 200, headers: { "content-type": "audio/mpeg" } })]]);
+  try {
+    const r = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/9") + "&id=bbbbbbbbbbbbbbbb&t=BMT-nin%20hesabat%C4%B1&s=8ULDUZ"), { AZURE_KEY: "k" }, env.ctx);
+    assert.equal(r.status, 200); await r.arrayBuffer(); await env.done();
+    const said = env.calls.filter(c => /tts\.speech/.test(c.u)).map(c => c.o.body);
+    assert.ok(said[0].includes(">be-em-tenin hesabatı. səkkiz ulduz xəbər verir.</voice>"), said[0]);
+    assert.ok(said[1].includes(">a-be-şedə on doqquzda Napoli klubunun"), said[1].slice(0, 200));
+  } finally { env.restore(); }
+});
+
+test("ses-worker: the reading lexicon is fetched once (base over weekly additions) and a failed fetch is retried", async () => {
+  const { lexicon } = await load();
+  const { LEXICON, setLexicon } = await azText();
+  setLexicon();
+  const asked = [];
+  const answer = { "ses-lugat/lugat.json": { sozler: { Celta: "kelta", Axios: "aksios" } }, "main/.github/ses-server/ses-lugat.json": { sozler: { Celta: "selta" } } };
+  let fail = true;
+  const fake = async u => { asked.push(u); if (fail) throw new Error("şəbəkə"); const k = Object.keys(answer).find(x => u.endsWith(x)); return new Response(JSON.stringify(answer[k])); };
+  assert.equal(await lexicon(fake, 50), 0, "alınmadı");
+  fail = false;
+  assert.equal(await lexicon(fake, 50), 2, "növbəti sorğu yenidən soruşur");
+  assert.equal(LEXICON.get("Celta"), "selta", "repodakı lüğət əlavənin üstündədir");
+  const n = asked.length;
+  await lexicon(fake, 50);
+  assert.equal(asked.length, n, "6 saat ərzində yenidən soruşulmur");
+  setLexicon();
 });
