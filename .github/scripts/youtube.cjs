@@ -357,8 +357,10 @@ async function run({ videos = [], env = process.env, now = Date.now(), fetch: f 
     const ch = await channel(f, tok.access);
     if (ch.error === "youtubeSignupRequired") { ctx.log("youtube: bu Google hesabının YouTube kanalı yoxdur — əvvəl kanal yaradın (docs/youtube.md «Kanal»)"); res.failed.push([v.id, ch.error]); return res; }
     if (ch.error) ctx.log(`youtube: kanalın son videoları oxunmadı (${ch.error}) — yalnız öz siyahımızla yoxlanır`);
-    const link = linkOf(v.m), key = v.t;
-    const dup = v.m.sinaq ? null : ch.items.find(x => titleKey(x.title) === key || (link !== HOME && x.description.includes(link)));
+    // Keçid yalnız xəbər və icmalda hər videoya xasdır; hava/valyuta/bazar videosunun keçidi hər gün eyni səhifədir (bolme/hava/) —
+    // onlarda tarixli başlıq yoxlanır, yoxsa ikinci günün hava videosu dünənkinin təkrarı sayılardı.
+    const link = linkOf(v.m), key = v.t, ownLink = link !== HOME && ["xeber", "icmal"].includes(kindOf(v.m));
+    const dup = v.m.sinaq ? null : ch.items.find(x => titleKey(x.title) === key || (ownLink && x.description.includes(link)));
     if (dup) { remember(dup.id, true); ctx.log(`youtube: kanalda artıq var (https://www.youtube.com/shorts/${dup.id}) — ${v.name}`); return res; }
   }
 

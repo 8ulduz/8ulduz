@@ -208,6 +208,22 @@ test("youtube: if the cache is lost, the channel's own recent uploads stop a dup
   assert.ok(!yt2.calls.some(c => c.url.startsWith(API)), "readonly icazəsi olmadan kanala sorğu yoxdur");
 });
 
+test("youtube: the daily weather video links the same page every day — only its dated title marks a duplicate", async () => {
+  // Hava videosu (video-hava.cjs): keçid hər gün https://8ulduz.az/bolme/hava/, başlıq tarixlidir. Dünənki video kanalda olsa da bugünkü getməlidir.
+  const hava = { kind: "hava", url: "https://8ulduz.az/bolme/hava/", source: "Open-Meteo", sourceUrl: "https://open-meteo.com/", category: "hava" };
+  const yesterday = { snippet: { title: "Hava proqnozu, 24 noyabr: Bakıda buludlu hava, +12°…+17°", description: "… Ətraflı: https://8ulduz.az/bolme/hava/ …", resourceId: { videoId: "h24" } } };
+  const dir = tmp(); video(dir, "hava-2026-11-25", { ...hava, title: "Hava proqnozu, 25 noyabr: Bakıda güclü külək, +7°…+14°" });
+  const yt = youtube({ items: () => new Response(JSON.stringify({ items: [yesterday] }), { status: 200 }) });
+  const { res } = await go(dir, yt);
+  assert.equal(res.posted.length, 1, "dünənki hava videosunun keçidi bugünkünü saxlamır");
+  assert.ok(initBody(yt).snippet.description.includes("Ətraflı: https://8ulduz.az/bolme/hava/"));
+  assert.ok(initBody(yt).snippet.tags.includes("hava proqnozu"));
+  // Eyni günün videosu (eyni başlıq) ikinci dəfə getmir.
+  const dir2 = tmp(); video(dir2, "hava-2026-11-24", { ...hava, title: yesterday.snippet.title });
+  const r2 = await go(dir2, youtube({ items: () => new Response(JSON.stringify({ items: [yesterday] }), { status: 200 }) }));
+  assert.deepEqual(r2.res.posted, []);
+});
+
 test("youtube: an interrupted upload resumes from the byte YouTube already has", async () => {
   const dir = tmp(); const file = video(dir, "r1");
   const size = fs.statSync(file).size;

@@ -39,7 +39,7 @@ function loadApp(root) {
   context.window = context;
   vm.runInContext(fs.readFileSync(path.join(root, "assets/content-policy.js"), "utf8"), context);
   vm.runInContext(fs.readFileSync(path.join(root, "assets/app.js"), "utf8").split(/\r?\napplyPrefs\(\);\r?\n/)[0], context);
-  return vm.runInContext("({ clubMatches, policyViolation, REGION_TABS, SPORT_TABS, CATS })", context);
+  return vm.runInContext("({ clubMatches, policyViolation, REGION_TABS, SPORT_TABS, CATS, CITIES, wxCode })", context);
 }
 
 // Hər mövzu: bölgə/alt bölmə və onun içindəki rayonlar/komandalar. parent: üst mövzu (keçidlər üçün).

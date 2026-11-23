@@ -2,6 +2,8 @@ name: Video xəbər (Facebook, Instagram)
 # Sahib, 2026-11-22: «Facebook-da video xəbərlər verilsin… İnstagramda videolar verilsin. Videolarda başda 8ulduz.az yazılsın.»
 # Ən vacib xəbərdən öz hazırladığımız şaquli video (başlıq, izah, brend, SARA səsi) → Facebook Reels və Instagram Reels.
 # Seçim və paylaşma: .github/scripts/sosial-video.cjs, video: .github/scripts/video-xeber.cjs, sənəd: docs/sosial-video.md.
+# Gündəlik hava videosu (sahib, 2026-11-23): eyni iş, ayrıca qayda — Bakı vaxtı HAVA_VAXT-dan (20:45) sonrakı ilk pəncərədə gündə bir dəfə
+# sabahkı proqnoz (Open-Meteo + Pixabay + SARA, .github/scripts/video-hava.cjs). Eyni axınla FB/IG Reels, TikTok, YouTube Shorts-a gedir.
 # Xəbər axınından (update.yml) və şəkilli paylaşmadan (social.yml) ayrıdır: düşsə də, gecikse də onlara təsir etmir. Repoya
 # yazmır; video fayl yalnız şəbəkələrə və 3 günlük artefakta gedir.
 
@@ -21,22 +23,31 @@ on:
         description: 'Xəbər nömrəsi (16 simvol; boş — avtomatik seçim)'
         required: false
         default: ''
+      tur:
+        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal) və ya xeber (yalnız xəbər)'
+        type: choice
+        options: [avtomatik, hava, xeber]
+        default: avtomatik
   # PR-da nümunə xəbərdən video hazırlanır və yoxlanır (paylaşılmır): kadrlar artefaktdadır.
   pull_request:
     paths:
       - .github/scripts/video-xeber.cjs
+      - .github/scripts/video-hava.cjs
       - .github/scripts/video-ssenari.cjs
       - .github/scripts/video_ses.py
       - .github/scripts/sosial-video.cjs
       - .github/workflows/sosial-video.yml
       - .github/ses-server/az_text.py
       - tests/fixtures/video-xeber.json
+      - tests/fixtures/video-hava.json
 
 permissions:
   contents: read
 
+# Paylaşan işlər bir növbədədir (siyahı keşi). PR və önizləmə (paylas söndürülüb) öz budağının növbəsindədir: paylaşmanı gözlətmir, onun
+# növbəsində ləğv olunmur və siyahını yazmır («Siyahını saxla»).
 concurrency:
-  group: sosial-video-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  group: sosial-video-${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.paylas)) && github.ref || 'main' }}
   cancel-in-progress: false
 
 jobs:
@@ -46,6 +57,12 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.paylas)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # PR-da iki nümunə: xəbər (tests/fixtures/video-xeber.json) və hava (tests/fixtures/video-hava.json). Qalan hallarda bir iş (avto):
+    # seçim özü qərar verir — hava vaxtıdırsa hava, yoxsa xəbər (bir pəncərədə bir video, pipeline.sh video_loop).
+    strategy:
+      fail-fast: false
+      matrix:
+        tur: ${{ fromJSON(github.event_name == 'pull_request' && '["xeber","hava"]' || '["avto"]') }}
     # Növbəti iş (TikTok, tiktok.yml — PR 8ulduz/8ulduz#293 ilə) yalnız paylas == '1' olanda işləsin: PR nümunəsi və önizləmə getmir;
     # Facebook/Instagram alınmasa da (iş qırmızı) video hazırdırsa TikTok-a gedə bilər: `if: !cancelled() && needs.video.outputs.paylas == '1'`.
     # Video «video-xeber» artefaktındadır: video.mp4 + video.json (xəbərin sahələri, own: true).
@@ -63,6 +80,7 @@ jobs:
             .github/scripts/sosial-video.cjs
             .github/scripts/video-ssenari.cjs
             .github/scripts/video-xeber.cjs
+            .github/scripts/video-hava.cjs
             .github/scripts/video_ses.py
             .github/ses-server/az_text.py
             assets/app.js
@@ -70,6 +88,7 @@ jobs:
             assets/logo.png
             data/news.json
             tests/fixtures/video-xeber.json
+            tests/fixtures/video-hava.json
           sparse-checkout-cone-mode: false
       - name: Videoların siyahısı
         if: github.event_name != 'pull_request'
@@ -88,6 +107,12 @@ jobs:
           VIDEO_ACAR: ${{ (secrets.FB_PAGE_TOKEN != '' || (secrets.TIKTOK_CLIENT_KEY != '' && secrets.TIKTOK_CLIENT_SECRET != '') || (secrets.YOUTUBE_CLIENT_ID != '' && secrets.YOUTUBE_CLIENT_SECRET != '' && secrets.YOUTUBE_REFRESH_TOKEN != '')) && '1' || '0' }}
           VIDEO_PAYLAS: ${{ (github.event_name == 'workflow_dispatch' && !inputs.paylas) && '0' || '1' }}
           VIDEO_XEBER: ${{ inputs.xeber }}
+          # Hava videosu: növ (əl ilə), saat və söndürmə (Variables). Open-Meteo açarı istəyə bağlıdır (ödənişli plan; pulsuz API açarsızdır).
+          VIDEO_TUR: ${{ inputs.tur }}
+          MATRIX_TUR: ${{ matrix.tur }}
+          HAVA_VAXT: ${{ vars.HAVA_VAXT }}
+          HAVA_VIDEO: ${{ vars.HAVA_VIDEO }}
+          OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}
           # Sahib 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun» (video-ssenari.cjs). Biri yoxdursa
           # həmin hissə ötürülür: mətn mənbənin öz cümlələrindən, fon tünd göy.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -99,7 +124,9 @@ jobs:
           VIDEO_MIN_SOURCES: ${{ vars.VIDEO_MIN_SOURCES }}
           SOCIAL_MIN_SOURCES: ${{ vars.SOCIAL_MIN_SOURCES }}
         run: |
-          if [ "$EVENT" = pull_request ]; then
+          if [ "$EVENT" = pull_request ] && [ "$MATRIX_TUR" = hava ]; then
+            node .github/scripts/sosial-video.cjs numune-hava tests/fixtures/video-hava.json video-out
+          elif [ "$EVENT" = pull_request ]; then
             node .github/scripts/sosial-video.cjs numune tests/fixtures/video-xeber.json video-out
           else
             node .github/scripts/sosial-video.cjs sec data/news.json video-out
@@ -140,6 +167,7 @@ jobs:
           VIDEO_SES: ${{ vars.VIDEO_SES }}
           VIDEO_ASS: '1'
           EVENT: ${{ github.event_name }}
+          TUR: ${{ steps.sec.outputs.tur }}
         run: |
           # PR: görüntülü rejim süni kliplərlə yoxlanır (şaquli və üfüqi — ortadan kəsilir); açar və Pexels yoxdur.
           if [ "$EVENT" = pull_request ]; then
@@ -148,13 +176,20 @@ jobs:
             ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc=s=1080x1920:r=30:d=4 -pix_fmt yuv420p video-out/klip-3.mp4
             node -e 'const fs=require("fs"),f="video-out/xeber.json",x=JSON.parse(fs.readFileSync(f,"utf8"));x.klipler=["klip-1.mp4","klip-2.mp4","klip-3.mp4"];x.goruntu=[{id:0,user:"sınaq"}];x.goruntuMenbe="Pixabay";fs.writeFileSync(f,JSON.stringify(x,null,1))'
           fi
-          node .github/scripts/video-xeber.cjs video-out/xeber.json video-out/video.mp4
+          # Hava planı (tur: hava) — video-hava.cjs, xəbər — video-xeber.cjs. Çıxış müqaviləsi eynidir (video.mp4 + video.json).
+          if [ "$TUR" = hava ]; then
+            node .github/scripts/video-hava.cjs video-out/xeber.json video-out/video.mp4
+          else
+            node .github/scripts/video-xeber.cjs video-out/xeber.json video-out/video.mp4
+          fi
           # Kliplər artefakta getmir (ölçü; TikTok/YouTube yalnız video.mp4 + video.json götürür).
           rm -f video-out/klip-*.mp4
       # Şəbəkələrin tələbi: 9:16, H.264 yuv420p, AAC 48 kHz, 3–90 s, moov əvvəldə (Instagram yükləməni oxuyarkən emal edir).
       - name: Videonu yoxla
         id: yoxla
         if: steps.sec.outputs.hazir == '1'
+        env:
+          TUR: ${{ steps.sec.outputs.tur }}
         run: |
           node -e '
             const fs = require("fs"), m = JSON.parse(fs.readFileSync("video-out/video.json", "utf8"));
@@ -170,6 +205,7 @@ jobs:
             if (moov < 0 || (mdat >= 0 && moov > mdat)) bad.push("moov əvvəldə deyil (faststart)");
             if (!head.includes("8ulduz.az")) bad.push("comment=8ulduz.az nişanı yoxdur (TikTok yükləyicisi)");
             if (m.own !== true || !m.id || !m.text) bad.push("video.json-da xəbərin sahələri yoxdur");
+            if (process.env.TUR === "hava" && (m.kind !== "hava" || !String(m.url || "").startsWith("https://8ulduz.az/") || !m.text.includes("Open-Meteo"))) bad.push("hava videosunun video.json-u: kind, url və ya Open-Meteo krediti yoxdur");
             console.log(JSON.stringify(m));
             if (bad.length) { console.log("::error::Video tələbə uyğun deyil: " + bad.join("; ")); process.exit(1); }
           '
@@ -185,7 +221,7 @@ jobs:
           for k in $(seq 1 "$i"); do args+=(-i "video-out/kadr-$k.png"); f="$f[$((k - 1))]scale=270:480[k$k];"; done
           ffmpeg -hide_banner -loglevel error -y "${args[@]}" -filter_complex "$f$(for k in $(seq 1 "$i"); do printf '[k%s]' "$k"; done)hstack=$i" -q:v 4 video-out/onizleme.jpg
           {
-            echo "### Video xəbər"
+            if [ "$TUR" = hava ]; then echo "### Hava videosu"; else echo "### Video xəbər"; fi
             node -p 'const m=JSON.parse(require("fs").readFileSync("video-out/video.json","utf8")); `${m.title}\n\n${m.width}×${m.height}, ${m.duration.toFixed(1)} s, ${(m.bytes/1e6).toFixed(1)} MB, ${m.voice ? "səsli (SARA)" : "səssiz"}, ${m.parts} hissə`'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Paylaş
@@ -200,7 +236,8 @@ jobs:
           VIDEO_FB_SERH: ${{ vars.VIDEO_FB_SERH }}
         run: node .github/scripts/sosial-video.cjs paylas video-out
       - name: Siyahını saxla
-        if: always() && github.event_name != 'pull_request'
+        # Önizləmə siyahını dəyişmir: onun köhnə nüsxəsi paralel paylaşmanın yazdığını üstələməsin (eyni xəbər iki dəfə getməsin).
+        if: always() && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas)
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         continue-on-error: true
         with:
@@ -210,7 +247,8 @@ jobs:
         if: steps.sec.outputs.hazir == '1' && !cancelled()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: video-xeber
+          # Ad həmişə video-xeber (tiktok.yml/youtube.yml bunu götürür); yalnız PR-ın hava nümunəsi video-hava.
+          name: ${{ matrix.tur == 'hava' && 'video-hava' || 'video-xeber' }}
           path: video-out/
           retention-days: 3
 
