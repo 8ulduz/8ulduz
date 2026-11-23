@@ -33,8 +33,11 @@ class SesTest(unittest.TestCase):
         a = {"title": "ABŞ-da 19-da seçki", "source": "8ULDUZ", "summary": ""}
         self.assertEqual(ses.spoken(a, "Gündüz +17° olacaq, BMT-nin hesabatı Modern.az-da."),
                          "a be şedə on doqquzda seçki. səkkiz ulduz xəbər verir. Gündüz on yeddi dərəcə olacaq, be em tenin hesabatı Modern nöqtə azda.")
-        have, born = {"a" * 16: 1, "b" * 16: 1}, {"a" * 16: ses.VOICE_AT - 60, "b" * 16: ses.VOICE_AT + 60}
-        self.assertEqual(ses.voice_redo(have, born), {"a" * 16})
+        # Vaxta yox, index.json-dakı «o» nişanına baxılır: qaydalarla yazılmamış hər səs (nə vaxt yazılmasından asılı olmayaraq)
+        self.assertEqual(ses.voice_redo({"a" * 16: 1, "b" * 16: 1}, {"b" * 16}), {"a" * 16})
+        src = (ROOT / ".github" / "scripts" / "ses.py").read_text(encoding="utf-8")
+        self.assertIn('(read.add if az_text else read.discard)(a["id"])', src)
+        self.assertIn('"o": sorted(read & set(have))', src, "silinmiş səsin nömrəsi nişan siyahısında qalmır")
 
     def test_minute_feed_stories_are_added_once(self):
         feed = [{"id": "a" * 16, "title": "Köhnə"}]

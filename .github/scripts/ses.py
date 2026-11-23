@@ -81,9 +81,6 @@ MARK_AT = datetime.datetime(2026, 11, 10, 16, 0, tzinfo=datetime.timezone.utc).t
 # oxuyur. «COP31» → «Kop 31». ABŞ, BMT kimi hərflə oxunanlar dəyişmir. Bu vaxtdan əvvəl yazılmış belə səslər yenidən səslənir.
 SAY = [(re.compile(r"\bCOP\s*-?\s*(\d+)\b"), r"Kop \1"), (re.compile(r"\bCOP\b"), "Kop")]
 SAY_AT = datetime.datetime(2026, 11, 10, 16, 25, tzinfo=datetime.timezone.utc).timestamp()
-# Oxunuş qaydaları (az_text.for_voice) işə düşəndən əvvəl yazılmış bütün səslər bir dəfə yenidən səslənir: ən yenisi birinci,
-# köhnə fayl yenisi hazır olana qədər qalır. Qaydalar yüklənməyibsə (köhnə iş axını) heç nə yenidən yazılmır.
-VOICE_AT = datetime.datetime(2026, 11, 23, 20, 0, tzinfo=datetime.timezone.utc).timestamp()
 
 
 def say(text):
@@ -172,9 +169,11 @@ def stale(have, born, cutoff=CLEAN_AT):
     return {i for i in have if born.get(i, 0) < cutoff}
 
 
-def voice_redo(have, born, at=None):
-    """Oxunuş qaydalarından (VOICE_AT) əvvəl yazılmış səslər; qaydalar yüklənməyibsə heç biri."""
-    return stale(have, born, VOICE_AT if at is None else at) if az_text else set()
+def voice_redo(have, read):
+    """Oxunuş qaydaları (az_text.for_voice) ilə yazılmamış səslər (index.json «o» siyahısında yoxdur): bir dəfə yenidən səslənir,
+    ən yenisi birinci, köhnə fayl yenisi hazır olana qədər qalır. Vaxta yox, nişana baxılır: köhnə kodla işləyən iş (ses reposunda
+    iş 50 dəqiqə eyni nüsxə ilə gedir) sonradan yazdığı səsi də buraxmasın. Qaydalar yüklənməyibsə heç nə yenidən yazılmır."""
+    return set(have) - set(read) if az_text else set()
 
 
 def clip(text, limit=MAX_CHARS):
@@ -301,6 +300,7 @@ def main(d):
         pass
     born = dict(index.get("t") or {})
     short = set(index.get("q") or [])  # səsi mətnsiz (yalnız başlıq və xülasə ilə) yazılmış xəbərlər
+    read = set(index.get("o") or [])   # səsi oxunuş qaydaları ilə (az_text.for_voice) yazılmış xəbərlər
     live = {a.get("id") for a in feed}
     dropped = 0
     for i in list(have):
@@ -310,7 +310,7 @@ def main(d):
     made = 0
     pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
     redo = (stale(have, born) | host_redo(have, born, feed) | marker_redo(have, born, feed) | say_redo(have, born, feed)
-            | voice_redo(have, born))
+            | voice_redo(have, read))
     feeds = {}
     with tempfile.TemporaryDirectory() as tmp:
         for a in pick(feed, {i: s for i, s in have.items() if i not in redo}, now):
@@ -333,12 +333,14 @@ def main(d):
             have[a["id"]] = git(d, "hash-object", "-w", path)
             born[a["id"]] = int(now.timestamp())
             (short.discard if body else short.add)(a["id"])
+            (read.add if az_text else read.discard)(a["id"])
             made += 1
     if not made and not dropped:
         print("ses: yeni səs yoxdur")
         return
     born = {i: t for i, t in born.items() if i in have}
-    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born, "q": sorted(short & set(have))}, separators=(",", ":")).encode()
+    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born, "q": sorted(short & set(have)), "o": sorted(read & set(have))},
+                     separators=(",", ":")).encode()
     rows = other + [f"100644 blob {sha}\t{i}.mp3" for i, sha in sorted(have.items())]
     rows.append(f"100644 blob {git(d, 'hash-object', '-w', '--stdin', data=idx)}\tindex.json")
     tree = git(d, "mktree", "--missing", data=("\n".join(rows) + "\n").encode())
