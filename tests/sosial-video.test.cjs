@@ -341,3 +341,113 @@ test("sosial-video.yml: separate, read-only workflow; secrets only in the postin
   assert.ok(!/sosial-video|video-xeber|video_ses|ffmpeg/.test(rest + read(".github/workflows/update.yml")));
   assert.match(read("docs/sosial-video.md"), /## Sahibin əlavə etməli olduğu icazələr/);
 });
+
+// --- Gündəlik hava videosu (video-hava.cjs; sahib, 2026-11-23) -------------------------------------------------------------
+const HAVA = JSON.parse(read("tests/fixtures/video-hava.json"));
+const APP = require("../.github/scripts/topics.cjs").loadApp(root);
+const baku = (d, hm) => Date.parse(`${d}T${hm}:00+04:00`);
+const omFetch = (ok = true) => async url => (/api\.open-meteo\.com\/v1\/forecast/.test(url)
+  ? (ok ? { ok: true, status: 200, json: async () => HAVA.response } : { ok: false, status: 503, json: async () => ({}) })
+  : { ok: false, status: 404, text: async () => "", json: async () => ({}) });
+
+test("sosial-video: the weather video has its own slot — first window after 20:45 Baku, once a day, not counted as a news video (owner-tunable)", () => {
+  const ho = SV.havaOptions({});
+  assert.deepEqual(ho, { on: true, from: 20 * 60 + 45, to: 23 });
+  assert.deepEqual(SV.havaOptions({ HAVA_VAXT: "19:15", VIDEO_SAAT: "8-22" }), { on: true, from: 19 * 60 + 15, to: 22 });
+  assert.equal(SV.havaOptions({ HAVA_VAXT: "25:99" }).from, 20 * 60 + 45, "yanlış dəyər — standart");
+  const st = SV.readState("/yoxdur", NOW);
+  assert.match(SV.havaDue(st, baku("2026-11-24", "20:17"), ho), /20:45–23:59 arası/, "20:17 pəncərəsi xəbərindir");
+  assert.equal(SV.havaDue(st, baku("2026-11-24", "20:47"), ho), "", "20:47 pəncərəsi (pipeline.sh :17/:47)");
+  assert.equal(SV.havaDue(st, baku("2026-11-24", "23:47"), ho), "", "alınmasa gecəyə qədər hər pəncərədə yenidən");
+  assert.match(SV.havaDue(st, baku("2026-11-25", "00:17"), ho), /arası/);
+  assert.match(SV.havaDue({ ...st, hava: { "2026-11-24": 1 } }, baku("2026-11-24", "21:17"), ho), /bu günün hava videosu hazırlanıb/);
+  assert.match(SV.havaDue(st, baku("2026-11-24", "21:17"), SV.havaOptions({ HAVA_VIDEO: "0" })), /söndürülüb/);
+  // Xəbər videosunun fasiləsi və gündəlik həddi hava videosunu saymır.
+  assert.equal(SV.due({ ...st, hava: { "2026-11-24": baku("2026-11-24", "20:47") / 1000 } }, baku("2026-11-24", "21:17"), SV.options({})), "");
+  assert.deepEqual(SV.bakuClock(Date.parse("2026-11-24T20:30:00Z")), { day: "2026-11-25", min: 30, h: 0 }, "Bakı günü UTC+4 ilə");
+});
+
+test("sosial-video: in its window the run makes the weather video (the news waits one window); Open-Meteo down — the news goes", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "svh-")), out = path.join(dir, "out.txt"), old = process.env.GITHUB_OUTPUT;
+  process.env.GITHUB_OUTPUT = out;
+  try {
+    const now = Date.parse(HAVA.now), env = { VIDEO_ACAR: "1", HAVA_WAIT_MS: "0" }, logs = [];
+    const st = SV.readState("/yoxdur", now), last = st._last;
+    const x = await SV.sec({ articles: [], env, now, state: st, fetch: omFetch(), cats, dir, app: APP, policy: a => APP.policyViolation(a), log: s => logs.push(s) });
+    assert.equal(x.tur, "hava"); assert.equal(x.id, "hava-2026-11-25");
+    assert.equal(fs.readFileSync(out, "utf8"), "hazir=1\ntur=hava\n");
+    const saved = JSON.parse(fs.readFileSync(path.join(dir, "xeber.json"), "utf8"));
+    assert.equal(saved.title, "Hava proqnozu, 25 noyabr: Bakıda güclü külək, +7°…+14°");
+    assert.equal(saved.link, "https://8ulduz.az/bolme/hava/");
+    assert.ok(!saved.klipler, "görüntü açarı yoxdur — brend fonu");
+    assert.equal(st.hava["2026-11-24"], now / 1000, "gündə bir: seçim günü sayır");
+    assert.equal(st._last, last, "xəbər videosunun fasiləsi dəyişmir");
+    assert.deepEqual(st.v, {});
+    // Eyni gün yenidən: hava yox, xəbər yolu (lent boşdur).
+    fs.writeFileSync(out, "");
+    assert.equal(await SV.sec({ articles: [], env, now: now + 30 * 60e3, state: st, fetch: omFetch(), cats, dir, app: APP, log: s => logs.push(s) }), null);
+    assert.ok(logs.some(s => /bu günün hava videosu hazırlanıb/.test(s)) && logs.some(s => /uyğun xəbər yoxdur/.test(s)));
+    // Open-Meteo cavab vermir: xəbərdarlıq, gün sayılmır (növbəti pəncərədə yenidən), bu pəncərədə xəbər yolu.
+    const st2 = SV.readState("/yoxdur", now), logs2 = [];
+    assert.equal(await SV.sec({ articles: [], env, now, state: st2, fetch: omFetch(false), cats, dir, app: APP, log: s => logs2.push(s) }), null);
+    assert.ok(logs2.some(s => /::warning::hava videosu alınmadı — Open-Meteo cavab vermədi \(HTTP 503\)/.test(s)), logs2.join("\n"));
+    assert.ok(!st2.hava["2026-11-24"] && logs2.some(s => /uyğun xəbər yoxdur/.test(s)));
+    // Əl ilə: tur=hava — vaxt gözləmədən (önizləmə, siyahıya yazmır); tur=xeber — pəncərədə də yalnız xəbər.
+    const st3 = SV.readState("/yoxdur", NOW);
+    const y = await SV.sec({ articles: [], env: { VIDEO_PAYLAS: "0", VIDEO_TUR: "hava", HAVA_WAIT_MS: "0" }, now: baku("2026-11-24", "12:00"), state: st3, fetch: omFetch(), cats, dir, app: APP, log: () => {} });
+    assert.equal(y.tur, "hava"); assert.deepEqual(st3.hava, {});
+    const logs4 = [];
+    assert.equal(await SV.sec({ articles: [], env: { ...env, VIDEO_TUR: "xeber" }, now, state: SV.readState("/yoxdur", now), fetch: omFetch(), cats, dir, app: APP, log: s => logs4.push(s) }), null);
+    assert.ok(!logs4.some(s => /hava/.test(s)));
+    // Paylaşma rejimində əl ilə ikinci dəfə (eyni gün) — getmir.
+    const logs5 = [];
+    assert.equal(await SV.sec({ articles: [], env: { ...env, VIDEO_TUR: "hava" }, now, state: st, fetch: omFetch(), cats, dir, app: APP, log: s => logs5.push(s) }), null);
+    assert.ok(logs5.some(s => /artıq paylaşılıb/.test(s)));
+  } finally {
+    if (old === undefined) delete process.env.GITHUB_OUTPUT; else process.env.GITHUB_OUTPUT = old;
+  }
+});
+
+test("sosial-video: weather post text — the weather page link, Open-Meteo CC BY 4.0 credit, footage credit, weather tags; kept out of the news list", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "svhp-"));
+  await SV.havaHazirla({ raw: HAVA.response, app: APP, now: Date.parse(HAVA.now), state: SV.readState("/yoxdur", NOW), env: {}, dir, post: false, footage: false, log: () => {} });
+  const x = { ...JSON.parse(fs.readFileSync(path.join(dir, "xeber.json"), "utf8")), goruntu: [{ p: "Pixabay", id: 1 }], goruntuMenbe: "Pixabay" };
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x));
+  fs.writeFileSync(path.join(dir, "video.mp4"), Buffer.alloc(4321, 7));
+  fs.writeFileSync(path.join(dir, "video.json"), JSON.stringify({ cover_s: 1.5 }));
+  const fb = SV.fbText(x), ig = SV.igText(x);
+  assert.ok(fb.startsWith(`${x.title}\n\nSabah, 25 noyabr, çərşənbə, hava belə olacaq.`));
+  assert.ok(fb.includes("\n\nƏtraflı: https://8ulduz.az/bolme/hava/\n\n"), "Facebook: keçid mətndədir");
+  for (const t of [fb, ig]) {
+    assert.ok(t.includes("Hava məlumatı: Open-Meteo.com, model proqnozu (CC BY 4.0). Rəsmi proqnozu Milli Hidrometeorologiya Xidməti verir.\nGörüntü: Pixabay"));
+    assert.ok(/#havaproqnozu #hava #Bakı #8ulduz #Azərbaycan( #video)?$/.test(t), t.slice(-80));
+    assert.ok(!t.includes("#xəbərlər"));
+  }
+  assert.ok(ig.includes("Ətraflı: 8ulduz.az (keçid profildədir)") && !/https?:\/\//.test(ig), "Instagram-da keçid basılmır");
+  const { f, calls } = meta(), state = SV.readState("/yoxdur", NOW);
+  const r = await SV.paylas({ dir, env: ENV, now: Date.parse(HAVA.now), state, fetch: f, log: () => {} });
+  assert.deepEqual(r, { posted: ["facebook", "instagram"], failed: [] });
+  assert.equal(calls.find(c => c.body?.upload_phase === "finish").body.description, fb);
+  assert.ok(state.facebook["hava-2026-11-25"] && state.instagram["hava-2026-11-25"]);
+  assert.deepEqual([state.v, state.t, state.topics], [{}, {}, []], "xəbər videosunun siyahısına (fasilə, hədd, mövzu) düşmür");
+  assert.equal(state.hava["2026-11-24"], Date.parse(HAVA.now) / 1000);
+});
+
+test("sosial-video.yml: the weather video — PR renders both samples; same check, artifact and TikTok/YouTube jobs; previews never write the list", () => {
+  const wf = read(".github/workflows/sosial-video.yml");
+  assert.ok(wf.includes(`tur: \${{ fromJSON(github.event_name == 'pull_request' && '["xeber","hava"]' || '["avto"]') }}`));
+  assert.match(wf, /numune-hava tests\/fixtures\/video-hava\.json video-out/);
+  assert.match(wf, /node \.github\/scripts\/video-hava\.cjs video-out\/xeber\.json video-out\/video\.mp4/);
+  assert.ok(/            \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /            tests\/fixtures\/video-hava\.json\n/.test(wf), "sparse-checkout");
+  assert.ok(/      - \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /      - tests\/fixtures\/video-hava\.json\n/.test(wf), "PR yolları");
+  assert.match(wf, /options: \[avtomatik, hava, xeber\]/);
+  assert.ok(wf.includes("name: ${{ matrix.tur == 'hava' && 'video-hava' || 'video-xeber' }}"), "main-də artefakt video-xeber (tiktok.yml, youtube.yml)");
+  assert.equal((wf.match(/artifact: video-xeber/g) || []).length, 2);
+  assert.ok(wf.includes("OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}"));
+  assert.match(wf, /m\.kind !== "hava"/, "hava videosunun müqaviləsi yoxlanır");
+  // Önizləmə öz növbəsində: paylaşmanı gözlətmir; siyahını yazmır.
+  assert.ok(wf.includes("group: sosial-video-${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.paylas)) && github.ref || 'main' }}"));
+  assert.ok(wf.slice(wf.indexOf("- name: Siyahını saxla")).includes("        if: always() && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas)\n"));
+  // Pəncərə qaydası (PR 303) dəyişmir: hava videosu eyni dispatch-lə, ayrıca döngü yoxdur.
+  assert.ok(!/hava/i.test(read(".github/scripts/pipeline.sh").match(/video_loop\(\) \{[\s\S]*?\n\}\n/)[0]));
+});

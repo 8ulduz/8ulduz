@@ -167,7 +167,7 @@ Məzmun növləri (`kind`):
 | `icmal` | «Günün icmalı», 09:00 və 19:00 (`updater.write_digest`); `id`: `icmal-<tarix>-seher` / `-axsam` | `https://8ulduz.az/icmal/<tarix>-seher/` | hər `items` sətrində `source` + `sourceUrl` **olmalıdır**, yoxdursa yüklənmir |
 | `hava`, `valyuta`, `bazar` | hava və valyuta (`data/markets.json`) | `url` (saytın səhifəsi), yoxdursa ana səhifə | xəbər yoxdur, yoxlanmır |
 
-İndi video modulu yalnız əsas xəbərdən video hazırlayır (`xeber`). İcmal və hava/valyuta videoları modula əlavə olunanda yükləyici onları `kind`-ə görə tanıyır. Keçid yalnız 8ulduz.az-a ola bilər: başqa saytın ünvanı verilsə, ana səhifə yazılır.
+Video modulu əsas xəbərdən (`xeber`) və 2026-11-23-dən gündəlik hava proqnozundan (`hava`, `video-hava.cjs`, `url`: `https://8ulduz.az/bolme/hava/`) video hazırlayır; icmal və valyuta videoları əlavə olunanda yükləyici onları da `kind`-ə görə tanıyır. Hava/valyuta/bazar videosunun keçidi hər gün eyni səhifədir: kanalda təkrar yalnız tarixli başlıqla axtarılır (keçidlə axtarış xəbər və icmal üçündür). Keçid yalnız 8ulduz.az-a ola bilər: başqa saytın ünvanı verilsə, ana səhifə yazılır.
 
 ## 9. Tənzimləmə (Variables, istəyə bağlı)
 

@@ -171,6 +171,96 @@ Bu iş xəbər axınından (`update.yml`) və şəkilli paylaşmadan (`social.ym
 
 PR-da (`pull_request`) nümunə xəbərdən (`tests/fixtures/video-xeber.json`) video hazırlanır və yoxlanır, paylaşılmır; kadrlar və video artefaktdadır.
 
+## Hava videosu (gündəlik, sahib 2026-11-23)
+
+Tapşırıq: öz gündəlik hava videomuz, ən peşəkar səviyyədə. Kod: `.github/scripts/video-hava.cjs` (plan, yoxlama, qrafika), seçim və paylaşma `sosial-video.cjs`-dədir. Xəbər videosu ilə eyni iş axını (`sosial-video.yml`) və eyni platformalardır: Facebook və Instagram Reels, TikTok, YouTube Shorts.
+
+**Nə göstərir (~45 s).** Hər axşam sabahkı proqnoz verilir.
+- Bakı kartı: ikon, gündüz və gecə temperaturu, külək (istiqamət oxu ilə), ani külək, yağıntı və ehtimalı.
+- Xəbərdarlıq kartı (varsa).
+- İki səhifədə 8 bölgə şəhəri: Sumqayıt, Gəncə, Mingəçevir, Şəki | Quba, Lənkəran, Naxçıvan, Şuşa. Hər kartda ikon, gündüz və gecə temperaturu var.
+
+Yuxarıda xəbər videosundakı brend zolağı (loqo və «.az», gediş xətti) qalır. Altda «Hava: Open-Meteo, model proqnozu · Görüntü: Pixabay», sonda «Ətraflı: 8ulduz.az» və «Bütün şəhərlər: 8ulduz.az/bolme/hava». Bütün yazılar y 300…1480 arasındadır (lentin 4:5 kəsiyi və Reels düymələri).
+
+**Məlumat və dəqiqlik (qırmızı xətt).**
+- Bir sorğu gedir: Open-Meteo `forecast`, 9 nöqtə, `daily`, `wind_speed_unit=ms`, `timezone=Asia/Baku`. Şəhərlər və koordinatlar saytın öz siyahısındandır (`assets/app.js` `CITIES`, `topics.cjs` `loadApp`). Kod onları təkrar yazmır.
+- Cavab yoxlanır: saat qurşağı, koordinat (model xanası ≤ 0,3°), hər sahənin vahidi (°C, mm, sm, m/s, %), günün olması, hədlər (−60…60 °C və s.), maksimumun minimumdan aşağı olmaması. Yoxlamadan keçməyən şəhər atılır. Bakı keçməsə video olmur və növbəti pəncərədə yenidən sınanır.
+- Mətn deterministik şablonla qurulur. Gemini mətnə və rəqəmə toxunmur, yalnız görüntü seçən montaj redaktorudur. Yuvarlaqlaşdırma saytın hava səhifələri ilə eynidir (`updater.py` `round`: yarımda cüt tərəfə, 14,5 → 14). Kodun adları da saytdakı kimidir (`app.js` `wxCode`: «Yağışlı», «Qismən buludlu»).
+- `yoxla()` hər videodan əvvəl üç şeyi yoxlayır, biri pozulsa video yoxdur:
+  - hər kart məlumatın yuvarlağıdır;
+  - mətndəki hər rəqəm məlumatdadır;
+  - «Gəncədə 11» kimi şəhər və rəqəm cütü həmin şəhərin öz rəqəmidir.
+- Səs mənfi işarəni oxumur (`az_text`). Ona görə mənfi temperatur proqnoz dilindəki kimi «5 dərəcə şaxta», müsbət «14 dərəcə isti» deyilir. Ekranda «−5°» yazılır.
+
+Nümunə (`tests/fixtures/video-hava.json`, Open-Meteo-nun 2026-11-23 cavabı, sabah — 25 noyabr):
+
+> Sabah, 25 noyabr, çərşənbə, hava belə olacaq. Bakıda arabir yağış yağacaq. Gecə 7, gündüz 14 dərəcə isti olacaq. Şimal küləyi (xəzri) əsəcək, sürəti saniyədə 13 metrə, ani küləklərdə 22 metrə çatacaq. Yağıntının miqdarı 7 millimetr olacaq. Diqqət: ani küləklərin sürəti Bakıda saniyədə 22, Sumqayıtda 22 metrə çatacaq. Gündüz Sumqayıtda 14, Gəncədə 11, Mingəçevirdə 12, Şəkidə 15 dərəcə isti olacaq. Hamısında yağış yağacaq. Qubada 10, Lənkəranda 15, Naxçıvanda 14, Şuşada 13 dərəcə isti gözlənilir. Lənkəranda və Şuşada yağış yağacaq. Qubada qar yağacaq.
+
+Başlıq tarixlidir: «Hava proqnozu, 25 noyabr: Bakıda güclü külək, +7°…+14°». YouTube və TikTok təkrarı başlıqla tanıyır.
+
+Dil qaydaları:
+- yağış ehtimalı 50%-dən azdırsa «yağacaq» əvəzinə «yağa bilər» deyilir;
+- külək 4 m/san-dan zəifdirsə «Külək zəif olacaq»;
+- Bakıda şimal küləyi «(xəzri)», cənub küləyi «(gilavar)» adlanır, digər istiqamətlər yalnız adı ilə deyilir.
+
+**Xəbərdarlıq hədləri.** Model proqnozudur, rəsmi xəbərdarlıq deyil. Kartda və post mətnində belə yazılır. Hədd xam ədədlə yoxlanır, ekranda yuvarlaq ədəd göstərilir.
+
+| Hal | Hədd | Haradan |
+|---|---|---|
+| Ani külək | ≥ 20 m/san | `oz_hava.py` (`GUST`) |
+| Şaxta | gecə ≤ −10 °C, Bakıda ≤ −5 °C | `oz_hava.py` (`FROST`, `FROST_BAKU`) |
+| İstilik | gündüz ≥ 38 °C | `oz_hava.py` (`HEAT`) |
+| Qar | ≥ 10 sm (Şəki, Quba, Naxçıvan, Şuşa), qalan şəhərlərdə ≥ 5 sm | `oz_hava.py` (`SNOW`, `SNOW_LOW`, `MOUNTAIN`) |
+| Güclü yağış (leysan) | ≥ 20 mm | saytın hava zolağı (`app.js` `loadWarnings`) |
+| İldırım | WMO kodu 95–99, ehtimal ≥ 50% | — |
+
+Hədlər testlə `oz_hava.py`-yə bağlıdır (`tests/video-hava.test.cjs`). Bakıda xəbərdarlıq varsa başlıq odur («Sabah Bakıda güclü külək»).
+
+**Görüntü.** Mənbə yalnız Pixabay və ya Pexels-dir, kredit verilir (`video-ssenari.cjs` `goruntu`). Səhnə sabah Bakının havasına uyğundur:
+- əvvəl Bakının həqiqi görüntüsü həmin havada («baku rain», «baku snow», «baku fog»). Etiketdə həm «baku», həm də hava sözü olmalıdır;
+- günəşli gündə Bakının özü («baku azerbaijan», «baku skyline»);
+- sonra yer adı olmayan təbiət səhnələri: damcılar, göy, qar, duman;
+- güclü küləkdə Xəzərin dalğası.
+
+Şəhər küçəsi səhnəsi yoxdur, çünki yad şəhərin yazısı və lövhəsi düşə bilər. Yer qaydası xəbər videosundakı kimidir:
+- icazəli yerlər Azərbaycan və Bakıdır, yad yerin etiketli klipi kodla atılır (`yadYer`);
+- montaj redaktoru kadrda yad yeri görürsə klip atılır (`yerUygun`).
+
+2-dən az uyğun klip varsa (`KLIP_MIN`) video brend fonu ilə hazırlanır, ötürülmür. Hava videosu gündəlikdir və əsas məzmun rəqəmlərdir.
+
+**Səs və altyazı.** SARA səsi (`video_ses.py`, eyni keş). Altyazı sözbəsöz gedir: hər cümlə bir hissədir, deyilən söz narıncı yanır (`wordTimes`, xəbər videosu ilə eyni).
+
+**Hüquq və kreditlər.**
+- Open-Meteo məlumatı CC BY 4.0-dır, kredit və lisenziya göstərilməlidir. Videoda «Hava: Open-Meteo», sonluqda «Hava: Open-Meteo.com (CC BY 4.0)» yazılır. Post mətnində «Hava məlumatı: Open-Meteo.com, model proqnozu (CC BY 4.0). Rəsmi proqnozu Milli Hidrometeorologiya Xidməti verir.» Saytın hava səhifəsi də belə yazır.
+- Open-Meteo-nun pulsuz API-si yalnız qeyri-kommersiya istifadəsi üçündür. Şərtlərə görə reklamlı və ya abunəli sayt kommersiya sayılır ([şərtlər](https://open-meteo.com/en/terms), [lisenziya](https://open-meteo.com/en/licence)). Saytın reklam yeri hazırda boşdur (`data/ads.json`). Sayt da, video da eyni pulsuz API-ni işlədir. Reklam açılsa və ya kanallar pul qazanmağa başlasa ödənişli plan lazımdır. Onda `OPEN_METEO_API_KEY` sirri əlavə olunur, kod özü `customer-api.open-meteo.com`-a keçir. Açar ünvanda gedir, ünvan jurnala yazılmır.
+- Pixabay-də atribusiya məcburi deyil, «arzu olunur». API isə nəticənin haradan olduğunu göstərməyi xahiş edir. Ona görə videoda və mətndə «Görüntü: Pixabay» var.
+- TV-nin, X-in və saytların videosu yoxdur, su nişanı silinmir.
+
+**Cədvəl: hər gün 20:47 (Bakı), ayrıca qayda.**
+- Hava videosu `HAVA_VAXT` (20:45) saatından sonrakı ilk 30 dəqiqəlik pəncərədə gedir: `pipeline.sh` `video_loop`, :17 və :47.
+- Gündə bir dəfə (`state.hava`). Seçim günü sayır, video alınmasa da eyni gün təkrar hazırlanmır.
+- Open-Meteo cavab verməsə gün sayılmır. Həmin pəncərədə xəbər videosu gedir, hava növbəti pəncərədə (23:59-a qədər) yenidən sınanır.
+- Xəbər videosunun 120 dəqiqəlik fasiləsinə, gündəlik həddinə (8) və mövzu siyahısına sayılmır.
+- Bir pəncərədə bir iş qaydası (PR 303) dəyişmir. Hava pəncərəsində xəbər videosu növbəti pəncərəyə (30 dəqiqə sonra) qalır. İki video eyni anda getmir.
+
+Niyə 20:47 (araşdırma, 2026-11-23):
+- **Təzə model.** Open-Meteo-nun yenilənmə cədvəlinə görə ICON-un günorta buraxılışı (12 UTC) ~16:20–16:30 UTC-də (Bakı ~20:25) gəlir, 06 UTC buraxılışı səhər ~10:20 UTC-də. Daha erkən saatda dünənki səhər modeli işlənərdi ([model yenilənmələri](https://open-meteo.com/en/docs/model-updates)).
+- **Tamaşaçı.** Sabahın havasına axşam baxırlar ([NCAR sorğusu](https://www.sciencedaily.com/releases/2009/06/090623120848.htm): pik — səhər tezdən, axşam və gecə; Earth Networks: «sabahı planlamaq üçün» gecə buraxılışı 22,9%). Sprout Social-un 2026 araşdırmasında Instagram, Facebook və TikTok üçün pəncərələr günortadan 20:00–21:00-a qədərdir. AzTV-nin axşam xəbərləri 20:00-dadır.
+- **Rəqiblər.** MHX-in sabahkı proqnozu ~12:00–13:20-də dərc olunur (Report.az, AZƏRTAC). APA TV-nin hava videosu ~17:30-da çıxır. Bizim video daha təzə modellə və gecə yatmazdan əvvəlki baxışa düşür.
+- Saatı dəyişmək üçün `HAVA_VAXT` dəyişənini, məsələn `19:45`, qoyun.
+
+**Platformalar.**
+- Facebook: mətndə `https://8ulduz.az/bolme/hava/` keçidi var. Keçid birbaşa sayta gedir: `www.8ulduz.az` paylaşma serveridir və xəbər nömrəsi olmayan yolu ana səhifəyə yönləndirir. İlk şərh icazəsizdir, ona görə keçid mətndədir.
+- Instagram: «Ətraflı: 8ulduz.az (keçid profildədir)».
+- TikTok: SELF_ONLY olduğu kimi qalır, `docs/tiktok.md` §7 müqaviləsi işləyir: `video.json` `own: true`, mp4-də `comment=8ulduz.az`.
+- YouTube: `kind: "hava"`, `url` — hava səhifəsi. Keçid hər gün eyni olduğundan YouTube təkrarı yalnız tarixli başlıqla yoxlayır (`youtube.cjs`). Əvvəlki qayda ilə ikinci günün videosu dünənkinin təkrarı sayılardı.
+- `video.json`-da `source`/`sourceUrl` yoxdur: bu, başqa saytın xəbəri deyil, öz məlumat məhsulumuzdur. Mətn isə saytın qaydasından «8ULDUZ» mənbəyi kimi keçir (`policyViolation`).
+
+**Yoxlama və önizləmə.**
+- PR-da iki nümunə video hazırlanır (matris): xəbər və hava. Hava nümunəsi saxlanmış Open-Meteo cavabından, süni kliplərlə qurulur. Artefaktlar `video-xeber` və `video-hava` adlanır.
+- Əl ilə: Actions → «Video xəbər (Facebook, Instagram)» → Run workflow → «Video: hava», «Paylaş» söndürülsün. Bunu istənilən budaqda etmək olar.
+- Önizləmə (`paylas` söndürülüb) öz budağının növbəsindədir. Paylaşma işini gözlətmir və siyahı keşini yazmır: köhnə nüsxə paralel paylaşmanın yazdığını üstələməsin.
+
 ## Sahibin əlavə etməli olduğu icazələr
 
 Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş heç nə hazırlamadan ötürülür.
@@ -199,6 +289,9 @@ Açarı yeniləmək lazım gəlsə (2-ci bənd üçün):
 | `VIDEO_SES` | (açıq) | `0` — səssiz video (model quraşdırılmır) |
 | `VIDEO_FACEBOOK`, `VIDEO_INSTAGRAM` | (açıq) | `0` — həmin şəbəkəyə video getmir. `INSTAGRAM=0` Instagram-ı hər iki işdə söndürür |
 | `VIDEO_FB_SERH` | (açıq) | `0` — Facebook-da keçidli ilk şərh yazılmır |
+| `HAVA_VAXT` | 20:45 | hava videosu Bakı vaxtı ilə bu saatdan sonrakı ilk pəncərədə (gündə bir) |
+| `HAVA_VIDEO` | (açıq) | `0` — hava videosu hazırlanmır |
+| `OPEN_METEO_API_KEY` (sirr) | (yoxdur) | Open-Meteo-nun ödənişli planı (kommersiya istifadəsi); yoxdursa pulsuz API |
 
 Əl ilə: Run workflow → «Xəbər nömrəsi» (16 simvol) — həmin xəbərin videosu fasiləni gözləmədən hazırlanır.
 
