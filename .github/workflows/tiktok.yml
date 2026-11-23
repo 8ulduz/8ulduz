@@ -26,7 +26,7 @@ on:
         type: string
         default: ''
       sinaq:
-        description: 'ffmpeg ilə sınaq videosu hazırlayıb yalnız sizə görünən (SELF_ONLY) kimi paylaş'
+        description: 'ffmpeg ilə sınaq videosu: video.publish varsa yalnız sizə görünən (SELF_ONLY), yoxsa TikTok tətbiqinə qaralama'
         type: boolean
         default: false
   # PR yoxlaması: ffmpeg ilə əsl 9:16 video hazırlanır, yükləyici onu testdəki saxta TikTok-a göndərir. Açar və şəbəkə yoxdur.
@@ -122,10 +122,12 @@ jobs:
           TIKTOK: ${{ vars.TIKTOK }}
           TIKTOK_MODE: ${{ vars.TIKTOK_MODE }}
           TIKTOK_PRIVACY: ${{ vars.TIKTOK_PRIVACY }}
+          TIKTOK_INTERACTIONS: ${{ vars.TIKTOK_INTERACTIONS }}
           TIKTOK_MAX_DAY: ${{ vars.TIKTOK_MAX_DAY }}
           TIKTOK_MIN_GAP_MIN: ${{ vars.TIKTOK_MIN_GAP_MIN }}
           TIKTOK_MAX_AGE_H: ${{ vars.TIKTOK_MAX_AGE_H }}
           TIKTOK_BRAND_ORGANIC: ${{ vars.TIKTOK_BRAND_ORGANIC }}
+          TIKTOK_BRANDED_CONTENT: ${{ vars.TIKTOK_BRANDED_CONTENT }}
         run: node .github/scripts/tiktok.cjs post tiktok-in
       - name: Saxla
         if: always()

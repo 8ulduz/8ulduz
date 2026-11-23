@@ -30,7 +30,7 @@
   <body>
     <main>
       <header><img src="../assets/icon-192.png" alt="" /><h1>Məxfilik siyasəti</h1></header>
-      <p class="meta">8ulduz saytı (8ulduz.az), «8ulduz — Son xəbərlər» Android tətbiqi və iPhone tətbiqi · Qüvvəyə minmə tarixi: 6 noyabr 2026 · Yenilənib: 22 noyabr 2026</p>
+      <p class="meta">8ulduz saytı (8ulduz.az), «8ulduz — Son xəbərlər» Android tətbiqi və iPhone tətbiqi · Qüvvəyə minmə tarixi: 6 noyabr 2026 · Yenilənib: 23 noyabr 2026 · <a href="#en" hreflang="en">English</a></p>
 
       <p>8ulduz Azərbaycan və dünya xəbərlərini açıq mənbələrdən bir lentə toplayan xəbər aqreqatorudur. Bu səhifə sayt, Android və iPhone tətbiqləri istifadə edilərkən hansı məlumatın işləndiyini izah edir. Qısaca: <strong>hesab yoxdur, kuki yoxdur, şəxsi məlumat toplanmır və satılmır.</strong></p>
 
@@ -82,6 +82,7 @@
 
       <h2>Sosial şəbəkə hesablarımız</h2>
       <p>8ulduz öz hazırladığı video xəbərləri Facebook səhifəsində, Instagram və TikTok hesablarında və YouTube kanalında avtomatik paylaşır. Bunun üçün həmin şəbəkələrin rəsmi proqram interfeysi (API) və yalnız 8ulduz-un öz hesabının icazə açarı işlədilir. Açarlar şifrəli saxlanır və yalnız 8ulduz-un öz videolarını həmin hesablara yükləmək üçün istifadə olunur. Bu alətlər oxucuların, izləyicilərin və ya başqa istifadəçilərin hesablarına qoşulmur, onlardan heç bir məlumat toplamır və saxlamır. Postlara bəyənmə, şərh və paylaşım hər şəbəkənin öz qaydaları ilə işlənir. Ətraflı: <a href="../sertler/">İstifadə şərtləri</a>.</p>
+      <p><strong>TikTok.</strong> TikTok hesabını tətbiqə yalnız 8ulduz hesabının sahibi bağlayır. TikTok-dan hesabın açıq nömrəsi (open ID), adı, icazə açarları, paylaşım seçimləri (görünmə, şərh/duet/stitch, ən uzun video) və hər yükləmənin statusu alınır. Bunlar yalnız 8ulduz-un öz videolarını həmin hesaba göndərmək üçün işlənir, reklam və analitikaya getmir, heç kimə verilmir. Açarlar GitHub-da şifrəli saxlanır, yükləmə siyahısı 30 gündən sonra silinir. Sahib icazəni istənilən vaxt TikTok tətbiqinin tənzimləmələrində geri ala bilər. Ətraflı (ingiliscə): <a href="#tiktok" hreflang="en">TikTok integration</a>.</p>
 
       <h2>Uşaqlar</h2>
       <p>8ulduz ümumi auditoriya üçün xəbər xidmətidir və 13 yaşdan kiçik uşaqlara yönəlmir. Heç kimdən, o cümlədən uşaqlardan, şəxsi məlumat toplanmır.</p>
@@ -92,7 +93,23 @@
       <h2>Dəyişikliklər və əlaqə</h2>
       <p>Bu siyasət dəyişərsə, yeni mətn bu səhifədə yeni tarixlə dərc olunur. Sual və müraciətlər üçün: <a href="mailto:info@8ulduz.az">info@8ulduz.az</a> və ya <a href="https://github.com/8ulduz/8ulduz/issues" rel="noopener noreferrer">github.com/8ulduz/8ulduz/issues</a>.</p>
 
-      <p class="meta"><a href="../">← 8ulduz baş səhifəsi</a> · <a href="../sertler/">İstifadə şərtləri</a></p>
+      <section id="en" lang="en">
+        <h2>Privacy Policy — English summary</h2>
+        <p>8ulduz (8ulduz.az) is a free Azerbaijani news aggregator website with Android and iPhone apps. There are no user accounts and no cookies, and we do not collect, sell or share readers' personal data. Reading preferences stay on your device. Visit statistics are aggregated (GoatCounter without cookies; Google Analytics 4 without the Google tag and without cookies, as described above). The Azerbaijani text above is the full policy; if the two differ, the Azerbaijani text prevails.</p>
+        <h3 id="tiktok">TikTok integration</h3>
+        <p>8ulduz uses TikTok for Developers (Login Kit and the Content Posting API) for one purpose: to send video news produced by 8ulduz itself to the 8ulduz TikTok account.</p>
+        <ul>
+          <li><strong>Who authorizes it.</strong> Only the owner of the 8ulduz TikTok account. The integration offers no TikTok login to readers and never connects to readers' or other TikTok users' accounts.</li>
+          <li><strong>Data we receive from TikTok.</strong> The account's open ID and display name (user.info.basic), the access and refresh tokens, the account's posting options (nickname, privacy options, comment/duet/stitch settings, maximum video length) and the status of each upload (publish ID, processing status, public post ID).</li>
+          <li><strong>How it is used.</strong> Only to upload our own videos to that account, to respect the account's settings and TikTok's limits, and to check whether an upload succeeded. It is not used for advertising, profiling or analytics, and it is not sold or shared with anyone.</li>
+          <li><strong>Storage and security.</strong> App keys are encrypted GitHub Actions secrets. The token chain and the list of recent uploads are stored encrypted (AES-256-GCM) in our repository's GitHub Actions cache. Nothing from TikTok is published on this website.</li>
+          <li><strong>Retention.</strong> The upload list is deleted after 30 days. Tokens are kept until they expire or access is revoked; a revoked token is deleted at the next run.</li>
+          <li><strong>Revoking access and requests.</strong> The account owner can remove the app at any time in the TikTok app's settings (connected apps / app permissions). Questions or deletion requests: <a href="mailto:info@8ulduz.az">info@8ulduz.az</a>.</li>
+        </ul>
+        <p>Content on TikTok is governed by TikTok's own <a href="https://www.tiktok.com/legal/page/global/privacy-policy/en" rel="noopener noreferrer">Privacy Policy</a> and <a href="https://www.tiktok.com/legal/page/global/terms-of-service/en" rel="noopener noreferrer">Terms of Service</a>.</p>
+      </section>
+
+      <p class="meta"><a href="../">← 8ulduz baş səhifəsi</a> · <a href="../sertler/">İstifadə şərtləri</a> · <a href="../haqqinda/">Haqqımızda</a></p>
     </main>
     <script data-goatcounter="https://8ulduz.goatcounter.com/count" async src="https://gc.zgo.at/count.v4.js" integrity="sha384-nRw6qfbWyJha9LhsOtSb2YJDyZdKvvCFh0fJYlkquSFjUxp9FVNugbfy8q1jdxI+" crossorigin="anonymous"></script>
   </body>
