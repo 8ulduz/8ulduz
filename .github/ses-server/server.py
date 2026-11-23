@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.dirname(os.path.dirname(HERE)))  # repodan işə salınanda reader_content.py kökdədir
-from az_text import phrases  # noqa: E402
+from az_text import phrases, tune  # noqa: E402
 from reader_content import extract_article  # noqa: E402
 
 PORT = int(os.environ.get("SES_PORT", "8790"))
@@ -52,7 +52,7 @@ def model():
         import torch
         from transformers import AutoTokenizer, VitsModel
         torch.set_num_threads(max(1, os.cpu_count() or 1))
-        _tok, _model = AutoTokenizer.from_pretrained(MODEL), VitsModel.from_pretrained(MODEL).eval()
+        _tok, _model = AutoTokenizer.from_pretrained(MODEL), tune(VitsModel.from_pretrained(MODEL).eval())
     return _tok, _model
 
 

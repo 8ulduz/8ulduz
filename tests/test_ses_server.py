@@ -39,7 +39,7 @@ class VerbalizeTest(unittest.TestCase):
         self.assertEqual(v("11-ci tur"), "on birinci tur")
         self.assertEqual(v("Dollar 1.70 manat"), "Dollar bir tam yüzdə yetmiş manat")
         self.assertEqual(v("2 500 nəfər"), "iki min beş yüz nəfər")
-        self.assertEqual(v("Saat 19:30-da"), "Saat on doqquz otuz-da")
+        self.assertEqual(v("Saat 19:30-da"), "Saat on doqquz otuzda")
         self.assertEqual(v("$100 və 50 AZN"), "yüz dollar və əlli manat")
 
     def test_azerbaijani_case_and_model_alphabet(self):
@@ -48,6 +48,65 @@ class VerbalizeTest(unittest.TestCase):
         self.assertTrue(all(set(s) <= az_text.ALLOWED for s, _ in out), out)
         self.assertEqual([s for s, _ in out], ["napolinin prezidenti aurelio de laurentis görüşüb", "iki min iyirmi altıncı ildə on beş faiz artım", "necə"])
         self.assertTrue(all(p > 0 for _, p in out))
+
+
+def said(text):
+    """Modelə gedən mətn (hissələr « | » ilə)."""
+    return " | ".join(s for s, _ in az_text.phrases(text))
+
+
+class HumanReadingTest(unittest.TestCase):
+    """Sahib, 2026-11-23: «tam normal insan kimi oxunsun» — xəbər mətnində tez-tez gələn və anlaşılmaz oxunan hallar."""
+
+    def test_acronyms_are_spelled_with_their_suffix(self):
+        self.assertEqual(said("ABŞ-nin, ABŞ-da, ABŞ-ın, ABŞ-a"), "a-be-şenin | a-be-şedə | a-be-şenin | a-be-şeyə")
+        self.assertEqual(said("FHN ötən həftə 34 nəfəri xilas edib"), "fe-he-en ötən həftə otuz dörd nəfəri xilas edib")
+        self.assertEqual(said("BMT-nin və NATO-ya, MMA, KİV, USGS"), "be-em-tenin və natoya | em-em-a | ka-i-ve | u-es-ge-es")
+        self.assertEqual(said("COVID-19 və COP31, AzTV-də, İctimai TV-nin"), "kovid-on doqquz və kop otuz bir | az te-vedə | ictimai te-venin")
+
+    def test_capitalised_words_and_roman_numerals(self):
+        self.assertEqual(said("VİDEO: Bakıda QƏZA OLDU - FOTOLAR"), "video | bakıda qəza oldu | fotolar")
+        self.assertEqual(said("XII turda, II Dünya müharibəsi, XV əsr"), "on ikinci turda | ikinci dünya müharibəsi | on beşinci əsr")
+
+    def test_number_suffix_is_attached(self):
+        self.assertEqual(said("Noyabrın 19-da, 900-dən çox, 29-na qədər, 10-nun, 22-si, 3-ü, 42-yə, 300-ə, 160-la"),
+                         "noyabrın on doqquzda | doqquz yüzdən çox | iyirmi doqquza qədər | onun | iyirmi ikisi | üçü | qırx ikiyə | üç yüzə | yüz altmışla")
+        self.assertEqual(said("saat 18:00-dək, 10:00-da, 21:45-də, 15%-ə, 10-illik"),
+                         "saat on səkkizədək | onda | iyirmi bir qırx beşdə | on beş faizə | onillik")
+        self.assertEqual(said("3-otaqlı mənzil, 2026-2027-ci tədris ili"), "üç-otaqlı mənzil | iki min iyirmi altı-iki min iyirmi yeddinci tədris ili")
+
+    def test_sites_initials_and_links_do_not_break_sentences(self):
+        self.assertEqual(said("Modern.az xəbər verir. 8ulduz.az-ın ölçüsünə görə"), "modern nöqtə az xəbər verir | səkkiz ulduz nöqtə azın ölçüsünə görə")
+        self.assertEqual(said("portal mib.media.gov.az vasitəsilə"), "portal mib nöqtə media nöqtə qov nöqtə az vasitəsilə")
+        self.assertEqual(said("S.Orucov küçəsi"), "es orucov küçəsi")
+        self.assertEqual(said("ölüb.News24.az xəbər verir"), "ölüb | nyus iyirmi dörd nöqtə az xəbər verir")
+        self.assertEqual(said("Şəkil: https://ordu.az/photos/2026/11/1.jpg"), "şəkil")
+
+    def test_weather_and_money(self):
+        self.assertEqual(said("Bakıda buludlu hava, +12°…+17°"), "bakıda buludlu hava | on iki-on yeddi dərəcə")
+        self.assertEqual(said("Gecə -5°, gündüz 3 °C"), "gecə mənfi beş dərəcə | gündüz üç dərəcə")
+        self.assertEqual(said("1 654,23 dollar"), "min altı yüz əlli dörd tam yüzdə iyirmi üç dollar")
+
+    def test_foreign_names(self):
+        self.assertEqual(said("Google, WhatsApp və YouTube; Washington-da Trump’ın çıxışı"), "qugl | vatsap və yutub | vaşinqtonda trampın çıxışı")
+        self.assertEqual(said("KVAN Group şirkəti"), "kvan qrup şirkəti")
+
+    def test_commas_are_breaths(self):
+        out = az_text.phrases("Gündüz Sumqayıtda 21, Gəncədə 16 dərəcə isti olacaq. Sabah yağış yoxdur.")
+        self.assertEqual([s for s, _ in out], ["gündüz sumqayıtda iyirmi bir", "gəncədə on altı dərəcə isti olacaq", "sabah yağış yoxdur"])
+        self.assertLess(out[0][1], out[1][1])
+        self.assertEqual(len(az_text.phrases("Bir, iki, üç.", commas=False)), 1)
+
+    def test_everything_reaches_the_model_alphabet(self):
+        text = "ABŞ-ın 2026-cı il «Real Madrid» 2:1, 5,54% artıb (COP31) – XII tur; FHN-in məlumatı: 58 822 dollar!"
+        self.assertTrue(all(set(s) <= az_text.ALLOWED for s, _ in az_text.phrases(text)))
+
+    def test_voice_settings_apply_to_model(self):
+        class M:
+            pass
+        m = az_text.tune(M(), speaking_rate=0.9)
+        self.assertEqual(m.speaking_rate, 0.9)
+        self.assertEqual(m.noise_scale, az_text.VOICE["noise_scale"])
 
 
 class ScriptTest(unittest.TestCase):

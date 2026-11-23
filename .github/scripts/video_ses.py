@@ -16,7 +16,7 @@ import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "ses-server"))
-from az_text import phrases  # noqa: E402
+from az_text import phrases, tune  # noqa: E402
 
 MODEL = os.environ.get("SES_MODEL", "BHOSAI/SARA_TTS")
 
@@ -28,7 +28,7 @@ def main(src, wav_out, json_out):
 
     torch.set_num_threads(max(1, os.cpu_count() or 1))
     torch.manual_seed(8)  # eyni mətn — eyni səs
-    tok, model = AutoTokenizer.from_pretrained(MODEL), VitsModel.from_pretrained(MODEL).eval()
+    tok, model = AutoTokenizer.from_pretrained(MODEL), tune(VitsModel.from_pretrained(MODEL).eval())
     sr = model.config.sampling_rate
     with open(src, encoding="utf-8") as f:
         parts = json.load(f)["parts"]
