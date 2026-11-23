@@ -112,6 +112,7 @@ test("arxiv: the montage gets the story's own place — owner's clip and exact l
   assert.deepEqual(yagis, { yer: ["Baku", "Azerbaijan"], hava: ["yagisli"] });
   assert.deepEqual(ids(VA.namizedler(LIB, { yer: yagis.yer, icaze: VS.yerPlan(["Azerbaijan"]).icaze, hava: yagis.hava })), ["pixabay-103:seher*"]);
   assert.ok(VA.namizedler(LIB, { yer: acik.yer, icaze: VS.yerPlan(["Azerbaijan"]).icaze, hava: acik.hava }).every(x => x.e.hava === "gunesli"));
+  assert.deepEqual(VA.namizedler(LIB.map(e => (e.id === "pixabay-103" ? { ...e, rengli: false } : e)), { yer: yagis.yer, icaze: VS.yerPlan(["Azerbaijan"]).icaze, hava: yagis.hava }), [], "ağ-qara klip hava videosuna getmir");
   for (const k of Object.keys(VH.ARXIV_HAVA)) assert.ok(VH.ARXIV_HAVA[k].every(h => VA.HAVA.includes(h) && h !== "gece"), k);
   // Mənfi xəbər: şəhər klipi başlığa məcburi qoyulmur, yaxın planda insan olan klip yoxdur.
   assert.ok(VA.menfi({ category: "hadise" }) && VA.menfi({ title: "Bakıda yol qəzası: 2 nəfər həlak olub" }) && !VA.menfi({ title: "Bakıda yeni park açılıb" }));
@@ -202,7 +203,7 @@ test("arxiv boyut: tag evidence + Gemini's own look at 4 frames; city and landma
     "flame towers baku": [phit(1, "flame towers, baku, azerbaijan, night"), phit(2, "towers, city, night"), phit(3, "flame towers, baku, batumi, georgia")],
     "baku boulevard": [phit(4, "boulevard, baku, sea"), phit(5, "baku, boulevard, people")],
     "baku old city": [phit(6, "old city, baku, architecture"), phit(9, "old city, baku, museum"), phit(10, "old city, baku, panorama")],
-    "baku azerbaijan": [phit(8, "baku, azerbaijan, city"), phit(11, "dubai, city, skyline")],
+    "baku": [phit(8, "baku, azerbaijan, city"), phit(11, "dubai, city, skyline")],
     "shusha azerbaijan": [phit(7, "shushi, artsakh, mountains")],
   };
   const { f, asked } = fakeBank(db);
@@ -230,7 +231,7 @@ test("arxiv boyut: tag evidence + Gemini's own look at 4 frames; city and landma
   assert.deepEqual(byId["pixabay-6"].yer, ["Maiden Tower", "Baku", "Azerbaijan"], "etiket «old city», kadrda Qız qalası — planın o obyekti");
   assert.deepEqual(byId["pixabay-9"].yer, ["Heydar Aliyev Center", "Baku", "Azerbaijan"]);
   assert.deepEqual(byId["pixabay-10"].yer, ["Baku", "Azerbaijan"], "obyekt görünmür: etiketə baxmayaraq şəhər səviyyəsində");
-  assert.deepEqual(byId["pixabay-8"].yer, ["Flame Towers", "Baku", "Azerbaijan"], "«baku azerbaijan» axtarışında Gemini Alov qüllələrini çox əmin tanıdı — planın obyekti");
+  assert.deepEqual(byId["pixabay-8"].yer, ["Flame Towers", "Baku", "Azerbaijan"], "«baku» axtarışında Gemini Alov qüllələrini çox əmin tanıdı — planın obyekti");
   assert.equal(byId["pixabay-8"].rengli, false);
   assert.ok(prompts.some(p => /Gözlənilən şəhər: Baku, Azerbaijan\. Gözlənilən obyekt: Icherisheher/.test(p)) && prompts.some(p => /Gözlənilən obyekt: —/.test(p)));
   assert.ok(!order.includes(2), "etiketində yer olmayan klip yoxlanmır (sübut yoxdur)");

@@ -41,7 +41,7 @@ const SAHIB_URL = `https://github.com/${REPO}/releases/download/${RELEASE}/`;
 const ARXIV_MAX = 400, BOYUT_SAY = 20, SORGU_MAX = 25, SORGU_TAVAN = 60, SORGU_KLIP = 5, AXTARIS_GUN = 30, REDD_GUN = 180, REDD_MAX = 3000, BAXIS_SAY = 15;
 const SEHER_MAX = { baku: 120 }, SEHER_MAX_DIGER = 30;
 const ARXIV_NAMIZED = 6;   // montajda bir videoya ən çox 6 arxiv namizədi (hər biri bankda bir ID sorğusu)
-const EMINLIK_MIN = 0.75, OBYEKT_EMINLIK = 0.85, KEYFIYYET_MIN = 3, SAHIB_KEYFIYYET_MIN = 2, MUDDET_MIN = 5, SAHIB_MUDDET_MIN = 3, SAHIB_OLCU_MIN = 720;
+const EMINLIK_MIN = 0.9, OBYEKT_EMINLIK = 0.85, KEYFIYYET_MIN = 3, SAHIB_KEYFIYYET_MIN = 2, MUDDET_MIN = 5, SAHIB_MUDDET_MIN = 3, SAHIB_OLCU_MIN = 720;
 const KICIK_MAX_BYTES = 30e6, SAHIB_MAX_BYTES = 300e6;
 const LISENZIYA = { Pixabay: "Pixabay Content License — https://pixabay.com/service/license-summary/", Pexels: "Pexels License — https://www.pexels.com/license/" };
 const ICAZE = { "oz-cekilis": "Saytın öz çəkilişi", "yazili-icaze": "Müəllifin yazılı icazəsi" };
@@ -228,7 +228,7 @@ function namizedler(lib, { yer = [], icaze = null, axtar = [], istifade = new Se
   for (const e of lib || []) {
     if (istifade.has(acar(e))) continue;
     if (VS.yadYer([...e.yer, ...(e.adlar || [])].map(norm).join(", "), ic)) continue;
-    if (hv && !hv.includes(e.hava)) continue;
+    if (hv && (!hv.includes(e.hava) || e.rengli === false)) continue;   // hava videosu: o havada və rəngli
     if (neg && e.insan) continue;
     const adlar = [e.obyekt, ...(e.adlar || [])].filter(Boolean);
     // olke: xəbərdə şəhər yoxdursa — ölkənin ümumi klipi və ya paytaxt (yerPlan icazəsi); şəhər varsa — yalnız ölkənin ümumi klipi
@@ -263,7 +263,7 @@ const BANK = {
       return hit ? { hit } : { yox: true };
     },
     async search(q, key, f) {
-      const j = await VS.getJson(`https://pixabay.com/api/videos/?key=${enc(key)}&q=${enc(q.slice(0, 100))}&video_type=film&safesearch=true&order=popular&per_page=50`, {}, f);
+      const j = await VS.getJson(`https://pixabay.com/api/videos/?key=${enc(key)}&q=${enc(q.slice(0, 100))}&video_type=film&safesearch=true&order=popular&per_page=100`, {}, f);
       return Array.isArray(j?.hits) ? j.hits : null;
     },
     hazir(v) {
@@ -417,7 +417,7 @@ const YOXLA = `Sən 8ulduz.az xəbər saytının video arxivinin yoxlayıcısıs
 əvvəlindən sonuna). Gözlənilən şəhər: {seher}. Gözlənilən obyekt: {obyekt}. Yalnız kadrlarda GÖRDÜYÜNƏ əsaslan, əmin deyilsənsə false.
 - gorunen_yer: kadrda gördüyün yer ingiliscə ("Baku, Azerbaijan", "Batumi, Georgia", "Dubai, UAE"); tanınmırsa "unknown".
 - seher_dogru: kadrda məhz {seher} görünür (tanınan panorama, bina, abidə, küçə, sahil, lövhə və yazının dili). Ümumi dağ, meşə, yol,
-  göy, dəniz — yer tanınmır: false.
+  göy, dəniz, tunel, metro, bina içi, yaxın plan — şəhər tanınmır: false.
 - obyekt: kadrda tanınan bina və ya yer ingiliscə ("Flame Towers", "Baku Boulevard", "Heydar Aliyev Center", "Maiden Tower"); yoxdursa "".
 - obyekt_gorunur: gözlənilən obyekt kadrda aydın görünür (obyekt «—»-dirsə false).
 - eminlik: seher_dogru-ya əminlik, 0..1.
@@ -459,16 +459,16 @@ async function baxis(prompt, jpg, env, f, log) {
 // teq: etiketdə olmalı sözlərdən biri (şəhərin adı həmişə sayılır).
 // Sıra: əvvəl şəhərlər (bir işdə ≤25 axtarış: ilk işdə hər şəhər bir dəfə soruşulsun), sonra tanınan yerlər, sonda ölkənin ümumi səhnəsi.
 const PLAN = [
-  { yer: ["Baku", "Azerbaijan"], axtar: ["baku azerbaijan", "baku city", "baku skyline", "baku aerial", "baku night", "baku sea", "baku street", "baku traffic",
+  { yer: ["Baku", "Azerbaijan"], axtar: ["baku", "baku azerbaijan", "baku city", "baku skyline", "baku aerial", "baku night", "baku sea", "baku street", "baku traffic",
     "baku sunset", "baku winter", "baku rain", "baku snow", "baku fog", "baku clouds"] },
   { yer: ["Ganja", "Azerbaijan"], adlar: ["Gəncə"], axtar: ["ganja azerbaijan", "ganja city azerbaijan"] },
   { yer: ["Sumqayit", "Azerbaijan"], adlar: ["Sumqayıt", "Sumgait"], axtar: ["sumgait azerbaijan", "sumqayit"] },
-  { yer: ["Sheki", "Azerbaijan"], adlar: ["Şəki", "Shaki"], axtar: ["sheki azerbaijan", "shaki azerbaijan"] },
+  { yer: ["Sheki", "Azerbaijan"], adlar: ["Şəki", "Shaki"], axtar: ["sheki azerbaijan", "sheki", "shaki azerbaijan"] },
   { yer: ["Shusha", "Azerbaijan"], adlar: ["Şuşa"], axtar: ["shusha azerbaijan", "shusha"] },
-  { yer: ["Gabala", "Azerbaijan"], adlar: ["Qəbələ", "Qabala"], axtar: ["gabala azerbaijan", "qabala"] },
+  { yer: ["Gabala", "Azerbaijan"], adlar: ["Qəbələ", "Qabala"], axtar: ["gabala azerbaijan", "gabala", "qabala"] },
   { yer: ["Lankaran", "Azerbaijan"], adlar: ["Lənkəran", "Lenkoran"], axtar: ["lankaran azerbaijan", "lankaran"] },
   { yer: ["Nakhchivan", "Azerbaijan"], adlar: ["Naxçıvan", "Nakhichevan"], axtar: ["nakhchivan azerbaijan", "nakhchivan"] },
-  { yer: ["Quba", "Azerbaijan"], adlar: ["Quba", "Guba"], axtar: ["quba azerbaijan", "guba azerbaijan"] },
+  { yer: ["Quba", "Azerbaijan"], adlar: ["Quba", "Guba"], axtar: ["quba azerbaijan", "quba", "guba azerbaijan"] },
   { yer: ["Khinalug", "Azerbaijan"], adlar: ["Xınalıq"], axtar: ["khinalug"], teq: ["khinalug", "xinaliq"] },
   { yer: ["Shahdag", "Qusar", "Azerbaijan"], adlar: ["Şahdağ"], axtar: ["shahdag azerbaijan", "shahdag"], teq: ["shahdag"] },
   { yer: ["Mingachevir", "Azerbaijan"], adlar: ["Mingəçevir"], axtar: ["mingachevir"] },
@@ -503,7 +503,7 @@ const PLAN = [
   { yer: ["Palace of Shaki Khans", "Sheki", "Azerbaijan"], adlar: ["Şəki Xan sarayı", "Sheki Khan Palace"], axtar: ["sheki khan palace"], teq: ["khan palace", "khans palace"] },
   { yer: ["Nohur Lake", "Gabala", "Azerbaijan"], adlar: ["Nohur gölü"], axtar: ["nohur lake"], teq: ["nohur"] },
   { yer: ["Goygol Lake", "Goygol", "Azerbaijan"], adlar: ["Göygöl"], axtar: ["goygol lake", "goygol azerbaijan"], teq: ["goygol"] },
-  { yer: ["Azerbaijan"], adlar: ["Azərbaycan"], axtar: ["azerbaijan flag", "azerbaijan landscape", "azerbaijan mountains", "azerbaijan nature", "azerbaijan village"], teq: ["azerbaijan"] },
+  { yer: ["Azerbaijan"], adlar: ["Azərbaycan"], axtar: ["azerbaijan", "azerbaijan flag", "azerbaijan landscape", "azerbaijan mountains", "azerbaijan nature", "azerbaijan village"], teq: ["azerbaijan"] },
 ];
 // Planın yer sübutu: etiketdə olmalı sözlər (plan teq + şəhərin adı və başqa adları).
 function planTeq(p) {
