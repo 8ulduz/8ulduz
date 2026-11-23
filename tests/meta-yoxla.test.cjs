@@ -12,9 +12,9 @@ const ago = h => new Date(NOW - h * 3600e3).toISOString().replace(/\.\d+Z$/, "+0
 function graph({ scopes = ALL, valid = true, type = "USER", expires = 0, dataAccess = NOW / 1000 + 80 * 86400, tasks = ["ADVERTISE", "ANALYZE", "CREATE_CONTENT", "MESSAGING", "MODERATE", "MANAGE"],
   fb = [[30, 120, 95], [20, 60, 40], [1, 2, 1]], ig = [[30, 400, 300], [20, 200, 150]], insightsError = false, fbPlays = "blue_reels_play_count" } = {}) {
   const calls = [];
-  const f = async url => {
+  const f = async (url, opts = {}) => {
     const u = new URL(url), p = u.pathname.replace(/^\/v[\d.]+\//, ""), q = Object.fromEntries(u.searchParams);
-    calls.push({ p, q });
+    calls.push({ p, q, method: opts.method || "GET", body: opts.body });
     const ok = body => ({ ok: true, status: 200, json: async () => body });
     if (p === "debug_token") return ok(valid ? { data: { is_valid: true, type, app_id: "1000332509080909", application: "8ulduz paylasma", expires_at: expires, data_access_expires_at: dataAccess, scopes } }
       : { data: { is_valid: false, error: { message: "Session has expired" } } });
@@ -54,6 +54,15 @@ test("a healthy key: no problem, stats per video, and neither key ever appears i
   assert.match(text, /\| 120 \| 95 \|/);
   // Səhifənin videoları səhifə açarı ilə oxunur, açarın özü yalnız debug_token və səhifə üçün.
   for (const c of g.calls.filter(c => /video_reels|insights|^v\d|media/.test(c.p))) assert.equal(c.q.access_token, PAGE, c.p);
+});
+
+test("the check only reads: every request is a GET without a body, the script has no POST (struktur 6)", async () => {
+  const g = graph();
+  await M.check({ env, f: g.f, now: NOW });
+  assert.ok(g.calls.length > 10);
+  for (const c of g.calls) assert.ok(c.method === "GET" && c.body === undefined, `${c.method} ${c.p}`);
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../.github/scripts/meta-yoxla.cjs"), "utf8");
+  assert.ok(!/method\s*:|\bbody\s*:|["'`](POST|DELETE|PUT)["'`]/.test(src.replace(/^\s*\/\/.*$/gm, "")), "meta-yoxla.cjs heç nə göndərməsin");
 });
 
 test("the comment permissions that Meta asked for on 2026-11-23 are reported as a warning, not a failure", async () => {
