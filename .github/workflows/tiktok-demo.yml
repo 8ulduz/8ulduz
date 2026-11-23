@@ -65,6 +65,8 @@ jobs:
         run: |
           xvfb-run -a -s "-screen 0 1280x860x24" node .github/scripts/tiktok-demo.cjs "$RUNNER_TEMP/demo"
           ffprobe -v error -show_entries stream=codec_name,width,height:format=duration,size -of compact "$RUNNER_TEMP/demo/tiktok-demo.mp4"
+          # Kadrlar vərəqi: hər 8 saniyədən bir kadr (videonu yükləmədən yoxlamaq üçün).
+          ffmpeg -hide_banner -loglevel error -y -i "$RUNNER_TEMP/demo/tiktok-demo.mp4" -vf "fps=1/8,scale=640:-2,tile=3x4:padding=6:color=white" -frames:v 1 -q:v 4 "$RUNNER_TEMP/demo/kadrlar.jpg"
           { echo "### TikTok demo videosu"; echo; echo '```text'; cat "$RUNNER_TEMP/demo/ssenari.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Demo video (artifact)
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
@@ -73,4 +75,5 @@ jobs:
           path: |
             ${{ runner.temp }}/demo/tiktok-demo.mp4
             ${{ runner.temp }}/demo/ssenari.txt
+            ${{ runner.temp }}/demo/kadrlar.jpg
           retention-days: 30

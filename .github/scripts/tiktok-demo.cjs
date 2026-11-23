@@ -129,6 +129,7 @@ async function main() {
   let n = 0;
   const step = text => cap(`${++n}/${steps}  ${text}`);
 
+  cap("8ulduz.az — TikTok app review demo 1: Login Kit (user.info.basic) and Content Posting API, Upload to inbox (video.upload).");
   await go(base, 3500);
   step(`${new URL(base).host === "8ulduz.az" ? "8ulduz.az" : "The 8ulduz website"} is an Azerbaijani news website. It is the Website URL registered for our TikTok app.`);
   await sleep(5000);
