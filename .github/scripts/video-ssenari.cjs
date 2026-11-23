@@ -47,7 +47,8 @@ async function quota(r) {
 
 // Mətn və ya null (heç bir model cavab vermədi: açar, limit, şəbəkə). Boş sətir — model cavab verdi, amma mətn yoxdur.
 // prompt: mətn və ya hazır hissələr ([{ text }, { inline_data }] — redaktorun şəkilləri).
-async function gemini(prompt, key, f, log, env = process.env) {
+// info: cavab verən modelin adı (info.model) — video arxivinin yoxlama sübutu üçün (video-arxiv.cjs).
+async function gemini(prompt, key, f, log, env = process.env, info = {}) {
   const listed = await models(key, f);
   const order = [...new Set([env.GEMINI_MODEL, ...(listed.length ? listed : FALLBACK_MODELS)].filter(Boolean))].slice(0, 6);
   const body = JSON.stringify({ contents: [{ role: "user", parts: Array.isArray(prompt) ? prompt : [{ text: prompt }] }],
@@ -71,6 +72,7 @@ async function gemini(prompt, key, f, log, env = process.env) {
       const j = await r.json().catch(() => ({}));
       const parts = j?.candidates?.[0]?.content?.parts || [];
       log(`video: ssenari modeli ${model}`);
+      info.model = model;
       return parts.filter(p => !p.thought).map(p => p.text || "").join("");
     }
   }
@@ -278,7 +280,12 @@ const SEHERLER = ["new york", "manhattan", "brooklyn", "los angeles", "hollywood
   "amsterdam", "rotterdam", "brussels", "barcelona", "madrid", "seville", "lisbon", "porto", "prague", "vienna", "budapest", "warsaw",
   "krakow", "istanbul", "ankara", "antalya", "izmir", "dubai", "abu dhabi", "doha", "riyadh", "mecca", "jerusalem", "tel aviv", "cairo",
   "moscow", "saint petersburg", "kyiv", "kiev", "odesa", "odessa", "kharkiv", "minsk", "tbilisi", "batumi", "yerevan", "tehran", "tabriz",
-  "baku", "ganja", "sheki", "shusha", "lankaran", "sumgait", "sumqayit", "nakhchivan", "gabala", "beijing", "shanghai", "hong kong",
+  "baku", "ganja", "sheki", "shusha", "lankaran", "sumgait", "sumqayit", "nakhchivan", "gabala", "beijing",
+  // Azərbaycanın başqa şəhər və yerləri (video arxivi, 2026-11-23): Quba xəbərinə Şəki, Bakı xəbərinə Qəbələ kadrı düşməsin.
+  "qabala", "shaki", "nakhichevan", "lenkoran", "quba", "guba", "qusar", "gusar", "khinalug", "shahdag", "mingachevir", "mingechevir",
+  "shamakhi", "shamakha", "khankendi", "aghdam", "agdam", "zaqatala", "zagatala", "masalli", "astara", "lerik", "shirvan", "naftalan",
+  "gobustan", "qobustan", "fuzuli", "lachin", "kalbajar", "jabrayil", "zangilan", "khachmaz", "balakan", "ismayilli", "goychay", "goygol",
+  "barda", "yevlakh", "khizi", "siyazan", "tovuz", "gazakh", "agstafa", "salyan", "neftchala", "imishli", "sabirabad", "beylagan", "shanghai", "hong kong",
   "shenzhen", "tokyo", "osaka", "kyoto", "seoul", "busan", "taipei", "kaohsiung", "bangkok", "phuket", "hanoi", "ho chi minh", "saigon",
   "bali", "jakarta", "manila", "kuala lumpur", "sydney", "melbourne", "toronto", "vancouver", "montreal", "rio de janeiro", "sao paulo",
   "buenos aires", "mexico city", "cancun", "havana", "bogota", "mumbai", "delhi", "kolkata", "kathmandu", "cape town", "johannesburg",
@@ -292,7 +299,13 @@ const DEQIQ = { washington: "washington dc" };
 // Eyni yerin başqa adları; ölkə yeganə yerdirsə (şəhər yoxdur) paytaxtının görüntüsü də uyğundur.
 const LAQEB = { "united states": ["usa", "america", "american", "united states"], usa: ["usa", "america", "american", "united states"],
   "united kingdom": ["united kingdom", "britain", "england", "uk"], turkiye: ["turkey", "turkiye"], turkey: ["turkey", "turkiye"],
-  ukraine: ["ukraine"], kyiv: ["kyiv", "kiev"], sumqayit: ["sumqayit", "sumgait"] };
+  ukraine: ["ukraine"], kyiv: ["kyiv", "kiev"], sumqayit: ["sumqayit", "sumgait"], sumgait: ["sumqayit", "sumgait"],
+  gabala: ["gabala", "qabala"], qabala: ["gabala", "qabala"], sheki: ["sheki", "shaki"], shaki: ["sheki", "shaki"],
+  nakhchivan: ["nakhchivan", "nakhichevan"], nakhichevan: ["nakhchivan", "nakhichevan"], lankaran: ["lankaran", "lenkoran"], lenkoran: ["lankaran", "lenkoran"],
+  quba: ["quba", "guba", "khinalug"], guba: ["quba", "guba", "khinalug"], qusar: ["qusar", "gusar", "shahdag"], gusar: ["qusar", "gusar", "shahdag"], shahdag: ["shahdag", "qusar", "gusar"],
+  mingachevir: ["mingachevir", "mingechevir"], mingechevir: ["mingachevir", "mingechevir"], shamakhi: ["shamakhi", "shamakha"], shamakha: ["shamakhi", "shamakha"],
+  aghdam: ["aghdam", "agdam"], agdam: ["aghdam", "agdam"], zaqatala: ["zaqatala", "zagatala"], zagatala: ["zaqatala", "zagatala"],
+  gobustan: ["gobustan", "qobustan"], qobustan: ["gobustan", "qobustan"] };
 const PAYTAXT = { azerbaijan: ["baku"], turkey: ["istanbul", "ankara"], turkiye: ["istanbul", "ankara"], russia: ["moscow"], georgia: ["tbilisi"],
   ukraine: ["kyiv", "kiev"], "united states": ["washington", "new york"], usa: ["washington", "new york"], france: ["paris"],
   "united kingdom": ["london"], germany: ["berlin"], iran: ["tehran"], china: ["beijing"], japan: ["tokyo"], italy: ["rome"], israel: ["jerusalem", "tel aviv"] };
@@ -359,14 +372,34 @@ const MENBELER = [
 // xeber: { title, text, yer } — varsa namizədləri montaj redaktoru (Gemini, redaktor()) seçir; yoxdursa və ya Gemini cavab vermirsə
 // ifadə sırası ilə (hər ifadədən birinci, sonra ikinci…).
 const NAMIZED_MAX = 3, SERIYA = 60;
-async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null } = {}) {
+// Öz video arxivi (video-arxiv.cjs, data/video-arxiv.json): yeri kadrlarla yoxlanmış kliplər və sahibin öz görüntüsü. Xəbərin yeri
+// məlumdursa əvvəl arxiv, sonra adi axtarış. Yer qaydası (yadYer) arxivə də şamildir. arxiv: kitabxananın klipləri (VA.yukle()),
+// hava: hava videosunun Bakı halı (p.baki.kind) — arxivdən yalnız o havada çəkilmiş Bakı klipi.
+async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null, arxiv = [], hava = "" } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
-  if (!menbeler.length) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
+  if (!menbeler.length && !(arxiv || []).some(e => e?.menbe === "Sahib")) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
   // Əvvəl xəbərin yerləri (əsl yer görüntüsü başlıq kadrına), sonra Gemini-nin montaj ifadələri.
   const Y = yerPlan(yer), own = [...new Set([...Y.axtar, ...queries(axtar)])], spare = ehtiyat({ category }).filter(q => !own.includes(q));
   if (Y.axtar.length) log(`video: yer — ${Y.axtar.join("; ")}`);
-  // 1) Namizədlər: hər ifadədən ən uyğun NAMIZED_MAX klip; işlənmiş və yad yerin klipi atılır. Ifadə bir dəfə soruşulur.
   const cand = [], seen = new Set(istifade), yadlar = [];
+  // 0) Arxiv: xəbərin yerinin yoxlanmış klipləri (əvvəl sahibin öz görüntüsü, sonra dəqiq obyekt, sonra şəhər). Klipin indiki faylı
+  // bankdan ID ilə soruşulur (silinibsə ötürülür), sahibinki öz Release-dən.
+  const arx = [];
+  if (arxiv?.length) {
+    const VA = require("./video-arxiv.cjs");
+    const menfi = VA.menfi({ category, title: xeber?.title });
+    const nm = VA.namizedler(arxiv, { yer: xeber?.yer?.length ? xeber.yer : yer, icaze: Y.icaze, axtar: own, istifade: seen, hava, menfi });
+    for (const n of nm) {
+      if (arx.length >= VA.ARXIV_NAMIZED) break;
+      const c = await VA.hazirla(n.e, { env, fetch: f });
+      if (!c) { log(`video: arxiv klipi alınmadı — ${n.e.id} (bankda silinib və ya açar yoxdur)`); continue; }
+      seen.add(`${c.p}:${c.id}`);
+      arx.push({ m: { name: c.p }, c, q: n.e.obyekt || n.e.yer[0], sira: -1, arxiv: n });
+    }
+    if (arx.length) log(`video: arxiv — ${arx.map(x => `${x.c.p} ${x.c.id} (${x.arxiv.level}: ${x.q})`).join("; ")}`);
+    else if (Y.icaze.size) log("video: arxivdə bu yerin klipi yoxdur — adi axtarış");
+  }
+  // 1) Namizədlər: hər ifadədən ən uyğun NAMIZED_MAX klip; işlənmiş və yad yerin klipi atılır. Ifadə bir dəfə soruşulur.
   const collect = async (list, per) => {
     for (const q of list) for (const m of menbeler) {
       let k = 0;
@@ -382,27 +415,32 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
     }
   };
   await collect(own, NAMIZED_MAX);
-  if (cand.length < SPARE_MIN) await collect(spare, 2);   // ümumi səhnə yalnız uyğun klip azdırsa
+  if (cand.length + arx.length < SPARE_MIN) await collect(spare, 2);   // ümumi səhnə yalnız uyğun klip azdırsa (arxiv klipləri də sayılır)
   // Yad yerin klipi ilə eyni çəkilişdən olan klip (eyni müəllif, yaxın nömrə — bir seriya kimi yüklənib): etiketində yer adı
   // olmasa da həmin yeri göstərir (2026-11-23: Batumi stadionu 239973 rədd edildi, eyni seriyadan 239964 keçdi).
   const eyniSeriya = x => yadlar.some(y => y.p === x.m.name && y.user && y.user === x.c.user && Math.abs(y.id - Number(x.c.id)) <= SERIYA);
   for (let i = cand.length - 1; i >= 0; i--) if (eyniSeriya(cand[i])) { log(`video: klip ötürüldü — «${cand[i].q}» ${cand[i].m.name} ${cand[i].c.id}: yad yerin seriyası`); cand.splice(i, 1); }
-  // 2) Seçim: montaj redaktoru və ya ifadə sırası.
-  let pick = xeber && env.GEMINI_API_KEY && cand.length ? await redaktor(cand, xeber, say, { env, fetch: f, log }) : null;
-  if (!pick) pick = [...cand].sort((a, b) => a.sira - b.sira || cand.indexOf(a) - cand.indexOf(b)).slice(0, say);
+  // 2) Seçim: montaj redaktoru və ya ifadə sırası. Arxivin dəqiq yer klipi (obyekt; şəhər — mənfi xəbər deyilsə) redaktordan asılı
+  // olmadan başlıq kadrıdır (ən çox 2): yeri artıq kadrlarla yoxlanıb. Qalan arxiv klipləri redaktorun siyahısında birincidir.
+  const all = [...arx, ...cand];
+  const ilk = arx.filter(x => x.arxiv.ilk).slice(0, 2);
+  let pick = xeber && env.GEMINI_API_KEY && all.length ? await redaktor(all, xeber, say, { env, fetch: f, log }) : null;
+  if (!pick) pick = [...all].sort((a, b) => a.sira - b.sira || all.indexOf(a) - all.indexOf(b)).slice(0, say);
+  pick = [...ilk, ...pick.filter(x => !ilk.includes(x))];
   // 3) Yükləmə, seçim sırası ilə.
   const got = [];
-  for (const { m, c, q } of pick) {
+  for (const { m, c, q, arxiv: n } of pick) {
     if (got.length >= say) break;
     try {
-      const r = await f(c.link, { signal: AbortSignal.timeout(90000) });
+      const r = await f(c.link, { signal: AbortSignal.timeout(c.maxBytes ? 300000 : 90000) });
       const buf = r?.ok ? Buffer.from(await r.arrayBuffer()) : null;
-      if (!buf || buf.length < 10000 || buf.length > KLIP_MAX_BYTES) continue;
+      if (!buf || buf.length < 10000 || buf.length > (c.maxBytes || KLIP_MAX_BYTES)) continue;
       const name = `klip-${got.length + 1}.mp4`;
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, name), buf);
-      got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h });
-      log(`video: görüntü ${got.length} — «${q}» (${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
+      got.push({ file: name, id: c.id, user: c.user, q, p: m.name, w: c.w, h: c.h, ...(c.kredit ? { kredit: c.kredit } : {}),
+        ...(n ? { arxiv: n.e.id, yer: n.e.yer.join(", "), level: n.level } : {}) });
+      log(`video: görüntü ${got.length} — ${n ? `ARXİV ${n.level} «${q}» (${n.e.id}; ` : `«${q}» (`}${m.name} ${c.id}, ${c.w}×${c.h}, ${c.user}${c.tags ? `; ${c.tags}` : ""})`);
     } catch {}
   }
   if (!got.length) log(`video: ${menbeler.map(m => m.name).join(", ")}-dən uyğun klip alınmadı`);
@@ -469,7 +507,8 @@ function yerUygun(e, tags, x) {
   return e?.xeberin_yeri !== false;
 }
 async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.fetch, log = console.log } = {}) {
-  const list = cand.map((k, i) => `${i + 1}. «${k.q}» — ${clean(k.c.tags || "etiket yoxdur").slice(0, 160)}`).join("\n");
+  // Arxiv klipi: yeri kadrlarla yoxlanıb (video-arxiv.cjs) — redaktor bunu bilir, kod onu yer qaydası ilə yenidən atmır.
+  const list = cand.map((k, i) => `${i + 1}. ${k.arxiv ? `[ARXİV: yeri yoxlanıb — ${k.arxiv.e.yer.join(", ")}${k.arxiv.e.menbe === "Sahib" ? "; saytın öz görüntüsü" : ""}] ` : ""}«${k.q}» — ${clean(k.c.tags || "etiket yoxdur").slice(0, 160)}`).join("\n");
   const prompt = REDAKTOR.replace("{n}", () => String(n)).replace("{title}", () => clean(x.title)).replace("{yer}", () => places(x.yer).join(", ") || "—")
     .replace("{text}", () => clean(x.text).slice(0, 900)).replace("{list}", () => list);
   const imgs = await Promise.all(cand.map(k => sekil(k.c.thumb, f)));
@@ -485,7 +524,7 @@ async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.f
   const yad = new Map();
   for (const e of Array.isArray(j.yerler) ? j.yerler : []) {
     const k = Number(e?.klip);
-    if (Number.isInteger(k) && k >= 1 && k <= cand.length && !yerUygun(e, cand[k - 1].c.tags, x)) yad.set(k, lat(e.yer));
+    if (Number.isInteger(k) && k >= 1 && k <= cand.length && !cand[k - 1].arxiv && !yerUygun(e, cand[k - 1].c.tags, x)) yad.set(k, lat(e.yer));
   }
   const secdi = [...new Set(j.klip.map(Number).filter(k => Number.isInteger(k) && k >= 1 && k <= cand.length))];
   for (const k of secdi) if (yad.has(k)) log(`video: klip ötürüldü — «${cand[k - 1].q}» ${cand[k - 1].m.name} ${cand[k - 1].c.id}: redaktor başqa yer gördü (${yad.get(k)})`);
@@ -494,4 +533,9 @@ async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.f
   return idx.map(k => cand[k - 1]);
 }
 
-module.exports = { ssenari, goruntu, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+// Videoda və post mətnində «Görüntü: …»: əvvəl saytın öz görüntüsünün krediti (sahib), sonra bank (Pixabay, Pexels).
+const BANK = ["Pixabay", "Pexels"];
+const kredit = klip => [...new Set((klip || []).map(k => clean(k.kredit || k.p)).filter(Boolean))]
+  .sort((a, b) => BANK.includes(a) - BANK.includes(b)).join(", ");
+
+module.exports = { ssenari, goruntu, kredit, OLKELER, SEHERLER, LAQEB, PAYTAXT, hasName, lat, getJson, slug, words, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

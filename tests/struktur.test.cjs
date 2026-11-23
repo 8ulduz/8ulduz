@@ -76,7 +76,8 @@ test("struktur 6: every Node script that sends or publishes stories applies the 
   const writers = ["topics.cjs", "izle.cjs", "arxiv.cjs", "social.cjs", "prerender.cjs", "sosial-video.cjs", "video-ssenari.cjs", "video-xeber.cjs", "video-hava.cjs", "tiktok.cjs", "youtube.cjs"];
   for (const f of writers) assert.ok(/policyViolation|content-policy/.test(read(".github/scripts/" + f)), `${f} mənbə qaydasını (policyViolation) işlətmir`);
   // tixac.cjs: öz ölçüsü (Mapbox), başqa saytın xəbərini yazmır. meta-yoxla.cjs: Meta açarını və statistikanı yalnız oxuyur, heç nə paylaşmır.
-  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs"]);
+  // video-arxiv.cjs: yalnız klip metadatası (yer, lisenziya, yoxlama) yazır, xəbərin mətnini və başlığını işlətmir.
+  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs", "video-arxiv.cjs"]);
   const all = fs.readdirSync(path.join(root, ".github/scripts")).filter(f => f.endsWith(".cjs"));
   assert.deepEqual(all.filter(f => !known.has(f)), [], "yeni Node skripti: xəbər yazırsa policyViolation işlətsin və bu siyahıya əlavə olunsun");
 });

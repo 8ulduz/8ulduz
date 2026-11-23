@@ -87,7 +87,7 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   Tapılmayan ifadənin yerinə ümumi səhnə qoyulmur, çünki yanlış yerin kadrı uyğun klipin təkrarından pisdir. Bölmənin ümumi səhnələri (yer adı yoxdur) yalnız uyğun klip 3-dən az olanda işlənir.
   Son 3 günün videolarında işlənmiş kliplər götürülmür (`.sosial-video/state.json` → `klip`).
 - **Əsl yer** (sahib, 2026-11-23: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə»): Gemini xəbərin konkret yerlərini verir (`yer`: «Ganja City Stadium», «Ganja», «Azerbaijan»).
-  Axtarış əvvəlcə bu yerlərlə aparılır. Şəhər həmişə ölkə ilə axtarılır («ganja azerbaijan»: «ganja» ingiliscədə həm də kənafdır). Tapılan əsl yer görüntüsü başlıq kadrına düşür.
+  Əvvəl öz video arxivimizə baxılır: yeri kadrlarla yoxlanmış kliplər və sahibin öz görüntüsü (aşağıda «Video arxivi»). Sonra axtarış bu yerlərlə aparılır. Şəhər həmişə ölkə ilə axtarılır («ganja azerbaijan»: «ganja» ingiliscədə həm də kənafdır). Tapılan əsl yer görüntüsü başlıq kadrına düşür.
   Etiketində xəbərə aid olmayan ölkə və ya şəhər olan klip götürülmür (`yadYer`; nümunədə Gəncə xəbərinə Batumi stadionu, Gürcüstan xəbərinə Bakı düşmüşdü). Xəbərdə yalnız ölkə varsa, onun paytaxtı da olar.
   **Montaj redaktoru** (`redaktor`). Hər ifadədən 3 namizəd toplanır. Gemini xəbəri, yeri və hər namizədin etiketlərini oxuyub ən çox 8 klipi montaj sırası ilə seçir.
   Söz uyğunluğu bunları buraxırdı: siyahıda olmayan yad şəhəri («lech poznan») və mənası başqa klipi («empty stadium seats» axtarışına köhnə divan). Yalnız seçilən klip yüklənir. Gemini cavab verməsə, ifadə sırası işləyir.
@@ -104,8 +104,8 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 
 ## Müəllif hüququ (sərt qayda)
 
-Videoya yalnız hüququmuz olan şey düşür: xəbərin başlığı və izahı (mənbə göstərilir), saytın dizaynı və loqosu, SARA səsi və Pexels-in
-pulsuz lisenziyalı klipləri (yuxarıda). Kod bunu testlə qoruyur (`tests/sosial-video.test.cjs`: video modulu xəbərin şəklini və videosunu, `reels.json`/`oz_x.json` videolarını işlətmir; ffmpeg-in girişləri yalnız rəngli fon, loqo və səsdir).
+Videoya yalnız hüququmuz olan şey düşür: xəbərin başlığı və izahı (mənbə göstərilir), saytın dizaynı və loqosu, SARA səsi, Pixabay və Pexels-in
+pulsuz lisenziyalı klipləri (yuxarıda) və saytın öz görüntüsü — sahibin çəkilişi və ya yazılı icazəli görüntü («Video arxivi»: TV-nin, X-in, sosial şəbəkənin videosu və su nişanlı görüntü kodla qəbul edilmir). Kod bunu testlə qoruyur (`tests/sosial-video.test.cjs`: video modulu xəbərin şəklini və videosunu, `reels.json`/`oz_x.json` videolarını işlətmir; ffmpeg-in girişləri yalnız rəngli fon, loqo və səsdir).
 
 Tətbiq edilməyən variantlar — **qərar sahibindir**:
 
@@ -260,6 +260,105 @@ Niyə 20:47 (araşdırma, 2026-11-23):
 - PR-da iki nümunə video hazırlanır (matris): xəbər və hava. Hava nümunəsi saxlanmış Open-Meteo cavabından, süni kliplərlə qurulur. Artefaktlar `video-xeber` və `video-hava` adlanır.
 - Əl ilə: Actions → «Video xəbər (Facebook, Instagram)» → Run workflow → «Video: hava», «Paylaş» söndürülsün. Bunu istənilən budaqda etmək olar.
 - Önizləmə (`paylas` söndürülüb) öz budağının növbəsindədir. Paylaşma işini gözlətmir və siyahı keşini yazmır: köhnə nüsxə paralel paylaşmanın yazdığını üstələməsin.
+
+## Video arxivi (öz kitabxanamız, sahib 2026-11-23)
+
+Sahibin sözü: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə». Bankda adi axtarış yeri təsadüfən tapır: etiket yanlış ola bilər, «baku» axtarışına Batumi gəlir. Ona görə yeri əvvəlcədən yoxlanmış öz kitabxanamız var.
+
+**Qısa.**
+- Kitabxana: `data/video-arxiv.json`. Burada yalnız metadata saxlanır, video fayl yoxdur (repo ölçüsü, `repo-olcu.yml`).
+- Kod: `.github/scripts/video-arxiv.cjs`. İş: `.github/workflows/video-arxiv.yml`.
+- Montaj xəbərin yeri məlum olanda əvvəl arxivə baxır, sonra adi axtarışa keçir (`video-ssenari.cjs` `goruntu`). Sıra belədir:
+  1. sahibin öz görüntüsü;
+  2. xəbərdəki obyektin özü (Gəncə şəhər stadionu, Alov qüllələri);
+  3. həmin şəhərin yoxlanmış klipi.
+- Dəqiq obyekt klipi redaktordan asılı olmadan başlıq kadrına düşür (ən çox 2). Obyekt yoxdursa, şəhərin ən yaxşı klipi düşür. Mənfi xəbərdə (qəza, ölüm) şəhər klipi başlığa məcburi qoyulmur, yaxın planda insan olan klip götürülmür. Qalan arxiv klipləri montaj redaktorunun siyahısında «ARXİV: yeri yoxlanıb» işarəsi ilə birincidir.
+- Yad yer qaydası arxivə də şamildir (`yadYer`). Gəncə xəbərinə Bakının, Bakı xəbərinə Şəkinin klipi getmir. Yeri bilinməyən xəbərdə arxiv işlənmir.
+- Hava videosu Bakının sabahkı havasında çəkilmiş klipi götürür: yağışda yağış, qarda qar. Gecə klipi gündüz proqnozuna getmir.
+- Son 3 günün videolarında işlənmiş arxiv klipi yenidən götürülmür (`state.klip`, adi kliplərlə eyni açar: «Pixabay:123»).
+- Jurnalda arxiv klipi belə görünür: «video: arxiv — …» və «görüntü 1 — ARXİV obyekt «Ganja City Stadium» (…)». İşin xülasəsində «Görüntü: 1) ARXİV sahib-gence-stadion — Ganja City Stadium, Ganja, Azerbaijan; …».
+- Kredit əvvəl saytın öz görüntüsünü, sonra bankı göstərir: videoda və post mətnində «Görüntü: 8ulduz.az, Pixabay» (`kredit`).
+
+**Yer necə təsdiqlənir (iki müstəqil sübut).** Bank klipi yalnız hər ikisi olanda arxivə düşür:
+1. Bankın etiketində və ya səhifə ünvanında yerin adı var (`yoxlama.teq`). Etiketdə yad şəhər, ölkə və ya separatçı ad (Stepanakert, Artsakh, Shushi) varsa klip rədd edilir.
+2. Gemini klipin 4 kadrına baxır (klipin 10%, 31%, 52%, 74%-i; ən kiçik nüsxədən). Ona etiket verilmir, yalnız gözlənilən yer deyilir, əvvəl «kadrda gördüyün yer» soruşulur. Qəbul şərtləri:
+   - yer təsdiqlənir və əminlik ən azı 0,75-dir;
+   - kadrda başqa yer görünmür;
+   - su nişanı, telekanal nişanı, titr və ekran yazısı yoxdur;
+   - başqa ölkənin bayrağı və siyasi simvol yoxdur;
+   - keyfiyyət ən azı 3/5-dir.
+   Model həmçinin havanı (günəşli, buludlu, yağışlı, qarlı, dumanlı, gecə), səhnənin mövzusunu, yaxın plan insanı və tanınan obyekti yazır.
+
+Gemini-dən əvvəl kodun öz su nişanı yoxlaması da işləyir (`statikQat`). Klip boyu 12 kiçik boz kadr götürülür. Səhnə hərəkət edir, amma küncdə və ya aşağı zolaqda kənarları olan hissə yerindən tərpənmir: bu, loqo, su nişanı və ya titrdir, klip rədd edilir. Səhnənin özü dayanıbsa (ştativ), qərarı Gemini verir.
+
+Obyekt adı ayrıca yoxlanır. Klip obyekt kimi yalnız iki halda qeyd olunur: etiket obyekti adlandırır, ya da Gemini onu çox əmin tanıyır (≥ 0,85). Qalan hallarda klip şəhər səviyyəsində qalır. Ad müqayisəsi sözlərin növünə baxır (`obyektUygun`): «Heydar Aliyev Center» ≠ «Heydar Aliyev Park», «Baku Olympic Stadium» ≠ «Ganja City Stadium». Azərbaycanca yazılan ad («Gəncə şəhər stadionu», «Qız qalası») montajın ingiliscə adına çevrilir (`norm`).
+
+**Saxlanan sahələr** (bir klip bir sətir):
+
+| Sahə | Nə |
+|---|---|
+| `id`, `menbe`, `menbeId`, `sehife` | «pixabay-123», bank və nömrə, klipin səhifəsi |
+| `lisenziya` | «Pixabay Content License — …» (Pexels: «Pexels License — …»; sahib: «Saytın öz çəkilişi» və ya «Müəllifin yazılı icazəsi: Ad, tarix») |
+| `muellifId` | bankdakı istifadəçi nömrəsi (eyni çəkiliş seriyası üçün). **Ad saxlanmır**: Pixabay və Pexels şərtləri (§8) üzv adlarını toplamağı qadağan edir. Ad montajda API-dən təzə gəlir, jurnala və kreditə oradan yazılır |
+| `yer`, `seher`, `obyekt`, `adlar` | dəqiqdən ümumiyə («Flame Towers», «Baku», «Azerbaijan»), şəhərin açarı, tanınan obyekt, başqa adları (azərbaycanca da) |
+| `movzu`, `hava`, `insan` | səhnə sözləri, hava, yaxın planda insan |
+| `olcu`, `muddet`, `keyfiyyet` | istifadə olunan nüsxənin ölçüsü (≥1080 p), saniyə, 1–5 |
+| `yoxlama` | tarix, model, kadr sayı, etiket sübutu, əminlik, Gemini-nin gördüyü yer və bir cümləlik izahı, su nişanı yoxlamasının nəticəsi |
+| `baxildi` | klipin bankda son yoxlandığı gün |
+
+Bankın faylının ünvanı saxlanmır. Montaj klipi ID ilə bankdan təzə soruşur (`hazirla`). Müəllif klipi silibsə, video adi axtarışla davam edir, arxiv işi də klipi çıxarır. Bankın tam etiketləri də saxlanmır, yalnız yer sübutu olan sözlər. Ayrıca iki siyahı var:
+- `redd`: rədd edilən namizədlər və səbəbi, 180 gün. Təkrar yoxlanmır.
+- `axtaris`: hər ifadənin son axtarış günü.
+
+**Böyütmə işi** («Video arxivi», `video-arxiv.yml`). Bazar ertəsi və cümə axşamı 13:02-də işləyir (Bakı vaxtı).
+- Gemini-nin gündəlik limiti 08:00 UTC-də yenilənir. İş ~6 dəqiqə çəkir və video işindən (:17) əvvəl bitir.
+- Plan (`PLAN`) əvvəl şəhərləri sayır: Bakı, Gəncə, Sumqayıt, Şəki, Şuşa, Qəbələ, Lənkəran, Naxçıvan, Quba, Xınalıq, Şahdağ, Mingəçevir, Şamaxı və başqaları.
+- Sonra tanınan yerlər gəlir: Alov qüllələri, Bulvar, İçərişəhər, Qız qalası, Heydər Əliyev Mərkəzi, Kristal Zal, Olimpiya stadionu, Respublika stadionu, Dağüstü park, Teleqüllə, Şirvanşahlar sarayı, metro, Bibiheybət, Xalça muzeyi, Fəvvarələr meydanı, Nizami küçəsi, Bayraq meydanı, Atəşgah, Yanardağ, Qobustan, Nizami məqbərəsi, Şəki Xan sarayı, Nohur gölü, Göygöl. Sonda ölkənin ümumi səhnəsi (bayraq, dağlar).
+- Hər iş ən çox 25 axtarış edir. Hər axtarışdan 3 yeni namizəd, cəmi 20 yoxlama.
+- Bakıda ən çox 120 klip, başqa şəhərdə 30, cəmi 400.
+- Hər işdə 15 köhnə klipin bankda qaldığı yoxlanır.
+- Əl ilə: Actions → «Video arxivi» → Run workflow («say» — neçə namizəd).
+- İş yalnız `data/video-arxiv.json`-u main-ə yazır (`git pull --rebase`, force push yoxdur).
+- Xəbər axını bu faylı öz köhnə nüsxəsi ilə üstələmir: `pipeline.sh` onu iş qovluğuna köçürmür. Əvvəl `publish_main` bütün `data/`-nı köçürürdü və başqa işin yazdığı fayl 10 dəqiqədə geri qayıdırdı.
+- Xülasədə əlavə olunan və rədd edilən kliplər səbəbi ilə yazılır. Artefaktda (7 gün) hər namizədin 4 kadrı var, üstündə qərar yazılıb (`_qebul-N.jpg`, `_redd-N.jpg`).
+- PR-da iş yalnız sxemi yoxlayır. `arxiv-yoxla` etiketi ilə əsl axtarış və yoxlama gedir, main-ə yazılmır, nəticə artefaktda qalır.
+
+**Mənbə qaydaları (araşdırma, 2026-11-23) və bizim etdiyimiz:**
+
+| Qayda | Mənbə | Biz |
+|---|---|---|
+| Dəqiqədə 100 sorğu; «requests must be cached for 24 hours»; çoxlu avtomatik sorğu və sistemli kütləvi yükləmə olmaz | [Pixabay API](https://pixabay.com/api/docs/) | Eyni axtarış 30 gündə bir dəfə gedir. Bir işdə ≤25 axtarış, həftədə 2 iş. Yoxlama üçün yalnız ən kiçik nüsxə (tiny, ~1–3 MB) bir dəfə yüklənir və silinir. Montajda yalnız videoya düşən klip yüklənir |
+| Kütləvi, sistemli köçürmə və bənzər xidmət qurmaq qadağandır; metadata da «Content» sayılır; üzvlərin adı və profili toplanmır | [Pixabay şərtləri](https://pixabay.com/service/terms/) §2, §8; [Pexels şərtləri](https://www.pexels.com/terms-of-service/) §8 | Kitabxana ≤400 klipdir və yalnız Azərbaycanın yerləri üçün redaktə seçimidir. Faylın ünvanı, tam etiketlər və müəllifin adı saxlanmır |
+| Pulsuz, kommersiya istifadəsi, dəyişdirmə; atribusiya məcburi deyil, nəticənin haradan olduğunu göstərmək xahiş olunur | [Pixabay lisenziyası](https://pixabay.com/service/license-summary/), API | Videoda və mətndə «Görüntü: Pixabay» |
+| Tanınan insanı pis işıqda göstərmək, aldadıcı istifadə, siyasi təbliğat, brendin «dəstəyi» kimi göstərmək olmaz | Pixabay və [Pexels lisenziyası](https://www.pexels.com/license/) | Mənfi xəbərdə yaxın planda insan olan arxiv klipi götürülmür. Protokol və Prezident xəbərindən video yoxdur (əvvəlki qayda) |
+| Saatda 200, ayda 20 000 sorğu; Pexels-ə keçid göstərilsin, müəllif qeyd olunsun | [Pexels API](https://www.pexels.com/api/documentation/) | Kod Pexels-i də dəstəkləyir (`PEXELS_API_KEY`, ID ilə `videos/videos/:id`). 2026-11-23-də açar yoxdur |
+
+### Video arxivi: öz görüntünüz (sahib üçün bələdçi)
+
+Öz çəkdiyiniz və ya müəllifin yazılı icazə verdiyi video arxivə düşür və videolarda bankdan əvvəl gedir. Fayl GitHub Release-də saxlanır: repoya yazılmır, repo şişmir.
+
+1. GitHub → 8ulduz/8ulduz → **Releases** → «Video arxivi — saytın öz görüntüləri» → ✏️ **Edit**. Release birləşmədən sonrakı ilk işdə özü yaranır. Yoxdursa: Actions → «Video arxivi» → **Run workflow**.
+2. Videonu səhifənin aşağısındakı «Attach binaries» sahəsinə sürükləyin. Şərtlər: mp4 və ya mov, ən çox 300 MB, ən az 720p, 3 saniyədən uzun. Fayla sadə ad verin, məsələn `gence-stadion.mp4`.
+3. Təsvirin sonuna hər fayl üçün bir sətir yazın:
+   - öz çəkilişinizdirsə: `gence-stadion.mp4 | Gəncə şəhər stadionu, Gəncə | öz çəkilişim`;
+   - başqasınındırsa və yazılı icazə verib: `seki.mp4 | Şəki Xan sarayı, Şəki | icazə: Ad Soyad, 2026-11-20`. İcazə yazışmasını özünüzdə saxlayın.
+
+   Yeri dəqiqdən ümumiyə yazın və sonda şəhəri də göstərin.
+4. **Update release** basın. İş bir neçə dəqiqəyə faylı yoxlayır, ən geci ertəsi gün 10:40-da. Nəticəyə Actions → «Video arxivi» → son işin xülasəsində baxın: «Əlavə olundu» və ya «Qəbul olunmadı — səbəb». Kadrlar artefaktdadır.
+5. Silmək üçün faylı və ya sətri Release-dən silin. Növbəti işdə klip arxivdən də çıxır.
+
+Kredit belə yazılır: öz çəkilişdə «Görüntü: 8ulduz.az», icazəli görüntüdə «Görüntü: Ad Soyad».
+
+**Nə qəbul edilmir (kodla qorunur, `video-arxiv.cjs`):**
+- **Başqa yerdən fayl.** Fayl yalnız bu repodakı «video-arxiv» Release-indən götürülür. Başqa ünvanlı sətir montaja düşmür (`kecerli`).
+- **Üçüncü tərəfin mənbəyi.** İcazə sahəsində telekanal, sosial şəbəkə və ya xəbər saytı adı varsa (AzTV, İTV, X, Twitter, TikTok, Instagram, YouTube, APA, Report, Oxu.az, president.az…), sətir rədd edilir.
+- **Platformanın faylı.** Faylın daxili nişanlarında TikTok, Instagram, X, Facebook, YouTube və s. izi varsa, video başqa saytdan endirilmiş sayılır.
+- **Su nişanı.** Kadrda statik loqo, su nişanı və ya titr varsa (`statikQat`), həmçinin Gemini kadrda nişan, «canlı», istifadəçi adı, tarix yazısı görürsə, fayl rədd edilir.
+- **Ekran çəkilişi.** Televizor, telefon və ya kompüter ekranından çəkilmiş görüntü qəbul edilmir.
+- **Siyasi simvol və ziddiyyət.** Başqa ölkənin bayrağı, separatçı simvol və ya yazılan yerə açıq zidd əlamət olan kadr rədd edilir.
+- **Kiçik fayl.** 720p-dən kiçik fayl qəbul edilmir.
+
+Rədd edilən fayl təkrar yoxlanmır. Faylı dəyişsəniz (yeni yükləmə), yenidən yoxlanır.
 
 ## Sahibin əlavə etməli olduğu icazələr
 
