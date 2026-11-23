@@ -46,10 +46,11 @@ async function quota(r) {
 }
 
 // Mətn və ya null (heç bir model cavab vermədi: açar, limit, şəbəkə). Boş sətir — model cavab verdi, amma mətn yoxdur.
+// prompt: mətn və ya hazır hissələr ([{ text }, { inline_data }] — redaktorun şəkilləri).
 async function gemini(prompt, key, f, log, env = process.env) {
   const listed = await models(key, f);
   const order = [...new Set([env.GEMINI_MODEL, ...(listed.length ? listed : FALLBACK_MODELS)].filter(Boolean))].slice(0, 6);
-  const body = JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }],
+  const body = JSON.stringify({ contents: [{ role: "user", parts: Array.isArray(prompt) ? prompt : [{ text: prompt }] }],
     generationConfig: { temperature: 0.3, maxOutputTokens: 8000, responseMimeType: "application/json" } });
   const tried = [];
   for (const model of order) {
@@ -334,7 +335,8 @@ const MENBELER = [
       // Pexels etiket vermir: təsvir səhifə ünvanındadır (…/video/drone-view-of-baku-123/); ünvan yoxdursa axtarışın sırasına güvənilir.
       const out = rank((j?.videos || []).filter(v => v.duration >= 4).map(v => ({ v, file: bestFile(v, orient === "portrait") })).filter(x => x.file)
         .map(({ v, file }) => ({ id: v.id, user: clean(v.user?.name || ""), link: file.link, w: file.width, h: file.height,
-          score: words(slug(v.url)).length ? relevance(q, slug(v.url)) : 1, tags: slug(v.url).replace(/-\d+$/, "").replace(/-/g, ", ") })));
+          score: words(slug(v.url)).length ? relevance(q, slug(v.url)) : 1, tags: slug(v.url).replace(/-\d+$/, "").replace(/-/g, ", "),
+          thumb: v.image || "" })));
       if (out.length) return out;
     }
     return [];
@@ -343,7 +345,8 @@ const MENBELER = [
     const j = await getJson(`https://pixabay.com/api/videos/?key=${enc(key)}&q=${enc(q.slice(0, 100))}&video_type=film&safesearch=true&per_page=20`, {}, f);
     return rank((j?.hits || []).filter(v => v.duration >= 4).map(v => ({ v, file: pixabayFile(v) })).filter(x => x.file)
       .map(({ v, file }) => ({ id: v.id, user: clean(v.user || ""), link: file.url, w: file.width, h: file.height,
-        score: relevance(q, `${v.tags || ""} ${slug(v.pageURL)}`), tags: clean(v.tags || "") })));
+        score: relevance(q, `${v.tags || ""} ${slug(v.pageURL)}`), tags: clean(v.tags || ""),
+        thumb: v.videos?.tiny?.thumbnail || v.videos?.small?.thumbnail || file.thumbnail || "" })));   // redaktor üçün kadr
   } },
 ];
 
@@ -407,12 +410,21 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
 }
 
 // Montaj redaktoru (2026-11-23): söz uyğunluğu yad şəhəri (siyahıda olmayan «lech poznan»), mənası başqa klipi («empty stadium seats»
-// → köhnə divan) buraxırdı. Gemini xəbəri və hər namizədin etiketlərini oxuyub montaj sırası ilə seçir; uyğun deyilsə az seçir.
+// → köhnə divan) buraxırdı. Gemini xəbəri, hər namizədin etiketlərini və bir kadrını (şəkil) görüb montaj sırası ilə seçir; uyğun
+// deyilsə az seçir. Yer qaydası kodla da yoxlanır: redaktor hər klipdə gördüyü yeri adlandırır (yerler), xəbərin yeri deyilsə klip
+// seçilsə də atılır — ilk canlı videoda (2026-11-23, Bakının tıxacları) redaktor etiketində «kettering» (İngiltərə) olan dairəvi
+// yolu seçmişdi; Petrobras məntəqəli (Braziliya) və Asiya yazılı şose kliplərinin isə etiketində yer yox idi, yalnız şəkildə görünürdü.
 // Nəticə: seçilmiş namizədlər (bəlkə boş) və ya null — Gemini cavab vermədi, sadə qayda işləsin.
 const REDAKTOR = `Sən 8ulduz.az xəbər videosunun montaj redaktorusan. Aşağıda xəbər və video bankında tapılmış kliplər var: nömrə, axtarış
-ifadəsi və bankın klipə yazdığı etiketlər. Videonun kadrları üçün ən çox {n} klip seç, MONTAJ SIRASI İLƏ: əvvəl xəbərin yerini və ya
-əsas səhnəsini göstərən, sonra diktor mətninin cümlələrinin sırası ilə.
-Qaydalar:
+ifadəsi və bankın klipə yazdığı etiketlər; sonra hər klipin bir kadrı şəkil kimi («Klip N»). Videonun kadrları üçün ən çox {n} klip seç,
+MONTAJ SIRASI İLƏ: əvvəl xəbərin yerini və ya əsas səhnəsini göstərən, sonra diktor mətninin cümlələrinin sırası ilə.
+Əvvəlcə hər klipin yerini müəyyən et (yerler), sonra seç (klip).
+- yerler: etiketində və ya şəklində konkret yer görünən HƏR klip üçün bir sətir. Yer: şəhər, ölkə, region, tanınan bina, stadion;
+  şəkildə ölkəni göstərən əlamət də sayılır — lövhə və yazının dili (heroqlif, ərəb, kiril…), brend və yanacaq şirkəti, bayraq,
+  nömrə nişanı, memarlıq, maşınların yolun hansı tərəfi ilə getməsi (Azərbaycanda sağ tərəf). "yer" — ingiliscə ad (dəqiq yer
+  bilinmirsə ölkə: "china", "brazil", "united kingdom"); "xeberin_yeri" — bu yer xəbərin yeridir və ya onun içindədir (true/false).
+  Heç bir yer əlaməti olmayan ümumi klipi yazma.
+Seçim qaydaları:
 - Klip etiketlərinə görə həqiqətən lazım olan səhnəni göstərməlidir. Mənası başqa olan klipi SEÇMƏ (stadion oturacağı əvəzinə divan,
   güllə izi əvəzinə tikinti, futbol əvəzinə uşaq oyunu).
 - Yer klipini yalnız etiketləri məhz xəbərin yerini göstərirsə seç: ad eyni olsa da yer başqa ola bilər (Vaşinqton şəhəri xəbərinə
@@ -422,26 +434,64 @@ Qaydalar:
 - Klipin əhvalı xəbərə uyğun olmalıdır: partlayış, qəza, müharibə, cinayət, ölüm, fəlakət xəbərində istirahət, turizm, bayram,
   romantika klipini (yelkənli qayıq, çimərlik, gün batımı, "holiday", "peaceful", "tropical") SEÇMƏ.
 - Cinayət, qəza, ölüm xəbərində tanınan insan üzü olan klipi seçmə.
+- "xeberin_yeri": false olan klipi SEÇMƏ.
 - Uyğun klip azdırsa az seç: yanlış kadr qoymaqdansa klipin təkrarı yaxşıdır. Heç biri uyğun deyilsə boş siyahı.
-Yalnız JSON qaytar: {"klip": [nömrələr]}
+Yalnız JSON qaytar: {"yerler": [{"klip": nömrə, "yer": "ad", "xeberin_yeri": true}], "klip": [nömrələr]}
 
 Xəbər: {title}
 Yer: {yer}
 Diktor mətni: {text}
 Kliplər:
 {list}`;
+// Namizədin kadrı (bankın önizləmə şəkli) Gemini üçün: { mime_type, data } və ya null (yoxdur, şəkil deyil, böyükdür).
+const SEKIL_MAX = 400000;
+async function sekil(url, f) {
+  if (!/^https:\/\//.test(url || "")) return null;
+  try {
+    const r = await f(url, { signal: AbortSignal.timeout(15000) });
+    if (!r?.ok) return null;
+    const type = String(r.headers?.get?.("content-type") || "").split(";")[0].trim().toLowerCase()
+      || ({ jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" })[(url.match(/\.(\w+)(?:\?|$)/) || [])[1]?.toLowerCase()] || "";
+    if (!/^image\/(jpeg|png|webp)$/.test(type)) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    return buf.length >= 500 && buf.length <= SEKIL_MAX ? { mime_type: type, data: buf.toString("base64") } : null;
+  } catch { return null; }
+}
+// Redaktorun klipdə gördüyü yer xəbərə aiddirmi. Ad xəbərin yerlərindən birini daşıyırsa (və ya əksinə) və ya klipin etiketində
+// xəbərin yeri varsa — bəli; ad tanınan yad yerdirsə — xeyr; yoxsa redaktorun öz cavabı (xeberin_yeri).
+const BOS_YER = new Set(["unknown", "none", "yoxdur", "naməlum", "ümumi", "generic", "n/a"].map(lat));
+function yerUygun(e, tags, x) {
+  const ad = lat(e?.yer || "");
+  if (ad.length < 3 || BOS_YER.has(ad)) return true;
+  const P = yerPlan(x?.yer), bizim = [...new Set([...P.icaze, ...places(x?.yer).map(lat)])].filter(Boolean), t = lat(tags || "");
+  if (bizim.some(b => hasName(ad, b) || hasName(b, ad) || hasName(t, b))) return true;
+  if (yadYer(ad, P.icaze)) return false;
+  return e?.xeberin_yeri !== false;
+}
 async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.fetch, log = console.log } = {}) {
   const list = cand.map((k, i) => `${i + 1}. «${k.q}» — ${clean(k.c.tags || "etiket yoxdur").slice(0, 160)}`).join("\n");
   const prompt = REDAKTOR.replace("{n}", () => String(n)).replace("{title}", () => clean(x.title)).replace("{yer}", () => places(x.yer).join(", ") || "—")
     .replace("{text}", () => clean(x.text).slice(0, 900)).replace("{list}", () => list);
-  const raw = await gemini(prompt, env.GEMINI_API_KEY, f, log, env);
+  const imgs = await Promise.all(cand.map(k => sekil(k.c.thumb, f)));
+  const parts = [{ text: prompt }];
+  imgs.forEach((img, i) => { if (img) parts.push({ text: `Klip ${i + 1}:` }, { inline_data: img }); });
+  let raw = await gemini(parts.length > 1 ? parts : prompt, env.GEMINI_API_KEY, f, log, env);
+  if (raw == null && parts.length > 1) { log("video: redaktor şəkilli sorğuya cavab vermədi — yalnız etiketlərlə"); raw = await gemini(prompt, env.GEMINI_API_KEY, f, log, env); }
   if (raw == null) return null;
   let j = null;
   try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
   if (!Array.isArray(j?.klip)) { log("video: montaj redaktorunun cavabı JSON deyil — sadə qayda"); return null; }
-  const idx = [...new Set(j.klip.map(Number).filter(k => Number.isInteger(k) && k >= 1 && k <= cand.length))].slice(0, n);
-  log(`video: montaj redaktoru ${cand.length} namizəddən ${idx.length} klip seçdi`);
+  // Yer qaydası kodla: redaktorun özü seçsə də, xəbərin yeri olmayan yer görünən klip atılır.
+  const yad = new Map();
+  for (const e of Array.isArray(j.yerler) ? j.yerler : []) {
+    const k = Number(e?.klip);
+    if (Number.isInteger(k) && k >= 1 && k <= cand.length && !yerUygun(e, cand[k - 1].c.tags, x)) yad.set(k, lat(e.yer));
+  }
+  const secdi = [...new Set(j.klip.map(Number).filter(k => Number.isInteger(k) && k >= 1 && k <= cand.length))];
+  for (const k of secdi) if (yad.has(k)) log(`video: klip ötürüldü — «${cand[k - 1].q}» ${cand[k - 1].m.name} ${cand[k - 1].c.id}: redaktor başqa yer gördü (${yad.get(k)})`);
+  const idx = secdi.filter(k => !yad.has(k)).slice(0, n);
+  log(`video: montaj redaktoru ${cand.length} namizəddən (${imgs.filter(Boolean).length} kadr) ${idx.length} klip seçdi`);
   return idx.map(k => cand[k - 1]);
 }
 
-module.exports = { ssenari, goruntu, redaktor, REDAKTOR, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, goruntu, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

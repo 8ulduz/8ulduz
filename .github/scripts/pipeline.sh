@@ -412,19 +412,21 @@ xyazici_loop() {
 
 # Video xəbər (sosial-video.yml; sahib 2026-11-22: «Facebook-da video xəbərlər verilsin… İnstagramda videolar verilsin»): iş
 # axınının cron-u («17,47») 2026-11-22-də bir dəfə də işləmədi — bütün işlər əl ilə və ya PR-dan idi. İşi bu döngü başladır: hər
-# 30 dəqiqəlik pəncərədə (UTC dəqiqə 17 və 47-dən sonra) bir dəfə; main-də gedən və ya növbədə olan video işi varsa yox.
-# Yalnız dispatch: açar, Gemini, video bankı bu döngüyə gəlmir. Vaxt (Bakı 08–23), 120 dəqiqəlik fasilə və gündəlik hədd
+# 30 dəqiqəlik pəncərədə (UTC dəqiqə 17 və 47-dən sonra) bir dəfə; main-də gedən, növbədə olan və ya bu pəncərədə artıq başlamış
+# video işi varsa yox (2026-11-23: dövrə hər saat yenidən başlayanda yaddaşı sıfırlanırdı və 04:17 pəncərəsində 04:36-da ikinci iş
+# getdi). Yalnız dispatch: açar, Gemini, video bankı bu döngüyə gəlmir. Vaxt (Bakı 08–23), 120 dəqiqəlik fasilə və gündəlik hədd
 # sosial-video.cjs-dədir: vaxtı deyilsə iş ~20 saniyədə bitir. Cron ehtiyat qalır.
 video_loop() {
-  local last=-1 slot busy
+  local last=-1 slot start busy
   while :; do
     slot=$(( ($(date +%s) - 1020) / 1800 ))
     if [ "$slot" != "$last" ]; then
-      busy="$(gh_t run list --workflow sosial-video.yml --branch main --limit 5 --json status --jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo "")"
+      start=$(( slot * 1800 + 1020 ))   # pəncərənin başlanğıcı (epoch)
+      busy="$(gh_t run list --workflow sosial-video.yml --branch main --limit 5 --json status,createdAt --jq '[.[] | select(.status != "completed" or (.createdAt | fromdateiso8601) >= '"$start"')] | length' 2>/dev/null || echo "")"
       if [ "$busy" = 0 ]; then
         gh_t workflow run sosial-video.yml --ref main >/dev/null 2>&1 && last=$slot
       elif [ -n "$busy" ]; then
-        last=$slot   # bu pəncərənin işi artıq gedir (cron və ya əl ilə)
+        last=$slot   # bu pəncərənin işi artıq gedir və ya getdi (cron, əl ilə, əvvəlki dövrə)
       fi
     fi
     sleep 60
