@@ -1,0 +1,45 @@
+name: Meta açarı və görünmə
+# Facebook/Instagram açarının sağlamlığı (etibarlılıq, müddət, icazələr, səhifədə hüquq) və paylaşımların görünməsi
+# (son Reels-in baxışı). Yalnız oxuyur, heç nə paylaşmır, main-ə və sayta yazmır. Qaydalar: .github/scripts/meta-yoxla.cjs,
+# qurulum: docs/sosial-video.md «Meta açarı: yoxlama və yeniləmə». Problem olsa iş qırmızı olur, səbəb işin xülasəsindədir.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Hər bazar ertəsi 09:23 (Bakı): açarın müddəti və ya icazəsi gözlənilmədən bitməsin.
+    - cron: "23 5 * * 1"
+  pull_request:
+    paths:
+      - .github/scripts/meta-yoxla.cjs
+      - .github/workflows/meta-yoxla.yml
+      - tests/meta-yoxla.test.cjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meta-yoxla-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  yoxla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/meta-yoxla.cjs
+            tests/meta-yoxla.test.cjs
+          sparse-checkout-cone-mode: false
+      - name: Test
+        run: node --test tests/meta-yoxla.test.cjs
+      - name: Açar və görünmə
+        env:
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID || '1470250006171917' }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
+          FB_GRAPH_VERSION: ${{ vars.FB_GRAPH_VERSION }}
+          META_ROLE_MAX: ${{ vars.META_ROLE_MAX }}
+        run: node .github/scripts/meta-yoxla.cjs
