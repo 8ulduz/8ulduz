@@ -22,9 +22,24 @@ const SOUND_KEY = "8u-reels-sound";
 const SEEN_KEY = "8u-reels-seen", SEEN_MAX = 2000;
 // İlk açılışda böyük ox (sahib 2026-11-20: «videoların jestlə dəyişdiyini göstərən (ilk dəfə yalnız) böyük ox»): bir dəfə göstərilir.
 const HINT_KEY = "8u-reels-hint";
-const seenOrder = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"); } catch { return []; } };
-const seenSet = () => new Set(seenOrder());
-const markSeen = u => { try { const a = seenOrder().filter(x => x !== u); a.push(u); localStorage.setItem(SEEN_KEY, JSON.stringify(a.slice(-SEEN_MAX))); } catch {} };
+// Videonun açarı (sahib 2026-11-23: «3 dəfə açmışam hər dəfə öncə baxdığım video çıxıb»): X-in media nömrəsi, ünvan yox. Eyni video
+// başqa paylaşımda, başqa ölçüdə (480x852 / 720x1280), başqa ?tag= ilə və ya öz video xəbərimizdə gələndə də bir açardır — izlənmiş
+// video başqa ünvanla «təzə» kimi qayıtmır. Köhnə yaddaşdakı ünvanlar da oxunanda açara çevrilir.
+export const vkey = u => { const m = /\/(?:ext_tw_video|amplify_video|tweet_video)\/(\d{6,25})\//.exec(u || ""); return m ? m[1] : String(u || "").split("?")[0]; };
+const K = v => v.key || vkey(v.u);
+// Yaddaş yazılmayanda (gizli rejim, dolu yaddaş, sosial şəbəkənin daxili brauzeri) siyahı bu səhifənin yaddaşında qalır: lenti bir
+// səhifədə yenidən açanda da izlənmiş video birinci gəlmir.
+let mem = null;
+export const seenOrder = () => {
+  if (mem) return mem;
+  try { return [...new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]").map(vkey).reverse())].reverse(); } catch { return []; }
+};
+export const markSeen = u => {
+  const k = vkey(u), a = seenOrder().filter(x => x !== k);
+  a.push(k);
+  const keep = a.slice(-SEEN_MAX);
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(keep)); mem = null; } catch { mem = keep; }
+};
 
 const CSS = `html,body{margin:0;height:100%;background:#000;color:#fff;font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 .feed{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none}
@@ -55,14 +70,17 @@ button{position:fixed;right:12px;z-index:2;width:44px;height:44px;border-radius:
 
 let live = null;
 
-function list(S, reels) {
+// Lentin sırası: əvvəl heç görülməyənlər (mix), sonra izlənmişlər — ən çoxdan baxılan birinci (sahib 2026-11-20: «heç təkrar olmayan»;
+// 2026-11-23: hər açılışda əvvəl baxılan video birinci çıxırdı). order: izlənmiş açarlar, ən köhnəsi əvvəl.
+export function list(S, reels, order = seenOrder()) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
     u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id }));
   const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || ""), p: r.p === 1,
     q: r.q === "u" ? "u" : "h", c: typeof r.c === "string" ? r.c.slice(0, 140) : "" }));
-  const seen = new Set(), watched = seenSet();
-  const all = [...own, ...x].sort((a, b) => String(b.t).localeCompare(String(a.t))).filter(v => !seen.has(v.u) && seen.add(v.u));
-  return [...mix(all.filter(v => !watched.has(v.u))), ...mix(all.filter(v => watched.has(v.u)))];   // əvvəl görülməyənlər
+  const keys = new Set(), all = [];
+  for (const v of [...own, ...x]) { v.key = vkey(v.u); if (!keys.has(v.key) && keys.add(v.key)) all.push(v); }   // eyni video bir dəfə; öz xəbərimiz X nüsxəsindən üstündür
+  const at = new Map(order.map((k, i) => [k, i]));
+  return [...mix(all.filter(v => !at.has(v.key))), ...all.filter(v => at.has(v.key)).sort((a, b) => at.get(a.key) - at.get(b.key))];
 }
 
 // TikTok kimi qarışıq axın (sahib 2026-11-19: «video axını tiktok kimi olsun», «əksəriyyəti futboldur … proporsional olsun
@@ -70,13 +88,18 @@ function list(S, reels) {
 // təzəsi önə; eyni hesabdan iki video ardıcıl gəlmir.
 // İki sinif (sahib 2026-11-22: «videoların 60%-i … hadisələr …, Təmir-tadilatdakı videolar bənzəri videolar (çox fərqli mövzularda)»):
 // hadisə və yeniliklər («h») ilə usta işi («u») 3:2 növbə ilə — h h u h u; bir sinif qurtaranda o biri davam edir.
+// Lent təzə xəbər anı ilə açılır (sahib 2026-11-23: «hadisə və xəbər xarakterli videolarla bağlı da vəziyyət düzgün deyil»): hadisə
+// sinfində «xeber» mövzusu növbənin başındadır, qalan mövzuların sırası hər açılışda başqadır.
 const PATTERN = [0, 0, 1, 0, 1];   // 1 — usta işi
+// Birinci dərəcəli mənbə (sahib 2026-11-20, oz_x.VIDEOLENT_ONDE; reels «p») mövzusunda P_LEAD qədər «təzə» sayılır: əvvəl hər mövzuda
+// yaşına baxmadan önə keçirdi və lentin başında 1–2 günlük videolar dururdu (2026-11-23 ölçüsü).
+const P_LEAD = 6 * 3600e3, LEAD = "xeber";
+const recency = v => (Date.parse(v.t) || 0) + (v.p ? P_LEAD : 0);
 function lane(list) {
   const groups = new Map();
   for (const v of list) { const k = v.m || "idman"; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(v); }
-  // Birinci dərəcəli mənbələr (sahib 2026-11-20, oz_x.VIDEOLENT_ONDE; reels «p») hər mövzuda əvvəl, öz sırası ilə
-  for (const g of groups.values()) g.sort((a, b) => (b.p ? 1 : 0) - (a.p ? 1 : 0));
-  const order = [...groups.values()].sort(() => Math.random() - 0.5), rr = [];
+  for (const g of groups.values()) g.sort((a, b) => recency(b) - recency(a));
+  const order = [...groups.entries()].sort(() => Math.random() - 0.5).sort(([a], [b]) => (b === LEAD) - (a === LEAD)).map(([, g]) => g), rr = [];
   while (order.some(g => g.length)) for (const g of order) if (g.length) rr.push(g.shift());
   return rr;
 }
@@ -98,8 +121,8 @@ export function mix(list) {
 // görülmüşlər, ən çoxdan görülən birinci, ən son baxılan REPLAY_GAP video istisna, mövzu növbəsi ilə yenidən gəlir.
 export function replay(pool, order, gap = REPLAY_GAP) {
   gap = Math.min(gap, Math.floor(pool.length / 2));   // az video olanda da lent dövr edir
-  const recent = new Set(gap ? order.slice(-gap) : []), at = new Map(order.map((u, i) => [u, i]));
-  const old = pool.filter(v => !recent.has(v.u)).sort((a, b) => (at.get(a.u) ?? -1) - (at.get(b.u) ?? -1));
+  const recent = new Set(gap ? order.slice(-gap) : []), at = new Map(order.map((k, i) => [k, i]));
+  const old = pool.filter(v => !recent.has(K(v))).sort((a, b) => (at.get(K(a)) ?? -1) - (at.get(K(b)) ?? -1));
   return mix(old.slice(0, REPLAY_BATCH));
 }
 const REPLAY_GAP = 15, REPLAY_BATCH = 30;
@@ -127,9 +150,13 @@ async function load() {
 // Paylaşım keçidi (sahib 2026-11-20: «videolentdəki paylaşım x-a aparır. bizim sayta olsun, istəyən keçər mənbəyə»): saytın öz ünvanı,
 // açan adam lentə həmin videodan başlayır; mənbəyə keçid videonun altındakı düymədədir.
 export const shareLink = v => `https://8ulduz.az/#/videolent?r=${encodeURIComponent(v.k || "")}`;
-export function first(items, k) {
+// Paylaşılan video bu telefonda artıq izlənibsə birinci yox, ikinci gəlir (sahib 2026-11-23: izlənmiş video birinci çıxmasın) —
+// lent təzə videodan açılır, paylaşılan bir sürüşdürmə uzaqdadır.
+export function first(items, k, order = seenOrder()) {
   const i = k ? items.findIndex(v => v.k === k) : -1;
-  return i > 0 ? [items[i], ...items.slice(0, i), ...items.slice(i + 1)] : items;
+  if (i < 0) return items;
+  const rest = [...items.slice(0, i), ...items.slice(i + 1)];
+  return order.includes(K(items[i])) && rest.length ? [rest[0], items[i], ...rest.slice(1)] : [items[i], ...rest];
 }
 export async function open(S, k = "") {
   if (live) return;
@@ -209,7 +236,7 @@ function build(f, items, back, more) {
   slides.forEach(wire);
   near(0);
   // Yeni videolar izlənən videonun ardınca girir: barmaqla bir sürüşdürmə — təzə video. Görülənlər təkrar gəlmir.
-  const have = new Set(items.map(v => v.u)), pool = new Map(items.map(v => [v.u, v])), note = doc.querySelector(".new");
+  const have = new Set(items.map(K)), pool = new Map(items.map(v => [K(v), v])), note = doc.querySelector(".new");
   const put = (list, at) => {   // at: bu slayddan sonra; yoxdursa lentin sonuna
     const tpl = doc.createElement("template");
     tpl.innerHTML = list.map(slide).join("");
@@ -220,10 +247,10 @@ function build(f, items, back, more) {
     near(live.at);
   };
   const fetchNew = async () => {
-    const all = await more();
-    for (const v of all) if (!pool.has(v.u)) pool.set(v.u, v);
-    const add = all.filter(v => !have.has(v.u) && !seenSet().has(v.u));
-    for (const v of add) have.add(v.u);
+    const all = await more(), watched = new Set(seenOrder());
+    for (const v of all) if (!pool.has(K(v))) pool.set(K(v), v);
+    const add = all.filter(v => !have.has(K(v)) && !watched.has(K(v)));
+    for (const v of add) have.add(K(v));
     return add;
   };
   const freshTick = async () => {

@@ -698,6 +698,7 @@ def rows(path=None):
 # src (orijinal mətn: yalnız Azərbaycan süzgəci üçün, sayta çıxmır).
 REELS_DAYS = 7    # sahib, 2026-11-19: «günə 100 yeni video et» — lentdə ən təzə 200 video (~2 gün), ən çox 7 günlük
 REELS_MAX = 1000  # sahib 2026-11-22: «video sayı 1000 olsun» (2026-11-20: «çox sayda olmasıdır») — gündə 300–800 gəlir, lent ~2 günü tutur
+REELS_KEEP = REELS_MAX + REELS_MAX // 5   # növbə faylı (keep_reels): sayt süzgəcindən (köhnə klip, eyni video) sonra da REELS_MAX qalsın
 
 
 def _at(value):
@@ -752,23 +753,77 @@ def load_reels(path=None):
     return rows if isinstance(rows, list) else []
 
 
+_MEDIA = re.compile(r"/(?:ext_tw_video|amplify_video|tweet_video)/(\d{6,25})/")
+_TW_EPOCH_MS = 1288834974657
+# Hadisə videosunun özü ən çox bu qədər köhnə ola bilər (sahib 2026-11-22: «həm yeni, həm maraqlı hadisələr»). X media nömrəsi
+# yüklənmə vaxtını saxlayır: 2026-11-23 lentində videoların 9%-i illər əvvəlki klipin təzə paylaşımı idi (məs. 2022-07-13). Usta işi
+# vaxtdan asılı deyil, ona bu hədd yoxdur.
+REEL_VIDEO_DAYS = 3
+
+
+def video_key(url):
+    """Videonun açarı: X media nömrəsi (eyni video başqa paylaşımda, başqa ölçü və ?tag= ilə də bir açardır), yoxdursa sorğusuz ünvan.
+    lent.js vkey ilə eynidir: izlənmiş video başqa ünvanla «təzə» kimi qayıtmır."""
+    m = _MEDIA.search(str(url or ""))
+    return m.group(1) if m else str(url or "").split("?")[0]
+
+
+def video_at(url):
+    """X videosunun yüklənmə vaxtı (media nömrəsi snowflake-dir) və ya None."""
+    m = _MEDIA.search(str(url or ""))
+    if not m:
+        return None
+    return datetime.datetime.fromtimestamp(((int(m.group(1)) >> 22) + _TW_EPOCH_MS) / 1000, datetime.timezone.utc)
+
+
+def stale_event(row, now):
+    """Hadisə videosunun özü REEL_VIDEO_DAYS-dan köhnədirsə (köhnə klipin təzə paylaşımı) True."""
+    va = video_at(row.get("video"))
+    return sinif(row) == "h" and va is not None and va < now - datetime.timedelta(days=REEL_VIDEO_DAYS)
+
+
+def balance(rows, n=REELS_MAX, cls=lambda r: r["q"]):
+    """Ən çox n sətir (ən yenisi əvvəl verilir): usta işi USTA_PAY qədəri, qalanı hadisə; bir sinif çatmasa yer o birindən dolur
+    (sahib 2026-11-22: 60% hadisə, 40% usta işi). Usta işinin mənbəyi azdır: o, REELS_DAYS boyu saxlanır, hadisə isə ən təzəsi."""
+    u = [r for r in rows if cls(r) == "u"]
+    h = [r for r in rows if cls(r) != "u"]
+    keep_h = h[:n - min(len(u), round(n * USTA_PAY))]
+    keep = {id(r) for r in keep_h + u[:n - len(keep_h)]}
+    return [r for r in rows if id(r) in keep]
+
+
 def reels(now, path=None):
-    """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün videoları, ən yenisi əvvəl. Paylaşımın mətni (src) çıxmır.
-    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt), q (sinif: h/u); p: 1 — birinci dərəcəli mənbə
-    (VIDEOLENT_ONDE); c — Azərbaycan dilində izah (varsa)."""
+    """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün izahlı videoları, ən yenisi əvvəl. Paylaşımın mətni (src) çıxmır.
+    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt), q (sinif: h/u), c (Azərbaycan dilində izah);
+    p: 1 — birinci dərəcəli mənbə (VIDEOLENT_ONDE). Eyni video (media nömrəsi) bir dəfə; köhnə klipin təzə paylaşımı hadisə deyil;
+    usta işi USTA_PAY qədər (balance)."""
     floor, out, seen = now - datetime.timedelta(days=REELS_DAYS), [], set()
-    for row in load_reels(path):
-        if reel_check(row) or row["id"] in seen or _at(row["at"]) < floor or _at(row["at"]) > now + datetime.timedelta(hours=1):
+    rows = [r for r in load_reels(path) if not reel_check(r) and floor <= _at(r["at"]) <= now + datetime.timedelta(hours=1)]
+    for row in sorted(rows, key=lambda r: _at(r["at"]), reverse=True):
+        # Hər videoya izah (sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın»): Gemini düşəndə izahsız qalan video lentə
+        # çıxmır (2026-11-23: kvota bitəndə yazıcı izahsız idman videoları yığırdı, lentin ilk 10 videosunun 7-si izahsız idi)
+        key = video_key(row["video"])
+        if not row.get("c") or stale_event(row, now) or row["id"] in seen or key in seen:
             continue
-        seen.add(row["id"])
+        seen.update((row["id"], key))
         h = _REEL_HANDLE[row["handle"].lower()]
-        if movzu(h) == "xeber" and not row.get("c"):
-            continue   # xəbər videosu izahsız başa düşülmür (sahib 2026-11-22); Gemini düşəndə izahsız qalanlar lentə çıxmır
         out.append({"id": row["id"], "a": h, "n": ADLAR[h], "m": movzu(h), "u": row["video"], "i": row["poster"],
                     "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds"),
-                    "q": sinif(row), **({"p": 1} if onde(h) else {}), **({"c": row["c"]} if row.get("c") else {})})
-    out.sort(key=lambda r: r["t"], reverse=True)
-    return out[:REELS_MAX]
+                    "q": sinif(row), **({"p": 1} if onde(h) else {}), "c": row["c"]})
+    return balance(out)
+
+
+def keep_reels(rows, now):
+    """Növbə faylında saxlanan qısa video sətirləri (x_yazici): son REELS_DAYS günün izahlıları, ən çox REELS_KEEP. Sıra qorunur.
+    Çox olanda əvvəl ən köhnə hadisə videoları düşür, usta işi (REELS_KEEP × USTA_PAY) bütün həftə qalır — əvvəl fayl son 1000
+    sətri saxlayırdı və usta işi 2 gündən sonra silinirdi (2026-11-23 lentində 11%). İzahsız sətir saxlanmır: həmin paylaşım
+    növbəti işdə yenə namizəd olur və Gemini izah yazır."""
+    floor = now - datetime.timedelta(days=REELS_DAYS)
+    ok = [r for r in rows if isinstance(r, dict) and r.get("c") and (_at(r.get("at")) or floor) > floor]
+    newest = sorted(ok, key=lambda r: _at(r.get("at")), reverse=True)
+    keep = {id(r) for r in balance(newest, REELS_KEEP, sinif)}
+    return [r for r in ok if id(r) in keep]
+
 
 
 def credit(handle):

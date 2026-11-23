@@ -64,6 +64,91 @@ class GeminiTest(unittest.TestCase):
         self.assertIn("ok-flash", calls[1])
 
 
+class QuotaTest(unittest.TestCase):
+    """2026-11-23: açarın flash kvotası günün ortasında bitdi (başqa işlər də eyni açarı işlədir). Hər model 3 dəfə, 90 s gözlənilirdi
+    (bir işdə 18 dəqiqə), qısa videolar izahsız qaldı."""
+
+    def test_quota_error_moves_on_at_once_and_lite_is_tried_only_for_reels(self):
+        import io
+        import urllib.error
+        from unittest import mock
+        calls, sleeps = [], []
+
+        def fake_urlopen(req, timeout=None):
+            calls.append(req.full_url.rsplit("/", 1)[-1].split(":")[0])
+            if "lite" in req.full_url:
+                return io.BytesIO(json.dumps({"candidates": [{"content": {"parts": [{"text": "[]"}]}}]}).encode("utf-8"))
+            body = io.BytesIO(json.dumps({"error": {"message": "You exceeded your current quota, please check your plan"}}).encode("utf-8"))
+            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {}, body)
+
+        def models(key, lite=False):
+            return ["new-flash-lite"] if lite else ["b-flash", "a-flash"]
+        with mock.patch.object(xy, "_safe_models", models), mock.patch.object(xy, "GEMINI_MODEL", ""), \
+             mock.patch.object(xy.urllib.request, "urlopen", fake_urlopen), mock.patch.object(xy.time, "sleep", sleeps.append):
+            self.assertEqual(xy.ask_gemini("p", "k"), "", "xəbər yazısı «lite» işlətmir")
+            self.assertEqual(calls, ["b-flash", "a-flash"], "kvota xətasında hər model bir dəfə")
+            self.assertEqual(sleeps, [], "kvota bitibsə gözləmək kömək etmir")
+            calls.clear()
+            self.assertEqual(xy.ask_gemini("p", "k", xy.REELS_TOKENS, lite=True), "[]")
+            self.assertEqual(calls, ["b-flash", "a-flash", "new-flash-lite"], "flash bitəndə lite")
+
+
+class ReelQueueTest(unittest.TestCase):
+    """main(): növbə faylına yalnız izahlı, təzə və təkrarsız videolar yazılır; usta işi bütün həftə qalır."""
+
+    def run_main(self, reels, cands, answer):
+        import tempfile
+        from unittest import mock
+        at = datetime.datetime(2026, 11, 19, 12, 30, tzinfo=datetime.timezone.utc)   # Bakı 16:30: xəbər yazılmır, qısa video yığılır
+
+        class FakeDT(datetime.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return at
+        xy.REEL_META.clear()
+        self.addCleanup(xy.REEL_META.clear)
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            (root / "oz_x.json").write_text(json.dumps({"v": 1, "items": [], "reels": reels}), encoding="utf-8")
+            with mock.patch.object(xy, "ROOT", root), mock.patch.object(xy.datetime, "datetime", FakeDT), \
+                 mock.patch.object(xy, "collect", return_value=(cands, [])), mock.patch.object(xy, "ask_gemini", return_value=answer), \
+                 mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}):
+                self.assertEqual(xy.main(), 0)
+            return json.loads((root / "oz_x.json").read_text(encoding="utf-8")).get("reels", [])
+
+    def cand(self, h, pid, mid=None, hours=1):
+        at = datetime.datetime(2026, 11, 19, 12, 30, tzinfo=datetime.timezone.utc)
+        c = xy.candidate(h, post(author={"screen_name": h}, id=pid, created_timestamp=at.timestamp() - hours * 3600), set(), at, xy.REEL_WINDOW)
+        when = at - datetime.timedelta(hours=hours)
+        mid = mid or ((int(when.timestamp() * 1000) - 1288834974657) << 22) + int(pid[-3:])   # X media nömrəsi: yüklənmə vaxtı
+        c["video"] = f"https://video.twimg.com/amplify_video/{mid}/vid/avc1/480x852/b.mp4?tag=29"
+        c["reel_only"] = h not in xy.xm.HESABLAR
+        return c
+
+    def test_gemini_down_writes_nothing_and_uncaptioned_rows_leave_the_queue(self):
+        fresh = self.cand("LFC", "2123096874748187001", None)
+        bare = {k: fresh[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")} | {"src": fresh["src"], "sinif": "h"}
+        craft = {**bare, "id": "2123096874748187002", "post": "https://x.com/LFC/status/2123096874748187002", "c": "Usta köhnə stulu bərpa edir",
+                 "sinif": "u", "at": "2026-11-14T12:00:00+00:00",
+                 "video": "https://video.twimg.com/amplify_video/2113713055204831233/vid/avc1/480x852/b.mp4?tag=29"}
+        out = self.run_main([bare, craft], [self.cand("LFC", "2123096874748187003", None)], "")
+        self.assertEqual([r["id"] for r in out], ["2123096874748187002"], "Gemini düşəndə yeni video yoxdur, izahsız sətir silinir, 5 günlük usta işi qalır")
+
+    def test_only_captioned_fresh_videos_and_one_copy_of_each(self):
+        a = self.cand("LFC", "2123096874748187011", None)
+        same = self.cand("NBA", "2123096874748187012", None)
+        same["video"] = a["video"].replace("480x852", "720x1280")   # eyni video başqa paylaşımda
+        bare = self.cand("F1", "2123096874748187013", None)
+        old = self.cand("Rainmaker1973", "2123096874748187014", "1547039729014784001")   # 2022-ci ilin klipi
+        answer = json.dumps([{"id": a["id"], "s": "hadise", "c": "Futbolçu meydanın ortasından qol vurur"},
+                             {"id": same["id"], "s": "hadise", "c": "Eyni qol başqa hesabdan"},
+                             {"id": bare["id"], "s": "hadise"},
+                             {"id": old["id"], "s": "hadise", "c": "Köhnə klip yenidən paylaşılıb"}], ensure_ascii=False)
+        out = self.run_main([], [a, same, bare, old], answer)
+        self.assertEqual([r["id"] for r in out], [a["id"]], "izahsız, köhnə klip və eyni videonun ikinci nüsxəsi yazılmır")
+        self.assertEqual(out[0]["c"], "Futbolçu meydanın ortasından qol vurur")
+
+
 class LateEveningTest(unittest.TestCase):
     def test_no_writing_after_the_last_slot(self):
         import tempfile
@@ -111,14 +196,17 @@ class SourcesTest(unittest.TestCase):
 
 
 class ReelsPickTest(unittest.TestCase):
-    def test_without_gemini_only_safe_accounts_and_known_ids(self):
+    def test_without_gemini_no_video_is_written_every_video_needs_a_caption(self):
+        """Sahib 2026-11-22: hər videoya izah. 2026-11-23: kvota bitəndə «təhlükəsiz hesabların» izahsız idman videoları lentə düşürdü."""
         from unittest import mock
         tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
         clash = xy.candidate("clashreport", post(author={"screen_name": "clashreport"}, id="2123096874748186942"), set(), NOW)
         self.assertTrue(tamir and clash)
         self.assertIn("at", tamir, "qısa video üçün paylaşımın vaxtı")
         with mock.patch.dict(xy.os.environ, {}, clear=True):
-            self.assertEqual(xy.pick_reels([tamir, clash], 6), [tamir["id"]], "açar yoxdursa müharibə hesabı düşmür")
+            self.assertEqual(xy.pick_reels([tamir, clash], 6), [], "açar yoxdursa video yoxdur: izahı və kadrın yoxlanışı yoxdur")
+        with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), mock.patch.object(xy, "ask_gemini", return_value=""):
+            self.assertEqual(xy.pick_reels([tamir, clash], 6), [], "Gemini cavab verməyəndə də")
         with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), \
              mock.patch.object(xy, "ask_gemini", return_value='["2123096874748186942", "999", "2123096874748186942"]'):
             self.assertEqual(xy.pick_reels([tamir, clash], 6), [clash["id"]], "Gemini yalnız namizədlərdən, təkrarsız")
@@ -133,7 +221,7 @@ class ReelsPickTest(unittest.TestCase):
             for bad in ("meyit", "yaralı", "edam", "işgəncə", "əsir görüntüsü", "insanın vurulduğu", "terror təbliğatı"):
                 self.assertIn(bad, prompt.lower(), f"ağır kadr yenə seçilmir: {bad}")
         self.assertNotIn("müharibə və terror\ndöyüş səhnələri", xy.REELS_PROMPT)
-        self.assertNotIn("clashreport", xy.REELS_SAFE, "Gemini düşəndə müharibə hesabı lentə düşmür (kadrı yoxlayan yoxdur)")
+        self.assertFalse(hasattr(xy, "REELS_SAFE"), "Gemini düşəndə heç bir video yazılmır (kadrı yoxlayan yoxdur)")
 
 
 class VideolentSourcesTest(unittest.TestCase):
@@ -142,8 +230,7 @@ class VideolentSourcesTest(unittest.TestCase):
             self.assertIn(h, xy.xm.HESABLAR)
         for h in ("TheFigen_", "Pirat_Nation", "ufc", "ClutchPoints", "CrazyClipsOnly", "FootballFunnys", "theScore", "NBATV", "Onedio"):
             self.assertNotIn(h, xy.xm.HESABLAR, "siyasət, mərc/kazino, qan riski və ya danışıq videosu")
-        self.assertTrue(xy.REELS_SAFE <= set(xy.xm.HESABLAR), "ehtiyat siyahının hər hesabı cədvəldədir")
-        self.assertIn("Rainmaker1973", xy.REELS_SAFE, "Gemini cavab verməyəndə vizual hesablar")
+        self.assertNotIn("REELS_SAFE", (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8"), "izahsız ehtiyat yolu yoxdur")
 
 
 class TransferCandidateTest(unittest.TestCase):
@@ -334,8 +421,9 @@ class SixtyFortyTest(unittest.TestCase):
         for h in ("ufc", "baykartech", "TUSAS_TR"):
             self.assertIn(h, xy.xm.VIDEOLENT_HESABLAR)
         src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
-        self.assertIn("split_reels(pick_reels(pool, REELS_PER_RUN * 3)", src)
-        self.assertIn('if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"])', src, "biçimi pis izah düşür, video qalır")
+        self.assertIn("pick_reels(pool, REELS_PER_RUN * 3) if REEL_META.get(i, {}).get(\"c\")", src, "yalnız izahlı seçimlər")
+        self.assertIn("split_reels(picked, lambda i: by_id[i][\"handle\"], REELS_PER_RUN)", src)
+        self.assertIn('if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"])', src, "biçimi pis izah düşür, video da yazılmır")
 
 
 class GeminiDownTest(unittest.TestCase):
@@ -362,7 +450,7 @@ class GeminiDownTest(unittest.TestCase):
         news["reel_only"] = True
         tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
         with mock.patch.dict(xy.os.environ, {}, clear=True):
-            self.assertEqual(xy.pick_reels([news, tamir], 6), [tamir["id"]], "xəbər videosu Gemini-nin seçimi və izahı olmadan getmir")
+            self.assertEqual(xy.pick_reels([news, tamir], 6), [], "heç bir video Gemini-nin seçimi və izahı olmadan getmir")
 
 
 class ReelAnswerTest(unittest.TestCase):
@@ -379,12 +467,13 @@ class ReelAnswerTest(unittest.TestCase):
         seen = {}
         tamir = xy.candidate("TamirveTadilat", post(author={"screen_name": "TamirveTadilat"}, id="2123096874748186941"), set(), NOW)
 
-        def fake_ask(prompt, key, max_tokens=4000):
-            seen["max"] = max_tokens
+        def fake_ask(prompt, key, max_tokens=4000, lite=False):
+            seen["max"], seen["lite"] = max_tokens, lite
             return "[]"
         with mock.patch.dict(xy.os.environ, {"GEMINI_API_KEY": "k"}), mock.patch.object(xy, "ask_gemini", fake_ask):
             self.assertEqual(xy.pick_reels([tamir], 36), [])
         self.assertGreaterEqual(seen["max"], 12000, "36 video × Azərbaycanca izah")
+        self.assertTrue(seen["lite"], "flash kvotası bitəndə qısa video üçün «lite» da sınanır")
 
         sent = {}
 
