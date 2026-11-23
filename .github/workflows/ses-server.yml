@@ -40,22 +40,53 @@ jobs:
         env:
           SES_PREFETCH: "0"
           SES_CACHE: /tmp/ses-cache
+          URL: ${{ github.event.inputs.url }}
         run: |
           python .github/ses-server/server.py > /tmp/server.log 2>&1 &
           for i in $(seq 1 120); do curl -fs http://127.0.0.1:8790/saglam >/dev/null && break; sleep 2; done
           curl -fs http://127.0.0.1:8790/saglam
-          U="${{ github.event.inputs.url }}"
-          [ -n "$U" ] || U=$(curl -fs https://8ulduz.az/data/news.json | python -c "import json,sys; a=[x for x in json.load(sys.stdin)['articles'] if (x.get('lang') or 'az')=='az' and x.get('sourceUrl','').startswith('https://')]; print(a[0]['sourceUrl'])")
-          echo "xəbər: $U"
-          test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8790/dinle?u=$U")" = 403
-          Q="u=$(python -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$U")&t=Sınaq&s=Mənbə"
-          curl -s -H "Referer: https://8ulduz.az/" -o /tmp/ses.mp3 -w "ilk səs %{time_starttransfer} s, hamısı %{time_total} s, %{size_download} bayt\n" "http://127.0.0.1:8790/dinle?$Q" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Bəzi mənbələr GitHub serverinə məqalənin mətnini vermir (2026-11-23: oxu.az — yalnız başlıq oxundu, 13 KB). Bu, serverin
+          # xətası deyil: səs qısa çıxsa, növbəti mənbənin xəbəri yoxlanır (lentdən hər mənbədən biri, ən çox 6). Ünvan verilibsə yalnız o.
+          if [ -n "$URL" ]; then
+            printf '%s\n' "$URL" > /tmp/xeberler
+          else
+            curl -fs https://8ulduz.az/data/news.json -o /tmp/news.json
+            python - > /tmp/xeberler <<'PY'
+          import json
+          seen = set()
+          for x in json.load(open("/tmp/news.json", encoding="utf-8"))["articles"]:
+              u = x.get("sourceUrl", "")
+              host = u.split("/")[2] if u.startswith("https://") else ""
+              if (x.get("lang") or "az") == "az" and host and host not in seen:
+                  seen.add(host)
+                  print(u)
+              if len(seen) == 6:
+                  break
+          PY
+          fi
+          mapfile -t XEBERLER < /tmp/xeberler
+          test "${#XEBERLER[@]}" -gt 0
+          Q=""
+          for U in "${XEBERLER[@]}"; do
+            echo "xəbər: $U" | tee -a "$GITHUB_STEP_SUMMARY"
+            test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8790/dinle?u=$U")" = 403
+            Q="u=$(python -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$U")&t=Sınaq&s=Mənbə"
+            curl -s -H "Referer: https://8ulduz.az/" -o /tmp/ses.mp3 -w "ilk səs %{time_starttransfer} s, hamısı %{time_total} s, %{size_download} bayt\n" "http://127.0.0.1:8790/dinle?$Q" | tee -a "$GITHUB_STEP_SUMMARY"
+            [ "$(stat -c %s /tmp/ses.mp3)" -gt 20000 ] && break
+            echo "səs qısadır: mənbə mətni verməyib, növbəti xəbər" | tee -a "$GITHUB_STEP_SUMMARY"
+            Q=""
+          done
+          test -n "$Q"
           curl -s -H "Referer: https://8ulduz.az/" -o /tmp/ses2.mp3 -w "keşdən: ilk bayt %{time_starttransfer} s\n" "http://127.0.0.1:8790/dinle?$Q" | tee -a "$GITHUB_STEP_SUMMARY"
           curl -s -H "Referer: https://8ulduz.az/" -H "Range: bytes=0-99" -o /dev/null -w "Range: %{http_code}\n" "http://127.0.0.1:8790/dinle?$Q" | tee -a "$GITHUB_STEP_SUMMARY"
-          test "$(stat -c %s /tmp/ses.mp3)" -gt 20000
           cmp /tmp/ses.mp3 /tmp/ses2.mp3
-          cat /tmp/server.log
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - name: Server jurnalı
+        if: ${{ !cancelled() }}
+        run: cat /tmp/server.log || true
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: ses-sinaq
-          path: /tmp/ses.mp3
+          path: |
+            /tmp/ses.mp3
+            /tmp/server.log
