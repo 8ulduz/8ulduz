@@ -266,7 +266,7 @@ Hədlər testlə `oz_hava.py`-yə bağlıdır (`tests/video-hava.test.cjs`). Bak
 - Hava videosu `HAVA_VAXT` (20:45) saatından sonrakı ilk 30 dəqiqəlik pəncərədə gedir: `pipeline.sh` `video_loop`, :17 və :47.
 - Gündə bir dəfə (`state.hava`). Seçim günü sayır, video alınmasa da eyni gün təkrar hazırlanmır.
 - Open-Meteo cavab verməsə gün sayılmır. Həmin pəncərədə xəbər videosu gedir, hava növbəti pəncərədə (23:59-a qədər) yenidən sınanır.
-- Xəbər videosunun 120 dəqiqəlik fasiləsinə, gündəlik həddinə (8) və mövzu siyahısına sayılmır.
+- Xəbər videosunun 120 dəqiqəlik fasiləsinə, gündəlik həddinə (8) və mövzu siyahısına sayılmır. YouTube-un gündəlik həddinə (`YOUTUBE_MAX_DAY`, 8) də sayılmır: 2026-11-23-də hava videosu bu həddi doldurdu və 21:48-in xəbəri YouTube-a getmədi.
 - Bir pəncərədə bir iş qaydası (PR 303) dəyişmir. Hava pəncərəsində xəbər videosu növbəti pəncərəyə (30 dəqiqə sonra) qalır. İki video eyni anda getmir.
 
 Niyə 20:47 (araşdırma, 2026-11-23):
@@ -421,7 +421,7 @@ Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş
 
 | Dəyişən | Standart | Nə |
 |---|---|---|
-| `VIDEO_MIN_GAP_MIN` | 120 | iki video arasında dəqiqə |
+| `VIDEO_MIN_GAP_MIN` | 120 | iki video arasında dəqiqə. Yoxlama 30 dəqiqədən birdir və işin başlaması bir-iki dəqiqə oynayır, ona görə 10 dəqiqə dözüm var (fasilənin ¼-indən çox deyil): 110 dəqiqə keçibsə video gedir. Dözümsüz 2026-11-23-də dördüncü pəncərə «119 dəq əvvəl» ilə ötürülürdü, ara 2,5 saat olurdu |
 | `VIDEO_SAAT` | 8-23 | Bakı vaxtı ilə hansı saatlarda (daxil) |
 | `VIDEO_GUNDE` | 8 | 24 saatda ən çox video (Facebook həddi 30) |
 | `VIDEO_MIN_SOURCES` | `SOCIAL_MIN_SOURCES` və ya 4 | neçə mənbə yazanda |
