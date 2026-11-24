@@ -11,6 +11,15 @@ böyük hərf və durğu işarələri modelə çatmazdan əvvəl sözə çevrilm
   - rum rəqəmi sıra sayıdır: «XII əsr» → «on ikinci əsr»; «+12°…+17°» → «on iki-on yeddi dərəcə»;
   - cümlə bütöv səslənir (vergüldə bölmək aydınlığı azaldır — Whisper ölçməsi); çox uzun cümlə vergüldə bölünür;
   - qısaltma, xarici ad: əvvəl oxunuş lüğəti (ses-lugat.json), sonra qaydalar.
+
+Sahib, 2026-11-24 («noyabrın 25-də» → «noyabrın iyirmibeşdə» oxuyur; «oxunuşu mükəmməlləşdir»):
+  - ayın günü yiyəlik halındakı aydan sonra mənsubiyyət alır: «noyabrın 25-də» → «noyabrın iyirmi beşində», «iyulun 20-si»
+    → «iyulun iyirmisi», «dekabrın 31-dək» → «dekabrın otuz birinədək»;
+  - tam tarix ili ilə oxunur: «25 noyabr 2026» və «25.11.2026» → «iyirmi beş noyabr iki min iyirmi altıncı il»;
+  - saat: «14:05» → «on dörd sıfır beş», «10:00-18:00» → «ondan on səkkizədək»; şəkilçi oxunan dəqiqəyə uyğunlaşır;
+  - nöqtəli ixtisar cümləni bölmür: «və s.» → «və sairə», «5 mln. manat», «Bakı ş.» → «Bakı şəhəri», «prof.» → «professor»;
+  - ölçü: «m²», «kv. m» → «kvadrat metr», «ha» → «hektar», «kVt» → «kilovat»; «$1,5 mlrd» → «bir tam onda beş milyard dollar»;
+  - Babək üçün (for_voice) mötərizə və boşluqlu tire vergül olur: səs orada nəfəs alır, cümlənin intonasiyası qırılmır.
 """
 import json
 import os
@@ -69,6 +78,22 @@ FOREIGN = {
 }
 DOMAIN_TLD = {"com": "kom", "gov": "qov", "org": "orq", "edu": "edu", "net": "net", "info": "info", "io": "ay-o", "ws": "ve-es"}
 ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
+
+MONTHS_CI = "|".join(f"[{m[0].replace('i', 'İ').upper()}{m[0]}]{m[1:]}" for m in MONTHS)   # «Noyabr» da (başlıqda böyük)
+# Yiyəlik halında ay (və «ayın»): ondan sonrakı gün mənsubiyyət şəkilçisi alır — «noyabrın iyirmi beşində».
+MONTH_GEN = ("(?:[Yy]anvarın|[Ff]evralın|[Mm]artın|[Aa]prelin|[Mm]ayın|[İi]yunun|[İi]yulun|[Aa]vqustun|[Ss]entyabrın|"
+             "[Oo]ktyabrın|[Nn]oyabrın|[Dd]ekabrın|[Aa]yın)")
+ORD_SUFFIX = r"(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)"
+# Tarixdən sonra «il» sözü (2026-cı il, 2026-cı ildə …): bu sözlər varsa il yenidən əlavə olunmur.
+YEAR_WORD = r"il(?:in|də|dən|ədək|inə|ini|dir|ində|indən)?"
+# Tam tarixin ilinə yazılan hal şəkilçisi (25.11.2026-da) «il» sözünə keçir: «… iki min iyirmi altıncı ildə».
+YEAR_CASE = {"da": "ildə", "də": "ildə", "dan": "ildən", "dən": "ildən", "dək": "ilədək", "dakı": "ildəki", "dəki": "ildəki"}
+# Nöqtəli ixtisarlar: addan sonra («Bakı ş.») və addan əvvəl («prof. Əliyev»). Nöqtə cümləni bölməsin.
+ABBR_AFTER = {"ş": "şəhəri", "r": "rayonu", "küç": "küçəsi", "pr": "prospekti", "qəs": "qəsəbəsi"}
+ABBR_BEFORE = {"prof": "professor", "dos": "dosent", "akad": "akademik", "dr": "doktor", "st": "sent"}
+# Rəqəmdən sonra ölçü vahidləri (WORD_UNITS-dan əvvəl, «m2» hərf-rəqəm kimi bölünməzdən əvvəl).
+SQUARE = {"km": "kvadrat kilometr", "sm": "kvadrat santimetr", "m": "kvadrat metr"}
+POWER = {"kvt": "kilovat", "mvt": "meqavat", "qvt": "qiqavat"}
 
 # Oxunuş lüğəti (.github/scripts/ses-lugat.cjs): qısaltmalar və orijinal yazılışlı xarici adlar, söz → oxunuş. Repodakı baxılmış
 # ses-lugat.json üstündür; ses-lugat-elave.json — «ses-lugat» budağından həftəlik əlavələr (video işi və server özü gətirir),
@@ -190,8 +215,8 @@ def attach(word, suffix, harmony=False):
     if suffix.startswith(("dək", "dəkki")):
         dat = "a" if _last_vowel(word) in BACK else "ə"
         return word + ("y" if end in VOWELS else "") + dat + suffix
-    if end not in VOWELS and len(suffix) > 1 and suffix[0] == "n" and suffix[1] in VOWELS:
-        suffix = suffix[1:]
+    if end not in VOWELS and len(suffix) > 1 and suffix[0] in "ny" and suffix[1] in VOWELS:
+        suffix = suffix[1:]              # 10-nun → onun; samitlə bitən oxunuşda bitişdirici «y» də düşür: USD-yə → dollara
     elif harmony and end in VOWELS and suffix[0] in "ıiuü":
         suffix = "n" + suffix            # ABŞ-ın → a-be-şenin, ABŞ-ı → a-be-şeni
     elif end in VOWELS and suffix[0] in VOWELS:
@@ -332,13 +357,99 @@ def _say_number(s):
     m = re.fullmatch(r"(\d{1,2}):(\d{2})", s)
     if m:
         h, mi = int(m.group(1)), int(m.group(2))
-        return f"{number_words(h)} {number_words(mi) if mi else ''}".strip()
+        # 14:05 → «on dörd sıfır beş» (diktor kimi; «on dörd beş» 14:50 kimi eşidilir), 14:00 → «on dörd»
+        return f"{number_words(h)} {('sıfır ' if mi < 10 else '') + number_words(mi) if mi else ''}".strip()
     if re.fullmatch(rf"\d{{1,3}}(?:[ {SP}.]\d{{3}})+", s):
         return number_words(int(re.sub(rf"[ {SP}.]", "", s)))
     m = re.fullmatch(r"(\d+)[.,](\d{1,3})", s)
     if m:
         return decimal_words(m.group(1), m.group(2))
     return number_words(int(s)) if len(s) <= 15 else " ".join(number_words(int(d)) for d in s)
+
+
+def day_case(word, suffix):
+    """Ayın günü mənsubiyyət şəkilçisi ilə (sahib, 2026-11-24): «beş» + «də» → «beşində», «iyirmi» + «dən» → «iyirmisindən»,
+    «otuz» + «u» → «otuzu», «on beş» + «dək» → «on beşinədək». Yazıda şəkilçi qısa («25-də», «25-nə», «25-ə») və ya tam
+    («25-ində», «20-si») olur; hər ikisi eyni oxunur. None — hal tanınmadı (adi qayda işləyir)."""
+    s = lower_az(suffix)
+    m = re.match(r"s?[ıiuü](?=n|$)", s)          # tam yazılmış mənsubiyyət: 25-i, 20-si, 25-ində
+    rest = s[m.end():] if m else s
+    if m and not rest:
+        case = ""                                  # «noyabrın 25-i» — adlıq hal
+    else:
+        core = rest[1:] if rest[:1] in ("n", "y") else rest
+        case = next((c for pat, c in ((r"d[aə]", "də"), (r"d[aə]k[ıi]", "dəki"), (r"d[aə]n", "dən"), (r"[aə]", "ə"),
+                                      (r"(?:[aə])?d[aə]k", "ədək"), (r"[ıiuü]", "i"), (r"[ıiuü]n", "in"))
+                     if re.fullmatch(pat, core)), None)
+        if case is None:
+            return None
+    base = word + ("s" if word[-1] in VOWELS else "") + harmonize(word, "i")
+    if not case:
+        return base
+    if case == "ədək":
+        return base + harmonize(base, "nə") + "dək"
+    return base + harmonize(base, "n" + case)
+
+
+def _month_day(m):
+    """«noyabrın 25-də» → «noyabrın iyirmi beşində»; «noyabrın 25-26-da» → «noyabrın iyirmi beş-iyirmi altısında»."""
+    month, a, b, suffix = m.groups()
+    day = int(b or a)
+    if re.fullmatch(ORD_SUFFIX, lower_az(suffix)) or not 1 <= day <= 31:
+        return m.group(0)
+    said = day_case(number_words(day), suffix)
+    if said is None:
+        return m.group(0)
+    return f"{month} {number_words(int(a)) + '-' if b else ''}{said}"
+
+
+def _year_date(m):
+    """Tam tarix ili ilə: «25 noyabr 2026» → «25 noyabr 2026-ci il» (sıra sayı sonra çevrilir), «… 2026-da» → «… 2026-ci ildə»."""
+    day, month, year, word, suffix = m.groups()
+    if word:
+        return f"{day} {month} {year}-ci {word}"
+    if suffix is None:
+        return f"{day} {month} {year}-ci il"
+    if re.fullmatch(ORD_SUFFIX, lower_az(suffix)):
+        return m.group(0)
+    il = YEAR_CASE.get(lower_az(suffix))
+    return f"{day} {month} {year}-ci {il}" if il else m.group(0)
+
+
+def _time_range(m):
+    """«10:00-18:00» → «ondan on səkkizədək»; «10:00-18:00 arası» → «on ilə on səkkiz arası»."""
+    a, b, suffix, between = m.groups()
+    if between:
+        return f"{_say_number(a)} ilə {_say_number(b)}"
+    start = attach(_say_number(a), "dan", True)
+    return f"{start} {attach(_say_number(b), suffix or 'dək', True)}"
+
+
+def _abbr_after(m):
+    """«Bakı ş.» → «Bakı şəhəri»; cümlə sonundadırsa nöqtə qalır."""
+    return f"{m.group(1)} {ABBR_AFTER[m.group(2)]}{'.' if m.group(3) is not None else ''}"
+
+
+def _abbr_and_so_on(m):
+    """«və s.» → «və sairə», «və b.» → «və başqaları»; cümlə sonundadırsa nöqtə qalır."""
+    return ("və sairə" if m.group(1) == "s" else "və başqaları") + ("." if m.group(2) is not None else "")
+
+
+def pauses(text):
+    """Babək üçün fasilə yerləri (sahib, 2026-11-24: «intonasiyaları, vurğuları düz etmir»): mötərizə və boşluqlu tire
+    vergül olur — səs orada qısa nəfəs alır və cümlə davam edir (əvvəl mötərizə səssizcə buraxılır, tire ilə iki cümlə bir
+    nəfəsdə oxunurdu). Rəqəm aralığındakı tire («10 - 15», «+12° – +17°») toxunulmur. Artıq vergüllər təmizlənir."""
+    t = re.sub(r"\s*[()]\s*", ", ", text)
+    t = re.sub(r"(?<![\d°%])\s+[–—-]\s+(?![\d+−-])", ", ", t)
+    t = re.sub(r"\s*,(?:\s*,)+", ",", t)
+    t = re.sub(r"\s*,\s*(?=[.!?…:;»”]|$)", "", t)                       # cümlə/sitat sonundan əvvəl vergül olmur
+    t = re.sub(r"(^|[.!?…:;]\s|[«“])\s*,\s*", r"\1", t)                  # cümlə/sitat əvvəlində də
+    return t.strip()
+
+
+def _unit(word, suffix):
+    """Ölçü vahidi sözlə, şəkilçisi ilə: «km-dən» → «kilometrdən», «AZN-ə» → «manata», «m-lik» → «metrlik»."""
+    return glue(word, suffix, True) if suffix else word
 
 
 def verbalize(text):
@@ -348,9 +459,28 @@ def verbalize(text):
     # Mənbə saytlarının qalığı: «[…]» və xülasə sonundakı «Source» oxunmur.
     t = re.sub(r"\s*\[(?:…|\.\.\.)\]", " ", t)
     t = re.sub(r"(?:^|\s)Source\s*$", "", t)
+    # Nöqtəli ixtisarlar cümləni bölməsin (2026-11-24): «və s.» → «və sairə», «Bakı ş.» → «Bakı şəhəri», «prof. Əliyev»,
+    # «5 mln. manat» (nöqtə düşür). İxtisar cümlənin sonundadırsa nöqtə qalır.
+    t = re.sub(rf"\bvə ([sb])\.(?=(\s+[{UP}]|\s*$)|)", _abbr_and_so_on, t)
+    t = re.sub(rf"\b([{UP}][{LO}]+) (ş|r|küç|pr|qəs)\.(?=(\s+[{UP}]|\s*$)|)", _abbr_after, t)
+    t = re.sub(rf"\b([Pp]rof|[Dd]os|[Aa]kad|[Dd]r|St)\.\s?(?=[{UP}])", lambda m: ABBR_BEFORE[lower_az(m.group(1))] + " ", t)
+    t = re.sub(rf"(?<=\d)(\s?)(mln|mlrd|min|kv|km|kq|sm|mm|ha)\.(?=\s+[{LO}\d])", r"\1\2", t)
+    # Ölçü vahidləri (hərf-rəqəm bölünməzdən əvvəl: «m2»): 80 m² / kv. m / m2 → kvadrat metr, 5 ha → hektar, 10 MVt → meqavat
+    t = re.sub(r"(\d)\s?(km|sm|m)²", lambda m: f"{m.group(1)} {SQUARE[m.group(2)]}", t)
+    t = re.sub(r"(\d)\s?kv\.?\s?(km|m)\b", lambda m: f"{m.group(1)} {SQUARE[m.group(2)]}", t)
+    t = re.sub(r"(\d)\s?m2\b", r"\1 kvadrat metr", t)
+    t = re.sub(r"(\d)\s?(sm|m)³", lambda m: f"{m.group(1)} kub {'santimetr' if m.group(2) == 'sm' else 'metr'}", t)
+    t = re.sub(rf"(\d)\s?([kKmMqQ][Vv]t)(?:{SUFFIX})?(?![{LO}{UP}])", lambda m: f"{m.group(1)} {_unit(POWER[lower_az(m.group(2))], m.group(3))}", t)
+    t = re.sub(rf"(\d)\s?(ha|m)(?:{SUFFIX})?(?=[\s,.;:!?)]|$)", lambda m: f"{m.group(1)} {_unit('hektar' if m.group(2) == 'ha' else 'metr', m.group(3))}", t)
+    # Vahid şəkilçi ilə (qısaltma qaydasından əvvəl: «AZN-ə» → «manata», «a ze enə» yox; «km-dən» → «kilometrdən»)
+    t = re.sub(rf"\b(AZN|USD|EUR|azn|usd|eur|km|kq|kg|mln|mlrd|sm|mm)\b(?:{SUFFIX})?", lambda m: _unit(WORD_UNITS[m.group(1).lower()], m.group(2)), t)
     # 07.11.2026 → 7 noyabr 2026
     t = re.sub(r"\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b",
                lambda m: f"{int(m.group(1))} {MONTHS[int(m.group(2)) - 1]} {m.group(3)}" if 1 <= int(m.group(2)) <= 12 else m.group(0), t)
+    # Tam tarix ili ilə (2026-11-24): 25 noyabr 2026 → 25 noyabr 2026-ci il → «… iki min iyirmi altıncı il»
+    t = re.sub(rf"\b(\d{{1,2}}) ({MONTHS_CI}) ((?:19|20)\d\d)(?!\d|[.,:]\d)(?:\s+({YEAR_WORD})\b|(?:-|[’'])([{LO}]+)\b)?", _year_date, t)
+    # Ayın günü (sahib, 2026-11-24: «noyabrın 25-də» → «noyabrın iyirmi beşində», «iyirmibeşdə» yox)
+    t = re.sub(rf"\b({MONTH_GEN})\s+(\d{{1,2}})(?:\s?[-–]\s?(\d{{1,2}}))?(?:-|[’'])([{LO}]+)\b", _month_day, t)
     # Sayt ünvanı cümləni bölməsin: https://www.Modern.az → modern nöqtə az; «edib.Gundelik.az» (boşluqsuz cümlə sonu) əvvəl ayrılır.
     t = re.sub(r"https?://\S+", " ", t)                     # tam keçid (şəkil, səhifə) oxunmur
     t = re.sub(rf"\b([{LO}]{{2,}})\.([{UP}][{LO}A-Za-z0-9]+\.(?:az|com|ru|org|net|tr|info)\b)", r"\1. \2", t)
@@ -380,13 +510,18 @@ def verbalize(text):
     # %15, 15% → on beş faiz; 15%-ə → on beş faizə
     t = re.sub(r"%\s?(\d+(?:[.,]\d+)?)", r"\1%", t)
     t = re.sub(rf"(\d+(?:[.,]\d+)?)\s?%(?:{SUFFIX})?", lambda m: attach(_say_number(m.group(1)) + " faiz", m.group(2) or ""), t)
-    # $100, ₼5 → 100 dollar
-    t = re.sub(r"([$€£₼₽])\s?(\d[\d .,]*\d|\d)", r"\2 \1", t)
+    # $100, ₼5 → 100 dollar; $1,5 mlrd → 1,5 milyard dollar (valyuta miqyas sözündən sonra)
+    t = re.sub(r"([$€£₼₽])\s?(\d[\d .,]*\d|\d)(\s?(?:milyon|milyard|trilyon|min)\b)?", lambda m: f"{m.group(2)}{m.group(3) or ''} {m.group(1)}", t)
     # 11-ci, 3-cü, 2-nci → sıra sayı
     t = re.sub(r"\b(\d+)\s?-?\s?(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)\b", lambda m: ordinal_words(int(m.group(1))), t)
-    # 21-də, 18:00-dək, 1,5-ə, 2 500-dən → rəqəm sözlə + şəkilçi yapışıq
+    # Saat aralığı (2026-11-24): 10:00-18:00 → ondan on səkkizədək; «… arası» → on ilə on səkkiz arası
+    t = re.sub(rf"\b(\d{{1,2}}:\d{{2}})\s?[-–—]\s?(\d{{1,2}}:\d{{2}})(?:{SUFFIX}|\b)(?=(\s+ara)|)", _time_range, t)
+    # 21-də, 18:00-dək, 1,5-ə, 2 500-dən → rəqəm sözlə + şəkilçi yapışıq. Saatda şəkilçi oxunan sözə uyğunlaşır:
+    # «14:00-dan» → «on dörddən» (yazan «sıfır sıfır»a görə yazıb, oxunuşda dəqiqə yoxdur).
     t = re.sub(rf"\b(\d{{1,2}}:\d{{2}}|\d{{1,3}}(?:[ {SP}.]\d{{3}})+|\d+[.,]\d{{1,3}}|\d+){SUFFIX}",
-               lambda m: glue(_say_number(m.group(1)), m.group(2)), t)
+               lambda m: glue(_say_number(m.group(1)), m.group(2), ":" in m.group(1)), t)
+    # Hesab: (2:1), 0:0 → iki-bir (saatda dəqiqə həmişə iki rəqəmdir, ona görə saatla qarışmır)
+    t = re.sub(r"\b(\d{1,2}):(\d)\b", r"\1-\2", t)
     # 19:30 → on doqquz otuz
     t = re.sub(r"\b(\d{1,2}):(\d{2})\b", lambda m: _say_number(m.group(0)), t)
     # 1,5 / 1.70 (2-3 rəqəmli kəsr) → kəsr; 1.500 / 1 500 (3-lü qruplar) → min
@@ -405,8 +540,9 @@ def verbalize(text):
 def for_voice(text, hyphens=False):
     """Saytın «Dinlə» səsi (Babək: .github/scripts/ses.py və ses-worker) üçün mətn: verbalize qaydaları (rəqəm, qısaltma,
     sayt, lüğət), amma durğu və böyük hərf qalır — o səs intonasiyanı onlardan qurur. Sözün içindəki tire boşluq olur
-    («a-be-şenin» → «a be şenin»): Whisper ölçməsi (2026-11-23, 81 cümlə) — tiresiz hərf xətası 2,1%, tireli 2,3%."""
-    t = verbalize(text)
+    («a-be-şenin» → «a be şenin»): Whisper ölçməsi (2026-11-23, 81 cümlə) — tiresiz hərf xətası 2,1%, tireli 2,3%.
+    Mötərizə və boşluqlu tire vergül olur (pauses, 2026-11-24): səs orada nəfəs alır."""
+    t = verbalize(pauses(text))
     if not hyphens:
         t = re.sub(rf"(?<=[{LO}])-(?=[{LO}])", " ", t)
     return re.sub(r"\s+", " ", t).strip()

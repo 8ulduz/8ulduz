@@ -22,21 +22,32 @@ class SesTest(unittest.TestCase):
         got = [a["title"] for a in ses.pick(rows, {"e" * 16}, now)]
         self.assertEqual(got, ["Bakıda yeni park açıldı", "Neft qiyməti artdı"])
 
-    def test_script_starts_with_title_and_source_then_full_text(self):
-        a = {"title": "Bakıda yağış.", "source": "APA", "summary": "Qısa"}
-        self.assertEqual(ses.script_of(a, "Bakıda yağış. Sabah  güclü yağış gözlənilir."), "Bakıda yağış. APA xəbər verir. Sabah güclü yağış gözlənilir.")
-        self.assertEqual(ses.script_of(a, ""), "Bakıda yağış. APA xəbər verir. Qısa", "tam mətn alınmasa saytdakı xülasə")
+    def test_script_reads_source_then_text_without_the_title(self):
+        # Sahib, 2026-11-24: «başlıqları oxumasın» — mənbə, sonra yalnız mətn; mətn başlıqla başlayırsa o hissə də atılır.
+        a = {"title": "Bakıda yağış.", "source": "APA", "summary": "Sabah paytaxtda güclü yağış gözlənilir."}
+        self.assertEqual(ses.script_of(a, "Bakıda yağış. Sabah  güclü yağış gözlənilir, külək əsəcək."), "APA xəbər verir. Sabah güclü yağış gözlənilir, külək əsəcək.")
+        self.assertEqual(ses.script_of(a, "Meteoroloqlar sabah güclü yağış gözləyir."), "APA xəbər verir. Meteoroloqlar sabah güclü yağış gözləyir.")
+        self.assertEqual(ses.script_of(a, ""), "APA xəbər verir. Sabah paytaxtda güclü yağış gözlənilir.", "tam mətn alınmasa saytdakı xülasə")
+        # Mətn də, xülasə də yoxdursa (və ya xülasə başlığın təkrarıdır) başlıq oxunur — səs boş qalmır
+        self.assertEqual(ses.script_of({**a, "summary": ""}, ""), "APA xəbər verir. Bakıda yağış.")
+        self.assertEqual(ses.script_of({**a, "summary": "Bakıda yağış"}, ""), "APA xəbər verir. Bakıda yağış.")
+        self.assertEqual(ses.script_of({**a, "summary": "Qısa"}, ""), "APA xəbər verir. Bakıda yağış. Qısa")
+        self.assertEqual(ses.script_of({"title": "Bakıda yağış", "summary": ""}, ""), "Bakıda yağış.")
 
     def test_voice_reads_like_a_person(self):
         """Sahib, 2026-11-23: «saytda da düzgün oxunsun» — Babək də Saranın oxunuş qaydaları ilə oxuyur (az_text.for_voice):
         rəqəm şəkilçisi ilə, qısaltma, mənbə adı, dərəcə; durğu qalır. Qaydalardan əvvəlki səslər bir dəfə yenidən yazılır."""
         a = {"title": "ABŞ-da 19-da seçki", "source": "8ULDUZ", "summary": ""}
-        self.assertEqual(ses.spoken(a, "Gündüz +17° olacaq, BMT-nin hesabatı Modern.az-da."),
-                         "a be şedə on doqquzda seçki. səkkiz ulduz xəbər verir. Gündüz on yeddi dərəcə olacaq, be em tenin hesabatı Modern nöqtə azda.")
+        self.assertEqual(ses.spoken(a, "Gündüz +17° olacaq, BMT-nin hesabatı Modern.az-da. Seçki noyabrın 25-də (bazar günü) keçiriləcək."),
+                         "səkkiz ulduz xəbər verir. Gündüz on yeddi dərəcə olacaq, be em tenin hesabatı Modern nöqtə azda. "
+                         "Seçki noyabrın iyirmi beşində, bazar günü, keçiriləcək.")
         # Vaxta yox, index.json-dakı «o» nişanına baxılır: qaydalarla yazılmamış hər səs (nə vaxt yazılmasından asılı olmayaraq)
         self.assertEqual(ses.voice_redo({"a" * 16: 1, "b" * 16: 1}, {"b" * 16}), {"a" * 16})
         src = (ROOT / ".github" / "scripts" / "ses.py").read_text(encoding="utf-8")
         self.assertIn('(read.add if az_text else read.discard)(a["id"])', src)
+        # Qaydaların nəşri (2026-11-24) dəyişəndə köhnə «o» siyahısı sayılmır: bütün hazır səslər bir dəfə yenidən səslənir
+        self.assertIn('read = set(index.get("o") or []) if index.get("ov") == VOICE_RULES else set()', src)
+        self.assertIn('"ov": VOICE_RULES', src)
         self.assertIn('"o": sorted(read & set(have))', src, "silinmiş səsin nömrəsi nişan siyahısında qalmır")
 
     def test_minute_feed_stories_are_added_once(self):
@@ -128,8 +139,11 @@ class SpokenTextTest(unittest.TestCase):
         self.assertEqual(ses.spoken_text(body), "Görüş Ankarada keçirilib. Tərəflər əməkdaşlığı müzakirə edib. Videoda nazir danışır.")
 
     def test_script_reads_clean_title(self):
+        # Başlıq yalnız mətn yoxdursa oxunur (2026-11-24); onda da nişansız («- Foto» oxunmur)
         a = {"title": "Cəbrayılda mərkəz açıldı - Foto", "source": "Oxu.az", "summary": "Mərkəz açıldı. Foto: Oxu.az"}
-        self.assertEqual(ses.script_of(a, ""), "Cəbrayılda mərkəz açıldı. Oxu.az xəbər verir. Mərkəz açıldı.")
+        self.assertEqual(ses.script_of(a, ""), "Oxu.az xəbər verir. Cəbrayılda mərkəz açıldı. Mərkəz açıldı.")
+        self.assertEqual(ses.script_of(a, "Cəbrayılda yeni tibb mərkəzi istifadəyə verilib, sakinlər üçün pulsuz müayinə başlayıb."),
+                         "Oxu.az xəbər verir. Cəbrayılda yeni tibb mərkəzi istifadəyə verilib, sakinlər üçün pulsuz müayinə başlayıb.")
 
     def test_old_audio_of_marked_titles_is_redone_once(self):
         at = ses.MARK_AT

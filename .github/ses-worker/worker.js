@@ -24,7 +24,7 @@ export default {
     let src;
     try { src = new URL(url.searchParams.get("u") || ""); } catch { return new Response("bad url", { status: 400 }); }
     if (src.protocol !== "https:" || /^[\d.]+$|^\[|(^|\.)(localhost|internal|local)$/.test(src.hostname)) return new Response("bad url", { status: 400 });
-    return url.pathname === "/ses" ? audio(req, env, ctx, src, url.searchParams, cors) : textJson(ctx, src, cors, LETTER[url.searchParams.get("l")] ? url.searchParams.get("l") : "az");
+    return url.pathname === "/ses" ? audio(req, env, ctx, src, url.searchParams, cors) : textJson(ctx, src, cors, LETTER[url.searchParams.get("l")] ? url.searchParams.get("l") : "az", url.searchParams.get("t") || "");
   },
 };
 
@@ -52,24 +52,34 @@ export function decode(buf, contentType = "") {
   return out;
 }
 
-async function textJson(ctx, src, cors, lang = "az") {
+// Cihaz səsi üçün mətn (sayt: assets/dinle.js). Azərbaycan xəbərində «say» da gəlir (2026-11-24): eyni mətn Babəkin oxunuş
+// qaydaları ilə (rəqəm, tarix, qısaltma sözlə; t= başlıq verilibsə mətnin əvvəlindəki başlıq atılır) — cihazın səsi də
+// «noyabrın iyirmi beşində» oxusun. Keşdə yalnız mənbənin mətni saxlanır, «say» hər sorğuda hazırlanır (başlıqdan asılıdır).
+async function textJson(ctx, src, cors, lang = "az", title = "") {
   const cache = caches.default, key = new Request(`https://dinle.cache/t3/${lang}/${encodeURIComponent(src.href)}`);
   const hit = await cache.match(key);
-  if (hit) return new Response(hit.body, { headers: { "Content-Type": "application/json; charset=utf-8", ...cors } });
-  const text = await sourceText(src, lang), body = JSON.stringify({ text });
   const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=86400" };
-  if (text) ctx.waitUntil(cache.put(key, new Response(body, { headers })));
-  return new Response(body, { headers: { ...headers, ...cors } });
+  let text = "";
+  if (hit) text = String((await hit.json().catch(() => ({}))).text || "");
+  else {
+    text = await sourceText(src, lang);
+    if (text) ctx.waitUntil(cache.put(key, new Response(JSON.stringify({ text }), { headers })));
+  }
+  const out = { text };
+  if (lang === "az" && text) { await lexicon(); out.say = forVoice(dropTitle(text, clean(title).slice(0, 300))); }
+  return new Response(JSON.stringify(out), { headers: { ...headers, ...cors } });
 }
+const dropTitle = (text, title) => { const t = title.replace(/[.!?…\s]+$/, ""); return t && text.startsWith(t) ? text.slice(t.length).replace(/^[\s.!?…:]+/, "") : text; };
 
 const shortIds = () => fetch(`${READY}index.json?m=${Math.floor(Date.now() / 6e4)}`, { cf: { cacheTtl: 60 } }).then(r => r.ok ? r.json() : {}).then(j => new Set(j.q || [])).catch(() => new Set());
 
 // Keş açarı: səsi müəyyən edən hər şey (ünvan, id, başlıq, mənbə adı). Əvvəl açar yalnız ünvan idi: saxta Referer ilə bir sorğu
 // istənilən başlığı (və ya başqa xəbərin hazır səsini) həmin ünvanın bütün sonrakı dinləyicilərinə 24 saatlıq keşləyə bilirdi.
 // a4 (2026-11-23): Babək Saranın oxunuş qaydaları ilə oxuyur (az-text.js) — köhnə oxunuşlu səslər keşdən verilmir.
+// a5 (2026-11-24): başlıq oxunmur, ayın günü, tarix, saat, ixtisar, mötərizə fasiləsi — köhnə səslər keşdən verilmir.
 async function audioKey(src, id, t, s) {
   const sum = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode([id, t, s].join("\n"))));
-  return `https://dinle.cache/a4/${[...sum.slice(0, 8)].map(b => b.toString(16).padStart(2, "0")).join("")}/${encodeURIComponent(src.href)}`;
+  return `https://dinle.cache/a5/${[...sum.slice(0, 8)].map(b => b.toString(16).padStart(2, "0")).join("")}/${encodeURIComponent(src.href)}`;
 }
 
 async function audio(req, env, ctx, src, q, cors) {
@@ -93,26 +103,26 @@ async function audio(req, env, ctx, src, q, cors) {
     if (r?.ok) return keep(r, true, 3600);
   }
   if (!env.AZURE_KEY) return new Response("hazır deyil", { status: 503, headers: cors });
-  // Basılan anda (sahib: «anında»): başlıq + mənbə dərhal səslənir (ilk səs ~0,5 s); mənbədən tam mətn paralel gəlir
-  // və başlıq oxunarkən arxasınca səslənir — bir axın, arada fasilə yoxdur.
-  const head = script(t, s, "");
-  const tailP = sourceText(src).then(b => { const full = script(t, s, b); return full.startsWith(head) ? full.slice(head.length).trim() : full; });
+  // Basılan anda (sahib: «anında»): «<mənbə> xəbər verir.» dərhal səslənir (ilk səs ~0,5 s); mənbədən tam mətn paralel gəlir
+  // və arxasınca səslənir — bir axın. Başlıq oxunmur (2026-11-24); mətn alınmasa başlıq oxunur, amma səs keşə yazılmır.
+  const head = s ? `${s} xəbər verir.` : "";
+  const tailP = sourceText(src).then(b => { const full = script(t, s, b); return { body: !!b, tail: head && full.startsWith(head) ? full.slice(head.length).trim() : full }; });
   if (!head) {
-    const full = await tailP;
-    if (!full) return new Response("mətn yoxdur", { status: 422, headers: cors });
-    const r = await tts(env, full);
-    return r?.ok ? keep(r) : new Response("azure " + (r?.status || "yox"), { status: 503, headers: cors });
+    const { body, tail } = await tailP;
+    if (!tail) return new Response("mətn yoxdur", { status: 422, headers: cors });
+    const r = await tts(env, tail);
+    return r?.ok ? keep(r, body) : new Response("azure " + (r?.status || "yox"), { status: 503, headers: cors });
   }
   const r1 = await tts(env, head);
   if (!r1?.ok) return new Response("azure " + (r1?.status || "yox"), { status: 503, headers: cors });   // limit dolubsa və s.
-  const r2P = tailP.then(tail => tail ? tts(env, tail) : null);
+  const r2P = tailP.then(async x => ({ body: x.body, r: x.tail ? await tts(env, x.tail) : null }));
   const { readable, writable } = new TransformStream();
   const okP = (async () => {
     await r1.body.pipeTo(writable, { preventClose: true });
-    const r2 = await r2P;
+    const { body, r: r2 } = await r2P;
     if (r2?.ok) await r2.body.pipeTo(writable, { preventClose: true });
     await writable.close();
-    return !!r2?.ok;   // mətnin qalanı alınmayıbsa yalnız başlıq oxunur və keşə yazılmır (əvvəl mətn heç tapılmayanda yazılırdı: 1-2 dəqiqə sonra hazır olan tam səs 24 saat verilmirdi)
+    return !!r2?.ok && body;   // mətn alınmayıbsa (yalnız başlıq oxunub) keşə yazılmır: 1-2 dəqiqə sonra hazır olan tam səs 24 saat gecikməsin
   })().catch(async () => { try { await writable.abort(); } catch {} return false; });
   return keep(new Response(readable), okP);
 }
@@ -143,11 +153,15 @@ const azure = (env, text) => fetch(`https://${env.AZURE_REGION || "westeurope"}.
 const AUDIO_HEADERS = { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=86400", "Accept-Ranges": "bytes" };
 const withHeaders = (res, cors) => { const h = new Headers(res.headers); for (const [k, v] of Object.entries(cors)) h.set(k, v); return new Response(res.body, { status: res.status, headers: h }); };
 const xml = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Oxunan mətn (ses.py script_of ilə eyni): «<mənbə> xəbər verir.» və xəbərin mətni. Başlıq oxunmur (sahib, 2026-11-24:
+// «başlıqları oxumasın»); mətn başlıqla başlayırsa o hissə atılır. Mətn yoxdursa (və ya başlığın təkrarıdır) başlıq oxunur.
+const MIN_TEXT = 20;
 export function script(title, source, body) {
   const t = title.replace(/[.!?…\s]+$/, "");
-  let rest = body;
-  if (t && rest.startsWith(t)) rest = rest.slice(t.length).replace(/^[\s.]+/, "");
-  return [t && `${t}.`, source && `${source} xəbər verir.`, rest].filter(Boolean).join(" ").trim();
+  let rest = String(body || "").trim();
+  if (t && rest.startsWith(t)) rest = rest.slice(t.length).replace(/^[\s.!?…:]+/, "");
+  if (t && rest.replace(/[^\p{L}\p{N}_]/gu, "").length < MIN_TEXT) rest = `${t}. ${rest}`.trim();
+  return [source && `${source} xəbər verir.`, rest].filter(Boolean).join(" ").trim();
 }
 
 // Adlı HTML işarələri: bəzi saytlar «g&uuml;n» yazır (lent, teleqraf, apasport) — səs «ampersand» oxumasın. Böyük-kiçik hərf fərqlidir.

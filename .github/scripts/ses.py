@@ -46,6 +46,12 @@ UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chr
 # Bütün Azərbaycan xəbərləri (sahib, 2026-11-08: «ancaq başlığı oxudu»): gündə ~750, ən yenisi birinci.
 # Bir dövrədə 6 xəbər (~45 s), sonra dərhal yazılır: təzə xəbər 40-lıq dəstənin bitməsini (~5 dəq) gözləmir («anında»).
 PER_RUN, MAX_AGE_H, KEEP_H, MAX_FILES, MAX_CHARS = 6, 26, 26, 1000, 5000
+# Başlıqsız oxunuşda mətnin ən azı bu qədər hərfi olmalıdır; yoxsa (mətn və xülasə yoxdur) başlıq oxunur.
+MIN_TEXT = 20
+# Oxunuş qaydalarının nəşri (index.json «ov»): qaydalar əsaslı dəyişəndə artırılır və bütün hazır səslər bir dəfə yenidən
+# səslənir (ən yenisi birinci, köhnə fayl yenisi hazır olana qədər qalır). 2026-11-24: başlıq oxunmur, ayın günü
+# mənsubiyyətlə («noyabrın iyirmi beşində»), tam tarix ili ilə, saat, nöqtəli ixtisarlar, ölçü vahidləri, mötərizə fasiləsi.
+VOICE_RULES = "2026-11-24"
 ID_RE = re.compile(r"^[0-9a-f]{16}$")
 # Mətn təmizliyi (2026-11-08, reader_content.tidy): bundan əvvəl yazılmış səslər yenidən səslənir — təzə xəbər həmişə birinci.
 CLEAN_AT = datetime.datetime(2026, 11, 8, 9, 0, tzinfo=datetime.timezone.utc).timestamp()
@@ -187,13 +193,17 @@ def clip(text, limit=MAX_CHARS):
 
 
 def script_of(a, body):
-    """Oxunan mətn: başlıq, mənbə, tam mətn (alınmayıbsa saytdakı xülasə)."""
+    """Oxunan mətn: «<mənbə> xəbər verir.» və xəbərin tam mətni (alınmayıbsa saytdakı xülasə). Başlıq oxunmur (sahib,
+    2026-11-24: «başlıqları oxumasın»): mətn başlığı onsuz da cümlə ilə açır, eyni şey iki dəfə eşidilirdi. Mətn başlığın
+    özü ilə başlayırsa o hissə atılır. Mətn də, xülasə də yoxdursa (və ya xülasə başlığın təkrarıdır) başlıq oxunur — səs boş qalmasın."""
     title = re.sub(r"[.!?…\s]+$", "", spoken_title(a.get("title", "")))
-    lead = f"{title}. {a['source']} xəbər verir." if a.get("source") else f"{title}."
+    lead = f"{a['source']} xəbər verir." if a.get("source") else ""
     rest = body or re.sub(r"<[^>]+>", " ", a.get("summary") or "")
     rest = clip(spoken_text(rest))
-    if rest.startswith(title):
-        rest = rest[len(title):].lstrip(" .")
+    if title and rest.startswith(title):
+        rest = rest[len(title):].lstrip(" .!?…:")
+    if title and len(re.sub(r"\W", "", rest)) < MIN_TEXT:
+        rest = f"{title}. {rest}".strip()
     return f"{lead} {rest}".strip()
 
 
@@ -300,7 +310,8 @@ def main(d):
         pass
     born = dict(index.get("t") or {})
     short = set(index.get("q") or [])  # səsi mətnsiz (yalnız başlıq və xülasə ilə) yazılmış xəbərlər
-    read = set(index.get("o") or [])   # səsi oxunuş qaydaları ilə (az_text.for_voice) yazılmış xəbərlər
+    # səsi indiki oxunuş qaydaları ilə (az_text.for_voice, VOICE_RULES nəşri) yazılmış xəbərlər; nəşr dəyişibsə hamısı yenidən
+    read = set(index.get("o") or []) if index.get("ov") == VOICE_RULES else set()
     live = {a.get("id") for a in feed}
     dropped = 0
     for i in list(have):
@@ -339,8 +350,8 @@ def main(d):
         print("ses: yeni səs yoxdur")
         return
     born = {i: t for i, t in born.items() if i in have}
-    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born, "q": sorted(short & set(have)), "o": sorted(read & set(have))},
-                     separators=(",", ":")).encode()
+    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born, "q": sorted(short & set(have)), "o": sorted(read & set(have)),
+                      "ov": VOICE_RULES}, separators=(",", ":")).encode()
     rows = other + [f"100644 blob {sha}\t{i}.mp3" for i, sha in sorted(have.items())]
     rows.append(f"100644 blob {git(d, 'hash-object', '-w', '--stdin', data=idx)}\tindex.json")
     tree = git(d, "mktree", "--missing", data=("\n".join(rows) + "\n").encode())
