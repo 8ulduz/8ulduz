@@ -3,6 +3,9 @@ name: Sürət ölçüsü
 # .github/scripts/speed.cjs başsız Chrome-da telefonu təqlid edir (412 px, toxunma, 4× yavaş prosessor, mobil şəbəkə) və
 # soyuq açılışı (ilk boya, CLS, LCP, boyadan əvvəlki uzun tapşırıqlar, sorğular), mənbəyə gedib qayıtmağı (bfcache), paylaşılan xəbəri,
 # 14 bölməni, alt bölmələri, rayonları, liqa və komanda səhifələrini, xəbəri, axtarışı, kompüter keçidini ölçür.
+# 2026-11-24 (sahib: «"gözqırpımında" ölçüsü saytın istisnasız hər bir hissəsində olsun»): giriş qapıları (Google-dan xəbər və bölmə
+# səhifəsi, canlıda www.8ulduz.az paylaşma keçidi, hava/namaz/məzənnə/icmal/rayon/komanda/haqqında səhifələri) və toxunuşlar (INP:
+# menyu, pəncərələr, tema, «daha çox», kart → xəbər, geri, Videolent, Tıxac, axtarışa yazmaq …) da ölçülür.
 # PR-da: bu nüsxə 8080-də, PR-ın hədəf budağı (baza) 8081-də — eyni anda A, B, A, B, A, B ölçülür; bu nüsxə bazadan yavaşsa qırmızı
 # (eyni kod runner-də 3,5 Lighthouse balı oynayır, mütləq büdcə reqressiyanı görmürdü). main-ə push: yalnız büdcə.
 # Gecə və gün ərzində: canlı sayt, tam dövrə + üçüncü tərəf yönləndirmələri, xəbər səhifələrinin şablon versiyası, məlumat gzip ölçüləri.

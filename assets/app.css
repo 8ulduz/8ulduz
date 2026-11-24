@@ -1104,7 +1104,7 @@ nav.main .nav-inst[hidden],.inst .install-btn,.nav-inst .ni-f{display:none}
 }
 @media(min-width:400px) and (max-width:600px){.nav-inst .ni-s{display:none}.nav-inst .ni-f{display:inline}}
 .soc-g a svg,.soc-ic svg{width:16px;height:16px;fill:currentColor}
-/* Telefon başlığı (sahib, 2026-11-19): 1) ☰ · 8ULDUZ · axtar · rejim  2) dil · hava · namaz · İzlə  3) bölmələr  4) Videolentə bax */
+/* Telefon başlığı (sahib 11-19): dörd sətir */
 @media(max-width:600px){
 .hrow{display:grid;grid-template-columns:auto auto auto 1fr auto;grid-template-rows:50px 46px;gap:0 6px;align-items:center;position:relative;padding:0 var(--gutter);background:linear-gradient(var(--border),var(--border)) 0 50px/100% 1px no-repeat,linear-gradient(var(--border),var(--border)) 0 96px/100% 1px no-repeat}
 .hrow>*,.topbar .sync-state{grid-column:1/-1}.hrow::after{display:none}
@@ -1150,14 +1150,14 @@ nav.main .nav-more>summary{padding:0 8px}
 .ticker .lbl .bell svg{width:16px;height:16px}
 }
 .pop-more{display:block;margin-top:6px;padding:6px 8px;font-size:.8571rem;font-weight:700;color:inherit;text-decoration:underline}
-/* sahib 11-14: telefonda vaxt, mənbə, «N mənbə» 13px; düymələr olduğu kimi */
+/* sahib 11-14: 13px */
 @media (max-width:600px){.meta,.hero-main .meta,.card .meta,.bd,.source-count,.prez-h .source-count{font-size:max(11px,calc(var(--fs-meta) - 3px));line-height:max(15px,calc(var(--lh-meta) - 4px))}}
-/* Tıxac (sahib 11-16): zolaq və valyuta gizli; telefonda xəritənin altı ilk ekranda görünür */
+/* Tıxac (sahib 11-16) */
 .r-tix :is(#ticker,#markets,#tix-ani){display:none}
 .tix-bar{gap:12px;align-items:center}
 .tix-alt{margin-right:auto;padding:0;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
 @media (max-width:700px){.tix-map{margin:0 calc(-1 * var(--gutter)) 12px;border-radius:0;border-left:0;border-right:0}.tix-map iframe{height:max(120px,calc(100svh - 545px))}}
-/* sahib 11-14: telefonda başlıq bir sətir, izah gizli (xəbər başlığı .page-h>h1 toxunulmur) */
+/* sahib 11-14: başlıq bir sətir */
 @media (max-width:600px){
 .page-h .sec-desc{display:none}
 .page-h>div{min-width:0}
@@ -1172,3 +1172,4 @@ nav.main .nav-more>summary{padding:0 8px}
 :is(.ldd.open>.ldd-btn,.wx.open>.wx-btn,.pray-wrap.open>.pray,.nav-more[open]>summary,.altpop[open]>summary,.fx-on,.pop-on)::after{content:"";position:absolute;left:50%;top:100%;margin-left:-8px;border:8px solid transparent;border-top:0;border-bottom-color:var(--pop);z-index:1001;pointer-events:none;opacity:1}
 .fx-on{anchor-name:--fx}@supports (left:anchor(--fx left)){.fx-pop{left:anchor(--fx left);transform:none}.fx-pop.r{left:auto;right:anchor(--fx right)}}
 .pop-on.pop-up::after{top:auto;bottom:100%;border:8px solid transparent;border-bottom:0;border-top-color:var(--pop)}
+/* Kənar blok çəkilmir (sürət 11-24) */#view>section,#view>.lazy-sec,#view>details,#footer,.grid>.card,.latest-grid>.card{content-visibility:auto;contain-intrinsic-block-size:auto 360px}#view>:has(details[open]),.card:has(details[open]){content-visibility:visible}

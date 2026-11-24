@@ -15,6 +15,12 @@
 //    mütləq büdcə +500 ms reqressiyanı keçirirdi; indi median(B) − median(A) > max(spread(A), pay × median(A), min) olanda qırmızı;
 //  • gecə: --third-party (səhifə açıq olarkən soruşulan ünvanlar yönləndirməz — bfcache), --pages (xeber/<id>/ şablon versiyası),
 //    --data (canlı məlumat fayllarının gzip ölçüsü tests/budce.json «melumat» tavanlarına qarşı).
+// v3 (2026-11-24; sahib: «"gözqırpımında" ölçüsü saytın istisnasız hər bir hissəsində olsun»):
+//  • giriş qapıları: Google-dan gələn xəbər və bölmə səhifəsi (xeber/<id>/, bolme/idman/), canlıda paylaşma keçidi (www.8ulduz.az →
+//    302 → sayt), tətbiqsiz ayrıca səhifələr (hava, namaz, məzənnə, icmal, rayon, komanda, haqqında; görünmə = LCP);
+//  • toxunuşlar (INP): CDP ilə həqiqi toxunuş və klaviatura — menyu, hava, namaz, məzənnə, dil, tema, izlə, İdman cərgəsi, «daha çox»,
+//    ulduz, kart → xəbər, paylaş, geri, Videolent, Tıxac, idman alt düyməsi, axtarışa yazmaq (hər hərf). el.click() Event Timing yazmır.
+//  SPEED_PART=giris,klik (yalnız bu hissələr), SPEED_KLIK=menyu,tema (yalnız bu basışlar) — yerli ölçü üçün.
 // Bütün büdcələr tests/budce.json «speed» qrupundadır (sahib: bir yerdə; docs/qirmizi-xetler.md §3 «Büdcə cədvəli» ilə test tutuşdurur).
 // Yeni ölçülər (fcp, cls, bfcache …) ilk 10 planlı dövrədə (yeni.sert tarixinədək) yalnız xəbərdarlıqdır — runner-in səs-küyü görülsün.
 //
@@ -39,7 +45,8 @@ const AB = ARGS.includes("--ab") && ARGS[ARGS.indexOf("--ab") + 1] ? ARGS[ARGS.i
 const NIGHT = { third: ARGS.includes("--third-party"), pages: ARGS.includes("--pages"), data: ARGS.includes("--data") };
 const CPU = Number(process.env.SPEED_CPU || 4);
 const QUICK = !!process.env.SPEED_QUICK; // A/B üçün qısa dövrə: hər səviyyədən bir neçə nümunə
-const COLD_ONLY = !!process.env.SPEED_COLD_ONLY; // yalnız soyuq sətirlər, bfcache və A/B (A/A sınağı üçün: eyni nüsxə iki portda, 5 dəfə)
+const COLD_ONLY = !!process.env.SPEED_COLD_ONLY;
+const PART = new Set(String(process.env.SPEED_PART || "").split(",").filter(Boolean)); // yalnız bu hissələr: giris, klik (yerli ölçü üçün) // yalnız soyuq sətirlər, bfcache və A/B (A/A sınağı üçün: eyni nüsxə iki portda, 5 dəfə)
 const REPS = Math.max(1, Number(process.env.SPEED_REPS || 1)); // ünvan keçidləri və soyuq açılış neçə dəfə (median)
 const REPO = process.env.GITHUB_REPOSITORY || "8ulduz/8ulduz";
 const TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
@@ -54,7 +61,8 @@ const ANALYTICS = ["*gc.zgo.at*", "*goatcounter.com*", "*google-analytics.com*"]
 // Yeni ölçülər ilk 10 planlı dövrədə (gündə 4) yalnız xəbərdarlıqdır; tests/budce.json speed.yeni.sert tarixindən sonra sərt.
 // Gecə yoxlamaları (--third-party, --pages, --data) səs-küysüzdür və öz qaydası ilə dərhal qırmızıdır (--pages: versiya artımından 24 saat).
 const NEW = ["fcp", "fcpAfterCss", "preFcpLongTaskMax", "preFcpLongTaskSum", "cls", "heroLoads", "bfcache", "storyCold", "requests"];
-const WARN_ONLY = new Set(Date.now() < Date.parse(LIMITS["yeni.sert"]) ? NEW : []);
+const NEW2 = ["inp", "klik.gorunme", "klik.sebeke", "giris.sehife"]; // 2026-11-24: giriş qapıları və toxunuşlar — yeni.sert2-dək yalnız xəbərdarlıq
+const WARN_ONLY = new Set([...(Date.now() < Date.parse(LIMITS["yeni.sert"]) ? NEW : []), ...(Date.now() < Date.parse(LIMITS["yeni.sert2"]) ? NEW2 : [])]);
 // A/B-də tutuşdurulan ölçülər (ana səhifənin soyuq açılışı).
 const AB_KEYS = { fcp: "ilk boya", first: "görünmə", preFcpLongTaskSum: "boyadan əvvəl uzun işlər", lcp: "LCP", lt: "uzun işlər (5 s)" };
 
@@ -80,6 +88,7 @@ function line(r) {
   const tail = (r.over.length ? "  ✗ " + r.over.join("; ") : "") + (r.soft.length ? "  ⚠ " + r.soft.join("; ") : "");
   const head = `${r.kind.padEnd(7)} ${r.name.slice(0, 42).padEnd(42)}`;
   if (r.kind === "cold") return `${head} görünmə ${p(r.first, 5)} fcp ${p(r.fcp, 5)} css→ ${p(r.fcpAfterCss, 4)} öncə ${p(r.preFcpLongTaskMax, 4)}/${p(r.preFcpLongTaskSum, 4)} lcp ${p(r.lcp, 5)} cls ${p(fmt(r.cls), 5)} uzun ${p(r.lt, 4)}/${p(r.ltMax, 4)} sorğu ${p(r.requests, 3)} ${p(Math.round((r.bytes || 0) / 1024), 4)} KB slayd ${p(r.heroLoads, 1)} dom ${p(r.dom, 5)}${r.fallback ? " (köhnə görünmə yoxlaması)" : ""}${tail}`;
+  if (r.kind === "klik") return `${head} INP ${p(r.inp, 4)} görünmə ${p(r.vis, 5)} uzun ${p(r.ltMax, 4)}${r.median != null ? ` median ${r.median}` : ""}${tail}`;
   if (r.kind === "ab") return `${head} ${Object.entries(r.cmp).map(([k, c]) => `${AB_KEYS[k]} ${c.A}→${c.B} (hədd +${c.tol})`).join("  ")}${tail}`;
   if (r.kind === "bfcache") return `${head} ${r.value}${r.ilk ? ` (yavaşlatma ilə: ${r.ilk})` : ""}${num(r.back) ? `  geri ${r.back} ms` : ""}${tail}`;
   if (r.kind === "ucuncu") return `${head} ${r.status}${r.location ? " → " + r.location : ""}${tail}`;
@@ -237,7 +246,8 @@ async function storyOf(base) { // paylaşılan xəbər keçidi: ilk lentin ilk x
     const a = (d.articles || []).find(a => /^[0-9a-f]{16}$/.test(String(a.id)) && /^\d{4}-\d\d-\d\dT\d\d/.test(a.publishedAt || ""));
     if (!a) return null;
     const p = a.publishedAt;
-    return { hash: `#/xeber/${a.id}?b=${encodeURIComponent(a.category || "gundem")}&h=${p.slice(2, 4)}${p.slice(5, 7)}${p.slice(8, 10)}${p.slice(11, 13)}`, title: a.title };
+    const h = `${p.slice(2, 4)}${p.slice(5, 7)}${p.slice(8, 10)}${p.slice(11, 13)}`;
+    return { hash: `#/xeber/${a.id}?b=${encodeURIComponent(a.category || "gundem")}&h=${h}`, title: a.title, id: a.id, h };
   } catch { return null; }
 }
 
@@ -377,18 +387,20 @@ async function browser() {
     // Əvvəl 404.html (proses isti: şrift, GPU, JIT; sayğac bloklu), sonra ilk ziyarət kimi: brauzer keşi, xidmət işçisi və yaddaş silinir
     // (yoxsa ikinci «soyuq» açılış əslində isti olur).
     const park = async base => { await send("Network.setBlockedURLs", { urls: ANALYTICS }); await send("Page.navigate", { url: base + "404.html" }); await sleep(600); await send("Network.setBlockedURLs", { urls: [] }); };
-    const cold = async (base, hash, { warm = false, key = "visible", hero = null, zolaq = false } = {}) => {
+    const cold = async (base, hash, { warm = false, key = "visible", hero = null, zolaq = false, url = null } = {}) => {
       await park(base);
       if (!warm) { await send("Network.clearBrowserCache"); await send("Storage.clearDataForOrigin", { origin: new URL(base).origin, storageTypes: "all" }).catch(() => {}); }
       net.reset(); bf.length = 0;
       if (zolaq) await send("Fetch.enable", { patterns: ZOLAQ_FETCH });
-      try { return await coldLoad(base, hash, key, hero); } finally { if (zolaq) await send("Fetch.disable").catch(() => {}); }
+      try { return await coldLoad(base, hash, key, hero, url); } finally { if (zolaq) await send("Fetch.disable").catch(() => {}); }
     };
-    const coldLoad = async (base, hash, key, hero) => {
+    // url: ünvan bazadan deyil (paylaşma keçidi www.8ulduz.az → 302 → sayt). key "lcp": tətbiqsiz ayrıca səhifə (#view yoxdur) —
+    // görünmə ən böyük məzmunun boyandığı andır (LCP).
+    const coldLoad = async (base, hash, key, hero, url) => {
       const t0 = Date.now();
-      await send("Page.navigate", { url: base + hash });
+      await send("Page.navigate", { url: url || base + hash });
       let shown = null, fallback = false;
-      for (let i = 1; i <= 150 && shown == null; i++) {
+      for (let i = 1; i <= 150 && shown == null && key !== "lcp"; i++) {
         await sleep(100);
         const v = await evaluate(`window.__m && __m[${JSON.stringify(key)}]`).catch(() => null);
         if (num(v)) shown = v;
@@ -396,6 +408,7 @@ async function browser() {
       }
       await sleep(Math.max(300, t0 + 5000 - Date.now()));
       const m = await evaluate(READ);
+      if (key === "lcp") shown = m.lcp;
       const r = { first: shown, ...m, requests: net.count(), bytes: net.bytes(), heroLoads: hero ? net.hero(hero) : null };
       r.fcpAfterCss = num(m.fcp) && num(m.cssEnd) ? m.fcp - m.cssEnd : null;
       if (fallback) r.fallback = true;
@@ -464,6 +477,124 @@ async function browser() {
     };
 
     const hero = await heroOf(BASE), story = await storyOf(BASE);
+
+    // 7) Giriş qapıları (sahib 2026-11-24: «"gözqırpımında" ölçüsü saytın istisnasız hər bir hissəsində olsun»). Oxucu sayta təkcə ana
+    // səhifədən gəlmir: Google xəbər və bölmə səhifəsini, sosial şəbəkədəki paylaşma keçidini (www.8ulduz.az → 302 → sayt: iki server,
+    // iki bağlantı), hava, namaz, məzənnə, icmal, rayon, komanda və «haqqında» səhifələrini açır. Hamısı soyuq (ilk ziyarət), telefon
+    // şəraiti. Tətbiqsiz ayrıca səhifələrdə görünmə LCP-dir (giris.sehife).
+    const giris = async () => {
+      let id = null;
+      try { const idx = await (await get(BASE + "xeber/index.json")).json(); id = (Object.entries(idx).filter(([k, v]) => /^[0-9a-f]{16}$/.test(k) && Array.isArray(v)).sort((a, b) => b[1][0] - a[1][0])[0] || [])[0] || null; } catch {}
+      const reps = QUICK ? 1 : REPS;
+      if (id) await coldRow("Google: xəbər səhifəsi", `xeber/${id}/`, { key: "h1", reps });
+      else add("cold", "Google: xəbər səhifəsi", { first: null }, [], ["xeber/index.json-dan səhifə tapılmadı"]);
+      await coldRow("Google: bölmə səhifəsi", "bolme/idman/", { reps });
+      // Paylaşma serveri yalnız canlıdadır (Cloudflare Worker); yerli nüsxədə və PR-da bu sətir yoxdur.
+      if (story && /^https:\/\/8ulduz\.az\/$/.test(BASE)) await coldRow("paylaşma keçidi (www → sayt)", "", { key: "h1", reps, url: `https://www.8ulduz.az/${story.id}?h=${story.h}` });
+      for (const [name, p] of [["hava səhifəsi", "bolme/hava/"], ["namaz səhifəsi", "bolme/namaz/"], ["məzənnə səhifəsi", "bolme/mezenne/dollar/"], ["icmal səhifəsi", "icmal/"], ["rayon səhifəsi", "rayon/sumqayit/"], ["komanda səhifəsi", "idman/qarabag/"], ["haqqında səhifəsi", "haqqinda/"]])
+        await coldRow(name, p, { key: "lcp", reps: 1, limit: LIMITS["giris.sehife"], only: ["cold", "fcp", "cls", "requests"] });
+    };
+
+    // 8) Toxunuşlar (INP; sahib 2026-11-24, eyni göstəriş): oxucunun hər basışı — menyu, hava, namaz, məzənnə, dil, tema, izlə,
+    // İdman cərgəsi, kart → xəbər, ulduz, paylaş, geri, «daha çox», Videolent, Tıxac, idman alt düyməsi, axtarışa yazmaq. CDP ilə həqiqi
+    // toxunuş və klaviatura (el.click() Event Timing yazmır): INP = basışdan sonrakı ilk boyaya qədər (PerformanceEventTiming, 8 ms
+    // dəqiqliklə); «görünmə» = gözlənən element sənəddə + növbəti boya (gec yüklənən modul, hashchange). Hər basış 3 dəfə, median.
+    const KLIK = `(() => {
+      if (window.__k) return;
+      window.__ev = []; window.__klt = [];
+      try { new PerformanceObserver(l => l.getEntries().forEach(e => { if (e.interactionId) __ev.push([e.startTime, e.duration, e.name, Math.round(e.processingStart - e.startTime), Math.round(e.processingEnd - e.processingStart), Math.round(e.startTime + e.duration - e.processingEnd)]); })).observe({ type: "event", durationThreshold: 16, buffered: true }); } catch {}
+      try { new PerformanceObserver(l => l.getEntries().forEach(e => __klt.push([e.startTime, e.duration]))).observe({ type: "longtask", buffered: true }); } catch {}
+      window.__k = {
+        start(want) {
+          const k = { t0: performance.now(), hit: null, vis: null };
+          const look = () => { if (k.hit == null && want && document.querySelector(want)) { k.hit = performance.now(); requestAnimationFrame(() => setTimeout(() => { k.vis = performance.now(); })); } };
+          k.mo = new MutationObserver(look); k.mo.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+          this.cur = k; return true;
+        },
+        done() { const k = this.cur; return !k.want || k.vis != null; },
+        read() {
+          const k = this.cur; k.mo.disconnect();
+          const ev = __ev.filter(e => e[0] >= k.t0 - 1), lt = __klt.filter(e => e[0] >= k.t0 - 1);
+          const w = ev.slice().sort((a, b) => b[1] - a[1])[0];
+          return { inp: ev.length ? Math.max(...ev.map(e => e[1])) : 0, ev: [...new Set(ev.map(e => e[2]))].join(" "), part: w ? w[2] + " " + w.slice(3).join("/") : "", vis: k.vis == null ? null : Math.round(k.vis - k.t0), ltMax: Math.round(Math.max(0, ...lt.map(e => e[1]))) };
+        } };
+    })()`;
+    const tapXY = async sel => evaluate(`(() => { const el = [...document.querySelectorAll(${JSON.stringify(sel)})].find(e => e.checkVisibility()); if (!el) return null; el.scrollIntoView({ block: "center", behavior: "instant" }); const r = el.getBoundingClientRect(); return [Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)]; })()`);
+    const touch = async ([x, y]) => {
+      await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, radiusX: 4, radiusY: 4, force: 1, id: 1 }] });
+      await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    const press = async ch => {
+      const code = /^[a-z]$/.test(ch) ? "Key" + ch.toUpperCase() : "", vk = ch.toUpperCase().charCodeAt(0);
+      await send("Input.dispatchKeyEvent", { type: "keyDown", key: ch, code, text: ch, unmodifiedText: ch, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
+      await send("Input.dispatchKeyEvent", { type: "keyUp", key: ch, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
+    };
+    const escKey = () => send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 }).then(() => send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 }));
+    // Bir basış: hazırla → bas (və ya do) → gözlənən görünsün (≤ 3 s) → hadisələr gəlsin → oxu. undo: əvvəlki vəziyyətə (növbəti ölçü təmiz).
+    const once = async t => {
+      if (t.prep) await t.prep();
+      const xy = t.do ? true : await tapXY(t.sel);
+      if (!xy) return null;
+      await sleep(300); // sürüşmə sakitləşsin (scroll → afterFrame işləri ölçüyə düşməsin)
+      await evaluate(`__k.start(${JSON.stringify(t.want || "")}) && (__k.cur.want = ${JSON.stringify(!!t.want)})`);
+      if (t.do) await t.do(); else await touch(xy);
+      for (let i = 0; i < 60; i++) { await sleep(50); if (await evaluate("__k.done()")) break; }
+      await sleep(400); // Event Timing girişləri boyadan sonra gəlir
+      const r = await evaluate("__k.read()");
+      if (t.undo) { await t.undo(); await sleep(400); }
+      return r;
+    };
+    const klikRow = async t => {
+      const runs = [];
+      for (let i = 0; i < (t.reps || 3); i++) { const r = await once(t); if (r) runs.push(r); }
+      const over = [], soft = [];
+      if (!runs.length) { soft.push(`basılacaq element yoxdur (${t.sel})`); return add("klik", t.name, { inp: null }, over, soft); }
+      const r = { inp: median(runs.map(x => x.inp)), vis: median(runs.map(x => x.vis)), ltMax: median(runs.map(x => x.ltMax)), ev: runs[runs.length - 1].ev, runs: runs.map(x => [x.inp, x.vis, x.part]) };
+      const lim = (k, v, l, label) => { if (num(v) && num(l) && v > l) (WARN_ONLY.has(k) ? soft : over).push(`${label} ${v} > ${l}`); };
+      lim("inp", r.inp, LIMITS.inp, "INP");
+      if (t.want) { if (r.vis == null) (WARN_ONLY.has("klik.gorunme") ? soft : over).push(`gözlənən görünmədi (${t.want})`); else if (t.net) lim("klik.sebeke", r.vis, LIMITS["klik.sebeke"], "görünmə (ilk dəfə modul və məlumat)"); else lim("klik.gorunme", r.vis, LIMITS["klik.gorunme"], "görünmə"); }
+      return add("klik", t.name, r, over, soft);
+    };
+    const tapSel = sel => async () => { const xy = await tapXY(sel); if (xy) await touch(xy); };
+    const klik = async () => {
+      await cold(BASE, "", { warm: true }); await sleep(3500);
+      await evaluate(KLIK);
+      const home = async () => { await evaluate(`location.hash = "#/"`); await sleep(500); };
+      const T = [
+        { name: "☰ menyu", sel: "nav.main .nav-more>summary", want: ".nav-more[open]", undo: tapSel("nav.main .nav-more>summary") },
+        { name: "İdman (bölmə cərgəsi)", sel: "nav.main a.has-sub", want: "#view .sub-rows", prep: home },
+        { name: "hava pəncərəsi", sel: '[data-act="wx"]', want: ".wx-pop", undo: tapSel('[data-act="wx-close"]') },
+        { name: "namaz pəncərəsi", sel: '[data-act="pray"]', want: ".pray-pop", undo: tapSel('[data-act="pray"]') },
+        { name: "məzənnə pəncərəsi", sel: "#mk [data-fx]", want: ".fx-pop", undo: tapSel('[data-act="fx-close"]') },
+        { name: "dil seçimi", sel: '[data-act="lang"]', want: ".ldd-pop", undo: tapSel('[data-act="lang"]') },
+        { name: "tema", sel: '[data-act="theme"]', undo: tapSel('[data-act="theme"]') },
+        { name: "izlə pəncərəsi", sel: '[data-act="follow"]', want: ".follow-dialog[open]", undo: escKey },
+        { name: "«daha çox» xəbər", sel: '#view [data-act="latest-more"]', prep: home, reps: 2 },
+        { name: "ulduz (seçilmişlərə)", sel: '#view [data-act="star"]', undo: tapSel('#view [data-act="star"].on') },
+        { name: "kart → xəbər", sel: '#view a[href*="/xeber/"]', want: "#view .article-detail h1", prep: home },
+        { name: "paylaş pəncərəsi", sel: '#view .article-detail [data-act="share"]', want: ".sharepop", prep: async () => { await evaluate(`Object.defineProperty(navigator, "share", { value: undefined, configurable: true }); location.hash.startsWith("#/xeber/") || document.querySelector('#view a[href*="/xeber/"]')?.click()`); await sleep(600); }, undo: escKey },
+        { name: "geri: xəbər → ana səhifə", do: () => evaluate("history.back()"), want: "#view .hero-main", prep: async () => { await home(); await evaluate(`document.querySelector('#view a[href*="/xeber/"]')?.click()`); await sleep(700); } },
+        { name: "Videolent (alt panel)", sel: '.tabbar [data-act="reels"]', want: 'iframe[title="Videolent"]', net: true, prep: home, undo: async () => { await evaluate("history.back()"); await sleep(300); } },
+        { name: "Tıxac (alt panel)", sel: '.tabbar [data-tab="traffic"]', want: "#view .tix-bar, #view .tix-list", net: true, prep: home },
+        { name: "idman alt düyməsi", sel: "#view .sub-rows [data-club]", prep: async () => { await evaluate(`location.hash = "#/bolme/idman"`); await sleep(700); }, undo: tapSel("#view .sub-rows [data-club].on, #view .sub-rows [data-club][aria-pressed=true]") },
+      ];
+      const only = String(process.env.SPEED_KLIK || "").split(",").filter(Boolean), pick = n => !only.length || only.some(x => n.includes(x)); // SPEED_KLIK=menyu,tema: yalnız bu basışlar
+      for (const t of T) if (pick(t.name)) await klikRow(t);
+      if (!pick("axtarışa yazmaq")) return;
+      // Axtarışa yazmaq: hər hərf bir basışdır (input → renderView); INP hərflərin ən pisidir.
+      await home();
+      const yaz = [];
+      for (let rep = 0; rep < 2; rep++) {
+        await evaluate(`(() => { const q = document.querySelector("#q"); q.value = ""; q.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(400);
+        const xy = await tapXY('[data-act="find"]'); if (xy) { await touch(xy); await sleep(400); }
+        await evaluate(`document.querySelector("#q").focus()`);
+        for (const ch of "futbol") { const r = await once({ do: () => press(ch) }); if (r) yaz.push(r.inp); }
+      }
+      const yr = { inp: Math.max(0, ...yaz), median: median(yaz), runs: yaz };
+      add("klik", "axtarışa yazmaq (hər hərf)", yr, num(LIMITS.inp) && yr.inp > LIMITS.inp && !WARN_ONLY.has("inp") ? [`INP ${yr.inp} > ${LIMITS.inp}`] : [], num(LIMITS.inp) && yr.inp > LIMITS.inp && WARN_ONLY.has("inp") ? [`INP ${yr.inp} > ${LIMITS.inp}`] : []);
+      await evaluate(`(() => { const q = document.querySelector("#q"); q.value = ""; q.dispatchEvent(new Event("input", { bubbles: true })); q.blur(); })()`);
+    };
+    if (PART.size) { if (PART.has("giris")) await giris(); if (PART.has("klik")) await klik(); return; }
     // A/B: baza nüsxəsi eyni anda, növbə ilə A, B, A, B, A, B (hər biri REPS dəfə) — dəqiqənin səs-küyü hər ikisinə eyni düşür.
     // Qırmızı: median(B) − median(A) > max(spread(A), ab.pay × median(A), ab.min); spread = A ölçülərinin max − min.
     // Eyni nüsxə iki portda (A/A) qırmızı olmamalıdır. Ana səhifənin soyuq sətri B ölçülərindəndir (ayrıca 3 açılış artıq iş idi).
@@ -562,6 +693,9 @@ async function browser() {
       }
     }
 
+    await giris();
+    await klik();
+
     // 6) Kompüter keçidi (1280×800, prosessor 1×, hover:hover, yavaşlatmasız): yalnız CLS və slayder şəklinin yükləmə sayı
     // (2026-11-09: hazır HTML 640 px, JS 800 px istəyirdi — şəkil iki dəfə gəlirdi, CLS 0,10).
     await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
@@ -583,6 +717,11 @@ function summary() {
   if (cold.length) {
     md.push("", "| Səhifə | görünmə | ilk boya | CSS→boya | boyadan əvvəl uzun (max/cəm) | LCP | CLS | sorğu | slayd | DOM |", "|---|---|---|---|---|---|---|---|---|---|");
     for (const r of cold) md.push(`| ${r.name} | ${fmt(r.first)} | ${fmt(r.fcp)} | ${fmt(r.fcpAfterCss)} | ${fmt(r.preFcpLongTaskMax)}/${fmt(r.preFcpLongTaskSum)} | ${fmt(r.lcp)} | ${fmt(r.cls)} | ${fmt(r.requests)} | ${fmt(r.heroLoads)} | ${fmt(r.dom)} |`);
+  }
+  const klik = rows.filter(r => r.kind === "klik");
+  if (klik.length) {
+    md.push("", "| Toxunuş | INP | görünmə | uzun iş |", "|---|---|---|---|");
+    for (const r of klik) md.push(`| ${r.name} | ${fmt(r.inp)} | ${fmt(r.vis)} | ${fmt(r.ltMax)} |`);
   }
   for (const r of rows.filter(r => ["ab", "bfcache", "sehife"].includes(r.kind))) md.push("", "- " + line(r).replace(/\s+/g, " "));
   if (fail.length) md.push("", `**Büdcəni keçənlər (${fail.length})**`, ...fail.map(f => "- ✗ " + f));

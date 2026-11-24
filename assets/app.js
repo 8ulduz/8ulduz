@@ -1309,14 +1309,18 @@ function shell() {
   const q = $("#q");
   q.addEventListener("keydown", e => { if (e.key === "Enter") q.blur(); }); // telefonda klaviatura bağlansın
   q.addEventListener("blur", () => { if (!q.value) $("#sitehead")?.classList.remove("q-open"); }); // telefonda boş axtarış qutusu bağlanır
+  // Hərf dərhal görünür, nəticə kadrdan sonra; tez yazılan hərflərdən yalnız sonuncusu çəkilir (telefonda hər hərf 0,2–0,6 s
+  // gözləyirdi; sahib 2026-11-24: «gözqırpımı … istisnasız hər bir hissəsində»).
+  let qTok = 0;
   q.addEventListener("input", () => {
     S.q = q.value.trim(); S.shown = PAGE;
     const want = S.q ? `#/axtar?q=${encodeURIComponent(S.q)}` : "#/";
     if (location.hash !== want) history.replaceState(null, "", want);
-    renderNav();
-    renderView();
+    const tok = ++qTok;
+    afterFrame(() => { if (tok !== qTok) return; renderNav(); renderView(); });
   });
   document.addEventListener("click", onClick);
+  document.addEventListener("pointerdown", intent, { capture: true, passive: true });
   if (globalThis.matchMedia?.("(hover:hover) and (pointer:fine)").matches) bindNavPop();
   document.addEventListener("change", e => { if (e.target.matches("[data-language]")) { setLang(e.target.value); } });
   document.addEventListener("input", e => { if (e.target.matches("[data-source-search]")) { const term = e.target.value.toLocaleLowerCase("az"); document.querySelectorAll(".src-row").forEach(row => row.hidden = !row.textContent.toLocaleLowerCase("az").includes(term)); } });
@@ -1687,7 +1691,9 @@ function nextPrayer(times) {
   const left = Number.isFinite(hh) ? (24 * 60 - mins) + hh * 60 + (Number.isFinite(mm) ? mm : 0) : null;
   return { key: "Fajr", lab: "Sübh", time: String(times.Fajr || "").slice(0, 5), mins: left };
 }
-function fmt(v, dec) { return Number(v).toLocaleString("en-US", { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec }); }
+// Formatlayıcı bir dəfə qurulur: toLocaleString hər rəqəmdə yeni Intl obyekti yaradırdı (telefonda məzənnə zolağı ~0,1 s; 2026-11-24).
+const NUM_FMT = new Map();
+function fmt(v, dec) { let f = NUM_FMT.get(dec); if (!f) NUM_FMT.set(dec, f = new Intl.NumberFormat("en-US", { minimumFractionDigits: Math.min(dec, 2), maximumFractionDigits: dec })); return f.format(Number(v)); }
 function aznRate(item) {
   if (!item || item.value == null) return null;
   if (item.unit === "AZN") return String(item.id).endsWith("100") ? item.value / 100 : item.value;
@@ -2057,6 +2063,7 @@ const picFirst = l => [...l.filter(imgUrl), ...l.filter(a => !imgUrl(a))]; // ş
 function latestBlock(list) {
   const ranked = picFirst(byDate(list));   // sahib 2026-11-20: «Ən yeni / Ən çox mənbə» seçimi silindi — həmişə ən yeni
   const count = S.latestCount || 8;
+  S.homeLatest = { d: S.data, ranked, list };   // «Daha çox xəbər» yalnız yeni kartları əlavə edir (moreLatest)
   return `<section id="son-xeberler"><div class="sec-h"><h2>Son xəbərlər</h2></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
 // Video lenti (sahib, 2026-11-24): «Son xəbərlər»dən sonra daimi oynayan üfüqi video kartlar — öz videolarımız, X-in hadisə və xəbər
@@ -2160,12 +2167,23 @@ async function scanArchives(id) {
 }
 // «Bu barədə daha çox».
 const RARE_STOP = /^(muhum|bagl|aciql|son$|yeni|foto|video|veziyyet|haqq|bared|gore|sonra|daha|olub|edib|edir|kecir|detal|xeber|tecili|hesr|olun|oldu|tedbir|tarix|munasib)/;
+// Başlıq sözləri və sözün neçə başlıqda olduğu (nadir söz): lent dəyişəndə bir dəfə. Xəbər açılanda relatedOf və tvOf hər dəfə bütün
+// lenti yenidən təhlil edirdi — telefonda (4×) ~0,1 s (2026-11-24).
+const TOKS = new Map();
+const toksOf = s => { let t = TOKS.get(s); if (!t) { if (TOKS.size > 6000) TOKS.clear(); TOKS.set(s, t = titleTokens(s)); } return t; };
+function titleDf() {
+  if (S.dfD !== S.data) {
+    const all = S.data?.articles || [], df = new Map();
+    for (const b of all) for (const w of new Set(toksOf(b.title))) df.set(w, (df.get(w) || 0) + 1);
+    S.dfD = S.data; S.df = df; S.dfMax = Math.max(3, all.length / 40);
+  }
+  return S.df;
+}
 function relatedOf(a) {
-  const all = S.data?.articles || [], df = new Map(), t = +new Date(a.publishedAt), skip = new Set([a, ...(a.alts || [])].map(x => x.id));
-  for (const b of all) for (const w of new Set(titleTokens(b.title))) df.set(w, (df.get(w) || 0) + 1);
-  const A = new Set(titleTokens(a.title).filter(w => (df.get(w) || 0) <= Math.max(3, all.length / 40) && !RARE_STOP.test(w)));
+  const all = S.data?.articles || [], df = titleDf(), t = +new Date(a.publishedAt), skip = new Set([a, ...(a.alts || [])].map(x => x.id));
+  const A = new Set(toksOf(a.title).filter(w => (df.get(w) || 0) <= S.dfMax && !RARE_STOP.test(w)));
   return all.filter(b => !skip.has(b.id) && Math.abs(+new Date(b.publishedAt) - t) < GROUP_MS && !removedArticle(b))
-    .map(b => [new Set(titleTokens(b.title).filter(w => A.has(w))).size, b]).filter(x => x[0] > 1).sort((x, y) => y[0] - x[0]).map(x => x[1]).reduce((k, b) => (k.length < 3 && !k.some(c => jaccard(new Set(titleTokens(b.title)), new Set(titleTokens(c.title))) > .5) && k.push(b), k), []);
+    .map(b => [new Set(toksOf(b.title).filter(w => A.has(w))).size, b]).filter(x => x[0] > 1).sort((x, y) => y[0] - x[0]).map(x => x[1]).reduce((k, b) => (k.length < 3 && !k.some(c => jaccard(new Set(toksOf(b.title)), new Set(toksOf(c.title))) > .5) && k.push(b), k), []);
 }
 // Xəbərə aid telekanal videosu (sahib, 2026-11-24: «öz video xəbərlərimizdə həmin xəbərə aid televiziya xəbərlərində verilən video
 // oynasın … hava və bənzəri xəbərlərimiz xaric»). TV kadrını öz videomuza yükləmək müəllif hüququnu pozur (YouTube Content ID, Meta
@@ -2174,13 +2192,9 @@ function relatedOf(a) {
 const WEATHER = /hava (şərait|proqnoz|haqqında)|havanın|temperatur|yağış|yağıntı|qar yağ|külək|şaxta|sinoptik|meteoroloji/i;
 function tvOf(a) {
   if (WEATHER.test(a.title || "") || !S.video?.items?.length) return null;
-  if (S.tvD !== S.data) {   // sözün neçə başlıqda olduğu — lent dəyişəndə bir dəfə
-    const all = S.data?.articles || [], df = new Map();
-    for (const b of all) for (const w of new Set(titleTokens(b.title))) df.set(w, (df.get(w) || 0) + 1);
-    S.tvD = S.data; S.tvDf = df; S.tvMax = Math.max(3, all.length / 40);
-  }
+  const df = titleDf(); // sözün neçə başlıqda olduğu — lent dəyişəndə bir dəfə
   // «Bakıda», «şəxs» kimi tez-tez işlənən söz uyğunluq deyil: yalnız nadir sözlər sayılır.
-  const A = new Set(titleTokens(a.title).filter(w => (S.tvDf.get(w) || 0) <= S.tvMax && !RARE_STOP.test(w))), t = +new Date(a.publishedAt);
+  const A = new Set(toksOf(a.title).filter(w => (df.get(w) || 0) <= S.dfMax && !RARE_STOP.test(w))), t = +new Date(a.publishedAt);
   // Ortaq sözlərdən biri xüsusi ad olmalıdır (yer, adam, təşkilat: başlıqda böyük hərflə, cümlənin ilk sözü deyil və ya «Barselona»
   // kimi tək sözlük dırnaqda; sitatla başlayan başlığın ilk sözü ad deyil):
   // «elektron pul təşkilatına rəhbər» ilə «kartınızdan pul oğurlanacaq» iki ortaq sözlə də başqa xəbərdir.
@@ -2188,7 +2202,7 @@ function tvOf(a) {
   let best = null, n = 1;
   for (const v of S.video?.items || []) {
     if (v.channel === "8ULDUZ" || !(Math.abs(+new Date(v.publishedAt) - t) <= 2 * DAY)) continue;
-    const k = [...new Set(titleTokens(v.title))].filter(w => A.has(w));
+    const k = [...new Set(toksOf(v.title))].filter(w => A.has(w));
     if (k.length > n && k.some(w => names.has(w))) { n = k.length; best = v; }
   }
   return best;
@@ -2404,10 +2418,21 @@ function teamView(r) {
 }
 // Tıxac-İndi səhifəsi tənbəl modulda (tixac-sehife.js): əsas kod ~4,5 KB yüngülləşir (sahib 2026-11-19: «yer açmaq lazımdır»)
 const tixHelpers = () => ({ S, tixArea, geoArea, localRoadItems, roadItems, TRAFFIC_AREAS, esc, txt, safeHref, OUT, sourceName, shownSource, ago, bakuRush, TOUCH_UI, yandexSrc, wazeSrc, wazeApp, wazeLive, HOUR, loadTixac });
+const tixLoad = () => S.tixMod ||= import("./tixac-sehife.js").then(m => { S.tixView = m.view; if (route().name === "traffic") renderView(); }).catch(() => { S.tixMod = null; });
 function trafficView() {
   if (S.tixView) return S.tixView(tixHelpers());
-  if (!S.tixMod) S.tixMod = import("./tixac-sehife.js").then(m => { S.tixView = m.view; if (route().name === "traffic") renderView(); }).catch(() => { S.tixMod = null; });
+  tixLoad();
   return skeleton();
+}
+// Basmaq niyyəti: barmaq ekrana toxunan an (click-dən 50–150 ms əvvəl, siçanda düymə basılan an) tənbəl modul soruşulur — ilk basışda
+// modulun şəbəkədən gəlişi gözlənmir (sahib 2026-11-24: «gözqırpımı … ən peşəkar və innovativ üsullarla»). Yalnız basılan düymənin
+// modulu: ilk açılışa sorğu əlavə olunmur. import() eyni modulu ikinci dəfə soruşmur.
+const INTENT = [['[data-act="reels"]', () => import("./lent.js?v=1").catch(() => {})], ['[data-act="follow"]', () => import("./follow.js?v=8").catch(() => {})],
+  ['[data-act="dinle"]', () => import(`${ASSET}dinle.js`).catch(() => {})], ['a[href="#/tixac"]', tixLoad]];
+const INTENT_DONE = new Set();
+function intent(e) {
+  const t = e.target.closest?.("[data-act], a[href]"), hit = t && INTENT.find(([sel]) => t.matches(sel));
+  if (hit && !INTENT_DONE.has(hit)) { INTENT_DONE.add(hit); hit[1](); }
 }
 // Avtomatik tıxac ölçüsü (sahib 2026-11-14): .github/scripts/tixac.cjs Mapbox ilə pik saatlarda 6, qalan vaxt 30 dəqiqədən bir ölçür,
 // nəticə «tixac» budağındadır (pik saatlarda 6, qalan vaxt 30 dəqiqədən bir). Yalnız Tıxac səhifəsində və yalnız açıq ikən 5 dəqiqədən bir oxunur (başqa səhifələrə yük yoxdur).
@@ -2482,6 +2507,25 @@ function patchView(v, page) {
   wire(changed);
 }
 // Yeni (və ya geri qoyulan) düyünlərin qurğuları: slayder oxları və şəkilləri, lentlər, uzaq bölmələr, gec doldurma.
+// «Daha çox xəbər»: ekrandakı kartlara yalnız yeni 8 kart əlavə olunur — bütün ana səhifə yenidən qurulurdu (telefonda 0,3–1,3 s;
+// 2026-11-24). Ekrandakı kartlar son çəkilişin siyahısı deyilsə (lent arada dəyişib) adi çəkiliş. Bölmənin sətri növbəti çəkilişin
+// sətri ilə eynidir (patchChildren onu saxlayır); aşağı bölmələr boş anda təzələnir ki, yuxarıda açılan xəbər orada təkrarlanmasın.
+function moreLatest(was) {
+  const sec = $("#son-xeberler"), grid = sec?.querySelector(".latest-grid"), h = S.homeLatest;
+  if (!grid || !h || h.d !== S.data || route().name !== "home") return false;
+  const ids = [...grid.children].map(c => c.querySelector("[data-save]")?.dataset.save);
+  if (ids.length !== was || ids.some((id, i) => !id || h.ranked[i]?.id !== id)) return false;
+  const t = document.createElement("template"), next = document.createElement("template");
+  t.innerHTML = h.ranked.slice(was, S.latestCount).map(card).join(""); next.innerHTML = latestBlock(h.list);
+  S.tr?.(t.content); S.tr?.(next.content);
+  const added = [...t.content.children], fresh = next.content.firstElementChild;
+  grid.append(t.content);
+  if (!fresh.querySelector('[data-act="latest-more"]')) sec.querySelector('[data-act="latest-more"]')?.remove();
+  sec._src = fresh.outerHTML;
+  wire(added);
+  idle(renderView, 300, 2000);
+  return true;
+}
 function wire(changed) {
   if (!changed.length) return;
   const has = sel => changed.some(n => n.matches(sel) || n.querySelector(sel));
@@ -2812,7 +2856,7 @@ function onClick(e) {
   }
   if (t.dataset.city) { S.wxSel = t.dataset.city; renderTopbar(); return; }
   const act = t.dataset.act;
-  if (act === "latest-more") { S.latestCount = (S.latestCount || 8) + 8; renderView(); }
+  if (act === "latest-more") { const was = S.latestCount || 8; S.latestCount = was + 8; if (!moreLatest(was)) renderView(); }
   else if (act === "wx") { S.wxOpen = !S.wxOpen; S.wxSel = null; renderTopbar(); if (S.wxOpen) loadAllWeather(); }
   else if (act === "wx-close") { S.wxOpen = false; renderTopbar(); }
   else if (act === "wx-back") { S.wxSel = null; renderTopbar(); }
@@ -2875,6 +2919,13 @@ function setPref(act) {
   if (act === "theme") {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     storage.setItem(THEME_KEY, next);
+    // Rəng yerləşdirməni dəyişmir: zolaq, marquee və menyu yenidən qurulmur, yalnız düymə (telefonda 0,26–0,34 s idi; 2026-11-24).
+    // Zolağın yaddaşdakı sətri köhnə qalır: növbəti renderTopbar onu yenisi ilə tutuşdurub yazır.
+    applyPrefs();
+    const b = $('#topbar [data-act="theme"]'), light = next === "light";
+    if (b) { b.title = light ? "Tünd rejimə keç" : "İşıqlı rejimə keç"; b.querySelector(".face").innerHTML = `<span aria-hidden="true">${light ? "☾" : "☀"}</span><span>${light ? "Tünd" : "İşıqlı"}</span>`; }
+    else renderTopbar();
+    return;
   } else {
     const n = Math.max(0, Math.min(6, Number(document.documentElement.dataset.fs || FS_STD) + (act === "fs-up" ? 1 : -1)));
     storage.setItem(FS_KEY, String(n));
