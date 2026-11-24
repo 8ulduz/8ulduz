@@ -88,6 +88,25 @@ test("topics: «$» in a headline is plain text, not a String.replace pattern", 
   assert.deepEqual([...new Set(html.match(/__[A-Z0-9_]+?__/g))], ["__ITEMS__"], "doldurulmamış yer qalmır; başlıqdakı «__ITEMS__» mətn kimi qalır");
 });
 
+test("topics: the visible heading and list come before the stored JSON; an old-layout page is rewritten once without waiting an hour", () => {
+  const dir = site([art("q1", "Qubada qar yağıb", "bolgeler", 1), art("q2", "Quba rayonunda yeni məktəb açıldı", "gundem", 2), art("q3", "Qubanın dağ kəndlərinə qaz verildi", "cemiyyet", 3)]);
+  T.run(dir, { now: NOW });
+  const BLOCK = /<script type="application\/json" id="movzu">[\s\S]*?<\/script>\n?/;
+  for (const f of ["rayon/quba/index.html", "idman/qarabag/index.html"]) {
+    const html = read(dir, f), at = html.search(BLOCK);
+    assert.ok(at > 0 && !html.slice(0, html.indexOf("</head>")).includes('id="movzu"'), f + ": başlıqda JSON yoxdur (2026-11-24, komanda səhifəsi)");
+    assert.ok(html.indexOf("<h1>") < at && html.indexOf("</main>") < at, f + ": h1 və siyahı JSON-dan əvvəl gəlir");
+    assert.ok(/<\/main>\n<script type="application\/json" id="movzu">[^<]*<\/script>\n<\/body>/.test(html), f + ": JSON </body>-dən əvvəl");
+  }
+  // 2026-11-24-dən əvvəlki düzülüş: JSON <head>-də, «v» yoxdur. Xəbər dəyişməsə də bir dəfə yazılır, siyahı itmir.
+  const file = path.join(dir, "rayon/quba/index.html"), cur = read(dir, "rayon/quba/index.html"), block = cur.match(BLOCK)[0].replace(/"v":2,/, "");
+  fs.writeFileSync(file, cur.replace(BLOCK, "").replace("</head>", block + "</head>"));
+  assert.equal(T.run(dir, { now: NOW + 60e3 }).written, 1, "yalnız köhnə düzülüşlü səhifə, bir saatı gözləmədən");
+  const quba = read(dir, "rayon/quba/index.html");
+  assert.ok(quba.search(BLOCK) > quba.indexOf("</main>") && items(quba) === 3, "yeni düzülüş, xəbərlər yerində");
+  assert.equal(T.run(dir, { now: NOW + 120e3 }).written, 0, "bir dəfə: sonra yenə saatda bir");
+});
+
 test("topics: a region page links to its prayer-time and weather pages only when those pages exist, and is rewritten once when they appear", () => {
   const dir = site([art("q1", "Qubada qar yağıb", "bolgeler", 1), art("q2", "Quba rayonunda yeni məktəb açıldı", "gundem", 2), art("q3", "Qubanın dağ kəndlərinə qaz verildi", "cemiyyet", 3)]);
   T.run(dir, { now: NOW });
