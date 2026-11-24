@@ -531,8 +531,9 @@ const meta = (a, story) => `<div class="meta"><a class="src" href="${safeHref(a.
 const hourOf = a => (String(a.publishedAt || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/) || []).slice(1).join("");
 const shareUrl = (a, h = hourOf(a)) => /^[0-9a-f]{16}$/.test(a.id) ? `https://www.8ulduz.az/${a.id}${h && "?h=" + h}` : `https://8ulduz.az/#/xeber/${encodeURIComponent(a.id)}?b=${encodeURIComponent(a.category || "")}${h && "&h=" + h}`;
 const SHARE_TO = { fb: ["Facebook", u => `https://www.facebook.com/sharer/sharer.php?u=${u}`], x: ["X", (u, t) => `https://x.com/intent/post?url=${u}&text=${t}`], wa: ["WhatsApp", (u, t) => `https://wa.me/?text=${t}%0A${u}`], tg: ["Telegram", (u, t) => `https://t.me/share/url?url=${u}&text=${t}`], in: ["LinkedIn", u => `https://www.linkedin.com/sharing/share-offsite/?url=${u}`], mail: ["E-poçt", (u, t) => `mailto:?subject=${t}&body=${t}%0A${u}`] };
-// Şəbəkə işarələri sprite-dadır (sosial.svg).
-const shIcon = k => `<svg aria-hidden="true"><use href="${ASSET}sosial.svg#${k}"/></svg>`;
+// Şəbəkə işarələri sprite-dadır (sosial.svg), öz rənglərində (sahib, 2026-11-24); X və TikTok qara-ağdır — mətnin rəngi.
+const BRAND = { fb: "#0866ff", wa: "#25d366", tg: "#26a5e4", in: "#0a66c2", ig: "#e4405f", yt: "#f00" };
+const shIcon = k => `<svg aria-hidden="true"${BRAND[k] ? ` style="color:${BRAND[k]}"` : ""}><use href="${ASSET}sosial.svg#${k}"/></svg>`;
 const APP_PKG = [[/(?:^|\.)(?:x|twitter)\.com$/, "com.twitter.android"], [/(?:^|\.)facebook\.com$/, "com.facebook.katana"], [/(?:^|\.)instagram\.com$/, "com.instagram.android"], [/(?:^|\.)(?:youtube\.com|youtu\.be)$/, "com.google.android.youtube"], [/^wa\.me$|whatsapp\.com$/, "com.whatsapp"], [/^t\.me$/, "org.telegram.messenger"]];
 function appLink(u, pkg, extra = "") {
   if (!/Android/.test(navigator.userAgent || "")) return "";
@@ -1466,13 +1467,15 @@ function bindNavPop() {
   const pop = $("#navpop");
   let timer, preT;
   const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
-  const hide = () => { clearTimeout(timer); pop.hidden = true; };
-  let anchor, lastX = 0;
-  // Yer yalnız açılanda.
+  const hide = () => { clearTimeout(timer); pop.hidden = true; anchor?.classList?.remove("pop-on"); }; // pop-on: düymənin altında üçbucaq (app.css)
+  let anchor, lastX = 0, at = [0, 0];
+  // Yer yalnız açılanda. Sahib, 2026-11-24: menyu düymənin altından başlayır (əvvəl ən geniş halına — 800 px — yer saxlayıb sola sürüşürdü);
+  // sütunlar açıldıqca ekrana sığmırsa sola çəkilir (fit: sütunların məlum eni, yerləşdirmə oxunmur). 6 px ara — düymənin üçbucağı.
+  const fit = () => { pop.style.left = `${popLeft(at[0], at[1], [...pop.children].reduce((w, c) => w + (c.classList.contains("clubs") ? 340 : 230), 0) || 230)}px`; };
   const place = (slug, from) => {
     const head = $("#sitehead").getBoundingClientRect(), box = from.getBoundingClientRect();
-    pop.style.left = `${popLeft(box.left - head.left, head.width, slug === "more" ? 230 : slug === "idman" && innerWidth >= 900 ? 800 : 460)}px`;
-    pop.style.top = `${box.bottom - head.top}px`;
+    at = [box.left - head.left, head.width];
+    pop.style.top = `${box.bottom - head.top + 6}px`;
     pop.style.setProperty("--pop-h", `${Math.max(200, innerHeight - box.bottom - 84)}px`);
   };
   // Dəyişməyən sütuna toxunulmur.
@@ -1494,8 +1497,10 @@ function bindNavPop() {
   const show = (slug, tab, from = anchor, liga = "") => {
     const opening = pop.hidden || pop.dataset.slug !== slug, keep = !opening && pop.dataset.tab === (tab ?? "");
     if (opening) { pop.textContent = ""; place(slug, from); }
+    if (anchor !== from) anchor?.classList?.remove("pop-on"); from?.classList?.add("pop-on");
     anchor = from; pop.dataset.slug = slug; pop.dataset.tab = tab ?? ""; pop.dataset.liga = liga;
     paint(navPopHtml(slug, tab, liga), keep);
+    fit();
     pop.hidden = false;
   };
   S.navRefresh = () => { if (!pop.hidden && pop.dataset.slug === "idman") show("idman", pop.dataset.tab || null, anchor, pop.dataset.liga); };
@@ -1707,7 +1712,7 @@ function renderMarkets() {
     const chg = has ? `<span>${i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "•"} %${Math.abs(i.changePct).toFixed(2)}</span><span>${i.change > 0 ? "+" : ""}${fmt(i.change, dec)}</span>`
       : `<span${unofficial ? ` class="unoff"` : ""}>${i.unit !== "AZN" ? "qiymət" : unofficial ? "bazar" : "məzənnə"}</span><span>${i.unit === "AZN" ? "AZN" : "$"}</span>`;
     const title = [i.src && `Mənbə: ${i.src}`, unofficial && "AMB rəsmi məzənnəsi alınmadı — bazar məzənnəsi", i.asOf && `Tarix: ${i.asOf}`, i.stale && "son məlum qiymət"].filter(Boolean).join(" · ");
-    return `<button type="button" class="mk" data-fx="${esc(i.id)}" data-d="${cls}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v" data-ar="${has ? (i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "") : ""}">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
+    return `<button type="button" class="mk${S.fxOpen && S.fxFrom === i.id ? " fx-on" : ""}" data-fx="${esc(i.id)}" data-d="${cls}" title="${esc(title)}"><div class="n">${marketIcon(i.id)}${esc(i.label)}</div><div class="v" data-ar="${has ? (i.changePct > 0 ? "↑" : i.changePct < 0 ? "↓" : "") : ""}">${fmt(i.value, dec)}<small>${i.unit === "AZN" ? "₼" : "$"}</small></div><div class="c ${cls}">${chg}</div></button>`;
   }).join("");
   // Telefonda zolaq yana sürüşür: hər dəqiqəlik yeniləmədə başa qayıdırdı (sahib 2026-11-14). Eyni məlumat yenidən yazılmır,
   // dəyişəndə də oxucunun sürüşdürdüyü yer saxlanır. Hazır nüsxədəki (index.html) kartlar eynidirsə toxunulmur.
@@ -1733,7 +1738,7 @@ function fxPop() {
   const opts = [`<option value="AZN">AZN</option>`].concat((S.markets || []).map(i => `<option value="${esc(i.id)}">${esc(i.label)}</option>`)).join("");
   const out = convertAmt(Number(S.fxAmt) || 0, S.fxFrom, S.fxTo);
   const dec = S.fxTo === "BTC" ? 6 : 2; // sync() ilə eyni
-  return `<div class="fx-pop" role="dialog"><div class="fx-h"><b>Çevirici</b><button type="button" data-act="fx-close" aria-label="Bağla">✕</button></div>
+  return `<div class="fx-pop${S.fxR ? " r" : ""}" role="dialog"><div class="fx-h"><b>Çevirici</b><button type="button" data-act="fx-close" aria-label="Bağla">✕</button></div>
     <label>Məbləğ<input id="fx-amt" type="number" min="0" step="any" value="${esc(S.fxAmt)}"></label>
     <div class="fx-row"><select id="fx-from">${opts}</select><span>→</span><select id="fx-to">${opts}</select></div>
     <b class="fx-out">${out == null ? "—" : fmt(out, dec)}</b>${popMore("valyuta/", "Bütün məzənnələr və cədvəllər")}</div>`;
@@ -2597,7 +2602,7 @@ function trackEvent(path, a) {
 addEventListener("click", e => { const h = innerWidth <= 600 && e.target.closest?.(".prez-h"); if (h && !e.target.closest(".btn")) { e.preventDefault(); h.parentNode.classList.toggle("open", S.prezOpen = !S.prezOpen); } }, true);
 // Orta düymə (auxclick, button 1) də keçiddir; sağ düymə (2) sayılmır. «click» yalnız sol düymədə gəlir: bir klik bir hadisədir.
 for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.target.closest?.("a"); if (!a || a.dataset.act) return; /* data-act: keçidi onClick idarə edir (Videolent) */ if (a.target === "_blank") { if (a.host && a.host !== location.host && e.button < 2) trackEvent("out-" + a.host, a); return; } if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; const h = a.getAttribute("href") || ""; if (h.startsWith("#") && offRoot()) { e.preventDefault(); if (h.startsWith("#/")) location.hash = h; else document.getElementById(h.slice(1))?.focus(); return; } /* <base> kökdür: «#…» səhifədən çıxarmasın («Məzmuna keç» də) */ const m = /^\/((xeber|bolme)\/(?!(?:namaz|hava|mezenne)\/)[^/?#]+)/.exec(a.getAttribute("href")); /* namaz, hava, mezenne tətbiqin bölməsi deyil, ayrıca səhifədir */ if (m) { e.preventDefault(); location.hash = "#/" + m[1]; } }, true);
-function closeSharePop() { document.querySelector(".sharepop")?.remove(); }
+function closeSharePop() { document.querySelector(".sharepop")?.remove(); document.querySelector(".pop-on.sh-on")?.classList.remove("pop-on", "sh-on", "pop-up"); }
 function showPop(btn, html) {
   closeSharePop();
   const box = document.createElement("div"), r = btn.getBoundingClientRect();
@@ -2606,7 +2611,9 @@ function showPop(btn, html) {
   document.body.append(box);
   const w = box.offsetWidth, h = box.offsetHeight;
   box.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.right - w))}px`;
-  box.style.top = `${r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6}px`;
+  const down = r.bottom + 14 + h <= (globalThis.visualViewport?.height || 1e4) || r.top - h - 6 < 8;   // sahib, 2026-11-24: pəncərə düymənin altında
+  box.style.top = `${down ? r.bottom + 6 : r.top - h - 6}px`;
+  btn.classList.add("pop-on", "sh-on", ...(down ? [] : ["pop-up"]));   // yuxarıda açılanda üçbucaq aşağı baxır
   return box;
 }
 const shareTitle = el => el.dataset?.title || el.closest("article")?.querySelector("h2,h3,.t")?.textContent.trim() || ""; // sosial yazı: «İlham Əliyev: …»
@@ -2747,7 +2754,7 @@ function onClick(e) {
     if (box && !box.querySelector("iframe")) box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(t.dataset.yt)}?autoplay=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Video"></iframe>`;
     return;
   }
-  if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; renderMarkets(); return; }
+  if (t.dataset.fx && !e.target.closest(".fx-pop")) { S.fxFrom = t.dataset.fx; S.fxTo = "AZN"; S.fxOpen = true; S.fxR = e.clientX > (globalThis.visualViewport?.width || 1e4) / 2; /* sağ yarıda pəncərə valyutanın sağ kənarına */ renderMarkets(); return; }
   if (t.dataset.fbtab) { S.fbTab = t.dataset.fbtab; renderView(); return; }
   if (t.dataset.fbleague !== undefined) { S.fbLeague = Number(t.dataset.fbleague) || 0; const L = fbLeagues()[S.fbLeague]; S.fbTab = L?.world ? 0 : (S.fbTab === "table" && !L?.table?.length) || S.fbTab >= 0 ? "results" : S.fbTab; renderView(); return; }
   if (t.dataset.lang !== undefined) { setLang(t.dataset.lang); return; }
@@ -2773,7 +2780,7 @@ function onClick(e) {
   else if (act === "clear-saved") { if (confirm("Bütün seçilmişlər silinsin?")) { storage.removeItem(SAVE_KEY); renderView(); } }
   else if (act === "find") { $("#sitehead")?.classList.add("q-open"); const q = $("#q"); q?.focus(); q?.scrollIntoView({ block: "center" }); }
   else if (act === "reels") { e.preventDefault(); import("./lent.js?v=1").then(m => m.open(S)).catch(() => {}); }
-  else if (act === "follow") import("./follow.js?v=7").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
+  else if (act === "follow") import("./follow.js?v=8").then(m => m.openFollow(t, trackEvent, chromeLink)).catch(() => alert("İzləmə paneli açılmadı. Yenidən cəhd edin."));
   else if (act === "lang") { S.langOpen = !S.langOpen; renderTopbar(); }
   else if (act === "motion") toggleMotion();
   else if (act === "tix-ani-off") { storage.setItem(ANI_KEY, JSON.stringify([...aniOff(), t.dataset.ani].slice(-10))); renderTixAlert(null); }

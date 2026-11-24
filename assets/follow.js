@@ -1,4 +1,5 @@
 // Loaded only on click. Trusted styles travel with the module: one small request opens the panel.
+const BRAND = {tg: '#26a5e4', wa: '#25d366', fb: '#0866ff', ig: '#e4405f', in: '#0a66c2', yt: '#f00'};
 const platforms = [
   ['telegram', 'Telegram', 'tg', ['t.me', 'telegram.me']],
   ['whatsapp', 'WhatsApp', 'wa', ['whatsapp.com']],
@@ -36,23 +37,25 @@ export function followLinks(config = {}) {
 }
 
 const styles = `
-.follow-dialog{position:fixed;inset:0 auto auto 8px;z-index:1200;box-sizing:border-box;width:min(260px,calc(100vw - 16px));max-height:85dvh;margin:0;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--nav-row);color:var(--fg);box-shadow:0 14px 28px #0006;font:inherit;overflow:auto;overscroll-behavior:contain}
+.follow-dialog{position:fixed;inset:0 auto auto 8px;z-index:1200;box-sizing:border-box;width:min(280px,calc(100vw - 16px));max-height:85dvh;margin:0;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--nav-row);color:var(--fg);box-shadow:0 14px 28px #0006;font:inherit;overflow:auto;overscroll-behavior:contain}
 .follow-dialog header{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .follow-dialog h2{margin:0;font-size:.9rem;line-height:1.3}
 .follow-dialog .follow-close{width:32px;height:32px;flex:none;border-radius:50%;font-size:22px;color:var(--muted)}
 .follow-dialog p{margin:0 0 8px;color:var(--muted);font-size:.72rem;line-height:1.4}
 .follow-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.follow-grid a{display:flex;align-items:center;gap:6px;min-height:38px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);font-size:.82rem;line-height:1.3;font-weight:var(--fw-semibold);overflow-wrap:anywhere}
+.follow-grid a{display:flex;align-items:center;gap:6px;min-height:38px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card2);color:var(--fg);font-size:.82rem;line-height:1.3;font-weight:var(--fw-semibold)}
 .follow-grid a:last-child:nth-child(odd){grid-column:1/-1}
 .follow-grid a:hover{border-color:var(--primary)}
-.follow-grid svg,.follow-grid .follow-google{width:18px;height:18px;flex:none;fill:currentColor}
-.follow-grid .follow-google{display:grid;place-items:center;font-weight:var(--fw-bold)}
+.follow-grid svg,.follow-grid .follow-google{box-sizing:content-box;width:18px;height:18px;flex:none;padding:2px;border-radius:6px;background:#fff;color:#000;fill:currentColor}
+.follow-grid .follow-google{display:grid;place-items:center;font-weight:var(--fw-bold);color:#4285f4}
+.follow-arrow{position:fixed;z-index:1201;width:0;height:0;margin-left:-8px;border:8px solid transparent;border-top:0;border-bottom-color:var(--pop,#fbf6ea);pointer-events:none}
+.follow-tg{color:var(--fg)}
 .follow-tg{display:block;margin-top:6px;padding:8px;border:1px solid var(--primary);border-radius:6px;background:var(--card);font-size:.82rem;font-weight:var(--fw-semibold);text-align:center}
 .follow-dialog :focus-visible{outline:2px solid var(--primary);outline-offset:3px}
 `;
 
 export function followPosition(anchor, size, viewport) {
-  const edge = 8, gap = 6, width = Math.min(260, viewport.width - 2 * edge);
+  const edge = 8, gap = 8, width = Math.min(280, viewport.width - 2 * edge);
   const below = Math.max(0, viewport.height - edge - anchor.bottom - gap), above = Math.max(0, anchor.top - gap - edge);
   if (Math.max(below, above) < Math.min(size.height, 160)) return {width, maxHeight: viewport.height - 2 * edge, left: Math.max(edge, Math.min(anchor.right - width, viewport.width - width - edge)), top: edge};
   const down = below >= Math.min(size.height, 240) || below >= above;
@@ -62,7 +65,7 @@ export function followPosition(anchor, size, viewport) {
 
 // Back dismisses the panel without leaving the current article or changing its hash.
 export function wireFollowDialog(dialog, opener, win = window) {
-  let hasEntry = false, closing = false, waitingPop = false, restoreFocus = true, navigateAfter;
+  let hasEntry = false, closing = false, waitingPop = false, restoreFocus = true, navigateAfter, arrow;
   const navigate = () => { const hash = navigateAfter; navigateAfter = null; if (hash) win.location.hash = hash; };
   const cleanup = () => {
     if (!waitingPop) { win.removeEventListener('popstate', popped); navigate(); }
@@ -71,6 +74,7 @@ export function wireFollowDialog(dialog, opener, win = window) {
     win.removeEventListener('resize', close);
     win.removeEventListener('scroll', scrolled, true);
     opener?.setAttribute?.('aria-expanded', 'false');
+    arrow?.remove();
     if (restoreFocus && opener?.isConnected) opener.focus({preventScroll: true});
     dialog.remove();
   };
@@ -99,13 +103,18 @@ export function wireFollowDialog(dialog, opener, win = window) {
   dialog.querySelector('.follow-close').addEventListener('click', close);
   try {
     const viewport = {width: win.document.documentElement.clientWidth || win.innerWidth, height: win.innerHeight};
-    if (dialog.style) dialog.style.width = Math.min(260, viewport.width - 16) + 'px';
+    if (dialog.style) dialog.style.width = Math.min(280, viewport.width - 16) + 'px';
     dialog.show();
     if (opener?.getBoundingClientRect && dialog.style) {
-      const button = opener.getBoundingClientRect(), head = opener.closest?.('#sitehead')?.getBoundingClientRect();
-      const anchor = head ? {top: head.top, bottom: head.bottom, right: button.right} : button;
-      const pos = followPosition(anchor, dialog.getBoundingClientRect(), viewport);
+      const button = opener.getBoundingClientRect();
+      const pos = followPosition(button, dialog.getBoundingClientRect(), viewport);
       for (const [key, value] of Object.entries(pos)) dialog.style[key] = value + 'px';
+      // Üçbucaq düymənin ortasında, pəncərənin rəngində (dialoqun içində overflow onu kəsərdi — ayrıca element).
+      if (pos.top > button.bottom) {
+        arrow = win.document.createElement('i'); arrow.className = 'follow-arrow'; arrow.setAttribute('aria-hidden', 'true');
+        arrow.style.left = (button.left + button.width / 2) + 'px'; arrow.style.top = (pos.top - 7) + 'px';
+        win.document.body.append(arrow);
+      }
     }
     opener?.setAttribute?.('aria-expanded', 'true');
     try { win.history.pushState({...win.history.state, '8ulduz-follow': true}, '', win.location.href); hasEntry = true; } catch {}
@@ -135,6 +144,7 @@ export function openFollow(opener, track = () => {}, chromeLink = () => '') {
     if (item.icon) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('aria-hidden', 'true');
+      if (BRAND[item.icon]) svg.style.color = BRAND[item.icon];
       const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
       use.setAttribute('href', new URL('sosial.svg#' + item.icon, import.meta.url).href);
       svg.append(use); link.append(svg);
