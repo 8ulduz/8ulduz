@@ -54,9 +54,11 @@ Açarı, parolu və kodu heç kimə göndərməyin, söhbətə yapışdırmayın
 1. youtube.com-a 8ulduz-un Google hesabı ilə daxil olun (məsələn, Search Console-dakı hesab).
 2. Sağ yuxarıda şəkil → **Kanal yaradın** (Create a channel). Ad: **8ulduz.az**. Şirkət adı ilə yaradılan kanal «Brand Account» olur, belə də yaxşıdır.
 3. YouTube Studio → **Fərdiləşdirmə** (Customization) → **Əsas məlumat**:
-   - Təsvir: «8ulduz.az — Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.»
+   - Ad: **8 Ulduz | Səkkiz Ulduz xəbər** (2026-11-24: kanalın adı «8ULDUZ» idi, təsviri və açar sözləri boş idi; YouTube «8 ulduz» axtarışını iki söz kimi oxuyur və kanal çıxmırdı, «8ulduz» axtaranda çıxırdı). Tutacaq (@8ULDUZ) dəyişmir.
+   - Təsvir: «8 Ulduz (Səkkiz Ulduz, 8ulduz.az) — xəbər saytı: Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir. 8ulduz, səkkizulduz.»
    - **Keçidlər** → `https://8ulduz.az/`.
 4. Studio → **Ayarlar** → **Kanal** → **Qabaqcıl ayarlar** → Auditoriya: «Xeyr, uşaqlar üçün deyil».
+   Eyni yerdə (**Ayarlar** → **Kanal** → **Əsas məlumat**) **Açar sözlər**: `8 ulduz`, `8ulduz`, `8ulduz.az`, `səkkiz ulduz`, `səkkizulduz`, `səkkiz`, `8`, `xəbər`, `xəbərlər`, `son xəbərlər`, `Azərbaycan xəbərləri`. Yükləyici hər videonun teqlərinə və təsvirinə də bu yazılışları qoyur (`youtube.cjs` `BASE_TAGS`, `TAGLINE`).
 5. Studio → **Ayarlar** → **Yükləmə standartları** → Dil: Azərbaycan dili. Bu istəyə bağlıdır, yükləyici dili özü də göndərir.
 6. İstəyə bağlı: youtube.com/verify — telefonla təsdiq. Shorts üçün şərt deyil.
 
