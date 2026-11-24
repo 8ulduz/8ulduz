@@ -224,6 +224,37 @@ test("social: the daily digest goes out at its hour even inside the 18-minute ga
   assert.deepEqual(S.digests([{ ...ed, at: NOW / 1000 - 5 * 3600 }], NOW), [], "4 saatdan köhnə buraxılış göndərilmir");
 });
 
+test("social: every story in the digest links to its page on the site — Telegram title is the link, Facebook has the address under it", async () => {
+  // Sahib, 2026-11-24: «icmalda olan xəbərə basanda saytdakı xəbərə keçid olsun». ids items ilə eyni sıradadır (updater.write_digest).
+  const ids = ["95da5e7fa4e8ed45", "acc79befbf8268ba"];
+  const ed = { slug: "2026-11-05-axsam", title: "Axşam icmalı · 5 noyabr 2026", url: "https://8ulduz.az/icmal/2026-11-05-axsam/", at: NOW / 1000 - 300, ids,
+    items: [{ t: "Birinci & son xəbər Modern.az", n: 12 }, { t: "İkinci xəbər", n: 9 }] };
+  const ZW = String.fromCharCode(0x200b);   // noLinks: Telegram sayt adını özü keçid etməsin
+  const feed = [{ ...art("x"), id: ids[0], publishedAt: "2026-11-05T14:20:00Z" }];
+  const [d] = S.digests([ed], NOW, feed);
+  assert.equal(d.items[0].u, `https://www.8ulduz.az/${ids[0]}?h=26110514`, "paylaşma keçidi, saat lentdəndir");
+  assert.equal(d.items[1].u, `https://www.8ulduz.az/${ids[1]}`, "lentdə yoxdur: h-siz, sayt arxivdən açır");
+  assert.equal(S.digests([{ ...ed, ids: ["../x", ""] }], NOW, feed)[0].items.some(x => x.u), false, "nömrə deyilsə keçid yoxdur");
+
+  const sent = [];
+  const fetch = async (url, init) => {
+    if (init.method === "HEAD") return { status: 200 };
+    sent.push(JSON.parse(init.body).text);
+    return { ok: true, status: 200, text: async () => "" };
+  };
+  await S.run({ articles: feed, digestIndex: [ed], env: { TELEGRAM_BOT_TOKEN: "123:SECRET", TELEGRAM_CHAT: "-1002" }, now: NOW, fetch,
+    state: { _last: { telegram: NOW / 1000 - 5 * 60 } }, log: () => {} });
+  assert.equal(sent.length, 1);
+  assert.ok(sent[0].includes(`\n\n1. <a href="https://www.8ulduz.az/${ids[0]}?h=26110514">Birinci &amp; son xəbər Modern.${ZW}az</a>\n`
+    + `2. <a href="https://www.8ulduz.az/${ids[1]}">İkinci xəbər</a>\n\nhttps://8ulduz.az/icmal/2026-11-05-axsam/`), sent[0]);
+
+  const fb = S.networks({ FB_PAGE_ID: "1470250006171917", FB_PAGE_TOKEN: "EAAuserTOKEN123456" }).find(n => n.name === "facebook");
+  const body = new URLSearchParams(fb.request(d)[1].body);
+  assert.equal(body.get("message"), "Axşam icmalı · 5 noyabr 2026\nGünün ən çox yazılan 2 xəbəri:\n\n"
+    + `1. Birinci & son xəbər Modern.az\nhttps://www.8ulduz.az/${ids[0]}?h=26110514\n\n2. İkinci xəbər\nhttps://www.8ulduz.az/${ids[1]}`);
+  assert.equal(body.get("link"), ed.url, "kart icmal səhifəsinə aparır");
+});
+
 test("social: Instagram posts a picture story to the Instagram account linked to the Facebook page, quietly skips until it is linked", async () => {
   const env = { FB_PAGE_ID: "1470250006171917", FB_PAGE_TOKEN: "EAAuserTOKEN123456" };
   assert.deepEqual(S.networks(env).map(n => n.name), ["facebook", "instagram"]);

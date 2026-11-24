@@ -71,7 +71,7 @@ Hər gün Bakı vaxtı ilə **09:00**-da və **19:00**-da `updater.write_digest`
 - Bölmə və xəbər səhifələri «Günün icmalı»na keçid verir.
 
 **Sosial şəbəkələr:**
-- `social.cjs` buraxılışı Telegram-a və Facebook-a nömrəli siyahı və icmal linki ilə göndərir.
+- `social.cjs` buraxılışı Telegram-a və Facebook-a nömrəli siyahı və icmal linki ilə göndərir. Siyahıdakı hər xəbər saytdakı səhifəsinə bağlıdır (sahib, 2026-11-24): Telegram-da başlığın özü keçiddir, Facebook-da paylaşma keçidi (`https://www.8ulduz.az/<nömrə>`) başlığın altındadır.
 - 18 dəqiqəlik fasiləni gözləmir.
 - 4 saatdan köhnə buraxılış göndərilmir.
 

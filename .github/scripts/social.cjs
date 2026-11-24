@@ -43,12 +43,19 @@ const shareUrl = a => a.url || `${SHARE}${a.id}${hourOf(a.publishedAt) ? `?h=${h
 function hourOf(iso) { const m = String(iso || "").match(/^20(\d\d)-(\d\d)-(\d\d)T(\d\d)/); return m ? m.slice(1).join("") : ""; }
 // Günün icmalı (updater.write_digest, 09:00 və 19:00 Bakı): siyahı icmal/index.json-dadır. 4 saatdan köhnə buraxılış göndərilmir.
 const DIGEST_MAX_AGE_H = 4;
-function digests(index, now) {
+// Sahib, 2026-11-24: «icmalda olan xəbərə basanda saytdakı xəbərə keçid olsun». Buraxılışın ids-i items ilə eyni sıradadır
+// (updater.write_digest): hər xəbərə öz paylaşma keçidi (u, shareUrl). h lentdəki saatdandır; lentdə yoxdursa h-siz — Worker
+// saytın #/xeber/<id> səhifəsinə aparır, sayt xəbəri arxivdən tapır.
+function digests(index, now, articles = []) {
+  const at = new Map((Array.isArray(articles) ? articles : []).map(a => [String(a?.id), a?.publishedAt]));
+  const link = id => (/^[0-9a-f]{16}$/.test(id) ? { u: shareUrl({ id, publishedAt: at.get(id) }) } : {});
   return (Array.isArray(index) ? index : []).filter(e => e && /^\d{4}-\d{2}-\d{2}-(seher|axsam)$/.test(e.slug || "") && Array.isArray(e.items) && e.items.length
     && now - e.at * 1000 < DIGEST_MAX_AGE_H * 3600e3 && now - e.at * 1000 > -60e3)
-    .map(e => ({ id: `icmal-${e.slug}`, title: e.title, url: e.url, items: e.items, digest: true }));
+    .map(e => ({ id: `icmal-${e.slug}`, title: e.title, url: e.url, items: e.items.map((x, i) => ({ ...x, ...link(String(e.ids?.[i] || "")) })), digest: true }));
 }
-const digestList = a => a.items.map((x, i) => `${i + 1}. ${cut(x.t, 140)}`).join("\n");
+// Telegram: başlığın özü keçiddir (HTML). Facebook mətndə sözü keçid etmir, yalnız ünvanı: keçid başlığın altında, xəbərlər arasında boş sətir.
+const digestList = a => a.items.map((x, i) => `${i + 1}. ${cut(x.t, 140)}${x.u ? `\n${x.u}` : ""}`).join(a.items.some(x => x.u) ? "\n\n" : "\n");
+const digestHtml = a => a.items.map((x, i) => { const t = html(noLinks(cut(x.t, 140))); return `${i + 1}. ${x.u ? `<a href="${html(x.u)}">${t}</a>` : t}`; }).join("\n");
 // Eyni başlıq başqa mənbədən yeni nömrə ilə gəlir: şəbəkəyə ikinci dəfə getməsin (5–6 noyabr Telegram-da təkrar).
 const titleKey = a => "t:" + crypto.createHash("sha1").update(clean(a.title).toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "")).digest("hex").slice(0, 16);
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -218,7 +225,7 @@ function networks(env = process.env) {
     },
     request(a) {
       const url = shareUrl(a), sum = cut(a.summary, 300);
-      const text = a.digest ? `<b>${html(a.title)}</b>\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${html(noLinks(digestList(a)))}\n\n${url}`
+      const text = a.digest ? `<b>${html(a.title)}</b>\nGünün ən çox yazılan ${a.items.length} xəbəri:\n\n${digestHtml(a)}\n\n${url}`
         : `<b>${html(noLinks(cut(a.title, 250)))}</b>${sum && sum !== clean(a.title) ? `\n\n${html(noLinks(sum))}` : ""}\n\n${url}`;
       return [`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: this.chat, text, parse_mode: "HTML", link_preview_options: { url, prefer_large_media: true } }) }];
@@ -362,7 +369,7 @@ function readState(file, now) {
 
 // Bir dövrə: hər şəbəkəyə ən vacib, hələ paylaşılmamış xəbər(lər). Paylaşma səhifəsi saytda yoxdursa (main hələ yayımlanmayıb) növbəti.
 async function run({ articles, digestIndex = [], env = process.env, now = Date.now(), fetch: f = globalThis.fetch, state = {}, log = console.log, policy = () => false }) {
-  const opt = options(env), nets = networks(env), eds = digests(digestIndex, now), list = [...eds, ...candidates(articles, now, opt)];
+  const opt = options(env), nets = networks(env), eds = digests(digestIndex, now, articles), list = [...eds, ...candidates(articles, now, opt)];
   const result = { posted: [], failed: [] };
   // X açarları natamamdırsa şəbəkə sakitcə düşürdü (2026-11-10: «X-də xəbər yoxdur»): hansı sirrin çatmadığını jurnala yaz.
   const xMissing = X_KEYS.filter(k => !env[k]);
