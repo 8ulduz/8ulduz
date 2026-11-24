@@ -28,7 +28,19 @@
 //  - X-in hadisə və xəbər videoları (lent.js: data/reels.json «xeber», hadisə sinfi) və X videolu öz xəbərlərimiz;
 //  - Azərbaycan telekanallarının YouTube videoları (data/video.json).
 // X videonu mənbə ünvanı göndərən sorğuya vermir (403): video referrer göndərməyən srcdoc çərçivəsində qurulur (lent.js kimi).
-import { list, load } from "./lent.js?v=1";
+// Ad-fəzası importu (2026-11-24, canlıda görüldü): sw.js kod faylının saxlanmış nüsxəsini dərhal verir (açar sorğusuz yoldur), təzəsi
+// arxada gəlir. Yayımdan sonrakı ilk açılışda köhnə lent.js-ə adlı import ({ list, load }) bu modulu bütövlükdə sındırırdı — lent boş
+// qalırdı. Ad yoxdursa işçi təzəsini artıq yükləyir: bir az sonra eyni fayl yeni ünvanla (yeni modul) soruşulur.
+import * as lentNs from "./lent.js?v=1";
+let L = lentNs;
+const freshLent = async () => {
+  for (const ms of [800, 2500]) {
+    await new Promise(r => setTimeout(r, ms));
+    const m = await import(`./lent.js?v=1&n=${Date.now()}`).catch(() => null);
+    if (m?.list && m.load) return m;
+  }
+  return null;
+};
 
 export const OWN = "8ULDUZ";
 const MAX = 24, PLAY_MAX = 60e3, YT = "https://www.youtube-nocookie.com/embed/";
@@ -78,7 +90,7 @@ export function pick(S, reels) {
   const yt = (S?.video?.items || []).filter(v => ID.test(v?.videoId || "")).map(v => ({
     kind: "yt", id: v.videoId, t: v.publishedAt, title: v.title, src: v.channel === OWN ? "8ulduz.az" : v.channel, own: v.channel === OWN,
     tall: v.channel === OWN || /\/shorts\//.test(v.url || "") }));
-  const x = list(S, reels).filter(v => MP4.test(v.u) && v.m === "xeber" && v.q !== "u").map(v => ({
+  const x = L.list(S, reels).filter(v => MP4.test(v.u) && v.m === "xeber" && v.q !== "u").map(v => ({
     kind: "x", u: v.u, k: v.k, t: v.t, title: v.title || v.c, src: v.n, i: v.i }));
   const lanes = [yt.filter(v => v.own), x, yt.filter(v => !v.own)].map(l => l.filter(v => v.title).sort((a, b) => time(b) - time(a)));
   const out = [], seen = new Set();
@@ -96,7 +108,8 @@ export async function mount(sec, S, still = () => false) {
   if (sec._vl) return;
   sec._vl = {};
   if (!document.getElementById("vl-css")) { const st = document.createElement("style"); st.id = "vl-css"; st.textContent = CSS; document.head.append(st); }
-  const items = pick(S, await load().catch(() => []));
+  if (!L.list || !L.load) { const m = await freshLent(); if (!m) { sec.remove(); return; } L = m; }
+  const items = pick(S, await L.load().catch(() => []));
   if (!items.length) { sec.remove(); return; }
   const row = document.createElement("div");
   row.className = "vl-row";
