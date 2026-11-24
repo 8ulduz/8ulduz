@@ -226,7 +226,8 @@ class ReelsTest(unittest.TestCase):
 
     def test_good_reel_and_gates(self):
         self.assertIsNone(xm.reel_check(reel()))
-        bad = {"hesab": reel(handle="thshaber", post="https://x.com/thshaber/status/2123096874748186946"),
+        # Cədvəldə olmayan hesab (thshaber 2026-11-24-dən Videolentdədir, sahibin göstərişi ilə; burada başqa yad hesab).
+        bad = {"hesab": reel(handle="yadhesab123", post="https://x.com/yadhesab123/status/2123096874748186946"),
                "post": reel(post="https://x.com/TamirveTadilat/status/1"),
                "video": reel(video="https://evil.example/a.mp4"), "poster": reel(poster="https://evil.example/a.jpg"),
                "ölçü": reel(w=True), "vaxt": reel(at="2026-11-19 08:00"),

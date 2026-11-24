@@ -455,13 +455,19 @@ test("sosial-video: weather post text — the weather page link, Open-Meteo CC B
 
 test("sosial-video.yml: the weather video — PR renders both samples; same check, artifact and TikTok/YouTube jobs; previews never write the list", () => {
   const wf = read(".github/workflows/sosial-video.yml");
-  assert.ok(wf.includes(`tur: \${{ fromJSON(github.event_name == 'pull_request' && '["xeber","hava"]' || '["avto"]') }}`));
+  // 2026-11-24: üçüncü nümunə — maraqlı video (video-maraqli.cjs; sahib: «əsas odur onlar kimi sən də tap o cür maraqlı videolar»).
+  assert.ok(wf.includes(`tur: \${{ fromJSON(github.event_name == 'pull_request' && '["xeber","hava","maraqli"]' || '["avto"]') }}`));
+  assert.match(wf, /numune-maraqli tests\/fixtures\/video-maraqli\.json video-out/);
+  assert.ok(/            \.github\/scripts\/video-maraqli\.cjs\n/.test(wf) && /            tests\/fixtures\/video-maraqli\.json\n/.test(wf), "sparse-checkout: maraqlı");
+  assert.ok(/      - \.github\/scripts\/video-maraqli\.cjs\n/.test(wf) && /      - tests\/fixtures\/video-maraqli\.json\n/.test(wf), "PR yolları: maraqlı");
+  assert.match(wf, /m\.kind !== "maraqli"/, "maraqlı videonun müqaviləsi yoxlanır");
+  assert.ok(wf.includes("MARAQLI_GUNDE: ${{ vars.MARAQLI_GUNDE }}") && wf.includes("MARAQLI_VIDEO: ${{ vars.MARAQLI_VIDEO }}"));
   assert.match(wf, /numune-hava tests\/fixtures\/video-hava\.json video-out/);
   assert.match(wf, /node \.github\/scripts\/video-hava\.cjs video-out\/xeber\.json video-out\/video\.mp4/);
   assert.ok(/            \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /            tests\/fixtures\/video-hava\.json\n/.test(wf), "sparse-checkout");
   assert.ok(/      - \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /      - tests\/fixtures\/video-hava\.json\n/.test(wf), "PR yolları");
-  assert.match(wf, /options: \[avtomatik, hava, xeber\]/);
-  assert.ok(wf.includes("name: ${{ matrix.tur == 'hava' && 'video-hava' || 'video-xeber' }}"), "main-də artefakt video-xeber (tiktok.yml, youtube.yml)");
+  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli\]/);
+  assert.ok(wf.includes("name: ${{ matrix.tur == 'avto' && 'video-xeber' || format('video-{0}', matrix.tur) }}"), "main-də artefakt video-xeber (tiktok.yml, youtube.yml)");
   assert.equal((wf.match(/artifact: video-xeber/g) || []).length, 2);
   assert.ok(wf.includes("OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}"));
   assert.match(wf, /m\.kind !== "hava"/, "hava videosunun müqaviləsi yoxlanır");

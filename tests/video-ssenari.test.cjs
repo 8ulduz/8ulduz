@@ -211,23 +211,31 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   const fc = args[args.indexOf("-filter_complex") + 1];
   assert.match(fc, /\[0:v\][^;]*scale=1080:1920:force_original_aspect_ratio=increase[^;]*crop=1080:1920/);
   assert.match(fc, /\[c0\]\[c1\]\[c2\]\[c3\]\[c4\]concat=n=5:v=1:a=0/);
-  // Ölçüsü məlum üfüqi klip kəsilmir: tam enində (1080×608) KLIP_Y-də, arxada bulanıq nüsxəsi; şaquli klip ekranı doldurur.
+  // Hər klip kadrı tam doldurur (sahib, 2026-11-24: «üstündə yazılar olsa da video tam kart boyu olmalıdır»): üfüqi klip bulanıq
+  // fonla sığdırılmır, hündürlüyü 1920-yə böyüdülür və 9:16 pəncərə ağıllı kəsimin yerindən (cx) kəsilir.
   const mixed = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
     clips: [{ file: "a.mp4", w: 1920, h: 1080 }, { file: "b.mp4", w: 1080, h: 1920 }, "c.mp4"] });
   const mf = mixed[mixed.indexOf("-filter_complex") + 1];
   assert.deepEqual(mixed.filter((x, i) => mixed[i - 1] === "-i").slice(0, 3), ["a.mp4", "b.mp4", "c.mp4"]);
-  assert.match(mf, /\[0:v\][^;]*split=2\[b0\]\[f0\];\[b0\][^;]*boxblur[^;]*\[g0\];\[f0\]scale=1080:608[^;]*\[h0\];\[g0\]\[h0\]overlay=0:740/);
-  assert.ok(!/\[0:v\][^;]*crop=1080:1920/.test(mf), "üfüqi klip 9:16-ya kəsilmir");
+  assert.match(mf, /\[0:v\][^;]*scale=3414:1920:flags=bicubic,crop=1080:1920:1167:0,setsar=1\[c0\]/, "fokus bilinmirsə ortadan");
+  assert.ok(!/boxblur|overlay=0:/.test(mf), "bulanıq fon və zolaqda klip yoxdur");
   assert.match(mf, /\[1:v\][^;]*crop=1080:1920,setsar=1\[c1\]/);
   assert.match(mf, /\[2:v\][^;]*crop=1080:1920,setsar=1\[c2\]/, "ölçü bilinmirsə əvvəlki kimi doldurulur");
-  assert.ok(V.KLIP_Y + 608 <= 1920 && V.KLIP_Y >= 732, "klip başlıq zolağının altından başlayır");
-  // 3 sətirlik başlıqda zolaq uzanır: klip onun altından (2026-11-23 nümunəsində klipin üstü zolağın altında qalmışdı).
-  const p3 = V.prepare({ ...fixture, title: "Qurban Qurbanov: \"Gəncədə özümüzü Avropa stadionunda hiss edirdik\"" }, { cats, footage: true });
-  assert.equal(p3.head.lines.length, 3);
-  const low = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", w: 1920, h: 1080 }], clipY: Math.max(V.KLIP_Y, V.bandBottom(p3)) });
-  assert.match(low[low.indexOf("-filter_complex") + 1], new RegExp(`overlay=0:${V.bandBottom(p3)},`));
-  assert.ok(V.bandBottom(p3) > V.KLIP_Y && V.bandBottom(p3) + 608 <= V.LF.srcY, "klip mənbə sətrinə çatmır");
-  assert.ok(V.bandBottom(V.prepare(fixture, { cats, footage: true })) <= V.KLIP_Y, "2 sətirdə əvvəlki yer");
+  const seen = [];
+  const left = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
+    clips: [{ file: "a.mp4", w: 1920, h: 1080 }, { file: "b.mp4", w: 1080, h: 1920 }], focus: c => (seen.push(c.file), 0.1) });
+  assert.match(left[left.indexOf("-filter_complex") + 1], /\[0:v\][^;]*crop=1080:1920:0:0,setsar=1\[c0\]/, "fokus solda: pəncərə kənara dirənir");
+  assert.ok(seen.length && seen.every(f => f === "a.mp4"), "fokus yalnız üfüqi kliplər üçün ölçülür");
+  assert.match(V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", w: 1920, h: 1080 }], focus: () => 0.8 })
+    .find(x => /\[c0\]/.test(x)), /crop=1080:1920:2191:0/, "fokus sağda");
+  // Ağıllı kəsim: hərəkət və detal olan sütunlar seçilir, boş kadrda orta.
+  const fw = 32, fh = 4, frame = fill => Buffer.from(Array.from({ length: fw * fh }, (_, i) => fill(i % fw)));
+  const moving = Buffer.concat([frame(x => (x >= 24 && x < 28 ? 200 : 20)), frame(x => (x >= 25 && x < 29 ? 200 : 20)), frame(x => (x >= 26 && x < 30 ? 200 : 20))]);
+  const fx = V.focusX(moving, fw, fh, 0.316);
+  assert.ok(fx > 0.7 && fx < 0.9, `hərəkət sağdadır: ${fx}`);
+  assert.equal(V.focusX(Buffer.alloc(fw * fh * 3, 90), fw, fh, 0.316), 0.5, "boş (yeknəsəq) kadr: orta");
+  assert.equal(V.focusX(Buffer.alloc(0), fw, fh, 0.316), 0.5);
+  assert.equal(V.focusOf({ file: "x.mp4" }), 0.5, "ölçü yoxdursa ffmpeg çağırılmır");
   assert.match(fc, /\[5:v\]scale=-1:80/, "loqo kadrlardan sonrakı girişdir");
   assert.match(fc, /\[6:a\]/, "səs loqodan sonrakı girişdir");
   // Kliplər olmadan əvvəlki kimi: rəngli fon, loqo [1], səs [2].

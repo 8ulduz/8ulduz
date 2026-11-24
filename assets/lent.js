@@ -41,11 +41,16 @@ export const markSeen = u => {
   try { localStorage.setItem(SEEN_KEY, JSON.stringify(keep)); mem = null; } catch { mem = keep; }
 };
 
+// Tam boy (sahib, 2026-11-24: «bu videoların hündürlüyünü tam ölçüdə etsək daha baxımlı olar. üstündə yazılar olsa da video tam
+// kart boyu olmalıdır»): telefonda (şaquli ekran) video ekranı tam doldurur, yazı videonun üstündədir. Üfüqi videoda kənarlar
+// kəsilir; ⤢ («tam kadr») həmin videonu bütöv göstərir, yenə basanda tam boya qayıdır. Kompüterdə (üfüqi ekran) əvvəlki kimi bütöv.
 const CSS = `html,body{margin:0;height:100%;background:#000;color:#fff;font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 .feed{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none}
 .feed::-webkit-scrollbar{display:none}
 section{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden}
 video{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:contain;background:#000}
+.fit{position:absolute;bottom:calc(204px + env(safe-area-inset-bottom));display:none}
+@media (orientation:portrait){video{object-fit:cover}section.k video{object-fit:contain}section.w .fit{display:block}}
 .cap{position:absolute;z-index:1;left:0;right:64px;bottom:0;padding:40px 14px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#000b);pointer-events:none}
 .cap b{display:block;font-size:14px;text-shadow:0 1px 2px #000}
 .cap span{display:block;margin-top:4px;font-weight:700;font-size:16px;text-shadow:0 1px 2px #000}
@@ -72,11 +77,14 @@ let live = null;
 
 // Lentin sırası: əvvəl heç görülməyənlər (mix), sonra izlənmişlər — ən çoxdan baxılan birinci (sahib 2026-11-20: «heç təkrar olmayan»;
 // 2026-11-23: hər açılışda əvvəl baxılan video birinci çıxırdı). order: izlənmiş açarlar, ən köhnəsi əvvəl.
+// İzah oxucunun dilində (sahib, 2026-11-24: «videoları tam şəkildə rus və ingilis dillərində də verməliyik»): rus və ingilis seçimində
+// yazıcının ru/en izahı; yoxdursa izahsız (azərbaycanca izah o oxucuya kömək etmir). Azərbaycan, türk və «Hamısı» seçimində c.
+export const cap = (r, lang) => { const t = lang === "ru" || lang === "en" ? r[lang] : r.c; return typeof t === "string" ? t.slice(0, 140) : ""; };
 export function list(S, reels, order = seenOrder()) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
     u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id, v: OWN_V }));
   const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || ""), p: r.p === 1,
-    v: Number.isInteger(r.v) ? r.v : -1, q: r.q === "u" ? "u" : "h", c: typeof r.c === "string" ? r.c.slice(0, 140) : "" }));
+    v: Number.isInteger(r.v) ? r.v : -1, q: r.q === "u" ? "u" : "h", c: cap(r, S?.lang) }));
   const keys = new Set(), all = [];
   for (const v of [...own, ...x]) { v.key = vkey(v.u); if (!keys.has(v.key) && keys.add(v.key)) all.push(v); }   // eyni video bir dəfə; öz xəbərimiz X nüsxəsindən üstündür
   const at = new Map(order.map((k, i) => [k, i]));
@@ -156,30 +164,40 @@ export async function load() {
 // Paylaşım keçidi (sahib 2026-11-20: «videolentdəki paylaşım x-a aparır. bizim sayta olsun, istəyən keçər mənbəyə»): saytın öz ünvanı,
 // açan adam lentə həmin videodan başlayır; mənbəyə keçid videonun altındakı düymədədir.
 export const shareLink = v => `https://8ulduz.az/#/videolent?r=${encodeURIComponent(v.k || "")}`;
-// Paylaşılan video bu telefonda artıq izlənibsə birinci yox, ikinci gəlir (sahib 2026-11-23: izlənmiş video birinci çıxmasın) —
-// lent təzə videodan açılır, paylaşılan bir sürüşdürmə uzaqdadır.
-export function first(items, k, order = seenOrder()) {
+// Paylaşılan video HƏMİŞƏ birinci (sahib 2026-11-24: «vatsapda videolentdən paylaşılanda həmin videoya qayıtmır … tam birdəfəlik
+// düzəlt»). 2026-11-23-dən izlənmiş paylaşılan video ikinci gəlirdi: paylaşan adam öz keçidini açanda (və ya lent yenidən yüklənəndə)
+// başqa video görürdü. İzlənmiş video birinci çıxmasın qaydası (sahib 2026-11-23) adi açılışa aiddir (list: əvvəl görülməyənlər).
+export function first(items, k) {
   const i = k ? items.findIndex(v => v.k === k) : -1;
-  if (i < 0) return items;
-  const rest = [...items.slice(0, i), ...items.slice(i + 1)];
-  return order.includes(K(items[i])) && rest.length ? [rest[0], items[i], ...rest.slice(1)] : [items[i], ...rest];
+  return i < 0 ? items : [items[i], ...items.slice(0, i), ...items.slice(i + 1)];
 }
+// Lent açıq ikən izlənən video (sessionStorage, bu sekmə): səhifə yenidən yüklənsə (telefon WhatsApp-a paylaşanda arxa planda
+// səhifəni boşaldıb, geri, yeniləmə) index.html-in ilk skripti lenti həmin videodan açır. Lent bağlananda silinir.
+const AT_KEY = "8u-reels-at";
+const atSave = k => { try { if (k) sessionStorage.setItem(AT_KEY, JSON.stringify({ k, t: Date.now() })); } catch {} };
+const atDrop = () => { try { sessionStorage.removeItem(AT_KEY); } catch {} };
+// Lent keçidində index.html saytı göstərmir (#reels-boot üslubu: qara ekran); lent bağlananda sayt görünür.
+const siteShow = () => document.getElementById("reels-boot")?.remove();
 export async function open(S, k = "") {
   if (live) return;
   live = {};
   const f = document.createElement("iframe");
   f.title = "Videolent";
   f.allow = "autoplay; fullscreen";
-  f.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483000;background:#000";
+  // visibility:visible — lent keçidində sayt (body) gizlidir, lent onun içində görünür.
+  f.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483000;background:#000;visibility:visible";
   f.srcdoc = `<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>${CSS}</style><body><div class="wait"></div></body>`;
   const close = () => {
     if (!live) return;
     removeEventListener("popstate", onPop);
+    document.removeEventListener("visibilitychange", live.vis || (() => {}));
     clearInterval(live.fresh);
     live.io?.disconnect();
     f.remove();
     document.documentElement.style.overflow = live.overflow || "";
     live = null;
+    atDrop();
+    siteShow();
   };
   const onPop = () => close();
   live.overflow = document.documentElement.style.overflow;
@@ -195,7 +213,7 @@ export async function open(S, k = "") {
   build(f, items, () => history.back(), async () => list(S, await load()));
 }
 
-const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
+const slide = v => `<section data-k="${esc(v.k || "")}"${v.w > v.h * 1.15 ? ' class="w"' : ""}><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div>${v.w > v.h * 1.15 ? '<button class="fit" type="button" aria-label="Tam kadr" aria-pressed="false">⤢</button>' : ""}<button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
 
 function build(f, items, back, more) {
   const doc = f.contentDocument, win = f.contentWindow;
@@ -214,6 +232,7 @@ function build(f, items, back, more) {
   };
   const play = s => {
     markSeen(vid(s).dataset.src);
+    atSave(s.dataset.k);
     const v = vid(s);
     if (!v.src) v.src = v.dataset.src;
     v.muted = !sound;
@@ -280,8 +299,14 @@ function build(f, items, back, more) {
     } finally { filling = false; }
   };
   live.fresh = setInterval(freshTick, FRESH_MS);
+  // Paylaşıb (WhatsApp) və ya başqa tətbiqdən qayıdanda: brauzerin arxa planda dayandırdığı video olduğu yerdən davam edir. Oxucunun
+  // özü dayandırdığı video (▶ görünür) dayanmış qalır.
+  live.vis = () => { if (document.visibilityState !== "visible" || !live) return; const s = slides[live.at]; if (s && !s.classList.contains("p") && vid(s).paused) play(s); };
+  document.addEventListener("visibilitychange", live.vis);
   feed.addEventListener("click", e => {
     if (e.target.closest("a")) return;
+    const fit = e.target.closest(".fit");
+    if (fit) { fit.setAttribute("aria-pressed", String(fit.closest("section").classList.toggle("k"))); return; }
     const sh = e.target.closest(".sh");
     if (sh) {
       const url = sh.dataset.link;

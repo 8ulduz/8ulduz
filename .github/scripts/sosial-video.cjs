@@ -21,12 +21,17 @@
 // Gündəlik hava videosu (video-hava.cjs; sahib, 2026-11-23): ayrıca qayda ilə — Bakı vaxtı HAVA_VAXT-dan (20:45) sonrakı ilk pəncərədə,
 // gündə bir dəfə (state.hava). Xəbər videosunun fasiləsinə (VIDEO_MIN_GAP_MIN) və gündəlik həddinə sayılmır (_last, v), mövzu siyahısına düşmür;
 // həmin 30 dəqiqəlik pəncərədə xəbər videosu növbəti pəncərəyə qalır (bir pəncərədə bir iş, pipeline.sh video_loop).
+// Maraqlı videolar (video-maraqli.cjs; sahib, 2026-11-24: «əsas odur onlar kimi sən də tap o cür maraqlı videolar»): Vikipediyanın faktları,
+// Pixabay/Pexels görüntüsü, SARA səsi — xəbər videosu ilə növbələşir: son maraqlı videodan MARAQLI_ARA_MIN (60) dəqiqə keçibsə və gündə
+// MARAQLI_GUNDE (10) dolmayıbsa, pəncərədə əvvəl maraqlı video; uyğun xəbər olmayan pəncərədə də (gündəlik həddə qədər). Ümumi fasiləyə
+// və gündəlik həddə (VIDEO_MIN_GAP_MIN, VIDEO_GUNDE — Facebook-un 24 saatda 30 Reels həddi) sayılır, xəbər mövzularının siyahısına düşmür.
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
 const VS = require("./video-ssenari.cjs");
 const VH = require("./video-hava.cjs");
 const VA = require("./video-arxiv.cjs");
+const VM = require("./video-maraqli.cjs");
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const KEEP_S = 3 * 86400;
@@ -49,7 +54,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -90,6 +95,41 @@ function havaDue(state, now, ho) {
   if (state.hava?.[c.day]) return "bu günün hava videosu hazırlanıb";
   return "";
 }
+// Maraqlı video: söndürmə (MARAQLI_VIDEO=0), gündəlik hədd və öz fasiləsi. state.m: mövzu → vaxt (3 gün saxlanır: mövzu təkrarlanmır).
+function maraqliOptions(env = process.env) {
+  return { on: env.MARAQLI_VIDEO !== "0", perDay: num(env.MARAQLI_GUNDE, 10), gapMin: num(env.MARAQLI_ARA_MIN, 60) };
+}
+const maraqliSay = (state, now) => Object.values(state.m || {}).filter(t => now / 1000 - t < 86400).length;
+// "" — vaxtıdır; yoxsa səbəb. fill: uyğun xəbər yoxdur — öz fasiləsi gözlənmir, yalnız gündəlik hədd.
+function maraqliDue(state, now, mo, fill = false) {
+  if (!mo.on) return "maraqlı video söndürülüb (MARAQLI_VIDEO=0)";
+  const day = maraqliSay(state, now);
+  if (day >= mo.perDay) return `24 saatda ${day} maraqlı video (hədd ${mo.perDay})`;
+  const last = Math.max(0, ...Object.values(state.m || {})), ago = Math.floor((now / 1000 - last) / 60);
+  if (!fill && ago < mo.gapMin) return `son maraqlı video ${ago} dəq əvvəl (ara ${mo.gapMin} dəq)`;
+  return "";
+}
+// Mövzu + fakt + görüntü → <qovluq>/xeber.json (tur: "maraqli"). Alınmasa null (xəbər videosu gedir).
+async function maraqliSec({ now, state, env, fetch: f, policy, dir, log, post, hazirla = VM.hazirla }) {
+  let x = null;
+  try {
+    x = await hazirla({ now, env, fetch: f, policy, dir, log, istifade: new Set(Object.keys(state.m || {})), klip: new Set(Object.keys(state.klip || {})) });
+  } catch (e) { log(`::warning::maraqlı video alınmadı — ${String(e?.message || e).slice(0, 300)}`); return null; }
+  if (!x) return null;
+  const { klip, ...rest } = x;
+  const out = { ...rest, klipler: klip.map(k => k.file), goruntu: klip.map(goruntuSetir), goruntuMenbe: VS.kredit(klip) };
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(out, null, 1));
+  if (post) {
+    const t = Math.floor(now / 1000);
+    state.v[out.id] = t; state._last = t; (state.m ||= {})[out.movzu] = t;
+    for (const k of klip) (state.klip ||= {})[`${k.p}:${k.id}`] = t;
+  }
+  log(`maraqlı video: seçildi — ${out.title} (${out.sourceUrl})`);
+  output("hazir", "1");
+  output("tur", "maraqli");
+  return out;
+}
+
 // Plan + görüntü → <qovluq>/xeber.json (tur: "hava"). Məlumat və rəqəm yoxlaması video-hava.cjs-dədir; keçməsə video yoxdur.
 async function havaHazirla({ raw, app, now, state, env = process.env, fetch: f = globalThis.fetch, policy = () => false, dir, log = console.log, post = true, footage = true, arxiv = [] }) {
   const list = VH.cities(app), today = bakuClock(now).day, day = bakuClock(now + 86400e3).day;
@@ -174,11 +214,35 @@ const credit = x => (x.goruntu?.length ? `\n\nGörüntü: ${x.goruntuMenbe || "P
 // kimi), görüntü bankı. Etiketlər hava etiketləridir (#xəbərlər yox).
 const havaKredit = x => `Hava məlumatı: Open-Meteo.com, model proqnozu (CC BY 4.0). Rəsmi proqnozu Milli Hidrometeorologiya Xidməti verir.${x.goruntu?.length ? `\nGörüntü: ${x.goruntuMenbe || "Pixabay"}` : ""}`;
 const havaTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#Azərbaycan"])].join(" ");
-const fbText = x => (x.tur === "hava"
+// Maraqlı video: fakt mənbəyi (Vikipediya, məqalənin keçidi) və görüntü bankı; etiketlər rubrikanındır (#xəbərlər yox).
+const maraqliKredit = x => `Məlumat: Vikipediya — ${x.sourceUrl}${x.goruntu?.length ? `
+Görüntü: ${x.goruntuMenbe || "Pixabay"}` : ""}`;
+const maraqliTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), "#maraqlı", "#bilirdinizmi", "#8ulduz"])].join(" ");
+const fbText = x => (x.tur === "maraqli"
+  ? `${S.cut(x.title, 300)}
+
+${S.cut(x.text, 1500)}
+
+Daha çox: ${x.link}
+
+${maraqliKredit(x)}
+
+${maraqliTag(x)}`
+  : x.tur === "hava"
   ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: ${x.link}\n\n${havaKredit(x)}\n\n${havaTag(x)}`
   : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag(x)}`);
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
-const igText = x => (x.tur === "hava"
+const igText = x => (x.tur === "maraqli"
+  ? `${S.cut(x.title, 300)}
+
+${S.cut(x.text, 1500)}
+
+Daha çox: 8ulduz.az (keçid profildədir)
+
+${maraqliKredit(x)}
+
+${maraqliTag(x)} #video`
+  : x.tur === "hava"
   ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${havaKredit(x)}\n\n${havaTag(x)} #video`
   : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag(x)} #video`);
 
@@ -279,7 +343,7 @@ function output(key, value) {
 // sec: vaxtıdırsa xəbəri seçir. Paylaşma rejimində seçim dərhal «video» sayılır (_last): video alınmasa da eyni xəbər hər
 // 30 dəqiqədə yenidən hazırlanmasın.
 // arxiv: öz video arxivi (VA.kitabxana(): «video-arxiv» budağı, oxunmasa data/video-arxiv.json) — xəbərin yeri məlum olanda əvvəl oradan.
-async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [] }) {
+async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla }) {
   const opt = options(env), post = env.VIDEO_PAYLAS !== "0";
   // İş axını seçimə açarın özünü vermir, yalnız VIDEO_ACAR=1/0 (açar var/yox).
   const hasKey = env.VIDEO_ACAR ? env.VIDEO_ACAR === "1" : networks(env).length > 0;
@@ -302,6 +366,13 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   if (!only && post) {   // yalnız hazırlama (önizləmə) fasilə gözləmir
     const why = due(state, now, opt);
     if (why) { log(`video: ${why}`); return null; }
+  }
+  // Maraqlı video: vaxtıdırsa əvvəl o (alınmasa xəbər); VIDEO_TUR=maraqli — dərhal (önizləmə və əl ilə).
+  const mo = maraqliOptions(env), mArgs = { now, state, env, fetch: f, policy, dir, log, post, hazirla: maraqli };
+  if (!only && tur !== "xeber") {
+    const why = tur === "maraqli" ? (mo.on ? "" : "maraqlı video söndürülüb (MARAQLI_VIDEO=0)") : maraqliDue(state, now, mo);
+    if (!why) { const x = await maraqliSec(mArgs); if (x || tur === "maraqli") return x; }
+    else { log(`video: ${why}`); if (tur === "maraqli") return null; }
   }
   // Sahib, 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun». Gemini mənbənin mətnindən 4–7 cümləlik
   // diktor mətni yazır, Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
@@ -331,7 +402,12 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     state.skip[got.a.id] = Math.floor(now / 1000);
     got = null;
   }
-  if (!got) { log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur"); return null; }
+  if (!got) {
+    log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur");
+    // Uyğun xəbər yoxdur: pəncərə boş qalmasın — maraqlı video (öz fasiləsi gözlənmir, gündəlik həddə qədər).
+    if (!only && tur !== "xeber" && !maraqliDue(state, now, mo, true)) return await maraqliSec(mArgs);
+    return null;
+  }
   const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
     ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(goruntuSetir), goruntuMenbe: VS.kredit(klip) } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
@@ -369,6 +445,8 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
   }
   // Hava videosu ayrıca qaydadır: xəbər videosunun siyahısına (fasilə, gündəlik hədd, mövzu) düşmür.
   if (x.tur === "hava") { const d = bakuClock(now).day; (state.hava ||= {})[d] = state.hava[d] || t; return res; }
+  // Maraqlı video: gündəlik həddə və fasiləyə sayılır (seçimdə yazılıb), xəbər mövzularının siyahısına düşmür.
+  if (x.tur === "maraqli") { state.v[x.id] = state.v[x.id] || t; if (x.movzu) (state.m ||= {})[x.movzu] = state.m[x.movzu] || t; return res; }
   state.v[x.id] = state.v[x.id] || t;
   state.t[S.titleKey(x)] = t;
   state.topics.push({ ...S.topicOf(x, Date.parse(x.publishedAt) / 1000 || t), posted: t });
@@ -392,6 +470,15 @@ async function main() {
     await havaHazirla({ raw: fx.response, app, now: Date.parse(fx.now), state, env: {}, policy: a => app.policyViolation(a), dir: a2, post: false, footage: false });
     return;
   }
+  if (cmd === "numune-maraqli") {
+    // PR yoxlaması: saxlanmış maraqlı video (tests/fixtures/video-maraqli.json) — Vikipediya, Gemini və paylaşma yoxdur, kliplər süni.
+    const x = JSON.parse(fs.readFileSync(a1, "utf8"));
+    fs.mkdirSync(a2, { recursive: true });
+    fs.writeFileSync(path.join(a2, "xeber.json"), JSON.stringify({ ...x, tur: "maraqli", kind: "maraqli" }, null, 1));
+    output("hazir", "1");
+    output("tur", "maraqli");
+    return;
+  }
   if (cmd === "sec") {
     // Qırmızı xətt 2, ikinci qapı: lent saytın öz qaydasından keçir; qayda faylı oxunmasa xəta ilə dayanır (heç nə seçilmir).
     const app = require("./topics.cjs").loadApp(path.resolve("."));
@@ -406,9 +493,10 @@ async function main() {
     if (res.failed.length && !res.posted.length) process.exitCode = 1;
     return;
   }
-  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | paylas <qovluq>");
+  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | paylas <qovluq>");
   process.exitCode = 2;
 }
 
-module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock };
+module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock,
+  maraqliOptions, maraqliDue, maraqliSec, maraqliSay };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });

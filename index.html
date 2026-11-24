@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-v3nVpuh748IkDImm+/DQ2XbkPztCFexuOwhA0p/C20U=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-2Izy3AHluq4iKFkLlbISeuXzo6c9imntHpJa6fgZ6Xs=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.min.js" />
     <script>
@@ -28,8 +28,26 @@
         window.__early = {};
         var lang = null;
         try { lang = localStorage.getItem("8ulduz-lang"); } catch (e) {}
+        // Videolent (sahib 2026-11-24: «vatsapda videolentdən paylaşılanda həmin videoya qayıtmır ... keçidlə sıçrayaraq sayt sonra lent
+        // açılır. bunu tam birdəfəlik düzəlt»). Lent açıq ikən səhifə yenidən yüklənibsə (telefon WhatsApp-a paylaşanda səhifəni boşaldıb,
+        // geri, yeniləmə) — həmin videoya qayıt (lent.js izlənən videonu 8u-reels-at-a yazır, bağlananda silir).
+        try {
+          var ra = JSON.parse(sessionStorage.getItem("8u-reels-at") || "null"), nav = (performance.getEntriesByType("navigation")[0] || {}).type;
+          if (ra && /^[0-9A-Za-z_-]{1,40}$/.test(ra.k) && Date.now() - ra.t < 1800000 && (document.wasDiscarded || nav === "reload" || nav === "back_forward") && !/^#\/videolent/.test(location.hash)) history.replaceState(null, "", "#/videolent?r=" + ra.k);
+        } catch (e) {}
         var home = (location.hash === "" || location.hash === "#/") && (lang === null || lang === "az");
+        // Yalnız paylaşılan videonun keçidi (#/videolent?r=<video>): #/videolent özü «Video xəbərlər» səhifəsidir.
+        var rk = (location.hash.match(/^#\/videolent\?(?:[^#]*&)?r=([0-9A-Za-z_-]{1,40})/) || [])[1], reels = !!rk;
         document.documentElement.dataset.route = home ? "home" : "other"; // statik skelet yalnız baş səhifədə görünür (app.css .pre-skel)
+        // Lent keçidində sayt ümumiyyətlə görünmür: qara ekran (#reels-boot üslubu yalnız bu keçiddə; index.html-də daxili CSS yoxdur —
+        // açılış müqaviləsi), lent modulu dərhal; lent açılanda (lent.js) və ya
+        // alınmasa 8 s sonra sayt görünür. X videosunun keçidində tam lent aşağı prioritetlə (lent onu gözləmir); öz video xəbərimizin
+        // açarı xəbər nömrəsidir, lent onu tam lentdən tapır — orada prioritet dəyişmir.
+        if (reels) {
+          var st = document.createElement("style"); st.id = "reels-boot"; st.textContent = "html{background:#000}body{visibility:hidden}"; document.head.appendChild(st);
+          var lp = document.createElement("link"); lp.rel = "modulepreload"; lp.href = "./assets/lent.js?v=1"; document.head.appendChild(lp);
+          setTimeout(function () { if (st.parentNode) st.parentNode.removeChild(st); }, 8000);
+        }
         // İngilis/rus/türk oxucu tam lentin öz dil faylını alır (data/news.<dil>.json, app.js newsJSON); «Hamısı» və azərbaycanca news.json.
         // Bölmə keçidi (Telegram, Facebook) də əvvəlcə ilk lentlə açılır (app.js partialOk): tam lent sonra, aşağı prioritetlə.
         var sec = !home && /^#\/bolme\/(prezident|sondeqiqe|gundem|siyaset|cemiyyet|iqtisadiyyat|dunya|idman|medeniyyet|heyat|sosial|bolgeler|tehsil|video|sehiyye|texnologiya)$/.test(location.hash) && (lang === null || lang === "az");
@@ -48,7 +66,7 @@
         if (got) files = []; else if (art) files.unshift("data/paylas/" + parseInt(art[1].slice(0, 2), 16) + ".json");
         files.forEach(function (p, i) {
           var u = p; // sorğu açarı yoxdur: CDN nüsxəsi gəlir, Pages hər yayımda keşi təmizləyir (sahib, 2026-11-09; app.js freshUrl)
-          window.__early[u] = fetch(u, { cache: "no-store", priority: i < (team ? 2 : 1) ? "high" : "low" });
+          window.__early[u] = fetch(u, { cache: "no-store", priority: i < (team ? 2 : reels && /^\d{17,}$/.test(rk) ? 0 : 1) ? "high" : "low" });
           window.__early[u].catch(function () {});
         });
       } catch (e) {}

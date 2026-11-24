@@ -27,6 +27,8 @@
 //  - öz videolarımız: YouTube «8ULDUZ» kanalı (data/video.json, updater.YT_NEWS);
 //  - X-in hadisə və xəbər videoları (lent.js: data/reels.json «xeber», hadisə sinfi) və X videolu öz xəbərlərimiz;
 //  - Azərbaycan telekanallarının YouTube videoları (data/video.json).
+// Sahib, 2026-11-24 (üçüncü baxış): «üstündə yazılar olsa da video tam kart boyu olmalıdır» — telefonda (şaquli ekran) X videosu tam
+// ekranda da ekranı doldurur (cover), kompüterdə (üfüqi ekran) bütöv qalır. YouTube oynadıcısı tam ekranda bütöv qalır (düymələri kəsilməsin).
 // X videonu mənbə ünvanı göndərən sorğuya vermir (403): video referrer göndərməyən srcdoc çərçivəsində qurulur (lent.js kimi).
 // Ad-fəzası importu (2026-11-24, canlıda görüldü): sw.js kod faylının saxlanmış nüsxəsini dərhal verir (açar sorğusuz yoldur), təzəsi
 // arxada gəlir. Yayımdan sonrakı ilk açılışda köhnə lent.js-ə adlı import ({ list, load }) bu modulu bütövlükdə sındırırdı — lent boş
@@ -72,7 +74,8 @@ const CSS = `.vl-row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x ma
 .vl-hold{flex:none;width:min(58vw,240px)}
 .vl-c.fs{position:fixed;inset:0;z-index:2147483000;width:auto;margin:0;background:#000;touch-action:none}
 .vl-c.fs .vl-v{position:absolute;inset:0;height:100%;aspect-ratio:auto;border-radius:0}
-.vl-c.fs .vl-v>img{object-fit:contain}
+@media(orientation:landscape){.vl-c.fs .vl-v>img{object-fit:contain}}
+.vl-c.fs .vl-v:has(>iframe.w)>img{object-fit:contain}
 .vl-c.fs .vl-v>iframe.w{left:0;width:100%;transform:none}
 .vl-c.fs .vl-m{display:none}
 .vl-c.fs .vl-s{left:12px;top:calc(14px + env(safe-area-inset-top));font-size:14px}
@@ -145,7 +148,7 @@ export async function mount(sec, S, still = () => false) {
       f.addEventListener("load", () => { listen(); setTimeout(listen, 500); setTimeout(listen, 1500); setTimeout(listen, 3000); }, { once: true });
     } else {
       // Kartda (eni ≤ 240 px) video kartı doldurur, tam ekranda (çərçivə enlidir) bütöv görünür: çərçivənin öz ölçüsünə görə.
-      f.srcdoc = `<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>html,body{margin:0;height:100%;overflow:hidden;background:#000}video{width:100%;height:100%;object-fit:cover}@media(min-width:300px){video{object-fit:contain}}</style><video playsinline muted preload="auto" src="${esc(v.u)}"></video>`;
+      f.srcdoc = `<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>html,body{margin:0;height:100%;overflow:hidden;background:#000}video{width:100%;height:100%;object-fit:cover}@media(orientation:landscape){video{object-fit:contain}}</style><video playsinline muted preload="auto" src="${esc(v.u)}"></video>`;
       f.addEventListener("load", () => {
         const el = videoOf(f);
         if (el) {

@@ -161,6 +161,23 @@ class ReelQueueTest(unittest.TestCase):
         self.assertEqual(next(r for r in out if r["id"] == a["id"])["c"], "Futbolçu meydanın ortasından qol vurur")
         self.assertNotIn("c", next(r for r in out if r["id"] == bare["id"]), "Gemini izah verməsə video izahsız qalır")
 
+    def test_captions_also_in_russian_and_english_for_those_readers(self):
+        """Sahib 2026-11-24: «videoları tam şəkildə rus və ingilis dillərində də verməliyik»."""
+        a = self.cand("LFC", "2123096874748187031", None)
+        b = self.cand("NBA", "2123096874748187032", None)
+        answer = json.dumps([{"id": a["id"], "s": "hadise", "c": "Futbolçu meydanın ortasından qol vurur",
+                              "ru": "Футболист забивает гол с центра поля", "en": "A player scores from the halfway line"},
+                             {"id": b["id"], "s": "hadise", "c": "Basketbolçu son saniyədə qələbə qazandırır",
+                              "ru": "Решающий бросок в Баку", "en": "x"}], ensure_ascii=False)
+        out = {r["id"]: r for r in self.run_main([], [a, b], answer)}
+        self.assertEqual((out[a["id"]]["ru"], out[a["id"]]["en"]), ("Футболист забивает гол с центра поля", "A player scores from the halfway line"))
+        self.assertIn("rus («ru») və ingilis («en»)", xy.REELS_PROMPT)
+        self.assertNotIn("en", out.get(b["id"], {}), "biçimi pozulan izah düşür, video qalır")
+        if b["id"] in out:
+            self.assertNotIn("ru", out[b["id"]], "Bakı keçən rus izahı da qırmızı xətt 2-dir")
+        row = {**out[a["id"]], "ru": "Матч в Азербайджане"}
+        self.assertIn("ru:", xy.xm.reel_check(row) or "", "növbədəki sətirdə də yoxlanır")
+
     def test_sensitive_noted_and_gambling_posts_never_become_candidates(self):
         """Gemini-siz süzgəc: X-in «possibly_sensitive» nişanı (ağır və açıq-saçıq kadr), icma qeydi (yanlış məlumat), mərc və qumar."""
         self.assertIsNotNone(self.cand("CollinRugg", "2123096874748187021"))
@@ -312,6 +329,28 @@ class CraftSourcesTest(unittest.TestCase):
             self.assertIn(h, part, f"{h}: hadisə anı, hər işdə yoxlanır")
         for h in ("DailyLoud", "Megatron_ron", "dom_lucre", "WallStreetApes", "RT_com", "SputnikInt"):
             self.assertNotIn(h, xy.xm.ADLAR, f"{h}: mərc reklamı, təbliğat və ya nifrət")
+
+    def test_viral_turkish_news_accounts_from_the_owners_screenshots_feed_only_the_videolent(self):
+        """Sahib 2026-11-24: «bu kimi həm xəbər tipli, həm də digər çox maraqlı videolar olan hesablardan istifadə etməyi təmin et»."""
+        q = xy.xm.VIDEOLENT_QRUPLAR["xeber"]
+        for h in ("GagaHaberTR", "HaberKupur", "tirajnews", "thshaber", "Parasizceo"):
+            self.assertIn(h, q)
+            self.assertEqual(xy.xm.movzu(h), "xeber")
+            self.assertNotIn(h, xy.xm.HESABLAR, "başqasının videosunu yayır: xəbər yazılmır, Videolentdə qısa izahla")
+            self.assertFalse(xy.xm.onde(h), "baxışı azdır, seçimdə baxışla yarışır")
+        self.assertNotIn("CrazyClipsOnly", xy.xm.ADLAR, "CrazyClips_ kimi kazino reklamı")
+        seen = set()
+        t0 = datetime.datetime(2026, 11, 24, tzinfo=datetime.timezone.utc)
+        for k in range(12):
+            seen.update(xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k)))
+        self.assertTrue({"GagaHaberTR", "HaberKupur", "tirajnews", "thshaber", "Parasizceo"} <= seen, "4 saatda hər biri yoxlanır")
+
+    def test_ai_fakes_and_unverified_sensations_are_never_picked(self):
+        """Sahib 2026-11-24: göndərdiyi 20 videonun 7-si süni intellekt işi və ya doğrulanmamış iddia idi."""
+        for p in (xy.PROMPT.format(n=3, items="- x"), xy.REELS_PROMPT.format(n=12, items="- x")):
+            self.assertIn("Süni intellektlə hazırlanmış", p)
+            self.assertIn("Doğrulanmamış sensasiya", p)
+            self.assertNotIn("{saxta}", p)
 
 
 class TransferCandidateTest(unittest.TestCase):
@@ -509,7 +548,8 @@ class SixtyFortyTest(unittest.TestCase):
         src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
         self.assertIn("picked = [i for i in pick_reels(pool, REELS_PER_RUN * 3)", src)
         self.assertIn("split_reels(picked, lambda i: by_id[i][\"handle\"], REELS_PER_RUN)", src)
-        self.assertIn('if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"])', src, "biçimi pis izah düşür, video qalır")
+        self.assertIn('for k in ("c", *DILLER):\n            if k in row and xm.izah_check(row[k]) and not xm.forbidden_topic(row[k])', src,
+                      "biçimi pis izah düşür, video qalır (azərbaycanca, rusca, ingiliscə)")
 
 
 class GeminiDownTest(unittest.TestCase):

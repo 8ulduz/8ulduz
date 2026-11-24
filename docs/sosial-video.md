@@ -66,7 +66,7 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   sınanır — mənbənin öz cümlələri və ümumi kadrla video (2026-11-22 ikinci nümunə) paylaşılmır. Yalnız əl ilə seçilən xəbərdə (`VIDEO_XEBER`) köhnə qayda qalır.
   Model sırası: ən yeni 3 flash, sonra 2 flash-lite (X yazıcısı lite işlətmir, onun limiti video üçün qalır); gündəlik limit 429-u gələn model təkrar soruşulmur.
 - **Görüntü:** Gemini 4–6 ingiliscə axtarış ifadəsi də verir; [Pixabay](https://pixabay.com/api/docs/) (`PIXABAY_API_KEY`) və ya
-  [Pexels](https://www.pexels.com/api/) (`PEXELS_API_KEY`; 2026-11-22-də Pexels yeni açar vermirdi) video bankından 4–5 klip yüklənir — əvvəl şaquli (ekranı doldurur), yoxdursa üfüqi: tam enində ortada, arxada bulanıq nüsxəsi (9:16-ya kəsilmir: 2026-11-22 nümunəsində kəsilmiş 1080p klip bulanıq çıxdı, sarayın yerinə göy qaldı).
+  [Pexels](https://www.pexels.com/api/) (`PEXELS_API_KEY`; 2026-11-22-də Pexels yeni açar vermirdi) video bankından 4–5 klip yüklənir — əvvəl şaquli (ekranı doldurur), yoxdursa üfüqi. Hər klip kadrı tam doldurur (sahib, 2026-11-24: «üstündə yazılar olsa da video tam kart boyu olmalıdır»): üfüqi klip ortadan yox, ağıllı kəsimlə — kadrın hərəkət və detal olan yerindən, hər kadr üçün ayrıca (`video-xeber.cjs` `focusX`); kəsiləndə bulanıqlaşmasın deyə üfüqi klipin Pixabay-da 4K, Pexels-də 1440p nüsxəsi yüklənir. Əvvəl (2026-11-22) tam enində ortada, arxada bulanıq nüsxəsi ilə idi: ortadan kəsilmiş 1080p klip bulanıq çıxmışdı, sarayın yerinə göy qalmışdı.
   Klipin təsviri (Pixabay etiketləri, səhifə ünvanı) axtarış sözləri ilə tutuşdurulur: ifadənin əsas sözü (sonuncu konkret söz: «border wall»-da
   «wall», «united states capitol»-da «capitol») klipdə olmalıdır və konkret sözlərin ən az 2-si üst-üstə düşməlidir, yoxsa klip götürülmür
   (2026-11-22 nümunələri: «sərhəd divarı» axtarışına «Mexico City» etiketli dələ, «Kapitoli»yə Yaponiya qalası və Empire State gəlmişdi).
@@ -117,6 +117,35 @@ Tətbiq edilməyən variantlar — **qərar sahibindir**:
 | Rəsmi mənbələrin (president.az, AZƏRTAC) foto və videoları | Prezident xəbərlərində rəsmi görüntü | Saytların istifadə şərtləri ayrıca yoxlanmalıdır (adətən istinadla icazə); yalnız açıq icazə olanda |
 
 2026-11-24: sahib xəbərə aid TV görüntüsünü istədi («hava və bənzəri xəbərlərimiz xaric»). Saytda telekanalın öz YouTube videosu xəbər səhifəsində yerləşdirildi. Sosial videolarımız üçün yol telekanalın yazılı icazəsidir: məktub və icazələr cədvəli [tv-icaze.md](tv-icaze.md)-dədir.
+
+## Maraqlı videolar (sahib, 2026-11-24)
+
+Sahibin sözləri, X-in «Sizin üçün» lentindən 20 ekran şəkli ilə: «bu kimi həm xəbər tipli, həm də digər çox maraqlı videolar», «mənə maraqlı deyil sən haradan tapacaqsan», «əsas odur onlar kimi sən də tap o cür maraqlı videolar».
+
+**Niyə X videoları yox.** Ekran şəkillərindəki hesablar (THS Haber, Tiraj, Özet Geç və s.) videoları özləri çəkməyib. Videolarda əsl sahiblərin su nişanları görünür: Andrew McCarthy, Poland 24, RT, Master Haber və başqaları. X-də avtomatik hüquq yoxlaması yoxdur. Bizim videolar isə YouTube, Facebook, Instagram və TikTok-a gedir, orada Content ID və Rights Manager su nişanlı videonu tanıyır: video silinir, hesaba xəbərdarlıq gəlir (yuxarıda «Müəllif hüququ»).
+
+Ona görə X videoları yalnız saytda (Videolent) oynayır. Video X-in öz serverindən gəlir, yəni bizə yüklənmir. Bu hesablar Videolentin «xəbər» qrupuna əlavə olunub (`oz_x.py` `VIDEOLENT_QRUPLAR`). Sosial hesablara isə «Maraqlı» rubrikası gedir. O, istifadə hüququmuz olan materialdan qurulur:
+
+- **Görüntü:** Pixabay və Pexels klipləri. Lisenziyaları pulsuzdur, kliplər dəyişdirilib paylaşıla bilər.
+- **Fakt:** Vikipediyanın ingiliscə məqaləsindən. Fakt müəllif əsəri deyil. Mətni özümüz yazırıq, mənbə və məqalənin keçidi postda göstərilir.
+- **Səs:** SARA.
+
+**Necə işləyir** (`.github/scripts/video-maraqli.cjs`):
+1. **Mövzu** `MOVZULAR` siyahısından götürülür: 50 heyvan, 18 təbiət hadisəsi və bitki, 10 kosmos mövzusu. Hamısı Pixabay-da bol görüntüsü olan, hər yaşda maraqlı mövzulardır. Növbə hər gün başqa mövzudan başlayır. Son 3 gündə işlənən mövzu təkrarlanmır (`state.m`).
+2. **Fakt** Vikipediyanın API-sindən (`extracts`, düz mətn) gəlir: məqalənin ilk 5000 simvolu, «See also»dan sonrası atılır.
+3. **Mətn:** Gemini Azərbaycan dilində başlıq və 5–7 cümləlik diktor mətni yazır. Başlıq mövzunun ən heyrətamiz faktıdır. Yoxlama xəbər videosu ilə eynidir (`checkText`): uzunluq, cümlə sayı, kiril, nida, sual və nisbi gün sözü olmamalıdır. Mətndə və başlıqda **hər rəqəm məqalədə olmalıdır**, mətn saytın qaydasından (`policyViolation`) keçməlidir. Keçməsə növbəti mövzu götürülür (bir pəncərədə ən çox 3).
+4. **Görüntü** mövzunun öz adı ilə axtarılır (`goruntu`), xəbər videosundakı uyğunluq, yad yer və montaj redaktoru yoxlamaları ilə. Ümumi səhnə yoxdur (`EHTIYAT.maraqli = []`): gepard haqqında videoda şəhər görünmür. Uyğun klip 2-dən azdırsa növbəti mövzu götürülür.
+5. **Montaj** xəbər videosu ilə eynidir (`video-xeber.cjs`): tam boy kadr, «MARAQLI» etiketi, altyazı, «Mənbə: Vikipediya · Görüntü: Pixabay». `video.json`-da `kind: "maraqli"` və `url: https://8ulduz.az/` olur: YouTube və TikTok yükləyicisi bunu xəbər kimi yox, öz növü ilə yükləyir.
+
+**Tezlik** (`sosial-video.cjs` `maraqliDue`):
+- Son maraqlı videodan **MARAQLI_ARA_MIN** (60) dəqiqə keçibsə və 24 saatda **MARAQLI_GUNDE** (10) dolmayıbsa, pəncərədə əvvəl maraqlı video hazırlanır. Alınmasa xəbər videosu gedir.
+- Uyğun xəbər olmayan pəncərədə də maraqlı video hazırlanır. Bu halda öz fasiləsi gözlənmir, yalnız gündəlik hədd yoxlanır.
+- Ümumi fasiləyə və gündəlik həddə (`VIDEO_MIN_GAP_MIN`, `VIDEO_GUNDE` — Facebook-un 24 saatda 30 Reels həddi) sayılır. Xəbər mövzularının siyahısına düşmür.
+- Söndürmək üçün Variables-da `MARAQLI_VIDEO=0` yazılır. Əl ilə işə salmaq: «Video xəbər» işi, `tur: maraqli`.
+
+**Paylaşma mətni:** başlıq, mətn, «Daha çox: https://8ulduz.az/», «Məlumat: Vikipediya — <məqalənin keçidi>», «Görüntü: Pixabay» və etiketlər (mövzunun etiketləri, #maraqlı, #bilirdinizmi, #8ulduz).
+
+**PR yoxlaması:** `tests/fixtures/video-maraqli.json` nümunəsindən süni kliplərlə video hazırlanır (`numune-maraqli`) və müqavilə yoxlanır (`kind`, `url`, Vikipediya mənbəyi). Testlər `tests/video-maraqli.test.cjs`-dədir.
 
 ## Video modulu: `.github/scripts/video-xeber.cjs`
 

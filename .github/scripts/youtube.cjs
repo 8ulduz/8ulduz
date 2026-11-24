@@ -10,7 +10,7 @@
 // Video faylını bu skript hazırlamır: onu video modulu (.github/scripts/video-xeber.cjs, sosial-video.yml) qurur, yuxarıya
 // «8ulduz.az» yazısını o yandırır. Müqavilə TikTok yükləyicisi ilə eynidir (docs/youtube.md «Video modulu ilə qoşulma»):
 //   <ad>.mp4  — şaquli (hündürlük ≥ en), ≤ YOUTUBE_MAX_S (60) saniyə, metadatasında «8ulduz.az» nişanı (ffmpeg -metadata comment=8ulduz.az)
-//   <ad>.json — { "id", "own": true, "title", "summary"?, "kind"? (xeber | icmal | hava | valyuta | bazar), "url"?, "publishedAt"?,
+//   <ad>.json — { "id", "own": true, "title", "summary"?, "kind"? (xeber | icmal | hava | valyuta | bazar | maraqli), "url"?, "publishedAt"?,
 //                 "createdAt"?, "hashtags"?, "source"?, "sourceUrl"?, "category"?, "lang"?, "items"?: [{ title, source, sourceUrl }], "aigc"?, "text"? }
 // Qoşulma: sosial-video.yml «youtube» işi «video-xeber» artefaktını verir (video.mp4 + video.json, video-xeber.cjs, ≤ 59 s).
 //
@@ -45,13 +45,13 @@ const TAGLINE = "8ulduz.az — 8 Ulduz (Səkkiz Ulduz) xəbər saytı: Azərbayc
 // Başqasının videosu: bu ünvanlardan gələn fayl və ya keçid YouTube-a getmir.
 const FOREIGN_VIDEO = /(^|\.)(twimg\.com|twitter\.com|x\.com|youtube\.com|youtu\.be|tiktok\.com|tiktokcdn\.com|instagram\.com|cdninstagram\.com|facebook\.com|fbcdn\.net|fb\.watch|vk\.com|ok\.ru|rutube\.ru|dailymotion\.com|vimeo\.com)$/i;
 const SITE_URL = /^https:\/\/(www\.)?8ulduz\.az(\/[^\s<>"]*)?$/;
-const KINDS = new Set(["xeber", "icmal", "hava", "valyuta", "bazar", "sinaq"]);
+const KINDS = new Set(["xeber", "icmal", "hava", "valyuta", "bazar", "sinaq", "maraqli"]);
 const RETRY_HTTP = new Set([500, 502, 503, 504]);
 const READ_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/youtube(\.readonly|\.force-ssl)?(\s|$)/;
 const UPLOAD_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/(youtube|youtube\.upload|youtube\.force-ssl|youtubepartner)(\s|$)/;
 
 const BASE_TAGS = ["8ulduz", "8 ulduz", "səkkiz ulduz", "səkkizulduz", "8ulduz.az", "xəbər", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"];
-const KIND_TAGS = { icmal: ["günün icmalı", "günün xəbərləri"], hava: ["hava proqnozu", "Bakı hava"], valyuta: ["valyuta məzənnəsi", "manat", "dollar məzənnəsi"],
+const KIND_TAGS = { maraqli: ["maraqlı faktlar", "bilirdinizmi"], icmal: ["günün icmalı", "günün xəbərləri"], hava: ["hava proqnozu", "Bakı hava"], valyuta: ["valyuta məzənnəsi", "manat", "dollar məzənnəsi"],
   bazar: ["valyuta məzənnəsi", "neft qiyməti", "qızıl qiyməti"] };
 const CAT_TAGS = { gundem: "gündəm", siyaset: "siyasət", iqtisadiyyat: "iqtisadiyyat", dunya: "dünya xəbərləri", idman: "idman xəbərləri",
   medeniyyet: "mədəniyyət", heyat: "həyat", cemiyyet: "cəmiyyət", bolgeler: "bölgə xəbərləri", hava: "hava proqnozu" };
