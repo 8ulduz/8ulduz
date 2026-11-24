@@ -8,12 +8,17 @@
 
 export const AUDIO = "https://raw.githubusercontent.com/8ulduz/ses/main/";
 
-export function textOf(a, decode = s => s) {
-  const clean = s => decode(String(s || "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  // «- Video», «(FOTO)» kimi nişanlar oxunmur (sahib, 2026-11-10; ses.py spoken_title ilə eyni).
-  const title = clean(a?.title).replace(/\s*[(\[]\s*(?:foto|v[iİı]deo)(?:lar)?(?:\s*[,+/]\s*(?:foto|v[iİı]deo)(?:lar)?)*\s*[)\]]/gi, "").replace(/\s*(?:[-–—|:+]\s*)?(?:foto|v[iİı]deo)(?:lar)?(?:\s*[/+]\s*(?:foto|v[iİı]deo))?\s*$/i, "").replace(/^\s*(?:foto|v[iİı]deo)\s*[:|–—-]\s*/i, "").replace(/[.!?…]*$/, "");
-  const summary = clean(a?.summary);
-  return summary && !summary.startsWith(title) ? `${title}. ${summary}` : title + ".";
+const cleanOf = decode => s => decode(String(s || "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+// «- Video», «(FOTO)» kimi nişanlar oxunmur (sahib, 2026-11-10; ses.py spoken_title ilə eyni).
+export const titleOf = (a, decode = s => s) => cleanOf(decode)(a?.title).replace(/\s*[(\[]\s*(?:foto|v[iİı]deo)(?:lar)?(?:\s*[,+/]\s*(?:foto|v[iİı]deo)(?:lar)?)*\s*[)\]]/gi, "").replace(/\s*(?:[-–—|:+]\s*)?(?:foto|v[iİı]deo)(?:lar)?(?:\s*[/+]\s*(?:foto|v[iİı]deo))?\s*$/i, "").replace(/^\s*(?:foto|v[iİı]deo)\s*[:|–—-]\s*/i, "").replace(/[.!?…]*$/, "");
+
+// Oxunan mətn (sahib, 2026-11-24: «başlıqları oxumasın»; ses.py script_of ilə eyni): xəbərin mətni (body) və ya saytdakı
+// xülasə; mətn başlıqla başlayırsa o hissə atılır. Mətn yoxdursa (və ya başlığın təkrarıdır) başlıq oxunur — səs boş qalmasın.
+export function textOf(a, decode = s => s, body = "") {
+  const title = titleOf(a, decode);
+  let rest = body || cleanOf(decode)(a?.summary);
+  if (title && rest.startsWith(title)) rest = rest.slice(title.length).replace(/^[\s.!?…:]+/, "");
+  return rest.replace(/[^\p{L}\p{N}_]/gu, "").length >= 20 || !title ? rest : `${title}. ${rest}`.trim();
 }
 
 // Türk səsi «ə», «x», «q» hərflərini tanımır (hərf adı deyir və ya buraxır): ən yaxın türk səsinə çevrilir.
@@ -87,14 +92,16 @@ export function createPlayer({ list, decode = s => s, onState = () => {}, synth 
     return files.get(id);
   };
   // Hazır səs yoxdursa xəbərin TAM mətni mətn serverindən (.github/ses-worker/worker.js) — basılan anda, cihazın səsi ilə.
-  // Server yoxdursa və ya cavab vermirsə saytdakı başlıq + xülasə oxunur.
+  // Azərbaycan xəbərində server mətni oxunuş qaydaları ilə də verir («say»: rəqəm, tarix, qısaltma sözlə, başlıqsız).
+  // Server yoxdursa və ya cavab vermirsə saytdakı xülasə oxunur (xülasə də yoxdursa başlıq). Başlıq oxunmur (2026-11-24).
   const fullText = async a => {
+    const lead = a?.source ? a.source + (SAYS[langOf(a)] || ". ") : "";
     if (worker && String(a?.sourceUrl).startsWith("https://")) try {
-      const r = await fetchFn(`${worker}?u=${encodeURIComponent(a.sourceUrl)}&l=${langOf(a)}`, { signal: AbortSignal.timeout(7000) });
-      const t = r.ok ? String((await r.json()).text || "") : "";
-      if (t.length > 200) { const title = textOf({ title: a.title }, decode).replace(/[.]$/, ""); return `${title}. ${a.source ? a.source + (SAYS[langOf(a)] || ". ") : ""}${t.startsWith(title) ? t.slice(title.length) : t}`; }
+      const e = encodeURIComponent, r = await fetchFn(`${worker}?u=${e(a.sourceUrl)}&l=${langOf(a)}&t=${e(titleOf(a, decode))}`, { signal: AbortSignal.timeout(7000) });
+      const j = r.ok ? await r.json() : {}, t = String(j.text || "");
+      if (t.length > 200) return lead + (j.say ? String(j.say) : textOf(a, decode, t));
     } catch {}
-    return textOf(a, decode);
+    return lead + textOf(a, decode);
   };
   const sameLang = a => list().filter(x => langOf(x) === langOf(a));
   // Növbəti: əvvəl hazır tam səsi olan xəbər (maşında dinləyən ardıcıl təbii səs eşitsin), sonra qalanlar.

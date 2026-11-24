@@ -12,7 +12,12 @@ test('gözqırpımı: ekrandan kənar bloklar və kartlar çəkilmir, açıq pə
   const css = read('assets/app.css');
   assert.ok(css.includes('#view>section,#view>.lazy-sec,#view>details,#footer,.grid>.card,.latest-grid>.card{content-visibility:auto;contain-intrinsic-block-size:auto 360px}'),
     'content-visibility: hər toxunuşda üslub və yerləşdirmə yalnız görünən hissəyə (tema, geri, «daha çox», kart → xəbər)');
-  assert.ok(css.includes('#view>:has(details[open]),.card:has(details[open]){content-visibility:visible}'), '«N mənbə» pəncərəsi kartın sərhədində kəsilməsin');
+  assert.ok(css.includes('#view>:has(details[open]),#view>#vlent,.card:has(details[open]){content-visibility:visible}'), '«N mənbə» pəncərəsi kartın sərhədində kəsilməsin');
+  // content-visibility daxilindəki position:fixed üçün çərçivə yaradır: video lentinin tam ekranı bölmənin qutusuna sığırdı (2026-11-24).
+  assert.ok(/#view>:has\(details\[open\]\),#view>#vlent,/.test(css), 'video lenti (tam ekran kartı) content-visibility-siz qalır');
+  const v = read('assets/vlent.js');
+  assert.ok(v.includes('import * as lentNs from "./lent.js?v=1";') && !/import \{[^}]*\} from "\.\/lent\.js/.test(v), 'köhnə keşlənmiş lent.js modulu sındırmır (adlı import yox)');
+  assert.ok(v.includes('if (!L.list || !L.load) { const m = await freshLent();'), 'ad yoxdursa təzə nüsxə soruşulur');
   assert.ok(!/\.ytrow>\.card\{content-visibility/.test(css), 'üfüqi zolaqda (eni kartdan) content-visibility yoxdur: sürüşəndə kart eni sıçrayardı');
 });
 

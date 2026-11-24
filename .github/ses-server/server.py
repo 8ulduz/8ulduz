@@ -89,12 +89,15 @@ def clip(text, limit=MAX_CHARS):
 
 
 def script(title, source, body, summary=""):
-    """Oxunan mətn: başlıq, «<mənbə> xəbər verir», tam mətn (alınmayıbsa saytdakı xülasə)."""
+    """Oxunan mətn: «<mənbə> xəbər verir» və tam mətn (alınmayıbsa saytdakı xülasə). Başlıq oxunmur (sahib, 2026-11-24:
+    «başlıqları oxumasın»; ses.py script_of ilə eyni) — yalnız mətn də, xülasə də yoxdursa."""
     title = re.sub(r"[.!?…\s]+$", "", re.sub(r"\s+", " ", title or "").strip())
     rest = clip(body or re.sub(r"<[^>]+>", " ", summary or ""))
     if title and rest.startswith(title):
-        rest = rest[len(title):].lstrip(" .")
-    return " ".join(x for x in [title + "." if title else "", f"{source} xəbər verir." if source else "", rest] if x)
+        rest = rest[len(title):].lstrip(" .!?…:")
+    if title and len(re.sub(r"\W", "", rest)) < 20:
+        rest = f"{title}. {rest}".strip()
+    return " ".join(x for x in [f"{source} xəbər verir." if source else "", rest] if x)
 
 
 def key_of(url):

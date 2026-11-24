@@ -199,6 +199,14 @@ SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.githu
 | `XII tur`, `+12°…+17°`, `−5°` | on ikinci tur, on iki-on yeddi dərəcə, mənfi beş dərəcə |
 | `Google`, `Washington-da` | qugl, vaşinqtonda |
 | `8ULDUZ`, `Baku.ws`, `Bizim.Media`, `Sesqazeti.az` | səkkiz ulduz, baku nöqtə ve-es, bizim nöqtə media, səs qəzeti nöqtə az (mənbə adı) |
+| `noyabrın 25-də`, `dekabrın 31-dək`, `iyulun 20-si` | noyabrın iyirmi beşində, dekabrın otuz birinədək, iyulun iyirmisi (sahib, 2026-11-24: «iyirmibeşdə» oxuyurdu) |
+| `25 noyabr 2026`, `25.11.2026-da`, `2026-cı il` | iyirmi beş noyabr iki min iyirmi altıncı il, … ildə, iki min iyirmi altıncı il |
+| `14:05`, `14:00-dan`, `10:00-18:00`, `10:00-18:00 arası` | on dörd sıfır beş, on dörddən, ondan on səkkizədək, on ilə on səkkiz arası |
+| `və s.`, `Bakı ş.`, `Xətai r.`, `prof. Əliyev`, `5 mln. manat` | və sairə, Bakı şəhəri, Xətai rayonu, professor Əliyev, beş milyon manat (nöqtə cümləni bölmür) |
+| `$1,5 mlrd`, `100 AZN-ə`, `80 m²`, `120 kv. m`, `5 ha`, `10 MVt` | bir tam onda beş milyard dollar, yüz manata, səksən kvadrat metr, … hektar, on meqavat |
+| `(AB)`, `Bakı – paytaxt` (yalnız Babək) | vergül: səs mötərizədə və tiredə nəfəs alır, cümlənin intonasiyası qırılmır; rəqəm aralığı (`10 - 15`) qalır |
+
+**Başlıq oxunmur** (sahib, 2026-11-24: «başlıqları oxumasın»): «Dinlə»nin hazır səsi (`ses.py`), canlı səsi (Cloudflare işçisi), cihaz səsi (`assets/dinle.js`), SARA serveri və oxucu rejimi «<mənbə> xəbər verir.» və xəbərin mətni ilə başlayır; mətn başlığın özü ilə başlayırsa o hissə də atılır. Başlıq yalnız mətn də, xülasə də yoxdursa oxunur (səs boş qalmasın). Videoda başlıq qalır: o, ekranda böyük yazı ilə eyni anda səslənən ilk 3 saniyədir (səssiz izləyən də, səslə izləyən də xəbəri ilk cümlədən tutur); videonun mətni başlıq + izahdır, başqa «mətn» yoxdur. Qaydalar əsaslı dəyişəndə `ses.py`-də `VOICE_RULES` artırılır: bütün hazır səslər bir dəfə yenidən səslənir (index.json `ov`), işçinin keş açarı da dəyişir (`a5`). Cihaz səsi üçün işçi mətni oxunuş qaydaları ilə də verir (`say`).
 
 Cümlə bütöv səslənir, cümlə sonunda 0,38 s fasilə olur. 220 simvoldan uzun cümlə vergüldə bölünür, arada 0,16 s olur. Hər vergüldə bölmək Whisper ölçməsində aydınlığı azaltdı, ona görə bölünmür: model vergülü tanımır, hər parçanı cümlə kimi bitirir. Altyazı cümləni iki hissəyə bölürsə, ortada cümlə fasiləsi verilmir: vergüldən sonra 0,16 s, vergülsüz yerdə 0,1 s olur (`video_ses.breath`). Modelin oxuma ayarları (`VOICE`) da `az_text.py`-dədir. Seçilmiş ayar 0,45/0,6, sürət 1-dir. 2026-11-23-də 81 cümlə üzərində ölçülüb: hərf xətası 15,2%-dən 10,0%-ə düşüb.
 

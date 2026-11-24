@@ -31,7 +31,8 @@ export function mountReader({getArticles,driverEnabled=()=>false,setDriver=()=>{
     if(!text){setStatus('Tam məqalə mətni hələ əldə edilməyib. Mənbə keçidindən xəbəri aça bilərsiniz.');return;}
     if(!synth || !voice()){setStatus('Bu cihaz/brauzer Azərbaycan dilində səs təqdim etmir. Azərbaycan səsi olan cihaz və ya ayrıca Azərbaycan TTS xidməti tələb olunur.');return;}
     if(synth.paused){synth.resume();setStatus('Oxuma davam edir.');return;}
-    cancel(); chunks=readingChunks(article.title+'. '+text);index=0;
+    // Başlıq oxunmur, yalnız xəbərin mətni (sahib, 2026-11-24: «başlıqları oxumasın»; başlıq ekranda h2-də görünür).
+    cancel(); chunks=readingChunks(text);index=0;
     const id=generation;
     function next() {
       if(id!==generation)return;

@@ -5,11 +5,13 @@ const fs = require("node:fs"), path = require("node:path"), { pathToFileURL } = 
 const root = path.join(__dirname, "..");
 const load = () => import(pathToFileURL(path.join(root, "assets/dinle.js")).href);
 
-test("dinlə: reads the title and the site's own summary, never the publisher's full text", async () => {
+test("dinlə: reads the site's own summary without the title (owner 2026-11-24: «başlıqları oxumasın»), never the publisher's full text", async () => {
   const { textOf } = await load();
-  assert.equal(textOf({ title: "Bakıda yağış", summary: "<p>Sabah  güclü yağış gözlənilir.</p>" }), "Bakıda yağış. Sabah güclü yağış gözlənilir.");
-  assert.equal(textOf({ title: "Başlıq!", summary: "" }), "Başlıq.");
-  assert.equal(textOf({ title: "Eyni", summary: "Eyni mətn davam edir" }), "Eyni.", "xülasə başlığı təkrarlayırsa yalnız başlıq");
+  assert.equal(textOf({ title: "Bakıda yağış", summary: "<p>Sabah  güclü yağış gözlənilir.</p>" }), "Sabah güclü yağış gözlənilir.");
+  assert.equal(textOf({ title: "Bakıda yağış", summary: "Bakıda yağış. Sabah paytaxtda güclü yağış gözlənilir." }), "Sabah paytaxtda güclü yağış gözlənilir.", "xülasə başlıqla başlayırsa o hissə atılır");
+  assert.equal(textOf({ title: "Başlıq!", summary: "" }), "Başlıq.", "mətn yoxdursa başlıq oxunur — səs boş qalmır");
+  assert.equal(textOf({ title: "Eyni", summary: "Eyni mətn" }), "Eyni. mətn", "xülasə başlığın təkrarıdırsa başlıq");
+  assert.equal(textOf({ title: "Görüş - Video", summary: "" }), "Görüş.", "nişan oxunmur");
   const js = fs.readFileSync(path.join(root, "assets/dinle.js"), "utf8");
   assert.ok(!/reader\.json|fetch\(/.test(js), "mənbənin tam mətni yüklənmir");
 });
@@ -144,23 +146,42 @@ test("dinlə: while the voice is being prepared the button keeps «Səs hazırla
   await p2.play(story);
   env2.els[0].onerror(); await flush(30);
   assert.equal(p2.mode, "tts", "kompüterdə (Edge) Babək cihazda var: gözləmədən oxuyur");
-  assert.ok(env2.spoken[0].text.startsWith("Klub prezidenti"));
+  // Mətn serveri yoxdur, xülasə yoxdur: mənbə, sonra başlıq (2026-11-24: başlıq yalnız belə halda)
+  assert.equal(env2.spoken[0].text, "Sportinfo xəbər verir.");
+  env2.spoken[0].onend();
+  assert.equal(env2.spoken[1].text, "Klub prezidenti.");
   p2.stop();
 });
 
 test("dinlə: without a prepared voice the full text comes from the text server and the device voice reads it at once", async () => {
-  const { createPlayer } = await load();
+  const { createPlayer, forTurkish } = await load();
   const env = fakeEnv(false), long = "Napoli klubunun prezidenti baş məşqçi ilə görüşüb və komandanın vəziyyətini müzakirə edib. ".repeat(4);
   const base = env.fetchFn, asked = [];
   env.fetchFn = async (url, o) => url.startsWith("https://dinle.example/") ? (asked.push(url), { ok: true, json: async () => ({ text: long }) }) : base(url, o);
   const p = createPlayer({ list: () => list, ...env, worker: "https://dinle.example/" });
   await p.play({ ...list[0], title: "Klub prezidenti", source: "Sportinfo", sourceUrl: "https://www.sportinfo.az/1.html" });
-  assert.deepEqual(asked, ["https://dinle.example/?u=" + encodeURIComponent("https://www.sportinfo.az/1.html") + "&l=az"]);
+  assert.deepEqual(asked, ["https://dinle.example/?u=" + encodeURIComponent("https://www.sportinfo.az/1.html") + "&l=az&t=" + encodeURIComponent("Klub prezidenti")]);
   assert.equal(p.mode, "tts");
   for (let k = 0; k < 50 && env.spoken.at(-1)?.onend; k++) { const u = env.spoken.at(-1), n = env.spoken.length; u.onend(); if (env.spoken.length === n) break; }  // hər hissə bitir, növbəti başlayır
   const said = env.spoken.map(u => u.text).join(" ");
-  assert.ok(said.startsWith("Klub prezidenti."), said.slice(0, 80));
-  assert.ok(said.includes("Napoli"), "tam mətn oxunur, yalnız başlıq yox");
+  // Bu cihazda yalnız türk səsi var: ə/x/q türk hərfinə çevrilir (forTurkish)
+  assert.ok(said.startsWith(forTurkish("Sportinfo xəbər verir. Napoli")), said.slice(0, 80));
+  assert.ok(!said.includes("Klub prezidenti"), "başlıq oxunmur (sahib, 2026-11-24)");
+  p.stop();
+});
+
+test("dinlə: the device voice reads the server's spoken form of an Azerbaijani story (numbers, dates and acronyms as words)", async () => {
+  const { createPlayer, forTurkish } = await load();
+  const env = fakeEnv(false), long = "Tədbir noyabrın 25-də keçiriləcək və ABŞ nümayəndələri də iştirak edəcək. ".repeat(4);
+  const say = "Tədbir noyabrın iyirmi beşində keçiriləcək və a be şe nümayəndələri də iştirak edəcək. ".repeat(4).trim();
+  const base = env.fetchFn;
+  env.fetchFn = async (url, o) => url.startsWith("https://dinle.example/") ? { ok: true, json: async () => ({ text: long, say }) } : base(url, o);
+  const p = createPlayer({ list: () => list, ...env, worker: "https://dinle.example/" });
+  await p.play({ ...list[0], title: "Tədbir", source: "APA", sourceUrl: "https://apa.az/1" });
+  for (let k = 0; k < 50 && env.spoken.at(-1)?.onend; k++) { const u = env.spoken.at(-1), n = env.spoken.length; u.onend(); if (env.spoken.length === n) break; }
+  const said = env.spoken.map(u => u.text).join(" ");
+  assert.ok(said.startsWith(forTurkish("APA xəbər verir. Tədbir noyabrın iyirmi beşində")), said.slice(0, 80));
+  assert.ok(!/25-də|ABŞ/.test(said), said.slice(0, 120));
   p.stop();
 });
 
@@ -193,7 +214,10 @@ test("dinlə: a story in English, Russian or Turkish is read by the device voice
   assert.ok(!env.fetched.some(u => /\.mp3$|index\.json$/.test(u)), "hazır Azərbaycan səsi axtarılmır");
   assert.equal(p.mode, "tts");
   assert.equal(env.spoken[0].lang, "en-US");
-  assert.equal(env.spoken[0].text, "Fire in the city.", "mətn türk hərflərinə çevrilmir");
+  // Mətn yoxdur: mənbə, sonra başlıq (başlıq yalnız belə halda oxunur, 2026-11-24)
+  assert.equal(env.spoken[0].text, "Reuters reports.");
+  env.spoken[0].onend();
+  assert.equal(env.spoken[1].text, "Fire in the city.", "mətn türk hərflərinə çevrilmir");
   p.next(); await flush();
   assert.equal(env.spoken.at(-1).text, "Second story.", "«Növbəti» eyni dildəki xəbərə keçir");
   p.stop();
