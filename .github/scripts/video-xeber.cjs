@@ -300,10 +300,12 @@ const logoW = () => Math.round(LOGO.w * L.logoH / LOGO.h);
 // altyazı hissəsi bir kadr, sonluq sonuncunun davamı. Xəbər montajında kadr 3–6 s-dir; əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
 // SHOT_MIN-dən qısa hissə qonşusuna birləşir, SHOT_MAX-dan uzunu bərabər bölünür. Kliplər sıra ilə gedir (Gemini-nin ifadələri
 // diktor mətninin cümlə sırasındadır): çatmasa təkrarlanır, təkrarda klipin işlənməmiş yerindən (ss) — eyni kadr iki dəfə görünməsin.
-// Klip: fayl yolu və ya { file, w, h, dur }. Ölçü məlumdursa və klip şaquli deyilsə (en/hündürlük > KLIP_SAQULI) — «sığdırma»: klip
-// tam enində ortada, arxada onun bulanıq nüsxəsi. Üfüqi 1920×1080 klipi 9:16-ya kəsmək həm mövzunu atır (sarayın yerinə göy
-// qalır), həm də 1,8 dəfə böyüdüb bulanıqlaşdırır (2026-11-22 nümunə videosu).
-const SHOT_MIN = 2.6, SHOT_MAX = 6.5, KLIP_SAQULI = 0.8, KLIP_Y = 740;
+// Klip: fayl yolu və ya { file, w, h, dur }. Hər klip kadrı tam doldurur (sahib, 2026-11-24: «bu videoların hündürlüyünü tam ölçüdə
+// etsək daha baxımlı olar. üstündə yazılar olsa da video tam kart boyu olmalıdır»). Əvvəl (2026-11-22) üfüqi klip tam enində ortada,
+// arxada bulanıq nüsxəsi ilə idi, çünki ortadan kəsəndə mövzu düşürdü (sarayın yerinə göy) və 1080p klip 1,8 dəfə böyüyüb bulanıqlaşırdı.
+// İndi ikisi də başqa yolla həll olunur: kəsim ortadan yox, kadrın hərəkət və detal olan yerindəndir (focusX, hər kadr üçün ayrıca —
+// «auto-reframe»), üfüqi klipin isə ən böyük nüsxəsi (4K) yüklənir (video-ssenari.cjs). Ölçü bilinməsə və ya ffmpeg ölçə bilməsə — ortadan.
+const SHOT_MIN = 2.6, SHOT_MAX = 6.5, KLIP_SAQULI = 0.8;
 const r2 = x => Math.round(x * 100) / 100;
 function shotBounds(tl) {
   const D = tl.duration, b = [0];
@@ -335,27 +337,63 @@ function shotPlan(clips, tl) {
   });
 }
 const fitsWide = c => c.w > 0 && c.h > 0 && c.w / c.h > KLIP_SAQULI;
-// Başlıq zolağının alt kənarı (görüntülü video). Üfüqi klip ondan aşağı başlayır: 3 sətirlik başlıqda zolaq KLIP_Y-dən aşağı düşür,
-// klipin üstü zolağın altında qalırdı (2026-11-23 nümunəsi).
+// Başlıq zolağının alt kənarı (görüntülü video): başlığın arxasındakı tünd zolaq buraya qədərdir (ass).
 const bandBottom = p => LF.headY + p.head.lines.length * p.head.size + 40;
-function clipFilter(c, i, clipY = KLIP_Y) {
-  const head = `[${i}:v]fps=${FPS},trim=duration=${c.d.toFixed(2)},setpts=PTS-STARTPTS`;
-  if (!fitsWide(c)) return `${head},scale=${W}:${H}:force_original_aspect_ratio=increase:flags=bicubic,crop=${W}:${H},setsar=1[c${i}]`;
-  const fh = Math.round(W * c.h / c.w / 2) * 2, y = Math.max(0, Math.min(clipY, H - fh));
-  // Bulanıq fon kiçik ölçüdə hazırlanır (ucuzdur), sonra böyüdülür və tündləşdirilir.
-  return `${head},split=2[b${i}][f${i}];[b${i}]scale=${W / 4}:${H / 4}:force_original_aspect_ratio=increase,crop=${W / 4}:${H / 4},boxblur=12:2,`
-    + `scale=${W}:${H},eq=brightness=-0.14:saturation=0.8[g${i}];[f${i}]scale=${W}:${fh}:flags=bicubic[h${i}];[g${i}][h${i}]overlay=0:${y},setsar=1[c${i}]`;
+
+// Ağıllı kəsim (auto-reframe): klipin kiçik boz nüsxəsində (fw×fh, ardıcıl kadrlar) hər sütunun «enerjisi» — iki kadr arasındakı fərq
+// (hərəkət) və qonşu nöqtələrin fərqi (detal: bina, adam, yazı; boş göy və divar azdır). 9:16 pəncərə (eni frac) enerjinin ən çox olduğu
+// yerə qoyulur; ortaya yüngül üstünlük var (enerji bərabərdirsə kadr ortadan, kəsim kənara sıçramır). Nəticə: pəncərənin ortası, 0…1.
+function focusX(buf, fw, fh, frac) {
+  const n = Math.floor(buf.length / (fw * fh)), ww = Math.max(1, Math.min(fw, Math.round(fw * frac)));
+  if (!(n > 0) || ww >= fw) return 0.5;
+  const col = new Float64Array(fw);
+  for (let k = 0; k < n; k++) {
+    const o = k * fw * fh, p = o - fw * fh;
+    for (let y = 0; y < fh; y++) for (let x = 1; x < fw; x++) {
+      const i = o + y * fw + x;
+      col[x] += 0.5 * Math.abs(buf[i] - buf[i - 1]) + (k ? Math.abs(buf[i] - buf[p + y * fw + x]) : 0);
+    }
+  }
+  let sum = 0, best = -1, at = (fw - ww) >> 1;
+  for (let x = 0; x < ww; x++) sum += col[x];
+  const total = col.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return 0.5;
+  for (let s = 0; s + ww <= fw; s++) {
+    if (s) sum += col[s + ww - 1] - col[s - 1];
+    const mid = (s + ww / 2) / fw, score = sum * (1 - 0.3 * Math.abs(mid - 0.5));
+    if (score > best + 1e-9) { best = score; at = s; }
+  }
+  return Math.round(((at + ww / 2) / fw) * 1000) / 1000;
+}
+// Kadrın hissəsini (ss, d) ffmpeg ilə kiçik boz kadrlara çevirib focusX. Alınmasa ortası.
+function focusOf(c, opt = {}) {
+  if (!fitsWide(c)) return 0.5;
+  const fw = 160, fh = Math.max(2, Math.round(fw * c.h / c.w / 2) * 2), frac = (c.h * W / H) / c.w;
+  try {
+    const r = spawnSync("ffmpeg", ["-v", "error", ...(c.ss > 0 ? ["-ss", c.ss.toFixed(2)] : []), "-t", String(Math.min(c.d || 4, 6)), "-i", c.file,
+      "-vf", `fps=4,scale=${fw}:${fh},format=gray`, "-f", "rawvideo", "pipe:1"], { maxBuffer: 32 << 20, timeout: opt.timeout || 60000, cwd: opt.cwd });
+    return r.status === 0 && r.stdout?.length ? focusX(r.stdout, fw, fh, frac) : 0.5;
+  } catch { return 0.5; }
 }
 
-function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], clipY = KLIP_Y }) {
+function clipFilter(c, i) {
+  const head = `[${i}:v]fps=${FPS},trim=duration=${c.d.toFixed(2)},setpts=PTS-STARTPTS`;
+  if (!fitsWide(c)) return `${head},scale=${W}:${H}:force_original_aspect_ratio=increase:flags=bicubic,crop=${W}:${H},setsar=1[c${i}]`;
+  // Üfüqi (və kvadrat) klip: hündürlüyü kadrın hündürlüyünə, 9:16 pəncərə ağıllı kəsimin yerində (cx).
+  const sw = Math.round(H * c.w / c.h / 2) * 2, cx = c.cx >= 0 && c.cx <= 1 ? c.cx : 0.5;
+  const x = Math.max(0, Math.min(sw - W, Math.round(cx * sw - W / 2)));
+  return `${head},scale=${sw}:${H}:flags=bicubic,crop=${W}:${H}:${x}:0,setsar=1[c${i}]`;
+}
+
+function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], focus = null }) {
   const D = tl.duration.toFixed(2);
-  const plan = shotPlan(clips, tl);
+  const plan = shotPlan(clips, tl).map(c => (focus && fitsWide(c) ? { ...c, cx: focus(c) } : c));
   const args = ["-hide_banner", "-loglevel", "error", "-y"];
   let bg;
   if (plan.length) {
-    // Şaquli klip 9:16-ya doldurulur, üfüqi tam enində sığdırılır (clipFilter); 30 kadr/s, bir az tündləşdirilir (yazı oxunsun).
+    // Hər klip kadrı doldurur (clipFilter; üfüqi klip ağıllı kəsimlə); 30 kadr/s, bir az tündləşdirilir (yazı oxunsun).
     plan.forEach(c => args.push("-stream_loop", "-1", ...(c.ss > 0 ? ["-ss", c.ss.toFixed(2)] : []), "-t", c.d.toFixed(2), "-i", c.file));
-    bg = plan.map((c, i) => clipFilter(c, i, clipY)).join(";")
+    bg = plan.map((c, i) => clipFilter(c, i)).join(";")
       + `;${plan.map((_, i) => `[c${i}]`).join("")}concat=n=${plan.length}:v=1:a=0,eq=brightness=-0.04:saturation=0.95,trim=duration=${D},format=rgb24`;
   } else {
     args.push("-f", "lavfi", "-i", `color=c=0x${COLOR.bg}:s=${W}x${H}:r=${FPS}:d=${D}`);
@@ -437,7 +475,7 @@ async function render(a, out, opt = {}) {
   if (a.text && policy({ ...a, summary: a.text })) throw new Error("izah saytın qaydasından keçmir");
   out = path.resolve(out);
   // Fon klipləri (video-ssenari.cjs goruntu()): çıxış qovluğuna görə yol; olmayan fayl atılır.
-  // Ölçü ffprobe ilə oxunur (üfüqi klip sığdırılır, clipFilter); oxunmasa klip doldurulur.
+  // Ölçü ffprobe ilə oxunur (üfüqi klip ağıllı kəsimlə doldurur, clipFilter); oxunmasa klip ortadan doldurulur.
   const clips = (Array.isArray(a.klipler) ? a.klipler : []).map(f => path.resolve(opt.base || path.dirname(out), String(f))).filter(f => fs.existsSync(f))
     .map(file => { try { const m = probe(file); return { file, w: m.width || 0, h: m.height || 0, dur: m.duration || 0 }; } catch { return { file }; } });
   const menbe = clean(a.goruntuMenbe) || "Pexels";
@@ -449,7 +487,7 @@ async function render(a, out, opt = {}) {
     const tl = timeline(p, v);
     fs.writeFileSync(path.join(dir, "video.ass"), ass(p, tl));
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips, clipY: Math.max(KLIP_Y, bandBottom(p)) }), { cwd: dir, timeout: 900000 });
+    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips, focus: c => focusOf(c, { cwd: dir }) }), { cwd: dir, timeout: 900000 });
     const cover_s = 1.5;
     const jpg = out.replace(/\.mp4$/i, "") + ".jpg";
     run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", jpg]);
@@ -462,17 +500,17 @@ async function render(a, out, opt = {}) {
       ? [cover_s, ...shotMids.slice(1, 8).filter(x => x < tl.outro[0]), mid([tl.outro[0], tl.duration])]
       : [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
     const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title,
-      ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, sigdirilan: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
+      ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, kesilen: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
-    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.sigdirilan} kadr üfüqi, sığdırıldı)` : "görüntüsüz"} — ${p.title}`);
+    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.kesilen} kadr üfüqi, ağıllı kəsildi)` : "görüntüsüz"} — ${p.title}`);
     return meta;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 
-module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, bandBottom, KLIP_Y, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
+module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR,
   // Hava videosu (video-hava.cjs) eyni brendi, səsi, altyazını və kodlaşdırmanı işlədir: qayda iki yerdə yazılmır.
   clean, voice, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W, OUTRO_SAY };

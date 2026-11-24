@@ -41,11 +41,16 @@ export const markSeen = u => {
   try { localStorage.setItem(SEEN_KEY, JSON.stringify(keep)); mem = null; } catch { mem = keep; }
 };
 
+// Tam boy (sahib, 2026-11-24: «bu videoların hündürlüyünü tam ölçüdə etsək daha baxımlı olar. üstündə yazılar olsa da video tam
+// kart boyu olmalıdır»): telefonda (şaquli ekran) video ekranı tam doldurur, yazı videonun üstündədir. Üfüqi videoda kənarlar
+// kəsilir; ⤢ («tam kadr») həmin videonu bütöv göstərir, yenə basanda tam boya qayıdır. Kompüterdə (üfüqi ekran) əvvəlki kimi bütöv.
 const CSS = `html,body{margin:0;height:100%;background:#000;color:#fff;font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 .feed{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none}
 .feed::-webkit-scrollbar{display:none}
 section{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden}
 video{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:contain;background:#000}
+.fit{position:absolute;bottom:calc(204px + env(safe-area-inset-bottom));display:none}
+@media (orientation:portrait){video{object-fit:cover}section.k video{object-fit:contain}section.w .fit{display:block}}
 .cap{position:absolute;z-index:1;left:0;right:64px;bottom:0;padding:40px 14px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#000b);pointer-events:none}
 .cap b{display:block;font-size:14px;text-shadow:0 1px 2px #000}
 .cap span{display:block;margin-top:4px;font-weight:700;font-size:16px;text-shadow:0 1px 2px #000}
@@ -195,7 +200,7 @@ export async function open(S, k = "") {
   build(f, items, () => history.back(), async () => list(S, await load()));
 }
 
-const slide = v => `<section><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div><button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
+const slide = v => `<section${v.w > v.h * 1.15 ? ' class="w"' : ""}><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div>${v.w > v.h * 1.15 ? '<button class="fit" type="button" aria-label="Tam kadr" aria-pressed="false">⤢</button>' : ""}<button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
 
 function build(f, items, back, more) {
   const doc = f.contentDocument, win = f.contentWindow;
@@ -282,6 +287,8 @@ function build(f, items, back, more) {
   live.fresh = setInterval(freshTick, FRESH_MS);
   feed.addEventListener("click", e => {
     if (e.target.closest("a")) return;
+    const fit = e.target.closest(".fit");
+    if (fit) { fit.setAttribute("aria-pressed", String(fit.closest("section").classList.toggle("k"))); return; }
     const sh = e.target.closest(".sh");
     if (sh) {
       const url = sh.dataset.link;

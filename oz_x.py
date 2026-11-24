@@ -420,6 +420,12 @@ VIDEOLENT_QRUPLAR = {
         "pusholder": "Pusholder", "bpthaber": "BPT", "sentdefender": "OSINTdefender", "OSINTtechnical": "OSINTtechnical",
         "ZelenskyyUa": "Volodymyr Zelenskyy", "atrupar": "Aaron Rupar", "Acyn": "Acyn", "BBCPolitics": "BBC Politics",
         "visegrad24": "Visegrád 24", "WhiteHouse": "The White House",
+        # Sahib 2026-11-24 (X-in «Sizin üçün» lentindən 20 ekran şəkli): «bu kimi həm xəbər tipli, həm də digər çox maraqlı videolar olan
+        # hesablardan istifadə etməyi təmin et». FxTwitter, 2026-11-24 ~13:40 UTC, 72 saat, öz videoları: GaGa Haber 7 video, median 46 min
+        # baxış; Kupür Haber 12 / 6,1 min; Tiraj 18 / 4,5 min; THS Haber 11 / 4,4 min; Parasizceo 14 / 4,2 min. Baxış azdır, ona görə
+        # VIDEOLENT_ONDE-də deyil: seçimdə baxış sayı ilə yarışırlar. Xəbər hesabı (HESABLAR) deyil: başqasının videosunu yayırlar, video ilə
+        # başlıq çox vaxt uyğun gəlmir — Videolentdə yalnız qısa izahla. Crazy Clips (median 98 min) yoxdur: CrazyClips_ kimi kazino reklamı.
+        "GagaHaberTR": "GaGa Haber", "HaberKupur": "Kupür Haber", "tirajnews": "Tiraj", "thshaber": "THS Haber", "Parasizceo": "Parasizceo",
     },
     "idman": {   # İdman (264)
         "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "ufc": "UFC", "ringmagazine": "Ring Magazine", "acmilan": "AC Milan",

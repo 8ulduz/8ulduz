@@ -218,11 +218,13 @@ async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch
 }
 
 // --- Görüntü: Pexels və Pixabay ------------------------------------------------------------------------------------------------------------------
-// Klipin ən uyğun faylı: şaquli klipdə hündürlüyü 1920-yə ən yaxın (≥1280), üfüqidə hündürlüyü ≥1080 olan ən kiçiyi.
+// Klipin ən uyğun faylı: şaquli klipdə hündürlüyü 1920-yə ən yaxın (≥1280), üfüqidə hündürlüyü 1440-a ən yaxın (≥1080). Üfüqi klip
+// 9:16-ya kəsilir (video-xeber.cjs, ağıllı kəsim): 1080p-dən kəsilən hissə 608×1080-dir və 1,8 dəfə böyüyüb bulanıqlaşırdı; Pixabay-da 4K.
 function bestFile(v, portrait) {
   const files = (v?.video_files || []).filter(x => x?.link && /mp4/.test(x.file_type || "") && x.width > 0 && x.height > 0);
   const ok = portrait ? files.filter(x => x.height > x.width && x.height >= 1280) : files.filter(x => x.width >= x.height && x.height >= 1080);
-  ok.sort((x, y) => Math.abs(x.height - (portrait ? 1920 : 1080)) - Math.abs(y.height - (portrait ? 1920 : 1080)) || x.width - y.width);
+  const want = portrait ? 1920 : 1440;   // Pexels faylın ölçüsünü vermir: 4K adətən KLIP_MAX_BYTES-dan böyükdür, 1440p (810×1440 kəsim) sığır
+  ok.sort((x, y) => Math.abs(x.height - want) - Math.abs(y.height - want) || x.width - y.width);
   return ok[0] || null;
 }
 
@@ -233,10 +235,11 @@ async function getJson(u, headers, f) {
     return r?.ok ? await r.json() : null;
   } catch { return null; }   // ünvan jurnala yazılmır: Pixabay açarı ünvandadır
 }
-// Pixabay faylı: hər iki ölçüsü ən azı 1080 olan ilk nüsxə (medium adətən 1920×1080, large 3840×2160), ≤ KLIP_MAX_BYTES.
+// Pixabay faylı: hər iki ölçüsü ən azı 1080 olan ilk nüsxə (medium adətən 1920×1080, large 3840×2160), ≤ KLIP_MAX_BYTES. Üfüqi klipdə
+// əvvəl large: kəsiləcək (bestFile-a bax).
 function pixabayFile(v) {
   const s = v?.videos || {};
-  return [s.medium, s.large, s.small].find(x => x?.url && x.width > 0 && x.height > 0 && Math.min(x.width, x.height) >= 1080
+  return (s.large?.width > s.large?.height ? [s.large, s.medium, s.small] : [s.medium, s.large, s.small]).find(x => x?.url && x.width > 0 && x.height > 0 && Math.min(x.width, x.height) >= 1080
     && !(x.size > KLIP_MAX_BYTES)) || null;
 }
 // Klipin axtarışa uyğunluğu: klipin təsviri (Pixabay etiketləri, səhifə ünvanının sözləri) axtarış sözləri ilə tutuşdurulur.

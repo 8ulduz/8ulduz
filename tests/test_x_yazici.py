@@ -313,6 +313,28 @@ class CraftSourcesTest(unittest.TestCase):
         for h in ("DailyLoud", "Megatron_ron", "dom_lucre", "WallStreetApes", "RT_com", "SputnikInt"):
             self.assertNotIn(h, xy.xm.ADLAR, f"{h}: mərc reklamı, təbliğat və ya nifrət")
 
+    def test_viral_turkish_news_accounts_from_the_owners_screenshots_feed_only_the_videolent(self):
+        """Sahib 2026-11-24: «bu kimi həm xəbər tipli, həm də digər çox maraqlı videolar olan hesablardan istifadə etməyi təmin et»."""
+        q = xy.xm.VIDEOLENT_QRUPLAR["xeber"]
+        for h in ("GagaHaberTR", "HaberKupur", "tirajnews", "thshaber", "Parasizceo"):
+            self.assertIn(h, q)
+            self.assertEqual(xy.xm.movzu(h), "xeber")
+            self.assertNotIn(h, xy.xm.HESABLAR, "başqasının videosunu yayır: xəbər yazılmır, Videolentdə qısa izahla")
+            self.assertFalse(xy.xm.onde(h), "baxışı azdır, seçimdə baxışla yarışır")
+        self.assertNotIn("CrazyClipsOnly", xy.xm.ADLAR, "CrazyClips_ kimi kazino reklamı")
+        seen = set()
+        t0 = datetime.datetime(2026, 11, 24, tzinfo=datetime.timezone.utc)
+        for k in range(12):
+            seen.update(xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k)))
+        self.assertTrue({"GagaHaberTR", "HaberKupur", "tirajnews", "thshaber", "Parasizceo"} <= seen, "4 saatda hər biri yoxlanır")
+
+    def test_ai_fakes_and_unverified_sensations_are_never_picked(self):
+        """Sahib 2026-11-24: göndərdiyi 20 videonun 7-si süni intellekt işi və ya doğrulanmamış iddia idi."""
+        for p in (xy.PROMPT.format(n=3, items="- x"), xy.REELS_PROMPT.format(n=12, items="- x")):
+            self.assertIn("Süni intellektlə hazırlanmış", p)
+            self.assertIn("Doğrulanmamış sensasiya", p)
+            self.assertNotIn("{saxta}", p)
+
 
 class TransferCandidateTest(unittest.TestCase):
     def test_transfer_posts_without_video(self):

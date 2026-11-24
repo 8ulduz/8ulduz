@@ -90,8 +90,11 @@ test('lent (sahib 2026-11-24, tam ekran): videoya basanda kart səslə tam ekran
   assert.ok(v.includes('.vl-c.fs{position:fixed;inset:0;z-index:2147483000;'), 'bütün pəncərəni tutur, saytın başlığı və menyusu üstə çıxmır');
   assert.ok(v.includes('.vl-c.fs .vl-v>iframe.w{left:0;width:100%;transform:none}'), 'üfüqi YouTube videosu tam ekranda kəsilmir, bütöv görünür');
   const card = Number(/\.vl-c\{flex:none;width:min\(58vw,(\d+)px\)/.exec(v)?.[1]);
-  assert.ok(v.includes('@media(min-width:300px){video{object-fit:contain}}') && card < 300,
-    'X videosu kartda kartı doldurur, tam ekranda bütöv görünür (həddi kartın enindən böyükdür)');
+  // Sahib, 2026-11-24 (üçüncü baxış): «üstündə yazılar olsa da video tam kart boyu olmalıdır».
+  assert.ok(v.includes('video{width:100%;height:100%;object-fit:cover}@media(orientation:landscape){video{object-fit:contain}}') && card < 300,
+    'X videosu kartda və telefonun tam ekranında ekranı doldurur, yalnız üfüqi ekranda (kompüter) bütöv görünür');
+  assert.ok(v.includes('@media(orientation:landscape){.vl-c.fs .vl-v>img{object-fit:contain}}') && v.includes('.vl-c.fs .vl-v:has(>iframe.w)>img{object-fit:contain}'),
+    'şəkil də videonun ölçüsündədir; üfüqi YouTube videosunun şəkli oynadıcı kimi bütöv');
   assert.ok(v.includes('if (fs >= 0) { fsEnd = true;') && open.includes('clearTimeout(timer);'), 'tam ekranda növbəti karta özü keçmir');
 });
 

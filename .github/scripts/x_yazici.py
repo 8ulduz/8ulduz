@@ -48,11 +48,20 @@ LAST_SLOT = "22:00"   # daha gec yazılan xəbər gün bitənədək dərc olunma
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or ""   # boşdursa: açarın siyahısındakı ən yeni «flash» (2.5 artıq 404 verir)
 
+# Saxta video (sahib 2026-11-24, X-in «Sizin üçün» lentindən 20 ekran şəkli: 7-si süni intellekt işi və ya doğrulanmamış iddia idi —
+# Tramp ilə Putin üz yuyur, liderlər körpüdə, «Avstraliyada canavarlar», «Putinə sui-qəsd», «protez qollu mühafizəçi»). Seçim də,
+# izah da bunu bilsin: belə video lentə düşməsin, xəbər kimi yazılmasın.
+SAXTA = ("Süni intellektlə hazırlanmış və ya montajla saxtalaşdırılmış videoları SEÇMƏ: tanınmış adamların (liderlər, məşhurlar) real "
+         "olmayan səhnələri, «AI», «yapay zeka», «Grok/Sora/Veo» nişanı və ya izahı olan, təbiətdə mümkün olmayan və ya yerə uyğun "
+         "olmayan görüntü (məsələn Avstraliyada canavar). Doğrulanmamış sensasiya iddiası olan videoları da SEÇMƏ (sui-qəsd, gizli plan, "
+         "«protez», «gizli silah», «məxfi görüntü» kimi; mətnində «@grok doğrula?» kimi şübhə olan paylaşım).")
+
 PROMPT = """Sən 8ulduz.az xəbər saytının redaktorusan. Aşağıda türk və ingilis dilli X hesablarının videolu paylaşımları var.
 Onlardan oxucunun ən çox izləmək istəyəcəyi ən çox {n} paylaşımı seç (idman, dünya, elm, maraqlı). Reklam, sponsor, bilet, mağaza,
 mərc reklamı və qəza anı olanları SEÇMƏ. Müharibə xəbərlərinin videoları olar (Rusiya–Ukrayna və başqa münaqişələr: cəbhə, dron,
 texnika, hava hücumundan müdafiə, dağıntı, təxliyə). Qan, meyit, yaralı, edam, işgəncə, əsir görüntüsü, insanın vurulduğu və ya
 öldürüldüyü an olan videoları və terror təbliğatını SEÇMƏ. Şərh, söz atışması, təhqir və siyasi təbliğat olan paylaşımları SEÇMƏ.
+{saxta}
 Uyğun paylaşım yoxdursa boş siyahı qaytar.
 
 Hər seçilən üçün Azərbaycan ədəbi dilində qısa xəbər yaz:
@@ -72,7 +81,7 @@ Yalnız JSON siyahısı qaytar, başqa heç nə:
 [{{"id": "<paylaşımın id-si>", "kind": "...", "title": "...", "lead": "...", "body": ["..."]}}]
 
 Paylaşımlar:
-{items}"""
+{items}""".replace("{saxta}", SAXTA)
 
 
 def fetch_json(url):
@@ -386,12 +395,14 @@ mətnindən, uydurma yox. İzahla da mənası başa düşülməyən, ancaq danı
 anlaşılmayan videoları SEÇMƏ.
 SEÇMƏ: açıq-saçıq və erotik görüntü, qan, meyit, yaralı, ölüm və ya özünə qəsd anı, edam, işgəncə, heyvana zülm, insanın vurulduğu
 döyüş anı, əsir görüntüsü, terror təbliğatı, mərc və qumar reklamı, təhqir, nifrət, siyasi təbliğat və çağırış, Azərbaycan, Ermənistan və Qarabağ mövzusu, uşağın
-təhlükədə olduğu görüntü. Uyğun video yoxdursa boş siyahı qaytar.
+təhlükədə olduğu görüntü.
+{saxta}
+Uyğun video yoxdursa boş siyahı qaytar.
 
 Yalnız JSON siyahısı qaytar, başqa heç nə: [{{"id": "<id>", "s": "hadise" və ya "usta", "c": "<izah>"}}, ...]
 
 Paylaşımlar:
-{items}"""
+{items}""".replace("{saxta}", SAXTA)
 REEL_META = {}   # id -> {"sinif": "h"/"u", "c": izah}: pick_reels Gemini-nin cavabından doldurur
 # 2026-11-22: yeni açarla ilk işdə Gemini cavab verdi, amma siyahı oxunmadı — 36 video × izah 4000 token həddinə sığmır
 # (Azərbaycan mətni çox token tutur, model düşünməyə də həddən xərcləyir). Videoya geniş hədd; kəsilsə tam elementlər götürülür.
