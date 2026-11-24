@@ -161,6 +161,23 @@ class ReelQueueTest(unittest.TestCase):
         self.assertEqual(next(r for r in out if r["id"] == a["id"])["c"], "Futbolçu meydanın ortasından qol vurur")
         self.assertNotIn("c", next(r for r in out if r["id"] == bare["id"]), "Gemini izah verməsə video izahsız qalır")
 
+    def test_captions_also_in_russian_and_english_for_those_readers(self):
+        """Sahib 2026-11-24: «videoları tam şəkildə rus və ingilis dillərində də verməliyik»."""
+        a = self.cand("LFC", "2123096874748187031", None)
+        b = self.cand("NBA", "2123096874748187032", None)
+        answer = json.dumps([{"id": a["id"], "s": "hadise", "c": "Futbolçu meydanın ortasından qol vurur",
+                              "ru": "Футболист забивает гол с центра поля", "en": "A player scores from the halfway line"},
+                             {"id": b["id"], "s": "hadise", "c": "Basketbolçu son saniyədə qələbə qazandırır",
+                              "ru": "Решающий бросок в Баку", "en": "x"}], ensure_ascii=False)
+        out = {r["id"]: r for r in self.run_main([], [a, b], answer)}
+        self.assertEqual((out[a["id"]]["ru"], out[a["id"]]["en"]), ("Футболист забивает гол с центра поля", "A player scores from the halfway line"))
+        self.assertIn("rus («ru») və ingilis («en»)", xy.REELS_PROMPT)
+        self.assertNotIn("en", out.get(b["id"], {}), "biçimi pozulan izah düşür, video qalır")
+        if b["id"] in out:
+            self.assertNotIn("ru", out[b["id"]], "Bakı keçən rus izahı da qırmızı xətt 2-dir")
+        row = {**out[a["id"]], "ru": "Матч в Азербайджане"}
+        self.assertIn("ru:", xy.xm.reel_check(row) or "", "növbədəki sətirdə də yoxlanır")
+
     def test_sensitive_noted_and_gambling_posts_never_become_candidates(self):
         """Gemini-siz süzgəc: X-in «possibly_sensitive» nişanı (ağır və açıq-saçıq kadr), icma qeydi (yanlış məlumat), mərc və qumar."""
         self.assertIsNotNone(self.cand("CollinRugg", "2123096874748187021"))

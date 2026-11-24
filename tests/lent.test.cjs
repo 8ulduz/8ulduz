@@ -303,3 +303,16 @@ test('Videolent: a topic head with few views does not jump the queue — most wa
     'başqa mövzu qaldıqca futbol ardıcıl gəlmir');
   assert.deepEqual(ms.slice(0, 4), ['xeber', 'idman', 'elm', 'yemek'], 'ilk 4 videoda 4 mövzu');
 });
+
+test('Videolent: rus və ingilis oxucu izahı öz dilində görür (sahib 2026-11-24: «videoları tam şəkildə rus və ingilis dillərində də verməliyik»)', async () => {
+  const { cap, list } = await import(pathToFileURL(file).href);
+  const r = { c: 'Futbolçu qol vurur', ru: 'Футболист забивает гол', en: 'A player scores' };
+  assert.equal(cap(r, 'ru'), 'Футболист забивает гол');
+  assert.equal(cap(r, 'en'), 'A player scores');
+  assert.equal(cap(r, 'az'), 'Futbolçu qol vurur');
+  assert.equal(cap(r, 'tr'), 'Futbolçu qol vurur', 'türk oxucu azərbaycanca izahı anlayır');
+  assert.equal(cap(r, null), 'Futbolçu qol vurur', '«Hamısı»');
+  assert.equal(cap({ c: 'Futbolçu qol vurur' }, 'ru'), '', 'rus izahı yoxdursa izahsız: azərbaycanca izah rus oxucuya kömək etmir');
+  const reel = { id: '2123096874748187031', a: 'LFC', n: 'Liverpul', u: 'https://video.twimg.com/amplify_video/2123096874748187031/vid/avc1/480x852/a.mp4', w: 480, h: 852, t: '2026-11-24T10:00:00+00:00', ...r };
+  assert.equal(list({ lang: 'en', data: { articles: [] } }, [reel], [])[0].c, 'A player scores', 'lent oxucunun dilini götürür');
+});

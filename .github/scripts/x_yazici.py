@@ -399,11 +399,14 @@ təhlükədə olduğu görüntü.
 {saxta}
 Uyğun video yoxdursa boş siyahı qaytar.
 
-Yalnız JSON siyahısı qaytar, başqa heç nə: [{{"id": "<id>", "s": "hadise" və ya "usta", "c": "<izah>"}}, ...]
+Eyni izahı rus («ru») və ingilis («en») dilində də yaz: eyni məna, 20–100 simvol, tərcümə kimi yox, həmin dilin xəbər üslubunda.
+
+Yalnız JSON siyahısı qaytar, başqa heç nə: [{{"id": "<id>", "s": "hadise" və ya "usta", "c": "<izah>", "ru": "<izah rusca>", "en": "<izah ingiliscə>"}}, ...]
 
 Paylaşımlar:
 {items}""".replace("{saxta}", SAXTA)
-REEL_META = {}   # id -> {"sinif": "h"/"u", "c": izah}: pick_reels Gemini-nin cavabından doldurur
+REEL_META = {}   # id -> {"sinif": "h"/"u", "c": izah, "ru"/"en": rus/ingilis izahı}: pick_reels Gemini-nin cavabından doldurur
+DILLER = ("ru", "en")   # sahib 2026-11-24: «videoları tam şəkildə rus və ingilis dillərində də verməliyik» (saytın rus/ingilis oxucusu)
 # 2026-11-22: yeni açarla ilk işdə Gemini cavab verdi, amma siyahı oxunmadı — 36 video × izah 4000 token həddinə sığmır
 # (Azərbaycan mətni çox token tutur, model düşünməyə də həddən xərcləyir). Videoya geniş hədd; kəsilsə tam elementlər götürülür.
 REELS_TOKENS = 16000
@@ -480,13 +483,17 @@ def pick_reels(cands, n):
     ids = None
     if isinstance(got, list):
         ids = []
-        for g in got:   # yeni cavab: {"id", "s", "c"}; köhnə cavab: yalnız id
+        for g in got:   # yeni cavab: {"id", "s", "c", "ru", "en"}; köhnə cavab: yalnız id
             if isinstance(g, dict):
                 pid = str(g.get("id") or "")
                 meta = {"sinif": "u" if str(g.get("s") or "").strip().lower() == "usta" else "h"}
                 c = izah(g.get("c"))
                 if c:
                     meta["c"] = c
+                for k in DILLER:
+                    t = izah(g.get(k))
+                    if t:
+                        meta[k] = t
                 REEL_META[pid] = meta
                 ids.append(pid)
             elif isinstance(g, (str, int)):
@@ -597,9 +604,10 @@ def main():
         c = by_id[pid]
         meta = REEL_META.get(pid, {})
         row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]],   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
-               "sinif": meta.get("sinif") or guess(c), **counts(c, now), **({"c": meta["c"]} if meta.get("c") else {})}
-        if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"]):
-            print(f"Qısa video: {pid} izahsız — {xm.izah_check(row.pop('c'))}")   # biçim xətası: video qalır, izah düşür (izah məcburi deyil)
+               "sinif": meta.get("sinif") or guess(c), **counts(c, now), **{k: meta[k] for k in ("c", *DILLER) if meta.get(k)}}
+        for k in ("c", *DILLER):
+            if k in row and xm.izah_check(row[k]) and not xm.forbidden_topic(row[k]):
+                print(f"Qısa video: {pid} {k} izahsız — {xm.izah_check(row.pop(k))}")   # biçim xətası: video qalır, izah düşür (izah məcburi deyil)
         why = xm.reel_check(row)   # izahda Azərbaycan/Ermənistan mövzusu varsa video düşür
         if why:
             print(f"Qısa video rədd: {pid} — {why}")

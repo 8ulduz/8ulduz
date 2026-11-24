@@ -77,11 +77,14 @@ let live = null;
 
 // Lentin sırası: əvvəl heç görülməyənlər (mix), sonra izlənmişlər — ən çoxdan baxılan birinci (sahib 2026-11-20: «heç təkrar olmayan»;
 // 2026-11-23: hər açılışda əvvəl baxılan video birinci çıxırdı). order: izlənmiş açarlar, ən köhnəsi əvvəl.
+// İzah oxucunun dilində (sahib, 2026-11-24: «videoları tam şəkildə rus və ingilis dillərində də verməliyik»): rus və ingilis seçimində
+// yazıcının ru/en izahı; yoxdursa izahsız (azərbaycanca izah o oxucuya kömək etmir). Azərbaycan, türk və «Hamısı» seçimində c.
+export const cap = (r, lang) => { const t = lang === "ru" || lang === "en" ? r[lang] : r.c; return typeof t === "string" ? t.slice(0, 140) : ""; };
 export function list(S, reels, order = seenOrder()) {
   const own = (S?.data?.articles || []).filter(a => a.xv && MP4.test(a.xv.u)).map(a => ({
     u: a.xv.u, i: a.imageUrl, w: a.xv.w, h: a.xv.h, n: "8ulduz.az", m: "xeber", t: a.publishedAt, title: plain(a.title), link: a.sourceUrl, k: a.id, v: OWN_V }));
   const x = reels.filter(r => MP4.test(r.u)).map(r => ({ u: r.u, i: r.i, w: r.w, h: r.h, n: r.n, m: r.m || "idman", t: r.t, link: `https://x.com/${r.a}/status/${r.id}`, k: String(r.id || ""), p: r.p === 1,
-    v: Number.isInteger(r.v) ? r.v : -1, q: r.q === "u" ? "u" : "h", c: typeof r.c === "string" ? r.c.slice(0, 140) : "" }));
+    v: Number.isInteger(r.v) ? r.v : -1, q: r.q === "u" ? "u" : "h", c: cap(r, S?.lang) }));
   const keys = new Set(), all = [];
   for (const v of [...own, ...x]) { v.key = vkey(v.u); if (!keys.has(v.key) && keys.add(v.key)) all.push(v); }   // eyni video bir dəfə; öz xəbərimiz X nüsxəsindən üstündür
   const at = new Map(order.map((k, i) => [k, i]));
