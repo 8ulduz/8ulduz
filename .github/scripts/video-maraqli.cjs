@@ -24,6 +24,18 @@ const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
 const wikiUrl = t => `https://en.wikipedia.org/wiki/${encodeURIComponent(String(t).replace(/ /g, "_"))}`;
 const apiUrl = t => `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&formatversion=2&titles=${encodeURIComponent(t)}`;
 
+// Qayda (sahib, 2026-11-24: «qaydanı dəyiş», «1-i də et»). İkisi birlikdə:
+//  1) maraqlı video hava videosu kimi öz videomuzdur: saytın qaydası «8ULDUZ» mənbəsi ilə yoxlanır (video-hava.cjs policyRow);
+//  2) qırmızı xətt 2 mənbə siyahısından asılı olmadan: başlıqda və mətndə Azərbaycan və rəhbərlik mövzusu (content-policy.js azTerms,
+//     leaderTerms) olan video olmur. Vikipediya isə 2026-11-24-dən icazəli dünya mənbəyidir (worldSources): video.json-da mənbə kimi
+//     qalır, montaj (video-xeber.cjs), YouTube və TikTok yükləyicisi onu saytın policyViolation qaydası ilə yenə yoxlayır.
+const POLICY = (() => { const t = fs.readFileSync(path.join(__dirname, "..", "..", "assets", "content-policy.js"), "utf8"); return JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)); })();
+const AZ_TERMS = new RegExp(POLICY.azTerms, "i"), LEADER_TERMS = new RegExp(POLICY.leaderTerms, "i");
+function qayda(a, policy = () => false) {
+  const text = `${clean(a.title)} ${clean(a.summary)}`;
+  return AZ_TERMS.test(text) || LEADER_TERMS.test(text) || Boolean(policy({ ...a, source: "8ULDUZ", sourceUrl: LINK, category: "maraqli", lang: "az" }));
+}
+
 // Axtarış ifadəsinin SONUNCU sözü klipin etiketində olmalıdır (video-ssenari.cjs relevance): ifadələr mövzunun öz adı ilə bitir.
 const M = (id, az, wiki, axtar, qrup) => ({ id, az, wiki, axtar, qrup });
 const MOVZULAR = [
@@ -169,11 +181,11 @@ async function ssenari(m, source, { env = process.env, fetch: f = globalThis.fet
   let j = null;
   try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
   const title = VS.latin(clean(j?.title)).replace(/[.。]+$/, ""), text = VS.latin(clean(j?.text));
-  const a = { title, category: "maraqli", lang: "az", source: "Vikipediya", sourceUrl: wikiUrl(m.wiki) };
-  const why = !title || !text ? "cavab boşdur və ya JSON deyil" : checkTitle(title, source, policy) || VS.checkText(text, source, a, policy);
+  const a = { title, category: "maraqli", lang: "az", source: "Vikipediya", sourceUrl: wikiUrl(m.wiki) }, q = x => qayda(x, policy);
+  const why = !title || !text ? "cavab boşdur və ya JSON deyil" : checkTitle(title, source, q) || VS.checkText(text, source, a, q);
   if (why) return { uygun: false, sebeb: why };
   const etiket = VS.hashtags(j?.etiket);
-  return { title, text, uygun: true, ...(etiket.length && !policy({ ...a, summary: etiket.join(" ") }) ? { etiket } : {}) };
+  return { title, text, uygun: true, ...(etiket.length && !q({ ...a, summary: etiket.join(" ") }) ? { etiket } : {}) };
 }
 
 // Bir maraqlı video üçün <qovluq>/xeber.json. istifade: son günlərin mövzuları (id); klip: işlənmiş kliplər («Pixabay:123»).
@@ -204,4 +216,4 @@ async function hazirla({ now = Date.now(), env = process.env, fetch: f = globalT
   return null;
 }
 
-module.exports = { MOVZULAR, QRUP, novbe, fakt, ssenari, checkTitle, hazirla, PROMPT, LINK, wikiUrl, apiUrl, KLIP_MIN };
+module.exports = { qayda, MOVZULAR, QRUP, novbe, fakt, ssenari, checkTitle, hazirla, PROMPT, LINK, wikiUrl, apiUrl, KLIP_MIN };

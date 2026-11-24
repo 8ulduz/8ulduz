@@ -244,7 +244,7 @@ jobs:
             if (moov < 0 || (mdat >= 0 && moov > mdat)) bad.push("moov əvvəldə deyil (faststart)");
             if (!head.includes("8ulduz.az")) bad.push("comment=8ulduz.az nişanı yoxdur (TikTok yükləyicisi)");
             if (m.own !== true || !m.id || !m.text) bad.push("video.json-da xəbərin sahələri yoxdur");
-            if (process.env.TUR === "maraqli" && (m.kind !== "maraqli" || m.url !== "https://8ulduz.az/" || m.source !== "Vikipediya" || !/^https://en.wikipedia.org/wiki//.test(m.sourceUrl || ""))) bad.push("maraqlı videonun video.json-u: kind, url və ya Vikipediya mənbəyi yoxdur");
+            if (process.env.TUR === "maraqli" && (m.kind !== "maraqli" || m.url !== "https://8ulduz.az/" || m.source !== "Vikipediya" || !String(m.sourceUrl || "").startsWith("https://en.wikipedia.org/wiki/"))) bad.push("maraqlı videonun video.json-u: kind, url və ya Vikipediya mənbəyi yoxdur");
             if (process.env.TUR === "hava" && (m.kind !== "hava" || !String(m.url || "").startsWith("https://8ulduz.az/") || !m.text.includes("Open-Meteo"))) bad.push("hava videosunun video.json-u: kind, url və ya Open-Meteo krediti yoxdur");
             console.log(JSON.stringify(m));
             if (bad.length) { console.log("::error::Video tələbə uyğun deyil: " + bad.join("; ")); process.exit(1); }

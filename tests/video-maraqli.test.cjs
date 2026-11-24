@@ -9,10 +9,10 @@ const root = path.join(__dirname, "..");
 const VM = require("../.github/scripts/video-maraqli.cjs");
 const SV = require("../.github/scripts/sosial-video.cjs");
 const VX = require("../.github/scripts/video-xeber.cjs");
-const policySrc = fs.readFileSync(path.join(root, "assets/content-policy.js"), "utf8");
-const POLICY = JSON.parse(policySrc.slice(policySrc.indexOf("{"), policySrc.lastIndexOf("}") + 1));
-const AZ = new RegExp(POLICY.azTerms, "i"), LEADER = new RegExp(POLICY.leaderTerms, "i");
-const policy = a => AZ.test(`${a.title || ""} ${a.summary || ""}`) || LEADER.test(`${a.title || ""} ${a.summary || ""}`);
+// Saytın öz qaydası (policyViolation), sadələşdirilmiş nüsxə yox: 2026-11-24 PR-da sadə süzgəclə test keçdi, CI-da isə montaj
+// «saytın qaydasından keçmir» deyə dayandı — Vikipediya icazəli mənbələr siyahısında deyildi.
+const APP = require("../.github/scripts/topics.cjs").loadApp(root);
+const policy = a => APP.policyViolation(a);
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "maraqli-"));
 
 const SOURCE = "The cheetah (Acinonyx jubatus) is a large cat and the fastest land animal. It has a tawny to creamy white or pale buff fur "
@@ -46,13 +46,27 @@ const fakeGoruntu = (n = 3, calls = []) => async (axtar, dir, o) => {
   return Array.from({ length: n }, (_, i) => { fs.writeFileSync(path.join(dir, `klip-${i + 1}.mp4`), "x"); return { file: `klip-${i + 1}.mp4`, p: "Pixabay", id: 100 + i, user: "müəllif", q: axtar[0] }; });
 };
 
+test("maraqlı: Vikipediya icazəli dünya mənbəyidir (sahib 2026-11-24: «qaydanı dəyiş»), qırmızı xətt 2 ona da tətbiq olunur", () => {
+  const src = fs.readFileSync(path.join(root, "assets/content-policy.js"), "utf8"), P = JSON.parse(src.slice(src.indexOf("{"), src.lastIndexOf("}") + 1));
+  assert.deepEqual(P.worldSources.Vikipediya, ["wikipedia.org"]);
+  const a = { title: "Gepard quruda ən sürətli heyvandır", summary: "Afrikada yaşayır", source: "Vikipediya", sourceUrl: "https://en.wikipedia.org/wiki/Cheetah", category: "maraqli", lang: "az" };
+  assert.equal(policy(a), false);
+  assert.equal(policy({ ...a, summary: "Bakıda da görünüb" }), true, "xarici mənbə: Azərbaycan mövzusu düşür");
+  assert.equal(policy({ ...a, sourceUrl: "https://evil.example/wiki/Cheetah" }), true, "keçid Vikipediyaya aparmalıdır");
+  // Öz video qapısı siyahıdan asılı deyil (sahib: «1-i də et»).
+  assert.equal(VM.qayda({ title: "Gepard", summary: "Afrikada yaşayır" }, () => false), false);
+  assert.equal(VM.qayda({ title: "Gepard", summary: "Azərbaycanda yaşayıb" }, () => false), true);
+  assert.equal(VM.qayda({ title: "Gepard", summary: "İlham Əliyev" }, () => false), true);
+  assert.ok(fs.readFileSync(path.join(root, "docs/qirmizi-xetler.md"), "utf8").includes("2026-11-24, sahib («qaydanı dəyiş»): `worldSources`-a **Vikipediya**"));
+});
+
 test("maraqlı: mövzular — çoxdur, təkrarsızdır, Azərbaycan və Ermənistan mövzusu yoxdur, axtarış ifadəsi mövzunun adı ilə bitir", () => {
   assert.ok(VM.MOVZULAR.length >= 60, `${VM.MOVZULAR.length} mövzu`);
   assert.equal(new Set(VM.MOVZULAR.map(m => m.id)).size, VM.MOVZULAR.length);
   for (const m of VM.MOVZULAR) {
     assert.ok(/^[a-z0-9-]+$/.test(m.id) && m.az && m.wiki && VM.QRUP[m.qrup], m.id);
     assert.ok(m.axtar.length && m.axtar.every(q => /^[a-z ]+$/.test(q)), `${m.id}: axtarış latınca`);
-    assert.ok(!policy({ title: `${m.az} ${m.wiki}`, summary: m.axtar.join(" ") }) && !/armen|erməni/i.test(`${m.az} ${m.wiki}`), m.id);
+    assert.ok(!VM.qayda({ title: `${m.az} ${m.wiki}`, summary: m.axtar.join(" ") }, policy) && !/armen|erməni/i.test(`${m.az} ${m.wiki}`), m.id);
   }
   for (const q of ["heyvan", "tebiet", "kosmos"]) assert.ok(VM.MOVZULAR.filter(m => m.qrup === q).length >= 8, q);
 });
@@ -108,6 +122,9 @@ test("maraqlı: hazırlama — fakt, mətn və görüntü; klip azdırsa növbə
   assert.deepEqual(calls[0].axtar, second.axtar, "klip mövzunun öz adı ilə axtarılır");
   assert.deepEqual([calls[0].o.category, calls[0].o.yer, calls[0].o.say], ["maraqli", [], 6]);
   assert.equal(await VM.hazirla({ now, env: { GEMINI_API_KEY: "k" }, fetch: fakeFetch(), policy, dir, log: () => {}, goruntu }), null);
+  // Hazır xeber.json montajın qapısından (video-xeber.cjs render: policy(a) və policy({ ...a, summary: text })) keçir.
+  assert.equal(policy(x), false);
+  assert.equal(policy({ ...x, summary: x.text }), false);
   // Ümumi səhnə yoxdur: gepard videosunda şəhər görünməsin.
   assert.deepEqual(require("../.github/scripts/video-ssenari.cjs").EHTIYAT.maraqli, []);
 });

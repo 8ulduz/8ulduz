@@ -49,7 +49,8 @@ window.CONTENT_POLICY = {
     "AA Русский": ["aa.com.tr"], "DW Русский": ["dw.com"], "Euronews Русский": ["euronews.com"], "BBC Русская служба": ["bbc.com", "bbc.co.uk"],
     "24.kg": ["24.kg"], "Tengrinews": ["tengrinews.kz"], "Газета.uz": ["gazeta.uz"],
     "Habr": ["habr.com"], "3DNews": ["3dnews.ru"], "iXBT": ["ixbt.com"], "N+1": ["nplus1.ru"], "Naked Science": ["naked-science.ru"], "Афиша Daily": ["afisha.ru"],
-    "Sports.ru": ["sports.ru"], "Спорт-Экспресс": ["sport-express.ru"], "TASS Sport": ["tass.ru", "tass.com"], "Interfax Sport": ["sport-interfax.ru", "interfax.ru"]
+    "Sports.ru": ["sports.ru"], "Спорт-Экспресс": ["sport-express.ru"], "TASS Sport": ["tass.ru", "tass.com"], "Interfax Sport": ["sport-interfax.ru", "interfax.ru"],
+    "Vikipediya": ["wikipedia.org"]
   },
   "sportSources": ["Sports.kz", "TRT Spor", "NTV Spor", "Championat", "Sport.ru", "Match TV", "A Spor", "Sporx", "Ajansspor", "Hürriyet Spor", "BBC Futbol", "Guardian Futbol", "Motorsport F1", "The Race", "F1News", "Eurohoops", "Sportando", "TalkBasket", "BBC Tennis", "MMA Fighting", "Chess.com",
     "AA Sport", "Daily Sabah Sports", "Sky Sports", "Sports.ru", "Спорт-Экспресс", "TASS Sport", "Interfax Sport"],
