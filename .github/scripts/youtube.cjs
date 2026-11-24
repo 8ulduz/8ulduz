@@ -38,7 +38,10 @@ const KEYS = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOK
 const TITLE_MAX = 100, DESC_MAX = 5000, TAGS_MAX = 500, TAG_MAX = 30;
 const KEEP_S = 30 * 86400;
 const MARK = Buffer.from("8ulduz.az");
-const TAGLINE = "8ulduz.az — Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.";
+// Adın bütün yazılışları (sahib, 2026-11-24: «8ulduz» axtaranda kanal çıxır, «8 ulduz» axtaranda çıxmır; «səkkiz ulduz, səkkizulduz,
+// xəbər yazanda da çıxsın»). YouTube «8 ulduz»-u iki söz kimi oxuyur, bitişik «8ULDUZ» adına uyğun gəlmir: təsvirdə və teqlərdə
+// rəqəmlə, sözlə, bitişik və ayrı yazılış var. Tək «8», «səkkiz», «xəbər» kimi ümumi sözlərdə yer baxış sayından asılıdır.
+const TAGLINE = "8ulduz.az — 8 Ulduz (Səkkiz Ulduz) xəbər saytı: Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.";
 // Başqasının videosu: bu ünvanlardan gələn fayl və ya keçid YouTube-a getmir.
 const FOREIGN_VIDEO = /(^|\.)(twimg\.com|twitter\.com|x\.com|youtube\.com|youtu\.be|tiktok\.com|tiktokcdn\.com|instagram\.com|cdninstagram\.com|facebook\.com|fbcdn\.net|fb\.watch|vk\.com|ok\.ru|rutube\.ru|dailymotion\.com|vimeo\.com)$/i;
 const SITE_URL = /^https:\/\/(www\.)?8ulduz\.az(\/[^\s<>"]*)?$/;
@@ -47,7 +50,7 @@ const RETRY_HTTP = new Set([500, 502, 503, 504]);
 const READ_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/youtube(\.readonly|\.force-ssl)?(\s|$)/;
 const UPLOAD_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/(youtube|youtube\.upload|youtube\.force-ssl|youtubepartner)(\s|$)/;
 
-const BASE_TAGS = ["8ulduz", "8ulduz.az", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"];
+const BASE_TAGS = ["8ulduz", "8 ulduz", "səkkiz ulduz", "səkkizulduz", "8ulduz.az", "xəbər", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"];
 const KIND_TAGS = { icmal: ["günün icmalı", "günün xəbərləri"], hava: ["hava proqnozu", "Bakı hava"], valyuta: ["valyuta məzənnəsi", "manat", "dollar məzənnəsi"],
   bazar: ["valyuta məzənnəsi", "neft qiyməti", "qızıl qiyməti"] };
 const CAT_TAGS = { gundem: "gündəm", siyaset: "siyasət", iqtisadiyyat: "iqtisadiyyat", dunya: "dünya xəbərləri", idman: "idman xəbərləri",
@@ -226,8 +229,11 @@ function prune(state, now) {
   const sec = Math.floor(now / 1000);
   state.posted = Object.fromEntries(Object.entries(state.posted || {}).filter(([, v]) => v && sec - (v.t || 0) < KEEP_S));
 }
-// Kanalda tapılan təkrar (d: 1) yükləmə deyil, gündəlik həddə sayılmır.
-const uploadsSince = (state, sec) => Object.entries(state.posted || {}).filter(([k, v]) => !/^[th]:/.test(k) && v.v && !v.d && sec - v.t < 86400).length;
+// Kanalda tapılan təkrar (d: 1) yükləmə deyil, gündəlik həddə sayılmır. Gündəlik hava videosu da sayılmır (sahib, 2026-11-23: o,
+// xəbər videosunun 8-lik həddinə düşmür): yoxsa 8 xəbər + hava 9 edir və axşamın son xəbəri YouTube-a getmir (2026-11-23, 21:48).
+// Növ (k) yükləmə qeydindədir; köhnə qeydlərdə yoxdur, onlarda hava videosu adından tanınır («hava-<gün>»).
+const isHava = (k, v) => (v.k ? v.k === "hava" : /^hava-/.test(k));
+const uploadsSince = (state, sec) => Object.entries(state.posted || {}).filter(([k, v]) => !/^[th]:/.test(k) && v.v && !v.d && !isHava(k, v) && sec - v.t < 86400).length;
 
 // Kvota Sakit okean vaxtı ilə gecə yarısı yenilənir (Bakı vaxtı ilə 11:00–12:00): fasilə ondan 1 dəqiqə sonrayadək.
 function quotaReset(now) {
@@ -350,7 +356,7 @@ async function run({ videos = [], env = process.env, now = Date.now(), fetch: f 
   try { tok = await token(f, env); ctx.mask(tok.access); }
   catch (e) { ctx.log(`youtube: ${e.message}`); res.failed.push(["token", e.code || "?"]); return res; }
   if (tok.scope && !UPLOAD_SCOPE.test(tok.scope)) { ctx.log("youtube: tokendə youtube.upload icazəsi yoxdur — tokeni yenidən alın (docs/youtube.md «Token»)"); res.failed.push([v.id, "scope"]); return res; }
-  const remember = (vid, dup = false) => { posted[v.id] = { t: sec, v: vid || "?", n: v.name, ...(dup ? { d: 1 } : {}) }; posted[v.h] = { t: sec }; if (!v.m.sinaq) posted[v.t] = { t: sec }; };
+  const remember = (vid, dup = false) => { posted[v.id] = { t: sec, v: vid || "?", n: v.name, k: kindOf(v.m), ...(dup ? { d: 1 } : {}) }; posted[v.h] = { t: sec }; if (!v.m.sinaq) posted[v.t] = { t: sec }; };
 
   // Keş itsə də təkrar olmasın: kanalın son 50 videosunda eyni başlıq və ya eyni keçid varsa yüklənmir.
   if (READ_SCOPE.test(tok.scope)) {

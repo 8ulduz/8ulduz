@@ -9,7 +9,9 @@
 // Yalnız 8ulduz.az səhifəsindən gələn sorğu qəbul olunur. Sirlər Cloudflare-də: AZURE_KEY (gizli), AZURE_REGION (məs. westeurope).
 // Yükləmə: .github/ses-worker qovluğunda «npx wrangler deploy».
 
-const SITE = /^https:\/\/(?:www\.)?8ulduz\.az(?:\/|$)/;
+import { forVoice, setLexicon } from "./az-text.js";
+
+const SITE =/^https:\/\/(?:www\.)?8ulduz\.az(?:\/|$)/;
 const UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 8ulduz-dinle";
 const MAX_CHARS = 6000, VOICE = "az-AZ-BabekNeural", READY = "https://raw.githubusercontent.com/8ulduz/ses/main/";
 
@@ -64,9 +66,10 @@ const shortIds = () => fetch(`${READY}index.json?m=${Math.floor(Date.now() / 6e4
 
 // Keş açarı: səsi müəyyən edən hər şey (ünvan, id, başlıq, mənbə adı). Əvvəl açar yalnız ünvan idi: saxta Referer ilə bir sorğu
 // istənilən başlığı (və ya başqa xəbərin hazır səsini) həmin ünvanın bütün sonrakı dinləyicilərinə 24 saatlıq keşləyə bilirdi.
+// a4 (2026-11-23): Babək Saranın oxunuş qaydaları ilə oxuyur (az-text.js) — köhnə oxunuşlu səslər keşdən verilmir.
 async function audioKey(src, id, t, s) {
   const sum = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode([id, t, s].join("\n"))));
-  return `https://dinle.cache/a3/${[...sum.slice(0, 8)].map(b => b.toString(16).padStart(2, "0")).join("")}/${encodeURIComponent(src.href)}`;
+  return `https://dinle.cache/a4/${[...sum.slice(0, 8)].map(b => b.toString(16).padStart(2, "0")).join("")}/${encodeURIComponent(src.href)}`;
 }
 
 async function audio(req, env, ctx, src, q, cors) {
@@ -75,7 +78,8 @@ async function audio(req, env, ctx, src, q, cors) {
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, cors);
   // Səs axınla verilir və eyni vaxtda keşə yazılır (yalnız tam alınıbsa: okP).
-  const keep = (res, okP = true) => { const [a, b] = res.body.tee(); ctx.waitUntil(Promise.all([new Response(b).arrayBuffer(), okP]).then(([buf, ok]) => ok && buf.byteLength > 3000 && cache.put(new Request(key.url), new Response(buf, { headers: AUDIO_HEADERS }))).catch(() => {})); return new Response(a, { headers: { ...AUDIO_HEADERS, ...cors } }); };
+  // Hazır səs (8ulduz/ses) keşdə 1 saat qalır, 24 yox: səs işi xəbəri yenidən səsləndirəndə (oxunuş düzəlişi) yenisi tez çatsın.
+  const keep = (res, okP = true, ttl = 86400) => { const [a, b] = res.body.tee(); ctx.waitUntil(Promise.all([new Response(b).arrayBuffer(), okP]).then(([buf, ok]) => ok && buf.byteLength > 3000 && cache.put(new Request(key.url), new Response(buf, { headers: { ...AUDIO_HEADERS, "Cache-Control": `public, max-age=${ttl}` } }))).catch(() => {})); return new Response(a, { headers: { ...AUDIO_HEADERS, ...cors } }); };
   if (/^[0-9a-f]{16}$/.test(id)) {
     // Hazır səsi yalnız başlıq və xülasədən ibarət xəbər (index.json «q»: səs işi mənbə səhifəsini ala bilməyib — Report, Oxu.az
     // GitHub-a cavab vermir): dinləyən basanda əvvəl mənbədən tam mətn sınanır. Alınmasa və ya Azure cavab verməsə hazır səs verilir.
@@ -86,7 +90,7 @@ async function audio(req, env, ctx, src, q, cors) {
     }
     // Dəqiqə nişanı və 404-ün keşlənməməsi: səs hazır olan kimi verilir (əvvəlki «hələ yoxdur» cavabı 5 dəqiqə yadda qalmır).
     const r = await fetch(`${READY}${id}.mp3?m=${Math.floor(Date.now() / 6e4)}`, { cf: { cacheTtlByStatus: { "200-299": 300, "400-599": -1 } } }).catch(() => null);
-    if (r?.ok) return keep(r);
+    if (r?.ok) return keep(r, true, 3600);
   }
   if (!env.AZURE_KEY) return new Response("hazır deyil", { status: 503, headers: cors });
   // Basılan anda (sahib: «anında»): başlıq + mənbə dərhal səslənir (ilk səs ~0,5 s); mənbədən tam mətn paralel gəlir
@@ -113,7 +117,24 @@ async function audio(req, env, ctx, src, q, cors) {
   return keep(new Response(readable), okP);
 }
 
-const tts = (env, text) => fetch(`https://${env.AZURE_REGION || "westeurope"}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+// Oxunuş lüğəti (Saranın: .github/ses-server/ses-lugat.json + həftəlik əlavələr ses-lugat budağında): işçi açılanda bir dəfə
+// gətirilir (Cloudflare keşi 1 saat), 6 saatdan bir yenilənir. İlk səsi gözlətməsin deyə ən çox 400 ms gözlənilir; alınmasa
+// qaydalar lüğətsiz işləyir və növbəti sorğu yenidən soruşur.
+const LUGAT = ["https://raw.githubusercontent.com/8ulduz/8ulduz/ses-lugat/lugat.json", "https://raw.githubusercontent.com/8ulduz/8ulduz/main/.github/ses-server/ses-lugat.json"];
+let lexP = null, lexAt = 0;
+export function lexicon(fetchFn = fetch, wait = 400) {
+  if (!lexP || Date.now() - lexAt > 6 * 3600e3) {
+    lexAt = Date.now();
+    lexP = Promise.all(LUGAT.map(u => fetchFn(u, { cf: { cacheTtl: 3600 } }).then(r => (r.ok ? r.json() : {})).catch(() => ({}))))
+      .then(([extra, base]) => { const n = setLexicon(extra, base); if (!n) lexP = null; return n; });
+  }
+  return Promise.race([lexP, new Promise(r => setTimeout(r, wait))]);
+}
+
+// Babəkə gedən mətn Saranın oxunuş qaydalarından keçir (sahib, 2026-11-23: «saytda da düzgün oxunsun»): rəqəm şəkilçisi ilə,
+// qısaltma (ABŞ, NATO), sayt və mənbə adı, inisial, dərəcə, xarici ad. Hazır səsdə də eynisi (.github/scripts/ses.py).
+const tts = async (env, text) => { await lexicon(); return azure(env, forVoice(text)); };
+const azure = (env, text) => fetch(`https://${env.AZURE_REGION || "westeurope"}.tts.speech.microsoft.com/cognitiveservices/v1`, {
   method: "POST",
   headers: { "Ocp-Apim-Subscription-Key": env.AZURE_KEY, "Content-Type": "application/ssml+xml", "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3", "User-Agent": "8ulduz-dinle" },
   body: `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="az-AZ"><voice name="${VOICE}">${xml(text)}</voice></speak>`,

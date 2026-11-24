@@ -67,7 +67,7 @@ FOREIGN = {
     "chelsea": "çelsi", "liverpool": "liverpul", "barcelona": "barselona", "juventus": "yuventus", "psj": "pe-es-je",
     "airways": "eyrveyz", "online": "onlayn", "show": "şou",
 }
-DOMAIN_TLD = {"com": "kom", "gov": "qov", "org": "orq", "edu": "edu", "net": "net", "info": "info", "io": "ay-o"}
+DOMAIN_TLD = {"com": "kom", "gov": "qov", "org": "orq", "edu": "edu", "net": "net", "info": "info", "io": "ay-o", "ws": "ve-es"}
 ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 
 # Oxunuş lüğəti (.github/scripts/ses-lugat.cjs): qısaltmalar və orijinal yazılışlı xarici adlar, söz → oxunuş. Repodakı baxılmış
@@ -355,14 +355,14 @@ def verbalize(text):
     t = re.sub(r"https?://\S+", " ", t)                     # tam keçid (şəkil, səhifə) oxunmur
     t = re.sub(rf"\b([{LO}]{{2,}})\.([{UP}][{LO}A-Za-z0-9]+\.(?:az|com|ru|org|net|tr|info)\b)", r"\1. \2", t)
     t = re.sub(r"(?i)\bwww\.", "", t)
-    t = re.sub(rf"(?i)\b((?:[{LO}0-9-]+\.)+)(az|com|ru|org|net|gov|tr|edu|io|info|tv|uk|de|ge|ua|kz)\b(?:{SUFFIX})?",
+    t = re.sub(rf"(?i)\b((?:[{LO}0-9-]+\.)+)(az|com|ru|org|net|gov|tr|edu|io|info|tv|uk|de|ge|ua|kz|ws|media)\b(?:{SUFFIX})?",
                lambda m: glue(" nöqtə ".join(DOMAIN_TLD.get(x.lower(), x) for x in m.group(1).rstrip(".").split(".") + [m.group(2)]), m.group(3), True)
                if m.group(3) else " nöqtə ".join(DOMAIN_TLD.get(x.lower(), x) for x in m.group(1).rstrip(".").split(".") + [m.group(2)]), t)
     # İnisial: S.Orucov → es Orucov (nöqtə cümlə sonu deyil)
     t = re.sub(rf"\b([{UP}])\.\s?(?=[{UP}][{LO}])", lambda m: spell(lower_az(m.group(1))) + " ", t)
     # Hərf+rəqəm bitişik: COP31 → COP 31, 8ulduz → 8 ulduz, M1 → M 1
     t = re.sub(rf"(?<=[{UP}{LO}A-Za-z])(?=\d)", " ", t)
-    t = re.sub(rf"\b(\d+)([{LO}]{{3,}})\b", lambda m: m.group(0) if re.fullmatch(r"(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)", m.group(2)) else f"{m.group(1)} {m.group(2)}", t)
+    t = re.sub(rf"\b(\d+)([{UP}{LO}]{{3,}})\b", lambda m: m.group(0) if re.fullmatch(r"(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)", m.group(2)) else f"{m.group(1)} {m.group(2)}", t)
     # 1 654,23 → bir min altı yüz əlli dörd tam yüzdə iyirmi üç (qruplu tam hissə + kəsr)
     t = re.sub(rf"\b(\d{{1,3}}(?:[ {SP}]\d{{3}})+),(\d{{1,3}})\b", lambda m: decimal_words(re.sub(rf"[ {SP}]", "", m.group(1)), m.group(2)), t)
     # Oxunuş lüğəti və xarici sözlər, şəkilçisi ilə: Washington-da → vaşinqtonda, Trump’ın → trampın, ABŞ-nin → a-be-şenin
@@ -371,11 +371,12 @@ def verbalize(text):
     t = re.sub(rf"(?<=[{LO}])(?=[{UP}])", " ", t)
     # Qısaltma + şəkilçi (rəqəmlərdən əvvəl: «COVID-19»-da rəqəm sözü şəkilçi sayılmasın): ABŞ-nin → a-be-şenin, NATO-ya → natoya
     t = re.sub(rf"\b([{UP}]{{2,7}}){SUFFIX}", lambda m: glue(acronym(m.group(1)), m.group(2), True), t)
-    # Temperatur: +12°…+17° → 12-17 dərəcə; −5° → mənfi 5 dərəcə
-    t = re.sub(r"([+−-]?)(\d+)\s*°\s*(?:C\b)?\s*(?:…|\.\.\.|–|—|-)\s*([+−-]?)(\d+)\s*°\s*(?:C\b)?",
+    # Temperatur: +12°…+17° → 12-17 dərəcə; −5° → mənfi 5 dərəcə. «°»-dən sonrakı boşluq yalnız «C» gələndə udulur
+    # (2026-11-23: «+17° olacaq» → «dərəcəolacaq» idi).
+    t = re.sub(r"([+−-]?)(\d+)\s*°(?:\s*C\b)?\s*(?:…|\.\.\.|–|—|-)\s*([+−-]?)(\d+)\s*°(?:\s*C\b)?",
                lambda m: f"{'mənfi ' if m.group(1) in '−-' and m.group(1) else ''}{m.group(2)}-{'mənfi ' if m.group(3) in '−-' and m.group(3) else ''}{m.group(4)} dərəcə", t)
-    t = re.sub(r"(?<![\w\d])[−-](\d+)\s*°\s*(?:C\b)?", r"mənfi \1 dərəcə", t)
-    t = re.sub(r"\+?(\d+)\s*°\s*(?:C\b)?", r"\1 dərəcə", t)
+    t = re.sub(r"(?<![\w\d])[−-](\d+)\s*°(?:\s*C\b)?", r"mənfi \1 dərəcə", t)
+    t = re.sub(r"\+?(\d+)\s*°(?:\s*C\b)?", r"\1 dərəcə", t)
     # %15, 15% → on beş faiz; 15%-ə → on beş faizə
     t = re.sub(r"%\s?(\d+(?:[.,]\d+)?)", r"\1%", t)
     t = re.sub(rf"(\d+(?:[.,]\d+)?)\s?%(?:{SUFFIX})?", lambda m: attach(_say_number(m.group(1)) + " faiz", m.group(2) or ""), t)
@@ -399,6 +400,16 @@ def verbalize(text):
     # Tək böyük hərfli sözlər (ABŞ, FHN, XII, VİDEO)
     t = re.sub(rf"\b[{UP}]{{2,}}\b", lambda m: acronym(m.group(0)), t)
     return t
+
+
+def for_voice(text, hyphens=False):
+    """Saytın «Dinlə» səsi (Babək: .github/scripts/ses.py və ses-worker) üçün mətn: verbalize qaydaları (rəqəm, qısaltma,
+    sayt, lüğət), amma durğu və böyük hərf qalır — o səs intonasiyanı onlardan qurur. Sözün içindəki tire boşluq olur
+    («a-be-şenin» → «a be şenin»): Whisper ölçməsi (2026-11-23, 81 cümlə) — tiresiz hərf xətası 2,1%, tireli 2,3%."""
+    t = verbalize(text)
+    if not hyphens:
+        t = re.sub(rf"(?<=[{LO}])-(?=[{LO}])", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 # Cümlə sonu: nöqtə/nida/sual/üç nöqtə, sonra (dırnaq/mötərizə ola bilər) boşluq və ya mətn sonu.

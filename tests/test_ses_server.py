@@ -1,5 +1,6 @@
 """«Dinlə» SARA səs serveri (.github/ses-server): mətnin modelə hazırlanması və oxunan mətn (sahib, 2026-11-08: «sara»)."""
 import importlib.util
+import json
 import os
 import pathlib
 import sys
@@ -93,10 +94,14 @@ class HumanReadingTest(unittest.TestCase):
         self.assertEqual(said("S.Orucov küçəsi"), "es orucov küçəsi")
         self.assertEqual(said("ölüb.News24.az xəbər verir"), "ölüb | nyus iyirmi dörd nöqtə az xəbər verir")
         self.assertEqual(said("Şəkil: https://ordu.az/photos/2026/11/1.jpg"), "şəkil")
+        # Mənbə adları (hər səs «<mənbə> xəbər verir» ilə başlayır, 2026-11-23): «səkkizULDUZ», «Baku.vs» idi
+        self.assertEqual(said("8ULDUZ xəbər verir. Bizim.Media və Baku.ws"), "səkkiz ulduz xəbər verir | bizim nöqtə media və baku nöqtə ve-es")
 
     def test_weather_and_money(self):
         self.assertEqual(said("Bakıda buludlu hava, +12°…+17°"), "bakıda buludlu hava | on iki-on yeddi dərəcə")
         self.assertEqual(said("Gecə -5°, gündüz 3 °C"), "gecə mənfi beş dərəcə | gündüz üç dərəcə")
+        # 2026-11-23: dərəcədən sonrakı söz yapışırdı («dərəcəolacaq»)
+        self.assertEqual(said("Gündüz +12°…+17° olacaq, gecə -2° şaxta"), "gündüz on iki-on yeddi dərəcə olacaq | gecə mənfi iki dərəcə şaxta")
         self.assertEqual(said("1 654,23 dollar"), "min altı yüz əlli dörd tam yüzdə iyirmi üç dollar")
 
     def test_foreign_names(self):
@@ -155,9 +160,71 @@ class LexiconTest(unittest.TestCase):
 
     def test_repository_lexicon_is_valid(self):
         with open(SRV / "ses-lugat.json", encoding="utf-8") as f:
-            data = __import__("json").load(f)
+            data = json.load(f)
         for k, v in data["sozler"].items():
             self.assertTrue(v and set(v) <= az_text.ALLOWED, (k, v))
+
+
+VOICE_FIXTURE = ROOT / "tests" / "fixtures" / "ses-oxunus.json"
+VOICE_EXTRA = [
+    "ABŞ-nin, ABŞ-da, ABŞ-ın, ABŞ-a, BMT-nin və NATO-ya, MMA, KİV, USGS.", "COVID-19 və COP31, AzTV-də, İctimai TV-nin.",
+    "VİDEO: Bakıda QƏZA OLDU - FOTOLAR", "XII turda, II Dünya müharibəsi, XV əsr.", "Saat 19:30-da, 18:00-dək, 10:00-da, 21:45-də.",
+    "Noyabrın 19-da, 900-dən çox, 29-na qədər, 10-nun, 22-si, 3-ü, 42-yə, 300-ə, 160-la.", "15%-ə, 10-illik, 3-otaqlı, 2026-2027-ci.",
+    "Modern.az xəbər verir. 8ulduz.az-ın ölçüsünə görə portal mib.media.gov.az vasitəsilə.", "S.Orucov küçəsi, ölüb.News24.az xəbər verir.",
+    "Şəkil: https://ordu.az/photos/2026/11/1.jpg və www.Report.az", "Bakıda +12°…+17° olacaq, gecə -5°, gündüz 3 °C, 1 654,23 dollar.",
+    "Hesab 2-1 oldu, qiymət 15% artdı, 07.11.2026 tarixində, 11-ci tur, dollar 1.70 manat, 2 500 nəfər, $100 və 50 AZN.",
+    "Google, WhatsApp və YouTube; Washington-da Trump’ın çıxışı, KVAN Group şirkəti.", "Milli Hidrometeorologiya Xidmətindən bildirilib […] Source",
+    "«Napoli»nin prezidenti Aurelio De Laurentis görüşüb. 2026-cı ildə 15% artım! Necə?", "№5 məktəb, Tom & Jerry, 2 km, 5 kq, 3 mln, 7 mlrd.",
+    "Din və dövlət, DİN-in açıqlaması, BLOOMBERG xəbər verir.", "Gündüz Sumqayıtda 21, Gəncədə 16 dərəcə isti olacaq.",
+    "8ULDUZ xəbər verir. Bizim.Media, Baku.ws, Day.Az, Oxu24.com, 525.az, AzVision.az, Ordubad RİH.",
+    "Qiymət 1 000 000 manat, 1.500 nəfər, 12,5 faiz, 0,75 bal, 1234567890123456 nömrəli hesab.", "edib.Gundelik.az xəbər verir.",
+]
+
+
+def voice_inputs():
+    """az_text.for_voice ilə JavaScript nüsxəsinin (.github/ses-worker/az-text.js) eyni nəticə verdiyi yoxlanılan girişlər:
+    dinləmə korpusu, qaydaların testləri, mənbə adları və cədvəllərin (ACRONYMS, FOREIGN, SHORT_WORDS, lüğət) hər sözü."""
+    with open(ROOT / "tests" / "fixtures" / "ses-korpus.json", encoding="utf-8") as f:
+        items = list(json.load(f)["items"])
+    items += VOICE_EXTRA
+    items += [f"{az_text.upper_az(k)}-da və {az_text.upper_az(k)}" for k in az_text.ACRONYMS]
+    items += [f"{k.capitalize()}-da, {k.upper()}" for k in az_text.FOREIGN]
+    items += [az_text.upper_az(w) + " oldu" for w in sorted(az_text.SHORT_WORDS)]
+    items += [f"{k}-da və {k}" for k in sorted(az_text.LEXICON)]
+    return items
+
+
+class VoiceTextTest(unittest.TestCase):
+    """Saytın «Dinlə» səsi (Babək) Saranın qaydaları ilə oxuyur (sahib, 2026-11-23: «saytda da düzgün oxunsun»): hazır səs
+    Python-da (ses.py → for_voice), canlı səs Cloudflare işçisində (az-text.js). İkisi eyni mətni verməlidir."""
+
+    def setUp(self):
+        self.saved = dict(az_text.LEXICON)
+        d = tempfile.mkdtemp()
+        with open(SRV / "ses-lugat.json", encoding="utf-8") as src, open(os.path.join(d, "ses-lugat.json"), "w", encoding="utf-8") as dst:
+            dst.write(src.read())
+        az_text.load_lexicon(d)   # yalnız repodakı lüğət (budaq əlavəsi testə düşməsin)
+
+    def tearDown(self):
+        az_text.LEXICON.clear()
+        az_text.LEXICON.update(self.saved)
+
+    def test_voice_text_keeps_punctuation_and_case(self):
+        self.assertEqual(az_text.for_voice("ABŞ-da 19-da seçki. Gündüz +17° olacaq!"), "a be şedə on doqquzda seçki. Gündüz on yeddi dərəcə olacaq!")
+        self.assertEqual(az_text.for_voice("ABŞ-da seçki", hyphens=True), "a-be-şedə seçki")
+
+    def test_javascript_copy_gives_the_same_text(self):
+        cases = [[x, az_text.for_voice(x)] for x in voice_inputs()]
+        if os.environ.get("SES_OXUNUS_YENILE"):
+            with open(VOICE_FIXTURE, "w", encoding="utf-8") as f:
+                json.dump({"izah": "az_text.for_voice girişi → nəticəsi (repodakı lüğətlə). JavaScript nüsxəsi (.github/ses-worker/az-text.js) "
+                                   "eyni nəticəni verməlidir (tests/ses-worker.test.cjs). Yeniləmə: SES_OXUNUS_YENILE=1 python3 -m unittest tests.test_ses_server",
+                           "hallar": cases}, f, ensure_ascii=False, indent=0)
+                f.write("\n")
+        with open(VOICE_FIXTURE, encoding="utf-8") as f:
+            saved = json.load(f)["hallar"]
+        stale = [c for c, s in zip(cases, saved) if c != s] or (["say"] if len(cases) != len(saved) else [])
+        self.assertEqual(stale, [], "qayda dəyişib, fikstur köhnədir: SES_OXUNUS_YENILE=1 python3 -m unittest tests.test_ses_server")
 
 
 class ScriptTest(unittest.TestCase):

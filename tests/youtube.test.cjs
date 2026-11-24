@@ -121,6 +121,7 @@ test("youtube: an own vertical video goes up once as a public Short with the sit
   assert.ok(meta.snippet.tags.includes("8ulduz") && meta.snippet.tags.includes("gündəm") && meta.snippet.tags.includes("metro"));
   assert.match(logs.join("\n"), /yükləndi — https:\/\/www\.youtube\.com\/shorts\/vid123 \(public\)/);
   assert.equal(state.posted[NEWS].v, "vid123");
+  assert.equal(state.posted[NEWS].k, "xeber", "növ qeyddədir: hava videosu gündəlik həddə sayılmır");
   noSecrets(logs.join("\n") + JSON.stringify(state));
 
   // İkinci dövrə: eyni video (eyni nömrə, eyni fayl, eyni başlıq) heç bir sorğu olmadan ötürülür.
@@ -312,6 +313,17 @@ test("youtube: daily limit and spacing — but the digest and the test video ski
   const full = { posted: Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`old${i}`, { t: sec - 600 * (i + 1), v: `v${i}` }])) };
   const r3 = await go(dir2, youtube(), { state: full });
   assert.match(r3.logs.join("\n"), /24 saatda 8 video yükləndi \(hədd 8\)/);
+  // Gündəlik hava videosu 8-ə sayılmır (sahib, 2026-11-23: xəbər videosunun həddinə də sayılmır). 2026-11-23-də 7 xəbər + hava
+  // həddi doldurdu və 21:48-in xəbəri YouTube-a getmədi. Köhnə qeydin növü yoxdur (adından: «hava-<gün>»), yenisində k: "hava".
+  const news7 = Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`old${i}`, { t: sec - 600 * (i + 1), v: `v${i}` }]));
+  for (const hava of [{ "hava-2026-11-22": { t: sec - 3600, v: "h1" } }, { "x-hava": { t: sec - 3600, v: "h2", k: "hava" } }]) {
+    const d5 = tmp(); video(d5, "g5");
+    const r5 = await go(d5, youtube(), { state: { posted: { ...news7, ...hava } } });
+    assert.equal(r5.res.posted.length, 1, `hava videosu YouTube həddinə sayılmır: ${r5.logs.join("\n")}`);
+  }
+  const d6 = tmp(); video(d6, "g6");
+  const r6 = await go(d6, youtube(), { state: { posted: { ...news7, "x-xeber": { t: sec - 3600, v: "n8", k: "xeber" } } } });
+  assert.match(r6.logs.join("\n"), /24 saatda 8 video yükləndi \(hədd 8\)/, "8 xəbər — hədd dolub");
   const old = tmp(); video(old, "g2", { createdAt: new Date(NOW - 13 * 3600e3).toISOString() });
   const r4 = await go(old, youtube());
   assert.match(r4.logs.join("\n"), /12 saatdan köhnədir/);
@@ -343,7 +355,9 @@ test("youtube: title, description and tags always fit YouTube's limits and carry
     items: Array.from({ length: 10 }, (_, i) => ({ title: `${i} ` + "ğşçəıöü ".repeat(30) })) }, Y.options({})).snippet.description;
   assert.ok(Buffer.byteLength(ic) <= Y.DESC_MAX && Buffer.byteLength(ic) > 4500, `${Buffer.byteLength(ic)} bayt`);
   assert.ok(ic.includes("Ətraflı: https://8ulduz.az/icmal/2026-11-22-axsam/") && ic.endsWith("#Shorts"));
-  assert.deepEqual(r.snippet.tags.slice(0, 5), ["8ulduz", "8ulduz.az", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"]);
+  assert.deepEqual(r.snippet.tags.slice(0, 9), ["8ulduz", "8 ulduz", "səkkiz ulduz", "səkkizulduz", "8ulduz.az", "xəbər", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"],
+    "«8 ulduz», «səkkiz ulduz», «səkkizulduz» axtarışı da tapsın");
+  assert.ok(r.snippet.description.includes("8ulduz.az — 8 Ulduz (Səkkiz Ulduz) xəbər saytı: "), "təsvirdə bütün yazılışlar");
   // Keçid yalnız saytın özünə: video modulunun verdiyi başqa sayt ünvanı işlədilmir.
   assert.equal(Y.linkOf({ id: "abc", kind: "hava", url: "https://evil.example/x" }), "https://8ulduz.az/");
   assert.equal(Y.linkOf({ id: "abc", kind: "valyuta", url: "https://8ulduz.az/bolme/iqtisadiyyat/" }), "https://8ulduz.az/bolme/iqtisadiyyat/");

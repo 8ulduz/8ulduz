@@ -146,7 +146,18 @@ test("sosial-video: when a video goes — Baku day hours, 2 hours apart, at most
   const st = SV.readState("/yoxdur", NOW);
   assert.equal(SV.due(st, NOW, opt), "");
   assert.match(SV.due(st, Date.parse("2026-11-22T01:00:00Z"), opt), /Bakı vaxtı 5:00/, "gecə video getmir");
-  assert.match(SV.due({ ...st, _last: NOW / 1000 - 30 * 60 }, NOW, opt), /30 dəq əvvəl, növbəti 90 dəq/);
+  assert.match(SV.due({ ...st, _last: NOW / 1000 - 30 * 60 }, NOW, opt), /30 dəq əvvəl, növbəti 80 dəq/);
+  // Pəncərələr 30 dəqiqədən birdir (:17, :47), iş bir-iki dəqiqə gec başlayır: 2026-11-23 23:47-də «119 dəq əvvəl» video ötürüldü,
+  // axşamın son pəncərəsi itdi. 10 dəqiqə dözüm: dördüncü pəncərə həmişə keçir, üçüncü (~90 dəq) keçmir.
+  const ago = m => ({ ...st, _last: NOW / 1000 - m * 60 });
+  assert.equal(SV.due(ago(119), NOW, opt), "", "119 dəqiqə — dördüncü pəncərə, video gedir");
+  assert.equal(SV.due(ago(110), NOW, opt), "");
+  assert.match(SV.due(ago(109), NOW, opt), /109 dəq əvvəl, növbəti 1 dəq/);
+  assert.match(SV.due(ago(92), NOW, opt), /növbəti 18 dəq/, "üçüncü pəncərə gözləyir");
+  // Dözüm fasilənin ¼-indən çox deyil: 30 dəqiqəlik fasilə 23 dəqiqədən qısa olmur.
+  const o30 = SV.options({ VIDEO_MIN_GAP_MIN: "30" });
+  assert.match(SV.due(ago(22), NOW, o30), /növbəti 1 dəq/);
+  assert.equal(SV.due(ago(23), NOW, o30), "");
   const v = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`v${i}`, NOW / 1000 - i * 3600]));
   assert.match(SV.due({ ...st, v }, NOW, opt), /24 saatda 8 video/);
 });

@@ -685,6 +685,7 @@ nav.main{flex-wrap:nowrap;min-width:0}
 .article-detail{max-width:860px;margin:24px auto}
 .article-detail h1{font-size:clamp(1.5rem,3vw,2.4rem);line-height:1.25}
 .article-detail>.img{aspect-ratio:16/9;margin:20px 0;border-radius:12px;overflow:hidden}
+.article-detail>.btn{margin-top:14px;padding:10px 18px;font-size:1.05rem}@media(max-width:600px){.article-detail>.btn{display:flex;justify-content:center}}
 .article-detail>p{font-size:1.1rem;line-height:1.7}
 .source-entry{display:block;padding:12px;border-bottom:1px solid var(--border);color:var(--fg)}
 .source-search{display:flex;align-items:center;gap:12px;margin:16px 0}

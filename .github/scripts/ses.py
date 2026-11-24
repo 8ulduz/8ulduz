@@ -31,6 +31,15 @@ sys.path.insert(0, ROOT)
 import content_policy  # noqa: E402
 from reader_content import extract_article, feed_article  # noqa: E402
 
+# Oxunuş qaydaları (sahib, 2026-11-23: «saytda da düzgün oxunsun»): Saranın mətn qaydaları (.github/ses-server/az_text.py,
+# for_voice) — rəqəm şəkilçisi ilə, qısaltma (ABŞ, NATO), sayt və mənbə adı, inisial, xarici ad (oxunuş lüğəti). Ses reposunun
+# iş axını o qovluğu da götürür (.github/ses-reposu/ses.yml); yoxdursa mətn əvvəlki kimi gedir.
+sys.path.insert(0, os.path.join(ROOT, ".github", "ses-server"))
+try:
+    import az_text  # noqa: E402
+except ImportError:
+    az_text = None
+
 SITE = "https://8ulduz.az/"
 VOICE = "az-AZ-BabekNeural"
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 8ulduz-bot"
@@ -160,6 +169,13 @@ def stale(have, born, cutoff=CLEAN_AT):
     return {i for i in have if born.get(i, 0) < cutoff}
 
 
+def voice_redo(have, read):
+    """Oxunuş qaydaları (az_text.for_voice) ilə yazılmamış səslər (index.json «o» siyahısında yoxdur): bir dəfə yenidən səslənir,
+    ən yenisi birinci, köhnə fayl yenisi hazır olana qədər qalır. Vaxta yox, nişana baxılır: köhnə kodla işləyən iş (ses reposunda
+    iş 50 dəqiqə eyni nüsxə ilə gedir) sonradan yazdığı səsi də buraxmasın. Qaydalar yüklənməyibsə heç nə yenidən yazılmır."""
+    return set(have) - set(read) if az_text else set()
+
+
 def clip(text, limit=MAX_CHARS):
     """Çox uzun mətn cümlə sərhədində kəsilir."""
     text = re.sub(r"\s+", " ", text or "").strip()
@@ -179,6 +195,12 @@ def script_of(a, body):
     if rest.startswith(title):
         rest = rest[len(title):].lstrip(" .")
     return f"{lead} {rest}".strip()
+
+
+def spoken(a, body):
+    """Səsə gedən mətn: script_of + oxunuş qaydaları (az_text.for_voice); qaydalar yoxdursa olduğu kimi."""
+    text = script_of(a, body)
+    return az_text.for_voice(text) if az_text else text
 
 
 def fetch(url, timeout=12):
@@ -278,6 +300,7 @@ def main(d):
         pass
     born = dict(index.get("t") or {})
     short = set(index.get("q") or [])  # səsi mətnsiz (yalnız başlıq və xülasə ilə) yazılmış xəbərlər
+    read = set(index.get("o") or [])   # səsi oxunuş qaydaları ilə (az_text.for_voice) yazılmış xəbərlər
     live = {a.get("id") for a in feed}
     dropped = 0
     for i in list(have):
@@ -286,7 +309,8 @@ def main(d):
             dropped += 1
     made = 0
     pub = {a.get("id"): (parse_time(a.get("publishedAt")) or now).timestamp() for a in feed}
-    redo = stale(have, born) | host_redo(have, born, feed) | marker_redo(have, born, feed) | say_redo(have, born, feed)
+    redo = (stale(have, born) | host_redo(have, born, feed) | marker_redo(have, born, feed) | say_redo(have, born, feed)
+            | voice_redo(have, read))
     feeds = {}
     with tempfile.TemporaryDirectory() as tmp:
         for a in pick(feed, {i: s for i, s in have.items() if i not in redo}, now):
@@ -299,7 +323,7 @@ def main(d):
             body = source_text(a, feeds)
             path = os.path.join(tmp, a["id"] + ".mp3")
             try:
-                asyncio.run(speak(script_of(a, body), path))
+                asyncio.run(speak(spoken(a, body), path))
             except Exception as e:  # Edge xidməti cavab vermirsə bu dövrə dayanır
                 print("ses:", a["id"], type(e).__name__, str(e)[:120])
                 break
@@ -309,12 +333,14 @@ def main(d):
             have[a["id"]] = git(d, "hash-object", "-w", path)
             born[a["id"]] = int(now.timestamp())
             (short.discard if body else short.add)(a["id"])
+            (read.add if az_text else read.discard)(a["id"])
             made += 1
     if not made and not dropped:
         print("ses: yeni səs yoxdur")
         return
     born = {i: t for i, t in born.items() if i in have}
-    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born, "q": sorted(short & set(have))}, separators=(",", ":")).encode()
+    idx = json.dumps({"at": int(now.timestamp()), "ids": sorted(have), "t": born, "q": sorted(short & set(have)), "o": sorted(read & set(have))},
+                     separators=(",", ":")).encode()
     rows = other + [f"100644 blob {sha}\t{i}.mp3" for i, sha in sorted(have.items())]
     rows.append(f"100644 blob {git(d, 'hash-object', '-w', '--stdin', data=idx)}\tindex.json")
     tree = git(d, "mktree", "--missing", data=("\n".join(rows) + "\n").encode())

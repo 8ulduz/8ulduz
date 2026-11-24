@@ -8,7 +8,7 @@
 //
 // Seçim social.cjs-dəkidir (son 3 saatda 4+ mənbəli azərbaycanca xəbər və ya Prezident bölməsi; eyni xəbər/başlıq/mövzu iki dəfə
 // getmir) + izah (mənbə səhifəsinin tam cümlələri, describe()). İzahı tapılmayan xəbər video olmur. Tezlik: VIDEO_MIN_GAP_MIN
-// (120) dəqiqədən bir, yalnız Bakı vaxtı ilə VIDEO_SAAT (8-23) saatlarında, 24 saatda ən çox VIDEO_GUNDE (8).
+// (120, 10 dəqiqə dözümlə — due()) dəqiqədən bir, yalnız Bakı vaxtı ilə VIDEO_SAAT (8-23) saatlarında, 24 saatda ən çox VIDEO_GUNDE (8).
 // Fayl ictimai ünvana qoyulmur: hər iki şəbəkəyə birbaşa yüklənir (rupload.facebook.com, «resumable upload»). Repoya video yazılmır.
 //
 // Açarlar (social.yml ilə eyni sirlər): FB_PAGE_ID, FB_PAGE_TOKEN. Açar yoxdursa iş sakitcə ötürülür. Açar jurnala düşmür.
@@ -52,12 +52,18 @@ function readState(file, now) {
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
 
+// Fasilə 30 dəqiqəlik pəncərələrdə yoxlanır (:17, :47), işin başlama vaxtı isə bir-iki dəqiqə oynayır: 120 dəqiqə dörd pəncərədir.
+// Dözüm olmasa dördüncü pəncərə «119 dəq əvvəl, növbəti 1 dəq sonra» ilə ötürülür və ara 2,5 saat olur (2026-11-23, 23:47 videosu
+// ümumiyyətlə getmədi). Dözüm fasilənin dörddə birindən çox deyil: VIDEO_MIN_GAP_MIN=30 qoyulsa ara 23 dəqiqədən az olmur.
+const GAP_TOL_MIN = 10;
+const gapTol = gapMin => Math.min(GAP_TOL_MIN, Math.floor(gapMin / 4));
+
 // Vaxtıdırmı? Boş sətir — bəli; yoxsa səbəb.
 function due(state, now, opt) {
   const sec = Math.floor(now / 1000), h = new Date(now + 4 * 3600e3).getUTCHours();   // Bakı vaxtı (UTC+4)
   if (h < opt.from || h > opt.to) return `Bakı vaxtı ${h}:00 — video ${opt.from}:00–${opt.to}:59 arası gedir`;
-  const ago = Math.round((sec - (state._last || 0)) / 60);
-  if (ago < opt.gapMin) return `son video ${ago} dəq əvvəl, növbəti ${opt.gapMin - ago} dəq sonra`;
+  const ago = Math.round((sec - (state._last || 0)) / 60), gap = opt.gapMin - gapTol(opt.gapMin);
+  if (ago < gap) return `son video ${ago} dəq əvvəl, növbəti ${gap - ago} dəq sonra`;
   const day = Object.values(state.v || {}).filter(t => sec - t < 86400).length;
   if (day >= opt.perDay) return `24 saatda ${day} video (hədd ${opt.perDay})`;
   return "";

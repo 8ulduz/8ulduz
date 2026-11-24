@@ -157,7 +157,7 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 
 ### Saranın oxunuşu (sahib, 2026-11-23: «tam normal insan kimi oxunsun»)
 
-SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.github/ses-server/az_text.py` insanın oxuyacağı kimi sözə çevirir. Video və «Dinlə» serveri bu qaydanı eyni cür işlədir.
+SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.github/ses-server/az_text.py` insanın oxuyacağı kimi sözə çevirir. Video, SARA serveri və saytın «Dinlə» səsi (Babək, aşağıda) bu qaydanı eyni cür işlədir.
 
 | Yazı | Oxunuş |
 |---|---|
@@ -167,6 +167,7 @@ SARA yalnız kiçik Azərbaycan hərflərini tanıyır. Qalan hər şeyi `.githu
 | `Modern.az`, `8ulduz.az-ın`, `S.Orucov` | modern nöqtə az, səkkiz ulduz nöqtə azın, es orucov (cümlə bölünmür) |
 | `XII tur`, `+12°…+17°`, `−5°` | on ikinci tur, on iki-on yeddi dərəcə, mənfi beş dərəcə |
 | `Google`, `Washington-da` | qugl, vaşinqtonda |
+| `8ULDUZ`, `Baku.ws`, `Bizim.Media`, `Sesqazeti.az` | səkkiz ulduz, baku nöqtə ve-es, bizim nöqtə media, səs qəzeti nöqtə az (mənbə adı) |
 
 Cümlə bütöv səslənir, cümlə sonunda 0,38 s fasilə olur. 220 simvoldan uzun cümlə vergüldə bölünür, arada 0,16 s olur. Hər vergüldə bölmək Whisper ölçməsində aydınlığı azaltdı, ona görə bölünmür: model vergülü tanımır, hər parçanı cümlə kimi bitirir. Altyazı cümləni iki hissəyə bölürsə, ortada cümlə fasiləsi verilmir: vergüldən sonra 0,16 s, vergülsüz yerdə 0,1 s olur (`video_ses.breath`). Modelin oxuma ayarları (`VOICE`) da `az_text.py`-dədir. Seçilmiş ayar 0,45/0,6, sürət 1-dir. 2026-11-23-də 81 cümlə üzərində ölçülüb: hərf xətası 15,2%-dən 10,0%-ə düşüb.
 
@@ -265,7 +266,7 @@ Hədlər testlə `oz_hava.py`-yə bağlıdır (`tests/video-hava.test.cjs`). Bak
 - Hava videosu `HAVA_VAXT` (20:45) saatından sonrakı ilk 30 dəqiqəlik pəncərədə gedir: `pipeline.sh` `video_loop`, :17 və :47.
 - Gündə bir dəfə (`state.hava`). Seçim günü sayır, video alınmasa da eyni gün təkrar hazırlanmır.
 - Open-Meteo cavab verməsə gün sayılmır. Həmin pəncərədə xəbər videosu gedir, hava növbəti pəncərədə (23:59-a qədər) yenidən sınanır.
-- Xəbər videosunun 120 dəqiqəlik fasiləsinə, gündəlik həddinə (8) və mövzu siyahısına sayılmır.
+- Xəbər videosunun 120 dəqiqəlik fasiləsinə, gündəlik həddinə (8) və mövzu siyahısına sayılmır. YouTube-un gündəlik həddinə (`YOUTUBE_MAX_DAY`, 8) də sayılmır: 2026-11-23-də hava videosu bu həddi doldurdu və 21:48-in xəbəri YouTube-a getmədi.
 - Bir pəncərədə bir iş qaydası (PR 303) dəyişmir. Hava pəncərəsində xəbər videosu növbəti pəncərəyə (30 dəqiqə sonra) qalır. İki video eyni anda getmir.
 
 Niyə 20:47 (araşdırma, 2026-11-23):
@@ -420,7 +421,7 @@ Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş
 
 | Dəyişən | Standart | Nə |
 |---|---|---|
-| `VIDEO_MIN_GAP_MIN` | 120 | iki video arasında dəqiqə |
+| `VIDEO_MIN_GAP_MIN` | 120 | iki video arasında dəqiqə. Yoxlama 30 dəqiqədən birdir və işin başlaması bir-iki dəqiqə oynayır, ona görə 10 dəqiqə dözüm var (fasilənin ¼-indən çox deyil): 110 dəqiqə keçibsə video gedir. Dözümsüz 2026-11-23-də dördüncü pəncərə «119 dəq əvvəl» ilə ötürülürdü, ara 2,5 saat olurdu |
 | `VIDEO_SAAT` | 8-23 | Bakı vaxtı ilə hansı saatlarda (daxil) |
 | `VIDEO_GUNDE` | 8 | 24 saatda ən çox video (Facebook həddi 30) |
 | `VIDEO_MIN_SOURCES` | `SOCIAL_MIN_SOURCES` və ya 4 | neçə mənbə yazanda |
