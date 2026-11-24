@@ -8,13 +8,15 @@
 // Xəbər seçimi app.js-in öz clubMatches()-i ilədir: səhifədəki siyahı saytdakı düymə ilə eynidir, qayda iki yerdə yazılmır.
 // Arxiv 1-2 günlükdür; hər səhifə öz siyahısını saxlayır (KEEP_DAYS gün, KEEP xəbər), səhifənin içindəki JSON-dan oxunur.
 // Səhifələr skriptsizdir (yüngül, sürət qırmızı xətti); bir səhifə ən çox REWRITE_MS-dən bir yazılır (repo tarixçəsi şişməsin).
+// JSON (~7 KB) </main>-dən sonradır (2026-11-24): başlıqda olanda brauzer h1-ə və siyahıya çatmamış onu oxuyurdu. TPL şablonun
+// versiyasıdır: dəyişəndə hər səhifə bir dəfə, REWRITE_MS-i gözləmədən yenidən yazılır (xəbəri dəyişməyən səhifə köhnə qalmasın).
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 
 const SITE = "https://8ulduz.az/";
 // «Telegram-da izlə» botu (izle.cjs): adı assets/config.js tgBot-dadır; boşdursa düymə yoxdur.
 const botOf = root => { try { return (fs.readFileSync(path.join(root, "assets/config.js"), "utf8").match(/tgBot:\s*"([A-Za-z0-9_]{5,32})"/) || [])[1] || ""; } catch { return ""; } };
-const KEEP_DAYS = 30, KEEP = 30, MIN_INDEX = 3, REWRITE_MS = 60 * 60e3;
+const KEEP_DAYS = 30, KEEP = 30, MIN_INDEX = 3, REWRITE_MS = 60 * 60e3, TPL = 2;
 const KINDS = { rayon: { tabs: "REGION_TABS", section: "bolgeler", label: "Bölgələr" }, idman: { tabs: "SPORT_TABS", section: "idman", label: "İdman" } };
 
 // Lentdəki başlıqlarda HTML işarələri qala bilir (&quot;): əvvəl açılır, sonra bir dəfə qaçırılır.
@@ -88,7 +90,6 @@ __ROBOTS__<link rel="canonical" href="__URL__" />
 <link rel="icon" href="${SITE}assets/icon-192.png" sizes="192x192" />
 <script type="application/ld+json">__LD__</script>
 <style>body{margin:0;font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#15233b;color:#d5deeb}main{max-width:760px;margin:0 auto;padding:16px}a{color:#d6bd80}h1{font-size:1.5em;margin:.4em 0 .2em;color:#fff}ul{padding-left:1.2em}li{margin:0 0 1em}li>a{font-weight:600;text-decoration:none}small{display:block;color:#aabbd2}.go{display:inline-block;margin:.6em 0 1em;padding:8px 14px;border-radius:999px;background:#d6bd80;color:#15233b;font-weight:700;text-decoration:none}.rel a{display:inline-block;margin:0 10px 6px 0}@media(prefers-color-scheme:light){body{background:#f6f4ee;color:#172b4d}h1{color:#172b4d}a{color:#19385f}small{color:#465773}.go{background:#19385f;color:#fff}}</style>
-<script type="application/json" id="movzu">__DATA__</script>
 </head>
 <body><main>
 <p><a href="${SITE}">8ULDUZ</a> › <a href="${SITE}bolme/__SECTION__/">__SECTION_LABEL__</a>__CRUMB__</p>
@@ -99,7 +100,9 @@ __ITEMS__
 __SVC__
 __REL__
 <p><a href="${SITE}icmal/">Günün icmalı</a> · <a href="https://t.me/sekkizulduz_az">Telegram kanalımız</a> · <a href="${SITE}">8ULDUZ — bütün xəbərlər</a></p>
-</main></body>
+</main>
+<script type="application/json" id="movzu">__DATA__</script>
+</body>
 </html>
 `;
 
@@ -113,8 +116,8 @@ function oldItems(file) {
   try {
     const m = fs.readFileSync(file, "utf8").match(/<script type="application\/json" id="movzu">([\s\S]*?)<\/script>/);
     const d = JSON.parse(m[1].replace(/\\u003c/g, "<"));
-    return { items: Array.isArray(d.items) ? d.items : [], at: Number(d.at) || 0, svc: String(d.svc || "") };
-  } catch { return { items: [], at: 0, svc: "" }; }
+    return { items: Array.isArray(d.items) ? d.items : [], at: Number(d.at) || 0, svc: String(d.svc || ""), v: Number(d.v) || 1 };
+  } catch { return { items: [], at: 0, svc: "", v: 0 }; }
 }
 
 // Rayonun namaz və hava səhifələri (updater.py write_subpages; sahib 2026-11-13): yalnız səhifəsi yazılmış olanlara keçid verilir.
@@ -147,7 +150,7 @@ function page(t, items, all, stories, now, bot = "", svc = "") {
   // Bir keçid, funksiya ilə: String.replace(sətir, sətir) başlıqdakı «$$», «$'», «$&» işarələrini nümunə kimi oxuyur — «pu$$y»
   // «pu$y» olurdu, «50 milyon $'lık» isə şablonun qalanını JSON blokuna yapışdırıb səhifəni sındırırdı (2026-11-12).
   const fill = { TITLE: esc(title), DESC: esc(desc), URL: url, ROBOTS: items.length >= MIN_INDEX ? "" : '<meta name="robots" content="noindex, follow" />\n',
-    LD: json(ld), DATA: json(svc ? { name: t.name, at: now, svc, items } : { name: t.name, at: now, items }), SVC: svcLinks, SECTION: k.section, SECTION_LABEL: k.label,
+    LD: json(ld), DATA: json(svc ? { name: t.name, at: now, v: TPL, svc, items } : { name: t.name, at: now, v: TPL, items }), SVC: svcLinks, SECTION: k.section, SECTION_LABEL: k.label,
     CRUMB: crumb, H1: esc(h1), INTRO: intro, APP: esc(app), TG: bot ? ` <a class="go" href="https://t.me/${bot}?start=${t.kind === "rayon" ? "r" : "i"}_${t.slug}" rel="noopener">📩 Telegram-da izlə</a>` : "", ITEMS: list, REL: rel };
   return PAGE.replace(/__([A-Z0-9]+(?:_[A-Z0-9]+)*)__/g, (all, name) => Object.hasOwn(fill, name) ? fill[name] : all);
 }
@@ -167,13 +170,15 @@ function run(root, { now = Date.now(), app = loadApp(root) } = {}) {
     const items = [...byUrl.values()].sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, KEEP);
     const same = JSON.stringify(items) === JSON.stringify(old.items);
     const exists = fs.existsSync(file), svc = services(root, t);
-    // Xidmət keçidi yarananda (və ya itəndə) səhifə bir dəfə gözləmədən yazılır: yoxsa xəbəri dəyişməyən rayon keçidsiz qalardı.
-    if (!exists || svc !== old.svc || (!same && now - old.at >= REWRITE_MS)) {
+    // Xidmət keçidi yarananda (və ya itəndə) və şablon dəyişəndə səhifə bir dəfə gözləmədən yazılır: yoxsa xəbəri dəyişməyən rayon
+    // keçidsiz (və ya köhnə düzülüşdə) qalardı.
+    const write = !exists || svc !== old.svc || old.v !== TPL || (!same && now - old.at >= REWRITE_MS);
+    if (write) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, page(t, items, all, stories, now, bot, svc));
       written++;
     }
-    const kept = exists && svc === old.svc && (same || now - old.at < REWRITE_MS) ? old.items : items;
+    const kept = write ? items : old.items;
     if (kept.length >= MIN_INDEX) map.push({ loc: `${SITE}${t.kind}/${t.slug}/`, last: String(kept[0]?.d || "").slice(0, 10) });
   }
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
