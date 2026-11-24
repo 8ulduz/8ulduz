@@ -36,8 +36,13 @@ MAX_CANDIDATES = 25
 PER_RUN = 3
 REELS_PER_RUN = 12  # qısa videolar gecə-gündüz 20 dəqiqədən bir (iş xəbər axınından başladılır, pipeline.sh xyazici_loop): 72 iş × 12 ≈ gündə 300–800 (sahib, 2026-11-20: «ən önəmli olan videoların daima yenilənməsidir», «çox sayda olmasıdır»)
 REELS_ASK = 110    # Gemini-yə seçim üçün göstərilən ən çox namizəd (9 mövzu; 2026-11-22: xəbər qrupu əlavə olundu)
-# Gemini işləməyəndə qısa videoya yalnız bu hesablar düşür: müharibə və qəza görüntüsü vermirlər
-REELS_SAFE = {"TamirveTadilat", "TUBITAK", "avionot", "TFF_Org", "MilliTakimlar", "GalatasaraySK", "Fenerbahce", "Besiktas", "Trabzonspor", "trtspor", "aa_spor", "ntvspor", "beINSPORTS_TR", "Rainmaker1973", "buitengebieden", "wonderofscience", "Yoda4ever", "IGN", "GameSpot", "LaLiga", "premierleague", "ChampionsLeague", "EuropaLeague", "NBA", "ESPNNBA", "F1", "atptour", "Olympics", "Discovery", "LFC", "MLS", "Ballislife", "overtime"}
+# Qısa video seçimi Gemini-siz də tam işləyir (sahib 2026-11-23: «Geminidən başqa daha dayanıqlı bir yol tap pulsuz. … Alınmırsa izah
+# lazım deyil. 20-80 yaş arası ən çox baxılan videolar olsun. boş boş videolardır indi əksəriyyəti»): ən çox baxılan (heat), X-in
+# «possibly_sensitive» nişanı, icma qeydi və mətn süzgəci (candidate), REEL_MIN_VIEWS. Gemini işləyəndə izah və sinif əlavə edir.
+# Əvvəlki ehtiyat yolu yalnız «təhlükəsiz» hesabları götürürdü — 2026-11-23 kvota bitəndə lent az baxılan idman
+# videoları ilə doldu, xəbər və hadisə gəlmədi.
+FX_STATUS = "https://api.fxtwitter.com/{}/status/{}"
+REFRESH_PER_RUN = 30   # hər işdə bu qədər növbə sətrinin X sayı yenilənir (sayı olmayan, sonra ən köhnə sayılı): ~1 dəqiqə
 MAX_AGE_DAYS = 4
 LAST_SLOT = "22:00"   # daha gec yazılan xəbər gün bitənədək dərc olunmağa çatmır və «gecikdi» deyə düşür (2026-11-18 gecəsi 4 xəbər)
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -109,9 +114,26 @@ def candidate(handle, post, known, now, window=WINDOW):
         return None
     if len(text) < xm.SRC_LEN[0] or xm.about_azerbaijan(text):
         return None
+    # Gemini-siz süzgəc (sahib 2026-11-23): X-in özü ağır və ya açıq-saçıq kadrı «possibly_sensitive» ilə işarələyir; icma qeydi
+    # (community note) yanlış məlumat deməkdir; mərc, qumar və ağır kadr xəbərdarlığı mətndən (oz_x.unsafe_text)
+    if post.get("possibly_sensitive") or post.get("community_note") or xm.unsafe_text(text):
+        return None
+    views, likes, reposts = (int(post.get(k) or 0) for k in ("views", "likes", "reposts"))
     return {"id": pid, "handle": handle, "post": f"https://x.com/{handle}/status/{pid}", "video": url, "poster": poster,
             "w": w, "h": h, "src": [text[:xm.SRC_LEN[1]]], "at": datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).isoformat(timespec="seconds"),
-            "_views": int(post.get("views") or 0), "_score": int(post.get("likes") or 0) + int(post.get("reposts") or 0) * 3 + int(post.get("views") or 0) // 100}
+            "_views": views, "_likes": likes, "_reposts": reposts, "_score": likes + reposts * 3 + views // 100}
+
+
+def counts(c, now):
+    """Namizədin X sayları növbə sətri üçün: v (baxış), l (bəyənmə), rp (paylaşma), vt (sayların vaxtı)."""
+    return {"v": c["_views"], "l": c["_likes"], "rp": c["_reposts"], "vt": now.isoformat(timespec="seconds")}
+
+
+def heat(c, now):
+    """Bu işdə ən çox baxılan: populyarlıq (oz_x.popularity) paylaşımın yaşına bölünür — 2 saatda 200 min baxış 20 saatda 300 mindən
+    üstündür. Sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun»."""
+    hours = max(0.0, (now - datetime.datetime.fromisoformat(c["at"])).total_seconds() / 3600)
+    return xm.popularity({"v": c["_views"], "l": c["_likes"], "rp": c["_reposts"]}) / (hours + 2) ** 0.7
 
 
 # Transfer xəbərləri (sahib 2026-11-19: «x da olan transfer xəbərləri fabrisio və matteo dan və digər x transfer xəbərləri bizim
@@ -154,8 +176,9 @@ def videolent_slice(now):
     groups = [list(q) for q in xm.VIDEOLENT_QRUPLAR.values() if q]   # hər mövzunun öz növbəsi: hər iş bütün mövzulardan bərabər
     if not groups:
         return []
-    # Birinci dərəcəli mənbələr (oz_x.VIDEOLENT_ONDE) hər işdə; xəbər hesabı olanlar onsuz da hər işdə yoxlanır
-    out = [h for h in xm.VIDEOLENT_ONDE if h in xm.VIDEOLENT_HESABLAR]
+    # Birinci dərəcəli mənbələr (oz_x.VIDEOLENT_ONDE) və usta işi hesabları (oz_x.USTA_HESABLAR: lentin 40%-i, mənbəyi az) hər işdə;
+    # xəbər hesabı olanlar onsuz da hər işdə yoxlanır
+    out = list(dict.fromkeys(h for h in (*xm.VIDEOLENT_ONDE, *sorted(xm.USTA_HESABLAR)) if h in xm.VIDEOLENT_HESABLAR))
     per, run = max(1, (VL_PER_RUN - len(out)) // len(groups)), int(now.timestamp()) // 1200   # cəmi VL_PER_RUN-dan çox deyil
     for g in groups:
         g = [h for h in g if h not in out]
@@ -219,25 +242,29 @@ def collect(known, now):
     return out, failed   # hamısı: xəbərə ilk MAX_CANDIDATES, qısa videolara qalanı da
 
 
-def _gemini_models(key):
-    """Açarın görə bildiyi, generateContent edən «flash» modelləri, ən yenisi birinci (ad dəyişəndə iş dayanmasın)."""
+def _gemini_models(key, lite=False):
+    """Açarın görə bildiyi, generateContent edən «flash» modelləri, ən yenisi birinci (ad dəyişəndə iş dayanmasın). lite: yalnız «flash-lite»."""
     req = urllib.request.Request(GEMINI + "?pageSize=200", headers={"x-goog-api-key": key})
     with urllib.request.urlopen(req, timeout=30) as r:
         models = json.loads(r.read().decode("utf-8")).get("models") or []
     names = [m["name"].split("/", 1)[-1] for m in models if "generateContent" in (m.get("supportedGenerationMethods") or [])
-             and "flash" in m.get("name", "") and not re.search(r"lite|image|tts|audio|live|exp|preview|thinking", m.get("name", ""))]
+             and "flash" in m.get("name", "") and ("lite" in m.get("name", "")) == lite
+             and not re.search(r"image|tts|audio|live|exp|preview|thinking", m.get("name", ""))]
     return sorted(names, key=lambda s: [int(x) if x.isdigit() else 0 for x in re.findall(r"\d+", s)], reverse=True)
 
 
-def ask_gemini(prompt, key, max_tokens=4000):
-    """Gemini API (pulsuz səviyyə, açar başlıqda; ünvanda yox). Model: GEMINI_MODEL, alınmasa siyahıdakı ən yeni flash."""
+def ask_gemini(prompt, key, max_tokens=4000, lite=False):
+    """Gemini API (pulsuz səviyyə, açar başlıqda; ünvanda yox). Model: GEMINI_MODEL, alınmasa siyahıdakı ən yeni flash.
+    lite: flash modellərin hamısı cavab verməsə «flash-lite» da sınanır (qısa videonun sinfi və izahı üçün; kvotası ayrıdır)."""
     body = json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}],
                        "generationConfig": {"temperature": 0.4, "maxOutputTokens": max_tokens, "responseMimeType": "application/json"}}).encode("utf-8")
     tried, listed = [], _safe_models(key)
     # 2026-11-22: 04:25 UTC-dən model siyahısı HTTP xətası verirdi, siyahı boş qalırdı və Gemini heç çağırılmırdı (videolar izahsız,
     # sinifsiz, X xəbəri yazılmırdı). Siyahı alınmasa son işlək modellər birbaşa sınanır.
-    order = list(dict.fromkeys(([GEMINI_MODEL] if GEMINI_MODEL else []) + (listed or list(FALLBACK_MODELS))))
-    for model in order[:4]:
+    order = list(dict.fromkeys(([GEMINI_MODEL] if GEMINI_MODEL else []) + (listed or list(FALLBACK_MODELS))))[:4]
+    if lite:   # 2026-11-23: açarın flash kvotası günün ortasında bitdi (başqa işlər də eyni açarı işlədir), qısa videolar izahsız qaldı
+        order += [m for m in (_safe_models(key, lite=True) or list(LITE_MODELS)) if m not in order][:2]
+    for model in order:
         doc = None
         for attempt in range(3):   # 503 (yüklüdür) və 429 keçicidir: gözləyib təkrar; 404 (model yoxdur) — növbəti model
             req = urllib.request.Request(f"{GEMINI}/{model}:generateContent", data=body, method="POST",
@@ -247,8 +274,11 @@ def ask_gemini(prompt, key, max_tokens=4000):
                     doc = json.loads(r.read().decode("utf-8"))
                 break
             except urllib.error.HTTPError as e:
-                tried.append(f"{model}: {e.code} {_why(e)}")
-                if e.code not in (429, 500, 503):
+                why = _why(e)
+                tried.append(f"{model}: {e.code} {why}")
+                # «exceeded your current quota»: gözləmək kömək etmir, növbəti model (əvvəl hər model 3 dəfə, 90 s gözlənilirdi —
+                # 2026-11-23 işi 18 dəqiqəsini belə keçirdi, 30 dəqiqəlik həddə yaxın)
+                if e.code not in (429, 500, 503) or e.code == 429 and "quota" in why.lower():
                     break
                 time.sleep(15 * (attempt + 1))
             except (TimeoutError, OSError, ValueError) as e:   # cavab gecikdi, bağlantı qırıldı, JSON pozuq: növbəti model
@@ -266,6 +296,7 @@ def ask_gemini(prompt, key, max_tokens=4000):
 
 
 FALLBACK_MODELS = ("gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest")   # 2026-11-21-də işləyən modellər
+LITE_MODELS = ("gemini-flash-lite-latest",)   # siyahı alınmasa «lite» üçün
 
 
 def _why(e):
@@ -277,9 +308,9 @@ def _why(e):
     return " ".join(str(msg).split())[:160]
 
 
-def _safe_models(key):
+def _safe_models(key, lite=False):
     try:
-        return _gemini_models(key)
+        return _gemini_models(key, lite)
     except urllib.error.HTTPError as e:
         print(f"Model siyahısı alınmadı: HTTP {e.code} {_why(e)}", flush=True)
         return []
@@ -337,7 +368,7 @@ Paylaşımlar:
 # (Trend.az, 2024-10); üstəlik avtomobil, Türkiyə futbolu, döyüş idmanı və güləş, Türkiyə müdafiə sənayesi, texnika yenilikləri.
 # Özünə qəsd və ölüm anı göstərilmir: belə hadisədən yalnız xilasetmə anı (sahibin «körpüdən atmaq istəyir» nümunəsi).
 # Sahib 2026-11-22: «maraqlı videolar x də olur-müharibələrə aid (rusiya ukrayna və sair) x də yayımlanır. deməli olar.» Müharibə
-# videoları lentə düşür; qan, meyit, yaralı, insanın vurulduğu an və əsir görüntüsü düşmür (Gemini düşəndə REELS_SAFE: müharibə yoxdur).
+# videoları lentə düşür; qan, meyit, yaralı, insanın vurulduğu an və əsir görüntüsü düşmür (Gemini düşəndə qısa video yazılmır).
 REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var (baxış sayı ilə).
 Azərbaycan oxucusu üçün ən maraqlı ən çox {n} videonu seç və hər birini iki sinifdən birinə ayır:
 «hadise» (lentin 60%-i): təzə və maraqlı hadisələr — ekstremal və gözlənilməz anlar (xilasetmə, son anda qurtulma, təhlükəli an,
@@ -419,15 +450,21 @@ def split_reels(ids, handle_of, n):
     return h + u
 
 
+def guess(c):
+    """Gemini-siz sinif: usta hesabı və ya mətndə işin necə görüldüyü (oz_x.usta_text) — «u», qalanı «h»."""
+    return "u" if xm.sinif(c) == "u" or xm.usta_text(c["src"][0]) else "h"
+
+
 def pick_reels(cands, n):
-    """Qısa video üçün id-lər. Gemini seçir (yalnız id, mətn yox); açar yoxdursa və ya cavab gəlmirsə REELS_SAFE hesabları."""
+    """Qısa video üçün id-lər, cands sırası ilə (ən çox baxılan əvvəl). Gemini işləyirsə uyğun olmayanı çıxarır, sinif və izah verir
+    (REEL_META). Açar yoxdursa və ya cavab gəlmirsə seçim Gemini-siz qalır: namizəd süzgəcindən keçənlər, izahsız, sinfi guess-dən."""
     if not cands:
         return []
     text = ""
     if os.environ.get("GEMINI_API_KEY"):
         items = "\n".join(f"- id {c['id']}, hesab {xm.ADLAR[c['handle']]} (@{c['handle']}{', seçilmiş mənbə' if xm.onde(c['handle']) else ''}), "
                           f"baxış {c.get('_views', 0)}: {c['src'][0][:300]}" for c in cands)
-        text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"], REELS_TOKENS)
+        text = ask_gemini(REELS_PROMPT.format(n=n, items=items), os.environ["GEMINI_API_KEY"], REELS_TOKENS, lite=True)
     got = json_list(text)
     ids = None
     if isinstance(got, list):
@@ -445,12 +482,35 @@ def pick_reels(cands, n):
                 ids.append(str(g))
     if ids is None:
         told = f" (cavab oxunmadı: {len(text)} simvol, sonu {' '.join(text[-80:].split())!r})" if text else ""
-        print(f"Qısa video: Gemini seçmədi{told}, yalnız təhlükəsiz hesablar", flush=True)
-        # Videolent hesabları seçilmiş vizual hesablardır; xəbər qrupu (xəbər, kadr arxası) Gemini-nin seçimi və izahı olmadan getmir
-        # (2026-11-22: Gemini düşəndə Breaking911, Fox News videoları yoxlanmadan, izahsız lentə düşdü)
-        ids = [c["id"] for c in cands if (c["handle"] in REELS_SAFE or c.get("reel_only")) and xm.movzu(c["handle"]) != "xeber"]
-    allowed = {c["id"] for c in cands}
-    return [i for i in dict.fromkeys(ids) if i in allowed][:n]
+        print(f"Qısa video: Gemini seçmədi{told} — Gemini-siz: ən çox baxılanlar, izahsız", flush=True)
+        for c in cands:
+            REEL_META[c["id"]] = {"sinif": guess(c)}
+        return [c["id"] for c in cands][:n]
+    chosen = set(ids)
+    return [c["id"] for c in cands if c["id"] in chosen][:n]
+
+
+def refresh(reels, now, fetch=None):
+    """Növbə sətirlərinin X saylarını yeniləyir (ən çox baxılan sırası düzgün qalsın): əvvəl sayı olmayanlar, sonra sayı ən köhnə
+    olanlar, son 2 günün sətirləri, ən çox REFRESH_PER_RUN. X sonradan «possibly_sensitive» və ya icma qeydi qoyubsa sətir silinir."""
+    fetch = fetch or fetch_json
+    floor = now - datetime.timedelta(days=2)
+    todo = sorted((r for r in reels if (xm._at(r.get("at")) or floor) > floor), key=lambda r: ("v" in r, r.get("vt") or ""))[:REFRESH_PER_RUN]
+    drop, done = set(), 0
+    for r in todo:
+        try:
+            t = (fetch(FX_STATUS.format(r["handle"], r["id"])) or {}).get("tweet") or {}
+        except Exception:   # bir sətir alınmasa digərləri
+            t = {}
+        if t.get("possibly_sensitive") or t.get("community_note"):
+            drop.add(r["id"])
+        elif isinstance(t.get("views"), int):
+            r.update(v=t["views"], l=int(t.get("likes") or 0), rp=int(t.get("retweets") or 0), vt=now.isoformat(timespec="seconds"))
+            done += 1
+        time.sleep(2)   # FxTwitter tez soruşanda 404 verir
+    if todo:
+        print(f"Qısa video sayları: {done}/{len(todo)} yeniləndi, {len(drop)} sətir X-in nişanı ilə silindi", flush=True)
+    return [r for r in reels if r.get("id") not in drop]
 
 
 def main():
@@ -458,9 +518,8 @@ def main():
     baku = now.astimezone(BAKU)
     doc = json.loads((ROOT / "oz_x.json").read_text(encoding="utf-8"))
     rows = doc.get("items") or []
-    reels = [r for r in doc.get("reels") or [] if isinstance(r, dict)]
-    reel_floor = now - datetime.timedelta(days=xm.REELS_DAYS)
-    reels = [r for r in reels if (xm._at(r.get("at")) or reel_floor) > reel_floor][-xm.REELS_MAX:]
+    # son həftənin videoları; usta işi bütün həftə qalır (oz_x.keep_reels)
+    reels = xm.keep_reels(doc.get("reels") or [], now)
     floor = baku.date() - datetime.timedelta(days=MAX_AGE_DAYS)
     kept = [r for r in rows if isinstance(r, dict) and str(r.get("date") or "") >= floor.isoformat()]
     known = {str(r.get("id")) for r in kept}
@@ -500,24 +559,42 @@ def main():
             (rejected if why else added).append((row, why))
     new_reels = []
     # qısa videolar gecə də (sahib 2026-11-19: «daima təzələnsin»); dərc saatı yoxdur, lent hər açılışda təzəsini göstərir
+    # növbədəki videoların X sayları: bu işdə yenə görünən paylaşımlar namizəddən (sorğusuz), qalanı refresh ilə
+    queued = {str(r.get("id")): r for r in reels}
+    for c in more:
+        if c["id"] in queued:
+            queued[c["id"]].update(counts(c, now))
+    reels = refresh(reels, now)
     taken = {str(r.get("id")) for r in reels} | {r["id"] for r, _ in added}
-    first = sorted((c for c in more if c["id"] not in taken), key=lambda c: (not xm.onde(c["handle"]), -c["_score"]))   # hər mövzuda əvvəl birinci dərəcəli mənbələr, sonra çox baxılanlar
-    pool = by_topic(first, lambda c: c["handle"], REELS_ASK)   # Gemini-yə hər mövzudan
+    # eyni video (X media nömrəsi) başqa paylaşımda gəlirsə namizəd deyil: 2026-11-23 lentində 32 video iki dəfə idi
+    media = {xm.video_key(r.get("video")) for r in reels}
+    first = []
+    # ən çox baxılan əvvəl (heat); birinci dərəcəli mənbəyə 1,5 qat üstünlük; REEL_MIN_VIEWS-dan az baxılan «boş»dur; köhnə klipin
+    # təzə paylaşımı hadisə deyil (oz_x.stale_event, sinif Gemini-siz guess-dən)
+    for c in sorted(more, key=lambda c: -heat(c, now) * (1.5 if xm.onde(c["handle"]) else 1)):
+        cls = {"video": c["video"], "sinif": guess(c), "at": c["at"], **counts(c, now)}
+        if c["id"] in taken or xm.empty(cls) or xm.stale_event(cls, now) or xm.video_key(c["video"]) in media:
+            continue
+        media.add(xm.video_key(c["video"]))
+        first.append(c)
+    pool = by_topic(first, lambda c: c["handle"], REELS_ASK)   # hər mövzudan, mövzunun içində ən çox baxılan əvvəl
     by_id = {c["id"]: c for c in pool}
+    picked = [i for i in pick_reels(pool, REELS_PER_RUN * 3)
+              if not xm.stale_event({"video": by_id[i]["video"], "handle": by_id[i]["handle"], **REEL_META.get(i, {})}, now)]
     # 60% hadisə, 40% usta işi (sahib 2026-11-22); bir işdə hər sinifdə mövzu təkrarlanmır
-    for pid in split_reels(pick_reels(pool, REELS_PER_RUN * 3), lambda i: by_id[i]["handle"], REELS_PER_RUN):
+    for pid in split_reels(picked, lambda i: by_id[i]["handle"], REELS_PER_RUN):
         c = by_id[pid]
         meta = REEL_META.get(pid, {})
         row = {**{k: c[k] for k in ("id", "handle", "post", "video", "poster", "w", "h", "at")}, "src": [c["src"][0][:300]],   # tam mətn namizəddə yoxlanıb; fayl kiçik qalsın
-               "sinif": meta.get("sinif") or xm.sinif(c), **({"c": meta["c"]} if meta.get("c") else {})}
+               "sinif": meta.get("sinif") or guess(c), **counts(c, now), **({"c": meta["c"]} if meta.get("c") else {})}
         if "c" in row and xm.izah_check(row["c"]) and not xm.forbidden_topic(row["c"]):
-            print(f"Qısa video: {pid} izahsız — {xm.izah_check(row.pop('c'))}")   # biçim xətası: video qalır, izah düşür
+            print(f"Qısa video: {pid} izahsız — {xm.izah_check(row.pop('c'))}")   # biçim xətası: video qalır, izah düşür (izah məcburi deyil)
         why = xm.reel_check(row)   # izahda Azərbaycan/Ermənistan mövzusu varsa video düşür
         if why:
             print(f"Qısa video rədd: {pid} — {why}")
         else:
             new_reels.append(row)
-            print(f"Qısa video: {pid} @{c['handle']}")
+            print(f"Qısa video: {pid} @{c['handle']} — {c['_views']} baxış")
     for row, why in rejected:
         print(f"Rədd: {row['id']} — {why}")
     for row, _ in added:

@@ -189,12 +189,28 @@ class TablesTest(unittest.TestCase):
 
 
 
+CAP = "Usta plastik borulardan rəf düzəldir"
+
+
+def media(when, n=0):
+    """X videosunun ünvanı: media nömrəsi «when» vaxtında yüklənmiş kimi (snowflake)."""
+    mid = ((int(when.timestamp() * 1000) - 1288834974657) << 22) + n
+    return f"https://video.twimg.com/amplify_video/{mid}/vid/avc1/720x1280/F4uJ5K30z0ONv8ck.mp4?tag=29"
+
+
 def reel(**kw):
     base = {"id": "2123096874748186946", "handle": "TamirveTadilat", "post": "https://x.com/TamirveTadilat/status/2123096874748186946",
             "video": VIDEO, "poster": POSTER, "w": 720, "h": 1280, "at": "2026-11-19T08:00:00+00:00",
-            "src": ["Pvc borulardan yapabilecekleriniz sınırlı değildir."]}
+            "src": ["Pvc borulardan yapabilecekleriniz sınırlı değildir."], "c": CAP}
     base.update(kw)
     return base
+
+
+def event(n, when, **kw):
+    """Hadisə videosu (FoxNews): n — paylaşımın sıra nömrəsi, when — paylaşımın və videonun vaxtı."""
+    pid = str(2123096874748186000 + n)
+    return reel(id=pid, handle="FoxNews", post=f"https://x.com/FoxNews/status/{pid}", video=media(when, n), at=when.isoformat(),
+                src=["Storm hits the coast, thousands without power."], c="Sahilə güclü fırtına çatıb, minlərlə ev işıqsız qalıb", **kw)
 
 
 class ReelsTest(unittest.TestCase):
@@ -222,14 +238,16 @@ class ReelsTest(unittest.TestCase):
         rows = [reel(), reel(id="2123096874748186947", post="https://x.com/TamirveTadilat/status/2123096874748186947", at="2026-11-19T09:00:00+00:00"),
                 reel(id="2123096874748186948", post="https://x.com/TamirveTadilat/status/2123096874748186948", at="2026-11-10T09:00:00+00:00"),
                 reel(id="2123096874748186949", post="https://x.com/TamirveTadilat/status/2123096874748186949", src=["Karabağ maçı"]), reel()]
+        rows[1]["video"] = VIDEO.replace("2113713055204831233", "2113713055204831234")   # başqa video: açar media nömrəsidir
         out = xm.reels(self.NOW, path=self.write(rows))
         self.assertEqual([r["id"] for r in out], ["2123096874748186947", "2123096874748186946"], "köhnə, Azərbaycan mövzulu və təkrar düşür")
-        self.assertEqual(set(out[0]), {"id", "a", "n", "m", "u", "i", "w", "h", "t", "q"}, "mətn (src) sayta çıxmır; m: mövzu, q: sinif")
+        self.assertEqual(set(out[0]), {"id", "a", "n", "m", "u", "i", "w", "h", "t", "q", "c"}, "mətn (src) sayta çıxmır; m: mövzu, q: sinif, c: izah")
         self.assertEqual(out[0]["n"], "Tamir & Tadilat")
 
     def test_first_degree_sources_are_marked_in_the_reels(self):
         """Sahib 2026-11-20: birinci dərəcəli maraqlı hadisə mənbələri lentdə «p» ilə (lent.js hər mövzuda əvvəl göstərir)."""
-        row = reel(id="2123096874748186950", handle="TheFigen_", post="https://x.com/TheFigen_/status/2123096874748186950", src=["Silky smooth turn."])
+        row = reel(id="2123096874748186950", handle="TheFigen_", post="https://x.com/TheFigen_/status/2123096874748186950", src=["Silky smooth turn."],
+                   video=media(self.NOW - datetime.timedelta(hours=3)), c="Sürücü dar döngəni maşınla hamar keçir")
         out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([reel(), row]))}
         self.assertEqual(out["2123096874748186950"].get("p"), 1)
         self.assertNotIn("p", out["2123096874748186946"])
@@ -238,12 +256,12 @@ class ReelsTest(unittest.TestCase):
         """Sahib 2026-11-22: 60% hadisə, 40% usta işi; «mənası başa düşülməyən videolar olmasın» — qısa izah."""
         cap = reel(id="2123096874748186951", post="https://x.com/TamirveTadilat/status/2123096874748186951", sinif="u",
                    c="Usta qırılmış plastik borunu lehimlə bərpa edir")
-        old = reel(id="2123096874748186952", post="https://x.com/TamirveTadilat/status/2123096874748186952")
+        old = reel(id="2123096874748186952", post="https://x.com/TamirveTadilat/status/2123096874748186952",
+                   video=media(self.NOW - datetime.timedelta(days=40)))
         out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([cap, old]))}
         self.assertEqual(out["2123096874748186951"]["c"], "Usta qırılmış plastik borunu lehimlə bərpa edir")
         self.assertEqual(out["2123096874748186951"]["q"], "u")
-        self.assertEqual(out["2123096874748186952"]["q"], "u", "sinifsiz köhnə sətir: hesabın əsas sinfi")
-        self.assertNotIn("c", out["2123096874748186952"])
+        self.assertEqual(out["2123096874748186952"]["q"], "u", "sinifsiz köhnə sətir: hesabın əsas sinfi; usta işinin videosu köhnə ola bilər")
         self.assertNotIn("src", out["2123096874748186951"], "paylaşımın mətni sayta çıxmır")
         bad = {"Azərbaycan izahda": reel(c="Bakıda çəkilmiş maraqlı görüntülər"),
                "Ermənistan izahda": reel(c="Yerevanda keçirilən paraddan görüntülər"),
@@ -254,14 +272,114 @@ class ReelsTest(unittest.TestCase):
             self.assertIsNotNone(xm.reel_check(row), name)
         self.assertIsNone(xm.reel_check(reel(sinif="h", c="Yeni elektromobil ilk dəfə yolda sınaqdan keçirilir")))
 
-    def test_news_videos_without_a_caption_stay_off_the_site(self):
-        """Sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın» — xəbər videosu izahsız lentə çıxmır."""
-        bare = reel(id="2123096874748186953", handle="FoxNews", post="https://x.com/FoxNews/status/2123096874748186953",
-                    src=["Storm hits the coast, thousands without power."])
-        told = reel(id="2123096874748186954", handle="FoxNews", post="https://x.com/FoxNews/status/2123096874748186954",
-                    src=["Storm hits the coast, thousands without power."], c="Sahilə güclü fırtına çatıb, minlərlə ev işıqsız qalıb")
-        ids = [r["id"] for r in xm.reels(self.NOW, path=self.write([bare, told]))]
-        self.assertEqual(ids, ["2123096874748186954"])
+    def test_news_videos_go_without_a_caption_when_none_was_written(self):
+        """Sahib 2026-11-23: «İzah olmasa belə … siyasət arxa qapı videoları maraqlı hadisə videoları yoxdur. Alınmırsa izah lazım deyil.»"""
+        fresh = self.NOW - datetime.timedelta(hours=2)
+        bare = event(53, fresh)
+        bare.pop("c")
+        out = xm.reels(self.NOW, path=self.write([bare, event(54, fresh)]))
+        self.assertEqual(sorted(r["id"] for r in out), ["2123096874748186053", "2123096874748186054"])
+        self.assertNotIn("c", next(r for r in out if r["id"] == "2123096874748186053"))
+
+    def test_the_most_watched_reach_the_site_with_their_count_empty_ones_do_not(self):
+        """Sahib 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun. boş boş videolardır indi əksəriyyəti»."""
+        when = self.NOW - datetime.timedelta(hours=1)
+        later = (when + datetime.timedelta(minutes=30)).isoformat()
+        hot, empty, unknown = event(91, when, v=1500000, l=40000, rp=9000, vt=later), event(92, when, v=9000), event(93, when)
+        young = event(95, when, v=9000, vt=later)
+        out = {r["id"]: r for r in xm.reels(self.NOW, path=self.write([hot, empty, unknown, young]))}
+        self.assertEqual(out["2123096874748186091"]["v"], 1500000, "baxış sayı sayta çıxır (lent.js sıralayır)")
+        self.assertNotIn("2123096874748186092", out, "sayı vaxtı bilinmir, köhnə sayılır: 9 min «boş»dur")
+        self.assertIn("2123096874748186095", out, "yarım saatlıq videonun 9 mini həddi keçir: baxış yaşla artır")
+        self.assertNotIn("v", out["2123096874748186093"], "sayı hələ bilinməyən köhnə sətir qalır, lent onu sona qoyur")
+        self.assertGreater(xm.popularity({"v": 100, "l": 10, "rp": 1}), xm.popularity({"v": 300}), "bəyənən və paylaşan baxandan ağırdır")
+        for k, bad in (("v", -1), ("l", "çox"), ("rp", True), ("vt", "dünən")):
+            self.assertIsNotNone(xm.reel_check(reel(**{k: bad})), k)
+        steps = [n for _, n in xm.REEL_MIN_VIEWS["h"]]
+        self.assertEqual(steps, sorted(steps), "hədd yaşla artır")
+        self.assertGreaterEqual(steps[-1], 30000, "12 saatdan sonra hadisə videolarının yuxarı yarısı (median ~45 min)")
+        self.assertEqual(xm.min_views({"handle": "FoxNews", "at": "2026-11-19T00:00:00+00:00", "vt": "2026-11-19T05:00:00+00:00"}), 15000)
+        craft = reel(id="2123096874748186094", post="https://x.com/TamirveTadilat/status/2123096874748186094", at=when.isoformat(), v=6700)
+        self.assertEqual([r["id"] for r in xm.reels(self.NOW, path=self.write([craft]))], ["2123096874748186094"],
+                         "usta işi az baxılır (TamirveTadilat median 6,7 min): onun həddi aşağıdır")
+        self.assertTrue(xm.empty({"handle": "TamirveTadilat", "v": 2000}))
+
+    def test_rules_without_gemini_safety_and_craft_from_the_text(self):
+        for t in ("Big win at Roobet casino tonight", "WARNING: graphic content", "Canlı bahis için tıkla", "OnlyFans link in bio",
+                  "HASSAS: Kavgada bıçaklanan genç", "Rainbet code DAILY", "Çocuğa istismar şüphelisi tutuklandı"):
+            self.assertTrue(xm.unsafe_text(t), t)
+        for t in ("Drone strike hits a tank near the front line", "Macron and Trump share an awkward handshake", "Rescuers pull a dog from the flood"):
+            self.assertFalse(xm.unsafe_text(t), t)
+        for t in ("How it's made: copper pots", "Restoring a rusty 1950s lathe", "Ahşap masa yapımı", "Fabrikada cam üretimi"):
+            self.assertTrue(xm.usta_text(t), t)
+        self.assertFalse(xm.usta_text("Fans celebrate the late winner"))
+
+    def test_a_retired_account_never_reaches_the_feed(self):
+        """2026-11-23: CrazyClips_ öz videolarında kazino reklamı verirdi. Növbədə qalan sətirləri lentə çıxmır."""
+        when = self.NOW - datetime.timedelta(hours=1)
+        row = reel(id="2123096874748186980", handle="CrazyClips_", post="https://x.com/CrazyClips_/status/2123096874748186980",
+                   video=media(when, 80), at=when.isoformat(), c="Gözlənilməz və maraqlı an")
+        self.assertIsNone(xm.reel_check(row))
+        self.assertEqual(xm.reels(self.NOW, path=self.write([row])), [])
+        self.assertIn("CrazyClips_", xm.CIXAN)
+
+    def test_an_old_clip_reposted_today_is_not_a_fresh_event(self):
+        """Sahib 2026-11-22: «həm yeni, həm maraqlı hadisələr». X media nömrəsi videonun yüklənmə vaxtıdır: 2026-11-23 lentində
+        videoların 9%-i illər əvvəlki klipin təzə paylaşımı idi (wonderofscience, 2022-07-13). Usta işinə bu hədd yoxdur."""
+        now, today = self.NOW, (self.NOW - datetime.timedelta(hours=1)).isoformat()
+        self.assertEqual(xm.video_at(media(now - datetime.timedelta(days=2))).date(), (now - datetime.timedelta(days=2)).date())
+        old_event = event(61, now - datetime.timedelta(hours=1))
+        old_event["video"] = media(now - datetime.timedelta(days=xm.REEL_VIDEO_DAYS, hours=1), 61)
+        new_event = event(62, now - datetime.timedelta(hours=1))
+        old_craft = reel(id="2123096874748186063", post="https://x.com/TamirveTadilat/status/2123096874748186063", at=today,
+                         video=media(now - datetime.timedelta(days=400), 63))
+        ids = [r["id"] for r in xm.reels(now, path=self.write([old_event, new_event, old_craft]))]
+        self.assertEqual(sorted(ids), ["2123096874748186062", "2123096874748186063"])
+        self.assertGreaterEqual(xm.REEL_VIDEO_DAYS, 1)
+        self.assertLessEqual(xm.REEL_VIDEO_DAYS, xm.REELS_DAYS)
+
+    def test_the_same_video_in_two_posts_or_sizes_is_one_video(self):
+        """2026-11-23: lentdə 32 video iki dəfə idi (eyni media başqa paylaşımda). Açar media nömrəsidir (lent.js vkey ilə eyni)."""
+        when = self.NOW - datetime.timedelta(hours=2)
+        a, b = event(71, when), event(72, when + datetime.timedelta(minutes=5))
+        b["video"] = a["video"].replace("720x1280", "480x852").replace("?tag=29", "?tag=12")
+        self.assertEqual(xm.video_key(a["video"]), xm.video_key(b["video"]))
+        self.assertEqual([r["id"] for r in xm.reels(self.NOW, path=self.write([a, b]))], ["2123096874748186072"], "ən təzə paylaşım qalır")
+        self.assertEqual(xm.video_key("https://video.twimg.com/a/vid/1.mp4?tag=1"), "https://video.twimg.com/a/vid/1.mp4")
+
+    def test_craft_is_forty_percent_of_the_feed_when_there_is_enough(self):
+        """Sahib 2026-11-22: 60% hadisə, 40% usta işi. 2026-11-23: lentin 1000 videosunun 109-u (11%) usta işi idi — fayl ən təzə 1000
+        videonu götürürdü, usta işi isə az gəlir. İndi usta işi bütün həftədən, hadisə ən təzəsindən."""
+        now = self.NOW
+        events = [event(i, now - datetime.timedelta(minutes=i)) for i in range(1, 1301)]
+        crafts = [reel(id=str(2123096874748190000 + i), post=f"https://x.com/TamirveTadilat/status/{2123096874748190000 + i}",
+                       at=(now - datetime.timedelta(hours=12 + i)).isoformat(), video=media(now - datetime.timedelta(days=30), 9000 + i)) for i in range(150)]
+        out = xm.reels(now, path=self.write(events + crafts))
+        self.assertEqual(len(out), xm.REELS_MAX)
+        self.assertEqual(sum(r["q"] == "u" for r in out), 150, "az olan usta işinin hamısı qalır, 2 gündən köhnə olsa da")
+        many = crafts + [reel(id=str(2123096874748195000 + i), post=f"https://x.com/TamirveTadilat/status/{2123096874748195000 + i}",
+                              at=(now - datetime.timedelta(hours=1, minutes=i)).isoformat(), video=media(now, 20000 + i)) for i in range(600)]
+        out = xm.reels(now, path=self.write(events + many))
+        self.assertEqual(sum(r["q"] == "u" for r in out), round(xm.REELS_MAX * xm.USTA_PAY), "çox olanda 40%")
+        self.assertEqual([r["t"] for r in out], sorted((r["t"] for r in out), reverse=True), "ən yenisi əvvəl")
+        self.assertEqual(len(xm.reels(now, path=self.write(crafts))), 150, "hadisə yoxdursa usta işi tək qalır")
+
+    def test_the_queue_keeps_craft_for_the_whole_week(self):
+        """x_yazici növbə faylını keep_reels ilə kəsir: əvvəl son 1000 sətir qalırdı və usta işi 2 günə silinirdi."""
+        now = self.NOW
+        events = [event(i, now - datetime.timedelta(minutes=i)) for i in range(1, 1501)]
+        craft = reel(id="2123096874748199999", post="https://x.com/TamirveTadilat/status/2123096874748199999",
+                     at=(now - datetime.timedelta(days=6)).isoformat())
+        bare = event(1501, now)
+        bare.pop("c")
+        old = event(1502, now - datetime.timedelta(days=xm.REELS_DAYS, hours=1))
+        kept = xm.keep_reels([craft, old, bare] + events, now)
+        self.assertIn(craft, kept, "6 günlük usta işi qalır")
+        self.assertIn(bare, kept, "izahsız sətir də qalır (sahib 2026-11-23: «Alınmırsa izah lazım deyil»)")
+        self.assertNotIn(old, kept)
+        self.assertEqual(len(kept), xm.REELS_KEEP)
+        self.assertEqual(kept[:2], [craft, bare], "sıra qorunur")
+        self.assertEqual(kept[2:], events[:xm.REELS_KEEP - 2], "ən köhnə hadisələr düşür")
 
     def test_updater_writes_reels_through_the_policy_gate(self):
         import updater

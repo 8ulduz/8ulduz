@@ -174,3 +174,132 @@ test('Videolent: events and craft videos come 3:2 — 60% / 40% (owner 2026-11-2
   assert.ok(src.includes('q: r.q === "u" ? "u" : "h"') && src.includes('${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}'), 'izah hesabın adının altında');
   assert.ok(src.includes('data-title="${esc(v.title || v.c || v.n)}"'), 'paylaşımda da izah');
 });
+
+// Sahib 2026-11-23: «videolent tapşırığım düzgün və tam icra olunmayıb. 3 dəfə açmışam hər dəfə öncə baxdığım video çıxıb.
+// hadisə və xəbər xarakterli videolarla bağlı da vəziyyət düzgün deyil.»
+const store = (fail = false) => {
+  const m = new Map();
+  const ls = { getItem: k => (fail ? null : m.get(k) ?? null), setItem: (k, v) => { if (fail) throw new Error('QuotaExceededError'); m.set(k, String(v)); }, removeItem: k => m.delete(k), m };
+  Object.defineProperty(globalThis, 'localStorage', { value: ls, configurable: true, writable: true });
+  return ls;
+};
+const HOUR = 3600e3, NOW = Date.parse('2026-11-23T15:00:00Z');
+const mp4 = (id, size = '480x852', tag = 29) => `https://video.twimg.com/amplify_video/${id}/vid/avc1/${size}/a${id % 97n}.mp4?tag=${tag}`;
+function feed() {   // reels.json kimi: 4 xəbər, 10 başqa hadisə (5 mövzu), 6 usta işi; hər biri başqa yaşda
+  const rows = [], add = (i, m, q, a, hours, p) => rows.push({ id: String(2124800000000000000n + BigInt(i)), a, n: a, m, q, u: mp4(2124000000000000000n + BigInt(i)),
+    i: '', w: 720, h: 1280, t: new Date(NOW - hours * HOUR).toISOString(), c: `İzah ${i}`, ...(p ? { p: 1 } : {}) });
+  for (let i = 0; i < 4; i++) add(i, 'xeber', 'h', `X${i}`, 1 + i * 3);
+  for (let i = 0; i < 10; i++) add(10 + i, ['idman', 'tebiet', 'elm', 'kino', 'texnika'][i % 5], 'h', `H${i}`, 2 + i);
+  for (let i = 0; i < 6; i++) add(30 + i, ['yemek', 'texnika', 'elm'][i % 3], 'u', `U${i}`, 5 + i * 10);
+  return rows;
+}
+
+test('Videolent: three opens in a row never start with a video already watched, even when it comes back under another address (owner 2026-11-23)', async () => {
+  const { list, first, markSeen, seenOrder, vkey } = await import(pathToFileURL(file).href);
+  store();
+  const reels = feed(), firsts = [];
+  for (let open = 0; open < 3; open++) {
+    const items = first(list({}, reels), '');
+    assert.ok(!seenOrder().includes(vkey(items[0].u)), `açılış ${open + 1}: birinci video əvvəl izlənməyib`);
+    firsts.push(items[0].k);
+    markSeen(items[0].u); markSeen(items[1].u);   // oxucu 1–2 videoya baxıb bağlayır
+  }
+  assert.equal(new Set(firsts).size, 3, 'hər açılış başqa videodan başlayır');
+  // eyni video başqa ölçüdə, başqa ?tag= ilə və ya başqa paylaşımda: yenə izlənmiş sayılır
+  const watched = reels.find(r => vkey(r.u) === seenOrder()[0]);
+  const again = { ...watched, id: '2124899999999999999', u: watched.u.replace('480x852', '720x1280').replace('tag=29', 'tag=12') };
+  const items = list({}, [...reels, again]);
+  assert.equal(items.filter(v => v.key === vkey(again.u)).length, 1, 'eyni video lentdə bir dəfə');
+  assert.ok(items.findIndex(v => v.key === vkey(again.u)) >= items.length - seenOrder().length, 'başqa ünvanla gələn izlənmiş video sona keçir');
+  // köhnə yaddaş (2026-11-23-ə qədər ünvan saxlanırdı) da oxunur
+  const ls = store();
+  ls.setItem('8u-reels-seen', JSON.stringify(reels.slice(0, 5).map(r => r.u)));
+  assert.ok(!reels.slice(0, 5).some(r => vkey(r.u) === list({}, reels)[0].key), 'köhnə yaddaşdakı ünvanlar da izlənmiş sayılır');
+});
+
+test('Videolent: when every video has been watched the longest-ago one comes back first, never the last one (owner 2026-11-20, 2026-11-23)', async () => {
+  const { list, markSeen, vkey } = await import(pathToFileURL(file).href);
+  store();
+  const reels = feed();
+  for (const r of reels) markSeen(r.u);   // hamısına baxılıb: ən çoxdan baxılan reels[0]
+  markSeen(reels[0].u);                   // reels[0]-a ən son yenidən baxılıb
+  const items = list({}, reels);
+  assert.equal(items[0].key, vkey(reels[1].u), 'ən çoxdan baxılan birinci');
+  assert.equal(items.at(-1).key, vkey(reels[0].u), 'ən son baxılan ən sonda');
+});
+
+test('Videolent: a shared link to an already watched video does not put it first — it waits one swipe away (owner 2026-11-23)', async () => {
+  const { list, first, markSeen } = await import(pathToFileURL(file).href);
+  store();
+  const reels = feed(), shared = reels[7];
+  assert.equal(first(list({}, reels), shared.id)[0].k, shared.id, 'izlənməmiş paylaşılan video birinci');
+  markSeen(shared.u);
+  const items = first(list({}, reels), shared.id);
+  assert.notEqual(items[0].k, shared.id, 'izlənmiş video birinci deyil');
+  assert.equal(items[1].k, shared.id, 'bir sürüşdürmə uzaqda');
+});
+
+test('Videolent: if the phone does not keep storage (private mode, in-app browser), the same page still remembers what was watched', async () => {
+  const { list, markSeen, seenOrder, vkey } = await import(pathToFileURL(file).href);
+  store(true);
+  const reels = feed(), a = list({}, reels)[0];
+  markSeen(a.u);
+  assert.deepEqual(seenOrder(), [vkey(a.u)], 'yaddaş yazılmasa da səhifədə qalır');
+  assert.notEqual(list({}, reels)[0].key, a.key, 'yenidən açılışda başqa video');
+  store();
+  markSeen(reels[5].u);   // yaddaş yenə işləyir: səhifədəki siyahı ora yazılır
+  assert.deepEqual(JSON.parse(localStorage.getItem('8u-reels-seen')), [vkey(a.u), vkey(reels[5].u)]);
+});
+
+test('Videolent: the feed opens with the freshest news moment, keeps 60/40 and freshness beats a first-degree source by more than 6 hours (owner 2026-11-22, 2026-11-23)', async () => {
+  const { list, mix } = await import(pathToFileURL(file).href);
+  store();
+  for (let k = 0; k < 20; k++) {
+    const items = list({}, feed());
+    assert.equal(items[0].m, 'xeber', 'lent xəbər anı ilə açılır');
+    assert.equal(items[0].n, 'X0', 'ən təzə xəbər');
+    assert.deepEqual(items.slice(0, 5).map(v => v.q), ['h', 'h', 'u', 'h', 'u'], 'h h u h u: 60% / 40%');
+    for (const m of ['idman', 'tebiet', 'elm', 'kino', 'texnika']) {
+      const t = items.filter(v => v.m === m && v.q === 'h').map(v => Date.parse(v.t));
+      assert.deepEqual(t, [...t].sort((a, b) => b - a), `${m}: ən təzəsi əvvəl`);
+    }
+  }
+  const t = h => new Date(NOW - h * HOUR).toISOString();
+  const lane = [{ u: 'old-p', n: 'P', m: 'maraqli', p: true, t: t(30) }, { u: 'fresh', n: 'A', m: 'maraqli', t: t(1) },
+    { u: 'p2', n: 'Q', m: 'tebiet', p: true, t: t(4) }, { u: 'n3', n: 'B', m: 'tebiet', t: t(3) }];
+  const out = mix(lane).map(v => v.u);
+  assert.ok(out.indexOf('fresh') < out.indexOf('old-p'), '30 saatlıq birinci dərəcəli video 1 saatlıq videonun önünə keçmir');
+  assert.ok(out.indexOf('p2') < out.indexOf('n3'), 'yaşı yaxındırsa birinci dərəcəli mənbə önədir');
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('const AGE_PER_DECADE = 12 * 3600e3, P_BONUS = 0.5, OWN_V = 1e5, LEAD = "xeber", SPREAD = 3;'));
+  assert.ok(!src.includes('(b.p ? 1 : 0) - (a.p ? 1 : 0)'), 'birinci dərəcəli mənbə yaşına baxmadan önə keçmir');
+});
+
+test('Videolent: the most watched come first, empty low-view clips sink, unknown counts go last (owner 2026-11-23: «20-80 yaş arası ən çox baxılan videolar olsun»)', async () => {
+  const { list, mix } = await import(pathToFileURL(file).href);
+  store();
+  const t = h => new Date(Date.now() - h * HOUR).toISOString();
+  const lane = [{ u: 'az', n: 'A', m: 'idman', t: t(1), v: 3000 }, { u: 'cox', n: 'B', m: 'idman', t: t(5), v: 900000 },
+    { u: 'kohne-cox', n: 'C', m: 'idman', t: t(40), v: 2000000 }, { u: 'bilinmir', n: 'D', m: 'idman', t: t(0.5) }];
+  assert.deepEqual(mix(lane).map(v => v.u), ['cox', 'az', 'kohne-cox', 'bilinmir'],
+    '5 saatlıq 900 min baxış 1 saatlıq 3 mindən önə; 40 saatlıq 2 milyon təzələrin arxasında; sayı bilinməyən sonda');
+  const reels = feed().map((r, i) => ({ ...r, v: r.m === 'xeber' ? 1000 * (i + 1) : 50000 }));
+  reels.find(r => r.n === 'X2').v = 5e6;
+  assert.equal(list({}, reels)[0].n, 'X2', 'xəbərlərin ən çox baxılanı lenti açır');
+  assert.equal(list({ data: { articles: [] } }, [{ ...reels[0], v: 'çox' }])[0].v, -1, 'rəqəm olmayan say bilinmir sayılır');
+});
+
+test('Videolent: a topic head with few views does not jump the queue — most watched first, a topic never three times in a row (owner 2026-11-19, 2026-11-23)', async () => {
+  const { mix } = await import(pathToFileURL(file).href);
+  const t = new Date().toISOString(), list = [];
+  for (let i = 0; i < 12; i++) list.push({ u: 'f' + i, n: 'club' + i, m: 'idman', t, v: 900000 - i * 1000 });
+  for (let i = 0; i < 4; i++) list.push({ u: 'x' + i, n: 'news' + i, m: 'xeber', t, v: 500000 });
+  list.push({ u: 'bos', n: 'brand', m: 'yemek', t, v: 6000 }, { u: 'elm', n: 'sci', m: 'elm', t, v: 300000 });
+  const out = mix(list).map(v => v.u);
+  assert.equal(out[0], 'x0', 'xəbər anı birinci');
+  assert.ok(out.indexOf('bos') > out.indexOf('elm'), '6 min baxışlı mövzu başı 300 minlikdən sonra gəlir');
+  const ms = mix(list).map(v => v.m);
+  assert.ok(!ms.some((m, i) => i && m === 'idman' && ms[i - 1] === 'idman' && ms.slice(i + 1).some(x => x !== 'idman')),
+    'başqa mövzu qaldıqca futbol ardıcıl gəlmir');
+  assert.deepEqual(ms.slice(0, 4), ['xeber', 'idman', 'elm', 'yemek'], 'ilk 4 videoda 4 mövzu');
+});

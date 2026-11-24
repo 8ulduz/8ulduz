@@ -270,21 +270,23 @@ VIDEOLENT_QRUPLAR = {
         "verge": "verge", "Vespa": "Vespa", "VirginGalactic": "VirginGalactic",
         "vivo_global": "vivo_global", "Volvo": "Volvo", "VW": "VW",
         "WIRED": "WIRED", "Xiaomi": "Xiaomi", "XPengMotors": "XPengMotors",
+        # usta işi (FxTwitter, 2026-11-23: 72 saatda 21–25 video): zavod istehsalı, bərpa, mühəndislik
+        "Brand_Anuj": "Global Brand", "muhendisIiktr": "Mühendislik Harikası",
     },
     "yemek": {   # Yemək, səyahət, ev (89)
-        "5MinuteCrafts": "5MinuteCrafts", "Airbnb": "Airbnb", "Allrecipes": "Allrecipes",
+        "pratikdunya": "Pratik Dünya", "Airbnb": "Airbnb", "Allrecipes": "Allrecipes",
         "archdaily": "archdaily", "ArchDigest": "ArchDigest", "Australia": "Australia",
         "BBCFood": "BBCFood", "BBCGoodFood": "BBCGoodFood", "BettyCrocker": "BettyCrocker",
         "BHG": "BHG", "bonappetit": "bonappetit", "BonAppetitMag": "BonAppetitMag",
         "bookingcom": "bookingcom", "BrightSide": "BrightSide", "BuzzFeedTasty": "BuzzFeedTasty",
         "CNTraveler": "Condé Nast Traveler", "CookingLight": "CookingLight", "Delish": "Delish",
-        "designboom": "designboom", "dezeen": "dezeen", "DIYcrafts": "DIYcrafts",
+        "designboom": "designboom", "dezeen": "dezeen",
         "easyJet": "easyJet", "Eater": "Eater", "epicurious": "epicurious",
         "Expedia": "Expedia", "feelgoodfoodie": "Yumna Jawad Feel Good Foodie", "Food52": "Food52",
         "foodandwine": "foodandwine", "FoodBeast": "FoodBeast", "foodnetwork": "foodnetwork",
         "FoodNetworkUK": "FoodNetworkUK", "Food_Network": "Food_Network", "GBBO": "GBBO",
         "GermanyTourism": "GermanyTourism", "GordonRamsay": "Gordon Ramsay", "GoTurkiye": "Go Türkiye",
-        "HGTV": "HGTV", "Homestead": "Homestead", "IKEAUSA": "IKEAUSA",
+        "HGTV": "HGTV", "IKEAUSA": "IKEAUSA",
         "insiderfood": "insiderfood", "instructables": "instructables", "jamieoliver": "jamieoliver",
         "LonelyPlanet": "LonelyPlanet", "MarthaBakes": "MarthaBakes", "MarthaStewart": "MarthaStewart",
         "MasterChefAU": "MasterChefAU", "MasterChefUK": "MasterChefUK", "michelinguide": "michelinguide",
@@ -296,12 +298,12 @@ VIDEOLENT_QRUPLAR = {
         "TastyRecetas": "TastyRecetas", "TastyUK": "TastyUK", "Tasty_UK": "Tasty_UK",
         "thekitchn": "thekitchn", "ThisOldHouse": "ThisOldHouse", "tourismnz": "tourismnz",
         "TravelChannel": "TravelChannel", "TravelLeisure": "Travel + Leisure", "Tripadvisor": "Tripadvisor",
-        "TroomTroom": "TroomTroom", "VisitBritain": "VisitBritain", "VisitCalifornia": "VisitCalifornia",
+        "VisitBritain": "VisitBritain", "VisitCalifornia": "VisitCalifornia",
         "visitdubai": "visitdubai", "VisitFinland": "VisitFinland", "visitgreecegr": "visitgreecegr",
         "VisitIceland_": "VisitIceland_", "visitlondon": "visitlondon", "VisitMaldives": "VisitMaldives",
         "VisitNorway": "VisitNorway", "visitscotland": "visitscotland", "VisitSpain": "VisitSpain",
         "VisitTheUSA": "VisitTheUSA", "VisitTurkiye": "VisitTurkiye", "Visit_Japan": "Visit_Japan",
-        "Visit_Thailand": "Visit_Thailand", "Woodworking": "Woodworking",
+        "Visit_Thailand": "Visit_Thailand",
     },
     "oyun": {   # Oyun və e-idman (93)
         "100Thieves": "100Thieves", "2K": "2K", "VidsThatGoHard": "vids that go hard", "Activision": "Activision",
@@ -390,7 +392,7 @@ VIDEOLENT_QRUPLAR = {
     },
     "maraqli": {   # Maraqlı və gülməli (42)
         "9GAG": "9GAG", "AFV": "JH", "AFVofficial": "AFVofficial",
-        "AFV_Official": "AFV_Official", "boredpanda": "boredpanda", "CrazyClips_": "Crazy Clips", "TheFigen_": "The Figen",
+        "AFV_Official": "AFV_Official", "boredpanda": "boredpanda", "TheFigen_": "The Figen",
         "DudePerfect": "DudePerfect", "FailArmy": "FailArmy", "Fascinatingpics": "Fascinatingpics",
         "FreeRunning": "FreeRunning", "FunnyOrDie": "FunnyOrDie", "GWR": "GWR",
         "HumansNoContext": "HumansNoContext", "InternetH0F": "internet hall of fame", "Jukinmedia": "Jukinmedia",
@@ -410,6 +412,14 @@ VIDEOLENT_QRUPLAR = {
         "CBSNews": "CBS News", "CollinRugg": "Collin Rugg", "disclosetv": "Disclose.tv",
         "EmmanuelMacron": "Emmanuel Macron", "FoxNews": "Fox News", "MarioNawfal": "Mario Nawfal",
         "SkyNews": "Sky News",
+        # Sahib 2026-11-23: «siyasət arxa qapı videoları maraqlı hadisə videoları yoxdur … ən çox baxılan videolar olsun». FxTwitter,
+        # 2026-11-23 17:35–18:15 UTC, 72 saat, öz videoları: median baxış ≥ 50 min, ≥ 5 video. Hadisə anı: Pusholder 175 min, BPT 157 min
+        # (Türkiyə); müharibə kadrı, ağır kadr görünmədi: OSINTdefender 153 min, OSINTtechnical 240 min; siyasətin pərdəarxası:
+        # Zelenskiy 237 min, Aaron Rupar 91 min, Acyn 59 min, BBC Politics 56 min, Visegrád 24 53 min, Ağ Ev 170 min. Çıxarılan:
+        # DailyLoud (öz videolarında Rainbet mərc reklamı), Megatron_ron, dom_lucre, WallStreetApes (təbliğat, icma qeydi, nifrət).
+        "pusholder": "Pusholder", "bpthaber": "BPT", "sentdefender": "OSINTdefender", "OSINTtechnical": "OSINTtechnical",
+        "ZelenskyyUa": "Volodymyr Zelenskyy", "atrupar": "Aaron Rupar", "Acyn": "Acyn", "BBCPolitics": "BBC Politics",
+        "visegrad24": "Visegrád 24", "WhiteHouse": "The White House",
     },
     "idman": {   # İdman (264)
         "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "ufc": "UFC", "ringmagazine": "Ring Magazine", "acmilan": "AC Milan",
@@ -503,7 +513,11 @@ VIDEOLENT_QRUPLAR = {
     },
 }
 VIDEOLENT_HESABLAR = {h: ad for q in VIDEOLENT_QRUPLAR.values() for h, ad in q.items()}
-ADLAR = {**HESABLAR, **VIDEOLENT_HESABLAR}
+# Çıxarılmış Videolent hesabları: yeni videosu götürülmür, növbədə qalan sətirləri lentə çıxmır (reels, keep_reels). Adı cədvəldə qalır
+# ki, növbə faylındakı köhnə sətirlər yoxlamadan keçsin; REELS_DAYS-dan sonra buradan da silmək olar.
+CIXAN = {"CrazyClips_": "Crazy Clips"}   # 2026-11-20–22: öz videolarında kazino (Roobet) reklamı — mərc və qumar qadağandır
+_CIXAN = {h.lower() for h in CIXAN}
+ADLAR = {**HESABLAR, **VIDEOLENT_HESABLAR, **CIXAN}
 _REEL_HANDLE = {h.lower(): h for h in ADLAR}
 # Xəbər hesablarının mövzusu (idman olmayanlar); qalanı idmandır.
 _XEBER_MOVZU = {"TUBITAK": "elm", "wonderofscience": "elm", "Rainmaker1973": "maraqli", "buitengebieden": "tebiet",
@@ -516,9 +530,10 @@ _MOVZU = {h: m for m, q in VIDEOLENT_QRUPLAR.items() for h in q}
 # üstünlük ver»). FxTwitter ölçüsü, 2026-11-20: son 3 gündə tez-tez video, video başına median 15–200 min baxış (heyrətamiz anlar,
 # rekordlar, ixtiralar, heyvanlar, kadr arxası). Yazıcı bu hesabları hər işdə yoxlayır (x_yazici.videolent_slice), seçimdə öz mövzusunun
 # başında durur; lent görülməmiş videolar arasında hər mövzuda onları əvvəl göstərir (reels «p»). Mövzu bölgüsü dəyişmir.
-VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "CrazyClips_", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
+VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
                   "buitengebieden", "nocontextfooty", "wonderofscience", "Yoda4ever", "NoContextHumans", "9GAG", "Rainmaker1973",
-                  "GWR", "redbull", "VidsThatGoHard", "InternetH0F", "CollinRugg", "FoxNews", "Breaking911", "ufc")
+                  "GWR", "redbull", "VidsThatGoHard", "InternetH0F", "CollinRugg", "FoxNews", "Breaking911", "ufc",
+                  "pusholder", "bpthaber", "sentdefender")   # 2026-11-23: hadisə anı, median 150–175 min baxış
 _ONDE = {h.lower() for h in VIDEOLENT_ONDE}
 
 
@@ -531,8 +546,11 @@ def onde(handle):
 # «u» — «Tamir & Tadilat» kimi bir işin necə görüldüyünü göstərən videolar, çox fərqli sahələrdə (40%). Sinfi hər video üçün Gemini
 # verir (x_yazici.pick_reels); verilməyibsə (köhnə sətir, açarsız iş) hesabın əsas sinfi: aşağıdakılar «u», qalanı «h».
 USTA_PAY = 0.4
-USTA_HESABLAR = {"TamirveTadilat", "Woodworking", "instructables", "ThisOldHouse", "DIYcrafts", "5MinuteCrafts", "TroomTroom",
-                 "Homestead", "HowThingsWork_", "engineers_feed", "HGTV"}
+# 2026-11-23 (FxTwitter, 72 saat): əvvəlki 11 hesabdan 7 gündə yalnız TamirveTadilat və HowThingsWork_ video vermişdi — DIYcrafts və
+# 5MinuteCrafts yoxdur (404), TroomTroom 2017-dən yazmır, Homestead başqasının boş hesabıdır, Woodworking reklama keçib (çıxarıldı);
+# engineers_feed, HGTV, instructables demək olar video vermir. Yeni: Brand_Anuj (25 video), pratikdunya (22), muhendisIiktr (21).
+# Bu hesablar hər işdə yoxlanır (x_yazici.videolent_slice): usta işinin mənbəyi azdır.
+USTA_HESABLAR = {"TamirveTadilat", "HowThingsWork_", "ThisOldHouse", "Brand_Anuj", "pratikdunya", "muhendisIiktr"}
 _USTA = {h.lower() for h in USTA_HESABLAR}
 
 
@@ -542,6 +560,63 @@ def sinif(row):
     if s in ("h", "u"):
         return s
     return "u" if str((row or {}).get("handle") or "").lower() in _USTA else "h"
+
+
+# Gemini-siz qaydalar (sahib 2026-11-23: «Geminidən başqa daha dayanıqlı bir yol tap pulsuz. … Alınmırsa izah lazım deyil. 20-80 yaş
+# arası ən çox baxılan videolar olsun»). Seçim X-in öz saylarına (baxış, bəyənmə, paylaşma) və bu süzgəclərə əsaslanır; Gemini
+# işləyəndə yalnız izah və sinif əlavə edir.
+# Usta işi mətndən: bir işin necə görüldüyünü deyən sözlər (ingilis, türk, rus).
+_USTA_TEXT = re.compile(r"how (?:it'?s|they'?re|it is|are) made|how to (?:make|build|fix|repair)|restor(?:e|ed|ing|ation)|\brepair(?:ing|ed)?\b|"
+                        r"\bfactory\b|manufactur|production line|craftsm|handmade|woodwork|blacksmith|welding|\bforg(?:e|ing)\b|carpent|"
+                        r"\bdiy\b|nasıl yapılır|nasıl üretilir|yapımı|üretim|restorasyon|onarım|\btamir|usta(?:lık)?\b|fabrika|el yapımı|"
+                        r"как делают|производств|реставрац|ремонт", re.I)
+# Lentə düşməyən mətn (Gemini-siz də): mərc və qumar, açıq-saçıq, ağır kadr xəbərdarlığı, edam, uşaq istismarı və zorlama. X-in
+# öz «possibly_sensitive» nişanı və icma qeydi (community note) x_yazici.candidate-də ayrıca yoxlanır, amma 2026-11-23 ölçüsündə
+# nişan 10 486 paylaşımın yalnız birində idi — ağır kadrı mətn tutur (BPT belə videoları «HASSAS» yazır).
+_UNSAFE_TEXT = re.compile(r"casino|kazino|roobet|rainbet|stake\.com|1xbet|polymarket|betting|sportsbook|\bbahis|iddaa|kumar|jackpot|"
+                          r"onlyfans|\bnsfw\b|porn|\bxxx\b|\+18\b|\b18\+|\bgraphic\b|disturbing|viewer discretion|sensitive content|"
+                          r"\bhassas\b|rahatsız edici|\bgore\b|behead|dead bod|corpse|ceset|infaz|\bexecution of\b|kafa kes|"
+                          r"child abuse|molest|\brape[ds]?\b|istismar|taciz|tecavüz|казино|ставк|порн", re.I)
+
+
+def usta_text(text):
+    """Mətn bir işin necə görüldüyündən danışırmı (Gemini-siz sinif)."""
+    return bool(_USTA_TEXT.search(str(text or "")))
+
+
+def unsafe_text(text):
+    """Mətndə lentə düşməyən mövzu (mərc, açıq-saçıq, ağır kadr) varmı."""
+    return bool(_UNSAFE_TEXT.search(str(text or "")))
+
+
+# Ən çox baxılan (sahib 2026-11-23): yaşına görə həddən az baxılan hadisə videosu «boş» sayılır və lentə düşmür. Ölçü (FxTwitter,
+# 2026-11-23, 118 hesab, 3 705 video): baxış yaşla artır — median 3 saatdan təzədə 8 min, 3–12 saatda 15 min, 12 saatdan sonra
+# ~45 min (son sayın ~90%-i). Hədd hər yaşda medianın təxminən özüdür: hadisə videolarının yuxarı yarısı. Paylaşım 24 saat
+# namizəddir (x_yazici.REEL_WINDOW) və sayı yenilənir: təzə video sonra həddi keçə bilər. Usta işi az baxılır (TamirveTadilat
+# median 6,7 min) — sahibin özü nümunə göstərdiyi videolardır, həddi aşağıdır. Lentin başına ən çox baxılanı sıralama gətirir.
+REEL_MIN_VIEWS = {"u": 3000, "h": ((3, 8000), (12, 15000), (None, 40000))}   # h: (saatadək, baxış)
+
+
+def min_views(row):
+    """Sinfin və sayın ölçüldüyü yaşın həddi (vt yoxdursa video köhnə sayılır)."""
+    if sinif(row) == "u":
+        return REEL_MIN_VIEWS["u"]
+    at, vt = _at(row.get("at")), _at(row.get("vt"))
+    hours = (vt - at).total_seconds() / 3600 if at and vt else 24
+    return next(n for limit, n in REEL_MIN_VIEWS["h"] if limit is None or hours < limit)
+
+
+def empty(row):
+    """Baxış sayı bilinir və həddən azdır: «boş» video."""
+    return "v" in row and row["v"] < min_views(row)
+
+
+_COUNT = ("v", "l", "rp")   # sətirdə: baxış, bəyənmə, paylaşma (vt — sayların vaxtı)
+
+
+def popularity(row):
+    """Populyarlıq: baxış + bəyənmə və paylaşmanın çəkisi (bəyənən və paylaşan baxandan çox maraqlanıb). Say yoxdursa 0."""
+    return int(row.get("v") or 0) + 20 * int(row.get("l") or 0) + 60 * int(row.get("rp") or 0)
 
 
 # Videonun izahı (sahib 2026-11-22: «mənası başa düşülməyən videolar olmasın»): Azərbaycan dilində bir qısa cümlə, lentdə hesabın
@@ -698,6 +773,7 @@ def rows(path=None):
 # src (orijinal mətn: yalnız Azərbaycan süzgəci üçün, sayta çıxmır).
 REELS_DAYS = 7    # sahib, 2026-11-19: «günə 100 yeni video et» — lentdə ən təzə 200 video (~2 gün), ən çox 7 günlük
 REELS_MAX = 1000  # sahib 2026-11-22: «video sayı 1000 olsun» (2026-11-20: «çox sayda olmasıdır») — gündə 300–800 gəlir, lent ~2 günü tutur
+REELS_KEEP = REELS_MAX + REELS_MAX // 5   # növbə faylı (keep_reels): sayt süzgəcindən (köhnə klip, eyni video) sonra da REELS_MAX qalsın
 
 
 def _at(value):
@@ -740,6 +816,11 @@ def reel_check(row):
         return "sinif «h» və ya «u» olmalıdır"
     if "c" in row and izah_check(row["c"]):
         return izah_check(row["c"])
+    for k in _COUNT:
+        if k in row and (type(row[k]) is not int or row[k] < 0):
+            return f"{k}: mənfi olmayan tam ədəd (X-in sayı)"
+    if "vt" in row and _at(row["vt"]) is None:
+        return "vt: sayların vaxtı (ISO, saat qurşağı ilə)"
     return None
 
 
@@ -752,23 +833,78 @@ def load_reels(path=None):
     return rows if isinstance(rows, list) else []
 
 
+_MEDIA = re.compile(r"/(?:ext_tw_video|amplify_video|tweet_video)/(\d{6,25})/")
+_TW_EPOCH_MS = 1288834974657
+# Hadisə videosunun özü ən çox bu qədər köhnə ola bilər (sahib 2026-11-22: «həm yeni, həm maraqlı hadisələr»). X media nömrəsi
+# yüklənmə vaxtını saxlayır: 2026-11-23 lentində videoların 9%-i illər əvvəlki klipin təzə paylaşımı idi (məs. 2022-07-13). Usta işi
+# vaxtdan asılı deyil, ona bu hədd yoxdur.
+REEL_VIDEO_DAYS = 3
+
+
+def video_key(url):
+    """Videonun açarı: X media nömrəsi (eyni video başqa paylaşımda, başqa ölçü və ?tag= ilə də bir açardır), yoxdursa sorğusuz ünvan.
+    lent.js vkey ilə eynidir: izlənmiş video başqa ünvanla «təzə» kimi qayıtmır."""
+    m = _MEDIA.search(str(url or ""))
+    return m.group(1) if m else str(url or "").split("?")[0]
+
+
+def video_at(url):
+    """X videosunun yüklənmə vaxtı (media nömrəsi snowflake-dir) və ya None."""
+    m = _MEDIA.search(str(url or ""))
+    if not m:
+        return None
+    return datetime.datetime.fromtimestamp(((int(m.group(1)) >> 22) + _TW_EPOCH_MS) / 1000, datetime.timezone.utc)
+
+
+def stale_event(row, now):
+    """Hadisə videosunun özü REEL_VIDEO_DAYS-dan köhnədirsə (köhnə klipin təzə paylaşımı) True."""
+    va = video_at(row.get("video"))
+    return sinif(row) == "h" and va is not None and va < now - datetime.timedelta(days=REEL_VIDEO_DAYS)
+
+
+def balance(rows, n=REELS_MAX, cls=lambda r: r["q"]):
+    """Ən çox n sətir (ən yenisi əvvəl verilir): usta işi USTA_PAY qədəri, qalanı hadisə; bir sinif çatmasa yer o birindən dolur
+    (sahib 2026-11-22: 60% hadisə, 40% usta işi). Usta işinin mənbəyi azdır: o, REELS_DAYS boyu saxlanır, hadisə isə ən təzəsi."""
+    u = [r for r in rows if cls(r) == "u"]
+    h = [r for r in rows if cls(r) != "u"]
+    keep_h = h[:n - min(len(u), round(n * USTA_PAY))]
+    keep = {id(r) for r in keep_h + u[:n - len(keep_h)]}
+    return [r for r in rows if id(r) in keep]
+
+
 def reels(now, path=None):
     """Saytın qısa video lenti: yoxlamadan keçən, son REELS_DAYS günün videoları, ən yenisi əvvəl. Paylaşımın mətni (src) çıxmır.
-    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt), q (sinif: h/u); p: 1 — birinci dərəcəli mənbə
-    (VIDEOLENT_ONDE); c — Azərbaycan dilində izah (varsa)."""
+    Sətir: id, a (hesab), n (hesabın adı), u (mp4), i (poster), w, h, t (vaxt), q (sinif: h/u); v — baxış sayı (lent.js ən çox
+    baxılanı önə qoyur); c — Azərbaycan dilində izah (varsa); p: 1 — birinci dərəcəli mənbə (VIDEOLENT_ONDE). Eyni video (media
+    nömrəsi) bir dəfə; köhnə klipin təzə paylaşımı hadisə deyil; REEL_MIN_VIEWS-dan az baxılan video yoxdur; usta işi USTA_PAY qədər."""
     floor, out, seen = now - datetime.timedelta(days=REELS_DAYS), [], set()
-    for row in load_reels(path):
-        if reel_check(row) or row["id"] in seen or _at(row["at"]) < floor or _at(row["at"]) > now + datetime.timedelta(hours=1):
+    rows = [r for r in load_reels(path) if not reel_check(r) and floor <= _at(r["at"]) <= now + datetime.timedelta(hours=1)]
+    for row in sorted(rows, key=lambda r: _at(r["at"]), reverse=True):
+        # İzah məcburi deyil (sahib 2026-11-23: «Alınmırsa izah lazım deyil»). Baxış sayı bilinən və REEL_MIN_VIEWS-dan az olan video
+        # «boş»dur; sayı hələ bilinməyən köhnə sətir qalır, lent onu ən sona qoyur (yazıcı sayları yeniləyir).
+        key = video_key(row["video"])
+        if stale_event(row, now) or empty(row) or row["id"] in seen or key in seen or row["handle"].lower() in _CIXAN:
             continue
-        seen.add(row["id"])
+        seen.update((row["id"], key))
         h = _REEL_HANDLE[row["handle"].lower()]
-        if movzu(h) == "xeber" and not row.get("c"):
-            continue   # xəbər videosu izahsız başa düşülmür (sahib 2026-11-22); Gemini düşəndə izahsız qalanlar lentə çıxmır
         out.append({"id": row["id"], "a": h, "n": ADLAR[h], "m": movzu(h), "u": row["video"], "i": row["poster"],
                     "w": row["w"], "h": row["h"], "t": _at(row["at"]).astimezone(datetime.timezone.utc).isoformat(timespec="seconds"),
-                    "q": sinif(row), **({"p": 1} if onde(h) else {}), **({"c": row["c"]} if row.get("c") else {})})
-    out.sort(key=lambda r: r["t"], reverse=True)
-    return out[:REELS_MAX]
+                    "q": sinif(row), **({"v": row["v"]} if "v" in row else {}), **({"p": 1} if onde(h) else {}),
+                    **({"c": row["c"]} if row.get("c") else {})})
+    return balance(out)
+
+
+def keep_reels(rows, now):
+    """Növbə faylında saxlanan qısa video sətirləri (x_yazici): son REELS_DAYS günün videoları, ən çox REELS_KEEP. Sıra qorunur.
+    Çox olanda əvvəl ən köhnə hadisə videoları düşür, usta işi (REELS_KEEP × USTA_PAY) bütün həftə qalır — əvvəl fayl son 1000
+    sətri saxlayırdı və usta işi 2 gündən sonra silinirdi (2026-11-23 lentində 11%). Çıxarılmış hesabın (CIXAN) sətri silinir."""
+    floor = now - datetime.timedelta(days=REELS_DAYS)
+    ok = [r for r in rows if isinstance(r, dict) and (_at(r.get("at")) or floor) > floor
+          and str(r.get("handle") or "").lower() not in _CIXAN]
+    newest = sorted(ok, key=lambda r: _at(r.get("at")), reverse=True)
+    keep = {id(r) for r in balance(newest, REELS_KEEP, sinif)}
+    return [r for r in ok if id(r) in keep]
+
 
 
 def credit(handle):
