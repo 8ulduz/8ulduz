@@ -8,7 +8,7 @@ name: Video xəbər (Facebook, Instagram)
 # yazmır; video fayl yalnız şəbəkələrə və 3 günlük artefakta gedir.
 
 on:
-  # Hər 30 dəqiqə yoxlanır; video VIDEO_MIN_GAP_MIN (120) dəqiqədən bir, Bakı vaxtı VIDEO_SAAT (8-23) saatlarında gedir.
+  # Hər 30 dəqiqə yoxlanır; video VIDEO_MIN_GAP_MIN (30) dəqiqədən bir, gündə VIDEO_GUNDE (30), Bakı vaxtı VIDEO_SAAT (8-23) saatlarında gedir.
   # Əsas tətik: xəbər axını (pipeline.sh video_loop) hər 30 dəqiqədə dispatch edir — bu cron 2026-11-22-də heç işləmədi; ehtiyatdır.
   # Vaxtı deyilsə iş ~20 saniyədə bitir (ffmpeg və səs modeli quraşdırılmır).
   schedule:

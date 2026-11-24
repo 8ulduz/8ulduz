@@ -693,8 +693,8 @@ nav.main{flex-wrap:nowrap;min-width:0}
 .src-row[hidden]{display:none!important}
 a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,input:focus-visible,[role=button]:focus-visible{outline:2px solid var(--primary);outline-offset:4px}
 @media(max-width:1100px){.search{margin-left:auto}.top2{grid-template-columns:minmax(0,2fr) minmax(250px,1fr)}}
-@media(max-width:900px){.top2{grid-template-columns:1fr}.top2 .prez{order:0}nav.main{order:3;flex:1 0 100%;justify-content:flex-start}.nav-more-pop{right:0}.hrow{gap:6px}.hero-main{height:320px}}
-@media(max-width:600px){.latest-grid{grid-template-columns:1fr}.hero-main{min-height:260px;height:280px}.search{flex-basis:160px}nav.main a{font-size:.77rem}.nav-more summary{font-size:.77rem;padding:7px 5px}.nav-more-pop{position:fixed;top:110px;left:14px;right:14px;min-width:0;max-height:65vh}.foot .games li{grid-template-columns:80px minmax(0,1fr) 42px minmax(0,1fr);gap:5px;font-size:.8rem}.foot .games time{font-size:.65rem}.pill,.loadmore,.nav-more-pop a{min-height:44px}.totop{width:44px;height:44px}}
+@media(max-width:900px){.top2{grid-template-columns:1fr}.top2 .prez{order:0}nav.main{order:3;flex:1 0 100%;justify-content:flex-start}.hrow{gap:6px}.hero-main{height:320px}}
+@media(max-width:600px){.latest-grid{grid-template-columns:1fr}.hero-main{min-height:260px;height:280px}.search{flex-basis:160px}nav.main a{font-size:.77rem}.nav-more summary{font-size:.77rem;padding:7px 5px}.foot .games li{grid-template-columns:80px minmax(0,1fr) 42px minmax(0,1fr);gap:5px;font-size:.8rem}.foot .games time{font-size:.65rem}.pill,.loadmore,.nav-more-pop a{min-height:44px}.totop{width:44px;height:44px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .hero-row,.news-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-behavior:smooth;min-width:0;align-items:flex-start;padding-bottom:4px}
 .hero-row::-webkit-scrollbar,.news-row::-webkit-scrollbar{display:none}
@@ -952,14 +952,14 @@ nav.main .nav-s{display:inline}
 .prez-lent{margin-top:8px}
 /* Telefonda yuxarı zolaq bir sətirdir */
 @media(max-width:720px){
-.topbar .prefs{margin-left:auto;flex:none;gap:2px}
-.topbar .prefs button{height:32px;min-width:32px;margin:0;padding:0}
-.topbar .prefs button .face{height:28px;min-width:28px;padding:0 5px}
+.topbar .prefs{margin-left:auto;flex:none}
+.topbar .prefs button{padding:0}
+.topbar .prefs button .face{min-width:28px;padding:0 5px}
 .topbar .pray,.topbar .wx-btn{flex:none}
 }
 @media(max-width:600px){
 header.site{position:sticky;top:0}
-.hrow{min-height:0;padding:4px var(--gutter);gap:4px 8px}
+.hrow{min-height:0}
 .logo img,.hrow .logo img{height:28px}
 nav.main{flex-basis:100%;width:100%;order:4;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;text-wrap:nowrap}
 nav.main>a,nav.main a.nav-x{display:inline-flex;align-items:center;white-space:nowrap;min-height:28px;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:600;border-radius:99px}
@@ -1011,7 +1011,7 @@ main{padding-top:8px}
 .ldm:hover{background:#0000000f}
 :root[data-theme="light"] .ldm:hover{background:#ffffff1f}
 .ldm.on{background:var(--primary);color:var(--primary-fg)}
-.ldd-pop .lang-note{max-width:220px;padding:4px 12px 0;opacity:.75}
+.ldd-pop .lang-note{max-width:220px;padding:4px 12px 0}
 .topbar .retry{margin-left:6px;padding:0 8px;border:1px solid currentColor;border-radius:99px;font:inherit;font-size:.75rem;font-weight:700;color:inherit;background:none}
 .prefs .theme-btn .face{gap:4px}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: */
@@ -1053,7 +1053,7 @@ html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wra
 nav.main{order:10}
 .topbar .prefs button[data-act="refresh"]{display:none}
 .topbar .wx-btn>.wcity,.topbar .pray .pc{display:none}
-.topbar .prefs .theme-btn .face{padding:0 7px;min-width:0}
+.topbar .prefs .theme-btn .face{min-width:0}
 .ticker .lbl .bell{font-size:0;width:24px;min-height:0;height:22px;padding:0;display:grid;place-items:center;border-radius:99px}
 .ticker .lbl .bell svg{display:block;width:14px;height:14px;fill:currentColor}
 /* Məzənnə kartı iki sətir */
@@ -1129,7 +1129,7 @@ nav.main .nav-tg>span::before{content:"";border:8px solid #0000;border-width:8px
 .prez .soc-g b{flex-basis:auto;white-space:nowrap;margin-right:6px;font-size:var(--fs-body)}
 .prez .soc-g a{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;color:var(--primary)}
 .prez .soc-g a svg{width:20px;height:20px}
-}
+/* cərgə: sahib 11-24 */nav.main>a.ph,nav.main .nav-inst{box-shadow:inset 0 0 0 1.5px #fff}nav.main a.has-sub{font-weight:800}nav.main a.has-sub::after{content:"▼";margin-left:5px;font-size:.75em;opacity:1}}
 /* sahib 11-10: 📲 solda; ana ekranda Gündəm, Dünya; JS-dən əvvəl də belə */
 @media (max-width:600px){
 nav.main .nav-inst,nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}
@@ -1164,10 +1164,10 @@ nav.main .nav-more>summary{padding:0 8px}
 .page-h>div>h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,5.6vw,1.5714rem);line-height:1.2}
 }
 .tix-olcu{border:1px solid var(--border);background:var(--card);border-radius:12px;padding:10px 12px;margin:0 0 12px}.tix-olcu h2{margin:0 0 6px;font-size:1rem}.tix-olcu h3{margin:8px 0 2px;font-size:.9rem}.tix-olcu ul{list-style:none;margin:0;padding:0;font-size:.9rem}.tix-olcu li{margin:3px 0}.tix-olcu time{font-weight:700}.tix-olcu .yaxsi,.tix-olcu p{color:var(--muted)}.tix-olcu p{margin:6px 0 0;font-size:.75rem}
-/* Alt pəncərələr: qirmizi-xetler.md 2026-11-24 */
+/* Alt pəncərələr: qirmizi-xetler.md */
 :root{--pop:#fbf6ea}:root[data-theme=light]{--pop:#19385f}
-.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog{--fg:#172b4d;--muted:#5a6478;--card:var(--pop);--card2:#efe4c9;--border:#c9a85c;--primary:#19385f;--nav-row:var(--pop);--nav-row2:#f3e9d2;--nav-row3:#ecdfc0;--nav-chip:#ebdfc2;--nav-chip2:#e4d5b2;--nav-chip3:#dccaa3;--nav-on:#19385f;--nav-on2:#19385f;--nav-on3:#19385f;--sky-fill:var(--pop);--sky-on:#172b4d;--sky-dim:#5a6478;--sky-chip:#19385f12;--sky-chip-line:#c9a85c;--pray-fill:var(--pop);--pray-on:#172b4d;--pray-dim:#5a6478;--pray-chip:#19385f12;--pray-chip-line:#c9a85c;--pray-next:#ecd9a6;color:var(--fg)}
-:root[data-theme=light] :is(.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog){--fg:#eef3fa;--muted:#b4c3d8;--card2:#21487a;--border:#d6bd80;--primary:#e6d09a;--nav-row2:#1d4170;--nav-row3:#22497b;--nav-chip:#25507f;--nav-chip2:#2a5888;--nav-chip3:#2f5f91;--nav-on:#3f6ea6;--nav-on2:#3f6ea6;--nav-on3:#3f6ea6;--sky-on:#eef3fa;--sky-dim:#b4c3d8;--sky-chip:#fff1;--sky-chip-line:#d6bd80;--pray-on:#eef3fa;--pray-dim:#b4c3d8;--pray-chip:#fff1;--pray-chip-line:#d6bd80;--pray-next:#2f5f91}
+.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog{--fg:#172b4d;--muted:#5a6478;--card:var(--pop);--card2:#efe4c9;--border:#c9a85c;--primary:#19385f;--primary-fg:#fff;--nav-row:var(--pop);--nav-row2:#f3e9d2;--nav-row3:#ecdfc0;--nav-chip:#ebdfc2;--nav-chip2:#e4d5b2;--nav-chip3:#dccaa3;--nav-on:#19385f;--nav-on2:#19385f;--nav-on3:#19385f;--sky-fill:var(--pop);--sky-on:#172b4d;--sky-dim:#5a6478;--sky-chip:#19385f12;--sky-chip-line:#c9a85c;--pray-fill:var(--pop);--pray-on:#172b4d;--pray-dim:#5a6478;--pray-chip:#19385f12;--pray-chip-line:#c9a85c;--pray-next:#ecd9a6;color:var(--fg)}
+:root[data-theme=light] :is(.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog){--fg:#eef3fa;--muted:#b4c3d8;--card2:#21487a;--border:#d6bd80;--primary:#e6d09a;--primary-fg:#172b4d;--nav-row2:#1d4170;--nav-row3:#22497b;--nav-chip:#25507f;--nav-chip2:#2a5888;--nav-chip3:#2c5a8a;--nav-on:#3f6ea6;--nav-on2:#3f6ea6;--nav-on3:#3f6ea6;--sky-on:#eef3fa;--sky-dim:#b4c3d8;--sky-chip:#fff1;--sky-chip-line:#d6bd80;--pray-on:#eef3fa;--pray-dim:#b4c3d8;--pray-chip:#fff1;--pray-chip-line:#d6bd80;--pray-next:#2f5f91}
 .ldd.open>.ldd-btn,.wx.open>.wx-btn,.pray-wrap.open>.pray,.nav-more[open]>summary,.altpop[open]>summary,.fx-on,.pop-on{position:relative}
 :is(.ldd.open>.ldd-btn,.wx.open>.wx-btn,.pray-wrap.open>.pray,.nav-more[open]>summary,.altpop[open]>summary,.fx-on,.pop-on)::after{content:"";position:absolute;left:50%;top:100%;margin-left:-8px;border:8px solid transparent;border-top:0;border-bottom-color:var(--pop);z-index:1001;pointer-events:none;opacity:1}
 .fx-on{anchor-name:--fx}@supports (left:anchor(--fx left)){.fx-pop{left:anchor(--fx left);transform:none}.fx-pop.r{left:auto;right:anchor(--fx right)}}

@@ -77,9 +77,11 @@ function options(env = process.env) {
   const privacy = ["public", "unlisted", "private"].includes(env.YOUTUBE_PRIVACY) ? env.YOUTUBE_PRIVACY : "public";
   return {
     privacy,
-    // Yükləmə kvotası gündə 100-dür; kanal yeni olduğu üçün spam görünməsin deyə standart 8.
-    maxDay: Math.max(0, Math.min(num(env.YOUTUBE_MAX_DAY, 8), 50)),
-    minGapMin: num(env.YOUTUBE_MIN_GAP_MIN, 30),
+    // Yükləmə kvotası gündə 100-dür. Standart 30 (sahib, 2026-11-24: video sayı 10 qat; əvvəl 8 — kanal yeni idi), video dövrəsi ilə
+    // eyni sayda; ara 20 dəqiqə (video 30 dəqiqədən bir gəlir, iş bir neçə dəqiqə gec başlaya bilər). Kanalın öz həddi dolanda
+    // yükləyici 24 saat fasilə verir (aşağıda uploadLimitExceeded).
+    maxDay: Math.max(0, Math.min(num(env.YOUTUBE_MAX_DAY, 30), 50)),
+    minGapMin: num(env.YOUTUBE_MIN_GAP_MIN, 20),
     maxAgeH: num(env.YOUTUBE_MAX_AGE_H, 12),
     // Shorts 3 dəqiqəyə qədər ola bilər, amma 1 dəqiqədən uzun Shorts müəllif hüququ iddiasında bütün dünyada bloklanır: 60-dan çox olmur.
     maxS: Math.max(1, Math.min(num(env.YOUTUBE_MAX_S, 60), 60)),

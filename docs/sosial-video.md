@@ -8,7 +8,7 @@ Sahibin göstərişi (2026-11-22): «Facebook-da video xəbərlər verilsin. Bun
 
 - Ən vacib xəbərdən (social.cjs-in seçimi: son 3 saatda 4+ mənbə və ya Prezident bölməsi) **öz hazırladığımız** şaquli video düzəlir: brend fonu, yuxarıda başdan sona loqo və «8ulduz.az», böyük başlıq, izah altyazı kimi, istəyə görə Azərbaycan səsi (SARA), sonda «Ətraflı: 8ulduz.az».
 - Video Facebook səhifəsinə Reels, Instagram-a Reels kimi gedir. Facebook mətnində saytdakı həmin xəbərin keçidi var, Instagram-da «Ətraflı: 8ulduz.az (keçid profildədir)».
-- 2 saatdan bir, Bakı vaxtı ilə 08:00–23:59 arası, gündə ən çox 8 video. Hamısı GitHub Actions-da işləyir, kompüterdən asılı deyil.
+- 30 dəqiqədən bir (hər yoxlama pəncərəsi), Bakı vaxtı ilə 08:00–23:59 arası, gündə ən çox 30 video (sahib, 2026-11-24: «öz video sayımızı 10 dəfə artırmaq lazımdır»; 10 qat — 80 — Facebook-un API həddini, 24 saatda 30 Reels, keçir, ona görə hər platforma öz həddinə qədər; əvvəl 2 saatdan bir, gündə 8). Hamısı GitHub Actions-da işləyir, kompüterdən asılı deyil.
 - Üçüncü tərəfin videosu, fotosu, musiqisi videoya düşmür (aşağıda «Müəllif hüququ»).
 
 ## Araşdırma: Azərbaycan mediası necə edir (2026-11-22)
@@ -50,7 +50,7 @@ Meta və tədqiqatlardan:
 | Səs | SARA (sahibin «Dinlə» üçün seçdiyi açıq model), pulsuz, GitHub-da | Səs «əhəmiyyətli əlavə»dir (Meta), səslə izləyən də anlayır |
 | Facebook mətni | Başlıq, izah (≤900 simvol), «Ətraflı: https://www.8ulduz.az/<nömrə>?h=<saat>», 3 heşteq; eyni keçid ilk şərhdə də | Sahibin göstərişi (keçid basılan olsun). Meta keçidsiz mətni üstün tutur — ona görə keçid ilk şərhdə də var; yayılma zəif olarsa mətndəki keçidi götürmək bir sətirlik dəyişiklikdir |
 | Instagram mətni | Başlıq, izah, «Ətraflı: 8ulduz.az (keçid profildədir)», 4 heşteq | Instagram keçidi basılan etmir; profildəki keçid 8ulduz.az/ig/ səhifəsinə aparır |
-| Tezlik | 2 saatdan bir, 08–23 Bakı vaxtı, gündə ≤8 | Rəqiblər gündə ~6 Reels; Facebook API həddi 30; Instagram həddi 100 (şəkilli postlar gündə ≤80, həddi kod hər videodan əvvəl yoxlayır) |
+| Tezlik | 30 dəqiqədən bir, 08–23 Bakı vaxtı, gündə ≤30 (2026-11-24-dək 2 saatdan bir, ≤8) | Rəqiblər gündə ~6 Reels; Facebook API həddi 30; Instagram həddi 100 (şəkilli postlar gündə ≤80, həddi kod hər videodan əvvəl yoxlayır) |
 | Mövzu | social.cjs seçimi: ən çox mənbəli xəbər, Prezident bölməsi; eyni mövzu 24 saatda bir dəfə | Ən çox yazılan xəbər ən maraqlısıdır; qəza, hava, qiymət, idman da 4+ mənbə ilə bura düşür |
 
 Götürmədiklərimiz: başqasının kadrları (aşağıda), musiqi (Meta-nın lisenziyalı musiqisi API ilə əlçatan deyil, başqa musiqi müəllif hüququ riskidir), «❗️⚡️» kimi təcili işarələr (hər xəbərdə olsa mənasını itirir; istəsəniz Prezident və ya 10+ mənbəli xəbərə əlavə etmək olar).
@@ -115,6 +115,8 @@ Tətbiq edilməyən variantlar — **qərar sahibindir**:
 | Mənbə saytların videoları və TV kadrları (rəqiblərin çoxu belə edir, su nişanı ilə) | Rəqiblərin ən çox baxılan Reels-ləri belədir | Eyni Rights Manager riski, üstəlik mənbə saytla münasibət; su nişanlı video Instagram-da yayılmır |
 | Xəbərin fotosu (mənbənin şəkli) videoda fon kimi | Video daha canlı görünür, lentdə şəkil diqqət çəkir | Foto da müəllif əsəridir; Rights Manager şəkilləri də tutur. Instagram-dakı şəkilli postlarımız artıq mənbənin şəklini işlədir (sahibin əvvəlki qərarı) — videoya da əlavə etmək asandır (bir dəyişən), amma riski artırır |
 | Rəsmi mənbələrin (president.az, AZƏRTAC) foto və videoları | Prezident xəbərlərində rəsmi görüntü | Saytların istifadə şərtləri ayrıca yoxlanmalıdır (adətən istinadla icazə); yalnız açıq icazə olanda |
+
+2026-11-24: sahib xəbərə aid TV görüntüsünü istədi («hava və bənzəri xəbərlərimiz xaric»). Saytda telekanalın öz YouTube videosu xəbər səhifəsində yerləşdirildi. Sosial videolarımız üçün yol telekanalın yazılı icazəsidir: məktub və icazələr cədvəli [tv-icaze.md](tv-icaze.md)-dədir.
 
 ## Video modulu: `.github/scripts/video-xeber.cjs`
 
@@ -266,7 +268,7 @@ Hədlər testlə `oz_hava.py`-yə bağlıdır (`tests/video-hava.test.cjs`). Bak
 - Hava videosu `HAVA_VAXT` (20:45) saatından sonrakı ilk 30 dəqiqəlik pəncərədə gedir: `pipeline.sh` `video_loop`, :17 və :47.
 - Gündə bir dəfə (`state.hava`). Seçim günü sayır, video alınmasa da eyni gün təkrar hazırlanmır.
 - Open-Meteo cavab verməsə gün sayılmır. Həmin pəncərədə xəbər videosu gedir, hava növbəti pəncərədə (23:59-a qədər) yenidən sınanır.
-- Xəbər videosunun 120 dəqiqəlik fasiləsinə, gündəlik həddinə (8) və mövzu siyahısına sayılmır. YouTube-un gündəlik həddinə (`YOUTUBE_MAX_DAY`, 8) də sayılmır: 2026-11-23-də hava videosu bu həddi doldurdu və 21:48-in xəbəri YouTube-a getmədi.
+- Xəbər videosunun fasiləsinə, gündəlik həddinə (`VIDEO_GUNDE`) və mövzu siyahısına sayılmır. YouTube-un gündəlik həddinə (`YOUTUBE_MAX_DAY`) də sayılmır: 2026-11-23-də hava videosu bu həddi doldurdu və 21:48-in xəbəri YouTube-a getmədi.
 - Bir pəncərədə bir iş qaydası (PR 303) dəyişmir. Hava pəncərəsində xəbər videosu növbəti pəncərəyə (30 dəqiqə sonra) qalır. İki video eyni anda getmir.
 
 Niyə 20:47 (araşdırma, 2026-11-23):
@@ -421,9 +423,9 @@ Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş
 
 | Dəyişən | Standart | Nə |
 |---|---|---|
-| `VIDEO_MIN_GAP_MIN` | 120 | iki video arasında dəqiqə. Yoxlama 30 dəqiqədən birdir və işin başlaması bir-iki dəqiqə oynayır, ona görə 10 dəqiqə dözüm var (fasilənin ¼-indən çox deyil): 110 dəqiqə keçibsə video gedir. Dözümsüz 2026-11-23-də dördüncü pəncərə «119 dəq əvvəl» ilə ötürülürdü, ara 2,5 saat olurdu |
+| `VIDEO_MIN_GAP_MIN` | 30 | iki video arasında dəqiqə (2026-11-24-dək 120). Yoxlama 30 dəqiqədən birdir və işin başlaması bir-iki dəqiqə oynayır, ona görə dözüm var — 10 dəqiqə, amma fasilənin ¼-indən çox deyil: 30 dəqiqəlik fasilədə 7 dəqiqə, 23 dəqiqə keçibsə video gedir. Dözümsüz 2026-11-23-də dördüncü pəncərə «119 dəq əvvəl» ilə ötürülürdü, ara 2,5 saat olurdu |
 | `VIDEO_SAAT` | 8-23 | Bakı vaxtı ilə hansı saatlarda (daxil) |
-| `VIDEO_GUNDE` | 8 | 24 saatda ən çox video (Facebook həddi 30) |
+| `VIDEO_GUNDE` | 30 | 24 saatda ən çox video (Facebook həddi 30; 2026-11-24-dək 8). Instagram-a video kvota qalanda gedir (kod hər videodan əvvəl yoxlayır), TikTok öz həddi qədər (qaralama 24 saatda 5) |
 | `VIDEO_MIN_SOURCES` | `SOCIAL_MIN_SOURCES` və ya 4 | neçə mənbə yazanda |
 | `VIDEO_SES` | (açıq) | `0` — səssiz video (model quraşdırılmır) |
 | `VIDEO_FACEBOOK`, `VIDEO_INSTAGRAM` | (açıq) | `0` — həmin şəbəkəyə video getmir. `INSTAGRAM=0` Instagram-ı hər iki işdə söndürür |
