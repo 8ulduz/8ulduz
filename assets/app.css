@@ -1011,7 +1011,7 @@ main{padding-top:8px}
 .ldm:hover{background:#0000000f}
 :root[data-theme="light"] .ldm:hover{background:#ffffff1f}
 .ldm.on{background:var(--primary);color:var(--primary-fg)}
-.ldd-pop .lang-note{max-width:220px;padding:4px 12px 0;opacity:.75}
+.ldd-pop .lang-note{max-width:220px;padding:4px 12px 0}
 .topbar .retry{margin-left:6px;padding:0 8px;border:1px solid currentColor;border-radius:99px;font:inherit;font-size:.75rem;font-weight:700;color:inherit;background:none}
 .prefs .theme-btn .face{gap:4px}
 /* Yuxarı zolaq başlıq qutusunun ikinci sətridir: */
@@ -1164,10 +1164,10 @@ nav.main .nav-more>summary{padding:0 8px}
 .page-h>div>h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(18px,5.6vw,1.5714rem);line-height:1.2}
 }
 .tix-olcu{border:1px solid var(--border);background:var(--card);border-radius:12px;padding:10px 12px;margin:0 0 12px}.tix-olcu h2{margin:0 0 6px;font-size:1rem}.tix-olcu h3{margin:8px 0 2px;font-size:.9rem}.tix-olcu ul{list-style:none;margin:0;padding:0;font-size:.9rem}.tix-olcu li{margin:3px 0}.tix-olcu time{font-weight:700}.tix-olcu .yaxsi,.tix-olcu p{color:var(--muted)}.tix-olcu p{margin:6px 0 0;font-size:.75rem}
-/* Alt pəncərələr: qirmizi-xetler.md 2026-11-24 */
+/* Alt pəncərələr: qirmizi-xetler.md */
 :root{--pop:#fbf6ea}:root[data-theme=light]{--pop:#19385f}
-.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog{--fg:#172b4d;--muted:#5a6478;--card:var(--pop);--card2:#efe4c9;--border:#c9a85c;--primary:#19385f;--nav-row:var(--pop);--nav-row2:#f3e9d2;--nav-row3:#ecdfc0;--nav-chip:#ebdfc2;--nav-chip2:#e4d5b2;--nav-chip3:#dccaa3;--nav-on:#19385f;--nav-on2:#19385f;--nav-on3:#19385f;--sky-fill:var(--pop);--sky-on:#172b4d;--sky-dim:#5a6478;--sky-chip:#19385f12;--sky-chip-line:#c9a85c;--pray-fill:var(--pop);--pray-on:#172b4d;--pray-dim:#5a6478;--pray-chip:#19385f12;--pray-chip-line:#c9a85c;--pray-next:#ecd9a6;color:var(--fg)}
-:root[data-theme=light] :is(.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog){--fg:#eef3fa;--muted:#b4c3d8;--card2:#21487a;--border:#d6bd80;--primary:#e6d09a;--nav-row2:#1d4170;--nav-row3:#22497b;--nav-chip:#25507f;--nav-chip2:#2a5888;--nav-chip3:#2f5f91;--nav-on:#3f6ea6;--nav-on2:#3f6ea6;--nav-on3:#3f6ea6;--sky-on:#eef3fa;--sky-dim:#b4c3d8;--sky-chip:#fff1;--sky-chip-line:#d6bd80;--pray-on:#eef3fa;--pray-dim:#b4c3d8;--pray-chip:#fff1;--pray-chip-line:#d6bd80;--pray-next:#2f5f91}
+.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog{--fg:#172b4d;--muted:#5a6478;--card:var(--pop);--card2:#efe4c9;--border:#c9a85c;--primary:#19385f;--primary-fg:#fff;--nav-row:var(--pop);--nav-row2:#f3e9d2;--nav-row3:#ecdfc0;--nav-chip:#ebdfc2;--nav-chip2:#e4d5b2;--nav-chip3:#dccaa3;--nav-on:#19385f;--nav-on2:#19385f;--nav-on3:#19385f;--sky-fill:var(--pop);--sky-on:#172b4d;--sky-dim:#5a6478;--sky-chip:#19385f12;--sky-chip-line:#c9a85c;--pray-fill:var(--pop);--pray-on:#172b4d;--pray-dim:#5a6478;--pray-chip:#19385f12;--pray-chip-line:#c9a85c;--pray-next:#ecd9a6;color:var(--fg)}
+:root[data-theme=light] :is(.nav-pop,.nav-more-pop,.wx-pop,.pray-pop,.fx-pop,.ldd-pop,.altpop div,.sharepop,.follow-dialog){--fg:#eef3fa;--muted:#b4c3d8;--card2:#21487a;--border:#d6bd80;--primary:#e6d09a;--primary-fg:#172b4d;--nav-row2:#1d4170;--nav-row3:#22497b;--nav-chip:#25507f;--nav-chip2:#2a5888;--nav-chip3:#2c5a8a;--nav-on:#3f6ea6;--nav-on2:#3f6ea6;--nav-on3:#3f6ea6;--sky-on:#eef3fa;--sky-dim:#b4c3d8;--sky-chip:#fff1;--sky-chip-line:#d6bd80;--pray-on:#eef3fa;--pray-dim:#b4c3d8;--pray-chip:#fff1;--pray-chip-line:#d6bd80;--pray-next:#2f5f91}
 .ldd.open>.ldd-btn,.wx.open>.wx-btn,.pray-wrap.open>.pray,.nav-more[open]>summary,.altpop[open]>summary,.fx-on,.pop-on{position:relative}
 :is(.ldd.open>.ldd-btn,.wx.open>.wx-btn,.pray-wrap.open>.pray,.nav-more[open]>summary,.altpop[open]>summary,.fx-on,.pop-on)::after{content:"";position:absolute;left:50%;top:100%;margin-left:-8px;border:8px solid transparent;border-top:0;border-bottom-color:var(--pop);z-index:1001;pointer-events:none;opacity:1}
 .fx-on{anchor-name:--fx}@supports (left:anchor(--fx left)){.fx-pop{left:anchor(--fx left);transform:none}.fx-pop.r{left:auto;right:anchor(--fx right)}}
