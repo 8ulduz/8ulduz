@@ -301,3 +301,58 @@ test('speed 2026-11-09: the second publishNews on an unchanged feed costs less t
   t.diagnostic(`publishNews ms (ən yaxşı/7): soyuq ${cold.toFixed(1)}, isti ${warm.toFixed(1)}`);
   assert.ok(warm < cold / 2, `isti ${warm.toFixed(1)} ms ≥ soyuq ${cold.toFixed(1)} / 2 — hazır sətir yaddaşı işləmir`);
 });
+
+// Tam lent dilimlərlə (2026-11-24): Google-dan gələn xəbər/bölmə səhifəsində ~1 000 sətrin emalı telefonda bir ~1 s-lik uzun iş idi. preparedNews
+// eyni addımları (newsSteps) ~25 ms-lik dilimlərlə keçir; nəticə köhnə boru xətti ilə bayt-bayt eynidir, arada lent dəyişsə yenidən başlayır.
+test('speed 2026-11-24: the full feed is processed in slices, byte-identical, restarting when the feed changes mid-way', async () => {
+  const rows = JSON.parse(fs.readFileSync(path.join(root, 'data/news.json'), 'utf8')).articles, og = JSON.parse(fs.readFileSync(path.join(root, 'data/og.json'), 'utf8'));
+  const ctx = feed(rows, og);
+  // Saat hər soruşulanda 10 ms irəliləyir: dilim sayı maşının sürətindən asılı deyil. scheduler.yield ara sayılır.
+  let clock = 0, yields = 0, onYield = () => {};
+  ctx.performance = { now: () => (clock += 10) };
+  ctx.scheduler = { yield: () => { yields++; onYield(yields); return Promise.resolve(); } };
+  const async = async () => { const d = await run(ctx, 'preparedNews()'); ctx.__d = d; return run(ctx, 'JSON.stringify(__d.articles)'); };
+  const first = await async();
+  assert.equal(first, run(ctx, REF), 'dilimli nəticə köhnə boru xətti ilə eynidir');
+  assert.ok(yields >= 10, `tam lent dilimlərə bölünmür (${yields} ara)`);
+  assert.ok(!run(ctx, 'S.data'), 'preparedNews ekrana yazmır: S.data-nı çağıran yazır (commitNews), arada köhnə lent qalır');
+  // Arada dəqiqəlik lentdən yeni sətir gəlir (S.rawNews dəyişir): hesab yenidən başlayır, nəticə yeni vəziyyətindir.
+  run(ctx, 'S.rawNews = S.rawNews.map(a => ({ ...a }))');
+  yields = 0;
+  onYield = n => { if (n === 5) run(ctx, 'S.rawNews = [{ id: "f9f9f9f9f9f9f9f9", title: "Dilim arasında gələn yeni xəbər başlığı", source: "APA", sourceUrl: "https://apa.az/dilim-arasi", publishedAt: new Date().toISOString(), category: "gundem", lang: "az" }, ...S.rawNews]'); };
+  const moved = await async();
+  assert.ok(moved.includes('apa.az/dilim-arasi'), 'arada gələn sətir nəticədədir');
+  assert.equal(moved, run(ctx, REF), 'yenidən başlamış nəticə indiki vəziyyətlə eynidir');
+  // og dəyişir (loadOg): yalnız şəkilsiz sətir yenidən hazırlanır, nəticə yenə eynidir.
+  onYield = () => {};
+  run(ctx, 'S.og = { ...S.og, [S.rawNews.find(a => !a.imageUrl)?.sourceUrl || "x"]: "https://apa.az/og-yeni.jpg" }');
+  assert.equal(await async(), run(ctx, REF), 'og dəyişəndən sonra');
+  // Gizli vərəqdə ara yoxdur (taymerlər orada saniyələrlə gecikir — QIRMIZI XƏTT 1).
+  ctx.document.hidden = true; yields = 0;
+  run(ctx, 'S.rawNews = S.rawNews.map(a => ({ ...a }))');
+  assert.equal(await async(), run(ctx, REF));
+  assert.equal(yields, 0, 'gizli vərəqdə dilim arası yoxdur');
+  // Tam lent, dəqiqəlik lent və og yolları dilimlərlə gedir; birbaşa publishNews yalnız kiçik ilk ekrandadır (first.json, keş).
+  const body = name => APP.slice(APP.indexOf(`async function ${name}(`), APP.indexOf('\n}\n', APP.indexOf(`async function ${name}(`)));
+  for (const name of ['loadNews', 'loadLatest', 'loadOg']) {
+    assert.ok(body(name).includes('await preparedNews()'), `${name} dilimlərlə emal edir`);
+    assert.ok(!body(name).includes('publishNews()'), `${name}-də birbaşa (bir uzun iş) emal yoxdur`);
+  }
+});
+
+// Altlığın mənbə siyahısı (2026-11-24): hər render()-də localeCompare(b, "az") hər müqayisədə yeni ICU kollatoru qururdu (1×-də 36–48 ms).
+test('speed 2026-11-24: the footer source list uses one collator, keeps the old order and is rebuilt only when the feed or registry changes', () => {
+  const rows = JSON.parse(fs.readFileSync(path.join(root, 'data/news.json'), 'utf8')).articles;
+  const ctx = feed(rows, {});
+  run(ctx, 'publishNews()');
+  const OLD = '(() => { const rows = S.sources?.sources; const names = rows ? rows.filter(s => !removedSource(s)).map(s => s.name) : (S.data?.articles ?? []).flatMap(a => [shownSource(a), ...(a.alts || []).map(x => x.source)]); return JSON.stringify([...new Set(names.filter(Boolean))].sort((a, b) => a.localeCompare(b, "az"))); })()';
+  const a = run(ctx, 'trackedSources()');
+  assert.ok(a.length >= 20, 'real lentdə mənbə siyahısı boşdur: test heç nə yoxlamır');
+  assert.equal(JSON.stringify(a), run(ctx, OLD), 'sıra köhnə localeCompare(…, "az") ilə eynidir');
+  assert.equal(run(ctx, 'trackedSources()'), a, 'lent dəyişməyibsə yenidən qurulmur');
+  run(ctx, 'S.rawNews = [{ id: "e1e1e1e1e1e1e1e1", title: "Yeni mənbədən sınaq xəbəri başlığı", source: "Report", sourceUrl: "https://report.az/sinaq-menbe", publishedAt: new Date().toISOString(), category: "gundem", lang: "az" }, ...S.rawNews]; publishNews()');
+  assert.equal(JSON.stringify(run(ctx, 'trackedSources()')), run(ctx, OLD), 'yeni lentdən sonra');
+  run(ctx, 'S.sources = { sources: [{ name: "Oxu.az" }, { name: "Azadlıq" }, { name: "AZƏRTAC" }, { name: "Ölkə" }, { name: "APA" }] }');
+  assert.equal(JSON.stringify(run(ctx, 'trackedSources()')), run(ctx, OLD), 'mənbə reyestri gələndə (qadağan mənbə düşür)');
+  assert.ok(!/localeCompare\([^)]*"az"\)/.test(APP), 'localeCompare(…, "az") qalmayıb: hər çağırış yeni kollator qurur');
+});

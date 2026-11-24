@@ -307,6 +307,9 @@ const byDate = list => [...list].sort((x, y) => atOf(y) - atOf(x));
 // müqayisəsi localeCompare ilə eyni sıranı verir, 3× tez.
 const newest = (x, y) => { const a = x.publishedAt || "", b = y.publishedAt || ""; return a < b ? 1 : a > b ? -1 : 0; };
 const lc = s => (s || "").toLocaleLowerCase("az");
+// Azərbaycan sırası: bir kollator («az» dilli localeCompare hər müqayisədə yenisini qururdu; sıra eynidir).
+let azColl = null;
+const azCmp = (a, b) => (azColl ||= new Intl.Collator("az")).compare(a, b);
 const GROUP_MS = 36 * HOUR;
 const GROUP_STOP = new Set("ve ile the and for from or bir bu da de ki veya icin olan və ilə də o üçün ya news xəbər xeber".split(/\s+/));
 const normSeen = new Map();
@@ -405,10 +408,15 @@ function duplicateMeta(a) {
   DUP_META.set(a, m = {title: a.title, url: a.sourceUrl, at: a.publishedAt, alts: a.alts, keys, urls});
   return m;
 }
-function collapseExact(list) {
+// Generator: hər 64 sətirdən bir dayanıb soruşa bilir (newsSteps → preparedNews dilimləyir). collapseExact eyni addımları ara vermədən keçir.
+const drain = it => { let r; while (!(r = it.next()).done); return r.value; };
+function collapseExact(list) { return drain(collapseSteps(list)); }
+function* collapseSteps(list) {
   const groups = [], byKey = new Map(), byUrl = new Map();
   const root = g => { while (g?.parent) g = g.parent; return g; };
+  let n = 0;
   for (const a of list || []) {
+    if (!(++n & 63)) yield;
     const {keys, urls} = duplicateMeta(a);
     const matches = new Set(urls.map(u => root(byUrl.get(u))).filter(Boolean));
     for (const {key, dt} of keys) {
@@ -424,6 +432,7 @@ function collapseExact(list) {
   }
   const out = [];
   for (const g of groups) {
+    if (!(++n & 63)) yield;
     if (!g.items.length) continue;
     let primary = g.items[0];
     for (const a of g.items.slice(1)) primary = preferPrimary(primary, a);
@@ -892,17 +901,19 @@ async function loadNews(force = false) {
     S.og ||= {};
     if(token !== S.newsToken || controller.signal.aborted)return;
     const first = !S.data, partial = S.partial;
-    S.partial = false;
     // main 10 dəqiqədən bir yazılır.
     const inFull = urlsOf(d.articles);
     S.overlay = (S.overlay || []).filter(o => !inFull.has(o.a.sourceUrl) && Date.now() - o.at < 30 * 60e3);
     S.rawNews = [...S.overlay.map(o => o.a), ...d.articles]; S.rawMeta = {...d, articles: undefined}; S.fromCache = false;
     S.etag = tag; S.newsStamp = statusStamp; S.newsCheckedAt = Date.now();
-    publishNews();
+    const full = await preparedNews(); // dilimlərlə; ekrandakı lent (və S.partial) yazılana qədər əvvəlki kimi qalır
+    if (token !== S.newsToken) return;
+    S.partial = false;
+    commitNews(full);
     if (first || partial) S.firstRenderAt = Date.now(); // ilk ekrandan sonra bir dəfə yenilənir: dəqiqəlik xəbərlər də gələndə
     if (!first && !partial) idle(() => loadOg(), 1500, 8000); // og xəritəsi 30 dəqiqədə bir, lentdən sonra
-    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır.
-    if (first || force || (partial && readerBusy())) render(); else requestRender();
+    // İlk ekrandan tam lentə: dəyişməyən bloklar qalır. Birbaşa çəkiliş ayrı işdə (emalın son dilimi ilə birlikdə telefonda ~0,3 s idi).
+    if (first || force || (partial && readerBusy())) { if (!document.hidden) await yieldMain(); if (token === S.newsToken) render(); } else requestRender();
     if (!partial) backY();
   } catch (e) { if(token === S.newsToken){ S.error = String(e); S.offline = !navigator.onLine; if (!S.data || S.partial) render(); else renderTopbar(); } }
   finally { if(token === S.newsToken){S.newsLoading = false; S.newsAbort = null; renderTopbar();} }
@@ -1004,7 +1015,8 @@ async function loadCached() {
 // 0 və ya 1 sətirlik massiv, açar sırası əvvəlki boru xətti ilə eynidir (tests/speed-guard.test.cjs bayt-bayt tutuşdurur). Nəticə xam sətir
 // obyekti üzrə yaddaşda qalır: dəqiqəlik lent hər dəfə ~1 100 sətrin hamısını yenidən klonlayıb yoxlayırdı (1×-də 40–46 ms, telefonda ~180 ms),
 // üstəlik yeni obyektlər DUP_META-nı boşa çıxarırdı. Yaddaş yalnız dəyişməyən sətir üçündür: yeni gələn hər sətir (yeni obyekt) qaydadan keçir.
-// Sıfırlanır: S.og dəyişəndə (publishNews), addRemovals yeni çıxarılan tapanda, ölü keçid siyahısı dəyişəndə və şəkli sonradan tapılan sətirdə (loadLatest).
+// Sıfırlanır: addRemovals yeni çıxarılan tapanda; sətir-sətir silinir: S.og dəyişəndə şəkilsiz sətir (prepFresh), ölü keçid siyahısına girən/çıxan
+// keçidin sətri və şəkli sonradan tapılan sətir (loadLatest).
 function preparedRow(a) {
   const hit = PREP.get(a);
   if (hit) return hit;
@@ -1022,20 +1034,57 @@ function preparedRow(a) {
   PREP.set(a, out);
   return out;
 }
-// Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər; xam siyahı dəyişmir.
-function publishNews() {
-  const d = {...S.rawMeta};
-  if (prepOg !== S.og) { PREP = new WeakMap(); prepOg = S.og; }
-  d.articles = collapseExact(clusterArticles(S.rawNews.flatMap(preparedRow)));
+// og dəyişəndə yalnız şəkilsiz və og şəkli dəyişən sətir yenidən hazırlanır: preparedRow og-ni yalnız a.imageUrl boş olanda oxuyur. Əvvəl
+// hər og dəyişikliyi (loadOg, açılışdan ~3 s sonra) bütün yaddaşı sıfırlayırdı — ~1 000 sətir yenidən qaydadan keçirdi (1×-də ~35 ms).
+// Hazır sətri qalan hər xam sətir S.rawNews-dadır (üst qat da oradadır), ona görə onu gəzmək kifayətdir.
+let prepRev = 0;
+function prepFresh() {
+  if (prepOg === S.og) return;
+  if (!prepOg) PREP = new WeakMap();
+  else for (const a of S.rawNews || []) if (!a.imageUrl && prepOg[a.sourceUrl] !== S.og?.[a.sourceUrl]) PREP.delete(a);
+  prepOg = S.og; prepRev++;
+}
+// Xam lentdən ekrandakı lent: qayda, birləşdirmə, şəkillər; xam siyahı dəyişmir. Addımlar generatordur (hər 64 sətirdən bir yield): publishNews
+// onları ara vermədən keçir, preparedNews dilimlərə bölür. Nəticə hər iki yolda eynidir (tests/speed-guard.test.cjs).
+function* newsSteps() {
+  const d = {...S.rawMeta}, rows = [];
+  let n = 0;
+  for (const a of S.rawNews) { rows.push(...preparedRow(a)); if (!(++n & 63)) yield; }
+  d.articles = yield* collapseSteps(clusterArticles(rows));
   // Şəkil yoxdursa digər mənbədən.
   for (const a of d.articles) {
     if (a.imageUrl || !a.alts?.length) continue;
     const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og?.[x.sourceUrl]);
     if (alt) a.imageUrl = alt.imageUrl || S.og?.[alt.sourceUrl];
   }
+  return d;
+}
+function commitNews(d) {
   S.data = d; byId.clear(); for (const a of d.articles) byId.set(a.id, a);
   if (!S.partial) checkBreaking(d.articles);
   primeHeroImage(d.articles);
+}
+function publishNews() { prepFresh(); commitNews(drain(newsSteps())); }
+// Tam lent (~1 000 sətir) telefonda bir uzun işdə emal olunurdu: Google-dan gələn xəbər/bölmə səhifəsində ~1 s (4×, 2026-11-24) — həmin anda
+// basılan düymə gözləyirdi. İndi ~25 ms-lik dilimlərlə: arada əsas axın boşalır (scheduler.yield, yoxdursa setTimeout). Gizli vərəqdə ara yoxdur
+// (taymerlər orada saniyələrlə gecikir — QIRMIZI XƏTT 1). Arada giriş dəyişibsə (xam lent, og, qayda/ölü keçid yaddaşı) hesab yenidən başlayır:
+// qaytarılan lent həmişə indiki vəziyyətindir; ekrana çağıran yazır (commitNews).
+const NEWS_SLICE_MS = 25;
+const nowMs = () => globalThis.performance?.now?.() ?? Date.now();
+const yieldMain = () => globalThis.scheduler?.yield ? globalThis.scheduler.yield() : new Promise(r => setTimeout(r));
+async function preparedNews() {
+  for (;;) {
+    prepFresh();
+    const key = [S.rawNews, S.rawMeta, S.og, PREP, S.deadLinks, prepRev], same = () => key.every((v, i) => v === [S.rawNews, S.rawMeta, S.og, PREP, S.deadLinks, prepRev][i]);
+    const it = newsSteps();
+    let r, t = nowMs(), moved = false;
+    while (!(r = it.next()).done) {
+      if (document.hidden || nowMs() - t < NEWS_SLICE_MS) continue;
+      await yieldMain(); t = nowMs();
+      if (!same()) { moved = true; break; }
+    }
+    if (!moved) return r.value;
+  }
 }
 function primeHeroImage(articles) {
   if (route().name !== "home" || S.q) return;
@@ -1119,10 +1168,12 @@ async function loadLatest(force = false) {
     S.offline = r.headers?.get?.("X-8ulduz-data") === "cache";
     if (!S.offline) { S.lastSync = new Date(); S.error = null; }
     S.newsStamp = statusStamp; S.latestAt = Date.now();
-    if (addRemovals(d.removed)) { publishNews(); renderView(); renderTicker(); }
+    if (addRemovals(d.removed)) { commitNews(await preparedNews()); renderView(); renderTicker(); }
     const dead = new Set(d.dead || []), deadChanged = dead.size !== (S.deadLinks?.size || 0) || [...dead].some(u => !S.deadLinks.has(u));
+    // Ölü keçidin əvəzi hazır sətirdədir: yalnız keçidi (əsas və ya alt mənbə) siyahıya girən/çıxan sətir yenidən hazırlanır. Əvvəl bütün
+    // yaddaş sıfırlanırdı — açılışdan sonrakı ilk dəqiqəlik lentdə ~1 000 sətir yenidən qaydadan keçirdi (S.deadLinks hələ yox idi).
+    if (deadChanged) { const was = S.deadLinks || new Set(), flip = u => was.has(u) !== dead.has(u); for (const a of S.rawNews) if (flip(a.sourceUrl) || (a.alts || []).some(x => flip(x.sourceUrl))) PREP.delete(a); prepRev++; }
     S.deadLinks = dead;
-    if (deadChanged) PREP = new WeakMap(); // ölü keçidin əvəzi hazır sətirdədir
     // Sahib 2026-11-14: «20 yeni xəbər yazısı gəldi, son xəbərlərə baxırdım, elə həmin xəbərlər idi». Yeni sayılan iki hal köhnə idi:
     // 1) xəbərə yeni mənbə qoşulanda dəqiqəlik faylda onun əsas keçidi dəyişir (köhnə keçid alts-a keçir) — eyni xəbər «yeni» görünürdü;
     // 2) yarım saatdan sonra üst qatdan çıxan, tam lentdə olmayan sətir dəqiqəlik faylda hələ durur — hər dəfə yenidən «yeni» sayılırdı.
@@ -1136,13 +1187,13 @@ async function loadLatest(force = false) {
     let gotImage = false;
     for (const a of d.articles) {
       const row = byUrl.get(a.sourceUrl);
-      if (row && !row.imageUrl && a.imageUrl) { row.imageUrl = a.imageUrl; PREP.delete(row); gotImage = true; }
+      if (row && !row.imageUrl && a.imageUrl) { row.imageUrl = a.imageUrl; PREP.delete(row); prepRev++; gotImage = true; }
     }
-    if ((gotImage || deadChanged) && !fresh.length) { publishNews(); requestRender(false); renderTopbar(); return; }
+    if ((gotImage || deadChanged) && !fresh.length) { commitNews(await preparedNews()); requestRender(false); renderTopbar(); return; }
     if (!fresh.length) { renderTopbar(); return; }
     S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
-    publishNews();
+    commitNews(await preparedNews());
     if (readerBusy()) { S.pendingNew = [...fresh, ...(S.pendingNew || [])]; renderTopbar(); renderTicker(); }
     requestRender();
   } catch {} finally { S.latestLoading = false; }
@@ -1159,7 +1210,7 @@ async function loadOg(signal) {
     const og = d && typeof d === "object" && !Array.isArray(d) ? d : {};
     const gain = (S.rawNews || []).some(a => !a.imageUrl && og[a.sourceUrl]); // yalnız əsas şəkil qazanan sətir üçün yenidən çəkilir (alt mənbələrin şəkli növbəti adi çəkilişdə)
     S.og = { ...(S.og || {}), ...og };
-    if (gain && S.data) { publishNews(); requestRender(false); }
+    if (gain && S.data) { commitNews(await preparedNews()); requestRender(false); }
   } catch { S.og ||= {}; }
 }
 async function loadMarkets() {
@@ -1210,7 +1261,7 @@ function restoreLocal() {
 async function loadLocal() { if (!(await autoLocate())) { loadWeather(); loadPrayer(savedPrayCity()); loadWarnings(); } }
 async function loadAllWeather() {
   if (S.wxAll) return; renderTopbar();
-  try { S.wxAll = (await weather(CITIES)).sort((a, b) => a.city.localeCompare(b.city, "az")); } catch { S.wxAll = []; }
+  try { S.wxAll = (await weather(CITIES)).sort((a, b) => azCmp(a.city, b.city)); } catch { S.wxAll = []; }
   renderTopbar();
 }
 
@@ -1659,7 +1710,7 @@ function savedPrayCity() {
   return S.geo?.city || "Bakı"; // seçilməyibsə konumun şəhəri
 }
 function prayCityOptions(current) {
-  return [...CITIES].sort((a, b) => a[0].localeCompare(b[0], "az")).map(([name]) => `<option value="${esc(name)}"${name === current ? " selected" : ""}>${esc(name)}</option>`).join("");
+  return [...CITIES].sort((a, b) => azCmp(a[0], b[0])).map(([name]) => `<option value="${esc(name)}"${name === current ? " selected" : ""}>${esc(name)}</option>`).join("");
 }
 function prayBit() {
   const p = S.pray;
@@ -2235,6 +2286,16 @@ function listPage(title, desc, list, extra = "") {
 
 // Bölmə arxivi (updater.py): bölmə səhifəsi 5 gün.
 const NO_ARCHIVE = new Set(["video", "sondeqiqe", "prezident"]);
+// Arxiv sətirlərinin birləşmə açarları (duplicateMeta: başlıq normallaşdırması, keçidlər) gələn kimi dilimlərlə hazırlanır. Əvvəl bölmənin
+// arxivlə ilk çəkilişində (withArchive → collapseExact) ~800 sətir üçün soyuq hesablanırdı: 1×-də 44 → 22 ms, telefonda ~0,2 s-lik uzun iş
+// (Google-dan gələn bölmə səhifəsi, 2026-11-24). Yalnız yaddaşı doldurur, nəticə dəyişmir.
+async function warmKeys(rows) {
+  let t = nowMs();
+  for (let i = 0; i < rows.length; i++) {
+    duplicateMeta(rows[i]);
+    if ((i & 63) === 63 && !document.hidden && nowMs() - t >= NEWS_SLICE_MS) { await yieldMain(); t = nowMs(); }
+  }
+}
 async function loadArchive(slug) {
   S.archive ||= {};
   const had = S.archive[slug];
@@ -2244,6 +2305,7 @@ async function loadArchive(slug) {
     const {d} = await requestJSON(freshUrl(`data/arxiv/${slug}.json`), {}, 8000);
     if (!Array.isArray(d?.articles)) throw 0;
     S.archive[slug].rows = d.articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))})); S.arxV = (S.arxV || 0) + 1;
+    await warmKeys(S.archive[slug].rows); // çəkiliş (requestRender) açarlar hazır olandan sonra
     const r = route();
     if ((r.name === "section" && (r.slug === slug || (r.slug === "bolgeler" && S.club))) || r.name === "search" || (r.name === "home" && S.archiveHome?.has(slug)) || (r.name === "team" && slug === "idman")) requestRender(false);
   } catch { cur.at -= 174e4; } // alınmadı: 30 dəqiqə yox, 1 dəqiqə sonra yenidən
@@ -2655,10 +2717,16 @@ document.addEventListener("pointerdown", e => {
   if (dirty) renderTopbar();
 }, { passive: true, capture: true });
 const sourcesView = () => pageView("sourcesView"), aboutView = () => pageView("aboutView"), sectionsView = () => pageView("sectionsView");
+// Altlığın mənbə siyahısı hər render()-də qurulurdu: «az» dilli localeCompare hər müqayisədə yeni ICU kollatoru yaradırdı və tam lentdə ~1 000
+// sətir gəzilirdi — 1×-də 36–48 ms, telefonda tam lentin çəkilişinə ~0,15 s (2026-11-24). Kollator birdir (sıra eynidir: localeCompare məhz
+// Intl.Collator-dur), siyahı mənbə reyestri və ya lent dəyişəndə yenidən qurulur.
+let TRACKED = null;
 function trackedSources() {
-  const rows = S.sources?.sources;
-  const names = rows ? rows.filter(s => !removedSource(s)).map(s => s.name) : (S.data?.articles ?? []).flatMap(a => [shownSource(a), ...(a.alts || []).map(x => x.source)]);
-  return [...new Set(names.filter(Boolean))].sort((a, b) => a.localeCompare(b, "az"));
+  const rows = S.sources?.sources, data = rows ? null : S.data;
+  if (TRACKED && TRACKED.rows === rows && TRACKED.data === data) return TRACKED.out;
+  const names = rows ? rows.filter(s => !removedSource(s)).map(s => s.name) : (data?.articles ?? []).flatMap(a => [shownSource(a), ...(a.alts || []).map(x => x.source)]);
+  TRACKED = { rows, data, out: [...new Set(names.filter(Boolean))].sort(azCmp) };
+  return TRACKED.out;
 }
 function renderFooter() {
   const srcs = trackedSources();
