@@ -90,7 +90,7 @@ test('the anchored panel fits narrow phones and opens above a button near the bo
   for(const width of [305,320,360,390,768]){
     const p=followPosition({top:60,bottom:104,right:width-12},{height:330},{width,height:740});
     assert.ok(p.left>=8 && p.left+p.width<=width-8);
-    assert.equal(p.top,110);assert.ok(p.top+Math.min(330,p.maxHeight)<=732);
+    assert.equal(p.top,112,'düymənin altında, üçbucaq üçün 8 px');assert.ok(p.top+Math.min(330,p.maxHeight)<=732);
   }
   const above=followPosition({top:650,bottom:694,right:375},{height:330},{width:390,height:740});
   assert.ok(above.top+330<650);

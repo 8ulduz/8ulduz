@@ -349,7 +349,8 @@ test('phone nav: one row of four sections and ☰ that opens every section in a 
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
   assert.ok(css.includes('.nav-inst{display:none}nav.main .nav-tg{display:none}'), 'masaüstündə nə düymə, nə çağırış');
   assert.ok(css.includes('nav.main>a:not(.ph,.nav-tg){display:none}'), 'telefonda qalan bölmələr ☰-dadır');
-  assert.ok(css.includes('nav.main .nav-more-pop{position:fixed;inset:auto 0 0;') && css.includes('grid-template-columns:1fr 1fr'), 'siyahı aşağıdan, iki sütun alt-alta');
+  // Sahib, 2026-11-24: «açılan pəncərə düymənin həmən altında açılsın… bütün alt pəncərə açılan düymələrə tətbiq et» — siyahı əvvəl aşağıdan çıxırdı.
+  assert.ok(css.includes('nav.main .nav-more-pop{position:fixed;inset:58px 8px auto;') && css.includes('grid-template-columns:1fr 1fr'), 'siyahı ☰-in altından, iki sütun alt-alta');
   assert.ok(css.includes('nav.main .nav-tg{display:flex;flex:1 0 100%'), 'çağırış yalnız telefonda, öz sətrində');
   assert.ok(/nav\.main \.nav-inst\{display:inline-flex[^}]*background:var\(--primary\)/.test(css), 'düymə öz rəngində');
 });
@@ -2814,7 +2815,8 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   S.og = {};
   const html = card({ id: '1', title: 'Xəbər', lang: 'az', category: 'gundem', source: 'APA', sourceUrl: 'https://apa.az/1', publishedAt: at });
   const shIcon = vm.runInContext('shIcon', ctx); // panelin işarələri sprite-dandır
-  assert.equal(shIcon('fb'), '<svg aria-hidden="true"><use href="./assets/sosial.svg#fb"/></svg>', 'işarə <use> ilə çəkilir, hərf yoxdur');
+  assert.equal(shIcon('fb'), '<svg aria-hidden="true" style="color:#0866ff"><use href="./assets/sosial.svg#fb"/></svg>', 'işarə <use> ilə çəkilir, hərf yoxdur, öz rəngində (sahib, 2026-11-24)');
+  assert.equal(shIcon('x'), '<svg aria-hidden="true"><use href="./assets/sosial.svg#x"/></svg>', 'X qara-ağdır: mətnin rəngi');
   assert.ok(html.includes('class="share"') && !html.includes('class="sh"'), 'kartda yalnız düymə');
   // telefon: yuxarı zolağın qutusu açılır, dil + rejim + şrift loqo sətrində, Namaz + hava + lupa + «Ana ekrana əlavə et» ikinci sətirdə
   const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
@@ -2826,7 +2828,7 @@ test('owner notes: share icons come from one sprite file, the phone install chip
   const list = ctx.api.languagePicker();
   assert.equal((list.match(/class="ldm/g) || []).length, 5, 'dörd dil + «Hamısı», hər biri öz sətrində');
   assert.ok(list.indexOf('data-lang="az"') < list.indexOf('data-lang=""'), '«Hamısı» sonda');
-  assert.ok(css.includes('.ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%') && css.includes('.ldd-pop{') && css.includes('background:#fff;color:#0a1120'), 'dairəvi bayraq, fərqli fonlu kart');
+  assert.ok(css.includes('.ldd-btn .flag,.lang-list .flag{width:22px;height:22px;border-radius:50%') && css.includes('.ldd-pop{') && css.includes('padding:6px;background:var(--card);border:1px solid var(--border)') && css.includes(':root{--pop:#fbf6ea}:root[data-theme=light]{--pop:#19385f}') && css.includes('.ldd-pop,.altpop div,.sharepop,.follow-dialog{--fg:#172b4d;') && css.includes(';--card:var(--pop);'),'dairəvi bayraq, fərqli fonlu kart — bütün alt pəncərələr kimi saytın əks rəngində (sahib, 2026-11-24)');
 });
 test('follow stays in the header; the channel promotion and duplicate footer follow control are removed', () => {
   const cfg = fs.readFileSync(path.join(root, 'assets/config.js'), 'utf8');
