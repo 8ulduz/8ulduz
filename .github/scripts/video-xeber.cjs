@@ -453,6 +453,8 @@ function storyFields(a) {
   const text = clean(a.text || "") || clean(a.summary || "");
   return { id: a.id, own: true, title: clean(a.title), summary: clean(a.summary || ""), text, source: a.source || "", sourceUrl: a.sourceUrl || "",
     category: a.category || "", lang: a.lang || "az", publishedAt: a.publishedAt || "",
+    // Maraqlı video (video-maraqli.cjs): növ və saytın keçidi YouTube/TikTok yükləyicisinə (xəbər deyil, paylaşma səhifəsi yoxdur).
+    ...(a.kind === "maraqli" ? { kind: "maraqli", url: a.url || "https://8ulduz.az/" } : {}),
     ...(Array.isArray(a.hashtags) && a.hashtags.length ? { hashtags: a.hashtags.slice(0, 3) } : {}) };   // YouTube/TikTok yükləyicisi oxuyur
 }
 

@@ -188,6 +188,8 @@ const EHTIYAT = {
   hadise: ["police car lights night", "city street night", "emergency lights", "road traffic night"],
   cemiyyet: ["city street people walking", "city lights night", "residential buildings", "city street traffic"],
   medeniyyet: ["theater stage lights", "museum hall", "old city architecture", "concert stage lights"],
+  // Maraqlı video (video-maraqli.cjs): ümumi səhnə yoxdur — gepard haqqında videoda şəhər görünməsin; klip azdırsa mövzu ötürülür.
+  maraqli: [],
 };
 const ehtiyat = a => EHTIYAT[a.category] || ["city skyline night", "city street traffic", "city lights night", "clouds timelapse"];
 

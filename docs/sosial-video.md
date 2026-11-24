@@ -118,6 +118,35 @@ Tətbiq edilməyən variantlar — **qərar sahibindir**:
 
 2026-11-24: sahib xəbərə aid TV görüntüsünü istədi («hava və bənzəri xəbərlərimiz xaric»). Saytda telekanalın öz YouTube videosu xəbər səhifəsində yerləşdirildi. Sosial videolarımız üçün yol telekanalın yazılı icazəsidir: məktub və icazələr cədvəli [tv-icaze.md](tv-icaze.md)-dədir.
 
+## Maraqlı videolar (sahib, 2026-11-24)
+
+Sahibin sözləri, X-in «Sizin üçün» lentindən 20 ekran şəkli ilə: «bu kimi həm xəbər tipli, həm də digər çox maraqlı videolar», «mənə maraqlı deyil sən haradan tapacaqsan», «əsas odur onlar kimi sən də tap o cür maraqlı videolar».
+
+**Niyə X videoları yox.** Ekran şəkillərindəki hesablar (THS Haber, Tiraj, Özet Geç və s.) videoları özləri çəkməyib. Videolarda əsl sahiblərin su nişanları görünür: Andrew McCarthy, Poland 24, RT, Master Haber və başqaları. X-də avtomatik hüquq yoxlaması yoxdur. Bizim videolar isə YouTube, Facebook, Instagram və TikTok-a gedir, orada Content ID və Rights Manager su nişanlı videonu tanıyır: video silinir, hesaba xəbərdarlıq gəlir (yuxarıda «Müəllif hüququ»).
+
+Ona görə X videoları yalnız saytda (Videolent) oynayır. Video X-in öz serverindən gəlir, yəni bizə yüklənmir. Bu hesablar Videolentin «xəbər» qrupuna əlavə olunub (`oz_x.py` `VIDEOLENT_QRUPLAR`). Sosial hesablara isə «Maraqlı» rubrikası gedir. O, istifadə hüququmuz olan materialdan qurulur:
+
+- **Görüntü:** Pixabay və Pexels klipləri. Lisenziyaları pulsuzdur, kliplər dəyişdirilib paylaşıla bilər.
+- **Fakt:** Vikipediyanın ingiliscə məqaləsindən. Fakt müəllif əsəri deyil. Mətni özümüz yazırıq, mənbə və məqalənin keçidi postda göstərilir.
+- **Səs:** SARA.
+
+**Necə işləyir** (`.github/scripts/video-maraqli.cjs`):
+1. **Mövzu** `MOVZULAR` siyahısından götürülür: 50 heyvan, 18 təbiət hadisəsi və bitki, 10 kosmos mövzusu. Hamısı Pixabay-da bol görüntüsü olan, hər yaşda maraqlı mövzulardır. Növbə hər gün başqa mövzudan başlayır. Son 3 gündə işlənən mövzu təkrarlanmır (`state.m`).
+2. **Fakt** Vikipediyanın API-sindən (`extracts`, düz mətn) gəlir: məqalənin ilk 5000 simvolu, «See also»dan sonrası atılır.
+3. **Mətn:** Gemini Azərbaycan dilində başlıq və 5–7 cümləlik diktor mətni yazır. Başlıq mövzunun ən heyrətamiz faktıdır. Yoxlama xəbər videosu ilə eynidir (`checkText`): uzunluq, cümlə sayı, kiril, nida, sual və nisbi gün sözü olmamalıdır. Mətndə və başlıqda **hər rəqəm məqalədə olmalıdır**, mətn saytın qaydasından (`policyViolation`) keçməlidir. Keçməsə növbəti mövzu götürülür (bir pəncərədə ən çox 3).
+4. **Görüntü** mövzunun öz adı ilə axtarılır (`goruntu`), xəbər videosundakı uyğunluq, yad yer və montaj redaktoru yoxlamaları ilə. Ümumi səhnə yoxdur (`EHTIYAT.maraqli = []`): gepard haqqında videoda şəhər görünmür. Uyğun klip 2-dən azdırsa növbəti mövzu götürülür.
+5. **Montaj** xəbər videosu ilə eynidir (`video-xeber.cjs`): tam boy kadr, «MARAQLI» etiketi, altyazı, «Mənbə: Vikipediya · Görüntü: Pixabay». `video.json`-da `kind: "maraqli"` və `url: https://8ulduz.az/` olur: YouTube və TikTok yükləyicisi bunu xəbər kimi yox, öz növü ilə yükləyir.
+
+**Tezlik** (`sosial-video.cjs` `maraqliDue`):
+- Son maraqlı videodan **MARAQLI_ARA_MIN** (60) dəqiqə keçibsə və 24 saatda **MARAQLI_GUNDE** (10) dolmayıbsa, pəncərədə əvvəl maraqlı video hazırlanır. Alınmasa xəbər videosu gedir.
+- Uyğun xəbər olmayan pəncərədə də maraqlı video hazırlanır. Bu halda öz fasiləsi gözlənmir, yalnız gündəlik hədd yoxlanır.
+- Ümumi fasiləyə və gündəlik həddə (`VIDEO_MIN_GAP_MIN`, `VIDEO_GUNDE` — Facebook-un 24 saatda 30 Reels həddi) sayılır. Xəbər mövzularının siyahısına düşmür.
+- Söndürmək üçün Variables-da `MARAQLI_VIDEO=0` yazılır. Əl ilə işə salmaq: «Video xəbər» işi, `tur: maraqli`.
+
+**Paylaşma mətni:** başlıq, mətn, «Daha çox: https://8ulduz.az/», «Məlumat: Vikipediya — <məqalənin keçidi>», «Görüntü: Pixabay» və etiketlər (mövzunun etiketləri, #maraqlı, #bilirdinizmi, #8ulduz).
+
+**PR yoxlaması:** `tests/fixtures/video-maraqli.json` nümunəsindən süni kliplərlə video hazırlanır (`numune-maraqli`) və müqavilə yoxlanır (`kind`, `url`, Vikipediya mənbəyi). Testlər `tests/video-maraqli.test.cjs`-dədir.
+
 ## Video modulu: `.github/scripts/video-xeber.cjs`
 
 TikTok paylaşımı da eyni modulun hazırladığı faylı yükləyir (PR [8ulduz/8ulduz#293](https://github.com/8ulduz/8ulduz/pull/293), `docs/tiktok.md` §7). Qoşulma: `sosial-video.yml`-in `tiktok` işi `tiktok.yml`-i çağırır (`artifact: video-xeber`, yalnız TikTok sirləri). Bu iş yalnız `main`-də, əsl paylaşım dövrəsində (`paylas == '1'`) və video yoxlamadan keçəndə (`yoxlandi == '1'`) işləyir. Seçim (`VIDEO_ACAR`) Facebook, TikTok və ya YouTube açarı olanda işləyir. YouTube Shorts da eyni faylı yükləyir: `youtube` işi eyni şərtlərlə `youtube.yml`-i çağırır (`artifact: video-xeber`, yalnız YouTube sirləri, [youtube.md](youtube.md)). «8ulduz.az» zolağı yuxarıdan 15,6%-dədir (TikTok-un üst yazıları ~8–10%-i örtür).
