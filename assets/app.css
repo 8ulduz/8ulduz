@@ -1172,4 +1172,4 @@ nav.main .nav-more>summary{padding:0 8px}
 :is(.ldd.open>.ldd-btn,.wx.open>.wx-btn,.pray-wrap.open>.pray,.nav-more[open]>summary,.altpop[open]>summary,.fx-on,.pop-on)::after{content:"";position:absolute;left:50%;top:100%;margin-left:-8px;border:8px solid transparent;border-top:0;border-bottom-color:var(--pop);z-index:1001;pointer-events:none;opacity:1}
 .fx-on{anchor-name:--fx}@supports (left:anchor(--fx left)){.fx-pop{left:anchor(--fx left);transform:none}.fx-pop.r{left:auto;right:anchor(--fx right)}}
 .pop-on.pop-up::after{top:auto;bottom:100%;border:8px solid transparent;border-bottom:0;border-top-color:var(--pop)}
-/* Kənar blok çəkilmir (sürət 11-24) */#view>section,#view>.lazy-sec,#view>details,#footer,.grid>.card,.latest-grid>.card{content-visibility:auto;contain-intrinsic-block-size:auto 360px}#view>:has(details[open]),.card:has(details[open]){content-visibility:visible}
+/* Kənar blok çəkilmir (sürət 11-24) */#view>section,#view>.lazy-sec,#view>details,#footer,.grid>.card,.latest-grid>.card{content-visibility:auto;contain-intrinsic-block-size:auto 360px}#view>:has(details[open]),#view>#vlent,.card:has(details[open]){content-visibility:visible}
