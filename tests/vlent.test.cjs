@@ -40,6 +40,21 @@ test('lent: X-dən yalnız hadisə və xəbər videoları; X videolu öz xəbər
   assert.ok(got.every(v => v.kind === 'x' && !/kino/.test(v.title)));
 });
 
+test('lent (sahib 2026-11-24, ikinci baxış): hər video kartı tam doldurur, şəkil də; növbəti video qabaqcadan hazırlanır', async () => {
+  const { poster } = await mod();
+  assert.deepEqual(poster({ kind: 'yt', id: 'abcdefghijk', tall: true }),
+    ['https://wsrv.nl/?url=' + encodeURIComponent('https://i.ytimg.com/vi/abcdefghijk/oar2.jpg') + '&w=360&we&output=webp&q=70', 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'],
+    'Shorts: şaquli şəkil (hqdefault yanlarda qara zolaqlıdır)');
+  assert.match(poster({ kind: 'yt', id: 'abcdefghijk', tall: false })[0], /hq720\.jpg/, 'üfüqi: zolaqsız şəkil');
+  assert.equal(poster({ kind: 'yt', id: 'abcdefghijk', tall: false })[1], 'https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg');
+  const v = read('assets/vlent.js');
+  assert.ok(v.includes('.vl-v>iframe.w{left:50%;width:316.05%;transform:translateX(-50%)}'), '16:9 YouTube kartın hündürlüyündə, ortadan kəsilir');
+  assert.ok(v.includes('video{width:100%;height:100%;object-fit:cover}') && !v.includes('object-fit:${'), 'X videosu həmişə kartı doldurur');
+  assert.ok(v.includes('preload="auto"') && v.includes('if (auto() && nx !== n) make(nx);'), 'növbəti kartın oynadıcısı qabaqcadan');
+  assert.ok(v.includes('trim([n, nx]);'), 'ən çoxu iki oynadıcı');
+  assert.ok(read('assets/app.css').includes('nav.main>a.ph,nav.main .nav-inst{border:1px solid var(--border)}'), 'telefon cərgəsi: AZ düyməsinin kənarı kimi (sahib: ağ xətt pis göründü)');
+});
+
 test('lent: tənbəl modul, «Son xəbərlər»dən dərhal sonra, sabit sətirli qutu (dəqiqəlik çəkiliş oynayan videonu kəsmir)', () => {
   const app = read('assets/app.js');
   assert.ok(app.includes('latestBlock(remaining) + (uiLang(S.lang) ? "" : VLENT)'), 'lent «Son xəbərlər»dən sonradır');
@@ -50,7 +65,7 @@ test('lent: tənbəl modul, «Son xəbərlər»dən dərhal sonra, sabit sətirl
   assert.ok(!sw.includes('vlent.js'), 'service worker ilkin keşinə düşmür');
   const v = read('assets/vlent.js');
   assert.ok(v.includes('<meta name="referrer" content="no-referrer">'), 'X videosu referrer göndərməyən çərçivədə (X 403 verir)');
-  assert.ok(v.includes('https://www.youtube-nocookie.com/embed/') && v.includes('mute=${sound ? 0 : 1}'), 'YouTube çərəzsiz, səssiz başlayır');
+  assert.ok(v.includes('https://www.youtube-nocookie.com/embed/') && v.includes('?autoplay=0&mute=1&'), 'YouTube çərəzsiz, səssiz başlayır (oynadıcı qabaqcadan açılır, «oynat» əmri ilə başlayır)');
   assert.ok(v.includes('saveData') && v.includes('still()'), 'qənaət və «hərəkəti azalt» rejimində özü oynamır');
 });
 

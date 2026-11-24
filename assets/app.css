@@ -1129,7 +1129,7 @@ nav.main .nav-tg>span::before{content:"";border:8px solid #0000;border-width:8px
 .prez .soc-g b{flex-basis:auto;white-space:nowrap;margin-right:6px;font-size:var(--fs-body)}
 .prez .soc-g a{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;color:var(--primary)}
 .prez .soc-g a svg{width:20px;height:20px}
-/* cərgə: sahib 11-24 */nav.main>a.ph,nav.main .nav-inst{box-shadow:inset 0 0 0 1.5px #fff}nav.main a.has-sub{font-weight:800}nav.main a.has-sub::after{content:"▼";margin-left:5px;font-size:.75em;opacity:1}}
+/* cərgə: sahib 11-24 */nav.main>a.ph,nav.main .nav-inst{border:1px solid var(--border)}nav.main a.has-sub{font-weight:800}nav.main a.has-sub::after{content:"▼";margin-left:5px;font-size:.75em;opacity:1}}
 /* sahib 11-10: 📲 solda; ana ekranda Gündəm, Dünya; JS-dən əvvəl də belə */
 @media (max-width:600px){
 nav.main .nav-inst,nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}
