@@ -228,15 +228,45 @@ test('Videolent: when every video has been watched the longest-ago one comes bac
   assert.equal(items.at(-1).key, vkey(reels[0].u), 'ən son baxılan ən sonda');
 });
 
-test('Videolent: a shared link to an already watched video does not put it first — it waits one swipe away (owner 2026-11-23)', async () => {
+// Sahib 2026-11-24: «vatsapda videolentdən paylaşılanda həmin videoya qayıtmır … tam birdəfəlik düzəlt. artıq neçənci dəfədir deyirəm».
+// 2026-11-23-dən izlənmiş paylaşılan video ikinci gəlirdi: paylaşan öz keçidini açanda başqa video görürdü.
+test('Videolent: a shared link ALWAYS opens that very video first, even if this phone has watched it (owner 2026-11-24)', async () => {
   const { list, first, markSeen } = await import(pathToFileURL(file).href);
   store();
   const reels = feed(), shared = reels[7];
   assert.equal(first(list({}, reels), shared.id)[0].k, shared.id, 'izlənməmiş paylaşılan video birinci');
   markSeen(shared.u);
   const items = first(list({}, reels), shared.id);
-  assert.notEqual(items[0].k, shared.id, 'izlənmiş video birinci deyil');
-  assert.equal(items[1].k, shared.id, 'bir sürüşdürmə uzaqda');
+  assert.equal(items[0].k, shared.id, 'izlənmiş olsa da birinci');
+  assert.equal(items.length, list({}, reels).length, 'heç nə itmir');
+});
+
+test('Videolent: the shared link shows no site flash — black screen, the module at once; returning after sharing lands on the same video (owner 2026-11-24)', () => {
+  const crypto = require('node:crypto');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+  const body = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.ok(html.match(/script-src[^;"]*/)[0].includes(`'sha256-${crypto.createHash('sha256').update(body).digest('base64')}'`), 'CSP hash');
+  assert.ok(!/<style\b/.test(html), 'index.html-də daxili CSS yoxdur (açılış müqaviləsi)');
+  assert.ok(body.includes('st.id = "reels-boot"; st.textContent = "html{background:#000}body{visibility:hidden}";'), 'yalnız lent keçidində: sayt görünmür, qara ekran');
+  assert.ok(body.includes('lp.rel = "modulepreload"; lp.href = "./assets/lent.js?v=1";'), 'lent modulu dərhal');
+  assert.ok(body.includes('setTimeout(function () { if (st.parentNode) st.parentNode.removeChild(st); }, 8000);'), 'lent alınmasa sayt 8 s sonra görünür');
+  // Yalnız paylaşılan videonun keçidi: #/videolent özü «Video xəbərlər» səhifəsidir.
+  const re = new RegExp(body.match(/location\.hash\.match\((\/\^#[^\n]*?\/)\)/)[1].slice(1, -1));
+  assert.equal(('#/videolent?r=2125245555639042179'.match(re) || [])[1], '2125245555639042179');
+  assert.equal('#/videolent'.match(re), null);
+  assert.equal('#/'.match(re), null);
+  // Lent açıq ikən səhifə yenidən yüklənibsə (telefon WhatsApp-a paylaşanda səhifəni boşaldıb, geri, yeniləmə) — həmin video.
+  assert.ok(body.includes('sessionStorage.getItem("8u-reels-at")') && body.includes('document.wasDiscarded || nav === "reload" || nav === "back_forward"')
+    && body.includes('history.replaceState(null, "", "#/videolent?r=" + ra.k)'), 'izlənən videoya qayıdış');
+  assert.ok(body.indexOf('8u-reels-at') < body.indexOf('var home ='), 'qayıdış marşrutdan əvvəl: qara ekran da işləyir');
+  const src = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(src.includes('markSeen(vid(s).dataset.src);\n    atSave(s.dataset.k);') && src.includes('const slide = v => `<section data-k="${esc(v.k || "")}"'), 'oynayan video yadda saxlanır');
+  assert.ok(/const close = \(\) => \{[\s\S]*?atDrop\(\);\n    siteShow\(\);/.test(src), 'bağlananda unudulur, sayt görünür');
+  assert.ok(src.includes('z-index:2147483000;background:#000;visibility:visible'), 'lent gizli saytın içində görünür');
+  assert.ok(src.includes('document.addEventListener("visibilitychange", live.vis);') && src.includes('!s.classList.contains("p") && vid(s).paused) play(s);'), 'qayıdanda video davam edir');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'assets', 'app.js'), 'utf8');
+  assert.ok(app.includes('import("./lent.js?v=1").then(m => m.open(S, r.reel)).catch(() => $("#reels-boot")?.remove());'), 'modul alınmasa sayt dərhal görünür');
+  assert.ok(src.includes('const siteShow = () => document.getElementById("reels-boot")?.remove();'));
 });
 
 test('Videolent: if the phone does not keep storage (private mode, in-app browser), the same page still remembers what was watched', async () => {

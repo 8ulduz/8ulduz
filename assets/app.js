@@ -2574,7 +2574,8 @@ function sharedReel() {
   S.reelAt = r.reel;
   history.replaceState(history.state, "", "#/");   // lenti bağlayan ana səhifəyə düşür
   setTimeout(render);
-  import("./lent.js?v=1").then(m => m.open(S, r.reel)).catch(() => {});
+  // Lent keçidində index.html saytı gizlədir (#reels-boot): modul alınmasa sayt dərhal görünür (8 s gözlənmir).
+  import("./lent.js?v=1").then(m => m.open(S, r.reel)).catch(() => $("#reels-boot")?.remove());
 }
 function renderView() {
   syncQuery();
