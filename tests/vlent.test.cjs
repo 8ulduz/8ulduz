@@ -75,3 +75,38 @@ test('lent: öz YouTube kanalımız video siyahısına yığılır və qayda siy
   assert.ok(read('assets/content-policy.js').includes('"Real TV", "8ULDUZ"]'));
   assert.ok(up.includes('got = yt_items(url, VIDEO_PER)') && /VIDEO_PER = 10/.test(up), 'kanal başına 10 video: xəbərə aid TV videosu tapılsın');
 });
+
+// Sahib, 2026-11-24: «son xəbərlərin altındakı videoxəbərlərə basanda tam ekran olsun» (öz, TV və X videoları).
+test('lent (sahib 2026-11-24, tam ekran): videoya basanda kart səslə tam ekrana açılır, video olduğu yerdən davam edir', () => {
+  const v = read('assets/vlent.js');
+  const open = /function openFs\(n\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
+  const close = /function closeFs\(\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
+  assert.ok(open && close, 'openFs/closeFs var');
+  assert.ok(v.includes('openFs(Number(b.parentElement.dataset.n));'), 'videoya basmaq tam ekranı açır (əvvəl yalnız səsi açıb-bağlayırdı)');
+  assert.ok(v.includes('aria-label="${LABEL}"') && v.includes('const LABEL = "Videonu tam ekranda aç"'));
+  assert.ok(open.includes('c.classList.add("fs")') && !/iframe|make\(|\.append\(/.test(open),
+    'oynadıcı yerindən tərpənmir (iframe köçürülsə yenidən yüklənər, video başdan başlayardı)');
+  assert.ok(open.includes('if (n !== cur) { sound = true; play(n); } else setSound(true);'), 'səslə; oynayan kart olduğu yerdən davam edir');
+  assert.ok(v.includes('.vl-c.fs{position:fixed;inset:0;z-index:2147483000;'), 'bütün pəncərəni tutur, saytın başlığı və menyusu üstə çıxmır');
+  assert.ok(v.includes('.vl-c.fs .vl-v>iframe.w{left:0;width:100%;transform:none}'), 'üfüqi YouTube videosu tam ekranda kəsilmir, bütöv görünür');
+  const card = Number(/\.vl-c\{flex:none;width:min\(58vw,(\d+)px\)/.exec(v)?.[1]);
+  assert.ok(v.includes('@media(min-width:300px){video{object-fit:contain}}') && card < 300,
+    'X videosu kartda kartı doldurur, tam ekranda bütöv görünür (həddi kartın enindən böyükdür)');
+  assert.ok(v.includes('if (fs >= 0) { fsEnd = true;') && open.includes('clearTimeout(timer);'), 'tam ekranda növbəti karta özü keçmir');
+});
+
+test('lent (tam ekran): hər cihazda işləyir, geri/✕/Escape bağlayır, lent yerində qalır, CLS yoxdur', () => {
+  const v = read('assets/vlent.js');
+  const open = /function openFs\(n\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
+  const close = /function closeFs\(\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
+  assert.ok(open.includes('history.pushState({ vlfs: 1 }, "");') && v.includes('addEventListener("popstate", () => { if (fs >= 0) closeFs(); });'), 'telefonun geri düyməsi tam ekranı bağlayır, səhifədən çıxmır');
+  assert.ok(v.includes('if (e.key === "Escape") { e.preventDefault(); back(); }') && v.includes('if (fx?.classList.contains("x")) back();'));
+  assert.ok(open.includes('if (document.fullscreenEnabled && c.requestFullscreen)'), 'əsl tam ekran yalnız brauzer verirsə (iPhone Safari div üçün vermir: tam pəncərə qalır)');
+  assert.ok(v.includes('if (native && fs >= 0 && !document.fullscreenElement) back();'), 'brauzerin tam ekranından çıxmaq (Esc, Android geri) bizimkini də bağlayır');
+  assert.ok(open.includes('spot.style.height = c.offsetHeight + "px";') && open.includes('c.before(spot);'), 'kartın lentdəki yerini eyni ölçülü boş yer tutur: arxadakı kartlar tərpənmir');
+  assert.ok(close.includes('c.style.visibility = "hidden";'), 'geri düyməsi «giriş» sayılmır: yerinə qayıdan kart iki kadr gizli (CLS-ə yazılmır)');
+  assert.ok(!v.includes('style.overflow'), 'səhifənin overflow-u dəyişmir (kompüterdə zolaq gedib səhifə tərpənərdi)');
+  assert.ok(open.includes('c.addEventListener("touchmove", noScroll, { passive: false });') && close.includes('c.removeEventListener("touchmove", noScroll);')
+    && !/row\.addEventListener\("(touchmove|wheel)"/.test(v), 'sürüşmə yalnız tam ekran açıq ikən dayandırılır: lentin öz sürüşməsi ləngimir');
+  assert.ok(close.includes('setSound(false);'), 'bağlananda video lentdə səssiz davam edir');
+});
