@@ -548,8 +548,7 @@ class SixtyFortyTest(unittest.TestCase):
         src = (ROOT / ".github" / "scripts" / "x_yazici.py").read_text(encoding="utf-8")
         self.assertIn("picked = [i for i in pick_reels(pool, REELS_PER_RUN * 3)", src)
         self.assertIn("split_reels(picked, lambda i: by_id[i][\"handle\"], REELS_PER_RUN)", src)
-        self.assertIn('for k in ("c", *DILLER):
-            if k in row and xm.izah_check(row[k]) and not xm.forbidden_topic(row[k])', src,
+        self.assertIn('for k in ("c", *DILLER):\n            if k in row and xm.izah_check(row[k]) and not xm.forbidden_topic(row[k])', src,
                       "biçimi pis izah düşür, video qalır (azərbaycanca, rusca, ingiliscə)")
 
 
