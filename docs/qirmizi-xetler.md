@@ -160,6 +160,28 @@ Sahibin göstərişi: «strukturu elə qur ki, nə əlavə etsək, dəyişsək b
 
 Bütün sürət büdcələri bir faylda — `tests/budce.json`; testlər (`struktur`, `browser-logic`, `budce`, `cpu-guard`) və ölçü aləti (`.github/scripts/speed.cjs`, «speed» qrupu) oradan oxuyur. Rəqəm yalnız sahibin qərarı ilə dəyişir: eyni PR-da kodla birlikdə, bu cədvəldə tarix və səbəb, əvvəl/sonra ölçü ilə. Cədvəl fayldan fərqlənsə `tests/budce.test.cjs` qırmızı olur. Məlumat tavanları 2026-11-05…09 müşahidəsinin ən böyüyü + 20–25%-dir (2026-11-09: first.json 64 186, latest.json 70 378, og.json 55 327, news.json 214 303, paylaş ən böyüyü 57 633 bayt gzip). Sətir sahələri də pinlənir (`setir.saheler`, `paylas.saheler`): yeni sahə hər sətirə baytdır, yalnız sahibin qərarı ilə.
 
+2026-11-24, sahib («sürət qırmızı cizgimizdir. "gözqırpımında" ölçüsü saytın istisnasız hər bir hissəsində olsun! bunu ən peşəkar və innovativ üsullarla təmin et»): yeni büdcələr `inp`, `klik.gorunme`, `klik.sebeke`, `giris.sehife` (və `yeni.sert2`). Səbəb: ölçü aləti yalnız ünvan keçidlərini ölçürdü; oxucunun basışları və sayta gəldiyi başqa qapılar ölçülmürdü. İndi `speed.cjs` CDP ilə həqiqi toxunuş və klaviatura göndərir və Event Timing ilə INP ölçür. Ölçülən basışlar: ☰, hava, namaz, məzənnə, dil, tema, izlə, İdman cərgəsi, «daha çox», ulduz, kart → xəbər, paylaş, geri, Videolent, Tıxac, idman alt düyməsi, axtarışa yazmaq. Giriş qapıları da ölçülür: Google-dan xəbər və bölmə səhifəsi, canlıda `www.8ulduz.az` paylaşma keçidi, tətbiqsiz ayrıca səhifələr. Ölçü bu PC-də aparılıb (telefon, 4× prosessor), main ilə növbəli müqayisədir:
+- axtarışa yazmaq: hərfin ən pisi 384–1 712 → 192–256 ms;
+- «daha çox»: 328–448 → 96–240 ms;
+- tema: 184–208 → 96 ms;
+- kart → xəbər: görünmə 424–689 → 176–435 ms;
+- geri: 366–494 → 263–269 ms (qaydasız və qaydalı CSS eyni anda);
+- Tıxac: 314–1 120 → 465–539 ms (modul basmaq niyyətində soruşulur).
+
+Necə əldə olundu:
+- ekrandan kənar bloklar və kartlar çəkilmir (`content-visibility:auto`; açıq pəncərəli kart istisnadır, `:has(details[open])`, pəncərə kəsilmir);
+- axtarış hərfi dərhal boyanır, nəticə kadrdan sonra gəlir, tez yazılan hərflərdən yalnız sonuncu çəkilir;
+- «daha çox» yalnız yeni kartları əlavə edir;
+- tema dəyişəndə yalnız düymə yenilənir;
+- xəbər açılanda söz statistikası lent başına bir dəfə hesablanır;
+- məzənnə formatlayıcısı bir dəfə qurulur;
+- tənbəl modul (Videolent, İzlə, Dinlə, Tıxac) barmaq toxunan an soruşulur.
+
+Hədlər «gözqırpımı»dır: `inp` 200 ms Google-un «yaxşı» həddidir (burada 4× yavaş prosessorda), `klik.gorunme` mövcud `nav`/`sub` kimi 300 ms. 2026-11-27-dək (`yeni.sert2`, ~12 planlı dövrə) yalnız xəbərdarlıqdır, runner-in səs-küyü görülsün deyə; sonra sərtdir. Qalan məlum gecikmələr:
+- paylaşma keçidi `www.8ulduz.az` (Cloudflare Worker) → 302 → `8ulduz.az` (GitHub Pages) ikinci server bağlantısıdır: canlıda başlıq 2,25 s-də, birbaşa keçiddə ~1,1 s-də görünür. Aradan qalxması üçün əsas domen Cloudflare proksisindən keçməlidir (sahibin 3 noyabr DNS qərarı; ayrıca qərardır).
+- Google-dan gələn xəbər səhifəsində tam lentin ilk emalı bir uzun işdir (telefonda ~1 s, xəbər görünəndən sonra).
+- Komanda səhifəsində başlıqdakı daxili JSON görünən mətndən əvvəl gəlir (canlı LCP 1,7 s).
+
 2026-11-24, sahib («Bəli, 99 000-ə qaldır»): `app.css` həddi 97 000 → 99 000. Səbəb: sahibin göstərişi — «izlə ni basanda açılan pəncərənin rəngi saytın rəngindən fərqlənsin … açılan pəncərə düymənin həmən altında açılsın … bütün alt pəncərə açılan düymələrə tətbiq et». Səkkiz alt pəncərə (bölmə menyusu, ☰, hava, namaz, valyuta, dil, «N mənbə», Paylaş) və İzlə paneli düymənin altında açılır (telefonda hava, namaz və valyuta CSS anchor ilə), saytın əks rəngini (tünd temada qum, açıq temada tünd göy) və düymənin altında üçbucağı alır; rənglər CSS dəyişənləri ilə bir yerdədir. Fayl 96 853 → 98 980 bayt, gzip 21 798 → 22 407 (`app.css.gz` həddi 24 000 dəyişməyib). Ölü sinif axtarışı yenə boş çıxdı.
 
 2026-11-19, sahib («Yes, raise to 97,000»): `app.css` həddi 95 000 → 97 000. Səbəb: telefonun yeni başlığı (☰ · 8ULDUZ · axtar · rejim / dil · hava · namaz · İzlə / bölmələr / neon «Videolentə bax»). Fayl 96 837 bayt oldu, gzip ölçüsü ~450 bayt artdı (21 343 → 21 792; `app.css.gz` həddi 24 000 dəyişməyib). Ölü sinif axtarışı boş çıxdı, yer açmaq mümkün olmadı.
@@ -205,6 +227,11 @@ Bütün sürət büdcələri bir faylda — `tests/budce.json`; testlər (`struk
 | `sehife.kohne` | 0,05 | `xeber/<id>/` səhifələrində `STORY_VER`-dən köhnə şablon payı (gecə, `--pages`) | 2026-11-09 |
 | `sehife.saat` | 24 | `STORY_VER` artımından sonra köhnə payın gözlənildiyi müddət (saat) | 2026-11-09 |
 | `yeni.sert` | 2026-11-12T08:00:00Z | 2026-11-09 ölçüləri bu tarixədək yalnız xəbərdarlıqdır (ilk 10 planlı dövrə — runner-in səs-küyü görülsün), sonra sərt | 2026-11-09 |
+| `inp` | 200 | toxunuşdan növbəti boyaya (INP, Event Timing; telefon, 4× prosessor, CDP ilə həqiqi toxunuş və klaviatura, ms) | 2026-11-24 |
+| `klik.gorunme` | 300 | toxunuşdan gözlənən məzmunun (pəncərə, xəbər, ana səhifə, bölmə) ekrana çıxmasına (ms) | 2026-11-24 |
+| `klik.sebeke` | 1 000 | ilk dəfə modul və məlumat yükləyən toxunuş (Videolent, Tıxac): görünmə (ms) | 2026-11-24 |
+| `giris.sehife` | 1 200 | tətbiqsiz ayrıca səhifə (hava, namaz, məzənnə, icmal, rayon, komanda, haqqında): soyuq açılışda LCP (ms) | 2026-11-24 |
+| `yeni.sert2` | 2026-11-27T08:00:00Z | 2026-11-24 ölçüləri (giriş qapıları, toxunuşlar) bu tarixədək yalnız xəbərdarlıqdır, sonra sərt | 2026-11-24 |
 
 Məlum risk (2026-11-07, qərar sahibindir): repo tarixçəsi gündə ~20 MB böyüyür (dəqiqəlik lent `live` budağındadır və tarixçəsizdir, amma `main`-ə 10 dəqiqədən bir yazılan tam lent və saatlıq paylaşma siyahısı tarixçədə qalır). 2026-11-07-də repo 308 MB idi. Sayta və xəbər axınına təsiri yoxdur: pipeline `fetch-depth: 1` ilə işləyir, Pages yalnız son vəziyyəti yayımlayır. GitHub-ın tövsiyəsi isə repo üçün 1 GB-dan az, mütləq 5 GB-dan az ölçüdür; bu sürətlə ~2 aya 1 GB-a çatacaq. Qərar (sahib işi tapşırdı, 2026-11-07): (a) tarixçəni silmək işə yaramır — kod PR-ları (`refs/pull/*`, silinmir) köhnə tarixçəni GitHub-da onsuz da saxlayır, yer azalmır, risk isə böyükdür; ona görə edilmir. (b) yeni böyük və ya tez dəyişən fayllar main-ə yazılmır, tarixçəsiz budağa gedir (`live`, `arxiv`, `ses`) — struktur 5 bunu yoxlayır. Ölçü həftədə bir ölçülür (`.github/workflows/repo-olcu.yml`); 2 GB-ı keçəndə yoxlama qırmızı olur və sahibə e-poçt gəlir. O vaxt (bu sürətlə ~2027-nin fevralı, 5 GB-a hələ aylar qalarkən) sayt data fayllarını main-dən tarixçəsiz budağa köçürmək planlı edilir.
 

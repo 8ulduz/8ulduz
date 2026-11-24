@@ -50,7 +50,12 @@
     "ab.min": 50,
     "sehife.kohne": 0.05,
     "sehife.saat": 24,
-    "yeni.sert": "2026-11-12T08:00:00Z"
+    "yeni.sert": "2026-11-12T08:00:00Z",
+    "inp": 200,
+    "klik.gorunme": 300,
+    "klik.sebeke": 1000,
+    "giris.sehife": 1200,
+    "yeni.sert2": "2026-11-27T08:00:00Z"
   },
   "cpu": {
     "publishNews": 200,
