@@ -1,5 +1,5 @@
 {
- "izah": "SARA səsinin anlaşıqlıq yoxlaması (ses_yoxla.py): son video xəbərlərin hissələri, xəbər bazasından çətin cümlələr və sınaq cümlələri. numune — dinləmək üçün mp3-ə gedənlər.",
+ "izah": "SARA səsinin anlaşıqlıq yoxlaması (ses_yoxla.py): son video xəbərlərin hissələri, xəbər bazasından çətin cümlələr və sınaq cümlələri. numune — dinləmək üçün mp3-ə gedənlər. 2026-11-24: sahibin qeydləri üçün 10 cümlə (ayın günü, tarix, saat, ixtisar, mötərizə, sual) — hamısı nümunə faylındadır.",
  "numune": [
   0,
   1,
@@ -20,7 +20,17 @@
   16,
   61,
   62,
-  63
+  63,
+  81,
+  82,
+  83,
+  84,
+  85,
+  86,
+  87,
+  88,
+  89,
+  90
  ],
  "items": [
   "FHN ötən həftə 34 nəfəri xilas edib, 4 nəfər xəsarət alıb",
@@ -103,6 +113,16 @@
   "Azərbaycanın kitab satışı üzrə ixtisaslaşmış “Libraff” MMC-nin nizamnamə kapitalı 256 min manat və ya 127.9% artırılaraq 456.2 min manata çatdırılıb.",
   "1 efir 1 654,23 dollar (2 812,19 manat) olub, 6,05% bahalaşıb.",
   "Niderland 2030-cu ilədək müdafiə sənayesi və texnologiya bazasını 40 faiz genişləndirməyi, illik gəlirlərini isə 15 milyard avroya çatdırmağı hədəfləyir.",
-  "Open-Meteo-nun proqnozuna görə, bu gün Bakıda arabir zəif yağış gözlənilir, temperatur 11,2–14,1 dərəcə arasında olacaq."
+  "Open-Meteo-nun proqnozuna görə, bu gün Bakıda arabir zəif yağış gözlənilir, temperatur 11,2–14,1 dərəcə arasında olacaq.",
+  "Dövlət Sosial Müdafiə Fondu noyabrın 25-də Ucar rayonunda sığortaedənlər üçün təlim keçirəcək.",
+  "Qeydiyyat dekabrın 31-dək davam edəcək, müraciətlər 10:00-18:00 arası qəbul olunur.",
+  "Sənəd 25.11.2026 tarixində imzalanıb və 1 yanvar 2027-ci ildən qüvvəyə minəcək.",
+  "Layihəyə 5 mln. manat, o cümlədən Avropa İttifaqının (AB) 1,2 mln avro qrantı ayrılıb.",
+  "Bakı ş., Xətai r. ərazisində 120 kv. m sahədə yeni məktəb, uşaq bağçası və s. tikiləcək.",
+  "Prof. Əliyev bildirib ki, iqlim dəyişikliyi – xüsusilə quraqlıq – kənd təsərrüfatına ciddi təsir göstərir.",
+  "Niyə qiymətlər artır? Ekspertlər bunu dolların 1,70 manatdan yuxarı qalxması ilə izah edir.",
+  "AzTV-nin efirində ABŞ və NATO nümayəndələri saat 21:05-də çıxış edəcək.",
+  "Dekabrın 1-dən etibarən sürücülük vəsiqəsi üçün imtahanlar yeni qaydada keçiriləcək.",
+  "Bu gün saat 14:00-dan 18:00-dək Nəsimi rayonunun bəzi küçələrində işıq olmayacaq."
  ]
 }

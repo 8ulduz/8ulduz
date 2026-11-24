@@ -124,6 +124,8 @@ def main(corpus_path, out, old_path=None):
 
     new = load(os.path.join(SES, "az_text.py"), "az_text_yeni")
     old = load(old_path, "az_text_kohne") if old_path and os.path.exists(old_path) else None
+    if old is not None and hasattr(old, "load_lexicon"):
+        old.load_lexicon(SES)   # köhnə qaydalar /tmp-dən yüklənir, lüğət yanında yoxdur: eyni lüğətlə — fərq yalnız qaydalardadır
     old_ses = os.environ.get("OLD_SES")
     old_ses = load(old_ses, "ses_kohne") if old_ses and os.path.exists(old_ses) else None
     with open(corpus_path, encoding="utf-8") as f:
@@ -161,9 +163,14 @@ def main(corpus_path, out, old_path=None):
         for i, text in enumerate(items):
             t0 = time.time()
             if is_babek:
-                # Babək bütöv mətni alır (durğu və böyük hərf intonasiya üçün qalır): köhnə — ses.py-nin indiki yolu, yeni — az_text.for_voice
-                said = (old_ses.spoken_text(text) if v.get("metn") == "kohne"
-                        else new.for_voice(cur_ses.spoken_text(text), hyphens=v.get("tire", False)))
+                # Babək bütöv mətni alır (durğu və böyük hərf intonasiya üçün qalır): köhnə — müqayisə budağının yolu (orada
+                # for_voice varsa onunla: 2026-11-23-dən sayt da qaydalarla oxuyur, köhnə qaydalar ədalətli müqayisə olunsun),
+                # yeni — bu budağın az_text.for_voice
+                if v.get("metn") == "kohne":
+                    said = old_ses.spoken_text(text)
+                    said = old.for_voice(said) if old is not None and hasattr(old, "for_voice") else said
+                else:
+                    said = new.for_voice(cur_ses.spoken_text(text), hyphens=v.get("tire", False))
                 pcm = babek(said, sr)
             else:
                 import torch

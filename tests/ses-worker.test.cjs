@@ -75,17 +75,18 @@ test("ses-worker /ses: a prepared voice file is served at once (no Azure call)",
   } finally { env.restore(); }
 });
 
-test("ses-worker /ses: not prepared yet → the full source text in Microsoft's official Babək voice (Azure), streamed; the title starts at once and the rest follows", async () => {
+test("ses-worker /ses: not prepared yet → the full source text in Microsoft's official Babək voice (Azure), streamed; the source starts at once and the text follows (no title, owner 2026-11-24)", async () => {
   const { default: w } = await load();
   const env = cfEnv([[/sportinfo\.az/, () => new Response(page, { headers: { "content-type": "text/html" } })],
     [/westeurope\.tts\.speech\.microsoft\.com/, () => new Response(new Uint8Array(8000), { status: 200, headers: { "content-type": "audio/mpeg" } })]]);
   try {
     const r = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
-    assert.equal(r.status, 200); assert.equal((await r.arrayBuffer()).byteLength, 16000, "başlıq + mətnin qalanı bir axında");
+    assert.equal(r.status, 200); assert.equal((await r.arrayBuffer()).byteLength, 16000, "mənbə + mətn bir axında");
     const az = env.calls.filter(c => /tts\.speech\.microsoft\.com/.test(c.u));
     assert.equal(az[0].o.headers["Ocp-Apim-Subscription-Key"], "k");
-    assert.ok(az[0].o.body.includes("az-AZ-BabekNeural") && az[0].o.body.includes("Klub prezidenti. Sportinfo xəbər verir.</voice>"), "əvvəl yalnız başlıq + mənbə — dərhal");
-    assert.ok(az[1].o.body.includes(">Napoli klubunun"), "mətnin qalanı arxasınca, başlıq təkrarlanmadan");
+    assert.ok(az[0].o.body.includes("az-AZ-BabekNeural") && az[0].o.body.includes(">Sportinfo xəbər verir.</voice>"), "əvvəl yalnız mənbə — dərhal");
+    assert.ok(az[1].o.body.includes(">Napoli klubunun"), "mətn arxasınca");
+    assert.ok(!az.some(c => c.o.body.includes("Klub prezidenti")), "başlıq oxunmur (sahib, 2026-11-24)");
     await env.done();
     const again = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
     assert.equal(again.status, 200); assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, 2, "ikinci dinləyici keşdən alır");
@@ -94,8 +95,8 @@ test("ses-worker /ses: not prepared yet → the full source text in Microsoft's 
     const forged = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=SAXTA%20BA%C5%9ELIQ&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
     await forged.arrayBuffer(); await env.done();
     const said = env.calls.filter(c => /tts\.speech/.test(c.u)).map(c => c.o.body);
-    // (2026-11-23: böyük hərfli söz Babəkə söz kimi gedir — «SAXTA BAŞLIQ» → «saxta başlıq», az-text.js)
-    assert.ok(said.length > 2 && said.slice(2).some(b => b.includes("saxta başlıq")), "başqa başlıq öz səsini alır");
+    // Başlıq oxunmasa da keş açarına daxildir: başqa başlıqla gələn sorğu bu dinləyicinin keşinə düşmür, öz səsini alır
+    assert.ok(said.length > 2, "başqa başlıq öz səsini alır");
     const reader = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/1") + "&id=aaaaaaaaaaaaaaaa&t=Klub%20prezidenti&s=Sportinfo"), { AZURE_KEY: "k" }, env.ctx);
     assert.equal(reader.status, 200); await reader.arrayBuffer(); await env.done();
     assert.equal(env.calls.filter(c => /tts\.speech/.test(c.u)).length, said.length, "əsl başlıqlı sorğu yenə öz keşindən (saxta səs ona verilmir)");
@@ -218,7 +219,7 @@ test("ses-worker /ses: a story whose prepared voice has no body text (index «q�
     const r = await call(env);
     assert.equal((await r.arrayBuffer()).byteLength, 9000, "tam mətn Babək səsi ilə");
     const az = env.calls.filter(c => /tts\.speech/.test(c.u));
-    assert.equal(az.length, 1); assert.ok(az[0].o.body.includes("Yeni körpü. Report xəbər verir.") && az[0].o.body.includes("Napoli klubunun"));
+    assert.equal(az.length, 1); assert.ok(az[0].o.body.includes(">Report xəbər verir. Napoli klubunun") && !az[0].o.body.includes("Yeni körpü"), "başlıqsız (2026-11-24)");
   } finally { env.restore(); }
   env = mk([[/report\.example/, () => new Response("yox", { status: 403 })]]);
   try { assert.equal((await (await call(env)).arrayBuffer()).byteLength, 5000, "mənbə rədd edir → hazır səs"); assert.ok(!env.calls.some(c => /tts\.speech/.test(c.u))); } finally { env.restore(); }
@@ -234,7 +235,10 @@ test("ses-worker /ses: when the source text cannot be fetched the title-only aud
   try {
     const q = "u=" + encodeURIComponent("https://report.az/qapali") + "&id=bbbbbbbbbbbbbbbb&t=H%C9%99qiqi%20ba%C5%9Fl%C4%B1q&s=Report";
     const first = await w.fetch(ses(q), { AZURE_KEY: "k" }, env.ctx);
-    assert.equal(first.status, 200); assert.equal((await first.arrayBuffer()).byteLength, 8000, "yalnız başlıq oxunur");
+    // Mətn alınmayıb: mənbə və (yalnız belə halda) başlıq oxunur — iki hissə bir axında
+    assert.equal(first.status, 200); assert.equal((await first.arrayBuffer()).byteLength, 16000, "mənbə + başlıq oxunur");
+    const bodies = env.calls.filter(c => /tts.speech/.test(c.u)).map(c => c.o.body);
+    assert.ok(bodies[0].includes(">Report xəbər verir.</voice>") && bodies[1].includes(">Həqiqi başlıq.</voice>"), bodies.join(" | "));
     await env.done();
     const before = env.calls.length;
     const second = await w.fetch(ses(q), { AZURE_KEY: "k" }, env.ctx);
@@ -276,7 +280,7 @@ test("ses-worker /ses: the live Babək voice gets the human reading (acronyms, n
     const r = await w.fetch(ses("u=" + encodeURIComponent("https://sportinfo.az/9") + "&id=bbbbbbbbbbbbbbbb&t=BMT-nin%20hesabat%C4%B1&s=8ULDUZ"), { AZURE_KEY: "k" }, env.ctx);
     assert.equal(r.status, 200); await r.arrayBuffer(); await env.done();
     const said = env.calls.filter(c => /tts\.speech/.test(c.u)).map(c => c.o.body);
-    assert.ok(said[0].includes(">be em tenin hesabatı. səkkiz ulduz xəbər verir.</voice>"), said[0]);
+    assert.ok(said[0].includes(">səkkiz ulduz xəbər verir.</voice>"), said[0]);
     assert.ok(said[1].includes(">a be şedə on doqquzda Napoli klubunun"), said[1].slice(0, 200));
   } finally { env.restore(); }
 });
@@ -297,4 +301,47 @@ test("ses-worker: the reading lexicon is fetched once (base over weekly addition
   await lexicon(fake, 50);
   assert.equal(asked.length, n, "6 saat ərzində yenidən soruşulmur");
   setLexicon();
+});
+
+// Sahib, 2026-11-24: «"noyabrın 25-də" yazısını oxuyanda "noyabrın iyirmibeşdə" oxuyur», «başlıqları oxumasın».
+test("ses-worker: owner's examples read correctly in the JavaScript copy too (giriş → gözlənilən)", async () => {
+  const { forVoice, verbalize, dayCase, setLexicon } = await azText();
+  setLexicon();
+  const cases = [
+    ["Tədbir noyabrın 25-də keçiriləcək.", "Tədbir noyabrın iyirmi beşində keçiriləcək."],
+    ["Qeydiyyat dekabrın 31-dək, iyulun 20-si, aprelin 30-u.", "Qeydiyyat dekabrın otuz birinədək, iyulun iyirmisi, aprelin otuzu."],
+    ["25 noyabr 2026", "iyirmi beş noyabr iki min iyirmi altıncı il"],
+    ["25.11.2026-da imzalanıb.", "iyirmi beş noyabr iki min iyirmi altıncı ildə imzalanıb."],
+    ["1-ci, 3-cü, 2026-cı il", "birinci, üçüncü, iki min iyirmi altıncı il"],
+    ["Saat 14:05-də, 10:00-18:00 arası", "Saat on dörd sıfır beşdə, on ilə on səkkiz arası"],
+    ["5 mln. manat, $1,5 mlrd, 100 AZN-ə", "beş milyon manat, bir tam onda beş milyard dollar, yüz manata"],
+    ["Alma və s. Sonra", "Alma və sairə. Sonra"],
+    ["80 m², 5 ha, 15%-ə, №5", "səksən kvadrat metr, beş hektar, on beş faizə, nömrə beş"],
+  ];
+  for (const [x, want] of cases) assert.equal(verbalize(x).replace(/\s+/g, " ").trim(), want, x);
+  assert.equal(forVoice("Prezident (Azərbaycan) bildirib - əməkdaşlıq davam edəcək. AzTV, ABŞ, AB?"), "Prezident, Azərbaycan, bildirib, əməkdaşlıq davam edəcək. Az te ve, a be şe, a be?");
+  assert.equal(dayCase("iyirmi", "dən"), "iyirmisindən");
+  assert.equal(dayCase("otuz", "dakı"), "otuzundakı");
+  assert.equal(dayCase("beş", "la"), null, "tanınmayan hal — adi qayda");
+});
+
+test("ses-worker /: the device-voice text also comes in the spoken form for Azerbaijani stories, without the title", async () => {
+  const { default: w } = await load();
+  const { setLexicon } = await azText();
+  const body = "Bakıda forum. " + "Forum noyabrın 25-də ABŞ nümayəndələrinin iştirakı ilə keçiriləcək, qeydiyyat 14:00-dan başlayır. ".repeat(3);
+  const html = `<script type="application/ld+json">${JSON.stringify({ "@type": "NewsArticle", articleBody: body })}</script>`;
+  const env = cfEnv([[/apa\.az/, () => new Response(html, { headers: { "content-type": "text/html" } })]]);
+  const ask = q => w.fetch(new Request(`https://dinle.x/?${q}`, { headers: { Referer: "https://8ulduz.az/" } }), {}, env.ctx);
+  try {
+    const j = await (await ask("u=" + encodeURIComponent("https://apa.az/5") + "&l=az&t=" + encodeURIComponent("Bakıda forum"))).json();
+    assert.ok(j.text.startsWith("Bakıda forum. Forum noyabrın 25-də"), "mənbənin mətni olduğu kimi qalır");
+    assert.ok(j.say.startsWith("Forum noyabrın iyirmi beşində a be şe nümayəndələrinin"), j.say.slice(0, 90));
+    assert.ok(j.say.includes("on dörddən başlayır"), "saat sözlə, şəkilçi uyğun");
+    await env.done();
+    const again = await (await ask("u=" + encodeURIComponent("https://apa.az/5") + "&l=az")).json();
+    assert.ok(again.say.startsWith("Bakıda forum."), "keşdən də «say» hazırlanır; başlıq verilməyibsə atılmır");
+    assert.equal(env.calls.filter(c => /apa\.az/.test(c.u)).length, 1, "mənbə bir dəfə soruşulur");
+    const en = await (await ask("u=" + encodeURIComponent("https://apa.az/5") + "&l=en")).json();
+    assert.equal(en.say, undefined, "başqa dildə «say» yoxdur");
+  } finally { env.restore(); setLexicon(); }
 });

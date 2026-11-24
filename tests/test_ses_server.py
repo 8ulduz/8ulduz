@@ -36,7 +36,8 @@ class VerbalizeTest(unittest.TestCase):
         v = az_text.verbalize
         self.assertEqual(v("Hesab 2-1 oldu"), "Hesab iki-bir oldu")
         self.assertEqual(v("Qiymət 15% artdı"), "Qiymət on beş faiz artdı")
-        self.assertEqual(v("07.11.2026 tarixində"), "yeddi noyabr iki min iyirmi altı tarixində")
+        # 2026-11-24: tam tarix ili ilə oxunur («… iki min iyirmi altıncı il tarixində»; əvvəl «iki min iyirmi altı tarixində»)
+        self.assertEqual(v("07.11.2026 tarixində"), "yeddi noyabr iki min iyirmi altıncı il tarixində")
         self.assertEqual(v("11-ci tur"), "on birinci tur")
         self.assertEqual(v("Dollar 1.70 manat"), "Dollar bir tam yüzdə yetmiş manat")
         self.assertEqual(v("2 500 nəfər"), "iki min beş yüz nəfər")
@@ -82,8 +83,9 @@ class HumanReadingTest(unittest.TestCase):
         self.assertEqual(said("XII turda, II Dünya müharibəsi, XV əsr"), "on ikinci turda | ikinci dünya müharibəsi | on beşinci əsr")
 
     def test_number_suffix_is_attached(self):
+        # Sahib, 2026-11-24: ayın günü mənsubiyyətlə — «noyabrın on doqquzunda» («on doqquzda» idi)
         self.assertEqual(said("Noyabrın 19-da, 900-dən çox, 29-na qədər, 10-nun, 22-si, 3-ü, 42-yə, 300-ə, 160-la"),
-                         "noyabrın on doqquzda | doqquz yüzdən çox | iyirmi doqquza qədər | onun | iyirmi ikisi | üçü | qırx ikiyə | üç yüzə | yüz altmışla")
+                         "noyabrın on doqquzunda | doqquz yüzdən çox | iyirmi doqquza qədər | onun | iyirmi ikisi | üçü | qırx ikiyə | üç yüzə | yüz altmışla")
         self.assertEqual(said("saat 18:00-dək, 10:00-da, 21:45-də, 15%-ə, 10-illik"),
                          "saat on səkkizədək | onda | iyirmi bir qırx beşdə | on beş faizə | onillik")
         self.assertEqual(said("3-otaqlı mənzil, 2026-2027-ci tədris ili"), "üç-otaqlı mənzil | iki min iyirmi altı-iki min iyirmi yeddinci tədris ili")
@@ -117,6 +119,73 @@ class HumanReadingTest(unittest.TestCase):
         self.assertEqual(len(parts), 4)
         self.assertLess(parts[0][1], parts[-1][1])
         self.assertEqual(len(az_text.phrases("Bir, iki, üç.", commas=True)), 3)
+
+    def test_day_of_month_takes_the_possessive(self):
+        # Sahib, 2026-11-24: «"noyabrın 25-də" yazısını oxuyanda "noyabrın iyirmibeşdə" oxuyur» — düzgünü «iyirmi beşində»
+        v = az_text.verbalize
+        for text, want in [
+            ("Tədbir noyabrın 25-də keçiriləcək.", "Tədbir noyabrın iyirmi beşində keçiriləcək."),
+            ("Noyabrın 25-dən etibarən", "Noyabrın iyirmi beşindən etibarən"),
+            ("Qeydiyyat dekabrın 31-dək davam edir", "Qeydiyyat dekabrın otuz birinədək davam edir"),
+            ("İyulun 20-si bayramdır", "İyulun iyirmisi bayramdır"),
+            ("martın 1-də, aprelin 30-u, mayın 9-u, oktyabrın 2-si", "martın birində, aprelin otuzu, mayın doqquzu, oktyabrın ikisi"),
+            ("ayın 15-nə qədər, noyabrın 25-ində, noyabrın 3-ündə, iyunun 6-sı", "ayın on beşinə qədər, noyabrın iyirmi beşində, noyabrın üçündə, iyunun altısı"),
+            ("sentyabrın 10-dakı görüş, fevralın 4-nü", "sentyabrın onundakı görüş, fevralın dördünü"),
+            ("noyabrın 25-26-da forum", "noyabrın iyirmi beş-iyirmi altısında forum"),
+            ("noyabrın 25-ci günü", "noyabrın iyirmi beşinci günü"),          # sıra sayı öz qaydası ilə
+            ("saat 15-də, 25-də", "saat on beşdə, iyirmi beşdə"),               # ay yoxdursa adi şəkilçi
+        ]:
+            self.assertEqual(v(text), want, text)
+
+    def test_full_dates_are_read_with_the_year(self):
+        v = az_text.verbalize
+        for text, want in [
+            ("25 noyabr 2026", "iyirmi beş noyabr iki min iyirmi altıncı il"),
+            ("25.11.2026 tarixində", "iyirmi beş noyabr iki min iyirmi altıncı il tarixində"),
+            ("25 noyabr 2026-cı il", "iyirmi beş noyabr iki min iyirmi altıncı il"),
+            ("25 Noyabr 2026 ildə", "iyirmi beş Noyabr iki min iyirmi altıncı ildə"),
+            ("25.11.2026-da imzalanıb.", "iyirmi beş noyabr iki min iyirmi altıncı ildə imzalanıb."),
+            ("25 noyabr 2026.", "iyirmi beş noyabr iki min iyirmi altıncı il."),
+            ("1990-cı illər, 300 il əvvəl", "min doqquz yüz doxsanıncı illər, üç yüz il əvvəl"),
+        ]:
+            self.assertEqual(v(text), want, text)
+
+    def test_clock_times_and_ranges(self):
+        v = az_text.verbalize
+        self.assertEqual(v("14:30-da, 14:05-də, 00:30"), "on dörd otuzda, on dörd sıfır beşdə, sıfır otuz")
+        self.assertEqual(v("14:00-dan 18:00-dək"), "on dörddən on səkkizədək")
+        self.assertEqual(v("10:00-18:00 işləyir"), "ondan on səkkizədək işləyir")
+        self.assertEqual(v("10:00-18:00 arası"), "on ilə on səkkiz arası")
+        self.assertEqual(v("09:00-13:00-a qədər"), "doqquzdan on üçə qədər")
+
+    def test_dotted_abbreviations_do_not_end_the_sentence(self):
+        v = az_text.verbalize
+        self.assertEqual(v("Alma, armud və s. satılır."), "Alma, armud və sairə satılır.")
+        self.assertEqual(v("Alma və s. Sonra"), "Alma və sairə. Sonra")
+        self.assertEqual(v("kitablar və b."), "kitablar və başqaları.")
+        self.assertEqual(v("Bakı ş., Xətai r., Azadlıq pr. 10"), "Bakı şəhəri, Xətai rayonu, Azadlıq prospekti on")
+        self.assertEqual(v("prof. Əliyev, Dr. Smith, akad. Məmmədov"), "professor Əliyev, doktor Smith, akademik Məmmədov")
+        self.assertEqual(v("5 mln. manat, 2 mlrd. dollar"), "beş milyon manat, iki milyard dollar")
+        self.assertEqual([s for s, _ in az_text.phrases("Bakı ş. Nizami r. ərazisində və s. yerlərdə qəza olub.")],
+                         ["bakı şəhəri", "nizami rayonu ərazisində və sairə yerlərdə qəza olub"])
+
+    def test_units_money_and_signs(self):
+        v = az_text.verbalize
+        self.assertEqual(v("$1,5 mlrd, €200 mln, 1 000 000 manat"), "bir tam onda beş milyard dollar, iki yüz milyon avro, bir milyon manat")
+        self.assertEqual(v("100 AZN-ə, 50 AZN-dən çox, 3 km-dən"), "yüz manata, əlli manatdan çox, üç kilometrdən")
+        self.assertEqual(v("80 m², 120 kv. m, 100 m2 mənzil, 5 ha"), "səksən kvadrat metr, yüz iyirmi kvadrat metr, yüz kvadrat metr mənzil, beş hektar")
+        self.assertEqual(v("10 MVt, 20 kVt-lıq, 100 m məsafə, 3 m³"), "on meqavat, iyirmi kilovatlıq, yüz metr məsafə, üç kub metr")
+        self.assertEqual(v("Qiymət 15% artıb, 0,5%-ə qədər, %20"), "Qiymət on beş faiz artıb, sıfır tam onda beş faizə qədər, iyirmi faiz")
+        self.assertEqual(" ".join(v("№5 məktəb, 3-5 gün, 3,14").split()), "nömrə beş məktəb, üç-beş gün, üç tam yüzdə on dörd")
+        self.assertEqual(v("AzTV, ABŞ, AB-nin, NATO-ya, BMT"), "Az te-ve, a-be-şe, a-benin, natoya, be-em-te")
+
+    def test_parentheses_and_dashes_become_pauses_for_babek(self):
+        f = az_text.for_voice
+        self.assertEqual(f("Prezident (Azərbaycan) bildirib - əməkdaşlıq davam edəcək."), "Prezident, Azərbaycan, bildirib, əməkdaşlıq davam edəcək.")
+        self.assertEqual(f("Bakı – Azərbaycanın paytaxtıdır."), "Bakı, Azərbaycanın paytaxtıdır.")
+        self.assertEqual(f("O dedi: «Biz gələcəyik (inşallah).»"), "O dedi: «Biz gələcəyik, inşallah.»")
+        self.assertEqual(f("(APA) Xəbər. Necə? Niyə belə oldu?"), "apa, Xəbər. Necə? Niyə belə oldu?")   # sual işarəsi qalır
+        self.assertEqual(f("+12° – +17° olacaq, 10 - 15 nəfər."), "on iki on yeddi dərəcə olacaq, on - on beş nəfər.")   # rəqəm aralığı qalır
 
     def test_everything_reaches_the_model_alphabet(self):
         text = "ABŞ-ın 2026-cı il «Real Madrid» 2:1, 5,54% artıb (COP31) – XII tur; FHN-in məlumatı: 58 822 dollar!"
@@ -178,6 +247,19 @@ VOICE_EXTRA = [
     "Din və dövlət, DİN-in açıqlaması, BLOOMBERG xəbər verir.", "Gündüz Sumqayıtda 21, Gəncədə 16 dərəcə isti olacaq.",
     "8ULDUZ xəbər verir. Bizim.Media, Baku.ws, Day.Az, Oxu24.com, 525.az, AzVision.az, Ordubad RİH.",
     "Qiymət 1 000 000 manat, 1.500 nəfər, 12,5 faiz, 0,75 bal, 1234567890123456 nömrəli hesab.", "edib.Gundelik.az xəbər verir.",
+    # Sahib, 2026-11-24: ayın günü, tam tarix, saat, ixtisar, ölçü, mötərizə və tire (Python və JavaScript eyni oxumalıdır)
+    "Tədbir noyabrın 25-də keçiriləcək. Noyabrın 25-dən etibarən, dekabrın 31-dək, iyulun 20-si, martın 1-də, aprelin 30-u.",
+    "Ayın 15-nə qədər, noyabrın 25-ində, noyabrın 3-ündə, iyunun 6-sı, sentyabrın 10-dakı görüş, fevralın 4-nü, mayın 9-u.",
+    "Noyabrın 25-26-da forum, noyabrın 25-ci günü, saat 15-də, Yanvarın 1-i, avqustun 12-nin, oktyabrın 7-sinə.",
+    "25 noyabr 2026, 25.11.2026 tarixində, 25 noyabr 2026-cı il, 25 Noyabr 2026 ildə, 25.11.2026-da imzalanıb. 25 noyabr 2026.",
+    "1990-cı illər, 300 il əvvəl, 1 dekabr 2025 ilin sonu, 3 mart 2026-dan, 9 may 1945 ilk dəfə.",
+    "Saat 14:30-da, 14:05-də, 00:30, 14:00-dan 18:00-dək, 10:00-18:00 işləyir, 10:00-18:00 arası, 09:00-13:00-a qədər, 20:00–22:00.",
+    "Alma, armud və s. satılır. Alma və s. Sonra kitablar və b. Bakı ş., Xətai r., Azadlıq pr. 10, Mərdəkan qəs. ərazisi.",
+    "Bakı ş. Nizami r. ərazisində prof. Əliyev, Dr. Smith, akad. Məmmədov, dos. Quliyev və St. Peterburq.",
+    "5 mln. manat, 2 mlrd. dollar, $1,5 mlrd, €200 mln, $5 min, 100 AZN-ə, 50 AZN-dən çox, 3 km-dən, 10 USD-yə.",
+    "80 m², 120 kv. m, 100 m2 mənzil, 5 ha, 10 MVt, 20 kVt-lıq, 100 m məsafə, 3 m³, 2 km², 1 m-dən.",
+    "Prezident (Azərbaycan) bildirib - əməkdaşlıq davam edəcək. Bakı – Azərbaycanın paytaxtıdır. O dedi: «Biz gələcəyik (inşallah).»",
+    "(APA) Xəbər. Necə? Niyə belə oldu? +12° – +17° olacaq, 10 - 15 nəfər, Qarabağ - Neftçi oyunu (2:1) bitdi.",
 ]
 
 
@@ -228,9 +310,11 @@ class VoiceTextTest(unittest.TestCase):
 
 
 class ScriptTest(unittest.TestCase):
-    def test_title_source_then_full_text(self):
-        self.assertEqual(server.script("Bakıda yağış.", "APA", "Bakıda yağış. Sabah  güclü yağış."), "Bakıda yağış. APA xəbər verir. Sabah güclü yağış.")
-        self.assertEqual(server.script("Başlıq", "APA", "", "<p>Xülasə</p>"), "Başlıq. APA xəbər verir. Xülasə")
+    def test_source_then_full_text_without_the_title(self):
+        # Sahib, 2026-11-24: «başlıqları oxumasın» — başlıq yalnız mətn də, xülasə də yoxdursa
+        self.assertEqual(server.script("Bakıda yağış.", "APA", "Bakıda yağış. Sabah  güclü yağış, şimşək çaxacaq."), "APA xəbər verir. Sabah güclü yağış, şimşək çaxacaq.")
+        self.assertEqual(server.script("Başlıq", "APA", "", "<p>Sabah paytaxtda güclü yağış gözlənilir.</p>"), "APA xəbər verir. Sabah paytaxtda güclü yağış gözlənilir.")
+        self.assertEqual(server.script("Başlıq", "APA", "", ""), "APA xəbər verir. Başlıq.")
 
     def test_only_https_public_sources_and_site_referer(self):
         self.assertTrue(server.ALLOWED_REF.match("https://8ulduz.az/#/xeber/1"))

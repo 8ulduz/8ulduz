@@ -47,6 +47,18 @@ const FOREIGN = {
 };
 const DOMAIN_TLD = { com: "kom", gov: "qov", org: "orq", edu: "edu", net: "net", info: "info", io: "ay-o", ws: "ve-es" };
 const ROMAN = { I: 1, V: 5, X: 10, L: 50, C: 100 };
+
+// Sahib, 2026-11-24 («noyabrın 25-də» → «noyabrın iyirmibeşdə» oxuyur): az_text.py-dəki yeni qaydaların nüsxəsi.
+const MONTHS_CI = MONTHS.map(m => `[${m[0].replace("i", "İ").toUpperCase()}${m[0]}]${m.slice(1)}`).join("|");
+const MONTH_GEN = "(?:[Yy]anvarın|[Ff]evralın|[Mm]artın|[Aa]prelin|[Mm]ayın|[İi]yunun|[İi]yulun|[Aa]vqustun|[Ss]entyabrın|" +
+  "[Oo]ktyabrın|[Nn]oyabrın|[Dd]ekabrın|[Aa]yın)";
+const ORD_RE = /^(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)$/u;
+const YEAR_WORD = "il(?:in|də|dən|ədək|inə|ini|dir|ində|indən)?";
+const YEAR_CASE = { da: "ildə", "də": "ildə", dan: "ildən", "dən": "ildən", "dək": "ilədək", "dakı": "ildəki", "dəki": "ildəki" };
+const ABBR_AFTER = { "ş": "şəhəri", r: "rayonu", "küç": "küçəsi", pr: "prospekti", "qəs": "qəsəbəsi" };
+const ABBR_BEFORE = { prof: "professor", dos: "dosent", akad: "akademik", dr: "doktor", st: "sent" };
+const SQUARE = { km: "kvadrat kilometr", sm: "kvadrat santimetr", m: "kvadrat metr" };
+const POWER = { kvt: "kilovat", mvt: "meqavat", qvt: "qiqavat" };
 const ONSETS = new Set(["tr", "dr", "kr", "qr", "pr", "br", "fr", "st", "sp", "sk", "kl", "pl", "bl", "fl", "kv", "sm", "sn", "şt", "sv", "tv"]);
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
@@ -213,21 +225,86 @@ function knownWord(word, suffix) {
 const GROUPED = new RegExp(String.raw`^\d{1,3}(?:[ ${SP}.]\d{3})+$`, "u");
 function sayNumber(s) {
   let m = s.match(/^(\d{1,2}):(\d{2})$/u);
-  if (m) return `${numberWords(+m[1])} ${+m[2] ? numberWords(+m[2]) : ""}`.trim();
+  if (m) return `${numberWords(+m[1])} ${+m[2] ? (+m[2] < 10 ? "sıfır " : "") + numberWords(+m[2]) : ""}`.trim();   // 14:05 → on dörd sıfır beş
   if (GROUPED.test(s)) return numberWords(+s.replace(new RegExp(`[ ${SP}.]`, "gu"), ""));
   m = s.match(/^(\d+)[.,](\d{1,3})$/u);
   if (m) return decimalWords(m[1], m[2]);
   return s.length <= 15 ? numberWords(+s) : [...s].map(d => numberWords(+d)).join(" ");
 }
 
-const ORD_SUFFIX = /^(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)$/u;
+const ORD_SUFFIX = ORD_RE;
 const MINUS = s => (s && "−-".includes(s) ? "mənfi " : "");
+
+// Ayın günü mənsubiyyətlə (az_text.day_case): «beş» + «də» → «beşində», «iyirmi» + «dən» → «iyirmisindən», «otuz» + «u» → «otuzu».
+const DAY_CASES = [[/^d[aə]$/u, "də"], [/^d[aə]k[ıi]$/u, "dəki"], [/^d[aə]n$/u, "dən"], [/^[aə]$/u, "ə"], [/^(?:[aə])?d[aə]k$/u, "ədək"], [/^[ıiuü]$/u, "i"], [/^[ıiuü]n$/u, "in"]];
+export function dayCase(word, suffix) {
+  const s = lowerAz(suffix), m = s.match(/^s?[ıiuü](?=n|$)/u), rest = m ? s.slice(m[0].length) : s;
+  let kase;
+  if (m && !rest) kase = "";
+  else {
+    const core = "ny".includes(rest.slice(0, 1)) && rest ? rest.slice(1) : rest;
+    const hit = DAY_CASES.find(([re]) => re.test(core));
+    if (!hit) return null;
+    kase = hit[1];
+  }
+  const base = word + (VOWELS.has(word.slice(-1)) ? "s" : "") + harmonize(word, "i");
+  if (!kase) return base;
+  if (kase === "ədək") return base + harmonize(base, "nə") + "dək";
+  return base + harmonize(base, "n" + kase);
+}
+
+function monthDay(m0, month, a, b, suffix) {
+  const day = +(b || a);
+  if (ORD_RE.test(lowerAz(suffix)) || day < 1 || day > 31) return m0;
+  const said = dayCase(numberWords(day), suffix);
+  if (said == null) return m0;
+  return `${month} ${b ? numberWords(+a) + "-" : ""}${said}`;
+}
+
+function yearDate(m0, day, month, year, word, suffix) {
+  if (word) return `${day} ${month} ${year}-ci ${word}`;
+  if (suffix == null) return `${day} ${month} ${year}-ci il`;
+  if (ORD_RE.test(lowerAz(suffix))) return m0;
+  const il = has(YEAR_CASE, lowerAz(suffix)) ? YEAR_CASE[lowerAz(suffix)] : null;
+  return il ? `${day} ${month} ${year}-ci ${il}` : m0;
+}
+
+function timeRange(m0, a, b, suffix, between) {
+  if (between) return `${sayNumber(a)} ilə ${sayNumber(b)}`;
+  return `${attach(sayNumber(a), "dan", true)} ${attach(sayNumber(b), suffix || "dək", true)}`;
+}
+
+const unit = (word, suffix) => (suffix ? glue(word, suffix, true) : word);
+
+// Babək üçün fasilə yerləri (az_text.pauses): mötərizə və boşluqlu tire vergül olur, rəqəm aralığı toxunulmur.
+export function pauses(text) {
+  return String(text)
+    .replace(/\s*[()]\s*/gu, ", ")
+    .replace(/(?<![\d°%])\s+[–—-]\s+(?![\d+−-])/gu, ", ")
+    .replace(/\s*,(?:\s*,)+/gu, ",")
+    .replace(/\s*,\s*(?=[.!?…:;»”]|$)/gu, "")
+    .replace(/(^|[.!?…:;]\s|[«“])\s*,\s*/gu, "$1")
+    .trim();
+}
 
 const RULES = [
   [new RegExp(`[${SP}]`, "gu"), " "],
   [/\s*\[(?:…|\.\.\.)\]/gu, " "],
   [/(?:^|\s)Source\s*$/u, ""],
+  [rx(String.raw`${B}və ([sb])\.(?=(\s+[${UP}]|\s*$)|)`), (m0, c, end) => (c === "s" ? "və sairə" : "və başqaları") + (end !== undefined ? "." : "")],
+  [rx(String.raw`${B}([${UP}][${LO}]+) (ş|r|küç|pr|qəs)\.(?=(\s+[${UP}]|\s*$)|)`), (m0, w, a, end) => `${w} ${ABBR_AFTER[a]}${end !== undefined ? "." : ""}`],
+  [rx(String.raw`${B}([Pp]rof|[Dd]os|[Aa]kad|[Dd]r|St)\.\s?(?=[${UP}])`), (m0, a) => ABBR_BEFORE[lowerAz(a)] + " "],
+  [rx(String.raw`(?<=\d)(\s?)(mln|mlrd|min|kv|km|kq|sm|mm|ha)\.(?=\s+[${LO}\d])`), "$1$2"],
+  [/(\d)\s?(km|sm|m)²/gu, (m0, d, u) => `${d} ${SQUARE[u]}`],
+  [rx(String.raw`(\d)\s?kv\.?\s?(km|m)${E}`), (m0, d, u) => `${d} ${SQUARE[u]}`],
+  [rx(String.raw`(\d)\s?m2${E}`), "$1 kvadrat metr"],
+  [/(\d)\s?(sm|m)³/gu, (m0, d, u) => `${d} kub ${u === "sm" ? "santimetr" : "metr"}`],
+  [rx(String.raw`(\d)\s?([kKmMqQ][Vv]t)(?:${SUFFIX})?(?![${LO}${UP}])`), (m0, d, u, suf) => `${d} ${unit(POWER[lowerAz(u)], suf)}`],
+  [rx(String.raw`(\d)\s?(ha|m)(?:${SUFFIX})?(?=[\s,.;:!?)]|$)`), (m0, d, u, suf) => `${d} ${unit(u === "ha" ? "hektar" : "metr", suf)}`],
+  [rx(String.raw`${B}(AZN|USD|EUR|azn|usd|eur|km|kq|kg|mln|mlrd|sm|mm)${E}(?:${SUFFIX})?`), (m0, u, suf) => unit(WORD_UNITS[u.toLowerCase()], suf)],
   [rx(String.raw`${B}(\d{1,2})[./](\d{1,2})[./](\d{4})${E}`), (m0, d, mo, y) => (+mo >= 1 && +mo <= 12 ? `${+d} ${MONTHS[+mo - 1]} ${y}` : m0)],
+  [rx(String.raw`${B}(\d{1,2}) (${MONTHS_CI}) ((?:19|20)\d\d)(?!\d|[.,:]\d)(?:\s+(${YEAR_WORD})${E}|(?:-|[’'])([${LO}]+)${E})?`), yearDate],
+  [rx(String.raw`${B}(${MONTH_GEN})\s+(\d{1,2})(?:\s?[-–]\s?(\d{1,2}))?(?:-|[’'])([${LO}]+)${E}`), monthDay],
   [/https?:\/\/\S+/gu, " "],
   [rx(String.raw`${B}([${LO}]{2,})\.([${UP}][${LO}A-Za-z0-9]+\.(?:az|com|ru|org|net|tr|info)${E})`), "$1. $2"],
   [rx(String.raw`${B}www\.`, "i"), ""],
@@ -247,9 +324,10 @@ const RULES = [
   [rx(String.raw`\+?(\d+)\s*°(?:\s*C${E})?`), "$1 dərəcə"],
   [/%\s?(\d+(?:[.,]\d+)?)/gu, "$1%"],
   [rx(String.raw`(\d+(?:[.,]\d+)?)\s?%(?:${SUFFIX})?`), (m0, n, suf) => attach(sayNumber(n) + " faiz", suf || "")],
-  [/([$€£₼₽])\s?(\d[\d .,]*\d|\d)/gu, "$2 $1"],
+  [rx(String.raw`([$€£₼₽])\s?(\d[\d .,]*\d|\d)(\s?(?:milyon|milyard|trilyon|min)${E})?`), (m0, c, n, scale) => `${n}${scale || ""} ${c}`],
   [rx(String.raw`${B}(\d+)\s?-?\s?(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)${E}`), (m0, n) => ordinalWords(+n)],
-  [rx(String.raw`${B}(\d{1,2}:\d{2}|\d{1,3}(?:[ ${SP}.]\d{3})+|\d+[.,]\d{1,3}|\d+)${SUFFIX}`), (m0, n, suf) => glue(sayNumber(n), suf)],
+  [rx(String.raw`${B}(\d{1,2}:\d{2})\s?[-–—]\s?(\d{1,2}:\d{2})(?:${SUFFIX}|${E})(?=(\s+ara)|)`), timeRange],
+  [rx(String.raw`${B}(\d{1,2}:\d{2}|\d{1,3}(?:[ ${SP}.]\d{3})+|\d+[.,]\d{1,3}|\d+)${SUFFIX}`), (m0, n, suf) => glue(sayNumber(n), suf, n.includes(":"))],
   [rx(String.raw`${B}(\d{1,2}):(\d{2})${E}`), m0 => sayNumber(m0)],
   [rx(String.raw`${B}\d{1,3}(?:[ ${SP}.]\d{3})+(?![.,]?\d)`), m0 => sayNumber(m0)],
   [rx(String.raw`${B}(\d+)[.,](\d{1,3})${E}`), (m0, a, b) => decimalWords(a, b)],
@@ -273,7 +351,7 @@ export function verbalize(text) {
 // Saytın «Dinlə» səsi (Babək) üçün mətn (az_text.for_voice): durğu və böyük hərf intonasiya üçün qalır, sözün içindəki tire
 // boşluq olur («a be şenin» — Whisper ölçməsində «a-be-şenin»-dən aydın).
 export function forVoice(text, hyphens = false) {
-  let t = verbalize(text);
+  let t = verbalize(pauses(text ?? ""));
   if (!hyphens) t = t.replace(rx(String.raw`(?<=[${LO}])-(?=[${LO}])`), " ");
   return t.replace(/\s+/gu, " ").trim();
 }
