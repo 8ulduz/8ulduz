@@ -38,7 +38,9 @@ const KEYS = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOK
 const TITLE_MAX = 100, DESC_MAX = 5000, TAGS_MAX = 500, TAG_MAX = 30;
 const KEEP_S = 30 * 86400;
 const MARK = Buffer.from("8ulduz.az");
-const TAGLINE = "8ulduz.az — Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.";
+// «8 Ulduz» ayrıca da yazılır (sahib, 2026-11-24: YouTube-da «8ulduz» axtaranda kanal çıxır, «8 ulduz» axtaranda çıxmır — axtarış
+// «8 ulduz»-u iki söz kimi oxuyur, bitişik «8ULDUZ» adına uyğun gəlmir). Təsvirdə və teqlərdə hər iki yazılış var.
+const TAGLINE = "8ulduz.az (8 Ulduz) — Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.";
 // Başqasının videosu: bu ünvanlardan gələn fayl və ya keçid YouTube-a getmir.
 const FOREIGN_VIDEO = /(^|\.)(twimg\.com|twitter\.com|x\.com|youtube\.com|youtu\.be|tiktok\.com|tiktokcdn\.com|instagram\.com|cdninstagram\.com|facebook\.com|fbcdn\.net|fb\.watch|vk\.com|ok\.ru|rutube\.ru|dailymotion\.com|vimeo\.com)$/i;
 const SITE_URL = /^https:\/\/(www\.)?8ulduz\.az(\/[^\s<>"]*)?$/;
@@ -47,7 +49,7 @@ const RETRY_HTTP = new Set([500, 502, 503, 504]);
 const READ_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/youtube(\.readonly|\.force-ssl)?(\s|$)/;
 const UPLOAD_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/(youtube|youtube\.upload|youtube\.force-ssl|youtubepartner)(\s|$)/;
 
-const BASE_TAGS = ["8ulduz", "8ulduz.az", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"];
+const BASE_TAGS = ["8ulduz", "8 ulduz", "8ulduz.az", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"];
 const KIND_TAGS = { icmal: ["günün icmalı", "günün xəbərləri"], hava: ["hava proqnozu", "Bakı hava"], valyuta: ["valyuta məzənnəsi", "manat", "dollar məzənnəsi"],
   bazar: ["valyuta məzənnəsi", "neft qiyməti", "qızıl qiyməti"] };
 const CAT_TAGS = { gundem: "gündəm", siyaset: "siyasət", iqtisadiyyat: "iqtisadiyyat", dunya: "dünya xəbərləri", idman: "idman xəbərləri",

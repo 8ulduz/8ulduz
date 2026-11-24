@@ -355,7 +355,8 @@ test("youtube: title, description and tags always fit YouTube's limits and carry
     items: Array.from({ length: 10 }, (_, i) => ({ title: `${i} ` + "ğşçəıöü ".repeat(30) })) }, Y.options({})).snippet.description;
   assert.ok(Buffer.byteLength(ic) <= Y.DESC_MAX && Buffer.byteLength(ic) > 4500, `${Buffer.byteLength(ic)} bayt`);
   assert.ok(ic.includes("Ətraflı: https://8ulduz.az/icmal/2026-11-22-axsam/") && ic.endsWith("#Shorts"));
-  assert.deepEqual(r.snippet.tags.slice(0, 5), ["8ulduz", "8ulduz.az", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"]);
+  assert.deepEqual(r.snippet.tags.slice(0, 6), ["8ulduz", "8 ulduz", "8ulduz.az", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"], "«8 ulduz» axtarışı da tapsın");
+  assert.ok(r.snippet.description.includes("8ulduz.az (8 Ulduz) — "), "təsvirdə ayrıca yazılış");
   // Keçid yalnız saytın özünə: video modulunun verdiyi başqa sayt ünvanı işlədilmir.
   assert.equal(Y.linkOf({ id: "abc", kind: "hava", url: "https://evil.example/x" }), "https://8ulduz.az/");
   assert.equal(Y.linkOf({ id: "abc", kind: "valyuta", url: "https://8ulduz.az/bolme/iqtisadiyyat/" }), "https://8ulduz.az/bolme/iqtisadiyyat/");
