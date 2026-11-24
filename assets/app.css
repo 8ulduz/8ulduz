@@ -693,8 +693,8 @@ nav.main{flex-wrap:nowrap;min-width:0}
 .src-row[hidden]{display:none!important}
 a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,input:focus-visible,[role=button]:focus-visible{outline:2px solid var(--primary);outline-offset:4px}
 @media(max-width:1100px){.search{margin-left:auto}.top2{grid-template-columns:minmax(0,2fr) minmax(250px,1fr)}}
-@media(max-width:900px){.top2{grid-template-columns:1fr}.top2 .prez{order:0}nav.main{order:3;flex:1 0 100%;justify-content:flex-start}.nav-more-pop{right:0}.hrow{gap:6px}.hero-main{height:320px}}
-@media(max-width:600px){.latest-grid{grid-template-columns:1fr}.hero-main{min-height:260px;height:280px}.search{flex-basis:160px}nav.main a{font-size:.77rem}.nav-more summary{font-size:.77rem;padding:7px 5px}.nav-more-pop{position:fixed;top:110px;left:14px;right:14px;min-width:0;max-height:65vh}.foot .games li{grid-template-columns:80px minmax(0,1fr) 42px minmax(0,1fr);gap:5px;font-size:.8rem}.foot .games time{font-size:.65rem}.pill,.loadmore,.nav-more-pop a{min-height:44px}.totop{width:44px;height:44px}}
+@media(max-width:900px){.top2{grid-template-columns:1fr}.top2 .prez{order:0}nav.main{order:3;flex:1 0 100%;justify-content:flex-start}.hrow{gap:6px}.hero-main{height:320px}}
+@media(max-width:600px){.latest-grid{grid-template-columns:1fr}.hero-main{min-height:260px;height:280px}.search{flex-basis:160px}nav.main a{font-size:.77rem}.nav-more summary{font-size:.77rem;padding:7px 5px}.foot .games li{grid-template-columns:80px minmax(0,1fr) 42px minmax(0,1fr);gap:5px;font-size:.8rem}.foot .games time{font-size:.65rem}.pill,.loadmore,.nav-more-pop a{min-height:44px}.totop{width:44px;height:44px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .hero-row,.news-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-behavior:smooth;min-width:0;align-items:flex-start;padding-bottom:4px}
 .hero-row::-webkit-scrollbar,.news-row::-webkit-scrollbar{display:none}
@@ -952,14 +952,14 @@ nav.main .nav-s{display:inline}
 .prez-lent{margin-top:8px}
 /* Telefonda yuxarı zolaq bir sətirdir */
 @media(max-width:720px){
-.topbar .prefs{margin-left:auto;flex:none;gap:2px}
-.topbar .prefs button{height:32px;min-width:32px;margin:0;padding:0}
-.topbar .prefs button .face{height:28px;min-width:28px;padding:0 5px}
+.topbar .prefs{margin-left:auto;flex:none}
+.topbar .prefs button{padding:0}
+.topbar .prefs button .face{min-width:28px;padding:0 5px}
 .topbar .pray,.topbar .wx-btn{flex:none}
 }
 @media(max-width:600px){
 header.site{position:sticky;top:0}
-.hrow{min-height:0;padding:4px var(--gutter);gap:4px 8px}
+.hrow{min-height:0}
 .logo img,.hrow .logo img{height:28px}
 nav.main{flex-basis:100%;width:100%;order:4;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;text-wrap:nowrap}
 nav.main>a,nav.main a.nav-x{display:inline-flex;align-items:center;white-space:nowrap;min-height:28px;font-size:var(--fs-meta);line-height:var(--lh-meta);font-weight:600;border-radius:99px}
@@ -1053,7 +1053,7 @@ html:not([data-fs="0"],[data-fs="1"],[data-fs="2"]) .hrow>.topbar>.wrap{flex-wra
 nav.main{order:10}
 .topbar .prefs button[data-act="refresh"]{display:none}
 .topbar .wx-btn>.wcity,.topbar .pray .pc{display:none}
-.topbar .prefs .theme-btn .face{padding:0 7px;min-width:0}
+.topbar .prefs .theme-btn .face{min-width:0}
 .ticker .lbl .bell{font-size:0;width:24px;min-height:0;height:22px;padding:0;display:grid;place-items:center;border-radius:99px}
 .ticker .lbl .bell svg{display:block;width:14px;height:14px;fill:currentColor}
 /* Məzənnə kartı iki sətir */
@@ -1129,7 +1129,7 @@ nav.main .nav-tg>span::before{content:"";border:8px solid #0000;border-width:8px
 .prez .soc-g b{flex-basis:auto;white-space:nowrap;margin-right:6px;font-size:var(--fs-body)}
 .prez .soc-g a{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;color:var(--primary)}
 .prez .soc-g a svg{width:20px;height:20px}
-}
+/* cərgə: sahib 11-24 */nav.main>a.ph,nav.main .nav-inst{box-shadow:inset 0 0 0 1.5px #fff}nav.main a.has-sub{font-weight:800}nav.main a.has-sub::after{content:"▼";margin-left:5px;font-size:.75em;opacity:1}}
 /* sahib 11-10: 📲 solda; ana ekranda Gündəm, Dünya; JS-dən əvvəl də belə */
 @media (max-width:600px){
 nav.main .nav-inst,nav.main a.ph:is([href$="gundem/"],[href$="dunya/"]){order:-1}

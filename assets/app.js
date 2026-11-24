@@ -2059,6 +2059,19 @@ function latestBlock(list) {
   const count = S.latestCount || 8;
   return `<section id="son-xeberler"><div class="sec-h"><h2>Son xəbərlər</h2></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
+// Video lenti (sahib, 2026-11-24): «Son xəbərlər»dən sonra daimi oynayan üfüqi video kartlar — öz videolarımız, X-in hadisə və xəbər
+// videoları, telekanalların videoları. Burada yalnız başlıq və yer (hündürlük qabaqcadan: kartlar gələndə səhifə atlamır); kartları və
+// oynatmanı tənbəl modul (assets/vlent.js) bölmə ekrana yaxınlaşanda qurur. Sətir sabitdir: hər dəqiqəlik çəkiliş qutunu dəyişmir,
+// oynayan video kəsilmir.
+const VLENT = `<section id="vlent" style="min-height:calc(min(58vw,240px)*16/9 + 130px)"><div class="sec-h"><h2>Video xəbərlər</h2><a class="more" href="#/videolent">Bütün videolar →</a></div></section>`;
+function setupVlent() {
+  const el = $("#vlent");
+  if (!el || el._io) return;
+  const go = () => import("./vlent.js").then(m => m.mount(el, S, motionOff)).catch(() => {});
+  if (!globalThis.IntersectionObserver) { go(); return; }
+  el._io = new IntersectionObserver(r => { if (r.some(e => e.isIntersecting)) { el._io.disconnect(); go(); } }, { rootMargin: "900px 0px" });
+  el._io.observe(el);
+}
 function unifiedVideo(list) {
   const hosted = (S.video?.items || []).slice(0, 4);
   if (!hosted.length && !list.length) return "";
@@ -2073,7 +2086,7 @@ function homeView() {
   const m = filtered(S.data.articles), hero = heroPick(m.filter(a => a.category !== "prezident" && imgUrl(a)), HERO_COUNT);
   const used = new Set(hero.slice(0, HERO_ONLY).map(a => a.id));
   const remaining = m.filter(a => !used.has(a.id) && a.category !== "prezident");
-  const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining);
+  const top = `<h1 class="sr-only">8ulduz — Azərbaycan və dünyadan son xəbərlər</h1><div class="top2">${heroBlock(hero)}${prezBlock(prezHome(m, S.data.articles))}</div>` + optional(adHtml) + latestBlock(remaining) + (uiLang(S.lang) ? "" : VLENT);
   if (S.partial) return top; // qalanı tam lentlə gəlir, görünən hissənin altında
   // Yuxarıda görünən xəbər təkrarlanmır.
   const seen = new Set([...hero, ...picFirst(byDate(remaining)).slice(0, S.latestCount || 8)].map(a => a.id)), fresh = a => !seen.has(a.id);
@@ -2146,12 +2159,39 @@ async function scanArchives(id) {
   }
 }
 // «Bu barədə daha çox».
+const RARE_STOP = /^(muhum|bagl|aciql|son$|yeni|foto|video|veziyyet|haqq|bared|gore|sonra|daha|olub|edib|edir|kecir|detal|xeber|tecili|hesr|olun|oldu|tedbir|tarix|munasib)/;
 function relatedOf(a) {
   const all = S.data?.articles || [], df = new Map(), t = +new Date(a.publishedAt), skip = new Set([a, ...(a.alts || [])].map(x => x.id));
   for (const b of all) for (const w of new Set(titleTokens(b.title))) df.set(w, (df.get(w) || 0) + 1);
-  const A = new Set(titleTokens(a.title).filter(w => (df.get(w) || 0) <= Math.max(3, all.length / 40) && !/^(muhum|bagl|aciql|son$|yeni|foto|video|veziyyet|haqq|bared|gore|sonra|daha|olub|edib|edir|kecir|detal|xeber|tecili|hesr|olun|oldu|tedbir|tarix|munasib)/.test(w)));
+  const A = new Set(titleTokens(a.title).filter(w => (df.get(w) || 0) <= Math.max(3, all.length / 40) && !RARE_STOP.test(w)));
   return all.filter(b => !skip.has(b.id) && Math.abs(+new Date(b.publishedAt) - t) < GROUP_MS && !removedArticle(b))
     .map(b => [new Set(titleTokens(b.title).filter(w => A.has(w))).size, b]).filter(x => x[0] > 1).sort((x, y) => y[0] - x[0]).map(x => x[1]).reduce((k, b) => (k.length < 3 && !k.some(c => jaccard(new Set(titleTokens(b.title)), new Set(titleTokens(c.title))) > .5) && k.push(b), k), []);
+}
+// Xəbərə aid telekanal videosu (sahib, 2026-11-24: «öz video xəbərlərimizdə həmin xəbərə aid televiziya xəbərlərində verilən video
+// oynasın … hava və bənzəri xəbərlərimiz xaric»). TV kadrını öz videomuza yükləmək müəllif hüququnu pozur (YouTube Content ID, Meta
+// Rights Manager; docs/sosial-video.md «Müəllif hüququ»): xəbər səhifəsində telekanalın öz YouTube videosu (data/video.json) çərəzsiz
+// oynadıcıda, basanda oynayır — video bizdə saxlanmır, baxış telekanala yazılır. Uyğunluq: başlıqlarda ən azı iki ortaq nadir söz, ±2 gün.
+const WEATHER = /hava (şərait|proqnoz|haqqında)|havanın|temperatur|yağış|yağıntı|qar yağ|külək|şaxta|sinoptik|meteoroloji/i;
+function tvOf(a) {
+  if (WEATHER.test(a.title || "") || !S.video?.items?.length) return null;
+  if (S.tvD !== S.data) {   // sözün neçə başlıqda olduğu — lent dəyişəndə bir dəfə
+    const all = S.data?.articles || [], df = new Map();
+    for (const b of all) for (const w of new Set(titleTokens(b.title))) df.set(w, (df.get(w) || 0) + 1);
+    S.tvD = S.data; S.tvDf = df; S.tvMax = Math.max(3, all.length / 40);
+  }
+  // «Bakıda», «şəxs» kimi tez-tez işlənən söz uyğunluq deyil: yalnız nadir sözlər sayılır.
+  const A = new Set(titleTokens(a.title).filter(w => (S.tvDf.get(w) || 0) <= S.tvMax && !RARE_STOP.test(w))), t = +new Date(a.publishedAt);
+  // Ortaq sözlərdən biri xüsusi ad olmalıdır (yer, adam, təşkilat: başlıqda böyük hərflə, cümlənin ilk sözü deyil və ya «Barselona»
+  // kimi tək sözlük dırnaqda; sitatla başlayan başlığın ilk sözü ad deyil):
+  // «elektron pul təşkilatına rəhbər» ilə «kartınızdan pul oğurlanacaq» iki ortaq sözlə də başqa xəbərdir.
+  const names = new Set(String(a.title).split(/\s+/).flatMap((w, i) => (i || /^["«“„][^"»”]+["»”]/.test(w)) && /^["«“„]?\p{Lu}/u.test(w) ? titleTokens(w) : []));
+  let best = null, n = 1;
+  for (const v of S.video?.items || []) {
+    if (v.channel === "8ULDUZ" || !(Math.abs(+new Date(v.publishedAt) - t) <= 2 * DAY)) continue;
+    const k = [...new Set(titleTokens(v.title))].filter(w => A.has(w));
+    if (k.length > n && k.some(w => names.has(w))) { n = k.length; best = v; }
+  }
+  return best;
 }
 // Sahib, 2026-11-24: paylaşımdan gələn mənbəyə bir toxunuşla keçsin — «mənbədə oxu» başlığın altında, şəkildən əvvəl (telefonda ilk ekranda).
 // Avtomatik yönləndirmə yoxdur: Meta-nın spam qaydası istifadəçi heç nə etmədən başqa domenə aparmağı aldadıcı yönləndirmə sayır.
@@ -2165,7 +2205,7 @@ function articleView(id) {
     return '<p class="empty">Xəbər artıq lentdə yoxdur. <a href="#/">Baş səhifəyə qayıt</a></p>';
   }
   document.title = tidy(a.title) + " — 8ulduz"; S.art = a;
-  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a, true)}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a>${a.xv ? xvTile(a) : imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}${st ? st.replace(/^[\s\S]*?<\/h1>\s*<p>[\s\S]*?<\/p>/, "") : `<section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}`}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
+  return `<article class="article-detail"><a href="#/">← Baş səhifə</a><div class="page-h"><h1>${txt(a.title)}</h1></div>${meta(a, true)}<a class="btn" href="${safeHref(a.sourceUrl)}" ${OUT}>Xəbərin tam mətnini mənbədə oxu ↗</a>${a.xv ? xvTile(a) : imgUrl(a) ? img(a, "", !heavyImage(imgUrl(a)), false, 960) : ""}${optional(() => { const v = tvOf(a); return v ? `<section id="tv" style="max-width:560px"><h2>Telekanalda bu xəbər</h2>${ytTile(v)}</section>` : ""; })}${st ? st.replace(/^[\s\S]*?<\/h1>\s*<p>[\s\S]*?<\/p>/, "") : `<section id="sources"><h2>Bu xəbərin mənbələri (${1 + (a.alts?.length || 0)})</h2>${[a, ...(a.alts || [])].map(r => `<a class="source-entry" href="${safeHref(r.sourceUrl)}" ${OUT}>${esc(r.source)} ↗</a>`).join("")}</section>${optional(() => { const m = relatedOf(a); return m.length ? `<section id="more"><h2>Bu barədə daha çox</h2>${m.map(b => `<a class="source-entry" href="/xeber/${b.id}/">${txt(b.title)}</a>`).join("")}</section>` : ""; })}`}${optional(() => { const sp = a.category === "idman", t = (sp || a.category === "bolgeler") && [...(sp ? SPORT_BY_NAME : REGION_BY_NAME).keys()].reverse().find(n => clubMatches(a, n)), c = CATS.find(c => c.slug === a.category && c.slug !== "sondeqiqe"); return t ? tgIzle((sp ? "i_" : "r_") + teamSlug(t), t) : c ? tgIzle("b_" + c.slug, c.label) : ""; })}</article>`;
 }
 
 // «Telegram-da izlə» (izle.cjs).
@@ -2450,6 +2490,7 @@ function wire(changed) {
   if (has(".hero-strip") || has(".hero-main")) setupHeroImages();
   setupFeatureLents();
   setupLazySections();
+  if (has("#vlent")) setupVlent();
   if (has("template[data-late]")) idle(lateFill);
 }
 const idle = (fn, ms = 200, max = 1500) => (globalThis.requestIdleCallback || (f => setTimeout(f, ms)))(fn, { timeout: max });
@@ -3349,7 +3390,7 @@ async function loadAds() {
 async function loadVideo() {
   try {
     const r = await fetch(freshUrl("data/video.json"), { cache: "no-store" });
-    if (r.ok) { S.video = await r.json(); if (uiLang(S.lang) && S.video.items) S.video.items = S.video.items.filter(v => langOf({ title: v.title, summary: "" }) === S.lang); if (route().name === "home" || route().name === "videos") requestRender(false); }
+    if (r.ok) { S.video = await r.json(); if (uiLang(S.lang) && S.video.items) S.video.items = S.video.items.filter(v => langOf({ title: v.title, summary: "" }) === S.lang); if (["home", "videos", "article"].includes(route().name)) requestRender(false); }   // xəbər səhifəsində «Telekanalda bu xəbər» (tvOf)
   } catch {}
 }
 const SPORTS_DELAY_MS = 4000;

@@ -294,38 +294,46 @@ test("youtube: a dead refresh token or a missing scope is reported clearly, with
   assert.match(r4.logs.join("\n"), /YouTube kanalı yoxdur/);
 });
 
+test("youtube: owner 2026-11-24 — ten times more own videos: 30 a day, 20 minutes apart by default (quota 100, clamp 50)", () => {
+  const o = Y.options({});
+  assert.equal(o.maxDay, 30);
+  assert.equal(o.minGapMin, 20);
+});
+
 test("youtube: daily limit and spacing — but the digest and the test video skip the gap", async () => {
+  // Mexanika 8/30 rəqəmləri ilə yoxlanır (2026-11-24-dək standart idi); indiki standart aşağıdakı testdədir.
+  const go8 = (d, yt, o = {}) => go(d, yt, { ...o, env: { YOUTUBE_MAX_DAY: "8", YOUTUBE_MIN_GAP_MIN: "30", ...o.env } });
   const sec = NOW / 1000;
   const busy = () => ({ last: sec - 10 * 60, posted: Object.fromEntries(Array.from({ length: 3 }, (_, i) => [`old${i}`, { t: sec - 3600 * (i + 1), v: `v${i}` }])) });
   const dir = tmp(); video(dir, "g1");
-  const r1 = await go(dir, youtube(), { state: busy() });
+  const r1 = await go8(dir, youtube(), { state: busy() });
   assert.deepEqual(r1.res.posted, []);
   assert.match(r1.logs.join("\n"), /son video 10 dəq əvvəl, növbəti 20 dəq sonra/);
   const dir2 = tmp(); video(dir2, "icmal-2026-11-22-seher", { kind: "icmal", title: "Səhər icmalı · 22 noyabr 2026", source: undefined, sourceUrl: undefined,
     items: [{ title: "Birinci xəbər", source: "APA", sourceUrl: "https://apa.az/1" }, { title: "İkinci xəbər", source: "Report", sourceUrl: "https://report.az/2" }] });
   const yt2 = youtube();
-  const r2 = await go(dir2, yt2, { state: busy() });
+  const r2 = await go8(dir2, yt2, { state: busy() });
   assert.equal(r2.res.posted.length, 1, "icmal ara gözləmir");
   const d = initBody(yt2).snippet.description;
   assert.ok(d.startsWith("Stansiya sabah sərnişin qəbul edəcək.\n\n1. Birinci xəbər\n2. İkinci xəbər\n\nƏtraflı: https://8ulduz.az/icmal/2026-11-22-seher/"), d);
   assert.ok(!/Mənbə:/.test(d), "icmalda mənbə siyahısı yoxdur");
   assert.ok(initBody(yt2).snippet.tags.includes("günün icmalı"));
   const full = { posted: Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`old${i}`, { t: sec - 600 * (i + 1), v: `v${i}` }])) };
-  const r3 = await go(dir2, youtube(), { state: full });
+  const r3 = await go8(dir2, youtube(), { state: full });
   assert.match(r3.logs.join("\n"), /24 saatda 8 video yükləndi \(hədd 8\)/);
   // Gündəlik hava videosu 8-ə sayılmır (sahib, 2026-11-23: xəbər videosunun həddinə də sayılmır). 2026-11-23-də 7 xəbər + hava
   // həddi doldurdu və 21:48-in xəbəri YouTube-a getmədi. Köhnə qeydin növü yoxdur (adından: «hava-<gün>»), yenisində k: "hava".
   const news7 = Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`old${i}`, { t: sec - 600 * (i + 1), v: `v${i}` }]));
   for (const hava of [{ "hava-2026-11-22": { t: sec - 3600, v: "h1" } }, { "x-hava": { t: sec - 3600, v: "h2", k: "hava" } }]) {
     const d5 = tmp(); video(d5, "g5");
-    const r5 = await go(d5, youtube(), { state: { posted: { ...news7, ...hava } } });
+    const r5 = await go8(d5, youtube(), { state: { posted: { ...news7, ...hava } } });
     assert.equal(r5.res.posted.length, 1, `hava videosu YouTube həddinə sayılmır: ${r5.logs.join("\n")}`);
   }
   const d6 = tmp(); video(d6, "g6");
-  const r6 = await go(d6, youtube(), { state: { posted: { ...news7, "x-xeber": { t: sec - 3600, v: "n8", k: "xeber" } } } });
+  const r6 = await go8(d6, youtube(), { state: { posted: { ...news7, "x-xeber": { t: sec - 3600, v: "n8", k: "xeber" } } } });
   assert.match(r6.logs.join("\n"), /24 saatda 8 video yükləndi \(hədd 8\)/, "8 xəbər — hədd dolub");
   const old = tmp(); video(old, "g2", { createdAt: new Date(NOW - 13 * 3600e3).toISOString() });
-  const r4 = await go(old, youtube());
+  const r4 = await go8(old, youtube());
   assert.match(r4.logs.join("\n"), /12 saatdan köhnədir/);
 });
 

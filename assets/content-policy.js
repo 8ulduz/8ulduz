@@ -53,7 +53,7 @@ window.CONTENT_POLICY = {
   },
   "sportSources": ["Sports.kz", "TRT Spor", "NTV Spor", "Championat", "Sport.ru", "Match TV", "A Spor", "Sporx", "Ajansspor", "Hürriyet Spor", "BBC Futbol", "Guardian Futbol", "Motorsport F1", "The Race", "F1News", "Eurohoops", "Sportando", "TalkBasket", "BBC Tennis", "MMA Fighting", "Chess.com",
     "AA Sport", "Daily Sabah Sports", "Sky Sports", "Sports.ru", "Спорт-Экспресс", "TASS Sport", "Interfax Sport"],
-  "videoChannels": ["İctimai TV", "Xezer TV", "ARB 24", "Report.az", "Trend TV"],
+  "videoChannels": ["İctimai TV", "Xezer TV", "ARB 24", "Report.az", "Trend TV", "Real TV", "8ULDUZ"],
   "removedArticles": {
     "nocomment.az#555222": {
       "key": "nocomment.az#555222",

@@ -38,7 +38,7 @@ Açarı, parolu və kodu heç kimə göndərməyin, söhbətə yapışdırmayın
    - video şaquli və ya kvadratdır və **60 saniyədən uzun deyil**. Bu hədd dəyişəndə də 60-dan yuxarı qalxmır.
 2. **Qırmızı xətt 2.** Videonun aid olduğu hər xəbər saytın öz mənbə qaydasından (`policyViolation`) keçir. Xarici mənbədən Azərbaycan və rəhbərlik mövzusu, müxalifət mənbəyi olan video yüklənmir. Qayda faylı oxunmasa, iş dayanır və heç nə yüklənmir.
 3. **Kvota.** 2026-06-01-dən yükləmənin ayrıca kvotası var: gündə 100 yükləmə, hər biri 1 vahid. Kvota Sakit okean vaxtı ilə gecə yarısı yenilənir: Bakı vaxtı ilə qışda 12:00, yayda 11:00.
-   - Bizim seçim: gündə ən çox 8 video, aralarında ən az 30 dəqiqə. «Günün icmalı» aranı gözləmir. Gündəlik hava videosu bu 8-ə sayılmır (xəbər videosunun həddinə də sayılmır), yəni gündə 8 xəbər + 1 hava.
+   - Bizim seçim: gündə ən çox 30 video, aralarında ən az 20 dəqiqə (sahib, 2026-11-24: video sayı 10 qat; əvvəl 8 və 30 dəqiqə). «Günün icmalı» aranı gözləmir. Gündəlik hava videosu bu 30-a sayılmır (xəbər videosunun həddinə də sayılmır), yəni gündə 30 xəbər + 1 hava. Kanalın öz yükləmə həddi dolsa, yükləyici 24 saat fasilə verir.
    - Kvota dolsa, yükləyici yenilənməyə qədər fasilə verir. Kanalın öz həddi dolsa, 24 saat fasilə verir.
 4. **Audit lazım deyil.** 2020-07-28-dən 2026-11-02-dək yoxlanmamış layihənin videoları məcburi gizli (private) olurdu. YouTube 2026-11-02-də bu məhdudiyyəti götürdü. İndi video birbaşa ictimai (public) çıxır. YouTube videonu yenə də gizli qoysa, jurnalda «DİQQƏT» yazılır.
 5. **Token.** Razılıq ekranı «Testing» rejimindədirsə, Google-un refresh tokeni **7 gündə** ölür. Ona görə tətbiqi «In production» edin (3-cü addım).
@@ -128,7 +128,7 @@ gh secret set YOUTUBE_REFRESH_TOKEN --repo 8ulduz/8ulduz
 1. GitHub → Actions → **YouTube Shorts** → **Run workflow** → `əmr: yoxla`. Jurnalda «kanal — 8ulduz.az (https://www.youtube.com/channel/…)» yazılmalıdır. Kvotaya dəymir, heç nə yüklənmir.
 2. Yenə **Run workflow** → `əmr: sinaq`. 6 saniyəlik sınaq videosu (yuxarıda «8ulduz.az») **gizli** (private) yüklənir. Jurnalda ünvan yazılır. YouTube Studio → Məzmun bölməsində görünəcək, baxandan sonra silin.
 
-Hər şey qaydasındadırsa, videolar özü gedəcək: video modulu hər 30 dəqiqədən bir yoxlayır, vaxtı çatanda (2 saatdan bir, Bakı vaxtı 8:00–23:59) video hazırlayır, hazır video YouTube-a da yüklənir.
+Hər şey qaydasındadırsa, videolar özü gedəcək: video modulu hər 30 dəqiqədən bir yoxlayır, vaxtı çatanda (30 dəqiqədən bir, gündə ən çox 30, Bakı vaxtı 8:00–23:59) video hazırlayır, hazır video YouTube-a da yüklənir.
 
 ## 8. Video modulu ilə qoşulma
 
@@ -179,8 +179,8 @@ GitHub → Settings → Secrets and variables → Actions → **Variables**:
 |---|---|---|
 | `YOUTUBE` | — | `0` — YouTube-u söndürür |
 | `YOUTUBE_PRIVACY` | `public` | `unlisted` və ya `private` (məsələn ilk günlər) |
-| `YOUTUBE_MAX_DAY` | `8` | 24 saatda ən çox neçə video, hava videosundan başqa (ən çox 50, kvota 100-dür) |
-| `YOUTUBE_MIN_GAP_MIN` | `30` | iki video arasında ən az dəqiqə (icmal gözləmir) |
+| `YOUTUBE_MAX_DAY` | `30` | 24 saatda ən çox neçə video, hava videosundan başqa (ən çox 50, kvota 100-dür) |
+| `YOUTUBE_MIN_GAP_MIN` | `20` | iki video arasında ən az dəqiqə (icmal gözləmir) |
 | `YOUTUBE_MAX_AGE_H` | `12` | bundan köhnə video yüklənmir |
 | `YOUTUBE_MAX_S` | `60` | ən uzun video, saniyə (60-dan yuxarı qalxmır) |
 | `YOUTUBE_NOTIFY` | — | `0` — abunəçilərə bildiriş göndərilmir |

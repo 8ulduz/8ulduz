@@ -475,7 +475,15 @@ YT_NEWS = [
     ("ARB 24", "https://www.youtube.com/feeds/videos.xml?channel_id=UC44ToFclJwakpqw1Wh6iW-A"),
     ("Report.az", "https://www.youtube.com/feeds/videos.xml?channel_id=UCPSpgPJwGhr5uB0Uui8Lj8g"),
     ("Trend TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCcgI4-HdktIoAaRLOPgY9qQ"),
+    # Sahib, 2026-11-24 (xəbərə aid TV videosu, app.js tvOf): kanal lentinin başlığı «REAL TV», videoları Azərbaycan dilindədir.
+    ("Real TV", "https://www.youtube.com/feeds/videos.xml?channel_id=UCjpoTfA8TXO6QfAWiAB67eA"),
+    # Öz kanalımız (sahib, 2026-11-24: saytın video lentində «öz videolarımızı da»): youtube.cjs-in yüklədiyi Shorts. assets/vlent.js
+    # bu adı (vlent.OWN) tanıyır və öz videolarımızı lentin başına qoyur.
+    ("8ULDUZ", "https://www.youtube.com/feeds/videos.xml?channel_id=UCU8rSsJEFf78Y0rCya2fmhg"),
 ]
+# Kanal başına son 10 video (2026-11-24-dək 5): xəbər səhifəsinin «Telekanalda bu xəbər» bloku (app.js tvOf) ±2 günlük videoları tutuşdurur.
+VIDEO_PER = 10
+VIDEO_MAX = 70   # 7 kanal × 10 (2026-11-24-dək 5 kanal × 5, 24)
 def site_url(root=None):
     """Saytın əsas ünvanı. Kökdə CNAME faylı varsa (GitHub Pages xüsusi domeni, məs. 8ulduz.az) ona görə,
     yoxsa github.io alt yolu. Bölmə səhifələri, sitemap, robots və feed buna görə yazılır; index.html-dəki
@@ -3940,7 +3948,7 @@ def update_video():
         was = []
     for name, url in YT_NEWS:
         try:
-            got = yt_items(url, 5)
+            got = yt_items(url, VIDEO_PER)
             if not got:
                 raise ValueError("boş lent")
             rows.append({"name": f"YouTube · {name}", "url": url, "count": len(got), "error": None})
@@ -3968,10 +3976,10 @@ def update_video():
     items.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)
-    _write_atomic(VIDEO_FILE, json.dumps({"updatedAt": now, "items": items[:24]}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    _write_atomic(VIDEO_FILE, json.dumps({"updatedAt": now, "items": items[:VIDEO_MAX]}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     if rows:
         merge_sources(rows)
-    print(f"Video: {min(24, len(items))} yazı")
+    print(f"Video: {min(VIDEO_MAX, len(items))} yazı")
 
 
 def write_reels(rows):

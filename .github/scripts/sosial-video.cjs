@@ -19,7 +19,7 @@
 // Qırmızı xətt 2: lent və izah saytın policyViolation qaydasından keçir; qayda faylı oxunmasa heç nə seçilmir.
 // Qırmızı xətt 1 və 3: ayrıca iş axınıdır, main-ə və sayta heç nə yazmır.
 // Gündəlik hava videosu (video-hava.cjs; sahib, 2026-11-23): ayrıca qayda ilə — Bakı vaxtı HAVA_VAXT-dan (20:45) sonrakı ilk pəncərədə,
-// gündə bir dəfə (state.hava). Xəbər videosunun 120 dəqiqəlik fasiləsinə və gündəlik həddinə sayılmır (_last, v), mövzu siyahısına düşmür;
+// gündə bir dəfə (state.hava). Xəbər videosunun fasiləsinə (VIDEO_MIN_GAP_MIN) və gündəlik həddinə sayılmır (_last, v), mövzu siyahısına düşmür;
 // həmin 30 dəqiqəlik pəncərədə xəbər videosu növbəti pəncərəyə qalır (bir pəncərədə bir iş, pipeline.sh video_loop).
 "use strict";
 const fs = require("fs"), path = require("path");
@@ -37,8 +37,10 @@ function options(env = process.env) {
   return {
     minSources: num(env.VIDEO_MIN_SOURCES, num(env.SOCIAL_MIN_SOURCES, 4)),
     maxAgeH: num(env.VIDEO_MAX_AGE_H, 3),
-    gapMin: num(env.VIDEO_MIN_GAP_MIN, 120),
-    perDay: num(env.VIDEO_GUNDE, 8),
+    // Sahib, 2026-11-24: «öz video sayımızı 10 dəfə artırmaq lazımdır». 10 qat (80) Facebook-un API həddini (24 saatda 30 Reels) keçir;
+    // hər platforma öz həddinə qədər: 30 dəqiqədən bir (hər yoxlama pəncərəsi), gündə 30 (əvvəl 120 dəqiqə, 8).
+    gapMin: num(env.VIDEO_MIN_GAP_MIN, 30),
+    perDay: num(env.VIDEO_GUNDE, 30),
     from: Number.isInteger(from) ? from : 8, to: Number.isInteger(to) ? to : 23,
   };
 }
@@ -52,7 +54,7 @@ function readState(file, now) {
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
 
-// Fasilə 30 dəqiqəlik pəncərələrdə yoxlanır (:17, :47), işin başlama vaxtı isə bir-iki dəqiqə oynayır: 120 dəqiqə dörd pəncərədir.
+// Fasilə 30 dəqiqəlik pəncərələrdə yoxlanır (:17, :47), işin başlama vaxtı isə bir-iki dəqiqə oynayır: 120 dəqiqə (2026-11-24-dək) dörd pəncərə idi.
 // Dözüm olmasa dördüncü pəncərə «119 dəq əvvəl, növbəti 1 dəq sonra» ilə ötürülür və ara 2,5 saat olur (2026-11-23, 23:47 videosu
 // ümumiyyətlə getmədi). Dözüm fasilənin dörddə birindən çox deyil: VIDEO_MIN_GAP_MIN=30 qoyulsa ara 23 dəqiqədən az olmur.
 const GAP_TOL_MIN = 10;

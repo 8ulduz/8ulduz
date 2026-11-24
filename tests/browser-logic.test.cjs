@@ -3671,3 +3671,23 @@ test("owner, 2026-11-18: static xeber/ID/ and bolme/SLUG/ pages keep their own a
   assert.ok(js.includes('if (offRoot() && location.hash.split("?")[0] === "#" + location.pathname.replace(/\\/$/, "")) history.replaceState(null, "", location.pathname + location.search);'), 'uyğunluq hash-ı silinir');
   assert.ok(js.includes('if (location.hash !== OWN_HASH && offRoot()) history.replaceState(null, "", location.hash);'), 'başqa marşruta keçəndə ünvan kökə');
 });
+
+test('owner 2026-11-24: the article page plays the TV channel\'s own YouTube video about the same story — not for weather, not our own channel, not on one shared word', () => {
+  const ctx = app(), { S, articleView } = ctx.api, t = new Date().toISOString();
+  const row = (id, title) => ({ id, title, lang: 'az', source: 'APA', sourceUrl: 'https://apa.az/' + id, publishedAt: t, category: 'gundem' });
+  const filler = Array.from({ length: 50 }, (_, i) => row('f' + i, `Fərqli mövzu${i} başqa${i} hadisə${i}`));
+  S.data = { articles: [row('a', 'Prezident Gəncədə yeni stadionun açılışında iştirak edib'), row('w', 'Sabah yağış yağacaq, külək güclənəcək'),
+    row('p', 'Elektron pul təşkilatına yeni rəhbər təyin edildi'), row('q', '“Barselona” azarkeşləri Bakıya axışır'), row('r', '“Xaricdə təhsil alan gənclər ölkəyə qayıdır”'), ...filler] };
+  const vid = (videoId, channel, title) => ({ videoId, channel, title, publishedAt: t, url: 'https://www.youtube.com/watch?v=' + videoId, imageUrl: 'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg' });
+  S.video = { items: [vid('own1aaaaaaa', '8ULDUZ', 'Prezident Gəncədə yeni stadionun açılışında iştirak edib'), vid('tv1aaaaaaaa', 'ARB 24', 'PREZİDENT GƏNCƏDƏ STADİONUN AÇILIŞINDA - GÖRÜNTÜLƏR'), vid('tv2aaaaaaaa', 'İctimai TV', 'Sabah yağış yağacaq və külək əsəcək'),
+    vid('tv4aaaaaaaa', 'ARB 24', 'Bu halda kartınızdan PUL OĞURLANACAQ: xəbərdarlıq edildi'), vid('tv5aaaaaaaa', 'Report.az', '"Barselona" klubu Bakıya gəldi - GÖRÜNTÜLƏR'), vid('tv6aaaaaaaa', 'Report.az', 'Xaricdə təhsil alanların diqqətinə!')] };
+  const html = articleView('a');
+  assert.match(html, /<section id="tv" style="max-width:560px"><h2>Telekanalda bu xəbər<\/h2><div class="yt" data-yt="tv1aaaaaaaa"/, 'telekanalın öz videosu, basanda oynayır (çərəzsiz oynadıcı)');
+  assert.doesNotMatch(html, /own1aaaaaaa/, 'öz kanalımız TV deyil');
+  assert.doesNotMatch(articleView('w'), /Telekanalda bu xəbər/, 'hava xəbəri xaric (sahib)');
+  assert.doesNotMatch(articleView('p'), /Telekanalda/, '«pul», «edildi» ortaqdır, amma xüsusi ad yoxdur: başqa xəbər');
+  assert.match(articleView('q'), /data-yt="tv5aaaaaaaa"/, 'tək sözlük dırnaqdakı ad («Barselona») xüsusi addır');
+  assert.doesNotMatch(articleView('r'), /Telekanalda/, 'sitatla başlayan başlığın ilk sözü ad deyil');
+  S.video = { items: [vid('tv3aaaaaaaa', 'ARB 24', 'Gəncədə qəza baş verib')] };
+  assert.doesNotMatch(articleView('a'), /Telekanalda/, 'bir ortaq söz uyğunluq deyil');
+});

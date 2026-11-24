@@ -139,8 +139,17 @@ test("video: a story that breaks the site's source rule (red line 2) never becom
   await assert.rejects(V.render({ ...fixture, text: "pis izah" }, path.join(os.tmpdir(), "x.mp4"), { policy: a => (a.summary === "pis izah" ? "x" : ""), cats, log: () => {} }), /izah/);
 });
 
+test("sosial-video: owner 2026-11-24 — ten times more own videos: every 30-minute window, at most 30 a day (Facebook limit)", () => {
+  assert.deepEqual(SV.options({}), { minSources: 4, maxAgeH: 3, gapMin: 30, perDay: 30, from: 8, to: 23 });
+  const st = SV.readState("/yoxdur", NOW), opt = SV.options({});
+  assert.equal(SV.due({ ...st, _last: NOW / 1000 - 25 * 60 }, NOW, opt), "", "hər 30 dəqiqəlik pəncərədə video (dözüm 7 dəq)");
+  const v = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`v${i}`, NOW / 1000 - i * 1800]));
+  assert.match(SV.due({ ...st, v }, NOW, opt), /24 saatda 30 video/);
+});
+
 test("sosial-video: when a video goes — Baku day hours, 2 hours apart, at most 8 a day (all owner-tunable)", () => {
-  const opt = SV.options({});
+  // Mexanika 2026-11-24-dək standart olan rəqəmlərlə (120 dəqiqə, gündə 8) yoxlanır.
+  const opt = SV.options({ VIDEO_MIN_GAP_MIN: "120", VIDEO_GUNDE: "8" });
   assert.deepEqual(opt, { minSources: 4, maxAgeH: 3, gapMin: 120, perDay: 8, from: 8, to: 23 });
   assert.deepEqual(SV.options({ VIDEO_SAAT: "7-22", VIDEO_MIN_GAP_MIN: "90", VIDEO_GUNDE: "12", SOCIAL_MIN_SOURCES: "3" }), { minSources: 3, maxAgeH: 3, gapMin: 90, perDay: 12, from: 7, to: 22 });
   const st = SV.readState("/yoxdur", NOW);

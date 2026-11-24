@@ -144,7 +144,7 @@ async function items(url, opt) {
   } catch {}
   return null;
 }
-async function load() {
+export async function load() {
   const slot = Math.floor((Date.now() / 1000 - 45) / 60);
   for (const m of [slot, slot - 1]) {
     const d = await items(`${LIVE}${m}/reels.json`, { cache: "no-store", mode: "cors", credentials: "omit" });
