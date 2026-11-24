@@ -215,8 +215,8 @@ def attach(word, suffix, harmony=False):
     if suffix.startswith(("dək", "dəkki")):
         dat = "a" if _last_vowel(word) in BACK else "ə"
         return word + ("y" if end in VOWELS else "") + dat + suffix
-    if end not in VOWELS and len(suffix) > 1 and suffix[0] == "n" and suffix[1] in VOWELS:
-        suffix = suffix[1:]
+    if end not in VOWELS and len(suffix) > 1 and suffix[0] in "ny" and suffix[1] in VOWELS:
+        suffix = suffix[1:]              # 10-nun → onun; samitlə bitən oxunuşda bitişdirici «y» də düşür: USD-yə → dollara
     elif harmony and end in VOWELS and suffix[0] in "ıiuü":
         suffix = "n" + suffix            # ABŞ-ın → a-be-şenin, ABŞ-ı → a-be-şeni
     elif end in VOWELS and suffix[0] in VOWELS:
@@ -520,6 +520,8 @@ def verbalize(text):
     # «14:00-dan» → «on dörddən» (yazan «sıfır sıfır»a görə yazıb, oxunuşda dəqiqə yoxdur).
     t = re.sub(rf"\b(\d{{1,2}}:\d{{2}}|\d{{1,3}}(?:[ {SP}.]\d{{3}})+|\d+[.,]\d{{1,3}}|\d+){SUFFIX}",
                lambda m: glue(_say_number(m.group(1)), m.group(2), ":" in m.group(1)), t)
+    # Hesab: (2:1), 0:0 → iki-bir (saatda dəqiqə həmişə iki rəqəmdir, ona görə saatla qarışmır)
+    t = re.sub(r"\b(\d{1,2}):(\d)\b", r"\1-\2", t)
     # 19:30 → on doqquz otuz
     t = re.sub(r"\b(\d{1,2}):(\d{2})\b", lambda m: _say_number(m.group(0)), t)
     # 1,5 / 1.70 (2-3 rəqəmli kəsr) → kəsr; 1.500 / 1 500 (3-lü qruplar) → min

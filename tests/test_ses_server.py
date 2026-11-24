@@ -178,6 +178,8 @@ class HumanReadingTest(unittest.TestCase):
         self.assertEqual(v("Qiymət 15% artıb, 0,5%-ə qədər, %20"), "Qiymət on beş faiz artıb, sıfır tam onda beş faizə qədər, iyirmi faiz")
         self.assertEqual(" ".join(v("№5 məktəb, 3-5 gün, 3,14").split()), "nömrə beş məktəb, üç-beş gün, üç tam yüzdə on dörd")
         self.assertEqual(v("AzTV, ABŞ, AB-nin, NATO-ya, BMT"), "Az te-ve, a-be-şe, a-benin, natoya, be-em-te")
+        self.assertEqual(v("10 USD-yə, 5 AZN-ni"), "on dollara, beş manatı")       # yazanın «y»/«n» bitişdiricisi «u-es-de»yə görədir
+        self.assertEqual(v("oyun (2:1) bitdi, 0:0, saat 2:05"), "oyun (iki-bir) bitdi, sıfır-sıfır, saat iki sıfır beş")
 
     def test_parentheses_and_dashes_become_pauses_for_babek(self):
         f = az_text.for_voice

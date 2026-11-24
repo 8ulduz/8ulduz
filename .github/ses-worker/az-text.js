@@ -146,7 +146,7 @@ function attach(word, suffix, harmony = false) {
     const dat = BACK.has(lastVowel(word)) ? "a" : "ə";
     return word + (VOWELS.has(end) ? "y" : "") + dat + suffix;
   }
-  if (!VOWELS.has(end) && suffix.length > 1 && suffix[0] === "n" && VOWELS.has(suffix[1])) suffix = suffix.slice(1);
+  if (!VOWELS.has(end) && suffix.length > 1 && "ny".includes(suffix[0]) && VOWELS.has(suffix[1])) suffix = suffix.slice(1);   // USD-yə → dollara
   else if (harmony && VOWELS.has(end) && "ıiuü".includes(suffix[0])) suffix = "n" + suffix;
   else if (VOWELS.has(end) && VOWELS.has(suffix[0])) suffix = "y" + suffix;
   return word + (harmony ? harmonize(word, suffix) : suffix);
@@ -328,6 +328,7 @@ const RULES = [
   [rx(String.raw`${B}(\d+)\s?-?\s?(?:ci|cı|cu|cü|nci|ncı|ncu|ncü|inci|ıncı|uncu|üncü)${E}`), (m0, n) => ordinalWords(+n)],
   [rx(String.raw`${B}(\d{1,2}:\d{2})\s?[-–—]\s?(\d{1,2}:\d{2})(?:${SUFFIX}|${E})(?=(\s+ara)|)`), timeRange],
   [rx(String.raw`${B}(\d{1,2}:\d{2}|\d{1,3}(?:[ ${SP}.]\d{3})+|\d+[.,]\d{1,3}|\d+)${SUFFIX}`), (m0, n, suf) => glue(sayNumber(n), suf, n.includes(":"))],
+  [rx(String.raw`${B}(\d{1,2}):(\d)${E}`), "$1-$2"],   // hesab: (2:1) → iki-bir
   [rx(String.raw`${B}(\d{1,2}):(\d{2})${E}`), m0 => sayNumber(m0)],
   [rx(String.raw`${B}\d{1,3}(?:[ ${SP}.]\d{3})+(?![.,]?\d)`), m0 => sayNumber(m0)],
   [rx(String.raw`${B}(\d+)[.,](\d{1,3})${E}`), (m0, a, b) => decimalWords(a, b)],
