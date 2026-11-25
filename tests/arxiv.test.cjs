@@ -72,3 +72,17 @@ test("arxiv: the hours already on the branch are read by hour name, so nothing r
   assert.equal(A.readHours(path.join(dir, "yoxdur")).size, 0, "budaq yoxdursa boş");
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("arxiv: the news job starts the archive workflow every 15 minutes — GitHub ran its cron only every 4–10 hours (2026-11-25: archive 6 hours behind)", () => {
+  const sh = fs.readFileSync(path.join(root, ".github/scripts/pipeline.sh"), "utf8");
+  const at = sh.indexOf("arxiv_loop() {"), loop = sh.slice(at, sh.indexOf("\n}\n", at));
+  assert.ok(at > 0 && loop.includes("slot=$(( ($(date +%s) - 420) / 900 ))"), "15 dəqiqəlik pəncərə, :07, :22, :37, :52");
+  assert.ok(loop.includes("gh_t workflow run arxiv.yml --ref main") && loop.includes('select(.status != "completed"') && loop.includes("--branch main"),
+    "yalnız dispatch, main-də gedən iş varsa yox");
+  assert.ok(loop.includes("start=$(( slot * 900 + 420 ))") && loop.includes("(.createdAt | fromdateiso8601) >= '\"$start\"'"), "eyni pəncərədə ikinci iş yoxdur");
+  assert.ok(!/node |python|git /.test(loop), "arxivin yazısı və şəbəkə işi bu döngüdə yoxdur: 60 saniyəlik axın ləngimir");
+  assert.ok(sh.includes("arxiv_loop &\nARXIV_PID=$!") && sh.includes('[ -n "$ARXIV_PID" ] && kill "$ARXIV_PID"'), "iş bitəndə döngü də dayanır");
+  const wf = fs.readFileSync(path.join(root, ".github/workflows/arxiv.yml"), "utf8");
+  assert.match(wf, /workflow_dispatch:/, "iş axını dispatch qəbul edir");
+  assert.match(wf, /cancel-in-progress: false/, "növbədəki arxiv işi gedəni kəsmir");
+});
