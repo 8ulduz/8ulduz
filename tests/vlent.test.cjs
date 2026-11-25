@@ -17,12 +17,20 @@ const x = (id, h, extra = {}) => ({ id, a: 'acc', n: 'Hesab', m: 'xeber', q: 'h'
 const yt = (videoId, channel, h, shorts = true) => ({ videoId, channel, title: `${channel} ${videoId}`, publishedAt: ago(h),
   url: shorts ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`, imageUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` });
 
-test('lent: öz videolarımız, X xəbər videoları və telekanallar növbə ilə, hər biri ən yenisi əvvəl', async () => {
+// Sahib, 2026-11-25: «videolar köhnədir yenisi gəlməlidir önə daima». Əvvəl üç mənbə növbə ilə gəlirdi (öz, X, TV): canlı zolağın
+// 1, 4, 7…-ci kartları 23–30 saatlıq öz videolarımız idi (YouTube yükləməsi kanalın həddində dayanmışdı), qalanları 0,5–2 saatlıq.
+test('lent: ən yeni video həmişə birinci, hansı mənbədən olursa olsun (öz videolarımız, X xəbər videoları, telekanallar)', async () => {
   const { pick, OWN } = await mod();
   const S = { video: { items: [yt('tvOld000001', 'ARB 24', 5, false), yt('own0000001', OWN, 3), yt('tvNew000001', 'İctimai TV', 1), yt('own0000002', OWN, 1)] }, data: { articles: [] } };
   const reels = [x('1000000001', 4), x('1000000002', 2), x('1000000003', 1, { m: 'idman' }), x('1000000004', 1, { q: 'u' })];
   const got = pick(S, reels).map(v => v.id || v.k);
-  assert.deepEqual(got, ['own0000002', '1000000002', 'tvNew000001', 'own0000001', '1000000001', 'tvOld000001']);
+  assert.deepEqual(got, ['own0000002', 'tvNew000001', '1000000002', 'own0000001', '1000000001', 'tvOld000001']);
+  // Canlı hal: öz videolarımız bir gün köhnədir, X və TV videoları təzədir — köhnə video təzələrin qabağına keçmir.
+  const live = pick({ video: { items: [yt('ownDay0001', OWN, 24), yt('ownDay0002', OWN, 25), yt('tvNow00001', 'Real TV', 0.5), yt('tvNow00002', 'Report.az', 0.6)] }, data: { articles: [] } },
+    [x('2000000001', 1.1), x('2000000002', 1.2)]).map(v => v.id || v.k);
+  assert.deepEqual(live, ['tvNow00001', 'tvNow00002', '2000000001', '2000000002', 'ownDay0001', 'ownDay0002']);
+  const times = pick(S, reels).map(v => Date.parse(v.t));
+  assert.ok(times.every((t, i) => !i || times[i - 1] >= t), 'vaxt sırası pozulmur');
   const first = pick(S, reels)[0];
   assert.equal(first.src, '8ulduz.az', 'öz videomuzun nişanı sayt adıdır');
   assert.ok(first.tall, 'öz videolarımız şaquli Shorts-dur');
@@ -131,6 +139,31 @@ test('Video lenti: the next YouTube video is primed — it plays at once when ch
   const over = /row\.addEventListener\("pointerover", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(v)?.[0] || '';
   assert.ok(over.includes('if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;'), 'yalnız siçan: barmaqla sürüşdürmə oynadıcı qurmur');
   assert.ok(over.includes('players.size < 4'), 'eyni anda ən çoxu 4 oynadıcı');
+});
+
+// Sahib, 2026-11-25: «video xəbər kompda kursor üzərinə aparılanda oynamalı idi. belə deyil!!!», «yalnız kursor üstünə aparılanda
+// başlasın oynamağa avtomatik yox, kursoru çəkəndə dayansın». Əvvəl kursor yalnız oynadıcını qurur, video isə özü növbə ilə oynayırdı.
+test('Video lenti on a computer: a card plays only while the cursor is on it and stops when the cursor leaves; phones keep autoplay', () => {
+  const v = read('assets/vlent.js');
+  const m = /export async function mount\(sec, S, still = \(\) => false, given = null\) \{[\s\S]*?\n\}\n?/.exec(v)?.[0] || '';
+  assert.ok(m.includes('const hover = matchMedia("(hover:hover) and (pointer:fine)").matches;'), 'kompüter: siçan əsas göstəricidir; telefon və planşet (hover:none) əvvəlki kimi');
+  const over = /row\.addEventListener\("pointerover", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(m)?.[0] || '';
+  assert.ok(over.includes('if (n >= 0 && hover) play(n);'), 'kursor kartın üstünə gələn kimi oynayır (gözləmə yoxdur)');
+  const out = /row\.addEventListener\("pointerout", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(m)?.[0] || '';
+  assert.ok(out.includes('cards[cur].contains(e.relatedTarget)') && out.includes('rest();'), 'kursor kartdan çıxanda dayanır; kartın içində (şəkil, başlıq) gəzəndə yox');
+  const rest = /function rest\(\) \{[\s\S]*?\n  \}\n/.exec(m)?.[0] || '';
+  assert.ok(rest.includes('halt(cur);') && rest.includes('cards[cur].classList.remove("on");') && !rest.includes('trim('), 'dayanır, kartda şəkil görünür, oynadıcı silinmir: qayıdanda olduğu yerdən dərhal');
+  const pv = /const pickVisible = \(\) => \{[\s\S]*?\n  \};\n/.exec(m)?.[0] || '';
+  assert.ok(pv.startsWith('const pickVisible = () => {\n    if (hover) {') && !/if \(hover\) \{[^}]*play\(/.test(pv), 'kompüterdə görünən kart özü oynamır');
+  const play = /function play\(n\) \{[\s\S]*?\n  \}\n/.exec(m)?.[0] || '';
+  assert.ok(play.indexOf('if (hover) {') >= 0 && play.indexOf('if (hover) {') < play.indexOf('make(nx)') && play.indexOf('if (hover) {') < play.indexOf('setTimeout(next, PLAY_MAX)'),
+    'kompüterdə növbəti kart qabaqcadan qurulmur və vaxtla növbəti karta keçmir');
+  const next = /function next\(\) \{[\s\S]*?\n  \}\n/.exec(m)?.[0] || '';
+  assert.ok(next.includes('if (hover) { again(cur); return; }') && next.indexOf('if (hover)') < next.indexOf('row.scrollTo'), 'bitən video yenidən başlayır, zolaq kursorun altında sürüşmür');
+  assert.ok(m.includes('else if (hover && !c.matches(":hover")) rest();'), 'tam ekran bağlananda kursor kartda deyilsə dayanır');
+  assert.ok(m.includes('if (hover && row.matches(":hover") && !force) return false;'), 'kursor zolaqdadırsa yeni siyahı kartları altında dəyişmir');
+  // Telefon: əvvəlki kimi görünən kart özü oynayır və növbəti qabaqcadan hazırlanır.
+  assert.ok(pv.includes('const best = ') && play.includes('if (auto() && nx !== n) make(nx);') && play.includes('timer = setTimeout(next, PLAY_MAX);'));
 });
 
 // Sahib, 2026-11-25: «ən vacib qırmızı cizgi-gözqırpımı sürətidir», «video xəbərlərdə bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə açılır».

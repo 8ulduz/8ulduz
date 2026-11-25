@@ -2,6 +2,8 @@
 // olan hadisə və xəbər videoları da salmaq olar öz videolarımızı da, saytların videolarını da». Nümunə: üfüqi sürüşən şaquli kartlar,
 // altında başlıq. Görünən ən soldakı kart səssiz öz-özünə oynayır, bitəndə (ən çoxu PLAY_MAX) lent növbəti karta keçir, sonuncudan
 // sonra birinciyə qayıdır. Başlığa basanda tam oynadıcı açılır: X videosu Videolentdə (lent.js), YouTube videosu video səhifəsində.
+// Kompüterdə (siçan) belə deyil — sahib, 2026-11-25: «video xəbər kompda kursor üzərinə aparılanda oynamalı idi … yalnız kursor üstünə
+// aparılanda başlasın oynamağa avtomatik yox, kursoru çəkəndə dayansın»: zolaq özü oynamır, kursorun altındakı kart oynayır (hover).
 //
 // Sahib, 2026-11-24: «son xəbərlərin altındakı videoxəbərlərə basanda tam ekran olsun» (bütün növlər: öz, TV, X). Videoya basanda
 // həmin kart səslə tam pəncərəyə açılır. Oynadıcı yerindən tərpənmir (iframe köçürülsə yenidən yüklənər), ona görə video olduğu yerdən
@@ -23,7 +25,7 @@
 // oynayır, ən çoxu iki oynadıcı (oynayan və növbəti) var; qalanları silinir. Qənaət rejimində (Save-Data) və «hərəkəti azalt»
 // seçiləndə (saytın düyməsi və ya cihaz) avtomatik oynamır və qabaqcadan yükləmir, kart basılanda oynayır.
 //
-// Mənbələr (növbə ilə qarışıq, hər biri ən yenisi əvvəl):
+// Mənbələr (qarışıq, ən yenisi əvvəl — pick):
 //  - öz videolarımız: YouTube «8ULDUZ» kanalı (data/video.json, updater.YT_NEWS). Veb nüsxəsi olan video («mp4» sahəsi, ownMp4)
 //    YouTube oynadıcısı ilə yox, X videosu kimi adi <video> ilə oynayır (sahib, 2026-11-25: «video xəbərlərdə bəzi videolar (əsasən
 //    azərbaycan) 1-2 saniyəyə açılır … gözqırpımı»). YouTube kartı basışdan ilk kadra 1,7–2,4 s gedirdi, telefonda qara ekran, fırlanan
@@ -96,8 +98,11 @@ const CSS = `.vl-row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x ma
 const LABEL = "Videonu tam ekranda aç", LABEL_FS = "Videonu dayandır və ya davam etdir";
 const SCROLL_KEYS = ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "];
 
-// Kartlar: üç mənbə növbə ilə (öz, X, TV), hər biri ən yenisi əvvəl; eyni video bir dəfə. Öz videomuzun veb nüsxəsi varsa növü
-// «mp4»: oynadıcısı X videosununku kimidir (make, start, halt — «yt» olmayan yol), şəkli və keçidi YouTube-dakı kimi.
+// Kartlar: ən yeni video həmişə birinci (sahib 2026-11-25: «videolar köhnədir yenisi gəlməlidir önə daima»), hansı mənbədən olursa
+// olsun; eyni vaxtda öz, X, TV. Əvvəl üç mənbə növbə ilə gəlirdi və hər üçüncü kart öz videomuz idi: YouTube yükləməsi dayananda
+// (kanalın həddi) zolağın 1, 4, 7…-ci kartları 23–30 saatlıq idi, qalanları 0,5–2 saatlıq (canlı, 2026-11-25). Eyni video bir dəfə.
+// Öz videomuzun veb nüsxəsi varsa növü «mp4»: oynadıcısı X videosununku kimidir (make, start, halt — «yt» olmayan yol), şəkli və
+// keçidi YouTube-dakı kimi.
 export function pick(S, reels) {
   const yt = (S?.video?.items || []).filter(v => ID.test(v?.videoId || "")).map(v => {
     const own = v.channel === OWN, mp4 = own && ownMp4(v);
@@ -106,10 +111,9 @@ export function pick(S, reels) {
   });
   const x = L.list(S, reels).filter(v => MP4.test(v.u) && v.m === "xeber" && v.q !== "u").map(v => ({
     kind: "x", u: v.u, k: v.k, t: v.t, title: v.title || v.c, src: v.n, i: v.i }));
-  const lanes = [yt.filter(v => v.own), x, yt.filter(v => !v.own)].map(l => l.filter(v => v.title).sort((a, b) => time(b) - time(a)));
+  const all = [...yt.filter(v => v.own), ...x, ...yt.filter(v => !v.own)].filter(v => v.title).sort((a, b) => time(b) - time(a));
   const out = [], seen = new Set();
-  for (let r = 0; out.length < MAX && lanes.some(l => l.length > r); r++)
-    for (const l of lanes) { const v = l[r]; if (v && !seen.has(v.id || v.u) && seen.add(v.id || v.u) && out.length < MAX) out.push(v); }
+  for (const v of all) if (out.length < MAX && !seen.has(v.id || v.u) && seen.add(v.id || v.u)) out.push(v);
   return out;
 }
 
@@ -139,6 +143,10 @@ export async function mount(sec, S, still = () => false, given = null) {
   sec.style.minHeight = "";
   const cards = [...row.children], seen = new Map(), players = new Map();
   const auto = () => !navigator.connection?.saveData && !still();
+  // Kompüter (sahib 2026-11-25, yuxarıda): zolaq özü oynamır və növbəti karta keçmir, qabaqcadan oynadıcı qurmur. Kursor kartın
+  // üstünə gələn kimi o video səssiz oynayır, çəkiləndə dayanır (oynadıcı qalır: qayıdanda olduğu yerdən dərhal davam edir), bitəndə
+  // yenidən başlayır. Telefon və planşetdə (kursor yoxdur) əvvəlki kimi görünən kart özü oynayır.
+  const hover = matchMedia("(hover:hover) and (pointer:fine)").matches;
   let cur = -1, sound = false, timer = 0, user = false, hold = 0, lock = 0;
   // Tam ekran: açıq kartın nömrəsi (-1 — bağlı), dayandırılıb/bitib, lentdəki yerini tutan boş yer, əsl tam ekran açılıbmı.
   let fs = -1, fsWait = false, fsEnd = false, spot = null, native = false;
@@ -228,13 +236,29 @@ export async function mount(sec, S, still = () => false, given = null) {
     make(n);
     start(n);
     const nx = nextOf(n);
+    if (hover) { trim([n, ...[...players.keys()].filter(k => k !== n).slice(-3)]); return; }   // kompüter: son kursor kartları hazır qalır
     trim([n, nx]);
     if (auto() && nx !== n) make(nx);   // növbəti qabaqcadan
     timer = setTimeout(next, PLAY_MAX);
   }
+  // Kompüter: kursor çəkildi — video dayanır, kartda yenə şəkli görünür; oynadıcı silinmir.
+  function rest() {
+    if (cur < 0) return;
+    cards[cur].classList.remove("on");
+    halt(cur);
+    cur = -1;
+  }
+  // Kompüter: kursorun altındakı video bitəndə yenidən başlayır (YouTube: bitmiş videoya «oynat» əvvəldən başladır).
+  const again = n => {
+    const f = players.get(n);
+    if (!f) return;
+    if (items[n].kind === "yt") ytCmd(f, "playVideo");
+    else { const el = videoOf(f); if (el) { el.currentTime = 0; el.play().catch(() => {}); } }
+  };
   function next() {
     if (cur < 0) return;
     if (fs >= 0) { fsEnd = true; cards[fs].classList.add("ps"); return; }   // tam ekranda növbətiyə keçmir: ▶
+    if (hover) { again(cur); return; }   // kompüter: zolaq tərpənmir
     const n = nextOf(cur);
     if (n === 0 && swap(true)) return;   // dövr başa çatdı: yeni siyahı varsa zolaq ondan başlayır
     lock = Date.now() + 1000;   // proqramla sürüşmə: görünüş yoxlaması əvvəlki kartı geri seçməsin
@@ -314,8 +338,9 @@ export async function mount(sec, S, still = () => false, given = null) {
     b.setAttribute("aria-label", LABEL);
     requestAnimationFrame(() => requestAnimationFrame(() => { c.style.visibility = ""; if (fs < 0) b.focus({ preventScroll: true }); }));
     if (!auto()) stop();
+    else if (hover && !c.matches(":hover")) rest();   // kompüter: kursor kartda deyil — dayanır
     else if (ended) next();
-    else { if (waited) start(cur); timer = setTimeout(next, PLAY_MAX); }
+    else { if (waited) start(cur); if (!hover) timer = setTimeout(next, PLAY_MAX); }
   }
   const back = () => history.state?.vlfs ? history.back() : closeFs();
   function fsToggle() {
@@ -333,6 +358,7 @@ export async function mount(sec, S, still = () => false, given = null) {
   // Görünən (ən azı 60%) ən soldakı kart oynayır; heç biri görünmürsə dayanır. Əl ilə sürüşdürəndə 0,6 s gözləyir.
   const visible = () => [...seen.values()].some(r => r > 0.1);
   const pickVisible = () => {
+    if (hover) { if (fs < 0 && cur >= 0 && (seen.get(cur) || 0) < 0.1) rest(); return; }   // kompüter: yalnız kursor oynadır
     if (fs >= 0 || (!auto() && !user) || Date.now() < lock) return;
     if (cur >= 0 && (seen.get(cur) || 0) >= 0.6) return;   // oynayan kart görünürsə dəyişmir (kompüterdə 4 kart birdən görünür)
     const best = [...seen].filter(([, r]) => r >= 0.6).sort((a, b) => a[0] - b[0])[0]?.[0] ?? -1;   // ən soldakı
@@ -355,12 +381,19 @@ export async function mount(sec, S, still = () => false, given = null) {
     else pickVisible();
   }, on);
 
-  // Kompüterdə 4–5 kart birdən görünür: siçan kartın üstünə gələndə onun oynadıcısı qurulur və hazırlanır (basış adətən bundan sonradır).
+  // Kompüter: kursor kartın üstünə gələn kimi o video oynayır, kartdan çıxanda dayanır (hover). Əsas göstəricisi barmaq olan cihazda
+  // (planşetə siçan qoşulanda) kursor yalnız kartın oynadıcısını qabaqcadan qurur, basış adətən bundan sonradır.
   row.addEventListener("pointerover", e => {
     if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;
     const n = Number(e.target.closest(".vl-c")?.dataset.n ?? -1);
-    if (n >= 0 && n !== cur && !players.has(n) && players.size < 4) make(n);
+    if (n >= 0 && hover) play(n);
+    else if (n >= 0 && n !== cur && !players.has(n) && players.size < 4) make(n);
   }, { passive: true });
+  row.addEventListener("pointerout", e => {
+    if (!hover || e.pointerType !== "mouse" || fs >= 0 || cur < 0 || cards[cur].contains(e.relatedTarget)) return;
+    rest();
+  }, { passive: true });
+  row.addEventListener("pointerleave", () => { if (hover) setTimeout(swap, 50); }, { passive: true });   // gözləyən yeni siyahı kursor zolaqdan çıxanda
 
   row.addEventListener("click", e => {
     const t = e.target.closest("[data-vl]"), b = e.target.closest(".vl-v"), fx = e.target.closest(".vl-fx");
@@ -392,6 +425,7 @@ export async function mount(sec, S, still = () => false, given = null) {
     const since = Math.max(builtAt, shownAt), early = Date.now() - since < EARLY && touched < since;   // təzə göstərilib, toxunulmayıb
     const quiet = document.hidden || !sec.isConnected || cur < 0 || !visible() || early;
     if (!quiet && !force) return false;
+    if (hover && row.matches(":hover") && !force) return false;   // kompüter: kursor zolaqdadırsa kartlar altında dəyişmir
     const list = pending;
     pending = null;
     stop(); io.disconnect(); clearTimeout(hold); clearInterval(tick); clearInterval(wait); ac.abort();
