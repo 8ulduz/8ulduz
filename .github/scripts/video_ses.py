@@ -57,8 +57,8 @@ from az_text import CLAUSE, PAUSE_CLAUSE, PAUSE_SENTENCE, fold, for_voice, lower
 # tez (sahib: «oxunuş sürətlidir»); −10% → 138, cümlə fasilələri ilə ~125–130 söz/dəq (SARA-nın indiki tempi ilə eyni).
 BABEK_VOICE = "az-AZ-BabekNeural"
 BABEK_RATE = "-10%"
-# Video ≤ 59 s-dir (video-xeber.cjs MAX_S): səs uzun olsa sondakı altyazılar düşür (2026-11-25, hava videosu −10%-lə: «Qubada qar
-# yağacaq» itdi). hissələr.json-da max_s verilibsə və səs ondan uzundursa, səs bir az tez oxunur — məzmun itmir.
+# Video ≤ 59 s-dir (video-xeber.cjs MAX_S): səs uzun olsa timeline sondakı altyazıları atır. Babək −10%-lə SARA-dan bir az uzun
+# oxuyur (hava nümunəsi 56,4 s — sığır). Qoruyucu: hissələr.json-da max_s verilibsə və səs ondan uzundursa, səs bir az tez oxunur.
 BABEK_RATES = (BABEK_RATE, "-5%", "+0%")
 BABEK_SR = 24000          # Edge mp3-ü 24 kHz-dir; ffmpeg ilə 16 bit PCM-ə açılır
 BABEK_HEAD = 0.05         # birinci sözdən əvvəl saxlanan səs (s): nəfəs və hücum kəsilməsin

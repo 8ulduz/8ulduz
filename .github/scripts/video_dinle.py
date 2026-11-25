@@ -81,7 +81,10 @@ def main(mp4, meta_path):
     audio = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0
     model = os.environ.get("ASR_MODEL", "large-v3")
     asr = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=os.cpu_count() or 2)
-    segs, _ = asr.transcribe(audio, language="az", beam_size=5, temperature=0.0, condition_on_previous_text=False, vad_filter=False)
+    # VAD: səs sükutlarda hissələrə bölünür. Bütöv dinləyəndə (2026-11-25) Whisper 56 s-lik hava videosunda bir cümləni
+    # («Qubada qar yağacaq. Abunə olun.») buraxdı, sonrasını böyük hərflə yazdı — səsdə hamısı var idi.
+    segs, _ = asr.transcribe(audio, language="az", beam_size=5, temperature=0.0, condition_on_previous_text=False,
+                             vad_filter=True, vad_parameters={"min_silence_duration_ms": 500})
     heard = " ".join(s.text.strip() for s in segs).strip()
     # Whisper bəzən bütün hissəni böyük hərflə yazır («ANİ KÜLƏKLƏRİN»): kiçildilir, yoxsa qayda onu qısaltma kimi hərf-hərf açar
     ref, hyp = words(" ".join(said)), words(az_text.lower_az(heard))

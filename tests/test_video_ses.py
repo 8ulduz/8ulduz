@@ -313,7 +313,7 @@ class BabekTest(unittest.TestCase):
                 os.environ["VIDEO_SES_MOTOR"] = motor
 
     def test_long_voice_is_read_a_bit_faster_instead_of_losing_captions(self):
-        # 2026-11-25, hava videosu −10%-lə 59 s-ə sığmadı, «Qubada qar yağacaq» düşdü: max_s verilibsə səs bir az tez oxunur
+        # qoruyucu: video 59 s-ə sığmasa timeline sondakı altyazıları atardı — max_s verilibsə səs bir az tez oxunur
         import tempfile
 
         slow = FakeBabek(scaled=True)
