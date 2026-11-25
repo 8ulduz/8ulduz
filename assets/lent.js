@@ -152,13 +152,25 @@ async function items(url, opt) {
   } catch {}
   return null;
 }
-export async function load() {
+async function fetchReels() {
   const slot = Math.floor((Date.now() / 1000 - 45) / 60);
   for (const m of [slot, slot - 1]) {
     const d = await items(`${LIVE}${m}/reels.json`, { cache: "no-store", mode: "cors", credentials: "omit" });
     if (d) return d;
   }
   return (await items(`${FILE}?t=${Math.floor(Date.now() / 6e4)}`)) || [];
+}
+// Siyahı MEMO_MS yaddaşda qalır (sahib 2026-11-25: «videolent bir neçə saniyəyə açılır … gözqırpımı»): «Video xəbərlər» zolağı və ya
+// düyməyə toxunuş (app.js INTENT) siyahını artıq alıbsa, lent şəbəkəni gözləmir (ölçü: 200–450 ms). Eyni anda iki sorğu getmir.
+// MEMO_MS < FRESH_MS: açıq lentin dəqiqəlik yoxlaması həmişə təzə fayl alır. Boş cavab saxlanmır.
+// Lentin açılışı OPEN_MS-ə qədər köhnə siyahını da götürür (ikinci açılış da şəbəkəsiz) və təzəsini dərhal arxada soruşur (open: late).
+const MEMO_MS = 45e3, OPEN_MS = 15 * 60e3;
+let memo = null;
+export function load(now = Date.now(), keep = MEMO_MS) {
+  if (memo && now - memo.at < keep) return memo.p;
+  const p = fetchReels(), m = memo = { at: now, p };
+  p.then(d => { if (!d.length && memo === m) memo = null; });
+  return p;
 }
 
 // Paylaşım keçidi (sahib 2026-11-20: «videolentdəki paylaşım x-a aparır. bizim sayta olsun, istəyən keçər mənbəyə»): saytın öz ünvanı,
@@ -213,19 +225,28 @@ export async function open(S, k = "") {
   // gözləmədən açılır, siyahı gələndə dolur — arada ana səhifə görünüb itmir.
   const ready = new Promise(res => f.addEventListener("load", res, { once: true }));
   document.body.append(f);
-  const items = first(list(S, await load()), k);
+  const t = Date.now();
+  let late = !!memo && t - memo.at >= MEMO_MS, items = list(S, await load(t, OPEN_MS));
+  // Paylaşılan video köhnə siyahıda yoxdursa (təzə paylaşılıb) təzə siyahı gözlənir: paylaşılan video həmişə birincidir.
+  if (k && late && !items.some(v => v.k === k)) { late = false; items = list(S, await load()); }
   await ready;
-  build(f, items, () => history.back(), async () => list(S, await load()));
+  build(f, first(items, k), () => history.back(), async () => list(S, await load()), late);
 }
 
 const slide = v => `<section data-k="${esc(v.k || "")}"${v.w > v.h * 1.15 ? ' class="w"' : ""}><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div>${v.w > v.h * 1.15 ? '<button class="fit" type="button" aria-label="Tam kadr" aria-pressed="false">⤢</button>' : ""}<button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
 
-function build(f, items, back, more) {
+// Slaydlar hissə-hissə qurulur (sahib 2026-11-25: «videolent bir neçə saniyəyə açılır … ən vacib qırmızı cizgi-gözqırpımı sürətidir»).
+// Ölçü (canlı sayt, 980 video): hamısı birdən qurulanda brauzer ~1,5 s (telefonda daha çox) yalnız slaydları düzürdü və ilk video
+// bundan sonra yüklənməyə başlayırdı. İndi əvvəl FIRST slayd, lentin sonuna 3 slayd qalanda növbəti CHUNK; növbə bitəndə əvvəlki
+// kimi təzə videolar (refill).
+const FIRST = 6, CHUNK = 12;
+function build(f, items, back, more, late) {
   const doc = f.contentDocument, win = f.contentWindow;
   if (!doc || !live) return;
   let sound = false;
   try { sound = sessionStorage.getItem(SOUND_KEY) === "1"; } catch {}
-  doc.body.innerHTML = `<div class="feed">${items.map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt">8ulduz<i>.az</i></button><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
+  const queue = items.slice(FIRST);
+  doc.body.innerHTML = `<div class="feed">${items.slice(0, FIRST).map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt">8ulduz<i>.az</i></button><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
   const feed = doc.querySelector(".feed"), slides = [...feed.querySelectorAll("section:not(.end)")], sndBtn = doc.querySelector(".snd");
   const pos = s => slides.indexOf(s);
   const vid = s => s.querySelector("video");
@@ -250,12 +271,15 @@ function build(f, items, back, more) {
     // uzaqdakı slaydın videosu yaddaşdan çıxır: yüzlərlə video açıq qalmasın
     if (Math.abs(pos(s) - live.at) > 2) { v.removeAttribute("src"); v.load(); }
   };
+  // İzlənib geridə qalan videonun yaddaşı boşalır (şəkli qalır): əvvəl hər baxılan video yüklü qalırdı və uzun baxışda telefon ağırlaşırdı
+  // (ölçü 2026-11-25: 17 videodan sonra 19 video yüklü). Geri qayıdanda video yenidən yüklənir.
+  const drop = s => { const v = s && vid(s); if (v?.src) { v.pause(); v.removeAttribute("src"); v.load(); } };
   live.at = 0;
   live.io = new win.IntersectionObserver(es => {
     for (const e of es) {
       const s = e.target;
       if (flat(e)) { live.flat = true; continue; }
-      if (onScreen(e)) { live.at = pos(s); near(live.at); play(s); if (live.at >= slides.length - 3) refill(); }
+      if (onScreen(e)) { live.at = pos(s); near(live.at); play(s); drop(slides[live.at - 3]); drop(slides[live.at + 3]); if (live.at >= slides.length - 3) grow(); }
       else stop(s);
     }
   }, { root: feed, threshold: [0, 0.6] });
@@ -272,6 +296,9 @@ function build(f, items, back, more) {
   };
   slides.forEach(wire);
   near(0);
+  // İlk video siyahı gələn kimi yüklənir: müşahidəçinin ilk xəbərini (növbəti kadr) gözləmir.
+  const v0 = slides[0] && vid(slides[0]);
+  if (v0) { v0.preload = "auto"; v0.src = v0.dataset.src; }
   // Yeni videolar izlənən videonun ardınca girir: barmaqla bir sürüşdürmə — təzə video. Görülənlər təkrar gəlmir.
   const have = new Set(items.map(K)), pool = new Map(items.map(v => [K(v), v])), note = doc.querySelector(".new");
   const put = (list, at) => {   // at: bu slayddan sonra; yoxdursa lentin sonuna
@@ -299,6 +326,7 @@ function build(f, items, back, more) {
     note.hidden = false;
     setTimeout(() => { note.hidden = true; }, 4000);
   };
+  const grow = () => { if (queue.length) put(queue.splice(0, CHUNK), null); else refill(); };
   let filling = false;
   const refill = async () => {   // lentin sonuna 3 video qalıb: əvvəl təzələr, yoxdursa çoxdan görülənlər — lent bitmir
     if (filling || !live) return;
@@ -311,6 +339,7 @@ function build(f, items, back, more) {
     } finally { filling = false; }
   };
   live.fresh = setInterval(freshTick, FRESH_MS);
+  if (late) freshTick();   // lent köhnə siyahı ilə açılıb: təzə videolar dərhal soruşulur
   // Paylaşıb (WhatsApp) və ya başqa tətbiqdən qayıdanda: brauzerin arxa planda dayandırdığı video olduğu yerdən davam edir. Oxucunun
   // özü dayandırdığı video (▶ görünür) dayanmış qalır.
   live.vis = () => { if (document.visibilityState !== "visible" || !live) return; const s = slides[live.at]; if (s && !s.classList.contains("p") && vid(s).paused) play(s); };

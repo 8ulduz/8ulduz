@@ -2488,8 +2488,9 @@ function trafficView() {
 }
 // Basmaq niyyəti: barmaq ekrana toxunan an (click-dən 50–150 ms əvvəl, siçanda düymə basılan an) tənbəl modul soruşulur — ilk basışda
 // modulun şəbəkədən gəlişi gözlənmir (sahib 2026-11-24: «gözqırpımı … ən peşəkar və innovativ üsullarla»). Yalnız basılan düymənin
-// modulu: ilk açılışa sorğu əlavə olunmur. import() eyni modulu ikinci dəfə soruşmur.
-const INTENT = [['[data-act="reels"]', () => import("./lent.js?v=1").catch(() => {})], ['[data-act="follow"]', () => import("./follow.js?v=8").catch(() => {})],
+// modulu: ilk açılışa sorğu əlavə olunmur. import() eyni modulu ikinci dəfə soruşmur. Videolent: modulla birgə videoların siyahısı da
+// (lent.js load — yaddaşda qalır): lent açılanda siyahı artıq yoldadır (sahib 2026-11-25: «videolent bir neçə saniyəyə açılır»).
+const INTENT = [['[data-act="reels"]', () => import("./lent.js?v=1").then(m => m.load()).catch(() => {})], ['[data-act="follow"]', () => import("./follow.js?v=8").catch(() => {})],
   ['[data-act="dinle"]', () => import(`${ASSET}dinle.js`).catch(() => {})], ['a[href="#/tixac"]', tixLoad]];
 const INTENT_DONE = new Set();
 function intent(e) {
