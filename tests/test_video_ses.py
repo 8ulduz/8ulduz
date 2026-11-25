@@ -275,22 +275,38 @@ class BreathTest(unittest.TestCase):
         self.assertEqual(vs.sentences(t)[0][0], " ".join(s for s, _ in phrases(t, commas=True)))
         self.assertEqual(len(vs.sentences(t)[0][1]), 3)
 
-    def test_breath_is_silence_inside_the_space_token_and_the_sentence_is_voiced_once(self):
+    def test_breath_is_silence_between_the_words_and_the_sentence_is_voiced_once(self):
         v, log, said = FakeVoice(), [], "sabah hava açıq olacaq"
         pcm, spans, total = vs.render(["Sabah, hava açıq olacaq."], v, self.SR, None, log)
         self.assertEqual(v.calls, [said], "cümlə bir dəfə səslənir: intonasiya vergüldə bitmir")
-        br, sent, f = int(self.SR * self.SHORT), int(self.SR * SENT), int(self.SR * vs.FADE_S)
+        br, sent = int(self.SR * self.SHORT), int(self.SR * SENT)
         self.assertEqual(total, self.samples(said, v) + br + sent)
         self.assertEqual(spans, [[0, total]])
         (at, gap, db), = log
+        # axtarış: «sabah»ın son hərfinin ortasından «hava»nın ilk hərfinin ortasına qədər (saxta səs hər yerdə eyni gurdur —
+        # bərabər yerlərdən ortaya ən yaxını)
         lo = self.samples("sabah", v)
-        self.assertTrue(lo <= at <= lo + 3 * v.SPF, f"kəsim «sabah»dan sonrakı boşluğun tokenindədir: {lo} ≤ {at}")
+        self.assertTrue(lo - v.SPF <= at <= lo + 4 * v.SPF, f"kəsim sözlərin arasındadır: {lo} ~ {at}")
         self.assertEqual(gap, br)
         self.assertEqual(pcm[2 * at:2 * (at + br)], b"\x00\x00" * br, "nəfəs sükutdur")
-        # kəsimin iki tərəfində sönmə və açılma (FADE_S), ondan kənarda səs toxunulmur
-        self.assertEqual(pcm[2 * (at - f - 1):2 * (at - f)], b"\x01\x00")
+        # səsin içində kəsim (saxta səs sakit deyil: 0 dB): söz uzun sönmə ilə bitir, növbəti qısa açılma ilə başlayır,
+        # ondan kənarda səs toxunulmur
+        self.assertGreaterEqual(db, vs.QUIET_DB)
+        fo, fi = int(self.SR * vs.FADE_OUT_SOFT), int(self.SR * vs.FADE_IN_SOFT)
+        self.assertEqual(pcm[2 * (at - fo - 1):2 * (at - fo)], b"\x01\x00")
         self.assertEqual(pcm[2 * (at - 1):2 * at], b"\x00\x00")
-        self.assertEqual(pcm[2 * (at + br + f):2 * (at + br + f + 1)], b"\x01\x00")
+        self.assertEqual(pcm[2 * (at + br + fi):2 * (at + br + fi + 1)], b"\x01\x00")
+        self.assertGreater(fo, fi)
+
+    def test_quiet_cut_gets_a_short_fade(self):
+        sr, f = self.SR, int(self.SR * vs.FADE_S)
+        a = vs.samples_of(b"\x10\x00" * 300)
+        pcm = vs.splice(a, [(0, 150, 20, -40.0)], sr)
+        b = vs.samples_of(pcm)
+        self.assertEqual(len(b), 320)
+        self.assertEqual(list(b[150:170]), [0] * 20)
+        self.assertEqual(b[150 - f - 1], 16, "sakit kəsimdə sönmə qısadır (FADE_S)")
+        self.assertEqual(b[170 + f], 16)
 
     def test_quietest_moment_of_the_space_is_chosen(self):
         a = vs.samples_of(b"\x10\x00" * 40 + b"\x00\x00" * 10 + b"\x10\x00" * 50)

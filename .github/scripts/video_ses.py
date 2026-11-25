@@ -22,7 +22,8 @@ Model durğu işarəsini tanımır (az_text.fold onu boşluq edir), cümlə isə
 vergül, boşluqlu tire və mötərizə səsdə heç yox idi: «Sabah, 25 noyabr, çərşənbə, hava belə olacaq» bir nəfəsdə gedirdi.
 Cümləni vergüldə ayrıca səsləndirmək olmaz (hər parça cümlə sonu kimi bitir; Whisper ölçməsi, az_text.phrases). İndi cümlə
 yenə bir dəfə səslənir (intonasiya davam edir), sonra səsin içinə, işarənin yerinə sükut qoyulur: yer modelin öz
-müddətlərindən (işarədən sonrakı boşluğun tokeni), onun içində ən sakit an; kəsimin iki tərəfində qısa sönmə və açılma.
+müddətlərindən (əvvəlki sözün son hərfinin ortasından növbəti sözün ilk hərfinin ortasına qədər), orada ən sakit an; kəsimin
+iki tərəfində sönmə və açılma (sakit yerdə qısa, səsin içində uzun — breath_cuts, splice).
 Model müddət vermirsə nəfəs qoyulmur (hərf payı ilə təxmin sözün içinə düşə bilər).
 vaxtlar.json: əvvəlki sahələr dəyişmir, «nefes» əlavə olunub (qoyulan nəfəslər: an, uzunluq, kəsim yerinin səs səviyyəsi).
 """
@@ -50,8 +51,17 @@ VIDEO_PAUSE = {PAUSE_CLAUSE: 0.28, PAUSE_SENTENCE: 0.65}
 # (SHORT_CLAUSE simvoldan az: «Sabah,», «çərşənbə,», mötərizədəki söz) sonra BREATH_SHORT — sadalama doğranmış kimi səslənməsin.
 BREATH_SHORT = 0.18
 SHORT_CLAUSE = 14
-FADE_S = 0.012      # kəsimin hər tərəfində sönmə/açılma: çıqqıltı olmasın
-QUIET_S = 0.005     # ən sakit an bu uzunluqda pəncərə ilə axtarılır
+# Kəsim (2026-11-25, SARA ilə yerli ölçü, 5 cümlə, 14 nəfəs): yalnız boşluq tokeninin içində axtaranda kəsimlərin yarısı
+# səsin ortasına düşürdü (−4…+3 dB, saitdən saitə keçid: «xəzri | əsəcək», «ki | bu»). Axtarış indi əvvəlki sözün son hərfinin
+# ortasından növbəti sözün ilk hərfinin ortasına qədərdir. Modelin özünə fasilə etdirmək alınmadı: boşluq, boş token, «–», «_»
+# uzadılanda model sükut yox, uzanmış səs verir (14 yerdən 2-də sakit). Sakit yer tapılmayanda (saitdən saitə) sönmə uzundur —
+# söz qəfil kəsilmir, yavaşca bitir.
+# Ölçü (həmin 7 cümlə, 16 nəfəs): geniş axtarışla 5 kəsim sakit yerdədir (< −30 dB), 11-i səsin içində (−20…+1 dB).
+FADE_S = 0.012      # sakit kəsimdə (QUIET_DB-dən aşağı) hər tərəfdə sönmə/açılma: çıqqıltı olmasın
+FADE_OUT_SOFT = 0.05   # səsin içində kəsimdə: söz yavaşca bitir (danışıqda fasilədən əvvəl səs belə sönür)
+FADE_IN_SOFT = 0.02    # və növbəti söz qısa açılma ilə başlayır
+QUIET_DB = -30.0
+QUIET_S = 0.010     # ən sakit an bu uzunluqda pəncərə ilə (dörddə bir addımla) axtarılır
 EMPTY_PAUSE = 0.3   # söz yoxdursa (yalnız durğu) qısa sükut
 LOWER_START = re.compile(r"\s*[«\"“]?[a-zçəğıöşü]")
 SENT_END = re.compile(r"[.!?…][\"»”)]*\s*$")
@@ -188,7 +198,7 @@ def quietest(a, lo, hi, sr):
     if hi - lo <= w:
         return mid
     best, at = None, mid
-    for s in range(lo, hi - w + 1, max(1, w // 2)):
+    for s in range(lo, hi - w + 1, max(1, w // 4)):
         e, c = level(a, s, s + w), s + w // 2
         if best is None or e < best or (e == best and abs(c - mid) < abs(at - mid)):
             best, at = e, c
@@ -197,35 +207,46 @@ def quietest(a, lo, hi, sr):
 
 def breath_cuts(said, breaths, a, frames, tokens, sr):
     """Nəfəslərin səsdəki yeri: [(simvol, nümunə, sükutun nümunəsi, səviyyə dB)], artan sıra ilə. Yalnız modelin öz müddətləri
-    ilə (frames): yer işarədən sonrakı boşluğun tokenidir (frames[b]; b — işarəyə qədərki mətnin token sayı), onun içində ən
-    sakit an. Səviyyə — kəsim yerinin səsi bütün səsləndirmənin ortasına görə (mənfi — sakit). Müddət yoxdursa boş siyahı."""
+    ilə (frames). b — işarədən sonrakı boşluğun tokeni (işarəyə qədərki mətnin token sayı); tokenizer hərflərin arasına boş
+    token qoyursa (SARA: «ab» → [boş, a, boş, b, boş]) qonşu hərf iki addım uzaqdadır. Axtarış: əvvəlki sözün son hərfinin
+    ortasından növbəti sözün ilk hərfinin ortasına qədər, ən sakit an. Səviyyə — kəsim yerinin səsi bütün səsləndirmənin
+    ortasına görə (mənfi — sakit). Müddət yoxdursa boş siyahı."""
     n = len(a)
     if not breaths or not frames or sum(frames) <= 0 or n <= 0 or n % sum(frames):
         return []
     spf, out, whole, w = n // sum(frames), [], max(level(a, 0, n), 1e-9), max(1, int(sr * QUIET_S))
+    try:
+        step = max(1, tokens("a") - 1)
+    except Exception:  # noqa: BLE001
+        step = 1
+    at = lambda i: sum(frames[:i]) * spf                # noqa: E731 — i-ci tokenin başlanğıcı (nümunə)
+    half = lambda i: at(i) + frames[i] * spf // 2       # noqa: E731 — i-ci tokenin ortası
     for o, pause in breaths:
         try:
             b = tokens(said[:o])
         except Exception:  # noqa: BLE001 — tokenizer xətası səsi dayandırmasın: bu nəfəs qoyulmur
             continue
-        if not 0 < b < len(frames):
+        if not step <= b < len(frames) - step:
             continue
-        cut = quietest(a, sum(frames[:b]) * spf, sum(frames[:b + 1]) * spf, sr)
+        cut = quietest(a, half(b - step), half(b + step), sr)
         if out and cut <= out[-1][1]:
             continue
-        db = round(10 * math.log10(max(level(a, cut - w, cut + w), 1e-9) / whole), 1)
+        db = round(10 * math.log10(max(level(a, cut - w // 2, cut + w // 2), 1e-9) / whole), 1)
         out.append((o, cut, int(sr * pause), db))
     return out
 
 
 def splice(a, cuts, sr):
-    """Nəfəs yerlərinə sükut qoyur; kəsimdən əvvəl səs sönür, sonra açılır (FADE_S) — çıqqıltı olmasın. Qaytarır: PCM baytları."""
-    f, out, last = max(1, int(sr * FADE_S)), array.array("h"), 0
-    for _, cut, gap, _db in cuts:
-        k = min(f, cut - last)
+    """Nəfəs yerlərinə sükut qoyur; kəsimdən əvvəl səs sönür, sonra açılır — çıqqıltı olmasın. Sakit kəsimdə hər ikisi qısadır
+    (FADE_S), səsin içində sönmə uzun (FADE_OUT_SOFT), açılma qısa (FADE_IN_SOFT). Qaytarır: PCM baytları."""
+    out, last = array.array("h"), 0
+    for _, cut, gap, db in cuts:
+        quiet = db < QUIET_DB
+        f_out, f_in = (max(1, int(sr * s)) for s in ((FADE_S, FADE_S) if quiet else (FADE_OUT_SOFT, FADE_IN_SOFT)))
+        k = min(f_out, cut - last)
         for i in range(k):
             a[cut - 1 - i] = a[cut - 1 - i] * i // k
-        m = min(f, len(a) - cut)
+        m = min(f_in, len(a) - cut)
         for i in range(m):
             a[cut + i] = a[cut + i] * i // m
         out.extend(a[last:cut])

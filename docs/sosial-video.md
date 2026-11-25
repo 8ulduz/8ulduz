@@ -167,8 +167,9 @@ Sahib, 2026-11-25: «Abunə ol deyib pauza vermir… bu və bu kimi digər çat�
 Düzəliş (`video_ses.py` `sentences`, `breath_cuts`, `splice`):
 
 - Cümlə yenə **bir dəfə** səslənir, intonasiya vergüldə bitmir. Vergüldə ayrıca səsləndirmək olmaz: hər parça cümlə sonu kimi düşür (Whisper ölçməsi, `az_text.phrases`).
-- Sonra səsin içinə, işarənin yerinə **sükut** qoyulur. Yer modelin öz müddətlərindən götürülür: işarədən sonrakı boşluğun tokeni, onun içində ən sakit an (5 ms-lik pəncərə). Kəsimin iki tərəfində 12 ms sönmə və açılma var.
+- Sonra səsin içinə, işarənin yerinə **sükut** qoyulur. Yer modelin öz müddətlərindən götürülür: əvvəlki sözün son hərfinin ortasından növbəti sözün ilk hərfinin ortasına qədər, orada ən sakit an (10 ms-lik pəncərə). Sakit yerdə (−30 dB-dən aşağı) kəsimin iki tərəfində 12 ms sönmə və açılma; sakit yer yoxdursa (saitdən saitə keçid: «xəzri, əsəcək») söz 50 ms-də yavaşca söndürülür, növbəti söz 20 ms-də açılır — qəfil kəsilmir.
 - Uzunluq: iki nöqtə, nöqtəli vergül, tire və uzun hissədən sonrakı vergül 0,28 s; qısa hissədən (14 simvoldan az: «Sabah,», «çərşənbə,», mötərizədəki söz) sonra 0,18 s — sadalama doğranmış kimi səslənməsin. Rəqəmin içindəki vergül və iki nöqtə («3,5», «12:30») nəfəs deyil.
+- Modelin özünə fasilə etdirmək alınmadı (2026-11-25, yerli ölçü): boşluq, boş token, «–» və «_» uzadılanda model sükut yox, uzanmış səs verir (14 yerdən 2-də sakit). Yalnız boşluq tokeninin içində axtaranda kəsimlərin yarısı səsin ortasına düşürdü; geniş axtarışla 16 nəfəsdən 5-i sakit yerdədir, qalanı yumşaq sönmə ilə.
 - Model müddət vermirsə nəfəs qoyulmur: hərf payı ilə təxmin sözün içinə düşə bilər.
 - Altyazı vergüldə bölünübsə sükut əvvəlki altyazınındır (vergüllü söz fasilədə seçili qalır).
 - Yoxlama: `video.json`-da `nefes` (hər nəfəsin anı, uzunluğu və kəsim yerinin səs səviyyəsi, dB — mənfi rəqəm sakit yer deməkdir; `buraxilan` — qoyula bilməyənlər); artefaktda `fasileler.txt` (ffmpeg `silencedetect`: videonun səsindəki bütün fasilələr).
