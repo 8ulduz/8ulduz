@@ -113,3 +113,19 @@ test('lent (tam ekran): hər cihazda işləyir, geri/✕/Escape bağlayır, lent
     && !/row\.addEventListener\("(touchmove|wheel)"/.test(v), 'sürüşmə yalnız tam ekran açıq ikən dayandırılır: lentin öz sürüşməsi ləngimir');
   assert.ok(close.includes('setSound(false);'), 'bağlananda video lentdə səssiz davam edir');
 });
+
+test('Video lenti: the next YouTube video is primed — it plays at once when chosen (owner 2026-11-25: «bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə açılır … gözqırpımı»)', () => {
+  const v = read('assets/vlent.js');
+  // Ölçü (canlı sayt): basışdan ilk kadra hazır oynadıcıda 1,7 s, oynadıcı yoxdursa 2,4 s — axın yalnız «oynat»dan sonra gəlirdi.
+  assert.ok(v.includes('const ready = () => { f._ready = true; if (f._want) start(n); else prime(n); };'), 'hazır, amma seçilməmiş oynadıcı hazırlanır');
+  assert.ok(v.includes('if (f && n !== cur && items[n].kind === "yt" && !f._prime) { f._prime = 1; ytCmd(f, "mute"); ytCmd(f, "playVideo"); }'),
+    'hazırlıq səssizdir, yalnız YouTube və yalnız oynamayan kart üçün, bir dəfə');
+  assert.ok(v.includes('if (st === 1 && f._prime === 1) { f._prime = 2; ytCmd(f, "pauseVideo"); }'), 'ilk kadrda dayanır: seçilməmiş video oynamır');
+  assert.ok(!v.includes('"seekTo"'), 'əvvələ qaytarılmır: seekTo axını yenidən yükləyir (ölçü: +0,5 s)');
+  assert.ok(v.includes('const hot = f._prime === 2;') && v.includes('setTimeout(() => f.classList.add("go"), hot ? 100 : 250);'), 'hazırlanmış video «oynayır» xəbərini gözləmədən göstərilir');
+  assert.ok(v.includes('if (auto() && nx !== n) make(nx);'), 'qənaət rejimində oynadıcı qabaqcadan qurulmur, deməli hazırlanmır');
+  // Kompüter: siçan kartın üstünə gələndə onun oynadıcısı qurulur (4–5 kart görünür, basılan kart növbəti olmaya bilər).
+  const over = /row\.addEventListener\("pointerover", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(v)?.[0] || '';
+  assert.ok(over.includes('if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;'), 'yalnız siçan: barmaqla sürüşdürmə oynadıcı qurmur');
+  assert.ok(over.includes('players.size < 4'), 'eyni anda ən çoxu 4 oynadıcı');
+});

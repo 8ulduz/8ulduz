@@ -66,7 +66,8 @@ test('Videolent: the feed never ends — when unseen videos run out, the longest
   assert.ok(out.some(v => v.u === 'v0'), 'ən çoxdan görülən qayıdır');
   assert.ok(replay(pool.slice(0, 6), order.slice(0, 6)).length >= 3, 'az video olanda da lent dövr edir');
   const src = fs.readFileSync(file, 'utf8');
-  assert.ok(src.includes('if (live.at >= slides.length - 3) refill()'), 'sona 3 video qalanda doldurulur');
+  assert.ok(src.includes('if (live.at >= slides.length - 3) grow()') && src.includes('const grow = () => { if (queue.length) put(queue.splice(0, CHUNK), null); else refill(); };'),
+    'sona 3 video qalanda doldurulur: əvvəl qurulmamış slaydlar, onlar bitəndə təzə videolar');
   assert.ok(!src.includes('Hamısını izlədiniz'), 'lent «bitdi» demir');
   assert.ok(+src.match(/SEEN_MAX = (\d+)/)[1] >= 2000, 'görülənlərin yaddaşı lentdən böyükdür: təkrar «təzə» kimi gəlmir');
 });
@@ -119,7 +120,8 @@ test('Videolent: the share button says «Paylaş» like the site (owner 2026-11-
 test('Videolent: a shared video opens at once — the black frame does not wait for the video list or the news (owner 2026-11-22)', async () => {
   const src = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
   const at = s => { const i = src.indexOf(s); assert.ok(i > 0, s); return i; };
-  assert.ok(at('document.body.append(f);\n  const items = first(list(S, await load()), k);') < at('build(f, items, () => history.back()'),
+  assert.ok(at('document.body.append(f);\n  const t = Date.now();') < at('items = list(S, await load(t, OPEN_MS));')
+    && at('items = list(S, await load(t, OPEN_MS));') < at('build(f, first(items, k), () => history.back()'),
     'çərçivə siyahıdan əvvəl açılır, siyahı gələndə dolur');
   assert.ok(src.includes('<body><div class="wait"></div></body>'), 'arada fırlanan işarə');
   const app = fs.readFileSync(path.join(__dirname, '..', 'assets', 'app.js'), 'utf8');
@@ -360,4 +362,41 @@ test('Videolent: a feed that opens with zero height (in-app browser, background 
   assert.ok(src.includes('if (flat(e)) { live.flat = true; continue; }'), 'ölçüsüz slayd nə oynayır, nə dayanır');
   assert.ok(src.includes('if (onScreen(e)) { live.at = pos(s); near(live.at); play(s);'), 'yalnız ekrandakı slayd oynayır');
   assert.ok(src.includes('win.addEventListener("resize"') && src.includes('live.io.unobserve(s); live.io.observe(s);'), 'ölçü gələndə müşahidə təzədən başlayır: paylaşılan video oynayır');
+});
+
+test('Videolent opens in a blink: slides are built in parts, the list is kept in memory, the first video loads at once (owner 2026-11-25: «videolent bir neçə saniyəyə açılır … ən vacib qırmızı cizgi-gözqırpımı sürətidir»)', async () => {
+  const src = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+  // 1. Slaydlar hissə-hissə: 980 slaydın birdən qurulması canlı saytda ~1,5 s çəkirdi, ilk video yalnız bundan sonra yüklənirdi.
+  const size = src.match(/const FIRST = (\d+), CHUNK = (\d+);/);
+  assert.ok(+size[1] >= 4 && +size[1] <= 10, 'ilk açılışda bir neçə slayd (sona 3 qalanda növbəti hissə gəlir, ona görə ən azı 4)');
+  assert.ok(+size[2] >= 6 && +size[2] <= 30, 'növbəti hissə kiçikdir: sürüşdürmə ilişmir');
+  assert.ok(src.includes('const queue = items.slice(FIRST);') && src.includes('${items.slice(0, FIRST).map(slide).join("")}'), 'yalnız ilk FIRST slayd qurulur');
+  assert.ok(!src.includes('${items.map(slide).join("")}'), 'bütün slaydlar birdən qurulmur');
+  assert.ok(src.includes('const have = new Set(items.map(K))'), 'qurulmamış videolar da «var» sayılır: təzələnmə onları ikinci dəfə əlavə etmir');
+  // 2. İlk video müşahidəçinin ilk xəbərini gözləmir.
+  assert.ok(src.includes('if (v0) { v0.preload = "auto"; v0.src = v0.dataset.src; }'), 'ilk video siyahı gələn kimi yüklənir');
+  // 3. Geridə qalan video yaddaşdan çıxır.
+  assert.ok(src.includes('drop(slides[live.at - 3]); drop(slides[live.at + 3]);'), 'uzaqdakı videolar yüklü qalmır');
+  // 4. Siyahı yaddaşda: iki ardıcıl çağırış bir sorğudur; MEMO_MS-dən sonra təzə sorğu; lentin açılışı OPEN_MS-ə qədər köhnəsini götürür.
+  const memoMs = +src.match(/const MEMO_MS = (\d+)e3/)[1] * 1e3, freshMs = +src.match(/const FRESH_MS = (\d+)e3/)[1] * 1e3;
+  assert.ok(memoMs < freshMs, 'açıq lentin dəqiqəlik yoxlaması həmişə təzə fayl alır');
+  const calls = [], realFetch = globalThis.fetch;
+  globalThis.fetch = async url => { calls.push(String(url)); return { ok: true, json: async () => ({ items: [{ id: String(calls.length) }] }) }; };
+  try {
+    const { load } = await import(pathToFileURL(file).href + '?memo=1');
+    const t = 1e12, a = await load(t), b = await load(t + 1000);
+    assert.equal(calls.length, 1, 'ikinci çağırış şəbəkəyə getmir');
+    assert.equal(a, b, 'eyni siyahı');
+    assert.ok(calls[0].startsWith('https://raw.githubusercontent.com/8ulduz/8ulduz/live/m/'), 'canlı kanal');
+    await load(t + memoMs + 1);
+    assert.equal(calls.length, 2, 'MEMO_MS keçəndən sonra təzə sorğu');
+    const old = await load(t + memoMs + 1 + 10 * 60e3, 15 * 60e3);
+    assert.equal(calls.length, 2, 'lentin açılışı 15 dəqiqəyə qədər köhnə siyahını götürür (təzəsi arxada soruşulur)');
+    assert.equal(old[0].id, '2');
+  } finally { globalThis.fetch = realFetch; }
+  assert.ok(src.includes('if (late) freshTick();'), 'köhnə siyahı ilə açılan lent təzə videoları dərhal soruşur');
+  assert.ok(src.includes('if (k && late && !items.some(v => v.k === k)) { late = false; items = list(S, await load()); }'), 'paylaşılan video köhnə siyahıda yoxdursa təzəsi gözlənir');
+  // 5. Düyməyə toxunan an modul və siyahı soruşulur (klikdən ~100 ms əvvəl).
+  const app = fs.readFileSync(path.join(__dirname, '..', 'assets', 'app.js'), 'utf8');
+  assert.ok(app.includes(`['[data-act="reels"]', () => import("./lent.js?v=1").then(m => m.load()).catch(() => {})]`), 'niyyət: modul + siyahı');
 });
