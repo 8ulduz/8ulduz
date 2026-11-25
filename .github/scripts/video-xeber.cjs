@@ -33,6 +33,9 @@ const X0 = 72, TEXT_W = W - 2 * X0;            // sağda Reels düymələri, aş
 const MIN_S = 8, MAX_S = 59;                   // Facebook Reels API 3–90 s; qısa video daha çox sona qədər baxılır
 const BODY_MAX = 750;                          // izahın ekranda/səsdə ən çox simvolu (≈ 5–7 cümlə, 35–45 s; sahib 2026-11-22: «4-7 cümlədə olsun. uzun da olsun»)
 const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
+// Başlıq oxunmur (sahib, 2026-11-24: «Başlıqları oxumasın»; 2026-11-25: «8ulduz videolarında başlıq oxunmamalı idi»): başlıq ekranda
+// başdan sonluğa qədər yazılıb qalır, səs birinci cümlə ilə başlayır. HEAD_S — başlığın səssiz göründüyü an (LEAD_S-dən sonra).
+const HEAD_S = 0.65;
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
 const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", gray: "AFC0D8", box: "1A3563", blue: "1E4D8C", blue2: "2563EB" };
 // Yerləşmə (piksel, 1080×1920). Lentdə Reels ortadan 4:5-ə kəsilir (y 285…1635), tam ekranda yuxarıda ~170 px, aşağıda ~420 px,
@@ -181,38 +184,43 @@ function prepare(a, opt = {}) {
   // davam[i]: say[i] əvvəlki hissənin cümləsinin davamıdır — video_ses.py onları bir mətn kimi səsləndirir (sahib, 2026-11-25:
   // «sətirdən sətrə keçəndə mənasız pauza verir»). Cümləni altyazı özü bölür, ona görə burada dəqiq bilinir; mətndən təxmin
   // («Xudat | Məmmədovun», «azalaraq | 3 565,2 dollar» böyük hərflə, rəqəmlə başlayır) dörddə birini buraxırdı.
-  return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source, footage,
-    say: [title, ...chunks, OUTRO_SAY], davam: [false, ...sentences.flatMap(s => s.map((_, j) => j > 0)), false] };
+  // say: səsə gedən hissələr — altyazılar və sonluq; başlıq yoxdur (quietHead, HEAD_S).
+  return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source, footage, quietHead: true,
+    say: [...chunks, OUTRO_SAY], davam: [...sentences.flatMap(s => s.map((_, j) => j > 0)), false] };
 }
 
 // Zaman planı. voice: video_ses.py nəticəsi { parts: [[başlanğıc, son], …] } (hissələr prepare().say sırası ilə) və ya null.
 // Səssiz: oxuma sürəti (~13 simvol/s), hər altyazı ən azı 2,4 s.
+// p.quietHead (xəbər və maraqlı video): say-da başlıq yoxdur — başlıq anı səssizdir ([0, lead]), say[0] birinci altyazıdır.
+// Yoxdursa (hava videosu) say[0] ekrandakı başlığın altında oxunan giriş cümləsidir və head onun vaxtıdır.
 function timeline(p, voice = null) {
-  const n = p.say.length;
+  const quiet = Boolean(p.quietHead), n = p.say.length, lead = LEAD_S + (quiet ? HEAD_S : 0), h = quiet ? 0 : 1;
   let spans;
   const used = Boolean(voice && Array.isArray(voice.parts) && voice.parts.length === n);
   if (used) {
-    spans = voice.parts.map(([s, e]) => [LEAD_S + s, LEAD_S + e]);
+    spans = voice.parts.map(([s, e]) => [lead + s, lead + e]);
   } else {
     spans = [];
-    let t = LEAD_S;
+    let t = lead;
     for (let i = 0; i < n; i++) {
       const len = clean(p.say[i]).length;
-      const d = i === 0 ? Math.max(3.2, len / 14) : i === n - 1 ? OUTRO_S : Math.max(2.4, len / 13);
+      const d = i < h ? Math.max(3.2, len / 14) : i === n - 1 ? OUTRO_S : Math.max(2.4, len / 13);
       spans.push([t, t + d]);
       t += d + GAP_S;
     }
   }
+  const head = quiet ? [0, lead] : spans[0];
   // Çox uzun olsa sondakı altyazılar düşür (başlıq və sonluq qalır).
-  let chunks = p.chunks.slice(), parts = spans.slice(1, 1 + chunks.length);
+  let chunks = p.chunks.slice(), parts = spans.slice(h, h + chunks.length);
   const outroLen = spans[n - 1][1] - spans[n - 1][0];
   const fullEnd = (last) => last + GAP_S + Math.max(OUTRO_S, outroLen + 0.5);
   while (chunks.length && fullEnd(parts[parts.length - 1][1]) > MAX_S) { chunks.pop(); parts.pop(); }
-  const keepUntil = parts.length ? parts[parts.length - 1][1] : spans[0][1], mainEnd = keepUntil + GAP_S;
+  const keepUntil = parts.length ? parts[parts.length - 1][1] : head[1], mainEnd = keepUntil + GAP_S;
   const outro = [mainEnd, mainEnd + Math.max(OUTRO_S, outroLen + 0.5)];
   const duration = Math.round(Math.max(MIN_S, Math.min(MAX_S, outro[1] + 0.3)) * 100) / 100;
   // Səs ekranla eyni: altyazı düşübsə onun səsi kəsilir, sonluq səsi sonluğun başlanğıcına sürüşür (hamısı video vaxtı ilə).
-  return { duration, head: spans[0], chunks: chunks.map((text, i) => ({ text, at: parts[i] })), outro,
+  // lead: səs faylının videoda başladığı an (ffmpegArgs adelay).
+  return { duration, head, lead, chunks: chunks.map((text, i) => ({ text, at: parts[i] })), outro,
     voiceCut: used ? { keepUntil, outroFrom: spans[n - 1][0], outroAt: outro[0] } : null };
 }
 
@@ -301,7 +309,7 @@ const logoY = () => L.barY + Math.round((L.barH - L.logoH) / 2);
 const logoW = () => Math.round(LOGO.w * L.logoH / LOGO.h);
 
 // ffmpeg arqumentləri. Yazılar RGB-də çəkilir (narıncı-göy kənarları yuv420-də yayılmasın), sonda yuv420p.
-// Kadr planı (sahib, 2026-11-23: «tam professional kimi işlə»): kəsim danışığın sərhədindədir — başlıq oxunanda bir kadr, sonra hər
+// Kadr planı (sahib, 2026-11-23: «tam professional kimi işlə»): kəsim danışığın sərhədindədir — başlıq (səssiz) və birinci altyazı bir kadr, sonra hər
 // altyazı hissəsi bir kadr, sonluq sonuncunun davamı. Xəbər montajında kadr 3–6 s-dir; əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
 // SHOT_MIN-dən qısa hissə qonşusuna birləşir, SHOT_MAX-dan uzunu bərabər bölünür. Kliplər sıra ilə gedir (Gemini-nin ifadələri
 // diktor mətninin cümlə sırasındadır): çatmasa təkrarlanır, təkrarda klipin işlənməmiş yerindən (ss) — eyni kadr iki dəfə görünməsin.
@@ -409,11 +417,11 @@ function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], focus = nul
   let audio;
   if (voiceFile) {
     args.push("-i", voiceFile);
-    const c = tl.voiceCut, ms = s => Math.round(s * 1000);
-    // Əsas hissə + (altyazı düşübsə, sürüşdürülmüş) sonluq səsi; LEAD_S qədər gecikmə.
+    const c = tl.voiceCut, ms = s => Math.round(s * 1000), lead = tl.lead ?? LEAD_S;
+    // Əsas hissə + (altyazı düşübsə, sürüşdürülmüş) sonluq səsi; lead qədər gecikmə (başlıq oxunmur: LEAD_S + HEAD_S).
     audio = c && c.outroAt + 0.01 < c.outroFrom
-      ? `[${ai}:a]asplit=2[m][o];[m]atrim=0:${(c.keepUntil - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS[m1];[o]atrim=${(c.outroFrom - LEAD_S).toFixed(3)},asetpts=PTS-STARTPTS,adelay=${ms(c.outroAt - c.keepUntil)}:all=1[o1];[m1][o1]concat=n=2:v=0:a=1,adelay=${ms(LEAD_S)}:all=1,`
-      : `[${ai}:a]adelay=${ms(LEAD_S)}:all=1,`;
+      ? `[${ai}:a]asplit=2[m][o];[m]atrim=0:${(c.keepUntil - lead).toFixed(3)},asetpts=PTS-STARTPTS[m1];[o]atrim=${(c.outroFrom - lead).toFixed(3)},asetpts=PTS-STARTPTS,adelay=${ms(c.outroAt - c.keepUntil)}:all=1[o1];[m1][o1]concat=n=2:v=0:a=1,adelay=${ms(lead)}:all=1,`
+      : `[${ai}:a]adelay=${ms(lead)}:all=1,`;
     audio += `apad,atrim=0:${D},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[a]`;
   } else {
     args.push("-f", "lavfi", "-t", D, "-i", "anullsrc=channel_layout=stereo:sample_rate=48000");
@@ -495,7 +503,8 @@ async function render(a, out, opt = {}) {
     fs.writeFileSync(path.join(dir, "video.ass"), ass(p, tl));
     fs.mkdirSync(path.dirname(out), { recursive: true });
     run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips, focus: c => focusOf(c, { cwd: dir }) }), { cwd: dir, timeout: 900000 });
-    const cover_s = 1.5;
+    // Örtük: başlıq tam görünür, birinci altyazı hələ yoxdur (başlıq oxunmur — səs və altyazı tl.head[1]-də başlayır).
+    const cover_s = Math.round(Math.min(1.5, Math.max(0.4, tl.head[1] - 0.1)) * 100) / 100;
     const jpg = out.replace(/\.mp4$/i, "") + ".jpg";
     run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", jpg]);
     // kadrlar: önizləmə üçün anlar — başlıq, ilk iki altyazının ortası, sonluq (sosial-video.yml şəkil düzəldir).

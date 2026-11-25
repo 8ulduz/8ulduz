@@ -3,7 +3,8 @@
 «pullu heç nə olmasın»). Microsoft-dan və pullu xidmətdən asılılıq yoxdur; model GitHub Actions-da işləyir.
 
 İşlədilmə: python3 video_ses.py <hissələr.json> <çıxış.wav> <vaxtlar.json>
-  hissələr.json  {"parts": ["başlıq", "altyazı 1", …, "sonluq"], "davam": [false, …]}  (video-xeber.cjs prepare().say, .davam;
+  hissələr.json  {"parts": ["altyazı 1", …, "sonluq"], "davam": [false, …]}  (video-xeber.cjs prepare().say, .davam — başlıq
+                 oxunmur, sahib 2026-11-24/25; hava videosunda birinci hissə giriş cümləsidir;
                  davam istəyə bağlıdır: davam[i] — i-ci hissə əvvəlkinin cümləsinin davamıdır)
   çıxış.wav      mono 16 bit PCM, modelin tezliyi
   vaxtlar.json   {"sr": …, "duration": …, "parts": [[başlanğıc, son], …]} saniyə; hər hissə öz sonrakı fasiləsi ilə
@@ -24,9 +25,15 @@ import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "ses-server"))
-from az_text import phrases, tune  # noqa: E402
+from az_text import PAUSE_CLAUSE, PAUSE_SENTENCE, phrases, tune  # noqa: E402
 
 MODEL = os.environ.get("SES_MODEL", "BHOSAI/SARA_TTS")
+# Videonun oxu tempi (sahib, 2026-11-25: «oxunuş sürətlidir. oxunuşu normal et»). Ölçü (2026-11-25, 40,8 s-lik xəbər videosu):
+# modelin öz sürəti (1,0) və «Dinlə»nin fasilələri (vergül 0,16 s, cümlə 0,38 s) ilə dəqiqədə 155 söz, fasilələr daxil — xəbər
+# diktoru üçün tezdir (normal ~115–125). Sürət 0,85 (hər səs 1/0,85 ≈ 1,18 dəfə uzun) və uzun fasilələr: ~125 söz/dəq. Yalnız
+# video; saytın «Dinlə» səsi (ses-server, az_text.VOICE) dəyişmir.
+VIDEO_RATE = 0.85
+VIDEO_PAUSE = {PAUSE_CLAUSE: 0.28, PAUSE_SENTENCE: 0.65}
 # phrases-in max_len həddi: video səsi cümlənin içində bölünmür (06ba2c78ef, «cümlə bütöv səslənir»). Qrupun mətni bir cümlədir,
 # 220 simvoldan uzun olsa da vergüldə bölünmür — bölünsə hər parça yenə ayrıca cümlə kimi bitərdi.
 WHOLE = 10 ** 6
@@ -36,8 +43,9 @@ SENT_END = re.compile(r"[.!?…][\"»”)]*\s*$")
 
 
 def say_items(text):
-    """Model mətni və sonrakı fasilə: [(mətn, saniyə)]. Cümlə sonunda fasilə, cümlənin içində bölmə yoxdur."""
-    return phrases(text, max_len=WHOLE)
+    """Model mətni və sonrakı fasilə: [(mətn, saniyə)]. Cümlə sonunda fasilə, cümlənin içində bölmə yoxdur.
+    Fasilələr videonun tempindədir (VIDEO_PAUSE): vergül və cümlə sonu «Dinlə»dən uzundur."""
+    return [(s, VIDEO_PAUSE.get(p, p)) for s, p in phrases(text, max_len=WHOLE)]
 
 
 def continues(text, nxt):
@@ -138,7 +146,7 @@ class Sara:
         self.torch = torch
         torch.set_num_threads(max(1, os.cpu_count() or 1))
         torch.manual_seed(8)  # eyni mətn — eyni səs
-        self.tok, self.model = AutoTokenizer.from_pretrained(name), tune(VitsModel.from_pretrained(name).eval())
+        self.tok, self.model = AutoTokenizer.from_pretrained(name), tune(VitsModel.from_pretrained(name).eval(), speaking_rate=VIDEO_RATE)
         self.sr = self.model.config.sampling_rate
         self.log_dur = []
         dp = getattr(self.model, "duration_predictor", None)

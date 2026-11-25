@@ -81,7 +81,7 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 
 ### Montaj, altyazı və etiketlər (sahib, 2026-11-23: «tam professional kimi işlə»)
 
-- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunanda bir kadr gedir, sonra hər altyazı hissəsi bir kadrdır. Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
+- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunmur (sahib, 2026-11-24/25): ekranda başdan sonluğa qədər yazılıb qalır, səs 1 s sonra birinci cümlə ilə başlayır; başlıq anı və birinci altyazı bir kadrdır, sonra hər altyazı hissəsi bir kadrdır. Video səsi «Dinlə»dən yavaşdır: sürət 0,85, vergül fasiləsi 0,28 s, cümlə fasiləsi 0,65 s (≈ 125 söz/dəq; əvvəl 155). Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
   Kliplər montaj planının sırası ilə gedir. Klip təkrarlananda onun işlənməmiş yerindən götürülür (`-ss`).
 - **Görüntü sırası** (`video-ssenari.cjs` `goruntu`): Gemini 6–8 sadə ifadə verir: əvvəl əsas səhnə, sonra hər cümləyə bir səhnə, cümlələrin sırası ilə. 8 klip yüklənir, sonra eyni ifadələrin ikinci klipləri.
   Tapılmayan ifadənin yerinə ümumi səhnə qoyulmur, çünki yanlış yerin kadrı uyğun klipin təkrarından pisdir. Bölmənin ümumi səhnələri (yer adı yoxdur) yalnız uyğun klip 3-dən az olanda işlənir.

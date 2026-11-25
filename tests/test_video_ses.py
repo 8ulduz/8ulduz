@@ -9,9 +9,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("video_ses", ROOT / ".github" / "scripts" / "video_ses.py")
 vs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vs)
-from az_text import PAUSE_SENTENCE  # noqa: E402  (video_ses.py ses-server qovluğunu sys.path-ə əlavə edir)
+from az_text import PAUSE_CLAUSE, PAUSE_SENTENCE, VOICE  # noqa: E402  (video_ses.py ses-server qovluğunu sys.path-ə əlavə edir)
 
-# tests/fixtures/video-xeber.json-un səs hissələri (video-xeber.cjs prepare().say): 1 və 2 eyni cümlədir.
+# Videonun cümlə sonu fasiləsi (sahib, 2026-11-25: «oxunuş sürətlidir»): «Dinlə»nin PAUSE_SENTENCE-dən uzundur.
+SENT = vs.VIDEO_PAUSE[PAUSE_SENTENCE]
+
+# Qruplaşma üçün hissələr (tests/fixtures/video-xeber.json-dan; başlıq artıq oxunmur — prepare().say izahla başlayır, amma
+# qruplaşma qaydası hər siyahıya eynidir): 1 və 2 eyni cümlədir.
 SAY = [
     "Astarada qəza nəticəsində 5 kəndin qaz təchizatı dayandırılıb",
     "Astara rayonunda baş verən yol-nəqliyyat hadisəsi",
@@ -81,7 +85,7 @@ class SaidTest(unittest.TestCase):
         self.assertGreater(len(text), 220)
         items = vs.say_items(text)
         self.assertEqual(len(items), 1, items)
-        self.assertEqual(items[0][1], PAUSE_SENTENCE)
+        self.assertEqual(items[0][1], SENT)
         self.assertEqual(vs.groups(["Başlıq"] + long + ["Sonluq."]), [[0], [1, 2, 3], [4]])
 
 
@@ -106,7 +110,7 @@ class RenderTest(unittest.TestCase):
             self.assertEqual(e1, s2, "hissələr ardıcıldır, arada boşluq və üst-üstə düşmə yoxdur")
             self.assertLess(s1, e1)
         # cümlənin ortasında sükut əlavə edilmir: 1-in sonu 2-nin başlanğıcıdır və qrupun səsinin içindədir
-        self.assertLess(spans[1][1], spans[2][1] - int(self.SR * PAUSE_SENTENCE))
+        self.assertLess(spans[1][1], spans[2][1] - int(self.SR * SENT))
 
     def test_cut_is_at_the_space_before_the_next_part_by_model_durations(self):
         v = FakeVoice()
@@ -148,11 +152,11 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(spans[-1][1], total)
 
     def test_ungrouped_parts_keep_their_own_pause(self):
-        # cümlə sonu fasiləsi yerindədir: hər qrupun sonunda PAUSE_SENTENCE
+        # cümlə sonu fasiləsi yerindədir: hər qrupun sonunda videonun cümlə fasiləsi (SENT)
         v = FakeVoice()
         spans, _ = self.spans(SAY, v)
         head = sum(v.dur(c) for c in v.calls[0]) * v.SPF
-        self.assertEqual(spans[0][1], head + int(self.SR * PAUSE_SENTENCE))
+        self.assertEqual(spans[0][1], head + int(self.SR * SENT))
 
     def test_cut_offsets_maps_across_sentences_inside_a_group(self):
         # qrupun içində phrases cümləni bölsə (iki səsləndirmə), sərhəd ikincinin başlanğıcına düşür, fasilə əvvəlkinindir
@@ -165,6 +169,25 @@ class RenderTest(unittest.TestCase):
             raise ValueError("tokenizer")
         self.assertEqual(vs.offset_samples("abcd", 2, 400, [1, 1, 1, 1], bad), 200, "hərf payına keçir")
         self.assertEqual(vs.offset_samples("abcd", 2, 400, [1, 1, 1, 1], lambda _: 99), 200, "uyğunsuz token sayı da")
+
+
+class TempoTest(unittest.TestCase):
+    """Sahib, 2026-11-25: «oxunuş sürətlidir. oxunuşu normal et». Ölçü: modelin öz sürəti və «Dinlə»nin fasilələri ilə 155 söz/dəq."""
+
+    def test_video_reads_slower_than_the_model_and_pauses_longer_than_dinle(self):
+        self.assertLess(vs.VIDEO_RATE, VOICE["speaking_rate"], "video modelin öz sürətindən yavaş oxuyur")
+        self.assertGreaterEqual(vs.VIDEO_RATE, 0.8, "çox yavaş deyil: səs uzanıb sürünmür")
+        self.assertGreater(vs.VIDEO_PAUSE[PAUSE_SENTENCE], PAUSE_SENTENCE)
+        self.assertGreater(vs.VIDEO_PAUSE[PAUSE_CLAUSE], PAUSE_CLAUSE)
+        # vergül fasiləsi cümlə fasiləsindən qısa qalır (intonasiya: vergül davam, nöqtə son)
+        self.assertLess(vs.VIDEO_PAUSE[PAUSE_CLAUSE], vs.VIDEO_PAUSE[PAUSE_SENTENCE])
+        pauses = [p for _, p in vs.say_items("Bakıda, Gəncədə və Sumqayıtda hava açıq olacaq. Külək zəifləyəcək.")]
+        self.assertTrue(pauses and set(pauses) <= set(vs.VIDEO_PAUSE.values()), pauses)
+        self.assertEqual(pauses[-1], vs.VIDEO_PAUSE[PAUSE_SENTENCE], "cümlə sonu videonun fasiləsi ilə")
+        src = (ROOT / ".github" / "scripts" / "video_ses.py").read_text(encoding="utf-8")
+        self.assertIn("tune(VitsModel.from_pretrained(name).eval(), speaking_rate=VIDEO_RATE)", src, "model video tempi ilə qurulur")
+        # «Dinlə» (ses-server) dəyişmir: ortaq ayar modelin öz sürətidir
+        self.assertEqual(VOICE["speaking_rate"], 1.0)
 
 
 class ContractTest(unittest.TestCase):
