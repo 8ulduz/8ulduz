@@ -12,6 +12,7 @@
   "8ulduz.goatcounter.com": { "vaxt": "sonra", "yonlendirir": false, "numune": "https://8ulduz.goatcounter.com/status", "qeyd": "sayğac ünvanı (config.js)" },
   "www.google-analytics.com": { "vaxt": "sonra", "yonlendirir": false, "numune": "https://www.google-analytics.com/g/collect?v=2&tid=G-SPEEDCHECK0&cid=1.1&en=speed_check", "qeyd": "GA4 yüngül göndərici (ga.js, yalnız kod qoyulubsa, afterNews)" },
   "i.ytimg.com": { "vaxt": "sonra", "yonlendirir": false, "numune": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", "qeyd": "video önizləmə şəkli (video bölməsi)" },
+  "video.8ulduz.az": { "vaxt": "sonra", "yonlendirir": false, "numune": "https://video.8ulduz.az/index.json", "qeyd": "öz videolarımızın veb nüsxəsi (Cloudflare R2, vlent.js «Video xəbərlər» zolağı, tənbəl modul). R2 yönləndirmir: açıq bucket curl ilə 206 video/mp4, 3xx yox (2026-11-25); öz domen sahib qurandan sonra işləyir (docs/veb-video.md). veb-video.cjs hər faylı siyahıya yazmazdan əvvəl redirect: \"manual\" ilə yoxlayır: 3xx və ya video/mp4 olmayan cavab siyahıya düşmür" },
   "dinle.8ulduz-az.workers.dev": { "vaxt": "klik", "yonlendirir": false, "qeyd": "«Dinlə» səs serveri (dinle.js, config.js)" },
   "api.github.com": { "vaxt": "klik", "yonlendirir": false, "qeyd": "redaksiya paneli (editorial-store.js, yalnız sahib)" },
   "embed.waze.com": { "vaxt": "klik", "yonlendirir": null, "qeyd": "tıxac xəritəsi iframe (Tıxac səhifəsi)" },

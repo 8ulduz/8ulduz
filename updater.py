@@ -483,6 +483,39 @@ YT_NEWS = [
 ]
 # Kanal başına son 10 video (2026-11-24-dək 5): xəbər səhifəsinin «Telekanalda bu xəbər» bloku (app.js tvOf) ±2 günlük videoları tutuşdurur.
 VIDEO_PER = 10
+# Öz videolarımızın veb nüsxəsi (sahib, 2026-11-25: «video xəbərlərdə bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə açılır …
+# gözqırpımı»): sosial-video.yml «veb-video» işi YouTube-a yüklənən videonun kiçik MP4-ünü Cloudflare R2-yə yazır
+# (.github/scripts/veb-video.cjs BASE), siyahısı index.json-dadır. update_video öz kanalımızın videosuna «mp4» sahəsi verir; saytın
+# «Video xəbərlər» zolağı (assets/vlent.js ownMp4) onu YouTube oynadıcısı əvəzinə adi <video> ilə oynadır. Yavaş dövrədədir (şəbəkə).
+VEB_VIDEO_KANAL = "8ULDUZ"
+VEB_VIDEO_URL = "https://video.8ulduz.az/"
+_VEB_VIDEO_ID = re.compile(r"[\w-]{6,20}")
+
+def _veb_videos():
+    """R2-dəki index.json → veb nüsxəsi olan YouTube nömrələri; oxunmasa None (əvvəlki «mp4» sahələri qalır)."""
+    try:
+        data = json.loads(fetch(VEB_VIDEO_URL + "index.json", timeout=10))
+        return {str(x.get("v")) for x in data.get("items") or [] if isinstance(x, dict) and _VEB_VIDEO_ID.fullmatch(str(x.get("v") or ""))}
+    except Exception as e:
+        print(f"  ! veb video siyahısı: {type(e).__name__}")
+        return None
+
+def _veb_video_links(items, was):
+    """Öz kanalımızın videosuna «mp4»: siyahıda varsa (siyahı oxunmayanda əvvəlki dövrədə varsa). Telekanallara heç vaxt."""
+    prev = {p.get("videoId") for p in was or [] if isinstance(p, dict) and p.get("channel") == VEB_VIDEO_KANAL and p.get("mp4")}
+    for p in items:   # alınmayan kanalın köhnə sətirləri də buradadır (was-dan): sahə yenidən qərar verilir
+        p.pop("mp4", None)
+    own = [p for p in items if p.get("channel") == VEB_VIDEO_KANAL]
+    if not own:
+        return items
+    have = _veb_videos()
+    if have is None:
+        have = prev
+    for p in own:
+        vid = str(p.get("videoId") or "")
+        if vid in have and _VEB_VIDEO_ID.fullmatch(vid):
+            p["mp4"] = f"{VEB_VIDEO_URL}{vid}.mp4"
+    return items
 VIDEO_MAX = 70   # 7 kanal × 10 (2026-11-24-dək 5 kanal × 5, 24)
 def site_url(root=None):
     """Saytın əsas ünvanı. Kökdə CNAME faylı varsa (GitHub Pages xüsusi domeni, məs. 8ulduz.az) ona görə,
@@ -3973,6 +4006,7 @@ def update_video():
         _keep_first_seen(items, was)
     except Exception:
         pass
+    _veb_video_links(items, was)
     items.sort(key=lambda p: p.get("publishedAt") or "", reverse=True)
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     OUT_DIR.mkdir(exist_ok=True)

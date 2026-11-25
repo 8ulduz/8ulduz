@@ -24,7 +24,12 @@
 // seçiləndə (saytın düyməsi və ya cihaz) avtomatik oynamır və qabaqcadan yükləmir, kart basılanda oynayır.
 //
 // Mənbələr (növbə ilə qarışıq, hər biri ən yenisi əvvəl):
-//  - öz videolarımız: YouTube «8ULDUZ» kanalı (data/video.json, updater.YT_NEWS);
+//  - öz videolarımız: YouTube «8ULDUZ» kanalı (data/video.json, updater.YT_NEWS). Veb nüsxəsi olan video («mp4» sahəsi, ownMp4)
+//    YouTube oynadıcısı ilə yox, X videosu kimi adi <video> ilə oynayır (sahib, 2026-11-25: «video xəbərlərdə bəzi videolar (əsasən
+//    azərbaycan) 1-2 saniyəyə açılır … gözqırpımı»). YouTube kartı basışdan ilk kadra 1,7–2,4 s gedirdi, telefonda qara ekran, fırlanan
+//    dairə, ⏸ və «Shorts» yazısı görünürdü. Nüsxəni sosial-video.yml «veb-video» işi Cloudflare R2-yə yazır (.github/scripts/veb-video.cjs),
+//    updater.py ünvanı video.json-a köçürür (ownMp4). Nüsxə yoxdursa (köhnə video, R2 qurulmayıb) video YouTube-dan oynayır. Şəkli və başlığın
+//    keçidi (video səhifəsi) YouTube-dakı kimidir;
 //  - X-in hadisə və xəbər videoları (lent.js: data/reels.json «xeber», hadisə sinfi) və X videolu öz xəbərlərimiz;
 //  - Azərbaycan telekanallarının YouTube videoları (data/video.json).
 // Sahib, 2026-11-24 (üçüncü baxış): «üstündə yazılar olsa da video tam kart boyu olmalıdır» — telefonda (şaquli ekran) X videosu tam
@@ -47,11 +52,14 @@ const freshLent = async () => {
 export const OWN = "8ULDUZ";
 const MAX = 24, PLAY_MAX = 60e3, YT = "https://www.youtube-nocookie.com/embed/";
 const ID = /^[\w-]{6,20}$/, MP4 = /^https:\/\/video\.twimg\.com\/[\w/.-]+\.mp4(\?[\w=&.-]*)?$/;
+// Öz videomuzun veb nüsxəsi: yalnız öz domenimiz və videonun öz YouTube nömrəsi ilə adlanan fayl (veb-video.cjs BASE).
+const OWN_BASE = "https://video.8ulduz.az/";
+export const ownMp4 = v => ID.test(v?.videoId || "") && v.mp4 === `${OWN_BASE}${v.videoId}.mp4`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const wsrv = u => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=360&we&output=webp&q=70`;
 const time = v => Date.parse(v.t) || 0;
-// Kartın şəkli və alınmasa ehtiyatı (YouTube: video nömrəsindən).
-export const poster = v => v.kind !== "yt" ? [/^https:\/\//.test(v.i || "") ? wsrv(v.i) : "", ""]
+// Kartın şəkli və alınmasa ehtiyatı (YouTube və öz videomuzun veb nüsxəsi: video nömrəsindən).
+export const poster = v => v.kind === "x" ? [/^https:\/\//.test(v.i || "") ? wsrv(v.i) : "", ""]
   : [wsrv(`https://i.ytimg.com/vi/${v.id}/${v.tall ? "oar2" : "hq720"}.jpg`), `https://i.ytimg.com/vi/${v.id}/${v.tall ? "hqdefault" : "mqdefault"}.jpg`];
 
 const CSS = `.vl-row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;padding-bottom:4px}
@@ -88,11 +96,14 @@ const CSS = `.vl-row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x ma
 const LABEL = "Videonu tam ekranda aç", LABEL_FS = "Videonu dayandır və ya davam etdir";
 const SCROLL_KEYS = ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "];
 
-// Kartlar: üç mənbə növbə ilə (öz, X, TV), hər biri ən yenisi əvvəl; eyni video bir dəfə.
+// Kartlar: üç mənbə növbə ilə (öz, X, TV), hər biri ən yenisi əvvəl; eyni video bir dəfə. Öz videomuzun veb nüsxəsi varsa növü
+// «mp4»: oynadıcısı X videosununku kimidir (make, start, halt — «yt» olmayan yol), şəkli və keçidi YouTube-dakı kimi.
 export function pick(S, reels) {
-  const yt = (S?.video?.items || []).filter(v => ID.test(v?.videoId || "")).map(v => ({
-    kind: "yt", id: v.videoId, t: v.publishedAt, title: v.title, src: v.channel === OWN ? "8ulduz.az" : v.channel, own: v.channel === OWN,
-    tall: v.channel === OWN || /\/shorts\//.test(v.url || "") }));
+  const yt = (S?.video?.items || []).filter(v => ID.test(v?.videoId || "")).map(v => {
+    const own = v.channel === OWN, mp4 = own && ownMp4(v);
+    return { kind: mp4 ? "mp4" : "yt", ...(mp4 ? { u: v.mp4 } : {}), id: v.videoId, t: v.publishedAt, title: v.title, src: own ? "8ulduz.az" : v.channel, own,
+      tall: own || /\/shorts\//.test(v.url || "") };
+  });
   const x = L.list(S, reels).filter(v => MP4.test(v.u) && v.m === "xeber" && v.q !== "u").map(v => ({
     kind: "x", u: v.u, k: v.k, t: v.t, title: v.title || v.c, src: v.n, i: v.i }));
   const lanes = [yt.filter(v => v.own), x, yt.filter(v => !v.own)].map(l => l.filter(v => v.title).sort((a, b) => time(b) - time(a)));
@@ -104,7 +115,7 @@ export function pick(S, reels) {
 
 const card = (v, n) => {
   const [src, alt] = poster(v);
-  return `<div class="vl-c" data-n="${n}"><button type="button" class="vl-v" aria-label="${LABEL}">${src ? `<img src="${esc(src)}"${alt ? ` data-alt="${esc(alt)}"` : ""} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}<i class="vl-s">${esc(v.src)}</i><i class="vl-m">🔇</i><i class="vl-p">▶</i><span class="vl-bar"></span></button><a class="vl-t" href="${v.kind === "yt" ? `#/videolent?v=${encodeURIComponent(v.id)}` : "#/videolent"}" data-vl="${n}">${esc(v.title)}</a></div>`;
+  return `<div class="vl-c" data-n="${n}"><button type="button" class="vl-v" aria-label="${LABEL}">${src ? `<img src="${esc(src)}"${alt ? ` data-alt="${esc(alt)}"` : ""} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}<i class="vl-s">${esc(v.src)}</i><i class="vl-m">🔇</i><i class="vl-p">▶</i><span class="vl-bar"></span></button><a class="vl-t" href="${v.kind === "x" ? "#/videolent" : `#/videolent?v=${encodeURIComponent(v.id)}`}" data-vl="${n}">${esc(v.title)}</a></div>`;
 };
 
 export async function mount(sec, S, still = () => false) {
@@ -136,7 +147,7 @@ export async function mount(sec, S, still = () => false) {
   // Qənaət rejimində (auto() yox) oynadıcı qabaqcadan qurulmur, deməli hazırlanmır da.
   const prime = n => { const f = players.get(n); if (f && n !== cur && items[n].kind === "yt" && !f._prime) { f._prime = 1; ytCmd(f, "mute"); ytCmd(f, "playVideo"); } };
   const videoOf = f => f.contentDocument?.querySelector("video");
-  // Oynadıcını qurur (hələ oynatmır). X: video yüklənir; YouTube: oynadıcı açılır və vəziyyətini bildirməyə başlayır.
+  // Oynadıcını qurur (hələ oynatmır). X və öz veb nüsxəmiz (mp4): video yüklənir; YouTube: oynadıcı açılır və vəziyyətini bildirməyə başlayır.
   function make(n) {
     if (players.has(n)) return players.get(n);
     const v = items[n], f = document.createElement("iframe");

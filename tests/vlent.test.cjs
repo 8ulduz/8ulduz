@@ -129,3 +129,35 @@ test('Video lenti: the next YouTube video is primed — it plays at once when ch
   assert.ok(over.includes('if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;'), 'yalnız siçan: barmaqla sürüşdürmə oynadıcı qurmur');
   assert.ok(over.includes('players.size < 4'), 'eyni anda ən çoxu 4 oynadıcı');
 });
+
+// Sahib, 2026-11-25: «ən vacib qırmızı cizgi-gözqırpımı sürətidir», «video xəbərlərdə bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə açılır».
+// Ölçü (kompüter brauzeri): YouTube kartı basışdan ilk kadra 2,4 s (oynadıcı yoxdursa), 1,7 s (hazırdırsa); X videosu (adi <video>) 0,2–0,5 s.
+test('lent (sahib 2026-11-25): öz videomuzun veb nüsxəsi X videosu kimi adi <video> ilə oynayır; telekanallar YouTube-da qalır', async () => {
+  const { pick, poster, OWN, ownMp4 } = await mod();
+  const web = id => `https://video.8ulduz.az/${id}.mp4`;
+  const S = { video: { items: [
+    { ...yt('ownWeb0001', OWN, 1), mp4: web('ownWeb0001') },
+    yt('ownTube001', OWN, 2),
+    { ...yt('tvWeb00001', 'ARB 24', 1), mp4: web('tvWeb00001') },
+    { ...yt('ownBad0001', OWN, 3), mp4: 'https://evil.example/ownBad0001.mp4' },
+    { ...yt('ownOther01', OWN, 4), mp4: web('ownWeb0001') },
+  ] }, data: { articles: [] } };
+  const got = Object.fromEntries(pick(S, []).map(v => [v.id, v]));
+  assert.equal(got.ownWeb0001.kind, 'mp4');
+  assert.equal(got.ownWeb0001.u, web('ownWeb0001'));
+  assert.ok(got.ownWeb0001.own && got.ownWeb0001.tall && got.ownWeb0001.src === '8ulduz.az');
+  assert.equal(got.ownTube001.kind, 'yt', 'veb nüsxəsi yoxdursa YouTube-dan oynayır');
+  assert.equal(got.tvWeb00001.kind, 'yt', 'telekanalın videosu YouTube oynadıcısında qalır');
+  assert.equal(got.ownBad0001.kind, 'yt', 'yalnız öz domenimiz (video.8ulduz.az)');
+  assert.equal(got.ownOther01.kind, 'yt', 'fayl adı videonun öz nömrəsidir: başqa videonun faylı oynamır');
+  assert.ok(ownMp4({ videoId: 'abcdefghijk', mp4: web('abcdefghijk') }) && !ownMp4({ videoId: 'abc/../x', mp4: web('abc/../x') }) && !ownMp4({ videoId: 'abcdefghijk', mp4: web('abcdefghijk') + '?x=1' }));
+  assert.deepEqual(poster(got.ownWeb0001), poster({ kind: 'yt', id: 'ownWeb0001', tall: true }), 'şəkli YouTube-dakı şaquli şəkildir');
+  const v = read('assets/vlent.js');
+  // Növ «mp4» X videosunun yolundan keçir: srcdoc-da adi <video preload="auto">, «yt» olmayan start/halt/səs.
+  assert.ok(v.includes('if (v.kind === "yt") {') && v.includes('<video playsinline muted preload="auto" src="${esc(v.u)}"></video>'), 'oynadıcı X videosununku kimidir');
+  assert.ok(v.includes('if (items[n].kind === "yt") { ytCmd(f, sound ? "unMute" : "mute"); ytCmd(f, "playVideo");') && v.includes('items[n].kind === "yt" && !f._prime'), 'YouTube əmrləri və hazırlıq yalnız YouTube kartına');
+  assert.ok(v.includes('href="${v.kind === "x" ? "#/videolent" : `#/videolent?v=${encodeURIComponent(v.id)}`}"'), 'başlığın keçidi video səhifəsidir (YouTube kartı kimi)');
+  assert.ok(v.includes('if (v.kind === "x") { e.preventDefault(); stop(); import("./lent.js?v=1")'), 'Videolent yalnız X videosu üçün');
+  // Yalnız növbəti kart qabaqcadan yüklənir və qənaət rejimində heç biri (auto()).
+  assert.ok(v.includes('if (auto() && nx !== n) make(nx);') && v.includes('trim([n, nx]);'));
+});
