@@ -170,6 +170,7 @@ test("maraqlı: paylaşma mətni — mənbə (Vikipediya keçidi), görüntü ba
     assert.ok(!t.includes("#xəbərlər"));
   }
   assert.ok(SV.fbText(x).includes("Daha çox: https://8ulduz.az/") && SV.igText(x).includes("keçid profildədir"));
+  assert.ok(SV.fbText(x).includes("Hər gün yeni maraqlı faktlar — səhifəmizi izləyin.") && SV.igText(x).includes("Hər gün yeni maraqlı faktlar — abunə olun: @8ulduz.az"), "abunə çağırışı rubrikanın vədi ilə");
   // video.json (video-xeber.cjs storyFields): YouTube/TikTok yükləyicisi növü və saytın keçidini görür.
   const sf = VX.storyFields(x);
   assert.deepEqual([sf.kind, sf.url, sf.source, sf.own], ["maraqli", "https://8ulduz.az/", "Vikipediya", true]);

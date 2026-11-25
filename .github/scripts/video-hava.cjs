@@ -402,7 +402,7 @@ function arrow(dir, cx, cy, len, color = C.white) {
 }
 
 // Zaman: video-xeber.cjs timeline() ilə eyni (səs varsa onun vaxtı, yoxsa oxuma sürəti; 59 s-dən uzun olmur — sondakı hissələr düşür).
-const prepare = p => ({ say: [p.parts[0].text, ...p.parts.slice(1).map(x => x.text), V.OUTRO_SAY], chunks: p.parts.slice(1).map(x => x.text) });
+const prepare = p => ({ say: [p.parts[0].text, ...p.parts.slice(1).map(x => x.text), V.abune("hava").say], chunks: p.parts.slice(1).map(x => x.text) });
 // Səhnələrin vaxtı: hər səhnə öz ilk hissəsi ilə başlayır, növbəti səhnə başlayanda (sonuncu — sonluqda) bitir.
 function scenes(p, tl) {
   const at = [tl.head, ...tl.chunks.map(c => c.at)], out = [];
@@ -427,7 +427,7 @@ function ass(p, tl, { footage = false } = {}) {
     st("Chip", `${F} Black`, 40, C.bg, { bold: -1, border: 3, outline: 12, outlineColor: C.orange }),
     st("Txt", `${F} Medium`, 44, C.white), st("Num", `${F} Black`, 88, C.white, { bold: -1 }), st("Reg", F, 36, C.gray),
     st("Cap", `${F} Medium`, V.CAP_SIZE, C.white, { border: 3, outline: V.CAP_PAD, outlineColor: C.box }),
-    st("Outro", `${F} Medium`, 60, C.gray, { align: 5 }), st("OutroBig", `${F} Black`, 132, C.orange, { bold: -1, align: 5 })];
+    st("Outro", `${F} Medium`, 60, C.gray, { align: 5 }), V.SUB_STYLE];
   const dlg = (layer, from, to, style, text) => { if (to - from > 0.02) ev.push(`Dialogue: ${layer},${T(from)},${T(to)},${style},,0,0,0,,${text}`); };
   const shade = "\\bord3\\3c&H000000&\\shad2\\4a&H40&";   // görüntü üstündə yazı: kənar və kölgə
   // Formalar: hər biri ayrıca sətir (üst-üstə düşən dairələr birləşmiş kimi görünür), girişdə yuxarı sürüşür və görünür.
@@ -454,6 +454,7 @@ function ass(p, tl, { footage = false } = {}) {
   const L = V.L, py = L.barY + L.barH;
   dlg(1, 0, D, "Shape", `{\\an7\\pos(0,${L.barY})\\p1\\bord0\\shad0\\1c${col(C.bar)}}${V.rect(W, L.barH)}`);
   dlg(2, 0, D, "Brand", `{\\an1\\pos(${V.logoX() + V.logoW() - 4},${V.logoY() + L.logoH + 4})\\fs72}.az`);
+  V.subBadge(dlg, out);
   dlg(2, 0, D, "Shape", `{\\an7\\pos(0,${py})\\p1\\bord0\\shad0\\1c${col(C.orange)}\\clip(0,${py},1,${py + 8})\\t(0,${ms(D)},\\clip(0,${py},${W},${py + 8}))}${V.rect(W, 8)}`);
   // Nişan və tarix: başdan sonluğa qədər.
   const chip = "HAVA PROQNOZU";
@@ -537,11 +538,9 @@ function ass(p, tl, { footage = false } = {}) {
     }).join(" "));
     dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + V.CAP_PAD},${Y.cap + V.CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
   });
-  // Sonluq: «Ətraflı: 8ulduz.az», hava səhifəsinin ünvanı, kreditlər.
-  dlg(3, out, D, "Outro", `{\\pos(540,${Y.outro - 140})\\fad(300,0)}Ətraflı:`);
-  dlg(3, out, D, "OutroBig", `{\\pos(540,${Y.outro})\\fad(300,0)\\t(0,400,\\fscx104\\fscy104)\\t(400,800,\\fscx100\\fscy100)}8ulduz{\\1c${col(C.white)}}.az`);
-  dlg(3, out, D, "Outro", `{\\pos(540,${Y.outro + 150})\\fad(300,0)\\fs48}Bütün şəhərlər: 8ulduz.az/bolme/hava`);
-  dlg(3, out, D, "Outro", `{\\pos(540,${Y.outro + 250})\\fad(300,0)\\fs34}${txt(`Hava: Open-Meteo.com (CC BY 4.0)${footage ? ` · Görüntü: ${clean(p.goruntuMenbe) || "Pixabay"}` : ""}`)}`);
+  // Sonluq: vəd və «ABUNƏ OL» düyməsi (video-xeber.cjs subOutro), hava səhifəsinin ünvanı, kreditlər.
+  V.subOutro(dlg, out, D, Y.outro, "hava", "Bütün şəhərlər: 8ulduz.az/bolme/hava");
+  dlg(3, out, D, "Outro", `{\\pos(540,${Y.outro + 260})\\fad(300,0)\\fs34}${txt(`Hava: Open-Meteo.com (CC BY 4.0)${footage ? ` · Görüntü: ${clean(p.goruntuMenbe) || "Pixabay"}` : ""}`)}`);
   return ["[Script Info]", "ScriptType: v4.00+", `PlayResX: ${W}`, `PlayResY: ${H}`, "WrapStyle: 2", "ScaledBorderAndShadow: yes", "YCbCr Matrix: TV.709", "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",

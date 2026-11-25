@@ -34,8 +34,17 @@ const MIN_S = 8, MAX_S = 59;                   // Facebook Reels API 3–90 s; q
 const BODY_MAX = 750;                          // izahın ekranda/səsdə ən çox simvolu (≈ 5–7 cümlə, 35–45 s; sahib 2026-11-22: «4-7 cümlədə olsun. uzun da olsun»)
 const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
 // Başlıq oxunmur (sahib, 2026-11-24: «Başlıqları oxumasın»; 2026-11-25: «8ulduz videolarında başlıq oxunmamalı idi»): başlıq ekranda
-// başdan sonluğa qədər yazılıb qalır, səs birinci cümlə ilə başlayır. HEAD_S — başlığın səssiz göründüyü an (LEAD_S-dən sonra).
-const HEAD_S = 0.65;
+// başdan sonluğa qədər yazılıb qalır, səs birinci cümlə ilə başlayır. Başlıq üçün ayrıca səssiz an yoxdur: səs LEAD_S-də başlayır
+// (2026-11-25, YouTube Studio: baxanların 60,6%-i videonu ilk saniyələrdə ötürür, orta baxış ~7 s — ilk saniyə sükutla getməsin).
+// Abunə çağırışı (sahib, 2026-11-25: «baxış var, lakin baxanlar hesaba abunə olmurlar»): sonluqda düymə və səs, videonun içində
+// zolaqda kiçik nişan (SUB_AT-dan sonluğa qədər — çox baxan sona çatmır). Hər video növünün öz vədi var: abunə olan nə alacağını bilsin.
+const SUB_AT = 3;
+const ABUNE = {
+  xeber: { ved: "Ən vacib xəbərlər hər gün", say: "Abunə olun, ən vacib xəbərlər hər gün burada." },
+  maraqli: { ved: "Hər gün yeni maraqlı faktlar", say: "Abunə olun, hər gün yeni maraqlı faktlar burada." },
+  hava: { ved: "Hava proqnozu hər gün", say: "Abunə olun, hava proqnozu hər gün burada." },
+};
+const abune = tur => ABUNE[tur] || ABUNE.xeber;
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
 const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", gray: "AFC0D8", box: "1A3563", blue: "1E4D8C", blue2: "2563EB" };
 // Yerləşmə (piksel, 1080×1920). Lentdə Reels ortadan 4:5-ə kəsilir (y 285…1635), tam ekranda yuxarıda ~170 px, aşağıda ~420 px,
@@ -172,29 +181,29 @@ function bakuTime(iso) {
 }
 
 // Videonun mətn planı: ekranda nə yazılır, səsə nə gedir.
-const OUTRO_SAY = "Ətraflı məlumat səkkiz ulduz nöqtə az saytında.";
 function prepare(a, opt = {}) {
   const title = clean(a.title);
   if (!title) throw new Error("başlıq yoxdur");
-  const footage = Boolean(opt.footage);
+  const footage = Boolean(opt.footage), tur = a.tur === "maraqli" ? "maraqli" : "xeber";
   const head = footage ? fitHeadline(title, LF.sizes, LF.headMaxH) : fitHeadline(title);
   const sentences = captionSentences(bodyText(a)), chunks = sentences.flat();
-  const label = clean(a.bolme || opt.cats?.find(c => c.slug === a.category)?.label || "Xəbər").toLocaleUpperCase("az");
+  // Maraqlı videonun nişanı rubrikanın adıdır («Bilirdinizmi?»): başlıq faktın özüdür, nişan onu suala çevirir.
+  const label = tur === "maraqli" ? "BİLİRDİNİZMİ?" : clean(a.bolme || opt.cats?.find(c => c.slug === a.category)?.label || "Xəbər").toLocaleUpperCase("az");
   const source = [sourceLine(a), footage ? `Görüntü: ${clean(a.goruntuMenbe) || "Pexels"}` : ""].filter(Boolean).join(" · ");
   // davam[i]: say[i] əvvəlki hissənin cümləsinin davamıdır — video_ses.py onları bir mətn kimi səsləndirir (sahib, 2026-11-25:
   // «sətirdən sətrə keçəndə mənasız pauza verir»). Cümləni altyazı özü bölür, ona görə burada dəqiq bilinir; mətndən təxmin
   // («Xudat | Məmmədovun», «azalaraq | 3 565,2 dollar» böyük hərflə, rəqəmlə başlayır) dörddə birini buraxırdı.
-  // say: səsə gedən hissələr — altyazılar və sonluq; başlıq yoxdur (quietHead, HEAD_S).
-  return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source, footage, quietHead: true,
-    say: [...chunks, OUTRO_SAY], davam: [...sentences.flatMap(s => s.map((_, j) => j > 0)), false] };
+  // say: səsə gedən hissələr — altyazılar və sonluq (abunə çağırışı); başlıq yoxdur (quietHead).
+  return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source, footage, quietHead: true, tur,
+    say: [...chunks, abune(tur).say], davam: [...sentences.flatMap(s => s.map((_, j) => j > 0)), false] };
 }
 
 // Zaman planı. voice: video_ses.py nəticəsi { parts: [[başlanğıc, son], …] } (hissələr prepare().say sırası ilə) və ya null.
 // Səssiz: oxuma sürəti (~13 simvol/s), hər altyazı ən azı 2,4 s.
-// p.quietHead (xəbər və maraqlı video): say-da başlıq yoxdur — başlıq anı səssizdir ([0, lead]), say[0] birinci altyazıdır.
+// p.quietHead (xəbər və maraqlı video): say-da başlıq yoxdur — head yalnız səsdən əvvəlki andır ([0, lead]), say[0] birinci altyazıdır.
 // Yoxdursa (hava videosu) say[0] ekrandakı başlığın altında oxunan giriş cümləsidir və head onun vaxtıdır.
 function timeline(p, voice = null) {
-  const quiet = Boolean(p.quietHead), n = p.say.length, lead = LEAD_S + (quiet ? HEAD_S : 0), h = quiet ? 0 : 1;
+  const quiet = Boolean(p.quietHead), n = p.say.length, lead = LEAD_S, h = quiet ? 0 : 1;
   let spans;
   const used = Boolean(voice && Array.isArray(voice.parts) && voice.parts.length === n);
   if (used) {
@@ -232,6 +241,22 @@ const assText = s => clean(s).replace(/\\/g, "/").replace(/\{/g, "(").replace(/\
 const circle = r => { const k = Math.round(r * 0.5523), d = 2 * r; return `m ${r} 0 b ${r + k} 0 ${d} ${r - k} ${d} ${r} b ${d} ${r + k} ${r + k} ${d} ${r} ${d} b ${r - k} ${d} 0 ${r + k} 0 ${r} b 0 ${r - k} ${r - k} 0 ${r} 0`; };
 const rect = (w, h) => `m 0 0 l ${w} 0 ${w} ${h} 0 ${h}`;
 
+// Abunə çağırışı — xəbər, maraqlı və hava videosunda eyni (video-hava.cjs də bunları işlədir). «ABUNƏ OL»: narıncı qutuda tünd yazı
+// (BorderStyle 3: qutu yazının arxasındadır, kənar xətt onun boşluğudur). Üslub sətri hazır verilir: iki modulun üslub köməkçisi fərqlidir.
+const SUB_TEXT = "ABUNƏ OL";
+const SUB_STYLE = (bgr => `Style: Sub,${FONT} Black,88,${bgr(COLOR.bg)},${bgr(COLOR.bg)},${bgr(COLOR.orange)},&H00000000,-1,0,0,0,100,100,0,0,3,28,0,5,${X0},${X0},0,1`)(hex => `&H00${assColor(hex).slice(2, 8)}`);
+// Zolağın sağında kiçik nişan: SUB_AT-dan sonluğa qədər, görünəndə bir dəfə böyüyüb qayıdır. Qısa videoda (nişana 2 s qalmırsa) yoxdur.
+function subBadge(dlg, out) {
+  if (out < SUB_AT + 2) return;
+  dlg(2, SUB_AT, out + 0.3, "Sub", `{\\an6\\pos(${W - X0 - 12},${L.barY + L.barH / 2})\\fs34\\bord12\\fad(300,300)\\t(0,300,\\fscx112\\fscy112)\\t(300,600,\\fscx100\\fscy100)}${SUB_TEXT}`);
+}
+// Sonluq: üstdə növün vədi, ortada düymə (iki dəfə «döyünür»), altda sayt sətri (alt — hazır ASS mətni).
+function subOutro(dlg, out, D, y, tur, alt) {
+  dlg(3, out, D, "Outro", `{\\pos(540,${y - 170})\\fad(300,0)\\1c${assColor(COLOR.white)}}${assText(abune(tur).ved)}`);
+  dlg(3, out, D, "Sub", `{\\pos(540,${y})\\fad(300,0)\\t(0,350,\\fscx108\\fscy108)\\t(350,700,\\fscx100\\fscy100)\\t(1300,1650,\\fscx108\\fscy108)\\t(1650,2000,\\fscx100\\fscy100)}${SUB_TEXT}`);
+  dlg(3, out, D, "Outro", `{\\pos(540,${y + 170})\\fad(300,0)\\fs48}${alt}`);
+}
+
 function ass(p, tl) {
   const D = tl.duration, end = assTime(D), out = tl.outro[0];
   const sc = hex => `&H00${assColor(hex).slice(2, 8)}`;   // üslubda rəng: &HAABBGGRR
@@ -248,7 +273,7 @@ function ass(p, tl) {
     st("Cap", CAP_SIZE, COLOR.white, false, { font: " Medium", border: 3, outline: CAP_PAD, outlineColor: COLOR.box }),
     st("Small", 36, COLOR.gray, false),
     st("Outro", 60, COLOR.gray, false, { font: " Medium", align: 5 }),
-    st("OutroBig", 132, COLOR.orange, true, { font: " Black", align: 5 }),
+    SUB_STYLE,
   ];
   const ev = [];
   const dlg = (layer, from, to, style, text) => ev.push(`Dialogue: ${layer},${assTime(from)},${assTime(to)},${style},,0,0,0,,${text}`);
@@ -266,6 +291,7 @@ function ass(p, tl) {
   // Yuxarı zolaq: başdan sona. Loqo şəkli ffmpeg-də bu zolağın üstünə qoyulur, yanında «.az» — birlikdə «8ULDUZ.az».
   dlg(1, 0, D, "Shape", `{\\an7\\pos(0,${L.barY})\\p1\\bord0\\shad0\\1c${assColor(COLOR.bar)}}${rect(W, L.barH)}`);
   dlg(2, 0, D, "Brand", `{\\an1\\pos(${logoX() + logoW() - 4},${logoY() + L.logoH + 4})\\fs72}.az`);
+  subBadge(dlg, out);
   // Gediş xətti: videonun nə qədəri qalıb (xəbər Reels-lərində adət).
   const py = L.barY + L.barH;
   dlg(2, 0, D, "Shape", `{\\an7\\pos(0,${py})\\p1\\bord0\\shad0\\1c${assColor(COLOR.orange)}\\clip(0,${py},1,${py + 8})\\t(0,${Math.round(D * 1000)},\\clip(0,${py},${W},${py + 8}))}${rect(W, 8)}`);
@@ -293,10 +319,8 @@ function ass(p, tl) {
     }).join(" "));
     dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + CAP_PAD},${capY + CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
   });
-  // Sonluq.
-  dlg(3, out, D, "Outro", `{\\pos(540,${L.outroY - 140})\\fad(300,0)}Ətraflı:`);
-  dlg(3, out, D, "OutroBig", `{\\pos(540,${L.outroY})\\fad(300,0)\\t(0,400,\\fscx104\\fscy104)\\t(400,800,\\fscx100\\fscy100)}8ulduz{\\1c${assColor(COLOR.white)}}.az`);
-  dlg(3, out, D, "Outro", `{\\pos(540,${L.outroY + 150})\\fad(300,0)\\fs48}Xəbərin davamı və bütün mənbələr saytda`);
+  // Sonluq: vəd, «ABUNƏ OL» düyməsi, altında sayt.
+  subOutro(dlg, out, D, L.outroY, p.tur, `Ətraflı: {\\1c${lit}}8ulduz{\\1c${white}}.az`);
   return ["[Script Info]", "ScriptType: v4.00+", `PlayResX: ${W}`, `PlayResY: ${H}`, "WrapStyle: 0", "ScaledBorderAndShadow: yes", "YCbCr Matrix: TV.709", "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
@@ -418,7 +442,7 @@ function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], focus = nul
   if (voiceFile) {
     args.push("-i", voiceFile);
     const c = tl.voiceCut, ms = s => Math.round(s * 1000), lead = tl.lead ?? LEAD_S;
-    // Əsas hissə + (altyazı düşübsə, sürüşdürülmüş) sonluq səsi; lead qədər gecikmə (başlıq oxunmur: LEAD_S + HEAD_S).
+    // Əsas hissə + (altyazı düşübsə, sürüşdürülmüş) sonluq səsi; lead qədər gecikmə (LEAD_S).
     audio = c && c.outroAt + 0.01 < c.outroFrom
       ? `[${ai}:a]asplit=2[m][o];[m]atrim=0:${(c.keepUntil - lead).toFixed(3)},asetpts=PTS-STARTPTS[m1];[o]atrim=${(c.outroFrom - lead).toFixed(3)},asetpts=PTS-STARTPTS,adelay=${ms(c.outroAt - c.keepUntil)}:all=1[o1];[m1][o1]concat=n=2:v=0:a=1,adelay=${ms(lead)}:all=1,`
       : `[${ai}:a]adelay=${ms(lead)}:all=1,`;
@@ -503,8 +527,8 @@ async function render(a, out, opt = {}) {
     fs.writeFileSync(path.join(dir, "video.ass"), ass(p, tl));
     fs.mkdirSync(path.dirname(out), { recursive: true });
     run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips, focus: c => focusOf(c, { cwd: dir }) }), { cwd: dir, timeout: 900000 });
-    // Örtük: başlıq tam görünür, birinci altyazı hələ yoxdur (başlıq oxunmur — səs və altyazı tl.head[1]-də başlayır).
-    const cover_s = Math.round(Math.min(1.5, Math.max(0.4, tl.head[1] - 0.1)) * 100) / 100;
+    // Örtük: başlıq yerinə oturub (hərəkəti 0,3 s), birinci altyazı hələ yoxdur — səs və altyazı tl.head[1]-də (LEAD_S) başlayır.
+    const cover_s = Math.round(Math.min(1.5, Math.max(0.3, tl.head[1] - 0.05)) * 100) / 100;
     const jpg = out.replace(/\.mp4$/i, "") + ".jpg";
     run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", jpg]);
     // kadrlar: önizləmə üçün anlar — başlıq, ilk iki altyazının ortası, sonluq (sosial-video.yml şəkil düzəldir).
@@ -529,7 +553,9 @@ async function render(a, out, opt = {}) {
 module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, captionSentences, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR,
   // Hava videosu (video-hava.cjs) eyni brendi, səsi, altyazını və kodlaşdırmanı işlədir: qayda iki yerdə yazılmır.
-  clean, voice, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W, OUTRO_SAY };
+  clean, voice, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W,
+  // Abunə çağırışı: üç video növündə eyni düymə və nişan, hər növün öz vədi.
+  ABUNE, abune, SUB_AT, SUB_TEXT, SUB_STYLE, subBadge, subOutro };
 
 if (require.main === module) {
   const [src, out] = process.argv.slice(2);

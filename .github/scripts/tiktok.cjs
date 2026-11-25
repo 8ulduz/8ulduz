@@ -190,6 +190,10 @@ async function api(f, token, p, body, method = "POST") {
   return { status: r.status, code, message: clean(j?.error?.message).slice(0, 200), data: j?.data || {}, raw };
 }
 
+// Abunə çağırışı (sahib, 2026-11-25: «baxanlar abunə olsunlar»): vəd videodakı ilə eynidir (video-xeber.cjs ABUNE). Bu fayl iş axınında
+// təkdir (sparse-checkout), ona görə mətn burada da yazılıb; tests/tiktok.test.cjs ikisinin eyni qaldığını yoxlayır.
+const VED = { xeber: "Ən vacib xəbərlər hər gün", maraqli: "Hər gün yeni maraqlı faktlar", hava: "Hava proqnozu hər gün" };
+const abuneLine = meta => `${VED[meta?.kind] || VED.xeber} — abunə olun: @8ulduz.az`;
 // Videonun mətni (post_info.title). TikTok-da keçid basılmır: sayt profilin «bio» hissəsindədir.
 function caption(meta) {
   const own = (Array.isArray(meta.hashtags) ? meta.hashtags : []).map(t => "#" + String(t).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "")).filter(t => t.length > 1);
@@ -197,7 +201,7 @@ function caption(meta) {
   // video-xeber.cjs-in «text» sahəsi ekranda və səsdə gedən izahdır: varsa o, yoxsa xəbərin xülasəsi.
   const desc = clean(meta.text) || clean(meta.summary);
   const title = cut(meta.title, 300), sum = desc && desc !== clean(meta.title) ? cut(desc, 1200) : "";
-  return `${title}${sum ? `\n\n${sum}` : ""}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${tags}`.slice(0, TITLE_MAX);
+  return `${title}${sum ? `\n\n${sum}` : ""}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${abuneLine(meta)}\n\n${tags}`.slice(0, TITLE_MAX);
 }
 
 // Yalnız öz videolarımız: boş sətir = olar, mətn = niyə olmaz.
@@ -552,5 +556,5 @@ async function main() {
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { options, authUrl, codeFrom, chunks, seal, unseal, access, caption, foreignReason, policyReason, readVideos, mp4Duration, run, connect, makeTestVideo, SCOPES, REDIRECT, PRIVACY };
+module.exports = { VED, options, authUrl, codeFrom, chunks, seal, unseal, access, caption, foreignReason, policyReason, readVideos, mp4Duration, run, connect, makeTestVideo, SCOPES, REDIRECT, PRIVACY };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e).slice(0, 300)); process.exitCode = 1; });

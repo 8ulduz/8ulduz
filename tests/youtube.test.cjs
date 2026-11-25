@@ -366,6 +366,10 @@ test("youtube: title, description and tags always fit YouTube's limits and carry
   assert.deepEqual(r.snippet.tags.slice(0, 9), ["8ulduz", "8 ulduz", "səkkiz ulduz", "səkkizulduz", "8ulduz.az", "xəbər", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"],
     "«8 ulduz», «səkkiz ulduz», «səkkizulduz» axtarışı da tapsın");
   assert.ok(r.snippet.description.includes("8ulduz.az — 8 Ulduz (Səkkiz Ulduz) xəbər saytı: "), "təsvirdə bütün yazılışlar");
+  // Abunə çağırışı (sahib, 2026-11-25): keçid sətrindən sonra, növün vədi ilə; kanal keçidi abunə pəncərəsi ilə açılır.
+  assert.ok(r.snippet.description.includes("\n\nƏn vacib xəbərlər hər gün — abunə olun: https://www.youtube.com/@8ULDUZ?sub_confirmation=1\n\n"), r.snippet.description);
+  assert.ok(Y.descriptionOf({ id: "hava-2026-11-25", kind: "hava", title: "Hava" }).includes("Hava proqnozu hər gün — abunə olun: "));
+  assert.deepEqual(Y.VED, Object.fromEntries(Object.entries(require("../.github/scripts/video-xeber.cjs").ABUNE).map(([k, v]) => [k, v.ved])), "vəd videodakı ilə eynidir");
   // Keçid yalnız saytın özünə: video modulunun verdiyi başqa sayt ünvanı işlədilmir.
   assert.equal(Y.linkOf({ id: "abc", kind: "hava", url: "https://evil.example/x" }), "https://8ulduz.az/");
   assert.equal(Y.linkOf({ id: "abc", kind: "valyuta", url: "https://8ulduz.az/bolme/iqtisadiyyat/" }), "https://8ulduz.az/bolme/iqtisadiyyat/");

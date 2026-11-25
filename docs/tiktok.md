@@ -269,7 +269,7 @@ Necə hazırlanır (`tiktok-demo.yml`):
   2. `video/init` və ya `inbox/video/init` (`FILE_UPLOAD`);
   3. fayl göndərilir (64 MB-a qədər bir hissədə, böyük fayl 10 MB-lıq hissələrlə);
   4. status.
-- **Mətn:** başlıq, izah, «Ətraflı: 8ulduz.az (keçid profildədir)», haşteqlər (#8ulduz #xəbərlər #Azərbaycan və modulun verdikləri). TikTok-da keçid basılmır, sayt bio-dadır: bio-ya «8ulduz.az» yazın.
+- **Mətn:** başlıq, izah, «Ətraflı: 8ulduz.az (keçid profildədir)», abunə çağırışı («Ən vacib xəbərlər hər gün — abunə olun: @8ulduz.az», vəd video növünə görə), haşteqlər (#8ulduz #xəbərlər #Azərbaycan və modulun verdikləri). TikTok-da keçid basılmır, sayt bio-dadır: bio-ya «8ulduz.az» yazın.
 - **Token.**
   - Ömür: TikTok sənədində access token 24 saat, refresh token 365 gün; başqa səhifədə 2 saat və 180 gün yazılıb. Kod TikTok-un cavabındakı rəqəmi işlədir.
   - Yeniləmə: TikTok hər yeniləmədə yeni refresh token qaytarır, yeniləmə avtomatikdir. Zəncir `actions/cache`-də AES-256-GCM ilə şifrəli saxlanır. Açar `TIKTOK_CLIENT_SECRET`-dən alınır, PR işləri onu oxuya bilmir.

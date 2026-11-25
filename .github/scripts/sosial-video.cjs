@@ -32,6 +32,7 @@ const VS = require("./video-ssenari.cjs");
 const VH = require("./video-hava.cjs");
 const VA = require("./video-arxiv.cjs");
 const VM = require("./video-maraqli.cjs");
+const VX = require("./video-xeber.cjs");
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const KEEP_S = 3 * 86400;
@@ -218,6 +219,10 @@ const havaTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), "#8ul
 const maraqliKredit = x => `Məlumat: Vikipediya — ${x.sourceUrl}${x.goruntu?.length ? `
 Görüntü: ${x.goruntuMenbe || "Pixabay"}` : ""}`;
 const maraqliTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), "#maraqlı", "#bilirdinizmi", "#8ulduz"])].join(" ");
+// Abunə çağırışı (sahib, 2026-11-25: «baxanlar abunə olsunlar»): keçid sətrindən sonra — birinci sətir başlıq olaraq qalır (videonun
+// altında o görünür). Vəd videodakı ilə eynidir (video-xeber.cjs ABUNE). Instagram-da @ad basılır; Facebook-da səhifə postun üstündədir.
+const fbAbune = x => `${VX.abune(x.tur).ved} — səhifəmizi izləyin.`;
+const igAbune = x => `${VX.abune(x.tur).ved} — abunə olun: @8ulduz.az`;
 const fbText = x => (x.tur === "maraqli"
   ? `${S.cut(x.title, 300)}
 
@@ -225,12 +230,14 @@ ${S.cut(x.text, 1500)}
 
 Daha çox: ${x.link}
 
+${fbAbune(x)}
+
 ${maraqliKredit(x)}
 
 ${maraqliTag(x)}`
   : x.tur === "hava"
-  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: ${x.link}\n\n${havaKredit(x)}\n\n${havaTag(x)}`
-  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}${credit(x)}\n\n${tag(x)}`);
+  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: ${x.link}\n\n${fbAbune(x)}\n\n${havaKredit(x)}\n\n${havaTag(x)}`
+  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}\n\n${fbAbune(x)}${credit(x)}\n\n${tag(x)}`);
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
 const igText = x => (x.tur === "maraqli"
   ? `${S.cut(x.title, 300)}
@@ -239,12 +246,14 @@ ${S.cut(x.text, 1500)}
 
 Daha çox: 8ulduz.az (keçid profildədir)
 
+${igAbune(x)}
+
 ${maraqliKredit(x)}
 
 ${maraqliTag(x)} #video`
   : x.tur === "hava"
-  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${havaKredit(x)}\n\n${havaTag(x)} #video`
-  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)${credit(x)}\n\n${tag(x)} #video`);
+  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${igAbune(x)}\n\n${havaKredit(x)}\n\n${havaTag(x)} #video`
+  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${igAbune(x)}${credit(x)}\n\n${tag(x)} #video`);
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const SECIM_MAX = 4, KLIP_MIN = 2;

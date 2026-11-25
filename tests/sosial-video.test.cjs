@@ -24,7 +24,12 @@ test("video: the plan — big headline that fits, full sentences only, captions 
   // Sahib 2026-11-24: «Başlıqları oxumasın»; 2026-11-25: «8ulduz videolarında başlıq oxunmamalı idi» — başlıq ekrandadır, səsdə yoxdur.
   assert.ok(p.quietHead && !p.say.includes(fixture.title) && !p.say.some(x => x.includes(fixture.title)), "başlıq oxunmur");
   assert.deepEqual(p.say.slice(0, -1), p.chunks, "səs izahın birinci altyazısı ilə başlayır");
-  assert.match(p.say.at(-1), /səkkiz ulduz nöqtə az/, "sonda sayt adı səslənir");
+  // Sahib 2026-11-25: «baxış var, lakin baxanlar hesaba abunə olmurlar» — sonluq sayta yox, abunəyə çağırır; hər növün öz vədi.
+  assert.equal(p.say.at(-1), "Abunə olun, ən vacib xəbərlər hər gün burada.", "sonda abunə çağırışı səslənir");
+  assert.equal(p.say.at(-1), V.abune("xeber").say);
+  const fact = V.prepare({ ...fixture, tur: "maraqli", bolme: "Maraqlı" }, { cats });
+  assert.equal(fact.say.at(-1), "Abunə olun, hər gün yeni maraqlı faktlar burada.");
+  assert.equal(fact.label, "BİLİRDİNİZMİ?", "maraqlı videonun nişanı rubrikanın adıdır");
   assert.equal(p.head.lines.join(" "), fixture.title, "başlıq kəsilmir");
   for (const l of p.head.lines) assert.ok(V.textWidth(l, p.head.size, "black") <= V.W - 2 * 72, `sətir sığır: ${l}`);
   assert.ok(p.head.lines.length * p.head.size <= V.L.headMaxH);
@@ -74,15 +79,16 @@ test("video: timing — reading speed without voice, the voice's own timing with
   for (let i = 1; i < t.chunks.length; i++) assert.ok(t.chunks[i].at[0] >= t.chunks[i - 1].at[1], "altyazılar üst-üstə düşmür");
   assert.ok(t.chunks.every(c => c.at[1] - c.at[0] >= 2.4), "hər altyazı oxunacaq qədər qalır");
   assert.ok(t.outro[0] >= t.chunks.at(-1).at[1] && t.duration >= t.outro[1]);
-  // Səsli: hissələrin vaxtı səs faylından; başlıq 1 s səssiz görünür (0,35 + 0,65), səs birinci altyazı ilə başlayır.
+  // Səsli: hissələrin vaxtı səs faylından; səs dərhal (0,35 s) birinci altyazı ilə başlayır — başlıq üçün səssiz an yoxdur
+  // (2026-11-25, YouTube Studio: baxanların 60,6%-i ilk saniyələrdə ötürür; ilk saniyə sükutla getmir).
   const parts = p.say.map((_, i) => [i * 3, i * 3 + 2.5]);
   const tv = V.timeline(p, { parts });
-  assert.deepEqual(tv.head, [0, 1]);
-  assert.equal(tv.lead, 1);
-  assert.deepEqual(tv.chunks[0].at, [1, 3.5]);
-  assert.equal(tv.voiceCut.outroFrom, 1 + (p.say.length - 1) * 3);
-  assert.deepEqual(t.head, [0, 1], "səssiz planda da başlıq anı 1 s, sonra birinci altyazı");
-  assert.equal(t.chunks[0].at[0], 1);
+  assert.deepEqual(tv.head, [0, 0.35]);
+  assert.equal(tv.lead, 0.35);
+  assert.deepEqual(tv.chunks[0].at, [0.35, 2.85]);
+  assert.equal(tv.voiceCut.outroFrom, 0.35 + (p.say.length - 1) * 3);
+  assert.deepEqual(t.head, [0, 0.35], "səssiz planda da birinci altyazı 0,35 s-də başlayır");
+  assert.equal(t.chunks[0].at[0], 0.35);
   // Çox uzun səs: sondakı altyazılar düşür, sonluq qalır, video ≤ 59 s.
   // (başlıq səsdə yoxdur — hissə bir azdır: 17 s-lik hissələr 59 s-i keçir)
   const slow = V.timeline(p, { parts: p.say.map((_, i) => [i * 17, i * 17 + 16]) });
@@ -109,7 +115,21 @@ test("video: «8ulduz.az» is burned in at the top from the first to the last fr
   assert.ok(az && span(az)[0] === "0:00:00.00" && end(az) === D, "«.az» yazısı 0-dan sona qədər (loqo şəkli ilə «8ULDUZ.az»)");
   const bar = ev.find(l => /\\pos\(0,300\)/.test(l));
   assert.ok(bar && span(bar)[0] === "0:00:00.00" && end(bar) === D, "brend zolağı başdan sona");
-  assert.ok(ev.some(l => /8ulduz\{\\1c&HFFFFFF&\}\.az$/.test(l)), "sonluqda böyük «8ulduz.az»");
+  assert.ok(ev.some(l => /Ətraflı: \{\\1c&H0AA3F5&\}8ulduz\{\\1c&HFFFFFF&\}\.az$/.test(l)), "sonluqda sayt adı qalır: «Ətraflı: 8ulduz.az»");
+  // Abunə çağırışı (sahib, 2026-11-25): sonluqda vəd və «ABUNƏ OL» düyməsi; videonun içində zolağın sağında kiçik nişan
+  // (3-cü saniyədən sonluğa qədər — çox baxan sona çatmır).
+  const sub = ev.filter(l => l.split(",")[3] === "Sub" && l.endsWith("}ABUNƏ OL"));
+  assert.equal(sub.length, 2, "nişan və düymə");
+  const [badge, button] = sub;
+  assert.ok(span(badge)[0] === "0:00:03.00" && /\\an6\\pos\(996,360\)\\fs34/.test(badge), "nişan zolaqdadır (y 300…420), sağ kənarı mətn sahəsində (x ≤ 1008)");
+  const sec = s => { const [h, m, x] = s.split(":"); return +h * 3600 + +m * 60 + +x; };
+  assert.ok(Math.abs(sec(span(button)[0]) - t.outro[0]) < 0.011 && end(button) === D && /\\pos\(540,900\)/.test(button), "düymə sonluqda, ortada");
+  assert.ok(ev.some(l => l.endsWith("}Ən vacib xəbərlər hər gün") && span(l)[0] === span(button)[0]), "düymənin üstündə növün vədi");
+  assert.match(a, /^Style: Sub,Roboto Black,88,&H0026140B,&H0026140B,&H000AA3F5,.*,3,28,0,5,72,72,0,1$/m, "narıncı qutuda tünd yazı (saytın rəngləri)");
+  assert.ok(!/OutroBig/.test(a), "köhnə sonluq üslubu qalmayıb");
+  // Çox qısa videoda (nişana 2 s qalmır) nişan yoxdur, düymə var.
+  const short = V.ass(p, { ...t, outro: [4, 7], duration: 7.3, chunks: t.chunks.slice(0, 1) }).split("\n").filter(l => l.endsWith("}ABUNƏ OL"));
+  assert.equal(short.length, 1);
   // ffmpeg: loqo şəkli bütün video boyu (enable/zaman şərti yoxdur), zolağın içində.
   const args = V.ffmpegArgs({ tl: t, assFile: "video.ass", logo: "assets/logo.png", voiceFile: null, out: "o.mp4" });
   const fc = args[args.indexOf("-filter_complex") + 1];
@@ -145,7 +165,7 @@ test("video: encoder settings match Facebook/Instagram Reels and TikTok (9:16, H
   assert.equal(at("-c:v"), "libx264"); assert.equal(at("-pix_fmt"), "yuv420p"); assert.equal(at("-r"), "30"); assert.equal(at("-g"), "60");
   assert.equal(at("-c:a"), "aac"); assert.equal(at("-ar"), "48000"); assert.equal(at("-ac"), "2"); assert.equal(at("-movflags"), "+faststart");
   assert.equal(at("-t"), t.duration.toFixed(2));
-  assert.match(a[a.indexOf("-filter_complex") + 1], /adelay=1000:all=1/, "səs 1 s sonra başlayır: başlıq əvvəl səssiz görünür, oxunmur");
+  assert.match(a[a.indexOf("-filter_complex") + 1], /adelay=350:all=1/, "səs dərhal (0,35 s) başlayır: başlıq oxunmur, ilk saniyə sükutla getmir");
   assert.match(a[a.indexOf("-filter_complex") + 1], /loudnorm=I=-16/, "səs səviyyəsi sosial şəbəkə normasında");
   assert.equal(a.at(-1), "o.mp4");
   assert.equal(at("-metadata"), "comment=8ulduz.az", "öz videomuzun nişanı (TikTok yükləyicisi yalnız bunu göndərir)");
@@ -300,6 +320,7 @@ test("sosial-video: Facebook Reels — uploaded straight to Meta (no public file
   assert.equal(fin.body.video_state, "PUBLISHED");
   assert.ok(fin.body.description.startsWith("Bakıda yeni metro stansiyası açılıb\n\nStansiya Xətai rayonundadır."));
   assert.ok(fin.body.description.includes(`Ətraflı: ${S.shareUrl(x)}`), "Facebook mətnində saytdakı xəbərin keçidi");
+  assert.ok(fin.body.description.includes("Ən vacib xəbərlər hər gün — səhifəmizi izləyin."), "Facebook mətnində abunə çağırışı (sahib, 2026-11-25)");
   assert.equal(com.body.message, `Ətraflı: ${S.shareUrl(x)}`);
   assert.ok(state.facebook[x.id] && state.v[x.id] && state.t[S.titleKey(x)] && state.topics.length === 1);
   // Şərh icazəsi yoxdursa (pages_manage_engagement) post yenə uğurludur, jurnalda səbəb yazılır.
@@ -315,6 +336,7 @@ test("sosial-video: Instagram Reels — resumable upload, waits for FINISHED, ca
   assert.deepEqual(r, { posted: ["instagram"], failed: [] });
   const init = calls.find(c => /\/1784\/media$/.test(c.url)), up = calls.find(c => c.url.includes("/ig-api-upload/")), pub = calls.find(c => /media_publish$/.test(c.url));
   assert.equal(init.body.media_type, "REELS"); assert.equal(init.body.upload_type, "resumable"); assert.equal(init.body.thumb_offset, "1500");
+  assert.ok(init.body.caption.includes("Ən vacib xəbərlər hər gün — abunə olun: @8ulduz.az"), "Instagram mətnində abunə çağırışı: @ad basılır");
   assert.ok(init.body.caption.includes("Ətraflı: 8ulduz.az (keçid profildədir)") && !/https?:\/\//.test(init.body.caption), "Instagram-da keçid basılmır");
   assert.ok(init.body.caption.startsWith(x.title));
   assert.deepEqual([up.headers.authorization, up.headers.offset, up.headers.file_size], ["OAuth PAGEtoken123456", "0", "4321"]);
@@ -458,6 +480,8 @@ test("sosial-video: weather post text — the weather page link, Open-Meteo CC B
   fs.writeFileSync(path.join(dir, "video.mp4"), Buffer.alloc(4321, 7));
   fs.writeFileSync(path.join(dir, "video.json"), JSON.stringify({ cover_s: 1.5 }));
   const fb = SV.fbText(x), ig = SV.igText(x);
+  // Abunə çağırışı (sahib, 2026-11-25): keçid sətrindən sonra, növün vədi ilə; Instagram-da @ad, Facebook-da «səhifəmizi izləyin».
+  assert.ok(fb.includes("Hava proqnozu hər gün — səhifəmizi izləyin.") && ig.includes("Hava proqnozu hər gün — abunə olun: @8ulduz.az"));
   assert.ok(fb.startsWith(`${x.title}\n\nSabah, 25 noyabr, çərşənbə, hava belə olacaq.`));
   assert.ok(fb.includes("\n\nƏtraflı: https://8ulduz.az/bolme/hava/\n\n"), "Facebook: keçid mətndədir");
   for (const t of [fb, ig]) {
