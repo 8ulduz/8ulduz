@@ -3,13 +3,14 @@ videolarda sətirdən sətrə keçəndə mənasız pauza verir oxunuşda»). Mod
 import importlib.util
 import json
 import pathlib
+import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("video_ses", ROOT / ".github" / "scripts" / "video_ses.py")
 vs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vs)
-from az_text import PAUSE_CLAUSE, PAUSE_SENTENCE, VOICE  # noqa: E402  (video_ses.py ses-server qovluğunu sys.path-ə əlavə edir)
+from az_text import PAUSE_CLAUSE, PAUSE_SENTENCE, VOICE, phrases  # noqa: E402  (video_ses.py ses-server qovluğunu sys.path-ə əlavə edir)
 
 # Videonun cümlə sonu fasiləsi (sahib, 2026-11-25: «oxunuş sürətlidir»): «Dinlə»nin PAUSE_SENTENCE-dən uzundur.
 SENT = vs.VIDEO_PAUSE[PAUSE_SENTENCE]
@@ -213,10 +214,112 @@ class ContractTest(unittest.TestCase):
                 v = json.loads(out.read_text(encoding="utf-8"))
         finally:
             vs.Sara = real
-        self.assertEqual(set(v), {"sr", "duration", "parts"})
+        self.assertEqual(set(v), {"sr", "duration", "parts", "nefes"})
         self.assertEqual(len(v["parts"]), len(SAY))
         self.assertTrue(all(len(p) == 2 and p[0] <= p[1] for p in v["parts"]))
         self.assertEqual(v["parts"][-1][1], v["duration"])
+        # nefes: qoyulan nəfəslər [an, uzunluq, kəsim yerinin səviyyəsi] — SAY-da bir vergül var («…xəbər verir ki, bu səbəbdən…»)
+        self.assertEqual(v["nefes"]["buraxilan"], 0)
+        self.assertEqual([x[1] for x in v["nefes"]["yer"]], [vs.VIDEO_PAUSE[PAUSE_CLAUSE]])
+        self.assertTrue(v["parts"][3][0] < v["nefes"]["yer"][0][0] < v["parts"][3][1], "nəfəs öz hissəsinin içindədir")
+
+
+class BreathTest(unittest.TestCase):
+    """Sahib, 2026-11-25: «Abunə ol deyib pauza vermir. belə oxuyanda nə dediyini tam başa düşmək olmur. bu və bu kimi digər
+    çatışmazlıqları tap düzəlt». Model durğu işarəsini tanımır və cümlə bütöv səslənir — vergül, iki nöqtə, tire səsdə yox idi.
+    İndi cümlə yenə bir dəfə səslənir, işarənin yerinə (modelin müddətləri ilə, boşluğun tokenində) sükut qoyulur."""
+
+    SR = 1000
+    LONG, SHORT = vs.VIDEO_PAUSE[PAUSE_CLAUSE], vs.BREATH_SHORT
+
+    def samples(self, text, v):
+        return sum(v.dur(c) for c in text) * v.SPF
+
+    def test_subscribe_call_is_its_own_sentence(self):
+        src = (ROOT / ".github" / "scripts" / "video-xeber.cjs").read_text(encoding="utf-8")
+        says = re.findall(r'say: "([^"]+)"', src)
+        self.assertEqual(len(says), 3, "xəbər, maraqlı, hava")
+        for s in says:
+            items = vs.say_items(s)
+            self.assertEqual(len(items), 2, s)
+            self.assertEqual(items[0], ("abunə olun", SENT), "«Abunə olun.» ayrıca cümlədir, sonra cümlə fasiləsi")
+        v = FakeVoice()
+        pcm, _, _ = vs.render([says[0]], v, self.SR)
+        self.assertEqual(v.calls[0], "abunə olun")
+        n, gap = self.samples("abunə olun", v), int(self.SR * SENT)
+        self.assertEqual(pcm[2 * n:2 * (n + gap)], b"\x00\x00" * gap, "çağırışdan sonra sükut")
+        self.assertEqual(pcm[2 * (n + gap):2 * (n + gap + 1)], b"\x01\x00", "sonra vəd səslənir")
+
+    def test_breath_marks_sit_at_the_punctuation(self):
+        (said, marks), = vs.sentences("Sabah, 25 noyabr, çərşənbə, hava belə olacaq.")
+        self.assertEqual(said, "sabah iyirmi beş noyabr çərşənbə hava belə olacaq")
+        self.assertEqual([said[o] for o, _ in marks], [" "] * 3, "yer növbəti sözdən əvvəlki boşluqdur")
+        self.assertEqual([said[:o].split(" ")[-1] for o, _ in marks], ["sabah", "noyabr", "çərşənbə"])
+        # qısa hissədən sonra qısa nəfəs (sadalama doğranmasın), uzun hissədən sonra tam
+        self.assertEqual([p for _, p in marks], [self.SHORT, self.LONG, self.SHORT])
+        self.assertLess(self.SHORT, self.LONG)
+        self.assertLess(self.LONG, SENT, "nəfəs cümlə fasiləsindən qısadır")
+        # iki nöqtə, nöqtəli vergül, tire güclüdür: qısa hissədən sonra da tam nəfəs; mötərizə və vergül zəifdir
+        self.assertEqual([p for _, p in vs.sentences("Diqqət: külək güclənəcək.")[0][1]], [self.LONG])
+        self.assertEqual([p for _, p in vs.sentences("Külək əsəcək – bu, təhlükəlidir; ehtiyatlı olun.")[0][1]], [self.LONG, self.SHORT, self.LONG])
+        (said, marks), = vs.sentences("Şimal küləyi (xəzri) əsəcək.")
+        self.assertEqual((said, [p for _, p in marks]), ("şimal küləyi xəzri əsəcək", [self.SHORT, self.SHORT]))
+        # rəqəmin içindəki vergül və iki nöqtə nəfəs deyil
+        self.assertEqual([m for _, m in vs.sentences("Qiymət 3,5 faiz artıb. İclas 12:30-da başlayacaq.")], [[], []])
+
+    def test_text_is_the_same_as_dinle_prepares(self):
+        # işarəsiz cümlənin mətni az_text.phrases ilə eynidir; işarəli cümlə həmin hissələrin birləşməsidir (bir səsləndirmə)
+        for t in ["Bakıda hava açıq olacaq.", "Qəbul noyabrın 27-də saat 15:00-da başlayacaq.", "Qiymət 3,5 faiz artıb. Yol-nəqliyyat hadisəsi olub."]:
+            self.assertEqual([s for s, _ in vs.sentences(t)], [s for s, _ in phrases(t, max_len=10 ** 6)], t)
+        t = "Gündüz Sumqayıtda 14, Gəncədə 11, Mingəçevirdə 12, Şəkidə 15 dərəcə isti olacaq."
+        self.assertEqual(vs.sentences(t)[0][0], " ".join(s for s, _ in phrases(t, commas=True)))
+        self.assertEqual(len(vs.sentences(t)[0][1]), 3)
+
+    def test_breath_is_silence_inside_the_space_token_and_the_sentence_is_voiced_once(self):
+        v, log, said = FakeVoice(), [], "sabah hava açıq olacaq"
+        pcm, spans, total = vs.render(["Sabah, hava açıq olacaq."], v, self.SR, None, log)
+        self.assertEqual(v.calls, [said], "cümlə bir dəfə səslənir: intonasiya vergüldə bitmir")
+        br, sent, f = int(self.SR * self.SHORT), int(self.SR * SENT), int(self.SR * vs.FADE_S)
+        self.assertEqual(total, self.samples(said, v) + br + sent)
+        self.assertEqual(spans, [[0, total]])
+        (at, gap, db), = log
+        lo = self.samples("sabah", v)
+        self.assertTrue(lo <= at <= lo + 3 * v.SPF, f"kəsim «sabah»dan sonrakı boşluğun tokenindədir: {lo} ≤ {at}")
+        self.assertEqual(gap, br)
+        self.assertEqual(pcm[2 * at:2 * (at + br)], b"\x00\x00" * br, "nəfəs sükutdur")
+        # kəsimin iki tərəfində sönmə və açılma (FADE_S), ondan kənarda səs toxunulmur
+        self.assertEqual(pcm[2 * (at - f - 1):2 * (at - f)], b"\x01\x00")
+        self.assertEqual(pcm[2 * (at - 1):2 * at], b"\x00\x00")
+        self.assertEqual(pcm[2 * (at + br + f):2 * (at + br + f + 1)], b"\x01\x00")
+
+    def test_quietest_moment_of_the_space_is_chosen(self):
+        a = vs.samples_of(b"\x10\x00" * 40 + b"\x00\x00" * 10 + b"\x10\x00" * 50)
+        self.assertTrue(40 <= vs.quietest(a, 20, 80, self.SR) <= 50, "aralıqda ən sakit yer")
+        self.assertEqual(vs.quietest(a, 60, 62, self.SR), 61, "dar aralıqda ortası")
+
+    def test_no_breath_without_model_durations(self):
+        # hərf payı ilə təxmin sözün içinə düşə bilər — onda nəfəs qoyulmur, səs əvvəlki kimi bütövdür
+        v, log, said = FakeVoice(frames=False), [], "sabah hava açıq olacaq"
+        _, _, total = vs.render(["Sabah, hava açıq olacaq."], v, self.SR, None, log)
+        self.assertEqual(total, self.samples(said, v) + int(self.SR * SENT))
+        self.assertEqual(log, [None])
+
+    def test_caption_split_at_a_comma_keeps_the_breath_with_the_first_caption(self):
+        parts = ["Kələm tərəvəzlərdən biri olmaqla yanaşı,", "zəngin vitamin tərkibi ilə faydalıdır."]
+        v, log = FakeVoice(), []
+        _, spans, total = vs.render(parts, v, self.SR, [False, True], log)
+        self.assertEqual(len(v.calls), 1)
+        (at, gap, _), = log
+        self.assertEqual(gap, int(self.SR * self.LONG))
+        self.assertEqual(spans, [[0, at + gap], [at + gap, total]], "altyazı sükutdan sonra dəyişir (vergüllü söz fasilədə seçili qalır)")
+
+    def test_caption_boundary_after_a_breath_is_shifted_by_it(self):
+        parts = ["Sabah, hava Bakıda", "açıq olacaq."]
+        v, log = FakeVoice(), []
+        _, spans, _ = vs.render(parts, v, self.SR, [False, True], log)
+        (at, gap, _), = log
+        self.assertEqual(spans[0][1], self.samples("sabah hava bakıda", v) + gap)
+        self.assertLess(at, spans[0][1])
 
 
 if __name__ == "__main__":

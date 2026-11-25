@@ -38,11 +38,13 @@ const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
 // (2026-11-25, YouTube Studio: baxanların 60,6%-i videonu ilk saniyələrdə ötürür, orta baxış ~7 s — ilk saniyə sükutla getməsin).
 // Abunə çağırışı (sahib, 2026-11-25: «baxış var, lakin baxanlar hesaba abunə olmurlar»): sonluqda düymə və səs, videonun içində
 // zolaqda kiçik nişan (SUB_AT-dan sonluğa qədər — çox baxan sona çatmır). Hər video növünün öz vədi var: abunə olan nə alacağını bilsin.
+// Səs iki cümlədir (sahib, 2026-11-25: «Abunə ol deyib pauza vermir. belə oxuyanda nə dediyini tam başa düşmək olmur»): «Abunə olun.»
+// ayrıca cümlə kimi bitir, sonra cümlə fasiləsi, sonra vəd. Vergüllə yazılanda səs fasiləsiz oxuyurdu.
 const SUB_AT = 3;
 const ABUNE = {
-  xeber: { ved: "Ən vacib xəbərlər hər gün", say: "Abunə olun, ən vacib xəbərlər hər gün burada." },
-  maraqli: { ved: "Hər gün yeni maraqlı faktlar", say: "Abunə olun, hər gün yeni maraqlı faktlar burada." },
-  hava: { ved: "Hava proqnozu hər gün", say: "Abunə olun, hava proqnozu hər gün burada." },
+  xeber: { ved: "Ən vacib xəbərlər hər gün", say: "Abunə olun. Ən vacib xəbərlər hər gün burada." },
+  maraqli: { ved: "Hər gün yeni maraqlı faktlar", say: "Abunə olun. Hər gün yeni maraqlı faktlar burada." },
+  hava: { ved: "Hava proqnozu hər gün", say: "Abunə olun. Hava proqnozu hər gün burada." },
 };
 const abune = tur => ABUNE[tur] || ABUNE.xeber;
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
@@ -539,7 +541,7 @@ async function render(a, out, opt = {}) {
     const kadrlar = clips.length
       ? [cover_s, ...shotMids.slice(1, 8).filter(x => x < tl.outro[0]), mid([tl.outro[0], tl.duration])]
       : [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
-    const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, title: p.title,
+    const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), ...(v?.nefes ? { nefes: v.nefes } : {}), parts: 2 + tl.chunks.length, title: p.title,
       ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, kesilen: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");

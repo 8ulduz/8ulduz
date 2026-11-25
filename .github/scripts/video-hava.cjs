@@ -586,7 +586,7 @@ async function render(p, out, opt = {}) {
     V.run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", `${base}.jpg`]);
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100, sc = scenes(p, tl);
     const kadrlar = [cover_s, ...sc.flatMap(s => (s.to - s.from > 7 ? [mid([s.from, (s.from + s.to) / 2]), mid([(s.from + s.to) / 2, s.to])] : [mid([s.from, s.to])])).filter(x => x > cover_s + 0.5), mid([tl.outro[0], tl.duration])];
-    const meta = { ...storyFields(p), ...V.probe(out), cover_s, kadrlar, voice: Boolean(v), parts: 2 + tl.chunks.length, sahneler: sc.map(s => s.key),
+    const meta = { ...storyFields(p), ...V.probe(out), cover_s, kadrlar, voice: Boolean(v), ...(v?.nefes ? { nefes: v.nefes } : {}), parts: 2 + tl.chunks.length, sahneler: sc.map(s => s.key),
       ...(clips.length ? { goruntu: clean(p.goruntuMenbe) || "Pixabay", klip: clips.length } : {}) };
     fs.writeFileSync(`${base}.json`, JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), `${base}.ass`);

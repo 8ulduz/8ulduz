@@ -157,7 +157,7 @@ test("hava: the screen — brand from first to last frame, every text inside y 3
   const rows = rowsOf(FX.response), p = { ...VH.plan(rows, "2026-11-25", { label }), goruntuMenbe: "Pixabay" };
   const pr = VH.prepare(p), tl = V.timeline(pr, null);
   assert.ok(tl.duration >= 20 && tl.duration <= V.MAX_S, String(tl.duration));
-  assert.equal(pr.say.at(-1), "Abunə olun, hava proqnozu hər gün burada.", "sonda abunə çağırışı səslənir (sahib, 2026-11-25)");
+  assert.equal(pr.say.at(-1), "Abunə olun. Hava proqnozu hər gün burada.", "sonda abunə çağırışı səslənir (sahib, 2026-11-25)");
   const ev = events(VH.ass(p, tl, { footage: true }));
   const brand = ev.find(e => e.style === "Brand" && e.text === ".az");
   assert.ok(brand && brand.start === 0 && Math.abs(brand.end - tl.duration) < 0.02, "«8ulduz.az» başdan sona");

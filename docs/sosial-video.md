@@ -81,7 +81,7 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 
 ### Montaj, altyazı və etiketlər (sahib, 2026-11-23: «tam professional kimi işlə»)
 
-- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunmur (sahib, 2026-11-24/25): ekranda başdan sonluğa qədər yazılıb qalır, səs dərhal (0,35 s) birinci cümlə ilə başlayır (2026-11-25: başlıq üçün 0,65 s səssiz an götürüldü — baxanların 60,6%-i videonu ilk saniyələrdə ötürürdü); başlıq anı və birinci altyazı bir kadrdır, sonra hər altyazı hissəsi bir kadrdır. Video səsi «Dinlə»dən yavaşdır: sürət 0,85, vergül fasiləsi 0,28 s, cümlə fasiləsi 0,65 s (≈ 125 söz/dəq; əvvəl 155). Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
+- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunmur (sahib, 2026-11-24/25): ekranda başdan sonluğa qədər yazılıb qalır, səs dərhal (0,35 s) birinci cümlə ilə başlayır (2026-11-25: başlıq üçün 0,65 s səssiz an götürüldü — baxanların 60,6%-i videonu ilk saniyələrdə ötürürdü); başlıq anı və birinci altyazı bir kadrdır, sonra hər altyazı hissəsi bir kadrdır. Video səsi «Dinlə»dən yavaşdır: sürət 0,85, cümlə fasiləsi 0,65 s, cümlənin içində nəfəs 0,28 s (qısa hissədən sonra 0,18 s) (≈ 125 söz/dəq; əvvəl 155). Nəfəs 2026-11-25-dən işləyir ([«Cümlənin içində nəfəs»](#cümlənin-içində-nəfəs)): ondan əvvəl vergül fasiləsi yazılmışdı, amma səsdə yox idi. Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
   Kliplər montaj planının sırası ilə gedir. Klip təkrarlananda onun işlənməmiş yerindən götürülür (`-ss`).
 - **Görüntü sırası** (`video-ssenari.cjs` `goruntu`): Gemini 6–8 sadə ifadə verir: əvvəl əsas səhnə, sonra hər cümləyə bir səhnə, cümlələrin sırası ilə. 8 klip yüklənir, sonra eyni ifadələrin ikinci klipləri.
   Tapılmayan ifadənin yerinə ümumi səhnə qoyulmur, çünki yanlış yerin kadrı uyğun klipin təkrarından pisdir. Bölmənin ümumi səhnələri (yer adı yoxdur) yalnız uyğun klip 3-dən az olanda işlənir.
@@ -152,13 +152,28 @@ Ona görə X videoları yalnız saytda (Videolent) oynayır. Video X-in öz serv
 Sahib, 2026-11-25: «sosial mediada videolara baxış var, lakin baxanlar hesaba abunə olmurlar». Həmin gün YouTube Studio (kanal 22 noyabrda açılıb, 19 video): 4,5 min baxış, 17 abunəçi, baxanların 60,6%-i videonu ilk saniyələrdə ötürür, orta baxış ~7 saniyə (9,2 saat / 4,5 min baxış). Video sonda yalnız sayta çağırırdı («Ətraflı məlumat səkkiz ulduz nöqtə az saytında»), abunə istəyən heç nə yox idi.
 
 - **Səs dərhal başlayır** (`LEAD_S` 0,35 s): ilk saniyə sükutla getmir. Başlıq yenə oxunmur.
-- **Sonluq** (`video-xeber.cjs` `subOutro`, üç video növündə eyni): növün vədi, narıncı «ABUNƏ OL» düyməsi (iki dəfə «döyünür»), altında sayt. Səs: «Abunə olun, ən vacib xəbərlər hər gün burada.»
+- **Sonluq** (`video-xeber.cjs` `subOutro`, üç video növündə eyni): növün vədi, narıncı «ABUNƏ OL» düyməsi (iki dəfə «döyünür»), altında sayt. Səs iki cümlədir: «Abunə olun. Ən vacib xəbərlər hər gün burada.» — çağırış ayrıca cümlə kimi bitir, sonra cümlə fasiləsi (0,65 s), sonra vəd. Vergüllə yazılanda səs fasiləsiz oxuyurdu (sahib, 2026-11-25: «Abunə ol deyib pauza vermir. belə oxuyanda nə dediyini tam başa düşmək olmur»).
 - **Nişan** (`subBadge`): brend zolağının sağında kiçik «ABUNƏ OL», 3-cü saniyədən (`SUB_AT`) sonluğa qədər. Səbəb: çox baxan sona çatmır. Nişana 2 saniyə qalmayan qısa videoda yoxdur.
 - **Vəd** (`ABUNE`): abunə olan nə alacağını bilsin. Xəbər: «Ən vacib xəbərlər hər gün»; maraqlı: «Hər gün yeni maraqlı faktlar»; hava: «Hava proqnozu hər gün».
 - **Paylaşma mətni:** keçid sətrindən sonra bir sətir. Facebook: «<vəd> — səhifəmizi izləyin.»; Instagram və TikTok: «<vəd> — abunə olun: @8ulduz.az»; YouTube: «<vəd> — abunə olun: https://www.youtube.com/@8ULDUZ?sub_confirmation=1» (kanalı abunə pəncərəsi ilə açır; Shorts təsvirində keçid basılmır). Birinci sətir başlıq olaraq qalır: videonun altında o görünür.
 - `youtube.cjs` və `tiktok.cjs` iş axınında tək fayldır (sparse-checkout), ona görə vəd mətni onlarda da yazılıb (`VED`); testlər üçünün eyni qaldığını yoxlayır.
 
 Xəbər seçimi dəyişməyib: 19 videonun baxışı mövzudan çox yüklənmə vaxtı ilə bağlıdır (ilk günün videoları mövzudan asılı olmayaraq yüzlərlə, sonrakılar onlarla baxış alıb), mövzuya görə qayda üçün məlumat azdır.
+
+### Cümlənin içində nəfəs
+
+Sahib, 2026-11-25: «Abunə ol deyib pauza vermir… bu və bu kimi digər çatışmazlıqları tap düzəlt». Səbəb bir cümlə ilə bağlı deyildi: SARA durğu işarəsini tanımır (`az_text.fold` onu boşluq edir), video səsi isə cümləni bütöv səsləndirir. Ona görə videolarda vergül, iki nöqtə, nöqtəli vergül, boşluqlu tire və mötərizə səsdə heç yox idi: «Sabah, 25 noyabr, çərşənbə, hava belə olacaq», «Diqqət: ani küləklərin sürəti…», «Gündüz Sumqayıtda 14, Gəncədə 11, Mingəçevirdə 12…» bir nəfəsdə gedirdi.
+
+Düzəliş (`video_ses.py` `sentences`, `breath_cuts`, `splice`):
+
+- Cümlə yenə **bir dəfə** səslənir, intonasiya vergüldə bitmir. Vergüldə ayrıca səsləndirmək olmaz: hər parça cümlə sonu kimi düşür (Whisper ölçməsi, `az_text.phrases`).
+- Sonra səsin içinə, işarənin yerinə **sükut** qoyulur. Yer modelin öz müddətlərindən götürülür: işarədən sonrakı boşluğun tokeni, onun içində ən sakit an (5 ms-lik pəncərə). Kəsimin iki tərəfində 12 ms sönmə və açılma var.
+- Uzunluq: iki nöqtə, nöqtəli vergül, tire və uzun hissədən sonrakı vergül 0,28 s; qısa hissədən (14 simvoldan az: «Sabah,», «çərşənbə,», mötərizədəki söz) sonra 0,18 s — sadalama doğranmış kimi səslənməsin. Rəqəmin içindəki vergül və iki nöqtə («3,5», «12:30») nəfəs deyil.
+- Model müddət vermirsə nəfəs qoyulmur: hərf payı ilə təxmin sözün içinə düşə bilər.
+- Altyazı vergüldə bölünübsə sükut əvvəlki altyazınındır (vergüllü söz fasilədə seçili qalır).
+- Yoxlama: `video.json`-da `nefes` (hər nəfəsin anı, uzunluğu və kəsim yerinin səs səviyyəsi, dB — mənfi rəqəm sakit yer deməkdir; `buraxilan` — qoyula bilməyənlər); artefaktda `fasileler.txt` (ffmpeg `silencedetect`: videonun səsindəki bütün fasilələr).
+
+Saytın «Dinlə» səsi dəyişmir (`az_text.py` toxunulmayıb).
 
 ## Video modulu: `.github/scripts/video-xeber.cjs`
 

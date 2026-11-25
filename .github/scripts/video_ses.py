@@ -15,9 +15,20 @@ Cümlə bir nəfəsdə səslənir (sahib, 2026-11-25: «sətirdən sətrə keç�
 hissəyə bölür («…yol-nəqliyyat hadisəsi» | «nəticəsində Ərçivan…»). Əvvəl hər hissə ayrıca səslənirdi: parçanın öz başında və
 sonunda sükut olurdu, intonasiya cümlə sonu kimi düşürdü. İndi eyni cümlənin ardıcıl hissələri (qrup) bir mətn kimi bir dəfə
 səslənir, qrupun vaxtı hissələrə bölünür: modelin hər hərfə verdiyi müddətlə (VITS duration predictor), alınmasa tələffüz
-uzunluğu ilə. Hissənin sonu növbəti hissənin ilk sözündən əvvəlki boşluqdur. vaxtlar.json-un formatı dəyişmir.
+uzunluğu ilə. Hissənin sonu növbəti hissənin ilk sözündən əvvəlki boşluqdur.
+
+Cümlənin içində nəfəs (sahib, 2026-11-25: «Abunə ol deyib pauza vermir. belə oxuyanda nə dediyini tam başa düşmək olmur»).
+Model durğu işarəsini tanımır (az_text.fold onu boşluq edir), cümlə isə bütöv səslənir — ona görə vergül, iki nöqtə, nöqtəli
+vergül, boşluqlu tire və mötərizə səsdə heç yox idi: «Sabah, 25 noyabr, çərşənbə, hava belə olacaq» bir nəfəsdə gedirdi.
+Cümləni vergüldə ayrıca səsləndirmək olmaz (hər parça cümlə sonu kimi bitir; Whisper ölçməsi, az_text.phrases). İndi cümlə
+yenə bir dəfə səslənir (intonasiya davam edir), sonra səsin içinə, işarənin yerinə sükut qoyulur: yer modelin öz
+müddətlərindən (işarədən sonrakı boşluğun tokeni), onun içində ən sakit an; kəsimin iki tərəfində qısa sönmə və açılma.
+Model müddət vermirsə nəfəs qoyulmur (hərf payı ilə təxmin sözün içinə düşə bilər).
+vaxtlar.json: əvvəlki sahələr dəyişmir, «nefes» əlavə olunub (qoyulan nəfəslər: an, uzunluq, kəsim yerinin səs səviyyəsi).
 """
+import array
 import json
+import math
 import os
 import re
 import sys
@@ -25,7 +36,8 @@ import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "ses-server"))
-from az_text import PAUSE_CLAUSE, PAUSE_SENTENCE, phrases, tune  # noqa: E402
+from az_text import CLAUSE, PAUSE_CLAUSE, PAUSE_SENTENCE, fold, lower_az, tune, verbalize  # noqa: E402
+from az_text import SENT_END as TEXT_SENT_END  # noqa: E402  (cümlələri bölən; bu fayldakı SENT_END hissənin sonunu yoxlayır)
 
 MODEL = os.environ.get("SES_MODEL", "BHOSAI/SARA_TTS")
 # Videonun oxu tempi (sahib, 2026-11-25: «oxunuş sürətlidir. oxunuşu normal et»). Ölçü (2026-11-25, 40,8 s-lik xəbər videosu):
@@ -34,18 +46,57 @@ MODEL = os.environ.get("SES_MODEL", "BHOSAI/SARA_TTS")
 # video; saytın «Dinlə» səsi (ses-server, az_text.VOICE) dəyişmir.
 VIDEO_RATE = 0.85
 VIDEO_PAUSE = {PAUSE_CLAUSE: 0.28, PAUSE_SENTENCE: 0.65}
-# phrases-in max_len həddi: video səsi cümlənin içində bölünmür (06ba2c78ef, «cümlə bütöv səslənir»). Qrupun mətni bir cümlədir,
-# 220 simvoldan uzun olsa da vergüldə bölünmür — bölünsə hər parça yenə ayrıca cümlə kimi bitərdi.
-WHOLE = 10 ** 6
+# Nəfəsin uzunluğu: iki nöqtə, nöqtəli vergül, tire və uzun hissədən sonrakı vergül — VIDEO_PAUSE[PAUSE_CLAUSE]; qısa hissədən
+# (SHORT_CLAUSE simvoldan az: «Sabah,», «çərşənbə,», mötərizədəki söz) sonra BREATH_SHORT — sadalama doğranmış kimi səslənməsin.
+BREATH_SHORT = 0.18
+SHORT_CLAUSE = 14
+FADE_S = 0.012      # kəsimin hər tərəfində sönmə/açılma: çıqqıltı olmasın
+QUIET_S = 0.005     # ən sakit an bu uzunluqda pəncərə ilə axtarılır
 EMPTY_PAUSE = 0.3   # söz yoxdursa (yalnız durğu) qısa sükut
 LOWER_START = re.compile(r"\s*[«\"“]?[a-zçəğıöşü]")
 SENT_END = re.compile(r"[.!?…][\"»”)]*\s*$")
 
 
+def model_text(part):
+    """Modelə gedən mətn (az_text.phrases ilə eyni qayda): kiçik hərf, yalnız modelin tanıdığı hərflər, tək boşluq."""
+    said = re.sub(r"\s+", " ", fold(lower_az(part))).strip(" -")
+    return re.sub(r"\s*-\s*-+\s*", "-", said)
+
+
+def sentences(text):
+    """Cümlələr və hər cümlədə nəfəs yerləri: [(model mətni, [(simvol, saniyə), …])]. Cümlə bütöv bir mətndir (bir dəfə
+    səslənir); simvol — nəfəsdən sonrakı hissənin ilk hərfindən əvvəlki boşluğun yeridir, saniyə — nəfəsin uzunluğu."""
+    out = []
+    for sentence in TEXT_SENT_END.split(verbalize(text).strip()):
+        pieces, last = [], 0
+        for m in CLAUSE.finditer(sentence):
+            # güclü ayırıcı: tire, iki nöqtə, nöqtəli vergül (vergül və mötərizə zəifdir)
+            strong = bool(m.group(0).strip(" \t\n()")) or sentence[max(0, m.start() - 1):m.start()] in (":", ";")
+            pieces.append((sentence[last:m.start()], strong))
+            last = m.end()
+        pieces.append((sentence[last:], False))
+        said, marks, before, strong_before = "", [], 0, False
+        for raw, strong in pieces:
+            part = model_text(raw)
+            if not part:
+                strong_before = strong_before or strong   # boş hissə (ardıcıl işarələr): ayırıcıların güclüsü qalır
+                continue
+            if said:
+                long = strong_before or before >= SHORT_CLAUSE
+                marks.append((len(said), VIDEO_PAUSE[PAUSE_CLAUSE] if long else BREATH_SHORT))
+                said += " " + part
+            else:
+                said = part
+            before, strong_before = len(part), strong
+        if said:
+            out.append((said, marks))
+    return out
+
+
 def say_items(text):
-    """Model mətni və sonrakı fasilə: [(mətn, saniyə)]. Cümlə sonunda fasilə, cümlənin içində bölmə yoxdur.
-    Fasilələr videonun tempindədir (VIDEO_PAUSE): vergül və cümlə sonu «Dinlə»dən uzundur."""
-    return [(s, VIDEO_PAUSE.get(p, p)) for s, p in phrases(text, max_len=WHOLE)]
+    """Model mətni və sonrakı fasilə: [(mətn, saniyə)]. Hər cümlə bir mətndir, sonunda videonun cümlə fasiləsi.
+    Cümlənin içindəki nəfəslər ayrıca verilir (sentences) və səsin içinə qoyulur (render)."""
+    return [(said, VIDEO_PAUSE[PAUSE_SENTENCE]) for said, _ in sentences(text)]
 
 
 def continues(text, nxt):
@@ -109,26 +160,124 @@ def offset_samples(said, o, samples, frames, tokens):
     return round(samples * min(o, len(said)) / len(said))
 
 
-def render(parts, voice, sr, davam=None):
+def samples_of(chunk):
+    """PCM baytları (16 bit, kiçik uclu) → array('h')."""
+    a = array.array("h")
+    a.frombytes(chunk[:len(chunk) // 2 * 2])
+    if sys.byteorder == "big":
+        a.byteswap()
+    return a
+
+
+def bytes_of(a):
+    if sys.byteorder == "big":
+        a = array.array("h", a)
+        a.byteswap()
+    return a.tobytes()
+
+
+def level(a, lo, hi):
+    """[lo, hi) nümunələrinin orta kvadratı (səs səviyyəsi)."""
+    lo, hi = max(0, lo), min(len(a), hi)
+    return sum(x * x for x in a[lo:hi]) / (hi - lo) if hi > lo else 0.0
+
+
+def quietest(a, lo, hi, sr):
+    """[lo, hi) aralığında ən sakit an: QUIET_S-lik pəncərənin ortası; bərabərdirsə aralığın ortasına ən yaxını."""
+    mid, w = (lo + hi) // 2, max(1, int(sr * QUIET_S))
+    if hi - lo <= w:
+        return mid
+    best, at = None, mid
+    for s in range(lo, hi - w + 1, max(1, w // 2)):
+        e, c = level(a, s, s + w), s + w // 2
+        if best is None or e < best or (e == best and abs(c - mid) < abs(at - mid)):
+            best, at = e, c
+    return at
+
+
+def breath_cuts(said, breaths, a, frames, tokens, sr):
+    """Nəfəslərin səsdəki yeri: [(simvol, nümunə, sükutun nümunəsi, səviyyə dB)], artan sıra ilə. Yalnız modelin öz müddətləri
+    ilə (frames): yer işarədən sonrakı boşluğun tokenidir (frames[b]; b — işarəyə qədərki mətnin token sayı), onun içində ən
+    sakit an. Səviyyə — kəsim yerinin səsi bütün səsləndirmənin ortasına görə (mənfi — sakit). Müddət yoxdursa boş siyahı."""
+    n = len(a)
+    if not breaths or not frames or sum(frames) <= 0 or n <= 0 or n % sum(frames):
+        return []
+    spf, out, whole, w = n // sum(frames), [], max(level(a, 0, n), 1e-9), max(1, int(sr * QUIET_S))
+    for o, pause in breaths:
+        try:
+            b = tokens(said[:o])
+        except Exception:  # noqa: BLE001 — tokenizer xətası səsi dayandırmasın: bu nəfəs qoyulmur
+            continue
+        if not 0 < b < len(frames):
+            continue
+        cut = quietest(a, sum(frames[:b]) * spf, sum(frames[:b + 1]) * spf, sr)
+        if out and cut <= out[-1][1]:
+            continue
+        db = round(10 * math.log10(max(level(a, cut - w, cut + w), 1e-9) / whole), 1)
+        out.append((o, cut, int(sr * pause), db))
+    return out
+
+
+def splice(a, cuts, sr):
+    """Nəfəs yerlərinə sükut qoyur; kəsimdən əvvəl səs sönür, sonra açılır (FADE_S) — çıqqıltı olmasın. Qaytarır: PCM baytları."""
+    f, out, last = max(1, int(sr * FADE_S)), array.array("h"), 0
+    for _, cut, gap, _db in cuts:
+        k = min(f, cut - last)
+        for i in range(k):
+            a[cut - 1 - i] = a[cut - 1 - i] * i // k
+        m = min(f, len(a) - cut)
+        for i in range(m):
+            a[cut + i] = a[cut + i] * i // m
+        out.extend(a[last:cut])
+        out.extend(array.array("h", bytes(2 * gap)))
+        last = cut
+    out.extend(a[last:])
+    return bytes_of(out)
+
+
+def render(parts, voice, sr, davam=None, log=None):
     """Hissələr → (PCM baytları, hər hissənin [başlanğıc, son] nümunə ilə, cəmi nümunə). voice.wave(mətn) → (PCM, frames və ya None),
-    voice.tokens(mətn) → token sayı. Qrup bir dəfə səslənir, sərhədləri cut_offsets + offset_samples verir."""
+    voice.tokens(mətn) → token sayı. Qrup bir dəfə səslənir, sərhədləri cut_offsets + offset_samples verir; cümlənin içindəki
+    nəfəslər (sentences) səsin içinə sükut kimi qoyulur (breath_cuts, splice). log (siyahı) verilərsə hər nəfəs yazılır:
+    qoyulan — [an, sükut (nümunə ilə), kəsim yerinin səviyyəsi dB], qoyula bilməyən (model müddət verməyib) — None."""
     pcm, spans, pos = [], [None] * len(parts), 0
     for idx in groups(parts, davam):
         start = pos
         texts = [parts[i] for i in idx]
-        items = say_items(" ".join(t.strip() for t in texts)) or [("", EMPTY_PAUSE)]
+        sents = sentences(" ".join(t.strip() for t in texts))
+        items = [(said, VIDEO_PAUSE[PAUSE_SENTENCE]) for said, _ in sents] or [("", EMPTY_PAUSE)]
         marks = []
-        for said, pause in items:
+        for k, (said, pause) in enumerate(items):
             chunk, frames = voice.wave(said) if said else (b"", None)
             n = len(chunk) // 2
-            marks.append((pos, n, frames))
+            breaths, cuts = (sents[k][1] if sents else []), []
+            if breaths:
+                a = samples_of(chunk)
+                cuts = breath_cuts(said, breaths, a, frames, voice.tokens, sr)
+                if cuts:
+                    chunk = splice(a, cuts, sr)
+                if log is not None:
+                    shift = 0
+                    for _, cut, gap, db in cuts:
+                        log.append([pos + cut + shift, gap, db])
+                        shift += gap
+                    log.extend([None] * (len(breaths) - len(cuts)))
+            marks.append((pos, n, frames, cuts))
             gap = int(sr * pause)
             pcm += [chunk, b"\x00\x00" * gap]
-            pos += n + gap
+            pos += len(chunk) // 2 + gap
         edges = [start]
         for q, o in (cut_offsets(texts, items) if len(idx) > 1 else []):
-            at, n, frames = marks[q]
-            edges.append(max(edges[-1], min(pos, at + offset_samples(items[q][0], o, n, frames, voice.tokens))))
+            at, n, frames, cuts = marks[q]
+            # Nəfəslərin sükutu sərhədi sürüşdürür. Sərhəd nəfəsin öz yerindədirsə (altyazı vergüldə bölünüb) sükut əvvəlki
+            # hissənindir: vergüllü söz fasilədə seçili qalır (video-xeber.cjs wordTimes).
+            here = [c for c in cuts if c[0] == o]
+            if here:
+                off = here[0][1] + sum(c[2] for c in cuts if c[1] <= here[0][1])
+            else:
+                off = offset_samples(items[q][0], o, n, frames, voice.tokens)
+                off += sum(c[2] for c in cuts if c[1] <= off)
+            edges.append(max(edges[-1], min(pos, at + off)))
         edges.append(pos)
         for j, i in enumerate(idx):
             spans[i] = [edges[j], edges[j + 1]]
@@ -183,17 +332,21 @@ def main(src, wav_out, json_out):
     parts, davam = data["parts"], data.get("davam")
     voice = Sara()
     sr = voice.sr
-    pcm, spans, pos = render(parts, voice, sr, davam)
+    nefes = []
+    pcm, spans, pos = render(parts, voice, sr, davam, nefes)
+    qoyulan = [x for x in nefes if x]
     with wave.open(wav_out, "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(sr)
         w.writeframes(pcm)
     with open(json_out, "w", encoding="utf-8") as f:
-        json.dump({"sr": sr, "duration": round(pos / sr, 3), "parts": [[round(s / sr, 3), round(e / sr, 3)] for s, e in spans]}, f)
+        json.dump({"sr": sr, "duration": round(pos / sr, 3), "parts": [[round(s / sr, 3), round(e / sr, 3)] for s, e in spans],
+                   "nefes": {"yer": [[round(t / sr, 3), round(g / sr, 3), db] for t, g, db in qoyulan], "buraxilan": len(nefes) - len(qoyulan)}}, f)
     g = groups(parts, davam)
     print(f"video_ses: {len(parts)} hissə, {len(g)} qrup ({sum(len(x) - 1 for x in g)} sərhəd cümlənin içində); "
-          f"modelin müddətləri {voice.used['müddət']}/{voice.used['müddət'] + voice.used['pay']} səsləndirmədə alındı", file=sys.stderr)
+          f"modelin müddətləri {voice.used['müddət']}/{voice.used['müddət'] + voice.used['pay']} səsləndirmədə alındı; "
+          f"cümlə içində {len(qoyulan)} nəfəs qoyuldu, {len(nefes) - len(qoyulan)} buraxıldı", file=sys.stderr)
 
 
 if __name__ == "__main__":

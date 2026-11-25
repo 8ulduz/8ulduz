@@ -25,10 +25,11 @@ test("video: the plan — big headline that fits, full sentences only, captions 
   assert.ok(p.quietHead && !p.say.includes(fixture.title) && !p.say.some(x => x.includes(fixture.title)), "başlıq oxunmur");
   assert.deepEqual(p.say.slice(0, -1), p.chunks, "səs izahın birinci altyazısı ilə başlayır");
   // Sahib 2026-11-25: «baxış var, lakin baxanlar hesaba abunə olmurlar» — sonluq sayta yox, abunəyə çağırır; hər növün öz vədi.
-  assert.equal(p.say.at(-1), "Abunə olun, ən vacib xəbərlər hər gün burada.", "sonda abunə çağırışı səslənir");
+  assert.equal(p.say.at(-1), "Abunə olun. Ən vacib xəbərlər hər gün burada.", "sonda abunə çağırışı səslənir: «Abunə olun.» ayrıca cümlədir (fasilə ilə)");
   assert.equal(p.say.at(-1), V.abune("xeber").say);
   const fact = V.prepare({ ...fixture, tur: "maraqli", bolme: "Maraqlı" }, { cats });
-  assert.equal(fact.say.at(-1), "Abunə olun, hər gün yeni maraqlı faktlar burada.");
+  assert.equal(fact.say.at(-1), "Abunə olun. Hər gün yeni maraqlı faktlar burada.");
+  for (const k of Object.keys(V.ABUNE)) assert.match(V.ABUNE[k].say, /^Abunə olun\. \p{Lu}.*\.$/u, `${k}: çağırış ayrıca cümlədir — səs ondan sonra fasilə verir`);
   assert.equal(fact.label, "BİLİRDİNİZMİ?", "maraqlı videonun nişanı rubrikanın adıdır");
   assert.equal(p.head.lines.join(" "), fixture.title, "başlıq kəsilmir");
   for (const l of p.head.lines) assert.ok(V.textWidth(l, p.head.size, "black") <= V.W - 2 * 72, `sətir sığır: ${l}`);
