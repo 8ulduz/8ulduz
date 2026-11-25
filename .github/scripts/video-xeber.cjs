@@ -108,8 +108,9 @@ function splitSentence(words, k) {
   const i = best ? best.i : 1;
   return [words.slice(0, i).join(" "), ...splitSentence(words.slice(i), Math.max(1, k - 1))];
 }
-function captionChunks(body) {
-  return clean(body).split(SENT_SPLIT).filter(Boolean).flatMap(sentence => {
+// Cümlə-cümlə: [[altyazı, …], …] — sığmayan cümlə bir neçə altyazıdır (səs onları bir nəfəsdə oxuyur, prepare().davam).
+function captionSentences(body) {
+  return clean(body).split(SENT_SPLIT).filter(Boolean).map(sentence => {
     const n = capLines(sentence);
     if (n <= CAP_LINES) return [sentence];
     const words = sentence.split(" ");
@@ -119,6 +120,7 @@ function captionChunks(body) {
     return parts;
   });
 }
+const captionChunks = body => captionSentences(body).flat();
 
 // Sözlərin səsdəki vaxtı [söz, başlanğıc, son]: səs modeli hissənin [s, e] vaxtını verir, hissənin içində söz vaxtı tələffüzün
 // uzunluğu ilə bölünür — hərf sayı; rəqəm sözlə oxunur («2026» → «iki min iyirmi altı», hər rəqəm ~4 hərf); «ABŞ» kimi qısaltma
@@ -173,11 +175,14 @@ function prepare(a, opt = {}) {
   if (!title) throw new Error("başlıq yoxdur");
   const footage = Boolean(opt.footage);
   const head = footage ? fitHeadline(title, LF.sizes, LF.headMaxH) : fitHeadline(title);
-  const chunks = captionChunks(bodyText(a));
+  const sentences = captionSentences(bodyText(a)), chunks = sentences.flat();
   const label = clean(a.bolme || opt.cats?.find(c => c.slug === a.category)?.label || "Xəbər").toLocaleUpperCase("az");
   const source = [sourceLine(a), footage ? `Görüntü: ${clean(a.goruntuMenbe) || "Pexels"}` : ""].filter(Boolean).join(" · ");
+  // davam[i]: say[i] əvvəlki hissənin cümləsinin davamıdır — video_ses.py onları bir mətn kimi səsləndirir (sahib, 2026-11-25:
+  // «sətirdən sətrə keçəndə mənasız pauza verir»). Cümləni altyazı özü bölür, ona görə burada dəqiq bilinir; mətndən təxmin
+  // («Xudat | Məmmədovun», «azalaraq | 3 565,2 dollar» böyük hərflə, rəqəmlə başlayır) dörddə birini buraxırdı.
   return { id: a.id, title, head, chunks, label, when: bakuTime(a.publishedAt), source, footage,
-    say: [title, ...chunks, OUTRO_SAY] };
+    say: [title, ...chunks, OUTRO_SAY], davam: [false, ...sentences.flatMap(s => s.map((_, j) => j > 0)), false] };
 }
 
 // Zaman planı. voice: video_ses.py nəticəsi { parts: [[başlanğıc, son], …] } (hissələr prepare().say sırası ilə) və ya null.
@@ -435,7 +440,7 @@ function run(cmd, args, opt = {}) {
 // Səs: video_ses.py (SARA). Alınmasa null — video səssiz hazırlanır.
 function voice(p, dir, log) {
   const parts = path.join(dir, "ses-hisseler.json"), wav = path.join(dir, "ses.wav"), times = path.join(dir, "ses.json");
-  fs.writeFileSync(parts, JSON.stringify({ parts: p.say }));
+  fs.writeFileSync(parts, JSON.stringify({ parts: p.say, ...(Array.isArray(p.davam) && p.davam.length === p.say.length ? { davam: p.davam } : {}) }));
   try {
     run(process.env.VIDEO_PYTHON || "python3", [path.join(__dirname, "video_ses.py"), parts, wav, times], { timeout: 600000 });
     const v = JSON.parse(fs.readFileSync(times, "utf8"));
@@ -512,7 +517,7 @@ async function render(a, out, opt = {}) {
   }
 }
 
-module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
+module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, captionSentences, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR,
   // Hava videosu (video-hava.cjs) eyni brendi, səsi, altyazını və kodlaşdırmanı işlədir: qayda iki yerdə yazılmır.
   clean, voice, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W, OUTRO_SAY };
