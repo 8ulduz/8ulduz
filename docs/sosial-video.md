@@ -173,7 +173,7 @@ Sahib, 2026-11-25: «iyirmibeş sözünü dinlə. azərtacdan sonra nə deyir di
 Layihənin 81 cümləlik ölçüsündə (PR #311) hərf xətası Babəkdə 2–3%, SARA-da 10–11% idi. «Xəbər»in «b»-sini qısaltmaq (`LETTER_MAX`) və nəfəs qaydaları SARA-nı bu səviyyəyə çatdırmadı.
 
 - **Səs:** `az-AZ-BabekNeural` (saytın «Dinlə» səsi), edge-tts ilə, açarsız və pulsuz (`video_ses.py` `Babek`). Mətn durğu ilə gedir (`az_text.for_voice`, saytın hazır səsi ilə eyni yol): Babək vergüldə özü nəfəs alır, intonasiyanı özü qurur.
-- **Temp:** Edge-in öz sürəti cümlənin içində 154 söz/dəq-dir, video −10% oxuyur (138), cümlə fasilələri ilə ~125 söz/dəq.
+- **Temp:** Edge-in öz sürəti cümlənin içində 154 söz/dəq-dir, video −10% oxuyur (138), cümlə fasilələri ilə ~125 söz/dəq. Video 59 s-ə sığmasa (uzun hava videosu: 2026-11-25-də «Qubada qar yağacaq» düşdü) səs −5%, sonra 0% ilə yenidən səslənir (`BABEK_RATES`, `max_s`): məzmun itmir.
 - **Altyazının vaxtı:** eyni cümlənin hissələri bir səsləndirmədir; hissənin sonu növbəti hissənin birinci sözünün başlanğıcıdır (Edge-in söz sərhədi, `WordBoundary`). Söz sayı uyğun gəlməsə hərf payı ilə.
 - **Ehtiyat:** Edge cavab verməsə (üç cəhd) və ya edge-tts quraşdırılmayıbsa video SARA ilə səslənir. Variables-da `VIDEO_SES_MOTOR=sara` — həmişə SARA. `video.json`-da `ses: babek|sara`.
 - **Risk:** edge-tts Edge brauzerinin rəsmi olmayan yoludur. Microsoft onu dəyişə və ya bağlaya bilər, o zaman SARA işə düşür. Rəsmi yol Azure açarıdır (pulsuz plan ayda 500 000 simvol), amma o limiti saytın canlı «Dinlə» səsi də işlədir.

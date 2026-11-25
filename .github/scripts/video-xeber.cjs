@@ -471,10 +471,12 @@ function run(cmd, args, opt = {}) {
   return r.stdout;
 }
 
-// Səs: video_ses.py (SARA). Alınmasa null — video səssiz hazırlanır.
+// Səs: video_ses.py (Babək, alınmasa SARA). Alınmasa null — video səssiz hazırlanır.
 function voice(p, dir, log) {
   const parts = path.join(dir, "ses-hisseler.json"), wav = path.join(dir, "ses.wav"), times = path.join(dir, "ses.json");
-  fs.writeFileSync(parts, JSON.stringify({ parts: p.say, ...(Array.isArray(p.davam) && p.davam.length === p.say.length ? { davam: p.davam } : {}) }));
+  // max_s: səs bundan uzun olsa video_ses.py (Babək) bir az tez oxuyur — sondakı altyazılar düşməsin (timeline: səsdən sonra
+  // GAP_S + sonluğun artığı + 0,3 s).
+  fs.writeFileSync(parts, JSON.stringify({ parts: p.say, max_s: MAX_S - LEAD_S - 1, ...(Array.isArray(p.davam) && p.davam.length === p.say.length ? { davam: p.davam } : {}) }));
   try {
     run(process.env.VIDEO_PYTHON || "python3", [path.join(__dirname, "video_ses.py"), parts, wav, times], { timeout: 600000 });
     const v = JSON.parse(fs.readFileSync(times, "utf8"));

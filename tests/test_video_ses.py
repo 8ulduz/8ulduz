@@ -233,20 +233,22 @@ class FakeBabek:
     kimi). say() Babek.say ilə eyni: (PCM, [(söz, başlanğıc s, müddət s)])."""
 
     sr = 1000
+    SLOW = {"-10%": 3, "-5%": 1}     # sürət azdırsa söz bir neçə dəfə uzun (yalnız ehtiyat sürətlərinin sınağı üçün)
 
-    def __init__(self, fail=False):
-        self.texts, self.fail, self.calls = [], fail, 0
+    def __init__(self, fail=False, scaled=False):
+        self.texts, self.fail, self.calls, self.rate, self.scaled = [], fail, 0, vs.BABEK_RATE, scaled
 
     def say(self, text):
         if self.fail:
             raise RuntimeError("Edge cavab vermir")
         self.texts.append(text)
         self.calls += 1
+        k = self.SLOW.get(self.rate, 1) if self.scaled else 1
         words, t, pcm = [], 0.2, b"\x00\x00" * 200
         for w in [w for w in text.split() if re.search(r"\w", w)]:
-            words.append((w.strip(",.;:"), t, 0.1))
-            pcm += b"\x01\x00" * 100 + b"\x00\x00" * 20
-            t += 0.12
+            words.append((w.strip(",.;:"), t, 0.1 * k))
+            pcm += b"\x01\x00" * (100 * k) + b"\x00\x00" * 20
+            t += 0.1 * k + 0.02
         return pcm + b"\x00\x00" * 280, words
 
 
@@ -309,6 +311,34 @@ class BabekTest(unittest.TestCase):
             vs.Babek, vs.Sara = real_b, real_s
             if motor is not None:
                 os.environ["VIDEO_SES_MOTOR"] = motor
+
+    def test_long_voice_is_read_a_bit_faster_instead_of_losing_captions(self):
+        # 2026-11-25, hava videosu −10%-lə 59 s-ə sığmadı, «Qubada qar yağacaq» düşdü: max_s verilibsə səs bir az tez oxunur
+        import tempfile
+
+        slow = FakeBabek(scaled=True)
+        _, _, p10 = vs.render_babek(SAY, slow, [False, False, True, False, False])
+        slow.rate = "-5%"
+        _, _, p5 = vs.render_babek(SAY, slow, [False, False, True, False, False])
+        self.assertLess(p5, p10)
+        real_b, motor = vs.Babek, os.environ.pop("VIDEO_SES_MOTOR", None)
+        try:
+            for max_s, want in ((None, "-10%"), ((p5 + p10) / 2 / 1000, "-5%")):
+                made = []
+                vs.Babek = lambda: made.append(FakeBabek(scaled=True)) or made[-1]
+                with tempfile.TemporaryDirectory() as d:
+                    src, wav, out = (pathlib.Path(d) / n for n in ("h.json", "s.wav", "v.json"))
+                    src.write_text(json.dumps({"parts": SAY, "davam": [False, False, True, False, False], "max_s": max_s}), encoding="utf-8")
+                    vs.main(str(src), str(wav), str(out))
+                    v = json.loads(out.read_text(encoding="utf-8"))
+                self.assertEqual(made[0].rate, want)
+                self.assertTrue(max_s is None or v["duration"] <= max_s)
+        finally:
+            vs.Babek = real_b
+            if motor is not None:
+                os.environ["VIDEO_SES_MOTOR"] = motor
+        src = (ROOT / ".github" / "scripts" / "video-xeber.cjs").read_text(encoding="utf-8")
+        self.assertIn("max_s: MAX_S - LEAD_S - 1", src, "video modulu səsin həddini verir")
 
     def test_babek_settings(self):
         self.assertEqual(vs.BABEK_VOICE, "az-AZ-BabekNeural", "saytın «Dinlə» səsi ilə eyni")

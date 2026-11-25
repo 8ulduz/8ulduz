@@ -83,7 +83,8 @@ def main(mp4, meta_path):
     asr = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=os.cpu_count() or 2)
     segs, _ = asr.transcribe(audio, language="az", beam_size=5, temperature=0.0, condition_on_previous_text=False, vad_filter=False)
     heard = " ".join(s.text.strip() for s in segs).strip()
-    ref, hyp = words(" ".join(said)), words(heard)
+    # Whisper bəzən bütün hissəni böyük hərflə yazır («ANİ KÜLƏKLƏRİN»): kiçildilir, yoxsa qayda onu qısaltma kimi hərf-hərf açar
+    ref, hyp = words(" ".join(said)), words(az_text.lower_az(heard))
     out = report(ref, hyp, heard, meta, model)
     with open(os.path.join(os.path.dirname(meta_path), "dinleme.md"), "w", encoding="utf-8") as f:
         f.write(out)

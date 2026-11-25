@@ -57,6 +57,9 @@ from az_text import CLAUSE, PAUSE_CLAUSE, PAUSE_SENTENCE, fold, for_voice, lower
 # tez (sahib: «oxunuş sürətlidir»); −10% → 138, cümlə fasilələri ilə ~125–130 söz/dəq (SARA-nın indiki tempi ilə eyni).
 BABEK_VOICE = "az-AZ-BabekNeural"
 BABEK_RATE = "-10%"
+# Video ≤ 59 s-dir (video-xeber.cjs MAX_S): səs uzun olsa sondakı altyazılar düşür (2026-11-25, hava videosu −10%-lə: «Qubada qar
+# yağacaq» itdi). hissələr.json-da max_s verilibsə və səs ondan uzundursa, səs bir az tez oxunur — məzmun itmir.
+BABEK_RATES = (BABEK_RATE, "-5%", "+0%")
 BABEK_SR = 24000          # Edge mp3-ü 24 kHz-dir; ffmpeg ilə 16 bit PCM-ə açılır
 BABEK_HEAD = 0.05         # birinci sözdən əvvəl saxlanan səs (s): nəfəs və hücum kəsilməsin
 BABEK_TAIL = 0.12         # sonuncu sözdən sonra saxlanan səs (s): sözün sönməsi (Edge-in söz müddəti onu tam əhatə etmir)
@@ -414,12 +417,12 @@ class Babek:
     def __init__(self):
         import edge_tts  # noqa: F401 — yalnız iş axınında quraşdırılır; yoxdursa main SARA-ya keçir
 
-        self.calls = 0
+        self.calls, self.rate = 0, BABEK_RATE
 
     async def _stream(self, text):
         import edge_tts
 
-        c = edge_tts.Communicate(text, BABEK_VOICE, rate=BABEK_RATE, boundary="WordBoundary")
+        c = edge_tts.Communicate(text, BABEK_VOICE, rate=self.rate, boundary="WordBoundary")
         audio, words = bytearray(), []
         async for ch in c.stream():
             if ch["type"] == "audio":
@@ -493,8 +496,12 @@ def main(src, wav_out, json_out):
     motor, voice, nefes = os.environ.get("VIDEO_SES_MOTOR", "babek").strip().lower() or "babek", None, []
     if motor == "babek":
         try:
-            voice = Babek()
-            pcm, spans, pos = render_babek(parts, voice, davam)
+            voice, max_s = Babek(), data.get("max_s")
+            for rate in BABEK_RATES:
+                voice.rate = rate
+                pcm, spans, pos = render_babek(parts, voice, davam)
+                if not max_s or pos / voice.sr <= max_s:
+                    break
         except Exception as e:  # noqa: BLE001 — edge-tts yoxdur, Edge cavab vermir: video SARA ilə səslənir
             print(f"::warning::video_ses: Babək alınmadı ({str(e)[:200]}) — SARA ilə", file=sys.stderr)
             motor = "sara"
@@ -515,7 +522,7 @@ def main(src, wav_out, json_out):
                    "qisaldilan_herf": getattr(voice, "capped", 0)}, f)
     g = groups(parts, davam)
     if motor == "babek":
-        print(f"video_ses: Babək ({BABEK_VOICE}, {BABEK_RATE}) — {len(parts)} hissə, {len(g)} qrup, {voice.calls} səsləndirmə", file=sys.stderr)
+        print(f"video_ses: Babək ({BABEK_VOICE}, {voice.rate}) — {len(parts)} hissə, {len(g)} qrup, {voice.calls} səsləndirmə", file=sys.stderr)
         return
     print(f"video_ses: SARA — {len(parts)} hissə, {len(g)} qrup ({sum(len(x) - 1 for x in g)} sərhəd cümlənin içində); "
           f"modelin müddətləri {voice.used['müddət']}/{voice.used['müddət'] + voice.used['pay']} səsləndirmədə alındı; "
