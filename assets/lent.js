@@ -167,6 +167,11 @@ export const shareLink = v => `https://8ulduz.az/#/videolent?r=${encodeURICompon
 // Paylaşılan video HƏMİŞƏ birinci (sahib 2026-11-24: «vatsapda videolentdən paylaşılanda həmin videoya qayıtmır … tam birdəfəlik
 // düzəlt»). 2026-11-23-dən izlənmiş paylaşılan video ikinci gəlirdi: paylaşan adam öz keçidini açanda (və ya lent yenidən yüklənəndə)
 // başqa video görürdü. İzlənmiş video birinci çıxmasın qaydası (sahib 2026-11-23) adi açılışa aiddir (list: əvvəl görülməyənlər).
+// Lent ölçüsüz açılıb (səhifə bir an 0 hündürlüklə: bəzi tətbiqlərin daxili brauzeri, arxa planda açılan vərəq): slaydların
+// hündürlüyü 0-dır və brauzer hamısını «tam görünür» sayır. Belə slayd ekranda sayılmır — yoxsa 850 videonun hamısı birdən
+// yüklənir, hamısı «baxılmış» olur, yaddaşa sonuncu yazılır və yeniləmə səhv videoya aparır (canlı yoxlama, 2026-11-25).
+export const flat = e => !(e.boundingClientRect.height > 0);
+export const onScreen = e => !flat(e) && e.isIntersecting && e.intersectionRatio >= 0.6;
 export function first(items, k) {
   const i = k ? items.findIndex(v => v.k === k) : -1;
   return i < 0 ? items : [items[i], ...items.slice(0, i), ...items.slice(i + 1)];
@@ -249,10 +254,17 @@ function build(f, items, back, more) {
   live.io = new win.IntersectionObserver(es => {
     for (const e of es) {
       const s = e.target;
-      if (e.isIntersecting && e.intersectionRatio >= 0.6) { live.at = pos(s); near(live.at); play(s); if (live.at >= slides.length - 3) refill(); }
+      if (flat(e)) { live.flat = true; continue; }
+      if (onScreen(e)) { live.at = pos(s); near(live.at); play(s); if (live.at >= slides.length - 3) refill(); }
       else stop(s);
     }
   }, { root: feed, threshold: [0, 0.6] });
+  // Ölçüsüz açılan lent ölçü alanda slaydlara yenidən baxılır (müşahidə təzədən başlayır: indiki slayd oynayır).
+  win.addEventListener("resize", () => {
+    if (!live?.flat) return;
+    live.flat = false;
+    for (const s of slides) { live.io.unobserve(s); live.io.observe(s); }
+  });
   const wire = s => {
     live.io.observe(s);
     const v = vid(s), bar = s.querySelector(".bar");

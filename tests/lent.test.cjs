@@ -346,3 +346,18 @@ test('Videolent: rus və ingilis oxucu izahı öz dilində görür (sahib 2026-1
   const reel = { id: '2123096874748187031', a: 'LFC', n: 'Liverpul', u: 'https://video.twimg.com/amplify_video/2123096874748187031/vid/avc1/480x852/a.mp4', w: 480, h: 852, t: '2026-11-24T10:00:00+00:00', ...r };
   assert.equal(list({ lang: 'en', data: { articles: [] } }, [reel], [])[0].c, 'A player scores', 'lent oxucunun dilini götürür');
 });
+
+test('Videolent: a feed that opens with zero height (in-app browser, background tab) loads no video and marks nothing watched; it starts when it gets a size (live check 2026-11-25)', async () => {
+  const { onScreen, flat } = await import(pathToFileURL(file).href);
+  // Sıfır hündürlüklü lentdə brauzer hər slaydı «tam görünür» deyir: 850 slayd = 850 yüklənən video.
+  const zero = { isIntersecting: true, intersectionRatio: 1, boundingClientRect: { height: 0 } };
+  assert.equal(flat(zero), true);
+  assert.equal(onScreen(zero), false, 'ölçüsüz slayd oynamır, «baxılmış» olmur, yaddaşa yazılmır');
+  assert.equal(onScreen({ isIntersecting: true, intersectionRatio: 1, boundingClientRect: { height: 812 } }), true, 'ekrandakı slayd oynayır');
+  assert.equal(onScreen({ isIntersecting: true, intersectionRatio: 0.3, boundingClientRect: { height: 812 } }), false, 'yarıdan az görünən oynamır');
+  assert.equal(onScreen({ isIntersecting: false, intersectionRatio: 0, boundingClientRect: { height: 812 } }), false);
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('if (flat(e)) { live.flat = true; continue; }'), 'ölçüsüz slayd nə oynayır, nə dayanır');
+  assert.ok(src.includes('if (onScreen(e)) { live.at = pos(s); near(live.at); play(s);'), 'yalnız ekrandakı slayd oynayır');
+  assert.ok(src.includes('win.addEventListener("resize"') && src.includes('live.io.unobserve(s); live.io.observe(s);'), 'ölçü gələndə müşahidə təzədən başlayır: paylaşılan video oynayır');
+});
