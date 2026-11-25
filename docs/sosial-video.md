@@ -231,8 +231,11 @@ Bir söz səhv oxunursa, `ses-lugat.json`-a `"Söz": "oxunuş"` sətri əlavə e
    - Facebook: `POST /{səhifə}/video_reels` (start) → fayl → `finish` (`video_state=PUBLISHED`, `description` keçidlə) → emal bitəndə ilk şərh «Ətraflı: keçid».
    - Instagram: `POST /{ig}/media` (`media_type=REELS`, `upload_type=resumable`, `caption`, `thumb_offset=1500`) → fayl → status `FINISHED` (15 s-dən bir, ən çox 5 dəq) → `media_publish`. Əvvəl 24 saatlıq hədd (`content_publishing_limit`) yoxlanır. Yükləmə alınmasa (2026-11-22, 16,8 MB: `ProcessingFailedError`, «retriable: false») 1 dəqiqə sonra yeni konteynerlə bir dəfə təkrar olunur.
 5. Siyahı (`.sosial-video/state.json`, actions/cache) 3 gün saxlanır: eyni xəbər iki dəfə getmir.
+6. **Veb nüsxə** (sahib, 2026-11-25: «gözqırpımı»): videonun 720×1280, ≤ 2,8 MB nüsxəsi YouTube-a yüklənəndən sonra Cloudflare R2-yə gedir
+   (`https://video.8ulduz.az/<YouTube nömrəsi>.mp4`). Saytın «Video xəbərlər» zolağı onu YouTube oynadıcısı əvəzinə adi `<video>` ilə oynadır.
+   Qurulum və sahibin addımları: [veb-video.md](veb-video.md).
 
-Bu iş xəbər axınından (`update.yml`) və şəkilli paylaşmadan (`social.yml`) ayrıdır: düşsə də, gecikse də onlara təsir etmir; sayta heç nə yazmır (qırmızı xətt 1 və 3).
+Bu iş xəbər axınından (`update.yml`) və şəkilli paylaşmadan (`social.yml`) ayrıdır: düşsə də, gecikse də onlara təsir etmir; repoya heç nə yazmır, sayta yalnız R2-dəki veb nüsxə ilə çatır (updater.py `update_video`; qırmızı xətt 1 və 3).
 
 PR-da (`pull_request`) nümunə xəbərdən (`tests/fixtures/video-xeber.json`) video hazırlanır və yoxlanır, paylaşılmır; kadrlar və video artefaktdadır.
 
