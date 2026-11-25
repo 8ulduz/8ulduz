@@ -541,11 +541,11 @@ async function render(a, out, opt = {}) {
     const kadrlar = clips.length
       ? [cover_s, ...shotMids.slice(1, 8).filter(x => x < tl.outro[0]), mid([tl.outro[0], tl.duration])]
       : [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
-    const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), ...(v?.nefes ? { nefes: v.nefes } : {}), parts: 2 + tl.chunks.length, title: p.title,
+    const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), ...(v?.motor ? { ses: v.motor } : {}), ...(v ? { oxunan: p.say } : {}), ...(v?.nefes ? { nefes: v.nefes } : {}), parts: 2 + tl.chunks.length, title: p.title,
       ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, kesilen: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
-    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? "səsli" : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.kesilen} kadr üfüqi, ağıllı kəsildi)` : "görüntüsüz"} — ${p.title}`);
+    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? `səsli (${v.motor === "babek" ? "Babək" : "SARA"})` : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.kesilen} kadr üfüqi, ağıllı kəsildi)` : "görüntüsüz"} — ${p.title}`);
     return meta;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

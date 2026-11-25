@@ -2,6 +2,7 @@
 videolarda sətirdən sətrə keçəndə mənasız pauza verir oxunuşda»). Model yüklənmir: qruplaşma və vaxt bölgüsü saxta səslə yoxlanır."""
 import importlib.util
 import json
+import os
 import pathlib
 import re
 import unittest
@@ -204,8 +205,9 @@ class ContractTest(unittest.TestCase):
         class Stub(FakeVoice):
             sr = 1000
 
-        real = vs.Sara
+        real, motor = vs.Sara, os.environ.get("VIDEO_SES_MOTOR")
         vs.Sara = lambda: Stub()
+        os.environ["VIDEO_SES_MOTOR"] = "sara"
         try:
             with tempfile.TemporaryDirectory() as d:
                 src, wav, out = (pathlib.Path(d) / n for n in ("h.json", "s.wav", "v.json"))
@@ -214,7 +216,9 @@ class ContractTest(unittest.TestCase):
                 v = json.loads(out.read_text(encoding="utf-8"))
         finally:
             vs.Sara = real
-        self.assertEqual(set(v), {"sr", "duration", "parts", "nefes"})
+            os.environ.pop("VIDEO_SES_MOTOR") if motor is None else os.environ.__setitem__("VIDEO_SES_MOTOR", motor)
+        self.assertEqual(set(v), {"sr", "duration", "parts", "motor", "nefes", "qisaldilan_herf"})
+        self.assertEqual(v["motor"], "sara")
         self.assertEqual(len(v["parts"]), len(SAY))
         self.assertTrue(all(len(p) == 2 and p[0] <= p[1] for p in v["parts"]))
         self.assertEqual(v["parts"][-1][1], v["duration"])
@@ -222,6 +226,120 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(v["nefes"]["buraxilan"], 0)
         self.assertEqual([x[1] for x in v["nefes"]["yer"]], [vs.VIDEO_PAUSE[PAUSE_CLAUSE]])
         self.assertTrue(v["parts"][3][0] < v["nefes"]["yer"][0][0] < v["parts"][3][1], "nəfəs öz hissəsinin içindədir")
+
+
+class FakeBabek:
+    """Edge-in yerinə: hər söz 100 ms səs (1-lərdən), sözlər arası 20 ms sükut, başda 200 ms, sonda 300 ms sükut (Edge-in mp3-ü
+    kimi). say() Babek.say ilə eyni: (PCM, [(söz, başlanğıc s, müddət s)])."""
+
+    sr = 1000
+
+    def __init__(self, fail=False):
+        self.texts, self.fail, self.calls = [], fail, 0
+
+    def say(self, text):
+        if self.fail:
+            raise RuntimeError("Edge cavab vermir")
+        self.texts.append(text)
+        self.calls += 1
+        words, t, pcm = [], 0.2, b"\x00\x00" * 200
+        for w in [w for w in text.split() if re.search(r"\w", w)]:
+            words.append((w.strip(",.;:"), t, 0.1))
+            pcm += b"\x01\x00" * 100 + b"\x00\x00" * 20
+            t += 0.12
+        return pcm + b"\x00\x00" * 280, words
+
+
+class BabekTest(unittest.TestCase):
+    """Sahib, 2026-11-25: videonun səsi Babək (edge-tts, açarsız) — SARA hərfləri udurdu. SARA ehtiyatdır."""
+
+    def test_groups_are_voiced_with_punctuation_and_parts_follow_the_word_boundaries(self):
+        v = FakeBabek()
+        pcm, spans, total = vs.render_babek(SAY, v, [False, False, True, False, False])
+        self.assertEqual(v.calls, 4, "eyni cümlənin hissələri bir səsləndirmədir")
+        self.assertIn("AZƏRTAC", SAY[3])
+        self.assertIn(",", v.texts[2], "mətn durğu ilə gedir: Babək vergüldə özü nəfəs alır")
+        self.assertEqual(v.texts[2], vs.for_voice(SAY[3]))
+        self.assertEqual(len(pcm) // 2, total)
+        self.assertEqual(spans[0][0], 0)
+        self.assertEqual(spans[-1][1], total)
+        for (s1, e1), (s2, e2) in zip(spans, spans[1:]):
+            self.assertEqual(e1, s2)
+            self.assertLessEqual(s1, e1)
+        # birinci qrup: başdakı 200 ms sükutdan BABEK_HEAD qalır, sonda BABEK_TAIL + cümlə fasiləsi
+        n0 = len(vs.babek_words(SAY[0]))
+        head, tail, sent = (int(v.sr * x) for x in (vs.BABEK_HEAD, vs.BABEK_TAIL, SENT))
+        self.assertEqual(spans[0][1], head + n0 * 120 - 20 + tail + sent)
+        # 1 və 2 bir qrupdur: hissənin sonu 2-nin birinci sözünün başlanğıcıdır
+        n1 = len(vs.babek_words(SAY[1]))
+        g1 = spans[1][0]
+        self.assertEqual(spans[1][1] - g1, head + n1 * 120)
+
+    def test_word_count_mismatch_falls_back_to_letter_share(self):
+        class Odd(FakeBabek):
+            def say(self, text):
+                pcm, words = super().say(text)
+                return pcm, words[:-1]          # Edge bir sözü az versə
+        v = Odd()
+        _, spans, total = vs.render_babek(SAY[1:3], v, [False, True])
+        self.assertEqual(spans[0][0], 0)
+        self.assertEqual(spans[1][1], total)
+        self.assertLess(0, spans[0][1] - spans[0][0])
+        self.assertLess(0, spans[1][1] - spans[1][0])
+
+    def test_main_uses_babek_and_falls_back_to_sara(self):
+        import tempfile
+
+        class Stub(FakeVoice):
+            sr = 1000
+
+        real_b, real_s, motor = vs.Babek, vs.Sara, os.environ.pop("VIDEO_SES_MOTOR", None)
+        try:
+            for babek, want in ((lambda: FakeBabek(), "babek"), (lambda: FakeBabek(fail=True), "sara")):
+                vs.Babek, vs.Sara = babek, (lambda: Stub())
+                with tempfile.TemporaryDirectory() as d:
+                    src, wav, out = (pathlib.Path(d) / n for n in ("h.json", "s.wav", "v.json"))
+                    src.write_text(json.dumps({"parts": SAY, "davam": [False, False, True, False, False]}), encoding="utf-8")
+                    vs.main(str(src), str(wav), str(out))
+                    v = json.loads(out.read_text(encoding="utf-8"))
+                self.assertEqual(v["motor"], want)
+                self.assertEqual(len(v["parts"]), len(SAY))
+                self.assertEqual(v["parts"][-1][1], v["duration"])
+        finally:
+            vs.Babek, vs.Sara = real_b, real_s
+            if motor is not None:
+                os.environ["VIDEO_SES_MOTOR"] = motor
+
+    def test_babek_settings(self):
+        self.assertEqual(vs.BABEK_VOICE, "az-AZ-BabekNeural", "saytın «Dinlə» səsi ilə eyni")
+        self.assertTrue(vs.BABEK_RATE.startswith("-"), "Edge-in öz sürəti tezdir (154 söz/dəq) — video yavaş oxuyur")
+        src = (ROOT / ".github" / "workflows" / "sosial-video.yml").read_text(encoding="utf-8")
+        self.assertIn('pip install -q "edge-tts>=7,<8"', src, "video işi edge-tts quraşdırır")
+
+
+class LetterCapTest(unittest.TestCase):
+    """Sahib, 2026-11-25: «azərtacdan sonra … anlamaq olmur». Model «AZƏRTAC xəbər verir»də «b»-ni 19–22 kadr uzadırdı."""
+
+    def test_letter_max_is_above_normal_letters(self):
+        # ölçü: hərflərin 99%-i ≤ 5 kadr — hədd normal hərfə toxunmur
+        self.assertGreaterEqual(vs.LETTER_MAX, 6)
+        self.assertLessEqual(vs.LETTER_MAX * 16, 120, "hərf ən çox ~0,1 s")
+
+    @unittest.skipUnless(importlib.util.find_spec("torch"), "torch yoxdur (CI-da video işi yoxlayır)")
+    def test_cap_letters_shortens_only_long_letters(self):
+        import math
+
+        import torch
+
+        cap = math.log(vs.LETTER_MAX * 0.85)
+        ld = torch.tensor([[[0.5, 3.2, 0.1, 2.9, 0.0]]])     # boş, «b» (uzun), boş, boşluq (uzun), boş
+        out, n = vs.cap_letters(ld, [0, 16, 0, 5, 0], {0, 5}, cap)
+        self.assertEqual(n, 1)
+        self.assertAlmostEqual(float(out[0, 0, 1]), cap, places=5)
+        self.assertEqual([round(float(x), 3) for x in out[0, 0, [0, 2, 3, 4]]], [0.5, 0.1, 2.9, 0.0], "boş token və boşluq toxunulmur")
+        same, n = vs.cap_letters(ld, [0, 16, 0], {0, 5}, cap)
+        self.assertEqual(n, 0, "uzunluq uyğun deyilsə toxunulmur")
+        self.assertIs(same, ld)
 
 
 class BreathTest(unittest.TestCase):
@@ -283,25 +401,36 @@ class BreathTest(unittest.TestCase):
         self.assertEqual(total, self.samples(said, v) + br + sent)
         self.assertEqual(spans, [[0, total]])
         (at, gap, db), = log
-        # axtarış: «sabah»ın son hərfinin ortasından «hava»nın ilk hərfinin ortasına qədər (saxta səs hər yerdə eyni gurdur —
-        # bərabər yerlərdən ortaya ən yaxını)
-        lo = self.samples("sabah", v)
-        self.assertTrue(lo - v.SPF <= at <= lo + 4 * v.SPF, f"kəsim sözlərin arasındadır: {lo} ~ {at}")
+        # Sahib, 2026-11-25: «iyirmibeş sözünü dinlə. azərtacdan sonra nə deyir dinlə» — kəsim və sönmə hərfə toxunmamalıdır
+        # («ki,» → «k», «Qubada 10,» → «Qubada o» olurdu). Axtarış yalnız sözlərin arasındadır: «sabah»ın son hərfi bitəndən
+        # «hava»nın «h»-si başlayana qədər (boşluğun tokeni); saxta səs hər yerdə eyni gurdur — bərabər yerlərdən ortaya ən yaxını.
+        lo, hi = self.samples("sabah", v), self.samples("sabah ", v)
+        self.assertTrue(lo <= at <= hi, f"kəsim sözlərin arasındadır: {lo} ≤ {at} ≤ {hi}")
         self.assertEqual(gap, br)
         self.assertEqual(pcm[2 * at:2 * (at + br)], b"\x00\x00" * br, "nəfəs sükutdur")
-        # səsin içində kəsim (saxta səs sakit deyil: 0 dB): söz uzun sönmə ilə bitir, növbəti qısa açılma ilə başlayır,
-        # ondan kənarda səs toxunulmur
+        # səsin içində kəsim (saxta səs sakit deyil: 0 dB): sönmə və açılma yalnız sözlərin arasındakı səsdədir — «sabah»ın
+        # son hərfi və «hava»nın ilk hərfi bütöv qalır
         self.assertGreaterEqual(db, vs.QUIET_DB)
-        fo, fi = int(self.SR * vs.FADE_OUT_SOFT), int(self.SR * vs.FADE_IN_SOFT)
-        self.assertEqual(pcm[2 * (at - fo - 1):2 * (at - fo)], b"\x01\x00")
+        self.assertEqual(pcm[:2 * lo], b"\x01\x00" * lo, "«sabah» toxunulmur")
+        self.assertEqual(pcm[2 * (hi + br):2 * (hi + br + 1)], b"\x01\x00", "«hava» toxunulmur")
         self.assertEqual(pcm[2 * (at - 1):2 * at], b"\x00\x00")
-        self.assertEqual(pcm[2 * (at + br + fi):2 * (at + br + fi + 1)], b"\x01\x00")
-        self.assertGreater(fo, fi)
+        self.assertLess(pcm[2 * (at + br):2 * (at + br + 1)], b"\x01\x00", "açılma sıfırdan başlayır")
+
+    def test_fades_stay_between_the_words_even_when_the_gap_is_narrow(self):
+        # dar aralıq (məs. «ki | bu»): sönmə kəsimdən geriyə aralığın başlanğıcına qədər, ən azı FADE_MIN
+        a = vs.samples_of(b"\x10\x00" * 1000)
+        frames = [10] * 100      # 100 token, hər biri 10 nümunə
+        cuts = vs.breath_cuts("ab cd", [(2, 0.1)], a, frames, lambda s: len(s.strip()), self.SR)
+        (o, cut, gap, db, fo, fi), = cuts
+        self.assertTrue(20 <= cut <= 30, cut)
+        self.assertLessEqual(fo, max(cut - 20, int(self.SR * vs.FADE_MIN)))
+        self.assertLessEqual(fi, max(30 - cut, int(self.SR * vs.FADE_MIN)))
+        self.assertGreaterEqual(min(fo, fi), int(self.SR * vs.FADE_MIN))
 
     def test_quiet_cut_gets_a_short_fade(self):
         sr, f = self.SR, int(self.SR * vs.FADE_S)
         a = vs.samples_of(b"\x10\x00" * 300)
-        pcm = vs.splice(a, [(0, 150, 20, -40.0)], sr)
+        pcm = vs.splice(a, [(0, 150, 20, -40.0, f, f)], sr)
         b = vs.samples_of(pcm)
         self.assertEqual(len(b), 320)
         self.assertEqual(list(b[150:170]), [0] * 20)

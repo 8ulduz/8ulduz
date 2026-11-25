@@ -160,6 +160,27 @@ Sahib, 2026-11-25: «sosial mediada videolara baxış var, lakin baxanlar hesaba
 
 Xəbər seçimi dəyişməyib: 19 videonun baxışı mövzudan çox yüklənmə vaxtı ilə bağlıdır (ilk günün videoları mövzudan asılı olmayaraq yüzlərlə, sonrakılar onlarla baxış alıb), mövzuya görə qayda üçün məlumat azdır.
 
+### Videonun səsi: Babək (2026-11-25)
+
+Sahib, 2026-11-25: «iyirmibeş sözünü dinlə. azərtacdan sonra nə deyir dinlə», «hərfin deyilişdə az qala itməsidir bəzən», «başqa mətni tam düz oxuma variantı yoxdur?», sonra «edge-tts ilə (açarsız)». SARA hərfləri udur və səhv oxuyurdu. Eyni cümlələri Whisper large-v3 belə eşitdi:
+
+| Cümlə | SARA | Babək |
+|---|---|---|
+| AZƏRTAC xəbər verir ki, bu səbəbdən rayonun … qaz təchizatında | «Azərtaçı istinad əbər verir … rayının … də səcizatında» | düz |
+| Qubada 10, Lənkəranda 15, Naxçıvanda 14 | «nənkəranda … nəqçıvanda» | düz |
+| Sabah, 25 noyabr, çərşənbə, hava belə olacaq | «hava bir olacaq» | düz |
+
+Layihənin 81 cümləlik ölçüsündə (PR #311) hərf xətası Babəkdə 2–3%, SARA-da 10–11% idi. «Xəbər»in «b»-sini qısaltmaq (`LETTER_MAX`) və nəfəs qaydaları SARA-nı bu səviyyəyə çatdırmadı.
+
+- **Səs:** `az-AZ-BabekNeural` (saytın «Dinlə» səsi), edge-tts ilə, açarsız və pulsuz (`video_ses.py` `Babek`). Mətn durğu ilə gedir (`az_text.for_voice`, saytın hazır səsi ilə eyni yol): Babək vergüldə özü nəfəs alır, intonasiyanı özü qurur.
+- **Temp:** Edge-in öz sürəti cümlənin içində 154 söz/dəq-dir, video −10% oxuyur (138), cümlə fasilələri ilə ~125 söz/dəq.
+- **Altyazının vaxtı:** eyni cümlənin hissələri bir səsləndirmədir; hissənin sonu növbəti hissənin birinci sözünün başlanğıcıdır (Edge-in söz sərhədi, `WordBoundary`). Söz sayı uyğun gəlməsə hərf payı ilə.
+- **Ehtiyat:** Edge cavab verməsə (üç cəhd) və ya edge-tts quraşdırılmayıbsa video SARA ilə səslənir. Variables-da `VIDEO_SES_MOTOR=sara` — həmişə SARA. `video.json`-da `ses: babek|sara`.
+- **Risk:** edge-tts Edge brauzerinin rəsmi olmayan yoludur. Microsoft onu dəyişə və ya bağlaya bilər, o zaman SARA işə düşür. Rəsmi yol Azure açarıdır (pulsuz plan ayda 500 000 simvol), amma o limiti saytın canlı «Dinlə» səsi də işlədir.
+- **Yoxlama:** PR-da hər nümunə videonun səsi Whisper large-v3 ilə dinlənir (`video_dinle.py`, «Səsi dinlə» addımı): oxunmalı mətn (`video.json` `oxunan`) eşidilənlə müqayisə olunur, səhv eşidilən və itən sözlər işin xülasəsində və artefaktdakı `dinleme.md`-dədir. Whisper özü də səhv edir (ad yazılışı), iş dayanmır.
+
+Aşağıdakı nəfəs qaydaları yalnız SARA (ehtiyat) üçündür.
+
 ### Cümlənin içində nəfəs
 
 Sahib, 2026-11-25: «Abunə ol deyib pauza vermir… bu və bu kimi digər çatışmazlıqları tap düzəlt». Səbəb bir cümlə ilə bağlı deyildi: SARA durğu işarəsini tanımır (`az_text.fold` onu boşluq edir), video səsi isə cümləni bütöv səsləndirir. Ona görə videolarda vergül, iki nöqtə, nöqtəli vergül, boşluqlu tire və mötərizə səsdə heç yox idi: «Sabah, 25 noyabr, çərşənbə, hava belə olacaq», «Diqqət: ani küləklərin sürəti…», «Gündüz Sumqayıtda 14, Gəncədə 11, Mingəçevirdə 12…» bir nəfəsdə gedirdi.

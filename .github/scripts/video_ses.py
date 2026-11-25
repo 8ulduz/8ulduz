@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
-"""Video xəbərin səsi: SARA (BHOSAI/SARA_TTS — «Dinlə» serverinin açıq Azərbaycan modeli; sahib, 2026-11-08: səs seçimi «sara»,
-«pullu heç nə olmasın»). Microsoft-dan və pullu xidmətdən asılılıq yoxdur; model GitHub Actions-da işləyir.
+"""Video xəbərin səsi: Babək (saytın «Dinlə» səsi, Microsoft Edge, edge-tts — açarsız, pulsuz), alınmasa SARA.
+
+Babək (sahib, 2026-11-25: «edge-tts ilə (açarsız)»). SARA hərfləri udur və səhv oxuyurdu (sahib: «iyirmibeş sözünü dinlə.
+azərtacdan sonra … anlamaq olmur», «hərfin deyilişdə az qala itməsidir»). Whisper large-v3 ilə eyni cümlələr: SARA «AZƏRTAC
+xəbər verir ki, bu səbəbdən rayonun … qaz təchizatında» → «Azərtaçı istinad əbər verir ki, bu səbəbdən rayının … də
+səcizatında», Babək → düz; layihənin 81 cümləlik ölçüsündə hərf xətası Babəkdə 2–3%, SARA-da 10–11% (PR #311, ses_yoxla.py).
+Babək vergüldə, iki nöqtədə özü nəfəs alır, cümlənin intonasiyasını özü qurur — mətn durğu ilə gedir (az_text.for_voice, saytın
+hazır səsi ilə eyni yol). Söz sərhədləri (WordBoundary) altyazı hissələrinin vaxtını verir. Edge-in xidməti cavab verməsə (rəsmi
+olmayan yoldur, Microsoft dəyişə bilər) səs SARA ilə hazırlanır (VIDEO_SES_MOTOR=sara — həmişə SARA).
+
+SARA (BHOSAI/SARA_TTS — «Dinlə» serverinin açıq Azərbaycan modeli; sahib, 2026-11-08: səs seçimi «sara», «pullu heç nə
+olmasın»): ehtiyat. Model GitHub Actions-da işləyir. Aşağıdakı qruplaşma və nəfəs qaydaları onundur.
 
 İşlədilmə: python3 video_ses.py <hissələr.json> <çıxış.wav> <vaxtlar.json>
   hissələr.json  {"parts": ["altyazı 1", …, "sonluq"], "davam": [false, …]}  (video-xeber.cjs prepare().say, .davam — başlıq
@@ -25,19 +35,32 @@ yenə bir dəfə səslənir (intonasiya davam edir), sonra səsin içinə, işar
 müddətlərindən (əvvəlki sözün son hərfinin ortasından növbəti sözün ilk hərfinin ortasına qədər), orada ən sakit an; kəsimin
 iki tərəfində sönmə və açılma (sakit yerdə qısa, səsin içində uzun — breath_cuts, splice).
 Model müddət vermirsə nəfəs qoyulmur (hərf payı ilə təxmin sözün içinə düşə bilər).
-vaxtlar.json: əvvəlki sahələr dəyişmir, «nefes» əlavə olunub (qoyulan nəfəslər: an, uzunluq, kəsim yerinin səs səviyyəsi).
+vaxtlar.json: əvvəlki sahələr dəyişmir, «motor» (babek | sara), «nefes» (SARA: qoyulan nəfəslər — an, uzunluq, kəsim yerinin
+səs səviyyəsi) və «qisaldilan_herf» əlavə olunub.
 """
 import array
+import asyncio
 import json
 import math
 import os
 import re
+import subprocess
 import sys
+import time
 import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "ses-server"))
-from az_text import CLAUSE, PAUSE_CLAUSE, PAUSE_SENTENCE, fold, lower_az, tune, verbalize  # noqa: E402
+from az_text import CLAUSE, PAUSE_CLAUSE, PAUSE_SENTENCE, fold, for_voice, lower_az, tune, verbalize  # noqa: E402
+
+# Babək. Temp: Edge-in öz sürəti cümlənin içində 154 söz/dəq (2026-11-25, 5 mətn, 79 söz) — SARA-nın düzəldilməmiş tempi kimi
+# tez (sahib: «oxunuş sürətlidir»); −10% → 138, cümlə fasilələri ilə ~125–130 söz/dəq (SARA-nın indiki tempi ilə eyni).
+BABEK_VOICE = "az-AZ-BabekNeural"
+BABEK_RATE = "-10%"
+BABEK_SR = 24000          # Edge mp3-ü 24 kHz-dir; ffmpeg ilə 16 bit PCM-ə açılır
+BABEK_HEAD = 0.05         # birinci sözdən əvvəl saxlanan səs (s): nəfəs və hücum kəsilməsin
+BABEK_TAIL = 0.12         # sonuncu sözdən sonra saxlanan səs (s): sözün sönməsi (Edge-in söz müddəti onu tam əhatə etmir)
+BABEK_TRIES = (0, 3, 8)   # şəbəkə xətasında yenidən sınama (gözləmə, s)
 from az_text import SENT_END as TEXT_SENT_END  # noqa: E402  (cümlələri bölən; bu fayldakı SENT_END hissənin sonunu yoxlayır)
 
 MODEL = os.environ.get("SES_MODEL", "BHOSAI/SARA_TTS")
@@ -51,18 +74,19 @@ VIDEO_PAUSE = {PAUSE_CLAUSE: 0.28, PAUSE_SENTENCE: 0.65}
 # (SHORT_CLAUSE simvoldan az: «Sabah,», «çərşənbə,», mötərizədəki söz) sonra BREATH_SHORT — sadalama doğranmış kimi səslənməsin.
 BREATH_SHORT = 0.18
 SHORT_CLAUSE = 14
-# Kəsim (2026-11-25, SARA ilə yerli ölçü, 5 cümlə, 14 nəfəs): yalnız boşluq tokeninin içində axtaranda kəsimlərin yarısı
-# səsin ortasına düşürdü (−4…+3 dB, saitdən saitə keçid: «xəzri | əsəcək», «ki | bu»). Axtarış indi əvvəlki sözün son hərfinin
-# ortasından növbəti sözün ilk hərfinin ortasına qədərdir. Modelin özünə fasilə etdirmək alınmadı: boşluq, boş token, «–», «_»
-# uzadılanda model sükut yox, uzanmış səs verir (14 yerdən 2-də sakit). Sakit yer tapılmayanda (saitdən saitə) sönmə uzundur —
-# söz qəfil kəsilmir, yavaşca bitir.
-# Ölçü (həmin 7 cümlə, 16 nəfəs): geniş axtarışla 5 kəsim sakit yerdədir (< −30 dB), 11-i səsin içində (−20…+1 dB).
+# Kəsim (2026-11-25, SARA ilə yerli ölçü). Kəsim yalnız iki sözün arasındadır: əvvəlki sözün son hərfi bitəndən növbəti sözün
+# ilk hərfi başlayana qədər (modelin öz müddətləri ilə), orada ən sakit an. Sönmə və açılma da bu aralıqdan çıxmır — hərfə
+# toxunmur. Əvvəlki variant (sahib, 2026-11-25: «iyirmibeş sözünü dinlə. azərtacdan sonra nə deyir dinlə») son hərfin ortasından
+# axtarır və 50 ms söndürürdü: qısa söz yeyilirdi — «ki,» → «k», «Qubada 10,» → «Qubada o». Modelin özünə fasilə etdirmək
+# alınmadı: boşluq, boş token, «–», «_» uzadılanda model sükut yox, uzanmış səs verir (14 yerdən 2-də sakit).
 FADE_S = 0.012      # sakit kəsimdə (QUIET_DB-dən aşağı) hər tərəfdə sönmə/açılma: çıqqıltı olmasın
-FADE_OUT_SOFT = 0.05   # səsin içində kəsimdə: söz yavaşca bitir (danışıqda fasilədən əvvəl səs belə sönür)
-FADE_IN_SOFT = 0.02    # və növbəti söz qısa açılma ilə başlayır
+FADE_OUT_SOFT = 0.03   # səsin içində kəsimdə (saitdən saitə keçid): keçid yavaşca sönür
+FADE_IN_SOFT = 0.015   # və növbəti söz qısa açılma ilə başlayır
+FADE_MIN = 0.004       # aralıq dar olanda da ən azı bu qədər (çıqqıltı olmasın)
 QUIET_DB = -30.0
 QUIET_S = 0.010     # ən sakit an bu uzunluqda pəncərə ilə (dörddə bir addımla) axtarılır
 EMPTY_PAUSE = 0.3   # söz yoxdursa (yalnız durğu) qısa sükut
+LETTER_MAX = 6      # hərfin ən uzun müddəti, kadr (16 ms; video tempində) — Sara, cap_letters
 LOWER_START = re.compile(r"\s*[«\"“]?[a-zçəğıöşü]")
 SENT_END = re.compile(r"[.!?…][\"»”)]*\s*$")
 
@@ -206,11 +230,12 @@ def quietest(a, lo, hi, sr):
 
 
 def breath_cuts(said, breaths, a, frames, tokens, sr):
-    """Nəfəslərin səsdəki yeri: [(simvol, nümunə, sükutun nümunəsi, səviyyə dB)], artan sıra ilə. Yalnız modelin öz müddətləri
-    ilə (frames). b — işarədən sonrakı boşluğun tokeni (işarəyə qədərki mətnin token sayı); tokenizer hərflərin arasına boş
-    token qoyursa (SARA: «ab» → [boş, a, boş, b, boş]) qonşu hərf iki addım uzaqdadır. Axtarış: əvvəlki sözün son hərfinin
-    ortasından növbəti sözün ilk hərfinin ortasına qədər, ən sakit an. Səviyyə — kəsim yerinin səsi bütün səsləndirmənin
-    ortasına görə (mənfi — sakit). Müddət yoxdursa boş siyahı."""
+    """Nəfəslərin səsdəki yeri: [(simvol, nümunə, sükutun nümunəsi, səviyyə dB, sönmə, açılma)], artan sıra ilə. Yalnız modelin
+    öz müddətləri ilə (frames). b — işarədən sonrakı boşluğun tokeni (işarəyə qədərki mətnin token sayı); tokenizer hərflərin
+    arasına boş token qoyursa (SARA: «ab» → [boş, a, boş, b, boş]) qonşu hərf iki addım uzaqdadır. Axtarış yalnız iki sözün
+    arasındadır: əvvəlki sözün son hərfi bitəndən növbəti sözün ilk hərfi başlayana qədər, ən sakit an. Sönmə (nümunə ilə)
+    kəsimdən geriyə, açılma irəliyə — hər ikisi bu aralığın içində qalır (hərfə toxunmur), ən azı FADE_MIN. Səviyyə — kəsim
+    yerinin səsi bütün səsləndirmənin ortasına görə (mənfi — sakit). Müddət yoxdursa boş siyahı."""
     n = len(a)
     if not breaths or not frames or sum(frames) <= 0 or n <= 0 or n % sum(frames):
         return []
@@ -220,7 +245,7 @@ def breath_cuts(said, breaths, a, frames, tokens, sr):
     except Exception:  # noqa: BLE001
         step = 1
     at = lambda i: sum(frames[:i]) * spf                # noqa: E731 — i-ci tokenin başlanğıcı (nümunə)
-    half = lambda i: at(i) + frames[i] * spf // 2       # noqa: E731 — i-ci tokenin ortası
+    least = max(1, int(sr * FADE_MIN))
     for o, pause in breaths:
         try:
             b = tokens(said[:o])
@@ -228,21 +253,21 @@ def breath_cuts(said, breaths, a, frames, tokens, sr):
             continue
         if not step <= b < len(frames) - step:
             continue
-        cut = quietest(a, half(b - step), half(b + step), sr)
+        lo, hi = at(b - step + 1), at(b + step)          # son hərfin sonu … ilk hərfin başlanğıcı
+        cut = quietest(a, lo, hi, sr)
         if out and cut <= out[-1][1]:
             continue
         db = round(10 * math.log10(max(level(a, cut - w // 2, cut + w // 2), 1e-9) / whole), 1)
-        out.append((o, cut, int(sr * pause), db))
+        f_out, f_in = (FADE_S, FADE_S) if db < QUIET_DB else (FADE_OUT_SOFT, FADE_IN_SOFT)
+        out.append((o, cut, int(sr * pause), db, max(least, min(int(sr * f_out), cut - lo)), max(least, min(int(sr * f_in), hi - cut))))
     return out
 
 
 def splice(a, cuts, sr):
-    """Nəfəs yerlərinə sükut qoyur; kəsimdən əvvəl səs sönür, sonra açılır — çıqqıltı olmasın. Sakit kəsimdə hər ikisi qısadır
-    (FADE_S), səsin içində sönmə uzun (FADE_OUT_SOFT), açılma qısa (FADE_IN_SOFT). Qaytarır: PCM baytları."""
+    """Nəfəs yerlərinə sükut qoyur; kəsimdən əvvəl səs sönür, sonra açılır (breath_cuts-un verdiyi uzunluqla) — çıqqıltı
+    olmasın. Qaytarır: PCM baytları."""
     out, last = array.array("h"), 0
-    for _, cut, gap, db in cuts:
-        quiet = db < QUIET_DB
-        f_out, f_in = (max(1, int(sr * s)) for s in ((FADE_S, FADE_S) if quiet else (FADE_OUT_SOFT, FADE_IN_SOFT)))
+    for _, cut, gap, _db, f_out, f_in in cuts:
         k = min(f_out, cut - last)
         for i in range(k):
             a[cut - 1 - i] = a[cut - 1 - i] * i // k
@@ -279,7 +304,7 @@ def render(parts, voice, sr, davam=None, log=None):
                     chunk = splice(a, cuts, sr)
                 if log is not None:
                     shift = 0
-                    for _, cut, gap, db in cuts:
+                    for _, cut, gap, db, *_ in cuts:
                         log.append([pos + cut + shift, gap, db])
                         shift += gap
                     log.extend([None] * (len(breaths) - len(cuts)))
@@ -305,9 +330,25 @@ def render(parts, voice, sr, davam=None, log=None):
     return b"".join(pcm), spans, pos
 
 
+def cap_letters(log_dur, ids, skip, cap):
+    """Hərf tokenlərinin log-müddətini cap-dən yuxarı qaldırmır (boş token və boşluq — skip — toxunulmur). log_dur: tensor
+    (…, n), ids: n token. Qaytarır: (yeni tensor, neçə hərf qısaldıldı)."""
+    import torch
+
+    if not torch.is_tensor(log_dur) or log_dur.shape[-1] != len(ids):
+        return log_dur, 0
+    letter = torch.tensor([i not in skip for i in ids], dtype=torch.bool)
+    over = letter & (log_dur > cap)
+    n = int(over.sum())
+    return (torch.where(over, torch.full_like(log_dur, cap), log_dur) if n else log_dur), n
+
+
 class Sara:
     """SARA (VITS). Hər səsləndirmədə modelin hərf müddətləri (duration_predictor-un çıxışı) götürülür: qrupun vaxtını hissələrə
-    bölmək üçün. Alınmasa (model quruluşu başqadır) frames None olur, bölgü hərf payı ilə gedir."""
+    bölmək üçün. Alınmasa (model quruluşu başqadır) frames None olur, bölgü hərf payı ilə gedir.
+    Hərfin müddəti LETTER_MAX kadrdan uzun olmur (sahib, 2026-11-25: «azərtacdan sonra … anlamaq olmur»): model «AZƏRTAC xəbər
+    verir» cümləsində «xəbər»in «b»-sini hər dəfə 19–22 kadr (0,30–0,35 s) uzadırdı, söz tanınmırdı. Ölçü (2026-11-25, 5 mətn,
+    3 toxum, 1770 hərf): median 2 kadr, 99% — 5, yeganə uzun hərf həmin «b» idi. Boş token və boşluq toxunulmur (keçid və fasilə)."""
 
     def __init__(self, name=MODEL):
         import torch
@@ -318,11 +359,22 @@ class Sara:
         torch.manual_seed(8)  # eyni mətn — eyni səs
         self.tok, self.model = AutoTokenizer.from_pretrained(name), tune(VitsModel.from_pretrained(name).eval(), speaking_rate=VIDEO_RATE)
         self.sr = self.model.config.sampling_rate
-        self.log_dur = []
+        self.log_dur, self.ids = [], None
+        ids = self.tok("a").input_ids
+        self.skip = {ids[0], self.tok.convert_tokens_to_ids(" ")} if len(ids) == 3 else {self.tok.convert_tokens_to_ids(" ")}
+        self.capped = 0
         dp = getattr(self.model, "duration_predictor", None)
         if dp is not None:
-            dp.register_forward_hook(lambda _m, _i, out: self.log_dur.append(out))
+            dp.register_forward_hook(self._durations)
         self.used = {"müddət": 0, "pay": 0}
+
+    def _durations(self, _m, _i, out):
+        # forward hook: qaytarılan tensor modelin öz çıxışını əvəz edir. Müddət = ceil(exp(log) / sürət) ≤ LETTER_MAX.
+        if self.ids is not None:
+            out, n = cap_letters(out, self.ids, self.skip, math.log(LETTER_MAX * self.model.speaking_rate))
+            self.capped += n
+        self.log_dur.append(out)
+        return out
 
     def tokens(self, text):
         return int(self.tok(text, return_tensors="pt")["input_ids"].shape[-1])
@@ -332,6 +384,7 @@ class Sara:
 
         torch = self.torch
         inputs = self.tok(said, return_tensors="pt")
+        self.ids = inputs["input_ids"][0].tolist()
         self.log_dur.clear()
         with torch.no_grad():
             w = self.model(**inputs).waveform[0].numpy()
@@ -347,14 +400,108 @@ class Sara:
         return chunk, frames
 
 
+def babek_words(text):
+    """Babəkə gedən mətndə (for_voice) sözlər — Edge hər birinə bir WordBoundary verir (2026-11-25: 5 mətn, 79 söz, say eynidir;
+    durğu ayrıca söz deyil)."""
+    return [w for w in for_voice(text).split() if re.search(r"\w", w)]
+
+
+class Babek:
+    """Edge-in Babək səsi (edge-tts). say(mətn) → (PCM baytları BABEK_SR-də, [(söz, başlanğıc s, müddət s)])."""
+
+    sr = BABEK_SR
+
+    def __init__(self):
+        import edge_tts  # noqa: F401 — yalnız iş axınında quraşdırılır; yoxdursa main SARA-ya keçir
+
+        self.calls = 0
+
+    async def _stream(self, text):
+        import edge_tts
+
+        c = edge_tts.Communicate(text, BABEK_VOICE, rate=BABEK_RATE, boundary="WordBoundary")
+        audio, words = bytearray(), []
+        async for ch in c.stream():
+            if ch["type"] == "audio":
+                audio += ch["data"]
+            elif ch["type"] == "WordBoundary":
+                words.append((ch["text"], ch["offset"] / 1e7, ch["duration"] / 1e7))
+        return bytes(audio), words
+
+    def say(self, text):
+        err = None
+        for wait in BABEK_TRIES:
+            time.sleep(wait)
+            try:
+                mp3, words = asyncio.run(self._stream(text))
+                if not mp3 or not words:
+                    raise RuntimeError("boş cavab")
+                pcm = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", "pipe:0", "-f", "s16le", "-ac", "1", "-ar", str(self.sr), "pipe:1"],
+                                     input=mp3, capture_output=True, check=True).stdout
+                self.calls += 1
+                return pcm, words
+            except Exception as e:  # noqa: BLE001 — şəbəkə, Edge, ffmpeg: yenidən sınanır, sonra main SARA-ya keçir
+                err = e
+        raise RuntimeError(f"Babək: {err}")
+
+
+def render_babek(parts, voice, davam=None):
+    """Hissələr → (PCM, hər hissənin [başlanğıc, son] nümunə ilə, cəmi nümunə). Qruplar (eyni cümlənin hissələri, groups) bir
+    mətn kimi səslənir; qrupun səsi birinci sözdən BABEK_HEAD əvvəl, sonuncudan BABEK_TAIL sonra kəsilir, arxasınca videonun
+    cümlə fasiləsi. Qrupun içində hissənin sonu növbəti hissənin birinci sözünün başlanğıcıdır (Edge-in söz sərhədi); söz sayı
+    uyğun gəlməsə hərf payı ilə."""
+    sr, out, spans, pos = voice.sr, [], [None] * len(parts), 0
+    for idx in groups(parts, davam):
+        texts = [parts[i].strip() for i in idx]
+        text = " ".join(texts)
+        start = pos
+        if not babek_words(text):
+            gap = int(sr * EMPTY_PAUSE)
+            out.append(b"\x00\x00" * gap)
+            pos += gap
+            for i in idx:
+                spans[i] = [start, pos]
+            continue
+        pcm, words = voice.say(for_voice(text))
+        n = len(pcm) // 2
+        lo = max(0, int(sr * (words[0][1] - BABEK_HEAD)))
+        hi = min(n, max(lo, int(sr * (words[-1][1] + words[-1][2] + BABEK_TAIL))))
+        counts = [len(babek_words(t)) for t in texts]
+        edges, acc = [], 0
+        for c in counts[:-1]:
+            acc += c
+            if sum(counts) == len(words):
+                t = words[acc][1]
+            else:   # say uyğun deyil: hərf payı ilə birinci sözdən sonuncunun sonuna qədər
+                total = sum(len(" ".join(babek_words(x))) for x in texts) or 1
+                share = sum(len(" ".join(babek_words(x))) for x in texts[:len(edges) + 1]) / total
+                t = words[0][1] + share * (words[-1][1] + words[-1][2] - words[0][1])
+            edges.append(min(hi, max(lo, int(sr * t))) - lo)
+        gap = int(sr * VIDEO_PAUSE[PAUSE_SENTENCE])
+        out += [pcm[2 * lo:2 * hi], b"\x00\x00" * gap]
+        pos += (hi - lo) + gap
+        cuts = [start] + [start + e for e in edges] + [pos]
+        for j, i in enumerate(idx):
+            spans[i] = [cuts[j], max(cuts[j], cuts[j + 1])]
+    return b"".join(out), spans, pos
+
+
 def main(src, wav_out, json_out):
     with open(src, encoding="utf-8") as f:
         data = json.load(f)
     parts, davam = data["parts"], data.get("davam")
-    voice = Sara()
+    motor, voice, nefes = os.environ.get("VIDEO_SES_MOTOR", "babek").strip().lower() or "babek", None, []
+    if motor == "babek":
+        try:
+            voice = Babek()
+            pcm, spans, pos = render_babek(parts, voice, davam)
+        except Exception as e:  # noqa: BLE001 — edge-tts yoxdur, Edge cavab vermir: video SARA ilə səslənir
+            print(f"::warning::video_ses: Babək alınmadı ({str(e)[:200]}) — SARA ilə", file=sys.stderr)
+            motor = "sara"
+    if motor != "babek":
+        motor, voice = "sara", Sara()
+        pcm, spans, pos = render(parts, voice, voice.sr, davam, nefes)
     sr = voice.sr
-    nefes = []
-    pcm, spans, pos = render(parts, voice, sr, davam, nefes)
     qoyulan = [x for x in nefes if x]
     with wave.open(wav_out, "wb") as w:
         w.setnchannels(1)
@@ -363,11 +510,17 @@ def main(src, wav_out, json_out):
         w.writeframes(pcm)
     with open(json_out, "w", encoding="utf-8") as f:
         json.dump({"sr": sr, "duration": round(pos / sr, 3), "parts": [[round(s / sr, 3), round(e / sr, 3)] for s, e in spans],
-                   "nefes": {"yer": [[round(t / sr, 3), round(g / sr, 3), db] for t, g, db in qoyulan], "buraxilan": len(nefes) - len(qoyulan)}}, f)
+                   "motor": motor,
+                   "nefes": {"yer": [[round(t / sr, 3), round(g / sr, 3), db] for t, g, db in qoyulan], "buraxilan": len(nefes) - len(qoyulan)},
+                   "qisaldilan_herf": getattr(voice, "capped", 0)}, f)
     g = groups(parts, davam)
-    print(f"video_ses: {len(parts)} hissə, {len(g)} qrup ({sum(len(x) - 1 for x in g)} sərhəd cümlənin içində); "
+    if motor == "babek":
+        print(f"video_ses: Babək ({BABEK_VOICE}, {BABEK_RATE}) — {len(parts)} hissə, {len(g)} qrup, {voice.calls} səsləndirmə", file=sys.stderr)
+        return
+    print(f"video_ses: SARA — {len(parts)} hissə, {len(g)} qrup ({sum(len(x) - 1 for x in g)} sərhəd cümlənin içində); "
           f"modelin müddətləri {voice.used['müddət']}/{voice.used['müddət'] + voice.used['pay']} səsləndirmədə alındı; "
-          f"cümlə içində {len(qoyulan)} nəfəs qoyuldu, {len(nefes) - len(qoyulan)} buraxıldı", file=sys.stderr)
+          f"cümlə içində {len(qoyulan)} nəfəs qoyuldu, {len(nefes) - len(qoyulan)} buraxıldı; "
+          f"{getattr(voice, 'capped', 0)} hərf {LETTER_MAX} kadra qısaldıldı", file=sys.stderr)
 
 
 if __name__ == "__main__":
