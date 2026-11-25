@@ -156,7 +156,7 @@ Sahib, 2026-11-25: «sosial mediada videolara baxış var, lakin baxanlar hesaba
 - **Nişan** (`subBadge`): brend zolağının sağında kiçik «ABUNƏ OL», 3-cü saniyədən (`SUB_AT`) sonluğa qədər. Səbəb: çox baxan sona çatmır. Nişana 2 saniyə qalmayan qısa videoda yoxdur.
 - **Vəd** (`ABUNE`): abunə olan nə alacağını bilsin. Xəbər: «Ən vacib xəbərlər hər gün»; maraqlı: «Hər gün yeni maraqlı faktlar»; hava: «Hava proqnozu hər gün».
 - **Paylaşma mətni:** keçid sətrindən sonra bir sətir. Facebook: «<vəd> — səhifəmizi izləyin.»; Instagram və TikTok: «<vəd> — abunə olun: @8ulduz.az»; YouTube: «<vəd> — abunə olun: https://www.youtube.com/@8ULDUZ?sub_confirmation=1» (kanalı abunə pəncərəsi ilə açır; Shorts təsvirində keçid basılmır). Birinci sətir başlıq olaraq qalır: videonun altında o görünür.
-- `youtube.cjs` və `tiktok.cjs` iş axınında tək fayldır (sparse-checkout), ona görə vəd mətni onlarda da yazılıb (`VED`); testlər üçünün eyni qaldığını yoxlayır.
+- Vəd və bütün abunə sətirləri 2026-11-26-dan bir yerdədir: dil profili (`.github/video-dil/az.json`, aşağıda «Dil profili»). `youtube.cjs` və `tiktok.cjs` onu iş axınında özləri ilə yükləyir (sparse-checkout); əvvəl mətnin nüsxəsi onlarda ayrıca yazılmışdı (`VED`).
 
 Xəbər seçimi dəyişməyib: 19 videonun baxışı mövzudan çox yüklənmə vaxtı ilə bağlıdır (ilk günün videoları mövzudan asılı olmayaraq yüzlərlə, sonrakılar onlarla baxış alıb), mövzuya görə qayda üçün məlumat azdır.
 
@@ -196,6 +196,46 @@ Düzəliş (`video_ses.py` `sentences`, `breath_cuts`, `splice`):
 - Yoxlama: `video.json`-da `nefes` (hər nəfəsin anı, uzunluğu və kəsim yerinin səs səviyyəsi, dB — mənfi rəqəm sakit yer deməkdir; `buraxilan` — qoyula bilməyənlər); artefaktda `fasileler.txt` (ffmpeg `silencedetect`: videonun səsindəki bütün fasilələr).
 
 Saytın «Dinlə» səsi dəyişmir (`az_text.py` toxunulmayıb).
+
+## Dil profili (2026-11-26)
+
+Yol xəritəsinin 2-ci addımı (sahib, 2026-11-26: «Bəli, başla»): video sistemi dildən asılı deyil. Dilə bağlı hər şey bir fayldadır: `.github/video-dil/<kod>.json`. Faylı `.github/scripts/video-dil.cjs` oxuyur, Python tərəfi (`video_ses.py`, `video_dinle.py`) eyni faylı oxuyur. İşin dili `VIDEO_DIL`-dir, boşdursa `az`. Bu gün yalnız `az.json` var və videolar əvvəlki kimidir: azərbaycanca çıxışlar dəyişiklikdən əvvəlki nüsxə ilə tutuşdurulub, 56 çıxışdan 55-i hərfi-hərfinə eynidir. Tək fərq «maraqlı» videonun Gemini göstərişində bir sətir sonunun yeridir.
+
+Profildə olanlar:
+
+| Bölmə | Nə | Kim işlədir |
+|---|---|---|
+| `kod`, `locale`, `herf` | dilin kodu, böyük/kiçik hərf qaydası, mətnin bu dildə olduğunu tanıdan hərflər | hamısı |
+| `lent` | lentdən hansı dildə xəbər seçilir (`dil`), ən az neçə mənbə (`min_menbe`; Variables yenə üstələyir) | `sosial-video.cjs`, `social.cjs candidates` |
+| `video` | ekrandakı yazılar: nişanlar («Xəbər», «BİLİRDİNİZMİ?»), bölmə adları (`bolmeler`; boşdursa saytın öz adları), «ABUNƏ OL», «Mənbə», «Görüntü», «Ətraflı:», aylar, altyazını bölən bağlayıcılar | `video-xeber.cjs` |
+| `abune` | hər video növünün vədi və səsə gedən çağırış | video, səs, bütün paylaşım mətnləri |
+| `ses` | Edge səsi (`edge`), temp pillələri (`temp`), `vaxtlar.json` adı (`motor`), jurnaldakı ad (`ad`), mətnin hazırlanması (`metn`: `az_text` — rəqəm sözə; başqa dəyər — olduğu kimi), ehtiyat (`ehtiyat`: `sara` — yalnız azərbaycanca) | `video_ses.py` |
+| `dinle` | Whisper-in dili, müqayisə qaydası | `video_dinle.py` |
+| `ssenari` | diktor mətninin dili (Gemini-yə), yad əlifba (az: kiril), nisbi gün sözləri, ümumi etiketlər, protokol xəbərinin sözləri, kiril oxşarının latına çevrilməsi | `video-ssenari.cjs`, `video-maraqli.cjs` |
+| `maraqli` | rubrikanın və qrupların adı | `video-maraqli.cjs` |
+| `paylasim` | Facebook və Instagram mətni: etiketlər, «Ətraflı», kreditlər, abunə sətirləri | `sosial-video.cjs` |
+| `youtube`, `tiktok` | təsvir, teqlər, kanalın abunə keçidi, hesabın adı | `youtube.cjs`, `tiktok.cjs` |
+| `hava` | hava videosu bu dildə varmı | `sosial-video.cjs` |
+
+- **Yükləyicilər** (YouTube, TikTok) videonun dilini `video.json`-un `lang` sahəsindən götürür (video modulu profilin kodunu yazır). Profili olmayan dilin videosu (başqa iş axınları: icmal və s.) az profili ilə gedir.
+- **Gemini-yə göstəriş** azərbaycancadır (redaksiyanın dili). Profildən yalnız diktor mətninin dili, yad əlifba və nisbi gün sözləri gəlir. Montaj redaktorunun kadr yoxlaması daxili işdir, azərbaycanca qalır.
+- **Qırmızı xətt 2** hər dildə eynidir: lent də, mətn də saytın `policyViolation` qaydasından keçir (`content-policy.js` kiril yazılışlarını da tanıyır: «Азербайджан», «Алиев», «Баку»). Profil qaydanı dəyişmir.
+- **Yoxlama:** `tests/video-dil.test.cjs`.
+  - Hər profil `az.json` ilə eyni açarlardadır.
+  - Sınaq dilinin (`tests/fixtures/video-dil/xx.json`) videosunda, səs mətnində, ssenarisində və paylaşım mətnlərində azərbaycanca şablon qalmır.
+  - Profili işlədən skript qismən yüklənən (sparse-checkout) hər iş axınında profillər də yüklənir: sosial-video, youtube, tiktok, ses-lugat, video-arxiv. Yoxsa xəta yalnız main-də çıxardı.
+  - Səs tərəfi `tests/test_video_ses.py`-dədir: başqa dildə SARA işə düşmür, rəqəm az_text ilə çevrilmir. Dinləmə `tests/test_video_dinle.py`-dədir.
+
+**Yeni dil necə açılır:**
+1. `.github/video-dil/<kod>.json` yazılır (`az.json`-un nüsxəsi, bütün mətnlər tərcümə olunur). Bölmə adları (`video.bolmeler`) doldurulur. Edge səsi seçilir. `metn` az_text olmur, `ehtiyat` boş qalır.
+2. Nümunə video PR-da dinlənir (Whisper).
+3. Hesablar açılır.
+
+**3-cü addımda (ilk ikinci dil) qalanlar:**
+- **İş axını:** dil hələ ötürülmür, cədvəldə yalnız az var. Hər dil üçün ayrıca siyahı (keş), artefakt adı, YouTube/TikTok/Facebook açarları (sirlər) və Telegram lazımdır. Bunlar hesablar açılanda bağlanacaq: açarsız sınamaq olmur, az işinin açarlarına və siyahısına toxunmamalıdır.
+- **Hava videosu** yalnız azərbaycancadır (`hava: true`). Şəhər adlarının şəkilçiləri, külək və xəbərdarlıq cümlələri qrammatikadır, şablon deyil.
+- **Lentdən izah çıxaranda** abzasların reklam filtri («abunə ol», «bütün hüquqlar») və mövzu təkrarının söz siyahısı (`social.cjs` `STOP`) azərbaycancadır. Başqa dildə filtr bir az az süzür.
+- **Saytın «Video xəbərlər» zolağı** (`veb-video`) hələ dildən xəbərsizdir.
 
 ## Video modulu: `.github/scripts/video-xeber.cjs`
 

@@ -13,9 +13,12 @@
 //      olmalıdır, saytın qaydası (policyViolation) keçməlidir (video-ssenari.cjs checkText) — keçməsə növbəti mövzu;
 //   3) klip mövzunun öz adı ilə axtarılır (video-ssenari.cjs goruntu: uyğunluq, yad yer, montaj redaktoru); KLIP_MIN-dən azdırsa növbəti mövzu.
 // Mövzu növbəsi gündən asılıdır (hər gün başqa yerdən başlayır), son 3 gündə işlənən mövzu təkrarlanmır (sosial-video.cjs state.m).
+// Dil profili (2026-11-26, video-dil.cjs): mətnin dili, yad əlifba, rubrikanın və qrupların adları .github/video-dil/<VIDEO_DIL>.json-dandır.
+// Mövzu siyahısının azərbaycanca adları (MOVZULAR «az») yalnız göstərişdə və jurnalda gedir; fakt mənbəyi ingiliscə Vikipediyadır.
 "use strict";
 const fs = require("fs"), path = require("path");
 const VS = require("./video-ssenari.cjs");
+const { dil, fmt } = require("./video-dil.cjs");
 
 const LINK = "https://8ulduz.az/";
 const UA = "8ulduz-bot/1.0 (+https://8ulduz.az/haqqinda/)";
@@ -33,7 +36,7 @@ const POLICY = (() => { const t = fs.readFileSync(path.join(__dirname, "..", "..
 const AZ_TERMS = new RegExp(POLICY.azTerms, "i"), LEADER_TERMS = new RegExp(POLICY.leaderTerms, "i");
 function qayda(a, policy = () => false) {
   const text = `${clean(a.title)} ${clean(a.summary)}`;
-  return AZ_TERMS.test(text) || LEADER_TERMS.test(text) || Boolean(policy({ ...a, source: "8ULDUZ", sourceUrl: LINK, category: "maraqli", lang: "az" }));
+  return AZ_TERMS.test(text) || LEADER_TERMS.test(text) || Boolean(policy({ ...a, source: "8ULDUZ", sourceUrl: LINK, category: "maraqli", lang: dil().kod }));
 }
 
 // Axtarış ifadəsinin SONUNCU sözü klipin etiketində olmalıdır (video-ssenari.cjs relevance): ifadələr mövzunun öz adı ilə bitir.
@@ -121,7 +124,8 @@ const MOVZULAR = [
   M("tutulma", "Günəş tutulması", "Solar eclipse", ["solar eclipse", "eclipse"], "kosmos"),
   M("dumanliq", "Dumanlıq", "Nebula", ["nebula"], "kosmos"),
 ];
-const QRUP = { heyvan: "Heyvanlar aləmi", tebiet: "Təbiət", kosmos: "Kosmos" };
+// Qrupların adı profildədir (maraqli.qruplar); QRUP — az profilininki.
+const QRUP = dil("az").maraqli.qruplar;
 
 // Bu gün sınanacaq mövzular, sıra ilə: hər gün başqa yerdən başlayır (gün × 7), son 3 gündə işlənənlər (istifade: mövzu id-ləri) yoxdur.
 function novbe(now, istifade = new Set(), list = MOVZULAR) {
@@ -143,27 +147,32 @@ async function fakt(wiki, f = globalThis.fetch) {
   } catch { return ""; }
 }
 
-const PROMPT = `Sən 8ulduz.az saytının «Maraqlı» video rubrikasının redaktorusan. Mövzu: {az} (ingiliscə: {wiki}).
-Aşağıda Vikipediyanın ingiliscə məqaləsindən çıxarış var. Ondan 35–45 saniyəlik şaquli video (Reels, Shorts, TikTok) üçün Azərbaycan
-ədəbi dilində mətn yaz. Tamaşaçı lentdə sürüşdürür: ilk saniyədə dayanıb baxmalıdır.
+// Göstəriş azərbaycancadır; mətnin dili, yad əlifba və nisbi gün sözləri profildən ({dil}, {yad}, {nisbi}, {etiket_dili}).
+const PROMPT_SABLON = `Sən 8ulduz.az saytının «Maraqlı» video rubrikasının redaktorusan. Mövzu: {az} (ingiliscə: {wiki}).
+Aşağıda Vikipediyanın ingiliscə məqaləsindən çıxarış var. Ondan 35–45 saniyəlik şaquli video (Reels, Shorts, TikTok) üçün
+{dil} mətn yaz. Tamaşaçı lentdə sürüşdürür: ilk saniyədə dayanıb baxmalıdır.
 - title: 25–90 hərf — mövzunun ən heyrətamiz bir faktı, mövzunun adı ilə (məsələn «Gepard 3 saniyədə saatda 100 kilometr sürətə çatır»).
   Sonunda nöqtə, sual, nida yoxdur.
 - text: 5–7 cümlə, 450–700 simvol. Hər cümlə bir maraqlı fakt; sadə, canlı dil, uşaq da başa düşsün. Başlığı təkrarlama.
 - Hər rəqəm çıxarışda olmalıdır. Vahidi özün çevirmə: çıxarışda kilometr varsa kilometr yaz, mili kilometrə çevirmə. Çıxarışda olmayan
   fakt yazma, «alimlər hesab edir» kimi ümumi sözlərlə doldurma.
-- Nida, sual işarəsi, keçid, kiril hərfi, inisial yoxdur. «bu gün», «dünən», «sabah» yoxdur.
+- Nida, sual işarəsi, keçid{yad}, inisial yoxdur. {nisbi} yoxdur.
 - Azərbaycan, Ermənistan, Qarabağ, siyasət, din, müharibə, ölüm və qan mövzusu yoxdur.
-- etiket: 3 etiket, # işarəsiz, Azərbaycan dilində, boşluqsuz (məsələn gepard, heyvanlar, maraqlıfaktlar).
+- etiket: 3 etiket, # işarəsiz, {etiket_dili}, boşluqsuz (məsələn gepard, heyvanlar, maraqlıfaktlar).
 Yalnız JSON qaytar: {"title": "...", "text": "...", "etiket": ["...", "...", "..."]}
 
 Çıxarış:
 {source}`;
+const promptOf = (D = dil()) => fmt(PROMPT_SABLON, { dil: D.ssenari.dil, yad: D.ssenari.yad_herf ? `, ${D.ssenari.yad_herf_adi}` : "",
+  nisbi: D.ssenari.nisbi_gun_misal, etiket_dili: D.ssenari.etiket_dili });
+const PROMPT = promptOf(dil("az"));
 
 // Başlığın yoxlaması (mətnin yoxlaması video-ssenari.cjs checkText-dir): uzunluq, işarə, kiril, mənbədə olmayan rəqəm, saytın qaydası.
 function checkTitle(title, source, policy = () => false) {
   if (title.length < TITLE[0] || title.length > TITLE[1]) return `başlıq ${title.length} hərf (${TITLE[0]}–${TITLE[1]})`;
   if (/[!?]|https?:|www\./.test(title)) return "başlıqda nida, sual və ya keçid";
-  if (/[Ѐ-ӿ]/.test(title)) return "başlıqda kiril hərfi";
+  const D = dil();
+  if (D.re.yadHerf?.test(title)) return `başlıqda ${D.ssenari.yad_herf_adi}`;
   const have = new Set((source.match(/\d+(?:[.,]\d+)*/g) || []).map(n => n.replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".")));
   const extra = (title.match(/\d+(?:[.,]\d+)*/g) || []).map(n => n.replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".")).filter(n => !have.has(n));
   if (extra.length) return `başlıqda mənbədə olmayan rəqəm: ${extra.slice(0, 3).join(", ")}`;
@@ -176,12 +185,12 @@ async function ssenari(m, source, { env = process.env, fetch: f = globalThis.fet
   const key = env.GEMINI_API_KEY;
   if (!key) { log("maraqlı video: GEMINI_API_KEY yoxdur"); return null; }
   if (source.length < SOURCE_MIN) return { uygun: false, sebeb: "Vikipediya mətni qısadır və ya alınmadı" };
-  const raw = await VS.gemini(PROMPT.replace("{az}", m.az).replace("{wiki}", m.wiki).replace("{source}", source), key, f, log, env);
+  const raw = await VS.gemini(promptOf().replace("{az}", m.az).replace("{wiki}", m.wiki).replace("{source}", source), key, f, log, env);
   if (raw == null) return null;
   let j = null;
   try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
-  const title = VS.latin(clean(j?.title)).replace(/[.。]+$/, ""), text = VS.latin(clean(j?.text));
-  const a = { title, category: "maraqli", lang: "az", source: "Vikipediya", sourceUrl: wikiUrl(m.wiki) }, q = x => qayda(x, policy);
+  const title = VS.dilLatin(clean(j?.title)).replace(/[.。]+$/, ""), text = VS.dilLatin(clean(j?.text));
+  const a = { title, category: "maraqli", lang: dil().kod, source: "Vikipediya", sourceUrl: wikiUrl(m.wiki) }, q = x => qayda(x, policy);
   const why = !title || !text ? "cavab boşdur və ya JSON deyil" : checkTitle(title, source, q) || VS.checkText(text, source, a, q);
   if (why) return { uygun: false, sebeb: why };
   const etiket = VS.hashtags(j?.etiket);
@@ -207,13 +216,13 @@ async function hazirla({ now = Date.now(), env = process.env, fetch: f = globalT
       log(`maraqlı video: ${m.az} ötürülür — uyğun görüntü ${klip.length} klip (ən az ${KLIP_MIN})`);
       continue;
     }
-    const day = new Date(now + 4 * 3600e3).toISOString().slice(0, 10);
+    const day = new Date(now + 4 * 3600e3).toISOString().slice(0, 10), D = dil();
     return { tur: "maraqli", kind: "maraqli", id: `maraqli-${m.id}-${day}`, movzu: m.id, title: sc.title, text: sc.text, summary: sc.text,
-      category: "maraqli", bolme: "Maraqlı", qrup: QRUP[m.qrup] || "", lang: "az", source: "Vikipediya", sourceUrl: wikiUrl(m.wiki),
+      category: "maraqli", bolme: D.maraqli.bolme, qrup: D.maraqli.qruplar[m.qrup] || "", lang: D.kod, source: "Vikipediya", sourceUrl: wikiUrl(m.wiki),
       link: LINK, url: LINK, publishedAt: new Date(now).toISOString(), ...(sc.etiket ? { hashtags: sc.etiket } : {}), klip };
   }
   log("maraqlı video: uyğun mövzu tapılmadı");
   return null;
 }
 
-module.exports = { qayda, MOVZULAR, QRUP, novbe, fakt, ssenari, checkTitle, hazirla, PROMPT, LINK, wikiUrl, apiUrl, KLIP_MIN };
+module.exports = { qayda, MOVZULAR, QRUP, novbe, fakt, ssenari, checkTitle, hazirla, PROMPT, promptOf, LINK, wikiUrl, apiUrl, KLIP_MIN };

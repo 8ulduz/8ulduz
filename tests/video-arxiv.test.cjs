@@ -348,7 +348,13 @@ test("arxiv: the library lives outside main — history-less video-arxiv branch;
   assert.match(wf, /cron: "2 9 \* \* 1,4"/);
   assert.ok(!read(".github/scripts/pipeline.sh").includes("video-arxiv"), "xəbər axınına toxunulmur");
   const sv = read(".github/workflows/sosial-video.yml");
-  assert.match(sv, /git fetch -q --depth 1 origin video-arxiv/);
+  // Budaq tam adı ilə (2026-11-26): «video-arxiv» buraxılışının eyni adlı teqi qısa adda budaqdan öndə gəlir — fetch teqi götürürdü,
+  // 2026-11-25-dən arxiv işi düşürdü, video isə budağın kitabxanasını oxumurdu (başlanğıc nüsxə ilə gedirdi).
+  assert.match(sv, /git fetch -q --depth 1 origin refs\/heads\/video-arxiv /);
+  assert.match(wf, /git fetch -q --depth 1 origin refs\/heads\/video-arxiv\n/);
+  for (const [name, y] of [["sosial-video.yml", sv], ["video-arxiv.yml", wf]]) {
+    assert.ok(!/git fetch[^\n]* origin video-arxiv\b/.test(y), `${name}: video-arxiv qısa adla çəkilmir (teq budaqdan öndə gəlir)`);
+  }
   assert.match(sv, /VIDEO_ARXIV_FAYL=/);
   assert.match(sv, /data\/video-arxiv\.json/);
   assert.match(sv, /\.github\/scripts\/video-arxiv\.cjs/);

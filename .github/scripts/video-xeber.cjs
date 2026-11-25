@@ -24,8 +24,11 @@
 //
 // Qırmızı xətt 2: giriş saytın öz qaydasından (app.js policyViolation) keçir — başlıq da, izah da; pozan xəbər üçün video olmur.
 // Qırmızı xətt 1 və 3-ə toxunmur: GitHub Actions-da ayrıca iş axınıdır (sosial-video.yml), sayta və xəbər axınına heç nə yazmır.
+// Dil profili (sahib, 2026-11-26, yol xəritəsinin 2-ci addımı): ekrandakı və səsdəki bütün yazılar (abunə çağırışı, nişanlar, mənbə,
+// aylar, bağlayıcılar) .github/video-dil/<VIDEO_DIL>.json-dandır (video-dil.cjs); boş — az. Burada dilə bağlı mətn yoxdur.
 "use strict";
 const fs = require("fs"), path = require("path"), os = require("os"), { spawnSync } = require("child_process");
+const { dil, fmt } = require("./video-dil.cjs");
 
 const ROOT = path.resolve(__dirname, "../..");
 const W = 1080, H = 1920, FPS = 30;
@@ -40,13 +43,10 @@ const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
 // zolaqda kiçik nişan (SUB_AT-dan sonluğa qədər — çox baxan sona çatmır). Hər video növünün öz vədi var: abunə olan nə alacağını bilsin.
 // Səs iki cümlədir (sahib, 2026-11-25: «Abunə ol deyib pauza vermir. belə oxuyanda nə dediyini tam başa düşmək olmur»): «Abunə olun.»
 // ayrıca cümlə kimi bitir, sonra cümlə fasiləsi, sonra vəd. Vergüllə yazılanda səs fasiləsiz oxuyurdu.
+// Vədlər profildədir (abune: { xeber, maraqli, hava } → { ved, say }); ABUNE — az profilininki (testlər və yükləyicilər müqayisə edir).
 const SUB_AT = 3;
-const ABUNE = {
-  xeber: { ved: "Ən vacib xəbərlər hər gün", say: "Abunə olun. Ən vacib xəbərlər hər gün burada." },
-  maraqli: { ved: "Hər gün yeni maraqlı faktlar", say: "Abunə olun. Hər gün yeni maraqlı faktlar burada." },
-  hava: { ved: "Hava proqnozu hər gün", say: "Abunə olun. Hava proqnozu hər gün burada." },
-};
-const abune = tur => ABUNE[tur] || ABUNE.xeber;
+const ABUNE = dil("az").abune;
+const abune = tur => { const a = dil().abune; return a[tur] || a.xeber; };
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
 const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", gray: "AFC0D8", box: "1A3563", blue: "1E4D8C", blue2: "2563EB" };
 // Yerləşmə (piksel, 1080×1920). Lentdə Reels ortadan 4:5-ə kəsilir (y 285…1635), tam ekranda yuxarıda ~170 px, aşağıda ~420 px,
@@ -57,7 +57,6 @@ const LF = { headY: 540, headMaxH: 290, sizes: [76, 70, 64, 58, 52], capY: 1150,
 const FONT = "Roboto";
 
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").replace(/ ([.,!?;:…])/g, "$1").trim();
-const MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"];
 
 // Mətnin təxmini eni (piksel). ASS-də şrift ölçüsü sətir hündürlüyüdür: Roboto Black və Medium-da ölçülmüş en ≈ 0,71 × ölçü ×
 // cədvəl (2026-11-22, CI kadrı: «nəticəsində 5 kəndin» 96-lıq başlıqda 676 px). En ~4% artıq sayılır: sətri özümüz bölürük (\N),
@@ -68,7 +67,7 @@ function charEm(ch) {
   if (/[ftr()[\]"«»“”\-–/]/.test(ch)) return 0.38;
   if (/[mwMWƏ—%@]/.test(ch)) return 0.9;
   if (/\d/.test(ch)) return 0.58;
-  if (ch !== ch.toLocaleLowerCase("az")) return 0.7;
+  if (ch !== ch.toLocaleLowerCase(dil().locale)) return 0.7;
   return 0.58;
 }
 const WEIGHT = { black: 1, bold: 1, medium: 1, regular: 0.97 };
@@ -106,17 +105,17 @@ function fitHeadline(title, sizes = [96, 88, 80, 72, 66, 60], maxH = L.headMaxH)
 // istənilən sözdən («Ərçivan | qəsəbəsindən» kimi ad birləşməsi az parçalansın). Hər altyazı ən çox CAP_LINES sətir.
 const CAP_SIZE = 62, CAP_LINES = 3, CAP_PAD = 16, CAP_W = TEXT_W - 2 * CAP_PAD;
 const SENT_SPLIT = /(?<!(?:^|[\s(])\p{Lu}\.)(?<=[.!?…]["»”)]?)\s+(?=["«“(]?[\p{Lu}\d])/u;   // «İ. Əliyev» inisialı cümlə sonu deyil
-const CONJ = /^(və|amma|lakin|ancaq|çünki|həmçinin|habelə|eləcə|bununla|həm|yaxud|ya|ki)$/u;
+// Bağlayıcılar (və, amma, …) profildədir: video.bagliyicilar → D.re.bagliyici.
 const capLines = s => wrap(s, CAP_SIZE, "medium", CAP_W).length;
 function splitSentence(words, k) {
   if (k <= 1 || words.length < 2) return [words.join(" ")];
-  const total = words.join(" ").length, target = total / k;
+  const total = words.join(" ").length, target = total / k, D = dil(), CONJ = D.re.bagliyici;
   let best = null, pos = 0;
   for (let i = 1; i < words.length; i++) {
     pos += words[i - 1].length + 1;
     const head = words.slice(0, i).join(" ");
     if (capLines(head) > CAP_LINES) break;
-    const cost = Math.abs(pos - target) + (/[,;:]$/.test(words[i - 1]) ? 0 : CONJ.test(words[i].toLocaleLowerCase("az")) ? 12 : 30);
+    const cost = Math.abs(pos - target) + (/[,;:]$/.test(words[i - 1]) ? 0 : CONJ.test(words[i].toLocaleLowerCase(D.locale)) ? 12 : 30);
     if (!best || cost < best.cost) best = { i, cost };
   }
   const i = best ? best.i : 1;
@@ -169,17 +168,17 @@ function bodyText(a) {
 
 const sourceNames = a => [...new Set([a.source, ...(Array.isArray(a.alts) ? a.alts.map(x => x?.source) : [])].map(clean).filter(Boolean))];
 function sourceLine(a) {
-  const names = sourceNames(a);
+  const names = sourceNames(a), v = dil().video;
   if (!names.length) return "";
-  if (names.length <= 2) return `Mənbə: ${names.join(", ")}`;
-  return `Mənbə: ${names.slice(0, 2).join(", ")} və daha ${names.length - 2} sayt`;
+  if (names.length <= 2) return fmt(v.menbe, { adlar: names.join(", ") });
+  return fmt(v.menbe_cox, { adlar: names.slice(0, 2).join(", "), n: names.length - 2 });
 }
 // Bakı vaxtı (UTC+4, yay vaxtı yoxdur).
 function bakuTime(iso) {
   const t = Date.parse(iso || "");
   if (!Number.isFinite(t)) return "";
   const d = new Date(t + 4 * 3600e3);
-  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}, ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  return `${d.getUTCDate()} ${dil().video.aylar[d.getUTCMonth()]}, ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 // Videonun mətn planı: ekranda nə yazılır, səsə nə gedir.
@@ -190,8 +189,10 @@ function prepare(a, opt = {}) {
   const head = footage ? fitHeadline(title, LF.sizes, LF.headMaxH) : fitHeadline(title);
   const sentences = captionSentences(bodyText(a)), chunks = sentences.flat();
   // Maraqlı videonun nişanı rubrikanın adıdır («Bilirdinizmi?»): başlıq faktın özüdür, nişan onu suala çevirir.
-  const label = tur === "maraqli" ? "BİLİRDİNİZMİ?" : clean(a.bolme || opt.cats?.find(c => c.slug === a.category)?.label || "Xəbər").toLocaleUpperCase("az");
-  const source = [sourceLine(a), footage ? `Görüntü: ${clean(a.goruntuMenbe) || "Pexels"}` : ""].filter(Boolean).join(" · ");
+  // Bölmənin adı: profildə video.bolmeler doludursa ondan (saytın bölmə adları azərbaycancadır), boşdursa (az) saytın öz adı.
+  const D = dil(), own = Object.keys(D.video.bolmeler).length ? D.video.bolmeler[a.category] : a.bolme || opt.cats?.find(c => c.slug === a.category)?.label;
+  const label = tur === "maraqli" ? D.video.maraqli : clean(own || D.video.xeber).toLocaleUpperCase(D.locale);
+  const source = [sourceLine(a), footage ? fmt(D.video.goruntu, { menbe: clean(a.goruntuMenbe) || "Pexels" }) : ""].filter(Boolean).join(" · ");
   // davam[i]: say[i] əvvəlki hissənin cümləsinin davamıdır — video_ses.py onları bir mətn kimi səsləndirir (sahib, 2026-11-25:
   // «sətirdən sətrə keçəndə mənasız pauza verir»). Cümləni altyazı özü bölür, ona görə burada dəqiq bilinir; mətndən təxmin
   // («Xudat | Məmmədovun», «azalaraq | 3 565,2 dollar» böyük hərflə, rəqəmlə başlayır) dörddə birini buraxırdı.
@@ -245,17 +246,19 @@ const rect = (w, h) => `m 0 0 l ${w} 0 ${w} ${h} 0 ${h}`;
 
 // Abunə çağırışı — xəbər, maraqlı və hava videosunda eyni (video-hava.cjs də bunları işlədir). «ABUNƏ OL»: narıncı qutuda tünd yazı
 // (BorderStyle 3: qutu yazının arxasındadır, kənar xətt onun boşluğudur). Üslub sətri hazır verilir: iki modulun üslub köməkçisi fərqlidir.
-const SUB_TEXT = "ABUNƏ OL";
+// Düymənin yazısı profildədir (video.abune_duyme); SUB_TEXT — az profilininki.
+const SUB_TEXT = dil("az").video.abune_duyme;
+const subText = () => dil().video.abune_duyme;
 const SUB_STYLE = (bgr => `Style: Sub,${FONT} Black,88,${bgr(COLOR.bg)},${bgr(COLOR.bg)},${bgr(COLOR.orange)},&H00000000,-1,0,0,0,100,100,0,0,3,28,0,5,${X0},${X0},0,1`)(hex => `&H00${assColor(hex).slice(2, 8)}`);
 // Zolağın sağında kiçik nişan: SUB_AT-dan sonluğa qədər, görünəndə bir dəfə böyüyüb qayıdır. Qısa videoda (nişana 2 s qalmırsa) yoxdur.
 function subBadge(dlg, out) {
   if (out < SUB_AT + 2) return;
-  dlg(2, SUB_AT, out + 0.3, "Sub", `{\\an6\\pos(${W - X0 - 12},${L.barY + L.barH / 2})\\fs34\\bord12\\fad(300,300)\\t(0,300,\\fscx112\\fscy112)\\t(300,600,\\fscx100\\fscy100)}${SUB_TEXT}`);
+  dlg(2, SUB_AT, out + 0.3, "Sub", `{\\an6\\pos(${W - X0 - 12},${L.barY + L.barH / 2})\\fs34\\bord12\\fad(300,300)\\t(0,300,\\fscx112\\fscy112)\\t(300,600,\\fscx100\\fscy100)}${assText(subText())}`);
 }
 // Sonluq: üstdə növün vədi, ortada düymə (iki dəfə «döyünür»), altda sayt sətri (alt — hazır ASS mətni).
 function subOutro(dlg, out, D, y, tur, alt) {
   dlg(3, out, D, "Outro", `{\\pos(540,${y - 170})\\fad(300,0)\\1c${assColor(COLOR.white)}}${assText(abune(tur).ved)}`);
-  dlg(3, out, D, "Sub", `{\\pos(540,${y})\\fad(300,0)\\t(0,350,\\fscx108\\fscy108)\\t(350,700,\\fscx100\\fscy100)\\t(1300,1650,\\fscx108\\fscy108)\\t(1650,2000,\\fscx100\\fscy100)}${SUB_TEXT}`);
+  dlg(3, out, D, "Sub", `{\\pos(540,${y})\\fad(300,0)\\t(0,350,\\fscx108\\fscy108)\\t(350,700,\\fscx100\\fscy100)\\t(1300,1650,\\fscx108\\fscy108)\\t(1650,2000,\\fscx100\\fscy100)}${assText(subText())}`);
   dlg(3, out, D, "Outro", `{\\pos(540,${y + 170})\\fad(300,0)\\fs48}${alt}`);
 }
 
@@ -322,7 +325,7 @@ function ass(p, tl) {
     dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + CAP_PAD},${capY + CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
   });
   // Sonluq: vəd, «ABUNƏ OL» düyməsi, altında sayt.
-  subOutro(dlg, out, D, L.outroY, p.tur, `Ətraflı: {\\1c${lit}}8ulduz{\\1c${white}}.az`);
+  subOutro(dlg, out, D, L.outroY, p.tur, `${assText(dil().video.etrafli)} {\\1c${lit}}8ulduz{\\1c${white}}.az`);
   return ["[Script Info]", "ScriptType: v4.00+", `PlayResX: ${W}`, `PlayResY: ${H}`, "WrapStyle: 0", "ScaledBorderAndShadow: yes", "YCbCr Matrix: TV.709", "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
@@ -471,12 +474,13 @@ function run(cmd, args, opt = {}) {
   return r.stdout;
 }
 
-// Səs: video_ses.py (Babək, alınmasa SARA). Alınmasa null — video səssiz hazırlanır.
+// Səs: video_ses.py (profilin Edge səsi — az: Babək; alınmasa profilin ehtiyatı — az: SARA). Alınmasa null — video səssiz hazırlanır.
 function voice(p, dir, log) {
   const parts = path.join(dir, "ses-hisseler.json"), wav = path.join(dir, "ses.wav"), times = path.join(dir, "ses.json");
   // max_s: səs bundan uzun olsa video_ses.py (Babək) bir az tez oxuyur — sondakı altyazılar düşməsin (timeline: səsdən sonra
   // GAP_S + sonluğun artığı + 0,3 s).
-  fs.writeFileSync(parts, JSON.stringify({ parts: p.say, max_s: MAX_S - LEAD_S - 1, ...(Array.isArray(p.davam) && p.davam.length === p.say.length ? { davam: p.davam } : {}) }));
+  // dil: video_ses.py səsi (Edge səsi, temp, mətnin hazırlanması, ehtiyat) eyni profildən götürür.
+  fs.writeFileSync(parts, JSON.stringify({ parts: p.say, max_s: MAX_S - LEAD_S - 1, dil: dil().kod, ...(Array.isArray(p.davam) && p.davam.length === p.say.length ? { davam: p.davam } : {}) }));
   try {
     run(process.env.VIDEO_PYTHON || "python3", [path.join(__dirname, "video_ses.py"), parts, wav, times], { timeout: 600000 });
     const v = JSON.parse(fs.readFileSync(times, "utf8"));
@@ -488,12 +492,16 @@ function voice(p, dir, log) {
   }
 }
 
+// Jurnal üçün səsin adı: vaxtlar.json «motor» — profilin Edge səsi (az: babek → «Babək») və ya ehtiyat SARA.
+const sesAdi = m => (m === "sara" ? "SARA" : m === dil().ses.motor ? dil().ses.ad : String(m || "?"));
+
 // <çıxış>.json-dakı xəbər sahələri (TikTok yükləyicisi, PR 8ulduz/8ulduz#293, bunları oxuyur: text — mətn, own — öz videomuzdur).
 // own yalnız bu modulun hazırladığı videoda olur: içində xəbərin mətni və saytın dizaynı var, başqasının görüntüsü yoxdur.
 function storyFields(a) {
   const text = clean(a.text || "") || clean(a.summary || "");
   return { id: a.id, own: true, title: clean(a.title), summary: clean(a.summary || ""), text, source: a.source || "", sourceUrl: a.sourceUrl || "",
-    category: a.category || "", lang: a.lang || "az", publishedAt: a.publishedAt || "",
+    // lang: videonun dili (profil) — yükləyicilər (youtube.cjs, tiktok.cjs) mətni bu dilin profilindən yazır.
+    category: a.category || "", lang: dil().kod, publishedAt: a.publishedAt || "",
     // Maraqlı video (video-maraqli.cjs): növ və saytın keçidi YouTube/TikTok yükləyicisinə (xəbər deyil, paylaşma səhifəsi yoxdur).
     ...(a.kind === "maraqli" ? { kind: "maraqli", url: a.url || "https://8ulduz.az/" } : {}),
     ...(Array.isArray(a.hashtags) && a.hashtags.length ? { hashtags: a.hashtags.slice(0, 3) } : {}) };   // YouTube/TikTok yükləyicisi oxuyur
@@ -547,7 +555,7 @@ async function render(a, out, opt = {}) {
       ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, kesilen: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
-    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? `səsli (${v.motor === "babek" ? "Babək" : "SARA"})` : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.kesilen} kadr üfüqi, ağıllı kəsildi)` : "görüntüsüz"} — ${p.title}`);
+    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? `səsli (${sesAdi(v.motor)})` : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.kesilen} kadr üfüqi, ağıllı kəsildi)` : "görüntüsüz"} — ${p.title}`);
     return meta;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -557,7 +565,7 @@ async function render(a, out, opt = {}) {
 module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, captionSentences, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR,
   // Hava videosu (video-hava.cjs) eyni brendi, səsi, altyazını və kodlaşdırmanı işlədir: qayda iki yerdə yazılmır.
-  clean, voice, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W,
+  clean, voice, sesAdi, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W,
   // Abunə çağırışı: üç video növündə eyni düymə və nişan, hər növün öz vədi.
   ABUNE, abune, SUB_AT, SUB_TEXT, SUB_STYLE, subBadge, subOutro };
 

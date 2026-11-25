@@ -33,6 +33,8 @@ on:
   pull_request:
     paths:
       - .github/scripts/tiktok.cjs
+      - .github/scripts/video-dil.cjs
+      - .github/video-dil/**
       - .github/workflows/tiktok.yml
       - tests/tiktok.test.cjs
 
@@ -79,6 +81,8 @@ jobs:
           fetch-depth: 1
           sparse-checkout: |
             .github/scripts/tiktok.cjs
+            .github/scripts/video-dil.cjs
+            .github/video-dil/
             .github/scripts/topics.cjs
             assets/app.js
             assets/content-policy.js

@@ -1,0 +1,89 @@
+{
+  "kod": "xx",
+  "ad": "Sınaq dili (testlər üçün; hər mətn «XX» ilə başlayır)",
+  "locale": "en",
+  "herf": "[ẋ]",
+  "hava": false,
+  "lent": {
+    "dil": "xx",
+    "min_menbe": 1
+  },
+  "video": {
+    "xeber": "XX-NEWS",
+    "bolmeler": { "cemiyyet": "XX-SOCIETY", "idman": "XX-SPORT" },
+    "maraqli": "XX-DIDYOUKNOW",
+    "abune_duyme": "XX-SUBSCRIBE",
+    "menbe": "XX-Source: {adlar}",
+    "menbe_cox": "XX-Source: {adlar} +{n} XX-sites",
+    "goruntu": "XX-Footage: {menbe}",
+    "etrafli": "XX-More:",
+    "aylar": ["xx-jan", "xx-feb", "xx-mar", "xx-apr", "xx-may", "xx-jun", "xx-jul", "xx-aug", "xx-sep", "xx-oct", "xx-nov", "xx-dec"],
+    "bagliyicilar": ["xxand", "xxbut"]
+  },
+  "abune": {
+    "xeber": { "ved": "XX-news-promise", "say": "XX subscribe. XX news promise." },
+    "maraqli": { "ved": "XX-facts-promise", "say": "XX subscribe. XX facts promise." },
+    "hava": { "ved": "XX-weather-promise", "say": "XX subscribe. XX weather promise." }
+  },
+  "ses": {
+    "motor": "edgexx",
+    "ad": "XX-voice",
+    "edge": "xx-XX-TestNeural",
+    "temp": ["+0%"],
+    "metn": "plain",
+    "ehtiyat": ""
+  },
+  "dinle": {
+    "whisper": "en",
+    "metn": "plain"
+  },
+  "ssenari": {
+    "dil": "XX-language",
+    "etiket_dili": "XX-tag-language",
+    "dil_xetasi": "XX-not-in-language",
+    "yad_herf": null,
+    "yad_herf_adi": "",
+    "latin": false,
+    "nisbi_gun": "\\b(xxtoday|xxyesterday)\\b",
+    "nisbi_gun_misal": "«xxtoday», «xxyesterday»",
+    "etiket_umumi": ["8ulduz", "xxnews"],
+    "protokol": "(xxmet|xxreceived)"
+  },
+  "maraqli": {
+    "bolme": "XX-Interesting",
+    "qruplar": { "heyvan": "XX-Animals", "tebiet": "XX-Nature", "kosmos": "XX-Space" }
+  },
+  "paylasim": {
+    "etiketler": ["#8ulduz", "#xxnews"],
+    "maraqli_etiketler": ["#xxfacts", "#8ulduz"],
+    "etrafli": "XX-More: {link}",
+    "daha_cox": "XX-Even-more: {link}",
+    "profil_kecid": "8ulduz.az (XX-link-in-profile)",
+    "goruntu": "XX-Footage: {menbe}",
+    "maraqli_kredit": "XX-Data: Wikipedia — {url}",
+    "fb_abune": "{ved} — XX-follow-page.",
+    "ig_abune": "{ved} — XX-subscribe: @xx.8ulduz"
+  },
+  "youtube": {
+    "kanal": "https://www.youtube.com/@8ULDUZ-XX?sub_confirmation=1",
+    "abune": "{ved} — XX-subscribe: {kanal}",
+    "etrafli": "XX-More: {link}",
+    "menbe": "XX-Source: {adlar}",
+    "tagline": "8ulduz.az — XX-tagline.",
+    "hashtaglar": ["#8ulduz", "#xxnews", "#Shorts"],
+    "etiketler": ["8ulduz", "xx news"],
+    "nov_etiketleri": {
+      "maraqli": ["xx facts"],
+      "icmal": ["xx digest"],
+      "hava": ["xx weather"],
+      "valyuta": ["xx rates"],
+      "bazar": ["xx market"]
+    },
+    "bolme_etiketleri": { "cemiyyet": "xx society", "idman": "xx sport" }
+  },
+  "tiktok": {
+    "abune": "{ved} — XX-subscribe: @xx.8ulduz",
+    "etrafli": "XX-More: 8ulduz.az (XX-link-in-profile)",
+    "etiketler": ["#8ulduz", "#xxnews"]
+  }
+}

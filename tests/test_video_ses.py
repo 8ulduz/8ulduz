@@ -340,6 +340,54 @@ class BabekTest(unittest.TestCase):
         src = (ROOT / ".github" / "scripts" / "video-xeber.cjs").read_text(encoding="utf-8")
         self.assertIn("max_s: MAX_S - LEAD_S - 1", src, "video modulu səsin həddini verir")
 
+    def test_language_profile_voice(self):
+        """Dil profili (2026-11-26, .github/video-dil/<dil>.json «ses»): az profili bugünkü səsdir; başqa dildə Edge səsi, temp və
+        mətn profildəndir, rəqəm az_text ilə sözə çevrilmir, SARA (yalnız azərbaycanca) ehtiyat deyil — səs alınmasa video səssizdir."""
+        import tempfile
+
+        p = vs.profil()
+        self.assertEqual(p["kod"], "az")
+        self.assertEqual((p["ses"]["edge"], tuple(p["ses"]["temp"])), (vs.BABEK_VOICE, vs.BABEK_RATES))
+        self.assertEqual((p["ses"]["motor"], p["ses"]["metn"], p["ses"]["ehtiyat"]), ("babek", "az_text", "sara"))
+        keep = {k: os.environ.pop(k, None) for k in ("VIDEO_DIL", "VIDEO_DIL_QOVLUQ", "VIDEO_SES_MOTOR")}
+        real_b, real_s = vs.Babek, vs.Sara
+        parts = ["Qubada 25 nəfər toplaşıb.", "Abunə olun. Ən vacib xəbərlər hər gün burada."]
+
+        def run(data, babek, motor=None):
+            made = []
+            vs.Babek = lambda: made.append(babek()) or made[-1]
+            vs.Sara = lambda: self.fail("SARA bu dildə işə düşməməlidir")
+            if motor:
+                os.environ["VIDEO_SES_MOTOR"] = motor
+            with tempfile.TemporaryDirectory() as d:
+                src, wav, out = (pathlib.Path(d) / n for n in ("h.json", "s.wav", "v.json"))
+                src.write_text(json.dumps(data), encoding="utf-8")
+                vs.main(str(src), str(wav), str(out))
+                return json.loads(out.read_text(encoding="utf-8")), made[0] if made else None
+        try:
+            os.environ["VIDEO_DIL_QOVLUQ"] = str(ROOT / "tests" / "fixtures" / "video-dil")
+            v, edge = run({"parts": parts, "dil": "xx"}, FakeBabek)
+            self.assertEqual(v["motor"], "edgexx")
+            self.assertEqual((edge.voice, edge.rate), ("xx-XX-TestNeural", "+0%"))
+            self.assertIn("25", edge.texts[0], "az_text-siz dil: rəqəm olduğu kimi (Edge-in səsi özü oxuyur)")
+            self.assertEqual(len(v["parts"]), 2)
+            with self.assertRaises(RuntimeError):
+                run({"parts": parts, "dil": "xx"}, lambda: FakeBabek(fail=True))
+            with self.assertRaises(RuntimeError):
+                run({"parts": parts, "dil": "xx"}, FakeBabek, motor="sara")
+            os.environ.pop("VIDEO_SES_MOTOR", None)
+            os.environ.pop("VIDEO_DIL_QOVLUQ", None)
+            vs.Sara = real_s
+            v, edge = run({"parts": parts}, FakeBabek)      # dil verilməyib — az: Babək, rəqəm sözlə
+            self.assertEqual((v["motor"], edge.voice), ("babek", vs.BABEK_VOICE))
+            self.assertIn("iyirmi beş", edge.texts[0])
+        finally:
+            vs.Babek, vs.Sara, vs.EDGE_TEXT = real_b, real_s, vs.for_voice
+            for k, val in keep.items():
+                os.environ.pop(k, None)
+                if val is not None:
+                    os.environ[k] = val
+
     def test_babek_settings(self):
         self.assertEqual(vs.BABEK_VOICE, "az-AZ-BabekNeural", "saytın «Dinlə» səsi ilə eyni")
         self.assertTrue(vs.BABEK_RATE.startswith("-"), "Edge-in öz sürəti tezdir (154 söz/dəq) — video yavaş oxuyur")
@@ -384,8 +432,9 @@ class BreathTest(unittest.TestCase):
         return sum(v.dur(c) for c in text) * v.SPF
 
     def test_subscribe_call_is_its_own_sentence(self):
-        src = (ROOT / ".github" / "scripts" / "video-xeber.cjs").read_text(encoding="utf-8")
-        says = re.findall(r'say: "([^"]+)"', src)
+        # Çağırışın mətni 2026-11-26-dan dil profilindədir (video-xeber.cjs ABUNE = .github/video-dil/az.json «abune»).
+        prof = json.loads((ROOT / ".github" / "video-dil" / "az.json").read_text(encoding="utf-8"))
+        says = [prof["abune"][k]["say"] for k in ("xeber", "maraqli", "hava")]
         self.assertEqual(len(says), 3, "xəbər, maraqlı, hava")
         for s in says:
             items = vs.say_items(s)

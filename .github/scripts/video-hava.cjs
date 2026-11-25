@@ -590,7 +590,7 @@ async function render(p, out, opt = {}) {
       ...(clips.length ? { goruntu: clean(p.goruntuMenbe) || "Pixabay", klip: clips.length } : {}) };
     fs.writeFileSync(`${base}.json`, JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), `${base}.ass`);
-    log(`video: hava — ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length + 1} altyazı, ${v ? `səsli (${v.motor === "babek" ? "Babək" : "SARA"})` : "səssiz"}, ${clips.length ? `${clips.length} klip` : "görüntüsüz"} — ${p.title}`);
+    log(`video: hava — ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length + 1} altyazı, ${v ? `səsli (${V.sesAdi(v.motor)})` : "səssiz"}, ${clips.length ? `${clips.length} klip` : "görüntüsüz"} — ${p.title}`);
     return meta;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

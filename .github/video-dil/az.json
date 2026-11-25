@@ -1,0 +1,92 @@
+{
+  "kod": "az",
+  "ad": "Azərbaycan dili",
+  "locale": "az",
+  "herf": "[əğışçöüƏĞŞÇÖÜİ]",
+  "hava": true,
+  "lent": {
+    "dil": "az",
+    "min_menbe": 4
+  },
+  "video": {
+    "xeber": "Xəbər",
+    "bolmeler": {},
+    "maraqli": "BİLİRDİNİZMİ?",
+    "abune_duyme": "ABUNƏ OL",
+    "menbe": "Mənbə: {adlar}",
+    "menbe_cox": "Mənbə: {adlar} və daha {n} sayt",
+    "goruntu": "Görüntü: {menbe}",
+    "etrafli": "Ətraflı:",
+    "aylar": ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avqust", "sentyabr", "oktyabr", "noyabr", "dekabr"],
+    "bagliyicilar": ["və", "amma", "lakin", "ancaq", "çünki", "həmçinin", "habelə", "eləcə", "bununla", "həm", "yaxud", "ya", "ki"]
+  },
+  "abune": {
+    "xeber": { "ved": "Ən vacib xəbərlər hər gün", "say": "Abunə olun. Ən vacib xəbərlər hər gün burada." },
+    "maraqli": { "ved": "Hər gün yeni maraqlı faktlar", "say": "Abunə olun. Hər gün yeni maraqlı faktlar burada." },
+    "hava": { "ved": "Hava proqnozu hər gün", "say": "Abunə olun. Hava proqnozu hər gün burada." }
+  },
+  "ses": {
+    "motor": "babek",
+    "ad": "Babək",
+    "edge": "az-AZ-BabekNeural",
+    "temp": ["-10%", "-5%", "+0%"],
+    "metn": "az_text",
+    "ehtiyat": "sara"
+  },
+  "dinle": {
+    "whisper": "az",
+    "metn": "az_text"
+  },
+  "ssenari": {
+    "dil": "Azərbaycan ədəbi dilində",
+    "etiket_dili": "Azərbaycan dilində",
+    "dil_xetasi": "Azərbaycan dilində deyil",
+    "yad_herf": "[Ѐ-ӿ]",
+    "yad_herf_adi": "kiril hərfi",
+    "latin": true,
+    "nisbi_gun": "\\b(bu gün|dünən|sabah)\\b",
+    "nisbi_gun_misal": "«bu gün», «dünən», «sabah»",
+    "etiket_umumi": ["8ulduz", "xəbərlər", "azərbaycan", "shorts", "video"],
+    "protokol": "(qəbul edib|qəbul etdi|görüşüb|görüşdü|görüşəcək|telefon danışığı|telefonla danışıb|təbrik edib|təbrik məktubu|təbrik etdi|başsağlığı|məktub ünvanlayıb|danışıqlar aparıb)"
+  },
+  "maraqli": {
+    "bolme": "Maraqlı",
+    "qruplar": { "heyvan": "Heyvanlar aləmi", "tebiet": "Təbiət", "kosmos": "Kosmos" }
+  },
+  "paylasim": {
+    "etiketler": ["#8ulduz", "#xəbərlər", "#Azərbaycan"],
+    "maraqli_etiketler": ["#maraqlı", "#bilirdinizmi", "#8ulduz"],
+    "etrafli": "Ətraflı: {link}",
+    "daha_cox": "Daha çox: {link}",
+    "profil_kecid": "8ulduz.az (keçid profildədir)",
+    "goruntu": "Görüntü: {menbe}",
+    "maraqli_kredit": "Məlumat: Vikipediya — {url}",
+    "fb_abune": "{ved} — səhifəmizi izləyin.",
+    "ig_abune": "{ved} — abunə olun: @8ulduz.az"
+  },
+  "youtube": {
+    "kanal": "https://www.youtube.com/@8ULDUZ?sub_confirmation=1",
+    "abune": "{ved} — abunə olun: {kanal}",
+    "etrafli": "Ətraflı: {link}",
+    "menbe": "Mənbə: {adlar}",
+    "tagline": "8ulduz.az — 8 Ulduz (Səkkiz Ulduz) xəbər saytı: Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.",
+    "hashtaglar": ["#8ulduz", "#xəbərlər", "#Shorts"],
+    "etiketler": ["8ulduz", "8 ulduz", "səkkiz ulduz", "səkkizulduz", "8ulduz.az", "xəbər", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"],
+    "nov_etiketleri": {
+      "maraqli": ["maraqlı faktlar", "bilirdinizmi"],
+      "icmal": ["günün icmalı", "günün xəbərləri"],
+      "hava": ["hava proqnozu", "Bakı hava"],
+      "valyuta": ["valyuta məzənnəsi", "manat", "dollar məzənnəsi"],
+      "bazar": ["valyuta məzənnəsi", "neft qiyməti", "qızıl qiyməti"]
+    },
+    "bolme_etiketleri": {
+      "gundem": "gündəm", "siyaset": "siyasət", "iqtisadiyyat": "iqtisadiyyat", "dunya": "dünya xəbərləri", "idman": "idman xəbərləri",
+      "medeniyyet": "mədəniyyət", "heyat": "həyat", "cemiyyet": "cəmiyyət", "bolgeler": "bölgə xəbərləri", "hava": "hava proqnozu"
+    }
+  },
+  "tiktok": {
+    "abune": "{ved} — abunə olun: @8ulduz.az",
+    "etrafli": "Ətraflı: 8ulduz.az (keçid profildədir)",
+    "etiketler": ["#8ulduz", "#xəbərlər", "#Azərbaycan"]
+  }
+}
