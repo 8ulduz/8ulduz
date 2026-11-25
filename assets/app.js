@@ -2034,7 +2034,7 @@ function fbLeagues() {
 // Cədvəl hansı günün oyunlarına qədərdir.
 // Futbol bloku tənbəl modulda (futbol.js): yalnız blok çəkiləndə — panel açıq ikən və ya liqa səhifəsində — yüklənir, əsas kod ~5,6 KB yüngülləşir
 const loadFb = () => S.fbMod ||= import("./futbol.js").then(m => { S.fbView = m.view; requestRender(false); }).catch(() => { S.fbMod = null; });
-const fbHelpers = () => ({ S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, requestRender, FL, LIQA });
+const fbHelpers = () => ({ S, MONTHS, esc, sized, decode, lc, byDate, teamHref, teamSlug, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, requestRender, FL, LIQA });
 function footballBlock(list) {
   wantSports();
   loadFb();

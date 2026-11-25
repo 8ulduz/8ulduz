@@ -3702,3 +3702,50 @@ test('owner 2026-11-24: the article page plays the TV channel\'s own YouTube vid
   S.video = { items: [vid('tv3aaaaaaaa', 'ARB 24', 'Gəncədə qəza baş verib')] };
   assert.doesNotMatch(articleView('a'), /Telekanalda/, 'bir ortaq söz uyğunluq deyil');
 });
+
+// Liqa seçiləndə oyunlar və canlı hesab (sahib 2026-11-26: «İstənilən liqanı seçəndə cədvəlin altında və bölmədə oyunlar və canlı
+// skorlar olsun. Bu bütün turnirlərdə bu cür olsun»). Real fikstur: 2026-11-25 ÇL axşamı (tests/fixtures/canli_liqa, tests/oyunlar.test.cjs).
+const oyunMod = () => import(require('url').pathToFileURL(path.join(root, 'assets/oyunlar.js')).href);
+const clFix = f => JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/canli_liqa', f), 'utf8'));
+test('league page: games and live score sit under the table, before the news; the live copy also updates the table (owner 2026-11-26)', async () => {
+  const oy = await oyunMod();
+  const cl = clFix('cl.json'), patch = clFix('liqa-cl-2140.json');
+  const league = { id: 'cl', name: 'Çempionlar Liqası', short: 'ÇL', sport: 'football', source: cl.source, ready: [{ key: '2026', label: '2026/27' }, { key: '2025', label: '2025/26' }], teams: Object.keys(cl.teams) };
+  const ctx = teamPage({ 'data/futbol/index.json': { leagues: [league], checked: {} }, 'data/futbol/cl.json': cl, 'data/futbol/cl-2025.json': { ...cl, key: '2025', season: '2025/26' } });
+  const used = [];
+  ctx.oy = { ...oy, use: (doc, rerender) => { used.push([doc.id, typeof rerender]); return oy.merge(doc, { ...patch, groups: [{ name: '', rows: [{ ...patch.groups[0].rows[0], pts: 99 }] }] }); } };
+  vm.runInContext('S.oyun = oy', ctx);
+  const html = await teamHtml(ctx, { liga: 'cl' });
+  const table = html.indexOf('class="tm-table"'), games = html.indexOf('data-oy="cl"'), news = html.indexOf(': xəbərlər</h2>');
+  assert.ok(table > 0 && games > table && news > games, 'cədvəl → oyunlar → xəbərlər');
+  assert.ok(html.includes('● 7 canlı') && html.includes('>PSG</a><b>2 : 1</b>'), 'gedən oyunların canlı hesabı');
+  assert.ok(html.includes('<td class="pts">99</td>'), 'cədvəl canlı nüsxədən (main-in 10 dəqiqəlik yazılışını gözləmir)');
+  assert.deepEqual(used[0], ['cl', 'function'], 'səhifənin yenidən çəkilməsi oyunlar.js-ə ötürülür');
+  const past = await teamHtml(ctx, { liga: 'cl', season: '2025' });
+  assert.ok(!past.includes('data-oy='), 'keçən mövsümdə canlı blok yoxdur');
+  const club = await teamHtml(ctx, { liga: 'cl', team: 'paris-saint-germain' });
+  assert.ok(!club.includes('data-oy=') && club.includes('Növbəti oyunlar'), 'komanda səhifəsi öz oyun kartları ilə qalır');
+});
+test('football block: the selected league shows its games under the table — every league, Azerbaijani ones too (owner 2026-11-26)', async () => {
+  const ctx = app();
+  await withFb(ctx.api.S);
+  const oy = await oyunMod();
+  const cl = oy.merge(clFix('cl.json'), clFix('liqa-cl-2212.json')), asked = [];
+  ctx.api.S.oyun = { ...oy, league: id => { asked.push(id); return id === 'cl' ? cl : id === 'premyer-liqa' ? { ...cl, id: 'premyer-liqa' } : null; } };
+  ctx.api.S.football = { leagues: [{ project: 1, short: 'Premyer Liqa', league: 'Misli Premyer Liqası', table: [{ pos: 1, team: 'Sabah', pts: 20, p: 9, w: 6, d: 2, l: 1, gf: 15, ga: 7, gd: 8 }], results: [], fixtures: [] }] };
+  ctx.api.S.sports = { leagues: [{ id: 'uefa.champions', sport: 'football', name: 'Çempionlar Liqası', short: 'ÇL', season: '2026/27', groups: [{ name: 'League Phase', rows: [{ pos: 1, team: 'Real Madrid', p: 5, w: 5, d: 0, l: 0, gf: 18, ga: 8, gd: 10, pts: 15 }] }] },
+    { id: 'eng.1', sport: 'football', name: 'Premyer Liqa (İngiltərə)', short: 'İngiltərə', season: '2026/27', groups: [{ name: '', rows: [{ pos: 1, team: 'Arsenal', p: 12, w: 9, d: 2, l: 1, gf: 25, ga: 8, gd: 17, pts: 29 }] }] }] };
+  ctx.api.S.fbLeague = 1; ctx.api.S.fbTab = 0;
+  let html = ctx.api.footballBlock([]);
+  assert.ok(html.indexOf('data-oy="cl"') > html.indexOf('class="fb-pane"'), 'ÇL: cədvəlin altında');
+  assert.ok(html.includes('<h3>Bu gün, 26 noyabr</h3>') || html.includes('<h3>Son nəticələr</h3>'));
+  assert.equal(asked.at(-1), 'cl');
+  ctx.api.S.fbLeague = 2;
+  html = ctx.api.footballBlock([]);
+  assert.equal(asked.at(-1), 'ingiltere', 'İngiltərə: eyni yol, liqanın öz faylı');
+  assert.ok(html.includes('<div data-oy="ingiltere"></div>') && !html.includes('class="tm-sec oy"'), 'fayl gələnə qədər yer tutucu: modul bloku onun yerinə özü qoyur');
+  ctx.api.S.fbLeague = 0; ctx.api.S.fbTab = 'table';
+  html = ctx.api.footballBlock([]);
+  assert.equal(asked.at(-1), 'premyer-liqa', 'Azərbaycan liqası da');
+  assert.ok(html.indexOf('data-oy="premyer-liqa"') > html.indexOf('class="fb-pane"'));
+});

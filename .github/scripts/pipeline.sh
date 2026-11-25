@@ -200,6 +200,11 @@ push_live() {
   for name in reels canli; do   # canli: bu günün oyunları və canlı hesab (update_live_scores)
     [ -f "$WORK/data/$name.json" ] && cp "$WORK/data/$name.json" "$dir/"
   done
+  # Oyunu gedən liqanın cədvəli və oyunları (updater.write_live_leagues; sahib 2026-11-26: «oyunlar bitdi, 1 dəq keçdi, cədvəl
+  # dəyişmədi»): 10 dəqiqəlik main yayımını, Pages-i gözləmir. Qovluq data/-dan kənardadır: main-ə getmir. Yalnız yerli köçürmə.
+  for name in "$WORK"/canli/*.json; do
+    [ -f "$name" ] && cp "$name" "$dir/liqa-$(basename "$name")"
+  done
   for old in $(ls "$SLOTS" | sort -n | head -n -"$KEEP_SLOTS"); do
     rm -rf "${SLOTS:?}/$old"
   done
@@ -270,7 +275,11 @@ own_rows_live() {
 publish_main() {
   local i name
   for i in 1 2 3 4 5; do
-    timeout 90 git -C "$REPO_DIR" fetch -q origin "$BRANCH" || { sleep 4; continue; }
+    # --depth=1: iş fetch-depth 1 ilə başlayır (dayaz klon). PR main-ə birləşəndə ucda iki valideynli commit olur və adi fetch
+    # PR budağının köklü olduğu bütün tarixçəni (repo 1,2 GB) çəkməyə başlayırdı: 90 saniyədə bitmir, 5 cəhd səssiz düşür və
+    # iş bitənə qədər (~45 dəq) main-ə heç nə yazılmırdı (2026-11-25: 13:44, 19:22, 21:41 birləşmələrindən sonra; ÇL cədvəli
+    # oyun bitəndən 35 dəqiqə sonra dəyişdi). Dayaz fetch yalnız ucu gətirir, push valideyni serverdə olduğu üçün işləyir.
+    timeout 90 git -C "$REPO_DIR" fetch -q --depth=1 origin "$BRANCH" || { echo "main fetch alınmadı ($i)"; sleep 4; continue; }
     git -C "$REPO_DIR" reset -q --hard "origin/$BRANCH"
     mkdir -p "$REPO_DIR/data"
     cp -a "$GOOD/data/." "$REPO_DIR/data/"
@@ -310,6 +319,7 @@ publish_main() {
     echo "main push alınmadı, yenidən cəhd ($i)"
     sleep 4
   done
+  echo "::warning::main-ə yazılmadı (5 cəhd): sayt bu dövrəni main yayımı ilə almır"
   return 1
 }
 

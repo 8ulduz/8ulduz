@@ -1,5 +1,4 @@
-// Komanda səhifəsi (#/komanda/<liga>/<ad>): yalnız bu səhifə açılanda yüklənir.
-// Məlumat: data/futbol/ (updater.py update_team_pages, milli.cjs).
+// Komanda səhifəsi (#/komanda/<liga>/<ad>), yalnız açılanda. Məlumat: data/futbol/ (updater.py, milli.cjs).
 const DIR = "data/futbol/";
 const FILE_TTL = 10 * 60e3;
 const FAIL_WAIT = 30e3;
@@ -19,8 +18,7 @@ const BASKET = /basketbol|basketball|баскетбол|avroliqa|euroleague|ев
 const TOPIC_ALIAS = { "Internazionale": "İnter", "Paris Saint-Germain": "PSG" };
 const SUFFIX = "(?:in|nin|un|nun|ün|nün|ın|nın|a|e|i|u|ya|ye|ni|nu|na|ne|la|le|dan|den|ndan|nden|da|de|nda|nde|nı|nü|s|а|у|е|я|ю|ы|и|ь|ом|ем)?";
 
-// Milli komandalar: index-də «nat» yarışı (milli.cjs);
-// yarışı yoxdursa yalnız xəbərlər.
+// Milli komandalar: index-də «nat» yarışı (milli.cjs), yoxdursa yalnız xəbərlər.
 // Sətir: ad (app.js ilə eyni), az kök, türkcə, rusca yiyəlik hal.
 export const MILLI = "milli-komandalar";
 export const NAT = {
@@ -74,8 +72,7 @@ export function formOf(games, slug, n = 5) {
 }
 const byKick = (x, y) => (x.date || "9999").localeCompare(y.date || "9999");
 // Oynanmış və qarşıdakı oyunlar.
-// Saatı bilinməyən oyun (day: true) 12:00 UTC ilə yazılır (updater.py): o saat başlanğıc deyil. Belə oyun növbəti günün həmin saatınadək
-// «qarşıdakı» sayılır (NBA oyunu Bakı vaxtı ilə ertəsi gün səhər olur); əvvəl oyun günü 16:00-da siyahıdan çıxırdı.
+// Saatsız oyun (day: 12:00 UTC; NBA) ertəsi günün həmin saatınadək «qarşıdakı»dır (Bakıda səhər oynanır).
 export const kickPassed = (g, now = Date.now()) => !!g.date && new Date(g.date).getTime() + (g.day ? 864e5 : 0) <= now;
 export function splitGames(games, now = Date.now()) {
   const sorted = [...games].sort(byKick);
@@ -133,6 +130,8 @@ export function mountTeam(d) {
   d.S.tmDeps = d;
   const { S, esc, card, byDate, sized, shortDT, ordinal, ago, decode, clubMatches, topics, withArchive, loadArchive, months, requestJSON, freshUrl, requestRender } = d;
   const file = path => fileOf(S, path);
+  // Oyunlar, canlı hesab (oyunlar.js)
+  const oyun = () => S.oyun || void (S.oyunP ||= import("./oyunlar.js").then(m => { S.oyun = m; requestRender(false); }, () => { S.oyunP = null; }));
   const leaguePath = (league, key) => `${DIR}${league.id}${key === league.ready[0].key ? "" : `-${key}`}.json`;
   const href = (liga, slug, tab = "", key = "") => `#/komanda/${liga}/${encodeURIComponent(slug)}${tab ? `/${tab}` : ""}${key ? `?s=${key}` : ""}`;
   const logo = (url, size, name = "") => url ? `<img src="${esc(sized(url, size * 2, 1))}" alt="" width="${size}" height="${size}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="hide">` : `<span class="tm-nologo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px" aria-hidden="true">${esc([...name][0] || "")}</span>`;
@@ -208,7 +207,7 @@ export function mountTeam(d) {
   function newsOf(team, doc) {
     loadArchive("idman");
     if (doc?.nat) {
-            // Azərbaycan: «Milli komanda» mövzusu; qalanı «<ölkə> millisi».
+      // Azərbaycan: «Milli komanda» mövzusu; qalanı «<ölkə> millisi».
       const pool = withArchive("idman", S.data?.articles || []).filter(a => a.category === "idman");
       return byDate(team.name === "Azərbaycan" ? pool.filter(a => clubMatches(a, "Milli komanda")) : pool.filter(a => natRx(team.name).test(low(a))));
     }
@@ -221,7 +220,7 @@ export function mountTeam(d) {
       return topic ? clubMatches(a, topic) : !!rx?.test(decode(`${a.title} ${a.summary || ""}`));
     }));
   }
-    // Liqanın xəbərləri: klubları və liqanın adı; lent dəyişməyibsə keşdən.
+  // Liqanın xəbərləri: klubları və liqanın adı; lent dəyişməyibsə keşdən.
   const LEAGUE_NEWS = new Map();
   function leagueNews(doc) {
     loadArchive("idman");
@@ -266,7 +265,7 @@ export function mountTeam(d) {
       }
       const comp = nat.find(l => l.teams?.includes(r.team));
       if (!comp) {
-                // Yarışı olmayan milli komanda: yalnız xəbərlər.
+        // Yarışı olmayan milli komanda: yalnız xəbərlər.
         const name = NAT[r.team][0];
         document.title = `${name} millisi — 8ulduz`;
         return `<div class="page-h"><div><h1>${esc(name)} millisi</h1><p>Hazırda izlədiyimiz yarışda cədvəli yoxdur. Son xəbərlər:</p></div></div><p><a class="tm-league" href="${leagueHref(MILLI)}">← Milli komandalar</a></p>
@@ -280,18 +279,18 @@ export function mountTeam(d) {
     const key = league.ready.some(s => s.key === r.season) ? r.season : current;
     const main = file(leaguePath(league, key));
     if (!main.doc) return main.failed ? message("Komanda məlumatı açılmadı", "İnternet bağlantınızı yoxlayın. Səhifə özü yenidən cəhd edəcək.", home) : `<div class="tm-wait"><div class="skel" style="height:96px"></div><div class="skel" style="height:220px"></div></div>`;
-    const doc = main.doc, seasonKey = key === current ? "" : key;
+    const O = oyun(), doc = O ? O.use(main.doc, requestRender) : main.doc, seasonKey = key === current ? "" : key;
     const checked = index.doc.checked?.[league.id];
     const when = doc.asof ? asof(doc.asof) : "";
     const link = (url, text) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text);
     const named = x => link(x.source_url || x.url, x.source);
-        // Mənbə (lisenziya tələbi).
+    // Mənbə (lisenziya tələbi).
     const source = (list = [doc]) => `<p class="tm-src muted">Mənbə: ${[...[...new Map(list.map(x => [x.source, x])).values()].map(named), ...list.filter(x => x.source_url && x.url).slice(0, 1).map(x => link(x.url, "Vikipediya"))].join(", ")}${when ? ` · ${esc(when)}` : ""}${checked ? ` · yoxlanıb ${esc(ago(checked))}` : ""}</p>`;
     const slug = r.team;
     if (!slug || !doc.teams?.[slug]) {
-            // Komandasız ünvan: liqanın cədvəli.
+      // Komandasız ünvan: liqanın cədvəli.
       document.title = `${doc.name} — 8ulduz`;
-      return `<div class="page-h"><div><h1>${esc(doc.name)}</h1><p>${esc(doc.season)}${slug ? " · bu mövsüm komanda bu yarışda deyil" : ""}</p></div></div>${picker(index.doc, league, doc, slug && league.teams.includes(slug) ? slug : "", "cedvel", key)}<section class="tm-sec">${doc.groups?.length ? tablesHtml(doc, "", seasonKey) : clubList(doc)}</section>${seasonKey ? "" : `<section class="tm-sec"><div class="sec-h"><h2>${esc(doc.name)}: xəbərlər</h2></div>${newsBlock({ name: doc.name }, 0, "", doc, leagueNews(doc))}</section>`}${source()}`;
+      return `<div class="page-h"><div><h1>${esc(doc.name)}</h1><p>${esc(doc.season)}${slug ? " · bu mövsüm komanda bu yarışda deyil" : ""}</p></div></div>${picker(index.doc, league, doc, slug && league.teams.includes(slug) ? slug : "", "cedvel", key)}<section class="tm-sec">${doc.groups?.length ? tablesHtml(doc, "", seasonKey) : clubList(doc)}</section>${seasonKey ? "" : (O ? O.block(doc) : "") + `<section class="tm-sec"><div class="sec-h"><h2>${esc(doc.name)}: xəbərlər</h2></div>${newsBlock({ name: doc.name }, 0, "", doc, leagueNews(doc))}</section>`}${source()}`;
     }
     const team = doc.teams[slug];
     document.title = `${team.name} — 8ulduz`;
@@ -301,7 +300,7 @@ export function mountTeam(d) {
     const tab = TABS.some(([k]) => k === r.tab) && (r.tab !== "heyet" || hasSquad) && (r.tab !== "cedvel" || doc.groups?.length) && (r.tab !== "oyunlar" || hasGames) ? r.tab : "";
     const head = `<header class="tm-head">${logo(team.logo, 56, team.name)}<div><p><a class="tm-league" href="${leagueHref(league.id, seasonKey)}">${esc(doc.name)}</a>${esc(standingLine(doc, slug, ordinal).slice(doc.name.length))}${seasonKey ? ` · ${esc(doc.season)}` : ""}</p><h1>${esc(team.name)}</h1></div></header>`;
     const tabs = `<nav class="tm-tabs" aria-label="Komanda bölmələri">${TABS.filter(([k]) => (k !== "heyet" || hasSquad) && (k !== "cedvel" || doc.groups?.length) && (k !== "oyunlar" || hasGames)).map(([k, label]) => `<a href="${href(league.id, slug, k, seasonKey)}"${k === tab ? ` class="on" aria-current="page"` : ""}>${label}</a>`).join("")}</nav>`;
-        // Baxışda bütün yarışların oyunları, Oyunlar tabında seçilmiş yarış.
+    // Baxışda bütün yarışların oyunları, Oyunlar tabında seçilmiş yarış.
     const needGames = hasGames && tab === "";
     const others = needGames && !seasonKey ? otherLeagues(index.doc, league, slug).map(l => ({ l, f: file(leaguePath(l, l.ready[0].key)) })) : [];
     const docs = [doc, ...others.map(o => o.f.doc).filter(Boolean)];

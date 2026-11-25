@@ -22,7 +22,7 @@ async function liveLoad(rerender) {
   if (d && JSON.stringify(d.matches) !== JSON.stringify(live?.matches)) { live = d; rerender?.(false); }
 }
 export function view(h, list) {
-  const { S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, FL, LIQA } = h;   // bayraqlar və liqa adları app.js-dədir (menyu modulsuz da eyni görünür)
+  const { S, MONTHS, esc, sized, decode, lc, byDate, teamHref, safeHref, clubAz, ordTur, shortDT, OUT, txt, fbLeagues, FL, LIQA, teamSlug } = h;   // bayraqlar və liqa adları app.js-dədir (menyu modulsuz da eyni görünür)
   const asofLabel = d => { const [, m, day] = String(d).split("-").map(Number); return m && day ? `${day} ${MONTHS[m - 1]} oyunlarına qədər` : ""; };
   const GROUP_AZ = { "Eastern Conference": "Şərq", "Western Conference": "Qərb", "League Phase": "Liqa mərhələsi" };
   const FB_HEAD = '<table class="fb-table"><thead><tr><th>#</th><th>Komanda</th><th>O</th><th>Q</th><th>H</th><th>M</th><th>Qol</th><th>F</th><th>Xal</th></tr></thead><tbody>'; // futbol cədvəlinin başlığı (iki yerdə)
@@ -50,10 +50,9 @@ export function view(h, list) {
       const wteams = (groups[gi]?.rows || []).slice(0, 12).map(t => `<a href="${teamHref(fb, t.full || t.team)}" class="fb-team" title="${esc(t.full || t.team)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(t.team)}</span><span class="pts"><b>${fb.sport === "basketball" ? `${esc(t.w)}-${esc(t.l)}` : t.pts}</b> ${fb.sport === "basketball" ? "" : "xal"}</span></a>`).join("");
       return `<section class="foot"><div class="sec-h"><h2>${fb.sport === "basketball" ? "Basketbol" : "Futbol"}</h2><span class="cnt">${esc(fb.league)}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.asof ? ` · ${esc(asofLabel(fb.asof))}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link)}" target="_blank" rel="noopener noreferrer">Vikipediya ↗</a></div>
         ${picker}
-        ${fb.sport === "basketball" ? "" : leagueLive(fb)}
         <div class="strip"><div class="fb-teams">${wteams}</div></div>
         ${gtabs}
-        <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div></section>`;
+        <div class="fb-pane">${groups[gi] ? worldTable(fb, groups[gi]) : ""}</div>${games(fb)}</section>`;
     }
     const teams = fb.table.map(t => `<a href="${teamHref(fb, t.team)}" class="fb-team" title="${esc(t.team)}: ${esc(t.p)} oyun, ${esc(t.w)} Q · ${esc(t.d)} H · ${esc(t.l)} M, qol ${esc(t.gf)}:${esc(t.ga)}"><b class="pos">${esc(t.pos)}</b>${t.logo ? `<img src="${esc(sized(t.logo, 96, 1))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fail="rm">` : ""}<span class="nm">${esc(clubAz(t.team))}</span><span class="pts"><b>${esc(t.pts)}</b> xal</span></a>`).join("");
     const tabs = [["results", "Nəticələr", fb.roundPlayed], ["fixtures", "Təqvim", fb.roundNext], ["table", "Turnir cədvəli", ""], ["scorers", "Bombardirlər", ""]]
@@ -68,7 +67,7 @@ export function view(h, list) {
     return `<section class="foot"><div class="sec-h"><h2>Futbol</h2><span class="cnt">${esc(fb.league || "")}${fb.season ? ` · ${esc(fb.season)}` : ""}${fb.stale ? " · köhnə məlumat" : ""}</span><a class="more" href="${safeHref(fb.link || "https://pfl.az/")}" target="_blank" rel="noopener noreferrer">pfl.az ↗</a></div>
       ${picker}
       <div class="fb-top${teams ? "" : " noteams"}">${teams ? `<div class="strip"><div class="fb-teams">${teams}</div></div>` : ""}<nav class="fb-links" aria-label="Futbol bölmələri">${tabs}</nav></div>
-      <div class="fb-pane">${pane}</div>
+      <div class="fb-pane">${pane}</div>${games(fb)}
       ${news.length ? `<div class="foot-news">${news.map(a => `<a href="${safeHref(a.sourceUrl)}" ${OUT}>${txt(a.title)}</a>`).join("")}</div>` : ""}</section>`;
   }
   // 9-cu, 10-cu, 1-ci, 3-cü, 6-cı tur: sıra sayı şəkilçisi
@@ -93,18 +92,15 @@ export function view(h, list) {
   }
   const tm = d => { const x = new Date(d); if (Number.isNaN(+x)) return ""; const t = x.toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Baku" });
     const [, mo, dd] = bakuDay(x).split("-").map(Number); return bakuDay(x) === bakuDay(Date.now()) ? t : `${dd} ${String(MONTHS[mo - 1] || "").slice(0, 3)}, ${t}`; };
-  // Seçilmiş liqanın oyunları (sahib 2026-11-20: «ispanya italiya almanya ingiltərə portuqalya fransa … liqaların canlı hesabını»):
-  // canlılar, sonra növbəti 6 oyun, sonra son 6 nəticə — canli.json-dan (bir həftəlik pəncərə).
-  const LIVE_OF = { "eng.1": "PL", "eng.2": "ELC", "esp.1": "PD", "ita.1": "SA", "ger.1": "BL1", "fra.1": "FL1", "por.1": "PPL", "ned.1": "DED",
-    "bra.1": "BSA", "uefa.champions": "CL", "tur.1": "TSL", "rus.1": "RPL" };
-  function leagueLive(l) {
-    const code = LIVE_OF[l.id];
-    if (!code) return "";
-    const on = liveTick(), now = Date.now(), all = (live?.matches || []).filter(m => m.c === code);
-    const rows = [...all.filter(isLive), ...all.filter(m => m.s === "ns" && Date.parse(m.t) > now - 3 * 3600e3).sort((a, b) => a.t.localeCompare(b.t)).slice(0, 6),
-      ...all.filter(m => m.s === "ft").sort((a, b) => b.t.localeCompare(a.t)).slice(0, 6)];
-    if (!rows.length) return "";
-    return `<div style="margin:0 0 12px"><h3 style="margin:4px 0 2px;font-size:15px">${on && all.some(isLive) ? '<span style="color:#e11d48">● </span>Canlı və ' : ""}Oyunlar</h3><ul style="list-style:none;margin:0;padding:0;font-size:14px">${rows.map(li).join("")}</ul></div>`;
+  // Seçilmiş liqanın oyunları və canlı hesab cədvəlin altında (sahib 2026-11-26: «İstənilən liqanı seçəndə cədvəlin altında və
+  // bölmədə oyunlar və canlı skorlar olsun. Bu bütün turnirlərdə bu cür olsun»): hər liqa eyni qayda ilə oyunlar.js-dən (liqa
+  // səhifəsi də onu işlədir): liqanın faylı data/futbol/<liqa>.json, isti ikən dəqiqəlik canlı nüsxə. Əvvəlki 12 liqalıq
+  // xəritə (2026-11-20, yalnız canli.json-un turnirləri) çıxdı.
+  // Fayl gələnə qədər boş yer tutucu: modul faylı gətirib bloku onun yerinə özü qoyur (bütöv səhifə yenidən çəkilmir).
+  const oyun = id => S.oyun || void (S.oyunP ||= import("./oyunlar.js").then(m => { S.oyun = m; m.league(id); }, () => { S.oyunP = null; }));
+  function games(l) {
+    const id = teamSlug(l.short || "Premyer Liqa"), O = oyun(id), doc = O?.league(id);
+    return doc ? O.block(doc) : `<div data-oy="${esc(id)}"></div>`;
   }
   const st = m => m.s === "live" ? `<b style="color:#e11d48">● ${m.min ? esc(m.min) + "'" : "Canlı"}</b>` : m.s === "ht" ? '<b style="color:#e11d48">Fasilə</b>' : m.s === "ft" ? "Bitdi" : m.s === "pp" ? "Təxirə salınıb" : esc(tm(m.t));
   const sc = m => m.hs == null ? "–" : `${esc(m.hs)} : ${esc(m.as)}`;
