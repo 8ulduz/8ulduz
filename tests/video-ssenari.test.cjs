@@ -205,12 +205,13 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   }
   const args = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: "ses.wav", out: "o.mp4", clips: ["a.mp4", "b.mp4", "c.mp4"] });
   const inputs = args.filter((x, i) => args[i - 1] === "-i");
-  // 25 s-lik nümunədə 5 kadr (başlıq + altyazılar), 3 klip: sıra ilə, sonra təkrar.
-  assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "a.mp4", "b.mp4", "L.png", "ses.wav"]);
-  assert.equal(args.filter(x => x === "-stream_loop").length, 5, "qısa klip dövrə vurur");
+  // 21 s-lik nümunədə 4 kadr, 3 klip: sıra ilə, sonra təkrar. Başlıq oxunmur (sahib, 2026-11-24/25): onun 1 s-lik səssiz anı
+  // birinci altyazının kadrına birləşir (əvvəl başlıq oxunanda ayrıca kadr idi, 25 s-də 5 kadr).
+  assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "a.mp4", "L.png", "ses.wav"]);
+  assert.equal(args.filter(x => x === "-stream_loop").length, 4, "qısa klip dövrə vurur");
   const fc = args[args.indexOf("-filter_complex") + 1];
   assert.match(fc, /\[0:v\][^;]*scale=1080:1920:force_original_aspect_ratio=increase[^;]*crop=1080:1920/);
-  assert.match(fc, /\[c0\]\[c1\]\[c2\]\[c3\]\[c4\]concat=n=5:v=1:a=0/);
+  assert.match(fc, /\[c0\]\[c1\]\[c2\]\[c3\]concat=n=4:v=1:a=0/);
   // Hər klip kadrı tam doldurur (sahib, 2026-11-24: «üstündə yazılar olsa da video tam kart boyu olmalıdır»): üfüqi klip bulanıq
   // fonla sığdırılmır, hündürlüyü 1920-yə böyüdülür və 9:16 pəncərə ağıllı kəsimin yerindən (cx) kəsilir.
   const mixed = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
@@ -236,8 +237,8 @@ test("video: footage mode — clips fill 9:16 behind a dark headline band, capti
   assert.equal(V.focusX(Buffer.alloc(fw * fh * 3, 90), fw, fh, 0.316), 0.5, "boş (yeknəsəq) kadr: orta");
   assert.equal(V.focusX(Buffer.alloc(0), fw, fh, 0.316), 0.5);
   assert.equal(V.focusOf({ file: "x.mp4" }), 0.5, "ölçü yoxdursa ffmpeg çağırılmır");
-  assert.match(fc, /\[5:v\]scale=-1:80/, "loqo kadrlardan sonrakı girişdir");
-  assert.match(fc, /\[6:a\]/, "səs loqodan sonrakı girişdir");
+  assert.match(fc, /\[4:v\]scale=-1:80/, "loqo kadrlardan sonrakı girişdir");
+  assert.match(fc, /\[5:a\]/, "səs loqodan sonrakı girişdir");
   // Kliplər olmadan əvvəlki kimi: rəngli fon, loqo [1], səs [2].
   const plain = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4" });
   assert.match(plain[plain.indexOf("-filter_complex") + 1], /^\[0:v\]format=rgb24,ass=v\.ass\[t\];\[1:v\]scale[\s\S]*\[2:a\]aformat/);

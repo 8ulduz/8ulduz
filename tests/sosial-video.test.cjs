@@ -21,7 +21,9 @@ test("video: the plan — big headline that fits, full sentences only, captions 
   assert.equal(p.label, "CƏMİYYƏT", "bölmə adı böyük hərflə, Azərbaycan qaydası ilə (İ, Ə)");
   assert.equal(p.when, "22 noyabr, 13:14", "Bakı vaxtı (UTC+4)");
   assert.equal(p.source, "Mənbə: Day.Az, Azpolitika.info və daha 11 sayt");
-  assert.deepEqual(p.say[0], fixture.title, "səs başlıqla başlayır");
+  // Sahib 2026-11-24: «Başlıqları oxumasın»; 2026-11-25: «8ulduz videolarında başlıq oxunmamalı idi» — başlıq ekrandadır, səsdə yoxdur.
+  assert.ok(p.quietHead && !p.say.includes(fixture.title) && !p.say.some(x => x.includes(fixture.title)), "başlıq oxunmur");
+  assert.deepEqual(p.say.slice(0, -1), p.chunks, "səs izahın birinci altyazısı ilə başlayır");
   assert.match(p.say.at(-1), /səkkiz ulduz nöqtə az/, "sonda sayt adı səslənir");
   assert.equal(p.head.lines.join(" "), fixture.title, "başlıq kəsilmir");
   for (const l of p.head.lines) assert.ok(V.textWidth(l, p.head.size, "black") <= V.W - 2 * 72, `sətir sığır: ${l}`);
@@ -53,14 +55,14 @@ test("video: the explanation is cut at whole sentences; a source's «…» tail 
 test("video: parts of one sentence split by captions are marked as one breath for the voice (davam)", () => {
   const p = V.prepare(fixture, { cats });
   assert.equal(p.davam.length, p.say.length);
-  assert.deepEqual(p.davam, [false, false, true, false, false], "«…yol-nəqliyyat hadisəsi | nəticəsində…» bir cümlədir");
+  assert.deepEqual(p.davam, [false, true, false, false], "«…yol-nəqliyyat hadisəsi | nəticəsində…» bir cümlədir");
   assert.deepEqual(V.captionSentences(fixture.summary).flat(), V.captionChunks(fixture.summary), "altyazılar dəyişmir");
   const long = "Məhkəmədə ağır cinayətdə təqsirləndirilən və həbsdə saxlanılan keçmiş məmur Xudat Məmmədovun barəsindəki qərardan şikayət verilib, iş apellyasiya məhkəməsinə göndərilib. Növbəti iclas dekabrda olacaq.";
   const q = V.prepare({ ...fixture, summary: long }, { cats });
   const s = V.captionSentences(long);
   assert.ok(s[0].length > 1, "uzun cümlə bir neçə altyazıdır");
-  assert.deepEqual(q.davam, [false, ...s.flatMap(x => x.map((_, j) => j > 0)), false]);
-  assert.ok(q.davam.slice(1, -1).some(Boolean) && !q.davam[0] && !q.davam.at(-1), "başlıq və sonluq ayrıca səslənir");
+  assert.deepEqual(q.davam, [...s.flatMap(x => x.map((_, j) => j > 0)), false]);
+  assert.ok(q.davam.slice(0, -1).some(Boolean) && !q.davam[0] && !q.davam.at(-1), "birinci cümlə və sonluq ayrıca səslənir");
   assert.ok(read(".github/scripts/video-xeber.cjs").includes("davam: p.davam"), "voice() səs hissələrinə davam yazır");
 });
 
@@ -72,14 +74,18 @@ test("video: timing — reading speed without voice, the voice's own timing with
   for (let i = 1; i < t.chunks.length; i++) assert.ok(t.chunks[i].at[0] >= t.chunks[i - 1].at[1], "altyazılar üst-üstə düşmür");
   assert.ok(t.chunks.every(c => c.at[1] - c.at[0] >= 2.4), "hər altyazı oxunacaq qədər qalır");
   assert.ok(t.outro[0] >= t.chunks.at(-1).at[1] && t.duration >= t.outro[1]);
-  // Səsli: hissələrin vaxtı səs faylından, 0,35 s gecikmə ilə.
+  // Səsli: hissələrin vaxtı səs faylından; başlıq 1 s səssiz görünür (0,35 + 0,65), səs birinci altyazı ilə başlayır.
   const parts = p.say.map((_, i) => [i * 3, i * 3 + 2.5]);
   const tv = V.timeline(p, { parts });
-  assert.deepEqual(tv.head, [0.35, 2.85]);
-  assert.deepEqual(tv.chunks[0].at, [3.35, 5.85]);
-  assert.equal(tv.voiceCut.outroFrom, 0.35 + (p.say.length - 1) * 3);
+  assert.deepEqual(tv.head, [0, 1]);
+  assert.equal(tv.lead, 1);
+  assert.deepEqual(tv.chunks[0].at, [1, 3.5]);
+  assert.equal(tv.voiceCut.outroFrom, 1 + (p.say.length - 1) * 3);
+  assert.deepEqual(t.head, [0, 1], "səssiz planda da başlıq anı 1 s, sonra birinci altyazı");
+  assert.equal(t.chunks[0].at[0], 1);
   // Çox uzun səs: sondakı altyazılar düşür, sonluq qalır, video ≤ 59 s.
-  const slow = V.timeline(p, { parts: p.say.map((_, i) => [i * 14, i * 14 + 13]) });
+  // (başlıq səsdə yoxdur — hissə bir azdır: 17 s-lik hissələr 59 s-i keçir)
+  const slow = V.timeline(p, { parts: p.say.map((_, i) => [i * 17, i * 17 + 16]) });
   assert.ok(slow.duration <= V.MAX_S && slow.chunks.length < p.chunks.length && slow.chunks.length > 0);
   assert.ok(slow.outro[0] < slow.voiceCut.outroFrom, "sonluq səsi sonluğun başlanğıcına sürüşür");
   assert.equal(V.timeline(p, { parts: [[0, 1]] }).voiceCut, null, "hissə sayı uyğun deyilsə səs işlənmir (səssiz plan)");
@@ -139,7 +145,7 @@ test("video: encoder settings match Facebook/Instagram Reels and TikTok (9:16, H
   assert.equal(at("-c:v"), "libx264"); assert.equal(at("-pix_fmt"), "yuv420p"); assert.equal(at("-r"), "30"); assert.equal(at("-g"), "60");
   assert.equal(at("-c:a"), "aac"); assert.equal(at("-ar"), "48000"); assert.equal(at("-ac"), "2"); assert.equal(at("-movflags"), "+faststart");
   assert.equal(at("-t"), t.duration.toFixed(2));
-  assert.match(a[a.indexOf("-filter_complex") + 1], /adelay=350:all=1/, "səs 0,35 s sonra başlayır (başlıq görünəndə)");
+  assert.match(a[a.indexOf("-filter_complex") + 1], /adelay=1000:all=1/, "səs 1 s sonra başlayır: başlıq əvvəl səssiz görünür, oxunmur");
   assert.match(a[a.indexOf("-filter_complex") + 1], /loudnorm=I=-16/, "səs səviyyəsi sosial şəbəkə normasında");
   assert.equal(a.at(-1), "o.mp4");
   assert.equal(at("-metadata"), "comment=8ulduz.az", "öz videomuzun nişanı (TikTok yükləyicisi yalnız bunu göndərir)");
@@ -492,4 +498,22 @@ test("sosial-video.yml: the weather video — PR renders both samples; same chec
   assert.ok(wf.slice(wf.indexOf("- name: Siyahını saxla")).includes("        if: always() && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas)\n"));
   // Pəncərə qaydası (PR 303) dəyişmir: hava videosu eyni dispatch-lə, ayrıca döngü yoxdur.
   assert.ok(!/hava/i.test(read(".github/scripts/pipeline.sh").match(/video_loop\(\) \{[\s\S]*?\n\}\n/)[0]));
+});
+
+// Sahib 2026-11-25: «8ulduz videolarında başlıq oxunmamalı idi». Xəbər və maraqlı videoda (prepare: quietHead) başlıq yalnız ekrandadır;
+// hava videosunun birinci hissəsi başlıq deyil, giriş cümləsidir («Sabah, … hava belə olacaq.») — o, əvvəlki kimi oxunur.
+test("video: the headline is shown, never voiced; the weather video's spoken intro keeps its place", () => {
+  const p = V.prepare(fixture, { cats });
+  const parts = p.say.map((_, i) => [i * 2, i * 2 + 1.8]);
+  const tl = V.timeline(p, { parts });
+  assert.equal(tl.chunks.length, p.chunks.length, "hər altyazının öz səsi var, başlığa səs hissəsi ayrılmır");
+  const a = V.ass(p, tl);
+  assert.ok(a.split("\n").some(l => /^Dialogue: 3,0:00:00\.00,/.test(l) && l.includes(p.head.lines[0])), "başlıq birinci kadrdan ekrandadır");
+  const hava = { say: ["Sabah, 26 noyabr, cümə axşamı, hava belə olacaq.", "Bakıda hava buludlu olacaq.", "Ətraflı."], chunks: ["Bakıda hava buludlu olacaq."] };
+  const th = V.timeline(hava, { parts: [[0, 3], [3, 5], [5, 7]] });
+  assert.deepEqual(th.head, [0.35, 3.35], "hava videosu: giriş cümləsi oxunur (başlıq deyil)");
+  assert.equal(th.lead, 0.35);
+  assert.deepEqual(th.chunks[0].at, [3.35, 5.35]);
+  const src = read(".github/scripts/video-ssenari.cjs");
+  assert.ok(src.includes("başlıq ekranda yazılır, oxunmur") && !src.includes("ayrıca oxunur"), "diktor mətni başlığın oxunduğunu güman etmir");
 });
