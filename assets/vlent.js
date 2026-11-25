@@ -107,24 +107,32 @@ const card = (v, n) => {
   return `<div class="vl-c" data-n="${n}"><button type="button" class="vl-v" aria-label="${LABEL}">${src ? `<img src="${esc(src)}"${alt ? ` data-alt="${esc(alt)}"` : ""} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}<i class="vl-s">${esc(v.src)}</i><i class="vl-m">🔇</i><i class="vl-p">▶</i><span class="vl-bar"></span></button><a class="vl-t" href="${v.kind === "yt" ? `#/videolent?v=${encodeURIComponent(v.id)}` : "#/videolent"}" data-vl="${n}">${esc(v.title)}</a></div>`;
 };
 
-export async function mount(sec, S, still = () => false) {
-  if (sec._vl) return;
+// Zolaq yenilənir (sahib 2026-11-25: «saytdakı video xəbərlər niyə yenilənmir?»). Əvvəl kartlar səhifə açılanda bir dəfə qurulurdu:
+// telefonda sayt saatlarla açıq qalır (və ana səhifə geri qayıdanda yaddaşdan qoyulur), zolaq isə köhnə videoları göstərirdi; video
+// siyahısı (data/video.json) xəbərlərdən gec gələndə TV videoları heç düşmürdü. İndi FRESH-dən bir (vərəq və zolaq görünəndə) siyahı
+// yoxlanır; dəyişibsə zolaq yenidən qurulur — oynayan və görünən videonu kəsmədən (swap).
+const FRESH = 5 * 60e3, EARLY = 15e3;
+export async function mount(sec, S, still = () => false, given = null) {
+  if (sec._vl && !given) return;
   sec._vl = {};
   if (!document.getElementById("vl-css")) { const st = document.createElement("style"); st.id = "vl-css"; st.textContent = CSS; document.head.append(st); }
   if (!L.list || !L.load) { const m = await freshLent(); if (!m) { sec.remove(); return; } L = m; }
-  const items = pick(S, await L.load().catch(() => []));
+  const items = given || pick(S, await L.load().catch(() => []));
   if (!items.length) { sec.remove(); return; }
   const row = document.createElement("div");
   row.className = "vl-row";
   row.innerHTML = items.map(card).join("");
   row.querySelectorAll("img[data-alt]").forEach(im => im.addEventListener("error", () => { if (im.dataset.alt) { im.src = im.dataset.alt; im.dataset.alt = ""; } }));
-  sec.append(row);
+  const old = sec.querySelector(".vl-row");
+  if (old) old.replaceWith(row); else sec.append(row);
   sec.style.minHeight = "";
   const cards = [...row.children], seen = new Map(), players = new Map();
   const auto = () => !navigator.connection?.saveData && !still();
   let cur = -1, sound = false, timer = 0, user = false, hold = 0, lock = 0;
   // Tam ekran: açıq kartın nömrəsi (-1 — bağlı), dayandırılıb/bitib, lentdəki yerini tutan boş yer, əsl tam ekran açılıbmı.
   let fs = -1, fsWait = false, fsEnd = false, spot = null, native = false;
+  // Səhifəyə bağlı dinləyicilər yenidən qurulanda bu siqnalla silinir.
+  const ac = new AbortController(), on = { signal: ac.signal };
 
   const icon = () => { const c = cards[cur]; if (!c) return; c.querySelector(".vl-m").textContent = sound ? "🔊" : "🔇"; const b = c.querySelector(".vl-fx.snd"); if (b) b.textContent = sound ? "🔊" : "🔇"; };
   const bar =(n, p) => { const b = cards[n]?.querySelector(".vl-bar"); if (b) b.style.width = `${Math.min(100, p * 100)}%`; };
@@ -216,6 +224,7 @@ export async function mount(sec, S, still = () => false) {
     if (cur < 0) return;
     if (fs >= 0) { fsEnd = true; cards[fs].classList.add("ps"); return; }   // tam ekranda növbətiyə keçmir: ▶
     const n = nextOf(cur);
+    if (n === 0 && swap(true)) return;   // dövr başa çatdı: yeni siyahı varsa zolaq ondan başlayır
     lock = Date.now() + 1000;   // proqramla sürüşmə: görünüş yoxlaması əvvəlki kartı geri seçməsin
     row.scrollTo({ left: cards[n].offsetLeft - row.offsetLeft, behavior: "smooth" });
     play(n);
@@ -236,7 +245,7 @@ export async function mount(sec, S, still = () => false) {
     if (st === 0) next();
     else if (st === 1) f.classList.add("go");
     if (i?.duration > 0 && i.currentTime >= 0) bar(cur, i.currentTime / i.duration);
-  });
+  }, on);
   const setSound = on => {
     sound = on;
     const f = players.get(cur);
@@ -306,10 +315,11 @@ export async function mount(sec, S, still = () => false) {
     if (fs < 0) return;
     if (e.key === "Escape") { e.preventDefault(); back(); }
     else if (SCROLL_KEYS.includes(e.key) && !(e.key === " " && e.target.closest?.("button"))) e.preventDefault();
-  });
-  document.addEventListener("fullscreenchange", () => { if (native && fs >= 0 && !document.fullscreenElement) back(); });
+  }, on);
+  document.addEventListener("fullscreenchange", () => { if (native && fs >= 0 && !document.fullscreenElement) back(); }, on);
 
   // Görünən (ən azı 60%) ən soldakı kart oynayır; heç biri görünmürsə dayanır. Əl ilə sürüşdürəndə 0,6 s gözləyir.
+  const visible = () => [...seen.values()].some(r => r > 0.1);
   const pickVisible = () => {
     if (fs >= 0 || (!auto() && !user) || Date.now() < lock) return;
     if (cur >= 0 && (seen.get(cur) || 0) >= 0.6) return;   // oynayan kart görünürsə dəyişmir (kompüterdə 4 kart birdən görünür)
@@ -317,15 +327,21 @@ export async function mount(sec, S, still = () => false) {
     if (best < 0) stop(); else play(best);
   };
   const io = new IntersectionObserver(es => {
+    const was = visible();
     es.forEach(e => seen.set(Number(e.target.dataset.n), e.isIntersecting ? e.intersectionRatio : 0));
+    if (!was && visible()) shownAt = Date.now();   // zolaq yenicə göründü (səhifə sürüşdü, ana səhifəyə qayıdış)
+    if (swap()) return;
+    fresh();
     clearTimeout(hold); hold = setTimeout(pickVisible, 120);
   }, { threshold: [0, 0.6, 0.9] });
   cards.forEach(c => io.observe(c));
   row.addEventListener("scroll", () => { clearTimeout(hold); hold = setTimeout(pickVisible, 600); }, { passive: true });
   document.addEventListener("visibilitychange", () => {
     if (fs >= 0) { if (document.hidden && !fsWait && !fsEnd) fsToggle(); return; }   // tam ekran: dayanır, ▶ ilə davam
-    document.hidden ? stop() : pickVisible();
-  });
+    if (document.hidden) stop();
+    else if (due) fresh().then(() => { if (!ac.signal.aborted && cur < 0) pickVisible(); });   // əvvəl yenilənmə, sonra oynatma
+    else pickVisible();
+  }, on);
 
   // Kompüterdə 4–5 kart birdən görünür: siçan kartın üstünə gələndə onun oynadıcısı qurulur və hazırlanır (basış adətən bundan sonradır).
   row.addEventListener("pointerover", e => {
@@ -350,6 +366,36 @@ export async function mount(sec, S, still = () => false) {
     if (!b) return;
     openFs(Number(b.parentElement.dataset.n));
   });
-  addEventListener("popstate", () => { if (fs >= 0) closeFs(); });   // geri düyməsi tam ekranı bağlayır
-  addEventListener("popstate", () => setTimeout(pickVisible, 300));   // Videolent bağlananda lent davam edir
+  addEventListener("popstate", () => { if (fs >= 0) closeFs(); }, on);   // geri düyməsi tam ekranı bağlayır
+  addEventListener("popstate", () => setTimeout(pickVisible, 300), on);   // Videolent bağlananda lent davam edir
+
+  // Yenilənmə (yuxarıdakı FRESH şərhi). Yeni siyahı gözləyir (pending), zolaq bunlardan birində yenidən qurulur:
+  // vərəq gizlidir, ana səhifə ekranda deyil, zolaq görünmür, heç nə oynamır, zolaq təzə qurulub və oxucu hələ toxunmayıb (EARLY),
+  // ya da lent sonuncu kartdan birinciyə qayıdır (next). Tam ekran açıqdırsa və ya oxucu zolaqda irəlidədirsə gözləyir.
+  const builtAt = Date.now(), key = l => l.map(v => v.id || v.u).join(" ");
+  let pending = null, due = false, checking = false, waits = 0, shownAt = builtAt, touched = 0;
+  row.addEventListener("pointerdown", () => { touched = Date.now(); }, { passive: true });
+  function swap(force = false) {
+    if (!pending || fs >= 0 || ac.signal.aborted) return false;
+    const since = Math.max(builtAt, shownAt), early = Date.now() - since < EARLY && touched < since;   // təzə göstərilib, toxunulmayıb
+    const quiet = document.hidden || !sec.isConnected || cur < 0 || !visible() || early;
+    if (!quiet && !force) return false;
+    const list = pending;
+    pending = null;
+    stop(); io.disconnect(); clearTimeout(hold); clearInterval(tick); clearInterval(wait); ac.abort();
+    mount(sec, S, still, list);
+    return true;
+  }
+  async function fresh() {
+    if (!due || checking || document.hidden || !sec.isConnected || !visible() || ac.signal.aborted) return;
+    due = false; checking = true;
+    try {
+      const list = pick(S, await L.load().catch(() => []));
+      if (list.length && key(list) !== key(items)) { pending = list; swap(); }
+    } finally { checking = false; }
+  }
+  const tick = setInterval(() => { due = true; fresh(); swap(); }, FRESH);
+  // Video siyahısı (S.video) zolaqdan gec gəlibsə: gələn kimi yoxlanır (ən çoxu 30 s gözlənir).
+  const wait = setInterval(() => { if (S?.video || ++waits > 30) { clearInterval(wait); if (S?.video) { due = true; fresh(); } } }, 1000);
+  sec._vl.fresh = () => { due = true; fresh(); };
 }

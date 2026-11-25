@@ -102,7 +102,7 @@ test('lent (tam ekran): hər cihazda işləyir, geri/✕/Escape bağlayır, lent
   const v = read('assets/vlent.js');
   const open = /function openFs\(n\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
   const close = /function closeFs\(\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
-  assert.ok(open.includes('history.pushState({ vlfs: 1 }, "");') && v.includes('addEventListener("popstate", () => { if (fs >= 0) closeFs(); });'), 'telefonun geri düyməsi tam ekranı bağlayır, səhifədən çıxmır');
+  assert.ok(open.includes('history.pushState({ vlfs: 1 }, "");') && v.includes('addEventListener("popstate", () => { if (fs >= 0) closeFs(); }, on);'), 'telefonun geri düyməsi tam ekranı bağlayır, səhifədən çıxmır');
   assert.ok(v.includes('if (e.key === "Escape") { e.preventDefault(); back(); }') && v.includes('if (fx?.classList.contains("x")) back();'));
   assert.ok(open.includes('if (document.fullscreenEnabled && c.requestFullscreen)'), 'əsl tam ekran yalnız brauzer verirsə (iPhone Safari div üçün vermir: tam pəncərə qalır)');
   assert.ok(v.includes('if (native && fs >= 0 && !document.fullscreenElement) back();'), 'brauzerin tam ekranından çıxmaq (Esc, Android geri) bizimkini də bağlayır');
@@ -128,4 +128,49 @@ test('Video lenti: the next YouTube video is primed — it plays at once when ch
   const over = /row\.addEventListener\("pointerover", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(v)?.[0] || '';
   assert.ok(over.includes('if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;'), 'yalnız siçan: barmaqla sürüşdürmə oynadıcı qurmur');
   assert.ok(over.includes('players.size < 4'), 'eyni anda ən çoxu 4 oynadıcı');
+});
+
+test('Video lenti refreshes while the page stays open, without cutting the video being watched (owner 2026-11-25: «saytdakı video xəbərlər niyə yenilənmir?»)', () => {
+  const v = read('assets/vlent.js');
+  const m = /export async function mount\(sec, S, still = \(\) => false, given = null\) \{[\s\S]*?\n\}\n?/.exec(v)?.[0] || '';
+  assert.ok(m, 'mount yenidən qurmaq üçün hazır siyahı qəbul edir');
+  // Əvvəl kartlar səhifə açılanda bir dəfə qurulurdu: açıq qalan səhifədə zolaq saatlarla köhnə qalırdı.
+  const fresh = +v.match(/const FRESH = (\d+) \* 60e3, EARLY = (\d+)e3;/)[1];
+  assert.ok(fresh >= 2 && fresh <= 10, 'siyahı bir neçə dəqiqədən bir yoxlanır (426 KB-lıq fayl: tez-tez deyil)');
+  assert.ok(m.includes('const tick = setInterval(() => { due = true; fresh(); swap(); }, FRESH);'), 'dövri yoxlama');
+  assert.ok(m.includes('if (!due || checking || document.hidden || !sec.isConnected || !visible() || ac.signal.aborted) return;'),
+    'yalnız vərəq və zolaq görünəndə yoxlanır: gizli vərəq şəbəkəni yormur');
+  assert.ok(m.includes('if (list.length && key(list) !== key(items)) { pending = list; swap(); }'), 'siyahı dəyişməyibsə zolağa toxunulmur');
+  // Oynayan və görünən video kəsilmir.
+  assert.ok(m.includes('const quiet = document.hidden || !sec.isConnected || cur < 0 || !visible() || early;') && m.includes('if (!quiet && !force) return false;'),
+    'yenidən qurma yalnız sakit anda: vərəq gizli, zolaq görünmür, heç nə oynamır və ya zolaq təzə göstərilib');
+  assert.ok(m.includes('if (!pending || fs >= 0 || ac.signal.aborted) return false;'), 'tam ekran açıqdırsa heç vaxt');
+  assert.ok(m.includes('if (n === 0 && swap(true)) return;'), 'lent sonuncu kartdan birinciyə qayıdanda yeni siyahıdan başlayır');
+  // Video siyahısı gec gəlibsə TV videoları sonra düşür.
+  assert.ok(m.includes('if (S?.video || ++waits > 30)'), 'S.video gələn kimi yoxlanır');
+  // Yenidən qurulanda köhnə dinləyicilər qalmır.
+  assert.ok(m.includes('stop(); io.disconnect(); clearTimeout(hold); clearInterval(tick); clearInterval(wait); ac.abort();') && m.includes('mount(sec, S, still, list);'), 'köhnə zolaq tam söndürülür');
+  // Pəncərəyə və sənədə bağlı hər dinləyicinin tam çağırışı (mötərizə balansı ilə) «, on)» ilə bitir. row./c./f. — elementin özünün.
+  const calls = ev => {
+    const out = [], head = 'addEventListener(' + ev;
+    for (let i = m.indexOf(head); i >= 0; i = m.indexOf(head, i + 1)) {
+      const before = m.slice(Math.max(0, i - 9), i);
+      if (/[\w.]$/.test(before) && !before.endsWith('document.')) continue;
+      let depth = 0, j = i + 'addEventListener'.length, quote = '';
+      for (; j < m.length; j++) {
+        const ch = m[j];
+        if (quote) { if (ch === '\\') j++; else if (ch === quote) quote = ''; continue; }
+        if (ch === '"' || ch === "'" || ch === '`') quote = ch;
+        else if (ch === '(') depth++;
+        else if (ch === ')' && --depth === 0) break;
+      }
+      out.push(m.slice(i, j + 1));
+    }
+    return out;
+  };
+  for (const ev of ['"message"', '"keydown"', '"fullscreenchange"', '"visibilitychange"', '"popstate"']) {
+    const all = calls(ev);
+    assert.ok(all.length && all.every(x => x.endsWith(', on)')), `${ev} dinləyicisi yenidən qurulanda silinir`);
+  }
+  assert.ok(m.includes('const old = sec.querySelector(".vl-row");') && m.includes('if (old) old.replaceWith(row); else sec.append(row);'), 'yeni sətir köhnənin yerinə: səhifə atlamır');
 });
