@@ -36,6 +36,8 @@ on:
   pull_request:
     paths:
       - .github/scripts/youtube.cjs
+      - .github/scripts/video-dil.cjs
+      - .github/video-dil/**
       - .github/workflows/youtube.yml
       - tests/youtube.test.cjs
 
@@ -78,6 +80,8 @@ jobs:
           fetch-depth: 1
           sparse-checkout: |
             .github/scripts/youtube.cjs
+            .github/scripts/video-dil.cjs
+            .github/video-dil/
             .github/scripts/topics.cjs
             assets/app.js
             assets/content-policy.js

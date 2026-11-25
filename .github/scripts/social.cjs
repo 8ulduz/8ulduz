@@ -87,11 +87,11 @@ function sameTopic(x, y) {
   return x.prez && y.prez && Math.abs(x.at - y.at) < PREZ_H * 3600 && x.names.some(w => y.names.includes(w));
 }
 
-// Paylaşmağa layiq xəbərlər, ən vacibi birinci (mənbə sayı, sonra yenilik).
+// Paylaşmağa layiq xəbərlər, ən vacibi birinci (mənbə sayı, sonra yenilik). opt.lang: lentin dili (video dil profili, sosial-video.cjs); yoxdursa az.
 function candidates(articles, now, opt) {
-  const out = [];
+  const out = [], lang = opt.lang || "az";
   for (const a of articles || []) {
-    if (!/^[0-9a-f]{16}$/.test(String(a?.id || "")) || a.lang !== "az" || !clean(a.title)) continue;
+    if (!/^[0-9a-f]{16}$/.test(String(a?.id || "")) || a.lang !== lang || !clean(a.title)) continue;
     const at = Date.parse(a.publishedAt || "");
     if (!Number.isFinite(at) || now - at > opt.maxAgeH * 3600e3 || at - now > 10 * 60e3) continue;
     const score = a.category === "prezident" ? Math.max(sources(a), opt.minSources) : sources(a);
@@ -130,20 +130,21 @@ function pageDescriptions(page) {
   }
   return out;
 }
-function pageParagraphs(page) {
+// letter: mətnin dilini tanıdan hərflər (video dil profili «herf», sosial-video.cjs); yoxdursa azərbaycanca hərflər.
+function pageParagraphs(page, letter = AZ_LETTER) {
   const body = String(page).slice(0, 600000).replace(/<(script|style|noscript)\b[\s\S]*?<\/\1>/gi, " ");
   return [...body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => clean(unent(unent(m[1].replace(/<[^>]+>/g, " ")))))
-    .filter(t => t.length >= 40 && AZ_LETTER.test(t) && !/©|abunə ol|paylaş|bütün hüquqlar|istinad (mütləq|edilməlidir)/i.test(t));
+    .filter(t => t.length >= 40 && letter.test(t) && !/©|abunə ol|paylaş|bütün hüquqlar|istinad (mütləq|edilməlidir)/i.test(t));
 }
-function describe(a, page, policy = () => false) {
+function describe(a, page, policy = () => false, letter = AZ_LETTER) {
   const site = stems(a.source), head = stems(a.title).filter(w => !site.includes(w)), title = clean(a.title);   // «Sportinfo TV» ≠ saytın təsviri
   const near = d => !head.length || stems(d).some(w => head.includes(w));
-  const ok = d => d && d !== title && AZ_LETTER.test(d) && !policy({ ...a, summary: d });
+  const ok = d => d && d !== title && letter.test(d) && !policy({ ...a, summary: d });
   const found = [];
   const own = sentences(a.summary, DESC_MAX);
   if (ok(own) && near(own)) found.push(own);
   if (page) {
-    const paras = pageParagraphs(page), text = paras.join(" ");
+    const paras = pageParagraphs(page, letter), text = paras.join(" ");
     for (const d of pageDescriptions(page)) {
       const t = sentences(d, DESC_MAX, true);
       if (ok(t) && (near(t) || text.includes(t.slice(0, 60)))) found.push(t);

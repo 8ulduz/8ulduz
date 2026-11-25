@@ -40,13 +40,15 @@ const KEEP_S = 30 * 86400;
 const MARK = Buffer.from("8ulduz.az");
 // Adın bütün yazılışları (sahib, 2026-11-24: «8ulduz» axtaranda kanal çıxır, «8 ulduz» axtaranda çıxmır; «səkkiz ulduz, səkkizulduz,
 // xəbər yazanda da çıxsın»). YouTube «8 ulduz»-u iki söz kimi oxuyur, bitişik «8ULDUZ» adına uyğun gəlmir: təsvirdə və teqlərdə
-// rəqəmlə, sözlə, bitişik və ayrı yazılış var. Tək «8», «səkkiz», «xəbər» kimi ümumi sözlərdə yer baxış sayından asılıdır.
-const TAGLINE = "8ulduz.az — 8 Ulduz (Səkkiz Ulduz) xəbər saytı: Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.";
-// Abunə çağırışı (sahib, 2026-11-25: «baxanlar abunə olsunlar»): vəd videodakı ilə eynidir (video-xeber.cjs ABUNE). Bu fayl iş axınında
-// təkdir (sparse-checkout), ona görə mətn burada da yazılıb; tests/youtube.test.cjs ikisinin eyni qaldığını yoxlayır. Keçid kanalı abunə
-// pəncərəsi ilə açır (Shorts təsvirində keçid basılmır; adi baxış səhifəsində basılır).
-const VED = { xeber: "Ən vacib xəbərlər hər gün", maraqli: "Hər gün yeni maraqlı faktlar", hava: "Hava proqnozu hər gün" };
-const CHANNEL = "https://www.youtube.com/@8ULDUZ?sub_confirmation=1";
+// rəqəmlə, sözlə, bitişik və ayrı yazılış var (profil: youtube.tagline, youtube.etiketler). Tək «8», «səkkiz», «xəbər» kimi ümumi
+// sözlərdə yer baxış sayından asılıdır.
+// Dil profili (2026-11-26, video-dil.cjs): təsvirin, teqlərin, abunə sətrinin və kanalın dili videonun dilidir — video.json «lang»
+// (profili yoxdursa az: başqa iş axınlarının videoları). Mətnlər .github/video-dil/<dil>.json «youtube» və «abune» bölmələrindədir.
+// Abunə çağırışı (sahib, 2026-11-25: «baxanlar abunə olsunlar»): vəd videodakı ilə eynidir (eyni profil). Keçid kanalı abunə
+// pəncərəsi ilə açır (Shorts təsvirində keçid basılmır; adi baxış səhifəsində basılır). VED, CHANNEL — az profilininki.
+const { dil, videonunDili, fmt } = require("./video-dil.cjs");
+const VED = Object.fromEntries(Object.entries(dil("az").abune).map(([k, v]) => [k, v.ved]));
+const CHANNEL = dil("az").youtube.kanal;
 // Başqasının videosu: bu ünvanlardan gələn fayl və ya keçid YouTube-a getmir.
 const FOREIGN_VIDEO = /(^|\.)(twimg\.com|twitter\.com|x\.com|youtube\.com|youtu\.be|tiktok\.com|tiktokcdn\.com|instagram\.com|cdninstagram\.com|facebook\.com|fbcdn\.net|fb\.watch|vk\.com|ok\.ru|rutube\.ru|dailymotion\.com|vimeo\.com)$/i;
 const SITE_URL = /^https:\/\/(www\.)?8ulduz\.az(\/[^\s<>"]*)?$/;
@@ -55,11 +57,6 @@ const RETRY_HTTP = new Set([500, 502, 503, 504]);
 const READ_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/youtube(\.readonly|\.force-ssl)?(\s|$)/;
 const UPLOAD_SCOPE = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/(youtube|youtube\.upload|youtube\.force-ssl|youtubepartner)(\s|$)/;
 
-const BASE_TAGS = ["8ulduz", "8 ulduz", "səkkiz ulduz", "səkkizulduz", "8ulduz.az", "xəbər", "xəbərlər", "son xəbərlər", "Azərbaycan xəbərləri"];
-const KIND_TAGS = { maraqli: ["maraqlı faktlar", "bilirdinizmi"], icmal: ["günün icmalı", "günün xəbərləri"], hava: ["hava proqnozu", "Bakı hava"], valyuta: ["valyuta məzənnəsi", "manat", "dollar məzənnəsi"],
-  bazar: ["valyuta məzənnəsi", "neft qiyməti", "qızıl qiyməti"] };
-const CAT_TAGS = { gundem: "gündəm", siyaset: "siyasət", iqtisadiyyat: "iqtisadiyyat", dunya: "dünya xəbərləri", idman: "idman xəbərləri",
-  medeniyyet: "mədəniyyət", heyat: "həyat", cemiyyet: "cəmiyyət", bolgeler: "bölgə xəbərləri", hava: "hava proqnozu" };
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -182,24 +179,26 @@ function linkOf(m) {
 const titleOf = m => cut(noAngle(clean(m.title)), TITLE_MAX);
 function hashtagsOf(m) {
   const own = (Array.isArray(m.hashtags) ? m.hashtags : []).map(t => "#" + String(t).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "")).filter(t => t.length > 1).slice(0, 3);
-  return [...new Set([...own, "#8ulduz", "#xəbərlər", "#Shorts"])].join(" ");
+  return [...new Set([...own, ...videonunDili(m).youtube.hashtaglar])].join(" ");
 }
-const abuneLine = m => `${VED[kindOf(m)] || VED.xeber} — abunə olun: ${CHANNEL}`;
+const abuneLine = m => { const D = videonunDili(m); return fmt(D.youtube.abune, { ved: (D.abune[kindOf(m)] || D.abune.xeber).ved, kanal: D.youtube.kanal }); };
 function descriptionOf(m, link = linkOf(m)) {
   // Xülasə; yoxdursa videodakı izahın (text) əvvəli.
+  const D = videonunDili(m), Yt = D.youtube;
   const k = kindOf(m), title = clean(m.title), pick = [m.summary, m.text].map(clean).find(x => x && x !== title) || "";
   const sum = pick ? cut(pick, pick === clean(m.summary) ? 1500 : 600) : "";
   const items = (Array.isArray(m.items) ? m.items : []).filter(x => clean(x?.title)).slice(0, 10);
   const list = k === "icmal" && items.length ? items.map((x, i) => `${i + 1}. ${cut(x.title, 140)}`).join("\n") : "";
   const src = k === "icmal" ? [] : [...new Set([m.source, ...items.map(x => x.source)].map(clean).filter(Boolean))].slice(0, 5);
-  const tail = [`Ətraflı: ${link}`, abuneLine(m), src.length ? `Mənbə: ${src.join(", ")}` : "", TAGLINE, hashtagsOf(m)].filter(Boolean).join("\n\n");
+  const tail = [fmt(Yt.etrafli, { link }), abuneLine(m), src.length ? fmt(Yt.menbe, { adlar: src.join(", ") }) : "", Yt.tagline, hashtagsOf(m)].filter(Boolean).join("\n\n");
   const body = [sum, list].filter(Boolean).join("\n\n");
   const room = DESC_MAX - Buffer.byteLength(noAngle(tail)) - 2;
   return noAngle([body ? cutBytes(body, room) : "", tail].filter(Boolean).join("\n\n"));
 }
 // Teqlər: YouTube-un sayma qaydası ilə cəmi ≤ 500 (vergül 1, boşluqlu teq +2 dırnaq).
 function tagsOf(m) {
-  const raw = [...BASE_TAGS, ...(KIND_TAGS[kindOf(m)] || []), CAT_TAGS[m.category],
+  const Yt = videonunDili(m).youtube;
+  const raw = [...Yt.etiketler, ...(Yt.nov_etiketleri[kindOf(m)] || []), Yt.bolme_etiketleri[m.category],
     ...(Array.isArray(m.hashtags) ? m.hashtags : []).map(t => String(t).replace(/^#+/, "").replace(/_/g, " "))];
   const out = [], seen = new Set();
   let total = 0;
@@ -215,7 +214,7 @@ function tagsOf(m) {
 }
 function resourceOf(m, opt) {
   return {
-    snippet: { title: titleOf(m), description: descriptionOf(m), tags: tagsOf(m), categoryId: opt.category, defaultLanguage: /^[a-z]{2}$/.test(m.lang || "") ? m.lang : "az" },
+    snippet: { title: titleOf(m), description: descriptionOf(m), tags: tagsOf(m), categoryId: opt.category, defaultLanguage: /^[a-z]{2}$/.test(m.lang || "") ? m.lang : videonunDili(m).kod },
     // Səs SARA modelidir, amma real adamı və ya hadisəni təqlid etmir: «realistic altered or synthetic» sayılmır, aigc: true verilərsə bildirilir.
     status: { privacyStatus: m.sinaq ? "private" : opt.privacy, selfDeclaredMadeForKids: false, embeddable: true, license: "youtube", publicStatsViewable: true,
       containsSyntheticMedia: m.aigc === true },

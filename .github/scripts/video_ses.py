@@ -37,6 +37,13 @@ iki tərəfində sönmə və açılma (sakit yerdə qısa, səsin içində uzun 
 Model müddət vermirsə nəfəs qoyulmur (hərf payı ilə təxmin sözün içinə düşə bilər).
 vaxtlar.json: əvvəlki sahələr dəyişmir, «motor» (babek | sara), «nefes» (SARA: qoyulan nəfəslər — an, uzunluq, kəsim yerinin
 səs səviyyəsi) və «qisaldilan_herf» əlavə olunub.
+
+Dil profili (2026-11-26, yol xəritəsinin 2-ci addımı; .github/video-dil/<dil>.json «ses», video-dil.cjs): Edge səsi, temp, mətnin
+hazırlanması və ehtiyat profildəndir. Dil hissələr.json-un «dil» sahəsidir (video-xeber.cjs yazır), yoxdursa VIDEO_DIL, o da yoxdursa az.
+  ses.edge    Edge səsi (az: az-AZ-BabekNeural)        ses.temp    temp pillələri, səs max_s-dən uzundursa növbəti (az: −10%, −5%, 0)
+  ses.motor   vaxtlar.json «motor» (az: babek)          ses.metn    «az_text» — rəqəm, tarix, qısaltma sözə (for_voice); başqa
+                                                                    dəyər — mətn olduğu kimi (Edge-in həmin dildəki səsi rəqəmi özü oxuyur)
+  ses.ehtiyat «sara» — Edge alınmasa SARA (yalnız azərbaycanca); boş — səs alınmır, video səssiz hazırlanır
 """
 import array
 import asyncio
@@ -65,6 +72,34 @@ BABEK_HEAD = 0.05         # birinci sözdən əvvəl saxlanan səs (s): nəfəs 
 BABEK_TAIL = 0.12         # sonuncu sözdən sonra saxlanan səs (s): sözün sönməsi (Edge-in söz müddəti onu tam əhatə etmir)
 BABEK_TRIES = (0, 3, 8)   # şəbəkə xətasında yenidən sınama (gözləmə, s)
 from az_text import SENT_END as TEXT_SENT_END  # noqa: E402  (cümlələri bölən; bu fayldakı SENT_END hissənin sonunu yoxlayır)
+
+# Dil profili (video-dil.cjs ilə eyni fayllar). EDGE_TEXT: Edge-ə gedən mətnin hazırlanması — main profilə görə qurur.
+PROFIL_QOVLUQ = os.path.join(os.path.dirname(HERE), "video-dil")
+
+
+def profil(kod=None):
+    """Dil profili (.github/video-dil/<kod>.json; qovluq VIDEO_DIL_QOVLUQ ilə dəyişir — testlər). kod boşdursa VIDEO_DIL, o da boşdursa az."""
+    kod = (kod or os.environ.get("VIDEO_DIL") or "az").strip().lower()
+    if not re.fullmatch(r"[a-z]{2,3}", kod):
+        raise ValueError(f"video_ses: yanlış dil kodu «{kod}»")
+    with open(os.path.join(os.environ.get("VIDEO_DIL_QOVLUQ") or PROFIL_QOVLUQ, f"{kod}.json"), encoding="utf-8") as f:
+        p = json.load(f)
+    if p.get("kod") != kod:
+        raise ValueError(f"video_ses: {kod}.json-da kod «{p.get('kod')}»-dur")
+    return p
+
+
+def plain(text):
+    """Mətn olduğu kimi, tək boşluqla (az_text-siz dil: Edge-in səsi rəqəmi, qısaltmanı özü oxuyur)."""
+    return " ".join(str(text).split())
+
+
+EDGE_TEXT = for_voice
+
+
+def voice_name(ses):
+    """Jurnal üçün səsin adı (profil: ses.ad; az: Babək)."""
+    return ses.get("ad") or "Edge"
 
 MODEL = os.environ.get("SES_MODEL", "BHOSAI/SARA_TTS")
 # Videonun oxu tempi (sahib, 2026-11-25: «oxunuş sürətlidir. oxunuşu normal et»). Ölçü (2026-11-25, 40,8 s-lik xəbər videosu):
@@ -404,25 +439,26 @@ class Sara:
 
 
 def babek_words(text):
-    """Babəkə gedən mətndə (for_voice) sözlər — Edge hər birinə bir WordBoundary verir (2026-11-25: 5 mətn, 79 söz, say eynidir;
-    durğu ayrıca söz deyil)."""
-    return [w for w in for_voice(text).split() if re.search(r"\w", w)]
+    """Babəkə gedən mətndə (for_voice; başqa dildə EDGE_TEXT) sözlər — Edge hər birinə bir WordBoundary verir (2026-11-25: 5 mətn,
+    79 söz, say eynidir; durğu ayrıca söz deyil)."""
+    return [w for w in EDGE_TEXT(text).split() if re.search(r"\w", w)]
 
 
 class Babek:
-    """Edge-in Babək səsi (edge-tts). say(mətn) → (PCM baytları BABEK_SR-də, [(söz, başlanğıc s, müddət s)])."""
+    """Edge-in səsi (edge-tts; az: Babək). say(mətn) → (PCM baytları BABEK_SR-də, [(söz, başlanğıc s, müddət s)]).
+    voice — Edge səsinin adı (main profilin ses.edge-ni qoyur)."""
 
     sr = BABEK_SR
 
     def __init__(self):
         import edge_tts  # noqa: F401 — yalnız iş axınında quraşdırılır; yoxdursa main SARA-ya keçir
 
-        self.calls, self.rate = 0, BABEK_RATE
+        self.calls, self.rate, self.voice = 0, BABEK_RATE, BABEK_VOICE
 
     async def _stream(self, text):
         import edge_tts
 
-        c = edge_tts.Communicate(text, BABEK_VOICE, rate=self.rate, boundary="WordBoundary")
+        c = edge_tts.Communicate(text, self.voice, rate=self.rate, boundary="WordBoundary")
         audio, words = bytearray(), []
         async for ch in c.stream():
             if ch["type"] == "audio":
@@ -465,7 +501,7 @@ def render_babek(parts, voice, davam=None):
             for i in idx:
                 spans[i] = [start, pos]
             continue
-        pcm, words = voice.say(for_voice(text))
+        pcm, words = voice.say(EDGE_TEXT(text))
         n = len(pcm) // 2
         lo = max(0, int(sr * (words[0][1] - BABEK_HEAD)))
         hi = min(n, max(lo, int(sr * (words[-1][1] + words[-1][2] + BABEK_TAIL))))
@@ -490,22 +526,33 @@ def render_babek(parts, voice, davam=None):
 
 
 def main(src, wav_out, json_out):
+    global EDGE_TEXT
     with open(src, encoding="utf-8") as f:
         data = json.load(f)
     parts, davam = data["parts"], data.get("davam")
-    motor, voice, nefes = os.environ.get("VIDEO_SES_MOTOR", "babek").strip().lower() or "babek", None, []
+    ses = profil(data.get("dil"))["ses"]
+    EDGE_TEXT = for_voice if ses.get("metn") == "az_text" else plain
+    edge, sara_ok = ses.get("motor") or "babek", ses.get("ehtiyat") == "sara"
+    motor, voice, nefes = os.environ.get("VIDEO_SES_MOTOR", edge).strip().lower() or edge, None, []
     if motor == "babek":
+        motor = edge
+    if motor == edge:
         try:
             voice, max_s = Babek(), data.get("max_s")
-            for rate in BABEK_RATES:
+            voice.voice = ses.get("edge") or BABEK_VOICE
+            for rate in ses.get("temp") or BABEK_RATES:
                 voice.rate = rate
                 pcm, spans, pos = render_babek(parts, voice, davam)
                 if not max_s or pos / voice.sr <= max_s:
                     break
-        except Exception as e:  # noqa: BLE001 — edge-tts yoxdur, Edge cavab vermir: video SARA ilə səslənir
-            print(f"::warning::video_ses: Babək alınmadı ({str(e)[:200]}) — SARA ilə", file=sys.stderr)
+        except Exception as e:  # noqa: BLE001 — edge-tts yoxdur, Edge cavab vermir: video SARA ilə səslənir (profildə ehtiyat varsa)
+            if not sara_ok:
+                raise RuntimeError(f"Edge səsi alınmadı, profildə ehtiyat yoxdur: {str(e)[:200]}") from e
+            print(f"::warning::video_ses: {voice_name(ses)} alınmadı ({str(e)[:200]}) — SARA ilə", file=sys.stderr)
             motor = "sara"
-    if motor != "babek":
+    if motor != edge:
+        if not sara_ok:   # SARA yalnız azərbaycancadır: başqa dildə onu oxutmaq olmaz
+            raise RuntimeError(f"SARA bu dilin profilində ehtiyat deyil (motor: {motor})")
         motor, voice = "sara", Sara()
         pcm, spans, pos = render(parts, voice, voice.sr, davam, nefes)
     sr = voice.sr
@@ -521,8 +568,9 @@ def main(src, wav_out, json_out):
                    "nefes": {"yer": [[round(t / sr, 3), round(g / sr, 3), db] for t, g, db in qoyulan], "buraxilan": len(nefes) - len(qoyulan)},
                    "qisaldilan_herf": getattr(voice, "capped", 0)}, f)
     g = groups(parts, davam)
-    if motor == "babek":
-        print(f"video_ses: Babək ({BABEK_VOICE}, {voice.rate}) — {len(parts)} hissə, {len(g)} qrup, {voice.calls} səsləndirmə", file=sys.stderr)
+    if motor == edge:
+        print(f"video_ses: {voice_name(ses)} ({getattr(voice, 'voice', BABEK_VOICE)}, {voice.rate}) — {len(parts)} hissə, {len(g)} qrup, "
+              f"{voice.calls} səsləndirmə", file=sys.stderr)
         return
     print(f"video_ses: SARA — {len(parts)} hissə, {len(g)} qrup ({sum(len(x) - 1 for x in g)} sərhəd cümlənin içində); "
           f"modelin müddətləri {voice.used['müddət']}/{voice.used['müddət'] + voice.used['pay']} səsləndirmədə alındı; "

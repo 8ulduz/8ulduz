@@ -7,21 +7,28 @@ siyahı vacibdir: söz itirsə və ya başqa söz eşidilirsə, qulaqla yoxlamaq
 İşlədilmə (sosial-video.yml, yalnız PR): python3 video_dinle.py <video.mp4> <video.json>  → markdown (stdout)
   ASR_MODEL  Whisper modeli (default large-v3)
 Müqayisə ses_yoxla.py-nin qaydası ilədir: hər iki tərəf az_text.phrases-dən keçir («25» ≡ «iyirmi beş», «ABŞ» ≡ «a be şe»).
+Dil profili (2026-11-26, .github/video-dil/<dil>.json «dinle»): Whisper-in dili və mətnin müqayisə qaydası videonun dilindəndir
+(video.json «lang»). dinle.metn «az_text» deyilsə sözlər sadəcə kiçik hərfə salınıb durğudan təmizlənir.
 """
-import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SES = os.path.join(os.path.dirname(HERE), "ses-server")
 sys.path.insert(0, SES)
+sys.path.insert(0, HERE)
 import az_text  # noqa: E402
+from video_ses import profil  # noqa: E402
 
 
-def words(text):
-    """Müqayisə üçün sözlər: az_text.phrases (rəqəm, qısaltma sözlə; kiçik hərf, durğusuz), tire boşluq."""
+def words(text, metn="az_text"):
+    """Müqayisə üçün sözlər: az_text.phrases (rəqəm, qısaltma sözlə; kiçik hərf, durğusuz), tire boşluq.
+    Başqa dildə (profil: dinle.metn) — kiçik hərf, hərf və rəqəmdən başqa hər şey boşluq."""
+    if metn != "az_text":
+        return re.sub(r"[^\w]+", " ", str(text).lower()).split()
     return " ".join(s for s, _ in az_text.phrases(text)).replace("-", " ").split()
 
 
@@ -51,9 +58,10 @@ def edits(ref, hyp):
     return d[n][m], ops[::-1]
 
 
-def report(ref, hyp, heard, meta, model):
+def report(ref, hyp, heard, meta, model, p=None):
     dist, ops = edits(ref, hyp)
-    ses = {"babek": "Babək", "sara": "SARA"}.get(meta.get("ses"), meta.get("ses") or "?")
+    p = p or profil("az")
+    ses = {p["ses"]["motor"]: p["ses"]["ad"], "sara": "SARA"}.get(meta.get("ses"), meta.get("ses") or "?")
     lines = [f"#### Səsi dinləmə (Whisper {model}, səs: {ses})", "",
              f"Söz xətası: **{dist}/{len(ref)}** ({100 * dist / max(1, len(ref)):.0f}%). Eşidilən: «{heard}»", ""]
     if ops:
@@ -72,6 +80,11 @@ def main(mp4, meta_path):
     from faster_whisper import WhisperModel
 
     meta = json.load(open(meta_path, encoding="utf-8"))
+    try:   # videonun dili; profili yoxdursa az (video-dil.cjs videonunDili ilə eyni)
+        p = profil(str(meta.get("lang") or "az"))
+    except (OSError, ValueError):
+        p = profil("az")
+    metn = p["dinle"]["metn"]
     said = [str(x) for x in meta.get("oxunan") or []]
     if not said:
         print("#### Səsi dinləmə\n\nvideo.json-da «oxunan» yoxdur.\n")
@@ -83,12 +96,13 @@ def main(mp4, meta_path):
     asr = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=os.cpu_count() or 2)
     # VAD: səs sükutlarda hissələrə bölünür. Bütöv dinləyəndə (2026-11-25) Whisper 56 s-lik hava videosunda bir cümləni
     # («Qubada qar yağacaq. Abunə olun.») buraxdı, sonrasını böyük hərflə yazdı — səsdə hamısı var idi.
-    segs, _ = asr.transcribe(audio, language="az", beam_size=5, temperature=0.0, condition_on_previous_text=False,
+    segs, _ = asr.transcribe(audio, language=p["dinle"]["whisper"], beam_size=5, temperature=0.0, condition_on_previous_text=False,
                              vad_filter=True, vad_parameters={"min_silence_duration_ms": 500})
     heard = " ".join(s.text.strip() for s in segs).strip()
     # Whisper bəzən bütün hissəni böyük hərflə yazır («ANİ KÜLƏKLƏRİN»): kiçildilir, yoxsa qayda onu qısaltma kimi hərf-hərf açar
-    ref, hyp = words(" ".join(said)), words(az_text.lower_az(heard))
-    out = report(ref, hyp, heard, meta, model)
+    lower = az_text.lower_az if metn == "az_text" else str.lower
+    ref, hyp = words(" ".join(said), metn), words(lower(heard), metn)
+    out = report(ref, hyp, heard, meta, model, p)
     with open(os.path.join(os.path.dirname(meta_path), "dinleme.md"), "w", encoding="utf-8") as f:
         f.write(out)
     print(out)

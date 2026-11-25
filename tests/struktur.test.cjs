@@ -80,7 +80,8 @@ test("struktur 6: every Node script that sends or publishes stories applies the 
   // video-arxiv.cjs: yalnız klip metadatası (yer, lisenziya, yoxlama) yazır, xəbərin mətnini və başlığını işlətmir.
   // veb-video.cjs: YouTube-a yüklənmiş (youtube.cjs policyReason-dan keçmiş) videonun kiçik nüsxəsini və YouTube nömrələrinin siyahısını
   // R2-yə yazır; mətn yoxdur, lentə yalnız data/video.json-da onsuz da olan öz videomuz düşür.
-  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs", "tiktok-demo.cjs", "video-arxiv.cjs", "ses-lugat.cjs", "veb-video.cjs"]);
+  // video-dil.cjs: video dil profilini (.github/video-dil/*.json) oxuyur, heç nə yazmır və paylaşmır; profili işlədən skriptlər yuxarıdakı siyahıdadır.
+  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs", "tiktok-demo.cjs", "video-arxiv.cjs", "ses-lugat.cjs", "veb-video.cjs", "video-dil.cjs"]);
   const all = fs.readdirSync(path.join(root, ".github/scripts")).filter(f => f.endsWith(".cjs"));
   assert.deepEqual(all.filter(f => !known.has(f)), [], "yeni Node skripti: xəbər yazırsa policyViolation işlətsin və bu siyahıya əlavə olunsun");
 });

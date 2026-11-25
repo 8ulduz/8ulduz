@@ -11,9 +11,12 @@
 //              insansız səhnələrdir (Gemini-yə tapşırıq + kateqoriya ehtiyatı). Videoda «Görüntü: Pixabay» (və ya Pexels) yazılır.
 // Açarlar: GEMINI_API_KEY (x_yazici.py ilə eyni), PIXABAY_API_KEY və/və ya PEXELS_API_KEY. Biri yoxdursa həmin hissə ötürülür, video yenə hazırlanır.
 // Gemini və Pexels açarı başlıqda gedir; Pixabay yalnız ünvanda qəbul edir — ünvan heç vaxt jurnala yazılmır.
+// Dil profili (2026-11-26, video-dil.cjs): diktor mətninin dili, yoxlaması (hərflər, yad əlifba, nisbi gün sözləri), etiketlər və
+// protokol xəbərinin sözləri .github/video-dil/<VIDEO_DIL>.json-dandır. Montaj redaktorunun (kadr yoxlaması) göstərişi daxili işdir, azərbaycancadır.
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
+const { dil, fmt } = require("./video-dil.cjs");
 
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];   // siyahı alınmasa
@@ -82,16 +85,17 @@ async function gemini(prompt, key, f, log, env = process.env, info = {}) {
 
 // Mənbə səhifəsinin xəbər mətni: abzaslar (social.cjs pageParagraphs), başlığa yaxın yerdən; yoxdursa xülasə + izah.
 function sourceText(a, page, fallback = "") {
-  const paras = page ? S.pageParagraphs(page) : [];
+  const paras = page ? S.pageParagraphs(page, dil().re.herf) : [];
   const text = clean(paras.join("\n"));
   return (text.length >= 200 ? text : clean([a.summary, fallback].filter(Boolean).join("\n"))).slice(0, SOURCE_MAX);
 }
 
-const PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Aşağıdakı xəbərdən qısa video xəbər (Reels, Shorts) üçün diktor mətni yaz.
+// Göstəriş azərbaycancadır (redaksiyanın dili); diktor mətninin dili, yad əlifba və nisbi gün sözləri profildən: {dil}, {yad}, {nisbi}, {etiket_dili}.
+const PROMPT_SABLON = `Sən 8ulduz.az xəbər saytının video redaktorusan. Aşağıdakı xəbərdən qısa video xəbər (Reels, Shorts) üçün diktor mətni yaz.
 Qaydalar:
-- Azərbaycan ədəbi dilində, 5–7 aydın cümlə (ən az 4), cəmi 450–700 simvol: xəbərin əsas faktları, təfərrüatları və nəticəsi. Başlığı təkrarlama: başlıq ekranda yazılır, oxunmur — birinci cümlə xəbərin əsasını özü desin.
+- {dil}, 5–7 aydın cümlə (ən az 4), cəmi 450–700 simvol: xəbərin əsas faktları, təfərrüatları və nəticəsi. Başlığı təkrarlama: başlıq ekranda yazılır, oxunmur — birinci cümlə xəbərin əsasını özü desin.
 - Yalnız aşağıdakı mənbə mətnindəki faktlar. Mətndə olmayan ad, rəqəm, tarix, səbəb, qiymət və ya rəy ƏLAVƏ ETMƏ.
-- Rəqəmləri mənbədəki kimi rəqəmlə yaz. Keçid, emoji, nida və sual işarəsi, kiril hərfi yoxdur. «bu gün», «dünən», «sabah» yoxdur.
+- Rəqəmləri mənbədəki kimi rəqəmlə yaz. Keçid, emoji, nida və sual işarəsi{yad} yoxdur. {nisbi} yoxdur.
 - Neytral xəbər dili. Ən vacib fakt birinci cümlədə. Şərh və qiymətləndirmə yoxdur.
 - Adları inisialsız yaz: «Cey. Di. Vens» yox, «ABŞ vitse-prezidenti Vens»; «İ. Əliyev» yox, «İlham Əliyev».
 Videonun görüntüsü üçün 6–8 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz) — montaj planı kimi, SIRA İLƏ: birinci
@@ -109,7 +113,7 @@ onu yox, mövzunu göstərir (atışma — "police car lights night", bəyanat s
 "yer": xəbərin baş verdiyi və mətndə adı çəkilən konkret yerlər ingiliscə, Pixabay/Wikipedia yazılışı ilə, dəqiqdən ümumiyə:
 məsələn ["Ganja City Stadium", "Ganja", "Azerbaijan"], ["Qardabani", "Georgia"], ["White House", "Washington", "United States"].
 Yer yoxdursa []. Video əvvəlcə bu yerlərin əsl görüntüsü ilə axtarılır, başqa ölkənin və şəhərin tanınan görüntüsü götürülmür.
-"etiket": postun 3 mövzu etiketi (hashtag), Azərbaycan dilində və ya xəbərdəki xüsusi adla, boşluqsuz, məsələn "futbol", "PremyerLiqa",
+"etiket": postun 3 mövzu etiketi (hashtag), {etiket_dili} və ya xəbərdəki xüsusi adla, boşluqsuz, məsələn "futbol", "PremyerLiqa",
 "Qarabağ", "neft", "hava". Partiya, siyasi şüar və təhqir yoxdur.
 Yalnız JSON qaytar, başqa heç nə: {"uygun": true, "text": "<diktor mətni>", "axtar": ["...", "..."], "yer": ["...", "..."], "etiket": ["...", "...", "..."]}
 
@@ -117,12 +121,18 @@ Başlıq: {title}
 Bölmə: {bolme}
 Mənbə mətni:
 {source}`;
+// Profilin dili ilə göstəriş ({title}, {bolme}, {source} ssenari()-də doldurulur). PROMPT — az profilininki (testlər oxuyur).
+const yadQeyd = s => (s.yad_herf ? `, ${s.yad_herf_adi}` : "");
+const promptOf = (D = dil()) => fmt(PROMPT_SABLON, { dil: D.ssenari.dil, yad: yadQeyd(D.ssenari), nisbi: D.ssenari.nisbi_gun_misal, etiket_dili: D.ssenari.etiket_dili });
+const PROMPT = promptOf(dil("az"));
 
 // Kiril hərfinin latın oxşarı (lite modellər «ə» yerinə kiril «ә» yazır, 2026-11-22 beşinci nümunə). Qalan kiril hərfi yoxlamada düşür.
 const LATIN = { "ә": "ə", "Ә": "Ə", "ө": "ö", "Ө": "Ö", "ү": "ü", "Ү": "Ü", "һ": "h", "Һ": "H", "ғ": "ğ", "Ғ": "Ğ", "а": "a", "е": "e", "о": "o",
   "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P",
   "С": "C", "Т": "T", "Х": "X", "І": "I", "Ј": "J" };
 const latin = s => String(s).replace(/[әӘөӨүҮһҺғҒаеорсухіјАВЕКМНОРСТХІЈ]/g, ch => LATIN[ch]);
+// Yalnız latın əlifbalı dildə (profil: ssenari.latin): kiril əlifbalı dildə «а», «е» öz hərfidir.
+const dilLatin = s => (dil().ssenari.latin ? latin(s) : String(s));
 
 // Diktor mətninin yoxlanması. Səbəb (sətir) və ya "" — keçdi.
 const NUM = /\d+(?:[.,]\d+)*/g;
@@ -141,10 +151,11 @@ function checkText(text, source, a, policy = () => false) {
   if (/(?:^|[\s(])\p{Lu}\p{Ll}{0,2}\.\s+\p{Lu}\p{Ll}{0,2}\./u.test(text)) return "inisial";
   const sent = text.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"])/u).filter(Boolean).length;
   if (sent < SENT_MIN || sent > SENT_MAX) return `cümlə sayı ${sent} (${SENT_MIN}–${SENT_MAX})`;
-  if (/[Ѐ-ӿ]/.test(text)) return "kiril hərfi";
+  const D = dil();
+  if (D.re.yadHerf?.test(text)) return D.ssenari.yad_herf_adi;
   if (/https?:|www\.|[!?]/.test(text)) return "keçid, nida və ya sual";
-  if (/\b(bu gün|dünən|sabah)\b/i.test(text)) return "nisbi gün sözü";
-  if (!/[əğışçöüƏĞŞÇÖÜİ]/.test(text)) return "Azərbaycan dilində deyil";
+  if (D.re.nisbiGun.test(text)) return "nisbi gün sözü";
+  if (!D.re.herf.test(text)) return D.ssenari.dil_xetasi;
   // Mənbədəki rum rəqəmi də rəqəmdir: «XII turunda» → «12-ci tur» (2026-11-23: lite model belə yazdı, mətn rədd olunmuşdu).
   const have = new Set([...(source.match(NUM) || []).map(normNum), ...(source.match(/\b[IVXL]{1,7}\b/g) || []).map(roman).filter(Boolean).map(String)]);
   const extra = (text.match(NUM) || []).map(normNum).filter(n => !have.has(n));
@@ -155,12 +166,13 @@ function checkText(text, source, a, policy = () => false) {
 
 // Mövzu etiketləri (sahib 2026-11-23: «tam professional»; kəşf üçün): «#» atılır, yalnız hərf, rəqəm, «_», 2–30 simvol, ən çox 3,
 // təkrarsız; ümumi etiketlər (#8ulduz #xəbərlər #Azərbaycan) postda onsuz da var. Kiril oxşarı latına çevrilir, qalan kiril atılır.
+// Ümumi etiketlər, yad əlifba və kiril→latın çevirməsi profildəndir (ssenari.etiket_umumi, yad_herf, latin).
 function hashtags(list) {
-  const base = new Set(["8ulduz", "xəbərlər", "azərbaycan", "shorts", "video"]), out = [];
+  const D = dil(), lc = s => s.toLocaleLowerCase(D.locale), base = new Set(D.ssenari.etiket_umumi), out = [];
   for (const x of Array.isArray(list) ? list : []) {
-    const t = latin(String(x ?? "")).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "");
-    if (t.length < 2 || t.length > 30 || /[Ѐ-ӿ]/.test(t) || base.has(t.toLocaleLowerCase("az"))) continue;
-    if (!out.some(o => o.toLocaleLowerCase("az") === t.toLocaleLowerCase("az"))) out.push(t);
+    const t = dilLatin(String(x ?? "")).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "");
+    if (t.length < 2 || t.length > 30 || D.re.yadHerf?.test(t) || base.has(lc(t))) continue;
+    if (!out.some(o => lc(o) === lc(t))) out.push(t);
   }
   return out.slice(0, 3);
 }
@@ -195,8 +207,8 @@ const ehtiyat = a => EHTIYAT[a.category] || ["city skyline night", "city street 
 
 // Protokol xəbəri (görüş, qəbul, telefon danışığı, təbrik, başsağlığı): ümumi kadr həmin adamları göstərirmiş kimi görünər —
 // belə xəbərdən video hazırlanmır (2026-11-22 nümunə videosu: Prezidentin qəbulu, fonda yad əl sıxma və göy). Gemini də yoxlayır («uygun»).
-const PROTOKOL = /(qəbul edib|qəbul etdi|görüşüb|görüşdü|görüşəcək|telefon danışığı|telefonla danışıb|təbrik edib|təbrik məktubu|təbrik etdi|başsağlığı|məktub ünvanlayıb|danışıqlar aparıb)/iu;
-const protokol = a => a?.category === "prezident" || PROTOKOL.test(clean(a?.title));
+// Sözlər profildədir (ssenari.protokol): başlıq videonun dilindədir.
+const protokol = a => a?.category === "prezident" || dil().re.protokol.test(clean(a?.title));
 
 // Ssenari: { text, axtar, uygun: true } — mətn hazırdır; { uygun: false, sebeb } — bu xəbərdən video olmur (kadrla göstərilmir,
 // mənbə qısadır, mətn yoxlamadan keçmədi), başqa xəbər seçilir; null — Gemini işləmir (açar yoxdur, limit bitib): bu dövrədə video yoxdur.
@@ -206,13 +218,13 @@ async function ssenari(a, page, { env = process.env, fetch: f = globalThis.fetch
   if (!key) { log("video: GEMINI_API_KEY yoxdur — ssenari yazılmır"); return null; }
   const source = sourceText(a, page, fallback);
   if (source.length < 120) { log("video: mənbə mətni qısadır — başqa xəbər"); return { uygun: false, sebeb: "mənbə qısadır" }; }
-  const prompt = PROMPT.replace("{title}", clean(a.title)).replace("{bolme}", clean(a.bolme || a.category || "")).replace("{source}", source);
+  const prompt = promptOf().replace("{title}", clean(a.title)).replace("{bolme}", clean(a.bolme || a.category || "")).replace("{source}", source);
   const raw = await gemini(prompt, key, f, log, env);
   if (raw == null) return null;
   let j = null;
   try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
   if (j?.uygun === false) { log("video: Gemini — xəbəri ümumi kadrla yanıltmadan göstərmək olmur (görüş, qəbul), başqa xəbər"); return { uygun: false, sebeb: "kadrla göstərilmir" }; }
-  const text = latin(clean(j?.text));
+  const text = dilLatin(clean(j?.text));
   const why = text ? checkText(text, `${source}\n${clean(a.title)}`, a, policy) : "cavab boşdur və ya JSON deyil";
   if (why) { log(`video: Gemini mətni qəbul olunmadı (${why}) — başqa xəbər`); return { uygun: false, sebeb: why }; }
   const etiket = hashtags(j?.etiket);
@@ -543,4 +555,4 @@ const BANK = ["Pixabay", "Pexels"];
 const kredit = klip => [...new Set((klip || []).map(k => clean(k.kredit || k.p)).filter(Boolean))]
   .sort((a, b) => BANK.includes(a) - BANK.includes(b)).join(", ");
 
-module.exports = { ssenari, goruntu, kredit, OLKELER, SEHERLER, LAQEB, PAYTAXT, hasName, lat, getJson, slug, words, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, promptOf, dilLatin, goruntu, kredit, OLKELER, SEHERLER, LAQEB, PAYTAXT, hasName, lat, getJson, slug, words, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

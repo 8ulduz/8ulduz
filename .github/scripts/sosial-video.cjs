@@ -25,9 +25,12 @@
 // Pixabay/Pexels görüntüsü, SARA səsi — xəbər videosu ilə növbələşir: son maraqlı videodan MARAQLI_ARA_MIN (60) dəqiqə keçibsə və gündə
 // MARAQLI_GUNDE (10) dolmayıbsa, pəncərədə əvvəl maraqlı video; uyğun xəbər olmayan pəncərədə də (gündəlik həddə qədər). Ümumi fasiləyə
 // və gündəlik həddə (VIDEO_MIN_GAP_MIN, VIDEO_GUNDE — Facebook-un 24 saatda 30 Reels həddi) sayılır, xəbər mövzularının siyahısına düşmür.
+// Dil profili (2026-11-26, video-dil.cjs; VIDEO_DIL, boş — az): lentin dili və mənbə həddi (lent), izahın hərfləri (herf), paylaşım
+// mətnləri (paylasim) və hava videosu (hava: yalnız profildə true olan dildə — hava mətnləri azərbaycancadır) profildəndir.
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
+const { dil, fmt } = require("./video-dil.cjs");
 const VS = require("./video-ssenari.cjs");
 const VH = require("./video-hava.cjs");
 const VA = require("./video-arxiv.cjs");
@@ -41,7 +44,8 @@ const UA = "Mozilla/5.0 (compatible; 8ulduz-bot; +https://8ulduz.az/)";
 function options(env = process.env) {
   const [from, to] = String(env.VIDEO_SAAT || "8-23").split("-").map(Number);
   return {
-    minSources: num(env.VIDEO_MIN_SOURCES, num(env.SOCIAL_MIN_SOURCES, 4)),
+    // Mənbə həddinin ilkin dəyəri profildədir (lent.min_menbe; az: 4) — dəyişən (Variables) onu yenə üstələyir.
+    minSources: num(env.VIDEO_MIN_SOURCES, num(env.SOCIAL_MIN_SOURCES, dil().lent.min_menbe)),
     maxAgeH: num(env.VIDEO_MAX_AGE_H, 3),
     // Sahib, 2026-11-24: «öz video sayımızı 10 dəfə artırmaq lazımdır». 10 qat (80) Facebook-un API həddini (24 saatda 30 Reels) keçir;
     // hər platforma öz həddinə qədər: 30 dəqiqədən bir (hər yoxlama pəncərəsi), gündə 30 (əvvəl 120 dəqiqə, 8).
@@ -184,14 +188,15 @@ async function sourcePage(a, f) {
 // Ən vacib, hələ video olmamış, izahı olan xəbər. Seçilməyənlər state.skip-ə düşür (hər dövrədə yenidən oxunmasın).
 async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "" }) {
   const sec = Math.floor(now / 1000);
-  const list = only ? (articles || []).filter(a => a.id === only) : S.candidates(articles, now, opt);
+  // Lentin dili profildədir (lent.dil): yalnız o dildəki xəbərlər namizəddir.
+  const list = only ? (articles || []).filter(a => a.id === only) : S.candidates(articles, now, { ...opt, lang: dil().lent.dil });
   for (const a of list) {
     if (!only && (state.v[a.id] || state.skip[a.id] || state.t[S.titleKey(a)])) continue;
     const topic = S.topicOf(a, Date.parse(a.publishedAt) / 1000 || sec);
     if (!only && state.topics.some(t => S.sameTopic(t, topic))) { state.skip[a.id] = sec; log(`video: eyni mövzuda video var, ötürülür — ${S.clean(a.title)}`); continue; }
     if (!only && VS.protokol(a)) { state.skip[a.id] = sec; log(`video: protokol xəbəri (görüş, qəbul, təbrik) — kadrla göstərilmir, ötürülür — ${S.clean(a.title)}`); continue; }
     const page = await sourcePage(a, f);
-    const text = S.describe(a, page, policy);
+    const text = S.describe(a, page, policy, dil().re.herf);
     if (!text) { state.skip[a.id] = sec; log(`video: izah tapılmadı, ötürülür — ${S.clean(a.title)}`); continue; }
     return { a, text, topic, page };
   }
@@ -206,29 +211,32 @@ function entry(a, text, cats = []) {
 
 // xeber.json-da hər klip: mənbə, nömrə, müəllif (krediti), axtarış; arxivdən gələnin arxiv nömrəsi və yoxlanmış yeri (jurnal və önizləmə).
 const goruntuSetir = k => ({ p: k.p, id: k.id, user: k.user, q: k.q, ...(k.kredit ? { kredit: k.kredit } : {}), ...(k.arxiv ? { arxiv: k.arxiv, yer: k.yer, level: k.level } : {}) });
+// Paylaşım mətnlərinin dilə bağlı hissələri profildədir (paylasim): etiketlər, «Ətraflı», kreditlər, abunə sətirləri.
+const P = () => dil().paylasim;
 // Mövzu etiketləri (Gemini, video-ssenari.cjs hashtags) əvvəl, sonra ümumilər.
-const tag = x => [...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#xəbərlər", "#Azərbaycan"].join(" ");
+const tag = x => [...(x.hashtags || []).map(t => `#${t}`), ...P().etiketler].join(" ");
 // Facebook: keçid basılır — postun mətnində saytdakı xəbər (paylaşma səhifəsi: önizləmə + saytda açılır).
 // Pexels və Pixabay xahişi: görüntünün haradan olduğunu göstərin.
-const credit = x => (x.goruntu?.length ? `\n\nGörüntü: ${x.goruntuMenbe || "Pexels"}` : "");
+const credit = x => (x.goruntu?.length ? `\n\n${fmt(P().goruntu, { menbe: x.goruntuMenbe || "Pexels" })}` : "");
 // Hava videosu: Open-Meteo-nun CC BY 4.0 atribusiyası (kredit və lisenziya), «model proqnozu, rəsmi xəbərdarlıq deyil» (saytın hava səhifəsi
 // kimi), görüntü bankı. Etiketlər hava etiketləridir (#xəbərlər yox).
 const havaKredit = x => `Hava məlumatı: Open-Meteo.com, model proqnozu (CC BY 4.0). Rəsmi proqnozu Milli Hidrometeorologiya Xidməti verir.${x.goruntu?.length ? `\nGörüntü: ${x.goruntuMenbe || "Pixabay"}` : ""}`;
 const havaTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), "#8ulduz", "#Azərbaycan"])].join(" ");
 // Maraqlı video: fakt mənbəyi (Vikipediya, məqalənin keçidi) və görüntü bankı; etiketlər rubrikanındır (#xəbərlər yox).
-const maraqliKredit = x => `Məlumat: Vikipediya — ${x.sourceUrl}${x.goruntu?.length ? `
-Görüntü: ${x.goruntuMenbe || "Pixabay"}` : ""}`;
-const maraqliTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), "#maraqlı", "#bilirdinizmi", "#8ulduz"])].join(" ");
+const maraqliKredit = x => `${fmt(P().maraqli_kredit, { url: x.sourceUrl })}${x.goruntu?.length ? `
+${fmt(P().goruntu, { menbe: x.goruntuMenbe || "Pixabay" })}` : ""}`;
+const maraqliTag = x => [...new Set([...(x.hashtags || []).map(t => `#${t}`), ...P().maraqli_etiketler])].join(" ");
 // Abunə çağırışı (sahib, 2026-11-25: «baxanlar abunə olsunlar»): keçid sətrindən sonra — birinci sətir başlıq olaraq qalır (videonun
 // altında o görünür). Vəd videodakı ilə eynidir (video-xeber.cjs ABUNE). Instagram-da @ad basılır; Facebook-da səhifə postun üstündədir.
-const fbAbune = x => `${VX.abune(x.tur).ved} — səhifəmizi izləyin.`;
-const igAbune = x => `${VX.abune(x.tur).ved} — abunə olun: @8ulduz.az`;
+const fbAbune = x => fmt(P().fb_abune, { ved: VX.abune(x.tur).ved });
+const igAbune = x => fmt(P().ig_abune, { ved: VX.abune(x.tur).ved });
+const etrafli = link => fmt(P().etrafli, { link }), dahaCox = link => fmt(P().daha_cox, { link });
 const fbText = x => (x.tur === "maraqli"
   ? `${S.cut(x.title, 300)}
 
 ${S.cut(x.text, 1500)}
 
-Daha çox: ${x.link}
+${dahaCox(x.link)}
 
 ${fbAbune(x)}
 
@@ -236,15 +244,15 @@ ${maraqliKredit(x)}
 
 ${maraqliTag(x)}`
   : x.tur === "hava"
-  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: ${x.link}\n\n${fbAbune(x)}\n\n${havaKredit(x)}\n\n${havaTag(x)}`
-  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\nƏtraflı: ${x.link}\n\n${fbAbune(x)}${credit(x)}\n\n${tag(x)}`);
+  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\n${etrafli(x.link)}\n\n${fbAbune(x)}\n\n${havaKredit(x)}\n\n${havaTag(x)}`
+  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 900)}\n\n${etrafli(x.link)}\n\n${fbAbune(x)}${credit(x)}\n\n${tag(x)}`);
 // Instagram: keçid basılmır (sosial-paylasma.md) — sayt adı və «keçid profildədir».
 const igText = x => (x.tur === "maraqli"
   ? `${S.cut(x.title, 300)}
 
 ${S.cut(x.text, 1500)}
 
-Daha çox: 8ulduz.az (keçid profildədir)
+${dahaCox(P().profil_kecid)}
 
 ${igAbune(x)}
 
@@ -252,8 +260,8 @@ ${maraqliKredit(x)}
 
 ${maraqliTag(x)} #video`
   : x.tur === "hava"
-  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${igAbune(x)}\n\n${havaKredit(x)}\n\n${havaTag(x)} #video`
-  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\nƏtraflı: 8ulduz.az (keçid profildədir)\n\n${igAbune(x)}${credit(x)}\n\n${tag(x)} #video`);
+  ? `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1500)}\n\n${etrafli(P().profil_kecid)}\n\n${igAbune(x)}\n\n${havaKredit(x)}\n\n${havaTag(x)} #video`
+  : `${S.cut(x.title, 300)}\n\n${S.cut(x.text, 1200)}\n\n${etrafli(P().profil_kecid)}\n\n${igAbune(x)}${credit(x)}\n\n${tag(x)} #video`);
 
 const wait = ms => new Promise(ok => setTimeout(ok, ms));
 const SECIM_MAX = 4, KLIP_MIN = 2;
@@ -296,7 +304,7 @@ function networks(env = process.env) {
         await wait(num(env.VIDEO_POLL_MS, 10000));
       }
       if (env.VIDEO_FB_SERH !== "0") {
-        const c = await form(f, `${root}${encodeURIComponent(id)}/comments`, { message: `Ətraflı: ${x.link}` }, this.token, 20000).then(json).catch(() => ({}));
+        const c = await form(f, `${root}${encodeURIComponent(id)}/comments`, { message: etrafli(x.link) }, this.token, 20000).then(json).catch(() => ({}));
         if (!c?.id) log(`facebook: keçidli şərh yazılmadı (pages_manage_engagement icazəsi lazımdır) — ${JSON.stringify(c?.error?.message || c).slice(0, 160)}`);
       }
       return { ok: true, id, status: st };
@@ -361,7 +369,8 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   // Hava videosu (VIDEO_TUR: avtomatik — vaxtıdırsa; hava — dərhal, önizləmə və əl ilə; xeber — yalnız xəbər). Alınmasa (Open-Meteo cavab
   // vermədi) bu pəncərədə xəbər videosu gedir, hava növbəti pəncərədə yenidən sınanır. Paylaşma rejimində gündə bir dəfə.
   const tur = String(env.VIDEO_TUR || "").trim();
-  if (!only && tur !== "xeber" && app?.CITIES) {
+  // Hava videosunun mətnləri (video-hava.cjs: şəhər adlarının şəkilçiləri, külək, xəbərdarlıq) azərbaycancadır: yalnız profildə hava: true.
+  if (!only && tur !== "xeber" && app?.CITIES && dil().hava) {
     const why = tur === "hava" ? (post && state.hava?.[bakuClock(now).day] ? "bu günün hava videosu artıq paylaşılıb (önizləmə üçün «Paylaş»-ı söndürün)" : "")
       : havaDue(state, now, havaOptions(env));
     if (!why) {
