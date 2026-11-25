@@ -6,8 +6,8 @@ Sahibin göstərişi (2026-11-22): «Facebook-da video xəbərlər verilsin. Bun
 
 ## Qısa
 
-- Ən vacib xəbərdən (social.cjs-in seçimi: son 3 saatda 4+ mənbə və ya Prezident bölməsi) **öz hazırladığımız** şaquli video düzəlir: brend fonu, yuxarıda başdan sona loqo və «8ulduz.az», böyük başlıq, izah altyazı kimi, istəyə görə Azərbaycan səsi (SARA), sonda «Ətraflı: 8ulduz.az».
-- Video Facebook səhifəsinə Reels, Instagram-a Reels kimi gedir. Facebook mətnində saytdakı həmin xəbərin keçidi var, Instagram-da «Ətraflı: 8ulduz.az (keçid profildədir)».
+- Ən vacib xəbərdən (social.cjs-in seçimi: son 3 saatda 4+ mənbə və ya Prezident bölməsi) **öz hazırladığımız** şaquli video düzəlir: brend fonu, yuxarıda başdan sona loqo və «8ulduz.az», böyük başlıq, izah altyazı kimi, istəyə görə Azərbaycan səsi (SARA), sonda abunə çağırışı («ABUNƏ OL» düyməsi) və «Ətraflı: 8ulduz.az».
+- Video Facebook səhifəsinə Reels, Instagram-a Reels kimi gedir. Facebook mətnində saytdakı həmin xəbərin keçidi var, Instagram-da «Ətraflı: 8ulduz.az (keçid profildədir)». Hər mətndə keçid sətrindən sonra abunə çağırışı var ([«Abunə çağırışı»](#abunə-çağırışı)).
 - 30 dəqiqədən bir (hər yoxlama pəncərəsi), Bakı vaxtı ilə 08:00–23:59 arası, gündə ən çox 30 video (sahib, 2026-11-24: «öz video sayımızı 10 dəfə artırmaq lazımdır»; 10 qat — 80 — Facebook-un API həddini, 24 saatda 30 Reels, keçir, ona görə hər platforma öz həddinə qədər; əvvəl 2 saatdan bir, gündə 8). Hamısı GitHub Actions-da işləyir, kompüterdən asılı deyil.
 - Üçüncü tərəfin videosu, fotosu, musiqisi videoya düşmür (aşağıda «Müəllif hüququ»).
 
@@ -77,11 +77,11 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   (yad əl sıxma, yad saray) həmin adamları göstərirmiş kimi görünər. Gemini də hər xəbəri yoxlayır («uygun»: false — növbəti xəbər).
   Axtarış ifadəsində insanların xəbərdəki hərəkəti (görüş, imza, çıxış) və adsız bayraqlar yoxdur; inisiallar («Cey. Di.») tam yazılır.
 - **Dizayn:** görüntü bütün ekranı tutur; yuxarıda brend zolağı, altında yarımşəffaf tünd zolaqda bölmə və başlıq, aşağıda altyazılar
-  (səslə eyni anda), altda mənbə və «Görüntü: Pixabay», sonda tündləşən ekranda «Ətraflı: 8ulduz.az».
+  (səslə eyni anda), altda mənbə və «Görüntü: Pixabay», sonda tündləşən ekranda vəd, «ABUNƏ OL» düyməsi və «Ətraflı: 8ulduz.az».
 
 ### Montaj, altyazı və etiketlər (sahib, 2026-11-23: «tam professional kimi işlə»)
 
-- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunmur (sahib, 2026-11-24/25): ekranda başdan sonluğa qədər yazılıb qalır, səs 1 s sonra birinci cümlə ilə başlayır; başlıq anı və birinci altyazı bir kadrdır, sonra hər altyazı hissəsi bir kadrdır. Video səsi «Dinlə»dən yavaşdır: sürət 0,85, vergül fasiləsi 0,28 s, cümlə fasiləsi 0,65 s (≈ 125 söz/dəq; əvvəl 155). Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
+- **Montaj** (`video-xeber.cjs` `shotPlan`): kəsim danışığın sərhədindədir. Başlıq oxunmur (sahib, 2026-11-24/25): ekranda başdan sonluğa qədər yazılıb qalır, səs dərhal (0,35 s) birinci cümlə ilə başlayır (2026-11-25: başlıq üçün 0,65 s səssiz an götürüldü — baxanların 60,6%-i videonu ilk saniyələrdə ötürürdü); başlıq anı və birinci altyazı bir kadrdır, sonra hər altyazı hissəsi bir kadrdır. Video səsi «Dinlə»dən yavaşdır: sürət 0,85, cümlə fasiləsi 0,65 s, cümlənin içində nəfəs 0,28 s (qısa hissədən sonra 0,18 s) (≈ 125 söz/dəq; əvvəl 155). Nəfəs 2026-11-25-dən işləyir ([«Cümlənin içində nəfəs»](#cümlənin-içində-nəfəs)): ondan əvvəl vergül fasiləsi yazılmışdı, amma səsdə yox idi. Kadr 2,6–6,5 s-dir: qısa hissə qonşusuna birləşir, uzunu bölünür. Əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
   Kliplər montaj planının sırası ilə gedir. Klip təkrarlananda onun işlənməmiş yerindən götürülür (`-ss`).
 - **Görüntü sırası** (`video-ssenari.cjs` `goruntu`): Gemini 6–8 sadə ifadə verir: əvvəl əsas səhnə, sonra hər cümləyə bir səhnə, cümlələrin sırası ilə. 8 klip yüklənir, sonra eyni ifadələrin ikinci klipləri.
   Tapılmayan ifadənin yerinə ümumi səhnə qoyulmur, çünki yanlış yerin kadrı uyğun klipin təkrarından pisdir. Bölmənin ümumi səhnələri (yer adı yoxdur) yalnız uyğun klip 3-dən az olanda işlənir.
@@ -135,7 +135,7 @@ Ona görə X videoları yalnız saytda (Videolent) oynayır. Video X-in öz serv
 2. **Fakt** Vikipediyanın API-sindən (`extracts`, düz mətn) gəlir: məqalənin ilk 5000 simvolu, «See also»dan sonrası atılır.
 3. **Mətn:** Gemini Azərbaycan dilində başlıq və 5–7 cümləlik diktor mətni yazır. Başlıq mövzunun ən heyrətamiz faktıdır. Yoxlama xəbər videosu ilə eynidir (`checkText`): uzunluq, cümlə sayı, kiril, nida, sual və nisbi gün sözü olmamalıdır. Mətndə və başlıqda **hər rəqəm məqalədə olmalıdır**, mətn saytın qaydasından (`policyViolation`) keçməlidir. Keçməsə növbəti mövzu götürülür (bir pəncərədə ən çox 3).
 4. **Görüntü** mövzunun öz adı ilə axtarılır (`goruntu`), xəbər videosundakı uyğunluq, yad yer və montaj redaktoru yoxlamaları ilə. Ümumi səhnə yoxdur (`EHTIYAT.maraqli = []`): gepard haqqında videoda şəhər görünmür. Uyğun klip 2-dən azdırsa növbəti mövzu götürülür.
-5. **Montaj** xəbər videosu ilə eynidir (`video-xeber.cjs`): tam boy kadr, «MARAQLI» etiketi, altyazı, «Mənbə: Vikipediya · Görüntü: Pixabay». `video.json`-da `kind: "maraqli"` və `url: https://8ulduz.az/` olur: YouTube və TikTok yükləyicisi bunu xəbər kimi yox, öz növü ilə yükləyir.
+5. **Montaj** xəbər videosu ilə eynidir (`video-xeber.cjs`): tam boy kadr, «BİLİRDİNİZMİ?» nişanı (başlıq faktın özüdür, nişan onu suala çevirir), altyazı, «Mənbə: Vikipediya · Görüntü: Pixabay». `video.json`-da `kind: "maraqli"` və `url: https://8ulduz.az/` olur: YouTube və TikTok yükləyicisi bunu xəbər kimi yox, öz növü ilə yükləyir.
 
 **Tezlik** (`sosial-video.cjs` `maraqliDue`):
 - Son maraqlı videodan **MARAQLI_ARA_MIN** (60) dəqiqə keçibsə və 24 saatda **MARAQLI_GUNDE** (10) dolmayıbsa, pəncərədə əvvəl maraqlı video hazırlanır. Alınmasa xəbər videosu gedir.
@@ -146,6 +146,56 @@ Ona görə X videoları yalnız saytda (Videolent) oynayır. Video X-in öz serv
 **Paylaşma mətni:** başlıq, mətn, «Daha çox: https://8ulduz.az/», «Məlumat: Vikipediya — <məqalənin keçidi>», «Görüntü: Pixabay» və etiketlər (mövzunun etiketləri, #maraqlı, #bilirdinizmi, #8ulduz).
 
 **PR yoxlaması:** `tests/fixtures/video-maraqli.json` nümunəsindən süni kliplərlə video hazırlanır (`numune-maraqli`) və müqavilə yoxlanır (`kind`, `url`, Vikipediya mənbəyi). Testlər `tests/video-maraqli.test.cjs`-dədir.
+
+## Abunə çağırışı
+
+Sahib, 2026-11-25: «sosial mediada videolara baxış var, lakin baxanlar hesaba abunə olmurlar». Həmin gün YouTube Studio (kanal 22 noyabrda açılıb, 19 video): 4,5 min baxış, 17 abunəçi, baxanların 60,6%-i videonu ilk saniyələrdə ötürür, orta baxış ~7 saniyə (9,2 saat / 4,5 min baxış). Video sonda yalnız sayta çağırırdı («Ətraflı məlumat səkkiz ulduz nöqtə az saytında»), abunə istəyən heç nə yox idi.
+
+- **Səs dərhal başlayır** (`LEAD_S` 0,35 s): ilk saniyə sükutla getmir. Başlıq yenə oxunmur.
+- **Sonluq** (`video-xeber.cjs` `subOutro`, üç video növündə eyni): növün vədi, narıncı «ABUNƏ OL» düyməsi (iki dəfə «döyünür»), altında sayt. Səs iki cümlədir: «Abunə olun. Ən vacib xəbərlər hər gün burada.» — çağırış ayrıca cümlə kimi bitir, sonra cümlə fasiləsi (0,65 s), sonra vəd. Vergüllə yazılanda səs fasiləsiz oxuyurdu (sahib, 2026-11-25: «Abunə ol deyib pauza vermir. belə oxuyanda nə dediyini tam başa düşmək olmur»).
+- **Nişan** (`subBadge`): brend zolağının sağında kiçik «ABUNƏ OL», 3-cü saniyədən (`SUB_AT`) sonluğa qədər. Səbəb: çox baxan sona çatmır. Nişana 2 saniyə qalmayan qısa videoda yoxdur.
+- **Vəd** (`ABUNE`): abunə olan nə alacağını bilsin. Xəbər: «Ən vacib xəbərlər hər gün»; maraqlı: «Hər gün yeni maraqlı faktlar»; hava: «Hava proqnozu hər gün».
+- **Paylaşma mətni:** keçid sətrindən sonra bir sətir. Facebook: «<vəd> — səhifəmizi izləyin.»; Instagram və TikTok: «<vəd> — abunə olun: @8ulduz.az»; YouTube: «<vəd> — abunə olun: https://www.youtube.com/@8ULDUZ?sub_confirmation=1» (kanalı abunə pəncərəsi ilə açır; Shorts təsvirində keçid basılmır). Birinci sətir başlıq olaraq qalır: videonun altında o görünür.
+- `youtube.cjs` və `tiktok.cjs` iş axınında tək fayldır (sparse-checkout), ona görə vəd mətni onlarda da yazılıb (`VED`); testlər üçünün eyni qaldığını yoxlayır.
+
+Xəbər seçimi dəyişməyib: 19 videonun baxışı mövzudan çox yüklənmə vaxtı ilə bağlıdır (ilk günün videoları mövzudan asılı olmayaraq yüzlərlə, sonrakılar onlarla baxış alıb), mövzuya görə qayda üçün məlumat azdır.
+
+### Videonun səsi: Babək (2026-11-25)
+
+Sahib, 2026-11-25: «iyirmibeş sözünü dinlə. azərtacdan sonra nə deyir dinlə», «hərfin deyilişdə az qala itməsidir bəzən», «başqa mətni tam düz oxuma variantı yoxdur?», sonra «edge-tts ilə (açarsız)». SARA hərfləri udur və səhv oxuyurdu. Eyni cümlələri Whisper large-v3 belə eşitdi:
+
+| Cümlə | SARA | Babək |
+|---|---|---|
+| AZƏRTAC xəbər verir ki, bu səbəbdən rayonun … qaz təchizatında | «Azərtaçı istinad əbər verir … rayının … də səcizatında» | düz |
+| Qubada 10, Lənkəranda 15, Naxçıvanda 14 | «nənkəranda … nəqçıvanda» | düz |
+| Sabah, 25 noyabr, çərşənbə, hava belə olacaq | «hava bir olacaq» | düz |
+
+Layihənin 81 cümləlik ölçüsündə (PR #311) hərf xətası Babəkdə 2–3%, SARA-da 10–11% idi. «Xəbər»in «b»-sini qısaltmaq (`LETTER_MAX`) və nəfəs qaydaları SARA-nı bu səviyyəyə çatdırmadı.
+
+- **Səs:** `az-AZ-BabekNeural` (saytın «Dinlə» səsi), edge-tts ilə, açarsız və pulsuz (`video_ses.py` `Babek`). Mətn durğu ilə gedir (`az_text.for_voice`, saytın hazır səsi ilə eyni yol): Babək vergüldə özü nəfəs alır, intonasiyanı özü qurur.
+- **Temp:** Edge-in öz sürəti cümlənin içində 154 söz/dəq-dir, video −10% oxuyur (138), cümlə fasilələri ilə ~125 söz/dəq. Babək −10%-lə SARA-dan bir az uzun oxuyur (hava nümunəsi 56,4 s, 59-a sığır). Qoruyucu: video 59 s-ə sığmasa səs −5%, sonra 0% ilə yenidən səslənir (`BABEK_RATES`, `max_s`) — timeline sondakı altyazıları atmasın.
+- **Altyazının vaxtı:** eyni cümlənin hissələri bir səsləndirmədir; hissənin sonu növbəti hissənin birinci sözünün başlanğıcıdır (Edge-in söz sərhədi, `WordBoundary`). Söz sayı uyğun gəlməsə hərf payı ilə.
+- **Ehtiyat:** Edge cavab verməsə (üç cəhd) və ya edge-tts quraşdırılmayıbsa video SARA ilə səslənir. Variables-da `VIDEO_SES_MOTOR=sara` — həmişə SARA. `video.json`-da `ses: babek|sara`.
+- **Risk:** edge-tts Edge brauzerinin rəsmi olmayan yoludur. Microsoft onu dəyişə və ya bağlaya bilər, o zaman SARA işə düşür. Rəsmi yol Azure açarıdır (pulsuz plan ayda 500 000 simvol), amma o limiti saytın canlı «Dinlə» səsi də işlədir.
+- **Yoxlama:** PR-da hər nümunə videonun səsi Whisper large-v3 ilə dinlənir (`video_dinle.py`, «Səsi dinlə» addımı): oxunmalı mətn (`video.json` `oxunan`) eşidilənlə müqayisə olunur, səhv eşidilən və itən sözlər işin xülasəsində və artefaktdakı `dinleme.md`-dədir. Whisper özü də səhv edir (ad yazılışı), iş dayanmır. Səs sükutlarda hissələrə bölünüb dinlənir (VAD): bütöv dinləyəndə Whisper 56 s-lik hava videosunda bütün bir cümləni («Qubada qar yağacaq. Abunə olun.») buraxdı, halbuki səsdə var idi.
+
+Aşağıdakı nəfəs qaydaları yalnız SARA (ehtiyat) üçündür.
+
+### Cümlənin içində nəfəs
+
+Sahib, 2026-11-25: «Abunə ol deyib pauza vermir… bu və bu kimi digər çatışmazlıqları tap düzəlt». Səbəb bir cümlə ilə bağlı deyildi: SARA durğu işarəsini tanımır (`az_text.fold` onu boşluq edir), video səsi isə cümləni bütöv səsləndirir. Ona görə videolarda vergül, iki nöqtə, nöqtəli vergül, boşluqlu tire və mötərizə səsdə heç yox idi: «Sabah, 25 noyabr, çərşənbə, hava belə olacaq», «Diqqət: ani küləklərin sürəti…», «Gündüz Sumqayıtda 14, Gəncədə 11, Mingəçevirdə 12…» bir nəfəsdə gedirdi.
+
+Düzəliş (`video_ses.py` `sentences`, `breath_cuts`, `splice`):
+
+- Cümlə yenə **bir dəfə** səslənir, intonasiya vergüldə bitmir. Vergüldə ayrıca səsləndirmək olmaz: hər parça cümlə sonu kimi düşür (Whisper ölçməsi, `az_text.phrases`).
+- Sonra səsin içinə, işarənin yerinə **sükut** qoyulur. Yer modelin öz müddətlərindən götürülür: əvvəlki sözün son hərfinin ortasından növbəti sözün ilk hərfinin ortasına qədər, orada ən sakit an (10 ms-lik pəncərə). Sakit yerdə (−30 dB-dən aşağı) kəsimin iki tərəfində 12 ms sönmə və açılma; sakit yer yoxdursa (saitdən saitə keçid: «xəzri, əsəcək») söz 50 ms-də yavaşca söndürülür, növbəti söz 20 ms-də açılır — qəfil kəsilmir.
+- Uzunluq: iki nöqtə, nöqtəli vergül, tire və uzun hissədən sonrakı vergül 0,28 s; qısa hissədən (14 simvoldan az: «Sabah,», «çərşənbə,», mötərizədəki söz) sonra 0,18 s — sadalama doğranmış kimi səslənməsin. Rəqəmin içindəki vergül və iki nöqtə («3,5», «12:30») nəfəs deyil.
+- Modelin özünə fasilə etdirmək alınmadı (2026-11-25, yerli ölçü): boşluq, boş token, «–» və «_» uzadılanda model sükut yox, uzanmış səs verir (14 yerdən 2-də sakit). Yalnız boşluq tokeninin içində axtaranda kəsimlərin yarısı səsin ortasına düşürdü; geniş axtarışla 16 nəfəsdən 5-i sakit yerdədir, qalanı yumşaq sönmə ilə.
+- Model müddət vermirsə nəfəs qoyulmur: hərf payı ilə təxmin sözün içinə düşə bilər.
+- Altyazı vergüldə bölünübsə sükut əvvəlki altyazınındır (vergüllü söz fasilədə seçili qalır).
+- Yoxlama: `video.json`-da `nefes` (hər nəfəsin anı, uzunluğu və kəsim yerinin səs səviyyəsi, dB — mənfi rəqəm sakit yer deməkdir; `buraxilan` — qoyula bilməyənlər); artefaktda `fasileler.txt` (ffmpeg `silencedetect`: videonun səsindəki bütün fasilələr).
+
+Saytın «Dinlə» səsi dəyişmir (`az_text.py` toxunulmayıb).
 
 ## Video modulu: `.github/scripts/video-xeber.cjs`
 
@@ -180,7 +230,7 @@ Xəbər saytın qaydasından (`policyViolation`, qırmızı xətt 2) keçməsə 
 | `<çıxış>.json` | xəbərin sahələri `{ id, own: true, title, summary, text, source, sourceUrl, category, lang, publishedAt }` + texniki `{ duration, bytes, width, height, vcodec, pix, fps, acodec, rate, channels, cover_s, kadrlar, voice, parts }` (kadrlar: önizləmə üçün anlar, saniyə). TikTok yükləyicisi bu faylı oxuyur: `text` — mətn, `cover_s` — üz qabığı |
 | `<çıxış>.jpg` | örtük kadrı (`cover_s` = 1,5 s, başlıq tam görünür) |
 
-**Ekran planı (1080×1920):** y 300–420 brend zolağı (loqo + «.az», başdan sona), y 420 narıncı gediş xətti, y ~466 bölmə nişanı və vaxt, y 556-dan başlıq (96→60 px, ən çox 470 px hündürlük), altında altyazı (62 px, ən çox 3 sətir, göy qutuda), y 1404 mənbə, sonda 2,8 s «Ətraflı: 8ulduz.az». Fon: tünd göy, iki yumşaq hərəkətli işıq.
+**Ekran planı (1080×1920):** y 300–420 brend zolağı (loqo + «.az», başdan sona), y 420 narıncı gediş xətti, y ~466 bölmə nişanı və vaxt, y 556-dan başlıq (96→60 px, ən çox 470 px hündürlük), altında altyazı (62 px, ən çox 3 sətir, göy qutuda), y 1404 mənbə, zolağın sağında 3-cü saniyədən kiçik «ABUNƏ OL» nişanı, sonda ən azı 2,8 s vəd (y 730), «ABUNƏ OL» düyməsi (y 900) və «Ətraflı: 8ulduz.az» (y 1070). Fon: tünd göy, iki yumşaq hərəkətli işıq.
 
 **Zaman:** səs varsa hər hissənin vaxtı səsdən (`video_ses.py`), yoxsa oxuma sürətindən (~13 simvol/s, hər altyazı ≥2,4 s). 59 s-ni keçərsə sondakı altyazılar düşür.
 
@@ -248,7 +298,7 @@ Tapşırıq: öz gündəlik hava videomuz, ən peşəkar səviyyədə. Kod: `.gi
 - Xəbərdarlıq kartı (varsa).
 - İki səhifədə 8 bölgə şəhəri: Sumqayıt, Gəncə, Mingəçevir, Şəki | Quba, Lənkəran, Naxçıvan, Şuşa. Hər kartda ikon, gündüz və gecə temperaturu var.
 
-Yuxarıda xəbər videosundakı brend zolağı (loqo və «.az», gediş xətti) qalır. Altda «Hava: Open-Meteo, model proqnozu · Görüntü: Pixabay», sonda «Ətraflı: 8ulduz.az» və «Bütün şəhərlər: 8ulduz.az/bolme/hava». Bütün yazılar y 300…1480 arasındadır (lentin 4:5 kəsiyi və Reels düymələri).
+Yuxarıda xəbər videosundakı brend zolağı (loqo və «.az», gediş xətti) qalır. Altda «Hava: Open-Meteo, model proqnozu · Görüntü: Pixabay», zolaqda 3-cü saniyədən «ABUNƏ OL» nişanı, sonda vəd («Hava proqnozu hər gün»), «ABUNƏ OL» düyməsi və «Bütün şəhərlər: 8ulduz.az/bolme/hava». Bütün yazılar y 300…1480 arasındadır (lentin 4:5 kəsiyi və Reels düymələri).
 
 **Məlumat və dəqiqlik (qırmızı xətt).**
 - Bir sorğu gedir: Open-Meteo `forecast`, 9 nöqtə, `daily`, `wind_speed_unit=ms`, `timezone=Asia/Baku`. Şəhərlər və koordinatlar saytın öz siyahısındandır (`assets/app.js` `CITIES`, `topics.cjs` `loadApp`). Kod onları təkrar yazmır.

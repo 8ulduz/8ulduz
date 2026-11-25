@@ -42,6 +42,11 @@ const MARK = Buffer.from("8ulduz.az");
 // xəbər yazanda da çıxsın»). YouTube «8 ulduz»-u iki söz kimi oxuyur, bitişik «8ULDUZ» adına uyğun gəlmir: təsvirdə və teqlərdə
 // rəqəmlə, sözlə, bitişik və ayrı yazılış var. Tək «8», «səkkiz», «xəbər» kimi ümumi sözlərdə yer baxış sayından asılıdır.
 const TAGLINE = "8ulduz.az — 8 Ulduz (Səkkiz Ulduz) xəbər saytı: Azərbaycan və dünyadan son xəbərlər, hər dəqiqə yenilənir.";
+// Abunə çağırışı (sahib, 2026-11-25: «baxanlar abunə olsunlar»): vəd videodakı ilə eynidir (video-xeber.cjs ABUNE). Bu fayl iş axınında
+// təkdir (sparse-checkout), ona görə mətn burada da yazılıb; tests/youtube.test.cjs ikisinin eyni qaldığını yoxlayır. Keçid kanalı abunə
+// pəncərəsi ilə açır (Shorts təsvirində keçid basılmır; adi baxış səhifəsində basılır).
+const VED = { xeber: "Ən vacib xəbərlər hər gün", maraqli: "Hər gün yeni maraqlı faktlar", hava: "Hava proqnozu hər gün" };
+const CHANNEL = "https://www.youtube.com/@8ULDUZ?sub_confirmation=1";
 // Başqasının videosu: bu ünvanlardan gələn fayl və ya keçid YouTube-a getmir.
 const FOREIGN_VIDEO = /(^|\.)(twimg\.com|twitter\.com|x\.com|youtube\.com|youtu\.be|tiktok\.com|tiktokcdn\.com|instagram\.com|cdninstagram\.com|facebook\.com|fbcdn\.net|fb\.watch|vk\.com|ok\.ru|rutube\.ru|dailymotion\.com|vimeo\.com)$/i;
 const SITE_URL = /^https:\/\/(www\.)?8ulduz\.az(\/[^\s<>"]*)?$/;
@@ -179,6 +184,7 @@ function hashtagsOf(m) {
   const own = (Array.isArray(m.hashtags) ? m.hashtags : []).map(t => "#" + String(t).replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "")).filter(t => t.length > 1).slice(0, 3);
   return [...new Set([...own, "#8ulduz", "#xəbərlər", "#Shorts"])].join(" ");
 }
+const abuneLine = m => `${VED[kindOf(m)] || VED.xeber} — abunə olun: ${CHANNEL}`;
 function descriptionOf(m, link = linkOf(m)) {
   // Xülasə; yoxdursa videodakı izahın (text) əvvəli.
   const k = kindOf(m), title = clean(m.title), pick = [m.summary, m.text].map(clean).find(x => x && x !== title) || "";
@@ -186,7 +192,7 @@ function descriptionOf(m, link = linkOf(m)) {
   const items = (Array.isArray(m.items) ? m.items : []).filter(x => clean(x?.title)).slice(0, 10);
   const list = k === "icmal" && items.length ? items.map((x, i) => `${i + 1}. ${cut(x.title, 140)}`).join("\n") : "";
   const src = k === "icmal" ? [] : [...new Set([m.source, ...items.map(x => x.source)].map(clean).filter(Boolean))].slice(0, 5);
-  const tail = [`Ətraflı: ${link}`, src.length ? `Mənbə: ${src.join(", ")}` : "", TAGLINE, hashtagsOf(m)].filter(Boolean).join("\n\n");
+  const tail = [`Ətraflı: ${link}`, abuneLine(m), src.length ? `Mənbə: ${src.join(", ")}` : "", TAGLINE, hashtagsOf(m)].filter(Boolean).join("\n\n");
   const body = [sum, list].filter(Boolean).join("\n\n");
   const room = DESC_MAX - Buffer.byteLength(noAngle(tail)) - 2;
   return noAngle([body ? cutBytes(body, room) : "", tail].filter(Boolean).join("\n\n"));
@@ -478,6 +484,6 @@ async function main() {
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
-module.exports = { options, mp4Info, shortsReason, foreignReason, policyReason, kindOf, linkOf, titleOf, descriptionOf, tagsOf, resourceOf, readVideos,
+module.exports = { VED, CHANNEL, options, mp4Info, shortsReason, foreignReason, policyReason, kindOf, linkOf, titleOf, descriptionOf, tagsOf, resourceOf, readVideos,
   quotaReset, token, channel, startUpload, sendFile, run, check, makeTestVideo, videoIdOf, TITLE_MAX, DESC_MAX, TAGS_MAX };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e).slice(0, 300)); process.exitCode = 1; });

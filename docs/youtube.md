@@ -46,6 +46,7 @@ Açarı, parolu və kodu heç kimə göndərməyin, söhbətə yapışdırmayın
    - Token 6 ay işlənməsə və ya icazəni geri götürsəniz də ölür.
 6. **Təsvirdəki keçid.** Hər videonun təsvirində saytın səhifəsi var: xəbərin paylaşma səhifəsi `https://www.8ulduz.az/<nömrə>?h=<saat>` və ya icmal səhifəsi.
    - YouTube Shorts təsvirindəki keçidi basılan etməyə bilər.
+   - Keçid sətrindən sonra abunə çağırışı gəlir: «Ən vacib xəbərlər hər gün — abunə olun: https://www.youtube.com/@8ULDUZ?sub_confirmation=1» (vəd video növünə görə; `docs/sosial-video.md` «Abunə çağırışı»).
    - Kanalın «haqqında» bölməsindəki keçid basılır, ona görə sayt ünvanını oraya mütləq yazın (1-ci addım).
 7. **Süni intellekt bildirişi.** Səs SARA modelidir, amma real insanı və ya real hadisəni təqlid etmir, ona görə bildiriş tələb olunmur və `containsSyntheticMedia` `false` gedir. Video modulu JSON-da `"aigc": true` yazsa, YouTube-a bildirilir.
 

@@ -93,7 +93,7 @@ test("tiktok: Direct Post — refresh, creator info, FILE_UPLOAD, status; unaudi
   assert.match(logs.join("\n"), /görünmə seçilməyib \(Variables TIKTOK_PRIVACY\) — SELF_ONLY ilə göndərilir/, "standart görünmə yoxdur");
   assert.equal(init.post_info.brand_content_toggle, false);
   assert.equal(init.post_info.is_aigc, false);
-  assert.match(init.post_info.title, /^Bakıda yeni metro stansiyası b1\n\nStansiya sabah açılır\.\n\nƏtraflı: 8ulduz\.az \(keçid profildədir\)\n\n#Metro #Bakı #8ulduz #xəbərlər #Azərbaycan$/);
+  assert.match(init.post_info.title, /^Bakıda yeni metro stansiyası b1\n\nStansiya sabah açılır\.\n\nƏtraflı: 8ulduz\.az \(keçid profildədir\)\n\nƏn vacib xəbərlər hər gün — abunə olun: @8ulduz\.az\n\n#Metro #Bakı #8ulduz #xəbərlər #Azərbaycan$/);
   const size = fs.statSync(path.join(dir, "b1.mp4")).size;
   assert.deepEqual(init.source_info, { source: "FILE_UPLOAD", video_size: size, chunk_size: size, total_chunk_count: 1 });
   const put = tk.calls.find(c => c.method === "PUT");
@@ -491,7 +491,12 @@ test("tiktok: connecting — the code from the redirect address becomes an encry
 test("tiktok: caption fits TikTok (≤2200), ends with the site and hashtags", () => {
   const c = T.caption({ title: "Ş".repeat(500), summary: "Uzun ".repeat(800), hashtags: ["a b", "#c", "", "#"] });
   assert.ok(c.length <= 2200);
-  assert.match(T.caption({ title: "Başlıq", summary: "Başlıq" }), /^Başlıq\n\nƏtraflı: 8ulduz\.az \(keçid profildədir\)\n\n#8ulduz #xəbərlər #Azərbaycan$/);
+  assert.match(T.caption({ title: "Başlıq", summary: "Başlıq" }), /^Başlıq\n\nƏtraflı: 8ulduz\.az \(keçid profildədir\)\n\nƏn vacib xəbərlər hər gün — abunə olun: @8ulduz\.az\n\n#8ulduz #xəbərlər #Azərbaycan$/);
+  // Abunə çağırışı (sahib, 2026-11-25): vəd video növünə görədir və videodakı ilə eynidir (bu fayl iş axınında təkdir — mətn iki yerdədir).
+  const VX = require("../.github/scripts/video-xeber.cjs");
+  assert.deepEqual(T.VED, Object.fromEntries(Object.entries(VX.ABUNE).map(([k, v]) => [k, v.ved])));
+  assert.ok(T.caption({ title: "Hava", kind: "hava" }).includes("Hava proqnozu hər gün — abunə olun: @8ulduz.az"));
+  assert.ok(T.caption({ title: "Fakt", kind: "maraqli" }).includes("Hər gün yeni maraqlı faktlar — abunə olun: @8ulduz.az"));
 });
 
 test("tiktok: workflow — own job, no write access, the code never sits in env, state cache survives re-runs", () => {

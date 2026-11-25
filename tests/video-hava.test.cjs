@@ -157,7 +157,7 @@ test("hava: the screen — brand from first to last frame, every text inside y 3
   const rows = rowsOf(FX.response), p = { ...VH.plan(rows, "2026-11-25", { label }), goruntuMenbe: "Pixabay" };
   const pr = VH.prepare(p), tl = V.timeline(pr, null);
   assert.ok(tl.duration >= 20 && tl.duration <= V.MAX_S, String(tl.duration));
-  assert.equal(pr.say.at(-1), V.OUTRO_SAY, "sonda sayt adı səslənir");
+  assert.equal(pr.say.at(-1), "Abunə olun. Hava proqnozu hər gün burada.", "sonda abunə çağırışı səslənir (sahib, 2026-11-25)");
   const ev = events(VH.ass(p, tl, { footage: true }));
   const brand = ev.find(e => e.style === "Brand" && e.text === ".az");
   assert.ok(brand && brand.start === 0 && Math.abs(brand.end - tl.duration) < 0.02, "«8ulduz.az» başdan sona");
@@ -166,7 +166,12 @@ test("hava: the screen — brand from first to last frame, every text inside y 3
   assert.deepEqual(caps.map(e => e.text.replace(/\\N/g, " ")), pr.say.slice(0, -1));
   assert.ok(caps.every(e => (e.raw.match(/\\t\(/g) || []).length === 2 * e.text.replace(/\\N/g, " ").split(" ").length));
   // Yazılar y 300…1480 arasında (lentdə 4:5 kəsik və Reels düymələri); fon və sonluq istisna.
-  for (const e of ev.filter(e => !["Shape", "Outro", "OutroBig"].includes(e.style))) {
+  // Abunə çağırışı xəbər videosundakı ilə eynidir (video-xeber.cjs subBadge, subOutro): zolaqda nişan, sonluqda vəd və düymə.
+  const sub = ev.filter(e => e.style === "Sub" && e.text === "ABUNƏ OL");
+  assert.equal(sub.length, 2);
+  assert.ok(sub[0].start === 3 && /\\pos\(996,360\)/.test(sub[0].raw) && Math.abs(sub[1].start - tl.outro[0]) < 0.02, "nişan 3-cü saniyədən, düymə sonluqda");
+  assert.ok(ev.some(e => e.style === "Outro" && e.text === "Hava proqnozu hər gün") && ev.some(e => e.style === "Outro" && e.text === "Bütün şəhərlər: 8ulduz.az/bolme/hava"));
+  for (const e of ev.filter(e => !["Shape", "Outro"].includes(e.style))) {
     const m = e.raw.match(/\\(?:pos|move)\((\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/);
     assert.ok(m && Number(m[2]) >= 300 && Number(m[2]) <= 1480, `${e.style} «${e.text}» y=${m?.[2]}`);
   }
