@@ -482,8 +482,12 @@ function imageCandidates(a) {
   if (a && typeof a === "object") imgMemo.set(a, out);
   return out;
 }
+// Ehtiyat şəkil yalnız ilk ALT_IMAGES alt mənbədəndir (sıra ən yenidən; büdcə, 2026-11-25): first.json qalanlarının şəklini daşımır
+// (updater FIRST_ALT_FULL), kart tam lent gələndə dəyişməməlidir (.hero-row kartı outerHTML ilə tanıyır, dəyişən slayd yenidən qurulur).
+// 41 mənbəli xəbərin kartında 40 ehtiyat ünvan olurdu.
+const ALT_IMAGES = 20;
 function imageCandidatesRaw(a) {
-  const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
+  const values = [a?.imageUrl, S.og?.[a?.sourceUrl], ...(a?.alts || []).slice(0, ALT_IMAGES).flatMap(x => [x.imageUrl, S.og?.[x.sourceUrl]])];
   // Qoşa ünvan düzəldilir.
   // Kəsilmiş kiçik şəkil sona.
   const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$|static\.president\.az\/assets\/president-administration-/i.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
@@ -1054,7 +1058,7 @@ function* newsSteps() {
   // Şəkil yoxdursa digər mənbədən.
   for (const a of d.articles) {
     if (a.imageUrl || !a.alts?.length) continue;
-    const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og?.[x.sourceUrl]);
+    const alts = a.alts.slice(0, ALT_IMAGES), alt = alts.find(x => x.imageUrl) || alts.find(x => S.og?.[x.sourceUrl]);
     if (alt) a.imageUrl = alt.imageUrl || S.og?.[alt.sourceUrl];
   }
   return d;

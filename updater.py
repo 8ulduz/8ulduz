@@ -2017,17 +2017,44 @@ def first_screen_rows(articles, now=None):
     return [a for a in articles if a.get("category") == "prezident" or key(a) in keep]
 
 
+# first.json-un alt mənbələri (büdcə, 2026-11-25): 189 sətirdə 878 alt mənbə xam 393 KB-ın 290 KB-ı idi (bir xəbərdə 41-ə qədər) və fayl
+# 80 000 B gzip həddini keçdi. İlk 20-si (sıra ən yenidən; share_jump və x-worker də ilk 20-ni götürür) ilk ekranın oxuduğu bütün sahələrlə
+# qalır: app.js preparedRow/altForbidden başlığı (qayda, ölü keçidin əvəzi) və dili, collapseSteps mənbəni, keçidi, vaxtı və şəkli oxuyur.
+# Qalanı atılmır, yalnız sayılır: «N mənbə» nişanı və slayderin sırası (rankBySources: 1 + alts sayı) tam lentlə eyni qalmalıdır — sadəcə
+# 20-də kəsəndə 35/24/22 mənbəli xəbərlər «21 mənbə» olub yer dəyişirdi, slayderin ilk xəbəri də. Keçid və vaxt qalır: collapseSteps
+# keçidlə birləşdirir, hasPage vaxtları sayır. Şəkil qalmır: app.js ehtiyat şəkli yalnız ilk ALT_IMAGES (20) alt mənbədən götürür. Xarici
+# mənbənin başlığı qalır: brauzerdəki qayda (QIRMIZI XƏTT 2) onu yoxlayır. Sətrin dilinə bərabər lang yazılmır: app.js və iOS boşdursa
+# sətrin dilini götürür (next.lang || b.lang).
+FIRST_ALT_FULL = 20
+FIRST_ALT_FIELDS = ("source", "sourceUrl", "publishedAt", "title", "imageUrl", "lang")
+FIRST_ALT_COUNTED = ("source", "sourceUrl", "publishedAt")
+
+
+def first_alts(a):
+    """first.json sətrinin alt mənbələri: say və sıra dəyişmir, ilk FIRST_ALT_FULL tam, qalanı yalnız sayılmaq üçün."""
+    out = []
+    for i, alt in enumerate(a.get("alts") or []):
+        keep = FIRST_ALT_FIELDS if i < FIRST_ALT_FULL else FIRST_ALT_COUNTED + (("title",) if alt.get("source") in content_policy.WORLD_SOURCES else ())
+        row = {k: alt[k] for k in keep if alt.get(k)}
+        if row.get("lang") and row["lang"] == a.get("lang"):
+            del row["lang"]
+        out.append(row)
+    return out
+
+
 def write_first(articles, stamp):
     """first.json: ilk ekranın sətirləri və onların og şəkilləri. Bütöv og.json ekran çəkiləndən sonra gəlir."""
     rows, og = first_screen_rows(articles), _read_json(OG_FILE, {})
     # Xəritəyə yalnız şəkil qazandıran giriş düşür (sürət, 2026-11-09): apply_og_cache şəkli sətrin özünə yazıb — eyni ünvan və boş dəyər
     # 139 girişdən 120-si idi, 27 KB (6 KB gzip) ölü yük. Format dəyişmir (ünvan → şəkil); app.js imageCandidates eyni namizədləri alır.
+    # Xəritə yığcamlaşdırmadan əvvəlki sətirlərdən: sayılan alt mənbənin şəkli düşür, og-dəki eyni şəkil xəritəyə keçməməlidir.
     have = {}
     for a in rows:
         have[a.get("sourceUrl")] = a.get("imageUrl")
         for alt in a.get("alts") or []:
             have[alt.get("sourceUrl")] = alt.get("imageUrl")
     images = {u: og[u] for u in have if u and og.get(u) and og[u] != have.get(u)}
+    rows = [{**a, "alts": first_alts(a)} if a.get("alts") else a for a in rows]
     _write_atomic(FIRST_FILE, json.dumps({"updatedAt": stamp, "count": len(rows), "articles": rows, "og": images, **({"sharePages": True} if os.environ.get("SHARE_PAGES") else {})}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 

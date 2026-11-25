@@ -206,11 +206,12 @@ test('speed: the service worker precaches only first-visit files (sahib v107; 20
 
 // publishNews yaddaşı (2026-11-09): dəqiqəlik lent hər dəfə ~1 100 sətri yenidən klonlayıb qaydadan keçirirdi. Çıxış köhnə boru xətti ilə
 // bayt-bayt eyni olmalıdır — REF köhnə publishNews-un hazırlıq hissəsidir (yaddaşsız), hər halda yenidən hesablanır.
+// Ehtiyat şəkil yalnız ilk ALT_IMAGES alt mənbədən (2026-11-25, first.json büdcəsi): app.js newsSteps ilə eyni qayda.
 const REF = `(() => { let articles = S.rawNews.map(a => ({...a, category: SECTION_ALIAS[a.category] || a.category, imageUrl: a.imageUrl || S.og?.[a.sourceUrl] || a.imageUrl}));
   articles = articles.filter(a => !removedSource(a) && !policyViolation(a)).map(a => ({...a, alts: (a.alts || []).filter(alt => !altForbidden(a, alt))}));
   if (S.deadLinks?.size) articles = articles.flatMap(a => { const alts = a.alts.filter(alt => !S.deadLinks.has(alt.sourceUrl)); if (!S.deadLinks.has(a.sourceUrl)) return [{...a, alts}]; if (!alts.length) return []; const [next, ...rest] = alts; return [{...a, source: next.source, sourceUrl: next.sourceUrl, publishedAt: next.publishedAt || a.publishedAt, title: next.title || a.title, lang: next.lang || a.lang, imageUrl: a.imageUrl || next.imageUrl, alts: rest}]; });
   const rows = collapseExact(clusterArticles(articles));
-  for (const a of rows) { if (a.imageUrl || !a.alts?.length) continue; const alt = a.alts.find(x => x.imageUrl) || a.alts.find(x => S.og?.[x.sourceUrl]); if (alt) a.imageUrl = alt.imageUrl || S.og?.[alt.sourceUrl]; }
+  for (const a of rows) { if (a.imageUrl || !a.alts?.length) continue; const alts = a.alts.slice(0, ALT_IMAGES), alt = alts.find(x => x.imageUrl) || alts.find(x => S.og?.[x.sourceUrl]); if (alt) a.imageUrl = alt.imageUrl || S.og?.[alt.sourceUrl]; }
   return JSON.stringify(rows); })()`;
 function policyApp() {
   const els = {};

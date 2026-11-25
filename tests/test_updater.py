@@ -2588,6 +2588,52 @@ class FirstScreenOgMapTest(unittest.TestCase):
         self.assertEqual([a["id"] for a in out["articles"]], ["a" * 16, "b" * 16, "c" * 16])
 
 
+class FirstScreenAltsTest(unittest.TestCase):
+    """first.json alt mənbələri (büdcə, 2026-11-25): 41 alt mənbəli xəbərlər faylı 80 000 B gzip həddindən çıxarırdı. Sətirdə ən çox 20 tam
+    alt mənbə, qalanı yalnız sayılır (nişan və slayderin sırası tam lentlə eynidir); yalnız ilk ekranın oxuduğu sahələr."""
+
+    def write(self, rows, og=None):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, "FIRST_FILE", pathlib.Path(tmp) / "first.json"), \
+                patch.object(updater, "first_screen_rows", lambda a: a), patch.object(updater, "_read_json", lambda p, d=None: og or {}):
+            updater.write_first(rows, "2026-11-25T10:00:00+00:00")
+            return json.loads((pathlib.Path(tmp) / "first.json").read_text(encoding="utf-8"))
+
+    def test_first_screen_row_has_at_most_20_full_alts_and_only_allowed_fields(self):
+        world = next(iter(updater.content_policy.WORLD_SOURCES))
+        alts = [{"id": f"{i:016d}", "source": f"Mənbə {i}", "sourceUrl": f"https://m{i}.az/x", "publishedAt": f"2026-11-25T09:{59 - i:02d}:00+00:00",
+                 "title": f"Başlıq {i}", "imageUrl": f"https://m{i}.az/x.jpg", "lang": "tr" if i == 3 else "az", "summary": "tam mətn"} for i in range(40)]
+        alts[30]["source"] = world
+        row = {"id": "a" * 16, "title": "A", "lang": "az", "category": "gundem", "sourceUrl": "https://apa.az/1", "alts": alts}
+        out = self.write([row])["articles"][0]["alts"]
+        self.assertEqual([x["sourceUrl"] for x in out], [x["sourceUrl"] for x in alts], "say və sıra tam lentlə eynidir: «N mənbə» və slayder dəyişmir")
+        full = [x for x in out if "title" in x and x["source"] != world]
+        self.assertLessEqual(len(full), updater.FIRST_ALT_FULL)
+        self.assertEqual(updater.FIRST_ALT_FULL, 20)
+        for x in out:
+            self.assertLessEqual(set(x), set(updater.FIRST_ALT_FIELDS), "yalnız ilk ekranın oxuduğu sahələr (id, summary düşür)")
+        for x in out[:20]:
+            self.assertLessEqual({"source", "sourceUrl", "publishedAt", "title", "imageUrl"}, set(x), "ilk 20-də app.js-in oxuduğu hər sahə qalır")
+        self.assertNotIn("lang", out[0], "sətrin dilinə bərabər dil yazılmır (app.js: next.lang || b.lang)")
+        self.assertEqual(out[3]["lang"], "tr", "fərqli dil qalır")
+        for i, x in enumerate(out[20:], 20):
+            self.assertEqual(set(x), {"source", "sourceUrl", "publishedAt", "title"} if i == 30 else {"source", "sourceUrl", "publishedAt"},
+                             "20-dən sonra: sayılır, keçid və vaxt qalır; xarici mənbənin başlığı qaydaya görə qalır")
+        self.assertEqual(len(row["alts"]), 40)
+        self.assertEqual(row["alts"][25]["title"], "Başlıq 25", "tam lentin sətri dəyişmir (news.json eyni siyahıdan yazılır)")
+
+    def test_og_map_is_built_before_alts_are_trimmed(self):
+        alts = [{"source": f"M{i}", "sourceUrl": f"https://m{i}.az/x", "publishedAt": "2026-11-25T09:00:00+00:00", "title": "T",
+                 "imageUrl": f"https://m{i}.az/x.jpg"} for i in range(25)]
+        og = {f"https://m{i}.az/x": f"https://m{i}.az/x.jpg" for i in range(25)}
+        out = self.write([{"id": "a" * 16, "title": "A", "sourceUrl": "https://apa.az/1", "alts": alts}], og)
+        self.assertEqual(out["og"], {}, "sayılan alt mənbənin og-dəki eyni şəkli xəritəyə keçmir")
+        self.assertNotIn("imageUrl", out["articles"][0]["alts"][24])
+
+    def test_rows_without_alts_stay_as_they_are(self):
+        row = {"id": "b" * 16, "title": "B", "sourceUrl": "https://apa.az/2"}
+        self.assertEqual(self.write([row])["articles"], [row])
+
+
 class LiveScoresTest(unittest.TestCase):
     """Bu günün oyunları (sahib 2026-11-20: «pulsuz həll»): football-data.org pulsuz planı, açar yoxdursa heç nə."""
     DOC = {"matches": [

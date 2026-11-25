@@ -1657,6 +1657,17 @@ test('photo fallback tries OG and alternate source photos in order', () => {
   assert.deepEqual(Array.from(images),['https://img.example/rss.jpg','https://img.example/og.jpg','https://img.example/alt.jpg','https://img.example/alt-og.jpg']);
 });
 
+// Büdcə, 2026-11-25: first.json 20-dən sonrakı alt mənbələrin şəklini daşımır (updater.first_alts), ona görə kart da onları istəməməlidir —
+// yoxsa ilk ekranın kartı tam lentdəkindən fərqli olur və tam lent gələndə yenidən qurulur (slayderin ən çox mənbəli xəbəri).
+test('photo fallback uses only the first 20 alternate sources, as many as first.json carries with a picture', () => {
+  const ctx=app(); ctx.api.S.og={};
+  const alts=Array.from({length:25},(_,i)=>({source:'S'+i,sourceUrl:'https://s'+i+'.example/x',imageUrl:'https://img.example/'+i+'.jpg'}));
+  const images=Array.from(ctx.api.imageCandidates({imageUrl:'https://img.example/rss.jpg',sourceUrl:'https://one.example',alts}));
+  assert.deepEqual(images,['https://img.example/rss.jpg',...alts.slice(0,20).map(x=>x.imageUrl)]);
+  const updater=fs.readFileSync(path.join(root,'updater.py'),'utf8'), js=fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
+  assert.equal(js.match(/const ALT_IMAGES = (\d+);/)?.[1], updater.match(/^FIRST_ALT_FULL = (\d+)$/m)?.[1], 'app.js ALT_IMAGES = updater.py FIRST_ALT_FULL');
+});
+
 test('home keeps slider stories after the sixth in the lists below', () => {
   const ctx=app(),{S,homeView}=ctx.api,at=new Date().toISOString();
   const words=['alma','armud','banan','qovun','heyva','nar','gilas','albali','erik','saftali','limon','portagal','anar','zeytun','incir','xurma','zoğal','böyürtkən'];
