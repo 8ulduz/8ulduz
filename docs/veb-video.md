@@ -43,6 +43,8 @@ Açarlar olmayanda «veb-video» işi heç nə etmir və yaşıl qalır. Sayt d�
 | GitHub Release | — | — | 302 → release-assets | rədd: 3xx bfcache-i söndürür |
 | jsDelivr (/gh/) | 206 | `video/mp4` | yoxdur | rədd: budaq 12 saat keşlənir, üçüncü tərəfdir |
 
+Ayrıca host vacibdir. Faylı saytla eyni mənbədən (`8ulduz.az/...`) vermək olmaz. Service worker (`sw.js`) belə sorğunu `cacheFirst` ilə tutur, `cache.put` isə Range (206) cavabını qəbul etmir. Nəticədə video «Format error» ilə oynamır — 2026-11-25-də ölçüdə belə görüldü. `video.8ulduz.az` service worker-in əhatəsindən kənardadır.
+
 `r2.dev` ünvanı istifadə olunmur. Cloudflare-in sənədinə görə həmin ünvanın sürəti məhdudlaşdırılıb və o, yalnız sınaq üçündür. Keş də yalnız öz domendə işləyir.
 
 ## Sahibin addımları (bir dəfə)

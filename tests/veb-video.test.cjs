@@ -120,6 +120,10 @@ test("veb-video: one address everywhere — the job writes it, updater.py copies
   assert.equal(V.BASE, "https://video.8ulduz.az/");
   assert.ok(read("updater.py").includes('VEB_VIDEO_URL = "https://video.8ulduz.az/"'));
   assert.ok(read("assets/vlent.js").includes('const OWN_BASE = "https://video.8ulduz.az/";'));
+  // Saytla eyni mənbədəki faylı service worker cacheFirst ilə tutur, cache.put isə 206 (Range) cavabını qəbul etmir: video
+  // «Format error» ilə oynamır (ölçüdə görüldü, 2026-11-25). Ayrıca host (video.8ulduz.az) sw.js-in inScope-undan kənardadır.
+  assert.notEqual(new URL(V.BASE).origin, "https://8ulduz.az", "veb nüsxə saytın öz mənbəyində olmamalıdır (service worker)");
+  assert.ok(read("sw.js").includes("return url.origin === self.location.origin"), "service worker yalnız öz mənbəyini tutur");
   const reg = JSON.parse(read("tests/fixtures/ucuncu-terefler.json"))["video.8ulduz.az"];
   assert.ok(reg && reg.vaxt === "sonra" && reg.yonlendirir === false && reg.numune === "https://video.8ulduz.az/index.json", "üçüncü tərəf siyahısında, gecə yoxlaması index.json-u soruşur");
 });
