@@ -113,3 +113,22 @@ test('lent (tam ekran): hər cihazda işləyir, geri/✕/Escape bağlayır, lent
     && !/row\.addEventListener\("(touchmove|wheel)"/.test(v), 'sürüşmə yalnız tam ekran açıq ikən dayandırılır: lentin öz sürüşməsi ləngimir');
   assert.ok(close.includes('setSound(false);'), 'bağlananda video lentdə səssiz davam edir');
 });
+
+test('Video lenti: the next YouTube video is primed — it plays at once when chosen (owner 2026-11-25: «bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə açılır … gözqırpımı»)', () => {
+  const v = read('assets/vlent.js');
+  // Ölçü (canlı sayt): basışdan ilk kadra hazır oynadıcıda 1,7 s, oynadıcı yoxdursa 2,4 s — axın yalnız «oynat»dan sonra gəlirdi.
+  assert.ok(v.includes('const ready = () => { f._ready = true; if (f._want) start(n); else prime(n); };'), 'hazır, amma seçilməmiş oynadıcı hazırlanır');
+  assert.ok(v.includes('if (f && n !== cur && items[n].kind === "yt" && !f._prime) { f._prime = 1; ytCmd(f, "mute"); ytCmd(f, "playVideo"); }'),
+    'hazırlıq səssizdir, yalnız YouTube və yalnız oynamayan kart üçün, bir dəfə');
+  assert.ok(v.includes('if (st === 1 && f._prime === 1) { f._prime = 2; ytCmd(f, "pauseVideo"); }'), 'ilk kadrda dayanır: seçilməmiş video oynamır');
+  assert.ok(!v.includes('"seekTo"'), 'əvvələ qaytarılmır: seekTo axını yenidən yükləyir (ölçü: +0,5 s)');
+  // Sahib 2026-11-25 (telefon ekranının videosu): kartda YouTube-un qara yükləmə ekranı, fırlanan dairə və «Shorts» yazısı görünməməlidir.
+  assert.ok(!/setTimeout\(\(\) => f\.classList\.add\("go"\)/.test(v), 'YouTube oynadıcısı vaxtla açılmır (video başlamadan yükləmə ekranı görünürdü)');
+  assert.ok(v.includes('else if (st === 1) f.classList.add("go");') && v.includes('.vl-c.on .vl-v>iframe.go{opacity:1}') && v.includes('.vl-v>iframe{pointer-events:none;background:transparent;opacity:0}'),
+    'oynadıcı yalnız «oynayır» xəbəri gələndə görünür, o vaxta qədər kartın şəkli qalır');
+  assert.ok(v.includes('if (auto() && nx !== n) make(nx);'), 'qənaət rejimində oynadıcı qabaqcadan qurulmur, deməli hazırlanmır');
+  // Kompüter: siçan kartın üstünə gələndə onun oynadıcısı qurulur (4–5 kart görünür, basılan kart növbəti olmaya bilər).
+  const over = /row\.addEventListener\("pointerover", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(v)?.[0] || '';
+  assert.ok(over.includes('if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;'), 'yalnız siçan: barmaqla sürüşdürmə oynadıcı qurmur');
+  assert.ok(over.includes('players.size < 4'), 'eyni anda ən çoxu 4 oynadıcı');
+});

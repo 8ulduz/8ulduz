@@ -129,6 +129,12 @@ export async function mount(sec, S, still = () => false) {
   const icon = () => { const c = cards[cur]; if (!c) return; c.querySelector(".vl-m").textContent = sound ? "🔊" : "🔇"; const b = c.querySelector(".vl-fx.snd"); if (b) b.textContent = sound ? "🔊" : "🔇"; };
   const bar =(n, p) => { const b = cards[n]?.querySelector(".vl-bar"); if (b) b.style.width = `${Math.min(100, p * 100)}%`; };
   const ytCmd = (f, func) => f.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args: [] }), "*");
+  // Növbəti YouTube videosu qabaqcadan hazırlanır (sahib 2026-11-25: «video xəbərlərdə bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə
+  // açılır … gözqırpımı»). Ölçü (canlı sayt): oynadıcı hazır olsa da video axını yalnız «oynat»dan sonra gəlirdi — basışdan ilk kadra
+  // 1,7 s (oynadıcı da yoxdursa 2,4 s). Hazır, amma seçilməmiş oynadıcı səssiz başladılır və ilk kadrda dayandırılır
+  // (mesaj dinləyicisi): seçiləndə video yaddaşdan dərhal oynayır. Əvvələ qaytarılmır: seekTo axını yenidən yükləyir (ölçü: +0,5 s). X videosu onsuz da qabaqcadan yüklənir (preload="auto").
+  // Qənaət rejimində (auto() yox) oynadıcı qabaqcadan qurulmur, deməli hazırlanmır da.
+  const prime = n => { const f = players.get(n); if (f && n !== cur && items[n].kind === "yt" && !f._prime) { f._prime = 1; ytCmd(f, "mute"); ytCmd(f, "playVideo"); } };
   const videoOf = f => f.contentDocument?.querySelector("video");
   // Oynadıcını qurur (hələ oynatmır). X: video yüklənir; YouTube: oynadıcı açılır və vəziyyətini bildirməyə başlayır.
   function make(n) {
@@ -138,7 +144,7 @@ export async function mount(sec, S, still = () => false) {
     f.title = v.title;
     f.loading = "eager";
     f._ready = false;
-    const ready = () => { f._ready = true; if (f._want) start(n); };
+    const ready = () => { f._ready = true; if (f._want) start(n); else prime(n); };
     if (v.kind === "yt") {
       if (!v.tall) f.className = "w";
       f.src = `${YT}${encodeURIComponent(v.id)}?autoplay=0&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
@@ -169,7 +175,12 @@ export async function mount(sec, S, still = () => false) {
     if (!f || n !== cur) return;
     if (!f._ready) { f._want = true; return; }
     f._want = false;
-    if (items[n].kind === "yt") { ytCmd(f, sound ? "unMute" : "mute"); ytCmd(f, "playVideo"); setTimeout(() => f.classList.add("go"), 250); }
+    f._prime = 3;   // seçildi: hazırlıq dayandırması daha lazım deyil
+    // YouTube oynadıcısı yalnız «oynayır» (vəziyyət 1) xəbəri gələndə görünür, o vaxta qədər kartda şəkil qalır (sahib 2026-11-25, telefon
+    // ekranının videosu: ARB 24, Real TV, 8ulduz kartlarında qara ekran, fırlanan dairə və «Shorts» yazısı). Əvvəl oynadıcı 100–250 ms-dən
+    // sonra açılırdı. Ölçü (telefon görünüşü): video 380–520 ms-də başlayır, arada YouTube-un yükləmə ekranı görünürdü; telefon
+    // internetində bu ara saniyələrlə olur.
+    if (items[n].kind === "yt") { ytCmd(f, sound ? "unMute" : "mute"); ytCmd(f, "playVideo"); }
     else {
       const el = videoOf(f);
       if (!el) return;
@@ -217,9 +228,12 @@ export async function mount(sec, S, still = () => false) {
     if (n < 0) return;
     const f = players.get(n);
     if (!f._ready) f._onMsg?.();
-    if (n !== cur) return;
     let d; try { d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; } catch { return; }
     const i = d?.info, st = d?.event === "onStateChange" ? i : i?.playerState;
+    if (n !== cur) {   // hazırlanan oynadıcı: ilk kadr gəldi — dayanır
+      if (st === 1 && f._prime === 1) { f._prime = 2; ytCmd(f, "pauseVideo"); }
+      return;
+    }
     if (st === 0) next();
     else if (st === 1) f.classList.add("go");
     if (i?.duration > 0 && i.currentTime >= 0) bar(cur, i.currentTime / i.duration);
@@ -313,6 +327,13 @@ export async function mount(sec, S, still = () => false) {
     if (fs >= 0) { if (document.hidden && !fsWait && !fsEnd) fsToggle(); return; }   // tam ekran: dayanır, ▶ ilə davam
     document.hidden ? stop() : pickVisible();
   });
+
+  // Kompüterdə 4–5 kart birdən görünür: siçan kartın üstünə gələndə onun oynadıcısı qurulur və hazırlanır (basış adətən bundan sonradır).
+  row.addEventListener("pointerover", e => {
+    if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;
+    const n = Number(e.target.closest(".vl-c")?.dataset.n ?? -1);
+    if (n >= 0 && n !== cur && !players.has(n) && players.size < 4) make(n);
+  }, { passive: true });
 
   row.addEventListener("click", e => {
     const t = e.target.closest("[data-vl]"), b = e.target.closest(".vl-v"), fx = e.target.closest(".vl-fx");
