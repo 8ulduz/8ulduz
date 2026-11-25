@@ -71,13 +71,15 @@ jobs:
           sparse-checkout-cone-mode: false
       # Budağın son nüsxəsi. Budaq yoxdursa (ls-remote çıxış kodu 2) başlanğıc nüsxədən başlanır; başqa xəta olanda iş dayanır,
       # budağa toxunulmur (arxiv.yml-in dərsi: klon alınmayanda boş başlanğıc kitabxananı silərdi).
+      # Budaq tam adı ilə (refs/heads/): eyni adlı «video-arxiv» buraxılışının teqi (2026-11-24, ARXIV_RELEASE_YARAT) qısa adda
+      # budaqdan öndə gəlir — 2026-11-25-dən fetch teqi (main-in commit-i, video-arxiv.json-suz) götürürdü və iş düşürdü.
       - name: Kitabxana (video-arxiv budağı)
         run: |
           mkdir -p .video-arxiv
           code=0
           git ls-remote --exit-code --heads origin video-arxiv >/dev/null 2>&1 || code=$?
           if [ "$code" = 0 ]; then
-            git fetch -q --depth 1 origin video-arxiv
+            git fetch -q --depth 1 origin refs/heads/video-arxiv
             git rev-parse FETCH_HEAD > .video-arxiv/base
             git show FETCH_HEAD:video-arxiv.json > "$LIB"
             node .github/scripts/video-arxiv.cjs yoxla "$LIB"

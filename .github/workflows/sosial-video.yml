@@ -109,11 +109,12 @@ jobs:
           sparse-checkout-cone-mode: false
       # Öz video arxivi (video-arxiv.cjs): kitabxana tarixçəsiz «video-arxiv» budağındadır (video-arxiv.yml yazır, main-ə yox).
       # Oxunmasa montaj repodakı başlanğıc nüsxəyə (data/video-arxiv.json) düşür; video bu addımdan asılı deyil.
+      # Budaq tam adı ilə: eyni adlı buraxılış teqi (video-arxiv.yml) qısa adda budaqdan öndə gəlir (2026-11-25-dən arxiv oxunmurdu).
       - name: Video arxivi (video-arxiv budağı)
         if: github.event_name != 'pull_request'
         continue-on-error: true
         run: |
-          if git fetch -q --depth 1 origin video-arxiv 2>/dev/null && git show FETCH_HEAD:video-arxiv.json > "$RUNNER_TEMP/video-arxiv.json"; then
+          if git fetch -q --depth 1 origin refs/heads/video-arxiv 2>/dev/null && git show FETCH_HEAD:video-arxiv.json > "$RUNNER_TEMP/video-arxiv.json"; then
             echo "VIDEO_ARXIV_FAYL=$RUNNER_TEMP/video-arxiv.json" >> "$GITHUB_ENV"
             echo "arxiv: video-arxiv budağından"
           else
