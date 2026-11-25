@@ -204,7 +204,7 @@ jobs:
       # MÜVƏQQƏTİ (PR səs ölçüsü, 2026-11-25): nümunə hissələrin səsi və vaxtları artefakta — cümlə ortasındakı hissə sərhədində
       # sükut ölçülür. Birləşdirmədən əvvəl silinir.
       - name: Səs ölçüsü (müvəqqəti)
-        if: github.event_name == pull_request && matrix.tur == xeber && steps.sec.outputs.hazir == 1
+        if: github.event_name == 'pull_request' && matrix.tur == 'xeber' && steps.sec.outputs.hazir == '1'
         continue-on-error: true
         run: |
           mkdir -p video-out
