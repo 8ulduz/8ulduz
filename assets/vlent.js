@@ -175,11 +175,12 @@ export async function mount(sec, S, still = () => false) {
     if (!f || n !== cur) return;
     if (!f._ready) { f._want = true; return; }
     f._want = false;
-    // Hazırlanmış (ilk kadrda dayanmış) oynadıcı əmrdən dərhal sonra oynayır, «oynayır» xəbəri isə 0,3–0,5 s gecikir (ölçü): video
-    // xəbəri gözləmədən göstərilir. Hazırlanmamış oynadıcıda əvvəlki kimi 250 ms (şəkil videonun üstündə qalır).
-    const hot = f._prime === 2;
     f._prime = 3;   // seçildi: hazırlıq dayandırması daha lazım deyil
-    if (items[n].kind === "yt") { ytCmd(f, sound ? "unMute" : "mute"); ytCmd(f, "playVideo"); setTimeout(() => f.classList.add("go"), hot ? 100 : 250); }
+    // YouTube oynadıcısı yalnız «oynayır» (vəziyyət 1) xəbəri gələndə görünür, o vaxta qədər kartda şəkil qalır (sahib 2026-11-25, telefon
+    // ekranının videosu: ARB 24, Real TV, 8ulduz kartlarında qara ekran, fırlanan dairə və «Shorts» yazısı). Əvvəl oynadıcı 100–250 ms-dən
+    // sonra açılırdı. Ölçü (telefon görünüşü): video 380–520 ms-də başlayır, arada YouTube-un yükləmə ekranı görünürdü; telefon
+    // internetində bu ara saniyələrlə olur.
+    if (items[n].kind === "yt") { ytCmd(f, sound ? "unMute" : "mute"); ytCmd(f, "playVideo"); }
     else {
       const el = videoOf(f);
       if (!el) return;

@@ -122,7 +122,10 @@ test('Video lenti: the next YouTube video is primed — it plays at once when ch
     'hazırlıq səssizdir, yalnız YouTube və yalnız oynamayan kart üçün, bir dəfə');
   assert.ok(v.includes('if (st === 1 && f._prime === 1) { f._prime = 2; ytCmd(f, "pauseVideo"); }'), 'ilk kadrda dayanır: seçilməmiş video oynamır');
   assert.ok(!v.includes('"seekTo"'), 'əvvələ qaytarılmır: seekTo axını yenidən yükləyir (ölçü: +0,5 s)');
-  assert.ok(v.includes('const hot = f._prime === 2;') && v.includes('setTimeout(() => f.classList.add("go"), hot ? 100 : 250);'), 'hazırlanmış video «oynayır» xəbərini gözləmədən göstərilir');
+  // Sahib 2026-11-25 (telefon ekranının videosu): kartda YouTube-un qara yükləmə ekranı, fırlanan dairə və «Shorts» yazısı görünməməlidir.
+  assert.ok(!/setTimeout\(\(\) => f\.classList\.add\("go"\)/.test(v), 'YouTube oynadıcısı vaxtla açılmır (video başlamadan yükləmə ekranı görünürdü)');
+  assert.ok(v.includes('else if (st === 1) f.classList.add("go");') && v.includes('.vl-c.on .vl-v>iframe.go{opacity:1}') && v.includes('.vl-v>iframe{pointer-events:none;background:transparent;opacity:0}'),
+    'oynadıcı yalnız «oynayır» xəbəri gələndə görünür, o vaxta qədər kartın şəkli qalır');
   assert.ok(v.includes('if (auto() && nx !== n) make(nx);'), 'qənaət rejimində oynadıcı qabaqcadan qurulmur, deməli hazırlanmır');
   // Kompüter: siçan kartın üstünə gələndə onun oynadıcısı qurulur (4–5 kart görünür, basılan kart növbəti olmaya bilər).
   const over = /row\.addEventListener\("pointerover", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(v)?.[0] || '';
