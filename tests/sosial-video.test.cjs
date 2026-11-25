@@ -48,6 +48,22 @@ test("video: the explanation is cut at whole sentences; a source's «…» tail 
   assert.deepEqual(V.captionChunks("Prezident İ. Əliyev qəbul edib. Görüş Bakıda olub."), ["Prezident İ. Əliyev qəbul edib.", "Görüş Bakıda olub."], "inisial cümləni bölmür");
 });
 
+// Sahib 2026-11-25: «yeni videolarda sətirdən sətrə keçəndə mənasız pauza verir oxunuşda». Altyazının böldüyü cümlə səsdə bir
+// mətndir (video_ses.py groups): prepare().davam hansı hissənin əvvəlkinin davamı olduğunu deyir — böyük hərflə başlasa da.
+test("video: parts of one sentence split by captions are marked as one breath for the voice (davam)", () => {
+  const p = V.prepare(fixture, { cats });
+  assert.equal(p.davam.length, p.say.length);
+  assert.deepEqual(p.davam, [false, false, true, false, false], "«…yol-nəqliyyat hadisəsi | nəticəsində…» bir cümlədir");
+  assert.deepEqual(V.captionSentences(fixture.summary).flat(), V.captionChunks(fixture.summary), "altyazılar dəyişmir");
+  const long = "Məhkəmədə ağır cinayətdə təqsirləndirilən və həbsdə saxlanılan keçmiş məmur Xudat Məmmədovun barəsindəki qərardan şikayət verilib, iş apellyasiya məhkəməsinə göndərilib. Növbəti iclas dekabrda olacaq.";
+  const q = V.prepare({ ...fixture, summary: long }, { cats });
+  const s = V.captionSentences(long);
+  assert.ok(s[0].length > 1, "uzun cümlə bir neçə altyazıdır");
+  assert.deepEqual(q.davam, [false, ...s.flatMap(x => x.map((_, j) => j > 0)), false]);
+  assert.ok(q.davam.slice(1, -1).some(Boolean) && !q.davam[0] && !q.davam.at(-1), "başlıq və sonluq ayrıca səslənir");
+  assert.ok(read(".github/scripts/video-xeber.cjs").includes("davam: p.davam"), "voice() səs hissələrinə davam yazır");
+});
+
 test("video: timing — reading speed without voice, the voice's own timing with it, never longer than 59 s", () => {
   const p = V.prepare(fixture, { cats });
   const t = V.timeline(p, null);

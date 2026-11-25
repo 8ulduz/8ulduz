@@ -102,7 +102,7 @@ test('lent (tam ekran): hər cihazda işləyir, geri/✕/Escape bağlayır, lent
   const v = read('assets/vlent.js');
   const open = /function openFs\(n\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
   const close = /function closeFs\(\) \{[\s\S]*?\n  \}\n/.exec(v)?.[0] || '';
-  assert.ok(open.includes('history.pushState({ vlfs: 1 }, "");') && v.includes('addEventListener("popstate", () => { if (fs >= 0) closeFs(); });'), 'telefonun geri düyməsi tam ekranı bağlayır, səhifədən çıxmır');
+  assert.ok(open.includes('history.pushState({ vlfs: 1 }, "");') && v.includes('addEventListener("popstate", () => { if (fs >= 0) closeFs(); }, on);'), 'telefonun geri düyməsi tam ekranı bağlayır, səhifədən çıxmır');
   assert.ok(v.includes('if (e.key === "Escape") { e.preventDefault(); back(); }') && v.includes('if (fx?.classList.contains("x")) back();'));
   assert.ok(open.includes('if (document.fullscreenEnabled && c.requestFullscreen)'), 'əsl tam ekran yalnız brauzer verirsə (iPhone Safari div üçün vermir: tam pəncərə qalır)');
   assert.ok(v.includes('if (native && fs >= 0 && !document.fullscreenElement) back();'), 'brauzerin tam ekranından çıxmaq (Esc, Android geri) bizimkini də bağlayır');
@@ -131,4 +131,81 @@ test('Video lenti: the next YouTube video is primed — it plays at once when ch
   const over = /row\.addEventListener\("pointerover", e => \{[\s\S]*?\}, \{ passive: true \}\);/.exec(v)?.[0] || '';
   assert.ok(over.includes('if (e.pointerType !== "mouse" || fs >= 0 || !auto()) return;'), 'yalnız siçan: barmaqla sürüşdürmə oynadıcı qurmur');
   assert.ok(over.includes('players.size < 4'), 'eyni anda ən çoxu 4 oynadıcı');
+});
+
+// Sahib, 2026-11-25: «ən vacib qırmızı cizgi-gözqırpımı sürətidir», «video xəbərlərdə bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə açılır».
+// Ölçü (kompüter brauzeri): YouTube kartı basışdan ilk kadra 2,4 s (oynadıcı yoxdursa), 1,7 s (hazırdırsa); X videosu (adi <video>) 0,2–0,5 s.
+test('lent (sahib 2026-11-25): öz videomuzun veb nüsxəsi X videosu kimi adi <video> ilə oynayır; telekanallar YouTube-da qalır', async () => {
+  const { pick, poster, OWN, ownMp4 } = await mod();
+  const web = id => `https://video.8ulduz.az/${id}.mp4`;
+  const S = { video: { items: [
+    { ...yt('ownWeb0001', OWN, 1), mp4: web('ownWeb0001') },
+    yt('ownTube001', OWN, 2),
+    { ...yt('tvWeb00001', 'ARB 24', 1), mp4: web('tvWeb00001') },
+    { ...yt('ownBad0001', OWN, 3), mp4: 'https://evil.example/ownBad0001.mp4' },
+    { ...yt('ownOther01', OWN, 4), mp4: web('ownWeb0001') },
+  ] }, data: { articles: [] } };
+  const got = Object.fromEntries(pick(S, []).map(v => [v.id, v]));
+  assert.equal(got.ownWeb0001.kind, 'mp4');
+  assert.equal(got.ownWeb0001.u, web('ownWeb0001'));
+  assert.ok(got.ownWeb0001.own && got.ownWeb0001.tall && got.ownWeb0001.src === '8ulduz.az');
+  assert.equal(got.ownTube001.kind, 'yt', 'veb nüsxəsi yoxdursa YouTube-dan oynayır');
+  assert.equal(got.tvWeb00001.kind, 'yt', 'telekanalın videosu YouTube oynadıcısında qalır');
+  assert.equal(got.ownBad0001.kind, 'yt', 'yalnız öz domenimiz (video.8ulduz.az)');
+  assert.equal(got.ownOther01.kind, 'yt', 'fayl adı videonun öz nömrəsidir: başqa videonun faylı oynamır');
+  assert.ok(ownMp4({ videoId: 'abcdefghijk', mp4: web('abcdefghijk') }) && !ownMp4({ videoId: 'abc/../x', mp4: web('abc/../x') }) && !ownMp4({ videoId: 'abcdefghijk', mp4: web('abcdefghijk') + '?x=1' }));
+  assert.deepEqual(poster(got.ownWeb0001), poster({ kind: 'yt', id: 'ownWeb0001', tall: true }), 'şəkli YouTube-dakı şaquli şəkildir');
+  const v = read('assets/vlent.js');
+  // Növ «mp4» X videosunun yolundan keçir: srcdoc-da adi <video preload="auto">, «yt» olmayan start/halt/səs.
+  assert.ok(v.includes('if (v.kind === "yt") {') && v.includes('<video playsinline muted preload="auto" src="${esc(v.u)}"></video>'), 'oynadıcı X videosununku kimidir');
+  assert.ok(v.includes('if (items[n].kind === "yt") { ytCmd(f, sound ? "unMute" : "mute"); ytCmd(f, "playVideo");') && v.includes('items[n].kind === "yt" && !f._prime'), 'YouTube əmrləri və hazırlıq yalnız YouTube kartına');
+  assert.ok(v.includes('href="${v.kind === "x" ? "#/videolent" : `#/videolent?v=${encodeURIComponent(v.id)}`}"'), 'başlığın keçidi video səhifəsidir (YouTube kartı kimi)');
+  assert.ok(v.includes('if (v.kind === "x") { e.preventDefault(); stop(); import("./lent.js?v=1")'), 'Videolent yalnız X videosu üçün');
+  // Yalnız növbəti kart qabaqcadan yüklənir və qənaət rejimində heç biri (auto()).
+  assert.ok(v.includes('if (auto() && nx !== n) make(nx);') && v.includes('trim([n, nx]);'));
+});
+
+test('Video lenti refreshes while the page stays open, without cutting the video being watched (owner 2026-11-25: «saytdakı video xəbərlər niyə yenilənmir?»)', () => {
+  const v = read('assets/vlent.js');
+  const m = /export async function mount\(sec, S, still = \(\) => false, given = null\) \{[\s\S]*?\n\}\n?/.exec(v)?.[0] || '';
+  assert.ok(m, 'mount yenidən qurmaq üçün hazır siyahı qəbul edir');
+  // Əvvəl kartlar səhifə açılanda bir dəfə qurulurdu: açıq qalan səhifədə zolaq saatlarla köhnə qalırdı.
+  const fresh = +v.match(/const FRESH = (\d+) \* 60e3, EARLY = (\d+)e3;/)[1];
+  assert.ok(fresh >= 2 && fresh <= 10, 'siyahı bir neçə dəqiqədən bir yoxlanır (426 KB-lıq fayl: tez-tez deyil)');
+  assert.ok(m.includes('const tick = setInterval(() => { due = true; fresh(); swap(); }, FRESH);'), 'dövri yoxlama');
+  assert.ok(m.includes('if (!due || checking || document.hidden || !sec.isConnected || !visible() || ac.signal.aborted) return;'),
+    'yalnız vərəq və zolaq görünəndə yoxlanır: gizli vərəq şəbəkəni yormur');
+  assert.ok(m.includes('if (list.length && key(list) !== key(items)) { pending = list; swap(); }'), 'siyahı dəyişməyibsə zolağa toxunulmur');
+  // Oynayan və görünən video kəsilmir.
+  assert.ok(m.includes('const quiet = document.hidden || !sec.isConnected || cur < 0 || !visible() || early;') && m.includes('if (!quiet && !force) return false;'),
+    'yenidən qurma yalnız sakit anda: vərəq gizli, zolaq görünmür, heç nə oynamır və ya zolaq təzə göstərilib');
+  assert.ok(m.includes('if (!pending || fs >= 0 || ac.signal.aborted) return false;'), 'tam ekran açıqdırsa heç vaxt');
+  assert.ok(m.includes('if (n === 0 && swap(true)) return;'), 'lent sonuncu kartdan birinciyə qayıdanda yeni siyahıdan başlayır');
+  // Video siyahısı gec gəlibsə TV videoları sonra düşür.
+  assert.ok(m.includes('if (S?.video || ++waits > 30)'), 'S.video gələn kimi yoxlanır');
+  // Yenidən qurulanda köhnə dinləyicilər qalmır.
+  assert.ok(m.includes('stop(); io.disconnect(); clearTimeout(hold); clearInterval(tick); clearInterval(wait); ac.abort();') && m.includes('mount(sec, S, still, list);'), 'köhnə zolaq tam söndürülür');
+  // Pəncərəyə və sənədə bağlı hər dinləyicinin tam çağırışı (mötərizə balansı ilə) «, on)» ilə bitir. row./c./f. — elementin özünün.
+  const calls = ev => {
+    const out = [], head = 'addEventListener(' + ev;
+    for (let i = m.indexOf(head); i >= 0; i = m.indexOf(head, i + 1)) {
+      const before = m.slice(Math.max(0, i - 9), i);
+      if (/[\w.]$/.test(before) && !before.endsWith('document.')) continue;
+      let depth = 0, j = i + 'addEventListener'.length, quote = '';
+      for (; j < m.length; j++) {
+        const ch = m[j];
+        if (quote) { if (ch === '\\') j++; else if (ch === quote) quote = ''; continue; }
+        if (ch === '"' || ch === "'" || ch === '`') quote = ch;
+        else if (ch === '(') depth++;
+        else if (ch === ')' && --depth === 0) break;
+      }
+      out.push(m.slice(i, j + 1));
+    }
+    return out;
+  };
+  for (const ev of ['"message"', '"keydown"', '"fullscreenchange"', '"visibilitychange"', '"popstate"']) {
+    const all = calls(ev);
+    assert.ok(all.length && all.every(x => x.endsWith(', on)')), `${ev} dinləyicisi yenidən qurulanda silinir`);
+  }
+  assert.ok(m.includes('const old = sec.querySelector(".vl-row");') && m.includes('if (old) old.replaceWith(row); else sec.append(row);'), 'yeni sətir köhnənin yerinə: səhifə atlamır');
 });

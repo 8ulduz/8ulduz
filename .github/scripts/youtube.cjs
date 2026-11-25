@@ -440,6 +440,9 @@ function makeTestVideo(dir, now = Date.now(), spawn = require("child_process").s
   return file;
 }
 
+// Bu dövrədə yüklənən videonun YouTube nömrəsi (yoxdursa ""): yalnız düzgün nömrə iş axınının çıxışına yazılır.
+const videoIdOf = res => (res?.posted || []).map(p => String(p[1] || "")).find(v => /^[\w-]{6,20}$/.test(v)) || "";
+
 function readState(file) {
   try { const s = JSON.parse(fs.readFileSync(file, "utf8")); return s && typeof s === "object" ? s : {}; } catch { return {}; }
 }
@@ -468,10 +471,13 @@ async function main() {
   let res;
   try { res = await run({ videos: readVideos(arg || "youtube-in"), now, state, log, mask, reels, policy: a => app.policyViolation(a) }); }
   finally { fs.mkdirSync(path.dirname(stateFile), { recursive: true }); fs.writeFileSync(stateFile, JSON.stringify(state)); summary(); }
+  // Yüklənən videonun nömrəsi: sosial-video.yml «veb-video» işi saytın veb nüsxəsini bu adla yazır (veb-video.cjs).
+  const vid = videoIdOf(res);
+  if (vid && process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_id=${vid}\n`);
   // Heç nə alınmayıbsa iş qırmızı olsun (sahib görsün); ötürmə və fasilə yaşıl.
   if (res.failed.length && !res.posted.length) process.exitCode = 1;
 }
 
 module.exports = { options, mp4Info, shortsReason, foreignReason, policyReason, kindOf, linkOf, titleOf, descriptionOf, tagsOf, resourceOf, readVideos,
-  quotaReset, token, channel, startUpload, sendFile, run, check, makeTestVideo, TITLE_MAX, DESC_MAX, TAGS_MAX };
+  quotaReset, token, channel, startUpload, sendFile, run, check, makeTestVideo, videoIdOf, TITLE_MAX, DESC_MAX, TAGS_MAX };
 if (require.main === module) main().catch(e => { console.error(String(e?.message || e).slice(0, 300)); process.exitCode = 1; });

@@ -89,6 +89,7 @@ jobs:
             .github/scripts/video-hava.cjs
             .github/scripts/video-maraqli.cjs
             .github/scripts/video-arxiv.cjs
+            .github/scripts/veb-video.cjs
             .github/scripts/video_ses.py
             .github/ses-server/az_text.py
             .github/ses-server/ses-lugat.json
@@ -266,6 +267,13 @@ jobs:
             # Kliplər montaj sırası ilə; öz video arxivindən (data/video-arxiv.json) gələnin arxiv nömrəsi və yoxlanmış yeri.
             node -p 'const g=JSON.parse(require("fs").readFileSync("video-out/xeber.json","utf8")).goruntu||[]; g.length ? "\nGörüntü: " + g.map((k,i)=>`${i+1}) ${k.arxiv ? `ARXİV ${k.arxiv} — ${k.yer}` : `${k.p || "klip"} ${k.id ?? ""}${k.q ? ` «${k.q}»` : ""}`}`).join("; ") : ""'
           } >> "$GITHUB_STEP_SUMMARY"
+      # Saytın «Video xəbərlər» zolağı üçün kiçik nüsxə (sahib, 2026-11-25: «gözqırpımı»; veb-video.cjs): 720×1280, ≤ 2,8 MB, moov əvvəldə.
+      # Artefaktda veb.mp4 kimi qalır (cütü veb.json yoxdur: TikTok/YouTube yükləyicisi onu götürmür). «veb-video» işi onu YouTube
+      # nömrəsi ilə R2-yə yazır. Alınmasa paylaşma dayanmır: zolaq bu videonu YouTube oynadıcısı ilə göstərir.
+      - name: Veb nüsxə
+        if: steps.sec.outputs.hazir == '1' && steps.yoxla.outcome == 'success'
+        continue-on-error: true
+        run: node .github/scripts/veb-video.cjs hazirla video-out/video.mp4 video-out/veb.mp4
       - name: Paylaş
         if: steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas)
         env:
@@ -320,3 +328,38 @@ jobs:
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+  # Saytın öz videosu adi <video> ilə (sahib, 2026-11-25: «video xəbərlərdə bəzi videolar (əsasən azərbaycan) 1-2 saniyəyə açılır …
+  # gözqırpımı»): YouTube oynadıcısı basışdan ilk kadra 1,7–2,4 s gedirdi, X videosu (adi <video>) 0,2–0,5 s. YouTube-a bu dövrədə
+  # yüklənən videonun veb nüsxəsi (veb.mp4) Cloudflare R2-yə yazılır: https://video.8ulduz.az/<YouTube nömrəsi>.mp4 + index.json.
+  # updater.py (yavaş dövrə) index.json-u oxuyub data/video.json-a «mp4» yazır, assets/vlent.js onu oynadır. Repoya yazmır.
+  # R2 açarı yoxdursa sakitcə ötürür (qurulum: docs/veb-video.md); alınmasa zolaq YouTube oynadıcısı ilə qalır. Yalnız R2 sirləri verilir.
+  veb-video:
+    needs: [video, youtube]
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.youtube.outputs.video_id != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # index.json-u eyni anda iki iş oxuyub yazmasın.
+    concurrency:
+      group: veb-video
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts/veb-video.cjs
+          sparse-checkout-cone-mode: false
+      - name: Videonu al
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: video-xeber
+          path: video-out
+      - name: R2-yə yaz
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          VIDEO_ID: ${{ needs.youtube.outputs.video_id }}
+        run: node .github/scripts/veb-video.cjs yukle video-out/veb.mp4 "$VIDEO_ID"
