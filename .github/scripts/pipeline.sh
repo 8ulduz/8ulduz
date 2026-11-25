@@ -65,6 +65,7 @@ ROLLOUT_PID=""
 TIXAC_PID=""
 XYAZICI_PID=""
 VIDEO_PID=""
+ARXIV_PID=""
 
 cleanup() {
   [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
@@ -76,6 +77,7 @@ cleanup() {
   [ -n "$TIXAC_PID" ] && kill "$TIXAC_PID" 2>/dev/null
   [ -n "$XYAZICI_PID" ] && kill "$XYAZICI_PID" 2>/dev/null
   [ -n "$VIDEO_PID" ] && kill "$VIDEO_PID" 2>/dev/null
+  [ -n "$ARXIV_PID" ] && kill "$ARXIV_PID" 2>/dev/null
   [ -n "$PUBLISH_PID" ] && wait "$PUBLISH_PID" 2>/dev/null
   return 0
 }
@@ -433,6 +435,28 @@ video_loop() {
   done
 }
 
+# Xəbər arxivi (arxiv.yml; paylaşılan keçidin saatlıq faylı): iş axınının cron-u («7,37») GitHub tərəfindən 4–10 saatda bir işlədilirdi
+# (2026-11-21 – 11-25: 4 gündə 10 iş). 2026-11-25 səhəri arxiv 6 saat geri qalmışdı: son saatların paylaşılan keçidləri tam lenti
+# gözləyirdi və sürət ölçüsü düşdü (sahib: «düzəlt»). İşi bu döngü başladır: hər 15 dəqiqəlik pəncərədə (UTC dəqiqə 7, 22, 37, 52-dən
+# sonra) bir dəfə; main-də gedən, növbədə olan və ya bu pəncərədə artıq başlamış arxiv işi varsa yox. Yalnız dispatch: arxivin yazısı
+# bu döngüyə gəlmir. Cron ehtiyat qalır.
+arxiv_loop() {
+  local last=-1 slot start busy
+  while :; do
+    slot=$(( ($(date +%s) - 420) / 900 ))
+    if [ "$slot" != "$last" ]; then
+      start=$(( slot * 900 + 420 ))   # pəncərənin başlanğıcı (epoch)
+      busy="$(gh_t run list --workflow arxiv.yml --branch main --limit 5 --json status,createdAt --jq '[.[] | select(.status != "completed" or (.createdAt | fromdateiso8601) >= '"$start"')] | length' 2>/dev/null || echo "")"
+      if [ "$busy" = 0 ]; then
+        gh_t workflow run arxiv.yml --ref main >/dev/null 2>&1 && last=$slot
+      elif [ -n "$busy" ]; then
+        last=$slot   # bu pəncərənin işi artıq gedir və ya getdi (cron, əl ilə, əvvəlki dövrə)
+      fi
+    fi
+    sleep 60
+  done
+}
+
 # Asılan dövrəni tutur: hər dövrə addımının öz limiti var, bu son ehtiyatdır. Yazının alınmaması bura aid deyil:
 # GitHub kəsiləndə işlək işi öldürmək boşluğu uzadar (yeni işi başlatmaq da mümkün olmaya bilər).
 self_watch() { # $1 əsas proses
@@ -487,6 +511,8 @@ xyazici_loop &
 XYAZICI_PID=$!
 video_loop &
 VIDEO_PID=$!
+arxiv_loop &
+ARXIV_PID=$!
 # Etibarlı köməkçi yalnız sabit GitHub API ünvanından qayda faylını oxuyur. Mənbə/lent prosesləri açarı görmür.
 UPDATER_ROOT="$WORK" "$PY" "$REPO_DIR/.github/scripts/editorial_sync.py" --watch &
 EDITORIAL_PID=$!
