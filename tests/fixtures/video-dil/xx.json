@@ -29,7 +29,7 @@
     "xeber": "XX-NEWS",
     "bolmeler": { "cemiyyet": "XX-SOCIETY", "idman": "XX-SPORT" },
     "maraqli": "XX-DIDYOUKNOW",
-    "abune_duyme": "XX-SUBSCRIBE",
+    "abune_ipucu": "XX-TAP-FOLLOW",
     "menbe": "XX-Source: {adlar}",
     "menbe_cox": "XX-Source: {adlar} +{n} XX-sites",
     "goruntu": "XX-Footage: {menbe}",

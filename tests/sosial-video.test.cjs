@@ -117,20 +117,15 @@ test("video: «8ulduz.az» is burned in at the top from the first to the last fr
   const bar = ev.find(l => /\\pos\(0,300\)/.test(l));
   assert.ok(bar && span(bar)[0] === "0:00:00.00" && end(bar) === D, "brend zolağı başdan sona");
   assert.ok(ev.some(l => /Ətraflı: \{\\1c&H0AA3F5&\}8ulduz\{\\1c&HFFFFFF&\}\.az$/.test(l)), "sonluqda sayt adı qalır: «Ətraflı: 8ulduz.az»");
-  // Abunə çağırışı (sahib, 2026-11-25): sonluqda vəd və «ABUNƏ OL» düyməsi; videonun içində zolağın sağında kiçik nişan
-  // (3-cü saniyədən sonluğa qədər — çox baxan sona çatmır).
-  const sub = ev.filter(l => l.split(",")[3] === "Sub" && l.endsWith("}ABUNƏ OL"));
-  assert.equal(sub.length, 2, "nişan və düymə");
-  const [badge, button] = sub;
-  assert.ok(span(badge)[0] === "0:00:03.00" && /\\an6\\pos\(996,360\)\\fs34/.test(badge), "nişan zolaqdadır (y 300…420), sağ kənarı mətn sahəsində (x ≤ 1008)");
+  // Abunə çağırışı (sahib, 2026-11-25; 2026-11-26: «abunə ol yazısını elə et üstünə basanda … abunə olsun» — videodakı yazı basılmır):
+  // videoda düymə şəkli yoxdur, sonluqda vəd və şəbəkənin öz düyməsini göstərən ipucu (narıncı), altında sayt.
+  assert.ok(!/ABUNƏ OL|Style: Sub,/.test(a), "basılmayan «ABUNƏ OL» düyməsi və nişanı yoxdur");
+  const hint = ev.find(l => l.endsWith("}Abunə olmaq üçün adımızın yanındakı düyməni basın") || l.includes("}Abunə olmaq üçün"));
   const sec = s => { const [h, m, x] = s.split(":"); return +h * 3600 + +m * 60 + +x; };
-  assert.ok(Math.abs(sec(span(button)[0]) - t.outro[0]) < 0.011 && end(button) === D && /\\pos\(540,900\)/.test(button), "düymə sonluqda, ortada");
-  assert.ok(ev.some(l => l.endsWith("}Ən vacib xəbərlər hər gün") && span(l)[0] === span(button)[0]), "düymənin üstündə növün vədi");
-  assert.match(a, /^Style: Sub,Roboto Black,88,&H0026140B,&H0026140B,&H000AA3F5,.*,3,28,0,5,72,72,0,1$/m, "narıncı qutuda tünd yazı (saytın rəngləri)");
+  assert.ok(hint && Math.abs(sec(span(hint)[0]) - t.outro[0]) < 0.011 && end(hint) === D && /\\pos\(540,900\).*\\1c&H0AA3F5&/.test(hint), "ipucu sonluqda, ortada, narıncı");
+  assert.equal(hint.split("}").pop().replace(/\\N/g, " "), "Abunə olmaq üçün adımızın yanındakı düyməni basın");
+  assert.ok(ev.some(l => l.endsWith("}Ən vacib xəbərlər hər gün") && span(l)[0] === span(hint)[0]), "ipucunun üstündə növün vədi");
   assert.ok(!/OutroBig/.test(a), "köhnə sonluq üslubu qalmayıb");
-  // Çox qısa videoda (nişana 2 s qalmır) nişan yoxdur, düymə var.
-  const short = V.ass(p, { ...t, outro: [4, 7], duration: 7.3, chunks: t.chunks.slice(0, 1) }).split("\n").filter(l => l.endsWith("}ABUNƏ OL"));
-  assert.equal(short.length, 1);
   // ffmpeg: loqo şəkli bütün video boyu (enable/zaman şərti yoxdur), zolağın içində.
   const args = V.ffmpegArgs({ tl: t, assFile: "video.ass", logo: "assets/logo.png", voiceFile: null, out: "o.mp4" });
   const fc = args[args.indexOf("-filter_complex") + 1];

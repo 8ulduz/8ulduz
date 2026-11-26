@@ -166,10 +166,11 @@ test("hava: the screen — brand from first to last frame, every text inside y 3
   assert.deepEqual(caps.map(e => e.text.replace(/\\N/g, " ")), pr.say.slice(0, -1));
   assert.ok(caps.every(e => (e.raw.match(/\\t\(/g) || []).length === 2 * e.text.replace(/\\N/g, " ").split(" ").length));
   // Yazılar y 300…1480 arasında (lentdə 4:5 kəsik və Reels düymələri); fon və sonluq istisna.
-  // Abunə çağırışı xəbər videosundakı ilə eynidir (video-xeber.cjs subBadge, subOutro): zolaqda nişan, sonluqda vəd və düymə.
-  const sub = ev.filter(e => e.style === "Sub" && e.text === "ABUNƏ OL");
-  assert.equal(sub.length, 2);
-  assert.ok(sub[0].start === 3 && /\\pos\(996,360\)/.test(sub[0].raw) && Math.abs(sub[1].start - tl.outro[0]) < 0.02, "nişan 3-cü saniyədən, düymə sonluqda");
+  // Abunə çağırışı xəbər videosundakı ilə eynidir (video-xeber.cjs subOutro): sonluqda vəd və şəbəkənin öz düyməsini göstərən ipucu;
+  // basılmayan «ABUNƏ OL» düyməsi və nişanı yoxdur (sahib, 2026-11-26).
+  assert.ok(!ev.some(e => e.style === "Sub" || /ABUNƏ OL/.test(e.text)));
+  const hint = ev.find(e => e.style === "Outro" && e.text.replace(/\\N/g, " ") === "Abunə olmaq üçün adımızın yanındakı düyməni basın");
+  assert.ok(hint && Math.abs(hint.start - tl.outro[0]) < 0.02, "ipucu sonluqda");
   assert.ok(ev.some(e => e.style === "Outro" && e.text === "Hava proqnozu hər gün") && ev.some(e => e.style === "Outro" && e.text === "Bütün şəhərlər: 8ulduz.az/bolme/hava"));
   for (const e of ev.filter(e => !["Shape", "Outro"].includes(e.style))) {
     const m = e.raw.match(/\\(?:pos|move)\((\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/);
