@@ -72,6 +72,42 @@ test("mənbə videosu: the story's own footage from the source's player, credite
   assert.equal(await M.menbeVideo({ ...a, source: "8ULDUZ", sourceUrl: "https://8ulduz.az/x/1.html", alts: [] }, `<video src="https://8ulduz.az/v/1.mp4"></video>`, { env: {}, fetch: f, log: () => {}, dir: tmp() }), null);
 });
 
+test("mənbə videosu: only the story's own part of the page and the site's own files — another story's video further down (Publika.az 2026-11-26: a court verdict got a 2022 forest-fire video) and another site's file are refused", async () => {
+  // Publika.az quruluşu: loqo <h1>-dir, xəbərin başlığı <h1 itemprop="headline">, altında köhnə xəbərlər öz <h1>-i və videosu ilə
+  // (TRT faylı Publika-nın hər xəbər səhifəsinin aşağısındadır).
+  const head = `<html><head><title>Namizəd Səfərova hökm oxundu | Publika.az</title><meta property="og:title" content="Namizəd Səfərova hökm oxundu" /></head><body>
+    <h1 class="mvp-logo-title">Publika.az</h1><article><h1 class="mvp-post-title entry-title" itemprop="headline">Namizəd Səfərova hökm oxundu</h1>
+    <div id="mvp-content-main"><p>Bakı Ağır Cinayətlər Məhkəməsində hökm oxunub.</p>`;
+  const sonra = `</div><div class="mvp-post-add-main"><h1 class="mvp-post-title left">Marmarisdə vəziyyət gərginləşdi - VİDEO</h1>
+    <iframe src="https://www.trthaber.com/dosyalar/videolar/fa539b.mp4"></iframe><video src="https://publika.az/uploads/2022/marmaris.mp4"></video>
+    <iframe src="https://www.dailymotion.com/embed/video/x8bwgw9"></iframe></div></article></body></html>`;
+  const page = head + sonra;
+  const m = M.meqale(page);
+  assert.ok(m.includes("hökm oxunub") && !/trthaber|marmaris|dailymotion/.test(m), "sonrakı xəbər kəsilir");
+  assert.deepEqual(M.linkler(m, "https://publika.az/news/x/1.html"), { fayl: [], cercive: [] });
+  // og:title yoxdursa <title>; loqonun <h1>-i («Publika.az», 2 söz) başlıq sayılmır. Başlıqdan əvvəlki əsas video xəbərindir.
+  const noOg = page.replace(/<meta property="og:title"[^>]*>/, "").replace("<article>", `<article><video src="https://publika.az/v/esas.mp4"></video>`);
+  assert.ok(M.meqale(noOg).includes("esas.mp4") && !M.meqale(noOg).includes("marmaris"));
+  assert.equal(M.meqale(`<h1>Başqa başlıq burada</h1><video src="https://s.az/1.mp4"></video>`), `<h1>Başqa başlıq burada</h1><video src="https://s.az/1.mp4"></video>`, "başlıq tapılmasa səhifə bütöv");
+  const a = { id: "s1".padEnd(16, "0"), title: "Namizəd Səfərova hökm oxundu", source: "Publika.az", sourceUrl: "https://publika.az/news/nida_xeber/650276.html", alts: [] };
+  const files = { "https://publika.az/": "<html></html>", "https://www.trthaber.com/dosyalar/videolar/fa539b.mp4": res.file(mp4()), "https://publika.az/uploads/2022/marmaris.mp4": res.file(mp4()),
+    "https://www.trthaber.com/v/x.mp4": res.file(mp4()), "https://cdn.publika.az/v/oz.mp4": res.file(mp4()), "https://bax.tv/embed/7": `<video src="https://cdn.baxtv-video.net/7.mp4"></video>`,
+    "https://cdn.baxtv-video.net/7.mp4": res.file(mp4()) };
+  const logs = [];
+  assert.equal(await M.menbeVideo(a, page, { env: {}, fetch: net(files), log: s => logs.push(s), dir: tmp() }), null, "Publika: video yoxdur — bank klipləri");
+  // Xəbərin öz hissəsində başqa saytın faylı: götürülmür (görüntü onlarındır, «Görüntü: Publika.az» yanlış olardı), jurnala yazılır.
+  const yad = head + `<iframe src="https://www.trthaber.com/v/x.mp4"></iframe>` + sonra;
+  assert.equal(await M.menbeVideo(a, yad, { env: {}, fetch: net(files), log: s => logs.push(s), dir: tmp() }), null);
+  assert.ok(logs.some(s => /Publika\.az — başqa saytın faylı və pleyeri götürülmür \(trthaber\.com\)/.test(s)));
+  // Saytın öz faylı (alt domen) və platforma pleyeri (bax.tv; faylı onun öz CDN-indədir) götürülür.
+  const oz = await M.menbeVideo(a, head + `<video src="https://cdn.publika.az/v/oz.mp4"></video>` + sonra, { env: {}, fetch: net(files), log: () => {}, dir: tmp() });
+  assert.deepEqual([oz.url, oz.kredit], ["https://cdn.publika.az/v/oz.mp4", "Publika.az"]);
+  const bax = await M.menbeVideo(a, head + `<iframe src="https://bax.tv/embed/7"></iframe>` + sonra, { env: {}, fetch: net(files), log: () => {}, dir: tmp() });
+  assert.equal(bax.url, "https://cdn.baxtv-video.net/7.mp4");
+  assert.deepEqual(["https://cdn.bizim.media/x", "https://www.trthaber.com/x", "https://video.report.com.az/x", "https://player.bax.tv/e/1", "yox"].map(M.sayt),
+    ["bizim.media", "trthaber.com", "report.com.az", "bax.tv", ""]);
+});
+
 test("mənbə videosu: selection keeps bank clips as a fallback, goes ahead on the source video alone, and video stories rank higher", async () => {
   const src = n => Array(n - 1).fill({ source: "X" });
   const art = (id, o = {}) => ({ id: id.padEnd(16, "0"), title: `Xəbər ${id}`, summary: "Qısa xülasə.", category: "gundem", lang: "az", source: "APA", sourceUrl: `https://apa.az/${id}`,
