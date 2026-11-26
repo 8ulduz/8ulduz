@@ -279,7 +279,9 @@ test("social: Instagram posts a picture story to the Instagram account linked to
   assert.ok(logs.some(s => s.startsWith("instagram: səhifəyə bağlı Instagram peşəkar hesabı yoxdur")));
   linked = true; calls.length = 0;
   const net = S.networks(env).find(n => n.name === "instagram");
-  assert.equal(net.gapMin, 18, "Facebook-la eyni ara: gündə ən çox 80 post (Instagram API həddi 24 saatda 100)");
+  assert.equal(net.gapMin, 120, "şəkilli post 2 saatdan bir (2026-11-26: 243 şəkilli post 0 bəyənmə; Reels-ə yer qalır)");
+  assert.equal(S.networks({ ...env, IG_MIN_GAP_MIN: "60" }).find(n => n.name === "instagram").gapMin, 60, "Variables IG_MIN_GAP_MIN");
+  assert.equal(S.networks({ ...env, SOCIAL_MIN_GAP_MIN: "10" }).find(n => n.name === "instagram").gapMin, 120, "Facebook-un arası Instagram-ı sıxlaşdırmır");
   res = await S.run({ articles: [noPic, pic], env: { ...env, IG_WAIT_MS: "0" }, now: NOW + 60 * 60e3, fetch, state: { ...state, _last: {} }, log: () => {} });
   const media = calls.find(c => c[0].endsWith("/1784/media"));
   assert.ok(media, "şəkilli xəbər göndərildi");
@@ -515,9 +517,9 @@ test("social: an Instagram publish error whose container is PUBLISHED is a norma
   assert.ok(ok.calls.status[0].includes("/C0?fields=status_code") && !ok.calls.status[0].includes("EAAuserTOKEN"), "konteynerin statusu səhifə açarı ilə soruşulur");
   assert.deepEqual(state._ig.map(x => x.id), [one.id]);
   assert.ok(logs.includes(`instagram: paylaşıldı — ${one.title}`));
-  await S.run({ articles: [one, two], env, now: NOW + 10 * 60e3, fetch: ok.fetch, state, log: () => {} });
-  assert.equal(ok.calls.publish, 1, "18 dəqiqəlik ara saxlanır");
-  res = await S.run({ articles: [one, two], env, now: NOW + 19 * 60e3, fetch: ok.fetch, state, log: () => {} });
+  await S.run({ articles: [one, two], env, now: NOW + 19 * 60e3, fetch: ok.fetch, state, log: () => {} });
+  assert.equal(ok.calls.publish, 1, "120 dəqiqəlik ara saxlanır (Facebook-un 18 dəqiqəsi Instagram-a aid deyil)");
+  res = await S.run({ articles: [one, two], env, now: NOW + 121 * 60e3, fetch: ok.fetch, state, log: () => {} });
   assert.equal(ok.calls.publish, 2, "aradan sonra növbəti xəbər gedir — 6 saat gözləmədən");
   assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === two.id));
   for (const status of ["ERROR", "EXPIRED"]) {
@@ -672,8 +674,8 @@ test("social: an Instagram publish error with container status ERROR but the pos
   assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === one.id), "post hesabdadır: paylaşılıb");
   assert.deepEqual(res.failed, []);
   assert.equal(state._pause?.instagram, undefined, "6 saat fasilə yoxdur");
-  res = await S.run({ articles: [one, two], env, now: NOW + 19 * 60e3, fetch, state, log: () => {} });
-  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === two.id), "növbəti xəbər Facebook arası ilə (18 dəq) gedir, 6 saat sonra yox");
+  res = await S.run({ articles: [one, two], env, now: NOW + 121 * 60e3, fetch, state, log: () => {} });
+  assert.ok(res.posted.some(x => x[0] === "instagram" && x[1] === two.id), "növbəti xəbər Instagram arası ilə (120 dəq) gedir, 6 saat sonra yox");
   assert.equal(publish, 2);
 });
 

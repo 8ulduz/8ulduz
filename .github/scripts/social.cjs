@@ -17,7 +17,7 @@
 //   X         X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET (developer.x.com, «Read and write» icazəsi)
 //   LinkedIn  LINKEDIN_TOKEN (w_member_social), LINKEDIN_AUTHOR (urn:li:person:… və ya urn:li:organization:…)
 //   Instagram Facebook açarları ilə; səhifəyə bağlı Instagram peşəkar hesabı və açarda instagram_content_publish icazəsi olanda işləyir
-//             (söndürmək: Variables INSTAGRAM=0). Yalnız şəkilli xəbər, Facebook kimi 18 dəqiqədən bir, 24 saatda ≤100 (rəsmi hədd).
+//             (söndürmək: Variables INSTAGRAM=0). Yalnız şəkilli xəbər, 120 dəqiqədən bir (IG_MIN_GAP_MIN), 24 saatda ≤100 (rəsmi hədd).
 // Açarlar heç vaxt jurnala yazılmır. Paylaşılan nömrələr .social/posted.json-dadır (actions/cache), 3 gün saxlanır.
 "use strict";
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
@@ -88,15 +88,16 @@ function sameTopic(x, y) {
 }
 
 // Paylaşmağa layiq xəbərlər, ən vacibi birinci (mənbə sayı, sonra yenilik). opt.lang: lentin dili (video dil profili, sosial-video.cjs); yoxdursa az.
+// opt.weight(a): sıranın əmsalı (yalnız video: sosial-video.cjs cekisi — tamaşaçı marağı); mənbə həddi əmsalsız sayla yoxlanır.
 function candidates(articles, now, opt) {
   const out = [], lang = opt.lang || "az";
   for (const a of articles || []) {
     if (!/^[0-9a-f]{16}$/.test(String(a?.id || "")) || a.lang !== lang || !clean(a.title)) continue;
     const at = Date.parse(a.publishedAt || "");
     if (!Number.isFinite(at) || now - at > opt.maxAgeH * 3600e3 || at - now > 10 * 60e3) continue;
-    const score = a.category === "prezident" ? Math.max(sources(a), opt.minSources) : sources(a);
-    if (score < opt.minSources) continue;
-    out.push({ a, score, at });
+    const base = a.category === "prezident" ? Math.max(sources(a), opt.minSources) : sources(a);
+    if (base < opt.minSources) continue;
+    out.push({ a, score: base * (opt.weight ? opt.weight(a) : 1), at });
   }
   return out.sort((x, y) => y.score - x.score || y.at - x.at).map(x => x.a);
 }
@@ -280,9 +281,12 @@ function networks(env = process.env) {
   // Instagram yalnız şəkilli post qəbul edir (JPEG, ictimai URL), keçid postda basılmır: mətnin sonunda «8ulduz.az» yazılır.
   if (env.FB_PAGE_ID && env.FB_PAGE_TOKEN && env.INSTAGRAM !== "0") {
     const root = `https://graph.facebook.com/${env.FB_GRAPH_VERSION || "v27.0"}/`;
-    list.push({ name: "instagram", root, token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", // 2026-11-20: ara Facebook-unku ilə eynidir (18 dəq, gündə ≤80). Rəsmi hədd 24 saatda 100 API postudur
+    list.push({ name: "instagram", root, token: env.FB_PAGE_TOKEN, ig: env.IG_USER_ID || "", // Rəsmi hədd 24 saatda 100 API postudur
       // (content_publishing_limit): dərcdən əvvəl hesabın öz sayğacı soruşulur, dolubsa post getmir (skip: «24 saatlıq hədd dolub»).
-      gapMin: num(env.IG_MIN_GAP_MIN, num(env.SOCIAL_MIN_GAP_MIN, 18)),
+      // Ara 120 dəqiqə (2026-11-26; əvvəl Facebook kimi 18 dəq, gündə ~50). Ölçü (docs/sosial-video.md «Rəqib təhlili»): 20–25 noyabrda
+      // 243 şəkilli post 0 bəyənmə aldı (8 izləyici), 45 Reels — 37. Şəkilli post yalnız izləyicinin lentinə düşür, Reels isə
+      // izləməyənlərə də göstərilir; nəticəsiz sıx avtomatik post spam siqnalıdır (2207051, 2026-11-13). Dəyişən: Variables IG_MIN_GAP_MIN.
+      gapMin: num(env.IG_MIN_GAP_MIN, 120),
       wants: a => !a.digest && /^https:\/\/\S+$/.test(String(a.imageUrl || "")),
       async prepare(f, state, log) {
         const r = await f(`${root}${encodeURIComponent(env.FB_PAGE_ID)}?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(env.FB_PAGE_TOKEN)}`, { signal: AbortSignal.timeout(15000) }).then(x => x.json()).catch(() => ({}));
@@ -297,7 +301,7 @@ function networks(env = process.env) {
       // Konteyner → (hazır olanda) dərc. Cavab fetch Response kimidir: run eyni yoxlamanı edir.
       async post(a, f, policy) {
         // Rəsmi hədd (Instagram Graph API, content_publishing_limit): son 24 saatda API ilə dərc olunmuş postların sayı. Dolubsa bu
-        // dövrədə Instagram-a heç nə getmir; cavab yoxdursa (sorğu alınmadı) post adi qaydada gedir — ara onsuz da ≤80/gün saxlayır.
+        // dövrədə Instagram-a heç nə getmir; cavab yoxdursa (sorğu alınmadı) post adi qaydada gedir — ara onsuz da gündə ≤12 saxlayır.
         // Sayğac dövrədə bir dəfə soruşulur (namizəd ötürüləndə növbəti üçün yenə sorğu yoxdur).
         const lim = (this.limit ??= await f(`${root}${encodeURIComponent(this.ig)}/content_publishing_limit?fields=quota_usage,config&access_token=${encodeURIComponent(this.token)}`, { signal: AbortSignal.timeout(15000) })
           .then(x => x.json()).catch(() => ({})))?.data?.[0];

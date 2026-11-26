@@ -38,7 +38,7 @@ function withDil(kod, fn) {
 const keys = (o, pre = "") => Object.entries(o).flatMap(([k, v]) => {
   const p = pre ? `${pre}.${k}` : k;
   // Siyahı və sərbəst lüğət (bölmə → ad, qrup → ad) dəyərdir: içindəki açarlar dildən-dilə fərqlənə bilər.
-  return v && typeof v === "object" && !Array.isArray(v) && !/^(video\.bolmeler|maraqli\.qruplar|youtube\.(nov_etiketleri|bolme_etiketleri))$/.test(p) ? keys(v, p) : [p];
+  return v && typeof v === "object" && !Array.isArray(v) && !/^(video\.bolmeler|lent\.ceki\.bolme|maraqli\.qruplar|youtube\.(nov_etiketleri|bolme_etiketleri))$/.test(p) ? keys(v, p) : [p];
 });
 
 test("video-dil: every language profile has exactly the keys of az.json (a new language is a new file, no code change)", () => {
@@ -56,6 +56,10 @@ test("video-dil: every language profile has exactly the keys of az.json (a new l
   const xx = withDil("xx", () => DL.dil());
   assert.equal(xx.kod, "xx");
   assert.ok(xx.re.herf.test("aẋb") && xx.re.bagliyici.test("xxand") && xx.re.protokol.test("they xxmet") && xx.re.yadHerf === null);
+  // Video seçiminin tamaşaçı çəkisi də profildəndir (lent.ceki): azərbaycanca bölmə əmsalı və zəif mövzu sözləri sınaq dilinə keçmir.
+  assert.equal(withDil("xx", () => SV.cekisi({ title: "XX xxsummit", category: "idman" })), 1, "2 × 0,5");
+  assert.equal(withDil("xx", () => SV.cekisi({ title: "Bakıda sammit", category: "medeniyyet" })), 1, "az sözləri və əmsalları xx-də yoxdur");
+  assert.equal(SV.cekisi({ title: "Bakıda sammit", category: "medeniyyet" }), 1.4 * 0.6);
   assert.throws(() => DL.dil("../az"), /yanlış dil kodu/);
   assert.throws(() => { "use strict"; DL.dil("az").abune.xeber.ved = "x"; });
   assert.equal(DL.fmt("{a} və {b} {yox}", { a: 1, b: "iki" }), "1 və iki {yox}");

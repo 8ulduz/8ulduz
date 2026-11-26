@@ -26,6 +26,8 @@ function oxu(kod, dir) {
     nisbiGun: new RegExp(d.ssenari.nisbi_gun, "iu"),
     protokol: new RegExp(d.ssenari.protokol, "iu"),
     bagliyici: new RegExp(`^(${d.video.bagliyicilar.join("|")})$`, "u"),
+    // Video seçimində zəif mövzu (lent.ceki.zeif, sosial-video.cjs cekisi): başlıqda olanda xəbərin çəkisi azalır.
+    zeif: d.lent?.ceki?.zeif ? new RegExp(d.lent.ceki.zeif, "iu") : null,
   };
   return freeze({ ...d, re });
 }

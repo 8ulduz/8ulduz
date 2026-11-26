@@ -36,6 +36,103 @@ Meta və tədqiqatlardan:
 - Tamaşaçıların 69%-i ictimai yerdə videoya səssiz baxır, 80%-i altyazı olanda videonu sona qədər izləməyə daha meyillidir ([Verizon Media/Publicis, 2019](https://www.3playmedia.com/blog/verizon-media-and-publicis-media-find-viewers-want-captions/)).
 - Sosial şəbəkədə həftəlik video xəbər istifadəsi 2020-də 52%, 2025-də 65% olub ([Reuters İnstitutu, 2025](https://reutersinstitute.politics.ox.ac.uk/digital-news-report/2025/dnr-executive-summary); Azərbaycan hesabatda yoxdur).
 
+## Rəqib təhlili: baku.ws_official, 1 ay (2026-11-26)
+
+Sahibin göstərişi (2026-11-26): «bu hesabın 1 aylıq fəaliyyətini peşəkarcasına ətraflı incələt. Nəticələr çıxarın. Saytın sosial şəbəkə fəaliyyətini təkmilləşdir.»
+
+**Necə ölçülüb.** Instagram-ın veb tətbiqində, sahibin girişi ilə, yalnız baxış (bəyənmə, izləmə, yazı yoxdur). Profil aşağı sürüşdürülüb, tətbiqin özünün yüklədiyi məlumat oxunub:
+- 27 oktyabr – 25 noyabr, 30 tam gün (Bakı vaxtı): bütün 2 568 paylaşımın vaxtı, növü, bəyənmə, şərh, paylaşma sayı və mətni;
+- baxış sayı (Instagram onu yalnız Reels üçün göstərir): 12–25 noyabrın 390 Reels-i;
+- sayların hamısı toplandığı günə qədərdir, son günlərin postları hələ böyüyür;
+- mövzu mətnin açar sözləri ilə təxminən təyin edilib, bir post bir neçə mövzuya düşə bilər;
+- müqayisə üçün öz hesabımız (`8ulduz.az`) eyni üsulla: 20–25 noyabrın 288 postu və bütün Reels-lər.
+
+| Göstərici | baku.ws_official | 8ulduz.az |
+|---|---|---|
+| İzləyici | 1,4 mln (Social Blade: 1,5 mln; bəyənmə dərəcəsi 0,05%) | 8 |
+| Paylaşım | gündə 86 (40–123), 30 gündə 2 568 | gündə ~55 |
+| Növ | 50% şəkil, 36% Reels (gündə ~30), 14% karusel | 84% şəkil, 16% Reels |
+| Bəyənmə, median | Reels 933, karusel 902, şəkil 549 | 243 şəkilli postda cəmi 0, 45 Reels-də cəmi 37 |
+| Şərh, median | Reels 35, şəkil 22 | 45 Reels-də cəmi 1 |
+| Reels baxışı | median 50 min; 10%-i 10 mindən az, 10%-i 197 mindən çox; ən çox 525 min; 14 gündə 32,4 mln | 0–137, median ~40 |
+| Saatlar | 08:00–00:59; 01–07 arası demək olar ki, post yoxdur | video 08–23, şəkil gecə-gündüz |
+
+**Ən çox baxılanlar** (12–25 noyabr Reels, 338–525 min baxış) və ayın ən çox bəyənilənləri:
+- **insan hekayəsi:** kinoteatrda evlilik təklifi (473 min baxış, 22,7 min bəyənmə), on uşaqlı ailə (öz telekanallarının «Arzunun vaxtı» verilişi, 456 min), küçə sorğusunda azərbaycanlı qadın (ayın birincisi: 56 min bəyənmə, 5,6 min şərh, 15 min paylaşma), yaradıcı taksi sürücüsü, 6 ailənin yaşadığı kənd;
+- **yerli hadisənin öz görüntüsü:**
+  - sahibsiz itlərin yeniyetməyə hücumu (434 min; «görüntülər qaynar xəttimizə göndərilib»);
+  - təcili yardımın yolunu kəsən sürücü (347 min);
+  - dəniz sahili ilə gedən 537 nömrəli avtobus (346 min);
+  - gecə Bakısı (oxucunun videosu, müəllif adı ilə, 387 min);
+- **tanınmış adamlar:** keçmiş TV aparıcısının ölümü (390 min) və son paylaşımı (338 min), Avroviziya təmsilçisi, reperin Bakı konserti. Mövzu üzrə məşhur və mədəniyyət postlarının median bəyənməsi 1 277-dir, ümumi medianın (669) 1,9 qatı;
+- **idman və milli qürur:** «Sabah» – «Barselona», idmançının qələbəsi, Zəfər Günü fləşmobu (idman postlarının medianı 892, 1,3 qat);
+- **hava hadisəsi, proqnoz yox:** Quba-Qusarda və Kəlbəcərdə ilk qar (11–14 min bəyənmə);
+- **sual:** «“Sabah” “Barselona”ya qalib gələrsə, nəyə söz verirsiniz? 🙂» — adi şəkil, 1 512 şərh.
+
+**Ən az baxılanlar** (6–7 min, medianın 1/7-i): Dublin sammiti, «Bakı növbəti sammitə ev sahibliyi edəcək», Konstitusiya Günü, Beynəlxalq Gözdən Əlillər Günü, kitab təqdimatı, gündəlik «… hava necə olacaq?» proqnozu.
+Bəyənmənin mövzu üzrə medianı ümumi medianın 0,8–0,9 qatıdır: dövlət və rəsmi tədbir 545, qiymət və maaş 523, xarici siyasət 604.
+
+**Nəticələr**
+
+1. **Ən çox mənbəli xəbər ən çox baxılan xəbər deyil.**
+   - Video seçimimiz ən çox mənbə yazan xəbəri götürürdü.
+   - Rəsmi tədbiri (sammit, forum, xüsusi gün) bütün saytlar press-relizdən yazır: mənbə sayı böyük olur, baxış isə ən az.
+   - Ən çox baxılanlar (insan hekayəsi, yerli hadisə, məşhur, idman) çox vaxt az mənbədə olur.
+2. **Instagram-da şəkilli postlarımız nəticə vermir.**
+   - Şəkilli post yalnız izləyicinin lentinə düşür: 8 izləyici ilə 5 gündə 243 post 0 bəyənmə alıb.
+   - Reels izləməyənlərə də göstərilir, böyümə oradan gəlir. baku.ws-də şəkillər 1,4 mln izləyicinin hesabına işləyir.
+   - Nəticəsiz sıx avtomatik post spam siqnalıdır: 2026-11-13-də Instagram bizə 2207051 məhdudiyyəti qoymuşdu.
+3. **baku.ws-in əsas üstünlüyü hadisənin öz görüntüsüdür.** Ən çox baxılan 12 Reels-in hamısında belə görüntü var. Mənbələri:
+   - oxucuların «qaynar xətt»ə (WhatsApp) göndərdiyi video;
+   - sosial şəbəkə videoları (müəllif adı ilə);
+   - öz telekanallarının (Baku TV) kadrları;
+   - birgə postlar (ayda 108: `baku.tv`, `vam_az`, `push30.az`).
+
+   Bizdə müəllif hüququ qaydası ilə yalnız lisenziyalı bank klipləri və sahibin görüntüsü var. Bu fərqi kod bağlaya bilmir: aşağıda «Sahibin qərarı».
+4. **Saat və gün az rol oynayır.**
+   - Reels baxışının medianı saat aralıqlarında 46–54 mindir.
+   - Bəyənmə bazar günü bir az yüksəkdir (median 923), cümə axşamı aşağıdır (584).
+   - Vaxtı dəyişməyə ehtiyac yoxdur.
+5. **Mətn quruluşu:**
+   - ilk sətir faktın özüdür (~110 simvol), sonra xəbərin tam mətni gəlir (median 647 simvol);
+   - mənbəyə istinad olunur («APA-ya istinadən»);
+   - hər postda eyni 4 etiket olur (#baki #baku #bakuws #bakuws1).
+
+   Bizim mətnlər də belə qurulub. Etiketlərin sayı nəticəyə təsir etmir.
+
+**Etdiklərimiz (2026-11-26)**
+
+- **Video seçimində tamaşaçı marağı nəzərə alınır** (`sosial-video.cjs` `cekisi`, profil `lent.ceki`).
+  - Sıra belə hesablanır: mənbə sayı × bölmə əmsalı × zəif mövzu əmsalı.
+  - Bölmə əmsalı baku.ws-in mövzu medianlarının ümumi mediana nisbətidir, 0,8–1,4 arası:
+    - mədəniyyət 1,4 (1,9 idi, kəsilib);
+    - idman 1,3;
+    - bölgələr 1,1, sağlamlıq 1,1;
+    - cəmiyyət 1,15 (bəyənmədə ~1,0, amma ən çox baxılan 12 Reels-in hamısı yerli hadisə və insan hekayəsidir);
+    - dünya 0,9;
+    - iqtisadiyyat, sosial müdafiə və siyasət 0,8;
+    - qalan bölmələrdə (Prezident bölməsi də) əmsal yoxdur.
+  - Başlıqda sammit, zirvə, forum, konfrans, təqdimat, memorandum, saziş, əməkdaşlıq, «günü münasibətilə», ildönümü, «il tamam», «hava necə olacaq», «hava proqnozu» olanda əmsal ×0,6-dır.
+  - Mənbə həddi (4) dəyişmir: az mənbəli xəbər yenə video olmur.
+  - Facebook və Instagram şəkilli postlarının seçimi dəyişmir.
+- **Instagram şəkilli postları 18 yox, 120 dəqiqədən bir gedir** (gündə ≤12; Variables `IG_MIN_GAP_MIN`). Facebook-un arası əvvəlki kimidir (18 dəq). Instagram-ın API kvotası Reels-ə qalır.
+- **Hava videosuna toxunulmayıb.** Gündəlik proqnoz sahibin 2026-11-23 qərarıdır. Amma baku.ws-də gündəlik proqnoz Reels-i ən az baxılan növdür (7 min, median 50 min).
+
+**Sahibin qərarı (pulsuz, kod tələb etmir və ya azdır)**
+
+- **Oxucu videosu («qaynar xətt»).** baku.ws-in ən güclü aləti budur. Bizdə Telegram botu (`sekkizulduz_xeber_bot`) var. Oxucunun göndərdiyi videonu belə istifadə etmək olar:
+  - müəllifin yazılı razılığı ilə;
+  - yer və vaxt yoxlanandan sonra;
+  - müəllifin adı ilə (sosial-video «Video arxivi» kimi).
+
+  Lazım olanlar: əlaqə kanalı, razılıq mətni, moderasiya qaydası.
+- **WhatsApp kanalı.** `assets/config.js`-də `follow.whatsapp` boşdur. baku.ws profilində «Kanal» əsas düymələrdəndir. Kanalı sahib açır, ünvanı bir sətirlə yazılır.
+- **Instagram profili.** Bio-da abunə çağırışı (baku.ws: «Bu yazını oxuyursansa, səhifəyə ABUNƏ OL :)»), əsas hekayələr (Statistika, Kanal, Sayt, Qaynar xətt), profil şəkli.
+- **Birgə postlar (collab).** Eyni post tərəfdaşın (bölgə saytı, idman klubu, universitet) izləyicilərinə də görünür. Tərəfdaşın razılığı lazımdır.
+- **Telekanalın görüntüsü** ([tv-icaze.md](tv-icaze.md)). Fərqin ən böyüyü budur.
+- **Hava videosu.** Yalnız hadisəli günlərdə (qar, güclü külək, xəbərdarlıq) hazırlana bilər.
+- **Bir həftədən sonra ölçü.** Eyni üsulla öz Reels baxışlarımız müqayisə olunacaq: bölmə əmsalları baku.ws-in auditoriyasından götürülüb, bizimkini öz rəqəmlərimiz təsdiqləməlidir.
+
 ## Seçimlərimiz
 
 | Nə | Nə etdik | Niyə |
@@ -50,8 +147,8 @@ Meta və tədqiqatlardan:
 | Səs | SARA (sahibin «Dinlə» üçün seçdiyi açıq model), pulsuz, GitHub-da | Səs «əhəmiyyətli əlavə»dir (Meta), səslə izləyən də anlayır |
 | Facebook mətni | Başlıq, izah (≤900 simvol), «Ətraflı: https://www.8ulduz.az/<nömrə>?h=<saat>», 3 heşteq; eyni keçid ilk şərhdə də | Sahibin göstərişi (keçid basılan olsun). Meta keçidsiz mətni üstün tutur — ona görə keçid ilk şərhdə də var; yayılma zəif olarsa mətndəki keçidi götürmək bir sətirlik dəyişiklikdir |
 | Instagram mətni | Başlıq, izah, «Ətraflı: 8ulduz.az (keçid profildədir)», 4 heşteq | Instagram keçidi basılan etmir; profildəki keçid 8ulduz.az/ig/ səhifəsinə aparır |
-| Tezlik | 30 dəqiqədən bir, 08–23 Bakı vaxtı, gündə ≤30 (2026-11-24-dək 2 saatdan bir, ≤8) | Rəqiblər gündə ~6 Reels; Facebook API həddi 30; Instagram həddi 100 (şəkilli postlar gündə ≤80, həddi kod hər videodan əvvəl yoxlayır) |
-| Mövzu | social.cjs seçimi: ən çox mənbəli xəbər, Prezident bölməsi; eyni mövzu 24 saatda bir dəfə | Ən çox yazılan xəbər ən maraqlısıdır; qəza, hava, qiymət, idman da 4+ mənbə ilə bura düşür |
+| Tezlik | 30 dəqiqədən bir, 08–23 Bakı vaxtı, gündə ≤30 (2026-11-24-dək 2 saatdan bir, ≤8) | Rəqiblər gündə ~6 Reels (baku.ws ~30); Facebook API həddi 30; Instagram həddi 100 (şəkilli postlar 2026-11-26-dan gündə ≤12, həddi kod hər videodan əvvəl yoxlayır) |
+| Mövzu | social.cjs seçimi: 4+ mənbəli xəbər, Prezident bölməsi; sıra mənbə sayı × tamaşaçı marağı (2026-11-26-dan, aşağıda «Rəqib təhlili»); eyni mövzu 24 saatda bir dəfə | Əvvəl sıra yalnız mənbə sayı idi: ən çox yazılan xəbər çox vaxt rəsmi tədbirdir və ən az baxılır |
 
 Götürmədiklərimiz: başqasının kadrları (aşağıda), musiqi (Meta-nın lisenziyalı musiqisi API ilə əlçatan deyil, başqa musiqi müəllif hüququ riskidir), «❗️⚡️» kimi təcili işarələr (hər xəbərdə olsa mənasını itirir; istəsəniz Prezident və ya 10+ mənbəli xəbərə əlavə etmək olar).
 
@@ -206,7 +303,7 @@ Profildə olanlar:
 | Bölmə | Nə | Kim işlədir |
 |---|---|---|
 | `kod`, `locale`, `herf` | dilin kodu, böyük/kiçik hərf qaydası, mətnin bu dildə olduğunu tanıdan hərflər | hamısı |
-| `lent` | lentdən hansı dildə xəbər seçilir (`dil`), ən az neçə mənbə (`min_menbe`; Variables yenə üstələyir) | `sosial-video.cjs`, `social.cjs candidates` |
+| `lent` | lentdən hansı dildə xəbər seçilir (`dil`), ən az neçə mənbə (`min_menbe`; Variables yenə üstələyir), videonun sırası üçün tamaşaçı marağı (`ceki`: `bolme` — bölmə → əmsal, `zeif` — başlıqda zəif mövzu sözləri, `zeif_emsal`; hər dilin auditoriyası öz rəqəmi ilə) | `sosial-video.cjs` (`cekisi`), `social.cjs candidates` |
 | `video` | ekrandakı yazılar: nişanlar («Xəbər», «BİLİRDİNİZMİ?»), bölmə adları (`bolmeler`; boşdursa saytın öz adları), «ABUNƏ OL», «Mənbə», «Görüntü», «Ətraflı:», aylar, altyazını bölən bağlayıcılar | `video-xeber.cjs` |
 | `abune` | hər video növünün vədi və səsə gedən çağırış | video, səs, bütün paylaşım mətnləri |
 | `ses` | Edge səsi (`edge`), temp pillələri (`temp`), `vaxtlar.json` adı (`motor`), jurnaldakı ad (`ad`), mətnin hazırlanması (`metn`: `az_text` — rəqəm sözə; başqa dəyər — olduğu kimi), ehtiyat (`ehtiyat`: `sara` — yalnız azərbaycanca) | `video_ses.py` |
@@ -557,6 +654,7 @@ Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş
 | `VIDEO_SAAT` | 8-23 | Bakı vaxtı ilə hansı saatlarda (daxil) |
 | `VIDEO_GUNDE` | 30 | 24 saatda ən çox video (Facebook həddi 30; 2026-11-24-dək 8). Instagram-a video kvota qalanda gedir (kod hər videodan əvvəl yoxlayır), TikTok öz həddi qədər (qaralama 24 saatda 5) |
 | `VIDEO_MIN_SOURCES` | `SOCIAL_MIN_SOURCES` və ya 4 | neçə mənbə yazanda |
+| `IG_MIN_GAP_MIN` | 120 | Instagram şəkilli postları arası, dəqiqə (social.yml; 2026-11-26-dək 18). Bölmə əmsalları və zəif mövzu sözləri Variables-da yox, profildədir: `.github/video-dil/az.json` `lent.ceki` |
 | `VIDEO_SES` | (açıq) | `0` — səssiz video (model quraşdırılmır) |
 | `VIDEO_FACEBOOK`, `VIDEO_INSTAGRAM` | (açıq) | `0` — həmin şəbəkəyə video getmir. `INSTAGRAM=0` Instagram-ı hər iki işdə söndürür |
 | `VIDEO_FB_SERH` | (açıq) | `0` — Facebook-da keçidli ilk şərh yazılmır |
