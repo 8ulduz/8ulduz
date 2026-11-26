@@ -3,8 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Brauzer app.css gəlməzdən əvvəlki boş ekranı bu rəngdə çəkir (aşağıdakı skript onu oxucunun temasına qoyur): tünd temada açılışda ağ ekran
+         olmasın (sahib 2026-11-26: «8ulduzu açanda ilk ağ boş ekran açılır sonra sayt»). app.css gələndən sonra :root{color-scheme:light}: görünüş dəyişmir. -->
+    <meta name="color-scheme" content="dark" />
     <!-- Daxili skript yalnız aşağıdakının hash-i ilə işləyir: onu dəyişəndə hash də dəyişir (test tutur). connect-src qəsdən yoxdur: canlı kanala sorğu heç vaxt burada bloklanmasın. GoatCounter skripti gc.zgo.at-dandır; sayğac 8ulduz.goatcounter.com-a gedir və connect-src olmadığı üçün keçir. -->
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-2Izy3AHluq4iKFkLlbISeuXzo6c9imntHpJa6fgZ6Xs=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-aCG0F9a6uUWFBSzYNz2QTuq4geEoEb6nme9evI1ylAw=' https://gc.zgo.at https://8ulduz.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://www.youtube-nocookie.com https://embed.waze.com https://yandex.com" />
     <!-- Kod xəbər faylından əvvəl soruşulur: telefonda 220 KB-lıq lent onunla eyni xətti bölüşür -->
     <link rel="modulepreload" href="./assets/app.min.js" />
     <script>
@@ -18,7 +21,9 @@
       try {
         var t = localStorage.getItem("8ulduz-theme");
         // Sahib (2026-11-06): ilk açılış telefonun rejimi ilə; oxucunun öz seçimi üstündür; bilinməsə tünd
-        document.documentElement.dataset.theme = t === "light" || t === "dark" ? t : matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.dataset.theme = t = t === "light" || t === "dark" ? t : matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        // İlk boyadan əvvəlki boş ekran temanın rəngində (yuxarıdakı color-scheme): tünd temada ağ yox, açıq temada ağ.
+        document.querySelector('meta[name="color-scheme"]').content = t;
         var f = localStorage.getItem("8ulduz-fs");
         document.documentElement.dataset.fs = /^[0-6]$/.test(f || "") ? f : "4";
       } catch (e) {}
