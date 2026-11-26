@@ -6,7 +6,12 @@
   "hava": false,
   "lent": {
     "dil": "xx",
-    "min_menbe": 1
+    "min_menbe": 1,
+    "ceki": {
+      "bolme": { "idman": 2 },
+      "zeif": "xxsummit",
+      "zeif_emsal": 0.5
+    }
   },
   "video": {
     "xeber": "XX-NEWS",

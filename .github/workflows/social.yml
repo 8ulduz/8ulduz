@@ -6,7 +6,7 @@ name: Profillərdə paylaş
 on:
   # Əsas tətik: xəbər pipeline-ı main-ə yazandan 90 s sonra bu işi dispatch edir (pipeline.sh publish_main, ~10 dəqiqədə bir).
   # GitHub cron-u saatlarla gecikir/atılır (2026-11-05: :47 və :07 gəlmədi), Pages yayımı workflow_run başlatmır; cron ehtiyatdır.
-  # Postlar arası fasilə social.cjs-dədir (SOCIAL_MIN_GAP_MIN, 18 dəq): saatda ən çox 3 post.
+  # Postlar arası fasilə social.cjs-dədir (SOCIAL_MIN_GAP_MIN, 18 dəq; Instagram IG_MIN_GAP_MIN, 120 dəq): saatda ən çox 3 post.
   schedule:
     - cron: "7,27,47 * * * *"
   workflow_dispatch:
@@ -73,6 +73,8 @@ jobs:
           LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
           LINKEDIN_AUTHOR: ${{ vars.LINKEDIN_AUTHOR }}
           SOCIAL_MIN_SOURCES: ${{ vars.SOCIAL_MIN_SOURCES }}
+          # Instagram şəkilli postları arası, dəqiqə (boş — 120; docs/sosial-video.md «Rəqib təhlili»). Facebook-un arası ayrıdır (18).
+          IG_MIN_GAP_MIN: ${{ vars.IG_MIN_GAP_MIN }}
           SOCIAL_PER_RUN: ${{ vars.SOCIAL_PER_RUN }}
           FB_RESCRAPE: ${{ inputs.fb_yenile && '1' || '' }}
         run: node .github/scripts/social.cjs data/news.json

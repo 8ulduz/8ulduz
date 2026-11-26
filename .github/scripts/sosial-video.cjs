@@ -185,11 +185,22 @@ async function sourcePage(a, f) {
     .then(r => (r?.ok && r.text ? r.text() : ""), () => "").catch(() => "");
 }
 
+// Tamaşaçı marağının çəkisi (2026-11-26, docs/sosial-video.md «Rəqib təhlili»): sıra mənbə sayı × bölmənin əmsalı × zəif mövzu əmsalı.
+// Ən çox mənbəli xəbər çox vaxt rəsmi tədbirdir (sammit, forum, xüsusi gün) — onu hamı yazır, amma ən az baxılan videolar elə bunlardır
+// (baku.ws_official, 12–25 noyabr: belə Reels 6–7 min baxış, orta 50 min; mədəniyyət və məşhurların postları orta bəyənmənin ~1,9 qatı).
+// Əmsallar profildədir (lent.ceki: bolme, zeif, zeif_emsal); prezident bölməsinə əmsal yoxdur. Mənbə həddi (min_menbe) dəyişmir.
+function cekisi(a, D = dil()) {
+  const c = D.lent.ceki || {};
+  let k = Number(c.bolme?.[a?.category]) || 1;
+  if (D.re.zeif && D.re.zeif.test(S.clean(a?.title))) k *= Number(c.zeif_emsal) || 1;
+  return k;
+}
+
 // Ən vacib, hələ video olmamış, izahı olan xəbər. Seçilməyənlər state.skip-ə düşür (hər dövrədə yenidən oxunmasın).
 async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "" }) {
   const sec = Math.floor(now / 1000);
-  // Lentin dili profildədir (lent.dil): yalnız o dildəki xəbərlər namizəddir.
-  const list = only ? (articles || []).filter(a => a.id === only) : S.candidates(articles, now, { ...opt, lang: dil().lent.dil });
+  // Lentin dili profildədir (lent.dil): yalnız o dildəki xəbərlər namizəddir. Sıra tamaşaçı marağı ilə çəkilir (cekisi).
+  const list = only ? (articles || []).filter(a => a.id === only) : S.candidates(articles, now, { ...opt, lang: dil().lent.dil, weight: a => cekisi(a) });
   for (const a of list) {
     if (!only && (state.v[a.id] || state.skip[a.id] || state.t[S.titleKey(a)])) continue;
     const topic = S.topicOf(a, Date.parse(a.publishedAt) / 1000 || sec);
@@ -516,5 +527,5 @@ async function main() {
 }
 
 module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock,
-  maraqliOptions, maraqliDue, maraqliSec, maraqliSay };
+  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });
