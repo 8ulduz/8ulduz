@@ -188,7 +188,8 @@ function prepare(a, opt = {}) {
   if (!title) throw new Error("başlıq yoxdur");
   const footage = Boolean(opt.footage), tur = a.tur === "maraqli" ? "maraqli" : "xeber";
   const head = footage ? fitHeadline(title, LF.sizes, LF.headMaxH, FOOT_W) : fitHeadline(title);
-  const sentences = captionSentences(bodyText(a)), chunks = sentences.flat();
+  // Görüntülü videoda altyazı blokda 2 sətirlik yerə (CAPF) bölünür — 3-cü sətir künc xəttinin üstünə düşməsin.
+  const sentences = captionSentences(bodyText(a), footage ? CAPF : CAP), chunks = sentences.flat();
   // Maraqlı videonun nişanı rubrikanın adıdır («Bilirdinizmi?»): başlıq faktın özüdür, nişan onu suala çevirir.
   // Bölmənin adı: profildə video.bolmeler doludursa ondan (saytın bölmə adları azərbaycancadır), boşdursa (az) saytın öz adı.
   const D = dil(), own = Object.keys(D.video.bolmeler).length ? D.video.bolmeler[a.category] : a.bolme || opt.cats?.find(c => c.slug === a.category)?.label;
@@ -270,7 +271,9 @@ function subOutro(dlg, out, D, y, tur, alt) {
 // Blok aşağıdan qurulur (blok()): xəttin üfüqi hissəsi y LF.lineY-də, mənbə sətri onun altında — hamısı y 1480-ə qədər (tam ekranda
 // aşağıda Reels yazısı, lentin 4:5 kəsiyi y 1635-ə qədərdir); sağda Reels düymələrinə görə mətn x ≤ W − X0.
 const LF = { lineY: 1424, lineX: 60, textX: 100, thick: 6, corner: 40, logoH: 56, logoGap: 24, headGap: 20, capGap: 20, srcGap: 18,
-  sizes: [68, 64, 60, 56, 52], headMaxH: 3 * 64, fade: 170, fadeStep: 42, fadeLayers: 16 };
+  sizes: [68, 64, 60, 56, 52], headMaxH: 3 * 64, fade: 170, fadeStep: 42, fadeLayers: 16, fadeAlpha: "&HD4&",
+  // Sonluqda loqo ortada, böyük (blokdakı loqo onunla birlikdə söner): «8ULDUZ.az», altında qısa narıncı xətt.
+  outroLogoY: 470, outroLogoH: 100, outroAz: 88 };
 const FOOT_W = W - X0 - LF.textX;     // blokda mətnin eni (908)
 const LH = 1.17;                       // Roboto: sətrin hündürlüyü ≈ 1,17 × ölçü (libass)
 // Blokun yerləri (başlığın sətir sayına görə): altyazıya həmişə 2 sətirlik yer var — başlıq və loqo videonun ortasında yerindən oynamır.
@@ -281,6 +284,12 @@ function blok(p) {
   const headTop = headBottom - Math.round(p.head.lines.length * p.head.size * LH);
   const logoY = headTop - LF.logoGap - LF.logoH;
   return { capTop, headTop, headBottom, logoY, lineTop: logoY - 8, fadeTop: logoY - LF.fade };
+}
+// Sonluğun loqosu: «8ULDUZ» şəkli (ffmpeg) + «.az» (ass) birlikdə ekranın ortasında.
+function outroLogo() {
+  const h = LF.outroLogoH, lw = Math.round(LOGO.w * h / LOGO.h), azW = textWidth(".az", LF.outroAz, "black");
+  const x = Math.round((W - (lw - 5 + azW)) / 2);
+  return { x, y: LF.outroLogoY, h, lw };
 }
 // Dairəvi küncü olan «L» xətt (ASS forması, qalınlıq t, künc radiusu r): (x, y1)-dən aşağı (x, y2)-yə, oradan sağa (x2, y2)-yə.
 function kuncXett(x, y1, y2, x2, t = LF.thick, r = LF.corner) {
@@ -309,14 +318,19 @@ function vurgu(lines, on = assColor(COLOR.orange), off = assColor(COLOR.white)) 
 function assFootage(p, tl, dlg) {
   const D = tl.duration, out = tl.outro[0], b = blok(p), white = assColor(COLOR.white), lit = assColor(COLOR.orange);
   const ms = x => Math.max(0, Math.round(x * 1000)), fade = `\\fad(250,300)`, x = LF.textX;
-  // Keçid: tünd göyün bir-birinin üstünə düşən yumşaq qatları (hər biri ~14%) — görüntü aşağıya doğru tündləşir, blok oxunur.
+  // Keçid: tünd göyün bir-birinin üstünə düşən yumşaq qatları (hər biri ~17%) — görüntü aşağıya doğru tündləşir (başlıqda ~70%,
+  // altyazıda ~90%), açıq görüntüdə də blok oxunur.
   for (let i = 0; i < LF.fadeLayers; i++) {
     const y = b.fadeTop + i * LF.fadeStep;
     if (y >= H) break;
-    dlg(0, 0, D, "Shape", `{\\an7\\pos(0,${y})\\p1\\bord0\\shad0\\blur24\\1c${assColor(COLOR.bg)}\\1a&HDB&}${rect(W, H - y + 40)}`);
+    dlg(0, 0, D, "Shape", `{\\an7\\pos(0,${y})\\p1\\bord0\\shad0\\blur24\\1c${assColor(COLOR.bg)}\\1a${LF.fadeAlpha}}${rect(W, H - y + 40)}`);
   }
-  // Sonluq: bütün ekran tündləşir (vəd, ipucu, sayt).
+  // Sonluq: bütün ekran tündləşir; ortada böyük loqo (şəkli ffmpeg-dədir, outroLogo) və «.az», altında qısa narıncı xətt
+  // (blokun künc xəttinin davamı); sonra vəd, ipucu, sayt.
   dlg(1, out, D, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${assColor(COLOR.bg)}\\1a&H18&\\fad(300,0)}${rect(W, H)}`);
+  const ol = outroLogo();
+  dlg(3, out, D, "Brand", `{\\an1\\pos(${ol.x + ol.lw - 5},${ol.y + ol.h + 5})\\fs${LF.outroAz}\\fad(300,0)}.az`);
+  dlg(3, out, D, "Shape", `{\\an7\\pos(${(W - 120) / 2},${ol.y + ol.h + 44})\\p1\\bord0\\shad0\\1c${lit}\\fad(300,0)}${rect(120, LF.thick)}`);
   // Künc xətti: zəif iz başdan sona, üstündə dolan (gediş) — şaquli hissə və künc başdan doludur, üfüqi hissə video boyu sağa dolur.
   const L2 = kuncXett(LF.lineX, b.lineTop, LF.lineY, W - X0), full = LF.lineX + LF.corner + LF.thick;
   dlg(2, 0, out + 0.3, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${lit}\\1a&HA0&${fade}}${L2}`);
@@ -518,7 +532,9 @@ function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], focus = nul
     args.push("-f", "lavfi", "-i", `color=c=0x${COLOR.bg}:s=${W}x${H}:r=${FPS}:d=${D}`);
     bg = "[0:v]format=rgb24";
   }
-  const li = plan.length || 1, ai = li + 1;
+  const li = plan.length || 1, ai = li + 1, foot = Boolean(p?.footage && plan.length);
+  // Görüntülü videoda loqo şəkli kadr axınıdır (-loop 1): blokdakı loqo sonluqda sönür, sonluğun loqosu yavaşca görünür (fade).
+  if (foot) args.push("-loop", "1", "-framerate", String(FPS), "-t", D);
   args.push("-i", logo);
   let audio;
   if (voiceFile) {
@@ -533,10 +549,16 @@ function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], focus = nul
     args.push("-f", "lavfi", "-t", D, "-i", "anullsrc=channel_layout=stereo:sample_rate=48000");
     audio = `[${ai}:a]aformat=sample_fmts=fltp:channel_layouts=stereo[a]`;
   }
-  const lg = p?.footage && plan.length ? { x: LF.textX, y: blok(p).logoY, h: LF.logoH } : { x: logoX(), y: logoY(), h: L.logoH };
-  // Görüntülü videoda loqo blokla birlikdə sonluğa qədərdir (sonluqda «Ətraflı: 8ulduz.az» qalır, loqo onun yerinə düşməsin).
-  const until = lg.y !== logoY() ? `:enable='lt(t,${(tl.outro[0] + 0.3).toFixed(2)})'` : "";
-  const video = `${bg},ass=${assFile}[t];[${li}:v]scale=-1:${lg.h}:flags=lanczos,format=rgba[lg];[t][lg]overlay=${lg.x}:${lg.y}:format=rgb${until},format=yuv420p[v]`;
+  let video;
+  if (foot) {
+    // Görüntülü video: loqo blokda sonluğa qədər (blokla birlikdə 0,3 s-də söner), sonluqda ortada böyük loqo (outroLogo).
+    const o = tl.outro[0].toFixed(2), off = (tl.outro[0] + 0.3).toFixed(2), ol = outroLogo();
+    video = `${bg},ass=${assFile}[t];[${li}:v]split=2[l1][l2];`
+      + `[l1]scale=-1:${LF.logoH}:flags=lanczos,format=rgba,fade=t=out:st=${o}:d=0.3:alpha=1[lg];[t][lg]overlay=${LF.textX}:${blok(p).logoY}:format=rgb:enable='lt(t,${off})'[t2];`
+      + `[l2]scale=-1:${ol.h}:flags=lanczos,format=rgba,fade=t=in:st=${o}:d=0.3:alpha=1[lo];[t2][lo]overlay=${ol.x}:${ol.y}:format=rgb:enable='gte(t,${o})',format=yuv420p[v]`;
+  } else {
+    video = `${bg},ass=${assFile}[t];[${li}:v]scale=-1:${L.logoH}:flags=lanczos,format=rgba[lg];[t][lg]overlay=${logoX()}:${logoY()}:format=rgb,format=yuv420p[v]`;
+  }
   args.push("-filter_complex", `${video};${audio}`, "-map", "[v]", "-map", "[a]", "-t", D,
     "-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-level:v", "4.1", "-crf", "21", "-maxrate", "8M", "-bufsize", "16M",
     "-r", String(FPS), "-g", String(2 * FPS), "-keyint_min", String(2 * FPS), "-sc_threshold", "0", "-pix_fmt", "yuv420p",

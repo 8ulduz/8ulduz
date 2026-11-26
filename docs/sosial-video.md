@@ -175,7 +175,7 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   Axtarış ifadəsində insanların xəbərdəki hərəkəti (görüş, imza, çıxış) və adsız bayraqlar yoxdur; inisiallar («Cey. Di.») tam yazılır.
 - **Dizayn — aşağı blok** (sahib, 2026-11-26: «videolarda yazı və logo Baku WS bənzəri olsun eynisi yox. hazırda videonun üstünü örtür»; həmin gün Baku WS-in üç Reels şəkli ilə: «çox sadə edibsən … rənglər, loqo bizə məxsus olsun, lakin format eyni bu şəkildəkilər kimi olsun, azca fərqlilik qat»).
   - Görüntü bütün kadrı tutur və yuxarısı açıqdır: brend zolağı yoxdur. Üfüqi klipdən 9:16 hissə hərəkət olan yerdən kəsilir (`focusX`).
-  - Aşağıda görüntü yumşaq tünd göy keçidlə tündləşir (16 qat, hər biri ~14%).
+  - Aşağıda görüntü yumşaq tünd göy keçidlə tündləşir (16 qat, hər biri ~17%): başlıqda ~70%, altyazıda və aşağıda ~90%, açıq görüntüdə də oxunur.
   - Keçidin üstündəki blok (`blok()`, aşağıdan qurulur), yuxarıdan aşağı:
     - loqo (56 px), «.az» və bölmə nişanı;
     - başlıq: 68→52 px, ən çox 3 sətir; dırnaqdakı ifadə və rəqəm yanındakı sözlə narıncıdır (`vurgu`);
@@ -185,7 +185,8 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
   - Xəttin üfüqi hissəsi gediş xəttidir: video boyu sağa dolur.
   - Hamısı y 1480-ə qədərdir (tam ekranda aşağıdakı Reels yazısı); mətn x ≤ 1008-dir (sağdakı düymələr).
   - Baku WS-dən fərqi: rəng (onlarda qara və qızılı), dolan künc xətti, bölmə nişanı, sözbəsöz altyazı və səs.
-  - Sonda tündləşən ekranda vəd, abunə ipucu və «Ətraflı: 8ulduz.az»; loqo şəkli sonluqda gizlənir.
+  - Sonluqda blok (loqo da) 0,3 s-də söner. Tündləşən ekranın ortasında böyük loqo (100 px, `outroLogo`) yavaşca görünür, yanında «.az», altında qısa narıncı xətt. Sonra vəd, abunə ipucu və «Ətraflı: 8ulduz.az». Loqo şəkli bunun üçün ffmpeg-ə kadr axını kimi verilir (`-loop 1`, `fade`).
+  - Altyazı cümləsi blokda 2 sətirlik hissələrə bölünür (`CAPF`); 3-cü sətir künc xəttinin üstünə düşmür.
   - Əvvəlki dizaynlar: 2026-11-24-dən görüntü bütün kadrda idi, üstündə yuxarı brend zolağı, yarımşəffaf başlıq zolağı və qutulu altyazı vardı. Bu yazılar videonun ortasını örtürdü.
 
 ### Montaj, altyazı və etiketlər (sahib, 2026-11-23: «tam professional kimi işlə»)

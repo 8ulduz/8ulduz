@@ -208,15 +208,19 @@ test("video: footage mode — clips fill 9:16 with the top clear; the lower bloc
     assert.ok(y >= b.fadeTop - 0.5, `${style(l)} y=${y} keçiddən yuxarıdadır (videonun üstü açıq qalmalıdır): ${l.slice(0, 90)}`);
   }
   // Keçid: tünd göyün yumşaq qatları blokun üstündən aşağıya.
-  const fades = ev.filter(l => /\\blur24\\1c&H26140B&\\1a&HDB&/.test(l));
+  const fades = ev.filter(l => /\\blur24\\1c&H26140B&\\1a&HD4&/.test(l));
   assert.ok(fades.length >= 10 && fades[0].includes(`\\pos(0,${b.fadeTop})`), "aşağıya doğru tündləşən keçid");
+  // Altyazı blokda ən çox 2 sətirdir (CAPF): 3-cü sətir künc xəttinin üstünə düşməsin (sınaq videosunda düşmüşdü).
+  const long = V.prepare({ ...fixture, text: "Dələduzluq etməkdə təqsirləndirilən hüquqşünas Namizəd Səfərovun cinayət işi üzrə məhkəmə prosesi yekunlaşıb. Bakı Ağır Cinayətlər Məhkəməsində keçirilən prosesdə hökm oxunub." }, { cats, footage: true });
+  assert.ok(long.chunks.length >= 3 && long.chunks.every(c => V.wrap(c, V.CAPF.size, "medium", V.CAPF.w).length <= V.CAPF.lines), "altyazı 2 sətrə bölünür");
+  assert.ok(V.ass(long, V.timeline(long, null)).split("\n").filter(l => /^Dialogue: 4,/.test(l)).every(l => (l.match(/\\N/g) || []).length <= 1));
   // Blokun sırası yuxarıdan: loqo (ffmpeg) → başlıq → altyazı → künc xəttinin üfüqi hissəsi → tarix və mənbə; hamısı y 1480-ə qədər.
   assert.ok(b.logoY + V.LF.logoH < b.headTop && b.headBottom < b.capTop && b.capTop + 2 * 46 * 1.17 <= V.LF.lineY && V.LF.lineY + V.LF.srcGap + 36 <= 1480);
   const head = ev.find(l => style(l) === "Head");
   assert.ok(head.includes(`\\move(100,${b.headTop + 20},100,${b.headTop}`) && /\\shad2/.test(head), "başlıq blokda, kölgəli");
   assert.ok(ev.filter(l => /^Dialogue: 4,/.test(l)).every(l => l.includes(`\\pos(100,${b.capTop})`)), "altyazılar başlığın altında");
   assert.ok(!/BorderStyle|,3,16,0,7/.test(V.ass(p, t).split("\n").find(l => l.startsWith("Style: Cap,"))), "altyazı qutusuz");
-  const chip = ev.find(l => style(l) === "Chip"), az = ev.find(l => /\}\.az$/.test(l));
+  const chip = ev.find(l => style(l) === "Chip"), az = ev.find(l => /\}\.az$/.test(l) && sec(start(l)) < t.outro[0] - 0.01);
   assert.ok(/\\an4\\pos\(\d+,\d+\)/.test(chip) && +chip.match(/\\pos\((\d+),(\d+)/)[2] === b.logoY + V.LF.logoH / 2, "bölmə nişanı loqonun yanında");
   assert.ok(az && +az.match(/\\pos\(\d+,(\d+)/)[1] === b.logoY + V.LF.logoH + 3, "«.az» loqonun yanında");
   const src = ev.find(l => style(l) === "Small");
@@ -235,9 +239,17 @@ test("video: footage mode — clips fill 9:16 with the top clear; the lower bloc
     if (!m || /\\p1/.test(l)) continue;
     assert.ok(+m[2] >= 300 && +m[2] <= 1480, `y=${m[2]} lentin 4:5 kəsiyində: ${l.slice(0, 80)}`);
   }
-  // ffmpeg: loqo blokda (p verilir), sonluqda gizlənir — sonluqda «Ətraflı: 8ulduz.az» qalır.
+  // ffmpeg: loqo blokda (p verilir), sonluqda söner; sonluqda ortada böyük loqo yavaşca görünür, yanında «.az», altında narıncı xətt.
   const withP = V.ffmpegArgs({ tl: t, p, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: ["a.mp4"] });
-  assert.ok(withP[withP.indexOf("-filter_complex") + 1].includes(`scale=-1:56:flags=lanczos,format=rgba[lg];[t][lg]overlay=100:${b.logoY}:format=rgb:enable='lt(t,${(t.outro[0] + 0.3).toFixed(2)})'`));
+  const o = t.outro[0].toFixed(2), fcP = withP[withP.indexOf("-filter_complex") + 1];
+  assert.deepEqual(withP.slice(withP.indexOf("L.png") - 7, withP.indexOf("L.png") + 1), ["-loop", "1", "-framerate", "30", "-t", t.duration.toFixed(2), "-i", "L.png"]);
+  assert.ok(fcP.includes(`:v]split=2[l1][l2];[l1]scale=-1:56:flags=lanczos,format=rgba,fade=t=out:st=${o}:d=0.3:alpha=1[lg];[t][lg]overlay=100:${b.logoY}:format=rgb:enable='lt(t,${(t.outro[0] + 0.3).toFixed(2)})'[t2]`), "blokdakı loqo sonluqda söner");
+  const outroAz = ev.find(l => /\}\.az$/.test(l) && sec(start(l)) >= t.outro[0] - 0.01), ox = +fcP.match(/\[t2\]\[lo\]overlay=(\d+):470:/)[1];
+  assert.ok(fcP.includes(`[l2]scale=-1:100:flags=lanczos,format=rgba,fade=t=in:st=${o}:d=0.3:alpha=1[lo];[t2][lo]overlay=${ox}:470:format=rgb:enable='gte(t,${o})'`), "sonluqda ortada loqo");
+  assert.ok(outroAz && outroAz.includes(`\\pos(${ox + Math.round(933 * 100 / 212) - 5},575)\\fs88`), "sonluğun «.az»-ı loqonun yanında");
+  assert.ok(ev.some(l => sec(start(l)) >= t.outro[0] - 0.01 && /\\pos\(480,614\)\\p1/.test(l)), "sonluqda loqonun altında narıncı xətt");
+  const plainFc = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: ["a.mp4"] });
+  assert.ok(!plainFc.includes("-loop") && !plainFc[plainFc.indexOf("-filter_complex") + 1].includes("split=2"), "p verilməyəndə (hava) loqo əvvəlki kimi");
   const args = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: "ses.wav", out: "o.mp4", clips: ["a.mp4", "b.mp4", "c.mp4"] });
   const inputs = args.filter((x, i) => args[i - 1] === "-i");
   // 21 s-lik nümunədə 4 kadr, 3 klip: sıra ilə, sonra təkrar. Başlıq oxunmur (sahib, 2026-11-24/25): onun 1 s-lik səssiz anı
