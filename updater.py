@@ -2290,7 +2290,8 @@ STORY_SITEMAP_MAX = 5000
 # 4: xəbərin sətri səhifənin özündədir (#row): paylaşılan/köhnə keçid lentdən çıxsa da açılır (sahib 2026-11-07, paylaşma yoxlaması).
 # 5: səhifə kiçildilmiş app.min.js yükləyir — şablon 2026-11-08-də dəyişmiş, versiya artmamışdı: ~3 400 köhnə səhifə Google-dan gələnə 221 KB-lıq app.js verirdi (sürət, 2026-11-09).
 # 6: eyni bölmədən əlaqəli keçidlər (Google, 2026-11-10).
-STORY_VER, STORY_REWRITE = 7, 150
+# 8: color-scheme metası — app.css gələnə qədər boş vərəq oxucunun temasındadır, tünd temada ağ ekran yoxdur (sahib 2026-11-26).
+STORY_VER, STORY_REWRITE = 8, 150
 IMG_SIZE_FILE = CACHE_DIR / "img_size.json"
 IMG_SIZE_KEEP, DISCOVER_MIN_W = 4000, 1200
 
@@ -2385,7 +2386,8 @@ _STORY_HTML = """<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
     <base href="../../" />
-    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
+    <meta name="color-scheme" content="dark" />
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t=t==="light"?"light":"dark";document.querySelector('meta[name="color-scheme"]').content=t;var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__TITLE__ — 8ulduz</title>
     <script type="application/json" id="row">__ROW__</script>
     <meta name="description" content="__DESC__" />
@@ -6621,7 +6623,8 @@ _SECTION_HTML = """<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
     <base href="../../" />
-    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t==="light"?"light":"dark";var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
+    <meta name="color-scheme" content="dark" />
+    <script>if(top!==self)document.documentElement.style.display="none";try{var t=localStorage.getItem("8ulduz-theme");document.documentElement.dataset.theme=t=t==="light"?"light":"dark";document.querySelector('meta[name="color-scheme"]').content=t;var f=localStorage.getItem("8ulduz-fs");document.documentElement.dataset.fs=/^[0-4]$/.test(f||"")?f:"2";}catch(e){}</script>
     <title>__LABEL__ — 8ulduz</title>
     <meta name="description" content="__DESC__ — 8ulduz, Azərbaycan və dünyadan son xəbərlər." />
     <link rel="canonical" href="__URL__" />

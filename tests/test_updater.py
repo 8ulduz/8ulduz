@@ -2348,6 +2348,17 @@ class SectionPagePolicyTest(unittest.TestCase):
             digest = base64.b64encode(hashlib.sha256(code.encode()).digest()).decode()
             self.assertIn(f"'sha256-{digest}'", policy)
 
+    def test_pages_paint_the_blank_sheet_in_the_reader_theme(self):
+        """Sahib 2026-11-26: «8ulduzu açanda ilk ağ boş ekran açılır sonra sayt». app.css gələnə qədər brauzer boş vərəqi
+        color-scheme ilə çəkir: tünd temada ağ olmasın. Paylaşımdan açılan xəbər və bölmə səhifələri də (index.html kimi, PR #355)."""
+        for name in ("_STORY_HTML", "_SECTION_HTML"):
+            html = getattr(updater, name)
+            meta, script = html.find('<meta name="color-scheme" content="dark" />'), html.find("<script>if(top!==self)")
+            self.assertGreater(meta, 0, name)
+            self.assertLess(meta, script, f"{name}: meta skriptdən əvvəldir (skript onu oxucunun temasına qoyur)")
+            self.assertLess(script, html.find("<link"), f"{name}: hər şey üslub faylından əvvəl")
+            self.assertIn("""document.querySelector('meta[name="color-scheme"]').content=t""", html, name)
+
 
 if __name__ == "__main__":
     unittest.main()
