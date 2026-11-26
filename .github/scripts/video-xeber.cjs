@@ -103,8 +103,9 @@ function fitHeadline(title, sizes = [96, 88, 80, 72, 66, 60], maxH = L.headMaxH,
 // İzah cümlələrə bölünür; sığmayan cümlə bərabərə yaxın hissələrə — imkan olsa vergüldən, sonra bağlayıcıdan əvvəl, ən son
 // istənilən sözdən («Ərçivan | qəsəbəsindən» kimi ad birləşməsi az parçalansın). Hər altyazı ən çox CAP_LINES sətir.
 const CAP_SIZE = 62, CAP_LINES = 3, CAP_PAD = 16, CAP_W = TEXT_W - 2 * CAP_PAD;
-// Altyazının ölçüsü: tünd fonda qutuda 3 sətir (CAP), görüntülü videonun aşağı blokunda qutusuz 2 sətir (CAPF; eni FOOT_W).
-const CAP = { size: CAP_SIZE, lines: CAP_LINES, w: CAP_W }, CAPF = { size: 46, lines: 2, w: W - X0 - 100 };
+// Altyazının ölçüsü: tünd fonda qutuda 3 sətir (CAP), görüntülü videonun aşağı blokunda qutusuz 2 sətir (CAPF; eni FOOT_W = 780:
+// mətn x 100…880 — sağda Instagram, TikTok və YouTube-un düymə sütunu təxminən x 950-dən başlayır).
+const CAP = { size: CAP_SIZE, lines: CAP_LINES, w: CAP_W }, CAPF = { size: 42, lines: 2, w: 780 };
 const SENT_SPLIT = /(?<!(?:^|[\s(])\p{Lu}\.)(?<=[.!?…]["»”)]?)\s+(?=["«“(]?[\p{Lu}\d])/u;   // «İ. Əliyev» inisialı cümlə sonu deyil
 // Bağlayıcılar (və, amma, …) profildədir: video.bagliyicilar → D.re.bagliyici.
 const capLines = (s, c = CAP) => wrap(s, c.size, "medium", c.w).length;
@@ -268,13 +269,19 @@ function subOutro(dlg, out, D, y, tur, alt) {
 // tünd göyə keçir, keçidin üstündə blok: loqo və bölmə nişanı, başlıq (dırnaqdakı ifadə və rəqəm narıncı), sözbəsöz altyazı; solda
 // yuxarıdan enib dairəvi küncdən sağa dönən narıncı xətt, altında tarix və mənbə. Baku WS-dən fərqi: rəng (onlarda qara və qızılı),
 // xəttin üfüqi hissəsi videonun gediş xəttidir (dolur), loqonun yanında bölmə nişanı, sözbəsöz altyazı və səs.
-// Blok aşağıdan qurulur (blok()): xəttin üfüqi hissəsi y LF.lineY-də, mənbə sətri onun altında — hamısı y 1480-ə qədər (tam ekranda
-// aşağıda Reels yazısı, lentin 4:5 kəsiyi y 1635-ə qədərdir); sağda Reels düymələrinə görə mətn x ≤ W − X0.
-const LF = { lineY: 1424, lineX: 60, textX: 100, thick: 6, corner: 40, logoH: 56, logoGap: 24, headGap: 20, capGap: 20, srcGap: 18,
-  sizes: [68, 64, 60, 56, 52], headMaxH: 3 * 64, fade: 170, fadeStep: 42, fadeLayers: 16, fadeAlpha: "&HD4&",
+// Blok aşağıdan qurulur (blok()): xəttin üfüqi hissəsi y LF.lineY-də, mənbə sətri onun altında — hamısı y ≈ 1615-ə qədər: lentin 4:5
+// kəsiyi y 1635-ə qədərdir, tam ekranda Instagram-ın adı və izahı y ≈ 1650-dən başlayır. Sahib, 2026-11-26 (Baku WS-in Reels şəkli ilə):
+// «niyə mən göndərdiyim şəkildəki kimi etmirsən orada yazı 5-7 mm aşağıdan başlayır» — onlarda blok Instagram-ın yazısının düz üstündə
+// bitir (videoda y ≈ 1620), bizdə 1480-də bitirdi: xətt 1424 → 1560. Sağda düymə sütununa görə mətn və xətt x ≤ LF.right.
+// Sahib, 2026-11-26 (Instagram-da baxandan sonra): «yazı az qala ekranın yarısını tutur. bu çoxdur və görməyə mane olur». Ölçü (həmin
+// video): blok kadrın 23%-i idi, tünd keçid isə y 867-dən kadrın sonuna qədər — 55%; mənbə sətrindən aşağısı (~22%) ~95% tünd idi və
+// orada heç nə yazılmırdı (şəbəkənin öz yazısının öz kölgəsi var). İndi: loqo 56 → 44, başlıq 68 → 56 (uzunsa 52, 48; ən çox 3
+// sətir 48-lə), altyazı 46 → 42, aralar kiçik, mətn x ≤ 880 (düymələrə dəymir); keçid yalnız blokun arxasındadır (fadeEnd-ə qədər).
+const LF = { lineY: 1560, lineX: 60, textX: 100, right: 880, thick: 6, corner: 40, logoH: 44, logoGap: 16, headGap: 14, capGap: 14, srcGap: 18,
+  sizes: [56, 52, 48], headMaxH: 3 * 48, fade: 120, fadeLayers: 9, fadeEnd: 1730, fadeOut: 14, fadeAlpha: "&HD4&",
   // Sonluqda loqo ortada, böyük (blokdakı loqo onunla birlikdə söner): «8ULDUZ.az», altında qısa narıncı xətt.
   outroLogoY: 470, outroLogoH: 100, outroAz: 88 };
-const FOOT_W = W - X0 - LF.textX;     // blokda mətnin eni (908)
+const FOOT_W = LF.right - LF.textX;   // blokda mətnin eni (780 = CAPF.w)
 const LH = 1.17;                       // Roboto: sətrin hündürlüyü ≈ 1,17 × ölçü (libass)
 // Blokun yerləri (başlığın sətir sayına görə): altyazıya həmişə 2 sətirlik yer var — başlıq və loqo videonun ortasında yerindən oynamır.
 function blok(p) {
@@ -318,12 +325,13 @@ function vurgu(lines, on = assColor(COLOR.orange), off = assColor(COLOR.white)) 
 function assFootage(p, tl, dlg) {
   const D = tl.duration, out = tl.outro[0], b = blok(p), white = assColor(COLOR.white), lit = assColor(COLOR.orange);
   const ms = x => Math.max(0, Math.round(x * 1000)), fade = `\\fad(250,300)`, x = LF.textX;
-  // Keçid: tünd göyün bir-birinin üstünə düşən yumşaq qatları (hər biri ~17%) — görüntü aşağıya doğru tündləşir (başlıqda ~70%,
-  // altyazıda ~90%), açıq görüntüdə də blok oxunur.
-  for (let i = 0; i < LF.fadeLayers; i++) {
-    const y = b.fadeTop + i * LF.fadeStep;
-    if (y >= H) break;
-    dlg(0, 0, D, "Shape", `{\\an7\\pos(0,${y})\\p1\\bord0\\shad0\\blur24\\1c${assColor(COLOR.bg)}\\1a${LF.fadeAlpha}}${rect(W, H - y + 40)}`);
+  // Keçid: tünd göyün bir-birinin üstünə düşən yumşaq qatları (hər biri ~17%) yalnız blokun arxasında. Qatlar loqodan LF.fade
+  // yuxarıda başlayır və başlığa qədər bir-bir qoşulur (loqoda ~67%, başlıq və altyazıda ~81%), mənbə sətrindən sonra bir-bir bitir
+  // (LF.fadeEnd-də heç biri qalmır): ondan aşağı video açıqdır. Açıq görüntüdə də blok oxunur.
+  const n = LF.fadeLayers, rise = (b.headTop - b.fadeTop) / (n - 1);
+  for (let i = 0; i < n; i++) {
+    const y = Math.round(b.fadeTop + i * rise), end = LF.fadeEnd - i * LF.fadeOut;
+    dlg(0, 0, D, "Shape", `{\\an7\\pos(0,${y})\\p1\\bord0\\shad0\\blur24\\1c${assColor(COLOR.bg)}\\1a${LF.fadeAlpha}}${rect(W, end - y)}`);
   }
   // Sonluq: bütün ekran tündləşir; ortada böyük loqo (şəkli ffmpeg-dədir, outroLogo) və «.az», altında qısa narıncı xətt
   // (blokun künc xəttinin davamı); sonra vəd, ipucu, sayt.
@@ -332,13 +340,13 @@ function assFootage(p, tl, dlg) {
   dlg(3, out, D, "Brand", `{\\an1\\pos(${ol.x + ol.lw - 5},${ol.y + ol.h + 5})\\fs${LF.outroAz}\\fad(300,0)}.az`);
   dlg(3, out, D, "Shape", `{\\an7\\pos(${(W - 120) / 2},${ol.y + ol.h + 44})\\p1\\bord0\\shad0\\1c${lit}\\fad(300,0)}${rect(120, LF.thick)}`);
   // Künc xətti: zəif iz başdan sona, üstündə dolan (gediş) — şaquli hissə və künc başdan doludur, üfüqi hissə video boyu sağa dolur.
-  const L2 = kuncXett(LF.lineX, b.lineTop, LF.lineY, W - X0), full = LF.lineX + LF.corner + LF.thick;
+  const L2 = kuncXett(LF.lineX, b.lineTop, LF.lineY, LF.right), full = LF.lineX + LF.corner + LF.thick;
   dlg(2, 0, out + 0.3, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${lit}\\1a&HA0&${fade}}${L2}`);
-  dlg(2, 0, out + 0.3, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${lit}\\clip(0,0,${full},${H})\\t(0,${ms(out)},\\clip(0,0,${W - X0},${H}))${fade}}${L2}`);
-  // Loqo şəkli ffmpeg-də (logoAt) b.logoY-dədir; yanında «.az», sonra bölmə nişanı.
-  const lw = Math.round(LOGO.w * LF.logoH / LOGO.h), az = 50;
+  dlg(2, 0, out + 0.3, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${lit}\\clip(0,0,${full},${H})\\t(0,${ms(out)},\\clip(0,0,${LF.right},${H}))${fade}}${L2}`);
+  // Loqo şəkli ffmpeg-də (logoAt) b.logoY-dədir; yanında «.az», sonra bölmə nişanı (ölçülər loqoya görə: 44 px loqo — «.az» 40, nişan 28).
+  const lw = Math.round(LOGO.w * LF.logoH / LOGO.h), az = 40;
   dlg(3, 0, out + 0.3, "Brand", `{\\an1\\pos(${x + lw - 3},${b.logoY + LF.logoH + 3})\\fs${az}${fade}}.az`);
-  dlg(3, 0, out + 0.3, "Chip", `{\\an4\\pos(${Math.round(x + lw + textWidth(".az", az, "black") + 30)},${b.logoY + LF.logoH / 2})\\fs34\\bord10${fade}}${assText(p.label)}`);
+  dlg(3, 0, out + 0.3, "Chip", `{\\an4\\pos(${Math.round(x + lw + textWidth(".az", az, "black") + 24)},${b.logoY + LF.logoH / 2})\\fs28\\bord8${fade}}${assText(p.label)}`);
   // Başlıq: blokun içində, vurğulu; kölgə ilə (açıq görüntüdə də oxunsun).
   dlg(3, 0, out + 0.3, "Head", `{\\an7\\move(${x},${b.headTop + 20},${x},${b.headTop},0,300)\\fad(120,300)\\shad2\\4c${assColor(COLOR.bar)}\\4a&H60&}${vurgu(p.head.lines).join("\\N")}`);
   // Tarix və mənbə: xəttin altında, kiçik.

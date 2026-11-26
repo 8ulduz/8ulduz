@@ -207,15 +207,29 @@ test("video: footage mode — clips fill 9:16 with the top clear; the lower bloc
     const y = /\\p1/.test(l) && /\\pos\(0,0\)/.test(l) ? +(l.match(/\}m \d+ (\d+)/) || [0, 0])[1] : +m[2];
     assert.ok(y >= b.fadeTop - 0.5, `${style(l)} y=${y} keçiddən yuxarıdadır (videonun üstü açıq qalmalıdır): ${l.slice(0, 90)}`);
   }
-  // Keçid: tünd göyün yumşaq qatları blokun üstündən aşağıya.
+  // Keçid: tünd göyün yumşaq qatları yalnız blokun arxasında (sahib, 2026-11-26: «yazı az qala ekranın yarısını tutur … görməyə mane
+  // olur» — əvvəl qatlar kadrın sonuna qədər gedirdi, aşağı ~22% ~95% tünd idi). Hər qat ~17%: başlıqdan mənbə sətrinə qədər hamısı
+  // üst-üstədir (~81%), LF.fadeEnd-dən aşağı heç biri yoxdur — video açıqdır; tündləşən hissə kadrın üçdə birindən azdır.
   const fades = ev.filter(l => /\\blur24\\1c&H26140B&\\1a&HD4&/.test(l));
-  assert.ok(fades.length >= 10 && fades[0].includes(`\\pos(0,${b.fadeTop})`), "aşağıya doğru tündləşən keçid");
+  const span = fades.map(l => { const y = +l.match(/\\pos\(0,(\d+)\)/)[1], h = +l.match(/l 1080 0 1080 (\d+)/)[1]; return [y, y + h]; });
+  const over = y => span.filter(([a, e]) => a <= y && y <= e).length, srcBottom = V.LF.lineY + V.LF.srcGap + 36;
+  assert.ok(fades.length === V.LF.fadeLayers && fades[0].includes(`\\pos(0,${b.fadeTop})`), "keçid blokun üstündən başlayır");
+  assert.ok([b.headTop, b.capTop, V.LF.lineY, srcBottom].every(y => over(y) === V.LF.fadeLayers), "başlıq, altyazı və mənbə ən tünd yerdədir");
+  assert.ok(over(b.logoY) >= V.LF.fadeLayers - 4 && over(b.fadeTop - 1) === 0, "loqonun arxası tünd, blokun üstü açıq");
+  assert.ok(Math.max(...span.map(s => s[1])) <= V.LF.fadeEnd && over(V.LF.fadeEnd + 1) === 0 && V.LF.fadeEnd <= 1750, "mənbə sətrindən aşağı video açıqdır (ən azı aşağı 170 px)");
+  assert.ok((V.LF.fadeEnd - b.fadeTop) / 1920 < 0.36, `tündləşən hissə ${Math.round((V.LF.fadeEnd - b.fadeTop) / 19.2)}% (əvvəl 55%)`);
   // Altyazı blokda ən çox 2 sətirdir (CAPF): 3-cü sətir künc xəttinin üstünə düşməsin (sınaq videosunda düşmüşdü).
   const long = V.prepare({ ...fixture, text: "Dələduzluq etməkdə təqsirləndirilən hüquqşünas Namizəd Səfərovun cinayət işi üzrə məhkəmə prosesi yekunlaşıb. Bakı Ağır Cinayətlər Məhkəməsində keçirilən prosesdə hökm oxunub." }, { cats, footage: true });
   assert.ok(long.chunks.length >= 3 && long.chunks.every(c => V.wrap(c, V.CAPF.size, "medium", V.CAPF.w).length <= V.CAPF.lines), "altyazı 2 sətrə bölünür");
   assert.ok(V.ass(long, V.timeline(long, null)).split("\n").filter(l => /^Dialogue: 4,/.test(l)).every(l => (l.match(/\\N/g) || []).length <= 1));
-  // Blokun sırası yuxarıdan: loqo (ffmpeg) → başlıq → altyazı → künc xəttinin üfüqi hissəsi → tarix və mənbə; hamısı y 1480-ə qədər.
-  assert.ok(b.logoY + V.LF.logoH < b.headTop && b.headBottom < b.capTop && b.capTop + 2 * 46 * 1.17 <= V.LF.lineY && V.LF.lineY + V.LF.srcGap + 36 <= 1480);
+  // Blokun sırası yuxarıdan: loqo (ffmpeg) → başlıq → altyazı → künc xəttinin üfüqi hissəsi → tarix və mənbə; hamısı y 1635-ə qədər.
+  // Blok Instagram-ın yazısının (y ≈ 1650) düz üstündə bitir, lentin 4:5 kəsiyinə (y 1635) sığır (sahib, 2026-11-26: Baku WS kimi aşağıda).
+  assert.ok(b.logoY + V.LF.logoH < b.headTop && b.headBottom < b.capTop && b.capTop + 2 * V.CAPF.size * 1.17 <= V.LF.lineY && V.LF.lineY + V.LF.srcGap + 36 <= 1635 && V.LF.lineY + V.LF.srcGap + 36 >= 1580);
+  // Ölçülər (sahib, 2026-11-26): başlıq ≤ 56, altyazı 42, loqo 44; mətn və xətt düymə sütununa (x ≈ 950-dən) dəymir; blok kadrın ≤ 21%-i.
+  assert.ok(p.head.size <= 56 && V.CAPF.size === 42 && V.LF.logoH === 44 && V.LF.right <= 900 && V.CAPF.w === V.FOOT_W && V.LF.textX + V.FOOT_W === V.LF.right);
+  assert.ok((V.LF.lineY + V.LF.srcGap + 36 - b.logoY) / 1920 <= 0.21, `blok ${Math.round((V.LF.lineY + V.LF.srcGap + 36 - b.logoY) / 19.2)}% (əvvəl 23%)`);
+  const longHead = V.prepare({ ...fixture, title: "Bakıda sosial şəbəkələrdə avtomobillərin sərfəli şərtlərlə satışı adı ilə vətəndaşları aldadan şəxs polis tərəfindən saxlanılıb" }, { cats, footage: true });
+  assert.ok(longHead.head.lines.length <= 3 && longHead.head.lines.every(l => V.textWidth(l, longHead.head.size, "black") <= V.FOOT_W) && !longHead.head.lines.at(-1).endsWith("…"), "uzun başlıq 3 sətrə qədər kiçilir, kəsilmir");
   const head = ev.find(l => style(l) === "Head");
   assert.ok(head.includes(`\\move(100,${b.headTop + 20},100,${b.headTop}`) && /\\shad2/.test(head), "başlıq blokda, kölgəli");
   assert.ok(ev.filter(l => /^Dialogue: 4,/.test(l)).every(l => l.includes(`\\pos(100,${b.capTop})`)), "altyazılar başlığın altında");
@@ -228,7 +242,7 @@ test("video: footage mode — clips fill 9:16 with the top clear; the lower bloc
   // Künc xətti: zəif iz + dolan gediş (şaquli hissə başdan dolu, üfüqi hissə sonluğa qədər sağa dolur).
   const lines = ev.filter(l => l.includes(`m ${V.LF.lineX} ${b.lineTop} l ${V.LF.lineX} ${V.LF.lineY - V.LF.corner} b `));
   assert.equal(lines.length, 2);
-  assert.ok(/\\1a&HA0&/.test(lines[0]) && /\\clip\(0,0,106,1920\)\\t\(0,\d+,\\clip\(0,0,1008,1920\)\)/.test(lines[1]), "gediş xətti dolur");
+  assert.ok(/\\1a&HA0&/.test(lines[0]) && /\\clip\(0,0,106,1920\)\\t\(0,\d+,\\clip\(0,0,880,1920\)\)/.test(lines[1]), "gediş xətti dolur (mətnin sağ kənarına qədər)");
   // Rəqəm və dırnaq narıncı (Baku WS-in vurğusu, bizim rəngimizlə).
   assert.deepEqual(V.vurgu(["Astarada qəza nəticəsində 5 kəndin", "«qaz təchizatı» dayandırılıb"]),
     ["Astarada qəza nəticəsində {\\1c&H0AA3F5&}5 kəndin", "{\\1c&H0AA3F5&}«qaz təchizatı»{\\1c&HFFFFFF&} dayandırılıb"]);
@@ -237,13 +251,13 @@ test("video: footage mode — clips fill 9:16 with the top clear; the lower bloc
   for (const l of ev) {
     const m = l.match(/\\(?:pos|move)\((\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/);
     if (!m || /\\p1/.test(l)) continue;
-    assert.ok(+m[2] >= 300 && +m[2] <= 1480, `y=${m[2]} lentin 4:5 kəsiyində: ${l.slice(0, 80)}`);
+    assert.ok(+m[2] >= 300 && +m[2] <= 1600, `y=${m[2]} lentin 4:5 kəsiyində (yazının üstü ≤ 1600, altı ≤ 1635): ${l.slice(0, 80)}`);
   }
   // ffmpeg: loqo blokda (p verilir), sonluqda söner; sonluqda ortada böyük loqo yavaşca görünür, yanında «.az», altında narıncı xətt.
   const withP = V.ffmpegArgs({ tl: t, p, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: ["a.mp4"] });
   const o = t.outro[0].toFixed(2), fcP = withP[withP.indexOf("-filter_complex") + 1];
   assert.deepEqual(withP.slice(withP.indexOf("L.png") - 7, withP.indexOf("L.png") + 1), ["-loop", "1", "-framerate", "30", "-t", t.duration.toFixed(2), "-i", "L.png"]);
-  assert.ok(fcP.includes(`:v]split=2[l1][l2];[l1]scale=-1:56:flags=lanczos,format=rgba,fade=t=out:st=${o}:d=0.3:alpha=1[lg];[t][lg]overlay=100:${b.logoY}:format=rgb:enable='lt(t,${(t.outro[0] + 0.3).toFixed(2)})'[t2]`), "blokdakı loqo sonluqda söner");
+  assert.ok(fcP.includes(`:v]split=2[l1][l2];[l1]scale=-1:${V.LF.logoH}:flags=lanczos,format=rgba,fade=t=out:st=${o}:d=0.3:alpha=1[lg];[t][lg]overlay=100:${b.logoY}:format=rgb:enable='lt(t,${(t.outro[0] + 0.3).toFixed(2)})'[t2]`), "blokdakı loqo sonluqda söner");
   const outroAz = ev.find(l => /\}\.az$/.test(l) && sec(start(l)) >= t.outro[0] - 0.01), ox = +fcP.match(/\[t2\]\[lo\]overlay=(\d+):470:/)[1];
   assert.ok(fcP.includes(`[l2]scale=-1:100:flags=lanczos,format=rgba,fade=t=in:st=${o}:d=0.3:alpha=1[lo];[t2][lo]overlay=${ox}:470:format=rgb:enable='gte(t,${o})'`), "sonluqda ortada loqo");
   assert.ok(outroAz && outroAz.includes(`\\pos(${ox + Math.round(933 * 100 / 212) - 5},575)\\fs88`), "sonluğun «.az»-ı loqonun yanında");
