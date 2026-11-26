@@ -373,6 +373,9 @@ export async function mount(sec, S, still = () => false, given = null) {
     clearTimeout(hold); hold = setTimeout(pickVisible, 120);
   }, { threshold: [0, 0.6, 0.9] });
   cards.forEach(c => io.observe(c));
+  // Birinci kartın oynadıcısı zolaq ekrana yaxınlaşanda qurulur (modul ~900 px qabaqdan yüklənir), görünəndə yox: video ekrana çatanda
+  // hazırdır (sahib, 2026-11-26: «videoların gec oynaması … gözqırpımı»). Ölçü: YouTube kartı görünəndən oynamağa 3,9 s gedirdi.
+  if (!hover && auto() && !given) make(0);
   row.addEventListener("scroll", () => { clearTimeout(hold); hold = setTimeout(pickVisible, 600); }, { passive: true });
   document.addEventListener("visibilitychange", () => {
     if (fs >= 0) { if (document.hidden && !fsWait && !fsEnd) fsToggle(); return; }   // tam ekran: dayanır, ▶ ilə davam

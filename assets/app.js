@@ -1955,12 +1955,36 @@ function socialBlock(side = false, sel = "") {
 // açarlı boş şablon: patchView 42 kartı təhlil etmir, rememberSrc onları seriallaşdırmır (2026-11-09).
 const LATE_HERO = 3, LATE_LIST = 6, lateKey = () => here() + "|" + (S.club || ""), LATE_HTML = new Map();
 const recent = (m, k, v, max) => { m.delete(k); m.set(k, v); while (m.size > max) m.delete(m.keys().next().value); }; // son N giriş qalır
-const late = (parts, n) => {
+// px: şaquli siyahıda (bölmə səhifəsi) sonraya saxlanan kartların yeri boş saxlanır — kart başına telefonun yığcam kartı (206 px). Əvvəl
+// yer yox idi: tez sürüşdürəndə 6 kartdan sonra altbilgi görünür, 42 kart gələndə onu ekrandan itələyirdi (CLS 1,0, idman, 2026-11-26).
+const late = (parts, n, px = 0) => {
   if (!TOUCH_UI || parts.length <= n) return parts.join("");
   const h = parts.slice(n).join(""), k = keyOf(h);
   recent(LATE_HTML, k, h, 40);
-  return parts.slice(0, n).join("") + `<template data-late="${k}"></template>`;
+  return parts.slice(0, n).join("") + `<template data-late="${k}"></template>` + (px ? `<div class="late-pad" style="height:${(parts.length - n) * px}px"></div>` : "");
 };
+const lateSwap = (t, c) => { if (t.nextElementSibling?.className === "late-pad") t.nextElementSibling.remove(); t.replaceWith(c); };
+// Səhifənin blokları (ana səhifədə bölmələr və tənbəl qutular, bölmə səhifəsində kartlar) — aşağıdakı iki işin hədəfi (sahib, 2026-11-26:
+// «saytdakı sıçramaları, şəkillərin gec yüklənməsini … gözqırpımı et»).
+const VIEW_KIDS = "#view>:not(.grid),#view>.grid>.card", IO = globalThis.IntersectionObserver;
+// Sürüşmə lövbəri iPhone Safari-də yoxdur (overflow-anchor; Chrome-da var): ekranın üstündəki blok sonradan dolanda, dəqiqəlik yeniləmədə
+// yenidən qurulanda və ya həqiqi hündürlüyünü alanda (content-visibility təxmini 360 px) görünən məzmun atılırdı — xəbərdən geri qayıdıb
+// yuxarı sürüşdürəndə CLS 2,0 (lövbərsiz ölçü). Burada eyni iş: tam ekranın üstündəki blokun hündürlüyü dəyişəndə səhifə o qədər
+// sürüşdürülür. ResizeObserver çəkilişdən əvvəl işləyir (atılma görünmür); yer IntersectionObserver-dən (məcburi yerləşdirmə yoxdur).
+const ANCHOR = IO && globalThis.ResizeObserver && globalThis.CSS?.supports && !CSS.supports("overflow-anchor", "auto") ? (() => {
+  const up = new WeakSet(), hs = new WeakMap();
+  // Səhifədən çıxarılan blok (ana səhifə saxlanarkən, keepHome) ölçülmür: onun «0 px»-i qayıdışda yalançı sürüşmə olardı.
+  const io = new IO(es => es.forEach(e => e.target.isConnected && (e.isIntersecting || e.boundingClientRect.top > 0 ? up.delete(e.target) : up.add(e.target))));
+  const ro = new ResizeObserver(es => { let d = 0; for (const e of es) { if (!e.target.isConnected) continue; const h = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height, o = hs.get(e.target); hs.set(e.target, h); if (o != null && up.has(e.target)) d += h - o; } if (d) scrollBy(0, d); });
+  const f = () => { io.disconnect(); ro.disconnect(); document.querySelectorAll(VIEW_KIDS).forEach(el => { io.observe(el); ro.observe(el); }); };
+  f.swap = (a, b) => { if (hs.has(a)) hs.set(b, hs.get(a)); if (up.has(a)) up.add(b); }; // yenilənən blok köhnəsinin yerini və hündürlüyünü götürür
+  return f;
+})() : null;
+// Şəkil blok ekrana 2,5 ekran qalmış yüklənməyə başlayır. Əvvəl yalnız brauzerin «lazy»si idi: blok content-visibility ilə çəkilmədiyi üçün
+// şəkil ekrana ~yarım ekran qalmış istənirdi, wsrv.nl-in keşsiz cavabı isə 0,3–2,9 s-dir — sürüşdürəndə şəkil boş qalırdı (idman
+// bölməsi: 46 şəkildən 30-u 0,3 s-dən çox, ən çoxu 4,5 s; 2026-11-26). Blokun özü (kart, bölmə) müşahidə olunur, şəklin qutusu yox.
+const EAGER = IO ? new IO(es => es.forEach(e => { if (e.isIntersecting) { EAGER.unobserve(e.target); e.target.querySelectorAll('img[loading="lazy"]:not(.strip *,.vl-row *)').forEach(i => { i.loading = "eager"; }); } }), { rootMargin: "250% 0px" }) : null; // üfüqi zolaqda yalnız görünən kart (brauzerin lazy-si)
+const settle = () => { ANCHOR?.(); if (EAGER) document.querySelectorAll(VIEW_KIDS).forEach(b => EAGER.observe(b)); };
 // Açarın HTML-i sənəd parçası kimi; yaddaşdan düşübsə (arada 40-dan çox çəkiliş — praktikada olmur) səhifə yenidən qurulur.
 function lateContent(t) {
   const h = LATE_HTML.get(t.dataset.late), tpl = document.createElement("template");
@@ -1971,8 +1995,8 @@ function lateFill() {
   S.lateDone = lateKey();
   const list = document.querySelectorAll("#view template[data-late]");
   if (!list.length) return;
-  list.forEach(t => { const c = lateContent(t); if (!c) return; S.tr?.(c); [...c.children].forEach(rememberSrc); t.replaceWith(c); });
-  setupStrips(document.querySelectorAll(".hero-strip")); setupHeroImages(); setupFeatureLents();
+  list.forEach(t => { const c = lateContent(t); if (!c) return; S.tr?.(c); [...c.children].forEach(rememberSrc); lateSwap(t, c); });
+  setupStrips(document.querySelectorAll(".hero-strip")); setupHeroImages(); setupFeatureLents(); settle();
 }
 function prezBlock(list) {
   // Şəkil: öz, alts və ya og keşi.
@@ -2284,7 +2308,7 @@ const tgIzle = (k, who) => { const bot = window.SITE_CONFIG?.tgBot; return bot ?
 function listPage(title, desc, list, extra = "") {
   const shown = list.slice(0, S.shown);
   return `<div class="page-h"><div><h1>${esc(title)}</h1><p class="sec-desc">${esc(desc)}</p></div><span class="cnt">${list.length} xəbər</span></div>${extra}` +
-    (list.length ? `<div class="grid">${late(shown.map(a => cardAt(a, "h2")), LATE_LIST)}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
+    (list.length ? `<div class="grid">${late(shown.map(a => cardAt(a, "h2")), LATE_LIST, 206)}</div>${list.length > shown.length ? `<button class="loadmore" data-act="more">Daha çox (${list.length - shown.length})</button>` : ""}`
       : `<p class="empty">${S.q ? "Axtarışınıza uyğun xəbər tapılmadı. Başqa sözlərlə yoxlayın və ya dil süzgəcini dəyişin." : S.club ? "Bu mövzuda son 5 gündə xəbər tapılmadı." : "Bu bölmədə hələ xəbər yoxdur — növbəti yenilənmədə əlavə olunacaq."}</p>`);
 }
 
@@ -2548,7 +2572,7 @@ function patchChildren(box, fresh, changed) {
     if (was?.matches(PATCH_INSIDE) && was.className === node.className) { was._src = node._src; patchChildren(was, [...node.children], changed); return; }
     // Açılmış bölmə yenilənəndə bağlanmasın.
     if (was?.matches(".lazy-sec") && was.firstChild && node.matches(".lazy-sec")) lazyFill(node);
-    if (was) was.replaceWith(node); else box.insertBefore(node, box.children[i] || null);
+    if (was) { ANCHOR?.swap(was, node); was.replaceWith(node); } else box.insertBefore(node, box.children[i] || null);
     changed.push(node);
   });
   // Slayderin oxları və nöqtələri səhifə sətrində yoxdur: silinmir (silinəndə slayd nöqtəsiz qalır, altındakı məzmun 12 px oynayırdı); say dəyişəndə yenidən qurulur.
@@ -2557,7 +2581,7 @@ function patchChildren(box, fresh, changed) {
 function patchView(v, page) {
   const next = document.createElement("template");
   next.innerHTML = page; // uzaq bölmələr səhifə sətrində deyil (lazySection → lazyHtml), yalnız açarlı boş qutular
-  if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => { const c = lateContent(t); if (c) t.replaceWith(c); });
+  if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => { const c = lateContent(t); if (c) lateSwap(t, c); });
   S.tr?.(next.content);
   const changed = [];
   // Hazır ilk ekranın sarğısı açılır, kartlar yerində qalır.
@@ -2602,7 +2626,9 @@ function wire(changed) {
   setupFeatureLents();
   setupLazySections();
   if (has("#vlent")) setupVlent();
-  if (has("template[data-late]")) idle(lateFill);
+  // Gec kartlar boş anda, oxucu sürüşdürməyə başlayırsa dərhal (Safari-də requestIdleCallback yoxdur, Android-də 1,5 s gözləyə bilir).
+  if (has("template[data-late]")) { idle(lateFill); addEventListener("scroll", lateFill, { once: true, passive: true }); }
+  settle();
 }
 const idle = (fn, ms = 200, max = 1500) => (globalThis.requestIdleCallback || (f => setTimeout(f, ms)))(fn, { timeout: max });
 // Ana səhifənin DOM-u kənara çıxanda saxlanır, qayıdışda geri qoyulur (2026-11-09). Hər qayıdış homeView()-u yenidən qururdu: ~150 KB
@@ -3225,6 +3251,7 @@ function setupLazySections() {
     if (!lazyFill(box)) return;
     setupStrips(box.querySelectorAll(".strip"));
     if (box.querySelector("[data-marquee]")) setupMarquees();
+    if (EAGER) EAGER.observe(box);   // dolan qutunun şəkilləri (ANCHOR qutunu artıq izləyir)
   };
   const boxes = [...document.querySelectorAll(".lazy-sec")];
   if (!globalThis.IntersectionObserver) { boxes.forEach(show); return; }
