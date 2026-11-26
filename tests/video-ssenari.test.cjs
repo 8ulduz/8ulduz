@@ -190,55 +190,62 @@ test("goruntu: negative stories get people-free fallback scenes; the prompt forb
   assert.equal(VS.bestFile({ video_files: [{ link: "x", file_type: "video/mp4", width: 640, height: 360 }] }, false), null, "çox kiçik üfüqi klip götürülmür");
 });
 
-test("video: footage mode — clips fill 9:16 behind a dark headline band, captions low, «Görüntü: Pexels» credit, inputs in the right order", () => {
+test("video: footage mode — the clip sits in its own 16:9 window under the brand bar with nothing on top of it; headline, captions and credit in the panel below (owner 2026-11-26)", () => {
   const p = V.prepare(fixture, { cats, footage: true }), t = V.timeline(p, null);
-  assert.ok(p.footage && p.head.size <= 76 && p.head.lines.length * p.head.size <= V.LF.headMaxH, "başlıq kiçik zolağa sığır");
+  assert.ok(p.footage && p.head.size <= 64 && p.head.lines.length * p.head.size <= V.LF.headMaxH, "başlıq paneldə sığır");
   assert.match(p.source, / · Görüntü: Pexels$/);
   const ev = V.ass(p, t).split("\n").filter(l => l.startsWith("Dialogue:"));
   assert.ok(!ev.some(l => /\\blur90/.test(l)), "görüntülü videoda süni işıq formaları yoxdur");
-  assert.ok(ev.some(l => /\\pos\(0,420\)\\p1.*\\1a&H50&/.test(l)), "başlığın arxasında yarımşəffaf zolaq");
-  assert.ok(ev.filter(l => /^Dialogue: 4,/.test(l)).every(l => l.includes(`\\pos(88,${V.LF.capY + 16})`)), "altyazılar aşağıda");
+  // Sahib 2026-11-26: «hazırda videonun üstünü örtür» — sonluğa qədər pəncərənin (y 440…1048) üstündə nə yazı, nə forma var.
+  const top = V.LF.winY, bottom = V.LF.winY + V.LF.winH, sec = x => { const [h, m, c] = x.split(":"); return +h * 3600 + +m * 60 + +c; };
+  const SIZE = { Chip: 64, When: 40, Head: p.head.size * p.head.lines.length + 24, Small: 40, Cap: 2 * 60 };
+  for (const l of ev) {
+    const f = l.split(","), style = f[3];
+    if (sec(f[1]) >= t.outro[0] - 0.01) continue;   // sonluq bütün ekrandadır
+    const m = l.match(/\\(?:pos|move)\((\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/);
+    const y = +m[2], shape = /\\p1/.test(l);
+    const h = shape ? +(l.match(/ l \d+ 0 \d+ (\d+)/) || [0, 0])[1] : style === "Brand" ? 72 : (SIZE[style] ?? 60);
+    const y0 = style === "Brand" ? y - 72 : /\\an4|\\an6/.test(l) ? y - h / 2 : y;
+    assert.ok(y0 + h <= top + 0.5 || y0 >= bottom - 0.5, `${style} y ${y0}…${y0 + h} pəncərənin üstündədir: ${l.slice(0, 90)}`);
+  }
+  assert.ok(ev.some(l => l.includes(`\\pos(0,${bottom})\\p1`) && l.includes("\\1c&H0AA3F5&")), "narıncı gediş xətti pəncərənin alt kənarında");
+  assert.ok(ev.some(l => l.split(",")[3] === "Chip" && l.includes("\\an6\\pos(996,360)")), "bölmə loqo zolağının sağında");
+  assert.ok(ev.filter(l => /^Dialogue: 4,/.test(l)).every(l => l.includes(`\\pos(72,${V.capTop(p)})`)), "altyazılar paneldə başlığın altında");
+  assert.ok(V.capTop(p) > bottom && V.capTop(p) + 2 * 60 <= V.LF.srcY, "altyazı mənbə sətrinin üstündə qurtarır");
   for (const l of ev) {
     const m = l.match(/\\(?:pos|move)\((\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/);
     if (!m || /\\p1/.test(l)) continue;
     assert.ok(+m[2] >= 300 && +m[2] <= 1480, `y=${m[2]} lentin 4:5 kəsiyində: ${l.slice(0, 80)}`);
   }
+  // Altyazı paneldə qutusuz, 2 sətirdən çox deyil.
+  assert.ok(t.chunks.every(c => V.wrap(c.text, V.CAPF.size, "medium", V.CAPF.w).length <= 2));
   const args = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: "ses.wav", out: "o.mp4", clips: ["a.mp4", "b.mp4", "c.mp4"] });
   const inputs = args.filter((x, i) => args[i - 1] === "-i");
-  // 21 s-lik nümunədə 4 kadr, 3 klip: sıra ilə, sonra təkrar. Başlıq oxunmur (sahib, 2026-11-24/25): onun 1 s-lik səssiz anı
-  // birinci altyazının kadrına birləşir (əvvəl başlıq oxunanda ayrıca kadr idi, 25 s-də 5 kadr).
-  assert.deepEqual(inputs, ["a.mp4", "b.mp4", "c.mp4", "a.mp4", "L.png", "ses.wav"]);
-  assert.equal(args.filter(x => x === "-stream_loop").length, 4, "qısa klip dövrə vurur");
+  // Kadrlar sıra ilə, sonra təkrar; başlığın səssiz anı birinci altyazının kadrına birləşir.
+  assert.deepEqual(inputs.slice(0, 3), ["a.mp4", "b.mp4", "c.mp4"]);
+  assert.deepEqual(inputs.slice(-2), ["L.png", "ses.wav"]);
+  const nk = inputs.length - 2;
+  assert.equal(args.filter(x => x === "-stream_loop").length, nk, "qısa klip dövrə vurur");
   const fc = args[args.indexOf("-filter_complex") + 1];
-  assert.match(fc, /\[0:v\][^;]*scale=1080:1920:force_original_aspect_ratio=increase[^;]*crop=1080:1920/);
-  assert.match(fc, /\[c0\]\[c1\]\[c2\]\[c3\]concat=n=4:v=1:a=0/);
-  // Hər klip kadrı tam doldurur (sahib, 2026-11-24: «üstündə yazılar olsa da video tam kart boyu olmalıdır»): üfüqi klip bulanıq
-  // fonla sığdırılmır, hündürlüyü 1920-yə böyüdülür və 9:16 pəncərə ağıllı kəsimin yerindən (cx) kəsilir.
+  assert.match(fc, /\[0:v\][^;]*scale=1080:608:force_original_aspect_ratio=increase[^;]*crop=1080:608/, "klip pəncərəni doldurur");
+  assert.ok(fc.includes(`concat=n=${nk}:v=1:a=0,trim=duration=`) && fc.includes(",pad=1080:1920:0:440:color=0x0B1426,format=rgb24"), "pəncərə tünd göy kadrın y 440 yerində");
+  assert.ok(!fc.includes("eq=brightness=-0.04"), "görüntü tündləşdirilmir (üstündə yazı yoxdur)");
+  // Şaquli klip (telefon çəkilişi) kəsilmir: bütöv kadr ortada, yanlarda bulanıq nüsxəsi; ölçüsü bilinməyən klip doldurur.
   const mixed = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
     clips: [{ file: "a.mp4", w: 1920, h: 1080 }, { file: "b.mp4", w: 1080, h: 1920 }, "c.mp4"] });
   const mf = mixed[mixed.indexOf("-filter_complex") + 1];
-  assert.deepEqual(mixed.filter((x, i) => mixed[i - 1] === "-i").slice(0, 3), ["a.mp4", "b.mp4", "c.mp4"]);
-  assert.match(mf, /\[0:v\][^;]*scale=3414:1920:flags=bicubic,crop=1080:1920:1167:0,setsar=1\[c0\]/, "fokus bilinmirsə ortadan");
-  assert.ok(!/boxblur|overlay=0:/.test(mf), "bulanıq fon və zolaqda klip yoxdur");
-  assert.match(mf, /\[1:v\][^;]*crop=1080:1920,setsar=1\[c1\]/);
-  assert.match(mf, /\[2:v\][^;]*crop=1080:1920,setsar=1\[c2\]/, "ölçü bilinmirsə əvvəlki kimi doldurulur");
-  const seen = [];
-  const left = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4",
-    clips: [{ file: "a.mp4", w: 1920, h: 1080 }, { file: "b.mp4", w: 1080, h: 1920 }], focus: c => (seen.push(c.file), 0.1) });
-  assert.match(left[left.indexOf("-filter_complex") + 1], /\[0:v\][^;]*crop=1080:1920:0:0,setsar=1\[c0\]/, "fokus solda: pəncərə kənara dirənir");
-  assert.ok(seen.length && seen.every(f => f === "a.mp4"), "fokus yalnız üfüqi kliplər üçün ölçülür");
-  assert.match(V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", w: 1920, h: 1080 }], focus: () => 0.8 })
-    .find(x => /\[c0\]/.test(x)), /crop=1080:1920:2191:0/, "fokus sağda");
-  // Ağıllı kəsim: hərəkət və detal olan sütunlar seçilir, boş kadrda orta.
-  const fw = 32, fh = 4, frame = fill => Buffer.from(Array.from({ length: fw * fh }, (_, i) => fill(i % fw)));
-  const moving = Buffer.concat([frame(x => (x >= 24 && x < 28 ? 200 : 20)), frame(x => (x >= 25 && x < 29 ? 200 : 20)), frame(x => (x >= 26 && x < 30 ? 200 : 20))]);
-  const fx = V.focusX(moving, fw, fh, 0.316);
-  assert.ok(fx > 0.7 && fx < 0.9, `hərəkət sağdadır: ${fx}`);
-  assert.equal(V.focusX(Buffer.alloc(fw * fh * 3, 90), fw, fh, 0.316), 0.5, "boş (yeknəsəq) kadr: orta");
-  assert.equal(V.focusX(Buffer.alloc(0), fw, fh, 0.316), 0.5);
-  assert.equal(V.focusOf({ file: "x.mp4" }), 0.5, "ölçü yoxdursa ffmpeg çağırılmır");
-  assert.match(fc, /\[4:v\]scale=-1:80/, "loqo kadrlardan sonrakı girişdir");
-  assert.match(fc, /\[5:a\]/, "səs loqodan sonrakı girişdir");
+  assert.match(mf, /\[0:v\][^;]*scale=1080:608:force_original_aspect_ratio=increase:flags=bicubic,crop=1080:608,setsar=1\[c0\]/);
+  assert.ok(mf.includes("split=2[f1][g1];[g1]scale=1080:608:force_original_aspect_ratio=increase,crop=1080:608,boxblur=24:2") && mf.includes("[f1]scale=-2:608:flags=bicubic[v1];[b1][v1]overlay=(W-w)/2:0,setsar=1[c1]"), "şaquli klip bütöv, yanlarda bulanıq");
+  assert.match(mf, /\[2:v\][^;]*crop=1080:608,setsar=1\[c2\]/, "ölçü bilinmirsə doldurur");
+  assert.equal(V.fillsWindow({ w: 1440, h: 1080 }), true, "4:3 doldurur");
+  assert.equal(V.fillsWindow({ w: 1080, h: 1080 }), false, "kvadrat bütöv göstərilir");
+  // Hava videosu (pencere: false): görüntü əvvəlki kimi bütün kadrdadır, yazı oxunsun deyə bir az tündləşir.
+  const hf = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: [{ file: "a.mp4", w: 1920, h: 1080 }], pencere: false });
+  const hfc = hf[hf.indexOf("-filter_complex") + 1];
+  assert.match(hfc, /scale=1080:1920:force_original_aspect_ratio=increase:flags=bicubic,crop=1080:1920/);
+  assert.ok(hfc.includes("eq=brightness=-0.04") && !hfc.includes("pad="));
+  assert.ok(fc.includes(`[${nk}:v]scale=-1:80`), "loqo kadrlardan sonrakı girişdir");
+  assert.ok(fc.includes(`[${nk + 1}:a]`), "səs loqodan sonrakı girişdir");
   // Kliplər olmadan əvvəlki kimi: rəngli fon, loqo [1], səs [2].
   const plain = V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4" });
   assert.match(plain[plain.indexOf("-filter_complex") + 1], /^\[0:v\]format=rgb24,ass=v\.ass\[t\];\[1:v\]scale[\s\S]*\[2:a\]aformat/);

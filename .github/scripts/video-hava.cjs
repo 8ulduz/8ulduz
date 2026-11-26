@@ -427,7 +427,7 @@ function ass(p, tl, { footage = false } = {}) {
     st("Chip", `${F} Black`, 40, C.bg, { bold: -1, border: 3, outline: 12, outlineColor: C.orange }),
     st("Txt", `${F} Medium`, 44, C.white), st("Num", `${F} Black`, 88, C.white, { bold: -1 }), st("Reg", F, 36, C.gray),
     st("Cap", `${F} Medium`, V.CAP_SIZE, C.white, { border: 3, outline: V.CAP_PAD, outlineColor: C.box }),
-    st("Outro", `${F} Medium`, 60, C.gray, { align: 5 }), V.SUB_STYLE];
+    st("Outro", `${F} Medium`, 60, C.gray, { align: 5 })];
   const dlg = (layer, from, to, style, text) => { if (to - from > 0.02) ev.push(`Dialogue: ${layer},${T(from)},${T(to)},${style},,0,0,0,,${text}`); };
   const shade = "\\bord3\\3c&H000000&\\shad2\\4a&H40&";   // görüntü üstündə yazı: kənar və kölgə
   // Formalar: hər biri ayrıca sətir (üst-üstə düşən dairələr birləşmiş kimi görünür), girişdə yuxarı sürüşür və görünür.
@@ -454,7 +454,6 @@ function ass(p, tl, { footage = false } = {}) {
   const L = V.L, py = L.barY + L.barH;
   dlg(1, 0, D, "Shape", `{\\an7\\pos(0,${L.barY})\\p1\\bord0\\shad0\\1c${col(C.bar)}}${V.rect(W, L.barH)}`);
   dlg(2, 0, D, "Brand", `{\\an1\\pos(${V.logoX() + V.logoW() - 4},${V.logoY() + L.logoH + 4})\\fs72}.az`);
-  V.subBadge(dlg, out);
   dlg(2, 0, D, "Shape", `{\\an7\\pos(0,${py})\\p1\\bord0\\shad0\\1c${col(C.orange)}\\clip(0,${py},1,${py + 8})\\t(0,${ms(D)},\\clip(0,${py},${W},${py + 8}))}${V.rect(W, 8)}`);
   // Nişan və tarix: başdan sonluğa qədər.
   const chip = "HAVA PROQNOZU";
@@ -538,7 +537,7 @@ function ass(p, tl, { footage = false } = {}) {
     }).join(" "));
     dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + V.CAP_PAD},${Y.cap + V.CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
   });
-  // Sonluq: vəd və «ABUNƏ OL» düyməsi (video-xeber.cjs subOutro), hava səhifəsinin ünvanı, kreditlər.
+  // Sonluq: vəd və abunə ipucu (video-xeber.cjs subOutro; videoda basılmayan düymə yoxdur), hava səhifəsinin ünvanı, kreditlər.
   V.subOutro(dlg, out, D, Y.outro, "hava", "Bütün şəhərlər: 8ulduz.az/bolme/hava");
   dlg(3, out, D, "Outro", `{\\pos(540,${Y.outro + 260})\\fad(300,0)\\fs34}${txt(`Hava: Open-Meteo.com (CC BY 4.0)${footage ? ` · Görüntü: ${clean(p.goruntuMenbe) || "Pixabay"}` : ""}`)}`);
   return ["[Script Info]", "ScriptType: v4.00+", `PlayResX: ${W}`, `PlayResY: ${H}`, "WrapStyle: 2", "ScaledBorderAndShadow: yes", "YCbCr Matrix: TV.709", "",
@@ -581,7 +580,7 @@ async function render(p, out, opt = {}) {
     // video-xeber.cjs clipFilter «doldurma» rejimi). Xəbər videosundakı «ortada kəskin zolaq + bulanıq fon» burada kartların arxasında qalır,
     // zolağın sərt kənarı görünürdü (2026-11-23 ilk önizləmə).
     const fill = clips.map(({ file, dur }) => ({ file, dur }));
-    V.run("ffmpeg", V.ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, V.LOGO.file), voiceFile: v?.file, out, clips: fill }), { cwd: dir, timeout: 900000 });
+    V.run("ffmpeg", V.ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, V.LOGO.file), voiceFile: v?.file, out, clips: fill, pencere: false }), { cwd: dir, timeout: 900000 });
     const cover_s = 1.5, base = out.replace(/\.mp4$/i, "");
     V.run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", `${base}.jpg`]);
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100, sc = scenes(p, tl);

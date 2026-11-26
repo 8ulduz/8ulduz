@@ -41,12 +41,11 @@ const LEAD_S = 0.35, GAP_S = 0.25, OUTRO_S = 2.8;
 // Başlıq oxunmur (sahib, 2026-11-24: «Başlıqları oxumasın»; 2026-11-25: «8ulduz videolarında başlıq oxunmamalı idi»): başlıq ekranda
 // başdan sonluğa qədər yazılıb qalır, səs birinci cümlə ilə başlayır. Başlıq üçün ayrıca səssiz an yoxdur: səs LEAD_S-də başlayır
 // (2026-11-25, YouTube Studio: baxanların 60,6%-i videonu ilk saniyələrdə ötürür, orta baxış ~7 s — ilk saniyə sükutla getməsin).
-// Abunə çağırışı (sahib, 2026-11-25: «baxış var, lakin baxanlar hesaba abunə olmurlar»): sonluqda düymə və səs, videonun içində
-// zolaqda kiçik nişan (SUB_AT-dan sonluğa qədər — çox baxan sona çatmır). Hər video növünün öz vədi var: abunə olan nə alacağını bilsin.
+// Abunə çağırışı (sahib, 2026-11-25: «baxış var, lakin baxanlar hesaba abunə olmurlar»): sonluqda vəd, şəbəkənin öz abunə düyməsini
+// göstərən ipucu və səs (subOutro; 2026-11-26-dan videoda basılmayan düymə şəkli yoxdur). Hər video növünün öz vədi var: abunə olan nə alacağını bilsin.
 // Səs iki cümlədir (sahib, 2026-11-25: «Abunə ol deyib pauza vermir. belə oxuyanda nə dediyini tam başa düşmək olmur»): «Abunə olun.»
 // ayrıca cümlə kimi bitir, sonra cümlə fasiləsi, sonra vəd. Vergüllə yazılanda səs fasiləsiz oxuyurdu.
 // Vədlər profildədir (abune: { xeber, maraqli, hava } → { ved, say }); ABUNE — az profilininki (testlər və yükləyicilər müqayisə edir).
-const SUB_AT = 3;
 const ABUNE = dil("az").abune;
 const abune = tur => { const a = dil().abune; return a[tur] || a.xeber; };
 // Rənglər saytdandır: tünd göy fon (og-default.png, app.css --bg), loqonun narıncısı.
@@ -54,8 +53,14 @@ const COLOR = { bg: "0B1426", bar: "060D1A", orange: "F5A30A", white: "FFFFFF", 
 // Yerləşmə (piksel, 1080×1920). Lentdə Reels ortadan 4:5-ə kəsilir (y 285…1635), tam ekranda yuxarıda ~170 px, aşağıda ~420 px,
 // sağda ~130 px şəbəkənin öz düymələridir: brend və bütün yazılar y 300…1480 arasındadır — loqo lentdə də, tam ekranda da görünür.
 const L = { barY: 300, barH: 120, logoH: 80, chipY: 466, headY: 556, headMaxH: 470, capMinY: 860, capMaxY: 1110, srcY: 1404, outroY: 900 };
-// Görüntülü video: başlıq yuxarıda yarımşəffaf tünd zolaqda (görüntü ortada açıq qalır), altyazılar aşağıda, mənbə və «Görüntü: Pixabay» altda.
-const LF = { headY: 540, headMaxH: 290, sizes: [76, 70, 64, 58, 52], capY: 1150, srcY: 1420 };
+// Görüntülü video — pəncərə (sahib, 2026-11-26: «videolarda yazı və logo Baku WS bənzəri olsun eynisi yox. hazırda videonun üstünü
+// örtür»; 2026-11-24-dəki «üstündə yazılar olsa da video tam kart boyu olmalıdır» qərarını əvəz edir). Görüntü loqo zolağının altında
+// tam enində 16:9 pəncərədədir (winY…winY+winH) və üstündə heç nə yoxdur. Bölmə zolağın sağında; tarix, başlıq, altyazı və mənbə
+// pəncərənin altındakı tünd paneldə; pəncərənin alt kənarında narıncı gediş xətti. Baku WS-dən fərqi: 9:16 (onlarda 4:5), loqo zolağı,
+// gediş xətti, sözbəsöz altyazı. Panel y 1480-ə qədərdir (tam ekranda aşağıda Reels yazısı başlayır).
+const LF = { winY: 440, winH: 608, whenY: 1076, headY: 1106, headMaxH: 180, sizes: [64, 60, 56, 52], capGap: 24, srcY: 1446 };
+// Şaquli və kvadrata yaxın görüntü (telefon çəkilişi) pəncərəni kəsilmədən doldurmur: bütöv kadr ortada, yanlarda onun bulanıq nüsxəsi.
+const PENCERE_DOLDUR = 1.3;
 const FONT = "Roboto";
 
 const clean = s => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").replace(/ ([.,!?;:…])/g, "$1").trim();
@@ -106,36 +111,38 @@ function fitHeadline(title, sizes = [96, 88, 80, 72, 66, 60], maxH = L.headMaxH)
 // İzah cümlələrə bölünür; sığmayan cümlə bərabərə yaxın hissələrə — imkan olsa vergüldən, sonra bağlayıcıdan əvvəl, ən son
 // istənilən sözdən («Ərçivan | qəsəbəsindən» kimi ad birləşməsi az parçalansın). Hər altyazı ən çox CAP_LINES sətir.
 const CAP_SIZE = 62, CAP_LINES = 3, CAP_PAD = 16, CAP_W = TEXT_W - 2 * CAP_PAD;
+// Altyazının ölçüsü: tünd fonda qutuda 3 sətir (CAP), görüntülü videonun panelində qutusuz 2 sətir (CAPF — panel kiçikdir).
+const CAP = { size: CAP_SIZE, lines: CAP_LINES, w: CAP_W }, CAPF = { size: 50, lines: 2, w: TEXT_W };
 const SENT_SPLIT = /(?<!(?:^|[\s(])\p{Lu}\.)(?<=[.!?…]["»”)]?)\s+(?=["«“(]?[\p{Lu}\d])/u;   // «İ. Əliyev» inisialı cümlə sonu deyil
 // Bağlayıcılar (və, amma, …) profildədir: video.bagliyicilar → D.re.bagliyici.
-const capLines = s => wrap(s, CAP_SIZE, "medium", CAP_W).length;
-function splitSentence(words, k) {
+const capLines = (s, c = CAP) => wrap(s, c.size, "medium", c.w).length;
+function splitSentence(words, k, c = CAP) {
   if (k <= 1 || words.length < 2) return [words.join(" ")];
   const total = words.join(" ").length, target = total / k, D = dil(), CONJ = D.re.bagliyici;
   let best = null, pos = 0;
   for (let i = 1; i < words.length; i++) {
     pos += words[i - 1].length + 1;
     const head = words.slice(0, i).join(" ");
-    if (capLines(head) > CAP_LINES) break;
+    if (capLines(head, c) > c.lines) break;
     const cost = Math.abs(pos - target) + (/[,;:]$/.test(words[i - 1]) ? 0 : CONJ.test(words[i].toLocaleLowerCase(D.locale)) ? 12 : 30);
     if (!best || cost < best.cost) best = { i, cost };
   }
   const i = best ? best.i : 1;
-  return [words.slice(0, i).join(" "), ...splitSentence(words.slice(i), Math.max(1, k - 1))];
+  return [words.slice(0, i).join(" "), ...splitSentence(words.slice(i), Math.max(1, k - 1), c)];
 }
 // Cümlə-cümlə: [[altyazı, …], …] — sığmayan cümlə bir neçə altyazıdır (səs onları bir nəfəsdə oxuyur, prepare().davam).
-function captionSentences(body) {
+function captionSentences(body, c = CAP) {
   return clean(body).split(SENT_SPLIT).filter(Boolean).map(sentence => {
-    const n = capLines(sentence);
-    if (n <= CAP_LINES) return [sentence];
+    const n = capLines(sentence, c);
+    if (n <= c.lines) return [sentence];
     const words = sentence.split(" ");
-    let parts = splitSentence(words, Math.ceil(n / CAP_LINES));
+    let parts = splitSentence(words, Math.ceil(n / c.lines), c);
     // Hissə yenə sığmırsa (çox uzun söz və s.) — bir də bölünür.
-    parts = parts.flatMap(p => (capLines(p) <= CAP_LINES ? [p] : splitSentence(p.split(" "), Math.ceil(capLines(p) / CAP_LINES))));
+    parts = parts.flatMap(p => (capLines(p, c) <= c.lines ? [p] : splitSentence(p.split(" "), Math.ceil(capLines(p, c) / c.lines), c)));
     return parts;
   });
 }
-const captionChunks = body => captionSentences(body).flat();
+const captionChunks = (body, c = CAP) => captionSentences(body, c).flat();
 
 // Sözlərin səsdəki vaxtı [söz, başlanğıc, son]: səs modeli hissənin [s, e] vaxtını verir, hissənin içində söz vaxtı tələffüzün
 // uzunluğu ilə bölünür — hərf sayı; rəqəm sözlə oxunur («2026» → «iki min iyirmi altı», hər rəqəm ~4 hərf); «ABŞ» kimi qısaltma
@@ -189,7 +196,7 @@ function prepare(a, opt = {}) {
   if (!title) throw new Error("başlıq yoxdur");
   const footage = Boolean(opt.footage), tur = a.tur === "maraqli" ? "maraqli" : "xeber";
   const head = footage ? fitHeadline(title, LF.sizes, LF.headMaxH) : fitHeadline(title);
-  const sentences = captionSentences(bodyText(a)), chunks = sentences.flat();
+  const sentences = captionSentences(bodyText(a), footage ? CAPF : CAP), chunks = sentences.flat();
   // Maraqlı videonun nişanı rubrikanın adıdır («Bilirdinizmi?»): başlıq faktın özüdür, nişan onu suala çevirir.
   // Bölmənin adı: profildə video.bolmeler doludursa ondan (saytın bölmə adları azərbaycancadır), boşdursa (az) saytın öz adı.
   const D = dil(), own = Object.keys(D.video.bolmeler).length ? D.video.bolmeler[a.category] : a.bolme || opt.cats?.find(c => c.slug === a.category)?.label;
@@ -248,21 +255,17 @@ const assText = s => clean(s).replace(/\\/g, "/").replace(/\{/g, "(").replace(/\
 const circle = r => { const k = Math.round(r * 0.5523), d = 2 * r; return `m ${r} 0 b ${r + k} 0 ${d} ${r - k} ${d} ${r} b ${d} ${r + k} ${r + k} ${d} ${r} ${d} b ${r - k} ${d} 0 ${r + k} 0 ${r} b 0 ${r - k} ${r - k} 0 ${r} 0`; };
 const rect = (w, h) => `m 0 0 l ${w} 0 ${w} ${h} 0 ${h}`;
 
-// Abunə çağırışı — xəbər, maraqlı və hava videosunda eyni (video-hava.cjs də bunları işlədir). «ABUNƏ OL»: narıncı qutuda tünd yazı
-// (BorderStyle 3: qutu yazının arxasındadır, kənar xətt onun boşluğudur). Üslub sətri hazır verilir: iki modulun üslub köməkçisi fərqlidir.
-// Düymənin yazısı profildədir (video.abune_duyme); SUB_TEXT — az profilininki.
-const SUB_TEXT = dil("az").video.abune_duyme;
-const subText = () => dil().video.abune_duyme;
-const SUB_STYLE = (bgr => `Style: Sub,${FONT} Black,88,${bgr(COLOR.bg)},${bgr(COLOR.bg)},${bgr(COLOR.orange)},&H00000000,-1,0,0,0,100,100,0,0,3,28,0,5,${X0},${X0},0,1`)(hex => `&H00${assColor(hex).slice(2, 8)}`);
-// Zolağın sağında kiçik nişan: SUB_AT-dan sonluğa qədər, görünəndə bir dəfə böyüyüb qayıdır. Qısa videoda (nişana 2 s qalmırsa) yoxdur.
-function subBadge(dlg, out) {
-  if (out < SUB_AT + 2) return;
-  dlg(2, SUB_AT, out + 0.3, "Sub", `{\\an6\\pos(${W - X0 - 12},${L.barY + L.barH / 2})\\fs34\\bord12\\fad(300,300)\\t(0,300,\\fscx112\\fscy112)\\t(300,600,\\fscx100\\fscy100)}${assText(subText())}`);
-}
-// Sonluq: üstdə növün vədi, ortada düymə (iki dəfə «döyünür»), altda sayt sətri (alt — hazır ASS mətni).
+// Abunə çağırışı — xəbər, maraqlı və hava videosunda eyni (video-hava.cjs də bunları işlədir). Videodakı yazı basılmır: abunə düyməsi
+// şəbəkənin özünündür (Instagram, Facebook və YouTube-da adımızın yanında, TikTok-da şəklimizin üstündə «+»). Sahib 2026-11-26: «abunə ol
+// yazısını elə et üstünə basanda hansı sos şəbəkədədirsə orada abunə olsun» — videonun içində bu mümkün deyil, ona görə videoda
+// düymə şəkli yoxdur (əvvəl zolaqda nişan və sonluqda «ABUNƏ OL» düyməsi idi, basılmırdı): sonluqda vəd və həmin düyməni göstərən
+// ipucu (profil video.abune_ipucu). Basılan keçid paylaşım mətnindədir: Instagram və TikTok «@8ulduz.az», YouTube abunə pəncərəsi.
+const SUB_TEXT = dil("az").video.abune_ipucu;
+const subText = () => dil().video.abune_ipucu;
+// Sonluq: üstdə növün vədi (ağ), ortada ipucu (narıncı, ən çox 2 sətir), altda sayt sətri (alt — hazır ASS mətni).
 function subOutro(dlg, out, D, y, tur, alt) {
   dlg(3, out, D, "Outro", `{\\pos(540,${y - 170})\\fad(300,0)\\1c${assColor(COLOR.white)}}${assText(abune(tur).ved)}`);
-  dlg(3, out, D, "Sub", `{\\pos(540,${y})\\fad(300,0)\\t(0,350,\\fscx108\\fscy108)\\t(350,700,\\fscx100\\fscy100)\\t(1300,1650,\\fscx108\\fscy108)\\t(1650,2000,\\fscx100\\fscy100)}${assText(subText())}`);
+  dlg(3, out, D, "Outro", `{\\pos(540,${y})\\fad(300,0)\\fs50\\1c${assColor(COLOR.orange)}}${wrap(subText(), 50, "medium", TEXT_W).map(assText).join("\\N")}`);
   dlg(3, out, D, "Outro", `{\\pos(540,${y + 170})\\fad(300,0)\\fs48}${alt}`);
 }
 
@@ -279,19 +282,19 @@ function ass(p, tl) {
     st("Chip", 40, COLOR.bg, true, { font: " Black", border: 3, outline: 12, outlineColor: COLOR.orange }),
     st("When", 40, COLOR.gray, false),
     st("Head", p.head.size, COLOR.white, true, { font: " Black" }),
-    st("Cap", CAP_SIZE, COLOR.white, false, { font: " Medium", border: 3, outline: CAP_PAD, outlineColor: COLOR.box }),
+    // Altyazı: tünd fonda qutuda (Cap), görüntülü videonun panelində qutusuz və bir az kiçik (CAPF).
+    p.footage ? st("Cap", CAPF.size, COLOR.white, false, { font: " Medium" })
+      : st("Cap", CAP_SIZE, COLOR.white, false, { font: " Medium", border: 3, outline: CAP_PAD, outlineColor: COLOR.box }),
     st("Small", 36, COLOR.gray, false),
     st("Outro", 60, COLOR.gray, false, { font: " Medium", align: 5 }),
-    SUB_STYLE,
   ];
   const ev = [];
   const dlg = (layer, from, to, style, text) => ev.push(`Dialogue: ${layer},${assTime(from)},${assTime(to)},${style},,0,0,0,,${text}`);
   const headY = p.footage ? LF.headY : L.headY;
   if (p.footage) {
-    // Görüntülü: bölmə və başlığın arxasında yarımşəffaf tünd zolaq (görüntü ortada açıq qalır), sonluqda bütün ekran tündləşir.
-    const top = L.barY + L.barH, bandH = bandBottom(p) - top;
-    dlg(0, 0, out + 0.3, "Shape", `{\\an7\\pos(0,${top})\\p1\\bord0\\shad0\\1c${assColor(COLOR.bar)}\\1a&H50&\\fad(0,300)}${rect(W, bandH)}`);
-    dlg(0, out, D, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${assColor(COLOR.bg)}\\1a&H28&\\fad(300,0)}${rect(W, H)}`);
+    // Görüntülü: fon ffmpeg-də tünd göydür, görüntü pəncərədədir (ffmpegArgs) — pəncərənin üstündə heç nə yoxdur. Sonluqda bütün
+    // ekran tündləşir (vəd, ipucu, sayt).
+    dlg(0, out, D, "Shape", `{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c${assColor(COLOR.bg)}\\1a&H18&\\fad(300,0)}${rect(W, H)}`);
   } else {
     // Fon: tünd göy üstündə yavaş hərəkət edən iki yumşaq işıq (videonun canlı görünməsi üçün; şəkil deyil, forma).
     dlg(0, 0, D, "Shape", `{\\an5\\move(180,640,280,760)\\p1\\bord0\\shad0\\1c${assColor(COLOR.blue)}\\1a&HA8&\\blur90}${circle(520)}`);
@@ -300,20 +303,23 @@ function ass(p, tl) {
   // Yuxarı zolaq: başdan sona. Loqo şəkli ffmpeg-də bu zolağın üstünə qoyulur, yanında «.az» — birlikdə «8ULDUZ.az».
   dlg(1, 0, D, "Shape", `{\\an7\\pos(0,${L.barY})\\p1\\bord0\\shad0\\1c${assColor(COLOR.bar)}}${rect(W, L.barH)}`);
   dlg(2, 0, D, "Brand", `{\\an1\\pos(${logoX() + logoW() - 4},${logoY() + L.logoH + 4})\\fs72}.az`);
-  subBadge(dlg, out);
-  // Gediş xətti: videonun nə qədəri qalıb (xəbər Reels-lərində adət).
-  const py = L.barY + L.barH;
+  // Gediş xətti: videonun nə qədəri qalıb (xəbər Reels-lərində adət). Görüntülü videoda pəncərənin alt kənarında.
+  const py = p.footage ? LF.winY + LF.winH : L.barY + L.barH;
   dlg(2, 0, D, "Shape", `{\\an7\\pos(0,${py})\\p1\\bord0\\shad0\\1c${assColor(COLOR.orange)}\\clip(0,${py},1,${py + 8})\\t(0,${Math.round(D * 1000)},\\clip(0,${py},${W},${py + 8}))}${rect(W, 8)}`);
-  // Bölmə, vaxt, başlıq, mənbə: sonluğa qədər.
+  // Bölmə, vaxt, başlıq, mənbə: sonluğa qədər. Görüntülü videoda bölmə loqo zolağının sağında, vaxt paneldə başlığın üstündə.
   const fade = `\\fad(250,300)`;
-  dlg(3, 0, out + 0.3, "Chip", `{\\an4\\pos(${X0 + 12},${L.chipY + 30})${fade}}${assText(p.label)}`);
-  if (p.when) dlg(3, 0, out + 0.3, "When", `{\\an4\\pos(${Math.round(X0 + textWidth(p.label, 40, "black") + 64)},${L.chipY + 30})${fade}}${assText(p.when)}`);
-  // Görüntünün üstündə yazı kölgə və kənar xətlə oxunur.
-  const onVideo = p.footage ? "\\bord3\\3c&H000000&\\shad2\\4a&H40&" : "";
-  dlg(3, 0, out + 0.3, "Head", `{\\an7\\move(${X0},${headY + 24},${X0},${headY},0,300)\\fad(120,300)${onVideo}}${p.head.lines.map(assText).join("\\N")}`);
-  if (p.source) dlg(3, 0, out + 0.3, "Small", `{\\an7\\pos(${X0},${p.footage ? LF.srcY : L.srcY})${fade}${p.footage ? `\\1c${assColor(COLOR.white)}${onVideo}` : ""}}${assText(p.source)}`);
-  // Altyazılar: tünd fonda başlığın altında (başlığın hündürlüyünə görə), görüntülü videoda aşağıda; səslə eyni anda.
-  const capY = p.footage ? LF.capY : Math.min(L.capMaxY, Math.max(L.capMinY, L.headY + p.head.lines.length * p.head.size + 64));
+  if (p.footage) {
+    dlg(3, 0, out + 0.3, "Chip", `{\\an6\\pos(${W - X0 - 12},${L.barY + L.barH / 2})${fade}}${assText(p.label)}`);
+    if (p.when) dlg(3, 0, out + 0.3, "When", `{\\an4\\pos(${X0},${LF.whenY})${fade}\\fs36}${assText(p.when)}`);
+  } else {
+    dlg(3, 0, out + 0.3, "Chip", `{\\an4\\pos(${X0 + 12},${L.chipY + 30})${fade}}${assText(p.label)}`);
+    if (p.when) dlg(3, 0, out + 0.3, "When", `{\\an4\\pos(${Math.round(X0 + textWidth(p.label, 40, "black") + 64)},${L.chipY + 30})${fade}}${assText(p.when)}`);
+  }
+  dlg(3, 0, out + 0.3, "Head", `{\\an7\\move(${X0},${headY + 24},${X0},${headY},0,300)\\fad(120,300)}${p.head.lines.map(assText).join("\\N")}`);
+  if (p.source) dlg(3, 0, out + 0.3, "Small", `{\\an7\\pos(${X0},${p.footage ? LF.srcY : L.srcY})${fade}}${assText(p.source)}`);
+  // Altyazılar: tünd fonda başlığın altında (başlığın hündürlüyünə görə), görüntülü videoda paneldə başlığın altında; səslə eyni anda.
+  const capY = p.footage ? capTop(p) : Math.min(L.capMaxY, Math.max(L.capMinY, L.headY + p.head.lines.length * p.head.size + 64));
+  const capPad = p.footage ? 0 : CAP_PAD, capSpec = p.footage ? CAPF : CAP;
   // Hər altyazı növbətisi başlayanda (sonuncu — sonluq başlayanda) çəkilir: səsli videoda hissələr bitişikdir, üst-üstə düşməsinlər.
   // Deyilən söz narıncı yanır, deyilmiş söz yenə ağ olur (Reels/Shorts altyazısı; sahib 2026-11-23: «tam professional»):
   // hər sözün öz \t keçidi var, vaxt sətrin başlanğıcından ms ilə (wordTimes). Qutunun ölçüsü dəyişmir: yalnız rəng.
@@ -322,13 +328,13 @@ function ass(p, tl) {
     const until = i + 1 < tl.chunks.length ? tl.chunks[i + 1].at[0] : out;
     const times = wordTimes(c.text, c.at[0], c.at[1]);
     let k = 0;
-    const lines = wrap(c.text, CAP_SIZE, "medium", CAP_W).map(line => line.split(" ").filter(Boolean).map(w => {
+    const lines = wrap(c.text, capSpec.size, "medium", capSpec.w).map(line => line.split(" ").filter(Boolean).map(w => {
       const [, a, b] = times[k++] || [w, c.at[0], c.at[1]], t1 = ms(a - c.at[0]), t2 = ms(b - c.at[0]);
       return `{\\1c${white}\\t(${t1},${t1 + 60},\\1c${lit})\\t(${t2},${t2 + 60},\\1c${white})}${assText(w)}`;
     }).join(" "));
-    dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + CAP_PAD},${capY + CAP_PAD})\\fad(180,120)}${lines.join("\\N")}`);
+    dlg(4, c.at[0], until, "Cap", `{\\an7\\pos(${X0 + capPad},${capY + capPad})\\fad(180,120)}${lines.join("\\N")}`);
   });
-  // Sonluq: vəd, «ABUNƏ OL» düyməsi, altında sayt.
+  // Sonluq: vəd, abunə ipucu, altında sayt.
   subOutro(dlg, out, D, L.outroY, p.tur, `${assText(dil().video.etrafli)} {\\1c${lit}}8ulduz{\\1c${white}}.az`);
   return ["[Script Info]", "ScriptType: v4.00+", `PlayResX: ${W}`, `PlayResY: ${H}`, "WrapStyle: 0", "ScaledBorderAndShadow: yes", "YCbCr Matrix: TV.709", "",
     "[V4+ Styles]",
@@ -346,12 +352,10 @@ const logoW = () => Math.round(LOGO.w * L.logoH / LOGO.h);
 // altyazı hissəsi bir kadr, sonluq sonuncunun davamı. Xəbər montajında kadr 3–6 s-dir; əvvəl 45 s-lik videoda 5 kadr (~9 s) idi.
 // SHOT_MIN-dən qısa hissə qonşusuna birləşir, SHOT_MAX-dan uzunu bərabər bölünür. Kliplər sıra ilə gedir (Gemini-nin ifadələri
 // diktor mətninin cümlə sırasındadır): çatmasa təkrarlanır, təkrarda klipin işlənməmiş yerindən (ss) — eyni kadr iki dəfə görünməsin.
-// Klip: fayl yolu və ya { file, w, h, dur }. Hər klip kadrı tam doldurur (sahib, 2026-11-24: «bu videoların hündürlüyünü tam ölçüdə
-// etsək daha baxımlı olar. üstündə yazılar olsa da video tam kart boyu olmalıdır»). Əvvəl (2026-11-22) üfüqi klip tam enində ortada,
-// arxada bulanıq nüsxəsi ilə idi, çünki ortadan kəsəndə mövzu düşürdü (sarayın yerinə göy) və 1080p klip 1,8 dəfə böyüyüb bulanıqlaşırdı.
-// İndi ikisi də başqa yolla həll olunur: kəsim ortadan yox, kadrın hərəkət və detal olan yerindəndir (focusX, hər kadr üçün ayrıca —
-// «auto-reframe»), üfüqi klipin isə ən böyük nüsxəsi (4K) yüklənir (video-ssenari.cjs). Ölçü bilinməsə və ya ffmpeg ölçə bilməsə — ortadan.
-const SHOT_MIN = 2.6, SHOT_MAX = 6.5, KLIP_SAQULI = 0.8;
+// Klip: fayl yolu və ya { file, w, h, dur }. Klip pəncərəni (LF, 1080×608) doldurur, yazı onun üstünə düşmür (sahib, 2026-11-26).
+// 2026-11-24 – 2026-11-26 arası klip bütün kadrı (1080×1920) doldururdu və üfüqi klipdən 9:16 hissə hərəkətin yerindən kəsilirdi
+// (focusX); pəncərədə üfüqi klip demək olar ki, kəsilmir, ona görə o ölçü daha yoxdur.
+const SHOT_MIN = 2.6, SHOT_MAX = 6.5;
 const r2 = x => Math.round(x * 100) / 100;
 function shotBounds(tl) {
   const D = tl.duration, b = [0];
@@ -382,65 +386,32 @@ function shotPlan(clips, tl) {
     return { ...c, d, ss };
   });
 }
-const fitsWide = c => c.w > 0 && c.h > 0 && c.w / c.h > KLIP_SAQULI;
-// Başlıq zolağının alt kənarı (görüntülü video): başlığın arxasındakı tünd zolaq buraya qədərdir (ass).
-const bandBottom = p => LF.headY + p.head.lines.length * p.head.size + 40;
+// Pəncərəni dolduran (üfüqi) klip; ölçü bilinmirsə doldurur. Şaquli və kvadrata yaxın klip bütöv göstərilir (clipFilter).
+const fillsWindow = c => !(c.w > 0 && c.h > 0) || c.w / c.h >= PENCERE_DOLDUR;
+// Görüntülü videoda altyazının yeri: paneldə başlığın altında (başlığın sətir sayına görə).
+const capTop = p => LF.headY + p.head.lines.length * p.head.size + LF.capGap;
 
-// Ağıllı kəsim (auto-reframe): klipin kiçik boz nüsxəsində (fw×fh, ardıcıl kadrlar) hər sütunun «enerjisi» — iki kadr arasındakı fərq
-// (hərəkət) və qonşu nöqtələrin fərqi (detal: bina, adam, yazı; boş göy və divar azdır). 9:16 pəncərə (eni frac) enerjinin ən çox olduğu
-// yerə qoyulur; ortaya yüngül üstünlük var (enerji bərabərdirsə kadr ortadan, kəsim kənara sıçramır). Nəticə: pəncərənin ortası, 0…1.
-function focusX(buf, fw, fh, frac) {
-  const n = Math.floor(buf.length / (fw * fh)), ww = Math.max(1, Math.min(fw, Math.round(fw * frac)));
-  if (!(n > 0) || ww >= fw) return 0.5;
-  const col = new Float64Array(fw);
-  for (let k = 0; k < n; k++) {
-    const o = k * fw * fh, p = o - fw * fh;
-    for (let y = 0; y < fh; y++) for (let x = 1; x < fw; x++) {
-      const i = o + y * fw + x;
-      col[x] += 0.5 * Math.abs(buf[i] - buf[i - 1]) + (k ? Math.abs(buf[i] - buf[p + y * fw + x]) : 0);
-    }
-  }
-  let sum = 0, best = -1, at = (fw - ww) >> 1;
-  for (let x = 0; x < ww; x++) sum += col[x];
-  const total = col.reduce((a, b) => a + b, 0);
-  if (!(total > 0)) return 0.5;
-  for (let s = 0; s + ww <= fw; s++) {
-    if (s) sum += col[s + ww - 1] - col[s - 1];
-    const mid = (s + ww / 2) / fw, score = sum * (1 - 0.3 * Math.abs(mid - 0.5));
-    if (score > best + 1e-9) { best = score; at = s; }
-  }
-  return Math.round(((at + ww / 2) / fw) * 1000) / 1000;
-}
-// Kadrın hissəsini (ss, d) ffmpeg ilə kiçik boz kadrlara çevirib focusX. Alınmasa ortası.
-function focusOf(c, opt = {}) {
-  if (!fitsWide(c)) return 0.5;
-  const fw = 160, fh = Math.max(2, Math.round(fw * c.h / c.w / 2) * 2), frac = (c.h * W / H) / c.w;
-  try {
-    const r = spawnSync("ffmpeg", ["-v", "error", ...(c.ss > 0 ? ["-ss", c.ss.toFixed(2)] : []), "-t", String(Math.min(c.d || 4, 6)), "-i", c.file,
-      "-vf", `fps=4,scale=${fw}:${fh},format=gray`, "-f", "rawvideo", "pipe:1"], { maxBuffer: 32 << 20, timeout: opt.timeout || 60000, cwd: opt.cwd });
-    return r.status === 0 && r.stdout?.length ? focusX(r.stdout, fw, fh, frac) : 0.5;
-  } catch { return 0.5; }
-}
-
-function clipFilter(c, i) {
+// Pəncərəyə (W × LF.winH): üfüqi klip pəncərəni doldurur (artığı ortadan kəsilir). Şaquli və kvadrata yaxın klip (telefon çəkilişi)
+// kəsilmir: bütöv kadr ortada, yanlarda onun bulanıq və bir az tünd nüsxəsi (televiziya xəbərlərindəki kimi) — adamın başı düşmür.
+// wh = H (hava videosu: yazılar görüntünün üstündədir, video-hava.cjs): klip bütün kadrı doldurur, artığı ortadan kəsilir.
+function clipFilter(c, i, wh = LF.winH) {
   const head = `[${i}:v]fps=${FPS},trim=duration=${c.d.toFixed(2)},setpts=PTS-STARTPTS`;
-  if (!fitsWide(c)) return `${head},scale=${W}:${H}:force_original_aspect_ratio=increase:flags=bicubic,crop=${W}:${H},setsar=1[c${i}]`;
-  // Üfüqi (və kvadrat) klip: hündürlüyü kadrın hündürlüyünə, 9:16 pəncərə ağıllı kəsimin yerində (cx).
-  const sw = Math.round(H * c.w / c.h / 2) * 2, cx = c.cx >= 0 && c.cx <= 1 ? c.cx : 0.5;
-  const x = Math.max(0, Math.min(sw - W, Math.round(cx * sw - W / 2)));
-  return `${head},scale=${sw}:${H}:flags=bicubic,crop=${W}:${H}:${x}:0,setsar=1[c${i}]`;
+  if (wh === H || fillsWindow(c)) return `${head},scale=${W}:${wh}:force_original_aspect_ratio=increase:flags=bicubic,crop=${W}:${wh},setsar=1[c${i}]`;
+  return `${head},split=2[f${i}][g${i}];[g${i}]scale=${W}:${wh}:force_original_aspect_ratio=increase,crop=${W}:${wh},boxblur=24:2,eq=brightness=-0.12[b${i}];`
+    + `[f${i}]scale=-2:${wh}:flags=bicubic[v${i}];[b${i}][v${i}]overlay=(W-w)/2:0,setsar=1[c${i}]`;
 }
 
-function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], focus = null }) {
+// pencere: false — hava videosu (görüntü bütün kadrdadır, yazı oxunsun deyə bir az tündləşir).
+function ffmpegArgs({ tl, assFile, logo, voiceFile, out, clips = [], pencere = true }) {
   const D = tl.duration.toFixed(2);
-  const plan = shotPlan(clips, tl).map(c => (focus && fitsWide(c) ? { ...c, cx: focus(c) } : c));
+  const plan = shotPlan(clips, tl);
   const args = ["-hide_banner", "-loglevel", "error", "-y"];
   let bg;
   if (plan.length) {
-    // Hər klip kadrı doldurur (clipFilter; üfüqi klip ağıllı kəsimlə); 30 kadr/s, bir az tündləşdirilir (yazı oxunsun).
+    // Kliplər pəncərədə (clipFilter), 30 kadr/s; pəncərə tünd göy kadrın LF.winY yerinə qoyulur. Üstündə yazı yoxdur — tündləşdirilmir.
     plan.forEach(c => args.push("-stream_loop", "-1", ...(c.ss > 0 ? ["-ss", c.ss.toFixed(2)] : []), "-t", c.d.toFixed(2), "-i", c.file));
-    bg = plan.map((c, i) => clipFilter(c, i)).join(";")
-      + `;${plan.map((_, i) => `[c${i}]`).join("")}concat=n=${plan.length}:v=1:a=0,eq=brightness=-0.04:saturation=0.95,trim=duration=${D},format=rgb24`;
+    bg = plan.map((c, i) => clipFilter(c, i, pencere ? LF.winH : H)).join(";")
+      + `;${plan.map((_, i) => `[c${i}]`).join("")}concat=n=${plan.length}:v=1:a=0,trim=duration=${D},${pencere ? `pad=${W}:${H}:0:${LF.winY}:color=0x${COLOR.bg}` : "eq=brightness=-0.04:saturation=0.95"},format=rgb24`;
   } else {
     args.push("-f", "lavfi", "-i", `color=c=0x${COLOR.bg}:s=${W}x${H}:r=${FPS}:d=${D}`);
     bg = "[0:v]format=rgb24";
@@ -570,7 +541,7 @@ async function render(a, out, opt = {}) {
     const tl = timeline(p, v);
     fs.writeFileSync(path.join(dir, "video.ass"), ass(p, tl));
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips, focus: c => focusOf(c, { cwd: dir }) }), { cwd: dir, timeout: 900000 });
+    run("ffmpeg", ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, LOGO.file), voiceFile: v?.file, out, clips }), { cwd: dir, timeout: 900000 });
     // Örtük: başlıq yerinə oturub (hərəkəti 0,3 s), birinci altyazı hələ yoxdur — səs və altyazı tl.head[1]-də (LEAD_S) başlayır.
     const cover_s = Math.round(Math.min(1.5, Math.max(0.3, tl.head[1] - 0.05)) * 100) / 100;
     const jpg = out.replace(/\.mp4$/i, "") + ".jpg";
@@ -585,22 +556,22 @@ async function render(a, out, opt = {}) {
       : [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
     const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), ...(v?.motor ? { ses: v.motor } : {}), ...(v ? { oxunan: p.say } : {}), ...(v?.nefes ? { nefes: v.nefes } : {}), parts: 2 + tl.chunks.length, title: p.title,
       ...(mv ? { menbeVideo: true } : {}),
-      ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, kesilen: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
+      ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, saquli: shots.filter(c => !fillsWindow(c)).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
-    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? `səsli (${sesAdi(v.motor)})` : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; ${meta.kesilen} kadr üfüqi, ağıllı kəsildi)` : "görüntüsüz"} — ${p.title}`);
+    log(`video: ${meta.width}×${meta.height}, ${meta.duration.toFixed(1)} s, ${(meta.bytes / 1e6).toFixed(1)} MB, ${tl.chunks.length} altyazı, ${v ? `səsli (${sesAdi(v.motor)})` : "səssiz"}, ${clips.length ? `${meta.kadr} kadr, ${meta.klip} klip (${menbe}; pəncərədə${meta.saquli ? `, ${meta.saquli} şaquli kadr bütöv` : ""})` : "görüntüsüz"} — ${p.title}`);
     return meta;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 
-module.exports = { menbeKlip, render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, captionSentences, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
+module.exports = { menbeKlip, render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, fillsWindow, capTop, LF, CAPF, captionChunks, captionSentences, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR,
   // Hava videosu (video-hava.cjs) eyni brendi, səsi, altyazını və kodlaşdırmanı işlədir: qayda iki yerdə yazılmır.
   clean, voice, sesAdi, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W,
-  // Abunə çağırışı: üç video növündə eyni düymə və nişan, hər növün öz vədi.
-  ABUNE, abune, SUB_AT, SUB_TEXT, SUB_STYLE, subBadge, subOutro };
+  // Abunə çağırışı: üç video növündə eyni sonluq (vəd, ipucu), hər növün öz vədi.
+  ABUNE, abune, SUB_TEXT, subOutro };
 
 if (require.main === module) {
   const [src, out] = process.argv.slice(2);

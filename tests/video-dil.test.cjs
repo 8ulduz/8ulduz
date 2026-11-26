@@ -71,7 +71,7 @@ test("video-dil: no VIDEO_DIL — everything is the Azerbaijani profile (today's
   try {
     assert.equal(DL.dil().kod, "az");
     assert.deepEqual(V.ABUNE, DL.dil("az").abune);
-    assert.equal(V.SUB_TEXT, "ABUNƏ OL");
+    assert.equal(V.SUB_TEXT, "Abunə olmaq üçün adımızın yanındakı düyməni basın");
     assert.equal(VS.PROMPT, VS.promptOf(DL.dil("az")));
     assert.match(VS.PROMPT, /- Azərbaycan ədəbi dilində, 5–7 aydın cümlə/);
     assert.match(VS.PROMPT, /Keçid, emoji, nida və sual işarəsi, kiril hərfi yoxdur\. «bu gün», «dünən», «sabah» yoxdur\./);
@@ -111,7 +111,7 @@ test("video-dil: test language — the video, the spoken text, the script prompt
   for (const s of AZ_SABLON) assert.ok(!all.includes(s), `sınaq dilinin çıxışında azərbaycanca şablon qalıb: «${s}»`);
   for (const s of ["Azərbaycan ədəbi dilində", "Azərbaycan dilində", "kiril hərfi", "«bu gün»"]) assert.ok(!prompts.join("\n").includes(s), `göstərişdə «${s}» qalıb`);
   const ass = out["xeber.true"].ass, p = out["xeber.true"].p;
-  assert.ok(ass.includes("XX-SUBSCRIBE") && ass.includes("XX-news-promise") && ass.includes("XX-More:"), "sonluq: düymə, vəd, sayt sətri");
+  assert.ok(ass.includes("XX-TAP-FOLLOW") && ass.includes("XX-news-promise") && ass.includes("XX-More:"), "sonluq: ipucu, vəd, sayt sətri");
   assert.equal(p.label, "XX-SOCIETY", "bölmənin adı profildən (saytın azərbaycanca adı yox)");
   assert.ok(p.when.includes("xx-nov") && /XX-Source: Alpha, Beta \+1 XX-sites · XX-Footage: Pixabay/.test(p.source));
   assert.deepEqual(p.say.slice(-1), ["XX subscribe. XX news promise."], "səsə gedən çağırış profildən");
