@@ -9,7 +9,7 @@ Sahibin göstərişi (2026-11-22): «Facebook-da video xəbərlər verilsin. Bun
 - Ən vacib xəbərdən (social.cjs-in seçimi: son 3 saatda 4+ mənbə və ya Prezident bölməsi) **öz hazırladığımız** şaquli video düzəlir: brend fonu, yuxarıda başdan sona loqo və «8ulduz.az», böyük başlıq, izah altyazı kimi, istəyə görə Azərbaycan səsi (SARA), sonda abunə çağırışı («ABUNƏ OL» düyməsi) və «Ətraflı: 8ulduz.az».
 - Video Facebook səhifəsinə Reels, Instagram-a Reels kimi gedir. Facebook mətnində saytdakı həmin xəbərin keçidi var, Instagram-da «Ətraflı: 8ulduz.az (keçid profildədir)». Hər mətndə keçid sətrindən sonra abunə çağırışı var ([«Abunə çağırışı»](#abunə-çağırışı)).
 - 30 dəqiqədən bir (hər yoxlama pəncərəsi), Bakı vaxtı ilə 08:00–23:59 arası, gündə ən çox 30 video (sahib, 2026-11-24: «öz video sayımızı 10 dəfə artırmaq lazımdır»; 10 qat — 80 — Facebook-un API həddini, 24 saatda 30 Reels, keçir, ona görə hər platforma öz həddinə qədər; əvvəl 2 saatdan bir, gündə 8). Hamısı GitHub Actions-da işləyir, kompüterdən asılı deyil.
-- Görüntü (sahibin qərarı, 2026-11-26): xəbərin mənbə saytındakı öz videosu, mənbə göstərilməklə; yoxdursa video bankının klipləri. Dünya saytlarının videoları Azərbaycan dilində tərcümə ilə verilir. X videoları, xəbərin fotosu və musiqi videoya düşmür (aşağıda «Görüntünün mənbəyi»).
+- Görüntü (sahibin qərarı, 2026-11-26): xəbərin mənbə saytındakı öz videosu, mənbə göstərilməklə; yoxdursa video bankının klipləri. Dünya saytlarının videoları Azərbaycan dilində tərcümə ilə verilir. X-in ən çox baxılan videoları «Çox baxılan» rubrikası ilə gedir. Xəbərin fotosu və musiqi videoya düşmür (aşağıda «Görüntünün mənbəyi»).
 
 ## Araşdırma: Azərbaycan mediası necə edir (2026-11-22)
 
@@ -214,7 +214,8 @@ Sonra: «dünya saytlarından lazım olan tipli videoları götürüb tərcümə
 - yoxdursa Pixabay və Pexels klipləri və «Video arxivi».
 
 Dəyişməyənlər:
-- **X videoları** (`data/reels.json`, `oz_x.json`) sosial hesablara yüklənmir, yalnız saytda yerləşdirilir (aşağıda «Niyə X videoları yox», [youtube.md](youtube.md)). Sahibin qərarı xəbər saytlarının görüntüsü haqqındadır.
+- **X videoları: YouTube və TikTok.** Sahib 2026-11-26-da X-i də qoşdu («X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et»): X videoları Facebook və Instagram-a «Çox baxılan» rubrikası ilə gedir (aşağıda). YouTube və TikTok yükləyiciləri X videosunu əvvəlki kimi qəbul etmir (`youtube.cjs`, `tiktok.cjs` `foreignReason`: «xəbər video/sosial şəbəkədəndir»): YouTube-da üç xəbərdarlıq kanalı bağlayır, TikTok tətbiqi yoxlamadadır. Açmaq sahibin ayrıca qərarıdır.
+- **Liqaların oyun kadrı və oyun treylerləri** (X-in «idman» və «oyun» qrupları) və böyük yayımçıların hesabları (Fox News, BBC, NatGeo, NBA, WWE və s.; profil `x.qadagan`) sosial videoya götürülmür.
 - **Yayım kadrı** (oyunun qolları və icmalı, film, klip, serial) götürülmür: başlıqdan tanınır (profil `lent.yayim`). Bunları YouTube Content ID və Meta Rights Manager avtomatik tanıyır, hesaba xəbərdarlıq gəlir. Açmaq: Variables `MENBE_YAYIM=1`.
 - **YouTube, Instagram, TikTok, Telegram pəncərəsi** olan səhifədən video götürülmür: orada fayl yoxdur, platformanın qorumasını aşmırıq. Belə xəbər bank klipləri ilə gedir.
 - Su nişanı silinmir, mənbənin səsi götürülmür (səs bizim diktor mətnidir), musiqi əlavə olunmur.
@@ -249,6 +250,29 @@ Qalan risk sahibə məlumdur: böyük yayımçıların görüntüsünü platform
 - Tezlik: gündə ən çox 8, arası 90 dəqiqə; ümumi gündəlik həddə (30) və fasiləyə sayılır. Vaxtı çatanda xəbər videosundan əvvəl hazırlanır.
 - Post mətnində keçid saytın «Dünya» bölməsinədir (bu videoların saytda ayrıca xəbər səhifəsi yoxdur).
 - Yeni mənbə = `video-dunya.json`-a bir sətir: ad, dil, siyahının ünvanı və növü (rss, mrss, atom, sitemap, html, json), istiqamətlər, saytın istifadə şərti. Söndürmək: `"aktiv": false`.
+- **Qayda (qırmızı xətt 2).** Bu mənbələr lentin mənbə siyahısında deyil, ona görə `policyViolation` onları bütünlüklə rədd edir. Dünya və X videoları xarici mənbə qaydasından keçir (`topics.cjs` `xariciPozur`): mətndə Azərbaycan və rəhbərliyi olmamalı, ünvan bağlı sayt olmamalıdır. Eyni qayda seçimdə, montajda və YouTube/TikTok yükləyicilərində işləyir.
+
+**Mənbələr (2026-11-26).** 105 sayt sınandı, 40-ı birbaşa fayl verir, 25-i qoşulub, 5-i yoxlanıb söndürülmüş saxlanır. Canlı sınaqda 25-dən 24-ü bizim kodla namizəd verdi (NOIRLab həmin günlərdə yeni video verməmişdi).
+
+| Dil | Mənbələr | Əsas istiqamət |
+|---|---|---|
+| İngilis | Independent TV, Daily Mail, Metro, New York Post, ABC News Australia | insan hekayəsi, hadisə görüntüsü, heyvanlar |
+| İngilis | TMZ | məşhurlar |
+| İngilis | DVIDS, UNifeed | xilasetmə, fəlakət görüntüsü (DVIDS ictimai mülkiyyətdir, UNifeed yenidən yayıma icazə verir) |
+| İngilis | ESO, ESA/Hubble, ESA/Webb, NOIRLab | kosmos (CC BY 4.0) |
+| İngilis | Xinhua, ECNS | mədəniyyət, heyvanlar, texnologiya |
+| Türk | Anadolu Ajansı, TRT Haber, A Haber, Sabah, Takvim, Mynet, TGRT Haber, Türkiye Gazetesi | hadisə görüntüsü, insan hekayəsi, məşhurlar |
+| Rus | 5-tv.ru, İzvestiya, 360.ru | insan hekayəsi, hadisə görüntüsü |
+
+Söndürülmüş saxlananlar və səbəbi: Euronews No Comment (sayt Node sorğusuna 406 qaytarır, qoruma aşılmır), DW (səhifədə yalnız HLS), KP.ru (uzun studiya verilişləri), Anadolu Agency EN (əsasən diplomatiya). Alınmayan 65 sayt (YouTube və ya HLS pəncərəsi, giriş və ya bot qoruması) siyahıya düşməyib. İstifadə şərti hər mənbənin `sertler` sahəsində saytda yazıldığı kimidir; xəbər saytlarının çoxunda «bütün hüquqlar qorunur» yazılıb.
+
+**X videoları: «Çox baxılan»** (`video-dunya.cjs` `xHazirla`, məlumat `data/reels.json`).
+- Saytın Videolenti hər X videosunun baxış sayını (`v`), mövzusunu (`m`) və Azərbaycan dilində izahını (`c`) saxlayır. Sosial video üçün son 36 saatın 100 min+ baxışlı videoları götürülür.
+- Sıra = baxış × mövzunun əmsalı (profil `x.movzular`). Əmsallar Instagram təhlilinin istiqamətləridir: heyrətamiz və insan hekayəsi 1,3; məşhurlar 1,3; heyvan və təbiət 1,2; elm 1,1; hadisə (xəbər) və texnika 1; yemək 0,8.
+- Götürülmür: idman və oyun qrupları, böyük yayımçılar (`x.qadagan`), yayım kadrı (`lent.yayim`), müharibə və zorakılıq görüntüsü (`x.kenar`), xarici mənbə qaydasından keçməyən izah.
+- Video: yuxarıda «ÇOX BAXILAN» nişanı, başlıq izahın birinci cümləsidir, səs izahı oxuyur, video klipin uzunluğu qədər (ən çox 30 s) davam edir (`klip_boyu`), «Görüntü: @hesab (X)».
+- Tezlik: gündə ən çox 6, arası 120 dəqiqə; vaxtı çatanda birinci hazırlanır. Dəyişənlər: `X_VIDEO=0`, `X_GUNDE`, `X_ARA_MIN`, `X_MIN_BAXIS`.
+- 2026-11-26 ölçüsü: 1000 videodan 123-ü bütün süzgəclərdən keçdi; birincilər: sarılıb yatan əkizlər (2,1 mln baxış), oğrulara tələ quran mağaza sahibi (1,7 mln), itdən qaçan qadın (1,2 mln).
 
 ## Maraqlı videolar (sahib, 2026-11-24)
 
@@ -693,6 +717,7 @@ Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş
 | `MENBE_YAYIM` | (bağlı) | `1` — oyun, film, klip kadrı da götürülür (platformaların avtomatik hüquq yoxlaması riski) |
 | `DUNYA_VIDEO` | (açıq) | `0` — dünya videoları hazırlanmır |
 | `DUNYA_GUNDE`, `DUNYA_ARA_MIN` | 8, 90 | dünya videosu: 24 saatda ən çox və iki video arası dəqiqə |
+| `X_VIDEO`, `X_GUNDE`, `X_ARA_MIN`, `X_MIN_BAXIS` | (açıq), 6, 120, 100000 | X-in ən çox baxılan videoları: söndürmə, 24 saatda ən çox, arası (dəq), ən az baxış |
 | `IG_MIN_GAP_MIN` | 120 | Instagram şəkilli postları arası, dəqiqə (social.yml; 2026-11-26-dək 18). Bölmə əmsalları və zəif mövzu sözləri Variables-da yox, profildədir: `.github/video-dil/az.json` `lent.ceki` |
 | `VIDEO_SES` | (açıq) | `0` — səssiz video (model quraşdırılmır) |
 | `VIDEO_FACEBOOK`, `VIDEO_INSTAGRAM` | (açıq) | `0` — həmin şəbəkəyə video getmir. `INSTAGRAM=0` Instagram-ı hər iki işdə söndürür |

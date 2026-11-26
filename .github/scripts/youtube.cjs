@@ -474,7 +474,7 @@ async function main() {
   try { const r = JSON.parse(fs.readFileSync("data/reels.json", "utf8")); reels = new Set((r.items || []).flatMap(x => [String(x.id), String(x.u || "")]).filter(Boolean)); } catch {}
   const state = readState(stateFile);
   let res;
-  try { res = await run({ videos: readVideos(arg || "youtube-in"), now, state, log, mask, reels, policy: a => app.policyViolation(a) }); }
+  try { res = await run({ videos: readVideos(arg || "youtube-in"), now, state, log, mask, reels, policy: a => (a?.kind === "dunya" ? app.xariciPozur(a) : app.policyViolation(a)) }); }
   finally { fs.mkdirSync(path.dirname(stateFile), { recursive: true }); fs.writeFileSync(stateFile, JSON.stringify(state)); summary(); }
   // Yüklənən videonun nömrəsi: sosial-video.yml «veb-video» işi saytın veb nüsxəsini bu adla yazır (veb-video.cjs).
   const vid = videoIdOf(res);

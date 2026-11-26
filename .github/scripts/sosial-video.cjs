@@ -61,7 +61,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -216,6 +216,22 @@ async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "
     return { a, text, topic, page };
   }
   return null;
+}
+
+// X videosu — «Çox baxılan» (video-dunya.cjs xHazirla): ən çox baxılan video və izahı → <qovluq>/xeber.json (tur: "x"). Alınmasa null.
+const X_URL = "https://8ulduz.az/#/videolent";
+async function xSec({ now, state, env, fetch: f, policy, dir, log, post, hazirla = VD.xHazirla }) {
+  let x = null;
+  try { x = await hazirla({ now, state, env, fetch: f, policy, dir, log }); }
+  catch (e) { log(`::warning::X videosu alınmadı — ${String(e?.message || e).slice(0, 300)}`); return null; }
+  if (!x) return null;
+  const out = { ...x, link: X_URL, url: X_URL };
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(out, null, 1));
+  if (post) { const t = Math.floor(now / 1000); state.v[out.id] = t; state._last = t; (state.xv ||= {})[out.id] = t; }
+  log(`X videosu: seçildi — ${out.title} (${out.sourceUrl})`);
+  output("hazir", "1");
+  output("tur", "x");
+  return out;
 }
 
 // Dünya videosu (video-dunya.cjs hazirla): seçim, tərcümə, fayl → <qovluq>/xeber.json (tur: "dunya"). Alınmasa null (maraqlı və ya xəbər gedir).
@@ -391,7 +407,7 @@ function output(key, value) {
 // sec: vaxtıdırsa xəbəri seçir. Paylaşma rejimində seçim dərhal «video» sayılır (_last): video alınmasa da eyni xəbər hər
 // 30 dəqiqədə yenidən hazırlanmasın.
 // arxiv: öz video arxivi (VA.kitabxana(): «video-arxiv» budağı, oxunmasa data/video-arxiv.json) — xəbərin yeri məlum olanda əvvəl oradan.
-async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla, dunya = VD.hazirla, menbe = MV.menbeVideo }) {
+async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla, dunya = VD.hazirla, xvideo = VD.xHazirla, menbe = MV.menbeVideo, xarici = policy }) {
   const opt = options(env), post = env.VIDEO_PAYLAS !== "0";
   // İş axını seçimə açarın özünü vermir, yalnız VIDEO_ACAR=1/0 (açar var/yox).
   const hasKey = env.VIDEO_ACAR ? env.VIDEO_ACAR === "1" : networks(env).length > 0;
@@ -416,16 +432,24 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     const why = due(state, now, opt);
     if (why) { log(`video: ${why}`); return null; }
   }
+  // X videosu — «Çox baxılan» (video-dunya.cjs xHazirla; sahib, 2026-11-26): vaxtıdırsa əvvəl o; VIDEO_TUR=x — dərhal. Yalnız profildə
+  // X mövzuları (x.movzular) olan dildə: izahlar (reels.json «c») azərbaycancadır.
+  const xVar = Object.keys(dil().x?.movzular || {}).length > 0;
+  if (!only && ["", "avtomatik", "x"].includes(tur) && xVar) {
+    const xo = VD.xOptions(env), why = tur === "x" ? (xo.on ? "" : "X videosu söndürülüb (X_VIDEO=0)") : VD.xDue(state, now, xo);
+    if (!why) { const x = await xSec({ now, state, env, fetch: f, policy: xarici, dir, log, post, hazirla: xvideo }); if (x || tur === "x") return x; }
+    else { log(`video: ${why}`); if (tur === "x") return null; }
+  } else if (tur === "x") { log("video: X videosu bu dildə yoxdur"); return null; }
   // Dünya videosu (video-dunya.cjs; sahib, 2026-11-26): vaxtıdırsa əvvəl o (alınmasa maraqlı və ya xəbər); VIDEO_TUR=dunya — dərhal.
   // Mətnləri azərbaycancadır (Gemini tərcüməsi): yalnız profildə dunya: true olan dildə.
-  if (!only && tur !== "xeber" && tur !== "maraqli" && dil().dunya) {
+  if (!only && tur !== "xeber" && tur !== "maraqli" && tur !== "x" && dil().dunya) {
     const dq = VD.options(env), why = tur === "dunya" ? (dq.on ? "" : "dünya videosu söndürülüb (DUNYA_VIDEO=0)") : VD.due(state, now, dq);
-    if (!why) { const x = await dunyaSec({ now, state, env, fetch: f, policy, cats, dir, log, post, hazirla: dunya }); if (x || tur === "dunya") return x; }
+    if (!why) { const x = await dunyaSec({ now, state, env, fetch: f, policy: xarici, cats, dir, log, post, hazirla: dunya }); if (x || tur === "dunya") return x; }
     else { log(`video: ${why}`); if (tur === "dunya") return null; }
   } else if (tur === "dunya") { log("video: dünya videosu bu dildə yoxdur"); return null; }
   // Maraqlı video: vaxtıdırsa əvvəl o (alınmasa xəbər); VIDEO_TUR=maraqli — dərhal (önizləmə və əl ilə).
   const mo = maraqliOptions(env), mArgs = { now, state, env, fetch: f, policy, dir, log, post, hazirla: maraqli };
-  if (!only && tur !== "xeber") {
+  if (!only && tur !== "xeber" && tur !== "x" && tur !== "dunya") {
     const why = tur === "maraqli" ? (mo.on ? "" : "maraqlı video söndürülüb (MARAQLI_VIDEO=0)") : maraqliDue(state, now, mo);
     if (!why) { const x = await maraqliSec(mArgs); if (x || tur === "maraqli") return x; }
     else { log(`video: ${why}`); if (tur === "maraqli") return null; }
@@ -509,6 +533,7 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
   // Hava videosu ayrıca qaydadır: xəbər videosunun siyahısına (fasilə, gündəlik hədd, mövzu) düşmür.
   if (x.tur === "hava") { const d = bakuClock(now).day; (state.hava ||= {})[d] = state.hava[d] || t; return res; }
   // Maraqlı video: gündəlik həddə və fasiləyə sayılır (seçimdə yazılıb), xəbər mövzularının siyahısına düşmür.
+  if (x.tur === "x") { state.v[x.id] = state.v[x.id] || t; (state.xv ||= {})[x.id] = state.xv[x.id] || t; return res; }
   if (x.tur === "dunya") { state.v[x.id] = state.v[x.id] || t; (state.dv ||= {})[x.id] = state.dv[x.id] || t; return res; }
   if (x.tur === "maraqli") { state.v[x.id] = state.v[x.id] || t; if (x.movzu) (state.m ||= {})[x.movzu] = state.m[x.movzu] || t; return res; }
   state.v[x.id] = state.v[x.id] || t;
@@ -547,7 +572,8 @@ async function main() {
     // Qırmızı xətt 2, ikinci qapı: lent saytın öz qaydasından keçir; qayda faylı oxunmasa xəta ilə dayanır (heç nə seçilmir).
     const app = require("./topics.cjs").loadApp(path.resolve("."));
     const articles = (JSON.parse(fs.readFileSync(a1, "utf8")).articles || []).filter(a => !app.policyViolation(a));
-    await sec({ articles, state, now, policy: a => app.policyViolation(a), cats: app.CATS, dir: a2, app, arxiv: VA.kitabxana(process.env, console.log) });
+    // xarici: dünya və X videolarının mənbəsi lentin siyahısında deyil — xarici mənbə qaydası (topics.cjs xariciPozur).
+    await sec({ articles, state, now, policy: a => app.policyViolation(a), xarici: a => app.xariciPozur(a), cats: app.CATS, dir: a2, app, arxiv: VA.kitabxana(process.env, console.log) });
     writeState(stateFile, state);
     return;
   }
@@ -562,5 +588,5 @@ async function main() {
 }
 
 module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock,
-  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec };
+  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });

@@ -553,7 +553,7 @@ async function main() {
   try { const r = JSON.parse(fs.readFileSync("data/reels.json", "utf8")); reels = new Set((r.items || []).flatMap(x => [String(x.id), String(x.u || "")]).filter(Boolean)); } catch {}
   let res;
   // Gözlənilməz xətada da state (yenilənmiş token zənciri) saxlanır: köhnə refresh token artıq işləməyə bilər.
-  try { res = await run({ videos: readVideos(arg || "tiktok-in"), now, state, log, mask, reels, policy: a => app.policyViolation(a) }); }
+  try { res = await run({ videos: readVideos(arg || "tiktok-in"), now, state, log, mask, reels, policy: a => (a?.kind === "dunya" ? app.xariciPozur(a) : app.policyViolation(a)) }); }
   finally { save(state); summary(res); }
   // Heç nə alınmayıbsa iş qırmızı olsun (sahib görsün); ötürmə və fasilə yaşıl.
   if (res.failed.length && !res.posted.length) process.exitCode = 1;

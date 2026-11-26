@@ -26,9 +26,9 @@ on:
         required: false
         default: ''
       tur:
-        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər), maraqli (maraqlı video, dərhal) və ya dunya (dünya videosu tərcümə ilə, dərhal)'
+        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər), maraqli (maraqlı video, dərhal), dunya (dünya videosu tərcümə ilə, dərhal) və ya x (X-in ən çox baxılan videosu, dərhal)'
         type: choice
-        options: [avtomatik, hava, xeber, maraqli, dunya]
+        options: [avtomatik, hava, xeber, maraqli, dunya, x]
         default: avtomatik
   # PR-da nümunə xəbərdən video hazırlanır və yoxlanır (paylaşılmır): kadrlar artefaktdadır.
   pull_request:
@@ -108,6 +108,7 @@ jobs:
             assets/content-policy.js
             assets/logo.png
             data/news.json
+            data/reels.json
             data/video-arxiv.json
             tests/fixtures/video-xeber.json
             tests/fixtures/video-hava.json
@@ -180,6 +181,11 @@ jobs:
           DUNYA_VIDEO: ${{ vars.DUNYA_VIDEO }}
           DUNYA_GUNDE: ${{ vars.DUNYA_GUNDE }}
           DUNYA_ARA_MIN: ${{ vars.DUNYA_ARA_MIN }}
+          # X videoları — «Çox baxılan» (data/reels.json; video-dunya.cjs xHazirla). Söndürmək: X_VIDEO=0.
+          X_VIDEO: ${{ vars.X_VIDEO }}
+          X_GUNDE: ${{ vars.X_GUNDE }}
+          X_ARA_MIN: ${{ vars.X_ARA_MIN }}
+          X_MIN_BAXIS: ${{ vars.X_MIN_BAXIS }}
         run: |
           if [ "$EVENT" = pull_request ] && [ "$MATRIX_TUR" = hava ]; then
             node .github/scripts/sosial-video.cjs numune-hava tests/fixtures/video-hava.json video-out

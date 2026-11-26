@@ -536,7 +536,7 @@ test("sosial-video.yml: the weather video — PR renders both samples; same chec
   assert.match(wf, /node \.github\/scripts\/video-hava\.cjs video-out\/xeber\.json video-out\/video\.mp4/);
   assert.ok(/            \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /            tests\/fixtures\/video-hava\.json\n/.test(wf), "sparse-checkout");
   assert.ok(/      - \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /      - tests\/fixtures\/video-hava\.json\n/.test(wf), "PR yolları");
-  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya\]/);   // dunya: dünya videosu (2026-11-26, video-dunya.cjs)
+  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya, x\]/);   // dunya: dünya videosu (2026-11-26, video-dunya.cjs)
   assert.ok(wf.includes("name: ${{ matrix.tur == 'avto' && 'video-xeber' || format('video-{0}', matrix.tur) }}"), "main-də artefakt video-xeber (tiktok.yml, youtube.yml)");
   assert.equal((wf.match(/artifact: video-xeber/g) || []).length, 2);
   assert.ok(wf.includes("OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}"));

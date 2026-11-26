@@ -28,13 +28,18 @@ const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== 
 // --- Mənbə siyahısı --------------------------------------------------------------------------------------------------------------
 // { ad, dil, lent, nov, sec? (HTML siyahıda və sayt xəritəsində video səhifəsinin ünvan nümunəsi), json? (JSON-un sahələri),
 //   istiqamet: [1..6], sertler (istifadə şərti, saytın özündə yazıldığı kimi), aktiv? (false — söndürülüb) }.
+// Mənbəyə xas (yoxlamada lazım olub): fayl: "jsonld" — fayl səhifənin JSON-LD contentUrl-idir (səhifədə başqa videoların faylı da var);
+//   atla — bu nümunəyə uyğun fayl götürülmür (saytın hər səhifəsindəki fayl, həddən iri keyfiyyət); deyis: [a, b] — fayl ünvanında
+//   a → b (daha iri keyfiyyət eyni yolda); sehife: false — fayl yalnız siyahıdan (səhifədə başqa xəbərin videosu görünür).
 function kecerli(m) {
   if (!m || typeof m !== "object") return "obyekt deyil";
   if (!clean(m.ad) || m.ad.length > 40) return "ad";
   if (!/^[a-z]{2,3}$/.test(String(m.dil || ""))) return "dil";
   if (!/^https:\/\/[^\s]+$/.test(String(m.lent || ""))) return "lent https olmalıdır";
   if (!NOVLER.includes(m.nov)) return "növ";
-  if (m.sec != null) { try { new RegExp(m.sec); } catch { return "sec nümunəsi"; } }
+  for (const k of ["sec", "atla"]) if (m[k] != null) { try { new RegExp(m[k]); } catch { return `${k} nümunəsi`; } }
+  if (m.fayl != null && m.fayl !== "jsonld") return "fayl qaydası";
+  if (m.deyis != null && !(Array.isArray(m.deyis) && m.deyis.length === 2 && m.deyis.every(x => typeof x === "string" && x))) return "deyis [a, b]";
   if (m.nov === "html" && !m.sec) return "HTML siyahıda sec lazımdır";
   if (m.nov === "json" && !(m.json && clean(m.json.siyahi) && clean(m.json.kecid))) return "JSON sahələri (siyahi, kecid)";
   if (!Array.isArray(m.istiqamet) || !m.istiqamet.length || m.istiqamet.some(n => !(n >= 1 && n <= 6))) return "istiqamət";
@@ -60,7 +65,7 @@ const yol = (o, p) => String(p || "").split(".").filter(Boolean).reduce((x, k) =
 function oxuSiyahi(m, body, now = Date.now()) {
   const out = [], s = String(body || "");
   const add = x => { if (/^https:\/\//.test(x.link || "") && (!x.at || now - x.at < MAX_AGE_H * 3600e3)) out.push({ ...x, id: idOf(x.link) }); };
-  const faylOf = b => M.linkler(b, m.lent).fayl[0] || "";
+  const faylOf = b => fayllar(m, unent(b), m.lent)[0] || "";
   if (m.nov === "json") {
     let j = null; try { j = JSON.parse(s); } catch {}
     for (const it of (Array.isArray(yol(j, m.json.siyahi)) ? yol(j, m.json.siyahi) : []).slice(0, 40)) {
@@ -95,12 +100,31 @@ function oxuSiyahi(m, body, now = Date.now()) {
   return out.filter(x => !seen.has(x.id) && seen.add(x.id)).sort((a, b) => b.at - a.at);
 }
 
+// Mənbənin qaydaları ilə səhifədəki (və ya siyahı sətrindəki) video faylları: ən çox 3, sınaq sırası ilə.
+function fayllar(m, html, base) {
+  let list = m.fayl === "jsonld"
+    ? [...String(html).replace(/\\\//g, "/").matchAll(/"contentUrl"\s*:\s*"(https:[^"]+?\.(?:mp4|m4v|webm)[^"]*)"/gi)].map(x => x[1])
+    : M.linkler(html, base).fayl;
+  if (m.atla) { const re = new RegExp(m.atla, "i"); list = list.filter(u => !re.test(u)); }
+  if (m.deyis) list = list.flatMap(u => (u.includes(m.deyis[0]) ? [u.replace(m.deyis[0], m.deyis[1]), u] : [u]));
+  return [...new Set(list)].slice(0, 3);
+}
+
 async function oxu(url, f, referer = "") {
   const r = await f(url, { headers: { "user-agent": UA, accept: "*/*", ...(referer ? { referer } : {}) }, signal: AbortSignal.timeout(20000) }).catch(() => null);
   return r?.ok && r.text ? String(await r.text().catch(() => "")).slice(0, 3e6) : "";
 }
-const sehifeMeta = (html, name) => metn((String(html).match(new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]*content=["']([^"']*)["']`, "i"))
-  || String(html).match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${name}["']`, "i")) || [])[1] || "");
+// Meta etiketinin dəyəri: dırnağın növünə görə (başlıqda apostrof ola bilər: «Beykoz'da…»).
+const sehifeMeta = (html, name) => {
+  const tag = (String(html).match(new RegExp(`<meta\\b[^>]*(?:property|name)=["']${name}["'][^>]*>`, "i")) || [])[0] || "";
+  const m = tag.match(/\bcontent="([^"]*)"/i) || tag.match(/\bcontent='([^']*)'/i);
+  return metn(m ? m[1] : "");
+};
+// Faylın ölçüsü həddi keçirmi (HEAD; ölçü bilinmirsə keçmir sayılmır): iri fayllı video Gemini-yə namizəd verilmir.
+async function boyukdur(url, f, referer) {
+  const r = await f(url, { method: "HEAD", headers: { "user-agent": UA, ...(referer ? { referer } : {}) }, signal: AbortSignal.timeout(15000) }).catch(() => null);
+  return Number(r?.headers?.get?.("content-length") || 0) > M.MAX_BYTES;
+}
 
 // Mənbələrin növbəsi: ən çoxdan işlənməyən əvvəl (state.dm: ad → vaxt), eyni vaxtda siyahının sırası. Bir dövrədə MENBE_SAY mənbə.
 function novbe(list, state) {
@@ -114,32 +138,35 @@ async function namizedler({ list, state, now, fetch: f, policy, log, deps = {} }
   let sehife = 0;
   for (const m of novbe(list, state).slice(0, MENBE_SAY)) {
     if (out.length >= NAMIZED_MAX) break;
-    const body = await read(m.lent, f);
+    let body = await read(m.lent, f);
+    // Sayt xəritəsinin siyahısı (sitemapindex): ən təzə hissə birincidir.
+    const hisse = m.nov === "sitemap" && /<sitemapindex\b/i.test(body) ? (body.match(/<sitemap>\s*<loc>\s*([^<\s]+)/i) || [])[1] : "";
+    if (hisse) body = await read(unent(hisse), f, m.lent);
     (state.dm ||= {})[m.ad] = Math.floor(now / 1000);
     if (!body) { log(`dünya videosu: ${m.ad} — siyahı oxunmadı`); continue; }
     let n = 0;
     for (const it of oxuSiyahi(m, body, now)) {
       if (n >= MENBE_NAMIZED || out.length >= NAMIZED_MAX) break;
       if (state.dv?.[it.id] || state.v?.[it.id] || state.skip?.[it.id]) continue;
-      let { title, desc, fayl } = it, body2 = "";
+      let { title, desc } = it, body2 = "", fl = it.fayl ? [it.fayl] : [];
       // Siyahıda çatmayan (fayl, başlıq, mətn) videonun səhifəsindən götürülür; səhifə oxunmasa siyahıdakı ilə davam edilir.
-      const html = (!fayl || !title || desc.length < 200) && sehife < SEHIFE_SAY ? (sehife++, await read(it.link, f, m.lent)) : "";
+      const html = (!fl.length || !title || desc.length < 200) && (m.sehife !== false || !title) && sehife < SEHIFE_SAY ? (sehife++, await read(it.link, f, m.lent)) : "";
       if (html) {
         title ||= sehifeMeta(html, "og:title") || metn((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
         if (desc.length < 200) desc = [desc, sehifeMeta(html, "og:description") || sehifeMeta(html, "description")].filter(Boolean).join(" ");
         body2 = S.pageParagraphs(html, /\p{L}/u).join(" ").slice(0, SOURCE_MAX);
-        if (!fayl) {
-          const l = M.linkler(html, it.link);
-          fayl = l.fayl[0] || "";
-          for (const c of l.cercive) { if (fayl) break; fayl = M.linkler(await read(c, f, it.link), c).fayl[0] || ""; }
+        if (!fl.length && m.sehife !== false) {
+          fl = fayllar(m, html, it.link);
+          for (const c of M.linkler(html, it.link).cercive) { if (fl.length) break; fl = fayllar(m, await read(c, f, it.link), c); }
         }
       }
-      const a = { id: it.id, title: clean(title), summary: clean(desc).slice(0, 600), category: "dunya", lang: m.dil, source: m.ad, sourceUrl: it.link };
-      if (!fayl || !a.title) { (state.skip ||= {})[it.id] = Math.floor(now / 1000); continue; }
+      const a = { id: it.id, kind: "dunya", title: clean(title), summary: clean(desc).slice(0, 600), category: "dunya", lang: m.dil, source: m.ad, sourceUrl: it.link };
+      if (fl.length && !deps.oxu) { const kicik = []; for (const u of fl) if (!(await boyukdur(u, f, it.link))) kicik.push(u); fl = kicik; }
+      if (!fl.length || !a.title) { (state.skip ||= {})[it.id] = Math.floor(now / 1000); continue; }
       // Qırmızı xətt 2: xarici mənbədən Azərbaycan və rəhbərliyi haqqında, müxalifət mövzusunda video olmur — mənbənin öz mətni yoxlanır.
       if (policy(a) || policy({ ...a, summary: `${desc} ${body2}` })) { (state.skip ||= {})[it.id] = Math.floor(now / 1000); log(`dünya videosu: saytın qaydasından keçmir — ${m.ad}: ${a.title}`); continue; }
       if (M.yayim({ title: `${title} ${desc}` })) { (state.skip ||= {})[it.id] = Math.floor(now / 1000); continue; }
-      out.push({ a, m, fayl, at: it.at, source: clean(`${title}. ${desc} ${body2}`).slice(0, SOURCE_MAX) });
+      out.push({ a, m, fayl: fl[0], fayllar: fl, at: it.at, source: clean(`${title}. ${desc} ${body2}`).slice(0, SOURCE_MAX) });
       n++;
     }
   }
@@ -227,12 +254,81 @@ async function hazirla({ now = Date.now(), state, env = process.env, fetch: f = 
   if (s.yox) { if (s.c) (state.skip ||= {})[s.c.a.id] = t; log(`dünya videosu: ${s.yox}${s.c ? ` — ${s.c.a.source}: ${s.c.a.title}` : ""}`); return null; }
   const { c } = s;
   fs.mkdirSync(dir, { recursive: true });
-  const err = await (deps.indir || M.indir)(c.fayl, path.join(dir, M.FAYL), f, c.a.sourceUrl).catch(e => String(e?.message || e).slice(0, 120));
-  if (err) { (state.skip ||= {})[c.a.id] = t; log(`dünya videosu: fayl alınmadı (${err}) — ${c.a.source}: ${c.fayl}`); return null; }
+  let err = "fayl yoxdur", fayl = "";
+  for (const u of c.fayllar?.length ? c.fayllar : [c.fayl]) {
+    err = await (deps.indir || M.indir)(u, path.join(dir, M.FAYL), f, c.a.sourceUrl).catch(e => String(e?.message || e).slice(0, 120));
+    if (!err) { fayl = u; break; }
+    log(`dünya videosu: fayl alınmadı (${err}) — ${c.a.source}: ${u}`);
+  }
+  if (err) { (state.skip ||= {})[c.a.id] = t; return null; }
   log(`dünya videosu: ${c.a.source} (${c.m.dil}) → ${s.title}`);
   return { id: c.a.id, tur: "dunya", kind: "dunya", title: s.title, summary: "", text: s.text, category: "dunya", source: c.a.source, sourceUrl: c.a.sourceUrl,
     publishedAt: new Date(c.at || now).toISOString(), alts: [], esli: { title: c.a.title, dil: c.m.dil }, istiqamet: s.istiqamet, ssenari: "gemini",
-    ...(s.etiket ? { hashtags: s.etiket } : {}), menbeVideo: { file: M.FAYL, url: c.fayl, sehife: c.a.sourceUrl, kredit: c.a.source } };
+    ...(s.etiket ? { hashtags: s.etiket } : {}), menbeVideo: { file: M.FAYL, url: fayl, sehife: c.a.sourceUrl, kredit: c.a.source } };
 }
 
-module.exports = { FAYL, NOVLER, kecerli, menbeler, oxuSiyahi, novbe, namizedler, promptOf, sec, options, due, hazirla, idOf, MENBE_SAY, NAMIZED_MAX, MAX_AGE_H };
+// --- X videoları: «Çox baxılan» ----------------------------------------------------------------------------------------------------
+// Sahib, 2026-11-26: «X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et», «instagramda müəyyən
+// etdiyimiz çox baxılan istiqamətlərini X-ə tətbiq et». Saytın Videolenti (data/reels.json, x_yazici/oz_x.py) hər videonun X-dəki
+// baxış sayını (v), mövzusunu (m) və Azərbaycan dilində izahını (c) saxlayır. Sosial video üçün son X_MAX_SAAT (36) saatın ən çox
+// baxılanı seçilir: sıra = baxış × mövzunun əmsalı (profil x.movzular — Instagram təhlilinin istiqamətləri: heyrətamiz/insan
+// hekayəsi və məşhurlar 1,3, heyvan və təbiət 1,2, elm 1,1, hadisə görüntüsü 1). Görüntü X videosunun özüdür, mətn onun izahıdır.
+// Götürülmür: idman və oyun qrupları (liqaların oyun kadrı, oyun treylerləri — platformalar avtomatik tanıyır), böyük yayımçıların
+// hesabları (x.qadagan), yayım kadrı (lent.yayim), müharibə və zorakılıq görüntüsü (x.kenar), saytın qaydasından keçməyən izah.
+const REELS = path.join(__dirname, "..", "..", "data", "reels.json");
+const X_KLIP_BOYU = 30, X_CEHD = 3, X_IZAH_MIN = 40, X_IZAH_MAX = 420, X_BASLIQ_MAX = 100;
+function xOptions(env = process.env, D = dil()) {
+  return { on: env.X_VIDEO !== "0", perDay: num(env.X_GUNDE, 6), gapMin: num(env.X_ARA_MIN, 120), minV: num(env.X_MIN_BAXIS, Number(D.x?.min_baxis) || 0), maxAgeH: num(env.X_MAX_SAAT, 36) };
+}
+function xDue(state, now, o) {
+  if (!o.on) return "X videosu söndürülüb (X_VIDEO=0)";
+  const sec = now / 1000, times = Object.values(state.xv || {});
+  const day = times.filter(t => sec - t < 86400).length;
+  if (day >= o.perDay) return `24 saatda ${day} X videosu (hədd ${o.perDay})`;
+  const ago = Math.floor((sec - Math.max(0, ...times)) / 60);
+  if (ago < o.gapMin) return `son X videosu ${ago} dəq əvvəl (ara ${o.gapMin} dəq)`;
+  return "";
+}
+const xId = id => idOf(`x:${id}`);
+// Namizədlər, ən çox baxılan (əmsalla) əvvəl. policy məcburidir (izah saytın qaydasından keçməlidir).
+function xNamizedler(items, { state = {}, now = Date.now(), policy, o = xOptions(), D = dil() } = {}) {
+  const cfg = D.x || {}, w = cfg.movzular || {}, deny = cfg.qadagan ? new RegExp(cfg.qadagan, "i") : null, kenar = cfg.kenar ? new RegExp(cfg.kenar, "iu") : null;
+  const out = [];
+  for (const x of Array.isArray(items) ? items : []) {
+    const c = clean(x?.c), at = Date.parse(x?.t || ""), k = Number(w[x?.m]) || 0, id = xId(x?.id);
+    if (!/^\d{5,25}$/.test(String(x?.id || "")) || !/^[A-Za-z0-9_]{1,20}$/.test(String(x?.a || "")) || !/^https:\/\/video\.twimg\.com\/[^\s]+\.mp4(\?[^\s]*)?$/.test(String(x?.u || ""))) continue;
+    if (!(k > 0) || !(Number(x.v) >= o.minV) || !Number.isFinite(at) || now - at > o.maxAgeH * 3600e3 || at - now > 600e3) continue;
+    if (c.length < X_IZAH_MIN || c.length > X_IZAH_MAX || (deny && deny.test(x.a)) || (kenar && kenar.test(c)) || M.yayim({ title: c }, D)) continue;
+    if (state.xv?.[id] || state.v?.[id] || state.skip?.[id]) continue;
+    if (policy({ id, kind: "x", title: c, summary: c, category: "dunya", lang: D.lent.dil, source: clean(x.n) || x.a, sourceUrl: `https://x.com/${x.a}/status/${x.id}` })) continue;
+    out.push({ x, id, c, at, bal: Number(x.v) * k });
+  }
+  return out.sort((a, b) => b.bal - a.bal || b.at - a.at);
+}
+// Başlıq: izahın birinci cümləsi (sonda nöqtəsiz), uzundursa söz sərhədində kəsilir.
+const xBasliq = c => S.cut((c.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"“])/u)[0] || c).replace(/[.…]+$/, ""), X_BASLIQ_MAX);
+// Ən çox baxılan X videosu → xeber.json-un girişi (sosial-video.cjs xSec yazır) və ya null.
+async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f = globalThis.fetch, policy, dir, log = console.log, file = REELS, deps = {} }) {
+  if (typeof policy !== "function") throw new Error("X videosu: saytın qaydası (policyViolation) verilməyib");
+  const D = dil(), o = xOptions(env, D);
+  let items = [];
+  try { items = JSON.parse(fs.readFileSync(file, "utf8")).items || []; } catch { log("X videosu: data/reels.json oxunmadı"); return null; }
+  const pool = xNamizedler(items, { state, now, policy, o, D });
+  if (!pool.length) { log(`X videosu: son ${o.maxAgeH} saatda ${o.minV}+ baxışlı, istiqamətə uyğun yeni video yoxdur`); return null; }
+  fs.mkdirSync(dir, { recursive: true });
+  const t = Math.floor(now / 1000);
+  for (const c of pool.slice(0, X_CEHD)) {
+    const { x } = c, sehife = `https://x.com/${x.a}/status/${x.id}`;
+    const err = await (deps.indir || M.indir)(x.u, path.join(dir, M.FAYL), f, "https://x.com/").catch(e => String(e?.message || e).slice(0, 120));
+    if (err) { (state.skip ||= {})[c.id] = t; log(`X videosu: fayl alınmadı (${err}) — @${x.a}`); continue; }
+    const ad = clean(x.n) || x.a, text = /[.!?…]$/.test(c.c) ? c.c : `${c.c}.`;
+    log(`X videosu: @${x.a} — ${x.v} baxış, mövzu ${x.m} → ${xBasliq(c.c)}`);
+    return { id: c.id, tur: "x", kind: "x", title: xBasliq(c.c), summary: "", text, category: "dunya", bolme: clean(D.x.bolme), source: `${ad} (X)`, sourceUrl: sehife,
+      publishedAt: new Date(c.at).toISOString(), alts: [], baxis: Number(x.v), movzu: x.m, klip_boyu: X_KLIP_BOYU,
+      menbeVideo: { file: M.FAYL, url: x.u, sehife, kredit: `@${x.a} (X)` } };
+  }
+  return null;
+}
+
+module.exports = { FAYL, NOVLER, kecerli, menbeler, oxuSiyahi, fayllar, novbe, namizedler, promptOf, sec, options, due, hazirla, idOf, MENBE_SAY, NAMIZED_MAX, MAX_AGE_H,
+  REELS, xOptions, xDue, xNamizedler, xHazirla, xBasliq, xId };

@@ -38,7 +38,7 @@ function withDil(kod, fn) {
 const keys = (o, pre = "") => Object.entries(o).flatMap(([k, v]) => {
   const p = pre ? `${pre}.${k}` : k;
   // Siyahı və sərbəst lüğət (bölmə → ad, qrup → ad) dəyərdir: içindəki açarlar dildən-dilə fərqlənə bilər.
-  return v && typeof v === "object" && !Array.isArray(v) && !/^(video\.bolmeler|lent\.ceki\.bolme|maraqli\.qruplar|youtube\.(nov_etiketleri|bolme_etiketleri))$/.test(p) ? keys(v, p) : [p];
+  return v && typeof v === "object" && !Array.isArray(v) && !/^(video\.bolmeler|lent\.ceki\.bolme|x\.movzular|maraqli\.qruplar|youtube\.(nov_etiketleri|bolme_etiketleri))$/.test(p) ? keys(v, p) : [p];
 });
 
 test("video-dil: every language profile has exactly the keys of az.json (a new language is a new file, no code change)", () => {

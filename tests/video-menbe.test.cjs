@@ -88,12 +88,12 @@ test("mənbə videosu: selection keeps bank clips as a fallback, goes ahead on t
     const mv = { file: "klip-menbe.mp4", url: "https://cdn.apa.az/v/1.mp4", sehife: a.sourceUrl, kredit: "APA", bytes: 1 };
     // Bank açarı yoxdur: video mənbənin öz görüntüsü ilə gedir, xeber.json-da menbeVideo var.
     const st = SV.readState("/yoxdur", NOW);
-    const x = await SV.sec({ articles: [a], env: { VIDEO_ACAR: "1", GEMINI_API_KEY: "g", DUNYA_VIDEO: "0", MARAQLI_VIDEO: "0" }, now: NOW, state: st, fetch: f, cats: [{ slug: "gundem", label: "Gündəm" }], dir, log: () => {}, menbe: async () => mv });
+    const x = await SV.sec({ articles: [a], env: { VIDEO_ACAR: "1", GEMINI_API_KEY: "g", DUNYA_VIDEO: "0", X_VIDEO: "0", MARAQLI_VIDEO: "0" }, now: NOW, state: st, fetch: f, cats: [{ slug: "gundem", label: "Gündəm" }], dir, log: () => {}, menbe: async () => mv });
     assert.equal(x.id, a.id);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, "xeber.json"), "utf8")).menbeVideo, mv);
     // Mənbə videosu tapılmayanda əvvəlki kimi (sahə yoxdur).
     const st2 = SV.readState("/yoxdur", NOW);
-    await SV.sec({ articles: [a], env: { VIDEO_ACAR: "1", GEMINI_API_KEY: "g", DUNYA_VIDEO: "0", MARAQLI_VIDEO: "0" }, now: NOW, state: st2, fetch: f, cats: [], dir, log: () => {}, menbe: async () => null });
+    await SV.sec({ articles: [a], env: { VIDEO_ACAR: "1", GEMINI_API_KEY: "g", DUNYA_VIDEO: "0", X_VIDEO: "0", MARAQLI_VIDEO: "0" }, now: NOW, state: st2, fetch: f, cats: [], dir, log: () => {}, menbe: async () => null });
     assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "xeber.json"), "utf8")).menbeVideo, undefined);
   } finally { if (old === undefined) delete process.env.GITHUB_OUTPUT; else process.env.GITHUB_OUTPUT = old; }
 });
@@ -219,14 +219,14 @@ test("dünya videosu: its own pace (8 a day, 90 minutes apart), before the news 
     const x = { id: "d1".padEnd(16, "0"), tur: "dunya", kind: "dunya", title: "Osloda donmuş göldən it xilas edildi", text: "Mətn.", category: "dunya", source: "Sınaq TV", sourceUrl: "https://tv.example/v/1",
       publishedAt: new Date(NOW).toISOString(), menbeVideo: { file: "klip-menbe.mp4", kredit: "Sınaq TV" } };
     let asked = 0;
-    const got = await SV.sec({ articles: [], env: { VIDEO_ACAR: "1", MARAQLI_VIDEO: "0" }, now: NOW, state: st, fetch: async () => ({ ok: false }), cats: [{ slug: "dunya", label: "Dünya" }], dir, log: () => {},
+    const got = await SV.sec({ articles: [], env: { VIDEO_ACAR: "1", X_VIDEO: "0", MARAQLI_VIDEO: "0" }, now: NOW, state: st, fetch: async () => ({ ok: false }), cats: [{ slug: "dunya", label: "Dünya" }], dir, log: () => {},
       dunya: async a => { asked++; assert.equal(typeof a.policy, "function"); return x; } });
     assert.equal(asked, 1);
     assert.equal(got.bolme, "Dünya"); assert.equal(got.link, "https://8ulduz.az/bolme/dunya/"); assert.equal(got.url, got.link);
     assert.ok(st.dv[x.id] && st.v[x.id] && st._last, "gündəlik həddə və fasiləyə sayılır");
     assert.match(fs.readFileSync(process.env.GITHUB_OUTPUT, "utf8"), /hazir=1\ntur=dunya/);
     // Növbəti pəncərə (30 dəq sonra): dünya videosunun arası (90 dəq) dolmayıb — soruşulmur.
-    await SV.sec({ articles: [], env: { VIDEO_ACAR: "1", MARAQLI_VIDEO: "0" }, now: NOW + 31 * 60e3, state: st, fetch: async () => ({ ok: false }), cats: [], dir, log: () => {}, dunya: async () => { asked++; return null; } });
+    await SV.sec({ articles: [], env: { VIDEO_ACAR: "1", X_VIDEO: "0", MARAQLI_VIDEO: "0" }, now: NOW + 31 * 60e3, state: st, fetch: async () => ({ ok: false }), cats: [], dir, log: () => {}, dunya: async () => { asked++; return null; } });
     assert.equal(asked, 1);
     // Siyahı dv və dm-i saxlayır; paylaşandan sonra mövzu siyahısına düşmür.
     const file = path.join(dir, "state.json");
@@ -238,7 +238,7 @@ test("dünya videosu: its own pace (8 a day, 90 minutes apart), before the news 
   const wf = read(".github/workflows/sosial-video.yml");
   for (const f of [".github/scripts/video-menbe.cjs", ".github/scripts/video-dunya.cjs", ".github/video-dunya.json"]) assert.ok(wf.split(f).length >= 3, `${f}: PR yolu və sparse-checkout`);
   for (const v of ["MENBE_VIDEO", "MENBE_YAYIM", "DUNYA_VIDEO", "DUNYA_GUNDE", "DUNYA_ARA_MIN"]) assert.ok(wf.includes(`${v}: \${{ vars.${v} }}`), v);
-  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya\]/);
+  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya, x\]/);
 });
 
 test("arxiv: the owner's release also takes credited third-party footage («mənbə: Ad») — no watermark or platform refusal for it", () => {
@@ -251,4 +251,119 @@ test("arxiv: the owner's release also takes credited third-party footage («mən
   assert.equal(VA.kecerli(e), "", "mənbəli görüntüdə su nişanı və üçüncü tərəf adı rədd səbəbi deyil");
   assert.match(VA.kecerli({ ...e, icaze: "oz-cekilis" }), /su nişanı|üçüncü tərəf/, "öz çəkiliş kimi yazılanda əvvəlki yoxlamalar qalır");
   assert.match(VA.kecerli({ ...e, yer: ["Stepanakert", "Azerbaijan"] }), /siyasi/);
+});
+
+// --- X videoları: «Çox baxılan» ---------------------------------------------------------------------------------------------------
+// Sahib, 2026-11-26: «X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et», «instagramda müəyyən
+// etdiyimiz çox baxılan istiqamətlərini X-ə tətbiq et».
+const xi = (id, o = {}) => ({ id: String(id), a: "TheFigen_", n: "Figen", m: "maraqli", u: `https://video.twimg.com/amplify_video/${id}/vid/avc1/720x1280/a.mp4?tag=21`, i: "https://pbs.twimg.com/x.jpg",
+  w: 720, h: 1280, t: new Date(NOW - 2 * 3600e3).toISOString(), q: "h", v: 500000, c: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar. Görüntülər milyonlarla insanı təsirləndirib.", ...o });
+
+test("X: the most-watched recent videos, weighted by the Instagram directions; league footage, big broadcasters, war footage and anything the site rule refuses are left out", () => {
+  const items = [xi(100001), xi(100002, { m: "xeber", a: "bpthaber", v: 600000, c: "İstanbulda yanğınsöndürənlər balkonda qalan uşağı xilas ediblər, görüntülər yayılıb." }),
+    xi(100003, { m: "idman", a: "trtspor", v: 5000000, c: "Arda Güler komandasına qələbə gətirən hərəkəti ilə yadda qaldı, azarkeşlər ayaqda alqışladı." }),
+    xi(100004, { v: 90000 }), xi(100005, { t: new Date(NOW - 40 * 3600e3).toISOString() }), xi(100006, { a: "FoxNews", m: "xeber", v: 900000 }),
+    xi(100007, { m: "xeber", v: 2000000, c: "Hava limanında təyyarəyə endirilən zərbənin görüntüləri yayılıb, hadisə yerində yanğın başlayıb." }),
+    xi(100008, { m: "kino", v: 800000, c: "Yeni filmin treyleri yayımlanıb və qısa vaxtda milyonlarla baxış toplayıb, izləyicilər həyəcanla gözləyir." }),
+    xi(100009, { m: "tebiet", a: "AMAZlNGNATURE", v: 450000, c: "Ana fil balasını çaydan çıxarmaq üçün xortumu ilə kömək edir, sürü onları gözləyir." }),
+    xi(100010, { c: "Qısa izah." }), xi(100011, { v: 700000, c: "Azərbaycan haqqında xarici mənbənin yaydığı video sosial şəbəkələrdə müzakirə olunur." }), xi("x12")];
+  const policy = a => /Azərbaycan/.test(`${a.title} ${a.summary}`) || !/^https:\/\/x\.com\//.test(a.sourceUrl);
+  const pool = VD.xNamizedler(items, { state: { xv: {}, v: {}, skip: {} }, now: NOW, policy });
+  // 500 000 × 1,3 = 650 000 (maraqlı) > 600 000 × 1 (xəbər) > 450 000 × 1,2 = 540 000 (təbiət)
+  assert.deepEqual(pool.map(c => c.x.id), ["100001", "100002", "100009"]);
+  assert.equal(VD.xBasliq(pool[0].c), "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq: izahın birinci cümləsi, nöqtəsiz");
+  // İşlənmiş video bir də getmir.
+  assert.deepEqual(VD.xNamizedler(items, { state: { xv: { [VD.xId("100001")]: NOW / 1000 } }, now: NOW, policy }).map(c => c.x.id), ["100002", "100009"]);
+  assert.deepEqual(VD.xOptions({}), { on: true, perDay: 6, gapMin: 120, minV: 100000, maxAgeH: 36 });
+  assert.match(VD.xDue({ xv: { a: NOW / 1000 - 3600 } }, NOW, VD.xOptions({})), /60 dəq əvvəl \(ara 120 dəq\)/);
+  assert.equal(VD.xDue({ xv: {} }, NOW, VD.xOptions({})), "");
+  assert.match(VD.xDue({ xv: {} }, NOW, VD.xOptions({ X_VIDEO: "0" })), /söndürülüb/);
+});
+
+test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (video lasts as long as the clip), credit to the account; it goes first when due", async () => {
+  const dir = tmp(), file = path.join(dir, "reels.json");
+  fs.writeFileSync(file, JSON.stringify({ items: [xi(100001), xi(100002, { v: 300000 })] }));
+  await assert.rejects(VD.xHazirla({ now: NOW, state: {}, env: {}, dir, log: () => {}, file }), /qaydası/);
+  const got = [];
+  const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: {}, policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f, _f, ref) => { got.push([u, ref]); fs.writeFileSync(f, mp4()); return ""; } } });
+  assert.deepEqual({ tur: x.tur, kind: x.kind, title: x.title, bolme: x.bolme, source: x.source, sourceUrl: x.sourceUrl, baxis: x.baxis, klip_boyu: x.klip_boyu, kredit: x.menbeVideo.kredit, category: x.category },
+    { tur: "x", kind: "x", title: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", bolme: "Çox baxılan", source: "Figen (X)", sourceUrl: "https://x.com/TheFigen_/status/100001", baxis: 500000, klip_boyu: 30, kredit: "@TheFigen_ (X)", category: "dunya" });
+  assert.match(x.text, /^Yenidoğulmuş əkizlərin.*təsirləndirib\.$/);
+  assert.deepEqual(got, [[xi(100001).u, "https://x.com/"]]);
+  // Fayl alınmasa növbəti ən çox baxılan sınanır.
+  const st = { skip: {} };
+  const y = await VD.xHazirla({ now: NOW, state: st, env: {}, policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f) => (/100001/.test(u) ? "HTTP 403" : (fs.writeFileSync(f, mp4()), "")) } });
+  assert.equal(y.sourceUrl, "https://x.com/TheFigen_/status/100002");
+  assert.ok(st.skip[VD.xId("100001")]);
+  // Montaj: klip_boyu — mətn qısa olsa da video klip boyu davam edir, sonluq sonda qalır.
+  const p = V.prepare({ id: x.id, title: x.title, text: x.text, category: "dunya", bolme: x.bolme, source: x.source, publishedAt: x.publishedAt, tur: "x", kind: "x" }, { cats: [], footage: true });
+  assert.equal(p.label, "ÇOX BAXILAN");
+  const qisa = V.timeline(p, null), uzun = V.timeline({ ...p, min_s: 30 }, null);
+  assert.ok(qisa.duration < 20 && Math.abs(uzun.duration - 30) < 0.5, `${qisa.duration} → ${uzun.duration}`);
+  assert.ok(Math.abs(uzun.outro[1] + 0.3 - uzun.duration) < 0.05, "sonluq (abunə çağırışı) videonun sonundadır");
+  assert.equal(V.timeline({ ...p, min_s: 500 }, null).duration <= V.MAX_S, true);
+  assert.equal(V.storyFields({ id: "x1", title: "T", kind: "x" }).url, "https://8ulduz.az/#/videolent");
+  // Seçim: X vaxtıdırsa birinci gedir, gündəlik həddə və fasiləyə sayılır; 2 saat dolmayınca bir də soruşulmur.
+  const old = process.env.GITHUB_OUTPUT; process.env.GITHUB_OUTPUT = path.join(dir, "out.txt");
+  try {
+    const s2 = SV.readState("/yoxdur", NOW); let asked = 0, dunya = 0;
+    const args = now => ({ articles: [], env: { VIDEO_ACAR: "1", MARAQLI_VIDEO: "0" }, now, state: s2, fetch: async () => ({ ok: false }), cats: [], dir, log: () => {},
+      xvideo: async a => { asked++; assert.equal(typeof a.policy, "function"); return x; }, dunya: async () => { dunya++; return null; } });
+    const r = await SV.sec(args(NOW));
+    assert.equal(r.link, "https://8ulduz.az/#/videolent");
+    assert.ok(s2.xv[x.id] && s2.v[x.id] && asked === 1 && dunya === 0);
+    assert.match(fs.readFileSync(process.env.GITHUB_OUTPUT, "utf8"), /hazir=1\ntur=x/);
+    await SV.sec(args(NOW + 31 * 60e3));
+    assert.equal(asked, 1, "X-in arası (120 dəq) dolmayıb");
+    assert.equal(dunya, 1, "növbə dünya videosundadır");
+  } finally { if (old === undefined) delete process.env.GITHUB_OUTPUT; else process.env.GITHUB_OUTPUT = old; }
+});
+
+test("qırmızı xətt 2: sources outside the feed list (world video, X) pass the foreign-source rule — nothing about Azerbaijan or its leadership, no blocked host", () => {
+  const app = require("../.github/scripts/topics.cjs").loadApp(root);
+  const t = (title, sourceUrl = "https://x.com/a/status/1", summary = "") => app.xariciPozur({ title, summary, sourceUrl });
+  assert.equal(t("Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar."), false);
+  assert.equal(t("Dog rescued from frozen lake", "https://tv.example/v/1", "Firefighters pulled a dog from a frozen lake in Oslo."), false);
+  assert.equal(t("Azərbaycan Prezidenti İlham Əliyev çıxış edib"), true);
+  assert.equal(t("Neytral başlıq", "https://tv.example/v/1", "The president of Azerbaijan met the delegation."), true, "xülasədə də yoxlanır");
+  assert.equal(t("Neytral başlıq", "https://www.meydan.tv/az/video/1"), true, "bağlı sayt");
+  // Lentin qaydası (policyViolation) siyahıda olmayan mənbəni bütünlüklə rədd edir — dünya və X videoları ona görə ayrıca qaydadan keçir.
+  assert.equal(app.policyViolation({ title: "Neytral", source: "Sınaq TV", sourceUrl: "https://tv.example/v/1" }), true);
+  // Qayda hər yerdə növə görə seçilir: seçim (sosial-video.cjs), montaj (video-xeber.cjs), YouTube və TikTok (yalnız dünya videosu).
+  assert.match(read(".github/scripts/sosial-video.cjs"), /xarici: a => app\.xariciPozur\(a\)/);
+  assert.match(read(".github/scripts/video-xeber.cjs"), /x\?\.kind === "dunya" \|\| x\?\.kind === "x" \? app\.xariciPozur\(x\) : app\.policyViolation\(x\)/);
+  for (const f of ["youtube.cjs", "tiktok.cjs"]) {
+    const s = read(`.github/scripts/${f}`);
+    assert.match(s, /a\?\.kind === "dunya" \? app\.xariciPozur\(a\) : app\.policyViolation\(a\)/, f);
+    assert.match(s, /xəbər video\/sosial şəbəkədəndir/, `${f}: X videosu (sourceUrl x.com) YouTube və TikTok-a getmir — sahibin ayrıca qərarı gözlənilir`);
+  }
+});
+
+test("dünya videosu: per-source rules found in the live check — JSON-LD file, skip pattern, bigger rendition, feed-only, sitemap index", async () => {
+  const page = `<script type="application/ld+json">{"@type":"VideoObject","contentUrl":"https:\\/\\/cdn.ex.co\\/a\\/720p.mp4","uploadDate":"2026-11-25"}</script>
+    <video src="https://cdn.ex.co/playlist/1080p.mp4"></video><video src="https://media.w3.org/2010/05/sintel/trailer.mp4"></video>`;
+  assert.deepEqual(VD.fayllar({ fayl: "jsonld" }, page, "https://i.example/tv/1"), ["https://cdn.ex.co/a/720p.mp4"], "səhifədəki başqa videolar yox, öz faylı");
+  assert.deepEqual(VD.fayllar({ atla: "w3\\.org|playlist" }, page, "https://i.example/tv/1"), ["https://cdn.ex.co/a/720p.mp4"], "atla: saytın hər səhifəsindəki fayllar düşür");
+  assert.deepEqual(VD.fayllar({ deyis: ["480x270_MP4", "1024x576_MP4"] }, `<video src="https://v.example/a/480x270_MP4_1.mp4">`, "https://m.example/"),
+    ["https://v.example/a/1024x576_MP4_1.mp4", "https://v.example/a/480x270_MP4_1.mp4"], "iri keyfiyyət əvvəl, olmasa əsli");
+  assert.match(VD.kecerli({ ...M1, fayl: "x" }), /fayl qaydası/);
+  assert.match(VD.kecerli({ ...M1, deyis: ["a"] }), /deyis/);
+  assert.match(VD.kecerli({ ...M1, atla: "(" }), /atla/);
+  // Sayt xəritəsinin siyahısı → birinci hissə; sehife: false — fayl yalnız siyahıdan.
+  const idx = `<sitemapindex><sitemap><loc>https://s.example/sitemaps/video/2026-11.xml</loc></sitemap><sitemap><loc>https://s.example/sitemaps/video/2026-10.xml</loc></sitemap></sitemapindex>`;
+  const part = `<urlset><url><loc>https://s.example/video/yasam/kedi-kurtarildi</loc><video:video><video:title>Kedi itfaiye tarafından kurtarıldı</video:title>
+    <video:description>${"Mahalle sakinleri ağaçta mahsur kalan kediyi fark edip itfaiyeye haber verdi. ".repeat(3)}</video:description><video:content_loc>https://cdn.s.example/1_1080p.mp4</video:content_loc>
+    <video:publication_date>${new Date(NOW - 3600e3).toISOString()}</video:publication_date></video:video></url></urlset>`;
+  const sm = { ...M1, ad: "Xəritə", nov: "sitemap", lent: "https://s.example/sitemap/video.xml", sec: "/video/yasam/" };
+  const st = {};
+  const pool = await VD.namizedler({ list: [sm], state: st, now: NOW, fetch: net({ [sm.lent]: idx, "https://s.example/sitemaps/video/2026-11.xml": part }), policy: () => false, log: () => {} });
+  assert.deepEqual(pool.map(c => [c.a.title, c.fayllar]), [["Kedi itfaiye tarafından kurtarıldı", ["https://cdn.s.example/1_1080p.mp4"]]]);
+  // Həddən iri fayl (HEAD content-length) namizəd olmur.
+  const big = { ok: true, status: 200, headers: { get: k => (k === "content-length" ? String(200e6) : "video/mp4") }, text: async () => "" };
+  const p2 = await VD.namizedler({ list: [sm], state: {}, now: NOW, fetch: net({ [sm.lent]: idx, "https://s.example/sitemaps/video/2026-11.xml": part, "https://cdn.s.example/1_1080p.mp4": big }), policy: () => false, log: () => {} });
+  assert.deepEqual(p2, []);
+  // Repodakı siyahı: «say kifayətdən artıq» — ən azı 20 aktiv mənbə, üç dildə.
+  const act = VD.menbeler();
+  assert.ok(act.length >= 20, `aktiv mənbə: ${act.length}`);
+  assert.deepEqual([...new Set(act.map(m => m.dil))].sort(), ["en", "ru", "tr"]);
 });

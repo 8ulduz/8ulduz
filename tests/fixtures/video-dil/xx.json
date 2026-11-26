@@ -5,6 +5,13 @@
   "herf": "[ẋ]",
   "hava": false,
   "dunya": false,
+  "x": {
+    "bolme": "XX-TOP",
+    "min_baxis": 1,
+    "movzular": {},
+    "qadagan": "",
+    "kenar": ""
+  },
   "lent": {
     "dil": "xx",
     "min_menbe": 1,

@@ -229,8 +229,10 @@ function timeline(p, voice = null) {
   const outroLen = spans[n - 1][1] - spans[n - 1][0];
   const fullEnd = (last) => last + GAP_S + Math.max(OUTRO_S, outroLen + 0.5);
   while (chunks.length && fullEnd(parts[parts.length - 1][1]) > MAX_S) { chunks.pop(); parts.pop(); }
-  const keepUntil = parts.length ? parts[parts.length - 1][1] : head[1], mainEnd = keepUntil + GAP_S;
-  const outro = [mainEnd, mainEnd + Math.max(OUTRO_S, outroLen + 0.5)];
+  // Görüntü aparan video (X klipi; p.min_s — klipin uzunluğu, render): mətn qısadırsa əsas hissə klip boyu uzanır, sonluq sonda qalır.
+  const outroD = Math.max(OUTRO_S, outroLen + 0.5), want = Math.min(MAX_S, Number(p.min_s) || 0) - outroD - 0.3;
+  const keepUntil = parts.length ? parts[parts.length - 1][1] : head[1], mainEnd = Math.max(keepUntil + GAP_S, want);
+  const outro = [mainEnd, mainEnd + outroD];
   const duration = Math.round(Math.max(MIN_S, Math.min(MAX_S, outro[1] + 0.3)) * 100) / 100;
   // Səs ekranla eyni: altyazı düşübsə onun səsi kəsilir, sonluq səsi sonluğun başlanğıcına sürüşür (hamısı video vaxtı ilə).
   // lead: səs faylının videoda başladığı an (ffmpegArgs adelay).
@@ -509,6 +511,8 @@ function storyFields(a) {
     ...(a.kind === "maraqli" ? { kind: "maraqli", url: a.url || "https://8ulduz.az/" } : {}),
     // Dünya videosu (video-dunya.cjs): saytda ayrıca xəbər səhifəsi yoxdur — keçid «Dünya» bölməsinədir.
     ...(a.kind === "dunya" ? { kind: "dunya", url: a.url || "https://8ulduz.az/bolme/dunya/" } : {}),
+    // X videosu («Çox baxılan», video-dunya.cjs xHazirla): keçid saytın Videolentinədir.
+    ...(a.kind === "x" ? { kind: "x", url: a.url || "https://8ulduz.az/#/videolent" } : {}),
     ...(Array.isArray(a.hashtags) && a.hashtags.length ? { hashtags: a.hashtags.slice(0, 3) } : {}) };   // YouTube/TikTok yükləyicisi oxuyur
 }
 
@@ -538,7 +542,8 @@ async function render(a, out, opt = {}) {
   let policy = opt.policy, cats = opt.cats;
   if (!policy || !cats) {
     const app = require("./topics.cjs").loadApp(ROOT);    // qayda faylı oxunmasa xəta: video olmur
-    policy ||= x => app.policyViolation(x);
+    // Dünya və X videoları (kind): mənbə lentin siyahısında deyil — xarici mənbə qaydası (topics.cjs xariciPozur).
+    policy ||= x => (x?.kind === "dunya" || x?.kind === "x" ? app.xariciPozur(x) : app.policyViolation(x));
     cats ||= app.CATS;
   }
   if (policy(a)) throw new Error(`xəbər saytın qaydasından keçmir: ${clean(a.title)}`);
@@ -556,6 +561,8 @@ async function render(a, out, opt = {}) {
   if (mv) { clips = [mv]; menbe = clean(a.menbeVideo.kredit) || clean(a.source) || menbe; a = { ...a, goruntuMenbe: menbe }; }
   else if (mvFile) log(`video: mənbənin videosu oxunmadı və ya qısadır — ${clips.length ? "bank klipləri ilə" : "görüntüsüz"}`);
   const p = prepare(a, { cats, footage: clips.length > 0 });
+  // klip_boyu (X videosu): video ən azı klipin uzunluğu qədər (həddə qədər) davam edir — baxılan şey görüntünün özüdür.
+  if (mv && Number(a.klip_boyu) > 0) p.min_s = Math.min(mv.dur, Number(a.klip_boyu));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-xeber-"));
   try {
     const wantVoice = opt.voice ?? (a.ses !== false && process.env.VIDEO_SES !== "0");
