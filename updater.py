@@ -10,7 +10,7 @@
 - Video nişanı (saytdakı video səhifələrinə keçid üçün)
 - Bazar məlumatları (valyuta, neft, qızıl, gümüş, bitcoin) -> data/markets.json
 """
-import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, unicodedata, math
+import collections, json, re, pathlib, hashlib, datetime, email.utils, html, sys, os, time, unicodedata, math, difflib, functools
 import urllib.request, urllib.parse, urllib.error, base64, zlib
 import xml.etree.ElementTree as ET
 import content_policy
@@ -4925,11 +4925,14 @@ def tsdb_games(events, teams, since=""):
         games.append(game)
     return games
 
-def _tsdb_round_due(games, stamp, now_dt):
-    """Tur nə vaxt yenidən soruşulsun. Bitmiş tur bir daha soruşulmur: dəyişməyən məlumata sorğu getmir."""
+def _tsdb_round_due(games, stamp, now_dt, final=False):
+    """Tur nə vaxt yenidən soruşulsun. Bitmiş tur bir daha soruşulmur: dəyişməyən məlumata sorğu getmir.
+    final: canlı mənbə turun oyununu bitmiş deyir (live_league_rows) — 30 dəqiqə gözlənilmir, LIVE_FINAL_GAP-dən bir."""
     asked = _team_when(stamp)
     if not asked:
         return True
+    if final:
+        return now_dt - asked >= LIVE_FINAL_GAP
     if not games:
         return now_dt - asked >= TSDB_LATER
     open_games = [g for g in games if not g.get("played") and g.get("state") != "off"]
@@ -4942,8 +4945,9 @@ def _tsdb_round_due(games, stamp, now_dt):
         return now_dt - asked >= TSDB_SOON
     return now_dt - asked >= TSDB_LATER
 
-def _tsdb_plan(docs, stamps, now_dt):
-    """Bu dövrə soruşulacaq turlar: əvvəl heç soruşulmamış, oyun gedən tura ən yaxın olan; sonra ən çoxdan gözləyən."""
+def _tsdb_plan(docs, stamps, now_dt, pending=None):
+    """Bu dövrə soruşulacaq turlar: əvvəl canlı mənbənin «bitdi» dediyi tur, sonra heç soruşulmamış (oyun gedən tura ən yaxın),
+    sonra ən çoxdan gözləyən."""
     plan = []
     for doc in docs:
         spec = TSDB_LEAGUES.get(doc["id"])
@@ -4957,18 +4961,19 @@ def _tsdb_plan(docs, stamps, now_dt):
         now_round = max(played) + 1 if played else (doc["groups"][0]["rows"] or [{}])[0].get("p") or 1
         for r in range(1, spec[1] + 1):
             stamp = (mine.get("rounds") or {}).get(str(r))
-            if _tsdb_round_due(by_round.get(str(r)) or [], stamp, now_dt):
-                plan.append((0 if not stamp else 1, abs(r - now_round) if not stamp else 0, stamp or "", doc["id"], r))
+            final = str(r) in (pending or {}).get(doc["id"], ())
+            if _tsdb_round_due(by_round.get(str(r)) or [], stamp, now_dt, final):
+                plan.append((-1 if final else 0 if not stamp else 1, abs(r - now_round) if not stamp else 0, stamp or "", doc["id"], r))
     plan.sort()
     return plan
 
-def tsdb_refresh(docs, stamps, now_dt, out_of_time, sleep=time.sleep):
+def tsdb_refresh(docs, stamps, now_dt, out_of_time, sleep=time.sleep, pending=None):
     """Bu dövrənin sorğuları. Nəticə: {liqa: {tur: oyunlar}}. 429-da qalan sorğular göndərilmir. Xəbər axınına toxunmur: yavaş dövrənin son addımıdır."""
     fresh = collections.defaultdict(dict)
     if (_team_when(stamps.get("until")) or now_dt) > now_dt:
         return fresh
     by_id = {d["id"]: d for d in docs}
-    for i, (_new, _near, _stamp, lid, r) in enumerate(_tsdb_plan(docs, stamps, now_dt)[:TSDB_PER_CYCLE]):
+    for i, (_new, _near, _stamp, lid, r) in enumerate(_tsdb_plan(docs, stamps, now_dt, pending)[:TSDB_PER_CYCLE]):
         if out_of_time():
             break
         if i:
@@ -5360,7 +5365,7 @@ def cup_games(text, pool, zone, year=None):
         games.append(game)
     return teams, sorted(games, key=lambda g: g.get("date") or "9999")
 
-def update_cups(checked, now_dt, out_of_time):
+def update_cups(checked, now_dt, out_of_time, pending=None):
     """Ölkə kubokları. Dövrədə ən çoxu CUP_PER_CYCLE sorğu, alınmayan kubokun köhnə faylı qalır. Nəticə: index.json sətirləri."""
     rows, asked = [], 0
     for short, name, pattern, zone, leagues in WIKI_CUPS:
@@ -5370,7 +5375,7 @@ def update_cups(checked, now_dt, out_of_time):
         if not pool:
             continue
         doc = _read_json(TEAM_DIR / f"{cid}.json", {})
-        if asked < CUP_PER_CYCLE and not out_of_time() and _team_due(doc, checked.get(cid), now_dt, **CUP_DUE):
+        if asked < CUP_PER_CYCLE and not out_of_time() and (_team_due(doc, checked.get(cid), now_dt, **CUP_DUE) or _final_due(pending or {}, cid, checked.get(cid), now_dt)):
             asked += 1
             checked[cid] = now_dt.isoformat(timespec="seconds")
             title = _wiki_title(pattern, now_dt)
@@ -5405,6 +5410,222 @@ def national_rows():
                      "teams": [r["team"] for g in doc.get("groups") or [] for r in g.get("rows") or []] or sorted(doc["teams"])})
     return rows
 
+# Liqa seçiləndə oyunlar və canlı hesab (sahib 2026-11-26: «İstənilən liqanı seçəndə cədvəlin altında və bölmədə oyunlar və canlı
+# skorlar olsun. Bu bütün turnirlərdə bu cür olsun»). Qayda hər turnirdə eynidir, liqaya xüsusi xəritə yoxdur:
+# - isti liqa: faylında oyun var ki, başlaması [indi − 30 dəq, indi + 4 saat] aralığındadır (saatsız oyun: o günün 20:00 – ertəsi 08:00 UTC);
+# - canlı sətirlər iki pulsuz mənbədən: TheSportsDB-nin açıq livescore-u (bütün liqalar bir sorğuda, açar «123») və data/canli.json
+#   (football-data.org, API-Football, OpenLigaDB). Sətir oyuna liqanın adı ilə yox, komandaların adı və başlama vaxtı ilə bağlanır;
+# - isti liqanın cədvəli və yaxın günlərin oyunları canlı hesabla <kök>/canli/<liqa>.json-a yazılır: pipeline onu hər dəqiqə live
+#   budağına (liqa-<liqa>.json) göndərir, main-ə getmir. Sayt (assets/oyunlar.js) liqa isti ikən onu dəqiqədə bir oxuyur;
+# - canlı mənbə oyunu «bitdi» deyir, liqanın öz mənbəyi hələ yox: o liqanın mənbəyi növbəti yavaş dövrədə soruşulur (pfl.az-ın 10,
+#   TheSportsDB-nin 30 dəqiqəlik gözləməsi gözlənilmir). Cədvəli yalnız liqanın öz mənbəyi dəyişir: mənbələr hesabda razılaşmaya
+#   bilər (2026-11-25, Sportinq — Mançester Yunayted: OpenLigaDB və TheSportsDB 2:2, football-data.org 2:3).
+LIVE_LEAGUE_DIR = ROOT / "canli"
+LIVE_HOT_BEFORE = datetime.timedelta(minutes=30)
+LIVE_HOT_AFTER = datetime.timedelta(hours=4)
+LIVE_DAY_FROM, LIVE_DAY_TO = datetime.timedelta(hours=8), datetime.timedelta(hours=20)   # saatsız oyun (NBA): 12:00 UTC + bu aralıq
+LIVE_SPAN_BACK = datetime.timedelta(days=3)
+LIVE_SPAN_AHEAD = datetime.timedelta(days=4)
+LIVE_MATCH_GAP = datetime.timedelta(hours=3)
+LIVE_FINAL_GAP = datetime.timedelta(minutes=3)
+TSDB_LIVE = "https://www.thesportsdb.com/api/v1/json/123/livescore.php"
+TSDB_LIVE_SPORT = {"football": "Soccer", "basketball": "Basketball"}
+TSDB_LIVE_STATUS = {"1H": "live", "2H": "live", "ET": "live", "P": "live", "LIVE": "live", "Q1": "live", "Q2": "live", "Q3": "live", "Q4": "live", "OT": "live",
+                    "HT": "ht", "BT": "ht", "FT": "ft", "AET": "ft", "PEN": "ft", "AOT": "ft", "AP": "ft", "NS": "ns", "TBD": "ns",
+                    "PST": "pp", "POST": "pp", "CANC": "pp", "ABD": "pp", "SUSP": "pp", "INT": "pp", "AWD": "ft", "WO": "ft"}
+_LIVE_RANK = {"ft": 3, "live": 2, "ht": 2, "pp": 1, "ns": 0}
+_LIVE_FOLD = (("dzh", "c"), ("ch", "c"), ("sh", "s"), ("kh", "x"), ("zh", "j"))   # Neftchi/Neftçi, Shamakhi/Şamaxı
+
+def _live_window(g):
+    kick = _team_when(g.get("date"))
+    if not kick or g.get("state") == "off":
+        return None
+    return (kick + LIVE_DAY_FROM, kick + LIVE_DAY_TO) if g.get("day") else (kick - LIVE_HOT_BEFORE, kick + LIVE_HOT_AFTER)
+
+def league_hot(doc, now_dt):
+    """Liqada oyun gedir, yaxındır və ya təzə bitib (assets/oyunlar.js hot() ilə eyni qayda)."""
+    return any(w and w[0] <= now_dt <= w[1] for w in map(_live_window, (doc or {}).get("games") or []))
+
+def tsdb_live_rows(doc):
+    """TheSportsDB livescore -> ümumi canlı sətirlər {sport, t, s, h, a, hs, as, min}. Mətn yoxdur: komanda adı və hesab."""
+    rows = []
+    for e in (doc or {}).get("livescore") or []:
+        status = TSDB_LIVE_STATUS.get(str(e.get("strStatus") or "").upper())
+        kick = _team_when(str(e.get("strTimestamp") or "")[:19] + "+00:00")
+        names = [str(e.get(k) or "").strip() for k in ("strHomeTeam", "strAwayTeam")]
+        if not status or not kick or not all(_LIVE_NAME.fullmatch(n) for n in names):
+            continue
+        row = {"sport": "basketball" if e.get("strSport") == "Basketball" else "football", "t": kick, "s": status, "h": names[0], "a": names[1]}
+        hs, aw = str(e.get("intHomeScore") or ""), str(e.get("intAwayScore") or "")
+        if status in ("live", "ht", "ft") and hs.isdigit() and aw.isdigit():
+            row.update(hs=int(hs), **{"as": int(aw)})
+        minute = str(e.get("strProgress") or "")
+        if status == "live" and row["sport"] == "football" and minute.isdigit() and 0 < int(minute) < 200:
+            row["min"] = int(minute)
+        rows.append(row)
+    return rows
+
+def canli_live_rows(doc):
+    """data/canli.json (football-data.org, API-Football, OpenLigaDB) -> ümumi canlı sətirlər."""
+    rows = []
+    for r in (doc or {}).get("matches") or []:
+        kick = _team_when(r.get("t"))
+        if not kick or r.get("s") not in _LIVE_RANK:
+            continue
+        row = {"sport": "football", "t": kick, "s": r["s"], "h": str(r.get("h") or ""), "a": str(r.get("a") or "")}
+        row.update({k: r[k] for k in ("hs", "as", "min") if isinstance(r.get(k), int)})
+        rows.append(row)
+    return rows
+
+@functools.lru_cache(maxsize=8192)
+def _live_tokens(name):
+    s = "".join(c for c in unicodedata.normalize("NFD", str(name or "").lower()) if not unicodedata.combining(c))
+    s = s.replace("ı", "i").replace("ə", "e").replace("ø", "o").replace("ß", "ss")
+    words = [w for w in re.split(r"[\W_]+", s) if w]
+    for a, b in _LIVE_FOLD:
+        words = [w.replace(a, b) for w in words]
+    return tuple(words)
+
+@functools.lru_cache(maxsize=65536)   # hər isti liqada eyni adlar yüzlərlə dəfə tutuşdurulur
+def _live_side(a, b):
+    """İki ad bir klubdurmu: 2 — bəli (sözlər üst-üstə, qısaltma, söz başı, yazılış fərqi), 1 — bəlkə (ortaq söz), 0 — yox."""
+    ra, rb = _live_tokens(a), _live_tokens(b)
+    A = {w for w in ra if w not in _TSDB_STOP} or set(ra)
+    B = {w for w in rb if w not in _TSDB_STOP} or set(rb)
+    if not A or not B:
+        return 0
+    if A <= B or B <= A:
+        return 2
+    for one, words in ((A, rb), (B, ra)):
+        initials = "".join(w[0] for w in words)
+        if len(one) == 1 and len(next(iter(one))) >= 3 and next(iter(one)) == initials:
+            return 2   # PSG — Paris Saint-Germain
+    weak = 1 if A & B else 0
+    for x in A - B:
+        for y in B - A:
+            if min(len(x), len(y)) >= 4 and (x.startswith(y) or y.startswith(x)):
+                return 2   # Atleti — Atlético
+            ratio = difflib.SequenceMatcher(None, x, y).ratio()
+            if min(len(x), len(y)) >= 4 and ratio >= 0.8:
+                return 2   # Shaktar — Shakhtar, Sumgayit — Sumqayıt
+            if min(len(x), len(y)) >= 5 and ratio >= 0.6:
+                weak = 1   # Kapaz — Kəpəz
+    return weak
+
+def _team_names(doc, slug):
+    t = (doc.get("teams") or {}).get(slug) or {}
+    return [n for n in (t.get("name"), t.get("short"), slug.replace("-", " ")) if n]
+
+def match_live(g, doc, rows):
+    """Oyunun canlı sətri: {s, hs, as, min} və ya None. Sətir vaxtla (±3 saat, saatsız oyunda o gecə) və iki komandanın adı ilə
+    bağlanır: hər iki ad uyğun olmalıdır, ikisi də «bəlkə»dirsə başlama vaxtı da 15 dəqiqəyədək eynidir. Eyni oyun iki mənbədədirsə
+    vəziyyəti irəlidə olan götürülür (bitdi > gedir), bərabərdə əvvəlki mənbə (TheSportsDB). Bitmiş oyuna (mənbənin öz nəticəsi) toxunulmur."""
+    if g.get("played"):
+        return None
+    kick, window = _team_when(g.get("date")), _live_window(g)
+    if not kick or not window:
+        return None
+    sport = doc.get("sport") or "football"
+    side = lambda slug, name: max((_live_side(n, name) for n in _team_names(doc, slug)), default=0)
+    best = None
+    for r in rows:
+        if r["sport"] != sport or not (window[0] <= r["t"] <= window[1] if g.get("day") else abs(r["t"] - kick) <= LIVE_MATCH_GAP):
+            continue
+        for swap in (False, True):
+            h, a = side(g["home"], r["a" if swap else "h"]), side(g["away"], r["h" if swap else "a"])
+            if not (h and a and (h + a >= 3 or abs(r["t"] - kick) <= datetime.timedelta(minutes=15))):
+                continue
+            key = (_LIVE_RANK[r["s"]], h + a, not swap)
+            if best is None or key > best[0]:
+                best = (key, r, swap)
+    if best is None or best[1]["s"] == "ns":
+        return None
+    r, swap = best[1], best[2]
+    live = {"s": r["s"]}
+    if "hs" in r and r["s"] != "pp":
+        live.update(hs=r["as"] if swap else r["hs"], **{"as": r["hs"] if swap else r["as"]})
+    if "min" in r:
+        live["min"] = r["min"]
+    return live
+
+def live_league_doc(doc, rows, now_dt):
+    """Isti liqanın canlı nüsxəsi: cədvəl və [indi − 3 gün, indi + 4 gün] oyunları, gedən və təzə bitən oyunda «live»."""
+    lo, hi = now_dt - LIVE_SPAN_BACK, now_dt + LIVE_SPAN_AHEAD
+    games = []
+    for g in doc.get("games") or []:
+        kick = _team_when(g.get("date"))
+        if not kick or not lo <= kick <= hi:
+            continue
+        g = dict(g)
+        g.pop("live", None)
+        live = match_live(g, doc, rows)
+        if live:
+            g["live"] = live
+        games.append(g)
+    return {"id": doc.get("id") or "", "at": now_dt.isoformat(timespec="seconds"), "from": lo.isoformat(timespec="seconds"),
+            "to": hi.isoformat(timespec="seconds"), "groups": doc.get("groups") or [], "games": games}
+
+def _current_docs(leagues):
+    for league in leagues or []:
+        lid = str(league.get("id") or "")
+        if re.fullmatch(r"[a-z0-9-]+", lid):
+            doc = _read_json(TEAM_DIR / f"{lid}.json", {})
+            if isinstance(doc, dict) and doc.get("games"):
+                yield lid, doc
+
+def live_league_rows(leagues, stamps, now_dt, sleep=time.sleep):
+    """Komanda addımının əvvəli: isti liqa varsa canlı sətirlər və «mənbəsi hələ bitirməyən» oyunlar. Nəticə: (sətirlər, {liqa: turlar}).
+    TheSportsDB sorğusu oyun-yoxlama.json-dakı 429 gözləməsinə tabedir; hər idman növü üçün bir sorğu, yalnız o növdə isti liqa varsa."""
+    hot = [(lid, doc) for lid, doc in _current_docs(leagues) if league_hot(doc, now_dt)]
+    if not hot:
+        return [], {}
+    rows = []
+    asked = 0
+    for sport in sorted({doc.get("sport") or "football" for _lid, doc in hot}):
+        if sport not in TSDB_LIVE_SPORT or (_team_when(stamps.get("until")) or now_dt) > now_dt:
+            continue
+        if asked:
+            sleep(TSDB_GAP_S)
+        asked += 1
+        try:
+            body = fetch(TSDB_LIVE + "?" + urllib.parse.urlencode({"s": TSDB_LIVE_SPORT[sport]}), timeout=12, headers={"User-Agent": WIKI_UA, "Accept": "application/json"})
+            rows += tsdb_live_rows(json.loads(body) if body.strip() else {})
+        except urllib.error.HTTPError as e:
+            print("  ! canlı liqa (TheSportsDB):", e.code)
+            if e.code == 429:
+                stamps["until"] = (now_dt + TSDB_BACKOFF).isoformat(timespec="seconds")
+                break
+        except Exception as e:
+            print("  ! canlı liqa (TheSportsDB):", type(e).__name__)
+    if asked:
+        sleep(TSDB_GAP_S)   # TheSportsDB-nin tur sorğuları (tsdb_refresh) dərhal ardınca gəlməsin
+    rows += canli_live_rows(_read_json(LIVE_FILE, {}))
+    pending = collections.defaultdict(set)
+    for lid, doc in hot:
+        for g in doc.get("games") or []:
+            live = match_live(g, doc, rows)
+            if live and live["s"] == "ft":
+                pending[lid].add(str(g.get("round") or ""))
+    return rows, dict(pending)
+
+def _final_due(pending, lid, checked, now_dt):
+    """Canlı mənbə oyunu bitmiş deyir, liqanın mənbəyi hələ yox: gözləmədən soruşulsun (ən tez LIVE_FINAL_GAP-dən bir)."""
+    last = _team_when(checked)
+    return lid in pending and (last is None or now_dt - last >= LIVE_FINAL_GAP)
+
+def write_live_leagues(leagues, rows, now_dt):
+    """Isti liqaların canlı nüsxəsi <kök>/canli/<liqa>.json (pipeline push_live -> live budağı). Soyuyan liqanın faylı silinir."""
+    keep = set()
+    for lid, doc in _current_docs(leagues):
+        if league_hot(doc, now_dt):
+            LIVE_LEAGUE_DIR.mkdir(parents=True, exist_ok=True)
+            _write_if_changed(LIVE_LEAGUE_DIR / f"{lid}.json", live_league_doc(dict(doc, id=lid), rows, now_dt))
+            keep.add(f"{lid}.json")
+    for f in LIVE_LEAGUE_DIR.glob("*.json") if LIVE_LEAGUE_DIR.is_dir() else []:
+        if f.name not in keep:
+            f.unlink(missing_ok=True)
+    return sorted(keep)
+
 def update_team_pages():
     """Komanda səhifələrinin faylları: hər liqa üçün data/futbol/<liga>.json (cədvəl və mövsümün bütün oyunları), keçmiş mövsümlər
     <liga>-<il>.json, siyahı index.json. Alınmayan liqanın köhnə faylı qalır."""
@@ -5418,12 +5639,18 @@ def update_team_pages():
     known = {l.get("id"): l for l in index.get("leagues") or []}
     empty = set(index.get("empty") or [])
     openliga = index.get("openliga") or {}
+    tsdb_stamps = _read_json(TEAM_DIR / "oyun-yoxlama.json", {})
+    try:
+        live_rows, pending = live_league_rows(index.get("leagues"), tsdb_stamps, now_dt)
+    except Exception as e:
+        print("  ! canlı liqa:", type(e).__name__)
+        live_rows, pending = [], {}
     sources = _team_sources()
     fresh = 0
     for spec in sources:
         if out_of_time():
             break
-        if not _team_due(_read_json(TEAM_DIR / f"{spec['id']}.json", {}), checked.get(spec["id"]), now_dt):
+        if not _team_due(_read_json(TEAM_DIR / f"{spec['id']}.json", {}), checked.get(spec["id"]), now_dt) and not _final_due(pending, spec["id"], checked.get(spec["id"]), now_dt):
             continue
         checked[spec["id"]] = now  # alınmayan liqa da növbəsini gözləyir
         try:
@@ -5463,14 +5690,13 @@ def update_team_pages():
             leagues.append(dict(league, ready=ready))
     world_rows = []
     worlds = _read_json(SPORTS_FILE, {}).get("leagues") or []
-    tsdb_stamps = _read_json(TEAM_DIR / "oyun-yoxlama.json", {})
     tsdb_docs = []
     for world in worlds:
         doc = team_world_league(world)
         if doc["id"] in TSDB_LEAGUES and doc["groups"]:
             tsdb_docs.append(dict(doc, games=_read_json(TEAM_DIR / f"{doc['id']}.json", {}).get("games") or []))
     try:
-        tsdb_fresh = tsdb_refresh(tsdb_docs, tsdb_stamps, now_dt, out_of_time)
+        tsdb_fresh = tsdb_refresh(tsdb_docs, tsdb_stamps, now_dt, out_of_time, pending=pending)
     except Exception as e:
         print("  ! oyunlar:", type(e).__name__)
         tsdb_fresh = {}
@@ -5525,10 +5751,15 @@ def update_team_pages():
                            "teams": [r["team"] for g in doc["groups"] for r in g["rows"]]})
     squads = update_team_squads([x["id"] for x in world_rows if x["id"] in _OPENLIGA_LEAGUES], out_of_time, now_dt)
     leagues += [dict(x, heyet=squads[x["id"]]) if squads.get(x["id"]) else x for x in world_rows]
-    leagues += update_cups(checked, now_dt, out_of_time)
+    leagues += update_cups(checked, now_dt, out_of_time, pending)
     leagues += national_rows()
     _write_if_changed(TEAM_DIR / "index.json", {"leagues": leagues, "checked": checked, "empty": sorted(empty), "openliga": openliga})
-    print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {time.monotonic() - started:.1f} s")
+    try:
+        hot = write_live_leagues(leagues, live_rows, now_dt)
+    except Exception as e:
+        print("  ! canlı liqa yazılmadı:", type(e).__name__)
+        hot = []
+    print(f"Komanda səhifələri: {fresh} liqa, {past} keçmiş mövsüm, {len(hot)} isti, {len(live_rows)} canlı sətir, {time.monotonic() - started:.1f} s")
 
 # Eyni hadisəni müxtəlif mənbələr yaxın başlıqla verəndə bir kartın altında yığılır.
 GROUP_WINDOW = datetime.timedelta(hours=36)
