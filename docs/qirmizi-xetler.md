@@ -211,14 +211,14 @@ Qoruyucular: `tests/speed-guard.test.cjs` — real lentdə dilimli nəticə köh
   - Telefonda yığcam kartın `contain-intrinsic-block-size` təxmini 360 → 206 px oldu.
   - Nəticə: 52–416 px. Qalan hissə «Son xəbərlər»dən gəlir: bölmə ekrandan uzundur, ekranı kəsəndə içindəki kartlar dəyişir.
 - Şəkillər: kart və bölmə `content-visibility:auto` ilə çəkilmədiyi üçün brauzerin «lazy» şəkli ekrana təxminən yarım ekran qalmış istənirdi. wsrv.nl-in keşsiz cavabı 0,3–2,9 s, keşli cavabı 0,1–0,45 s-dir.
-  - İndi blok ekrana 2,5 ekran qalmış onun şəkilləri istənir (`EAGER`; üfüqi zolaqlar istisnadır).
+  - İndi blok ekrana 2,5 ekran qalmış onun şəkilləri istənir (`EAGER`; üfüqi zolaqlar istisnadır). Oxucu ilk dəfə sürüşdürəndə işə düşür: açılışda işləyəndə ilk ekranla yarışırdı (liqa səhifəsi açılışda 119 sorğu, hədd 70).
   - İdman, tez sürüşmə, Safari kimi: 0,3 s-dən çox boş qalan şəkil 18 → 5, ən uzun gözləmə «yüklənmədi» → 0,65 s. Cəmiyyət, adi sürüşmə: 7 → 4.
   - Mənbədən birbaşa gələn şəkil (proksisiz sayt, məsələn dsmf.gov.az) saytın öz sürətindədir.
 - Video zolağı (`vlent.js`): birinci kartın oynadıcısı zolaq yaxınlaşanda qurulur. YouTube kartı seçiləndən oynamağa 3,5–4,6 → 2,9–3,0 s.
 - Açıq qalan: YouTube oynadıcısı (TV kanallarının videoları) hər başlayanda ~3,5 s öz ⏸ işarəsini, kanalın adını və «Shorts» yazısını göstərir.
   - URL parametri ilə söndürülmür: `autoplay`, `loop`, API ilə başlatma və youtube.com yoxlandı.
   - Onu şəkillə örtmək YouTube-un yerləşdirmə qaydasına ziddir. Qərar sahibindir.
-- Büdcələr dəyişmədi: `app.min.js` 169 297 / 170 000; `app.css` 98 987 / 99 000 (yer üçün 4 CSS şərhi qısaldıldı).
+- Büdcələr dəyişmədi: `app.min.js` 169 402 / 170 000; `app.css` 98 987 / 99 000 (yer üçün 4 CSS şərhi qısaldıldı).
 
 2026-11-24, sahib («Bəli, 99 000-ə qaldır»): `app.css` həddi 97 000 → 99 000. Səbəb: sahibin göstərişi — «izlə ni basanda açılan pəncərənin rəngi saytın rəngindən fərqlənsin … açılan pəncərə düymənin həmən altında açılsın … bütün alt pəncərə açılan düymələrə tətbiq et». Səkkiz alt pəncərə (bölmə menyusu, ☰, hava, namaz, valyuta, dil, «N mənbə», Paylaş) və İzlə paneli düymənin altında açılır (telefonda hava, namaz və valyuta CSS anchor ilə), saytın əks rəngini (tünd temada qum, açıq temada tünd göy) və düymənin altında üçbucağı alır; rənglər CSS dəyişənləri ilə bir yerdədir. Fayl 96 853 → 98 980 bayt, gzip 21 798 → 22 407 (`app.css.gz` həddi 24 000 dəyişməyib). Ölü sinif axtarışı yenə boş çıxdı.
 

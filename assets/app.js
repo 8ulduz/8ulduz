@@ -1983,8 +1983,12 @@ const ANCHOR = IO && globalThis.ResizeObserver && globalThis.CSS?.supports && !C
 // Şəkil blok ekrana 2,5 ekran qalmış yüklənməyə başlayır. Əvvəl yalnız brauzerin «lazy»si idi: blok content-visibility ilə çəkilmədiyi üçün
 // şəkil ekrana ~yarım ekran qalmış istənirdi, wsrv.nl-in keşsiz cavabı isə 0,3–2,9 s-dir — sürüşdürəndə şəkil boş qalırdı (idman
 // bölməsi: 46 şəkildən 30-u 0,3 s-dən çox, ən çoxu 4,5 s; 2026-11-26). Blokun özü (kart, bölmə) müşahidə olunur, şəklin qutusu yox.
+// Oxucu sürüşdürməyə başlayanda işə düşür: açılışda ilk ekranla yarışan sorğu olmasın (liqa səhifəsi açılışda 119 sorğu edirdi, hədd 70).
 const EAGER = IO ? new IO(es => es.forEach(e => { if (e.isIntersecting) { EAGER.unobserve(e.target); e.target.querySelectorAll('img[loading="lazy"]:not(.strip *,.vl-row *)').forEach(i => { i.loading = "eager"; }); } }), { rootMargin: "250% 0px" }) : null; // üfüqi zolaqda yalnız görünən kart (brauzerin lazy-si)
-const settle = () => { ANCHOR?.(); if (EAGER) document.querySelectorAll(VIEW_KIDS).forEach(b => EAGER.observe(b)); };
+let eagerGo = false;
+const eagerAll = () => { if (eagerGo) document.querySelectorAll(VIEW_KIDS).forEach(b => EAGER.observe(b)); };
+if (EAGER) addEventListener("scroll", () => { eagerGo = true; eagerAll(); }, { once: true, passive: true });
+const settle = () => { ANCHOR?.(); eagerAll(); };
 // Açarın HTML-i sənəd parçası kimi; yaddaşdan düşübsə (arada 40-dan çox çəkiliş — praktikada olmur) səhifə yenidən qurulur.
 function lateContent(t) {
   const h = LATE_HTML.get(t.dataset.late), tpl = document.createElement("template");
@@ -3251,7 +3255,7 @@ function setupLazySections() {
     if (!lazyFill(box)) return;
     setupStrips(box.querySelectorAll(".strip"));
     if (box.querySelector("[data-marquee]")) setupMarquees();
-    if (EAGER) EAGER.observe(box);   // dolan qutunun şəkilləri (ANCHOR qutunu artıq izləyir)
+    if (eagerGo) EAGER.observe(box);   // dolan qutunun şəkilləri (ANCHOR qutunu artıq izləyir)
   };
   const boxes = [...document.querySelectorAll(".lazy-sec")];
   if (!globalThis.IntersectionObserver) { boxes.forEach(show); return; }

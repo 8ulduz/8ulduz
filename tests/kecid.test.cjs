@@ -12,7 +12,7 @@ const ISO = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00$/;
 // Testlərin saxta brauzeri: DOM yoxdur, yalnız HTML və vəziyyət. timers: setTimeout çağırışları (idle-in ehtiyat yolu) buraya yazılır.
 function app({ phone = false, timers = [], extra = {} } = {}) {
   const ctx = vm.createContext({
-    ...extra, console, URL, AbortController, TextEncoder, btoa,
+    console, URL, AbortController, TextEncoder, btoa,
     setTimeout: (f, ms) => timers.push([f, ms]), clearTimeout() {}, setInterval: () => 0, clearInterval() {},
     addEventListener() {}, localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     location: { hash: "#/" }, navigator: { onLine: true }, window: { addEventListener() {} }, history: { replaceState() {} },
@@ -20,6 +20,7 @@ function app({ phone = false, timers = [], extra = {} } = {}) {
       createElement() { return { _v: "", set innerHTML(v) { this._v = String(v); }, get innerHTML() { return this._v; }, get value() { return this._v; }, get content() { return { html: this._v, children: [] }; }, children: [] }; },
       createDocumentFragment() { return { nodes: [], append(...n) { this.nodes.push(...n); } }; } },
     matchMedia: q => ({ matches: phone && String(q).includes("hover:none") }), requestAnimationFrame: () => 0,
+    ...extra,
   });
   vm.runInContext(APP.split("\napplyPrefs();\n")[0], ctx);
   vm.runInContext("render = () => {}; renderTopbar = () => {}; checkBreaking = () => {}; primeHeroImage = () => {}; requestRender = () => {}; loadArchive = async () => {};", ctx);
@@ -175,10 +176,10 @@ test("keçid: touching a link preloads what that page will need (archive, sports
 });
 
 test("keçid: without native scroll anchoring (iPhone Safari) a block above the screen that changes height scrolls the page by the same amount; blocks on or below the screen and detached ones do not; images start 2.5 screens ahead (owner 2026-11-26: «sıçramalar», «şəkillərin gec yüklənməsi»)", () => {
-  const ios = [], ros = [], scrolls = [];
-  class IO { constructor(cb, o = {}) { this.cb = cb; this.o = o; ios.push(this); } observe() {} unobserve() {} disconnect() {} }
+  const ios = [], ros = [], scrolls = [], on = {};
+  class IO { constructor(cb, o = {}) { this.cb = cb; this.o = o; this.seen = []; ios.push(this); } observe(el) { this.seen.push(el); } unobserve() {} disconnect() {} }
   class RO { constructor(cb) { this.cb = cb; ros.push(this); } observe() {} disconnect() {} }
-  const ctx = app({ phone: true, extra: { IntersectionObserver: IO, ResizeObserver: RO, CSS: { supports: () => false }, scrollBy: (x, y) => scrolls.push(y) } });
+  const ctx = app({ phone: true, extra: { IntersectionObserver: IO, ResizeObserver: RO, CSS: { supports: () => false }, scrollBy: (x, y) => scrolls.push(y), addEventListener: (t, f, o) => { if (t === "scroll" && o?.once) (on.scroll ||= []).push(f); } } });
   const io = ios.find(x => !x.o.rootMargin), ro = ros[0], eager = ios.find(x => x.o.rootMargin === "250% 0px");
   assert.ok(io && ro && eager && run(ctx, "typeof ANCHOR") === "function", "Safari: lövbər işləyir");
   const above = { isConnected: true }, below = { isConnected: true }, gone = { isConnected: false }, fresh = { isConnected: true };
@@ -198,4 +199,13 @@ test("keçid: without native scroll anchoring (iPhone Safari) a block above the 
   const img = { loading: "lazy" };
   eager.cb([{ isIntersecting: true, target: { querySelectorAll: sel => (assert.equal(sel, 'img[loading="lazy"]:not(.strip *,.vl-row *)'), [img]) } }]);
   assert.equal(img.loading, "eager");
+  // Açılışda (sürüşmədən əvvəl) blok izlənmir — ilk ekranla yarışan sorğu yoxdur; ilk sürüşmədə bütün bloklar izlənir.
+  run(ctx, "document.querySelectorAll = () => [{ id: 1 }, { id: 2 }]; settle()");
+  assert.equal(eager.seen.length, 0, "açılışda qabaqcadan şəkil sorğusu yoxdur");
+  assert.ok(on.scroll?.length, "ilk sürüşməni gözləyir");
+  on.scroll.forEach(f => f());
+  assert.equal(eager.seen.length, 2, "ilk sürüşmədə bloklar izlənməyə başlayır");
+  run(ctx, "settle()");
+  assert.equal(eager.seen.length, 4, "sonrakı çəkilişlərdə yeni bloklar da izlənir");
+  assert.ok(APP.includes("if (eagerGo) EAGER.observe(box);"), "tənbəl bölmə dolanda da yalnız sürüşmədən sonra");
 });
