@@ -890,6 +890,10 @@ async function loadNews(force = false) {
   try {
     if (S.lang !== "az" && !S.status) await loadStatus(); // dil faylı varmı: status deyir (azərbaycanca həmişə news.json)
     if (token !== S.newsToken) return;
+    // Açılışda dəqiqəlik lent tam lentlə paralel istənir (sorğu əvvəlki ilə eynidir, yalnız tez): first.json Pages-dən gəlir, 10 dəqiqəyə
+    // qədər köhnədir, ana səhifənin «Son xəbərlər»i təzə lent gələndə bütünlüklə dəyişir. Əvvəl lent tam lentin emalından sonra istənirdi və
+    // yeni 8 kartın şəkli yalnız kartlar çəkiləndə yüklənməyə başlayırdı (canlı sayt, telefon: kartlar 5,3 s-də dəyişir, şəkillər boş). 2026-11-26.
+    if (!force && (!S.data || S.partial)) S.latestPre = latestJSON().then(got => (warmLatest(got.d), got)).catch(() => null);
     const {r, d, tag} = await newsJSON(force, controller.signal);
     if(token !== S.newsToken)return;
     if (!Array.isArray(d.articles)) throw new Error("Xəbər məlumatının quruluşu yanlışdır");
@@ -1140,6 +1144,17 @@ function syncNewPill() {
   pill.hidden = !mine.length;
   pill.textContent = `↑ ${mine.length} yeni ${c ? (S.club || c.label) + " xəbəri" : "xəbər"}`;
 }
+// Təzə dəqiqəlik lentin ana səhifədə ilk görünəcək 8 şəkli («Son xəbərlər»): kart çəkiləndə şəkil artıq yüklənir. Ağır orijinal (proksisiz
+// sayt) istənmir. Ünvan kartınkı ilə eynidir (sized(…, 360)), brauzer onu yenidən istəmir.
+function warmLatest(d) {
+  const { name, slug } = route(), cat = name == "section" ? slug : name == "home" ? "" : null; // bölmədə yalnız onun xəbərləri
+  if (cat == null || !Array.isArray(d?.articles)) return;
+  const known = new Set(S.data?.articles?.map(a => a.id));
+  for (const a of picFirst(byDate(filtered(d.articles).filter(a => a.category !== "prezident" && (!cat || a.category == cat) && !known.has(a.id)))).slice(0, 8)) {
+    const u = imgUrl(a) && sized(imgUrl(a), 360);
+    if (u && !heavyImage(u)) Object.assign(new Image(), { referrerPolicy: "no-referrer", src: u }); // əvvəl siyasət, sonra ünvan
+  }
+}
 // Dəqiqəlik lent dil üzrə.
 async function latestJSON(force) {
   if (S.lang && S.status?.langs?.includes(S.lang)) {
@@ -1167,7 +1182,8 @@ async function loadLatest(force = false) {
   S.latestLoading = true;
   const statusStamp = S.status?.checkedAt || null;
   try {
-    const {r, d} = await latestJSON(force);
+    const pre = !force && await S.latestPre; S.latestPre = null; // açılışda tam lentlə paralel gəlmiş lent (loadNews), bir dəfə
+    const {r, d} = pre || await latestJSON(force);
     if (!Array.isArray(d?.articles)) return;
     S.offline = r.headers?.get?.("X-8ulduz-data") === "cache";
     if (!S.offline) { S.lastSync = new Date(); S.error = null; }
@@ -1984,7 +2000,8 @@ const ANCHOR = IO && globalThis.ResizeObserver && globalThis.CSS?.supports && !C
 // şəkil ekrana ~yarım ekran qalmış istənirdi, wsrv.nl-in keşsiz cavabı isə 0,3–2,9 s-dir — sürüşdürəndə şəkil boş qalırdı (idman
 // bölməsi: 46 şəkildən 30-u 0,3 s-dən çox, ən çoxu 4,5 s; 2026-11-26). Blokun özü (kart, bölmə) müşahidə olunur, şəklin qutusu yox.
 // Oxucu sürüşdürməyə başlayanda işə düşür: açılışda ilk ekranla yarışan sorğu olmasın (liqa səhifəsi açılışda 119 sorğu edirdi, hədd 70).
-const EAGER = IO ? new IO(es => es.forEach(e => { if (e.isIntersecting) { EAGER.unobserve(e.target); e.target.querySelectorAll('img[loading="lazy"]:not(.strip *,.vl-row *)').forEach(i => { i.loading = "eager"; }); } }), { rootMargin: "250% 0px" }) : null; // üfüqi zolaqda yalnız görünən kart (brauzerin lazy-si)
+const LAZY_IMG = 'img[loading="lazy"]:not(.strip *,.vl-row *)'; // üfüqi zolaqda yalnız görünən kart (brauzerin lazy-si)
+const EAGER = IO ? new IO(es => es.forEach(e => { if (e.isIntersecting) { EAGER.unobserve(e.target); e.target.querySelectorAll(LAZY_IMG).forEach(i => { i.loading = "eager"; }); } }), { rootMargin: "250% 0px" }) : null;
 let eagerGo = false;
 const eagerAll = () => { if (eagerGo) document.querySelectorAll(VIEW_KIDS).forEach(b => EAGER.observe(b)); };
 if (EAGER) addEventListener("scroll", () => { eagerGo = true; eagerAll(); }, { once: true, passive: true });

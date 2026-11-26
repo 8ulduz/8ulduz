@@ -209,3 +209,29 @@ test("keçid: without native scroll anchoring (iPhone Safari) a block above the 
   assert.equal(eager.seen.length, 4, "sonrakı çəkilişlərdə yeni bloklar da izlənir");
   assert.ok(APP.includes("if (eagerGo) EAGER.observe(box);"), "tənbəl bölmə dolanda da yalnız sürüşmədən sonra");
 });
+
+test("keçid: on opening the minute feed is fetched alongside the full feed and the images of its newest new stories start at once, so «Son xəbərlər» is not redrawn with empty pictures (owner 2026-11-26: «son xəbərlərdə də gec gəlirdi»)", () => {
+  const got = [];
+  class Img { set src(u) { got.push({ u, ref: this.referrerPolicy }); } }
+  const ctx = app({ phone: true, extra: { Image: Img } });
+  const at = m => `2026-11-26T14:${String(m).padStart(2, "0")}:00+00:00`;
+  const row = (id, m, extra = {}) => ({ id, title: "Xəbər " + id, summary: "", category: "gundem", lang: "az", sourceUrl: `https://apa.az/${id}`, imageUrl: `https://apa.az/${id}.jpg`, publishedAt: at(m), ...extra });
+  ctx.feed = {
+    articles: [row("kohne", 30), row("prez", 40, { category: "prezident" }), row("agir", 39, { imageUrl: "https://sportinfo.az/a.jpg" }), row("idman1", 38, { category: "idman" }),
+      row("ru", 37, { lang: "ru", title: "Новости", summary: "" }), row("sekilsiz", 50, { imageUrl: "" }), ...Array.from({ length: 10 }, (_, i) => row("t" + i, 20 + i))],
+  };
+  run(ctx, 'S.lang = "az"; S.data = { articles: [{ id: "kohne" }] }; location.hash = "#/"; warmLatest(feed)');
+  const ids = got.map(x => decodeURIComponent(x.u).match(/apa\.az\/(\w+)\.jpg/)?.[1]);
+  // Görünəcək ilk 8 kart: agir(39) idman1(38) t9…t4. Proksisiz «agir» yerini tutur, amma istənmir; ilk ekrandakı, prezident, başqa dil, şəkilsiz kart yox.
+  assert.deepEqual(ids, ["idman1", "t9", "t8", "t7", "t6", "t5", "t4"], "ən yeni 8 kartın yeni şəkilləri");
+  assert.ok(got.every(x => x.ref === "no-referrer" && x.u.startsWith("https://wsrv.nl/?url=") && x.u.includes("&w=360&")), "kartın öz ünvanı (360 px), mənbəyə istinad göndərilmir");
+  got.length = 0; run(ctx, 'location.hash = "#/bolme/idman"; warmLatest(feed)');
+  assert.deepEqual(got.map(x => decodeURIComponent(x.u).match(/apa\.az\/(\w+)\.jpg/)?.[1]), ["idman1"], "bölmədə yalnız onun xəbərləri");
+  got.length = 0; run(ctx, 'location.hash = "#/xeber/abc"; warmLatest(feed)');
+  assert.equal(got.length, 0, "xəbər səhifəsində heç nə");
+  // Sorğu yenisi deyil: açılışda tam lentdən əvvəl başlayır, dəqiqəlik lentin ilk çağırışı onu bir dəfə işlədir.
+  const news = APP.slice(APP.indexOf("async function loadNews("), APP.indexOf("async function loadNews(") + 4000);
+  assert.ok(news.indexOf("S.latestPre = latestJSON()") > 0 && news.indexOf("S.latestPre = latestJSON()") < news.indexOf("await newsJSON(force"), "tam lentlə paralel");
+  assert.ok(news.includes("if (!force && (!S.data || S.partial)) S.latestPre"), "yalnız açılışda");
+  assert.ok(APP.includes("const pre = !force && await S.latestPre; S.latestPre = null;") && APP.includes("const {r, d} = pre || await latestJSON(force);"), "ikinci sorğu yoxdur");
+});
