@@ -213,7 +213,7 @@ test('Video lenti refreshes while the page stays open, without cutting the video
   assert.ok(m.includes('const quiet = document.hidden || !sec.isConnected || cur < 0 || !visible() || early;') && m.includes('if (!quiet && !force) return false;'),
     'yenidən qurma yalnız sakit anda: vərəq gizli, zolaq görünmür, heç nə oynamır və ya zolaq təzə göstərilib');
   assert.ok(m.includes('if (!pending || fs >= 0 || ac.signal.aborted) return false;'), 'tam ekran açıqdırsa heç vaxt');
-  assert.ok(m.includes('if (n === 0 && swap(true)) return;'), 'lent sonuncu kartdan birinciyə qayıdanda yeni siyahıdan başlayır');
+  assert.ok(m.includes('if (n < cur && swap(true)) return;'), 'lent sonuncu özü oynayan kartdan əvvələ qayıdanda yeni siyahıdan başlayır (YouTube kartları atlanır)');
   // Video siyahısı gec gəlibsə TV videoları sonra düşür.
   assert.ok(m.includes('if (S?.video || ++waits > 30)'), 'S.video gələn kimi yoxlanır');
   // Yenidən qurulanda köhnə dinləyicilər qalmır.
@@ -241,4 +241,29 @@ test('Video lenti refreshes while the page stays open, without cutting the video
     assert.ok(all.length && all.every(x => x.endsWith(', on)')), `${ev} dinləyicisi yenidən qurulanda silinir`);
   }
   assert.ok(m.includes('const old = sec.querySelector(".vl-row");') && m.includes('if (old) old.replaceWith(row); else sec.append(row);'), 'yeni sətir köhnənin yerinə: səhifə atlamır');
+});
+
+// Sahib, 2026-11-26 («…videolarda açıldıqdan sonra dayan işarəsinin bir neçə saniyə görünməsi…», seçim: «A: avtomatik oynamasın»).
+// YouTube oynadıcısı hər başlayanda ~3,5 s öz ⏸ işarəsini, kanal adını və «Shorts» yazısını göstərir; parametrlə söndürülmür, üstünü
+// örtmək YouTube-un qaydasına ziddir. Ona görə telefonda YouTube kartı (telekanallar) özü oynamır, basanda tam ekranda açılır.
+test('Video lenti (owner 2026-11-26, A): YouTube cards never start by themselves on a phone — the strip plays own and X videos and skips them; a tap still opens them full screen', () => {
+  const v = read('assets/vlent.js');
+  const m = /export async function mount\(sec, S, still = \(\) => false, given = null\) \{[\s\S]*?\n\}\n?/.exec(v)?.[0] || '';
+  const okSrc = /\n  const ok = n => items\[n\]\.kind !== "yt";\n/.exec(m)?.[0], nextSrc = /\n  const nextOf = n => \{[^\n]*\n/.exec(m)?.[0];
+  assert.ok(okSrc && nextSrc, 'qayda bir yerdədir');
+  const run = kinds => new Function('items', 'cards', `${okSrc}${nextSrc}; return { ok, nextOf };`)(kinds.map(kind => ({ kind })), kinds);
+  const a = run(['yt', 'x', 'yt', 'yt', 'mp4', 'yt']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(a.nextOf), [1, 4, 4, 4, 1, 1], 'növbəti özü oynayan kart: YouTube kartları atlanır, sonuncudan əvvələ qayıdır');
+  assert.equal(run(['yt', 'yt', 'yt']).nextOf(1), 1, 'özü oynayan kart yoxdursa yerində qalır');
+  assert.equal(run(['x']).nextOf(0), 0);
+  const pv = /const pickVisible = \(\) => \{[\s\S]*?\n  \};\n/.exec(m)?.[0] || '';
+  assert.ok(pv.includes('.filter(([n, r]) => r >= 0.6 && ok(n))'), 'görünən YouTube kartı seçilmir');
+  const next = /function next\(\) \{[\s\S]*?\n  \}\n/.exec(m)?.[0] || '';
+  assert.ok(next.includes('if (n === cur) { if (ok(cur)) again(cur); else stop(); return; }'), 'başqa özü oynayan kart yoxdursa: öz video yenidən, basılmış YouTube dayanır');
+  assert.ok(m.includes('const first = [0, 1].find(k => k < items.length && ok(k));') && m.includes('if (!hover && auto() && !given && first != null) make(first);'), 'zolaq yaxınlaşanda YouTube oynadıcısı qabaqcadan qurulmur');
+  // Basış dəyişmir: kart səslə tam ekranda açılır (YouTube kartı da), kompüterdə kursorla oynatma qalır.
+  assert.ok(m.includes('openFs(Number(b.parentElement.dataset.n));') && m.includes('if (n !== cur) { sound = true; play(n); } else setSound(true);'), 'basanda oynayır');
+  assert.ok(m.includes('if (n >= 0 && hover) play(n);'), 'kompüter: kursor (sahib, 2026-11-25)');
+  // ▶ işarəsi oynamayan kartda görünür.
+  assert.ok(v.includes('.vl-c.on .vl-p{display:none}'));
 });

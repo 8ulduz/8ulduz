@@ -220,9 +220,9 @@ Qoruyucular: `tests/speed-guard.test.cjs` — real lentdə dilimli nəticə köh
   - Ölçü (bu PC, telefon 4×; yerli `first.json` köhnə, dəqiqəlik lent canlı): kartlar dəyişəndə hazır şəkil 0/8 → 5/8, hamısı +2,1 s-dən çox → +0,6–1,1 s; təzə siyahı 7,1–10,0 → 6,2–7,4 s. Qalan 3 şəkil proksisiz saytlardandır.
 - Qalan ümumi səbəb şəkil xidmətinin özüdür: wsrv.nl yeni şəkli ilk dəfə 0,44–1,7 s-də verir (median 0,76 s, 14 təzə şəkil), keşdən 0,14 s-də. Sayt oxucunun yaxınlığındakı keşdə hələ azdır, ona görə şəkillərin çoxu ilk dəfə istənir. Bunu brauzerdən düzəltmək olmur.
 - Video zolağı (`vlent.js`): birinci kartın oynadıcısı zolaq yaxınlaşanda qurulur. YouTube kartı seçiləndən oynamağa 3,5–4,6 → 2,9–3,0 s.
-- Açıq qalan: YouTube oynadıcısı (TV kanallarının videoları) hər başlayanda ~3,5 s öz ⏸ işarəsini, kanalın adını və «Shorts» yazısını göstərir.
-  - URL parametri ilə söndürülmür: `autoplay`, `loop`, API ilə başlatma və youtube.com yoxlandı.
-  - Onu şəkillə örtmək YouTube-un yerləşdirmə qaydasına ziddir. Qərar sahibindir.
+- YouTube oynadıcısı (TV kanallarının videoları) hər başlayanda ~3,5 s öz ⏸ işarəsini, kanalın adını və «Shorts» yazısını göstərir.
+  - URL parametri ilə söndürülmür: `autoplay`, `loop`, API ilə başlatma və youtube.com yoxlandı. Onu şəkillə örtmək YouTube-un yerləşdirmə qaydasına ziddir.
+  - Sahibin qərarı (2026-11-26, «A: avtomatik oynamasın»): telefonda YouTube kartı özü oynamır, kartda şəkli və ▶ görünür; basanda tam ekranda səslə açılır. Zolaq öz videolarımızı (veb nüsxəsi) və X videolarını oynadır, YouTube kartlarının üstündən keçir (`vlent.js` `ok`, `nextOf`). Kompüterdə kursorla oynatma (2026-11-25) dəyişmədi.
 - Büdcələr dəyişmədi: `app.min.js` 169 937 / 170 000; `app.css` 98 987 / 99 000 (yer üçün 4 CSS şərhi qısaldıldı).
 
 2026-11-24, sahib («Bəli, 99 000-ə qaldır»): `app.css` həddi 97 000 → 99 000. Səbəb: sahibin göstərişi — «izlə ni basanda açılan pəncərənin rəngi saytın rəngindən fərqlənsin … açılan pəncərə düymənin həmən altında açılsın … bütün alt pəncərə açılan düymələrə tətbiq et». Səkkiz alt pəncərə (bölmə menyusu, ☰, hava, namaz, valyuta, dil, «N mənbə», Paylaş) və İzlə paneli düymənin altında açılır (telefonda hava, namaz və valyuta CSS anchor ilə), saytın əks rəngini (tünd temada qum, açıq temada tünd göy) və düymənin altında üçbucağı alır; rənglər CSS dəyişənləri ilə bir yerdədir. Fayl 96 853 → 98 980 bayt, gzip 21 798 → 22 407 (`app.css.gz` həddi 24 000 dəyişməyib). Ölü sinif axtarışı yenə boş çıxdı.
