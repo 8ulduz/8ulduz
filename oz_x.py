@@ -137,7 +137,7 @@ _HANDLE = {h.lower(): h for h in HESABLAR}
 # Mövzular (sahib, 2026-11-19: «videoların əksəriyyəti futboldur. belə olmasın proporsional olsun müxtəlif mövzular»): yazıcı hər
 # işdə və lent axında videoları mövzulara bərabər paylayır (x_yazici.by_topic, lent.js mix).
 VIDEOLENT_QRUPLAR = {
-    "tebiet": {   # Heyvan və təbiət (110)
+    "tebiet": {   # Heyvan və təbiət (114; saylar 2026-11-26)
         "AMAZlNGNATURE": "Nature is Amazing", "AnimalBeingBros": "AnimalBeingBros", "AnimalPlanet": "Animal Planet",
         "AnimalsLover": "AnimalsLover", "AnimalsWithKids": "AnimalsWithKids", "AnimalsWorId": "AnimalsWorId",
         "Animals_Vibes": "Animals_Vibes", "AquariumPacific": "AquariumPacific", "ASPCA": "ASPCA",
@@ -175,8 +175,12 @@ VIDEOLENT_QRUPLAR = {
         "WildlifeTrusts": "The Wildlife Trusts", "Wildlife_Planet": "Wildlife_Planet", "wildlife_videos": "wildlife_videos",
         "woodlandparkzoo": "woodlandparkzoo", "WWF": "WWF", "ZooMiami": "ZooMiami",
         "ZSL": "ZSL", "ZSLLondonZoo": "London Zoo",
+        # 2026-11-26 (FxTwitter, 72 saat, median baxış): ekstremal hava və təbiət hadisəsi — Hava Forum 124 min (Türkiyə),
+        # Colin McCarthy 52 min, Ryan Hall 50 min, Max Velocity 27 min (fırtına, sel, dalğa, qar)
+        "HavaForum": "Hava Forum", "US_Stormwatch": "Colin McCarthy", "RyanHallYall": "Ryan Hall, Y'all",
+        "MaxVelocityWX": "Max Velocity",
     },
-    "elm": {   # Elm, kosmos, tarix (118)
+    "elm": {   # Elm, kosmos, tarix (120)
         "AmerMuseum": "AmerMuseum", "AMNH": "AMNH", "Archaeologymag": "Archaeologymag",
         "Arianespace": "Arianespace", "AsapSCIENCE": "AsapSCIENCE", "AstroBehnken": "AstroBehnken",
         "AstronomyMag": "AstronomyMag", "AstroVicGlover": "AstroVicGlover", "astro_christina": "astro_christina",
@@ -218,7 +222,7 @@ VIDEOLENT_QRUPLAR = {
         "Uffizi": "Uffizi", "ULALaunch": "ULALaunch", "UniofOxford": "UniofOxford",
         "veritasium": "veritasium",
     },
-    "texnika": {   # Texnika, avtomobil, aviasiya (153)
+    "texnika": {   # Texnika, avtomobil, aviasiya (159)
         "1x_tech": "1x_tech", "Adobe": "Adobe", "agilityrobotics": "agilityrobotics",
         "Airbus": "Airbus", "AirCanada": "AirCanada", "AirFranceKLM": "AirFranceKLM",
         "AirlineGeeks": "AirlineGeeks", "AlfaRomeo": "AlfaRomeo", "AMD": "AMD",
@@ -272,8 +276,9 @@ VIDEOLENT_QRUPLAR = {
         "WIRED": "WIRED", "Xiaomi": "Xiaomi", "XPengMotors": "XPengMotors",
         # usta işi (FxTwitter, 2026-11-23: 72 saatda 21–25 video): zavod istehsalı, bərpa, mühəndislik
         "Brand_Anuj": "Global Brand", "muhendisIiktr": "Mühendislik Harikası",
+        "SawyerMerritt": "Sawyer Merritt",   # 2026-11-26: elektromobil, robotaksi, kosmos yenilikləri, median 200 min baxış
     },
-    "yemek": {   # Yemək, səyahət, ev (89)
+    "yemek": {   # Yemək, səyahət, ev (85)
         "pratikdunya": "Pratik Dünya", "Airbnb": "Airbnb", "Allrecipes": "Allrecipes",
         "archdaily": "archdaily", "ArchDigest": "ArchDigest", "Australia": "Australia",
         "BBCFood": "BBCFood", "BBCGoodFood": "BBCGoodFood", "BettyCrocker": "BettyCrocker",
@@ -305,7 +310,7 @@ VIDEOLENT_QRUPLAR = {
         "VisitTheUSA": "VisitTheUSA", "VisitTurkiye": "VisitTurkiye", "Visit_Japan": "Visit_Japan",
         "Visit_Thailand": "Visit_Thailand",
     },
-    "oyun": {   # Oyun və e-idman (93)
+    "oyun": {   # Oyun və e-idman (94)
         "100Thieves": "100Thieves", "2K": "2K", "VidsThatGoHard": "vids that go hard", "Activision": "Activision",
         "assetto_corsa": "assetto_corsa", "BandaiNamcoUS": "BandaiNamcoUS", "Battlefield": "Battlefield",
         "Bethesda": "Fallout 76", "BLASTPremier": "BLASTPremier", "Blizzard_Ent": "Diablo Immortal",
@@ -338,7 +343,7 @@ VIDEOLENT_QRUPLAR = {
         "Ubisoft": "Ubisoft", "ValorantEsports": "ValorantEsports", "WBGames": "WBGames",
         "WorldofWarcraft": "WorldofWarcraft", "Xbox": "XBOX", "XboxGamePass": "XboxGamePass",
     },
-    "kino": {   # Kino, serial, musiqi (148)
+    "kino": {   # Kino, serial, musiqi, məşhurlar (151)
         "20thcentury": "20thcentury", "A24": "A24", "acdc": "acdc",
         "Adele": "Adele", "aespa_official": "aespa_official", "AleynaTilki": "AleynaTilki",
         "AppleMusic": "AppleMusic", "AppleTV": "AppleTV", "AppleTVPlus": "AppleTVPlus",
@@ -389,8 +394,10 @@ VIDEOLENT_QRUPLAR = {
         "U2": "U2", "UMG": "UMG", "UniversalPics": "UniversalPics",
         "Variety": "Variety", "WarnerBrosPics": "WarnerBrosPics", "WarnerMusic": "WarnerMusic",
         "YGEntertainment": "YGEntertainment",
+        # 2026-11-26 (FxTwitter, 72 saat, median baxış): məşhurlar və əyləncə anları — TMZ 223 min, Pop Base 153 min, Pop Crave 121 min
+        "TMZ": "TMZ", "PopBase": "Pop Base", "PopCrave": "Pop Crave",
     },
-    "maraqli": {   # Maraqlı və gülməli (42)
+    "maraqli": {   # Maraqlı və gülməli (43)
         "9GAG": "9GAG", "AFV": "JH", "AFVofficial": "AFVofficial",
         "AFV_Official": "AFV_Official", "boredpanda": "boredpanda", "TheFigen_": "The Figen",
         "DudePerfect": "DudePerfect", "FailArmy": "FailArmy", "Fascinatingpics": "Fascinatingpics",
@@ -405,8 +412,9 @@ VIDEOLENT_QRUPLAR = {
         "satisfying_vids": "satisfying_vids", "skydiving": "skydiving", "UberFacts": "UberFacts",
         "UNILAD": "UNILAD", "upworthy": "upworthy", "ViralHog": "ViralHog",
         "weirdlilguys": "cats being weird little guys", "wowterrifying": "wowterrifying", "XGames": "X Games",
+        "FearedBuck": "FearBuck",   # 2026-11-26: internet məşhurlarının viral anları, median 513 min baxış (72 saatda 17 video)
     },
-    "xeber": {   # Xəbər, hadisə anı və siyasətin kadr arxası (10; sahib 2026-11-22). Median baxış: Collin Rugg 747 min, Fox News 193 min,
+    "xeber": {   # Xəbər, hadisə anı və siyasətin kadr arxası (32; ilk 10-u sahib 2026-11-22). Median baxış: Collin Rugg 747 min, Fox News 193 min,
         # Macron 390 min, AP 82 min, Disclose.tv 74 min, Breaking911 59 min, Al Jazeera 54 min, Sky News 36 min, CBS 23 min, Nawfal 22 min
         "AP": "The Associated Press", "AJEnglish": "Al Jazeera English", "Breaking911": "Breaking911",
         "CBSNews": "CBS News", "CollinRugg": "Collin Rugg", "disclosetv": "Disclose.tv",
@@ -426,8 +434,14 @@ VIDEOLENT_QRUPLAR = {
         # VIDEOLENT_ONDE-də deyil: seçimdə baxış sayı ilə yarışırlar. Xəbər hesabı (HESABLAR) deyil: başqasının videosunu yayırlar, video ilə
         # başlıq çox vaxt uyğun gəlmir — Videolentdə yalnız qısa izahla. Crazy Clips (median 98 min) yoxdur: CrazyClips_ kimi kazino reklamı.
         "GagaHaberTR": "GaGa Haber", "HaberKupur": "Kupür Haber", "tirajnews": "Tiraj", "thshaber": "THS Haber", "Parasizceo": "Parasizceo",
+        # Sahib 2026-11-26 («instagramda müəyyən etdiyimiz çox baxılan istiqamətlərini X ə tətbiq et»): hadisə yerindən kadr, Türkiyə.
+        # FxTwitter, 2026-11-26 06:45–08:05 UTC, 72 saat, öz videoları (median baxış; docs/x-yazici.md «2026-11-26»): Boşuna Tıklama 87 min,
+        # DarkWeb Haber 58 min (Türkiyənin rəqəmsal mediası: insan hekayəsi, hadisə, məşhurlar), NTV 36 min, BNO News 173 min,
+        # Oliya Scootercaster 49 min (şahid kadrı), Insider Paper 31 min, ABC News 23 min (xilasetmə, qəza, təbiət hadisəsi).
+        "bosunatiklama": "Boşuna Tıklama", "darkwebhaber": "DarkWeb Haber", "ntv": "NTV", "BNONews": "BNO News",
+        "ScooterCasterNY": "Oliya Scootercaster", "TheInsiderPaper": "Insider Paper", "ABC": "ABC News",
     },
-    "idman": {   # İdman (264)
+    "idman": {   # İdman (267)
         "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "ufc": "UFC", "ringmagazine": "Ring Magazine", "acmilan": "AC Milan",
         "AFCAjax": "AFC Ajax", "AFCBournemouth": "AFC Bournemouth", "Alanyaspor": "Alanyaspor",
         "AlanyasporKlb": "AlanyasporKlb", "AlHilal_EN": "AlHilal_EN", "AlNassrFC": "AlNassrFC",
@@ -539,7 +553,10 @@ _MOVZU = {h: m for m, q in VIDEOLENT_QRUPLAR.items() for h in q}
 VIDEOLENT_ONDE = ("TheFigen_", "TansuYegen", "historyinmemes", "HowThingsWork_", "engineers_feed", "sciencegirl",
                   "buitengebieden", "nocontextfooty", "wonderofscience", "Yoda4ever", "NoContextHumans", "9GAG", "Rainmaker1973",
                   "GWR", "redbull", "VidsThatGoHard", "InternetH0F", "CollinRugg", "FoxNews", "Breaking911", "ufc",
-                  "pusholder", "bpthaber", "sentdefender")   # 2026-11-23: hadisə anı, median 150–175 min baxış
+                  "pusholder", "bpthaber", "sentdefender",   # 2026-11-23: hadisə anı, median 150–175 min baxış
+                  "TMZ", "SawyerMerritt")   # 2026-11-26: median 223 və 200 min baxış, 72 saatda 8 və 7 video
+# VIDEOLENT_ONDE hər işdə yoxlanır və x_yazici.VL_PER_RUN-dan yer tutur: 2026-11-26-da 25 hesab (USTA_HESABLAR ilə) — mövzu başına
+# 5 hesab qalır; daha 1 hesab əlavə olunsa 4-ə düşür (bütün mövzular yavaş dövr edir). Ona görə öndə yalnız ən güclü iki hesab.
 _ONDE = {h.lower() for h in VIDEOLENT_ONDE}
 
 
