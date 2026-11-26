@@ -140,6 +140,22 @@ test("X: no animals, nature or space (owner 2026-11-26) — the nature group is 
   assert.equal(pool[2].ist, "polis", "şir — insan hadisəsinin içində (polis, İstanbul)");
 });
 
+test("X: extreme-weather accounts moved to the news group (owner 2026-11-26: «ekstremal hadisələrə də») — a rescue in a storm goes, a nature view does not", () => {
+  // Qrup xəritəsi oz_x.py-dadır (VIDEOLENT_QRUPLAR; reels.json-da m = qrup): «tebiet» sosial videoya düşmür, «xeber» düşür.
+  const items = [
+    xi(200101, { m: "xeber", a: "HavaForum", v: 400000, c: "Fırtınada ağac maşının üstünə aşdı, sürücü son anda xilas oldu." }),
+    xi(200102, { m: "xeber", a: "RyanHallYall", v: 900000, c: "Şəlalə üzərində günəşli havada göy qurşağı yaranıb, mənzərə heyran edir." }),
+  ];
+  const pool = VD.xNamizedler(items, { state: {}, now: NOW, policy: () => false });
+  assert.deepEqual(pool.map(c => c.x.id), ["200101"], "xilasetmə keçir, təbiət mənzərəsi keçmir");
+  assert.equal(pool[0].ist, "ekstremal");
+  const oz = read("oz_x.py"), teb = oz.slice(oz.indexOf('"tebiet": {'), oz.indexOf('"elm": {')), xeb = oz.slice(oz.indexOf('"xeber": {'), oz.indexOf('"idman": {'));
+  for (const h of ["HavaForum", "US_Stormwatch", "RyanHallYall", "MaxVelocityWX"]) {
+    assert.ok(xeb.includes(`"${h}":`), `${h} xeber qrupunda`);
+    assert.ok(!teb.includes(`"${h}":`), `${h} tebiet qrupunda deyil`);
+  }
+});
+
 test("X: REELS_PROMPT (the site's Videolent picker) — no animals in «hadise»; the owner's directions with crashes, extreme moments, foreign football and races first", () => {
   const src = read(".github/scripts/x_yazici.py"), p = src.slice(src.indexOf('REELS_PROMPT = """'), src.indexOf('""".replace("{saxta}", SAXTA)\nREEL_META'));
   const hadise = p.slice(p.indexOf("«hadise»"), p.indexOf("«usta»"));

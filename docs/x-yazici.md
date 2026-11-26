@@ -60,7 +60,7 @@ Həmin gün sonra (sahib: «nə heyvan nə təbiət nə kosmos», sonra «hamıs
 qısa video seçicisinin (`x_yazici.py` `REELS_PROMPT`) «hadise» sinfindən «heyvanlar» və «təbiət hadisəsi» çıxdı. Heyvan faktı, təbiət
 və kosmos sənədli kadrı «hadise» sayılmır, heyvan yalnız insan hadisəsinin içində olur. Önə qəzalar, ekstremal anlar (təbii fəlakətin
 anı da), xarici futbol, avto yarışlar və yarış qəzaları keçir. Sonra 15 istiqamətin qalanı gəlir. Heyvan və təbiət hesabları
-Videolentdə qalır. Gemini-siz ehtiyat yolu və hesab siyahısı dəyişmir. «Çox baxılan» sosial videoya isə bu qrup (`tebiet`) artıq düşmür.
+Videolentdə qalır. Gemini-siz ehtiyat yolu və hesab siyahısı dəyişmir. «Çox baxılan» sosial videoya isə bu qrup (`tebiet`) artıq düşmür. Ekstremal hava hesabları (Hava Forum, Colin McCarthy, Ryan Hall, Max Velocity) eyni gün `tebiet`-dən `xeber` qrupuna köçdü (sahib: «ekstremal hadisələrə də»): onların fırtına, sel, dalğa içində xilasetmə və son anda qurtulma kadrları sosial videoya düşə bilir; izahında heyvan, təbiət və ya kosmos sözü olan video yenə yalnız insan hadisəsi kimi keçir (`x.cixar`).
 
 **Ölçü.** Yazıcının öz yolu: `https://api.fxtwitter.com/2/profile/<hesab>/statuses` — açarsız, girişsiz, bot qorumasından yan
 keçmədən; sorğular arası ən azı 2 saniyə (eyni anda ən çox iki-üç proses, cəmi saniyədə 1 sorğudan az), 404 verən hesab 3 dəfə, sonra
@@ -102,7 +102,7 @@ internet məşhurlarının dramıdır, Pop Base həddin sərhədindədir (153 mi
 | ABC | xeber | 26 | 122 | 23 min | 17 | 46% |
 
 Mövzu üzrə: xeber 7 (Türkiyə: Boşuna Tıklama, DarkWeb Haber, NTV; hadisə anı: BNO News, Insider Paper, ABC News, Oliya Scootercaster),
-tebiet 4 (ekstremal hava: Hava Forum, Colin McCarthy, Ryan Hall, Max Velocity), kino 3 (məşhurlar: TMZ, Pop Base, Pop Crave),
+tebiet 4 (ekstremal hava: Hava Forum, Colin McCarthy, Ryan Hall, Max Velocity; həmin gün `xeber`-ə köçdü), kino 3 (məşhurlar: TMZ, Pop Base, Pop Crave),
 maraqli 1 (FearBuck), texnika 1 (Sawyer Merritt). Hesablar xəbər hesabı (`HESABLAR`) deyil: onlardan xəbər yazılmır, yalnız Videolent.
 
 **Rəqəmlə keçib, məzmuna görə qoşulmayan 10 hesab:**
