@@ -3,6 +3,7 @@
 Bu siyahı əvvəl `sw.js`-in `VERSION` sətrində şərh kimi dururdu (7,8 KB) və hər oxucunun brauzeri onu faylla birlikdə endirirdi.
 2026-11-13-də (sahib: «hədd artırılmır, artıq olan silinir, yer boşaldılsın») buraya köçürüldü: `sw.js` gzip büdcəsi 9 000 baytdır.
 Yeni versiya artıranda qeydi bu faylın **başına** yazın; `sw.js`-də yalnız `const VERSION = "vNNN";` dəyişir.
+- v183: sıçramalar və şəkillər: telefonda bölmənin gec kartlarının yeri saxlanır, kart yeri 206 px; Safari-də ekranın üstündəki blok dəyişəndə səhifə yerində qalır; ilk sürüşmədən sonra şəkil 2,5 ekran qabaqdan yüklənir; açılışda dəqiqəlik lent tam lentlə paralel gəlir və «Son xəbərlər»in yeni şəkilləri dərhal istənir; video zolağında YouTube kartı telefonda özü oynamır (vlent.js)
 - v182: əlaqə ünvanı info@8ulduz.az (config.js təzədən yüklənsin)
 - v181: aşağı menyuda hər telefonda eyni ölçülü çəkilmiş işarələr və 12 px yazı; telefonda məzənnə kartları alçaq (yazı ölçüsü eyni)
 - v180: aşağıdakı menyu saytın göy rəngindədir (tünd görünüşdə fondan açıq göy, işıqlı görünüşdə tünd göy), saytdan aydın seçilir

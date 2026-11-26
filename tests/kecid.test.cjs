@@ -10,7 +10,7 @@ const APP = read("assets/app.js");
 const ISO = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00$/;
 
 // Testlərin saxta brauzeri: DOM yoxdur, yalnız HTML və vəziyyət. timers: setTimeout çağırışları (idle-in ehtiyat yolu) buraya yazılır.
-function app({ phone = false, timers = [] } = {}) {
+function app({ phone = false, timers = [], extra = {} } = {}) {
   const ctx = vm.createContext({
     console, URL, AbortController, TextEncoder, btoa,
     setTimeout: (f, ms) => timers.push([f, ms]), clearTimeout() {}, setInterval: () => 0, clearInterval() {},
@@ -20,6 +20,7 @@ function app({ phone = false, timers = [] } = {}) {
       createElement() { return { _v: "", set innerHTML(v) { this._v = String(v); }, get innerHTML() { return this._v; }, get value() { return this._v; }, get content() { return { html: this._v, children: [] }; }, children: [] }; },
       createDocumentFragment() { return { nodes: [], append(...n) { this.nodes.push(...n); } }; } },
     matchMedia: q => ({ matches: phone && String(q).includes("hover:none") }), requestAnimationFrame: () => 0,
+    ...extra,
   });
   vm.runInContext(APP.split("\napplyPrefs();\n")[0], ctx);
   vm.runInContext("render = () => {}; renderTopbar = () => {}; checkBreaking = () => {}; primeHeroImage = () => {}; requestRender = () => {}; loadArchive = async () => {};", ctx);
@@ -112,7 +113,16 @@ test("keçid: on a phone late() keeps the deferred cards in LATE_HTML and leaves
   assert.equal(run(ctx, 'late(["a", "b"], 5)'), "ab", "sayı azdırsa şablon yoxdur");
   assert.equal(run(app(), 'late(["<b>1</b>", "<b>2</b>"], 1)'), "<b>1</b><b>2</b>", "kompüterdə hamısı birdən");
   assert.ok(APP.includes("recent(LATE_HTML, k, h, 40);"), "yaddaş həddi");
-  assert.ok(APP.includes('next.content.querySelectorAll?.("template[data-late]").forEach(t => { const c = lateContent(t); if (c) t.replaceWith(c); });'), "dolmuş səhifənin yenidən çəkilişi şablonu yaddaşdan açır");
+  assert.ok(APP.includes('next.content.querySelectorAll?.("template[data-late]").forEach(t => { const c = lateContent(t); if (c) lateSwap(t, c); });'), "dolmuş səhifənin yenidən çəkilişi şablonu yaddaşdan açır");
+  // Bölmə səhifəsi (sahib 2026-11-26: «sıçramalar»): sonraya saxlanan kartların yeri boş saxlanır (yığcam kart 206 px), doldurulanda boşluq
+  // gedir — əvvəl 6 kartdan sonra altbilgi görünürdü və 42 kart gələndə onu itələyirdi (CLS 1,0). Oxucu sürüşdürməyə başlayan kimi doldurulur.
+  const padded = run(ctx, 'late(["<b>1</b>", "<b>2</b>", "<b>3</b>"], 1, 206)');
+  assert.ok(padded.startsWith(html) && padded.endsWith('<div class="late-pad" style="height:412px"></div>'), padded);
+  assert.equal(run(ctx, 'late(["<b>1</b>", "<b>2</b>", "<b>3</b>"], 1, 0)'), html, "slayderdə (üfüqi) boşluq yoxdur");
+  const box = { removed: 0, remove() { this.removed++; } }, tpl = { nextElementSibling: { className: "late-pad", remove: () => box.remove() }, with: null, replaceWith(c) { this.with = c; } };
+  ctx.tpl = tpl; run(ctx, 'lateSwap(tpl, "C")');
+  assert.deepEqual([box.removed, tpl.with], [1, "C"], "doldurma boşluğu silir");
+  assert.ok(APP.includes("late(shown.map(a => cardAt(a, \"h2\")), LATE_LIST, 206)") && APP.includes('addEventListener("scroll", lateFill, { once: true, passive: true })'));
 });
 
 test("keçid: the home DOM is kept when leaving and put back on return; a changed feed refreshes it in idle time, a changed language or 10 minutes discard it", () => {
@@ -163,4 +173,65 @@ test("keçid: touching a link preloads what that page will need (archive, sports
   assert.ok(APP.includes(String.raw`document.addEventListener("pointerdown", e => { const h = hashOf(e.target.closest?.("a[href]")); if (h?.[0] == "#") preload(h); }, { passive: true, capture: true });`), 'telefonda barmaq toxunan anda');
   assert.ok(APP.includes('const h = hashOf(item);') && APP.includes('preT = setTimeout(() => preload(h), 120);'), "kompüterdə kursor menyuda dayananda (keçid /bolme/<ad>/ olsa da)");
   assert.ok(APP.includes('if (["sources", "about", "sections"].includes(route().name)) renderView();'), "modul gələndə yalnız həmin səhifədəsə çəkilir");
+});
+
+test("keçid: without native scroll anchoring (iPhone Safari) a block above the screen that changes height scrolls the page by the same amount; blocks on or below the screen and detached ones do not; images start 2.5 screens ahead (owner 2026-11-26: «sıçramalar», «şəkillərin gec yüklənməsi»)", () => {
+  const ios = [], ros = [], scrolls = [], on = {};
+  class IO { constructor(cb, o = {}) { this.cb = cb; this.o = o; this.seen = []; ios.push(this); } observe(el) { this.seen.push(el); } unobserve() {} disconnect() {} }
+  class RO { constructor(cb) { this.cb = cb; ros.push(this); } observe() {} disconnect() {} }
+  const ctx = app({ phone: true, extra: { IntersectionObserver: IO, ResizeObserver: RO, CSS: { supports: () => false }, scrollBy: (x, y) => scrolls.push(y), addEventListener: (t, f, o) => { if (t === "scroll" && o?.once) (on.scroll ||= []).push(f); } } });
+  const io = ios.find(x => !x.o.rootMargin), ro = ros[0], eager = ios.find(x => x.o.rootMargin === "250% 0px");
+  assert.ok(io && ro && eager && run(ctx, "typeof ANCHOR") === "function", "Safari: lövbər işləyir");
+  const above = { isConnected: true }, below = { isConnected: true }, gone = { isConnected: false }, fresh = { isConnected: true };
+  const size = (target, h) => ({ target, borderBoxSize: [{ blockSize: h }] });
+  io.cb([{ target: above, isIntersecting: false, boundingClientRect: { top: -900 } }, { target: below, isIntersecting: false, boundingClientRect: { top: 1200 } }, { target: gone, isIntersecting: false, boundingClientRect: { top: 0 } }]);
+  ro.cb([size(above, 360), size(below, 360), size(gone, 400)]);
+  assert.deepEqual(scrolls, [], "ilk ölçü: sürüşmə yoxdur");
+  ro.cb([size(above, 1500), size(below, 900), size(gone, 0)]);
+  assert.deepEqual(scrolls, [1140], "yalnız ekranın üstündəki blok: 360 → 1500 px, səhifə 1140 px aşağı");
+  ctx.a = above; ctx.b = fresh; run(ctx, "ANCHOR.swap(a, b)");
+  ro.cb([size(fresh, 1200)]);
+  assert.deepEqual(scrolls, [1140, -300], "yenilənən blok köhnəsinin hündürlüyündən hesablanır");
+  // Chrome, Firefox (öz lövbəri var): heç nə edilmir.
+  const ctx2 = app({ phone: true, extra: { IntersectionObserver: IO, ResizeObserver: RO, CSS: { supports: () => true }, scrollBy() {} } });
+  assert.equal(run(ctx2, "ANCHOR"), null);
+  // Şəkillər: blok 2,5 ekran qalmış yaxınlaşanda «lazy» şəkilləri dərhal istənir; üfüqi zolaqdakılar brauzerin öz lazy-si ilə qalır.
+  const img = { loading: "lazy" };
+  eager.cb([{ isIntersecting: true, target: { querySelectorAll: sel => (assert.equal(sel, 'img[loading="lazy"]:not(.strip *,.vl-row *)'), [img]) } }]);
+  assert.equal(img.loading, "eager");
+  // Açılışda (sürüşmədən əvvəl) blok izlənmir — ilk ekranla yarışan sorğu yoxdur; ilk sürüşmədə bütün bloklar izlənir.
+  run(ctx, "document.querySelectorAll = () => [{ id: 1 }, { id: 2 }]; settle()");
+  assert.equal(eager.seen.length, 0, "açılışda qabaqcadan şəkil sorğusu yoxdur");
+  assert.ok(on.scroll?.length, "ilk sürüşməni gözləyir");
+  on.scroll.forEach(f => f());
+  assert.equal(eager.seen.length, 2, "ilk sürüşmədə bloklar izlənməyə başlayır");
+  run(ctx, "settle()");
+  assert.equal(eager.seen.length, 4, "sonrakı çəkilişlərdə yeni bloklar da izlənir");
+  assert.ok(APP.includes("if (eagerGo) EAGER.observe(box);"), "tənbəl bölmə dolanda da yalnız sürüşmədən sonra");
+});
+
+test("keçid: on opening the minute feed is fetched alongside the full feed and the images of its newest new stories start at once, so «Son xəbərlər» is not redrawn with empty pictures (owner 2026-11-26: «son xəbərlərdə də gec gəlirdi»)", () => {
+  const got = [];
+  class Img { set src(u) { got.push({ u, ref: this.referrerPolicy }); } }
+  const ctx = app({ phone: true, extra: { Image: Img } });
+  const at = m => `2026-11-26T14:${String(m).padStart(2, "0")}:00+00:00`;
+  const row = (id, m, extra = {}) => ({ id, title: "Xəbər " + id, summary: "", category: "gundem", lang: "az", sourceUrl: `https://apa.az/${id}`, imageUrl: `https://apa.az/${id}.jpg`, publishedAt: at(m), ...extra });
+  ctx.feed = {
+    articles: [row("kohne", 30), row("prez", 40, { category: "prezident" }), row("agir", 39, { imageUrl: "https://sportinfo.az/a.jpg" }), row("idman1", 38, { category: "idman" }),
+      row("ru", 37, { lang: "ru", title: "Новости", summary: "" }), row("sekilsiz", 50, { imageUrl: "" }), ...Array.from({ length: 10 }, (_, i) => row("t" + i, 20 + i))],
+  };
+  run(ctx, 'S.lang = "az"; S.data = { articles: [{ id: "kohne" }] }; location.hash = "#/"; warmLatest(feed)');
+  const ids = got.map(x => decodeURIComponent(x.u).match(/apa\.az\/(\w+)\.jpg/)?.[1]);
+  // Görünəcək ilk 8 kart: agir(39) idman1(38) t9…t4. Proksisiz «agir» yerini tutur, amma istənmir; ilk ekrandakı, prezident, başqa dil, şəkilsiz kart yox.
+  assert.deepEqual(ids, ["idman1", "t9", "t8", "t7", "t6", "t5", "t4"], "ən yeni 8 kartın yeni şəkilləri");
+  assert.ok(got.every(x => x.ref === "no-referrer" && x.u.startsWith("https://wsrv.nl/?url=") && x.u.includes("&w=360&")), "kartın öz ünvanı (360 px), mənbəyə istinad göndərilmir");
+  got.length = 0; run(ctx, 'location.hash = "#/bolme/idman"; warmLatest(feed)');
+  assert.deepEqual(got.map(x => decodeURIComponent(x.u).match(/apa\.az\/(\w+)\.jpg/)?.[1]), ["idman1"], "bölmədə yalnız onun xəbərləri");
+  got.length = 0; run(ctx, 'location.hash = "#/xeber/abc"; warmLatest(feed)');
+  assert.equal(got.length, 0, "xəbər səhifəsində heç nə");
+  // Sorğu yenisi deyil: açılışda tam lentdən əvvəl başlayır, dəqiqəlik lentin ilk çağırışı onu bir dəfə işlədir.
+  const news = APP.slice(APP.indexOf("async function loadNews("), APP.indexOf("async function loadNews(") + 4000);
+  assert.ok(news.indexOf("S.latestPre = latestJSON()") > 0 && news.indexOf("S.latestPre = latestJSON()") < news.indexOf("await newsJSON(force"), "tam lentlə paralel");
+  assert.ok(news.includes("if (!force && (!S.data || S.partial)) S.latestPre"), "yalnız açılışda");
+  assert.ok(APP.includes("const pre = !force && await S.latestPre; S.latestPre = null;") && APP.includes("const {r, d} = pre || await latestJSON(force);"), "ikinci sorğu yoxdur");
 });

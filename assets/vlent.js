@@ -2,6 +2,7 @@
 // olan hadisə və xəbər videoları da salmaq olar öz videolarımızı da, saytların videolarını da». Nümunə: üfüqi sürüşən şaquli kartlar,
 // altında başlıq. Görünən ən soldakı kart səssiz öz-özünə oynayır, bitəndə (ən çoxu PLAY_MAX) lent növbəti karta keçir, sonuncudan
 // sonra birinciyə qayıdır. Başlığa basanda tam oynadıcı açılır: X videosu Videolentdə (lent.js), YouTube videosu video səhifəsində.
+// YouTube kartı (telekanallar) telefonda özü oynamır, lent onun üstündən keçir; basanda tam ekranda açılır (sahib, 2026-11-26, «A»; nextOf).
 // Kompüterdə (siçan) belə deyil — sahib, 2026-11-25: «video xəbər kompda kursor üzərinə aparılanda oynamalı idi … yalnız kursor üstünə
 // aparılanda başlasın oynamağa avtomatik yox, kursoru çəkəndə dayansın»: zolaq özü oynamır, kursorun altındakı kart oynayır (hover).
 //
@@ -218,7 +219,12 @@ export async function mount(sec, S, still = () => false, given = null) {
   const halt = n => { const f = players.get(n); if (f) { if (items[n].kind === "yt") ytCmd(f, "pauseVideo"); else videoOf(f)?.pause(); } };
   // Yalnız oynayan və növbəti kartın oynadıcısı qalır.
   const trim = keep => players.forEach((f, n) => { if (!keep.includes(n)) { f.remove(); players.delete(n); bar(n, 0); } });
-  const nextOf = n => (n + 1) % cards.length;
+  // YouTube kartı (telekanallar) telefonda özü oynamır, yalnız şəkli və ▶ görünür; basanda tam ekranda səslə açılır (sahib, 2026-11-26:
+  // «A: avtomatik oynamasın»). YouTube oynadıcısı hər başlayanda ~3,5 s öz ⏸ işarəsini, kanal adını və «Shorts» yazısını göstərir,
+  // parametrlə söndürülmür, üstünü örtmək YouTube-un qaydasına ziddir. Lent öz videolarımızı (veb nüsxəsi) və X videolarını oynadır,
+  // YouTube kartlarının üstündən keçir. Kompüterdə kursorla oynatma (sahib, 2026-11-25) dəyişmir.
+  const ok = n => items[n].kind !== "yt";
+  const nextOf = n => { for (let k = 1; k <= cards.length; k++) { const m = (n + k) % cards.length; if (ok(m)) return m; } return n; };   // növbəti özü oynayan kart (yoxdursa n)
   function stop() {
     clearTimeout(timer);
     if (cur >= 0) { cards[cur].classList.remove("on"); halt(cur); }
@@ -260,7 +266,8 @@ export async function mount(sec, S, still = () => false, given = null) {
     if (fs >= 0) { fsEnd = true; cards[fs].classList.add("ps"); return; }   // tam ekranda növbətiyə keçmir: ▶
     if (hover) { again(cur); return; }   // kompüter: zolaq tərpənmir
     const n = nextOf(cur);
-    if (n === 0 && swap(true)) return;   // dövr başa çatdı: yeni siyahı varsa zolaq ondan başlayır
+    if (n === cur) { if (ok(cur)) again(cur); else stop(); return; }   // özü oynayan başqa kart yoxdur
+    if (n < cur && swap(true)) return;   // dövr başa çatdı: yeni siyahı varsa zolaq ondan başlayır
     lock = Date.now() + 1000;   // proqramla sürüşmə: görünüş yoxlaması əvvəlki kartı geri seçməsin
     row.scrollTo({ left: cards[n].offsetLeft - row.offsetLeft, behavior: "smooth" });
     play(n);
@@ -361,7 +368,7 @@ export async function mount(sec, S, still = () => false, given = null) {
     if (hover) { if (fs < 0 && cur >= 0 && (seen.get(cur) || 0) < 0.1) rest(); return; }   // kompüter: yalnız kursor oynadır
     if (fs >= 0 || (!auto() && !user) || Date.now() < lock) return;
     if (cur >= 0 && (seen.get(cur) || 0) >= 0.6) return;   // oynayan kart görünürsə dəyişmir (kompüterdə 4 kart birdən görünür)
-    const best = [...seen].filter(([, r]) => r >= 0.6).sort((a, b) => a[0] - b[0])[0]?.[0] ?? -1;   // ən soldakı
+    const best = [...seen].filter(([n, r]) => r >= 0.6 && ok(n)).sort((a, b) => a[0] - b[0])[0]?.[0] ?? -1;   // ən soldakı özü oynayan
     if (best < 0) stop(); else play(best);
   };
   const io = new IntersectionObserver(es => {
@@ -373,6 +380,11 @@ export async function mount(sec, S, still = () => false, given = null) {
     clearTimeout(hold); hold = setTimeout(pickVisible, 120);
   }, { threshold: [0, 0.6, 0.9] });
   cards.forEach(c => io.observe(c));
+  // Birinci kartın oynadıcısı zolaq ekrana yaxınlaşanda qurulur (modul ~900 px qabaqdan yüklənir), görünəndə yox: video ekrana çatanda
+  // hazırdır (sahib, 2026-11-26: «videoların gec oynaması … gözqırpımı»). Ölçü: YouTube kartı görünəndən oynamağa 3,9 s gedirdi.
+  // İlk iki kartdan (telefonda görünənlər) özü oynayan birincisi; YouTube kartı özü oynamır.
+  const first = [0, 1].find(k => k < items.length && ok(k));
+  if (!hover && auto() && !given && first != null) make(first);
   row.addEventListener("scroll", () => { clearTimeout(hold); hold = setTimeout(pickVisible, 600); }, { passive: true });
   document.addEventListener("visibilitychange", () => {
     if (fs >= 0) { if (document.hidden && !fsWait && !fsEnd) fsToggle(); return; }   // tam ekran: dayanır, ▶ ilə davam
