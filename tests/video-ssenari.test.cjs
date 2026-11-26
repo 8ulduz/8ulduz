@@ -216,14 +216,15 @@ test("video: footage mode — clips fill 9:16 with the top clear; the lower bloc
   assert.ok(fades.length === V.LF.fadeLayers && fades[0].includes(`\\pos(0,${b.fadeTop})`), "keçid blokun üstündən başlayır");
   assert.ok([b.headTop, b.capTop, V.LF.lineY, srcBottom].every(y => over(y) === V.LF.fadeLayers), "başlıq, altyazı və mənbə ən tünd yerdədir");
   assert.ok(over(b.logoY) >= V.LF.fadeLayers - 4 && over(b.fadeTop - 1) === 0, "loqonun arxası tünd, blokun üstü açıq");
-  assert.ok(Math.max(...span.map(s => s[1])) <= V.LF.fadeEnd && over(V.LF.fadeEnd + 1) === 0 && over(1700) === 0, "mənbə sətrindən aşağı video açıqdır");
+  assert.ok(Math.max(...span.map(s => s[1])) <= V.LF.fadeEnd && over(V.LF.fadeEnd + 1) === 0 && V.LF.fadeEnd <= 1750, "mənbə sətrindən aşağı video açıqdır (ən azı aşağı 170 px)");
   assert.ok((V.LF.fadeEnd - b.fadeTop) / 1920 < 0.36, `tündləşən hissə ${Math.round((V.LF.fadeEnd - b.fadeTop) / 19.2)}% (əvvəl 55%)`);
   // Altyazı blokda ən çox 2 sətirdir (CAPF): 3-cü sətir künc xəttinin üstünə düşməsin (sınaq videosunda düşmüşdü).
   const long = V.prepare({ ...fixture, text: "Dələduzluq etməkdə təqsirləndirilən hüquqşünas Namizəd Səfərovun cinayət işi üzrə məhkəmə prosesi yekunlaşıb. Bakı Ağır Cinayətlər Məhkəməsində keçirilən prosesdə hökm oxunub." }, { cats, footage: true });
   assert.ok(long.chunks.length >= 3 && long.chunks.every(c => V.wrap(c, V.CAPF.size, "medium", V.CAPF.w).length <= V.CAPF.lines), "altyazı 2 sətrə bölünür");
   assert.ok(V.ass(long, V.timeline(long, null)).split("\n").filter(l => /^Dialogue: 4,/.test(l)).every(l => (l.match(/\\N/g) || []).length <= 1));
-  // Blokun sırası yuxarıdan: loqo (ffmpeg) → başlıq → altyazı → künc xəttinin üfüqi hissəsi → tarix və mənbə; hamısı y 1480-ə qədər.
-  assert.ok(b.logoY + V.LF.logoH < b.headTop && b.headBottom < b.capTop && b.capTop + 2 * V.CAPF.size * 1.17 <= V.LF.lineY && V.LF.lineY + V.LF.srcGap + 36 <= 1480);
+  // Blokun sırası yuxarıdan: loqo (ffmpeg) → başlıq → altyazı → künc xəttinin üfüqi hissəsi → tarix və mənbə; hamısı y 1635-ə qədər.
+  // Blok Instagram-ın yazısının (y ≈ 1650) düz üstündə bitir, lentin 4:5 kəsiyinə (y 1635) sığır (sahib, 2026-11-26: Baku WS kimi aşağıda).
+  assert.ok(b.logoY + V.LF.logoH < b.headTop && b.headBottom < b.capTop && b.capTop + 2 * V.CAPF.size * 1.17 <= V.LF.lineY && V.LF.lineY + V.LF.srcGap + 36 <= 1635 && V.LF.lineY + V.LF.srcGap + 36 >= 1580);
   // Ölçülər (sahib, 2026-11-26): başlıq ≤ 56, altyazı 42, loqo 44; mətn və xətt düymə sütununa (x ≈ 950-dən) dəymir; blok kadrın ≤ 21%-i.
   assert.ok(p.head.size <= 56 && V.CAPF.size === 42 && V.LF.logoH === 44 && V.LF.right <= 900 && V.CAPF.w === V.FOOT_W && V.LF.textX + V.FOOT_W === V.LF.right);
   assert.ok((V.LF.lineY + V.LF.srcGap + 36 - b.logoY) / 1920 <= 0.21, `blok ${Math.round((V.LF.lineY + V.LF.srcGap + 36 - b.logoY) / 19.2)}% (əvvəl 23%)`);
@@ -250,7 +251,7 @@ test("video: footage mode — clips fill 9:16 with the top clear; the lower bloc
   for (const l of ev) {
     const m = l.match(/\\(?:pos|move)\((\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/);
     if (!m || /\\p1/.test(l)) continue;
-    assert.ok(+m[2] >= 300 && +m[2] <= 1480, `y=${m[2]} lentin 4:5 kəsiyində: ${l.slice(0, 80)}`);
+    assert.ok(+m[2] >= 300 && +m[2] <= 1600, `y=${m[2]} lentin 4:5 kəsiyində (yazının üstü ≤ 1600, altı ≤ 1635): ${l.slice(0, 80)}`);
   }
   // ffmpeg: loqo blokda (p verilir), sonluqda söner; sonluqda ortada böyük loqo yavaşca görünür, yanında «.az», altında narıncı xətt.
   const withP = V.ffmpegArgs({ tl: t, p, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4", clips: ["a.mp4"] });

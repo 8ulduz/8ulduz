@@ -269,14 +269,16 @@ function subOutro(dlg, out, D, y, tur, alt) {
 // tünd göyə keçir, keçidin üstündə blok: loqo və bölmə nişanı, başlıq (dırnaqdakı ifadə və rəqəm narıncı), sözbəsöz altyazı; solda
 // yuxarıdan enib dairəvi küncdən sağa dönən narıncı xətt, altında tarix və mənbə. Baku WS-dən fərqi: rəng (onlarda qara və qızılı),
 // xəttin üfüqi hissəsi videonun gediş xəttidir (dolur), loqonun yanında bölmə nişanı, sözbəsöz altyazı və səs.
-// Blok aşağıdan qurulur (blok()): xəttin üfüqi hissəsi y LF.lineY-də, mənbə sətri onun altında — hamısı y 1480-ə qədər (tam ekranda
-// aşağıda Reels yazısı, lentin 4:5 kəsiyi y 1635-ə qədərdir); sağda düymə sütununa görə mətn və xətt x ≤ LF.right.
+// Blok aşağıdan qurulur (blok()): xəttin üfüqi hissəsi y LF.lineY-də, mənbə sətri onun altında — hamısı y ≈ 1615-ə qədər: lentin 4:5
+// kəsiyi y 1635-ə qədərdir, tam ekranda Instagram-ın adı və izahı y ≈ 1650-dən başlayır. Sahib, 2026-11-26 (Baku WS-in Reels şəkli ilə):
+// «niyə mən göndərdiyim şəkildəki kimi etmirsən orada yazı 5-7 mm aşağıdan başlayır» — onlarda blok Instagram-ın yazısının düz üstündə
+// bitir (videoda y ≈ 1620), bizdə 1480-də bitirdi: xətt 1424 → 1560. Sağda düymə sütununa görə mətn və xətt x ≤ LF.right.
 // Sahib, 2026-11-26 (Instagram-da baxandan sonra): «yazı az qala ekranın yarısını tutur. bu çoxdur və görməyə mane olur». Ölçü (həmin
 // video): blok kadrın 23%-i idi, tünd keçid isə y 867-dən kadrın sonuna qədər — 55%; mənbə sətrindən aşağısı (~22%) ~95% tünd idi və
 // orada heç nə yazılmırdı (şəbəkənin öz yazısının öz kölgəsi var). İndi: loqo 56 → 44, başlıq 68 → 56 (uzunsa 52, 48; ən çox 3
 // sətir 48-lə), altyazı 46 → 42, aralar kiçik, mətn x ≤ 880 (düymələrə dəymir); keçid yalnız blokun arxasındadır (fadeEnd-ə qədər).
-const LF = { lineY: 1424, lineX: 60, textX: 100, right: 880, thick: 6, corner: 40, logoH: 44, logoGap: 16, headGap: 14, capGap: 14, srcGap: 18,
-  sizes: [56, 52, 48], headMaxH: 3 * 48, fade: 120, fadeLayers: 9, fadeEnd: 1600, fadeOut: 14, fadeAlpha: "&HD4&",
+const LF = { lineY: 1560, lineX: 60, textX: 100, right: 880, thick: 6, corner: 40, logoH: 44, logoGap: 16, headGap: 14, capGap: 14, srcGap: 18,
+  sizes: [56, 52, 48], headMaxH: 3 * 48, fade: 120, fadeLayers: 9, fadeEnd: 1730, fadeOut: 14, fadeAlpha: "&HD4&",
   // Sonluqda loqo ortada, böyük (blokdakı loqo onunla birlikdə söner): «8ULDUZ.az», altında qısa narıncı xətt.
   outroLogoY: 470, outroLogoH: 100, outroAz: 88 };
 const FOOT_W = LF.right - LF.textX;   // blokda mətnin eni (780 = CAPF.w)
