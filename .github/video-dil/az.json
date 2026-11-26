@@ -4,14 +4,17 @@
   "locale": "az",
   "herf": "[əğışçöüƏĞŞÇÖÜİ]",
   "hava": true,
+  "dunya": true,
   "lent": {
     "dil": "az",
     "min_menbe": 4,
     "ceki": {
       "bolme": { "medeniyyet": 1.4, "idman": 1.3, "cemiyyet": 1.15, "bolgeler": 1.1, "heyat": 1.1, "dunya": 0.9, "iqtisadiyyat": 0.8, "sosial": 0.8, "siyaset": 0.8 },
       "zeif": "sammit|zirvə|forum|konfrans|simpozium|təqdimat|memorandum|saziş|anlaşma|əməkdaşlıq|günü münasibətilə|günüdür|ildönümü|[iİ]l tamam|hava necə olacaq|hava proqnozu",
-      "zeif_emsal": 0.6
-    }
+      "zeif_emsal": 0.6,
+      "video_emsal": 1.3
+    },
+    "yayim": "(?<![\\p{L}\\p{N}])(qol|qollar|qolu|qolun|qolları|icmal|icmalı|xülasəsi|penalti|ən yaxşı anlar|highlights?|goals?|klip|klipi|treyler|treyleri|trailer|fraqment|serial|serialın|özet|голы?|обзор|трейлер|клип)(?![\\p{L}\\p{N}])"
   },
   "video": {
     "xeber": "Xəbər",

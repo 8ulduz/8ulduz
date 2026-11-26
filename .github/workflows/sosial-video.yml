@@ -26,9 +26,9 @@ on:
         required: false
         default: ''
       tur:
-        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər) və ya maraqli (maraqlı video, dərhal)'
+        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər), maraqli (maraqlı video, dərhal) və ya dunya (dünya videosu tərcümə ilə, dərhal)'
         type: choice
-        options: [avtomatik, hava, xeber, maraqli]
+        options: [avtomatik, hava, xeber, maraqli, dunya]
         default: avtomatik
   # PR-da nümunə xəbərdən video hazırlanır və yoxlanır (paylaşılmır): kadrlar artefaktdadır.
   pull_request:
@@ -40,6 +40,9 @@ on:
       - .github/scripts/video-dil.cjs
       - .github/video-dil/**
       - .github/scripts/video-arxiv.cjs
+      - .github/scripts/video-menbe.cjs
+      - .github/scripts/video-dunya.cjs
+      - .github/video-dunya.json
       - .github/scripts/video_ses.py
       - .github/scripts/sosial-video.cjs
       - .github/workflows/sosial-video.yml
@@ -93,6 +96,9 @@ jobs:
             .github/scripts/video-hava.cjs
             .github/scripts/video-maraqli.cjs
             .github/scripts/video-arxiv.cjs
+            .github/scripts/video-menbe.cjs
+            .github/scripts/video-dunya.cjs
+            .github/video-dunya.json
             .github/scripts/veb-video.cjs
             .github/scripts/video_ses.py
             .github/scripts/video_dinle.py
@@ -167,6 +173,13 @@ jobs:
           MARAQLI_VIDEO: ${{ vars.MARAQLI_VIDEO }}
           MARAQLI_GUNDE: ${{ vars.MARAQLI_GUNDE }}
           MARAQLI_ARA_MIN: ${{ vars.MARAQLI_ARA_MIN }}
+          # Mənbə saytının öz videosu (video-menbe.cjs) və dünya videoları (video-dunya.cjs; sahib, 2026-11-26). Söndürmək: 0.
+          # MENBE_YAYIM=1 — oyun, film, klip kadrı da götürülsün (Content ID / Rights Manager riski: docs/sosial-video.md).
+          MENBE_VIDEO: ${{ vars.MENBE_VIDEO }}
+          MENBE_YAYIM: ${{ vars.MENBE_YAYIM }}
+          DUNYA_VIDEO: ${{ vars.DUNYA_VIDEO }}
+          DUNYA_GUNDE: ${{ vars.DUNYA_GUNDE }}
+          DUNYA_ARA_MIN: ${{ vars.DUNYA_ARA_MIN }}
         run: |
           if [ "$EVENT" = pull_request ] && [ "$MATRIX_TUR" = hava ]; then
             node .github/scripts/sosial-video.cjs numune-hava tests/fixtures/video-hava.json video-out

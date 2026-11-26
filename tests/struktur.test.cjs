@@ -73,15 +73,17 @@ test("struktur 5: the site (GitHub Pages) only gets folders with a known bound �
 });
 
 test("struktur 6: every Node script that sends or publishes stories applies the site's source rule (red line 2)", () => {
-  const writers = ["topics.cjs", "izle.cjs", "arxiv.cjs", "social.cjs", "prerender.cjs", "sosial-video.cjs", "video-ssenari.cjs", "video-xeber.cjs", "video-hava.cjs", "video-maraqli.cjs", "tiktok.cjs", "youtube.cjs"];
+  const writers = ["topics.cjs", "izle.cjs", "arxiv.cjs", "social.cjs", "prerender.cjs", "sosial-video.cjs", "video-ssenari.cjs", "video-xeber.cjs", "video-hava.cjs", "video-maraqli.cjs", "video-dunya.cjs", "tiktok.cjs", "youtube.cjs"];
   for (const f of writers) assert.ok(/policyViolation|content-policy/.test(read(".github/scripts/" + f)), `${f} mənbə qaydasını (policyViolation) işlətmir`);
   // tixac.cjs: öz ölçüsü (Mapbox), başqa saytın xəbərini yazmır. meta-yoxla.cjs: Meta açarını və statistikanı yalnız oxuyur, heç nə paylaşmır.
   // tiktok-demo.cjs: saytın ekran yazısı (TikTok App review demo), xəbər yazmır və paylaşmır — göstərdiyi sayt və video artıq qaydadan keçib.
   // video-arxiv.cjs: yalnız klip metadatası (yer, lisenziya, yoxlama) yazır, xəbərin mətnini və başlığını işlətmir.
   // veb-video.cjs: YouTube-a yüklənmiş (youtube.cjs policyReason-dan keçmiş) videonun kiçik nüsxəsini və YouTube nömrələrinin siyahısını
   // R2-yə yazır; mətn yoxdur, lentə yalnız data/video.json-da onsuz da olan öz videomuz düşür.
+  // video-menbe.cjs: xəbərin mənbə səhifəsindən video faylını yükləyir (görüntü), mətn yazmır; xəbərin özü və videonun mətni qaydadan sosial-video.cjs və
+  // video-xeber.cjs-də keçir. Dünya videoları (video-dunya.cjs) xarici mənbədən mətn gətirir — yuxarıdakı siyahıdadır.
   // video-dil.cjs: video dil profilini (.github/video-dil/*.json) oxuyur, heç nə yazmır və paylaşmır; profili işlədən skriptlər yuxarıdakı siyahıdadır.
-  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs", "tiktok-demo.cjs", "video-arxiv.cjs", "ses-lugat.cjs", "veb-video.cjs", "video-dil.cjs"]);
+  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs", "tiktok-demo.cjs", "video-arxiv.cjs", "ses-lugat.cjs", "veb-video.cjs", "video-dil.cjs", "video-menbe.cjs"]);
   const all = fs.readdirSync(path.join(root, ".github/scripts")).filter(f => f.endsWith(".cjs"));
   assert.deepEqual(all.filter(f => !known.has(f)), [], "yeni Node skripti: xəbər yazırsa policyViolation işlətsin və bu siyahıya əlavə olunsun");
 });

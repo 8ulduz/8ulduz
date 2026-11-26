@@ -150,14 +150,14 @@ test("video: text cannot break the ASS script, and only our own material goes in
   const texts = ev.map(l => l.replace(/\{[^}]*\}/g, ""));
   assert.ok(!texts.some(x => /\\an8|\\fs200|\\pos\(0,0\)/.test(x)), "mətndəki { } \\ etiket kimi işləmir");
   assert.ok(ev.some(l => l.replace(/\\N/g, " ").includes("Başlıq (/an8/pos(0,0))")), "mötərizə və «/» ilə əvəz olunur");
-  // Girişlər: rəngli fon, saytın loqosu, səs (SARA) və ya sükut — xəbərin şəkli/videosu, musiqi yoxdur.
+  // Girişlər (görüntüsüz video): rəngli fon, saytın loqosu, səs və ya sükut — xəbərin şəkli, X videosu, musiqi yoxdur.
   const t = V.timeline(p, null);
   const inputs = a => a.filter((x, i) => a[i - 1] === "-i");
   assert.deepEqual(inputs(V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: null, out: "o.mp4" })),
     [`color=c=0x0B1426:s=1080x1920:r=30:d=${t.duration.toFixed(2)}`, "L.png", "anullsrc=channel_layout=stereo:sample_rate=48000"]);
   assert.deepEqual(inputs(V.ffmpegArgs({ tl: t, assFile: "v.ass", logo: "L.png", voiceFile: "ses.wav", out: "o.mp4" })).slice(1), ["L.png", "ses.wav"]);
   const src = read(".github/scripts/video-xeber.cjs");
-  assert.ok(!/imageUrl|\.xv\b|reels\.json|twimg|oz_x/.test(src), "video modulu xəbərin şəklini/videosunu işlətmir (müəllif hüququ, docs/sosial-video.md)");
+  assert.ok(!/imageUrl|\.xv\b|reels\.json|twimg|oz_x/.test(src), "video modulu xəbərin şəklini və X videolarını (reels.json, oz_x) işlətmir; mənbə saytının öz videosu ayrıca moduldan gəlir (video-menbe.cjs, sahibin 2026-11-26 qərarı)");
 });
 
 test("video: encoder settings match Facebook/Instagram Reels and TikTok (9:16, H.264 yuv420p, 30 fps, AAC 48 kHz, faststart)", () => {
@@ -536,7 +536,7 @@ test("sosial-video.yml: the weather video — PR renders both samples; same chec
   assert.match(wf, /node \.github\/scripts\/video-hava\.cjs video-out\/xeber\.json video-out\/video\.mp4/);
   assert.ok(/            \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /            tests\/fixtures\/video-hava\.json\n/.test(wf), "sparse-checkout");
   assert.ok(/      - \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /      - tests\/fixtures\/video-hava\.json\n/.test(wf), "PR yolları");
-  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli\]/);
+  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya\]/);   // dunya: dünya videosu (2026-11-26, video-dunya.cjs)
   assert.ok(wf.includes("name: ${{ matrix.tur == 'avto' && 'video-xeber' || format('video-{0}', matrix.tur) }}"), "main-də artefakt video-xeber (tiktok.yml, youtube.yml)");
   assert.equal((wf.match(/artifact: video-xeber/g) || []).length, 2);
   assert.ok(wf.includes("OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}"));
