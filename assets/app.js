@@ -26,32 +26,33 @@ const LANGS = [
   { code: "ru", label: "на русском языке" }, { code: "en", label: "in English" },
 ];
 const LANG_BADGE = { az: "AZ", ru: "RUS", en: "ENG", tr: "TÜRK" };
-const flag = inner => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`; // slice: dil siyahısında dairəvi kəsilir
+// Bayrağın fonu (30×20 düzbucaqlı) hər bayraqda var: ilk arqument onun rəngidir, çıxış əvvəlki ilə hərfbəhərf eynidir (kod ~0,4 KB qısalır).
+const flag = (bg, inner = "") => `<svg class="flag" viewBox="0 0 30 20" width="18" height="12" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="30" height="20" fill="${bg}"/>${inner}</svg>`; // slice: dil siyahısında dairəvi kəsilir
 const STAR8 = "M21 7.2l.7 1.5 1.6-.6-.6 1.6 1.5.7-1.5.7.6 1.6-1.6-.6-.7 1.5-.7-1.5-1.6.6.6-1.6-1.5-.7 1.5-.7-.6-1.6 1.6.6z";
 const FLAGS = {
-  az: flag(`<rect width="30" height="20" fill="#ef3340"/><rect width="30" height="6.67" fill="#00b5e2"/><rect y="13.33" width="30" height="6.67" fill="#509e2f"/><circle cx="14" cy="10" r="3" fill="#fff"/><circle cx="15" cy="10" r="2.4" fill="#ef3340"/><path d="${STAR8}" fill="#fff" transform="translate(-3.2 -.2) scale(.97)"/>`),
-  tr: flag(`<rect width="30" height="20" fill="#e30a17"/><circle cx="11.5" cy="10" r="5" fill="#fff"/><circle cx="12.8" cy="10" r="4" fill="#e30a17"/><path d="M19.5 10l-3.1 1 1.9-2.6v3.2l-1.9-2.6z" fill="#fff"/>`),
-  ru: flag(`<rect width="30" height="20" fill="#fff"/><rect y="6.67" width="30" height="6.67" fill="#0039a6"/><rect y="13.33" width="30" height="6.67" fill="#d52b1e"/>`),
-  en: flag(`<rect width="30" height="20" fill="#012169"/><path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0l30 20M30 0L0 20" stroke="#c8102e" stroke-width="1.6"/><path d="M15 0v20M0 10h30" stroke="#fff" stroke-width="6.5"/><path d="M15 0v20M0 10h30" stroke="#c8102e" stroke-width="4"/>`),
-  us: flag(`<rect width="30" height="20" fill="#fff"/><path d="M0 1.5h30M0 4.6h30M0 7.7h30M0 10.8h30M0 13.9h30M0 17h30M0 20h30" stroke="#b22234" stroke-width="1.54"/><rect width="13" height="10.8" fill="#3c3b6e"/>`),
-  cn: flag(`<rect width="30" height="20" fill="#de2910"/><path d="M7 3.2l1.3 4h4.2l-3.4 2.5 1.3 4L7 11.2l-3.4 2.5 1.3-4L1.5 7.2h4.2z" fill="#ffde00"/><circle cx="15" cy="3.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="6.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="10" r=".9" fill="#ffde00"/><circle cx="15" cy="13" r=".9" fill="#ffde00"/>`),
-  eu: flag(`<rect width="30" height="20" fill="#039"/><circle cx="15" cy="10" r="5.6" fill="none" stroke="#fc0" stroke-width="1.7" stroke-dasharray="1.7 1.23"/>`),
+  az: flag("#ef3340", `<rect width="30" height="6.67" fill="#00b5e2"/><rect y="13.33" width="30" height="6.67" fill="#509e2f"/><circle cx="14" cy="10" r="3" fill="#fff"/><circle cx="15" cy="10" r="2.4" fill="#ef3340"/><path d="${STAR8}" fill="#fff" transform="translate(-3.2 -.2) scale(.97)"/>`),
+  tr: flag("#e30a17", '<circle cx="11.5" cy="10" r="5" fill="#fff"/><circle cx="12.8" cy="10" r="4" fill="#e30a17"/><path d="M19.5 10l-3.1 1 1.9-2.6v3.2l-1.9-2.6z" fill="#fff"/>'),
+  ru: flag("#fff", '<rect y="6.67" width="30" height="6.67" fill="#0039a6"/><rect y="13.33" width="30" height="6.67" fill="#d52b1e"/>'),
+  en: flag("#012169", '<path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0l30 20M30 0L0 20" stroke="#c8102e" stroke-width="1.6"/><path d="M15 0v20M0 10h30" stroke="#fff" stroke-width="6.5"/><path d="M15 0v20M0 10h30" stroke="#c8102e" stroke-width="4"/>'),
+  us: flag("#fff", '<path d="M0 1.5h30M0 4.6h30M0 7.7h30M0 10.8h30M0 13.9h30M0 17h30M0 20h30" stroke="#b22234" stroke-width="1.54"/><rect width="13" height="10.8" fill="#3c3b6e"/>'),
+  cn: flag("#de2910", '<path d="M7 3.2l1.3 4h4.2l-3.4 2.5 1.3 4L7 11.2l-3.4 2.5 1.3-4L1.5 7.2h4.2z" fill="#ffde00"/><circle cx="15" cy="3.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="6.5" r=".9" fill="#ffde00"/><circle cx="17.5" cy="10" r=".9" fill="#ffde00"/><circle cx="15" cy="13" r=".9" fill="#ffde00"/>'),
+  eu: flag("#039", '<circle cx="15" cy="10" r="5.6" fill="none" stroke="#fc0" stroke-width="1.7" stroke-dasharray="1.7 1.23"/>'),
 };
 const MARKET_ICON = { USD: FLAGS.us, EUR: FLAGS.eu, RUB100: FLAGS.ru, TRY100: FLAGS.tr, CNY: FLAGS.cn, BRENT: "🛢", WTI: "🛢", XAU: "🥇", XAG: "🥈", BTC: "₿" };
 const marketIcon = id => MARKET_ICON[id] ? `<span class="mk-ic">${MARKET_ICON[id]}</span>` : "";
-const sv = (a, b, c, v) => flag(`<rect width="30" height="20" fill="${b}"/><rect ${v ? 'width="10" height="20"' : 'width="30" height="6.67"'} fill="${a}"/><rect ${v ? 'x="20" width="10" height="20"' : 'y="13.33" width="30" height="6.67"'} fill="${c}"/>`);
+const sv = (a, b, c, v) => flag(b, `<rect ${v ? 'width="10" height="20"' : 'width="30" height="6.67"'} fill="${a}"/><rect ${v ? 'x="20" width="10" height="20"' : 'y="13.33" width="30" height="6.67"'} fill="${c}"/>`);
 // Futbol menyusunun bayraqları və liqa adları (sahib 2026-11-20: «futbol bölməsi belə açılır, 5-10 saniyə sonra yeni şəklə düşür»): əsas koddadır,
 // menyu futbol.js-i gözləmədən ilk dəfədən bayraq + qalın ölkə + nazik liqa ilə çıxır. futbol.js bunları fbHelpers ilə alır.
 const FL = {
   az: FLAGS.az, tur: FLAGS.tr, rus: FLAGS.ru, usa: FLAGS.us, eu: FLAGS.eu,
-  eng: flag('<rect width="30" height="20" fill="#fff"/><path d="M15 0v20M0 10h30" stroke="#ce1124" stroke-width="4"/>'),
-  sco: flag('<rect width="30" height="20" fill="#0065bd"/><path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="3"/>'),
-  esp: flag('<rect width="30" height="20" fill="#aa151b"/><rect y="5" width="30" height="10" fill="#f1bf00"/>'),
+  eng: flag("#fff", '<path d="M15 0v20M0 10h30" stroke="#ce1124" stroke-width="4"/>'),
+  sco: flag("#0065bd", '<path d="M0 0l30 20M30 0L0 20" stroke="#fff" stroke-width="3"/>'),
+  esp: flag("#aa151b", '<rect y="5" width="30" height="10" fill="#f1bf00"/>'),
   ita: sv("#009246", "#fff", "#ce2b37", 1), fra: sv("#0055a4", "#fff", "#ef4135", 1), bel: sv("#000", "#fdda24", "#ef3340", 1),
   ger: sv("#000", "#dd0000", "#ffce00"), ned: sv("#ae1c28", "#fff", "#21468b"),
-  por: flag('<rect width="30" height="20" fill="#da291c"/><rect width="12" height="20" fill="#046a38"/><circle cx="12" cy="10" r="3.5" fill="#ffe900"/>'),
-  ksa: flag('<rect width="30" height="20" fill="#006c35"/><rect x="7" y="12" width="16" height="1.6" fill="#fff"/>'),
-  bra: flag('<rect width="30" height="20" fill="#009c3b"/><path d="M15 3l11 7-11 7-11-7z" fill="#ffdf00"/><circle cx="15" cy="10" r="3.6" fill="#002776"/>'),
+  por: flag("#da291c", '<rect width="12" height="20" fill="#046a38"/><circle cx="12" cy="10" r="3.5" fill="#ffe900"/>'),
+  ksa: flag("#006c35", '<rect x="7" y="12" width="16" height="1.6" fill="#fff"/>'),
+  bra: flag("#009c3b", '<path d="M15 3l11 7-11 7-11-7z" fill="#ffdf00"/><circle cx="15" cy="10" r="3.6" fill="#002776"/>'),
 };
 // sports.json liqa id -> [bayraq, ölkə, liqa]; Azərbaycan liqaları (football.json) dünya siyahısında deyil
 const LIQA = {
@@ -893,7 +894,9 @@ async function loadNews(force = false) {
     // Açılışda dəqiqəlik lent tam lentlə paralel istənir (sorğu əvvəlki ilə eynidir, yalnız tez): first.json Pages-dən gəlir, 10 dəqiqəyə
     // qədər köhnədir, ana səhifənin «Son xəbərlər»i təzə lent gələndə bütünlüklə dəyişir. Əvvəl lent tam lentin emalından sonra istənirdi və
     // yeni 8 kartın şəkli yalnız kartlar çəkiləndə yüklənməyə başlayırdı (canlı sayt, telefon: kartlar 5,3 s-də dəyişir, şəkillər boş). 2026-11-26.
-    if (!force && (!S.data || S.partial)) S.latestPre = latestJSON().then(got => (warmLatest(got.d), got)).catch(() => null);
+    // Gələn kimi tətbiq olunur (loadLatest, şəkillər gələndən sonra çəkir), tam lenti (~250 KB) gözləmir: telefonda «Son xəbərlər» tam lent
+    // gələnə qədər (7–8 s) köhnə siyahıda qalırdı, sonra 8 kartın hamısı birdən dəyişirdi (2026-11-26 ölçüsü). Sorğu yenə birdir.
+    if (!force && (!S.data || S.partial)) S.latestPre = latestJSON().then(got => (loadLatest(), got)).catch(() => null);
     const {r, d, tag} = await newsJSON(force, controller.signal);
     if(token !== S.newsToken)return;
     if (!Array.isArray(d.articles)) throw new Error("Xəbər məlumatının quruluşu yanlışdır");
@@ -1146,14 +1149,18 @@ function syncNewPill() {
 }
 // Təzə dəqiqəlik lentin ana səhifədə ilk görünəcək 8 şəkli («Son xəbərlər»): kart çəkiləndə şəkil artıq yüklənir. Ağır orijinal (proksisiz
 // sayt) istənmir. Ünvan kartınkı ilə eynidir (sized(…, 360)), brauzer onu yenidən istəmir.
+// Qaytarır: şəkillər gəlib açılanda (decode) həll olan söz, ən çox WARM_WAIT_MS (sahib 2026-11-26: «son xəbər şəkilləri anında yüklənmir»).
+// loadLatest yeni kartları bundan sonra çəkir: kart ekrana boş şəkil qutusu ilə düşmür. wsrv.nl təzə şəkli ilk dəfə 0,4–1,7 s-də verir.
+const WARM_WAIT_MS = 1500;
 function warmLatest(d) {
   const { name, slug } = route(), cat = name == "section" ? slug : name == "home" ? "" : null; // bölmədə yalnız onun xəbərləri
-  if (cat == null || !Array.isArray(d?.articles)) return;
-  const known = new Set(S.data?.articles?.map(a => a.id));
+  if (cat == null || !Array.isArray(d?.articles) || !globalThis.Image) return;
+  const known = new Set(S.data?.articles?.map(a => a.id)), got = [];
   for (const a of picFirst(byDate(filtered(d.articles).filter(a => a.category !== "prezident" && (!cat || a.category == cat) && !known.has(a.id)))).slice(0, 8)) {
     const u = imgUrl(a) && sized(imgUrl(a), 360);
-    if (u && !heavyImage(u)) Object.assign(new Image(), { referrerPolicy: "no-referrer", src: u }); // əvvəl siyasət, sonra ünvan
+    if (u && !heavyImage(u)) got.push(Object.assign(new Image(), { referrerPolicy: "no-referrer", src: u }).decode?.().catch(() => {})); // əvvəl siyasət, sonra ünvan
   }
+  return got.length && Promise.race([Promise.all(got), new Promise(r => setTimeout(r, WARM_WAIT_MS))]);
 }
 // Dəqiqəlik lent dil üzrə.
 async function latestJSON(force) {
@@ -1211,10 +1218,13 @@ async function loadLatest(force = false) {
     }
     if ((gotImage || deadChanged) && !fresh.length) { commitNews(await preparedNews()); requestRender(false); renderTopbar(); return; }
     if (!fresh.length) { renderTopbar(); return; }
+    const warm = warmLatest({ articles: fresh }); // yeni kartların şəkilləri: S.data hələ köhnədir (hansı kart yenidir — ondan bilinir)
     S.overlay = [...fresh.map(a => ({a, at: Date.now()})), ...(S.overlay || [])];
     S.rawNews = [...fresh, ...S.rawNews];
     commitNews(await preparedNews());
-    if (readerBusy()) { S.pendingNew = [...fresh, ...(S.pendingNew || [])]; renderTopbar(); renderTicker(); }
+    // Açılışda tam lent hələ gəlməyibsə (S.partial) first.json-da olmayan köhnə sətirlər də «yeni» görünür: «N yeni xəbər» sayına düşmür.
+    if (readerBusy() && !S.partial) { S.pendingNew = [...fresh, ...(S.pendingNew || [])]; renderTopbar(); renderTicker(); }
+    await warm;
     requestRender();
   } catch {} finally { S.latestLoading = false; }
 }
@@ -3679,12 +3689,15 @@ function resumeNews() {
 // (telefonda ~10 s): brauzer «shell-updated»i növbədə saxlayıb gec verirdi, kompüterdə çəkilmiş səhifə 3-cü saniyədə yenidən açılırdı
 // (məzmun → boş → məzmun, sayğacda iki ziyarət). İndi: ekranda hələ lent yoxdursa dərhal yenidən açılır (itirilən heç nə yoxdur),
 // lent varsa yeni kod səhifə gözdən itəndə gəlir — VERSION yolu (activated) ilə eyni qayda.
+// Hazır ilk ekran da lentdir (sahib 2026-11-26: «8ulduzu açanda ilk ağ boş ekran açılır sonra sayt»): ana səhifə index.html-dəki hazır
+// blokla (data-prerender) dərhal görünür, S.rawNews isə first.json-dan sonra gəlir. Hər yayımdan sonrakı ilk açılışda işçi köhnə nüsxəni
+// verir, fərqi görüb xəbər verir və səhifə ~0,5–1 s-də yenidən açılırdı: sayt → ağ ekran → sayt. Hazır blok ekrandadırsa gözləyir.
 function onWorkerMessage(e) {
   if (e.data?.type === "open-story" && e.data.id) { location.hash = detailUrl({ id: e.data.id }); return; } // bildiriş kliki
   if (e.data?.type !== "shell-updated") return;
   let once = false;
   try { once = !sessionStorage.getItem("8ulduz-reloaded"); if (once) sessionStorage.setItem("8ulduz-reloaded", "1"); } catch {}
-  if (once && performance.now() < 4000 && !S.rawNews && (globalThis.scrollY || 0) < 50 && !document.activeElement?.matches?.("input,textarea")) location.reload();
+  if (once && performance.now() < 4000 && !S.rawNews && !$("[data-prerender]") && (globalThis.scrollY || 0) < 50 && !document.activeElement?.matches?.("input,textarea")) location.reload();
   else S.reloadWhenHidden = true;
 }
 function listenWorker() {
@@ -3766,7 +3779,7 @@ function probeTextZoom() {
 }
 loadCached();
 const firstReady = S.firstReady = loadFirst();
-const newsReady = loadNews().then(() => loadLatest());
+const newsReady = loadNews().then(() => S.latestAt || loadLatest()); // dəqiqəlik lent artıq gəlibsə (loadNews → loadLatest) ikinci sorğu yoxdur
 const afterNews = run => newsReady.finally(() => setTimeout(run));
 afterNews(enableAnalytics);
 firstReady.finally(() => afterFrame(probeTextZoom));

@@ -2,6 +2,7 @@
 /* hidden display:flex qaydalarından güclü */
 [hidden]{display:none!important}
 :root{
+color-scheme:light;
 --bg:#15233b;--fg:#d5deeb;--card:#1c2c46;--card2:#263952;
 --primary:#d6bd80;--tab:#2a4a78;--primary-fg:#15233b;--muted:#aabbd2;--muted2:#a0b1c9;
 --border:#3e5370;--red:hsl(0 84% 60%);--green:#10b981;
@@ -33,7 +34,7 @@ html[data-fs="2"]{--fs-display:26px;--lh-display:32px;--fs-title:22px;--lh-title
 html[data-fs="3"]{--fs-display:28px;--lh-display:35px;--fs-title:24px;--lh-title:31px;--fs-headline:23px;--lh-headline:31px;--fs-body:20px;--lh-body:29px;--fs-meta:15px;--lh-meta:22px}
 html[data-fs="5"]{--fs-display:32px;--lh-display:41px;--fs-title:28px;--lh-title:37px;--fs-headline:27px;--lh-headline:37px;--fs-body:24px;--lh-body:35px;--fs-meta:17px;--lh-meta:25px}
 html[data-fs="6"]{--fs-display:34px;--lh-display:44px;--fs-title:30px;--lh-title:40px;--fs-headline:29px;--lh-headline:40px;--fs-body:26px;--lh-body:38px;--fs-meta:18px;--lh-meta:26px}
-:root[data-theme="light"]{
+:root[data-theme=light]{
 --bg:#f6f4ee;--fg:#172b4d;--card:#fff;--card2:#e6ebf2;
 --primary:#19385f;--tab:#19385f;--primary-fg:#fff;--muted:#465773;--muted2:#52617b;
 --border:#e2ddd0;
@@ -103,7 +104,7 @@ header.site{position:sticky;top:0;z-index:50;background:var(--header);border-bot
 /* Loqo: assets/logo.png (ağ «8», sarı ULDUZ); */
 .logo{display:flex;align-items:center;flex:none}
 .logo img{display:block;height:40px;width:auto}
-:root[data-theme="light"] .logo{background:#172b4d;border-radius:9px;padding:4px 9px}
+:root[data-theme=light] .logo{background:#172b4d;border-radius:9px;padding:4px 9px}
 /* Masaüstü: bir sətir, sığmayanlar «Daha çox»da */
 nav.main{display:flex;align-items:center;flex:1 1 220px;overflow:visible}
 nav.main a{white-space:nowrap;border-radius:99px;font-weight:600;font-size:.8929rem;line-height:1.25;color:var(--muted);flex:none}
@@ -201,7 +202,7 @@ nav.main a{font-size:.8571rem}
 @media (prefers-reduced-motion:reduce){.ticker .track{animation:none;padding-left:10px}.ticker .run{overflow-x:auto;scrollbar-width:none}.ticker .run::-webkit-scrollbar{display:none}}
 /* Sahib 11-06: 3 rəng — göy, qızılı, qırmızı */
 .mk{--mk-label:var(--fg);--mk-unit:var(--fg);--mk-a:hsl(var(--mh,208) 38% 25%);--mk-b:hsl(var(--mh,208) 32% 18%);--mk-border:hsl(var(--mh,208) 30% 46%);--mk-flat:var(--mk-b)}
-:root[data-theme="light"] .mk{--mk-a:hsl(var(--mh,208) 54% 86%);--mk-b:hsl(var(--mh,208) 46% 77%);--mk-border:hsl(var(--mh,208) 28% 59%)}
+:root[data-theme=light] .mk{--mk-a:hsl(var(--mh,208) 54% 86%);--mk-b:hsl(var(--mh,208) 46% 77%);--mk-border:hsl(var(--mh,208) 28% 59%)}
 .markets{border-bottom:1px solid var(--border);background:#0000}
 /* Qiymət və lent: yeri şriftə görə ayrılır */
 .markets.pending{height:calc(3*var(--lh-body) + 24px);visibility:hidden}
@@ -519,9 +520,9 @@ body{padding-bottom:62px}
 .st-btn.off:hover{background:#0000;color:#fff;text-shadow:0 1px 2px #0009}
 @media (hover:none){.st-btn{display:none!important}}
 .st-prev{left:8px}.st-next{right:8px}
-:root[data-theme="light"] .st-btn{border-color:#141824b3;color:#14181f;text-shadow:0 1px 2px #fff9}
-:root[data-theme="light"] .st-btn:hover{background:#141824eb;color:#fff;text-shadow:none}
-:root[data-theme="light"] .st-btn.off:hover{background:#0000;color:#14181f}
+:root[data-theme=light] .st-btn{border-color:#141824b3;color:#14181f;text-shadow:0 1px 2px #fff9}
+:root[data-theme=light] .st-btn:hover{background:#141824eb;color:#fff;text-shadow:none}
+:root[data-theme=light] .st-btn.off:hover{background:#0000;color:#14181f}
 .st-dots{display:flex;justify-content:center;gap:5px;padding:6px 0 0}
 .st-dots button{width:6px;height:6px;padding:0;border:0;border-radius:99px;background:var(--muted2);opacity:.55;transition:width .2s,opacity .2s}
 .st-dots button.on{width:18px;background:var(--primary);opacity:1}
@@ -595,7 +596,7 @@ body{padding-bottom:62px}
 .err{border:1px solid hsl(0 84% 60%/.4);background:hsl(0 84% 60%/.1);border-radius:8px;padding:8px 10px;font-size:.9286rem;margin-bottom:10px}
 html[data-route=other] .pre-skel{display:none} /* statik skelet yalnız baş səhifədə */
 .skel{border-radius:10px;background:linear-gradient(100deg,var(--card2) 30%,hsl(222 28% 18%) 48%,var(--card2) 62%);background-size:220% 100%;animation:shimmer 1.15s linear infinite}
-:root[data-theme="light"] .skel{background:linear-gradient(100deg,var(--card2) 30%,#fff 48%,var(--card2) 62%);background-size:220% 100%}
+:root[data-theme=light] .skel{background:linear-gradient(100deg,var(--card2) 30%,#fff 48%,var(--card2) 62%);background-size:220% 100%}
 @keyframes shimmer{to{background-position:-220% 0}}
 .vmarquee{overflow-y:auto;scrollbar-width:none;touch-action:pan-y} /* siyahı dibə/başa çatanda təkər səhifəni sürüşdürür */
 .vmarquee::-webkit-scrollbar{display:none}
@@ -622,19 +623,19 @@ html[data-route=other] .pre-skel{display:none} /* statik skelet yalnız baş sə
 .src-row.ok .src-meta span:first-child{color:#047857;font-weight:700}
 .src-row.warn .src-meta span:first-child{color:#b45309;font-weight:700}
 .src-row.bad .src-meta span:first-child{color:#b91c1c;font-weight:700}
-:root[data-theme="light"] .wx-pop,:root[data-theme="light"] .pray-pop{box-shadow:0 16px 40px #1a243333}
-:root[data-theme="light"] .wx-btn:hover,:root[data-theme="light"] .wx.open .wx-btn{filter:brightness(.97)}
-:root[data-theme="light"] .pray-h span{opacity:1}
-:root[data-theme="light"] .pray-when em{background:#047857;color:#fff}
-:root[data-theme="light"] .pray-wrap.open .pray{filter:brightness(.97)}
-:root[data-theme="light"] .pray-city{background:#053526;color:#f0fdf4;border-color:var(--pray-chip-line);color-scheme:dark}
-:root[data-theme="light"] .hero-main h2,:root[data-theme="light"] .hero-main .meta{color:#fff}
-:root[data-theme="light"] .mk .c.up,:root[data-theme="light"] .mk .c.down{color:#fff}
-:root[data-theme="light"] .tag,:root[data-theme="light"] .meta .src,:root[data-theme="light"] .soc-ic{color:var(--primary)}
-:root[data-theme="light"] .soc-g a{color:hsl(200 28% 28%)}
-:root[data-theme="light"] .soc-g a:hover{color:var(--primary);background:hsl(43 80% 46%/.16)}
-:root[data-theme="light"] .prez{background:linear-gradient(90deg,hsl(43 85% 48%/.14),var(--card) 42%,var(--card))}
-:root[data-theme="light"] .pcard,:root[data-theme="light"] .prez .soc-p{border-color:hsl(188 28% 72%)}
+:root[data-theme=light] .wx-pop,:root[data-theme=light] .pray-pop{box-shadow:0 16px 40px #1a243333}
+:root[data-theme=light] .wx-btn:hover,:root[data-theme=light] .wx.open .wx-btn{filter:brightness(.97)}
+:root[data-theme=light] .pray-h span{opacity:1}
+:root[data-theme=light] .pray-when em{background:#047857;color:#fff}
+:root[data-theme=light] .pray-wrap.open .pray{filter:brightness(.97)}
+:root[data-theme=light] .pray-city{background:#053526;color:#f0fdf4;border-color:var(--pray-chip-line);color-scheme:dark}
+:root[data-theme=light] .hero-main h2,:root[data-theme=light] .hero-main .meta{color:#fff}
+:root[data-theme=light] .mk .c.up,:root[data-theme=light] .mk .c.down{color:#fff}
+:root[data-theme=light] .tag,:root[data-theme=light] .meta .src,:root[data-theme=light] .soc-ic{color:var(--primary)}
+:root[data-theme=light] .soc-g a{color:hsl(200 28% 28%)}
+:root[data-theme=light] .soc-g a:hover{color:var(--primary);background:hsl(43 80% 46%/.16)}
+:root[data-theme=light] .prez{background:linear-gradient(90deg,hsl(43 85% 48%/.14),var(--card) 42%,var(--card))}
+:root[data-theme=light] .pcard,:root[data-theme=light] .prez .soc-p{border-color:hsl(188 28% 72%)}
 .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 :root{--maxw:1440px}
 .hrow{gap:12px}
@@ -838,7 +839,7 @@ nav.main>a.on{background:var(--primary);color:var(--primary-fg)}
 /* Alt başlıqlar menyunun düz altında */
 /* Alt menyu sətirləri: hər pillə bir ton tünd fon */
 :root{--nav-row:#213d59;--nav-row2:#25483f;--nav-row3:#443658;--nav-chip:#2d4a63;--nav-chip2:#2d5146;--nav-chip3:#4b3b60;--nav-on:#426682;--nav-on2:#4a705f;--nav-on3:#775c86}
-:root[data-theme="light"]{--nav-row:#dce8ee;--nav-row2:#e0e9dd;--nav-row3:#e9e0ed;--nav-chip:#ccdce5;--nav-chip2:#cfdfcd;--nav-chip3:#ddcde4}
+:root[data-theme=light]{--nav-row:#dce8ee;--nav-row2:#e0e9dd;--nav-row3:#e9e0ed;--nav-chip:#ccdce5;--nav-chip2:#cfdfcd;--nav-chip3:#ddcde4}
 .sub-rows{margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .sub-rows .wrap{max-width:none;padding-left:10px;padding-right:10px}
 .sub-rows .nav-row:last-child{border-bottom:0}
@@ -874,7 +875,7 @@ a.pill.on small{color:inherit}
 .topbar .prefs .theme-btn{padding:0 6px}
 @media (min-width:601px){.topbar .prefs .theme-btn{padding:0 8px;height:22px}}
 :root{--tix-pill:linear-gradient(180deg,#ea580c 0%,#c2410c 100%);--tix-on:#fff7ed}
-:root[data-theme="light"]{--tix-pill:linear-gradient(180deg,#fdba74 0%,#fb923c 100%);--tix-on:#7c2d12}
+:root[data-theme=light]{--tix-pill:linear-gradient(180deg,#fdba74 0%,#fb923c 100%);--tix-on:#7c2d12}
 /* Loqo: işıqlı rejimdə də tünd lövhə */
 .fcontact{margin:8px 0 0}
 /* Telefonda başlıqlar alçaq, barmağa rahat */
@@ -894,9 +895,9 @@ nav.main .nav-s{display:inline}
 .img>img,.hero-main>.img img,.card .img img,.pcard .img img{object-fit:cover;object-position:center}
 .card>.img,.hero-main>.img{background:var(--card)}
 /* Telefon/planşet slayderi: başlıq tünd örtükdə */
-@media(max-width:900px){.hero-row .hero-main{position:relative;display:block;height:auto;min-height:0;overflow:hidden;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;z-index:0;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:block;z-index:1;pointer-events:none;background:linear-gradient(to top,#000 0%,#000000bf 36%,#0000 68%)}.hero-row .hero-main .body{position:absolute;z-index:2;left:0;right:0;bottom:0;margin:0;padding:32px 14px 12px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:#fff}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:#fff}.hero-strip .st-btn{top:42%}}
+@media(max-width:900px){.hero-row .hero-main{position:relative;display:block;height:auto;min-height:0;overflow:hidden;background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;z-index:0;flex:none;width:100%;aspect-ratio:16/9}.hero-row .hero-main::after{display:block;z-index:1;pointer-events:none;background:linear-gradient(to top,#000 0%,#000000bf 36%,#0000 68%)}.hero-row .hero-main .body{position:absolute;z-index:2;left:0;right:0;bottom:0;margin:0;padding:32px 14px 12px}.hero-row .hero-main h2,:root[data-theme=light] .hero-row .hero-main h2{color:#fff}.hero-row .hero-main .meta,:root[data-theme=light] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:#fff}.hero-strip .st-btn{top:42%}}
 /* Kompüterdə slayder: 16:9 şəkil, başlıq sağda */
-@media(min-width:901px){.hero-row .hero-main{background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;height:100%;aspect-ratio:16/9;max-width:min(70%,calc(100% - 250px))}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{flex:1;min-width:0;margin:0;justify-content:center;padding:56px 58px 40px 22px}.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{color:var(--fg);font-size:clamp(1.15rem,1.6vw,1.6rem);-webkit-line-clamp:6}.hero-row .hero-main .meta,:root[data-theme="light"] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}}
+@media(min-width:901px){.hero-row .hero-main{background:var(--card)}.hero-row .hero-main>.img{position:relative;inset:auto;flex:none;height:100%;aspect-ratio:16/9;max-width:min(70%,calc(100% - 250px))}.hero-row .hero-main::after{display:none}.hero-row .hero-main .body{flex:1;min-width:0;margin:0;justify-content:center;padding:56px 58px 40px 22px}.hero-row .hero-main h2,:root[data-theme=light] .hero-row .hero-main h2{color:var(--fg);font-size:clamp(1.15rem,1.6vw,1.6rem);-webkit-line-clamp:6}.hero-row .hero-main .meta,:root[data-theme=light] .hero-row .hero-main .meta,.hero-row .hero-main .meta .src{color:var(--muted)}}
 .card[data-cat],.pcard[data-cat]{border-left-width:1px;border-left-color:var(--border)}
 .sec-h h2{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:600}
 .hero-main h2,.hero-row .hero-main h2{font-size:var(--fs-display);line-height:var(--lh-display);font-weight:700}
@@ -979,7 +980,7 @@ main{padding-top:8px}
 .pill,.loadmore{min-height:28px}
 .share{height:24px;padding:0 8px}
 }
-@media(max-width:900px){.hero-row .hero-main h2,:root[data-theme="light"] .hero-row .hero-main h2{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:700;-webkit-line-clamp:3}}
+@media(max-width:900px){.hero-row .hero-main h2,:root[data-theme=light] .hero-row .hero-main h2{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:700;-webkit-line-clamp:3}}
 @media(min-width:901px){.hero-row .hero-main h2{font-size:var(--fs-display);-webkit-line-clamp:6}}
 /* Son söz (sahibin qərarı): telefonda bölmələr */
 @media(max-width:600px){nav.main{display:flex;flex-wrap:wrap;overflow:visible;white-space:normal;gap:3px 2px;-webkit-mask-image:none;mask-image:none}nav.main>a,nav.main a.nav-x{margin:0}}
@@ -1009,7 +1010,7 @@ main{padding-top:8px}
 .ldm{display:flex;align-items:center;gap:10px;padding:8px 12px;border:0;border-radius:10px;font:inherit;font-size:1rem;font-weight:700;color:inherit;background:none;text-align:left;cursor:pointer}
 .ldm .globe{display:grid;place-items:center;font-size:14px;background:#dde3ee}
 .ldm:hover{background:#0000000f}
-:root[data-theme="light"] .ldm:hover{background:#ffffff1f}
+:root[data-theme=light] .ldm:hover{background:#ffffff1f}
 .ldm.on{background:var(--primary);color:var(--primary-fg)}
 .ldd-pop .lang-note{max-width:220px;padding:4px 12px 0}
 .topbar .retry{margin-left:6px;padding:0 8px;border:1px solid currentColor;border-radius:99px;font:inherit;font-size:.75rem;font-weight:700;color:inherit;background:none}
@@ -1084,12 +1085,12 @@ nav.main{order:10}
 .topbar .prefs [data-act^="fs-"] .face{min-width:26px;padding:0 3px;font-size:.74rem}
 .topbar .prefs .theme-btn .face{gap:3px;padding:0 7px;font-size:.74rem}
 .topbar .prefs .theme-btn span{font-size:inherit}
-:root[data-theme="light"] .hrow>.logo{padding:3px 6px}
+:root[data-theme=light] .hrow>.logo{padding:3px 6px}
 }
 /* işıqlı loqo lövhəsi enlidir */
-@media(max-width:440px){:root[data-theme="light"] .hrow>.logo{zoom:.9}}
-@media(max-width:392px){.hrow>.logo{zoom:.78}:root[data-theme="light"] .hrow>.logo{zoom:.72}}
-@media(max-width:350px){.hrow>.logo,:root[data-theme="light"] .hrow>.logo{zoom:.62}.hrow .ldd-btn .caret{display:none}}
+@media(max-width:440px){:root[data-theme=light] .hrow>.logo{zoom:.9}}
+@media(max-width:392px){.hrow>.logo{zoom:.78}:root[data-theme=light] .hrow>.logo{zoom:.72}}
+@media(max-width:350px){.hrow>.logo,:root[data-theme=light] .hrow>.logo{zoom:.62}.hrow .ldd-btn .caret{display:none}}
 @media(max-width:335px){.topbar .theme-btn span+span{display:none}} /* çox köhnə 320 px telefon: rejim yalnız işarə */
 .nav-inst{display:none}nav.main .nav-tg{display:none}
 @media(max-width:600px){

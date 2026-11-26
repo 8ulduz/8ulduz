@@ -75,6 +75,19 @@ test('first visit follows the phone theme, the reader choice wins, unknown is da
   assert.ok(index.includes('t === "light" || t === "dark" ? t : matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"'), 'ilk çəkilişdə də eyni qayda (ekran yanıb-sönmür)');
 });
 
+test('owner 2026-11-26 («8ulduzu açanda ilk ağ boş ekran açılır sonra sayt»): before app.css arrives the browser paints the empty page in the reader theme, not white; after it nothing looks different', () => {
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+  const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const head = index.slice(0, index.indexOf('<script>'));
+  assert.ok(head.includes('<meta name="color-scheme" content="dark" />'), 'skriptdən və app.css-dən əvvəl: saytın standart teması tündür');
+  const script = index.slice(index.indexOf('<script>'), index.indexOf('</script>'));
+  assert.ok(script.includes('document.documentElement.dataset.theme = t = t === "light"') && script.includes(`document.querySelector('meta[name="color-scheme"]').content = t;`), 'oxucunun öz teması (açıq temada ağ, tündə tünd)');
+  assert.ok(script.indexOf('.content = t;') < script.indexOf('8ulduz-fs'), 'tema ilə eyni anda');
+  // Meta bütün səhifəyə tünd düymə/sürüşmə zolağı verərdi: app.css gələndən sonra hər şey əvvəlki kimi (brauzerin açıq rəngləri).
+  assert.ok(css.includes(':root{\ncolor-scheme:light;\n--bg:#15233b;'), 'app.css :root color-scheme:light');
+  assert.ok(!/:root(\[[^\]]*\])?\{[^}]*color-scheme:(dark|normal)/.test(css), 'tema bloklarında başqa color-scheme yoxdur');
+});
+
 test('broken percent-encoded route does not break the page', () => {
   const ctx = app();
   ctx.location.hash = '#/axtar?q=100%';
@@ -3315,6 +3328,20 @@ test('speed: a deploy notice while the feed is on screen waits for the tab to hi
   assert.ok(start.indexOf('\nlistenWorker();\n') > 0 && start.indexOf('\nlistenWorker();\n') < start.indexOf('\nshell(); render();\n'), 'dinləyici açılışda, ilk çəkilişdən əvvəl');
   assert.ok(start.includes('firstReady.then(() => (globalThis.requestIdleCallback || (f => setTimeout(f, 1000)))(registerWorker, { timeout: 4000 }));') && !/afterNews\([^\n]*registerWorker/.test(start), 'işçi ilk ekrandan sonra boş anda qurulur, tam lentdən sonra deyil (telefonda 10 s idi)');
   assert.ok(!/navigator\.serviceWorker\.addEventListener\("message"/.test(start.slice(start.indexOf('function registerWorker'))), 'registerWorker-də ikinci dinləyici yoxdur');
+});
+test('owner 2026-11-26 («8ulduzu açanda ilk ağ boş ekran açılır sonra sayt»): a deploy notice while the ready first screen of index.html is shown does not restart the page', () => {
+  // Hər yayımdan sonrakı ilk açılışda işçi köhnə nüsxəni verir və fərqi bildirir; ana səhifə hazır blokla (data-prerender) artıq ekrandadır,
+  // S.rawNews isə first.json-dan sonra gəlir. Əvvəl səhifə ~0,5–1 s-də yenidən açılırdı: sayt → ağ ekran → sayt.
+  const calls = [], shown = { v: true };
+  const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; }, querySelector: s => s === '[data-prerender]' && shown.v ? {} : null };
+  const ctx = app({ document: doc, sessionStorage: { getItem: () => null, setItem() {} }, performance: { now: () => 900 }, location: { hash: '#/', reload: () => calls.push('reload') }, scrollY: 0 });
+  const { S } = ctx.api, on = vm.runInContext('onWorkerMessage', ctx);
+  on({ data: { type: 'shell-updated' } });
+  assert.deepEqual(calls, [], 'hazır ilk ekran görünür: yenidən açılmır');
+  assert.equal(S.reloadWhenHidden, true, 'yeni kod səhifə gözdən itəndə (işçi yeni nüsxəni artıq saxlayıb: növbəti açılış da yenidir)');
+  shown.v = false; S.reloadWhenHidden = false;
+  on({ data: { type: 'shell-updated' } });
+  assert.deepEqual(calls, ['reload'], 'ekranda heç nə yoxdursa əvvəlki kimi dərhal');
 });
 
 test('speed: on a first visit (no worker yet) the page itself keeps first.json for the next visit, under the key the worker uses', async () => {
