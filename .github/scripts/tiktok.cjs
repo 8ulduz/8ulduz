@@ -13,8 +13,8 @@
 // video-xeber.cjs-in öz sahələri də oxunur: text (izah, mətndə xülasənin yerinə), cover_s (üz qabığı), duration (hesabın həddi ilə).
 //
 // Yalnız öz videolarımız (sahib, 2026-11-22; müəllif hüququ): JSON-da own: true, faylın metadatasında «8ulduz.az» nişanı
-// (ffmpeg -metadata comment=8ulduz.az), başqa saytın video ünvanı yoxdur, data/reels.json-dakı X videosu deyil. X-dəki F1, NBA,
-// Fox News kimi videolar TikTok-a heç vaxt getmir; 2026-11-26-dan X-in ən çox baxılan videolarından bizim montaj (kind: "x") gedir.
+// (ffmpeg -metadata comment=8ulduz.az), başqa saytın video ünvanı yoxdur, data/reels.json-dakı X videosu deyil. X-dəki Fox News
+// kimi videolar TikTok-a getmir; 2026-11-26-dan X-in ən çox baxılan videolarından bizim montaj (kind: "x") gedir, liqaların oyun kadrı da.
 // Qırmızı xətt 2: videonun xəbəri (source/sourceUrl, items) saytın öz qaydasından (app.js policyViolation) keçir.
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
 //

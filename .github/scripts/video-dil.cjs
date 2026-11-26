@@ -28,7 +28,7 @@ function oxu(kod, dir) {
     bagliyici: new RegExp(`^(${d.video.bagliyicilar.join("|")})$`, "u"),
     // Video seçimində zəif mövzu (lent.ceki.zeif, sosial-video.cjs cekisi): başlıqda olanda xəbərin çəkisi azalır.
     zeif: d.lent?.ceki?.zeif ? new RegExp(d.lent.ceki.zeif, "iu") : null,
-    // Yayım kadrı (oyunun qolları, icmal, film, klip): mənbə videosu götürülmür (lent.yayim, video-menbe.cjs).
+    // Yayım kadrı (film, serial, klip, treyler): mənbə videosu götürülmür (lent.yayim, video-menbe.cjs). Liqaların oyun kadrı götürülür (2026-11-26).
     yayim: d.lent?.yayim ? new RegExp(d.lent.yayim, "iu") : null,
   };
   return freeze({ ...d, re });

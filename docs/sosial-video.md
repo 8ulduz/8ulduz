@@ -228,8 +228,9 @@ Sonra: «dünya saytlarından lazım olan tipli videoları götürüb tərcümə
 
 Dəyişməyənlər:
 - **X videoları.** Sahib 2026-11-26-da X-i də qoşdu («X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et»; YouTube və TikTok üçün: «Bəli, hamısına»). X-in ən çox baxılan videolarından hazırlanan «Çox baxılan» montajı bütün şəbəkələrə gedir (aşağıda). X-in xam videosu (montajsız fayl) yükləyicilərdə əvvəlki kimi qəbul edilmir. YouTube-da üç xəbərdarlıq kanalı bağlayır və TikTok tətbiqi yoxlamadadır — risk sahibə deyilib; yalnız X-i söndürmək: `X_VIDEO=0`.
-- **Liqaların oyun kadrı və oyun treylerləri** (X-in «idman» və «oyun» qrupları) və böyük yayımçıların hesabları (Fox News, BBC, NatGeo, NBA, WWE və s.; profil `x.qadagan`) sosial videoya götürülmür.
-- **Yayım kadrı** (oyunun qolları və icmalı, film, klip, serial) götürülmür: başlıqdan tanınır (profil `lent.yayim`). Bunları YouTube Content ID və Meta Rights Manager avtomatik tanıyır, hesaba xəbərdarlıq gəlir. Açmaq: Variables `MENBE_YAYIM=1`.
+- **Liqaların oyun kadrı götürülür** (sahib 2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et. Xəbərdarlıq gəlsə sənə deyərəm»). Bu, bütün şəbəkələrə və bütün yollara aiddir: X-in «idman» qrupu (NBA, UEFA, Premyer Liqa, TRT Spor, klublar), mənbə saytın videosu və dünya videoları (qol, icmal). Risk sahibə deyilib: bu kadrları liqalar YouTube Content ID, Meta Rights Manager və TikTok-un tanıma sisteminə qeyd etdirir, video bloklana və ya hesaba xəbərdarlıq gələ bilər. Xəbərdarlıq gələrsə sahib xəbər verir. Yalnız X-in idmanını söndürmək: profil `x.movzular`-dan `idman`-ı çıxarmaq.
+- **Oyun treylerləri** (X-in «oyun» qrupu) və böyük media şirkətlərinin hesabları (Fox News, BBC, CNN, NatGeo, Disney, Netflix, HBO, Marvel, Red Bull, IGN və s.; profil `x.qadagan`) sosial videoya götürülmür.
+- **Film, serial, musiqi klipi və treyler kadrı** götürülmür: başlıqdan tanınır (profil `lent.yayim`). Açmaq: Variables `MENBE_YAYIM=1`.
 - **YouTube, Instagram, TikTok, Telegram pəncərəsi** olan səhifədən video götürülmür: orada fayl yoxdur, platformanın qorumasını aşmırıq. Belə xəbər bank klipləri ilə gedir.
 - Su nişanı silinmir, mənbənin səsi götürülmür (səs bizim diktor mətnidir), musiqi əlavə olunmur.
 
@@ -282,7 +283,8 @@ Söndürülmüş saxlananlar və səbəbi: Euronews No Comment (sayt Node sorğu
 **X videoları: «Çox baxılan»** (`video-dunya.cjs` `xHazirla`, məlumat `data/reels.json`).
 - Saytın Videolenti hər X videosunun baxış sayını (`v`), mövzusunu (`m`) və Azərbaycan dilində izahını (`c`) saxlayır. Sosial video üçün son 36 saatın 100 min+ baxışlı videoları götürülür.
 - Sıra = baxış × mövzunun əmsalı (profil `x.movzular`). Əmsallar Instagram təhlilinin istiqamətləridir: heyrətamiz və insan hekayəsi 1,3; məşhurlar 1,3; heyvan və təbiət 1,2; elm 1,1; hadisə (xəbər) və texnika 1; yemək 0,8.
-- Götürülmür: idman və oyun qrupları, böyük yayımçılar (`x.qadagan`), yayım kadrı (`lent.yayim`), müharibə və zorakılıq görüntüsü (`x.kenar`), xarici mənbə qaydasından keçməyən izah.
+- İdman (liqaların oyun kadrı) əmsalı 1-dir: baxış sayı qərar verir. Eyni mövzu dalbadal getmir (`state.xm`): ən çox baxılanlar idman olsa da hər ikinci video başqa mövzudandır.
+- Götürülmür: oyun qrupu (treylerlər), böyük media şirkətləri (`x.qadagan`), film və klip kadrı (`lent.yayim`), müharibə və zorakılıq görüntüsü (`x.kenar`), xarici mənbə qaydasından keçməyən izah.
 - Video: yuxarıda «ÇOX BAXILAN» nişanı, başlıq izahın birinci cümləsidir, video klipin uzunluğu qədər (ən çox 30 s) davam edir (`klip_boyu`), «Görüntü: @hesab (X)».
 - Səs (sahib, 2026-11-26: «Bəli, uzat»; əvvəl yalnız bir cümləlik izah oxunurdu və 30 saniyənin çoxu səssiz keçirdi) 2–4 cümlədir (`video-dunya.cjs` `xMetn`):
   1. izah;

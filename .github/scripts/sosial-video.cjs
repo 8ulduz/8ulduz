@@ -61,7 +61,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv), xm: keep(s.xm),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -227,7 +227,7 @@ async function xSec({ now, state, env, fetch: f, policy, dir, log, post, hazirla
   if (!x) return null;
   const out = { ...x, link: X_URL, url: X_URL };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(out, null, 1));
-  if (post) { const t = Math.floor(now / 1000); state.v[out.id] = t; state._last = t; (state.xv ||= {})[out.id] = t; }
+  if (post) { const t = Math.floor(now / 1000); state.v[out.id] = t; state._last = t; (state.xv ||= {})[out.id] = t; if (out.movzu) (state.xm ||= {})[out.movzu] = t; }
   log(`X videosu: seçildi — ${out.title} (${out.sourceUrl})`);
   output("hazir", "1");
   output("tur", "x");
@@ -533,7 +533,7 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
   // Hava videosu ayrıca qaydadır: xəbər videosunun siyahısına (fasilə, gündəlik hədd, mövzu) düşmür.
   if (x.tur === "hava") { const d = bakuClock(now).day; (state.hava ||= {})[d] = state.hava[d] || t; return res; }
   // Maraqlı video: gündəlik həddə və fasiləyə sayılır (seçimdə yazılıb), xəbər mövzularının siyahısına düşmür.
-  if (x.tur === "x") { state.v[x.id] = state.v[x.id] || t; (state.xv ||= {})[x.id] = state.xv[x.id] || t; return res; }
+  if (x.tur === "x") { state.v[x.id] = state.v[x.id] || t; (state.xv ||= {})[x.id] = state.xv[x.id] || t; if (x.movzu) (state.xm ||= {})[x.movzu] = state.xm[x.movzu] || t; return res; }
   if (x.tur === "dunya") { state.v[x.id] = state.v[x.id] || t; (state.dv ||= {})[x.id] = state.dv[x.id] || t; return res; }
   if (x.tur === "maraqli") { state.v[x.id] = state.v[x.id] || t; if (x.movzu) (state.m ||= {})[x.movzu] = state.m[x.movzu] || t; return res; }
   state.v[x.id] = state.v[x.id] || t;

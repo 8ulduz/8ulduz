@@ -183,7 +183,7 @@ Seçim. Tamaşaçının ən çox baxdığı istiqamətlər, vaciblik sırası il
 3) məşhurlar, mədəniyyət, əyləncə;
 4) heyvanlar, təbiət;
 5) elm, kosmos, texnologiya;
-6) idman anı (oyunun yayım kadrı yox: azarkeş, rekord, idmançının hərəkəti).
+6) idman anı (qol, oyunun yaddaqalan anı, rekord, idmançının hərəkəti, azarkeş).
 Uyğun DEYİL: sammit, görüş, bəyanat, mətbuat konfransı, siyasi çıxış, müharibənin gedişi, tok-şou, Azərbaycan və onun rəhbərliyi, Ermənistan–Azərbaycan mövzusu.
 Heç biri uyğun deyilsə {"sec": 0} qaytar.
 
@@ -273,8 +273,10 @@ async function hazirla({ now = Date.now(), state, env = process.env, fetch: f = 
 // baxış sayını (v), mövzusunu (m) və Azərbaycan dilində izahını (c) saxlayır. Sosial video üçün son X_MAX_SAAT (36) saatın ən çox
 // baxılanı seçilir: sıra = baxış × mövzunun əmsalı (profil x.movzular — Instagram təhlilinin istiqamətləri: heyrətamiz/insan
 // hekayəsi və məşhurlar 1,3, heyvan və təbiət 1,2, elm 1,1, hadisə görüntüsü 1). Görüntü X videosunun özüdür, mətn onun izahıdır.
-// Götürülmür: idman və oyun qrupları (liqaların oyun kadrı, oyun treylerləri — platformalar avtomatik tanıyır), böyük yayımçıların
-// hesabları (x.qadagan), yayım kadrı (lent.yayim), müharibə və zorakılıq görüntüsü (x.kenar), saytın qaydasından keçməyən izah.
+// İdman (liqaların oyun kadrı) sahibin qərarı ilə götürülür (2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»: bütün
+// şəbəkələrdə; «Xəbərdarlıq gəlsə sənə deyərəm»). Eyni mövzu dalbadal getmir (state.xm: mövzu → son vaxt): ən çox baxılanlar
+// idman olsa da hər ikinci video başqa mövzudandır. Götürülmür: oyun qrupu (oyun treylerləri), böyük yayımçıların hesabları
+// (x.qadagan), film və klip kadrı (lent.yayim), müharibə və zorakılıq görüntüsü (x.kenar), saytın qaydasından keçməyən izah.
 const REELS = path.join(__dirname, "..", "..", "data", "reels.json");
 const X_KLIP_BOYU = 30, X_CEHD = 3, X_IZAH_MIN = 40, X_IZAH_MAX = 420, X_BASLIQ_MAX = 100;
 function xOptions(env = process.env, D = dil()) {
@@ -303,7 +305,10 @@ function xNamizedler(items, { state = {}, now = Date.now(), policy, o = xOptions
     if (policy({ id, kind: "x", title: c, summary: c, category: "dunya", lang: D.lent.dil, source: clean(x.n) || x.a, sourceUrl: `https://x.com/${x.a}/status/${x.id}` })) continue;
     out.push({ x, id, c, at, bal: Number(x.v) * k });
   }
-  return out.sort((a, b) => b.bal - a.bal || b.at - a.at);
+  out.sort((a, b) => b.bal - a.bal || b.at - a.at);
+  // Ən son X videosunun mövzusu (state.xm) başqa mövzu olduqca sona keçir: eyni mövzu dalbadal getmir.
+  const son = Object.entries(state.xm || {}).sort((a, b) => b[1] - a[1])[0]?.[0];
+  return son ? [...out.filter(c => c.x.m !== son), ...out.filter(c => c.x.m === son)] : out;
 }
 // Başlıq: izahın birinci cümləsi (sonda nöqtəsiz), uzundursa söz sərhədində kəsilir.
 const xBasliq = c => S.cut((c.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"“])/u)[0] || c).replace(/[.…]+$/, ""), X_BASLIQ_MAX);
