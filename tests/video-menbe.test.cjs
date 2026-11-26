@@ -60,11 +60,14 @@ test("mənbə videosu: the story's own footage from the source's player, credite
   const l3 = [];
   assert.equal(await M.menbeVideo({ ...a, source: "S", sourceUrl: "https://s.az/x", alts: [] }, `<video src="https://s.az/v/1.mp4"></video><video src="https://s.az/v/2.mp4"></video>`, { env: {}, fetch: bad, log: s => l3.push(s), dir: d2 }), null);
   assert.ok(l3.some(s => /video faylı deyil/.test(s)) && l3.some(s => /fayl kiçikdir/.test(s)));
-  // Yayım kadrı (qol, icmal, film, klip): götürülmür; MENBE_YAYIM=1 ilə açılır. MENBE_VIDEO=0 hər şeyi söndürür. Öz səhifələrimiz (X videoları) oxunmur.
-  const qol = { ...a, title: "“Sabah” fərqi azaltdı: qol - Video" };
-  assert.equal(await M.menbeVideo(qol, page, { env: {}, fetch: f, log: s => logs.push(s), dir: tmp() }), null);
-  assert.ok(logs.some(s => /yayım kadrı/.test(s)));
-  assert.equal((await M.menbeVideo(qol, page, { env: { MENBE_YAYIM: "1" }, fetch: f, log: () => {}, dir: tmp() }))?.kredit, "Bizim.Media");
+  // Liqaların oyun kadrı (qol, icmal) götürülür (sahib 2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»).
+  // Film, serial, klip, treyler kadrı götürülmür; MENBE_YAYIM=1 ilə açılır. MENBE_VIDEO=0 hər şeyi söndürür. Öz səhifələrimiz (X videoları) oxunmur.
+  const qol = { ...a, title: "“Sabah” fərqi azaltdı: qol və oyunun icmalı - Video" };
+  assert.equal((await M.menbeVideo(qol, page, { env: {}, fetch: f, log: () => {}, dir: tmp() }))?.kredit, "Bizim.Media", "oyun kadrı");
+  const serial = { ...a, title: "Yeni serialın ilk kadrları yayıldı - Video" };
+  assert.equal(await M.menbeVideo(serial, page, { env: {}, fetch: f, log: s => logs.push(s), dir: tmp() }), null);
+  assert.ok(logs.some(s => /yayım kadrı ola bilər \(film, serial, klip\)/.test(s)));
+  assert.equal((await M.menbeVideo(serial, page, { env: { MENBE_YAYIM: "1" }, fetch: f, log: () => {}, dir: tmp() }))?.kredit, "Bizim.Media");
   assert.equal(await M.menbeVideo(a, page, { env: { MENBE_VIDEO: "0" }, fetch: f, log: () => {}, dir: tmp() }), null);
   assert.equal(await M.menbeVideo({ ...a, source: "8ULDUZ", sourceUrl: "https://8ulduz.az/x/1.html", alts: [] }, `<video src="https://8ulduz.az/v/1.mp4"></video>`, { env: {}, fetch: f, log: () => {}, dir: tmp() }), null);
 });
@@ -259,7 +262,7 @@ test("arxiv: the owner's release also takes credited third-party footage («mən
 const xi = (id, o = {}) => ({ id: String(id), a: "TheFigen_", n: "Figen", m: "maraqli", u: `https://video.twimg.com/amplify_video/${id}/vid/avc1/720x1280/a.mp4?tag=21`, i: "https://pbs.twimg.com/x.jpg",
   w: 720, h: 1280, t: new Date(NOW - 2 * 3600e3).toISOString(), q: "h", v: 500000, c: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar. Görüntülər milyonlarla insanı təsirləndirib.", ...o });
 
-test("X: the most-watched recent videos, weighted by the Instagram directions; league footage, big broadcasters, war footage and anything the site rule refuses are left out", () => {
+test("X: the most-watched recent videos, weighted by the Instagram directions, league footage included (owner 2026-11-26); big media companies, trailers, war footage and anything the site rule refuses are left out; no topic twice in a row", () => {
   const items = [xi(100001), xi(100002, { m: "xeber", a: "bpthaber", v: 600000, c: "İstanbulda yanğınsöndürənlər balkonda qalan uşağı xilas ediblər, görüntülər yayılıb." }),
     xi(100003, { m: "idman", a: "trtspor", v: 5000000, c: "Arda Güler komandasına qələbə gətirən hərəkəti ilə yadda qaldı, azarkeşlər ayaqda alqışladı." }),
     xi(100004, { v: 90000 }), xi(100005, { t: new Date(NOW - 40 * 3600e3).toISOString() }), xi(100006, { a: "FoxNews", m: "xeber", v: 900000 }),
@@ -269,11 +272,20 @@ test("X: the most-watched recent videos, weighted by the Instagram directions; l
     xi(100010, { c: "Qısa izah." }), xi(100011, { v: 700000, c: "Azərbaycan haqqında xarici mənbənin yaydığı video sosial şəbəkələrdə müzakirə olunur." }), xi("x12")];
   const policy = a => /Azərbaycan/.test(`${a.title} ${a.summary}`) || !/^https:\/\/x\.com\//.test(a.sourceUrl);
   const pool = VD.xNamizedler(items, { state: { xv: {}, v: {}, skip: {} }, now: NOW, policy });
-  // 500 000 × 1,3 = 650 000 (maraqlı) > 600 000 × 1 (xəbər) > 450 000 × 1,2 = 540 000 (təbiət)
-  assert.deepEqual(pool.map(c => c.x.id), ["100001", "100002", "100009"]);
-  assert.equal(VD.xBasliq(pool[0].c), "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq: izahın birinci cümləsi, nöqtəsiz");
+  // Liqaların oyun kadrı (sahib 2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»): 5 000 000 × 1 (idman) birincidir;
+  // 500 000 × 1,3 = 650 000 (maraqlı) > 600 000 × 1 (xəbər) > 450 000 × 1,2 = 540 000 (təbiət). Fox News, treyler, müharibə kadrı yoxdur.
+  assert.deepEqual(pool.map(c => c.x.id), ["100003", "100001", "100002", "100009"]);
+  assert.equal(VD.xBasliq(pool[1].c), "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq: izahın birinci cümləsi, nöqtəsiz");
+  // Liqa və idman yayımçıları qadağan siyahısında deyil; media şirkətləri qalır.
+  const deny = new RegExp(require("../.github/video-dil/az.json").x.qadagan, "i");
+  for (const h of ["NBA", "ChampionsLeague", "premierleague", "trtspor", "F1", "ufc", "ESPNNBA", "WWE"]) assert.equal(deny.test(h), false, h);
+  for (const h of ["FoxNews", "BBCWorld", "netflix", "redbull", "IGN"]) assert.equal(deny.test(h), true, h);
+  // Eyni mövzu dalbadal getmir: son X videosu idmandırsa idman sona keçir (başqa mövzu yoxdursa yenə gedir).
+  const sec = NOW / 1000;
+  assert.deepEqual(VD.xNamizedler(items, { state: { xm: { idman: sec - 600, maraqli: sec - 9000 } }, now: NOW, policy }).map(c => c.x.id), ["100001", "100002", "100009", "100003"]);
+  assert.deepEqual(VD.xNamizedler([xi(100003, { m: "idman", a: "trtspor", v: 5000000, c: items[2].c })], { state: { xm: { idman: sec } }, now: NOW, policy }).map(c => c.x.id), ["100003"]);
   // İşlənmiş video bir də getmir.
-  assert.deepEqual(VD.xNamizedler(items, { state: { xv: { [VD.xId("100001")]: NOW / 1000 } }, now: NOW, policy }).map(c => c.x.id), ["100002", "100009"]);
+  assert.deepEqual(VD.xNamizedler(items, { state: { xv: { [VD.xId("100001")]: NOW / 1000 } }, now: NOW, policy }).map(c => c.x.id), ["100003", "100002", "100009"]);
   assert.deepEqual(VD.xOptions({}), { on: true, perDay: 6, gapMin: 120, minV: 100000, maxAgeH: 36 });
   assert.match(VD.xDue({ xv: { a: NOW / 1000 - 3600 } }, NOW, VD.xOptions({})), /60 dəq əvvəl \(ara 120 dəq\)/);
   assert.equal(VD.xDue({ xv: {} }, NOW, VD.xOptions({})), "");
@@ -312,6 +324,10 @@ test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (
     const r = await SV.sec(args(NOW));
     assert.equal(r.link, "https://8ulduz.az/#/videolent");
     assert.ok(s2.xv[x.id] && s2.v[x.id] && asked === 1 && dunya === 0);
+    assert.ok(s2.xm.maraqli, "mövzu yazılır: növbəti X videosu başqa mövzudan olur");
+    const fst = path.join(dir, "state-x.json");
+    fs.writeFileSync(fst, JSON.stringify(s2));
+    assert.ok(SV.readState(fst, NOW).xm.maraqli, "siyahı xm-i saxlayır");
     assert.match(fs.readFileSync(process.env.GITHUB_OUTPUT, "utf8"), /hazir=1\ntur=x/);
     await SV.sec(args(NOW + 31 * 60e3));
     assert.equal(asked, 1, "X-in arası (120 dəq) dolmayıb");

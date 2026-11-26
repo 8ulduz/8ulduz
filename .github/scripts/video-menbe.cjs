@@ -10,8 +10,8 @@
 //   - YouTube, Instagram, TikTok, Telegram pəncərəsi: orada fayl yoxdur, platformanın qorumasını aşmaq olmaz — bank klipi ilə davam;
 //   - X videoları (video.twimg.com) və saytın öz səhifələri (8ULDUZ): X videoları yalnız yerləşdirilir (docs/youtube.md);
 //   - reklam və saytın hər səhifəsində olan fayl (banner; baş səhifədə də varsa atılır);
-//   - yayım kadrı: oyunun qolları və icmalı, film, klip (profil lent.yayim) — bunları YouTube Content ID və Meta Rights Manager
-//     avtomatik tanıyır, hesab xəbərdarlıq alır. Söndürmək: Variables MENBE_YAYIM=1.
+//   - film, serial, musiqi klipi və treyler kadrı (profil lent.yayim) — YouTube Content ID və Meta Rights Manager avtomatik tanıyır.
+//     Açmaq: Variables MENBE_YAYIM=1. Liqaların oyun kadrı (qol, icmal) 2026-11-26-dan götürülür (sahib: «3 et»).
 // Fayl seçim addımında yüklənir (ffmpeg hələ yoxdur): ölçü həddi və faylın imzası (ftyp/EBML) yoxlanır; müddət və ölçü montajda
 // (video-xeber.cjs render) yoxlanır — keçməsə bank klipləri ilə davam edir. Hamısını söndürmək: Variables MENBE_VIDEO=0.
 "use strict";
@@ -64,13 +64,13 @@ async function indir(url, file, f, referer) {
   return "";
 }
 
-// Yayım kadrı (oyunun qolları, icmal, film, klip): başlıqdan tanınır (profil lent.yayim).
+// Yayım kadrı (film, serial, klip, treyler): başlıqdan tanınır (profil lent.yayim).
 const yayim = (a, D = dil()) => Boolean(D.re.yayim && D.re.yayim.test(String(a?.title || "")));
 
 // Xəbərin mənbə videosu: { file, url, sehife, kredit, bytes } və ya null. page: əsas mənbənin artıq oxunmuş səhifəsi.
 async function menbeVideo(a, page, { env = process.env, fetch: f = globalThis.fetch, log = console.log, dir, D = dil() } = {}) {
   if (env.MENBE_VIDEO === "0" || !a?.sourceUrl) return null;
-  if (env.MENBE_YAYIM !== "1" && yayim(a, D)) { log(`mənbə videosu: yayım kadrı ola bilər (oyun, film, klip) — götürülmür: ${a.title}`); return null; }
+  if (env.MENBE_YAYIM !== "1" && yayim(a, D)) { log(`mənbə videosu: yayım kadrı ola bilər (film, serial, klip) — götürülmür: ${a.title}`); return null; }
   const alts = (Array.isArray(a.alts) ? a.alts : []).filter(x => x?.sourceUrl && x.source);
   const videolu = x => /video/i.test(String(x.title || ""));
   const sehifeler = [{ source: a.source, url: a.sourceUrl, html: page || "" }, ...alts.filter(videolu), ...alts.filter(x => !videolu(x))]

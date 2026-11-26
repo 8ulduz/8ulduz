@@ -242,7 +242,7 @@ Necə hazırlanır (`tiktok-demo.yml`):
   - JSON-da başqa saytın video keçidi yoxdur;
   - video `data/reels.json`-da deyil.
 
-  X-dəki F1, NBA, Fox News kimi videolar TikTok-a **heç vaxt** getmir. TikTok-un qaydası: «unoriginal or reused material» tövsiyə lentinə düşmür. Müəllif hüququnu təkrar pozan hesabı TikTok bağlaya bilər.
+  X-in xam videosu TikTok-a getmir; X-in ən çox baxılan videolarından bizim montaj (`kind: "x"`) gedir, liqaların oyun kadrı da daxil (sahib 2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et. Xəbərdarlıq gəlsə sənə deyərəm»). Fox News kimi böyük media şirkətlərinin videoları getmir. TikTok-un qaydası: «unoriginal or reused material» tövsiyə lentinə düşmür. Müəllif hüququnu təkrar pozan hesabı TikTok bağlaya bilər.
 - **Su nişanı.** TikTok tətbiqə paylaşılan məzmuna öz brendini, loqosunu və ya reklam mətnini əlavə etməyi qadağan edir. Bizdə video da, ad da bizimdir: «8ulduz.az» videonun öz dizaynıdır, yükləyici videoya heç nə əlavə etmir.
 - **Rejim (`TIKTOK_MODE`).**
   - `auto` (standart):

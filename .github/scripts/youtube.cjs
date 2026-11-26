@@ -15,8 +15,8 @@
 // Qoşulma: sosial-video.yml «youtube» işi «video-xeber» artefaktını verir (video.mp4 + video.json, video-xeber.cjs, ≤ 59 s).
 //
 // Yalnız öz videolarımız (müəllif hüququ): own: true, faylda «8ulduz.az» nişanı, başqa saytın video ünvanı yoxdur, data/reels.json-dakı
-// X-in xam videosu deyil (2026-11-26-dan X-in ən çox baxılan videolarından bizim montaj — kind: "x" — gedir; liqaların və böyük
-// yayımçıların videoları seçimdə kənarda qalır, docs/sosial-video.md). 1 dəqiqədən uzun Shorts-a müəllif hüququ
+// X-in xam videosu deyil (2026-11-26-dan X-in ən çox baxılan videolarından bizim montaj — kind: "x" — gedir, liqaların oyun kadrı da
+// (sahib, 2026-11-26: «3 et»); böyük media şirkətlərinin videoları seçimdə kənarda qalır, docs/sosial-video.md). 1 dəqiqədən uzun Shorts-a müəllif hüququ
 // iddiası gələrsə video bütün dünyada bloklanır, kanal da risk altına düşür. Ona görə video 60 saniyədən uzun olmur.
 // Qırmızı xətt 2: videonun xəbəri (source/sourceUrl, items) saytın öz qaydasından (app.js policyViolation) keçir.
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
