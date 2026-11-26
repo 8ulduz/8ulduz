@@ -518,6 +518,10 @@ addEventListener("resize", () => { viewW = globalThis.innerWidth || 1200; }, { p
 function heroPicWidth(first) {
   return first || viewWidth() >= 900 ? 640 : 480;
 }
+// Hazır ilk ekranın slayd şəkli (index.html, 640). Təzə xəbər onu birinci yerdən çıxaranda da həmin ünvanla qalır: telefonda 480 ilə
+// ikinci dəfə yüklənirdi (2026-11-26, speed «slayd şəkli yükləmə 2 > 1»: hazır ekranda modern.az 640, lentdə ikinci slayd 480).
+const PRE_HERO = String($("#view .pre-skel[data-prerender] .hero-main img[src]")?.getAttribute?.("src") || "");
+const heroWidth = (a, i) => heroPicWidth(i === 0 || (!!PRE_HERO && sized(imgUrl(a), 640) === PRE_HERO));
 function img(a, cls = "", eager = false, linked = false, width = 480, later = false) {
   const [url, ...rest] = imageCandidates(a);
   if (!url) return ""; // şəkilsiz xəbər qutu tutmur: kart yalnız mətndir
@@ -2051,7 +2055,7 @@ const HERO_COUNT = 15, HERO_ONLY = 6; // İlk 6 xəbər yalnız slayderdədir; q
 function heroBlock(list) {
   const slides = list.filter(imgUrl).slice(0, HERO_COUNT); // şəkilsiz xəbər slayderə düşmür, boş kadr olmur
   if (!slides.length) return "";
-  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${late(slides.map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, heroPicWidth(i === 0), i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`), LATE_HERO)}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
+  return `<section class="hero"><div class="strip hero-strip" aria-label="Əsas xəbərlər"><div class="hero-row">${late(slides.map((a,i) => `<article class="hero-main" data-cat="${esc(a.category)}">${img(a, "", i === 0, true, heroWidth(a, i), i > 1)}<div class="body"><div class="badges">${altBadge(a)}${isFresh(a) && !/son dəqiqə/iu.test(a.title) ? '<span class="bd red">Son dəqiqə</span>' : ""}</div><a href="${safeHref(a.sourceUrl)}" ${OUT}><h2>${txt(a.title)}</h2></a>${meta(a)}</div></article>`), LATE_HERO)}</div><button type="button" class="hero-pause" aria-pressed="false" aria-label="Əsas xəbər lentini dayandır">Ⅱ</button></div></section>`;
 }
 
 function alertStrip() {
