@@ -288,7 +288,7 @@ test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (
   const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: {}, policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f, _f, ref) => { got.push([u, ref]); fs.writeFileSync(f, mp4()); return ""; } } });
   assert.deepEqual({ tur: x.tur, kind: x.kind, title: x.title, bolme: x.bolme, source: x.source, sourceUrl: x.sourceUrl, baxis: x.baxis, klip_boyu: x.klip_boyu, kredit: x.menbeVideo.kredit, category: x.category },
     { tur: "x", kind: "x", title: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", bolme: "Çox baxılan", source: "Figen (X)", sourceUrl: "https://x.com/TheFigen_/status/100001", baxis: 500000, klip_boyu: 30, kredit: "@TheFigen_ (X)", category: "dunya" });
-  assert.match(x.text, /^Yenidoğulmuş əkizlərin.*təsirləndirib\.$/);
+  assert.equal(x.text, `${xi(100001).c} Bu video 500 mindən çox dəfə izlənib.`, "açarsız: izah və baxış sayı");
   assert.deepEqual(got, [[xi(100001).u, "https://x.com/"]]);
   // Fayl alınmasa növbəti ən çox baxılan sınanır.
   const st = { skip: {} };
@@ -317,6 +317,53 @@ test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (
     assert.equal(asked, 1, "X-in arası (120 dəq) dolmayıb");
     assert.equal(dunya, 1, "növbə dünya videosundadır");
   } finally { if (old === undefined) delete process.env.GITHUB_OUTPUT; else process.env.GITHUB_OUTPUT = old; }
+});
+
+// Sahib, 2026-11-26: «Bəli, uzat» — X-in izahı bir cümlədir, 30 saniyəlik videoda səs ~4 saniyə oxuyurdu.
+test("X: the voice reads the caption, 1–2 facts from the post's own text (Gemini, checked like the world text) and the view count; nothing invented", async () => {
+  // Baxış sayı aşağı yuvarlaqlaşır (say yalnız artır); səsdə «X» deyilmir.
+  assert.equal(VD.xBaxis(2110507), "Bu video 2 milyondan çox dəfə izlənib.");
+  assert.equal(VD.xBaxis(560000), "Bu video 500 mindən çox dəfə izlənib.");
+  assert.equal(VD.xBaxis(94000), "Bu video 94 mindən çox dəfə izlənib.");
+  assert.equal(VD.xBaxis(999), ""); assert.equal(VD.xBaxis(undefined), "");
+  const IZAH = "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar.";
+  const c = { id: VD.xId("100001"), x: xi(100001, { c: IZAH, v: 2110507 }), c: IZAH };
+  const POST = "Newborn twins in Brazil keep hugging each other after birth, just like they did in the womb. Their mother filmed them in Sao Paulo https://t.co/abc #twins @someone";
+  const ELAVE = "Əkizlər Braziliyada doğulandan sonra da bir-birini qucaqlamağa davam edirlər. Onları San-Pauluda anaları çəkib.";
+  const BAXIS = "Bu video 2 milyondan çox dəfə izlənib.";
+  let prompt = "", asked = [], logs = [];
+  const fx = (elave, post = POST) => async (url, o = {}) => {
+    asked.push(url);
+    if (url === VD.FX_STATUS("TheFigen_", "100001")) return post == null ? { ok: false, status: 404 } : { ok: true, status: 200, json: async () => ({ tweet: { text: post } }) };
+    if (/models\?pageSize/.test(url)) return { ok: true, json: async () => ({ models: [] }) };
+    if (/generativelanguage/.test(url)) { prompt = JSON.parse(o.body).contents[0].parts[0].text; return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ elave }) }] } }] }) }; }
+    return { ok: false, status: 404 };
+  };
+  const opt = (elave, post) => ({ env: { GEMINI_API_KEY: "g" }, fetch: fx(elave, post), policy: a => /Azərbaycan/.test(`${a.title} ${a.summary}`), log: s => logs.push(s) });
+  assert.equal(await VD.xMetn(c, opt(ELAVE)), `${IZAH} ${ELAVE} ${BAXIS}`);
+  assert.match(prompt, /İzah: Yenidoğulmuş əkizlərin/); assert.match(prompt, /Azərbaycan ədəbi dilində/); assert.match(prompt, /ƏLAVƏ faktlar/);
+  assert.match(prompt, /Paylaşım \(@TheFigen_\): Newborn twins in Brazil .* in Sao Paulo twins someone$/, "keçid atılır, heşteq və @ işarəsiz");
+  // Yoxlamadan keçməyən əlavə atılır: izah və baxış sayı qalır (səbəb jurnalda).
+  const yalniz = `${IZAH} ${BAXIS}`;
+  const red = async (elave, re) => { logs = []; assert.equal(await VD.xMetn(c, opt(elave)), yalniz, elave); assert.ok(logs.some(s => re.test(s)), `${elave}: ${logs.join(" | ")}`); };
+  await red("Əkizlər 3 kiloqram çəki ilə Braziliyada doğulublar və bir-birini qucaqlayırlar.", /mənbədə olmayan rəqəm: 3/);
+  await red("Əkizlərin videosu Azərbaycanda da çox yayılıb və hamı tərəfindən bəyənilib.", /saytın qaydasından keçmir/);
+  await red("Əkizlər cəbhə bölgəsindəki xəstəxanada doğulublar və hələ orada qalırlar.", /müharibə/);
+  await red("Əkizlər Braziliyada doğulub. Anaları onları çəkib. Video çox yayılıb.", /cümlə sayı 4/);
+  await red("", /əlavə fakt yoxdur/);
+  // Qısa və ya alınmayan paylaşım, açar yoxdur: Gemini soruşulmur.
+  for (const o of [opt(ELAVE, "So cute 😍"), opt(ELAVE, null), { ...opt(ELAVE), env: {} }]) {
+    asked = [];
+    assert.equal(await VD.xMetn(c, o), yalniz);
+    assert.ok(!asked.some(u => /generativelanguage/.test(u)));
+  }
+  // Bütöv yol: xHazirla mətni buradan götürür.
+  const dir = tmp(), file = path.join(dir, "reels.json");
+  fs.writeFileSync(file, JSON.stringify({ items: [c.x] }));
+  const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: { GEMINI_API_KEY: "g" }, fetch: fx(ELAVE), policy: () => false, dir, log: () => {}, file,
+    deps: { indir: async (u, f) => (fs.writeFileSync(f, mp4()), "") } });
+  assert.equal(x.text, `${IZAH} ${ELAVE} ${BAXIS}`);
+  assert.equal(x.title, "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq izahdır");
 });
 
 test("qırmızı xətt 2: sources outside the feed list (world video, X) pass the foreign-source rule — nothing about Azerbaijan or its leadership, no blocked host", () => {

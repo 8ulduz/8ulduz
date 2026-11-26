@@ -145,12 +145,14 @@ function roman(s) {
   const back = x => [["L", 50], ["XL", 40], ["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1]].reduce((acc, [r, k]) => { while (x >= k) { acc += r; x -= k; } return acc; }, "");
   return n > 0 && back(n) === s ? n : 0;
 }
-function checkText(text, source, a, policy = () => false) {
-  if (text.length < TEXT_MIN || text.length > TEXT_MAX) return `uzunluq ${text.length} (${TEXT_MIN}–${TEXT_MAX})`;
+// hed: başqa ölçülü mətn üçün hədlər (X videosunun qısa mətni, video-dunya.cjs xGenislet): { min, max, sentMin, sentMax }.
+function checkText(text, source, a, policy = () => false, hed = {}) {
+  const { min = TEXT_MIN, max = TEXT_MAX, sentMin = SENT_MIN, sentMax = SENT_MAX } = hed;
+  if (text.length < min || text.length > max) return `uzunluq ${text.length} (${min}–${max})`;
   // «Cey. Di. Vens»: altyazı hər nöqtədə bölünür, «Di.» ekranda tək qalır (2026-11-22 nümunə videosu).
   if (/(?:^|[\s(])\p{Lu}\p{Ll}{0,2}\.\s+\p{Lu}\p{Ll}{0,2}\./u.test(text)) return "inisial";
   const sent = text.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"])/u).filter(Boolean).length;
-  if (sent < SENT_MIN || sent > SENT_MAX) return `cümlə sayı ${sent} (${SENT_MIN}–${SENT_MAX})`;
+  if (sent < sentMin || sent > sentMax) return `cümlə sayı ${sent} (${sentMin}–${sentMax})`;
   const D = dil();
   if (D.re.yadHerf?.test(text)) return D.ssenari.yad_herf_adi;
   if (/https?:|www\.|[!?]/.test(text)) return "keçid, nida və ya sual";

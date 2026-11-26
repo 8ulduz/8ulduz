@@ -270,7 +270,11 @@ Söndürülmüş saxlananlar və səbəbi: Euronews No Comment (sayt Node sorğu
 - Saytın Videolenti hər X videosunun baxış sayını (`v`), mövzusunu (`m`) və Azərbaycan dilində izahını (`c`) saxlayır. Sosial video üçün son 36 saatın 100 min+ baxışlı videoları götürülür.
 - Sıra = baxış × mövzunun əmsalı (profil `x.movzular`). Əmsallar Instagram təhlilinin istiqamətləridir: heyrətamiz və insan hekayəsi 1,3; məşhurlar 1,3; heyvan və təbiət 1,2; elm 1,1; hadisə (xəbər) və texnika 1; yemək 0,8.
 - Götürülmür: idman və oyun qrupları, böyük yayımçılar (`x.qadagan`), yayım kadrı (`lent.yayim`), müharibə və zorakılıq görüntüsü (`x.kenar`), xarici mənbə qaydasından keçməyən izah.
-- Video: yuxarıda «ÇOX BAXILAN» nişanı, başlıq izahın birinci cümləsidir, səs izahı oxuyur, video klipin uzunluğu qədər (ən çox 30 s) davam edir (`klip_boyu`), «Görüntü: @hesab (X)».
+- Video: yuxarıda «ÇOX BAXILAN» nişanı, başlıq izahın birinci cümləsidir, video klipin uzunluğu qədər (ən çox 30 s) davam edir (`klip_boyu`), «Görüntü: @hesab (X)».
+- Səs (sahib, 2026-11-26: «Bəli, uzat»; əvvəl yalnız bir cümləlik izah oxunurdu və 30 saniyənin çoxu səssiz keçirdi) 2–4 cümlədir (`video-dunya.cjs` `xMetn`):
+  1. izah;
+  2. paylaşımın öz mətnindən 1–2 cümlə. Mətn `api.fxtwitter.com`-dan alınır (açarsız, `x_yazici.py` ilə eyni). Gemini yalnız oradakı əlavə faktları yazır; dünya videosunun yoxlaması tətbiq olunur: rəqəm mənbədə olmalıdır, saytın qaydası və `x.kenar` keçilməlidir. Paylaşımda əlavə fakt yoxdursa, Gemini cavab vermirsə və ya mətn yoxlamadan keçmirsə bu hissə olmur;
+  3. baxış sayı: «Bu video 2 milyondan çox dəfə izlənib.» (profil `x.baxis_mln`, `x.baxis_min`). Say aşağı yuvarlaqlaşır: baxış yalnız artır, «… -dan çox» həmişə doğrudur. Səsdə «X» deyilmir, çünki hərf kimi oxunur.
 - Tezlik: gündə ən çox 6, arası 120 dəqiqə; vaxtı çatanda birinci hazırlanır. Dəyişənlər: `X_VIDEO=0`, `X_GUNDE`, `X_ARA_MIN`, `X_MIN_BAXIS`.
 - 2026-11-26 ölçüsü: 1000 videodan 123-ü bütün süzgəclərdən keçdi; birincilər: sarılıb yatan əkizlər (2,1 mln baxış), oğrulara tələ quran mağaza sahibi (1,7 mln), itdən qaçan qadın (1,2 mln).
 

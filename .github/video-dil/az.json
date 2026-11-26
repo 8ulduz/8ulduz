@@ -10,7 +10,9 @@
     "min_baxis": 100000,
     "movzular": { "maraqli": 1.3, "kino": 1.3, "tebiet": 1.2, "elm": 1.1, "xeber": 1, "texnika": 1, "yemek": 0.8 },
     "qadagan": "^(FoxNews|BBC\\w*|CNN\\w*|SkyNews\\w*|NatGeo\\w*|Discovery\\w*|AnimalPlanet|Disney\\w*|netflix\\w*|HBO\\w*|Marvel\\w*|WWE\\w*|ufc|NBA\\w*|F1|ESPN\\w*|redbull\\w*|IGN|GameSpot)$",
-    "kenar": "(?<![\\p{L}])(raket|bombard|hava zərbəsi|zərbə endir|zərbənin|dron zərbəsi|döyüş|cəbhə|edam|baş kəs|meyit|cəsəd|terror aktı)"
+    "kenar": "(?<![\\p{L}])(raket|bombard|hava zərbəsi|zərbə endir|zərbənin|dron zərbəsi|döyüş|cəbhə|edam|baş kəs|meyit|cəsəd|terror aktı)",
+    "baxis_mln": "Bu video {n} milyondan çox dəfə izlənib.",
+    "baxis_min": "Bu video {n} mindən çox dəfə izlənib."
   },
   "lent": {
     "dil": "az",

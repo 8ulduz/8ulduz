@@ -10,7 +10,9 @@
     "min_baxis": 1,
     "movzular": {},
     "qadagan": "",
-    "kenar": ""
+    "kenar": "",
+    "baxis_mln": "XX {n} MLN.",
+    "baxis_min": "XX {n} K."
   },
   "lent": {
     "dil": "xx",

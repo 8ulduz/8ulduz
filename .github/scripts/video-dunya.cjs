@@ -307,6 +307,62 @@ function xNamizedler(items, { state = {}, now = Date.now(), policy, o = xOptions
 }
 // Başlıq: izahın birinci cümləsi (sonda nöqtəsiz), uzundursa söz sərhədində kəsilir.
 const xBasliq = c => S.cut((c.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"“])/u)[0] || c).replace(/[.…]+$/, ""), X_BASLIQ_MAX);
+
+// Səs mətni 2–4 cümlə (sahib, 2026-11-26: «Bəli, uzat» — izah həmişə bir cümlədir, 30 saniyəlik videoda səs ~4 saniyə oxuyurdu):
+// 1) izah; 2) paylaşımın öz mətnindən (api.fxtwitter.com, açarsız — x_yazici.py FX_STATUS) Gemini-nin yazdığı 1–2 cümlə: yalnız
+// oradakı əlavə faktlar, rəqəm mənbədə olmalıdır, saytın qaydası və x.kenar tətbiq olunur; paylaşımda əlavə fakt yoxdursa, cavab
+// gəlmirsə və ya yoxlamadan keçmirsə bu hissə olmur; 3) baxış sayı (profil x.baxis_mln, x.baxis_min): aşağı yuvarlaqlaşır — say
+// yalnız artır, «… -dan çox» həmişə doğrudur. Səsdə «X» deyilmir (hərf kimi oxunur).
+const FX_STATUS = (a, id) => `https://api.fxtwitter.com/${a}/status/${id}`;
+const X_ESLI_MIN = 25, X_ESLI_MAX = 1500, X_HED = { min: 60, max: 330, sentMin: 2, sentMax: 3 };
+function xBaxis(v, D = dil()) {
+  const n = Number(v), x = D.x || {};
+  if (!(n >= 1000)) return "";
+  if (n >= 1e6) return x.baxis_mln ? x.baxis_mln.replace("{n}", String(Math.floor(n / 1e6))) : "";
+  return x.baxis_min ? x.baxis_min.replace("{n}", String(n >= 1e5 ? Math.floor(n / 1e5) * 100 : Math.floor(n / 1e3))) : "";
+}
+const X_PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Qısa şaquli video (Reels, Shorts) X-dəki videodandır. Aşağıda bizim izahımız
+(diktorun birinci cümləsi) və X paylaşımının öz mətni (mənbənin dilində) var. İzahdan sonra oxunacaq 1–2 cümlə yaz: paylaşımın mətnindəki
+ƏLAVƏ faktlar — kim, harada, necə, nəticə.
+
+Qaydalar:
+- {dil} yaz. {yad}nida və sual işarəsi, keçid, emoji, heşteq, @hesab olmasın. {nisbi} yazma.
+- Yalnız paylaşımın mətnindəki faktlar: heç nə əlavə etmə, təxmin etmə, şərh vermə. İzahda deyiləni təkrarlama.
+- Rəqəmi mənbədəki kimi yaz; mənbədə olmayan rəqəm yazma. Xarici adları Azərbaycan dilində oxunduğu kimi yaz, inisial yazma.
+- Hər cümlə 40–140 simvol.
+- Paylaşımda izahdan artıq fakt yoxdursa, mətn reklam, çağırış, sual və ya mənası bilinməyən sözlərdirsə {"elave": ""} qaytar.
+
+Yalnız JSON qaytar: {"elave": "..."}
+
+İzah: {izah}
+Paylaşım (@{hesab}): {esli}`;
+function xPromptOf(izah, esli, hesab, D = dil()) {
+  const s = D.ssenari;
+  const yad = s.yad_herf_adi ? `${s.yad_herf_adi[0].toLocaleUpperCase(D.locale)}${s.yad_herf_adi.slice(1)}, ` : "";
+  return X_PROMPT.replace(/\{dil\}/g, s.dil).replace("{yad}", yad).replace("{nisbi}", s.nisbi_gun_misal)
+    .replace("{izah}", () => izah).replace("{hesab}", () => hesab).replace("{esli}", () => esli);
+}
+// Paylaşımın öz mətni: keçidlər atılır, heşteq və @ işarəsi sözdən ayrılır. Alınmasa "".
+async function xEsli(x, f) {
+  const j = await VS.getJson(FX_STATUS(x.a, x.id), { "user-agent": UA, accept: "application/json" }, f);
+  return clean(String(j?.tweet?.text || "").replace(/https?:\/\/\S+/g, " ").replace(/[#@](?=[\p{L}\p{N}_])/gu, "")).slice(0, X_ESLI_MAX);
+}
+async function xMetn(c, { env = process.env, fetch: f = globalThis.fetch, policy, log = console.log, D = dil() } = {}) {
+  const izah = /[.!?…]$/.test(c.c) ? c.c : `${c.c}.`;
+  const metn = elave => [izah, elave, xBaxis(c.x.v, D)].filter(Boolean).join(" ");
+  if (!env.GEMINI_API_KEY) return metn("");
+  const esli = await xEsli(c.x, f);
+  if (esli.length < X_ESLI_MIN) { log(`X videosu: paylaşımın mətni ${esli ? "qısadır" : "alınmadı"} — yalnız izah və baxış sayı`); return metn(""); }
+  const raw = await VS.gemini(xPromptOf(izah, esli, c.x.a, D), env.GEMINI_API_KEY, f, log, env);
+  let elave = "";
+  try { elave = VS.dilLatin(clean(JSON.parse(String(raw ?? "").replace(/^```(?:json)?\s*|\s*```$/g, ""))?.elave)); } catch {}
+  if (!elave) { log(`X videosu: paylaşımda əlavə fakt yoxdur${raw == null ? " (Gemini cavab vermir)" : ""} — yalnız izah və baxış sayı`); return metn(""); }
+  const kenar = D.x?.kenar ? new RegExp(D.x.kenar, "iu") : null;
+  const a = { id: c.id, kind: "x", title: xBasliq(c.c), category: "dunya", lang: D.lent.dil, source: clean(c.x.n) || c.x.a, sourceUrl: `https://x.com/${c.x.a}/status/${c.x.id}` };
+  const why = kenar?.test(elave) ? "müharibə və ya zorakılıq sözü" : VS.checkText(`${izah} ${elave}`, `${esli} ${izah}`, a, policy, X_HED);
+  if (why) { log(`X videosu: əlavə mətn götürülmədi (${why}) — yalnız izah və baxış sayı`); return metn(""); }
+  return metn(elave);
+}
 // Ən çox baxılan X videosu → xeber.json-un girişi (sosial-video.cjs xSec yazır) və ya null.
 async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f = globalThis.fetch, policy, dir, log = console.log, file = REELS, deps = {} }) {
   if (typeof policy !== "function") throw new Error("X videosu: saytın qaydası (policyViolation) verilməyib");
@@ -321,7 +377,7 @@ async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f =
     const { x } = c, sehife = `https://x.com/${x.a}/status/${x.id}`;
     const err = await (deps.indir || M.indir)(x.u, path.join(dir, M.FAYL), f, "https://x.com/").catch(e => String(e?.message || e).slice(0, 120));
     if (err) { (state.skip ||= {})[c.id] = t; log(`X videosu: fayl alınmadı (${err}) — @${x.a}`); continue; }
-    const ad = clean(x.n) || x.a, text = /[.!?…]$/.test(c.c) ? c.c : `${c.c}.`;
+    const ad = clean(x.n) || x.a, text = await xMetn(c, { env, fetch: f, policy, log, D });
     log(`X videosu: @${x.a} — ${x.v} baxış, mövzu ${x.m} → ${xBasliq(c.c)}`);
     return { id: c.id, tur: "x", kind: "x", title: xBasliq(c.c), summary: "", text, category: "dunya", bolme: clean(D.x.bolme), source: `${ad} (X)`, sourceUrl: sehife,
       publishedAt: new Date(c.at).toISOString(), alts: [], baxis: Number(x.v), movzu: x.m, klip_boyu: X_KLIP_BOYU,
@@ -331,4 +387,4 @@ async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f =
 }
 
 module.exports = { FAYL, NOVLER, kecerli, menbeler, oxuSiyahi, fayllar, novbe, namizedler, promptOf, sec, options, due, hazirla, idOf, MENBE_SAY, NAMIZED_MAX, MAX_AGE_H,
-  REELS, xOptions, xDue, xNamizedler, xHazirla, xBasliq, xId };
+  REELS, xOptions, xDue, xNamizedler, xHazirla, xBasliq, xId, xBaxis, xMetn, xPromptOf, FX_STATUS };
