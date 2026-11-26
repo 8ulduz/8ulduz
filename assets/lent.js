@@ -53,6 +53,7 @@ video{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cont
 @media (orientation:portrait){video{object-fit:cover}section.k video{object-fit:contain}section.w .fit{display:block}}
 .cap{position:absolute;z-index:1;left:0;right:64px;bottom:0;padding:40px 14px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#000b);pointer-events:none}
 .cap b{display:block;font-size:14px;text-shadow:0 1px 2px #000}
+.cap b i{font-style:normal;font-weight:400}
 .cap span{display:block;margin-top:4px;font-weight:700;font-size:16px;text-shadow:0 1px 2px #000}
 .cap a{pointer-events:auto;display:inline-block;margin-top:8px;padding:6px 12px;border:1px solid #fff9;border-radius:99px;color:#fff;text-decoration:none;font-size:13px;background:#0005}
 .p::after{content:"▶";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:46px;color:#fffd;pointer-events:none;text-shadow:0 2px 12px #000}
@@ -61,12 +62,14 @@ button{position:fixed;right:12px;z-index:2;width:44px;height:44px;border-radius:
 .x{top:calc(12px + env(safe-area-inset-top))}
 .lg{left:12px;right:auto;top:calc(12px + env(safe-area-inset-top));width:auto;height:auto;padding:7px 12px;border-radius:12px;background:#0007;font-size:18px;font-weight:800;line-height:1.2;letter-spacing:.2px;text-shadow:0 1px 2px #000}
 .lg i{font-style:normal;color:#e11d48}
+.top{right:64px;top:calc(14px + env(safe-area-inset-top));width:auto;height:40px;padding:0 14px;border-radius:99px;font-size:14px;font-weight:700;line-height:40px}
+.top[aria-pressed=true]{background:#e11d48}
 .snd{bottom:calc(96px + env(safe-area-inset-bottom))}
 .sh{position:absolute;bottom:calc(150px + env(safe-area-inset-bottom));width:auto;padding:0 14px;border-radius:22px;font-size:14px;font-weight:700}
 .wait{position:fixed;inset:0;margin:auto;width:36px;height:36px;border:3px solid #fff3;border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .end{display:grid;place-items:center;text-align:center;padding:24px;color:#ccc}
-.new{position:fixed;z-index:2;left:50%;top:calc(16px + env(safe-area-inset-top));transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:#e11d48;color:#fff;font-weight:700;font-size:14px;pointer-events:none}
+.new{position:fixed;z-index:2;left:50%;top:calc(64px + env(safe-area-inset-top));white-space:nowrap;transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:#e11d48;color:#fff;font-weight:700;font-size:14px;pointer-events:none}
 .new[hidden]{display:none}
 .hint{position:fixed;z-index:3;inset:0;display:grid;place-content:center;justify-items:center;gap:14px;background:#0008;font-size:19px;font-weight:800;text-align:center;text-shadow:0 2px 8px #000;transition:opacity .4s}
 .hint i{line-height:0;filter:drop-shadow(0 2px 8px #000);animation:up 1.2s ease-in-out infinite}
@@ -140,6 +143,21 @@ export function replay(pool, order, gap = REPLAY_GAP) {
   return mix(old.slice(0, REPLAY_BATCH));
 }
 const REPLAY_GAP = 15, REPLAY_BATCH = 30;
+
+// «Çox baxılan» (sahib 2026-11-26: «həm sayt həmdə sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et»): lentin yuxarıdakı
+// düymə ilə açılan ikinci görünüşü — son 48 saatın videoları yalnız X-in baxış sayı ilə; adi lent (mövzu növbəsi, 60/40, xəbər anı)
+// dəyişmir. 48 saat: yazıcı sayları son 2 gün üçün yeniləyir (x_yazici.refresh); 24 saatda milyonluq videoların çoxu düşürdü.
+// İzlənmiş video sona (sahib 2026-11-23); sayı bilinməyən və öz video xəbərimiz (OWN_V təxmindir) ən sonda; pəncərə boşsa bütün lent.
+const TOP_MS = 48 * 3600e3;
+export const views = v => !v.title && Number.isInteger(v.v) && v.v >= 0 ? v.v : -1;
+export function top(items, now = Date.now(), order = seenOrder()) {
+  const seen = new Set(order), by = (a, b) => views(b) - views(a);
+  const win = items.filter(v => now - Date.parse(v.t) <= TOP_MS), pool = win.length ? win : items;
+  return [...pool.filter(v => !seen.has(K(v))).sort(by), ...pool.filter(v => seen.has(K(v))).sort(by)];
+}
+// Baxış sayı kartda, qısa: «2,1 mln baxış», «94 min baxış», «850 baxış». Aşağı yuvarlaqlaşır: say olduğundan çox göstərilmir.
+const short = (n, unit) => String(n < unit * 10 ? Math.floor(n * 10 / unit) / 10 : Math.floor(n / unit)).replace(".", ",");
+export const baxis = n => Number.isInteger(n) && n > 0 ? `${n < 1e3 ? n : n < 1e6 ? short(n, 1e3) + " min" : short(n, 1e6) + " mln"} baxış` : "";
 
 // Lent açıq ikən yeni videolar (sahib 2026-11-19: «tiktok kimi videolar daima təzələnsin»; 2026-11-20: «tiktokdan geri qalmasın»):
 // dəqiqədə bir, yalnız vərəq görünəndə. Fayl əvvəl dəqiqəlik canlı kanaldan (live budağı: yazıcıdan ~5 dəq), alınmasa saytdan.
@@ -230,10 +248,12 @@ export async function open(S, k = "") {
   // Paylaşılan video köhnə siyahıda yoxdursa (təzə paylaşılıb) təzə siyahı gözlənir: paylaşılan video həmişə birincidir.
   if (k && late && !items.some(v => v.k === k)) { late = false; items = list(S, await load()); }
   await ready;
-  build(f, first(items, k), () => history.back(), async () => list(S, await load()), late);
+  build(f, first(items, k), () => history.back(), async keep => list(S, await load(undefined, keep)), late);
 }
 
-const slide = v => `<section data-k="${esc(v.k || "")}"${v.w > v.h * 1.15 ? ' class="w"' : ""}><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div>${v.w > v.h * 1.15 ? '<button class="fit" type="button" aria-label="Tam kadr" aria-pressed="false">⤢</button>' : ""}<button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
+// Hesabın adının yanında X-dəki baxış sayı (yuxarıdakı baxis): hər iki görünüşdə, sayı bilinən hər videoda.
+const count = v => { const t = baxis(views(v)); return t ? `<i> · ${t}</i>` : ""; };
+const slide = v => `<section data-k="${esc(v.k || "")}"${v.w > v.h * 1.15 ? ' class="w"' : ""}><video playsinline loop preload="none" data-src="${esc(v.u)}" data-poster="${esc(px(v.i, 720))}"></video><div class="bar"></div><div class="cap"><b>${esc(v.n)}${count(v)}</b>${v.title || v.c ? `<span>${esc(v.title || v.c)}</span>` : ""}<a href="${esc(v.link)}" target="${v.title ? "_top" : "_blank"}" rel="noopener">${v.title ? "Xəbəri oxu" : "X-də bax ↗"}</a></div>${v.w > v.h * 1.15 ? '<button class="fit" type="button" aria-label="Tam kadr" aria-pressed="false">⤢</button>' : ""}<button class="sh" type="button" aria-label="Paylaş" data-link="${esc(shareLink(v))}" data-title="${esc(v.title || v.c || v.n)}">Paylaş</button></section>`;
 
 // Slaydlar hissə-hissə qurulur (sahib 2026-11-25: «videolent bir neçə saniyəyə açılır … ən vacib qırmızı cizgi-gözqırpımı sürətidir»).
 // Ölçü (canlı sayt, 980 video): hamısı birdən qurulanda brauzer ~1,5 s (telefonda daha çox) yalnız slaydları düzürdü və ilk video
@@ -246,7 +266,7 @@ function build(f, items, back, more, late) {
   let sound = false;
   try { sound = sessionStorage.getItem(SOUND_KEY) === "1"; } catch {}
   const queue = items.slice(FIRST);
-  doc.body.innerHTML = `<div class="feed">${items.slice(0, FIRST).map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt">8ulduz<i>.az</i></button><button class="x" type="button" aria-label="Bağla">✕</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
+  doc.body.innerHTML = `<div class="feed">${items.slice(0, FIRST).map(slide).join("")}<section class="end"><p>${items.length ? "Videolar yüklənir…" : "Hələ video yoxdur. Bir az sonra yenidən baxın."}</p></section></div><button class="lg" type="button" aria-label="8ulduz.az — sayta qayıt">8ulduz<i>.az</i></button><button class="x" type="button" aria-label="Bağla">✕</button><button class="top" type="button" aria-pressed="false">Çox baxılan</button><button class="snd" type="button" aria-label="Səs">${sound ? "🔊" : "🔇"}</button><div class="new" hidden></div>`;
   const feed = doc.querySelector(".feed"), slides = [...feed.querySelectorAll("section:not(.end)")], sndBtn = doc.querySelector(".snd");
   const pos = s => slides.indexOf(s);
   const vid = s => s.querySelector("video");
@@ -278,6 +298,7 @@ function build(f, items, back, more, late) {
   live.io = new win.IntersectionObserver(es => {
     for (const e of es) {
       const s = e.target;
+      if (!s.isConnected) continue;   // görünüş dəyişib (show): silinmiş slaydın gecikmiş xəbəri heç nə oynatmır
       if (flat(e)) { live.flat = true; continue; }
       if (onScreen(e)) { live.at = pos(s); near(live.at); play(s); drop(slides[live.at - 3]); drop(slides[live.at + 3]); if (live.at >= slides.length - 3) grow(); }
       else stop(s);
@@ -297,8 +318,11 @@ function build(f, items, back, more, late) {
   slides.forEach(wire);
   near(0);
   // İlk video siyahı gələn kimi yüklənir: müşahidəçinin ilk xəbərini (növbəti kadr) gözləmir.
-  const v0 = slides[0] && vid(slides[0]);
-  if (v0) { v0.preload = "auto"; v0.src = v0.dataset.src; }
+  const warm = () => {
+    const v0 = slides[0] && vid(slides[0]);
+    if (v0) { v0.preload = "auto"; v0.src = v0.dataset.src; }
+  };
+  warm();
   // Yeni videolar izlənən videonun ardınca girir: barmaqla bir sürüşdürmə — təzə video. Görülənlər təkrar gəlmir.
   const have = new Set(items.map(K)), pool = new Map(items.map(v => [K(v), v])), note = doc.querySelector(".new");
   const put = (list, at) => {   // at: bu slayddan sonra; yoxdursa lentin sonuna
@@ -317,14 +341,14 @@ function build(f, items, back, more, late) {
     for (const v of add) have.add(K(v));
     return add;
   };
+  let hot = false, flip = 0, noteT = 0;   // hot: «Çox baxılan» görünüşü açıqdır (aşağıda: topBtn)
+  const say = t => { note.textContent = t; note.hidden = !t; clearTimeout(noteT); if (t) noteT = setTimeout(() => { note.hidden = true; }, 4000); };
   const freshTick = async () => {
     if (document.visibilityState !== "visible" || !live) return;
     const add = await fetchNew();
-    if (!add.length || !live) return;
+    if (!add.length || !live || hot) return;   // «Çox baxılan»da sıra baxış sayıdır: təzə video araya girmir, adi lentə qayıdanda gəlir
     put(add, slides[live.at] || null);
-    note.textContent = `+${add.length} yeni video ↓`;
-    note.hidden = false;
-    setTimeout(() => { note.hidden = true; }, 4000);
+    say(`+${add.length} yeni video ↓`);
   };
   const grow = () => { if (queue.length) put(queue.splice(0, CHUNK), null); else refill(); };
   let filling = false;
@@ -338,6 +362,28 @@ function build(f, items, back, more, late) {
       if (next.length) put(next, null);
     } finally { filling = false; }
   };
+  // «Çox baxılan» düyməsi (yuxarıdakı top şərhi): basanda lent həmin sıra ilə birinci videodan yenidən düzülür, yenə basanda adi
+  // lentə qayıdır. Siyahı yaddaşdadır (load, OPEN_MS): keçid şəbəkəni gözləmir. Köhnə slaydların videosu boşaldılır və silinir.
+  const topBtn = doc.querySelector(".top");
+  const show = (all, list) => {
+    for (const s of slides) { live.io.unobserve(s); drop(s); s.remove(); }
+    slides.length = queue.length = 0;
+    queue.push(...list);
+    have.clear();
+    for (const v of all) { have.add(K(v)); pool.set(K(v), v); }
+    live.at = 0;
+    put(queue.splice(0, FIRST), null);
+    feed.scrollTop = 0;
+    warm();
+  };
+  topBtn.addEventListener("click", async () => {
+    hot = !hot;
+    topBtn.setAttribute("aria-pressed", String(hot));
+    const n = ++flip, all = await more(OPEN_MS);
+    if (!live || n !== flip) return;   // ardıcıl iki basış: yalnız sonuncu lenti düzür
+    show(all, hot ? top(all) : all);
+    say(hot ? "Son 2 günün ən çox baxılan videoları" : "");
+  });
   live.fresh = setInterval(freshTick, FRESH_MS);
   if (late) freshTick();   // lent köhnə siyahı ilə açılıb: təzə videolar dərhal soruşulur
   // Paylaşıb (WhatsApp) və ya başqa tətbiqdən qayıdanda: brauzerin arxa planda dayandırdığı video olduğu yerdən davam edir. Oxucunun
