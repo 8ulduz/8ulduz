@@ -6,6 +6,8 @@
 // Nə götürülür: xəbəri yazan saytın (əsas mənbə, sonra digər mənbələr) səhifəsindəki video faylı (mp4, mov, m4v, webm) — səhifənin
 // özündə və ya onun pleyer çərçivəsində (player.bizim.media, bax.tv/embed, newstube.az/embed). Görüntünün mənbəyi videoda və post
 // mətnində yazılır: «Görüntü: Bizim.Media». Səs götürülmür (diktor mətni bizimdir), su nişanı silinmir.
+// Yalnız xəbərin öz hissəsindən (meqale: səhifədəki sonrakı xəbərlər yox) və yalnız saytın öz faylı, öz pleyeri və ya platforma
+// pleyeri (ozunku: başqa saytın faylı yox) — 2026-11-26 Publika.az səhvi, aşağıda.
 // Nə götürülmür:
 //   - YouTube, Instagram, TikTok, Telegram pəncərəsi: orada fayl yoxdur, platformanın qorumasını aşmaq olmaz — bank klipi ilə davam;
 //   - X videoları (video.twimg.com) və saytın öz səhifələri (8ULDUZ): X videoları yalnız yerləşdirilir (docs/youtube.md);
@@ -44,6 +46,40 @@ function linkler(html, base) {
   return { fayl, cercive };
 }
 
+// Səhifədə xəbərin özündən başqa xəbərlər də ola bilər. Publika.az-da hər xəbərin altında köhnə xəbərlər var, hər birinin öz <h1>-i
+// və videosu ilə. 2026-11-26-da «Namizəd Səfərova hökm oxundu» videosuna 2022-ci il Marmaris yanğınının TRT faylı düşdü: o fayl
+// Publika-nın hər xəbər səhifəsinin aşağısındadır. Xəbərin hissəsi səhifənin başından xəbərin başlığından sonrakı ilk <h1>-ə qədərdir
+// (başlıqdan əvvəlki əsas video da daxildir). Başlıq səhifənin adına (og:title, yoxdursa <title>) uyğun gələn ən uzun <h1>-dir, ən azı
+// 3 söz (saytın loqosu olan <h1> «Publika.az» seçilməsin). Uyğun başlıq yoxdursa səhifə bütöv qalır.
+const norm = s => String(s || "").replace(/<[^>]*>/g, " ").replace(/&(?:#\d+|#x[\da-f]+|[a-z]+);/gi, " ")
+  .toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+function meqale(html) {
+  const s = String(html || "");
+  const og = (s.match(/<meta\b[^>]*\bproperty\s*=\s*["']og:title["'][^>]*>/i)?.[0].match(/\bcontent\s*=\s*(["'])([\s\S]*?)\1/i) || [])[2];
+  const ad = norm(og || (s.match(/<title\b[^>]*>([^<]*)/i) || [])[1]);
+  if (!ad) return s;
+  let bas = null;
+  for (const m of s.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)) {
+    const t = norm(m[1]);
+    if (t.split(" ").length >= 3 && (ad.includes(t) || t.includes(ad)) && (!bas || t.length > bas.t.length)) bas = { son: m.index + m[0].length, t };
+  }
+  if (!bas) return s;
+  const novbeti = s.slice(bas.son).search(/<h1\b/i);
+  return novbeti < 0 ? s : s.slice(0, bas.son + novbeti);
+}
+
+// Faylın sahibi: xəbəri yazan sayt (alt domenləri ilə, «cdn.bizim.media») və ya xəbər saytlarının video platforması. Başqa saytın
+// faylı götürülmür: Publika-dakı TRT faylı kimi görüntü onlarındır və «Görüntü: Publika.az» yanlış olardı; xarici yayımçının görüntüsü
+// qırmızı xətt 2-yə də toxuna bilər. Saytın öz pleyeri və platformanın pleyeri isə öz faylını verir — oradan gələn fayla inanılır.
+const PLATFORMA = ["bax.tv", "newstube.az"];
+const sayt = u => {
+  try {
+    const p = new URL(u).hostname.toLowerCase().replace(/^www\./, "").split(".");
+    return p.slice(p.length > 2 && /^(com|org|net|gov|edu|co|info|biz|ac|mil|name)$/.test(p[p.length - 2]) ? -3 : -2).join(".");
+  } catch { return ""; }
+};
+const ozunku = (u, ev) => { const h = sayt(u); return Boolean(h) && (h === sayt(ev) || PLATFORMA.includes(h)); };
+
 // Faylın imzası: MP4/MOV (4-cü baytdan «ftyp») və ya WebM/Matroska (EBML). HTML və xəta səhifəsi video kimi saxlanmasın.
 const videodur = buf => buf.length >= 12 && (buf.subarray(4, 8).toString("latin1") === "ftyp" || buf.readUInt32BE(0) === 0x1A45DFA3);
 
@@ -79,7 +115,12 @@ async function menbeVideo(a, page, { env = process.env, fetch: f = globalThis.fe
   for (const s of sehifeler) {
     const html = s.html || await oxu(s.url, f);
     if (!html) continue;
-    const l = linkler(html, s.url);
+    // Yalnız xəbərin öz hissəsi (meqale) və saytın öz faylı, öz pleyeri və ya platforma pleyeri (ozunku).
+    const l = linkler(meqale(html), s.url);
+    const yad = [...new Set([...l.fayl, ...l.cercive].filter(u => !ozunku(u, s.url)).map(u => sayt(u) || u))];
+    if (yad.length) log(`mənbə videosu: ${s.source} — başqa saytın faylı və pleyeri götürülmür (${yad.join(", ")})`);
+    l.fayl = l.fayl.filter(u => ozunku(u, s.url));
+    l.cercive = l.cercive.filter(u => ozunku(u, s.url));
     // Saytın hər səhifəsində olan fayl (bəzək, reklam) xəbərin videosu deyil: baş səhifədə də varsa atılır. Səhifənin özündə
     // xəbərin faylı yoxdursa (və ya yalnız bəzəkdirsə) pleyer çərçivəsinə baxılır.
     let bas = null;
@@ -103,4 +144,4 @@ async function menbeVideo(a, page, { env = process.env, fetch: f = globalThis.fe
   return null;
 }
 
-module.exports = { menbeVideo, linkler, videodur, yayim, indir, FAYL, MAX_BYTES, MIN_BYTES, YAD, REKLAM };
+module.exports = { menbeVideo, linkler, meqale, sayt, ozunku, PLATFORMA, videodur, yayim, indir, FAYL, MAX_BYTES, MIN_BYTES, YAD, REKLAM };

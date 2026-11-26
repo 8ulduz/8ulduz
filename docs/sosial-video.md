@@ -251,10 +251,15 @@ Qalan risk sahibə məlumdur: böyük yayımçıların görüntüsünü platform
 
 **Mənbənin öz videosu** (`.github/scripts/video-menbe.cjs`). Xəbər seçiləndə əvvəl onun mənbə səhifələrinə baxılır: əsas mənbə, sonra başlığında «video» olan digər mənbələr (ən çox 4 səhifə).
 - Götürülən: səhifədəki video faylı (mp4, mov, m4v, webm) və ya saytın pleyer çərçivəsindəki fayl (`player.bizim.media`, `bax.tv/embed`, `newstube.az/embed`).
+- Yalnız xəbərin öz hissəsindən (`meqale`). Hissə səhifənin başından xəbərin başlığından sonrakı ilk `<h1>`-ə qədərdir. Başlıq səhifənin adına (`og:title`, yoxdursa `<title>`) uyğun gələn ən uzun, ən azı 3 sözlü `<h1>`-dir. Tapılmasa səhifə bütöv qalır.
+- Yalnız saytın öz faylı (alt domenləri ilə), öz pleyeri və ya platforma pleyeri: bax.tv, newstube.az (`ozunku`). Pleyerin verdiyi fayla inanılır. Başqa saytın faylı və pleyeri götürülmür, jurnala yazılır: «başqa saytın faylı və pleyeri götürülmür (…)».
+- Səbəb (2026-11-26): «Namizəd Səfərova hökm oxundu» videosuna 2022-ci il Marmaris yanğınının TRT Haber faylı düşdü və «Görüntü: Publika.az» yazıldı.
+  - Publika.az-ın hər xəbər səhifəsinin aşağısında köhnə xəbərlər var, öz `<h1>`-i və videosu ilə; TRT faylı onların arasındadır.
+  - Yoxlanan 25 səhifənin hamısında eyni fayl var idi. Publika-nın xəbər hissəsində isə öz faylı yox idi.
 - Atılan: reklam və banner, saytın hər səhifəsində olan fayl (baş səhifədə də varsa), 150 MB-dan böyük və ya 150 KB-dan kiçik fayl, video olmayan cavab.
 - Fayl montajda yoxlanır (`video-xeber.cjs` `menbeKlip`): ən az 4 s, ən az 240 p. Keçməsə video bank klipləri ilə hazırlanır.
 - Mənbə videosu olanda bank klipi çatmasa da video gedir. Videolu xəbər seçimdə 1,3 qat önə keçir (`lent.ceki.video_emsal`).
-- 2026-11-26 yoxlaması: Bizim.Media, İnterPress, Konkret.az (bax.tv), İki Sahil (newstube.az), Publika.az faylı açıq verir. Saytların çoxu (Lent.az, Modern.az, Qol.az, Xəzər Xəbər, Teleqraf və s.) YouTube pəncərəsi qoyur — onlardan götürülmür.
+- 2026-11-26 yoxlaması: Bizim.Media, İnterPress, Konkret.az (bax.tv), İki Sahil (newstube.az) faylı açıq verir. Publika.az da bu siyahıda idi, amma səhv idi: tapılan fayl sonrakı köhnə xəbərin TRT faylı idi. Saytların çoxu (Lent.az, Modern.az, Qol.az, Xəzər Xəbər, Teleqraf və s.) YouTube pəncərəsi qoyur — onlardan götürülmür.
 
 **Dünya videoları** (`.github/scripts/video-dunya.cjs`, mənbələr `.github/video-dunya.json`).
 - İstiqamətlər «Rəqib təhlili»ndəndir: insan hekayəsi; hadisənin öz görüntüsü; məşhurlar və mədəniyyət; heyvanlar və təbiət; elm və kosmos; idman anı.
