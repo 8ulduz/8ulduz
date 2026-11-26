@@ -6,7 +6,8 @@
 //   dil("ru")    adla; yükləyicilər (youtube.cjs, tiktok.cjs) videonun dilini video.json-un «lang» sahəsindən götürür.
 //   dilVarmi(k)  belə profil var? (yoxdursa yükləyici az profili ilə işləyir — başqa iş axınlarının videoları, icmal və s.)
 //   fmt(şablon, { ad: dəyər })  «{ad}» yerinə dəyər; tanınmayan «{…}» olduğu kimi qalır.
-// Profil sabitdir: oxunandan sonra dəyişmir (Object.freeze). Nizami ifadələr (herf, yad_herf, nisbi_gun, protokol, bagliyicilar) bir dəfə qurulur: D.re.
+// Profil sabitdir: oxunandan sonra dəyişmir (Object.freeze). Nizami ifadələr (herf, yad_herf, nisbi_gun, protokol, bagliyicilar, zeif, guclu, cixar)
+// bir dəfə qurulur: D.re. istiqamet(mətn) — güclü istiqamət (video seçimi), cixarilir(mətn) — heyvan, təbiət, kosmos (insan hadisəsi olmadan).
 // Python tərəfi (video_ses.py, video_dinle.py) eyni faylları oxuyur. Qovluq: VIDEO_DIL_QOVLUQ (testlər üçün), yoxsa .github/video-dil.
 "use strict";
 const fs = require("fs"), path = require("path");
@@ -30,6 +31,12 @@ function oxu(kod, dir) {
     zeif: d.lent?.ceki?.zeif ? new RegExp(d.lent.ceki.zeif, "iu") : null,
     // Yayım kadrı (film, serial, klip, treyler): mənbə videosu götürülmür (lent.yayim, video-menbe.cjs). Liqaların oyun kadrı götürülür (2026-11-26).
     yayim: d.lent?.yayim ? new RegExp(d.lent.yayim, "iu") : null,
+    // Güclü istiqamətlər (lent.ceki.guclu; sahib, 2026-11-26, «hamısına bəli»): Instagram təhlilinin 15 yerli istiqaməti — ad, söz, əmsal;
+    // x — X və dünya videosunda əmsal (xarici futbol, avto yarış, qəzalar, ekstremal hadisələr orada önə keçir). istiqamet() işlədir.
+    guclu: (d.lent?.ceki?.guclu || []).map(g => ({ ad: String(g.ad), re: new RegExp(g.soz, "iu"), emsal: Number(g.emsal) || 1, x: Number(g.x) || 0 })),
+    // Heyvan, təbiət, kosmos (x.cixar; sahib, 2026-11-26: «nə heyvan nə təbiət nə kosmos»): heyvan yalnız insan hadisəsinin içində ola bilər —
+    // mətndə güclü istiqamət yoxdursa X və dünya videosu götürülmür, xəbər videosu zəif sayılır.
+    cixar: d.x?.cixar ? new RegExp(d.x.cixar, "iu") : null,
   };
   return freeze({ ...d, re });
 }
@@ -44,7 +51,19 @@ function dil(kod = process.env.VIDEO_DIL || "az") {
 const dilVarmi = kod => KOD.test(String(kod || "")) && fs.existsSync(path.join(qovluq(), `${kod}.json`));
 // Videonun öz dili (video.json «lang»); profili yoxdursa az.
 const videonunDili = m => dil(dilVarmi(m?.lang) ? m.lang : "az");
+// Mətnə uyğun gələn güclü istiqamət: ən böyük əmsallı { ad, emsal } və ya null. x: X və dünya videosu (istiqamətin «x» əmsalı varsa o).
+function istiqamet(metn, D = dil(), { x = false } = {}) {
+  let best = null;
+  for (const g of D.re.guclu || []) {
+    if (!g.re.test(String(metn || ""))) continue;
+    const emsal = (x && g.x) || g.emsal;
+    if (!best || emsal > best.emsal) best = { ad: g.ad, emsal };
+  }
+  return best;
+}
+// Heyvan, təbiət, kosmos mövzusudur və insan hadisəsi (güclü istiqamət) yoxdur.
+const cixarilir = (metn, D = dil()) => !!D.re.cixar?.test(String(metn || "")) && !istiqamet(metn, D);
 const fmt = (s, v = {}) => String(s).replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(v, k) ? String(v[k]) : m));
 const kodlar = () => { try { return fs.readdirSync(qovluq()).filter(f => /^[a-z]{2,3}\.json$/.test(f)).map(f => f.slice(0, -5)).sort(); } catch { return []; } };
 
-module.exports = { dil, dilVarmi, videonunDili, fmt, kodlar, QOVLUQ };
+module.exports = { dil, dilVarmi, videonunDili, fmt, kodlar, istiqamet, cixarilir, QOVLUQ };

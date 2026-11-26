@@ -820,5 +820,6 @@ async function main() {
 
 module.exports = { FAYL, BUDAQ, BUDAQ_FAYL, kitabxana, birlesdir, PLAN, BANK, LISENZIYA, ICAZE, HAVA, SAHIB_URL, ARXIV_MAX, ARXIV_NAMIZED, QADAGAN, SIYASI, PLATFORMA,
   norm, obyektUygun, menfi, kecerli, oxu, yukle, yaz, namizedler, hazirla, statikQat, boyut, qerar, sahib, sahibSetirleri, sahibId, planTeq,
-  seherOf, obyektOf, xulase, YOXLA, SAHIB_YOXLA };
+  seherOf, obyektOf, xulase, YOXLA, SAHIB_YOXLA,
+  probe, kadrlar };   // X videosunun kadrları (video-dunya.cjs xKadrMetn) eyni yolla çıxarılır
 if (require.main === module) main().catch(e => { console.error(`arxiv: ${String(e?.message || e)}`); process.exitCode = 1; });

@@ -22,15 +22,17 @@
 // gündə bir dəfə (state.hava). Xəbər videosunun fasiləsinə (VIDEO_MIN_GAP_MIN) və gündəlik həddinə sayılmır (_last, v), mövzu siyahısına düşmür;
 // həmin 30 dəqiqəlik pəncərədə xəbər videosu növbəti pəncərəyə qalır (bir pəncərədə bir iş, pipeline.sh video_loop).
 // Maraqlı videolar (video-maraqli.cjs; sahib, 2026-11-24: «əsas odur onlar kimi sən də tap o cür maraqlı videolar»): Vikipediyanın faktları,
-// Pixabay/Pexels görüntüsü, SARA səsi — xəbər videosu ilə növbələşir: son maraqlı videodan MARAQLI_ARA_MIN (60) dəqiqə keçibsə və gündə
-// MARAQLI_GUNDE (10) dolmayıbsa, pəncərədə əvvəl maraqlı video; uyğun xəbər olmayan pəncərədə də (gündəlik həddə qədər). Ümumi fasiləyə
-// və gündəlik həddə (VIDEO_MIN_GAP_MIN, VIDEO_GUNDE — Facebook-un 24 saatda 30 Reels həddi) sayılır, xəbər mövzularının siyahısına düşmür.
+// Pixabay/Pexels görüntüsü, SARA səsi. 2026-11-26-dan SÖNDÜRÜLÜB (sahib: «nə heyvan nə təbiət nə kosmos ... eyni məsələni neçə dəfə demək
+// olar?»; böyük Azərbaycan Instagram hesablarının ~340 Reels-ində heyvan, təbiət, kosmos faktı yoxdur): kod qalır, susmaya görə işləmir.
+// Yalnız Variables-da MARAQLI_VIDEO=1 açır; söndürülmüş halda VIDEO_TUR=maraqli yalnız önizləmədir (paylas=false), paylas maraqlı videonu
+// göndərmir. Açılsa əvvəlki qayda: son maraqlı videodan MARAQLI_ARA_MIN (60) dəqiqə keçibsə və gündə MARAQLI_GUNDE (10) dolmayıbsa,
+// pəncərədə əvvəl maraqlı video; uyğun xəbər olmayan pəncərədə də. Ümumi fasiləyə və gündəlik həddə (VIDEO_MIN_GAP_MIN, VIDEO_GUNDE) sayılır.
 // Dil profili (2026-11-26, video-dil.cjs; VIDEO_DIL, boş — az): lentin dili və mənbə həddi (lent), izahın hərfləri (herf), paylaşım
 // mətnləri (paylasim) və hava videosu (hava: yalnız profildə true olan dildə — hava mətnləri azərbaycancadır) profildəndir.
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
-const { dil, fmt } = require("./video-dil.cjs");
+const { dil, fmt, istiqamet, cixarilir } = require("./video-dil.cjs");
 const VS = require("./video-ssenari.cjs");
 const VH = require("./video-hava.cjs");
 const VA = require("./video-arxiv.cjs");
@@ -102,14 +104,16 @@ function havaDue(state, now, ho) {
   if (state.hava?.[c.day]) return "bu günün hava videosu hazırlanıb";
   return "";
 }
-// Maraqlı video: söndürmə (MARAQLI_VIDEO=0), gündəlik hədd və öz fasiləsi. state.m: mövzu → vaxt (3 gün saxlanır: mövzu təkrarlanmır).
+// Maraqlı video: 2026-11-26-dan susmaya görə söndürülüb (sahibin qərarı) — yalnız MARAQLI_VIDEO=1 açır. Gündəlik hədd və öz fasiləsi.
+// state.m: mövzu → vaxt (3 gün saxlanır: mövzu təkrarlanmır).
+const MARAQLI_SONDU = "maraqlı video söndürülüb (sahib, 2026-11-26; açmaq: MARAQLI_VIDEO=1)";
 function maraqliOptions(env = process.env) {
-  return { on: env.MARAQLI_VIDEO !== "0", perDay: num(env.MARAQLI_GUNDE, 10), gapMin: num(env.MARAQLI_ARA_MIN, 60) };
+  return { on: env.MARAQLI_VIDEO === "1", perDay: num(env.MARAQLI_GUNDE, 10), gapMin: num(env.MARAQLI_ARA_MIN, 60) };
 }
 const maraqliSay = (state, now) => Object.values(state.m || {}).filter(t => now / 1000 - t < 86400).length;
 // "" — vaxtıdır; yoxsa səbəb. fill: uyğun xəbər yoxdur — öz fasiləsi gözlənmir, yalnız gündəlik hədd.
 function maraqliDue(state, now, mo, fill = false) {
-  if (!mo.on) return "maraqlı video söndürülüb (MARAQLI_VIDEO=0)";
+  if (!mo.on) return MARAQLI_SONDU;
   const day = maraqliSay(state, now);
   if (day >= mo.perDay) return `24 saatda ${day} maraqlı video (hədd ${mo.perDay})`;
   const last = Math.max(0, ...Object.values(state.m || {})), ago = Math.floor((now / 1000 - last) / 60);
@@ -187,14 +191,25 @@ async function sourcePage(a, f) {
     .then(r => (r?.ok && r.text ? r.text() : ""), () => "").catch(() => "");
 }
 
-// Tamaşaçı marağının çəkisi (2026-11-26, docs/sosial-video.md «Rəqib təhlili»): sıra mənbə sayı × bölmənin əmsalı × zəif mövzu əmsalı.
-// Ən çox mənbəli xəbər çox vaxt rəsmi tədbirdir (sammit, forum, xüsusi gün) — onu hamı yazır, amma ən az baxılan videolar elə bunlardır
-// (baku.ws_official, 12–25 noyabr: belə Reels 6–7 min baxış, orta 50 min; mədəniyyət və məşhurların postları orta bəyənmənin ~1,9 qatı).
-// Əmsallar profildədir (lent.ceki: bolme, zeif, zeif_emsal); prezident bölməsinə əmsal yoxdur. Mənbə həddi (min_menbe) dəyişmir.
+// Tamaşaçı marağının çəkisi (2026-11-26, docs/sosial-video.md «Rəqib təhlili» və «Video mövzuları»): sıra mənbə sayı × bölmənin əmsalı ×
+// zəif mövzu əmsalı × güclü istiqamət əmsalı. Ən çox mənbəli xəbər çox vaxt rəsmi tədbirdir (sammit, forum, səfər, bəyanat, statistika,
+// ildönümü) — onu hamı yazır, amma ən az baxılan videolar elə bunlardır (baku.ws_official, 12–25 noyabr: belə Reels 6–7 min baxış, orta
+// 50 min; böyük Azərbaycan Instagram hesablarında rəsmi səfər videoları oxuaz-da 1–2 min, median 17,6 min).
+// Güclü istiqamətlər (sahib, 2026-11-26, «hamısına bəli»): həmin hesabların ən çox baxılan Reels-lərinin 15 istiqaməti — ordu və şəhid,
+// tanınmış adamın itkisi, insan hekayəsi, polis, fırıldaq, qəzalar, sakin şikayəti, faktiki hava hadisəsi, yerli və xarici futbol, avto
+// yarış, konsert, Türkiyədən hadisə, texnologiya, ekstremal an. Başlıq və xülasədə uyğun gələn istiqamətlərin ən böyük əmsalı götürülür.
+// Başlıqda zəif mövzu sözü varsa xəbər rəsmi tədbirdir: güclü istiqamət əmsalı verilmir. Heyvan, təbiət, kosmos (x.cixar) insan hadisəsi
+// olmadan zəif sayılır. Əmsallar profildədir (lent.ceki: bolme, zeif, zeif_emsal, guclu); prezident bölməsinə bölmə əmsalı yoxdur.
+// Mənbə həddi (min_menbe) dəyişmir.
 function cekisi(a, D = dil()) {
-  const c = D.lent.ceki || {};
+  const c = D.lent.ceki || {}, title = S.clean(a?.title);
   let k = Number(c.bolme?.[a?.category]) || 1;
-  if (D.re.zeif && D.re.zeif.test(S.clean(a?.title))) k *= Number(c.zeif_emsal) || 1;
+  if (D.re.zeif && D.re.zeif.test(title)) k *= Number(c.zeif_emsal) || 1;
+  else {
+    const g = istiqamet(`${title} ${S.clean(a?.summary)}`, D);
+    if (g) k *= g.emsal;
+    else if (cixarilir(title, D)) k *= Number(c.zeif_emsal) || 1;
+  }
   // Videolu xəbər (mənbədə hadisənin öz görüntüsü var; video-menbe.cjs onu videomuza qoyur): ən çox baxılanların hamısı belədir.
   if (a?.video || (a?.alts || []).some(x => /video/i.test(String(x?.title || "")))) k *= Number(c.video_emsal) || 1;
   return k;
@@ -460,7 +475,8 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   // Maraqlı video: vaxtıdırsa əvvəl o (alınmasa xəbər); VIDEO_TUR=maraqli — dərhal (önizləmə və əl ilə).
   const mo = maraqliOptions(env), mArgs = { now, state, env, fetch: f, policy, dir, log, post, hazirla: maraqli };
   if (!only && tur !== "xeber" && tur !== "x" && tur !== "dunya") {
-    const why = tur === "maraqli" ? (mo.on ? "" : "maraqlı video söndürülüb (MARAQLI_VIDEO=0)") : maraqliDue(state, now, mo);
+    // Söndürülmüş rubrika (2026-11-26): əl ilə yalnız önizləmə (paylas=false) — sınaq yolu qalır, paylaşım yolu bağlıdır.
+    const why = tur === "maraqli" ? (mo.on || !post ? "" : `${MARAQLI_SONDU} — yalnız önizləmə (paylas=false)`) : maraqliDue(state, now, mo);
     if (!why) { const x = await maraqliSec(mArgs); if (x || tur === "maraqli") return x; }
     else { log(`video: ${why}`); if (tur === "maraqli") return null; }
   }
@@ -521,6 +537,8 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
   const x = JSON.parse(fs.readFileSync(path.join(dir, "xeber.json"), "utf8"));
   let meta = {};
   try { meta = JSON.parse(fs.readFileSync(path.join(dir, "video.json"), "utf8")); } catch {}
+  // Maraqlı rubrika söndürülüb (2026-11-26): hazır video da şəbəkəyə getmir (yalnız MARAQLI_VIDEO=1 açır).
+  if (x.tur === "maraqli" && !maraqliOptions(env).on) { log(`video: ${MARAQLI_SONDU} — paylaşılmır`); return { posted: [], failed: [] }; }
   const video = fs.readFileSync(path.join(dir, "video.mp4"));
   // Mənbənin videosu montajda işlənibsə (video.json menbeVideo) mətndə «Görüntü: <mənbə>»; işlənməyibsə bank kliplərinin krediti qalır.
   const gorunen = meta.menbeVideo ? { goruntu: [{ p: "Mənbə" }], goruntuMenbe: meta.goruntu } : {};
@@ -593,7 +611,21 @@ async function main() {
     if (res.failed.length && !res.posted.length) process.exitCode = 1;
     return;
   }
-  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | paylas <qovluq>");
+  if (cmd === "x-kadr") {
+    // «Çox baxılan» X videosu (sahib, 2026-11-26: «Bu video 4 milyondan çox dəfə izlənib — nəyə lazımdır?»): paylaşımın mətnində əlavə
+    // fakt yoxdursa, videonun kadrlarında açıq görünən 1–2 fakt (video-dunya.cjs xKadrMetn). ffmpeg quraşdırılandan sonra işləyir
+    // (sosial-video.yml «X: kadrlardan mətn»). Alınmasa mətn izah (başlıq) olaraq qalır; kadrda ölüm, qan, meyit görünürsə iş dayanır.
+    const file = path.join(a1, "xeber.json"), x = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (x.tur !== "x") return;
+    const app = require("./topics.cjs").loadApp(path.resolve("."));
+    let r = null;
+    try { r = await VD.xKadrMetn(x, { dir: a1, policy: a => app.xariciPozur(a) }); }
+    catch (e) { console.log(`::warning::X videosu: kadrlardan mətn alınmadı — ${String(e?.message || e).slice(0, 300)}; mətn olduğu kimi qalır`); return; }
+    if (r?.dayan) { console.log(`::error::X videosu paylaşılmır — ${r.dayan}`); process.exitCode = 1; return; }
+    if (r?.text) fs.writeFileSync(file, JSON.stringify({ ...x, text: r.text, metn: r.metn }, null, 1));
+    return;
+  }
+  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | x-kadr <qovluq> | paylas <qovluq>");
   process.exitCode = 2;
 }
 

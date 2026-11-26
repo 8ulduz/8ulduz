@@ -56,6 +56,12 @@ sayda mənbələr tap qoş». İstiqamətlər (Instagram auditoriyasının təhl
 və klip yox); heyvanlar, təbiət; elm, kosmos, texnologiya; oyun yayımı olmayan idman anları. İstənməyən: liqa və yayımçı oyun klipləri,
 zirvə, diplomatiya, nitq, mərc və kazino, böyüklər üçün məzmun, Azərbaycan haqqında müxalifət mənbəyi, əsasən mətn və keçid paylaşan hesab.
 
+Həmin gün sonra (sahib: «nə heyvan nə təbiət nə kosmos», sonra «hamısına bəli»; [sosial-video.md](sosial-video.md) «Video mövzuları»):
+qısa video seçicisinin (`x_yazici.py` `REELS_PROMPT`) «hadise» sinfindən «heyvanlar» və «təbiət hadisəsi» çıxdı. Heyvan faktı, təbiət
+və kosmos sənədli kadrı «hadise» sayılmır, heyvan yalnız insan hadisəsinin içində olur. Önə qəzalar, ekstremal anlar (təbii fəlakətin
+anı da), xarici futbol, avto yarışlar və yarış qəzaları keçir. Sonra 15 istiqamətin qalanı gəlir. Heyvan və təbiət hesabları
+Videolentdə qalır. Gemini-siz ehtiyat yolu və hesab siyahısı dəyişmir. «Çox baxılan» sosial videoya isə bu qrup (`tebiet`) artıq düşmür.
+
 **Ölçü.** Yazıcının öz yolu: `https://api.fxtwitter.com/2/profile/<hesab>/statuses` — açarsız, girişsiz, bot qorumasından yan
 keçmədən; sorğular arası ən azı 2 saniyə (eyni anda ən çox iki-üç proses, cəmi saniyədə 1 sorğudan az), 404 verən hesab 3 dəfə, sonra
 ayrıca keçiddə 5 saniyə ara ilə yenə 3 dəfə. 2026-11-26 06:45–08:05 UTC, hər hesabın 3 səhifəyədək (60 paylaşım) lenti. Sayılan: son

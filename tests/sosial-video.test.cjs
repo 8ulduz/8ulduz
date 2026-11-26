@@ -237,8 +237,9 @@ test("sosial-video: the video order weighs audience interest (section, weak topi
   const all = [siyaset, sammit, idman, medeniyyet, azMenbe, prez];
   // Əmsalsız (Facebook, Instagram şəkilli post): əvvəlki kimi mənbə sayı.
   assert.deepEqual(S.candidates(all, NOW, opt).map(a => a.id[0] + a.id[1]), ["a1", "b1", "c1", "d1", "f1"]);
-  // Video: idman 5×1,3=6,5; medeniyyet 4×1,4=5,6; siyaset 6×0,8=4,8; prezident 4×1; sammit (gündəm, zəif) 6×0,6=3,6. 3 mənbəli aktyor yenə düşmür.
-  assert.deepEqual(S.candidates(all, NOW, { ...opt, weight: a => SV.cekisi(a) }).map(a => a.id[0] + a.id[1]), ["c1", "d1", "a1", "f1", "b1"]);
+  // Video (güclü istiqamətlərlə, 2026-11-26): medeniyyet 4×1,4×1,6 (tanınmış müğənni)=8,96; idman 5×1,3×1,3 (millimiz)=8,45;
+  // siyaset 6×0,8=4,8; prezident 4×1; sammit (gündəm, zəif) 6×0,6=3,6. 3 mənbəli aktyor yenə düşmür.
+  assert.deepEqual(S.candidates(all, NOW, { ...opt, weight: a => SV.cekisi(a) }).map(a => a.id[0] + a.id[1]), ["d1", "c1", "a1", "f1", "b1"]);
   assert.equal(SV.cekisi(art("g1")), 1, "gündəm: əmsal yoxdur");
   assert.equal(SV.cekisi(prez), 1, "prezident bölməsinə əmsal yoxdur");
   assert.equal(SV.cekisi(art("g2", { title: "İl tamam olur: abidə açılıb" })), 0.6, "böyük İ ilə də tanınır");

@@ -11,8 +11,7 @@
     "movzular": {},
     "qadagan": "",
     "kenar": "",
-    "baxis_mln": "XX {n} MLN.",
-    "baxis_min": "XX {n} K."
+    "cixar": "xxanimal"
   },
   "lent": {
     "dil": "xx",
@@ -21,7 +20,8 @@
       "bolme": { "idman": 2 },
       "zeif": "xxsummit",
       "zeif_emsal": 0.5,
-      "video_emsal": 3
+      "video_emsal": 3,
+      "guclu": [{ "ad": "xxcrash", "emsal": 4, "x": 5, "soz": "xxcrash" }]
     },
     "yayim": "xxmatch"
   },
