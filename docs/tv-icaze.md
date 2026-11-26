@@ -1,5 +1,7 @@
 # Telekanalların görüntüsü: icazə
 
+> **2026-11-26, sahibin qərarı:** mənbə saytların və telekanalların xəbər görüntüsü yazılı icazə gözləmədən, mənbə göstərilməklə götürülür ([sosial-video.md](sosial-video.md) «Görüntünün mənbəyi»). Aşağıdakı məktub istəyə bağlıdır: icazə alınsa yayım kadrı (oyun, veriliş) üçün də əsas olar.
+
 Sahibin göstərişi (2026-11-24): «Öz video xəbərlərimizdə həmin xəbərə aid televiziya xəbərlərində verilən video oynasın (məsələn: prezidentlərin görüşü və bu kimi digər mümkün olan). Hava və bənzəri xəbərlərimiz xaric».
 
 ## Nə edildi, nə edilmədi

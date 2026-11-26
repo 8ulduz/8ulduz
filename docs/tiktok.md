@@ -306,7 +306,7 @@ Video modulu hər video üçün eyni adlı iki fayl yazır: `<ad>.mp4` + `<ad>.j
 | Sahə | Məcburi | Nə |
 |---|---|---|
 | `id` | bəli | Videonun sabit adı, məs. xəbər nömrəsi. Eyni `id` ikinci dəfə getmir. |
-| `own` | bəli, `true` | Video bizim ffmpeg ilə hazırlanıb, başqasının görüntüsü yoxdur. |
+| `own` | bəli, `true` | Video bizim ffmpeg ilə hazırlanıb: montaj, mətn, səs və dizayn bizimdir. Görüntü bank klipi və ya (2026-11-26-dan, sahibin qərarı) mənbə saytının öz videosudur, mənbə göstərilir (sosial-video.md «Görüntünün mənbəyi»). |
 | `title` | bəli | Başlıq: mətnin birinci sətri. |
 | `summary` | yox | İzah, 1200 simvola qədər. |
 | `text` | yox | Videoda gedən izah. Varsa mətndə `summary`-nin yerinə o yazılır. |

@@ -1,9 +1,10 @@
 // Video xəbər (sahib, 2026-11-22: «Facebook-da video xəbərlər verilsin… İnstagramda videolar verilsin. Videolarda başda 8ulduz.az
 // yazılsın»). Bir xəbərdən şaquli qısa video (Reels): saytın rəngləri, yuxarıda başdan sona loqo + «8ulduz.az», böyük başlıq,
 // izah cümlə-cümlə altyazı kimi, istəyə görə Azərbaycan səsi (SARA, «Dinlə» serverinin modeli), sonda «Ətraflı: 8ulduz.az».
-// Videoda yalnız bizim hazırladığımız və istifadə hüququmuz olan şey var: xəbərin başlığı və izahı (mətn), brend dizaynı, səs və
-// (sahib, 2026-11-22: «videogörüntü olsun o xəbərə uyğun») Pixabay/Pexels video bankının pulsuz lisenziyalı klipləri (video-ssenari.cjs).
-// Xəbər saytlarının və X-in video/fotosu, musiqi yoxdur (Meta Rights Manager, Content ID riski; docs/sosial-video.md).
+// Videoda: xəbərin başlığı və izahı (mətn), brend dizaynı, səs və görüntü. Görüntü (sahib, 2026-11-22: «videogörüntü olsun o xəbərə
+// uyğun»; 2026-11-26: «bir çox xəbər saytı hesabı eyni görüntünü verir… biz də verək»): xəbərin mənbə saytındakı öz videosu
+// (video-menbe.cjs; mənbə videoda yazılır), yoxdursa Pixabay/Pexels video bankının klipləri (video-ssenari.cjs).
+// X-in videoları, xəbərin fotosu və musiqi yoxdur (docs/sosial-video.md «Görüntünün mənbəyi»).
 //
 // İşlədilmə:  node .github/scripts/video-xeber.cjs <giriş.json> <çıxış.mp4>
 //   giriş  — data/news.json sətri (id, title, summary, category, source, alts, publishedAt) + istəyə bağlı:
@@ -12,6 +13,7 @@
 //            klipler  fon klipləri (çıxış qovluğuna görə yol; video-ssenari.cjs goruntu()). Varsa fon görüntüdür, yoxdursa tünd göy
 //                     fon; şaquli klip ekranı doldurur, üfüqi tam enində ortada (arxada bulanıq nüsxəsi)
 //            goruntuMenbe  videoda «Görüntü: …» (Pixabay və ya Pexels)
+//            menbeVideo  { file, kredit } — mənbə saytının öz videosu (video-menbe.cjs): oxunursa fon odur, «Görüntü: <kredit>»
 //            ses   false → səssiz (boş səs izi)
 //   çıxış  — <çıxış>.mp4: MP4 (moov əvvəldə), H.264 High 4.1, yuv420p, 1080×1920 (9:16), 30 kadr/s, GOP 2 s, CRF 21 (≤8 Mbit/s),
 //            AAC-LC 48 kHz stereo 128 kbit/s; MIN_S…MAX_S saniyə. Facebook Reels (3–90 s), Instagram Reels və TikTok qəbul edir.
@@ -227,8 +229,10 @@ function timeline(p, voice = null) {
   const outroLen = spans[n - 1][1] - spans[n - 1][0];
   const fullEnd = (last) => last + GAP_S + Math.max(OUTRO_S, outroLen + 0.5);
   while (chunks.length && fullEnd(parts[parts.length - 1][1]) > MAX_S) { chunks.pop(); parts.pop(); }
-  const keepUntil = parts.length ? parts[parts.length - 1][1] : head[1], mainEnd = keepUntil + GAP_S;
-  const outro = [mainEnd, mainEnd + Math.max(OUTRO_S, outroLen + 0.5)];
+  // Görüntü aparan video (X klipi; p.min_s — klipin uzunluğu, render): mətn qısadırsa əsas hissə klip boyu uzanır, sonluq sonda qalır.
+  const outroD = Math.max(OUTRO_S, outroLen + 0.5), want = Math.min(MAX_S, Number(p.min_s) || 0) - outroD - 0.3;
+  const keepUntil = parts.length ? parts[parts.length - 1][1] : head[1], mainEnd = Math.max(keepUntil + GAP_S, want);
+  const outro = [mainEnd, mainEnd + outroD];
   const duration = Math.round(Math.max(MIN_S, Math.min(MAX_S, outro[1] + 0.3)) * 100) / 100;
   // Səs ekranla eyni: altyazı düşübsə onun səsi kəsilir, sonluq səsi sonluğun başlanğıcına sürüşür (hamısı video vaxtı ilə).
   // lead: səs faylının videoda başladığı an (ffmpegArgs adelay).
@@ -496,7 +500,8 @@ function voice(p, dir, log) {
 const sesAdi = m => (m === "sara" ? "SARA" : m === dil().ses.motor ? dil().ses.ad : String(m || "?"));
 
 // <çıxış>.json-dakı xəbər sahələri (TikTok yükləyicisi, PR 8ulduz/8ulduz#293, bunları oxuyur: text — mətn, own — öz videomuzdur).
-// own yalnız bu modulun hazırladığı videoda olur: içində xəbərin mətni və saytın dizaynı var, başqasının görüntüsü yoxdur.
+// own yalnız bu modulun hazırladığı videoda olur: montaj, mətn, səs və dizayn bizimdir; görüntü bank klipi, sahibin görüntüsü və ya
+// (2026-11-26-dan, sahibin qərarı) mənbə saytının öz videosudur — mənbə videoda və mətndə göstərilir.
 function storyFields(a) {
   const text = clean(a.text || "") || clean(a.summary || "");
   return { id: a.id, own: true, title: clean(a.title), summary: clean(a.summary || ""), text, source: a.source || "", sourceUrl: a.sourceUrl || "",
@@ -504,7 +509,25 @@ function storyFields(a) {
     category: a.category || "", lang: dil().kod, publishedAt: a.publishedAt || "",
     // Maraqlı video (video-maraqli.cjs): növ və saytın keçidi YouTube/TikTok yükləyicisinə (xəbər deyil, paylaşma səhifəsi yoxdur).
     ...(a.kind === "maraqli" ? { kind: "maraqli", url: a.url || "https://8ulduz.az/" } : {}),
+    // Dünya videosu (video-dunya.cjs): saytda ayrıca xəbər səhifəsi yoxdur — keçid «Dünya» bölməsinədir.
+    ...(a.kind === "dunya" ? { kind: "dunya", url: a.url || "https://8ulduz.az/bolme/dunya/" } : {}),
+    // X videosu («Çox baxılan», video-dunya.cjs xHazirla): keçid saytın Videolentinədir.
+    ...(a.kind === "x" ? { kind: "x", url: a.url || "https://8ulduz.az/#/videolent" } : {}),
     ...(Array.isArray(a.hashtags) && a.hashtags.length ? { hashtags: a.hashtags.slice(0, 3) } : {}) };   // YouTube/TikTok yükləyicisi oxuyur
+}
+
+// Mənbənin öz videosu (video-menbe.cjs, sahib 2026-11-26): fayl oxunursa, videodursa və kifayət qədər uzun və iridirsə fon odur.
+// Telefon çəkilişinin fırlanma nişanı nəzərə alınır (ffmpeg kadrı özü çevirir: ölçü də çevrilmiş olmalıdır).
+const MENBE_MIN_S = 4, MENBE_MIN_PX = 240;
+function menbeKlip(file) {
+  try {
+    const j = JSON.parse(run("ffprobe", ["-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height:stream_tags=rotate:stream_side_data=rotation", "-of", "json", file]));
+    const v = (j.streams || []).find(x => x.codec_type === "video");
+    if (!v) return null;
+    const rot = Math.abs(Number(v.side_data_list?.find(d => d.rotation != null)?.rotation ?? v.tags?.rotate ?? 0)) % 180 === 90;
+    const w = rot ? v.height : v.width, h = rot ? v.width : v.height, dur = Number(j.format?.duration) || 0;
+    return w >= MENBE_MIN_PX && h >= MENBE_MIN_PX && dur >= MENBE_MIN_S ? { file, w, h, dur } : null;
+  } catch { return null; }
 }
 
 function probe(file) {
@@ -519,7 +542,8 @@ async function render(a, out, opt = {}) {
   let policy = opt.policy, cats = opt.cats;
   if (!policy || !cats) {
     const app = require("./topics.cjs").loadApp(ROOT);    // qayda faylı oxunmasa xəta: video olmur
-    policy ||= x => app.policyViolation(x);
+    // Dünya və X videoları (kind): mənbə lentin siyahısında deyil — xarici mənbə qaydası (topics.cjs xariciPozur).
+    policy ||= x => (x?.kind === "dunya" || x?.kind === "x" ? app.xariciPozur(x) : app.policyViolation(x));
     cats ||= app.CATS;
   }
   if (policy(a)) throw new Error(`xəbər saytın qaydasından keçmir: ${clean(a.title)}`);
@@ -527,10 +551,18 @@ async function render(a, out, opt = {}) {
   out = path.resolve(out);
   // Fon klipləri (video-ssenari.cjs goruntu()): çıxış qovluğuna görə yol; olmayan fayl atılır.
   // Ölçü ffprobe ilə oxunur (üfüqi klip ağıllı kəsimlə doldurur, clipFilter); oxunmasa klip ortadan doldurulur.
-  const clips = (Array.isArray(a.klipler) ? a.klipler : []).map(f => path.resolve(opt.base || path.dirname(out), String(f))).filter(f => fs.existsSync(f))
+  const base = opt.base || path.dirname(out);
+  let clips = (Array.isArray(a.klipler) ? a.klipler : []).map(f => path.resolve(base, String(f))).filter(f => fs.existsSync(f))
     .map(file => { try { const m = probe(file); return { file, w: m.width || 0, h: m.height || 0, dur: m.duration || 0 }; } catch { return { file }; } });
-  const menbe = clean(a.goruntuMenbe) || "Pexels";
+  let menbe = clean(a.goruntuMenbe) || "Pexels";
+  // Mənbənin öz videosu varsa və oxunursa görüntü odur (bank klipləri yalnız ehtiyatdır); videoda «Görüntü: <mənbə>» yazılır.
+  const mvFile = a.menbeVideo?.file ? path.resolve(base, String(a.menbeVideo.file)) : "";
+  const mv = mvFile && fs.existsSync(mvFile) ? (opt.menbeKlip || menbeKlip)(mvFile) : null;
+  if (mv) { clips = [mv]; menbe = clean(a.menbeVideo.kredit) || clean(a.source) || menbe; a = { ...a, goruntuMenbe: menbe }; }
+  else if (mvFile) log(`video: mənbənin videosu oxunmadı və ya qısadır — ${clips.length ? "bank klipləri ilə" : "görüntüsüz"}`);
   const p = prepare(a, { cats, footage: clips.length > 0 });
+  // klip_boyu (X videosu): video ən azı klipin uzunluğu qədər (həddə qədər) davam edir — baxılan şey görüntünün özüdür.
+  if (mv && Number(a.klip_boyu) > 0) p.min_s = Math.min(mv.dur, Number(a.klip_boyu));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "video-xeber-"));
   try {
     const wantVoice = opt.voice ?? (a.ses !== false && process.env.VIDEO_SES !== "0");
@@ -552,6 +584,7 @@ async function render(a, out, opt = {}) {
       ? [cover_s, ...shotMids.slice(1, 8).filter(x => x < tl.outro[0]), mid([tl.outro[0], tl.duration])]
       : [cover_s, ...tl.chunks.slice(0, 2).map(c => mid(c.at)), mid([tl.outro[0], tl.duration])];
     const meta = { ...storyFields(a), ...probe(out), cover_s, kadrlar, voice: Boolean(v), ...(v?.motor ? { ses: v.motor } : {}), ...(v ? { oxunan: p.say } : {}), ...(v?.nefes ? { nefes: v.nefes } : {}), parts: 2 + tl.chunks.length, title: p.title,
+      ...(mv ? { menbeVideo: true } : {}),
       ...(clips.length ? (shots => ({ goruntu: menbe, klip: new Set(shots.map(s => s.file)).size, kadr: shots.length, kesilen: shots.filter(fitsWide).length }))(shotPlan(clips, tl)) : {}) };
     fs.writeFileSync(out.replace(/\.mp4$/i, "") + ".json", JSON.stringify(meta, null, 1));
     if (opt.keepAss) fs.copyFileSync(path.join(dir, "video.ass"), out.replace(/\.mp4$/i, "") + ".ass");
@@ -562,7 +595,7 @@ async function render(a, out, opt = {}) {
   }
 }
 
-module.exports = { render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, captionSentences, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
+module.exports = { menbeKlip, render, prepare, timeline, ass, ffmpegArgs, shotPlan, shotBounds, wordTimes, clipFilter, focusX, focusOf, bandBottom, LF, captionChunks, captionSentences, bodyText, fitHeadline, wrap, textWidth, sourceLine, bakuTime, probe, storyFields,
   W, H, FPS, MIN_S, MAX_S, L, COLOR,
   // Hava videosu (video-hava.cjs) eyni brendi, səsi, altyazını və kodlaşdırmanı işlədir: qayda iki yerdə yazılmır.
   clean, voice, sesAdi, run, assColor, assTime, assText, rect, circle, logoX, logoY, logoW, LOGO, X0, TEXT_W, FONT, CAP_SIZE, CAP_PAD, CAP_W,

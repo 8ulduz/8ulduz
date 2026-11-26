@@ -1,7 +1,7 @@
 // Maraqlı videolar (sahib, 2026-11-24: X-in «Sizin üçün» lentindən 20 ekran şəkli — «bu kimi həm xəbər tipli, həm də digər çox maraqlı
 // videolar», «mənə maraqlı deyil sən haradan tapacaqsan», «əsas odur onlar kimi sən də tap o cür maraqlı videolar»).
 //
-// Sosial hesablarımıza başqasının (X, TV) videosu yüklənmir: YouTube Content ID və Meta Rights Manager onu tanıyır, video silinir,
+// Sosial hesablarımıza X-in videosu yüklənmir (xəbər saytlarının görüntüsü 2026-11-26-dan götürülür: video-menbe.cjs): YouTube Content ID və Meta Rights Manager onu tanıyır, video silinir,
 // hesaba xəbərdarlıq gəlir (docs/sosial-video.md «Müəllif hüququ»). Ona görə «Maraqlı» rubrikası istifadə hüququmuz olan görüntüdən
 // qurulur: Pixabay/Pexels klipləri (pulsuz lisenziya, dəyişdirmək və paylaşmaq olar) + Vikipediyanın faktları (fakt müəllif əsəri
 // deyil; mətni özümüz yazırıq, mənbə göstərilir) + SARA səsi. Video xəbər videosunun eyni montajıdır (video-xeber.cjs: tam boy kadr,

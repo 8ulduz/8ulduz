@@ -36,6 +36,8 @@ const VH = require("./video-hava.cjs");
 const VA = require("./video-arxiv.cjs");
 const VM = require("./video-maraqli.cjs");
 const VX = require("./video-xeber.cjs");
+const MV = require("./video-menbe.cjs");
+const VD = require("./video-dunya.cjs");
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const KEEP_S = 3 * 86400;
@@ -59,7 +61,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -193,6 +195,8 @@ function cekisi(a, D = dil()) {
   const c = D.lent.ceki || {};
   let k = Number(c.bolme?.[a?.category]) || 1;
   if (D.re.zeif && D.re.zeif.test(S.clean(a?.title))) k *= Number(c.zeif_emsal) || 1;
+  // Videolu xəbər (mənbədə hadisənin öz görüntüsü var; video-menbe.cjs onu videomuza qoyur): ən çox baxılanların hamısı belədir.
+  if (a?.video || (a?.alts || []).some(x => /video/i.test(String(x?.title || "")))) k *= Number(c.video_emsal) || 1;
   return k;
 }
 
@@ -212,6 +216,38 @@ async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "
     return { a, text, topic, page };
   }
   return null;
+}
+
+// X videosu — «Çox baxılan» (video-dunya.cjs xHazirla): ən çox baxılan video və izahı → <qovluq>/xeber.json (tur: "x"). Alınmasa null.
+const X_URL = "https://8ulduz.az/#/videolent";
+async function xSec({ now, state, env, fetch: f, policy, dir, log, post, hazirla = VD.xHazirla }) {
+  let x = null;
+  try { x = await hazirla({ now, state, env, fetch: f, policy, dir, log }); }
+  catch (e) { log(`::warning::X videosu alınmadı — ${String(e?.message || e).slice(0, 300)}`); return null; }
+  if (!x) return null;
+  const out = { ...x, link: X_URL, url: X_URL };
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(out, null, 1));
+  if (post) { const t = Math.floor(now / 1000); state.v[out.id] = t; state._last = t; (state.xv ||= {})[out.id] = t; }
+  log(`X videosu: seçildi — ${out.title} (${out.sourceUrl})`);
+  output("hazir", "1");
+  output("tur", "x");
+  return out;
+}
+
+// Dünya videosu (video-dunya.cjs hazirla): seçim, tərcümə, fayl → <qovluq>/xeber.json (tur: "dunya"). Alınmasa null (maraqlı və ya xəbər gedir).
+const DUNYA_URL = "https://8ulduz.az/bolme/dunya/";
+async function dunyaSec({ now, state, env, fetch: f, policy, cats = [], dir, log, post, hazirla = VD.hazirla }) {
+  let x = null;
+  try { x = await hazirla({ now, state, env, fetch: f, policy, dir, log }); }
+  catch (e) { log(`::warning::dünya videosu alınmadı — ${String(e?.message || e).slice(0, 300)}`); return null; }
+  if (!x) return null;
+  const out = { ...x, bolme: cats.find(c => c.slug === "dunya")?.label || "", link: DUNYA_URL, url: DUNYA_URL };
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(out, null, 1));
+  if (post) { const t = Math.floor(now / 1000); state.v[out.id] = t; state._last = t; (state.dv ||= {})[out.id] = t; }
+  log(`dünya videosu: seçildi — ${out.title} (${out.sourceUrl})`);
+  output("hazir", "1");
+  output("tur", "dunya");
+  return out;
 }
 
 // xeber.json: video-xeber.cjs-in girişi + paylaşma üçün keçid.
@@ -371,7 +407,7 @@ function output(key, value) {
 // sec: vaxtıdırsa xəbəri seçir. Paylaşma rejimində seçim dərhal «video» sayılır (_last): video alınmasa da eyni xəbər hər
 // 30 dəqiqədə yenidən hazırlanmasın.
 // arxiv: öz video arxivi (VA.kitabxana(): «video-arxiv» budağı, oxunmasa data/video-arxiv.json) — xəbərin yeri məlum olanda əvvəl oradan.
-async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla }) {
+async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla, dunya = VD.hazirla, xvideo = VD.xHazirla, menbe = MV.menbeVideo, xarici = policy }) {
   const opt = options(env), post = env.VIDEO_PAYLAS !== "0";
   // İş axını seçimə açarın özünü vermir, yalnız VIDEO_ACAR=1/0 (açar var/yox).
   const hasKey = env.VIDEO_ACAR ? env.VIDEO_ACAR === "1" : networks(env).length > 0;
@@ -396,9 +432,24 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     const why = due(state, now, opt);
     if (why) { log(`video: ${why}`); return null; }
   }
+  // X videosu — «Çox baxılan» (video-dunya.cjs xHazirla; sahib, 2026-11-26): vaxtıdırsa əvvəl o; VIDEO_TUR=x — dərhal. Yalnız profildə
+  // X mövzuları (x.movzular) olan dildə: izahlar (reels.json «c») azərbaycancadır.
+  const xVar = Object.keys(dil().x?.movzular || {}).length > 0;
+  if (!only && ["", "avtomatik", "x"].includes(tur) && xVar) {
+    const xo = VD.xOptions(env), why = tur === "x" ? (xo.on ? "" : "X videosu söndürülüb (X_VIDEO=0)") : VD.xDue(state, now, xo);
+    if (!why) { const x = await xSec({ now, state, env, fetch: f, policy: xarici, dir, log, post, hazirla: xvideo }); if (x || tur === "x") return x; }
+    else { log(`video: ${why}`); if (tur === "x") return null; }
+  } else if (tur === "x") { log("video: X videosu bu dildə yoxdur"); return null; }
+  // Dünya videosu (video-dunya.cjs; sahib, 2026-11-26): vaxtıdırsa əvvəl o (alınmasa maraqlı və ya xəbər); VIDEO_TUR=dunya — dərhal.
+  // Mətnləri azərbaycancadır (Gemini tərcüməsi): yalnız profildə dunya: true olan dildə.
+  if (!only && tur !== "xeber" && tur !== "maraqli" && tur !== "x" && dil().dunya) {
+    const dq = VD.options(env), why = tur === "dunya" ? (dq.on ? "" : "dünya videosu söndürülüb (DUNYA_VIDEO=0)") : VD.due(state, now, dq);
+    if (!why) { const x = await dunyaSec({ now, state, env, fetch: f, policy: xarici, cats, dir, log, post, hazirla: dunya }); if (x || tur === "dunya") return x; }
+    else { log(`video: ${why}`); if (tur === "dunya") return null; }
+  } else if (tur === "dunya") { log("video: dünya videosu bu dildə yoxdur"); return null; }
   // Maraqlı video: vaxtıdırsa əvvəl o (alınmasa xəbər); VIDEO_TUR=maraqli — dərhal (önizləmə və əl ilə).
   const mo = maraqliOptions(env), mArgs = { now, state, env, fetch: f, policy, dir, log, post, hazirla: maraqli };
-  if (!only && tur !== "xeber") {
+  if (!only && tur !== "xeber" && tur !== "x" && tur !== "dunya") {
     const why = tur === "maraqli" ? (mo.on ? "" : "maraqlı video söndürülüb (MARAQLI_VIDEO=0)") : maraqliDue(state, now, mo);
     if (!why) { const x = await maraqliSec(mArgs); if (x || tur === "maraqli") return x; }
     else { log(`video: ${why}`); if (tur === "maraqli") return null; }
@@ -409,7 +460,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   // Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
   // Keyfiyyət həddi: görüntü mənbəyi varsa, KLIP_MIN-dən az uyğun klip tapılan xəbər ötürülür (yanlış və ya boş görüntülü video yox).
   const footage = VS.MENBELER.some(m => env[m.env]) || arxiv.some(e => e.menbe === "Sahib");
-  let got = null, sc = null, klip = [];
+  let got = null, sc = null, klip = [], mv = null;
   for (let i = 0; i < SECIM_MAX; i++) {
     got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
     if (!got) break;
@@ -420,9 +471,13 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     if (only || sc.uygun !== false) {
       fs.mkdirSync(dir, { recursive: true });
       // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
+      // Mənbənin öz videosu (video-menbe.cjs): varsa videonun görüntüsü odur. Bank klipləri ehtiyatdır — fayl montajda oxunmasa onlarla.
+      mv = await menbe(got.a, got.page, { env, fetch: f, log, dir }).catch(e => { log(`mənbə videosu: alınmadı — ${String(e?.message || e).slice(0, 160)}`); return null; });
       klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
         yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null, arxiv });
       if (only || !footage || klip.length >= KLIP_MIN) break;
+      // Bank klipi çatmır, amma mənbənin videosu var: video onunla gedir (yarımçıq bank klipləri atılır).
+      if (mv) { for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true }); klip = []; break; }
       for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
       sc = { uygun: false, sebeb: `uyğun görüntü ${klip.length} klip, ən az ${KLIP_MIN}` };
       klip = [];
@@ -438,7 +493,8 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     return null;
   }
   const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
-    ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(goruntuSetir), goruntuMenbe: VS.kredit(klip) } : {}) };
+    ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(goruntuSetir), goruntuMenbe: VS.kredit(klip) } : {}),
+    ...(mv ? { menbeVideo: mv } : {}) };
   fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(x, null, 1));
   if (post) {
     const t = Math.floor(now / 1000);
@@ -456,12 +512,14 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
   let meta = {};
   try { meta = JSON.parse(fs.readFileSync(path.join(dir, "video.json"), "utf8")); } catch {}
   const video = fs.readFileSync(path.join(dir, "video.mp4"));
+  // Mənbənin videosu montajda işlənibsə (video.json menbeVideo) mətndə «Görüntü: <mənbə>»; işlənməyibsə bank kliplərinin krediti qalır.
+  const gorunen = meta.menbeVideo ? { goruntu: [{ p: "Mənbə" }], goruntuMenbe: meta.goruntu } : {};
   const nets = networks(env), t = Math.floor(now / 1000), res = { posted: [], failed: [] };
   const hide = s => [env.FB_PAGE_TOKEN, ...nets.map(n => n.token)].filter(k => k && k.length > 8).reduce((m, k) => m.split(k).join("***"), String(s?.message || s));
   for (const net of nets) {
     try {
       if (!(await net.prepare(f, log))) continue;
-      const r = await net.post({ ...x, cover_s: meta.cover_s }, video, f, log);
+      const r = await net.post({ ...x, ...gorunen, cover_s: meta.cover_s }, video, f, log);
       if (r?.skip) { log(`${net.name}: video ötürülür (${r.skip})`); continue; }
       if (!r?.ok) throw new Error(r?.error || "naməlum xəta");
       state[net.name][x.id] = t;
@@ -475,6 +533,8 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
   // Hava videosu ayrıca qaydadır: xəbər videosunun siyahısına (fasilə, gündəlik hədd, mövzu) düşmür.
   if (x.tur === "hava") { const d = bakuClock(now).day; (state.hava ||= {})[d] = state.hava[d] || t; return res; }
   // Maraqlı video: gündəlik həddə və fasiləyə sayılır (seçimdə yazılıb), xəbər mövzularının siyahısına düşmür.
+  if (x.tur === "x") { state.v[x.id] = state.v[x.id] || t; (state.xv ||= {})[x.id] = state.xv[x.id] || t; return res; }
+  if (x.tur === "dunya") { state.v[x.id] = state.v[x.id] || t; (state.dv ||= {})[x.id] = state.dv[x.id] || t; return res; }
   if (x.tur === "maraqli") { state.v[x.id] = state.v[x.id] || t; if (x.movzu) (state.m ||= {})[x.movzu] = state.m[x.movzu] || t; return res; }
   state.v[x.id] = state.v[x.id] || t;
   state.t[S.titleKey(x)] = t;
@@ -512,7 +572,8 @@ async function main() {
     // Qırmızı xətt 2, ikinci qapı: lent saytın öz qaydasından keçir; qayda faylı oxunmasa xəta ilə dayanır (heç nə seçilmir).
     const app = require("./topics.cjs").loadApp(path.resolve("."));
     const articles = (JSON.parse(fs.readFileSync(a1, "utf8")).articles || []).filter(a => !app.policyViolation(a));
-    await sec({ articles, state, now, policy: a => app.policyViolation(a), cats: app.CATS, dir: a2, app, arxiv: VA.kitabxana(process.env, console.log) });
+    // xarici: dünya və X videolarının mənbəsi lentin siyahısında deyil — xarici mənbə qaydası (topics.cjs xariciPozur).
+    await sec({ articles, state, now, policy: a => app.policyViolation(a), xarici: a => app.xariciPozur(a), cats: app.CATS, dir: a2, app, arxiv: VA.kitabxana(process.env, console.log) });
     writeState(stateFile, state);
     return;
   }
@@ -527,5 +588,5 @@ async function main() {
 }
 
 module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock,
-  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi };
+  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });

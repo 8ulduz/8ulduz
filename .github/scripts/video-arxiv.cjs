@@ -44,7 +44,9 @@ const ARXIV_NAMIZED = 6;   // montajda bir videoya ən çox 6 arxiv namizədi (h
 const EMINLIK_MIN = 0.9, OBYEKT_EMINLIK = 0.85, KEYFIYYET_MIN = 3, SAHIB_KEYFIYYET_MIN = 2, MUDDET_MIN = 5, SAHIB_MUDDET_MIN = 3, SAHIB_OLCU_MIN = 720;
 const KICIK_MAX_BYTES = 30e6, SAHIB_MAX_BYTES = 300e6;
 const LISENZIYA = { Pixabay: "Pixabay Content License — https://pixabay.com/service/license-summary/", Pexels: "Pexels License — https://www.pexels.com/license/" };
-const ICAZE = { "oz-cekilis": "Saytın öz çəkilişi", "yazili-icaze": "Müəllifin yazılı icazəsi" };
+// "menbe" (sahib, 2026-11-26: «bir çox xəbər saytı hesabı eyni görüntünü verir… biz də verək. Qaydalarımızda bunu əngəlləyən nəsə
+// varsa sil»): telekanalın, saytın və ya sosial şəbəkə hesabının görüntüsü, mənbəsi göstərilməklə — sətirdə «mənbə: Ad».
+const ICAZE = { "oz-cekilis": "Saytın öz çəkilişi", "yazili-icaze": "Müəllifin yazılı icazəsi", menbe: "Mənbə göstərilməklə (sahibin qərarı, 2026-11-26)" };
 // Klipin havası (yoxlamada Gemini yazır). Hava videosu sabahkı Bakı halına uyğun havaları verir (video-hava.cjs arxivSecim).
 const HAVA = ["gunesli", "buludlu", "yagisli", "qarli", "dumanli", "gece", "qapali", "bilinmir"];
 const clean = s => String(s ?? "").replace(/\s+/g, " ").trim();
@@ -138,15 +140,16 @@ function kecerli(e) {
   if (!(Number(e.keyfiyyet) >= 1 && Number(e.keyfiyyet) <= 5)) return "keyfiyyət";
   const y = e.yoxlama || {};
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(y.tarix || ""))) return "yoxlama tarixi";
-  if (y.statik === "nisan") return "statik üst qat (su nişanı)";
+  if (y.statik === "nisan" && e.icaze !== "menbe") return "statik üst qat (su nişanı)";
   if (SIYASI.test(e.yer.join(" "))) return "siyasi ad";
   if (e.menbe === "Sahib") {
     if (!String(e.fayl || "").startsWith(SAHIB_URL) || !/^[^/?#]+\.(mp4|mov|m4v)$/i.test(String(e.fayl).slice(SAHIB_URL.length))) return "fayl saytın öz Release-ində deyil";
     if (!ICAZE[e.icaze]) return "icazə növü";
     if (!clean(e.kredit) || !clean(e.kim)) return "kredit";
-    if (QADAGAN.test(`${e.kim} ${e.kredit} ${e.lisenziya || ""}`)) return "üçüncü tərəfin mənbəyi";
+    // Mənbəli görüntüdə («mənbə: Ad») ad üçüncü tərəfdir və su nişanı ola bilər; öz çəkiliş və yazılı icazədə əvvəlki yoxlamalar qalır.
+    if (e.icaze !== "menbe" && QADAGAN.test(`${e.kim} ${e.kredit} ${e.lisenziya || ""}`)) return "üçüncü tərəfin mənbəyi";
     if (e.icaze === "yazili-icaze" && !/^\d{4}-\d{2}-\d{2}$/.test(String(e.icazeTarixi || ""))) return "icazənin tarixi";
-    if (y.suNisani !== false) return "su nişanı yoxlanmayıb";
+    if (e.icaze !== "menbe" && y.suNisani !== false) return "su nişanı yoxlanmayıb";
     if (Math.min(...e.olcu) < SAHIB_OLCU_MIN) return "ölçü kiçikdir";
     return "";
   }
@@ -651,11 +654,13 @@ function sahibSetirleri(body) {
     const m = line.match(SETIR);
     if (!m) continue;
     const [, fayl, yerTxt, izn] = m, r = { fayl, setir: clean(line), yer: yerTxt.split(",").map(clean).filter(Boolean).slice(0, 4) };
-    if (QADAGAN.test(izn)) { out.push({ ...r, xeta: "üçüncü tərəfin (TV, sosial şəbəkə, sayt) görüntüsü qəbul edilmir" }); continue; }
     let i;
-    if (/^(öz|oz)(\s|$)/i.test(clean(izn))) i = { icaze: "oz-cekilis", kim: "8ulduz", kredit: "8ulduz.az" };
+    // Üçüncü tərəfin görüntüsü (TV, sayt, sosial şəbəkə): «mənbə: Ad» — ad videoda «Görüntü: Ad» kimi yazılır.
+    if ((i = clean(izn).match(/^m[əe]nb[əe]\s*:\s*(.{2,60})$/i))) i = { icaze: "menbe", kim: clean(i[1]), kredit: clean(i[1]) };
+    else if (QADAGAN.test(izn)) { out.push({ ...r, xeta: "üçüncü tərəfin (TV, sosial şəbəkə, sayt) görüntüsü üçün «mənbə: Ad» yazın" }); continue; }
+    else if (/^(öz|oz)(\s|$)/i.test(clean(izn))) i = { icaze: "oz-cekilis", kim: "8ulduz", kredit: "8ulduz.az" };
     else if ((i = clean(izn).match(/^icaz[əe]\s*:\s*(.+?)\s*,\s*(\d{4}-\d{2}-\d{2})$/i))) i = { icaze: "yazili-icaze", kim: clean(i[1]), kredit: clean(i[1]), icazeTarixi: i[2] };
-    else { out.push({ ...r, xeta: "icazə yazılmayıb: «öz çəkilişim» və ya «icazə: Ad Soyad, 2026-11-20»" }); continue; }
+    else { out.push({ ...r, xeta: "icazə yazılmayıb: «öz çəkilişim», «icazə: Ad Soyad, 2026-11-20» və ya «mənbə: Ad»" }); continue; }
     if (!r.yer.length) { out.push({ ...r, xeta: "yer yazılmayıb" }); continue; }
     if (!r.yer.some(y => seherOf([y]))) { out.push({ ...r, xeta: "şəhər tanınmadı: yerin sonuna şəhəri də yazın (məsələn «…, Gəncə»)" }); continue; }
     out.push({ ...r, ...i });
@@ -683,8 +688,9 @@ Faylı bu səhifəyə yükləyin (Edit → «Attach binaries»), sonra aşağıy
 
     fayl.mp4 | yer (dəqiqdən ümumiyə, vergüllə) | öz çəkilişim
     fayl.mp4 | yer | icazə: Ad Soyad, 2026-11-20
+    fayl.mp4 | yer | mənbə: Baku TV
 
-TV-nin, X-in, sosial şəbəkənin və başqa saytın videosu, su nişanlı görüntü qəbul edilmir.
+«mənbə: Ad» — telekanalın, saytın və ya sosial şəbəkə hesabının görüntüsü; ad videoda «Görüntü: Ad» kimi yazılır.
 
 Fayllar:
 `;
@@ -721,15 +727,16 @@ async function sahib(lib, { env = process.env, fetch: f = globalThis.fetch, log 
       await load(a.browser_download_url || url, tmp);
       const m = pr(tmp);
       const red = why => { rep.redd.push({ fayl: a.name, why }); lib.redd[rk] = `${today} ${why}`; log(`arxiv: sahib klipi qəbul olunmadı — ${a.name}: ${why}`); };
-      if (PLATFORMA.test(m.tags)) { red(`faylda platformanın izi (${(m.tags.match(PLATFORMA) || [])[0]}): başqa saytdan endirilmiş video qəbul edilmir`); continue; }
+      const menbeli = l.icaze === "menbe";   // mənbəli görüntü: platforma izi, su nişanı və ekran çəkilişi rədd səbəbi deyil
+      if (!menbeli && PLATFORMA.test(m.tags)) { red(`faylda platformanın izi (${(m.tags.match(PLATFORMA) || [])[0]}): başqa saytdan endirilmiş video qəbul edilmir`); continue; }
       if (!m.w || !m.h || Math.min(m.w, m.h) < SAHIB_OLCU_MIN) { red(`ölçü ${m.w}×${m.h} (ən az ${SAHIB_OLCU_MIN} p)`); continue; }
       if (!(m.dur >= SAHIB_MUDDET_MIN)) { red(`müddət ${m.dur} s`); continue; }
       const k = kd(tmp, m.dur, m.w, m.h);
       const st = k.gray ? statikQat(k.gray.frames, k.gray.w, k.gray.h) : { qerar: "bilinmir" };
-      if (st.qerar === "nisan") { red(`statik üst qat (loqo, su nişanı və ya titr) — ${st.yer}`); if (kadrDir) strip(k.jpg, path.join(kadrDir, `redd-${id}.jpg`), `RƏDD ${a.name} · su nişanı ${st.yer}`); continue; }
+      if (!menbeli && st.qerar === "nisan") { red(`statik üst qat (loqo, su nişanı və ya titr) — ${st.yer}`); if (kadrDir) strip(k.jpg, path.join(kadrDir, `redd-${id}.jpg`), `RƏDD ${a.name} · su nişanı ${st.yer}`); continue; }
       const v = await look(SAHIB_YOXLA.replace("{yer}", l.yer.join(", ")).replace("{n}", String(k.jpg.length)), k.jpg);
       if (v == null || v._xeta) { rep.gozleyir.push(a.name); log(`arxiv: ${a.name} — Gemini cavab vermir, növbəti işdə yoxlanacaq`); continue; }
-      const why = v.su_nisani === true ? "su nişanı, loqo və ya titr" : v.ekran === true ? "başqa ekranın çəkilişi" : v.siyasi === true ? "siyasi simvol"
+      const why = !menbeli && v.su_nisani === true ? "su nişanı, loqo və ya titr" : !menbeli && v.ekran === true ? "başqa ekranın çəkilişi" : v.siyasi === true ? "siyasi simvol"
         : v.ziddiyyet === true ? "kadrda yazılan yerə zidd əlamət" : !(Number(v.keyfiyyet) >= SAHIB_KEYFIYYET_MIN) ? `keyfiyyət ${v.keyfiyyet}` : "";
       if (kadrDir) { fs.mkdirSync(kadrDir, { recursive: true }); strip(k.jpg, path.join(kadrDir, `${why ? "redd" : "qebul"}-${id}.jpg`), `${why ? "RƏDD" : "QƏBUL"} ${a.name} · ${l.yer.join(", ")} · ${why || l.kredit}`); }
       if (why) { red(why); continue; }
@@ -743,7 +750,7 @@ async function sahib(lib, { env = process.env, fetch: f = globalThis.fetch, log 
         yer, seher: s, obyekt: obyektOf(yer), adlar: [...new Set([...l.yer.filter(y => !seherOf([y])), ...(objAz ? [norm(objAz)] : [])])].slice(0, 4),
         movzu: (Array.isArray(v.movzu) ? v.movzu : []).map(x => VS.lat(x)).filter(Boolean).slice(0, 5), hava: HAVA.includes(v.hava) ? v.hava : "bilinmir",
         insan: v.insan === true, olcu: [m.w, m.h], muddet: Math.round(m.dur), keyfiyyet: Math.max(1, Math.min(5, Math.round(Number(v.keyfiyyet) || 3))),
-        yoxlama: { tarix: today, model: v._model || "gemini", kadr: k.jpg.length, suNisani: false, ekran: false, statik: st.qerar, izah: clean(v.izah).slice(0, 240) } };
+        yoxlama: { tarix: today, model: v._model || "gemini", kadr: k.jpg.length, suNisani: v.su_nisani === true, ekran: v.ekran === true, statik: st.qerar, izah: clean(v.izah).slice(0, 240) } };
       const bad = kecerli(e);
       if (bad) { red(`sxem: ${bad}`); continue; }
       lib.klipler = lib.klipler.filter(x => x.id !== id);

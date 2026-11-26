@@ -14,7 +14,7 @@
 //
 // Yalnız öz videolarımız (sahib, 2026-11-22; müəllif hüququ): JSON-da own: true, faylın metadatasında «8ulduz.az» nişanı
 // (ffmpeg -metadata comment=8ulduz.az), başqa saytın video ünvanı yoxdur, data/reels.json-dakı X videosu deyil. X-dəki F1, NBA,
-// Fox News kimi videolar TikTok-a heç vaxt getmir.
+// Fox News kimi videolar TikTok-a heç vaxt getmir; 2026-11-26-dan X-in ən çox baxılan videolarından bizim montaj (kind: "x") gedir.
 // Qırmızı xətt 2: videonun xəbəri (source/sourceUrl, items) saytın öz qaydasından (app.js policyViolation) keçir.
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
 //
@@ -212,7 +212,10 @@ function foreignReason(meta, buf, reels = new Set()) {
   if (meta?.own !== true) return "own: true yoxdur — yalnız öz hazırladığımız videolar gedir";
   const urls = [meta.video, meta.videoUrl, meta.src, ...(Array.isArray(meta.clips) ? meta.clips : [])].filter(Boolean).map(String);
   if (urls.some(u => FOREIGN_VIDEO.test(hostOf(u)) || !/^https:\/\/(www\.)?8ulduz\.az\//.test(u))) return "başqa saytın videosudur";
-  if ([meta.sourceUrl, ...(meta.items || []).map(x => x?.sourceUrl)].some(u => FOREIGN_VIDEO.test(hostOf(u)))) return "xəbər video/sosial şəbəkədəndir";
+  // X videosu — «Çox baxılan» (kind: "x"; sahib, 2026-11-26: «X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar», YouTube və
+  // TikTok üçün: «Bəli, hamısına»): montaj, səs və mətn bizimdir (own və fayldakı «8ulduz.az» nişanı aşağıda yoxlanır), görüntünün
+  // mənbəyi X-dir. X-in xam videosu (data/reels.json-dakı nömrə və ya ünvan) əvvəlki kimi qəbul edilmir.
+  if (meta.kind !== "x" && [meta.sourceUrl, ...(meta.items || []).map(x => x?.sourceUrl)].some(u => FOREIGN_VIDEO.test(hostOf(u)))) return "xəbər video/sosial şəbəkədəndir";
   if (reels.has(String(meta.id)) || urls.some(u => reels.has(u))) return "X videosudur (data/reels.json)";
   if (buf.length < 12 || buf.subarray(4, 8).toString("latin1") !== "ftyp") return "mp4 deyil";
   const head = buf.subarray(0, 2 * MB), tail = buf.subarray(Math.max(0, buf.length - 2 * MB));
@@ -553,7 +556,7 @@ async function main() {
   try { const r = JSON.parse(fs.readFileSync("data/reels.json", "utf8")); reels = new Set((r.items || []).flatMap(x => [String(x.id), String(x.u || "")]).filter(Boolean)); } catch {}
   let res;
   // Gözlənilməz xətada da state (yenilənmiş token zənciri) saxlanır: köhnə refresh token artıq işləməyə bilər.
-  try { res = await run({ videos: readVideos(arg || "tiktok-in"), now, state, log, mask, reels, policy: a => app.policyViolation(a) }); }
+  try { res = await run({ videos: readVideos(arg || "tiktok-in"), now, state, log, mask, reels, policy: a => (a?.kind === "dunya" || a?.kind === "x" ? app.xariciPozur(a) : app.policyViolation(a)) }); }
   finally { save(state); summary(res); }
   // Heç nə alınmayıbsa iş qırmızı olsun (sahib görsün); ötürmə və fasilə yaşıl.
   if (res.failed.length && !res.posted.length) process.exitCode = 1;

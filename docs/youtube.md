@@ -30,7 +30,7 @@ Açarı, parolu və kodu heç kimə göndərməyin, söhbətə yapışdırmayın
 
 ## Əvvəlcə bilməli olduğunuz qaydalar
 
-1. **Yalnız öz videolarımız.** X-dəki F1, NBA, Fox News, klub videoları (`data/reels.json`) YouTube-a **heç vaxt** getmir. YouTube-un qaydası belədir: 1 dəqiqədən uzun Shorts-a müəllif hüququ iddiası (Content ID) gələrsə, video bütün dünyada bloklanır. Təkrar pozuntu kanalı da riskə salır. Yükləyici yalnız bu şərtlərin hamısı ödənəndə göndərir:
+1. **Yalnız öz montajımız.** X-in xam videosu (`data/reels.json`-dakı fayl) YouTube-a getmir; liqaların və böyük yayımçıların X videoları (F1, NBA, Fox News, klublar) heç bir yolla getmir. 2026-11-26-dan (sahib: «X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar», YouTube və TikTok üçün «Bəli, hamısına») X-in ən çox baxılan videolarından hazırladığımız «Çox baxılan» montajı (`kind: "x"`: öz başlığımız, səsimiz, altyazımız; ən çox 30 s) gedir — [sosial-video.md](sosial-video.md) «Görüntünün mənbəyi». Risk sahibə məlumdur: YouTube-un qaydası belədir: 1 dəqiqədən uzun Shorts-a müəllif hüququ iddiası (Content ID) gələrsə, video bütün dünyada bloklanır. Təkrar pozuntu kanalı da riskə salır. Yükləyici yalnız bu şərtlərin hamısı ödənəndə göndərir:
    - JSON-da `"own": true` var;
    - faylın metadatasında «8ulduz.az» nişanı var (`ffmpeg -metadata comment=8ulduz.az`);
    - JSON-da başqa saytın video keçidi yoxdur, xəbərin mənbəyi video və ya sosial şəbəkə saytı deyil;

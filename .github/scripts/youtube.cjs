@@ -15,7 +15,8 @@
 // Qoşulma: sosial-video.yml «youtube» işi «video-xeber» artefaktını verir (video.mp4 + video.json, video-xeber.cjs, ≤ 59 s).
 //
 // Yalnız öz videolarımız (müəllif hüququ): own: true, faylda «8ulduz.az» nişanı, başqa saytın video ünvanı yoxdur, data/reels.json-dakı
-// X videosu deyil. X-dəki F1, NBA, Fox News, klub videoları YouTube-a heç vaxt getmir: 1 dəqiqədən uzun Shorts-a müəllif hüququ
+// X-in xam videosu deyil (2026-11-26-dan X-in ən çox baxılan videolarından bizim montaj — kind: "x" — gedir; liqaların və böyük
+// yayımçıların videoları seçimdə kənarda qalır, docs/sosial-video.md). 1 dəqiqədən uzun Shorts-a müəllif hüququ
 // iddiası gələrsə video bütün dünyada bloklanır, kanal da risk altına düşür. Ona görə video 60 saniyədən uzun olmur.
 // Qırmızı xətt 2: videonun xəbəri (source/sourceUrl, items) saytın öz qaydasından (app.js policyViolation) keçir.
 // Qırmızı xətt 1 və 3-ə toxunmur: xəbər axınından ayrı iş axınıdır, saytın koduna və yüklənməsinə heç nə əlavə etmir.
@@ -148,7 +149,10 @@ function foreignReason(meta, buf, reels = new Set()) {
   if (meta?.own !== true) return "own: true yoxdur — yalnız öz hazırladığımız videolar gedir";
   const urls = [meta.video, meta.videoUrl, meta.src, ...(Array.isArray(meta.clips) ? meta.clips : [])].filter(Boolean).map(String);
   if (urls.some(u => FOREIGN_VIDEO.test(hostOf(u)) || !/^https:\/\/(www\.)?8ulduz\.az\//.test(u))) return "başqa saytın videosudur";
-  if ([meta.sourceUrl, ...(Array.isArray(meta.items) ? meta.items : []).map(x => x?.sourceUrl)].some(u => FOREIGN_VIDEO.test(hostOf(u)))) return "xəbər video/sosial şəbəkədəndir";
+  // X videosu — «Çox baxılan» (kind: "x"; sahib, 2026-11-26: «X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar», YouTube və
+  // TikTok üçün: «Bəli, hamısına»): montaj, səs və mətn bizimdir (own və fayldakı «8ulduz.az» nişanı aşağıda yoxlanır), görüntünün
+  // mənbəyi X-dir. X-in xam videosu (data/reels.json-dakı nömrə və ya ünvan) əvvəlki kimi qəbul edilmir.
+  if (meta.kind !== "x" && [meta.sourceUrl, ...(Array.isArray(meta.items) ? meta.items : []).map(x => x?.sourceUrl)].some(u => FOREIGN_VIDEO.test(hostOf(u)))) return "xəbər video/sosial şəbəkədəndir";
   if (reels.has(String(meta.id)) || urls.some(u => reels.has(u))) return "X videosudur (data/reels.json)";
   if (!Buffer.isBuffer(buf) || buf.length < 12 || buf.subarray(4, 8).toString("latin1") !== "ftyp") return "mp4 deyil";
   const head = buf.subarray(0, 2e6), tail = buf.subarray(Math.max(0, buf.length - 2e6));
@@ -474,7 +478,7 @@ async function main() {
   try { const r = JSON.parse(fs.readFileSync("data/reels.json", "utf8")); reels = new Set((r.items || []).flatMap(x => [String(x.id), String(x.u || "")]).filter(Boolean)); } catch {}
   const state = readState(stateFile);
   let res;
-  try { res = await run({ videos: readVideos(arg || "youtube-in"), now, state, log, mask, reels, policy: a => app.policyViolation(a) }); }
+  try { res = await run({ videos: readVideos(arg || "youtube-in"), now, state, log, mask, reels, policy: a => (a?.kind === "dunya" || a?.kind === "x" ? app.xariciPozur(a) : app.policyViolation(a)) }); }
   finally { fs.mkdirSync(path.dirname(stateFile), { recursive: true }); fs.writeFileSync(stateFile, JSON.stringify(state)); summary(); }
   // Yüklənən videonun nömrəsi: sosial-video.yml «veb-video» işi saytın veb nüsxəsini bu adla yazır (veb-video.cjs).
   const vid = videoIdOf(res);

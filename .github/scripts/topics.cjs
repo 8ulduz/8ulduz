@@ -41,7 +41,12 @@ function loadApp(root) {
   context.window = context;
   vm.runInContext(fs.readFileSync(path.join(root, "assets/content-policy.js"), "utf8"), context);
   vm.runInContext(fs.readFileSync(path.join(root, "assets/app.js"), "utf8").split(/\r?\napplyPrefs\(\);\r?\n/)[0], context);
-  return vm.runInContext("({ clubMatches, policyViolation, REGION_TABS, SPORT_TABS, CATS, CITIES, wxCode })", context);
+  // xariciPozur: lentin mənbə siyahısında (content-policy.js azSources/worldSources) OLMAYAN xarici mənbənin mətni — dünya videoları və X
+  // videoları (video-dunya.cjs). policyViolation belə mənbəni bütünlüklə rədd edir (siyahı lent üçündür); burada qırmızı xətt 2-nin xarici
+  // mənbə qaydası tətbiq olunur: mətndə Azərbaycan və rəhbərliyi (azTerms) olmamalı, ünvan bağlı sayt (blockedHosts) olmamalıdır.
+  // Qayda faylı yüklənməyibsə hər şey rədd olunur.
+  return vm.runInContext(`({ clubMatches, policyViolation, REGION_TABS, SPORT_TABS, CATS, CITIES, wxCode,
+    xariciPozur: a => !POLICY || !POLICY_AZ || onHost(hostOf(String(a?.sourceUrl ?? "")), POLICY.blockedHosts || []) || policyTest(POLICY_AZ, \`\${a?.title || ""} \${a?.summary || ""}\`) })`, context);
 }
 
 // Hər mövzu: bölgə/alt bölmə və onun içindəki rayonlar/komandalar. parent: üst mövzu (keçidlər üçün).
